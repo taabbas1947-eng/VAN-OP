@@ -347,11 +347,29 @@ function persistSession(){ try{ localStorage.setItem('van_session', JSON.stringi
 function restoreSession(){ try{ const sess=JSON.parse(localStorage.getItem('van_session')||'null'); if(sess&&sess.username){ const us=(state.users||[]).find(x=>x.username===sess.username); if(us){ state.currentUser={name:us.name,username:us.username,role:us.role}; state.role=us.role; } } }catch(e){} }
 let _rev=0,_saveTimer=null,_syncOn=false;
 async function bootState(){
-  let data=null;
-  try{ const r=await fetch('/api/state',{cache:'no-store'}); if(r.ok){ const j=await r.json(); _rev=j.rev||0; if(j&&j.data&&j.data.orders) data=j.data; } }catch(e){}
-  if(data){ state=ensureState(data); } else { state=buildFromSeed(); }
+  let resp=null, ok=false;
+  try{ const r=await fetch('/api/state',{cache:'no-store'}); if(r.ok){ resp=await r.json(); ok=true; } }catch(e){}
+  if(!ok || !resp){
+    // Could NOT reach the server -> NEVER seed/overwrite. Show message and retry.
+    const a=document.getElementById('authScreen'), sh=document.getElementById('appShell');
+    if(sh) sh.style.display='none';
+    if(a){ a.style.display='flex'; renderLogin('Connecting to the server\u2026  If this message stays, check your internet and refresh.'); }
+    setTimeout(bootState, 4000); return;
+  }
+  _rev=resp.rev||0;
+  if(resp.data && resp.data.orders){
+    state=ensureState(resp.data);                 // normal: load the live shared data
+  } else if((resp.rev||0)===0 && !resp.data){
+    // Brand-new, genuinely empty database (first ever run) -> seed exactly once.
+    state=buildFromSeed(); sessionInit(state); restoreSession(); await saveNow(); renderApp(); startSync(); return;
+  } else {
+    // Reached server but data is missing while it shouldn't be -> DO NOT overwrite real data.
+    const a=document.getElementById('authScreen'), sh=document.getElementById('appShell');
+    if(sh) sh.style.display='none';
+    if(a){ a.style.display='flex'; renderLogin('Server data looks incomplete \u2014 not overwriting to stay safe. Please refresh, or contact the admin.'); }
+    setTimeout(bootState, 4000); return;
+  }
   sessionInit(state); restoreSession();
-  if(!data){ await saveNow(); }
   renderApp(); startSync();
 }
 function save(){ if(_saveTimer)clearTimeout(_saveTimer); _saveTimer=setTimeout(saveNow,400); }

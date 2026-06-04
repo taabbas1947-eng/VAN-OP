@@ -46,6 +46,9 @@ app.get('/api/state', async (req, res) => { try { res.json(await store.get()); }
 app.post('/api/state', async (req, res) => { try { res.json({ rev: await store.set(req.body) }); } catch (e) { res.status(500).json({ error: String(e) }); } });
 
 // The app is a single self-contained file (no local assets) — serve it for every page route.
-app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
+app.get('*', (req, res) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+  res.sendFile(path.join(__dirname, 'index.html'));
+});
 
 store.init().then(() => app.listen(PORT, () => console.log('VAN Order Control Tower on port ' + PORT)));

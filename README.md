@@ -7,12 +7,12 @@ So you can keep developing and redeploying without ever losing real data.
 
 ## Architecture (plain language)
 - `server.js` — tiny Node server. Serves the app and stores/loads ALL data in the database.
-- `public/index.html` — the app. It reads/writes data from the server (no longer from the browser),
+- `index.html` — the app. It reads/writes data from the server (no longer from the browser),
   so every team member sees the SAME live data, and it refreshes automatically every few seconds.
 - Login (who is signed in) stays per-browser; everything else is shared in the database.
 
 ## One-time deploy to Render (no coding)
-1. Push this folder to a **private** GitHub repo (index.html, server.js, package.json, render.yaml, .gitignore, public/).
+1. Push this folder to a **private** GitHub repo (index.html, server.js, package.json, render.yaml, .gitignore, ).
 2. In Render → **New + → Blueprint** → connect your GitHub repo → Render reads `render.yaml` and
    creates **both** the web service and the PostgreSQL database, and links them automatically.
 3. Click **Apply**. Wait for the first deploy. Your live URL appears (e.g. https://van-control-tower.onrender.com).

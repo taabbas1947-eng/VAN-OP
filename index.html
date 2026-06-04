@@ -341,44 +341,36 @@ function ensureState(s){
 }
 /* ---- server-backed state: code & data are separate ---- */
 const SESSION_KEYS=['currentUser','role','screen','expanded'];
-function dataOnly(s){ const o={}; for(const k in s){ if(SESSION_KEYS.indexOf(k)<0) o[k]=s[k]; } return o; }
+function dataOnly(s){ const o={}; for(const k in s){ if(SESSION_KEYS.indexOf(k)<0 && k!=='users') o[k]=s[k]; } return o; }
 function sessionInit(s){ s.role=s.role||'COO'; s.screen=s.screen||'dash'; s.expanded=s.expanded||{}; if(s.currentUser===undefined)s.currentUser=null; return s; }
-function persistSession(){ try{ localStorage.setItem('van_session', JSON.stringify(state.currentUser?{username:state.currentUser.username}:null)); }catch(e){} }
-function restoreSession(){ try{ const sess=JSON.parse(localStorage.getItem('van_session')||'null'); if(sess&&sess.username){ const us=(state.users||[]).find(x=>x.username===sess.username); if(us){ state.currentUser={name:us.name,username:us.username,role:us.role}; state.role=us.role; } } }catch(e){} }
+let _token=(function(){ try{ return localStorage.getItem('van_token')||''; }catch(e){ return ''; } })();
+let usersList=[];
+function authHdr(){ return _token ? {'Authorization':'Bearer '+_token} : {}; }
+function decodeToken(t){ try{ if(!t)return null; const p=t.split('.')[0]; const o=JSON.parse(atob(p.replace(/-/g,'+').replace(/_/g,'/'))); if(!o.exp||o.exp<Date.now())return null; return {name:o.n,username:o.u,role:o.r}; }catch(e){ return null; } }
+function setSession(token,user){ _token=token||''; try{ token?localStorage.setItem('van_token',token):localStorage.removeItem('van_token'); }catch(e){} if(typeof state!=='undefined'&&state){ state.currentUser=user||null; if(user) state.role=user.role; } }
+function persistSession(){}
+function restoreSession(){ const u=decodeToken(_token); if(u){ state.currentUser=u; state.role=u.role; } }
 let _rev=0,_saveTimer=null,_syncOn=false;
 async function bootState(){
-  let resp=null, ok=false;
-  try{ const r=await fetch('/api/state',{cache:'no-store'}); if(r.ok){ resp=await r.json(); ok=true; } }catch(e){}
-  if(!ok || !resp){
-    // Could NOT reach the server -> NEVER seed/overwrite. Show message and retry.
-    const a=document.getElementById('authScreen'), sh=document.getElementById('appShell');
-    if(sh) sh.style.display='none';
-    if(a){ a.style.display='flex'; renderLogin('Connecting to the server\u2026  If this message stays, check your internet and refresh.'); }
-    setTimeout(bootState, 4000); return;
-  }
+  if(!decodeToken(_token)){ _token=''; try{localStorage.removeItem('van_token');}catch(e){} renderApp(); startSync(); return; }
+  let resp=null, ok=false, status=0;
+  try{ const r=await fetch('/api/state',{cache:'no-store',headers:authHdr()}); status=r.status; if(r.ok){ resp=await r.json(); ok=true; } }catch(e){}
+  if(status===401){ _token=''; try{localStorage.removeItem('van_token');}catch(e){} renderApp(); startSync(); return; }
+  if(!ok || !resp){ const a=$('authScreen'),sh=$('appShell'); if(sh)sh.style.display='none'; if(a){ a.style.display='flex'; renderLogin('Connecting to the server\u2026 if this stays, check your internet and refresh.'); } setTimeout(bootState,4000); return; }
   _rev=resp.rev||0;
-  if(resp.data && resp.data.orders){
-    state=ensureState(resp.data);                 // normal: load the live shared data
-  } else if((resp.rev||0)===0 && !resp.data){
-    // Brand-new, genuinely empty database (first ever run) -> seed exactly once.
-    state=buildFromSeed(); sessionInit(state); restoreSession(); await saveNow(); renderApp(); startSync(); return;
-  } else {
-    // Reached server but data is missing while it shouldn't be -> DO NOT overwrite real data.
-    const a=document.getElementById('authScreen'), sh=document.getElementById('appShell');
-    if(sh) sh.style.display='none';
-    if(a){ a.style.display='flex'; renderLogin('Server data looks incomplete \u2014 not overwriting to stay safe. Please refresh, or contact the admin.'); }
-    setTimeout(bootState, 4000); return;
-  }
-  sessionInit(state); restoreSession();
-  renderApp(); startSync();
+  if(resp.data && resp.data.orders){ state=ensureState(resp.data); }
+  else if((resp.rev||0)===0 && !resp.data){ state=buildFromSeed(); sessionInit(state); restoreSession(); await saveNow(); renderApp(); startSync(); return; }
+  else { const a=$('authScreen'),sh=$('appShell'); if(sh)sh.style.display='none'; if(a){ a.style.display='flex'; renderLogin('Server data looks incomplete \u2014 not overwriting. Please refresh.'); } setTimeout(bootState,4000); return; }
+  sessionInit(state); restoreSession(); renderApp(); startSync();
 }
 function save(){ if(_saveTimer)clearTimeout(_saveTimer); _saveTimer=setTimeout(saveNow,400); }
-async function saveNow(){ try{ const r=await fetch('/api/state',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(dataOnly(state))}); if(r.ok){ const j=await r.json(); if(j&&typeof j.rev==='number') _rev=j.rev; } }catch(e){} }
+async function saveNow(){ if(!_token) return; try{ const r=await fetch('/api/state',{method:'POST',headers:Object.assign({'Content-Type':'application/json'},authHdr()),body:JSON.stringify(dataOnly(state))}); if(r.status===401){ setSession('',null); renderApp(); return; } if(r.ok){ const j=await r.json(); if(j&&typeof j.rev==='number') _rev=j.rev; } }catch(e){} }
 function startSync(){ if(_syncOn)return; _syncOn=true; setInterval(async ()=>{
+  if(!_token) return;
   if(document.hidden) return;
   const ae=document.activeElement; if(ae && /^(INPUT|SELECT|TEXTAREA)$/.test(ae.tagName)) return;
   if(($('modalBg')&&$('modalBg').classList.contains('open'))||($('drawerBg')&&$('drawerBg').classList.contains('open'))) return;
-  try{ const r=await fetch('/api/state',{cache:'no-store'}); if(!r.ok) return; const j=await r.json();
+  try{ const r=await fetch('/api/state',{cache:'no-store',headers:authHdr()}); if(r.status===401){ setSession('',null); renderApp(); return; } if(!r.ok) return; const j=await r.json();
     if(typeof j.rev==='number' && j.rev!==_rev && j.data && j.data.orders){
       const cu=state.currentUser, sc=state.screen, ro=state.role, ex=state.expanded;
       state=ensureState(j.data); state.currentUser=cu; state.role=ro; state.screen=sc; state.expanded=ex||{};
@@ -1679,67 +1671,76 @@ function renderLogin(msg){
     <div style="font-size:10.5px;color:var(--mut);margin-top:14px;line-height:1.5">Internal access only. Contact the COO to add or reset an account.</div></div>`;
   const u=document.getElementById('lg_user'); if(u&&u.focus)u.focus();
 }
-function doLogin(){
-  const u=(document.getElementById('lg_user').value||'').trim().toLowerCase();
-  const p=document.getElementById('lg_pass').value||'';
-  const usr=(state.users||[]).find(x=>(x.username||'').toLowerCase()===u && x.password===p);
-  if(!usr){ renderLogin('Incorrect username or password.'); return; }
-  state.currentUser={name:usr.name,username:usr.username,role:usr.role};
-  state.role=usr.role;
+async function doLogin(){
+  const u=($('lg_user').value||'').trim().toLowerCase();
+  const p=$('lg_pass').value||'';
+  let r; try{ r=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p})}); }catch(e){ renderLogin('Cannot reach the server. Check your connection and try again.'); return; }
+  if(!r.ok){ renderLogin('Incorrect username or password.'); return; }
+  const j=await r.json(); setSession(j.token, j.user);
+  let loaded=false;
+  try{ const sr=await fetch('/api/state',{cache:'no-store',headers:authHdr()}); if(sr.ok){ const sj=await sr.json(); _rev=sj.rev||0; if(sj.data&&sj.data.orders){ state=ensureState(sj.data); loaded=true; } else if((sj.rev||0)===0 && !sj.data){ state=buildFromSeed(); loaded=true; await saveNow(); } } }catch(e){}
+  if(!loaded){ state=buildFromSeed(); }
+  sessionInit(state); state.currentUser=j.user; state.role=j.user.role;
   const al=allowedScreens(); state.screen=(al[0]&&al[0].id)||'dash';
-  logAction('Signed in');
-  persistSession(); save(); renderApp();
+  logAction('Signed in'); save();
+  renderApp(); startSync();
 }
-function logout(){ if(state.currentUser) logAction('Signed out'); state.currentUser=null; persistSession(); save(); renderApp(); }
+function logout(){ if(state.currentUser){ logAction('Signed out'); saveNow(); } setSession('',null); renderApp(); }
 
 /* ---- Users & Access (COO only) ---- */
 let uForm={name:'',username:'',password:'',role:'KAM'};
-function screenUsers(){
-  if(state.role!=='COO'){ $('view').innerHTML='<div class="banner warn">Users & Access is managed by the <b>COO</b> only.</div>'; return; }
-  const us=state.users||[]; const me=state.currentUser&&state.currentUser.username;
-  $('view').innerHTML=`<div class="banner info">Add people and assign each a role. They sign in with their username + password and see only their role's screens. Passwords here are a <b>soft internal gate</b> — convenient and accountable, but not server-secured.</div>
+async function loadUsers(){ try{ const r=await fetch('/api/users',{headers:authHdr()}); if(r.status===401){ setSession('',null); renderApp(); return; } if(r.ok) usersList=await r.json(); }catch(e){} if(state.screen==='users') paintUsers(); }
+function screenUsers(){ if(state.role!=='COO'){ $('view').innerHTML='<div class="banner warn">Users & Access is managed by the <b>COO</b> only.</div>'; return; } paintUsers(); loadUsers(); }
+function paintUsers(){
+  if(state.role!=='COO') return;
+  const us=usersList||[]; const me=state.currentUser&&state.currentUser.username;
+  $('view').innerHTML=`<div class="banner info">Add people and assign each a role. They sign in with their username + password and see only their role's screens. Passwords are stored <b>securely on the server</b> (hashed) and are never shown or sent to browsers.</div>
    <div class="card"><h3>Add a person</h3><div class="formgrid">
      <div class="fld"><label>Full name</label><input value="${uForm.name}" oninput="uForm.name=this.value" placeholder="e.g. Muhammad Imran"></div>
      <div class="fld"><label>Username</label><input value="${uForm.username}" oninput="uForm.username=this.value" placeholder="e.g. imran"></div>
-     <div class="fld"><label>Password</label><input value="${uForm.password}" oninput="uForm.password=this.value" placeholder="set a password"></div>
+     <div class="fld"><label>Password</label><input type="password" value="${uForm.password}" oninput="uForm.password=this.value" placeholder="set a password"></div>
      <div class="fld"><label>Role</label><select onchange="uForm.role=this.value">${SEED.roles.map(r=>`<option ${r===uForm.role?'selected':''}>${r}</option>`).join('')}</select></div>
    </div><button class="green" style="margin-top:13px" onclick="addUser()">Add person</button></div>
-   <div class="card"><h3>People <span class="hint">${us.length} accounts</span></h3><div style="overflow:auto"><table><thead><tr><th>Name</th><th>Username</th><th>Role</th><th>Password</th><th class="ctr">Actions</th></tr></thead><tbody>${us.map((u,i)=>`<tr><td><b>${u.name}</b>${u.username===me?' <span class="pill" style="background:var(--navy-50);color:var(--navy)">you</span>':''}</td><td>${u.username}</td><td>${u.role}</td><td><span class="muted">${'•'.repeat(Math.min(8,(u.password||'').length))}</span></td><td class="ctr"><button class="sm ghost" onclick="openEditUser(${i})">Edit</button> <button class="sm ghost" onclick="delUser(${i})">Delete</button></td></tr>`).join('')}</tbody></table></div></div>`;
+   <div class="card"><h3>People <span class="hint">${us.length} accounts</span></h3><div style="overflow:auto"><table><thead><tr><th>Name</th><th>Username</th><th>Role</th><th class="ctr">Actions</th></tr></thead><tbody>${us.map(u=>`<tr><td><b>${u.name}</b>${u.username===me?' <span class="pill" style="background:var(--navy-50);color:var(--navy)">you</span>':''}</td><td>${u.username}</td><td>${u.role}</td><td class="ctr"><button class="sm ghost" onclick="openEditUser('${u.username}')">Edit</button> <button class="sm ghost" onclick="delUser('${u.username}')">Delete</button></td></tr>`).join('')}</tbody></table></div></div>`;
 }
-function addUser(){ const n=(uForm.name||'').trim(), u=(uForm.username||'').trim().toLowerCase(), p=uForm.password||'';
+async function addUser(){ const n=(uForm.name||'').trim(), u=(uForm.username||'').trim().toLowerCase(), p=uForm.password||'';
   if(!n||!u||!p){toast('Name, username and password are all required');return;}
-  if((state.users||[]).some(x=>(x.username||'').toLowerCase()===u)){toast('That username already exists');return;}
-  state.users.push({name:n,username:u,password:p,role:uForm.role}); logAction('Added user '+u+' as '+uForm.role);
-  uForm={name:'',username:'',password:'',role:'KAM'}; save(); render(); toast('Added '+n);
+  try{ const r=await fetch('/api/users',{method:'POST',headers:Object.assign({'Content-Type':'application/json'},authHdr()),body:JSON.stringify({name:n,username:u,password:p,role:uForm.role})});
+    if(r.status===409){toast('That username already exists');return;}
+    if(!r.ok){toast('Could not add user');return;}
+    logAction('Added user '+u+' as '+uForm.role); save();
+    uForm={name:'',username:'',password:'',role:'KAM'}; toast('Added '+n); loadUsers();
+  }catch(e){ toast('Network error'); }
 }
-function delUser(i){ const u=state.users[i]; if(!u)return;
-  if(state.currentUser&&state.currentUser.username===u.username){toast('You cannot delete your own account');return;}
-  if(u.role==='COO' && state.users.filter(x=>x.role==='COO').length<=1){toast('Cannot delete the last COO account');return;}
+async function delUser(username){ const u=(usersList||[]).find(x=>x.username===username); if(!u)return;
+  if(state.currentUser&&state.currentUser.username===username){toast('You cannot delete your own account');return;}
   if(typeof confirm==='function' && !confirm('Delete '+u.name+'?')) return;
-  state.users.splice(i,1); logAction('Deleted user '+u.username); save(); render();
+  try{ const r=await fetch('/api/users/'+encodeURIComponent(username),{method:'DELETE',headers:authHdr()});
+    if(!r.ok){ const j=await r.json().catch(()=>({})); toast(j.error||'Could not delete'); return; }
+    logAction('Deleted user '+username); save(); loadUsers();
+  }catch(e){ toast('Network error'); }
 }
-function resetUserPass(i){ const u=state.users[i]; if(!u)return; const p=(typeof prompt==='function')?prompt('New password for '+u.name+':',''):''; if(!p)return; u.password=p; logAction('Reset password for '+u.username); save(); render(); toast('Password updated'); }
-function changeUserRole(i){ const u=state.users[i]; if(!u)return; const p=(typeof prompt==='function')?prompt('New role for '+u.name+'\n('+SEED.roles.join(', ')+'):',u.role):''; if(!p)return; if(SEED.roles.indexOf(p)<0){toast('Unknown role');return;} if(u.role==='COO'&&p!=='COO'&&state.users.filter(x=>x.role==='COO').length<=1){toast('Need at least one COO');return;} u.role=p; logAction('Changed role of '+u.username+' to '+p); save(); render(); }
-
-let uEdit={i:-1,name:'',username:'',password:'',role:'KAM'};
-function openEditUser(i){ if(state.role!=='COO')return; const u=state.users[i]; if(!u)return; uEdit={i,name:u.name,username:u.username,password:u.password,role:u.role}; renderEditUser(); $('modalBg').classList.add('open'); }
-function renderEditUser(){ const u=state.users[uEdit.i]||{}; $('modal').innerHTML=`<div class="mh"><h2>Edit person</h2><div class="sub">${u.username||''}${state.currentUser&&state.currentUser.username===u.username?' \u00b7 this is you':''}</div></div>
+let uEdit={username:'',name:'',newUsername:'',password:'',role:'KAM'};
+function openEditUser(username){ if(state.role!=='COO')return; const u=(usersList||[]).find(x=>x.username===username); if(!u)return; uEdit={username:u.username,name:u.name,newUsername:u.username,password:'',role:u.role}; renderEditUser(); $('modalBg').classList.add('open'); }
+function renderEditUser(){ const self=state.currentUser&&state.currentUser.username===uEdit.username;
+  $('modal').innerHTML=`<div class="mh"><h2>Edit person</h2><div class="sub">${uEdit.username||''}${self?' · this is you':''}</div></div>
   <div class="mb"><div class="formgrid" style="grid-template-columns:1fr 1fr">
     <div class="fld"><label>Full name</label><input value="${uEdit.name}" oninput="uEdit.name=this.value"></div>
-    <div class="fld"><label>Username</label><input value="${uEdit.username}" oninput="uEdit.username=this.value"></div>
-    <div class="fld"><label>Password</label><input value="${uEdit.password}" oninput="uEdit.password=this.value"></div>
+    <div class="fld"><label>Username</label><input value="${uEdit.newUsername}" oninput="uEdit.newUsername=this.value"></div>
+    <div class="fld"><label>New password <span class="muted" style="text-transform:none">(blank = keep)</span></label><input type="password" value="${uEdit.password}" oninput="uEdit.password=this.value" placeholder="leave blank to keep"></div>
     <div class="fld"><label>Role</label><select onchange="uEdit.role=this.value">${SEED.roles.map(r=>`<option ${r===uEdit.role?'selected':''}>${r}</option>`).join('')}</select></div>
-  </div><div class="muted" style="font-size:11px;margin-top:11px">Changing role changes what this person can edit. If you edit your own account, the change applies immediately.</div></div>
+  </div><div class="muted" style="font-size:11px;margin-top:11px">Leave password blank to keep the current one. If you change your OWN account, you'll be signed out to sign in again.</div></div>
   <div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" onclick="saveEditUser()">Save changes</button></div>`; }
-function saveEditUser(){ const u=state.users[uEdit.i]; if(!u)return;
-  const n=(uEdit.name||'').trim(), un=(uEdit.username||'').trim().toLowerCase(), p=uEdit.password||'';
-  if(!n||!un||!p){toast('Name, username and password are all required');return;}
-  if(state.users.some((x,idx)=>idx!==uEdit.i && (x.username||'').toLowerCase()===un)){toast('That username already exists');return;}
-  if(u.role==='COO' && uEdit.role!=='COO' && state.users.filter(x=>x.role==='COO').length<=1){toast('There must be at least one COO');return;}
-  const wasSelf = state.currentUser && state.currentUser.username===u.username;
-  u.name=n; u.username=un; u.password=p; u.role=uEdit.role;
-  if(wasSelf){ state.currentUser.name=n; state.currentUser.username=un; state.currentUser.role=uEdit.role; state.role=uEdit.role; }
-  logAction('Edited user '+un); save(); closeModal(); render(); toast('Saved');
+async function saveEditUser(){ const old=uEdit.username; const n=(uEdit.name||'').trim(), un=(uEdit.newUsername||'').trim().toLowerCase();
+  if(!n||!un){toast('Name and username are required');return;}
+  const body={name:n,username:un,role:uEdit.role}; if(uEdit.password) body.password=uEdit.password;
+  try{ const r=await fetch('/api/users/'+encodeURIComponent(old),{method:'PUT',headers:Object.assign({'Content-Type':'application/json'},authHdr()),body:JSON.stringify(body)});
+    if(r.status===409){toast('That username already exists');return;}
+    if(!r.ok){ const j=await r.json().catch(()=>({})); toast(j.error||'Could not save'); return; }
+    logAction('Edited user '+un); save(); closeModal(); toast('Saved');
+    if(state.currentUser && state.currentUser.username===old){ toast('Your account changed — please sign in again'); setTimeout(function(){ setSession('',null); renderApp(); },800); return; }
+    loadUsers();
+  }catch(e){ toast('Network error'); }
 }
 
 bootState();

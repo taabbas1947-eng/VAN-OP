@@ -476,7 +476,6 @@ const STAGE_COLOR={'New':'--mut','RM / Procurement':'--amber','SO Created':'--bl
 
 /* ---- field ownership (each role edits only its own fields) ---- */
 const FIELD_OWNER={
-  soNumber:'KAM', soCreated:'KAM', invSent:'KAM', invConfirmed:'KAM', creditDays:'KAM', payDue:'KAM', payReceived:'KAM', notes:'KAM',
   cfoApproved:'CFO',
   prRaised:'Supply Chain', rmCheck:'Supply Chain', rmReady:'Supply Chain',
   prodStart:'Production', prodComplete:'Production',
@@ -531,6 +530,8 @@ function ownerNote(owners){ return canEdit(owners)?'':`<span class="tag">view-on
 const SCREENS=[
   {id:'dash', name:'Dashboard', ic:'\ud83d\udcca', owners:['KAM','Supply Chain','Production','Plant Manager','CFO','COO'], sub:'Executive overview',
     obj:'<b>Executive overview \u00b7 CEO / COO.</b> On-time delivery, overdue &amp; at-risk volume, fulfilment, production output, attention list and top customers \u2014 read-only.'},
+  {id:'approvals', name:'Approvals & Actions', ic:'✅', owners:['KAM','Supply Chain','Production','Lab Rep','QA Inspector','Plant Manager','CFO','COO'], sub:'What needs your action',
+    obj:'<b>Your live worklist.</b> Everything waiting on you across all orders — acknowledge, RM check, approve PR, close PR, produce, QC, QA, ship, delay reasons — each timestamped.'},
   {id:'monthly', name:'Monthly Production', ic:'\ud83d\udcc5', owners:['Production','COO','Plant Manager'], sub:'Monthly rollup',
     obj:'<b>Read-only rollup.</b> Pick a month \u2014 production by base product: batches and total kg, plus produced-vs-demand.'},
   {id:'entry', name:'New PO Entry', ic:'\u2795', owners:['KAM'], sub:'Add an order',
@@ -576,7 +577,8 @@ const NAV_ICONS={
   log:'<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/>',
   reports:'<line x1="3" y1="3" x2="3" y2="21"/><line x1="3" y1="21" x2="21" y2="21"/><rect x="7" y="12" width="3" height="6"/><rect x="12" y="8" width="3" height="10"/><rect x="17" y="14" width="3" height="4"/>',
   users:'<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
-  datafix:'<path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18v3h3l6.3-6.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2-2 2.6-2.6z"/>'
+  datafix:'<path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18v3h3l6.3-6.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2-2 2.6-2.6z"/>',
+  approvals:'<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>'
 };
 function navIcon(id){ return NAV_ICONS[id]?`<svg viewBox="0 0 24 24">${NAV_ICONS[id]}</svg>`:''; }
 function renderNav(){
@@ -596,9 +598,9 @@ function render(){
   renderNav();
   const s=scr(state.screen);
   $('scTitle').textContent=s.name; $('scSub').textContent=s.sub;
-  if($('helpbar')){ const EDIT_SCREENS={entry:1,dealers:1,prod:1,qc:1,ship:1,admin:1,users:1}; let editable=!!EDIT_SCREENS[s.id]; let owner=editable?(s.owners.filter(r=>r!=='COO').join(', ')||'COO'):'Everyone'; let upd=editable?'Yes':'No — view only'; if(s.id==='tracker'){ const tm={'Supply Chain':'RM Check / Raise PR','CFO':'invoice & payment fields','Plant Manager':'delay reason & responsible dept'}; if(tm[state.role]) upd='Yes — '+tm[state.role]+' (open a PO)'; } $('helpbar').innerHTML=`This screen: <b>${s.sub}</b> &nbsp;·&nbsp; Owned by: <b>${owner}</b> &nbsp;·&nbsp; Update here: <b>${upd}</b>`; }
+  if($('helpbar')){ const EDIT_SCREENS={entry:1,dealers:1,prod:1,qc:1,ship:1,admin:1,users:1}; let editable=!!EDIT_SCREENS[s.id]; let owner=editable?(s.owners.filter(r=>r!=='COO').join(', ')||'COO'):'Everyone'; let upd=editable?'Yes':'No — view only'; if(s.id==='tracker'){ const tm={'KAM':'SO # & dates','Supply Chain':'RM Check / PR & RM dates','CFO':'CFO approval & invoice','Plant Manager':'delay reason & dept','Production':'production dates','COO':'any field'}; if(tm[state.role]) upd='Yes — '+tm[state.role]+' (expand a PO)'; } $('helpbar').innerHTML=`This screen: <b>${s.sub}</b> &nbsp;·&nbsp; Owned by: <b>${owner}</b> &nbsp;·&nbsp; Update here: <b>${upd}</b>`; }
   if($('sidefoot')) $('sidefoot').innerHTML = state.role==='COO'?'<button class="ghost sm" style="width:100%" onclick="resetSeed()">Reset demo data</button>':'';
-  ({dash:screenDash,entry:screenEntry,tracker:screenTracker,prod:screenProd,qc:screenQC,monthly:screenMonthly,ship:screenShip,reports:screenReports,dealers:screenDealers,instructions:screenInstructions,admin:screenAdmin,datafix:screenDataFix,users:screenUsers,log:screenLog}[state.screen])();
+  ({dash:screenDash,approvals:screenApprovals,entry:screenEntry,tracker:screenTracker,prod:screenProd,qc:screenQC,monthly:screenMonthly,ship:screenShip,reports:screenReports,dealers:screenDealers,instructions:screenInstructions,admin:screenAdmin,datafix:screenDataFix,users:screenUsers,log:screenLog}[state.screen])();
 }
 /* ===================== LOCK 4: DATA FIX (reconciliation console — safety frame) ===================== */
 function reconLog(msg, eventDate){ logAction(`RECONCILE: ${msg}${eventDate?` [event ${eventDate}]`:''}`); }
@@ -1005,7 +1007,7 @@ function trkTimeline(o){ const cur=BUCKETS.indexOf(orderBucket(o));
   return `<div class="tl">${BUCKETS.map((b,i)=>{let cls='',ic=String(i+1); if(i<cur){cls='done';ic='✓';} else if(i===cur){cls='cur';} if(blocked&&(b==='Lab QC'||b==='QA Pre-shipment')){cls='blk';ic='!';} return `<div class="tlstep"><div class="tldot ${cls}">${ic}</div><div class="tllbl">${b}</div></div>`;}).join('')}</div>`; }
 function lineLifecycleInline(o,l){
   const groups=LIFE_GROUPS.map(([gt,fields])=>`<div class="fgroup"><div class="gt">${gt}</div><div class="fgrid">${fields.map(f=>fld(o,l,f[0],f[1],f[2])).join('')}</div></div>`).join('');
-  const rmBand = canEditField('prRaised') ? (l.soCreated
+  const rmBand = canEditField('prRaised') ? (true
      ? `<div style="display:flex;align-items:center;gap:9px;background:#f4f7fc;border:1px solid var(--line);border-radius:10px;padding:8px 11px;margin-bottom:10px;flex-wrap:wrap"><b style="font-size:11.5px">Raw materials:</b> ${rmStatusPill(l)}<button class="sm" style="margin-left:auto" onclick="event.stopPropagation();openRMCheck('${o.id}','${l.id}')">RM Check / Raise PR</button></div>`
      : `<div style="background:#f4f7fc;border:1px solid var(--line);border-radius:10px;padding:8px 11px;margin-bottom:10px;font-size:11.5px;color:var(--mut)">Raw materials: <b>create the SO first (Stage 1)</b> — RM check unlocks after.</div>`) : '';
   const mof=myOpenFields(o,l);
@@ -1066,7 +1068,7 @@ function screenTracker(){
   const chipbar=`<div class="chips">${chips.map(c=>`<span class="chip ${trkFilter===c[0]?'on':''}" onclick="trkFilter='${c[0]}';render()">${c[1]}</span>`).join('')}<input id="trkq" placeholder="Search PO or customer…" value="${trkSearch}" oninput="trkSearch=this.value;trkRender()" style="margin-left:auto;min-width:230px"></div>`;
   const rows=list.length?list.map(o=>orderCard(o)).join(''):'<div class="empty"><div class="ei">∅</div>No orders match this filter.</div>';
   $('view').innerHTML=`
-    <div class="banner info" style="margin-bottom:14px">This screen shows <b>where each order is standing</b>. You cannot edit here — updates are entered from each role's own screen. Open a PO to see exactly where to update.</div>
+    <div class="banner info" style="margin-bottom:14px">This screen shows <b>where each order is standing</b>. <b>Expand any PO</b> to update your stage fields right here — your fields are highlighted, the rest are read-only. Orders are sorted new at the top, delivered at the bottom.</div>
     <div class="card"><h3>Order flow <span class="hint">how many orders sit at each stage</span></h3>${flow}</div>
     <div class="card"><h3>Needs attention <span class="hint">tap a card to filter the list</span></h3>${attn}</div>
     <div class="card"><h3>Orders <span class="hint">${list.length} shown</span></h3>${chipbar}<div>${rows}</div></div>`;
@@ -1106,12 +1108,10 @@ function fld(o,l,key,label,type){
   return `<div class="ff"><label>${label}${tag}</label>${inner}</div>`;
 }
 const LIFE_GROUPS=[
-  ['Stage 1 — Order → SO',[['soNumber','SO #','text'],['soCreated','SO Created','date']]],
-  ['Stage 2 — RM procurement',[['prRaised','PR Raised','date'],['cfoApproved','CFO Approved','date'],['rmCheck','RM Check','date'],['rmReady','RM Ready','date']]],
-  ['Stage 3 — Production',[['prodStart','Prod Start','date'],['prodComplete','Prod Complete','date'],['qcPass','QC Pass','date']]],
-  ['Stage 4 — Dispatch & Delivery',[['dispatchDate','Dispatch','date'],['deliveredDate','Delivered','date']]],
+  ['Stage 1 — RM procurement',[['prRaised','PR Raised','date'],['cfoApproved','CFO Approved','date'],['rmCheck','RM Check','date'],['rmReady','RM Ready','date']]],
+  ['Stage 2 — Production',[['prodStart','Prod Start','date'],['prodComplete','Prod Complete','date'],['qcPass','QC Pass','date']]],
+  ['Stage 3 — Dispatch & Delivery',[['dispatchDate','Dispatch','date'],['deliveredDate','Delivered','date']]],
   ['Delay (Plant Manager)',[['delayReason','Delay Reason','select:delayReasons'],['respDept','Responsible Dept','select:respDepts']]],
-  ['Stage 5 — Invoice & Payment',[['creditDays','Credit Days','num'],['invSent','Invoice Sent','date'],['invConfirmed','Invoice Confirmed','date'],['payDue','Payment Due','date'],['payReceived','Payment Received','date'],['notes','Notes','text']]],
 ];
 const FIELD_LABEL={soNumber:'SO #',soCreated:'SO Created',prRaised:'PR Raised',cfoApproved:'CFO Approved',rmCheck:'RM Check',rmReady:'RM Ready',prodStart:'Prod Start',prodComplete:'Prod Complete',qcPass:'QC Pass',delayReason:'Delay Reason',respDept:'Responsible Dept',creditDays:'Credit Days',invSent:'Invoice Sent',invConfirmed:'Invoice Confirmed',payDue:'Payment Due',payReceived:'Payment Received',notes:'Notes'};
 function myOpenFields(o,l){ return Object.keys(FIELD_OWNER).filter(k=>canEditField(k) && !l[k]).map(k=>FIELD_LABEL[k]||k); }
@@ -1133,7 +1133,7 @@ function openOrder(id){
          <b style="font-size:14px">${l.brand}</b> <span class="muted" style="font-size:11px">${l.base}</span>
          ${pill(ls,STAGE_COLOR[ls]||'--mut')} ${od?pill(c.daysOverdue+'d overdue','--red'):''}
          <span style="margin-left:auto;font-size:11px" class="muted">${fmt(l.ordered)} Kg/L ordered</span></div>
-       ${canEditField('prRaised')?(l.soCreated?`<div style="display:flex;align-items:center;gap:9px;background:#f4f7fc;border:1px solid var(--line);border-radius:10px;padding:9px 12px;margin-bottom:11px;flex-wrap:wrap"><b style="font-size:11.5px">Raw materials:</b> ${rmStatusPill(l)} ${l.rmStatus==='partial'&&l.canMakeKg?`<span class="muted" style="font-size:11px">can make ${fmt(l.canMakeKg)} Kg/L now</span>`:''}${l.pr&&l.pr.lines&&l.pr.lines.length?`<span class="muted" style="font-size:11px">· PR ${l.pr.lines.length} item(s)</span>`:''}<button class="sm" style="margin-left:auto" onclick="openRMCheck(\'${o.id}\',\'${l.id}\')">RM Check / Raise PR</button></div>`:`<div style="background:#f4f7fc;border:1px solid var(--line);border-radius:10px;padding:9px 12px;margin-bottom:11px;font-size:11.5px;color:var(--mut)">Raw materials: <b>create the SO first (Stage 1)</b> — RM check unlocks after that.</div>`):''}
+       ${canEditField('prRaised')?(true?`<div style="display:flex;align-items:center;gap:9px;background:#f4f7fc;border:1px solid var(--line);border-radius:10px;padding:9px 12px;margin-bottom:11px;flex-wrap:wrap"><b style="font-size:11.5px">Raw materials:</b> ${rmStatusPill(l)} ${l.rmStatus==='partial'&&l.canMakeKg?`<span class="muted" style="font-size:11px">can make ${fmt(l.canMakeKg)} Kg/L now</span>`:''}${l.pr&&l.pr.lines&&l.pr.lines.length?`<span class="muted" style="font-size:11px">· PR ${l.pr.lines.length} item(s)</span>`:''}<button class="sm" style="margin-left:auto" onclick="openRMCheck(\'${o.id}\',\'${l.id}\')">RM Check / Raise PR</button></div>`:`<div style="background:#f4f7fc;border:1px solid var(--line);border-radius:10px;padding:9px 12px;margin-bottom:11px;font-size:11.5px;color:var(--mut)">Raw materials: <b>create the SO first (Stage 1)</b> — RM check unlocks after that.</div>`):''}
        ${(function(){const mof=myOpenFields(o,l); return mof.length?`<div style="background:#fff8db;border:1px solid #e8d488;border-radius:9px;padding:8px 11px;margin-bottom:11px;font-size:11.5px;color:#6f5a12"><b>\u270e Your turn (${state.role}):</b> fill ${mof.slice(0,5).join(', ')}${mof.length>5?' …':''}</div>`:'';})()}
        ${groups}${calc}</div>`;
   }).join('');
@@ -1350,7 +1350,7 @@ function openBatch(kind){
     if(!batchNo){toast('Enter a batch number');return;}
     const o=state.orders.find(x=>x.id===oid); const l=o.lines.find(x=>x.id===lid);
     if(!validateBatchNo(batchNo) && typeof confirm==='function' && !confirm(`Batch number "${batchNo}" doesn't match the usual format (${fmtRule}). Is it correct?`)) return;
-    const planned=Math.max(0,l.ordered-(l.produced||0));
+    const cap=rmAllows(l); if(cap<=(l.produced||0)+0.001){ toast('No raw material confirmed yet — run RM Check first. (Partial RM lets you make the available qty.)'); return; } const planned=Math.max(0,Math.min(l.ordered-(l.produced||0), cap-(l.produced||0)));
     state.batches.unshift({id:'B'+(state.seq++),batchNo,kind:'po',po:o.po,lineId:l.id,base:l.base,brand:l.brand,plannedKg:planned,producedKg:0,packedKg:0,status:'open',openedDate:today,by:state.role});
     logAction(`Opened PO batch ${batchNo} for ${o.po} · ${l.brand} (planned ${fmt(planned)} Kg/L)`);
   } else {
@@ -1529,6 +1529,56 @@ function submitQAPhys(){ const o=state.orders.find(x=>x.id===qaForm.oid); const 
 
 
 /* ===================== INSTRUCTIONS ===================== */
+/* ===================== PHASE 2: Approvals & Actions (per-role worklist) ===================== */
+function rmAllows(l){
+  if(l.rmReady || l.rmStatus==='full' || l.rmStatus==='received') return l.ordered||0;
+  if(l.rmStatus==='partial') return l.canMakeKg||0;
+  return 0;
+}
+function ackOrder(oid){ const o=state.orders.find(x=>x.id===oid); if(!o)return; o.acknowledged=true; o.ackDate=TODAY.toISOString().slice(0,10); o.ackBy=state.role; logAction(`PO ${o.po} acknowledged by ${state.role}`); save(); toast('Acknowledged'); render(); }
+function cfoApprove(oid,lid){ const o=state.orders.find(x=>x.id===oid); const l=o&&o.lines.find(x=>x.id===lid); if(!l)return; l.cfoApproved=TODAY.toISOString().slice(0,10); logAction(`CFO approved PR — ${o.po} · ${l.brand}`); save(); toast('PR approved'); render(); }
+let closePRForm={oid:null,lid:null,date:'',grn:''};
+function openClosePR(oid,lid){ const o=state.orders.find(x=>x.id===oid); const l=o&&o.lines.find(x=>x.id===lid); if(!l)return; closePRForm={oid,lid,date:TODAY.toISOString().slice(0,10),grn:''};
+  $('modal').innerHTML=`<div class="mh"><h2>Close PR — RM received</h2><div class="sub">${o.po} · ${l.brand}</div></div><div class="mb"><div class="formgrid" style="grid-template-columns:1fr 1fr"><div class="fld"><label>RM received date</label><input type="date" value="${closePRForm.date}" onchange="closePRForm.date=this.value"></div><div class="fld"><label>GRN #</label><input type="text" value="${closePRForm.grn}" oninput="closePRForm.grn=this.value" placeholder="GRN number"></div></div><div class="muted" style="font-size:11px;margin-top:8px">Marks raw material received and closes the PR (RM Ready). Production for the full quantity unlocks.</div></div><div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" onclick="submitClosePR()">Mark RM received</button></div>`;
+  $('modalBg').classList.add('open'); }
+function submitClosePR(){ const o=state.orders.find(x=>x.id===closePRForm.oid); const l=o&&o.lines.find(x=>x.id===closePRForm.lid); if(!l)return; if(!(closePRForm.grn||'').trim()){toast('Enter GRN #');return;} const d=closePRForm.date||TODAY.toISOString().slice(0,10); l.rmReceivedDate=d; l.grn=(closePRForm.grn||'').trim(); l.rmReady=d; l.rmStatus='received'; logAction(`RM received (GRN ${l.grn}) — ${o.po} · ${l.brand}; PR closed`); save(); closeModal(); toast('RM received — PR closed'); render(); }
+function gotoScreen(sc){ state.screen=sc; render(); }
+function actionItems(){
+  const items=[];
+  (state.orders||[]).forEach(o=>{
+    const bk=orderBucket(o); const od=isOverdue(o);
+    o.lines.forEach(l=>{
+      const lb=lineBucket(o,l);
+      if(lb==='Delivered') return;
+      if(!o.acknowledged && (bk==='PO Created'||bk==='RM Check')) items.push({role:'Supply Chain',o,l,what:'Acknowledge PO received',act:`ackOrder('${o.id}')`,label:'Acknowledge'});
+      if(o.acknowledged && (!l.rmStatus||l.rmStatus==='pending')) items.push({role:'Supply Chain',o,l,what:'Run RM Check',act:`openRMCheck('${o.id}','${l.id}')`,label:'RM Check'});
+      if(l.prRaised && !l.cfoApproved) items.push({role:'CFO',o,l,what:'Approve PR',act:`cfoApprove('${o.id}','${l.id}')`,label:'Approve'});
+      if(l.prRaised && !l.rmReady && l.rmStatus!=='received') items.push({role:'Supply Chain',o,l,what:'Close PR — record RM received + GRN',act:`openClosePR('${o.id}','${l.id}')`,label:'Close PR'});
+      if(rmAllows(l)>0 && (l.produced||0) < Math.min(l.ordered, rmAllows(l))-0.5) items.push({role:'Production',o,l,what:'Produce (RM available)',act:"gotoScreen('prod')",label:'Open Production'});
+      if((l.packed||0)>=l.ordered-0.5 && !(l.qcLab&&l.qcLab.pass)) items.push({role:'Lab Rep',o,l,what:'Lab certify (QC)',act:"gotoScreen('qc')",label:'Open QC'});
+      if(l.qcLab&&l.qcLab.pass && !(l.qcPhys&&l.qcPhys.pass)) items.push({role:'QA Inspector',o,l,what:'QA pre-shipment inspection',act:"gotoScreen('qc')",label:'Open QC'});
+      if(l.qcPass && (l.dispatched||0)<(l.packed||0)-0.5) items.push({role:'Supply Chain',o,l,what:'Record shipment',act:"gotoScreen('ship')",label:'Open Shipments'});
+      if(od && !l.delayReason) items.push({role:'Plant Manager',o,l,what:'Add delay reason',act:`openOrder('${o.id}')`,label:'Add reason'});
+    });
+  });
+  return items;
+}
+function screenApprovals(){
+  const isCOO=state.role==='COO';
+  const all=actionItems();
+  const mine = isCOO ? all : all.filter(x=>x.role===state.role);
+  const row=(it)=>`<tr><td><b>${it.o.po}</b><div class="muted" style="font-size:11px">${it.o.client}</div></td><td>${it.l?it.l.brand:''}</td><td>${it.what}</td><td>${(isOverdue(it.o)&&lineBucket(it.o,it.l)!=='Delivered')?`<span class="pill" style="background:var(--red-50);color:var(--red)">${daysOver(it.o)}d overdue</span>`:''}</td><td style="width:160px"><button class="sm green" onclick="${it.act}">${it.label}</button></td></tr>`;
+  const tbl=(arr)=>`<table><thead><tr><th>PO</th><th>Product</th><th>Action needed</th><th></th><th></th></tr></thead><tbody>${arr.map(row).join('')}</tbody></table>`;
+  let body;
+  if(!mine.length){ body=`<div class="card"><div class="muted" style="padding:6px 0">Nothing waiting on you right now.</div></div>`; }
+  else if(isCOO){
+    const roles=['Supply Chain','CFO','Production','Lab Rep','QA Inspector','Plant Manager'];
+    body=roles.map(r=>{const g=all.filter(x=>x.role===r); return g.length?`<div class="card"><h3>${r} <span class="hint">${g.length}</span></h3>${tbl(g)}</div>`:'';}).join('');
+  } else {
+    body=`<div class="card"><h3>Your open actions <span class="hint">${mine.length}</span></h3>${tbl(mine)}</div>`;
+  }
+  $('view').innerHTML=`<div class="banner info"><b>Approvals &amp; Actions.</b> Everything waiting on you, pulled live from every order; each action is timestamped. ${isCOO?'(As COO you see all queues.)':''}</div>${body}`;
+}
 function screenInstructions(){
   const steps=[
    {n:'1',title:'Sign in',who:'Everyone',when:'before anything',tab:'Login',

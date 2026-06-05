@@ -612,6 +612,15 @@ function toggleDataFix(){
   logAction(`Data Fix tab ${state.dataFixEnabled?'ENABLED':'DISABLED'} by COO`);
   save(); render();
 }
+function dfFreshStart(){
+  if(state.role!=='COO'){ toast('COO only'); return; }
+  if(typeof confirm!=='function') return;
+  if(!confirm('FRESH START — permanently clear ALL operational data:\n\n- every PO / order\n- production, packing, batches, shift entries\n- QC results, shipments\n- RM requests/movements, packed & raw stock\n- audit + action log\n\nKEPT: users & passwords, master data, dealers/clients, products/brands/bases, settings.\n\nDownload a snapshot FIRST if you have not. Continue?')) return;
+  if(!confirm('Final confirmation. This cannot be undone except by restoring a snapshot.\n\nClear all operational data and start from zero now?')) return;
+  state.orders=[]; state.productionLog=[]; state.packingLog=[]; state.batches=[]; state.shiftEntries=[]; state.shipments=[]; state.rmRequests=[]; state.rmMovements=[]; state.audit=[]; state.packedStock={}; state.rawStock={}; state.expanded={}; state.seq=1000;
+  state.actionLog=[{t:new Date().toISOString(), role:state.role, by:(state.currentUser&&state.currentUser.name)||state.role, what:'FRESH START — all operational data cleared (users, masters, dealers, products kept)'}];
+  save(); toast('Fresh start done — operational data cleared'); render();
+}
 function exportStateJSON(){
   try{
     const blob=new Blob([JSON.stringify(dataOnly(state),null,2)],{type:'application/json'});
@@ -636,7 +645,7 @@ function screenDataFix(){
      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
        <div>Status: <b style="color:${on?'var(--green2)':'var(--mut)'}">${on?'ON — corrections enabled':'OFF'}</b></div>
        ${toggle}
-       <button class="sm" onclick="exportStateJSON()">⬇ Download data snapshot (JSON)</button>
+       <button class="sm" onclick="exportStateJSON()">⬇ Download data snapshot (JSON)</button>${isCOO?`<button class="sm" style="background:var(--red);color:#fff;border-color:var(--red)" onclick="dfFreshStart()">⚠ Fresh start — clear all operational data</button>`:``}
      </div>
      <div class="muted" style="font-size:11px;margin-top:10px">Always download a snapshot before a reconciliation session — it's your restore point. The snapshot is read-only and changes nothing.</div>
    </div>${ops}`;

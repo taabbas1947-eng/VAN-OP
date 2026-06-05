@@ -1820,80 +1820,143 @@ function dashPeriodCard(){
     ${cmpToggle}${bdTable}</div>`;
 }
 function screenDash(){
-
-
-  const os=state.orders;
-  const open=os.filter(o=>stageOf(o)!=='Delivered');
-  const closed=os.filter(o=>stageOf(o)==='Delivered');
-  const overdue=os.filter(o=>isOverdue(o));
-  const ordered=os.reduce((a,o)=>a+agg(o).ordered,0);
-  const shipped=os.reduce((a,o)=>a+agg(o).dispatched,0);
-  const produced=state.productionLog.reduce((a,p)=>a+p.kg,0);
-  const overdueKg=overdue.reduce((a,o)=>{const x=agg(o);return a+(x.ordered-x.dispatched);},0);
-  const onTrack=open.length-overdue.length;
-  const otRate=open.length?Math.round(onTrack/open.length*100):100;
-  const rmBlock=os.filter(o=>o.lines.some(l=>l.rmStatus==='short'&&!l.rmReady)).length;
-  const kpis=[
-    {l:'Open Orders',v:open.length,d:fmt(ordered-shipped)+' kg to deliver'},
-    {l:'On-Time',v:otRate+'%',d:onTrack+' of '+open.length+' on track',c:otRate>=80?'good':'bad'},
-    {l:'Overdue',v:overdue.length,d:fmt(overdueKg)+' kg at risk',c:overdue.length?'bad':'good'},
-    {l:'Fulfilment',v:pct(shipped,ordered)+'%',d:fmt(shipped)+' / '+fmt(ordered)+' Kg/L'},
-    {l:'Produced',v:(produced/1000).toFixed(1)+' t',d:'logged output'},
-    {l:'RM-blocked',v:rmBlock,d:'awaiting materials',c:rmBlock?'bad':'good'},
-  ];
-  const attn=overdue.slice().sort((a,b)=>daysOver(b)-daysOver(a)).slice(0,8);
-  const cl={}; os.forEach(o=>{const x=agg(o); cl[o.client]=cl[o.client]||{o:0,s:0}; cl[o.client].o+=x.ordered; cl[o.client].s+=x.dispatched;});
-  const top=Object.entries(cl).sort((a,b)=>b[1].o-a[1].o).slice(0,6);
-  const delaysDept={},delaysReason={},kam={};
-  os.forEach(o=>{ o.lines.forEach(l=>{ if(l.respDept) delaysDept[l.respDept]=(delaysDept[l.respDept]||0)+1; if(l.delayReason) delaysReason[l.delayReason]=(delaysReason[l.delayReason]||0)+1; });
-    const k=o.kam||'—'; kam[k]=kam[k]||{n:0,ot:0}; kam[k].n++; if(!isOverdue(o)) kam[k].ot++; });
-  const ddept=Object.entries(delaysDept).sort((a,b)=>b[1]-a[1]);
-  const dreason=Object.entries(delaysReason).sort((a,b)=>b[1]-a[1]);
-  const kamRows=Object.entries(kam).sort((a,b)=>b[1].n-a[1].n);
+  const os=state.orders||[];
+  const today=TODAY; const monthKey=today.toISOString().slice(0,7);
+  const dnum=(d)=>{ if(!d) return null; const t=new Date(d); if(isNaN(t)) return null; return Math.round((t-today)/86400000); };
+  const ageDays=(d)=>{ if(!d) return null; const t=new Date(d); if(isNaN(t)) return null; return Math.max(0,Math.round((today-t)/86400000)); };
+  const info=(o,l)=>{ const b=lineBucket(o,l);
+    const ordered=l.ordered||0, produced=l.produced||0, packed=l.packed||0, ship=l.dispatched||0, deliv=l.delivered||0;
+    const qcC=l.qcPass?packed:0; const bal=Math.max(0,ordered-ship);
+    const committed=o.promised||l.committed||''; const days=dnum(committed); const isDeliv=(b==='Delivered');
+    const overdue=!isDeliv && days!=null && days<0 && bal>0.5;
+    const owner=(BUCKET_META[b]&&BUCKET_META[b].owner)||'—';
+    let blocker='';
+    if(l.qcLab&&l.qcLab.fail) blocker='QC (Lab) fail';
+    else if(l.qcPhys&&l.qcPhys.fail) blocker='QA fail';
+    else if(l.rmStatus==='short'&&!l.rmReady) blocker='RM short — PR open';
+    else if(!isDeliv && rmAllows(l)<=0 && (b==='RM Check'||b==='PO Created')) blocker='Awaiting RM check';
+    else if(l.delayReason) blocker=l.delayReason;
+    let risk='Low';
+    if(overdue) risk='Critical';
+    else if(!isDeliv && bal>0.5 && days!=null && days>=0 && days<=3) risk='High';
+    else if(!isDeliv && bal>0.5 && days!=null && days>3 && days<=7) risk='Medium';
+    const next=isDeliv?'—':((BUCKET_META[b]&&BUCKET_META[b].where)||'—');
+    return {o,l,b,ordered,produced,packed,qcC,ship,deliv,bal,committed,days,overdue,owner,blocker,risk,next,isDeliv};
+  };
+  const LI=[]; os.forEach(o=>o.lines.forEach(l=>LI.push(info(o,l))));
+  const openLI=LI.filter(x=>!x.isDeliv);
+  const orderBuckets=os.map(o=>orderBucket(o));
+  const openOrders=orderBuckets.filter(b=>b!=='Delivered').length;
+  const overdueOrders=os.filter(o=>isOverdue(o)).length;
+  const dueToday=openLI.filter(x=>x.days===0&&x.bal>0.5).length;
+  const due3=openLI.filter(x=>x.days!=null&&x.days>=1&&x.days<=3&&x.bal>0.5).length;
+  const prodPending=openLI.filter(x=>x.produced<x.ordered-0.5).length;
+  const qcPending=openLI.filter(x=>x.b==='Lab QC'||x.b==='QA Pre-shipment').length;
+  const readyShip=openLI.filter(x=>x.l.qcPass&&x.ship<x.packed-0.5).length;
+  const delivThisMonth=LI.filter(x=>x.isDeliv&&(x.l.deliveredDate||'').slice(0,7)===monthKey).length;
+  const atRisk=os.filter(o=>isOverdue(o)||o.lines.some(l=>l.rmStatus==='short'&&!l.rmReady)).length;
   let cyc=[]; os.forEach(o=>o.lines.forEach(l=>{const cc=calcLine(o,l); if(cc.totalCycle!=null) cyc.push(cc.totalCycle);}));
   const avgCycle=cyc.length?Math.round(cyc.reduce((a,b)=>a+b,0)/cyc.length):null;
-  const atRisk=os.filter(o=>isOverdue(o)||o.lines.some(l=>l.rmStatus==='short'&&!l.rmReady)).length;
-  const invSent=os.reduce((a,o)=>a+o.lines.filter(l=>l.invSent).length,0);
-  const payPending=os.reduce((a,o)=>a+o.lines.filter(l=>l.deliveredDate&&!l.payReceived).length,0);
+  const openCount=openOrders||0; const onTrack=openCount-overdueOrders; const otRate=openCount?Math.round(onTrack/openCount*100):100;
+  const riskPill=(r)=> r==='Critical'?pill('Critical','--red'):r==='High'?pill('High','--amber'):r==='Medium'?pill('Medium','--blue'):pill('Low','--mut');
+  const stagePill=(b)=>pill(b,(BUCKET_META[b]&&BUCKET_META[b].c)||'--mut');
+
+  const kpi=(l,v,d,c,go)=>`<div class="kpi${go?' clk':''}" ${go?`onclick="gotoScreen('${go}')"`:''}><div class="l">${l}</div><div class="v" style="${c==='good'?'color:var(--green2)':c==='bad'?'color:var(--red)':c==='warn'?'color:var(--amber)':''}">${v}</div><div class="d">${d}</div></div>`;
+  const kpis=[
+    kpi('Open Orders',openOrders,'in progress','','tracker'),
+    kpi('At-Risk',atRisk,'overdue / RM-blocked',atRisk?'bad':'good','tracker'),
+    kpi('Overdue',overdueOrders,'past committed date',overdueOrders?'bad':'good','tracker'),
+    kpi('Due Today',dueToday,'commitments today',dueToday?'warn':'','tracker'),
+    kpi('Due in 3 Days',due3,'commitments soon',due3?'warn':'','tracker'),
+    kpi('Production Pending',prodPending,'products to produce',prodPending?'warn':'','prod'),
+    kpi('QC / QA Pending',qcPending,'awaiting clearance',qcPending?'warn':'','qc'),
+    kpi('Ready to Ship',readyShip,'cleared, not shipped',readyShip?'warn':'','ship'),
+    kpi('Delivered (mo)',delivThisMonth,'this month','good'),
+    kpi('Avg Cycle',avgCycle!=null?avgCycle+'d':'Not available yet','order → delivery'),
+    kpi('On-Time %',otRate+'%',onTrack+' of '+openCount+' on track',otRate>=80?'good':'bad'),
+  ].join('');
+
+  // S2 Today's Intervention List — open lines sorted by urgency
+  const urg=(x)=> x.overdue?0 : (x.days===0?1 : (x.days!=null&&x.days<=3?2:(x.blocker?3:4)));
+  const interv=openLI.filter(x=>x.bal>0.5).slice().sort((a,b)=>{ const u=urg(a)-urg(b); if(u)return u; const da=(a.days==null?999:a.days)-(b.days==null?999:b.days); if(da)return da; return b.bal-a.bal; });
+  const intervRows=interv.slice(0,40).map(x=>`<tr class="clk" onclick="state.screen='tracker';render()">
+     <td>${x.o.priority||'Normal'}</td><td><b>${x.o.po}</b></td><td>${x.o.client}</td><td>${x.l.brand}</td>
+     <td class="num">${fmt(x.ordered)}</td><td class="num">${fmt(x.produced)}</td><td class="num">${fmt(x.qcC)}</td><td class="num">${fmt(x.ship)}</td>
+     <td class="num"><b>${fmt(x.bal)}</b></td><td class="muted">${x.committed||'—'}</td><td>${stagePill(x.b)}</td>
+     <td class="num" style="${x.overdue?'color:var(--red);font-weight:700':''}">${x.overdue?(-x.days)+'d':(x.days!=null?(x.days+'d'):'—')}</td>
+     <td>${x.blocker?`<span style="color:var(--red)">${x.blocker}</span>`:'<span class="muted">—</span>'}</td><td><span class="rbadge">${x.owner}</span></td><td class="muted" style="font-size:11px">${x.next}</td></tr>`).join('');
+  const intervTbl=interv.length?`<div style="overflow:auto"><table><thead><tr><th>Pri</th><th>PO</th><th>Customer</th><th>Product</th><th class="num">Ord</th><th class="num">Prod</th><th class="num">QC</th><th class="num">Ship</th><th class="num">Bal</th><th>Committed</th><th>Stage</th><th class="num">Delay</th><th>Blocker</th><th>Owner</th><th>Next action</th></tr></thead><tbody>${intervRows}</tbody></table></div>${interv.length>40?`<div class="muted" style="font-size:11px;margin-top:6px">Showing 40 of ${interv.length}. Open PO Tracker for the full list.</div>`:''}`:'<div class="muted" style="padding:8px 0">No open balances need attention.</div>';
+
+  // S3 Due soon / overdue buckets
+  const grp=(pred)=>openLI.filter(pred).filter(x=>x.bal>0.5);
+  const miniList=(arr)=>arr.length?`<table><tbody>${arr.slice(0,8).map(x=>`<tr><td><b>${x.o.po}</b> <span class="muted" style="font-size:11px">${x.o.client}</span></td><td>${x.l.brand}</td><td class="num">${fmt(x.bal)}</td><td class="muted" style="font-size:11px">${x.committed||'—'}</td><td>${stagePill(x.b)}</td></tr>`).join('')}</tbody></table>${arr.length>8?`<div class="muted" style="font-size:11px;margin-top:4px">+${arr.length-8} more</div>`:''}`:'<div class="muted" style="font-size:12px;padding:4px 0">None</div>';
+  const dueCards=[
+    ['Overdue',grp(x=>x.overdue),'--red'],
+    ['Due Today',grp(x=>x.days===0),'--amber'],
+    ['Due Next 3 Days',grp(x=>x.days!=null&&x.days>=1&&x.days<=3),'--amber'],
+    ['This Week',grp(x=>x.days!=null&&x.days>=0&&x.days<=7),'--blue'],
+    ['Ready to Ship',openLI.filter(x=>x.l.qcPass&&x.ship<x.packed-0.5),'--green2'],
+  ].map(([t,arr,c])=>`<div class="card"><h3 style="border-left:3px solid var(${c});padding-left:8px">${t} <span class="hint">${arr.length}</span></h3>${miniList(arr)}</div>`).join('');
+
+  // S4 Stage bottleneck
+  const stageRows=BUCKETS.filter(b=>b!=='Delivered').map(b=>{ const items=openLI.filter(x=>x.b===b);
+    const pend=items.reduce((a,x)=>a+x.bal,0); const oldest=Math.max(0,...items.map(x=>ageDays(x.o.received)||0)); const ov=items.filter(x=>x.overdue).length;
+    return {b,n:items.length,pend,oldest:items.length?oldest:0,ov,owner:(BUCKET_META[b]&&BUCKET_META[b].owner)||'—'}; });
+  const stageTbl=`<table><thead><tr><th>Stage</th><th class="num">Orders</th><th class="num">Pending Kg/L</th><th class="num">Oldest (d)</th><th class="num">Overdue</th><th>Owner</th></tr></thead><tbody>${stageRows.map(r=>`<tr><td>${stagePill(r.b)}</td><td class="num">${r.n}</td><td class="num">${fmt(r.pend)}</td><td class="num">${r.oldest||'—'}</td><td class="num" style="${r.ov?'color:var(--red);font-weight:700':''}">${r.ov||'—'}</td><td><span class="rbadge">${r.owner}</span></td></tr>`).join('')}</tbody></table>`;
+
+  // S5 Product risk (by brand)
+  const pr={}; openLI.forEach(x=>{ if(x.bal<=0.5) return; const k=x.l.brand; pr[k]=pr[k]||{brand:k,ordered:0,produced:0,qcC:0,ship:0,bal:0,committed:null,risk:'Low',blocker:''};
+    const p=pr[k]; p.ordered+=x.ordered; p.produced+=x.produced; p.qcC+=x.qcC; p.ship+=x.ship; p.bal+=x.bal;
+    if(x.committed&&(!p.committed||x.committed<p.committed)) p.committed=x.committed;
+    const rank={Critical:3,High:2,Medium:1,Low:0}; if(rank[x.risk]>rank[p.risk]){p.risk=x.risk; p.blocker=x.blocker;} });
+  const prRows=Object.values(pr).sort((a,b)=>({Critical:3,High:2,Medium:1,Low:0}[b.risk]-{Critical:3,High:2,Medium:1,Low:0}[a.risk])||b.bal-a.bal);
+  const prTbl=prRows.length?`<div style="overflow:auto"><table><thead><tr><th>Product</th><th class="num">Open Ord</th><th class="num">Produced</th><th class="num">QC</th><th class="num">Shipped</th><th class="num">Balance</th><th>Earliest due</th><th>Risk</th><th>Blocker</th></tr></thead><tbody>${prRows.map(p=>`<tr><td><b>${p.brand}</b></td><td class="num">${fmt(p.ordered)}</td><td class="num">${fmt(p.produced)}</td><td class="num">${fmt(p.qcC)}</td><td class="num">${fmt(p.ship)}</td><td class="num"><b>${fmt(p.bal)}</b></td><td class="muted">${p.committed||'—'}</td><td>${riskPill(p.risk)}</td><td class="muted" style="font-size:11px">${p.blocker||'—'}</td></tr>`).join('')}</tbody></table></div>`:'<div class="muted" style="padding:6px 0">No open product balances.</div>';
+
+  // S6 Customer risk
+  const cr={}; openLI.forEach(x=>{ const k=x.o.client; cr[k]=cr[k]||{client:k,pos:new Set(),open:0,over:0,week:0,ready:0,risk:'Low',blocker:''};
+    const c=cr[k]; c.pos.add(x.o.po); c.open+=x.bal; if(x.overdue)c.over+=x.bal; if(x.days!=null&&x.days>=0&&x.days<=7)c.week+=x.bal; if(x.l.qcPass&&x.ship<x.packed-0.5)c.ready+=Math.max(0,x.packed-x.ship);
+    const rank={Critical:3,High:2,Medium:1,Low:0}; if(rank[x.risk]>rank[c.risk]){c.risk=x.risk; c.blocker=x.blocker;} });
+  const crRows=Object.values(cr).filter(c=>c.open>0.5).sort((a,b)=>b.over-a.over||b.open-a.open);
+  const crTbl=crRows.length?`<div style="overflow:auto"><table><thead><tr><th>Customer</th><th class="num">Open POs</th><th class="num">Open Kg/L</th><th class="num">Overdue</th><th class="num">Due this wk</th><th class="num">Ready</th><th>Risk</th><th>Main blocker</th></tr></thead><tbody>${crRows.map(c=>`<tr><td><b>${c.client}</b></td><td class="num">${c.pos.size}</td><td class="num">${fmt(c.open)}</td><td class="num" style="${c.over>0.5?'color:var(--red);font-weight:700':''}">${fmt(c.over)}</td><td class="num">${fmt(c.week)}</td><td class="num">${fmt(c.ready)}</td><td>${riskPill(c.risk)}</td><td class="muted" style="font-size:11px">${c.blocker||'—'}</td></tr>`).join('')}</tbody></table></div>`:'<div class="muted" style="padding:6px 0">No open customer balances.</div>';
+
+  // S7 Production vs demand (by product, open)
+  const pvd=prRows.map(p=>`<tr><td><b>${p.brand}</b></td><td class="num">${fmt(p.ordered)}</td><td class="num">${fmt(p.produced)}</td><td class="num" style="${(p.ordered-p.produced)>0.5?'color:var(--amber);font-weight:700':''}">${fmt(Math.max(0,p.ordered-p.produced))}</td><td class="num">${fmt(p.qcC)}</td><td class="num">${fmt(p.ship)}</td></tr>`).join('');
+  const pvdTbl=prRows.length?`<div style="overflow:auto"><table><thead><tr><th>Product</th><th class="num">Ordered</th><th class="num">Produced</th><th class="num">Gap</th><th class="num">QC cleared</th><th class="num">Shipped</th></tr></thead><tbody>${pvd}</tbody></table></div>`:'<div class="muted" style="padding:6px 0">No open demand.</div>';
+
+  // S8 QC / QA risk
+  const qcItems=openLI.filter(x=> (x.l.qcLab&&x.l.qcLab.fail)||(x.l.qcPhys&&x.l.qcPhys.fail)||x.b==='Lab QC'||x.b==='QA Pre-shipment');
+  const qcStatus=(x)=> (x.l.qcLab&&x.l.qcLab.fail)?'QC (Lab) FAIL':(x.l.qcPhys&&x.l.qcPhys.fail)?'QA FAIL':(x.b==='Lab QC'?'Lab QC pending':'QA pending');
+  const qcTbl=qcItems.length?`<div style="overflow:auto"><table><thead><tr><th>PO</th><th>Customer</th><th>Product</th><th class="num">Qty</th><th>Status</th><th>Pending since</th><th>Owner</th></tr></thead><tbody>${qcItems.map(x=>`<tr><td><b>${x.o.po}</b></td><td>${x.o.client}</td><td>${x.l.brand}</td><td class="num">${fmt(x.packed||x.ordered)}</td><td><span style="color:${qcStatus(x).includes('FAIL')?'var(--red)':'var(--amber)'}">${qcStatus(x)}</span></td><td class="muted" style="font-size:11px">${x.l.prodComplete||'—'}</td><td><span class="rbadge">${x.owner}</span></td></tr>`).join('')}</tbody></table></div>`:'<div class="muted" style="padding:6px 0">Nothing pending or failed in QC/QA.</div>';
+
+  // S9 Shipment readiness
+  const rs=openLI.filter(x=>x.l.qcPass&&x.ship<x.packed-0.5);
+  const rsTbl=rs.length?`<div style="overflow:auto"><table><thead><tr><th>PO</th><th>Customer</th><th>Product</th><th class="num">Ready Kg/L</th><th>Ready since</th><th>Committed</th><th>Delay risk</th><th>Owner</th></tr></thead><tbody>${rs.map(x=>`<tr><td><b>${x.o.po}</b></td><td>${x.o.client}</td><td>${x.l.brand}</td><td class="num"><b>${fmt(Math.max(0,x.packed-x.ship))}</b></td><td class="muted" style="font-size:11px">${x.l.qcPass||'—'}</td><td class="muted">${x.committed||'—'}</td><td>${riskPill(x.risk)}</td><td><span class="rbadge">Supply Chain</span></td></tr>`).join('')}</tbody></table></div>`:'<div class="muted" style="padding:6px 0">Nothing cleared and waiting to ship.</div>';
+
+  // S10 Cycle time / delay diagnosis (from existing dates)
+  const stageDefs=[['RM (PR→Ready)','rmDays'],['Production','prodDays'],['QC→Delivery','qcToDeliv'],['Total cycle','totalCycle']];
+  const cs={}; os.forEach(o=>o.lines.forEach(l=>{const cc=calcLine(o,l); stageDefs.forEach(([nm,k])=>{ if(cc[k]!=null){ cs[k]=cs[k]||{vals:[],slow:0,slowPO:''}; cs[k].vals.push(cc[k]); if(cc[k]>cs[k].slow){cs[k].slow=cc[k];cs[k].slowPO=o.po;} } }); }));
+  const cycRows=stageDefs.map(([nm,k])=>{ const c=cs[k]; if(!c||!c.vals.length) return `<tr><td>${nm}</td><td class="num muted">Not available yet</td><td class="muted">—</td><td class="num">—</td></tr>`;
+    const avg=Math.round(c.vals.reduce((a,b)=>a+b,0)/c.vals.length); const stuck=c.vals.filter(v=>v>avg*1.5).length;
+    return `<tr><td>${nm}</td><td class="num" style="${avg>10?'color:var(--amber);font-weight:700':''}">${avg}d</td><td class="muted" style="font-size:11px">${c.slow}d · ${c.slowPO}</td><td class="num">${stuck||'—'}</td></tr>`; }).join('');
+  const cycTbl=`<table><thead><tr><th>Stage</th><th class="num">Avg</th><th>Slowest</th><th class="num">Stuck</th></tr></thead><tbody>${cycRows}</tbody></table><div class="muted" style="font-size:11px;margin-top:6px">PO→SO and PR-approval splits need extra date fields — <b>Not available yet</b>.</div>`;
+
   $('view').innerHTML=`
-   <div class="banner info"><b>Executive overview</b> — order health &amp; production at a glance · snapshot ${TODAY.toISOString().slice(0,10)}.</div>
-   <div class="kpis">${kpis.map(k=>`<div class="kpi"><div class="l">${k.l}</div>
-     <div class="v" style="${k.c==='good'?'color:var(--green2)':k.c==='bad'?'color:var(--red)':''}">${k.v}</div>
-     <div class="d">${k.d}</div></div>`).join('')}</div>
-   ${dashPeriodCard()}
+   <div class="banner info"><b>Intervention Dashboard</b> — what needs action today, what is stuck, who owns it · ${today.toISOString().slice(0,10)} · <span class="muted">read-only</span></div>
+   <div class="kpis">${kpis}</div>
+   <div class="card"><h3>Today's Intervention List <span class="hint">${interv.length} open balance(s)</span></h3>${intervTbl}</div>
+   <h3 style="margin:18px 0 8px;color:var(--navy)">Orders due soon / overdue</h3>
+   <div class="dgrid">${dueCards}</div>
    <div class="dgrid">
-     <div class="card"><h3>Order pipeline <span class="hint">where orders sit</span></h3><canvas id="cStage" height="148"></canvas></div>
-     <div class="card"><h3>On-time vs overdue <span class="hint">open orders</span></h3><canvas id="cOt" height="148"></canvas></div>
+     <div class="card"><h3>Stage bottlenecks <span class="hint">where orders sit</span></h3>${stageTbl}</div>
+     <div class="card"><h3>QC / Pre-shipment risk <span class="hint">${qcItems.length}</span></h3>${qcTbl}</div>
    </div>
+   <div class="card"><h3>Product risk / shortfall <span class="hint">open balances by product</span></h3>${prTbl}</div>
+   <div class="card"><h3>Customer risk <span class="hint">commitments at risk</span></h3>${crTbl}</div>
    <div class="dgrid">
-     <div class="card"><h3>Production output <span class="hint">Kg/L / day</span></h3><canvas id="cProd" height="140"></canvas></div>
-     <div class="card"><h3>Order mix by channel</h3><canvas id="cChan" height="140"></canvas></div>
+     <div class="card"><h3>Production vs open demand</h3>${pvdTbl}</div>
+     <div class="card"><h3>Shipment readiness <span class="hint">${rs.length} ready, not shipped</span></h3>${rsTbl}</div>
    </div>
-   <div class="dgrid">
-     <div class="card"><h3>Needs attention <span class="hint">${attn.length} overdue</span></h3>
-       ${attn.length?`<table><thead><tr><th>PO</th><th>Customer</th><th class="num">Days late</th><th class="num">Kg left</th></tr></thead>
-         <tbody>${attn.map(o=>{const x=agg(o);return `<tr class="clk" onclick="state.screen='tracker';render()"><td><b>${o.po}</b></td><td>${o.client}</td>
-           <td class="num" style="color:var(--red);font-weight:700">${daysOver(o)}</td><td class="num">${fmt(x.ordered-x.dispatched)}</td></tr>`;}).join('')}</tbody></table>`
-         :'<div class="muted" style="padding:8px 0">Nothing overdue — all open orders on track.</div>'}</div>
-     <div class="card"><h3>Top customers <span class="hint">by ordered volume</span></h3>
-       <table><thead><tr><th>Customer</th><th class="num">Ordered</th><th>Shipped</th></tr></thead>
-       <tbody>${top.map(([c,v])=>{const p=pct(v.s,v.o);return `<tr><td>${c}</td><td class="num">${fmt(v.o)} Kg/L</td>
-         <td><div style="display:flex;align-items:center;gap:7px"><div class="barmini" style="width:64px"><i style="width:${p}%"></i></div><span class="muted" style="font-size:11px">${p}%</span></div></td></tr>`;}).join('')}</tbody></table></div>
-   </div>
-   <div class="kpis" style="margin-top:2px">
-     <div class="kpi"><div class="l">Total orders</div><div class="v">${os.length}</div><div class="d">in system</div></div>
-     <div class="kpi"><div class="l">At-risk</div><div class="v" style="color:${atRisk?'var(--red)':'var(--green2)'}">${atRisk}</div><div class="d">overdue / RM-blocked</div></div>
-     <div class="kpi"><div class="l">Avg cycle</div><div class="v">${avgCycle!=null?avgCycle+'d':'\u2014'}</div><div class="d">order \u2192 delivery</div></div>
-     <div class="kpi"><div class="l">Delivered</div><div class="v">${closed.length}</div><div class="d">orders</div></div>
-   </div>
-   <div class="dgrid">
-     <div class="card"><h3>Delays by responsible dept</h3>
-       ${ddept.length?`<table><tbody>${ddept.map(([k,v])=>`<tr><td>${k}</td><td class="num"><b>${v}</b></td></tr>`).join('')}</tbody></table>`:'<div class="muted" style="font-size:12.5px">No delays attributed yet \u2014 Plant Manager assigns these per product.</div>'}</div>
-     <div class="card"><h3>Delays by reason</h3>
-       ${dreason.length?`<table><tbody>${dreason.map(([k,v])=>`<tr><td>${k}</td><td class="num"><b>${v}</b></td></tr>`).join('')}</tbody></table>`:'<div class="muted" style="font-size:12.5px">No delay reasons logged yet.</div>'}</div>
-   </div>
-   ${dashCycle()}`;
-  drawCharts();
+   <div class="card"><h3>Cycle time / delay diagnosis</h3>${cycTbl}</div>`;
 }
 function drawCharts(){
   const GRID='#e6ebf3'; Chart.defaults.color='#67748c'; Chart.defaults.font.size=10;

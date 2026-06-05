@@ -514,7 +514,7 @@ function editField(oid,lid,key,val){
   state.audit=state.audit||[];
   state.audit.unshift({t:new Date().toISOString(), user:state.role, module:'PO Tracker', po:o.po, brand:l.brand, field:key, old:old||'', val:val||''});
   logAction(`${o.po} · ${l.brand}: set ${key} = ${val||'(cleared)'}`);
-  save(); openOrder(oid); render();
+  save(); if($('drawerBg')&&$('drawerBg').classList.contains('open')) openOrder(oid); render();
 }
 
 /* ===================== HELPERS ===================== */
@@ -1003,13 +1003,27 @@ function qcMini(l){ const lab=l.qcLab?(l.qcLab.pass?'<span class="pill" style="b
 function trkTimeline(o){ const cur=BUCKETS.indexOf(orderBucket(o));
   const blocked=o.lines.some(l=>(l.qcLab&&l.qcLab.fail)||(l.qcPhys&&l.qcPhys.fail));
   return `<div class="tl">${BUCKETS.map((b,i)=>{let cls='',ic=String(i+1); if(i<cur){cls='done';ic='✓';} else if(i===cur){cls='cur';} if(blocked&&(b==='Lab QC'||b==='QA Pre-shipment')){cls='blk';ic='!';} return `<div class="tlstep"><div class="tldot ${cls}">${ic}</div><div class="tllbl">${b}</div></div>`;}).join('')}</div>`; }
+function lineLifecycleInline(o,l){
+  const groups=LIFE_GROUPS.map(([gt,fields])=>`<div class="fgroup"><div class="gt">${gt}</div><div class="fgrid">${fields.map(f=>fld(o,l,f[0],f[1],f[2])).join('')}</div></div>`).join('');
+  const rmBand = canEditField('prRaised') ? (l.soCreated
+     ? `<div style="display:flex;align-items:center;gap:9px;background:#f4f7fc;border:1px solid var(--line);border-radius:10px;padding:8px 11px;margin-bottom:10px;flex-wrap:wrap"><b style="font-size:11.5px">Raw materials:</b> ${rmStatusPill(l)}<button class="sm" style="margin-left:auto" onclick="event.stopPropagation();openRMCheck('${o.id}','${l.id}')">RM Check / Raise PR</button></div>`
+     : `<div style="background:#f4f7fc;border:1px solid var(--line);border-radius:10px;padding:8px 11px;margin-bottom:10px;font-size:11.5px;color:var(--mut)">Raw materials: <b>create the SO first (Stage 1)</b> — RM check unlocks after.</div>`) : '';
+  const mof=myOpenFields(o,l);
+  const turn = mof.length?`<div style="background:#fff8db;border:1px solid #e8d488;border-radius:9px;padding:7px 11px;margin-bottom:10px;font-size:11.5px;color:#6f5a12"><b>✎ Your turn (${state.role}):</b> fill ${mof.slice(0,6).join(', ')}${mof.length>6?' …':''}</div>`:'';
+  const sg=lineStage(o,l);
+  return `<div class="card" style="margin:0 0 10px;padding:11px 13px"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:9px"><b style="font-size:13px">${l.brand}</b> <span class="muted" style="font-size:11px">${l.base}</span> ${pill(sg,STAGE_COLOR[sg]||'--mut')}</div>${rmBand}${turn}${groups}</div>`;
+}
+function trkEditors(o){
+  const legend=`<div class="legend" style="margin:2px 0 10px"><span><i style="background:#fffada"></i>You can fill</span><span><i style="background:#e9f7ee"></i>Done</span><span><i style="background:#eef1f6"></i>Auto</span><span><i style="background:#fff0e0"></i>Plant Manager</span><span style="margin-left:auto">Acting as <b style="color:var(--navy)">${state.role}</b> — edit your fields right here</span></div>`;
+  return `<div style="margin-top:4px"><h4 style="font-size:12.5px;margin:8px 0 8px;color:var(--navy)">Update by stage — your fields are highlighted</h4>${legend}${o.lines.map(l=>lineLifecycleInline(o,l)).join('')}</div>`;
+}
 function expandedPanel(o){
   const b=orderBucket(o); const a=agg(o); const od=isOverdue(o);
   const snapItems=[['PO #',o.po],['Customer',o.client],['Channel',o.channel],['Priority',o.priority||'Normal'],['Committed delivery',o.promised||'—'],['Ordered',fmt(a.ordered)+' Kg/L'],['Current stage',b],['Status',b==='Delivered'?'Delivered':(od?daysOver(o)+'d overdue':'On time')]];
   const snap=`<div class="exp-snap">${snapItems.map(s=>`<div><div class="sl">${s[0]}</div><div class="sv">${s[1]}</div></div>`).join('')}</div>`;
   const lines=`<div style="background:#fff;border:1px solid var(--line);border-radius:10px;overflow:auto;margin-bottom:13px"><table><thead><tr><th>Product</th><th class="num">Ordered</th><th class="num">Produced</th><th class="ctr">QC</th><th class="num">Shipped</th><th class="num">Balance</th><th>Stage</th></tr></thead><tbody>${o.lines.map(l=>{const lb=lineBucket(o,l);const bal=Math.max(0,(l.ordered||0)-(l.dispatched||0));return `<tr><td><b>${l.brand}</b> <span class="muted" style="font-size:11px">${l.base}</span></td><td class="num">${fmt(l.ordered)}</td><td class="num">${fmt(l.produced||0)}</td><td class="ctr">${qcMini(l)}</td><td class="num">${fmt(l.dispatched||0)}</td><td class="num">${fmt(bal)}</td><td>${pill(lb,BUCKET_META[lb].c)}</td></tr>`;}).join('')}</tbody></table></div>`;
   const wupd=`<div class="wupd"><b>Where to update this order</b><br>PO details → <b>New PO Entry</b> (KAM) &nbsp;·&nbsp; Materials → <b>Supply Chain</b> &nbsp;·&nbsp; Production → <b>Production</b> screen &nbsp;·&nbsp; Lab result → <b>QC · Lab QC</b> &nbsp;·&nbsp; Inspection → <b>QC · QA Pre-shipment</b> &nbsp;·&nbsp; Dispatch → <b>Shipments</b></div>`;
-  return `<div class="expbody">${snap}${trkTimeline(o)}${lines}${wupd}<div style="margin-top:11px"><button class="ghost sm" onclick="event.stopPropagation();openOrder('${o.id}')">Open full record ▸</button></div></div>`;
+  return `<div class="expbody">${snap}${trkTimeline(o)}${lines}${trkEditors(o)}${wupd}<div style="margin-top:11px"><button class="ghost sm" onclick="event.stopPropagation();openOrder('${o.id}')">Open full record ▸</button></div></div>`;
 }
 function orderCard(o){
   const b=orderBucket(o); const m=BUCKET_META[b]; const a=agg(o);
@@ -1524,25 +1538,28 @@ function screenInstructions(){
    {n:'3',title:'Materials (RM)',who:'Supply Chain',when:'after the SO is created',tab:'PO Tracker → open PO',
     body:'Open the PO in the tracker and use <b>RM Check / Raise PR</b> to confirm materials or raise a purchase request. Until then the order sits at the <b>RM Check</b> stage. (RM only unlocks after the SO is created.)'},
    {n:'4',title:'Produce &amp; pack',who:'Production',when:'as production runs',tab:'Production',
-    body:'All producing is entered in the <b>Log production</b> form — either <b>Against a PO</b> (make a brand for one order) or <b>Bulk Base Production</b> (make bulk base). Bulk base then appears under <b>“Bulk base produced — pack into brands”</b>: pack it into the right <b>brand</b> and choose the <b>PO</b> it fills. The list below is a read-only status board.'},
+    body:'Production is now <b>batch + shift based</b>. <b>Open a batch</b> (Against a PO or Bulk base) with a <b>batch #</b> and planned qty, then <b>Log shift output</b> against it — date, <b>shift</b> (Morning/Evening/Night), <b>incharge</b> and qty. A shift that produced nothing needs a <b>reason</b>. The batch and PO update automatically; <b>Close</b> the batch when done. Bulk base then appears under “pack into brands”. Shifts, incharges and reasons are managed in <b>Admin · Master Data</b>.'},
    {n:'5',title:'Quality — 2 checks',who:'Lab Rep, then QA Inspector',when:'once a product is fully packed',tab:'QC · Pre-shipment',
     body:'Only <b>fully-packed</b> products appear here. First the <b>Lab Rep</b> certifies the product (Layer 1). Then the <b>QA Inspector</b> fills the <b>physical inspection checklist</b> (Layer 2). <b>Both must pass</b> before the product can be loaded — nothing ships until QC passes.'},
    {n:'6',title:'Ship',who:'Supply Chain',when:'each time a truck leaves',tab:'Shipments',
     body:'Record the dispatch (qty, date, destination, carrier, vehicle, DC #). A product closes when <b>shipped meets ordered</b>; the <b>PO closes</b> when all its products have shipped. If more than ordered is supplied, it is <b>kept and flagged</b> — never capped.'},
    {n:'7',title:'Monitor',who:'Everyone (COO / PM)',when:'anytime',tab:'PO Tracker',
-    body:'The control tower. The <b>flow bar</b> shows how many orders sit at each stage; <b>Needs-Attention</b> cards filter the list with one tap. Each order shows its <b>current stage</b> and <b>who acts next</b>. Expand a PO for its snapshot, stage timeline, product lines and a <b>“where to update”</b> guide. View-only.'},
+    body:'The control tower. The <b>flow bar</b> shows how many orders sit at each stage; <b>Needs-Attention</b> cards filter with one tap. Orders are sorted <b>new at the top → running by stage → delivered at the bottom</b>. <b>Expand a PO</b> for its snapshot, timeline and lines — and <b>edit your stage fields right there</b> (SO #, RM dates, production dates, delay reason, CFO &amp; invoice). Your fields are highlighted yellow; others are read-only. No popup needed.'},
    {n:'8',title:'Report &amp; audit',who:'Everyone',when:'anytime',tab:'Reports · Monthly · Action Log',
     body:'<b>Reports</b> lets you slice all data (by client, product, month, stage…). <b>Monthly Production</b> rolls up output and packing. The <b>Action Log</b> records every action with who did it and when.'},
+   {n:'9',title:'Fix / backfill data (setup phase)',who:'COO / admin',when:'go-live cutover only',tab:'Data Fix',
+    body:'A temporary tool to make the system match your <b>actual paper/manual records</b>. <b>Add missing</b> POs, production, packing or shipments — all <b>back-dated</b> with a reason, logged as <b>RECONCILE</b>. Download a <b>snapshot</b> first. The COO turns it <b>OFF after cutover</b>.'},
   ];
   const tabs=[
    ['New PO Entry','KAM','Create POs; brand → base &amp; pack size','→ PO Tracker'],
    ['Dealer Master','KAM','Onboard dealers (auto code)','→ New PO Entry'],
    ['PO Tracker','All (view-only)','Control tower — every order &amp; stage','consolidates all'],
-   ['Production','Production','Log output; pack bulk into brands &amp; POs','→ PO Tracker'],
+   ['Production','Production','Open batches; log shift-wise output; pack into brands','→ PO Tracker'],
    ['QC · Pre-shipment','Lab Rep + QA Inspector','2-layer Lab then physical inspection','gates Shipments'],
    ['Shipments','Supply Chain','Record dispatch; closes products &amp; PO','→ PO Tracker'],
    ['Monthly Production','Production / COO / PM','Monthly output &amp; packing rollup','—'],
    ['Reports','All','Slice &amp; view all data','—'],
+   ['Data Fix','COO (setup only)','Back-fill / correct records to match reality','temporary'],
    ['Users &amp; Access','COO','Add people, set role &amp; password','—'],
    ['Action Log','All','Timestamped audit trail','—'],
   ];

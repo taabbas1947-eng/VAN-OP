@@ -340,7 +340,7 @@ function ensureState(s){
   s.users=(s.users&&s.users.length)?s.users:deepClone(SEED.users||[]); if(s.currentUser===undefined)s.currentUser=null;
   s.rmRequests=s.rmRequests||[]; s.productionLog=s.productionLog||[]; s.packingLog=s.packingLog||[];
   s.actionLog=s.actionLog||[]; s.shipments=s.shipments||[]; s.warehouses=s.warehouses||SEED.warehouses.slice();
-  s.rawStock=s.rawStock||{}; s.rmMovements=s.rmMovements||[]; s.audit=s.audit||[]; s.masters=s.masters||deepClone(SEED.masters||{}); s.batches=s.batches||[]; s.packedStock=s.packedStock||{}; s.packingLog=s.packingLog||[]; s.orders=s.orders||[]; if(s.seq==null)s.seq=1000; ensureMasters(s); ensureProductionModel(s); return s;
+  s.rawStock=s.rawStock||{}; s.rmMovements=s.rmMovements||[]; s.audit=s.audit||[]; s.masters=s.masters||deepClone(SEED.masters||{}); s.batches=s.batches||[]; s.packedStock=s.packedStock||{}; s.packingLog=s.packingLog||[]; s.orders=s.orders||[]; if(s.seq==null)s.seq=1000; if(s.dataFixEnabled==null)s.dataFixEnabled=true; ensureMasters(s); ensureProductionModel(s); return s;
 }
 /* Lock 1: idempotent master seeding. ADDITIVE ONLY — seeds a list only when it is
    missing or empty, and never overwrites values the team has already added. Touches no
@@ -406,7 +406,19 @@ async function bootState(){
   sessionInit(state); restoreSession(); renderApp(); startSync();
 }
 function save(){ if(_saveTimer)clearTimeout(_saveTimer); _saveTimer=setTimeout(saveNow,400); }
-async function saveNow(){ if(!_token) return; try{ const r=await fetch('/api/state',{method:'POST',headers:Object.assign({'Content-Type':'application/json'},authHdr()),body:JSON.stringify(dataOnly(state))}); if(r.status===401){ setSession('',null); renderApp(); return; } if(r.ok){ const j=await r.json(); if(j&&typeof j.rev==='number') _rev=j.rev; } }catch(e){} }
+async function saveNow(){ if(!_token) return; try{
+    const r=await fetch('/api/state',{method:'POST',headers:Object.assign({'Content-Type':'application/json','X-Base-Rev':String(_rev)},authHdr()),body:JSON.stringify(dataOnly(state))});
+    if(r.status===401){ setSession('',null); renderApp(); return; }
+    if(r.status===409){
+      // Someone else saved since we loaded. Do NOT overwrite their data — pull the latest
+      // and ask the user to re-enter their last change. Protects committed data from loss.
+      const j=await r.json().catch(()=>null);
+      if(j && j.data && j.data.orders){ const cu=state.currentUser, sc=state.screen, ro=state.role, ex=state.expanded; state=ensureState(j.data); state.currentUser=cu; state.role=ro; state.screen=sc; state.expanded=ex||{}; _rev=j.rev; if(authed()) render(); }
+      toast('Someone else just saved — screen refreshed. Please re-enter your last change.');
+      return;
+    }
+    if(r.ok){ const j=await r.json(); if(j&&typeof j.rev==='number') _rev=j.rev; }
+  }catch(e){} }
 function startSync(){ if(_syncOn)return; _syncOn=true; setInterval(async ()=>{
   if(!_token) return;
   if(document.hidden) return;
@@ -539,6 +551,8 @@ const SCREENS=[
     obj:'<b>Manual.</b> The whole process \u2014 where to add, when, and how information flows.'},
   {id:'admin', name:'Admin · Master Data', ic:'\u2699\ufe0f', owners:['COO'], sub:'Manage dropdown lists',
     obj:'<b>COO / Admin.</b> Add or view dropdown values \u2014 delay reasons, responsible departments, KAM names, forms, statuses, downtime reasons. Changes flow to every dropdown.'},
+  {id:'datafix', name:'Data Fix', ic:'🔧', owners:['KAM','Supply Chain','Production','Lab Rep','QA Inspector','Plant Manager','CFO','COO'], sub:'Implementation backfill & corrections',
+    obj:'<b>Implementation tool (temporary).</b> Correct live records to match actual paper/manual data, back-dated. Every change is logged as RECONCILE. COO can turn it off after cutover.'},
   {id:'users', name:'Users & Access', ic:'\ud83d\udc65', owners:['COO'], sub:'People, roles & passwords',
     obj:'<b>COO only.</b> Add people, set each one\u2019s role and password. Everyone signs in and sees only their role\u2019s screens.'},
   {id:'log', name:'Action Log', ic:'\ud83d\udd53', owners:['KAM','Supply Chain','Production','Plant Manager','CFO','COO'], sub:'Audit trail',
@@ -561,11 +575,12 @@ const NAV_ICONS={
   admin:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
   log:'<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/>',
   reports:'<line x1="3" y1="3" x2="3" y2="21"/><line x1="3" y1="21" x2="21" y2="21"/><rect x="7" y="12" width="3" height="6"/><rect x="12" y="8" width="3" height="10"/><rect x="17" y="14" width="3" height="4"/>',
-  users:'<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>'
+  users:'<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+  datafix:'<path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18v3h3l6.3-6.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2-2 2.6-2.6z"/>'
 };
 function navIcon(id){ return NAV_ICONS[id]?`<svg viewBox="0 0 24 24">${NAV_ICONS[id]}</svg>`:''; }
 function renderNav(){
-  $('nav').innerHTML = SCREENS.map(s=>{
+  $('nav').innerHTML = SCREENS.filter(s=> s.id!=='datafix' || state.dataFixEnabled || state.role==='COO').map(s=>{
     return `<a class="${s.id===state.screen?'active':''}" onclick="setScreen('${s.id}')"><span class="ic">${navIcon(s.id)}</span>${s.name}</a>`;
   }).join('');
   const u=state.currentUser;
@@ -583,7 +598,47 @@ function render(){
   $('scTitle').textContent=s.name; $('scSub').textContent=s.sub;
   if($('helpbar')){ const EDIT_SCREENS={entry:1,dealers:1,prod:1,qc:1,ship:1,admin:1,users:1}; let editable=!!EDIT_SCREENS[s.id]; let owner=editable?(s.owners.filter(r=>r!=='COO').join(', ')||'COO'):'Everyone'; let upd=editable?'Yes':'No — view only'; if(s.id==='tracker'){ const tm={'Supply Chain':'RM Check / Raise PR','CFO':'invoice & payment fields','Plant Manager':'delay reason & responsible dept'}; if(tm[state.role]) upd='Yes — '+tm[state.role]+' (open a PO)'; } $('helpbar').innerHTML=`This screen: <b>${s.sub}</b> &nbsp;·&nbsp; Owned by: <b>${owner}</b> &nbsp;·&nbsp; Update here: <b>${upd}</b>`; }
   if($('sidefoot')) $('sidefoot').innerHTML = state.role==='COO'?'<button class="ghost sm" style="width:100%" onclick="resetSeed()">Reset demo data</button>':'';
-  ({dash:screenDash,entry:screenEntry,tracker:screenTracker,prod:screenProd,qc:screenQC,monthly:screenMonthly,ship:screenShip,reports:screenReports,dealers:screenDealers,instructions:screenInstructions,admin:screenAdmin,users:screenUsers,log:screenLog}[state.screen])();
+  ({dash:screenDash,entry:screenEntry,tracker:screenTracker,prod:screenProd,qc:screenQC,monthly:screenMonthly,ship:screenShip,reports:screenReports,dealers:screenDealers,instructions:screenInstructions,admin:screenAdmin,datafix:screenDataFix,users:screenUsers,log:screenLog}[state.screen])();
+}
+/* ===================== LOCK 4: DATA FIX (reconciliation console — safety frame) ===================== */
+function reconLog(msg, eventDate){ logAction(`RECONCILE: ${msg}${eventDate?` [event ${eventDate}]`:''}`); }
+function toggleDataFix(){
+  if(state.role!=='COO'){ toast('Only COO can change this'); return; }
+  state.dataFixEnabled = !state.dataFixEnabled;
+  logAction(`Data Fix tab ${state.dataFixEnabled?'ENABLED':'DISABLED'} by COO`);
+  save(); render();
+}
+function exportStateJSON(){
+  try{
+    const blob=new Blob([JSON.stringify(dataOnly(state),null,2)],{type:'application/json'});
+    const url=URL.createObjectURL(blob); const a=document.createElement('a');
+    a.href=url; a.download=`van-data-snapshot-${TODAY.toISOString().slice(0,10)}.json`;
+    document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+    logAction('Downloaded data snapshot (Data Fix)'); save(); toast('Snapshot downloaded');
+  }catch(e){ toast('Could not export'); }
+}
+function screenDataFix(){
+  const isCOO=state.role==='COO'; const on=!!state.dataFixEnabled;
+  if(!on && !isCOO){ $('view').innerHTML=`<div class="banner warn">The Data Fix tab is currently turned off.</div>`; return; }
+  const toggle = isCOO
+    ? `<button class="${on?'ghost':'green'} sm" onclick="toggleDataFix()">${on?'Turn OFF (after cutover)':'Turn ON'}</button>`
+    : `<span class="pill" style="background:var(--green-50);color:var(--green2)">Active</span>`;
+  const banner = on
+    ? `<div class="banner warn"><b>Implementation tool — temporary.</b> Correct live records to match your actual paper/manual data, all back-dated. Every change is logged as <b>RECONCILE</b>.${isCOO?' Turn this OFF once cutover is complete.':''}</div>`
+    : `<div class="banner info">Data Fix is <b>OFF</b>. Turn it on to use reconciliation tools. (COO only.)</div>`;
+  const ops = on ? `<div class="card"><h3>What needs fixing?</h3>
+      <div class="muted" style="font-size:12.5px;margin-bottom:12px">Pick an area — the correction tools are being built one lock at a time. This frame is live; operations arrive next.</div>
+      <div class="row">${['Order / PO','SO (Stage 1)','RM / Procurement','Production','Packing','QC (Lab)','QA (pre-shipment)','Shipment / Delivery','Inventory / Stock','Void an entry'].map(x=>`<div class="card" style="flex:1;min-width:175px;opacity:.7"><b>${x}</b><div class="muted" style="font-size:11px;margin-top:4px">Add · Correct · Reclassify — coming next lock</div></div>`).join('')}</div>
+    </div>` : '';
+  $('view').innerHTML=`${banner}
+   <div class="card"><h3>Console control</h3>
+     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+       <div>Status: <b style="color:${on?'var(--green2)':'var(--mut)'}">${on?'ON — corrections enabled':'OFF'}</b></div>
+       ${toggle}
+       <button class="sm" onclick="exportStateJSON()">⬇ Download data snapshot (JSON)</button>
+     </div>
+     <div class="muted" style="font-size:11px;margin-top:10px">Always download a snapshot before a reconciliation session — it's your restore point. The snapshot is read-only and changes nothing.</div>
+   </div>${ops}`;
 }
 
 /* ===================== 1. NEW PO ENTRY ===================== */
@@ -851,6 +906,15 @@ function screenTracker(){
   const A=attnCounts();
   let list=state.orders.filter(o=>trkMatch(o));
   if(trkSearch){ const q=trkSearch.toLowerCase(); list=list.filter(o=>((o.po||'')+' '+(o.client||'')).toLowerCase().indexOf(q)>-1); }
+  // Sort: earliest stage (new POs) at top → progressing by stage → Delivered at the bottom.
+  // Within a stage: most overdue first, then newer PO (by received date) first.
+  list=list.slice().sort((a,b)=>{
+    const ra=BUCKETS.indexOf(orderBucket(a)), rb=BUCKETS.indexOf(orderBucket(b));
+    if(ra!==rb) return ra-rb;
+    const da=daysOver(a)||0, db=daysOver(b)||0;
+    if(da!==db) return db-da;
+    return String(b.received||'').localeCompare(String(a.received||''));
+  });
   const flow=`<div class="flowbar">${BUCKETS.map(b=>{const m=BUCKET_META[b];return `<div class="flowstage" style="border-top:3px solid var(${m.c})"><div class="fs-c" style="color:var(${m.c})">${counts[b]}</div><div class="fs-n">${b}</div></div>`;}).join('')}</div>`;
   const cards=[['delayed','Delayed orders',A.delayed,'--red'],['rmblock','RM / materials',A.rmblock,'--amber'],['prod','Production pending',A.prod,'--blue'],['qc','QC pending',A.qc,'--purple'],['qahold','QA hold / fail',A.qahold,'--red'],['ready','Ready to ship',A.ready,'--green2']];
   const attn=`<div class="attngrid">${cards.map(c=>`<div class="attn ${trkFilter===c[0]?'on':''}" style="border-left-color:var(${c[3]})" onclick="trkFilter=(trkFilter==='${c[0]}'?'all':'${c[0]}');render()"><div class="a-c" style="color:var(${c[3]})">${c[2]}</div><div class="a-n">${c[1]}</div></div>`).join('')}</div>`;

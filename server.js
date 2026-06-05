@@ -57,6 +57,7 @@ if (DATABASE_URL) {
     },
     async getState() { const r = await pool.query('SELECT rev, data FROM app_state WHERE id=1'); const row = r.rows[0] || { rev: 0, data: null }; return { rev: row.rev, data: row.data ? JSON.parse(row.data) : null }; },
     async setState(d) { const r = await pool.query('UPDATE app_state SET rev=rev+1, data=$1 WHERE id=1 RETURNING rev', [JSON.stringify(d)]); return r.rows[0].rev; },
+    async setStateGuarded(baseRev, d) { const r = await pool.query('UPDATE app_state SET rev=rev+1, data=$1 WHERE id=1 AND rev=$2 RETURNING rev', [JSON.stringify(d), baseRev]); if (r.rows.length === 0) { const cur = await this.getState(); return { conflict: true, rev: cur.rev, data: cur.data }; } return { conflict: false, rev: r.rows[0].rev }; },
     async usersCount() { const r = await pool.query('SELECT count(*)::int c FROM auth_users'); return r.rows[0].c; },
     async listUsers() { const r = await pool.query('SELECT username, name, role FROM auth_users ORDER BY username'); return r.rows; },
     async getUser(u) { const r = await pool.query('SELECT username, name, role, pass_hash FROM auth_users WHERE username=$1', [u]); return r.rows[0] || null; },
@@ -73,6 +74,7 @@ if (DATABASE_URL) {
     async init() {},
     async getState() { return rd(SF, { rev: 0, data: null }); },
     async setState(d) { const c = rd(SF, { rev: 0 }); const rev = (c.rev || 0) + 1; fs.writeFileSync(SF, JSON.stringify({ rev, data: d })); return rev; },
+    async setStateGuarded(baseRev, d) { const c = rd(SF, { rev: 0, data: null }); if ((c.rev || 0) !== baseRev) { return { conflict: true, rev: c.rev || 0, data: c.data }; } const rev = (c.rev || 0) + 1; fs.writeFileSync(SF, JSON.stringify({ rev, data: d })); return { conflict: false, rev }; },
     async usersCount() { return rd(AF, []).length; },
     async listUsers() { return rd(AF, []).map(u => ({ username: u.username, name: u.name, role: u.role })); },
     async getUser(u) { return rd(AF, []).find(x => x.username === u) || null; },
@@ -114,7 +116,15 @@ app.post('/api/login', async (req, res) => {
 });
 
 app.get('/api/state', auth, async (req, res) => { try { const s = await store.getState(); res.json({ rev: s.rev, data: s.data ? stripUsers(s.data) : null }); } catch (e) { res.status(500).json({ error: String(e) }); } });
-app.post('/api/state', auth, async (req, res) => { try { res.json({ rev: await store.setState(stripUsers(req.body)) }); } catch (e) { res.status(500).json({ error: String(e) }); } });
+app.post('/api/state', auth, async (req, res) => { try {
+  const h = req.headers['x-base-rev'];
+  if (h !== undefined && h !== '' && !isNaN(Number(h))) {
+    const out = await store.setStateGuarded(Number(h), stripUsers(req.body));
+    if (out.conflict) return res.status(409).json({ conflict: true, rev: out.rev, data: out.data ? stripUsers(out.data) : null });
+    return res.json({ rev: out.rev });
+  }
+  res.json({ rev: await store.setState(stripUsers(req.body)) });
+} catch (e) { res.status(500).json({ error: String(e) }); } });
 
 app.get('/api/users', auth, async (req, res) => { try { res.json(await store.listUsers()); } catch (e) { res.status(500).json({ error: String(e) }); } });
 app.post('/api/users', auth, admin, async (req, res) => {

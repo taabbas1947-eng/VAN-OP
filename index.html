@@ -1400,6 +1400,8 @@ function openBatch(kind){
     if(!oid||!lid){toast('Pick PO and product');return;}
     if(!batchNo){toast('Enter a batch number');return;} if(batchTaken(batchNo)){toast('Batch # "'+batchNo+'" already exists — use a unique one.');return;}
     const o=state.orders.find(x=>x.id===oid); const l=o.lines.find(x=>x.id===lid);
+    const _bb=(typeof SEED!=='undefined'&&SEED.brandMap&&SEED.brandMap[l.brand]&&SEED.brandMap[l.brand].base)||l.base||l.brand;
+    if(_bb && _bb!==l.brand){ toast(l.brand+' is made from base "'+_bb+'" — produce '+_bb+' in Bulk Base, then pack it into '+l.brand+' for this PO.'); return; }
     if(!validateBatchNo(batchNo) && typeof confirm==='function' && !confirm(`Batch number "${batchNo}" doesn't match the usual format (${fmtRule}). Is it correct?`)) return;
     const cap=rmAllows(l); if(cap<=(l.produced||0)+0.001){ toast('No raw material confirmed yet — run RM Check first. (Partial RM lets you make the available qty.)'); return; } const planned=Math.max(0,Math.min(l.ordered-(l.produced||0), cap-(l.produced||0)));
     state.batches.unshift({id:'B'+(state.seq++),batchNo,kind:'po',po:o.po,lineId:l.id,base:l.base,brand:l.brand,plannedKg:planned,producedKg:0,packedKg:0,status:'open',openedDate:today,by:state.role});

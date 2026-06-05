@@ -330,6 +330,7 @@ function buildFromSeed(){
   });
   // run RM decision on each seeded order
   s.orders.forEach(o=>{ const r=rmCheck(o,s); o.rmDecision = r.ok ? 'ok' : 'short'; o.rmShortfall=r.short; });
+  ensureMasters(s);
   return s;
 }
 function ensureState(s){
@@ -337,7 +338,20 @@ function ensureState(s){
   s.users=(s.users&&s.users.length)?s.users:deepClone(SEED.users||[]); if(s.currentUser===undefined)s.currentUser=null;
   s.rmRequests=s.rmRequests||[]; s.productionLog=s.productionLog||[]; s.packingLog=s.packingLog||[];
   s.actionLog=s.actionLog||[]; s.shipments=s.shipments||[]; s.warehouses=s.warehouses||SEED.warehouses.slice();
-  s.rawStock=s.rawStock||{}; s.rmMovements=s.rmMovements||[]; s.audit=s.audit||[]; s.masters=s.masters||deepClone(SEED.masters||{}); s.batches=s.batches||[]; s.packedStock=s.packedStock||{}; s.packingLog=s.packingLog||[]; s.orders=s.orders||[]; if(s.seq==null)s.seq=1000; return s;
+  s.rawStock=s.rawStock||{}; s.rmMovements=s.rmMovements||[]; s.audit=s.audit||[]; s.masters=s.masters||deepClone(SEED.masters||{}); s.batches=s.batches||[]; s.packedStock=s.packedStock||{}; s.packingLog=s.packingLog||[]; s.orders=s.orders||[]; if(s.seq==null)s.seq=1000; ensureMasters(s); return s;
+}
+/* Lock 1: idempotent master seeding. ADDITIVE ONLY — seeds a list only when it is
+   missing or empty, and never overwrites values the team has already added. Touches no
+   transaction data. Runs on every state load (live + fresh seed). */
+function ensureMasters(s){
+  s.masters = s.masters || {};
+  var SEED_SHIFTS=['Morning','Evening','Night'];
+  var SEED_INCHARGES=['Faisal Nadeem','Adnan Rasheed','Farooq Khalid','Bilal Younas','Waqas Haider','Muhammad Imran','Muhammad Rashid','Muhammad Sajjad'];
+  var SEED_DOWNTIME=['Machine / plant breakdown','Raw material not available / shortage','Packing material shortage','Power outage / load shedding','Planned maintenance / cleaning / changeover','No production schedule / no order','Manpower / staff shortage','Quality hold / rework','Utility failure (steam / water / boiler)','Other'];
+  if(!Array.isArray(s.masters.shifts)||!s.masters.shifts.length) s.masters.shifts=SEED_SHIFTS.slice();
+  if(!Array.isArray(s.masters.incharges)||!s.masters.incharges.length) s.masters.incharges=SEED_INCHARGES.slice();
+  if(!Array.isArray(s.masters.downtimeReasons)||!s.masters.downtimeReasons.length) s.masters.downtimeReasons=SEED_DOWNTIME.slice();
+  return s;
 }
 /* ---- server-backed state: code & data are separate ---- */
 const SESSION_KEYS=['currentUser','role','screen','expanded'];
@@ -1498,7 +1512,7 @@ function screenMonthly(){
 /* ===================== ADMIN · MASTER DATA ===================== */
 function screenAdmin(){
   const ed=canEdit(['COO']);
-  const lists=[['delayReasons','Delay reasons'],['respDepts','Responsible departments'],['priorities','Priorities'],['kamNames','KAM names'],['forms','Product forms'],['statuses','Statuses'],['downtimeReasons','Downtime reasons']];
+  const lists=[['shifts','Shifts'],['incharges','Shift incharges'],['delayReasons','Delay reasons'],['respDepts','Responsible departments'],['priorities','Priorities'],['kamNames','KAM names'],['forms','Product forms'],['statuses','Statuses'],['downtimeReasons','Downtime reasons']];
   $('view').innerHTML=`
    ${ed?'':`<div class="banner warn">Owned by <b>COO / Admin</b>. You're <b>${state.role}</b> — viewing only.</div>`}
    <div class="banner info">These lists power every dropdown in the app. Add a value and it appears wherever that field is used — no code change needed.</div>

@@ -283,7 +283,8 @@ const SEED = {"generated": "2026-06-03", "note": "Master data rebuilt from clean
 </script>
 <script>
 /* ===================== STATE ===================== */
-const TODAY = new Date('2026-06-03');
+/* Live "today": real current local date (advances daily). Used app-wide via TODAY.toISOString().slice(0,10). */
+const TODAY = (function(){ var n=new Date(); return new Date(n.getTime()-n.getTimezoneOffset()*60000); })();
 const LS_KEY = 'van_tracker_state_v18';
 let state;
 
@@ -355,11 +356,11 @@ function ensureMasters(s){
   return s;
 }
 /* Lock 2: batch-number format rule.
-   Valid = 2-4 CAPITAL letters, then 5-9 digits, AND total length 8-11.
+   Valid = 2-4 CAPITAL letters, then 3-9 digits, AND total length 5-11.
    Used as a SOFT warning in the UI (Lock 3) — never hard-blocks entry. */
 function validateBatchNo(v){
   v=(v||'').trim();
-  return /^[A-Z]{2,4}[0-9]{5,9}$/.test(v) && v.length>=8 && v.length<=11;
+  return /^[A-Z]{2,4}[0-9]{3,9}$/.test(v) && v.length>=5 && v.length<=11;
 }
 /* Lock 2: shift-based production data model + migration.
    ADDITIVE / NON-DESTRUCTIVE / IDEMPOTENT — only fills missing fields, never recomputes
@@ -631,11 +632,11 @@ function screenEntry(){
          <option value="FM" ${entryVsub==='FM'?'selected':''}>FM — Farm Management</option></select></div>`:''}
      <div class="fld"><label>KAM Name</label><input id="e_kam" type="text" value="Muhammad Imran" oninput="validate()"></div>
      <div class="fld"><label>Priority</label><select id="e_pri"><option>Normal</option><option>High</option><option>Critical</option><option>Low</option></select></div>
-     <div class="fld"><label>PO Received</label><input id="e_recv" type="date" value="2026-06-03" oninput="validate()"></div>
-     <div class="fld"><label>Promised Delivery</label><input id="e_prom" type="date" value="2026-06-20" oninput="validate()"></div>
+     <div class="fld"><label>PO Received</label><input id="e_recv" type="date" value="${TODAY.toISOString().slice(0,10)}" oninput="validate()"></div>
+     <div class="fld"><label>Promised Delivery</label><input id="e_prom" type="date" value="${new Date(TODAY.getTime()+7*864e5).toISOString().slice(0,10)}" oninput="validate()"></div>
      <div class="fld"><label>Client PO # ${isManualPO()?'<span class="tag">manual</span>':'<span class="tag">auto on submit</span>'}</label>
        ${isManualPO()?`<input id="e_po" type="text" placeholder="type client's PO#" oninput="validate()">`
-         :`<input id="e_po" type="text" value="${entryChannel?genPO('2026-06-03'):''}" disabled>`}</div>
+         :`<input id="e_po" type="text" value="${entryChannel?genPO(TODAY.toISOString().slice(0,10)):''}" disabled>`}</div>
     </div></div>
    <div class="card"><h3>Step 2 — Line Items <span class="hint">pack size auto-fills, override allowed</span></h3>
     ${entryClient?'':'<div class="muted" style="font-size:12.5px">Pick a channel and client above to load brands.</div>'}
@@ -1038,30 +1039,37 @@ function screenProd(){
   const psEntries=Object.entries(state.packedStock||{}).filter(([k,v])=>v>0.5).sort((a,b)=>b[1]-a[1]);
   const allocs=[]; state.orders.forEach(o=>o.lines.forEach(l=>{ const av=(state.packedStock&&state.packedStock[l.brand])||0; if(av>0.5 && (l.packed||0)<l.ordered-0.5 && stageOf(o)!=='Delivered') allocs.push({o,l,av}); }));
   const recent=state.productionLog.slice(0,15);
+  const openBatches=(state.batches||[]).filter(b=>b.status==='open');
+  const obCard=`<div class="card"><h3>Open batches <span class="hint">${openBatches.length} open</span></h3>`+
+    (openBatches.length?`<div style="overflow:auto"><table><thead><tr><th>Batch #</th><th>Product</th><th class="num">Planned</th><th class="num">Produced</th><th class="num">Remaining</th><th>Opened</th><th style="width:250px"></th></tr></thead><tbody>`+
+      openBatches.map(b=>{const prod=b.producedKg||0,plan=b.plannedKg||0,rem=Math.max(0,plan-prod);
+        const prodName=b.kind==='po'?`${b.brand||''} <span class="muted" style="font-size:11px">${b.base||''} · ${b.po||''}</span>`:`<span class="muted">${b.base||''}</span> <span class="pill" style="background:var(--navy-50);color:var(--navy)">bulk</span>`;
+        return `<tr><td><b>${b.batchNo||'—'}</b></td><td>${prodName}</td><td class="num">${fmt(plan)}</td><td class="num">${fmt(prod)}</td><td class="num"><b style="color:${rem>0?'var(--amber)':'var(--mut)'}">${fmt(rem)}</b></td><td class="muted">${b.openedDate||b.date||''}</td><td>${ed?`<button class="sm green" onclick="openShiftLog('${b.id}')">Log shift output</button> <button class="sm ghost" onclick="closeBatch('${b.id}')">Close</button>`:''}</td></tr>`;}).join('')+
+      `</tbody></table></div>`:'<div class="muted">No open batches. Open one above to start logging shift production.</div>')+`</div>`;
   const logForm = prodMode==='po'
     ? `<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
          <div class="fld" style="flex:1;min-width:230px"><label>Purchase Order</label>
            <select id="pp_po" onchange="prodPOsel=this.value;render()"><option value="">— pick PO —</option>${pos.map(o=>`<option value="${o.id}" ${o.id===prodPOsel?'selected':''}>${o.po} · ${o.client}</option>`).join('')}</select></div>
          <div class="fld" style="flex:1;min-width:210px"><label>Product (as on the PO)</label>
            <select id="pp_line" ${selO?'':'disabled'}><option value="">${selO?'— pick product —':'pick PO first'}</option>${selO?selO.lines.map(l=>`<option value="${l.id}">${l.brand} (${fmt(l.produced||0)}/${fmt(l.ordered)} done)</option>`).join(''):''}</select></div>
-         <div class="fld" style="width:130px"><label>Produced (Kg/L)</label><input type="number" id="pp_kg" placeholder="Kg/L"></div>
-         <div class="fld" style="width:150px"><label>Date</label><input type="date" id="pp_date" value="2026-06-03"></div>
-         <button class="green" ${ed?'':'disabled'} onclick="logProdPO()">+ Log</button></div>
-       <div class="muted" style="font-size:11px;margin-top:8px">Logged under the <b>same product name as the PO</b>, capped to the order, and auto-fills the PO Tracker.</div>`
+         <div class="fld" style="width:170px"><label>Batch #</label><input type="text" id="nb_batch" placeholder="e.g. AB12345" oninput="batchNoFx(this)"></div>
+         <button class="green" ${ed?'':'disabled'} onclick="openBatch('po')">Open batch</button></div>
+       <div class="muted" style="font-size:11px;margin-top:8px">Opens a batch for this PO line (planned = remaining order qty). Log shift output against it in <b>Open batches</b> below; the PO auto-fills as shifts produce.</div>`
     : `<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
          <div class="fld" style="flex:1;min-width:240px"><label>Base Product (bulk)</label>
            <select id="pb_base"><option value="">— pick base —</option>${bases.map(b=>`<option>${b}</option>`).join('')}</select></div>
-         <div class="fld" style="width:130px"><label>Produced (Kg/L)</label><input type="number" id="pb_kg" placeholder="Kg/L"></div>
-         <div class="fld" style="width:150px"><label>Date</label><input type="date" id="pb_date" value="2026-06-03"></div>
-         <button class="green" ${ed?'':'disabled'} onclick="logProdStock()">+ Log</button></div>
-       <div class="muted" style="font-size:11px;margin-top:8px">Bulk base. Pack what is produced (below) before producing the same base again.</div>`;
+         <div class="fld" style="width:170px"><label>Batch #</label><input type="text" id="nb_batch_b" placeholder="e.g. AB12345" oninput="batchNoFx(this)"></div>
+         <div class="fld" style="width:150px"><label>Planned (Kg/L)</label><input type="number" id="nb_planned" placeholder="Kg/L"></div>
+         <button class="green" ${ed?'':'disabled'} onclick="openBatch('bulk')">Open batch</button></div>
+       <div class="muted" style="font-size:11px;margin-top:8px">Opens a bulk-base batch with a planned target. Log shift output in <b>Open batches</b> below, then pack it once produced.</div>`;
   $('view').innerHTML=`
    ${ed?'':`<div class="banner warn">Owned by <b>Production</b>. You're <b>${state.role}</b> — viewing only.</div>`}
-   <div class="card"><h3>Log production</h3>
+   <div class="card"><h3>Open a production batch</h3>
      <div class="seg" style="max-width:440px;margin-bottom:14px">
        <div class="opt full ${prodMode==='po'?'on':''}" onclick="prodMode='po';render()" style="padding:9px">Against a PO</div>
        <div class="opt full ${prodMode==='stock'?'on':''}" onclick="prodMode='stock';render()" style="padding:9px">Bulk Base Production</div>
      </div>${logForm}</div>
+   ${obCard}
 
    <div class="card"><h3>Bulk base produced — pack into brands <span class="hint">${openStock.length} base(s) ready</span></h3>
      ${openStock.length?`<table><thead><tr><th>Base</th><th class="num">Produced</th><th class="num">Packed</th><th class="num">Open</th><th>Date</th><th style="width:80px"></th></tr></thead>
@@ -1087,8 +1095,8 @@ function screenProd(){
      </div>`:''}
 
    <div class="card"><h3>Daily output log <span class="hint">${state.productionLog.length} entries</span></h3>
-     <div style="max-height:230px;overflow:auto"><table><thead><tr><th style="width:120px">Date</th><th>Base / product</th><th class="num" style="width:110px">Kg/L</th><th style="width:110px">By</th></tr></thead>
-       <tbody>${recent.length?recent.map(p=>`<tr><td class="muted">${p.date}</td><td>${p.brand?(p.brand+' '):''}<span class="muted">${p.base}</span>${p.po?(' · '+p.po):''}</td><td class="num">${fmt(p.kg)}</td><td class="muted">${p.by}</td></tr>`).join(''):'<tr><td colspan="4" class="muted">No output logged.</td></tr>'}</tbody></table></div></div>`;
+     <div style="max-height:230px;overflow:auto"><table><thead><tr><th style="width:120px">Date</th><th>Base / product</th><th class="num" style="width:100px">Kg/L</th><th style="width:90px">Shift</th><th style="width:120px">Incharge</th><th style="width:100px">By</th>${state.role==='COO'?'<th style="width:90px"></th>':''}</tr></thead>
+       <tbody>${recent.length?recent.map((p,i)=>`<tr><td class="muted">${p.date}</td><td>${p.brand?(p.brand+' '):''}<span class="muted">${p.base}</span>${p.po?(' · '+p.po):''}</td><td class="num">${fmt(p.kg)}</td><td class="muted">${p.shift||'—'}</td><td class="muted">${p.incharge||'—'}</td><td class="muted">${p.by}</td>${state.role==='COO'?`<td><button class="sm ghost" onclick="voidProdEntry(${i})">✕ remove</button></td>`:''}</tr>`).join(''):`<tr><td colspan="${state.role==='COO'?7:6}" class="muted">No output logged.</td></tr>`}</tbody></table></div></div>`;
 }
 function logProdStock(){ const base=$('pb_base').value, kg=+$('pb_kg').value, date=($('pb_date')&&$('pb_date').value)||TODAY.toISOString().slice(0,10);
   if(!base||!kg){toast('Pick base product and Kg/L');return;}
@@ -1102,9 +1110,113 @@ function logProdPO(){ const oid=$('pp_po').value, lid=$('pp_line').value, kg=+$(
   l.produced=(l.produced||0)+q; l.prodStart=l.prodStart||date; if(l.produced>=l.ordered-0.001) l.prodComplete=date;
   state.productionLog.unshift({date,base:l.base,kg:q,by:state.role,po:o.po,brand:l.brand});
   logAction(`Produced ${fmt(q)} Kg/L of ${l.brand} for ${o.po}`); save(); toast('Logged'); render(); }
-let pqForm={oid:null,lid:null,kind:'produce',qty:'',date:'2026-06-03'};
+/* COO-only: remove a mistaken production entry. Reverses the produced quantity
+   (clamped so it never drops below what's already packed) and deletes the log row.
+   Logged to the Action Log. Index maps directly to state.productionLog (recent = slice(0,15)). */
+function voidProdEntry(i){
+  if(state.role!=='COO'){ toast('Only COO can remove entries'); return; }
+  const p=state.productionLog[i]; if(!p) return;
+  const desc=`${p.date} · ${p.brand?p.brand+' ':''}${p.base||''}${p.po?(' · '+p.po):''} · ${fmt(p.kg)} Kg/L`;
+  if(typeof confirm==='function' && !confirm('Remove this production entry?\n\n'+desc+'\n\nThis reverses the produced quantity. It cannot be undone here.')) return;
+  if(p.po){
+    const o=state.orders.find(x=>x.po===p.po);
+    const l=o && (o.lines.find(x=>x.brand===p.brand) || o.lines.find(x=>x.base===p.base) || o.lines[0]);
+    if(l){ l.produced=Math.max(l.packed||0,(l.produced||0)-(p.kg||0)); if((l.produced||0) < l.ordered-0.001) l.prodComplete=''; }
+  } else {
+    const b=(state.batches||[]).find(x=>x.base===p.base && ((x.producedKg||0)-(x.packedKg||0))>0.001) || (state.batches||[]).find(x=>x.base===p.base);
+    if(b){ b.producedKg=Math.max(b.packedKg||0,(b.producedKg||0)-(p.kg||0)); }
+  }
+  state.productionLog.splice(i,1);
+  logAction(`COO removed production entry: ${desc}`);
+  save(); toast('Entry removed'); render();
+}
+/* ===================== LOCK 3: shift-based batch production ===================== */
+function batchNoFx(el){ el.style.background = (!el.value.trim()||validateBatchNo(el.value)) ? '' : '#fff8d6'; }
+function openBatch(kind){
+  const today=TODAY.toISOString().slice(0,10);
+  const fmtRule='2-4 capital letters then 3-9 digits, length 5-11';
+  if(kind==='po'){
+    const oid=$('pp_po')&&$('pp_po').value, lid=$('pp_line')&&$('pp_line').value;
+    const batchNo=(($('nb_batch')&&$('nb_batch').value)||'').trim();
+    if(!oid||!lid){toast('Pick PO and product');return;}
+    if(!batchNo){toast('Enter a batch number');return;}
+    const o=state.orders.find(x=>x.id===oid); const l=o.lines.find(x=>x.id===lid);
+    if(!validateBatchNo(batchNo) && typeof confirm==='function' && !confirm(`Batch number "${batchNo}" doesn't match the usual format (${fmtRule}). Is it correct?`)) return;
+    const planned=Math.max(0,l.ordered-(l.produced||0));
+    state.batches.unshift({id:'B'+(state.seq++),batchNo,kind:'po',po:o.po,lineId:l.id,base:l.base,brand:l.brand,plannedKg:planned,producedKg:0,packedKg:0,status:'open',openedDate:today,by:state.role});
+    logAction(`Opened PO batch ${batchNo} for ${o.po} · ${l.brand} (planned ${fmt(planned)} Kg/L)`);
+  } else {
+    const base=$('pb_base')&&$('pb_base').value;
+    const batchNo=(($('nb_batch_b')&&$('nb_batch_b').value)||'').trim();
+    const planned=+(($('nb_planned')&&$('nb_planned').value))||0;
+    if(!base){toast('Pick a base product');return;}
+    if(!batchNo){toast('Enter a batch number');return;}
+    if(planned<=0){toast('Enter a planned quantity');return;}
+    if(!validateBatchNo(batchNo) && typeof confirm==='function' && !confirm(`Batch number "${batchNo}" doesn't match the usual format (${fmtRule}). Is it correct?`)) return;
+    state.batches.unshift({id:'B'+(state.seq++),batchNo,kind:'bulk',type:'stock',base,brand:null,plannedKg:planned,producedKg:0,packedKg:0,status:'open',openedDate:today,by:state.role});
+    logAction(`Opened bulk batch ${batchNo} for ${base} (planned ${fmt(planned)} Kg/L)`);
+  }
+  save(); toast('Batch opened'); render();
+}
+let shiftForm={batchId:null,date:'',shift:'',incharge:'',qty:'',reason:'',note:''};
+function openShiftLog(batchId){
+  const b=(state.batches||[]).find(x=>x.id===batchId); if(!b){toast('Batch not found');return;}
+  const sh=(state.masters&&state.masters.shifts)||['Morning','Evening','Night'];
+  shiftForm={batchId,date:TODAY.toISOString().slice(0,10),shift:sh[0]||'',incharge:'',qty:'',reason:'',note:''};
+  renderShiftLog(); $('modalBg').classList.add('open');
+}
+function renderShiftLog(){
+  const b=(state.batches||[]).find(x=>x.id===shiftForm.batchId); if(!b)return;
+  const shifts=(state.masters&&state.masters.shifts)||[];
+  const incs=(state.masters&&state.masters.incharges)||[];
+  const reasons=(state.masters&&state.masters.downtimeReasons)||[];
+  const prod=b.producedKg||0,plan=b.plannedKg||0,rem=Math.max(0,plan-prod);
+  const name=b.kind==='po'?`${b.brand||''} · ${b.po||''}`:`${b.base||''} (bulk)`;
+  $('modal').innerHTML=`<div class="mh"><h2>Log shift output</h2><div class="sub">Batch ${b.batchNo||'—'} · ${name} · planned ${fmt(plan)} · produced ${fmt(prod)} · remaining ${fmt(rem)} Kg/L</div></div>
+   <div class="mb"><div class="formgrid" style="grid-template-columns:1fr 1fr 1fr">
+     <div class="fld"><label>Date</label><input type="date" value="${shiftForm.date}" onchange="shiftForm.date=this.value"></div>
+     <div class="fld"><label>Shift</label><select onchange="shiftForm.shift=this.value">${shifts.map(s=>`<option ${s===shiftForm.shift?'selected':''}>${s}</option>`).join('')}</select></div>
+     <div class="fld"><label>Shift incharge</label><select onchange="shiftForm.incharge=this.value"><option value="">— pick —</option>${incs.map(s=>`<option ${s===shiftForm.incharge?'selected':''}>${s}</option>`).join('')}</select></div>
+   </div>
+   <div class="formgrid" style="grid-template-columns:1fr 2fr;margin-top:10px">
+     <div class="fld"><label>Produced this shift (Kg/L)</label><input type="number" value="${shiftForm.qty}" oninput="shiftForm.qty=this.value" placeholder="0 if none"></div>
+     <div class="fld"><label>Reason (required if no/short output)</label><select onchange="shiftForm.reason=this.value"><option value="">— none —</option>${reasons.map(r=>`<option ${r===shiftForm.reason?'selected':''}>${r}</option>`).join('')}</select></div>
+   </div>
+   <div class="fld" style="margin-top:10px"><label>Note (optional)</label><input type="text" value="${shiftForm.note}" oninput="shiftForm.note=this.value" placeholder="optional"></div>
+   <div class="muted" style="font-size:11px;margin-top:8px">A shift that produced nothing must have a reason. Multiple shifts can log against this batch; the batch and PO update automatically.</div></div>
+   <div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" onclick="submitShiftLog()">Save shift output</button></div>`;
+}
+function submitShiftLog(){
+  const b=(state.batches||[]).find(x=>x.id===shiftForm.batchId); if(!b){toast('Batch not found');return;}
+  const q=+shiftForm.qty||0;
+  if(!shiftForm.shift){toast('Pick a shift');return;}
+  if(!shiftForm.incharge){toast('Pick a shift incharge');return;}
+  if(q<=0 && !shiftForm.reason){toast('No output this shift — pick a reason');return;}
+  const d=shiftForm.date||TODAY.toISOString().slice(0,10);
+  state.shiftEntries=state.shiftEntries||[];
+  state.shiftEntries.unshift({id:'SE'+(state.seq++),batchId:b.id,batchNo:b.batchNo||'',date:d,shift:shiftForm.shift,incharge:shiftForm.incharge,kg:q,reason:shiftForm.reason||'',note:shiftForm.note||'',by:state.role,ts:new Date().toISOString()});
+  b.producedKg=(b.producedKg||0)+q;
+  if(b.kind==='po'){
+    const o=state.orders.find(x=>x.po===b.po); const l=o&&o.lines.find(x=>x.id===b.lineId);
+    if(l){ l.produced=(l.produced||0)+q; l.prodStart=l.prodStart||d; if((l.produced||0)>=l.ordered-0.001) l.prodComplete=l.prodComplete||d;
+      state.productionLog.unshift({date:d,base:l.base,kg:q,by:state.role,po:o.po,brand:l.brand,shift:shiftForm.shift,incharge:shiftForm.incharge,batchNo:b.batchNo||''}); }
+  } else {
+    state.productionLog.unshift({date:d,base:b.base,kg:q,by:state.role,shift:shiftForm.shift,incharge:shiftForm.incharge,batchNo:b.batchNo||''});
+  }
+  logAction(`Shift output: ${shiftForm.shift} · ${shiftForm.incharge} · ${fmt(q)} Kg/L on batch ${b.batchNo||'—'}${q<=0?(' (no output: '+shiftForm.reason+')'):''}`);
+  save(); closeModal(); render();
+}
+function closeBatch(batchId){
+  const b=(state.batches||[]).find(x=>x.id===batchId); if(!b)return;
+  if(typeof confirm==='function' && !confirm(`Close batch ${b.batchNo||'—'}?\nProduced ${fmt(b.producedKg||0)} of planned ${fmt(b.plannedKg||0)} Kg/L.`)) return;
+  b.status='closed'; b.closedDate=TODAY.toISOString().slice(0,10);
+  if(b.kind==='po'){ const o=state.orders.find(x=>x.po===b.po); const l=o&&o.lines.find(x=>x.id===b.lineId); if(l){ l.prodComplete=l.prodComplete||b.closedDate; } }
+  logAction(`Closed batch ${b.batchNo||'—'} (${fmt(b.producedKg||0)}/${fmt(b.plannedKg||0)} Kg/L)`);
+  save(); toast('Batch closed'); render();
+}
+let pqForm={oid:null,lid:null,kind:'produce',qty:'',date:TODAY.toISOString().slice(0,10)};
 function maxFor(l,kind){ return kind==='produce'?Math.max(0,l.ordered-(l.produced||0)):Math.max(0,(l.produced||0)-(l.packed||0)); }
-function openProdQty(oid,lid,kind){ pqForm={oid,lid,kind,qty:'',date:'2026-06-03'}; renderProdQty(); $('modalBg').classList.add('open'); }
+function openProdQty(oid,lid,kind){ pqForm={oid,lid,kind,qty:'',date:TODAY.toISOString().slice(0,10)}; renderProdQty(); $('modalBg').classList.add('open'); }
 function renderProdQty(){ const o=state.orders.find(x=>x.id===pqForm.oid); const l=o.lines.find(x=>x.id===pqForm.lid); const max=maxFor(l,pqForm.kind); const verb=pqForm.kind==='produce'?'Produce':'Pack';
   $('modal').innerHTML=`<div class="mh"><h2>${verb} — ${l.brand}</h2><div class="sub">${o.po} · ordered ${fmt(l.ordered)} · produced ${fmt(l.produced||0)} · packed ${fmt(l.packed||0)} Kg/L</div></div>
    <div class="mb"><div style="background:#fff6ea;border:1px solid #f0d6a8;border-radius:10px;padding:10px 12px;margin-bottom:14px;font-size:12.5px;color:#8a5712">Running balance — <b>remaining to ${pqForm.kind}: ${fmt(max)} Kg/L</b></div>
@@ -1310,7 +1422,7 @@ function screenShip(){
 }
 let shipForm={};
 function openShip(oid,lid){ const o=state.orders.find(x=>x.id===oid); const l=o.lines.find(x=>x.id===lid); const rem=(l.packed||0)-(l.dispatched||0);
-  shipForm={oid,lid,qty:Math.round(rem),date:'2026-06-03',time:'',dest:o.client,carrier:'',vehicle:'',dc:'',bilty:'',delivered:'',remarks:''};
+  shipForm={oid,lid,qty:Math.round(rem),date:TODAY.toISOString().slice(0,10),time:'',dest:o.client,carrier:'',vehicle:'',dc:'',bilty:'',delivered:'',remarks:''};
   renderShipModal(); $('modalBg').classList.add('open'); }
 function renderShipModal(){ const o=state.orders.find(x=>x.id===shipForm.oid); const l=o.lines.find(x=>x.id===shipForm.lid); const rem=(l.packed||0)-(l.dispatched||0);
   $('modal').innerHTML=`<div class="mh"><h2>Record shipment</h2><div class="sub">${o.po} · ${l.brand} · up to ${fmt(rem)} Kg/L</div></div>

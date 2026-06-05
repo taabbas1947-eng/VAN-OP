@@ -653,7 +653,7 @@ function dfCardsHtml(){
   const card=(title,op,active)=>`<div class="card" style="flex:1;min-width:175px;${active?'':'opacity:.55'}"><b>${title}</b>`+(active?`<div style="margin-top:8px"><button class="sm green" onclick="dfStart('${op}')">Add missing…</button></div>`:`<div class="muted" style="font-size:11px;margin-top:4px">Correct · Reclassify — coming next lock</div>`)+`</div>`;
   return `<div class="card"><h3>What needs fixing?</h3>
     <div class="muted" style="font-size:12.5px;margin-bottom:12px">Add a record that happened but was never entered. Back-dated and logged as RECONCILE. (Correct / Reclassify / Void arrive in later locks.)</div>
-    <div class="row">${card('Order / PO','po',true)}${card('Production','production',true)}${card('Packing','packing',true)}${card('Shipment / Delivery','shipment',true)}</div>
+    <div class="row">${card('Order / PO','po',true)}${card('Production','production',true)}${card('Packing','packing',true)}${card('Shipment / Delivery','shipment',true)}<div class="card" style="flex:1;min-width:175px"><b>Correct values</b><div style="margin-top:8px"><button class="sm" onclick="dfStart('correct')">Correct…</button></div></div></div>
     <div class="row" style="margin-top:10px">${card('RM / Procurement','',false)}${card('QC (Lab)','',false)}${card('QA (pre-shipment)','',false)}${card('Inventory / Stock','',false)}${card('Void an entry','',false)}</div></div>`;
 }
 function dfFormHtml(op){
@@ -695,6 +695,26 @@ function dfFormHtml(op){
         <div class="fld"><label>Delivered date</label><input type="date" value="${dfForm.date2}" onchange="dfForm.date2=this.value"></div>
       </div>${dfReasonField()}
       <div style="margin-top:12px"><button class="green" onclick="dfSubmitShipment()">Add shipment record</button></div>`);
+  }
+if(op==='correct'){
+    const o=state.orders.find(x=>x.id===dfForm.oid);
+    const chans=((typeof SEED!=='undefined'&&SEED.channels)||['White Label']); const pris=(state.masters&&state.masters.priorities)||['Normal','High','Critical'];
+    const picker=`<div class="fld" style="max-width:380px"><label>Pick a PO to correct</label><select onchange="dfForm.oid=this.value;render()"><option value="">— pick PO —</option>${state.orders.map(x=>`<option value="${x.id}" ${dfForm.oid===x.id?'selected':''}>${x.po} · ${x.client}</option>`).join('')}</select></div>`;
+    if(!o) return wrap('Correct a PO — fields & quantities', picker);
+    const meta=`<div class="formgrid" style="grid-template-columns:1fr 1fr 1fr;margin-top:10px">
+       <div class="fld"><label>Customer</label><input id="co_client" type="text" value="${o.client||''}"></div>
+       <div class="fld"><label>Channel</label><select id="co_channel">${chans.map(c=>`<option ${o.channel===c?'selected':''}>${c}</option>`).join('')}</select></div>
+       <div class="fld"><label>Priority</label><select id="co_priority">${pris.map(p=>`<option ${(o.priority||'Normal')===p?'selected':''}>${p}</option>`).join('')}</select></div>
+       <div class="fld"><label>PO received</label><input id="co_received" type="date" value="${o.received||''}"></div>
+       <div class="fld"><label>Promised</label><input id="co_promised" type="date" value="${o.promised||''}"></div></div>`;
+    const lines=o.lines.map(l=>`<div style="border:1px solid var(--line);border-radius:9px;padding:9px 11px;margin-top:8px"><b style="font-size:12px">${l.brand}</b> <span class="muted" style="font-size:10.5px">${l.base}</span>
+       <div class="formgrid" style="grid-template-columns:repeat(5,1fr);margin-top:6px">
+         <div class="fld"><label>Ordered</label><input id="cl_ordered_${l.id}" type="number" value="${l.ordered||0}"></div>
+         <div class="fld"><label>Produced</label><input id="cl_produced_${l.id}" type="number" value="${l.produced||0}"></div>
+         <div class="fld"><label>Packed</label><input id="cl_packed_${l.id}" type="number" value="${l.packed||0}"></div>
+         <div class="fld"><label>Dispatched</label><input id="cl_dispatched_${l.id}" type="number" value="${l.dispatched||0}"></div>
+         <div class="fld"><label>Delivered</label><input id="cl_delivered_${l.id}" type="number" value="${l.delivered||0}"></div></div></div>`).join('');
+    return wrap('Correct a PO — fields & quantities', picker+meta+lines+`<div class="fld" style="margin-top:10px"><label>Reason / note (required)</label><input id="co_reason" type="text" placeholder="why the correction?"></div><div class="muted" style="font-size:11px;margin-top:6px">Edits the live values in place; every change is logged old → new as RECONCILE.</div><div style="margin-top:12px"><button class="green" onclick="dfSubmitCorrect()">Apply corrections</button></div>`);
   }
   if(op==='po'){
     const chans=((typeof SEED!=='undefined'&&SEED.channels)||['White Label']); const pris=(state.masters&&state.masters.priorities)||['Normal','High','Critical'];
@@ -771,6 +791,23 @@ function dfSubmitPO(){
     lines:[{id:id+'L1',brand,base,ordered:ord,committed:dfForm.promised||'',produced:0,packed:0,dispatched:0,delivered:0,soCreated:'',prRaised:'',cfoApproved:'',rmCheck:'',rmReady:'',prodStart:'',prodComplete:'',qcPass:'',dispatchDate:'',deliveredDate:'',notes:'(reconcile backfill)'}]});
   reconLog(`Added missing PO ${po} · ${client} · ${brand} ${fmt(ord)} Kg/L (received ${dfForm.received||'—'}) — ${dfForm.reason}`, dfForm.received);
   save(); toast('PO added'); dfBack();
+}
+function dfSubmitCorrect(){
+  const o=state.orders.find(x=>x.id===dfForm.oid); if(!o) return toast('Pick a PO');
+  const reason=(($('co_reason')&&$('co_reason').value)||'').trim(); if(!reason) return toast('Reason is required');
+  let n=0;
+  const setO=(field,val,label)=>{ const old=o[field]||''; val=(val==null?'':val); if(String(old)!==String(val)){ o[field]=val; reconLog(`CORRECT ${o.po} ${label}: ${old||'—'} → ${val||'—'} — ${reason}`); n++; } };
+  setO('client',(($('co_client')&&$('co_client').value)||'').trim(),'customer');
+  setO('channel',($('co_channel')&&$('co_channel').value),'channel');
+  setO('priority',($('co_priority')&&$('co_priority').value),'priority');
+  setO('received',($('co_received')&&$('co_received').value),'received date');
+  setO('promised',($('co_promised')&&$('co_promised').value),'promised date');
+  o.lines.forEach(l=>{ [['ordered','Ordered'],['produced','Produced'],['packed','Packed'],['dispatched','Dispatched'],['delivered','Delivered']].forEach(([field,label])=>{
+    const el=$('cl_'+field+'_'+l.id); if(!el) return; const nv=+el.value||0; const old=+l[field]||0;
+    if(Math.abs(nv-old)>0.001){ l[field]=nv; reconLog(`CORRECT ${o.po} · ${l.brand} ${label}: ${fmt(old)} → ${fmt(nv)} — ${reason}`); n++; }
+  }); });
+  if(!n) return toast('No changes to apply');
+  save(); toast(n+' correction(s) applied'); dfBack();
 }
 
 /* ===================== 1. NEW PO ENTRY ===================== */

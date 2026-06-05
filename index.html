@@ -662,7 +662,7 @@ function dfFormHtml(op){
   const wrap=(t,body)=>`<div class="card">${dfHead(t)}<div class="banner warn" style="margin-bottom:12px">Writes a back-dated record to live data, logged as RECONCILE. Take a snapshot first if you haven't.</div>${body}<div style="margin-top:12px">${body.indexOf('id="dfSaveBtn"')>-1?'':''}</div></div>`;
   if(op==='production'){
     const isBulk=dfForm.kind==='bulk';
-    const bases=[...new Set(Object.values((typeof SEED!=='undefined'&&SEED.brandMap)||{}).map(x=>x.base))].sort();
+    const bases=(typeof BULK_BASES!=='undefined'?BULK_BASES:[]).slice();
     const shifts=(state.masters&&state.masters.shifts)||[]; const incs=(state.masters&&state.masters.incharges)||[];
     return wrap('Add missing production',`
       <div class="seg" style="max-width:360px;margin-bottom:12px"><div class="opt full ${!isBulk?'on':''}" onclick="dfForm.kind='po';render()" style="padding:8px">Against a PO</div><div class="opt full ${isBulk?'on':''}" onclick="dfForm.kind='bulk';render()" style="padding:8px">Bulk base</div></div>
@@ -1285,12 +1285,13 @@ function rmSubmit(){ const o=state.orders.find(x=>x.id===rmForm.oid); const l=o.
 <script>
 /* ===================== PRODUCTION (PO-centric + to-stock) ===================== */
 let prodMode='po', prodPOsel='';
+const BULK_BASES=['Potassium Humate','Potassium Humate Liquid','Sulfur Coated Urea','Sulfur 70%','Amino Acid','Compost','Zinc 21%','NP 6.32','Nitro Sulfur','Liquid Phosphrous','Mg Sulphate','NPK 8.8.6','Boron 5%'];
 function brandsForBase(base){ return Object.keys(SEED.brandMap||{}).filter(b=>SEED.brandMap[b].base===base).sort(); }
 function openStockBatch(base){ return (state.batches||[]).find(b=>b.type==='stock'&&b.base===base&&b.packedKg<b.producedKg-0.001); }
 function inProdLines(){ const r=[]; state.orders.forEach(o=>o.lines.forEach(l=>{ if(stageOf(o)!=='Delivered' && (l.packed||0)<l.ordered-0.5) r.push({o,l}); })); return r; }
 function screenProd(){
   const ed=canEdit(['Production']);
-  const bases=[...new Set(Object.values(SEED.brandMap||{}).map(x=>x.base))].sort();
+  const bases=BULK_BASES.slice();
   const pos=state.orders.filter(o=>stageOf(o)!=='Delivered');
   const selO=state.orders.find(o=>o.id===prodPOsel);
   const work=inProdLines();

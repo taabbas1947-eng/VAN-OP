@@ -331,6 +331,7 @@ function buildFromSeed(){
   // run RM decision on each seeded order
   s.orders.forEach(o=>{ const r=rmCheck(o,s); o.rmDecision = r.ok ? 'ok' : 'short'; o.rmShortfall=r.short; });
   ensureMasters(s);
+  ensureProductionModel(s);
   return s;
 }
 function ensureState(s){
@@ -338,7 +339,7 @@ function ensureState(s){
   s.users=(s.users&&s.users.length)?s.users:deepClone(SEED.users||[]); if(s.currentUser===undefined)s.currentUser=null;
   s.rmRequests=s.rmRequests||[]; s.productionLog=s.productionLog||[]; s.packingLog=s.packingLog||[];
   s.actionLog=s.actionLog||[]; s.shipments=s.shipments||[]; s.warehouses=s.warehouses||SEED.warehouses.slice();
-  s.rawStock=s.rawStock||{}; s.rmMovements=s.rmMovements||[]; s.audit=s.audit||[]; s.masters=s.masters||deepClone(SEED.masters||{}); s.batches=s.batches||[]; s.packedStock=s.packedStock||{}; s.packingLog=s.packingLog||[]; s.orders=s.orders||[]; if(s.seq==null)s.seq=1000; ensureMasters(s); return s;
+  s.rawStock=s.rawStock||{}; s.rmMovements=s.rmMovements||[]; s.audit=s.audit||[]; s.masters=s.masters||deepClone(SEED.masters||{}); s.batches=s.batches||[]; s.packedStock=s.packedStock||{}; s.packingLog=s.packingLog||[]; s.orders=s.orders||[]; if(s.seq==null)s.seq=1000; ensureMasters(s); ensureProductionModel(s); return s;
 }
 /* Lock 1: idempotent master seeding. ADDITIVE ONLY — seeds a list only when it is
    missing or empty, and never overwrites values the team has already added. Touches no
@@ -351,6 +352,32 @@ function ensureMasters(s){
   if(!Array.isArray(s.masters.shifts)||!s.masters.shifts.length) s.masters.shifts=SEED_SHIFTS.slice();
   if(!Array.isArray(s.masters.incharges)||!s.masters.incharges.length) s.masters.incharges=SEED_INCHARGES.slice();
   if(!Array.isArray(s.masters.downtimeReasons)||!s.masters.downtimeReasons.length) s.masters.downtimeReasons=SEED_DOWNTIME.slice();
+  return s;
+}
+/* Lock 2: batch-number format rule.
+   Valid = 2-4 CAPITAL letters, then 5-9 digits, AND total length 8-11.
+   Used as a SOFT warning in the UI (Lock 3) — never hard-blocks entry. */
+function validateBatchNo(v){
+  v=(v||'').trim();
+  return /^[A-Z]{2,4}[0-9]{5,9}$/.test(v) && v.length>=8 && v.length<=11;
+}
+/* Lock 2: shift-based production data model + migration.
+   ADDITIVE / NON-DESTRUCTIVE / IDEMPOTENT — only fills missing fields, never recomputes
+   produced/packed totals or edits kg. Legacy production is attributed to shift "Morning". */
+function ensureProductionModel(s){
+  s.shiftEntries = s.shiftEntries || [];
+  (s.batches||[]).forEach(function(b){
+    if(b.kind==null)      b.kind = (b.po ? 'po' : 'bulk');
+    if(b.status==null)    b.status = ((b.producedKg||0) > (b.packedKg||0)) ? 'open' : 'closed';
+    if(b.plannedKg==null) b.plannedKg = b.producedKg||0;
+    if(!b.openedDate)     b.openedDate = b.date||'';
+    if(b.batchNo==null)   b.batchNo = '';            // legacy batches have no human batch # yet
+    if(b.migrated==null && b.batchNo==='') b.migrated = true;
+  });
+  (s.productionLog||[]).forEach(function(p){
+    if(p.shift==null)    p.shift = 'Morning';        // legacy/historical default
+    if(p.incharge==null) p.incharge = '(historical)';
+  });
   return s;
 }
 /* ---- server-backed state: code & data are separate ---- */

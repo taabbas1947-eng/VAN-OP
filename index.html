@@ -626,10 +626,7 @@ function screenDataFix(){
   const banner = on
     ? `<div class="banner warn"><b>Implementation tool — temporary.</b> Correct live records to match your actual paper/manual data, all back-dated. Every change is logged as <b>RECONCILE</b>.${isCOO?' Turn this OFF once cutover is complete.':''}</div>`
     : `<div class="banner info">Data Fix is <b>OFF</b>. Turn it on to use reconciliation tools. (COO only.)</div>`;
-  const ops = on ? `<div class="card"><h3>What needs fixing?</h3>
-      <div class="muted" style="font-size:12.5px;margin-bottom:12px">Pick an area — the correction tools are being built one lock at a time. This frame is live; operations arrive next.</div>
-      <div class="row">${['Order / PO','SO (Stage 1)','RM / Procurement','Production','Packing','QC (Lab)','QA (pre-shipment)','Shipment / Delivery','Inventory / Stock','Void an entry'].map(x=>`<div class="card" style="flex:1;min-width:175px;opacity:.7"><b>${x}</b><div class="muted" style="font-size:11px;margin-top:4px">Add · Correct · Reclassify — coming next lock</div></div>`).join('')}</div>
-    </div>` : '';
+  const ops = on ? (dfOp ? dfFormHtml(dfOp) : dfCardsHtml()) : '';
   $('view').innerHTML=`${banner}
    <div class="card"><h3>Console control</h3>
      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
@@ -639,6 +636,139 @@ function screenDataFix(){
      </div>
      <div class="muted" style="font-size:11px;margin-top:10px">Always download a snapshot before a reconciliation session — it's your restore point. The snapshot is read-only and changes nothing.</div>
    </div>${ops}`;
+}
+
+/* ===================== LOCK 5: Data Fix — Add-missing operations ===================== */
+let dfOp=null, dfForm={};
+function dfBack(){ dfOp=null; dfForm={}; render(); }
+function dfStart(op){ dfOp=op; dfForm={kind:'po',oid:'',lid:'',base:'',brand:'',qty:'',date:TODAY.toISOString().slice(0,10),date2:TODAY.toISOString().slice(0,10),reason:'',shift:(((state.masters&&state.masters.shifts)||['Morning'])[0]),incharge:'',po:'',client:'',channel:(((typeof SEED!=='undefined'&&SEED.channels)||['White Label'])[0]),priority:'Normal',received:TODAY.toISOString().slice(0,10),promised:new Date(TODAY.getTime()+7*864e5).toISOString().slice(0,10),ordered:''}; render(); }
+function dfReasonOk(){ return !!(dfForm.reason && String(dfForm.reason).trim()); }
+function dfPOSelect(){ return `<select onchange="dfForm.oid=this.value;dfForm.lid='';render()"><option value="">— pick PO —</option>${state.orders.map(o=>`<option value="${o.id}" ${dfForm.oid===o.id?'selected':''}>${o.po} · ${o.client}</option>`).join('')}</select>`; }
+function dfLineSelect(){ const o=state.orders.find(x=>x.id===dfForm.oid); const ls=o?o.lines:[]; return `<select onchange="dfForm.lid=this.value" ${o?'':'disabled'}><option value="">${o?'— pick product —':'pick PO first'}</option>${ls.map(l=>`<option value="${l.id}" ${dfForm.lid===l.id?'selected':''}>${l.brand} (${fmt(l.produced||0)}/${fmt(l.ordered)})</option>`).join('')}</select>`; }
+function dfReasonField(){ const rs=(state.masters&&state.masters.downtimeReasons)||[]; return `<div class="fld" style="margin-top:10px"><label>Reason / note (required)</label><input type="text" value="${dfForm.reason||''}" oninput="dfForm.reason=this.value" placeholder="why was this missed?" list="dfreasons"><datalist id="dfreasons">${rs.map(r=>`<option>${r}</option>`).join('')}</datalist></div>`; }
+function dfHead(t){ return `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><h3 style="margin:0">${t}</h3><button class="ghost sm" onclick="dfBack()">← Back</button></div>`; }
+function dfCardsHtml(){
+  const card=(title,op,active)=>`<div class="card" style="flex:1;min-width:175px;${active?'':'opacity:.55'}"><b>${title}</b>`+(active?`<div style="margin-top:8px"><button class="sm green" onclick="dfStart('${op}')">Add missing…</button></div>`:`<div class="muted" style="font-size:11px;margin-top:4px">Correct · Reclassify — coming next lock</div>`)+`</div>`;
+  return `<div class="card"><h3>What needs fixing?</h3>
+    <div class="muted" style="font-size:12.5px;margin-bottom:12px">Add a record that happened but was never entered. Back-dated and logged as RECONCILE. (Correct / Reclassify / Void arrive in later locks.)</div>
+    <div class="row">${card('Order / PO','po',true)}${card('Production','production',true)}${card('Packing','packing',true)}${card('Shipment / Delivery','shipment',true)}</div>
+    <div class="row" style="margin-top:10px">${card('SO (Stage 1)','',false)}${card('RM / Procurement','',false)}${card('QC (Lab)','',false)}${card('QA (pre-shipment)','',false)}${card('Inventory / Stock','',false)}${card('Void an entry','',false)}</div></div>`;
+}
+function dfFormHtml(op){
+  const wrap=(t,body)=>`<div class="card">${dfHead(t)}<div class="banner warn" style="margin-bottom:12px">Writes a back-dated record to live data, logged as RECONCILE. Take a snapshot first if you haven't.</div>${body}<div style="margin-top:12px">${body.indexOf('id="dfSaveBtn"')>-1?'':''}</div></div>`;
+  if(op==='production'){
+    const isBulk=dfForm.kind==='bulk';
+    const bases=[...new Set(Object.values((typeof SEED!=='undefined'&&SEED.brandMap)||{}).map(x=>x.base))].sort();
+    const shifts=(state.masters&&state.masters.shifts)||[]; const incs=(state.masters&&state.masters.incharges)||[];
+    return wrap('Add missing production',`
+      <div class="seg" style="max-width:360px;margin-bottom:12px"><div class="opt full ${!isBulk?'on':''}" onclick="dfForm.kind='po';render()" style="padding:8px">Against a PO</div><div class="opt full ${isBulk?'on':''}" onclick="dfForm.kind='bulk';render()" style="padding:8px">Bulk base</div></div>
+      <div class="formgrid" style="grid-template-columns:1fr 1fr 1fr">
+        ${isBulk?`<div class="fld"><label>Base product</label><select onchange="dfForm.base=this.value"><option value="">— pick base —</option>${bases.map(x=>`<option ${dfForm.base===x?'selected':''}>${x}</option>`).join('')}</select></div>`:`<div class="fld"><label>Purchase Order</label>${dfPOSelect()}</div><div class="fld"><label>Product</label>${dfLineSelect()}</div>`}
+        <div class="fld"><label>Quantity produced (Kg/L)</label><input type="number" value="${dfForm.qty||''}" oninput="dfForm.qty=this.value"></div>
+      </div>
+      <div class="formgrid" style="grid-template-columns:1fr 1fr 1fr;margin-top:10px">
+        <div class="fld"><label>Date (actual)</label><input type="date" value="${dfForm.date}" onchange="dfForm.date=this.value"></div>
+        <div class="fld"><label>Shift</label><select onchange="dfForm.shift=this.value">${shifts.map(x=>`<option ${dfForm.shift===x?'selected':''}>${x}</option>`).join('')}</select></div>
+        <div class="fld"><label>Incharge</label><select onchange="dfForm.incharge=this.value"><option value="">— pick —</option>${incs.map(x=>`<option ${dfForm.incharge===x?'selected':''}>${x}</option>`).join('')}</select></div>
+      </div>${dfReasonField()}
+      <div style="margin-top:12px"><button class="green" onclick="dfSubmitProduction()">Add production record</button></div>`);
+  }
+  if(op==='packing'){
+    return wrap('Add missing packing',`
+      <div class="formgrid" style="grid-template-columns:1fr 1fr 1fr">
+        <div class="fld"><label>Purchase Order</label>${dfPOSelect()}</div><div class="fld"><label>Product</label>${dfLineSelect()}</div>
+        <div class="fld"><label>Quantity packed (Kg/L)</label><input type="number" value="${dfForm.qty||''}" oninput="dfForm.qty=this.value"></div>
+      </div>
+      <div class="formgrid" style="grid-template-columns:1fr;max-width:220px;margin-top:10px"><div class="fld"><label>Date (actual)</label><input type="date" value="${dfForm.date}" onchange="dfForm.date=this.value"></div></div>${dfReasonField()}
+      <div style="margin-top:12px"><button class="green" onclick="dfSubmitPacking()">Add packing record</button></div>`);
+  }
+  if(op==='shipment'){
+    return wrap('Add missing shipment / delivery',`
+      <div class="formgrid" style="grid-template-columns:1fr 1fr 1fr">
+        <div class="fld"><label>Purchase Order</label>${dfPOSelect()}</div><div class="fld"><label>Product</label>${dfLineSelect()}</div>
+        <div class="fld"><label>Quantity (Kg/L)</label><input type="number" value="${dfForm.qty||''}" oninput="dfForm.qty=this.value"></div>
+      </div>
+      <div class="formgrid" style="grid-template-columns:1fr 1fr;max-width:460px;margin-top:10px">
+        <div class="fld"><label>Dispatch date</label><input type="date" value="${dfForm.date}" onchange="dfForm.date=this.value"></div>
+        <div class="fld"><label>Delivered date</label><input type="date" value="${dfForm.date2}" onchange="dfForm.date2=this.value"></div>
+      </div>${dfReasonField()}
+      <div style="margin-top:12px"><button class="green" onclick="dfSubmitShipment()">Add shipment record</button></div>`);
+  }
+  if(op==='po'){
+    const chans=((typeof SEED!=='undefined'&&SEED.channels)||['White Label']); const pris=(state.masters&&state.masters.priorities)||['Normal','High','Critical'];
+    const allBrands=Object.keys((typeof SEED!=='undefined'&&SEED.brandMap)||{}).sort();
+    return wrap('Add missing PO',`
+      <div class="formgrid" style="grid-template-columns:1fr 1fr 1fr">
+        <div class="fld"><label>PO #</label><input type="text" value="${dfForm.po||''}" oninput="dfForm.po=this.value"></div>
+        <div class="fld"><label>Customer</label><input type="text" value="${dfForm.client||''}" oninput="dfForm.client=this.value"></div>
+        <div class="fld"><label>Channel</label><select onchange="dfForm.channel=this.value">${chans.map(c=>`<option ${dfForm.channel===c?'selected':''}>${c}</option>`).join('')}</select></div>
+      </div>
+      <div class="formgrid" style="grid-template-columns:1fr 1fr 1fr;margin-top:10px">
+        <div class="fld"><label>Priority</label><select onchange="dfForm.priority=this.value">${pris.map(p=>`<option ${dfForm.priority===p?'selected':''}>${p}</option>`).join('')}</select></div>
+        <div class="fld"><label>PO received (actual)</label><input type="date" value="${dfForm.received}" onchange="dfForm.received=this.value"></div>
+        <div class="fld"><label>Promised delivery</label><input type="date" value="${dfForm.promised}" onchange="dfForm.promised=this.value"></div>
+      </div>
+      <div class="formgrid" style="grid-template-columns:2fr 1fr;margin-top:10px">
+        <div class="fld"><label>Product / brand</label><input type="text" value="${dfForm.brand||''}" oninput="dfForm.brand=this.value" list="dfbrands"><datalist id="dfbrands">${allBrands.map(x=>`<option>${x}</option>`).join('')}</datalist></div>
+        <div class="fld"><label>Ordered (Kg/L)</label><input type="number" value="${dfForm.ordered||''}" oninput="dfForm.ordered=this.value"></div>
+      </div>${dfReasonField()}
+      <div class="muted" style="font-size:11px;margin-top:6px">Adds a single-product PO. For multi-product orders use New PO Entry (it also back-dates).</div>
+      <div style="margin-top:12px"><button class="green" onclick="dfSubmitPO()">Add PO</button></div>`);
+  }
+  return `<div class="card">Unknown operation. <button class="ghost sm" onclick="dfBack()">← Back</button></div>`;
+}
+function dfSubmitProduction(){
+  if(!dfReasonOk()) return toast('Reason is required');
+  const q=+dfForm.qty||0; if(q<=0) return toast('Enter a quantity');
+  const d=dfForm.date||TODAY.toISOString().slice(0,10); const sh=dfForm.shift||'Morning'; const inc=dfForm.incharge||'';
+  if(dfForm.kind==='bulk'){
+    const base=dfForm.base; if(!base) return toast('Pick a base product');
+    let b=(state.batches||[]).find(x=>x.base===base&&x.status==='open');
+    if(b){ b.producedKg=(b.producedKg||0)+q; } else { state.batches.unshift({id:'B'+(state.seq++),batchNo:'',kind:'bulk',type:'stock',base,brand:null,plannedKg:q,producedKg:q,packedKg:0,status:'closed',openedDate:d,closedDate:d,by:state.role,recon:true}); }
+    state.productionLog.unshift({date:d,base,kg:q,by:state.role,shift:sh,incharge:inc,recon:true});
+    reconLog(`Added missing production: ${fmt(q)} Kg/L bulk ${base} — ${dfForm.reason}`, d);
+  } else {
+    const o=state.orders.find(x=>x.id===dfForm.oid); const l=o&&o.lines.find(x=>x.id===dfForm.lid);
+    if(!l) return toast('Pick PO and product');
+    l.produced=(l.produced||0)+q; l.prodStart=l.prodStart||d; if((l.produced||0)>=l.ordered-0.001) l.prodComplete=l.prodComplete||d;
+    state.productionLog.unshift({date:d,base:l.base,kg:q,by:state.role,po:o.po,brand:l.brand,shift:sh,incharge:inc,recon:true});
+    reconLog(`Added missing production: ${fmt(q)} Kg/L ${l.brand} on ${o.po} — ${dfForm.reason}`, d);
+  }
+  save(); toast('Production backfilled'); dfBack();
+}
+function dfSubmitPacking(){
+  if(!dfReasonOk()) return toast('Reason is required');
+  const q=+dfForm.qty||0; if(q<=0) return toast('Enter a quantity');
+  const d=dfForm.date||TODAY.toISOString().slice(0,10);
+  const o=state.orders.find(x=>x.id===dfForm.oid); const l=o&&o.lines.find(x=>x.id===dfForm.lid);
+  if(!l) return toast('Pick PO and product');
+  l.packed=(l.packed||0)+q; l.produced=Math.max(l.produced||0,l.packed); l.prodStart=l.prodStart||d; if((l.packed||0)>=l.ordered-0.5) l.prodComplete=l.prodComplete||d;
+  (state.packingLog=state.packingLog||[]).unshift({date:d,base:l.base,brand:l.brand,kg:q,by:state.role,po:o.po,recon:true});
+  reconLog(`Added missing packing: ${fmt(q)} Kg/L ${l.brand} on ${o.po} — ${dfForm.reason}`, d);
+  save(); toast('Packing backfilled'); dfBack();
+}
+function dfSubmitShipment(){
+  if(!dfReasonOk()) return toast('Reason is required');
+  const q=+dfForm.qty||0; if(q<=0) return toast('Enter a quantity');
+  const dd=dfForm.date||TODAY.toISOString().slice(0,10); const dl=dfForm.date2||dd;
+  const o=state.orders.find(x=>x.id===dfForm.oid); const l=o&&o.lines.find(x=>x.id===dfForm.lid);
+  if(!l) return toast('Pick PO and product');
+  l.dispatched=(l.dispatched||0)+q; l.delivered=(l.delivered||0)+q; l.dispatchDate=l.dispatchDate||dd; l.deliveredDate=dl;
+  state.shipments.unshift({po:o.po,brand:l.brand,kg:q,dispatch:dd,delivered:dl,warehouse:((state.warehouses&&state.warehouses[0])||''),by:state.role,recon:true});
+  reconLog(`Added missing shipment: ${fmt(q)} Kg/L ${l.brand} on ${o.po} (dispatch ${dd}, delivered ${dl}) — ${dfForm.reason}`, dd);
+  save(); toast('Shipment backfilled'); dfBack();
+}
+function dfSubmitPO(){
+  if(!dfReasonOk()) return toast('Reason is required');
+  const po=(dfForm.po||'').trim(), client=(dfForm.client||'').trim(), brand=(dfForm.brand||'').trim(), ord=+dfForm.ordered||0;
+  if(!po) return toast('Enter PO #'); if(!client) return toast('Enter customer'); if(!brand) return toast('Enter product/brand'); if(ord<=0) return toast('Enter ordered qty');
+  if(state.orders.some(o=>o.po===po)) return toast('A PO with that number already exists');
+  const base=((typeof SEED!=='undefined'&&SEED.brandMap&&SEED.brandMap[brand]&&SEED.brandMap[brand].base))||brand;
+  const id='O'+(state.seq++);
+  state.orders.unshift({id,po,client,channel:dfForm.channel||'White Label',priority:dfForm.priority||'Normal',promised:dfForm.promised||'',received:dfForm.received||'',rmDecision:'pending',recon:true,
+    lines:[{id:id+'L1',brand,base,ordered:ord,committed:dfForm.promised||'',produced:0,packed:0,dispatched:0,delivered:0,soCreated:'',prRaised:'',cfoApproved:'',rmCheck:'',rmReady:'',prodStart:'',prodComplete:'',qcPass:'',dispatchDate:'',deliveredDate:'',notes:'(reconcile backfill)'}]});
+  reconLog(`Added missing PO ${po} · ${client} · ${brand} ${fmt(ord)} Kg/L (received ${dfForm.received||'—'}) — ${dfForm.reason}`, dfForm.received);
+  save(); toast('PO added'); dfBack();
 }
 
 /* ===================== 1. NEW PO ENTRY ===================== */

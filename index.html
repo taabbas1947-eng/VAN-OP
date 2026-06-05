@@ -654,7 +654,7 @@ function dfCardsHtml(){
   return `<div class="card"><h3>What needs fixing?</h3>
     <div class="muted" style="font-size:12.5px;margin-bottom:12px">Add a record that happened but was never entered. Back-dated and logged as RECONCILE. (Correct / Reclassify / Void arrive in later locks.)</div>
     <div class="row">${card('Order / PO','po',true)}${card('Production','production',true)}${card('Packing','packing',true)}${card('Shipment / Delivery','shipment',true)}</div>
-    <div class="row" style="margin-top:10px">${card('SO (Stage 1)','',false)}${card('RM / Procurement','',false)}${card('QC (Lab)','',false)}${card('QA (pre-shipment)','',false)}${card('Inventory / Stock','',false)}${card('Void an entry','',false)}</div></div>`;
+    <div class="row" style="margin-top:10px">${card('RM / Procurement','',false)}${card('QC (Lab)','',false)}${card('QA (pre-shipment)','',false)}${card('Inventory / Stock','',false)}${card('Void an entry','',false)}</div></div>`;
 }
 function dfFormHtml(op){
   const wrap=(t,body)=>`<div class="card">${dfHead(t)}<div class="banner warn" style="margin-bottom:12px">Writes a back-dated record to live data, logged as RECONCILE. Take a snapshot first if you haven't.</div>${body}<div style="margin-top:12px">${body.indexOf('id="dfSaveBtn"')>-1?'':''}</div></div>`;
@@ -1019,13 +1019,25 @@ function trkEditors(o){
   const legend=`<div class="legend" style="margin:2px 0 10px"><span><i style="background:#fffada"></i>You can fill</span><span><i style="background:#e9f7ee"></i>Done</span><span><i style="background:#eef1f6"></i>Auto</span><span><i style="background:#fff0e0"></i>Plant Manager</span><span style="margin-left:auto">Acting as <b style="color:var(--navy)">${state.role}</b> — edit your fields right here</span></div>`;
   return `<div style="margin-top:4px"><h4 style="font-size:12.5px;margin:8px 0 8px;color:var(--navy)">Update by stage — your fields are highlighted</h4>${legend}${o.lines.map(l=>lineLifecycleInline(o,l)).join('')}</div>`;
 }
+function trkJourney(o){
+  const stamp=(lbl,val,extra)=>`<div style="min-width:92px"><div class="muted" style="font-size:9px;text-transform:uppercase;letter-spacing:.3px">${lbl}</div><div style="font-size:11.5px;${val?'font-weight:600':'color:var(--mut)'}">${val||'—'}${extra?` <span class="muted" style="font-size:10px">${extra}</span>`:''}</div></div>`;
+  const rows=o.lines.map(l=>{
+    const rmTxt=l.rmStatus?(l.rmStatus==='received'?'received':l.rmStatus):'';
+    return `<div style="border:1px solid var(--line);border-radius:9px;padding:9px 11px;margin-bottom:8px">
+      <div style="font-weight:600;font-size:12px;margin-bottom:6px">${l.brand} <span class="muted" style="font-weight:400;font-size:10.5px">${l.base}</span></div>
+      <div style="display:flex;flex-wrap:wrap;gap:11px 16px">
+        ${stamp('Acknowledged',o.ackDate)}${stamp('RM Check',l.rmCheck||rmTxt)}${stamp('PR Raised',l.prRaised)}${stamp('CFO Approved',l.cfoApproved)}${stamp('RM Received',l.rmReceivedDate,l.grn?('GRN '+l.grn):'')}${stamp('Prod Start',l.prodStart)}${stamp('Prod Complete',l.prodComplete)}${stamp('QC Pass',l.qcPass)}${stamp('Dispatched',l.dispatchDate)}${stamp('Delivered',l.deliveredDate)}
+      </div></div>`;
+  }).join('');
+  return `<div style="margin-top:4px"><h4 style="font-size:12.5px;margin:8px 0 8px;color:var(--navy)">PO journey — what happened at each stage</h4>${rows}</div>`;
+}
 function expandedPanel(o){
   const b=orderBucket(o); const a=agg(o); const od=isOverdue(o);
   const snapItems=[['PO #',o.po],['Customer',o.client],['Channel',o.channel],['Priority',o.priority||'Normal'],['Committed delivery',o.promised||'—'],['Ordered',fmt(a.ordered)+' Kg/L'],['Current stage',b],['Status',b==='Delivered'?'Delivered':(od?daysOver(o)+'d overdue':'On time')]];
   const snap=`<div class="exp-snap">${snapItems.map(s=>`<div><div class="sl">${s[0]}</div><div class="sv">${s[1]}</div></div>`).join('')}</div>`;
   const lines=`<div style="background:#fff;border:1px solid var(--line);border-radius:10px;overflow:auto;margin-bottom:13px"><table><thead><tr><th>Product</th><th class="num">Ordered</th><th class="num">Produced</th><th class="ctr">QC</th><th class="num">Shipped</th><th class="num">Balance</th><th>Stage</th></tr></thead><tbody>${o.lines.map(l=>{const lb=lineBucket(o,l);const bal=Math.max(0,(l.ordered||0)-(l.dispatched||0));return `<tr><td><b>${l.brand}</b> <span class="muted" style="font-size:11px">${l.base}</span></td><td class="num">${fmt(l.ordered)}</td><td class="num">${fmt(l.produced||0)}</td><td class="ctr">${qcMini(l)}</td><td class="num">${fmt(l.dispatched||0)}</td><td class="num">${fmt(bal)}</td><td>${pill(lb,BUCKET_META[lb].c)}</td></tr>`;}).join('')}</tbody></table></div>`;
   const wupd=`<div class="wupd"><b>Where to update this order</b><br>PO details → <b>New PO Entry</b> (KAM) &nbsp;·&nbsp; Materials → <b>Supply Chain</b> &nbsp;·&nbsp; Production → <b>Production</b> screen &nbsp;·&nbsp; Lab result → <b>QC · Lab QC</b> &nbsp;·&nbsp; Inspection → <b>QC · QA Pre-shipment</b> &nbsp;·&nbsp; Dispatch → <b>Shipments</b></div>`;
-  return `<div class="expbody">${snap}${trkTimeline(o)}${lines}${trkEditors(o)}${wupd}<div style="margin-top:11px"><button class="ghost sm" onclick="event.stopPropagation();openOrder('${o.id}')">Open full record ▸</button></div></div>`;
+  return `<div class="expbody">${snap}${trkTimeline(o)}${lines}${trkJourney(o)}${wupd}<div style="margin-top:11px"><button class="ghost sm" onclick="event.stopPropagation();openOrder('${o.id}')">Open full record ▸</button></div></div>`;
 }
 function orderCard(o){
   const b=orderBucket(o); const m=BUCKET_META[b]; const a=agg(o);
@@ -1038,7 +1050,7 @@ function orderCard(o){
   const nextAct=delivered?'<span class="muted" style="font-size:11.5px">No action needed</span>':`<span class="rbadge">${m.owner}</span><div class="muted" style="font-size:10px;margin-top:3px">${m.where}</div>`;
   return `<div class="ordrow"><div class="ohead" onclick="toggleExpand('${o.id}',event)">
     <div><span class="chev">${exp?'▾':'▸'}</span> <b style="font-size:14px">${o.po}</b></div>
-    <div><div style="font-weight:600">${o.client}</div><div class="muted" style="font-size:11px">${o.channel} · ${o.priority||'Normal'}${overTag}</div></div>
+    <div><div style="font-weight:600;font-size:12px;line-height:1.15">${o.client}</div><div class="muted" style="font-size:11px">${o.channel} · ${o.priority||'Normal'}${overTag}</div></div>
     <div><div class="muted" style="font-size:9.5px;text-transform:uppercase;letter-spacing:.4px">Ordered</div><b>${fmt(a.ordered)} Kg/L</b></div>
     <div><div class="muted" style="font-size:9.5px;text-transform:uppercase;letter-spacing:.4px">Current stage</div>${pill(b,m.c)}${mixed?' <span class="pill" style="background:var(--amber-50);color:var(--amber);font-size:9px;padding:2px 7px" title="products are at different stages — expand to see">Mixed</span>':''}</div>
     <div><div class="muted" style="font-size:9.5px;text-transform:uppercase;letter-spacing:.4px">Fulfilment</div><div style="display:flex;align-items:center;gap:8px"><div class="pbar" style="flex:1"><i style="width:${Math.min(100,f)}%;background:${barcol}"></i></div><b style="font-size:12px">${f}%</b></div></div>
@@ -1586,7 +1598,7 @@ function screenInstructions(){
    {n:'2',title:'Add the order',who:'KAM',when:'when a customer PO arrives',tab:'New PO Entry',
     body:'Pick <b>Channel → Client</b> (or Dealer) → add each <b>product</b> with quantity in <b>Kg/L</b> and a <b>committed delivery date</b>. New dealer? Add them in <b>Dealer Master</b> first. On <b>Submit</b>, the order drops into the <b>PO Tracker</b> at stage “PO Created”.'},
    {n:'3',title:'Materials (RM)',who:'Supply Chain',when:'after the SO is created',tab:'PO Tracker → open PO',
-    body:'Open the PO in the tracker and use <b>RM Check / Raise PR</b> to confirm materials or raise a purchase request. Until then the order sits at the <b>RM Check</b> stage. (RM only unlocks after the SO is created.)'},
+    body:'Supply Chain works the PO from the <b>Approvals &amp; Actions</b> tab: <b>Acknowledge</b> the PO, then run <b>RM Check</b>. Full RM unlocks production; partial lets production make the available qty and raises a <b>PR</b>. <b>CFO</b> approves the PR (tracked); when material arrives Supply Chain <b>closes the PR</b> with the received date + <b>GRN #</b>. Every step is timestamped on the PO journey.'},
    {n:'4',title:'Produce &amp; pack',who:'Production',when:'as production runs',tab:'Production',
     body:'Production is now <b>batch + shift based</b>. <b>Open a batch</b> (Against a PO or Bulk base) with a <b>batch #</b> and planned qty, then <b>Log shift output</b> against it — date, <b>shift</b> (Morning/Evening/Night), <b>incharge</b> and qty. A shift that produced nothing needs a <b>reason</b>. The batch and PO update automatically; <b>Close</b> the batch when done. Bulk base then appears under “pack into brands”. Shifts, incharges and reasons are managed in <b>Admin · Master Data</b>.'},
    {n:'5',title:'Quality — 2 checks',who:'Lab Rep, then QA Inspector',when:'once a product is fully packed',tab:'QC · Pre-shipment',
@@ -1594,7 +1606,7 @@ function screenInstructions(){
    {n:'6',title:'Ship',who:'Supply Chain',when:'each time a truck leaves',tab:'Shipments',
     body:'Record the dispatch (qty, date, destination, carrier, vehicle, DC #). A product closes when <b>shipped meets ordered</b>; the <b>PO closes</b> when all its products have shipped. If more than ordered is supplied, it is <b>kept and flagged</b> — never capped.'},
    {n:'7',title:'Monitor',who:'Everyone (COO / PM)',when:'anytime',tab:'PO Tracker',
-    body:'The control tower. The <b>flow bar</b> shows how many orders sit at each stage; <b>Needs-Attention</b> cards filter with one tap. Orders are sorted <b>new at the top → running by stage → delivered at the bottom</b>. <b>Expand a PO</b> for its snapshot, timeline and lines — and <b>edit your stage fields right there</b> (SO #, RM dates, production dates, delay reason, CFO &amp; invoice). Your fields are highlighted yellow; others are read-only. No popup needed.'},
+    body:'The control tower — <b>view-only status</b>. The flow bar shows how many orders sit at each stage; attention cards filter with one tap. Orders are sorted new at the top, delivered at the bottom. <b>Expand a PO</b> to see its full <b>journey</b> — every stage with its date (acknowledged, RM check, PR, CFO approved, RM received + GRN, production, QC, dispatch, delivered) — so you see exactly what happened and how it became the shipment. Actions happen in <b>Approvals &amp; Actions</b>.'},
    {n:'8',title:'Report &amp; audit',who:'Everyone',when:'anytime',tab:'Reports · Monthly · Action Log',
     body:'<b>Reports</b> lets you slice all data (by client, product, month, stage…). <b>Monthly Production</b> rolls up output and packing. The <b>Action Log</b> records every action with who did it and when.'},
    {n:'9',title:'Fix / backfill data (setup phase)',who:'COO / admin',when:'go-live cutover only',tab:'Data Fix',
@@ -1603,6 +1615,7 @@ function screenInstructions(){
   const tabs=[
    ['New PO Entry','KAM','Create POs; brand → base &amp; pack size','→ PO Tracker'],
    ['Dealer Master','KAM','Onboard dealers (auto code)','→ New PO Entry'],
+   ['Approvals &amp; Actions','All (your queue)','Acknowledge, RM check, approve/close PR, produce, QC, QA, ship, delay — timestamped','feeds the tracker'],
    ['PO Tracker','All (view-only)','Control tower — every order &amp; stage','consolidates all'],
    ['Production','Production','Open batches; log shift-wise output; pack into brands','→ PO Tracker'],
    ['QC · Pre-shipment','Lab Rep + QA Inspector','2-layer Lab then physical inspection','gates Shipments'],

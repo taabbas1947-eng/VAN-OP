@@ -1761,7 +1761,7 @@ function saveShip(){ const o=state.orders.find(x=>x.id===shipForm.oid); const l=
   save(); closeModal(); render(); }
 
 /* ===================== EXECUTIVE DASHBOARD (CEO / COO) ===================== */
-let charts={};
+let charts={}; let _dash=null;
 let dashCycExpand=-1;
 const CYCSTEPS=[['PO → SO','received','soCreated'],['SO → PR','soCreated','prRaised'],['PR → RM ready','prRaised','rmReady'],['RM → Production','rmReady','prodStart'],['Production','prodStart','prodComplete'],['Production → QC','prodComplete','qcPass'],['QC → Dispatch','qcPass','dispatchDate'],['Dispatch → Delivered','dispatchDate','deliveredDate']];
 function cycField(o,l,f){ return f==='received'?o.received:l[f]; }
@@ -1820,143 +1820,112 @@ function dashPeriodCard(){
     ${cmpToggle}${bdTable}</div>`;
 }
 function screenDash(){
-  const os=state.orders||[];
-  const today=TODAY; const monthKey=today.toISOString().slice(0,7);
-  const dnum=(d)=>{ if(!d) return null; const t=new Date(d); if(isNaN(t)) return null; return Math.round((t-today)/86400000); };
-  const ageDays=(d)=>{ if(!d) return null; const t=new Date(d); if(isNaN(t)) return null; return Math.max(0,Math.round((today-t)/86400000)); };
+  const os=state.orders||[]; const today=TODAY; const monthKey=today.toISOString().slice(0,7);
+  const dnum=(d)=>{ if(!d)return null; const t=new Date(d); if(isNaN(t))return null; return Math.round((t-today)/86400000); };
+  const ageDays=(d)=>{ if(!d)return null; const t=new Date(d); if(isNaN(t))return null; return Math.max(0,Math.round((today-t)/86400000)); };
   const info=(o,l)=>{ const b=lineBucket(o,l);
-    const ordered=l.ordered||0, produced=l.produced||0, packed=l.packed||0, ship=l.dispatched||0, deliv=l.delivered||0;
-    const qcC=l.qcPass?packed:0; const bal=Math.max(0,ordered-ship);
-    const committed=o.promised||l.committed||''; const days=dnum(committed); const isDeliv=(b==='Delivered');
-    const overdue=!isDeliv && days!=null && days<0 && bal>0.5;
-    const owner=(BUCKET_META[b]&&BUCKET_META[b].owner)||'—';
-    let blocker='';
-    if(l.qcLab&&l.qcLab.fail) blocker='QC (Lab) fail';
-    else if(l.qcPhys&&l.qcPhys.fail) blocker='QA fail';
-    else if(l.rmStatus==='short'&&!l.rmReady) blocker='RM short — PR open';
-    else if(!isDeliv && rmAllows(l)<=0 && (b==='RM Check'||b==='PO Created')) blocker='Awaiting RM check';
-    else if(l.delayReason) blocker=l.delayReason;
-    let risk='Low';
-    if(overdue) risk='Critical';
-    else if(!isDeliv && bal>0.5 && days!=null && days>=0 && days<=3) risk='High';
-    else if(!isDeliv && bal>0.5 && days!=null && days>3 && days<=7) risk='Medium';
-    const next=isDeliv?'—':((BUCKET_META[b]&&BUCKET_META[b].where)||'—');
-    return {o,l,b,ordered,produced,packed,qcC,ship,deliv,bal,committed,days,overdue,owner,blocker,risk,next,isDeliv};
-  };
-  const LI=[]; os.forEach(o=>o.lines.forEach(l=>LI.push(info(o,l))));
-  const openLI=LI.filter(x=>!x.isDeliv);
-  const orderBuckets=os.map(o=>orderBucket(o));
-  const openOrders=orderBuckets.filter(b=>b!=='Delivered').length;
-  const overdueOrders=os.filter(o=>isOverdue(o)).length;
-  const dueToday=openLI.filter(x=>x.days===0&&x.bal>0.5).length;
-  const due3=openLI.filter(x=>x.days!=null&&x.days>=1&&x.days<=3&&x.bal>0.5).length;
-  const prodPending=openLI.filter(x=>x.produced<x.ordered-0.5).length;
-  const qcPending=openLI.filter(x=>x.b==='Lab QC'||x.b==='QA Pre-shipment').length;
-  const readyShip=openLI.filter(x=>x.l.qcPass&&x.ship<x.packed-0.5).length;
-  const delivThisMonth=LI.filter(x=>x.isDeliv&&(x.l.deliveredDate||'').slice(0,7)===monthKey).length;
-  const atRisk=os.filter(o=>isOverdue(o)||o.lines.some(l=>l.rmStatus==='short'&&!l.rmReady)).length;
-  let cyc=[]; os.forEach(o=>o.lines.forEach(l=>{const cc=calcLine(o,l); if(cc.totalCycle!=null) cyc.push(cc.totalCycle);}));
-  const avgCycle=cyc.length?Math.round(cyc.reduce((a,b)=>a+b,0)/cyc.length):null;
-  const openCount=openOrders||0; const onTrack=openCount-overdueOrders; const otRate=openCount?Math.round(onTrack/openCount*100):100;
-  const riskPill=(r)=> r==='Critical'?pill('Critical','--red'):r==='High'?pill('High','--amber'):r==='Medium'?pill('Medium','--blue'):pill('Low','--mut');
-  const stagePill=(b)=>pill(b,(BUCKET_META[b]&&BUCKET_META[b].c)||'--mut');
-
-  const kpi=(l,v,d,c,go)=>`<div class="kpi${go?' clk':''}" ${go?`onclick="gotoScreen('${go}')"`:''}><div class="l">${l}</div><div class="v" style="${c==='good'?'color:var(--green2)':c==='bad'?'color:var(--red)':c==='warn'?'color:var(--amber)':''}">${v}</div><div class="d">${d}</div></div>`;
+    const ordered=l.ordered||0,produced=l.produced||0,packed=l.packed||0,ship=l.dispatched||0;
+    const qcC=l.qcPass?packed:0; const bal=Math.max(0,ordered-ship); const committed=o.promised||l.committed||''; const days=dnum(committed); const isDeliv=b==='Delivered';
+    const overdue=!isDeliv&&days!=null&&days<0&&bal>0.5; const owner=(BUCKET_META[b]&&BUCKET_META[b].owner)||'—';
+    let blocker=''; if(l.qcLab&&l.qcLab.fail)blocker='QC fail'; else if(l.qcPhys&&l.qcPhys.fail)blocker='QA fail'; else if(l.rmStatus==='short'&&!l.rmReady)blocker='RM short'; else if(!isDeliv&&rmAllows(l)<=0&&(b==='RM Check'||b==='PO Created'))blocker='Awaiting RM'; else if(l.delayReason)blocker=l.delayReason;
+    let risk='Low'; if(overdue)risk='Critical'; else if(!isDeliv&&bal>0.5&&days!=null&&days>=0&&days<=3)risk='High'; else if(!isDeliv&&bal>0.5&&days!=null&&days>3&&days<=7)risk='Medium';
+    return {o,l,b,ordered,produced,packed,qcC,ship,bal,committed,days,overdue,owner,blocker,risk,isDeliv}; };
+  const LI=[]; os.forEach(o=>o.lines.forEach(l=>LI.push(info(o,l)))); const openLI=LI.filter(x=>!x.isDeliv);
+  const obk=os.map(orderBucket);
+  const K={ open:obk.filter(b=>b!=='Delivered').length, overdue:os.filter(isOverdue).length,
+    due3:openLI.filter(x=>x.days!=null&&x.days>=0&&x.days<=3&&x.bal>0.5).length,
+    atRisk:os.filter(o=>isOverdue(o)||o.lines.some(l=>l.rmStatus==='short'&&!l.rmReady)).length,
+    prod:openLI.filter(x=>x.produced<x.ordered-0.5).length,
+    qc:openLI.filter(x=>x.b==='Lab QC'||x.b==='QA Pre-shipment').length,
+    ready:openLI.filter(x=>x.l.qcPass&&x.ship<x.packed-0.5).length,
+    deliv:LI.filter(x=>x.isDeliv&&(x.l.deliveredDate||'').slice(0,7)===monthKey).length };
+  const nav=(fl)=>`trkFilter='${fl}';state.screen='tracker';render()`;
+  const kc=(label,val,sub,color,fl)=>`<div class="kpi clk" style="border-top:3px solid var(${color})" onclick="${fl?nav(fl):''}"><div class="l">${label}</div><div class="v" style="color:var(${color})">${val}</div><div class="d">${sub}</div></div>`;
   const kpis=[
-    kpi('Open Orders',openOrders,'in progress','','tracker'),
-    kpi('At-Risk',atRisk,'overdue / RM-blocked',atRisk?'bad':'good','tracker'),
-    kpi('Overdue',overdueOrders,'past committed date',overdueOrders?'bad':'good','tracker'),
-    kpi('Due Today',dueToday,'commitments today',dueToday?'warn':'','tracker'),
-    kpi('Due in 3 Days',due3,'commitments soon',due3?'warn':'','tracker'),
-    kpi('Production Pending',prodPending,'products to produce',prodPending?'warn':'','prod'),
-    kpi('QC / QA Pending',qcPending,'awaiting clearance',qcPending?'warn':'','qc'),
-    kpi('Ready to Ship',readyShip,'cleared, not shipped',readyShip?'warn':'','ship'),
-    kpi('Delivered (mo)',delivThisMonth,'this month','good'),
-    kpi('Avg Cycle',avgCycle!=null?avgCycle+'d':'Not available yet','order → delivery'),
-    kpi('On-Time %',otRate+'%',onTrack+' of '+openCount+' on track',otRate>=80?'good':'bad'),
+    kc('Open Orders',K.open,'in progress','--navy','open'),
+    kc('At-Risk',K.atRisk,'overdue / RM-blocked',K.atRisk?'--red':'--green2','delayed'),
+    kc('Overdue',K.overdue,'past committed',K.overdue?'--red':'--green2','delayed'),
+    kc('Due in 3 Days',K.due3,'commitments soon',K.due3?'--amber':'--green2','open'),
+    kc('Production Pending',K.prod,'to produce',K.prod?'--amber':'--green2','prod'),
+    kc('QC / QA Pending',K.qc,'awaiting clearance',K.qc?'--purple':'--green2','qc'),
+    kc('Ready to Ship',K.ready,'cleared, not shipped',K.ready?'--blue':'--mut','ready'),
+    kc('Delivered (mo)',K.deliv,'this month','--green','delivered'),
   ].join('');
-
-  // S2 Today's Intervention List — open lines sorted by urgency
-  const urg=(x)=> x.overdue?0 : (x.days===0?1 : (x.days!=null&&x.days<=3?2:(x.blocker?3:4)));
-  const interv=openLI.filter(x=>x.bal>0.5).slice().sort((a,b)=>{ const u=urg(a)-urg(b); if(u)return u; const da=(a.days==null?999:a.days)-(b.days==null?999:b.days); if(da)return da; return b.bal-a.bal; });
-  const intervRows=interv.slice(0,40).map(x=>`<tr class="clk" onclick="state.screen='tracker';render()">
-     <td>${x.o.priority||'Normal'}</td><td><b>${x.o.po}</b></td><td>${x.o.client}</td><td>${x.l.brand}</td>
-     <td class="num">${fmt(x.ordered)}</td><td class="num">${fmt(x.produced)}</td><td class="num">${fmt(x.qcC)}</td><td class="num">${fmt(x.ship)}</td>
-     <td class="num"><b>${fmt(x.bal)}</b></td><td class="muted">${x.committed||'—'}</td><td>${stagePill(x.b)}</td>
-     <td class="num" style="${x.overdue?'color:var(--red);font-weight:700':''}">${x.overdue?(-x.days)+'d':(x.days!=null?(x.days+'d'):'—')}</td>
-     <td>${x.blocker?`<span style="color:var(--red)">${x.blocker}</span>`:'<span class="muted">—</span>'}</td><td><span class="rbadge">${x.owner}</span></td><td class="muted" style="font-size:11px">${x.next}</td></tr>`).join('');
-  const intervTbl=interv.length?`<div style="overflow:auto"><table><thead><tr><th>Pri</th><th>PO</th><th>Customer</th><th>Product</th><th class="num">Ord</th><th class="num">Prod</th><th class="num">QC</th><th class="num">Ship</th><th class="num">Bal</th><th>Committed</th><th>Stage</th><th class="num">Delay</th><th>Blocker</th><th>Owner</th><th>Next action</th></tr></thead><tbody>${intervRows}</tbody></table></div>${interv.length>40?`<div class="muted" style="font-size:11px;margin-top:6px">Showing 40 of ${interv.length}. Open PO Tracker for the full list.</div>`:''}`:'<div class="muted" style="padding:8px 0">No open balances need attention.</div>';
-
-  // S3 Due soon / overdue buckets
-  const grp=(pred)=>openLI.filter(pred).filter(x=>x.bal>0.5);
-  const miniList=(arr)=>arr.length?`<table><tbody>${arr.slice(0,8).map(x=>`<tr><td><b>${x.o.po}</b> <span class="muted" style="font-size:11px">${x.o.client}</span></td><td>${x.l.brand}</td><td class="num">${fmt(x.bal)}</td><td class="muted" style="font-size:11px">${x.committed||'—'}</td><td>${stagePill(x.b)}</td></tr>`).join('')}</tbody></table>${arr.length>8?`<div class="muted" style="font-size:11px;margin-top:4px">+${arr.length-8} more</div>`:''}`:'<div class="muted" style="font-size:12px;padding:4px 0">None</div>';
-  const dueCards=[
-    ['Overdue',grp(x=>x.overdue),'--red'],
-    ['Due Today',grp(x=>x.days===0),'--amber'],
-    ['Due Next 3 Days',grp(x=>x.days!=null&&x.days>=1&&x.days<=3),'--amber'],
-    ['This Week',grp(x=>x.days!=null&&x.days>=0&&x.days<=7),'--blue'],
-    ['Ready to Ship',openLI.filter(x=>x.l.qcPass&&x.ship<x.packed-0.5),'--green2'],
-  ].map(([t,arr,c])=>`<div class="card"><h3 style="border-left:3px solid var(${c});padding-left:8px">${t} <span class="hint">${arr.length}</span></h3>${miniList(arr)}</div>`).join('');
-
-  // S4 Stage bottleneck
-  const stageRows=BUCKETS.filter(b=>b!=='Delivered').map(b=>{ const items=openLI.filter(x=>x.b===b);
-    const pend=items.reduce((a,x)=>a+x.bal,0); const oldest=Math.max(0,...items.map(x=>ageDays(x.o.received)||0)); const ov=items.filter(x=>x.overdue).length;
-    return {b,n:items.length,pend,oldest:items.length?oldest:0,ov,owner:(BUCKET_META[b]&&BUCKET_META[b].owner)||'—'}; });
-  const stageTbl=`<table><thead><tr><th>Stage</th><th class="num">Orders</th><th class="num">Pending Kg/L</th><th class="num">Oldest (d)</th><th class="num">Overdue</th><th>Owner</th></tr></thead><tbody>${stageRows.map(r=>`<tr><td>${stagePill(r.b)}</td><td class="num">${r.n}</td><td class="num">${fmt(r.pend)}</td><td class="num">${r.oldest||'—'}</td><td class="num" style="${r.ov?'color:var(--red);font-weight:700':''}">${r.ov||'—'}</td><td><span class="rbadge">${r.owner}</span></td></tr>`).join('')}</tbody></table>`;
-
-  // S5 Product risk (by brand)
-  const pr={}; openLI.forEach(x=>{ if(x.bal<=0.5) return; const k=x.l.brand; pr[k]=pr[k]||{brand:k,ordered:0,produced:0,qcC:0,ship:0,bal:0,committed:null,risk:'Low',blocker:''};
-    const p=pr[k]; p.ordered+=x.ordered; p.produced+=x.produced; p.qcC+=x.qcC; p.ship+=x.ship; p.bal+=x.bal;
-    if(x.committed&&(!p.committed||x.committed<p.committed)) p.committed=x.committed;
-    const rank={Critical:3,High:2,Medium:1,Low:0}; if(rank[x.risk]>rank[p.risk]){p.risk=x.risk; p.blocker=x.blocker;} });
-  const prRows=Object.values(pr).sort((a,b)=>({Critical:3,High:2,Medium:1,Low:0}[b.risk]-{Critical:3,High:2,Medium:1,Low:0}[a.risk])||b.bal-a.bal);
-  const prTbl=prRows.length?`<div style="overflow:auto"><table><thead><tr><th>Product</th><th class="num">Open Ord</th><th class="num">Produced</th><th class="num">QC</th><th class="num">Shipped</th><th class="num">Balance</th><th>Earliest due</th><th>Risk</th><th>Blocker</th></tr></thead><tbody>${prRows.map(p=>`<tr><td><b>${p.brand}</b></td><td class="num">${fmt(p.ordered)}</td><td class="num">${fmt(p.produced)}</td><td class="num">${fmt(p.qcC)}</td><td class="num">${fmt(p.ship)}</td><td class="num"><b>${fmt(p.bal)}</b></td><td class="muted">${p.committed||'—'}</td><td>${riskPill(p.risk)}</td><td class="muted" style="font-size:11px">${p.blocker||'—'}</td></tr>`).join('')}</tbody></table></div>`:'<div class="muted" style="padding:6px 0">No open product balances.</div>';
-
-  // S6 Customer risk
-  const cr={}; openLI.forEach(x=>{ const k=x.o.client; cr[k]=cr[k]||{client:k,pos:new Set(),open:0,over:0,week:0,ready:0,risk:'Low',blocker:''};
-    const c=cr[k]; c.pos.add(x.o.po); c.open+=x.bal; if(x.overdue)c.over+=x.bal; if(x.days!=null&&x.days>=0&&x.days<=7)c.week+=x.bal; if(x.l.qcPass&&x.ship<x.packed-0.5)c.ready+=Math.max(0,x.packed-x.ship);
-    const rank={Critical:3,High:2,Medium:1,Low:0}; if(rank[x.risk]>rank[c.risk]){c.risk=x.risk; c.blocker=x.blocker;} });
-  const crRows=Object.values(cr).filter(c=>c.open>0.5).sort((a,b)=>b.over-a.over||b.open-a.open);
-  const crTbl=crRows.length?`<div style="overflow:auto"><table><thead><tr><th>Customer</th><th class="num">Open POs</th><th class="num">Open Kg/L</th><th class="num">Overdue</th><th class="num">Due this wk</th><th class="num">Ready</th><th>Risk</th><th>Main blocker</th></tr></thead><tbody>${crRows.map(c=>`<tr><td><b>${c.client}</b></td><td class="num">${c.pos.size}</td><td class="num">${fmt(c.open)}</td><td class="num" style="${c.over>0.5?'color:var(--red);font-weight:700':''}">${fmt(c.over)}</td><td class="num">${fmt(c.week)}</td><td class="num">${fmt(c.ready)}</td><td>${riskPill(c.risk)}</td><td class="muted" style="font-size:11px">${c.blocker||'—'}</td></tr>`).join('')}</tbody></table></div>`:'<div class="muted" style="padding:6px 0">No open customer balances.</div>';
-
-  // S7 Production vs demand (by product, open)
-  const pvd=prRows.map(p=>`<tr><td><b>${p.brand}</b></td><td class="num">${fmt(p.ordered)}</td><td class="num">${fmt(p.produced)}</td><td class="num" style="${(p.ordered-p.produced)>0.5?'color:var(--amber);font-weight:700':''}">${fmt(Math.max(0,p.ordered-p.produced))}</td><td class="num">${fmt(p.qcC)}</td><td class="num">${fmt(p.ship)}</td></tr>`).join('');
-  const pvdTbl=prRows.length?`<div style="overflow:auto"><table><thead><tr><th>Product</th><th class="num">Ordered</th><th class="num">Produced</th><th class="num">Gap</th><th class="num">QC cleared</th><th class="num">Shipped</th></tr></thead><tbody>${pvd}</tbody></table></div>`:'<div class="muted" style="padding:6px 0">No open demand.</div>';
-
-  // S8 QC / QA risk
-  const qcItems=openLI.filter(x=> (x.l.qcLab&&x.l.qcLab.fail)||(x.l.qcPhys&&x.l.qcPhys.fail)||x.b==='Lab QC'||x.b==='QA Pre-shipment');
-  const qcStatus=(x)=> (x.l.qcLab&&x.l.qcLab.fail)?'QC (Lab) FAIL':(x.l.qcPhys&&x.l.qcPhys.fail)?'QA FAIL':(x.b==='Lab QC'?'Lab QC pending':'QA pending');
-  const qcTbl=qcItems.length?`<div style="overflow:auto"><table><thead><tr><th>PO</th><th>Customer</th><th>Product</th><th class="num">Qty</th><th>Status</th><th>Pending since</th><th>Owner</th></tr></thead><tbody>${qcItems.map(x=>`<tr><td><b>${x.o.po}</b></td><td>${x.o.client}</td><td>${x.l.brand}</td><td class="num">${fmt(x.packed||x.ordered)}</td><td><span style="color:${qcStatus(x).includes('FAIL')?'var(--red)':'var(--amber)'}">${qcStatus(x)}</span></td><td class="muted" style="font-size:11px">${x.l.prodComplete||'—'}</td><td><span class="rbadge">${x.owner}</span></td></tr>`).join('')}</tbody></table></div>`:'<div class="muted" style="padding:6px 0">Nothing pending or failed in QC/QA.</div>';
-
-  // S9 Shipment readiness
-  const rs=openLI.filter(x=>x.l.qcPass&&x.ship<x.packed-0.5);
-  const rsTbl=rs.length?`<div style="overflow:auto"><table><thead><tr><th>PO</th><th>Customer</th><th>Product</th><th class="num">Ready Kg/L</th><th>Ready since</th><th>Committed</th><th>Delay risk</th><th>Owner</th></tr></thead><tbody>${rs.map(x=>`<tr><td><b>${x.o.po}</b></td><td>${x.o.client}</td><td>${x.l.brand}</td><td class="num"><b>${fmt(Math.max(0,x.packed-x.ship))}</b></td><td class="muted" style="font-size:11px">${x.l.qcPass||'—'}</td><td class="muted">${x.committed||'—'}</td><td>${riskPill(x.risk)}</td><td><span class="rbadge">Supply Chain</span></td></tr>`).join('')}</tbody></table></div>`:'<div class="muted" style="padding:6px 0">Nothing cleared and waiting to ship.</div>';
-
-  // S10 Cycle time / delay diagnosis (from existing dates)
-  const stageDefs=[['RM (PR→Ready)','rmDays'],['Production','prodDays'],['QC→Delivery','qcToDeliv'],['Total cycle','totalCycle']];
-  const cs={}; os.forEach(o=>o.lines.forEach(l=>{const cc=calcLine(o,l); stageDefs.forEach(([nm,k])=>{ if(cc[k]!=null){ cs[k]=cs[k]||{vals:[],slow:0,slowPO:''}; cs[k].vals.push(cc[k]); if(cc[k]>cs[k].slow){cs[k].slow=cc[k];cs[k].slowPO=o.po;} } }); }));
-  const cycRows=stageDefs.map(([nm,k])=>{ const c=cs[k]; if(!c||!c.vals.length) return `<tr><td>${nm}</td><td class="num muted">Not available yet</td><td class="muted">—</td><td class="num">—</td></tr>`;
-    const avg=Math.round(c.vals.reduce((a,b)=>a+b,0)/c.vals.length); const stuck=c.vals.filter(v=>v>avg*1.5).length;
-    return `<tr><td>${nm}</td><td class="num" style="${avg>10?'color:var(--amber);font-weight:700':''}">${avg}d</td><td class="muted" style="font-size:11px">${c.slow}d · ${c.slowPO}</td><td class="num">${stuck||'—'}</td></tr>`; }).join('');
-  const cycTbl=`<table><thead><tr><th>Stage</th><th class="num">Avg</th><th>Slowest</th><th class="num">Stuck</th></tr></thead><tbody>${cycRows}</tbody></table><div class="muted" style="font-size:11px;margin-top:6px">PO→SO and PR-approval splits need extra date fields — <b>Not available yet</b>.</div>`;
-
+  // Intervention board — top 12 urgent
+  const urg=x=>x.overdue?0:(x.days===0?1:(x.days!=null&&x.days<=3?2:(x.blocker?3:9)));
+  const board=openLI.filter(x=>x.bal>0.5&&(x.overdue||x.days===null?x.blocker:true)).slice().sort((a,b)=>urg(a)-urg(b)||(a.days==null?999:a.days)-(b.days==null?999:b.days)||b.bal-a.bal).slice(0,12);
+  const rc=r=>r==='Critical'?'--red':r==='High'?'--amber':r==='Medium'?'--blue':'--mut';
+  const boardHtml=board.length?board.map(x=>`<div class="clk" onclick="openOrder('${x.o.id}')" style="display:flex;gap:10px;align-items:center;border-left:4px solid var(${rc(x.risk)});background:#fff;border:1px solid var(--line);border-left-width:4px;border-radius:8px;padding:8px 11px;margin-bottom:7px">
+     <div style="min-width:58px"><span class="pill" style="background:color-mix(in srgb,var(${rc(x.risk)}) 14%,#fff);color:var(${rc(x.risk)});font-size:9.5px">${x.risk}</span></div>
+     <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:12.5px">${x.o.po} <span class="muted" style="font-weight:400">· ${x.o.client}</span></div><div class="muted" style="font-size:11px">${x.l.brand}</div></div>
+     <div style="text-align:right;min-width:74px"><div style="font-weight:700;font-size:12.5px">${fmt(x.bal)}</div><div class="muted" style="font-size:9.5px">Kg/L balance</div></div>
+     <div style="text-align:center;min-width:64px"><div style="font-weight:700;color:${x.overdue?'var(--red)':'var(--txt)'};font-size:12px">${x.overdue?(-x.days)+'d late':(x.days!=null?x.days+'d':'—')}</div><div class="muted" style="font-size:9.5px">${x.committed||'no date'}</div></div>
+     <div style="min-width:96px">${pill(x.b,(BUCKET_META[x.b]&&BUCKET_META[x.b].c)||'--mut')}</div>
+     <div style="min-width:96px;text-align:right"><span class="rbadge">${x.owner}</span>${x.blocker?`<div style="color:var(--red);font-size:10px;margin-top:2px">${x.blocker}</div>`:''}</div></div>`).join(''):'<div class="muted" style="padding:14px 0;text-align:center">No urgent interventions — nothing overdue, due-soon, or blocked. 🎉</div>';
+  // Stage bottleneck blocks
+  const stMap={'RM Check':'rmblock','Production':'prod','Lab QC':'qc','QA Pre-shipment':'qc','Shipment':'ready'};
+  const stageBlocks=BUCKETS.filter(b=>b!=='Delivered').map(b=>{const it=openLI.filter(x=>x.b===b);const pend=it.reduce((a,x)=>a+x.bal,0);const ov=it.filter(x=>x.overdue).length;const oldest=it.length?Math.max(0,...it.map(x=>ageDays(x.o.received)||0)):0;
+    const sev=ov>0?'--red':it.length>=4?'--amber':it.length?'--blue':'--mut'; const fl=stMap[b];
+    return `<div class="${fl?'clk':''}" ${fl?`onclick="${nav(fl)}"`:''} style="flex:1;min-width:120px;background:color-mix(in srgb,var(${sev}) 9%,#fff);border:1px solid color-mix(in srgb,var(${sev}) 30%,#fff);border-radius:9px;padding:9px 10px">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.3px;color:var(--mut)">${b}</div>
+      <div style="font-size:21px;font-weight:800;color:var(${sev});line-height:1.1">${it.length}</div>
+      <div class="muted" style="font-size:10.5px">${fmt(pend)} Kg/L · ${oldest||0}d oldest${ov?` · <span style="color:var(--red)">${ov} overdue</span>`:''}</div>
+      <div class="muted" style="font-size:9.5px;margin-top:2px">${(BUCKET_META[b]&&BUCKET_META[b].owner)||''}</div></div>`;}).join('');
+  // Product aggregation
+  const prm={}; openLI.forEach(x=>{if(x.bal<=0.5)return;const k=x.l.brand;prm[k]=prm[k]||{brand:k,ordered:0,produced:0,qcC:0,ship:0,bal:0,risk:'Low'};const p=prm[k];p.ordered+=x.ordered;p.produced+=x.produced;p.qcC+=x.qcC;p.ship+=x.ship;p.bal+=x.bal;const rk={Critical:3,High:2,Medium:1,Low:0};if(rk[x.risk]>rk[p.risk])p.risk=x.risk;});
+  const prTop=Object.values(prm).sort((a,b)=>b.bal-a.bal).slice(0,10);
+  // Customer aggregation
+  const crm={}; openLI.forEach(x=>{const k=x.o.client;crm[k]=crm[k]||{client:k,open:0,over:0,week:0,ready:0,risk:'Low',blocker:''};const c=crm[k];c.open+=x.bal;if(x.overdue)c.over+=x.bal;if(x.days!=null&&x.days>=0&&x.days<=7)c.week+=x.bal;if(x.l.qcPass&&x.ship<x.packed-0.5)c.ready+=Math.max(0,x.packed-x.ship);const rk={Critical:3,High:2,Medium:1,Low:0};if(rk[x.risk]>rk[c.risk]){c.risk=x.risk;c.blocker=x.blocker;}});
+  const crTop=Object.values(crm).filter(c=>c.open>0.5).sort((a,b)=>b.over-a.over||b.open-a.open).slice(0,6);
+  const custHtml=crTop.length?crTop.map(c=>`<div class="clk" onclick="trkSearch='${(c.client||'').replace(/'/g,'')}';state.screen='tracker';render()" style="display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:8px;padding:8px 11px;margin-bottom:7px">
+     <div style="flex:1"><div style="font-weight:700;font-size:12.5px">${c.client}</div><div class="muted" style="font-size:10.5px">${fmt(c.open)} Kg/L open${c.blocker?' · '+c.blocker:''}</div></div>
+     <div style="text-align:right"><div style="font-weight:700;color:${c.over>0.5?'var(--red)':'var(--mut)'};font-size:12.5px">${fmt(c.over)}</div><div class="muted" style="font-size:9.5px">overdue Kg/L</div></div>
+     <span class="pill" style="background:color-mix(in srgb,var(${rc(c.risk)}) 14%,#fff);color:var(${rc(c.risk)});font-size:9.5px">${c.risk}</span></div>`).join(''):'<div class="muted" style="padding:10px 0">No customers at risk.</div>';
+  // QC/QA gate
+  const labPend=openLI.filter(x=>x.b==='Lab QC').length, labFail=openLI.filter(x=>x.l.qcLab&&x.l.qcLab.fail).length;
+  const qaPend=openLI.filter(x=>x.b==='QA Pre-shipment').length, qaFail=openLI.filter(x=>x.l.qcPhys&&x.l.qcPhys.fail).length;
+  const gate=(lbl,n,color)=>`<div class="clk" onclick="${nav('qc')}" style="flex:1;min-width:110px;text-align:center;background:color-mix(in srgb,var(${color}) 8%,#fff);border:1px solid color-mix(in srgb,var(${color}) 28%,#fff);border-radius:9px;padding:11px 8px"><div style="font-size:22px;font-weight:800;color:var(${color})">${n}</div><div class="muted" style="font-size:10.5px">${lbl}</div></div>`;
+  const gateHtml=`<div style="display:flex;gap:8px;flex-wrap:wrap">${gate('Lab QC pending',labPend,labPend?'--amber':'--mut')}${gate('Lab QC hold/fail',labFail,labFail?'--red':'--mut')}${gate('QA pending',qaPend,qaPend?'--amber':'--mut')}${gate('QA hold/fail',qaFail,qaFail?'--red':'--mut')}</div>`;
+  // Shipment readiness
+  const rs=openLI.filter(x=>x.l.qcPass&&x.ship<x.packed-0.5).sort((a,b)=>(a.days==null?999:a.days)-(b.days==null?999:b.days));
+  const rsQty=rs.reduce((a,x)=>a+Math.max(0,x.packed-x.ship),0);
+  const rsHtml=rs.length?`<div class="muted" style="font-size:12px;margin-bottom:8px"><b style="color:var(--blue);font-size:14px">${fmt(rsQty)} Kg/L</b> ready across <b>${rs.length}</b> item(s)</div>`+rs.slice(0,5).map(x=>`<div class="clk" onclick="${nav('ready')}" style="display:flex;justify-content:space-between;gap:8px;border-bottom:1px solid var(--line2);padding:5px 0;font-size:12px"><span><b>${x.o.po}</b> <span class="muted">${x.l.brand}</span></span><span class="num"><b>${fmt(Math.max(0,x.packed-x.ship))}</b> · <span class="muted">${x.committed||'—'}</span></span></div>`).join(''):'<div class="muted" style="padding:10px 0">Nothing cleared and waiting to ship.</div>';
+  // Cycle stages for chart + chart data stash
+  const stageDefs=[['RM','rmDays'],['Production','prodDays'],['QC→Deliv','qcToDeliv'],['Total','totalCycle']];
+  const cs={}; os.forEach(o=>o.lines.forEach(l=>{const cc=calcLine(o,l);stageDefs.forEach(([nm,k])=>{if(cc[k]!=null){cs[k]=cs[k]||[];cs[k].push(cc[k]);}});}));
+  _dash={ prLabels:prTop.map(p=>p.brand), prBal:prTop.map(p=>p.bal),
+    pvdLabels:prTop.slice(0,6).map(p=>p.brand), pvdOrd:prTop.slice(0,6).map(p=>p.ordered), pvdProd:prTop.slice(0,6).map(p=>p.produced), pvdQc:prTop.slice(0,6).map(p=>p.qcC), pvdShip:prTop.slice(0,6).map(p=>p.ship),
+    cycLabels:stageDefs.map(d=>d[0]), cycVals:stageDefs.map(d=>{const a=cs[d[1]];return a&&a.length?Math.round(a.reduce((x,y)=>x+y,0)/a.length):0;}) };
+  const emptyChart=(id,msg)=>`<div class="muted" style="padding:20px 0;text-align:center;font-size:12px">${msg}</div>`;
+  const sect=(title,hint,body)=>`<div class="card"><h3>${title}${hint?` <span class="hint">${hint}</span>`:''}</h3>${body}</div>`;
   $('view').innerHTML=`
-   <div class="banner info"><b>Intervention Dashboard</b> — what needs action today, what is stuck, who owns it · ${today.toISOString().slice(0,10)} · <span class="muted">read-only</span></div>
-   <div class="kpis">${kpis}</div>
-   <div class="card"><h3>Today's Intervention List <span class="hint">${interv.length} open balance(s)</span></h3>${intervTbl}</div>
-   <h3 style="margin:18px 0 8px;color:var(--navy)">Orders due soon / overdue</h3>
-   <div class="dgrid">${dueCards}</div>
-   <div class="dgrid">
-     <div class="card"><h3>Stage bottlenecks <span class="hint">where orders sit</span></h3>${stageTbl}</div>
-     <div class="card"><h3>QC / Pre-shipment risk <span class="hint">${qcItems.length}</span></h3>${qcTbl}</div>
+   <div class="banner info" style="margin-bottom:12px"><b>Control Tower — Intervention Dashboard</b> · ${today.toISOString().slice(0,10)} · <span class="muted">read-only · click any card to drill into the Tracker</span></div>
+   <div class="kpis" style="grid-template-columns:repeat(8,1fr)">${kpis}</div>
+   <div class="dgrid" style="grid-template-columns:1.5fr 1fr">
+     ${sect("Today's Intervention Board",board.length+' urgent','<div style="max-height:430px;overflow:auto">'+boardHtml+'</div>')}
+     ${sect('Where orders are stuck','live pipeline','<div style="display:flex;flex-wrap:wrap;gap:8px">'+stageBlocks+'</div>')}
    </div>
-   <div class="card"><h3>Product risk / shortfall <span class="hint">open balances by product</span></h3>${prTbl}</div>
-   <div class="card"><h3>Customer risk <span class="hint">commitments at risk</span></h3>${crTbl}</div>
    <div class="dgrid">
-     <div class="card"><h3>Production vs open demand</h3>${pvdTbl}</div>
-     <div class="card"><h3>Shipment readiness <span class="hint">${rs.length} ready, not shipped</span></h3>${rsTbl}</div>
+     ${sect('Product risk / shortfall','top 10 by open balance', prTop.length?'<canvas id="chPR" height="200"></canvas>':emptyChart('chPR','No open product balances.'))}
+     ${sect('Customers at risk','top 6', custHtml)}
    </div>
-   <div class="card"><h3>Cycle time / delay diagnosis</h3>${cycTbl}</div>`;
+   <div class="dgrid">
+     ${sect('Production vs open demand','top products', prTop.length?'<canvas id="chPVD" height="200"></canvas>':emptyChart('chPVD','No open demand.'))}
+     ${sect('Quality gate','Lab + QA', gateHtml)}
+   </div>
+   <div class="dgrid">
+     ${sect('Ready to ship / dispatch pending', rs.length+' ready', rsHtml)}
+     ${sect('Cycle time by stage','avg days', _dash.cycVals.some(v=>v>0)?'<canvas id="chCyc" height="200"></canvas>':emptyChart('chCyc','Cycle times appear once orders have stage dates — Not available yet.'))}
+   </div>`;
+  drawDash();
+}
+function drawDash(){
+  if(typeof Chart==='undefined'||!_dash) return;
+  const GRID='#e6ebf3'; Chart.defaults.color='#67748c'; Chart.defaults.font.size=10;
+  Object.values(charts).forEach(c=>{try{c.destroy()}catch(e){}}); charts={};
+  if($('chPR')) charts.pr=new Chart($('chPR'),{type:'bar',data:{labels:_dash.prLabels,datasets:[{label:'Open balance Kg/L',data:_dash.prBal,backgroundColor:'#e0392f',borderRadius:4}]},options:{indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{grid:{color:GRID}},y:{grid:{display:false},ticks:{font:{size:9}}}}}});
+  if($('chPVD')) charts.pvd=new Chart($('chPVD'),{type:'bar',data:{labels:_dash.pvdLabels,datasets:[{label:'Ordered',data:_dash.pvdOrd,backgroundColor:'#1b3c8c'},{label:'Produced',data:_dash.pvdProd,backgroundColor:'#2d6cdf'},{label:'QC cleared',data:_dash.pvdQc,backgroundColor:'#7a5bd0'},{label:'Shipped',data:_dash.pvdShip,backgroundColor:'#2fa34a'}]},options:{plugins:{legend:{position:'top',labels:{boxWidth:10,padding:6}}},scales:{y:{grid:{color:GRID}},x:{grid:{display:false},ticks:{font:{size:9}}}}}});
+  if($('chCyc')) charts.cyc=new Chart($('chCyc'),{type:'bar',data:{labels:_dash.cycLabels,datasets:[{label:'Avg days',data:_dash.cycVals,backgroundColor:_dash.cycVals.map(v=>v>15?'#e0392f':v>8?'#d98324':'#1b3c8c'),borderRadius:4}]},options:{plugins:{legend:{display:false}},scales:{y:{grid:{color:GRID}},x:{grid:{display:false}}}}});
 }
 function drawCharts(){
   const GRID='#e6ebf3'; Chart.defaults.color='#67748c'; Chart.defaults.font.size=10;

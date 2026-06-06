@@ -340,7 +340,7 @@ function ensureState(s){
   s.users=(s.users&&s.users.length)?s.users:deepClone(SEED.users||[]); if(s.currentUser===undefined)s.currentUser=null;
   s.rmRequests=s.rmRequests||[]; s.productionLog=s.productionLog||[]; s.packingLog=s.packingLog||[];
   s.actionLog=s.actionLog||[]; s.shipments=s.shipments||[]; s.warehouses=s.warehouses||SEED.warehouses.slice();
-  s.rawStock=s.rawStock||{}; s.rmMovements=s.rmMovements||[]; s.audit=s.audit||[]; s.masters=s.masters||deepClone(SEED.masters||{}); s.batches=s.batches||[]; s.packedStock=s.packedStock||{}; s.packingLog=s.packingLog||[]; s.orders=s.orders||[]; if(s.seq==null)s.seq=1000; if(s.dataFixEnabled==null)s.dataFixEnabled=true; ensureMasters(s); ensureProductionModel(s); return s;
+  s.rawStock=s.rawStock||{}; s.rmMovements=s.rmMovements||[]; s.audit=s.audit||[]; s.masters=s.masters||deepClone(SEED.masters||{}); s.batches=s.batches||[]; s.packedStock=s.packedStock||{}; s.packingLog=s.packingLog||[]; s.orders=s.orders||[]; if(s.seq==null)s.seq=1000; if(s.dataFixEnabled==null)s.dataFixEnabled=true; if(!Array.isArray(s.prs))s.prs=[]; ensureMasters(s); ensureProductionModel(s); return s;
 }
 /* Lock 1: idempotent master seeding. ADDITIVE ONLY — seeds a list only when it is
    missing or empty, and never overwrites values the team has already added. Touches no
@@ -617,7 +617,7 @@ function dfFreshStart(){
   if(typeof confirm!=='function') return;
   if(!confirm('FRESH START — permanently clear ALL operational data:\n\n- every PO / order\n- production, packing, batches, shift entries\n- QC results, shipments\n- RM requests/movements, packed & raw stock\n- audit + action log\n\nKEPT: users & passwords, master data, dealers/clients, products/brands/bases, settings.\n\nDownload a snapshot FIRST if you have not. Continue?')) return;
   if(!confirm('Final confirmation. This cannot be undone except by restoring a snapshot.\n\nClear all operational data and start from zero now?')) return;
-  state.orders=[]; state.productionLog=[]; state.packingLog=[]; state.batches=[]; state.shiftEntries=[]; state.shipments=[]; state.rmRequests=[]; state.rmMovements=[]; state.audit=[]; state.packedStock={}; state.rawStock={}; state.expanded={}; state.seq=1000;
+  state.orders=[]; state.productionLog=[]; state.packingLog=[]; state.batches=[]; state.shiftEntries=[]; state.shipments=[]; state.rmRequests=[]; state.rmMovements=[]; state.audit=[]; state.packedStock={}; state.rawStock={}; state.prs=[]; state.expanded={}; state.seq=1000;
   state.actionLog=[{t:new Date().toISOString(), role:state.role, by:(state.currentUser&&state.currentUser.name)||state.role, what:'FRESH START — all operational data cleared (users, masters, dealers, products kept)'}];
   save(); toast('Fresh start done — operational data cleared'); render();
 }
@@ -1159,7 +1159,7 @@ function trackerKPIs(){
 
 /* ===================== ORDER DRAWER (role-owned lifecycle) ===================== */
 function fld(o,l,key,label,type){
-  const v=l[key]||''; const auto=AUTO_FIELDS.includes(key); const ed=canEditField(key)&&!auto;
+  const v=l[key]||''; const auto=AUTO_FIELDS.includes(key); const ed=false; /* tracker view-only: actions live in My Actions */
   const plant=(key==='delayReason'||key==='respDept');
   let cls = plant?'f-plant' : auto?'f-auto' : v?'f-done' : (canEditField(key)?'f-input':'f-auto');
   const owner = auto?'auto':(FIELD_OWNER[key]||'');
@@ -1291,7 +1291,7 @@ function rmSubmit(){ const o=state.orders.find(x=>x.id===rmForm.oid); const l=o.
   if(rmForm.status==='full'){ l.rmReady=today; l.canMakeKg=null; l.pr=null; logAction(`RM check ${o.po}·${l.brand}: in stock — materials ready`);
     (state.audit=state.audit||[]).unshift({t:new Date().toISOString(),user:state.role,module:'RM Check',po:o.po,brand:l.brand,field:'RM status',old:'',val:'In stock — ready'}); }
   else { const lines=rmForm.lines.filter(x=>x.rm&&+x.kg>0).map(x=>({rm:x.rm,kg:+x.kg}));
-    l.prRaised=today; l.pr={lines,by:state.role,date:today}; l.canMakeKg=(rmForm.status==='partial'?(+rmForm.canMake||0):0);
+    l.prRaised=today; l.pr={lines,by:state.role,date:today}; l.canMakeKg=(rmForm.status==='partial'?(+rmForm.canMake||0):0); lines.forEach(x=>raisePR(x.rm,x.kg));
     logAction(`RM check ${o.po}·${l.brand}: ${rmForm.status}${rmForm.status==='partial'?' (can make '+fmt(l.canMakeKg)+' kg)':''} — PR raised, ${lines.length} material(s)`);
     (state.audit=state.audit||[]).unshift({t:new Date().toISOString(),user:state.role,module:'RM Check',po:o.po,brand:l.brand,field:'PR raised',old:'',val:lines.map(x=>x.rm+' '+x.kg+'kg').join(', ')}); }
   save(); closeModal(); openOrder(rmForm.oid); render();
@@ -1618,6 +1618,32 @@ function openClosePR(oid,lid){ const o=state.orders.find(x=>x.id===oid); const l
   $('modalBg').classList.add('open'); }
 function submitClosePR(){ const o=state.orders.find(x=>x.id===closePRForm.oid); const l=o&&o.lines.find(x=>x.id===closePRForm.lid); if(!l)return; if(!(closePRForm.grn||'').trim()){toast('Enter GRN #');return;} const d=closePRForm.date||TODAY.toISOString().slice(0,10); l.rmReceivedDate=d; l.grn=(closePRForm.grn||'').trim(); l.rmReady=d; l.rmStatus='received'; logAction(`RM received (GRN ${l.grn}) — ${o.po} · ${l.brand}; PR closed`); save(); closeModal(); toast('RM received — PR closed'); render(); }
 function gotoScreen(sc){ state.screen=sc; render(); }
+function raisePR(rm, qty){ if(!rm||!(qty>0))return; state.prs=state.prs||[]; const open=state.prs.find(p=>p.rm===rm&&p.status==='open');
+  if(open){ open.qtyRequired+=qty; logAction(`PR (open) for ${rm}: +${fmt(qty)} Kg/L attached — required now ${fmt(open.qtyRequired)}`); }
+  else { state.prs.unshift({id:'PR'+(state.seq++),rm,qtyRequired:qty,qtyReceived:0,receipts:[],status:'open',date:TODAY.toISOString().slice(0,10),by:state.role}); logAction(`PR raised for ${rm}: ${fmt(qty)} Kg/L`); } }
+function openReceiveMaterials(){ const open=(state.prs||[]).filter(p=>p.status==='open');
+  $('modal').innerHTML=`<div class="mh"><h2>Receive raw materials (GRN)</h2><div class="sub">${open.length} open PR(s) · partial receipts allowed</div></div><div class="mb">`+
+   (open.length?open.map(p=>{const rem=Math.max(0,p.qtyRequired-(p.qtyReceived||0));return `<div style="border:1px solid var(--line);border-radius:9px;padding:9px 11px;margin-bottom:8px"><div style="font-weight:600">${p.rm}</div><div class="muted" style="font-size:11px;margin-bottom:6px">required ${fmt(p.qtyRequired)} · received ${fmt(p.qtyReceived||0)} · remaining ${fmt(rem)} Kg/L${(p.receipts&&p.receipts.length)?(' · '+p.receipts.length+' receipt(s)'):''}</div><div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap"><div class="fld" style="width:120px"><label>Receive qty</label><input type="number" id="rcv_${p.id}" placeholder="max ${fmt(rem)}"></div><div class="fld" style="width:140px"><label>GRN #</label><input type="text" id="grn_${p.id}"></div><div class="fld" style="width:140px"><label>Date</label><input type="date" id="rdt_${p.id}" value="${TODAY.toISOString().slice(0,10)}"></div><button class="sm green" onclick="receivePR('${p.id}')">Receive</button></div></div>`;}).join(''):'<div class="muted" style="padding:6px 0">No open PRs.</div>')+
+   `</div><div class="mf"><button class="ghost" onclick="closeModal()">Close</button></div>`;
+  $('modalBg').classList.add('open'); }
+function receivePR(prId){ const p=(state.prs||[]).find(x=>x.id===prId); if(!p)return; const qty=+(($('rcv_'+prId)&&$('rcv_'+prId).value))||0; const grn=((($('grn_'+prId)&&$('grn_'+prId).value))||'').trim(); const d=(($('rdt_'+prId)&&$('rdt_'+prId).value))||TODAY.toISOString().slice(0,10);
+  if(!(qty>0)){toast('Enter received qty');return;} if(!grn){toast('Enter GRN #');return;}
+  p.receipts=p.receipts||[]; p.receipts.push({date:d,grn,qty,by:state.role}); p.qtyReceived=(p.qtyReceived||0)+qty; state.rawStock[p.rm]=(state.rawStock[p.rm]||0)+qty;
+  if(p.qtyReceived>=p.qtyRequired-0.001) p.status='closed';
+  logAction(`GRN ${grn}: received ${fmt(qty)} Kg/L ${p.rm} (PR ${p.id} ${p.status})`);
+  save(); toast(p.status==='closed'?'PR fully received — closed':'Partial receipt recorded'); openReceiveMaterials(); }
+function openLabQC(oid,lid){ const o=state.orders.find(x=>x.id===oid); const l=o&&o.lines.find(x=>x.id===lid); if(!l)return;
+  $('modal').innerHTML=`<div class="mh"><h2>Lab QC — Layer 1</h2><div class="sub">${o.po} · ${l.brand} · produced ${fmt(l.produced||0)}/${fmt(l.ordered)} Kg/L</div></div><div class="mb"><div class="muted" style="font-size:12.5px">Certify spec/quality. Lab certification unlocks the QA physical inspection.</div></div><div class="mf"><button class="ghost" onclick="qcFail('${o.id}','${l.id}','qcLab');closeModal()">Fail</button><button class="green" onclick="qcLabPass('${o.id}','${l.id}');closeModal()">Lab certify ✓</button></div>`;
+  $('modalBg').classList.add('open'); }
+function openLabFailReview(oid,lid){ const o=state.orders.find(x=>x.id===oid); const l=o&&o.lines.find(x=>x.id===lid); if(!l)return;
+  $('modal').innerHTML=`<div class="mh"><h2>Lab QC failed — review</h2><div class="sub">${o.po} · ${l.brand} · reason: ${(l.qcLab&&l.qcLab.reason)||'failed'}</div></div><div class="mb"><div class="muted" style="font-size:12.5px">Approve the deviation (accept as-is) or send back to Production for rework.</div></div><div class="mf"><button class="ghost" onclick="qcReworkLab('${o.id}','${l.id}');closeModal()">Send to rework</button><button class="green" onclick="qcApproveLab('${o.id}','${l.id}');closeModal()">Approve (deviation)</button></div>`;
+  $('modalBg').classList.add('open'); }
+let delayForm={oid:null,lid:null,reason:'',dept:''};
+function openDelayReason(oid,lid){ const o=state.orders.find(x=>x.id===oid); const l=o&&o.lines.find(x=>x.id===lid); if(!l)return; delayForm={oid,lid,reason:l.delayReason||'',dept:l.respDept||''};
+  const rs=(state.masters&&state.masters.delayReasons)||[]; const ds=(state.masters&&state.masters.respDepts)||[];
+  $('modal').innerHTML=`<div class="mh"><h2>Delay reason</h2><div class="sub">${o.po} · ${l.brand}</div></div><div class="mb"><div class="formgrid" style="grid-template-columns:1fr 1fr"><div class="fld"><label>Delay reason</label><select onchange="delayForm.reason=this.value"><option value="">— pick —</option>${rs.map(r=>`<option ${r===delayForm.reason?'selected':''}>${r}</option>`).join('')}</select></div><div class="fld"><label>Responsible dept</label><select onchange="delayForm.dept=this.value"><option value="">— pick —</option>${ds.map(d=>`<option ${d===delayForm.dept?'selected':''}>${d}</option>`).join('')}</select></div></div></div><div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" onclick="submitDelayReason()">Save</button></div>`;
+  $('modalBg').classList.add('open'); }
+function submitDelayReason(){ const o=state.orders.find(x=>x.id===delayForm.oid); const l=o&&o.lines.find(x=>x.id===delayForm.lid); if(!l)return; if(!delayForm.reason){toast('Pick a delay reason');return;} l.delayReason=delayForm.reason; l.respDept=delayForm.dept||l.respDept; logAction(`Delay reason set ${o.po} · ${l.brand}: ${delayForm.reason}${delayForm.dept?(' / '+delayForm.dept):''}`); save(); closeModal(); render(); }
 function actionItems(){
   const items=[];
   (state.orders||[]).forEach(o=>{
@@ -1628,14 +1654,14 @@ function actionItems(){
       if(!o.acknowledged && (bk==='PO Created'||bk==='RM Check')) items.push({role:'Supply Chain',o,l,what:'Acknowledge PO received',act:`ackOrder('${o.id}')`,label:'Acknowledge'});
       if(o.acknowledged && (!l.rmStatus||l.rmStatus==='pending')) items.push({role:'Supply Chain',o,l,what:'Run RM Check',act:`openRMCheck('${o.id}','${l.id}')`,label:'RM Check'});
       if(l.prRaised && !l.cfoApproved) items.push({role:'CFO',o,l,what:'Approve PR',act:`cfoApprove('${o.id}','${l.id}')`,label:'Approve'});
-      if(l.prRaised && !l.rmReady && l.rmStatus!=='received') items.push({role:'Supply Chain',o,l,what:'Close PR — record RM received + GRN',act:`openClosePR('${o.id}','${l.id}')`,label:'Close PR'});
+      if(l.prRaised && !l.rmReady && l.rmStatus!=='received') items.push({role:'Supply Chain',o,l,what:'Receive raw materials (GRN, partial OK)',act:`openReceiveMaterials()`,label:'Receive'});
       if(rmAllows(l)>0 && (l.produced||0) < Math.min(l.ordered, rmAllows(l))-0.5) items.push({role:'Production',o,l,what:'Produce (RM available)',act:"gotoScreen('prod')",label:'Open Production'});
-      if((l.produced||0)>0 && !(l.qcLab&&l.qcLab.pass) && !(l.qcLab&&l.qcLab.fail)) items.push({role:'Lab Rep',o,l,what:'Lab certify (QC)',act:"gotoScreen('qc')",label:'Open QC'});
-      if(l.qcLab&&l.qcLab.pass && !(l.qcPhys&&l.qcPhys.pass) && !(l.qcPhys&&l.qcPhys.fail)) items.push({role:'QA Inspector',o,l,what:'QA pre-shipment inspection',act:"gotoScreen('qc')",label:'Open QC'});
-      if(l.qcLab&&l.qcLab.fail) items.push({role:'Plant Manager',o,l,what:'Lab QC failed — approve or rework',act:"gotoScreen('qc')",label:'Open QC'});
+      if((l.produced||0)>0 && !(l.qcLab&&l.qcLab.pass) && !(l.qcLab&&l.qcLab.fail)) items.push({role:'Lab Rep',o,l,what:'Lab certify (QC)',act:`openLabQC('${o.id}','${l.id}')`,label:'Lab QC'});
+      if(l.qcLab&&l.qcLab.pass && !(l.qcPhys&&l.qcPhys.pass) && !(l.qcPhys&&l.qcPhys.fail)) items.push({role:'QA Inspector',o,l,what:'QA pre-shipment inspection',act:`openQAPhys('${o.id}','${l.id}')`,label:'Inspect'});
+      if(l.qcLab&&l.qcLab.fail) items.push({role:'Plant Manager',o,l,what:'Lab QC failed — approve or rework',act:`openLabFailReview('${o.id}','${l.id}')`,label:'Review'});
       if(l.qcPhys&&l.qcPhys.fail) items.push({role:'Supply Chain',o,l,what:'QA failed — correct & resubmit'+(l.reinspections?(' (re-insp #'+l.reinspections+')'):''),act:`openQACorrect('${o.id}','${l.id}')`,label:'Correct'});
-      if(l.qcPass && (l.dispatched||0)<(l.packed||0)-0.5) items.push({role:'Supply Chain',o,l,what:'Record shipment',act:"gotoScreen('ship')",label:'Open Shipments'});
-      if(od && !l.delayReason) items.push({role:'Plant Manager',o,l,what:'Add delay reason',act:`openOrder('${o.id}')`,label:'Add reason'});
+      if(l.qcPass && (l.dispatched||0)<(l.packed||0)-0.5) items.push({role:'Supply Chain',o,l,what:'Record shipment',act:`openShip('${o.id}','${l.id}')`,label:'Ship'});
+      if(od && !l.delayReason) items.push({role:'Plant Manager',o,l,what:'Add delay reason',act:`openDelayReason('${o.id}','${l.id}')`,label:'Add reason'});
     });
   });
   return items;

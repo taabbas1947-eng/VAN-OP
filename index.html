@@ -1618,15 +1618,16 @@ function openClosePR(oid,lid){ const o=state.orders.find(x=>x.id===oid); const l
   $('modalBg').classList.add('open'); }
 function submitClosePR(){ const o=state.orders.find(x=>x.id===closePRForm.oid); const l=o&&o.lines.find(x=>x.id===closePRForm.lid); if(!l)return; if(!(closePRForm.grn||'').trim()){toast('Enter GRN #');return;} const d=closePRForm.date||TODAY.toISOString().slice(0,10); l.rmReceivedDate=d; l.grn=(closePRForm.grn||'').trim(); l.rmReady=d; l.rmStatus='received'; logAction(`RM received (GRN ${l.grn}) — ${o.po} · ${l.brand}; PR closed`); save(); closeModal(); toast('RM received — PR closed'); render(); }
 function gotoScreen(sc){ state.screen=sc; render(); }
+function cfoApprovePR(prId){ if(!(state.role==='CFO'||state.role==='COO')){toast('CFO only');return;} const p=(state.prs||[]).find(x=>x.id===prId); if(!p)return; p.cfoApproved=TODAY.toISOString().slice(0,10); logAction(`CFO approved PR ${p.id} — ${p.rm} ${fmt(p.qtyRequired)} Kg/L`); save(); toast('PR approved'); render(); }
 function raisePR(rm, qty){ if(!rm||!(qty>0))return; state.prs=state.prs||[]; const open=state.prs.find(p=>p.rm===rm&&p.status==='open');
   if(open){ open.qtyRequired+=qty; logAction(`PR (open) for ${rm}: +${fmt(qty)} Kg/L attached — required now ${fmt(open.qtyRequired)}`); }
-  else { state.prs.unshift({id:'PR'+(state.seq++),rm,qtyRequired:qty,qtyReceived:0,receipts:[],status:'open',date:TODAY.toISOString().slice(0,10),by:state.role}); logAction(`PR raised for ${rm}: ${fmt(qty)} Kg/L`); } }
+  else { state.prs.unshift({id:'PR'+(state.seq++),rm,qtyRequired:qty,qtyReceived:0,receipts:[],status:'open',cfoApproved:null,date:TODAY.toISOString().slice(0,10),by:state.role}); logAction(`PR raised for ${rm}: ${fmt(qty)} Kg/L`); } }
 function openReceiveMaterials(){ const open=(state.prs||[]).filter(p=>p.status==='open');
   $('modal').innerHTML=`<div class="mh"><h2>Receive raw materials (GRN)</h2><div class="sub">${open.length} open PR(s) · partial receipts allowed</div></div><div class="mb">`+
-   (open.length?open.map(p=>{const rem=Math.max(0,p.qtyRequired-(p.qtyReceived||0));return `<div style="border:1px solid var(--line);border-radius:9px;padding:9px 11px;margin-bottom:8px"><div style="font-weight:600">${p.rm}</div><div class="muted" style="font-size:11px;margin-bottom:6px">required ${fmt(p.qtyRequired)} · received ${fmt(p.qtyReceived||0)} · remaining ${fmt(rem)} Kg/L${(p.receipts&&p.receipts.length)?(' · '+p.receipts.length+' receipt(s)'):''}</div><div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap"><div class="fld" style="width:120px"><label>Receive qty</label><input type="number" id="rcv_${p.id}" placeholder="max ${fmt(rem)}"></div><div class="fld" style="width:140px"><label>GRN #</label><input type="text" id="grn_${p.id}"></div><div class="fld" style="width:140px"><label>Date</label><input type="date" id="rdt_${p.id}" value="${TODAY.toISOString().slice(0,10)}"></div><button class="sm green" onclick="receivePR('${p.id}')">Receive</button></div></div>`;}).join(''):'<div class="muted" style="padding:6px 0">No open PRs.</div>')+
+   (open.length?open.map(p=>{const rem=Math.max(0,p.qtyRequired-(p.qtyReceived||0));return `<div style="border:1px solid var(--line);border-radius:9px;padding:9px 11px;margin-bottom:8px"><div style="font-weight:600">${p.rm}</div><div class="muted" style="font-size:11px;margin-bottom:6px">required ${fmt(p.qtyRequired)} · received ${fmt(p.qtyReceived||0)} · remaining ${fmt(rem)} Kg/L${(p.receipts&&p.receipts.length)?(' · '+p.receipts.length+' receipt(s)'):''}${p.cfoApproved?' · <span style="color:var(--green2)">CFO approved</span>':' · <span style="color:var(--amber)">awaiting CFO approval</span>'}</div><div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap"><div class="fld" style="width:120px"><label>Receive qty</label><input type="number" id="rcv_${p.id}" placeholder="max ${fmt(rem)}"></div><div class="fld" style="width:140px"><label>GRN #</label><input type="text" id="grn_${p.id}"></div><div class="fld" style="width:140px"><label>Date</label><input type="date" id="rdt_${p.id}" value="${TODAY.toISOString().slice(0,10)}"></div><button class="sm green" onclick="receivePR('${p.id}')">Receive</button></div></div>`;}).join(''):'<div class="muted" style="padding:6px 0">No open PRs.</div>')+
    `</div><div class="mf"><button class="ghost" onclick="closeModal()">Close</button></div>`;
   $('modalBg').classList.add('open'); }
-function receivePR(prId){ const p=(state.prs||[]).find(x=>x.id===prId); if(!p)return; const qty=+(($('rcv_'+prId)&&$('rcv_'+prId).value))||0; const grn=((($('grn_'+prId)&&$('grn_'+prId).value))||'').trim(); const d=(($('rdt_'+prId)&&$('rdt_'+prId).value))||TODAY.toISOString().slice(0,10);
+function receivePR(prId){ const p=(state.prs||[]).find(x=>x.id===prId); if(!p)return; if(!p.cfoApproved){toast('This PR must be approved by CFO before raw material can be received.');return;} const qty=+(($('rcv_'+prId)&&$('rcv_'+prId).value))||0; const grn=((($('grn_'+prId)&&$('grn_'+prId).value))||'').trim(); const d=(($('rdt_'+prId)&&$('rdt_'+prId).value))||TODAY.toISOString().slice(0,10);
   if(!(qty>0)){toast('Enter received qty');return;} if(!grn){toast('Enter GRN #');return;}
   p.receipts=p.receipts||[]; p.receipts.push({date:d,grn,qty,by:state.role}); p.qtyReceived=(p.qtyReceived||0)+qty; state.rawStock[p.rm]=(state.rawStock[p.rm]||0)+qty;
   if(p.qtyReceived>=p.qtyRequired-0.001) p.status='closed';
@@ -1653,7 +1654,6 @@ function actionItems(){
       if(lb==='Delivered') return;
       if(!o.acknowledged && (bk==='PO Created'||bk==='RM Check')) items.push({role:'Supply Chain',o,l,what:'Acknowledge PO received',act:`ackOrder('${o.id}')`,label:'Acknowledge'});
       if(o.acknowledged && (!l.rmStatus||l.rmStatus==='pending')) items.push({role:'Supply Chain',o,l,what:'Run RM Check',act:`openRMCheck('${o.id}','${l.id}')`,label:'RM Check'});
-      if(l.prRaised && !l.cfoApproved) items.push({role:'CFO',o,l,what:'Approve PR',act:`cfoApprove('${o.id}','${l.id}')`,label:'Approve'});
       if(l.prRaised && !l.rmReady && l.rmStatus!=='received') items.push({role:'Supply Chain',o,l,what:'Receive raw materials (GRN, partial OK)',act:`openReceiveMaterials()`,label:'Receive'});
       if(rmAllows(l)>0 && (l.produced||0) < Math.min(l.ordered, rmAllows(l))-0.5) items.push({role:'Production',o,l,what:'Produce (RM available)',act:"gotoScreen('prod')",label:'Open Production'});
       if((l.produced||0)>0 && !(l.qcLab&&l.qcLab.pass) && !(l.qcLab&&l.qcLab.fail)) items.push({role:'Lab Rep',o,l,what:'Lab certify (QC)',act:`openLabQC('${o.id}','${l.id}')`,label:'Lab QC'});
@@ -1664,13 +1664,14 @@ function actionItems(){
       if(od && !l.delayReason) items.push({role:'Plant Manager',o,l,what:'Add delay reason',act:`openDelayReason('${o.id}','${l.id}')`,label:'Add reason'});
     });
   });
+  (state.prs||[]).filter(p=>p.status==='open'&&!p.cfoApproved).forEach(p=>items.push({role:'CFO',pr:p,what:'Approve PR — '+p.rm+' '+fmt(p.qtyRequired)+' Kg/L',act:"cfoApprovePR('"+p.id+"')",label:'Approve PR'}));
   return items;
 }
 function screenApprovals(){
   const isCOO=state.role==='COO';
   const all=actionItems();
   const mine = isCOO ? all : all.filter(x=>x.role===state.role);
-  const row=(it)=>`<tr><td><b>${it.o.po}</b><div class="muted" style="font-size:11px">${it.o.client}</div></td><td>${it.l?it.l.brand:''}</td><td>${it.what}</td><td>${(isOverdue(it.o)&&lineBucket(it.o,it.l)!=='Delivered')?`<span class="pill" style="background:var(--red-50);color:var(--red)">${daysOver(it.o)}d overdue</span>`:''}</td><td style="width:160px"><button class="sm green" onclick="${it.act}">${it.label}</button></td></tr>`;
+  const row=(it)=>`<tr><td><b>${it.o?it.o.po:(it.pr?('PR · '+it.pr.rm):'—')}</b>${it.o?`<div class="muted" style="font-size:11px">${it.o.client}</div>`:''}</td><td>${it.l?it.l.brand:(it.pr?(fmt(it.pr.qtyRequired)+' Kg/L'):'')}</td><td>${it.what}</td><td>${(it.o&&isOverdue(it.o)&&lineBucket(it.o,it.l)!=='Delivered')?`<span class="pill" style="background:var(--red-50);color:var(--red)">${daysOver(it.o)}d overdue</span>`:''}</td><td style="width:160px"><button class="sm green" onclick="${it.act}">${it.label}</button></td></tr>`;
   const tbl=(arr)=>`<table><thead><tr><th>PO</th><th>Product</th><th>Action needed</th><th></th><th></th></tr></thead><tbody>${arr.map(row).join('')}</tbody></table>`;
   let body;
   if(!mine.length){ body=`<div class="card"><div class="muted" style="padding:6px 0">Nothing waiting on you right now.</div></div>`; }

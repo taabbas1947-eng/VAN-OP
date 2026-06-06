@@ -865,7 +865,7 @@ function screenEntry(){
        <select id="e_vsub" onchange="entryVsub=this.value;validate()"><option value="">— VC / FM —</option>
          <option value="VC" ${entryVsub==='VC'?'selected':''}>VC — Value Chain</option>
          <option value="FM" ${entryVsub==='FM'?'selected':''}>FM — Farm Management</option></select></div>`:''}
-     <div class="fld"><label>KAM Name</label><input id="e_kam" type="text" value="Muhammad Imran" oninput="validate()"></div>
+     <div class="fld"><label>KAM Name</label><select id="e_kam" onchange="validate()"><option value="">— pick KAM —</option>${((state.masters&&state.masters.kamNames)||[]).map(k=>`<option ${k===state._lastKam?'selected':''}>${k}</option>`).join('')}</select></div>
      <div class="fld"><label>Priority</label><select id="e_pri"><option>Normal</option><option>High</option><option>Critical</option><option>Low</option></select></div>
      <div class="fld"><label>PO Received</label><input id="e_recv" type="date" value="${TODAY.toISOString().slice(0,10)}" oninput="validate()"></div>
      <div class="fld"><label>Promised Delivery</label><input id="e_prom" type="date" value="${new Date(TODAY.getTime()+7*864e5).toISOString().slice(0,10)}" oninput="validate()"></div>
@@ -875,7 +875,7 @@ function screenEntry(){
     </div></div>
    <div class="card"><h3>Step 2 — Line Items <span class="hint">pack size auto-fills, override allowed</span></h3>
     ${entryClient?'':'<div class="muted" style="font-size:12.5px">Pick a channel and client above to load brands.</div>'}
-    <table class="fixedtbl ${entryClient?'':'hide'}"><thead><tr><th>Brand</th><th style="width:118px">Base</th><th style="width:60px">Form</th><th style="width:70px">Pack</th><th style="width:86px">Qty (Kg/L)</th><th style="width:120px">Committed</th><th style="width:28px"></th></tr></thead>
+    <table class="fixedtbl ${entryClient?'':'hide'}" style="font-size:12px"><thead><tr><th>Brand</th><th style="width:150px">Base</th><th style="width:78px">Form</th><th style="width:62px">Pack</th><th style="width:80px">Qty</th><th style="width:56px">Packs</th><th style="width:96px">Print price</th><th style="width:120px">Committed</th><th style="width:26px"></th></tr></thead>
     <tbody id="e_lines"></tbody></table>
     <button class="ghost sm ${entryClient?'':'hide'}" style="margin-top:10px" onclick="entryLines.push({brand:'',qty:'',pack:'',note:'',committed:''});renderEntryLines()">+ Add line</button>
    </div>
@@ -887,17 +887,21 @@ function screenEntry(){
     <button id="e_submit" ${ed?'':'disabled'} onclick="submitPO()">▶ Submit PO &amp; run RM check</button></div>`;
   if(entryClient) renderEntryLines(); else validate();
 }
+function updatePacks(i){ const l=entryLines[i]; const el=document.getElementById('pk_'+i); if(el) el.textContent=(+l.qty>0&&+l.pack>0)?fmt(Math.ceil(+l.qty/+l.pack)):'—'; }
 function renderEntryLines(){
   const brs=brandPool();
   $('e_lines').innerHTML=entryLines.map((l,i)=>{
     const det=detailForBrand(l.brand);
+    const packs=(+l.pack>0&&+l.qty>0)?Math.ceil(+l.qty/+l.pack):'';
     return `<tr>
      <td><select onchange="entryLines[${i}].brand=this.value;entryLines[${i}].pack=(detailForBrand(this.value).pack||'');renderEntryLines()">
        <option value="">— pick brand —</option>${brs.map(b=>`<option ${b.brand===l.brand?'selected':''}>${b.brand}</option>`).join('')}</select></td>
-     <td class="muted">${det.base||'—'}${det.owner?` <span class="tag">${det.owner}</span>`:''}</td>
+     <td class="muted" style="white-space:normal;line-height:1.25">${det.base||'—'}${det.owner?` <span class="tag">${det.owner}</span>`:''}</td>
      <td class="muted">${det.form||'—'}</td>
-     <td><input type="number" value="${l.pack}" placeholder="${det.pack||''}" oninput="entryLines[${i}].pack=this.value"></td>
-     <td><input type="number" value="${l.qty}" placeholder="Kg/L" oninput="entryLines[${i}].qty=this.value;validate()"></td>
+     <td><input type="number" value="${l.pack}" placeholder="${det.pack||''}" oninput="entryLines[${i}].pack=this.value;updatePacks(${i})"></td>
+     <td><input type="number" value="${l.qty}" placeholder="Kg/L" oninput="entryLines[${i}].qty=this.value;updatePacks(${i});validate()"></td>
+     <td class="num"><b id="pk_${i}">${packs!==''?fmt(packs):'—'}</b></td>
+     <td><input type="number" value="${l.price||''}" placeholder="PKR" oninput="entryLines[${i}].price=this.value;validate()"></td>
      <td><input type="date" value="${l.committed||(($('e_prom')&&$('e_prom').value)||'')}" onchange="entryLines[${i}].committed=this.value"></td>
      <td>${entryLines.length>1?`<button class="ghost sm" onclick="entryLines.splice(${i},1);renderEntryLines()">✕</button>`:''}</td></tr>`;
   }).join('');
@@ -914,6 +918,7 @@ function entryChecks(){
     ['Promised Delivery date', !!($('e_prom')&&$('e_prom').value)],
     ['Client PO # (manual channels)', !isManualPO() || !!($('e_po')&&$('e_po').value.trim())],
     ['At least 1 line item (brand + qty)', lines.length>0],
+    ['Print price on every line', lines.length>0 && lines.every(l=>+l.price>0)],
   ];
 }
 function validate(){
@@ -936,16 +941,19 @@ function previewRM(){
 function submitPO(){
   if(!canEdit(['KAM'])){toast('Only KAM can submit a PO');return;}
   const lines=entryLines.filter(l=>l.brand&&+l.qty>0); if(!lines.length){toast('Add a line item');return;}
+  if(lines.some(l=>!(+l.price>0))){ toast('Enter the Print price for every product line.'); return; }
+  if(typeof confirm==='function' && !confirm('Confirm the PRINT PRICE for each product is correct (it is locked onto the PO):\n\n'+lines.map(l=>'- '+l.brand+': PKR '+(+l.price).toLocaleString()).join('\n')+'\n\nProceed?')) return;
+  state._lastKam=$('e_kam').value;
   const recv=$('e_recv').value; const po=isManualPO()?$('e_po').value.trim():genPO(recv);
   const id='O'+(state.orders.length+1)+'_'+state.seq++;
   const ord={ id, po, client:entryClient, channel:entryChannel, vgreenSub:entryVsub||null, kam:$('e_kam').value.trim(),
     priority:$('e_pri').value, promised:$('e_prom').value, received:recv, rmDecision:'pending',
-    lines:lines.map((l,j)=>{const det=detailForBrand(l.brand);return {id:id+'L'+j, brand:l.brand, base:det.base||l.brand, pack:+l.pack||det.pack||null, note:l.note||'', committed:l.committed||$('e_prom').value, ordered:+l.qty, produced:0,packed:0,dispatched:0,delivered:0};}) };
+    lines:lines.map((l,j)=>{const det=detailForBrand(l.brand);return {id:id+'L'+j, brand:l.brand, base:det.base||l.brand, pack:+l.pack||det.pack||null, note:l.note||'', committed:l.committed||$('e_prom').value, ordered:+l.qty, printPrice:+l.price||0, produced:0,packed:0,dispatched:0,delivered:0};}) };
   ord.totalOrdered=ord.lines.reduce((a,l)=>a+l.ordered,0);
   ord.rmDecision='pending';
   state.orders.unshift(ord);
   logAction(`Created PO ${po} (${entryClient}, ${entryChannel}, ${fmt(ord.totalOrdered)} Kg/L)`);
-  entryChannel='';entryClient='';entryVsub='';entryLines=[{brand:'',qty:'',pack:'',note:'',committed:''}]; save();
+  entryChannel='';entryClient='';entryVsub='';entryLines=[{brand:'',qty:'',pack:'',note:'',committed:'',price:''}]; save();
   toast('PO '+po+' created'); state.screen='tracker'; render();
 }
 

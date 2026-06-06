@@ -114,7 +114,9 @@ th.num,th.ctr{text-align:inherit}
 .banner b{font-weight:700}
 /* ---------- forms ---------- */
 .formgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:13px}
-.fld{display:flex;flex-direction:column;gap:6px}
+.fld{display:flex;flex-direction:column;gap:6px;min-width:0}
+.fld select,.fld input,.fld textarea{width:100%;min-width:0;box-sizing:border-box}
+.fld select{text-overflow:ellipsis}
 .fld label{font-size:10.5px;color:var(--mut);text-transform:uppercase;letter-spacing:.4px;font-weight:700}
 /* ---------- PO parent / SKU rows ---------- */
 tr.po-row>td{border-top:1px solid var(--line);font-weight:600;background:#fff}
@@ -1320,13 +1322,20 @@ function screenProd(){
   const psEntries=Object.entries(state.packedStock||{}).filter(([k,v])=>v>0.5).sort((a,b)=>b[1]-a[1]);
   const allocs=[]; state.orders.forEach(o=>o.lines.forEach(l=>{ const av=(state.packedStock&&state.packedStock[l.brand])||0; if(av>0.5 && (l.packed||0)<l.ordered-0.5 && stageOf(o)!=='Delivered') allocs.push({o,l,av}); }));
   const recent=state.productionLog.slice(0,15);
-  const openBatches=(state.batches||[]).filter(b=>b.status==='open');
+  const openBatches=(state.batches||[]).filter(b=>b.status==='open' && (b.plannedKg>0 ? (b.producedKg||0) < b.plannedKg-0.001 : true));
+  const doneBatches=(state.batches||[]).filter(b=>b.status==='open' && b.plannedKg>0 && (b.producedKg||0) >= b.plannedKg-0.001);
   const obCard=`<div class="card"><h3>Open batches <span class="hint">${openBatches.length} open</span></h3>`+
     (openBatches.length?`<div style="overflow:auto"><table><thead><tr><th>Batch #</th><th>Product</th><th class="num">Planned</th><th class="num">Produced</th><th class="num">Remaining</th><th>Opened</th><th style="width:250px"></th></tr></thead><tbody>`+
       openBatches.map(b=>{const prod=b.producedKg||0,plan=b.plannedKg||0,rem=Math.max(0,plan-prod);
         const prodName=b.kind==='po'?`${b.brand||''} <span class="muted" style="font-size:11px">${b.base||''} · ${b.po||''}</span>`:`<span class="muted">${b.base||''}</span> <span class="pill" style="background:var(--navy-50);color:var(--navy)">bulk</span>`;
         return `<tr><td><b>${b.batchNo||'—'}</b></td><td>${prodName}</td><td class="num">${fmt(plan)}</td><td class="num">${fmt(prod)}${prod>plan+0.5?` <span class="pill" style="background:var(--amber-50);color:var(--amber);font-size:8.5px;padding:1px 5px">over plan</span>`:``}</td><td class="num"><b style="color:${rem>0?'var(--amber)':'var(--mut)'}">${fmt(rem)}</b></td><td class="muted">${b.openedDate||b.date||''}</td><td>${ed?`<button class="sm green" onclick="openShiftLog('${b.id}')">Log shift output</button> <button class="sm ghost" onclick="closeBatch('${b.id}')">Close</button>`:''}</td></tr>`;}).join('')+
       `</tbody></table></div>`:'<div class="muted">No open batches. Open one above to start logging shift production.</div>')+`</div>`;
+  const cbCard = doneBatches.length?`<div class="card"><h3>Production completed \u2014 at / over plan <span class="hint">${doneBatches.length} ready to close / pack</span></h3><div style="overflow:auto"><table><thead><tr><th>Batch #</th><th>Product</th><th class="num">Planned</th><th class="num">Produced</th><th class="num">% plan</th><th>Opened</th><th style="width:250px"></th></tr></thead><tbody>`+
+    doneBatches.map(b=>{const prod=b.producedKg||0,plan=b.plannedKg||0,pct=plan?Math.round(prod/plan*100):0;
+      const prodName=b.kind==='po'?`${b.brand||''} <span class="muted" style="font-size:11px">${b.base||''} \u00b7 ${b.po||''}</span>`:`<span class="muted">${b.base||''}</span> <span class="pill" style="background:var(--navy-50);color:var(--navy)">bulk</span>`;
+      const pill=prod>plan+0.5?`<span class="pill" style="background:var(--amber-50);color:var(--amber);font-size:8.5px;padding:1px 5px">over plan</span>`:`<span class="pill" style="background:var(--green-50,#e7f6ec);color:var(--green2,#1a7f37);font-size:8.5px;padding:1px 5px">at plan</span>`;
+      return `<tr><td><b>${b.batchNo||'\u2014'}</b></td><td>${prodName}</td><td class="num">${fmt(plan)}</td><td class="num">${fmt(prod)} ${pill}</td><td class="num">${pct}%</td><td class="muted">${b.openedDate||b.date||''}</td><td>${ed?`<button class="sm green" onclick="closeBatch('${b.id}')">Close batch \u2713</button> <button class="sm ghost" onclick="openShiftLog('${b.id}')">Log more (\u2264105%)</button>`:''}</td></tr>`;}).join('')+
+    `</tbody></table></div></div>`:'';
   const logForm = prodMode==='po'
     ? `<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
          <div class="fld" style="flex:1;min-width:230px"><label>Purchase Order</label>
@@ -1351,10 +1360,11 @@ function screenProd(){
        <div class="opt full ${prodMode==='stock'?'on':''}" onclick="prodMode='stock';render()" style="padding:9px">Bulk Base Production</div>
      </div>${logForm}</div>
    ${obCard}
+   ${cbCard}
 
    <div class="card"><h3>Bulk base produced — pack into brands <span class="hint">${openStock.length} base(s) ready</span></h3>
      ${openStock.length?`<table><thead><tr><th>Base</th><th class="num">Produced</th><th class="num">Packed</th><th class="num">Open</th><th>Date</th><th style="width:80px"></th></tr></thead>
-       <tbody>${openStock.map(b=>`<tr><td>${b.base}</td><td class="num">${fmt(b.producedKg)}</td><td class="num">${fmt(b.packedKg)}</td><td class="num"><b>${fmt(b.producedKg-b.packedKg)}</b></td><td class="muted">${b.date}</td><td>${ed?`<button class="sm" onclick="openPack('${b.id}')">Pack</button>`:''}</td></tr>`).join('')}</tbody></table>`:'<div class="muted">No open to-stock bulk.</div>'}</div>
+       <tbody>${openStock.map(b=>`<tr><td>${b.base}</td><td class="num">${fmt(b.producedKg)}</td><td class="num">${fmt(b.packedKg)}</td><td class="num"><b>${fmt(b.producedKg-b.packedKg)}</b></td><td class="muted">${b.openedDate||b.closedDate||b.date||'\u2014'}</td><td>${ed?`<button class="sm" onclick="openPack('${b.id}')">Pack</button>`:''}</td></tr>`).join('')}</tbody></table>`:'<div class="muted">No open to-stock bulk.</div>'}</div>
 
    <div class="card"><h3>Orders in production <span class="hint">${work.length} open · produced → packed → QC</span></h3>
      ${work.length?`<table><thead><tr><th>PO</th><th>Product</th><th class="num">Ordered</th><th class="num">Produced</th><th class="num">Packed</th><th class="num">To produce</th><th class="num">To pack</th><th style="width:200px"></th></tr></thead>
@@ -1528,8 +1538,8 @@ function renderPackModal(){ const b=state.batches.find(x=>x.id===packForm.bid); 
   let priceBlk='';
   if(packForm.oid&&packForm.oid!=='STOCK'&&packForm.lid){ const _o=state.orders.find(x=>x.id===packForm.oid); const _l=_o&&_o.lines.find(x=>x.id===packForm.lid); const setp=(_l&&_l.printPrice!=null&&_l.printPrice!=='')?_l.printPrice:null; const cur=(packForm.price!=null&&packForm.price!=='')?packForm.price:(setp!=null?setp:'');
     priceBlk=`<div style="margin-top:12px;background:var(--amber-50);border:1px solid var(--amber);border-radius:8px;padding:11px"><div style="font-weight:600;font-size:12.5px;margin-bottom:6px">5 \u00b7 Verify price to print on pack ${setp!=null?`<span class="muted" style="font-weight:400">(PO set: ${setp})</span>`:`<span style="color:var(--red)">(no price on PO \u2014 enter it)</span>`}</div><div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap"><input type="number" value="${cur}" oninput="packForm.price=this.value" style="max-width:170px" placeholder="price per pack"><label style="font-weight:400;font-size:12px;display:flex;gap:6px;align-items:center"><input type="checkbox" ${packForm.priceOk?'checked':''} onchange="packForm.priceOk=this.checked"> I verified this is the correct print price</label></div></div>`; }
-  $('modal').innerHTML=`<div class="mh"><h2>Pack bulk base → brand → PO</h2><div class="sub">Bulk base <b>${b.base}</b> · ${fmt(rem)} Kg/L available</div></div>
-   <div class="mb"><div class="formgrid" style="grid-template-columns:1fr 1fr 1fr 1fr">
+  $('modal').innerHTML=`<div class="mh"><h2>Pack bulk base → brand → PO</h2><div class="sub">Bulk base <b>${b.base}</b> · base batch <b>${b.batchNo||'—'}</b> · ${fmt(rem)} Kg/L available</div></div>
+   <div class="mb"><div class="formgrid" style="grid-template-columns:1fr 1fr">
      <div class="fld"><label>1 · Pack into brand</label><select onchange="packForm.brand=this.value;packForm.oid='';packForm.lid='';renderPackModal()"><option value="">— pick brand —</option>${opts.map(x=>`<option ${x===packForm.brand?'selected':''}>${x}</option>`).join('')}</select></div>
      <div class="fld"><label>2 · For which PO</label><select ${packForm.brand?'':'disabled'} onchange="packPickPO(this.value)"><option value="">${packForm.brand?(poOpts.length?'— pick PO —':'no open PO'):'pick brand first'}</option>${poOpts.map(x=>`<option value="${x.o.id}|${x.l.id}" ${packForm.oid===x.o.id&&packForm.lid===x.l.id?'selected':''}>${x.o.po} · ${x.o.client} (needs ${fmt(x.l.ordered-(x.l.packed||0))})</option>`).join('')}</select></div>
      <div class="fld"><label>3 · Qty (Kg/L)</label><input type="number" value="${packForm.kg}" oninput="packForm.kg=this.value" placeholder="max ${fmt(rem)}"></div>
@@ -1564,6 +1574,9 @@ function allocateStock(oid,lid){ const o=state.orders.find(x=>x.id===oid); const
 
 /* ===================== QC · PRE-SHIPMENT (2-layer gate) ===================== */
 function qcLayerPill(layer){ if(!layer) return pill('Pending','--mut'); if(layer.fail) return pill('Failed','--red'); if(layer.pass) return pill('Passed','--green'); return pill('Pending','--mut'); }
+function batchPairsForLine(o,l){ const seen=new Set(),out=[]; (state.packingLog||[]).forEach(p=>{ if(p&&p.po===o.po&&p.brand===l.brand){ const bs=p.baseBatchNo||'', br=p.brandBatchNo||''; const k=bs+'>'+br; if(!seen.has(k)){seen.add(k); out.push({bs:bs||'\u2014',br:br||'\u2014'});} } }); return out; }
+function qcBatchCell(o,l){ const pr=batchPairsForLine(o,l); if(!pr.length) return '<span class="muted" style="font-size:10.5px">not packed yet</span>'; return pr.map(x=>`<span class="pill" style="background:var(--navy-50);color:var(--navy);font-size:9px;padding:1px 6px;white-space:nowrap" title="base batch \u25b8 brand batch">${x.bs} \u25b8 ${x.br}</span>`).join(' '); }
+function qcBatchText(o,l){ const pr=batchPairsForLine(o,l); return pr.length?pr.map(x=>x.bs+' \u25b8 '+x.br).join(', '):'not packed yet'; }
 function screenQC(){
   const isLab=canEdit(['Lab Rep']), isQA=canEdit(['QA Inspector']), isPM=canEdit(['Plant Manager']), isCOO=state.role==='COO', isSC=canEdit(['Supply Chain']);
   const inQC=[]; state.orders.forEach(o=>o.lines.forEach(l=>{ if((l.produced||0)>0 && !l.deliveredDate) inQC.push({o,l}); }));
@@ -1577,16 +1590,16 @@ function screenQC(){
     if(labDone&&!physDone&&(isQA||isCOO)) acts+=`<button class="sm green" onclick="openQAPhys('${o.id}','${l.id}')">Physical inspection…</button> `;
     if(!labDone&&!(isLab||isCOO)) acts='<span class="muted" style="font-size:11px">waiting for Lab Rep</span>';
     else if(labDone&&!physDone&&!(isQA||isCOO)) acts='<span class="muted" style="font-size:11px">waiting for QA Inspector</span>';
-    return `<tr><td><b>${o.po}</b></td><td>${l.brand} <span class="muted" style="font-size:11px">${l.base}</span></td><td class="num">${q(l)}</td><td>${qcLayerPill(l.qcLab)}</td><td>${qcLayerPill(l.qcPhys)}</td><td>${acts}</td></tr>`;}).join('');
-  const flRows=failLab.map(({o,l})=>`<tr><td><b>${o.po}</b></td><td>${l.brand}</td><td class="num">${q(l)}</td><td><span style="color:var(--red)">${(l.qcLab&&l.qcLab.reason)||'Failed'}</span></td><td>${(isPM||isCOO)?`<button class="sm green" onclick="qcApproveLab('${o.id}','${l.id}')">Approve (deviation)</button> <button class="sm ghost" onclick="qcReworkLab('${o.id}','${l.id}')">Send to rework</button>`:'<span class="muted" style="font-size:11px">waiting for Plant Manager</span>'}</td></tr>`).join('');
-  const fqRows=failQA.map(({o,l})=>{const fails=(l.qcPhys&&l.qcPhys.checklist?l.qcPhys.checklist.filter(c=>c.result==='fail').map(c=>c.item).join(', '):((l.qcPhys&&l.qcPhys.reason)||'Failed'));return `<tr><td><b>${o.po}</b></td><td>${l.brand}</td><td class="num">${q(l)}</td><td><span style="color:var(--red)">${fails}</span>${l.reinspections?` <span class="pill" style="background:var(--navy-50);color:var(--navy);font-size:9px">re-insp #${l.reinspections}</span>`:''}</td><td>${(isSC||isCOO)?`<button class="sm" onclick="openQACorrect('${o.id}','${l.id}')">Correct & resubmit</button>`:'<span class="muted" style="font-size:11px">waiting for Supply Chain</span>'}</td></tr>`;}).join('');
+    return `<tr><td><b>${o.po}</b></td><td>${l.brand} <span class="muted" style="font-size:11px">${l.base}</span><div style="margin-top:3px">${qcBatchCell(o,l)}</div></td><td class="num">${q(l)}</td><td>${qcLayerPill(l.qcLab)}</td><td>${qcLayerPill(l.qcPhys)}</td><td>${acts}</td></tr>`;}).join('');
+  const flRows=failLab.map(({o,l})=>`<tr><td><b>${o.po}</b></td><td>${l.brand}<div style="margin-top:3px">${qcBatchCell(o,l)}</div></td><td class="num">${q(l)}</td><td><span style="color:var(--red)">${(l.qcLab&&l.qcLab.reason)||'Failed'}</span></td><td>${(isPM||isCOO)?`<button class="sm green" onclick="qcApproveLab('${o.id}','${l.id}')">Approve (deviation)</button> <button class="sm ghost" onclick="qcReworkLab('${o.id}','${l.id}')">Send to rework</button>`:'<span class="muted" style="font-size:11px">waiting for Plant Manager</span>'}</td></tr>`).join('');
+  const fqRows=failQA.map(({o,l})=>{const fails=(l.qcPhys&&l.qcPhys.checklist?l.qcPhys.checklist.filter(c=>c.result==='fail').map(c=>c.item).join(', '):((l.qcPhys&&l.qcPhys.reason)||'Failed'));return `<tr><td><b>${o.po}</b></td><td>${l.brand}<div style="margin-top:3px">${qcBatchCell(o,l)}</div></td><td class="num">${q(l)}</td><td><span style="color:var(--red)">${fails}</span>${l.reinspections?` <span class="pill" style="background:var(--navy-50);color:var(--navy);font-size:9px">re-insp #${l.reinspections}</span>`:''}</td><td>${(isSC||isCOO)?`<button class="sm" onclick="openQACorrect('${o.id}','${l.id}')">Correct & resubmit</button>`:'<span class="muted" style="font-size:11px">waiting for Supply Chain</span>'}</td></tr>`;}).join('');
   $('view').innerHTML=`
    <div class="banner info"><b>QC gate.</b> Products appear once <b>production starts</b> (partial or full). <b>Lab</b> certifies, then <b>QA</b> inspects. <b>Lab fail → Plant Manager</b> (approve or rework); <b>QA fail → Supply Chain</b> (correct &amp; resubmit). Nothing ships until QC passes.</div>
    ${(isLab||isQA||isPM||isCOO)?'':`<div class="banner warn">Viewing only — QC is owned by Lab Rep, QA Inspector &amp; Plant Manager.</div>`}
    <div class="card"><h3>Awaiting QC <span class="hint">${awaiting.length}</span></h3>${awaiting.length?`<div style="overflow:auto"><table><thead><tr><th>PO</th><th>Product</th><th class="num">Produced</th><th>Lab</th><th>QA</th><th style="width:260px">Action</th></tr></thead><tbody>${awRows}</tbody></table></div>`:'<div class="muted">Nothing awaiting QC.</div>'}</div>
    ${failLab.length?`<div class="card"><h3 style="color:var(--red)">Lab QC failed — Plant Manager action <span class="hint">${failLab.length}</span></h3><div style="overflow:auto"><table><thead><tr><th>PO</th><th>Product</th><th class="num">Produced</th><th>Reason</th><th style="width:320px">Action</th></tr></thead><tbody>${flRows}</tbody></table></div></div>`:''}
    ${failQA.length?`<div class="card"><h3 style="color:var(--red)">QA failed — Supply Chain to correct <span class="hint">${failQA.length}</span></h3><div style="overflow:auto"><table><thead><tr><th>PO</th><th>Product</th><th class="num">Produced</th><th>Failed items</th><th style="width:200px">Action</th></tr></thead><tbody>${fqRows}</tbody></table></div></div>`:''}
-   <div class="card"><h3>QC passed — ready to ship <span class="hint">${passed.length}</span></h3>${passed.length?`<div style="overflow:auto"><table><thead><tr><th>PO</th><th>Product</th><th class="num">Qty</th><th>Lab by</th><th>QA by</th><th>QC date</th></tr></thead><tbody>${passed.map(({o,l})=>`<tr><td><b>${o.po}</b></td><td>${l.brand}</td><td class="num">${fmt(l.ordered)}</td><td class="muted">${l.qcLab&&l.qcLab.by||'—'}</td><td class="muted">${l.qcPhys&&l.qcPhys.by||'—'}</td><td class="muted">${l.qcPass||'—'}</td></tr>`).join('')}</tbody></table></div>`:'<div class="muted">None passed yet.</div>'}</div>`;
+   <div class="card"><h3>QC passed — ready to ship <span class="hint">${passed.length}</span></h3>${passed.length?`<div style="overflow:auto"><table><thead><tr><th>PO</th><th>Product</th><th class="num">Qty</th><th>Lab by</th><th>QA by</th><th>QC date</th></tr></thead><tbody>${passed.map(({o,l})=>`<tr><td><b>${o.po}</b></td><td>${l.brand}<div style="margin-top:3px">${qcBatchCell(o,l)}</div></td><td class="num">${fmt(l.ordered)}</td><td class="muted">${l.qcLab&&l.qcLab.by||'—'}</td><td class="muted">${l.qcPhys&&l.qcPhys.by||'—'}</td><td class="muted">${l.qcPass||'—'}</td></tr>`).join('')}</tbody></table></div>`:'<div class="muted">None passed yet.</div>'}</div>`;
 }
 function qcAudit(o,l,field,val){ (state.audit=state.audit||[]).unshift({t:new Date().toISOString(),user:state.role,module:'QC',po:o.po,brand:l.brand,field,old:'',val}); }
 function qcCheckBoth(o,l){ if(l.qcLab&&l.qcLab.pass&&l.qcPhys&&l.qcPhys.pass){ l.qcPass=TODAY.toISOString().slice(0,10); logAction(`QC PASSED: ${o.po} · ${l.brand} — cleared for shipment`); } }
@@ -1606,7 +1619,7 @@ let qaForm={oid:null,lid:null,marks:[],comments:''};
 function openQAPhys(oid,lid){ const o=state.orders.find(x=>x.id===oid); const l=o.lines.find(x=>x.id===lid); if(!(l.qcLab&&l.qcLab.pass)){toast('Lab must certify first');return;} qaForm={oid,lid,marks:QC_CHECKLIST.map(()=>''),comments:''}; renderQAPhys(); $('modalBg').classList.add('open'); }
 function qaSet(idx,v){ qaForm.marks[idx]=v; renderQAPhys(); }
 function renderQAPhys(){ const o=state.orders.find(x=>x.id===qaForm.oid); const l=o.lines.find(x=>x.id===qaForm.lid);
-  $('modal').innerHTML=`<div class="mh"><h2>Physical pre-shipment inspection</h2><div class="sub">${o.po} · ${l.brand} · ${fmt(l.ordered)} Kg/L · inspector ${state.role}</div></div>
+  $('modal').innerHTML=`<div class="mh"><h2>Physical pre-shipment inspection</h2><div class="sub">${o.po} · ${l.brand} · ${fmt(l.ordered)} Kg/L · batch ${qcBatchText(o,l)} · inspector ${state.role}</div></div>
    <div class="mb"><div class="muted" style="font-size:11px;margin-bottom:10px">Mark every item, add comments, then submit. Any <b>Fail</b> blocks the shipment.</div>
    ${QC_CHECKLIST.map((it,idx)=>`<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--line2)">
       <div style="flex:1;font-size:12.5px">${it}</div>
@@ -1656,7 +1669,7 @@ function receivePR(prId){ const p=(state.prs||[]).find(x=>x.id===prId); if(!p)re
   logAction(`GRN ${grn}: received ${fmt(qty)} Kg/L ${p.rm} (PR ${p.id} ${p.status})`);
   save(); toast(p.status==='closed'?'PR fully received — closed':'Partial receipt recorded'); openReceiveMaterials(); }
 function openLabQC(oid,lid){ const o=state.orders.find(x=>x.id===oid); const l=o&&o.lines.find(x=>x.id===lid); if(!l)return;
-  $('modal').innerHTML=`<div class="mh"><h2>Lab QC — Layer 1</h2><div class="sub">${o.po} · ${l.brand} · produced ${fmt(l.produced||0)}/${fmt(l.ordered)} Kg/L</div></div><div class="mb"><div class="muted" style="font-size:12.5px">Certify spec/quality. Lab certification unlocks the QA physical inspection.</div></div><div class="mf"><button class="ghost" onclick="qcFail('${o.id}','${l.id}','qcLab');closeModal()">Fail</button><button class="green" onclick="qcLabPass('${o.id}','${l.id}');closeModal()">Lab certify ✓</button></div>`;
+  $('modal').innerHTML=`<div class="mh"><h2>Lab QC — Layer 1</h2><div class="sub">${o.po} · ${l.brand} · produced ${fmt(l.produced||0)}/${fmt(l.ordered)} Kg/L · batch ${qcBatchText(o,l)}</div></div><div class="mb"><div class="muted" style="font-size:12.5px">Certify spec/quality. Lab certification unlocks the QA physical inspection.</div></div><div class="mf"><button class="ghost" onclick="qcFail('${o.id}','${l.id}','qcLab');closeModal()">Fail</button><button class="green" onclick="qcLabPass('${o.id}','${l.id}');closeModal()">Lab certify ✓</button></div>`;
   $('modalBg').classList.add('open'); }
 function openLabFailReview(oid,lid){ const o=state.orders.find(x=>x.id===oid); const l=o&&o.lines.find(x=>x.id===lid); if(!l)return;
   $('modal').innerHTML=`<div class="mh"><h2>Lab QC failed — review</h2><div class="sub">${o.po} · ${l.brand} · reason: ${(l.qcLab&&l.qcLab.reason)||'failed'}</div></div><div class="mb"><div class="muted" style="font-size:12.5px">Approve the deviation (accept as-is) or send back to Production for rework.</div></div><div class="mf"><button class="ghost" onclick="qcReworkLab('${o.id}','${l.id}');closeModal()">Send to rework</button><button class="green" onclick="qcApproveLab('${o.id}','${l.id}');closeModal()">Approve (deviation)</button></div>`;
@@ -1798,24 +1811,26 @@ function screenShip(){
    <div class="banner info">Record one row per dispatch. <b>Only QC-passed products can be loaded.</b> Saving rolls the qty into the PO and auto-closes it when fully shipped.</div>
    <div class="card"><h3>Ready to ship <span class="hint">${ready.length} QC-passed</span></h3>
      ${ready.length?`<table><thead><tr><th>PO</th><th>Product</th><th>Destination</th><th class="num">Packed</th><th class="num">Shipped</th><th class="num">To ship</th><th style="width:150px"></th></tr></thead>
-       <tbody>${ready.map(({o,l})=>{const rem=(l.packed||0)-(l.dispatched||0);return `<tr><td><b>${o.po}</b></td><td>${l.brand}</td><td>${o.client}</td><td class="num">${fmt(l.packed||0)}</td><td class="num">${fmt(l.dispatched||0)}</td><td class="num"><b>${fmt(rem)}</b></td>
+       <tbody>${ready.map(({o,l})=>{const rem=(l.packed||0)-(l.dispatched||0);return `<tr><td><b>${o.po}</b></td><td>${l.brand}</td><td>${o.client}</td><td class="num">${fmt(l.packed||0)}</td><td class="num">${fmt(l.dispatched||0)}</td><td class="num"><b>${fmt(rem)}</b>${packsFor(l.brand,rem)!=null?`<div class="muted" style="font-size:10px">\u2248 ${fmt(packsFor(l.brand,rem))} pk</div>`:``}</td>
          <td>${ed?`<button class="sm" onclick="openShip('${o.id}','${l.id}')">Record shipment</button>`:''}</td></tr>`;}).join('')}</tbody></table>`:'<div class="muted">Nothing QC-passed and waiting to ship.</div>'}</div>
    ${blocked.length?`<div class="card"><h3>Blocked by QC <span class="hint">${blocked.length}</span></h3>
      <table><thead><tr><th>PO</th><th>Product</th><th class="num">Packed</th><th>QC status</th></tr></thead>
        <tbody>${blocked.map(({o,l})=>`<tr><td><b>${o.po}</b></td><td>${l.brand}</td><td class="num">${fmt(l.packed||0)}</td><td>${pill('Awaiting QC','--amber')}</td></tr>`).join('')}</tbody></table>
      <div class="muted" style="font-size:11px;margin-top:8px">Fully packed but not QC-passed — clear them in the QC tab first.</div></div>`:''}
    <div class="card"><h3>Shipment log <span class="hint">${state.shipments.length} dispatches</span></h3>
-     <div style="max-height:46vh;overflow:auto"><table><thead><tr><th>Date / time</th><th>PO</th><th>Product</th><th class="num">Kg/L</th><th>Destination</th><th>Vehicle</th><th>DC #</th><th>Bilty</th><th>Delivered</th></tr></thead>
-       <tbody>${log.length?log.map(s=>`<tr><td class="muted">${s.dispatch||'—'}${s.time?' '+s.time:''}</td><td>${s.po}</td><td>${s.brand}</td><td class="num">${fmt(s.kg)}</td><td>${s.destination||'—'}</td><td>${s.vehicle||'—'}${s.carrier?(' · '+s.carrier):''}</td><td>${s.dc||'—'}</td><td>${s.bilty||'—'}</td><td class="muted">${s.delivered||'—'}</td></tr>`).join(''):'<tr><td colspan="9" class="muted">No shipments yet.</td></tr>'}</tbody></table></div></div>`;
+     <div style="max-height:46vh;overflow:auto"><table><thead><tr><th>Date / time</th><th>PO</th><th>Product</th><th class="num">Kg/L</th><th class="num">Packs</th><th>Destination</th><th>Vehicle</th><th>DC #</th><th>Bilty</th><th>Delivered</th></tr></thead>
+       <tbody>${log.length?log.map(s=>`<tr><td class="muted">${s.dispatch||'—'}${s.time?' '+s.time:''}</td><td>${s.po}</td><td>${s.brand}</td><td class="num">${fmt(s.kg)}</td><td class="num">${packsFor(s.brand,s.kg)!=null?fmt(packsFor(s.brand,s.kg)):'\u2014'}</td><td>${s.destination||'—'}</td><td>${s.vehicle||'—'}${s.carrier?(' · '+s.carrier):''}</td><td>${s.dc||'—'}</td><td>${s.bilty||'—'}</td><td class="muted">${s.delivered||'—'}</td></tr>`).join(''):'<tr><td colspan="10" class="muted">No shipments yet.</td></tr>'}</tbody></table></div></div>`;
 }
+function packsFor(brand,kg){ const ps=((detailForBrand(brand)||{}).pack)||0; return ps>0?Math.ceil((+kg||0)/ps):null; }
+function shipPacksText(){ const ps=+shipForm.pack||0,q=+shipForm.qty||0; return ps>0?('\u2248 '+fmt(Math.ceil(q/ps))+' packs'):'pack size not set'; }
 let shipForm={};
 function openShip(oid,lid){ const o=state.orders.find(x=>x.id===oid); const l=o.lines.find(x=>x.id===lid); const rem=(l.packed||0)-(l.dispatched||0);
-  shipForm={oid,lid,qty:Math.round(rem),date:TODAY.toISOString().slice(0,10),time:'',dest:o.client,carrier:'',vehicle:'',dc:'',bilty:'',delivered:'',remarks:''};
+  shipForm={oid,lid,pack:((detailForBrand(l.brand)||{}).pack)||0,qty:Math.round(rem),date:TODAY.toISOString().slice(0,10),time:'',dest:o.client,carrier:'',vehicle:'',dc:'',bilty:'',delivered:'',remarks:''};
   renderShipModal(); $('modalBg').classList.add('open'); }
-function renderShipModal(){ const o=state.orders.find(x=>x.id===shipForm.oid); const l=o.lines.find(x=>x.id===shipForm.lid); const rem=(l.packed||0)-(l.dispatched||0);
-  $('modal').innerHTML=`<div class="mh"><h2>Record shipment</h2><div class="sub">${o.po} · ${l.brand} · up to ${fmt(rem)} Kg/L</div></div>
+function renderShipModal(){ const o=state.orders.find(x=>x.id===shipForm.oid); const l=o.lines.find(x=>x.id===shipForm.lid); const rem=(l.packed||0)-(l.dispatched||0); const ps=+shipForm.pack||0;
+  $('modal').innerHTML=`<div class="mh"><h2>Record shipment</h2><div class="sub">${o.po} · ${l.brand} · up to ${fmt(rem)} Kg/L${ps>0?` · \u2248 ${fmt(Math.ceil(rem/ps))} packs (${fmt(ps)} Kg/L/pack)`:''}</div></div>
    <div class="mb"><div class="formgrid" style="grid-template-columns:repeat(3,minmax(0,1fr))">
-     <div class="fld"><label>Qty shipped (Kg/L)</label><input type="number" value="${shipForm.qty}" oninput="shipForm.qty=this.value"></div>
+     <div class="fld"><label>Qty shipped (Kg/L)</label><input type="number" value="${shipForm.qty}" oninput="shipForm.qty=this.value;{const e=document.getElementById('ship_packs');if(e)e.textContent=shipPacksText();}"><div class="muted" id="ship_packs" style="font-size:11px;margin-top:4px">${shipPacksText()}</div></div>
      <div class="fld"><label>Date</label><input type="date" value="${shipForm.date}" onchange="shipForm.date=this.value"></div>
      <div class="fld"><label>Destination</label><input type="text" value="${shipForm.dest}" oninput="shipForm.dest=this.value"></div>
      <div class="fld"><label>Carrier</label><input type="text" value="${shipForm.carrier}" oninput="shipForm.carrier=this.value" placeholder="transporter"></div>

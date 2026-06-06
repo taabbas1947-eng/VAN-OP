@@ -1269,7 +1269,7 @@ function rmAddLine(){ rmForm.lines.push({rm:'',kg:''}); renderRMModal(); }
 function rmDelLine(i){ rmForm.lines.splice(i,1); renderRMModal(); }
 function rmPrefill(){ const o=state.orders.find(x=>x.id===rmForm.oid);const l=o.lines.find(x=>x.id===rmForm.lid); const p=recipePrefill(o,l); if(p.length) rmForm.lines=p; renderRMModal(); }
 function renderRMModal(){ const o=state.orders.find(x=>x.id===rmForm.oid); const l=o.lines.find(x=>x.id===rmForm.lid);
-  const rms=Object.keys(state.rawStock).sort();
+  const rms=[...new Set([...(((typeof SEED!=='undefined'&&SEED.rawMaterials)||[]).map(r=>r.name)), ...Object.keys(state.rawStock||{})])].sort();
   const hasRecipe=(()=>{const r=SEED.baseRecipes[l.base];return r&&!Object.keys(r)[0].startsWith('(');})();
   const seg=`<div class="seg">
     <div class="opt full ${rmForm.status==='full'?'on':''}" onclick="rmSetStatus('full')"><span class="em">✅</span>In stock<span style="display:block;font-weight:500;font-size:10.5px">make full order</span></div>

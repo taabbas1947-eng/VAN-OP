@@ -1720,41 +1720,65 @@ function screenApprovals(){
 }
 function screenInstructions(){
   const steps=[
-   {n:'1',title:'Sign in',who:'Everyone',when:'before anything',tab:'Login',
-    body:'Each person signs in with a <b>username + password</b> (no email needed). You can <b>view every screen</b>, but you can only <b>add or edit</b> on the screens your role owns. The COO adds people and sets roles in <b>Users &amp; Access</b>. Use the <b>☰ button (top-left)</b> to hide the menu and work in full screen.'},
-   {n:'2',title:'Add the order',who:'KAM',when:'when a customer PO arrives',tab:'New PO Entry',
-    body:'Pick <b>Channel → Client</b> (or Dealer) → add each <b>product</b> with quantity in <b>Kg/L</b> and a <b>committed delivery date</b>. New dealer? Add them in <b>Dealer Master</b> first. On <b>Submit</b>, the order drops into the <b>PO Tracker</b> at stage “PO Created”.'},
-   {n:'3',title:'Materials (RM)',who:'Supply Chain',when:'after the SO is created',tab:'PO Tracker → open PO',
-    body:'Supply Chain works the PO from the <b>Approvals &amp; Actions</b> tab: <b>Acknowledge</b> the PO, then run <b>RM Check</b>. Full RM unlocks production; partial lets production make the available qty and raises a <b>PR</b>. <b>CFO</b> approves the PR (tracked); when material arrives Supply Chain <b>closes the PR</b> with the received date + <b>GRN #</b>. Every step is timestamped on the PO journey.'},
-   {n:'4',title:'Produce &amp; pack',who:'Production',when:'as production runs',tab:'Production',
-    body:'Production is now <b>batch + shift based</b>. <b>Open a batch</b> (Against a PO or Bulk base) with a <b>batch #</b> and planned qty, then <b>Log shift output</b> against it — date, <b>shift</b> (Morning/Evening/Night), <b>incharge</b> and qty. A shift that produced nothing needs a <b>reason</b>. The batch and PO update automatically; <b>Close</b> the batch when done. Bulk base then appears under “pack into brands”. Shifts, incharges and reasons are managed in <b>Admin · Master Data</b>.'},
-   {n:'5',title:'Quality — 2 checks',who:'Lab Rep, then QA Inspector',when:'once a product is fully packed',tab:'QC · Pre-shipment',
-    body:'Only <b>fully-packed</b> products appear here. First the <b>Lab Rep</b> certifies the product (Layer 1). Then the <b>QA Inspector</b> fills the <b>physical inspection checklist</b> (Layer 2). <b>Both must pass</b> before the product can be loaded — nothing ships until QC passes.'},
-   {n:'6',title:'Ship',who:'Supply Chain',when:'each time a truck leaves',tab:'Shipments',
-    body:'Record the dispatch (qty, date, destination, carrier, vehicle, DC #). A product closes when <b>shipped meets ordered</b>; the <b>PO closes</b> when all its products have shipped. If more than ordered is supplied, it is <b>kept and flagged</b> — never capped.'},
-   {n:'7',title:'Monitor',who:'Everyone (COO / PM)',when:'anytime',tab:'PO Tracker',
-    body:'The control tower — <b>view-only status</b>. The flow bar shows how many orders sit at each stage; attention cards filter with one tap. Orders are sorted new at the top, delivered at the bottom. <b>Expand a PO</b> to see its full <b>journey</b> — every stage with its date (acknowledged, RM check, PR, CFO approved, RM received + GRN, production, QC, dispatch, delivered) — so you see exactly what happened and how it became the shipment. Actions happen in <b>Approvals &amp; Actions</b>.'},
-   {n:'8',title:'Report &amp; audit',who:'Everyone',when:'anytime',tab:'Reports · Monthly · Action Log',
-    body:'<b>Reports</b> lets you slice all data (by client, product, month, stage…). <b>Monthly Production</b> rolls up output and packing. The <b>Action Log</b> records every action with who did it and when.'},
-   {n:'9',title:'Fix / backfill data (setup phase)',who:'COO / admin',when:'go-live cutover only',tab:'Data Fix',
-    body:'A temporary tool to make the system match your <b>actual paper/manual records</b>. <b>Add missing</b> POs, production, packing or shipments — all <b>back-dated</b> with a reason, logged as <b>RECONCILE</b>. Download a <b>snapshot</b> first. The COO turns it <b>OFF after cutover</b>.'},
+   {n:'1',title:'Sign in & find your to-do list',who:'Everyone',when:'before anything',tab:'Login → My Actions',
+    body:'Sign in with a <b>username + password</b>. <b>Everyone can view every screen</b>, but you can only <b>add or edit</b> on the screens your role owns. Your personal worklist is <b>My Actions</b> — it always shows the exact items waiting on <b>you</b>. The COO manages people in <b>Users &amp; Access</b>.'},
+   {n:'2',title:'Enter the order',who:'KAM',when:'when a customer PO arrives',tab:'New PO Entry',
+    body:'Pick <b>Channel → Client</b>, add each <b>brand</b> with quantity in <b>Kg/L</b> (the system shows the <b>pack count</b> automatically) and a <b>committed date</b>. The <b>price to print on the pack</b> is mandatory — you confirm and lock it. Submit drops the order into the <b>PO Tracker</b> at <b>"PO Created"</b>, and an <b>Acknowledge &amp; RM Check</b> task appears for Supply Chain.'},
+   {n:'3',title:'Acknowledge & RM Check',who:'Supply Chain',when:'right after the PO is created',tab:'My Actions',
+    body:'From <b>My Actions</b>: <b>Acknowledge</b> the PO, then run <b>RM Check</b>. <b>Full</b> material → production is unlocked. <b>Partial / short</b> → production can make the available quantity and the system <b>raises a Purchase Request (PR)</b> for the shortfall.'},
+   {n:'4',title:'PR → CFO approval → receive material',who:'Supply Chain + CFO',when:'when material is short',tab:'My Actions',
+    body:'A <b>PR is per raw material</b> — only <b>one open PR per material</b> at a time; extra demand <b>attaches</b> to it. The <b>CFO approves the PR</b>. <b>Material cannot be received until the CFO has approved it.</b> Then receive it in <b>full or several partial GRNs</b> (qty + GRN # + date) — stock updates each time and the PR <b>closes</b> when fully received. The same material can feed many brands.'},
+   {n:'5',title:'Produce (batch + shift)',who:'Production',when:'as production runs',tab:'Production',
+    body:'<b>Open a batch</b> — Against a PO, or <b>Bulk Base</b> — with a <b>batch #</b> and a <b>planned qty</b>. Batch numbers must be <b>unique within the financial year (Jul–Jun)</b>. <b>Log shift output</b> against the batch (date, shift, incharge, qty); a shift with no output needs a <b>reason</b>. <b>Over-production is capped at 105% of plan.</b> When produced reaches <b>100%</b> the batch moves to <b>"Production completed"</b>. Bulk base then appears under <b>"pack into brands"</b>.'},
+   {n:'6',title:'Pack into the client brand',who:'Production',when:'once base is produced',tab:'Production → Pack',
+    body:'<b>Packing always needs a PO.</b> Pack the bulk base into the client <b>brand</b> for a specific PO (capped to what the PO still needs). Enter the <b>brand batch #</b> printed on the packaging (unique within the financial year; leave blank to keep the base batch number) and <b>verify the print price</b>. This creates the <b>base ▸ brand</b> batch link used for traceability.'},
+   {n:'7',title:'Quality — two checks',who:'Lab Rep, then QA Inspector',when:'once packed',tab:'QC · Pre-shipment',
+    body:'Each item shows its <b>base ▸ brand batch</b>. The <b>Lab Rep certifies</b> (Layer 1), then the <b>QA Inspector</b> completes the <b>physical checklist</b> (Layer 2). <b>Both must pass to ship.</b> <b>Lab fail → Plant Manager</b> (approve as a deviation, or send to rework). <b>QA fail → Supply Chain</b> (correct &amp; resubmit for a numbered re-inspection).'},
+   {n:'8',title:'Ship',who:'Supply Chain',when:'each dispatch',tab:'Shipments',
+    body:'Only <b>QC-passed</b> products can load. Record the dispatch — qty in <b>Kg/L</b> (<b>packs shown automatically</b>), destination, carrier, vehicle, DC #. A product <b>closes at 100% delivered</b>; the <b>PO closes</b> when all its products ship. Over-supply is <b>kept and flagged</b>, never capped.'},
+   {n:'9',title:'Monitor & report',who:'Everyone',when:'anytime',tab:'PO Tracker · Reports · Action Log',
+    body:'The <b>PO Tracker</b> is the view-only control tower — where every order sits and who acts next. <b>Reports</b> slice all data; <b>Batch Trace</b> shows base ▸ brand for every pack run; the <b>Action Log</b> records every action with who &amp; when.'},
+   {n:'10',title:'Fix / backfill data (setup only)',who:'COO',when:'go-live cutover only',tab:'Data Fix',
+    body:'A guarded tool to make the system match your <b>actual records</b> — add missing or correct entries, all <b>back-dated</b> and logged as <b>RECONCILE</b>. The COO turns it <b>OFF</b> after cutover.'},
+  ];
+  const flow=[
+   ['PO Created','KAM submits the PO','Supply Chain can Acknowledge &amp; RM Check','—'],
+   ['RM Check','Supply Chain confirms material (full / partial)','Production can start for the available qty','Production not starting usually means RM Check is not done'],
+   ['PR approval','CFO approves the Purchase Request','Material can be received','Material can&rsquo;t be received until the CFO approves the PR'],
+   ['Material received','GRN booked (full or partial)','Pending qty can be produced','Still short → material has not been received yet'],
+   ['Production','Produced reaches the order (or batch closed)','Base can be packed into the brand','Can&rsquo;t pack → nothing produced yet'],
+   ['Packing','Base packed into the brand for the PO','Item enters QC','Not in QC → not fully packed; can&rsquo;t pack → no PO selected'],
+   ['Lab QC','Lab Rep certifies','QA physical inspection opens','Lab fail → Plant Manager decides (approve or rework)'],
+   ['QA Pre-shipment','Physical checklist passes','Product can be shipped','QA fail → Supply Chain corrects &amp; re-inspects'],
+   ['Shipment','Dispatch recorded','Counts toward delivery','Can&rsquo;t ship → QC (Lab + QA) not both passed'],
+   ['Delivered','100% of the qty delivered','Product &amp; PO close','Partial delivery stays in Shipment'],
+  ];
+  const stuck=[
+   ['Production isn&rsquo;t starting','RM Check is pending — or the PR isn&rsquo;t CFO-approved, or material has not been received','Supply Chain runs RM Check → CFO approves the PR → receive the GRN'],
+   ['Can&rsquo;t receive material','The PR has not been approved by the CFO','CFO approves the PR from My Actions'],
+   ['Can&rsquo;t pack a brand','The bulk base is not produced yet, or there is no open PO for that brand','Produce the base first; packing must be against a PO'],
+   ['Product not showing in QC','It is not fully packed yet','Finish packing the ordered quantity'],
+   ['Can&rsquo;t ship a product','QC is not complete — Lab and QA must both pass','Clear the Lab certify and the QA inspection first'],
+   ['Batch # is rejected','That number is already used this financial year (Jul–Jun)','Use a new, unique batch number'],
+   ['Can&rsquo;t log more shift output','The batch reached the 105% over-production cap','Close the batch; open a new one if more is genuinely needed'],
+   ['"Pack size not set" on a shipment','That brand has no pack size on the PO line','Set the pack size on the PO line in New PO Entry'],
   ];
   const tabs=[
-   ['New PO Entry','KAM','Create POs; brand → base &amp; pack size','→ PO Tracker'],
+   ['My Actions','All (your queue)','Your personal to-do: acknowledge, RM check, approve/close PR, receive, produce, QC, QA, ship, delay','feeds the tracker'],
+   ['New PO Entry','KAM','Create POs (brand, qty → packs, print price)','→ PO Tracker'],
    ['Dealer Master','KAM','Onboard dealers (auto code)','→ New PO Entry'],
-   ['Approvals &amp; Actions','All (your queue)','Acknowledge, RM check, approve/close PR, produce, QC, QA, ship, delay — timestamped','feeds the tracker'],
    ['PO Tracker','All (view-only)','Control tower — every order &amp; stage','consolidates all'],
-   ['Production','Production','Open batches; log shift-wise output; pack into brands','→ PO Tracker'],
+   ['Production','Production','Open batches, log shift output, pack base into brands','→ QC'],
    ['QC · Pre-shipment','Lab Rep + QA Inspector','2-layer Lab then physical inspection','gates Shipments'],
-   ['Shipments','Supply Chain','Record dispatch; closes products &amp; PO','→ PO Tracker'],
-   ['Monthly Production','Production / COO / PM','Monthly output &amp; packing rollup','—'],
-   ['Reports','All','Slice &amp; view all data','—'],
+   ['Shipments','Supply Chain','Record dispatch (Kg/L + packs); closes products &amp; PO','→ PO Tracker'],
+   ['Reports / Batch Trace','All','Slice all data; base ▸ brand batch trace','—'],
+   ['Admin · Master Data','COO','Shifts, incharges, downtime reasons, KAM names','—'],
    ['Data Fix','COO (setup only)','Back-fill / correct records to match reality','temporary'],
    ['Users &amp; Access','COO','Add people, set role &amp; password','—'],
    ['Action Log','All','Timestamped audit trail','—'],
   ];
   $('view').innerHTML=`
-   <div class="banner info"><b>VAN Order Control Tower — how it works.</b> One customer order flows from entry to delivery. Each role works on its own screen; the <b>PO Tracker</b> shows the whole picture. Follow the steps below in order.</div>
+   <div class="banner info"><b>VAN Order Control Tower — how the whole system works.</b> This guide is for <b>everyone</b>, whatever your role or access. One customer order flows from entry to delivery; each role does its part from <b>My Actions</b>, and the <b>PO Tracker</b> shows the whole picture. Read the steps in order, then use the two tables below to see what finishes each stage and what to check if something looks stuck.</div>
    <div class="card"><h3>The process, step by step</h3>
      ${steps.map(s=>`<div style="display:flex;gap:15px;padding:14px 0;border-top:1px solid var(--line2)">
         <div style="flex-shrink:0;width:32px;height:32px;border-radius:50%;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px">${s.n}</div>
@@ -1764,39 +1788,50 @@ function screenInstructions(){
           <div style="font-size:13px;line-height:1.65">${s.body}</div>
         </div></div>`).join('')}
    </div>
+   <div class="card"><h3>Stage flow — what finishes each step &amp; what it unlocks</h3>
+     <div style="font-size:12px;color:var(--mut);margin-bottom:8px">Every stage only opens once the one before it is done. Read the last column as "if this stage is not moving, here is what it means."</div>
+     <div style="overflow:auto"><table><thead><tr><th>Stage</th><th>Done when…</th><th>Then unlocks</th><th>If it&rsquo;s not moving…</th></tr></thead>
+       <tbody>${flow.map(f=>`<tr><td><b>${f[0]}</b></td><td>${f[1]}</td><td class="muted">${f[2]}</td><td style="font-size:12px">${f[3]}</td></tr>`).join('')}</tbody></table></div>
+   </div>
+   <div class="card"><h3>Why is it stuck? — quick troubleshooting</h3>
+     <div style="overflow:auto"><table><thead><tr><th>What you see</th><th>What it means</th><th>What to do</th></tr></thead>
+       <tbody>${stuck.map(t=>`<tr><td><b>${t[0]}</b></td><td>${t[1]}</td><td class="muted">${t[2]}</td></tr>`).join('')}</tbody></table></div>
+   </div>
    <div class="row">
      <div class="card" style="flex:1.3;min-width:340px"><h3>Tab reference</h3>
        <table><thead><tr><th>Tab</th><th>Who</th><th>What you do here</th><th>Feeds</th></tr></thead>
        <tbody>${tabs.map(t=>`<tr><td><b>${t[0]}</b></td><td class="muted">${t[1]}</td><td>${t[2]}</td><td class="muted" style="font-size:11px">${t[3]}</td></tr>`).join('')}</tbody></table></div>
-     <div class="card" style="flex:1;min-width:280px"><h3>Key rules</h3>
+     <div class="card" style="flex:1;min-width:280px"><h3>Key rules everyone should know</h3>
        <div style="font-size:12.5px;line-height:1.9">
-         • Sign-in is an <b>internal gate</b>: everyone can view, but each edits only their role's screens.<br>
-         • Use <b>☰</b> (top-left) to hide / show the side menu.<br>
-         • One PO can hold <b>many products</b>; each tracks separately with its own committed date.<br>
-         • Producing is entered only in the <b>Log production</b> form; bulk base is <b>packed into a brand for a PO</b>.<br>
+         • Everyone can <b>view</b> all screens; you <b>edit</b> only your role&rsquo;s screens. <b>My Actions</b> is your queue.<br>
+         • <b>RM Check</b> unlocks production; <b>material can&rsquo;t be received until the CFO approves the PR</b>.<br>
+         • <b>One open PR per raw material</b>; receive it in full or in partial GRNs.<br>
+         • Production is <b>batch + shift</b>; <b>over-production is capped at 105%</b>; batch # is <b>unique per financial year (Jul–Jun)</b>.<br>
+         • <b>Packing needs a PO</b>; the <b>brand batch #</b> and <b>print price</b> are set &amp; verified at packing; every pack is <b>base ▸ brand</b> traceable.<br>
          • <b>QC is two layers</b> (Lab then QA) — nothing ships until both pass.<br>
          • A PO <b>closes</b> only when every product has shipped; <b>over-supply is flagged, not capped</b>.
        </div></div>
    </div>
    <div class="card"><h3>Using the PO Tracker — your status board</h3>
      <div style="font-size:12.5px;line-height:1.85">
-       The PO Tracker answers one question: <b>where is every order, and who acts next?</b> Nothing is edited here — it only shows status.<br><br>
+       The PO Tracker answers one question: <b>where is every order, and who acts next?</b> Nothing is edited here — it only shows status; you act from <b>My Actions</b>.<br><br>
        <b>1 · Flow bar (top)</b> — how many orders sit at each stage: PO Created → RM Check → Production → Lab QC → QA Pre-shipment → Shipment → Delivered.<br>
-       <b>2 · Needs-Attention cards</b> — tap a card (Delayed, RM/materials, Production, QC, QA hold, Ready to ship) to <b>filter</b> the list to just those orders.<br>
-       <b>3 · Each order row</b> shows the PO, customer, ordered qty, <b>current stage</b>, fulfilment %, on-time, and a <b>Next action</b> badge telling you <b>who acts next and on which screen</b>.<br>
-       <b>4 · Tap a row</b> to open it: order snapshot, a <b>stage timeline</b> (✓ done · blue current · grey pending · red blocked), each product's qty / QC / balance, and a <b>“Where to update”</b> guide.<br>
-       <b>5 · To update an order</b>, go to the screen named in its Next action (Production, QC, Shipments…). The tracker then updates by itself. An order is <b>Delivered only when 100% of the quantity is delivered</b> — partial deliveries stay in <b>Shipment</b>.
+       <b>2 · Needs-Attention cards</b> — tap a card (Delayed, RM/materials, Production, QC, QA hold, Ready to ship) to <b>filter</b> the list.<br>
+       <b>3 · Each order row</b> shows the PO, customer, ordered qty, <b>current stage</b>, fulfilment %, on-time, and a <b>Next action</b> badge telling you <b>who acts next and where</b>.<br>
+       <b>4 · Tap a row</b> to open its <b>journey</b> — every stage with its date (acknowledged, RM check, PR, CFO approved, RM received + GRN, production, QC, dispatch, delivered).<br>
+       <b>5 ·</b> An order is <b>Delivered only at 100%</b>; partial deliveries stay in <b>Shipment</b>.
      </div></div>
-   <div class="card"><h3>Where each field is filled <span class="hint">PO Tracker → open a PO → product card</span></h3>
-     <div style="font-size:12.5px;color:var(--mut);margin-bottom:10px">Open any PO in the <b style="color:var(--navy)">PO Tracker</b>; each product shows its lifecycle. <b>Yellow fields are yours to fill</b>; grey ones belong to other roles or fill automatically.</div>
-     <table><thead><tr><th>Field</th><th>Filled by</th></tr></thead><tbody>
-       <tr><td>SO Created · SO #</td><td><span class="pill" style="background:var(--navy-50);color:var(--navy)">KAM</span></td></tr>
-       <tr><td>PR Raised · RM Check · RM Ready</td><td><span class="pill" style="background:var(--navy-50);color:var(--navy)">Supply Chain</span></td></tr>
-       <tr><td>Prod Start · Prod Complete</td><td><span class="pill" style="background:var(--navy-50);color:var(--navy)">Production (Log production)</span></td></tr>
-       <tr><td>QC Pass</td><td><span class="pill" style="background:var(--navy-50);color:var(--navy)">Lab Rep → QA Inspector (QC tab)</span></td></tr>
-       <tr><td>Dispatch · Delivered</td><td><span class="pill" style="background:#eef1f6;color:#6b778c">Auto — Shipments</span></td></tr>
-       <tr><td>Delay Reason · Responsible Dept</td><td><span class="pill" style="background:#ffefdc;color:#8a5712">Plant Manager</span></td></tr>
-       <tr><td>Credit Days · Invoice · Payment</td><td><span class="pill" style="background:var(--navy-50);color:var(--navy)">CFO / KAM</span></td></tr>
+   <div class="card"><h3>Who fills what</h3>
+     <div style="font-size:12.5px;color:var(--mut);margin-bottom:10px">Every field belongs to one role. If a stage is blank, that role hasn&rsquo;t acted yet.</div>
+     <table><thead><tr><th>Field / stage</th><th>Filled by</th></tr></thead><tbody>
+       <tr><td>PO &amp; print price · committed date</td><td><span class="pill" style="background:var(--navy-50);color:var(--navy)">KAM</span></td></tr>
+       <tr><td>Acknowledge · RM Check · RM Ready · Receive (GRN)</td><td><span class="pill" style="background:var(--navy-50);color:var(--navy)">Supply Chain</span></td></tr>
+       <tr><td>PR approval</td><td><span class="pill" style="background:var(--navy-50);color:var(--navy)">CFO</span></td></tr>
+       <tr><td>Batch · shift output · Prod Start / Complete</td><td><span class="pill" style="background:var(--navy-50);color:var(--navy)">Production</span></td></tr>
+       <tr><td>Brand batch # · print-price verify (packing)</td><td><span class="pill" style="background:var(--navy-50);color:var(--navy)">Production</span></td></tr>
+       <tr><td>QC Pass</td><td><span class="pill" style="background:var(--navy-50);color:var(--navy)">Lab Rep → QA Inspector</span></td></tr>
+       <tr><td>Dispatch · Delivered · packs</td><td><span class="pill" style="background:#eef1f6;color:#6b778c">Auto — Shipments</span></td></tr>
+       <tr><td>Delay reason · Responsible dept</td><td><span class="pill" style="background:#ffefdc;color:#8a5712">Plant Manager</span></td></tr>
      </tbody></table></div>`;
 }
 
@@ -1811,7 +1846,7 @@ function screenShip(){
    <div class="banner info">Record one row per dispatch. <b>Only QC-passed products can be loaded.</b> Saving rolls the qty into the PO and auto-closes it when fully shipped.</div>
    <div class="card"><h3>Ready to ship <span class="hint">${ready.length} QC-passed</span></h3>
      ${ready.length?`<table><thead><tr><th>PO</th><th>Product</th><th>Destination</th><th class="num">Packed</th><th class="num">Shipped</th><th class="num">To ship</th><th style="width:150px"></th></tr></thead>
-       <tbody>${ready.map(({o,l})=>{const rem=(l.packed||0)-(l.dispatched||0);return `<tr><td><b>${o.po}</b></td><td>${l.brand}</td><td>${o.client}</td><td class="num">${fmt(l.packed||0)}</td><td class="num">${fmt(l.dispatched||0)}</td><td class="num"><b>${fmt(rem)}</b>${packsFor(l.brand,rem)!=null?`<div class="muted" style="font-size:10px">\u2248 ${fmt(packsFor(l.brand,rem))} pk</div>`:``}</td>
+       <tbody>${ready.map(({o,l})=>{const rem=(l.packed||0)-(l.dispatched||0);return `<tr><td><b>${o.po}</b></td><td>${l.brand}</td><td>${o.client}</td><td class="num">${fmt(l.packed||0)}</td><td class="num">${fmt(l.dispatched||0)}</td><td class="num"><b>${fmt(rem)}</b>${packsCount((+l.pack||seedPackForBrand(l.brand)),rem)!=null?`<div class="muted" style="font-size:10px">\u2248 ${fmt(packsCount((+l.pack||seedPackForBrand(l.brand)),rem))} pk</div>`:``}</td>
          <td>${ed?`<button class="sm" onclick="openShip('${o.id}','${l.id}')">Record shipment</button>`:''}</td></tr>`;}).join('')}</tbody></table>`:'<div class="muted">Nothing QC-passed and waiting to ship.</div>'}</div>
    ${blocked.length?`<div class="card"><h3>Blocked by QC <span class="hint">${blocked.length}</span></h3>
      <table><thead><tr><th>PO</th><th>Product</th><th class="num">Packed</th><th>QC status</th></tr></thead>
@@ -1819,13 +1854,15 @@ function screenShip(){
      <div class="muted" style="font-size:11px;margin-top:8px">Fully packed but not QC-passed — clear them in the QC tab first.</div></div>`:''}
    <div class="card"><h3>Shipment log <span class="hint">${state.shipments.length} dispatches</span></h3>
      <div style="max-height:46vh;overflow:auto"><table><thead><tr><th>Date / time</th><th>PO</th><th>Product</th><th class="num">Kg/L</th><th class="num">Packs</th><th>Destination</th><th>Vehicle</th><th>DC #</th><th>Bilty</th><th>Delivered</th></tr></thead>
-       <tbody>${log.length?log.map(s=>`<tr><td class="muted">${s.dispatch||'—'}${s.time?' '+s.time:''}</td><td>${s.po}</td><td>${s.brand}</td><td class="num">${fmt(s.kg)}</td><td class="num">${packsFor(s.brand,s.kg)!=null?fmt(packsFor(s.brand,s.kg)):'\u2014'}</td><td>${s.destination||'—'}</td><td>${s.vehicle||'—'}${s.carrier?(' · '+s.carrier):''}</td><td>${s.dc||'—'}</td><td>${s.bilty||'—'}</td><td class="muted">${s.delivered||'—'}</td></tr>`).join(''):'<tr><td colspan="10" class="muted">No shipments yet.</td></tr>'}</tbody></table></div></div>`;
+       <tbody>${log.length?log.map(s=>`<tr><td class="muted">${s.dispatch||'—'}${s.time?' '+s.time:''}</td><td>${s.po}</td><td>${s.brand}</td><td class="num">${fmt(s.kg)}</td><td class="num">${packsCount((+s.pack||linePackSize(s.po,s.brand)),s.kg)!=null?fmt(packsCount((+s.pack||linePackSize(s.po,s.brand)),s.kg)):'\u2014'}</td><td>${s.destination||'—'}</td><td>${s.vehicle||'—'}${s.carrier?(' · '+s.carrier):''}</td><td>${s.dc||'—'}</td><td>${s.bilty||'—'}</td><td class="muted">${s.delivered||'—'}</td></tr>`).join(''):'<tr><td colspan="10" class="muted">No shipments yet.</td></tr>'}</tbody></table></div></div>`;
 }
-function packsFor(brand,kg){ const ps=((detailForBrand(brand)||{}).pack)||0; return ps>0?Math.ceil((+kg||0)/ps):null; }
+function seedPackForBrand(brand){ try{ const by=(SEED&&SEED.catalog&&SEED.catalog.brandsByClient)||{}; for(const k in by){ const hit=(by[k]||[]).find(x=>x.brand===brand); if(hit&&+hit.pack>0) return +hit.pack; } }catch(e){} return 0; }
+function packsCount(ps,kg){ ps=+ps||0; return ps>0?Math.ceil((+kg||0)/ps):null; }
+function linePackSize(po,brand){ const o=(state.orders||[]).find(x=>x.po===po); const l=o&&o.lines.find(x=>x.brand===brand); return (l&&+l.pack)||seedPackForBrand(brand)||0; }
 function shipPacksText(){ const ps=+shipForm.pack||0,q=+shipForm.qty||0; return ps>0?('\u2248 '+fmt(Math.ceil(q/ps))+' packs'):'pack size not set'; }
 let shipForm={};
 function openShip(oid,lid){ const o=state.orders.find(x=>x.id===oid); const l=o.lines.find(x=>x.id===lid); const rem=(l.packed||0)-(l.dispatched||0);
-  shipForm={oid,lid,pack:((detailForBrand(l.brand)||{}).pack)||0,qty:Math.round(rem),date:TODAY.toISOString().slice(0,10),time:'',dest:o.client,carrier:'',vehicle:'',dc:'',bilty:'',delivered:'',remarks:''};
+  shipForm={oid,lid,pack:(+l.pack||seedPackForBrand(l.brand)||0),qty:Math.round(rem),date:TODAY.toISOString().slice(0,10),time:'',dest:o.client,carrier:'',vehicle:'',dc:'',bilty:'',delivered:'',remarks:''};
   renderShipModal(); $('modalBg').classList.add('open'); }
 function renderShipModal(){ const o=state.orders.find(x=>x.id===shipForm.oid); const l=o.lines.find(x=>x.id===shipForm.lid); const rem=(l.packed||0)-(l.dispatched||0); const ps=+shipForm.pack||0;
   $('modal').innerHTML=`<div class="mh"><h2>Record shipment</h2><div class="sub">${o.po} · ${l.brand} · up to ${fmt(rem)} Kg/L${ps>0?` · \u2248 ${fmt(Math.ceil(rem/ps))} packs (${fmt(ps)} Kg/L/pack)`:''}</div></div>
@@ -1843,7 +1880,7 @@ function renderShipModal(){ const o=state.orders.find(x=>x.id===shipForm.oid); c
    <div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button onclick="saveShip()">Save shipment</button></div>`; }
 function saveShip(){ const o=state.orders.find(x=>x.id===shipForm.oid); const l=o.lines.find(x=>x.id===shipForm.lid); const rem=(l.packed||0)-(l.dispatched||0);
   const kg=Math.min(+shipForm.qty||0,rem); if(kg<=0){toast('Enter a valid qty');return;}
-  state.shipments.unshift({po:o.po,brand:l.brand,kg,dispatch:shipForm.date,destination:shipForm.dest,carrier:shipForm.carrier,vehicle:shipForm.vehicle,dc:shipForm.dc,bilty:shipForm.bilty,delivered:shipForm.delivered||null,remarks:shipForm.remarks,by:state.role});
+  state.shipments.unshift({po:o.po,brand:l.brand,kg,pack:(+l.pack||seedPackForBrand(l.brand)||0),dispatch:shipForm.date,destination:shipForm.dest,carrier:shipForm.carrier,vehicle:shipForm.vehicle,dc:shipForm.dc,bilty:shipForm.bilty,delivered:shipForm.delivered||null,remarks:shipForm.remarks,by:state.role});
   l.dispatched=(l.dispatched||0)+kg; l.dispatchDate=l.dispatchDate||shipForm.date;
   if(shipForm.delivered){ l.delivered=(l.delivered||0)+kg; l.deliveredDate=shipForm.delivered; }
   const wasClosed=o.lines.every(x=>stageOf(o)==='Delivered');

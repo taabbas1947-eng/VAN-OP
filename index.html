@@ -171,6 +171,32 @@ td.skufirst{padding-left:10px;box-shadow:inset 3px 0 0 var(--navy)}
 .modal-bg{position:fixed;inset:0;background:rgba(17,30,66,.5);display:none;z-index:60;backdrop-filter:blur(2px)}
 .modal-bg.open{display:flex;align-items:center;justify-content:center;animation:fade .18s ease}
 .modal{background:#fff;border-radius:16px;width:580px;max-width:95vw;max-height:90vh;overflow:auto;box-shadow:var(--sh-lg)}
+.modal.coa{width:920px;max-width:97vw}
+.coasheet{border:1.5px solid #111;font-family:"Times New Roman",Georgia,serif;color:#111;font-size:12.5px;background:#fff}
+.coasheet .rh{display:flex;border-bottom:1.5px solid #111}
+.coasheet .rh .c1{width:96px;border-right:1px solid #111;text-align:center;padding:6px}
+.coasheet .rh .c2{flex:1;text-align:center;padding:6px}
+.coasheet .rh .c2 h1{margin:0;font-size:16px;color:#0a4b8c;letter-spacing:.4px}
+.coasheet .rh .c3{width:150px;border-left:1px solid #111;padding:6px;font-size:10px}
+.coasheet .rh .c4{width:104px;border-left:1px solid #111;text-align:center;padding:5px;font-size:8.5px}
+.coasheet .types{display:flex;gap:34px;justify-content:center;padding:7px;border-bottom:1px solid #111;font-weight:700;font-size:12px}
+.coasheet .iss{padding:5px 12px;border-bottom:1px solid #111}
+.coasheet .meta{display:flex;border-bottom:1.5px solid #111}
+.coasheet .meta .col{flex:1;padding:6px 12px;min-width:0}
+.coasheet .ml{display:flex;align-items:center;gap:6px;margin:3px 0}
+.coasheet .ml .lb{white-space:nowrap;font-weight:600;font-size:11.5px}
+.coasheet input.sf{border:0;border-bottom:1px solid #999;border-radius:0;background:#fffdf2;font-family:inherit;font-size:12px;padding:1px 4px;flex:1;min-width:30px;outline:none}
+.coasheet input.sf:disabled{background:transparent;border-bottom-color:#ccc;color:#111}
+.coasheet input.sf.req{background:#ffeeea}
+.coasheet table{width:100%;border-collapse:collapse}
+.coasheet th,.coasheet td{border:1px solid #999;padding:3px 6px;font-size:11.5px;text-align:left}
+.coasheet thead th{background:#f0f0f0;text-align:center}
+.coasheet tr.grp td{font-weight:700;background:#fafafa;font-size:10.5px}
+.coasheet select{padding:2px 4px;font-size:11px}
+.coasheet .disc{padding:7px 12px;border-top:1.5px solid #111;font-size:9px;line-height:1.5}
+.coasheet .signs{display:flex;border-top:1.5px solid #111}
+.coasheet .signs .sg{flex:1;text-align:center;padding:12px 6px 8px;border-right:1px solid #111}
+.coasheet .signs .sg:last-child{border-right:0}
 .modal .mh{padding:18px 22px;border-bottom:1px solid var(--line);position:sticky;top:0;background:#fff;z-index:2}
 .modal .mh h2{font-size:16px;color:var(--navy)}
 .modal .mh .sub{font-size:11.5px;color:var(--mut);margin-top:3px}
@@ -582,7 +608,7 @@ function ownerNote(owners){ return canEdit(owners)?'':`<span class="tag">view-on
 const SCREENS=[
   {id:'dash', name:'Dashboard', ic:'\ud83d\udcca', owners:['KAM','Supply Chain','Production','Plant Manager','CFO','COO'], sub:'Executive overview',
     obj:'<b>Executive overview \u00b7 CEO / COO.</b> On-time delivery, overdue &amp; at-risk volume, fulfilment, production output, attention list and top customers \u2014 read-only.'},
-  {id:'approvals', name:'My Actions', ic:'✅', owners:['KAM','Supply Chain','Production','Lab Rep','QA Inspector','Plant Manager','CFO','COO'], sub:'What needs your action',
+  {id:'approvals', name:'My Actions', ic:'✅', owners:['KAM','Supply Chain','Production','Lab Rep','AQCM','QCM','QA Inspector','Plant Manager','CFO','COO'], sub:'What needs your action',
     obj:'<b>Your live worklist.</b> Everything waiting on you across all orders — acknowledge, RM check, approve PR, close PR, produce, QC, QA, ship, delay reasons — each timestamped.'},
   {id:'monthly', name:'Monthly Production', ic:'\ud83d\udcc5', owners:['Production','COO','Plant Manager'], sub:'Monthly rollup',
     obj:'<b>Read-only rollup.</b> Pick a month \u2014 production by base product: batches and total kg, plus produced-vs-demand.'},
@@ -594,15 +620,15 @@ const SCREENS=[
     obj:'This screen shows where each order is standing. Updates are entered from each role\u2019s own screen.'},
   {id:'prod', name:'Production', ic:'\ud83c\udfed', owners:['Production'], sub:'Log output & track vs orders',
     obj:'<b>Step 3 \u00b7 Production.</b> Log daily output, and press Produce then Pack against each PO product. See produced-vs-demand by product, customer and brand.'},
-  {id:'qc', name:'QC · Pre-shipment', ic:'\ud83d\udd2c', owners:['Lab Rep','QA Inspector','COO'], sub:'2-layer inspection',
+  {id:'qc', name:'QC · Pre-shipment', ic:'\ud83d\udd2c', owners:['Lab Rep','AQCM','QCM','QA Inspector','Plant Manager','COO'], sub:'2-layer inspection',
     obj:'<b>QC gate before dispatch.</b> Only fully-packed products appear. Lab Rep certifies spec/quality, then QA Inspector clears the physical pre-shipment check. Both must pass before a shipment can be loaded.'},
   {id:'ship', name:'Shipments', ic:'\ud83d\ude9a', owners:['Supply Chain'], sub:'Record dispatch',
     obj:'<b>Step 4 \u00b7 Supply Chain.</b> Record each dispatch leaving the plant. When shipped \u2265 ordered the product closes; when all products ship, the PO closes.'},
   {id:'reports', name:'Reports', ic:'\ud83d\udcc8', owners:['KAM','Supply Chain','Production','Plant Manager','CFO','COO'], sub:'Slice & view all data',
     obj:'<b>Reports \u00b7 read-only.</b> Built from data already captured. Use Explorer to slice by client, product, month or stage, or open a ready report. Filters apply to every view; print from the top-right.'},
-  {id:'instructions', name:'Instructions', ic:'\ud83d\udcd6', owners:['KAM','Supply Chain','Production','Plant Manager','CFO','COO'], sub:'App manual',
+  {id:'instructions', name:'Instructions', ic:'\ud83d\udcd6', owners:['KAM','Supply Chain','Production','Lab Rep','AQCM','QCM','QA Inspector','Plant Manager','CFO','COO'], sub:'App manual',
     obj:'<b>Manual.</b> The whole process \u2014 where to add, when, and how information flows.'},
-  {id:'admin', name:'Admin · Master Data', ic:'\u2699\ufe0f', owners:['COO'], sub:'Manage dropdown lists',
+  {id:'admin', name:'Admin · Master Data', ic:'\u2699\ufe0f', owners:['Lab Rep','AQCM','QCM','COO'], sub:'Manage dropdown lists',
     obj:'<b>COO / Admin.</b> Add or view dropdown values \u2014 delay reasons, responsible departments, KAM names, forms, statuses, downtime reasons. Changes flow to every dropdown.'},
   {id:'datafix', name:'Data Fix', ic:'🔧', owners:['KAM','Supply Chain','Production','Lab Rep','QA Inspector','Plant Manager','CFO','COO'], sub:'Implementation backfill & corrections',
     obj:'<b>Implementation tool (temporary).</b> Correct live records to match actual paper/manual data, back-dated. Every change is logged as RECONCILE. COO can turn it off after cutover.'},
@@ -1314,7 +1340,7 @@ function openRMCheck(oid,lid){ const o=state.orders.find(x=>x.id===oid); const l
   const pre=(l.pr&&l.pr.lines&&l.pr.lines.length)?l.pr.lines.map(x=>({rm:x.rm,kg:x.kg})):recipePrefill(o,l);
   rmForm={oid,lid,status:(l.rmStatus&&l.rmStatus!=='pending'?l.rmStatus:'full'),canMake:l.canMakeKg||'',lines:pre};
   renderRMModal(); $('modalBg').classList.add('open'); }
-function closeModal(){ $('modalBg').classList.remove('open'); }
+function closeModal(){ $('modalBg').classList.remove('open'); try{$('modal').classList.remove('coa');}catch(e){} }
 function rmSetStatus(s){ rmForm.status=s; if((s==='partial'||s==='short')&&!rmForm.lines.length){ const o=state.orders.find(x=>x.id===rmForm.oid);const l=o.lines.find(x=>x.id===rmForm.lid); rmForm.lines=recipePrefill(o,l); if(!rmForm.lines.length) rmForm.lines=[{rm:'',kg:''}]; } renderRMModal(); }
 function rmAddLine(){ rmForm.lines.push({rm:'',kg:''}); renderRMModal(); }
 function rmDelLine(i){ rmForm.lines.splice(i,1); renderRMModal(); }
@@ -1623,6 +1649,7 @@ function qcBatchCell(o,l){ const pr=batchPairsForLine(o,l); if(!pr.length) retur
 function qcBatchText(o,l){ const pr=batchPairsForLine(o,l); return pr.length?pr.map(x=>x.bs+' \u25b8 '+x.br).join(', '):'not packed yet'; }
 /* ===== COA / Lab QC (batch-level, 3-step workflow) ===== */
 let coaForm={};
+function coaTS(){ const d=new Date(); const p=n=>String(n).padStart(2,'0'); return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes()); }
 function coaItemOf(b){ return b.kind==='po' ? (b.brand||b.base||'') : (b.base||b.brand||''); }
 function coaTemplate(b){ const t=(state.masters&&state.masters.labTemplates)||{}; const it=coaItemOf(b); return (t[it]||t[b.base]||t[b.brand]||[]); }
 function coaOverall(tests){ if(!tests||!tests.length) return ''; let any=false; for(const r of tests){ const rk=(r.remark||'').toUpperCase(); if(rk==='UNFIT'||rk==='NOT OK'||rk==='FAIL') return 'UNFIT'; if(rk==='OK') any=true; } return any?'OK':''; }
@@ -1632,7 +1659,7 @@ function coaStatusPill(c){ if(!c) return '<span class="pill" style="background:v
   return `<span class="pill" style="background:var(--navy-50);color:var(${x[1]});font-size:9px">${x[0]}</span>`; }
 function openBatchCOA(bid){ const b=(state.batches||[]).find(x=>x.id===bid); if(!b)return; const tpl=coaTemplate(b); const today=TODAY.toISOString().slice(0,10);
   if(b.coa){ coaForm=JSON.parse(JSON.stringify(b.coa)); coaForm.bid=bid; }
-  else { coaForm={ bid, status:'draft', type:'Batch', issueDate:today, issueStatus:'A', item:coaItemOf(b), source:'Vital Agri Nutrients (Pvt) Ltd', batchNo:b.batchNo||'', quantity:Math.round(b.producedKg||0), mfgDate:'', expDate:'', qcNo:'', receivingDate:today, sampledBy:'', sampleQty:'0.5 kg', analysisTime:'', dateOfTest:today, temp:'', humidity:'', tests: tpl.map(r=>({g:r.g,test:r.test,spec:r.spec,method:r.method,mu:r.mu,result:'',remark:''})), analyst:{name:'',date:''}, reviewer:{name:'',date:''}, approver:{name:'',date:''}, remarks:'' }; }
+  else { const MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; const od=new Date(b.openedDate||today); const mfg=MON[od.getMonth()]+'-'+od.getFullYear(); const exp=MON[od.getMonth()]+'-'+(od.getFullYear()+2); coaForm={ bid, status:'draft', type:'Batch', issueDate:today, issueStatus:'A', item:coaItemOf(b), source:'Vital Agri Nutrients (Pvt) Ltd', batchNo:b.batchNo||'', quantity:Math.round(b.producedKg||0), mfgDate:mfg, expDate:exp, qcNo:'', receivingDate:today, sampledBy:'', sampleQty:'0.5 kg', analysisTime:'', dateOfTest:today, temp:'', humidity:'', tests: tpl.map(r=>({g:r.g,test:r.test,spec:r.spec,method:r.method,mu:r.mu,result:'',remark:''})), analyst:{name:(state.currentUser&&state.currentUser.name)||'',date:''}, reviewer:{name:'',date:''}, approver:{name:'',date:''}, remarks:'' }; }
   if(!coaForm.tests||!coaForm.tests.length){ coaForm.tests=tpl.map(r=>({g:r.g,test:r.test,spec:r.spec,method:r.method,mu:r.mu,result:'',remark:''})); }
   renderCOAModal(); $('modalBg').classList.add('open'); }
 function coaPersistDraft(){ const b=(state.batches||[]).find(x=>x.id===coaForm.bid); if(!b)return; if(b.coa&&b.coa.status&&b.coa.status!=='draft')return; const d=JSON.parse(JSON.stringify(coaForm)); delete d.bid; d.status='draft'; b.coa=d; save(); }
@@ -1643,50 +1670,78 @@ function coaDelRow(i){ if(coaForm.tests) coaForm.tests.splice(i,1); coaPersistDr
 function coaEsc(x){ return String(x==null?'':x).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
 function renderCOAModal(){ const b=(state.batches||[]).find(x=>x.id===coaForm.bid); if(!b){closeModal();return;}
   const st=coaForm.status||'draft'; const isLab=canEdit(['Lab Rep']), isAQ=canEdit(['AQCM']), isQM=canEdit(['QCM']), isCOO=state.role==='COO', isPM=canEdit(['Plant Manager']);
-  const ro=(st!=='draft'); // header/results locked once submitted
-  const hf=(lbl,f,type)=>`<div class="fld"><label>${lbl}</label><input type="${type||'text'}" value="${coaEsc(coaForm[f])}" ${ro?'disabled':''} onchange="coaSet('${f}',this.value)"></div>`;
-  const grp=g=>`<tr><td colspan="6" style="background:var(--bg2);font-weight:700;font-size:11px;color:var(--navy)">${g} PARAMETER</td></tr>`;
-  let lastG=''; const cell=(r,i,f,w)=>`<input type="text" value="${coaEsc(r[f])}" onchange="coaTest(${i},'${f}',this.value)" style="width:${w}">`;
-  const trows=(coaForm.tests||[]).map((r,i)=>{ let pre=''; if(r.g!==lastG){pre=grp(r.g.toUpperCase());lastG=r.g;}
-    return pre+`<tr><td>${ro?`<b>${coaEsc(r.test)}</b>`:cell(r,i,'test','120px')}</td><td>${ro?`<span class="muted">${coaEsc(r.spec)}</span>`:cell(r,i,'spec','90px')}</td><td>${ro?coaEsc(r.result):cell(r,i,'result','85px')}</td><td>${ro?`<span class="muted">${coaEsc(r.method)}</span>`:cell(r,i,'method','120px')}</td><td>${ro?`<span class="muted">${coaEsc(r.mu)}</span>`:cell(r,i,'mu','65px')}</td><td>${ro?coaEsc(r.remark):`<select onchange="coaTest(${i},'remark',this.value)"><option value="">—</option><option ${r.remark==='OK'?'selected':''}>OK</option><option ${r.remark==='UNFIT'?'selected':''}>UNFIT</option><option ${r.remark==='Not OK'?'selected':''}>Not OK</option></select> ${ro?'':`<span style="cursor:pointer;color:var(--red);font-weight:700" title="remove" onclick="coaDelRow(${i})">&times;</span>`}`}</td></tr>`; }).join('');
+  const ro=(st!=='draft'); const E=coaEsc;
+  const sf=(f,opts)=>{ opts=opts||{}; const req=opts.req&&!String(coaForm[f]||'').trim(); const lock=ro||opts.lock; return `<input class="sf${req?' req':''}" type="text" value="${E(coaForm[f])}" ${lock?'disabled':''} onchange="coaSet('${f}',this.value)" style="${opts.w?('max-width:'+opts.w):''}">`; };
+  const ml=(lbl,f,opts)=>`<div class="ml"><span class="lb">${lbl}</span>${sf(f,opts)}</div>`;
+  const tchk=(t,lbl)=>`<label style="cursor:${ro?'default':'pointer'}" ${ro?'':`onclick="coaSet('type','${t}');renderCOAModal()"`}>${coaForm.type===t?'☑':'☐'} ${lbl}</label>`;
+  let lastG=''; const cell=(r,i2,f,w)=>ro?E(r[f]):`<input class="sf" type="text" value="${E(r[f])}" onchange="coaTest(${i2},'${f}',this.value)" style="max-width:${w}">`;
+  const trows=(coaForm.tests||[]).map((r,i2)=>{ let pre=''; if(r.g!==lastG){pre=`<tr class="grp"><td colspan="6">${(r.g||'').toUpperCase()} PARAMETER</td></tr>`;lastG=r.g;}
+    return pre+`<tr><td>${cell(r,i2,'test','130px')}</td><td>${cell(r,i2,'spec','95px')}</td><td>${ro?E(r.result):`<input class="sf${(r.result||'').trim()?'':' req'}" type="text" value="${E(r.result)}" onchange="coaTest(${i2},'result',this.value)" style="max-width:90px">`}</td><td>${cell(r,i2,'method','130px')}</td><td>${cell(r,i2,'mu','60px')}</td><td style="white-space:nowrap">${ro?E(r.remark):`<select onchange="coaTest(${i2},'remark',this.value)"><option value="">—</option><option ${r.remark==='OK'?'selected':''}>OK</option><option ${r.remark==='UNFIT'?'selected':''}>UNFIT</option><option ${r.remark==='Not OK'?'selected':''}>Not OK</option></select> <span style="cursor:pointer;color:var(--red);font-weight:700" title="remove" onclick="coaDelRow(${i2})">&times;</span>`}</td></tr>`; }).join('');
   const ov=coaOverall(coaForm.tests);
+  const sg=(lbl,sub,o2,isAnalyst)=>`<div class="sg">${(isAnalyst&&!ro)?`<input class="sf" style="max-width:160px;text-align:center;font-weight:700" placeholder="analyst name *" value="${E(coaForm.analyst&&coaForm.analyst.name)}" onchange="coaForm.analyst={name:this.value,date:''};coaPersistDraft()">`:`<div style="font-weight:700;min-height:16px">${E(o2&&o2.name||'')}</div>`}<div style="font-size:9.5px"><b>${lbl}</b><br>${sub}</div><div style="font-size:9.5px;margin-top:2px;color:${o2&&o2.date?'#1a7f37':'#888'}">${o2&&o2.date?('Signed: '+E(o2.date)):(isAnalyst?'auto-signs with timestamp on submit':(lbl==='Reviewed By'?'auto-signs on AQCM review':'auto-signs on QCM approval'))}</div></div>`;
   let acts='';
-  if(st==='draft'&&(isLab||isCOO)) acts=`<button class="green" onclick="coaSubmitAnalyst()">Submit for review</button>`;
-  else if(st==='analysed'&&(isAQ||isCOO)) acts=`<button class="ghost" onclick="coaReject('analysed')">Reject</button><button class="green" onclick="coaReview()">Review &amp; forward to QCM</button>`;
-  else if(st==='reviewed'&&(isQM||isCOO)) acts=`<button class="ghost" onclick="coaReject('reviewed')">Reject</button><button class="green" onclick="coaApprove()">Approve (final) ✓</button>`;
+  if(st==='draft'&&(isLab||isCOO)) acts=`<button class="green" onclick="coaSubmitAnalyst()">Submit — sign &amp; send to AQCM</button>`;
+  else if(st==='analysed'&&(isAQ||isCOO)) acts=`<button class="ghost" onclick="coaReject('analysed')">Reject</button><button class="green" onclick="coaReview()">Review ✓ — sign &amp; send to QCM</button>`;
+  else if(st==='reviewed'&&(isQM||isCOO)) acts=`<button class="ghost" onclick="coaReject('reviewed')">Reject</button><button class="green" onclick="coaApprove()">Final approval ✓ — sign</button>`;
   else if(st==='failed'&&(isPM||isCOO)) acts=`<button class="ghost" onclick="coaRework()">Send to rework</button><button class="green" onclick="coaDeviation()">Approve as deviation</button>`;
   else acts=`<span class="muted" style="font-size:12px">${st==='analysed'?'Waiting for AQCM review':st==='reviewed'?'Waiting for QCM approval':st==='approved'?'Approved — batch cleared for packing':st==='failed'?'UNFIT — waiting for Plant Manager':''}</span>`;
-  const signed=(lbl,o)=>`<div style="flex:1;text-align:center;border-top:1px solid var(--line);padding-top:6px"><div style="font-size:11px;font-weight:700">${lbl}</div><div style="font-size:12px">${coaEsc(o&&o.name||'—')}</div><div class="muted" style="font-size:10px">${coaEsc(o&&o.date||'')}</div></div>`;
-  $('modal').innerHTML=`<div class="mh"><h2>Lab QC — Certificate of Analysis</h2><div class="sub">${coaEsc(coaForm.item)} · batch <b>${coaEsc(b.batchNo)}</b> · ${fmt(b.producedKg||0)} Kg/L produced · ${coaStatusPill(coaForm).replace(/<[^>]+>/g,m=>m)}</div></div>
-   <div class="mb">
-     <div class="formgrid" style="grid-template-columns:repeat(4,minmax(0,1fr))">
-       <div class="fld"><label>Type</label><select ${ro?'disabled':''} onchange="coaSet('type',this.value)"><option ${coaForm.type==='Raw Material'?'selected':''}>Raw Material</option><option ${coaForm.type==='Batch'?'selected':''}>Batch</option><option ${coaForm.type==='Outside Sample'?'selected':''}>Outside Sample</option></select></div>
-       ${hf('QC #','qcNo')}${hf('Sampled received by','sampledBy')}${hf('Sample qty','sampleQty')}
-       ${hf('Analysis time','analysisTime')}${hf('Date of test','dateOfTest','date')}${hf('Temperature °C','temp')}${hf('Humidity %','humidity')}
-       ${hf('Mfg date','mfgDate')}${hf('Exp date','expDate')}${hf('Receiving date','receivingDate','date')}${hf('Source','source')}
+  $('modal').classList.add('coa');
+  $('modal').innerHTML=`<div class="mh"><h2>Lab QC — Quality Analysis Report</h2><div class="sub">${E(coaForm.item)} · batch <b>${E(coaForm.batchNo)}</b> · ${fmt(b.producedKg||0)} Kg/L · ${coaStatusPill(coaForm)} · Overall: <b style="color:${ov==='OK'?'var(--green2)':ov==='UNFIT'?'var(--red)':'var(--mut)'}">${ov||'—'}</b></div></div>
+   <div class="mb" style="padding:14px">
+    <div class="coasheet">
+     <div class="rh">
+      <div class="c1"><svg width="68" height="34" viewBox="0 0 68 34"><path d="M10 3c-4 2-5 7-3 11 4-2 5-7 3-11z" fill="#5bb85b"/><path d="M17 1c-4 3-4 9-1 12 4-3 4-9 1-12z" fill="#2f9e44"/><text x="2" y="30" font-family="Arial" font-weight="800" font-size="24" fill="#13307a" letter-spacing="1">VAN</text><rect x="27" y="21" width="11" height="3.5" fill="#e23b3b"/></svg><div style="font-size:7px;font-weight:700">VITAL AGRI NUTRIENTS</div></div>
+      <div class="c2"><h1>QUALITY ANALYSIS REPORT</h1><div style="font-weight:700;font-size:11.5px">Vital Agri Nutrients Quality Control Laboratory<div style="font-weight:400;font-size:10px">Lahore, Pakistan.</div></div></div>
+      <div class="c3">DOC #: <b>QCL-FRM-12.03</b><br>REV NO.: <b>03</b><br>Issue Date: <b>June 10, 2025</b></div>
+      <div class="c4"><svg width="74" height="28" viewBox="0 0 78 30"><ellipse cx="39" cy="14" rx="33" ry="12" fill="#1a8a3c"/><text x="39" y="19" text-anchor="middle" font-family="Arial" font-weight="800" font-size="12" fill="#fff">PNAC</text></svg><div style="font-size:6.5px">Pakistan National Accreditation Council</div><div style="border:1px solid #111;font-weight:700;margin-top:2px">LAB 336<br>17025</div></div>
      </div>
-     <div style="overflow:auto;margin-top:12px"><table><thead><tr><th>Test</th><th>Spec</th><th>Result</th><th>Method</th><th>MU</th><th style="width:100px">Remark</th></tr></thead><tbody>${trows||'<tr><td colspan="6" class="muted">No template for this product — add one in Admin · Master Data → Lab test templates.</td></tr>'}</tbody></table></div>${ro?'':`<div style="margin-top:8px;display:flex;gap:8px"><button class="sm" onclick="coaAddRow('Physical')">+ Physical test</button><button class="sm" onclick="coaAddRow('Chemical')">+ Chemical test</button><span class="muted" style="font-size:11px;align-self:center">Add tests / specs here — they're remembered for this product on submit.</span></div>`}
-     <div style="margin-top:8px;font-size:12px">Overall: <b style="color:${ov==='OK'?'var(--green2)':ov==='UNFIT'?'var(--red)':'var(--mut)'}">${ov||'—'}</b> ${st==='failed'&&coaForm.failReason?`· <span style="color:var(--red)">${coaEsc(coaForm.failReason)}</span>`:''}</div>
-     ${ro?'':`<div class="fld" style="margin-top:8px"><label>Analyst name (who is testing on the shared QC login)</label><input type="text" value="${coaEsc(coaForm.analyst&&coaForm.analyst.name)}" onchange="coaForm.analyst={name:this.value,date:coaForm.analyst&&coaForm.analyst.date||''}"></div>`}
-     <div class="fld" style="margin-top:8px"><label>Remarks</label><input type="text" value="${coaEsc(coaForm.remarks)}" ${st!=='draft'&&!isCOO?'disabled':''} onchange="coaSet('remarks',this.value)"></div>
-     <div style="display:flex;gap:14px;margin-top:16px">${signed('Analysed By',coaForm.analyst)}${signed('Reviewed By (AQCM)',coaForm.reviewer)}${signed('Approved By (QCM)',coaForm.approver)}</div>
+     <div class="types">${tchk('Raw Material','Raw Material')}${tchk('Batch','Batch Analysis')}${tchk('Outside Sample','Outside Sample')}</div>
+     <div class="iss"><span style="font-weight:600">Issue Date:</span> ${sf('issueDate',{w:'110px'})} &nbsp;&nbsp; <span style="font-weight:600">Issue status:</span> ${sf('issueStatus',{w:'60px'})}</div>
+     <div class="meta">
+      <div class="col">
+       ${ml('Item Name:','item',{lock:1})}
+       ${ml('Source:','source')}
+       ${ml('Batch No.','batchNo',{lock:1})}
+       ${ml('Mfg. Date:','mfgDate')}
+       ${ml('Q.C. No:','qcNo',{req:1})}
+       ${ml('Sampled Received by:','sampledBy',{req:1})}
+       ${ml('Analysis Time:','analysisTime',{req:1})}
+       ${ml('Temperature °C:','temp',{req:1})}
+      </div>
+      <div class="col">
+       ${ml('Quantity (Kg):','quantity',{lock:1})}
+       ${ml('Exp. Date:','expDate')}
+       ${ml('Receiving Date:','receivingDate')}
+       ${ml('Sample Quantity:','sampleQty',{req:1})}
+       ${ml('Date of Test:','dateOfTest')}
+       ${ml('Humidity %:','humidity',{req:1})}
+      </div>
+     </div>
+     <table><thead><tr><th>Test</th><th>Specs</th><th>Results</th><th>Methods</th><th>MU (%)</th><th style="width:130px">Remarks</th></tr></thead><tbody>${trows||`<tr><td colspan="6" class="muted">No tests — add parameter rows below (they are remembered for ${E(coaForm.item)}).</td></tr>`}</tbody></table>
+     ${ro?'':`<div style="display:flex;gap:8px;padding:7px 10px;border-top:1px solid #999;background:#fafafa;flex-wrap:wrap"><button class="sm" onclick="coaAddRow('Physical')">+ Physical parameter</button><button class="sm" onclick="coaAddRow('Chemical')">+ Chemical parameter</button><span class="muted" style="font-size:11px;align-self:center">Pink fields are mandatory. New parameters &amp; acceptable ranges are saved to this product's template on submit.</span></div>`}
+     <div class="disc"><b>Report Disclaimer</b> — results pertain to the analyzed sample only (95% confidence, K=2); sample retained 1 month after reporting; report not to be reproduced except in full without written lab approval; * = accredited by ISO/IEC 17025:2017. <b>MU:</b> Measurement of Uncertainty. <b>Decision Rule:</b> if the sum of the result and uncertainty is more than the specified limit, the sample is declared OK, and vice versa. <i>(full disclaimer prints on the COA)</i>${coaForm.deviation?`<div style="color:var(--red)"><b>Deviation:</b> ${E(coaForm.deviationNote)}</div>`:''}</div>
+     <div class="signs">${sg('Analysed By','Assistant Analyst/Analyst',coaForm.analyst,true)}${sg('Reviewed By','AQCM',coaForm.reviewer,false)}${sg('Approved By','QCM',coaForm.approver,false)}</div>
+    </div>
+    <div class="fld" style="margin-top:10px"><label>Remarks (internal)</label><input type="text" value="${E(coaForm.remarks)}" ${ro&&!isCOO?'disabled':''} onchange="coaSet('remarks',this.value)"></div>
    </div>
-   <div class="mf"><button class="ghost" onclick="closeModal()">Close</button>${coaForm.status==='approved'?`<button onclick="printCOA('${b.id}')">Print COA</button>`:''}${acts}</div>`; }
+   <div class="mf"><button class="ghost" onclick="closeModal()">Close</button>${st==='approved'?`<button onclick="printCOA('${b.id}')">🖨 Print COA</button>`:''}${acts}</div>`; }
 function coaSubmitAnalyst(){ const b=(state.batches||[]).find(x=>x.id===coaForm.bid); if(!b)return;
-  if(!(coaForm.tests||[]).length){toast('No test template for this product');return;}
+  if(!(coaForm.tests||[]).length){toast('No tests on this COA — add test rows first');return;}
+  const REQ=[['qcNo','Q.C. No'],['sampledBy','Sampled Received by'],['sampleQty','Sample Quantity'],['analysisTime','Analysis Time'],['temp','Temperature'],['humidity','Humidity']];
+  for(const fp of REQ){ if(!String(coaForm[fp[0]]||'').trim()){toast(fp[1]+' is mandatory for the lab sample');return;} }
   for(const r of coaForm.tests){ if(!(r.result||'').trim()||!(r.remark||'').trim()){toast('Fill Result + Remark for every test');return;} }
-  if(!(coaForm.analyst&&coaForm.analyst.name||'').trim()){toast('Enter the analyst name');return;}
-  const today=TODAY.toISOString().slice(0,10); const ov=coaOverall(coaForm.tests);
-  coaForm.overall=ov; coaForm.analyst={name:coaForm.analyst.name.trim(),date:today};
+  if(!(coaForm.analyst&&coaForm.analyst.name||'').trim()){toast('Enter the analyst name (Analysed By)');return;}
+  const ov=coaOverall(coaForm.tests);
+  coaForm.overall=ov; coaForm.analyst={name:coaForm.analyst.name.trim(),date:coaTS()};
   coaForm.status = (ov==='UNFIT') ? 'failed' : 'analysed'; if(ov==='UNFIT') coaForm.failReason='UNFIT on '+coaForm.tests.filter(r=>/unfit|not ok/i.test(r.remark)).map(r=>r.test).join(', ');
   b.coa=JSON.parse(JSON.stringify(coaForm)); delete b.coa.bid;
   state.masters.labTemplates=state.masters.labTemplates||{}; if(coaForm.item) state.masters.labTemplates[coaForm.item]=coaForm.tests.map(r=>({g:r.g,test:r.test,spec:r.spec,method:r.method,mu:r.mu}));
   qcAudit2(b,'Lab analysed',ov); logAction(`Lab COA submitted for batch ${b.batchNo} (${coaForm.item}) — ${ov}`+(ov==='UNFIT'?' → Plant Manager':' → AQCM'));
   save(); closeModal(); render(); }
-function coaReview(){ if(!(canEdit(['AQCM'])||state.role==='COO')){toast('AQCM only');return;} const b=(state.batches||[]).find(x=>x.id===coaForm.bid); if(!b||!b.coa)return; const nm=(typeof prompt==='function'?prompt('Reviewer (AQCM) name:'):'')||''; if(!nm.trim())return; b.coa.reviewer={name:nm.trim(),date:TODAY.toISOString().slice(0,10)}; b.coa.status='reviewed'; qcAudit2(b,'AQCM reviewed',''); logAction(`COA reviewed (AQCM) for batch ${b.batchNo} → QCM`); save(); closeModal(); render(); }
-function coaApprove(){ if(!(canEdit(['QCM'])||state.role==='COO')){toast('QCM only');return;} const b=(state.batches||[]).find(x=>x.id===coaForm.bid); if(!b||!b.coa)return; const nm=(typeof prompt==='function'?prompt('Approver (QCM) name:'):'')||''; if(!nm.trim())return; b.coa.approver={name:nm.trim(),date:TODAY.toISOString().slice(0,10)}; b.coa.status='approved'; b.coa.approvedDate=TODAY.toISOString().slice(0,10); qcAudit2(b,'QCM approved','cleared'); logAction(`COA APPROVED (QCM) for batch ${b.batchNo} — cleared for packing`); save(); closeModal(); render(); }
+function coaReview(){ if(!(canEdit(['AQCM'])||state.role==='COO')){toast('AQCM only');return;} const b=(state.batches||[]).find(x=>x.id===coaForm.bid); if(!b||!b.coa)return; const nm=(state.currentUser&&state.currentUser.name)||state.role; b.coa.reviewer={name:nm,date:coaTS()}; b.coa.status='reviewed'; qcAudit2(b,'AQCM reviewed',''); logAction(`COA reviewed (AQCM) for batch ${b.batchNo} → QCM`); save(); closeModal(); render(); }
+function coaApprove(){ if(!(canEdit(['QCM'])||state.role==='COO')){toast('QCM only');return;} const b=(state.batches||[]).find(x=>x.id===coaForm.bid); if(!b||!b.coa)return; const nm=(state.currentUser&&state.currentUser.name)||state.role; b.coa.approver={name:nm,date:coaTS()}; b.coa.status='approved'; b.coa.approvedDate=TODAY.toISOString().slice(0,10); qcAudit2(b,'QCM approved','cleared'); logAction(`COA APPROVED (QCM) for batch ${b.batchNo} — cleared for packing`); save(); closeModal(); render(); }
 function coaReject(stage){ const b=(state.batches||[]).find(x=>x.id===coaForm.bid); if(!b||!b.coa)return; const why=(typeof prompt==='function'?prompt('Reason for rejecting back to the analyst:'):'')||''; b.coa.status='draft'; b.coa.rejected={by:state.role,stage,why:why||'',date:TODAY.toISOString().slice(0,10)}; qcAudit2(b,'COA rejected',why||''); logAction(`COA rejected at ${stage} for batch ${b.batchNo} — back to analyst`); save(); closeModal(); render(); }
-function coaDeviation(){ if(!(canEdit(['Plant Manager'])||state.role==='COO')){toast('Plant Manager only');return;} const b=(state.batches||[]).find(x=>x.id===coaForm.bid); if(!b||!b.coa)return; const note=(typeof prompt==='function'?prompt('Deviation note (why accept UNFIT):'):'')||''; b.coa.status='approved'; b.coa.deviation=true; b.coa.deviationNote=note||''; b.coa.approver={name:state.role,date:TODAY.toISOString().slice(0,10)}; b.coa.approvedDate=TODAY.toISOString().slice(0,10); qcAudit2(b,'PM deviation approved',note||''); logAction(`UNFIT batch ${b.batchNo} approved as deviation by Plant Manager`); save(); closeModal(); render(); }
+function coaDeviation(){ if(!(canEdit(['Plant Manager'])||state.role==='COO')){toast('Plant Manager only');return;} const b=(state.batches||[]).find(x=>x.id===coaForm.bid); if(!b||!b.coa)return; const note=(typeof prompt==='function'?prompt('Deviation note (why accept UNFIT):'):'')||''; b.coa.status='approved'; b.coa.deviation=true; b.coa.deviationNote=note||''; b.coa.approver={name:((state.currentUser&&state.currentUser.name)||state.role)+' (deviation)',date:coaTS()}; b.coa.approvedDate=TODAY.toISOString().slice(0,10); qcAudit2(b,'PM deviation approved',note||''); logAction(`UNFIT batch ${b.batchNo} approved as deviation by Plant Manager`); save(); closeModal(); render(); }
 function coaRework(){ if(!(canEdit(['Plant Manager'])||state.role==='COO')){toast('Plant Manager only');return;} const b=(state.batches||[]).find(x=>x.id===coaForm.bid); if(!b||!b.coa)return; b.coa.reworks=(b.coa.reworks||0)+1; const item=b.coa.item; b.coa=null; qcAudit2(b,'Sent to rework',''); logAction(`Batch ${b.batchNo} (${item}) sent to rework after UNFIT`); save(); closeModal(); render(); }
 function qcAudit2(b,field,val){ (state.audit=state.audit||[]).unshift({t:new Date().toISOString(),user:state.role,module:'Lab QC',po:b.po||'',brand:coaItemOf(b),field,old:'',val,batchNo:b.batchNo||''}); }
 
@@ -1921,9 +1976,9 @@ function screenInstructions(){
    {n:'5',title:'Produce (batch + shift)',who:'Production',when:'as production runs',tab:'Production',
     body:'<b>Open a batch</b> — Against a PO, or <b>Bulk Base</b> — with a <b>batch #</b> and a <b>planned qty</b>. Batch numbers must be <b>unique within the financial year (Jul–Jun)</b>. <b>Log shift output</b> against the batch (date, shift, incharge, qty); a shift with no output needs a <b>reason</b>. <b>Over-production is capped at 105% of plan.</b> When produced reaches <b>100%</b> the batch moves to <b>"Production completed"</b>. Bulk base then appears under <b>"pack into brands"</b>.'},
    {n:'6',title:'Pack into the client brand',who:'Production',when:'once base is produced',tab:'Production → Pack',
-    body:'<b>Packing always needs a PO.</b> Pack the bulk base into the client <b>brand</b> for a specific PO (capped to what the PO still needs). Enter the <b>brand batch #</b> printed on the packaging (unique within the financial year; leave blank to keep the base batch number) and <b>verify the print price</b>. This creates the <b>base ▸ brand</b> batch link used for traceability.'},
+    body:'<b>Packing needs a PO and a Lab-approved batch (QCM-signed COA).</b> Pack the bulk base into the client <b>brand</b> for a specific PO (capped to what the PO still needs). Enter the <b>brand batch #</b> printed on the packaging (unique within the financial year; leave blank to keep the base batch number) and <b>verify the print price</b>. This creates the <b>base ▸ brand</b> batch link used for traceability.'},
    {n:'7',title:'Quality — two checks',who:'Lab Rep, then QA Inspector',when:'once packed',tab:'QC · Pre-shipment',
-    body:'Each item shows its <b>base ▸ brand batch</b>. The <b>Lab Rep certifies</b> (Layer 1), then the <b>QA Inspector</b> completes the <b>physical checklist</b> (Layer 2). <b>Both must pass to ship.</b> <b>Lab fail → Plant Manager</b> (approve as a deviation, or send to rework). <b>QA fail → Supply Chain</b> (correct &amp; resubmit for a numbered re-inspection).'},
+    body:'<b>Lab QC is per production batch</b> on the official <b>COA form (QCL-FRM-12.03)</b> — it opens <b>auto-filled</b> with the batch details (item, batch #, quantity, dates); the analyst fills the sample fields (Q.C. #, sampled-by, time, temp, humidity — mandatory) and each test Result + Remark. Parameters &amp; acceptable ranges come from the product template and the lab can <b>add more on the report</b> (remembered for next time). Sign-off is <b>3-step with auto-signatures + timestamps</b>: <b>Analyst → AQCM review → QCM final approval</b>. Only a QCM-approved batch can be <b>packed</b>. <b>UNFIT → Plant Manager</b> (deviation or rework). Then <b>QA inspects each packed lot</b> (checklist + inspector name) — only QA-passed lots can <b>ship</b>. Approved COAs <b>print</b> as the official certificate.'},
    {n:'8',title:'Ship',who:'Supply Chain',when:'each dispatch',tab:'Shipments',
     body:'Only <b>QC-passed</b> products can load. Record the dispatch — qty in <b>Kg/L</b> (<b>packs shown automatically</b>), destination, carrier, vehicle, DC #. A product <b>closes at 100% delivered</b>; the <b>PO closes</b> when all its products ship. Over-supply is <b>kept and flagged</b>, never capped.'},
    {n:'9',title:'Monitor & report',who:'Everyone',when:'anytime',tab:'PO Tracker · Reports · Action Log',
@@ -1936,19 +1991,19 @@ function screenInstructions(){
    ['RM Check','Supply Chain confirms material (full / partial)','Production can start for the available qty','Production not starting usually means RM Check is not done'],
    ['PR approval','CFO approves the Purchase Request','Material can be received','Material can&rsquo;t be received until the CFO approves the PR'],
    ['Material received','GRN booked (full or partial)','Pending qty can be produced','Still short → material has not been received yet'],
-   ['Production','Produced reaches the order (or batch closed)','Base can be packed into the brand','Can&rsquo;t pack → nothing produced yet'],
-   ['Packing','Base packed into the brand for the PO','Item enters QC','Not in QC → not fully packed; can&rsquo;t pack → no PO selected'],
-   ['Lab QC','Lab Rep certifies','QA physical inspection opens','Lab fail → Plant Manager decides (approve or rework)'],
-   ['QA Pre-shipment','Physical checklist passes','Product can be shipped','QA fail → Supply Chain corrects &amp; re-inspects'],
-   ['Shipment','Dispatch recorded','Counts toward delivery','Can&rsquo;t ship → QC (Lab + QA) not both passed'],
+   ['Production','Produced reaches the order (or batch closed)','Lab COA opens for the batch (QC tab)','Can&rsquo;t pack → nothing produced yet'],
+   ['Lab COA','Analyst submits → AQCM reviews → QCM approves (auto-signed, timestamped)','Batch can be packed into the brand','Stuck → COA awaiting review/approval; UNFIT → Plant Manager'],
+   ['Packing','Base packed into the brand for the PO (brand batch # + price verify)','Packed lot goes to QA pre-shipment','Can&rsquo;t pack → batch COA not approved, or no PO'],
+   ['QA Pre-shipment','Each packed lot passes the checklist (inspector named)','That lot can be shipped','QA fail → Supply Chain corrects &amp; re-inspects the lot'],
+   ['Shipment','Dispatch recorded (only QA-passed quantity can load)','Counts toward delivery','Can&rsquo;t ship → lot not QA-passed'],
    ['Delivered','100% of the qty delivered','Product &amp; PO close','Partial delivery stays in Shipment'],
   ];
   const stuck=[
    ['Production isn&rsquo;t starting','RM Check is pending — or the PR isn&rsquo;t CFO-approved, or material has not been received','Supply Chain runs RM Check → CFO approves the PR → receive the GRN'],
    ['Can&rsquo;t receive material','The PR has not been approved by the CFO','CFO approves the PR from My Actions'],
-   ['Can&rsquo;t pack a brand','The bulk base is not produced yet, or there is no open PO for that brand','Produce the base first; packing must be against a PO'],
-   ['Product not showing in QC','It is not fully packed yet','Finish packing the ordered quantity'],
-   ['Can&rsquo;t ship a product','QC is not complete — Lab and QA must both pass','Clear the Lab certify and the QA inspection first'],
+   ['Can&rsquo;t pack a brand','The batch COA is not QCM-approved yet, the base is not produced, or there is no open PO','Get the COA approved (Analyst → AQCM → QCM); packing must be against a PO'],
+   ['Batch not showing in Lab QC','It has no production output yet','Log shift output on the batch first'],
+   ['Can&rsquo;t ship a product','Only QA-passed packed lots can load','QA-inspect the packed lot (QC tab) first'],
    ['Batch # is rejected','That number is already used this financial year (Jul–Jun)','Use a new, unique batch number'],
    ['Can&rsquo;t log more shift output','The batch reached the 105% over-production cap','Close the batch; open a new one if more is genuinely needed'],
    ['"Pack size not set" on a shipment','That brand has no pack size on the PO line','Set the pack size on the PO line in New PO Entry'],
@@ -1959,7 +2014,7 @@ function screenInstructions(){
    ['Dealer Master','KAM','Onboard dealers (auto code)','→ New PO Entry'],
    ['PO Tracker','All (view-only)','Control tower — every order &amp; stage','consolidates all'],
    ['Production','Production','Open batches, log shift output, pack base into brands','→ QC'],
-   ['QC · Pre-shipment','Lab Rep + QA Inspector','2-layer Lab then physical inspection','gates Shipments'],
+   ['QC · Pre-shipment','Lab, AQCM, QCM + QA Inspector','Batch COA (3-step sign-off) + per-lot QA inspection','gates Packing &amp; Shipments'],
    ['Shipments','Supply Chain','Record dispatch (Kg/L + packs); closes products &amp; PO','→ PO Tracker'],
    ['Reports / Batch Trace','All','Slice all data; base ▸ brand batch trace','—'],
    ['Admin · Master Data','COO','Shifts, incharges, downtime reasons, KAM names','—'],
@@ -1998,7 +2053,7 @@ function screenInstructions(){
          • <b>One open PR per raw material</b>; receive it in full or in partial GRNs.<br>
          • Production is <b>batch + shift</b>; <b>over-production is capped at 105%</b>; batch # is <b>unique per financial year (Jul–Jun)</b>.<br>
          • <b>Packing needs a PO</b>; the <b>brand batch #</b> and <b>print price</b> are set &amp; verified at packing; every pack is <b>base ▸ brand</b> traceable.<br>
-         • <b>QC is two layers</b> (Lab then QA) — nothing ships until both pass.<br>
+         • <b>QC is quantity-true</b>: every batch needs a <b>QCM-approved COA</b> before packing; every packed lot needs <b>QA</b> before shipping.<br>
          • A PO <b>closes</b> only when every product has shipped; <b>over-supply is flagged, not capped</b>.
        </div></div>
    </div>
@@ -2019,7 +2074,7 @@ function screenInstructions(){
        <tr><td>PR approval</td><td><span class="pill" style="background:var(--navy-50);color:var(--navy)">CFO</span></td></tr>
        <tr><td>Batch · shift output · Prod Start / Complete</td><td><span class="pill" style="background:var(--navy-50);color:var(--navy)">Production</span></td></tr>
        <tr><td>Brand batch # · print-price verify (packing)</td><td><span class="pill" style="background:var(--navy-50);color:var(--navy)">Production</span></td></tr>
-       <tr><td>QC Pass</td><td><span class="pill" style="background:var(--navy-50);color:var(--navy)">Lab Rep → QA Inspector</span></td></tr>
+       <tr><td>Lab COA (batch) · QA (lot)</td><td><span class="pill" style="background:var(--navy-50);color:var(--navy)">Analyst → AQCM → QCM · QA Inspector</span></td></tr>
        <tr><td>Dispatch · Delivered · packs</td><td><span class="pill" style="background:#eef1f6;color:#6b778c">Auto — Shipments</span></td></tr>
        <tr><td>Delay reason · Responsible dept</td><td><span class="pill" style="background:#ffefdc;color:#8a5712">Plant Manager</span></td></tr>
      </tbody></table></div>`;

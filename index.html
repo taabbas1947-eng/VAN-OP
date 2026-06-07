@@ -436,6 +436,7 @@ function ensureState(s){
    transaction data. Runs on every state load (live + fresh seed). */
 function ensureMasters(s){
   s.masters = s.masters || {};
+  if(!s.masters.accessMatrix||typeof s.masters.accessMatrix!=='object') s.masters.accessMatrix={};
   if(!s.masters.labTemplates){ s.masters.labTemplates = {
    'Elemental Sulfur':[
     {g:'Physical',test:'Physical Status',spec:'Powder',method:'Visual',mu:'-'},
@@ -662,7 +663,9 @@ const pct=(a,b)=>b>0?Math.min(100,Math.round(a/b*100)):0;
 function pill(txt,colvar){ return `<span class="pill" style="background:color-mix(in srgb, var(${colvar}) 14%, #fff);color:var(${colvar});border:1px solid color-mix(in srgb, var(${colvar}) 28%, #fff)">${txt}</span>`; }
 function toast(m){ const t=$('toast'); t.textContent=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),1900); }
 function logAction(what){ state.actionLog.unshift({t:new Date().toISOString(), role:state.role, by:(state.currentUser&&state.currentUser.name)||state.role, what}); }
-function canEdit(owners){ return state.role==='COO' || owners.includes(state.role); }
+function accessOv(role,scrId){ const m=(state.masters&&state.masters.accessMatrix)||{}; return (m[role]&&m[role][scrId])||null; }
+function canView(role,scrId){ if(role==='COO') return true; const o=accessOv(role,scrId); return !(o&&o.v===false); }
+function canEdit(owners){ if(state.role==='COO') return true; const o=accessOv(state.role,state.screen); if(o&&o.e===false) return false; return owners.includes(state.role); }
 function ownerNote(owners){ return canEdit(owners)?'':`<span class="tag">view-only · owned by ${owners.join(' / ')}</span>`; }
 
 /* ===================== SCREENS REGISTRY ===================== */
@@ -723,7 +726,7 @@ function navIcon(id){ return NAV_ICONS[id]?`<svg viewBox="0 0 24 24">${NAV_ICONS
 const NAV_ORDER=['approvals','tracker','prod','qc','ship','instructions','dash','entry','dealers','monthly','reports','admin','datafix','users','log'];
 function renderNav(){
   const byId={}; SCREENS.forEach(s=>byId[s.id]=s);
-  const ordered=NAV_ORDER.map(id=>byId[id]).filter(Boolean).filter(s=> s.id!=='datafix' || state.dataFixEnabled || state.role==='COO');
+  const ordered=NAV_ORDER.map(id=>byId[id]).filter(Boolean).filter(s=> s.id!=='datafix' || state.dataFixEnabled || state.role==='COO').filter(s=>canView(state.role,s.id));
   $('nav').innerHTML = ordered.map(s=>`<a class="${s.id===state.screen?'active':''}" onclick="setScreen('${s.id}')"><span class="ic">${navIcon(s.id)}</span>${s.name}</a>`+(s.id==='instructions'?'<div style="height:1px;background:var(--line);margin:9px 12px;opacity:.7"></div>':'')).join('');
   const u=state.currentUser;
   if($('rolebox')) $('rolebox').innerHTML = u
@@ -731,9 +734,10 @@ function renderNav(){
     : '';
 }
 function setRole(r){ state.role=r; save(); render(); }
-function setScreen(id){ if(id!=='tracker') state.expanded={}; state.screen=id; save(); render(); }
+function setScreen(id){ if(!canView(state.role,id)){toast('Access to this screen is disabled by the COO');return;} if(id!=='tracker') state.expanded={}; state.screen=id; save(); render(); }
 function toggleSide(){ const a=document.querySelector('.app'); if(a) a.classList.toggle('nav-collapsed'); }
 function render(){
+  if(scr(state.screen)&&!canView(state.role,state.screen)) state.screen='dash';
   if(!scr(state.screen)) state.screen='dash';
   renderNav();
   const s=scr(state.screen);
@@ -1611,6 +1615,7 @@ function renderShiftLog(){
    <div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" onclick="submitShiftLog()">Save shift output</button></div>`;
 }
 function submitShiftLog(){
+  if(!canEdit(['Production'])){toast('Production only');return;}
   const b=(state.batches||[]).find(x=>x.id===shiftForm.batchId); if(!b){toast('Batch not found');return;}
   if(b.coa && b.coa.status && b.coa.status!=='draft'){ toast('Batch '+(b.batchNo||'')+' is already in Lab QC ('+b.coa.status+'). A certified batch cannot take more output — open a NEW batch; new production needs its own COA.'); return; }
   const q=+shiftForm.qty||0;
@@ -1638,6 +1643,7 @@ function submitShiftLog(){
   save(); closeModal(); render();
 }
 function closeBatch(batchId){
+  if(!canEdit(['Production'])){toast('Production only');return;}
   const b=(state.batches||[]).find(x=>x.id===batchId); if(!b)return;
   if(typeof confirm==='function' && !confirm(`Close batch ${b.batchNo||'—'}?\nProduced ${fmt(b.producedKg||0)} of planned ${fmt(b.plannedKg||0)} Kg/L.`)) return;
   b.status='closed'; b.closedDate=TODAY.toISOString().slice(0,10);
@@ -1680,7 +1686,7 @@ function renderPackModal(){ const b=state.batches.find(x=>x.id===packForm.bid); 
      <div class="fld"><label>6 · Expiry date (auto +2 years, editable)</label><input type="date" value="${packForm.exp||''}" onchange="packForm.exp=this.value"></div></div>
      ${priceBlk}<div class="muted" style="font-size:11px;margin-top:11px">Moves bulk base into the chosen brand. Pick a PO to fill that order (capped to what it still needs), or leave unassigned.</div></div>
    <div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" onclick="doPack()">Pack</button></div>`; }
-function doPack(){ const b=state.batches.find(x=>x.id===packForm.bid); if(!batchLabApproved(b)){toast('This batch is not Lab QC-approved yet — it can be packed only after QCM approves its COA.');return;} const rem=batchPackableKg(b); let kg=Math.min(+packForm.kg||0,rem); const brand=packForm.brand; const d=TODAY.toISOString().slice(0,10);
+function doPack(){ if(!canEdit(['Production'])){toast('Production only');return;} const b=state.batches.find(x=>x.id===packForm.bid); if(!batchLabApproved(b)){toast('This batch is not Lab QC-approved yet — it can be packed only after QCM approves its COA.');return;} const rem=batchPackableKg(b); let kg=Math.min(+packForm.kg||0,rem); const brand=packForm.brand; const d=TODAY.toISOString().slice(0,10);
   if(!brand||kg<=0){toast('Pick a brand and quantity');return;}
   if(packForm.oid && packForm.oid!=='STOCK' && packForm.lid){
     const o=state.orders.find(x=>x.id===packForm.oid); const l=o&&o.lines.find(x=>x.id===packForm.lid);
@@ -1854,7 +1860,7 @@ function coaSubmitAnalyst(){ const b=(state.batches||[]).find(x=>x.id===coaForm.
   save(); coaFSClose(); }
 function coaReview(){ if(!(canEdit(['AQCM'])||state.role==='COO')){toast('AQCM only');return;} const b=(state.batches||[]).find(x=>x.id===coaForm.bid); if(!b||!b.coa)return; const nm=(state.currentUser&&state.currentUser.name)||state.role; b.coa.reviewer={name:nm,date:coaTS()}; b.coa.status='reviewed'; qcAudit2(b,'AQCM reviewed',''); logAction(`COA reviewed (AQCM) for batch ${b.batchNo} → QCM`); save(); coaFSClose(); }
 function coaApprove(){ if(!(canEdit(['QCM'])||state.role==='COO')){toast('QCM only');return;} const b=(state.batches||[]).find(x=>x.id===coaForm.bid); if(!b||!b.coa)return; const nm=(state.currentUser&&state.currentUser.name)||state.role; b.coa.approver={name:nm,date:coaTS()}; b.coa.status='approved'; b.coa.approvedDate=TODAY.toISOString().slice(0,10); b.coa.certifiedKg=b.producedKg||0; qcAudit2(b,'QCM approved','cleared'); logAction(`COA APPROVED (QCM) for batch ${b.batchNo} — cleared for packing`); save(); coaFSClose(); }
-function coaReject(stage){ const b=(state.batches||[]).find(x=>x.id===coaForm.bid); if(!b||!b.coa)return; const why=(typeof prompt==='function'?prompt('Reason for rejecting back to the analyst:'):'')||''; b.coa.status='draft'; b.coa.rejected={by:state.role,stage,why:why||'',date:TODAY.toISOString().slice(0,10)}; qcAudit2(b,'COA rejected',why||''); logAction(`COA rejected at ${stage} for batch ${b.batchNo} — back to analyst`); save(); coaFSClose(); }
+function coaReject(stage){ if(!canEdit(['AQCM','QCM'])){toast('AQCM / QCM only');return;} const b=(state.batches||[]).find(x=>x.id===coaForm.bid); if(!b||!b.coa)return; const why=(typeof prompt==='function'?prompt('Reason for rejecting back to the analyst:'):'')||''; b.coa.status='draft'; b.coa.rejected={by:state.role,stage,why:why||'',date:TODAY.toISOString().slice(0,10)}; qcAudit2(b,'COA rejected',why||''); logAction(`COA rejected at ${stage} for batch ${b.batchNo} — back to analyst`); save(); coaFSClose(); }
 function coaDeviation(){ if(!(canEdit(['Plant Manager'])||state.role==='COO')){toast('Plant Manager only');return;} const b=(state.batches||[]).find(x=>x.id===coaForm.bid); if(!b||!b.coa)return; const note=(typeof prompt==='function'?prompt('Deviation note (why accept this UNFIT batch):'):'')||''; b.coa.deviation=true; b.coa.deviationNote=note||''; b.coa.deviationBy={name:(state.currentUser&&state.currentUser.name)||state.role,date:coaTS()}; b.coa.status='analysed'; qcAudit2(b,'PM deviation accepted',note||''); logAction(`UNFIT batch ${b.batchNo} accepted as DEVIATION by Plant Manager → AQCM review → QCM approval`); save(); coaFSClose(); }
 function coaRework(){ if(!(canEdit(['Plant Manager'])||state.role==='COO')){toast('Plant Manager only');return;} const b=(state.batches||[]).find(x=>x.id===coaForm.bid); if(!b||!b.coa)return; b.coa.reworks=(b.coa.reworks||0)+1; const item=b.coa.item; b.coa=null; qcAudit2(b,'Sent to rework',''); logAction(`Batch ${b.batchNo} (${item}) sent to rework after UNFIT`); save(); coaFSClose(); }
 function qcAudit2(b,field,val){ (state.audit=state.audit||[]).unshift({t:new Date().toISOString(),user:state.role,module:'Lab QC',po:b.po||'',brand:coaItemOf(b),field,old:'',val,batchNo:b.batchNo||''}); }
@@ -2018,7 +2024,7 @@ function openReceiveMaterials(){ const open=(state.prs||[]).filter(p=>p.status==
    (open.length?open.map(p=>{const rem=Math.max(0,p.qtyRequired-(p.qtyReceived||0));return `<div style="border:1px solid var(--line);border-radius:9px;padding:9px 11px;margin-bottom:8px"><div style="font-weight:600">${p.rm}</div><div class="muted" style="font-size:11px;margin-bottom:6px">required ${fmt(p.qtyRequired)} · received ${fmt(p.qtyReceived||0)} · remaining ${fmt(rem)} Kg/L${(p.receipts&&p.receipts.length)?(' · '+p.receipts.length+' receipt(s)'):''}${p.cfoApproved?' · <span style="color:var(--green2)">CFO approved</span>':' · <span style="color:var(--amber)">awaiting CFO approval</span>'}</div><div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap"><div class="fld" style="width:120px"><label>Receive qty</label><input type="number" id="rcv_${p.id}" placeholder="max ${fmt(rem)}"></div><div class="fld" style="width:140px"><label>GRN #</label><input type="text" id="grn_${p.id}"></div><div class="fld" style="width:140px"><label>Date</label><input type="date" id="rdt_${p.id}" value="${TODAY.toISOString().slice(0,10)}"></div><button class="sm green" onclick="receivePR('${p.id}')">Receive</button></div></div>`;}).join(''):'<div class="muted" style="padding:6px 0">No open PRs.</div>')+
    `</div><div class="mf"><button class="ghost" onclick="closeModal()">Close</button></div>`;
   $('modalBg').classList.add('open'); }
-function receivePR(prId){ const p=(state.prs||[]).find(x=>x.id===prId); if(!p)return; if(!p.cfoApproved){toast('This PR must be approved by CFO before raw material can be received.');return;} const qty=+(($('rcv_'+prId)&&$('rcv_'+prId).value))||0; const grn=((($('grn_'+prId)&&$('grn_'+prId).value))||'').trim(); const d=(($('rdt_'+prId)&&$('rdt_'+prId).value))||TODAY.toISOString().slice(0,10);
+function receivePR(prId){ if(!canEdit(['Supply Chain'])){toast('Supply Chain only');return;} const p=(state.prs||[]).find(x=>x.id===prId); if(!p)return; if(!p.cfoApproved){toast('This PR must be approved by CFO before raw material can be received.');return;} const qty=+(($('rcv_'+prId)&&$('rcv_'+prId).value))||0; const grn=((($('grn_'+prId)&&$('grn_'+prId).value))||'').trim(); const d=(($('rdt_'+prId)&&$('rdt_'+prId).value))||TODAY.toISOString().slice(0,10);
   if(!(qty>0)){toast('Enter received qty');return;} if(!grn){toast('Enter GRN #');return;}
   p.receipts=p.receipts||[]; p.receipts.push({date:d,grn,qty,by:state.role}); p.qtyReceived=(p.qtyReceived||0)+qty; state.rawStock[p.rm]=(state.rawStock[p.rm]||0)+qty;
   if(p.qtyReceived>=p.qtyRequired-0.001) p.status='closed';
@@ -2237,7 +2243,7 @@ function renderShipModal(){ const o=state.orders.find(x=>x.id===shipForm.oid); c
      <div class="fld" style="grid-column:1 / -1"><label>Remarks</label><input type="text" value="${shipForm.remarks}" oninput="shipForm.remarks=this.value"></div>
    </div></div>
    <div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button onclick="saveShip()">Save shipment</button></div>`; }
-function saveShip(){ const o=state.orders.find(x=>x.id===shipForm.oid); const l=o.lines.find(x=>x.id===shipForm.lid); const rem=Math.max(0, Math.min(l.packed||0, lineQAPackedKg(o,l)) - (l.dispatched||0));
+function saveShip(){ if(!canEdit(['Supply Chain'])){toast('Supply Chain only');return;} const o=state.orders.find(x=>x.id===shipForm.oid); const l=o.lines.find(x=>x.id===shipForm.lid); const rem=Math.max(0, Math.min(l.packed||0, lineQAPackedKg(o,l)) - (l.dispatched||0));
   const kg=Math.min(+shipForm.qty||0,rem); if(kg<=0){toast('Enter a valid qty');return;}
   state.shipments.unshift({po:o.po,brand:l.brand,kg,pack:(+l.pack||seedPackForBrand(l.brand)||0),dispatch:shipForm.date,destination:shipForm.dest,carrier:shipForm.carrier,vehicle:shipForm.vehicle,dc:shipForm.dc,bilty:shipForm.bilty,delivered:shipForm.delivered||null,remarks:shipForm.remarks,by:state.role});
   l.dispatched=(l.dispatched||0)+kg; l.dispatchDate=l.dispatchDate||shipForm.date;
@@ -2491,8 +2497,27 @@ function screenAdmin(){
        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:11px">${vals.length?vals.map((v,idx)=>`<span class="pill" style="background:var(--navy-50);color:var(--navy);border:1px solid var(--navy-100);display:inline-flex;align-items:center;gap:7px">${v}${ed?`<span style="cursor:pointer;color:var(--mut)" title="rename" onclick="editMaster('${k}',${idx})">&#9998;</span><span style="cursor:pointer;color:var(--red);font-weight:700" title="delete" onclick="delMaster('${k}',${idx})">&times;</span>`:''}</span>`).join(''):'<span class="muted" style="font-size:12px">none yet</span>'}</div>
        ${ed?`<div style="display:flex;gap:8px"><input type="text" id="adm_${k}" placeholder="add value…" style="flex:1"><button class="sm" onclick="addMaster('${k}')">Add</button></div>`:''}</div>`;}).join('')}
    </div>
-   ${labTplCard(canEdit(['Lab Rep','AQCM','QCM']))}`;
+   ${labTplCard(canEdit(['Lab Rep','AQCM','QCM']))}
+   ${accessMatrixCard()}`;
 }
+function accessMatrixCard(){ const isCOO=state.role==='COO';
+  const roles=((typeof SEED!=='undefined'&&SEED.roles)||[]).filter(r=>r!=='COO');
+  const ids=NAV_ORDER.filter(id=>scr(id));
+  const m=(state.masters&&state.masters.accessMatrix)||{};
+  const chip=(role,id,kind,on)=>`<span onclick="${isCOO?`amxToggle('${role}','${id}','${kind}')`:''}" title="${kind==='v'?'View tab':'Edit on tab'} — ${on?'allowed (click to block)':'BLOCKED (click to restore)'}" style="display:inline-block;width:20px;text-align:center;border-radius:5px;font-size:9.5px;font-weight:800;padding:2px 0;cursor:${isCOO?'pointer':'default'};background:${on?'#e7f6ec':'#fdecea'};color:${on?'#1a7f37':'#c0392b'}">${kind.toUpperCase()}</span>`;
+  return `<div class="card" style="margin-top:14px"><h3>Access control matrix <span class="hint">role × screen — clickable</span></h3>
+    <div class="muted" style="font-size:12px;margin-bottom:10px">Click <b>V</b> (see the tab) or <b>E</b> (edit on it) to block or restore access per role. <b>Green = allowed, red = blocked.</b> The matrix only <b>restricts</b> — it never grants edit beyond the role's own rights, and workflow signatures (CFO, AQCM, QCM, Plant Manager) always stay with their role. COO always has full access. Changes apply on the user's next screen change / refresh.</div>
+    <div style="overflow:auto"><table><thead><tr><th>Screen</th>${roles.map(r=>`<th style="font-size:10px;white-space:nowrap">${r}</th>`).join('')}</tr></thead><tbody>
+    ${ids.map(id=>{const sc=scr(id);return `<tr><td style="white-space:nowrap"><b>${sc.name}</b></td>${roles.map(r=>{const o=(m[r]&&m[r][id])||{}; return `<td style="white-space:nowrap">${chip(r,id,'v',o.v!==false)} ${chip(r,id,'e',o.e!==false)}</td>`;}).join('')}</tr>`;}).join('')}
+    </tbody></table></div></div>`; }
+function amxToggle(role,id,kind){ if(state.role!=='COO'){toast('COO only');return;}
+  state.masters.accessMatrix=state.masters.accessMatrix||{}; const m=state.masters.accessMatrix;
+  m[role]=m[role]||{}; m[role][id]=m[role][id]||{}; const cell=m[role][id];
+  if(cell[kind]===false){ delete cell[kind]; } else { cell[kind]=false; }
+  const blocked=(cell[kind]===false);
+  if(cell.v===undefined&&cell.e===undefined) delete m[role][id];
+  logAction(`Access matrix: ${kind==='v'?'VIEW':'EDIT'} ${blocked?'BLOCKED':'restored'} — ${role} on ${id}`);
+  save(); render(); }
 let labTplForm={product:''};
 function labTpls(){ return (state.masters&&state.masters.labTemplates)||{}; }
 function labTplPick(p){ labTplForm.product=p; render(); }

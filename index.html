@@ -276,6 +276,65 @@ td.skufirst{padding-left:10px;box-shadow:inset 3px 0 0 var(--navy)}
 .cycseg .cyc-c{font-size:10px;color:var(--mut);margin-top:2px}
 .cycseg .cyc-bar{height:6px;border-radius:5px;background:#e8edf4;overflow:hidden;margin-top:8px}
 .cycseg .cyc-bar>i{display:block;height:100%;border-radius:5px}
+
+/* ===== Full-screen COA sheet (QCL-FRM-12.03) ===== */
+#coaFS{position:fixed;inset:0;z-index:300;background:#eef1f5;overflow:auto;display:none}
+#coaFS.open{display:block}
+#coaFS .cofbar{position:sticky;top:0;z-index:5;background:#063566;color:#fff;display:flex;gap:10px;align-items:center;padding:10px 16px;box-shadow:0 2px 8px rgba(0,0,0,.2);flex-wrap:wrap}
+#coaFS .cofbar .ttl{font-weight:800;margin-right:auto;font-size:13.5px}
+#coaFS .cofbar button{border:0;border-radius:7px;padding:8px 14px;font-weight:700;cursor:pointer;font-size:12.5px}
+#coaFS .cofbar .b-green{background:#1a8a3c;color:#fff}
+#coaFS .cofbar .b-ghost{background:rgba(255,255,255,.14);color:#fff}
+#coaFS .sheet-wrap{padding:22px 10px 60px;display:flex;justify-content:center}
+#coaFS .sheet{background:#fff;width:840px;max-width:100%;padding:26px 30px;border:1px solid #d4d9e0;box-shadow:0 6px 24px rgba(0,0,0,.1);color:#1a1a1a;font-size:13px}
+#coaFS .rpt-head{display:flex;border:2px solid #222}
+#coaFS .rpt-head .cell{padding:8px 10px;display:flex;flex-direction:column;justify-content:center}
+#coaFS .rpt-head .logo-cell{width:120px;border-right:1.5px solid #222;align-items:center;text-align:center}
+#coaFS .rpt-head .title-cell{flex:1;text-align:center;border-right:1.5px solid #222}
+#coaFS .rpt-head .title-cell h1{margin:0;color:#0a4b8c;font-size:17px;letter-spacing:.5px}
+#coaFS .rpt-head .title-cell .subt{font-weight:700;font-size:12.5px;margin-top:2px}
+#coaFS .rpt-head .title-cell .subt small{display:block;font-weight:400}
+#coaFS .rpt-head .doc-cell{width:185px;font-size:10.5px;border-right:1.5px solid #222;gap:2px}
+#coaFS .rpt-head .acc-cell{width:106px;align-items:center;text-align:center;gap:3px}
+#coaFS .lab-no{border:1px solid #222;font-size:9px;padding:1px 5px}
+#coaFS .type-row{display:flex;justify-content:center;gap:48px;margin:14px 0 8px}
+#coaFS .type-row label{display:flex;align-items:center;gap:7px;font-weight:700;cursor:pointer;font-size:13px}
+#coaFS .issue-row{display:flex;gap:30px;align-items:center;margin:4px 2px 8px;font-size:12.5px}
+#coaFS .meta{border:2px solid #222;border-bottom:0;display:grid;grid-template-columns:1fr 1fr}
+#coaFS .meta .mcol{padding:8px 12px;display:flex;flex-direction:column;gap:5px}
+#coaFS .mline{display:flex;align-items:center;gap:6px;font-size:12.5px}
+#coaFS .mline .lbl{white-space:nowrap}
+#coaFS .ufld{flex:1;border:0!important;border-bottom:1px solid #aaa!important;padding:1px 3px!important;font:inherit;min-width:40px;background:transparent;border-radius:0!important;width:auto}
+#coaFS .ufld:focus{outline:0;background:#f4f9ff}
+#coaFS .ufld[disabled]{color:#1a1a1a;-webkit-text-fill-color:#1a1a1a;opacity:1;border-bottom-color:#e3e3e3!important}
+#coaFS table.tests{width:100%;border-collapse:collapse;border:2px solid #222;table-layout:fixed}
+#coaFS table.tests th{background:#f3f5f8;border:1px solid #bbb;padding:6px 4px;font-size:11.5px;text-transform:uppercase;letter-spacing:.3px;text-align:center}
+#coaFS table.tests td{border:1px solid #bbb;padding:2px 4px;vertical-align:middle;font-size:12.5px}
+#coaFS .section-row td{background:#eef2f7;font-weight:800;font-size:11.5px;letter-spacing:.4px;color:#063566;text-transform:uppercase}
+#coaFS .tcell{width:100%;border:0!important;background:transparent;font:inherit;padding:3px 2px!important;text-align:center;border-radius:0!important}
+#coaFS td.test-name .tcell{text-align:left}
+#coaFS .tcell:focus{outline:2px solid #bcd4ef;background:#f4f9ff;border-radius:3px!important}
+#coaFS .tcell[disabled]{color:#1a1a1a;-webkit-text-fill-color:#1a1a1a;opacity:1}
+#coaFS .mini{border:0;background:#eceff3;border-radius:5px;min-width:22px;height:22px;cursor:pointer;font-weight:700;color:#555;line-height:1}
+#coaFS .mini:hover{background:#fdecea;color:#c0392b}
+#coaFS .badge{font-weight:800;font-size:11px;border-radius:12px;padding:2px 9px}
+#coaFS .badge.ok{background:#e7f6ec;color:#1a8a3c}
+#coaFS .badge.fail{background:#fdecea;color:#c0392b}
+#coaFS .badge.na{background:#eef0f3;color:#667085}
+#coaFS .rsel{border:1px solid #ccd2da;border-radius:5px;font-size:11px;padding:2px;background:#fff;color:#333;flex:1;min-width:0}
+#coaFS .add-bar{display:flex;gap:8px;margin:8px 0 4px;flex-wrap:wrap}
+#coaFS .add-bar button{background:#eef2f7;color:#063566;border:1px dashed #aab6c4;border-radius:7px;padding:7px 12px;font-weight:700;cursor:pointer;font-size:12px}
+#coaFS .disclaimer{margin-top:16px;font-size:9.5px;color:#333;line-height:1.45}
+#coaFS .disclaimer h4{text-align:center;margin:0 0 5px;font-size:11px;text-decoration:underline}
+#coaFS .disclaimer ol{margin:0;padding-left:20px}
+#coaFS .signs{display:grid;grid-template-columns:1fr 1fr 1fr;border:1.5px solid #222;margin-top:16px}
+#coaFS .signs .s{padding:10px;text-align:center;border-right:1.5px solid #222;min-height:92px;display:flex;flex-direction:column;justify-content:flex-end;gap:3px}
+#coaFS .signs .s:last-child{border-right:0}
+#coaFS .signs .role{font-weight:800;font-size:12px}
+#coaFS .signs .nmv{border-bottom:1px solid #aaa;text-align:center;font-size:11.5px;padding:1px;min-height:16px}
+#coaFS .signs .subr{font-size:10px;color:#667085}
+#coaFS .signs .dt{font-size:10.5px;margin-top:4px}
+#coaFS .endrep{text-align:center;font-weight:700;font-size:11px;margin-top:12px;letter-spacing:1px}
 </style></head><body>
 <div class="app" id="appShell">
   <aside class="side">
@@ -304,6 +363,7 @@ td.skufirst{padding-left:10px;box-shadow:inset 3px 0 0 var(--navy)}
 <div id="authScreen" class="authscreen"></div>
 <div class="drawer-bg" id="drawerBg" onclick="closeDrawer()"></div>
 <div class="drawer" id="drawer"></div>
+<div id="coaFS"></div>
 <div class="modal-bg" id="modalBg" onclick="if(event.target===this)closeModal()"><div class="modal" id="modal" onclick="event.stopPropagation()"></div></div>
 <div class="toast" id="toast"></div>
 <script>
@@ -1659,72 +1719,75 @@ function coaStatusPill(c){ if(!c) return '<span class="pill" style="background:v
   return `<span class="pill" style="background:var(--navy-50);color:var(${x[1]});font-size:9px">${x[0]}</span>`; }
 function openBatchCOA(bid){ const b=(state.batches||[]).find(x=>x.id===bid); if(!b)return; const tpl=coaTemplate(b); const today=TODAY.toISOString().slice(0,10);
   if(b.coa){ coaForm=JSON.parse(JSON.stringify(b.coa)); coaForm.bid=bid; }
-  else { const MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; const od=new Date(b.openedDate||today); const mfg=MON[od.getMonth()]+'-'+od.getFullYear(); const exp=MON[od.getMonth()]+'-'+(od.getFullYear()+2); coaForm={ bid, status:'draft', type:'Batch', issueDate:today, issueStatus:'A', item:coaItemOf(b), source:'Vital Agri Nutrients (Pvt) Ltd', batchNo:b.batchNo||'', quantity:Math.round(b.producedKg||0), mfgDate:mfg, expDate:exp, qcNo:'', receivingDate:today, sampledBy:'', sampleQty:'0.5 kg', analysisTime:'', dateOfTest:today, temp:'', humidity:'', tests: tpl.map(r=>({g:r.g,test:r.test,spec:r.spec,method:r.method,mu:r.mu,result:'',remark:''})), analyst:{name:(state.currentUser&&state.currentUser.name)||'',date:''}, reviewer:{name:'',date:''}, approver:{name:'',date:''}, remarks:'' }; }
+  else { const MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; const od=new Date(b.openedDate||today); const mfg=MON[od.getMonth()]+'-'+od.getFullYear(); const exp=MON[od.getMonth()]+'-'+(od.getFullYear()+2); coaForm={ bid, status:'draft', type:'Batch', issueDate:today, issueStatus:'A', item:coaItemOf(b), source:'Vital Agri Nutrients (Pvt) Ltd', batchNo:b.batchNo||'', quantity:fmt(Math.round(b.producedKg||0))+' Kg', mfgDate:mfg, expDate:exp, qcNo:'', receivingDate:today, sampledBy:'', sampleQty:'0.5 kg', analysisTime:(new Date()).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}), dateOfTest:today, temp:'', humidity:'', tests: tpl.map(r=>({g:r.g,test:r.test,spec:r.spec,method:r.method,mu:r.mu,result:'',remark:''})), analyst:{name:(state.currentUser&&state.currentUser.name)||'',date:''}, reviewer:{name:'',date:''}, approver:{name:'',date:''}, remarks:'' }; }
   if(!coaForm.tests||!coaForm.tests.length){ coaForm.tests=tpl.map(r=>({g:r.g,test:r.test,spec:r.spec,method:r.method,mu:r.mu,result:'',remark:''})); }
-  renderCOAModal(); $('modalBg').classList.add('open'); }
+  if(!coaForm.analysisTime) coaForm.analysisTime=(new Date()).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+  renderCOAModal(); }
 function coaPersistDraft(){ const b=(state.batches||[]).find(x=>x.id===coaForm.bid); if(!b)return; if(b.coa&&b.coa.status&&b.coa.status!=='draft')return; const d=JSON.parse(JSON.stringify(coaForm)); delete d.bid; d.status='draft'; b.coa=d; save(); }
 function coaSet(f,v){ coaForm[f]=v; coaPersistDraft(); }
 function coaTest(i,f,v){ if(coaForm.tests&&coaForm.tests[i]){ coaForm.tests[i][f]=v; coaPersistDraft(); } }
 function coaAddRow(g){ coaForm.tests=coaForm.tests||[]; coaForm.tests.push({g:g||'Chemical',test:'',spec:'',method:'',mu:'-',result:'',remark:''}); coaPersistDraft(); renderCOAModal(); }
 function coaDelRow(i){ if(coaForm.tests) coaForm.tests.splice(i,1); coaPersistDraft(); renderCOAModal(); }
 function coaEsc(x){ return String(x==null?'':x).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
-function renderCOAModal(){ const b=(state.batches||[]).find(x=>x.id===coaForm.bid); if(!b){closeModal();return;}
-  const st=coaForm.status||'draft'; const isLab=canEdit(['Lab Rep']), isAQ=canEdit(['AQCM']), isQM=canEdit(['QCM']), isCOO=state.role==='COO', isPM=canEdit(['Plant Manager']);
-  const ro=(st!=='draft'); const E=coaEsc;
-  const sf=(f,opts)=>{ opts=opts||{}; const req=opts.req&&!String(coaForm[f]||'').trim(); const lock=ro||opts.lock; return `<input class="sf${req?' req':''}" type="text" value="${E(coaForm[f])}" ${lock?'disabled':''} onchange="coaSet('${f}',this.value)" style="${opts.w?('max-width:'+opts.w):''}">`; };
-  const ml=(lbl,f,opts)=>`<div class="ml"><span class="lb">${lbl}</span>${sf(f,opts)}</div>`;
-  const tchk=(t,lbl)=>`<label style="cursor:${ro?'default':'pointer'}" ${ro?'':`onclick="coaSet('type','${t}');renderCOAModal()"`}>${coaForm.type===t?'☑':'☐'} ${lbl}</label>`;
-  let lastG=''; const cell=(r,i2,f,w)=>ro?E(r[f]):`<input class="sf" type="text" value="${E(r[f])}" onchange="coaTest(${i2},'${f}',this.value)" style="max-width:${w}">`;
-  const trows=(coaForm.tests||[]).map((r,i2)=>{ let pre=''; if(r.g!==lastG){pre=`<tr class="grp"><td colspan="6">${(r.g||'').toUpperCase()} PARAMETER</td></tr>`;lastG=r.g;}
-    return pre+`<tr><td>${cell(r,i2,'test','130px')}</td><td>${cell(r,i2,'spec','95px')}</td><td>${ro?E(r.result):`<input class="sf${(r.result||'').trim()?'':' req'}" type="text" value="${E(r.result)}" onchange="coaTest(${i2},'result',this.value)" style="max-width:90px">`}</td><td>${cell(r,i2,'method','130px')}</td><td>${cell(r,i2,'mu','60px')}</td><td style="white-space:nowrap">${ro?E(r.remark):`<select onchange="coaTest(${i2},'remark',this.value)"><option value="">—</option><option ${r.remark==='OK'?'selected':''}>OK</option><option ${r.remark==='UNFIT'?'selected':''}>UNFIT</option><option ${r.remark==='Not OK'?'selected':''}>Not OK</option></select> <span style="cursor:pointer;color:var(--red);font-weight:700" title="remove" onclick="coaDelRow(${i2})">&times;</span>`}</td></tr>`; }).join('');
+function coaFSClose(){ const el=$('coaFS'); if(el){ el.classList.remove('open'); el.innerHTML=''; } render(); }
+function renderCOAModal(){ const b=(state.batches||[]).find(x=>x.id===coaForm.bid); if(!b){coaFSClose();return;}
+  const st=coaForm.status||'draft'; const ro=(st!=='draft');
+  const isLab=canEdit(['Lab Rep']), isAQ=canEdit(['AQCM']), isQM=canEdit(['QCM']), isCOO=state.role==='COO', isPM=canEdit(['Plant Manager']);
+  const dis=ro?'disabled':'';
+  const uf=(f,extra)=>`<input class="ufld" ${dis} value="${coaEsc(coaForm[f])}" onchange="coaSet('${f}',this.value)" ${extra||''}>`;
+  const ml=(lbl,f)=>`<div class="mline"><span class="lbl">${lbl}</span>${uf(f)}</div>`;
+  let lastG=''; const trows=(coaForm.tests||[]).map((r,i)=>{ let pre=''; const g=r.g||'Chemical'; if(g!==lastG){pre=`<tr class="section-row"><td colspan="6">${coaEsc(g.toUpperCase())} PARAMETER</td></tr>`;lastG=g;}
+    const tc=(f)=>`<input class="tcell" ${dis} value="${coaEsc(r[f])}" onchange="coaTest(${i},'${f}',this.value)">`;
+    const rk=(r.remark||''); const badge=rk==='OK'?'<span class="badge ok">OK</span>':(rk?`<span class="badge fail">${coaEsc(rk)}</span>`:'<span class="badge na">—</span>');
+    const rsel=`<select class="rsel" onchange="coaTest(${i},'remark',this.value);renderCOAModal()"><option value="">—</option><option ${rk==='OK'?'selected':''}>OK</option><option ${rk==='UNFIT'?'selected':''}>UNFIT</option><option ${rk==='Not OK'?'selected':''}>Not OK</option></select>`;
+    return pre+`<tr><td class="test-name">${tc('test')}</td><td>${tc('spec')}</td><td>${tc('result')}</td><td>${tc('method')}</td><td>${tc('mu')}</td><td>${ro?`<div style="text-align:center">${badge}</div>`:`<div style="display:flex;gap:3px;align-items:center">${rsel}<button class="mini" title="remove row" onclick="coaDelRow(${i})">×</button></div>`}</td></tr>`; }).join('');
   const ov=coaOverall(coaForm.tests);
-  const sg=(lbl,sub,o2,isAnalyst)=>`<div class="sg">${(isAnalyst&&!ro)?`<input class="sf" style="max-width:160px;text-align:center;font-weight:700" placeholder="analyst name *" value="${E(coaForm.analyst&&coaForm.analyst.name)}" onchange="coaForm.analyst={name:this.value,date:''};coaPersistDraft()">`:`<div style="font-weight:700;min-height:16px">${E(o2&&o2.name||'')}</div>`}<div style="font-size:9.5px"><b>${lbl}</b><br>${sub}</div><div style="font-size:9.5px;margin-top:2px;color:${o2&&o2.date?'#1a7f37':'#888'}">${o2&&o2.date?('Signed: '+E(o2.date)):(isAnalyst?'auto-signs with timestamp on submit':(lbl==='Reviewed By'?'auto-signs on AQCM review':'auto-signs on QCM approval'))}</div></div>`;
   let acts='';
-  if(st==='draft'&&(isLab||isCOO)) acts=`<button class="green" onclick="coaSubmitAnalyst()">Submit — sign &amp; send to AQCM</button>`;
-  else if(st==='analysed'&&(isAQ||isCOO)) acts=`<button class="ghost" onclick="coaReject('analysed')">Reject</button><button class="green" onclick="coaReview()">Review ✓ — sign &amp; send to QCM</button>`;
-  else if(st==='reviewed'&&(isQM||isCOO)) acts=`<button class="ghost" onclick="coaReject('reviewed')">Reject</button><button class="green" onclick="coaApprove()">Final approval ✓ — sign</button>`;
-  else if(st==='failed'&&(isPM||isCOO)) acts=`<button class="ghost" onclick="coaRework()">Send to rework</button><button class="green" onclick="coaDeviation()">Approve as deviation</button>`;
-  else acts=`<span class="muted" style="font-size:12px">${st==='analysed'?'Waiting for AQCM review':st==='reviewed'?'Waiting for QCM approval':st==='approved'?'Approved — batch cleared for packing':st==='failed'?'UNFIT — waiting for Plant Manager':''}</span>`;
-  $('modal').classList.add('coa');
-  $('modal').innerHTML=`<div class="mh"><h2>Lab QC — Quality Analysis Report</h2><div class="sub">${E(coaForm.item)} · batch <b>${E(coaForm.batchNo)}</b> · ${fmt(b.producedKg||0)} Kg/L · ${coaStatusPill(coaForm)} · Overall: <b style="color:${ov==='OK'?'var(--green2)':ov==='UNFIT'?'var(--red)':'var(--mut)'}">${ov||'—'}</b></div></div>
-   <div class="mb" style="padding:14px">
-    <div class="coasheet">
-     <div class="rh">
-      <div class="c1"><svg width="68" height="34" viewBox="0 0 68 34"><path d="M10 3c-4 2-5 7-3 11 4-2 5-7 3-11z" fill="#5bb85b"/><path d="M17 1c-4 3-4 9-1 12 4-3 4-9 1-12z" fill="#2f9e44"/><text x="2" y="30" font-family="Arial" font-weight="800" font-size="24" fill="#13307a" letter-spacing="1">VAN</text><rect x="27" y="21" width="11" height="3.5" fill="#e23b3b"/></svg><div style="font-size:7px;font-weight:700">VITAL AGRI NUTRIENTS</div></div>
-      <div class="c2"><h1>QUALITY ANALYSIS REPORT</h1><div style="font-weight:700;font-size:11.5px">Vital Agri Nutrients Quality Control Laboratory<div style="font-weight:400;font-size:10px">Lahore, Pakistan.</div></div></div>
-      <div class="c3">DOC #: <b>QCL-FRM-12.03</b><br>REV NO.: <b>03</b><br>Issue Date: <b>June 10, 2025</b></div>
-      <div class="c4"><svg width="74" height="28" viewBox="0 0 78 30"><ellipse cx="39" cy="14" rx="33" ry="12" fill="#1a8a3c"/><text x="39" y="19" text-anchor="middle" font-family="Arial" font-weight="800" font-size="12" fill="#fff">PNAC</text></svg><div style="font-size:6.5px">Pakistan National Accreditation Council</div><div style="border:1px solid #111;font-weight:700;margin-top:2px">LAB 336<br>17025</div></div>
+  if(st==='draft'&&(isLab||isCOO)) acts=`<button class="b-green" onclick="coaSubmitAnalyst()">Submit for review →</button>`;
+  else if(st==='analysed'&&(isAQ||isCOO)) acts=`<button class="b-ghost" onclick="coaReject('analysed')">Reject</button><button class="b-green" onclick="coaReview()">Review &amp; forward to QCM →</button>`;
+  else if(st==='reviewed'&&(isQM||isCOO)) acts=`<button class="b-ghost" onclick="coaReject('reviewed')">Reject</button><button class="b-green" onclick="coaApprove()">Approve (final) ✓</button>`;
+  else if(st==='failed'&&(isPM||isCOO)) acts=`<button class="b-ghost" onclick="coaRework()">Send to rework</button><button class="b-green" onclick="coaDeviation()">Approve as deviation</button>`;
+  if(st==='approved') acts+=`<button class="b-ghost" onclick="printCOA('${b.id}')">🖨 Print / Save PDF</button>`;
+  const stTxt=({draft:'DRAFT',analysed:'ANALYSED → AQCM',reviewed:'REVIEWED → QCM',approved:'APPROVED ✓',failed:'UNFIT → PLANT MGR'})[st]||st;
+  const typeRow=['Raw Material','Batch','Outside Sample'].map(t=>{ const lab=t==='Batch'?'Batch Analysis':t; const on=(coaForm.type===t)||(t==='Batch'&&!coaForm.type); return `<label><input type="checkbox" ${on?'checked':''} ${dis} onchange="coaSet('type','${t}');renderCOAModal()" style="width:16px;height:16px;accent-color:#0a4b8c"> ${lab}</label>`; }).join('');
+  const sign=(lbl,sub,o,editable)=>`<div class="s">${editable?`<input class="ufld" style="text-align:center;flex:0 1 auto" placeholder="type analyst name" value="${coaEsc(o&&o.name)}" onchange="coaForm.analyst={name:this.value,date:(coaForm.analyst&&coaForm.analyst.date)||''};coaPersistDraft()">`:`<div class="nmv">${coaEsc(o&&o.name||'')}</div>`}<div class="role">${lbl}</div><div class="subr">${sub}</div><div class="dt">Date: ${coaEsc(o&&o.date||'')}</div></div>`;
+  const VANSVG='<svg width="68" height="34" viewBox="0 0 68 34"><path d="M10 3c-4 2-5 7-3 11 4-2 5-7 3-11z" fill="#5bb85b"/><path d="M17 1c-4 3-4 9-1 12 4-3 4-9 1-12z" fill="#2f9e44"/><text x="2" y="30" font-family="Arial,Helvetica,sans-serif" font-weight="800" font-size="24" fill="#13307a" letter-spacing="1">VAN</text><rect x="27" y="21" width="11" height="3.5" fill="#e23b3b"/></svg>';
+  const PNACSVG='<svg width="78" height="30" viewBox="0 0 78 30"><ellipse cx="39" cy="14" rx="33" ry="12" fill="#1a8a3c"/><text x="39" y="19" text-anchor="middle" font-family="Arial" font-weight="800" font-size="12" fill="#fff">PNAC</text></svg>';
+  const disc=['This test result is based solely on the particular sample supplied by the client. VAN QC Lab doesn’t involve in any type of sampling activity.','The results are reported with a confidence level of 95%; i.e. [K=2] and are pertaining to analyzed sample(s) only.','Provided sample will be retained for 01-month period after reporting date of the result unless otherwise as agreed with the customer.','The reproducibility of sample is only applicable on the same retained sample.','The test report shall not be reproduced except in full, without written approval by the laboratory.','The uncertainty of this parameter has been calculated by laboratory and will be reported as per client instructions.','The result would be declared “OK” or “Not OK” as per desire/declaration of the client in accordance with the decision rule given below.','Test Result(s) mentioned with * (Asterisk) is/are Accredited by ISO/IEC 17025:2017.'];
+  const el=$('coaFS');
+  el.innerHTML=`
+   <div class="cofbar"><span class="ttl">Lab QC — Certificate of Analysis · ${coaEsc(coaForm.item)} · batch ${coaEsc(coaForm.batchNo)}</span>
+     <span class="badge ${ov==='OK'?'ok':(ov==='UNFIT'?'fail':'na')}">${ov||'—'}</span>
+     <span style="font-size:11px;font-weight:700;background:rgba(255,255,255,.14);padding:4px 10px;border-radius:12px">${stTxt}</span>
+     ${acts}<button class="b-ghost" onclick="coaFSClose()">Close ✕</button></div>
+   <div class="sheet-wrap"><div class="sheet">
+     <div class="rpt-head">
+       <div class="cell logo-cell">${VANSVG}<div style="font-size:7px;color:#667085;letter-spacing:.5px;margin-top:2px">VITAL AGRI NUTRIENTS</div></div>
+       <div class="cell title-cell"><h1>QUALITY ANALYSIS REPORT</h1><div class="subt">Vital Agri Nutrients Quality Control Laboratory<small>Lahore, Pakistan.</small></div></div>
+       <div class="cell doc-cell"><div>DOC #: <b>QCL-FRM-12.03</b></div><div>REV NO.: <b>03</b></div><div>Issue Date: <b>June 10, 2025</b></div></div>
+       <div class="cell acc-cell">${PNACSVG}<div style="font-size:6.5px;color:#667085">Pakistan National Accreditation Council</div><div class="lab-no">LAB 336<br>17025</div></div>
      </div>
-     <div class="types">${tchk('Raw Material','Raw Material')}${tchk('Batch','Batch Analysis')}${tchk('Outside Sample','Outside Sample')}</div>
-     <div class="iss"><span style="font-weight:600">Issue Date:</span> ${sf('issueDate',{w:'110px'})} &nbsp;&nbsp; <span style="font-weight:600">Issue status:</span> ${sf('issueStatus',{w:'60px'})}</div>
-     <div class="meta">
-      <div class="col">
-       ${ml('Item Name:','item',{lock:1})}
-       ${ml('Source:','source')}
-       ${ml('Batch No.','batchNo',{lock:1})}
-       ${ml('Mfg. Date:','mfgDate')}
-       ${ml('Q.C. No:','qcNo',{req:1})}
-       ${ml('Sampled Received by:','sampledBy',{req:1})}
-       ${ml('Analysis Time:','analysisTime',{req:1})}
-       ${ml('Temperature °C:','temp',{req:1})}
-      </div>
-      <div class="col">
-       ${ml('Quantity (Kg):','quantity',{lock:1})}
-       ${ml('Exp. Date:','expDate')}
-       ${ml('Receiving Date:','receivingDate')}
-       ${ml('Sample Quantity:','sampleQty',{req:1})}
-       ${ml('Date of Test:','dateOfTest')}
-       ${ml('Humidity %:','humidity',{req:1})}
-      </div>
+     <div class="type-row">${typeRow}</div>
+     <div class="issue-row"><span><b>Issue Date:</b> ${uf('issueDate','style="min-width:130px"')}</span><span><b>Issue status:</b> ${uf('issueStatus','style="min-width:60px"')}</span></div>
+     <div class="meta"><div class="mcol">
+       ${ml('Item Name:','item')}${ml('Source:','source')}${ml('Batch No.','batchNo')}${ml('Mfg. Date:','mfgDate')}${ml('Q.C. No:','qcNo')}${ml('Sampled Received by:','sampledBy')}${ml('Analysis Time:','analysisTime')}${ml('Temperature °C:','temp')}
+     </div><div class="mcol">
+       ${ml('Quantity:','quantity')}${ml('Exp. Date:','expDate')}${ml('Receiving Date:','receivingDate')}${ml('Sample Quantity:','sampleQty')}${ml('Date of Test:','dateOfTest')}${ml('Humidity %:','humidity')}
+     </div></div>
+     <table class="tests"><colgroup><col style="width:25%"><col style="width:15%"><col style="width:13%"><col style="width:21%"><col style="width:9%"><col style="width:17%"></colgroup>
+       <thead><tr><th>Test</th><th>Specs</th><th>Results</th><th>Methods</th><th>MU (%)</th><th>Remarks</th></tr></thead>
+       <tbody>${trows||'<tr><td colspan="6" style="color:#667085;padding:10px">No test template for this product yet — add parameter rows below (they are remembered on submit), or define the template in Admin · Master Data → Lab test templates.</td></tr>'}</tbody></table>
+     ${ro?'':`<div class="add-bar"><button onclick="coaAddRow('Physical')">+ Physical parameter row</button><button onclick="coaAddRow('Chemical')">+ Chemical parameter row</button><span style="font-size:11px;color:#667085;align-self:center">New tests, specs &amp; ranges are remembered for ${coaEsc(coaForm.item)} on submit.</span></div>`}
+     <div class="disclaimer"><h4>Report Disclaimer</h4><ol>${disc.map(x=>`<li>${x}</li>`).join('')}</ol>
+       <div style="margin-top:5px"><b>MU Stand for:</b> Measurement of Uncertainty.</div>
+       <div><b>Decision Rule:</b> If the sum of the result and uncertainty is more than the specified/claimed/permissible limit, the sample will be declared as OK and vice versa.</div>
+       ${coaForm.deviation?`<div style="margin-top:5px;color:#c0392b"><b>Deviation accepted by Plant Manager:</b> ${coaEsc(coaForm.deviationNote||'')}</div>`:''}
+       ${coaForm.rejected?`<div style="margin-top:5px;color:#b8860b"><b>Last rejection:</b> ${coaEsc(coaForm.rejected.why||'')} (${coaEsc(coaForm.rejected.by||'')}, ${coaEsc(coaForm.rejected.date||'')})</div>`:''}
      </div>
-     <table><thead><tr><th>Test</th><th>Specs</th><th>Results</th><th>Methods</th><th>MU (%)</th><th style="width:130px">Remarks</th></tr></thead><tbody>${trows||`<tr><td colspan="6" class="muted">No tests — add parameter rows below (they are remembered for ${E(coaForm.item)}).</td></tr>`}</tbody></table>
-     ${ro?'':`<div style="display:flex;gap:8px;padding:7px 10px;border-top:1px solid #999;background:#fafafa;flex-wrap:wrap"><button class="sm" onclick="coaAddRow('Physical')">+ Physical parameter</button><button class="sm" onclick="coaAddRow('Chemical')">+ Chemical parameter</button><span class="muted" style="font-size:11px;align-self:center">Pink fields are mandatory. New parameters &amp; acceptable ranges are saved to this product's template on submit.</span></div>`}
-     <div class="disc"><b>Report Disclaimer</b> — results pertain to the analyzed sample only (95% confidence, K=2); sample retained 1 month after reporting; report not to be reproduced except in full without written lab approval; * = accredited by ISO/IEC 17025:2017. <b>MU:</b> Measurement of Uncertainty. <b>Decision Rule:</b> if the sum of the result and uncertainty is more than the specified limit, the sample is declared OK, and vice versa. <i>(full disclaimer prints on the COA)</i>${coaForm.deviation?`<div style="color:var(--red)"><b>Deviation:</b> ${E(coaForm.deviationNote)}</div>`:''}</div>
-     <div class="signs">${sg('Analysed By','Assistant Analyst/Analyst',coaForm.analyst,true)}${sg('Reviewed By','AQCM',coaForm.reviewer,false)}${sg('Approved By','QCM',coaForm.approver,false)}</div>
-    </div>
-    <div class="fld" style="margin-top:10px"><label>Remarks (internal)</label><input type="text" value="${E(coaForm.remarks)}" ${ro&&!isCOO?'disabled':''} onchange="coaSet('remarks',this.value)"></div>
-   </div>
-   <div class="mf"><button class="ghost" onclick="closeModal()">Close</button>${st==='approved'?`<button onclick="printCOA('${b.id}')">🖨 Print COA</button>`:''}${acts}</div>`; }
+     <div class="signs">${sign('Analysed By','Assistant Analyst/Analyst',coaForm.analyst,!ro)}${sign('Reviewed By','AQCM',coaForm.reviewer,false)}${sign('Approved By','QCM',coaForm.approver,false)}</div>
+     <div class="endrep">-------------------END OF REPORT-------------------</div>
+   </div></div>`;
+  el.classList.add('open'); }
 function coaSubmitAnalyst(){ const b=(state.batches||[]).find(x=>x.id===coaForm.bid); if(!b)return;
   if(!(coaForm.tests||[]).length){toast('No tests on this COA — add test rows first');return;}
   const REQ=[['qcNo','Q.C. No'],['sampledBy','Sampled Received by'],['sampleQty','Sample Quantity'],['analysisTime','Analysis Time'],['temp','Temperature'],['humidity','Humidity']];
@@ -1737,12 +1800,12 @@ function coaSubmitAnalyst(){ const b=(state.batches||[]).find(x=>x.id===coaForm.
   b.coa=JSON.parse(JSON.stringify(coaForm)); delete b.coa.bid;
   state.masters.labTemplates=state.masters.labTemplates||{}; if(coaForm.item) state.masters.labTemplates[coaForm.item]=coaForm.tests.map(r=>({g:r.g,test:r.test,spec:r.spec,method:r.method,mu:r.mu}));
   qcAudit2(b,'Lab analysed',ov); logAction(`Lab COA submitted for batch ${b.batchNo} (${coaForm.item}) — ${ov}`+(ov==='UNFIT'?' → Plant Manager':' → AQCM'));
-  save(); closeModal(); render(); }
-function coaReview(){ if(!(canEdit(['AQCM'])||state.role==='COO')){toast('AQCM only');return;} const b=(state.batches||[]).find(x=>x.id===coaForm.bid); if(!b||!b.coa)return; const nm=(state.currentUser&&state.currentUser.name)||state.role; b.coa.reviewer={name:nm,date:coaTS()}; b.coa.status='reviewed'; qcAudit2(b,'AQCM reviewed',''); logAction(`COA reviewed (AQCM) for batch ${b.batchNo} → QCM`); save(); closeModal(); render(); }
-function coaApprove(){ if(!(canEdit(['QCM'])||state.role==='COO')){toast('QCM only');return;} const b=(state.batches||[]).find(x=>x.id===coaForm.bid); if(!b||!b.coa)return; const nm=(state.currentUser&&state.currentUser.name)||state.role; b.coa.approver={name:nm,date:coaTS()}; b.coa.status='approved'; b.coa.approvedDate=TODAY.toISOString().slice(0,10); qcAudit2(b,'QCM approved','cleared'); logAction(`COA APPROVED (QCM) for batch ${b.batchNo} — cleared for packing`); save(); closeModal(); render(); }
-function coaReject(stage){ const b=(state.batches||[]).find(x=>x.id===coaForm.bid); if(!b||!b.coa)return; const why=(typeof prompt==='function'?prompt('Reason for rejecting back to the analyst:'):'')||''; b.coa.status='draft'; b.coa.rejected={by:state.role,stage,why:why||'',date:TODAY.toISOString().slice(0,10)}; qcAudit2(b,'COA rejected',why||''); logAction(`COA rejected at ${stage} for batch ${b.batchNo} — back to analyst`); save(); closeModal(); render(); }
-function coaDeviation(){ if(!(canEdit(['Plant Manager'])||state.role==='COO')){toast('Plant Manager only');return;} const b=(state.batches||[]).find(x=>x.id===coaForm.bid); if(!b||!b.coa)return; const note=(typeof prompt==='function'?prompt('Deviation note (why accept UNFIT):'):'')||''; b.coa.status='approved'; b.coa.deviation=true; b.coa.deviationNote=note||''; b.coa.approver={name:((state.currentUser&&state.currentUser.name)||state.role)+' (deviation)',date:coaTS()}; b.coa.approvedDate=TODAY.toISOString().slice(0,10); qcAudit2(b,'PM deviation approved',note||''); logAction(`UNFIT batch ${b.batchNo} approved as deviation by Plant Manager`); save(); closeModal(); render(); }
-function coaRework(){ if(!(canEdit(['Plant Manager'])||state.role==='COO')){toast('Plant Manager only');return;} const b=(state.batches||[]).find(x=>x.id===coaForm.bid); if(!b||!b.coa)return; b.coa.reworks=(b.coa.reworks||0)+1; const item=b.coa.item; b.coa=null; qcAudit2(b,'Sent to rework',''); logAction(`Batch ${b.batchNo} (${item}) sent to rework after UNFIT`); save(); closeModal(); render(); }
+  save(); coaFSClose(); }
+function coaReview(){ if(!(canEdit(['AQCM'])||state.role==='COO')){toast('AQCM only');return;} const b=(state.batches||[]).find(x=>x.id===coaForm.bid); if(!b||!b.coa)return; const nm=(state.currentUser&&state.currentUser.name)||state.role; b.coa.reviewer={name:nm,date:coaTS()}; b.coa.status='reviewed'; qcAudit2(b,'AQCM reviewed',''); logAction(`COA reviewed (AQCM) for batch ${b.batchNo} → QCM`); save(); coaFSClose(); }
+function coaApprove(){ if(!(canEdit(['QCM'])||state.role==='COO')){toast('QCM only');return;} const b=(state.batches||[]).find(x=>x.id===coaForm.bid); if(!b||!b.coa)return; const nm=(state.currentUser&&state.currentUser.name)||state.role; b.coa.approver={name:nm,date:coaTS()}; b.coa.status='approved'; b.coa.approvedDate=TODAY.toISOString().slice(0,10); qcAudit2(b,'QCM approved','cleared'); logAction(`COA APPROVED (QCM) for batch ${b.batchNo} — cleared for packing`); save(); coaFSClose(); }
+function coaReject(stage){ const b=(state.batches||[]).find(x=>x.id===coaForm.bid); if(!b||!b.coa)return; const why=(typeof prompt==='function'?prompt('Reason for rejecting back to the analyst:'):'')||''; b.coa.status='draft'; b.coa.rejected={by:state.role,stage,why:why||'',date:TODAY.toISOString().slice(0,10)}; qcAudit2(b,'COA rejected',why||''); logAction(`COA rejected at ${stage} for batch ${b.batchNo} — back to analyst`); save(); coaFSClose(); }
+function coaDeviation(){ if(!(canEdit(['Plant Manager'])||state.role==='COO')){toast('Plant Manager only');return;} const b=(state.batches||[]).find(x=>x.id===coaForm.bid); if(!b||!b.coa)return; const note=(typeof prompt==='function'?prompt('Deviation note (why accept UNFIT):'):'')||''; b.coa.status='approved'; b.coa.deviation=true; b.coa.deviationNote=note||''; b.coa.approver={name:((state.currentUser&&state.currentUser.name)||state.role)+' (deviation)',date:coaTS()}; b.coa.approvedDate=TODAY.toISOString().slice(0,10); qcAudit2(b,'PM deviation approved',note||''); logAction(`UNFIT batch ${b.batchNo} approved as deviation by Plant Manager`); save(); coaFSClose(); }
+function coaRework(){ if(!(canEdit(['Plant Manager'])||state.role==='COO')){toast('Plant Manager only');return;} const b=(state.batches||[]).find(x=>x.id===coaForm.bid); if(!b||!b.coa)return; b.coa.reworks=(b.coa.reworks||0)+1; const item=b.coa.item; b.coa=null; qcAudit2(b,'Sent to rework',''); logAction(`Batch ${b.batchNo} (${item}) sent to rework after UNFIT`); save(); coaFSClose(); }
 function qcAudit2(b,field,val){ (state.audit=state.audit||[]).unshift({t:new Date().toISOString(),user:state.role,module:'Lab QC',po:b.po||'',brand:coaItemOf(b),field,old:'',val,batchNo:b.batchNo||''}); }
 
 /* ===== quantity-true QC helpers + QA per packed lot + print COA ===== */
@@ -1803,7 +1866,7 @@ function printCOA(bid){ const b=(state.batches||[]).find(x=>x.id===bid); if(!b||
      <div>Item Name: <b>${e(c.item)}</b></div><div>Source: <b>${e(c.source)}</b></div><div>Batch No. <b>${e(c.batchNo)}</b></div>
      <div>Mfg. Date: <b>${e(c.mfgDate)}</b></div><div>Q.C. No: <b>${e(c.qcNo)}</b></div><div>Sampled Received by: <b>${e(c.sampledBy)}</b></div>
      <div>Analysis Time: <b>${e(c.analysisTime)}</b></div><div>Temperature °C: <b>${e(c.temp)}</b></div></div>
-     <div class="col"><div>Quantity: <b>${e(c.quantity)} Kg</b></div><div>Exp. Date: <b>${e(c.expDate)}</b></div><div>Receiving Date: <b>${e(c.receivingDate)}</b></div>
+     <div class="col"><div>Quantity: <b>${e(c.quantity)}${/kg|l\b/i.test(String(c.quantity))?'':' Kg'}</b></div><div>Exp. Date: <b>${e(c.expDate)}</b></div><div>Receiving Date: <b>${e(c.receivingDate)}</b></div>
      <div>Sample Quantity: <b>${e(c.sampleQty)}</b></div><div>Date of Test: <b>${e(c.dateOfTest)}</b></div><div>Humidity %: <b>${e(c.humidity)}</b></div></div></div>
    <table><thead><tr><th>Test</th><th>Specs</th><th>Results</th><th>Methods</th><th>MU (%)</th><th>Remarks</th></tr></thead><tbody>${trows}</tbody></table>
    <div class="disc"><h4>Report Disclaimer</h4><ol>${disc.map(x=>`<li>${e(x)}</li>`).join('')}</ol><div class="r"><b>MU Stand for:</b> Measurement of Uncertainty.</div><div class="r"><b>Decision Rule:</b> If the sum of the result and uncertainty is more than the specified/claimed/permissible limit, the sample will be declared as OK and vice versa.</div>${c.deviation?`<div class="r" style="color:#c0392b"><b>Deviation accepted by Plant Manager:</b> ${e(c.deviationNote)}</div>`:''}</div>

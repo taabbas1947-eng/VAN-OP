@@ -321,6 +321,7 @@ td.skufirst{padding-left:10px;box-shadow:inset 3px 0 0 var(--navy)}
 #coaFS .badge.ok{background:#e7f6ec;color:#1a8a3c}
 #coaFS .badge.fail{background:#fdecea;color:#c0392b}
 #coaFS .badge.na{background:#eef0f3;color:#667085}
+#coaFS .badge.nores{background:#fff3e0;color:#c77700}
 #coaFS .rsel{border:1px solid #ccd2da;border-radius:5px;font-size:11px;padding:2px;background:#fff;color:#333;flex:1;min-width:0}
 #coaFS .add-bar{display:flex;gap:8px;margin:8px 0 4px;flex-wrap:wrap}
 #coaFS .add-bar button{background:#eef2f7;color:#063566;border:1px dashed #aab6c4;border-radius:7px;padding:7px 12px;font-weight:700;cursor:pointer;font-size:12px}
@@ -1657,23 +1658,25 @@ function renderProdQty(){ const o=state.orders.find(x=>x.id===pqForm.oid); const
 function submitProdQty(){ const o=state.orders.find(x=>x.id===pqForm.oid); const l=o.lines.find(x=>x.id===pqForm.lid); const max=maxFor(l,pqForm.kind); const q=Math.min(+pqForm.qty||0,max); const d=pqForm.date||TODAY.toISOString().slice(0,10);
   if(q<=0){toast('Enter a quantity (max '+fmt(max)+' Kg/L)');return;}
   if(pqForm.kind==='produce'){ l.produced=(l.produced||0)+q; l.prodStart=l.prodStart||d; if(l.produced>=l.ordered-0.001) l.prodComplete=d; state.productionLog.unshift({date:d,base:l.base,kg:q,by:state.role,po:o.po,brand:l.brand}); logAction(`Produced ${fmt(q)} Kg/L of ${l.brand} for ${o.po} (${fmt(l.produced)}/${fmt(l.ordered)})`); }
-  else { const appr=lineApprovedProducedKg(o,l)-(l.packed||0); if(q>appr+0.001){toast('Only '+fmt(Math.max(0,Math.round(appr)))+' Kg/L is Lab QC-approved for packing — approve the batch COA first.');return;} l.packed=(l.packed||0)+q; (state.packingLog=state.packingLog||[]).unshift({id:'PK'+(state.seq++),date:d,base:l.base,brand:l.brand,kg:q,by:state.role,po:o.po}); logAction(`Packed ${fmt(q)} Kg/L of ${l.brand} for ${o.po} (${fmt(l.packed)}/${fmt(l.ordered)})`); }
+  else { const appr=lineApprovedProducedKg(o,l)-(l.packed||0); if(q>appr+0.001){toast('Only '+fmt(Math.max(0,Math.round(appr)))+' Kg/L is Lab QC-approved for packing — approve the batch COA first.');return;} l.packed=(l.packed||0)+q; { const t=new Date(d); t.setFullYear(t.getFullYear()+2); (state.packingLog=state.packingLog||[]).unshift({id:'PK'+(state.seq++),date:d,base:l.base,brand:l.brand,kg:q,by:state.role,po:o.po,mfgDate:d,expDate:t.toISOString().slice(0,10)}); } logAction(`Packed ${fmt(q)} Kg/L of ${l.brand} for ${o.po} (${fmt(l.packed)}/${fmt(l.ordered)})`); }
   save(); closeModal(); render(); }
 let packForm={bid:null,brand:'',kg:''};
-function openPack(bid){ const b=state.batches.find(x=>x.id===bid); packForm={bid,base:b.base,brand:'',oid:'',lid:'',kg:Math.round(b.producedKg-b.packedKg),brandBatch:'',price:'',priceOk:false}; renderPackModal(); $('modalBg').classList.add('open'); }
+function openPack(bid){ const b=state.batches.find(x=>x.id===bid); packForm={bid,base:b.base,brand:'',oid:'',lid:'',kg:Math.round(b.producedKg-b.packedKg),brandBatch:'',price:'',priceOk:false,mfg:TODAY.toISOString().slice(0,10),exp:(function(){const t=new Date(TODAY);t.setFullYear(t.getFullYear()+2);return t.toISOString().slice(0,10);})()}; renderPackModal(); $('modalBg').classList.add('open'); }
 function poLinesForBrand(brand){ const r=[]; state.orders.forEach(o=>o.lines.forEach(l=>{ if(l.brand===brand && (l.packed||0)<l.ordered-0.5 && stageOf(o)!=='Delivered') r.push({o,l}); })); return r; }
 function packPickPO(v){ packForm.oid=(v.split('|')[0]||''); packForm.lid=(v.split('|')[1]||''); const o=state.orders.find(x=>x.id===packForm.oid); const l=o&&o.lines.find(x=>x.id===packForm.lid); packForm.price=(l&&l.printPrice!=null&&l.printPrice!=='')?l.printPrice:''; packForm.priceOk=false; renderPackModal(); }
 function renderPackModal(){ const b=state.batches.find(x=>x.id===packForm.bid); const rem=b.producedKg-b.packedKg; const opts=brandsForBase(b.base);
   const poOpts=packForm.brand?poLinesForBrand(packForm.brand):[];
   let priceBlk='';
   if(packForm.oid&&packForm.oid!=='STOCK'&&packForm.lid){ const _o=state.orders.find(x=>x.id===packForm.oid); const _l=_o&&_o.lines.find(x=>x.id===packForm.lid); const setp=(_l&&_l.printPrice!=null&&_l.printPrice!=='')?_l.printPrice:null; const cur=(packForm.price!=null&&packForm.price!=='')?packForm.price:(setp!=null?setp:'');
-    priceBlk=`<div style="margin-top:12px;background:var(--amber-50);border:1px solid var(--amber);border-radius:8px;padding:11px"><div style="font-weight:600;font-size:12.5px;margin-bottom:6px">5 \u00b7 Verify price to print on pack ${setp!=null?`<span class="muted" style="font-weight:400">(PO set: ${setp})</span>`:`<span style="color:var(--red)">(no price on PO \u2014 enter it)</span>`}</div><div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap"><input type="number" value="${cur}" oninput="packForm.price=this.value" style="max-width:170px" placeholder="price per pack"><label style="font-weight:400;font-size:12px;display:flex;gap:6px;align-items:center"><input type="checkbox" ${packForm.priceOk?'checked':''} onchange="packForm.priceOk=this.checked"> I verified this is the correct print price</label></div></div>`; }
+    priceBlk=`<div style="margin-top:12px;background:var(--amber-50);border:1px solid var(--amber);border-radius:8px;padding:11px"><div style="font-weight:600;font-size:12.5px;margin-bottom:6px">7 \u00b7 Verify price to print on pack ${setp!=null?`<span class="muted" style="font-weight:400">(PO set: ${setp})</span>`:`<span style="color:var(--red)">(no price on PO \u2014 enter it)</span>`}</div><div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap"><input type="number" value="${cur}" oninput="packForm.price=this.value" style="max-width:170px" placeholder="price per pack"><label style="font-weight:400;font-size:12px;display:flex;gap:6px;align-items:center"><input type="checkbox" ${packForm.priceOk?'checked':''} onchange="packForm.priceOk=this.checked"> I verified this is the correct print price</label></div></div>`; }
   $('modal').innerHTML=`<div class="mh"><h2>Pack bulk base → brand → PO</h2><div class="sub">Bulk base <b>${b.base}</b> · base batch <b>${b.batchNo||'—'}</b> · ${fmt(rem)} Kg/L available</div></div>
    <div class="mb"><div class="formgrid" style="grid-template-columns:1fr 1fr">
      <div class="fld"><label>1 · Pack into brand</label><select onchange="packForm.brand=this.value;packForm.oid='';packForm.lid='';renderPackModal()"><option value="">— pick brand —</option>${opts.map(x=>`<option ${x===packForm.brand?'selected':''}>${x}</option>`).join('')}</select></div>
      <div class="fld"><label>2 · For which PO</label><select ${packForm.brand?'':'disabled'} onchange="packPickPO(this.value)"><option value="">${packForm.brand?(poOpts.length?'— pick PO —':'no open PO'):'pick brand first'}</option>${poOpts.map(x=>`<option value="${x.o.id}|${x.l.id}" ${packForm.oid===x.o.id&&packForm.lid===x.l.id?'selected':''}>${x.o.po} · ${x.o.client} (needs ${fmt(x.l.ordered-(x.l.packed||0))})</option>`).join('')}</select></div>
      <div class="fld"><label>3 · Qty (Kg/L)</label><input type="number" value="${packForm.kg}" oninput="packForm.kg=this.value" placeholder="max ${fmt(rem)}"></div>
-     <div class="fld"><label>4 · Brand batch # (on packaging)</label><input type="text" value="${packForm.brandBatch||''}" oninput="packForm.brandBatch=this.value" placeholder="blank = same as base (${b.batchNo||'—'})"></div></div>
+     <div class="fld"><label>4 · Brand batch # (on packaging)</label><input type="text" value="${packForm.brandBatch||''}" oninput="packForm.brandBatch=this.value" placeholder="blank = same as base (${b.batchNo||'—'})"></div>
+     <div class="fld"><label>5 · Mfg date (printed on pack)</label><input type="date" value="${packForm.mfg||''}" onchange="packForm.mfg=this.value;{const t=new Date(this.value);if(!isNaN(t)){t.setFullYear(t.getFullYear()+2);packForm.exp=t.toISOString().slice(0,10);}}renderPackModal()"></div>
+     <div class="fld"><label>6 · Expiry date (auto +2 years, editable)</label><input type="date" value="${packForm.exp||''}" onchange="packForm.exp=this.value"></div></div>
      ${priceBlk}<div class="muted" style="font-size:11px;margin-top:11px">Moves bulk base into the chosen brand. Pick a PO to fill that order (capped to what it still needs), or leave unassigned.</div></div>
    <div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" onclick="doPack()">Pack</button></div>`; }
 function doPack(){ const b=state.batches.find(x=>x.id===packForm.bid); if(!batchLabApproved(b)){toast('This batch is not Lab QC-approved yet — it can be packed only after QCM approves its COA.');return;} const rem=b.producedKg-b.packedKg; let kg=Math.min(+packForm.kg||0,rem); const brand=packForm.brand; const d=TODAY.toISOString().slice(0,10);
@@ -1687,11 +1690,13 @@ function doPack(){ const b=state.batches.find(x=>x.id===packForm.bid); if(!batch
     if(!(ppx>0)){toast('Enter the price to print on the pack.');return;}
     if(!packForm.priceOk){toast('Confirm you verified the print price (tick the box).');return;}
     b.packedKg+=kg; l.packed=(l.packed||0)+kg; l.produced=Math.max(l.produced||0,l.packed); l.prodStart=l.prodStart||d; if(l.packed>=l.ordered-0.5)l.prodComplete=l.prodComplete||d;
+    const mfgD=packForm.mfg||d; let expD=packForm.exp||''; if(!expD){ const t=new Date(mfgD); t.setFullYear(t.getFullYear()+2); expD=t.toISOString().slice(0,10); }
+    { const lim=new Date(mfgD); lim.setFullYear(lim.getFullYear()+2); if(new Date(expD)>lim && typeof confirm==='function' && !confirm('Expiry '+expD+' is MORE than 2 years after the mfg date '+mfgD+'. Are you sure?')) return; }
     const baseBatchNo=b.batchNo||''; const brandBatchNo=(packForm.brandBatch||'').trim()||baseBatchNo;
     const _fy=fyKey(d);
     if(brandBatchNo!==baseBatchNo){ const _own=batchOwnerInFY(brandBatchNo,_fy,b.id); if(_own){ toast('Brand batch # "'+brandBatchNo+'" already used this financial year ('+_fy+') for a different lot \u2014 use a unique number.'); return; } }
     if(l.printPrice==null||l.printPrice===''){ l.printPrice=ppx; }
-    (state.packingLog=state.packingLog||[]).unshift({date:d,base:b.base,brand,kg,by:state.role,po:o.po,id:'PK'+(state.seq++),baseBatchId:b.id,baseBatchNo,brandBatchNo,printPrice:ppx,priceVerifiedBy:state.role});
+    (state.packingLog=state.packingLog||[]).unshift({date:d,base:b.base,brand,kg,by:state.role,po:o.po,id:'PK'+(state.seq++),baseBatchId:b.id,baseBatchNo,brandBatchNo,mfgDate:mfgD,expDate:expD,printPrice:ppx,priceVerifiedBy:state.role});
     logAction(`Packed ${fmt(kg)} Kg/L ${b.base} [${baseBatchNo}] → ${brand} [${brandBatchNo}]${brandBatchNo!==baseBatchNo?' (re-batched)':''} for ${o.po}`);
   } else {
     toast('Packing must be against a PO for this brand — select the PO above (no unassigned packing).'); return;
@@ -1712,20 +1717,40 @@ let coaForm={};
 function coaTS(){ const d=new Date(); const p=n=>String(n).padStart(2,'0'); return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes()); }
 function coaItemOf(b){ return b.kind==='po' ? (b.brand||b.base||'') : (b.base||b.brand||''); }
 function coaTemplate(b){ const t=(state.masters&&state.masters.labTemplates)||{}; const it=coaItemOf(b); return (t[it]||t[b.base]||t[b.brand]||[]); }
-function coaOverall(tests){ if(!tests||!tests.length) return ''; let any=false; for(const r of tests){ const rk=(r.remark||'').toUpperCase(); if(rk==='UNFIT'||rk==='NOT OK'||rk==='FAIL') return 'UNFIT'; if(rk==='OK') any=true; } return any?'OK':''; }
+function coaOverall(tests){ if(!tests||!tests.length) return ''; let unfit=false,nores=false,fit=false; for(const r of tests){ const rk=String(r.remark||'').toUpperCase().trim(); if(rk==='UNFIT'||rk==='NOT OK'||rk==='FAIL') unfit=true; else if(rk==='NO RESULT'||rk==='') nores=true; else if(rk==='FIT'||rk==='OK') fit=true; else nores=true; } if(unfit) return 'UNFIT'; if(nores) return 'NO RESULT'; return fit?'FIT':''; }
 function batchLabApproved(b){ return !!(b&&b.coa&&b.coa.status==='approved'); }
 function coaStatusPill(c){ if(!c) return '<span class="pill" style="background:var(--amber-50);color:var(--amber);font-size:9px">Lab QC pending</span>';
   const m={draft:['Draft','--mut'],analysed:['Analysed → AQCM','--navy'],reviewed:['Reviewed → QCM','--navy'],approved:['Approved ✓','--green2'],failed:['UNFIT → Plant Mgr','--red']}; const x=m[c.status]||['?','--mut'];
   return `<span class="pill" style="background:var(--navy-50);color:var(${x[1]});font-size:9px">${x[0]}</span>`; }
+function coaNum(x){ if(x==null)return null; const t=String(x).trim().toLowerCase(); if(!t)return null; if(/^(nil|nd|none|absent|0\.00)$/.test(t)) return 0; const m=t.replace(/,/g,'').match(/-?\d+(\.\d+)?/); return m?parseFloat(m[0]):null; }
+function coaAutoRemark(spec,result){ const sv=String(spec||'').trim(); const r=coaNum(result); if(r==null||!sv||sv==='-') return null;
+  const rng=sv.replace(/,/g,'').match(/(-?\d+(?:\.\d+)?)\s*(?:-|–|to)\s*(-?\d+(?:\.\d+)?)/);
+  if(rng && !/[<>≤≥]/.test(sv)){ const a=parseFloat(rng[1]), b=parseFloat(rng[2]); if(!isNaN(a)&&!isNaN(b)) return (r>=Math.min(a,b)&&r<=Math.max(a,b))?'FIT':'UNFIT'; }
+  const n=coaNum(sv); if(n==null) return null;
+  if(/≥|>=/.test(sv)) return r>=n?'FIT':'UNFIT';
+  if(/≤|<=/.test(sv)) return r<=n?'FIT':'UNFIT';
+  if(/>/.test(sv)) return r>n?'FIT':'UNFIT';
+  if(/</.test(sv)) return r<n?'FIT':'UNFIT';
+  return r>=n?'FIT':'UNFIT'; }
+function qcCodeOf(b){ const od=new Date(b.openedDate||TODAY); const mmyy=String(od.getMonth()+1).padStart(2,'0')+String(od.getFullYear()).slice(2);
+  let client='VN'; if(b.kind==='po'&&b.po){ const o=(state.orders||[]).find(x=>x.po===b.po); if(o&&o.client){ const c=String(o.client).replace(/[^A-Za-z]/g,''); if(c.length>=2) client=c.slice(0,2).toUpperCase(); } }
+  const item=coaItemOf(b)||''; const words=item.replace(/[^A-Za-z0-9 ]/g,' ').split(/\s+/).filter(Boolean);
+  let prod=words.length>=3?(words[0][0]+words[1][0]+words[2][0]):(words.length===2?(words[0][0]+words[1].slice(0,2)):String(words[0]||'XXX').slice(0,3));
+  prod=String(prod||'XXX').toUpperCase();
+  return client+prod+'-'+mmyy+'-'+String(b.batchNo||'').toUpperCase(); }
 function openBatchCOA(bid){ const b=(state.batches||[]).find(x=>x.id===bid); if(!b)return; const tpl=coaTemplate(b); const today=TODAY.toISOString().slice(0,10);
   if(b.coa){ coaForm=JSON.parse(JSON.stringify(b.coa)); coaForm.bid=bid; }
-  else { const MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; const od=new Date(b.openedDate||today); const mfg=MON[od.getMonth()]+'-'+od.getFullYear(); const exp=MON[od.getMonth()]+'-'+(od.getFullYear()+2); coaForm={ bid, status:'draft', type:'Batch', issueDate:today, issueStatus:'A', item:coaItemOf(b), source:'Vital Agri Nutrients (Pvt) Ltd', batchNo:b.batchNo||'', quantity:fmt(Math.round(b.producedKg||0))+' Kg', mfgDate:mfg, expDate:exp, qcNo:'', receivingDate:today, sampledBy:'', sampleQty:'0.5 kg', analysisTime:(new Date()).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}), dateOfTest:today, temp:'', humidity:'', tests: tpl.map(r=>({g:r.g,test:r.test,spec:r.spec,method:r.method,mu:r.mu,result:'',remark:''})), analyst:{name:(state.currentUser&&state.currentUser.name)||'',date:''}, reviewer:{name:'',date:''}, approver:{name:'',date:''}, remarks:'' }; }
+  else { const MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; const od=new Date(b.openedDate||today); const mfg=MON[od.getMonth()]+'-'+od.getFullYear(); const exp=MON[od.getMonth()]+'-'+(od.getFullYear()+2); coaForm={ bid, status:'draft', type:'Batch', issueDate:today, issueStatus:'A', item:coaItemOf(b), source:'Vital Agri Nutrients (Pvt) Ltd', batchNo:b.batchNo||'', quantity:fmt(Math.round(b.producedKg||0))+' Kg', mfgDate:mfg, expDate:exp, qcNo:qcCodeOf(b), receivingDate:today, sampledBy:'', sampleQty:'0.5 kg', analysisTime:(new Date()).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}), dateOfTest:today, temp:'', humidity:'', tests: tpl.map(r=>({g:r.g,test:r.test,spec:r.spec,method:r.method,mu:r.mu,result:'',remark:''})), analyst:{name:(state.currentUser&&state.currentUser.name)||'',date:''}, reviewer:{name:'',date:''}, approver:{name:'',date:''}, remarks:'' }; }
   if(!coaForm.tests||!coaForm.tests.length){ coaForm.tests=tpl.map(r=>({g:r.g,test:r.test,spec:r.spec,method:r.method,mu:r.mu,result:'',remark:''})); }
   if(!coaForm.analysisTime) coaForm.analysisTime=(new Date()).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
   renderCOAModal(); }
 function coaPersistDraft(){ const b=(state.batches||[]).find(x=>x.id===coaForm.bid); if(!b)return; if(b.coa&&b.coa.status&&b.coa.status!=='draft')return; const d=JSON.parse(JSON.stringify(coaForm)); delete d.bid; d.status='draft'; b.coa=d; save(); }
 function coaSet(f,v){ coaForm[f]=v; coaPersistDraft(); }
-function coaTest(i,f,v){ if(coaForm.tests&&coaForm.tests[i]){ coaForm.tests[i][f]=v; coaPersistDraft(); } }
+function coaBcls(x){ const u=String(x||'').toUpperCase().trim(); return (u==='FIT'||u==='OK')?'ok':((u==='UNFIT'||u==='NOT OK')?'fail':(u==='NO RESULT'?'nores':'na')); }
+function coaTest(i,f,v){ if(!(coaForm.tests&&coaForm.tests[i]))return; coaForm.tests[i][f]=v;
+  if(f==='result'){ const ar=coaAutoRemark(coaForm.tests[i].spec,v); if(ar) coaForm.tests[i].remark=ar; }
+  if(f==='result'||f==='remark'||f==='spec'){ const rk=coaForm.tests[i].remark||''; const bd=document.getElementById('rbadge_'+i); if(bd){ bd.textContent=rk?(rk==='OK'?'FIT':rk):'—'; bd.className='badge '+coaBcls(rk); } const sl=document.getElementById('rsel_'+i); if(sl) sl.value=(rk==='OK'?'FIT':rk); const ov=coaOverall(coaForm.tests); const ob=document.getElementById('coa_ovr'); if(ob){ ob.textContent=ov||'—'; ob.className='badge '+coaBcls(ov==='NO RESULT'?'No Result':ov); } }
+  coaPersistDraft(); }
 function coaAddRow(g){ coaForm.tests=coaForm.tests||[]; coaForm.tests.push({g:g||'Chemical',test:'',spec:'',method:'',mu:'-',result:'',remark:''}); coaPersistDraft(); renderCOAModal(); }
 function coaDelRow(i){ if(coaForm.tests) coaForm.tests.splice(i,1); coaPersistDraft(); renderCOAModal(); }
 function coaEsc(x){ return String(x==null?'':x).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
@@ -1738,9 +1763,9 @@ function renderCOAModal(){ const b=(state.batches||[]).find(x=>x.id===coaForm.bi
   const ml=(lbl,f)=>`<div class="mline"><span class="lbl">${lbl}</span>${uf(f)}</div>`;
   let lastG=''; const trows=(coaForm.tests||[]).map((r,i)=>{ let pre=''; const g=r.g||'Chemical'; if(g!==lastG){pre=`<tr class="section-row"><td colspan="6">${coaEsc(g.toUpperCase())} PARAMETER</td></tr>`;lastG=g;}
     const tc=(f)=>`<input class="tcell" ${dis} value="${coaEsc(r[f])}" onchange="coaTest(${i},'${f}',this.value)">`;
-    const rk=(r.remark||''); const badge=rk==='OK'?'<span class="badge ok">OK</span>':(rk?`<span class="badge fail">${coaEsc(rk)}</span>`:'<span class="badge na">—</span>');
-    const rsel=`<select class="rsel" onchange="coaTest(${i},'remark',this.value);renderCOAModal()"><option value="">—</option><option ${rk==='OK'?'selected':''}>OK</option><option ${rk==='UNFIT'?'selected':''}>UNFIT</option><option ${rk==='Not OK'?'selected':''}>Not OK</option></select>`;
-    return pre+`<tr><td class="test-name">${tc('test')}</td><td>${tc('spec')}</td><td>${tc('result')}</td><td>${tc('method')}</td><td>${tc('mu')}</td><td>${ro?`<div style="text-align:center">${badge}</div>`:`<div style="display:flex;gap:3px;align-items:center">${rsel}<button class="mini" title="remove row" onclick="coaDelRow(${i})">×</button></div>`}</td></tr>`; }).join('');
+    const rk=(r.remark||''); const badge=`<span class="badge ${coaBcls(rk)}" id="rbadge_${i}">${rk?coaEsc(rk==='OK'?'FIT':rk):'—'}</span>`;
+    const rsel=`<select class="rsel" id="rsel_${i}" onchange="coaTest(${i},'remark',this.value)"><option value="">—</option><option ${(rk==='FIT'||rk==='OK')?'selected':''}>FIT</option><option ${rk==='UNFIT'?'selected':''}>UNFIT</option><option ${rk==='No Result'?'selected':''}>No Result</option></select>`;
+    return pre+`<tr><td class="test-name">${tc('test')}</td><td>${tc('spec')}</td><td>${tc('result')}</td><td>${tc('method')}</td><td>${tc('mu')}</td><td>${ro?`<div style="text-align:center">${badge}</div>`:`<div style="display:flex;gap:3px;align-items:center">${badge}${rsel}<button class="mini" title="remove row" onclick="coaDelRow(${i})">×</button></div>`}</td></tr>`; }).join('');
   const ov=coaOverall(coaForm.tests);
   let acts='';
   if(st==='draft'&&(isLab||isCOO)) acts=`<button class="b-green" onclick="coaSubmitAnalyst()">Submit for review →</button>`;
@@ -1757,7 +1782,7 @@ function renderCOAModal(){ const b=(state.batches||[]).find(x=>x.id===coaForm.bi
   const el=$('coaFS');
   el.innerHTML=`
    <div class="cofbar"><span class="ttl">Lab QC — Certificate of Analysis · ${coaEsc(coaForm.item)} · batch ${coaEsc(coaForm.batchNo)}</span>
-     <span class="badge ${ov==='OK'?'ok':(ov==='UNFIT'?'fail':'na')}">${ov||'—'}</span>
+     <span class="badge ${coaBcls(ov==='NO RESULT'?'No Result':ov)}" id="coa_ovr">${ov||'—'}</span>
      <span style="font-size:11px;font-weight:700;background:rgba(255,255,255,.14);padding:4px 10px;border-radius:12px">${stTxt}</span>
      ${acts}<button class="b-ghost" onclick="coaFSClose()">Close ✕</button></div>
    <div class="sheet-wrap"><div class="sheet">
@@ -1770,7 +1795,7 @@ function renderCOAModal(){ const b=(state.batches||[]).find(x=>x.id===coaForm.bi
      <div class="type-row">${typeRow}</div>
      <div class="issue-row"><span><b>Issue Date:</b> ${uf('issueDate','style="min-width:130px"')}</span><span><b>Issue status:</b> ${uf('issueStatus','style="min-width:60px"')}</span></div>
      <div class="meta"><div class="mcol">
-       ${ml('Item Name:','item')}${ml('Source:','source')}${ml('Batch No.','batchNo')}${ml('Mfg. Date:','mfgDate')}${ml('Q.C. No:','qcNo')}${ml('Sampled Received by:','sampledBy')}${ml('Analysis Time:','analysisTime')}${ml('Temperature °C:','temp')}
+       ${ml('Item Name:','item')}${ml('Source:','source')}${ml('Batch No.','batchNo')}${ml('Mfg. Date:','mfgDate')}<div class="mline"><span class="lbl">Q.C. No:</span><input class="ufld" disabled title="auto-generated QC tracking code" value="${coaEsc(coaForm.qcNo)}"></div>${ml('Sampled Received by:','sampledBy')}${ml('Analysis Time:','analysisTime')}${ml('Temperature °C:','temp')}
      </div><div class="mcol">
        ${ml('Quantity:','quantity')}${ml('Exp. Date:','expDate')}${ml('Receiving Date:','receivingDate')}${ml('Sample Quantity:','sampleQty')}${ml('Date of Test:','dateOfTest')}${ml('Humidity %:','humidity')}
      </div></div>
@@ -1792,14 +1817,14 @@ function coaSubmitAnalyst(){ const b=(state.batches||[]).find(x=>x.id===coaForm.
   if(!(coaForm.tests||[]).length){toast('No tests on this COA — add test rows first');return;}
   const REQ=[['qcNo','Q.C. No'],['sampledBy','Sampled Received by'],['sampleQty','Sample Quantity'],['analysisTime','Analysis Time'],['temp','Temperature'],['humidity','Humidity']];
   for(const fp of REQ){ if(!String(coaForm[fp[0]]||'').trim()){toast(fp[1]+' is mandatory for the lab sample');return;} }
-  for(const r of coaForm.tests){ if(!(r.result||'').trim()||!(r.remark||'').trim()){toast('Fill Result + Remark for every test');return;} }
+  for(const r of coaForm.tests){ const rk=String(r.remark||'').trim(); if(!rk){toast('Set FIT / UNFIT / No Result on every test');return;} if(!/^no result$/i.test(rk) && !(r.result||'').trim()){toast('Enter a Result for every test (or mark it No Result)');return;} }
   if(!(coaForm.analyst&&coaForm.analyst.name||'').trim()){toast('Enter the analyst name (Analysed By)');return;}
   const ov=coaOverall(coaForm.tests);
   coaForm.overall=ov; coaForm.analyst={name:coaForm.analyst.name.trim(),date:coaTS()};
-  coaForm.status = (ov==='UNFIT') ? 'failed' : 'analysed'; if(ov==='UNFIT') coaForm.failReason='UNFIT on '+coaForm.tests.filter(r=>/unfit|not ok/i.test(r.remark)).map(r=>r.test).join(', ');
+  coaForm.status = (ov==='FIT') ? 'analysed' : 'failed'; if(ov==='UNFIT') coaForm.failReason='UNFIT on '+coaForm.tests.filter(r=>/unfit|not ok/i.test(r.remark||'')).map(r=>r.test).join(', '); else if(ov!=='FIT') coaForm.failReason='No result on '+coaForm.tests.filter(r=>!String(r.remark||'').trim()||/no result/i.test(r.remark||'')).map(r=>r.test).join(', ');
   b.coa=JSON.parse(JSON.stringify(coaForm)); delete b.coa.bid;
   state.masters.labTemplates=state.masters.labTemplates||{}; if(coaForm.item) state.masters.labTemplates[coaForm.item]=coaForm.tests.map(r=>({g:r.g,test:r.test,spec:r.spec,method:r.method,mu:r.mu}));
-  qcAudit2(b,'Lab analysed',ov); logAction(`Lab COA submitted for batch ${b.batchNo} (${coaForm.item}) — ${ov}`+(ov==='UNFIT'?' → Plant Manager':' → AQCM'));
+  qcAudit2(b,'Lab analysed',ov); logAction(`Lab COA submitted for batch ${b.batchNo} (${coaForm.item}) — ${ov}`+(ov!=='FIT'?' → Plant Manager':' → AQCM'));
   save(); coaFSClose(); }
 function coaReview(){ if(!(canEdit(['AQCM'])||state.role==='COO')){toast('AQCM only');return;} const b=(state.batches||[]).find(x=>x.id===coaForm.bid); if(!b||!b.coa)return; const nm=(state.currentUser&&state.currentUser.name)||state.role; b.coa.reviewer={name:nm,date:coaTS()}; b.coa.status='reviewed'; qcAudit2(b,'AQCM reviewed',''); logAction(`COA reviewed (AQCM) for batch ${b.batchNo} → QCM`); save(); coaFSClose(); }
 function coaApprove(){ if(!(canEdit(['QCM'])||state.role==='COO')){toast('QCM only');return;} const b=(state.batches||[]).find(x=>x.id===coaForm.bid); if(!b||!b.coa)return; const nm=(state.currentUser&&state.currentUser.name)||state.role; b.coa.approver={name:nm,date:coaTS()}; b.coa.status='approved'; b.coa.approvedDate=TODAY.toISOString().slice(0,10); qcAudit2(b,'QCM approved','cleared'); logAction(`COA APPROVED (QCM) for batch ${b.batchNo} — cleared for packing`); save(); coaFSClose(); }
@@ -1817,7 +1842,7 @@ function openLotQA(lotId){ const p=lotById(lotId); if(!p)return; lotQAForm={lotI
 function lotQASet(i,v){ lotQAForm.marks[i]=v; renderLotQA(); }
 function renderLotQA(){ const p=lotById(lotQAForm.lotId); if(!p){closeModal();return;}
   const rows=QC_CHECKLIST.map((it,i)=>`<tr><td>${it}</td><td style="white-space:nowrap"><label style="margin-right:12px"><input type="radio" name="qa${i}" ${lotQAForm.marks[i]==='pass'?'checked':''} onclick="lotQASet(${i},'pass')"> Pass</label><label><input type="radio" name="qa${i}" ${lotQAForm.marks[i]==='fail'?'checked':''} onclick="lotQASet(${i},'fail')"> Fail</label></td></tr>`).join('');
-  $('modal').innerHTML=`<div class="mh"><h2>QA pre-shipment inspection</h2><div class="sub">${p.po} · ${p.brand} · ${fmt(p.kg)} Kg/L · batch ${p.baseBatchNo||'—'} ▸ ${p.brandBatchNo||p.baseBatchNo||'—'} · inspector ${state.role}</div></div>
+  $('modal').innerHTML=`<div class="mh"><h2>QA pre-shipment inspection</h2><div class="sub">${p.po} · ${p.brand} · ${fmt(p.kg)} Kg/L · batch ${p.baseBatchNo||'—'} ▸ ${p.brandBatchNo||p.baseBatchNo||'—'} · mfg ${p.mfgDate||'—'} · exp ${p.expDate||'—'} · inspector ${state.role}</div></div>
    <div class="mb"><div class="muted" style="font-size:12px;margin-bottom:10px">Inspect this packed lot. Any <b>Fail</b> = lot fails → Supply Chain corrects &amp; re-inspects. Only QA-passed lots can ship.</div>
      <table><thead><tr><th>Checklist item</th><th style="width:180px">Result</th></tr></thead><tbody>${rows}</tbody></table>
      <div class="fld" style="margin-top:10px"><label>Inspector name (shared QA login)</label><input type="text" value="${(lotQAForm.officer||'').replace(/"/g,'&quot;')}" oninput="lotQAForm.officer=this.value"></div>

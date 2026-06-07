@@ -1495,7 +1495,7 @@ function screenProd(){
 
    <div class="card"><h3>Bulk base produced — pack into brands <span class="hint">${openStock.length} base(s) ready</span></h3>
      ${openStock.length?`<table><thead><tr><th>Base</th><th class="num">Produced</th><th class="num">Packed</th><th class="num">Open</th><th>Date</th><th style="width:80px"></th></tr></thead>
-       <tbody>${openStock.map(b=>`<tr><td>${b.base}</td><td class="num">${fmt(b.producedKg)}</td><td class="num">${fmt(b.packedKg)}</td><td class="num"><b>${fmt(b.producedKg-b.packedKg)}</b></td><td class="muted">${b.openedDate||b.closedDate||b.date||'\u2014'}</td><td>${ed?(batchLabApproved(b)?`<button class="sm" onclick="openPack('${b.id}')">Pack</button>`:`<span class="pill" style="background:var(--amber-50);color:var(--amber);font-size:9px">Lab QC pending</span>`):''}</td></tr>`).join('')}</tbody></table>`:'<div class="muted">No open to-stock bulk.</div>'}</div>
+       <tbody>${openStock.map(b=>`<tr><td>${b.base}</td><td class="num">${fmt(b.producedKg)}</td><td class="num">${fmt(b.packedKg)}</td><td class="num"><b>${fmt(batchPackableKg(b))}</b></td><td class="muted">${b.openedDate||b.closedDate||b.date||'\u2014'}</td><td>${ed?(batchLabApproved(b)?`<button class="sm" onclick="openPack('${b.id}')">Pack</button>`:`<span class="pill" style="background:var(--amber-50);color:var(--amber);font-size:9px">Lab QC pending</span>`):''}</td></tr>`).join('')}</tbody></table>`:'<div class="muted">No open to-stock bulk.</div>'}</div>
 
    <div class="card"><h3>Orders in production <span class="hint">${work.length} open · produced → packed → QC</span></h3>
      ${work.length?`<table><thead><tr><th>PO</th><th>Product</th><th class="num">Ordered</th><th class="num">Produced</th><th class="num">Packed</th><th class="num">To produce</th><th class="num">To pack</th><th style="width:200px"></th></tr></thead>
@@ -1612,6 +1612,7 @@ function renderShiftLog(){
 }
 function submitShiftLog(){
   const b=(state.batches||[]).find(x=>x.id===shiftForm.batchId); if(!b){toast('Batch not found');return;}
+  if(b.coa && b.coa.status && b.coa.status!=='draft'){ toast('Batch '+(b.batchNo||'')+' is already in Lab QC ('+b.coa.status+'). A certified batch cannot take more output — open a NEW batch; new production needs its own COA.'); return; }
   const q=+shiftForm.qty||0;
   if(!shiftForm.shift){toast('Pick a shift');return;}
   if(!shiftForm.incharge){toast('Pick a shift incharge');return;}
@@ -1661,10 +1662,10 @@ function submitProdQty(){ const o=state.orders.find(x=>x.id===pqForm.oid); const
   else { const appr=lineApprovedProducedKg(o,l)-(l.packed||0); if(q>appr+0.001){toast('Only '+fmt(Math.max(0,Math.round(appr)))+' Kg/L is Lab QC-approved for packing — approve the batch COA first.');return;} l.packed=(l.packed||0)+q; { const t=new Date(d); t.setFullYear(t.getFullYear()+2); (state.packingLog=state.packingLog||[]).unshift({id:'PK'+(state.seq++),date:d,base:l.base,brand:l.brand,kg:q,by:state.role,po:o.po,mfgDate:d,expDate:t.toISOString().slice(0,10)}); } logAction(`Packed ${fmt(q)} Kg/L of ${l.brand} for ${o.po} (${fmt(l.packed)}/${fmt(l.ordered)})`); }
   save(); closeModal(); render(); }
 let packForm={bid:null,brand:'',kg:''};
-function openPack(bid){ const b=state.batches.find(x=>x.id===bid); packForm={bid,base:b.base,brand:'',oid:'',lid:'',kg:Math.round(b.producedKg-b.packedKg),brandBatch:'',price:'',priceOk:false,mfg:TODAY.toISOString().slice(0,10),exp:(function(){const t=new Date(TODAY);t.setFullYear(t.getFullYear()+2);return t.toISOString().slice(0,10);})()}; renderPackModal(); $('modalBg').classList.add('open'); }
+function openPack(bid){ const b=state.batches.find(x=>x.id===bid); packForm={bid,base:b.base,brand:'',oid:'',lid:'',kg:Math.round(batchPackableKg(b)),brandBatch:'',price:'',priceOk:false,mfg:TODAY.toISOString().slice(0,10),exp:(function(){const t=new Date(TODAY);t.setFullYear(t.getFullYear()+2);return t.toISOString().slice(0,10);})()}; renderPackModal(); $('modalBg').classList.add('open'); }
 function poLinesForBrand(brand){ const r=[]; state.orders.forEach(o=>o.lines.forEach(l=>{ if(l.brand===brand && (l.packed||0)<l.ordered-0.5 && stageOf(o)!=='Delivered') r.push({o,l}); })); return r; }
 function packPickPO(v){ packForm.oid=(v.split('|')[0]||''); packForm.lid=(v.split('|')[1]||''); const o=state.orders.find(x=>x.id===packForm.oid); const l=o&&o.lines.find(x=>x.id===packForm.lid); packForm.price=(l&&l.printPrice!=null&&l.printPrice!=='')?l.printPrice:''; packForm.priceOk=false; renderPackModal(); }
-function renderPackModal(){ const b=state.batches.find(x=>x.id===packForm.bid); const rem=b.producedKg-b.packedKg; const opts=brandsForBase(b.base);
+function renderPackModal(){ const b=state.batches.find(x=>x.id===packForm.bid); const rem=batchPackableKg(b); const opts=brandsForBase(b.base);
   const poOpts=packForm.brand?poLinesForBrand(packForm.brand):[];
   let priceBlk='';
   if(packForm.oid&&packForm.oid!=='STOCK'&&packForm.lid){ const _o=state.orders.find(x=>x.id===packForm.oid); const _l=_o&&_o.lines.find(x=>x.id===packForm.lid); const setp=(_l&&_l.printPrice!=null&&_l.printPrice!=='')?_l.printPrice:null; const cur=(packForm.price!=null&&packForm.price!=='')?packForm.price:(setp!=null?setp:'');
@@ -1679,7 +1680,7 @@ function renderPackModal(){ const b=state.batches.find(x=>x.id===packForm.bid); 
      <div class="fld"><label>6 · Expiry date (auto +2 years, editable)</label><input type="date" value="${packForm.exp||''}" onchange="packForm.exp=this.value"></div></div>
      ${priceBlk}<div class="muted" style="font-size:11px;margin-top:11px">Moves bulk base into the chosen brand. Pick a PO to fill that order (capped to what it still needs), or leave unassigned.</div></div>
    <div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" onclick="doPack()">Pack</button></div>`; }
-function doPack(){ const b=state.batches.find(x=>x.id===packForm.bid); if(!batchLabApproved(b)){toast('This batch is not Lab QC-approved yet — it can be packed only after QCM approves its COA.');return;} const rem=b.producedKg-b.packedKg; let kg=Math.min(+packForm.kg||0,rem); const brand=packForm.brand; const d=TODAY.toISOString().slice(0,10);
+function doPack(){ const b=state.batches.find(x=>x.id===packForm.bid); if(!batchLabApproved(b)){toast('This batch is not Lab QC-approved yet — it can be packed only after QCM approves its COA.');return;} const rem=batchPackableKg(b); let kg=Math.min(+packForm.kg||0,rem); const brand=packForm.brand; const d=TODAY.toISOString().slice(0,10);
   if(!brand||kg<=0){toast('Pick a brand and quantity');return;}
   if(packForm.oid && packForm.oid!=='STOCK' && packForm.lid){
     const o=state.orders.find(x=>x.id===packForm.oid); const l=o&&o.lines.find(x=>x.id===packForm.lid);
@@ -1719,6 +1720,7 @@ function coaItemOf(b){ return b.kind==='po' ? (b.brand||b.base||'') : (b.base||b
 function coaTemplate(b){ const t=(state.masters&&state.masters.labTemplates)||{}; const it=coaItemOf(b); return (t[it]||t[b.base]||t[b.brand]||autoTemplateFor(b)||[]); }
 function coaOverall(tests){ if(!tests||!tests.length) return ''; let unfit=false,nores=false,fit=false; for(const r of tests){ const rk=String(r.remark||'').toUpperCase().trim(); if(rk==='UNFIT'||rk==='NOT OK'||rk==='FAIL') unfit=true; else if(rk==='NO RESULT'||rk==='') nores=true; else if(rk==='FIT'||rk==='OK') fit=true; else nores=true; } if(unfit) return 'UNFIT'; if(nores) return 'NO RESULT'; return fit?'FIT':''; }
 function batchLabApproved(b){ return !!(b&&b.coa&&b.coa.status==='approved'); }
+function batchPackableKg(b){ if(!b)return 0; const cert=(b.coa&&b.coa.certifiedKg!=null)?Math.min(b.producedKg||0,b.coa.certifiedKg):(b.producedKg||0); return Math.max(0,cert-(b.packedKg||0)); }
 function coaStatusPill(c){ if(!c) return '<span class="pill" style="background:var(--amber-50);color:var(--amber);font-size:9px">Lab QC pending</span>';
   const m={draft:['Draft','--mut'],analysed:['Analysed → AQCM','--navy'],reviewed:['Reviewed → QCM','--navy'],approved:['Approved ✓','--green2'],failed:['UNFIT → Plant Mgr','--red']}; const x=m[c.status]||['?','--mut'];
   return `<span class="pill" style="background:var(--navy-50);color:var(${x[1]});font-size:9px">${x[0]}</span>`; }
@@ -1851,14 +1853,14 @@ function coaSubmitAnalyst(){ const b=(state.batches||[]).find(x=>x.id===coaForm.
   qcAudit2(b,'Lab analysed',ov); logAction(`Lab COA submitted for batch ${b.batchNo} (${coaForm.item}) — ${ov}`+(ov!=='FIT'?' → Plant Manager':' → AQCM'));
   save(); coaFSClose(); }
 function coaReview(){ if(!(canEdit(['AQCM'])||state.role==='COO')){toast('AQCM only');return;} const b=(state.batches||[]).find(x=>x.id===coaForm.bid); if(!b||!b.coa)return; const nm=(state.currentUser&&state.currentUser.name)||state.role; b.coa.reviewer={name:nm,date:coaTS()}; b.coa.status='reviewed'; qcAudit2(b,'AQCM reviewed',''); logAction(`COA reviewed (AQCM) for batch ${b.batchNo} → QCM`); save(); coaFSClose(); }
-function coaApprove(){ if(!(canEdit(['QCM'])||state.role==='COO')){toast('QCM only');return;} const b=(state.batches||[]).find(x=>x.id===coaForm.bid); if(!b||!b.coa)return; const nm=(state.currentUser&&state.currentUser.name)||state.role; b.coa.approver={name:nm,date:coaTS()}; b.coa.status='approved'; b.coa.approvedDate=TODAY.toISOString().slice(0,10); qcAudit2(b,'QCM approved','cleared'); logAction(`COA APPROVED (QCM) for batch ${b.batchNo} — cleared for packing`); save(); coaFSClose(); }
+function coaApprove(){ if(!(canEdit(['QCM'])||state.role==='COO')){toast('QCM only');return;} const b=(state.batches||[]).find(x=>x.id===coaForm.bid); if(!b||!b.coa)return; const nm=(state.currentUser&&state.currentUser.name)||state.role; b.coa.approver={name:nm,date:coaTS()}; b.coa.status='approved'; b.coa.approvedDate=TODAY.toISOString().slice(0,10); b.coa.certifiedKg=b.producedKg||0; qcAudit2(b,'QCM approved','cleared'); logAction(`COA APPROVED (QCM) for batch ${b.batchNo} — cleared for packing`); save(); coaFSClose(); }
 function coaReject(stage){ const b=(state.batches||[]).find(x=>x.id===coaForm.bid); if(!b||!b.coa)return; const why=(typeof prompt==='function'?prompt('Reason for rejecting back to the analyst:'):'')||''; b.coa.status='draft'; b.coa.rejected={by:state.role,stage,why:why||'',date:TODAY.toISOString().slice(0,10)}; qcAudit2(b,'COA rejected',why||''); logAction(`COA rejected at ${stage} for batch ${b.batchNo} — back to analyst`); save(); coaFSClose(); }
 function coaDeviation(){ if(!(canEdit(['Plant Manager'])||state.role==='COO')){toast('Plant Manager only');return;} const b=(state.batches||[]).find(x=>x.id===coaForm.bid); if(!b||!b.coa)return; const note=(typeof prompt==='function'?prompt('Deviation note (why accept this UNFIT batch):'):'')||''; b.coa.deviation=true; b.coa.deviationNote=note||''; b.coa.deviationBy={name:(state.currentUser&&state.currentUser.name)||state.role,date:coaTS()}; b.coa.status='analysed'; qcAudit2(b,'PM deviation accepted',note||''); logAction(`UNFIT batch ${b.batchNo} accepted as DEVIATION by Plant Manager → AQCM review → QCM approval`); save(); coaFSClose(); }
 function coaRework(){ if(!(canEdit(['Plant Manager'])||state.role==='COO')){toast('Plant Manager only');return;} const b=(state.batches||[]).find(x=>x.id===coaForm.bid); if(!b||!b.coa)return; b.coa.reworks=(b.coa.reworks||0)+1; const item=b.coa.item; b.coa=null; qcAudit2(b,'Sent to rework',''); logAction(`Batch ${b.batchNo} (${item}) sent to rework after UNFIT`); save(); coaFSClose(); }
 function qcAudit2(b,field,val){ (state.audit=state.audit||[]).unshift({t:new Date().toISOString(),user:state.role,module:'Lab QC',po:b.po||'',brand:coaItemOf(b),field,old:'',val,batchNo:b.batchNo||''}); }
 
 /* ===== quantity-true QC helpers + QA per packed lot + print COA ===== */
-function lineApprovedProducedKg(o,l){ let s=0; (state.batches||[]).forEach(b=>{ if(b.kind==='po'&&b.po===o.po&&b.lineId===l.id&&batchLabApproved(b)) s+=(b.producedKg||0); }); return s; }
+function lineApprovedProducedKg(o,l){ let s=0; (state.batches||[]).forEach(b=>{ if(b.kind==='po'&&b.po===o.po&&b.lineId===l.id&&batchLabApproved(b)) s+=Math.min(b.producedKg||0,(b.coa&&b.coa.certifiedKg!=null)?b.coa.certifiedKg:(b.producedKg||0)); }); return s; }
 function lineQAPackedKg(o,l){ let s=0; (state.packingLog||[]).forEach(p=>{ if(p&&p.po===o.po&&p.brand===l.brand&&p.qa&&p.qa.pass) s+=(p.kg||0); }); if(l.qcPass) s=Math.max(s,l.packed||0); return s; }
 function lotById(id){ return (state.packingLog||[]).find(p=>p&&p.id===id); }
 let lotQAForm={lotId:null,marks:[],officer:'',remarks:''};
@@ -1877,7 +1879,7 @@ function lotQASubmit(){ const p=lotById(lotQAForm.lotId); if(!p)return; if(lotQA
   const anyFail=lotQAForm.marks.some(m=>m==='fail'); const d=TODAY.toISOString().slice(0,10);
   p.qa={pass:!anyFail, fail:anyFail, by:lotQAForm.officer.trim(), date:d, checklist:QC_CHECKLIST.map((it,i)=>({item:it,result:lotQAForm.marks[i]})), remarks:lotQAForm.remarks||''};
   const o=state.orders.find(x=>x.po===p.po); const l=o&&o.lines.find(x=>x.brand===p.brand);
-  if(!anyFail && o&&l){ l.qcPass=l.qcPass||d; }
+  if(!anyFail && o&&l){ const cleared=lineQAPackedKg(o,l); if(cleared>=(l.ordered||0)-0.001) l.qcPass=l.qcPass||d; }
   (state.audit=state.audit||[]).unshift({t:new Date().toISOString(),user:state.role,module:'QA',po:p.po,brand:p.brand,field:anyFail?'QA FAILED':'QA passed',old:'',val:lotQAForm.remarks||''});
   logAction(`QA ${anyFail?'FAILED':'passed'} lot ${p.brandBatchNo||p.baseBatchNo||''} (${p.brand}, ${fmt(p.kg)} Kg/L) for ${p.po}`);
   save(); closeModal(); render(); }

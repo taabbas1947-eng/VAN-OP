@@ -163,7 +163,7 @@ td.skufirst{padding-left:10px;box-shadow:inset 3px 0 0 var(--navy)}
 .stp .dot{width:22px;height:22px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:12px;background:#e8edf4;color:var(--mut)}
 .stp.done .dot{background:var(--green);color:#fff}
 .hide{display:none!important}
-.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--txt);color:#fff;border-radius:12px;padding:12px 22px;font-size:13px;font-weight:600;z-index:99;opacity:0;transition:.2s;box-shadow:var(--sh-lg)}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--txt);color:#fff;border-radius:12px;padding:12px 22px;font-size:13px;font-weight:600;z-index:999;opacity:0;transition:.2s;box-shadow:var(--sh-lg)}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(-2px)}
 @media(max-width:1100px){.kpis{grid-template-columns:repeat(3,1fr)}}
 
@@ -1716,7 +1716,7 @@ function qcBatchText(o,l){ const pr=batchPairsForLine(o,l); return pr.length?pr.
 let coaForm={};
 function coaTS(){ const d=new Date(); const p=n=>String(n).padStart(2,'0'); return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes()); }
 function coaItemOf(b){ return b.kind==='po' ? (b.brand||b.base||'') : (b.base||b.brand||''); }
-function coaTemplate(b){ const t=(state.masters&&state.masters.labTemplates)||{}; const it=coaItemOf(b); return (t[it]||t[b.base]||t[b.brand]||[]); }
+function coaTemplate(b){ const t=(state.masters&&state.masters.labTemplates)||{}; const it=coaItemOf(b); return (t[it]||t[b.base]||t[b.brand]||autoTemplateFor(b)||[]); }
 function coaOverall(tests){ if(!tests||!tests.length) return ''; let unfit=false,nores=false,fit=false; for(const r of tests){ const rk=String(r.remark||'').toUpperCase().trim(); if(rk==='UNFIT'||rk==='NOT OK'||rk==='FAIL') unfit=true; else if(rk==='NO RESULT'||rk==='') nores=true; else if(rk==='FIT'||rk==='OK') fit=true; else nores=true; } if(unfit) return 'UNFIT'; if(nores) return 'NO RESULT'; return fit?'FIT':''; }
 function batchLabApproved(b){ return !!(b&&b.coa&&b.coa.status==='approved'); }
 function coaStatusPill(c){ if(!c) return '<span class="pill" style="background:var(--amber-50);color:var(--amber);font-size:9px">Lab QC pending</span>';
@@ -1738,11 +1738,35 @@ function qcCodeOf(b){ const od=new Date(b.openedDate||TODAY); const mmyy=String(
   let prod=words.length>=3?(words[0][0]+words[1][0]+words[2][0]):(words.length===2?(words[0][0]+words[1].slice(0,2)):String(words[0]||'XXX').slice(0,3));
   prod=String(prod||'XXX').toUpperCase();
   return client+prod+'-'+mmyy+'-'+String(b.batchNo||'').toUpperCase(); }
+function coaGenericOf(item){ try{ const by=(SEED&&SEED.catalog&&SEED.catalog.brandsByClient)||{}; for(const k in by){ const m=(by[k]||[]).find(x=>x.brand===item); if(m) return m; } for(const k in by){ const m=(by[k]||[]).find(x=>x.base===item&&(x.generic||x.form)); if(m) return m; } }catch(e){} return null; }
+function coaMethodFor(sym){ const x=String(sym||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
+  if(x==='N') return 'Kjeldhal’s Method';
+  if(x==='P'||x==='P2O5') return 'Titration Method';
+  if(x==='K'||x==='K2O') return 'Flame Photometer';
+  if(x==='S'||x==='SO3') return 'Gravimetric Method';
+  if(x==='MG'||x==='MGO') return 'By Calculation';
+  if(x==='CA'||x==='CAO') return 'Titration Method';
+  if(['ZN','B','CU','MN','MO','FE','NI'].indexOf(x)>=0) return 'Spectrophotometer';
+  return 'Lab Method'; }
+function autoTemplateFor(b){ const item=coaItemOf(b); const hit=coaGenericOf(item); const rows=[]; const form=(hit&&hit.form)||'';
+  rows.push({g:'Physical',test:'Physical Status',spec:form||'-',method:'Visual',mu:'-'});
+  rows.push({g:'Physical',test:'Color',spec:'-',method:'Visual',mu:'-'});
+  if(/liquid/i.test(form)) rows.push({g:'Physical',test:'pH (1% sol.)',spec:'-',method:'pH Meter',mu:'-'});
+  else rows.push({g:'Physical',test:'Moisture',spec:'-',method:'Karl Fischer',mu:'-'});
+  let any=false;
+  if(hit&&hit.generic){ const g=String(hit.generic); const seen={};
+    const npk=g.match(/NPK\s*\(?\s*(\d+(?:\.\d+)?)\s*[-:]\s*(\d+(?:\.\d+)?)\s*[-:]\s*(\d+(?:\.\d+)?)/i);
+    if(npk){ rows.push({g:'Chemical',test:'N',spec:'≥'+npk[1]+'%',method:coaMethodFor('N'),mu:'-'}); rows.push({g:'Chemical',test:'P2O5',spec:'≥'+npk[2]+'%',method:coaMethodFor('P2O5'),mu:'-'}); rows.push({g:'Chemical',test:'K2O',spec:'≥'+npk[3]+'%',method:coaMethodFor('K2O'),mu:'-'}); seen.N=seen.P2O5=seen.K2O=true; any=true; }
+    const re=/([A-Z][a-zA-Z0-9]{0,4})\s*(\d+(?:\.\d+)?)\s*%/g; let m;
+    while((m=re.exec(g))){ const sym=m[1]; if(/^NPK$/i.test(sym)||seen[sym]) continue; seen[sym]=true; rows.push({g:'Chemical',test:sym,spec:'≥'+m[2]+'%',method:coaMethodFor(sym),mu:'-'}); any=true; } }
+  if(!any) rows.push({g:'Chemical',test:'Assay',spec:'-',method:'Lab Method',mu:'-'});
+  return rows; }
 function openBatchCOA(bid){ const b=(state.batches||[]).find(x=>x.id===bid); if(!b)return; const tpl=coaTemplate(b); const today=TODAY.toISOString().slice(0,10);
   if(b.coa){ coaForm=JSON.parse(JSON.stringify(b.coa)); coaForm.bid=bid; }
   else { const MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; const od=new Date(b.openedDate||today); const mfg=MON[od.getMonth()]+'-'+od.getFullYear(); const exp=MON[od.getMonth()]+'-'+(od.getFullYear()+2); coaForm={ bid, status:'draft', type:'Batch', issueDate:today, issueStatus:'A', item:coaItemOf(b), source:'Vital Agri Nutrients (Pvt) Ltd', batchNo:b.batchNo||'', quantity:fmt(Math.round(b.producedKg||0))+' Kg', mfgDate:mfg, expDate:exp, qcNo:qcCodeOf(b), receivingDate:today, sampledBy:'', sampleQty:'0.5 kg', analysisTime:(new Date()).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}), dateOfTest:today, temp:'', humidity:'', tests: tpl.map(r=>({g:r.g,test:r.test,spec:r.spec,method:r.method,mu:r.mu,result:'',remark:''})), analyst:{name:(state.currentUser&&state.currentUser.name)||'',date:''}, reviewer:{name:'',date:''}, approver:{name:'',date:''}, remarks:'' }; }
   if(!coaForm.tests||!coaForm.tests.length){ coaForm.tests=tpl.map(r=>({g:r.g,test:r.test,spec:r.spec,method:r.method,mu:r.mu,result:'',remark:''})); }
   if(!coaForm.analysisTime) coaForm.analysisTime=(new Date()).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+  if(!coaForm.mfgDate||!coaForm.expDate){ const MN=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; const od2=new Date(b.openedDate||TODAY); if(!coaForm.mfgDate) coaForm.mfgDate=MN[od2.getMonth()]+'-'+od2.getFullYear(); if(!coaForm.expDate) coaForm.expDate=MN[od2.getMonth()]+'-'+(od2.getFullYear()+2); }
   renderCOAModal(); }
 function coaPersistDraft(){ const b=(state.batches||[]).find(x=>x.id===coaForm.bid); if(!b)return; if(b.coa&&b.coa.status&&b.coa.status!=='draft')return; const d=JSON.parse(JSON.stringify(coaForm)); delete d.bid; d.status='draft'; b.coa=d; save(); }
 function coaSet(f,v){ coaForm[f]=v; coaPersistDraft(); }
@@ -1761,11 +1785,11 @@ function renderCOAModal(){ const b=(state.batches||[]).find(x=>x.id===coaForm.bi
   const dis=ro?'disabled':'';
   const uf=(f,extra)=>`<input class="ufld" ${dis} value="${coaEsc(coaForm[f])}" onchange="coaSet('${f}',this.value)" ${extra||''}>`;
   const ml=(lbl,f)=>`<div class="mline"><span class="lbl">${lbl}</span>${uf(f)}</div>`;
-  let lastG=''; const trows=(coaForm.tests||[]).map((r,i)=>{ let pre=''; const g=r.g||'Chemical'; if(g!==lastG){pre=`<tr class="section-row"><td colspan="6">${coaEsc(g.toUpperCase())} PARAMETER</td></tr>`;lastG=g;}
+  let lastG=''; const trows=(coaForm.tests||[]).map((r,i)=>{ let pre=''; const g=r.g||'Chemical'; if(g!==lastG){pre=`<tr class="section-row"><td colspan="${ro?6:7}">${coaEsc(g.toUpperCase())} PARAMETER</td></tr>`;lastG=g;}
     const tc=(f)=>`<input class="tcell" ${dis} value="${coaEsc(r[f])}" onchange="coaTest(${i},'${f}',this.value)">`;
     const rk=(r.remark||''); const badge=`<span class="badge ${coaBcls(rk)}" id="rbadge_${i}">${rk?coaEsc(rk==='OK'?'FIT':rk):'—'}</span>`;
     const rsel=`<select class="rsel" id="rsel_${i}" onchange="coaTest(${i},'remark',this.value)"><option value="">—</option><option ${(rk==='FIT'||rk==='OK')?'selected':''}>FIT</option><option ${rk==='UNFIT'?'selected':''}>UNFIT</option><option ${rk==='No Result'?'selected':''}>No Result</option></select>`;
-    return pre+`<tr><td class="test-name">${tc('test')}</td><td>${tc('spec')}</td><td>${tc('result')}</td><td>${tc('method')}</td><td>${tc('mu')}</td><td>${ro?`<div style="text-align:center">${badge}</div>`:`<div style="display:flex;gap:3px;align-items:center">${badge}${rsel}<button class="mini" title="remove row" onclick="coaDelRow(${i})">×</button></div>`}</td></tr>`; }).join('');
+    return pre+`<tr><td class="test-name">${tc('test')}</td><td>${tc('spec')}</td><td>${tc('result')}</td><td>${tc('method')}</td><td>${tc('mu')}</td><td>${ro?`<div style="text-align:center">${badge}</div>`:`<div style="display:flex;gap:4px;align-items:center;justify-content:center">${badge}${rsel}</div>`}</td>${ro?``:`<td style="text-align:center"><button class="mini" title="remove row" onclick="coaDelRow(${i})">×</button></td>`}</tr>`; }).join('');
   const ov=coaOverall(coaForm.tests);
   let acts='';
   if(st==='draft'&&(isLab||isCOO)) acts=`<button class="b-green" onclick="coaSubmitAnalyst()">Submit for review →</button>`;
@@ -1799,14 +1823,14 @@ function renderCOAModal(){ const b=(state.batches||[]).find(x=>x.id===coaForm.bi
      </div><div class="mcol">
        ${ml('Quantity:','quantity')}${ml('Exp. Date:','expDate')}${ml('Receiving Date:','receivingDate')}${ml('Sample Quantity:','sampleQty')}${ml('Date of Test:','dateOfTest')}${ml('Humidity %:','humidity')}
      </div></div>
-     <table class="tests"><colgroup><col style="width:25%"><col style="width:15%"><col style="width:13%"><col style="width:21%"><col style="width:9%"><col style="width:17%"></colgroup>
-       <thead><tr><th>Test</th><th>Specs</th><th>Results</th><th>Methods</th><th>MU (%)</th><th>Remarks</th></tr></thead>
-       <tbody>${trows||'<tr><td colspan="6" style="color:#667085;padding:10px">No test template for this product yet — add parameter rows below (they are remembered on submit), or define the template in Admin · Master Data → Lab test templates.</td></tr>'}</tbody></table>
+     <table class="tests">${ro?`<colgroup><col style="width:25%"><col style="width:15%"><col style="width:13%"><col style="width:21%"><col style="width:9%"><col style="width:17%"></colgroup>`:`<colgroup><col style="width:23%"><col style="width:13%"><col style="width:12%"><col style="width:18%"><col style="width:7%"><col style="width:21%"><col style="width:6%"></colgroup>`}
+       <thead><tr><th>Test</th><th>Specs</th><th>Results</th><th>Methods</th><th>MU (%)</th><th>Remarks</th>${ro?'':'<th></th>'}</tr></thead>
+       <tbody>${trows||'<tr><td colspan="${ro?6:7}" style="color:#667085;padding:10px">No test template for this product yet — add parameter rows below (they are remembered on submit), or define the template in Admin · Master Data → Lab test templates.</td></tr>'}</tbody></table>
      ${ro?'':`<div class="add-bar"><button onclick="coaAddRow('Physical')">+ Physical parameter row</button><button onclick="coaAddRow('Chemical')">+ Chemical parameter row</button><span style="font-size:11px;color:#667085;align-self:center">New tests, specs &amp; ranges are remembered for ${coaEsc(coaForm.item)} on submit.</span></div>`}
      <div class="disclaimer"><h4>Report Disclaimer</h4><ol>${disc.map(x=>`<li>${x}</li>`).join('')}</ol>
        <div style="margin-top:5px"><b>MU Stand for:</b> Measurement of Uncertainty.</div>
        <div><b>Decision Rule:</b> If the sum of the result and uncertainty is more than the specified/claimed/permissible limit, the sample will be declared as OK and vice versa.</div>
-       ${coaForm.deviation?`<div style="margin-top:5px;color:#c0392b"><b>Deviation accepted by Plant Manager:</b> ${coaEsc(coaForm.deviationNote||'')}</div>`:''}
+       ${coaForm.deviation?`<div style="margin-top:5px;color:#c0392b"><b>Deviation accepted by Plant Manager${coaForm.deviationBy?(' — '+coaEsc(coaForm.deviationBy.name)+', '+coaEsc(coaForm.deviationBy.date)):''}:</b> ${coaEsc(coaForm.deviationNote||'')}</div>`:''}
        ${coaForm.rejected?`<div style="margin-top:5px;color:#b8860b"><b>Last rejection:</b> ${coaEsc(coaForm.rejected.why||'')} (${coaEsc(coaForm.rejected.by||'')}, ${coaEsc(coaForm.rejected.date||'')})</div>`:''}
      </div>
      <div class="signs">${sign('Analysed By','Assistant Analyst/Analyst',coaForm.analyst,!ro)}${sign('Reviewed By','AQCM',coaForm.reviewer,false)}${sign('Approved By','QCM',coaForm.approver,false)}</div>
@@ -1829,7 +1853,7 @@ function coaSubmitAnalyst(){ const b=(state.batches||[]).find(x=>x.id===coaForm.
 function coaReview(){ if(!(canEdit(['AQCM'])||state.role==='COO')){toast('AQCM only');return;} const b=(state.batches||[]).find(x=>x.id===coaForm.bid); if(!b||!b.coa)return; const nm=(state.currentUser&&state.currentUser.name)||state.role; b.coa.reviewer={name:nm,date:coaTS()}; b.coa.status='reviewed'; qcAudit2(b,'AQCM reviewed',''); logAction(`COA reviewed (AQCM) for batch ${b.batchNo} → QCM`); save(); coaFSClose(); }
 function coaApprove(){ if(!(canEdit(['QCM'])||state.role==='COO')){toast('QCM only');return;} const b=(state.batches||[]).find(x=>x.id===coaForm.bid); if(!b||!b.coa)return; const nm=(state.currentUser&&state.currentUser.name)||state.role; b.coa.approver={name:nm,date:coaTS()}; b.coa.status='approved'; b.coa.approvedDate=TODAY.toISOString().slice(0,10); qcAudit2(b,'QCM approved','cleared'); logAction(`COA APPROVED (QCM) for batch ${b.batchNo} — cleared for packing`); save(); coaFSClose(); }
 function coaReject(stage){ const b=(state.batches||[]).find(x=>x.id===coaForm.bid); if(!b||!b.coa)return; const why=(typeof prompt==='function'?prompt('Reason for rejecting back to the analyst:'):'')||''; b.coa.status='draft'; b.coa.rejected={by:state.role,stage,why:why||'',date:TODAY.toISOString().slice(0,10)}; qcAudit2(b,'COA rejected',why||''); logAction(`COA rejected at ${stage} for batch ${b.batchNo} — back to analyst`); save(); coaFSClose(); }
-function coaDeviation(){ if(!(canEdit(['Plant Manager'])||state.role==='COO')){toast('Plant Manager only');return;} const b=(state.batches||[]).find(x=>x.id===coaForm.bid); if(!b||!b.coa)return; const note=(typeof prompt==='function'?prompt('Deviation note (why accept UNFIT):'):'')||''; b.coa.status='approved'; b.coa.deviation=true; b.coa.deviationNote=note||''; b.coa.approver={name:((state.currentUser&&state.currentUser.name)||state.role)+' (deviation)',date:coaTS()}; b.coa.approvedDate=TODAY.toISOString().slice(0,10); qcAudit2(b,'PM deviation approved',note||''); logAction(`UNFIT batch ${b.batchNo} approved as deviation by Plant Manager`); save(); coaFSClose(); }
+function coaDeviation(){ if(!(canEdit(['Plant Manager'])||state.role==='COO')){toast('Plant Manager only');return;} const b=(state.batches||[]).find(x=>x.id===coaForm.bid); if(!b||!b.coa)return; const note=(typeof prompt==='function'?prompt('Deviation note (why accept this UNFIT batch):'):'')||''; b.coa.deviation=true; b.coa.deviationNote=note||''; b.coa.deviationBy={name:(state.currentUser&&state.currentUser.name)||state.role,date:coaTS()}; b.coa.status='analysed'; qcAudit2(b,'PM deviation accepted',note||''); logAction(`UNFIT batch ${b.batchNo} accepted as DEVIATION by Plant Manager → AQCM review → QCM approval`); save(); coaFSClose(); }
 function coaRework(){ if(!(canEdit(['Plant Manager'])||state.role==='COO')){toast('Plant Manager only');return;} const b=(state.batches||[]).find(x=>x.id===coaForm.bid); if(!b||!b.coa)return; b.coa.reworks=(b.coa.reworks||0)+1; const item=b.coa.item; b.coa=null; qcAudit2(b,'Sent to rework',''); logAction(`Batch ${b.batchNo} (${item}) sent to rework after UNFIT`); save(); coaFSClose(); }
 function qcAudit2(b,field,val){ (state.audit=state.audit||[]).unshift({t:new Date().toISOString(),user:state.role,module:'Lab QC',po:b.po||'',brand:coaItemOf(b),field,old:'',val,batchNo:b.batchNo||''}); }
 

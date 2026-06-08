@@ -469,6 +469,7 @@ function ensureState(s){
 function ensureMasters(s){
   s.masters = s.masters || {};
   if(!s.masters.accessMatrix||typeof s.masters.accessMatrix!=='object') s.masters.accessMatrix={};
+  if(!s.masters.salesTargets||typeof s.masters.salesTargets!=='object') s.masters.salesTargets={};
   if(!s.masters.labTemplates){ s.masters.labTemplates = {
    'Elemental Sulfur':[
     {g:'Physical',test:'Physical Status',spec:'Powder',method:'Visual',mu:'-'},
@@ -730,7 +731,8 @@ const SCREENS=[
     obj:'<b>Implementation tool (temporary).</b> Correct live records to match actual paper/manual data, back-dated. Every change is logged as RECONCILE. COO can turn it off after cutover.'},
   {id:'users', name:'Users & Access', ic:'\ud83d\udc65', owners:['COO'], sub:'People, roles & passwords',
     obj:'<b>COO only.</b> Add people, set each one\u2019s role and password. Everyone signs in and sees only their role\u2019s screens.'},
-  {id:'log', name:'Action Log', ic:'\ud83d\udd53', owners:['KAM','Supply Chain','Production','Plant Manager','CFO','COO'], sub:'Audit trail',
+  {id:'budget', name:'Sales & Budget', ic:'💰', owners:['CFO'], sub:'Target vs delivered (PKR)', obj:'<b>Sales vs budget · COO / CFO only.</b> Client annual targets vs delivered invoice value (delivered Kg/L × invoice price). Consolidated and by product.'},
+   {id:'log', name:'Action Log', ic:'\ud83d\udd53', owners:['KAM','Supply Chain','Production','Plant Manager','CFO','COO'], sub:'Audit trail',
     obj:'<b>Audit trail.</b> Every action, with who did it and when.'},
 ];
 function scr(id){ return SCREENS.find(s=>s.id===id); }
@@ -738,6 +740,7 @@ function scr(id){ return SCREENS.find(s=>s.id===id); }
 <script>
 /* ===================== NAV / SHELL ===================== */
 const NAV_ICONS={
+  budget:'<path d="M3 3v18h18"/><rect x="7" y="11" width="3" height="6" rx="1"/><rect x="12" y="7" width="3" height="10" rx="1"/><rect x="17" y="13" width="3" height="4" rx="1"/>',
   dash:'<rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/>',
   entry:'<circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>',
   dealers:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
@@ -755,10 +758,10 @@ const NAV_ICONS={
   approvals:'<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>'
 };
 function navIcon(id){ return NAV_ICONS[id]?`<svg viewBox="0 0 24 24">${NAV_ICONS[id]}</svg>`:''; }
-const NAV_ORDER=['approvals','tracker','prod','qc','ship','instructions','dash','entry','dealers','monthly','reports','admin','datafix','users','log'];
+const NAV_ORDER=['approvals','tracker','prod','qc','ship','instructions','dash','budget','entry','dealers','monthly','reports','admin','datafix','users','log'];
 function renderNav(){
   const byId={}; SCREENS.forEach(s=>byId[s.id]=s);
-  const ordered=NAV_ORDER.map(id=>byId[id]).filter(Boolean).filter(s=> s.id!=='datafix' || state.dataFixEnabled || state.role==='COO').filter(s=>canView(state.role,s.id));
+  const ordered=NAV_ORDER.map(id=>byId[id]).filter(Boolean).filter(s=> s.id!=='datafix' || state.dataFixEnabled || state.role==='COO').filter(s=> s.id!=='budget' || state.role==='COO' || state.role==='CFO').filter(s=>canView(state.role,s.id));
   $('nav').innerHTML = ordered.map(s=>`<a class="${s.id===state.screen?'active':''}" onclick="setScreen('${s.id}')"><span class="ic">${navIcon(s.id)}</span>${s.name}</a>`+(s.id==='instructions'?'<div style="height:1px;background:var(--line);margin:9px 12px;opacity:.7"></div>':'')).join('');
   const u=state.currentUser;
   if($('rolebox')) $('rolebox').innerHTML = u
@@ -778,7 +781,7 @@ function render(){
   $('scTitle').textContent=s.name; $('scSub').textContent=s.sub;
   if($('helpbar')){ const EDIT_SCREENS={entry:1,dealers:1,prod:1,qc:1,ship:1,admin:1,users:1}; let editable=!!EDIT_SCREENS[s.id]; let owner=editable?(s.owners.filter(r=>r!=='COO').join(', ')||'COO'):'Everyone'; let upd=editable?'Yes':'No — view only'; if(s.id==='tracker'){ const tm={'KAM':'SO # & dates','Supply Chain':'RM Check / PR & RM dates','CFO':'CFO approval & invoice','Plant Manager':'delay reason & dept','Production':'production dates','COO':'any field'}; if(tm[state.role]) upd='Yes — '+tm[state.role]+' (click to open)'; } $('helpbar').innerHTML=`This screen: <b>${s.sub}</b> &nbsp;·&nbsp; Owned by: <b>${owner}</b> &nbsp;·&nbsp; Update here: <b>${upd}</b>`; }
   if($('sidefoot')) $('sidefoot').innerHTML = state.role==='COO'?'<button class="ghost sm" style="width:100%" onclick="resetSeed()">Reset demo data</button>':'';
-  ({dash:screenDash,approvals:screenApprovals,entry:screenEntry,tracker:screenTracker,prod:screenProd,qc:screenQC,monthly:screenMonthly,ship:screenShip,reports:screenReports,dealers:screenDealers,instructions:screenInstructions,admin:screenAdmin,datafix:screenDataFix,users:screenUsers,log:screenLog}[state.screen])();
+  ({dash:screenDash,approvals:screenApprovals,entry:screenEntry,tracker:screenTracker,prod:screenProd,qc:screenQC,monthly:screenMonthly,ship:screenShip,reports:screenReports,budget:screenBudget,dealers:screenDealers,instructions:screenInstructions,admin:screenAdmin,datafix:screenDataFix,users:screenUsers,log:screenLog}[state.screen])();
 }
 /* ===================== LOCK 4: DATA FIX (reconciliation console — safety frame) ===================== */
 function reconLog(msg, eventDate){ logAction(`RECONCILE: ${msg}${eventDate?` [event ${eventDate}]`:''}`); }
@@ -801,7 +804,7 @@ function importGoLivePOs(){
   fresh.forEach(p=>{ const id='O'+((state.orders||[]).length+1)+'_'+(state.seq++);
     const ch=p.channel||'White Label';
     const ord={ id, po:String(p.po), client:p.client, channel:ch, vgreenSub:null, kam:'Tahir Abbas', priority:p.priority||'Normal', promised:prom, received:recv, rmDecision:'pending',
-      lines:p.lines.map((l,j)=>({ id:id+'L'+j, brand:l.brand, base:l.base||l.brand, pack:(l.pack!=null?l.pack:(typeof seedPackForBrand==='function'?seedPackForBrand(l.brand):null)), note:'', committed:prom, ordered:+l.ordered||0, printPrice:0, produced:0, packed:0, dispatched:0, delivered:0 })) };
+      lines:p.lines.map((l,j)=>({ id:id+'L'+j, brand:l.brand, base:l.base||l.brand, pack:(l.pack!=null?l.pack:(typeof seedPackForBrand==='function'?seedPackForBrand(l.brand):null)), note:'', committed:prom, ordered:+l.ordered||0, printPrice:0, invoicePrice:0, produced:0, packed:0, dispatched:0, delivered:0 })) };
     ord.totalOrdered=ord.lines.reduce((a,l)=>a+(+l.ordered||0),0);
     (state.orders=state.orders||[]).push(ord);
     reconLog('Imported opening PO '+ord.po+' ('+ord.client+', '+ord.lines.length+' line(s))', recv);
@@ -915,12 +918,12 @@ if(op==='correct'){
        <div class="fld"><label>PO received</label><input id="co_received" type="date" value="${o.received||''}"></div>
        <div class="fld"><label>Promised</label><input id="co_promised" type="date" value="${o.promised||''}"></div></div>`;
     const lines=o.lines.map(l=>`<div style="border:1px solid var(--line);border-radius:9px;padding:9px 11px;margin-top:8px"><b style="font-size:12px">${l.brand}</b> <span class="muted" style="font-size:10.5px">${l.base}</span>
-       <div class="formgrid" style="grid-template-columns:repeat(5,1fr);margin-top:6px">
+       <div class="formgrid" style="grid-template-columns:repeat(6,1fr);margin-top:6px">
          <div class="fld"><label>Ordered</label><input id="cl_ordered_${l.id}" type="number" value="${l.ordered||0}"></div>
          <div class="fld"><label>Produced</label><input id="cl_produced_${l.id}" type="number" value="${l.produced||0}"></div>
          <div class="fld"><label>Packed</label><input id="cl_packed_${l.id}" type="number" value="${l.packed||0}"></div>
          <div class="fld"><label>Dispatched</label><input id="cl_dispatched_${l.id}" type="number" value="${l.dispatched||0}"></div>
-         <div class="fld"><label>Delivered</label><input id="cl_delivered_${l.id}" type="number" value="${l.delivered||0}"></div></div></div>`).join('');
+         <div class="fld"><label>Delivered</label><input id="cl_delivered_${l.id}" type="number" value="${l.delivered||0}"></div>${(state.role==='COO'||state.role==='CFO')?`<div class="fld"><label>Invoice price (PKR/Kg·L)</label><input id="cl_invoicePrice_${l.id}" type="number" value="${l.invoicePrice||''}"></div>`:''}</div></div>`).join('');
     return wrap('Correct a PO — fields & quantities', picker+meta+lines+`<div class="fld" style="margin-top:10px"><label>Reason / note (required)</label><input id="co_reason" type="text" placeholder="why the correction?"></div><div class="muted" style="font-size:11px;margin-top:6px">Edits the live values in place; every change is logged old → new as RECONCILE.</div><div style="margin-top:12px"><button class="green" onclick="dfSubmitCorrect()">Apply corrections</button></div>`);
   }
   if(op==='po'){
@@ -1009,7 +1012,7 @@ function dfSubmitCorrect(){
   setO('priority',($('co_priority')&&$('co_priority').value),'priority');
   setO('received',($('co_received')&&$('co_received').value),'received date');
   setO('promised',($('co_promised')&&$('co_promised').value),'promised date');
-  o.lines.forEach(l=>{ [['ordered','Ordered'],['produced','Produced'],['packed','Packed'],['dispatched','Dispatched'],['delivered','Delivered']].forEach(([field,label])=>{
+  o.lines.forEach(l=>{ [['ordered','Ordered'],['produced','Produced'],['packed','Packed'],['dispatched','Dispatched'],['delivered','Delivered'],['invoicePrice','Invoice price']].forEach(([field,label])=>{
     const el=$('cl_'+field+'_'+l.id); if(!el) return; const nv=+el.value||0; const old=+l[field]||0;
     if(Math.abs(nv-old)>0.001){ l[field]=nv; reconLog(`CORRECT ${o.po} · ${l.brand} ${label}: ${fmt(old)} → ${fmt(nv)} — ${reason}`); n++; }
   }); });
@@ -1071,7 +1074,7 @@ function screenEntry(){
     </div></div>
    <div class="card"><h3>Step 2 — Line Items <span class="hint">pack size auto-fills, override allowed</span></h3>
     ${entryClient?'':'<div class="muted" style="font-size:12.5px">Pick a channel and client above to load brands.</div>'}
-    <table class="fixedtbl ${entryClient?'':'hide'}" style="font-size:12px"><thead><tr><th>Brand</th><th style="width:88px">Form</th><th style="width:72px">Pack</th><th style="width:86px">Qty</th><th style="width:78px">Packs</th><th style="width:102px">Print price</th><th style="width:126px">Committed</th><th style="width:26px"></th></tr></thead>
+    <table class="fixedtbl ${entryClient?'':'hide'}" style="font-size:12px"><thead><tr><th>Brand</th><th style="width:88px">Form</th><th style="width:72px">Pack</th><th style="width:86px">Qty</th><th style="width:78px">Packs</th><th style="width:96px">Print price</th><th style="width:104px">Invoice price</th><th style="width:120px">Committed</th><th style="width:26px"></th></tr></thead>
     <tbody id="e_lines"></tbody></table>
     <button class="ghost sm ${entryClient?'':'hide'}" style="margin-top:10px" onclick="entryLines.push({brand:'',qty:'',pack:'',note:'',committed:''});renderEntryLines()">+ Add line</button>
    </div>
@@ -1096,7 +1099,8 @@ function renderEntryLines(){
      <td><input type="number" value="${l.pack}" placeholder="${det.pack||''}" oninput="entryLines[${i}].pack=this.value;updatePacks(${i})"></td>
      <td><input type="number" value="${l.qty}" placeholder="Kg/L" oninput="entryLines[${i}].qty=this.value;updatePacks(${i});validate()"></td>
      <td class="num"><b id="pk_${i}">${packs!==''?fmt(packs):'—'}</b></td>
-     <td><input type="number" value="${l.price||''}" placeholder="PKR" oninput="entryLines[${i}].price=this.value;validate()"></td>
+     <td><input type="number" value="${l.price||''}" placeholder="retail" oninput="entryLines[${i}].price=this.value;validate()"></td>
+     <td><input type="number" value="${l.inv||''}" placeholder="PKR/Kg·L" title="VAN invoice price on the client PO (drives budget)" oninput="entryLines[${i}].inv=this.value"></td>
      <td><input type="date" value="${l.committed||(($('e_prom')&&$('e_prom').value)||'')}" onchange="entryLines[${i}].committed=this.value"></td>
      <td>${entryLines.length>1?`<button class="ghost sm" onclick="entryLines.splice(${i},1);renderEntryLines()">✕</button>`:''}</td></tr>`;
   }).join('');
@@ -1143,7 +1147,7 @@ function submitPO(){
   const id='O'+(state.orders.length+1)+'_'+state.seq++;
   const ord={ id, po, client:entryClient, channel:entryChannel, vgreenSub:entryVsub||null, kam:$('e_kam').value.trim(),
     priority:$('e_pri').value, promised:$('e_prom').value, received:recv, rmDecision:'pending',
-    lines:lines.map((l,j)=>{const det=detailForBrand(l.brand);return {id:id+'L'+j, brand:l.brand, base:det.base||l.brand, pack:+l.pack||det.pack||null, note:l.note||'', committed:l.committed||$('e_prom').value, ordered:+l.qty, printPrice:+l.price||0, produced:0,packed:0,dispatched:0,delivered:0};}) };
+    lines:lines.map((l,j)=>{const det=detailForBrand(l.brand);return {id:id+'L'+j, brand:l.brand, base:det.base||l.brand, pack:+l.pack||det.pack||null, note:l.note||'', committed:l.committed||$('e_prom').value, ordered:+l.qty, printPrice:+l.price||0, invoicePrice:+l.inv||0, produced:0,packed:0,dispatched:0,delivered:0};}) };
   ord.totalOrdered=ord.lines.reduce((a,l)=>a+l.ordered,0);
   ord.rmDecision='pending';
   state.orders.unshift(ord);
@@ -2552,6 +2556,7 @@ function screenAdmin(){
        ${ed?`<div style="display:flex;gap:8px"><input type="text" id="adm_${k}" placeholder="add value…" style="flex:1"><button class="sm" onclick="addMaster('${k}')">Add</button></div>`:''}</div>`;}).join('')}
    </div>
    ${labTplCard(canEdit(['Lab Rep','AQCM','QCM']))}
+   ${(state.role==='COO'||state.role==='CFO')?salesTargetCard():''}
    ${accessMatrixCard()}`;
 }
 function accessMatrixCard(){ const isCOO=state.role==='COO';
@@ -2572,6 +2577,21 @@ function amxToggle(role,id,kind){ if(state.role!=='COO'){toast('COO only');retur
   if(cell.v===undefined&&cell.e===undefined) delete m[role][id];
   logAction(`Access matrix: ${kind==='v'?'VIEW':'EDIT'} ${blocked?'BLOCKED':'restored'} — ${role} on ${id}`);
   save(); render(); }
+function pkr(n){ return 'PKR '+Math.round(+n||0).toLocaleString(); }
+function budgetClients(){ const set=new Set(); (state.orders||[]).forEach(o=>set.add(o.client)); try{ Object.keys((SEED&&SEED.catalog&&SEED.catalog.brandsByClient)||{}).forEach(k=>{ if(k!=='Dealers') set.add(k); }); }catch(e){} Object.keys((state.masters&&state.masters.salesTargets)||{}).forEach(c=>set.add(c)); return [...set].filter(Boolean).sort(); }
+let stForm={client:'',amt:''};
+function salesTargetSet(){ if(!(state.role==='COO'||state.role==='CFO')){toast('COO / CFO only');return;} const c=stForm.client; const a=+stForm.amt||0; if(!c){toast('Pick a client');return;} const fy=fyKey(TODAY.toISOString().slice(0,10)); state.masters.salesTargets=state.masters.salesTargets||{}; state.masters.salesTargets[c]=state.masters.salesTargets[c]||{}; if(a>0) state.masters.salesTargets[c][fy]=a; else delete state.masters.salesTargets[c][fy]; logAction(`Sales target ${a>0?('set '+pkr(a)):'cleared'} for ${c} (FY ${fy})`); stForm={client:'',amt:''}; save(); render(); }
+function salesTargetCard(){ const fy=fyKey(TODAY.toISOString().slice(0,10)); const t=(state.masters&&state.masters.salesTargets)||{}; const cls=budgetClients();
+  const have=cls.filter(c=>t[c]&&+t[c][fy]>0);
+  return `<div class="card" style="margin-top:14px"><h3>Client annual sales targets <span class="hint">FY ${fy} · COO/CFO</span></h3>
+    <div class="muted" style="font-size:12px;margin-bottom:10px">Set each client's annual target (PKR) for the current financial year (Jul–Jun). Drives the <b>Sales & Budget</b> screen. Hidden from operational roles.</div>
+    <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:12px">
+      <div class="fld" style="min-width:240px"><label>Client</label><select onchange="stForm.client=this.value"><option value="">— pick client —</option>${cls.map(c=>`<option ${c===stForm.client?'selected':''}>${c}</option>`).join('')}</select></div>
+      <div class="fld" style="min-width:160px"><label>Annual target (PKR)</label><input type="number" value="${stForm.amt}" oninput="stForm.amt=this.value" placeholder="e.g. 50000000"></div>
+      <button class="sm" onclick="salesTargetSet()">Set target</button>
+    </div>
+    ${have.length?`<div style="overflow:auto"><table><thead><tr><th>Client</th><th class="num">Annual target</th><th></th></tr></thead><tbody>${have.map(c=>`<tr><td>${c}</td><td class="num"><b>${pkr(t[c][fy])}</b></td><td><button class="sm ghost" onclick="stForm={client:'${c.replace(/'/g,"\\'")}',amt:'${t[c][fy]}'};render()">Edit</button></td></tr>`).join('')}</tbody></table></div>`:'<div class="muted">No targets set yet.</div>'}
+  </div>`; }
 let labTplForm={product:''};
 function labTpls(){ return (state.masters&&state.masters.labTemplates)||{}; }
 function labTplPick(p){ labTplForm.product=p; render(); }
@@ -2642,6 +2662,38 @@ function rpFilterBar(){
 function rpEmpty(msg){ return `<div class="empty"><div class="ei">∅</div>${msg}</div>`; }
 function rpTabsBar(){ return `<div class="seg" style="flex-wrap:wrap;gap:6px;margin-bottom:14px">${RP_TABS.map(([id,nm])=>`<div class="opt ${id===rpTab?'on full':''}" style="flex:0 0 auto;padding:8px 14px;font-size:12.5px" onclick="rpTab='${id}';screenReports()">${nm}</div>`).join('')}</div>`; }
 
+function screenBudget(){
+  if(!(state.role==='COO'||state.role==='CFO')){ $('view').innerHTML='<div class="banner warn">Sales &amp; Budget is restricted to <b>COO and CFO</b>.</div>'; return; }
+  const fy=fyKey(TODAY.toISOString().slice(0,10)); const targets=(state.masters&&state.masters.salesTargets)||{};
+  const rows={};
+  (state.orders||[]).forEach(o=>{ const c=o.client||'—'; rows[c]=rows[c]||{booked:0,delivered:0,delKg:0}; (o.lines||[]).forEach(l=>{ const pr=+l.invoicePrice||0; rows[c].booked+=(+l.ordered||0)*pr; rows[c].delivered+=(+l.delivered||0)*pr; rows[c].deliveredKg=(rows[c].deliveredKg||0)+(+l.delivered||0); }); });
+  Object.keys(targets).forEach(c=>{ if(!rows[c]) rows[c]={booked:0,delivered:0}; });
+  const clients=Object.keys(rows).sort((a,b)=>rows[b].delivered-rows[a].delivered);
+  let totT=0,totD=0,totB=0;
+  clients.forEach(c=>{ totT+=(targets[c]&&+targets[c][fy])||0; totD+=rows[c].delivered; totB+=rows[c].booked; });
+  const pctAll=totT>0?Math.round(totD/totT*100):0;
+  const noPrice=(state.orders||[]).some(o=>(o.lines||[]).some(l=>!(+l.invoicePrice>0)&&(+l.ordered>0)));
+  const bar=(p)=>`<div style="background:#eef1f6;border-radius:6px;height:8px;overflow:hidden;min-width:90px"><div style="height:8px;width:${Math.min(100,p)}%;background:${p>=100?'var(--green2)':p>=60?'var(--navy)':'var(--amber)'}"></div></div>`;
+  const crow=(c)=>{ const t=(targets[c]&&+targets[c][fy])||0; const d=rows[c].delivered, b=rows[c].booked; const p=t>0?Math.round(d/t*100):0; const gap=Math.max(0,t-d);
+    return `<tr><td><b>${c}</b></td><td class="num">${t>0?pkr(t):'<span class="muted">—</span>'}</td><td class="num"><b>${pkr(d)}</b></td><td class="num muted">${pkr(b)}</td><td>${t>0?`<div style="display:flex;gap:8px;align-items:center">${bar(p)}<span style="font-size:11px;font-weight:700;color:${p>=100?'var(--green2)':p>=60?'var(--navy)':'var(--amber)'}">${p}%</span></div>`:'<span class="muted" style="font-size:11px">no target</span>'}</td><td class="num">${t>0?pkr(gap):'—'}</td></tr>`; };
+  // product mix by delivered value
+  const pm={}; (state.orders||[]).forEach(o=>(o.lines||[]).forEach(l=>{ const v=(+l.delivered||0)*(+l.invoicePrice||0); if(v>0){ pm[l.brand]=(pm[l.brand]||0)+v; } }));
+  const pmRows=Object.entries(pm).sort((a,b)=>b[1]-a[1]).slice(0,15);
+  $('view').innerHTML=`
+   <div class="banner info"><b>Sales &amp; Budget · COO / CFO only.</b> Achievement = <b>delivered</b> value (delivered Kg/L × VAN invoice price). Targets are per client for <b>FY ${fy}</b> (set in Admin · Master Data). Booked = ordered pipeline value.</div>
+   ${noPrice?'<div class="banner warn">Some PO lines have <b>no invoice price</b> yet — their value is counted as 0. Set invoice prices on New PO Entry (new POs) or via Data Fix (imported POs).</div>':''}
+   <div class="kpis" style="grid-template-columns:repeat(4,1fr)">
+     <div class="kpi"><div class="l">Total target (FY ${fy})</div><div class="v">${pkr(totT)}</div></div>
+     <div class="kpi"><div class="l">Delivered (achieved)</div><div class="v" style="color:var(--green2)">${pkr(totD)}</div><div class="d">${pctAll}% of target</div></div>
+     <div class="kpi"><div class="l">Booked (pipeline)</div><div class="v">${pkr(totB)}</div></div>
+     <div class="kpi"><div class="l">Gap to target</div><div class="v" style="color:${totT-totD>0?'var(--amber)':'var(--green2)'}">${pkr(Math.max(0,totT-totD))}</div></div>
+   </div>
+   <div class="card"><h3>By client <span class="hint">${clients.length}</span></h3>
+     <div style="overflow:auto"><table><thead><tr><th>Client</th><th class="num">Target</th><th class="num">Delivered</th><th class="num">Booked</th><th>Attainment</th><th class="num">Gap</th></tr></thead>
+     <tbody>${clients.map(crow).join('')}<tr style="border-top:2px solid var(--line)"><td><b>TOTAL</b></td><td class="num"><b>${pkr(totT)}</b></td><td class="num"><b>${pkr(totD)}</b></td><td class="num">${pkr(totB)}</td><td><b>${pctAll}%</b></td><td class="num"><b>${pkr(Math.max(0,totT-totD))}</b></td></tr></tbody></table></div></div>
+   <div class="card"><h3>Top products by delivered value <span class="hint">FY to date</span></h3>
+     ${pmRows.length?`<div style="overflow:auto"><table><thead><tr><th>Product</th><th class="num">Delivered value</th></tr></thead><tbody>${pmRows.map(([b,v])=>`<tr><td>${b}</td><td class="num"><b>${pkr(v)}</b></td></tr>`).join('')}</tbody></table></div>`:'<div class="muted">No delivered value yet — appears once deliveries are recorded against priced lines.</div>'}</div>`;
+}
 function screenReports(){
   let body='';
   if(rpTab==='explorer') body=rpExplorer();

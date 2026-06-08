@@ -784,6 +784,16 @@ function render(){
   ({dash:screenDash,approvals:screenApprovals,entry:screenEntry,tracker:screenTracker,prod:screenProd,qc:screenQC,monthly:screenMonthly,ship:screenShip,reports:screenReports,budget:screenBudget,dealers:screenDealers,instructions:screenInstructions,admin:screenAdmin,datafix:screenDataFix,users:screenUsers,log:screenLog}[state.screen])();
 }
 /* ===================== LOCK 4: DATA FIX (reconciliation console — safety frame) ===================== */
+function typeNameToConfirm(actionText){
+  if(typeof confirm!=='function') return false;
+  if(!confirm('⚠ Are you sure you want to:\n\n'+actionText+'\n\nThis is a sensitive action and will be logged.')) return false;
+  const me=((state.currentUser&&state.currentUser.name)||state.role||'').trim();
+  const typed=((typeof prompt==='function'?prompt('To confirm, TYPE YOUR NAME exactly'+(me?(' ('+me+')'):'')+':'):'')||'').trim();
+  if(!typed){ toast('Cancelled — name is required'); return false; }
+  if(me && typed.toLowerCase()!==me.toLowerCase()){ toast('Name does not match the signed-in user — cancelled.'); return false; }
+  if(typeof logAction==='function') logAction('CONFIRMED (name-typed): '+actionText);
+  return true;
+}
 function reconLog(msg, eventDate){ logAction(`RECONCILE: ${msg}${eventDate?` [event ${eventDate}]`:''}`); }
 function toggleDataFix(){
   if(state.role!=='COO'){ toast('Only COO can change this'); return; }
@@ -800,6 +810,7 @@ function importGoLivePOs(){
   if(!fresh.length){ toast('All '+data.length+' opening POs already exist — nothing to import.'); return; }
   const totLines=fresh.reduce((a,p)=>a+p.lines.length,0);
   if(typeof confirm==='function' && !confirm('Import '+fresh.length+' opening PO(s) — '+totLines+' product line(s)?\n\n'+(skip?('('+skip+' already exist and will be skipped)\n\n'):'')+'· Received 2026-06-01 · Promised 2026-06-30 (editable)\n· Print price blank (set later; packing verifies)\n· Logged as RECONCILE import.\n\nProceed?')) return;
+  if(!typeNameToConfirm('IMPORT '+fresh.length+' opening PO(s) into the live system')) return;
   const recv='2026-06-01', prom='2026-06-30'; let n=0;
   fresh.forEach(p=>{ const id='O'+((state.orders||[]).length+1)+'_'+(state.seq++);
     const ch=p.channel||'White Label';
@@ -814,6 +825,7 @@ function importGoLivePOs(){
 function dfFreshStart(){
   if(state.role!=='COO'){ toast('COO only'); return; }
   if(typeof confirm!=='function') return;
+  if(!typeNameToConfirm('FRESH START — permanently clear ALL operational data (POs, production, QC, shipments, stock, logs)')) return;
   if(!confirm('FRESH START — permanently clear ALL operational data:\n\n- every PO / order\n- production, packing, batches, shift entries\n- QC results, shipments\n- RM requests/movements, packed & raw stock\n- audit + action log\n\nKEPT: users & passwords, master data, dealers/clients, products/brands/bases, settings.\n\nDownload a snapshot FIRST if you have not. Continue?')) return;
   if(!confirm('Final confirmation. This cannot be undone except by restoring a snapshot.\n\nClear all operational data and start from zero now?')) return;
   state.orders=[]; state.productionLog=[]; state.packingLog=[]; state.batches=[]; state.shiftEntries=[]; state.shipments=[]; state.rmRequests=[]; state.rmMovements=[]; state.audit=[]; state.packedStock={}; state.rawStock={}; state.prs=[]; state.expanded={}; state.seq=1000;
@@ -1601,7 +1613,7 @@ function voidProdEntry(i){
   if(state.role!=='COO'){ toast('Only COO can remove entries'); return; }
   const p=state.productionLog[i]; if(!p) return;
   const desc=`${p.date} · ${p.brand?p.brand+' ':''}${p.base||''}${p.po?(' · '+p.po):''} · ${fmt(p.kg)} Kg/L`;
-  if(typeof confirm==='function' && !confirm('Remove this production entry?\n\n'+desc+'\n\nThis reverses the produced quantity. It cannot be undone here.')) return;
+  if(!typeNameToConfirm('Remove production entry — '+desc+' (reverses produced qty)')) return;
   if(p.po){
     const o=state.orders.find(x=>x.po===p.po);
     const l=o && (o.lines.find(x=>x.brand===p.brand) || o.lines.find(x=>x.base===p.base) || o.lines[0]);
@@ -2614,8 +2626,8 @@ function labTplPick(p){ labTplForm.product=p; render(); }
 function labTplNewProduct(){ if(!canEdit(['Lab Rep','AQCM','QCM'])){toast('Lab / QC only');return;} const n=(typeof prompt==='function'?prompt('New product / item name (exactly as the base or brand is named):'):'')||''; const nm=n.trim(); if(!nm)return; state.masters.labTemplates=labTpls(); if(!state.masters.labTemplates[nm])state.masters.labTemplates[nm]=[]; labTplForm.product=nm; save(); render(); }
 function labTplAddRow(g){ if(!canEdit(['Lab Rep','AQCM','QCM'])){toast('Lab / QC only');return;} const p=labTplForm.product; if(!p)return; const t=labTpls(); t[p]=t[p]||[]; t[p].push({g:g||'Chemical',test:'',spec:'',method:'',mu:'-'}); state.masters.labTemplates=t; save(); render(); }
 function labTplSet(idx,field,v){ const p=labTplForm.product; const t=labTpls(); if(!t[p]||!t[p][idx])return; t[p][idx][field]=v; save(); }
-function labTplDelRow(idx){ if(!canEdit(['Lab Rep','AQCM','QCM'])){toast('Lab / QC only');return;} const p=labTplForm.product; const t=labTpls(); if(!t[p])return; t[p].splice(idx,1); save(); render(); }
-function labTplDelProduct(){ if(!canEdit(['Lab Rep','AQCM','QCM'])){toast('Lab / QC only');return;} const p=labTplForm.product; if(!p)return; if(typeof confirm==='function'&&!confirm('Delete the entire lab template for '+p+'?'))return; const t=labTpls(); delete t[p]; state.masters.labTemplates=t; labTplForm.product=''; save(); render(); }
+function labTplDelRow(idx){ if(!canEdit(['Lab Rep','AQCM','QCM'])){toast('Lab / QC only');return;} const p=labTplForm.product; const t=labTpls(); if(!t[p]||!t[p][idx])return; if(typeof confirm==='function'&&!confirm('Remove test row "'+(t[p][idx].test||'')+'"?'))return; t[p].splice(idx,1); save(); render(); }
+function labTplDelProduct(){ if(!canEdit(['Lab Rep','AQCM','QCM'])){toast('Lab / QC only');return;} const p=labTplForm.product; if(!p)return; if(!typeNameToConfirm('Delete the ENTIRE lab test template for '+p))return; const t=labTpls(); delete t[p]; state.masters.labTemplates=t; labTplForm.product=''; save(); render(); }
 function labTplEsc(x){ return String(x==null?'':x).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
 function labTplCard(ed){
   const t=labTpls(); const prods=Object.keys(t).sort(); const p=labTplForm.product; const rows=(p&&t[p])||[];
@@ -2643,7 +2655,7 @@ function addMaster(k){ const el=$('adm_'+k); const v=(el&&el.value||'').trim(); 
   state.masters[k]=state.masters[k]||[]; if(state.masters[k].includes(v)){toast('Already exists');return;}
   state.masters[k].push(v); logAction(`Admin added to ${k}: ${v}`); save(); toast('Added'); render(); }
 function delMaster(k,idx){ if(state.role!=='COO'){toast('COO only');return;} const arr=(state.masters&&state.masters[k])||[]; const v=arr[idx]; if(v==null)return;
-  if(typeof confirm==='function' && !confirm('Delete "'+v+'" from this list?\n\nIt stops appearing in dropdowns. Existing records that already use it keep their value.')) return;
+  if(!typeNameToConfirm('Delete "'+v+'" from the '+k+' master list')) return;
   arr.splice(idx,1); logAction(`Admin removed from ${k}: ${v}`); save(); toast('Deleted'); render(); }
 function editMaster(k,idx){ if(state.role!=='COO'){toast('COO only');return;} const arr=(state.masters&&state.masters[k])||[]; const old=arr[idx]; if(old==null)return;
   const nv=(typeof prompt==='function'?prompt('Rename value:',old):old); if(nv==null)return; const v=String(nv).trim();

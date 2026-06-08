@@ -336,8 +336,40 @@ td.skufirst{padding-left:10px;box-shadow:inset 3px 0 0 var(--navy)}
 #coaFS .signs .subr{font-size:10px;color:#667085}
 #coaFS .signs .dt{font-size:10.5px;margin-top:4px}
 #coaFS .endrep{text-align:center;font-weight:700;font-size:11px;margin-top:12px;letter-spacing:1px}
+
+/* ===== Mobile / responsive layer ===== */
+.navbackdrop{display:none;position:fixed;inset:0;background:rgba(17,30,66,.45);z-index:39}
+.app.nav-open .navbackdrop{display:block}
+@media(max-width:820px){
+  .side{position:fixed;left:0;top:0;height:100vh;width:82vw;max-width:300px;z-index:40;transform:translateX(-100%);transition:transform .22s ease;box-shadow:0 0 30px rgba(0,0,0,.25)}
+  .app.nav-open .side{transform:none}
+  .app.nav-collapsed .side{display:flex}
+  .main{width:100%;min-width:0}
+  .topbar{padding:8px 12px;gap:10px}
+  .topbar h2{font-size:16px}
+  .content,.view{padding:12px !important}
+  .navtoggle{display:inline-flex;align-items:center;justify-content:center}
+  .kpis,.fgrid,.formgrid,.attngrid,.dgrid{grid-template-columns:1fr !important}
+  .row{flex-direction:column}
+  .card{min-width:0 !important}
+  table{font-size:12px}
+  /* iOS: >=16px stops focus auto-zoom */
+  input,select,textarea{font-size:16px !important}
+  .modal{width:96vw;max-width:96vw;border-radius:14px}
+  .mb,.mh,.mf{padding-left:16px;padding-right:16px}
+  #coaFS .sheet{padding:14px 12px}
+  #coaFS .cofbar{padding:9px 12px}
+  #coaFS .rpt-head{flex-wrap:wrap}
+  #coaFS .rpt-head .cell{flex:1 1 50%}
+  .rolebox .nm-detail{display:none}
+}
+@media(max-width:480px){
+  .topbar h2{font-size:15px}
+  .sub{font-size:11px}
+}
 </style></head><body>
 <div class="app" id="appShell">
+  <div class="navbackdrop" onclick="closeMobileNav()"></div>
   <aside class="side">
     <div class="brand">
       <div class="logo">
@@ -734,8 +766,10 @@ function renderNav(){
     : '';
 }
 function setRole(r){ state.role=r; save(); render(); }
-function setScreen(id){ if(!canView(state.role,id)){toast('Access to this screen is disabled by the COO');return;} if(id!=='tracker') state.expanded={}; state.screen=id; save(); render(); }
-function toggleSide(){ const a=document.querySelector('.app'); if(a) a.classList.toggle('nav-collapsed'); }
+function setScreen(id){ if(!canView(state.role,id)){toast('Access to this screen is disabled by the COO');return;} if(id!=='tracker') state.expanded={}; state.screen=id; closeMobileNav(); save(); render(); }
+function isMobile(){ return window.matchMedia&&window.matchMedia('(max-width:820px)').matches; }
+function toggleSide(){ const a=document.querySelector('.app'); if(!a)return; if(isMobile()) a.classList.toggle('nav-open'); else a.classList.toggle('nav-collapsed'); }
+function closeMobileNav(){ const a=document.querySelector('.app'); if(a) a.classList.remove('nav-open'); }
 function render(){
   if(scr(state.screen)&&!canView(state.role,state.screen)) state.screen='dash';
   if(!scr(state.screen)) state.screen='dash';

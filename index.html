@@ -2592,7 +2592,9 @@ function amxToggle(role,id,kind){ if(state.role!=='COO'){toast('COO only');retur
   save(); render(); }
 function pkr(n){ return 'PKR '+Math.round(+n||0).toLocaleString(); }
 function fyRange(fy){ const a=parseInt(String(fy).slice(0,4),10); if(isNaN(a))return fy; return 'FY '+fy+' (1 Jul '+a+' – 30 Jun '+(a+1)+')'; }
-function budgetClients(){ const set=new Set(); (state.orders||[]).forEach(o=>set.add(o.client)); try{ Object.keys((SEED&&SEED.catalog&&SEED.catalog.brandsByClient)||{}).forEach(k=>{ if(k!=='Dealers') set.add(k); }); }catch(e){} Object.keys((state.masters&&state.masters.salesTargets)||{}).forEach(c=>set.add(c)); return [...set].filter(Boolean).sort(); }
+function isDealerClient(o){ return (o&&(o.channel==='Dealer'))||/^DLR/i.test(String((o&&o.client)||'')); }
+function budgetKey(o){ return isDealerClient(o)?'Dealers':(o.client||'—'); }
+function budgetClients(){ const set=new Set(); (state.orders||[]).forEach(o=>set.add(budgetKey(o))); try{ Object.keys((SEED&&SEED.catalog&&SEED.catalog.brandsByClient)||{}).forEach(k=>set.add(k==='Dealers'?'Dealers':k)); }catch(e){} Object.keys((state.masters&&state.masters.salesTargets)||{}).forEach(c=>set.add(c)); return [...set].filter(Boolean).sort(); }
 let stForm={client:'',amt:''};
 let bulkPrice={};
 function openBulkPricing(){ if(!(state.role==='COO'||state.role==='CFO')){toast('COO / CFO only');return;} bulkPrice={}; renderBulkPricing(); $('modalBg').classList.add('open'); }
@@ -2695,7 +2697,7 @@ function screenBudget(){
   if(!(state.role==='COO'||state.role==='CFO')){ $('view').innerHTML='<div class="banner warn">Sales &amp; Budget is restricted to <b>COO and CFO</b>.</div>'; return; }
   const fy=fyKey(TODAY.toISOString().slice(0,10)); const targets=(state.masters&&state.masters.salesTargets)||{};
   const rows={};
-  (state.orders||[]).forEach(o=>{ const c=o.client||'—'; rows[c]=rows[c]||{booked:0,delivered:0,delKg:0}; (o.lines||[]).forEach(l=>{ const pr=+l.invoicePrice||0; rows[c].booked+=(+l.ordered||0)*pr; rows[c].delivered+=(+l.delivered||0)*pr; rows[c].deliveredKg=(rows[c].deliveredKg||0)+(+l.delivered||0); }); });
+  const dealerKids=new Set(); (state.orders||[]).forEach(o=>{ const c=budgetKey(o); if(isDealerClient(o)&&o.client) dealerKids.add(o.client); rows[c]=rows[c]||{booked:0,delivered:0,delKg:0}; (o.lines||[]).forEach(l=>{ const pr=+l.invoicePrice||0; rows[c].booked+=(+l.ordered||0)*pr; rows[c].delivered+=(+l.delivered||0)*pr; rows[c].deliveredKg=(rows[c].deliveredKg||0)+(+l.delivered||0); }); });
   Object.keys(targets).forEach(c=>{ if(!rows[c]) rows[c]={booked:0,delivered:0}; });
   const clients=Object.keys(rows).sort((a,b)=>rows[b].delivered-rows[a].delivered);
   let totT=0,totD=0,totB=0;
@@ -2704,7 +2706,7 @@ function screenBudget(){
   const noPrice=(state.orders||[]).some(o=>(o.lines||[]).some(l=>!(+l.invoicePrice>0)&&(+l.ordered>0)));
   const bar=(p)=>`<div style="background:#eef1f6;border-radius:6px;height:8px;overflow:hidden;min-width:90px"><div style="height:8px;width:${Math.min(100,p)}%;background:${p>=100?'var(--green2)':p>=60?'var(--navy)':'var(--amber)'}"></div></div>`;
   const crow=(c)=>{ const t=(targets[c]&&+targets[c][fy])||0; const d=rows[c].delivered, b=rows[c].booked; const p=t>0?Math.round(d/t*100):0; const gap=Math.max(0,t-d);
-    return `<tr><td><b>${c}</b></td><td class="num">${t>0?pkr(t):'<span class="muted">—</span>'}</td><td class="num"><b>${pkr(d)}</b></td><td class="num muted">${pkr(b)}</td><td>${t>0?`<div style="display:flex;gap:8px;align-items:center">${bar(p)}<span style="font-size:11px;font-weight:700;color:${p>=100?'var(--green2)':p>=60?'var(--navy)':'var(--amber)'}">${p}%</span></div>`:'<span class="muted" style="font-size:11px">no target</span>'}</td><td class="num">${t>0?pkr(gap):'—'}</td></tr>`; };
+    return `<tr><td><b>${c}</b>${c==='Dealers'?`<div class="muted" style="font-size:11px">${dealerKids.size} sub-dealer(s) rolled up</div>`:''}</td><td class="num">${t>0?pkr(t):'<span class="muted">—</span>'}</td><td class="num"><b>${pkr(d)}</b></td><td class="num muted">${pkr(b)}</td><td>${t>0?`<div style="display:flex;gap:8px;align-items:center">${bar(p)}<span style="font-size:11px;font-weight:700;color:${p>=100?'var(--green2)':p>=60?'var(--navy)':'var(--amber)'}">${p}%</span></div>`:'<span class="muted" style="font-size:11px">no target</span>'}</td><td class="num">${t>0?pkr(gap):'—'}</td></tr>`; };
   // product mix by delivered value
   const pm={}; (state.orders||[]).forEach(o=>(o.lines||[]).forEach(l=>{ const v=(+l.delivered||0)*(+l.invoicePrice||0); if(v>0){ pm[l.brand]=(pm[l.brand]||0)+v; } }));
   const pmRows=Object.entries(pm).sort((a,b)=>b[1]-a[1]).slice(0,15);

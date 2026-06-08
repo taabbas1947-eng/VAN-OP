@@ -1481,7 +1481,7 @@ function rmAddLine(){ rmForm.lines.push({rm:'',kg:''}); renderRMModal(); }
 function rmDelLine(i){ rmForm.lines.splice(i,1); renderRMModal(); }
 function rmPrefill(){ const o=state.orders.find(x=>x.id===rmForm.oid);const l=o.lines.find(x=>x.id===rmForm.lid); const p=recipePrefill(o,l); if(p.length) rmForm.lines=p; renderRMModal(); }
 function renderRMModal(){ const o=state.orders.find(x=>x.id===rmForm.oid); const l=o.lines.find(x=>x.id===rmForm.lid);
-  const rms=[...new Set([...(((typeof SEED!=='undefined'&&SEED.rawMaterials)||[]).map(r=>r.name)), ...Object.keys(state.rawStock||{})])].sort();
+  const rms=[...new Set([...(((typeof SEED!=='undefined'&&SEED.rawMaterials)||[]).map(r=>r.name)), ...Object.keys(state.rawStock||{}), ...((rmForm.lines||[]).map(x=>x.rm).filter(Boolean))])].sort();
   const hasRecipe=(()=>{const r=SEED.baseRecipes[l.base];return r&&!Object.keys(r)[0].startsWith('(');})();
   const seg=`<div class="seg">
     <div class="opt full ${rmForm.status==='full'?'on':''}" onclick="rmSetStatus('full')"><span class="em">✅</span>In stock<span style="display:block;font-weight:500;font-size:10.5px">make full order</span></div>
@@ -1491,6 +1491,7 @@ function renderRMModal(){ const o=state.orders.find(x=>x.id===rmForm.oid); const
   if(rmForm.status==='partial') body+=`<div class="fld" style="margin:14px 0"><label>How much can you make now? (Kg/L of ${l.brand})</label><input type="number" value="${rmForm.canMake}" oninput="rmForm.canMake=this.value" placeholder="Kg/L" style="max-width:240px"></div>`;
   if(rmForm.status==='partial'||rmForm.status==='short'){
     body+=`<div style="display:flex;align-items:center;margin:14px 0 9px"><b style="font-size:12.5px;color:var(--navy)">Purchase Requisition — raw materials required</b>${hasRecipe?`<button class="ghost sm" style="margin-left:auto" onclick="rmPrefill()">↺ Pre-fill from recipe</button>`:''}</div>`;
+    body+=(rms.length?'':`<div class="banner warn" style="margin:6px 0">No raw materials are loaded in the master list. Pick from the recipe values below, or add raw materials in Admin · Master Data.</div>`);
     body+=rmForm.lines.map((ln,i)=>`<div class="prline"><select onchange="rmForm.lines[${i}].rm=this.value;renderRMModal()"><option value="">— raw material —</option>${rms.map(r=>`<option ${r===ln.rm?'selected':''}>${r}</option>`).join('')}</select><span class="rmstk">${ln.rm?('have '+fmt(state.rawStock[ln.rm]||0)):''}</span><input type="number" value="${ln.kg}" placeholder="Kg/L req" oninput="rmForm.lines[${i}].kg=this.value"><span class="x" onclick="rmDelLine(${i})">✕</span></div>`).join('');
     body+=`<button class="ghost sm" style="margin-top:4px" onclick="rmAddLine()">+ Add raw material</button>`;
   }

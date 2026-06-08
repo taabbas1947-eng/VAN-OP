@@ -844,7 +844,7 @@ function screenDataFix(){
      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
        <div>Status: <b style="color:${on?'var(--green2)':'var(--mut)'}">${on?'ON — corrections enabled':'OFF'}</b></div>
        ${toggle}
-       <button class="sm" onclick="exportStateJSON()">⬇ Download data snapshot (JSON)</button>${isCOO?`<button class="sm" style="background:var(--navy);color:#fff;border-color:var(--navy)" onclick="importGoLivePOs()">⬆ Import opening POs (go-live)</button> <button class="sm" style="background:var(--red);color:#fff;border-color:var(--red)" onclick="dfFreshStart()">⚠ Fresh start — clear all operational data</button>`:``}
+       <button class="sm" onclick="exportStateJSON()">⬇ Download data snapshot (JSON)</button>${isCOO?`<button class="sm" style="background:var(--navy);color:#fff;border-color:var(--navy)" onclick="importGoLivePOs()">⬆ Import opening POs (go-live)</button> ${(state.role==='COO'||state.role==='CFO')?`<button class="sm" onclick="openBulkPricing()">💲 Set all invoice prices</button>`:``} <button class="sm" style="background:var(--red);color:#fff;border-color:var(--red)" onclick="dfFreshStart()">⚠ Fresh start — clear all operational data</button>`:``}
      </div>
      <div class="muted" style="font-size:11px;margin-top:10px">Always download a snapshot before a reconciliation session — it's your restore point. The snapshot is read-only and changes nothing.</div>
    </div>${ops}`;
@@ -2578,12 +2578,28 @@ function amxToggle(role,id,kind){ if(state.role!=='COO'){toast('COO only');retur
   logAction(`Access matrix: ${kind==='v'?'VIEW':'EDIT'} ${blocked?'BLOCKED':'restored'} — ${role} on ${id}`);
   save(); render(); }
 function pkr(n){ return 'PKR '+Math.round(+n||0).toLocaleString(); }
+function fyRange(fy){ const a=parseInt(String(fy).slice(0,4),10); if(isNaN(a))return fy; return 'FY '+fy+' (1 Jul '+a+' – 30 Jun '+(a+1)+')'; }
 function budgetClients(){ const set=new Set(); (state.orders||[]).forEach(o=>set.add(o.client)); try{ Object.keys((SEED&&SEED.catalog&&SEED.catalog.brandsByClient)||{}).forEach(k=>{ if(k!=='Dealers') set.add(k); }); }catch(e){} Object.keys((state.masters&&state.masters.salesTargets)||{}).forEach(c=>set.add(c)); return [...set].filter(Boolean).sort(); }
 let stForm={client:'',amt:''};
+let bulkPrice={};
+function openBulkPricing(){ if(!(state.role==='COO'||state.role==='CFO')){toast('COO / CFO only');return;} bulkPrice={}; renderBulkPricing(); $('modalBg').classList.add('open'); }
+function renderBulkPricing(){
+  const rows=[]; (state.orders||[]).forEach(o=>{ const open=(stageOf?stageOf(o):'')!=='Delivered'; (o.lines||[]).forEach(l=>{ if((+l.ordered||0)>0) rows.push({o,l}); }); });
+  const missing=rows.filter(r=>!(+r.l.invoicePrice>0)).length;
+  const body=rows.map(({o,l})=>{ const cur=(bulkPrice[l.id]!==undefined)?bulkPrice[l.id]:(l.invoicePrice||''); const has=(+cur>0); return `<tr><td><b>${o.po}</b></td><td class="muted" style="font-size:11px">${o.client}</td><td>${l.brand}</td><td class="num">${fmt(l.ordered||0)}</td><td><input type="number" value="${cur}" oninput="bulkPrice['${l.id}']=this.value" style="width:120px${has?'':';background:#fff7ed'}" placeholder="PKR/Kg·L"></td><td class="num muted">${has?pkr((+l.ordered||0)*(+cur)):'—'}</td></tr>`; }).join('');
+  $('modal').innerHTML=`<div class="mh"><h2>Set VAN invoice prices — all open PO lines</h2><div class="sub">${rows.length} line(s) · ${missing} without a price · price = PKR per Kg/L (drives Sales &amp; Budget)</div></div>
+   <div class="mb"><div class="muted" style="font-size:12px;margin-bottom:8px">Fill the invoice price (what's on the client PO) for each product line, then Save. Blanks are highlighted. Lines already priced are pre-filled — edit if needed.</div>
+     <div style="max-height:58vh;overflow:auto"><table><thead><tr><th>PO</th><th>Client</th><th>Product</th><th class="num">Ordered</th><th>Invoice price</th><th class="num">Line value</th></tr></thead><tbody>${body||'<tr><td colspan="6" class="muted">No open PO lines.</td></tr>'}</tbody></table></div>
+   </div>
+   <div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" onclick="saveBulkPricing()">Save all prices</button></div>`; }
+function saveBulkPricing(){ if(!(state.role==='COO'||state.role==='CFO')){toast('COO / CFO only');return;} let n=0;
+  (state.orders||[]).forEach(o=>(o.lines||[]).forEach(l=>{ if(bulkPrice[l.id]!==undefined){ const nv=+bulkPrice[l.id]||0; const old=+l.invoicePrice||0; if(Math.abs(nv-old)>0.001){ l.invoicePrice=nv; reconLog(`CORRECT ${o.po} · ${l.brand} Invoice price: ${old} → ${nv}`); n++; } } }));
+  if(!n){ toast('No price changes'); return; }
+  save(); closeModal(); render(); toast(n+' invoice price(s) saved'); }
 function salesTargetSet(){ if(!(state.role==='COO'||state.role==='CFO')){toast('COO / CFO only');return;} const c=stForm.client; const a=+stForm.amt||0; if(!c){toast('Pick a client');return;} const fy=fyKey(TODAY.toISOString().slice(0,10)); state.masters.salesTargets=state.masters.salesTargets||{}; state.masters.salesTargets[c]=state.masters.salesTargets[c]||{}; if(a>0) state.masters.salesTargets[c][fy]=a; else delete state.masters.salesTargets[c][fy]; logAction(`Sales target ${a>0?('set '+pkr(a)):'cleared'} for ${c} (FY ${fy})`); stForm={client:'',amt:''}; save(); render(); }
 function salesTargetCard(){ const fy=fyKey(TODAY.toISOString().slice(0,10)); const t=(state.masters&&state.masters.salesTargets)||{}; const cls=budgetClients();
   const have=cls.filter(c=>t[c]&&+t[c][fy]>0);
-  return `<div class="card" style="margin-top:14px"><h3>Client annual sales targets <span class="hint">FY ${fy} · COO/CFO</span></h3>
+  return `<div class="card" style="margin-top:14px"><h3>Client annual sales targets <span class="hint">${fyRange(fy)} · COO/CFO</span></h3>
     <div class="muted" style="font-size:12px;margin-bottom:10px">Set each client's annual target (PKR) for the current financial year (Jul–Jun). Drives the <b>Sales & Budget</b> screen. Hidden from operational roles.</div>
     <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:12px">
       <div class="fld" style="min-width:240px"><label>Client</label><select onchange="stForm.client=this.value"><option value="">— pick client —</option>${cls.map(c=>`<option ${c===stForm.client?'selected':''}>${c}</option>`).join('')}</select></div>
@@ -2680,17 +2696,17 @@ function screenBudget(){
   const pm={}; (state.orders||[]).forEach(o=>(o.lines||[]).forEach(l=>{ const v=(+l.delivered||0)*(+l.invoicePrice||0); if(v>0){ pm[l.brand]=(pm[l.brand]||0)+v; } }));
   const pmRows=Object.entries(pm).sort((a,b)=>b[1]-a[1]).slice(0,15);
   $('view').innerHTML=`
-   <div class="banner info"><b>Sales &amp; Budget · COO / CFO only.</b> Achievement = <b>delivered</b> value (delivered Kg/L × VAN invoice price). Targets are per client for <b>FY ${fy}</b> (set in Admin · Master Data). Booked = ordered pipeline value.</div>
+   <div class="banner info"><b>Sales &amp; Budget · COO / CFO only.</b> Achievement = <b>delivered</b> value (delivered Kg/L × VAN invoice price). Targets are per client for <b>${fyRange(fy)}</b> (set in Admin · Master Data). Booked = ordered pipeline value. <button class="sm" style="margin-left:8px" onclick="openBulkPricing()">💲 Set invoice prices (bulk)</button></div>
    ${noPrice?'<div class="banner warn">Some PO lines have <b>no invoice price</b> yet — their value is counted as 0. Set invoice prices on New PO Entry (new POs) or via Data Fix (imported POs).</div>':''}
    <div class="kpis" style="grid-template-columns:repeat(4,1fr)">
-     <div class="kpi"><div class="l">Total target (FY ${fy})</div><div class="v">${pkr(totT)}</div></div>
+     <div class="kpi"><div class="l">All clients — target</div><div class="v">${pkr(totT)}</div><div class="d">${fyRange(fy)}</div></div>
      <div class="kpi"><div class="l">Delivered (achieved)</div><div class="v" style="color:var(--green2)">${pkr(totD)}</div><div class="d">${pctAll}% of target</div></div>
      <div class="kpi"><div class="l">Booked (pipeline)</div><div class="v">${pkr(totB)}</div></div>
      <div class="kpi"><div class="l">Gap to target</div><div class="v" style="color:${totT-totD>0?'var(--amber)':'var(--green2)'}">${pkr(Math.max(0,totT-totD))}</div></div>
    </div>
    <div class="card"><h3>By client <span class="hint">${clients.length}</span></h3>
      <div style="overflow:auto"><table><thead><tr><th>Client</th><th class="num">Target</th><th class="num">Delivered</th><th class="num">Booked</th><th>Attainment</th><th class="num">Gap</th></tr></thead>
-     <tbody>${clients.map(crow).join('')}<tr style="border-top:2px solid var(--line)"><td><b>TOTAL</b></td><td class="num"><b>${pkr(totT)}</b></td><td class="num"><b>${pkr(totD)}</b></td><td class="num">${pkr(totB)}</td><td><b>${pctAll}%</b></td><td class="num"><b>${pkr(Math.max(0,totT-totD))}</b></td></tr></tbody></table></div></div>
+     <tbody>${clients.map(crow).join('')}<tr style="border-top:2px solid var(--navy);background:var(--navy-50)"><td><b>TOTAL — all clients</b></td><td class="num"><b>${pkr(totT)}</b></td><td class="num"><b>${pkr(totD)}</b></td><td class="num">${pkr(totB)}</td><td><b>${pctAll}%</b></td><td class="num"><b>${pkr(Math.max(0,totT-totD))}</b></td></tr></tbody></table></div></div>
    <div class="card"><h3>Top products by delivered value <span class="hint">FY to date</span></h3>
      ${pmRows.length?`<div style="overflow:auto"><table><thead><tr><th>Product</th><th class="num">Delivered value</th></tr></thead><tbody>${pmRows.map(([b,v])=>`<tr><td>${b}</td><td class="num"><b>${pkr(v)}</b></td></tr>`).join('')}</tbody></table></div>`:'<div class="muted">No delivered value yet — appears once deliveries are recorded against priced lines.</div>'}</div>`;
 }

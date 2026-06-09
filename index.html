@@ -470,6 +470,7 @@ function ensureMasters(s){
   s.masters = s.masters || {};
   if(!s.masters.accessMatrix||typeof s.masters.accessMatrix!=='object') s.masters.accessMatrix={};
   if(!s.masters.salesTargets||typeof s.masters.salesTargets!=='object') s.masters.salesTargets={};
+  if(!Array.isArray(s.masters.rawMaterials)||!s.masters.rawMaterials.length) s.masters.rawMaterials=(((typeof SEED!=='undefined'&&SEED.rawMaterials)||[]).map(r=>({name:r.name,cost:+r.cost||0})));
   if(!s.masters.labTemplates){ s.masters.labTemplates = {
    'Elemental Sulfur':[
     {g:'Physical',test:'Physical Status',spec:'Powder',method:'Visual',mu:'-'},
@@ -1481,7 +1482,7 @@ function rmAddLine(){ rmForm.lines.push({rm:'',kg:''}); renderRMModal(); }
 function rmDelLine(i){ rmForm.lines.splice(i,1); renderRMModal(); }
 function rmPrefill(){ const o=state.orders.find(x=>x.id===rmForm.oid);const l=o.lines.find(x=>x.id===rmForm.lid); const p=recipePrefill(o,l); if(p.length) rmForm.lines=p; renderRMModal(); }
 function renderRMModal(){ const o=state.orders.find(x=>x.id===rmForm.oid); const l=o.lines.find(x=>x.id===rmForm.lid);
-  const rms=[...new Set([...(((typeof SEED!=='undefined'&&SEED.rawMaterials)||[]).map(r=>r.name)), ...Object.keys(state.rawStock||{}), ...((rmForm.lines||[]).map(x=>x.rm).filter(Boolean))])].sort();
+  const rms=[...new Set([...(((state.masters&&state.masters.rawMaterials)||(typeof SEED!=='undefined'&&SEED.rawMaterials)||[]).map(r=>r.name)), ...Object.keys(state.rawStock||{}), ...((rmForm.lines||[]).map(x=>x.rm).filter(Boolean))])].sort();
   const hasRecipe=(()=>{const r=SEED.baseRecipes[l.base];return r&&!Object.keys(r)[0].startsWith('(');})();
   const seg=`<div class="seg">
     <div class="opt full ${rmForm.status==='full'?'on':''}" onclick="rmSetStatus('full')"><span class="em">✅</span>In stock<span style="display:block;font-weight:500;font-size:10.5px">make full order</span></div>
@@ -2568,6 +2569,7 @@ function screenAdmin(){
        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:11px">${vals.length?vals.map((v,idx)=>`<span class="pill" style="background:var(--navy-50);color:var(--navy);border:1px solid var(--navy-100);display:inline-flex;align-items:center;gap:7px">${v}${ed?`<span style="cursor:pointer;color:var(--mut)" title="rename" onclick="editMaster('${k}',${idx})">&#9998;</span><span style="cursor:pointer;color:var(--red);font-weight:700" title="delete" onclick="delMaster('${k}',${idx})">&times;</span>`:''}</span>`).join(''):'<span class="muted" style="font-size:12px">none yet</span>'}</div>
        ${ed?`<div style="display:flex;gap:8px"><input type="text" id="adm_${k}" placeholder="add value…" style="flex:1"><button class="sm" onclick="addMaster('${k}')">Add</button></div>`:''}</div>`;}).join('')}
    </div>
+   ${rmMasterCard(canEdit(['Supply Chain']))}
    ${labTplCard(canEdit(['Lab Rep','AQCM','QCM']))}
    ${(state.role==='COO'||state.role==='CFO')?salesTargetCard():''}
    ${accessMatrixCard()}`;
@@ -2622,6 +2624,20 @@ function salesTargetCard(){ const fy=fyKey(TODAY.toISOString().slice(0,10)); con
       <button class="sm" onclick="salesTargetSet()">Set target</button>
     </div>
     ${have.length?`<div style="overflow:auto"><table><thead><tr><th>Client</th><th class="num">Annual target</th><th></th></tr></thead><tbody>${have.map(c=>`<tr><td>${c}</td><td class="num"><b>${pkr(t[c][fy])}</b></td><td><button class="sm ghost" onclick="stForm={client:'${c.replace(/'/g,"\\'")}',amt:'${t[c][fy]}'};render()">Edit</button></td></tr>`).join('')}</tbody></table></div>`:'<div class="muted">No targets set yet.</div>'}
+  </div>`; }
+function rmMaster(){ return (state.masters&&state.masters.rawMaterials)||[]; }
+function rmCanEdit(){ return canEdit(['Supply Chain']); }
+function rmMasterAdd(){ if(!rmCanEdit()){toast('COO / Supply Chain only');return;} const nm=(($('rm_new_name')&&$('rm_new_name').value)||'').trim(); const cost=+(($('rm_new_cost')&&$('rm_new_cost').value)||0)||0; if(!nm){toast('Enter a material name');return;} const arr=rmMaster(); if(arr.some(r=>(r.name||'').toLowerCase()===nm.toLowerCase())){toast('Already exists');return;} state.masters.rawMaterials=arr.concat([{name:nm,cost}]); logAction('Raw material added: '+nm+(cost?(' @ PKR '+cost+'/Kg'):'')); save(); render(); }
+function rmMasterCost(i,v){ if(!rmCanEdit())return; const arr=rmMaster(); if(!arr[i])return; arr[i].cost=+v||0; save(); }
+function rmMasterRename(i,v){ if(!rmCanEdit())return; const arr=rmMaster(); if(!arr[i])return; const nm=(v||'').trim(); if(!nm)return; if(arr.some((r,j)=>j!==i&&(r.name||'').toLowerCase()===nm.toLowerCase())){toast('Name already exists');render();return;} const old=arr[i].name; arr[i].name=nm; logAction('Raw material renamed: '+old+' → '+nm); save(); }
+function rmMasterDel(i){ if(!rmCanEdit()){toast('COO / Supply Chain only');return;} const arr=rmMaster(); const r=arr[i]; if(!r)return; if(!typeNameToConfirm('Delete raw material \"'+r.name+'\" from the master list')) return; arr.splice(i,1); logAction('Raw material removed: '+r.name); save(); render(); }
+function rmMasterCard(ed){ const arr=rmMaster();
+  return `<div class="card" style="margin-top:14px"><h3>Raw materials <span class="hint">${arr.length} · COO / Supply Chain</span></h3>
+   <div class="muted" style="font-size:12px;margin-bottom:10px">Master list of raw materials used in RM Check, PRs and recipes. ${ed?'Add new materials (e.g. MKP) below.':''} A new material starts at <b>0 stock</b> until received via a GRN.</div>
+   <div style="overflow:auto;max-height:360px"><table><thead><tr><th>Material</th><th class="num">Cost (PKR/Kg)</th>${ed?'<th style="width:40px"></th>':''}</tr></thead><tbody>
+   ${arr.slice().sort((a,b)=>String(a.name).localeCompare(b.name)).map(r=>{const i=arr.indexOf(r);return `<tr><td>${ed?`<input type="text" value="${String(r.name||'').replace(/"/g,'&quot;')}" onchange="rmMasterRename(${i},this.value)" style="width:100%">`:String(r.name||'')}</td><td class="num">${ed?`<input type="number" value="${r.cost||0}" onchange="rmMasterCost(${i},this.value)" style="width:120px">`:fmt(r.cost||0)}</td>${ed?`<td style="text-align:center"><span style="cursor:pointer;color:var(--red);font-weight:700" title="delete" onclick="rmMasterDel(${i})">&times;</span></td>`:''}</tr>`;}).join('')}
+   </tbody></table></div>
+   ${ed?`<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap"><input type="text" id="rm_new_name" placeholder="new material name (e.g. MKP)" style="flex:1;min-width:220px"><input type="number" id="rm_new_cost" placeholder="cost PKR/Kg (optional)" style="width:170px"><button class="sm" onclick="rmMasterAdd()">+ Add material</button></div>`:''}
   </div>`; }
 let labTplForm={product:''};
 function labTpls(){ return (state.masters&&state.masters.labTemplates)||{}; }

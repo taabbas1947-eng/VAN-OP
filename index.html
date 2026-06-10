@@ -729,7 +729,7 @@ function canView(role,scrId){ if(role==='COO') return true; const o=accessOv(rol
 function canEdit(owners){ if(state.role==='COO') return true; const o=accessOv(state.role,state.screen); if(o&&o.e===false) return false; return owners.includes(state.role); }
 /* ===================== SCREENS REGISTRY ===================== */
 const SCREENS=[
-  {id:'dash', name:'Dashboard', ic:'\ud83d\udcca', owners:['KAM','Supply Chain','Production','Plant Manager','CFO','COO'], sub:'Executive overview',
+  {id:'dash', name:'Dashboard', ic:'\ud83d\udcca', owners:['KAM','Supply Chain','Production','Lab Rep','AQCM','QCM','QA Inspector','Plant Manager','CFO','COO'], sub:'Executive overview',
     obj:'<b>Executive overview \u00b7 CEO / COO.</b> On-time delivery, overdue &amp; at-risk volume, fulfilment, production output, attention list and top customers \u2014 read-only.'},
   {id:'approvals', name:'My Actions', ic:'✅', owners:['KAM','Supply Chain','Production','Lab Rep','AQCM','QCM','QA Inspector','Plant Manager','CFO','COO'], sub:'What needs your action',
     obj:'<b>Your live worklist.</b> Everything waiting on you across all orders — acknowledge, RM check, approve PR, close PR, produce, QC, QA, ship, delay reasons — each timestamped.'},
@@ -2346,6 +2346,15 @@ function periodTot(w){ let prod=0,pack=0,ship=0;
   (state.shipments||[]).forEach(s=>{if(inWin(s.dispatch,w))ship+=s.kg||0;});
   return {prod,pack,ship};
 }
+function dashGreet(){ const h=new Date().getHours(); const g=h<12?'Good morning':(h<17?'Good afternoon':'Good evening'); const nm=(state.currentUser&&state.currentUser.name)||state.role; return g+', '+nm; }
+function dashMyTodos(){ const all=actionItems(); const mine=(state.role==='COO'||state.role==='CEO')?all:all.filter(i=>i.role===state.role); const top=mine.slice(0,9); const esc=t=>String(t==null?'':t);
+  const rows=top.map(i=>`<div class="clk" onclick="${i.act}" style="display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:8px;padding:8px 11px;margin-bottom:6px;background:#fff"><span class="rbadge" style="min-width:92px;text-align:center">${i.role}</span><div style="flex:1;min-width:0;font-size:12.5px">${esc(i.what)}</div><button class="sm green" style="white-space:nowrap">${esc(i.label)} \u2192</button></div>`).join('');
+  return {count:mine.length, html: mine.length?(rows+(mine.length>top.length?`<div class="muted" style="font-size:11px;text-align:center;margin-top:4px">+${mine.length-top.length} more \u2014 open <b>My Actions</b></div>`:'')):'<div class="muted" style="padding:16px 0;text-align:center">Nothing waiting on you right now. \u2705</div>'}; }
+function dashTargetsPanel(){ const fy=fyKey(TODAY.toISOString().slice(0,10)); const targets=(state.masters&&state.masters.salesTargets)||{}; const rows={}; (state.orders||[]).forEach(o=>{ const c=budgetKey(o); rows[c]=rows[c]||{d:0}; (o.lines||[]).forEach(l=>{ rows[c].d+=(+l.delivered||0)*(+l.invoicePrice||0); }); }); let totT=0,totD=0; Object.keys(targets).forEach(c=>{ totT+=(+(targets[c]&&targets[c][fy])||0); }); Object.keys(rows).forEach(c=>{ totD+=rows[c].d; }); const pct=totT>0?Math.round(totD/totT*100):0;
+  const gaps=Object.keys(targets).map(c=>{ const t=+(targets[c]&&targets[c][fy])||0; const d=(rows[c]&&rows[c].d)||0; return {c,t,d,gap:Math.max(0,t-d),p:t>0?Math.round(d/t*100):0}; }).filter(x=>x.t>0).sort((a,b)=>b.gap-a.gap).slice(0,5);
+  const bar=p=>`<div style="background:#eef1f6;border-radius:6px;height:7px;overflow:hidden;min-width:70px;flex:1"><div style="height:7px;width:${Math.min(100,p)}%;background:${p>=100?'var(--green2)':p>=60?'var(--navy)':'var(--amber)'}"></div></div>`;
+  const body=totT>0?(`<div class="clk" onclick="gotoScreen('budget')"><div style="display:flex;align-items:center;gap:12px;margin-bottom:10px"><div style="text-align:center"><div style="font-size:24px;font-weight:800;color:${pct>=100?'var(--green2)':pct>=60?'var(--navy)':'var(--amber)'}">${pct}%</div><div class="muted" style="font-size:10px">of FY target</div></div><div style="flex:1"><div class="muted" style="font-size:11px;margin-bottom:4px">${pkr(totD)} delivered of ${pkr(totT)}</div>${bar(pct)}</div></div>`+(gaps.length?`<div class="muted" style="font-size:10.5px;margin:6px 0 3px">Biggest gaps to target</div><table style="width:100%"><tbody>${gaps.map(g=>`<tr><td style="font-size:11.5px"><b>${g.c}</b></td><td style="width:90px;padding:3px 6px">${bar(g.p)}</td><td class="num" style="font-size:11px;color:var(--amber)">${pkr(g.gap)}</td></tr>`).join('')}</tbody></table>`:'')+`</div>`):'<div class="muted" style="padding:14px 0">No sales targets set for this FY \u2014 set them in Admin \u00b7 Master Data.</div>';
+  return `<div class="card"><h3>Targets vs delivered <span class="hint">FY ${fy}</span></h3>${body}</div>`; }
 function screenDash(){
   const os=state.orders||[]; const today=TODAY; const monthKey=today.toISOString().slice(0,7);
   const dnum=(d)=>{ if(!d)return null; const t=new Date(d); if(isNaN(t))return null; return Math.round((t-today)/86400000); };
@@ -2409,8 +2418,9 @@ function screenDash(){
      <div style="text-align:right"><div style="font-weight:700;color:${c.over>0.5?'var(--red)':'var(--mut)'};font-size:12.5px">${fmt(c.over)}</div><div class="muted" style="font-size:9.5px">overdue Kg/L</div></div>
      <span class="pill" style="background:color-mix(in srgb,var(${rc(c.risk)}) 14%,#fff);color:var(${rc(c.risk)});font-size:9.5px">${c.risk}</span></div>`).join(''):'<div class="muted" style="padding:10px 0">No customers at risk.</div>';
   // QC/QA gate
-  const labPend=openLI.filter(x=>x.b==='Lab QC').length, labFail=openLI.filter(x=>x.l.qcLab&&x.l.qcLab.fail).length;
-  const qaPend=openLI.filter(x=>x.b==='QA Pre-shipment').length, qaFail=openLI.filter(x=>x.l.qcPhys&&x.l.qcPhys.fail).length;
+  const _aiQC=actionItems();
+  const labPend=_aiQC.filter(i=>i.role==='Lab Rep'||i.role==='AQCM'||i.role==='QCM').length, labFail=_aiQC.filter(i=>i.role==='Plant Manager'&&/UNFIT lot/.test(i.what||'')).length;
+  const qaPend=_aiQC.filter(i=>i.role==='QA Inspector').length, qaFail=(state.packingLog||[]).filter(p=>p&&p.qa&&p.qa.fail).length;
   const gate=(lbl,n,color)=>`<div class="clk" onclick="${nav('qc')}" style="flex:1;min-width:110px;text-align:center;background:color-mix(in srgb,var(${color}) 8%,#fff);border:1px solid color-mix(in srgb,var(${color}) 28%,#fff);border-radius:9px;padding:11px 8px"><div style="font-size:22px;font-weight:800;color:var(${color})">${n}</div><div class="muted" style="font-size:10.5px">${lbl}</div></div>`;
   const gateHtml=`<div style="display:flex;gap:8px;flex-wrap:wrap">${gate('Lab QC pending',labPend,labPend?'--amber':'--mut')}${gate('Lab QC hold/fail',labFail,labFail?'--red':'--mut')}${gate('QA pending',qaPend,qaPend?'--amber':'--mut')}${gate('QA hold/fail',qaFail,qaFail?'--red':'--mut')}</div>`;
   // Shipment readiness
@@ -2425,14 +2435,23 @@ function screenDash(){
     cycLabels:stageDefs.map(d=>d[0]), cycVals:stageDefs.map(d=>{const a=cs[d[1]];return a&&a.length?Math.round(a.reduce((x,y)=>x+y,0)/a.length):0;}) };
   const emptyChart=(id,msg)=>`<div class="muted" style="padding:20px 0;text-align:center;font-size:12px">${msg}</div>`;
   const sect=(title,hint,body)=>`<div class="card"><h3>${title}${hint?` <span class="hint">${hint}</span>`:''}</h3>${body}</div>`;
+  const MGMT=['COO','CEO','Plant Manager','Supply Chain','CFO']; const isMgmt=MGMT.indexOf(state.role)>-1;
+  const isQCrole=['Lab Rep','AQCM','QCM','QA Inspector'].indexOf(state.role)>-1;
+  const showBoard=isMgmt||state.role==='KAM'; const showCharts=isMgmt; const showTargets=['COO','CFO','KAM'].indexOf(state.role)>-1;
+  const todo=dashMyTodos();
+  const companion = showTargets?dashTargetsPanel() : (isQCrole?sect('Quality gate','Lab + QA',gateHtml) : (state.role==='Production'?sect('Where orders are stuck','live pipeline','<div style="display:flex;flex-wrap:wrap;gap:8px">'+stageBlocks+'</div>'):''));
+  const todoSect=sect('What needs you'+((state.role==='COO'||state.role==='CEO')?' \u2014 all roles':''), todo.count+' to-do'+(todo.count===1?'':'s'), '<div style="max-height:380px;overflow:auto">'+todo.html+'</div>');
   $('view').innerHTML=`
-   <div class="banner info" style="margin-bottom:12px"><b>Control Tower — Intervention Dashboard</b> · ${today.toISOString().slice(0,10)} · <span class="muted">read-only · click any card to drill into the Tracker</span></div>
+   <div class="card" style="margin-bottom:12px;display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+     <div style="flex:1;min-width:200px"><div style="font-size:17px;font-weight:800">${dashGreet()}</div><div class="muted" style="font-size:12px">${state.role} \u00b7 ${today.toISOString().slice(0,10)} \u00b7 ${todo.count?('<b style="color:var(--red)">'+todo.count+'</b> waiting on you'):'nothing waiting on you'}</div></div>
+     <button class="sm" onclick="gotoScreen('approvals')">Open My Actions \u2192</button></div>
    <div class="kpis" style="grid-template-columns:repeat(8,1fr)">${kpis}</div>
-   <div class="dgrid" style="grid-template-columns:1.5fr 1fr">
+   ${companion?`<div class="dgrid" style="grid-template-columns:1fr 1fr">${todoSect}${companion}</div>`:todoSect}
+   ${showBoard?`<div class="dgrid" style="grid-template-columns:1.5fr 1fr">
      ${sect("Today's Intervention Board",board.length+' urgent','<div style="max-height:430px;overflow:auto">'+boardHtml+'</div>')}
      ${sect('Where orders are stuck','live pipeline','<div style="display:flex;flex-wrap:wrap;gap:8px">'+stageBlocks+'</div>')}
-   </div>
-   <div class="dgrid">
+   </div>`:''}
+   ${showCharts?`<div class="dgrid">
      ${sect('Product risk / shortfall','top 10 by open balance', prTop.length?'<canvas id="chPR" height="200"></canvas>':emptyChart('chPR','No open product balances.'))}
      ${sect('Customers at risk','top 6', custHtml)}
    </div>
@@ -2442,8 +2461,8 @@ function screenDash(){
    </div>
    <div class="dgrid">
      ${sect('Ready to ship / dispatch pending', rs.length+' ready', rsHtml)}
-     ${sect('Cycle time by stage','avg days', _dash.cycVals.some(v=>v>0)?'<canvas id="chCyc" height="200"></canvas>':emptyChart('chCyc','Cycle times appear once orders have stage dates — Not available yet.'))}
-   </div>`;
+     ${sect('Cycle time by stage','avg days', _dash.cycVals.some(v=>v>0)?'<canvas id="chCyc" height="200"></canvas>':emptyChart('chCyc','Cycle times appear once orders have stage dates \u2014 Not available yet.'))}
+   </div>`:''}`;
   drawDash();
 }
 function drawDash(){

@@ -2516,7 +2516,7 @@ let rpfMonth='', rpfChannel='', rpfClient='', rpfPriority='';
 let rpChart=null;
 const RP_DIMS={client:'Client',channel:'Channel',brand:'Product (brand)',base:'Base product',month:'Month (PO received)',priority:'Priority',stage:'Stage'};
 const RP_MEAS={ordered:'Ordered (Kg/L)',produced:'Produced (Kg/L)',packed:'Packed (Kg/L)',dispatched:'Shipped (Kg/L)',delivered:'Delivered (Kg/L)',toproduce:'Pending to produce',topack:'Pending to pack',toship:'Pending to ship',pos:'# POs',lines:'# SKU lines'};
-const RP_TABS=[['explorer','Explorer'],['postatus','PO Status'],['prod','Production'],['trace','Batch Trace'],['coa','QC Reports'],['ship','Shipments'],['delay','Delay / Hold'],['monthly','Monthly Production'],['log','Action Log']];
+const RP_TABS=[['explorer','Explorer'],['postatus','PO Status'],['prod','Production'],['trace','Batch Trace'],['coa','QC Reports'],['ship','Shipments'],['delay','Delay / Hold'],['log','Action Log']];
 function rpReset(){ rpfMonth='';rpfChannel='';rpfClient='';rpfPriority='';screenReports(); }
 function rpMonths(){ const s=new Set(); state.orders.forEach(o=>{const m=(o.received||'').slice(0,7); if(m)s.add(m);}); (state.productionLog||[]).forEach(p=>{const m=(p.date||'').slice(0,7); if(m)s.add(m);}); return [...s].sort().reverse(); }
 function rpLines(){ const out=[]; state.orders.forEach(o=>{ if(rpfChannel&&o.channel!==rpfChannel)return; if(rpfClient&&o.client!==rpfClient)return; if(rpfPriority&&(o.priority||'Normal')!==rpfPriority)return; o.lines.forEach(l=>{ if(rpfMonth&&(o.received||'').slice(0,7)!==rpfMonth)return; out.push({o,l}); }); }); return out; }
@@ -2602,15 +2602,14 @@ function screenReports(){
   let body='';
   if(rpTab==='explorer') body=rpExplorer();
   else if(rpTab==='postatus') body=rpPOStatus();
-  else if(rpTab==='prod') body=rpProduction();
+  else if(rpTab==='prod') body=rpMonthly();
   else if(rpTab==='trace') body=rpTrace();
   else if(rpTab==='coa') body=rpQCReports();
   else if(rpTab==='ship') body=rpShip();
   else if(rpTab==='delay') body=rpDelay();
-  else if(rpTab==='monthly') body=rpMonthly();
   else if(rpTab==='log') body=rpLog();
   $('view').innerHTML = `<div class="banner info">Reports are <b>read-only</b> and built entirely from data the system already captures — orders, production, packing, QC, shipments and the action log. Use the filters, then Explorer to slice any way (client, product, month, stage), or open a ready report. Print from the top-right.</div>${rpFilterBar()}${rpTabsBar()}${body}`;
-  if(rpTab==='explorer'||rpTab==='prod'||rpTab==='monthly') rpDrawChart();
+  if(rpTab==='explorer'||rpTab==='prod') rpDrawChart();
 }
 
 /* ---- Explorer (pivot) ---- */
@@ -2649,14 +2648,6 @@ function rpPOStatus(){ const rows=rpLines(); if(!rows.length) return rpEmpty('No
 function rpPill(stage){ const g=['Delivered'],b=['Dispatched','QC Passed'],y=['In Production','Produced','RM Ready','PR Raised','SO Created']; let bg='var(--panel2)',c='var(--mut)'; if(g.includes(stage)){bg='var(--green-50)';c='var(--green2)';} else if(b.includes(stage)){bg='var(--navy-50)';c='var(--navy)';} else if(y.includes(stage)){bg='var(--amber-50)';c='var(--amber)';} return `<span class="pill" style="background:${bg};color:${c}">${stage}</span>`; }
 
 /* ---- Production ---- */
-function rpProduction(){ const log=(state.productionLog||[]).filter(p=>!rpfMonth||(p.date||'').slice(0,7)===rpfMonth); const pack=(state.packingLog||[]).filter(p=>!rpfMonth||(p.date||'').slice(0,7)===rpfMonth);
-  if(!log.length&&!pack.length) return rpEmpty('No production logged for this period.');
-  const byB={}; log.forEach(p=>{const k=p.brand||p.base;byB[k]=byB[k]||{prod:0,pack:0,ship:0,n:0};byB[k].prod+=p.kg||0;byB[k].n++;}); pack.forEach(p=>{const k=p.brand||p.base;byB[k]=byB[k]||{prod:0,pack:0,ship:0,n:0};byB[k].pack+=p.kg||0;});
-  (state.shipments||[]).filter(s=>!rpfMonth||(s.dispatch||'').slice(0,7)===rpfMonth).forEach(s=>{const k=s.brand;byB[k]=byB[k]||{prod:0,pack:0,ship:0,n:0};byB[k].ship+=s.kg||0;});
-  const keys=Object.keys(byB).sort((a,b)=>byB[b].prod-byB[a].prod); _rpLast={labels:keys.slice(0,14),data:keys.slice(0,14).map(k=>byB[k].prod)};
-  const tot=keys.reduce((a,k)=>({prod:a.prod+byB[k].prod,pack:a.pack+byB[k].pack,ship:a.ship+byB[k].ship,n:a.n+byB[k].n}),{prod:0,pack:0,ship:0,n:0});
-  return `<div class="card"><h3>Production by product ${rpfMonth?'· '+rpfMonth:'· all months'} <span class="hint">${tot.n} log entries</span></h3><div style="overflow:auto"><table><thead><tr><th>Product</th><th class="num">Produced</th><th class="num">Packed</th><th class="num">Shipped</th><th class="num">Pack/Prod</th><th class="num">Ship/Pack</th><th class="num">Entries</th></tr></thead><tbody>${keys.map(k=>`<tr><td><b>${k}</b></td><td class="num">${fmt(byB[k].prod)}</td><td class="num">${fmt(byB[k].pack)}</td><td class="num">${fmt(byB[k].ship)}</td><td class="num">${byB[k].prod?Math.round(byB[k].pack/byB[k].prod*100):0}%</td><td class="num">${byB[k].pack?Math.round(byB[k].ship/byB[k].pack*100):0}%</td><td class="num">${byB[k].n}</td></tr>`).join('')}</tbody><tfoot><tr><td><b>Total</b></td><td class="num"><b>${fmt(tot.prod)}</b></td><td class="num"><b>${fmt(tot.pack)}</b></td><td class="num"><b>${fmt(tot.ship)}</b></td><td class="num"><b>${tot.prod?Math.round(tot.pack/tot.prod*100):0}%</b></td><td class="num"><b>${tot.pack?Math.round(tot.ship/tot.pack*100):0}%</b></td><td class="num"><b>${tot.n}</b></td></tr></tfoot></table></div></div><div class="card"><h3>Top products by output</h3><div style="height:260px"><canvas id="rpCanvas"></canvas></div></div>`;
-}
 
 /* ---- Lab QC ---- */
 /* ---- QA Pre-Shipment ---- */
@@ -2682,7 +2673,6 @@ function rpMonthly(){ const months=rpMonths(); const m=rpfMonth||months[0]||''; 
   const pk=Object.keys(byProd).sort((a,b)=>byProd[b].prod-byProd[a].prod);
   const byBrandPack={}; pack.forEach(p=>{const k=p.brand;byBrandPack[k]=(byBrandPack[k]||0)+(p.kg||0);}); const bk=Object.keys(byBrandPack).filter(k=>byBrandPack[k]>0).sort((a,b)=>byBrandPack[b]-byBrandPack[a]);
   const trend=months.slice(0,6).reverse().map(mm=>{ const lg=(state.productionLog||[]).filter(p=>(p.date||'').slice(0,7)===mm).reduce((a,p)=>a+(p.kg||0),0); const pc=(state.packingLog||[]).filter(p=>(p.date||'').slice(0,7)===mm).reduce((a,p)=>a+(p.kg||0),0); const sp=(state.shipments||[]).filter(s=>(s.dispatch||'').slice(0,7)===mm).reduce((a,s)=>a+(s.kg||0),0); return {mm,lg,pc,sp}; });
-  const sel=`<div class="card" style="padding:12px 16px"><div class="fld" style="max-width:200px"><label>Report month</label><select onchange="rpfMonth=this.value;screenReports()">${months.map(x=>`<option ${x===m?'selected':''}>${x}</option>`).join('')}</select></div></div>`;
   const kpi=(l,v,d)=>`<div class="kpi"><div class="l">${l}</div><div class="v">${v}</div><div class="d">${d||''}</div></div>`;
   const kpis=`<div class="kpis" style="grid-template-columns:repeat(4,1fr)">${kpi('Produced (Kg/L)',fmt(prod),m)}${kpi('Packed (Kg/L)',fmt(packed),prod?Math.round(packed/prod*100)+'% of produced':'')}${kpi('Shipped (Kg/L)',fmt(shipped),packed?Math.round(shipped/packed*100)+'% of packed':'')}${kpi('# Batches',batches.toLocaleString(),'production log entries')}</div>`;
   const note=`<div class="banner warn">Plan / Target, Attainment %, Variance, Avg Yield % and Downtime are <b>not captured yet</b>, so they are intentionally omitted (not shown as zero). Say the word and I'll add a light Plan &amp; Downtime input to unlock them.</div>`;
@@ -2691,7 +2681,7 @@ function rpMonthly(){ const months=rpMonths(); const m=rpfMonth||months[0]||''; 
   const t3=`<div class="card"><h3>Trend — last ${trend.length} months</h3><div style="overflow:auto"><table><thead><tr><th>Month</th><th class="num">Produced</th><th class="num">Packed</th><th class="num">Shipped</th><th class="num">Pack/Prod</th><th class="num">Ship/Pack</th></tr></thead><tbody>${trend.map(t=>`<tr><td><b>${t.mm}</b></td><td class="num">${fmt(t.lg)}</td><td class="num">${fmt(t.pc)}</td><td class="num">${fmt(t.sp)}</td><td class="num">${t.lg?Math.round(t.pc/t.lg*100):0}%</td><td class="num">${t.pc?Math.round(t.sp/t.pc*100):0}%</td></tr>`).join('')}</tbody></table></div></div>`;
   _rpLast={labels:pk.slice(0,14),data:pk.slice(0,14).map(k=>byProd[k].prod)};
   const chart=`<div class="card"><h3>Output by product — ${m}</h3><div style="height:240px"><canvas id="rpCanvas"></canvas></div></div>`;
-  return sel+kpis+note+t1+t2+t3+chart;
+  return kpis+note+t1+t2+t3+chart;
 }
 
 /* ---- Action Log ---- */

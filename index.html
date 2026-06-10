@@ -1988,6 +1988,7 @@ function printCOA(bid,lid){ const ctx=coaCtx(bid,lid); const b=ctx.b, h=ctx.h; i
   .disc{padding:8px 10px;border-top:1.5px solid #111;font-size:8.5px}.disc h4{margin:2px 0;text-align:center;font-size:10px}.disc ol{margin:3px 0;padding-left:16px}.disc .r{margin-top:3px}
   .signs{display:flex;border-top:1.5px solid #111}.signs .s{flex:1;text-align:center;padding:14px 6px 6px;border-right:1px solid #111}.signs .s:last-child{border-right:0}.signs .nm{font-weight:700;min-height:16px}.signs .role{font-size:9px}.signs .dt{font-size:9px;margin-top:3px}
   .end{text-align:center;font-size:10px;padding:6px}
+  .sysnote{border-top:1px solid #111;padding:7px 12px;font-size:8.5px;line-height:1.5;text-align:center;font-style:italic;color:#222}
   @media print{@page{size:A4;margin:10mm}body{padding:0}}
   </style></head><body><div class="sheet">
    <div class="head"><div class="l"><svg width="68" height="34" viewBox="0 0 68 34"><path d="M10 3c-4 2-5 7-3 11 4-2 5-7 3-11z" fill="#5bb85b"/><path d="M17 1c-4 3-4 9-1 12 4-3 4-9 1-12z" fill="#2f9e44"/><text x="2" y="30" font-family="Arial,Helvetica,sans-serif" font-weight="800" font-size="24" fill="#13307a" letter-spacing="1">VAN</text><rect x="27" y="21" width="11" height="3.5" fill="#e23b3b"/></svg><div class="t">VITAL AGRI NUTRIENTS</div></div>
@@ -2007,6 +2008,7 @@ function printCOA(bid,lid){ const ctx=coaCtx(bid,lid); const b=ctx.b, h=ctx.h; i
    <div class="signs"><div class="s"><div class="nm">${e(c.analyst&&c.analyst.name)}</div><div class="role"><b>Analysed By</b><br>Assistant Analyst/Analyst</div><div class="dt">Date: ${e(c.analyst&&c.analyst.date)}</div></div>
      <div class="s"><div class="nm">${e(c.reviewer&&c.reviewer.name)}</div><div class="role"><b>Reviewed By</b><br>AQCM</div><div class="dt">Date: ${e(c.reviewer&&c.reviewer.date)}</div></div>
      <div class="s"><div class="nm">${e(c.approver&&c.approver.name)}</div><div class="role"><b>Approved By</b><br>QCM</div><div class="dt">Date: ${e(c.approver&&c.approver.date)}</div></div></div>
+   <div class="sysnote">This is a <b>system-generated report</b>. It is electronically prepared, reviewed and approved within the VAN QC system (Analyst &rarr; AQCM &rarr; QCM), <b>access-controlled and audit-logged</b>. It is <b>valid without manual verification or a physical signature</b>.</div>
    <div class="end">-------------------END OF REPORT-------------------<br>Overall: <b>${e(c.overall||'')}</b></div>
   </div></body></html>`;
   const w=window.open('','_blank'); if(!w){toast('Allow pop-ups to print the COA');return;} w.document.write(html); w.document.close(); w.focus(); setTimeout(function(){ try{ w.print(); }catch(e){} },350); }

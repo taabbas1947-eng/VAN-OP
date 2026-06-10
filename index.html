@@ -389,9 +389,6 @@ table tbody tr{transition:background .1s}
 table tbody tr:hover{background:var(--panel2)}
 .card{transition:box-shadow .15s}
 #toast.show.saved{background:var(--green2)}
-.hintbar{display:flex;align-items:center;gap:10px;background:#eef4ff;border:1px solid var(--navy-100);border-left:3px solid var(--navy);border-radius:9px;padding:9px 13px;margin-bottom:12px;font-size:12.5px;color:var(--navy2);line-height:1.45}
-.hintbar .x{margin-left:auto;cursor:pointer;color:var(--mut);font-weight:700;flex-shrink:0;padding:0 4px}
-.hintbar .x:hover{color:var(--red)}
 .qcgrp{border:1px solid var(--line);border-radius:8px;margin-bottom:7px;overflow:hidden}.qcgrp>summary{cursor:pointer;padding:9px 12px;background:#fafbfc;font-weight:600;font-size:12.5px;display:flex;align-items:center;gap:8px;list-style:none}.qcgrp>summary::-webkit-details-marker{display:none}.qcgrp>summary::before{content:'▸';color:var(--mut);font-size:12px;transition:transform .15s}.qcgrp[open]>summary{border-bottom:1px solid var(--line)}.qcgrp[open]>summary::before{transform:rotate(90deg)}.qcgrp>summary .c{margin-left:auto;color:var(--mut);font-weight:500;font-size:11px}
 </style></head><body>
 <div class="app" id="appShell">
@@ -791,23 +788,8 @@ function renderNav(){
     ? `<span class="av">${u.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase()}</span><div style="line-height:1.15"><div style="font-weight:700;font-size:12px;color:var(--txt)">${u.name}</div><div style="font-size:10px;color:var(--mut)">${u.role}</div></div><button class="ghost sm" style="margin-left:8px" onclick="logout()">Sign out</button>`
     : '';
 }
-const TIPS={
- approvals:'This is your to-do list — everything across all orders waiting on YOU. Clear items here; the tracker updates itself.',
- tracker:'View-only board. Click the Order-Flow stages or attention cards to filter, and click any PO to see where each product stands.',
- prod:'Open a batch (PO or bulk base), then Log shift output. A batch must pass Lab QC before it can be packed.',
- qc:'Lab certifies each production batch by COA (Analyst → AQCM → QCM). QA inspects each packed lot. Nothing ships until both pass.',
- ship:'Only QC-passed packed lots can load. Record one dispatch per truck; quantities show in Kg/L and packs.',
- entry:'Pick channel & client, add each brand with quantity, print price and VAN invoice price. Submit drops it into the PO Tracker.',
- dealers:'Onboard dealers here (code auto-generated) before creating a dealer-channel PO.',
- budget:'Delivered value vs each client\'s annual target. Set targets and invoice prices to populate it.',
- reports:'Slice every record. Use the search/filter bar in QC Reports, Action Log and others — no more scrolling long lists.',
- admin:'Master lists power every dropdown. Add raw materials, lab templates, targets, and manage the Access Matrix here.',
- datafix:'Back-fill or correct records to match reality — all back-dated and logged. COO turns it OFF after cut-over.',
- users:'Add people and set each one a role + password. They sign in and see only what their role allows.'
-};
 function _tipUK(){ const u=state.currentUser; return String((u&&(u.id||u.name))||state.role||'anon').replace(/[^A-Za-z0-9]/g,'_'); }
-function tipHidden(id){ try{ return !!(window.localStorage&&localStorage.getItem('van_tip_'+_tipUK()+'_'+id)==='1'); }catch(e){ return false; } }
-function dismissTip(id){ try{ if(window.localStorage) localStorage.setItem('van_tip_'+_tipUK()+'_'+id,'1'); }catch(e){} render(); }
+function hintHidden(id){ try{ return !!(window.localStorage&&localStorage.getItem('van_hint_'+_tipUK()+'_'+id)==='1'); }catch(e){ return false; } }
 function setScreen(id){ if(!canView(state.role,id)){toast('Access to this screen is disabled by the COO');return;} if(id!=='tracker') state.expanded={}; state.screen=id; closeMobileNav(); save(); render(); }
 function isMobile(){ return window.matchMedia&&window.matchMedia('(max-width:820px)').matches; }
 function toggleSide(){ const a=document.querySelector('.app'); if(!a)return; if(isMobile()) a.classList.toggle('nav-open'); else a.classList.toggle('nav-collapsed'); }
@@ -823,22 +805,20 @@ const HINTS={
   admin:'Master lists power every dropdown. Add raw materials, lab templates, variance reasons, etc. The Access Matrix controls who sees/edits each screen.',
   datafix:'Back-fill or correct records to match reality \u2014 all logged. Import opening POs and set invoice prices in bulk here. COO-gated.',
   dealers:'Onboard dealers (auto code). They become selectable as clients on the Dealer channel in New PO Entry.',
-  reports:'Slice all data. The QC Reports tab is the searchable COA register; Action Log and others are searchable too.'
+  reports:'Slice all data. The QC Reports tab is the searchable COA register; Action Log and others are searchable too.',
+  users:'Add people and set each one a role + password. They sign in and see only what their role allows.'
 };
-function hintBanner(id){ const t=HINTS[id]; if(!t) return ''; try{ if(window.localStorage&&localStorage.getItem('van_hint_'+_tipUK()+'_'+id)==='1') return ''; }catch(e){}
-  return `<div class="hintbar"><span style="font-size:14px">\u{1F4A1}</span><span>${t}</span><span class="x" title="Got it \u2014 hide this tip" onclick="dismissHint('${id}')">\u2715</span></div>`; }
-function dismissHint(id){ try{ if(window.localStorage) localStorage.setItem('van_hint_'+_tipUK()+'_'+id,'1'); }catch(e){} const el=document.querySelector('#view .hintbar'); if(el) el.remove(); }
-function showAllHints(){ try{ if(window.localStorage){ const uk=_tipUK(); Object.keys(HINTS).forEach(k=>localStorage.removeItem('van_hint_'+uk+'_'+k)); Object.keys(TIPS).forEach(k=>localStorage.removeItem('van_tip_'+uk+'_'+k)); } }catch(e){} toast('Tips re-enabled'); render(); }
+function dismissHint(id){ try{ if(window.localStorage) localStorage.setItem('van_hint_'+_tipUK()+'_'+id,'1'); }catch(e){} render(); }
+function showAllHints(){ try{ if(window.localStorage){ const uk=_tipUK(); Object.keys(HINTS).forEach(k=>localStorage.removeItem('van_hint_'+uk+'_'+k)); } }catch(e){} toast('Tips re-enabled'); render(); }
 function render(){
   if(scr(state.screen)&&!canView(state.role,state.screen)) state.screen='dash';
   if(!scr(state.screen)) state.screen='dash';
   renderNav();
   const s=scr(state.screen);
   $('scTitle').textContent=s.name; $('scSub').textContent=s.sub;
-  if($('helpbar')){ const EDIT_SCREENS={entry:1,dealers:1,prod:1,qc:1,ship:1,admin:1,users:1}; let editable=!!EDIT_SCREENS[s.id]; let owner=editable?(s.owners.filter(r=>r!=='COO').join(', ')||'COO'):'Everyone'; let upd=editable?'Yes':'No — view only'; if(s.id==='tracker'){ const tm={'KAM':'SO # & dates','Supply Chain':'RM Check / PR & RM dates','CFO':'CFO approval & invoice','Plant Manager':'delay reason & dept','Production':'production dates','COO':'any field'}; if(tm[state.role]) upd='Yes — '+tm[state.role]+' (click to open)'; } $('helpbar').innerHTML=`This screen: <b>${s.sub}</b> &nbsp;·&nbsp; Owned by: <b>${owner}</b> &nbsp;·&nbsp; Update here: <b>${upd}</b>`+((TIPS[s.id]&&!tipHidden(s.id))?`<div style="display:flex;gap:8px;align-items:flex-start;margin-top:7px;padding-top:7px;border-top:1px dashed var(--line)"><span style="font-size:12px;color:var(--txt2)">\uD83D\uDCA1 ${TIPS[s.id]}</span><button class="ghost sm" style="margin-left:auto;flex:0 0 auto;font-size:11px;padding:2px 8px" onclick="dismissTip('${s.id}')">Got it</button></div>`:''); }
+  if($('helpbar')){ const EDIT_SCREENS={entry:1,dealers:1,prod:1,qc:1,ship:1,admin:1,users:1}; let editable=!!EDIT_SCREENS[s.id]; let owner=editable?(s.owners.filter(r=>r!=='COO').join(', ')||'COO'):'Everyone'; let upd=editable?'Yes':'No — view only'; if(s.id==='tracker'){ const tm={'KAM':'SO # & dates','Supply Chain':'RM Check / PR & RM dates','CFO':'CFO approval & invoice','Plant Manager':'delay reason & dept','Production':'production dates','COO':'any field'}; if(tm[state.role]) upd='Yes — '+tm[state.role]+' (click to open)'; } $('helpbar').innerHTML=`This screen: <b>${s.sub}</b> &nbsp;·&nbsp; Owned by: <b>${owner}</b> &nbsp;·&nbsp; Update here: <b>${upd}</b>`+((HINTS[s.id]&&!hintHidden(s.id))?`<div style="display:flex;gap:8px;align-items:flex-start;margin-top:7px;padding-top:7px;border-top:1px dashed var(--line)"><span style="font-size:12px;color:var(--txt2)">\uD83D\uDCA1 ${HINTS[s.id]}</span><button class="ghost sm" style="margin-left:auto;flex:0 0 auto;font-size:11px;padding:2px 8px" onclick="dismissHint('${s.id}')">Got it</button></div>`:''); }
   if($('sidefoot')) $('sidefoot').innerHTML = '<button class="ghost sm" style="width:100%;margin-bottom:6px" onclick="showAllHints()">\u{1F4A1} Show screen tips</button>'+(state.role==='COO'?'<button class="ghost sm" style="width:100%" onclick="resetSeed()">Reset demo data</button>':'');
   ({dash:screenDash,approvals:screenApprovals,entry:screenEntry,tracker:screenTracker,prod:screenProd,qc:screenQC,ship:screenShip,reports:screenReports,budget:screenBudget,dealers:screenDealers,instructions:screenInstructions,admin:screenAdmin,datafix:screenDataFix,users:screenUsers,}[state.screen])();
-  try{ const hv=hintBanner(state.screen); if(hv&&$('view')) $('view').insertAdjacentHTML('afterbegin',hv); }catch(e){}
 }
 /* ===================== LOCK 4: DATA FIX (reconciliation console — safety frame) ===================== */
 function typeNameToConfirm(actionText){

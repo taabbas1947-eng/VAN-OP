@@ -1304,31 +1304,6 @@ function trkRender(){ render(); const q=document.getElementById('trkq'); if(q&&q
 function qcMini(l){ const lab=l.qcLab?(l.qcLab.pass?'<span class="pill" style="background:var(--green-50);color:var(--green2)">Lab ✓</span>':'<span class="pill" style="background:var(--red-50);color:var(--red)">Lab ✗</span>'):'<span class="muted">—</span>';
   const qa=l.qcPhys?(l.qcPhys.pass?'<span class="pill" style="background:var(--green-50);color:var(--green2)">QA ✓</span>':'<span class="pill" style="background:var(--red-50);color:var(--red)">QA ✗</span>'):'<span class="muted">—</span>';
   return lab+' '+qa; }
-function trkTimeline(o){ const cur=BUCKETS.indexOf(orderBucket(o));
-  const blocked=o.lines.some(l=>(l.qcLab&&l.qcLab.fail)||(l.qcPhys&&l.qcPhys.fail));
-  return `<div class="tl">${BUCKETS.map((b,i)=>{let cls='',ic=String(i+1); if(i<cur){cls='done';ic='✓';} else if(i===cur){cls='cur';} if(blocked&&(b==='Lab QC'||b==='QA Pre-shipment')){cls='blk';ic='!';} return `<div class="tlstep"><div class="tldot ${cls}">${ic}</div><div class="tllbl">${b}</div></div>`;}).join('')}</div>`; }
-function lineLifecycleInline(o,l){
-  const groups=LIFE_GROUPS.map(([gt,fields])=>`<div class="fgroup"><div class="gt">${gt}</div><div class="fgrid">${fields.map(f=>fld(o,l,f[0],f[1],f[2])).join('')}</div></div>`).join('');
-  const rmBand = canEditField('prRaised') ? (true
-     ? `<div style="display:flex;align-items:center;gap:9px;background:#f4f7fc;border:1px solid var(--line);border-radius:10px;padding:8px 11px;margin-bottom:10px;flex-wrap:wrap"><b style="font-size:11.5px">Raw materials:</b> ${rmStatusPill(l)}<button class="sm" style="margin-left:auto" onclick="event.stopPropagation();openRMCheck('${o.id}','${l.id}')">RM Check / Raise PR</button></div>`
-     : `<div style="background:#f4f7fc;border:1px solid var(--line);border-radius:10px;padding:8px 11px;margin-bottom:10px;font-size:11.5px;color:var(--mut)">Raw materials: <b>create the SO first (Stage 1)</b> — RM check unlocks after.</div>`) : '';
-  const mof=myOpenFields(o,l);
-  const turn = mof.length?`<div style="background:#fff8db;border:1px solid #e8d488;border-radius:9px;padding:7px 11px;margin-bottom:10px;font-size:11.5px;color:#6f5a12"><b>✎ Your turn (${state.role}):</b> fill ${mof.slice(0,6).join(', ')}${mof.length>6?' …':''}</div>`:'';
-  const sg=lineStage(o,l);
-  return `<div class="card" style="margin:0 0 10px;padding:11px 13px"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:9px"><b style="font-size:13px">${l.brand}</b> <span class="muted" style="font-size:11px">${l.base}</span> ${pill(sg,STAGE_COLOR[sg]||'--mut')}</div>${rmBand}${turn}${groups}</div>`;
-}
-function trkJourney(o){
-  const stamp=(lbl,val,extra)=>`<div style="min-width:92px"><div class="muted" style="font-size:9px;text-transform:uppercase;letter-spacing:.3px">${lbl}</div><div style="font-size:11.5px;${val?'font-weight:600':'color:var(--mut)'}">${val||'—'}${extra?` <span class="muted" style="font-size:10px">${extra}</span>`:''}</div></div>`;
-  const rows=o.lines.map(l=>{
-    const rmTxt=l.rmStatus?(l.rmStatus==='received'?'received':l.rmStatus):'';
-    return `<div style="border:1px solid var(--line);border-radius:9px;padding:9px 11px;margin-bottom:8px">
-      <div style="font-weight:600;font-size:12px;margin-bottom:6px">${l.brand} <span class="muted" style="font-weight:400;font-size:10.5px">${l.base}</span></div>
-      <div style="display:flex;flex-wrap:wrap;gap:11px 16px">
-        ${stamp('Acknowledged',o.ackDate)}${stamp('RM Check',l.rmCheck||rmTxt)}${stamp('PR Raised',l.prRaised)}${stamp('CFO Approved',l.cfoApproved)}${stamp('RM Received',l.rmReceivedDate,l.grn?('GRN '+l.grn):'')}${stamp('Prod Start',l.prodStart)}${stamp('Prod Complete',l.prodComplete)}${stamp('QC Pass',l.qcPass)}${stamp('Dispatched',l.dispatchDate)}${stamp('Delivered',l.deliveredDate)}
-      </div></div>`;
-  }).join('');
-  return `<div style="margin-top:4px"><h4 style="font-size:12.5px;margin:8px 0 8px;color:var(--navy)">PO journey — what happened at each stage</h4>${rows}</div>`;
-}
 function priorityPill(p){ p=p||'Normal'; var c=p==='Critical'?'--red':(p==='High'?'--amber':(p==='Low'?'--mut':'--blue')); return `<span class="pill" style="background:color-mix(in srgb,var(${c}) 14%,#fff);color:var(${c});font-size:9px;padding:1px 7px;margin-left:5px">${p}</span>`; }
 function orderCard(o){
   const b=orderBucket(o); const m=BUCKET_META[b]; const a=agg(o);
@@ -1444,17 +1419,6 @@ function openOrder(id){
   $('drawer').classList.add('open'); $('drawerBg').classList.add('open');
 }
 function closeDrawer(){ $('drawer').classList.remove('open'); $('drawerBg').classList.remove('open'); }
-function advanceLine(o,l,kind){
-  if(kind==='produce'){ const amt=l.ordered-l.produced; if(amt<=0.5)return; l.produced+=amt; l.prodStart=l.prodStart||TODAY.toISOString().slice(0,10); l.prodComplete=TODAY.toISOString().slice(0,10);
-    state.productionLog.unshift({date:TODAY.toISOString().slice(0,10),base:l.base,kg:amt,by:state.role,po:o.po});
-    logAction(`Produced ${fmt(amt)} Kg/L of ${l.brand} for ${o.po}`); }
-  else if(kind==='pack'){ const amt=l.produced-l.packed; if(amt<=0.5)return; l.packed+=amt;
-    state.packingLog.unshift({date:TODAY.toISOString().slice(0,10),po:o.po,brand:l.brand,kg:amt,by:state.role});
-    logAction(`Packed ${fmt(amt)} Kg/L of ${l.brand} for ${o.po}`); }
-  else if(kind==='ship'){ const amt=l.packed-l.dispatched; if(amt<=0.5)return; l.dispatched+=amt; l.delivered+=amt; l.dispatchDate=l.dispatchDate||TODAY.toISOString().slice(0,10); l.deliveredDate=TODAY.toISOString().slice(0,10);
-    state.shipments.unshift({po:o.po,brand:l.brand,kg:amt,dispatch:TODAY.toISOString().slice(0,10),delivered:TODAY.toISOString().slice(0,10),warehouse:state.warehouses[0],by:state.role});
-    logAction(`Shipped ${fmt(amt)} Kg/L of ${l.brand} for ${o.po}`+(l.dispatched>=l.ordered-0.001?' → product CLOSED':'')); }
-}
 /* ===================== RM CHECK / RAISE PR (manual) ===================== */
 function rmStatusPill(l){ const s=l.rmStatus||'pending'; const m={pending:['Not checked','--mut'],full:['In stock','--green'],partial:['Partial','--amber'],short:['Short — PR raised','--red'],received:['RM received','--green']}; const x=m[s]||m.pending; return pill(x[0],x[1]); }
 let rmForm={oid:null,lid:null,status:'full',canMake:'',lines:[]};
@@ -1504,7 +1468,6 @@ function rmSubmit(){ const o=state.orders.find(x=>x.id===rmForm.oid); const l=o.
 let prodMode='po', prodPOsel='';
 const BULK_BASES=['Potassium Humate','Potassium Humate Liquid','Sulfur Coated Urea','Sulfur 70%','Amino Acid','Compost','Zinc 21%','NP 6.32','Nitro Sulfur','Liquid Phosphrous','Mg Sulphate','NPK 8.8.6','Boron 5%'];
 function brandsForBase(base){ return Object.keys(SEED.brandMap||{}).filter(b=>SEED.brandMap[b].base===base).sort(); }
-function openStockBatch(base){ return (state.batches||[]).find(b=>b.type==='stock'&&b.base===base&&b.packedKg<b.producedKg-0.001); }
 function inProdLines(){ const r=[]; state.orders.forEach(o=>o.lines.forEach(l=>{ if(stageOf(o)!=='Delivered' && (l.packed||0)<l.ordered-0.5) r.push({o,l}); })); return r; }
 function screenProd(){
   const ed=canEdit(['Production']);
@@ -2077,8 +2040,6 @@ function rmAllows(l){
   return 0;
 }
 function ackOrder(oid){ const o=state.orders.find(x=>x.id===oid); if(!o)return; o.acknowledged=true; o.ackDate=TODAY.toISOString().slice(0,10); o.ackBy=state.role; logAction(`PO ${o.po} acknowledged by ${state.role}`); save(); toast('Acknowledged'); render(); }
-let closePRForm={oid:null,lid:null,date:'',grn:''};
-function submitClosePR(){ const o=state.orders.find(x=>x.id===closePRForm.oid); const l=o&&o.lines.find(x=>x.id===closePRForm.lid); if(!l)return; if(!(closePRForm.grn||'').trim()){toast('Enter GRN #');return;} const d=closePRForm.date||TODAY.toISOString().slice(0,10); l.rmReceivedDate=d; l.grn=(closePRForm.grn||'').trim(); l.rmReady=d; l.rmStatus='received'; logAction(`RM received (GRN ${l.grn}) — ${o.po} · ${l.brand}; PR closed`); save(); closeModal(); toast('RM received — PR closed'); render(); }
 function gotoScreen(sc){ state.screen=sc; render(); }
 function cfoApprovePR(prId){ if(!(state.role==='CFO'||state.role==='COO')){toast('CFO only');return;} const p=(state.prs||[]).find(x=>x.id===prId); if(!p)return; p.cfoApproved=TODAY.toISOString().slice(0,10); logAction(`CFO approved PR ${p.id} — ${p.rm} ${fmt(p.qtyRequired)} Kg/L`); save(); toast('PR approved'); render(); }
 function raisePR(rm, qty){ if(!rm||!(qty>0))return; state.prs=state.prs||[]; const open=state.prs.find(p=>p.rm===rm&&p.status==='open');
@@ -2315,31 +2276,6 @@ function saveShip(){ if(!canEdit(['Supply Chain'])){toast('Supply Chain only');r
 
 /* ===================== EXECUTIVE DASHBOARD (CEO / COO) ===================== */
 let charts={}; let _dash=null;
-let dashCycExpand=-1;
-const CYCSTEPS=[['PO → SO','received','soCreated'],['SO → PR','soCreated','prRaised'],['PR → RM ready','prRaised','rmReady'],['RM → Production','rmReady','prodStart'],['Production','prodStart','prodComplete'],['Production → QC','prodComplete','qcPass'],['QC → Dispatch','qcPass','dispatchDate'],['Dispatch → Delivered','dispatchDate','deliveredDate']];
-function cycField(o,l,f){ return f==='received'?o.received:l[f]; }
-function cycCol(d){ if(d==null)return '#cdd6e4'; if(d<=2)return 'var(--green)'; if(d<=5)return 'var(--blue)'; if(d<=10)return 'var(--amber)'; return 'var(--red)'; }
-let dashPeriod='month', dashFrom='', dashTo='', dashCmp='client';
-function periodWin(){ const T=TODAY; let s,e=new Date(T.getFullYear(),T.getMonth(),T.getDate());
-  if(dashPeriod==='week'){ s=new Date(e); s.setDate(e.getDate()-6); }
-  else if(dashPeriod==='month'){ s=new Date(T.getFullYear(),T.getMonth(),1); }
-  else if(dashPeriod==='custom'){ s=dashFrom?new Date(dashFrom):new Date(T.getFullYear(),T.getMonth(),1); e=dashTo?new Date(dashTo):e; }
-  else { s=new Date(2000,0,1); }
-  return {s,e};
-}
-function prevWin(){ const T=TODAY;
-  if(dashPeriod==='month'){ return {s:new Date(T.getFullYear(),T.getMonth()-1,1), e:new Date(T.getFullYear(),T.getMonth(),0)}; }
-  if(dashPeriod==='week'){ const w=periodWin(); const e=new Date(w.s); e.setDate(e.getDate()-1); const s=new Date(e); s.setDate(e.getDate()-6); return {s,e}; }
-  if(dashPeriod==='custom'){ const w=periodWin(); const len=w.e-w.s; const e=new Date(w.s.getTime()-86400000); return {s:new Date(e.getTime()-len), e}; }
-  return null;
-}
-function inWin(ds,w){ if(!ds||!w)return false; const d=new Date(ds); return d>=w.s && d<=new Date(w.e.getFullYear(),w.e.getMonth(),w.e.getDate(),23,59,59); }
-function periodTot(w){ let prod=0,pack=0,ship=0;
-  (state.productionLog||[]).forEach(p=>{if(inWin(p.date,w))prod+=p.kg||0;});
-  (state.packingLog||[]).forEach(p=>{if(inWin(p.date,w))pack+=p.kg||0;});
-  (state.shipments||[]).forEach(s=>{if(inWin(s.dispatch,w))ship+=s.kg||0;});
-  return {prod,pack,ship};
-}
 function dashGreet(){ const h=new Date().getHours(); const g=h<12?'Good morning':(h<17?'Good afternoon':'Good evening'); const nm=(state.currentUser&&state.currentUser.name)||state.role; return g+', '+nm; }
 function dashMyTodos(){ const all=actionItems(); const esc=t=>String(t==null?'':t);
   if(state.role==='COO'||state.role==='CEO'){
@@ -2667,7 +2603,6 @@ function regSt(id){ REG[id]=REG[id]||{q:'',f:{},df:'',dt:'',page:0,sort:null,dir
 function regSetQ(id,v){ const s=regSt(id); s.q=v; s.page=0; render(); }
 function regSetF(id,k,v){ const s=regSt(id); s.f[k]=v; s.page=0; render(); }
 function regDate(id,which,v){ const s=regSt(id); s[which]=v; s.page=0; render(); }
-function regSort(id,k){ const s=regSt(id); if(s.sort===k)s.dir=-s.dir; else{s.sort=k;s.dir=-1;} render(); }
 function regPage(id,d,pages){ const s=regSt(id); s.page=Math.max(0,Math.min((pages||1)-1,s.page+d)); render(); }
 function regReset(id){ REG[id]={q:'',f:{},df:'',dt:'',page:0,sort:null,dir:-1}; render(); }
 function regFilter(id,rows,opt){ const s=regSt(id); let r=rows.slice();

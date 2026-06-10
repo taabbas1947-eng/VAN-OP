@@ -632,7 +632,6 @@ function startSync(){ if(_syncOn)return; _syncOn=true; setInterval(async ()=>{
   }catch(e){}
 }, 7000); }
 
-function resetSeed(){ if(typeof confirm==='function' && !confirm('This wipes ALL shared team data and resets to the seed. Everyone loses current data. Continue?')) return; state=buildFromSeed(); sessionInit(state); restoreSession(); save(); toast('Reset to seed data'); renderApp(); }
 
 /* ===================== ENGINE A — RM ===================== */
 function needFor(order){ // {rm: kg}
@@ -803,7 +802,7 @@ const HINTS={
   entry:'Create a PO: pick channel \u2192 client, add products (qty auto-converts to packs), set the print price and VAN invoice price, then submit.',
   budget:'Target vs delivered per client (delivered \u00d7 invoice price). Dealers roll up to one parent. Set invoice prices in bulk from here.',
   admin:'Master lists power every dropdown. Add raw materials, lab templates, variance reasons, etc. The Access Matrix controls who sees/edits each screen.',
-  datafix:'Back-fill or correct records to match reality \u2014 all logged. Import opening POs and set invoice prices in bulk here. COO-gated.',
+  datafix:'Back-fill or correct records to match reality \u2014 all logged. Import opening POs here (invoice pricing lives on Sales & Budget). COO-gated.',
   dealers:'Onboard dealers (auto code). They become selectable as clients on the Dealer channel in New PO Entry.',
   reports:'Slice all data. The QC Reports tab is the searchable COA register; Action Log and others are searchable too.',
   users:'Add people and set each one a role + password. They sign in and see only what their role allows.'
@@ -817,7 +816,7 @@ function render(){
   const s=scr(state.screen);
   $('scTitle').textContent=s.name; $('scSub').textContent=s.sub;
   if($('helpbar')){ const EDIT_SCREENS={entry:1,dealers:1,prod:1,qc:1,ship:1,admin:1,users:1}; let editable=!!EDIT_SCREENS[s.id]; let owner=editable?(s.owners.filter(r=>r!=='COO').join(', ')||'COO'):'Everyone'; let upd=editable?'Yes':'No — view only'; if(s.id==='tracker'){ const tm={'KAM':'SO # & dates','Supply Chain':'RM Check / PR & RM dates','CFO':'CFO approval & invoice','Plant Manager':'delay reason & dept','Production':'production dates','COO':'any field'}; if(tm[state.role]) upd='Yes — '+tm[state.role]+' (click to open)'; } $('helpbar').innerHTML=`This screen: <b>${s.sub}</b> &nbsp;·&nbsp; Owned by: <b>${owner}</b> &nbsp;·&nbsp; Update here: <b>${upd}</b>`+((HINTS[s.id]&&!hintHidden(s.id))?`<div style="display:flex;gap:8px;align-items:flex-start;margin-top:7px;padding-top:7px;border-top:1px dashed var(--line)"><span style="font-size:12px;color:var(--txt2)">\uD83D\uDCA1 ${HINTS[s.id]}</span><button class="ghost sm" style="margin-left:auto;flex:0 0 auto;font-size:11px;padding:2px 8px" onclick="dismissHint('${s.id}')">Got it</button></div>`:''); }
-  if($('sidefoot')) $('sidefoot').innerHTML = '<button class="ghost sm" style="width:100%;margin-bottom:6px" onclick="showAllHints()">\u{1F4A1} Show screen tips</button>'+(state.role==='COO'?'<button class="ghost sm" style="width:100%" onclick="resetSeed()">Reset demo data</button>':'');
+  if($('sidefoot')) $('sidefoot').innerHTML = '<button class="ghost sm" style="width:100%;margin-bottom:6px" onclick="showAllHints()">\u{1F4A1} Show screen tips</button>';
   ({dash:screenDash,approvals:screenApprovals,entry:screenEntry,tracker:screenTracker,prod:screenProd,qc:screenQC,ship:screenShip,reports:screenReports,budget:screenBudget,dealers:screenDealers,instructions:screenInstructions,admin:screenAdmin,datafix:screenDataFix,users:screenUsers,}[state.screen])();
 }
 /* ===================== LOCK 4: DATA FIX (reconciliation console — safety frame) ===================== */
@@ -859,16 +858,6 @@ function importGoLivePOs(){
     n++; });
   save(); render(); toast('Imported '+n+' opening PO(s)'+(skip?(' · '+skip+' skipped'):''));
 }
-function dfFreshStart(){
-  if(state.role!=='COO'){ toast('COO only'); return; }
-  if(typeof confirm!=='function') return;
-  if(!typeNameToConfirm('FRESH START — permanently clear ALL operational data (POs, production, QC, shipments, stock, logs)')) return;
-  if(!confirm('FRESH START — permanently clear ALL operational data:\n\n- every PO / order\n- production, packing, batches, shift entries\n- QC results, shipments\n- RM requests/movements, packed & raw stock\n- audit + action log\n\nKEPT: users & passwords, master data, dealers/clients, products/brands/bases, settings.\n\nDownload a snapshot FIRST if you have not. Continue?')) return;
-  if(!confirm('Final confirmation. This cannot be undone except by restoring a snapshot.\n\nClear all operational data and start from zero now?')) return;
-  state.orders=[]; state.productionLog=[]; state.packingLog=[]; state.batches=[]; state.shiftEntries=[]; state.shipments=[]; state.rmRequests=[]; state.rmMovements=[]; state.audit=[]; state.packedStock={}; state.rawStock={}; state.prs=[]; state.expanded={}; state.seq=1000;
-  state.actionLog=[{t:new Date().toISOString(), role:state.role, by:(state.currentUser&&state.currentUser.name)||state.role, what:'FRESH START — all operational data cleared (users, masters, dealers, products kept)'}];
-  save(); toast('Fresh start done — operational data cleared'); render();
-}
 function exportStateJSON(){
   try{
     const blob=new Blob([JSON.stringify(dataOnly(state),null,2)],{type:'application/json'});
@@ -893,7 +882,7 @@ function screenDataFix(){
      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
        <div>Status: <b style="color:${on?'var(--green2)':'var(--mut)'}">${on?'ON — corrections enabled':'OFF'}</b></div>
        ${toggle}
-       <button class="sm" onclick="exportStateJSON()">⬇ Download data snapshot (JSON)</button>${isCOO?`<button class="sm" style="background:var(--navy);color:#fff;border-color:var(--navy)" onclick="importGoLivePOs()">⬆ Import opening POs (go-live)</button> ${(state.role==='COO'||state.role==='CFO')?`<button class="sm" onclick="openBulkPricing()">💲 Set all invoice prices</button>`:``} <button class="sm" style="background:var(--red);color:#fff;border-color:var(--red)" onclick="dfFreshStart()">⚠ Fresh start — clear all operational data</button>`:``}
+       <button class="sm" onclick="exportStateJSON()">⬇ Download data snapshot (JSON)</button>${isCOO?`<button class="sm" style="background:var(--navy);color:#fff;border-color:var(--navy)" onclick="importGoLivePOs()">⬆ Import opening POs (go-live)</button>`:``}
      </div>
      <div class="muted" style="font-size:11px;margin-top:10px">Always download a snapshot before a reconciliation session — it's your restore point. The snapshot is read-only and changes nothing.</div>
    </div>${ops}`;
@@ -2388,8 +2377,14 @@ let monthSel=null;
 function screenAdmin(){
   const ed=canEdit(['COO']);
   const lists=[['shifts','Shifts'],['incharges','Shift incharges'],['delayReasons','Delay reasons'],['respDepts','Responsible departments'],['priorities','Priorities'],['kamNames','KAM names'],['forms','Product forms'],['statuses','Statuses'],['varianceReasons','Yield variance reasons'],['downtimeReasons','Downtime reasons']];
+  const sec=t=>`<div style="font-size:12.5px;font-weight:800;color:var(--navy);letter-spacing:.4px;margin:20px 2px 9px;padding-bottom:6px;border-bottom:2px solid var(--navy-100)">${t}</div>`;
   $('view').innerHTML=`
    ${ed?'':`<div class="banner warn">Owned by <b>COO / Admin</b>. You're <b>${state.role}</b> — viewing only.</div>`}
+   ${sec('Business masters')}
+   ${rmMasterCard(canEdit(['Supply Chain']))}
+   ${labTplCard(canEdit(['Lab Rep','AQCM','QCM']))}
+   ${(state.role==='COO'||state.role==='CFO')?salesTargetCard():''}
+   ${sec('Reference lists — dropdown values')}
    <div class="banner info">These lists power every dropdown in the app. Add a value and it appears wherever that field is used — no code change needed.</div>
    <div class="row">
    ${lists.map(([k,label])=>{const vals=(state.masters&&state.masters[k])||[];
@@ -2397,9 +2392,7 @@ function screenAdmin(){
        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:11px">${vals.length?vals.map((v,idx)=>`<span class="pill" style="background:var(--navy-50);color:var(--navy);border:1px solid var(--navy-100);display:inline-flex;align-items:center;gap:7px">${v}${ed?`<span style="cursor:pointer;color:var(--mut)" title="rename" onclick="editMaster('${k}',${idx})">&#9998;</span><span style="cursor:pointer;color:var(--red);font-weight:700" title="delete" onclick="delMaster('${k}',${idx})">&times;</span>`:''}</span>`).join(''):'<span class="muted" style="font-size:12px">none yet</span>'}</div>
        ${ed?`<div style="display:flex;gap:8px"><input type="text" id="adm_${k}" placeholder="add value…" style="flex:1"><button class="sm" onclick="addMaster('${k}')">Add</button></div>`:''}</div>`;}).join('')}
    </div>
-   ${rmMasterCard(canEdit(['Supply Chain']))}
-   ${labTplCard(canEdit(['Lab Rep','AQCM','QCM']))}
-   ${(state.role==='COO'||state.role==='CFO')?salesTargetCard():''}
+   ${sec('Access control')}
    ${accessMatrixCard()}`;
 }
 function accessMatrixCard(){ const isCOO=state.role==='COO';

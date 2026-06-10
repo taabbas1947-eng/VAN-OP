@@ -767,7 +767,7 @@ function navIcon(id){ return NAV_ICONS[id]?`<svg viewBox="0 0 24 24">${NAV_ICONS
 const NAV_ORDER=['approvals','tracker','prod','qc','ship','instructions','dash','budget','costing','entry','dealers','monthly','reports','admin','datafix','users','log'];
 function renderNav(){
   const byId={}; SCREENS.forEach(s=>byId[s.id]=s);
-  const ordered=NAV_ORDER.map(id=>byId[id]).filter(Boolean).filter(s=> s.id!=='datafix' || state.dataFixEnabled || state.role==='COO').filter(s=> s.id!=='budget' || state.role==='COO' || state.role==='CFO').filter(s=> s.id!=='costing' || state.role==='COO' || state.role==='CFO').filter(s=>canView(state.role,s.id));
+  const ordered=NAV_ORDER.map(id=>byId[id]).filter(Boolean).filter(s=> s.id!=='datafix' || state.dataFixEnabled || state.role==='COO').filter(s=> s.id!=='costing' || state.role==='COO' || state.role==='CFO').filter(s=>canView(state.role,s.id));
   $('nav').innerHTML = ordered.map(s=>`<a class="${s.id===state.screen?'active':''}" onclick="setScreen('${s.id}')"><span class="ic">${navIcon(s.id)}</span>${s.name}</a>`+(s.id==='instructions'?'<div style="height:1px;background:var(--line);margin:9px 12px;opacity:.7"></div>':'')).join('');
   const u=state.currentUser;
   if($('rolebox')) $('rolebox').innerHTML = u
@@ -2747,7 +2747,6 @@ function screenCosting(){
    </div>`;
 }
 function screenBudget(){
-  if(!(state.role==='COO'||state.role==='CFO')){ $('view').innerHTML='<div class="banner warn">Sales &amp; Budget is restricted to <b>COO and CFO</b>.</div>'; return; }
   const fy=fyKey(TODAY.toISOString().slice(0,10)); const targets=(state.masters&&state.masters.salesTargets)||{};
   const rows={};
   const dealerKids=new Set(); (state.orders||[]).forEach(o=>{ const c=budgetKey(o); if(isDealerClient(o)&&o.client) dealerKids.add(o.client); rows[c]=rows[c]||{booked:0,delivered:0,delKg:0}; (o.lines||[]).forEach(l=>{ const pr=+l.invoicePrice||0; rows[c].booked+=(+l.ordered||0)*pr; rows[c].delivered+=(+l.delivered||0)*pr; rows[c].deliveredKg=(rows[c].deliveredKg||0)+(+l.delivered||0); }); });
@@ -2764,7 +2763,7 @@ function screenBudget(){
   const pm={}; (state.orders||[]).forEach(o=>(o.lines||[]).forEach(l=>{ const v=(+l.delivered||0)*(+l.invoicePrice||0); if(v>0){ pm[l.brand]=(pm[l.brand]||0)+v; } }));
   const pmRows=Object.entries(pm).sort((a,b)=>b[1]-a[1]).slice(0,15);
   $('view').innerHTML=`
-   <div class="banner info"><b>Sales &amp; Budget · COO / CFO only.</b> Achievement = <b>delivered</b> value (delivered Kg/L × VAN invoice price). Targets are per client for <b>${fyRange(fy)}</b> (set in Admin · Master Data). Booked = ordered pipeline value. <button class="sm" style="margin-left:8px" onclick="openBulkPricing()">💲 Set invoice prices (bulk)</button></div>
+   <div class="banner info"><b>Sales &amp; Budget · COO / CFO only.</b> Achievement = <b>delivered</b> value (delivered Kg/L × VAN invoice price). Targets are per client for <b>${fyRange(fy)}</b> (set in Admin · Master Data). Booked = ordered pipeline value.${(state.role==='COO'||state.role==='CFO')?` <button class="sm" style="margin-left:8px" onclick="openBulkPricing()">💲 Set invoice prices (bulk)</button>`:''}</div>
    ${noPrice?'<div class="banner warn">Some PO lines have <b>no invoice price</b> yet — their value is counted as 0. Set invoice prices on New PO Entry (new POs) or via Data Fix (imported POs).</div>':''}
    <div class="kpis" style="grid-template-columns:repeat(4,1fr)">
      <div class="kpi"><div class="l">All clients — target</div><div class="v">${pkr(totT)}</div><div class="d">${fyRange(fy)}</div></div>

@@ -804,8 +804,9 @@ const TIPS={
  datafix:'Back-fill or correct records to match reality — all back-dated and logged. COO turns it OFF after cut-over.',
  users:'Add people and set each one a role + password. They sign in and see only what their role allows.'
 };
-function tipHidden(id){ try{ return !!(window.localStorage&&localStorage.getItem('van_tip_'+id)==='1'); }catch(e){ return false; } }
-function dismissTip(id){ try{ if(window.localStorage) localStorage.setItem('van_tip_'+id,'1'); }catch(e){} render(); }
+function _tipUK(){ const u=state.currentUser; return String((u&&(u.id||u.name))||state.role||'anon').replace(/[^A-Za-z0-9]/g,'_'); }
+function tipHidden(id){ try{ return !!(window.localStorage&&localStorage.getItem('van_tip_'+_tipUK()+'_'+id)==='1'); }catch(e){ return false; } }
+function dismissTip(id){ try{ if(window.localStorage) localStorage.setItem('van_tip_'+_tipUK()+'_'+id,'1'); }catch(e){} render(); }
 function setScreen(id){ if(!canView(state.role,id)){toast('Access to this screen is disabled by the COO');return;} if(id!=='tracker') state.expanded={}; state.screen=id; closeMobileNav(); save(); render(); }
 function isMobile(){ return window.matchMedia&&window.matchMedia('(max-width:820px)').matches; }
 function toggleSide(){ const a=document.querySelector('.app'); if(!a)return; if(isMobile()) a.classList.toggle('nav-open'); else a.classList.toggle('nav-collapsed'); }
@@ -823,10 +824,10 @@ const HINTS={
   dealers:'Onboard dealers (auto code). They become selectable as clients on the Dealer channel in New PO Entry.',
   reports:'Slice all data. The QC Reports tab is the searchable COA register; Action Log and others are searchable too.'
 };
-function hintBanner(id){ const t=HINTS[id]; if(!t) return ''; try{ if(window.localStorage&&localStorage.getItem('van_hint_'+id)==='1') return ''; }catch(e){}
+function hintBanner(id){ const t=HINTS[id]; if(!t) return ''; try{ if(window.localStorage&&localStorage.getItem('van_hint_'+_tipUK()+'_'+id)==='1') return ''; }catch(e){}
   return `<div class="hintbar"><span style="font-size:14px">\u{1F4A1}</span><span>${t}</span><span class="x" title="Got it \u2014 hide this tip" onclick="dismissHint('${id}')">\u2715</span></div>`; }
-function dismissHint(id){ try{ if(window.localStorage) localStorage.setItem('van_hint_'+id,'1'); }catch(e){} const el=document.querySelector('#view .hintbar'); if(el) el.remove(); }
-function showAllHints(){ try{ if(window.localStorage){ Object.keys(HINTS).forEach(k=>localStorage.removeItem('van_hint_'+k)); Object.keys(TIPS).forEach(k=>localStorage.removeItem('van_tip_'+k)); } }catch(e){} toast('Tips re-enabled'); render(); }
+function dismissHint(id){ try{ if(window.localStorage) localStorage.setItem('van_hint_'+_tipUK()+'_'+id,'1'); }catch(e){} const el=document.querySelector('#view .hintbar'); if(el) el.remove(); }
+function showAllHints(){ try{ if(window.localStorage){ const uk=_tipUK(); Object.keys(HINTS).forEach(k=>localStorage.removeItem('van_hint_'+uk+'_'+k)); Object.keys(TIPS).forEach(k=>localStorage.removeItem('van_tip_'+uk+'_'+k)); } }catch(e){} toast('Tips re-enabled'); render(); }
 function render(){
   if(scr(state.screen)&&!canView(state.role,state.screen)) state.screen='dash';
   if(!scr(state.screen)) state.screen='dash';

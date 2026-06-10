@@ -136,7 +136,7 @@ td.skufirst{padding-left:10px;box-shadow:inset 3px 0 0 var(--navy)}
 .drawer-bg{position:fixed;inset:0;background:rgba(17,30,66,.42);display:none;z-index:50;backdrop-filter:blur(2px)}
 .drawer-bg.open{display:block;animation:fade .2s ease}
 @keyframes fade{from{opacity:0}to{opacity:1}}
-.drawer{position:fixed;top:0;right:0;height:100vh;width:660px;max-width:97vw;background:var(--bg);border-left:1px solid var(--line);overflow:auto;transform:translateX(100%);transition:transform .26s cubic-bezier(.4,0,.2,1);box-shadow:var(--sh-lg);z-index:51}
+.drawer{position:fixed;top:0;right:0;height:100vh;width:1060px;max-width:97vw;background:var(--bg);border-left:1px solid var(--line);overflow:auto;transform:translateX(100%);transition:transform .26s cubic-bezier(.4,0,.2,1);box-shadow:var(--sh-lg);z-index:51}
 .drawer.open{transform:none}
 .drawer .dh{display:flex;align-items:center;gap:12px;padding:20px 24px;border-bottom:1px solid var(--line);position:sticky;top:0;background:rgba(255,255,255,.9);backdrop-filter:blur(8px);z-index:2}
 .drawer .dh h2{color:var(--navy);font-size:17px}
@@ -236,10 +236,10 @@ td.skufirst{padding-left:10px;box-shadow:inset 3px 0 0 var(--navy)}
 .flowstage .fs-n{font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.3px;font-weight:700;margin-top:6px}
 .attngrid{display:grid;grid-template-columns:repeat(6,1fr);gap:10px}
 @media(max-width:1150px){.attngrid{grid-template-columns:repeat(3,1fr)}}
-.attn{background:#fff;border:1px solid var(--line);border-left:4px solid var(--mut);border-radius:11px;padding:13px 14px;cursor:pointer;transition:.13s}
+.attn{background:#fff;border:1px solid var(--line);border-left:4px solid var(--mut);border-radius:11px;padding:9px 12px;cursor:pointer;transition:.13s}
 .attn:hover{box-shadow:var(--sh);transform:translateY(-1px)}
 .attn.on{box-shadow:0 0 0 2px var(--navy)}
-.attn .a-c{font-size:22px;font-weight:800;line-height:1}
+.attn .a-c{font-size:18px;font-weight:800;line-height:1}
 .attn .a-n{font-size:11px;color:var(--mut);font-weight:600;margin-top:5px}
 .chips{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:13px;align-items:center}
 .chip{padding:7px 14px;border-radius:999px;border:1px solid var(--line);background:#fff;font-size:12px;font-weight:600;cursor:pointer;color:var(--txt2)}
@@ -367,6 +367,28 @@ td.skufirst{padding-left:10px;box-shadow:inset 3px 0 0 var(--navy)}
   .topbar h2{font-size:15px}
   .sub{font-size:11px}
 }
+.flowpipe{display:flex;align-items:stretch;gap:0;flex-wrap:wrap}
+.fnode{flex:1;min-width:88px;text-align:center;padding:7px 6px;border-radius:9px;cursor:pointer;border:1.5px solid transparent;border-bottom:3px solid var(--fc);background:var(--panel2);transition:.12s}
+.fnode:hover{background:#fff;box-shadow:var(--sh-sm)}
+.fnode.on{background:#fff;border-color:var(--fc)}
+.fnode .fnum{font-size:20px;font-weight:800;color:var(--fc);line-height:1;font-variant-numeric:tabular-nums}
+.fnode .flbl{font-size:9px;color:var(--mut);font-weight:700;text-transform:uppercase;letter-spacing:.2px;margin-top:3px;line-height:1.15}
+.farr{display:flex;align-items:center;justify-content:center;color:var(--line2);font-size:18px;padding:0 1px;flex:0 0 auto}
+.mtx td,.mtx th{white-space:nowrap}
+.mtx td:first-child{white-space:normal}
+@media(max-width:820px){.fnode{min-width:72px}.farr{display:none}}
+.regbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.regbar input,.regbar select{padding:7px 10px;border:1px solid var(--line);border-radius:8px;font-size:13px;background:#fff}
+.regbar input.regq{flex:1;min-width:200px}
+.regcount{margin-left:auto;font-size:12px;color:var(--mut);font-weight:600}
+.regpager{display:flex;gap:10px;align-items:center;justify-content:center;margin-top:12px;font-size:12px;color:var(--mut)}
+.btn-tap,button{transition:transform .08s,background .12s,box-shadow .12s}
+button:active{transform:translateY(1px)}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--navy)!important;box-shadow:0 0 0 3px var(--navy-50)}
+table tbody tr{transition:background .1s}
+table tbody tr:hover{background:var(--panel2)}
+.card{transition:box-shadow .15s}
+#toast.show.saved{background:var(--green2)}
 </style></head><body>
 <div class="app" id="appShell">
   <div class="navbackdrop" onclick="closeMobileNav()"></div>
@@ -764,7 +786,7 @@ const NAV_ICONS={
   approvals:'<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>'
 };
 function navIcon(id){ return NAV_ICONS[id]?`<svg viewBox="0 0 24 24">${NAV_ICONS[id]}</svg>`:''; }
-const NAV_ORDER=['approvals','tracker','prod','qc','ship','instructions','dash','budget','costing','entry','dealers','monthly','reports','admin','datafix','users','log'];
+const NAV_ORDER=['approvals','tracker','prod','qc','ship','instructions','dash','budget','costing','entry','dealers','reports','admin','datafix','users'];
 function renderNav(){
   const byId={}; SCREENS.forEach(s=>byId[s.id]=s);
   const ordered=NAV_ORDER.map(id=>byId[id]).filter(Boolean).filter(s=> s.id!=='datafix' || state.dataFixEnabled || state.role==='COO').filter(s=> s.id!=='costing' || state.role==='COO' || state.role==='CFO').filter(s=>canView(state.role,s.id));
@@ -775,6 +797,22 @@ function renderNav(){
     : '';
 }
 function setRole(r){ state.role=r; save(); render(); }
+const TIPS={
+ approvals:'This is your to-do list — everything across all orders waiting on YOU. Clear items here; the tracker updates itself.',
+ tracker:'View-only board. Click the Order-Flow stages or attention cards to filter, and click any PO to see where each product stands.',
+ prod:'Open a batch (PO or bulk base), then Log shift output. A batch must pass Lab QC before it can be packed.',
+ qc:'Lab certifies each production batch by COA (Analyst → AQCM → QCM). QA inspects each packed lot. Nothing ships until both pass.',
+ ship:'Only QC-passed packed lots can load. Record one dispatch per truck; quantities show in Kg/L and packs.',
+ entry:'Pick channel & client, add each brand with quantity, print price and VAN invoice price. Submit drops it into the PO Tracker.',
+ dealers:'Onboard dealers here (code auto-generated) before creating a dealer-channel PO.',
+ budget:'Delivered value vs each client\'s annual target. Set targets and invoice prices to populate it.',
+ costing:'True cost = Material (live from recipe × RM price) + Packing + Conversion. Link a base to make material auto-update.',
+ reports:'Slice every record. Use the search/filter bar in QC Reports, Action Log and others — no more scrolling long lists.',
+ admin:'Master lists power every dropdown. Add raw materials, lab templates, targets, and manage the Access Matrix here.',
+ datafix:'Back-fill or correct records to match reality — all back-dated and logged. COO turns it OFF after cut-over.',
+ users:'Add people and set each one a role + password. They sign in and see only what their role allows.'
+};
+function dismissTip(id){ state.tipsDismissed=state.tipsDismissed||{}; state.tipsDismissed[id]=true; save(); render(); }
 function setScreen(id){ if(!canView(state.role,id)){toast('Access to this screen is disabled by the COO');return;} if(id!=='tracker') state.expanded={}; state.screen=id; closeMobileNav(); save(); render(); }
 function isMobile(){ return window.matchMedia&&window.matchMedia('(max-width:820px)').matches; }
 function toggleSide(){ const a=document.querySelector('.app'); if(!a)return; if(isMobile()) a.classList.toggle('nav-open'); else a.classList.toggle('nav-collapsed'); }
@@ -785,7 +823,7 @@ function render(){
   renderNav();
   const s=scr(state.screen);
   $('scTitle').textContent=s.name; $('scSub').textContent=s.sub;
-  if($('helpbar')){ const EDIT_SCREENS={entry:1,dealers:1,prod:1,qc:1,ship:1,admin:1,users:1}; let editable=!!EDIT_SCREENS[s.id]; let owner=editable?(s.owners.filter(r=>r!=='COO').join(', ')||'COO'):'Everyone'; let upd=editable?'Yes':'No — view only'; if(s.id==='tracker'){ const tm={'KAM':'SO # & dates','Supply Chain':'RM Check / PR & RM dates','CFO':'CFO approval & invoice','Plant Manager':'delay reason & dept','Production':'production dates','COO':'any field'}; if(tm[state.role]) upd='Yes — '+tm[state.role]+' (click to open)'; } $('helpbar').innerHTML=`This screen: <b>${s.sub}</b> &nbsp;·&nbsp; Owned by: <b>${owner}</b> &nbsp;·&nbsp; Update here: <b>${upd}</b>`; }
+  if($('helpbar')){ const EDIT_SCREENS={entry:1,dealers:1,prod:1,qc:1,ship:1,admin:1,users:1}; let editable=!!EDIT_SCREENS[s.id]; let owner=editable?(s.owners.filter(r=>r!=='COO').join(', ')||'COO'):'Everyone'; let upd=editable?'Yes':'No — view only'; if(s.id==='tracker'){ const tm={'KAM':'SO # & dates','Supply Chain':'RM Check / PR & RM dates','CFO':'CFO approval & invoice','Plant Manager':'delay reason & dept','Production':'production dates','COO':'any field'}; if(tm[state.role]) upd='Yes — '+tm[state.role]+' (click to open)'; } $('helpbar').innerHTML=`This screen: <b>${s.sub}</b> &nbsp;·&nbsp; Owned by: <b>${owner}</b> &nbsp;·&nbsp; Update here: <b>${upd}</b>`+((TIPS[s.id]&&!(state.tipsDismissed&&state.tipsDismissed[s.id]))?`<div style="display:flex;gap:8px;align-items:flex-start;margin-top:7px;padding-top:7px;border-top:1px dashed var(--line)"><span style="font-size:12px;color:var(--txt2)">\uD83D\uDCA1 ${TIPS[s.id]}</span><button class="ghost sm" style="margin-left:auto;flex:0 0 auto;font-size:11px;padding:2px 8px" onclick="dismissTip('${s.id}')">Got it</button></div>`:''); }
   if($('sidefoot')) $('sidefoot').innerHTML = state.role==='COO'?'<button class="ghost sm" style="width:100%" onclick="resetSeed()">Reset demo data</button>':'';
   ({dash:screenDash,approvals:screenApprovals,entry:screenEntry,tracker:screenTracker,prod:screenProd,qc:screenQC,monthly:screenMonthly,ship:screenShip,reports:screenReports,budget:screenBudget,costing:screenCosting,dealers:screenDealers,instructions:screenInstructions,admin:screenAdmin,datafix:screenDataFix,users:screenUsers,log:screenLog}[state.screen])();
 }
@@ -1220,7 +1258,7 @@ function addDealer(){
 }
 
 /* ===================== 2. PO TRACKER ===================== */
-let trkFilter='all';
+let trkFilter='all'; let trkStage='';
 function toggleExpand(id,ev){ if(ev)ev.stopPropagation(); state.expanded=state.expanded||{}; state.expanded[id]=!state.expanded[id]; render(); }
 function expandAll(v){ state.expanded={}; if(v) state.orders.forEach(o=>state.expanded[o.id]=true); render(); }
 /* ===================== PO TRACKER — control tower (UI redesign) ===================== */
@@ -1337,6 +1375,7 @@ function screenTracker(){
   const A=attnCounts();
   let list=state.orders.filter(o=>trkMatch(o));
   if(trkSearch){ const q=trkSearch.toLowerCase(); list=list.filter(o=>((o.po||'')+' '+(o.client||'')).toLowerCase().indexOf(q)>-1); }
+  if(trkStage){ list=list.filter(o=>orderBucket(o)===trkStage); }
   // Sort: earliest stage (new POs) at top → progressing by stage → Delivered at the bottom.
   // Within a stage: most overdue first, then newer PO (by received date) first.
   list=list.slice().sort((a,b)=>{
@@ -1346,7 +1385,7 @@ function screenTracker(){
     if(da!==db) return db-da;
     return String(b.received||'').localeCompare(String(a.received||''));
   });
-  const flow=`<div class="flowbar">${BUCKETS.map(b=>{const m=BUCKET_META[b];return `<div class="flowstage" style="border-top:3px solid var(${m.c})"><div class="fs-c" style="color:var(${m.c})">${counts[b]}</div><div class="fs-n">${b}</div></div>`;}).join('')}</div>`;
+  const flow=`<div class="flowpipe">${BUCKETS.map((b,i)=>{const m=BUCKET_META[b];const on=trkStage===b;return `<div class="fnode ${on?'on':''}" style="--fc:var(${m.c})" title="Filter to ${b}" onclick="trkStage=(trkStage===\`${b}\`?'':\`${b}\`);render()"><div class="fnum">${counts[b]}</div><div class="flbl">${b}</div></div>${i<BUCKETS.length-1?'<div class="farr">\u203a</div>':''}`;}).join('')}</div>`;
   const cards=[['delayed','Delayed orders',A.delayed,'--red'],['rmblock','RM / materials',A.rmblock,'--amber'],['prod','Production pending',A.prod,'--blue'],['qc','QC pending',A.qc,'--purple'],['qahold','QA hold / fail',A.qahold,'--red'],['ready','Ready to ship',A.ready,'--green2']];
   const attn=`<div class="attngrid">${cards.map(c=>`<div class="attn ${trkFilter===c[0]?'on':''}" style="border-left-color:var(${c[3]})" onclick="trkFilter=(trkFilter==='${c[0]}'?'all':'${c[0]}');render()"><div class="a-c" style="color:var(${c[3]})">${c[2]}</div><div class="a-n">${c[1]}</div></div>`).join('')}</div>`;
   const chips=[['all','All orders'],['myrole','My role'],['delayed','Delayed'],['rmblock','RM / blocked'],['qc','QC pending'],['ready','Ready to ship'],['delivered','Delivered']];
@@ -1403,7 +1442,7 @@ function myOpenFields(o,l){ return Object.keys(FIELD_OWNER).filter(k=>canEditFie
 function openOrder(id){
   const o=state.orders.find(x=>x.id===id); if(!o)return;
   const a=agg(o); const st=stageOf(o);
-  const dcell=(d,cur)=>d?`<span style="color:var(--green2);font-weight:700">✓</span> <span class="muted" style="font-size:9.5px">${d}</span>`:(cur?`<span class="pill" style="background:var(--amber-50);color:var(--amber);font-size:8.5px;padding:1px 6px">now</span>`:'<span class="muted">—</span>');
+  const dcell=(d,cur)=>d?`<span title="${d}" style="white-space:nowrap"><span style="color:var(--green2);font-weight:700">✓</span> <span class="muted" style="font-size:9.5px">${String(d).slice(5)}</span></span>`:(cur?`<span class="pill" style="background:var(--amber-50);color:var(--amber);font-size:8.5px;padding:1px 6px">now</span>`:'<span class="muted">—</span>');
   const qcell=(done,ord)=>{ const c=(done>=ord-0.5&&ord>0)?'var(--green2)':(done>0?'var(--amber)':'var(--mut)'); return `<b style="color:${c}">${fmt(done||0)}</b><span class="muted" style="font-size:9.5px">/${fmt(ord)}</span>`; };
   let nDeliv=0, nStuck=0;
   const rows=o.lines.map(l=>{ const ls=lineStage(o,l); const c=calcLine(o,l); const ov=c.daysOverdue;
@@ -1434,7 +1473,7 @@ function openOrder(id){
        <div><div class="l muted" style="font-size:10px;text-transform:uppercase">PO received</div><b>${o.received||'—'}</b></div>
      </div>
      <h3 style="font-size:13px;margin:10px 0 8px;color:var(--navy)">Where every product stands</h3>
-     <div style="overflow:auto"><table style="font-size:12px"><thead><tr>
+     <div style="overflow:auto"><table class="mtx" style="font-size:12px"><thead><tr>
        <th>Product</th><th style="text-align:center">RM</th><th style="text-align:center">PR · CFO</th><th style="text-align:center">Produced</th><th style="text-align:center">QC</th><th style="text-align:center">Packed</th><th style="text-align:center">Shipped</th><th style="text-align:center">Delivered</th><th>Where it&rsquo;s at</th>
      </tr></thead><tbody>${rows}</tbody></table></div>
      <div class="muted" style="font-size:11px;margin-top:10px"><span style="color:var(--green2);font-weight:700">✓</span> done (with date) · <span style="color:var(--amber);font-weight:700">amber</span> = current / partial · — = pending. Quantities show done / ordered. <b>View only</b> — actions happen in My Actions.</div>
@@ -2693,7 +2732,7 @@ let rpfMonth='', rpfChannel='', rpfClient='', rpfPriority='';
 let rpChart=null;
 const RP_DIMS={client:'Client',channel:'Channel',brand:'Product (brand)',base:'Base product',month:'Month (PO received)',priority:'Priority',stage:'Stage'};
 const RP_MEAS={ordered:'Ordered (Kg/L)',produced:'Produced (Kg/L)',packed:'Packed (Kg/L)',dispatched:'Shipped (Kg/L)',delivered:'Delivered (Kg/L)',toproduce:'Pending to produce',topack:'Pending to pack',toship:'Pending to ship',pos:'# POs',lines:'# SKU lines'};
-const RP_TABS=[['explorer','Explorer'],['postatus','PO Status'],['prod','Production'],['trace','Batch Trace'],['labqc','Lab QC'],['qaqc','QA Pre-Shipment'],['ship','Shipments'],['delay','Delay / Hold'],['monthly','Monthly Production'],['log','Action Log']];
+const RP_TABS=[['explorer','Explorer'],['postatus','PO Status'],['prod','Production'],['trace','Batch Trace'],['coa','QC Reports'],['labqc','Lab QC'],['qaqc','QA Pre-Shipment'],['ship','Shipments'],['delay','Delay / Hold'],['monthly','Monthly Production'],['log','Action Log']];
 function rpSet(k,v){ window[k]=v; if(k==='rpTab'){rpfClient=rpfClient;} screenReports(); }
 function rpReset(){ rpfMonth='';rpfChannel='';rpfClient='';rpfPriority='';screenReports(); }
 function rpMonths(){ const s=new Set(); state.orders.forEach(o=>{const m=(o.received||'').slice(0,7); if(m)s.add(m);}); (state.productionLog||[]).forEach(p=>{const m=(p.date||'').slice(0,7); if(m)s.add(m);}); return [...s].sort().reverse(); }
@@ -2776,12 +2815,45 @@ function screenBudget(){
    <div class="card"><h3>Top products by delivered value <span class="hint">FY to date</span></h3>
      ${pmRows.length?`<div style="overflow:auto"><table><thead><tr><th>Product</th><th class="num">Delivered value</th></tr></thead><tbody>${pmRows.map(([b,v])=>`<tr><td>${b}</td><td class="num"><b>${pkr(v)}</b></td></tr>`).join('')}</tbody></table></div>`:'<div class="muted">No delivered value yet — appears once deliveries are recorded against priced lines.</div>'}</div>`;
 }
+/* ===== Reusable searchable register (search · filter · date-range · sort · paging) ===== */
+let REG={};
+function regSt(id){ REG[id]=REG[id]||{q:'',f:{},df:'',dt:'',page:0,sort:null,dir:-1}; return REG[id]; }
+function regSetQ(id,v){ const s=regSt(id); s.q=v; s.page=0; render(); }
+function regSetF(id,k,v){ const s=regSt(id); s.f[k]=v; s.page=0; render(); }
+function regDate(id,which,v){ const s=regSt(id); s[which]=v; s.page=0; render(); }
+function regSort(id,k){ const s=regSt(id); if(s.sort===k)s.dir=-s.dir; else{s.sort=k;s.dir=-1;} render(); }
+function regPage(id,d,pages){ const s=regSt(id); s.page=Math.max(0,Math.min((pages||1)-1,s.page+d)); render(); }
+function regReset(id){ REG[id]={q:'',f:{},df:'',dt:'',page:0,sort:null,dir:-1}; render(); }
+function regFilter(id,rows,opt){ const s=regSt(id); let r=rows.slice();
+  if(s.q){ const q=s.q.toLowerCase(); r=r.filter(x=>(opt.searchKeys||[]).some(k=>String(x[k]==null?'':x[k]).toLowerCase().indexOf(q)>-1)); }
+  (opt.filters||[]).forEach(f=>{ const v=s.f[f.key]; if(v) r=r.filter(x=>String((f.get?f.get(x):x[f.key])||'')===v); });
+  if(opt.dateKey){ if(s.df) r=r.filter(x=>String(x[opt.dateKey]||'')>=s.df); if(s.dt) r=r.filter(x=>String(x[opt.dateKey]||'')<=s.dt); }
+  if(s.sort){ r.sort((a,b)=>{ let av=a[s.sort],bv=b[s.sort]; if(typeof av==='number'||typeof bv==='number'){av=+av||0;bv=+bv||0;} else {av=String(av==null?'':av);bv=String(bv==null?'':bv);} return (av>bv?1:av<bv?-1:0)*s.dir; }); }
+  const ps=opt.pageSize||25; const total=r.length; const pages=Math.max(1,Math.ceil(total/ps)); if(s.page>=pages)s.page=pages-1;
+  return {view:r.slice(s.page*ps,s.page*ps+ps),total,pages,page:s.page}; }
+function regBar(id,opt,total){ const s=regSt(id); const active=s.q||s.df||s.dt||Object.values(s.f).some(Boolean);
+  return `<div class="regbar"><input class="regq" type="text" placeholder="${opt.placeholder||'Search…'}" value="${(s.q||'').replace(/"/g,'&quot;')}" oninput="regSetQ('${id}',this.value)">`
+   +(opt.filters||[]).map(f=>`<select onchange="regSetF('${id}','${f.key}',this.value)"><option value="">${f.label}: all</option>${(f.opts||[]).map(o=>`<option ${s.f[f.key]===o?'selected':''}>${o}</option>`).join('')}</select>`).join('')
+   +(opt.dateKey?`<input type="date" title="from" value="${s.df}" onchange="regDate('${id}','df',this.value)"><span class="muted" style="font-size:11px">to</span><input type="date" title="to" value="${s.dt}" onchange="regDate('${id}','dt',this.value)">`:'')
+   +(active?`<button class="sm ghost" onclick="regReset('${id}')">Clear</button>`:'')
+   +`<span class="regcount">${total} result${total===1?'':'s'}</span></div>`; }
+function regPager(id,pages){ const s=regSt(id); if(pages<=1)return''; return `<div class="regpager"><button class="sm ghost" ${s.page<=0?'disabled':''} onclick="regPage('${id}',-1,${pages})">‹ Prev</button><span>Page ${s.page+1} of ${pages}</span><button class="sm ghost" ${s.page>=pages-1?'disabled':''} onclick="regPage('${id}',1,${pages})">Next ›</button></div>`; }
+function rpQCReports(){
+  const rows=(state.batches||[]).filter(b=>b&&b.coa).map(b=>{ const c=b.coa; return { id:b.id, qcNo:c.qcNo||'', item:c.item||coaItemOf(b)||'', batchNo:b.batchNo||'', po:b.po||'', produced:b.producedKg||0, overall:(c.overall||(c.status==='approved'?'FIT':(c.status==='failed'?'UNFIT':''))), status:c.status||'draft', by:(c.approver&&c.approver.name)||(c.reviewer&&c.reviewer.name)||(c.analyst&&c.analyst.name)||'', date:c.approvedDate||c.dateOfTest||c.issueDate||'' }; });
+  const opt={placeholder:'Search QC #, batch, product, PO, analyst…', searchKeys:['qcNo','item','batchNo','po','by'], filters:[{key:'overall',label:'Result'},{key:'status',label:'Status'}], dateKey:'date', pageSize:25};
+  opt.filters[0].opts=[...new Set(rows.map(r=>r.overall).filter(Boolean))]; opt.filters[1].opts=[...new Set(rows.map(r=>r.status).filter(Boolean))];
+  const {view,total,pages}=regFilter('coa',rows,opt);
+  const rb=(o)=>o==='FIT'?'<span class="badge ok" style="background:var(--green-50);color:var(--green2);font-weight:800;font-size:10px;border-radius:10px;padding:1px 8px">FIT</span>':(o==='UNFIT'?'<span style="background:var(--red-50);color:var(--red);font-weight:800;font-size:10px;border-radius:10px;padding:1px 8px">UNFIT</span>':'<span class="muted">'+(o||'—')+'</span>');
+  const body=view.map(r=>`<tr><td><b>${r.qcNo||'—'}</b></td><td>${r.item}</td><td>${r.batchNo}</td><td class="muted">${r.po||'—'}</td><td class="num">${fmt(r.produced)}</td><td>${rb(r.overall)}</td><td><span class="pill" style="background:var(--navy-50);color:var(--navy);font-size:9px">${r.status}</span></td><td class="muted">${r.by||'—'}</td><td class="muted">${r.date||''}</td><td>${r.status==='approved'?`<button class="sm ghost" onclick="printCOA('${r.id}')">Print</button>`:((canEdit(['Lab Rep','AQCM','QCM'])||state.role==='COO')?`<button class="sm ghost" onclick="openBatchCOA('${r.id}')">Open</button>`:'')}</td></tr>`).join('');
+  return `<div class="card"><h3>QC Reports — Certificate of Analysis register <span class="hint">${rows.length} total</span></h3>${regBar('coa',opt,total)}<div style="overflow:auto;max-height:62vh"><table><thead><tr><th>QC #</th><th>Product</th><th>Batch</th><th>PO</th><th class="num">Produced</th><th>Result</th><th>Status</th><th>By</th><th>Date</th><th></th></tr></thead><tbody>${body||'<tr><td colspan="10" class="muted">No COA reports match.</td></tr>'}</tbody></table></div>${regPager('coa',pages)}</div>`;
+}
 function screenReports(){
   let body='';
   if(rpTab==='explorer') body=rpExplorer();
   else if(rpTab==='postatus') body=rpPOStatus();
   else if(rpTab==='prod') body=rpProduction();
   else if(rpTab==='trace') body=rpTrace();
+  else if(rpTab==='coa') body=rpQCReports();
   else if(rpTab==='labqc') body=rpLabQC();
   else if(rpTab==='qaqc') body=rpQAQC();
   else if(rpTab==='ship') body=rpShip();
@@ -2898,8 +2970,12 @@ function rpTrace(){
     ${rows.map(r=>`<tr><td><b>${r.baseB}</b></td><td class="muted">${r.baseName}</td><td><b style="color:var(--navy)">${r.brandB}</b>${(r.brandB!==r.baseB&&r.baseB!=='\u2014')?` <span class="pill" style="background:var(--amber-50);color:var(--amber);font-size:8.5px;padding:1px 5px">re-batched</span>`:''}</td><td>${r.brand}</td><td>${r.po}</td><td style="text-align:right">${fmt(r.kg)}</td><td class="muted">${r.date}</td></tr>`).join('')}
     </tbody></table></div></div>`;
 }
-function rpLog(){ let a=(state.audit||[]).slice(); if(rpfMonth) a=a.filter(x=>(x.t||'').slice(0,7)===rpfMonth); if(!a.length) return rpEmpty('No actions logged yet.');
-  return `<div class="card"><h3>Action Log <span class="hint">${a.length} entries</span></h3><div style="overflow:auto;max-height:560px"><table><thead><tr><th>When</th><th>User</th><th>Module</th><th>PO</th><th>Product</th><th>Field</th><th>Value</th></tr></thead><tbody>${a.slice(0,400).map(x=>`<tr><td>${(x.t||'').replace('T',' ').slice(0,16)}</td><td>${x.user||'—'}</td><td>${x.module||'—'}</td><td>${x.po||'—'}</td><td>${x.brand||'—'}</td><td>${x.field||'—'}</td><td>${(x.val!=null?String(x.val):'—')}</td></tr>`).join('')}</tbody></table></div></div>`;
+function rpLog(){ const rows=(state.audit||[]).map(x=>({when:(x.t||'').replace('T',' ').slice(0,16),date:(x.t||'').slice(0,10),user:x.user||'',module:x.module||'',po:x.po||'',brand:x.brand||'',field:x.field||'',val:(x.val!=null?String(x.val):'')}));
+  const opt={placeholder:'Search user, PO, product, action, value…', searchKeys:['user','po','brand','field','val','module'], filters:[{key:'module',label:'Module'}], dateKey:'date', pageSize:50};
+  opt.filters[0].opts=[...new Set(rows.map(r=>r.module).filter(Boolean))].sort();
+  const {view,total,pages}=regFilter('log',rows,opt);
+  const body=view.map(x=>`<tr><td class="muted" style="white-space:nowrap">${x.when}</td><td>${x.user||'—'}</td><td><span class="pill" style="background:var(--navy-50);color:var(--navy);font-size:9px">${x.module||'—'}</span></td><td>${x.po||'—'}</td><td>${x.brand||'—'}</td><td>${x.field||'—'}</td><td>${x.val||'—'}</td></tr>`).join('');
+  return `<div class="card"><h3>Action Log <span class="hint">${rows.length} entries</span></h3>${regBar('log',opt,total)}<div style="overflow:auto;max-height:58vh"><table><thead><tr><th>When</th><th>User</th><th>Module</th><th>PO</th><th>Product</th><th>Field</th><th>Value</th></tr></thead><tbody>${body||'<tr><td colspan="7" class="muted">No actions match.</td></tr>'}</tbody></table></div>${regPager('log',pages)}</div>`;
 }
 
 /* ===================== AUTH & USERS (soft gate) ===================== */

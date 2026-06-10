@@ -1402,43 +1402,42 @@ const FIELD_LABEL={soNumber:'SO #',soCreated:'SO Created',prRaised:'PR Raised',c
 function myOpenFields(o,l){ return Object.keys(FIELD_OWNER).filter(k=>canEditField(k) && !l[k]).map(k=>FIELD_LABEL[k]||k); }
 function openOrder(id){
   const o=state.orders.find(x=>x.id===id); if(!o)return;
-  const a=agg(o); const st=stageOf(o); const admin=(state.role==='COO');
-  const lineCards=o.lines.map(l=>{
-    const ls=lineStage(o,l); const c=calcLine(o,l); const od=lineOverdue(o,l);
-    const groups=LIFE_GROUPS.map(([gt,fields])=>`<div class="fgroup"><div class="gt">${gt}</div>
-       <div class="fgrid">${fields.map(f=>fld(o,l,f[0],f[1],f[2])).join('')}</div></div>`).join('');
-    const calc=`<div class="calcrow">
-       <span>PO→SO <b>${c.poToSo??'—'}</b>d</span><span>RM <b>${c.rmDays??'—'}</b>d</span>
-       <span>Prod <b>${c.prodDays??'—'}</b>d</span><span>QC→Deliv <b>${c.qcToDeliv??'—'}</b>d</span>
-       <span>Cycle <b>${c.totalCycle??'—'}</b>d</span><span>Variance <b>${c.variance??'—'}</b>d</span>
-       <span>${c.onTime==='Delayed'||c.onTime==='Late'?'<b style="color:var(--red)">'+c.onTime+'</b>':'<b style="color:var(--green2)">'+c.onTime+'</b>'}${c.daysOverdue?' ('+c.daysOverdue+'d)':''}</span>
-       <span>Delivered <b>${fmt(c.deliveredQty)}</b>/${fmt(l.ordered)} Kg/L</span><span>Shipments <b>${c.shipments}</b></span></div>`;
-    return `<div class="card" style="margin:0 0 12px;padding:13px 15px;border-color:${od?'var(--red)':'var(--line)'}">
-       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px">
-         <b style="font-size:14px">${l.brand}</b> <span class="muted" style="font-size:11px">${l.base}</span>
-         ${pill(ls,STAGE_COLOR[ls]||'--mut')} ${od?pill(c.daysOverdue+'d overdue','--red'):''}
-         <span style="margin-left:auto;font-size:11px" class="muted">${fmt(l.ordered)} Kg/L ordered</span></div>
-       ${canEditField('prRaised')?(true?`<div style="display:flex;align-items:center;gap:9px;background:#f4f7fc;border:1px solid var(--line);border-radius:10px;padding:9px 12px;margin-bottom:11px;flex-wrap:wrap"><b style="font-size:11.5px">Raw materials:</b> ${rmStatusPill(l)} ${l.rmStatus==='partial'&&l.canMakeKg?`<span class="muted" style="font-size:11px">can make ${fmt(l.canMakeKg)} Kg/L now</span>`:''}${l.pr&&l.pr.lines&&l.pr.lines.length?`<span class="muted" style="font-size:11px">· PR ${l.pr.lines.length} item(s)</span>`:''}<button class="sm" style="margin-left:auto" onclick="openRMCheck(\'${o.id}\',\'${l.id}\')">RM Check / Raise PR</button></div>`:`<div style="background:#f4f7fc;border:1px solid var(--line);border-radius:10px;padding:9px 12px;margin-bottom:11px;font-size:11.5px;color:var(--mut)">Raw materials: <b>create the SO first (Stage 1)</b> — RM check unlocks after that.</div>`):''}
-       ${(function(){const mof=myOpenFields(o,l); return mof.length?`<div style="background:#fff8db;border:1px solid #e8d488;border-radius:9px;padding:8px 11px;margin-bottom:11px;font-size:11.5px;color:#6f5a12"><b>\u270e Your turn (${state.role}):</b> fill ${mof.slice(0,5).join(', ')}${mof.length>5?' …':''}</div>`:'';})()}
-       ${groups}${calc}</div>`;
-  }).join('');
+  const a=agg(o); const st=stageOf(o);
+  const dcell=(d,cur)=>d?`<span style="color:var(--green2);font-weight:700">✓</span> <span class="muted" style="font-size:9.5px">${d}</span>`:(cur?`<span class="pill" style="background:var(--amber-50);color:var(--amber);font-size:8.5px;padding:1px 6px">now</span>`:'<span class="muted">—</span>');
+  const qcell=(done,ord)=>{ const c=(done>=ord-0.5&&ord>0)?'var(--green2)':(done>0?'var(--amber)':'var(--mut)'); return `<b style="color:${c}">${fmt(done||0)}</b><span class="muted" style="font-size:9.5px">/${fmt(ord)}</span>`; };
+  let nDeliv=0, nStuck=0;
+  const rows=o.lines.map(l=>{ const ls=lineStage(o,l); const c=calcLine(o,l); const ov=c.daysOverdue;
+    if(ls==='Delivered') nDeliv++; else nStuck++;
+    const prcfo=`${l.prRaised?'<span style="color:var(--green2);font-size:10px">PR✓</span>':'<span class="muted">—</span>'}${l.cfoApproved?' <span style="color:var(--green2);font-size:10px">CFO✓</span>':(l.prRaised?' <span class="pill" style="background:var(--amber-50);color:var(--amber);font-size:8px;padding:0 4px">CFO?</span>':'')}`;
+    const rmc=l.rmReady?dcell(l.rmReady):(l.rmStatus==='partial'?`<span class="pill" style="background:var(--amber-50);color:var(--amber);font-size:8.5px;padding:1px 6px">partial</span>`:(l.rmCheck?dcell(l.rmCheck):dcell(null, ls==='New'||ls==='SO Created')));
+    return `<tr${ov?' style="background:#fdecec"':''}>
+      <td style="min-width:140px"><b style="font-size:12.5px">${l.brand}</b><div class="muted" style="font-size:9.5px">${l.base} · ${fmt(l.ordered)} Kg/L</div></td>
+      <td style="text-align:center">${rmc}</td>
+      <td style="text-align:center">${prcfo}</td>
+      <td style="text-align:center">${qcell(l.produced,l.ordered)}</td>
+      <td style="text-align:center">${dcell(l.qcPass)}</td>
+      <td style="text-align:center">${qcell(l.packed,l.ordered)}</td>
+      <td style="text-align:center">${qcell(l.dispatched,l.ordered)}</td>
+      <td style="text-align:center">${qcell(l.delivered,l.ordered)}</td>
+      <td style="white-space:nowrap">${pill(ls,STAGE_COLOR[ls]||'--mut')}${ov?` <span class="pill" style="background:var(--red-50);color:var(--red);font-size:8.5px;padding:1px 5px">${ov}d late</span>`:''}</td>
+    </tr>`; }).join('');
   $('drawer').innerHTML=`
    <div class="dh"><div><h2 style="font-size:16px">${o.po}</h2>
      <div class="sub muted" style="font-size:11px">${o.client} · ${o.channel}${o.vgreenSub?' ('+o.vgreenSub+')':''} · ${o.priority}${o.kam?' · '+o.kam:''}</div></div>
      <button class="ghost sm" style="margin-left:auto" onclick="closeDrawer()">✕ Close</button></div>
    <div class="db">
-     <div class="row" style="gap:18px;margin-bottom:12px">
+     <div class="row" style="gap:18px;margin-bottom:8px;flex-wrap:wrap">
+       <div><div class="l muted" style="font-size:10px;text-transform:uppercase">Stage (rollup)</div>${pill(st,STAGE_COLOR[st]||'--mut')}</div>
+       <div><div class="l muted" style="font-size:10px;text-transform:uppercase">Fulfilment</div><b>${pct(a.delivered!=null?a.delivered:a.dispatched,a.ordered)}% delivered</b></div>
+       <div><div class="l muted" style="font-size:10px;text-transform:uppercase">Products</div><b>${o.lines.length}</b> <span class="muted" style="font-size:11px">(${nStuck} in progress · ${nDeliv} delivered)</span></div>
        <div><div class="l muted" style="font-size:10px;text-transform:uppercase">PO promised</div><b>${o.promised||'—'}</b></div>
        <div><div class="l muted" style="font-size:10px;text-transform:uppercase">PO received</div><b>${o.received||'—'}</b></div>
-       <div><div class="l muted" style="font-size:10px;text-transform:uppercase">Stage (rollup)</div>${pill(st,STAGE_COLOR[st]||'--mut')}</div>
-       <div><div class="l muted" style="font-size:10px;text-transform:uppercase">Fulfilment</div><b>${pct(a.dispatched,a.ordered)}%</b></div>
      </div>
-     <div class="legend">
-       <span><i style="background:#fffada"></i>You can fill</span><span><i style="background:#e9f7ee"></i>Done</span>
-       <span><i style="background:#eef1f6"></i>Read-only / auto</span><span><i style="background:#fff0e0"></i>Plant Manager</span>
-       <span style="margin-left:auto">Acting as <b style="color:var(--navy)">${state.role}</b> — you can only edit your fields</span></div>
-     <h3 style="font-size:13px;margin:2px 0 10px;color:var(--navy)">Products &amp; lifecycle <span class="muted" style="font-weight:400">(${o.lines.length})</span></h3>
-     ${lineCards}
+     <h3 style="font-size:13px;margin:10px 0 8px;color:var(--navy)">Where every product stands</h3>
+     <div style="overflow:auto"><table style="font-size:12px"><thead><tr>
+       <th>Product</th><th style="text-align:center">RM</th><th style="text-align:center">PR · CFO</th><th style="text-align:center">Produced</th><th style="text-align:center">QC</th><th style="text-align:center">Packed</th><th style="text-align:center">Shipped</th><th style="text-align:center">Delivered</th><th>Where it&rsquo;s at</th>
+     </tr></thead><tbody>${rows}</tbody></table></div>
+     <div class="muted" style="font-size:11px;margin-top:10px"><span style="color:var(--green2);font-weight:700">✓</span> done (with date) · <span style="color:var(--amber);font-weight:700">amber</span> = current / partial · — = pending. Quantities show done / ordered. <b>View only</b> — actions happen in My Actions.</div>
    </div>`;
   $('drawer').classList.add('open'); $('drawerBg').classList.add('open');
 }

@@ -1808,7 +1808,8 @@ function coaStatusPill(c){ if(!c) return '<span class="pill" style="background:v
   const m={draft:['Draft','--mut'],analysed:['Analysed → AQCM','--navy'],reviewed:['Reviewed → QCM','--navy'],approved:['Approved ✓','--green2'],failed:['UNFIT → Plant Mgr','--red']}; const x=m[c.status]||['?','--mut'];
   return `<span class="pill" style="background:var(--navy-50);color:var(${x[1]});font-size:9px">${x[0]}</span>`; }
 function coaNum(x){ if(x==null)return null; const t=String(x).trim().toLowerCase(); if(!t)return null; if(/^(nil|nd|none|absent|0\.00)$/.test(t)) return 0; const m=t.replace(/,/g,'').match(/-?\d+(\.\d+)?/); return m?parseFloat(m[0]):null; }
-function coaAutoRemark(spec,result){ const sv=String(spec||'').trim(); const r=coaNum(result); if(r==null||!sv||sv==='-') return null;
+function coaIsMaxParam(name){ return /moist|biuret|chlorid|fluorid|bicarbon|sodium as|nacl|heavy metal|lead|cadmium|arsenic|insoluble|impurit|free acid|ash\b/i.test(String(name||'')); }
+function coaAutoRemark(spec,result,testName){ const sv=String(spec||'').trim(); const r=coaNum(result); if(r==null||!sv||sv==='-') return null;
   const rng=sv.replace(/,/g,'').match(/(-?\d+(?:\.\d+)?)\s*(?:-|–|to)\s*(-?\d+(?:\.\d+)?)/);
   if(rng && !/[<>≤≥]/.test(sv)){ const a=parseFloat(rng[1]), b=parseFloat(rng[2]); if(!isNaN(a)&&!isNaN(b)) return (r>=Math.min(a,b)&&r<=Math.max(a,b))?'FIT':'UNFIT'; }
   const n=coaNum(sv); if(n==null) return null;
@@ -1816,7 +1817,7 @@ function coaAutoRemark(spec,result){ const sv=String(spec||'').trim(); const r=c
   if(/≤|<=/.test(sv)) return r<=n?'FIT':'UNFIT';
   if(/>/.test(sv)) return r>n?'FIT':'UNFIT';
   if(/</.test(sv)) return r<n?'FIT':'UNFIT';
-  return r>=n?'FIT':'UNFIT'; }
+  return coaIsMaxParam(testName) ? (r<=n?'FIT':'UNFIT') : (r>=n?'FIT':'UNFIT'); }
 function qcCodeOf(b){ const od=new Date(b.openedDate||TODAY); const mmyy=String(od.getMonth()+1).padStart(2,'0')+String(od.getFullYear()).slice(2);
   let client='VN'; if(b.kind==='po'&&b.po){ const o=(state.orders||[]).find(x=>x.po===b.po); if(o&&o.client){ const c=String(o.client).replace(/[^A-Za-z]/g,''); if(c.length>=2) client=c.slice(0,2).toUpperCase(); } }
   const item=coaItemOf(b)||''; const words=item.replace(/[^A-Za-z0-9 ]/g,' ').split(/\s+/).filter(Boolean);
@@ -1857,7 +1858,7 @@ function coaPersistDraft(){ const b=(state.batches||[]).find(x=>x.id===coaForm.b
 function coaSet(f,v){ coaForm[f]=v; coaPersistDraft(); }
 function coaBcls(x){ const u=String(x||'').toUpperCase().trim(); return (u==='FIT'||u==='OK')?'ok':((u==='UNFIT'||u==='NOT OK')?'fail':(u==='NO RESULT'?'nores':'na')); }
 function coaTest(i,f,v){ if(!(coaForm.tests&&coaForm.tests[i]))return; coaForm.tests[i][f]=v;
-  if(f==='result'){ const ar=coaAutoRemark(coaForm.tests[i].spec,v); if(ar) coaForm.tests[i].remark=ar; }
+  if(f==='result'){ const ar=coaAutoRemark(coaForm.tests[i].spec,v,coaForm.tests[i].test); if(ar) coaForm.tests[i].remark=ar; }
   if(f==='result'||f==='remark'||f==='spec'){ const rk=coaForm.tests[i].remark||''; const bd=document.getElementById('rbadge_'+i); if(bd){ bd.textContent=rk?(rk==='OK'?'FIT':rk):'—'; bd.className='badge '+coaBcls(rk); } const sl=document.getElementById('rsel_'+i); if(sl) sl.value=(rk==='OK'?'FIT':rk); const ov=coaOverall(coaForm.tests); const ob=document.getElementById('coa_ovr'); if(ob){ ob.textContent=ov||'—'; ob.className='badge '+coaBcls(ov==='NO RESULT'?'No Result':ov); } }
   coaPersistDraft(); }
 function coaAddRow(g){ coaForm.tests=coaForm.tests||[]; coaForm.tests.push({g:g||'Chemical',test:'',spec:'',method:'',mu:'-',result:'',remark:''}); coaPersistDraft(); renderCOAModal(); }

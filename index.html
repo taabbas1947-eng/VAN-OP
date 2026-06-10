@@ -392,6 +392,7 @@ table tbody tr:hover{background:var(--panel2)}
 .hintbar{display:flex;align-items:center;gap:10px;background:#eef4ff;border:1px solid var(--navy-100);border-left:3px solid var(--navy);border-radius:9px;padding:9px 13px;margin-bottom:12px;font-size:12.5px;color:var(--navy2);line-height:1.45}
 .hintbar .x{margin-left:auto;cursor:pointer;color:var(--mut);font-weight:700;flex-shrink:0;padding:0 4px}
 .hintbar .x:hover{color:var(--red)}
+.qcgrp{border:1px solid var(--line);border-radius:8px;margin-bottom:7px;overflow:hidden}.qcgrp>summary{cursor:pointer;padding:9px 12px;background:#fafbfc;font-weight:600;font-size:12.5px;display:flex;align-items:center;gap:8px;list-style:none}.qcgrp>summary::-webkit-details-marker{display:none}.qcgrp>summary::before{content:'▸';color:var(--mut);font-size:12px;transition:transform .15s}.qcgrp[open]>summary{border-bottom:1px solid var(--line)}.qcgrp[open]>summary::before{transform:rotate(90deg)}.qcgrp>summary .c{margin-left:auto;color:var(--mut);font-weight:500;font-size:11px}
 </style></head><body>
 <div class="app" id="appShell">
   <div class="navbackdrop" onclick="closeMobileNav()"></div>
@@ -2014,6 +2015,19 @@ function printCOA(bid,lid){ const ctx=coaCtx(bid,lid); const b=ctx.b, h=ctx.h; i
   </div></body></html>`;
   const w=window.open('','_blank'); if(!w){toast('Allow pop-ups to print the COA');return;} w.document.write(html); w.document.close(); w.focus(); setTimeout(function(){ try{ w.print(); }catch(e){} },350); }
 
+function qcGrpApproved(rows){ if(!rows.length) return '<div class="muted">None approved yet.</div>';
+  const by={}; rows.forEach(u=>{ const k=coaItemOf(u.b)||'\u2014'; (by[k]=by[k]||[]).push(u); });
+  return Object.keys(by).sort().map(nm=>{ const g=by[nm]; const tot=g.reduce((a,u)=>a+(u.qty||0),0);
+    const body=g.slice().sort((a,b)=>String((b.coa&&b.coa.approvedDate)||'').localeCompare(String((a.coa&&a.coa.approvedDate)||''))).map(u=>`<tr><td><b>${u.no||'\u2014'}</b></td><td class="num">${fmt(u.qty)}</td><td class="muted">${(u.coa.approvedDate||'')}${u.coa.deviation?' \u00b7 deviation':''}</td><td><button class="sm ghost" onclick="printCOA('${u.b.id}','${u.id}')">Print COA</button></td></tr>`).join('');
+    return `<details class="qcgrp"><summary>${nm}<span class="c">${g.length} lot${g.length===1?'':'s'} \u00b7 ${fmt(tot)} Kg/L</span></summary><div style="overflow:auto"><table><thead><tr><th>Batch \u25b8 Lot</th><th class="num">Qty</th><th>Approved</th><th>COA</th></tr></thead><tbody>${body}</tbody></table></div></details>`;
+  }).join(''); }
+function qcGrpPassed(rows){ if(!rows.length) return '<div class="muted">None yet.</div>';
+  const lb=p=>`${p.baseBatchNo||'\u2014'} \u25b8 ${p.brandBatchNo||p.baseBatchNo||'\u2014'}`;
+  const by={}; rows.forEach(p=>{ const k=p.brand||'\u2014'; (by[k]=by[k]||[]).push(p); });
+  return Object.keys(by).sort().map(nm=>{ const g=by[nm]; const tot=g.reduce((a,p)=>a+(p.kg||0),0);
+    const body=g.slice().sort((a,b)=>String((b.qa&&b.qa.date)||'').localeCompare(String((a.qa&&a.qa.date)||''))).map(p=>`<tr><td><b>${p.po}</b></td><td><span class="muted" style="font-size:10px">${lb(p)}</span></td><td class="num">${fmt(p.kg)}</td><td class="muted">${(p.qa&&p.qa.by)||'\u2014'}</td><td class="muted">${(p.qa&&p.qa.date)||''}</td></tr>`).join('');
+    return `<details class="qcgrp"><summary>${nm}<span class="c">${g.length} lot${g.length===1?'':'s'} \u00b7 ${fmt(tot)} Kg/L</span></summary><div style="overflow:auto"><table><thead><tr><th>PO</th><th>Batch</th><th class="num">Packed</th><th>QA by</th><th>Date</th></tr></thead><tbody>${body}</tbody></table></div></details>`;
+  }).join(''); }
 function screenQC(){
   const isLab=canEdit(['Lab Rep']), isAQ=canEdit(['AQCM']), isQM=canEdit(['QCM']), isQA=canEdit(['QA Inspector']), isPM=canEdit(['Plant Manager']), isCOO=state.role==='COO', isSC=canEdit(['Supply Chain']);
   const labB=(state.batches||[]).filter(b=>(b.producedKg||0)>0);
@@ -2041,8 +2055,8 @@ function screenQC(){
    <div class="card"><h3>Lab QC — production lots (COA) <span class="hint">${labPending.length} pending</span></h3>${labPending.length?`<div style="overflow:auto"><table><thead><tr><th>Product</th><th>Batch ▸ Lot</th><th class="num">Qty</th><th>Status</th><th style="width:210px">Action</th></tr></thead><tbody>${labRows}</tbody></table></div>`:'<div class="muted">No batches awaiting Lab QC.</div>'}</div>
    <div class="card"><h3>QA pre-shipment — packed lots <span class="hint">${lotPending.length} to inspect</span></h3>${lotPending.length?`<div style="overflow:auto"><table><thead><tr><th>PO</th><th>Brand / batch</th><th class="num">Packed</th><th>Packed on</th><th style="width:160px">Action</th></tr></thead><tbody>${qaRows}</tbody></table></div>`:'<div class="muted">No packed lots awaiting QA.</div>'}</div>
    ${lotFail.length?`<div class="card"><h3 style="color:var(--red)">QA failed — Supply Chain to correct <span class="hint">${lotFail.length}</span></h3><div style="overflow:auto"><table><thead><tr><th>PO</th><th>Brand / batch</th><th class="num">Packed</th><th>Failed items</th><th style="width:200px">Action</th></tr></thead><tbody>${fqRows}</tbody></table></div></div>`:''}
-   <div class="card"><h3>Lab-approved lots <span class="hint">${labDone.length}</span></h3>${labDone.length?`<div style="overflow:auto"><table><thead><tr><th>Product</th><th>Batch ▸ Lot</th><th class="num">Qty</th><th>Approved</th><th>COA</th></tr></thead><tbody>${labDone.map(u=>`<tr><td>${itemOf(u.b)}</td><td><b>${u.no||'—'}</b></td><td class="num">${fmt(u.qty)}</td><td class="muted">${(u.coa.approvedDate||'')}${u.coa.deviation?' · deviation':''}</td><td><button class="sm ghost" onclick="printCOA('${u.b.id}','${u.id}')">Print COA</button></td></tr>`).join('')}</tbody></table></div>`:'<div class="muted">None approved yet.</div>'}</div>
-   <div class="card"><h3>QA-passed lots — cleared to ship <span class="hint">${lotPass.length}</span></h3>${lotPass.length?`<div style="overflow:auto"><table><thead><tr><th>PO</th><th>Brand / batch</th><th class="num">Packed</th><th>QA by</th><th>Date</th></tr></thead><tbody>${lotPass.map(p=>`<tr><td><b>${p.po}</b></td><td>${p.brand} <span class="muted" style="font-size:10px">${lotBatch(p)}</span></td><td class="num">${fmt(p.kg)}</td><td class="muted">${p.qa.by||'—'}</td><td class="muted">${p.qa.date||''}</td></tr>`).join('')}</tbody></table></div>`:'<div class="muted">None yet.</div>'}</div>`;
+   <div class="card"><h3>Lab-approved lots <span class="hint">${labDone.length} \u00b7 by product</span></h3><div class="muted" style="font-size:11px;margin-bottom:8px">Grouped by product \u2014 tap a product to expand its lots. Full searchable history is in <b>Reports \u00b7 QC Reports</b>.</div>${qcGrpApproved(labDone)}</div>
+   <div class="card"><h3>QA-passed lots \u2014 cleared to ship <span class="hint">${lotPass.length} \u00b7 by product</span></h3><div class="muted" style="font-size:11px;margin-bottom:8px">Grouped by product \u2014 tap to expand. Full history in <b>Reports \u00b7 QC Reports</b>.</div>${qcGrpPassed(lotPass)}</div>`;
 }
 function qcAudit(o,l,field,val){ (state.audit=state.audit||[]).unshift({t:new Date().toISOString(),user:state.role,module:'QC',po:o.po,brand:l.brand,field,old:'',val}); }
 function qcCheckBoth(o,l){ if(l.qcLab&&l.qcLab.pass&&l.qcPhys&&l.qcPhys.pass){ l.qcPass=TODAY.toISOString().slice(0,10); logAction(`QC PASSED: ${o.po} · ${l.brand} — cleared for shipment`); } }

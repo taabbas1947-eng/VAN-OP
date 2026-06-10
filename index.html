@@ -1268,8 +1268,8 @@ function lineBucket(o,l){
  if(l.deliveredDate && (l.delivered||0)>=l.ordered-0.5) return 'Delivered';
  if((l.dispatched||0)>0||l.dispatchDate) return 'Shipment';
  if(l.qcPass) return 'Shipment';
- if(l.qcLab&&l.qcLab.pass) return 'QA Pre-shipment';
- if((l.packed||0)>=l.ordered-0.5) return 'Lab QC';
+ if((l.packed||0)>=(l.ordered||0)-0.5) return 'QA Pre-shipment';
+ if((l.produced||0)>0 && (l.produced||0)>=(l.ordered||0)-0.5) return 'Lab QC';
  if((l.produced||0)>0||l.prodStart) return 'Production';
  if(l.rmReady) return 'Production';
  if(l.prRaised) return 'RM Check';
@@ -1282,7 +1282,7 @@ function attnCounts(){ let delayed=0,rmblock=0,prod=0,qc=0,qahold=0,ready=0;
     if(b==='RM Check')rmblock++;
     if(b==='Production')prod++;
     if(b==='Lab QC'||b==='QA Pre-shipment')qc++;
-    if(o.lines.some(l=>(l.qcLab&&l.qcLab.fail)||(l.qcPhys&&l.qcPhys.fail)))qahold++;
+    if(o.lines.some(l=>lineQA(o,l).anyFail))qahold++;
     if(o.lines.some(l=>l.qcPass&&(l.dispatched||0)<(l.packed||0)-0.5))ready++; });
   return {delayed,rmblock,prod,qc,qahold,ready};
 }
@@ -1294,16 +1294,13 @@ function trkMatch(o){ const b=orderBucket(o);
     case 'rmblock':return b==='RM Check';
     case 'prod':return b==='Production';
     case 'qc':return b==='Lab QC'||b==='QA Pre-shipment';
-    case 'qahold':return o.lines.some(l=>(l.qcLab&&l.qcLab.fail)||(l.qcPhys&&l.qcPhys.fail));
+    case 'qahold':return o.lines.some(l=>lineQA(o,l).anyFail);
     case 'ready':return o.lines.some(l=>l.qcPass&&(l.dispatched||0)<(l.packed||0)-0.5);
     case 'myrole':return state.role==='COO'||BUCKET_META[b].owner===state.role;
     default:return true;
   }
 }
 function trkRender(){ render(); const q=document.getElementById('trkq'); if(q&&q.focus)q.focus(); }
-function qcMini(l){ const lab=l.qcLab?(l.qcLab.pass?'<span class="pill" style="background:var(--green-50);color:var(--green2)">Lab ✓</span>':'<span class="pill" style="background:var(--red-50);color:var(--red)">Lab ✗</span>'):'<span class="muted">—</span>';
-  const qa=l.qcPhys?(l.qcPhys.pass?'<span class="pill" style="background:var(--green-50);color:var(--green2)">QA ✓</span>':'<span class="pill" style="background:var(--red-50);color:var(--red)">QA ✗</span>'):'<span class="muted">—</span>';
-  return lab+' '+qa; }
 function priorityPill(p){ p=p||'Normal'; var c=p==='Critical'?'--red':(p==='High'?'--amber':(p==='Low'?'--mut':'--blue')); return `<span class="pill" style="background:color-mix(in srgb,var(${c}) 14%,#fff);color:var(${c});font-size:9px;padding:1px 7px;margin-left:5px">${p}</span>`; }
 function orderCard(o){
   const b=orderBucket(o); const m=BUCKET_META[b]; const a=agg(o);
@@ -1890,6 +1887,7 @@ function qcAudit2(b,field,val){ (state.audit=state.audit||[]).unshift({t:new Dat
 /* ===== quantity-true QC helpers + QA per packed lot + print COA ===== */
 function lineApprovedProducedKg(o,l){ let s=0; (state.batches||[]).forEach(b=>{ if(b.kind==='po'&&b.po===o.po&&b.lineId===l.id){ const lots=(b.lots||[]); if(lots.length){ lots.forEach(l2=>{ if(l2.coa&&l2.coa.status==='approved'){ const ck=(l2.coa.certifiedKg!=null)?l2.coa.certifiedKg:(l2.qty||0); s+=Math.min(l2.qty||0,ck); } }); } else if(b.coa&&b.coa.status==='approved'){ s+=Math.min(b.producedKg||0,(b.coa.certifiedKg!=null)?b.coa.certifiedKg:(b.producedKg||0)); } } }); return s; }
 function lineQAPackedKg(o,l){ let s=0; (state.packingLog||[]).forEach(p=>{ if(p&&p.po===o.po&&p.brand===l.brand&&p.qa&&p.qa.pass) s+=(p.kg||0); }); if(l.qcPass) s=Math.max(s,l.packed||0); return s; }
+function lineQA(o,l){ const lots=(state.packingLog||[]).filter(p=>p&&p.po===o.po&&p.brand===l.brand&&(p.kg||0)>0); let pass=0,fail=0,pend=0; lots.forEach(p=>{ if(p.qa&&p.qa.fail)fail++; else if(p.qa&&p.qa.pass)pass++; else pend++; }); return {lots:lots.length,pass,fail,pend,anyFail:fail>0,allPass:lots.length>0&&pass===lots.length,pending:pend>0}; }
 function lotById(id){ return (state.packingLog||[]).find(p=>p&&p.id===id); }
 let lotQAForm={lotId:null,marks:[],officer:'',remarks:''};
 function openLotQA(lotId){ const p=lotById(lotId); if(!p)return; lotQAForm={lotId, marks:QC_CHECKLIST.map((_,i)=> (p.qa&&p.qa.checklist&&p.qa.checklist[i]&&p.qa.checklist[i].result)||''), officer:(p.qa&&p.qa.by)||'', remarks:(p.qa&&p.qa.remarks)||''}; renderLotQA(); $('modalBg').classList.add('open'); }
@@ -2001,35 +1999,7 @@ function screenQC(){
    <div class="card"><h3>Lab-approved lots <span class="hint">${labDone.length} \u00b7 by product</span></h3><div class="muted" style="font-size:11px;margin-bottom:8px">Grouped by product \u2014 tap a product to expand its lots. Full searchable history is in <b>Reports \u00b7 QC Reports</b>.</div>${qcGrpApproved(labDone)}</div>
    <div class="card"><h3>QA-passed lots \u2014 cleared to ship <span class="hint">${lotPass.length} \u00b7 by product</span></h3><div class="muted" style="font-size:11px;margin-bottom:8px">Grouped by product \u2014 tap to expand. Full history in <b>Reports \u00b7 QC Reports</b>.</div>${qcGrpPassed(lotPass)}</div>`;
 }
-function qcAudit(o,l,field,val){ (state.audit=state.audit||[]).unshift({t:new Date().toISOString(),user:state.role,module:'QC',po:o.po,brand:l.brand,field,old:'',val}); }
-function qcCheckBoth(o,l){ if(l.qcLab&&l.qcLab.pass&&l.qcPhys&&l.qcPhys.pass){ l.qcPass=TODAY.toISOString().slice(0,10); logAction(`QC PASSED: ${o.po} · ${l.brand} — cleared for shipment`); } }
-function qcLabPass(oid,lid){ const o=state.orders.find(x=>x.id===oid); const l=o.lines.find(x=>x.id===lid); l.qcLab={pass:true,by:state.role,date:TODAY.toISOString().slice(0,10)}; qcAudit(o,l,'Lab certified','Passed'); logAction(`Lab certified ${o.po} · ${l.brand}`); qcCheckBoth(o,l); save(); render(); }
-function qcFail(oid,lid,layer){ const o=state.orders.find(x=>x.id===oid); const l=o.lines.find(x=>x.id===lid); const reason=(typeof prompt==='function'?prompt('Reason for QC fail:'):'')||'Failed'; l[layer]={pass:false,fail:true,reason,by:state.role,date:TODAY.toISOString().slice(0,10)}; l.qcPass=''; qcAudit(o,l,(layer==='qcLab'?'Lab':'Physical')+' FAILED',reason); logAction(`QC FAIL (${layer==='qcLab'?'Lab':'Physical'}) ${o.po} · ${l.brand}: ${reason}`); save(); render(); }
-function qcApproveLab(oid,lid){ if(!(state.role==='Plant Manager'||state.role==='COO')){toast('Plant Manager only');return;} const o=state.orders.find(x=>x.id===oid); const l=o.lines.find(x=>x.id===lid); if(!(l.qcLab&&l.qcLab.fail))return; const prev=l.qcLab.reason||''; l.qcLab={pass:true,by:state.role,date:TODAY.toISOString().slice(0,10),deviation:true,note:prev}; qcAudit(o,l,'Lab QC deviation approved',prev); logAction(`Lab QC deviation APPROVED by ${state.role}: ${o.po} · ${l.brand}`); qcCheckBoth(o,l); save(); toast('Deviation approved'); render(); }
-function qcReworkLab(oid,lid){ if(!(state.role==='Plant Manager'||state.role==='COO')){toast('Plant Manager only');return;} const o=state.orders.find(x=>x.id===oid); const l=o.lines.find(x=>x.id===lid); if(!(l.qcLab&&l.qcLab.fail))return; l.qcReworks=(l.qcReworks||0)+1; l.qcLab=null; l.qcPass=''; qcAudit(o,l,'Sent to rework','rework #'+l.qcReworks); logAction(`Lab QC -> REWORK #${l.qcReworks} by ${state.role}: ${o.po} · ${l.brand}`); save(); toast('Sent to rework'); render(); }
-let qaFixForm={oid:null,lid:null,note:''};
-function submitQACorrect(){ const o=state.orders.find(x=>x.id===qaFixForm.oid); const l=o&&o.lines.find(x=>x.id===qaFixForm.lid); if(!l)return; if(!(qaFixForm.note||'').trim()){toast('Add a correction note');return;} l.reinspections=(l.reinspections||0)+1; l.qcPhys=null; l.qcPass=''; qcAudit(o,l,'Re-inspection #'+l.reinspections+' requested',qaFixForm.note); logAction(`Re-inspection #${l.reinspections} (${o.po} · ${l.brand}) — corrected by ${state.role}: ${qaFixForm.note}`); save(); closeModal(); toast('Sent for re-inspection #'+l.reinspections); render(); }
 const QC_CHECKLIST=['Packaging intact & correct','Label / artwork correct','Net weight / count verified','Seal & closure OK','Cleanliness — no contamination','Batch & expiry printed','No leakage / damage','Pallet / loading condition'];
-let qaForm={oid:null,lid:null,marks:[],comments:''};
-function qaSet(idx,v){ qaForm.marks[idx]=v; renderQAPhys(); }
-function renderQAPhys(){ const o=state.orders.find(x=>x.id===qaForm.oid); const l=o.lines.find(x=>x.id===qaForm.lid);
-  $('modal').innerHTML=`<div class="mh"><h2>Physical pre-shipment inspection</h2><div class="sub">${o.po} · ${l.brand} · ${fmt(l.ordered)} Kg/L · batch ${qcBatchText(o,l)} · inspector ${state.role}</div></div>
-   <div class="mb"><div class="muted" style="font-size:11px;margin-bottom:10px">Mark every item, add comments, then submit. Any <b>Fail</b> blocks the shipment.</div>
-   ${QC_CHECKLIST.map((it,idx)=>`<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--line2)">
-      <div style="flex:1;font-size:12.5px">${it}</div>
-      <button class="sm ${qaForm.marks[idx]==='pass'?'green':'ghost'}" onclick="qaSet(${idx},'pass')">Pass</button>
-      <button class="sm ghost" style="${qaForm.marks[idx]==='fail'?'background:var(--red);color:#fff;border-color:var(--red)':''}" onclick="qaSet(${idx},'fail')">Fail</button></div>`).join('')}
-   <div class="fld" style="margin-top:13px"><label>Comments / observations</label><textarea rows="2" style="width:100%;font-family:inherit" oninput="qaForm.comments=this.value" placeholder="Optional notes...">${qaForm.comments}</textarea></div></div>
-   <div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" onclick="submitQAPhys()">Submit inspection</button></div>`; }
-function submitQAPhys(){ const o=state.orders.find(x=>x.id===qaForm.oid); const l=o.lines.find(x=>x.id===qaForm.lid);
-  if(qaForm.marks.some(m=>!m)){toast('Mark every checklist item Pass or Fail');return;}
-  const anyFail=qaForm.marks.some(m=>m==='fail'); const d=TODAY.toISOString().slice(0,10);
-  const checklist=QC_CHECKLIST.map((it,idx)=>({item:it,result:qaForm.marks[idx]}));
-  const fails=checklist.filter(c=>c.result==='fail').map(c=>c.item);
-  l.qcPhys={pass:!anyFail,fail:anyFail,checklist,comments:qaForm.comments,by:state.role,date:d};
-  if(anyFail){ l.qcPass=''; qcAudit(o,l,'Physical FAILED','Failed: '+fails.join(', ')+(qaForm.comments?' — '+qaForm.comments:'')); logAction(`QC physical FAILED ${o.po} · ${l.brand}: ${fails.join(', ')}`); }
-  else { qcAudit(o,l,'Physical inspection','Passed checklist'+(qaForm.comments?' — '+qaForm.comments:'')); logAction(`QC physical passed ${o.po} · ${l.brand}`); qcCheckBoth(o,l); }
-  save(); closeModal(); render(); }
 
 
 /* ===================== INSTRUCTIONS ===================== */
@@ -2301,7 +2271,7 @@ function screenDash(){
     const ordered=l.ordered||0,produced=l.produced||0,packed=l.packed||0,ship=l.dispatched||0;
     const qcC=l.qcPass?packed:0; const bal=Math.max(0,ordered-ship); const committed=o.promised||l.committed||''; const days=dnum(committed); const isDeliv=b==='Delivered';
     const overdue=!isDeliv&&days!=null&&days<0&&bal>0.5; const owner=(BUCKET_META[b]&&BUCKET_META[b].owner)||'—';
-    let blocker=''; if(l.qcLab&&l.qcLab.fail)blocker='QC fail'; else if(l.qcPhys&&l.qcPhys.fail)blocker='QA fail'; else if(l.rmStatus==='short'&&!l.rmReady)blocker='RM short'; else if(!isDeliv&&rmAllows(l)<=0&&(b==='RM Check'||b==='PO Created'))blocker='Awaiting RM'; else if(l.delayReason)blocker=l.delayReason;
+    let blocker=''; if(lineQA(o,l).anyFail)blocker='QA fail'; else if(l.rmStatus==='short'&&!l.rmReady)blocker='RM short'; else if(!isDeliv&&rmAllows(l)<=0&&(b==='RM Check'||b==='PO Created'))blocker='Awaiting RM'; else if(l.delayReason)blocker=l.delayReason;
     let risk='Low'; if(overdue)risk='Critical'; else if(!isDeliv&&bal>0.5&&days!=null&&days>=0&&days<=3)risk='High'; else if(!isDeliv&&bal>0.5&&days!=null&&days>3&&days<=7)risk='Medium';
     return {o,l,b,ordered,produced,packed,qcC,ship,bal,committed,days,overdue,owner,blocker,risk,isDeliv}; };
   const LI=[]; os.forEach(o=>o.lines.forEach(l=>LI.push(info(o,l)))); const openLI=LI.filter(x=>!x.isDeliv);
@@ -2698,7 +2668,7 @@ function rpShip(){ let sh=(state.shipments||[]).slice(); if(rpfMonth) sh=sh.filt
 }
 
 /* ---- Delay / Hold ---- */
-function rpDelay(){ const items=[]; rpLines().forEach(({o,l})=>{ if(lineOverdue(o,l)){ const d=Math.round((TODAY-new Date(l.committed))/86400000); items.push({po:o.po,prod:l.brand,issue:'Overdue '+d+'d',detail:'Promised '+(l.committed||'—'),sev:'red'}); } if(l.qcLab&&l.qcLab.pass===false) items.push({po:o.po,prod:l.brand,issue:'Lab QC Fail',detail:(l.qcLab.reason||'—'),sev:'red'}); if(l.qcPhys&&l.qcPhys.fail) items.push({po:o.po,prod:l.brand,issue:'QA Physical Fail',detail:(l.qcPhys.checklist||[]).filter(c=>c.result==='fail').map(c=>c.item).join(', ')||'—',sev:'red'}); if((l.dispatched||0)>(l.ordered||0)+0.5) items.push({po:o.po,prod:l.brand,issue:'Over-supplied +'+fmt(l.dispatched-l.ordered),detail:'Ordered '+fmt(l.ordered)+' · supplied '+fmt(l.dispatched),sev:'amber'}); });
+function rpDelay(){ const items=[]; rpLines().forEach(({o,l})=>{ if(lineOverdue(o,l)){ const d=Math.round((TODAY-new Date(l.committed))/86400000); items.push({po:o.po,prod:l.brand,issue:'Overdue '+d+'d',detail:'Promised '+(l.committed||'—'),sev:'red'}); } { const _q=lineQA(o,l); if(_q.anyFail) items.push({po:o.po,prod:l.brand,issue:'QA Fail (packed lot)',detail:'One or more packed lots failed QA inspection',sev:'red'}); } if((l.dispatched||0)>(l.ordered||0)+0.5) items.push({po:o.po,prod:l.brand,issue:'Over-supplied +'+fmt(l.dispatched-l.ordered),detail:'Ordered '+fmt(l.ordered)+' · supplied '+fmt(l.dispatched),sev:'amber'}); });
   if(!items.length) return rpEmpty('No delays or holds. Everything is on track.');
   return `<div class="card"><h3>Delays &amp; Holds <span class="hint">${items.length} flags</span></h3><div style="overflow:auto"><table><thead><tr><th>PO</th><th>Product</th><th class="ctr">Issue</th><th>Detail</th></tr></thead><tbody>${items.map(it=>`<tr><td><b>${it.po}</b></td><td>${it.prod}</td><td class="ctr"><span class="pill" style="background:${it.sev==='amber'?'var(--amber-50)':'var(--red-50)'};color:${it.sev==='amber'?'var(--amber)':'var(--red)'}">${it.issue}</span></td><td>${it.detail}</td></tr>`).join('')}</tbody></table></div></div>`;
 }

@@ -389,6 +389,9 @@ table tbody tr{transition:background .1s}
 table tbody tr:hover{background:var(--panel2)}
 .card{transition:box-shadow .15s}
 #toast.show.saved{background:var(--green2)}
+.hintbar{display:flex;align-items:center;gap:10px;background:#eef4ff;border:1px solid var(--navy-100);border-left:3px solid var(--navy);border-radius:9px;padding:9px 13px;margin-bottom:12px;font-size:12.5px;color:var(--navy2);line-height:1.45}
+.hintbar .x{margin-left:auto;cursor:pointer;color:var(--mut);font-weight:700;flex-shrink:0;padding:0 4px}
+.hintbar .x:hover{color:var(--red)}
 </style></head><body>
 <div class="app" id="appShell">
   <div class="navbackdrop" onclick="closeMobileNav()"></div>
@@ -492,6 +495,7 @@ function ensureMasters(s){
   s.masters = s.masters || {};
   if(!s.masters.accessMatrix||typeof s.masters.accessMatrix!=='object') s.masters.accessMatrix={};
   if(!s.masters.salesTargets||typeof s.masters.salesTargets!=='object') s.masters.salesTargets={};
+  if(!Array.isArray(s.masters.varianceReasons)||!s.masters.varianceReasons.length) s.masters.varianceReasons=['Wastage','Raw-material moisture loss','Raw-material availability / shortage','Process / handling loss','Recipe / assay adjustment','Other'];
   if(!Array.isArray(s.masters.rawMaterials)||!s.masters.rawMaterials.length) s.masters.rawMaterials=(((typeof SEED!=='undefined'&&SEED.rawMaterials)||[]).map(r=>({name:r.name,cost:+r.cost||0})));
   if(Array.isArray(s.masters.rawMaterials)&&!s.masters.rawMaterials.some(r=>String(r.name).toUpperCase()==='MKP')) s.masters.rawMaterials.push({name:'MKP',cost:475});
   if(!Array.isArray(s.masters.packingMaterials)||!s.masters.packingMaterials.length) s.masters.packingMaterials=[{"item":"Pouch","unit":"1 Kg","price":60.0},{"item":"Pouch","unit":"3 Kg","price":85.0},{"item":"Pouch","unit":"5 Kg","price":95.0},{"item":"Bag-V1","unit":"8 Kg","price":135.0},{"item":"Bag-V2","unit":"8 Kg","price":140.0},{"item":"Bag","unit":"10 Kg","price":150.0},{"item":"Bag","unit":"20 Kg","price":190.0},{"item":"Bag","unit":"25 Kg","price":200.0},{"item":"Bag","unit":"25 Kg","price":225.0},{"item":"Bag","unit":"35 Kg","price":225.0},{"item":"Bag","unit":"50 Kg","price":225.0},{"item":"Bottle","unit":"500 ml","price":120.0},{"item":"Bottle","unit":"1 Liter","price":150.0},{"item":"Can","unit":"3 Liter","price":330.0},{"item":"Can","unit":"4 Liter","price":395.0},{"item":"Can","unit":"5 Liter","price":450.0},{"item":"Can","unit":"10 Liter","price":650.0},{"item":"Can","unit":"20 Liter","price":850.0},{"item":"Drum","unit":"200 Liter","price":10000.0},{"item":"Seal","unit":"1 Liter","price":4.0},{"item":"Seal","unit":"3 Liter","price":4.0},{"item":"Seal","unit":"4 Liter","price":4.0},{"item":"Seal","unit":"5 Liter","price":4.0},{"item":"Seal","unit":"10 Liter","price":4.0},{"item":"Seal","unit":"20 Liter","price":4.0},{"item":"Inner 14 x 18","unit":"10 Kg","price":60.0},{"item":"Inner 18 x 24","unit":"20 Kg","price":80.0},{"item":"Inner 20 x 30","unit":"25 Kg","price":80.0},{"item":"Inner 24 x 36","unit":"50 Kg","price":100.0},{"item":"Labels 1 Side","unit":"All Purpose","price":15.0},{"item":"Labels 2 Side","unit":"All Purpose","price":25.0},{"item":"Carton","unit":"All Purpose","price":160.0}];
@@ -560,7 +564,6 @@ function batchOwnerInFY(no,fy,exclBaseId){ no=(no||'').trim(); if(!no)return nul
   for(const b of (state.batches||[])){ if(exclBaseId&&b.id===exclBaseId)continue; if((b.batchNo||'').trim()===no && fyKey(b.openedDate||b.date||'')===fy) return {kind:'base',baseId:b.id}; }
   for(const p of (state.packingLog||[])){ if(exclBaseId&&p.baseBatchId===exclBaseId)continue; if((p.brandBatchNo||'').trim()===no && fyKey(p.date||'')===fy) return {kind:'brand',baseId:p.baseBatchId||null}; }
   return null; }
-function batchTaken(bn){ bn=(bn||'').trim().toLowerCase(); return (state.batches||[]).some(function(x){return (x.batchNo||'').trim().toLowerCase()===bn;}); }
 /* Lock 2: shift-based production data model + migration.
    ADDITIVE / NON-DESTRUCTIVE / IDEMPOTENT — only fills missing fields, never recomputes
    produced/packed totals or edits kg. Legacy production is attributed to shift "Morning". */
@@ -589,7 +592,6 @@ let usersList=[];
 function authHdr(){ return _token ? {'Authorization':'Bearer '+_token} : {}; }
 function decodeToken(t){ try{ if(!t)return null; const p=t.split('.')[0]; const o=JSON.parse(atob(p.replace(/-/g,'+').replace(/_/g,'/'))); if(!o.exp||o.exp<Date.now())return null; return {name:o.n,username:o.u,role:o.r}; }catch(e){ return null; } }
 function setSession(token,user){ _token=token||''; try{ token?localStorage.setItem('van_token',token):localStorage.removeItem('van_token'); }catch(e){} if(typeof state!=='undefined'&&state){ state.currentUser=user||null; if(user) state.role=user.role; } }
-function persistSession(){}
 function restoreSession(){ const u=decodeToken(_token); if(u){ state.currentUser=u; state.role=u.role; } }
 let _rev=0,_saveTimer=null,_syncOn=false;
 async function bootState(){
@@ -725,16 +727,12 @@ function logAction(what){ state.actionLog.unshift({t:new Date().toISOString(), r
 function accessOv(role,scrId){ const m=(state.masters&&state.masters.accessMatrix)||{}; return (m[role]&&m[role][scrId])||null; }
 function canView(role,scrId){ if(role==='COO') return true; const o=accessOv(role,scrId); return !(o&&o.v===false); }
 function canEdit(owners){ if(state.role==='COO') return true; const o=accessOv(state.role,state.screen); if(o&&o.e===false) return false; return owners.includes(state.role); }
-function ownerNote(owners){ return canEdit(owners)?'':`<span class="tag">view-only · owned by ${owners.join(' / ')}</span>`; }
-
 /* ===================== SCREENS REGISTRY ===================== */
 const SCREENS=[
   {id:'dash', name:'Dashboard', ic:'\ud83d\udcca', owners:['KAM','Supply Chain','Production','Plant Manager','CFO','COO'], sub:'Executive overview',
     obj:'<b>Executive overview \u00b7 CEO / COO.</b> On-time delivery, overdue &amp; at-risk volume, fulfilment, production output, attention list and top customers \u2014 read-only.'},
   {id:'approvals', name:'My Actions', ic:'✅', owners:['KAM','Supply Chain','Production','Lab Rep','AQCM','QCM','QA Inspector','Plant Manager','CFO','COO'], sub:'What needs your action',
     obj:'<b>Your live worklist.</b> Everything waiting on you across all orders — acknowledge, RM check, approve PR, close PR, produce, QC, QA, ship, delay reasons — each timestamped.'},
-  {id:'monthly', name:'Monthly Production', ic:'\ud83d\udcc5', owners:['Production','COO','Plant Manager'], sub:'Monthly rollup',
-    obj:'<b>Read-only rollup.</b> Pick a month \u2014 production by base product: batches and total kg, plus produced-vs-demand.'},
   {id:'entry', name:'New PO Entry', ic:'\u2795', owners:['KAM'], sub:'Add an order',
     obj:'<b>Step 1 \u00b7 KAM.</b> Create a customer PO: Channel \u2192 Client/Dealer \u2192 products (brand auto-maps to base product & pack size) with qty and a committed date. A simple RM-ready flag shows if materials are on hand.'},
   {id:'dealers', name:'Dealer Master', ic:'\ud83e\udd1d', owners:['KAM'], sub:'Onboard dealers',
@@ -759,8 +757,6 @@ const SCREENS=[
     obj:'<b>COO only.</b> Add people, set each one\u2019s role and password. Everyone signs in and sees only their role\u2019s screens.'},
   {id:'costing', name:'Product Costing', ic:'🧮', owners:['CFO'], sub:'True cost of production', obj:'<b>Product cost engine · COO / CFO only.</b> Material (live from recipe × RM cost) + packing + conversion = true cost/bag, feeding channel pricing.'},
    {id:'budget', name:'Sales & Budget', ic:'💰', owners:['CFO'], sub:'Target vs delivered (PKR)', obj:'<b>Sales vs budget · COO / CFO only.</b> Client annual targets vs delivered invoice value (delivered Kg/L × invoice price). Consolidated and by product.'},
-   {id:'log', name:'Action Log', ic:'\ud83d\udd53', owners:['KAM','Supply Chain','Production','Plant Manager','CFO','COO'], sub:'Audit trail',
-    obj:'<b>Audit trail.</b> Every action, with who did it and when.'},
 ];
 function scr(id){ return SCREENS.find(s=>s.id===id); }
 </script>
@@ -796,7 +792,6 @@ function renderNav(){
     ? `<span class="av">${u.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase()}</span><div style="line-height:1.15"><div style="font-weight:700;font-size:12px;color:var(--txt)">${u.name}</div><div style="font-size:10px;color:var(--mut)">${u.role}</div></div><button class="ghost sm" style="margin-left:8px" onclick="logout()">Sign out</button>`
     : '';
 }
-function setRole(r){ state.role=r; save(); render(); }
 const TIPS={
  approvals:'This is your to-do list — everything across all orders waiting on YOU. Clear items here; the tracker updates itself.',
  tracker:'View-only board. Click the Order-Flow stages or attention cards to filter, and click any PO to see where each product stands.',
@@ -817,6 +812,24 @@ function setScreen(id){ if(!canView(state.role,id)){toast('Access to this screen
 function isMobile(){ return window.matchMedia&&window.matchMedia('(max-width:820px)').matches; }
 function toggleSide(){ const a=document.querySelector('.app'); if(!a)return; if(isMobile()) a.classList.toggle('nav-open'); else a.classList.toggle('nav-collapsed'); }
 function closeMobileNav(){ const a=document.querySelector('.app'); if(a) a.classList.remove('nav-open'); }
+const HINTS={
+  approvals:'This is your to-do list — everything waiting on YOU across all orders. Act on items here; the PO Tracker is view-only.',
+  tracker:'Read-only status board. Click any PO to see every product\u2019s stage in one matrix — where it is and where it\u2019s stuck. Tap a stage in the flow to filter.',
+  prod:'Open a batch (plan a partial qty if running in parts), then log shift output. Each shift adds to the batch; close it at actual yield (with a reason if short).',
+  qc:'Lab certifies each production batch by COA (Analyst \u2192 AQCM \u2192 QCM); a batch can be packed only after QCM approves. QA then inspects each packed lot before it ships.',
+  ship:'Only QC-passed lots can load. Record each dispatch (qty + packs auto-shown). A product closes at 100% delivered.',
+  entry:'Create a PO: pick channel \u2192 client, add products (qty auto-converts to packs), set the print price and VAN invoice price, then submit.',
+  budget:'Target vs delivered per client (delivered \u00d7 invoice price). Dealers roll up to one parent. Set invoice prices in bulk from here.',
+  costing:'True cost = Material (live from recipe \u00d7 RM price) + Packing + Conversion. Change a raw-material price in Master Data and every cost updates.',
+  admin:'Master lists power every dropdown. Add raw materials, lab templates, variance reasons, etc. The Access Matrix controls who sees/edits each screen.',
+  datafix:'Back-fill or correct records to match reality \u2014 all logged. Import opening POs and set invoice prices in bulk here. COO-gated.',
+  dealers:'Onboard dealers (auto code). They become selectable as clients on the Dealer channel in New PO Entry.',
+  reports:'Slice all data. The QC Reports tab is the searchable COA register; Action Log and others are searchable too.'
+};
+function hintBanner(id){ const t=HINTS[id]; if(!t) return ''; try{ if(window.localStorage&&localStorage.getItem('van_hint_'+id)==='1') return ''; }catch(e){}
+  return `<div class="hintbar"><span style="font-size:14px">\u{1F4A1}</span><span>${t}</span><span class="x" title="Got it \u2014 hide this tip" onclick="dismissHint('${id}')">\u2715</span></div>`; }
+function dismissHint(id){ try{ if(window.localStorage) localStorage.setItem('van_hint_'+id,'1'); }catch(e){} const el=document.querySelector('#view .hintbar'); if(el) el.remove(); }
+function showAllHints(){ try{ if(window.localStorage){ Object.keys(HINTS).forEach(k=>localStorage.removeItem('van_hint_'+k)); } }catch(e){} toast('Tips re-enabled'); render(); }
 function render(){
   if(scr(state.screen)&&!canView(state.role,state.screen)) state.screen='dash';
   if(!scr(state.screen)) state.screen='dash';
@@ -824,8 +837,9 @@ function render(){
   const s=scr(state.screen);
   $('scTitle').textContent=s.name; $('scSub').textContent=s.sub;
   if($('helpbar')){ const EDIT_SCREENS={entry:1,dealers:1,prod:1,qc:1,ship:1,admin:1,users:1}; let editable=!!EDIT_SCREENS[s.id]; let owner=editable?(s.owners.filter(r=>r!=='COO').join(', ')||'COO'):'Everyone'; let upd=editable?'Yes':'No — view only'; if(s.id==='tracker'){ const tm={'KAM':'SO # & dates','Supply Chain':'RM Check / PR & RM dates','CFO':'CFO approval & invoice','Plant Manager':'delay reason & dept','Production':'production dates','COO':'any field'}; if(tm[state.role]) upd='Yes — '+tm[state.role]+' (click to open)'; } $('helpbar').innerHTML=`This screen: <b>${s.sub}</b> &nbsp;·&nbsp; Owned by: <b>${owner}</b> &nbsp;·&nbsp; Update here: <b>${upd}</b>`+((TIPS[s.id]&&!(state.tipsDismissed&&state.tipsDismissed[s.id]))?`<div style="display:flex;gap:8px;align-items:flex-start;margin-top:7px;padding-top:7px;border-top:1px dashed var(--line)"><span style="font-size:12px;color:var(--txt2)">\uD83D\uDCA1 ${TIPS[s.id]}</span><button class="ghost sm" style="margin-left:auto;flex:0 0 auto;font-size:11px;padding:2px 8px" onclick="dismissTip('${s.id}')">Got it</button></div>`:''); }
-  if($('sidefoot')) $('sidefoot').innerHTML = state.role==='COO'?'<button class="ghost sm" style="width:100%" onclick="resetSeed()">Reset demo data</button>':'';
-  ({dash:screenDash,approvals:screenApprovals,entry:screenEntry,tracker:screenTracker,prod:screenProd,qc:screenQC,monthly:screenMonthly,ship:screenShip,reports:screenReports,budget:screenBudget,costing:screenCosting,dealers:screenDealers,instructions:screenInstructions,admin:screenAdmin,datafix:screenDataFix,users:screenUsers,log:screenLog}[state.screen])();
+  if($('sidefoot')) $('sidefoot').innerHTML = '<button class="ghost sm" style="width:100%;margin-bottom:6px" onclick="showAllHints()">\u{1F4A1} Show screen tips</button>'+(state.role==='COO'?'<button class="ghost sm" style="width:100%" onclick="resetSeed()">Reset demo data</button>':'');
+  ({dash:screenDash,approvals:screenApprovals,entry:screenEntry,tracker:screenTracker,prod:screenProd,qc:screenQC,ship:screenShip,reports:screenReports,budget:screenBudget,costing:screenCosting,dealers:screenDealers,instructions:screenInstructions,admin:screenAdmin,datafix:screenDataFix,users:screenUsers,}[state.screen])();
+  try{ const hv=hintBanner(state.screen); if(hv&&$('view')) $('view').insertAdjacentHTML('afterbegin',hv); }catch(e){}
 }
 /* ===================== LOCK 4: DATA FIX (reconciliation console — safety frame) ===================== */
 function typeNameToConfirm(actionText){
@@ -1259,8 +1273,6 @@ function addDealer(){
 
 /* ===================== 2. PO TRACKER ===================== */
 let trkFilter='all'; let trkStage='';
-function toggleExpand(id,ev){ if(ev)ev.stopPropagation(); state.expanded=state.expanded||{}; state.expanded[id]=!state.expanded[id]; render(); }
-function expandAll(v){ state.expanded={}; if(v) state.orders.forEach(o=>state.expanded[o.id]=true); render(); }
 /* ===================== PO TRACKER — control tower (UI redesign) ===================== */
 let trkSearch='';
 const BUCKETS=['PO Created','RM Check','Production','Lab QC','QA Pre-shipment','Shipment','Delivered'];
@@ -1326,10 +1338,6 @@ function lineLifecycleInline(o,l){
   const sg=lineStage(o,l);
   return `<div class="card" style="margin:0 0 10px;padding:11px 13px"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:9px"><b style="font-size:13px">${l.brand}</b> <span class="muted" style="font-size:11px">${l.base}</span> ${pill(sg,STAGE_COLOR[sg]||'--mut')}</div>${rmBand}${turn}${groups}</div>`;
 }
-function trkEditors(o){
-  const legend=`<div class="legend" style="margin:2px 0 10px"><span><i style="background:#fffada"></i>You can fill</span><span><i style="background:#e9f7ee"></i>Done</span><span><i style="background:#eef1f6"></i>Auto</span><span><i style="background:#fff0e0"></i>Plant Manager</span><span style="margin-left:auto">Acting as <b style="color:var(--navy)">${state.role}</b> — edit your fields right here</span></div>`;
-  return `<div style="margin-top:4px"><h4 style="font-size:12.5px;margin:8px 0 8px;color:var(--navy)">Update by stage — your fields are highlighted</h4>${legend}${o.lines.map(l=>lineLifecycleInline(o,l)).join('')}</div>`;
-}
 function trkJourney(o){
   const stamp=(lbl,val,extra)=>`<div style="min-width:92px"><div class="muted" style="font-size:9px;text-transform:uppercase;letter-spacing:.3px">${lbl}</div><div style="font-size:11.5px;${val?'font-weight:600':'color:var(--mut)'}">${val||'—'}${extra?` <span class="muted" style="font-size:10px">${extra}</span>`:''}</div></div>`;
   const rows=o.lines.map(l=>{
@@ -1341,14 +1349,6 @@ function trkJourney(o){
       </div></div>`;
   }).join('');
   return `<div style="margin-top:4px"><h4 style="font-size:12.5px;margin:8px 0 8px;color:var(--navy)">PO journey — what happened at each stage</h4>${rows}</div>`;
-}
-function expandedPanel(o){
-  const b=orderBucket(o); const a=agg(o); const od=isOverdue(o);
-  const snapItems=[['PO #',o.po],['Customer',o.client],['Channel',o.channel],['Priority',o.priority||'Normal'],['Committed delivery',o.promised||'—'],['Ordered',fmt(a.ordered)+' Kg/L'],['Current stage',b],['Status',b==='Delivered'?'Delivered':(od?daysOver(o)+'d overdue':'On time')]];
-  const snap=`<div class="exp-snap">${snapItems.map(s=>`<div><div class="sl">${s[0]}</div><div class="sv">${s[1]}</div></div>`).join('')}</div>`;
-  const lines=`<div style="background:#fff;border:1px solid var(--line);border-radius:10px;overflow:auto;margin-bottom:13px"><table><thead><tr><th>Product</th><th class="num">Ordered</th><th class="num">Produced</th><th class="ctr">QC</th><th class="num">Shipped</th><th class="num">Balance</th><th>Stage</th></tr></thead><tbody>${o.lines.map(l=>{const lb=lineBucket(o,l);const bal=Math.max(0,(l.ordered||0)-(l.dispatched||0));return `<tr><td><b>${l.brand}</b> <span class="muted" style="font-size:11px">${l.base}</span></td><td class="num">${fmt(l.ordered)}</td><td class="num">${fmt(l.produced||0)}</td><td class="ctr">${qcMini(l)}</td><td class="num">${fmt(l.dispatched||0)}</td><td class="num">${fmt(bal)}</td><td>${pill(lb,BUCKET_META[lb].c)}</td></tr>`;}).join('')}</tbody></table></div>`;
-  const wupd=`<div class="wupd"><b>Where to update this order</b><br>PO details → <b>New PO Entry</b> (KAM) &nbsp;·&nbsp; Materials → <b>Supply Chain</b> &nbsp;·&nbsp; Production → <b>Production</b> screen &nbsp;·&nbsp; Lab result → <b>QC · Lab QC</b> &nbsp;·&nbsp; Inspection → <b>QC · QA Pre-shipment</b> &nbsp;·&nbsp; Dispatch → <b>Shipments</b></div>`;
-  return `<div class="expbody">${snap}${trkTimeline(o)}${lines}${trkJourney(o)}${wupd}<div style="margin-top:11px"><button class="ghost sm" onclick="event.stopPropagation();openOrder('${o.id}')">Open full record ▸</button></div></div>`;
 }
 function priorityPill(p){ p=p||'Normal'; var c=p==='Critical'?'--red':(p==='High'?'--amber':(p==='Low'?'--mut':'--blue')); return `<span class="pill" style="background:color-mix(in srgb,var(${c}) 14%,#fff);color:var(${c});font-size:9px;padding:1px 7px;margin-left:5px">${p}</span>`; }
 function orderCard(o){
@@ -1396,22 +1396,6 @@ function screenTracker(){
     <div class="card"><h3>Order flow <span class="hint">how many orders sit at each stage</span></h3>${flow}</div>
     <div class="card"><h3>Needs attention <span class="hint">tap a card to filter the list</span></h3>${attn}</div>
     <div class="card"><h3>Orders <span class="hint">${list.length} shown</span></h3>${chipbar}<div>${rows}</div></div>`;
-}
-
-function trackerFlow(){
-  const steps=[['1 Order & SO','KAM','var(--blue)'],['2 Materials (RM)','Supply Chain','var(--amber)'],['3 Production','Production','var(--purple)'],['4 Quality','Lab → QA','var(--leaf)'],['5 Dispatch','Supply Chain','var(--green2)'],['6 Delivered','done','var(--green)']];
-  return `<div class="card" style="padding:14px 18px"><div style="font-weight:700;font-size:13px;margin-bottom:11px;color:var(--txt)">How an order moves <span style="font-weight:500;color:var(--mut);font-size:11.5px">\u2014 each step is done by that team on its own screen</span></div><div class="flowstrip">${steps.map((s,i)=>`<div class="fstep"><span class="fdot" style="background:${s[2]}"></span><b>${s[0]}</b><i>${s[1]}</i></div>${i<steps.length-1?'<span class="farrow">\u2192</span>':''}`).join('')}</div></div>`;
-}
-function trackerKPIs(){
-  const os=state.orders; const open=os.filter(o=>stageOf(o)!=='Delivered').length;
-  const closed=os.filter(o=>stageOf(o)==='Delivered').length;
-  const overdue=os.filter(o=>isOverdue(o)).length;
-  const rmblk=os.filter(o=>['short','procuring'].includes(o.rmDecision)&&stageOf(o)==='RM / Procurement').length;
-  const orderedKg=os.reduce((a,o)=>a+agg(o).ordered,0);
-  const shippedKg=os.reduce((a,o)=>a+agg(o).dispatched,0);
-  const data=[['Orders',os.length,'in system'],['Open',open,'not yet closed'],['Closed',closed,'shipped'],
-    ['Overdue',overdue,'past promised'],['RM-blocked',rmblk,'awaiting procurement'],['Shipped',fmt(shippedKg)+' Kg/L','of '+fmt(orderedKg)]];
-  return data.map(d=>`<div class="kpi"><div class="l">${d[0]}</div><div class="v">${d[1]}</div><div class="d">${d[2]}</div></div>`).join('');
 }
 
 /* ===================== ORDER DRAWER (role-owned lifecycle) ===================== */
@@ -1492,25 +1476,6 @@ function advanceLine(o,l,kind){
     state.shipments.unshift({po:o.po,brand:l.brand,kg:amt,dispatch:TODAY.toISOString().slice(0,10),delivered:TODAY.toISOString().slice(0,10),warehouse:state.warehouses[0],by:state.role});
     logAction(`Shipped ${fmt(amt)} Kg/L of ${l.brand} for ${o.po}`+(l.dispatched>=l.ordered-0.001?' → product CLOSED':'')); }
 }
-function doLineStage(oid,lid,kind){ const o=state.orders.find(x=>x.id===oid); const l=o.lines.find(x=>x.id===lid);
-  const wasClosed=o.lines.every(x=>lineStage(o,x)==='Delivered'); advanceLine(o,l,kind);
-  if(!wasClosed && o.lines.every(x=>lineStage(o,x)==='Delivered')) logAction(`PO ${o.po} fully shipped → CLOSED`);
-  save(); openOrder(oid); render(); }
-function doStage(oid,kind){ const o=state.orders.find(x=>x.id===oid);
-  const wasClosed=o.lines.every(x=>lineStage(o,x)==='Delivered'); o.lines.forEach(l=>advanceLine(o,l,kind));
-  if(!wasClosed && o.lines.every(x=>lineStage(o,x)==='Delivered')) logAction(`PO ${o.po} fully shipped → CLOSED`);
-  save(); render(); }
-function setLineCommitted(oid,lid,v){ const o=state.orders.find(x=>x.id===oid); const l=o.lines.find(x=>x.id===lid);
-  l.committed=v; logAction(`Set committed date for ${l.brand} on ${o.po} → ${v}`); save(); openOrder(oid); render(); }
-function raiseProc(id){ const o=state.orders.find(x=>x.id===id); o.rmDecision='procuring';
-  if(!state.rmRequests.find(r=>r.orderId===id)) state.rmRequests.unshift({id:'R'+state.seq++,orderId:id,po:o.po,short:rmCheck(o).short,status:'raised',ts:new Date().toISOString()});
-  logAction(`Raised RM procurement for ${o.po}`); save(); openOrder(id); render(); }
-function markRMok(id){ const o=state.orders.find(x=>x.id===id); o.rmDecision='ok'; logAction(`Marked RM arranged for ${o.po}`); save(); openOrder(id); render(); }
-function rmReceived(id){ const o=state.orders.find(x=>x.id===id); const r=rmCheck(o);
-  r.short.forEach(s=>{ const add=Math.ceil(s.gap); state.rawStock[s.rm]=(state.rawStock[s.rm]??0)+add; (state.rmMovements=state.rmMovements||[]).unshift({date:TODAY.toISOString().slice(0,10),mat:s.rm,kg:add,type:'received',by:state.role,note:'procurement for '+o.po}); });
-  o.rmDecision='received'; const req=state.rmRequests.find(x=>x.orderId===id); if(req)req.status='received';
-  logAction(`CFO approved & RM received for ${o.po} — ready to produce`); save(); openOrder(id); render(); }
-
 /* ===================== RM CHECK / RAISE PR (manual) ===================== */
 function rmStatusPill(l){ const s=l.rmStatus||'pending'; const m={pending:['Not checked','--mut'],full:['In stock','--green'],partial:['Partial','--amber'],short:['Short — PR raised','--red'],received:['RM received','--green']}; const x=m[s]||m.pending; return pill(x[0],x[1]); }
 let rmForm={oid:null,lid:null,status:'full',canMake:'',lines:[]};
@@ -1592,9 +1557,10 @@ function screenProd(){
            <select id="pp_po" onchange="prodPOsel=this.value;render()"><option value="">— pick PO —</option>${pos.map(o=>`<option value="${o.id}" ${o.id===prodPOsel?'selected':''}>${o.po} · ${o.client}</option>`).join('')}</select></div>
          <div class="fld" style="flex:1;min-width:210px"><label>Product (as on the PO)</label>
            <select id="pp_line" ${selO?'':'disabled'}><option value="">${selO?'— pick product —':'pick PO first'}</option>${selO?selO.lines.map(l=>`<option value="${l.id}">${l.brand} (${fmt(l.produced||0)}/${fmt(l.ordered)} done)</option>`).join(''):''}</select></div>
-         <div class="fld" style="width:170px"><label>Batch #</label><input type="text" id="nb_batch" placeholder="e.g. AB12345" oninput="batchNoFx(this)"></div>
+         <div class="fld" style="width:150px"><label>Plan this batch (Kg/L)</label><input type="number" id="pp_planned" placeholder="remaining"></div>
+         <div class="fld" style="width:160px"><label>Batch #</label><input type="text" id="nb_batch" placeholder="e.g. AB12345" oninput="batchNoFx(this)"></div>
          <button class="green" ${ed?'':'disabled'} onclick="openBatch('po')">Open batch</button></div>
-       <div class="muted" style="font-size:11px;margin-top:8px">Opens a batch for this PO line (planned = remaining order qty). Log shift output against it in <b>Open batches</b> below; the PO auto-fills as shifts produce.</div>`
+       <div class="muted" style="font-size:11px;margin-top:8px">Opens a batch for this PO line. <b>Plan a partial quantity</b> if you'll run it in parts (blank = full remaining); open more batches for the rest. Log shift output in <b>Open batches</b> below; the PO auto-fills as shifts produce.</div>`
     : `<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
          <div class="fld" style="flex:1;min-width:240px"><label>Base Product (bulk)</label>
            <select id="pb_base"><option value="">— pick base —</option>${bases.map(b=>`<option>${b}</option>`).join('')}</select></div>
@@ -1639,18 +1605,6 @@ function screenProd(){
      <div style="max-height:230px;overflow:auto"><table><thead><tr><th style="width:120px">Date</th><th>Base / product</th><th class="num" style="width:100px">Kg/L</th><th style="width:90px">Shift</th><th style="width:120px">Incharge</th><th style="width:100px">By</th>${state.role==='COO'?'<th style="width:90px"></th>':''}</tr></thead>
        <tbody>${recent.length?recent.map((p,i)=>`<tr><td class="muted">${p.date}</td><td>${p.brand?(p.brand+' '):''}<span class="muted">${p.base}</span>${p.po?(' · '+p.po):''}</td><td class="num">${fmt(p.kg)}</td><td class="muted">${p.shift||'—'}</td><td class="muted">${p.incharge||'—'}</td><td class="muted">${p.by}</td>${state.role==='COO'?`<td><button class="sm ghost" onclick="voidProdEntry(${i})">✕ remove</button></td>`:''}</tr>`).join(''):`<tr><td colspan="${state.role==='COO'?7:6}" class="muted">No output logged.</td></tr>`}</tbody></table></div></div>`;
 }
-function logProdStock(){ const base=$('pb_base').value, kg=+$('pb_kg').value, date=($('pb_date')&&$('pb_date').value)||TODAY.toISOString().slice(0,10);
-  if(!base||!kg){toast('Pick base product and Kg/L');return;}
-  const ob=openStockBatch(base); if(ob){ toast('Pack the open '+fmt(ob.producedKg-ob.packedKg)+' Kg/L of '+base+' first'); return; }
-  state.batches.unshift({id:'B'+state.seq++,type:'stock',base,brand:null,producedKg:kg,packedKg:0,date,by:state.role});
-  state.productionLog.unshift({date,base,kg,by:state.role}); logAction(`Produced ${fmt(kg)} Kg/L ${base} (bulk base)`); save(); toast('Logged'); render(); }
-function logProdPO(){ const oid=$('pp_po').value, lid=$('pp_line').value, kg=+$('pp_kg').value, date=($('pp_date')&&$('pp_date').value)||TODAY.toISOString().slice(0,10);
-  if(!oid||!lid||!kg){toast('Pick PO, product and Kg/L');return;}
-  const o=state.orders.find(x=>x.id===oid); const l=o.lines.find(x=>x.id===lid); const cap=Math.max(0,l.ordered-(l.produced||0));
-  const q=Math.min(kg,cap); if(q<=0){toast('Already fully produced');return;}
-  l.produced=(l.produced||0)+q; l.prodStart=l.prodStart||date; if(l.produced>=l.ordered-0.001) l.prodComplete=date;
-  state.productionLog.unshift({date,base:l.base,kg:q,by:state.role,po:o.po,brand:l.brand});
-  logAction(`Produced ${fmt(q)} Kg/L of ${l.brand} for ${o.po}`); save(); toast('Logged'); render(); }
 /* COO-only: remove a mistaken production entry. Reverses the produced quantity
    (clamped so it never drops below what's already packed) and deletes the log row.
    Logged to the Action Log. Index maps directly to state.productionLog (recent = slice(0,15)). */
@@ -1685,7 +1639,7 @@ function openBatch(kind){
     const _bb=(typeof SEED!=='undefined'&&SEED.brandMap&&SEED.brandMap[l.brand]&&SEED.brandMap[l.brand].base)||l.base||l.brand;
     if(_bb && _bb!==l.brand){ toast(l.brand+' is made from base "'+_bb+'" — produce '+_bb+' in Bulk Base, then pack it into '+l.brand+' for this PO.'); return; }
     if(!validateBatchNo(batchNo) && typeof confirm==='function' && !confirm(`Batch number "${batchNo}" doesn't match the usual format (${fmtRule}). Is it correct?`)) return;
-    const cap=rmAllows(l); if(cap<=(l.produced||0)+0.001){ toast('No raw material confirmed yet — run RM Check first. (Partial RM lets you make the available qty.)'); return; } const planned=Math.max(0,Math.min(l.ordered-(l.produced||0), cap-(l.produced||0)));
+    const cap=rmAllows(l); if(cap<=(l.produced||0)+0.001){ toast('No raw material confirmed yet — run RM Check first. (Partial RM lets you make the available qty.)'); return; } const remCap=Math.max(0,Math.min(l.ordered-(l.produced||0), cap-(l.produced||0))); let planned=remCap; const _pv=+(($('pp_planned')&&$('pp_planned').value)||0)||0; if(_pv>0){ if(_pv>remCap+0.001){ toast('Plan must be ≤ '+fmt(remCap)+' Kg/L (remaining order / RM-allowed).'); return; } planned=_pv; } if(planned<=0){ toast('Nothing left to plan for this product.'); return; }
     state.batches.unshift({id:'B'+(state.seq++),batchNo,kind:'po',po:o.po,lineId:l.id,base:l.base,brand:l.brand,plannedKg:planned,producedKg:0,packedKg:0,status:'open',openedDate:today,by:state.role});
     logAction(`Opened PO batch ${batchNo} for ${o.po} · ${l.brand} (planned ${fmt(planned)} Kg/L)`);
   } else {
@@ -1732,7 +1686,7 @@ function renderShiftLog(){
 function submitShiftLog(){
   if(!canEdit(['Production'])){toast('Production only');return;}
   const b=(state.batches||[]).find(x=>x.id===shiftForm.batchId); if(!b){toast('Batch not found');return;}
-  if(b.coa && b.coa.status && b.coa.status!=='draft'){ toast('Batch '+(b.batchNo||'')+' is already in Lab QC ('+b.coa.status+'). A certified batch cannot take more output — open a NEW batch; new production needs its own COA.'); return; }
+  if(b.status==='closed'){ toast('Batch '+(b.batchNo||'')+' is closed — open a new batch for further production.'); return; }
   const q=+shiftForm.qty||0;
   if(!shiftForm.shift){toast('Pick a shift');return;}
   if(!shiftForm.incharge){toast('Pick a shift incharge');return;}
@@ -1743,6 +1697,7 @@ function submitShiftLog(){
     toast('Over-production blocked: max '+fmt(cap)+' Kg/L (105% of '+fmt(plan)+' planned). Remaining you can log: '+fmt(Math.round(left))+' Kg/L.');
     return;
   }
+  if(b.kind==='po'){ const _o=state.orders.find(x=>x.po===b.po); const _l=_o&&_o.lines.find(x=>x.id===b.lineId); if(_l){ const rem=(_l.ordered||0)-(_l.produced||0); if(q>rem+0.001){ toast('PO over-run blocked: '+_l.brand+' is ordered '+fmt(_l.ordered)+' Kg/L; only '+fmt(Math.max(0,Math.round(rem)))+' left to produce. Production cannot exceed the PO.'); return; } } }
   const d=shiftForm.date||TODAY.toISOString().slice(0,10);
   state.shiftEntries=state.shiftEntries||[];
   state.shiftEntries.unshift({id:'SE'+(state.seq++),batchId:b.id,batchNo:b.batchNo||'',date:d,shift:shiftForm.shift,incharge:shiftForm.incharge,kg:q,reason:shiftForm.reason||'',note:shiftForm.note||'',by:state.role,ts:new Date().toISOString()});
@@ -1757,15 +1712,24 @@ function submitShiftLog(){
   logAction(`Shift output: ${shiftForm.shift} · ${shiftForm.incharge} · ${fmt(q)} Kg/L on batch ${b.batchNo||'—'}${q<=0?(' (no output: '+shiftForm.reason+')'):''}`);
   save(); closeModal(); render();
 }
-function closeBatch(batchId){
-  if(!canEdit(['Production'])){toast('Production only');return;}
-  const b=(state.batches||[]).find(x=>x.id===batchId); if(!b)return;
-  if(typeof confirm==='function' && !confirm(`Close batch ${b.batchNo||'—'}?\nProduced ${fmt(b.producedKg||0)} of planned ${fmt(b.plannedKg||0)} Kg/L.`)) return;
-  b.status='closed'; b.closedDate=TODAY.toISOString().slice(0,10);
-  if(b.kind==='po'){ const o=state.orders.find(x=>x.po===b.po); const l=o&&o.lines.find(x=>x.id===b.lineId); if(l){ l.prodComplete=l.prodComplete||b.closedDate; } }
-  logAction(`Closed batch ${b.batchNo||'—'} (${fmt(b.producedKg||0)}/${fmt(b.plannedKg||0)} Kg/L)`);
-  save(); toast('Batch closed'); render();
-}
+let closeForm={bid:null,reason:'',note:''};
+function closeBatch(batchId){ openCloseBatch(batchId); }
+function openCloseBatch(batchId){ if(!canEdit(['Production'])){toast('Production only');return;} const b=(state.batches||[]).find(x=>x.id===batchId); if(!b)return; closeForm={bid:batchId,reason:'',note:''}; renderCloseBatch(); $('modalBg').classList.add('open'); }
+function renderCloseBatch(){ const b=(state.batches||[]).find(x=>x.id===closeForm.bid); if(!b){closeModal();return;} const plan=+b.plannedKg||0, prod=+b.producedKg||0, varn=Math.round((plan-prod)*100)/100; const reasons=(state.masters&&state.masters.varianceReasons)||['Other'];
+  $('modal').innerHTML=`<div class="mh"><h2>Close batch ${b.batchNo||''}</h2><div class="sub">${coaItemOf(b)} · planned ${fmt(plan)} · produced ${fmt(prod)} Kg/L${varn>0?` · <b style="color:var(--amber)">short by ${fmt(varn)}</b>`:(varn<0?` · <b style="color:var(--amber)">over by ${fmt(-varn)}</b>`:' · on plan')}</div></div>
+   <div class="mb"><div class="muted" style="font-size:12px;margin-bottom:10px">Closing fixes this batch at its <b>actual yield (${fmt(prod)} Kg/L)</b> — no more shift output can be added. ${varn>0?'A yield variance needs a reason; the Plant Manager is notified.':''}</div>
+     ${varn>0?`<div class="fld"><label>Variance reason (required)</label><select onchange="closeForm.reason=this.value"><option value="">— pick reason —</option>${reasons.map(r=>`<option ${closeForm.reason===r?'selected':''}>${r}</option>`).join('')}</select></div>`:''}
+     <div class="fld" style="margin-top:8px"><label>Note (optional)</label><input type="text" value="${(closeForm.note||'').replace(/"/g,'&quot;')}" oninput="closeForm.note=this.value" placeholder="optional detail"></div>
+   </div>
+   <div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" onclick="doCloseBatch()">Close batch</button></div>`; }
+function doCloseBatch(){ const b=(state.batches||[]).find(x=>x.id===closeForm.bid); if(!b)return; const plan=+b.plannedKg||0, prod=+b.producedKg||0, varn=Math.round((plan-prod)*100)/100;
+  if(varn>0.001 && !closeForm.reason){ toast('Pick a variance reason — produced is below plan'); return; }
+  const d=TODAY.toISOString().slice(0,10);
+  b.status='closed'; b.closedDate=d; b.actualYield=prod; b.varianceKg=varn; b.varianceReason=closeForm.reason||''; b.varianceNote=closeForm.note||''; b.closedBy=(state.currentUser&&state.currentUser.name)||state.role;
+  if(b.kind==='po'){ const o=state.orders.find(x=>x.po===b.po); const l=o&&o.lines.find(x=>x.id===b.lineId); if(l){ l.prodComplete=l.prodComplete||d; } }
+  if(varn>0.001){ b.varianceNotify={to:'Plant Manager',date:d,ack:false}; (state.audit=state.audit||[]).unshift({t:new Date().toISOString(),user:state.role,module:'Production',field:'Batch closed — yield variance',po:b.po||'',brand:coaItemOf(b),old:fmt(plan),val:fmt(prod)+' ('+closeForm.reason+')',batchNo:b.batchNo||''}); }
+  logAction(`Batch ${b.batchNo||''} closed at ${fmt(prod)}/${fmt(plan)} Kg/L`+(varn>0.001?` — variance ${fmt(varn)} (${closeForm.reason}) → Plant Manager notified`:''));
+  save(); closeModal(); render(); toast('Batch closed'); }
 let pqForm={oid:null,lid:null,kind:'produce',qty:'',date:TODAY.toISOString().slice(0,10)};
 function maxFor(l,kind){ return kind==='produce'?Math.max(0,l.ordered-(l.produced||0)):Math.max(0,(l.produced||0)-(l.packed||0)); }
 function openProdQty(oid,lid,kind){ pqForm={oid,lid,kind,qty:'',date:TODAY.toISOString().slice(0,10)}; renderProdQty(); $('modalBg').classList.add('open'); }
@@ -1830,9 +1794,7 @@ function allocateStock(oid,lid){ const o=state.orders.find(x=>x.id===oid); const
   logAction(`Allocated ${fmt(kg)} Kg/L packed ${l.brand} from stock → ${o.po}`); save(); render(); }
 
 /* ===================== QC · PRE-SHIPMENT (2-layer gate) ===================== */
-function qcLayerPill(layer){ if(!layer) return pill('Pending','--mut'); if(layer.fail) return pill('Failed','--red'); if(layer.pass) return pill('Passed','--green'); return pill('Pending','--mut'); }
 function batchPairsForLine(o,l){ const seen=new Set(),out=[]; (state.packingLog||[]).forEach(p=>{ if(p&&p.po===o.po&&p.brand===l.brand){ const bs=p.baseBatchNo||'', br=p.brandBatchNo||''; const k=bs+'>'+br; if(!seen.has(k)){seen.add(k); out.push({bs:bs||'\u2014',br:br||'\u2014'});} } }); return out; }
-function qcBatchCell(o,l){ const pr=batchPairsForLine(o,l); if(!pr.length) return '<span class="muted" style="font-size:10.5px">not packed yet</span>'; return pr.map(x=>`<span class="pill" style="background:var(--navy-50);color:var(--navy);font-size:9px;padding:1px 6px;white-space:nowrap" title="base batch \u25b8 brand batch">${x.bs} \u25b8 ${x.br}</span>`).join(' '); }
 function qcBatchText(o,l){ const pr=batchPairsForLine(o,l); return pr.length?pr.map(x=>x.bs+' \u25b8 '+x.br).join(', '):'not packed yet'; }
 /* ===== COA / Lab QC (batch-level, 3-step workflow) ===== */
 let coaForm={};
@@ -2082,19 +2044,13 @@ function screenQC(){
 function qcAudit(o,l,field,val){ (state.audit=state.audit||[]).unshift({t:new Date().toISOString(),user:state.role,module:'QC',po:o.po,brand:l.brand,field,old:'',val}); }
 function qcCheckBoth(o,l){ if(l.qcLab&&l.qcLab.pass&&l.qcPhys&&l.qcPhys.pass){ l.qcPass=TODAY.toISOString().slice(0,10); logAction(`QC PASSED: ${o.po} · ${l.brand} — cleared for shipment`); } }
 function qcLabPass(oid,lid){ const o=state.orders.find(x=>x.id===oid); const l=o.lines.find(x=>x.id===lid); l.qcLab={pass:true,by:state.role,date:TODAY.toISOString().slice(0,10)}; qcAudit(o,l,'Lab certified','Passed'); logAction(`Lab certified ${o.po} · ${l.brand}`); qcCheckBoth(o,l); save(); render(); }
-function qcPhysPass(oid,lid){ const o=state.orders.find(x=>x.id===oid); const l=o.lines.find(x=>x.id===lid); if(!(l.qcLab&&l.qcLab.pass)){toast('Lab must certify first');return;} l.qcPhys={pass:true,by:state.role,date:TODAY.toISOString().slice(0,10)}; qcAudit(o,l,'Physical inspection','Passed'); logAction(`QA physical pass ${o.po} · ${l.brand}`); qcCheckBoth(o,l); save(); render(); }
 function qcFail(oid,lid,layer){ const o=state.orders.find(x=>x.id===oid); const l=o.lines.find(x=>x.id===lid); const reason=(typeof prompt==='function'?prompt('Reason for QC fail:'):'')||'Failed'; l[layer]={pass:false,fail:true,reason,by:state.role,date:TODAY.toISOString().slice(0,10)}; l.qcPass=''; qcAudit(o,l,(layer==='qcLab'?'Lab':'Physical')+' FAILED',reason); logAction(`QC FAIL (${layer==='qcLab'?'Lab':'Physical'}) ${o.po} · ${l.brand}: ${reason}`); save(); render(); }
 function qcApproveLab(oid,lid){ if(!(state.role==='Plant Manager'||state.role==='COO')){toast('Plant Manager only');return;} const o=state.orders.find(x=>x.id===oid); const l=o.lines.find(x=>x.id===lid); if(!(l.qcLab&&l.qcLab.fail))return; const prev=l.qcLab.reason||''; l.qcLab={pass:true,by:state.role,date:TODAY.toISOString().slice(0,10),deviation:true,note:prev}; qcAudit(o,l,'Lab QC deviation approved',prev); logAction(`Lab QC deviation APPROVED by ${state.role}: ${o.po} · ${l.brand}`); qcCheckBoth(o,l); save(); toast('Deviation approved'); render(); }
 function qcReworkLab(oid,lid){ if(!(state.role==='Plant Manager'||state.role==='COO')){toast('Plant Manager only');return;} const o=state.orders.find(x=>x.id===oid); const l=o.lines.find(x=>x.id===lid); if(!(l.qcLab&&l.qcLab.fail))return; l.qcReworks=(l.qcReworks||0)+1; l.qcLab=null; l.qcPass=''; qcAudit(o,l,'Sent to rework','rework #'+l.qcReworks); logAction(`Lab QC -> REWORK #${l.qcReworks} by ${state.role}: ${o.po} · ${l.brand}`); save(); toast('Sent to rework'); render(); }
 let qaFixForm={oid:null,lid:null,note:''};
-function openQACorrect(oid,lid){ const o=state.orders.find(x=>x.id===oid); const l=o&&o.lines.find(x=>x.id===lid); if(!l)return; qaFixForm={oid,lid,note:''};
-  const fails=(l.qcPhys&&l.qcPhys.checklist?l.qcPhys.checklist.filter(c=>c.result==='fail').map(c=>c.item).join(', '):'');
-  $('modal').innerHTML=`<div class="mh"><h2>Correct & resubmit for re-inspection</h2><div class="sub">${o.po} · ${l.brand}${fails?' · failed: '+fails:''}</div></div><div class="mb"><div class="fld"><label>What was corrected (required)</label><textarea rows="3" style="width:100%;font-family:inherit" oninput="qaFixForm.note=this.value" placeholder="Explain the correction…"></textarea></div><div class="muted" style="font-size:11px;margin-top:6px">Clears the QA fail and sends it back for re-inspection (logged as a numbered re-inspection).</div></div><div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" onclick="submitQACorrect()">Resubmit for re-inspection</button></div>`;
-  $('modalBg').classList.add('open'); }
 function submitQACorrect(){ const o=state.orders.find(x=>x.id===qaFixForm.oid); const l=o&&o.lines.find(x=>x.id===qaFixForm.lid); if(!l)return; if(!(qaFixForm.note||'').trim()){toast('Add a correction note');return;} l.reinspections=(l.reinspections||0)+1; l.qcPhys=null; l.qcPass=''; qcAudit(o,l,'Re-inspection #'+l.reinspections+' requested',qaFixForm.note); logAction(`Re-inspection #${l.reinspections} (${o.po} · ${l.brand}) — corrected by ${state.role}: ${qaFixForm.note}`); save(); closeModal(); toast('Sent for re-inspection #'+l.reinspections); render(); }
 const QC_CHECKLIST=['Packaging intact & correct','Label / artwork correct','Net weight / count verified','Seal & closure OK','Cleanliness — no contamination','Batch & expiry printed','No leakage / damage','Pallet / loading condition'];
 let qaForm={oid:null,lid:null,marks:[],comments:''};
-function openQAPhys(oid,lid){ const o=state.orders.find(x=>x.id===oid); const l=o.lines.find(x=>x.id===lid); if(!(l.qcLab&&l.qcLab.pass)){toast('Lab must certify first');return;} qaForm={oid,lid,marks:QC_CHECKLIST.map(()=>''),comments:''}; renderQAPhys(); $('modalBg').classList.add('open'); }
 function qaSet(idx,v){ qaForm.marks[idx]=v; renderQAPhys(); }
 function renderQAPhys(){ const o=state.orders.find(x=>x.id===qaForm.oid); const l=o.lines.find(x=>x.id===qaForm.lid);
   $('modal').innerHTML=`<div class="mh"><h2>Physical pre-shipment inspection</h2><div class="sub">${o.po} · ${l.brand} · ${fmt(l.ordered)} Kg/L · batch ${qcBatchText(o,l)} · inspector ${state.role}</div></div>
@@ -2124,11 +2080,7 @@ function rmAllows(l){
   return 0;
 }
 function ackOrder(oid){ const o=state.orders.find(x=>x.id===oid); if(!o)return; o.acknowledged=true; o.ackDate=TODAY.toISOString().slice(0,10); o.ackBy=state.role; logAction(`PO ${o.po} acknowledged by ${state.role}`); save(); toast('Acknowledged'); render(); }
-function cfoApprove(oid,lid){ const o=state.orders.find(x=>x.id===oid); const l=o&&o.lines.find(x=>x.id===lid); if(!l)return; l.cfoApproved=TODAY.toISOString().slice(0,10); logAction(`CFO approved PR — ${o.po} · ${l.brand}`); save(); toast('PR approved'); render(); }
 let closePRForm={oid:null,lid:null,date:'',grn:''};
-function openClosePR(oid,lid){ const o=state.orders.find(x=>x.id===oid); const l=o&&o.lines.find(x=>x.id===lid); if(!l)return; closePRForm={oid,lid,date:TODAY.toISOString().slice(0,10),grn:''};
-  $('modal').innerHTML=`<div class="mh"><h2>Close PR — RM received</h2><div class="sub">${o.po} · ${l.brand}</div></div><div class="mb"><div class="formgrid" style="grid-template-columns:1fr 1fr"><div class="fld"><label>RM received date</label><input type="date" value="${closePRForm.date}" onchange="closePRForm.date=this.value"></div><div class="fld"><label>GRN #</label><input type="text" value="${closePRForm.grn}" oninput="closePRForm.grn=this.value" placeholder="GRN number"></div></div><div class="muted" style="font-size:11px;margin-top:8px">Marks raw material received and closes the PR (RM Ready). Production for the full quantity unlocks.</div></div><div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" onclick="submitClosePR()">Mark RM received</button></div>`;
-  $('modalBg').classList.add('open'); }
 function submitClosePR(){ const o=state.orders.find(x=>x.id===closePRForm.oid); const l=o&&o.lines.find(x=>x.id===closePRForm.lid); if(!l)return; if(!(closePRForm.grn||'').trim()){toast('Enter GRN #');return;} const d=closePRForm.date||TODAY.toISOString().slice(0,10); l.rmReceivedDate=d; l.grn=(closePRForm.grn||'').trim(); l.rmReady=d; l.rmStatus='received'; logAction(`RM received (GRN ${l.grn}) — ${o.po} · ${l.brand}; PR closed`); save(); closeModal(); toast('RM received — PR closed'); render(); }
 function gotoScreen(sc){ state.screen=sc; render(); }
 function cfoApprovePR(prId){ if(!(state.role==='CFO'||state.role==='COO')){toast('CFO only');return;} const p=(state.prs||[]).find(x=>x.id===prId); if(!p)return; p.cfoApproved=TODAY.toISOString().slice(0,10); logAction(`CFO approved PR ${p.id} — ${p.rm} ${fmt(p.qtyRequired)} Kg/L`); save(); toast('PR approved'); render(); }
@@ -2146,12 +2098,6 @@ function receivePR(prId){ if(!canEdit(['Supply Chain'])){toast('Supply Chain onl
   if(p.qtyReceived>=p.qtyRequired-0.001) p.status='closed';
   logAction(`GRN ${grn}: received ${fmt(qty)} Kg/L ${p.rm} (PR ${p.id} ${p.status})`);
   save(); toast(p.status==='closed'?'PR fully received — closed':'Partial receipt recorded'); openReceiveMaterials(); }
-function openLabQC(oid,lid){ const o=state.orders.find(x=>x.id===oid); const l=o&&o.lines.find(x=>x.id===lid); if(!l)return;
-  $('modal').innerHTML=`<div class="mh"><h2>Lab QC — Layer 1</h2><div class="sub">${o.po} · ${l.brand} · produced ${fmt(l.produced||0)}/${fmt(l.ordered)} Kg/L · batch ${qcBatchText(o,l)}</div></div><div class="mb"><div class="muted" style="font-size:12.5px">Certify spec/quality. Lab certification unlocks the QA physical inspection.</div></div><div class="mf"><button class="ghost" onclick="qcFail('${o.id}','${l.id}','qcLab');closeModal()">Fail</button><button class="green" onclick="qcLabPass('${o.id}','${l.id}');closeModal()">Lab certify ✓</button></div>`;
-  $('modalBg').classList.add('open'); }
-function openLabFailReview(oid,lid){ const o=state.orders.find(x=>x.id===oid); const l=o&&o.lines.find(x=>x.id===lid); if(!l)return;
-  $('modal').innerHTML=`<div class="mh"><h2>Lab QC failed — review</h2><div class="sub">${o.po} · ${l.brand} · reason: ${(l.qcLab&&l.qcLab.reason)||'failed'}</div></div><div class="mb"><div class="muted" style="font-size:12.5px">Approve the deviation (accept as-is) or send back to Production for rework.</div></div><div class="mf"><button class="ghost" onclick="qcReworkLab('${o.id}','${l.id}');closeModal()">Send to rework</button><button class="green" onclick="qcApproveLab('${o.id}','${l.id}');closeModal()">Approve (deviation)</button></div>`;
-  $('modalBg').classList.add('open'); }
 let delayForm={oid:null,lid:null,reason:'',dept:''};
 function openDelayReason(oid,lid){ const o=state.orders.find(x=>x.id===oid); const l=o&&o.lines.find(x=>x.id===lid); if(!l)return; delayForm={oid,lid,reason:l.delayReason||'',dept:l.respDept||''};
   const rs=(state.masters&&state.masters.delayReasons)||[]; const ds=(state.masters&&state.masters.respDepts)||[];
@@ -2321,7 +2267,7 @@ function screenShip(){
   const ed=canEdit(['Supply Chain']);
   const ready=[]; state.orders.forEach(o=>o.lines.forEach(l=>{ if((Math.min(l.packed||0,lineQAPackedKg(o,l))-(l.dispatched||0))>0.5) ready.push({o,l}); }));
   const blocked=[]; state.orders.forEach(o=>o.lines.forEach(l=>{ if(((l.packed||0)-Math.min(l.packed||0,lineQAPackedKg(o,l)))>0.5 && !l.deliveredDate) blocked.push({o,l}); }));
-  const log=state.shipments.slice(0,40);
+  const shipRows=(state.shipments||[]).map(x=>({dispatch:x.dispatch||'',time:x.time||'',po:x.po||'',brand:x.brand||'',kg:x.kg||0,pack:x.pack,destination:x.destination||'',vehicle:x.vehicle||'',carrier:x.carrier||'',dc:x.dc||'',bilty:x.bilty||'',delivered:x.delivered||''})); const shipOpt={placeholder:'Search PO, product, destination, vehicle, DC, bilty…',searchKeys:['po','brand','destination','vehicle','carrier','dc','bilty'],dateKey:'dispatch',pageSize:40}; const _sr=regFilter('shiplog',shipRows,shipOpt);
   $('view').innerHTML=`
    ${ed?'':`<div class="banner warn">Owned by <b>Supply Chain</b>. You're <b>${state.role}</b> — viewing only.</div>`}
    <div class="banner info">Record one row per dispatch. <b>Only QC-passed products can be loaded.</b> Saving rolls the qty into the PO and auto-closes it when fully shipped.</div>
@@ -2333,9 +2279,9 @@ function screenShip(){
      <table><thead><tr><th>PO</th><th>Product</th><th class="num">Packed</th><th>QC status</th></tr></thead>
        <tbody>${blocked.map(({o,l})=>`<tr><td><b>${o.po}</b></td><td>${l.brand}</td><td class="num">${fmt(l.packed||0)}</td><td>${pill('Awaiting QC','--amber')}</td></tr>`).join('')}</tbody></table>
      <div class="muted" style="font-size:11px;margin-top:8px">Fully packed but not QC-passed — clear them in the QC tab first.</div></div>`:''}
-   <div class="card"><h3>Shipment log <span class="hint">${state.shipments.length} dispatches</span></h3>
-     <div style="max-height:46vh;overflow:auto"><table><thead><tr><th>Date / time</th><th>PO</th><th>Product</th><th class="num">Kg/L</th><th class="num">Packs</th><th>Destination</th><th>Vehicle</th><th>DC #</th><th>Bilty</th><th>Delivered</th></tr></thead>
-       <tbody>${log.length?log.map(s=>`<tr><td class="muted">${s.dispatch||'—'}${s.time?' '+s.time:''}</td><td>${s.po}</td><td>${s.brand}</td><td class="num">${fmt(s.kg)}</td><td class="num">${packsCount((+s.pack||linePackSize(s.po,s.brand)),s.kg)!=null?fmt(packsCount((+s.pack||linePackSize(s.po,s.brand)),s.kg)):'\u2014'}</td><td>${s.destination||'—'}</td><td>${s.vehicle||'—'}${s.carrier?(' · '+s.carrier):''}</td><td>${s.dc||'—'}</td><td>${s.bilty||'—'}</td><td class="muted">${s.delivered||'—'}</td></tr>`).join(''):'<tr><td colspan="10" class="muted">No shipments yet.</td></tr>'}</tbody></table></div></div>`;
+   <div class="card"><h3>Shipment log <span class="hint">${state.shipments.length} dispatches</span></h3>${regBar('shiplog',shipOpt,_sr.total)}
+     <div style="max-height:52vh;overflow:auto"><table><thead><tr><th>Date / time</th><th>PO</th><th>Product</th><th class="num">Kg/L</th><th class="num">Packs</th><th>Destination</th><th>Vehicle</th><th>DC #</th><th>Bilty</th><th>Delivered</th></tr></thead>
+       <tbody>${_sr.view.length?_sr.view.map(s=>`<tr><td class="muted">${s.dispatch||'—'}${s.time?' '+s.time:''}</td><td>${s.po}</td><td>${s.brand}</td><td class="num">${fmt(s.kg)}</td><td class="num">${packsCount((+s.pack||linePackSize(s.po,s.brand)),s.kg)!=null?fmt(packsCount((+s.pack||linePackSize(s.po,s.brand)),s.kg)):'\u2014'}</td><td>${s.destination||'—'}</td><td>${s.vehicle||'—'}${s.carrier?(' · '+s.carrier):''}</td><td>${s.dc||'—'}</td><td>${s.bilty||'—'}</td><td class="muted">${s.delivered||'—'}</td></tr>`).join(''):'<tr><td colspan="10" class="muted">No shipments match.</td></tr>'}</tbody></table></div>${regPager('shiplog',_sr.pages)}</div>`;
 }
 function seedPackForBrand(brand){ try{ const by=(SEED&&SEED.catalog&&SEED.catalog.brandsByClient)||{}; for(const k in by){ const hit=(by[k]||[]).find(x=>x.brand===brand); if(hit&&+hit.pack>0) return +hit.pack; } }catch(e){} return 0; }
 function packsCount(ps,kg){ ps=+ps||0; return ps>0?Math.ceil((+kg||0)/ps):null; }
@@ -2375,19 +2321,6 @@ let dashCycExpand=-1;
 const CYCSTEPS=[['PO → SO','received','soCreated'],['SO → PR','soCreated','prRaised'],['PR → RM ready','prRaised','rmReady'],['RM → Production','rmReady','prodStart'],['Production','prodStart','prodComplete'],['Production → QC','prodComplete','qcPass'],['QC → Dispatch','qcPass','dispatchDate'],['Dispatch → Delivered','dispatchDate','deliveredDate']];
 function cycField(o,l,f){ return f==='received'?o.received:l[f]; }
 function cycCol(d){ if(d==null)return '#cdd6e4'; if(d<=2)return 'var(--green)'; if(d<=5)return 'var(--blue)'; if(d<=10)return 'var(--amber)'; return 'var(--red)'; }
-function dashCycle(){
-  const rows=CYCSTEPS.map(([name,a,b])=>{ const s=[]; state.orders.forEach(o=>o.lines.forEach(l=>{const d=dts(cycField(o,l,a),cycField(o,l,b)); if(d!=null&&d>=0)s.push({po:o.po,brand:l.brand,d});}));
-    const avg=s.length?s.reduce((x,y)=>x+y.d,0)/s.length:null; s.sort((x,y)=>y.d-x.d); return {name,avg,n:s.length,slow:s.slice(0,6)}; });
-  const totS=[]; state.orders.forEach(o=>o.lines.forEach(l=>{const d=dts(o.received,l.deliveredDate); if(d!=null&&d>=0)totS.push(d);}));
-  const totAvg=totS.length?Math.round(totS.reduce((a,b)=>a+b,0)/totS.length):null;
-  const maxAvg=Math.max(1,...rows.map(r=>r.avg||0));
-  const shownCyc=rows.filter(r=>r.n>0); const hiddenCyc=rows.length-shownCyc.length; const pipe=shownCyc.length?`<div class="cycpipe">${rows.map((r,i)=> r.n>0 ? `<div class="cycseg ${dashCycExpand===i?'on':''}" onclick="dashCycExpand=(dashCycExpand===${i}?-1:${i});render()"><div class="cyc-d" style="color:${cycCol(r.avg)}">${Math.round(r.avg)+'d'}</div><div class="cyc-n">${r.name}</div><div class="cyc-c">${r.n} PO${r.n===1?'':'s'}</div><div class="cyc-bar"><i style="width:${Math.round(r.avg/maxAvg*100)}%;background:${cycCol(r.avg)}"></i></div></div>` : '').join('')}</div>${hiddenCyc?`<div class="muted" style="font-size:11px;margin-top:9px">${hiddenCyc} step(s) hidden — no dates recorded yet; they appear as teams enter them.</div>`:''}`:'<div class="empty"><div class="ei">—</div>No step timings recorded yet. They build up as teams enter dates.</div>';
-  const r=dashCycExpand>=0?rows[dashCycExpand]:null;
-  const exp=r?`<div class="card" style="background:var(--panel2)"><h3>Slowest at: ${r.name} <span class="hint">${r.n} measured</span></h3>${r.slow.length?`<div style="overflow:auto"><table><thead><tr><th>PO</th><th>Product</th><th class="num">Days at this step</th></tr></thead><tbody>${r.slow.map(s=>`<tr><td><b>${s.po}</b></td><td>${s.brand}</td><td class="num"><b style="color:${cycCol(s.d)}">${s.d}d</b></td></tr>`).join('')}</tbody></table></div>`:'<div class="muted" style="font-size:12.5px">No dates recorded for this step yet — it fills in as teams enter their dates.</div>'}</div>`:'';
-  return `<div class="card"><h3>Process cycle time — where orders spend time <span class="hint">avg days per step · tap a step to see the slowest POs</span></h3>
-    <div style="font-size:12.5px;color:var(--mut);margin-bottom:13px">Whole journey <b>PO → Delivered</b>: <b style="color:var(--navy);font-size:16px">${totAvg==null?'—':totAvg+' days'}</b> <span class="muted">avg across ${totS.length} delivered</span>. <span style="color:var(--green);font-weight:700">■</span> fast &nbsp; <span style="color:var(--blue);font-weight:700">■</span> ok &nbsp; <span style="color:var(--amber);font-weight:700">■</span> watch &nbsp; <span style="color:var(--red);font-weight:700">■</span> delay point. Each step shows only where both dates are recorded.</div>
-    ${pipe}</div>${exp}`;
-}
 let dashPeriod='month', dashFrom='', dashTo='', dashCmp='client';
 function periodWin(){ const T=TODAY; let s,e=new Date(T.getFullYear(),T.getMonth(),T.getDate());
   if(dashPeriod==='week'){ s=new Date(e); s.setDate(e.getDate()-6); }
@@ -2408,25 +2341,6 @@ function periodTot(w){ let prod=0,pack=0,ship=0;
   (state.packingLog||[]).forEach(p=>{if(inWin(p.date,w))pack+=p.kg||0;});
   (state.shipments||[]).forEach(s=>{if(inWin(s.dispatch,w))ship+=s.kg||0;});
   return {prod,pack,ship};
-}
-function dashPeriodCard(){
-  const w=periodWin(); const t=periodTot(w); const pw=prevWin(); const pt=pw?periodTot(pw):null;
-  const lbl={month:'This month',week:'This week',custom:'Custom range',all:'All time'}[dashPeriod];
-  const chips=[['month','This month'],['week','This week'],['custom','Custom'],['all','All time']];
-  const chipbar=`<div class="chips" style="margin-bottom:0">${chips.map(c=>`<span class="chip ${dashPeriod===c[0]?'on':''}" onclick="dashPeriod='${c[0]}';render()">${c[1]}</span>`).join('')}${dashPeriod==='custom'?`<input type="date" value="${dashFrom}" onchange="dashFrom=this.value;render()" style="margin-left:6px"> <input type="date" value="${dashTo}" onchange="dashTo=this.value;render()">`:''}</div>`;
-  function delta(c,p){ if(p==null)return ''; if(p<=0)return c>0?'<span style="color:var(--green2);font-weight:700">▲ new</span>':''; const d=Math.round((c-p)/p*100); return `<span style="color:${d>=0?'var(--green2)':'var(--red)'};font-weight:700">${d>=0?'▲':'▼'} ${Math.abs(d)}%</span> <span class="muted">vs prev</span>`; }
-  const tile=(l,v,p)=>`<div class="kpi"><div class="l">${l}</div><div class="v">${fmt(v)}</div><div class="d">Kg/L ${pt?'· '+delta(v,p):''}</div></div>`;
-  const tiles=`<div class="kpis" style="grid-template-columns:repeat(3,1fr)">${tile('Produced',t.prod,pt&&pt.prod)}${tile('Packed',t.pack,pt&&pt.pack)}${tile('Shipped',t.ship,pt&&pt.ship)}</div>`;
-  let bd={};
-  if(dashCmp==='client'){ (state.shipments||[]).forEach(s=>{if(inWin(s.dispatch,w)){const k=s.destination||'—';bd[k]=(bd[k]||0)+(s.kg||0);}}); }
-  else { (state.productionLog||[]).forEach(p=>{if(inWin(p.date,w)){const k=p.brand||p.base||'—';bd[k]=(bd[k]||0)+(p.kg||0);}}); }
-  const keys=Object.keys(bd).sort((a,b)=>bd[b]-bd[a]).slice(0,10); const mx=Math.max(1,...keys.map(k=>bd[k]));
-  const bdTable=keys.length?`<div style="overflow:auto"><table><tbody>${keys.map(k=>`<tr><td>${k}</td><td style="width:55%"><div style="display:flex;align-items:center;gap:8px"><div class="barmini" style="flex:1"><i style="width:${Math.round(bd[k]/mx*100)}%"></i></div><b style="font-size:11px;min-width:60px;text-align:right">${fmt(bd[k])}</b></div></td></tr>`).join('')}</tbody></table></div>`:'<div class="muted" style="font-size:12px">No activity recorded in this period.</div>';
-  const cmpToggle=`<div class="seg" style="max-width:340px;margin:14px 0 11px"><div class="opt full ${dashCmp==='client'?'on':''}" style="padding:7px" onclick="dashCmp='client';render()">By client (shipped)</div><div class="opt full ${dashCmp==='brand'?'on':''}" style="padding:7px" onclick="dashCmp='brand';render()">By brand (produced)</div></div>`;
-  return `<div class="card"><h3>Period performance <span class="hint">${lbl} · ${w.s.toISOString().slice(0,10)} → ${w.e.toISOString().slice(0,10)}</span></h3>
-    ${chipbar}
-    <div style="margin-top:13px">${tiles}</div>
-    ${cmpToggle}${bdTable}</div>`;
 }
 function screenDash(){
   const os=state.orders||[]; const today=TODAY; const monthKey=today.toISOString().slice(0,7);
@@ -2536,74 +2450,13 @@ function drawDash(){
   if($('chPVD')) charts.pvd=new Chart($('chPVD'),{type:'bar',data:{labels:_dash.pvdLabels,datasets:[{label:'Ordered',data:_dash.pvdOrd,backgroundColor:'#1b3c8c'},{label:'Produced',data:_dash.pvdProd,backgroundColor:'#2d6cdf'},{label:'QC cleared',data:_dash.pvdQc,backgroundColor:'#7a5bd0'},{label:'Shipped',data:_dash.pvdShip,backgroundColor:'#2fa34a'}]},options:{plugins:{legend:{position:'top',labels:{boxWidth:10,padding:6}}},scales:{y:{grid:{color:GRID}},x:{grid:{display:false},ticks:{font:{size:9}}}}}});
   if($('chCyc')) charts.cyc=new Chart($('chCyc'),{type:'bar',data:{labels:_dash.cycLabels,datasets:[{label:'Avg days',data:_dash.cycVals,backgroundColor:_dash.cycVals.map(v=>v>15?'#e0392f':v>8?'#d98324':'#1b3c8c'),borderRadius:4}]},options:{plugins:{legend:{display:false}},scales:{y:{grid:{color:GRID}},x:{grid:{display:false}}}}});
 }
-function drawCharts(){
-  const GRID='#e6ebf3'; Chart.defaults.color='#67748c'; Chart.defaults.font.size=10;
-  Object.values(charts).forEach(c=>{try{c.destroy()}catch(e){}});
-  const stages=['New','RM / Procurement','Ready to Produce','In Production','Packed','Dispatched','Closed'];
-  const sc=stages.map(s=>state.orders.filter(o=>stageOf(o)===s).length);
-  charts.s=new Chart($('cStage'),{type:'bar',data:{labels:stages.map(s=>s.replace(' / Procurement','/Proc')),datasets:[{data:sc,backgroundColor:'#1b3c8c',borderRadius:5}]},options:{plugins:{legend:{display:false}},scales:{y:{grid:{color:GRID}},x:{grid:{display:false}}}}});
-  const chans=[...new Set(state.orders.map(o=>o.channel))];
-  charts.c=new Chart($('cChan'),{type:'doughnut',data:{labels:chans,datasets:[{data:chans.map(c=>state.orders.filter(o=>o.channel===c).length),backgroundColor:['#1b3c8c','#2fa34a','#2d6cdf','#d98324','#7a5bd0'],borderColor:'#ffffff',borderWidth:2}]},options:{cutout:'58%',plugins:{legend:{position:'right',labels:{boxWidth:10,padding:6}}}}});
-  // daily production: aggregate by date, last 21
-  const byDate={}; state.productionLog.forEach(p=>{byDate[p.date]=(byDate[p.date]||0)+p.kg;});
-  const ds=Object.keys(byDate).sort().slice(-21);
-  charts.p=new Chart($('cProd'),{type:'bar',data:{labels:ds.map(d=>d.slice(5)),datasets:[{data:ds.map(d=>byDate[d]),backgroundColor:'#2fa34a',borderRadius:3}]},options:{plugins:{legend:{display:false}},scales:{y:{grid:{color:GRID}},x:{grid:{display:false}}}}});
-  const open=state.orders.filter(o=>stageOf(o)!=='Delivered'); const od=open.filter(o=>isOverdue(o)).length;
-  charts.o=new Chart($('cOt'),{type:'doughnut',data:{labels:['On track','Overdue'],datasets:[{data:[open.length-od,od],backgroundColor:['#2fa34a','#e0392f'],borderColor:'#ffffff',borderWidth:2}]},options:{cutout:'62%',plugins:{legend:{position:'right',labels:{boxWidth:10,padding:6}}}}});
-}
 /* ===================== 8. AUDIT / ACTION LOG ===================== */
-function screenLog(){
-  const aud=(state.audit||[]).slice(0,60);
-  const acts=(state.actionLog||[]).slice(0,40);
-  $('view').innerHTML=`
-   <div class="banner info">Every field change is recorded with who, when, and the old\u2192new value \u2014 the audit trail Excel can\u2019t give you.</div>
-   <div class="card"><h3>Field changes <span class="hint">${(state.audit||[]).length} edits</span></h3>
-    ${aud.length?`<div style="max-height:46vh;overflow:auto"><table><thead><tr><th>When</th><th>User</th><th>PO \u00b7 Product</th><th>Field</th><th>Old</th><th>New</th></tr></thead>
-     <tbody>${aud.map(a=>`<tr><td class="muted" style="font-size:11px">${new Date(a.t).toLocaleString()}</td><td>${pill(a.user,'--blue')}</td>
-       <td>${a.po} \u00b7 ${a.brand}</td><td><b>${a.field}</b></td><td class="muted">${a.old||'\u2014'}</td><td style="color:var(--green2)">${a.val||'\u2014'}</td></tr>`).join('')}</tbody></table></div>`
-     :'<div class="muted">No field edits yet. Update a date/field in the PO Tracker to see it here.</div>'}</div>
-   <div class="card"><h3>Activity <span class="hint">${(state.actionLog||[]).length}</span></h3>
-    ${acts.length?`<div style="max-height:34vh;overflow:auto"><table><thead><tr><th>When</th><th>Role</th><th>Action</th></tr></thead>
-     <tbody>${acts.map(a=>`<tr><td class="muted" style="font-size:11px">${new Date(a.t).toLocaleString()}</td><td>${pill(a.role,'--blue')}</td><td>${a.what}</td></tr>`).join('')}</tbody></table></div>`:'<div class="muted">No activity yet.</div>'}</div>`;
-}
 /* ===================== MONTHLY PRODUCTION (Bulk + PO) ===================== */
 let monthSel=null;
-function screenMonthly(){
-  const months=[...new Set(state.productionLog.map(p=>(p.date||'').slice(0,7)).filter(Boolean))].sort().reverse();
-  if(!monthSel||months.indexOf(monthSel)<0) monthSel=months[0]||'2026-06';
-  const inLog=state.productionLog.filter(p=>(p.date||'').startsWith(monthSel));
-  const inPack=(state.packingLog||[]).filter(p=>(p.date||'').startsWith(monthSel));
-  const brandPack={}; Object.values(SEED.catalog.brandsByClient||{}).forEach(arr=>arr.forEach(b=>{ if(brandPack[b.brand]==null&&b.pack) brandPack[b.brand]=b.pack; }));
-  const units=(brand,kg)=>brandPack[brand]?Math.round(kg/brandPack[brand]):0;
-  const bulkProd={}; inLog.filter(p=>!p.po).forEach(p=>{ bulkProd[p.base]=bulkProd[p.base]||{kg:0,b:0}; bulkProd[p.base].kg+=p.kg; bulkProd[p.base].b++; });
-  const bulkPack={}; inPack.filter(p=>!p.po).forEach(p=>{ bulkPack[p.brand]=(bulkPack[p.brand]||0)+p.kg; });
-  const poRows={}; inLog.filter(p=>p.po).forEach(p=>{ const k=(p.brand||p.base)+'|'+p.po; poRows[k]=poRows[k]||{brand:p.brand,base:p.base,po:p.po,prod:0,pack:0}; poRows[k].prod+=p.kg; });
-  inPack.filter(p=>p.po).forEach(p=>{ const k=p.brand+'|'+p.po; poRows[k]=poRows[k]||{brand:p.brand,base:'',po:p.po,prod:0,pack:0}; poRows[k].pack+=p.kg; });
-  const bulkProdKg=Object.values(bulkProd).reduce((a,b)=>a+b.kg,0);
-  const bulkPackKg=Object.values(bulkPack).reduce((a,b)=>a+b,0);
-  const bulkPackU=Object.entries(bulkPack).reduce((a,[br,kg])=>a+units(br,kg),0);
-  const poList=Object.values(poRows).sort((a,b)=>b.prod-a.prod);
-  const poProdKg=poList.reduce((a,r)=>a+r.prod,0), poPackKg=poList.reduce((a,r)=>a+r.pack,0), poPackU=poList.reduce((a,r)=>a+units(r.brand,r.pack),0);
-  const kpi=(l,v,d)=>`<div class="kpi"><div class="l">${l}</div><div class="v">${v}</div><div class="d">${d}</div></div>`;
-  $('view').innerHTML=`
-   <div class="card" style="display:flex;align-items:center;gap:18px;flex-wrap:wrap">
-     <div class="fld" style="width:170px"><label>Month</label><select onchange="monthSel=this.value;render()">${months.length?months.map(m=>`<option ${m===monthSel?'selected':''}>${m}</option>`).join(''):`<option>${monthSel}</option>`}</select></div>
-     <div class="muted" style="margin-left:auto;font-size:12px">Two views: <b>Bulk</b> (to-stock) and <b>PO</b> (against orders). Units = packs (Kg/L ÷ pack size).</div>
-   </div>
-   <div class="card"><h3>① Bulk Base Production <span class="hint">bulk · ${monthSel}</span></h3>
-     <div class="kpis" style="grid-template-columns:repeat(3,1fr)">${kpi('Bulk produced',fmt(bulkProdKg)+' Kg/L','base product')}${kpi('Bulk packed',fmt(bulkPackKg)+' Kg/L','to brands')}${kpi('Packed units',fmt(bulkPackU),'packs/bags')}</div>
-     <table><thead><tr><th>Base product</th><th class="num">Batches</th><th class="num">Produced (Kg/L)</th></tr></thead>
-       <tbody>${Object.keys(bulkProd).length?Object.entries(bulkProd).sort((a,b)=>b[1].kg-a[1].kg).map(([k,v])=>`<tr><td>${k}</td><td class="num">${v.b}</td><td class="num">${fmt(v.kg)}</td></tr>`).join(''):'<tr><td colspan="3" class="muted">No bulk production this month.</td></tr>'}</tbody></table></div>
-   <div class="card"><h3>② PO production <span class="hint">against orders · ${monthSel}</span></h3>
-     <div class="kpis" style="grid-template-columns:repeat(3,1fr)">${kpi('PO produced',fmt(poProdKg)+' Kg/L','for orders')}${kpi('PO packed',fmt(poPackKg)+' Kg/L','final brand')}${kpi('Packed units',fmt(poPackU),'packs/bags')}</div>
-     <table><thead><tr><th>PO</th><th>Product</th><th class="num">Produced (Kg/L)</th><th class="num">Packed (Kg/L)</th><th class="num">Units</th></tr></thead>
-       <tbody>${poList.length?poList.map(r=>`<tr><td><b>${r.po}</b></td><td>${r.brand||r.base}</td><td class="num">${fmt(r.prod)}</td><td class="num">${fmt(r.pack)}</td><td class="num">${fmt(units(r.brand,r.pack))}</td></tr>`).join(''):'<tr><td colspan="5" class="muted">No PO production this month.</td></tr>'}</tbody></table></div>`;
-}
-
 /* ===================== ADMIN · MASTER DATA ===================== */
 function screenAdmin(){
   const ed=canEdit(['COO']);
-  const lists=[['shifts','Shifts'],['incharges','Shift incharges'],['delayReasons','Delay reasons'],['respDepts','Responsible departments'],['priorities','Priorities'],['kamNames','KAM names'],['forms','Product forms'],['statuses','Statuses'],['downtimeReasons','Downtime reasons']];
+  const lists=[['shifts','Shifts'],['incharges','Shift incharges'],['delayReasons','Delay reasons'],['respDepts','Responsible departments'],['priorities','Priorities'],['kamNames','KAM names'],['forms','Product forms'],['statuses','Statuses'],['varianceReasons','Yield variance reasons'],['downtimeReasons','Downtime reasons']];
   $('view').innerHTML=`
    ${ed?'':`<div class="banner warn">Owned by <b>COO / Admin</b>. You're <b>${state.role}</b> — viewing only.</div>`}
    <div class="banner info">These lists power every dropdown in the app. Add a value and it appears wherever that field is used — no code change needed.</div>
@@ -2732,8 +2585,7 @@ let rpfMonth='', rpfChannel='', rpfClient='', rpfPriority='';
 let rpChart=null;
 const RP_DIMS={client:'Client',channel:'Channel',brand:'Product (brand)',base:'Base product',month:'Month (PO received)',priority:'Priority',stage:'Stage'};
 const RP_MEAS={ordered:'Ordered (Kg/L)',produced:'Produced (Kg/L)',packed:'Packed (Kg/L)',dispatched:'Shipped (Kg/L)',delivered:'Delivered (Kg/L)',toproduce:'Pending to produce',topack:'Pending to pack',toship:'Pending to ship',pos:'# POs',lines:'# SKU lines'};
-const RP_TABS=[['explorer','Explorer'],['postatus','PO Status'],['prod','Production'],['trace','Batch Trace'],['coa','QC Reports'],['labqc','Lab QC'],['qaqc','QA Pre-Shipment'],['ship','Shipments'],['delay','Delay / Hold'],['monthly','Monthly Production'],['log','Action Log']];
-function rpSet(k,v){ window[k]=v; if(k==='rpTab'){rpfClient=rpfClient;} screenReports(); }
+const RP_TABS=[['explorer','Explorer'],['postatus','PO Status'],['prod','Production'],['trace','Batch Trace'],['coa','QC Reports'],['ship','Shipments'],['delay','Delay / Hold'],['monthly','Monthly Production'],['log','Action Log']];
 function rpReset(){ rpfMonth='';rpfChannel='';rpfClient='';rpfPriority='';screenReports(); }
 function rpMonths(){ const s=new Set(); state.orders.forEach(o=>{const m=(o.received||'').slice(0,7); if(m)s.add(m);}); (state.productionLog||[]).forEach(p=>{const m=(p.date||'').slice(0,7); if(m)s.add(m);}); return [...s].sort().reverse(); }
 function rpLines(){ const out=[]; state.orders.forEach(o=>{ if(rpfChannel&&o.channel!==rpfChannel)return; if(rpfClient&&o.client!==rpfClient)return; if(rpfPriority&&(o.priority||'Normal')!==rpfPriority)return; o.lines.forEach(l=>{ if(rpfMonth&&(o.received||'').slice(0,7)!==rpfMonth)return; out.push({o,l}); }); }); return out; }
@@ -2854,8 +2706,6 @@ function screenReports(){
   else if(rpTab==='prod') body=rpProduction();
   else if(rpTab==='trace') body=rpTrace();
   else if(rpTab==='coa') body=rpQCReports();
-  else if(rpTab==='labqc') body=rpLabQC();
-  else if(rpTab==='qaqc') body=rpQAQC();
   else if(rpTab==='ship') body=rpShip();
   else if(rpTab==='delay') body=rpDelay();
   else if(rpTab==='monthly') body=rpMonthly();
@@ -2910,15 +2760,7 @@ function rpProduction(){ const log=(state.productionLog||[]).filter(p=>!rpfMonth
 }
 
 /* ---- Lab QC ---- */
-function rpLabQC(){ const rows=rpLines().filter(({l})=>l.qcLab||(l.packed>=l.ordered&&l.ordered>0)); if(!rows.length) return rpEmpty('Nothing in Lab QC yet — items appear once fully packed.');
-  return `<div class="card"><h3>Lab QC (Layer 1) <span class="hint">${rows.length} items</span></h3><div style="overflow:auto"><table><thead><tr><th>PO</th><th>Product</th><th class="ctr">Result</th><th>Inspector</th><th>Date</th></tr></thead><tbody>${rows.map(({o,l})=>{ const r=l.qcLab?(l.qcLab.pass?'<span class="pill" style="background:var(--green-50);color:var(--green2)">Pass</span>':'<span class="pill" style="background:var(--red-50);color:var(--red)">Fail</span>'):'<span class="pill" style="background:var(--amber-50);color:var(--amber)">Pending</span>'; return `<tr><td><b>${o.po}</b></td><td>${l.brand}</td><td class="ctr">${r}</td><td>${(l.qcLab&&l.qcLab.by)||'—'}</td><td>${(l.qcLab&&l.qcLab.date)||'—'}</td></tr>`; }).join('')}</tbody></table></div></div>`;
-}
-
 /* ---- QA Pre-Shipment ---- */
-function rpQAQC(){ const rows=rpLines().filter(({l})=>l.qcPhys||(l.qcLab&&l.qcLab.pass)); if(!rows.length) return rpEmpty('Nothing in QA pre-shipment yet — items appear after Lab certifies.');
-  return `<div class="card"><h3>QA Pre-Shipment (Layer 2) <span class="hint">${rows.length} items</span></h3><div style="overflow:auto"><table><thead><tr><th>PO</th><th>Product</th><th class="ctr">Result</th><th>Failed items</th><th>Comments</th><th>Inspector</th><th>Date</th></tr></thead><tbody>${rows.map(({o,l})=>{ const q=l.qcPhys; let r='<span class="pill" style="background:var(--amber-50);color:var(--amber)">Pending</span>',fails='—'; if(q){ r=q.pass?'<span class="pill" style="background:var(--green-50);color:var(--green2)">Pass</span>':'<span class="pill" style="background:var(--red-50);color:var(--red)">Fail</span>'; fails=(q.checklist||[]).filter(c=>c.result==='fail').map(c=>c.item).join(', ')||'—'; } return `<tr><td><b>${o.po}</b></td><td>${l.brand}</td><td class="ctr">${r}</td><td>${fails}</td><td>${(q&&q.comments)||'—'}</td><td>${(q&&q.by)||'—'}</td><td>${(q&&q.date)||'—'}</td></tr>`; }).join('')}</tbody></table></div></div>`;
-}
-
 /* ---- Shipments ---- */
 function rpShip(){ let sh=(state.shipments||[]).slice(); if(rpfMonth) sh=sh.filter(s=>(s.dispatch||'').slice(0,7)===rpfMonth); if(rpfClient){ const pos=new Set(state.orders.filter(o=>o.client===rpfClient).map(o=>o.po)); sh=sh.filter(s=>pos.has(s.po)); }
   if(!sh.length) return rpEmpty('No shipments recorded for this period.');

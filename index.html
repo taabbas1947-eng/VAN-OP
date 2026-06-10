@@ -2114,11 +2114,11 @@ function actionItems(){
     o.lines.forEach(l=>{
       const lb=lineBucket(o,l);
       if(lb==='Delivered') return;
-      if(!o.acknowledged && (bk==='PO Created'||bk==='RM Check')) items.push({role:'Supply Chain',o,l,what:'Acknowledge PO received',act:`ackOrder('${o.id}')`,label:'Acknowledge'});
-      if(o.acknowledged && (!l.rmStatus||l.rmStatus==='pending')) items.push({role:'Supply Chain',o,l,what:'Run RM Check',act:`openRMCheck('${o.id}','${l.id}')`,label:'RM Check'});
+      if(!o.acknowledged && (bk==='PO Created'||bk==='RM Check')) items.push({role:'Supply Chain',o,l,what:'Acknowledge PO '+o.po+' \u00b7 '+l.brand,act:`ackOrder('${o.id}')`,label:'Acknowledge'});
+      if(o.acknowledged && (!l.rmStatus||l.rmStatus==='pending')) items.push({role:'Supply Chain',o,l,what:'RM Check \u2014 '+o.po+' \u00b7 '+l.brand,act:`openRMCheck('${o.id}','${l.id}')`,label:'RM Check'});
       if(l.prRaised && !l.rmReady && l.rmStatus!=='received') items.push({role:'Supply Chain',o,l,what:'Receive raw materials (GRN, partial OK)',act:`openReceiveMaterials()`,label:'Receive'});
-      if(rmAllows(l)>0 && (l.produced||0) < Math.min(l.ordered, rmAllows(l))-0.5) items.push({role:'Production',o,l,what:'Produce (RM available)',act:"gotoScreen('prod')",label:'Open Production'});
-      if(l.qcPass && (l.dispatched||0)<(l.packed||0)-0.5) items.push({role:'Supply Chain',o,l,what:'Record shipment',act:`openShip('${o.id}','${l.id}')`,label:'Ship'});
+      if(rmAllows(l)>0 && (l.produced||0) < Math.min(l.ordered, rmAllows(l))-0.5) items.push({role:'Production',o,l,what:'Produce '+l.brand+' \u2014 '+o.po,act:"gotoScreen('prod')",label:'Open Production'});
+      if(l.qcPass && (l.dispatched||0)<(l.packed||0)-0.5) items.push({role:'Supply Chain',o,l,what:'Ship '+l.brand+' \u2014 '+o.po,act:`openShip('${o.id}','${l.id}')`,label:'Ship'});
       if(od && !l.delayReason) items.push({role:'Plant Manager',o,l,what:'Add delay reason',act:`openDelayReason('${o.id}','${l.id}')`,label:'Add reason'});
     });
   });
@@ -2347,8 +2347,16 @@ function periodTot(w){ let prod=0,pack=0,ship=0;
   return {prod,pack,ship};
 }
 function dashGreet(){ const h=new Date().getHours(); const g=h<12?'Good morning':(h<17?'Good afternoon':'Good evening'); const nm=(state.currentUser&&state.currentUser.name)||state.role; return g+', '+nm; }
-function dashMyTodos(){ const all=actionItems(); const mine=(state.role==='COO'||state.role==='CEO')?all:all.filter(i=>i.role===state.role); const top=mine.slice(0,9); const esc=t=>String(t==null?'':t);
-  const rows=top.map(i=>`<div class="clk" onclick="${i.act}" style="display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:8px;padding:8px 11px;margin-bottom:6px;background:#fff"><span class="rbadge" style="min-width:92px;text-align:center">${i.role}</span><div style="flex:1;min-width:0;font-size:12.5px">${esc(i.what)}</div><button class="sm green" style="white-space:nowrap">${esc(i.label)} \u2192</button></div>`).join('');
+function dashMyTodos(){ const all=actionItems(); const esc=t=>String(t==null?'':t);
+  if(state.role==='COO'||state.role==='CEO'){
+    const by={}; all.forEach(i=>{ by[i.role]=(by[i.role]||0)+1; });
+    const order=['CFO','Plant Manager','Supply Chain','Production','Lab Rep','AQCM','QCM','QA Inspector','KAM'];
+    const roles=Object.keys(by).sort((a,b)=>(order.indexOf(a)<0?99:order.indexOf(a))-(order.indexOf(b)<0?99:order.indexOf(b)));
+    const rows=roles.map(r=>`<div class="clk" onclick="gotoScreen('approvals')" style="display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:8px;padding:9px 11px;margin-bottom:6px;background:#fff"><span class="rbadge" style="min-width:108px;text-align:center">${esc(r)}</span><div style="flex:1;font-size:12.5px"><b>${by[r]}</b> pending action${by[r]===1?'':'s'}</div><button class="sm">Review \u2192</button></div>`).join('');
+    return {count:all.length, html: all.length?('<div class="muted" style="font-size:11px;margin-bottom:8px">Pending work across the team, grouped by the role that owns it \u2014 for your oversight. Tap a role to review in My Actions; you don\u2019t action these yourself.</div>'+rows):'<div class="muted" style="padding:16px 0;text-align:center">Nothing pending across the team. \u2705</div>'};
+  }
+  const mine=all.filter(i=>i.role===state.role); const top=mine.slice(0,9);
+  const rows=top.map(i=>`<div class="clk" onclick="${i.act}" style="display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:8px;padding:8px 11px;margin-bottom:6px;background:#fff"><span class="rbadge" style="min-width:92px;text-align:center">${esc(i.role)}</span><div style="flex:1;min-width:0;font-size:12.5px">${esc(i.what)}</div><button class="sm green" style="white-space:nowrap">${esc(i.label)} \u2192</button></div>`).join('');
   return {count:mine.length, html: mine.length?(rows+(mine.length>top.length?`<div class="muted" style="font-size:11px;text-align:center;margin-top:4px">+${mine.length-top.length} more \u2014 open <b>My Actions</b></div>`:'')):'<div class="muted" style="padding:16px 0;text-align:center">Nothing waiting on you right now. \u2705</div>'}; }
 function dashTargetsPanel(){ const fy=fyKey(TODAY.toISOString().slice(0,10)); const targets=(state.masters&&state.masters.salesTargets)||{}; const rows={}; (state.orders||[]).forEach(o=>{ const c=budgetKey(o); rows[c]=rows[c]||{d:0}; (o.lines||[]).forEach(l=>{ rows[c].d+=(+l.delivered||0)*(+l.invoicePrice||0); }); }); let totT=0,totD=0; Object.keys(targets).forEach(c=>{ totT+=(+(targets[c]&&targets[c][fy])||0); }); Object.keys(rows).forEach(c=>{ totD+=rows[c].d; }); const pct=totT>0?Math.round(totD/totT*100):0;
   const gaps=Object.keys(targets).map(c=>{ const t=+(targets[c]&&targets[c][fy])||0; const d=(rows[c]&&rows[c].d)||0; return {c,t,d,gap:Math.max(0,t-d),p:t>0?Math.round(d/t*100):0}; }).filter(x=>x.t>0).sort((a,b)=>b.gap-a.gap).slice(0,5);
@@ -2440,10 +2448,10 @@ function screenDash(){
   const showBoard=isMgmt||state.role==='KAM'; const showCharts=isMgmt; const showTargets=['COO','CFO','KAM'].indexOf(state.role)>-1;
   const todo=dashMyTodos();
   const companion = showTargets?dashTargetsPanel() : (isQCrole?sect('Quality gate','Lab + QA',gateHtml) : (state.role==='Production'?sect('Where orders are stuck','live pipeline','<div style="display:flex;flex-wrap:wrap;gap:8px">'+stageBlocks+'</div>'):''));
-  const todoSect=sect('What needs you'+((state.role==='COO'||state.role==='CEO')?' \u2014 all roles':''), todo.count+' to-do'+(todo.count===1?'':'s'), '<div style="max-height:380px;overflow:auto">'+todo.html+'</div>');
+  const todoSect=sect(((state.role==='COO'||state.role==='CEO')?'Where action is needed \u2014 by role':'What needs you'), ((state.role==='COO'||state.role==='CEO')?(todo.count+' pending'):(todo.count+' to-do'+(todo.count===1?'':'s'))), '<div style="max-height:380px;overflow:auto">'+todo.html+'</div>');
   $('view').innerHTML=`
    <div class="card" style="margin-bottom:12px;display:flex;align-items:center;gap:14px;flex-wrap:wrap">
-     <div style="flex:1;min-width:200px"><div style="font-size:17px;font-weight:800">${dashGreet()}</div><div class="muted" style="font-size:12px">${state.role} \u00b7 ${today.toISOString().slice(0,10)} \u00b7 ${todo.count?('<b style="color:var(--red)">'+todo.count+'</b> waiting on you'):'nothing waiting on you'}</div></div>
+     <div style="flex:1;min-width:200px"><div style="font-size:17px;font-weight:800">${dashGreet()}</div><div class="muted" style="font-size:12px">${state.role} \u00b7 ${today.toISOString().slice(0,10)} \u00b7 ${todo.count?('<b style="color:var(--red)">'+todo.count+'</b> '+((state.role==='COO'||state.role==='CEO')?'pending across the team':'waiting on you')):((state.role==='COO'||state.role==='CEO')?'nothing pending across the team':'nothing waiting on you')}</div></div>
      <button class="sm" onclick="gotoScreen('approvals')">Open My Actions \u2192</button></div>
    <div class="kpis" style="grid-template-columns:repeat(8,1fr)">${kpis}</div>
    ${companion?`<div class="dgrid" style="grid-template-columns:1fr 1fr">${todoSect}${companion}</div>`:todoSect}

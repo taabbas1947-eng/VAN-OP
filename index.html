@@ -486,7 +486,7 @@ function ensureState(s){
   s.users=(s.users&&s.users.length)?s.users:deepClone(SEED.users||[]); if(s.currentUser===undefined)s.currentUser=null;
   s.rmRequests=s.rmRequests||[]; s.productionLog=s.productionLog||[]; s.packingLog=s.packingLog||[];
   s.actionLog=s.actionLog||[]; s.shipments=s.shipments||[]; s.warehouses=s.warehouses||SEED.warehouses.slice();
-  s.rawStock=s.rawStock||{}; s.rmMovements=s.rmMovements||[]; s.audit=s.audit||[]; s.masters=s.masters||deepClone(SEED.masters||{}); s.batches=s.batches||[]; s.packedStock=s.packedStock||{}; s.packingLog=s.packingLog||[]; s.orders=s.orders||[]; if(s.seq==null)s.seq=1000; (s.packingLog||[]).forEach(function(p){ if(p&&!p.id) p.id='PK'+(s.seq++); }); if(s.dataFixEnabled==null)s.dataFixEnabled=true; if(!Array.isArray(s.prs))s.prs=[]; ensureMasters(s); ensureProductionModel(s); return s;
+  s.rawStock=s.rawStock||{}; s.rmMovements=s.rmMovements||[]; s.audit=s.audit||[]; s.masters=s.masters||deepClone(SEED.masters||{}); s.batches=s.batches||[]; s.packedStock=s.packedStock||{}; s.packingLog=s.packingLog||[]; s.orders=s.orders||[]; if(s.seq==null)s.seq=1000; (s.packingLog||[]).forEach(function(p){ if(p&&!p.id) p.id='PK'+(s.seq++); }); if(s.dataFixEnabled==null)s.dataFixEnabled=true; if(!Array.isArray(s.prs))s.prs=[]; (s.batches||[]).forEach(function(b){ if((b.producedKg||0)>0 && (!Array.isArray(b.lots)||!b.lots.length)){ b.lots=[{id:'LOT'+(s.seq++), lotNo:(b.batchNo||'B')+'-L1', qty:b.producedKg, date:b.openedDate||'', by:b.by||'', coa:(b.coa||null), migrated:true}]; } }); ensureMasters(s); ensureProductionModel(s); return s;
 }
 /* Lock 1: idempotent master seeding. ADDITIVE ONLY — seeds a list only when it is
    missing or empty, and never overwrites values the team has already added. Touches no
@@ -1702,6 +1702,7 @@ function submitShiftLog(){
   state.shiftEntries=state.shiftEntries||[];
   state.shiftEntries.unshift({id:'SE'+(state.seq++),batchId:b.id,batchNo:b.batchNo||'',date:d,shift:shiftForm.shift,incharge:shiftForm.incharge,kg:q,reason:shiftForm.reason||'',note:shiftForm.note||'',by:state.role,ts:new Date().toISOString()});
   b.producedKg=(b.producedKg||0)+q;
+  if(q>0){ b.lots=b.lots||[]; const ln=b.lots.length+1; b.lots.push({id:'LOT'+(state.seq++), lotNo:(b.batchNo||'B')+'-L'+ln, qty:q, shift:shiftForm.shift, incharge:shiftForm.incharge, date:d, by:state.role, coa:null}); }
   if(b.kind==='po'){
     const o=state.orders.find(x=>x.po===b.po); const l=o&&o.lines.find(x=>x.id===b.lineId);
     if(l){ l.produced=(l.produced||0)+q; l.prodStart=l.prodStart||d; if((l.produced||0)>=l.ordered-0.001) l.prodComplete=l.prodComplete||d;

@@ -2695,19 +2695,25 @@ function rpMonthly(){ const months=rpMonths(); const m=rpfMonth||months[0]||''; 
 /* ---- Action Log ---- */
 function rpTrace(){
   const pk=(state.packingLog||[]).filter(p=>p&&p.brand);
-  const rows=pk.map(p=>{
-    let base=p.baseBatchNo;
-    if(!base && p.baseBatchId){ const bb=(state.batches||[]).find(b=>b.id===p.baseBatchId); base=bb&&bb.batchNo; }
-    return {baseB:base||'\u2014', brandB:p.brandBatchNo||p.baseBatchNo||'\u2014', baseName:p.base||'', brand:p.brand, po:p.po||'', kg:p.kg||0, date:p.date||''};
-  });
-  if(!rows.length) return rpEmpty('No packing records yet \u2014 pack a bulk base into a brand to create base\u21c4brand batch links.');
-  rows.sort((a,b)=>(a.baseB+a.date).localeCompare(b.baseB+b.date));
-  const reb=rows.filter(r=>r.brandB!==r.baseB && r.baseB!=='\u2014').length;
-  return `<div class="card"><h3>Batch Traceability \u2014 base \u21c4 brand <span class="hint">${rows.length} pack runs${reb?(' \u00b7 '+reb+' re-batched'):''}</span></h3>
-    <div class="muted" style="font-size:11.5px;margin:2px 0 10px">Each packing run links the <b>base batch</b> (bulk production) to the <b>brand batch</b> printed on the client's packaging. They match unless the lot was re-numbered when packed into the brand.</div>
-    <div style="overflow:auto;max-height:560px"><table><thead><tr><th>Base batch</th><th>Base product</th><th>\u2192 Brand batch</th><th>Brand</th><th>PO</th><th style="text-align:right">Qty (Kg/L)</th><th>Date</th></tr></thead><tbody>
-    ${rows.map(r=>`<tr><td><b>${r.baseB}</b></td><td class="muted">${r.baseName}</td><td><b style="color:var(--navy)">${r.brandB}</b>${(r.brandB!==r.baseB&&r.baseB!=='\u2014')?` <span class="pill" style="background:var(--amber-50);color:var(--amber);font-size:8.5px;padding:1px 5px">re-batched</span>`:''}</td><td>${r.brand}</td><td>${r.po}</td><td style="text-align:right">${fmt(r.kg)}</td><td class="muted">${r.date}</td></tr>`).join('')}
-    </tbody></table></div></div>`;
+  if(!pk.length) return rpEmpty('No packing records yet — pack a bulk base into a brand to create base⇄brand batch links.');
+  const baseOf=p=>{ let base=p.baseBatchNo; if(!base&&p.baseBatchId){ const bb=(state.batches||[]).find(b=>b.id===p.baseBatchId); base=bb&&bb.batchNo; } return base||'—'; };
+  // composition: group by brand + brand batch -> contributing base batches
+  const groups={};
+  pk.forEach(p=>{ const bb=p.brandBatchNo||p.baseBatchNo||'—'; const key=p.brand+''+bb;
+    const g=(groups[key]=groups[key]||{brand:p.brand,brandB:bb,total:0,bases:{}});
+    const baseB=baseOf(p); g.total+=(p.kg||0);
+    const bk=(g.bases[baseB]=g.bases[baseB]||{baseB,baseName:p.base||'',kg:0});
+    bk.kg+=(p.kg||0); });
+  const glist=Object.values(groups).sort((a,b)=>b.total-a.total);
+  const comp=glist.map(g=>{ const bases=Object.values(g.bases).sort((a,b)=>b.kg-a.kg);
+    const rows=bases.map(x=>`<tr><td><b>${x.baseB}</b></td><td class="muted">${x.baseName}</td><td style="text-align:right">${fmt(x.kg)}</td><td class="muted" style="text-align:right">${g.total?Math.round(x.kg/g.total*100):0}%</td></tr>`).join('');
+    return `<details class="qcgrp"><summary><b style="color:var(--navy)">${g.brandB}</b> · ${g.brand}<span class="c">${fmt(g.total)} Kg/L · ${bases.length} base batch${bases.length===1?'':'es'}</span></summary><div style="overflow:auto"><table><thead><tr><th>Base batch</th><th>Base product</th><th style="text-align:right">Qty (Kg/L)</th><th style="text-align:right">Share</th></tr></thead><tbody>${rows}<tr style="border-top:2px solid var(--navy);background:var(--navy-50)"><td colspan="2"><b>Total — ${g.brandB}</b></td><td style="text-align:right"><b>${fmt(g.total)}</b></td><td></td></tr></tbody></table></div></details>`;
+  }).join('');
+  // per-run flat list (audit-level)
+  const rows=pk.map(p=>({baseB:baseOf(p),brandB:p.brandBatchNo||p.baseBatchNo||'—',baseName:p.base||'',brand:p.brand,po:p.po||'',kg:p.kg||0,date:p.date||''}));
+  rows.sort((a,b)=>(a.brandB+a.date).localeCompare(b.brandB+b.date));
+  const flat=`<div class="card"><h3>Every pack run <span class="hint">${rows.length}</span></h3><div class="muted" style="font-size:11px;margin-bottom:8px">The raw log behind the composition above — one row per packing run.</div><div style="overflow:auto;max-height:420px"><table><thead><tr><th>Base batch</th><th>Base product</th><th>→ Brand batch</th><th>Brand</th><th>PO</th><th style="text-align:right">Qty</th><th>Date</th></tr></thead><tbody>${rows.map(r=>`<tr><td><b>${r.baseB}</b></td><td class="muted">${r.baseName}</td><td><b style="color:var(--navy)">${r.brandB}</b></td><td>${r.brand}</td><td>${r.po}</td><td style="text-align:right">${fmt(r.kg)}</td><td class="muted">${r.date}</td></tr>`).join('')}</tbody></table></div></div>`;
+  return `<div class="card"><h3>Brand batch composition — every Kg traced to its base <span class="hint">${glist.length} brand batch${glist.length===1?'':'es'}</span></h3><div class="muted" style="font-size:11.5px;margin:2px 0 10px">Each brand batch (printed on the client's pack) is built from one or more <b>base production batches</b>. Tap a brand batch to see which base batches make it up and how many Kg each contributed — the total reconciles to the packed quantity, so <b>every Kg is traceable</b> to a base batch (any number of base batches per brand batch).</div>${comp}</div>${flat}`;
 }
 function rpLog(){ const rows=(state.audit||[]).map(x=>({when:(x.t||'').replace('T',' ').slice(0,16),date:(x.t||'').slice(0,10),user:x.user||'',module:x.module||'',po:x.po||'',brand:x.brand||'',field:x.field||'',val:(x.val!=null?String(x.val):'')}));
   const opt={placeholder:'Search user, PO, product, action, value…', searchKeys:['user','po','brand','field','val','module'], filters:[{key:'module',label:'Module'}], dateKey:'date', pageSize:50};

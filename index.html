@@ -1537,7 +1537,7 @@ function screenProd(){
   const _pl=regFilter('prodlog',_plRows,_plOpt);
   const openBatches=(state.batches||[]).filter(b=>b.status==='open' && (b.plannedKg>0 ? (b.producedKg||0) < b.plannedKg-0.001 : true));
   const doneBatches=(state.batches||[]).filter(b=>b.status==='open' && b.plannedKg>0 && (b.producedKg||0) >= b.plannedKg-0.001);
-  const noNoBatches=(state.batches||[]).filter(b=>!(b.batchNo||'').trim() && ((b.producedKg||0)>0||(b.packedKg||0)>0));
+  const noNoBatches=(state.batches||[]).filter(b=>((b.producedKg||0)>0||(b.packedKg||0)>0) && (!(b.batchNo||'').trim() || (state.packingLog||[]).some(p=>p&&p.baseBatchId===b.id&&!((p.baseBatchNo||'').trim()))));
   const fixCard=(ed&&noNoBatches.length)?`<div class="card" style="border-left:4px solid var(--amber)"><h3>Set batch numbers <span class="hint">${noNoBatches.length} without a number</span></h3>
    <div class="muted" style="font-size:12px;margin-bottom:10px">These batches were produced without a batch number (a system fill or an earlier edit). Enter the real batch number — it flows to the lots, the production log and the COA. Nothing is deleted.</div>
    <div class="tscroll"><table><thead><tr><th>Product</th><th>PO</th><th class="num">Produced</th><th class="num">Packed</th><th>Date</th><th style="width:240px">Batch #</th></tr></thead><tbody>${noNoBatches.map(b=>`<tr><td><b>${b.brand||b.base||''}</b> <span class="muted" style="font-size:11px">${b.base||''}</span></td><td class="muted">${b.po||'bulk'}</td><td class="num">${fmt(b.producedKg||0)}</td><td class="num">${fmt(b.packedKg||0)}</td><td class="muted">${b.openedDate||b.closedDate||b.date||''}</td><td><div style="display:flex;gap:6px"><input type="text" id="sbn_${b.id}" placeholder="e.g. RUBS26003" style="width:150px"><button class="sm green" onclick="setBatchNo('${b.id}',document.getElementById('sbn_${b.id}').value)">Set #</button></div></td></tr>`).join('')}</tbody></table></div></div>`:'';
@@ -1636,6 +1636,7 @@ function setBatchNo(batchId,raw){ if(!(canEdit(['Production'])||state.role==='CO
   if(b.coa && (!b.coa.batchNo||b.coa.batchNo===old)) b.coa.batchNo=no;
   (state.shiftEntries||[]).forEach(se=>{ if(se.batchId===b.id) se.batchNo=no; });
   (state.productionLog||[]).forEach(p=>{ if(old && (p.batchNo||'')===old) p.batchNo=no; });
+  (state.packingLog||[]).forEach(p=>{ if(p && p.baseBatchId===b.id){ p.baseBatchNo=no; if(!((p.brandBatchNo||'').trim())) p.brandBatchNo=no; } });
   logAction(`Batch number ${old?('changed '+old+' → '+no):('set '+no)} for ${b.brand||b.base||b.id}${b.po?(' · '+b.po):''}`);
   save(); render(); toast('Batch number set to '+no); }
 function openBatch(kind){
@@ -1811,7 +1812,9 @@ function allocateStock(oid,lid){ const o=state.orders.find(x=>x.id===oid); const
   logAction(`Allocated ${fmt(kg)} Kg/L packed ${l.brand} from stock → ${o.po}`); save(); render(); }
 
 /* ===================== QC · PRE-SHIPMENT (2-layer gate) ===================== */
-function batchPairsForLine(o,l){ const seen=new Set(),out=[]; (state.packingLog||[]).forEach(p=>{ if(p&&p.po===o.po&&p.brand===l.brand){ const bs=p.baseBatchNo||'', br=p.brandBatchNo||''; const k=bs+'>'+br; if(!seen.has(k)){seen.add(k); out.push({bs:bs||'\u2014',br:br||'\u2014'});} } }); return out; }
+function lotBaseNo(p){ let base=(p&&p.baseBatchNo)||''; if(!String(base).trim()&&p&&p.baseBatchId){ const bb=(state.batches||[]).find(b=>b.id===p.baseBatchId); base=(bb&&bb.batchNo)||''; } return String(base).trim(); }
+function lotBrandNo(p){ const br=((p&&p.brandBatchNo)||'').trim(); return br||lotBaseNo(p); }
+function batchPairsForLine(o,l){ const seen=new Set(),out=[]; (state.packingLog||[]).forEach(p=>{ if(p&&p.po===o.po&&p.brand===l.brand){ const bs=lotBaseNo(p), br=lotBrandNo(p); const k=bs+'>'+br; if(!seen.has(k)){seen.add(k); out.push({bs:bs||'\u2014',br:br||'\u2014'});} } }); return out; }
 function qcBatchText(o,l){ const pr=batchPairsForLine(o,l); return pr.length?pr.map(x=>x.bs+' \u25b8 '+x.br).join(', '):'not packed yet'; }
 /* ===== COA / Lab QC (batch-level, 3-step workflow) ===== */
 let coaForm={};
@@ -1972,7 +1975,7 @@ function openLotQA(lotId){ const p=lotById(lotId); if(!p)return; lotQAForm={lotI
 function lotQASet(i,v){ lotQAForm.marks[i]=v; renderLotQA(); }
 function renderLotQA(){ const p=lotById(lotQAForm.lotId); if(!p){closeModal();return;}
   const rows=QC_CHECKLIST.map((it,i)=>`<tr><td>${it}</td><td style="white-space:nowrap"><label style="margin-right:12px"><input type="radio" name="qa${i}" ${lotQAForm.marks[i]==='pass'?'checked':''} onclick="lotQASet(${i},'pass')"> Pass</label><label><input type="radio" name="qa${i}" ${lotQAForm.marks[i]==='fail'?'checked':''} onclick="lotQASet(${i},'fail')"> Fail</label></td></tr>`).join('');
-  $('modal').innerHTML=`<div class="mh"><h2>QA pre-shipment inspection</h2><div class="sub">${p.po} · ${p.brand} · ${fmt(p.kg)} Kg/L · batch ${p.baseBatchNo||'—'} ▸ ${p.brandBatchNo||p.baseBatchNo||'—'} · mfg ${p.mfgDate||'—'} · exp ${p.expDate||'—'} · inspector ${state.role}</div></div>
+  $('modal').innerHTML=`<div class="mh"><h2>QA pre-shipment inspection</h2><div class="sub">${p.po} · ${p.brand} · ${fmt(p.kg)} Kg/L · batch ${lotBaseNo(p)||'—'} ▸ ${lotBrandNo(p)||'—'} · mfg ${p.mfgDate||'—'} · exp ${p.expDate||'—'} · inspector ${state.role}</div></div>
    <div class="mb"><div class="muted" style="font-size:12px;margin-bottom:10px">Inspect this packed lot. Any <b>Fail</b> = lot fails → Supply Chain corrects &amp; re-inspects. Only QA-passed lots can ship.</div>
      <table><thead><tr><th>Checklist item</th><th style="width:180px">Result</th></tr></thead><tbody>${rows}</tbody></table>
      <div class="fld" style="margin-top:10px"><label>Inspector name (shared QA login)</label><input type="text" value="${(lotQAForm.officer||'').replace(/"/g,'&quot;')}" oninput="lotQAForm.officer=this.value"></div>
@@ -2041,7 +2044,7 @@ function qcGrpApproved(rows){ if(!rows.length) return '<div class="muted">None a
     return `<details class="qcgrp"><summary>${nm}<span class="c">${g.length} lot${g.length===1?'':'s'} \u00b7 ${fmt(tot)} Kg/L</span></summary><div style="overflow:auto"><table><thead><tr><th>Batch \u25b8 Lot</th><th class="num">Qty</th><th>Approved</th><th>COA</th></tr></thead><tbody>${body}</tbody></table></div></details>`;
   }).join(''); }
 function qcGrpPassed(rows){ if(!rows.length) return '<div class="muted">None yet.</div>';
-  const lb=p=>`${p.baseBatchNo||'\u2014'} \u25b8 ${p.brandBatchNo||p.baseBatchNo||'\u2014'}`;
+  const lb=p=>`${lotBaseNo(p)||'\u2014'} \u25b8 ${lotBrandNo(p)||'\u2014'}`;
   const by={}; rows.forEach(p=>{ const k=p.brand||'\u2014'; (by[k]=by[k]||[]).push(p); });
   return Object.keys(by).sort().map(nm=>{ const g=by[nm]; const tot=g.reduce((a,p)=>a+(p.kg||0),0);
     const body=g.slice().sort((a,b)=>String((b.qa&&b.qa.date)||'').localeCompare(String((a.qa&&a.qa.date)||''))).map(p=>`<tr><td><b>${p.po}</b></td><td><span class="muted" style="font-size:10px">${lb(p)}</span></td><td class="num">${fmt(p.kg)}</td><td class="muted">${(p.qa&&p.qa.by)||'\u2014'}</td><td class="muted">${(p.qa&&p.qa.date)||''}</td></tr>`).join('');
@@ -2065,7 +2068,7 @@ function screenQC(){
   const lotPending=lots.filter(p=>!p.qa || (!p.qa.pass&&!p.qa.fail));
   const lotFail=lots.filter(p=>p.qa&&p.qa.fail);
   const lotPass=lots.filter(p=>p.qa&&p.qa.pass);
-  const lotBatch=p=>`${p.baseBatchNo||'—'} ▸ ${p.brandBatchNo||p.baseBatchNo||'—'}`;
+  const lotBatch=p=>`${lotBaseNo(p)||'—'} ▸ ${lotBrandNo(p)||'—'}`;
   const qaRows=lotPending.map(p=>`<tr><td><b>${p.po}</b></td><td>${p.brand}<div style="margin-top:3px"><span class="pill" style="background:var(--navy-50);color:var(--navy);font-size:9px">${lotBatch(p)}</span></div></td><td class="num">${fmt(p.kg)}</td><td class="muted">${p.date||''}${p.reinsp?` · re-insp #${p.reinsp}`:''}</td><td>${(isQA||isCOO)?`<button class="sm green" onclick="openLotQA('${p.id}')">Inspect…</button>`:'<span class="muted" style="font-size:11px">waiting for QA Inspector</span>'}</td></tr>`).join('');
   const fqRows=lotFail.map(p=>{const fails=(p.qa.checklist||[]).filter(c=>c.result==='fail').map(c=>c.item).join(', ');return `<tr><td><b>${p.po}</b></td><td>${p.brand}<div style="margin-top:3px"><span class="pill" style="background:var(--navy-50);color:var(--navy);font-size:9px">${lotBatch(p)}</span></div></td><td class="num">${fmt(p.kg)}</td><td><span style="color:var(--red)">${fails||'Failed'}</span></td><td>${(isSC||isCOO)?`<button class="sm" onclick="lotQACorrect('${p.id}')">Correct &amp; resubmit</button>`:'<span class="muted" style="font-size:11px">waiting for Supply Chain</span>'}</td></tr>`;}).join('');
   $('view').innerHTML=`
@@ -2150,7 +2153,7 @@ function actionItems(){
       else if(st==='analysed') items.push({role:'AQCM',batch:b,what:'Review COA — '+it+' '+tag,act:call,label:'Review'});
       else if(st==='reviewed') items.push({role:'QCM',batch:b,what:'Approve COA — '+it+' '+tag,act:call,label:'Approve'});
       else if(st==='failed') items.push({role:'Plant Manager',batch:b,what:'UNFIT lot — '+it+' '+tag,act:call,label:'Review'}); }); });
-  (state.packingLog||[]).filter(p=>p&&p.brand&&(p.kg||0)>0&&(!p.qa||(!p.qa.pass&&!p.qa.fail))).forEach(p=>items.push({role:'QA Inspector',lot:p,what:'QA inspect lot — '+p.brand+' '+(p.brandBatchNo||p.baseBatchNo||'')+' ('+fmt(p.kg)+' Kg/L)',act:"openLotQA('"+p.id+"')",label:'Inspect'}));
+  (state.packingLog||[]).filter(p=>p&&p.brand&&(p.kg||0)>0&&(!p.qa||(!p.qa.pass&&!p.qa.fail))).forEach(p=>items.push({role:'QA Inspector',lot:p,what:'QA inspect lot — '+p.brand+' '+lotBrandNo(p)+' ('+fmt(p.kg)+' Kg/L)',act:"openLotQA('"+p.id+"')",label:'Inspect'}));
   (state.packingLog||[]).filter(p=>p&&p.qa&&p.qa.fail).forEach(p=>items.push({role:'Supply Chain',lot:p,what:'QA failed lot — correct & resubmit ('+p.brand+')',act:"lotQACorrect('"+p.id+"')",label:'Correct'}));
   return items;
 }

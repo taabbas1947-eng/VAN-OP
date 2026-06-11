@@ -100,6 +100,22 @@ button:disabled{opacity:.45;cursor:not-allowed;transform:none;box-shadow:none}
 .acard .acard-body input.num{width:120px}
 .sec{font-size:12.5px;font-weight:800;color:var(--navy);letter-spacing:.4px;margin:20px 2px 9px;padding-bottom:6px;border-bottom:2px solid var(--navy-100)}
 .subh{font-size:13px;font-weight:700;margin:10px 0 8px;color:var(--navy);letter-spacing:-.01em}
+.viewonly{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;color:#8a5712;background:var(--amber-50);border:1px solid #f0d6a8;border-radius:999px;padding:4px 13px;margin-bottom:12px}
+/* ---- compact density mode (topbar toggle) ---- */
+.app.compact .wrap{padding:12px 18px}
+.app.compact .card{padding:11px 14px;margin-bottom:10px}
+.app.compact .acard>summary{padding:9px 14px}
+.app.compact .acard>.acard-body{padding:10px 14px 12px}
+.app.compact .card h3{margin-bottom:10px}
+.app.compact .kpis{gap:9px;margin-bottom:10px}
+.app.compact .kpi{padding:9px 11px}
+.app.compact .kpi .v{font-size:19px}
+.app.compact table{font-size:11.5px}
+.app.compact th{padding:6px 8px}
+.app.compact td{padding:5px 8px}
+.app.compact .banner{padding:7px 12px;margin-bottom:9px}
+/* ---- official artifact (COA) prints clean — no on-screen toolbar ---- */
+@media print{#coaFS .cofbar{display:none!important}}
 .kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:14px}
 .kpi{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:13px 15px;box-shadow:var(--sh-sm);position:relative;overflow:hidden;transition:.16s}
 .kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--navy),#5b8def)}
@@ -428,7 +444,8 @@ table tbody tr:hover{background:var(--panel2)}
   <div class="main">
     <div class="topbar">
       <button class="navtoggle" onclick="toggleSide()" title="Show / hide menu">☰</button>
-      <div><h2 id="scTitle">Dashboard</h2><div class="sub" id="scSub"></div></div>
+      <div style="flex:1;min-width:0"><h2 id="scTitle">Dashboard</h2><div class="sub" id="scSub"></div></div>
+      <button class="navtoggle" id="densityBtn" style="width:auto;padding:0 12px;font-size:12px;font-weight:700" onclick="toggleDensity()" title="Switch to compact spacing">Compact</button>
       <div class="rolebox" id="rolebox"></div>
     </div>
     <div class="helpbar" id="helpbar"></div>
@@ -1127,7 +1144,7 @@ function screenEntry(){
   const ed=canEdit(['KAM']);
   const clients=clientsForChannel(entryChannel);
   $('view').innerHTML=`
-   ${ed?'':`<div class="banner warn">Acting as <b>${state.role}</b>. New PO Entry is owned by <b>KAM</b> — switch role to KAM to submit.</div>`}
+   ${ed?'':viewOnly('KAM','switch to KAM to submit')}
    <div class="banner info">Channel → Client → Brand is linked from your master <b>Data</b> + <b>Dealer Master</b>. Pick a channel, then its clients/dealers, then only those brands appear; base, form &amp; pack auto-fill.</div>
    <div class="card"><h3>Step 1 — PO Header</h3>
     <div class="formgrid">
@@ -1249,7 +1266,7 @@ function screenDealers(){
   const regions=(SEED.geo&&SEED.geo.regions)||['Punjab'];
   const cities=citiesFor(dlrForm.region);
   $('view').innerHTML=`
-   ${ed?'':`<div class="banner warn">Owned by <b>KAM</b>. You're <b>${state.role}</b> — viewing only.</div>`}
+   ${ed?'':viewOnly('KAM')}
    <div class="banner info">Onboard a dealer; the code auto-generates as <b>DLR-{Region}-{City}-NNN</b> from your region codes (editable). Confirmed dealers appear in New PO Entry when Channel = Dealer.</div>
    <div class="card"><h3>Onboard a dealer</h3>
      <div class="formgrid">
@@ -1542,7 +1559,7 @@ function screenProd(){
          <button class="green" ${ed?'':'disabled'} onclick="openBatch('bulk')">Open batch</button></div>
        <div class="muted" style="font-size:11px;margin-top:8px">Opens a bulk-base batch with a planned target. Log shift output in <b>Open batches</b> below, then pack it once produced.</div>`;
   $('view').innerHTML=`
-   ${ed?'':`<div class="banner warn">Owned by <b>Production</b>. You're <b>${state.role}</b> — viewing only.</div>`}
+   ${ed?'':viewOnly('Production')}
    <div class="card"><h3>Open a production batch</h3>
      <div class="seg" style="max-width:440px;margin-bottom:14px">
        <div class="opt full ${prodMode==='po'?'on':''}" onclick="prodMode='po';render()" style="padding:9px">Against a PO</div>
@@ -2028,7 +2045,7 @@ function screenQC(){
   const fqRows=lotFail.map(p=>{const fails=(p.qa.checklist||[]).filter(c=>c.result==='fail').map(c=>c.item).join(', ');return `<tr><td><b>${p.po}</b></td><td>${p.brand}<div style="margin-top:3px"><span class="pill" style="background:var(--navy-50);color:var(--navy);font-size:9px">${lotBatch(p)}</span></div></td><td class="num">${fmt(p.kg)}</td><td><span style="color:var(--red)">${fails||'Failed'}</span></td><td>${(isSC||isCOO)?`<button class="sm" onclick="lotQACorrect('${p.id}')">Correct &amp; resubmit</button>`:'<span class="muted" style="font-size:11px">waiting for Supply Chain</span>'}</td></tr>`;}).join('');
   $('view').innerHTML=`
    <div class="banner info"><b>QC — quantity-true.</b> <b>Lab</b> certifies each <b>production lot</b> (a shift’s output) by COA (Analyst → AQCM → QCM) <b>before it can be packed</b>. <b>QA</b> inspects each <b>packed lot</b> before it can ship. New production always needs fresh QC.</div>
-   ${(isLab||isAQ||isQM||isQA||isPM||isCOO)?'':`<div class="banner warn">Viewing only — QC is owned by Lab, AQCM, QCM, QA Inspector &amp; Plant Manager.</div>`}
+   ${(isLab||isAQ||isQM||isQA||isPM||isCOO)?'':viewOnly('Lab, AQCM, QCM, QA Inspector &amp; Plant Manager')}
    <div class="card"><h3>Lab QC — production lots (COA) <span class="hint">${labPending.length} pending</span></h3>${labPending.length?`<div style="overflow:auto"><table><thead><tr><th>Product</th><th>Batch ▸ Lot</th><th class="num">Qty</th><th>Status</th><th style="width:210px">Action</th></tr></thead><tbody>${labRows}</tbody></table></div>`:'<div class="muted">No batches awaiting Lab QC.</div>'}</div>
    <div class="card"><h3>QA pre-shipment — packed lots <span class="hint">${lotPending.length} to inspect</span></h3>${lotPending.length?`<div style="overflow:auto"><table><thead><tr><th>PO</th><th>Brand / batch</th><th class="num">Packed</th><th>Packed on</th><th style="width:160px">Action</th></tr></thead><tbody>${qaRows}</tbody></table></div>`:'<div class="muted">No packed lots awaiting QA.</div>'}</div>
    ${lotFail.length?`<div class="card"><h3 style="color:var(--red)">QA failed — Supply Chain to correct <span class="hint">${lotFail.length}</span></h3><div style="overflow:auto"><table><thead><tr><th>PO</th><th>Brand / batch</th><th class="num">Packed</th><th>Failed items</th><th style="width:200px">Action</th></tr></thead><tbody>${fqRows}</tbody></table></div></div>`:''}
@@ -2277,7 +2294,7 @@ function screenShip(){
   const blocked=[]; state.orders.forEach(o=>o.lines.forEach(l=>{ if(((l.packed||0)-Math.min(l.packed||0,lineQAPackedKg(o,l)))>0.5 && !l.deliveredDate) blocked.push({o,l}); }));
   const shipRows=(state.shipments||[]).map(x=>({dispatch:x.dispatch||'',time:x.time||'',po:x.po||'',brand:x.brand||'',kg:x.kg||0,pack:x.pack,destination:x.destination||'',vehicle:x.vehicle||'',carrier:x.carrier||'',dc:x.dc||'',bilty:x.bilty||'',delivered:x.delivered||''})); const shipOpt={placeholder:'Search PO, product, destination, vehicle, DC, bilty…',searchKeys:['po','brand','destination','vehicle','carrier','dc','bilty'],dateKey:'dispatch',pageSize:40}; const _sr=regFilter('shiplog',shipRows,shipOpt);
   $('view').innerHTML=`
-   ${ed?'':`<div class="banner warn">Owned by <b>Supply Chain</b>. You're <b>${state.role}</b> — viewing only.</div>`}
+   ${ed?'':viewOnly('Supply Chain')}
    <div class="banner info">Record one row per dispatch. <b>Only QC-passed products can be loaded.</b> Saving rolls the qty into the PO and auto-closes it when fully shipped.</div>
    <div class="card"><h3>Ready to ship <span class="hint">${ready.length} QC-passed</span></h3>
      ${ready.length?`<div class="tscroll"><table><thead><tr><th>PO</th><th>Product</th><th>Destination</th><th class="num">Packed</th><th class="num">Shipped</th><th class="num">To ship</th><th style="width:150px"></th></tr></thead>
@@ -2506,11 +2523,17 @@ function acard(key,title,hint,body){ const open=!!acOpen[key]; /* default COLLAP
 function sec(t){ return `<div class="sec">${t}</div>`; }
 function sect(title,hint,body){ return `<div class="card"><h3>${title}${hint?` <span class="hint">${hint}</span>`:''}</h3>${body}</div>`; }
 function subh(t){ return `<div class="subh">${t}</div>`; }
+/* one consistent, compact view-only notice (keeps each screen to a single info banner) */
+function viewOnly(owner,note){ return `<div class="viewonly">View-only — owned by <b>${owner}</b> · you're <b>${state.role}</b>${note?(' · '+note):''}</div>`; }
+/* ---- compact / comfortable density (persisted comfort preference) ---- */
+let _density=(function(){ try{ return localStorage.getItem('van_density')||'comfortable'; }catch(e){ return 'comfortable'; } })();
+function applyDensity(){ const app=document.getElementById('appShell'); if(!app)return; const on=_density==='compact'; app.classList.toggle('compact',on); const b=document.getElementById('densityBtn'); if(b){ b.textContent=on?'Comfortable':'Compact'; b.title=on?'Switch to comfortable spacing':'Switch to compact spacing'; } }
+function toggleDensity(){ _density=(_density==='compact')?'comfortable':'compact'; try{ localStorage.setItem('van_density',_density); }catch(e){} applyDensity(); }
 function screenAdmin(){
   const ed=canEdit(['COO']);
   const lists=[['shifts','Shifts'],['incharges','Shift incharges'],['delayReasons','Delay reasons'],['respDepts','Responsible departments'],['priorities','Priorities'],['kamNames','KAM names'],['forms','Product forms'],['statuses','Statuses'],['varianceReasons','Yield variance reasons'],['downtimeReasons','Downtime reasons'],['focalPersons','Delivery focal persons (COBO / VGreen / Dealer)']];
   $('view').innerHTML=`
-   ${ed?'':`<div class="banner warn">Owned by <b>COO / Admin</b>. You're <b>${state.role}</b> — viewing only.</div>`}
+   ${ed?'':viewOnly('COO / Admin')}
    ${sec('Reference lists — dropdown values')}
    <div class="banner info">These lists power every dropdown in the app. Add a value and it appears wherever that field is used — no code change needed. Each list is collapsible — open the ones you use.</div>
    <div class="row">
@@ -2837,7 +2860,7 @@ function allowedScreens(){ return SCREENS.filter(s=>s.owners.includes(state.role
 function renderApp(){
   const a=document.getElementById('authScreen'), sh=document.getElementById('appShell');
   if(!authed()){ if(sh)sh.style.display='none'; if(a){a.style.display='flex'; renderLogin();} }
-  else { if(a)a.style.display='none'; if(sh)sh.style.display='flex'; render(); }
+  else { if(a)a.style.display='none'; if(sh)sh.style.display='flex'; applyDensity(); render(); }
 }
 function renderLogin(msg){
   const el=document.getElementById('authScreen'); if(!el) return;

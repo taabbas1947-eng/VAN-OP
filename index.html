@@ -2036,12 +2036,12 @@ function recvPRCard(p){ const rem=Math.max(0,p.qtyRequired-(p.qtyReceived||0)); 
 function openReceiveMaterials(oid,lid){
   if(oid&&lid) recvScope={oid,lid}; else if(oid===null) recvScope=null;
   const open=(state.prs||[]).filter(p=>p.status==='open');
-  let mats=null, label='';
+  let mats=null, label='', noMat=false, pbrand='';
   if(recvScope){ const o=state.orders.find(x=>x.id===recvScope.oid); const l=o&&o.lines.find(x=>x.id===recvScope.lid);
-    if(l){ const rec=(typeof SEED!=='undefined'&&SEED.baseRecipes&&SEED.baseRecipes[l.base])||{}; const ks=Object.keys(rec).filter(k=>!k.startsWith('(')); if(ks.length) mats=new Set(ks); label=' · for '+l.brand; } }
+    if(l){ const rec=(typeof SEED!=='undefined'&&SEED.baseRecipes&&SEED.baseRecipes[l.base])||{}; const ks=Object.keys(rec).filter(k=>!k.startsWith('(')); mats=new Set(ks); noMat=(ks.length===0); pbrand=l.brand; label=' · for '+l.brand; } }
   const rel = mats ? open.filter(p=>mats.has(p.rm)) : open;
   const other = mats ? open.filter(p=>!mats.has(p.rm)) : [];
-  const body = (rel.length?rel.map(recvPRCard).join(''):('<div class="muted" style="padding:6px 0">'+(mats?'No open PR for these materials right now.':'No open PRs.')+'</div>'))
+  const body = (rel.length?rel.map(recvPRCard).join(''):('<div class="muted" style="padding:6px 0">'+(noMat?('No recipe/materials defined for '+pbrand+' — nothing to receive here. Add its recipe in Master Data.'):(mats?'No open PR for these materials right now.':'No open PRs.'))+'</div>'))
     + (other.length?`<details style="margin-top:6px"><summary style="cursor:pointer;font-size:12px;color:var(--mut)">Other open PRs (${other.length}) — not for this product</summary><div style="margin-top:8px">${other.map(recvPRCard).join('')}</div></details>`:'');
   $('modal').innerHTML=`<div class="mh"><h2>Receive raw materials (GRN)</h2><div class="sub">${rel.length} open PR(s)${label} · partial receipts allowed</div></div><div class="mb">${body}</div><div class="mf"><button class="ghost" onclick="closeModal()">Close</button></div>`;
   $('modalBg').classList.add('open'); }

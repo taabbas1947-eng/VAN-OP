@@ -1537,6 +1537,10 @@ function screenProd(){
   const _pl=regFilter('prodlog',_plRows,_plOpt);
   const openBatches=(state.batches||[]).filter(b=>b.status==='open' && (b.plannedKg>0 ? (b.producedKg||0) < b.plannedKg-0.001 : true));
   const doneBatches=(state.batches||[]).filter(b=>b.status==='open' && b.plannedKg>0 && (b.producedKg||0) >= b.plannedKg-0.001);
+  const noNoBatches=(state.batches||[]).filter(b=>!(b.batchNo||'').trim() && ((b.producedKg||0)>0||(b.packedKg||0)>0));
+  const fixCard=(ed&&noNoBatches.length)?`<div class="card" style="border-left:4px solid var(--amber)"><h3>Set batch numbers <span class="hint">${noNoBatches.length} without a number</span></h3>
+   <div class="muted" style="font-size:12px;margin-bottom:10px">These batches were produced without a batch number (a system fill or an earlier edit). Enter the real batch number — it flows to the lots, the production log and the COA. Nothing is deleted.</div>
+   <div class="tscroll"><table><thead><tr><th>Product</th><th>PO</th><th class="num">Produced</th><th class="num">Packed</th><th>Date</th><th style="width:240px">Batch #</th></tr></thead><tbody>${noNoBatches.map(b=>`<tr><td><b>${b.brand||b.base||''}</b> <span class="muted" style="font-size:11px">${b.base||''}</span></td><td class="muted">${b.po||'bulk'}</td><td class="num">${fmt(b.producedKg||0)}</td><td class="num">${fmt(b.packedKg||0)}</td><td class="muted">${b.openedDate||b.closedDate||b.date||''}</td><td><div style="display:flex;gap:6px"><input type="text" id="sbn_${b.id}" placeholder="e.g. RUBS26003" style="width:150px"><button class="sm green" onclick="setBatchNo('${b.id}',document.getElementById('sbn_${b.id}').value)">Set #</button></div></td></tr>`).join('')}</tbody></table></div></div>`:'';
   const obCard=acard('prod_open','Open batches',`${openBatches.length} open`,
     (openBatches.length?`<div style="overflow:auto"><table><thead><tr><th>Batch #</th><th>Product</th><th class="num">Planned</th><th class="num">Produced</th><th class="num">Remaining</th><th>Opened</th><th style="width:250px"></th></tr></thead><tbody>`+
       openBatches.map(b=>{const prod=b.producedKg||0,plan=b.plannedKg||0,rem=Math.max(0,plan-prod);
@@ -1573,6 +1577,7 @@ function screenProd(){
        <div class="opt full ${prodMode==='po'?'on':''}" onclick="prodMode='po';render()" style="padding:9px">Against a PO</div>
        <div class="opt full ${prodMode==='stock'?'on':''}" onclick="prodMode='stock';render()" style="padding:9px">Bulk Base Production</div>
      </div>${logForm}</div>
+   ${fixCard}
    ${obCard}
    ${cbCard}
 
@@ -1621,6 +1626,18 @@ function voidProdEntry(i){
 }
 /* ===================== LOCK 3: shift-based batch production ===================== */
 function batchNoFx(el){ el.style.background = (!el.value.trim()||validateBatchNo(el.value)) ? '' : '#fff8d6'; }
+function setBatchNo(batchId,raw){ if(!(canEdit(['Production'])||state.role==='COO')){toast('Production / COO only');return;}
+  const b=(state.batches||[]).find(x=>x.id===batchId); if(!b)return; const no=(raw||'').trim(); if(!no){toast('Enter a batch number');return;}
+  const fy=fyKey(b.openedDate||b.closedDate||b.date||TODAY.toISOString().slice(0,10));
+  if(batchOwnerInFY(no,fy) && (b.batchNo||'').trim()!==no){ toast('Batch # "'+no+'" already used this financial year ('+fy+') — use a unique number.'); return; }
+  if(!validateBatchNo(no) && typeof confirm==='function' && !confirm('Batch number "'+no+'" doesn\'t match the usual format. Set it anyway?')) return;
+  const old=(b.batchNo||'').trim(); b.batchNo=no;
+  (b.lots||[]).forEach((lt,i)=>{ lt.lotNo=no+'-L'+(i+1); if(lt.coa && (!lt.coa.batchNo||lt.coa.batchNo===old)) lt.coa.batchNo=no; });
+  if(b.coa && (!b.coa.batchNo||b.coa.batchNo===old)) b.coa.batchNo=no;
+  (state.shiftEntries||[]).forEach(se=>{ if(se.batchId===b.id) se.batchNo=no; });
+  (state.productionLog||[]).forEach(p=>{ if(old && (p.batchNo||'')===old) p.batchNo=no; });
+  logAction(`Batch number ${old?('changed '+old+' → '+no):('set '+no)} for ${b.brand||b.base||b.id}${b.po?(' · '+b.po):''}`);
+  save(); render(); toast('Batch number set to '+no); }
 function openBatch(kind){
   const today=TODAY.toISOString().slice(0,10);
   const fmtRule='2-5 capital letters then 3-9 digits';

@@ -1063,6 +1063,8 @@ function dfSubmitCorrect(){
     const el=$('cl_'+field+'_'+l.id); if(!el) return; const nv=+el.value||0; const old=+l[field]||0;
     if(Math.abs(nv-old)>0.001){ l[field]=nv; reconLog(`CORRECT ${o.po} · ${l.brand} ${label}: ${fmt(old)} → ${fmt(nv)} — ${reason}`); n++; }
   }); });
+  // Auto-sync: a line's committed date must not be EARLIER than the PO promised (prevents false 'late' from drifted line dates).
+  if(o.promised){ o.lines.forEach(l=>{ const oldc=l.committed||''; if((!l.committed||l.committed<o.promised) && oldc!==o.promised){ l.committed=o.promised; reconLog(`CORRECT ${o.po} · ${l.brand} committed ${oldc||'(blank)'} → ${o.promised} (synced to PO promised) — ${reason}`); n++; } }); }
   if(!n) return toast('No changes to apply');
   save(); toast(n+' correction(s) applied'); dfBack();
 }

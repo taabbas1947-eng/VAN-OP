@@ -1176,7 +1176,7 @@ function screenEntry(){
     </div></div>
    <div class="card"><h3>Step 2 — Line Items <span class="hint">pack size auto-fills, override allowed</span></h3>
     ${entryClient?'':'<div class="muted" style="font-size:12.5px">Pick a channel and client above to load brands.</div>'}
-    <table class="fixedtbl ${entryClient?'':'hide'}" style="font-size:12px"><thead><tr><th>Brand</th><th style="width:88px">Form</th><th style="width:72px">Pack</th><th style="width:86px">Qty</th><th style="width:78px">Packs</th><th style="width:96px">Print price</th><th style="width:104px">Invoice price</th><th style="width:120px">Committed</th><th style="width:26px"></th></tr></thead>
+    <table class="fixedtbl ${entryClient?'':'hide'}" style="font-size:12px"><thead><tr><th>Brand</th><th style="width:88px">Form</th><th style="width:72px">Pack</th><th style="width:86px">Qty</th><th style="width:78px">Packs</th><th style="width:170px">Invoice price (PKR/Kg·L)</th><th style="width:120px">Committed</th><th style="width:26px"></th></tr></thead>
     <tbody id="e_lines"></tbody></table>
     <button class="ghost sm ${entryClient?'':'hide'}" style="margin-top:10px" onclick="entryLines.push({brand:'',qty:'',pack:'',note:'',committed:''});renderEntryLines()">+ Add line</button>
    </div>
@@ -1189,6 +1189,8 @@ function screenEntry(){
   if(entryClient) renderEntryLines(); else validate();
 }
 function updatePacks(i){ const l=entryLines[i]; const el=document.getElementById('pk_'+i); if(el) el.textContent=(+l.qty>0&&+l.pack>0)?fmt(Math.ceil(+l.qty/+l.pack)):'—'; }
+function invPerPackText(l){ const ip=+(l&&l.inv)||0, pk=+(l&&l.pack)||0; if(ip<=0) return ''; if(ip>=1000) return '⚠ ≥ PKR 1000/Kg — looks like a per-pack price'; return pk>0?('= PKR '+fmt(ip*pk)+' / pack of '+fmt(pk)+' — verify vs client PO'):'per Kg/L'; }
+function invPerPack(i){ const l=entryLines[i]; const el=document.getElementById('ipp_'+i); if(el){ el.innerHTML=invPerPackText(l); el.style.color=((+l.inv>=1000))?'#c0392b':'var(--mut)'; } }
 function renderEntryLines(){
   const brs=brandPool();
   $('e_lines').innerHTML=entryLines.map((l,i)=>{
@@ -1201,8 +1203,7 @@ function renderEntryLines(){
      <td><input type="number" value="${l.pack}" placeholder="${det.pack||''}" oninput="entryLines[${i}].pack=this.value;updatePacks(${i})"></td>
      <td><input type="number" value="${l.qty}" placeholder="Kg/L" oninput="entryLines[${i}].qty=this.value;updatePacks(${i});validate()"></td>
      <td class="num"><b id="pk_${i}">${packs!==''?fmt(packs):'—'}</b></td>
-     <td><input type="number" value="${l.price||''}" placeholder="retail" oninput="entryLines[${i}].price=this.value;validate()"></td>
-     <td><input type="number" value="${l.inv||''}" placeholder="PKR/Kg·L" title="VAN invoice price on the client PO (drives budget)" oninput="entryLines[${i}].inv=this.value"></td>
+     <td><input type="number" value="${l.inv||''}" placeholder="PKR/Kg·L" title="VAN invoice rate per Kg/L — must be under PKR 1000. The per-pack equivalent is shown so you can verify it against the client PO." oninput="entryLines[${i}].inv=this.value;invPerPack(${i});validate()"><div id="ipp_${i}" style="font-size:10px;margin-top:3px;color:${(+l.inv>=1000)?'#c0392b':'var(--mut)'}">${invPerPackText(l)}</div></td>
      <td><input type="date" value="${l.committed||(($('e_prom')&&$('e_prom').value)||'')}" onchange="entryLines[${i}].committed=this.value"></td>
      <td>${entryLines.length>1?`<button class="ghost sm" onclick="entryLines.splice(${i},1);renderEntryLines()">✕</button>`:''}</td></tr>`;
   }).join('');
@@ -1219,7 +1220,8 @@ function entryChecks(){
     ['Promised Delivery date', !!($('e_prom')&&$('e_prom').value)],
     ['Client PO # (manual channels)', !isManualPO() || !!($('e_po')&&$('e_po').value.trim())],
     ['At least 1 line item (brand + qty)', lines.length>0],
-    ['Print price on every line', lines.length>0 && lines.every(l=>+l.price>0)],
+    ['Invoice price set on every line (PKR/Kg·L)', lines.length>0 && lines.every(l=>+l.inv>0)],
+    ['Invoice price under PKR 1000/Kg', lines.length>0 && lines.every(l=>+l.inv>0 && +l.inv<1000)],
   ];
 }
 function validate(){
@@ -1242,14 +1244,15 @@ function previewRM(){
 function submitPO(){
   if(!canEdit(['KAM'])){toast('Only KAM can submit a PO');return;}
   const lines=entryLines.filter(l=>l.brand&&+l.qty>0); if(!lines.length){toast('Add a line item');return;}
-  if(lines.some(l=>!(+l.price>0))){ toast('Enter the Print price for every product line.'); return; }
-  if(typeof confirm==='function' && !confirm('Confirm the PRINT PRICE for each product is correct (it is locked onto the PO):\n\n'+lines.map(l=>'- '+l.brand+': PKR '+(+l.price).toLocaleString()).join('\n')+'\n\nProceed?')) return;
+  if(lines.some(l=>!(+l.inv>0))){ toast('Enter the invoice price (PKR/Kg·L) for every product line.'); return; }
+  if(lines.some(l=>+l.inv>=1000)){ toast('Invoice price must be under PKR 1000/Kg·L. A value ≥ 1000 usually means a per-pack price was entered in the per-Kg field.'); return; }
+  if(typeof confirm==='function' && !confirm('Verify these prices match the client PO:\n\n'+lines.map(l=>{const pk=+l.pack||0;const ip=+l.inv||0;return '- '+l.brand+': PKR '+fmt(ip)+'/Kg'+(pk>0?(' = PKR '+fmt(ip*pk)+'/pack of '+fmt(pk)):'');}).join('\n')+'\n\nDo these per-pack prices match the client PO? Confirm to submit.')) return;
   state._lastKam=$('e_kam').value;
   const recv=$('e_recv').value; const po=isManualPO()?$('e_po').value.trim():genPO(recv);
   const id='O'+(state.orders.length+1)+'_'+state.seq++;
   const ord={ id, po, client:entryClient, channel:entryChannel, vgreenSub:entryVsub||null, focalPerson:($('e_focal')&&$('e_focal').value)||'', kam:$('e_kam').value.trim(),
     priority:$('e_pri').value, promised:$('e_prom').value, received:recv, rmDecision:'pending',
-    lines:lines.map((l,j)=>{const det=detailForBrand(l.brand);return {id:id+'L'+j, brand:l.brand, base:det.base||l.brand, pack:+l.pack||det.pack||null, note:l.note||'', committed:l.committed||$('e_prom').value, ordered:+l.qty, printPrice:+l.price||0, invoicePrice:+l.inv||0, produced:0,packed:0,dispatched:0,delivered:0};}) };
+    lines:lines.map((l,j)=>{const det=detailForBrand(l.brand);return {id:id+'L'+j, brand:l.brand, base:det.base||l.brand, pack:+l.pack||det.pack||null, note:l.note||'', committed:l.committed||$('e_prom').value, ordered:+l.qty, printPrice:0, invoicePrice:+l.inv||0, produced:0,packed:0,dispatched:0,delivered:0};}) };
   ord.totalOrdered=ord.lines.reduce((a,l)=>a+l.ordered,0);
   ord.rmDecision='pending';
   state.orders.unshift(ord);
@@ -2642,6 +2645,7 @@ function renderBulkPricing(){
    </div>
    <div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" onclick="saveBulkPricing()">Save all prices</button></div>`; }
 function saveBulkPricing(){ if(!(state.role==='COO'||state.role==='CFO')){toast('COO / CFO only');return;} let n=0;
+  if(Object.keys(bulkPrice).some(k=>(+bulkPrice[k]||0)>=1000)){ if(!(typeof confirm==='function'&&confirm('Some invoice prices are ≥ PKR 1000/Kg — a per-Kg rate should be under 1000 (likely a per-pack price). Save anyway?'))) return; }
   (state.orders||[]).forEach(o=>(o.lines||[]).forEach(l=>{ if(bulkPrice[l.id]!==undefined){ const nv=+bulkPrice[l.id]||0; const old=+l.invoicePrice||0; if(Math.abs(nv-old)>0.001){ l.invoicePrice=nv; reconLog(`CORRECT ${o.po} · ${l.brand} Invoice price: ${old} → ${nv}`); n++; } } }));
   if(!n){ toast('No price changes'); return; }
   save(); closeModal(); render(); toast(n+' invoice price(s) saved'); }
@@ -2734,6 +2738,17 @@ function rpFilterBar(){
 function rpEmpty(msg){ return `<div class="empty"><div class="ei">∅</div>${msg}</div>`; }
 function rpTabsBar(){ return `<div class="seg" style="flex-wrap:wrap;gap:6px;margin-bottom:14px">${RP_TABS.map(([id,nm])=>`<div class="opt ${id===rpTab?'on full':''}" style="flex:0 0 auto;padding:8px 14px;font-size:12.5px" onclick="rpTab='${id}';screenReports()">${nm}</div>`).join('')}</div>`; }
 
+let bgtExpand='';
+function bgtToggle(c){ bgtExpand=(bgtExpand===c?'':c); render(); }
+function setLineInvoice(oid,lid,v){ if(!(state.role==='COO'||state.role==='CFO')){toast('COO / CFO only');return;} const o=(state.orders||[]).find(x=>x.id===oid); const l=o&&o.lines.find(x=>x.id===lid); if(!l)return; const old=+l.invoicePrice||0; const nv=+v||0; if(Math.abs(nv-old)<0.001)return;
+  if(nv>=1000){ if(!(typeof confirm==='function'&&confirm('PKR '+fmt(nv)+'/Kg is ≥ 1000 — a per-Kg rate should be under 1000 (this looks like a per-pack price). Save anyway?'))){ render(); return; } }
+  l.invoicePrice=nv; reconLog(`CORRECT ${o.po} · ${l.brand} Invoice price: ${old} → ${nv} (PKR/Kg·L)`); save(); render(); toast('Invoice price updated'); }
+function bgtSubRows(c){ if(bgtExpand!==c) return ''; const ed=(state.role==='COO'||state.role==='CFO'); const os=(state.orders||[]).filter(o=>budgetKey(o)===c);
+  let body=''; os.forEach(o=>{ (o.lines||[]).forEach(l=>{ if(!(+l.ordered>0))return; const ip=+l.invoicePrice||0; const bk=(+l.ordered||0)*ip; const dv=(+l.delivered||0)*ip; const perBag=(ip>0&&+l.pack>0)?(' <span class="muted" style="font-size:10px">= PKR '+fmt(ip*l.pack)+'/bag of '+fmt(l.pack)+'</span>'):'';
+    body+=`<tr style="background:var(--panel2)"><td style="padding-left:26px"><b style="font-size:12px">${l.brand}</b> <span class="muted" style="font-size:10.5px">${o.po}${(isDealerClient(o)&&o.client&&c==='Dealers')?(' · '+String(o.client).split('|').pop().trim()):''} · ${fmt(l.ordered)} Kg/L ordered</span><div style="margin-top:5px;display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span class="muted" style="font-size:10.5px">Invoice PKR/Kg·L</span>${ed?`<input type="number" value="${l.invoicePrice||''}" onchange="setLineInvoice('${o.id}','${l.id}',this.value)" style="width:100px;padding:4px 7px" placeholder="0">`:('<b>'+pkr(ip)+'</b>')}${perBag}</div></td><td class="num muted">—</td><td class="num">${dv>0?pkr(dv):'<span class="muted">—</span>'}</td><td class="num"><b>${ip>0?pkr(bk):'<span class="muted" style="font-weight:400">— set price</span>'}</b></td><td></td><td></td></tr>`;
+  }); });
+  if(!body) body=`<tr style="background:var(--panel2)"><td colspan="6" class="muted" style="padding-left:26px">No order lines with a quantity for this client.</td></tr>`;
+  return body; }
 function screenBudget(){
   const fy=fyKey(TODAY.toISOString().slice(0,10)); const targets=(state.masters&&state.masters.salesTargets)||{};
   const rows={};
@@ -2745,8 +2760,8 @@ function screenBudget(){
   const pctAll=totT>0?Math.round(totD/totT*100):0;
   const noPrice=(state.orders||[]).some(o=>(o.lines||[]).some(l=>!(+l.invoicePrice>0)&&(+l.ordered>0)));
   const bar=(p)=>`<div style="background:#eef1f6;border-radius:6px;height:8px;overflow:hidden;min-width:90px"><div style="height:8px;width:${Math.min(100,p)}%;background:${p>=100?'var(--green2)':p>=60?'var(--navy)':'var(--amber)'}"></div></div>`;
-  const crow=(c)=>{ const t=(targets[c]&&+targets[c][fy])||0; const d=rows[c].delivered, b=rows[c].booked; const p=t>0?Math.round(d/t*100):0; const gap=Math.max(0,t-d);
-    return `<tr><td><b>${c}</b>${c==='Dealers'?`<div class="muted" style="font-size:11px">${dealerKids.size} sub-dealer(s) rolled up</div>`:''}</td><td class="num">${t>0?pkr(t):'<span class="muted">—</span>'}</td><td class="num"><b>${pkr(d)}</b></td><td class="num muted">${pkr(b)}</td><td>${t>0?`<div style="display:flex;gap:8px;align-items:center">${bar(p)}<span style="font-size:11px;font-weight:700;color:${p>=100?'var(--green2)':p>=60?'var(--navy)':'var(--amber)'}">${p}%</span></div>`:'<span class="muted" style="font-size:11px">no target</span>'}</td><td class="num">${t>0?pkr(gap):'—'}</td></tr>`; };
+  const crow=(c)=>{ const t=(targets[c]&&+targets[c][fy])||0; const d=rows[c].delivered, b=rows[c].booked; const p=t>0?Math.round(d/t*100):0; const gap=Math.max(0,t-d); const open=bgtExpand===c;
+    return `<tr class="clk" onclick="bgtToggle('${String(c).replace(/'/g,"\\'")}')"><td><span style="color:var(--navy);font-size:10px;margin-right:7px">${open?'▾':'▸'}</span><b>${c}</b>${c==='Dealers'?`<div class="muted" style="font-size:11px;padding-left:17px">${dealerKids.size} sub-dealer(s) rolled up</div>`:''}</td><td class="num">${t>0?pkr(t):'<span class="muted">—</span>'}</td><td class="num"><b>${pkr(d)}</b></td><td class="num"><b>${pkr(b)}</b></td><td>${t>0?`<div style="display:flex;gap:8px;align-items:center">${bar(p)}<span style="font-size:11px;font-weight:700;color:${p>=100?'var(--green2)':p>=60?'var(--navy)':'var(--amber)'}">${p}%</span></div>`:'<span class="muted" style="font-size:11px">no target</span>'}</td><td class="num">${t>0?pkr(gap):'—'}</td></tr>`; };
   // product mix by delivered value
   const pm={}; (state.orders||[]).forEach(o=>(o.lines||[]).forEach(l=>{ const v=(+l.delivered||0)*(+l.invoicePrice||0); if(v>0){ pm[l.brand]=(pm[l.brand]||0)+v; } }));
   const pmRows=Object.entries(pm).sort((a,b)=>b[1]-a[1]).slice(0,15);
@@ -2761,7 +2776,7 @@ function screenBudget(){
    </div>
    <div class="card"><h3>By client <span class="hint">${clients.length}</span></h3>
      <div style="overflow:auto"><table><thead><tr><th>Client</th><th class="num">Target</th><th class="num">Delivered</th><th class="num">Booked</th><th>Attainment</th><th class="num">Gap</th></tr></thead>
-     <tbody>${clients.map(crow).join('')}<tr style="border-top:2px solid var(--navy);background:var(--navy-50)"><td><b>TOTAL — all clients</b></td><td class="num"><b>${pkr(totT)}</b></td><td class="num"><b>${pkr(totD)}</b></td><td class="num">${pkr(totB)}</td><td><b>${pctAll}%</b></td><td class="num"><b>${pkr(Math.max(0,totT-totD))}</b></td></tr></tbody></table></div></div>
+     <tbody>${clients.map(c=>crow(c)+bgtSubRows(c)).join('')}<tr style="border-top:2px solid var(--navy);background:var(--navy-50)"><td><b>TOTAL — all clients</b></td><td class="num"><b>${pkr(totT)}</b></td><td class="num"><b>${pkr(totD)}</b></td><td class="num">${pkr(totB)}</td><td><b>${pctAll}%</b></td><td class="num"><b>${pkr(Math.max(0,totT-totD))}</b></td></tr></tbody></table></div></div>
    <div class="card"><h3>Top products by delivered value <span class="hint">FY to date</span></h3>
      ${pmRows.length?`<div style="overflow:auto"><table><thead><tr><th>Product</th><th class="num">Delivered value</th></tr></thead><tbody>${pmRows.map(([b,v])=>`<tr><td>${b}</td><td class="num"><b>${pkr(v)}</b></td></tr>`).join('')}</tbody></table></div>`:'<div class="muted">No delivered value yet — appears once deliveries are recorded against priced lines.</div>'}</div>`;
 }

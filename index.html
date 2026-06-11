@@ -555,7 +555,7 @@ function ensureMasters(s){
    Used as a SOFT warning in the UI (Lock 3) — never hard-blocks entry. */
 function validateBatchNo(v){
   v=(v||'').trim();
-  return /^[A-Z]{2,4}[0-9]{3,9}$/.test(v) && v.length>=5 && v.length<=11;
+  return /^[A-Z]{2,5}[0-9]{3,9}$/.test(v) && v.length>=5 && v.length<=14;
 }
 function fyKey(ds){ const d=ds?new Date(ds):new Date(); let y=d.getFullYear(), m=d.getMonth()+1; if(isNaN(y)){const t=new Date(); y=t.getFullYear(); m=t.getMonth()+1;} const start=m>=7?y:y-1; return start+'-'+String((start+1)%100).padStart(2,'0'); }
 function batchOwnerInFY(no,fy,exclBaseId){ no=(no||'').trim(); if(!no)return null;
@@ -1566,7 +1566,7 @@ function voidProdEntry(i){
 function batchNoFx(el){ el.style.background = (!el.value.trim()||validateBatchNo(el.value)) ? '' : '#fff8d6'; }
 function openBatch(kind){
   const today=TODAY.toISOString().slice(0,10);
-  const fmtRule='2-4 capital letters then 3-9 digits, length 5-11';
+  const fmtRule='2-5 capital letters then 3-9 digits';
   if(kind==='po'){
     const oid=$('pp_po')&&$('pp_po').value, lid=$('pp_line')&&$('pp_line').value;
     const batchNo=(($('nb_batch')&&$('nb_batch').value)||'').trim();
@@ -1698,7 +1698,7 @@ function renderPackModal(){ const b=state.batches.find(x=>x.id===packForm.bid); 
      <div class="fld"><label>1 · Pack into brand</label><select onchange="packForm.brand=this.value;packForm.oid='';packForm.lid='';renderPackModal()"><option value="">— pick brand —</option>${opts.map(x=>`<option ${x===packForm.brand?'selected':''}>${x}</option>`).join('')}</select></div>
      <div class="fld"><label>2 · For which PO</label><select ${packForm.brand?'':'disabled'} onchange="packPickPO(this.value)"><option value="">${packForm.brand?(poOpts.length?'— pick PO —':'no open PO'):'pick brand first'}</option>${poOpts.map(x=>`<option value="${x.o.id}|${x.l.id}" ${packForm.oid===x.o.id&&packForm.lid===x.l.id?'selected':''}>${x.o.po} · ${x.o.client} (needs ${fmt(x.l.ordered-(x.l.packed||0))})</option>`).join('')}</select></div>
      <div class="fld"><label>3 · Qty (Kg/L)</label><input type="number" value="${packForm.kg}" oninput="packForm.kg=this.value" placeholder="max ${fmt(rem)}"></div>
-     <div class="fld"><label>4 · Brand batch # (on packaging)</label><input type="text" value="${packForm.brandBatch||''}" oninput="packForm.brandBatch=this.value" placeholder="blank = same as base (${b.batchNo||'—'})"></div>
+     <div class="fld"><label>4 · Brand batch # (on pack — reuse the same # to merge several base batches)</label><input type="text" value="${packForm.brandBatch||''}" oninput="packForm.brandBatch=this.value" placeholder="blank = same as base (${b.batchNo||'—'})"></div>
      <div class="fld"><label>5 · Mfg date (printed on pack)</label><input type="date" value="${packForm.mfg||''}" onchange="packForm.mfg=this.value;{const t=new Date(this.value);if(!isNaN(t)){t.setFullYear(t.getFullYear()+2);packForm.exp=t.toISOString().slice(0,10);}}renderPackModal()"></div>
      <div class="fld"><label>6 · Expiry date (auto +2 years, editable)</label><input type="date" value="${packForm.exp||''}" onchange="packForm.exp=this.value"></div></div>
      ${priceBlk}<div class="muted" style="font-size:11px;margin-top:11px">Moves bulk base into the chosen brand. Pick a PO to fill that order (capped to what it still needs), or leave unassigned.</div></div>
@@ -1718,7 +1718,12 @@ function doPack(){ if(!canEdit(['Production'])){toast('Production only');return;
     { const lim=new Date(mfgD); lim.setFullYear(lim.getFullYear()+2); if(new Date(expD)>lim && typeof confirm==='function' && !confirm('Expiry '+expD+' is MORE than 2 years after the mfg date '+mfgD+'. Are you sure?')) return; }
     const baseBatchNo=b.batchNo||''; const brandBatchNo=(packForm.brandBatch||'').trim()||baseBatchNo;
     const _fy=fyKey(d);
-    if(brandBatchNo!==baseBatchNo){ const _own=batchOwnerInFY(brandBatchNo,_fy,b.id); if(_own){ toast('Brand batch # "'+brandBatchNo+'" already used this financial year ('+_fy+') for a different lot \u2014 use a unique number.'); return; } }
+    if(brandBatchNo!==baseBatchNo){
+      const baseClash=(state.batches||[]).some(bb=>bb.id!==b.id && (bb.batchNo||'').trim()===brandBatchNo && fyKey(bb.openedDate||bb.date||'')===_fy);
+      const otherBrandClash=(state.packingLog||[]).some(p=>(p.brandBatchNo||'').trim()===brandBatchNo && fyKey(p.date||'')===_fy && p.brand!==brand);
+      if(baseClash){ toast('Brand batch # "'+brandBatchNo+'" is a base batch number this year \u2014 choose a different brand batch #.'); return; }
+      if(otherBrandClash){ toast('Brand batch # "'+brandBatchNo+'" is already used by a DIFFERENT brand this year \u2014 use a unique number.'); return; }
+    }
     if(l.printPrice==null||l.printPrice===''){ l.printPrice=ppx; }
     (state.packingLog=state.packingLog||[]).unshift({date:d,base:b.base,brand,kg,by:state.role,po:o.po,id:'PK'+(state.seq++),baseBatchId:b.id,baseBatchNo,brandBatchNo,mfgDate:mfgD,expDate:expD,printPrice:ppx,priceVerifiedBy:state.role});
     logAction(`Packed ${fmt(kg)} Kg/L ${b.base} [${baseBatchNo}] → ${brand} [${brandBatchNo}]${brandBatchNo!==baseBatchNo?' (re-batched)':''} for ${o.po}`);

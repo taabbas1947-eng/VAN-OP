@@ -779,8 +779,12 @@ function pill(txt,colvar){ return `<span class="pill" style="background:color-mi
 function toast(m){ const t=$('toast'); t.textContent=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),1900); }
 function logAction(what){ state.actionLog.unshift({t:new Date().toISOString(), role:state.role, by:(state.currentUser&&state.currentUser.name)||state.role, what}); }
 function accessOv(role,scrId){ const m=(state.masters&&state.masters.accessMatrix)||{}; return (m[role]&&m[role][scrId])||null; }
-function canView(role,scrId){ if(role==='COO') return true; const o=accessOv(role,scrId); return !(o&&o.v===false); }
-function canEdit(owners){ if(state.role==='COO') return true; const o=accessOv(state.role,state.screen); if(o&&o.e===false) return false; return owners.includes(state.role); }
+function _ownerEdit(role,id){ const s=scr(id); return !!(s&&s.owners&&s.owners.includes(role)); }
+/* The access matrix is authoritative: each role×screen is No access / View / Edit. COO is always Edit. */
+function accessLevel(role,id){ if(role==='COO') return 'edit'; const o=accessOv(role,id); const v=(o&&o.v!==undefined)?o.v:true; const e=(o&&o.e!==undefined)?o.e:_ownerEdit(role,id); return e?'edit':(v?'view':'none'); }
+function canView(role,scrId){ return accessLevel(role,scrId)!=='none'; }
+function screenEditOK(scrId){ return accessLevel(state.role,scrId)==='edit'; }
+function canEdit(owners){ if(state.role==='COO') return true; const o=accessOv(state.role,state.screen); if(o){ if(o.e===true) return true; if(o.e===false) return false; } return owners.includes(state.role); }
 /* ===================== SCREENS REGISTRY ===================== */
 const SCREENS=[
   {id:'dash', name:'Dashboard', ic:'\ud83d\udcca', owners:['KAM','Supply Chain','Production','Lab Rep','AQCM','QCM','QA Inspector','Plant Manager','CFO','COO'], sub:'Executive overview',
@@ -889,14 +893,14 @@ function typeNameToConfirm(actionText){
 }
 function reconLog(msg, eventDate){ logAction(`RECONCILE: ${msg}${eventDate?` [event ${eventDate}]`:''}`); }
 function toggleDataFix(){
-  if(state.role!=='COO'){ toast('Only COO can change this'); return; }
+  if(!screenEditOK('datafix')){ toast('You need Edit access to Data Fix'); return; }
   state.dataFixEnabled = !state.dataFixEnabled;
   logAction(`Data Fix tab ${state.dataFixEnabled?'ENABLED':'DISABLED'} by COO`);
   save(); render();
 }
 const GOLIVE_POS=[{"po":"21301","client":"MAXIM AGRI (PVT) LTD","channel":"White Label","priority":"Normal","lines":[{"brand":"Max Sulfur","base":"Sulfur 70%","pack":1,"ordered":2000}]},{"po":"21630","client":"MAXIM AGRI (PVT) LTD","channel":"White Label","priority":"Normal","lines":[{"brand":"Max Compost","base":"Compost","pack":25,"ordered":1575},{"brand":"Max Sulfur","base":"Sulfur 70%","pack":1,"ordered":5500}]},{"po":"21775","client":"MAXIM AGRI (PVT) LTD","channel":"White Label","priority":"Normal","lines":[{"brand":"Max Amino","base":"Amino Acid","pack":1,"ordered":300}]},{"po":"22032","client":"MAXIM AGRI (PVT) LTD","channel":"White Label","priority":"High","lines":[{"brand":"Enroot","base":"NP 6.32","pack":35,"ordered":17500},{"brand":"Max Phos","base":"Max Phos","pack":10,"ordered":15000},{"brand":"Max Potash","base":"Max Potash","pack":20,"ordered":25000},{"brand":"Max Amino","base":"Amino Acid","pack":1,"ordered":300},{"brand":"Max Boron","base":"Boron 5%","pack":1,"ordered":300},{"brand":"Max Compost","base":"Compost","pack":25,"ordered":2500},{"brand":"Max Humic","base":"Potassium Humate","pack":8,"ordered":4000},{"brand":"Max Zinc","base":"Zinc 21%","pack":4,"ordered":2000},{"brand":"Max Sulfur","base":"Sulfur 70%","pack":1,"ordered":5000},{"brand":"Max Sulfur","base":"Sulfur 70%","pack":1,"ordered":1000},{"brand":"NPK 16:18:18","base":"NPK 16:18:18","pack":1,"ordered":1000}]},{"po":"22033","client":"MAXIM AGRI (PVT) LTD","channel":"White Label","priority":"High","lines":[{"brand":"Enroot","base":"NP 6.32","pack":35,"ordered":7000},{"brand":"Max Amino","base":"Amino Acid","pack":1,"ordered":300},{"brand":"Max Boron","base":"Boron 5%","pack":1,"ordered":300},{"brand":"Max Compost","base":"Compost","pack":25,"ordered":2500},{"brand":"Max Humic","base":"Potassium Humate","pack":8,"ordered":4000},{"brand":"Max Zinc","base":"Zinc 21%","pack":4,"ordered":2000},{"brand":"Max Sulfur","base":"Sulfur 70%","pack":1,"ordered":5000},{"brand":"Max Sulfur","base":"Sulfur 70%","pack":1,"ordered":1000}]},{"po":"260400001","client":"UNITED DISTRIBUTOR PAKISTAN LTD","channel":"White Label","priority":"Critical","lines":[{"brand":"Humi Cash","base":"Potassium Humate","pack":8,"ordered":14000}]},{"po":"1821412156","client":"RUDOLF LIFE SCIENCES","channel":"White Label","priority":"Normal","lines":[{"brand":"Tervalis","base":"Potassium Humate","pack":40,"ordered":16000},{"brand":"Genius","base":"Genius","pack":25,"ordered":440},{"brand":"Orbit-K","base":"Orbit-K","pack":25,"ordered":50000},{"brand":"Basic","base":"Basic","pack":10,"ordered":48000},{"brand":"Harbor Fertigation","base":"Harbor Fertigation","pack":1000,"ordered":7000},{"brand":"V Germinator Pro","base":"Liquid Phosphrous","pack":5,"ordered":5000},{"brand":"Cala Mag V","base":"Cala Mag V","pack":1,"ordered":1000},{"brand":"Tervalis Plus","base":"Potassium Humate Liquid","pack":1000,"ordered":10000}]},{"po":"4204003087","client":"LCI PAKISTAN LIMITED","channel":"White Label","priority":"Normal","lines":[{"brand":"Ferti Rise","base":"Ferti Rise","pack":10,"ordered":1770}]},{"po":"6595010236","client":"SYNGENTA PAKISTAN LIMITED","channel":"White Label","priority":"Normal","lines":[{"brand":"Enrich","base":"Potassium Humate","pack":8,"ordered":271504}]},{"po":"7500003652","client":"ARYSTA LIFE SCIENCES (PVT) LTD","channel":"White Label","priority":"High","lines":[{"brand":"Fruitlish","base":"Fruitlish","pack":3,"ordered":14772}]},{"po":"VG-2605-0002","client":"Vgreen","channel":"Vgreen","priority":"Normal","lines":[{"brand":"Fusion Potash","base":"Fusion Potash","pack":25,"ordered":500},{"brand":"Humi Grow","base":"Potassium Humate","pack":8,"ordered":160},{"brand":"Nitro Sulfur","base":"Nitro Sulfur","pack":25,"ordered":500},{"brand":"V-Transfarm","base":"Zinc 21%","pack":3,"ordered":120},{"brand":"Crop Star","base":"Crop Star","pack":1,"ordered":100}]},{"po":"DLR-2605-0001","client":"DLR-PB-KSR-006 | Afaq Zari Merkaz","channel":"Dealer","priority":"High","lines":[{"brand":"Tornado","base":"Amino Acid","pack":0.5,"ordered":17}]},{"po":"DLR-2606-0001","client":"DLR-PB-JHN-001 | Kissan Zarai Merkaz","channel":"Dealer","priority":"High","lines":[{"brand":"V-Zinc","base":"V-Zinc","pack":3,"ordered":200},{"brand":"V-Mag Essential","base":"Mg Sulphate","pack":5,"ordered":585},{"brand":"Humi Grow","base":"Potassium Humate","pack":8,"ordered":136},{"brand":"Tornado","base":"Amino Acid","pack":0.5,"ordered":4},{"brand":"VL-NPK","base":"NPK 8.8.6","pack":1,"ordered":8}]}];
 function importGoLivePOs(){
-  if(state.role!=='COO'){ toast('COO only'); return; }
+  if(!screenEditOK('datafix')){ toast('You need Edit access to Data Fix'); return; }
   const data=GOLIVE_POS||[]; const existing=new Set((state.orders||[]).map(o=>String(o.po)));
   const fresh=data.filter(p=>!existing.has(String(p.po)));
   const skip=data.length-fresh.length;
@@ -1596,7 +1600,7 @@ function screenProd(){
    (clamped so it never drops below what's already packed) and deletes the log row.
    Logged to the Action Log. Index maps directly to state.productionLog (recent = slice(0,15)). */
 function voidProdEntry(i){
-  if(state.role!=='COO'){ toast('Only COO can remove entries'); return; }
+  if(!screenEditOK('prod')){ toast('You need Edit access to Production'); return; }
   const p=state.productionLog[i]; if(!p) return;
   const desc=`${p.date} · ${p.brand?p.brand+' ':''}${p.base||''}${p.po?(' · '+p.po):''} · ${fmt(p.kg)} Kg/L`;
   if(!typeNameToConfirm('Remove production entry — '+desc+' (reverses produced qty)')) return;
@@ -2065,7 +2069,7 @@ function rmAllows(l){
 }
 function ackOrder(oid){ const o=state.orders.find(x=>x.id===oid); if(!o)return; o.acknowledged=true; o.ackDate=TODAY.toISOString().slice(0,10); o.ackBy=state.role; logAction(`PO ${o.po} acknowledged by ${state.role}`); save(); toast('Acknowledged'); render(); }
 function gotoScreen(sc){ state.screen=sc; render(); }
-function cfoApprovePR(prId){ if(!(state.role==='CFO'||state.role==='COO')){toast('CFO only');return;} const p=(state.prs||[]).find(x=>x.id===prId); if(!p)return; p.cfoApproved=TODAY.toISOString().slice(0,10); logAction(`CFO approved PR ${p.id} — ${p.rm} ${fmt(p.qtyRequired)} Kg/L`); save(); toast('PR approved'); render(); }
+function cfoApprovePR(prId){ if(!canEdit(['CFO'])){toast('Not allowed — needs CFO or a matrix Edit grant');return;} const p=(state.prs||[]).find(x=>x.id===prId); if(!p)return; p.cfoApproved=TODAY.toISOString().slice(0,10); logAction(`CFO approved PR ${p.id} — ${p.rm} ${fmt(p.qtyRequired)} Kg/L`); save(); toast('PR approved'); render(); }
 function raisePR(rm, qty){ if(!rm||!(qty>0))return; state.prs=state.prs||[]; const open=state.prs.find(p=>p.rm===rm&&p.status==='open');
   if(open){ open.qtyRequired+=qty; logAction(`PR (open) for ${rm}: +${fmt(qty)} Kg/L attached — required now ${fmt(open.qtyRequired)}`); }
   else { state.prs.unshift({id:'PR'+(state.seq++),rm,qtyRequired:qty,qtyReceived:0,receipts:[],status:'open',cfoApproved:null,date:TODAY.toISOString().slice(0,10),by:state.role}); logAction(`PR raised for ${rm}: ${fmt(qty)} Kg/L`); } }
@@ -2554,19 +2558,15 @@ function accessMatrixCard(){ const isCOO=state.role==='COO';
   const roles=((typeof SEED!=='undefined'&&SEED.roles)||[]).filter(r=>r!=='COO');
   const ids=NAV_ORDER.filter(id=>scr(id));
   const m=(state.masters&&state.masters.accessMatrix)||{};
-  const chip=(role,id,kind,on)=>`<span onclick="${isCOO?`amxToggle('${role}','${id}','${kind}')`:''}" title="${kind==='v'?'View tab':'Edit on tab'} — ${on?'allowed (click to block)':'BLOCKED (click to restore)'}" style="display:inline-block;width:20px;text-align:center;border-radius:5px;font-size:9.5px;font-weight:800;padding:2px 0;cursor:${isCOO?'pointer':'default'};background:${on?'#e7f6ec':'#fdecea'};color:${on?'#1a7f37':'#c0392b'}">${kind.toUpperCase()}</span>`;
-  return acard('amx','Access control matrix','role × screen — clickable',`<div class="muted" style="font-size:12px;margin-bottom:10px">Click <b>V</b> (see the tab) or <b>E</b> (edit on it) to block or restore access per role. <b>Green = allowed, red = blocked.</b> The matrix only <b>restricts</b> — it never grants edit beyond the role's own rights, and workflow signatures (CFO, AQCM, QCM, Plant Manager) always stay with their role. COO always has full access. Changes apply on the user's next screen change / refresh.</div>
-    <div style="overflow:auto"><table><thead><tr><th>Screen</th>${roles.map(r=>`<th style="font-size:10px;white-space:nowrap">${r}</th>`).join('')}</tr></thead><tbody>
-    ${ids.map(id=>{const sc=scr(id);return `<tr><td style="white-space:nowrap"><b>${sc.name}</b></td>${roles.map(r=>{const o=(m[r]&&m[r][id])||{}; return `<td style="white-space:nowrap">${chip(r,id,'v',o.v!==false)} ${chip(r,id,'e',o.e!==false)}</td>`;}).join('')}</tr>`;}).join('')}
+  const LV={none:['No access','#fbecec','#b03a2e'],view:['View','#eef2ec','#5f6b62'],edit:['Edit','#e7f3ea','#155e32']};
+  const cell=(role,id)=>{ const x=LV[accessLevel(role,id)]; return `<span ${isCOO?`onclick="amxCycle('${role}','${id}')"`:''} title="${role} · ${scr(id).name}: ${x[0]}${isCOO?' — click to change':''}" style="display:inline-block;min-width:56px;text-align:center;border-radius:7px;font-size:10px;font-weight:700;padding:4px 8px;cursor:${isCOO?'pointer':'default'};background:${x[1]};color:${x[2]}">${x[0]}</span>`; };
+  return acard('amx','Access control matrix','role × screen · click to set',`<div class="muted" style="font-size:12px;margin-bottom:10px">Set each role's access per screen — <b style="color:#b03a2e">No access</b> · <b style="color:#5f6b62">View</b> · <b style="color:#155e32">Edit</b>. <b>Edit</b> grants everything on that screen (data entry, approvals &amp; sign-offs). <b>COO always has full access</b> and is the only one who can change this matrix. Click any cell to cycle its level; changes apply on the user's next screen change / refresh.</div>
+    <div style="overflow:auto"><table><thead><tr><th>Screen</th>${roles.map(r=>`<th style="font-size:10px;white-space:nowrap;text-align:center">${r}</th>`).join('')}</tr></thead><tbody>
+    ${ids.map(id=>{const sc=scr(id);return `<tr><td style="white-space:nowrap"><b>${sc.name}</b></td>${roles.map(r=>`<td style="white-space:nowrap;text-align:center">${cell(r,id)}</td>`).join('')}</tr>`;}).join('')}
     </tbody></table></div>`); }
-function amxToggle(role,id,kind){ if(state.role!=='COO'){toast('COO only');return;}
-  state.masters.accessMatrix=state.masters.accessMatrix||{}; const m=state.masters.accessMatrix;
-  m[role]=m[role]||{}; m[role][id]=m[role][id]||{}; const cell=m[role][id];
-  if(cell[kind]===false){ delete cell[kind]; } else { cell[kind]=false; }
-  const blocked=(cell[kind]===false);
-  if(cell.v===undefined&&cell.e===undefined) delete m[role][id];
-  logAction(`Access matrix: ${kind==='v'?'VIEW':'EDIT'} ${blocked?'BLOCKED':'restored'} — ${role} on ${id}`);
-  save(); render(); }
+function amxCycle(role,id){ if(state.role!=='COO'){toast('COO only');return;} const order=['none','view','edit']; const nx=order[(order.indexOf(accessLevel(role,id))+1)%3];
+  state.masters.accessMatrix=state.masters.accessMatrix||{}; const m=state.masters.accessMatrix; m[role]=m[role]||{}; m[role][id]={v:(nx!=='none'),e:(nx==='edit')};
+  logAction(`Access set: ${role} · ${id} → ${nx.toUpperCase()}`); save(); render(); }
 function pkr(n){ return 'PKR '+Math.round(+n||0).toLocaleString(); }
 function fyRange(fy){ const a=parseInt(String(fy).slice(0,4),10); if(isNaN(a))return fy; return 'FY '+fy+' (1 Jul '+a+' – 30 Jun '+(a+1)+')'; }
 function isDealerClient(o){ return (o&&(o.channel==='Dealer'))||/^DLR/i.test(String((o&&o.client)||'')); }
@@ -2642,10 +2642,10 @@ function labTplCard(ed){
 function addMaster(k){ const el=$('adm_'+k); const v=(el&&el.value||'').trim(); if(!v)return;
   state.masters[k]=state.masters[k]||[]; if(state.masters[k].includes(v)){toast('Already exists');return;}
   state.masters[k].push(v); logAction(`Admin added to ${k}: ${v}`); save(); toast('Added'); render(); }
-function delMaster(k,idx){ if(state.role!=='COO'){toast('COO only');return;} const arr=(state.masters&&state.masters[k])||[]; const v=arr[idx]; if(v==null)return;
+function delMaster(k,idx){ if(!screenEditOK('admin')){toast('You need Edit access to Master Data');return;} const arr=(state.masters&&state.masters[k])||[]; const v=arr[idx]; if(v==null)return;
   if(!typeNameToConfirm('Delete "'+v+'" from the '+k+' master list')) return;
   arr.splice(idx,1); logAction(`Admin removed from ${k}: ${v}`); save(); toast('Deleted'); render(); }
-function editMaster(k,idx){ if(state.role!=='COO'){toast('COO only');return;} const arr=(state.masters&&state.masters[k])||[]; const old=arr[idx]; if(old==null)return;
+function editMaster(k,idx){ if(!screenEditOK('admin')){toast('You need Edit access to Master Data');return;} const arr=(state.masters&&state.masters[k])||[]; const old=arr[idx]; if(old==null)return;
   const nv=(typeof prompt==='function'?prompt('Rename value:',old):old); if(nv==null)return; const v=String(nv).trim();
   if(!v||v===old)return; if(arr.includes(v)){toast('Already exists');return;} arr[idx]=v; logAction(`Admin renamed in ${k}: ${old} -> ${v}`); save(); toast('Renamed'); render(); }
 
@@ -2986,9 +2986,9 @@ function logout(){ if(state.currentUser){ logAction('Signed out'); saveNow(); } 
 /* ---- Users & Access (COO only) ---- */
 let uForm={name:'',username:'',password:'',role:'KAM'};
 async function loadUsers(){ try{ const r=await fetch('/api/users',{headers:authHdr()}); if(r.status===401){ setSession('',null); renderApp(); return; } if(r.ok) usersList=await r.json(); }catch(e){} if(state.screen==='users') paintUsers(); }
-function screenUsers(){ if(state.role!=='COO'){ $('view').innerHTML='<div class="banner warn">Users & Access is managed by the <b>COO</b> only.</div>'; return; } paintUsers(); loadUsers(); }
+function screenUsers(){ if(!screenEditOK('users')){ $('view').innerHTML='<div class="banner warn">You don\'t have <b>Edit</b> access to Users &amp; Access. The COO can grant it in <b>Admin · Master Data → Access control</b>.</div>'; return; } paintUsers(); loadUsers(); }
 function paintUsers(){
-  if(state.role!=='COO') return;
+  if(!screenEditOK('users')) return;
   const us=usersList||[]; const me=state.currentUser&&state.currentUser.username;
   $('view').innerHTML=`<div class="banner info">Add people and assign each a role. They sign in with their username + password and see only their role's screens. Passwords are stored <b>securely on the server</b> (hashed) and are never shown or sent to browsers.</div>
    <div class="card"><h3>Add a person</h3><div class="formgrid">
@@ -2999,7 +2999,7 @@ function paintUsers(){
    </div><button class="green" style="margin-top:13px" onclick="addUser()">Add person</button></div>
    <div class="card"><h3>People <span class="hint">${us.length} accounts</span></h3><div style="overflow:auto"><table><thead><tr><th>Name</th><th>Username</th><th>Role</th><th class="ctr">Actions</th></tr></thead><tbody>${us.map(u=>`<tr><td><b>${u.name}</b>${u.username===me?' <span class="pill" style="background:var(--navy-50);color:var(--navy)">you</span>':''}</td><td>${u.username}</td><td>${u.role}</td><td class="ctr"><button class="sm ghost" onclick="openEditUser('${u.username}')">Edit</button> <button class="sm ghost" onclick="delUser('${u.username}')">Delete</button></td></tr>`).join('')}</tbody></table></div></div>`;
 }
-async function addUser(){ const n=(uForm.name||'').trim(), u=(uForm.username||'').trim().toLowerCase(), p=uForm.password||'';
+async function addUser(){ if(!screenEditOK('users')){toast('You need Edit access to Users & Access');return;} const n=(uForm.name||'').trim(), u=(uForm.username||'').trim().toLowerCase(), p=uForm.password||'';
   if(!n||!u||!p){toast('Name, username and password are all required');return;}
   try{ const r=await fetch('/api/users',{method:'POST',headers:Object.assign({'Content-Type':'application/json'},authHdr()),body:JSON.stringify({name:n,username:u,password:p,role:uForm.role})});
     if(r.status===409){toast('That username already exists');return;}
@@ -3008,7 +3008,7 @@ async function addUser(){ const n=(uForm.name||'').trim(), u=(uForm.username||''
     uForm={name:'',username:'',password:'',role:'KAM'}; toast('Added '+n); loadUsers();
   }catch(e){ toast('Network error'); }
 }
-async function delUser(username){ const u=(usersList||[]).find(x=>x.username===username); if(!u)return;
+async function delUser(username){ if(!screenEditOK('users')){toast('You need Edit access to Users & Access');return;} const u=(usersList||[]).find(x=>x.username===username); if(!u)return;
   if(state.currentUser&&state.currentUser.username===username){toast('You cannot delete your own account');return;}
   if(typeof confirm==='function' && !confirm('Delete '+u.name+'?')) return;
   try{ const r=await fetch('/api/users/'+encodeURIComponent(username),{method:'DELETE',headers:authHdr()});
@@ -3017,7 +3017,7 @@ async function delUser(username){ const u=(usersList||[]).find(x=>x.username===u
   }catch(e){ toast('Network error'); }
 }
 let uEdit={username:'',name:'',newUsername:'',password:'',role:'KAM'};
-function openEditUser(username){ if(state.role!=='COO')return; const u=(usersList||[]).find(x=>x.username===username); if(!u)return; uEdit={username:u.username,name:u.name,newUsername:u.username,password:'',role:u.role}; renderEditUser(); $('modalBg').classList.add('open'); }
+function openEditUser(username){ if(!screenEditOK('users'))return; const u=(usersList||[]).find(x=>x.username===username); if(!u)return; uEdit={username:u.username,name:u.name,newUsername:u.username,password:'',role:u.role}; renderEditUser(); $('modalBg').classList.add('open'); }
 function renderEditUser(){ const self=state.currentUser&&state.currentUser.username===uEdit.username;
   $('modal').innerHTML=`<div class="mh"><h2>Edit person</h2><div class="sub">${uEdit.username||''}${self?' · this is you':''}</div></div>
   <div class="mb"><div class="formgrid" style="grid-template-columns:1fr 1fr">
@@ -3027,7 +3027,7 @@ function renderEditUser(){ const self=state.currentUser&&state.currentUser.usern
     <div class="fld"><label>Role</label><select onchange="uEdit.role=this.value">${SEED.roles.map(r=>`<option ${r===uEdit.role?'selected':''}>${r}</option>`).join('')}</select></div>
   </div><div class="muted" style="font-size:11px;margin-top:11px">Leave password blank to keep the current one. If you change your OWN account, you'll be signed out to sign in again.</div></div>
   <div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" onclick="saveEditUser()">Save changes</button></div>`; }
-async function saveEditUser(){ const old=uEdit.username; const n=(uEdit.name||'').trim(), un=(uEdit.newUsername||'').trim().toLowerCase();
+async function saveEditUser(){ if(!screenEditOK('users')){toast('You need Edit access to Users & Access');return;} const old=uEdit.username; const n=(uEdit.name||'').trim(), un=(uEdit.newUsername||'').trim().toLowerCase();
   if(!n||!un){toast('Name and username are required');return;}
   const body={name:n,username:un,role:uEdit.role}; if(uEdit.password) body.password=uEdit.password;
   try{ const r=await fetch('/api/users/'+encodeURIComponent(old),{method:'PUT',headers:Object.assign({'Content-Type':'application/json'},authHdr()),body:JSON.stringify(body)});

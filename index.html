@@ -530,6 +530,7 @@ function ensureMasters(s){
   s.masters = s.masters || {};
   if(!s.masters.accessMatrix||typeof s.masters.accessMatrix!=='object') s.masters.accessMatrix={};
   if(!Array.isArray(s.masters.focalPersons)) s.masters.focalPersons=[];
+  if(!Array.isArray(s.masters.byproductRules)) s.masters.byproductRules=[];
   s.masters.recipes=(s.masters.recipes&&typeof s.masters.recipes==='object')?s.masters.recipes:{};
   { var _vamm={'MAP':0.51667,'TSP':0.33261,'Urea N-46%':0.15229,'Fume Silica':0.00667,'Ferrous Sulfate':0.00058,'Magnisium Sulfate Hepta Hydrate':0.00034,'Boric Acid':0.00033,'Copper Sulfate':0.00022}; if(!s.masters.recipes['V-Ammonium Phosphate']) s.masters.recipes['V-Ammonium Phosphate']=Object.assign({},_vamm); if(!s.masters.recipes['Max Phos']) s.masters.recipes['Max Phos']=Object.assign({},_vamm); }
   if(!s.masters.salesTargets||typeof s.masters.salesTargets!=='object') s.masters.salesTargets={};
@@ -1528,7 +1529,7 @@ function screenProd(){
   const pos=state.orders.filter(o=>stageOf(o)!=='Delivered');
   const selO=state.orders.find(o=>o.id===prodPOsel);
   const work=inProdLines();
-  const openStock=(state.batches||[]).filter(b=>b.type==='stock'&&b.packedKg<b.producedKg-0.001);
+  const openStock=(state.batches||[]).filter(b=>b.type==='stock'&&!b.reconciled&&b.packedKg<b.producedKg-0.001);
   const psEntries=Object.entries(state.packedStock||{}).filter(([k,v])=>v>0.5).sort((a,b)=>b[1]-a[1]);
   const allocs=[]; state.orders.forEach(o=>o.lines.forEach(l=>{ const av=(state.packedStock&&state.packedStock[l.brand])||0; if(av>0.5 && (l.packed||0)<l.ordered-0.5 && stageOf(o)!=='Delivered') allocs.push({o,l,av}); }));
   const recent=state.productionLog.slice(0,15);
@@ -1545,13 +1546,13 @@ function screenProd(){
     (openBatches.length?`<div style="overflow:auto"><table><thead><tr><th>Batch #</th><th>Product</th><th class="num">Planned</th><th class="num">Produced</th><th class="num">Remaining</th><th>Opened</th><th style="width:250px"></th></tr></thead><tbody>`+
       openBatches.map(b=>{const prod=b.producedKg||0,plan=b.plannedKg||0,rem=Math.max(0,plan-prod);
         const prodName=b.kind==='po'?`${b.brand||''} <span class="muted" style="font-size:11px">${b.base||''} · ${b.po||''}</span>`:`<span class="muted">${b.base||''}</span> <span class="pill" style="background:var(--navy-50);color:var(--navy)">bulk</span>`;
-        return `<tr><td><b>${b.batchNo||'—'}</b></td><td>${prodName}</td><td class="num">${fmt(plan)}</td><td class="num">${fmt(prod)}${prod>plan+0.5?` <span class="pill" style="background:var(--amber-50);color:var(--amber);font-size:8.5px;padding:1px 5px">over plan</span>`:``}</td><td class="num"><b style="color:${rem>0?'var(--amber)':'var(--mut)'}">${fmt(rem)}</b></td><td class="muted">${b.openedDate||b.date||''}</td><td>${ed?`<button class="sm green" onclick="openShiftLog('${b.id}')">Log shift output</button> <button class="sm ghost" onclick="closeBatch('${b.id}')">Close</button>`:''}</td></tr>`;}).join('')+
+        return `<tr><td><b>${b.batchNo||'—'}</b></td><td>${prodName}</td><td class="num">${fmt(plan)}</td><td class="num">${fmt(prod)}${prod>plan+0.5?` <span class="pill" style="background:var(--amber-50);color:var(--amber);font-size:8.5px;padding:1px 5px">over plan</span>`:``}</td><td class="num"><b style="color:${rem>0?'var(--amber)':'var(--mut)'}">${fmt(rem)}</b></td><td class="muted">${b.openedDate||b.date||''}</td><td>${ed?`<button class="sm green" onclick="openShiftLog('${b.id}')">Log shift output</button> <button class="sm ghost" onclick="closeBatch('${b.id}')">Close</button>${(((b.producedKg||0)-(b.packedKg||0))>0.5&&!b.reconciled)?` <button class="sm ghost" style="color:var(--amber)" onclick="openReconcile('${b.id}')">Reconcile</button>`:''}`:''}</td></tr>`;}).join('')+
       `</tbody></table></div>`:'<div class="muted">No open batches. Open one above to start logging shift production.</div>'));
   const cbCard = doneBatches.length?acard('prod_done','Production completed \u2014 at / over plan',`${doneBatches.length} ready to close / pack`,`<div style="overflow:auto"><table><thead><tr><th>Batch #</th><th>Product</th><th class="num">Planned</th><th class="num">Produced</th><th class="num">% plan</th><th>Opened</th><th style="width:250px"></th></tr></thead><tbody>`+
     doneBatches.map(b=>{const prod=b.producedKg||0,plan=b.plannedKg||0,pct=plan?Math.round(prod/plan*100):0;
       const prodName=b.kind==='po'?`${b.brand||''} <span class="muted" style="font-size:11px">${b.base||''} \u00b7 ${b.po||''}</span>`:`<span class="muted">${b.base||''}</span> <span class="pill" style="background:var(--navy-50);color:var(--navy)">bulk</span>`;
       const pill=prod>plan+0.5?`<span class="pill" style="background:var(--amber-50);color:var(--amber);font-size:8.5px;padding:1px 5px">over plan</span>`:`<span class="pill" style="background:var(--green-50,#e7f6ec);color:var(--green2,#1a7f37);font-size:8.5px;padding:1px 5px">at plan</span>`;
-      return `<tr><td><b>${b.batchNo||'\u2014'}</b></td><td>${prodName}</td><td class="num">${fmt(plan)}</td><td class="num">${fmt(prod)} ${pill}</td><td class="num">${pct}%</td><td class="muted">${b.openedDate||b.date||''}</td><td>${ed?`<button class="sm green" onclick="closeBatch('${b.id}')">Close batch \u2713</button> <button class="sm ghost" onclick="openShiftLog('${b.id}')">Log more (\u2264105%)</button>`:''}</td></tr>`;}).join('')+
+      return `<tr><td><b>${b.batchNo||'\u2014'}</b></td><td>${prodName}</td><td class="num">${fmt(plan)}</td><td class="num">${fmt(prod)} ${pill}</td><td class="num">${pct}%</td><td class="muted">${b.openedDate||b.date||''}</td><td>${ed?`<button class="sm green" onclick="closeBatch('${b.id}')">Close batch \u2713</button> <button class="sm ghost" onclick="openShiftLog('${b.id}')">Log more (\u2264105%)</button>${(((b.producedKg||0)-(b.packedKg||0))>0.5&&!b.reconciled)?` <button class="sm ghost" style="color:var(--amber)" onclick="openReconcile('${b.id}')">Reconcile</button>`:''}`:''}</td></tr>`;}).join('')+
     `</tbody></table></div>`):'';
   const logForm = prodMode==='po'
     ? `<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
@@ -1582,10 +1583,10 @@ function screenProd(){
    ${cbCard}
 
    ${acard('prod_bulk','Bulk base produced — pack into brands',`${openStock.length} base(s) ready`,`${openStock.length?`<div class="tscroll"><table><thead><tr><th>Batch ▸ base</th><th class="num">Produced</th><th class="num">Packed</th><th class="num">Open</th><th>Date</th><th style="width:80px"></th></tr></thead>
-       <tbody>${openStock.map(b=>`<tr><td><b>${b.batchNo||'\u2014'}</b><div class="muted" style="font-size:11px">${b.base}</div>${lotsClearedLabel(b)}</td><td class="num">${fmt(b.producedKg)}</td><td class="num">${fmt(b.packedKg)}</td><td class="num"><b>${fmt(batchPackableKg(b))}</b></td><td class="muted">${b.openedDate||b.closedDate||b.date||'\u2014'}</td><td>${ed?(batchLabApproved(b)?`<button class="sm" onclick="openPack('${b.id}')">Pack</button>`:`<span class="pill" style="background:var(--amber-50);color:var(--amber);font-size:9px">Lab QC pending</span>`):''}</td></tr>`).join('')}</tbody></table></div>`:'<div class="muted">No open to-stock bulk.</div>'}`)}
+       <tbody>${openStock.map(b=>`<tr><td><b>${b.batchNo||'\u2014'}</b><div class="muted" style="font-size:11px">${b.base}</div>${lotsClearedLabel(b)}</td><td class="num">${fmt(b.producedKg)}</td><td class="num">${fmt(b.packedKg)}</td><td class="num"><b>${fmt(batchPackableKg(b))}</b></td><td class="muted">${b.openedDate||b.closedDate||b.date||'\u2014'}</td><td>${ed?((batchLabApproved(b)?`<button class="sm" onclick="openPack('${b.id}')">Pack</button>`:`<span class="pill" style="background:var(--amber-50);color:var(--amber);font-size:9px">Lab QC pending</span>`)+(((b.producedKg||0)-(b.packedKg||0)>0.5&&!b.reconciled)?` <button class="sm ghost" style="color:var(--amber)" onclick="openReconcile('${b.id}')">Reconcile</button>`:'')):''}</td></tr>`).join('')}</tbody></table></div>`:'<div class="muted">No open to-stock bulk.</div>'}`)}
 
    ${acard('prod_orders','Orders in production',`${work.length} open · produced → packed → QC`,`${work.length?`<div class="tscroll"><table><thead><tr><th>PO</th><th>Product</th><th class="num">Ordered</th><th class="num">Produced</th><th class="num">Packed</th><th class="num">To produce</th><th class="num">To pack</th><th style="width:200px"></th></tr></thead>
-       <tbody>${work.map(({o,l})=>{const rp=Math.max(0,l.ordered-(l.produced||0)), rk=Math.max(0,(l.produced||0)-(l.packed||0));
+       <tbody>${work.map(({o,l})=>{const rp=Math.max(0,l.ordered-(l.produced||0)), rk=Math.max(0,(l.produced||0)-(l.packed||0)-(l.disposedKg||0));
          let acts='';
          if(rk>0.5&&ed){ const appr=lineApprovedProducedKg(o,l)-(l.packed||0); if(appr>0.5) acts+=`<button class="sm green" onclick="openProdQty('${o.id}','${l.id}','pack')">Pack…</button> `; else acts+=`<span class="pill" style="background:var(--amber-50);color:var(--amber);font-size:9px">Lab QC pending</span> `; }
          if((l.packed||0)>=l.ordered-0.5) acts+=`<span class="pill" style="background:var(--green-50);color:var(--green2)">Fully packed → QC</span>`;
@@ -1743,8 +1744,48 @@ function doCloseBatch(){ const b=(state.batches||[]).find(x=>x.id===closeForm.bi
   if(varn>0.001){ b.varianceNotify={to:'Plant Manager',date:d,ack:false}; (state.audit=state.audit||[]).unshift({t:new Date().toISOString(),user:state.role,module:'Production',field:'Batch closed — yield variance',po:b.po||'',brand:coaItemOf(b),old:fmt(plan),val:fmt(prod)+' ('+closeForm.reason+')',batchNo:b.batchNo||''}); }
   logAction(`Batch ${b.batchNo||''} closed at ${fmt(prod)}/${fmt(plan)} Kg/L`+(varn>0.001?` — variance ${fmt(varn)} (${closeForm.reason}) → Plant Manager notified`:''));
   save(); closeModal(); render(); toast('Batch closed'); }
+/* ===== Finish & reconcile a batch's unpacked remainder (loss / by-product / divert / rework) ===== */
+let recForm=null;
+function batchRemainderKg(b){ return Math.max(0,(+b.producedKg||0)-(+b.packedKg||0)); }
+function allBasesForRecon(){ const s=new Set(); try{ Object.values((typeof SEED!=='undefined'&&SEED.catalog&&SEED.catalog.brandsByClient)||{}).forEach(arr=>(arr||[]).forEach(x=>x&&x.base&&s.add(x.base))); }catch(e){} (state.batches||[]).forEach(b=>b&&b.base&&s.add(b.base)); ((state.masters&&state.masters.byproductRules)||[]).forEach(r=>{ if(r){ if(r.to)s.add(r.to); if(r.from)s.add(r.from); } }); return [...s].filter(Boolean).sort(); }
+function openReconcile(batchId){ if(!(canEdit(['Production'])||state.role==='COO')){toast('Production / COO only');return;} const b=(state.batches||[]).find(x=>x.id===batchId); if(!b)return; if(batchRemainderKg(b)<=0.5){toast('Nothing unpacked to reconcile on this batch');return;}
+  const sug=((state.masters&&state.masters.byproductRules)||[]).find(r=>r&&(r.from||'')===(b.base||''));
+  recForm={bid:batchId, loss:'', lossReason:'', items: sug?[{type:'byproduct',base:sug.to||'',kg:''}]:[]};
+  renderReconcile(); $('modalBg').classList.add('open'); }
+function recAddItem(t){ recForm.items.push({type:t||'divert',base:'',kg:''}); renderReconcile(); }
+function recDelItem(i){ recForm.items.splice(i,1); renderReconcile(); }
+function recAllocated(){ return (+recForm.loss||0)+(recForm.items||[]).reduce((a,it)=>a+(+it.kg||0),0); }
+function renderReconcile(){ const b=(state.batches||[]).find(x=>x.id===recForm.bid); if(!b){closeModal();return;} const rem=batchRemainderKg(b); const left=Math.round((rem-recAllocated())*100)/100;
+  const bases=allBasesForRecon(); const reasons=(state.masters&&state.masters.varianceReasons)||['Other']; const TYP={byproduct:'Off-spec → by-product',divert:'Divert to another product',rework:'Rework'};
+  const upd="{const e=document.getElementById('rec_left');if(e){const lf=Math.round(("+rem+"-recAllocated())*100)/100;e.textContent=fmt(lf)+' Kg/L';e.style.color=Math.abs(lf)<0.5?'var(--green2)':'var(--amber)';}}";
+  const itemRows=recForm.items.map((it,i)=>`<div class="prline" style="flex-wrap:wrap"><select onchange="recForm.items[${i}].type=this.value;renderReconcile()" style="max-width:210px">${Object.entries(TYP).map(([k,v])=>`<option value="${k}" ${it.type===k?'selected':''}>${v}</option>`).join('')}</select>${it.type==='rework'?`<span class="muted" style="font-size:11px;align-self:center">same product (${b.base||''})</span>`:`<select onchange="recForm.items[${i}].base=this.value" style="max-width:200px"><option value="">— product —</option>${bases.map(x=>`<option ${x===it.base?'selected':''}>${x}</option>`).join('')}</select>`}<input type="number" value="${it.kg}" placeholder="Kg/L" oninput="recForm.items[${i}].kg=this.value;${upd}" style="width:110px"><span class="x" onclick="recDelItem(${i})">✕</span></div>`).join('');
+  $('modal').innerHTML=`<div class="mh"><h2>Finish &amp; reconcile — ${b.base||coaItemOf(b)} ${b.batchNo||''}</h2><div class="sub">Produced ${fmt(b.producedKg||0)} · packed ${fmt(b.packedKg||0)} · <b>unpacked ${fmt(rem)} Kg/L</b> to account for</div></div>
+   <div class="mb"><div class="muted" style="font-size:12px;margin-bottom:10px">Account for the unpacked remainder. By-product / divert / rework quantities become a <b>new stock batch</b> of the chosen product (ready for its own QC, then packing). Loss is written off. The batch then closes.</div>
+     <div class="fld" style="max-width:340px;margin-bottom:8px"><label>Overfill / process loss (Kg/L)</label><input type="number" value="${recForm.loss}" oninput="recForm.loss=this.value;${upd}" placeholder="0" style="max-width:160px"></div>
+     ${(+recForm.loss>0)?`<div class="fld" style="max-width:340px;margin-bottom:10px"><label>Loss reason</label><select onchange="recForm.lossReason=this.value"><option value="">— reason —</option>${reasons.map(r=>`<option ${recForm.lossReason===r?'selected':''}>${r}</option>`).join('')}</select></div>`:''}
+     <div style="font-weight:700;font-size:12.5px;color:var(--navy);margin:6px 0 8px">Diverted material</div>
+     ${itemRows||'<div class="muted" style="font-size:12px;margin-bottom:6px">None yet — add a row if some material went to a by-product, another product, or rework.</div>'}
+     <div class="row" style="gap:6px;margin-top:6px"><button class="ghost sm" onclick="recAddItem('byproduct')">+ By-product</button><button class="ghost sm" onclick="recAddItem('divert')">+ Divert</button><button class="ghost sm" onclick="recAddItem('rework')">+ Rework</button></div>
+     <div class="calcrow" style="margin-top:12px">Unpacked <b>${fmt(rem)}</b> Kg/L · still to account: <b id="rec_left" style="color:${Math.abs(left)<0.5?'var(--green2)':'var(--amber)'}">${fmt(left)} Kg/L</b></div>
+   </div>
+   <div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" onclick="saveReconcile()">Reconcile &amp; close batch</button></div>`; }
+function saveReconcile(){ if(!(canEdit(['Production'])||state.role==='COO')){toast('Production / COO only');return;} const b=(state.batches||[]).find(x=>x.id===recForm.bid); if(!b)return; const rem=batchRemainderKg(b);
+  if(Math.abs(rem-recAllocated())>0.5){ toast('Account for the full unpacked quantity ('+fmt(rem)+' Kg/L) — still '+fmt(rem-recAllocated())+' unaccounted'); return; }
+  const loss=+recForm.loss||0; if(loss>0 && !recForm.lossReason){ toast('Pick a reason for the loss'); return; }
+  const items=(recForm.items||[]).filter(it=>(+it.kg||0)>0); for(const it of items){ if(it.type!=='rework' && !it.base){ toast('Pick a product for each diverted quantity'); return; } }
+  const d=TODAY.toISOString().slice(0,10); const created=[];
+  items.forEach(it=>{ const tgt=(it.type==='rework')?(b.base||''):it.base; const kg=+it.kg||0;
+    state.batches.unshift({id:'B'+(state.seq++),batchNo:'',kind:'bulk',type:'stock',base:tgt,brand:null,plannedKg:kg,producedKg:kg,packedKg:0,status:'open',openedDate:d,by:state.role,sourceBatch:b.id,disposition:it.type,rework:it.type==='rework',lots:[]});
+    created.push(it.type+' '+fmt(kg)+'→'+tgt); });
+  b.reconciled=true; b.reconciledDate=d; b.reconciledBy=(state.currentUser&&state.currentUser.name)||state.role; b.lossKg=loss; b.lossReason=recForm.lossReason||'';
+  b.packReconcile={loss,lossReason:recForm.lossReason||'',items:items.map(it=>({type:it.type,base:(it.type==='rework'?b.base:it.base),kg:+it.kg||0})),by:b.reconciledBy,date:d};
+  if(b.status!=='closed'){ b.status='closed'; b.closedDate=d; b.actualYield=b.producedKg||0; }
+  if(b.kind==='po' && b.lineId){ const o=state.orders.find(x=>x.po===b.po); const l=o&&o.lines.find(x=>x.id===b.lineId); if(l) l.disposedKg=(l.disposedKg||0)+rem; }
+  (state.audit=state.audit||[]).unshift({t:new Date().toISOString(),user:state.role,module:'Production',field:'Batch reconciled',po:b.po||'',brand:b.base||coaItemOf(b),old:fmt(rem)+' unpacked',val:'loss '+fmt(loss)+(created.length?(' · '+created.join(' · ')):''),batchNo:b.batchNo||''});
+  logAction(`Reconciled batch ${b.batchNo||b.base}: ${fmt(rem)} Kg/L unpacked (loss ${fmt(loss)}${created.length?(', '+created.join(', ')):''}) — batch closed`);
+  recForm=null; save(); closeModal(); render(); toast('Batch reconciled & closed'); }
 let pqForm={oid:null,lid:null,kind:'produce',qty:'',date:TODAY.toISOString().slice(0,10)};
-function maxFor(l,kind){ return kind==='produce'?Math.max(0,l.ordered-(l.produced||0)):Math.max(0,(l.produced||0)-(l.packed||0)); }
+function maxFor(l,kind){ return kind==='produce'?Math.max(0,l.ordered-(l.produced||0)):Math.max(0,(l.produced||0)-(l.packed||0)-(l.disposedKg||0)); }
 function openProdQty(oid,lid,kind){ pqForm={oid,lid,kind,qty:'',date:TODAY.toISOString().slice(0,10)}; renderProdQty(); $('modalBg').classList.add('open'); }
 function renderProdQty(){ const o=state.orders.find(x=>x.id===pqForm.oid); const l=o.lines.find(x=>x.id===pqForm.lid); const max=maxFor(l,pqForm.kind); const verb=pqForm.kind==='produce'?'Produce':'Pack';
   $('modal').innerHTML=`<div class="mh"><h2>${verb} — ${l.brand}</h2><div class="sub">${o.po} · ordered ${fmt(l.ordered)} · produced ${fmt(l.produced||0)} · packed ${fmt(l.packed||0)} Kg/L</div></div>
@@ -1824,7 +1865,7 @@ function coaTemplate(b){ const t=(state.masters&&state.masters.labTemplates)||{}
 function coaOverall(tests){ if(!tests||!tests.length) return ''; let unfit=false,nores=false,fit=false; for(const r of tests){ const rk=String(r.remark||'').toUpperCase().trim(); if(rk==='UNFIT'||rk==='NOT OK'||rk==='FAIL') unfit=true; else if(rk==='NO RESULT'||rk==='') nores=true; else if(rk==='FIT'||rk==='OK') fit=true; else nores=true; } if(unfit) return 'UNFIT'; if(nores) return 'NO RESULT'; return fit?'FIT':''; }
 function batchLabApproved(b){ if(!b)return false; const lots=(b.lots||[]); if(lots.length) return lots.some(l=>l.coa&&l.coa.status==='approved'); return !!(b.coa&&b.coa.status==='approved'); }
 function lotsClearedLabel(b){ const ls=(b&&b.lots)||[]; if(!ls.length) return ''; const ap=ls.filter(l=>l.coa&&l.coa.status==='approved').length; const col=ap===ls.length?'var(--green2)':(ap>0?'var(--amber)':'var(--mut)'); return `<div style="font-size:10px;color:${col};font-weight:600">${ap}/${ls.length} lot${ls.length===1?'':'s'} QC-cleared</div>`; }
-function batchPackableKg(b){ if(!b)return 0; const lots=(b.lots||[]); let cert=0; if(lots.length){ lots.forEach(l=>{ if(l.coa&&l.coa.status==='approved'){ const ck=(l.coa.certifiedKg!=null)?l.coa.certifiedKg:(l.qty||0); cert+=Math.min(l.qty||0,ck); } }); } else { cert=(b.coa&&b.coa.status==='approved')?((b.coa.certifiedKg!=null)?Math.min(b.producedKg||0,b.coa.certifiedKg):(b.producedKg||0)):0; } return Math.max(0,cert-(b.packedKg||0)); }
+function batchPackableKg(b){ if(!b||b.reconciled)return 0; const lots=(b.lots||[]); let cert=0; if(lots.length){ lots.forEach(l=>{ if(l.coa&&l.coa.status==='approved'){ const ck=(l.coa.certifiedKg!=null)?l.coa.certifiedKg:(l.qty||0); cert+=Math.min(l.qty||0,ck); } }); } else { cert=(b.coa&&b.coa.status==='approved')?((b.coa.certifiedKg!=null)?Math.min(b.producedKg||0,b.coa.certifiedKg):(b.producedKg||0)):0; } return Math.max(0,cert-(b.packedKg||0)); }
 function coaStatusPill(c){ if(!c) return '<span class="pill" style="background:var(--amber-50);color:var(--amber);font-size:9px">Lab QC pending</span>';
   const m={draft:['Draft','--mut'],analysed:['Analysed → AQCM','--navy'],reviewed:['Reviewed → QCM','--navy'],approved:['Approved ✓','--green2'],failed:['UNFIT → Plant Mgr','--red']}; const x=m[c.status]||['?','--mut'];
   return `<span class="pill" style="background:var(--navy-50);color:var(${x[1]});font-size:9px">${x[0]}</span>`; }
@@ -2615,6 +2656,13 @@ function viewOnly(owner,note){ return `<div class="viewonly">View-only — owned
 let _density=(function(){ try{ return localStorage.getItem('van_density')||'comfortable'; }catch(e){ return 'comfortable'; } })();
 function applyDensity(){ const app=document.getElementById('appShell'); if(!app)return; const on=_density==='compact'; app.classList.toggle('compact',on); const b=document.getElementById('densityBtn'); if(b){ b.textContent=on?'Comfortable':'Compact'; b.title=on?'Switch to comfortable spacing':'Switch to compact spacing'; } }
 function toggleDensity(){ _density=(_density==='compact')?'comfortable':'compact'; try{ localStorage.setItem('van_density',_density); }catch(e){} applyDensity(); }
+function byproductRules(){ return (state.masters&&state.masters.byproductRules)||[]; }
+function bprAdd(){ if(!(canEdit(['Plant Manager','Production'])||state.role==='COO')){toast('Plant Manager / COO only');return;} const f=(($('bpr_from')&&$('bpr_from').value)||'').trim(), t=(($('bpr_to')&&$('bpr_to').value)||'').trim(); if(!f||!t){toast('Pick both products');return;} if(f===t){toast('From and To must differ');return;} const arr=byproductRules(); if(arr.some(r=>r.from===f&&r.to===t)){toast('Rule already exists');return;} state.masters.byproductRules=arr.concat([{from:f,to:t}]); logAction('By-product rule added: off-spec '+f+' → '+t); save(); render(); }
+function bprDel(i){ if(!(canEdit(['Plant Manager','Production'])||state.role==='COO')){toast('Plant Manager / COO only');return;} const arr=byproductRules(); if(!arr[i])return; const r=arr[i]; arr.splice(i,1); logAction('By-product rule removed: '+r.from+' → '+r.to); save(); render(); }
+function byproductCard(ed){ const arr=byproductRules(); const bases=allBasesForRecon();
+  return acard('bpr','By-product / off-spec routing',`${arr.length} rule(s)`,`<div class="muted" style="font-size:12px;margin-bottom:10px">Where off-spec or diverted material goes when a batch is reconciled — e.g. <b>Sulfur Coated Urea</b> off-spec → <b>Nitro Sulfur</b>. The reconcile step auto-suggests the by-product. ${ed?'':'Owned by COO / Plant Manager.'}</div>
+   <div class="tscroll"><table><thead><tr><th>Off-spec of (product)</th><th></th><th>Becomes (by-product)</th>${ed?'<th style="width:40px"></th>':''}</tr></thead><tbody>${arr.length?arr.map((r,i)=>`<tr><td><b>${r.from}</b></td><td class="muted">→</td><td><b>${r.to}</b></td>${ed?`<td style="text-align:center"><span style="cursor:pointer;color:var(--red);font-weight:700" onclick="bprDel(${i})">&times;</span></td>`:''}</tr>`).join(''):`<tr><td colspan="${ed?4:3}" class="muted">No rules yet.</td></tr>`}</tbody></table></div>
+   ${ed?`<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:flex-end"><div class="fld" style="min-width:200px"><label>Off-spec of</label><select id="bpr_from"><option value="">— product —</option>${bases.map(x=>`<option>${x}</option>`).join('')}</select></div><div class="fld" style="min-width:200px"><label>Becomes</label><select id="bpr_to"><option value="">— by-product —</option>${bases.map(x=>`<option>${x}</option>`).join('')}</select></div><button class="sm" onclick="bprAdd()">+ Add rule</button></div>`:''}`); }
 function screenAdmin(){
   const ed=canEdit(['COO']);
   const lists=[['shifts','Shifts'],['incharges','Shift incharges'],['delayReasons','Delay reasons'],['respDepts','Responsible departments'],['priorities','Priorities'],['kamNames','KAM names'],['forms','Product forms'],['statuses','Statuses'],['varianceReasons','Yield variance reasons'],['downtimeReasons','Downtime reasons'],['focalPersons','Delivery focal persons (COBO / VGreen / Dealer)']];
@@ -2629,6 +2677,7 @@ function screenAdmin(){
    ${sec('Business masters &amp; data')}
    ${rmMasterCard(canEdit(['Supply Chain']))}
    ${recipeMasterCard(canEdit(['Plant Manager'])||state.role==='COO')}
+   ${byproductCard(canEdit(['Plant Manager','Production'])||state.role==='COO')}
    ${labTplCard(canEdit(['Lab Rep','AQCM','QCM']))}
    ${(state.role==='COO'||state.role==='CFO')?salesTargetCard():''}
    ${sec('Access control')}
@@ -2743,7 +2792,7 @@ function rpReset(){ rpfMonth='';rpfChannel='';rpfClient='';rpfPriority='';screen
 function rpMonths(){ const s=new Set(); state.orders.forEach(o=>{const m=(o.received||'').slice(0,7); if(m)s.add(m);}); (state.productionLog||[]).forEach(p=>{const m=(p.date||'').slice(0,7); if(m)s.add(m);}); return [...s].sort().reverse(); }
 function rpLines(){ const out=[]; state.orders.forEach(o=>{ if(rpfChannel&&o.channel!==rpfChannel)return; if(rpfClient&&o.client!==rpfClient)return; if(rpfPriority&&(o.priority||'Normal')!==rpfPriority)return; o.lines.forEach(l=>{ if(rpfMonth&&(o.received||'').slice(0,7)!==rpfMonth)return; out.push({o,l}); }); }); return out; }
 function rpDimVal(dim,o,l){ if(dim==='client')return o.client; if(dim==='channel')return o.channel; if(dim==='brand')return l.brand; if(dim==='base')return l.base; if(dim==='month')return (o.received||'').slice(0,7)||'—'; if(dim==='priority')return o.priority||'Normal'; if(dim==='stage')return lineStage(o,l); return '—'; }
-function rpMeasVal(meas,o,l){ const ord=l.ordered||0,pr=l.produced||0,pk=l.packed||0,dp=l.dispatched||0,dl=l.delivered||0; switch(meas){ case 'ordered':return ord; case 'produced':return pr; case 'packed':return pk; case 'dispatched':return dp; case 'delivered':return dl; case 'toproduce':return Math.max(0,ord-pr); case 'topack':return Math.max(0,pr-pk); case 'toship':return Math.max(0,pk-dp); case 'lines':return 1; } return 0; }
+function rpMeasVal(meas,o,l){ const ord=l.ordered||0,pr=l.produced||0,pk=l.packed||0,dp=l.dispatched||0,dl=l.delivered||0; switch(meas){ case 'ordered':return ord; case 'produced':return pr; case 'packed':return pk; case 'dispatched':return dp; case 'delivered':return dl; case 'toproduce':return Math.max(0,ord-pr); case 'topack':return Math.max(0,pr-pk-(l.disposedKg||0)); case 'toship':return Math.max(0,pk-dp); case 'lines':return 1; } return 0; }
 function rpFilterBar(){
   const ms=rpMonths(), chans=[...new Set(state.orders.map(o=>o.channel))].filter(Boolean).sort(), clients=[...new Set(state.orders.map(o=>o.client))].filter(Boolean).sort(), pris=['Critical','High','Normal','Low'];
   return `<div class="card" style="padding:12px 16px"><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">

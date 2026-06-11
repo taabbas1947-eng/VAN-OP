@@ -493,6 +493,8 @@ function ensureMasters(s){
   s.masters = s.masters || {};
   if(!s.masters.accessMatrix||typeof s.masters.accessMatrix!=='object') s.masters.accessMatrix={};
   if(!Array.isArray(s.masters.focalPersons)) s.masters.focalPersons=[];
+  s.masters.recipes=(s.masters.recipes&&typeof s.masters.recipes==='object')?s.masters.recipes:{};
+  { var _vamm={'MAP':0.51667,'TSP':0.33261,'Urea N-46%':0.15229,'Fume Silica':0.00667,'Ferrous Sulfate':0.00058,'Magnisium Sulfate Hepta Hydrate':0.00034,'Boric Acid':0.00033,'Copper Sulfate':0.00022}; if(!s.masters.recipes['V-Ammonium Phosphate']) s.masters.recipes['V-Ammonium Phosphate']=Object.assign({},_vamm); if(!s.masters.recipes['Max Phos']) s.masters.recipes['Max Phos']=Object.assign({},_vamm); }
   if(!s.masters.salesTargets||typeof s.masters.salesTargets!=='object') s.masters.salesTargets={};
   if(!Array.isArray(s.masters.varianceReasons)||!s.masters.varianceReasons.length) s.masters.varianceReasons=['Wastage','Raw-material moisture loss','Raw-material availability / shortage','Process / handling loss','Recipe / assay adjustment','Other'];
   if(!Array.isArray(s.masters.rawMaterials)||!s.masters.rawMaterials.length) s.masters.rawMaterials=(((typeof SEED!=='undefined'&&SEED.rawMaterials)||[]).map(r=>({name:r.name,cost:+r.cost||0})));
@@ -655,7 +657,7 @@ function startSync(){ if(_syncOn)return; _syncOn=true; setInterval(async ()=>{
 function needFor(order){ // {rm: kg}
   const need={};
   order.lines.forEach(l=>{
-    const rec = SEED.baseRecipes[l.base] || {};
+    const rec = recipeFor(l.base);
     for(const rm in rec){ need[rm]=(need[rm]||0) + l.ordered*rec[rm]; }
   });
   return need;
@@ -1429,7 +1431,7 @@ function closeDrawer(){ $('drawer').classList.remove('open'); $('drawerBg').clas
 /* ===================== RM CHECK / RAISE PR (manual) ===================== */
 function rmStatusPill(l){ const s=l.rmStatus||'pending'; const m={pending:['Not checked','--mut'],full:['In stock','--green'],partial:['Partial','--amber'],short:['Short — PR raised','--red'],received:['RM received','--green']}; const x=m[s]||m.pending; return pill(x[0],x[1]); }
 let rmForm={oid:null,lid:null,status:'full',canMake:'',lines:[]};
-function recipePrefill(o,l){ const rec=SEED.baseRecipes[l.base]; if(!rec) return []; const ks=Object.keys(rec); if(!ks.length||ks[0].startsWith('(')) return []; return ks.map(rm=>({rm,kg:Math.round((l.ordered||0)*rec[rm])})); }
+function recipePrefill(o,l){ const rec=recipeFor(l.base); if(!rec||!Object.keys(rec).length) return []; const ks=Object.keys(rec); if(!ks.length||ks[0].startsWith('(')) return []; return ks.map(rm=>({rm,kg:Math.round((l.ordered||0)*rec[rm])})); }
 function openRMCheck(oid,lid){ const o=state.orders.find(x=>x.id===oid); const l=o.lines.find(x=>x.id===lid);
   const pre=(l.pr&&l.pr.lines&&l.pr.lines.length)?l.pr.lines.map(x=>({rm:x.rm,kg:x.kg})):recipePrefill(o,l);
   rmForm={oid,lid,status:(l.rmStatus&&l.rmStatus!=='pending'?l.rmStatus:'full'),canMake:l.canMakeKg||'',lines:pre};
@@ -1441,7 +1443,7 @@ function rmDelLine(i){ rmForm.lines.splice(i,1); renderRMModal(); }
 function rmPrefill(){ const o=state.orders.find(x=>x.id===rmForm.oid);const l=o.lines.find(x=>x.id===rmForm.lid); const p=recipePrefill(o,l); if(p.length) rmForm.lines=p; renderRMModal(); }
 function renderRMModal(){ const o=state.orders.find(x=>x.id===rmForm.oid); const l=o.lines.find(x=>x.id===rmForm.lid);
   const rms=[...new Set([...(((state.masters&&state.masters.rawMaterials)||(typeof SEED!=='undefined'&&SEED.rawMaterials)||[]).map(r=>r.name)), ...Object.keys(state.rawStock||{}), ...((rmForm.lines||[]).map(x=>x.rm).filter(Boolean))])].sort();
-  const hasRecipe=(()=>{const r=SEED.baseRecipes[l.base];return r&&!Object.keys(r)[0].startsWith('(');})();
+  const hasRecipe=(()=>{const r=recipeFor(l.base);const k=Object.keys(r||{});return k.length&&!k[0].startsWith('(');})();
   const seg=`<div class="seg">
     <div class="opt full ${rmForm.status==='full'?'on':''}" onclick="rmSetStatus('full')"><span class="em">✅</span>In stock<span style="display:block;font-weight:500;font-size:10.5px">make full order</span></div>
     <div class="opt partial ${rmForm.status==='partial'?'on':''}" onclick="rmSetStatus('partial')"><span class="em">🟡</span>Partial<span style="display:block;font-weight:500;font-size:10.5px">make some now</span></div>
@@ -2038,7 +2040,7 @@ function openReceiveMaterials(oid,lid){
   const open=(state.prs||[]).filter(p=>p.status==='open');
   let mats=null, label='', noMat=false, pbrand='';
   if(recvScope){ const o=state.orders.find(x=>x.id===recvScope.oid); const l=o&&o.lines.find(x=>x.id===recvScope.lid);
-    if(l){ const rec=(typeof SEED!=='undefined'&&SEED.baseRecipes&&SEED.baseRecipes[l.base])||{}; const ks=Object.keys(rec).filter(k=>!k.startsWith('(')); mats=new Set(ks); noMat=(ks.length===0); pbrand=l.brand; label=' · for '+l.brand; } }
+    if(l){ const rec=recipeFor(l.base); const ks=Object.keys(rec).filter(k=>!k.startsWith('(')); mats=new Set(ks); noMat=(ks.length===0); pbrand=l.brand; label=' · for '+l.brand; } }
   const rel = mats ? open.filter(p=>mats.has(p.rm)) : open;
   const other = mats ? open.filter(p=>!mats.has(p.rm)) : [];
   const body = (rel.length?rel.map(recvPRCard).join(''):('<div class="muted" style="padding:6px 0">'+(noMat?('No recipe/materials defined for '+pbrand+' — nothing to receive here. Add its recipe in Master Data.'):(mats?'No open PR for these materials right now.':'No open PRs.'))+'</div>'))
@@ -2419,6 +2421,42 @@ function drawDash(){
 /* ===================== MONTHLY PRODUCTION (Bulk + PO) ===================== */
 let monthSel=null;
 /* ===================== ADMIN · MASTER DATA ===================== */
+function recipeFor(base){ const o=(state.masters&&state.masters.recipes&&state.masters.recipes[base]); if(o&&Object.keys(o).length) return o; return (typeof SEED!=='undefined'&&SEED.baseRecipes&&SEED.baseRecipes[base])||{}; }
+function allBases(){ const set=new Set(); try{ Object.values((typeof SEED!=='undefined'&&SEED.catalog&&SEED.catalog.brandsByClient)||{}).forEach(arr=>arr.forEach(b=>set.add(b.base||b.brand))); }catch(e){} Object.keys((typeof SEED!=='undefined'&&SEED.baseRecipes)||{}).forEach(b=>set.add(b)); Object.keys((state.masters&&state.masters.recipes)||{}).forEach(b=>set.add(b)); return [...set].filter(Boolean).sort(); }
+function recipeHas(base){ const r=recipeFor(base); const ks=Object.keys(r||{}).filter(k=>!k.startsWith('(')); return ks.length>0; }
+let recipeForm={base:'',rows:[]};
+function openRecipe(base){ if(!base){recipeForm={base:'',rows:[]};render();return;} const r=recipeFor(base); const ks=Object.keys(r||{}).filter(k=>!k.startsWith('(')); recipeForm={base, rows: ks.length?ks.map(k=>({rm:k,pct:r[k]})):[{rm:'',pct:''}]}; render(); }
+function recipeAddRow(){ recipeForm.rows.push({rm:'',pct:''}); render(); }
+function recipeDelRow(i){ recipeForm.rows.splice(i,1); if(!recipeForm.rows.length) recipeForm.rows=[{rm:'',pct:''}]; render(); }
+function recipeCopyFrom(base){ if(!base)return; const r=recipeFor(base); const ks=Object.keys(r||{}).filter(k=>!k.startsWith('(')); recipeForm.rows= ks.length?ks.map(k=>({rm:k,pct:r[k]})):[{rm:'',pct:''}]; toast('Copied recipe from '+base); render(); }
+function recipeSave(){ if(!(canEdit(['Plant Manager'])||state.role==='COO')){toast('Plant Manager / COO only');return;} const base=recipeForm.base; if(!base){toast('Pick a product');return;}
+  const obj={}; let newMat=0; const arr=(state.masters.rawMaterials=state.masters.rawMaterials||[]);
+  recipeForm.rows.forEach(r=>{ const rm=String(r.rm||'').trim(); const p=+r.pct; if(rm && p>0){ obj[rm]=p; if(!arr.some(x=>String(x.name||x)===rm)){ arr.push({name:rm,cost:0}); newMat++; } } });
+  state.masters.recipes=state.masters.recipes||{}; state.masters.recipes[base]=obj;
+  logAction(`Recipe ${Object.keys(obj).length?'set ('+Object.keys(obj).length+' materials)':'cleared'} for ${base}${newMat?' — '+newMat+' new material(s) added to master':''}`);
+  save(); toast('Recipe saved for '+base); }
+function recipeMasterCard(ed){
+  const bases=allBases(); const sel=recipeForm.base;
+  const rmNames=((state.masters&&state.masters.rawMaterials)||[]).map(x=>String(x.name||x));
+  const dl=`<datalist id="rm_dl">${rmNames.map(n=>`<option value="${n.replace(/"/g,'&quot;')}">`).join('')}</datalist>`;
+  const pick=`<select onchange="openRecipe(this.value)" style="max-width:340px"><option value="">— pick a product to view / edit —</option>${bases.map(b=>`<option value="${b.replace(/"/g,'&quot;')}" ${b===sel?'selected':''}>${b}${recipeHas(b)?' ✓':' — no recipe'}</option>`).join('')}</select>`;
+  let editor='';
+  if(sel){
+    const rows=recipeForm.rows.map((r,i)=>`<tr><td><input list="rm_dl" value="${String(r.rm||'').replace(/"/g,'&quot;')}" oninput="recipeForm.rows[${i}].rm=this.value" placeholder="raw material" ${ed?'':'disabled'}></td><td style="width:130px"><input class="num" type="number" step="0.0001" value="${r.pct||''}" oninput="recipeForm.rows[${i}].pct=this.value" placeholder="kg/kg" ${ed?'':'disabled'}></td><td style="width:28px">${ed?`<span class="x" style="cursor:pointer;color:var(--red);font-weight:700" onclick="recipeDelRow(${i})">×</span>`:''}</td></tr>`).join('');
+    const tot=recipeForm.rows.reduce((a,r)=>a+(+r.pct||0),0);
+    const others=bases.filter(b=>b!==sel&&recipeHas(b));
+    editor=`<div style="border-top:1px solid var(--line);margin-top:10px;padding-top:10px"><div style="font-weight:700;margin-bottom:6px">${sel} — materials per Kg of product</div>
+      <div style="overflow:auto"><table><thead><tr><th>Raw material</th><th class="num">kg per kg</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
+      <div class="muted" style="font-size:11px;margin-top:6px">Total ≈ <b>${tot.toFixed(4)}</b> kg of materials per Kg produced.</div>
+      ${ed?`<div class="row" style="margin-top:9px;flex-wrap:wrap"><button class="sm" onclick="recipeAddRow()">+ material</button>
+        <select onchange="recipeCopyFrom(this.value);this.value=''" style="max-width:230px"><option value="">copy recipe from another product…</option>${others.map(b=>`<option value="${b.replace(/"/g,'&quot;')}">${b}</option>`).join('')}</select>
+        <button class="sm green" style="margin-left:auto" onclick="recipeSave()">Save recipe</button></div>
+        <div class="muted" style="font-size:11px;margin-top:6px">New materials you type are added to the <b>Raw materials</b> master automatically.</div>`:'<div class="muted" style="font-size:11px;margin-top:6px">Owned by COO / Plant Manager.</div>'}</div>`;
+  }
+  return `<div class="card"><h3>Product recipes <span class="hint">${bases.length} products · ${bases.filter(recipeHas).length} with recipe</span></h3>
+    <div class="muted" style="font-size:12px;margin-bottom:10px">The bill of materials per product (kg of each raw material per Kg produced) — drives <b>RM Check → PR → Receive</b>. ${ed?'Pick a product to add or <b>override</b> its recipe.':''}</div>
+    ${dl}${pick}${editor}</div>`;
+}
 function screenAdmin(){
   const ed=canEdit(['COO']);
   const lists=[['shifts','Shifts'],['incharges','Shift incharges'],['delayReasons','Delay reasons'],['respDepts','Responsible departments'],['priorities','Priorities'],['kamNames','KAM names'],['forms','Product forms'],['statuses','Statuses'],['varianceReasons','Yield variance reasons'],['downtimeReasons','Downtime reasons'],['focalPersons','Delivery focal persons (COBO / VGreen / Dealer)']];
@@ -2427,6 +2465,7 @@ function screenAdmin(){
    ${ed?'':`<div class="banner warn">Owned by <b>COO / Admin</b>. You're <b>${state.role}</b> — viewing only.</div>`}
    ${sec('Business masters')}
    ${rmMasterCard(canEdit(['Supply Chain']))}
+   ${recipeMasterCard(canEdit(['Plant Manager'])||state.role==='COO')}
    ${labTplCard(canEdit(['Lab Rep','AQCM','QCM']))}
    ${(state.role==='COO'||state.role==='CFO')?salesTargetCard():''}
    ${sec('Reference lists — dropdown values')}

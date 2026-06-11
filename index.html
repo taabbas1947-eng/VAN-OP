@@ -143,6 +143,7 @@ td.skufirst{padding-left:10px;box-shadow:inset 3px 0 0 var(--navy)}
 .filterbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-left:auto}
 .fixedtbl{table-layout:fixed}
 .fixedtbl td,.fixedtbl th{overflow:hidden;text-overflow:ellipsis}
+.tscroll{overflow:auto;max-width:100%}
 .fixedtbl input,.fixedtbl select{width:100%;padding:7px 8px}
 /* ---------- drawer ---------- */
 .drawer-bg{position:fixed;inset:0;background:rgba(17,30,66,.42);display:none;z-index:50;backdrop-filter:blur(2px)}
@@ -259,7 +260,7 @@ td.skufirst{padding-left:10px;box-shadow:inset 3px 0 0 var(--navy)}
 .chip.on{background:var(--navy);color:#fff;border-color:var(--navy)}
 .ordrow{border:1px solid var(--line);border-radius:12px;margin-bottom:9px;background:#fff;box-shadow:var(--sh-sm)}
 .ohead{display:grid;grid-template-columns:1.1fr 1.7fr 0.9fr 1fr 1.4fr 0.9fr 1.4fr;gap:14px;align-items:center;padding:13px 16px;cursor:pointer}
-.ohead>div{min-width:0;overflow:hidden}
+.ohead>div{min-width:0;overflow:hidden;text-overflow:ellipsis}
 .ohead:hover{background:var(--panel2)}
 .ordrow .chev{display:inline-flex;width:20px;height:20px;align-items:center;justify-content:center;border-radius:6px;background:var(--navy-50);color:var(--navy);font-size:10px}
 .rbadge{display:inline-flex;align-items:center;font-size:11px;font-weight:700;padding:3px 9px;border-radius:7px;background:var(--navy-50);color:var(--navy);border:1px solid var(--navy-100)}
@@ -1260,8 +1261,8 @@ function screenDealers(){
      <button style="margin-top:12px" ${ed?'':'disabled'} onclick="addDealer()">+ Confirm &amp; add dealer</button>
    </div>
    <div class="card"><h3>Dealers <span class="hint">${state.dealers.length}</span></h3>
-     <table><thead><tr><th>Code</th><th>Name</th><th>Region</th><th>City</th><th>Contact</th><th>Credit</th><th>Status</th></tr></thead>
-     <tbody>${state.dealers.map(d=>`<tr><td><b>${d.code}</b></td><td>${d.name}</td><td>${d.region}</td><td>${d.city}</td><td class="muted">${d.contact||'—'}</td><td>${d.creditDays||0}d</td><td>${pill(d.status||'Confirmed','--green')}</td></tr>`).join('')}</tbody></table></div>`;
+     <div class="tscroll"><table><thead><tr><th>Code</th><th>Name</th><th>Region</th><th>City</th><th>Contact</th><th>Credit</th><th>Status</th></tr></thead>
+     <tbody>${state.dealers.map(d=>`<tr><td><b>${d.code}</b></td><td>${d.name}</td><td>${d.region}</td><td>${d.city}</td><td class="muted">${d.contact||'—'}</td><td>${d.creditDays||0}d</td><td>${pill(d.status||'Confirmed','--green')}</td></tr>`).join('')}</tbody></table></div></div>`;
 }
 function addDealer(){
   if(!canEdit(['KAM'])){toast('Only KAM can onboard dealers');return;}
@@ -1335,8 +1336,8 @@ function orderCard(o){
   const barcol=f>=100?'var(--green)':(f>0?'var(--blue)':'#cdd6e4');
   const nextAct=delivered?'<span class="muted" style="font-size:11px">No action</span>':`<span class="rbadge">${m.owner}</span>`;
   return `<div class="ordrow"><div class="ohead clk" onclick="openOrder('${o.id}')">
-    <div style="font-size:10.5px;color:var(--mut)">${o.po}</div>
-    <div style="font-weight:600;font-size:12.5px;line-height:1.2">${o.client}${priorityPill(o.priority)}</div>
+    <div style="font-size:10.5px;color:var(--mut);white-space:nowrap" title="${o.po}">${o.po}</div>
+    <div style="font-weight:600;font-size:12.5px;line-height:1.2;white-space:nowrap" title="${(o.client||'').replace(/"/g,'&quot;')}">${o.client}${priorityPill(o.priority)}</div>
     <div><div class="muted" style="font-size:9px;text-transform:uppercase;letter-spacing:.4px">Ordered</div><b style="font-size:12px">${fmt(a.ordered)} Kg/L</b></div>
     <div><div class="muted" style="font-size:9px;text-transform:uppercase;letter-spacing:.4px">Stage</div>${pill(b,m.c)}${mixed?' <span class="pill" style="background:var(--amber-50);color:var(--amber);font-size:9px;padding:1px 6px">Mixed</span>':''}</div>
     <div><div class="muted" style="font-size:9px;text-transform:uppercase;letter-spacing:.4px">Fulfilment</div><div style="display:flex;align-items:center;gap:7px"><div class="pbar" style="flex:1"><i style="width:${Math.min(100,f)}%;background:${barcol}"></i></div><b style="font-size:11.5px">${f}%</b></div></div>
@@ -1368,8 +1369,8 @@ function screenTracker(){
   const rows=list.length?list.map(o=>orderCard(o)).join(''):'<div class="empty"><div class="ei">∅</div>No orders match this filter.</div>';
   $('view').innerHTML=`
     <div class="banner info" style="margin-bottom:14px">This screen shows <b>where each order is standing</b>. <b>Click any PO</b> to open its full record in a window. Orders are sorted new at the top, delivered at the bottom.</div>
-    <div class="card"><h3>Order flow <span class="hint">how many orders sit at each stage</span></h3>${flow}</div>
-    <div class="card"><h3>Needs attention <span class="hint">tap a card to filter the list</span></h3>${attn}</div>
+    ${acard('trk_flow','Order flow','how many orders sit at each stage',`${flow}`)}
+    ${acard('trk_attn','Needs attention','tap a card to filter the list',`${attn}`)}
     <div class="card"><h3>Orders <span class="hint">${list.length} shown</span></h3>${chipbar}<div>${rows}</div></div>`;
 }
 
@@ -1469,7 +1470,7 @@ function renderRMModal(){ const o=state.orders.find(x=>x.id===rmForm.oid); const
     body+=`<button class="ghost sm" style="margin-top:4px" onclick="rmAddLine()">+ Add raw material</button>`;
   }
   $('modal').innerHTML=`<div class="mh"><h2>RM Check — ${l.brand}</h2><div class="sub">${o.po} · ${o.client} · ${fmt(l.ordered)} Kg/L to make · base: ${l.base}</div></div>
-   <div class="mb">${seg}${body}<div class="muted" style="font-size:11px;margin-top:14px">Recording only — stock balances are not changed here. Actual receipts are handled in Sowaan.</div></div>
+   <div class="mb">${seg}${body}<div class="muted" style="font-size:11px;margin-top:14px">Recording only — stock balances are not changed here. Actual material receipt is booked against the PR as a GRN (after CFO approval) in My Actions.</div></div>
    <div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="${rmForm.status==='full'?'green':''}" onclick="rmSubmit()">${rmForm.status==='full'?'Confirm — materials ready':'Raise PR'}</button></div>`;
 }
 function rmSubmit(){ const o=state.orders.find(x=>x.id===rmForm.oid); const l=o.lines.find(x=>x.id===rmForm.lid); const today=TODAY.toISOString().slice(0,10);
@@ -1500,6 +1501,9 @@ function screenProd(){
   const psEntries=Object.entries(state.packedStock||{}).filter(([k,v])=>v>0.5).sort((a,b)=>b[1]-a[1]);
   const allocs=[]; state.orders.forEach(o=>o.lines.forEach(l=>{ const av=(state.packedStock&&state.packedStock[l.brand])||0; if(av>0.5 && (l.packed||0)<l.ordered-0.5 && stageOf(o)!=='Delivered') allocs.push({o,l,av}); }));
   const recent=state.productionLog.slice(0,15);
+  const _plRows=(state.productionLog||[]).map((p,idx)=>({_i:idx,date:p.date||'',prod:((p.brand?p.brand+' ':'')+(p.base||'')+(p.po?(' · '+p.po):'')).trim(),base:p.base||'',brand:p.brand||'',po:p.po||'',kg:p.kg||0,shift:p.shift||'',incharge:p.incharge||'',by:p.by||''}));
+  const _plOpt={placeholder:'Search product, PO, shift, incharge, by…',searchKeys:['prod','shift','incharge','by','po','base','brand'],dateKey:'date',pageSize:20};
+  const _pl=regFilter('prodlog',_plRows,_plOpt);
   const openBatches=(state.batches||[]).filter(b=>b.status==='open' && (b.plannedKg>0 ? (b.producedKg||0) < b.plannedKg-0.001 : true));
   const doneBatches=(state.batches||[]).filter(b=>b.status==='open' && b.plannedKg>0 && (b.producedKg||0) >= b.plannedKg-0.001);
   const obCard=`<div class="card"><h3>Open batches <span class="hint">${openBatches.length} open</span></h3>`+
@@ -1541,12 +1545,11 @@ function screenProd(){
    ${obCard}
    ${cbCard}
 
-   <div class="card"><h3>Bulk base produced — pack into brands <span class="hint">${openStock.length} base(s) ready</span></h3>
-     ${openStock.length?`<table><thead><tr><th>Batch ▸ base</th><th class="num">Produced</th><th class="num">Packed</th><th class="num">Open</th><th>Date</th><th style="width:80px"></th></tr></thead>
-       <tbody>${openStock.map(b=>`<tr><td><b>${b.batchNo||'\u2014'}</b><div class="muted" style="font-size:11px">${b.base}</div>${lotsClearedLabel(b)}</td><td class="num">${fmt(b.producedKg)}</td><td class="num">${fmt(b.packedKg)}</td><td class="num"><b>${fmt(batchPackableKg(b))}</b></td><td class="muted">${b.openedDate||b.closedDate||b.date||'\u2014'}</td><td>${ed?(batchLabApproved(b)?`<button class="sm" onclick="openPack('${b.id}')">Pack</button>`:`<span class="pill" style="background:var(--amber-50);color:var(--amber);font-size:9px">Lab QC pending</span>`):''}</td></tr>`).join('')}</tbody></table>`:'<div class="muted">No open to-stock bulk.</div>'}</div>
+   ${acard('prod_bulk','Bulk base produced — pack into brands',`${openStock.length} base(s) ready`,`${openStock.length?`<div class="tscroll"><table><thead><tr><th>Batch ▸ base</th><th class="num">Produced</th><th class="num">Packed</th><th class="num">Open</th><th>Date</th><th style="width:80px"></th></tr></thead>
+       <tbody>${openStock.map(b=>`<tr><td><b>${b.batchNo||'\u2014'}</b><div class="muted" style="font-size:11px">${b.base}</div>${lotsClearedLabel(b)}</td><td class="num">${fmt(b.producedKg)}</td><td class="num">${fmt(b.packedKg)}</td><td class="num"><b>${fmt(batchPackableKg(b))}</b></td><td class="muted">${b.openedDate||b.closedDate||b.date||'\u2014'}</td><td>${ed?(batchLabApproved(b)?`<button class="sm" onclick="openPack('${b.id}')">Pack</button>`:`<span class="pill" style="background:var(--amber-50);color:var(--amber);font-size:9px">Lab QC pending</span>`):''}</td></tr>`).join('')}</tbody></table></div>`:'<div class="muted">No open to-stock bulk.</div>'}`)}
 
    <div class="card"><h3>Orders in production <span class="hint">${work.length} open · produced → packed → QC</span></h3>
-     ${work.length?`<table><thead><tr><th>PO</th><th>Product</th><th class="num">Ordered</th><th class="num">Produced</th><th class="num">Packed</th><th class="num">To produce</th><th class="num">To pack</th><th style="width:200px"></th></tr></thead>
+     ${work.length?`<div class="tscroll"><table><thead><tr><th>PO</th><th>Product</th><th class="num">Ordered</th><th class="num">Produced</th><th class="num">Packed</th><th class="num">To produce</th><th class="num">To pack</th><th style="width:200px"></th></tr></thead>
        <tbody>${work.map(({o,l})=>{const rp=Math.max(0,l.ordered-(l.produced||0)), rk=Math.max(0,(l.produced||0)-(l.packed||0));
          let acts='';
          if(rk>0.5&&ed){ const appr=lineApprovedProducedKg(o,l)-(l.packed||0); if(appr>0.5) acts+=`<button class="sm green" onclick="openProdQty('${o.id}','${l.id}','pack')">Pack…</button> `; else acts+=`<span class="pill" style="background:var(--amber-50);color:var(--amber);font-size:9px">Lab QC pending</span> `; }
@@ -1556,17 +1559,15 @@ function screenProd(){
          return `<tr><td><b>${o.po}</b></td><td>${l.brand} <span class="muted" style="font-size:11px">${l.base}</span></td>
            <td class="num">${fmt(l.ordered)}</td><td class="num">${fmt(l.produced||0)}</td><td class="num">${fmt(l.packed||0)}</td>
            <td class="num"><b style="color:${rp>0?'var(--amber)':'var(--mut)'}">${fmt(rp)}</b></td><td class="num"><b style="color:${rk>0?'var(--amber)':'var(--mut)'}">${fmt(rk)}</b></td>
-           <td>${acts}</td></tr>`;}).join('')}</tbody></table>`:'<div class="muted">No orders in production.</div>'}</div>
+           <td>${acts}</td></tr>`;}).join('')}</tbody></table></div>`:'<div class="muted">No orders in production.</div>'}</div>
 
-   ${(psEntries.length||allocs.length)?`<div class="card"><h3>Packed &amp; ready <span class="hint">finished goods available for orders</span></h3>
-     ${psEntries.length?`<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:${allocs.length?'14px':'0'}">${psEntries.map(([b,v])=>`<span class="pill" style="background:var(--green-50);color:var(--green2);border:1px solid #bbe3c8">${b}: ${fmt(v)} Kg/L</span>`).join('')}</div>`:''}
-     ${allocs.length?`<table><thead><tr><th>PO</th><th>Product</th><th class="num">Needed</th><th class="num">In stock</th><th style="width:160px"></th></tr></thead>
-       <tbody>${allocs.map(a=>{const need=a.l.ordered-(a.l.packed||0);return `<tr><td><b>${a.o.po}</b></td><td>${a.l.brand}</td><td class="num">${fmt(need)}</td><td class="num">${fmt(a.av)}</td><td>${ed?`<button class="sm" onclick="allocateStock('${a.o.id}','${a.l.id}')">Allocate ${fmt(Math.min(a.av,need))} Kg/L</button>`:''}</td></tr>`;}).join('')}</tbody></table>`:''}
-     </div>`:''}
+   ${(psEntries.length||allocs.length)?acard('prod_packed','Packed &amp; ready','finished goods available for orders',`${psEntries.length?`<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:${allocs.length?'14px':'0'}">${psEntries.map(([b,v])=>`<span class="pill" style="background:var(--green-50);color:var(--green2);border:1px solid #bbe3c8">${b}: ${fmt(v)} Kg/L</span>`).join('')}</div>`:''}
+     ${allocs.length?`<div class="tscroll"><table><thead><tr><th>PO</th><th>Product</th><th class="num">Needed</th><th class="num">In stock</th><th style="width:160px"></th></tr></thead>
+       <tbody>${allocs.map(a=>{const need=a.l.ordered-(a.l.packed||0);return `<tr><td><b>${a.o.po}</b></td><td>${a.l.brand}</td><td class="num">${fmt(need)}</td><td class="num">${fmt(a.av)}</td><td>${ed?`<button class="sm" onclick="allocateStock('${a.o.id}','${a.l.id}')">Allocate ${fmt(Math.min(a.av,need))} Kg/L</button>`:''}</td></tr>`;}).join('')}</tbody></table></div>`:''}
+     `):''}
 
-   <div class="card"><h3>Daily output log <span class="hint">${state.productionLog.length} entries</span></h3>
-     <div style="max-height:230px;overflow:auto"><table><thead><tr><th style="width:120px">Date</th><th>Base / product</th><th class="num" style="width:100px">Kg/L</th><th style="width:90px">Shift</th><th style="width:120px">Incharge</th><th style="width:100px">By</th>${state.role==='COO'?'<th style="width:90px"></th>':''}</tr></thead>
-       <tbody>${recent.length?recent.map((p,i)=>`<tr><td class="muted">${p.date}</td><td>${p.brand?(p.brand+' '):''}<span class="muted">${p.base}</span>${p.po?(' · '+p.po):''}</td><td class="num">${fmt(p.kg)}</td><td class="muted">${p.shift||'—'}</td><td class="muted">${p.incharge||'—'}</td><td class="muted">${p.by}</td>${state.role==='COO'?`<td><button class="sm ghost" onclick="voidProdEntry(${i})">✕ remove</button></td>`:''}</tr>`).join(''):`<tr><td colspan="${state.role==='COO'?7:6}" class="muted">No output logged.</td></tr>`}</tbody></table></div></div>`;
+   ${acard('prod_log','Daily output log',`${state.productionLog.length} entries`,`${regBar('prodlog',_plOpt,_pl.total)}<div class="tscroll" style="max-height:52vh"><table><thead><tr><th style="width:120px">Date</th><th>Base / product</th><th class="num" style="width:100px">Kg/L</th><th style="width:90px">Shift</th><th style="width:120px">Incharge</th><th style="width:100px">By</th>${state.role==='COO'?'<th style="width:90px"></th>':''}</tr></thead>
+       <tbody>${_pl.view.length?_pl.view.map(p=>`<tr><td class="muted">${p.date}</td><td>${p.brand?(p.brand+' '):''}<span class="muted">${p.base}</span>${p.po?(' · '+p.po):''}</td><td class="num">${fmt(p.kg)}</td><td class="muted">${p.shift||'—'}</td><td class="muted">${p.incharge||'—'}</td><td class="muted">${p.by}</td>${state.role==='COO'?`<td><button class="sm ghost" onclick="voidProdEntry(${p._i})">✕ remove</button></td>`:''}</tr>`).join(''):`<tr><td colspan="${state.role==='COO'?7:6}" class="muted">No output logged.</td></tr>`}</tbody></table></div>${regPager('prodlog',_pl.pages)}`)}`;
 }
 /* COO-only: remove a mistaken production entry. Reverses the produced quantity
    (clamped so it never drops below what's already packed) and deletes the log row.

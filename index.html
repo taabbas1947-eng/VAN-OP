@@ -2045,6 +2045,15 @@ function openDelayReason(oid,lid){ const o=state.orders.find(x=>x.id===oid); con
   $('modal').innerHTML=`<div class="mh"><h2>Delay reason</h2><div class="sub">${o.po} · ${l.brand}</div></div><div class="mb"><div class="formgrid" style="grid-template-columns:1fr 1fr"><div class="fld"><label>Delay reason</label><select onchange="delayForm.reason=this.value"><option value="">— pick —</option>${rs.map(r=>`<option ${r===delayForm.reason?'selected':''}>${r}</option>`).join('')}</select></div><div class="fld"><label>Responsible dept</label><select onchange="delayForm.dept=this.value"><option value="">— pick —</option>${ds.map(d=>`<option ${d===delayForm.dept?'selected':''}>${d}</option>`).join('')}</select></div></div></div><div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" onclick="submitDelayReason()">Save</button></div>`;
   $('modalBg').classList.add('open'); }
 function submitDelayReason(){ const o=state.orders.find(x=>x.id===delayForm.oid); const l=o&&o.lines.find(x=>x.id===delayForm.lid); if(!l)return; if(!delayForm.reason){toast('Pick a delay reason');return;} l.delayReason=delayForm.reason; l.respDept=delayForm.dept||l.respDept; logAction(`Delay reason set ${o.po} · ${l.brand}: ${delayForm.reason}${delayForm.dept?(' / '+delayForm.dept):''}`); save(); closeModal(); render(); }
+function pmDelayLabel(o,l,lb){
+  if(l.delayReason) return null;
+  const due=l.committed||o.promised; if(!due) return null;
+  const t=new Date(due); if(isNaN(t)) return null;
+  const past=Math.round((TODAY-t)/86400000);        // >0 overdue · 0 due today · <0 due-in
+  const behind=(lb!=='Shipment'&&lb!=='Delivered'); // still has production/QC/packing work
+  if(past>0 || (past>=-3 && behind)) return past>0?('Overdue '+past+'d'):(past===0?'Due today':('Due in '+(-past)+'d'));
+  return null;
+}
 function actionItems(){
   const items=[];
   (state.orders||[]).forEach(o=>{
@@ -2057,7 +2066,7 @@ function actionItems(){
       if(l.prRaised && !l.rmReady && l.rmStatus!=='received') items.push({role:'Supply Chain',o,l,what:'Receive raw materials (GRN, partial OK)',act:`openReceiveMaterials('${o.id}','${l.id}')`,label:'Receive'});
       if(rmAllows(l)>0 && (l.produced||0) < Math.min(l.ordered, rmAllows(l))-0.5) items.push({role:'Production',o,l,what:'Produce '+l.brand+' \u2014 '+o.po,act:"gotoScreen('prod')",label:'Open Production'});
       if(l.qcPass && (l.dispatched||0)<(l.packed||0)-0.5) items.push({role:'Supply Chain',o,l,what:'Ship '+l.brand+' \u2014 '+o.po,act:`openShip('${o.id}','${l.id}')`,label:'Ship'});
-      if(od && !l.delayReason) items.push({role:'Plant Manager',o,l,what:'Add delay reason',act:`openDelayReason('${o.id}','${l.id}')`,label:'Add reason'});
+      { const _pl=pmDelayLabel(o,l,lb); if(_pl) items.push({role:'Plant Manager',o,l,what:_pl+' \u2014 add delay reason ('+l.brand+')',act:`openDelayReason('${o.id}','${l.id}')`,label:'Add reason'}); }
     });
   });
   (state.prs||[]).filter(p=>p.status==='open'&&!p.cfoApproved).forEach(p=>items.push({role:'CFO',pr:p,what:'Approve PR — '+p.rm+' '+fmt(p.qtyRequired)+' Kg/L',act:"cfoApprovePR('"+p.id+"')",label:'Approve PR'}));

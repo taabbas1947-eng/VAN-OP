@@ -605,6 +605,7 @@ async function bootState(){
   else { const a=$('authScreen'),sh=$('appShell'); if(sh)sh.style.display='none'; if(a){ a.style.display='flex'; renderLogin('Server data looks incomplete \u2014 not overwriting. Please refresh.'); } setTimeout(bootState,4000); return; }
   sessionInit(state); restoreSession(); renderApp(); startSync();
 }
+function recoverLocalAdditions(local, srv, keys){ let n=0; (keys||['orders','batches','prs','packingLog','shiftEntries','shipments']).forEach(k=>{ const sIds=new Set((srv[k]||[]).map(x=>x&&x.id).filter(Boolean)); (local[k]||[]).forEach(it=>{ if(it&&it.id&&!sIds.has(it.id)){ srv[k]=srv[k]||[]; srv[k].unshift(it); n++; } }); }); return n; }
 function save(){ if(_saveTimer)clearTimeout(_saveTimer); _saveTimer=setTimeout(saveNow,400); }
 async function saveNow(){ if(!_token) return; try{
     const r=await fetch('/api/state',{method:'POST',headers:Object.assign({'Content-Type':'application/json','X-Base-Rev':String(_rev)},authHdr()),body:JSON.stringify(dataOnly(state))});
@@ -613,7 +614,14 @@ async function saveNow(){ if(!_token) return; try{
       // Someone else saved since we loaded. Do NOT overwrite their data — pull the latest
       // and ask the user to re-enter their last change. Protects committed data from loss.
       const j=await r.json().catch(()=>null);
-      if(j && j.data && j.data.orders){ const cu=state.currentUser, sc=state.screen, ro=state.role, ex=state.expanded; state=ensureState(j.data); state.currentUser=cu; state.role=ro; state.screen=sc; state.expanded=ex||{}; _rev=j.rev; if(authed()) render(); }
+      if(j && j.data && j.data.orders){
+        const local=state; const srv=ensureState(j.data);
+        const recovered=recoverLocalAdditions(local, srv);   // keep records WE just created (additive, no overwrite)
+        const cu=state.currentUser, sc=state.screen, ro=state.role, ex=state.expanded;
+        state=srv; state.currentUser=cu; state.role=ro; state.screen=sc; state.expanded=ex||{}; _rev=j.rev;
+        if(recovered>0){ toast(recovered+' new record(s) you just added were kept — re-saving.'); if(authed()) render(); save(); return; }
+        if(authed()) render();
+      }
       toast('Someone else just saved — screen refreshed. Please re-enter your last change.');
       return;
     }

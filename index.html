@@ -82,6 +82,18 @@ button:disabled{opacity:.45;cursor:not-allowed;transform:none;box-shadow:none}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px;margin-bottom:14px;box-shadow:var(--sh-sm)}
 .card h3{font-size:14px;margin-bottom:14px;color:var(--txt);font-weight:700;display:flex;align-items:center;letter-spacing:-.02em}
 .card h3 .hint{font-weight:500;color:var(--mut);font-size:11.5px;margin-left:auto}
+.acard{padding:0;overflow:hidden}
+.acard>summary{list-style:none;cursor:pointer;padding:12px 18px;display:flex;align-items:center;gap:9px;font-size:14px;font-weight:700;color:var(--txt);letter-spacing:-.02em;user-select:none}
+.acard>summary::-webkit-details-marker{display:none}
+.acard>summary::before{content:"\25B8";color:var(--navy);font-size:11px;transition:transform .12s;flex:none}
+.acard[open]>summary::before{transform:rotate(90deg)}
+.acard>summary:hover{background:var(--navy-50)}
+.acard>summary .hint{font-weight:500;color:var(--mut);font-size:11.5px;margin-left:auto}
+.acard[open]>summary{border-bottom:1px solid var(--line)}
+.acard>.acard-body{padding:14px 18px 16px}
+.acard .acard-body table td,.acard .acard-body table th{padding:5px 8px}
+.acard .acard-body input,.acard .acard-body select{padding:5px 8px;font-size:12px}
+.acard .acard-body input.num{width:120px}
 .kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:14px}
 .kpi{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:13px 15px;box-shadow:var(--sh-sm);position:relative;overflow:hidden;transition:.16s}
 .kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--navy),#5b8def)}
@@ -2115,7 +2127,7 @@ function screenInstructions(){
    {n:'1',title:'Sign in & find your to-do list',who:'Everyone',when:'before anything',tab:'Login → My Actions',
     body:'Sign in with a <b>username + password</b>. <b>Everyone can view every screen</b>, but you can only <b>add or edit</b> on the screens your role owns. Your personal worklist is <b>My Actions</b> — it always shows the exact items waiting on <b>you</b>. The COO manages people in <b>Users &amp; Access</b>.'},
    {n:'2',title:'Enter the order',who:'KAM',when:'when a customer PO arrives',tab:'New PO Entry',
-    body:'Pick <b>Channel → Client</b>, add each <b>brand</b> with quantity in <b>Kg/L</b> (the system shows the <b>pack count</b> automatically) and a <b>committed date</b>. The <b>price to print on the pack</b> is mandatory — you confirm and lock it. Submit drops the order into the <b>PO Tracker</b> at <b>"PO Created"</b>, and an <b>Acknowledge &amp; RM Check</b> task appears for Supply Chain.'},
+    body:'Pick <b>Channel → Client</b>, add each <b>brand</b> with quantity in <b>Kg/L</b> (the system shows the <b>pack count</b> automatically) and a <b>committed date</b>. The <b>price to print on the pack</b> is mandatory — you confirm and lock it. For <b>COBO, VGreen &amp; Dealer</b> orders, also pick the <b>delivery focal person</b>. Submit drops the order into the <b>PO Tracker</b> at <b>"PO Created"</b>, and an <b>Acknowledge &amp; RM Check</b> task appears for Supply Chain.'},
    {n:'3',title:'Acknowledge & RM Check',who:'Supply Chain',when:'right after the PO is created',tab:'My Actions',
     body:'From <b>My Actions</b>: <b>Acknowledge</b> the PO, then run <b>RM Check</b>. <b>Full</b> material → production is unlocked. <b>Partial / short</b> → production can make the available quantity and the system <b>raises a Purchase Request (PR)</b> for the shortfall.'},
    {n:'4',title:'PR → CFO approval → receive material',who:'Supply Chain + CFO',when:'when material is short',tab:'My Actions',
@@ -2164,13 +2176,37 @@ function screenInstructions(){
    ['QC · Pre-shipment','Lab, AQCM, QCM + QA Inspector','Batch COA (3-step sign-off) + per-lot QA inspection','gates Packing &amp; Shipments'],
    ['Shipments','Supply Chain','Record dispatch (Kg/L + packs); closes products &amp; PO','→ PO Tracker'],
    ['Reports / Batch Trace','All','Slice all data; base ▸ brand batch trace','—'],
-   ['Admin · Master Data','COO','Shifts, incharges, downtime reasons, KAM names','—'],
+   ['Admin · Master Data','COO (+ Plant Manager: recipes; Lab/QC: COA templates)','Reference lists (dropdowns) on top; then Raw materials, <b>Product recipes</b>, Lab COA templates, sales targets &amp; the access-control matrix','—'],
    ['Data Fix','COO (setup only)','Back-fill / correct records to match reality','temporary'],
    ['Users &amp; Access','COO','Add people, set role &amp; password','—'],
    ['Action Log','All','Timestamped audit trail','—'],
   ];
+  const roleGuide=[
+   {role:'KAM',works:'New PO Entry · Dealer Master',own:'Create customer / dealer / COBO / VGreen POs — brand, qty (Kg/L → packs), committed date, mandatory <b>print price</b>, and the <b>delivery focal person</b>. Onboard dealers (auto code).',trig:'A customer PO arrives',hands:'Supply Chain'},
+   {role:'Supply Chain',works:'My Actions · Shipments',own:'Acknowledge the PO, run <b>RM Check</b> (full / partial), <b>raise a PR</b> for any shortfall, <b>receive material by GRN</b>, and record each <b>dispatch</b>.',trig:'PO Created · CFO-approved PR',hands:'Production · Delivery'},
+   {role:'CFO',works:'My Actions · Admin',own:'<b>Approve Purchase Requests</b> — material can&rsquo;t be received until you approve. Own <b>client annual sales targets</b> and <b>invoice pricing</b>.',trig:'A PR is raised',hands:'Supply Chain'},
+   {role:'Production',works:'Production',own:'Open batches (PO or Bulk Base, batch # <b>unique per FY</b>), <b>log shift output</b> — <b>each shift = a lot</b>, then <b>pack</b> base into the client brand with a <b>brand batch #</b> + price verify. Every kg stays <b>base ▸ brand</b> traceable.',trig:'RM ready · QCM-approved COA (to pack)',hands:'Lab · QA'},
+   {role:'Plant Manager',works:'Production · Admin · Master Data',own:'Own <b>product recipes</b> — add / override the BOM (kg per kg); a new material auto-adds to the Raw-materials master. Handle <b>UNFIT</b> batches (deviation / rework) and set <b>delay reason + responsible dept</b> on late orders.',trig:'UNFIT COA · overdue order · recipe gap',hands:'Production · Lab'},
+   {role:'Lab Rep',works:'QC · Pre-shipment',own:'Fill the <b>COA (QCL-FRM-12.03)</b> per production batch — sample fields + each test Result / Remark — then submit for review. <b>Auto-signed, timestamped.</b>',trig:'A batch has output',hands:'AQCM'},
+   {role:'AQCM',works:'QC · Pre-shipment',own:'<b>Review</b> the analyst&rsquo;s COA (auto-signed + timestamped).',trig:'Analyst submits COA',hands:'QCM'},
+   {role:'QCM',works:'QC · Pre-shipment',own:'<b>Final COA approval.</b> Only a QCM-approved batch can be packed; <b>UNFIT → Plant Manager</b>.',trig:'AQCM review done',hands:'Production (packing)'},
+   {role:'QA Inspector',works:'QC · Pre-shipment',own:'<b>Inspect each packed lot</b> (checklist + inspector name). Only QA-passed lots can ship.',trig:'A lot is packed',hands:'Supply Chain (ship)'},
+   {role:'COO',works:'Everything · Admin · Users · Data Fix',own:'Full oversight. Own <b>Master Data</b> (reference lists, recipes, lab templates, <b>access-control matrix</b>), <b>user accounts</b>, and go-live <b>Data Fix</b>.',trig:'Anytime / setup',hands:'—'},
+  ];
+  const myRoles=roleGuide.filter(r=>r.role===state.role||(state.role==='COO'));
+  const mine=roleGuide.find(r=>r.role===state.role);
+  const youCard=`<div class="card" style="border:1.5px solid var(--navy);background:var(--navy-50)"><h3 style="color:var(--navy)">Your role at a glance — ${state.role}${state.role==='COO'?' (full access)':''}</h3>
+     ${mine?`<div style="font-size:13px;line-height:1.7"><b>Where you work:</b> ${mine.works}<br><b>What you own / do:</b> ${mine.own}<br><b>Starts when:</b> ${mine.trig} &nbsp;·&nbsp; <b>Then hands off to:</b> ${mine.hands}</div>`
+       :`<div style="font-size:13px;line-height:1.7">You can <b>view every screen</b>. The full responsibility matrix below shows what each role owns. Your personal to-do list is always <b>My Actions</b>.</div>`}
+     ${state.role==='COO'?'<div style="font-size:12px;color:var(--mut);margin-top:8px">As COO you can act on every stage and own all of Master Data, Users &amp; Data Fix — the matrix below is what each role owns day-to-day.</div>':''}</div>`;
+  const roleMatrix=`<div class="card"><h3>Role responsibility matrix <span class="hint">who owns what · ${roleGuide.length} roles</span></h3>
+     <div style="font-size:12px;color:var(--mut);margin-bottom:8px">Each role edits only its own screens; <b>everyone</b> can view the PO Tracker and works from <b>My Actions</b>. Read each row as "this role does X, then hands the order to the next role."</div>
+     <div style="overflow:auto"><table><thead><tr><th>Role</th><th>Works in</th><th>What it owns / does</th><th>Starts when</th><th>Hands to</th></tr></thead>
+       <tbody>${roleGuide.map(r=>`<tr${r.role===state.role?' style="background:var(--navy-50)"':''}><td style="white-space:nowrap"><b>${r.role}</b>${r.role===state.role?' <span class="tag">you</span>':''}</td><td class="muted" style="font-size:11.5px;white-space:nowrap">${r.works}</td><td style="font-size:12.5px;line-height:1.55">${r.own}</td><td class="muted" style="font-size:11.5px">${r.trig}</td><td class="muted" style="font-size:11.5px;white-space:nowrap">${r.hands}</td></tr>`).join('')}</tbody></table></div></div>`;
   $('view').innerHTML=`
-   <div class="banner info"><b>VAN Order Control Tower — how the whole system works.</b> This guide is for <b>everyone</b>, whatever your role or access. One customer order flows from entry to delivery; each role does its part from <b>My Actions</b>, and the <b>PO Tracker</b> shows the whole picture. Read the steps in order, then use the two tables below to see what finishes each stage and what to check if something looks stuck.</div>
+   <div class="banner info"><b>VAN Order Control Tower — how the whole system works.</b> This guide is for <b>everyone</b>, whatever your role or access. One customer order flows from entry to delivery; each role does its part from <b>My Actions</b>, and the <b>PO Tracker</b> shows the whole picture. Start with <b>your role at a glance</b> and the <b>responsibility matrix</b>, then read the steps in order.</div>
+   ${youCard}
+   ${roleMatrix}
    <div class="card"><h3>The process, step by step</h3>
      ${steps.map(s=>`<div style="display:flex;gap:15px;padding:14px 0;border-top:1px solid var(--line2)">
         <div style="flex-shrink:0;width:32px;height:32px;border-radius:50%;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px">${s.n}</div>
@@ -2219,6 +2255,7 @@ function screenInstructions(){
        <tr><td>PO &amp; print price · committed date</td><td><span class="pill" style="background:var(--navy-50);color:var(--navy)">KAM</span></td></tr>
        <tr><td>Acknowledge · RM Check · RM Ready · Receive (GRN)</td><td><span class="pill" style="background:var(--navy-50);color:var(--navy)">Supply Chain</span></td></tr>
        <tr><td>PR approval</td><td><span class="pill" style="background:var(--navy-50);color:var(--navy)">CFO</span></td></tr>
+       <tr><td>Product recipe / BOM (Master Data)</td><td><span class="pill" style="background:#ffefdc;color:#8a5712">Plant Manager · COO</span></td></tr>
        <tr><td>Batch · shift output · Prod Start / Complete</td><td><span class="pill" style="background:var(--navy-50);color:var(--navy)">Production</span></td></tr>
        <tr><td>Brand batch # · print-price verify (packing)</td><td><span class="pill" style="background:var(--navy-50);color:var(--navy)">Production</span></td></tr>
        <tr><td>Lab COA (batch) · QA (lot)</td><td><span class="pill" style="background:var(--navy-50);color:var(--navy)">Analyst → AQCM → QCM · QA Inspector</span></td></tr>
@@ -2453,29 +2490,30 @@ function recipeMasterCard(ed){
         <button class="sm green" style="margin-left:auto" onclick="recipeSave()">Save recipe</button></div>
         <div class="muted" style="font-size:11px;margin-top:6px">New materials you type are added to the <b>Raw materials</b> master automatically.</div>`:'<div class="muted" style="font-size:11px;margin-top:6px">Owned by COO / Plant Manager.</div>'}</div>`;
   }
-  return `<div class="card"><h3>Product recipes <span class="hint">${bases.length} products · ${bases.filter(recipeHas).length} with recipe</span></h3>
-    <div class="muted" style="font-size:12px;margin-bottom:10px">The bill of materials per product (kg of each raw material per Kg produced) — drives <b>RM Check → PR → Receive</b>. ${ed?'Pick a product to add or <b>override</b> its recipe.':''}</div>
-    ${dl}${pick}${editor}</div>`;
+  return acard('recipe','Product recipes',`${bases.length} products · ${bases.filter(recipeHas).length} with recipe`,`<div class="muted" style="font-size:12px;margin-bottom:10px">The bill of materials per product (kg of each raw material per Kg produced) — drives <b>RM Check → PR → Receive</b>. ${ed?'Pick a product to add or <b>override</b> its recipe.':''}</div>
+    ${dl}${pick}${editor}`);
 }
+let admCollapse={};
+function admRemember(k,isOpen){ admCollapse[k]=!isOpen; }
+function acard(key,title,hint,body){ const open=!admCollapse[key];
+  return `<details class="card acard" ${open?'open':''} ontoggle="admRemember('${key}',this.open)"><summary>${title}${hint?`<span class="hint">${hint}</span>`:''}</summary><div class="acard-body">${body}</div></details>`; }
 function screenAdmin(){
   const ed=canEdit(['COO']);
   const lists=[['shifts','Shifts'],['incharges','Shift incharges'],['delayReasons','Delay reasons'],['respDepts','Responsible departments'],['priorities','Priorities'],['kamNames','KAM names'],['forms','Product forms'],['statuses','Statuses'],['varianceReasons','Yield variance reasons'],['downtimeReasons','Downtime reasons'],['focalPersons','Delivery focal persons (COBO / VGreen / Dealer)']];
   const sec=t=>`<div style="font-size:12.5px;font-weight:800;color:var(--navy);letter-spacing:.4px;margin:20px 2px 9px;padding-bottom:6px;border-bottom:2px solid var(--navy-100)">${t}</div>`;
   $('view').innerHTML=`
    ${ed?'':`<div class="banner warn">Owned by <b>COO / Admin</b>. You're <b>${state.role}</b> — viewing only.</div>`}
-   ${sec('Business masters')}
+   ${sec('Reference lists — dropdown values')}
+   <div class="banner info">These lists power every dropdown in the app. Add a value and it appears wherever that field is used — no code change needed. Each list is collapsible — open the ones you use.</div>
+   <div class="row">
+   ${lists.map(([k,label])=>{const vals=(state.masters&&state.masters[k])||[];
+     return `<div style="flex:1;min-width:300px">${acard('ref_'+k,label,`${vals.length}`,`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:11px">${vals.length?vals.map((v,idx)=>`<span class="pill" style="background:var(--navy-50);color:var(--navy);border:1px solid var(--navy-100);display:inline-flex;align-items:center;gap:7px">${v}${ed?`<span style="cursor:pointer;color:var(--mut)" title="rename" onclick="editMaster('${k}',${idx})">&#9998;</span><span style="cursor:pointer;color:var(--red);font-weight:700" title="delete" onclick="delMaster('${k}',${idx})">&times;</span>`:''}</span>`).join(''):'<span class="muted" style="font-size:12px">none yet</span>'}</div>${ed?`<div style="display:flex;gap:8px"><input type="text" id="adm_${k}" placeholder="add value…" style="flex:1"><button class="sm" onclick="addMaster('${k}')">Add</button></div>`:''}`)}</div>`;}).join('')}
+   </div>
+   ${sec('Business masters &amp; data')}
    ${rmMasterCard(canEdit(['Supply Chain']))}
    ${recipeMasterCard(canEdit(['Plant Manager'])||state.role==='COO')}
    ${labTplCard(canEdit(['Lab Rep','AQCM','QCM']))}
    ${(state.role==='COO'||state.role==='CFO')?salesTargetCard():''}
-   ${sec('Reference lists — dropdown values')}
-   <div class="banner info">These lists power every dropdown in the app. Add a value and it appears wherever that field is used — no code change needed.</div>
-   <div class="row">
-   ${lists.map(([k,label])=>{const vals=(state.masters&&state.masters[k])||[];
-     return `<div class="card" style="flex:1;min-width:300px"><h3>${label} <span class="hint">${vals.length}</span></h3>
-       <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:11px">${vals.length?vals.map((v,idx)=>`<span class="pill" style="background:var(--navy-50);color:var(--navy);border:1px solid var(--navy-100);display:inline-flex;align-items:center;gap:7px">${v}${ed?`<span style="cursor:pointer;color:var(--mut)" title="rename" onclick="editMaster('${k}',${idx})">&#9998;</span><span style="cursor:pointer;color:var(--red);font-weight:700" title="delete" onclick="delMaster('${k}',${idx})">&times;</span>`:''}</span>`).join(''):'<span class="muted" style="font-size:12px">none yet</span>'}</div>
-       ${ed?`<div style="display:flex;gap:8px"><input type="text" id="adm_${k}" placeholder="add value…" style="flex:1"><button class="sm" onclick="addMaster('${k}')">Add</button></div>`:''}</div>`;}).join('')}
-   </div>
    ${sec('Access control')}
    ${accessMatrixCard()}`;
 }
@@ -2484,11 +2522,10 @@ function accessMatrixCard(){ const isCOO=state.role==='COO';
   const ids=NAV_ORDER.filter(id=>scr(id));
   const m=(state.masters&&state.masters.accessMatrix)||{};
   const chip=(role,id,kind,on)=>`<span onclick="${isCOO?`amxToggle('${role}','${id}','${kind}')`:''}" title="${kind==='v'?'View tab':'Edit on tab'} — ${on?'allowed (click to block)':'BLOCKED (click to restore)'}" style="display:inline-block;width:20px;text-align:center;border-radius:5px;font-size:9.5px;font-weight:800;padding:2px 0;cursor:${isCOO?'pointer':'default'};background:${on?'#e7f6ec':'#fdecea'};color:${on?'#1a7f37':'#c0392b'}">${kind.toUpperCase()}</span>`;
-  return `<div class="card" style="margin-top:14px"><h3>Access control matrix <span class="hint">role × screen — clickable</span></h3>
-    <div class="muted" style="font-size:12px;margin-bottom:10px">Click <b>V</b> (see the tab) or <b>E</b> (edit on it) to block or restore access per role. <b>Green = allowed, red = blocked.</b> The matrix only <b>restricts</b> — it never grants edit beyond the role's own rights, and workflow signatures (CFO, AQCM, QCM, Plant Manager) always stay with their role. COO always has full access. Changes apply on the user's next screen change / refresh.</div>
+  return acard('amx','Access control matrix','role × screen — clickable',`<div class="muted" style="font-size:12px;margin-bottom:10px">Click <b>V</b> (see the tab) or <b>E</b> (edit on it) to block or restore access per role. <b>Green = allowed, red = blocked.</b> The matrix only <b>restricts</b> — it never grants edit beyond the role's own rights, and workflow signatures (CFO, AQCM, QCM, Plant Manager) always stay with their role. COO always has full access. Changes apply on the user's next screen change / refresh.</div>
     <div style="overflow:auto"><table><thead><tr><th>Screen</th>${roles.map(r=>`<th style="font-size:10px;white-space:nowrap">${r}</th>`).join('')}</tr></thead><tbody>
     ${ids.map(id=>{const sc=scr(id);return `<tr><td style="white-space:nowrap"><b>${sc.name}</b></td>${roles.map(r=>{const o=(m[r]&&m[r][id])||{}; return `<td style="white-space:nowrap">${chip(r,id,'v',o.v!==false)} ${chip(r,id,'e',o.e!==false)}</td>`;}).join('')}</tr>`;}).join('')}
-    </tbody></table></div></div>`; }
+    </tbody></table></div>`); }
 function amxToggle(role,id,kind){ if(state.role!=='COO'){toast('COO only');return;}
   state.masters.accessMatrix=state.masters.accessMatrix||{}; const m=state.masters.accessMatrix;
   m[role]=m[role]||{}; m[role][id]=m[role][id]||{}; const cell=m[role][id];
@@ -2521,15 +2558,13 @@ function saveBulkPricing(){ if(!(state.role==='COO'||state.role==='CFO')){toast(
 function salesTargetSet(){ if(!(state.role==='COO'||state.role==='CFO')){toast('COO / CFO only');return;} const c=stForm.client; const a=+stForm.amt||0; if(!c){toast('Pick a client');return;} const fy=fyKey(TODAY.toISOString().slice(0,10)); state.masters.salesTargets=state.masters.salesTargets||{}; state.masters.salesTargets[c]=state.masters.salesTargets[c]||{}; if(a>0) state.masters.salesTargets[c][fy]=a; else delete state.masters.salesTargets[c][fy]; logAction(`Sales target ${a>0?('set '+pkr(a)):'cleared'} for ${c} (FY ${fy})`); stForm={client:'',amt:''}; save(); render(); }
 function salesTargetCard(){ const fy=fyKey(TODAY.toISOString().slice(0,10)); const t=(state.masters&&state.masters.salesTargets)||{}; const cls=budgetClients();
   const have=cls.filter(c=>t[c]&&+t[c][fy]>0);
-  return `<div class="card" style="margin-top:14px"><h3>Client annual sales targets <span class="hint">${fyRange(fy)} · COO/CFO</span></h3>
-    <div class="muted" style="font-size:12px;margin-bottom:10px">Set each client's annual target (PKR) for the current financial year (Jul–Jun). Drives the <b>Sales & Budget</b> screen. Hidden from operational roles.</div>
+  return acard('starget','Client annual sales targets',`${fyRange(fy)} · COO/CFO`,`<div class="muted" style="font-size:12px;margin-bottom:10px">Set each client's annual target (PKR) for the current financial year (Jul–Jun). Drives the <b>Sales & Budget</b> screen. Hidden from operational roles.</div>
     <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:12px">
       <div class="fld" style="min-width:240px"><label>Client</label><select onchange="stForm.client=this.value"><option value="">— pick client —</option>${cls.map(c=>`<option ${c===stForm.client?'selected':''}>${c}</option>`).join('')}</select></div>
       <div class="fld" style="min-width:160px"><label>Annual target (PKR)</label><input type="number" value="${stForm.amt}" oninput="stForm.amt=this.value" placeholder="e.g. 50000000"></div>
       <button class="sm" onclick="salesTargetSet()">Set target</button>
     </div>
-    ${have.length?`<div style="overflow:auto"><table><thead><tr><th>Client</th><th class="num">Annual target</th><th></th></tr></thead><tbody>${have.map(c=>`<tr><td>${c}</td><td class="num"><b>${pkr(t[c][fy])}</b></td><td><button class="sm ghost" onclick="stForm={client:'${c.replace(/'/g,"\\'")}',amt:'${t[c][fy]}'};render()">Edit</button></td></tr>`).join('')}</tbody></table></div>`:'<div class="muted">No targets set yet.</div>'}
-  </div>`; }
+    ${have.length?`<div style="overflow:auto"><table><thead><tr><th>Client</th><th class="num">Annual target</th><th></th></tr></thead><tbody>${have.map(c=>`<tr><td>${c}</td><td class="num"><b>${pkr(t[c][fy])}</b></td><td><button class="sm ghost" onclick="stForm={client:'${c.replace(/'/g,"\\'")}',amt:'${t[c][fy]}'};render()">Edit</button></td></tr>`).join('')}</tbody></table></div>`:'<div class="muted">No targets set yet.</div>'}`); }
 function rmMaster(){ return (state.masters&&state.masters.rawMaterials)||[]; }
 function rmCanEdit(){ return canEdit(['Supply Chain']); }
 function rmMasterAdd(){ if(!rmCanEdit()){toast('COO / Supply Chain only');return;} const nm=(($('rm_new_name')&&$('rm_new_name').value)||'').trim(); const cost=+(($('rm_new_cost')&&$('rm_new_cost').value)||0)||0; if(!nm){toast('Enter a material name');return;} const arr=rmMaster(); if(arr.some(r=>(r.name||'').toLowerCase()===nm.toLowerCase())){toast('Already exists');return;} state.masters.rawMaterials=arr.concat([{name:nm,cost}]); logAction('Raw material added: '+nm+(cost?(' @ PKR '+cost+'/Kg'):'')); save(); render(); }
@@ -2537,13 +2572,11 @@ function rmMasterCost(i,v){ if(!rmCanEdit())return; const arr=rmMaster(); if(!ar
 function rmMasterRename(i,v){ if(!rmCanEdit())return; const arr=rmMaster(); if(!arr[i])return; const nm=(v||'').trim(); if(!nm)return; if(arr.some((r,j)=>j!==i&&(r.name||'').toLowerCase()===nm.toLowerCase())){toast('Name already exists');render();return;} const old=arr[i].name; arr[i].name=nm; logAction('Raw material renamed: '+old+' → '+nm); save(); }
 function rmMasterDel(i){ if(!rmCanEdit()){toast('COO / Supply Chain only');return;} const arr=rmMaster(); const r=arr[i]; if(!r)return; if(!typeNameToConfirm('Delete raw material \"'+r.name+'\" from the master list')) return; arr.splice(i,1); logAction('Raw material removed: '+r.name); save(); render(); }
 function rmMasterCard(ed){ const arr=rmMaster();
-  return `<div class="card" style="margin-top:14px"><h3>Raw materials <span class="hint">${arr.length} · COO / Supply Chain</span></h3>
-   <div class="muted" style="font-size:12px;margin-bottom:10px">Master list of raw materials used in RM Check, PRs and recipes. ${ed?'Add new materials (e.g. MKP) below.':''} A new material starts at <b>0 stock</b> until received via a GRN.</div>
+  return acard('rm','Raw materials',`${arr.length} · COO / Supply Chain`,`<div class="muted" style="font-size:12px;margin-bottom:10px">Master list of raw materials used in RM Check, PRs and recipes. ${ed?'Add new materials (e.g. MKP) below.':''} A new material starts at <b>0 stock</b> until received via a GRN.</div>
    <div style="overflow:auto;max-height:360px"><table><thead><tr><th>Material</th><th class="num">Cost (PKR/Kg)</th>${ed?'<th style="width:40px"></th>':''}</tr></thead><tbody>
    ${arr.slice().sort((a,b)=>String(a.name).localeCompare(b.name)).map(r=>{const i=arr.indexOf(r);return `<tr><td>${ed?`<input type="text" value="${String(r.name||'').replace(/"/g,'&quot;')}" onchange="rmMasterRename(${i},this.value)" style="width:100%">`:String(r.name||'')}</td><td class="num">${ed?`<input type="number" value="${r.cost||0}" onchange="rmMasterCost(${i},this.value)" style="width:120px">`:fmt(r.cost||0)}</td>${ed?`<td style="text-align:center"><span style="cursor:pointer;color:var(--red);font-weight:700" title="delete" onclick="rmMasterDel(${i})">&times;</span></td>`:''}</tr>`;}).join('')}
    </tbody></table></div>
-   ${ed?`<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap"><input type="text" id="rm_new_name" placeholder="new material name (e.g. MKP)" style="flex:1;min-width:220px"><input type="number" id="rm_new_cost" placeholder="cost PKR/Kg (optional)" style="width:170px"><button class="sm" onclick="rmMasterAdd()">+ Add material</button></div>`:''}
-  </div>`; }
+   ${ed?`<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap"><input type="text" id="rm_new_name" placeholder="new material name (e.g. MKP)" style="flex:1;min-width:220px"><input type="number" id="rm_new_cost" placeholder="cost PKR/Kg (optional)" style="width:170px"><button class="sm" onclick="rmMasterAdd()">+ Add material</button></div>`:''}`); }
 let labTplForm={product:''};
 function labTpls(){ return (state.masters&&state.masters.labTemplates)||{}; }
 function labTplPick(p){ labTplForm.product=p; render(); }
@@ -2555,8 +2588,7 @@ function labTplDelProduct(){ if(!canEdit(['Lab Rep','AQCM','QCM'])){toast('Lab /
 function labTplEsc(x){ return String(x==null?'':x).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
 function labTplCard(ed){
   const t=labTpls(); const prods=Object.keys(t).sort(); const p=labTplForm.product; const rows=(p&&t[p])||[];
-  return `<div class="card" style="margin-top:14px"><h3>Lab test templates (COA) <span class="hint">${prods.length} product(s)</span></h3>
-    <div class="muted" style="font-size:12px;margin-bottom:10px">Defines the COA tests, specs, methods &amp; MU per product. The Lab QC form loads these for the batch's product; the lab fills only Result + Remark. Name the product exactly as its base/brand.</div>
+  return acard('labtpl','Lab test templates (COA)',`${prods.length} product(s)`,`<div class="muted" style="font-size:12px;margin-bottom:10px">Defines the COA tests, specs, methods &amp; MU per product. The Lab QC form loads these for the batch's product; the lab fills only Result + Remark. Name the product exactly as its base/brand.</div>
     <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:12px">
       <div class="fld" style="min-width:240px"><label>Product</label><select onchange="labTplPick(this.value)"><option value="">— pick product —</option>${prods.map(x=>`<option ${x===p?'selected':''}>${labTplEsc(x)}</option>`).join('')}</select></div>
       ${ed?`<button class="sm" onclick="labTplNewProduct()">+ New product</button>`:''}
@@ -2572,8 +2604,7 @@ function labTplCard(ed){
         ${ed?`<td><span style="cursor:pointer;color:var(--red);font-weight:700" title="delete row" onclick="labTplDelRow(${i})">&times;</span></td>`:''}
       </tr>`).join(''):`<tr><td colspan="6" class="muted">No tests yet — add rows below.</td></tr>`}
     </tbody></table></div>
-    ${ed?`<div style="margin-top:10px;display:flex;gap:8px"><button class="sm" onclick="labTplAddRow('Physical')">+ Physical test</button><button class="sm" onclick="labTplAddRow('Chemical')">+ Chemical test</button></div>`:''}`:'<div class="muted">Pick a product to view or edit its template, or add a new one.</div>'}
-  </div>`;
+    ${ed?`<div style="margin-top:10px;display:flex;gap:8px"><button class="sm" onclick="labTplAddRow('Physical')">+ Physical test</button><button class="sm" onclick="labTplAddRow('Chemical')">+ Chemical test</button></div>`:''}`:'<div class="muted">Pick a product to view or edit its template, or add a new one.</div>'}`);
 }
 function addMaster(k){ const el=$('adm_'+k); const v=(el&&el.value||'').trim(); if(!v)return;
   state.masters[k]=state.masters[k]||[]; if(state.masters[k].includes(v)){toast('Already exists');return;}

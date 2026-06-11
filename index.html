@@ -618,11 +618,20 @@ async function saveNow(){ if(!_token) return; try{
     }
     if(r.ok){ const j=await r.json(); if(j&&typeof j.rev==='number') _rev=j.rev; }
   }catch(e){} }
+function hasUnsavedEntry(){ try{ const v=document.getElementById('view'); if(!v) return false;
+  const els=v.querySelectorAll('input,textarea,select');
+  for(const el of els){ if(el.disabled||el.readOnly) continue; const t=(el.type||'').toLowerCase();
+    if(el.tagName==='SELECT'){ if(el.selectedIndex>0) return true; continue; }
+    if(t==='checkbox'||t==='radio'){ if(el.checked) return true; continue; }
+    if(t==='button'||t==='submit'||t==='hidden'||t==='file') continue;
+    if(String(el.value||'').trim()!=='') return true; }
+  return false; }catch(e){ return false; } }
 function startSync(){ if(_syncOn)return; _syncOn=true; setInterval(async ()=>{
   if(!_token) return;
   if(document.hidden) return;
   const ae=document.activeElement; if(ae && /^(INPUT|SELECT|TEXTAREA)$/.test(ae.tagName)) return;
   if(($('modalBg')&&$('modalBg').classList.contains('open'))||($('drawerBg')&&$('drawerBg').classList.contains('open'))) return;
+  if(hasUnsavedEntry()) return; // don't re-render over the user's in-progress data entry
   try{ const r=await fetch('/api/state',{cache:'no-store',headers:authHdr()}); if(r.status===401){ setSession('',null); renderApp(); return; } if(!r.ok) return; const j=await r.json();
     if(typeof j.rev==='number' && j.rev!==_rev && j.data && j.data.orders){
       const cu=state.currentUser, sc=state.screen, ro=state.role, ex=state.expanded;

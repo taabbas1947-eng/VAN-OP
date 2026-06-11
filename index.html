@@ -83,17 +83,23 @@ button:disabled{opacity:.45;cursor:not-allowed;transform:none;box-shadow:none}
 .card h3{font-size:14px;margin-bottom:14px;color:var(--txt);font-weight:700;display:flex;align-items:center;letter-spacing:-.02em}
 .card h3 .hint{font-weight:500;color:var(--mut);font-size:11.5px;margin-left:auto}
 .acard{padding:0;overflow:hidden}
-.acard>summary{list-style:none;cursor:pointer;padding:12px 18px;display:flex;align-items:center;gap:9px;font-size:14px;font-weight:700;color:var(--txt);letter-spacing:-.02em;user-select:none}
+.acard>summary{list-style:none;cursor:pointer;padding:13px 16px;display:flex;align-items:center;gap:11px;font-size:14px;font-weight:700;color:var(--txt);letter-spacing:-.02em;user-select:none}
 .acard>summary::-webkit-details-marker{display:none}
-.acard>summary::before{content:"\25B8";color:var(--navy);font-size:11px;transition:transform .12s;flex:none}
-.acard[open]>summary::before{transform:rotate(90deg)}
+.acard>summary::before{content:"\203A";display:inline-flex;width:25px;height:25px;align-items:center;justify-content:center;border-radius:7px;background:var(--navy-50);color:var(--navy);font-size:18px;font-weight:800;line-height:1;transition:transform .15s,background .15s,color .15s;flex:none}
+.acard[open]>summary::before{transform:rotate(90deg);background:var(--navy);color:#fff}
 .acard>summary:hover{background:var(--navy-50)}
+.acard>summary:hover::before{background:var(--navy-100)}
+.acard[open]>summary:hover::before{background:var(--navy2)}
 .acard>summary .hint{font-weight:500;color:var(--mut);font-size:11.5px;margin-left:auto}
+.acard>summary::after{content:"Show";flex:none;font-size:10px;font-weight:800;color:var(--navy);background:var(--navy-50);border:1px solid var(--navy-100);border-radius:999px;padding:3px 11px;text-transform:uppercase;letter-spacing:.5px}
+.acard[open]>summary::after{content:"Hide";background:var(--navy);color:#fff;border-color:var(--navy)}
 .acard[open]>summary{border-bottom:1px solid var(--line)}
 .acard>.acard-body{padding:14px 18px 16px}
 .acard .acard-body table td,.acard .acard-body table th{padding:5px 8px}
 .acard .acard-body input,.acard .acard-body select{padding:5px 8px;font-size:12px}
 .acard .acard-body input.num{width:120px}
+.sec{font-size:12.5px;font-weight:800;color:var(--navy);letter-spacing:.4px;margin:20px 2px 9px;padding-bottom:6px;border-bottom:2px solid var(--navy-100)}
+.subh{font-size:13px;font-weight:700;margin:10px 0 8px;color:var(--navy);letter-spacing:-.01em}
 .kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:14px}
 .kpi{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:13px 15px;box-shadow:var(--sh-sm);position:relative;overflow:hidden;transition:.16s}
 .kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--navy),#5b8def)}
@@ -1432,7 +1438,7 @@ function openOrder(id){
        <div><div class="l muted" style="font-size:10px;text-transform:uppercase">PO promised</div><b>${o.promised||'—'}</b></div>
        <div><div class="l muted" style="font-size:10px;text-transform:uppercase">PO received</div><b>${o.received||'—'}</b></div>
      </div>
-     <h3 style="font-size:13px;margin:10px 0 8px;color:var(--navy)">Where every product stands</h3>
+     ${subh('Where every product stands')}
      <div style="overflow:auto"><table class="mtx" style="font-size:12px"><thead><tr>
        <th>Product</th><th style="text-align:center">RM</th><th style="text-align:center">PR · CFO</th><th style="text-align:center">Produced</th><th style="text-align:center">QC</th><th style="text-align:center">Packed</th><th style="text-align:center">Shipped</th><th style="text-align:center">Delivered</th><th>Where it&rsquo;s at</th>
      </tr></thead><tbody>${rows}</tbody></table></div>
@@ -1506,18 +1512,18 @@ function screenProd(){
   const _pl=regFilter('prodlog',_plRows,_plOpt);
   const openBatches=(state.batches||[]).filter(b=>b.status==='open' && (b.plannedKg>0 ? (b.producedKg||0) < b.plannedKg-0.001 : true));
   const doneBatches=(state.batches||[]).filter(b=>b.status==='open' && b.plannedKg>0 && (b.producedKg||0) >= b.plannedKg-0.001);
-  const obCard=`<div class="card"><h3>Open batches <span class="hint">${openBatches.length} open</span></h3>`+
+  const obCard=acard('prod_open','Open batches',`${openBatches.length} open`,
     (openBatches.length?`<div style="overflow:auto"><table><thead><tr><th>Batch #</th><th>Product</th><th class="num">Planned</th><th class="num">Produced</th><th class="num">Remaining</th><th>Opened</th><th style="width:250px"></th></tr></thead><tbody>`+
       openBatches.map(b=>{const prod=b.producedKg||0,plan=b.plannedKg||0,rem=Math.max(0,plan-prod);
         const prodName=b.kind==='po'?`${b.brand||''} <span class="muted" style="font-size:11px">${b.base||''} · ${b.po||''}</span>`:`<span class="muted">${b.base||''}</span> <span class="pill" style="background:var(--navy-50);color:var(--navy)">bulk</span>`;
         return `<tr><td><b>${b.batchNo||'—'}</b></td><td>${prodName}</td><td class="num">${fmt(plan)}</td><td class="num">${fmt(prod)}${prod>plan+0.5?` <span class="pill" style="background:var(--amber-50);color:var(--amber);font-size:8.5px;padding:1px 5px">over plan</span>`:``}</td><td class="num"><b style="color:${rem>0?'var(--amber)':'var(--mut)'}">${fmt(rem)}</b></td><td class="muted">${b.openedDate||b.date||''}</td><td>${ed?`<button class="sm green" onclick="openShiftLog('${b.id}')">Log shift output</button> <button class="sm ghost" onclick="closeBatch('${b.id}')">Close</button>`:''}</td></tr>`;}).join('')+
-      `</tbody></table></div>`:'<div class="muted">No open batches. Open one above to start logging shift production.</div>')+`</div>`;
-  const cbCard = doneBatches.length?`<div class="card"><h3>Production completed \u2014 at / over plan <span class="hint">${doneBatches.length} ready to close / pack</span></h3><div style="overflow:auto"><table><thead><tr><th>Batch #</th><th>Product</th><th class="num">Planned</th><th class="num">Produced</th><th class="num">% plan</th><th>Opened</th><th style="width:250px"></th></tr></thead><tbody>`+
+      `</tbody></table></div>`:'<div class="muted">No open batches. Open one above to start logging shift production.</div>'));
+  const cbCard = doneBatches.length?acard('prod_done','Production completed \u2014 at / over plan',`${doneBatches.length} ready to close / pack`,`<div style="overflow:auto"><table><thead><tr><th>Batch #</th><th>Product</th><th class="num">Planned</th><th class="num">Produced</th><th class="num">% plan</th><th>Opened</th><th style="width:250px"></th></tr></thead><tbody>`+
     doneBatches.map(b=>{const prod=b.producedKg||0,plan=b.plannedKg||0,pct=plan?Math.round(prod/plan*100):0;
       const prodName=b.kind==='po'?`${b.brand||''} <span class="muted" style="font-size:11px">${b.base||''} \u00b7 ${b.po||''}</span>`:`<span class="muted">${b.base||''}</span> <span class="pill" style="background:var(--navy-50);color:var(--navy)">bulk</span>`;
       const pill=prod>plan+0.5?`<span class="pill" style="background:var(--amber-50);color:var(--amber);font-size:8.5px;padding:1px 5px">over plan</span>`:`<span class="pill" style="background:var(--green-50,#e7f6ec);color:var(--green2,#1a7f37);font-size:8.5px;padding:1px 5px">at plan</span>`;
       return `<tr><td><b>${b.batchNo||'\u2014'}</b></td><td>${prodName}</td><td class="num">${fmt(plan)}</td><td class="num">${fmt(prod)} ${pill}</td><td class="num">${pct}%</td><td class="muted">${b.openedDate||b.date||''}</td><td>${ed?`<button class="sm green" onclick="closeBatch('${b.id}')">Close batch \u2713</button> <button class="sm ghost" onclick="openShiftLog('${b.id}')">Log more (\u2264105%)</button>`:''}</td></tr>`;}).join('')+
-    `</tbody></table></div></div>`:'';
+    `</tbody></table></div>`):'';
   const logForm = prodMode==='po'
     ? `<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
          <div class="fld" style="flex:1;min-width:230px"><label>Purchase Order</label>
@@ -1548,8 +1554,7 @@ function screenProd(){
    ${acard('prod_bulk','Bulk base produced — pack into brands',`${openStock.length} base(s) ready`,`${openStock.length?`<div class="tscroll"><table><thead><tr><th>Batch ▸ base</th><th class="num">Produced</th><th class="num">Packed</th><th class="num">Open</th><th>Date</th><th style="width:80px"></th></tr></thead>
        <tbody>${openStock.map(b=>`<tr><td><b>${b.batchNo||'\u2014'}</b><div class="muted" style="font-size:11px">${b.base}</div>${lotsClearedLabel(b)}</td><td class="num">${fmt(b.producedKg)}</td><td class="num">${fmt(b.packedKg)}</td><td class="num"><b>${fmt(batchPackableKg(b))}</b></td><td class="muted">${b.openedDate||b.closedDate||b.date||'\u2014'}</td><td>${ed?(batchLabApproved(b)?`<button class="sm" onclick="openPack('${b.id}')">Pack</button>`:`<span class="pill" style="background:var(--amber-50);color:var(--amber);font-size:9px">Lab QC pending</span>`):''}</td></tr>`).join('')}</tbody></table></div>`:'<div class="muted">No open to-stock bulk.</div>'}`)}
 
-   <div class="card"><h3>Orders in production <span class="hint">${work.length} open · produced → packed → QC</span></h3>
-     ${work.length?`<div class="tscroll"><table><thead><tr><th>PO</th><th>Product</th><th class="num">Ordered</th><th class="num">Produced</th><th class="num">Packed</th><th class="num">To produce</th><th class="num">To pack</th><th style="width:200px"></th></tr></thead>
+   ${acard('prod_orders','Orders in production',`${work.length} open · produced → packed → QC`,`${work.length?`<div class="tscroll"><table><thead><tr><th>PO</th><th>Product</th><th class="num">Ordered</th><th class="num">Produced</th><th class="num">Packed</th><th class="num">To produce</th><th class="num">To pack</th><th style="width:200px"></th></tr></thead>
        <tbody>${work.map(({o,l})=>{const rp=Math.max(0,l.ordered-(l.produced||0)), rk=Math.max(0,(l.produced||0)-(l.packed||0));
          let acts='';
          if(rk>0.5&&ed){ const appr=lineApprovedProducedKg(o,l)-(l.packed||0); if(appr>0.5) acts+=`<button class="sm green" onclick="openProdQty('${o.id}','${l.id}','pack')">Pack…</button> `; else acts+=`<span class="pill" style="background:var(--amber-50);color:var(--amber);font-size:9px">Lab QC pending</span> `; }
@@ -1559,7 +1564,7 @@ function screenProd(){
          return `<tr><td><b>${o.po}</b></td><td>${l.brand} <span class="muted" style="font-size:11px">${l.base}</span></td>
            <td class="num">${fmt(l.ordered)}</td><td class="num">${fmt(l.produced||0)}</td><td class="num">${fmt(l.packed||0)}</td>
            <td class="num"><b style="color:${rp>0?'var(--amber)':'var(--mut)'}">${fmt(rp)}</b></td><td class="num"><b style="color:${rk>0?'var(--amber)':'var(--mut)'}">${fmt(rk)}</b></td>
-           <td>${acts}</td></tr>`;}).join('')}</tbody></table></div>`:'<div class="muted">No orders in production.</div>'}</div>
+           <td>${acts}</td></tr>`;}).join('')}</tbody></table></div>`:'<div class="muted">No orders in production.</div>'}`)}
 
    ${(psEntries.length||allocs.length)?acard('prod_packed','Packed &amp; ready','finished goods available for orders',`${psEntries.length?`<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:${allocs.length?'14px':'0'}">${psEntries.map(([b,v])=>`<span class="pill" style="background:var(--green-50);color:var(--green2);border:1px solid #bbe3c8">${b}: ${fmt(v)} Kg/L</span>`).join('')}</div>`:''}
      ${allocs.length?`<div class="tscroll"><table><thead><tr><th>PO</th><th>Product</th><th class="num">Needed</th><th class="num">In stock</th><th style="width:160px"></th></tr></thead>
@@ -2112,12 +2117,12 @@ function screenApprovals(){
   const all=actionItems();
   const mine = isCOO ? all : all.filter(x=>x.role===state.role);
   const row=(it)=>`<tr><td><b>${it.o?it.o.po:(it.pr?('PR · '+it.pr.rm):(it.batch?('Batch '+(it.batch.batchNo||'')):(it.lot?(it.lot.po||'Lot'):'—')))}</b>${it.o?`<div class="muted" style="font-size:11px">${it.o.client}</div>`:''}</td><td>${it.l?it.l.brand:(it.pr?(fmt(it.pr.qtyRequired)+' Kg/L'):(it.batch?coaItemOf(it.batch):(it.lot?it.lot.brand:'')))}</td><td>${it.what}</td><td>${(it.o&&isOverdue(it.o)&&lineBucket(it.o,it.l)!=='Delivered')?`<span class="pill" style="background:var(--red-50);color:var(--red)">${daysOver(it.o)}d overdue</span>`:''}</td><td style="width:160px"><button class="sm green" onclick="${it.act}">${it.label}</button></td></tr>`;
-  const tbl=(arr)=>`<table><thead><tr><th>PO</th><th>Product</th><th>Action needed</th><th></th><th></th></tr></thead><tbody>${arr.map(row).join('')}</tbody></table>`;
+  const tbl=(arr)=>`<div class="tscroll"><table><thead><tr><th>PO</th><th>Product</th><th>Action needed</th><th></th><th></th></tr></thead><tbody>${arr.map(row).join('')}</tbody></table></div>`;
   let body;
   if(!mine.length){ body=`<div class="card"><div class="muted" style="padding:6px 0">Nothing waiting on you right now.</div></div>`; }
   else if(isCOO){
     const roles=['Supply Chain','CFO','Production','Lab Rep','AQCM','QCM','QA Inspector','Plant Manager'];
-    body=roles.map(r=>{const g=all.filter(x=>x.role===r); return g.length?`<div class="card"><h3>${r} <span class="hint">${g.length}</span></h3>${tbl(g)}</div>`:'';}).join('');
+    body=roles.map(r=>{const g=all.filter(x=>x.role===r); return g.length?acard('act_'+r,r,`${g.length}`,tbl(g)):'';}).join('');
   } else {
     body=`<div class="card"><h3>Your open actions <span class="hint">${mine.length}</span></h3>${tbl(mine)}</div>`;
   }
@@ -2275,16 +2280,15 @@ function screenShip(){
    ${ed?'':`<div class="banner warn">Owned by <b>Supply Chain</b>. You're <b>${state.role}</b> — viewing only.</div>`}
    <div class="banner info">Record one row per dispatch. <b>Only QC-passed products can be loaded.</b> Saving rolls the qty into the PO and auto-closes it when fully shipped.</div>
    <div class="card"><h3>Ready to ship <span class="hint">${ready.length} QC-passed</span></h3>
-     ${ready.length?`<table><thead><tr><th>PO</th><th>Product</th><th>Destination</th><th class="num">Packed</th><th class="num">Shipped</th><th class="num">To ship</th><th style="width:150px"></th></tr></thead>
+     ${ready.length?`<div class="tscroll"><table><thead><tr><th>PO</th><th>Product</th><th>Destination</th><th class="num">Packed</th><th class="num">Shipped</th><th class="num">To ship</th><th style="width:150px"></th></tr></thead>
        <tbody>${ready.map(({o,l})=>{const rem=Math.max(0, Math.min(l.packed||0, lineQAPackedKg(o,l)) - (l.dispatched||0));return `<tr><td><b>${o.po}</b></td><td>${l.brand}</td><td>${o.client}</td><td class="num">${fmt(l.packed||0)}</td><td class="num">${fmt(l.dispatched||0)}</td><td class="num"><b>${fmt(rem)}</b>${packsCount((+l.pack||seedPackForBrand(l.brand)),rem)!=null?`<div class="muted" style="font-size:10px">\u2248 ${fmt(packsCount((+l.pack||seedPackForBrand(l.brand)),rem))} pk</div>`:``}</td>
-         <td>${ed?`<button class="sm" onclick="openShip('${o.id}','${l.id}')">Record shipment</button>`:''}</td></tr>`;}).join('')}</tbody></table>`:'<div class="muted">Nothing QC-passed and waiting to ship.</div>'}</div>
-   ${blocked.length?`<div class="card"><h3>Blocked by QC <span class="hint">${blocked.length}</span></h3>
-     <table><thead><tr><th>PO</th><th>Product</th><th class="num">Packed</th><th>QC status</th></tr></thead>
-       <tbody>${blocked.map(({o,l})=>`<tr><td><b>${o.po}</b></td><td>${l.brand}</td><td class="num">${fmt(l.packed||0)}</td><td>${pill('Awaiting QC','--amber')}</td></tr>`).join('')}</tbody></table>
-     <div class="muted" style="font-size:11px;margin-top:8px">Fully packed but not QC-passed — clear them in the QC tab first.</div></div>`:''}
-   <div class="card"><h3>Shipment log <span class="hint">${state.shipments.length} dispatches</span></h3>${regBar('shiplog',shipOpt,_sr.total)}
+         <td>${ed?`<button class="sm" onclick="openShip('${o.id}','${l.id}')">Record shipment</button>`:''}</td></tr>`;}).join('')}</tbody></table></div>`:'<div class="muted">Nothing QC-passed and waiting to ship.</div>'}</div>
+   ${blocked.length?acard('ship_blocked','Blocked by QC',`${blocked.length}`,`<div class="tscroll"><table><thead><tr><th>PO</th><th>Product</th><th class="num">Packed</th><th>QC status</th></tr></thead>
+       <tbody>${blocked.map(({o,l})=>`<tr><td><b>${o.po}</b></td><td>${l.brand}</td><td class="num">${fmt(l.packed||0)}</td><td>${pill('Awaiting QC','--amber')}</td></tr>`).join('')}</tbody></table></div>
+     <div class="muted" style="font-size:11px;margin-top:8px">Fully packed but not QC-passed — clear them in the QC tab first.</div>`):''}
+   ${acard('ship_log','Shipment log',`${state.shipments.length} dispatches`,`${regBar('shiplog',shipOpt,_sr.total)}
      <div style="max-height:52vh;overflow:auto"><table><thead><tr><th>Date / time</th><th>PO</th><th>Product</th><th class="num">Kg/L</th><th class="num">Packs</th><th>Destination</th><th>Vehicle</th><th>DC #</th><th>Bilty</th><th>Delivered</th></tr></thead>
-       <tbody>${_sr.view.length?_sr.view.map(s=>`<tr><td class="muted">${s.dispatch||'—'}${s.time?' '+s.time:''}</td><td>${s.po}</td><td>${s.brand}</td><td class="num">${fmt(s.kg)}</td><td class="num">${packsCount((+s.pack||linePackSize(s.po,s.brand)),s.kg)!=null?fmt(packsCount((+s.pack||linePackSize(s.po,s.brand)),s.kg)):'\u2014'}</td><td>${s.destination||'—'}</td><td>${s.vehicle||'—'}${s.carrier?(' · '+s.carrier):''}</td><td>${s.dc||'—'}</td><td>${s.bilty||'—'}</td><td class="muted">${s.delivered||'—'}</td></tr>`).join(''):'<tr><td colspan="10" class="muted">No shipments match.</td></tr>'}</tbody></table></div>${regPager('shiplog',_sr.pages)}</div>`;
+       <tbody>${_sr.view.length?_sr.view.map(s=>`<tr><td class="muted">${s.dispatch||'—'}${s.time?' '+s.time:''}</td><td>${s.po}</td><td>${s.brand}</td><td class="num">${fmt(s.kg)}</td><td class="num">${packsCount((+s.pack||linePackSize(s.po,s.brand)),s.kg)!=null?fmt(packsCount((+s.pack||linePackSize(s.po,s.brand)),s.kg)):'\u2014'}</td><td>${s.destination||'—'}</td><td>${s.vehicle||'—'}${s.carrier?(' · '+s.carrier):''}</td><td>${s.dc||'—'}</td><td>${s.bilty||'—'}</td><td class="muted">${s.delivered||'—'}</td></tr>`).join(''):'<tr><td colspan="10" class="muted">No shipments match.</td></tr>'}</tbody></table></div>${regPager('shiplog',_sr.pages)}`)}`;
 }
 function seedPackForBrand(brand){ try{ const by=(SEED&&SEED.catalog&&SEED.catalog.brandsByClient)||{}; for(const k in by){ const hit=(by[k]||[]).find(x=>x.brand===brand); if(hit&&+hit.pack>0) return +hit.pack; } }catch(e){} return 0; }
 function packsCount(ps,kg){ ps=+ps||0; return ps>0?Math.ceil((+kg||0)/ps):null; }
@@ -2416,7 +2420,6 @@ function screenDash(){
     pvdLabels:prTop.slice(0,6).map(p=>p.brand), pvdOrd:prTop.slice(0,6).map(p=>p.ordered), pvdProd:prTop.slice(0,6).map(p=>p.produced), pvdQc:prTop.slice(0,6).map(p=>p.qcC), pvdShip:prTop.slice(0,6).map(p=>p.ship),
     cycLabels:stageDefs.map(d=>d[0]), cycVals:stageDefs.map(d=>{const a=cs[d[1]];return a&&a.length?Math.round(a.reduce((x,y)=>x+y,0)/a.length):0;}) };
   const emptyChart=(id,msg)=>`<div class="muted" style="padding:20px 0;text-align:center;font-size:12px">${msg}</div>`;
-  const sect=(title,hint,body)=>`<div class="card"><h3>${title}${hint?` <span class="hint">${hint}</span>`:''}</h3>${body}</div>`;
   const MGMT=['COO','CEO','Plant Manager','Supply Chain','CFO']; const isMgmt=MGMT.indexOf(state.role)>-1;
   const isQCrole=['Lab Rep','AQCM','QCM','QA Inspector'].indexOf(state.role)>-1;
   const showBoard=isMgmt||state.role==='KAM'; const showCharts=isMgmt; const showTargets=['COO','CFO','KAM'].indexOf(state.role)>-1;
@@ -2494,14 +2497,18 @@ function recipeMasterCard(ed){
   return acard('recipe','Product recipes',`${bases.length} products · ${bases.filter(recipeHas).length} with recipe`,`<div class="muted" style="font-size:12px;margin-bottom:10px">The bill of materials per product (kg of each raw material per Kg produced) — drives <b>RM Check → PR → Receive</b>. ${ed?'Pick a product to add or <b>override</b> its recipe.':''}</div>
     ${dl}${pick}${editor}`);
 }
-let admCollapse={};
-function admRemember(k,isOpen){ admCollapse[k]=!isOpen; }
-function acard(key,title,hint,body){ const open=!admCollapse[key];
-  return `<details class="card acard" ${open?'open':''} ontoggle="admRemember('${key}',this.open)"><summary>${title}${hint?`<span class="hint">${hint}</span>`:''}</summary><div class="acard-body">${body}</div></details>`; }
+let acOpen={}; /* per-session only (in-memory) — resets to collapsed on reload / relogin */
+function admRemember(k,isOpen){ acOpen[k]=isOpen; }
+function acard(key,title,hint,body){ const open=!!acOpen[key]; /* default COLLAPSED */
+  return `<details class="card acard" ${open?'open':''} ontoggle="admRemember('${key}',this.open)"><summary>${title}<span class="hint">${hint||''}</span></summary><div class="acard-body">${body}</div></details>`; }
+/* ---- Shared heading system (single source) ----
+   sec()  = group divider between sections   · sect() = standard titled card   · subh() = sub-heading inside a card/drawer   · acard() = collapsible card */
+function sec(t){ return `<div class="sec">${t}</div>`; }
+function sect(title,hint,body){ return `<div class="card"><h3>${title}${hint?` <span class="hint">${hint}</span>`:''}</h3>${body}</div>`; }
+function subh(t){ return `<div class="subh">${t}</div>`; }
 function screenAdmin(){
   const ed=canEdit(['COO']);
   const lists=[['shifts','Shifts'],['incharges','Shift incharges'],['delayReasons','Delay reasons'],['respDepts','Responsible departments'],['priorities','Priorities'],['kamNames','KAM names'],['forms','Product forms'],['statuses','Statuses'],['varianceReasons','Yield variance reasons'],['downtimeReasons','Downtime reasons'],['focalPersons','Delivery focal persons (COBO / VGreen / Dealer)']];
-  const sec=t=>`<div style="font-size:12.5px;font-weight:800;color:var(--navy);letter-spacing:.4px;margin:20px 2px 9px;padding-bottom:6px;border-bottom:2px solid var(--navy-100)">${t}</div>`;
   $('view').innerHTML=`
    ${ed?'':`<div class="banner warn">Owned by <b>COO / Admin</b>. You're <b>${state.role}</b> — viewing only.</div>`}
    ${sec('Reference lists — dropdown values')}

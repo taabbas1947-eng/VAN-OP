@@ -646,26 +646,53 @@ async function bootState(){
   sessionInit(state); restoreSession(); renderApp(); startSync();
 }
 function recoverLocalAdditions(local, srv, keys){ let n=0; (keys||['orders','batches','prs','packingLog','shiftEntries','shipments']).forEach(k=>{ const sIds=new Set((srv[k]||[]).map(x=>x&&x.id).filter(Boolean)); (local[k]||[]).forEach(it=>{ if(it&&it.id&&!sIds.has(it.id)){ srv[k]=srv[k]||[]; srv[k].unshift(it); n++; } }); }); return n; }
+/* 3-way merge so concurrent saves keep BOTH sides' edits (not just additions). */
+let _baseSnapshot=null, _saveRetries=0;
+function _snapBase(){ try{ _baseSnapshot=JSON.parse(JSON.stringify(dataOnly(state))); }catch(e){ _baseSnapshot=null; } }
+function _arrId(a){ return Array.isArray(a)&&a.length>0&&a.every(x=>x&&typeof x==='object'&&!Array.isArray(x)&&x.id!=null); }
+function _eq(a,b){ try{ return JSON.stringify(a)===JSON.stringify(b); }catch(e){ return a===b; } }
+function merge3(base, local, srv){
+  if(_arrId(local) && Array.isArray(srv)){
+    const bm={},sm={}; (Array.isArray(base)?base:[]).forEach(x=>{ if(x&&x.id!=null) bm[x.id]=x; }); srv.forEach(x=>{ if(x&&x.id!=null) sm[x.id]=x; });
+    const seen={}, out=[];
+    local.forEach(l=>{ if(l&&l.id!=null){ seen[l.id]=1; const s=sm[l.id]; out.push(s!==undefined?merge3(bm[l.id], l, s):l); } });
+    srv.forEach(s=>{ if(s&&s.id!=null && !seen[s.id]) out.push(s); });
+    return out;
+  }
+  if(local&&srv&&typeof local==='object'&&!Array.isArray(local)&&typeof srv==='object'&&!Array.isArray(srv)){
+    const out={}, keys={}; [base,local,srv].forEach(o=>{ if(o&&typeof o==='object'&&!Array.isArray(o)) for(const k in o) keys[k]=1; });
+    for(const k in keys){ const bv=(base&&typeof base==='object')?base[k]:undefined, lv=local[k], sv=srv[k];
+      if(lv===undefined&&sv===undefined) continue;
+      if(lv===undefined){ out[k]=sv; continue; }
+      if(sv===undefined){ out[k]=lv; continue; }
+      out[k]=merge3(bv, lv, sv); }
+    return out;
+  }
+  return _eq(local, base) ? srv : local;   // leaf: we changed it → ours; else take theirs
+}
 function save(){ if(_saveTimer)clearTimeout(_saveTimer); _saveTimer=setTimeout(saveNow,400); }
 async function saveNow(){ if(!_token) return; try{
     const r=await fetch('/api/state',{method:'POST',headers:Object.assign({'Content-Type':'application/json','X-Base-Rev':String(_rev)},authHdr()),body:JSON.stringify(dataOnly(state))});
     if(r.status===401){ setSession('',null); renderApp(); return; }
     if(r.status===409){
-      // Someone else saved since we loaded. Do NOT overwrite their data — pull the latest
-      // and ask the user to re-enter their last change. Protects committed data from loss.
+      // Someone else saved since we loaded. 3-way merge keeps THEIR edits AND ours
+      // (field-level — not just records we added), then re-saves. No work is lost.
       const j=await r.json().catch(()=>null);
       if(j && j.data && j.data.orders){
-        const local=state; const srv=ensureState(j.data);
-        const recovered=recoverLocalAdditions(local, srv);   // keep records WE just created (additive, no overwrite)
+        const base=_baseSnapshot||dataOnly(state);
+        const merged=ensureState(merge3(base, dataOnly(state), j.data));
         const cu=state.currentUser, sc=state.screen, ro=state.role, ex=state.expanded;
-        state=srv; state.currentUser=cu; state.role=ro; state.screen=sc; state.expanded=ex||{}; _rev=j.rev;
-        if(recovered>0){ toast(recovered+' new record(s) you just added were kept — re-saving.'); if(authed()) render(); save(); return; }
-        if(authed()) render();
+        state=merged; state.currentUser=cu; state.role=ro; state.screen=sc; state.expanded=ex||{}; _rev=j.rev; _snapBase();
+        const ae=document.activeElement, busy=(ae&&/^(INPUT|SELECT|TEXTAREA)$/.test(ae.tagName))||($('modalBg')&&$('modalBg').classList.contains('open'));
+        if(authed() && !busy) render();
+        if(_saveRetries<5){ _saveRetries++; save(); }                 // re-save the merge against the latest rev
+        else { _saveRetries=0; toast('Synced with the team’s latest changes.'); }
+        return;
       }
-      toast('Someone else just saved — screen refreshed. Please re-enter your last change.');
+      toast('Refreshed — please re-check your last change.');
       return;
     }
-    if(r.ok){ const j=await r.json(); if(j&&typeof j.rev==='number') _rev=j.rev; }
+    if(r.ok){ const j=await r.json(); if(j&&typeof j.rev==='number') _rev=j.rev; _saveRetries=0; _snapBase(); }
   }catch(e){} }
 function hasUnsavedEntry(){ try{ const v=document.getElementById('view'); if(!v) return false;
   const els=v.querySelectorAll('input,textarea,select');
@@ -2457,7 +2484,7 @@ function renderDispatchModal(){ const o=(state.orders||[]).find(x=>x.id===dispFo
 function saveDispatch(){ if(!canEdit(['Supply Chain'])){toast('Supply Chain only');return;} const o=(state.orders||[]).find(x=>x.id===dispForm.oid); if(!o)return;
   const sel=dispForm.lines.filter(r=>r.on&&(+r.qty||0)>0); if(!sel.length){toast('Tick at least one product with a quantity');return;}
   const dispId='DSP'+(state.seq=(state.seq||1)+1); const d=dispForm.date||TODAY.toISOString().slice(0,10); let n=0,tot=0;
-  sel.forEach(r=>{ const l=o.lines.find(x=>x.id===r.lid); if(!l)return; const rem=Math.max(0, Math.min(l.packed||0, lineQAPackedKg(o,l)) - (l.dispatched||0)); const kg=Math.min(+r.qty||0,rem); if(kg<=0)return;
+  sel.forEach(r=>{ const l=o.lines.find(x=>x.id===r.lid); if(!l)return; const rem=Math.max(0,(l.packed||0)-(l.dispatched||0)); const kg=Math.min(+r.qty||0,rem); if(kg<=0)return;
     state.shipments.unshift({dispId,po:o.po,brand:l.brand,lid:l.id,kg,pack:r.pack,dispatch:d,destination:dispForm.dest,carrier:dispForm.carrier,vehicle:dispForm.vehicle,dc:dispForm.dc,bilty:dispForm.bilty,delivered:null,remarks:dispForm.remarks,qa:null,by:state.role});
     l.dispatched=(l.dispatched||0)+kg; l.dispatchDate=l.dispatchDate||d; n++; tot+=kg; });
   if(!n){toast('Nothing to dispatch');return;}

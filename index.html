@@ -521,7 +521,7 @@ function ensureState(s){
   s.users=(s.users&&s.users.length)?s.users:deepClone(SEED.users||[]); if(s.currentUser===undefined)s.currentUser=null;
   s.rmRequests=s.rmRequests||[]; s.productionLog=s.productionLog||[]; s.packingLog=s.packingLog||[];
   s.actionLog=s.actionLog||[]; s.shipments=s.shipments||[]; s.inspections=s.inspections||[]; s.warehouses=s.warehouses||SEED.warehouses.slice();
-  s.rawStock=s.rawStock||{}; s.rmMovements=s.rmMovements||[]; s.audit=s.audit||[]; s.masters=s.masters||deepClone(SEED.masters||{}); s.batches=s.batches||[]; s.packedStock=s.packedStock||{}; s.packingLog=s.packingLog||[]; s.orders=s.orders||[]; if(s.seq==null)s.seq=1000; (s.packingLog||[]).forEach(function(p){ if(p&&!p.id) p.id='PK'+(s.seq++); }); if(s.dataFixEnabled==null)s.dataFixEnabled=true; if(!Array.isArray(s.prs))s.prs=[]; (s.batches||[]).forEach(function(b){ if((b.producedKg||0)>0 && (!Array.isArray(b.lots)||!b.lots.length)){ b.lots=[{id:'LOT'+(s.seq++), lotNo:(b.batchNo||'B')+'-L1', qty:b.producedKg, date:b.openedDate||'', by:b.by||'', coa:(b.coa||null), migrated:true}]; } }); ensureMasters(s); ensureProductionModel(s); migrateLotTracking(s); return s;
+  s.rawStock=s.rawStock||{}; s.rmMovements=s.rmMovements||[]; s.audit=s.audit||[]; s.masters=s.masters||deepClone(SEED.masters||{}); s.batches=s.batches||[]; s.packedStock=s.packedStock||{}; s.packingLog=s.packingLog||[]; s.orders=s.orders||[]; if(s.seq==null)s.seq=1000; (s.packingLog||[]).forEach(function(p){ if(p&&!p.id) p.id='PK'+(s.seq++); }); if(s.dataFixEnabled==null)s.dataFixEnabled=true; if(!Array.isArray(s.prs))s.prs=[]; (s.batches||[]).forEach(function(b){ if((b.producedKg||0)>0 && (!Array.isArray(b.lots)||!b.lots.length)){ b.lots=[{id:'LOT'+(s.seq++), lotNo:(b.batchNo||'B')+'-L1', qty:b.producedKg, date:b.openedDate||'', by:b.by||'', coa:(b.coa||null), migrated:true}]; } }); ensureMasters(s); ensureProductionModel(s); dedupePackingLots(s); migrateLotTracking(s); return s;
 }
 /* Lock 1: idempotent master seeding. ADDITIVE ONLY — seeds a list only when it is
    missing or empty, and never overwrites values the team has already added. Touches no
@@ -2479,6 +2479,9 @@ function migrateLotTracking(s){
   (s.orders||[]).forEach(o=>(o.lines||[]).forEach(l=>{ const lots=lotsOf(o.po,l.brand); if(!lots.length)return; let insTot=0; (s.inspections||[]).forEach(x=>{ if(x&&x.pass&&x.po===o.po&&((l.id!=null&&x.lid===l.id)||x.brand===l.brand)) insTot+=(+x.kg||0); }); let have=lots.reduce((a,p)=>a+(+p.insKg||0),0); let rem=insTot-have; if(rem>0.5){ for(const p of lots){ if(rem<=0.5)break; const cap=(+p.kg||0)-(+p.insKg||0); if(cap<=0.0001)continue; const t=Math.min(rem,cap); p.insKg=(+p.insKg||0)+t; rem-=t; } } }));
   s._lotMig=true;
 }
+/* Remove duplicate packing-lot rows that share an id (a stray from a concurrent save/merge). Keeps, per id,
+   the copy carrying the most tracking (inspected+shipped) so nothing real is lost. Runs every load — self-healing. */
+function dedupePackingLots(s){ const best={}; (s.packingLog||[]).forEach(p=>{ if(!p||!p.id)return; const sc=(+p.insKg||0)+(+p.shipKg||0); const cur=best[p.id]; if(!cur||sc>cur.sc) best[p.id]={p:p,sc:sc}; }); s.packingLog=(s.packingLog||[]).filter(p=>{ if(!p)return false; if(!p.id)return true; return best[p.id]&&best[p.id].p===p; }); }
 let packInspForm=null;
 function openPackInspect(oid,lid){ if(!(canEdit(['QA Inspector'])||state.role==='COO')){toast('QA Inspector only');return;}
   const o=(state.orders||[]).find(x=>x.id===oid); if(!o)return; const l=(o.lines||[]).find(x=>x.id===lid)||(o.lines||[]).find(x=>x.brand===lid); if(!l)return;

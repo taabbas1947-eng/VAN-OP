@@ -2632,13 +2632,24 @@ function execMetrics(){
   const fitPct=(fit+unfit)>0?Math.round(fit/(fit+unfit)*100):null;
   let insP=0,insF=0; (state.inspections||[]).forEach(x=>{ if(x.pass)insP++; else insF++; });
   const psPct=(insP+insF)>0?Math.round(insP/(insP+insF)*100):null;
-  let lossKg=0; (state.orders||[]).forEach(o=>(o.lines||[]).forEach(l=>{ lossKg+=(+l.disposedKg||0); }));
+  const rmCost={}; ((state.masters&&state.masters.rawMaterials)||[]).forEach(r=>{ if(r&&r.name) rmCost[r.name]=+r.cost||0; });
+  const baseCost=base=>{ const rec=(typeof recipeFor==='function'?recipeFor(base):{})||{}; let c=0; for(const rm in rec){ c+=(+rec[rm]||0)*(rmCost[rm]||0); } return c; };
+  const _bi={},_bn={}; (state.orders||[]).forEach(o=>(o.lines||[]).forEach(l=>{ const ip=+l.invoicePrice||0; if(ip>0){ const bs=l.base||l.brand; _bi[bs]=(_bi[bs]||0)+ip; _bn[bs]=(_bn[bs]||0)+1; } }));
+  const invRate=base=>(_bn[base]?_bi[base]/_bn[base]:0);
+  let lossKg=0,bpKg=0,dvKg=0,rwKg=0,vlCost=0,vlInv=0; const _rp={},_rcl={}; const _bk=(mp,k)=>{ mp[k]=mp[k]||{loss:0,bp:0,dv:0,rw:0}; return mp[k]; };
+  (state.batches||[]).forEach(b=>{ const pr=b.packReconcile; const lk=+(b.lossKg||(pr&&pr.loss)||0); const hasIt=!!(pr&&pr.items&&pr.items.length); if(lk<=0&&!hasIt)return;
+    lossKg+=lk; vlCost+=lk*baseCost(b.base); vlInv+=lk*invRate(b.base);
+    let cl='Bulk / unassigned'; if(b.kind==='po'&&b.po){ const o=(state.orders||[]).find(x=>x.po===b.po); if(o) cl=budgetKey(o); }
+    const P=_bk(_rp,b.base||'—'), C=_bk(_rcl,cl); P.loss+=lk; C.loss+=lk;
+    if(hasIt){ pr.items.forEach(it=>{ const kg=+it.kg||0; if(it.type==='byproduct'){bpKg+=kg;P.bp+=kg;C.bp+=kg;} else if(it.type==='divert'){dvKg+=kg;P.dv+=kg;C.dv+=kg;} else if(it.type==='rework'){rwKg+=kg;P.rw+=kg;C.rw+=kg;} }); } });
+  const _mk=mp=>Object.keys(mp).map(k=>({name:k,loss:mp[k].loss,bp:mp[k].bp,dv:mp[k].dv,rw:mp[k].rw,total:mp[k].loss+mp[k].bp+mp[k].dv+mp[k].rw})).filter(x=>x.total>0.5).sort((a,b)=>b.total-a.total).slice(0,10);
+  const reconProd=_mk(_rp), reconClient=_mk(_rcl);
   let producedKg=0; (state.batches||[]).forEach(b=>producedKg+=(+b.producedKg||0));
   const stageDefs=[['RM','rmDays'],['Production','prodDays'],['QC → delivery','qcToDeliv'],['Total','totalCycle']];
   const cs={}; (state.orders||[]).forEach(o=>(o.lines||[]).forEach(l=>{ const cc=calcLine(o,l); stageDefs.forEach(([nm,k])=>{ if(cc[k]!=null){ cs[k]=cs[k]||[]; cs[k].push(cc[k]); } }); }));
   const turn=stageDefs.map(([nm,k])=>{ const a=cs[k]; return {name:nm,days:a&&a.length?+(a.reduce((x,y)=>x+y,0)/a.length).toFixed(1):null,n:(a||[]).length}; });
   const clients=Object.values(byc).filter(r=>r.budget>0||r.booked>0||r.delivered>0).sort((a,b)=>b.booked-a.booked);
-  return { fy,budget,booked,delivered,riskVal,onPct:(onD>0?Math.round(onN/onD*100):null),onD,fit,unfit,fitPct,psPct,lossKg,producedKg,turn,clients };
+  return { fy,budget,booked,delivered,riskVal,onPct:(onD>0?Math.round(onN/onD*100):null),onD,fit,unfit,fitPct,psPct,lossKg,bpKg,dvKg,rwKg,vlCost,vlInv,reconProd,reconClient,producedKg,turn,clients };
 }
 function execHeadline(M){
   const bvb=M.budget>0?Math.round(M.booked/M.budget*100):0, dvb=M.budget>0?Math.round(M.delivered/M.budget*100):0;
@@ -2699,7 +2710,7 @@ function dashExecHtml(M){
      <span class="bl">Delivered</span><div class="track"><span style="width:${w(M.delivered)}%;background:#1d9e75"></span></div><span class="rt"><b>${pkrM(M.delivered)}</b> <span style="color:#1d9e75">${dvb}%</span></span>
    </div><div class="note" style="margin-top:9px">Gap to budget: ${pkrM(Math.max(0,M.budget-M.delivered))}.</div></div>
    <div class="panel"><div class="ttl">By client — budget, booked, delivered</div>
-     <div class="lg"><span><i style="background:#b4b2a9"></i>Budget</span><span><i style="background:#185fa5"></i>Booked</span><span><i style="background:#1d9e75"></i>Delivered</span></div>
+     <div class="lg"><span><i style="background:#94a3b8"></i>Budget</span><span><i style="background:#2563eb"></i>Booked</span><span><i style="background:#16a34a"></i>Delivered</span></div>
      ${M.clients.length?`<div class="cw" style="height:${Math.max(220,M.clients.slice(0,8).length*48)}px"><canvas id="chExCust"></canvas></div>`:'<div class="note" style="padding:12px 0">No client data yet.</div>'}</div>
    <div class="sec">Quality gate — FIT vs UNFIT</div>
    <div class="mrow">
@@ -2709,11 +2720,20 @@ function dashExecHtml(M){
      ${m('Lab-approved units',M.fit,'FIT batches/lots','#185fa5')}
    </div>
    <div class="sec">Variance &amp; loss</div>
-   <div class="mrow">
+   <div class="mrow" style="margin-bottom:12px">
      ${m('Wastage / loss',fmt(M.lossKg)+' Kg/L',M.producedKg?(lossPct.toFixed(1)+'% of produced'):'—',M.lossKg?'#a32d2d':'#1d9e75')}
+     ${m('Value of loss · cost',pkrM(M.vlCost),'material cost of waste',M.vlCost?'#a32d2d':'')}
+     ${m('Value of loss · invoice',pkrM(M.vlInv),'revenue foregone',M.vlInv?'#ba7517':'')}
      ${m('Produced',fmt(M.producedKg)+' Kg/L','total output','#185fa5')}
-     ${m('Value of loss','—','Phase 2 · cost basis')}
    </div>
+   <div class="panel"><div class="ttl" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">Reconcile breakdown — Kg/L
+     <span style="display:inline-flex;border:1px solid #e0e7f0;border-radius:8px;overflow:hidden;font-weight:400">
+       <button id="rcv_cat" onclick="setReconView('cat')" style="font-size:11px;padding:4px 11px;border:0;background:#eaf1fb;color:#1f4e87;font-weight:600;cursor:pointer">By type</button>
+       <button id="rcv_prod" onclick="setReconView('prod')" style="font-size:11px;padding:4px 11px;border:0;border-left:1px solid #e0e7f0;background:#fff;color:#71808f;cursor:pointer">By product</button>
+       <button id="rcv_client" onclick="setReconView('client')" style="font-size:11px;padding:4px 11px;border:0;border-left:1px solid #e0e7f0;background:#fff;color:#71808f;cursor:pointer">By client</button>
+     </span></div>
+     <div class="lg"><span><i style="background:#dc2626"></i>Loss</span><span><i style="background:#16a34a"></i>By-product</span><span><i style="background:#2563eb"></i>Divert</span><span><i style="background:#d97706"></i>Rework</span></div>
+     ${(M.lossKg+M.bpKg+M.dvKg+M.rwKg)>0.5?`<div class="cw" style="height:240px"><canvas id="chExRecon"></canvas></div>`:'<div class="note" style="padding:10px 0">Nothing reconciled yet — loss, by-product, divert and rework appear here (by type, product or client) as batches are reconciled.</div>'}</div>
    <div class="sec">Turnaround — average days per stage</div>
    <div class="panel">
      ${hasStage?`<div class="cw" style="height:200px"><canvas id="chExTurn"></canvas></div>`:'<div class="note" style="padding:12px 0">Turnaround appears once orders carry stage dates.</div>'}
@@ -2726,14 +2746,28 @@ function drawDashExec(M){
   const GRID='#eef1f6'; Chart.defaults.color='#71808f'; Chart.defaults.font.size=10;
   if($('chExCust')){ const cl=M.clients.slice(0,8);
     charts.exCust=new Chart($('chExCust'),{type:'bar',data:{labels:cl.map(c=>c.client),datasets:[
-      {label:'Budget',data:cl.map(c=>+(c.budget/1e6).toFixed(2)),backgroundColor:'#b4b2a9',borderRadius:3,barThickness:8},
-      {label:'Booked',data:cl.map(c=>+(c.booked/1e6).toFixed(2)),backgroundColor:'#185fa5',borderRadius:3,barThickness:8},
-      {label:'Delivered',data:cl.map(c=>+(c.delivered/1e6).toFixed(2)),backgroundColor:'#1d9e75',borderRadius:3,barThickness:8}]},
+      {label:'Budget',data:cl.map(c=>+(c.budget/1e6).toFixed(2)),backgroundColor:'#94a3b8',borderRadius:3,barThickness:8},
+      {label:'Booked',data:cl.map(c=>+(c.booked/1e6).toFixed(2)),backgroundColor:'#2563eb',borderRadius:3,barThickness:8},
+      {label:'Delivered',data:cl.map(c=>+(c.delivered/1e6).toFixed(2)),backgroundColor:'#16a34a',borderRadius:3,barThickness:8}]},
       options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.dataset.label+': PKR '+c.parsed.x.toFixed(2)+'M'}}},scales:{x:{grid:{color:GRID},ticks:{callback:v=>v+'M'}},y:{grid:{display:false},ticks:{font:{size:10}}}}}}); }
   if($('chExTurn')){ const t=M.turn.filter(x=>x.name!=='Total'&&x.days!=null);
-    charts.exTurn=new Chart($('chExTurn'),{type:'bar',data:{labels:t.map(x=>x.name),datasets:[{label:'Avg days',data:t.map(x=>x.days),backgroundColor:'#185fa5',borderRadius:4,barThickness:16}]},
+    charts.exTurn=new Chart($('chExTurn'),{type:'bar',data:{labels:t.map(x=>x.name),datasets:[{label:'Avg days',data:t.map(x=>x.days),backgroundColor:'#2563eb',borderRadius:4,barThickness:16}]},
       options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.x+' days'}}},scales:{x:{grid:{color:GRID},ticks:{callback:v=>v+'d'}},y:{grid:{display:false}}}}}); }
+  _xrec={view:(_xrec&&_xrec.view)||'cat',cat:{loss:M.lossKg,bp:M.bpKg,dv:M.dvKg,rw:M.rwKg},prod:M.reconProd||[],client:M.reconClient||[]};
+  drawRecon();
 }
+let _xrec=null;
+function drawRecon(){ if(typeof Chart==='undefined'||!_xrec) return; const el=$('chExRecon'); if(!el) return;
+  if(charts.exRecon){try{charts.exRecon.destroy()}catch(e){} delete charts.exRecon;}
+  const GRID='#eef1f6', COL={loss:'#dc2626',bp:'#16a34a',dv:'#2563eb',rw:'#d97706'}; let cfg;
+  if(_xrec.view==='cat'){ const c=_xrec.cat; const seg=[['Loss',c.loss,COL.loss],['By-product',c.bp,COL.bp],['Divert',c.dv,COL.dv],['Rework',c.rw,COL.rw]].filter(s=>s[1]>0.5);
+    cfg={type:'bar',data:{labels:seg.map(s=>s[0]),datasets:[{data:seg.map(s=>+s[1].toFixed(0)),backgroundColor:seg.map(s=>s[2]),borderRadius:4,barThickness:16}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.x.toLocaleString()+' Kg/L'}}},scales:{x:{grid:{color:GRID},ticks:{callback:v=>(v/1000)+'k'}},y:{grid:{display:false}}}}};
+  } else { const arr=_xrec.view==='prod'?_xrec.prod:_xrec.client; const D=(lbl,k,col)=>({label:lbl,data:arr.map(a=>+a[k].toFixed(0)),backgroundColor:col,borderRadius:2,barThickness:11,stack:'s'});
+    cfg={type:'bar',data:{labels:arr.map(a=>a.name),datasets:[D('Loss','loss',COL.loss),D('By-product','bp',COL.bp),D('Divert','dv',COL.dv),D('Rework','rw',COL.rw)]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.dataset.label+': '+c.parsed.x.toLocaleString()+' Kg/L'}}},scales:{x:{stacked:true,grid:{color:GRID},ticks:{callback:v=>(v/1000)+'k'}},y:{stacked:true,grid:{display:false},ticks:{font:{size:9}}}}}};
+  }
+  charts.exRecon=new Chart(el,cfg);
+}
+function setReconView(v){ if(!_xrec)return; _xrec.view=v; ['cat','prod','client'].forEach(k=>{ const b=document.getElementById('rcv_'+k); if(b){ b.style.background=(k===v)?'#eaf1fb':'#fff'; b.style.color=(k===v)?'#1f4e87':'#71808f'; b.style.fontWeight=(k===v)?'600':'400'; } }); drawRecon(); }
 function screenDash(){
   if(['COO','CEO','CFO'].indexOf(state.role)>-1){ const M=execMetrics(); $('view').innerHTML=dashExecHtml(M); drawDashExec(M); return; }
   const os=state.orders||[]; const today=TODAY; const monthKey=today.toISOString().slice(0,7);

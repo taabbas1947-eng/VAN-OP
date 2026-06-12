@@ -2610,7 +2610,110 @@ function dashTargetsPanel(){ const fy=fyKey(TODAY.toISOString().slice(0,10)); co
   const bar=p=>`<div style="background:#eef1f6;border-radius:6px;height:7px;overflow:hidden;min-width:70px;flex:1"><div style="height:7px;width:${Math.min(100,p)}%;background:${p>=100?'var(--green2)':p>=60?'var(--navy)':'var(--amber)'}"></div></div>`;
   const body=totT>0?(`<div class="clk" onclick="gotoScreen('budget')"><div style="display:flex;align-items:center;gap:12px;margin-bottom:10px"><div style="text-align:center"><div style="font-size:24px;font-weight:800;color:${pct>=100?'var(--green2)':pct>=60?'var(--navy)':'var(--amber)'}">${pct}%</div><div class="muted" style="font-size:10px">of FY target</div></div><div style="flex:1"><div class="muted" style="font-size:11px;margin-bottom:4px">${pkr(totD)} delivered of ${pkr(totT)}</div>${bar(pct)}</div></div>`+(gaps.length?`<div class="muted" style="font-size:10.5px;margin:6px 0 3px">Biggest gaps to target</div><table style="width:100%"><tbody>${gaps.map(g=>`<tr><td style="font-size:11.5px"><b>${g.c}</b></td><td style="width:90px;padding:3px 6px">${bar(g.p)}</td><td class="num" style="font-size:11px;color:var(--amber)">${pkr(g.gap)}</td></tr>`).join('')}</tbody></table>`:'')+`</div>`):'<div class="muted" style="padding:14px 0">No sales targets set for this FY \u2014 set them in Admin \u00b7 Master Data.</div>';
   return `<div class="card"><h3>Targets vs delivered <span class="hint">FY ${fy}</span></h3>${body}</div>`; }
+/* ===================== EXECUTIVE DASHBOARD v2 (Phase 1) — read-only, computes only =====================
+   Money formulas match the Sales & Budget screen exactly: booked = Σ(ordered×invoicePrice),
+   delivered = Σ(delivered×invoicePrice), target = salesTargets[client][fy]. No state is mutated. */
+function pkrM(n){ n=+n||0; return 'PKR '+(Math.abs(n)>=1e6?(n/1e6).toFixed(2)+'M':Math.round(n).toLocaleString()); }
+function execMetrics(){
+  const fy=fyKey(TODAY.toISOString().slice(0,10));
+  const targets=(state.masters&&state.masters.salesTargets)||{};
+  const byc={}; const row=c=>{ byc[c]=byc[c]||{client:c,budget:0,booked:0,delivered:0}; return byc[c]; };
+  Object.keys(targets).forEach(c=>{ row(c).budget+=(+(targets[c]&&targets[c][fy])||0); });
+  let booked=0,delivered=0,riskVal=0,onN=0,onD=0;
+  (state.orders||[]).forEach(o=>{ const r=row(budgetKey(o));
+    (o.lines||[]).forEach(l=>{ const ip=+l.invoicePrice||0;
+      const bk=(+l.ordered||0)*ip; r.booked+=bk; booked+=bk;
+      const dv=(+l.delivered||0)*ip; r.delivered+=dv; delivered+=dv;
+      if(lineOverdue(o,l)){ riskVal+=Math.max(0,(+l.ordered||0)-(+l.delivered||0))*ip; }
+      if(l.deliveredDate){ onD++; if(!l.committed||new Date(l.deliveredDate)<=new Date(l.committed)) onN++; }
+    }); });
+  let budget=0; Object.values(byc).forEach(r=>budget+=r.budget);
+  let fit=0,unfit=0; (state.batches||[]).forEach(b=>{ const units=(b.lots&&b.lots.length)?b.lots:[{coa:b.coa}]; units.forEach(u=>{ const st=u.coa&&u.coa.status; if(st==='approved')fit++; else if(st==='failed')unfit++; }); });
+  const fitPct=(fit+unfit)>0?Math.round(fit/(fit+unfit)*100):null;
+  let insP=0,insF=0; (state.inspections||[]).forEach(x=>{ if(x.pass)insP++; else insF++; });
+  const psPct=(insP+insF)>0?Math.round(insP/(insP+insF)*100):null;
+  let lossKg=0; (state.orders||[]).forEach(o=>(o.lines||[]).forEach(l=>{ lossKg+=(+l.disposedKg||0); }));
+  let producedKg=0; (state.batches||[]).forEach(b=>producedKg+=(+b.producedKg||0));
+  const stageDefs=[['RM','rmDays'],['Production','prodDays'],['QC → delivery','qcToDeliv'],['Total','totalCycle']];
+  const cs={}; (state.orders||[]).forEach(o=>(o.lines||[]).forEach(l=>{ const cc=calcLine(o,l); stageDefs.forEach(([nm,k])=>{ if(cc[k]!=null){ cs[k]=cs[k]||[]; cs[k].push(cc[k]); } }); }));
+  const turn=stageDefs.map(([nm,k])=>{ const a=cs[k]; return {name:nm,days:a&&a.length?+(a.reduce((x,y)=>x+y,0)/a.length).toFixed(1):null,n:(a||[]).length}; });
+  const clients=Object.values(byc).filter(r=>r.budget>0||r.booked>0||r.delivered>0).sort((a,b)=>b.booked-a.booked);
+  return { fy,budget,booked,delivered,riskVal,onPct:(onD>0?Math.round(onN/onD*100):null),onD,fit,unfit,fitPct,psPct,lossKg,producedKg,turn,clients };
+}
+function execHeadline(M){
+  const bvb=M.budget>0?Math.round(M.booked/M.budget*100):0, dvb=M.budget>0?Math.round(M.delivered/M.budget*100):0;
+  let bn=null; M.turn.forEach(t=>{ if(t.name!=='Total'&&t.days!=null&&(!bn||t.days>bn.days))bn=t; });
+  const sales=bvb>=100?('Pipeline is strong — '+bvb+'% of budget booked'):('Booking is behind at '+bvb+'% of budget');
+  const deliv=dvb>=100?('delivery is on target'):('delivery is the constraint at '+dvb+'% delivered');
+  const bott=bn?(', and '+bn.name.toLowerCase()+' is the slowest stage ('+bn.days+'d)'):'';
+  const q=M.fitPct!=null?(M.fitPct>=95?(' Quality is healthy at '+M.fitPct+'% FIT.'):(' Quality needs attention: '+M.fitPct+'% FIT, '+M.unfit+' UNFIT.')):'';
+  return sales+'; '+deliv+bott+'.'+q;
+}
+function dashExecHtml(M){
+  const bvb=M.budget>0?Math.round(M.booked/M.budget*100):0, dvb=M.budget>0?Math.round(M.delivered/M.budget*100):0;
+  const mx=Math.max(M.budget,M.booked,M.delivered,1);
+  const bar=(v,col)=>`<div style="height:16px;background:#eef1f6;border-radius:4px;overflow:hidden"><div style="height:100%;width:${Math.max(1,Math.round(v/mx*100))}%;background:${col}"></div></div>`;
+  const kpi=(lbl,val,sub,col)=>`<div class="kpi" style="border-top:3px solid ${col}"><div class="l">${lbl}</div><div class="v" style="color:${col}">${val}</div><div class="d">${sub}</div></div>`;
+  const lossPct=M.producedKg>0?(M.lossKg/M.producedKg*100):0;
+  return `
+   <div class="card" style="margin-bottom:12px;display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:8px">
+     <div><div style="font-size:17px;font-weight:800">Executive overview</div><div class="muted" style="font-size:12px">${dashGreet()} · ${TODAY.toISOString().slice(0,10)} · current month</div></div>
+     <button class="sm" onclick="gotoScreen('budget')">Sales &amp; Budget →</button></div>
+   <div class="card" style="margin-bottom:12px;background:color-mix(in srgb,var(--navy) 6%,#fff);border-left:4px solid var(--navy)">
+     <div class="muted" style="font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--navy)">Today's read · auto-generated</div>
+     <div style="font-size:14px;font-weight:600;color:var(--navy);margin-top:3px;line-height:1.5">${execHeadline(M)}</div></div>
+   <div class="kpis" style="grid-template-columns:repeat(5,1fr);margin-bottom:14px">
+     ${kpi('Budget done',dvb+'%','delivered vs budget','var(--green2)')}
+     ${kpi('Booked vs budget',bvb+'%','pipeline value','var(--navy)')}
+     ${kpi('On-time delivery',M.onPct!=null?M.onPct+'%':'—',M.onD?('vs committed ('+M.onD+')'):'no deliveries yet','var(--navy)')}
+     ${kpi('Revenue at risk',pkrM(M.riskVal),'overdue value',M.riskVal>0?'var(--amber)':'var(--green2)')}
+     ${kpi('QC pass (FIT)',M.fitPct!=null?M.fitPct+'%':'—','COAs approved','var(--green2)')}
+   </div>
+   <div class="sec">Money — budget vs booked vs delivered</div>
+   <div class="card" style="margin-bottom:10px">
+     <div style="display:grid;grid-template-columns:80px 1fr 190px;gap:9px 12px;align-items:center;font-size:13px">
+       <span class="muted">Budget</span>${bar(M.budget,'#5f6b7b')}<span style="text-align:right"><b>${pkrM(M.budget)}</b></span>
+       <span class="muted">Booked</span>${bar(M.booked,'#1f3a5f')}<span style="text-align:right"><b>${pkrM(M.booked)}</b> <span style="color:var(--navy)">${bvb}%</span></span>
+       <span class="muted">Delivered</span>${bar(M.delivered,'#1f7a43')}<span style="text-align:right"><b>${pkrM(M.delivered)}</b> <span style="color:var(--green2)">${dvb}%</span></span>
+     </div>
+     <div class="muted" style="font-size:11px;margin-top:8px">Gap to budget: ${pkrM(Math.max(0,M.budget-M.delivered))}.</div></div>
+   <div class="card" style="margin-bottom:14px"><h3>By client — budget, booked, delivered</h3>
+     <div style="display:flex;gap:14px;font-size:11px;color:var(--mut);margin-bottom:6px;flex-wrap:wrap"><span>■ Budget</span><span style="color:var(--navy)">■ Booked</span><span style="color:var(--green2)">■ Delivered</span></div>
+     ${M.clients.length?'<canvas id="chExCust" height="300"></canvas>':'<div class="muted" style="padding:14px 0">No client data yet.</div>'}</div>
+   <div class="sec">Quality gate — FIT vs UNFIT</div>
+   <div class="kpis" style="grid-template-columns:repeat(4,1fr);margin-bottom:14px">
+     ${kpi('QC pass (FIT)',M.fitPct!=null?M.fitPct+'%':'—','COAs approved','var(--green2)')}
+     ${kpi('UNFIT lots',M.unfit,'failed COAs',M.unfit?'var(--red)':'var(--green2)')}
+     ${kpi('Pre-shipment pass',M.psPct!=null?M.psPct+'%':'—','inspections cleared','var(--green2)')}
+     ${kpi('Lab-approved units',M.fit,'FIT batches/lots','var(--navy)')}
+   </div>
+   <div class="sec">Variance &amp; loss</div>
+   <div class="kpis" style="grid-template-columns:repeat(3,1fr);margin-bottom:14px">
+     ${kpi('Wastage / loss',fmt(M.lossKg)+' Kg/L',M.producedKg?(lossPct.toFixed(1)+'% of produced'):'—',M.lossKg?'var(--red)':'var(--green2)')}
+     ${kpi('Produced',fmt(M.producedKg)+' Kg/L','total output','var(--navy)')}
+     ${kpi('Value of loss','—','Phase 2 · cost basis','var(--mut)')}
+   </div>
+   <div class="sec">Turnaround — average days per stage</div>
+   <div class="card">
+     ${M.turn.some(t=>t.days!=null)?'<canvas id="chExTurn" height="190"></canvas>':'<div class="muted" style="padding:14px 0">Turnaround appears once orders have stage dates.</div>'}
+     <div class="muted" style="font-size:11px;margin-top:6px">Actual averages from your stage timestamps. A learned, size-adjusted <b>standard</b> for fairness comes in Phase 2.</div></div>`;
+}
+function drawDashExec(M){
+  if(typeof Chart==='undefined') return;
+  Object.values(charts).forEach(c=>{try{c.destroy()}catch(e){}}); charts={};
+  const GRID='#e6ebf3'; Chart.defaults.color='#67748c'; Chart.defaults.font.size=10;
+  if($('chExCust')){ const cl=M.clients.slice(0,8);
+    charts.exCust=new Chart($('chExCust'),{type:'bar',data:{labels:cl.map(c=>c.client),datasets:[
+      {label:'Budget',data:cl.map(c=>+(c.budget/1e6).toFixed(2)),backgroundColor:'#b4b2a9',borderRadius:3},
+      {label:'Booked',data:cl.map(c=>+(c.booked/1e6).toFixed(2)),backgroundColor:'#1f3a5f',borderRadius:3},
+      {label:'Delivered',data:cl.map(c=>+(c.delivered/1e6).toFixed(2)),backgroundColor:'#1f7a43',borderRadius:3}]},
+      options:{indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.dataset.label+': PKR '+c.parsed.x.toFixed(2)+'M'}}},scales:{x:{grid:{color:GRID},ticks:{callback:v=>v+'M'}},y:{grid:{display:false},ticks:{font:{size:9}}}}}}); }
+  if($('chExTurn')){ const t=M.turn.filter(x=>x.days!=null);
+    charts.exTurn=new Chart($('chExTurn'),{type:'bar',data:{labels:t.map(x=>x.name),datasets:[{label:'Avg days',data:t.map(x=>x.days),backgroundColor:t.map(x=>x.days>15?'#c0392b':x.days>8?'#b07208':'#1f3a5f'),borderRadius:4}]},
+      options:{indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.x+' days'}}},scales:{x:{grid:{color:GRID},ticks:{callback:v=>v+'d'}},y:{grid:{display:false}}}}}); }
+}
 function screenDash(){
+  if(['COO','CEO','CFO'].indexOf(state.role)>-1){ const M=execMetrics(); $('view').innerHTML=dashExecHtml(M); drawDashExec(M); return; }
   const os=state.orders||[]; const today=TODAY; const monthKey=today.toISOString().slice(0,7);
   const dnum=(d)=>{ if(!d)return null; const t=new Date(d); if(isNaN(t))return null; return Math.round((t-today)/86400000); };
   const ageDays=(d)=>{ if(!d)return null; const t=new Date(d); if(isNaN(t))return null; return Math.max(0,Math.round((today-t)/86400000)); };

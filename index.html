@@ -2464,7 +2464,7 @@ function lineUnbatched(o,l){ let s=0; lotsFor(o,l).forEach(p=>{ if(!lotHasBatch(
 function lineToInspectTotal(o,l){ let s=0; lotsFor(o,l).forEach(p=>s+=lotAvail(p)); return s; }
 function lineCleared(o,l){ let s=0; lotsFor(o,l).forEach(p=>s+=lotClearedKg(p)); return s; }        // ready to ship
 function linesToInspect(){ const out=[]; (state.orders||[]).forEach(o=>(o.lines||[]).forEach(l=>{ const r=lineToInspectTotal(o,l); if(r>0.5) out.push({o,l,rem:r,batched:lineToInspect(o,l),unb:lineUnbatched(o,l)}); })); return out; }
-function fifoAlloc(o,l,qty,mode){ const lots=lotsFor(o,l); let rem=Math.max(0,+qty||0); const out={}; for(const p of lots){ if(mode==='ins'&&!lotHasBatch(p))continue; const cap=mode==='ins'?lotAvail(p):lotClearedKg(p); if(cap<=0.0001)continue; const take=Math.min(rem,cap); if(take<=0.0001)continue; out[p.id]=Math.round(take); rem-=take; if(rem<=0.0001)break; } return out; }
+function fifoAlloc(o,l,qty,mode){ const lots=lotsFor(o,l); let rem=Math.max(0,+qty||0); const out={}; lots.forEach((p,i)=>{ if(rem<=0.0001)return; if(mode==='ins'&&!lotHasBatch(p))return; const cap=mode==='ins'?lotAvail(p):lotClearedKg(p); if(cap<=0.0001)return; const take=Math.min(rem,cap); if(take<=0.0001)return; out[i]=Math.round(take); rem-=take; }); return out; }
 /* One-time retroactive backfill: allocate already-inspected/shipped quantities to packing lots by FIFO,
    as if batch tracking existed since launch. Writes only insKg/shipKg on lots and batch breakdown on
    completed shipments — never Master Data, never order status. Idempotent via the _lotMig flag. */
@@ -2486,14 +2486,13 @@ function openPackInspect(oid,lid){ if(!(canEdit(['QA Inspector'])||state.role===
   packInspForm={oid,lid:(l.id!=null?l.id:l.brand),qty:Math.round(rem),alloc:fifoAlloc(o,l,Math.round(rem),'ins'),marks:QC_CHECKLIST.map(()=>''),officer:((state.currentUser&&state.currentUser.name)||''),remarks:''};
   renderPackInspect(); $('modalBg').classList.add('open'); }
 function packInspQty(v){ if(!packInspForm)return; packInspForm.qty=v; const o=(state.orders||[]).find(x=>x.id===packInspForm.oid); const l=o&&((o.lines||[]).find(x=>x.id===packInspForm.lid)||(o.lines||[]).find(x=>x.brand===packInspForm.lid)); if(o&&l) packInspForm.alloc=fifoAlloc(o,l,v,'ins'); renderPackInspect(); }
-function packInspLot(lotId,v){ if(packInspForm){ packInspForm.alloc[lotId]=(+v||0); const t=document.getElementById('pi_tot'); if(t) t.textContent=fmt(piAllocTotal())+' Kg/L'; } }
+function packInspLot(idx,v){ if(packInspForm){ packInspForm.alloc[idx]=(+v||0); const t=document.getElementById('pi_tot'); if(t) t.textContent=fmt(piAllocTotal())+' Kg/L'; } }
 function packInspSet(i,v){ if(packInspForm){ packInspForm.marks[i]=v; renderPackInspect(); } }
 function piAllocTotal(){ return Object.values((packInspForm&&packInspForm.alloc)||{}).reduce((a,x)=>a+(+x||0),0); }
 function renderPackInspect(){ const f=packInspForm; if(!f){closeModal();return;} const o=(state.orders||[]).find(x=>x.id===f.oid); if(!o){closeModal();return;}
   const l=(o.lines||[]).find(x=>x.id===f.lid)||(o.lines||[]).find(x=>x.brand===f.lid); if(!l){closeModal();return;}
-  const lots=lotsFor(o,l).filter(p=>lotAvail(p)>0.0001);
-  const lotRows=lots.map(p=>{ const has=lotHasBatch(p); const av=lotAvail(p); const bn=has?(lotBaseNo(p)+(lotBrandNo(p)!==lotBaseNo(p)?(' ▸ '+lotBrandNo(p)):'')):'(no batch #)';
-    return `<tr${has?'':' style="opacity:.65"'}><td><b style="font-size:11.5px">${bn}</b>${has?'':'<div style="color:var(--red);font-size:10px">set batch # in Production first</div>'}</td><td class="num muted">${fmt(av)}</td><td>${has?`<input type="number" class="num" value="${Math.round(f.alloc[p.id]||0)}" oninput="packInspLot('${p.id}',this.value)" style="width:100px">`:'<span class="muted" style="font-size:11px;color:var(--red)">blocked</span>'}</td></tr>`; }).join('');
+  const lotRows=lotsFor(o,l).map((p,i)=>{ const av=lotAvail(p); if(av<=0.0001) return ''; const has=lotHasBatch(p); const bn=has?(lotBaseNo(p)+(lotBrandNo(p)!==lotBaseNo(p)?(' ▸ '+lotBrandNo(p)):'')):'(no batch #)';
+    return `<tr${has?'':' style="opacity:.65"'}><td><b style="font-size:11.5px">${bn}</b>${has?'':'<div style="color:var(--red);font-size:10px">set batch # in Production first</div>'}</td><td class="num muted">${fmt(av)}</td><td>${has?`<input type="number" class="num" value="${Math.round(f.alloc[i]||0)}" oninput="packInspLot(${i},this.value)" max="${Math.round(av)}" style="width:100px">`:'<span class="muted" style="font-size:11px;color:var(--red)">blocked</span>'}</td></tr>`; }).join('');
   const cl=QC_CHECKLIST.map((it,i)=>`<tr><td>${it}</td><td style="white-space:nowrap"><label style="margin-right:12px"><input type="radio" name="pq${i}" ${f.marks[i]==='pass'?'checked':''} onclick="packInspSet(${i},'pass')"> Pass</label><label><input type="radio" name="pq${i}" ${f.marks[i]==='fail'?'checked':''} onclick="packInspSet(${i},'fail')"> Fail</label></td></tr>`).join('');
   $('modal').innerHTML=`<div class="mh"><h2>Pre-shipment inspection</h2><div class="sub">${o.po} · <b>${l.brand}</b> <span class="muted">${l.base||''}</span></div></div>
    <div class="mb">
@@ -2508,7 +2507,7 @@ function renderPackInspect(){ const f=packInspForm; if(!f){closeModal();return;}
    <div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" onclick="savePackInspect()">Submit inspection</button></div>`; }
 function savePackInspect(){ if(!(canEdit(['QA Inspector'])||state.role==='COO')){toast('QA Inspector only');return;}
   const f=packInspForm; if(!f)return; const o=(state.orders||[]).find(x=>x.id===f.oid); if(!o)return; const l=(o.lines||[]).find(x=>x.id===f.lid)||(o.lines||[]).find(x=>x.brand===f.lid); if(!l)return;
-  const sel=[]; let kg=0; lotsFor(o,l).forEach(p=>{ const a=Math.min(+f.alloc[p.id]||0, lotAvail(p)); if(a>0.0001 && lotHasBatch(p)){ sel.push({p,kg:a}); kg+=a; } });
+  const sel=[]; let kg=0; lotsFor(o,l).forEach((p,i)=>{ const a=Math.min(+f.alloc[i]||0, lotAvail(p)); if(a>0.0001 && lotHasBatch(p)){ sel.push({p,kg:a}); kg+=a; } });
   if(kg<=0){toast('Allocate a quantity to at least one batch with a batch number');return;}
   if(f.marks.some(m=>!m)){toast('Mark every item Pass or Fail');return;} if(!(f.officer||'').trim()){toast('Enter inspector name');return;}
   const anyFail=f.marks.some(m=>m==='fail'); const d=TODAY.toISOString().slice(0,10);
@@ -2554,7 +2553,7 @@ function saveDispatch(){ if(!canEdit(['Supply Chain'])){toast('Supply Chain only
   const dispId='DSP'+(state.seq=(state.seq||1)+1); const d=dispForm.date||TODAY.toISOString().slice(0,10); let n=0,tot=0;
   sel.forEach(r=>{ const l=o.lines.find(x=>x.id===r.lid)||o.lines.find(x=>x.brand===r.brand); if(!l)return; const rem=Math.max(0,lineCleared(o,l)); const want=Math.min(+r.qty||0,rem); if(want<=0)return;
     const alloc=fifoAlloc(o,l,want,'ship'); const batches=[]; let kg=0;
-    lotsFor(o,l).forEach(p=>{ const a=Math.min(+alloc[p.id]||0, lotClearedKg(p)); if(a>0.0001){ p.shipKg=(+p.shipKg||0)+a; batches.push({batch:lotBaseNo(p),brand:lotBrandNo(p),kg:Math.round(a)}); kg+=a; } });
+    lotsFor(o,l).forEach((p,i)=>{ const a=Math.min(+alloc[i]||0, lotClearedKg(p)); if(a>0.0001){ p.shipKg=(+p.shipKg||0)+a; batches.push({batch:lotBaseNo(p),brand:lotBrandNo(p),kg:Math.round(a)}); kg+=a; } });
     if(kg<=0)return;
     state.shipments.unshift({dispId,po:o.po,brand:l.brand,lid:l.id,kg:Math.round(kg),batches,pack:r.pack,dispatch:d,destination:dispForm.dest,carrier:dispForm.carrier,vehicle:dispForm.vehicle,dc:dispForm.dc,bilty:dispForm.bilty,delivered:d,remarks:dispForm.remarks,qa:{pass:true,closed:true},by:state.role});
     l.dispatched=(l.dispatched||0)+kg; l.dispatchDate=l.dispatchDate||d; l.delivered=(l.delivered||0)+kg; l.deliveredDate=d; n++; tot+=kg; });

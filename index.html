@@ -2647,7 +2647,8 @@ function execMetrics(){
   let producedKg=0; (state.batches||[]).forEach(b=>producedKg+=(+b.producedKg||0));
   const stageDefs=[['RM','rmDays'],['Production','prodDays'],['QC → delivery','qcToDeliv'],['Total','totalCycle']];
   const cs={}; (state.orders||[]).forEach(o=>(o.lines||[]).forEach(l=>{ const cc=calcLine(o,l); stageDefs.forEach(([nm,k])=>{ if(cc[k]!=null){ cs[k]=cs[k]||[]; cs[k].push(cc[k]); } }); }));
-  const turn=stageDefs.map(([nm,k])=>{ const a=cs[k]; return {name:nm,days:a&&a.length?+(a.reduce((x,y)=>x+y,0)/a.length).toFixed(1):null,n:(a||[]).length}; });
+  const _median=a=>{ if(!a||!a.length)return null; const s=a.slice().sort((x,y)=>x-y); const mi=Math.floor(s.length/2); return s.length%2?s[mi]:(s[mi-1]+s[mi])/2; };
+  const turn=stageDefs.map(([nm,k])=>{ const a=cs[k]; const md=_median(a); return {name:nm,days:a&&a.length?+(a.reduce((x,y)=>x+y,0)/a.length).toFixed(1):null,std:md!=null?+md.toFixed(1):null,n:(a||[]).length}; });
   const clients=Object.values(byc).filter(r=>r.budget>0||r.booked>0||r.delivered>0).sort((a,b)=>b.booked-a.booked);
   return { fy,budget,booked,delivered,riskVal,onPct:(onD>0?Math.round(onN/onD*100):null),onD,fit,unfit,fitPct,psPct,lossKg,bpKg,dvKg,rwKg,vlCost,vlInv,reconProd,reconClient,producedKg,turn,clients };
 }
@@ -2734,10 +2735,11 @@ function dashExecHtml(M){
      </span></div>
      <div class="lg"><span><i style="background:#dc2626"></i>Loss</span><span><i style="background:#16a34a"></i>By-product</span><span><i style="background:#2563eb"></i>Divert</span><span><i style="background:#d97706"></i>Rework</span></div>
      ${(M.lossKg+M.bpKg+M.dvKg+M.rwKg)>0.5?`<div class="cw" style="height:240px"><canvas id="chExRecon"></canvas></div>`:'<div class="note" style="padding:10px 0">Nothing reconciled yet — loss, by-product, divert and rework appear here (by type, product or client) as batches are reconciled.</div>'}</div>
-   <div class="sec">Turnaround — average days per stage</div>
+   <div class="sec">Turnaround — actual vs learned standard</div>
    <div class="panel">
+     <div class="lg"><span><i style="background:#2563eb"></i>Actual (avg)</span><span><i style="background:#b4b2a9"></i>Standard (median)</span></div>
      ${hasStage?`<div class="cw" style="height:200px"><canvas id="chExTurn"></canvas></div>`:'<div class="note" style="padding:12px 0">Turnaround appears once orders carry stage dates.</div>'}
-     <div class="note" style="margin-top:8px">${total&&total.days!=null?('Total cycle ≈ <b style="color:#27313f">'+total.days+' days</b>. '):''}Actual averages from your stage timestamps; a learned, size-adjusted standard for fairness comes in Phase 2.</div></div>
+     <div class="note" style="margin-top:8px">${total&&total.days!=null?('Total cycle ≈ <b style="color:#27313f">'+total.days+' days</b>. '):''}Standard is the learned median of completed runs; it refines as history builds, so with limited data it sits close to actual.</div></div>
   </div>`;
 }
 function drawDashExec(M){
@@ -2751,8 +2753,10 @@ function drawDashExec(M){
       {label:'Delivered',data:cl.map(c=>+(c.delivered/1e6).toFixed(2)),backgroundColor:'#16a34a',borderRadius:3,barThickness:8}]},
       options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.dataset.label+': PKR '+c.parsed.x.toFixed(2)+'M'}}},scales:{x:{grid:{color:GRID},ticks:{callback:v=>v+'M'}},y:{grid:{display:false},ticks:{font:{size:10}}}}}}); }
   if($('chExTurn')){ const t=M.turn.filter(x=>x.name!=='Total'&&x.days!=null);
-    charts.exTurn=new Chart($('chExTurn'),{type:'bar',data:{labels:t.map(x=>x.name),datasets:[{label:'Avg days',data:t.map(x=>x.days),backgroundColor:'#2563eb',borderRadius:4,barThickness:16}]},
-      options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.x+' days'}}},scales:{x:{grid:{color:GRID},ticks:{callback:v=>v+'d'}},y:{grid:{display:false}}}}}); }
+    charts.exTurn=new Chart($('chExTurn'),{type:'bar',data:{labels:t.map(x=>x.name),datasets:[
+      {label:'Actual',data:t.map(x=>x.days),backgroundColor:'#2563eb',borderRadius:3,barThickness:9},
+      {label:'Standard',data:t.map(x=>x.std),backgroundColor:'#b4b2a9',borderRadius:3,barThickness:9}]},
+      options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.dataset.label+': '+c.parsed.x+' days'}}},scales:{x:{grid:{color:GRID},ticks:{callback:v=>v+'d'}},y:{grid:{display:false}}}}}); }
   _xrec={view:(_xrec&&_xrec.view)||'cat',cat:{loss:M.lossKg,bp:M.bpKg,dv:M.dvKg,rw:M.rwKg},prod:M.reconProd||[],client:M.reconClient||[]};
   drawRecon();
 }

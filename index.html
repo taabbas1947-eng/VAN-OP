@@ -2255,7 +2255,7 @@ function screenInstructions(){
    {n:'5',title:'Produce (batch + shift)',who:'Production',when:'as production runs',tab:'Production',
     body:'<b>Open a batch</b> — Against a PO, or <b>Bulk Base</b> — with a <b>batch #</b> and a <b>planned qty</b>. Batch numbers must be <b>unique within the financial year (Jul–Jun)</b>. <b>Log shift output</b> against the batch (date, shift, incharge, qty); a shift with no output needs a <b>reason</b>. <b>Over-production is capped at 105% of plan.</b> When produced reaches <b>100%</b> the batch moves to <b>"Production completed"</b>. Bulk base then appears under <b>"pack into brands"</b>.'},
    {n:'6',title:'Pack into the client brand',who:'Production',when:'once base is produced',tab:'Production → Pack',
-    body:'<b>Packing needs a PO and a Lab-approved batch (QCM-signed COA).</b> Pack the bulk base into the client <b>brand</b> for a specific PO (capped to what the PO still needs). Enter the <b>brand batch #</b> printed on the packaging (unique within the financial year; leave blank to keep the base batch number) and <b>verify the print price</b>. This creates the <b>base ▸ brand</b> batch link used for traceability.'},
+    body:'<b>Packing needs a PO and a Lab-approved batch (QCM-signed COA).</b> Pack the bulk base into the client <b>brand</b> for a specific PO (capped to what the PO still needs). Enter the <b>brand batch #</b> printed on the packaging (unique within the financial year; leave blank to keep the base batch number) and <b>verify the print price</b>. This creates the <b>base ▸ brand</b> batch link used for traceability. When a batch is done, the <b>Production Manager runs Finish &amp; reconcile</b>: any <b>unpacked remainder</b> is routed as <b>overfill/loss</b>, <b>by-product</b>, <b>divert</b>, or <b>rework</b> (by-product routing follows the rules in Master Data). Reconcile spawns a fresh stock batch where needed and closes the remainder so it no longer counts as packable.'},
    {n:'7',title:'Quality — two checks',who:'Lab Rep, then QA Inspector',when:'once packed',tab:'QC · Pre-shipment',
     body:'<b>Lab QC is per production batch</b> on the official <b>COA form (QCL-FRM-12.03)</b> — it opens <b>auto-filled</b> with the batch details (item, batch #, quantity, dates); the analyst fills the sample fields (Q.C. #, sampled-by, time, temp, humidity — mandatory) and each test Result + Remark. Parameters &amp; acceptable ranges come from the product template and the lab can <b>add more on the report</b> (remembered for next time). Sign-off is <b>3-step with auto-signatures + timestamps</b>: <b>Analyst → AQCM review → QCM final approval</b>. Only a QCM-approved batch can be <b>packed</b>. <b>UNFIT → Plant Manager</b> (deviation or rework). Then, at dispatch, <b>QA inspects each shipment</b> — only the <b>quantity being shipped</b> (checklist + inspector name), not the whole lot; a shipment can&rsquo;t be marked delivered until it passes, and a fail returns the material to Ready to ship. Approved COAs <b>print</b> as the official certificate.'},
    {n:'8',title:'Ship (per shipment, many products per DC)',who:'Supply Chain + QA Inspector',when:'each dispatch',tab:'Shipments',
@@ -2273,8 +2273,8 @@ function screenInstructions(){
    ['Production','Produced reaches the order (or batch closed)','Lab COA opens for the batch (QC tab)','Can&rsquo;t pack → nothing produced yet'],
    ['Lab COA','Analyst submits → AQCM reviews → QCM approves (auto-signed, timestamped)','Batch can be packed into the brand','Stuck → COA awaiting review/approval; UNFIT → Plant Manager'],
    ['Packing','Base packed into the brand for the PO (brand batch # + price verify)','Packed lot goes to QA pre-shipment','Can&rsquo;t pack → batch COA not approved, or no PO'],
-   ['QA Pre-shipment','Each packed lot passes the checklist (inspector named)','That lot can be shipped','QA fail → Supply Chain corrects &amp; re-inspects the lot'],
-   ['Shipment','Dispatch recorded (only QA-passed quantity can load)','Counts toward delivery','Can&rsquo;t ship → lot not QA-passed'],
+   ['QA Pre-shipment','Each recorded shipment passes the checklist — inspector named, only the dispatched quantity inspected','That shipment can move to In transit / be delivered','QA fail → material returns to Ready to ship for a fresh shipment'],
+   ['Shipment','Dispatch recorded (tick products, one DC/vehicle per shipment); passes inspection, then In transit','Counts toward delivery on Mark delivered','Can&rsquo;t mark delivered → shipment not QA-passed; rest of the PO stays in Ready to ship'],
    ['Delivered','100% of the qty delivered','Product &amp; PO close','Partial delivery stays in Shipment'],
   ];
   const stuck=[
@@ -2282,7 +2282,7 @@ function screenInstructions(){
    ['Can&rsquo;t receive material','The PR has not been approved by the CFO','CFO approves the PR from My Actions'],
    ['Can&rsquo;t pack a brand','The batch COA is not QCM-approved yet, the base is not produced, or there is no open PO','Get the COA approved (Analyst → AQCM → QCM); packing must be against a PO'],
    ['Batch not showing in Lab QC','It has no production output yet','Log shift output on the batch first'],
-   ['Can&rsquo;t ship a product','Only QA-passed packed lots can load','QA-inspect the packed lot (QC tab) first'],
+   ['Can&rsquo;t mark a shipment delivered','The shipment hasn&rsquo;t passed pre-shipment inspection','Record the shipment, then QA-inspect that shipment&rsquo;s quantity (QC · Pre-shipment) before delivery'],
    ['Batch # is rejected','That number is already used this financial year (Jul–Jun)','Use a new, unique batch number'],
    ['Can&rsquo;t log more shift output','The batch reached the 105% over-production cap','Close the batch; open a new one if more is genuinely needed'],
    ['"Pack size not set" on a shipment','That brand has no pack size on the PO line','Set the pack size on the PO line in New PO Entry'],
@@ -2293,10 +2293,10 @@ function screenInstructions(){
    ['Dealer Master','KAM','Onboard dealers (auto code)','→ New PO Entry'],
    ['PO Tracker','All (view-only)','Control tower — every order &amp; stage','consolidates all'],
    ['Production','Production','Open batches, log shift output, pack base into brands','→ QC'],
-   ['QC · Pre-shipment','Lab, AQCM, QCM + QA Inspector','Batch COA (3-step sign-off) + per-lot QA inspection','gates Packing &amp; Shipments'],
-   ['Shipments','Supply Chain','Record dispatch (Kg/L + packs); closes products &amp; PO','→ PO Tracker'],
-   ['Reports / Batch Trace','All','Slice all data; base ▸ brand batch trace','—'],
-   ['Admin · Master Data','COO (+ Plant Manager: recipes; Lab/QC: COA templates)','Reference lists (dropdowns) on top; then Raw materials, <b>Product recipes</b>, Lab COA templates, sales targets &amp; the access-control matrix','—'],
+   ['QC · Pre-shipment','Lab, AQCM, QCM + QA Inspector','Batch COA (3-step sign-off) + per-shipment QA inspection (only the dispatched quantity)','gates Packing &amp; Shipments'],
+   ['Shipments','Supply Chain','Record one shipment per dispatch — tick the products, one DC/vehicle each; pass inspection → In transit → Mark delivered','→ QC · Pre-shipment → PO Tracker'],
+   ['Reports / Batch Trace','All','Slice all data; <b>Trends</b> (Line/Bar/Table, overlays, range, CSV); <b>Sales &amp; Budget</b> drill-down (per-line invoice, per-Kg cross-check); base ▸ brand batch trace','—'],
+   ['Admin · Master Data','COO (+ Plant Manager: recipes; Lab/QC: COA templates)','Reference lists (dropdowns) on top; then Raw materials, <b>Product recipes</b>, Lab COA templates, <b>by-product routing rules</b>, sales targets &amp; the access-control matrix','—'],
    ['Data Fix','COO (setup only)','Back-fill / correct records to match reality','temporary'],
    ['Users &amp; Access','COO','Add people, set role &amp; password','—'],
    ['Action Log','All','Timestamped audit trail','—'],
@@ -2404,7 +2404,7 @@ function screenShip(){
   const histPOs=[...new Set((state.shipments||[]).map(s=>s.po||'—'))].sort();
   const histHtml=histPOs.length?acard('ship_bypo','Shipments by PO — history',`${histPOs.length} PO(s)`,histPOs.map(po=>{ const grps=allGroups.filter(g=>g.po===po); const o=(state.orders||[]).find(x=>x.po===po); const ord=o?o.lines.reduce((a,l)=>a+(+l.ordered||0),0):0; const dlv=o?o.lines.reduce((a,l)=>a+(+l.delivered||0),0):0;
      return `<div style="border:1px solid var(--line);border-radius:11px;padding:12px 14px;margin-bottom:10px"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center"><div><b>${po}</b> <span class="muted" style="font-size:12px">${o?('· '+o.client):''}</span></div><div class="muted" style="font-size:11.5px">${grps.length} shipment(s)${ord?(' · '+pct(dlv,ord)+'% delivered'):''}</div></div>
-       <div class="tscroll" style="margin-top:8px"><table><thead><tr><th>DC</th><th>Date</th><th>Products</th><th class="num">Kg/L</th><th>Vehicle</th><th>Status</th></tr></thead><tbody>${grps.map(g=>`<tr><td><b>${g.dc||'—'}</b></td><td class="muted">${g.date||''}</td><td class="muted" style="font-size:11.5px">${g.rows.map(r=>r.brand).join(', ')}</td><td class="num">${fmt(g.kg)}</td><td class="muted">${g.vehicle||'—'}</td><td>${g.delivered?'<span class="pill" style="background:var(--green-50);color:var(--green2)">Delivered</span>':'<span class="pill" style="background:var(--amber-50);color:var(--amber)">In transit</span>'}</td></tr>`).join('')}</tbody></table></div></div>`;
+       <div class="tscroll" style="margin-top:8px"><table><thead><tr><th>DC</th><th>Date</th><th>Products</th><th class="num">Kg/L</th><th>Vehicle</th><th>Status</th>${ed?'<th></th>':''}</tr></thead><tbody>${grps.map(g=>`<tr><td><b>${g.dc||'—'}</b></td><td class="muted">${g.date||''}</td><td class="muted" style="font-size:11.5px">${g.rows.map(r=>r.brand).join(', ')}</td><td class="num">${fmt(g.kg)}</td><td class="muted">${g.vehicle||'—'}</td><td>${g.delivered?'<span class="pill" style="background:var(--green-50);color:var(--green2)">Delivered</span>':'<span class="pill" style="background:var(--amber-50);color:var(--amber)">In transit</span>'}</td>${ed?`<td><button class="sm" onclick="openShipEdit('${g.dispId||('idx:'+(state.shipments||[]).indexOf(g.rows[0]))}')">Edit</button></td>`:''}</tr>`).join('')}</tbody></table></div></div>`;
    }).join('')):'';
   $('view').innerHTML=`
    ${ed?'':viewOnly('Supply Chain')}
@@ -2515,6 +2515,44 @@ function markDelivered(dispId,date){ if(!canEdit(['Supply Chain'])){toast('Suppl
   (state.shipments||[]).forEach(s=>{ if((s.dispId||'')===dispId && !s.delivered){ s.delivered=d; const o=(state.orders||[]).find(x=>x.po===s.po); const l=o&&(o.lines.find(x=>x.id===s.lid)||o.lines.find(x=>x.brand===s.brand)); if(l){ l.delivered=(l.delivered||0)+(+s.kg||0); l.deliveredDate=d; } n++; } });
   if(!n){toast('Already delivered');return;}
   logAction(`Delivered ${dispId} on ${d} (${n} line(s))`); save(); render(); toast('Marked delivered'); }
+
+/* ===== Edit an existing shipment (correct DC / date / vehicle / qty / status) ===== */
+let shipEditForm=null;
+function _av(x){ return String(x==null?'':x).replace(/&/g,'&amp;').replace(/"/g,'&quot;'); }
+function shipRowsByKey(key){ if(typeof key==='string' && key.indexOf('idx:')===0){ const n=+key.slice(4); const s=(state.shipments||[])[n]; return s?[s]:[]; } return (state.shipments||[]).filter(s=>(s.dispId||'')===key); }
+function openShipEdit(key){ if(!(canEdit(['Supply Chain'])||state.role==='COO')){toast('Supply Chain only');return;}
+  const rows=shipRowsByKey(key); if(!rows.length){toast('Shipment not found');return;} const g0=rows[0];
+  shipEditForm={ rows:rows.map(s=>{ const o=(state.orders||[]).find(x=>x.po===s.po); const l=o&&(o.lines.find(x=>x.id===s.lid)||o.lines.find(x=>x.brand===s.brand)); return {s,l,kg:(+s.kg||0)}; }),
+    date:g0.dispatch||'', dest:g0.destination||'', carrier:g0.carrier||'', vehicle:g0.vehicle||'', dc:g0.dc||'', bilty:g0.bilty||'',
+    delivered:!!g0.delivered, deliveredDate:g0.delivered||TODAY.toISOString().slice(0,10) };
+  renderShipEdit(); $('modalBg').classList.add('open'); }
+function renderShipEdit(){ const f=shipEditForm; if(!f){closeModal();return;} const g0=f.rows[0].s;
+  const lineRows=f.rows.map((r,i)=>`<tr><td><b>${r.s.brand}</b></td><td><input type="number" class="num" value="${_av(r.kg)}" oninput="shipEditForm.rows[${i}].kg=this.value" style="width:120px"></td></tr>`).join('');
+  $('modal').innerHTML=`<div class="mh"><h2>Edit shipment</h2><div class="sub">${g0.po} · ${f.rows.length} product(s)</div></div>
+   <div class="mb">
+     <div style="overflow:auto;max-height:26vh;margin-bottom:10px"><table><thead><tr><th>Product</th><th class="num">Kg/L shipped</th></tr></thead><tbody>${lineRows}</tbody></table></div>
+     <div class="formgrid" style="grid-template-columns:repeat(3,minmax(0,1fr))">
+       <div class="fld"><label>Dispatch date</label><input type="date" value="${_av(f.date)}" onchange="shipEditForm.date=this.value"></div>
+       <div class="fld"><label>Destination</label><input type="text" value="${_av(f.dest)}" oninput="shipEditForm.dest=this.value"></div>
+       <div class="fld"><label>Carrier</label><input type="text" value="${_av(f.carrier)}" oninput="shipEditForm.carrier=this.value" placeholder="transporter"></div>
+       <div class="fld"><label>Vehicle #</label><input type="text" value="${_av(f.vehicle)}" oninput="shipEditForm.vehicle=this.value"></div>
+       <div class="fld"><label>DC number</label><input type="text" value="${_av(f.dc)}" oninput="shipEditForm.dc=this.value"></div>
+       <div class="fld"><label>Bilty / reference</label><input type="text" value="${_av(f.bilty)}" oninput="shipEditForm.bilty=this.value"></div>
+       <div class="fld"><label>Status</label><select onchange="shipEditForm.delivered=(this.value==='delivered');renderShipEdit()"><option value="transit" ${f.delivered?'':'selected'}>In transit</option><option value="delivered" ${f.delivered?'selected':''}>Delivered</option></select></div>
+       ${f.delivered?`<div class="fld"><label>Delivered date</label><input type="date" value="${_av(f.deliveredDate)}" onchange="shipEditForm.deliveredDate=this.value"></div>`:''}
+     </div>
+     <div class="muted" style="font-size:11px;margin-top:10px">Corrects this saved shipment. Reducing the Kg/L returns the difference to <b>Ready to ship</b>; the order&rsquo;s dispatched &amp; delivered totals are recomputed automatically.</div>
+   </div>
+   <div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" onclick="saveShipEdit()">Save changes</button></div>`; }
+function saveShipEdit(){ if(!(canEdit(['Supply Chain'])||state.role==='COO')){toast('Supply Chain only');return;}
+  const f=shipEditForm; if(!f){closeModal();return;} const dd=f.delivered?(f.deliveredDate||TODAY.toISOString().slice(0,10)):null;
+  f.rows.forEach(r=>{ const s=r.s, l=r.l, newKg=Math.max(0,+r.kg||0);
+    if(l){ l.dispatched=Math.max(0,(l.dispatched||0)-(+s.kg||0)); if(s.delivered) l.delivered=Math.max(0,(l.delivered||0)-(+s.kg||0)); }
+    s.kg=newKg; s.dispatch=f.date; s.destination=f.dest; s.carrier=f.carrier; s.vehicle=f.vehicle; s.dc=f.dc; s.bilty=f.bilty; s.delivered=dd;
+    if(l){ l.dispatched=(l.dispatched||0)+newKg; l.dispatchDate=l.dispatchDate||f.date; if(dd){ l.delivered=(l.delivered||0)+newKg; l.deliveredDate=dd; } } });
+  logAction(`Edited shipment ${(f.rows[0].s.dispId)||''} (PO ${f.rows[0].s.po}) — ${f.rows.length} line(s), DC ${(f.dc||'-')}`);
+  (state.audit=state.audit||[]).unshift({t:new Date().toISOString(),user:state.role,module:'Shipment',po:f.rows[0].s.po,brand:f.rows.length+' line(s)',field:'Edited',old:'',val:'DC '+(f.dc||'-')+' · '+(f.vehicle||'')});
+  shipEditForm=null; save(); closeModal(); render(); toast('Shipment updated'); }
 
 /* ===================== EXECUTIVE DASHBOARD (CEO / COO) ===================== */
 let charts={}; let _dash=null;

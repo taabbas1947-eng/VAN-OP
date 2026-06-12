@@ -2642,7 +2642,7 @@ function execMetrics(){
 }
 function execHeadline(M){
   const bvb=M.budget>0?Math.round(M.booked/M.budget*100):0, dvb=M.budget>0?Math.round(M.delivered/M.budget*100):0;
-  let bn=null; M.turn.forEach(t=>{ if(t.name!=='Total'&&t.days!=null&&(!bn||t.days>bn.days))bn=t; });
+  let bn=null; M.turn.forEach(t=>{ if(t.name!=='Total'&&t.days!=null&&t.days>=1&&(!bn||t.days>bn.days))bn=t; });
   const sales=bvb>=100?('Pipeline is strong — '+bvb+'% of budget booked'):('Booking is behind at '+bvb+'% of budget');
   const deliv=dvb>=100?('delivery is on target'):('delivery is the constraint at '+dvb+'% delivered');
   const bott=bn?(', and '+bn.name.toLowerCase()+' is the slowest stage ('+bn.days+'d)'):'';
@@ -2651,66 +2651,88 @@ function execHeadline(M){
 }
 function dashExecHtml(M){
   const bvb=M.budget>0?Math.round(M.booked/M.budget*100):0, dvb=M.budget>0?Math.round(M.delivered/M.budget*100):0;
-  const mx=Math.max(M.budget,M.booked,M.delivered,1);
-  const bar=(v,col)=>`<div style="height:16px;background:#eef1f6;border-radius:4px;overflow:hidden"><div style="height:100%;width:${Math.max(1,Math.round(v/mx*100))}%;background:${col}"></div></div>`;
-  const kpi=(lbl,val,sub,col)=>`<div class="kpi" style="border-top:3px solid ${col}"><div class="l">${lbl}</div><div class="v" style="color:${col}">${val}</div><div class="d">${sub}</div></div>`;
-  const lossPct=M.producedKg>0?(M.lossKg/M.producedKg*100):0;
-  return `
-   <div class="card" style="margin-bottom:12px;display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:8px">
-     <div><div style="font-size:17px;font-weight:800">Executive overview</div><div class="muted" style="font-size:12px">${dashGreet()} · ${TODAY.toISOString().slice(0,10)} · current month</div></div>
+  const mx=Math.max(M.budget,M.booked,M.delivered,1); const w=v=>Math.max(1,Math.round(v/mx*100));
+  const m=(l,v,d,c)=>`<div class="m"><div class="l">${l}</div><div class="v"${c?` style="color:${c}"`:''}>${v}</div><div class="d">${d||''}</div></div>`;
+  const lossPct=M.producedKg>0?(M.lossKg/M.producedKg*100):0; const total=M.turn.find(t=>t.name==='Total');
+  const hasStage=M.turn.some(t=>t.name!=='Total'&&t.days!=null);
+  return `<style>
+   .xd{color:#27313f;font-size:13px}
+   .xd .hd{display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+   .xd .hd h2{font-size:19px;font-weight:700;margin:0;color:#1c2632}
+   .xd .hd .sub{font-size:12.5px;color:#71808f}
+   .xd .verdict{background:#eef4fb;border:1px solid #d8e6f5;border-radius:12px;padding:13px 16px;margin-bottom:16px}
+   .xd .verdict .k{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#2f6db0;font-weight:600}
+   .xd .verdict .t{font-size:14.5px;font-weight:600;color:#1f4e87;margin-top:3px;line-height:1.5}
+   .xd .sec{font-size:12.5px;font-weight:600;color:#71808f;margin:20px 0 9px}
+   .xd .mrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(125px,1fr));gap:11px}
+   .xd .m{background:#f4f7fa;border-radius:11px;padding:12px 14px}
+   .xd .m .l{font-size:12px;color:#71808f}
+   .xd .m .v{font-size:23px;font-weight:600;line-height:1.15;margin-top:3px;color:#1c2632}
+   .xd .m .d{font-size:11px;color:#9aa6b5;margin-top:2px}
+   .xd .panel{background:#fff;border:1px solid #e7edf4;border-radius:13px;padding:15px 17px;margin-bottom:14px}
+   .xd .ttl{font-size:14px;font-weight:600;margin:0 0 4px;color:#1c2632}
+   .xd .brow{display:grid;grid-template-columns:78px 1fr 190px;gap:11px 12px;align-items:center}
+   .xd .brow .bl{color:#71808f}
+   .xd .track{height:16px;background:#eef1f6;border-radius:5px;overflow:hidden}
+   .xd .track>span{display:block;height:100%;border-radius:5px}
+   .xd .rt{text-align:right}
+   .xd .note{font-size:11.5px;color:#9aa6b5}
+   .xd .lg{display:flex;gap:15px;font-size:11.5px;color:#71808f;margin:6px 0 8px;flex-wrap:wrap}
+   .xd .lg i{width:10px;height:10px;border-radius:2px;display:inline-block;margin-right:5px;vertical-align:-1px}
+   .xd .cw{position:relative;width:100%}
+  </style>
+  <div class="xd">
+   <div class="hd"><div><h2>Executive overview</h2><div class="sub">${dashGreet()} · ${TODAY.toISOString().slice(0,10)} · current month</div></div>
      <button class="sm" onclick="gotoScreen('budget')">Sales &amp; Budget →</button></div>
-   <div class="card" style="margin-bottom:12px;background:color-mix(in srgb,var(--navy) 6%,#fff);border-left:4px solid var(--navy)">
-     <div class="muted" style="font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--navy)">Today's read · auto-generated</div>
-     <div style="font-size:14px;font-weight:600;color:var(--navy);margin-top:3px;line-height:1.5">${execHeadline(M)}</div></div>
-   <div class="kpis" style="grid-template-columns:repeat(5,1fr);margin-bottom:14px">
-     ${kpi('Budget done',dvb+'%','delivered vs budget','var(--green2)')}
-     ${kpi('Booked vs budget',bvb+'%','pipeline value','var(--navy)')}
-     ${kpi('On-time delivery',M.onPct!=null?M.onPct+'%':'—',M.onD?('vs committed ('+M.onD+')'):'no deliveries yet','var(--navy)')}
-     ${kpi('Revenue at risk',pkrM(M.riskVal),'overdue value',M.riskVal>0?'var(--amber)':'var(--green2)')}
-     ${kpi('QC pass (FIT)',M.fitPct!=null?M.fitPct+'%':'—','COAs approved','var(--green2)')}
+   <div class="verdict"><div class="k">Today's read · auto-generated</div><div class="t">${execHeadline(M)}</div></div>
+   <div class="mrow">
+     ${m('Budget done',dvb+'%','delivered vs budget','#1d9e75')}
+     ${m('Booked vs budget',bvb+'%','pipeline value','#185fa5')}
+     ${m('On-time delivery',M.onPct!=null?M.onPct+'%':'—',M.onD?('vs committed ('+M.onD+')'):'no deliveries yet')}
+     ${m('Revenue at risk',pkrM(M.riskVal),'overdue value',M.riskVal>0?'#ba7517':'#1d9e75')}
+     ${m('QC pass (FIT)',M.fitPct!=null?M.fitPct+'%':'—','COAs approved','#1d9e75')}
    </div>
    <div class="sec">Money — budget vs booked vs delivered</div>
-   <div class="card" style="margin-bottom:10px">
-     <div style="display:grid;grid-template-columns:80px 1fr 190px;gap:9px 12px;align-items:center;font-size:13px">
-       <span class="muted">Budget</span>${bar(M.budget,'#5f6b7b')}<span style="text-align:right"><b>${pkrM(M.budget)}</b></span>
-       <span class="muted">Booked</span>${bar(M.booked,'#1f3a5f')}<span style="text-align:right"><b>${pkrM(M.booked)}</b> <span style="color:var(--navy)">${bvb}%</span></span>
-       <span class="muted">Delivered</span>${bar(M.delivered,'#1f7a43')}<span style="text-align:right"><b>${pkrM(M.delivered)}</b> <span style="color:var(--green2)">${dvb}%</span></span>
-     </div>
-     <div class="muted" style="font-size:11px;margin-top:8px">Gap to budget: ${pkrM(Math.max(0,M.budget-M.delivered))}.</div></div>
-   <div class="card" style="margin-bottom:14px"><h3>By client — budget, booked, delivered</h3>
-     <div style="display:flex;gap:14px;font-size:11px;color:var(--mut);margin-bottom:6px;flex-wrap:wrap"><span>■ Budget</span><span style="color:var(--navy)">■ Booked</span><span style="color:var(--green2)">■ Delivered</span></div>
-     ${M.clients.length?'<canvas id="chExCust" height="300"></canvas>':'<div class="muted" style="padding:14px 0">No client data yet.</div>'}</div>
+   <div class="panel"><div class="brow">
+     <span class="bl">Budget</span><div class="track"><span style="width:${w(M.budget)}%;background:#8a8f98"></span></div><span class="rt"><b>${pkrM(M.budget)}</b></span>
+     <span class="bl">Booked</span><div class="track"><span style="width:${w(M.booked)}%;background:#185fa5"></span></div><span class="rt"><b>${pkrM(M.booked)}</b> <span style="color:#185fa5">${bvb}%</span></span>
+     <span class="bl">Delivered</span><div class="track"><span style="width:${w(M.delivered)}%;background:#1d9e75"></span></div><span class="rt"><b>${pkrM(M.delivered)}</b> <span style="color:#1d9e75">${dvb}%</span></span>
+   </div><div class="note" style="margin-top:9px">Gap to budget: ${pkrM(Math.max(0,M.budget-M.delivered))}.</div></div>
+   <div class="panel"><div class="ttl">By client — budget, booked, delivered</div>
+     <div class="lg"><span><i style="background:#b4b2a9"></i>Budget</span><span><i style="background:#185fa5"></i>Booked</span><span><i style="background:#1d9e75"></i>Delivered</span></div>
+     ${M.clients.length?`<div class="cw" style="height:${Math.max(220,M.clients.slice(0,8).length*48)}px"><canvas id="chExCust"></canvas></div>`:'<div class="note" style="padding:12px 0">No client data yet.</div>'}</div>
    <div class="sec">Quality gate — FIT vs UNFIT</div>
-   <div class="kpis" style="grid-template-columns:repeat(4,1fr);margin-bottom:14px">
-     ${kpi('QC pass (FIT)',M.fitPct!=null?M.fitPct+'%':'—','COAs approved','var(--green2)')}
-     ${kpi('UNFIT lots',M.unfit,'failed COAs',M.unfit?'var(--red)':'var(--green2)')}
-     ${kpi('Pre-shipment pass',M.psPct!=null?M.psPct+'%':'—','inspections cleared','var(--green2)')}
-     ${kpi('Lab-approved units',M.fit,'FIT batches/lots','var(--navy)')}
+   <div class="mrow">
+     ${m('QC pass (FIT)',M.fitPct!=null?M.fitPct+'%':'—','COAs approved','#1d9e75')}
+     ${m('UNFIT lots',M.unfit,'failed COAs',M.unfit?'#a32d2d':'#1d9e75')}
+     ${m('Pre-shipment pass',M.psPct!=null?M.psPct+'%':'—','inspections cleared',M.psPct!=null?'#1d9e75':'')}
+     ${m('Lab-approved units',M.fit,'FIT batches/lots','#185fa5')}
    </div>
    <div class="sec">Variance &amp; loss</div>
-   <div class="kpis" style="grid-template-columns:repeat(3,1fr);margin-bottom:14px">
-     ${kpi('Wastage / loss',fmt(M.lossKg)+' Kg/L',M.producedKg?(lossPct.toFixed(1)+'% of produced'):'—',M.lossKg?'var(--red)':'var(--green2)')}
-     ${kpi('Produced',fmt(M.producedKg)+' Kg/L','total output','var(--navy)')}
-     ${kpi('Value of loss','—','Phase 2 · cost basis','var(--mut)')}
+   <div class="mrow">
+     ${m('Wastage / loss',fmt(M.lossKg)+' Kg/L',M.producedKg?(lossPct.toFixed(1)+'% of produced'):'—',M.lossKg?'#a32d2d':'#1d9e75')}
+     ${m('Produced',fmt(M.producedKg)+' Kg/L','total output','#185fa5')}
+     ${m('Value of loss','—','Phase 2 · cost basis')}
    </div>
    <div class="sec">Turnaround — average days per stage</div>
-   <div class="card">
-     ${M.turn.some(t=>t.days!=null)?'<canvas id="chExTurn" height="190"></canvas>':'<div class="muted" style="padding:14px 0">Turnaround appears once orders have stage dates.</div>'}
-     <div class="muted" style="font-size:11px;margin-top:6px">Actual averages from your stage timestamps. A learned, size-adjusted <b>standard</b> for fairness comes in Phase 2.</div></div>`;
+   <div class="panel">
+     ${hasStage?`<div class="cw" style="height:200px"><canvas id="chExTurn"></canvas></div>`:'<div class="note" style="padding:12px 0">Turnaround appears once orders carry stage dates.</div>'}
+     <div class="note" style="margin-top:8px">${total&&total.days!=null?('Total cycle ≈ <b style="color:#27313f">'+total.days+' days</b>. '):''}Actual averages from your stage timestamps; a learned, size-adjusted standard for fairness comes in Phase 2.</div></div>
+  </div>`;
 }
 function drawDashExec(M){
   if(typeof Chart==='undefined') return;
   Object.values(charts).forEach(c=>{try{c.destroy()}catch(e){}}); charts={};
-  const GRID='#e6ebf3'; Chart.defaults.color='#67748c'; Chart.defaults.font.size=10;
+  const GRID='#eef1f6'; Chart.defaults.color='#71808f'; Chart.defaults.font.size=10;
   if($('chExCust')){ const cl=M.clients.slice(0,8);
     charts.exCust=new Chart($('chExCust'),{type:'bar',data:{labels:cl.map(c=>c.client),datasets:[
-      {label:'Budget',data:cl.map(c=>+(c.budget/1e6).toFixed(2)),backgroundColor:'#b4b2a9',borderRadius:3},
-      {label:'Booked',data:cl.map(c=>+(c.booked/1e6).toFixed(2)),backgroundColor:'#1f3a5f',borderRadius:3},
-      {label:'Delivered',data:cl.map(c=>+(c.delivered/1e6).toFixed(2)),backgroundColor:'#1f7a43',borderRadius:3}]},
-      options:{indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.dataset.label+': PKR '+c.parsed.x.toFixed(2)+'M'}}},scales:{x:{grid:{color:GRID},ticks:{callback:v=>v+'M'}},y:{grid:{display:false},ticks:{font:{size:9}}}}}}); }
-  if($('chExTurn')){ const t=M.turn.filter(x=>x.days!=null);
-    charts.exTurn=new Chart($('chExTurn'),{type:'bar',data:{labels:t.map(x=>x.name),datasets:[{label:'Avg days',data:t.map(x=>x.days),backgroundColor:t.map(x=>x.days>15?'#c0392b':x.days>8?'#b07208':'#1f3a5f'),borderRadius:4}]},
-      options:{indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.x+' days'}}},scales:{x:{grid:{color:GRID},ticks:{callback:v=>v+'d'}},y:{grid:{display:false}}}}}); }
+      {label:'Budget',data:cl.map(c=>+(c.budget/1e6).toFixed(2)),backgroundColor:'#b4b2a9',borderRadius:3,barThickness:8},
+      {label:'Booked',data:cl.map(c=>+(c.booked/1e6).toFixed(2)),backgroundColor:'#185fa5',borderRadius:3,barThickness:8},
+      {label:'Delivered',data:cl.map(c=>+(c.delivered/1e6).toFixed(2)),backgroundColor:'#1d9e75',borderRadius:3,barThickness:8}]},
+      options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.dataset.label+': PKR '+c.parsed.x.toFixed(2)+'M'}}},scales:{x:{grid:{color:GRID},ticks:{callback:v=>v+'M'}},y:{grid:{display:false},ticks:{font:{size:10}}}}}}); }
+  if($('chExTurn')){ const t=M.turn.filter(x=>x.name!=='Total'&&x.days!=null);
+    charts.exTurn=new Chart($('chExTurn'),{type:'bar',data:{labels:t.map(x=>x.name),datasets:[{label:'Avg days',data:t.map(x=>x.days),backgroundColor:'#185fa5',borderRadius:4,barThickness:16}]},
+      options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.x+' days'}}},scales:{x:{grid:{color:GRID},ticks:{callback:v=>v+'d'}},y:{grid:{display:false}}}}}); }
 }
 function screenDash(){
   if(['COO','CEO','CFO'].indexOf(state.role)>-1){ const M=execMetrics(); $('view').innerHTML=dashExecHtml(M); drawDashExec(M); return; }

@@ -520,7 +520,7 @@ function ensureState(s){
   s.dealers   = (s.dealers&&s.dealers.length)? s.dealers : deepClone(SEED.dealers||[]);
   s.users=(s.users&&s.users.length)?s.users:deepClone(SEED.users||[]); if(s.currentUser===undefined)s.currentUser=null;
   s.rmRequests=s.rmRequests||[]; s.productionLog=s.productionLog||[]; s.packingLog=s.packingLog||[];
-  s.actionLog=s.actionLog||[]; s.shipments=s.shipments||[]; s.warehouses=s.warehouses||SEED.warehouses.slice();
+  s.actionLog=s.actionLog||[]; s.shipments=s.shipments||[]; s.inspections=s.inspections||[]; s.warehouses=s.warehouses||SEED.warehouses.slice();
   s.rawStock=s.rawStock||{}; s.rmMovements=s.rmMovements||[]; s.audit=s.audit||[]; s.masters=s.masters||deepClone(SEED.masters||{}); s.batches=s.batches||[]; s.packedStock=s.packedStock||{}; s.packingLog=s.packingLog||[]; s.orders=s.orders||[]; if(s.seq==null)s.seq=1000; (s.packingLog||[]).forEach(function(p){ if(p&&!p.id) p.id='PK'+(s.seq++); }); if(s.dataFixEnabled==null)s.dataFixEnabled=true; if(!Array.isArray(s.prs))s.prs=[]; (s.batches||[]).forEach(function(b){ if((b.producedKg||0)>0 && (!Array.isArray(b.lots)||!b.lots.length)){ b.lots=[{id:'LOT'+(s.seq++), lotNo:(b.batchNo||'B')+'-L1', qty:b.producedKg, date:b.openedDate||'', by:b.by||'', coa:(b.coa||null), migrated:true}]; } }); ensureMasters(s); ensureProductionModel(s); return s;
 }
 /* Lock 1: idempotent master seeding. ADDITIVE ONLY — seeds a list only when it is
@@ -1351,7 +1351,8 @@ const BUCKET_META={
 function lineBucket(o,l){
  if(l.deliveredDate && (l.delivered||0)>=l.ordered-0.5) return 'Delivered';
  if((l.dispatched||0)>0||l.dispatchDate) return 'Shipment';
- if(l.qcPass) return 'Shipment';
+ if(lineCleared(o,l)>0.5) return 'Shipment';
+ if(lineToInspect(o,l)>0.5) return 'QA Pre-shipment';
  if((l.packed||0)>=(l.ordered||0)-0.5) return 'QA Pre-shipment';
  if((l.produced||0)>0 && (l.produced||0)>=(l.ordered||0)-0.5) return 'Lab QC';
  if((l.produced||0)>0||l.prodStart) return 'Production';
@@ -1367,7 +1368,7 @@ function attnCounts(){ let delayed=0,rmblock=0,prod=0,qc=0,qahold=0,ready=0;
     if(b==='Production')prod++;
     if(b==='Lab QC'||b==='QA Pre-shipment')qc++;
     if(o.lines.some(l=>lineQA(o,l).anyFail))qahold++;
-    if(o.lines.some(l=>l.qcPass&&(l.dispatched||0)<(l.packed||0)-0.5))ready++; });
+    if(o.lines.some(l=>lineCleared(o,l)>0.5))ready++; });
   return {delayed,rmblock,prod,qc,qahold,ready};
 }
 function trkMatch(o){ const b=orderBucket(o);
@@ -1379,7 +1380,7 @@ function trkMatch(o){ const b=orderBucket(o);
     case 'prod':return b==='Production';
     case 'qc':return b==='Lab QC'||b==='QA Pre-shipment';
     case 'qahold':return o.lines.some(l=>lineQA(o,l).anyFail);
-    case 'ready':return o.lines.some(l=>l.qcPass&&(l.dispatched||0)<(l.packed||0)-0.5);
+    case 'ready':return o.lines.some(l=>lineCleared(o,l)>0.5);
     case 'myrole':return state.role==='COO'||BUCKET_META[b].owner===state.role;
     default:return true;
   }
@@ -2137,17 +2138,16 @@ function screenQC(){
   const lotFail=lots.filter(p=>p.qa&&p.qa.fail);
   const lotPass=lots.filter(p=>p.qa&&p.qa.pass);
   const lotBatch=p=>`${lotBaseNo(p)||'—'} ▸ ${lotBrandNo(p)||'—'}`;
-  const qaPendDisp=dispatchGroups().filter(g=>g.dispId&&g.qa==='pending');
+  const toInspect=linesToInspect();
   const qaRows=lotPending.map(p=>`<tr><td><b>${p.po}</b></td><td>${p.brand}<div style="margin-top:3px"><span class="pill" style="background:var(--navy-50);color:var(--navy);font-size:9px">${lotBatch(p)}</span></div></td><td class="num">${fmt(p.kg)}</td><td class="muted">${p.date||''}${p.reinsp?` · re-insp #${p.reinsp}`:''}</td><td>${(isQA||isCOO)?`<button class="sm green" onclick="openLotQA('${p.id}')">Inspect…</button>`:'<span class="muted" style="font-size:11px">waiting for QA Inspector</span>'}</td></tr>`).join('');
   const fqRows=lotFail.map(p=>{const fails=(p.qa.checklist||[]).filter(c=>c.result==='fail').map(c=>c.item).join(', ');return `<tr><td><b>${p.po}</b></td><td>${p.brand}<div style="margin-top:3px"><span class="pill" style="background:var(--navy-50);color:var(--navy);font-size:9px">${lotBatch(p)}</span></div></td><td class="num">${fmt(p.kg)}</td><td><span style="color:var(--red)">${fails||'Failed'}</span></td><td>${(isSC||isCOO)?`<button class="sm" onclick="lotQACorrect('${p.id}')">Correct &amp; resubmit</button>`:'<span class="muted" style="font-size:11px">waiting for Supply Chain</span>'}</td></tr>`;}).join('');
   $('view').innerHTML=`
    <div class="banner info"><b>QC — quantity-true.</b> <b>Lab</b> certifies each <b>production lot</b> (a shift’s output) by COA (Analyst → AQCM → QCM) <b>before it can be packed</b>. <b>QA</b> inspects each <b>packed lot</b> before it can ship. New production always needs fresh QC.</div>
    ${(isLab||isAQ||isQM||isQA||isPM||isCOO)?'':viewOnly('Lab, AQCM, QCM, QA Inspector &amp; Plant Manager')}
    <div class="card"><h3>Lab QC — production lots (COA) <span class="hint">${labPending.length} pending</span></h3>${labPending.length?`<div style="overflow:auto"><table><thead><tr><th>Product</th><th>Batch ▸ Lot</th><th class="num">Qty</th><th>Status</th><th style="width:210px">Action</th></tr></thead><tbody>${labRows}</tbody></table></div>`:'<div class="muted">No batches awaiting Lab QC.</div>'}</div>
-   <div class="card"><h3>Pre-shipment inspection — shipments <span class="hint">${qaPendDisp.length} to inspect</span></h3><div class="muted" style="font-size:11px;margin-bottom:8px">Inspection is on the <b>quantity being shipped</b>, not the whole lot — a partial shipment leaves the rest open for next time.</div>${qaPendDisp.length?`<div style="overflow:auto"><table><thead><tr><th>PO</th><th>Products on this shipment</th><th class="num">Kg/L</th><th>DC / vehicle</th><th style="width:160px">Action</th></tr></thead><tbody>${qaPendDisp.map(g=>`<tr><td><b>${g.po}</b></td><td class="muted" style="font-size:11.5px">${g.rows.map(r=>r.brand+' '+fmt(r.kg)).join(', ')}</td><td class="num">${fmt(g.kg)}</td><td class="muted">${g.dc||'—'}${g.vehicle?(' · '+g.vehicle):''}</td><td>${(isQA||isCOO)?`<button class="sm green" onclick="openDispatchQA('${g.dispId}')">Inspect…</button>`:'<span class="muted" style="font-size:11px">waiting for QA Inspector</span>'}</td></tr>`).join('')}</tbody></table></div>`:'<div class="muted">No shipments awaiting pre-shipment inspection. Supply Chain records a shipment first, then it appears here.</div>'}</div>
+   <div class="card"><h3>Pre-shipment inspection — packed material <span class="hint">${toInspect.length} awaiting</span></h3><div class="muted" style="font-size:11px;margin-bottom:8px">Inspect the <b>packed material</b> before it ships. You may inspect <b>any quantity</b> — partial is allowed; only inspected-&amp;-passed quantity becomes available to ship.</div>${toInspect.length?`<div style="overflow:auto"><table><thead><tr><th>PO</th><th>Product</th><th class="num">Packed</th><th class="num">Cleared</th><th class="num">To inspect</th><th style="width:160px">Action</th></tr></thead><tbody>${toInspect.map(({o,l,rem})=>`<tr><td><b>${o.po}</b></td><td>${l.brand} <span class="muted" style="font-size:11px">${l.base||''}</span></td><td class="num">${fmt(l.packed||0)}</td><td class="num muted">${fmt(linePassedInsp(o,l))}</td><td class="num"><b style="color:var(--amber)">${fmt(rem)}</b></td><td>${(isQA||isCOO)?`<button class="sm green" onclick="openPackInspect('${o.id}','${l.id!=null?l.id:l.brand}')">Inspect…</button>`:'<span class="muted" style="font-size:11px">waiting for QA Inspector</span>'}</td></tr>`).join('')}</tbody></table></div>`:'<div class="muted">No packed material awaiting inspection. Pack a Lab-approved batch first, then it appears here.</div>'}</div>
    ${lotFail.length?`<div class="card"><h3 style="color:var(--red)">QA failed — Supply Chain to correct <span class="hint">${lotFail.length}</span></h3><div style="overflow:auto"><table><thead><tr><th>PO</th><th>Brand / batch</th><th class="num">Packed</th><th>Failed items</th><th style="width:200px">Action</th></tr></thead><tbody>${fqRows}</tbody></table></div></div>`:''}
-   <div class="card"><h3>Lab-approved lots <span class="hint">${labDone.length} \u00b7 by product</span></h3><div class="muted" style="font-size:11px;margin-bottom:8px">Grouped by product \u2014 tap a product to expand its lots. Full searchable history is in <b>Reports \u00b7 QC Reports</b>.</div>${qcGrpApproved(labDone)}</div>
-   <div class="card"><h3>QA-passed lots \u2014 cleared to ship <span class="hint">${lotPass.length} \u00b7 by product</span></h3><div class="muted" style="font-size:11px;margin-bottom:8px">Grouped by product \u2014 tap to expand. Full history in <b>Reports \u00b7 QC Reports</b>.</div>${qcGrpPassed(lotPass)}</div>`;
+   <div class="card"><h3>Lab-approved lots <span class="hint">${labDone.length} \u00b7 by product</span></h3><div class="muted" style="font-size:11px;margin-bottom:8px">Grouped by product \u2014 tap a product to expand its lots. Full searchable history is in <b>Reports \u00b7 QC Reports</b>.</div>${qcGrpApproved(labDone)}</div>`;
 }
 const QC_CHECKLIST=['Packaging intact & correct','Label / artwork correct','Net weight / count verified','Seal & closure OK','Cleanliness — no contamination','Batch & expiry printed','No leakage / damage','Pallet / loading condition'];
 
@@ -2408,7 +2408,7 @@ function screenShip(){
    }).join('')):'';
   $('view').innerHTML=`
    ${ed?'':viewOnly('Supply Chain')}
-   <div class="banner info"><b>How to ship \u2014 3 steps.</b> 1) Find the PO under <b>Ready to ship</b>. 2) Press <b>Record shipment</b>, tick the products on the truck, fill the DC / vehicle once, Save. 3) When it arrives, press <b>Mark delivered</b>. Ship some products now and the rest later \u2014 each PO stays open until everything is delivered.</div>
+   <div class="banner info"><b>How to ship.</b> Only <b>inspected &amp; cleared</b> quantity appears under <b>Ready to ship</b> (QA inspects the packed material first, in QC \u00b7 Pre-shipment). Press <b>Record shipment</b>, tick the products on the truck, fill the DC / vehicle once, Save \u2014 that <b>sends and closes</b> the shipment. Ship some products now and the rest later \u2014 each PO stays open until everything is shipped.</div>
    <div class="sec" style="margin-top:4px">Ready to ship</div>
    ${readyHtml}
    ${pendingQAHtml}
@@ -2451,8 +2451,45 @@ function saveShip(){ if(!canEdit(['Supply Chain'])){toast('Supply Chain only');r
   (state.audit=state.audit||[]).unshift({t:new Date().toISOString(),user:state.role,module:'Shipment',po:o.po,brand:l.brand,field:'Dispatched',old:'',val:fmt(kg)+' Kg/L · '+(shipForm.vehicle||'')+' · DC '+(shipForm.dc||'-')});
   save(); closeModal(); render(); }
 
-/* ===== Multi-product dispatch: one truck / DC, many products of a PO (deliver later) ===== */
-function readyLinesFor(o){ const out=[]; (o.lines||[]).forEach(l=>{ const rem=Math.max(0,(l.packed||0)-(l.dispatched||0)); if(rem>0.5) out.push({l,rem}); }); return out; }
+/* ===== Pre-shipment inspection (inspect-then-ship): packed material is inspected by quantity
+   (partial allowed); only inspected-&-passed quantity becomes shippable. Pure reads — no mutation. ===== */
+function inspMatch(s,o,l){ return s && s.pass && s.po===o.po && ((l.id!=null && s.lid===l.id) || s.brand===l.brand); }
+function linePassedInsp(o,l){ let s=0; (state.inspections||[]).forEach(x=>{ if(inspMatch(x,o,l)) s+=(+x.kg||0); }); return s; }
+function lineToInspect(o,l){ return Math.max(0,(l.packed||0)-linePassedInsp(o,l)); }            // packed, awaiting inspection
+function lineCleared(o,l){ return Math.max(0,linePassedInsp(o,l)-(l.dispatched||0)); }          // inspected & passed, ready to ship
+function linesToInspect(){ const out=[]; (state.orders||[]).forEach(o=>(o.lines||[]).forEach(l=>{ if(lineToInspect(o,l)>0.5) out.push({o,l,rem:lineToInspect(o,l)}); })); return out; }
+let packInspForm=null;
+function openPackInspect(oid,lid){ if(!(canEdit(['QA Inspector'])||state.role==='COO')){toast('QA Inspector only');return;}
+  const o=(state.orders||[]).find(x=>x.id===oid); if(!o)return; const l=(o.lines||[]).find(x=>x.id===lid)||(o.lines||[]).find(x=>x.brand===lid); if(!l)return;
+  const rem=lineToInspect(o,l); if(rem<=0.5){toast('Nothing packed left to inspect on this product');return;}
+  packInspForm={oid,lid:(l.id!=null?l.id:l.brand),qty:Math.round(rem),marks:QC_CHECKLIST.map(()=>''),officer:((state.currentUser&&state.currentUser.name)||''),remarks:''};
+  renderPackInspect(); $('modalBg').classList.add('open'); }
+function packInspSet(i,v){ if(packInspForm){ packInspForm.marks[i]=v; renderPackInspect(); } }
+function renderPackInspect(){ const f=packInspForm; if(!f){closeModal();return;} const o=(state.orders||[]).find(x=>x.id===f.oid); if(!o){closeModal();return;}
+  const l=(o.lines||[]).find(x=>x.id===f.lid)||(o.lines||[]).find(x=>x.brand===f.lid); if(!l){closeModal();return;}
+  const packed=(l.packed||0), passed=linePassedInsp(o,l), rem=lineToInspect(o,l), ps=(+l.pack||seedPackForBrand(l.brand)||0);
+  const cl=QC_CHECKLIST.map((it,i)=>`<tr><td>${it}</td><td style="white-space:nowrap"><label style="margin-right:12px"><input type="radio" name="pq${i}" ${f.marks[i]==='pass'?'checked':''} onclick="packInspSet(${i},'pass')"> Pass</label><label><input type="radio" name="pq${i}" ${f.marks[i]==='fail'?'checked':''} onclick="packInspSet(${i},'fail')"> Fail</label></td></tr>`).join('');
+  $('modal').innerHTML=`<div class="mh"><h2>Pre-shipment inspection</h2><div class="sub">${o.po} · <b>${l.brand}</b> <span class="muted">${l.base||''}</span></div></div>
+   <div class="mb">
+     <div class="muted" style="font-size:12px;margin-bottom:8px">Packed <b>${fmt(packed)}</b> · already cleared <b>${fmt(passed)}</b> · <b>${fmt(rem)} Kg/L</b> left to inspect. Inspect any quantity you like — partial is allowed; the rest stays packed for later.</div>
+     <div class="fld" style="max-width:260px;margin-bottom:10px"><label>Quantity to inspect (Kg/L)</label><input type="number" value="${_av(f.qty)}" max="${rem}" oninput="packInspForm.qty=this.value;{const e=document.getElementById('pi_pk');if(e)e.textContent=(${ps}>0?('\\u2248 '+Math.ceil((+this.value||0)/${ps})+' pk'):'');}"><div class="muted" id="pi_pk" style="font-size:11px;margin-top:4px">${ps>0?('≈ '+fmt(Math.ceil((+f.qty||0)/ps))+' pk'):''}</div></div>
+     <div style="overflow:auto"><table><thead><tr><th>Check</th><th style="width:170px">Result</th></tr></thead><tbody>${cl}</tbody></table></div>
+     <div class="fld" style="margin-top:10px;max-width:280px"><label>Inspector name</label><input type="text" value="${_av(f.officer)}" oninput="packInspForm.officer=this.value"></div>
+     <div class="fld" style="margin-top:8px"><label>Remarks (optional)</label><input type="text" value="${_av(f.remarks)}" oninput="packInspForm.remarks=this.value"></div>
+   </div>
+   <div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" onclick="savePackInspect()">Submit inspection</button></div>`; }
+function savePackInspect(){ if(!(canEdit(['QA Inspector'])||state.role==='COO')){toast('QA Inspector only');return;}
+  const f=packInspForm; if(!f)return; const o=(state.orders||[]).find(x=>x.id===f.oid); if(!o)return; const l=(o.lines||[]).find(x=>x.id===f.lid)||(o.lines||[]).find(x=>x.brand===f.lid); if(!l)return;
+  const rem=lineToInspect(o,l); const kg=Math.min(Math.max(0,+f.qty||0),rem); if(kg<=0){toast('Enter a quantity to inspect');return;}
+  if(f.marks.some(m=>!m)){toast('Mark every item Pass or Fail');return;} if(!(f.officer||'').trim()){toast('Enter inspector name');return;}
+  const anyFail=f.marks.some(m=>m==='fail'); const d=TODAY.toISOString().slice(0,10);
+  (state.inspections=state.inspections||[]).unshift({id:'INS'+(state.seq=(state.seq||1000)+1),po:o.po,brand:l.brand,lid:(l.id!=null?l.id:null),kg,by:f.officer.trim(),date:d,pass:!anyFail,checklist:QC_CHECKLIST.map((it,i)=>({item:it,result:f.marks[i]})),remarks:f.remarks||''});
+  logAction(`Pre-shipment inspection ${anyFail?'FAILED':'PASSED'} — ${o.po} · ${l.brand} · ${fmt(kg)} Kg/L by ${f.officer.trim()}`);
+  (state.audit=state.audit||[]).unshift({t:new Date().toISOString(),user:state.role,module:'QA',po:o.po,brand:l.brand,field:anyFail?'Inspection FAILED':'Inspection passed',old:'',val:fmt(kg)+' Kg/L'});
+  packInspForm=null; save(); closeModal(); render(); toast(anyFail?'Inspection failed — not cleared':`Cleared ${fmt(kg)} Kg/L to ship`); }
+
+/* ===== Multi-product dispatch: one truck / DC, many products of a PO. Recording the shipment closes it. ===== */
+function readyLinesFor(o){ const out=[]; (o.lines||[]).forEach(l=>{ const rem=Math.max(0,lineCleared(o,l)); if(rem>0.5) out.push({l,rem}); }); return out; }
 function readyPOs(){ const out=[]; (state.orders||[]).forEach(o=>{ const ls=readyLinesFor(o); if(ls.length) out.push({o,ls}); }); return out; }
 let dispForm=null;
 function openDispatch(oid){ const o=(state.orders||[]).find(x=>x.id===oid); if(!o)return; const ls=readyLinesFor(o); if(!ls.length){toast('Nothing ready to ship on this PO');return;}
@@ -2462,9 +2499,9 @@ function dispTotal(){ return (dispForm&&dispForm.lines||[]).reduce((a,r)=>a+(r.o
 function dispCount(){ return (dispForm&&dispForm.lines||[]).filter(r=>r.on&&(+r.qty||0)>0).length; }
 function dispLineToggle(i){ if(dispForm.lines[i]) dispForm.lines[i].on=!dispForm.lines[i].on; renderDispatchModal(); }
 function dispSet(k,v){ if(dispForm) dispForm[k]=v; }
-function dispLineQty(i,v){ if(dispForm&&dispForm.lines[i]){ dispForm.lines[i].qty=v; const t=document.getElementById('disp_total'); if(t) t.textContent=fmt(dispTotal())+' Kg/L · '+dispCount()+' product(s)'; } }
+function dispLineQty(i,v){ if(dispForm&&dispForm.lines[i]){ dispForm.lines[i].qty=v; const t=document.getElementById('disp_total'); if(t) t.textContent=fmt(dispTotal())+' Kg/L · '+dispCount()+' product(s)'; const pk=document.getElementById('disp_pk_'+i); if(pk){ const ps=+dispForm.lines[i].pack||0; pk.textContent=ps>0?('≈ '+fmt(Math.ceil((+v||0)/ps))+' pk'):''; } } }
 function renderDispatchModal(){ const o=(state.orders||[]).find(x=>x.id===dispForm.oid); if(!o){closeModal();return;}
-  const rows=dispForm.lines.map((r,i)=>`<tr style="${r.on?'':'opacity:.5'}"><td style="text-align:center"><input type="checkbox" ${r.on?'checked':''} onclick="dispLineToggle(${i})"></td><td><b>${r.brand}</b> <span class="muted" style="font-size:11px">${r.base}</span></td><td class="num muted">${fmt(r.rem)}</td><td><input type="number" class="num" value="${r.qty}" oninput="dispLineQty(${i},this.value)" ${r.on?'':'disabled'} style="width:110px"></td><td class="muted" style="font-size:11px">${r.pack>0?('≈ '+fmt(Math.ceil((+r.qty||0)/r.pack))+' pk'):''}</td></tr>`).join('');
+  const rows=dispForm.lines.map((r,i)=>`<tr style="${r.on?'':'opacity:.5'}"><td style="text-align:center"><input type="checkbox" ${r.on?'checked':''} onclick="dispLineToggle(${i})"></td><td><b>${r.brand}</b> <span class="muted" style="font-size:11px">${r.base}</span></td><td class="num muted">${fmt(r.rem)}</td><td><input type="number" class="num" value="${r.qty}" oninput="dispLineQty(${i},this.value)" ${r.on?'':'disabled'} style="width:110px"></td><td class="muted" id="disp_pk_${i}" style="font-size:11px">${r.pack>0?('≈ '+fmt(Math.ceil((+r.qty||0)/r.pack))+' pk'):''}</td></tr>`).join('');
   $('modal').innerHTML=`<div class="mh"><h2>Record shipment — ${o.po}</h2><div class="sub">${o.client} · tick the products on this truck, enter the vehicle / DC once</div></div>
    <div class="mb">
      <div style="overflow:auto;max-height:34vh;margin-bottom:10px"><table><thead><tr><th style="width:34px"></th><th>Product</th><th class="num">Ready</th><th class="num">Qty to ship</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
@@ -2478,19 +2515,19 @@ function renderDispatchModal(){ const o=(state.orders||[]).find(x=>x.id===dispFo
        <div class="fld"><label>Bilty / reference</label><input type="text" value="${dispForm.bilty}" oninput="dispSet('bilty',this.value)"></div>
        <div class="fld" style="grid-column:1/-1"><label>Remarks</label><input type="text" value="${dispForm.remarks}" oninput="dispSet('remarks',this.value)"></div>
      </div>
-     <div class="muted" style="font-size:11px;margin-top:10px">This records the truck leaving. Mark it <b>delivered</b> later from <b>In transit</b> when it reaches the destination. Anything you leave un-ticked stays in Ready to ship for the next dispatch.</div>
+     <div class="muted" style="font-size:11px;margin-top:10px">Only <b>inspected &amp; cleared</b> quantity can be shipped. Recording the shipment <b>sends and closes it</b> (counts as delivered). Anything you leave un-ticked stays in Ready to ship for the next shipment.</div>
    </div>
    <div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" onclick="saveDispatch()">Save shipment</button></div>`; }
 function saveDispatch(){ if(!canEdit(['Supply Chain'])){toast('Supply Chain only');return;} const o=(state.orders||[]).find(x=>x.id===dispForm.oid); if(!o)return;
   const sel=dispForm.lines.filter(r=>r.on&&(+r.qty||0)>0); if(!sel.length){toast('Tick at least one product with a quantity');return;}
   const dispId='DSP'+(state.seq=(state.seq||1)+1); const d=dispForm.date||TODAY.toISOString().slice(0,10); let n=0,tot=0;
-  sel.forEach(r=>{ const l=o.lines.find(x=>x.id===r.lid); if(!l)return; const rem=Math.max(0,(l.packed||0)-(l.dispatched||0)); const kg=Math.min(+r.qty||0,rem); if(kg<=0)return;
-    state.shipments.unshift({dispId,po:o.po,brand:l.brand,lid:l.id,kg,pack:r.pack,dispatch:d,destination:dispForm.dest,carrier:dispForm.carrier,vehicle:dispForm.vehicle,dc:dispForm.dc,bilty:dispForm.bilty,delivered:null,remarks:dispForm.remarks,qa:null,by:state.role});
-    l.dispatched=(l.dispatched||0)+kg; l.dispatchDate=l.dispatchDate||d; n++; tot+=kg; });
-  if(!n){toast('Nothing to dispatch');return;}
+  sel.forEach(r=>{ const l=o.lines.find(x=>x.id===r.lid)||o.lines.find(x=>x.brand===r.brand); if(!l)return; const rem=Math.max(0,lineCleared(o,l)); const kg=Math.min(+r.qty||0,rem); if(kg<=0)return;
+    state.shipments.unshift({dispId,po:o.po,brand:l.brand,lid:l.id,kg,pack:r.pack,dispatch:d,destination:dispForm.dest,carrier:dispForm.carrier,vehicle:dispForm.vehicle,dc:dispForm.dc,bilty:dispForm.bilty,delivered:d,remarks:dispForm.remarks,qa:{pass:true,closed:true},by:state.role});
+    l.dispatched=(l.dispatched||0)+kg; l.dispatchDate=l.dispatchDate||d; l.delivered=(l.delivered||0)+kg; l.deliveredDate=d; n++; tot+=kg; });
+  if(!n){toast('Nothing cleared to ship — inspect the packed material first');return;}
   logAction(`Shipment ${dispId} · PO ${o.po}: ${n} product(s), ${fmt(tot)} Kg/L${dispForm.dc?(' · DC '+dispForm.dc):''}${dispForm.vehicle?(' · '+dispForm.vehicle):''}`);
   (state.audit=state.audit||[]).unshift({t:new Date().toISOString(),user:state.role,module:'Shipment',po:o.po,brand:n+' product(s)',field:'Shipped',old:'',val:fmt(tot)+' Kg/L · DC '+(dispForm.dc||'-')});
-  dispForm=null; save(); closeModal(); render(); toast(`Shipment recorded — ${n} product(s)`); }
+  dispForm=null; save(); closeModal(); render(); toast(`Shipment sent & closed — ${n} product(s)`); }
 function dispatchGroups(){ const g={}; (state.shipments||[]).forEach((s,i)=>{ const k=s.dispId||('leg'+i); if(!g[k]) g[k]={dispId:s.dispId||null,po:s.po,destination:s.destination,date:s.dispatch,vehicle:s.vehicle,carrier:s.carrier,dc:s.dc,bilty:s.bilty,rows:[],kg:0,delivered:true,qaPending:false,qaFail:false}; g[k].rows.push(s); g[k].kg+=(+s.kg||0); if(!s.delivered) g[k].delivered=false; if(s.qa===null) g[k].qaPending=true; if(s.qa&&s.qa.fail) g[k].qaFail=true; }); return Object.values(g).map(x=>{ x.qa=x.qaFail?'fail':(x.qaPending?'pending':'pass'); return x; }).sort((a,b)=>String(b.date||'').localeCompare(String(a.date||''))); }
 let dispQAForm={dispId:null,marks:[],officer:'',remarks:''};
 function dispRowsFor(dispId){ return (state.shipments||[]).filter(s=>(s.dispId||'')===dispId); }

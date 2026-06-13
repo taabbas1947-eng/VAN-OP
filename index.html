@@ -521,7 +521,7 @@ function ensureState(s){
   s.users=(s.users&&s.users.length)?s.users:deepClone(SEED.users||[]); if(s.currentUser===undefined)s.currentUser=null;
   s.rmRequests=s.rmRequests||[]; s.productionLog=s.productionLog||[]; s.packingLog=s.packingLog||[];
   s.actionLog=s.actionLog||[]; s.shipments=s.shipments||[]; s.inspections=s.inspections||[]; s.warehouses=s.warehouses||SEED.warehouses.slice();
-  s.rawStock=s.rawStock||{}; s.rmMovements=s.rmMovements||[]; s.audit=s.audit||[]; s.masters=s.masters||deepClone(SEED.masters||{}); s.batches=s.batches||[]; s.packedStock=s.packedStock||{}; s.packingLog=s.packingLog||[]; s.orders=s.orders||[]; if(s.seq==null)s.seq=1000; (s.packingLog||[]).forEach(function(p){ if(p&&!p.id) p.id='PK'+(s.seq++); }); if(s.dataFixEnabled==null)s.dataFixEnabled=true; if(!Array.isArray(s.prs))s.prs=[]; (s.batches||[]).forEach(function(b){ if((b.producedKg||0)>0 && (!Array.isArray(b.lots)||!b.lots.length)){ b.lots=[{id:'LOT'+(s.seq++), lotNo:(b.batchNo||'B')+'-L1', qty:b.producedKg, date:b.openedDate||'', by:b.by||'', coa:(b.coa||null), migrated:true}]; } }); ensureMasters(s); ensureProductionModel(s); dedupePackingLots(s); migrateLotTracking(s); return s;
+  s.rawStock=s.rawStock||{}; s.rmMovements=s.rmMovements||[]; s.audit=s.audit||[]; s.masters=s.masters||deepClone(SEED.masters||{}); s.batches=s.batches||[]; s.packedStock=s.packedStock||{}; s.packingLog=s.packingLog||[]; s.orders=s.orders||[]; if(s.seq==null)s.seq=1000; (s.packingLog||[]).forEach(function(p){ if(p&&!p.id) p.id='PK'+(s.seq++); }); if(s.dataFixEnabled==null)s.dataFixEnabled=true; if(!Array.isArray(s.prs))s.prs=[]; (s.batches||[]).forEach(function(b){ if((b.producedKg||0)>0 && (!Array.isArray(b.lots)||!b.lots.length)){ b.lots=[{id:'LOT'+(s.seq++), lotNo:(b.batchNo||'B')+'-L1', qty:b.producedKg, date:b.openedDate||'', by:b.by||'', coa:(b.coa||null), migrated:true}]; } }); ensureMasters(s); ensureProductionModel(s); dedupePackingLots(s); migrateLotTracking(s); healPRFlags(s); return s;
 }
 /* Lock 1: idempotent master seeding. ADDITIVE ONLY — seeds a list only when it is
    missing or empty, and never overwrites values the team has already added. Touches no
@@ -1534,6 +1534,7 @@ function renderRMModal(){ const o=state.orders.find(x=>x.id===rmForm.oid); const
    <div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="${rmForm.status==='full'?'green':''}" onclick="rmSubmit()">${rmForm.status==='full'?'Confirm — materials ready':'Raise PR'}</button></div>`;
 }
 function rmSubmit(){ const o=state.orders.find(x=>x.id===rmForm.oid); const l=o.lines.find(x=>x.id===rmForm.lid); const today=TODAY.toISOString().slice(0,10);
+  if(rmForm.status!=='full'){ const _v=(rmForm.lines||[]).filter(x=>x&&x.rm&&+x.kg>0); if(!_v.length){ toast('Add at least one raw material with a quantity to raise a PR.'); return; } }
   l.rmCheck=today; l.rmStatus=rmForm.status;
   if(rmForm.status==='full'){ l.rmReady=today; l.canMakeKg=null; l.pr=null; logAction(`RM check ${o.po}·${l.brand}: in stock — materials ready`);
     (state.audit=state.audit||[]).unshift({t:new Date().toISOString(),user:state.role,module:'RM Check',po:o.po,brand:l.brand,field:'RM status',old:'',val:'In stock — ready'}); }
@@ -2172,10 +2173,12 @@ function openReceiveMaterials(oid,lid){
   const open=(state.prs||[]).filter(p=>p.status==='open');
   let mats=null, label='', noMat=false, pbrand='';
   if(recvScope){ const o=state.orders.find(x=>x.id===recvScope.oid); const l=o&&o.lines.find(x=>x.id===recvScope.lid);
-    if(l){ const rec=recipeFor(l.base); const ks=Object.keys(rec).filter(k=>!k.startsWith('(')); mats=new Set(ks); noMat=(ks.length===0); pbrand=l.brand; label=' · for '+l.brand; } }
+    if(l){ const rec=recipeFor(l.base); const ks=Object.keys(rec).filter(k=>!k.startsWith('('));
+      const reqd=((l.pr&&l.pr.lines)||[]).map(x=>x&&x.rm).filter(Boolean);
+      const all=[...new Set([...reqd,...ks])]; mats=new Set(all); noMat=(all.length===0); pbrand=l.brand; label=' · for '+l.brand; } }
   const rel = mats ? open.filter(p=>mats.has(p.rm)) : open;
   const other = mats ? open.filter(p=>!mats.has(p.rm)) : [];
-  const body = (rel.length?rel.map(recvPRCard).join(''):('<div class="muted" style="padding:6px 0">'+(noMat?('No recipe/materials defined for '+pbrand+' — nothing to receive here. Add its recipe in Master Data.'):(mats?'No open PR for these materials right now.':'No open PRs.'))+'</div>'))
+  const body = (rel.length?rel.map(recvPRCard).join(''):('<div class="muted" style="padding:6px 0">'+(noMat?('Nothing requisitioned for '+pbrand+' yet — run RM Check and raise a PR first.'):(mats?'No open PR for these materials right now.':'No open PRs.'))+'</div>'))
     + (other.length?`<details style="margin-top:6px"><summary style="cursor:pointer;font-size:12px;color:var(--mut)">Other open PRs (${other.length}) — not for this product</summary><div style="margin-top:8px">${other.map(recvPRCard).join('')}</div></details>`:'');
   $('modal').innerHTML=`<div class="mh"><h2>Receive raw materials (GRN)</h2><div class="sub">${rel.length} open PR(s)${label} · partial receipts allowed</div></div><div class="mb">${body}</div><div class="mf"><button class="ghost" onclick="closeModal()">Close</button></div>`;
   $('modalBg').classList.add('open'); }
@@ -2482,6 +2485,15 @@ function migrateLotTracking(s){
 /* Remove duplicate packing-lot rows that share an id (a stray from a concurrent save/merge). Keeps, per id,
    the copy carrying the most tracking (inspected+shipped) so nothing real is lost. Runs every load — self-healing. */
 function dedupePackingLots(s){ const best={}; (s.packingLog||[]).forEach(p=>{ if(!p||!p.id)return; const sc=(+p.insKg||0)+(+p.shipKg||0); const cur=best[p.id]; if(!cur||sc>cur.sc) best[p.id]={p:p,sc:sc}; }); s.packingLog=(s.packingLog||[]).filter(p=>{ if(!p)return false; if(!p.id)return true; return best[p.id]&&best[p.id].p===p; }); }
+/* Heal lines flagged prRaised but with no actual PR lines (the old empty-PR submit bug):
+   reset them back to RM Check so Supply Chain can requisition properly. Idempotent;
+   never touches state.prs, recipes, or any line that has a real requisition. */
+function healPRFlags(s){ (s.orders||[]).forEach(o=>(o.lines||[]).forEach(l=>{
+  if(l && l.prRaised && l.rmStatus!=='received' && !l.rmReady){
+    const valid=((l.pr&&l.pr.lines)||[]).filter(x=>x&&x.rm&&+x.kg>0);
+    if(!valid.length){ l.prRaised=null; l.pr=null; l.canMakeKg=null; if(l.rmStatus==='short'||l.rmStatus==='partial') l.rmStatus='pending'; }
+  }
+})); }
 let packInspForm=null;
 function openPackInspect(oid,lid){ if(!(canEdit(['QA Inspector'])||state.role==='COO')){toast('QA Inspector only');return;}
   const o=(state.orders||[]).find(x=>x.id===oid); if(!o)return; const l=(o.lines||[]).find(x=>x.id===lid)||(o.lines||[]).find(x=>x.brand===lid); if(!l)return;

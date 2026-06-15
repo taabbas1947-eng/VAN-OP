@@ -521,7 +521,7 @@ function ensureState(s){
   s.users=(s.users&&s.users.length)?s.users:deepClone(SEED.users||[]); if(s.currentUser===undefined)s.currentUser=null;
   s.rmRequests=s.rmRequests||[]; s.productionLog=s.productionLog||[]; s.packingLog=s.packingLog||[];
   s.actionLog=s.actionLog||[]; s.shipments=s.shipments||[]; s.inspections=s.inspections||[]; s.warehouses=s.warehouses||SEED.warehouses.slice();
-  s.rawStock=s.rawStock||{}; s.rmMovements=s.rmMovements||[]; s.audit=s.audit||[]; s.masters=s.masters||deepClone(SEED.masters||{}); s.batches=s.batches||[]; s.packedStock=s.packedStock||{}; s.packingLog=s.packingLog||[]; s.orders=s.orders||[]; if(s.seq==null)s.seq=1000; (s.packingLog||[]).forEach(function(p){ if(p&&!p.id) p.id='PK'+(s.seq++); }); if(s.dataFixEnabled==null)s.dataFixEnabled=true; if(!Array.isArray(s.prs))s.prs=[]; (s.batches||[]).forEach(function(b){ if((b.producedKg||0)>0 && (!Array.isArray(b.lots)||!b.lots.length)){ b.lots=[{id:'LOT'+(s.seq++), lotNo:(b.batchNo||'B')+'-L1', qty:b.producedKg, date:b.openedDate||'', by:b.by||'', coa:(b.coa||null), migrated:true}]; } }); ensureMasters(s); ensureProductionModel(s); dedupePackingLots(s); migrateLotTracking(s); healPRFlags(s); migrateBrandNames(s); return s;
+  s.rawStock=s.rawStock||{}; s.rmMovements=s.rmMovements||[]; s.audit=s.audit||[]; s.masters=s.masters||deepClone(SEED.masters||{}); s.batches=s.batches||[]; s.packedStock=s.packedStock||{}; s.packingLog=s.packingLog||[]; s.orders=s.orders||[]; if(s.seq==null)s.seq=1000; (s.packingLog||[]).forEach(function(p){ if(p&&!p.id) p.id='PK'+(s.seq++); }); if(s.dataFixEnabled==null)s.dataFixEnabled=true; if(!Array.isArray(s.prs))s.prs=[]; (s.batches||[]).forEach(function(b){ if((b.producedKg||0)>0 && (!Array.isArray(b.lots)||!b.lots.length)){ b.lots=[{id:'LOT'+(s.seq++), lotNo:(b.batchNo||'B')+'-L1', qty:b.producedKg, date:b.openedDate||'', by:b.by||'', coa:(b.coa||null), migrated:true}]; } }); ensureMasters(s); ensureProductionModel(s); dedupePackingLots(s); migrateLotTracking(s); healPRFlags(s); migrateBrandNames(s); loadBaseRecipesV2(s); return s;
 }
 /* Lock 1: idempotent master seeding. ADDITIVE ONLY — seeds a list only when it is
    missing or empty, and never overwrites values the team has already added. Touches no
@@ -2502,6 +2502,26 @@ function migrateLotTracking(s){
 }
 /* Remove duplicate packing-lot rows that share an id (a stray from a concurrent save/merge). Keeps, per id,
    the copy carrying the most tracking (inspected+shipped) so nothing real is lost. Runs every load — self-healing. */
+/* === Verified 13 base-product recipes (COO-confirmed from Yawar's cost sheet). One-time authoritative load. === */
+function loadBaseRecipesV2(s){ if(s._baseRecV2) return; s.masters=s.masters||{}; s.masters.recipes=s.masters.recipes||{};
+  var V={
+   'Amino Acid':{'Molasses':0.5,'Amino Acid Powder':0.225},
+   'Boron 5%':{'Boric Acid':0.33,'MEA':0.11,'(Water)':0.56},
+   'Compost':{'Fly Ash Waste':0.4167,'Sugar Press Mud':0.4167,'Grinded Lignite 25%':0.1667},
+   'NP 6.32':{'Rock Phosphate':0.457,'DAP':0.405,'Phosphoric Acid 65%':0.105,'Grinded Lignite 25%':0.05,'Gypsum Powder':0.04,'Magnisium Sulfate Hepta Hydrate':0.005},
+   'Mg Sulphate':{'Mg Sulphate':1.0},
+   'NPK 8.8.6':{'Urea N-46%':0.19,'MKP':0.17,'KOH':0.04285714285714286,'(Water)':0.6},
+   'Potassium Humate':{'Grinded Lignite 55%':1.0,'KOH':0.14},
+   'Potassium Humate Liquid':{'Grinded Lignite 55%':0.28,'KOH':0.07},
+   'Sulfur 70%':{'Sulphur WDG':1.0},
+   'Sulfur Coated Urea':{'Urea N-46%':0.742,'Sulphur Grinded- 200-250 Mesh':0.181,'Starch Powder':0.030,'Plaster of Paris':0.087,'Talc':0.013},
+   'Liquid Phosphrous':{'Phosphoric Acid 60%':0.6,'Molasses':0.15,'Urea N-46%':0.098,'Magnisium Sulfate Hepta Hydrate':0.055,'Potassium Carbonate':0.043,'Ferrous Sulfate':0.025},
+   'Zinc 21%':{'Zinc 21%':1.0}
+  };
+  for(var k in V){ s.masters.recipes[k]=Object.assign({},V[k]); }
+  if(s.masters.recipes['Nitro Sulfur']) delete s.masters.recipes['Nitro Sulfur']; /* byproduct of SCU — no raw-material recipe */
+  s._baseRecV2=true;
+}
 function dedupePackingLots(s){ const best={}; (s.packingLog||[]).forEach(p=>{ if(!p||!p.id)return; const sc=(+p.insKg||0)+(+p.shipKg||0); const cur=best[p.id]; if(!cur||sc>cur.sc) best[p.id]={p:p,sc:sc}; }); s.packingLog=(s.packingLog||[]).filter(p=>{ if(!p)return false; if(!p.id)return true; return best[p.id]&&best[p.id].p===p; }); }
 /* Heal lines flagged prRaised but with no actual PR lines (the old empty-PR submit bug):
    reset them back to RM Check so Supply Chain can requisition properly. Idempotent;
@@ -2963,6 +2983,46 @@ let monthSel=null;
 /* ===================== ADMIN · MASTER DATA ===================== */
 const RECIPE_ALIAS={'Cal-Mag V':'Cala Mag V'}; /* merge naming-variant products to one canonical recipe */
 const BRAND_ALIAS={'V-Mag Essential':'V-Mg Essential'}; /* canonical brand spelling */
+/* === Verified base↔brand map (Yawar sheet, confirmed by COO). Drives the produce-base-then-pack rule. === */
+const BRANDMAP_FIX={
+  'Max Amino':{base:'Amino Acid',owner:'White Label',client:'Maxim'},
+  'Tornado':{base:'Amino Acid',owner:'VAN',client:'VAN'},
+  'Max Boron':{base:'Boron 5%',owner:'White Label',client:'Maxim'},
+  'VL Boron':{base:'Boron 5%',owner:'VAN',client:'VAN'},
+  'Max Compost':{base:'Compost',owner:'White Label',client:'Maxim'},
+  'V-Compost':{base:'Compost',owner:'VAN',client:'VAN'},
+  'V-Germinator Pro':{base:'Liquid Phosphrous',owner:'VAN',client:'VAN'},
+  'V-Germonator Pro':{base:'Liquid Phosphrous',owner:'White Label',client:'LCI'},
+  'V-Mag Essential':{base:'Mg Sulphate',owner:'VAN',client:'VAN'},
+  'Enroot':{base:'NP 6.32',owner:'White Label',client:'Maxim'},
+  'Ferti Climate':{base:'NP 6.32',owner:'White Label',client:'LCI'},
+  'Green Phosphate':{base:'NP 6.32',owner:'VAN',client:'VAN'},
+  'Pro Mix Liquid':{base:'NPK 8.8.6',owner:'White Label',client:'Syngenta'},
+  'VL-NPK':{base:'NPK 8.8.6',owner:'VAN',client:'VAN'},
+  'Nitro Sulfur':{base:'Nitro Sulfur',owner:'VAN',client:'VAN'},
+  'Enrich':{base:'Potassium Humate',owner:'White Label',client:'Syngenta'},
+  'Ferti Huma Pellets':{base:'Potassium Humate',owner:'White Label',client:'LCI'},
+  'Ferti Huma Powder':{base:'Potassium Humate',owner:'White Label',client:'LCI'},
+  'Germinator Pro - Humic Pellet':{base:'Potassium Humate',owner:'White Label',client:'Kissan'},
+  'Humi Cash':{base:'Potassium Humate',owner:'White Label',client:'UDPL'},
+  'Humi Grow 8 Kg':{base:'Potassium Humate',owner:'VAN',client:'VAN'},
+  'Max Humic':{base:'Potassium Humate',owner:'White Label',client:'Maxim'},
+  'Tervalis':{base:'Potassium Humate',owner:'White Label',client:'Rudolf'},
+  'Ferti huma Super':{base:'Potassium Humate Liquid',owner:'White Label',client:'LCI'},
+  'Tervalis Plus':{base:'Potassium Humate Liquid',owner:'White Label',client:'Rudolf'},
+  'Vibrant':{base:'Potassium Humate Liquid',owner:'VAN',client:'VAN'},
+  'Germinator Pro Sulfur':{base:'Sulfur 70%',owner:'White Label',client:'Kissan'},
+  'Green Sulfur':{base:'Sulfur 70%',owner:'VAN',client:'VAN'},
+  'Max Sulfur':{base:'Sulfur 70%',owner:'White Label',client:'Maxim'},
+  'Naya S Urea':{base:'Sulfur Coated Urea',owner:'White Label',client:'Syngenta'},
+  'Nutrivant Urea':{base:'Sulfur Coated Urea',owner:'White Label',client:'Kissan'},
+  'Vital Urea':{base:'Sulfur Coated Urea',owner:'VAN',client:'VAN'},
+  'Max Zinc 21%':{base:'Zinc 21%',owner:'White Label',client:'Maxim'},
+  'V-Transfarm':{base:'Zinc 21%',owner:'VAN',client:'VAN'}
+};
+try{ if(typeof SEED!=='undefined'&&SEED.brandMap){ Object.keys(BRANDMAP_FIX).forEach(function(b){ SEED.brandMap[b]=Object.assign({},SEED.brandMap[b]||{},BRANDMAP_FIX[b]); }); } }catch(e){}
+/* Nitro Sulfur is a BYPRODUCT of Sulfur Coated Urea — no raw-material recipe; needs a finishing step before packing. */
+const BYPRODUCT_BASES={'Nitro Sulfur':{from:'Sulfur Coated Urea',needsStep:true}};
 try{ if(typeof SEED!=='undefined'&&SEED.brandMap){ for(var _ob in BRAND_ALIAS){ if(SEED.brandMap[_ob]&&!SEED.brandMap[BRAND_ALIAS[_ob]]) SEED.brandMap[BRAND_ALIAS[_ob]]=SEED.brandMap[_ob]; } } }catch(e){}
 function migrateBrandNames(s){ const ren=function(o,depth){ if(!o||typeof o!=='object'||depth>8)return; for(var k in o){ var v=o[k]; if(typeof v==='string'){ if(BRAND_ALIAS[v]) o[k]=BRAND_ALIAS[v]; } else if(v&&typeof v==='object'){ ren(v,depth+1); } } }; ['orders','packingLog','batches','shipments','inspections'].forEach(function(key){ if(Array.isArray(s[key])) s[key].forEach(function(x){ ren(x,0); }); }); }
 function recipeFor(base){ base=(RECIPE_ALIAS[base]||base); const o=(state.masters&&state.masters.recipes&&state.masters.recipes[base]); if(o&&Object.keys(o).length) return o; return (typeof SEED!=='undefined'&&SEED.baseRecipes&&SEED.baseRecipes[base])||{}; }

@@ -3029,7 +3029,7 @@ function recipeFor(base){ base=(RECIPE_ALIAS[base]||base); const o=(state.master
 function allBases(){ const set=new Set(); try{ Object.values((typeof SEED!=='undefined'&&SEED.catalog&&SEED.catalog.brandsByClient)||{}).forEach(arr=>arr.forEach(b=>set.add(b.base||b.brand))); }catch(e){} Object.keys((typeof SEED!=='undefined'&&SEED.baseRecipes)||{}).forEach(b=>set.add(b)); Object.keys((state.masters&&state.masters.recipes)||{}).forEach(b=>set.add(b)); return [...set].filter(Boolean).sort(); }
 function recipeHas(base){ const r=recipeFor(base); const ks=Object.keys(r||{}).filter(k=>!k.startsWith('(')); return ks.length>0; }
 let recipeForm={base:'',rows:[]};
-function openRecipe(base){ if(!base){recipeForm={base:'',rows:[]};render();return;} const bm=(typeof SEED!=='undefined'&&SEED.brandMap)||{}; var viaBrand=''; var rb=base; if(bm[base]&&bm[base].base&&bm[base].base!==base){ viaBrand=base; rb=bm[base].base; } const r=recipeFor(rb); const ks=Object.keys(r||{}).filter(k=>!k.startsWith('(')); recipeForm={base:rb, viaBrand:viaBrand, rows: ks.length?ks.map(k=>({rm:k,pct:r[k]})):[{rm:'',pct:''}]}; render(); }
+function openRecipe(base){ if(!base){recipeForm={base:'',rows:[]};render();return;} const r=recipeFor(base); const ks=Object.keys(r||{}).filter(k=>!k.startsWith('(')); recipeForm={base, rows: ks.length?ks.map(k=>({rm:k,pct:r[k]})):[{rm:'',pct:''}]}; render(); }
 function recipeAddRow(){ recipeForm.rows.push({rm:'',pct:''}); render(); }
 function recipeDelRow(i){ recipeForm.rows.splice(i,1); if(!recipeForm.rows.length) recipeForm.rows=[{rm:'',pct:''}]; render(); }
 function recipeCopyFrom(base){ if(!base)return; const r=recipeFor(base); const ks=Object.keys(r||{}).filter(k=>!k.startsWith('(')); recipeForm.rows= ks.length?ks.map(k=>({rm:k,pct:r[k]})):[{rm:'',pct:''}]; toast('Copied recipe from '+base); render(); }
@@ -3040,24 +3040,18 @@ function recipeSave(){ if(!(canEdit(['Plant Manager'])||state.role==='COO')){toa
   logAction(`Recipe ${Object.keys(obj).length?'set ('+Object.keys(obj).length+' materials)':'cleared'} for ${base}${newMat?' — '+newMat+' new material(s) added to master':''}`);
   save(); toast('Recipe saved for '+base); }
 function recipeMasterCard(ed){
-  const bm=(typeof SEED!=='undefined'&&SEED.brandMap)||{};
-  const baseSet=new Set(); try{(typeof BULK_BASES!=='undefined'?BULK_BASES:[]).forEach(b=>baseSet.add(b));}catch(e){}
-  Object.keys(bm).forEach(br=>{const b=bm[br]&&bm[br].base; if(b)baseSet.add(b);});
-  Object.keys((state.masters&&state.masters.recipes)||{}).forEach(b=>baseSet.add(b));
-  Object.keys((typeof SEED!=='undefined'&&SEED.baseRecipes)||{}).forEach(b=>baseSet.add(b));
-  const baseProducts=[...baseSet].filter(Boolean).sort();
-  const brandList=Object.keys(bm).filter(br=>bm[br]&&bm[br].base&&bm[br].base!==br).sort();
+  const baseProducts=(typeof BULK_BASES!=='undefined'?BULK_BASES.slice():[]).filter(Boolean).sort(); /* THE 13 base products only — recipes live here, never on brands */
   const bases=baseProducts; const sel=recipeForm.base;
   const rmNames=((state.masters&&state.masters.rawMaterials)||[]).map(x=>String(x.name||x));
   const dl=`<datalist id="rm_dl">${rmNames.map(n=>`<option value="${n.replace(/"/g,'&quot;')}">`).join('')}</datalist>`;
   const _esc=s=>String(s).replace(/"/g,'&quot;');
-  const pick=`<select onchange="openRecipe(this.value)" style="max-width:400px"><option value="">— pick a product —</option><optgroup label="Base products (own recipe)">${baseProducts.map(b=>`<option value="${_esc(b)}" ${b===sel?'selected':''}>${b}${recipeHas(b)?' ✓':' — no recipe'}</option>`).join('')}</optgroup><optgroup label="Brands (packed from a base)">${brandList.map(b=>`<option value="${_esc(b)}">${b} → ${_esc(bm[b].base)}</option>`).join('')}</optgroup></select>`;
+  const pick=`<select onchange="openRecipe(this.value)" style="max-width:360px"><option value="">— pick a base product —</option>${baseProducts.map(b=>`<option value="${_esc(b)}" ${b===sel?'selected':''}>${b}${recipeHas(b)?' ✓':((typeof BYPRODUCT_BASES!=='undefined'&&BYPRODUCT_BASES[b])?' — byproduct':' — no recipe')}</option>`).join('')}</select>`;
   let editor='';
   if(sel){
     const rows=recipeForm.rows.map((r,i)=>`<tr><td><input list="rm_dl" value="${String(r.rm||'').replace(/"/g,'&quot;')}" oninput="recipeForm.rows[${i}].rm=this.value" placeholder="raw material" ${ed?'':'disabled'}></td><td style="width:130px"><input class="num" type="number" step="0.0001" value="${r.pct||''}" oninput="recipeForm.rows[${i}].pct=this.value" placeholder="kg/kg" ${ed?'':'disabled'}></td><td style="width:28px">${ed?`<span class="x" style="cursor:pointer;color:var(--red);font-weight:700" onclick="recipeDelRow(${i})">×</span>`:''}</td></tr>`).join('');
     const tot=recipeForm.rows.reduce((a,r)=>a+(+r.pct||0),0);
     const others=bases.filter(b=>b!==sel&&recipeHas(b));
-    editor=`<div style="border-top:1px solid var(--line);margin-top:10px;padding-top:10px">${recipeForm.viaBrand?`<div style="background:#eef2f7;border-radius:6px;padding:6px 9px;margin-bottom:8px;font-size:11.5px"><b>${recipeForm.viaBrand}</b> is a brand packed from base <b>${sel}</b> — it inherits this base recipe (edit the base to change it).</div>`:''}<div style="font-weight:700;margin-bottom:6px">${sel} — materials per Kg of product</div>
+    editor=`<div style="border-top:1px solid var(--line);margin-top:10px;padding-top:10px"><div style="font-weight:700;margin-bottom:6px">${sel} — materials per Kg of product</div>
       <div style="overflow:auto"><table><thead><tr><th>Raw material</th><th class="num">kg per kg</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
       <div class="muted" style="font-size:11px;margin-top:6px">Total ≈ <b>${tot.toFixed(4)}</b> kg of materials per Kg produced.</div>
       ${ed?`<div class="row" style="margin-top:9px;flex-wrap:wrap"><button class="sm" onclick="recipeAddRow()">+ material</button>
@@ -3065,7 +3059,7 @@ function recipeMasterCard(ed){
         <button class="sm green" style="margin-left:auto" onclick="recipeSave()">Save recipe</button></div>
         <div class="muted" style="font-size:11px;margin-top:6px">New materials you type are added to the <b>Raw materials</b> master automatically.</div>`:'<div class="muted" style="font-size:11px;margin-top:6px">Owned by COO / Plant Manager.</div>'}</div>`;
   }
-  const miss=bases.filter(b=>!recipeHas(b)).sort();
+  const miss=bases.filter(b=>!recipeHas(b) && !(typeof BYPRODUCT_BASES!=='undefined'&&BYPRODUCT_BASES[b])).sort();
   const statusBanner = miss.length
     ? `<div style="background:#fff4cc;border:1px solid #e6cf7a;border-radius:8px;padding:8px 11px;margin:0 0 10px;font-size:12px"><b>${miss.length}</b> product(s) have <b>no recipe</b> — RM Check is blocked for these until one is added: ${miss.join(', ')}</div>`
     : `<div style="background:#e7f5e9;border:1px solid #9ccfa6;border-radius:8px;padding:8px 11px;margin:0 0 10px;font-size:12px;color:#256a32">All <b>${bases.length}</b> products have a recipe defined. ✓</div>`;

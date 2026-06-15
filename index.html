@@ -521,7 +521,7 @@ function ensureState(s){
   s.users=(s.users&&s.users.length)?s.users:deepClone(SEED.users||[]); if(s.currentUser===undefined)s.currentUser=null;
   s.rmRequests=s.rmRequests||[]; s.productionLog=s.productionLog||[]; s.packingLog=s.packingLog||[];
   s.actionLog=s.actionLog||[]; s.shipments=s.shipments||[]; s.inspections=s.inspections||[]; s.warehouses=s.warehouses||SEED.warehouses.slice();
-  s.rawStock=s.rawStock||{}; s.rmMovements=s.rmMovements||[]; s.audit=s.audit||[]; s.masters=s.masters||deepClone(SEED.masters||{}); s.batches=s.batches||[]; s.packedStock=s.packedStock||{}; s.packingLog=s.packingLog||[]; s.orders=s.orders||[]; if(s.seq==null)s.seq=1000; (s.packingLog||[]).forEach(function(p){ if(p&&!p.id) p.id='PK'+(s.seq++); }); if(s.dataFixEnabled==null)s.dataFixEnabled=true; if(!Array.isArray(s.prs))s.prs=[]; (s.batches||[]).forEach(function(b){ if((b.producedKg||0)>0 && (!Array.isArray(b.lots)||!b.lots.length)){ b.lots=[{id:'LOT'+(s.seq++), lotNo:(b.batchNo||'B')+'-L1', qty:b.producedKg, date:b.openedDate||'', by:b.by||'', coa:(b.coa||null), migrated:true}]; } }); ensureMasters(s); ensureProductionModel(s); dedupePackingLots(s); migrateLotTracking(s); healPRFlags(s); return s;
+  s.rawStock=s.rawStock||{}; s.rmMovements=s.rmMovements||[]; s.audit=s.audit||[]; s.masters=s.masters||deepClone(SEED.masters||{}); s.batches=s.batches||[]; s.packedStock=s.packedStock||{}; s.packingLog=s.packingLog||[]; s.orders=s.orders||[]; if(s.seq==null)s.seq=1000; (s.packingLog||[]).forEach(function(p){ if(p&&!p.id) p.id='PK'+(s.seq++); }); if(s.dataFixEnabled==null)s.dataFixEnabled=true; if(!Array.isArray(s.prs))s.prs=[]; (s.batches||[]).forEach(function(b){ if((b.producedKg||0)>0 && (!Array.isArray(b.lots)||!b.lots.length)){ b.lots=[{id:'LOT'+(s.seq++), lotNo:(b.batchNo||'B')+'-L1', qty:b.producedKg, date:b.openedDate||'', by:b.by||'', coa:(b.coa||null), migrated:true}]; } }); ensureMasters(s); ensureProductionModel(s); dedupePackingLots(s); migrateLotTracking(s); healPRFlags(s); migrateBrandNames(s); return s;
 }
 /* Lock 1: idempotent master seeding. ADDITIVE ONLY — seeds a list only when it is
    missing or empty, and never overwrites values the team has already added. Touches no
@@ -1523,6 +1523,7 @@ function rmStatusPill(l){ const s=l.rmStatus||'pending'; const m={pending:['Not 
 let rmForm={oid:null,lid:null,status:'full',canMake:'',lines:[]};
 function recipePrefill(o,l){ const rec=recipeFor(l.base); if(!rec||!Object.keys(rec).length) return []; const ks=Object.keys(rec); if(!ks.length||ks[0].startsWith('(')) return []; return ks.map(rm=>({rm,kg:Math.round((l.ordered||0)*rec[rm])})); }
 function openRMCheck(oid,lid){ const o=state.orders.find(x=>x.id===oid); const l=o.lines.find(x=>x.id===lid);
+  if(!recipeHas(l.base)){ $('modal').innerHTML=`<div class="mh"><h2>No recipe for ${l.brand}</h2><div class="sub">${o.po} · ${o.client} · base: ${l.base}</div></div><div class="mb"><div class="banner warn" style="margin:4px 0">This product has <b>no recipe defined</b>, so RM Check can't build a purchase requisition. Add its bill of materials in <b>Master Data → Product recipes</b> first, then run RM Check.</div></div><div class="mf"><button class="ghost" onclick="closeModal()">Close</button></div>`; $('modalBg').classList.add('open'); return; }
   const pre=(l.pr&&l.pr.lines&&l.pr.lines.length)?l.pr.lines.map(x=>({rm:x.rm,kg:x.kg})):recipePrefill(o,l);
   rmForm={oid,lid,status:(l.rmStatus&&l.rmStatus!=='pending'?l.rmStatus:'full'),canMake:l.canMakeKg||'',lines:pre};
   renderRMModal(); $('modalBg').classList.add('open'); }
@@ -2961,6 +2962,9 @@ function drawDash(){
 let monthSel=null;
 /* ===================== ADMIN · MASTER DATA ===================== */
 const RECIPE_ALIAS={'Cal-Mag V':'Cala Mag V'}; /* merge naming-variant products to one canonical recipe */
+const BRAND_ALIAS={'V-Mag Essential':'V-Mg Essential'}; /* canonical brand spelling */
+try{ if(typeof SEED!=='undefined'&&SEED.brandMap){ for(var _ob in BRAND_ALIAS){ if(SEED.brandMap[_ob]&&!SEED.brandMap[BRAND_ALIAS[_ob]]) SEED.brandMap[BRAND_ALIAS[_ob]]=SEED.brandMap[_ob]; } } }catch(e){}
+function migrateBrandNames(s){ const ren=function(o,depth){ if(!o||typeof o!=='object'||depth>8)return; for(var k in o){ var v=o[k]; if(typeof v==='string'){ if(BRAND_ALIAS[v]) o[k]=BRAND_ALIAS[v]; } else if(v&&typeof v==='object'){ ren(v,depth+1); } } }; ['orders','packingLog','batches','shipments','inspections'].forEach(function(key){ if(Array.isArray(s[key])) s[key].forEach(function(x){ ren(x,0); }); }); }
 function recipeFor(base){ base=(RECIPE_ALIAS[base]||base); const o=(state.masters&&state.masters.recipes&&state.masters.recipes[base]); if(o&&Object.keys(o).length) return o; return (typeof SEED!=='undefined'&&SEED.baseRecipes&&SEED.baseRecipes[base])||{}; }
 function allBases(){ const set=new Set(); try{ Object.values((typeof SEED!=='undefined'&&SEED.catalog&&SEED.catalog.brandsByClient)||{}).forEach(arr=>arr.forEach(b=>set.add(b.base||b.brand))); }catch(e){} Object.keys((typeof SEED!=='undefined'&&SEED.baseRecipes)||{}).forEach(b=>set.add(b)); Object.keys((state.masters&&state.masters.recipes)||{}).forEach(b=>set.add(b)); return [...set].filter(Boolean).sort(); }
 function recipeHas(base){ const r=recipeFor(base); const ks=Object.keys(r||{}).filter(k=>!k.startsWith('(')); return ks.length>0; }
@@ -2993,8 +2997,12 @@ function recipeMasterCard(ed){
         <button class="sm green" style="margin-left:auto" onclick="recipeSave()">Save recipe</button></div>
         <div class="muted" style="font-size:11px;margin-top:6px">New materials you type are added to the <b>Raw materials</b> master automatically.</div>`:'<div class="muted" style="font-size:11px;margin-top:6px">Owned by COO / Plant Manager.</div>'}</div>`;
   }
+  const miss=bases.filter(b=>!recipeHas(b)).sort();
+  const statusBanner = miss.length
+    ? `<div style="background:#fff4cc;border:1px solid #e6cf7a;border-radius:8px;padding:8px 11px;margin:0 0 10px;font-size:12px"><b>${miss.length}</b> product(s) have <b>no recipe</b> — RM Check is blocked for these until one is added: ${miss.join(', ')}</div>`
+    : `<div style="background:#e7f5e9;border:1px solid #9ccfa6;border-radius:8px;padding:8px 11px;margin:0 0 10px;font-size:12px;color:#256a32">All <b>${bases.length}</b> products have a recipe defined. ✓</div>`;
   return acard('recipe','Product recipes',`${bases.length} products · ${bases.filter(recipeHas).length} with recipe`,`<div class="muted" style="font-size:12px;margin-bottom:10px">The bill of materials per product (kg of each raw material per Kg produced) — drives <b>RM Check → PR → Receive</b>. ${ed?'Pick a product to add or <b>override</b> its recipe.':''}</div>
-    ${dl}${pick}${editor}`);
+    ${statusBanner}${dl}${pick}${editor}`);
 }
 let acOpen={}; /* per-session only (in-memory) — resets to collapsed on reload / relogin */
 function admRemember(k,isOpen){ acOpen[k]=isOpen; }

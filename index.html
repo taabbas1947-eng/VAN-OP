@@ -521,7 +521,7 @@ function ensureState(s){
   s.users=(s.users&&s.users.length)?s.users:deepClone(SEED.users||[]); if(s.currentUser===undefined)s.currentUser=null;
   s.rmRequests=s.rmRequests||[]; s.productionLog=s.productionLog||[]; s.packingLog=s.packingLog||[];
   s.actionLog=s.actionLog||[]; s.shipments=s.shipments||[]; s.inspections=s.inspections||[]; s.warehouses=s.warehouses||SEED.warehouses.slice();
-  s.rawStock=s.rawStock||{}; s.rmMovements=s.rmMovements||[]; s.audit=s.audit||[]; s.masters=s.masters||deepClone(SEED.masters||{}); s.batches=s.batches||[]; s.packedStock=s.packedStock||{}; s.packingLog=s.packingLog||[]; s.orders=s.orders||[]; if(s.seq==null)s.seq=1000; (s.packingLog||[]).forEach(function(p){ if(p&&!p.id) p.id='PK'+(s.seq++); }); if(s.dataFixEnabled==null)s.dataFixEnabled=true; if(!Array.isArray(s.prs))s.prs=[]; (s.batches||[]).forEach(function(b){ if((b.producedKg||0)>0 && (!Array.isArray(b.lots)||!b.lots.length)){ b.lots=[{id:'LOT'+(s.seq++), lotNo:(b.batchNo||'B')+'-L1', qty:b.producedKg, date:b.openedDate||'', by:b.by||'', coa:(b.coa||null), migrated:true}]; } }); ensureMasters(s); ensureProductionModel(s); dedupePackingLots(s); migrateLotTracking(s); healPRFlags(s); migrateBrandNames(s); loadBaseRecipesV2(s); loadBlendRecipesV1(s); purgeImportedProduction(s); return s;
+  s.rawStock=s.rawStock||{}; s.rmMovements=s.rmMovements||[]; s.audit=s.audit||[]; s.masters=s.masters||deepClone(SEED.masters||{}); s.batches=s.batches||[]; s.packedStock=s.packedStock||{}; s.packingLog=s.packingLog||[]; s.orders=s.orders||[]; if(s.seq==null)s.seq=1000; (s.packingLog||[]).forEach(function(p){ if(p&&!p.id) p.id='PK'+(s.seq++); }); if(s.dataFixEnabled==null)s.dataFixEnabled=true; if(!Array.isArray(s.prs))s.prs=[]; (s.batches||[]).forEach(function(b){ if((b.producedKg||0)>0 && (!Array.isArray(b.lots)||!b.lots.length)){ b.lots=[{id:'LOT'+(s.seq++), lotNo:(b.batchNo||'B')+'-L1', qty:b.producedKg, date:b.openedDate||'', by:b.by||'', coa:(b.coa||null), migrated:true}]; } }); ensureMasters(s); ensureProductionModel(s); dedupePackingLots(s); migrateLotTracking(s); healPRFlags(s); migrateBrandNames(s); loadBaseRecipesV2(s); loadBlendRecipesV1(s); loadBlendRecipesV2(s); purgeImportedProduction(s); return s;
 }
 /* Lock 1: idempotent master seeding. ADDITIVE ONLY — seeds a list only when it is
    missing or empty, and never overwrites values the team has already added. Touches no
@@ -2543,6 +2543,32 @@ function loadBlendRecipesV1(s){ if(s._blendRecV1) return; s.masters=s.masters||{
   for(var k in V){ s.masters.recipes[k]=Object.assign({},V[k]); }
   s._blendRecV1=true;
 }
+/* === Gap-closure: remaining made-to-order blends from the verified Product Master (COO-confirmed). One-time. === */
+function loadBlendRecipesV2(s){ if(s._blendRecV2) return; s.masters=s.masters||{}; s.masters.recipes=s.masters.recipes||{};
+  s.masters.rawMaterials=s.masters.rawMaterials||[];
+  if(!s.masters.rawMaterials.some(r=>String(r.name).trim().toUpperCase()==='MOP GRANULAR')) s.masters.rawMaterials.push({name:'MOP Granular',cost:0});
+  var FUSION={'MOP':0.845,'Urea N-46%':0.055,'Boric Acid':0.06,'Sulfur Fine (WDG)-A':0.02,'Magnisium Oxide':0.02,'Fume Silica':0.00667};
+  var NPK16={'SOP':0.37,'Urea N-46%':0.32167,'MAP':0.30833,'Fume Silica':0.00667};
+  var V={
+   'Farm Booster':FUSION,'Ferti Magic':FUSION,'Naya NPK- Powder':NPK16,
+   'Jackpot':{'SOP':0.37,'Urea N-46%':0.3217,'MAP':0.3083,'Fume Silica':0.0067},
+   'Ferti K Fertigation':{'Potassium Carbonate':0.516,'Boric Acid':0.05,'Phosphoric Acid 75%':0.04808,'Ferrous Sulfate':0.02,'Copper Sulfate':0.003},
+   'Ferti K Foliar':{'Potassium Carbonate':0.534,'Phosphoric Acid 75%':0.145,'Boric Acid':0.05,'Ferrous Sulfate':0.02,'Copper Sulfate':0.003},
+   'Grain Set':{'Potassium Carbonate':0.516,'Phosphoric Acid 75%':0.089,'Urea N-46%':0.04348,'Copper Sulfate':0.003},
+   'Harbor Foliar':{'Potassium Carbonate':0.534,'Phosphoric Acid 75%':0.075,'Copper Sulfate':0.002},
+   'Naya Potash':{'Potassium Carbonate':0.516,'Phosphoric Acid 75%':0.07547},
+   'Nitro Germinator Pro':{'MOP Powder':0.6803,'Urea N-46%':0.1775,'Urea N-46%-Filler':0.133,'Fume Silica':0.0067,'Zinc Sulfate Powder 33%':0.0007,'Ferrous Sulfate':0.0005,'Boric Acid':0.0003,'Manganese Sulfate':0.0003,'Copper Sulfate':0.0002,'Dye Blue':0.0002},
+   'Numeric Ultra':{'Ammonium Sulfate':0.3987,'DAP':0.2775,'SOP':0.2525,'Plaster of Paris':0.1913,'Starch Powder':0.0225,'Red Dye':0.0007},
+   'Nutrivant K (Granular)':{'MOP Granular':0.845,'Boric Acid':0.06,'Urea N-46%':0.055,'Plaster of Paris':0.03774,'Starch Powder':0.0204,'Talc':0.0204,'Sulphur Grinded- 200-250 Mesh':0.02,'Magnisium Oxide':0.02},
+   'Nutrivant K (Powder)':{'MOP Powder':0.845,'Boric Acid':0.06,'Urea N-46%':0.055,'Sulphur WDG':0.02,'Magnisium Oxide':0.02,'Fume Silica':0.00667},
+   'Pulsate':{'Magnisium Sulfate Hepta Hydrate':0.50515,'Zinc Sulfate Mono 33%':0.23711,'Manganese Sulfate Mono':0.12371,'Ferrous Sulfate':0.1134,'Boric Acid':0.02062,'Copper Sulfate-Imported':0.02062,'Citric Acid':0.01031},
+   'V-Ferrous':{'Ferrous Sulfate':1.0},
+   'V-Potash Plus':{'MOP Powder':0.6867,'Urea N-46%':0.3264,'Fume Silica':0.0067,'Zinc Sulfate Powder 33%':0.0009,'Ferrous Sulfate':0.0006,'Boric Acid':0.0003,'Manganese Sulfate':0.0003,'Copper Sulfate':0.0002},
+   'VL-Potash':{'Potassium Carbonate':0.516,'Phosphoric Acid 75%':0.089,'Urea N-46%':0.0435,'Copper Sulfate':0.003}
+  };
+  for(var k in V){ s.masters.recipes[k]=Object.assign({},V[k]); }
+  s._blendRecV2=true;
+}
 /* === One-time purge of IMPORTED opening-balance production (COO decision: no opening balances).
    Removes the seed/imported bulk production batches + imported daily-output log.
    Verified safe: those batches were never packed/shipped (0 packing lots, 0 shipments).
@@ -3024,6 +3050,9 @@ const BRANDMAP_FIX={
   'V-Germinator Pro':{base:'Liquid Phosphrous',owner:'VAN',client:'VAN'},
   'V-Germonator Pro':{base:'Liquid Phosphrous',owner:'White Label',client:'LCI'},
   'V-Mag Essential':{base:'Mg Sulphate',owner:'VAN',client:'VAN'},
+  'Ferti Huma':{base:'Potassium Humate',owner:'White Label',client:'LCI'},
+  'Ferti Huma Pellet':{base:'Potassium Humate',owner:'White Label',client:'LCI'},
+  'Tornado 500 ML':{base:'Amino Acid',owner:'VAN',client:'VAN'},
   'Enroot':{base:'NP 6.32',owner:'White Label',client:'Maxim'},
   'Ferti Climate':{base:'NP 6.32',owner:'White Label',client:'LCI'},
   'Green Phosphate':{base:'NP 6.32',owner:'VAN',client:'VAN'},

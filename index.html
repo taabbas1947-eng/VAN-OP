@@ -768,7 +768,7 @@ function lineStage(o,l){
 }
 function stageOf(o){ if(!o.lines||!o.lines.length) return 'New';
   const idx=o.lines.map(l=>STAGE_ORDER.indexOf(lineStage(o,l))); return STAGE_ORDER[Math.min.apply(null,idx)]; }
-function lineOverdue(o,l){ return !!l.committed && (l.delivered||0)<l.ordered-0.5 && new Date(l.committed)<TODAY; }
+function lineOverdue(o,l){ if(!l.committed || (l.delivered||0)>=l.ordered-0.5 || !(new Date(l.committed)<TODAY)) return false; if(o.received && new Date(l.committed)<new Date(o.received)) return false; /* committed before the order was received = bad/imported date — not overdue */ return true; }
 function isOverdue(o){ return o.lines.some(l=>lineOverdue(o,l)); }
 function daysOver(o){ const ds=o.lines.filter(l=>lineOverdue(o,l)).map(l=>Math.round((TODAY-new Date(l.committed))/86400000));
   return ds.length?Math.max.apply(null,ds):(o.promised?Math.round((TODAY-new Date(o.promised))/86400000):0); }
@@ -1443,12 +1443,20 @@ function screenTracker(){
   const attn=`<div class="attngrid">${cards.map(c=>`<div class="attn ${trkFilter===c[0]?'on':''}" style="border-left-color:var(${c[3]})" onclick="trkFilter=(trkFilter==='${c[0]}'?'all':'${c[0]}');render()"><div class="a-c" style="color:var(${c[3]})">${c[2]}</div><div class="a-n">${c[1]}</div></div>`).join('')}</div>`;
   const chips=[['all','All orders'],['myrole','My role'],['delayed','Delayed'],['rmblock','RM / blocked'],['qc','QC pending'],['ready','Ready to ship'],['delivered','Delivered']];
   const chipbar=`<div class="chips">${chips.map(c=>`<span class="chip ${trkFilter===c[0]?'on':''}" onclick="trkFilter='${c[0]}';render()">${c[1]}</span>`).join('')}<input id="trkq" placeholder="Search PO or customer…" value="${trkSearch}" oninput="trkSearch=this.value;trkRender()" style="margin-left:auto;min-width:230px"></div>`;
-  const rows=list.length?list.map(o=>orderCard(o)).join(''):'<div class="empty"><div class="ei">∅</div>No orders match this filter.</div>';
+  const fcounts={}; list.forEach(o=>{const b=orderBucket(o);fcounts[b]=(fcounts[b]||0)+1;});
+  const odCount=list.filter(o=>isOverdue(o)).length;
+  let rows='';
+  if(!list.length){ rows='<div class="empty"><div class="ei">∅</div>No orders match this filter.</div>'; }
+  else { let cur=null;
+    list.forEach(o=>{ const bk=orderBucket(o);
+      if(bk!==cur){ cur=bk; const role=(BUCKET_META[bk]&&BUCKET_META[bk].owner)||'—'; const col=(BUCKET_META[bk]&&BUCKET_META[bk].c)||'--mut';
+        rows+=`<div style="display:flex;align-items:center;gap:8px;margin:16px 0 6px;padding:6px 11px;border-left:4px solid var(${col});background:var(--navy-50,#eef2f7);border-radius:6px"><b style="font-size:12.5px">${bk}</b><span class="muted" style="font-size:11px">· ${role}</span><span class="hint" style="margin-left:auto">${fcounts[bk]}</span></div>`; }
+      rows+=orderCard(o); }); }
   $('view').innerHTML=`
-    <div class="banner info" style="margin-bottom:14px">This screen shows <b>where each order is standing</b>. <b>Click any PO</b> to open its full record in a window. Orders are sorted new at the top, delivered at the bottom.</div>
+    <div class="banner info" style="margin-bottom:14px">Where each order stands, <b>grouped by stage and the role that owns it</b>; within a stage, <b>most overdue first</b>. Click any PO to open its full record.</div>
     ${acard('trk_flow','Order flow','how many orders sit at each stage',`${flow}`)}
     ${acard('trk_attn','Needs attention','tap a card to filter the list',`${attn}`)}
-    <div class="card"><h3>Orders <span class="hint">${list.length} shown</span></h3>${chipbar}<div>${rows}</div></div>`;
+    <div class="card"><h3>Orders <span class="hint">${list.length} order${list.length===1?'':'s'}${odCount?' · '+odCount+' overdue':''}</span></h3>${chipbar}<div>${rows}</div></div>`;
 }
 
 /* ===================== ORDER DRAWER (role-owned lifecycle) ===================== */
@@ -2216,6 +2224,7 @@ function pmDelayLabel(o,l,lb){
   if(l.delayReason) return null;
   const due=l.committed||o.promised; if(!due) return null;
   const t=new Date(due); if(isNaN(t)) return null;
+  if(o.received && t<new Date(o.received)) return null;  // committed before the order was received = bad/imported date — no delay prompt
   const past=Math.round((TODAY-t)/86400000);        // >0 overdue · 0 due today · <0 due-in
   const behind=(lb!=='Shipment'&&lb!=='Delivered'); // still has production/QC/packing work
   if(past>0 || (past>=-3 && behind)) return past>0?('Overdue '+past+'d'):(past===0?'Due today':('Due in '+(-past)+'d'));

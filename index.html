@@ -1285,7 +1285,7 @@ function screenEntry(){
   const clients=clientsForChannel(entryChannel);
   $('view').innerHTML=`
    ${ed?'':viewOnly('KAM','switch to KAM to submit')}
-   <div class="banner info">Channel → Client → Brand is linked from your master <b>Data</b> + <b>Dealer Master</b>. Pick a channel, then its clients/dealers, then only those brands appear; base, form &amp; pack auto-fill.</div>
+   <div class="banner info" style="font-size:11.5px;padding:7px 11px">Channel → Client → Brand comes from your master data. Pick a channel and client; only that client's brands show, with base / form / pack auto-filled.</div>
    <div class="card"><h3>Step 1 — PO Header</h3>
     <div class="formgrid">
      <div class="fld"><label>Channel</label>
@@ -1311,9 +1311,12 @@ function screenEntry(){
     </div></div>
    <div class="card"><h3>Step 2 — Line Items <span class="hint">pack size auto-fills, override allowed</span></h3>
     ${entryClient?'':'<div class="muted" style="font-size:12.5px">Pick a channel and client above to load brands.</div>'}
-    <table class="fixedtbl ${entryClient?'':'hide'}" style="font-size:12px"><thead><tr><th>Brand</th><th style="width:88px">Form</th><th style="width:72px">Pack</th><th style="width:86px">Qty</th><th style="width:78px">Packs</th><th style="width:170px">Invoice price (PKR/Kg·L)</th><th style="width:120px">Committed</th><th style="width:26px"></th></tr></thead>
+    <table class="fixedtbl ${entryClient?'':'hide'}" style="font-size:12px"><thead><tr><th>Brand</th><th style="width:84px">Form</th><th style="width:66px">Pack</th><th style="width:80px">Qty</th><th style="width:72px">Packs</th><th style="width:160px">Invoice price (PKR/Kg·L)</th><th style="width:118px">Committed</th><th style="width:130px">Note</th><th style="width:26px"></th></tr></thead>
     <tbody id="e_lines"></tbody></table>
-    <button class="ghost sm ${entryClient?'':'hide'}" style="margin-top:10px" onclick="entryLines.push({brand:'',qty:'',pack:'',note:'',committed:''});renderEntryLines()">+ Add line</button>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:10px" class="${entryClient?'':'hide'}">
+      <button class="ghost sm" onclick="entryLines.push({brand:'',qty:'',pack:'',note:'',committed:''});renderEntryLines()">+ Add line</button>
+      <div id="e_total" class="muted" style="font-size:12px;text-align:right"></div>
+    </div>
    </div>
    <div class="row">
      <div class="card" style="flex:1;min-width:280px"><h3>Step 3 — Validation</h3><div id="e_checks"></div></div>
@@ -1357,9 +1360,16 @@ function renderEntryLines(){
      <td class="num"><b id="pk_${i}">${packs!==''?fmt(packs):'—'}</b></td>
      <td><input type="number" value="${l.inv||''}" placeholder="PKR/Kg·L" title="VAN invoice rate per Kg/L — must be under PKR 1000. The per-pack equivalent is shown so you can verify it against the client PO." oninput="entryLines[${i}].inv=this.value;invPerPack(${i});validate()"><div id="ipp_${i}" style="font-size:10px;margin-top:3px;color:${(+l.inv>=1000)?'#c0392b':'var(--mut)'}">${invPerPackText(l)}</div></td>
      <td><input type="date" id="cm_${i}" value="${committedVal}" onchange="entryLines[${i}].committed=this.value;updateCommitted(${i})"><div id="cmh_${i}" style="font-size:9px;color:var(--mut);margin-top:2px" title="Auto from the lead-time model — edit to override">${(!l.committed&&autoCommit)?('auto · '+leadDays(+l.qty,procD,l.brand)+'d lead'+(procD?' · incl '+procD+'d RM':'')):''}</div></td>
+     <td><input type="text" value="${(l.note||'').replace(/"/g,'&quot;')}" placeholder="optional" oninput="entryLines[${i}].note=this.value" style="width:100%;font-size:11px"></td>
      <td>${entryLines.length>1?`<button class="ghost sm" onclick="entryLines.splice(${i},1);renderEntryLines()">✕</button>`:''}</td></tr>`;
   }).join('');
   validate();
+}
+/* live order summary (display only) — total qty and order value (Σ qty × invoice) */
+function updateEntryTotal(){ const el=document.getElementById('e_total'); if(!el) return;
+  const totQty=entryLines.reduce((a,l)=>a+(+l.qty>0?+l.qty:0),0);
+  const totVal=entryLines.reduce((a,l)=>a+((+l.qty>0&&+l.inv>0)?(+l.qty*+l.inv):0),0);
+  el.innerHTML = totQty>0 ? `Order: <b>${fmt(totQty)} Kg/L</b>${totVal>0?` · value <b>PKR ${fmt(Math.round(totVal))}</b>`:''}` : '';
 }
 function entryChecks(){
   const lines=entryLines.filter(l=>l.brand&&+l.qty>0);
@@ -1368,29 +1378,36 @@ function entryChecks(){
   const poManual=isManualPO()?(($('e_po')&&$('e_po').value.trim())||''):'';
   const poDup=!!poManual && (state.orders||[]).some(o=>String(o.po)===String(poManual));
   return [
-    ['Channel selected', !!entryChannel],
-    ['Client / dealer selected', !!entryClient],
-    ['Vgreen Sub (if Vgreen)', entryChannel!=='Vgreen' || !!entryVsub],
-    ['KAM Name', !!($('e_kam')&&$('e_kam').value.trim())],
-    ['PO Received date', !!recv],
-    ['Promised Delivery date', !!prom],
-    ['Promised Delivery ≥ PO Received', !recv || !prom || prom>=recv],
-    ['Client PO # (manual channels)', !isManualPO() || !!poManual],
-    ['Client PO # not already used', !isManualPO() || (!!poManual && !poDup)],
-    ['At least 1 line item (brand + qty)', lines.length>0],
-    ['Pack size set on every line (> 0)', lines.length>0 && lines.every(l=>+l.pack>0)],
-    ['Each line committed date ≥ PO Received', lines.every(l=>!l.committed || !recv || l.committed>=recv)],
-    ['Invoice price set on every line (PKR/Kg·L)', lines.length>0 && lines.every(l=>+l.inv>0)],
-    ['Invoice price under PKR 1000/Kg', lines.length>0 && lines.every(l=>+l.inv>0 && +l.inv<1000)],
+    ['Channel selected', !!entryChannel, 'e_chan'],
+    ['Client / dealer selected', !!entryClient, 'e_client'],
+    ['Vgreen Sub (if Vgreen)', entryChannel!=='Vgreen' || !!entryVsub, 'e_vsub'],
+    ['KAM Name', !!($('e_kam')&&$('e_kam').value.trim()), 'e_kam'],
+    ['PO Received date', !!recv, 'e_recv'],
+    ['Promised Delivery date', !!prom, 'e_prom'],
+    ['Promised Delivery ≥ PO Received', !recv || !prom || prom>=recv, 'e_prom'],
+    ['Client PO # (manual channels)', !isManualPO() || !!poManual, 'e_po'],
+    ['Client PO # not already used', !isManualPO() || (!!poManual && !poDup), 'e_po'],
+    ['At least 1 line item (brand + qty)', lines.length>0, 'e_lines'],
+    ['Pack size set on every line (> 0)', lines.length>0 && lines.every(l=>+l.pack>0), 'e_lines'],
+    ['Each line committed date ≥ PO Received', lines.every(l=>!l.committed || !recv || l.committed>=recv), 'e_lines'],
+    ['Invoice price set on every line (PKR/Kg·L)', lines.length>0 && lines.every(l=>+l.inv>0), 'e_lines'],
+    ['Invoice price under PKR 1000/Kg', lines.length>0 && lines.every(l=>+l.inv>0 && +l.inv<1000), 'e_lines'],
   ];
 }
 function validate(){
   const checks=entryChecks(); const ok=checks.every(c=>c[1]) && canEdit(['KAM']);
-  if($('e_checks')) $('e_checks').innerHTML=checks.map(c=>`<div style="font-size:12px;padding:3px 0">${c[1]?'<span style="color:var(--green2)">✓</span>':'<span style="color:var(--red)">✗</span>'} &nbsp;${c[0]}</div>`).join('')
+  if($('e_checks')) $('e_checks').innerHTML=checks.map(c=>{ const fail=!c[1], fid=c[2], clk=fail&&fid;
+    return `<div ${clk?`onclick="focusField('${fid}')" `:''}style="font-size:12px;padding:3px 0${clk?';cursor:pointer':''}">${c[1]?'<span style="color:var(--green2)">✓</span>':'<span style="color:var(--red)">✗</span>'} &nbsp;${c[0]}${clk?' <span class="muted" style="font-size:10px">→ fix</span>':''}</div>`; }).join('')
     + (canEdit(['KAM'])?'':'<div style="font-size:12px;color:var(--amber);padding-top:4px">Switch role to KAM to enable submit.</div>');
   if($('e_submit')) $('e_submit').disabled=!ok;
+  updateEntryTotal();
   previewRM();
 }
+/* scroll to + focus the field a failed check points at (header field by id, or the lines table) */
+function focusField(id){ var el=document.getElementById(id); if(!el)return;
+  try{ el.scrollIntoView({block:'center',behavior:'smooth'}); }catch(e){}
+  var t=(el.tagName==='INPUT'||el.tagName==='SELECT')?el:(el.querySelector&&el.querySelector('input,select'));
+  if(t&&t.focus){ try{ t.focus(); }catch(e){} } }
 function previewRM(){
   const tmp={lines:entryLines.filter(l=>l.brand&&+l.qty>0).map(l=>({brand:l.brand,base:detailForBrand(l.brand).base||l.brand,ordered:+l.qty}))};
   if(!$('e_preview'))return;

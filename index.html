@@ -600,7 +600,7 @@ function ensureState(s){
   s.users=(s.users&&s.users.length)?s.users:deepClone(SEED.users||[]); if(s.currentUser===undefined)s.currentUser=null;
   s.rmRequests=s.rmRequests||[]; s.productionLog=s.productionLog||[]; s.packingLog=s.packingLog||[];
   s.actionLog=s.actionLog||[]; s.shipments=s.shipments||[]; s.inspections=s.inspections||[]; s.warehouses=s.warehouses||SEED.warehouses.slice();
-  s.rawStock=s.rawStock||{}; s.rmMovements=s.rmMovements||[]; s.audit=s.audit||[]; s.masters=s.masters||deepClone(SEED.masters||{}); s.batches=s.batches||[]; s.packedStock=s.packedStock||{}; s.packingLog=s.packingLog||[]; s.orders=s.orders||[]; if(s.seq==null)s.seq=1000; (s.packingLog||[]).forEach(function(p){ if(p&&!p.id) p.id='PK'+(s.seq++); }); if(s.dataFixEnabled==null)s.dataFixEnabled=true; if(!Array.isArray(s.prs))s.prs=[]; (s.batches||[]).forEach(function(b){ if((b.producedKg||0)>0 && (!Array.isArray(b.lots)||!b.lots.length)){ b.lots=[{id:'LOT'+(s.seq++), lotNo:(b.batchNo||'B')+'-L1', qty:b.producedKg, date:b.openedDate||'', by:b.by||'', coa:(b.coa||null), migrated:true}]; } }); ensureMasters(s); ensureProductionModel(s); dedupePackingLots(s); migrateLotTracking(s); healPRFlags(s); migrateBrandNames(s); loadBaseRecipesV2(s); loadBlendRecipesV1(s); loadBlendRecipesV2(s); purgeImportedProduction(s); purgeImportDuplicates(s); purgeImportedNoTwin(s); return s;
+  s.rawStock=s.rawStock||{}; s.rmMovements=s.rmMovements||[]; s.audit=s.audit||[]; s.masters=s.masters||deepClone(SEED.masters||{}); s.batches=s.batches||[]; s.packedStock=s.packedStock||{}; s.packingLog=s.packingLog||[]; s.orders=s.orders||[]; if(s.seq==null)s.seq=1000; (s.packingLog||[]).forEach(function(p){ if(p&&!p.id) p.id='PK'+(s.seq++); }); if(s.dataFixEnabled==null)s.dataFixEnabled=true; if(!Array.isArray(s.prs))s.prs=[]; (s.batches||[]).forEach(function(b){ if((b.producedKg||0)>0 && (!Array.isArray(b.lots)||!b.lots.length)){ b.lots=[{id:'LOT'+(s.seq++), lotNo:(b.batchNo||'B')+'-L1', qty:b.producedKg, date:b.openedDate||'', by:b.by||'', coa:(b.coa||null), migrated:true}]; } }); ensureMasters(s); ensureProductionModel(s); dedupePackingLots(s); migrateLotTracking(s); healPRFlags(s); migrateBrandNames(s); loadBaseRecipesV2(s); loadBlendRecipesV1(s); loadBlendRecipesV2(s); purgeImportedProduction(s); purgeImportDuplicates(s); purgeImportedNoTwin(s); fixPhantomLotVU26134(s); return s;
 }
 /* Lock 1: idempotent master seeding. ADDITIVE ONLY — seeds a list only when it is
    missing or empty, and never overwrites values the team has already added. Touches no
@@ -3053,6 +3053,39 @@ function purgeImportedNoTwin(s){ if(s._purgeImpNoTwinV1) return;
   try{ if(Array.isArray(s.audit)) s.audit.push({ts:(new Date()).toISOString(),who:'system',
     what:'purgeImportedNoTwin: removed '+orderCount+' imported no-twin order(s) + '+shipCount+' imported shipment(s)'+(skipped.length?(' · SKIPPED (live work): '+skipped.join(', ')):'')}); }catch(e){}
   s._purgeImpNoTwinV1=true;
+}
+/* One-off, idempotent: batch VU26134 has a duplicate phantom lot — L1 and L2 share id LOT1158
+   (L2 is a byte-for-byte copy of L1 with no COA), over-allocating the batch to 10,500 kg vs the
+   7,000 kg actually produced/planned. The id collision means "approve all" only cleared L1, so L2
+   sits in the Lab QC queue forever. Remove ONLY that phantom lot. Heavily guarded:
+   - acts on batch VU26134 only;
+   - only if the batch is OVER-allocated (lot qty sum > producedKg);
+   - only removes a lot whose id is shared by another lot AND that has no approved COA;
+   - never removes a lot if doing so would drop lot qty below producedKg (no under-allocation).
+   Verified against the 2026-06-17 snapshot: 3→2 lots, 10,500→7,000, stuck QC item clears, no other
+   batch touched, idempotent via _fixVU26134L2V1. */
+function fixPhantomLotVU26134(s){ if(s._fixVU26134L2V1) return;
+  (s.batches||[]).forEach(function(b){
+    if(!b || String(b.batchNo)!=='VU26134') return;
+    var lots=b.lots||[]; if(lots.length<2) return;
+    var prod=+b.producedKg||0;
+    var lotSum=lots.reduce(function(a,l){ return a+(+l.qty||0); },0);
+    if(lotSum<=prod+0.5) return;                       // not over-allocated → do nothing
+    var idCount={}; lots.forEach(function(l){ if(l&&l.id!=null) idCount[l.id]=(idCount[l.id]||0)+1; });
+    var idx=-1;
+    for(var i=0;i<lots.length;i++){ var l=lots[i];
+      var dup=l&&l.id!=null&&idCount[l.id]>1;
+      var noApprovedCoa=!(l&&l.coa&&l.coa.status==='approved');
+      if(dup && noApprovedCoa){ idx=i; break; }
+    }
+    if(idx<0) return;
+    var removed=lots[idx];
+    if((lotSum-(+removed.qty||0)) < prod-0.5) return;  // would under-allocate → refuse
+    b.lots.splice(idx,1);
+    try{ if(Array.isArray(s.audit)) s.audit.push({ts:(new Date()).toISOString(),who:'system',
+      what:'Removed phantom duplicate lot '+(removed.lotNo||'')+' (id '+removed.id+') from batch VU26134 — batch now '+b.lots.length+' lot(s) / '+prod+' kg'}); }catch(e){}
+  });
+  s._fixVU26134L2V1=true;
 }
 function dedupePackingLots(s){ const best={}; (s.packingLog||[]).forEach(p=>{ if(!p||!p.id)return; const sc=(+p.insKg||0)+(+p.shipKg||0); const cur=best[p.id]; if(!cur||sc>cur.sc) best[p.id]={p:p,sc:sc}; }); s.packingLog=(s.packingLog||[]).filter(p=>{ if(!p)return false; if(!p.id)return true; return best[p.id]&&best[p.id].p===p; }); }
 /* Heal lines flagged prRaised but with no actual PR lines (the old empty-PR submit bug):

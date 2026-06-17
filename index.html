@@ -531,6 +531,15 @@ function ensureMasters(s){
   if(!s.masters.accessMatrix||typeof s.masters.accessMatrix!=='object') s.masters.accessMatrix={};
   if(!Array.isArray(s.masters.focalPersons)) s.masters.focalPersons=[];
   if(!Array.isArray(s.masters.byproductRules)) s.masters.byproductRules=[];
+  /* Lead-time / capable-to-promise model — global defaults (one rate for now; split per base later).
+     Edited in Admin · Master Data. Additive: only fills missing keys, never overwrites tuned values. */
+  if(!s.masters.leadTime||typeof s.masters.leadTime!=='object') s.masters.leadTime={};
+  { var _lt=s.masters.leadTime;
+    if(_lt.rateKgPerDay==null) _lt.rateKgPerDay=8000;   // ≈ median daily output; placeholder until per-base
+    if(_lt.qcDays==null)       _lt.qcDays=1;            // QC / pre-ship buffer
+    if(_lt.dispatchDays==null) _lt.dispatchDays=2;      // dispatch + transit buffer
+    if(_lt.rmProcureDays==null)_lt.rmProcureDays=7;     // added ONLY when raw material is short
+    if(_lt.minDays==null)      _lt.minDays=3; }         // floor — never promise sooner than this
   s.masters.recipes=(s.masters.recipes&&typeof s.masters.recipes==='object')?s.masters.recipes:{};
   { var _vamm={'MAP':0.51667,'TSP':0.33261,'Urea N-46%':0.15229,'Fume Silica':0.00667,'Ferrous Sulfate':0.00058,'Magnisium Sulfate Hepta Hydrate':0.00034,'Boric Acid':0.00033,'Copper Sulfate':0.00022}; if(!s.masters.recipes['V-Ammonium Phosphate']) s.masters.recipes['V-Ammonium Phosphate']=Object.assign({},_vamm); if(!s.masters.recipes['Max Phos']) s.masters.recipes['Max Phos']=Object.assign({},_vamm); }
   { var _potash={'MOP Powder':0.765,'Urea N-46%':0.2440106477373558,'Boric Acid':0.0003325,'Copper Sulfate':0.00022,'Ferrous Sulfate':0.00058,'Manganese Sulfate':0.00034,'Zinc Sulfate Powder 33%':0.0008625,'Dye Blue':0.000165,'Fume Silica':0.006666666666666667};
@@ -772,6 +781,27 @@ function lineOverdue(o,l){ if(!l.committed || (l.delivered||0)>=l.ordered-0.5 ||
 function isOverdue(o){ return o.lines.some(l=>lineOverdue(o,l)); }
 function daysOver(o){ const ds=o.lines.filter(l=>lineOverdue(o,l)).map(l=>Math.round((TODAY-new Date(l.committed))/86400000));
   return ds.length?Math.max.apply(null,ds):(o.promised?Math.round((TODAY-new Date(o.promised))/86400000):0); }
+/* ---- Capable-to-promise: compute a per-line committed date from the lead-time model ----
+   committed = received + (rmShort? rmProcureDays:0) + ceil(qty/rate) production days
+             + qcDays + dispatchDays, never sooner than received + minDays.
+   One global rate today (masters.leadTime); split per base later without touching callers. */
+function leadCfg(s){ var d=(((s||state).masters&&(s||state).masters.leadTime))||{}; return {
+  rate:(+d.rateKgPerDay>0?+d.rateKgPerDay:8000), qc:(+d.qcDays>=0?+d.qcDays:1),
+  disp:(+d.dispatchDays>=0?+d.dispatchDays:2), rm:(+d.rmProcureDays>=0?+d.rmProcureDays:7),
+  min:(+d.minDays>=0?+d.minDays:3) }; }
+function leadDays(qty, rmShort, s){ var c=leadCfg(s);
+  var prod=Math.max(Math.ceil((+qty||0)/c.rate),1);
+  return Math.max((rmShort?c.rm:0)+prod+c.qc+c.disp, c.min); }
+function computeCommitted(received, qty, rmShort, s){
+  var base=received?new Date(received):new Date(TODAY); if(isNaN(base.getTime())) base=new Date(TODAY);
+  return new Date(base.getTime()+leadDays(qty,rmShort,s)*86400000).toISOString().slice(0,10); }
+/* ---- Line-level roll-up for a PO (drives the tracker display & line/volume on-time) ---- */
+function lineRollup(o){ var L=o.lines||[]; var lateLines=L.filter(l=>lineOverdue(o,l));
+  return { total:L.length,
+    delivered:L.filter(l=>(l.delivered||0)>=l.ordered-0.5).length,
+    late:lateLines.length,
+    orderedKg:sum(L,l=>+l.ordered||0),
+    lateKg:sum(lateLines,l=>Math.max(0,(+l.ordered||0)-(+l.delivered||0))) }; }
 const STAGE_COLOR={'New':'--mut','RM / Procurement':'--amber','SO Created':'--blue','PR Raised':'--blue','RM Ready':'--blue','In Production':'--purple','Produced':'--purple','QC Passed':'--leaf','Dispatched':'--green2','Delivered':'--green','Ready to Produce':'--blue','Packed':'--leaf','Closed':'--green'};
 
 /* ---- field ownership (each role edits only its own fields) ---- */
@@ -1238,9 +1268,13 @@ function invPerPackText(l){ const ip=+(l&&l.inv)||0, pk=+(l&&l.pack)||0; if(ip<=
 function invPerPack(i){ const l=entryLines[i]; const el=document.getElementById('ipp_'+i); if(el){ el.innerHTML=invPerPackText(l); el.style.color=((+l.inv>=1000))?'#c0392b':'var(--mut)'; } }
 function renderEntryLines(){
   const brs=brandPool();
+  const recv=($('e_recv')&&$('e_recv').value)||TODAY.toISOString().slice(0,10);
   $('e_lines').innerHTML=entryLines.map((l,i)=>{
     const det=detailForBrand(l.brand);
     const packs=(+l.pack>0&&+l.qty>0)?Math.ceil(+l.qty/+l.pack):'';
+    const rmShort=(l.brand&&+l.qty>0)?!rmCheck({lines:[{brand:l.brand,base:det.base||l.brand,ordered:+l.qty}]}).ok:false;
+    const autoCommit=(+l.qty>0)?computeCommitted(recv,+l.qty,rmShort):'';
+    const committedVal=l.committed||autoCommit||(($('e_prom')&&$('e_prom').value)||'');
     return `<tr>
      <td><select onchange="entryLines[${i}].brand=this.value;entryLines[${i}].pack=(detailForBrand(this.value).pack||'');renderEntryLines()">
        <option value="">— pick brand —</option>${brs.map(b=>`<option ${b.brand===l.brand?'selected':''}>${b.brand}</option>`).join('')}</select></td>
@@ -1249,7 +1283,7 @@ function renderEntryLines(){
      <td><input type="number" value="${l.qty}" placeholder="Kg/L" oninput="entryLines[${i}].qty=this.value;updatePacks(${i});validate()"></td>
      <td class="num"><b id="pk_${i}">${packs!==''?fmt(packs):'—'}</b></td>
      <td><input type="number" value="${l.inv||''}" placeholder="PKR/Kg·L" title="VAN invoice rate per Kg/L — must be under PKR 1000. The per-pack equivalent is shown so you can verify it against the client PO." oninput="entryLines[${i}].inv=this.value;invPerPack(${i});validate()"><div id="ipp_${i}" style="font-size:10px;margin-top:3px;color:${(+l.inv>=1000)?'#c0392b':'var(--mut)'}">${invPerPackText(l)}</div></td>
-     <td><input type="date" value="${l.committed||(($('e_prom')&&$('e_prom').value)||'')}" onchange="entryLines[${i}].committed=this.value"></td>
+     <td><input type="date" value="${committedVal}" onchange="entryLines[${i}].committed=this.value">${(!l.committed&&autoCommit)?`<div style="font-size:9px;color:var(--mut);margin-top:2px" title="Auto from the lead-time model — edit to override">auto · ${leadDays(+l.qty,rmShort)}d lead${rmShort?' · RM short':''}</div>`:''}</td>
      <td>${entryLines.length>1?`<button class="ghost sm" onclick="entryLines.splice(${i},1);renderEntryLines()">✕</button>`:''}</td></tr>`;
   }).join('');
   validate();
@@ -1309,7 +1343,7 @@ function submitPO(){
   const id='O'+(state.orders.length+1)+'_'+state.seq++;
   const ord={ id, po, client:entryClient, channel:entryChannel, vgreenSub:entryVsub||null, focalPerson:($('e_focal')&&$('e_focal').value)||'', kam:$('e_kam').value.trim(),
     priority:$('e_pri').value, promised:$('e_prom').value, received:recv, rmDecision:'pending',
-    lines:lines.map((l,j)=>{const det=detailForBrand(l.brand);return {id:id+'L'+j, brand:l.brand, base:det.base||l.brand, pack:+l.pack||det.pack||null, note:l.note||'', committed:l.committed||$('e_prom').value, ordered:+l.qty, printPrice:0, invoicePrice:+l.inv||0, produced:0,packed:0,dispatched:0,delivered:0};}) };
+    lines:lines.map((l,j)=>{const det=detailForBrand(l.brand);const rmShort=!rmCheck({lines:[{brand:l.brand,base:det.base||l.brand,ordered:+l.qty}]}).ok;const autoCommit=computeCommitted(recv,+l.qty,rmShort);return {id:id+'L'+j, brand:l.brand, base:det.base||l.brand, pack:+l.pack||det.pack||null, note:l.note||'', committed:l.committed||autoCommit||$('e_prom').value, ordered:+l.qty, printPrice:0, invoicePrice:+l.inv||0, produced:0,packed:0,dispatched:0,delivered:0};}) };
   ord.totalOrdered=ord.lines.reduce((a,l)=>a+l.ordered,0);
   ord.rmDecision='pending';
   state.orders.unshift(ord);
@@ -1421,7 +1455,16 @@ function orderCard(o){
   const mixed=new Set(o.lines.map(l=>lineBucket(o,l))).size>1;
   const f=Math.round(a.ordered>0?a.dispatched/a.ordered*100:0);
   const delivered=b==='Delivered'; const od=isOverdue(o);
-  const onTime = delivered?'<span class="pill" style="background:var(--green-50);color:var(--green2)">Delivered</span>':(od?`<span class="pill" style="background:var(--red-50);color:var(--red)">${daysOver(o)}d overdue</span>`:'<span class="pill" style="background:var(--green-50);color:var(--green2)">On time</span>');
+  const ru=lineRollup(o);
+  // Roll-up: a single late line no longer paints the whole PO red — show how many of N lines are late,
+  // and how many are already delivered, so 9-of-10-on-time reads as 9 delivered · 1 late (not "DELAYED").
+  const onTime = delivered
+    ? '<span class="pill" style="background:var(--green-50);color:var(--green2)">Delivered</span>'
+    : (ru.late>0
+        ? `<span class="pill" style="background:var(--red-50);color:var(--red)">${ru.late} of ${ru.total} line${ru.total>1?'s':''} late</span><div class="muted" style="font-size:9px;margin-top:2px">${ru.delivered}/${ru.total} delivered${ru.late?' · '+daysOver(o)+'d worst':''}</div>`
+        : (ru.delivered>0
+            ? `<span class="pill" style="background:var(--green-50);color:var(--green2)">On time</span><div class="muted" style="font-size:9px;margin-top:2px">${ru.delivered}/${ru.total} delivered</div>`
+            : '<span class="pill" style="background:var(--green-50);color:var(--green2)">On time</span>'));
   const barcol=f>=100?'var(--green)':(f>0?'var(--blue)':'#cdd6e4');
   const nextAct=delivered?'<span class="muted" style="font-size:11px">No action</span>':`<span class="rbadge">${m.owner}</span>`;
   return `<div class="ordrow"><div class="ohead clk" onclick="openOrder('${o.id}')">
@@ -3008,7 +3051,7 @@ function screenDash(){
   const ageDays=(d)=>{ if(!d)return null; const t=new Date(d); if(isNaN(t))return null; return Math.max(0,Math.round((today-t)/86400000)); };
   const info=(o,l)=>{ const b=lineBucket(o,l);
     const ordered=l.ordered||0,produced=l.produced||0,packed=l.packed||0,ship=l.dispatched||0;
-    const qcC=l.qcPass?packed:0; const bal=Math.max(0,ordered-ship); const committed=o.promised||l.committed||''; const days=dnum(committed); const isDeliv=b==='Delivered';
+    const qcC=l.qcPass?packed:0; const bal=Math.max(0,ordered-ship); const committed=l.committed||o.promised||''; const days=dnum(committed); const isDeliv=b==='Delivered';
     const overdue=!isDeliv&&days!=null&&days<0&&bal>0.5; const owner=(BUCKET_META[b]&&BUCKET_META[b].owner)||'—';
     let blocker=''; if(lineQA(o,l).anyFail)blocker='QA fail'; else if(l.rmStatus==='short'&&!l.rmReady)blocker='RM short'; else if(!isDeliv&&rmAllows(l)<=0&&(b==='RM Check'||b==='PO Created'))blocker='Awaiting RM'; else if(l.delayReason)blocker=l.delayReason;
     let risk='Low'; if(overdue)risk='Critical'; else if(!isDeliv&&bal>0.5&&days!=null&&days>=0&&days<=3)risk='High'; else if(!isDeliv&&bal>0.5&&days!=null&&days>3&&days<=7)risk='Medium';
@@ -3016,6 +3059,7 @@ function screenDash(){
   const LI=[]; os.forEach(o=>o.lines.forEach(l=>LI.push(info(o,l)))); const openLI=LI.filter(x=>!x.isDeliv);
   const obk=os.map(orderBucket);
   const K={ open:obk.filter(b=>b!=='Delivered').length, overdue:os.filter(isOverdue).length,
+    overdueLines:openLI.filter(x=>x.overdue).length,
     due3:openLI.filter(x=>x.days!=null&&x.days>=0&&x.days<=3&&x.bal>0.5).length,
     atRisk:os.filter(o=>isOverdue(o)||o.lines.some(l=>l.rmStatus==='short'&&!l.rmReady)).length,
     prod:openLI.filter(x=>x.produced<x.ordered-0.5).length,
@@ -3027,7 +3071,7 @@ function screenDash(){
   const kpis=[
     kc('Open Orders',K.open,'in progress','--navy','open'),
     kc('At-Risk',K.atRisk,'overdue / RM-blocked',K.atRisk?'--red':'--green2','delayed'),
-    kc('Overdue',K.overdue,'past committed',K.overdue?'--red':'--green2','delayed'),
+    kc('Overdue Lines',K.overdueLines,(K.overdue+' PO'+(K.overdue===1?'':'s')+' · past committed'),K.overdueLines?'--red':'--green2','delayed'),
     kc('Due in 3 Days',K.due3,'commitments soon',K.due3?'--amber':'--green2','open'),
     kc('Production Pending',K.prod,'to produce',K.prod?'--amber':'--green2','prod'),
     kc('QC / QA Pending',K.qc,'awaiting clearance',K.qc?'--purple':'--green2','qc'),
@@ -3185,6 +3229,27 @@ function recipeSave(){ if(!(canEdit(['Plant Manager'])||state.role==='COO')){toa
   state.masters.recipes=state.masters.recipes||{}; state.masters.recipes[base]=obj;
   logAction(`Recipe ${Object.keys(obj).length?'set ('+Object.keys(obj).length+' materials)':'cleared'} for ${base}${newMat?' — '+newMat+' new material(s) added to master':''}`);
   save(); toast('Recipe saved for '+base); }
+function leadTimeCard(ed){ const lt=(state.masters&&state.masters.leadTime)||{};
+  const f=(k,label,unit,hint)=>`<div class="fld"><label>${label}</label><input type="number" id="lt_${k}" value="${lt[k]!=null?lt[k]:''}" ${ed?'':'disabled'} style="max-width:140px"><div class="muted" style="font-size:10px;margin-top:2px">${unit}${hint?' · '+hint:''}</div></div>`;
+  const ex=computeCommitted(TODAY.toISOString().slice(0,10),50000,false);
+  return acard('leadtime','Delivery lead-time model','committed-date engine',`
+   <div class="muted" style="font-size:12px;margin-bottom:10px">Drives the <b>committed delivery date</b> auto-suggested on New PO Entry, per product line: <code>committed = received + (RM short? procurement) + ⌈qty ÷ rate⌉ production days + QC + dispatch</code> (floored at the minimum). One global rate for now — split per base later. <b>Placeholder values, anchored to current output — tune as real data accrues.</b></div>
+   <div class="formgrid">
+     ${f('rateKgPerDay','Production rate','Kg/L per day','volume ÷ rate = production days')}
+     ${f('qcDays','QC buffer','days')}
+     ${f('dispatchDays','Dispatch buffer','days','dispatch + transit')}
+     ${f('rmProcureDays','RM procurement','days','added only when material short')}
+     ${f('minDays','Minimum lead','days','never promise sooner')}
+   </div>
+   <div class="muted" style="font-size:11px;margin-top:8px">Example: a 50,000 Kg line with RM in stock → committed <b>${ex}</b> (from today).</div>
+   ${ed?`<div style="margin-top:10px"><button class="sm green" onclick="saveLeadTime()">Save lead-time model</button></div>`:''}`); }
+function saveLeadTime(){ if(!canEdit(['COO'])){toast('COO only');return;}
+  const lt=state.masters.leadTime=state.masters.leadTime||{};
+  const keys=['rateKgPerDay','qcDays','dispatchDays','rmProcureDays','minDays'];
+  let bad=false; keys.forEach(k=>{ const el=document.getElementById('lt_'+k); if(!el)return; const v=+el.value;
+    if(isNaN(v)||v<0||(k==='rateKgPerDay'&&v<=0)){ bad=true; return; } lt[k]=v; });
+  if(bad){ toast('Enter valid non-negative numbers (rate must be > 0).'); return; }
+  logAction('Updated lead-time model'); save(); render(); toast('Lead-time model saved'); }
 function recipeMasterCard(ed){
   const baseProducts=(typeof BULK_BASES!=='undefined'?BULK_BASES.slice():[]).filter(Boolean).sort(); /* THE 13 base products only — recipes live here, never on brands */
   const bases=baseProducts; const sel=recipeForm.base;
@@ -3246,6 +3311,7 @@ function screenAdmin(){
      return `<div style="flex:1;min-width:300px">${acard('ref_'+k,label,`${vals.length}`,`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:11px">${vals.length?vals.map((v,idx)=>`<span class="pill" style="background:var(--navy-50);color:var(--navy);border:1px solid var(--navy-100);display:inline-flex;align-items:center;gap:7px">${v}${ed?`<span style="cursor:pointer;color:var(--mut)" title="rename" onclick="editMaster('${k}',${idx})">&#9998;</span><span style="cursor:pointer;color:var(--red);font-weight:700" title="delete" onclick="delMaster('${k}',${idx})">&times;</span>`:''}</span>`).join(''):'<span class="muted" style="font-size:12px">none yet</span>'}</div>${ed?`<div style="display:flex;gap:8px"><input type="text" id="adm_${k}" placeholder="add value…" style="flex:1"><button class="sm" onclick="addMaster('${k}')">Add</button></div>`:''}`)}</div>`;}).join('')}
    </div>
    ${sec('Business masters &amp; data')}
+   ${leadTimeCard(canEdit(['COO']))}
    ${rmMasterCard(canEdit(['Supply Chain']))}
    ${recipeMasterCard(canEdit(['Plant Manager'])||state.role==='COO')}
    ${byproductCard(canEdit(['Plant Manager','Production'])||state.role==='COO')}

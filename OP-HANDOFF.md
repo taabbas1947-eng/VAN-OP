@@ -4,6 +4,21 @@ _Updated: 2026-06-17 · COO: Tahir · Single code file: `index.html` (~3670 line
 
 ---
 
+## 0) READY TO PUSH — 2026-06-17 session (code only, no data change; NOT pushed)
+
+**A · Imported-order cleanup (data migration, runs once on load):** `purgeImportDuplicates` (13 twinned dups) + `purgeImportedNoTwin` (8 no-twin imports). Combined verified end-state 40→19 orders, 57→11 shipments, 0 `createdSeed` / 0 `by:'Imported'` left, 11 live shipments kept, idempotent. Safety skip on any import with live work. Snapshot first; keep `van-data-snapshot-2026-06-17.json` as restore point.
+
+**B · New PO Entry P0 fixes (`entryChecks`/`submitPO`):** duplicate-PO# guard, pack>0, promised≥received + committed≥received; corrected the entry tip (invoice price here; print price at packing). Review in `reviews/NEWPO-ENTRY-REVIEW.md`.
+
+**C · Capable-to-promise committed dates + line/volume roll-up:**
+- New master data `masters.leadTime` {rateKgPerDay 8000, qcDays 1, dispatchDays 2, rmProcureDays 7, minDays 3}, seeded additively in `ensureMasters`; editable in **Admin · Master Data → Delivery lead-time model** (`leadTimeCard`/`saveLeadTime`, COO).
+- `computeCommitted(received,qty,rmShort,s)` = received + (RM short?7) + ⌈qty/rate⌉ + qc + dispatch, floored at minDays. Auto-fills each line's committed on New PO Entry (override allowed; shows "auto · Nd lead"); persisted in `submitPO`.
+- **Roll-up (fixes the 9-of-10 false-delay):** PO Tracker card now shows "X of N lines late · Y/N delivered" instead of a blanket overdue stamp; dashboard adds **Overdue Lines** KPI; dashboard per-line overdue now consistently uses `l.committed` (was `o.promised`). On-time % was already line-level.
+- **Promised vs Committed (settled):** Promised = customer-facing PO date; Committed = per-line ops target from the lead-time model. Products on one PO can carry different committed dates by design.
+- Verified: computeCommitted / leadDays / lineRollup unit-tested; new functions syntax-checked in isolation; host file end intact. Rate 8,000 is a thin-data placeholder (5 prod records) — tune in Admin as output accrues; split per-base later.
+
+---
+
 ## 1) READY TO PUSH NOW — 3 code edits (code only, no data touched)
 
 1. **`lineOverdue`** (line 771) — received-date guard: a line whose `committed` date is before `o.received` is treated as a bad/imported date and is NOT overdue. Clears UDPL & Arysta false-overdue.

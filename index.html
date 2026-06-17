@@ -521,7 +521,7 @@ function ensureState(s){
   s.users=(s.users&&s.users.length)?s.users:deepClone(SEED.users||[]); if(s.currentUser===undefined)s.currentUser=null;
   s.rmRequests=s.rmRequests||[]; s.productionLog=s.productionLog||[]; s.packingLog=s.packingLog||[];
   s.actionLog=s.actionLog||[]; s.shipments=s.shipments||[]; s.inspections=s.inspections||[]; s.warehouses=s.warehouses||SEED.warehouses.slice();
-  s.rawStock=s.rawStock||{}; s.rmMovements=s.rmMovements||[]; s.audit=s.audit||[]; s.masters=s.masters||deepClone(SEED.masters||{}); s.batches=s.batches||[]; s.packedStock=s.packedStock||{}; s.packingLog=s.packingLog||[]; s.orders=s.orders||[]; if(s.seq==null)s.seq=1000; (s.packingLog||[]).forEach(function(p){ if(p&&!p.id) p.id='PK'+(s.seq++); }); if(s.dataFixEnabled==null)s.dataFixEnabled=true; if(!Array.isArray(s.prs))s.prs=[]; (s.batches||[]).forEach(function(b){ if((b.producedKg||0)>0 && (!Array.isArray(b.lots)||!b.lots.length)){ b.lots=[{id:'LOT'+(s.seq++), lotNo:(b.batchNo||'B')+'-L1', qty:b.producedKg, date:b.openedDate||'', by:b.by||'', coa:(b.coa||null), migrated:true}]; } }); ensureMasters(s); ensureProductionModel(s); dedupePackingLots(s); migrateLotTracking(s); healPRFlags(s); migrateBrandNames(s); loadBaseRecipesV2(s); loadBlendRecipesV1(s); loadBlendRecipesV2(s); purgeImportedProduction(s); purgeImportDuplicates(s); return s;
+  s.rawStock=s.rawStock||{}; s.rmMovements=s.rmMovements||[]; s.audit=s.audit||[]; s.masters=s.masters||deepClone(SEED.masters||{}); s.batches=s.batches||[]; s.packedStock=s.packedStock||{}; s.packingLog=s.packingLog||[]; s.orders=s.orders||[]; if(s.seq==null)s.seq=1000; (s.packingLog||[]).forEach(function(p){ if(p&&!p.id) p.id='PK'+(s.seq++); }); if(s.dataFixEnabled==null)s.dataFixEnabled=true; if(!Array.isArray(s.prs))s.prs=[]; (s.batches||[]).forEach(function(b){ if((b.producedKg||0)>0 && (!Array.isArray(b.lots)||!b.lots.length)){ b.lots=[{id:'LOT'+(s.seq++), lotNo:(b.batchNo||'B')+'-L1', qty:b.producedKg, date:b.openedDate||'', by:b.by||'', coa:(b.coa||null), migrated:true}]; } }); ensureMasters(s); ensureProductionModel(s); dedupePackingLots(s); migrateLotTracking(s); healPRFlags(s); migrateBrandNames(s); loadBaseRecipesV2(s); loadBlendRecipesV1(s); loadBlendRecipesV2(s); purgeImportedProduction(s); purgeImportDuplicates(s); purgeImportedNoTwin(s); return s;
 }
 /* Lock 1: idempotent master seeding. ADDITIVE ONLY — seeds a list only when it is
    missing or empty, and never overwrites values the team has already added. Touches no
@@ -2618,6 +2618,40 @@ function purgeImportDuplicates(s){ if(s._purgeImpDupV1) return;
   try{ if(Array.isArray(s.audit)) s.audit.push({ts:(new Date()).toISOString(),who:'system',
     what:'purgeImportDuplicates: removed '+orderCount+' imported duplicate order(s) + '+shipCount+' imported shipment(s)'+(skipped.length?(' · SKIPPED (live work): '+skipped.join(', ')):'')}); }catch(e){}
   s._purgeImpDupV1=true;
+}
+/* Remove the imported orders that have NO live New-PO-Entry twin (the 8 pre-launch
+   fully-delivered "opening history" POs). Principle (Tahir, 2026-06-17): anything
+   delivered before the system went live should NOT sit in the operational system —
+   so every remaining createdSeed order is removed along with its by:'Imported' shipments.
+   (The 13 twinned duplicates were already cleared by purgeImportDuplicates; this pass
+   only touches createdSeed orders whose PO# is NOT shared by a live, non-seed order.)
+   SAME SAFETY GUARD: an import order is removed only if it has NO live post-launch work
+   (packed/produced > delivered); any that does is SKIPPED, left in place, and logged.
+   Note: inflated imported 'ordered' figures (e.g. 6595010360 = 250,500 vs 120,525 actually
+   delivered) are bad import data, not a real open balance — removing the order clears the
+   phantom overdue. Idempotent via s._purgeImpNoTwinV1. Verified against the 2026-06-17
+   snapshot: 8 orders + 34 imported shipments removed, 0 by:'Imported' shipments left,
+   11 live shipments preserved, 0 createdSeed orders remain. */
+function purgeImportedNoTwin(s){ if(s._purgeImpNoTwinV1) return;
+  const byPo={}; (s.orders||[]).forEach(function(o){ const k=String(o.po); (byPo[k]=byPo[k]||[]).push(o); });
+  const removeIds={}, removePos={}, skipped=[];
+  (s.orders||[]).forEach(function(o){
+    if(!o.createdSeed) return;
+    const hasLiveTwin=(byPo[String(o.po)]||[]).some(function(x){ return !x.createdSeed; });
+    if(hasLiveTwin) return;   // its live twin stays — duplicates pass already handled this PO
+    const liveWork=(o.lines||[]).some(function(l){ return (+l.packed||0)>(+l.delivered||0) || (+l.produced||0)>(+l.delivered||0); });
+    if(liveWork){ skipped.push(String(o.po)); return; }   // never delete real work — leave it, flag it
+    removeIds[o.id]=true; removePos[String(o.po)]=true;
+  });
+  const orderCount=Object.keys(removeIds).length;
+  s.orders=(s.orders||[]).filter(function(o){ return !removeIds[o.id]; });
+  const before=(s.shipments||[]).length;
+  s.shipments=(s.shipments||[]).filter(function(sh){
+    return !(sh && String(sh.by||'').toLowerCase()==='imported' && removePos[String(sh.po)]); });
+  const shipCount=before-(s.shipments||[]).length;
+  try{ if(Array.isArray(s.audit)) s.audit.push({ts:(new Date()).toISOString(),who:'system',
+    what:'purgeImportedNoTwin: removed '+orderCount+' imported no-twin order(s) + '+shipCount+' imported shipment(s)'+(skipped.length?(' · SKIPPED (live work): '+skipped.join(', ')):'')}); }catch(e){}
+  s._purgeImpNoTwinV1=true;
 }
 function dedupePackingLots(s){ const best={}; (s.packingLog||[]).forEach(p=>{ if(!p||!p.id)return; const sc=(+p.insKg||0)+(+p.shipKg||0); const cur=best[p.id]; if(!cur||sc>cur.sc) best[p.id]={p:p,sc:sc}; }); s.packingLog=(s.packingLog||[]).filter(p=>{ if(!p)return false; if(!p.id)return true; return best[p.id]&&best[p.id].p===p; }); }
 /* Heal lines flagged prRaised but with no actual PR lines (the old empty-PR submit bug):

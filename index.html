@@ -425,7 +425,67 @@ table tbody tr{transition:background .1s}
 table tbody tr:hover{background:var(--panel2)}
 .card{transition:box-shadow .15s}
 #toast.show.saved{background:var(--green2)}
-.qcgrp{border:1px solid var(--line);border-radius:8px;margin-bottom:7px;overflow:hidden}.qcgrp>summary{cursor:pointer;padding:9px 12px;background:#fafbfc;font-weight:600;font-size:12.5px;display:flex;align-items:center;gap:8px;list-style:none}.qcgrp>summary::-webkit-details-marker{display:none}.qcgrp>summary::before{content:'▸';color:var(--mut);font-size:12px;transition:transform .15s}.qcgrp[open]>summary{border-bottom:1px solid var(--line)}.qcgrp[open]>summary::before{transform:rotate(90deg)}.qcgrp>summary .c{margin-left:auto;color:var(--mut);font-weight:500;font-size:11px}
+.qcgrp{border:1px solid var(--line);border-radius:8px;margin-bottom:7px;overflow:hidden}.qcgrp>summary{cursor:pointer;padding:9px 12px;background:#fafbfc;font-weight:600;font-size:12.5px;display:flex;align-items:center;gap:8px;list-style:none}.qcgrp>summary::-webkit-details-marker{display:none}.qcgrp>summary::before{content:'▸';color:var(--mut);font-size:12px;transition:transform .15s}.qcgrp[open]>summary{border-bottom:1px solid var(--line)}.qcgrp[open]>summary::before{transform:rotate(90deg)}
+/* ===== PO Tracker v2 (redesign: list + matrix · read-only display) ===== */
+.t2bar{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:12px}
+.chip .cnt{display:inline-block;margin-left:6px;font-size:11px;font-weight:800;background:var(--navy-50);color:var(--navy);border-radius:999px;padding:0 6px;min-width:18px;text-align:center}
+.chip.on .cnt{background:rgba(255,255,255,.25);color:#fff}
+.chip.alert .cnt{background:var(--red-50);color:var(--red)}
+.chip.alert.on{background:var(--red);border-color:var(--red);color:#fff}
+.chip.alert.on .cnt{background:rgba(255,255,255,.25);color:#fff}
+.t2tog{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.t2tog button{border:0;background:#fff;color:var(--txt2);padding:5px 12px;font-size:12px;cursor:pointer;border-right:1px solid var(--line)}
+.t2tog button:last-child{border-right:0}
+.t2tog button.on{background:var(--navy);color:#fff}
+.t2row{display:grid;grid-template-columns:1.5fr .95fr 2fr 1fr 1.7fr;gap:14px;align-items:center;border:1px solid var(--line);border-radius:12px;padding:11px 14px;margin-bottom:8px;background:#fff;cursor:pointer;transition:.12s}
+.t2row:hover{border-color:var(--navy-100);box-shadow:0 2px 8px rgba(20,30,50,.06)}
+.t2row.od{border-left:4px solid var(--red);background:#fffafa}
+.t2row.stall{border-left:4px solid var(--amber)}
+.t2lbl{font-size:9px;text-transform:uppercase;letter-spacing:.5px;color:var(--mut);margin-bottom:3px}
+.t2po{font-size:10.5px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.t2client{font-weight:650;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.t2qty{font-weight:700;font-size:12px}
+.t2spill{display:inline-block;font-size:10px;font-weight:700;padding:2px 9px;border-radius:999px;border:1px solid}
+.t2tag{display:inline-block;font-size:9px;font-weight:700;padding:1px 6px;border-radius:5px;margin-left:5px;background:var(--amber-50);color:var(--amber)}
+.t2step{display:flex;align-items:center;gap:3px}
+.t2seg{flex:1;height:7px;border-radius:3px;background:#e4e9f0}
+.t2seg.done{background:var(--green)}
+.t2seg.cur{background:var(--blue)}
+.t2seg.cur.warn{background:var(--amber)}
+.t2seg.cur.bad{background:var(--red)}
+.t2step.mixed .t2seg.cur{background:repeating-linear-gradient(45deg,var(--blue),var(--blue) 4px,#9bbcff 4px,#9bbcff 8px)}
+.t2lbls{display:flex;justify-content:space-between;margin-top:4px}
+.t2lbls span{font-size:8.5px;color:#aeb8c6;flex:1;text-align:center;white-space:nowrap}
+.t2lbls span.done{color:var(--green2)}
+.t2lbls span.cur{color:var(--blue);font-weight:700}
+.t2lbls span.cur.warn{color:var(--amber)}
+.t2lbls span.cur.bad{color:var(--red)}
+.t2age{font-weight:750;font-size:13px}
+.t2age small{display:block;font-size:9.5px;color:var(--mut);font-weight:500;margin-top:1px}
+.t2age.ok{color:#3a4654}
+.t2age.warn{color:var(--amber)}
+.t2age.bad{color:var(--red)}
+.t2act{font-weight:650;font-size:12px;line-height:1.25}
+.t2leg{font-size:11px;color:var(--mut);margin-top:10px;display:flex;gap:16px;flex-wrap:wrap}
+.t2leg i{font-style:normal;display:inline-flex;align-items:center;gap:5px}
+.t2dot{width:9px;height:9px;border-radius:50%;display:inline-block}
+.t2mtx{width:100%;border-collapse:separate;border-spacing:0 6px;font-size:11.5px}
+.t2mtx th{font-size:9px;text-transform:uppercase;letter-spacing:.4px;color:var(--mut);font-weight:700;padding:0 6px 4px;text-align:center}
+.t2mtx th.lead{text-align:left}
+.t2mtx .ordc{background:#fff;border:1px solid var(--line);border-radius:8px 0 0 8px;padding:8px 10px;border-right:0}
+.t2mtx .lastc{border-radius:0 8px 8px 0;border-left:0}
+.t2mtx .midc{background:#fff;border-top:1px solid var(--line);border-bottom:1px solid var(--line);text-align:center;vertical-align:middle}
+.t2mtx tr.od .ordc{border-left:4px solid var(--red)}
+.t2mtx tr.stall .ordc{border-left:4px solid var(--amber)}
+.t2cell{display:inline-flex;align-items:center;justify-content:center;min-width:46px;height:26px;border-radius:6px;font-weight:800;font-size:11px}
+.t2cell.done{background:var(--green);color:#fff}
+.t2cell.cur.b{background:var(--blue);color:#fff}
+.t2cell.cur.warn{background:var(--amber);color:#fff}
+.t2cell.cur.bad{background:var(--red);color:#fff}
+.t2cell.pend{background:#eef1f5;color:#c2cad6}
+.t2mclient{font-weight:650;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px}
+.t2mpo{font-size:9.5px;color:var(--mut)}
+@media(max-width:760px){.t2row{grid-template-columns:1fr 1fr;gap:8px}.t2row>div:nth-child(3){grid-column:1/-1}}.qcgrp>summary .c{margin-left:auto;color:var(--mut);font-weight:500;font-size:11px}
 </style></head><body>
 <div class="app" id="appShell">
   <div class="navbackdrop" onclick="closeMobileNav()"></div>
@@ -862,6 +922,84 @@ function lineRollup(o){ var L=o.lines||[]; var lateLines=L.filter(l=>lineOverdue
     late:lateLines.length,
     orderedKg:sum(L,l=>+l.ordered||0),
     lateKg:sum(lateLines,l=>Math.max(0,(+l.ordered||0)-(+l.delivered||0))) }; }
+/* ===== PO Tracker v2 helpers (read-only display; no data/master writes) ===== */
+/* Stage dwell (aging): days since the order entered its CURRENT stage. Uses the
+   milestone date that marks entry into each bucket; when missing, falls back to the
+   order's received date and flags the value approximate (~) so a stall is never
+   overstated. Among the lines that define the order's current (least-advanced)
+   bucket, takes the LATEST entry date = shortest dwell = conservative reading. */
+/* latest valid date from a list (handles 'YYYY-MM-DD' and full ISO); null if none */
+function _maxDate(arr){ var best=null; (arr||[]).forEach(function(d){ if(d){ var t=new Date(d); if(!isNaN(t)&&(best===null||t>best)) best=t; } }); return best?best.toISOString().slice(0,10):null; }
+function _lotsForLine(o,l){ return (state.packingLog||[]).filter(function(p){ return p&&p.po===o.po&&p.brand===l.brand&&(p.kg||0)>0; }); }
+/* QA Pre-shipment entry = packing complete (latest lot date) */
+function _linePackedDate(o,l){ return _maxDate(_lotsForLine(o,l).map(function(p){return p.date;})); }
+/* Shipment entry = cleared for shipment = latest QA-pass date (else line qcPass) */
+function _lineClearedDate(o,l){ return _maxDate(_lotsForLine(o,l).filter(function(p){return p.qa&&p.qa.pass;}).map(function(p){return p.qa.date||p.date;})) || (l.qcPass||null); }
+function bucketEntryDate(o,l,b){
+  switch(b){
+    case 'PO Created': return {d:o.received||null,exact:!!o.received};
+    case 'RM Check': return l.prRaised?{d:l.prRaised,exact:true}:{d:o.received||null,exact:false};
+    case 'Production': return (l.prodStart||l.rmReady)?{d:(l.prodStart||l.rmReady),exact:true}:{d:o.received||null,exact:false};
+    case 'Lab QC': return l.prodComplete?{d:l.prodComplete,exact:true}:{d:(l.prodStart||o.received||null),exact:false};
+    case 'QA Pre-shipment': { var pk=_linePackedDate(o,l); if(pk) return {d:pk,exact:true}; return l.prodComplete?{d:l.prodComplete,exact:false}:{d:o.received||null,exact:false}; }
+    case 'Shipment': { var cd=_lineClearedDate(o,l); if(cd) return {d:cd,exact:true}; return l.prodComplete?{d:l.prodComplete,exact:false}:{d:o.received||null,exact:false}; }
+    case 'Delivered': return {d:l.deliveredDate||null,exact:!!l.deliveredDate};
+    default: return {d:o.received||null,exact:false};
+  }
+}
+function orderAging(o){
+  var b=orderBucket(o);
+  var controlling=(o.lines||[]).filter(function(l){return lineBucket(o,l)===b;});
+  var best=null, exact=true, any=false;
+  controlling.forEach(function(l){ var e=bucketEntryDate(o,l,b); if(e.d){ var t=new Date(e.d); if(!isNaN(t)){ any=true; if(best===null||t>best)best=t; if(!e.exact)exact=false; } } });
+  if(!any && o.received){ var t2=new Date(o.received); if(!isNaN(t2)){ best=t2; exact=false; any=true; } }
+  if(!any||best===null) return {days:null,approx:true,stage:b};
+  var days=Math.round((TODAY-best)/86400000); if(days<0)days=0;
+  return {days:days,approx:!exact,stage:b};
+}
+function isStalled(o){ var a=orderAging(o); return a.days!=null && a.days>=7 && !isOverdue(o); }
+var T2_SHORT=['PO','RM','Prod','Lab','QA','Ship','Done'];
+var NEXT_ACT={'PO Created':'Acknowledge & run RM check','RM Check':'Confirm materials → mark RM Ready','Production':'Start / complete production','Lab QC':'Run lab QC','QA Pre-shipment':'QA pre-shipment check','Shipment':'Book & dispatch','Delivered':'Delivered — no action'};
+function t2idx(o){ var b=orderBucket(o); return b==='Delivered'?BUCKETS.length:BUCKETS.indexOf(b); }
+function t2sev(o){ var ag=orderAging(o); return isOverdue(o)?'bad':((ag.days!=null&&ag.days>=3)?'warn':''); }
+function t2stepper(o,mixed){
+  var idx=t2idx(o), sev=t2sev(o), segs='', lbls='';
+  BUCKETS.forEach(function(s,i){ var c=i<idx?'done':(i===idx?('cur '+sev):''); segs+='<div class="t2seg '+c+'"></div>'; lbls+='<span class="'+c+'">'+T2_SHORT[i]+'</span>'; });
+  return '<div class="t2step '+(mixed?'mixed':'')+'">'+segs+'</div><div class="t2lbls">'+lbls+'</div>';
+}
+function t2ageText(o){
+  var ag=orderAging(o), tilde=ag.approx?'~':'';
+  if(isOverdue(o)){ var d=daysOver(o); return '<div class="t2age bad">'+d+'d overdue<small>in '+ag.stage+(ag.days!=null?(' · '+tilde+ag.days+'d'):'')+'</small></div>'; }
+  if(ag.days==null) return '<div class="t2age ok">—<small>in '+ag.stage+'</small></div>';
+  var cls=ag.days>=7?'bad':(ag.days>=3?'warn':'ok'), tail=ag.days>=7?'stalled':(ag.days>=3?'ageing':'on pace');
+  return '<div class="t2age '+cls+'">'+tilde+ag.days+'d<small>in '+ag.stage+' · '+tail+'</small></div>';
+}
+function t2flag(o){
+  if(isOverdue(o)) return '<span class="pill" style="background:var(--red-50);color:var(--red);font-size:9px;padding:1px 7px;margin-left:5px">Overdue</span>';
+  var att=attentionOf(o); if(att.hot) return '<span class="pill" style="background:var(--amber-50);color:var(--amber);font-size:9px;padding:1px 7px;margin-left:5px">'+att.pr+'</span>';
+  return '';
+}
+function t2spill(b){ var m=BUCKET_META[b]; return '<span class="t2spill" style="color:var('+m.c+');border-color:color-mix(in srgb,var('+m.c+') 35%,#fff);background:color-mix(in srgb,var('+m.c+') 9%,#fff)">'+b+'</span>'; }
+function t2matrix(list){
+  var head='<tr><th class="lead">Order</th>'+T2_SHORT.map(function(s){return '<th>'+s+'</th>';}).join('')+'</tr>';
+  var body=list.map(function(o){
+    var idx=t2idx(o), ag=orderAging(o);
+    var sev=isOverdue(o)?'bad':((ag.days!=null&&ag.days>=3)?'warn':'b');
+    var rc=isOverdue(o)?'od':(isStalled(o)?'stall':'');
+    var mixed=new Set(o.lines.map(function(l){return lineBucket(o,l);})).size>1;
+    var cells='';
+    BUCKETS.forEach(function(s,i){ var cls,inner;
+      if(i<idx){cls='done';inner='✓';}
+      else if(i===idx){cls='cur '+sev; inner=isOverdue(o)?(daysOver(o)+'d!'):(ag.days!=null?((ag.approx?'~':'')+ag.days+'d'):'now');}
+      else{cls='pend';inner='·';}
+      cells+='<td class="midc'+(i===BUCKETS.length-1?' lastc':'')+'"><span class="t2cell '+cls+'">'+inner+'</span></td>';
+    });
+    return '<tr class="'+rc+'" onclick="openOrder(\''+o.id+'\')" style="cursor:pointer"><td class="ordc"><div class="t2mclient" title="'+(o.client||'').replace(/"/g,'&quot;')+'">'+(o.client||'')+(mixed?'<span class="t2tag">mixed</span>':'')+'</div><div class="t2mpo">'+o.po+' · '+fmt(agg(o).ordered)+' Kg/L</div></td>'+cells+'</tr>';
+  }).join('');
+  return '<table class="t2mtx">'+head+body+'</table>';
+}
+var trkView='list';
+function setTrkView(v){ trkView=v; render(); }
 const STAGE_COLOR={'New':'--mut','RM / Procurement':'--amber','SO Created':'--blue','PR Raised':'--blue','RM Ready':'--blue','In Production':'--purple','Produced':'--purple','QC Passed':'--leaf','Dispatched':'--green2','Delivered':'--green','Ready to Produce':'--blue','Packed':'--leaf','Closed':'--green'};
 
 /* ---- field ownership (each role edits only its own fields) ---- */
@@ -1547,6 +1685,8 @@ function trkMatch(o){ const b=orderBucket(o);
     case 'open':return b!=='Delivered';
     case 'delivered':return b==='Delivered';
     case 'delayed':return isOverdue(o)&&b!=='Delivered';
+    case 'stalled':return isStalled(o);
+    case 'priority':return attentionOf(o).hot;
     case 'rmblock':return b==='RM Check';
     case 'prod':return b==='Production';
     case 'qc':return b==='Lab QC'||b==='QA Pre-shipment';
@@ -1561,69 +1701,52 @@ function priorityPill(p){ p=p||'Normal'; var c=p==='Critical'?'--red':(p==='High
 function orderCard(o){
   const b=orderBucket(o); const m=BUCKET_META[b]; const a=agg(o);
   const mixed=new Set(o.lines.map(l=>lineBucket(o,l))).size>1;
-  const f=Math.round(a.ordered>0?a.dispatched/a.ordered*100:0);
-  const delivered=b==='Delivered'; const od=isOverdue(o);
-  const ru=lineRollup(o);
-  const att=attentionOf(o);
-  // Combined attention chip (risk blended with manual priority) — shows ONLY when elevated, so a Normal
-  // on-track order carries no badge (less clutter than the old always-on priority pill). Display only.
-  const attChip = (!delivered && att.show)
-    ? `<span class="pill" title="Risk + priority" style="background:color-mix(in srgb,var(${att.color}) 14%,#fff);color:var(${att.color});font-size:9px;padding:1px 7px;margin-left:5px">${att.label}</span>`
-    : '';
-  // Roll-up: a single late line no longer paints the whole PO red — show how many of N lines are late,
-  // and how many are already delivered, so 9-of-10-on-time reads as 9 delivered · 1 late (not "DELAYED").
-  const onTime = delivered
-    ? '<span class="pill" style="background:var(--green-50);color:var(--green2)">Delivered</span>'
-    : (ru.late>0
-        ? `<span class="pill" style="background:var(--red-50);color:var(--red)">${ru.late} of ${ru.total} line${ru.total>1?'s':''} late</span><div class="muted" style="font-size:9px;margin-top:2px">${ru.delivered}/${ru.total} delivered${ru.late?' · '+daysOver(o)+'d worst':''}</div>`
-        : (ru.delivered>0
-            ? `<span class="pill" style="background:var(--green-50);color:var(--green2)">On time</span><div class="muted" style="font-size:9px;margin-top:2px">${ru.delivered}/${ru.total} delivered</div>`
-            : '<span class="pill" style="background:var(--green-50);color:var(--green2)">On time</span>'));
-  const barcol=f>=100?'var(--green)':(f>0?'var(--blue)':'#cdd6e4');
-  const nextAct=delivered?'<span class="muted" style="font-size:11px">No action</span>':`<span class="rbadge">${m.owner}</span>`;
-  return `<div class="ordrow"><div class="ohead clk" onclick="openOrder('${o.id}')">
-    <div style="font-size:10.5px;color:var(--mut);white-space:nowrap" title="${o.po}">${o.po}</div>
-    <div style="font-weight:600;font-size:12.5px;line-height:1.2;white-space:nowrap" title="${(o.client||'').replace(/"/g,'&quot;')}">${o.client}${attChip}</div>
-    <div><div class="muted" style="font-size:9px;text-transform:uppercase;letter-spacing:.4px">Ordered</div><b style="font-size:12px">${fmt(a.ordered)} Kg/L</b></div>
-    <div><div class="muted" style="font-size:9px;text-transform:uppercase;letter-spacing:.4px">Stage</div>${pill(b,m.c)}${mixed?' <span class="pill" style="background:var(--amber-50);color:var(--amber);font-size:9px;padding:1px 6px">Mixed</span>':''}</div>
-    <div><div class="muted" style="font-size:9px;text-transform:uppercase;letter-spacing:.4px">Fulfilment</div><div style="display:flex;align-items:center;gap:7px"><div class="pbar" style="flex:1"><i style="width:${Math.min(100,f)}%;background:${barcol}"></i></div><b style="font-size:11.5px">${f}%</b></div></div>
-    <div><div class="muted" style="font-size:9px;text-transform:uppercase;letter-spacing:.4px">On-time</div>${onTime}</div>
-    <div><div class="muted" style="font-size:9px;text-transform:uppercase;letter-spacing:.4px">Next</div>${nextAct}</div>
-  </div></div>`;
+  const delivered=b==='Delivered';
+  const rc=isOverdue(o)?'od':(isStalled(o)?'stall':'');
+  const nextAct = delivered
+    ? '<span class="muted" style="font-size:11px">No action</span>'
+    : `<div class="t2act">${NEXT_ACT[b]||''}</div><span class="rbadge" style="margin-top:4px">${m.owner}</span>`;
+  return `<div class="t2row ${rc}" onclick="openOrder('${o.id}')">
+    <div>
+      <div class="t2po" title="${o.po}">${o.po}</div>
+      <div class="t2client" title="${(o.client||'').replace(/"/g,'&quot;')}">${o.client||''}${t2flag(o)}${mixed?'<span class="t2tag">mixed</span>':''}</div>
+    </div>
+    <div>${t2spill(b)}<div class="t2qty" style="margin-top:5px">${fmt(a.ordered)}<span class="muted" style="font-weight:500"> Kg/L</span></div></div>
+    <div><div class="t2lbl">Journey</div>${t2stepper(o,mixed)}</div>
+    <div><div class="t2lbl">Ageing</div>${t2ageText(o)}</div>
+    <div><div class="t2lbl">Next action</div>${nextAct}</div>
+  </div>`;
 }
 function screenTracker(){
-  state.expanded=state.expanded||{};
-  const counts={}; BUCKETS.forEach(b=>counts[b]=0); state.orders.forEach(o=>counts[orderBucket(o)]++);
-  const A=attnCounts();
-  let list=state.orders.filter(o=>trkMatch(o));
+  const all=state.orders||[];
+  let list=all.filter(o=>trkMatch(o));
   if(trkSearch){ const q=trkSearch.toLowerCase(); list=list.filter(o=>((o.po||'')+' '+(o.client||'')).toLowerCase().indexOf(q)>-1); }
-  if(trkStage){ list=list.filter(o=>orderBucket(o)===trkStage); }
-  // Sort: earliest stage (new POs) at top → progressing by stage → Delivered at the bottom.
-  // Within a stage: most overdue first, then newer PO (by received date) first.
+  // Single flat list, most-at-risk first: overdue -> stalled -> on-pace; then stage order; then oldest aging.
+  const riskRank=o=>isOverdue(o)?0:(isStalled(o)?1:2);
   list=list.slice().sort((a,b)=>{
-    const ra=BUCKETS.indexOf(orderBucket(a)), rb=BUCKETS.indexOf(orderBucket(b));
-    if(ra!==rb) return ra-rb;
-    return attnCmp(a,b);   // within a stage: risk tier → manual priority → days overdue → received
+    const ra=riskRank(a), rb=riskRank(b); if(ra!==rb) return ra-rb;
+    const sa=t2idx(a), sb=t2idx(b); if(sa!==sb) return sa-sb;
+    const aa=orderAging(a).days||0, ab=orderAging(b).days||0; return ab-aa;
   });
-  const flow=`<div class="flowpipe">${BUCKETS.map((b,i)=>{const m=BUCKET_META[b];const on=trkStage===b;return `<div class="fnode ${on?'on':''}" style="--fc:var(${m.c})" title="Filter to ${b}" onclick="trkStage=(trkStage===\`${b}\`?'':\`${b}\`);render()"><div class="fnum">${counts[b]}</div><div class="flbl">${b}</div></div>${i<BUCKETS.length-1?'<div class="farr">\u203a</div>':''}`;}).join('')}</div>`;
-  const cards=[['delayed','Delayed orders',A.delayed,'--red'],['rmblock','RM / materials',A.rmblock,'--amber'],['prod','Production pending',A.prod,'--blue'],['qc','QC pending',A.qc,'--purple'],['qahold','QA hold / fail',A.qahold,'--red'],['ready','Ready to ship',A.ready,'--green2']];
-  const attn=`<div class="attngrid">${cards.map(c=>`<div class="attn ${trkFilter===c[0]?'on':''}" style="border-left-color:var(${c[3]})" onclick="trkFilter=(trkFilter==='${c[0]}'?'all':'${c[0]}');render()"><div class="a-c" style="color:var(${c[3]})">${c[2]}</div><div class="a-n">${c[1]}</div></div>`).join('')}</div>`;
-  const chips=[['all','All orders'],['myrole','My role'],['delayed','Delayed'],['rmblock','RM / blocked'],['qc','QC pending'],['ready','Ready to ship'],['delivered','Delivered']];
-  const chipbar=`<div class="chips">${chips.map(c=>`<span class="chip ${trkFilter===c[0]?'on':''}" onclick="trkFilter='${c[0]}';render()">${c[1]}</span>`).join('')}<input id="trkq" placeholder="Search PO or customer…" value="${trkSearch}" oninput="trkSearch=this.value;trkRender()" style="margin-left:auto;min-width:230px"></div>`;
-  const fcounts={}; list.forEach(o=>{const b=orderBucket(o);fcounts[b]=(fcounts[b]||0)+1;});
-  const odCount=list.filter(o=>isOverdue(o)).length;
-  let rows='';
-  if(!list.length){ rows='<div class="empty"><div class="ei">∅</div>No orders match this filter.</div>'; }
-  else { let cur=null;
-    list.forEach(o=>{ const bk=orderBucket(o);
-      if(bk!==cur){ cur=bk; const role=(BUCKET_META[bk]&&BUCKET_META[bk].owner)||'—'; const col=(BUCKET_META[bk]&&BUCKET_META[bk].c)||'--mut';
-        rows+=`<div style="display:flex;align-items:center;gap:8px;margin:16px 0 6px;padding:6px 11px;border-left:4px solid var(${col});background:var(--navy-50,#eef2f7);border-radius:6px"><b style="font-size:12.5px">${bk}</b><span class="muted" style="font-size:11px">· ${role}</span><span class="hint" style="margin-left:auto">${fcounts[bk]}</span></div>`; }
-      rows+=orderCard(o); }); }
+  // Chip counts mirror trkMatch so each chip number matches what it filters to.
+  const P={ delayed:o=>isOverdue(o)&&orderBucket(o)!=='Delivered', stalled:o=>isStalled(o),
+    priority:o=>attentionOf(o).hot, rmblock:o=>orderBucket(o)==='RM Check',
+    prod:o=>orderBucket(o)==='Production', ready:o=>o.lines.some(l=>lineCleared(o,l)>0.5) };
+  const cnt={ all:all.length, delayed:all.filter(P.delayed).length, stalled:all.filter(P.stalled).length,
+    priority:all.filter(P.priority).length, rmblock:all.filter(P.rmblock).length,
+    prod:all.filter(P.prod).length, ready:all.filter(P.ready).length };
+  const chips=[['all','All orders',0],['delayed','Overdue',1],['stalled','Stalled 7d+',1],['priority','Priority',0],['rmblock','RM check',0],['prod','Production',0],['ready','Ready to ship',0]];
+  const toggle=`<span class="t2tog" style="margin-left:8px"><button class="${trkView==='list'?'on':''}" onclick="setTrkView('list')">List</button><button class="${trkView==='matrix'?'on':''}" onclick="setTrkView('matrix')">Matrix</button></span>`;
+  const chipbar=`<div class="chips t2bar">${chips.map(c=>`<span class="chip ${c[2]?'alert':''} ${trkFilter===c[0]?'on':''}" onclick="trkFilter='${c[0]}';render()">${c[1]}<span class="cnt">${cnt[c[0]]}</span></span>`).join('')}<input id="trkq" placeholder="Search PO or customer..." value="${trkSearch}" oninput="trkSearch=this.value;trkRender()" style="margin-left:auto;min-width:210px">${toggle}</div>`;
+  const od=list.filter(isOverdue).length, st=list.filter(isStalled).length;
+  let body;
+  if(!list.length){ body='<div class="empty"><div class="ei">&#8709;</div>No orders match this filter.</div>'; }
+  else if(trkView==='matrix'){ body=t2matrix(list); }
+  else { body=list.map(orderCard).join(''); }
+  const legend=`<div class="t2leg"><i><span class="t2dot" style="background:var(--green)"></span> stage complete</i><i><span class="t2dot" style="background:var(--blue)"></span> current stage</i><i><span class="t2dot" style="background:var(--amber)"></span> ageing 3-6 days</i><i><span class="t2dot" style="background:var(--red)"></span> stalled 7d+ / overdue</i><i>~ = aging approximate (stage-entry date missing; using order date)</i></div>`;
   $('view').innerHTML=`
-    <div class="banner info" style="margin-bottom:14px">Where each order stands, <b>grouped by stage and the role that owns it</b>; within a stage, <b>most overdue first</b>. Click any PO to open its full record.</div>
-    ${acard('trk_flow','Order flow','how many orders sit at each stage',`${flow}`)}
-    ${acard('trk_attn','Needs attention','tap a card to filter the list',`${attn}`)}
-    <div class="card"><h3>Orders <span class="hint">${list.length} order${list.length===1?'':'s'}${odCount?' · '+odCount+' overdue':''}</span></h3>${chipbar}<div>${rows}</div></div>`;
+    <div class="banner info" style="margin-bottom:14px">One prioritized list - <b>most-at-risk on top</b>. Each order shows its <b>stage</b>, <b>how long it has been there</b>, and the <b>single next action + who owns it</b>. Click any order to open its full record.</div>
+    <div class="card"><h3>Orders <span class="hint">${list.length} order${list.length===1?'':'s'}${od?' · '+od+' overdue':''}${st?' · '+st+' stalled':''}</span></h3>${chipbar}<div>${body}</div>${legend}</div>`;
 }
 
 /* ===================== ORDER DRAWER (role-owned lifecycle) ===================== */

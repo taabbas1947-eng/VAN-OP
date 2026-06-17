@@ -485,7 +485,26 @@ table tbody tr:hover{background:var(--panel2)}
 .t2cell.pend{background:#eef1f5;color:#c2cad6}
 .t2mclient{font-weight:650;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px}
 .t2mpo{font-size:9.5px;color:var(--mut)}
-@media(max-width:760px){.t2row{grid-template-columns:1fr 1fr;gap:8px}.t2row>div:nth-child(3){grid-column:1/-1}}.qcgrp>summary .c{margin-left:auto;color:var(--mut);font-weight:500;font-size:11px}
+@media(max-width:760px){.t2row{grid-template-columns:1fr 1fr;gap:8px}.t2row>div:nth-child(3){grid-column:1/-1}}
+/* ===== Action Center v2 (urgency-first worklist · read-only display) ===== */
+.acsum{display:flex;gap:8px;align-items:center;margin:4px 0 12px;flex-wrap:wrap}
+.acsum .t{font-size:13px;font-weight:650}
+.acsum .p{font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px}
+.acsum .p.red{background:var(--red-50);color:var(--red)}
+.acsum .p.amber{background:var(--amber-50);color:var(--amber)}
+.aclist{display:flex;flex-direction:column;gap:9px}
+.acrow{display:grid;grid-template-columns:78px 1fr auto auto;gap:14px;align-items:center;background:#fff;border:1px solid var(--line);border-left:4px solid var(--uc,#cdd6e4);border-radius:12px;padding:11px 14px;transition:box-shadow .15s,transform .15s}
+.acrow:hover{box-shadow:0 3px 12px rgba(20,30,50,.07);transform:translateY(-1px)}
+.actbadge{font-size:9px;font-weight:800;letter-spacing:.3px;text-transform:uppercase;text-align:center;padding:6px 4px;border-radius:8px;line-height:1.2}
+.acwho{min-width:0}
+.acwho .actt{font-weight:650;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.acwho .acdesc{color:var(--mut);font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+.acwait{text-align:right;font-weight:750;font-size:12.5px;white-space:nowrap}
+.acwait small{display:block;font-size:9px;color:var(--mut);font-weight:700;text-transform:uppercase;letter-spacing:.3px;margin-bottom:1px}
+.acwait .since{text-transform:none;font-weight:600;color:var(--mut);font-size:9.5px;margin-top:1px}
+.acwait .odl{display:block;font-size:9.5px;font-weight:800;color:var(--red)}
+.acwait.ok{color:#46525f}.acwait.amber{color:var(--amber)}.acwait.red{color:var(--red)}
+@media(max-width:640px){.acrow{grid-template-columns:62px 1fr}.acrow .acwait,.acrow .sm{grid-column:2}}.qcgrp>summary .c{margin-left:auto;color:var(--mut);font-weight:500;font-size:11px}
 </style></head><body>
 <div class="app" id="appShell">
   <div class="navbackdrop" onclick="closeMobileNav()"></div>
@@ -2545,21 +2564,88 @@ function actionItems(){
   (state.packingLog||[]).filter(p=>p&&p.qa&&p.qa.fail).forEach(p=>items.push({role:'Supply Chain',lot:p,what:'QA failed lot — correct & resubmit ('+p.brand+')',act:"lotQACorrect('"+p.id+"')",label:'Correct'}));
   return items;
 }
+/* ===== Action Center v2 — urgency-first worklist (read-only display) =====
+   Re-ranks & restyles whatever actionItems() already emits. Does NOT change which
+   actions exist or who owns them (rules/flow untouched). Adds created-date + pending
+   duration, derived read-only from the triggering milestone/PR/batch/lot date. */
+var ACT_META={
+ 'Acknowledge':{c:'--blue',s:'Acknowledge'}, 'RM Check':{c:'--amber',s:'RM Check'},
+ 'Receive':{c:'--purple',s:'Receive'}, 'Open Production':{c:'--blue',s:'Produce'},
+ 'Ship':{c:'--green2',s:'Ship'}, 'Add reason':{c:'--red',s:'Delay'},
+ 'Approve PR':{c:'--navy',s:'Approve PR'}, 'Lab QC':{c:'--purple',s:'Lab QC'},
+ 'Review':{c:'--purple',s:'Review'}, 'Approve':{c:'--navy',s:'Approve'},
+ 'Inspect':{c:'--amber',s:'QA Inspect'}, 'Correct':{c:'--red',s:'QA Fix'}
+};
+var actFilter='all';
+function _fmtShort(d){ if(!d)return''; var t=new Date(d); if(isNaN(t))return''; return t.toLocaleDateString('en-GB',{day:'numeric',month:'short'}); }
+function actOverdue(it){ return it.o?isOverdue(it.o):false; }
+/* created = when the action became actionable, from existing dates; null -> approx */
+function actTiming(it){
+  var c=null, approx=false;
+  if(it.o){ var l=it.l||{};
+    switch(it.label){
+      case 'Acknowledge': c=it.o.received; break;
+      case 'RM Check': c=it.o.ackDate||it.o.received; approx=!it.o.ackDate; break;
+      case 'Receive': c=l.prRaised||it.o.received; approx=!l.prRaised; break;
+      case 'Open Production': c=l.rmReady||l.prRaised||it.o.received; approx=!l.rmReady; break;
+      case 'Ship': c=l.qcPass||it.o.received; approx=!l.qcPass; break;
+      case 'Add reason': c=l.committed||it.o.promised||it.o.received; approx=true; break;
+      default: c=it.o.received; approx=true;
+    }
+  } else if(it.pr){ c=it.pr.date; }
+  else if(it.batch){ c=it.batch.closedDate||it.batch.openedDate||it.batch.date||null; approx=(it.label!=='Lab QC'); }
+  else if(it.lot){ c=(it.lot.qa&&it.lot.qa.date)||it.lot.date||null; }
+  var days=null;
+  if(c){ var t=new Date(c); if(!isNaN(t)){ days=Math.round((TODAY-t)/86400000); if(days<0)days=0; } else c=null; }
+  if(!c) approx=true;
+  return {created:c||null, days:days, approx:approx};
+}
+function actUrg(it){ if(actOverdue(it)) return 0; var d=actTiming(it).days||0; var hot=it.o&&attentionOf(it.o).hot; return d>=7?1:((d>=3||hot)?2:3); }
+function actSort(arr){ return arr.slice().sort(function(a,b){ var ua=actUrg(a),ub=actUrg(b); if(ua!==ub)return ua-ub; var oa=actOverdue(a)?daysOver(a.o):0, ob=actOverdue(b)?daysOver(b.o):0; if(oa!==ob)return ob-oa; var pa=actTiming(a).days||0, pb=actTiming(b).days||0; return pb-pa; }); }
+function actCard(it){
+  var T=ACT_META[it.label]||{c:'--mut',s:it.label};
+  var tm=actTiming(it), od=actOverdue(it), pend=tm.days, tilde=tm.approx?'~':'';
+  var hot=it.o&&attentionOf(it.o).hot;
+  var uc=(od||(pend!=null&&pend>=7))?'--red':(((pend!=null&&pend>=3)||hot)?'--amber':T.c);
+  var po=it.o?it.o.po:(it.pr?('PR · '+it.pr.rm):(it.batch?('Batch '+(it.batch.batchNo||coaItemOf(it.batch))):(it.lot?(it.lot.po||'Lot'):'—')));
+  var ctx=it.o?(it.o.client||''):(it.pr?(fmt(it.pr.qtyRequired)+' Kg/L'):(it.batch?coaItemOf(it.batch):(it.lot?(it.lot.brand||''):'')));
+  var prod=it.l?it.l.brand:'';
+  var since=tm.created?('<small class="since">since '+_fmtShort(tm.created)+'</small>'):'';
+  var pd=(pend!=null?(tilde+pend+'d'):'—');
+  var waitCls=od?'red':((pend!=null&&pend>=7)?'red':((pend!=null&&pend>=3)?'amber':'ok'));
+  var odl=od?('<span class="odl">'+daysOver(it.o)+'d overdue</span>'):'';
+  var wait='<div class="acwait '+waitCls+'"><small>pending</small>'+pd+odl+since+'</div>';
+  return '<div class="acrow" style="--uc:var('+uc+')">'
+    +'<div class="actbadge" style="color:var('+T.c+');background:color-mix(in srgb,var('+T.c+') 11%,#fff)">'+T.s+'</div>'
+    +'<div class="acwho"><div class="actt">'+po+(ctx?' <span class="muted" style="font-weight:500">· '+ctx+'</span>':'')+'</div><div class="acdesc">'+(prod?prod+' — ':'')+it.what+'</div></div>'
+    +wait
+    +'<button class="sm green" onclick="'+it.act+'">'+it.label+'</button>'
+  +'</div>';
+}
 function screenApprovals(){
   const isCOO=state.role==='COO';
   const all=actionItems();
   const mine = isCOO ? all : all.filter(x=>x.role===state.role);
-  const row=(it)=>`<tr><td><b>${it.o?it.o.po:(it.pr?('PR · '+it.pr.rm):(it.batch?('Batch '+(it.batch.batchNo||'')):(it.lot?(it.lot.po||'Lot'):'—')))}</b>${it.o?`<div class="muted" style="font-size:11px">${it.o.client}</div>`:''}</td><td>${it.l?it.l.brand:(it.pr?(fmt(it.pr.qtyRequired)+' Kg/L'):(it.batch?coaItemOf(it.batch):(it.lot?it.lot.brand:'')))}</td><td>${it.what}</td><td>${(it.o&&isOverdue(it.o)&&lineBucket(it.o,it.l)!=='Delivered')?`<span class="pill" style="background:var(--red-50);color:var(--red)">${daysOver(it.o)}d overdue</span>`:''}</td><td style="width:160px"><button class="sm green" onclick="${it.act}">${it.label}</button></td></tr>`;
-  const tbl=(arr)=>`<div class="tscroll"><table><thead><tr><th>PO</th><th>Product</th><th>Action needed</th><th></th><th></th></tr></thead><tbody>${arr.map(row).join('')}</tbody></table></div>`;
   let body;
-  if(!mine.length){ body=`<div class="card"><div class="muted" style="padding:6px 0">Nothing waiting on you right now.</div></div>`; }
+  if(!mine.length){ body=`<div class="card"><div class="empty"><div class="ei">✓</div>Nothing waiting on you right now.</div></div>`; }
   else if(isCOO){
     const roles=['Supply Chain','CFO','Production','Lab Rep','AQCM','QCM','QA Inspector','Plant Manager'];
-    body=roles.map(r=>{const g=all.filter(x=>x.role===r); return g.length?acard('act_'+r,r,`${g.length}`,tbl(g)):'';}).join('');
+    body=roles.map(r=>{const g=all.filter(x=>x.role===r); return g.length?acard('act_'+r,r,`${g.length}`,`<div class="aclist">${actSort(g).map(actCard).join('')}</div>`):'';}).join('');
   } else {
-    body=`<div class="card"><h3>Your open actions <span class="hint">${mine.length}</span></h3>${tbl(mine)}</div>`;
+    const over=mine.filter(actOverdue).length, old=mine.filter(x=>!actOverdue(x)&&(actTiming(x).days||0)>=7).length;
+    const types={}; mine.forEach(x=>{const s=(ACT_META[x.label]||{}).s||x.label; types[s]=(types[s]||0)+1;});
+    let sum=`<span class="t">${mine.length} action${mine.length===1?'':'s'} waiting on you</span>`;
+    if(over) sum+=`<span class="p red">${over} overdue</span>`;
+    if(old) sum+=`<span class="p amber">${old} waiting 7d+</span>`;
+    const cdefs=[['all','All',mine.length],['overdue','Overdue',over]].concat(Object.keys(types).map(s=>[s,s,types[s]]));
+    const chips=`<div class="chips">${cdefs.filter(c=>c[2]>0||c[0]==='all').map(c=>`<span class="chip ${actFilter===c[0]?'on':''}" onclick="actFilter='${c[0]}';render()">${c[1]}<span class="cnt">${c[2]}</span></span>`).join('')}</div>`;
+    let list=mine;
+    if(actFilter==='overdue') list=mine.filter(actOverdue);
+    else if(actFilter!=='all') list=mine.filter(x=>((ACT_META[x.label]||{}).s||x.label)===actFilter);
+    const cards=actSort(list).map(actCard).join('')||`<div class="empty"><div class="ei">✓</div>No actions in this filter.</div>`;
+    body=`<div class="acsum">${sum}</div>${chips}<div class="aclist">${cards}</div>`;
   }
-  $('view').innerHTML=`<div class="banner info"><b>My Actions.</b> Everything waiting on you, pulled live from every order; each action is timestamped. ${isCOO?'(As COO you see all queues.)':''}</div>${body}`;
+  $('view').innerHTML=`<div class="banner info"><b>My Actions.</b> Everything waiting on you, most urgent first — each shows when it was created and how long it's been pending. ${isCOO?'(As COO you see all role queues.)':''}</div>${body}`;
 }
 function screenInstructions(){
   const steps=[

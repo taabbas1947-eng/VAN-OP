@@ -905,7 +905,7 @@ const HINTS={
   prod:'Open a batch (plan a partial qty if running in parts), then log shift output. Each shift adds to the batch; close it at actual yield (with a reason if short).',
   qc:'Lab certifies each production batch by COA (Analyst \u2192 AQCM \u2192 QCM); a batch can be packed only after QCM approves. QA then inspects each packed lot before it ships.',
   ship:'Only QC-passed lots can load. Record each dispatch (qty + packs auto-shown). A product closes at 100% delivered.',
-  entry:'Create a PO: pick channel \u2192 client, add products (qty auto-converts to packs), set the print price and VAN invoice price, then submit.',
+  entry:'Create a PO: pick channel \u2192 client, add products (qty auto-converts to packs), set the VAN invoice price (PKR/Kg\u00b7L), then submit. Print price is set later at packing.',
   budget:'Target vs delivered per client (delivered \u00d7 invoice price). Dealers roll up to one parent. Set invoice prices in bulk from here.',
   admin:'Master lists power every dropdown. Add raw materials, lab templates, variance reasons, etc. The Access Matrix controls who sees/edits each screen.',
   datafix:'Back-fill or correct records to match reality \u2014 all logged. Import opening POs here (invoice pricing lives on Sales & Budget). COO-gated.',
@@ -1256,15 +1256,23 @@ function renderEntryLines(){
 }
 function entryChecks(){
   const lines=entryLines.filter(l=>l.brand&&+l.qty>0);
+  const recv=($('e_recv')&&$('e_recv').value)||'';
+  const prom=($('e_prom')&&$('e_prom').value)||'';
+  const poManual=isManualPO()?(($('e_po')&&$('e_po').value.trim())||''):'';
+  const poDup=!!poManual && (state.orders||[]).some(o=>String(o.po)===String(poManual));
   return [
     ['Channel selected', !!entryChannel],
     ['Client / dealer selected', !!entryClient],
     ['Vgreen Sub (if Vgreen)', entryChannel!=='Vgreen' || !!entryVsub],
     ['KAM Name', !!($('e_kam')&&$('e_kam').value.trim())],
-    ['PO Received date', !!($('e_recv')&&$('e_recv').value)],
-    ['Promised Delivery date', !!($('e_prom')&&$('e_prom').value)],
-    ['Client PO # (manual channels)', !isManualPO() || !!($('e_po')&&$('e_po').value.trim())],
+    ['PO Received date', !!recv],
+    ['Promised Delivery date', !!prom],
+    ['Promised Delivery ≥ PO Received', !recv || !prom || prom>=recv],
+    ['Client PO # (manual channels)', !isManualPO() || !!poManual],
+    ['Client PO # not already used', !isManualPO() || (!!poManual && !poDup)],
     ['At least 1 line item (brand + qty)', lines.length>0],
+    ['Pack size set on every line (> 0)', lines.length>0 && lines.every(l=>+l.pack>0)],
+    ['Each line committed date ≥ PO Received', lines.every(l=>!l.committed || !recv || l.committed>=recv)],
     ['Invoice price set on every line (PKR/Kg·L)', lines.length>0 && lines.every(l=>+l.inv>0)],
     ['Invoice price under PKR 1000/Kg', lines.length>0 && lines.every(l=>+l.inv>0 && +l.inv<1000)],
   ];
@@ -1289,11 +1297,15 @@ function previewRM(){
 function submitPO(){
   if(!canEdit(['KAM'])){toast('Only KAM can submit a PO');return;}
   const lines=entryLines.filter(l=>l.brand&&+l.qty>0); if(!lines.length){toast('Add a line item');return;}
+  if(lines.some(l=>!(+l.pack>0))){ toast('Set a pack size (> 0) on every product line.'); return; }
   if(lines.some(l=>!(+l.inv>0))){ toast('Enter the invoice price (PKR/Kg·L) for every product line.'); return; }
   if(lines.some(l=>+l.inv>=1000)){ toast('Invoice price must be under PKR 1000/Kg·L. A value ≥ 1000 usually means a per-pack price was entered in the per-Kg field.'); return; }
+  const _recv=$('e_recv').value, _prom=$('e_prom').value;
+  if(_recv&&_prom&&_prom<_recv){ toast('Promised Delivery cannot be before PO Received.'); return; }
   if(typeof confirm==='function' && !confirm('Verify these prices match the client PO:\n\n'+lines.map(l=>{const pk=+l.pack||0;const ip=+l.inv||0;return '- '+l.brand+': PKR '+fmt(ip)+'/Kg'+(pk>0?(' = PKR '+fmt(ip*pk)+'/pack of '+fmt(pk)):'');}).join('\n')+'\n\nDo these per-pack prices match the client PO? Confirm to submit.')) return;
   state._lastKam=$('e_kam').value;
   const recv=$('e_recv').value; const po=isManualPO()?$('e_po').value.trim():genPO(recv);
+  if((state.orders||[]).some(o=>String(o.po)===String(po))){ toast('A PO with number '+po+' already exists — open it in PO Tracker, or use a different client PO#.'); return; }
   const id='O'+(state.orders.length+1)+'_'+state.seq++;
   const ord={ id, po, client:entryClient, channel:entryChannel, vgreenSub:entryVsub||null, focalPerson:($('e_focal')&&$('e_focal').value)||'', kam:$('e_kam').value.trim(),
     priority:$('e_pri').value, promised:$('e_prom').value, received:recv, rmDecision:'pending',

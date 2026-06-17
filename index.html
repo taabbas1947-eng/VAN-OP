@@ -2225,9 +2225,8 @@ function pmDelayLabel(o,l,lb){
   const due=l.committed||o.promised; if(!due) return null;
   const t=new Date(due); if(isNaN(t)) return null;
   if(o.received && t<new Date(o.received)) return null;  // committed before the order was received = bad/imported date — no delay prompt
-  const past=Math.round((TODAY-t)/86400000);        // >0 overdue · 0 due today · <0 due-in
-  const behind=(lb!=='Shipment'&&lb!=='Delivered'); // still has production/QC/packing work
-  if(past>0 || (past>=-3 && behind)) return past>0?('Overdue '+past+'d'):(past===0?'Due today':('Due in '+(-past)+'d'));
+  const past=Math.round((TODAY-t)/86400000);
+  if(past>0) return 'Overdue '+past+'d';  // delay-reason prompt fires ONLY when genuinely overdue (not 'due in N days')
   return null;
 }
 function actionItems(){

@@ -10,6 +10,8 @@ _Updated: 2026-06-17 · COO: Tahir · Single code file: `index.html` (~3670 line
 
 **B · New PO Entry P0 fixes (`entryChecks`/`submitPO`):** duplicate-PO# guard, pack>0, promised≥received + committed≥received; corrected the entry tip (invoice price here; print price at packing). Review in `reviews/NEWPO-ENTRY-REVIEW.md`.
 
+**D · Priority + computed-risk combination (READ-ONLY, no data/alerts/master change):** `attentionOf(o)` blends computed risk (overdue→due-soon→on-track, from committed dates) with manual priority (Critical/High/Normal/Low). Used ONLY for: PO Tracker sort (`attnCmp`: risk tier → priority → days overdue → received) and a single combined "attention" chip on the order card (shows only when elevated; replaced the always-on priority pill → less clutter). Pure compute — writes nothing, adds no My Actions/audit/alerts, no master change. `priorityPill` now unused (harmless). Verified: 8/8 logic assertions (risk leads, priority orders within tier); read-only confirmed.
+
 **C · Capable-to-promise committed dates + line/volume roll-up:**
 - New master data: `masters.leadTime` {rateKgPerDay 5000 (default/fallback), qcDays 1, dispatchDays 2, rmProcureDays 7, minDays 3}; `masters.productionGroups` {Powder/Crystalline/Liquid/Granular 5000, Humic 10000, Sulfur Coated Urea 14000}; `masters.groupOfBrand` (brand→group, pre-filled by form + Potassium Humate→Humic, Sulfur Coated Urea→SCU specials; additive). All editable in **Admin · Master Data → Delivery lead-time & production groups** (`leadTimeCard`/`saveLeadTime`, COO). Rates are placeholders (thin data) — tune in Admin.
 - **Committed-date engine (make-to-order, sequential):** `computeCommitted(received,qty,procureDays,brand,s)` = received + procurement + ⌈qty ÷ group-rate(brand)⌉ production + qc + dispatch, floored at minDays. **Procurement = bottleneck:** the slowest required raw material not in stock (`procureDaysFor` → `matLead`, per-material `leadDays` in rawMaterials master else default 7; 0 if all stocked). **Production rate = the brand's production-group daily rate** (`rateForBrand`→`groupRate`, else default). Auto-fills each line's committed on New PO Entry live as qty changes (`updateCommitted`; override allowed; shows "auto · Nd lead · incl Xd RM"); persisted in `submitPO`.
@@ -80,6 +82,7 @@ Verification: isolation-sandbox pass on overdue/delay logic; 5/5 `<script>` tags
 
 ## 5) STANDING CONSTRAINTS
 
+- **See `MODELING-GROUND-RULES.md` (permanent).** Modeling not pushing; NO master-data change without Tahir's explicit approval (ask first); no false alerts / My Actions noise / data overwrite; new computed features are read-only by default.
 - No push unless sure it won't cause new trouble; no new bug / incorrect push.
 - Never hurt open orders, production, shipment, QC, or master data.
 - Snapshot the DB before any **data** change (code-only pushes don't touch DB).

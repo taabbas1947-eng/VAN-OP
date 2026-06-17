@@ -801,6 +801,30 @@ function lineOverdue(o,l){ if(!l.committed || (l.delivered||0)>=l.ordered-0.5 ||
 function isOverdue(o){ return o.lines.some(l=>lineOverdue(o,l)); }
 function daysOver(o){ const ds=o.lines.filter(l=>lineOverdue(o,l)).map(l=>Math.round((TODAY-new Date(l.committed))/86400000));
   return ds.length?Math.max.apply(null,ds):(o.promised?Math.round((TODAY-new Date(o.promised))/86400000):0); }
+/* ---- Attention = computed risk (reality) blended with manual priority (intent). READ-ONLY ----
+   Risk tier leads (overdue → due-soon → on-track); manual priority orders WITHIN a tier.
+   Pure compute: reads order state only — writes nothing, raises no alert, adds no action. */
+const PRI_RANK={Critical:0,High:1,Normal:2,Low:3};
+function attentionOf(o){
+  const overdue=isOverdue(o);
+  let dueSoon=false;
+  if(!overdue) dueSoon=(o.lines||[]).some(function(l){ if((l.delivered||0)>=l.ordered-0.5) return false; if(!l.committed) return false; var d=Math.round((new Date(l.committed)-TODAY)/86400000); return d>=0&&d<=3; });
+  const pr=o.priority||'Normal'; const prRank=(PRI_RANK[pr]!=null?PRI_RANK[pr]:2);
+  const riskTier=overdue?0:(dueSoon?1:2);
+  const risk=overdue?'Overdue':(dueSoon?'Due soon':'On track');
+  const hot=(pr==='Critical'||pr==='High');
+  let color=overdue?'--red':(dueSoon?'--amber':'--green2');
+  if(hot && !overdue && !dueSoon) color=(pr==='Critical'?'--red':'--amber');
+  return { overdue, dueSoon, pr, prRank, riskTier, hot,
+    show:(overdue||dueSoon||hot),
+    label: risk+(hot?(' · '+pr):''), color };
+}
+/* combined sort key for two orders already in the same stage (lower = more attention) */
+function attnCmp(a,b){ const A=attentionOf(a), B=attentionOf(b);
+  if(A.riskTier!==B.riskTier) return A.riskTier-B.riskTier;
+  if(A.prRank!==B.prRank) return A.prRank-B.prRank;
+  const da=daysOver(a)||0, db=daysOver(b)||0; if(da!==db) return db-da;
+  return String(b.received||'').localeCompare(String(a.received||'')); }
 /* ---- Capable-to-promise: per-line committed date from the lead-time model (make-to-order) ----
    committed = received + procurement + ceil(qty/rate) production + qcDays + dispatchDays,
    sequential (production starts after materials arrive), never sooner than received + minDays.
@@ -1505,6 +1529,12 @@ function orderCard(o){
   const f=Math.round(a.ordered>0?a.dispatched/a.ordered*100:0);
   const delivered=b==='Delivered'; const od=isOverdue(o);
   const ru=lineRollup(o);
+  const att=attentionOf(o);
+  // Combined attention chip (risk blended with manual priority) — shows ONLY when elevated, so a Normal
+  // on-track order carries no badge (less clutter than the old always-on priority pill). Display only.
+  const attChip = (!delivered && att.show)
+    ? `<span class="pill" title="Risk + priority" style="background:color-mix(in srgb,var(${att.color}) 14%,#fff);color:var(${att.color});font-size:9px;padding:1px 7px;margin-left:5px">${att.label}</span>`
+    : '';
   // Roll-up: a single late line no longer paints the whole PO red — show how many of N lines are late,
   // and how many are already delivered, so 9-of-10-on-time reads as 9 delivered · 1 late (not "DELAYED").
   const onTime = delivered
@@ -1518,7 +1548,7 @@ function orderCard(o){
   const nextAct=delivered?'<span class="muted" style="font-size:11px">No action</span>':`<span class="rbadge">${m.owner}</span>`;
   return `<div class="ordrow"><div class="ohead clk" onclick="openOrder('${o.id}')">
     <div style="font-size:10.5px;color:var(--mut);white-space:nowrap" title="${o.po}">${o.po}</div>
-    <div style="font-weight:600;font-size:12.5px;line-height:1.2;white-space:nowrap" title="${(o.client||'').replace(/"/g,'&quot;')}">${o.client}${priorityPill(o.priority)}</div>
+    <div style="font-weight:600;font-size:12.5px;line-height:1.2;white-space:nowrap" title="${(o.client||'').replace(/"/g,'&quot;')}">${o.client}${attChip}</div>
     <div><div class="muted" style="font-size:9px;text-transform:uppercase;letter-spacing:.4px">Ordered</div><b style="font-size:12px">${fmt(a.ordered)} Kg/L</b></div>
     <div><div class="muted" style="font-size:9px;text-transform:uppercase;letter-spacing:.4px">Stage</div>${pill(b,m.c)}${mixed?' <span class="pill" style="background:var(--amber-50);color:var(--amber);font-size:9px;padding:1px 6px">Mixed</span>':''}</div>
     <div><div class="muted" style="font-size:9px;text-transform:uppercase;letter-spacing:.4px">Fulfilment</div><div style="display:flex;align-items:center;gap:7px"><div class="pbar" style="flex:1"><i style="width:${Math.min(100,f)}%;background:${barcol}"></i></div><b style="font-size:11.5px">${f}%</b></div></div>
@@ -1538,9 +1568,7 @@ function screenTracker(){
   list=list.slice().sort((a,b)=>{
     const ra=BUCKETS.indexOf(orderBucket(a)), rb=BUCKETS.indexOf(orderBucket(b));
     if(ra!==rb) return ra-rb;
-    const da=daysOver(a)||0, db=daysOver(b)||0;
-    if(da!==db) return db-da;
-    return String(b.received||'').localeCompare(String(a.received||''));
+    return attnCmp(a,b);   // within a stage: risk tier → manual priority → days overdue → received
   });
   const flow=`<div class="flowpipe">${BUCKETS.map((b,i)=>{const m=BUCKET_META[b];const on=trkStage===b;return `<div class="fnode ${on?'on':''}" style="--fc:var(${m.c})" title="Filter to ${b}" onclick="trkStage=(trkStage===\`${b}\`?'':\`${b}\`);render()"><div class="fnum">${counts[b]}</div><div class="flbl">${b}</div></div>${i<BUCKETS.length-1?'<div class="farr">\u203a</div>':''}`;}).join('')}</div>`;
   const cards=[['delayed','Delayed orders',A.delayed,'--red'],['rmblock','RM / materials',A.rmblock,'--amber'],['prod','Production pending',A.prod,'--blue'],['qc','QC pending',A.qc,'--purple'],['qahold','QA hold / fail',A.qahold,'--red'],['ready','Ready to ship',A.ready,'--green2']];

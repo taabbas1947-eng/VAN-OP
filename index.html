@@ -535,11 +535,31 @@ function ensureMasters(s){
      Edited in Admin · Master Data. Additive: only fills missing keys, never overwrites tuned values. */
   if(!s.masters.leadTime||typeof s.masters.leadTime!=='object') s.masters.leadTime={};
   { var _lt=s.masters.leadTime;
-    if(_lt.rateKgPerDay==null) _lt.rateKgPerDay=8000;   // ≈ median daily output; placeholder until per-base
+    if(_lt.rateKgPerDay==null) _lt.rateKgPerDay=5000;   // DEFAULT daily production capacity (Kg/L); most products share this
+    if(!_lt._rate5kV1){ if(+_lt.rateKgPerDay===8000) _lt.rateKgPerDay=5000; _lt._rate5kV1=true; } // one-time: correct the earlier 8000 placeholder
     if(_lt.qcDays==null)       _lt.qcDays=1;            // QC / pre-ship buffer
     if(_lt.dispatchDays==null) _lt.dispatchDays=2;      // dispatch + transit buffer
-    if(_lt.rmProcureDays==null)_lt.rmProcureDays=7;     // added ONLY when raw material is short
+    if(_lt.rmProcureDays==null)_lt.rmProcureDays=7;     // DEFAULT per-material procurement lead (make-to-order); override imported materials per-material
     if(_lt.minDays==null)      _lt.minDays=3; }         // floor — never promise sooner than this
+  /* Production groups: each product (brand) belongs to ONE group; the group's daily rate (Kg/L per day)
+     drives the production-time part of the committed date and capacity-utilisation later. */
+  if(!s.masters.productionGroups||typeof s.masters.productionGroups!=='object') s.masters.productionGroups={};
+  { var _pg=s.masters.productionGroups;
+    [['Powder',5000],['Crystalline',5000],['Liquid',5000],['Granular',5000],['Humic',10000],['Sulfur Coated Urea',14000]]
+      .forEach(function(p){ if(_pg[p[0]]==null) _pg[p[0]]=p[1]; }); }
+  /* Brand → group assignment (mandatory). Pre-filled by product FORM, with Potassium Humate → Humic and
+     Sulfur Coated Urea → SCU as special lines. Additive: only assigns brands not already set, so manual
+     reassignments are never overwritten and new brands get a sensible default. */
+  if(!s.masters.groupOfBrand||typeof s.masters.groupOfBrand!=='object') s.masters.groupOfBrand={};
+  { var _gob=s.masters.groupOfBrand;
+    var _fg={'Powder':'Powder','Crystal':'Crystalline','Liquid':'Liquid','Granular':'Granular','Pellet':'Granular','Flakes':'Granular','Micro Granule':'Granular'};
+    try{ var _bbc=(typeof SEED!=='undefined'&&SEED.catalog&&SEED.catalog.brandsByClient)||{};
+      for(var _cl in _bbc){ (_bbc[_cl]||[]).forEach(function(x){ if(!x||!x.brand||_gob[x.brand]!=null) return;
+        var g=_fg[x.form]||'Powder';
+        if(x.base==='Potassium Humate') g='Humic';
+        else if(x.base==='Sulfur Coated Urea') g='Sulfur Coated Urea';
+        _gob[x.brand]=g; }); }
+    }catch(e){} }
   s.masters.recipes=(s.masters.recipes&&typeof s.masters.recipes==='object')?s.masters.recipes:{};
   { var _vamm={'MAP':0.51667,'TSP':0.33261,'Urea N-46%':0.15229,'Fume Silica':0.00667,'Ferrous Sulfate':0.00058,'Magnisium Sulfate Hepta Hydrate':0.00034,'Boric Acid':0.00033,'Copper Sulfate':0.00022}; if(!s.masters.recipes['V-Ammonium Phosphate']) s.masters.recipes['V-Ammonium Phosphate']=Object.assign({},_vamm); if(!s.masters.recipes['Max Phos']) s.masters.recipes['Max Phos']=Object.assign({},_vamm); }
   { var _potash={'MOP Powder':0.765,'Urea N-46%':0.2440106477373558,'Boric Acid':0.0003325,'Copper Sulfate':0.00022,'Ferrous Sulfate':0.00058,'Manganese Sulfate':0.00034,'Zinc Sulfate Powder 33%':0.0008625,'Dye Blue':0.000165,'Fume Silica':0.006666666666666667};
@@ -781,20 +801,36 @@ function lineOverdue(o,l){ if(!l.committed || (l.delivered||0)>=l.ordered-0.5 ||
 function isOverdue(o){ return o.lines.some(l=>lineOverdue(o,l)); }
 function daysOver(o){ const ds=o.lines.filter(l=>lineOverdue(o,l)).map(l=>Math.round((TODAY-new Date(l.committed))/86400000));
   return ds.length?Math.max.apply(null,ds):(o.promised?Math.round((TODAY-new Date(o.promised))/86400000):0); }
-/* ---- Capable-to-promise: compute a per-line committed date from the lead-time model ----
-   committed = received + (rmShort? rmProcureDays:0) + ceil(qty/rate) production days
-             + qcDays + dispatchDays, never sooner than received + minDays.
-   One global rate today (masters.leadTime); split per base later without touching callers. */
+/* ---- Capable-to-promise: per-line committed date from the lead-time model (make-to-order) ----
+   committed = received + procurement + ceil(qty/rate) production + qcDays + dispatchDays,
+   sequential (production starts after materials arrive), never sooner than received + minDays.
+   PROCUREMENT = the SLOWEST required raw material that isn't in stock (bottleneck). Each
+   material's lead = its master leadDays, else the global default (leadTime.rmProcureDays, ~7d).
+   All materials in stock → procurement 0. Mostly uniform; override imported/long-lead materials
+   per-material later. One global production rate today; split per base later without touching callers. */
 function leadCfg(s){ var d=(((s||state).masters&&(s||state).masters.leadTime))||{}; return {
   rate:(+d.rateKgPerDay>0?+d.rateKgPerDay:8000), qc:(+d.qcDays>=0?+d.qcDays:1),
   disp:(+d.dispatchDays>=0?+d.dispatchDays:2), rm:(+d.rmProcureDays>=0?+d.rmProcureDays:7),
   min:(+d.minDays>=0?+d.minDays:3) }; }
-function leadDays(qty, rmShort, s){ var c=leadCfg(s);
-  var prod=Math.max(Math.ceil((+qty||0)/c.rate),1);
-  return Math.max((rmShort?c.rm:0)+prod+c.qc+c.disp, c.min); }
-function computeCommitted(received, qty, rmShort, s){
-  var base=received?new Date(received):new Date(TODAY); if(isNaN(base.getTime())) base=new Date(TODAY);
-  return new Date(base.getTime()+leadDays(qty,rmShort,s)*86400000).toISOString().slice(0,10); }
+function matLead(rm, s){ s=s||state; var def=leadCfg(s).rm;
+  var m=((s.masters&&s.masters.rawMaterials)||[]).find(function(x){ return x&&String(x.name)===String(rm); });
+  return (m&&+m.leadDays>0)?+m.leadDays:def; }
+/* procurement days for a line = max lead among required materials not in stock (0 if all on hand) */
+function procureDaysFor(brand, base, qty, s){ s=s||state;
+  var r=rmCheck({lines:[{brand:brand,base:base||brand,ordered:+qty||0}]}, s);
+  if(!r.short||!r.short.length) return 0;
+  var mx=0; r.short.forEach(function(x){ mx=Math.max(mx, matLead(x.rm,s)); }); return mx; }
+/* production rate for a brand = the daily rate of the production group it's assigned to
+   (masters.groupOfBrand → masters.productionGroups), else the default rate. */
+function groupOf(brand, s){ s=s||state; return ((s.masters&&s.masters.groupOfBrand)||{})[brand]||''; }
+function groupRate(g, s){ s=s||state; var r=+(((s.masters&&s.masters.productionGroups)||{})[g]); return r>0?r:0; }
+function rateForBrand(brand, s){ var r=groupRate(groupOf(brand,s),s); return r>0?r:leadCfg(s).rate; }
+function leadDays(qty, procureDays, brand, s){ var c=leadCfg(s);
+  var prod=Math.max(Math.ceil((+qty||0)/rateForBrand(brand,s)),1);
+  return Math.max((+procureDays||0)+prod+c.qc+c.disp, c.min); }
+function computeCommitted(received, qty, procureDays, brand, s){
+  var d0=received?new Date(received):new Date(TODAY); if(isNaN(d0.getTime())) d0=new Date(TODAY);
+  return new Date(d0.getTime()+leadDays(qty,procureDays,brand,s)*86400000).toISOString().slice(0,10); }
 /* ---- Line-level roll-up for a PO (drives the tracker display & line/volume on-time) ---- */
 function lineRollup(o){ var L=o.lines||[]; var lateLines=L.filter(l=>lineOverdue(o,l));
   return { total:L.length,
@@ -1264,6 +1300,19 @@ function screenEntry(){
   if(entryClient) renderEntryLines(); else validate();
 }
 function updatePacks(i){ const l=entryLines[i]; const el=document.getElementById('pk_'+i); if(el) el.textContent=(+l.qty>0&&+l.pack>0)?fmt(Math.ceil(+l.qty/+l.pack)):'—'; }
+/* Live-update a line's committed date from the lead-time model as qty/brand change.
+   Skips lines the KAM has manually overridden (l.committed set), so an edit is never clobbered.
+   Updates the date input + the "auto · Nd lead" hint without a full table re-render (keeps focus). */
+function updateCommitted(i){ const l=entryLines[i]; if(!l) return;
+  const inp=document.getElementById('cm_'+i), hint=document.getElementById('cmh_'+i);
+  if(l.committed){ if(hint) hint.innerHTML=''; return; }   // manual override stands
+  const det=detailForBrand(l.brand);
+  const recv=($('e_recv')&&$('e_recv').value)||TODAY.toISOString().slice(0,10);
+  const procD=(l.brand&&+l.qty>0)?procureDaysFor(l.brand,det.base||l.brand,+l.qty):0;
+  const auto=(+l.qty>0)?computeCommitted(recv,+l.qty,procD,l.brand):'';
+  if(inp&&auto) inp.value=auto;
+  if(hint) hint.innerHTML=auto?('auto · '+leadDays(+l.qty,procD,l.brand)+'d lead'+(procD?' · incl '+procD+'d RM':'')):'';
+}
 function invPerPackText(l){ const ip=+(l&&l.inv)||0, pk=+(l&&l.pack)||0; if(ip<=0) return ''; if(ip>=1000) return '⚠ ≥ PKR 1000/Kg — looks like a per-pack price'; return pk>0?('= PKR '+fmt(ip*pk)+' / pack of '+fmt(pk)+' — verify vs client PO'):'per Kg/L'; }
 function invPerPack(i){ const l=entryLines[i]; const el=document.getElementById('ipp_'+i); if(el){ el.innerHTML=invPerPackText(l); el.style.color=((+l.inv>=1000))?'#c0392b':'var(--mut)'; } }
 function renderEntryLines(){
@@ -1272,18 +1321,18 @@ function renderEntryLines(){
   $('e_lines').innerHTML=entryLines.map((l,i)=>{
     const det=detailForBrand(l.brand);
     const packs=(+l.pack>0&&+l.qty>0)?Math.ceil(+l.qty/+l.pack):'';
-    const rmShort=(l.brand&&+l.qty>0)?!rmCheck({lines:[{brand:l.brand,base:det.base||l.brand,ordered:+l.qty}]}).ok:false;
-    const autoCommit=(+l.qty>0)?computeCommitted(recv,+l.qty,rmShort):'';
+    const procD=(l.brand&&+l.qty>0)?procureDaysFor(l.brand,det.base||l.brand,+l.qty):0;
+    const autoCommit=(+l.qty>0)?computeCommitted(recv,+l.qty,procD,l.brand):'';
     const committedVal=l.committed||autoCommit||(($('e_prom')&&$('e_prom').value)||'');
     return `<tr>
      <td><select onchange="entryLines[${i}].brand=this.value;entryLines[${i}].pack=(detailForBrand(this.value).pack||'');renderEntryLines()">
        <option value="">— pick brand —</option>${brs.map(b=>`<option ${b.brand===l.brand?'selected':''}>${b.brand}</option>`).join('')}</select></td>
      <td class="muted">${det.form||'—'}</td>
      <td><input type="number" value="${l.pack}" placeholder="${det.pack||''}" oninput="entryLines[${i}].pack=this.value;updatePacks(${i})"></td>
-     <td><input type="number" value="${l.qty}" placeholder="Kg/L" oninput="entryLines[${i}].qty=this.value;updatePacks(${i});validate()"></td>
+     <td><input type="number" value="${l.qty}" placeholder="Kg/L" oninput="entryLines[${i}].qty=this.value;updatePacks(${i});updateCommitted(${i});validate()"></td>
      <td class="num"><b id="pk_${i}">${packs!==''?fmt(packs):'—'}</b></td>
      <td><input type="number" value="${l.inv||''}" placeholder="PKR/Kg·L" title="VAN invoice rate per Kg/L — must be under PKR 1000. The per-pack equivalent is shown so you can verify it against the client PO." oninput="entryLines[${i}].inv=this.value;invPerPack(${i});validate()"><div id="ipp_${i}" style="font-size:10px;margin-top:3px;color:${(+l.inv>=1000)?'#c0392b':'var(--mut)'}">${invPerPackText(l)}</div></td>
-     <td><input type="date" value="${committedVal}" onchange="entryLines[${i}].committed=this.value">${(!l.committed&&autoCommit)?`<div style="font-size:9px;color:var(--mut);margin-top:2px" title="Auto from the lead-time model — edit to override">auto · ${leadDays(+l.qty,rmShort)}d lead${rmShort?' · RM short':''}</div>`:''}</td>
+     <td><input type="date" id="cm_${i}" value="${committedVal}" onchange="entryLines[${i}].committed=this.value;updateCommitted(${i})"><div id="cmh_${i}" style="font-size:9px;color:var(--mut);margin-top:2px" title="Auto from the lead-time model — edit to override">${(!l.committed&&autoCommit)?('auto · '+leadDays(+l.qty,procD,l.brand)+'d lead'+(procD?' · incl '+procD+'d RM':'')):''}</div></td>
      <td>${entryLines.length>1?`<button class="ghost sm" onclick="entryLines.splice(${i},1);renderEntryLines()">✕</button>`:''}</td></tr>`;
   }).join('');
   validate();
@@ -1343,7 +1392,7 @@ function submitPO(){
   const id='O'+(state.orders.length+1)+'_'+state.seq++;
   const ord={ id, po, client:entryClient, channel:entryChannel, vgreenSub:entryVsub||null, focalPerson:($('e_focal')&&$('e_focal').value)||'', kam:$('e_kam').value.trim(),
     priority:$('e_pri').value, promised:$('e_prom').value, received:recv, rmDecision:'pending',
-    lines:lines.map((l,j)=>{const det=detailForBrand(l.brand);const rmShort=!rmCheck({lines:[{brand:l.brand,base:det.base||l.brand,ordered:+l.qty}]}).ok;const autoCommit=computeCommitted(recv,+l.qty,rmShort);return {id:id+'L'+j, brand:l.brand, base:det.base||l.brand, pack:+l.pack||det.pack||null, note:l.note||'', committed:l.committed||autoCommit||$('e_prom').value, ordered:+l.qty, printPrice:0, invoicePrice:+l.inv||0, produced:0,packed:0,dispatched:0,delivered:0};}) };
+    lines:lines.map((l,j)=>{const det=detailForBrand(l.brand);const procD=procureDaysFor(l.brand,det.base||l.brand,+l.qty);const autoCommit=computeCommitted(recv,+l.qty,procD,l.brand);return {id:id+'L'+j, brand:l.brand, base:det.base||l.brand, pack:+l.pack||det.pack||null, note:l.note||'', committed:l.committed||autoCommit||$('e_prom').value, ordered:+l.qty, printPrice:0, invoicePrice:+l.inv||0, produced:0,packed:0,dispatched:0,delivered:0};}) };
   ord.totalOrdered=ord.lines.reduce((a,l)=>a+l.ordered,0);
   ord.rmDecision='pending';
   state.orders.unshift(ord);
@@ -3231,25 +3280,44 @@ function recipeSave(){ if(!(canEdit(['Plant Manager'])||state.role==='COO')){toa
   save(); toast('Recipe saved for '+base); }
 function leadTimeCard(ed){ const lt=(state.masters&&state.masters.leadTime)||{};
   const f=(k,label,unit,hint)=>`<div class="fld"><label>${label}</label><input type="number" id="lt_${k}" value="${lt[k]!=null?lt[k]:''}" ${ed?'':'disabled'} style="max-width:140px"><div class="muted" style="font-size:10px;margin-top:2px">${unit}${hint?' · '+hint:''}</div></div>`;
-  const ex=computeCommitted(TODAY.toISOString().slice(0,10),50000,false);
-  return acard('leadtime','Delivery lead-time model','committed-date engine',`
-   <div class="muted" style="font-size:12px;margin-bottom:10px">Drives the <b>committed delivery date</b> auto-suggested on New PO Entry, per product line: <code>committed = received + (RM short? procurement) + ⌈qty ÷ rate⌉ production days + QC + dispatch</code> (floored at the minimum). One global rate for now — split per base later. <b>Placeholder values, anchored to current output — tune as real data accrues.</b></div>
+  const ex=computeCommitted(TODAY.toISOString().slice(0,10),50000,leadCfg(state).rm,'');
+  const pg=(state.masters&&state.masters.productionGroups)||{};
+  const gob=(state.masters&&state.masters.groupOfBrand)||{};
+  const groups=Object.keys(pg);
+  const bmap={}; try{ const bbc=(typeof SEED!=='undefined'&&SEED.catalog&&SEED.catalog.brandsByClient)||{}; for(const cl in bbc){ (bbc[cl]||[]).forEach(x=>{ if(x&&x.brand&&!bmap[x.brand]) bmap[x.brand]={form:x.form||''}; }); } }catch(e){}
+  const brands=Object.keys(bmap).sort();
+  const grpRows=groups.map(g=>`<tr><td style="font-size:12px"><b>${g}</b></td><td><input type="number" data-pg="${g.replace(/"/g,'&quot;')}" value="${pg[g]}" ${ed?'':'disabled'} style="width:110px"></td></tr>`).join('');
+  const unassigned=brands.filter(b=>!gob[b]||!pg[gob[b]]);
+  const gopt=(cur)=>`<option value="">— unassigned —</option>`+groups.map(g=>`<option ${g===cur?'selected':''}>${g}</option>`).join('');
+  const asgRows=brands.map(b=>{ const cur=gob[b]||''; const bad=!cur||!pg[cur]; return `<tr${bad?' style="background:#fff7ed"':''}><td style="font-size:11.5px">${b}</td><td class="muted" style="font-size:10.5px">${bmap[b].form||'—'}</td><td><select data-gob="${b.replace(/"/g,'&quot;')}" ${ed?'':'disabled'} style="font-size:11px">${gopt(cur)}</select></td></tr>`; }).join('');
+  return acard('leadtime','Delivery lead-time & production groups','committed-date engine',`
+   <div class="muted" style="font-size:12px;margin-bottom:10px">Drives the <b>committed delivery date</b> on New PO Entry: <code>committed = received + procurement + ⌈qty ÷ group rate⌉ production + QC + dispatch</code> (sequential; floored). Make-to-order: <b>procurement = the slowest required raw material not in stock</b> (per-material lead in the Raw-materials master, else the default below). <b>Production time uses the daily rate of the product's group.</b> <b>Placeholder values — tune as real data accrues.</b></div>
    <div class="formgrid">
-     ${f('rateKgPerDay','Production rate','Kg/L per day','volume ÷ rate = production days')}
+     ${f('rateKgPerDay','Default rate (unassigned)','Kg/L per day','fallback if a brand has no group')}
      ${f('qcDays','QC buffer','days')}
      ${f('dispatchDays','Dispatch buffer','days','dispatch + transit')}
-     ${f('rmProcureDays','RM procurement','days','added only when material short')}
+     ${f('rmProcureDays','RM lead (default)','days','per-material default; slowest needed material sets it')}
      ${f('minDays','Minimum lead','days','never promise sooner')}
    </div>
-   <div class="muted" style="font-size:11px;margin-top:8px">Example: a 50,000 Kg line with RM in stock → committed <b>${ex}</b> (from today).</div>
-   ${ed?`<div style="margin-top:10px"><button class="sm green" onclick="saveLeadTime()">Save lead-time model</button></div>`:''}`); }
+   <div style="display:flex;gap:18px;flex-wrap:wrap;margin-top:14px">
+     <div style="min-width:240px"><div class="muted" style="font-size:11px;margin-bottom:6px"><b>Production groups — daily capacity</b></div>
+       <table style="width:100%"><thead><tr><th style="text-align:left;font-size:10px">Group</th><th style="text-align:left;font-size:10px">Kg/L per day</th></tr></thead><tbody>${grpRows}</tbody></table></div>
+     <div style="flex:1;min-width:300px"><div class="muted" style="font-size:11px;margin-bottom:6px"><b>Brand → group</b> (${brands.length} brands${unassigned.length?` · <span style="color:var(--red)">${unassigned.length} unassigned</span>`:' · all assigned'}). Pre-filled by form; reassign any below.</div>
+       <div style="max-height:300px;overflow:auto;border:1px solid var(--line);border-radius:8px"><table style="width:100%"><thead><tr><th style="text-align:left;font-size:10px">Brand</th><th style="text-align:left;font-size:10px">Form</th><th style="text-align:left;font-size:10px">Group</th></tr></thead><tbody>${asgRows}</tbody></table></div></div>
+   </div>
+   <div class="muted" style="font-size:11px;margin-top:10px">Example: a 50,000 Kg line at the default rate, materials procured → committed <b>${ex}</b> (from today).</div>
+   ${ed?`<div style="margin-top:10px"><button class="sm green" onclick="saveLeadTime()">Save model &amp; groups</button></div>`:''}`); }
 function saveLeadTime(){ if(!canEdit(['COO'])){toast('COO only');return;}
   const lt=state.masters.leadTime=state.masters.leadTime||{};
   const keys=['rateKgPerDay','qcDays','dispatchDays','rmProcureDays','minDays'];
   let bad=false; keys.forEach(k=>{ const el=document.getElementById('lt_'+k); if(!el)return; const v=+el.value;
     if(isNaN(v)||v<0||(k==='rateKgPerDay'&&v<=0)){ bad=true; return; } lt[k]=v; });
   if(bad){ toast('Enter valid non-negative numbers (rate must be > 0).'); return; }
-  logAction('Updated lead-time model'); save(); render(); toast('Lead-time model saved'); }
+  const pg=state.masters.productionGroups=state.masters.productionGroups||{};
+  document.querySelectorAll('[data-pg]').forEach(el=>{ const g=el.getAttribute('data-pg'); const v=+el.value; if(g && v>0) pg[g]=v; });
+  const gob=state.masters.groupOfBrand=state.masters.groupOfBrand||{};
+  document.querySelectorAll('[data-gob]').forEach(el=>{ const b=el.getAttribute('data-gob'); if(!b)return; const v=el.value; if(v) gob[b]=v; else delete gob[b]; });
+  logAction('Updated lead-time model & production groups'); save(); render(); toast('Saved'); }
 function recipeMasterCard(ed){
   const baseProducts=(typeof BULK_BASES!=='undefined'?BULK_BASES.slice():[]).filter(Boolean).sort(); /* THE 13 base products only — recipes live here, never on brands */
   const bases=baseProducts; const sel=recipeForm.base;

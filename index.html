@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>VAN Order Control Tower</title>
+<title>O2S System</title>
 <!-- VAN build: 2026-06-04 first-push test -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -437,7 +437,7 @@ table tbody tr:hover{background:var(--panel2)}
           <path d="M3.27 6.96 12 12.01l8.73-5.05"/><path d="M12 22.08V12"/>
         </svg>
       </div>
-      <div class="nm">VAN Order Control Tower<span>Order → Shipment Control</span></div>
+      <div class="nm">O2S System<span>Order → Shipment</span></div>
     </div>
     <nav class="nav" id="nav"></nav>
     <div class="foot" id="sidefoot"></div>
@@ -2520,7 +2520,7 @@ function screenInstructions(){
      <div style="overflow:auto"><table><thead><tr><th>Role</th><th>Works in</th><th>What it owns / does</th><th>Starts when</th><th>Hands to</th></tr></thead>
        <tbody>${roleGuide.map(r=>`<tr${r.role===state.role?' style="background:var(--navy-50)"':''}><td style="white-space:nowrap"><b>${r.role}</b>${r.role===state.role?' <span class="tag">you</span>':''}</td><td class="muted" style="font-size:11.5px;white-space:nowrap">${r.works}</td><td style="font-size:12.5px;line-height:1.55">${r.own}</td><td class="muted" style="font-size:11.5px">${r.trig}</td><td class="muted" style="font-size:11.5px;white-space:nowrap">${r.hands}</td></tr>`).join('')}</tbody></table></div></div>`;
   $('view').innerHTML=`
-   <div class="banner info"><b>VAN Order Control Tower — how the whole system works.</b> This guide is for <b>everyone</b>, whatever your role or access. One customer order flows from entry to delivery; each role does its part from <b>My Actions</b>, and the <b>PO Tracker</b> shows the whole picture. Start with <b>your role at a glance</b> and the <b>responsibility matrix</b>, then read the steps in order.</div>
+   <div class="banner info"><b>O2S System — how the whole system works.</b> This guide is for <b>everyone</b>, whatever your role or access. One customer order flows from entry to delivery; each role does its part from <b>My Actions</b>, and the <b>PO Tracker</b> shows the whole picture. Start with <b>your role at a glance</b> and the <b>responsibility matrix</b>, then read the steps in order.</div>
    ${youCard}
    ${roleMatrix}
    <div class="card"><h3>The process, step by step</h3>

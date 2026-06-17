@@ -995,7 +995,7 @@ const HINTS={
   prod:'Open a batch (plan a partial qty if running in parts), then log shift output. Each shift adds to the batch; close it at actual yield (with a reason if short).',
   qc:'Lab certifies each production batch by COA (Analyst \u2192 AQCM \u2192 QCM); a batch can be packed only after QCM approves. QA then inspects each packed lot before it ships.',
   ship:'Only QC-passed lots can load. Record each dispatch (qty + packs auto-shown). A product closes at 100% delivered.',
-  entry:'Create a PO: pick channel \u2192 client, add products (qty auto-converts to packs), set the VAN invoice price (PKR/Kg\u00b7L), then submit. Print price is set later at packing.',
+  entry:'Create a PO: pick channel \u2192 client, add products (qty auto-converts to packs), set the VAN invoice price (PKR/Kg\u00b7L), then submit. For clients who print a retail price on the pack, tick "Print price on pack" \u2014 it recalls the last price used.',
   budget:'Target vs delivered per client (delivered \u00d7 invoice price). Dealers roll up to one parent. Set invoice prices in bulk from here.',
   admin:'Master lists power every dropdown. Add raw materials, lab templates, variance reasons, etc. The Access Matrix controls who sees/edits each screen.',
   datafix:'Back-fill or correct records to match reality \u2014 all logged. Import opening POs here (invoice pricing lives on Sales & Budget). COO-gated.',
@@ -1257,8 +1257,18 @@ function dfSubmitCorrect(){
 }
 
 /* ===================== 1. NEW PO ENTRY ===================== */
-let entryChannel='', entryClient='', entryVsub='', entryFocal='';
+let entryChannel='', entryClient='', entryVsub='', entryFocal='', entryPrintOn=false;
 let entryLines=[{brand:'',qty:'',pack:'',note:'',committed:''}];
+/* READ-ONLY recall: the most recent print price actually used for a brand (order lines + packing log).
+   Pure read — pre-fills the print-price field; stores nothing new in master. */
+function recallPrintPrice(brand){ if(!brand) return 0; var best=0, key='';
+  (state.orders||[]).forEach(function(o){ (o.lines||[]).forEach(function(l){ if(l&&l.brand===brand&&+l.printPrice>0){ var k=String(o.received||''); if(k>=key){ key=k; best=+l.printPrice; } } }); });
+  (state.packingLog||[]).forEach(function(p){ if(p&&p.brand===brand&&+p.printPrice>0){ var k=String(p.date||p.mfgDate||''); if(k>=key){ key=k; best=+p.printPrice; } } });
+  return best; }
+/* has this client ever had a printed price before? (drives the smart default of the print toggle) — read-only */
+function clientHasPrintHistory(client){ return (state.orders||[]).some(function(o){ return o.client===client && (o.lines||[]).some(function(l){ return +l.printPrice>0; }); }); }
+/* do any of the current lines' brands normally carry a printed price? (drives the soft submit warning) — read-only */
+function linesNormallyPrint(){ return entryLines.some(function(l){ return l.brand && recallPrintPrice(l.brand)>0; }); }
 function clientsForChannel(ch){
   if(ch==='Dealer') return (state.dealers||[]).map(d=>({id:d.code+' | '+d.name, label:d.code+' | '+d.name, brandKey:'Dealers'}));
   if(ch==='Distributor') return [{id:'BKK',label:'BKK',brandKey:'BKK'}];
@@ -1269,8 +1279,9 @@ function clientsForChannel(ch){
 function curClientObj(){ return clientsForChannel(entryChannel).find(c=>c.id===entryClient); }
 function brandPool(){ const co=curClientObj(); return co?(SEED.catalog.brandsByClient[co.brandKey]||[]):[]; }
 function detailForBrand(b){ return brandPool().find(x=>x.brand===b)||{}; }
-function onChannelChange(v){ entryChannel=v; entryClient=''; entryVsub=''; entryFocal=''; entryLines=[{brand:'',qty:'',pack:'',note:'',committed:''}]; screenEntry(); }
-function onClientChange(v){ entryClient=v; entryLines=[{brand:'',qty:'',pack:'',note:'',committed:''}]; screenEntry(); }
+function onChannelChange(v){ entryChannel=v; entryClient=''; entryVsub=''; entryFocal=''; entryPrintOn=false; entryLines=[{brand:'',qty:'',pack:'',note:'',committed:''}]; screenEntry(); }
+function onClientChange(v){ entryClient=v; entryPrintOn=clientHasPrintHistory(v); entryLines=[{brand:'',qty:'',pack:'',note:'',committed:''}]; screenEntry(); }
+function setPrintOn(v){ entryPrintOn=!!v; renderEntryLines(); }
 function genPO(recv){
   const d=recv?new Date(recv):TODAY; const ym=String(d.getFullYear()).slice(2)+String(d.getMonth()+1).padStart(2,'0');
   const seq=String(Math.floor(Math.random()*9000+1000));
@@ -1310,6 +1321,7 @@ function screenEntry(){
          :`<input id="e_po" type="text" value="${entryChannel?genPO(TODAY.toISOString().slice(0,10)):''}" disabled>`}</div>
     </div></div>
    <div class="card"><h3>Step 2 — Line Items <span class="hint">pack size auto-fills, override allowed</span></h3>
+    ${entryClient?`<label style="display:inline-flex;align-items:center;gap:7px;font-size:12px;margin-bottom:10px;cursor:pointer"><input type="checkbox" ${entryPrintOn?'checked':''} onchange="setPrintOn(this.checked)"> <b>Print price on pack?</b> <span class="muted">— retail/MRP printed on the package${clientHasPrintHistory(entryClient)?' · this client usually prints':''}</span></label>`:''}
     ${entryClient?'':'<div class="muted" style="font-size:12.5px">Pick a channel and client above to load brands.</div>'}
     <table class="fixedtbl ${entryClient?'':'hide'}" style="font-size:12px"><thead><tr><th>Brand</th><th style="width:84px">Form</th><th style="width:66px">Pack</th><th style="width:80px">Qty</th><th style="width:72px">Packs</th><th style="width:160px">Invoice price (PKR/Kg·L)</th><th style="width:118px">Committed</th><th style="width:130px">Note</th><th style="width:26px"></th></tr></thead>
     <tbody id="e_lines"></tbody></table>
@@ -1351,6 +1363,9 @@ function renderEntryLines(){
     const procD=(l.brand&&+l.qty>0)?procureDaysFor(l.brand,det.base||l.brand,+l.qty):0;
     const autoCommit=(+l.qty>0)?computeCommitted(recv,+l.qty,procD,l.brand):'';
     const committedVal=l.committed||autoCommit||(($('e_prom')&&$('e_prom').value)||'');
+    const recalled=recallPrintPrice(l.brand);
+    if(entryPrintOn && l.brand && l.printPrice==null && recalled>0) l.printPrice=recalled;  // recall pre-fill (only when never touched)
+    const printRow = entryPrintOn ? `<tr><td colspan="9" style="border-top:none;padding-top:0;padding-bottom:8px"><div style="display:flex;align-items:center;gap:8px;font-size:11px"><span class="muted" style="min-width:118px">Print price (MRP on pack):</span><input type="number" value="${l.printPrice!=null?l.printPrice:''}" placeholder="PKR / pack" oninput="entryLines[${i}].printPrice=this.value;validate()" style="width:150px"><span class="muted">PKR per pack${+l.pack>0?(' of '+fmt(l.pack)):''}${recalled>0?` · <span style="cursor:pointer;color:var(--navy)" title="recall last used" onclick="entryLines[${i}].printPrice=${recalled};renderEntryLines()">use last ${fmt(recalled)}</span>`:' · no previous price on file'}</span></div></td></tr>` : '';
     return `<tr>
      <td><select onchange="entryLines[${i}].brand=this.value;entryLines[${i}].pack=(detailForBrand(this.value).pack||'');renderEntryLines()">
        <option value="">— pick brand —</option>${brs.map(b=>`<option ${b.brand===l.brand?'selected':''}>${b.brand}</option>`).join('')}</select></td>
@@ -1361,7 +1376,7 @@ function renderEntryLines(){
      <td><input type="number" value="${l.inv||''}" placeholder="PKR/Kg·L" title="VAN invoice rate per Kg/L — must be under PKR 1000. The per-pack equivalent is shown so you can verify it against the client PO." oninput="entryLines[${i}].inv=this.value;invPerPack(${i});validate()"><div id="ipp_${i}" style="font-size:10px;margin-top:3px;color:${(+l.inv>=1000)?'#c0392b':'var(--mut)'}">${invPerPackText(l)}</div></td>
      <td><input type="date" id="cm_${i}" value="${committedVal}" onchange="entryLines[${i}].committed=this.value;updateCommitted(${i})"><div id="cmh_${i}" style="font-size:9px;color:var(--mut);margin-top:2px" title="Auto from the lead-time model — edit to override">${(!l.committed&&autoCommit)?('auto · '+leadDays(+l.qty,procD,l.brand)+'d lead'+(procD?' · incl '+procD+'d RM':'')):''}</div></td>
      <td><input type="text" value="${(l.note||'').replace(/"/g,'&quot;')}" placeholder="optional" oninput="entryLines[${i}].note=this.value" style="width:100%;font-size:11px"></td>
-     <td>${entryLines.length>1?`<button class="ghost sm" onclick="entryLines.splice(${i},1);renderEntryLines()">✕</button>`:''}</td></tr>`;
+     <td>${entryLines.length>1?`<button class="ghost sm" onclick="entryLines.splice(${i},1);renderEntryLines()">✕</button>`:''}</td></tr>${printRow}`;
   }).join('');
   validate();
 }
@@ -1392,6 +1407,7 @@ function entryChecks(){
     ['Each line committed date ≥ PO Received', lines.every(l=>!l.committed || !recv || l.committed>=recv), 'e_lines'],
     ['Invoice price set on every line (PKR/Kg·L)', lines.length>0 && lines.every(l=>+l.inv>0), 'e_lines'],
     ['Invoice price under PKR 1000/Kg', lines.length>0 && lines.every(l=>+l.inv>0 && +l.inv<1000), 'e_lines'],
+    ['Print price set on every line (when printing)', !entryPrintOn || (lines.length>0 && lines.every(l=>+l.printPrice>0)), 'e_lines'],
   ];
 }
 function validate(){
@@ -1426,19 +1442,21 @@ function submitPO(){
   if(lines.some(l=>+l.inv>=1000)){ toast('Invoice price must be under PKR 1000/Kg·L. A value ≥ 1000 usually means a per-pack price was entered in the per-Kg field.'); return; }
   const _recv=$('e_recv').value, _prom=$('e_prom').value;
   if(_recv&&_prom&&_prom<_recv){ toast('Promised Delivery cannot be before PO Received.'); return; }
+  if(entryPrintOn && lines.some(l=>!(+l.printPrice>0))){ toast('Print price is ON — enter the print price (PKR/pack) for every line, or untick "Print price on pack".'); return; }
+  if(!entryPrintOn && linesNormallyPrint() && typeof confirm==='function' && !confirm('These products normally carry a printed price on the pack, but "Print price on pack" is OFF.\n\nSubmit WITHOUT a printed price?')) return;
   if(typeof confirm==='function' && !confirm('Verify these prices match the client PO:\n\n'+lines.map(l=>{const pk=+l.pack||0;const ip=+l.inv||0;return '- '+l.brand+': PKR '+fmt(ip)+'/Kg'+(pk>0?(' = PKR '+fmt(ip*pk)+'/pack of '+fmt(pk)):'');}).join('\n')+'\n\nDo these per-pack prices match the client PO? Confirm to submit.')) return;
   state._lastKam=$('e_kam').value;
   const recv=$('e_recv').value; const po=isManualPO()?$('e_po').value.trim():genPO(recv);
   if((state.orders||[]).some(o=>String(o.po)===String(po))){ toast('A PO with number '+po+' already exists — open it in PO Tracker, or use a different client PO#.'); return; }
   const id='O'+(state.orders.length+1)+'_'+state.seq++;
   const ord={ id, po, client:entryClient, channel:entryChannel, vgreenSub:entryVsub||null, focalPerson:($('e_focal')&&$('e_focal').value)||'', kam:$('e_kam').value.trim(),
-    priority:$('e_pri').value, promised:$('e_prom').value, received:recv, rmDecision:'pending',
-    lines:lines.map((l,j)=>{const det=detailForBrand(l.brand);const procD=procureDaysFor(l.brand,det.base||l.brand,+l.qty);const autoCommit=computeCommitted(recv,+l.qty,procD,l.brand);return {id:id+'L'+j, brand:l.brand, base:det.base||l.brand, pack:+l.pack||det.pack||null, note:l.note||'', committed:l.committed||autoCommit||$('e_prom').value, ordered:+l.qty, printPrice:0, invoicePrice:+l.inv||0, produced:0,packed:0,dispatched:0,delivered:0};}) };
+    priority:$('e_pri').value, promised:$('e_prom').value, received:recv, rmDecision:'pending', printOnPack:!!entryPrintOn,
+    lines:lines.map((l,j)=>{const det=detailForBrand(l.brand);const procD=procureDaysFor(l.brand,det.base||l.brand,+l.qty);const autoCommit=computeCommitted(recv,+l.qty,procD,l.brand);return {id:id+'L'+j, brand:l.brand, base:det.base||l.brand, pack:+l.pack||det.pack||null, note:l.note||'', committed:l.committed||autoCommit||$('e_prom').value, ordered:+l.qty, printPrice:(entryPrintOn?(+l.printPrice||0):0), invoicePrice:+l.inv||0, produced:0,packed:0,dispatched:0,delivered:0};}) };
   ord.totalOrdered=ord.lines.reduce((a,l)=>a+l.ordered,0);
   ord.rmDecision='pending';
   state.orders.unshift(ord);
   logAction(`Created PO ${po} (${entryClient}, ${entryChannel}, ${fmt(ord.totalOrdered)} Kg/L)`);
-  entryChannel='';entryClient='';entryVsub='';entryLines=[{brand:'',qty:'',pack:'',note:'',committed:'',price:''}]; save();
+  entryChannel='';entryClient='';entryVsub='';entryPrintOn=false;entryLines=[{brand:'',qty:'',pack:'',note:'',committed:''}]; save();
   toast('PO '+po+' created'); state.screen='tracker'; render();
 }
 

@@ -9,18 +9,18 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
 :root{
-  --bg:#f3f6f1; --panel:#ffffff; --panel2:#f1f5ef; --line:#e3e9e3; --line2:#eef2ec;
-  --navy:#1f7a43; --navy2:#155e32; --navy-50:#e7f3ea; --navy-100:#cfe6d5;
-  --green:#1f9a4f; --green2:#15803d; --leaf:#74b53a; --green-50:#e9f6ec;
-  --teal:#0e9aa7; --amber:#b07208; --amber-50:#fbf0d8; --red:#c0392b; --red-50:#fbecec;
-  --blue:#1f7a43; --purple:#7a6cc0;
-  --txt:#16231b; --txt2:#46584c; --mut:#7d8c82;
+  --bg:#f3f7f6; --panel:#ffffff; --panel2:#f1f6f4; --line:#e2ebe8; --line2:#eef3f1;
+  --navy:#0e7c66; --navy2:#0a5d4d; --navy-50:#e3f2ee; --navy-100:#bfe3da;
+  --green:#0e7c66; --green2:#0a5d4d; --leaf:#3fa890; --green-50:#e3f2ee;
+  --teal:#0e7c66; --amber:#c77b0e; --amber-50:#faf0da; --red:#c0392b; --red-50:#fbe7e4;
+  --blue:#2563eb; --purple:#7a6cc0;
+  --txt:#1a2420; --txt2:#45524c; --mut:#66756f;
   --head:'Space Grotesk','Inter',system-ui,sans-serif;
   --radius:15px; --radius-sm:10px;
   --sh-sm:0 1px 2px rgba(15,23,42,.07),0 1px 1px rgba(15,23,42,.04);
   --sh:0 3px 12px rgba(15,23,42,.10),0 1px 3px rgba(15,23,42,.06);
   --sh-lg:0 20px 50px rgba(15,23,42,.20);
-  --ring:0 0 0 3px rgba(31,122,67,.16);
+  --ring:0 0 0 3px rgba(14,124,102,.16);
 }
 *{box-sizing:border-box}
 html,body{height:100%}
@@ -34,7 +34,7 @@ a{color:var(--blue);text-decoration:none}
 /* ---------- sidebar ---------- */
 .side{width:238px;background:var(--panel);border-right:1px solid var(--line);padding:14px 12px;flex-shrink:0;position:sticky;top:0;height:100vh;overflow:auto;display:flex;flex-direction:column}
 .brand{display:flex;align-items:center;gap:11px;padding:6px 8px 15px;border-bottom:1px solid var(--line2);margin-bottom:12px}
-.brand .logo{width:40px;height:40px;border-radius:11px;background:linear-gradient(135deg,var(--leaf),var(--navy));display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(31,122,67,.28)}
+.brand .logo{width:40px;height:40px;border-radius:11px;background:linear-gradient(135deg,var(--leaf),var(--navy));display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(14,124,102,.28)}
 .brand .nm{font-size:15.5px;font-weight:700;color:var(--txt);line-height:1.05;letter-spacing:-.02em;font-family:var(--head)}
 .brand .nm span{display:block;font-size:9px;font-weight:700;color:var(--mut);letter-spacing:1px;text-transform:uppercase;margin-top:4px}
 .nav{display:flex;flex-direction:column;gap:2px;flex:1}
@@ -55,9 +55,9 @@ a{color:var(--blue);text-decoration:none}
 .rolebox{margin-left:auto;display:flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--line);border-radius:9px;padding:4px 5px;box-shadow:var(--sh-sm)}
 .rolebox label{font-size:9.5px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px;font-weight:700}
 .rolebox .av{width:24px;height:24px;border-radius:7px;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-size:10.5px;font-weight:800}
-.helpbar{display:flex;align-items:center;gap:9px;padding:7px 24px;background:var(--navy-50);border-bottom:1px solid var(--navy-100);color:#155e32;font-size:12px;line-height:1.45;font-weight:500}
+.helpbar{display:flex;align-items:center;gap:9px;padding:7px 24px;background:var(--navy-50);border-bottom:1px solid var(--navy-100);color:var(--navy2);font-size:12px;line-height:1.45;font-weight:500}
 .helpbar:empty{display:none}
-.helpbar::before{content:'';flex-shrink:0;width:15px;height:15px;background:no-repeat center/contain url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231f7a43' stroke-width='2.1' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='10'/><line x1='12' y1='16' x2='12' y2='12'/><line x1='12' y1='8' x2='12.01' y2='8'/></svg>")}
+.helpbar::before{content:'';flex-shrink:0;width:15px;height:15px;background:no-repeat center/contain url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230e7c66' stroke-width='2.1' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='10'/><line x1='12' y1='16' x2='12' y2='12'/><line x1='12' y1='8' x2='12.01' y2='8'/></svg>")}
 .helpbar b{font-weight:700;color:var(--navy)}
 .wrap{padding:18px 24px;flex:1;max-width:1440px;margin:0 auto;width:100%}
 /* ---------- controls ---------- */
@@ -250,10 +250,10 @@ td.skufirst{padding-left:10px;box-shadow:inset 3px 0 0 var(--navy)}
 .prline .rmstk{font-size:10.5px;color:var(--mut);width:96px;text-align:right}
 .prline .x{cursor:pointer;color:var(--red);font-weight:700;width:20px;text-align:center}
 @media print{.side,.topbar,.helpbar,.seg,.filterbar,button{display:none!important}.wrap{padding:0;max-width:none}.card{box-shadow:none;break-inside:avoid}}
-.authscreen{position:fixed;inset:0;background:linear-gradient(160deg,#e7f3ea,#f6faf4);display:none;align-items:center;justify-content:center;z-index:200}
+.authscreen{position:fixed;inset:0;background:linear-gradient(160deg,#e3f2ee,#f6faf4);display:none;align-items:center;justify-content:center;z-index:200}
 .authcard{background:#fff;border:1px solid var(--line);border-radius:18px;box-shadow:var(--sh-lg);padding:30px 28px;width:360px;max-width:92vw}
 .authcard .lhdr{display:flex;align-items:center;gap:12px;margin-bottom:6px}
-.authcard .lmark{width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,var(--leaf),var(--navy));display:flex;align-items:center;justify-content:center;box-shadow:0 6px 16px rgba(31,122,67,.3)}
+.authcard .lmark{width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,var(--leaf),var(--navy));display:flex;align-items:center;justify-content:center;box-shadow:0 6px 16px rgba(14,124,102,.3)}
 .authcard .lsub{font-size:10px;color:var(--mut);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-top:3px}
 .authcard label{display:block;font-size:10.5px;color:var(--mut);text-transform:uppercase;letter-spacing:.4px;font-weight:700;margin:14px 0 5px}
 .authcard input{width:100%}
@@ -298,7 +298,7 @@ td.skufirst{padding-left:10px;box-shadow:inset 3px 0 0 var(--navy)}
 .tldot{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;background:#e8edf4;color:var(--mut)}
 .tldot.done{background:var(--green);color:#fff}.tldot.cur{background:var(--navy);color:#fff}.tldot.blk{background:var(--red);color:#fff}
 .tllbl{font-size:9.5px;color:var(--mut);text-align:center;font-weight:600;line-height:1.2}
-.wupd{background:var(--navy-50);border:1px solid var(--navy-100);border-radius:10px;padding:12px 15px;font-size:12px;line-height:1.8;color:#155e32}
+.wupd{background:var(--navy-50);border:1px solid var(--navy-100);border-radius:10px;padding:12px 15px;font-size:12px;line-height:1.8;color:#0a5d4d}
 .wupd b{color:var(--navy)}
 .navtoggle{background:#fff;border:1px solid var(--line);border-radius:9px;width:36px;height:36px;font-size:16px;color:var(--txt2);cursor:pointer;box-shadow:var(--sh-sm);padding:0;flex-shrink:0}
 .navtoggle:hover{background:var(--panel2)}
@@ -3678,8 +3678,8 @@ function drawDash(){
   const GRID='#e6ebf3'; Chart.defaults.color='#67748c'; Chart.defaults.font.size=10;
   Object.values(charts).forEach(c=>{try{c.destroy()}catch(e){}}); charts={};
   if($('chPR')) charts.pr=new Chart($('chPR'),{type:'bar',data:{labels:_dash.prLabels,datasets:[{label:'Open balance Kg/L',data:_dash.prBal,backgroundColor:'#e0392f',borderRadius:4}]},options:{indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{grid:{color:GRID}},y:{grid:{display:false},ticks:{font:{size:9}}}}}});
-  if($('chPVD')) charts.pvd=new Chart($('chPVD'),{type:'bar',data:{labels:_dash.pvdLabels,datasets:[{label:'Ordered',data:_dash.pvdOrd,backgroundColor:'#9fb0a6'},{label:'Produced',data:_dash.pvdProd,backgroundColor:'#1f7a43'},{label:'QC cleared',data:_dash.pvdQc,backgroundColor:'#0e9aa7'},{label:'Shipped',data:_dash.pvdShip,backgroundColor:'#74b53a'}]},options:{plugins:{legend:{position:'top',labels:{boxWidth:10,padding:6}}},scales:{y:{grid:{color:GRID}},x:{grid:{display:false},ticks:{font:{size:9}}}}}});
-  if($('chCyc')) charts.cyc=new Chart($('chCyc'),{type:'bar',data:{labels:_dash.cycLabels,datasets:[{label:'Avg days',data:_dash.cycVals,backgroundColor:_dash.cycVals.map(v=>v>15?'#c0392b':v>8?'#b07208':'#1f7a43'),borderRadius:4}]},options:{plugins:{legend:{display:false}},scales:{y:{grid:{color:GRID}},x:{grid:{display:false}}}}});
+  if($('chPVD')) charts.pvd=new Chart($('chPVD'),{type:'bar',data:{labels:_dash.pvdLabels,datasets:[{label:'Ordered',data:_dash.pvdOrd,backgroundColor:'#9fb0a6'},{label:'Produced',data:_dash.pvdProd,backgroundColor:'#0e7c66'},{label:'QC cleared',data:_dash.pvdQc,backgroundColor:'#0e9aa7'},{label:'Shipped',data:_dash.pvdShip,backgroundColor:'#3fa890'}]},options:{plugins:{legend:{position:'top',labels:{boxWidth:10,padding:6}}},scales:{y:{grid:{color:GRID}},x:{grid:{display:false},ticks:{font:{size:9}}}}}});
+  if($('chCyc')) charts.cyc=new Chart($('chCyc'),{type:'bar',data:{labels:_dash.cycLabels,datasets:[{label:'Avg days',data:_dash.cycVals,backgroundColor:_dash.cycVals.map(v=>v>15?'#c0392b':v>8?'#b07208':'#0e7c66'),borderRadius:4}]},options:{plugins:{legend:{display:false}},scales:{y:{grid:{color:GRID}},x:{grid:{display:false}}}}});
 }
 /* ===================== 8. AUDIT / ACTION LOG ===================== */
 /* ===================== MONTHLY PRODUCTION (Bulk + PO) ===================== */
@@ -3860,9 +3860,9 @@ function accessMatrixCard(){ const isCOO=state.role==='COO';
   const roles=((typeof SEED!=='undefined'&&SEED.roles)||[]).filter(r=>r!=='COO');
   const ids=NAV_ORDER.filter(id=>scr(id));
   const m=(state.masters&&state.masters.accessMatrix)||{};
-  const LV={none:['No access','#fbecec','#b03a2e'],view:['View','#eef2ec','#5f6b62'],edit:['Edit','#e7f3ea','#155e32']};
+  const LV={none:['No access','#fbecec','#b03a2e'],view:['View','#eef2ec','#5f6b62'],edit:['Edit','#e3f2ee','#0a5d4d']};
   const cell=(role,id)=>{ const x=LV[accessLevel(role,id)]; return `<span ${isCOO?`onclick="amxCycle('${role}','${id}')"`:''} title="${role} · ${scr(id).name}: ${x[0]}${isCOO?' — click to change':''}" style="display:inline-block;min-width:56px;text-align:center;border-radius:7px;font-size:10px;font-weight:700;padding:4px 8px;cursor:${isCOO?'pointer':'default'};background:${x[1]};color:${x[2]}">${x[0]}</span>`; };
-  return acard('amx','Access control matrix','role × screen · click to set',`<div class="muted" style="font-size:12px;margin-bottom:10px">Set each role's access per screen — <b style="color:#b03a2e">No access</b> · <b style="color:#5f6b62">View</b> · <b style="color:#155e32">Edit</b>. <b>Edit</b> grants everything on that screen (data entry, approvals &amp; sign-offs). <b>COO always has full access</b> and is the only one who can change this matrix. Click any cell to cycle its level; changes apply on the user's next screen change / refresh.</div>
+  return acard('amx','Access control matrix','role × screen · click to set',`<div class="muted" style="font-size:12px;margin-bottom:10px">Set each role's access per screen — <b style="color:#b03a2e">No access</b> · <b style="color:#5f6b62">View</b> · <b style="color:#0a5d4d">Edit</b>. <b>Edit</b> grants everything on that screen (data entry, approvals &amp; sign-offs). <b>COO always has full access</b> and is the only one who can change this matrix. Click any cell to cycle its level; changes apply on the user's next screen change / refresh.</div>
     <div style="overflow:auto"><table><thead><tr><th>Screen</th>${roles.map(r=>`<th style="font-size:10px;white-space:nowrap;text-align:center">${r}</th>`).join('')}</tr></thead><tbody>
     ${ids.map(id=>{const sc=scr(id);return `<tr><td style="white-space:nowrap"><b>${sc.name}</b></td>${roles.map(r=>`<td style="white-space:nowrap;text-align:center">${cell(r,id)}</td>`).join('')}</tr>`;}).join('')}
     </tbody></table></div>`); }
@@ -4096,7 +4096,7 @@ function rpExplorer(){
   return ctrl+table+chart;
 }
 function rpDrawChart(){ if(rpChart){try{rpChart.destroy()}catch(e){}} const cx=document.getElementById('rpCanvas'); if(!cx||!_rpLast.labels.length)return;
-  rpChart=new Chart(cx,{type:'bar',data:{labels:_rpLast.labels,datasets:[{data:_rpLast.data,backgroundColor:'#1f7a43',borderRadius:5}]},options:{plugins:{legend:{display:false}},responsive:true,maintainAspectRatio:false,scales:{x:{ticks:{font:{size:10}}},y:{ticks:{font:{size:10}}}}}}); }
+  rpChart=new Chart(cx,{type:'bar',data:{labels:_rpLast.labels,datasets:[{data:_rpLast.data,backgroundColor:'#0e7c66',borderRadius:5}]},options:{plugins:{legend:{display:false}},responsive:true,maintainAspectRatio:false,scales:{x:{ticks:{font:{size:10}}},y:{ticks:{font:{size:10}}}}}}); }
 
 /* ===== Trends engine — World Bank–style time-series (Line/Bar/Table · overlays · range · CSV) ===== */
 let trMetric='produced', trRange='12', trSplit='none', trView='line', trChart=null;
@@ -4109,7 +4109,7 @@ const TR_METRICS={
   qcpass:{label:'QC pass rate',unit:'%',kind:'ratio',src:'qc'}
 };
 const TR_SPLITS={none:'No split',channel:'By channel',client:'By client (top 5)',base:'By base product (top 5)'};
-const TR_COLORS=['#1f7a43','#74b53a','#0e9aa7','#b07208','#7a6cc0','#9fb0a6'];
+const TR_COLORS=['#0e7c66','#3fa890','#0e9aa7','#b07208','#7a6cc0','#9fb0a6'];
 function _orderByPo(po){ if(!po)return null; return (state.orders||[]).find(o=>o.po===po)||null; }
 function trEvents(metric){ const out=[]; const M=TR_METRICS[metric]; if(!M)return out;
   const dims=(po,brand,base)=>{ const o=_orderByPo(po); return {channel:(o&&o.channel)||'—',client:(o&&o.client)||(po?'—':'Bulk'),brand:brand||'',base:base||''}; };
@@ -4145,7 +4145,7 @@ function trFmtVal(v,unit){ if(v==null)return '—'; if(unit==='%')return (Math.r
 function _trDeltaTxt(S){ if(S.delta==null)return ''; return S.deltaAbs?((S.delta>=0?'+':'')+(Math.round(S.delta*10)/10)+' pts'):((S.delta>=0?'▲ ':'▼ ')+Math.abs(S.delta)+'%'); }
 function rpTrends(){ const S=trSeries(); const M=TR_METRICS[trMetric];
   const scope=(rpfChannel||rpfClient||rpfMonth||rpfPriority)?'filtered selection':'all data';
-  const dCol=S.delta==null?'var(--mut)':(S.delta>=0?'#155e32':'#c0392b'); const dBg=S.delta==null?'var(--panel2)':(S.delta>=0?'#e7f3ea':'#fbecec'); const dTxt=_trDeltaTxt(S);
+  const dCol=S.delta==null?'var(--mut)':(S.delta>=0?'#0a5d4d':'#c0392b'); const dBg=S.delta==null?'var(--panel2)':(S.delta>=0?'#e3f2ee':'#fbecec'); const dTxt=_trDeltaTxt(S);
   const seg=(v,lb)=>`<span onclick="trView='${v}';screenReports()" style="padding:7px 14px;font-size:12.5px;border-radius:9px;cursor:pointer;font-weight:600;border:1px solid var(--line);${v===trView?'background:var(--navy);color:#fff;border-color:var(--navy)':'background:#fff;color:var(--mut)'}">${lb}</span>`;
   const ctrl=`<div class="card" style="padding:14px 16px"><div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
     <div class="fld" style="min-width:190px"><label>Metric</label><select onchange="trMetric=this.value;screenReports()">${Object.entries(TR_METRICS).map(([k,v])=>`<option value="${k}" ${k===trMetric?'selected':''}>${v.label} (${v.unit})</option>`).join('')}</select></div>
@@ -4171,7 +4171,7 @@ function trDrawChart(){ if(trChart){try{trChart.destroy()}catch(e){}} if(trView=
   const S=trSeries(); const multi=S.datasets.length>1;
   const ds=S.datasets.map((d,i)=>{ const c=TR_COLORS[i%TR_COLORS.length]; return (trView==='bar')
     ? {label:d.label,data:d.data,backgroundColor:c,borderRadius:4}
-    : {label:d.label,data:d.data,borderColor:c,backgroundColor:(multi?'transparent':'rgba(31,122,67,.09)'),fill:!multi,tension:.3,borderWidth:2.4,spanGaps:true,pointRadius:(S.labels.length>14?0:3),pointBackgroundColor:c}; });
+    : {label:d.label,data:d.data,borderColor:c,backgroundColor:(multi?'transparent':'rgba(14,124,102,.09)'),fill:!multi,tension:.3,borderWidth:2.4,spanGaps:true,pointRadius:(S.labels.length>14?0:3),pointBackgroundColor:c}; });
   trChart=new Chart(cx,{type:(trView==='bar'?'bar':'line'),data:{labels:S.labels,datasets:ds},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{display:multi,position:'top',labels:{boxWidth:10,padding:8,font:{size:11}}},tooltip:{callbacks:{label:c=>(c.dataset.label||'')+': '+trFmtVal(c.parsed.y,S.unit)}}},scales:{x:{grid:{display:false},ticks:{font:{size:10},maxRotation:0,autoSkip:true,maxTicksLimit:14}},y:{beginAtZero:true,grid:{color:'rgba(20,40,30,.07)'},ticks:{font:{size:10},callback:v=>S.unit==='%'?v+'%':(Math.abs(v)>=1000?(v/1000)+'k':v)}}}}}); }
 function trCSV(){ const S=trSeries(); const multi=S.datasets.length>1;
   const rows=[['Month'].concat(S.datasets.map(d=>d.label)).concat(multi?['Total']:[])];
@@ -4182,8 +4182,8 @@ function _spark(data,col){ const v=data.filter(x=>x!=null); if(v.length<2)return
   const pts=data.map((d,i)=>{ const x=2+i*(116/(n-1||1)); const y=(d==null)?26:(26-((d-mn)/rng)*22); return x.toFixed(1)+','+y.toFixed(1); }).join(' ');
   return `<svg viewBox="0 0 120 28" style="width:100%;height:26px" aria-hidden="true"><polyline points="${pts}" fill="none" stroke="${col}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`; }
 function dashTrendStrip(){ const metrics=[['produced','Produced'],['shipped','Shipped'],['delivered','Delivered'],['pos','POs'],['qcpass','QC pass']];
-  const cells=metrics.map(([mt,lbl])=>{ const S=trSeries(mt,'6','none'); const col=(mt==='qcpass')?'#0e9aa7':'#1f7a43'; const dl=S.delta;
-    const dchip=dl==null?'':`<span style="font-size:10.5px;font-weight:700;color:${dl>=0?'#155e32':'#c0392b'}">${S.deltaAbs?((dl>=0?'+':'')+(Math.round(dl*10)/10)+'pts'):((dl>=0?'▲':'▼')+Math.abs(dl)+'%')}</span>`;
+  const cells=metrics.map(([mt,lbl])=>{ const S=trSeries(mt,'6','none'); const col=(mt==='qcpass')?'#0e9aa7':'#0e7c66'; const dl=S.delta;
+    const dchip=dl==null?'':`<span style="font-size:10.5px;font-weight:700;color:${dl>=0?'#0a5d4d':'#c0392b'}">${S.deltaAbs?((dl>=0?'+':'')+(Math.round(dl*10)/10)+'pts'):((dl>=0?'▲':'▼')+Math.abs(dl)+'%')}</span>`;
     return `<div class="card clk" style="margin:0;padding:12px 14px" onclick="gotoScreen('reports')" title="Open in Reports → Trends"><div class="muted" style="font-size:11px">${lbl}</div><div style="display:flex;align-items:baseline;gap:7px;margin:2px 0 6px"><span style="font-family:var(--head);font-size:20px;font-weight:600">${trFmtVal(S.latest,S.unit)}</span><span class="muted" style="font-size:10px">${S.unit}</span>${dchip}</div>${_spark(S.datasets[0].data,col)}</div>`; }).join('');
   return `<div style="margin-bottom:14px"><div class="sec" style="margin-top:6px">Trends · last 6 months <span class="hint" style="font-weight:500;font-family:inherit">tap a metric to explore</span></div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px">${cells}</div></div>`; }
 

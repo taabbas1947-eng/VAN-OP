@@ -18,6 +18,12 @@ Tab-by-tab audit, Action Center first. **Audit result: logic, rules and accuracy
 
 ---
 
+## 0d) READY TO PUSH — 2026-06-18 · App-wide color scheme: Teal & Charcoal (CSS-only; no logic/data; NOT yet pushed)
+
+Whole-app reskin via the `:root` CSS variables (primary `--navy`/`--green`/`--teal` → teal `#0e7c66`; `--blue` accent → `#2563eb`; charcoal text `--txt #1a2420`; cool neutral surfaces/lines; amber/red status kept). Swept all hardcoded old-green literals app-wide (`1f7a43`, `155e32`, `74b53a`, `e7f3ea`, `rgba(31,122,67…)`) so every screen reskins consistently — incl. helpbar, brand logo, SVG icon strokes, focus ring. Chosen as "best" for a modern, agri-appropriate, professional look. One-variable system, trivial to swap. **NEXT (in progress): full sidebar/nav refinement** — group 14 items into Work/Operations/Insights/Setup, active pill + count badge, collapsible rail, breadcrumb top bar, user dropdown, ⌘K jump-to search, Admin flyout (display-only).
+
+---
+
 ## 0c) PO Tracker redesign — 2026-06-18 (code-only; no data/flow/rules/master change). v1 SHIPPED; v2 refinements PENDING PUSH.
 
 Full redesign of `screenTracker`/`orderCard` + new CSS. Decision (Tahir): **at-risk pinned on top, then newest first.** All display-only — drawer stays read-only, Matrix view preserved, chip counts unchanged, no data touched.

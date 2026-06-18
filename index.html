@@ -779,7 +779,7 @@ function authHdr(){ return _token ? {'Authorization':'Bearer '+_token} : {}; }
 function decodeToken(t){ try{ if(!t)return null; const p=t.split('.')[0]; const o=JSON.parse(atob(p.replace(/-/g,'+').replace(/_/g,'/'))); if(!o.exp||o.exp<Date.now())return null; return {name:o.n,username:o.u,role:o.r}; }catch(e){ return null; } }
 function setSession(token,user){ _token=token||''; try{ token?localStorage.setItem('van_token',token):localStorage.removeItem('van_token'); }catch(e){} if(typeof state!=='undefined'&&state){ state.currentUser=user||null; if(user) state.role=user.role; } }
 function restoreSession(){ const u=decodeToken(_token); if(u){ state.currentUser=u; state.role=u.role; } }
-let _rev=0,_saveTimer=null,_syncOn=false;
+let _rev=0,_saveTimer=null,_syncOn=false,_savePending=false;
 async function bootState(){
   if(!decodeToken(_token)){ _token=''; try{localStorage.removeItem('van_token');}catch(e){} renderApp(); startSync(); return; }
   let resp=null, ok=false, status=0;
@@ -817,7 +817,7 @@ function merge3(base, local, srv){
   }
   return _eq(local, base) ? srv : local;   // leaf: we changed it → ours; else take theirs
 }
-function save(){ if(_saveTimer)clearTimeout(_saveTimer); _saveTimer=setTimeout(saveNow,400); }
+function save(){ _savePending=true; if(_saveTimer)clearTimeout(_saveTimer); _saveTimer=setTimeout(saveNow,400); }  // _savePending set synchronously so the auto-refresh can't pull over an unsaved change
 async function saveNow(){ if(!_token) return; try{
     const r=await fetch('/api/state',{method:'POST',headers:Object.assign({'Content-Type':'application/json','X-Base-Rev':String(_rev)},authHdr()),body:JSON.stringify(dataOnly(state))});
     if(r.status===401){ setSession('',null); renderApp(); return; }
@@ -839,7 +839,7 @@ async function saveNow(){ if(!_token) return; try{
       toast('Refreshed — please re-check your last change.');
       return;
     }
-    if(r.ok){ const j=await r.json(); if(j&&typeof j.rev==='number') _rev=j.rev; _saveRetries=0; _snapBase(); }
+    if(r.ok){ const j=await r.json(); if(j&&typeof j.rev==='number') _rev=j.rev; _saveRetries=0; _savePending=false; _snapBase(); }
   }catch(e){} }
 function hasUnsavedEntry(){ try{ const v=document.getElementById('view'); if(!v) return false;
   const els=v.querySelectorAll('input,textarea,select');
@@ -855,11 +855,15 @@ function startSync(){ if(_syncOn)return; _syncOn=true; setInterval(async ()=>{
   const ae=document.activeElement; if(ae && /^(INPUT|SELECT|TEXTAREA)$/.test(ae.tagName)) return;
   if(($('modalBg')&&$('modalBg').classList.contains('open'))||($('drawerBg')&&$('drawerBg').classList.contains('open'))) return;
   if(hasUnsavedEntry()) return; // don't re-render over the user's in-progress data entry
+  if(_savePending) return;      // a local change is still being saved — pulling now would overwrite it before it lands
   try{ const r=await fetch('/api/state',{cache:'no-store',headers:authHdr()}); if(r.status===401){ setSession('',null); renderApp(); return; } if(!r.ok) return; const j=await r.json();
     if(typeof j.rev==='number' && j.rev!==_rev && j.data && j.data.orders){
       const cu=state.currentUser, sc=state.screen, ro=state.role, ex=state.expanded;
-      state=ensureState(j.data); state.currentUser=cu; state.role=ro; state.screen=sc; state.expanded=ex||{};
-      _rev=j.rev; if(authed()) render();
+      // MERGE the server's changes into local (3-way, same as the save-conflict path) rather than a blind
+      // replace — so a not-yet-saved local order/edit can never be clobbered by the background refresh.
+      const base=_baseSnapshot||dataOnly(state);
+      state=ensureState(merge3(base, dataOnly(state), j.data)); state.currentUser=cu; state.role=ro; state.screen=sc; state.expanded=ex||{};
+      _rev=j.rev; _snapBase(); if(authed()) render();
     }
   }catch(e){}
 }, 7000); }

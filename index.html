@@ -2596,6 +2596,7 @@ function rmAllows(l){
 }
 function ackOrder(oid){ const o=state.orders.find(x=>x.id===oid); if(!o)return; o.acknowledged=true; o.ackDate=TODAY.toISOString().slice(0,10); o.ackBy=state.role; logAction(`PO ${o.po} acknowledged by ${state.role}`); save(); toast('Acknowledged'); render(); }
 function gotoScreen(sc){ state.screen=sc; render(); }
+function gotoProduce(oid){ prodMode='po'; prodPOsel=oid||''; state.screen='prod'; render(); }  // deep-link: focus this PO in Production (user then picks the brand) — display/nav only
 function cfoApprovePR(prId){ if(!canEdit(['CFO'])){toast('Not allowed — needs CFO or a matrix Edit grant');return;} const p=(state.prs||[]).find(x=>x.id===prId); if(!p)return; p.cfoApproved=TODAY.toISOString().slice(0,10); logAction(`CFO approved PR ${p.id} — ${p.rm} ${fmt(p.qtyRequired)} Kg/L`); save(); toast('PR approved'); render(); }
 function raisePR(rm, qty){ if(!rm||!(qty>0))return; state.prs=state.prs||[]; const open=state.prs.find(p=>p.rm===rm&&p.status==='open');
   if(open){ open.qtyRequired+=qty; logAction(`PR (open) for ${rm}: +${fmt(qty)} Kg/L attached — required now ${fmt(open.qtyRequired)}`); }
@@ -2647,11 +2648,15 @@ function actionItems(){
       if(lb==='Delivered') return;
       if(o.acknowledged && (!l.rmStatus||l.rmStatus==='pending')) items.push({role:'Supply Chain',o,l,what:'RM Check \u2014 '+o.po+' \u00b7 '+l.brand,act:`openRMCheck('${o.id}','${l.id}')`,label:'RM Check'});
       if(l.prRaised && !l.rmReady && l.rmStatus!=='received') items.push({role:'Supply Chain',o,l,what:'Receive raw materials (GRN, partial OK)',act:`openReceiveMaterials('${o.id}','${l.id}')`,label:'Receive'});
-      if(rmAllows(l)>0 && (l.produced||0) < Math.min(l.ordered, rmAllows(l))-0.5) items.push({role:'Production',o,l,what:'Produce '+l.brand+' \u2014 '+o.po,act:"gotoScreen('prod')",label:'Open Production'});
+      if(rmAllows(l)>0 && (l.produced||0) < Math.min(l.ordered, rmAllows(l))-0.5) items.push({role:'Production',o,l,what:'Produce '+l.brand+' \u2014 '+o.po,act:`gotoProduce('${o.id}')`,label:'Open Production'});
       if(lineToInspect(o,l)>0.5) items.push({role:'QA Inspector',o,l,what:'Inspect packed '+l.brand+' \u2014 '+o.po,act:`openPackInspect('${o.id}','${l.id}')`,label:'Pack QC'});  // packed & batch-numbered, awaiting pre-ship inspection \u2014 was only on the QC screen
-      if(lineCleared(o,l)>0.5) items.push({role:'Supply Chain',o,l,what:'Ship '+l.brand+' \u2014 '+o.po,act:`openDispatch('${o.id}')`,label:'Ship'});
       { const _pl=pmDelayLabel(o,l,lb); if(_pl) items.push({role:'Plant Manager',o,l,what:_pl+' \u2014 add delay reason ('+l.brand+')',act:`openDelayReason('${o.id}','${l.id}')`,label:'Add reason'}); }
     });
+    { /* Ship: ONE row per PO. openDispatch is whole-PO (tick the products on the truck), so a per-line Ship just repeated the same button N times. Brand list kept in the description; aging spans all cleared lots. */
+      const _clr=(o.lines||[]).filter(l=>lineBucket(o,l)!=='Delivered' && lineCleared(o,l)>0.5);
+      if(_clr.length){ const _brs=_clr.map(l=>l.brand); const _desc=(_brs.length===1)?('Ship '+_brs[0]+' \u2014 '+o.po):('Ship '+_brs.length+' products \u2014 '+o.po+' ('+_brs.join(', ')+')');
+        items.push({role:'Supply Chain',o,shipLines:_clr,what:_desc,act:`openDispatch('${o.id}')`,label:'Ship'}); }
+    }
   });
   (state.prs||[]).filter(p=>p.status==='open'&&!p.cfoApproved).forEach(p=>items.push({role:'CFO',pr:p,what:'Approve PR — '+p.rm+' '+fmt(p.qtyRequired)+' Kg/L',act:"cfoApprovePR('"+p.id+"')",label:'Approve PR'}));
   (state.batches||[]).filter(b=>(b.producedKg||0)>0).forEach(b=>{ const it=coaItemOf(b); const units=(b.lots||[]).length?(b.lots).map(l=>({id:l.id,no:(l.lotNo||b.batchNo||''),coa:l.coa})):[{id:'',no:(b.batchNo||''),coa:b.coa}];
@@ -2660,7 +2665,7 @@ function actionItems(){
       else if(st==='analysed') items.push({role:'AQCM',batch:b,what:'Review COA — '+it+' '+tag,act:call,label:'Review'});
       else if(st==='reviewed') items.push({role:'QCM',batch:b,what:'Approve COA — '+it+' '+tag,act:call,label:'Approve'});
       else if(st==='failed') items.push({role:'Plant Manager',batch:b,what:'UNFIT lot — '+it+' '+tag,act:call,label:'Review'}); }); });
-  dispatchGroups().filter(g=>g.dispId&&g.qa==='pending').forEach(g=>items.push({role:'QA Inspector',what:'Pre-shipment inspection — '+g.po+' ('+g.rows.length+' product(s), '+fmt(g.kg)+' Kg/L)',act:"openDispatchQA('"+g.dispId+"')",label:'Inspect'}));
+  dispatchGroups().filter(g=>g.dispId&&g.qa==='pending').forEach(g=>items.push({role:'QA Inspector',what:'Pre-shipment inspection — '+g.po+' ('+g.rows.length+' product(s), '+fmt(g.kg)+' Kg/L)',act:"openDispatchQA('"+g.dispId+"')",label:'Inspect',disp:g}));
   (state.packingLog||[]).filter(p=>p&&p.qa&&p.qa.fail).forEach(p=>items.push({role:'Supply Chain',lot:p,what:'QA failed lot — correct & resubmit ('+p.brand+')',act:"lotQACorrect('"+p.id+"')",label:'Correct'}));
   return items;
 }
@@ -2692,7 +2697,7 @@ function actTiming(it){
       case 'RM Check': c=it.o.ackDate||it.o.received; approx=!it.o.ackDate; break;
       case 'Receive': c=l.prRaised||it.o.received; approx=!l.prRaised; break;
       case 'Open Production': c=l.rmReady||l.prRaised||it.o.received; approx=!l.rmReady; break;
-      case 'Ship': { var _sw=shipReadySince(it.o,l); if(_sw){ c=_sw; approx=false; } else { c=l.qcPass||it.o.received; approx=!l.qcPass; } break; }
+      case 'Ship': { var _ls=it.shipLines||(it.l?[it.l]:[]); var _ds=_ls.map(function(x){return shipReadySince(it.o,x);}).filter(Boolean); if(_ds.length){ _ds.sort(); c=_ds[0]; approx=false; } else { c=(it.l&&it.l.qcPass)||it.o.received; approx=!(it.l&&it.l.qcPass); } break; }
       case 'Pack QC': { var _pd=lotsFor(it.o,l).filter(function(p){return lotAvail(p)>0.5;}).map(function(p){return p.date||p.mfgDate;}).filter(Boolean).sort(); if(_pd.length){ c=_pd[_pd.length-1]; approx=false; } else { c=it.o.received; approx=true; } break; }
       case 'Add reason': c=l.committed||it.o.promised||it.o.received; approx=true; break;
       default: c=it.o.received; approx=true;
@@ -2700,6 +2705,7 @@ function actTiming(it){
   } else if(it.pr){ c=it.pr.date; }
   else if(it.batch){ c=it.batch.closedDate||it.batch.openedDate||it.batch.date||null; approx=(it.label!=='Lab QC'); }
   else if(it.lot){ c=(it.lot.qa&&it.lot.qa.date)||it.lot.date||null; }
+  else if(it.disp){ c=it.disp.date||null; }
   var days=null;
   if(c){ var t=new Date(c); if(!isNaN(t)){ days=Math.round((TODAY-t)/86400000); if(days<0)days=0; } else c=null; }
   if(!c) approx=true;

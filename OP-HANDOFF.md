@@ -26,6 +26,7 @@ Tab-by-tab audit, Action Center first. **Audit result: logic, rules and accuracy
 - **User dropdown** — `#rolebox` is now a native `<details class="usermenu">` avatar menu (name/role + Sign out); no extra JS, closes naturally.
 - **Breadcrumb** — topbar subtitle now shows "Group · screen sub" (`groupOf(s.id)` in `render`).
 - **Collapse** — kept existing `toggleSide()` (hamburger hides the sidebar on desktop).
+- **Compacting pass (post first-look):** denser sidebar (rows 5px pad, 16px icons, 32px logo, 220px width, tighter group headers); search trigger rebuilt to a single non-wrapping line (magnifier + "Search…" + Ctrl K chip); top bar compacted (title 16px/700, padding 7px 18px, 32px toggle, slimmer helpbar) + `.wrap` 16px 20px — consistent modern shell.
 - **DEFERRED (noted, not built):** (a) Admin *flyout* — the Admin screen is one monolithic page, so a flyout can't deep-link into sub-cards; low value, skipped to avoid risk. (b) icon-rail collapse — current collapse hides the sidebar rather than shrinking to an icon rail.
 - New CSS: `.navgrp`, `.nlbl`, `.navct`, `.usermenu*`, `.navsearch`, `.cmdk*`. New globals: `NAV_GROUPS`, `window._cmdkBound/_cmdkSel`.
 - **Verified:** `node --check` clean on the shell script block; real `index.html` intact (4415 lines, 5/5 script tags, proper end). No data/flow/rules/master change.

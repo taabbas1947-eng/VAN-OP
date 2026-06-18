@@ -2648,6 +2648,7 @@ function actionItems(){
       if(o.acknowledged && (!l.rmStatus||l.rmStatus==='pending')) items.push({role:'Supply Chain',o,l,what:'RM Check \u2014 '+o.po+' \u00b7 '+l.brand,act:`openRMCheck('${o.id}','${l.id}')`,label:'RM Check'});
       if(l.prRaised && !l.rmReady && l.rmStatus!=='received') items.push({role:'Supply Chain',o,l,what:'Receive raw materials (GRN, partial OK)',act:`openReceiveMaterials('${o.id}','${l.id}')`,label:'Receive'});
       if(rmAllows(l)>0 && (l.produced||0) < Math.min(l.ordered, rmAllows(l))-0.5) items.push({role:'Production',o,l,what:'Produce '+l.brand+' \u2014 '+o.po,act:"gotoScreen('prod')",label:'Open Production'});
+      if(lineToInspect(o,l)>0.5) items.push({role:'QA Inspector',o,l,what:'Inspect packed '+l.brand+' \u2014 '+o.po,act:`openPackInspect('${o.id}','${l.id}')`,label:'Pack QC'});  // packed & batch-numbered, awaiting pre-ship inspection \u2014 was only on the QC screen
       if(lineCleared(o,l)>0.5) items.push({role:'Supply Chain',o,l,what:'Ship '+l.brand+' \u2014 '+o.po,act:`openDispatch('${o.id}')`,label:'Ship'});
       { const _pl=pmDelayLabel(o,l,lb); if(_pl) items.push({role:'Plant Manager',o,l,what:_pl+' \u2014 add delay reason ('+l.brand+')',act:`openDelayReason('${o.id}','${l.id}')`,label:'Add reason'}); }
     });
@@ -2673,14 +2674,15 @@ var ACT_META={
  'Ship':{c:'--green2',s:'Ship'}, 'Add reason':{c:'--red',s:'Delay'},
  'Approve PR':{c:'--navy',s:'Approve PR'}, 'Lab QC':{c:'--purple',s:'Lab QC'},
  'Review':{c:'--purple',s:'Review'}, 'Approve':{c:'--navy',s:'Approve'},
- 'Inspect':{c:'--amber',s:'QA Inspect'}, 'Correct':{c:'--red',s:'QA Fix'}
+ 'Inspect':{c:'--amber',s:'QA Inspect'}, 'Correct':{c:'--red',s:'QA Fix'}, 'Pack QC':{c:'--amber',s:'Pack QC'}
 };
 var actFilter='all';
 function _fmtShort(d){ if(!d)return''; var t=new Date(d); if(isNaN(t))return''; return t.toLocaleDateString('en-GB',{day:'numeric',month:'short'}); }
 function actOverdue(it){ return it.o?isOverdue(it.o):false; }
-/* latest date this line's material was actually packed (po + brand) = the real "ready to ship" moment.
-   Read-only lookup; returns null if nothing packed yet (caller then keeps the existing fallback). */
-function lastPackDate(o,l){ var ds=(state.packingLog||[]).filter(function(p){ return p&&p.po===o.po&&p.brand===l.brand&&p.date; }).map(function(p){ return p.date; }); if(!ds.length) return null; ds.sort(); return ds[ds.length-1]; }
+/* "waiting to ship since" = the OLDEST QC-cleared, not-yet-shipped lot for this line (po + brand).
+   That's the truest age of what's actually still waiting, not the most recent packing. Read-only;
+   returns null if nothing is cleared-and-unshipped (caller then keeps the existing fallback). */
+function shipReadySince(o,l){ var ds=lotsFor(o,l).filter(function(p){ return lotClearedKg(p)>0.5; }).map(function(p){ return p.date||p.mfgDate; }).filter(Boolean); if(!ds.length) return null; ds.sort(); return ds[0]; }
 /* created = when the action became actionable, from existing dates; null -> approx */
 function actTiming(it){
   var c=null, approx=false;
@@ -2690,7 +2692,8 @@ function actTiming(it){
       case 'RM Check': c=it.o.ackDate||it.o.received; approx=!it.o.ackDate; break;
       case 'Receive': c=l.prRaised||it.o.received; approx=!l.prRaised; break;
       case 'Open Production': c=l.rmReady||l.prRaised||it.o.received; approx=!l.rmReady; break;
-      case 'Ship': { var _pk=lastPackDate(it.o,l); if(_pk){ c=_pk; approx=false; } else { c=l.qcPass||it.o.received; approx=!l.qcPass; } break; }
+      case 'Ship': { var _sw=shipReadySince(it.o,l); if(_sw){ c=_sw; approx=false; } else { c=l.qcPass||it.o.received; approx=!l.qcPass; } break; }
+      case 'Pack QC': { var _pd=lotsFor(it.o,l).filter(function(p){return lotAvail(p)>0.5;}).map(function(p){return p.date||p.mfgDate;}).filter(Boolean).sort(); if(_pd.length){ c=_pd[_pd.length-1]; approx=false; } else { c=it.o.received; approx=true; } break; }
       case 'Add reason': c=l.committed||it.o.promised||it.o.received; approx=true; break;
       default: c=it.o.received; approx=true;
     }
@@ -2731,7 +2734,9 @@ function screenApprovals(){
   let body;
   if(!mine.length){ body=`<div class="card"><div class="empty"><div class="ei">✓</div>Nothing waiting on you right now.</div></div>`; }
   else if(isCOO){
-    const roles=['Supply Chain','CFO','Production','Lab Rep','AQCM','QCM','QA Inspector','Plant Manager'];
+    const _pref=['Supply Chain','CFO','Production','Lab Rep','AQCM','QCM','QA Inspector','Plant Manager'];
+    const _present=[...new Set(all.map(x=>x.role))];
+    const roles=_pref.filter(r=>_present.indexOf(r)>-1).concat(_present.filter(r=>_pref.indexOf(r)<0));  // never drop an action whose role isn't in the preferred list
     body=roles.map(r=>{const g=all.filter(x=>x.role===r); return g.length?acard('act_'+r,r,`${g.length}`,`<div class="aclist">${actSort(g).map(actCard).join('')}</div>`):'';}).join('');
   } else {
     const over=mine.filter(actOverdue).length, old=mine.filter(x=>!actOverdue(x)&&(actTiming(x).days||0)>=7).length;

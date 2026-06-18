@@ -1,8 +1,20 @@
 # VAN Order Control Tower — OP Handoff
 
-_Updated: 2026-06-18 · COO: Tahir · Single code file: `index.html` (4302 lines, vanilla JS). Backend: `server.js` (Node/Express + Postgres, one `app_state` JSON blob + rev counter). Deploys never touch the DB. Pushes go via GitHub Desktop (Claude cannot push). Render auto-deploys on push; rollback restores prior code only, never the DB._
+_Updated: 2026-06-18 · COO: Tahir · Single code file: `index.html` (4308 lines, vanilla JS). Backend: `server.js` (Node/Express + Postgres, one `app_state` JSON blob + rev counter). Deploys never touch the DB. Pushes go via GitHub Desktop (Claude cannot push). Render auto-deploys on push; rollback restores prior code only, never the DB._
 
-> **STATUS — 2026-06-18:** Local `index.html` = GitHub `origin/main` = live deploy, commit `343b7bb` (18 Jun 14:57), **0 ahead / 0 behind, nothing pending**. Every item in §0 and §1 below was verified **present in the live code** and, for data migrations, recorded **done in the live DB** (`_purgeImpV1`, `_purgeImpDupV1`, `_purgeImpNoTwinV1`, `_fixVU26134L2V1` all `true` in the 18 Jun snapshot). The old "READY TO PUSH / NOT pushed" labels in §0 and §1 were stale notes — those edits **are already shipped and live**. Sections §0 and §1 are kept below as a record of what shipped, relabelled accordingly.
+> **STATUS — 2026-06-18:** §0 and §1 are **shipped & live** (commit `343b7bb`); the handoff-wording cleanup is pushed (`68ae33f`). **PENDING PUSH:** §0a Action Center display fixes — `index.html` has uncommitted code-only changes (no data/flow), `node --check`-verified, waiting for Tahir to commit + push via GitHub Desktop. Live DB unaffected. Data-migration flags `_purgeImpV1`, `_purgeImpDupV1`, `_purgeImpNoTwinV1`, `_fixVU26134L2V1` all `true` in the 18 Jun snapshot. The old "READY TO PUSH / NOT pushed" labels in §0 and §1 were stale notes — those edits are already shipped and live.
+
+---
+
+## 0a) READY TO PUSH — 2026-06-18 · Action Center (My Actions) audit + display fixes (code-only; no data/flow/rules/master change; NOT yet pushed)
+
+Tab-by-tab audit, Action Center first. **Audit result: logic, rules and accuracy are sound** — replicated every action trigger against the 18-Jun snapshot: **0 stale RM-Check rows** (none on already-produced/packed lines) and **0 false Produce rows** (none where the brand is already fully packed). `Acknowledge` correctly once-per-PO; `shipReadySince` dating, COO role-union view, and urgency-first sort all good. Three display-only improvements made (all in `actionItems`/`actTiming`, read-only — no writes, no flow/ownership/master change):
+
+1. **`Open Production` now deep-links.** New helper `gotoProduce(oid)` (sets `prodMode='po'`, `prodPOsel=oid`, opens Production) replaces the generic `gotoScreen('prod')`. Clicking a Produce row now lands on that PO ready to pick the brand — and it now behaves like every other action (which all open a targeted modal/screen). Per-brand rows kept by design (still 47 rows — you see each brand needing production), only the button changed.
+2. **`Ship` consolidated to ONE row per PO.** `openDispatch(oid)` is whole-PO (tick products on the truck), so the old per-line Ship repeated the same button (e.g. `22032` showed 3 identical Ship buttons). Now emitted once per PO after the lines loop: **8 line-rows → 6 PO-rows**; brand list kept in the description (`Ship N products (a, b, c)`), and the age spans all cleared lots via `shipLines` (e.g. `22032` = 7d since 11 Jun). `actTiming` Ship case updated to aggregate `shipLines` (back-compatible with a single `it.l`).
+3. **Pre-shipment `Inspect` rows now carry a date/age.** Dispatch group passed through as `disp:g`; new `actTiming` branch `else if(it.disp) c=it.disp.date` so the card shows "since / Nd pending" (was blank). 0 pending in the current snapshot, so nothing to show yet, but it will populate when an inspection is queued.
+
+**Verification:** full main `<script>` block reconstructed and `node --check`-clean **with** all edits; isolation run of the exact edited functions against the live snapshot passed (0 Ship rows missing a date, 0 Inspect rows missing a date, 0 Produce buttons not deep-linked, Ship 8→6, Produce unchanged at 47). Real `index.html` intact at 4308 lines, 5/5 script tags, proper end. **Cosmetic left alone:** render fn is still named `screenApprovals` for the "My Actions" screen (internal only; renaming risks the screen router for no user benefit).
 
 ---
 

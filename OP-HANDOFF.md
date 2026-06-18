@@ -18,9 +18,11 @@ Tab-by-tab audit, Action Center first. **Audit result: logic, rules and accuracy
 
 ---
 
-## 0c) READY TO PUSH — 2026-06-18 · PO Tracker redesign (code-only; no data/flow/rules/master change; NOT yet pushed)
+## 0c) PO Tracker redesign — 2026-06-18 (code-only; no data/flow/rules/master change). v1 SHIPPED; v2 refinements PENDING PUSH.
 
 Full redesign of `screenTracker`/`orderCard` + new CSS. Decision (Tahir): **at-risk pinned on top, then newest first.** All display-only — drawer stays read-only, Matrix view preserved, chip counts unchanged, no data touched.
+
+**v2 refinements (pending push, after Tahir's first-look review):** (a) **removed the decision-strip metric cards** — they duplicated the filter chips (same Overdue/Stalled/Ready counts) and wasted vertical space; the clickable chips serve both roles now. (b) **List/Matrix toggle moved to top-left**, first in the controls bar (was hidden far-right). (c) **Sort control labelled** "Sort"; chips = filters ("All" = no filter, default), dropdown = ordering. (d) **Pinned section = OVERDUE only** (`isOverdue`), not overdue+stalled — pinning all 16 stalled left "Active" with just 2; now 2 pinned / 18 newest-first, with stalled shown amber inline. Note: the mockup shown in chat used Claude's palette for illustration; the live screen keeps VAN's own colours by design.
 
 - **Compact one-line rows on a fixed CSS grid** (new `.tk*` classes) — fixes the column "slipping"/misalignment; far denser than the old `.t2row`.
 - **Decision strip** (metric cards): Overdue / Stalled 7d+ / Ready to ship / New today.

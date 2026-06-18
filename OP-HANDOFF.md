@@ -18,6 +18,22 @@ Tab-by-tab audit, Action Center first. **Audit result: logic, rules and accuracy
 
 ---
 
+## 0e) READY TO PUSH — 2026-06-18 · Sidebar / shell nav refinement (code-only display; no logic/data/flow; NOT yet pushed)
+
+- **Grouped sidebar** — `renderNav` rewritten to render `NAV_GROUPS` (Work / Operations / Insights / Setup & admin / Guide) with section headers, replacing the flat 14-item list. Active pill kept.
+- **My Actions live count badge** (`navBadge` → `actionItems()` filtered to role; COO sees all).
+- **⌘K / Ctrl+K command palette** + a sidebar "Search PO or screen" trigger (`openCmdK`/`cmdkItems`/`cmdkRender`/`cmdkKey`, overlay `#cmdk`). Jumps to any screen, or any PO (PO match routes to Tracker pre-filtered by that PO#). Arrow keys + Enter + Esc. Keydown bound once via `window._cmdkBound`.
+- **User dropdown** — `#rolebox` is now a native `<details class="usermenu">` avatar menu (name/role + Sign out); no extra JS, closes naturally.
+- **Breadcrumb** — topbar subtitle now shows "Group · screen sub" (`groupOf(s.id)` in `render`).
+- **Collapse** — kept existing `toggleSide()` (hamburger hides the sidebar on desktop).
+- **DEFERRED (noted, not built):** (a) Admin *flyout* — the Admin screen is one monolithic page, so a flyout can't deep-link into sub-cards; low value, skipped to avoid risk. (b) icon-rail collapse — current collapse hides the sidebar rather than shrinking to an icon rail.
+- New CSS: `.navgrp`, `.nlbl`, `.navct`, `.usermenu*`, `.navsearch`, `.cmdk*`. New globals: `NAV_GROUPS`, `window._cmdkBound/_cmdkSel`.
+- **Verified:** `node --check` clean on the shell script block; real `index.html` intact (4415 lines, 5/5 script tags, proper end). No data/flow/rules/master change.
+
+**This push bundles:** §0c tracker-v2 refinements + §0d color scheme + §0e nav — all code-only, no DB impact.
+
+---
+
 ## 0d) READY TO PUSH — 2026-06-18 · App-wide color scheme: Teal & Charcoal (CSS-only; no logic/data; NOT yet pushed)
 
 Whole-app reskin via the `:root` CSS variables (primary `--navy`/`--green`/`--teal` → teal `#0e7c66`; `--blue` accent → `#2563eb`; charcoal text `--txt #1a2420`; cool neutral surfaces/lines; amber/red status kept). Swept all hardcoded old-green literals app-wide (`1f7a43`, `155e32`, `74b53a`, `e7f3ea`, `rgba(31,122,67…)`) so every screen reskins consistently — incl. helpbar, brand logo, SVG icon strokes, focus ring. Chosen as "best" for a modern, agri-appropriate, professional look. One-variable system, trivial to swap. **NEXT (in progress): full sidebar/nav refinement** — group 14 items into Work/Operations/Insights/Setup, active pill + count badge, collapsible rail, breadcrumb top bar, user dropdown, ⌘K jump-to search, Admin flyout (display-only).

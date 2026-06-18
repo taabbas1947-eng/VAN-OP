@@ -47,6 +47,27 @@ a{color:var(--blue);text-decoration:none}
 .nav a .ic svg{width:18px;height:18px;stroke:currentColor;stroke-width:1.9;fill:none;stroke-linecap:round;stroke-linejoin:round}
 .nav a .lk{margin-left:auto;font-size:8.5px;color:var(--navy);background:#fff;border:1px solid var(--navy-100);border-radius:6px;padding:1px 6px;font-weight:700;letter-spacing:.3px}
 .side .foot{padding-top:12px;border-top:1px solid var(--line2);margin-top:8px}
+.navsearch{display:flex;align-items:center;gap:8px;width:100%;border:1px solid var(--line);background:var(--panel2);border-radius:9px;padding:8px 11px;color:var(--mut);font-size:12.5px;cursor:pointer;margin-bottom:8px}
+.navsearch kbd{margin-left:auto;font-size:9.5px;background:#fff;border:1px solid var(--line);border-radius:5px;padding:1px 5px;font-family:inherit}
+.navgrp{font-size:9.5px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--mut);padding:12px 11px 4px}
+.nav a .nlbl{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.navct{margin-left:auto;font-size:10px;font-weight:700;background:var(--navy);color:#fff;border-radius:999px;min-width:18px;text-align:center;padding:0 6px;line-height:17px}
+.usermenu{position:relative}
+.usermenu>summary{display:flex;align-items:center;gap:8px;cursor:pointer;list-style:none}
+.usermenu>summary::-webkit-details-marker{display:none}
+.usermenu .umeta{display:flex;flex-direction:column;line-height:1.15}
+.usermenu .un{font-weight:700;font-size:12px;color:var(--txt)}
+.usermenu .ur{font-size:10px;color:var(--mut)}
+.usermenu .umc{color:var(--mut);font-size:11px;margin-left:2px}
+.usermenu .umpop{position:absolute;right:0;top:calc(100% + 7px);background:#fff;border:1px solid var(--line);border-radius:9px;box-shadow:var(--sh);padding:8px;min-width:150px;z-index:60}
+.cmdk{display:none;position:fixed;inset:0;background:rgba(15,23,42,.35);z-index:200}
+.cmdk.open{display:flex;align-items:flex-start;justify-content:center}
+.cmdk .box{background:#fff;border-radius:13px;box-shadow:var(--sh-lg);width:520px;max-width:92vw;margin-top:12vh;overflow:hidden}
+.cmdk input{width:100%;border:0;border-bottom:1px solid var(--line);padding:14px 16px;font-size:15px;border-radius:0;outline:none}
+.cmdk .res{max-height:340px;overflow:auto;padding:6px}
+.cmdk .ri{display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:8px;cursor:pointer;font-size:13px;color:var(--txt2)}
+.cmdk .ri:hover,.cmdk .ri.sel{background:var(--navy-50);color:var(--navy)}
+.cmdk .rk{font-size:10px;color:var(--mut);margin-left:auto;text-transform:uppercase;letter-spacing:.4px}
 /* ---------- main ---------- */
 .main{flex:1;min-width:0;display:flex;flex-direction:column}
 .topbar{display:flex;align-items:center;gap:16px;padding:10px 24px;background:#ffffff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20}
@@ -581,9 +602,11 @@ table tbody tr:hover{background:var(--panel2)}
       </div>
       <div class="nm">O2S System<span>Order → Shipment</span></div>
     </div>
+    <button class="navsearch" onclick="openCmdK()"><span>Search PO or screen…</span><kbd>Ctrl K</kbd></button>
     <nav class="nav" id="nav"></nav>
     <div class="foot" id="sidefoot"></div>
   </aside>
+  <div class="cmdk" id="cmdk" onclick="if(event.target===this)closeCmdK()"><div class="box"><input id="cmdkInput" placeholder="Jump to a screen or PO…" oninput="cmdkRender()" onkeydown="cmdkKey(event)"><div class="res" id="cmdkRes"></div></div></div>
   <div class="main">
     <div class="topbar">
       <button class="navtoggle" onclick="toggleSide()" title="Show / hide menu">☰</button>
@@ -1198,14 +1221,48 @@ const NAV_ICONS={
 };
 function navIcon(id){ return NAV_ICONS[id]?`<svg viewBox="0 0 24 24">${NAV_ICONS[id]}</svg>`:''; }
 const NAV_ORDER=['approvals','tracker','prod','qc','ship','instructions','dash','budget','entry','dealers','reports','admin','datafix','users'];
+const NAV_GROUPS=[
+  {label:'Work', ids:['approvals','tracker']},
+  {label:'Operations', ids:['prod','qc','ship']},
+  {label:'Insights', ids:['dash','budget','reports']},
+  {label:'Setup & admin', ids:['entry','dealers','admin','datafix','users']},
+  {label:'Guide', ids:['instructions']},
+];
+function groupOf(id){ for(var i=0;i<NAV_GROUPS.length;i++){ if(NAV_GROUPS[i].ids.indexOf(id)>-1) return NAV_GROUPS[i].label; } return ''; }
+function navBadge(id){ if(id!=='approvals') return ''; try{ var items=actionItems(); var mine=state.role==='COO'?items:items.filter(function(x){return x.role===state.role;}); return mine.length?`<span class="navct">${mine.length}</span>`:''; }catch(e){ return ''; } }
 function renderNav(){
   const byId={}; SCREENS.forEach(s=>byId[s.id]=s);
-  const ordered=NAV_ORDER.map(id=>byId[id]).filter(Boolean).filter(s=> s.id!=='datafix' || state.dataFixEnabled || state.role==='COO').filter(s=>canView(state.role,s.id));
-  $('nav').innerHTML = ordered.map(s=>`<a class="${s.id===state.screen?'active':''}" onclick="setScreen('${s.id}')"><span class="ic">${navIcon(s.id)}</span>${s.name}</a>`+(s.id==='instructions'?'<div style="height:1px;background:var(--line);margin:9px 12px;opacity:.7"></div>':'')).join('');
+  const vis=function(id){ return byId[id] && (id!=='datafix' || state.dataFixEnabled || state.role==='COO') && canView(state.role,id); };
+  let html='';
+  NAV_GROUPS.forEach(function(g){
+    const items=g.ids.filter(vis);
+    if(!items.length) return;
+    html+=`<div class="navgrp">${g.label}</div>`;
+    html+=items.map(function(id){ const s=byId[id]; return `<a class="${id===state.screen?'active':''}" onclick="setScreen('${id}')" title="${s.name}"><span class="ic">${navIcon(id)}</span><span class="nlbl">${s.name}</span>${navBadge(id)}</a>`; }).join('');
+  });
+  $('nav').innerHTML=html;
   const u=state.currentUser;
   if($('rolebox')) $('rolebox').innerHTML = u
-    ? `<span class="av">${u.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase()}</span><div style="line-height:1.15"><div style="font-weight:700;font-size:12px;color:var(--txt)">${u.name}</div><div style="font-size:10px;color:var(--mut)">${u.role}</div></div><button class="ghost sm" style="margin-left:8px" onclick="logout()">Sign out</button>`
+    ? `<details class="usermenu"><summary><span class="av">${u.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase()}</span><span class="umeta"><span class="un">${u.name}</span><span class="ur">${u.role}</span></span><span class="umc">▾</span></summary><div class="umpop"><button class="ghost sm" style="width:100%" onclick="logout()">Sign out</button></div></details>`
     : '';
+  if(!window._cmdkBound){ window._cmdkBound=true; document.addEventListener('keydown',function(e){ if((e.ctrlKey||e.metaKey)&&(e.key==='k'||e.key==='K')){ e.preventDefault(); openCmdK(); } }); }
+}
+function openCmdK(){ var el=$('cmdk'); if(!el)return; el.classList.add('open'); var i=$('cmdkInput'); if(i){ i.value=''; cmdkRender(); setTimeout(function(){ try{i.focus();}catch(e){} },30); } }
+function closeCmdK(){ var el=$('cmdk'); if(el) el.classList.remove('open'); }
+function cmdkItems(q){ q=(q||'').toLowerCase().trim(); var out=[];
+  SCREENS.forEach(function(s){ if(!canView(state.role,s.id))return; if(!q||s.name.toLowerCase().indexOf(q)>-1) out.push({t:s.name,k:'Screen',act:"setScreen('"+s.id+"');closeCmdK()"}); });
+  if(q){ (state.orders||[]).forEach(function(o){ if((((o.po||'')+' '+(o.client||'')).toLowerCase()).indexOf(q)>-1) out.push({t:(o.po||'')+' · '+(o.client||''),k:'PO',act:"trkFilter='all';trkSearch='"+(o.po||'').replace(/'/g,'')+"';setScreen('tracker');closeCmdK()"}); }); }
+  return out.slice(0,12);
+}
+function cmdkRender(){ var q=($('cmdkInput')&&$('cmdkInput').value)||''; var items=cmdkItems(q); window._cmdkSel=0;
+  $('cmdkRes').innerHTML = items.length? items.map(function(it,i){ return '<div class="ri'+(i===0?' sel':'')+'" onclick="'+it.act+'">'+it.t+'<span class="rk">'+it.k+'</span></div>'; }).join('') : '<div class="ri" style="cursor:default;color:var(--mut)">No matches</div>';
+}
+function cmdkKey(e){ if(e.key==='Escape'){ closeCmdK(); return; } var res=$('cmdkRes'); if(!res)return; var rows=res.querySelectorAll('.ri[onclick]'); if(!rows.length)return; var sel=window._cmdkSel||0;
+  if(e.key==='ArrowDown'){ sel=Math.min(rows.length-1,sel+1); e.preventDefault(); }
+  else if(e.key==='ArrowUp'){ sel=Math.max(0,sel-1); e.preventDefault(); }
+  else if(e.key==='Enter'){ rows[sel]&&rows[sel].click(); e.preventDefault(); return; }
+  else return;
+  window._cmdkSel=sel; for(var i=0;i<rows.length;i++) rows[i].classList.toggle('sel',i===sel);
 }
 function _tipUK(){ const u=state.currentUser; return String((u&&(u.id||u.name))||state.role||'anon').replace(/[^A-Za-z0-9]/g,'_'); }
 function hintHidden(id){ try{ return !!(window.localStorage&&localStorage.getItem('van_hint_'+_tipUK()+'_'+id)==='1'); }catch(e){ return false; } }
@@ -1234,7 +1291,7 @@ function render(){
   if(!scr(state.screen)) state.screen='dash';
   renderNav();
   const s=scr(state.screen);
-  $('scTitle').textContent=s.name; $('scSub').textContent=s.sub;
+  $('scTitle').textContent=s.name; $('scSub').textContent=(groupOf(s.id)?groupOf(s.id)+' · ':'')+(s.sub||'');
   if($('helpbar')){ const EDIT_SCREENS={entry:1,dealers:1,prod:1,qc:1,ship:1,admin:1,users:1}; let editable=!!EDIT_SCREENS[s.id]; let owner=editable?(s.owners.filter(r=>r!=='COO').join(', ')||'COO'):'Everyone'; let upd=editable?'Yes':'No — view only'; if(false){ /* tracker is view-only - drawer opens read-only; edits live in My Actions */ const tm={'KAM':'SO # & dates','Supply Chain':'RM Check / PR & RM dates','CFO':'CFO approval & invoice','Plant Manager':'delay reason & dept','Production':'production dates','COO':'any field'}; if(tm[state.role]) upd='Yes — '+tm[state.role]+' (click to open)'; } $('helpbar').innerHTML=`This screen: <b>${s.sub}</b> &nbsp;·&nbsp; Owned by: <b>${owner}</b> &nbsp;·&nbsp; Update here: <b>${upd}</b>`+((HINTS[s.id]&&!hintHidden(s.id))?`<div style="display:flex;gap:8px;align-items:flex-start;margin-top:7px;padding-top:7px;border-top:1px dashed var(--line)"><span style="font-size:12px;color:var(--txt2)">\uD83D\uDCA1 ${HINTS[s.id]}</span><button class="ghost sm" style="margin-left:auto;flex:0 0 auto;font-size:11px;padding:2px 8px" onclick="dismissHint('${s.id}')">Got it</button></div>`:''); }
   if($('sidefoot')) $('sidefoot').innerHTML = '<button class="ghost sm" style="width:100%;margin-bottom:6px" onclick="showAllHints()">\u{1F4A1} Show screen tips</button>';
   ({dash:screenDash,approvals:screenApprovals,entry:screenEntry,tracker:screenTracker,prod:screenProd,qc:screenQC,ship:screenShip,reports:screenReports,budget:screenBudget,dealers:screenDealers,instructions:screenInstructions,admin:screenAdmin,datafix:screenDataFix,users:screenUsers,}[state.screen])();

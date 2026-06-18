@@ -1913,7 +1913,7 @@ var prodStage='';
 var PJORD=['recon','producing','qc','pack','done'];
 function batchClearedKg(b){ var lots=(b.lots||[]); var s=0; if(lots.length){ lots.forEach(function(l){ if(l.coa&&l.coa.status==='approved'){ var ck=(l.coa.certifiedKg!=null)?l.coa.certifiedKg:(l.qty||0); s+=Math.min(l.qty||0,ck); } }); } else if(b.coa&&b.coa.status==='approved'){ var ck2=(b.coa.certifiedKg!=null)?b.coa.certifiedKg:(b.producedKg||0); s+=Math.min(b.producedKg||0,ck2); } return s; }
 function batchStage(b){ var prod=+b.producedKg||0, plan=+b.plannedKg||0, packed=+b.packedKg||0, cleared=batchClearedKg(b), rem=Math.max(0,prod-packed);
-  if(b.status==='closed' && rem>0.5 && !b.reconciled) return 'recon';
+  if(b.status==='closed' && rem>0.5 && !b.reconciled && (cleared-packed)<=0.5) return 'recon';  // reconcile ONLY when no QC-cleared stock is left to pack (packable stock is never auto-"reconcile"); the Reconcile button stays available as a choice
   if(b.status==='open' && prod<plan-0.5) return 'producing';
   if(prod-cleared>0.5) return 'qc';
   if(cleared-packed>0.5) return 'pack';

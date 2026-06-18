@@ -2641,10 +2641,10 @@ function actionItems(){
   const items=[];
   (state.orders||[]).forEach(o=>{
     const bk=orderBucket(o); const od=isOverdue(o);
+    if(!o.acknowledged && (bk==='PO Created'||bk==='RM Check')) items.push({role:'Supply Chain',o,what:'Acknowledge PO '+o.po,act:`ackOrder('${o.id}')`,label:'Acknowledge'});  // ONCE per PO (acknowledging is order-level), not per line
     o.lines.forEach(l=>{
       const lb=lineBucket(o,l);
       if(lb==='Delivered') return;
-      if(!o.acknowledged && (bk==='PO Created'||bk==='RM Check')) items.push({role:'Supply Chain',o,l,what:'Acknowledge PO '+o.po+' \u00b7 '+l.brand,act:`ackOrder('${o.id}')`,label:'Acknowledge'});
       if(o.acknowledged && (!l.rmStatus||l.rmStatus==='pending')) items.push({role:'Supply Chain',o,l,what:'RM Check \u2014 '+o.po+' \u00b7 '+l.brand,act:`openRMCheck('${o.id}','${l.id}')`,label:'RM Check'});
       if(l.prRaised && !l.rmReady && l.rmStatus!=='received') items.push({role:'Supply Chain',o,l,what:'Receive raw materials (GRN, partial OK)',act:`openReceiveMaterials('${o.id}','${l.id}')`,label:'Receive'});
       if(rmAllows(l)>0 && (l.produced||0) < Math.min(l.ordered, rmAllows(l))-0.5) items.push({role:'Production',o,l,what:'Produce '+l.brand+' \u2014 '+o.po,act:"gotoScreen('prod')",label:'Open Production'});
@@ -2678,6 +2678,9 @@ var ACT_META={
 var actFilter='all';
 function _fmtShort(d){ if(!d)return''; var t=new Date(d); if(isNaN(t))return''; return t.toLocaleDateString('en-GB',{day:'numeric',month:'short'}); }
 function actOverdue(it){ return it.o?isOverdue(it.o):false; }
+/* latest date this line's material was actually packed (po + brand) = the real "ready to ship" moment.
+   Read-only lookup; returns null if nothing packed yet (caller then keeps the existing fallback). */
+function lastPackDate(o,l){ var ds=(state.packingLog||[]).filter(function(p){ return p&&p.po===o.po&&p.brand===l.brand&&p.date; }).map(function(p){ return p.date; }); if(!ds.length) return null; ds.sort(); return ds[ds.length-1]; }
 /* created = when the action became actionable, from existing dates; null -> approx */
 function actTiming(it){
   var c=null, approx=false;
@@ -2687,7 +2690,7 @@ function actTiming(it){
       case 'RM Check': c=it.o.ackDate||it.o.received; approx=!it.o.ackDate; break;
       case 'Receive': c=l.prRaised||it.o.received; approx=!l.prRaised; break;
       case 'Open Production': c=l.rmReady||l.prRaised||it.o.received; approx=!l.rmReady; break;
-      case 'Ship': c=l.qcPass||it.o.received; approx=!l.qcPass; break;
+      case 'Ship': { var _pk=lastPackDate(it.o,l); if(_pk){ c=_pk; approx=false; } else { c=l.qcPass||it.o.received; approx=!l.qcPass; } break; }
       case 'Add reason': c=l.committed||it.o.promised||it.o.received; approx=true; break;
       default: c=it.o.received; approx=true;
     }

@@ -2,11 +2,11 @@
 
 _Updated: 2026-06-18 · COO: Tahir · Single code file: `index.html` (4308 lines, vanilla JS). Backend: `server.js` (Node/Express + Postgres, one `app_state` JSON blob + rev counter). Deploys never touch the DB. Pushes go via GitHub Desktop (Claude cannot push). Render auto-deploys on push; rollback restores prior code only, never the DB._
 
-> **STATUS — 2026-06-18:** §0 and §1 are **shipped & live** (commit `343b7bb`); the handoff-wording cleanup is pushed (`68ae33f`). **PENDING PUSH:** §0a Action Center display fixes — `index.html` has uncommitted code-only changes (no data/flow), `node --check`-verified, waiting for Tahir to commit + push via GitHub Desktop. Live DB unaffected. Data-migration flags `_purgeImpV1`, `_purgeImpDupV1`, `_purgeImpNoTwinV1`, `_fixVU26134L2V1` all `true` in the 18 Jun snapshot. The old "READY TO PUSH / NOT pushed" labels in §0 and §1 were stale notes — those edits are already shipped and live.
+> **STATUS — 2026-06-18:** §0/§1 shipped & live (`343b7bb`); handoff-wording cleanup pushed (`68ae33f`); **§0a Action Center display fixes pushed & live (`94593b9`)**; in-app verification by Tahir in progress. Local = `origin/main` = `8cdd2c3`, 0/0. Data-migration flags `_purgeImpV1`, `_purgeImpDupV1`, `_purgeImpNoTwinV1`, `_fixVU26134L2V1` all `true` in the 18 Jun snapshot. **§0b PO Tracker audit done (read-only) — 1 fix open, not yet implemented.** The old "READY TO PUSH / NOT pushed" labels in §0 and §1 were stale notes — those edits are already shipped and live.
 
 ---
 
-## 0a) READY TO PUSH — 2026-06-18 · Action Center (My Actions) audit + display fixes (code-only; no data/flow/rules/master change; NOT yet pushed)
+## 0a) SHIPPED & LIVE — 2026-06-18 · Action Center (My Actions) audit + display fixes (code-only; no data/flow/rules/master change; pushed in commit `94593b9`)
 
 Tab-by-tab audit, Action Center first. **Audit result: logic, rules and accuracy are sound** — replicated every action trigger against the 18-Jun snapshot: **0 stale RM-Check rows** (none on already-produced/packed lines) and **0 false Produce rows** (none where the brand is already fully packed). `Acknowledge` correctly once-per-PO; `shipReadySince` dating, COO role-union view, and urgency-first sort all good. Three display-only improvements made (all in `actionItems`/`actTiming`, read-only — no writes, no flow/ownership/master change):
 
@@ -15,6 +15,32 @@ Tab-by-tab audit, Action Center first. **Audit result: logic, rules and accuracy
 3. **Pre-shipment `Inspect` rows now carry a date/age.** Dispatch group passed through as `disp:g`; new `actTiming` branch `else if(it.disp) c=it.disp.date` so the card shows "since / Nd pending" (was blank). 0 pending in the current snapshot, so nothing to show yet, but it will populate when an inspection is queued.
 
 **Verification:** full main `<script>` block reconstructed and `node --check`-clean **with** all edits; isolation run of the exact edited functions against the live snapshot passed (0 Ship rows missing a date, 0 Inspect rows missing a date, 0 Produce buttons not deep-linked, Ship 8→6, Produce unchanged at 47). Real `index.html` intact at 4308 lines, 5/5 script tags, proper end. **Cosmetic left alone:** render fn is still named `screenApprovals` for the "My Actions" screen (internal only; renaming risks the screen router for no user benefit).
+
+---
+
+## 0c) READY TO PUSH — 2026-06-18 · PO Tracker redesign (code-only; no data/flow/rules/master change; NOT yet pushed)
+
+Full redesign of `screenTracker`/`orderCard` + new CSS. Decision (Tahir): **at-risk pinned on top, then newest first.** All display-only — drawer stays read-only, Matrix view preserved, chip counts unchanged, no data touched.
+
+- **Compact one-line rows on a fixed CSS grid** (new `.tk*` classes) — fixes the column "slipping"/misalignment; far denser than the old `.t2row`.
+- **Decision strip** (metric cards): Overdue / Stalled 7d+ / Ready to ship / New today.
+- **Visible controls:** a proper sort `<select>` (`risk_new` default; + Newest first / By stage / Longest in stage) and a clear List/Matrix segmented toggle (`.tkseg`) — no longer hidden far-right.
+- **Sections:** "Needs attention · N" (overdue+stalled, `_trkRiskCmp`) pinned above "Active · newest first · N" (`_trkNewCmp`). **All 20 shown, no cap.**
+- **Search cursor bug FIXED:** input now repaints only `#trkBody` via `_trkPaint()` (no full screen re-render per keystroke) — the "backward typing" caret reset is gone.
+- **REMAINING BALANCE per PO** (`orderBal` = Σordered − Σdelivered; e.g. Naya S Urea PO 6595010464 = 339,775 left of 450,000) shown as "X left · del/ord · progress bar". **Multi-product POs expand** (`toggleTrkRow`/`tkLineRow`, state in `trkExpanded`) to per-product running balance. 9/20 POs are multi-product.
+- **Audit fix 1.1 applied:** the stale tracker helpbar override is disabled (`if(false){…}` at the `s.id==='tracker'` block) so the meta bar now reads "view only", matching the read-only drawer.
+- New fns: `orderBal`, `tkProg`, `tkBalCell`, `tkLineRow`, `t2bars`, `toggleTrkRow`, `_trkRecv`, `_trkNewCmp`, `_trkRiskCmp`, `trkList`, `trkBodyHTML`, `_trkPaint`. New globals `trkSort`(default `risk_new`), `trkExpanded`. New `.tk*` CSS block.
+- **Verified:** `node --check` clean on the tracker script block; real file intact (4357 lines, 5/5 script tags, proper end); snapshot balances correct; section split correct (all 20 shown).
+
+---
+
+## 0b) PO Tracker audit — 2026-06-18 (read-only review; NO code changed yet; 1 fix open + enhancements)
+
+Tab audit #2. **Engine is accurate** — replicated ageing/overdue/stalled against the 18-Jun snapshot: of 17 "stalled" orders, 15 have *exact* stage-entry dates and are genuinely stuck (real backlog, e.g. PO `1821412156` 17d in "PO Created", `21630` 13d in "RM Check"); only 2 use the honest "~" approximate fallback. Chip counts mirror `trkMatch` exactly. No flow blockers, no security issues.
+
+**FIX 1.1 — DONE in §0c (was: misleading helpbar vs read-only drawer):** the meta bar shows `Update here: Yes — <role fields> (click to open)` (COO sees "any field"), but the order drawer (`openOrder`) is hard read-only (`fld()` has `ed=false`, drawer says "View only") and the registry text says "Updates are entered from each role's own screen." Root cause: stale per-role override in the helpbar builder (~line 1197, `if(s.id==='tracker'){…upd='Yes — '+tm[state.role]+…}`), residue of a former editable drawer. **Fix:** delete that tracker override so it falls through to `upd='No — view only'`. Display-only.
+
+**Enhancements (by ease×impact):** (2.1 easy/high) stalled signal dilutes at 16/20 red — tier 7–13d vs 14d+, or per-stage SLA; (2.2 easy/med) search `oninput`→`trkRender()` re-renders whole screen + manual refocus (line 1744) → debounce / list-only re-render; (2.3 easy/low) `mixed` orders show only earliest-stage next action (`NEXT_ACT[orderBucket]`) — add "+N more"; (2.4 med/low) 2 Shipment-stage POs (`6595010236` ~17d, `6595010464` ~10d) read "~" because lots carry no QA-pass/clear date — dispatch should write a clear date; (2.5 cleanup/low) **dead code:** `fld()`/`editField()`/`myOpenFields()`/`canEditField()`/`LIFE_GROUPS`/`FIELD_LABEL` are defined but never called (drawer went read-only) — removing them kills the 1.1 class of bug.
 
 ---
 

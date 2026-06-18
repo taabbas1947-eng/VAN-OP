@@ -486,6 +486,46 @@ table tbody tr:hover{background:var(--panel2)}
 .t2mclient{font-weight:650;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px}
 .t2mpo{font-size:9.5px;color:var(--mut)}
 @media(max-width:760px){.t2row{grid-template-columns:1fr 1fr;gap:8px}.t2row>div:nth-child(3){grid-column:1/-1}}
+/* ===== PO Tracker redesign (compact rows + decision strip + balance) ===== */
+.tkhead{padding:16px 16px 14px}
+.tkstrip{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:2px 0 12px}
+.tkm{background:#f3f6f9;border-radius:10px;padding:9px 13px}
+.tkm.r{background:var(--red-50)}.tkm.a{background:var(--amber-50)}
+.tkmlbl{font-size:11px;color:var(--mut)}
+.tkm.r .tkmlbl{color:var(--red)}.tkm.a .tkmlbl{color:var(--amber)}
+.tkmval{font-size:22px;font-weight:750;color:var(--txt);line-height:1.2}
+.tkm.r .tkmval{color:var(--red)}.tkm.a .tkmval{color:var(--amber)}
+.tkbar{display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap}
+.tkbar #trkq{flex:1;min-width:180px}
+.tkbar #trksort{width:auto;min-width:185px}
+.tkseg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.tkseg button{border:0;background:#fff;padding:0 14px;height:34px;font-size:12px;font-weight:650;color:var(--mut);cursor:pointer}
+.tkseg button.on{background:var(--navy);color:#fff}
+.tkseg button+button{border-left:1px solid var(--line)}
+.tksec{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--mut);margin:14px 0 7px;padding-left:2px}
+.tksec-r{color:var(--red)}
+.tkrow{display:grid;grid-template-columns:minmax(0,1.7fr) 1.2fr .82fr 1.1fr minmax(0,1.45fr);gap:12px;align-items:center;border:1px solid var(--line);border-radius:10px;padding:9px 13px;margin-bottom:6px;background:#fff;cursor:pointer;transition:.12s}
+.tkrow:hover{border-color:var(--navy-100);box-shadow:0 2px 8px rgba(20,30,50,.06)}
+.tkrow.od{border-left:3px solid var(--red);background:#fffafa}
+.tkrow.stall{border-left:3px solid var(--amber)}
+.tkcell{min-width:0}
+.tkpo{font-size:10px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tkclient{font-weight:650;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tkmini{font-size:9.5px;margin-top:1px}
+.tkjourney{margin-top:4px}
+.tkbalnum{font-size:13px;font-weight:750;color:var(--txt);white-space:nowrap}
+.tkbalu{font-size:10px;font-weight:600;color:var(--mut)}
+.tkbalsub{font-size:9.5px;color:var(--mut);white-space:nowrap;margin-top:1px}
+.tkprog{height:4px;border-radius:3px;background:#e7ebf1;margin-top:4px;overflow:hidden}
+.tkprog>span{display:block;height:100%;background:var(--green2);border-radius:3px}
+.tknext{font-size:12px;font-weight:650;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tkowner{font-size:10px;color:var(--mut);margin-top:1px}
+.tkexp{margin-top:5px;font-size:10px;background:#eef2f7;border:0;border-radius:6px;padding:2px 8px;color:var(--navy);cursor:pointer;font-weight:650}
+.tksub{margin:-2px 0 9px 16px;border-left:2px solid var(--navy-100);padding:3px 0 3px 13px}
+.tksubrow{display:grid;grid-template-columns:minmax(0,1fr) auto 110px;gap:10px;align-items:center;padding:4px 0}
+.tksubname{font-weight:600;font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tksubbal{font-size:11px;white-space:nowrap}
+@media(max-width:760px){.tkrow{grid-template-columns:1fr 1fr;gap:8px}.tkstrip{grid-template-columns:1fr 1fr}}
 /* ===== Action Center v2 (urgency-first worklist · read-only display) ===== */
 .acsum{display:flex;gap:8px;align-items:center;margin:4px 0 12px;flex-wrap:wrap}
 .acsum .t{font-size:13px;font-weight:650}
@@ -1194,7 +1234,7 @@ function render(){
   renderNav();
   const s=scr(state.screen);
   $('scTitle').textContent=s.name; $('scSub').textContent=s.sub;
-  if($('helpbar')){ const EDIT_SCREENS={entry:1,dealers:1,prod:1,qc:1,ship:1,admin:1,users:1}; let editable=!!EDIT_SCREENS[s.id]; let owner=editable?(s.owners.filter(r=>r!=='COO').join(', ')||'COO'):'Everyone'; let upd=editable?'Yes':'No — view only'; if(s.id==='tracker'){ const tm={'KAM':'SO # & dates','Supply Chain':'RM Check / PR & RM dates','CFO':'CFO approval & invoice','Plant Manager':'delay reason & dept','Production':'production dates','COO':'any field'}; if(tm[state.role]) upd='Yes — '+tm[state.role]+' (click to open)'; } $('helpbar').innerHTML=`This screen: <b>${s.sub}</b> &nbsp;·&nbsp; Owned by: <b>${owner}</b> &nbsp;·&nbsp; Update here: <b>${upd}</b>`+((HINTS[s.id]&&!hintHidden(s.id))?`<div style="display:flex;gap:8px;align-items:flex-start;margin-top:7px;padding-top:7px;border-top:1px dashed var(--line)"><span style="font-size:12px;color:var(--txt2)">\uD83D\uDCA1 ${HINTS[s.id]}</span><button class="ghost sm" style="margin-left:auto;flex:0 0 auto;font-size:11px;padding:2px 8px" onclick="dismissHint('${s.id}')">Got it</button></div>`:''); }
+  if($('helpbar')){ const EDIT_SCREENS={entry:1,dealers:1,prod:1,qc:1,ship:1,admin:1,users:1}; let editable=!!EDIT_SCREENS[s.id]; let owner=editable?(s.owners.filter(r=>r!=='COO').join(', ')||'COO'):'Everyone'; let upd=editable?'Yes':'No — view only'; if(false){ /* tracker is view-only - drawer opens read-only; edits live in My Actions */ const tm={'KAM':'SO # & dates','Supply Chain':'RM Check / PR & RM dates','CFO':'CFO approval & invoice','Plant Manager':'delay reason & dept','Production':'production dates','COO':'any field'}; if(tm[state.role]) upd='Yes — '+tm[state.role]+' (click to open)'; } $('helpbar').innerHTML=`This screen: <b>${s.sub}</b> &nbsp;·&nbsp; Owned by: <b>${owner}</b> &nbsp;·&nbsp; Update here: <b>${upd}</b>`+((HINTS[s.id]&&!hintHidden(s.id))?`<div style="display:flex;gap:8px;align-items:flex-start;margin-top:7px;padding-top:7px;border-top:1px dashed var(--line)"><span style="font-size:12px;color:var(--txt2)">\uD83D\uDCA1 ${HINTS[s.id]}</span><button class="ghost sm" style="margin-left:auto;flex:0 0 auto;font-size:11px;padding:2px 8px" onclick="dismissHint('${s.id}')">Got it</button></div>`:''); }
   if($('sidefoot')) $('sidefoot').innerHTML = '<button class="ghost sm" style="width:100%;margin-bottom:6px" onclick="showAllHints()">\u{1F4A1} Show screen tips</button>';
   ({dash:screenDash,approvals:screenApprovals,entry:screenEntry,tracker:screenTracker,prod:screenProd,qc:screenQC,ship:screenShip,reports:screenReports,budget:screenBudget,dealers:screenDealers,instructions:screenInstructions,admin:screenAdmin,datafix:screenDataFix,users:screenUsers,}[state.screen])();
 }
@@ -1691,7 +1731,7 @@ function addDealer(){
 /* ===================== 2. PO TRACKER ===================== */
 let trkFilter='all'; let trkStage='';
 /* ===================== PO TRACKER — control tower (UI redesign) ===================== */
-let trkSearch='';
+let trkSearch=''; let trkSort='risk_new'; let trkExpanded={};
 const BUCKETS=['PO Created','RM Check','Production','Lab QC','QA Pre-shipment','Shipment','Delivered'];
 const BUCKET_META={
  'PO Created':{c:'--mut',owner:'Supply Chain',where:'My Actions — Acknowledge & RM Check'},
@@ -1743,55 +1783,64 @@ function trkMatch(o){ const b=orderBucket(o);
 }
 function trkRender(){ render(); const q=document.getElementById('trkq'); if(q&&q.focus)q.focus(); }
 function priorityPill(p){ p=p||'Normal'; var c=p==='Critical'?'--red':(p==='High'?'--amber':(p==='Low'?'--mut':'--blue')); return `<span class="pill" style="background:color-mix(in srgb,var(${c}) 14%,#fff);color:var(${c});font-size:9px;padding:1px 7px;margin-left:5px">${p}</span>`; }
+function orderBal(o){ var ord=0,del=0; (o.lines||[]).forEach(function(l){ ord+=(+l.ordered||0); del+=(+l.delivered||0); }); return {ord:ord,del:del,rem:Math.max(0,ord-del),pct:ord>0?Math.min(100,Math.round(del/ord*100)):0}; }
+function tkProg(pct){ return `<div class="tkprog"><span style="width:${pct}%"></span></div>`; }
+function tkBalCell(o){ var x=orderBal(o); return `<div class="tkbalnum">${fmt(x.rem)} <span class="tkbalu">left</span></div><div class="tkbalsub">${fmt(x.del)} / ${fmt(x.ord)} delivered</div>${tkProg(x.pct)}`; }
+function tkLineRow(o,l){ var ord=(+l.ordered||0), del=(+l.delivered||0), rem=Math.max(0,ord-del), pct=ord>0?Math.min(100,Math.round(del/ord*100)):0, done=rem<=0.5; return `<div class="tksubrow"><div class="tksubname">${l.brand}</div><div class="tksubbal">${done?'<b style="color:var(--green2)">✓ complete</b>':('<b>'+fmt(rem)+' left</b>')} <span class="muted">${fmt(del)} / ${fmt(ord)}</span></div>${tkProg(pct)}</div>`; }
+function t2bars(o,mixed){ var idx=t2idx(o), sev=t2sev(o), segs=''; BUCKETS.forEach(function(s,i){ var c=i<idx?'done':(i===idx?('cur '+sev):''); segs+='<div class="t2seg '+c+'"></div>'; }); return `<div class="t2step ${mixed?'mixed':''}">${segs}</div>`; }
+function toggleTrkRow(id){ trkExpanded[id]=!trkExpanded[id]; _trkPaint(); }
 function orderCard(o){
-  const b=orderBucket(o); const m=BUCKET_META[b]; const a=agg(o);
-  const mixed=new Set(o.lines.map(l=>lineBucket(o,l))).size>1;
-  const delivered=b==='Delivered';
-  const rc=isOverdue(o)?'od':(isStalled(o)?'stall':'');
-  const nextAct = delivered
-    ? '<span class="muted" style="font-size:11px">No action</span>'
-    : `<div class="t2act">${NEXT_ACT[b]||''}</div><span class="rbadge" style="margin-top:4px">${m.owner}</span>`;
-  return `<div class="t2row ${rc}" onclick="openOrder('${o.id}')">
-    <div>
-      <div class="t2po" title="${o.po}">${o.po}</div>
-      <div class="t2client" title="${(o.client||'').replace(/"/g,'&quot;')}">${o.client||''}${t2flag(o)}${mixed?'<span class="t2tag">mixed</span>':''}</div>
-    </div>
-    <div>${t2spill(b)}<div class="t2qty" style="margin-top:5px">${fmt(a.ordered)}<span class="muted" style="font-weight:500"> Kg/L</span></div></div>
-    <div><div class="t2lbl">Journey</div>${t2stepper(o,mixed)}</div>
-    <div><div class="t2lbl">Ageing</div>${t2ageText(o)}</div>
-    <div><div class="t2lbl">Next action</div>${nextAct}</div>
-  </div>`;
+  var b=orderBucket(o); var mixed=new Set(o.lines.map(function(l){return lineBucket(o,l);})).size>1;
+  var multi=(o.lines||[]).length>1; var delivered=b==='Delivered';
+  var rc=isOverdue(o)?'od':(isStalled(o)?'stall':'');
+  var owner=BUCKET_META[b].owner;
+  var next= delivered?'<span class="muted" style="font-size:11px">Delivered</span>':`<div class="tknext">${NEXT_ACT[b]||''}</div><div class="tkowner">${owner}</div>`;
+  var exp=!!trkExpanded[o.id];
+  var chev= multi?`<button class="tkexp" onclick="event.stopPropagation();toggleTrkRow('${o.id}')">${exp?'▾':'▸'} ${o.lines.length} products</button>`:'';
+  var head=`<div class="tkrow ${rc}" onclick="openOrder('${o.id}')">`
+   +`<div class="tkcell"><div class="tkpo" title="${o.po}">${o.po}</div><div class="tkclient" title="${(o.client||'').replace(/"/g,'&quot;')}">${o.client||''}${t2flag(o)}</div>${multi?`<div class="tkmini muted">${o.lines.length} products</div>`:''}</div>`
+   +`<div class="tkcell">${t2spill(b)}<div class="tkjourney">${t2bars(o,mixed)}</div></div>`
+   +`<div class="tkcell">${t2ageText(o)}</div>`
+   +`<div class="tkcell">${tkBalCell(o)}</div>`
+   +`<div class="tkcell">${next}${chev}</div>`
+   +`</div>`;
+  var sub=(multi&&exp)?`<div class="tksub">${o.lines.map(function(l){return tkLineRow(o,l);}).join('')}</div>`:'';
+  return head+sub;
 }
+function _trkRecv(o){ return String(o.received||''); }
+function _trkNewCmp(a,b){ return _trkRecv(b).localeCompare(_trkRecv(a)) || String(b.po||'').localeCompare(String(a.po||'')); }
+function _trkRiskCmp(a,b){ var ra=isOverdue(a)?0:1, rb=isOverdue(b)?0:1; if(ra!==rb) return ra-rb; var da=isOverdue(a)?daysOver(a):0, db=isOverdue(b)?daysOver(b):0; if(da!==db) return db-da; var aa=orderAging(a).days||0, ab=orderAging(b).days||0; return ab-aa; }
+function trkList(){ var list=(state.orders||[]).filter(function(o){return trkMatch(o);}); if(trkSearch){ var q=trkSearch.toLowerCase(); list=list.filter(function(o){return ((o.po||'')+' '+(o.client||'')).toLowerCase().indexOf(q)>-1;}); } return list; }
+function trkBodyHTML(){
+  var list=trkList();
+  if(!list.length) return '<div class="empty"><div class="ei">&#8709;</div>No orders match this filter.</div>';
+  if(trkView==='matrix') return t2matrix(list);
+  if(trkSort==='new') return list.slice().sort(_trkNewCmp).map(orderCard).join('');
+  if(trkSort==='oldstage') return list.slice().sort(function(a,b){ return (orderAging(b).days||0)-(orderAging(a).days||0); }).map(orderCard).join('');
+  if(trkSort==='stage') return list.slice().sort(function(a,b){ return (t2idx(a)-t2idx(b))||_trkNewCmp(a,b); }).map(orderCard).join('');
+  var attn=list.filter(function(o){return isOverdue(o)||isStalled(o);}).sort(_trkRiskCmp);
+  var rest=list.filter(function(o){return !(isOverdue(o)||isStalled(o));}).sort(_trkNewCmp);
+  var html='';
+  if(attn.length) html+=`<div class="tksec tksec-r">Needs attention · ${attn.length}</div>`+attn.map(orderCard).join('');
+  if(rest.length) html+=`<div class="tksec">Active · newest first · ${rest.length}</div>`+rest.map(orderCard).join('');
+  return html;
+}
+function _trkPaint(){ var el=document.getElementById('trkBody'); if(el) el.innerHTML=trkBodyHTML(); var c=document.getElementById('trkShown'); if(c) c.textContent=trkList().length; }
 function screenTracker(){
-  const all=state.orders||[];
-  let list=all.filter(o=>trkMatch(o));
-  if(trkSearch){ const q=trkSearch.toLowerCase(); list=list.filter(o=>((o.po||'')+' '+(o.client||'')).toLowerCase().indexOf(q)>-1); }
-  // Single flat list, most-at-risk first: overdue -> stalled -> on-pace; then stage order; then oldest aging.
-  const riskRank=o=>isOverdue(o)?0:(isStalled(o)?1:2);
-  list=list.slice().sort((a,b)=>{
-    const ra=riskRank(a), rb=riskRank(b); if(ra!==rb) return ra-rb;
-    const sa=t2idx(a), sb=t2idx(b); if(sa!==sb) return sa-sb;
-    const aa=orderAging(a).days||0, ab=orderAging(b).days||0; return ab-aa;
-  });
-  // Chip counts mirror trkMatch so each chip number matches what it filters to.
-  const P={ delayed:o=>isOverdue(o)&&orderBucket(o)!=='Delivered', stalled:o=>isStalled(o),
-    priority:o=>attentionOf(o).hot, rmblock:o=>orderBucket(o)==='RM Check',
-    prod:o=>orderBucket(o)==='Production', ready:o=>o.lines.some(l=>lineCleared(o,l)>0.5) };
-  const cnt={ all:all.length, delayed:all.filter(P.delayed).length, stalled:all.filter(P.stalled).length,
+  var all=state.orders||[];
+  var P={ delayed:function(o){return isOverdue(o)&&orderBucket(o)!=='Delivered';}, stalled:function(o){return isStalled(o);},
+    priority:function(o){return attentionOf(o).hot;}, rmblock:function(o){return orderBucket(o)==='RM Check';},
+    prod:function(o){return orderBucket(o)==='Production';}, ready:function(o){return o.lines.some(function(l){return lineCleared(o,l)>0.5;});} };
+  var cnt={ all:all.length, delayed:all.filter(P.delayed).length, stalled:all.filter(P.stalled).length,
     priority:all.filter(P.priority).length, rmblock:all.filter(P.rmblock).length,
     prod:all.filter(P.prod).length, ready:all.filter(P.ready).length };
-  const chips=[['all','All orders',0],['delayed','Overdue',1],['stalled','Stalled 7d+',1],['priority','Priority',0],['rmblock','RM check',0],['prod','Production',0],['ready','Ready to ship',0]];
-  const toggle=`<span class="t2tog" style="margin-left:8px"><button class="${trkView==='list'?'on':''}" onclick="setTrkView('list')">List</button><button class="${trkView==='matrix'?'on':''}" onclick="setTrkView('matrix')">Matrix</button></span>`;
-  const chipbar=`<div class="chips t2bar">${chips.map(c=>`<span class="chip ${c[2]?'alert':''} ${trkFilter===c[0]?'on':''}" onclick="trkFilter='${c[0]}';render()">${c[1]}<span class="cnt">${cnt[c[0]]}</span></span>`).join('')}<input id="trkq" placeholder="Search PO or customer..." value="${trkSearch}" oninput="trkSearch=this.value;trkRender()" style="margin-left:auto;min-width:210px">${toggle}</div>`;
-  const od=list.filter(isOverdue).length, st=list.filter(isStalled).length;
-  let body;
-  if(!list.length){ body='<div class="empty"><div class="ei">&#8709;</div>No orders match this filter.</div>'; }
-  else if(trkView==='matrix'){ body=t2matrix(list); }
-  else { body=list.map(orderCard).join(''); }
-  const legend=`<div class="t2leg"><i><span class="t2dot" style="background:var(--green)"></span> stage complete</i><i><span class="t2dot" style="background:var(--blue)"></span> current stage</i><i><span class="t2dot" style="background:var(--amber)"></span> ageing 3-6 days</i><i><span class="t2dot" style="background:var(--red)"></span> stalled 7d+ / overdue</i><i>~ = aging approximate (stage-entry date missing; using order date)</i></div>`;
-  $('view').innerHTML=`
-    <div class="banner info" style="margin-bottom:14px">One prioritized list - <b>most-at-risk on top</b>. Each order shows its <b>stage</b>, <b>how long it has been there</b>, and the <b>single next action + who owns it</b>. Click any order to open its full record.</div>
-    <div class="card"><h3>Orders <span class="hint">${list.length} order${list.length===1?'':'s'}${od?' · '+od+' overdue':''}${st?' · '+st+' stalled':''}</span></h3>${chipbar}<div>${body}</div>${legend}</div>`;
+  var today=TODAY.toISOString().slice(0,10); var newToday=all.filter(function(o){return o.received===today;}).length;
+  var strip=`<div class="tkstrip"><div class="tkm r"><div class="tkmlbl">Overdue</div><div class="tkmval">${cnt.delayed}</div></div><div class="tkm a"><div class="tkmlbl">Stalled 7d+</div><div class="tkmval">${cnt.stalled}</div></div><div class="tkm"><div class="tkmlbl">Ready to ship</div><div class="tkmval">${cnt.ready}</div></div><div class="tkm"><div class="tkmlbl">New today</div><div class="tkmval">${newToday}</div></div></div>`;
+  var chips=[['all','All'],['delayed','Overdue'],['stalled','Stalled 7d+'],['priority','Priority'],['rmblock','RM check'],['prod','Production'],['ready','Ready to ship']];
+  var chipbar=`<div class="chips t2bar" style="margin-bottom:10px">`+chips.map(function(c){ var al=(c[0]==='delayed'||c[0]==='stalled')&&cnt[c[0]]?'alert':''; return `<span class="chip ${al} ${trkFilter===c[0]?'on':''}" onclick="trkFilter='${c[0]}';render()">${c[1]}<span class="cnt">${cnt[c[0]]}</span></span>`; }).join('')+`</div>`;
+  var controls=`<div class="tkbar"><input id="trkq" placeholder="Search PO or customer..." value="${(trkSearch||'').replace(/"/g,'&quot;')}" oninput="trkSearch=this.value;_trkPaint()"><select id="trksort" onchange="trkSort=this.value;_trkPaint()" title="Order"><option value="risk_new"${trkSort==='risk_new'?' selected':''}>At-risk first, then newest</option><option value="new"${trkSort==='new'?' selected':''}>Newest first</option><option value="stage"${trkSort==='stage'?' selected':''}>By stage</option><option value="oldstage"${trkSort==='oldstage'?' selected':''}>Longest in stage</option></select><span class="tkseg"><button class="${trkView==='list'?'on':''}" onclick="setTrkView('list')">List</button><button class="${trkView==='matrix'?'on':''}" onclick="setTrkView('matrix')">Matrix</button></span></div>`;
+  var legend=`<div class="t2leg"><i><span class="t2dot" style="background:var(--green)"></span> stage complete</i><i><span class="t2dot" style="background:var(--blue)"></span> current</i><i><span class="t2dot" style="background:var(--amber)"></span> ageing 3-6d</i><i><span class="t2dot" style="background:var(--red)"></span> stalled / overdue</i><i>~ = approximate (stage date missing)</i></div>`;
+  $('view').innerHTML=`<div class="card tkhead"><h3 style="margin:0 0 2px">PO Tracker <span class="hint">${all.length} open · <span id="trkShown">${trkList().length}</span> shown</span></h3><div class="muted" style="font-size:11.5px;margin-bottom:12px">At-risk pinned on top, then newest. Each line shows stage, ageing, remaining balance and the next action + owner. Click a PO for the full record; multi-product POs expand for per-product balance.</div>${strip}${chipbar}${controls}<div id="trkBody">${trkBodyHTML()}</div>${legend}</div>`;
 }
 
 /* ===================== ORDER DRAWER (role-owned lifecycle) ===================== */

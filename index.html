@@ -504,7 +504,29 @@ table tbody tr:hover{background:var(--panel2)}
 .acwait .since{text-transform:none;font-weight:600;color:var(--mut);font-size:9.5px;margin-top:1px}
 .acwait .odl{display:block;font-size:9.5px;font-weight:800;color:var(--red)}
 .acwait.ok{color:#46525f}.acwait.amber{color:var(--amber)}.acwait.red{color:var(--red)}
-@media(max-width:640px){.acrow{grid-template-columns:62px 1fr}.acrow .acwait,.acrow .sm{grid-column:2}}.qcgrp>summary .c{margin-left:auto;color:var(--mut);font-weight:500;font-size:11px}
+@media(max-width:640px){.acrow{grid-template-columns:62px 1fr}.acrow .acwait,.acrow .sm{grid-column:2}}
+/* ===== Production journey board (display only — reuses existing actions) ===== */
+.pjchips{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:13px}
+.pjchip{font-size:12px;padding:6px 12px;border-radius:999px;border:1px solid var(--line);background:#fff;cursor:pointer;color:var(--txt2)}
+.pjchip b{margin-left:5px}
+.pjchip.on{background:var(--navy);color:#fff;border-color:var(--navy)}
+.pjcard{border:1px solid var(--line);border-radius:13px;background:#fff;padding:13px 15px;margin-bottom:11px}
+.pjcard.rec{border:2px solid var(--red)}
+.pjhd{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:11px}
+.pjk{font-size:8px;font-weight:800;letter-spacing:.3px;padding:1px 6px;border-radius:4px}
+.pjk.po{background:var(--blue-50);color:var(--blue)}
+.pjk.bulk{background:var(--navy-50);color:var(--navy)}
+.pjpill{font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px}
+.pjage{font-size:11px;color:var(--mut);margin-left:auto}
+.pjage.bad{color:var(--red);font-weight:700}
+.pjrail{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-bottom:11px}
+.pjseg{border:1px solid var(--line);border-top:3px solid var(--sc);border-radius:8px;padding:7px 9px}
+.pjseg.on{background:#f6f9ff}
+.pjsl{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;color:var(--mut)}
+.pjsv{font-size:14px;font-weight:800;margin-top:2px}
+.pjss{font-size:10px;color:var(--mut)}
+.pjacts{display:flex;gap:7px;flex-wrap:wrap}
+@media(max-width:700px){.pjrail{grid-template-columns:1fr 1fr}}.qcgrp>summary .c{margin-left:auto;color:var(--mut);font-weight:500;font-size:11px}
 </style></head><body>
 <div class="app" id="appShell">
   <div class="navbackdrop" onclick="closeMobileNav()"></div>
@@ -1887,6 +1909,52 @@ let prodMode='po', prodPOsel='';
 const BULK_BASES=['Potassium Humate','Potassium Humate Liquid','Sulfur Coated Urea','Sulfur 70%','Amino Acid','Compost','Zinc 21%','NP 6.32','Nitro Sulfur','Liquid Phosphrous','Mg Sulphate','NPK 8.8.6','Boron 5%'];
 function brandsForBase(base){ return Object.keys(SEED.brandMap||{}).filter(b=>SEED.brandMap[b].base===base).sort(); }
 function inProdLines(){ const r=[]; state.orders.forEach(o=>o.lines.forEach(l=>{ if(stageOf(o)!=='Delivered' && (l.packed||0)<l.ordered-0.5) r.push({o,l}); })); return r; }
+var prodStage='';
+var PJORD=['recon','producing','qc','pack','done'];
+function batchClearedKg(b){ var lots=(b.lots||[]); var s=0; if(lots.length){ lots.forEach(function(l){ if(l.coa&&l.coa.status==='approved'){ var ck=(l.coa.certifiedKg!=null)?l.coa.certifiedKg:(l.qty||0); s+=Math.min(l.qty||0,ck); } }); } else if(b.coa&&b.coa.status==='approved'){ var ck2=(b.coa.certifiedKg!=null)?b.coa.certifiedKg:(b.producedKg||0); s+=Math.min(b.producedKg||0,ck2); } return s; }
+function batchStage(b){ var prod=+b.producedKg||0, plan=+b.plannedKg||0, packed=+b.packedKg||0, cleared=batchClearedKg(b), rem=Math.max(0,prod-packed);
+  if(b.status==='closed' && rem>0.5 && !b.reconciled) return 'recon';
+  if(b.status==='open' && prod<plan-0.5) return 'producing';
+  if(prod-cleared>0.5) return 'qc';
+  if(cleared-packed>0.5) return 'pack';
+  return 'done'; }
+function batchAging(b){ var s=batchStage(b), d=null, lots=(b.lots||[]);
+  if(s==='producing') d=b.openedDate||b.date;
+  else if(s==='qc'){ var ds=lots.map(function(l){return l.date;}).filter(Boolean).sort(); d=ds.length?ds[ds.length-1]:(b.openedDate||b.date); }
+  else if(s==='pack'){ var ap=lots.filter(function(l){return l.coa&&l.coa.status==='approved';}).map(function(l){return l.coa.approvedDate;}).filter(Boolean).sort(); d=ap.length?ap[0]:(b.closedDate||b.openedDate||b.date); }
+  else d=b.closedDate||b.openedDate||b.date;
+  if(!d) return null; var t=new Date(d); if(isNaN(t)) return null; var days=Math.round((TODAY-t)/86400000); return days<0?0:days; }
+function journeyCard(b,ed){
+  var prod=+b.producedKg||0, plan=+b.plannedKg||0, cleared=batchClearedKg(b), packed=+b.packedKg||0;
+  var waiting=Math.max(0,prod-cleared), ready=Math.max(0,cleared-packed), rem=batchRemainderKg(b);
+  var s=batchStage(b), age=batchAging(b);
+  var SM={producing:['Producing','--blue'],qc:['Awaiting Lab QC','--purple'],pack:['Ready to pack','--green2'],recon:['Reconcile required','--red'],done:['Packed','--mut']};
+  var lbl=SM[s][0], col='var('+SM[s][1]+')';
+  var nm=b.kind==='po'?(b.brand||b.base||''):(b.base||'');
+  var sub=b.kind==='po'?((b.base||'')+' · '+(b.po||'')):'bulk to stock';
+  var ageBad=age!=null&&age>=4&&s!=='done';
+  var ageHtml=s==='done'?'':('<span class="pjage'+(ageBad?' bad':'')+'">'+(age!=null?(age+'d in '+lbl.toLowerCase()+(ageBad?' · stalled':'')):'—')+'</span>');
+  function seg(t,v,ss,active){ return '<div class="pjseg'+(active?' on':'')+'" style="--sc:'+(active?col:'var(--line)')+'"><div class="pjsl">'+t+'</div><div class="pjsv">'+v+'</div><div class="pjss">'+(ss||'&nbsp;')+'</div></div>'; }
+  var rail='<div class="pjrail">'
+    +seg('Produced',fmt(prod)+' <span style="color:var(--mut);font-size:10px">/'+fmt(plan)+'</span>',(prod<plan-0.5&&b.status==='open')?(fmt(plan-prod)+' to go'):'plan met',s==='producing')
+    +seg('Lab QC',fmt(cleared)+' ✓',waiting>0.5?(fmt(waiting)+' waiting'):'cleared',s==='qc')
+    +seg('Packed',fmt(packed),ready>0.5?(fmt(ready)+' ready'):'&nbsp;',s==='pack')
+    +seg('To PO',fmt(packed),packed>0?'routed':'—',false)
+    +'</div>';
+  var acts='';
+  if(ed){
+    if(s==='producing') acts+='<button class="sm green" onclick="openShiftLog(\''+b.id+'\')">Log shift output</button>';
+    else if(s==='qc') acts+='<button class="sm ghost" onclick="gotoScreen(\'qc\')">Open Lab QC ▸</button>';
+    else if(s==='pack'){ if(b.kind==='bulk') acts+='<button class="sm" onclick="openPack(\''+b.id+'\')">Pack into brand</button>'; else { var o=state.orders.find(function(x){return x.po===b.po;}); var l=o&&o.lines.find(function(x){return x.id===b.lineId;}); if(o&&l) acts+='<button class="sm" onclick="openProdQty(\''+o.id+'\',\''+l.id+'\')">Pack…</button>'; } }
+    else if(s==='recon') acts+='<button class="sm" style="background:var(--red);color:#fff" onclick="openReconcile(\''+b.id+'\')">Reconcile '+fmt(rem)+' Kg ▸</button>';
+    if(b.status==='open'&&prod>0&&s!=='recon') acts+=' <button class="sm ghost" onclick="closeBatch(\''+b.id+'\')">Close</button>';
+    if(rem>0.5&&!b.reconciled&&s!=='recon'&&s!=='producing') acts+=' <button class="sm ghost" style="color:var(--amber)" onclick="openReconcile(\''+b.id+'\')">Reconcile</button>';
+  }
+  return '<div class="pjcard'+(s==='recon'?' rec':'')+'">'
+    +'<div class="pjhd"><b style="font-size:13px">'+(b.batchNo||'—')+'</b> <span class="pjk '+b.kind+'">'+(b.kind==='po'?'PO':'BULK')+'</span> <span style="font-size:12px;color:var(--mut)">'+nm+' · '+sub+'</span>'
+      +'<span class="pjpill" style="background:color-mix(in srgb,'+col+' 14%,#fff);color:'+col+'">'+lbl+'</span>'+ageHtml+'</div>'
+    +rail+(acts?'<div class="pjacts">'+acts+'</div>':'')+'</div>';
+}
 function screenProd(){
   const ed=canEdit(['Production']);
   const bases=BULK_BASES.slice();
@@ -1935,6 +2003,12 @@ function screenProd(){
          <div class="fld" style="width:150px"><label>Planned (Kg/L)</label><input type="number" id="nb_planned" placeholder="Kg/L"></div>
          <button class="green" ${ed?'':'disabled'} onclick="openBatch('bulk')">Open batch</button></div>
        <div class="muted" style="font-size:11px;margin-top:8px">Opens a bulk-base batch with a planned target. Log shift output in <b>Open batches</b> below, then pack it once produced.</div>`;
+  const _jb=(state.batches||[]).filter(b=> b.status==='open' || (batchRemainderKg(b)>0.5 && !b.reconciled) || batchPackableKg(b)>0.5 );
+  const _jc={producing:0,qc:0,pack:0,recon:0}; _jb.forEach(b=>{const st=batchStage(b); if(_jc[st]!=null)_jc[st]++;});
+  const _jchips=[['','All',_jb.length],['producing','Producing',_jc.producing],['qc','Awaiting QC',_jc.qc],['pack','Ready to pack',_jc.pack],['recon','Reconcile',_jc.recon]];
+  let _jl=_jb.slice().sort((a,b)=>PJORD.indexOf(batchStage(a))-PJORD.indexOf(batchStage(b)));
+  if(prodStage) _jl=_jl.filter(b=>batchStage(b)===prodStage);
+  const journeyBoard=`<div class="card"><h3>Production journey <span class="hint">${_jb.length} active · base → QC → pack → PO</span></h3><div class="pjchips">${_jchips.map(c=>`<span class="pjchip ${prodStage===c[0]?'on':''}" onclick="prodStage='${c[0]}';render()">${c[1]} <b>${c[2]}</b></span>`).join('')}</div><div>${_jl.length?_jl.map(b=>journeyCard(b,ed)).join(''):'<div class="muted" style="padding:14px 2px">No active batches — open one above.</div>'}</div></div>`;
   $('view').innerHTML=`
    ${ed?'':viewOnly('Production')}
    <div class="card"><h3>Open a production batch</h3>
@@ -1943,11 +2017,7 @@ function screenProd(){
        <div class="opt full ${prodMode==='stock'?'on':''}" onclick="prodMode='stock';render()" style="padding:9px">Bulk Base Production</div>
      </div>${logForm}</div>
    ${fixCard}
-   ${obCard}
-   ${cbCard}
-
-   ${acard('prod_bulk','Bulk base produced — pack into brands',`${openStock.length} base(s) ready`,`${openStock.length?`<div class="tscroll"><table><thead><tr><th>Batch ▸ base</th><th class="num">Produced</th><th class="num">Packed</th><th class="num">Open</th><th>Date</th><th style="width:80px"></th></tr></thead>
-       <tbody>${openStock.map(b=>`<tr><td><b>${b.batchNo||'\u2014'}</b><div class="muted" style="font-size:11px">${b.base}</div>${lotsClearedLabel(b)}</td><td class="num">${fmt(b.producedKg)}</td><td class="num">${fmt(b.packedKg)}</td><td class="num"><b>${fmt(batchPackableKg(b))}</b></td><td class="muted">${b.openedDate||b.closedDate||b.date||'\u2014'}</td><td>${ed?((batchLabApproved(b)?`<button class="sm" onclick="openPack('${b.id}')">Pack</button>`:`<span class="pill" style="background:var(--amber-50);color:var(--amber);font-size:9px">Lab QC pending</span>`)+(((b.producedKg||0)-(b.packedKg||0)>0.5&&!b.reconciled)?` <button class="sm ghost" style="color:var(--amber)" onclick="openReconcile('${b.id}')">Reconcile</button>`:'')):''}</td></tr>`).join('')}</tbody></table></div>`:'<div class="muted">No open to-stock bulk.</div>'}`)}
+   ${journeyBoard}
 
    ${acard('prod_orders','Orders in production',`${work.length} open · produced → packed → QC`,`${work.length?`<div class="tscroll"><table><thead><tr><th>PO</th><th>Product</th><th class="num">Ordered</th><th class="num">Produced</th><th class="num">Packed</th><th class="num">To produce</th><th class="num">To pack</th><th style="width:200px"></th></tr></thead>
        <tbody>${work.map(({o,l})=>{const rp=Math.max(0,l.ordered-(l.produced||0)), rk=Math.max(0,(l.produced||0)-(l.packed||0)-(l.disposedKg||0));

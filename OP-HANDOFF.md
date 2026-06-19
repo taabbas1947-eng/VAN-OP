@@ -2,17 +2,18 @@
 
 _Updated: 2026-06-18 · COO: Tahir · Single code file: `index.html` (4308 lines, vanilla JS). Backend: `server.js` (Node/Express + Postgres, one `app_state` JSON blob + rev counter). Deploys never touch the DB. Pushes go via GitHub Desktop (Claude cannot push). Render auto-deploys on push; rollback restores prior code only, never the DB._
 
-> **STATUS — 2026-06-19 (push done):** Tahir pushed the pending batch. Now SHIPPED & LIVE: **§0j** (partial-batch packability + close PR + dangling-notification fix), **§0k Stage 4b DIVERT**, **§0l Stage 4c REWORK + pool-leak fix** — all code-only, no data migration. **Production reconcile Stage 4 is COMPLETE** (4a by-product, 4b divert, 4c rework) — the full loss / by-product / divert / rework model is now live. In-app click-through verification by Tahir in progress. Earlier "READY TO PUSH" labels (§0d/§0e/§0g and §0/§1) were stale — those are all already live too. **Not yet built:** Stage 5 (full Command Center display lanes — optional, render-only); §0b PO Tracker's 1 open fix.
+> **STATUS — 2026-06-19 (push done):** Tahir pushed the pending batch. Now SHIPPED & LIVE: **§0j** (partial-batch packability + close PR + dangling-notification fix), **§0k Stage 4b DIVERT**, **§0l Stage 4c REWORK + pool-leak fix** — all code-only, no data migration. **Production reconcile Stage 4 is COMPLETE** (4a by-product, 4b divert, 4c rework) — the full loss / by-product / divert / rework model is now live. **§0m Stage 5 (Command Center lanes)** and **§0n Action-Center landing** are now ALSO pushed & **browser-verified live** (Chrome, COO: lands on My Actions; Production lanes group correctly; chip-drill works). **Production reconcile + Command-Center programme is fully COMPLETE & live.** Earlier "READY TO PUSH" labels (§0d/§0e/§0g and §0/§1) were stale — already live. **Still open:** §0b PO Tracker's 1 fix; remaining audit tabs (QC/Lab, Shipments, Reports, Sales & Budget); functional live test of divert/rework draws (writes data — do on a low-stakes batch when ready).
 
 ---
 
-## 0n) BUILT — NOT PUSHED — 2026-06-19 · Landing page = Action Center for ALL users
+## 0n) SHIPPED & LIVE (browser-verified) — 2026-06-19 · Landing page = Action Center for ALL users
 
 On app open / login, every user now lands on the **Action Center ("My Actions", screen id `approvals`)** instead of the Dashboard. `screen` is a session key (never saved/shared), so the landing is set in three client spots, all now `'approvals'`: the seed default (`buildFromSeed`), `sessionInit` (reopen-with-session path), and `doLogin` (fresh login — guarded with `canView`, falls back to the role's first allowed screen only if it somehow can't view Action Center). In-session navigation (`setScreen`) is unchanged; the render-time access guards still redirect to `dash` only if a screen is genuinely unviewable. Verified: `approvals` is owned by every role. Bundled with §0m (same uncommitted `index.html`).
 
 ---
 
-## 0m) BUILT — NOT PUSHED — 2026-06-19 · Production STAGE 5 (Command Center lanes) — RENDER-ONLY, no logic/data change
+## 0m) SHIPPED & LIVE (browser-verified) — 2026-06-19 · Production STAGE 5 (Command Center lanes) — RENDER-ONLY, no logic/data change
+_Live check (Chrome, COO): landing opens on My Actions; Production "All" shows 4 populated lanes (In production 2 / Awaiting Lab QC 12 / Ready to pack 7 / Packed) + By-product pool line; selecting a chip collapses to a single flat lane; back to All restores the lanes. `_prodLanes` confirmed running._
 
 **Problem (from Tahir's live screenshot):** the Production journey was one giant flat scroll of ~30+ batch cards under the chips — hard to scan.
 

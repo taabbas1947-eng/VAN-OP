@@ -6,7 +6,21 @@ _Updated: 2026-06-18 · COO: Tahir · Single code file: `index.html` (4308 lines
 
 ---
 
-## 0h) READY TO PUSH (AFTER A FRESH SNAPSHOT) — 2026-06-18 · Production STAGE 2+3 (logic + one-time DATA migration; NOT yet pushed)
+## 0i) READY TO PUSH — 2026-06-19 · Production STAGE 3 CORRECTIVE (by-product de-dup; NOT yet pushed)
+
+**What happened:** Stage 2+3 was pushed 19-Jun. The migration created the pool correctly (Nitro Sulfur · 9,805 Kg · 21 sources, guard set, audit logged) **BUT the 21 hard-deleted fragments came back** — the live save uses an **additive 3-way merge: record ADDITIONS stick, record DELETIONS do not survive concurrency** (a concurrent session re-adds them). Result in the post-push snapshot: 1 pool + 21 fragments = by-product **double-counted (≈19,610 Kg)**, and the 2 output-carrying fragments (B1285/B1283) re-surfaced in the **QC screen** (screenQC had no by-product filter; Stage 1 only filtered the board + actionItems).
+
+**LESSON (important for all future migrations here): SOFT-DELETE (mark a field), never hard-delete — field edits survive the merge, record deletions don't.**
+
+**Corrective fix (code-only, verified on the 19-Jun post-push snapshot):**
+1. `dedupeByproductV1` migration — once a pool exists, **voids** leftover non-pool by-product fragments (`voided:true`, kg→0, status `void`) instead of deleting. Guard `_bpDedupV1`; only acts when a pool is present; audit-logged.
+2. By-product **summary counts the POOL only** (`_bpPools.length?_bpPools:_bpAll`) — so kg is right (9,805) even if a soft-delete is partially fought by the merge.
+3. `screenQC` now **excludes `disposition==='byproduct'`** — the 2 false QC entries gone from the QC tab too.
+**Verified:** 19,610→9,805 summary, 21/21 fragments voided, QC by-product excluded, pool intact (9,805 · 21 sources), 51 normal batches untouched, idempotent, `node --check` clean, file intact (4458 lines). Rollback = the 19-Jun snapshot.
+
+---
+
+## 0h) PUSHED 2026-06-19 · Production STAGE 2+3 (logic + one-time DATA migration) — pool created OK; see §0i for the de-dup correction
 
 **Stage 2 (logic, code-only):** `saveReconcile` by-product branch now **accrues into ONE open pool per base** (find-or-create, `pool:true`, `sources[]`) instead of a new fragmented batch per reconcile — never sets `producedKg`, so no batch#/QC until called for manufacturing. Divert/rework branches left unchanged (0 records today; full pool + call/merge lands in Stage 4).
 

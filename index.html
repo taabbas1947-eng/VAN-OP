@@ -688,7 +688,7 @@ function ensureState(s){
   s.users=(s.users&&s.users.length)?s.users:deepClone(SEED.users||[]); if(s.currentUser===undefined)s.currentUser=null;
   s.rmRequests=s.rmRequests||[]; s.productionLog=s.productionLog||[]; s.packingLog=s.packingLog||[];
   s.actionLog=s.actionLog||[]; s.shipments=s.shipments||[]; s.inspections=s.inspections||[]; s.warehouses=s.warehouses||SEED.warehouses.slice();
-  s.rawStock=s.rawStock||{}; s.rmMovements=s.rmMovements||[]; s.audit=s.audit||[]; s.masters=s.masters||deepClone(SEED.masters||{}); s.batches=s.batches||[]; s.packedStock=s.packedStock||{}; s.packingLog=s.packingLog||[]; s.orders=s.orders||[]; if(s.seq==null)s.seq=1000; (s.packingLog||[]).forEach(function(p){ if(p&&!p.id) p.id='PK'+(s.seq++); }); if(s.dataFixEnabled==null)s.dataFixEnabled=true; if(!Array.isArray(s.prs))s.prs=[]; (s.batches||[]).forEach(function(b){ if((b.producedKg||0)>0 && (!Array.isArray(b.lots)||!b.lots.length)){ b.lots=[{id:'LOT'+(s.seq++), lotNo:(b.batchNo||'B')+'-L1', qty:b.producedKg, date:b.openedDate||'', by:b.by||'', coa:(b.coa||null), migrated:true}]; } }); ensureMasters(s); ensureProductionModel(s); dedupePackingLots(s); migrateLotTracking(s); healPRFlags(s); migrateBrandNames(s); loadBaseRecipesV2(s); loadBlendRecipesV1(s); loadBlendRecipesV2(s); purgeImportedProduction(s); purgeImportDuplicates(s); purgeImportedNoTwin(s); fixPhantomLotVU26134(s); consolidateByproductV1(s); return s;
+  s.rawStock=s.rawStock||{}; s.rmMovements=s.rmMovements||[]; s.audit=s.audit||[]; s.masters=s.masters||deepClone(SEED.masters||{}); s.batches=s.batches||[]; s.packedStock=s.packedStock||{}; s.packingLog=s.packingLog||[]; s.orders=s.orders||[]; if(s.seq==null)s.seq=1000; (s.packingLog||[]).forEach(function(p){ if(p&&!p.id) p.id='PK'+(s.seq++); }); if(s.dataFixEnabled==null)s.dataFixEnabled=true; if(!Array.isArray(s.prs))s.prs=[]; (s.batches||[]).forEach(function(b){ if((b.producedKg||0)>0 && (!Array.isArray(b.lots)||!b.lots.length)){ b.lots=[{id:'LOT'+(s.seq++), lotNo:(b.batchNo||'B')+'-L1', qty:b.producedKg, date:b.openedDate||'', by:b.by||'', coa:(b.coa||null), migrated:true}]; } }); ensureMasters(s); ensureProductionModel(s); dedupePackingLots(s); migrateLotTracking(s); healPRFlags(s); migrateBrandNames(s); loadBaseRecipesV2(s); loadBlendRecipesV1(s); loadBlendRecipesV2(s); purgeImportedProduction(s); purgeImportDuplicates(s); purgeImportedNoTwin(s); fixPhantomLotVU26134(s); consolidateByproductV1(s); dedupeByproductV1(s); return s;
 }
 /* Lock 1: idempotent master seeding. ADDITIVE ONLY — seeds a list only when it is
    missing or empty, and never overwrites values the team has already added. Touches no
@@ -2121,7 +2121,7 @@ function screenProd(){
   const _jchips=[['','All',_jb.length],['producing','Producing',_jc.producing],['qc','Awaiting QC',_jc.qc],['pack','Ready to pack',_jc.pack],['recon','Reconcile',_jc.recon]];
   let _jl=_jb.slice().sort((a,b)=>PJORD.indexOf(batchStage(a))-PJORD.indexOf(batchStage(b)));
   if(prodStage) _jl=_jl.filter(b=>batchStage(b)===prodStage);
-  const _bpA=(state.batches||[]).filter(b=>b.disposition==='byproduct'); const _bpKg=_bpA.reduce((a,b)=>a+(+b.plannedKg||0),0);
+  const _bpAll=(state.batches||[]).filter(b=>b.disposition==='byproduct'&&!b.voided); const _bpPools=_bpAll.filter(b=>b.pool); const _bpA=_bpPools.length?_bpPools:_bpAll; const _bpKg=_bpA.reduce((a,b)=>a+(+b.plannedKg||0),0);  /* count only the pool when one exists (never double-count leftover fragments) */
   const journeyBoard=`<div class="card"><h3>Production journey <span class="hint">${_jb.length} active · base → QC → pack → PO</span></h3>${_bpA.length?`<div class="muted" style="font-size:11.5px;margin:0 0 9px;padding:7px 10px;background:var(--navy-50);border-radius:8px">By-product · Nitro Sulfur: <b>${fmt(_bpKg)}</b> Kg pooled — handled on its own line (not shown in the board).</div>`:''}<div class="pjchips">${_jchips.map(c=>`<span class="pjchip ${prodStage===c[0]?'on':''}" onclick="prodStage='${c[0]}';render()">${c[1]} <b>${c[2]}</b></span>`).join('')}</div><div>${_jl.length?_jl.map(b=>journeyCard(b,ed)).join(''):'<div class="muted" style="padding:14px 2px">No active batches — open one above.</div>'}</div></div>`;
   $('view').innerHTML=`
    ${ed?'':viewOnly('Production')}
@@ -2673,7 +2673,7 @@ function qcGrpPassed(rows){ if(!rows.length) return '<div class="muted">None yet
   }).join(''); }
 function screenQC(){
   const isLab=canEdit(['Lab Rep']), isAQ=canEdit(['AQCM']), isQM=canEdit(['QCM']), isQA=canEdit(['QA Inspector']), isPM=canEdit(['Plant Manager']), isCOO=state.role==='COO', isSC=canEdit(['Supply Chain']);
-  const labB=(state.batches||[]).filter(b=>(b.producedKg||0)>0);
+  const labB=(state.batches||[]).filter(b=>(b.producedKg||0)>0 && b.disposition!=='byproduct');  /* by-product accruals/pool never enter QC here — they get QC only AFTER grinding (call-for-manufacturing) */
   const lotUnits=[]; labB.forEach(b=>{ const lots=(b.lots||[]); if(lots.length){ lots.forEach(l=>lotUnits.push({b,id:l.id,no:(l.lotNo||b.batchNo),qty:(l.qty||0),coa:l.coa})); } else { lotUnits.push({b,id:'',no:b.batchNo,qty:(b.producedKg||0),coa:b.coa}); } });
   const labPending=lotUnits.filter(u=>!u.coa || u.coa.status!=='approved');
   const labDone=lotUnits.filter(u=>u.coa&&u.coa.status==='approved');
@@ -3311,6 +3311,19 @@ function consolidateByproductV1(s){ if(s._bpConsolidateV1) return;
     (s.audit=s.audit||[]).unshift({t:new Date().toISOString(),user:'System',module:'Production',field:'By-product consolidated',val:bps.length+' accruals → '+Object.keys(byBase).length+' pool(s) ('+Math.round(bps.reduce(function(a,b){return a+(+b.plannedKg||0);},0))+' Kg)',batchNo:''});
   }
   s._bpConsolidateV1=true;
+}
+/* Corrective (2026-06-19): Stage-3 created the pool, but the live additive save-merge re-added the 21 hard-deleted
+   fragments (double-count). Hard-delete doesn't survive concurrency; a SOFT-DELETE (field edit) does. Once a pool
+   exists, this voids the leftover non-pool by-product fragments (kg→0, status void) so the pool is the single source
+   of truth. Only acts when a pool is present; idempotent via _bpDedupV1; audit-logged; touches no normal batch. */
+function dedupeByproductV1(s){ if(s._bpDedupV1) return;
+  var pools=(s.batches||[]).filter(function(b){ return b.disposition==='byproduct' && b.pool; });
+  if(pools.length){
+    var k=0;
+    (s.batches||[]).forEach(function(b){ if(b.disposition==='byproduct' && !b.pool && !b.voided){ b.voided=true; b.plannedKg=0; b.producedKg=0; b.status='void'; b.lots=[]; k++; } });
+    if(k) (s.audit=s.audit||[]).unshift({t:new Date().toISOString(),user:'System',module:'Production',field:'By-product fragments voided',val:k+' leftover accruals voided (already consolidated into pool)',batchNo:''});
+  }
+  s._bpDedupV1=true;
 }
 function dedupePackingLots(s){ const best={}; (s.packingLog||[]).forEach(p=>{ if(!p||!p.id)return; const sc=(+p.insKg||0)+(+p.shipKg||0); const cur=best[p.id]; if(!cur||sc>cur.sc) best[p.id]={p:p,sc:sc}; }); s.packingLog=(s.packingLog||[]).filter(p=>{ if(!p)return false; if(!p.id)return true; return best[p.id]&&best[p.id].p===p; }); }
 /* Heal lines flagged prRaised but with no actual PR lines (the old empty-PR submit bug):

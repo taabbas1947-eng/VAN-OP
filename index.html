@@ -2056,7 +2056,7 @@ function journeyCard(b,ed){
     +'</div>';
   var acts='';
   if(ed){
-    if(s==='producing') acts+='<button class="sm green" onclick="openShiftLog(\''+b.id+'\')">Log shift output</button>';
+    if(s==='producing'){ acts+='<button class="sm green" onclick="openShiftLog(\''+b.id+'\')">Log shift output</button>'; if(ready>0.5){ if(b.kind==='bulk') acts+=' <button class="sm" onclick="openPack(\''+b.id+'\')">Pack cleared ('+fmt(ready)+')</button>'; else { var _o=state.orders.find(function(x){return x.po===b.po;}); var _l=_o&&_o.lines.find(function(x){return x.id===b.lineId;}); if(_o&&_l) acts+=' <button class="sm" onclick="openProdQty(\''+_o.id+'\',\''+_l.id+'\')">Pack cleared ('+fmt(ready)+')</button>'; } } }  /* fix: QC-cleared partial stock is packable while the batch keeps producing the rest */
     else if(s==='qc') acts+='<button class="sm ghost" onclick="gotoScreen(\'qc\')">Open Lab QC ▸</button>';
     else if(s==='pack'){ if(b.kind==='bulk') acts+='<button class="sm" onclick="openPack(\''+b.id+'\')">Pack into brand</button>'; else { var o=state.orders.find(function(x){return x.po===b.po;}); var l=o&&o.lines.find(function(x){return x.id===b.lineId;}); if(o&&l) acts+='<button class="sm" onclick="openProdQty(\''+o.id+'\',\''+l.id+'\')">Pack…</button>'; } }
     else if(s==='recon') acts+='<button class="sm" style="background:var(--red);color:#fff" onclick="openReconcile(\''+b.id+'\')">Reconcile '+fmt(rem)+' Kg ▸</button>';
@@ -2117,12 +2117,12 @@ function screenProd(){
          <button class="green" ${ed?'':'disabled'} onclick="openBatch('bulk')">Open batch</button></div>
        <div class="muted" style="font-size:11px;margin-top:8px">Opens a bulk-base batch with a planned target. Log shift output in <b>Open batches</b> below, then pack it once produced.</div>`;
   const _jb=(state.batches||[]).filter(b=> b.disposition!=='byproduct' && (b.status==='open' || (batchRemainderKg(b)>0.5 && !b.reconciled) || batchPackableKg(b)>0.5) );  /* Stage 1: by-product accruals are pooled & shown on their own line, not in the main journey board (display-only) */
-  const _jc={producing:0,qc:0,pack:0,recon:0}; _jb.forEach(b=>{const st=batchStage(b); if(_jc[st]!=null)_jc[st]++;});
+  const _ready=b=>Math.max(0,batchClearedKg(b)-(+b.packedKg||0)); const _jc={producing:0,qc:0,pack:0,recon:0}; _jb.forEach(b=>{const st=batchStage(b); if(_jc[st]!=null)_jc[st]++; if(st!=='pack' && _ready(b)>0.5) _jc.pack++;});  /* master: QC-cleared & unpacked stock counts as Ready-to-pack even while the batch still produces the remainder (it accumulates per batch as each lot clears) */
   const _jchips=[['','All',_jb.length],['producing','Producing',_jc.producing],['qc','Awaiting QC',_jc.qc],['pack','Ready to pack',_jc.pack],['recon','Reconcile',_jc.recon]];
   let _jl=_jb.slice().sort((a,b)=>PJORD.indexOf(batchStage(a))-PJORD.indexOf(batchStage(b)));
-  if(prodStage) _jl=_jl.filter(b=>batchStage(b)===prodStage);
+  if(prodStage==='pack') _jl=_jl.filter(b=>_ready(b)>0.5); else if(prodStage) _jl=_jl.filter(b=>batchStage(b)===prodStage);  /* Ready-to-pack lens shows ANY batch with cleared-unpacked stock, incl. ones still producing */
   const _bpAll=(state.batches||[]).filter(b=>b.disposition==='byproduct'&&!b.voided); const _bpPools=_bpAll.filter(b=>b.pool); const _bpA=_bpPools.length?_bpPools:_bpAll; const _bpKg=_bpA.reduce((a,b)=>a+(+b.plannedKg||0),0);  /* count only the pool when one exists (never double-count leftover fragments) */
-  const journeyBoard=`<div class="card"><h3>Production journey <span class="hint">${_jb.length} active · base → QC → pack → PO</span></h3>${_bpA.length?`<div class="muted" style="font-size:11.5px;margin:0 0 9px;padding:7px 10px;background:var(--navy-50);border-radius:8px">By-product · Nitro Sulfur: <b>${fmt(_bpKg)}</b> Kg pooled — handled on its own line (not shown in the board).</div>`:''}<div class="pjchips">${_jchips.map(c=>`<span class="pjchip ${prodStage===c[0]?'on':''}" onclick="prodStage='${c[0]}';render()">${c[1]} <b>${c[2]}</b></span>`).join('')}</div><div>${_jl.length?_jl.map(b=>journeyCard(b,ed)).join(''):'<div class="muted" style="padding:14px 2px">No active batches — open one above.</div>'}</div></div>`;
+  const journeyBoard=`<div class="card"><h3>Production journey <span class="hint">${_jb.length} active · base → QC → pack → PO</span></h3>${_bpKg>0.5?`<div class="muted" style="font-size:11.5px;margin:0 0 9px;padding:8px 11px;background:var(--navy-50);border-radius:8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span>By-product · Nitro Sulfur: <b>${fmt(_bpKg)}</b> Kg pooled${_bpKg>=5000?` · <b style="color:var(--navy2)">ready to call (≥5,000)</b>`:` · below 5,000 (can still call)`}</span>${(ed&&_bpPools.length)?`<button class="sm green" style="margin-left:auto" onclick="openCallBp('${_bpPools[0].id}')">Call for manufacturing ▸</button>`:''}</div>`:''}<div class="pjchips">${_jchips.map(c=>`<span class="pjchip ${prodStage===c[0]?'on':''}" onclick="prodStage='${c[0]}';render()">${c[1]} <b>${c[2]}</b></span>`).join('')}</div><div>${_jl.length?_jl.map(b=>journeyCard(b,ed)).join(''):'<div class="muted" style="padding:14px 2px">No active batches — open one above.</div>'}</div></div>`;
   $('view').innerHTML=`
    ${ed?'':viewOnly('Production')}
    <div class="card"><h3>Open a production batch</h3>
@@ -2231,6 +2231,29 @@ function openBatch(kind){
   save(); toast('Batch opened'); render();
 }
 let shiftForm={batchId:null,date:'',shift:'',incharge:'',qty:'',reason:'',note:''};
+/* Stage 4a: by-product "call for manufacturing" — partial qty, batch# assigned AT call, creates a real grind batch
+   (NO byproduct disposition → shows in the board & follows the standard route: grind via Log shift output → QC → pack → QA). Pool decrements; remainder stays pooled. */
+let callBpForm={poolId:null,qty:'',batchNo:''};
+function openCallBp(poolId){ if(!(canEdit(['Production'])||state.role==='COO')){toast('Production / COO only');return;} const p=(state.batches||[]).find(x=>x.id===poolId); if(!p){toast('Pool not found');return;} callBpForm={poolId,qty:Math.round(+p.plannedKg||0),batchNo:''}; renderCallBp(); $('modalBg').classList.add('open'); }
+function renderCallBp(){ const p=(state.batches||[]).find(x=>x.id===callBpForm.poolId); if(!p)return; const avail=Math.round(+p.plannedKg||0);
+  $('modal').innerHTML=`<div class="mh"><h2>Call by-product for manufacturing</h2><div class="sub">${p.base} · ${fmt(avail)} Kg pooled${avail>=5000?' · ready (≥5,000 recommended)':' · below 5,000 (you can still call)'}</div></div>
+   <div class="mb"><div class="formgrid" style="grid-template-columns:1fr 1fr">
+     <div class="fld"><label>Quantity to call (Kg/L)</label><input type="number" value="${callBpForm.qty}" oninput="callBpForm.qty=this.value" placeholder="max ${avail}"></div>
+     <div class="fld"><label>Batch # (assigned now)</label><input type="text" value="${callBpForm.batchNo}" oninput="callBpForm.batchNo=this.value" placeholder="e.g. NS26001"></div>
+   </div><div class="muted" style="font-size:11px;margin-top:10px">Creates a ${p.base} grind batch for the called quantity; the rest stays pooled. It then follows the standard route — grind (Log shift output) → Lab QC → pack → QA → ship. Packs to a ${p.base} PO if one exists, else holds.</div></div>
+   <div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" onclick="submitCallBp()">Call & start grinding</button></div>`; }
+function submitCallBp(){ if(!(canEdit(['Production'])||state.role==='COO')){toast('Production / COO only');return;} const p=(state.batches||[]).find(x=>x.id===callBpForm.poolId); if(!p)return; const avail=+p.plannedKg||0; const qty=Math.round(+callBpForm.qty||0); const bn=(callBpForm.batchNo||'').trim();
+  if(!(qty>0)){toast('Enter a quantity to call');return;}
+  if(qty>avail+0.5){toast('Quantity must be ≤ '+fmt(Math.round(avail))+' Kg pooled');return;}
+  if(!bn){toast('Enter a batch number (assigned at call)');return;}
+  const fy=fyKey(TODAY.toISOString().slice(0,10)); if(batchOwnerInFY(bn,fy)){toast('Batch # "'+bn+'" already used this financial year ('+fy+') — use a unique number.');return;}
+  if(!validateBatchNo(bn) && typeof confirm==='function' && !confirm('Batch number "'+bn+'" doesn\'t match the usual format. Is it correct?')) return;
+  const d=TODAY.toISOString().slice(0,10);
+  state.batches.unshift({id:'B'+(state.seq++),batchNo:bn,kind:'bulk',type:'stock',base:p.base,brand:null,plannedKg:qty,producedKg:0,packedKg:0,status:'open',openedDate:d,by:state.role,fromByproduct:true,sourcePool:p.id,lots:[]});
+  p.plannedKg=Math.max(0,(+p.plannedKg||0)-qty);
+  (state.audit=state.audit||[]).unshift({t:new Date().toISOString(),user:state.role,module:'Production',field:'By-product called for manufacturing',po:'',brand:p.base,val:fmt(qty)+' Kg called as batch '+bn+' (grind)',batchNo:bn});
+  logAction('Called '+fmt(qty)+' Kg '+p.base+' by-product for manufacturing as batch '+bn+' (grind → standard route)');
+  save(); closeModal(); render(); toast('Called '+fmt(qty)+' Kg as batch '+bn+' — grind it via Log shift output'); }
 function openShiftLog(batchId){
   const b=(state.batches||[]).find(x=>x.id===batchId); if(!b){toast('Batch not found');return;}
   const sh=(state.masters&&state.masters.shifts)||['Morning','Evening','Night'];
@@ -2719,7 +2742,7 @@ function raisePR(rm, qty){ if(!rm||!(qty>0))return; state.prs=state.prs||[]; con
   if(open){ open.qtyRequired+=qty; logAction(`PR (open) for ${rm}: +${fmt(qty)} Kg/L attached — required now ${fmt(open.qtyRequired)}`); }
   else { state.prs.unshift({id:'PR'+(state.seq++),rm,qtyRequired:qty,qtyReceived:0,receipts:[],status:'open',cfoApproved:null,date:TODAY.toISOString().slice(0,10),by:state.role}); logAction(`PR raised for ${rm}: ${fmt(qty)} Kg/L`); } }
 let recvScope=null;
-function recvPRCard(p){ const rem=Math.max(0,p.qtyRequired-(p.qtyReceived||0)); return `<div style="border:1px solid var(--line);border-radius:9px;padding:9px 11px;margin-bottom:8px"><div style="font-weight:600">${p.rm}</div><div class="muted" style="font-size:11px;margin-bottom:6px">required ${fmt(p.qtyRequired)} · received ${fmt(p.qtyReceived||0)} · remaining ${fmt(rem)} Kg/L${(p.receipts&&p.receipts.length)?(' · '+p.receipts.length+' receipt(s)'):''}${p.cfoApproved?' · <span style="color:var(--green2)">CFO approved</span>':' · <span style="color:var(--amber)">awaiting CFO approval</span>'}</div><div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap"><div class="fld" style="width:120px"><label>Receive qty</label><input type="number" id="rcv_${p.id}" placeholder="max ${fmt(rem)}"></div><div class="fld" style="width:140px"><label>GRN #</label><input type="text" id="grn_${p.id}"></div><div class="fld" style="width:140px"><label>Date</label><input type="date" id="rdt_${p.id}" value="${TODAY.toISOString().slice(0,10)}"></div><button class="sm green" onclick="receivePR('${p.id}')">Receive</button></div></div>`; }
+function recvPRCard(p){ const rem=Math.max(0,p.qtyRequired-(p.qtyReceived||0)); return `<div style="border:1px solid var(--line);border-radius:9px;padding:9px 11px;margin-bottom:8px"><div style="font-weight:600">${p.rm}</div><div class="muted" style="font-size:11px;margin-bottom:6px">required ${fmt(p.qtyRequired)} · received ${fmt(p.qtyReceived||0)} · remaining ${fmt(rem)} Kg/L${(p.receipts&&p.receipts.length)?(' · '+p.receipts.length+' receipt(s)'):''}${p.cfoApproved?' · <span style="color:var(--green2)">CFO approved</span>':' · <span style="color:var(--amber)">awaiting CFO approval</span>'}</div><div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap"><div class="fld" style="width:120px"><label>Receive qty</label><input type="number" id="rcv_${p.id}" placeholder="max ${fmt(rem)}"></div><div class="fld" style="width:140px"><label>GRN #</label><input type="text" id="grn_${p.id}"></div><div class="fld" style="width:140px"><label>Date</label><input type="date" id="rdt_${p.id}" value="${TODAY.toISOString().slice(0,10)}"></div><button class="sm green" onclick="receivePR('${p.id}')">Receive</button><button class="sm ghost" style="color:var(--red)" onclick="closePR('${p.id}')">Close PR</button></div></div>`; }
 function openReceiveMaterials(oid,lid){
   if(oid&&lid) recvScope={oid,lid}; else if(oid===null) recvScope=null;
   const open=(state.prs||[]).filter(p=>p.status==='open');
@@ -2740,6 +2763,15 @@ function receivePR(prId){ if(!canEdit(['Supply Chain'])){toast('Supply Chain onl
   if(p.qtyReceived>=p.qtyRequired-0.001) p.status='closed';
   logAction(`GRN ${grn}: received ${fmt(qty)} Kg/L ${p.rm} (PR ${p.id} ${p.status})`);
   save(); toast(p.status==='closed'?'PR fully received — closed':'Partial receipt recorded'); openReceiveMaterials(); }
+/* Close/cancel a PR without full receipt — for "received enough" (e.g. got 1,500 of an over-stacked 3,000) or "cancelled — not receiving". Supply Chain / COO. Reason logged; reflects the closed PR at what was actually received so it stops blocking. */
+function closePR(prId){ if(!(canEdit(['Supply Chain'])||state.role==='COO')){toast('Supply Chain / COO only');return;} const p=(state.prs||[]).find(x=>x.id===prId); if(!p||p.status!=='open')return;
+  const got=+p.qtyReceived||0; const left=Math.max(0,(+p.qtyRequired||0)-got);
+  const msg=got>0?('Close PR for '+p.rm+'? Received '+fmt(got)+' of '+fmt(p.qtyRequired)+' Kg/L — the remaining '+fmt(left)+' will be dropped (no longer expected).'):('Cancel PR for '+p.rm+' with nothing received?');
+  if(typeof confirm==='function' && !confirm(msg)) return;
+  p.status='closed'; p.closedEarly=true; p.closedReason=(got>0?'received enough':'cancelled — not received'); if(got>0) p.qtyRequired=got;
+  (state.audit=state.audit||[]).unshift({t:new Date().toISOString(),user:state.role,module:'Receive',field:'PR closed early',val:p.rm+' — '+p.closedReason+' (received '+fmt(got)+' Kg/L)',batchNo:''});
+  logAction('PR '+p.id+' ('+p.rm+') closed early — '+p.closedReason+' (received '+fmt(got)+' Kg/L)');
+  save(); toast('PR closed'); openReceiveMaterials(); }
 let delayForm={oid:null,lid:null,reason:'',dept:''};
 function openDelayReason(oid,lid){ const o=state.orders.find(x=>x.id===oid); const l=o&&o.lines.find(x=>x.id===lid); if(!l)return; delayForm={oid,lid,reason:l.delayReason||'',dept:l.respDept||''};
   const rs=(state.masters&&state.masters.delayReasons)||[]; const ds=(state.masters&&state.masters.respDepts)||[];

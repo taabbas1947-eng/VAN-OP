@@ -6,7 +6,20 @@ _Updated: 2026-06-18 · COO: Tahir · Single code file: `index.html` (4308 lines
 
 ---
 
-## 0i) READY TO PUSH — 2026-06-19 · Production STAGE 3 CORRECTIVE (by-product de-dup; NOT yet pushed)
+## 0j) READY TO PUSH — 2026-06-19 · 3 live fixes (partial-batch packability + close PR) — code-only, no data migration
+
+1. **Partial-batch packability (master fix):** a batch's QC-cleared, unpacked stock now **lands & accumulates in Ready-to-pack EVEN while the batch keeps producing** the remainder (it accumulates per batch as each lot clears — `batchClearedKg` already sums QC-approved lots). Changes: (a) `journeyCard` shows a **"Pack cleared (X)"** action on a producing batch when `cleared−packed>0.5`; (b) `_jc` count + the **"Ready to pack" chip/lens** include any batch with cleared-unpacked stock (so a batch can be in **Producing AND Ready-to-pack**). Fixes **MAXNK26007** (13,800 cleared of 25,000 plan — was locked under "Producing", now packable & visible in Ready-to-pack). Verified: producing 1 + pack 1, lens shows it.
+2. **Close PR without full receipt:** new `closePR(prId)` + a **"Close PR"** button on the Receive-GRN card (Supply Chain / COO). Closes a PR at what was actually received — e.g. Manganese Sulfate Mono **1,500 of an over-stacked 3,000** (drops the unneeded 1,500), or **cancels** with nothing received (V-Zinc). Sets status closed, `qtyRequired=received`, reason + audit logged. Fixes the "can't close the PR" block.
+
+**Verified:** `node --check` clean on all changes; `index.html` intact (4490 lines). **Code-only — no auto data migration** (both act only on user click); snapshot before use as good practice.
+
+---
+
+## 0i) SHIPPED & LIVE — 2026-06-19 · Production STAGE 3 CORRECTIVE (by-product de-dup) — VERIFIED on live
+
+**Pushed & confirmed on the post-corrective snapshot:** `_bpConsolidateV1` + `_bpDedupV1` both set; **21/21 fragments voided** (kg→0, no double-count); **0 by-product in the QC screen** (2 false entries cleared); 51 normal batches untouched; audit logged. **Bonus — Stage 2 proven live:** the pool grew 9,805→**10,480 Kg** (21→**23 sources**) because 2 more SCU batches were reconciled since, and they **accumulated into the single pool with NO new fragments** — confirming the accumulation logic works on live. Rule 1 (accumulation half) + Rule 5 (by-product slice) are now live & proven.
+
+ORIGINAL NOTE (for record):
 
 **What happened:** Stage 2+3 was pushed 19-Jun. The migration created the pool correctly (Nitro Sulfur · 9,805 Kg · 21 sources, guard set, audit logged) **BUT the 21 hard-deleted fragments came back** — the live save uses an **additive 3-way merge: record ADDITIONS stick, record DELETIONS do not survive concurrency** (a concurrent session re-adds them). Result in the post-push snapshot: 1 pool + 21 fragments = by-product **double-counted (≈19,610 Kg)**, and the 2 output-carrying fragments (B1285/B1283) re-surfaced in the **QC screen** (screenQC had no by-product filter; Stage 1 only filtered the board + actionItems).
 
@@ -60,7 +73,7 @@ First stage of the reconcile/by-product rework (see `VAN-Production-Reconcile-Im
 **CONFIRMED RECONCILE RULE-SET (Tahir, 2026-06-18 — for the prototype + eventual build; example: a 350/500 kg SCU remainder splits into loss + by-product + divert + rework):**
 - **Loss / overfill** → recorded as loss only. No batch, no onward steps.
 - **By-product (Nitro Sulfur)** → ONE accumulating pool (no batch#/QC/QA while pooling). Production **calls it anytime** (soft ~5,000 kg hint, not a gate) → batch# **at call** → **grind** → standard route (Lab QC → pack → QA → ship). Packs to a Nitro Sulfur PO **if one exists, else HOLDS** (it's its own sellable product).
-- **Divert** → fed **back into a production batch of the ORIGINATING product** (e.g. 150 kg back into SCU production) as input → produced → standard route → **ALWAYS to a PO**.
+- **Divert (CLARIFIED 2026-06-19 — e.g. Potassium Humate powder from grading)** → the SAME product, **already FINAL & QC-cleared under the parent batch's COA — NO separate QC, NO processing/grind, NO batch # of its own**. Captured at grading/reconcile and **ACCUMULATES into a per-PRODUCT "diverted material" pool/stock** (diverting from 5 batches → all land in that one product's pool; each source batch # tracked). **Production SEES it** as a visible line: "Diverted material available · [product]: X kg" (like the Nitro Sulfur by-product line). Production draws from the pool (partial) two ways: **(a) recycle** → allocate X kg as **input into a new/existing same-product production batch** (rides that batch's QC/pack), or **(b) pack** → ship X kg to a **client PO** (QC-cleared, carries source #). Stays in the visible pool until recycled or packed — never lost. _Difference vs by-product: divert pools too, but needs NO grind, NO re-QC, NO own batch #._
 - **Rework** (off-spec, same base) → pooled + partial-call; **operator chooses per call: OWN batch (own #, standard route, like by-product) OR merge into an existing base batch (no own #, like divert)** → standard route → **ALWAYS to a PO**.
 - **All "needs-production" routes (by-product, divert, rework) are POOLS with PARTIAL CALL** — accumulate, then Production calls a partial (or full) quantity when ready; the remainder stays pooled. Divert specifically MERGES into the originating product's batch as input (no batch# of its own). Live implementation plan + risk register: `E:\VAN Platform\VAN-Production-Reconcile-Implementation-Plan.md` (5 staged, snapshot-first, reversible). Offline prototype models it all end-to-end.
 - **Batch#** for every routed batch: assigned **at "call for manufacturing" / when it enters processing** — never while accumulating.

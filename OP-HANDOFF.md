@@ -6,6 +6,20 @@ _Updated: 2026-06-18 · COO: Tahir · Single code file: `index.html` (4308 lines
 
 ---
 
+## 0m) BUILT — NOT PUSHED — 2026-06-19 · Production STAGE 5 (Command Center lanes) — RENDER-ONLY, no logic/data change
+
+**Problem (from Tahir's live screenshot):** the Production journey was one giant flat scroll of ~30+ batch cards under the chips — hard to scan.
+
+**Change:** when the **All** chip is selected, the journey list now renders as **labelled lanes** grouped by `batchStage` (the existing mutually-exclusive stage) — `In production` → `Awaiting Lab QC` → `Ready to pack` → `Reconcile` → `Packed — ready to close`. Each lane has a coloured header + count. Selecting a specific chip still shows that single lane as a flat list (unchanged behaviour). The by-product / divert / rework **pool lines stay as their own lanes** above. New helper `_prodLanes(items,ed)`; the journeyBoard list expression now branches `prodStage ? <flat filtered> : _prodLanes(_jb)`.
+
+**Render-only — nothing else touched:** same `_jb` membership, same `journeyCard`, same `batchStage`/`batchClearedKg`/pack/QC logic. No data, no flow, no migration.
+
+**Verified offline:** isolation `node --check` clean. Lane-coverage simulation on the 19-Jun snapshot: all 48 `_jb` batches bucket into exactly one lane (`producing/qc/pack/recon/done`), **0 unbucketed** — nothing is ever dropped from the board (the `done` lane catches fully-packed batches that aren't in any chip count). Not yet browser-clicked.
+
+**Stage 4 + 5 = the Production reconcile/Command-Center programme is complete.**
+
+---
+
 ## 0l) SHIPPED & LIVE — 2026-06-19 · Production STAGE 4c (REWORK) + pool-leak fix — code-only, no data migration
 
 **Model:** rework = off-spec material of the **same base** — **NOT QC-cleared, needs re-processing**. Routed at reconcile into a **per-product rework pool**; Production calls it (partial) and **picks per call**: OWN batch or MERGE.

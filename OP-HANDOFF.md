@@ -2,11 +2,11 @@
 
 _Updated: 2026-06-18 · COO: Tahir · Single code file: `index.html` (4308 lines, vanilla JS). Backend: `server.js` (Node/Express + Postgres, one `app_state` JSON blob + rev counter). Deploys never touch the DB. Pushes go via GitHub Desktop (Claude cannot push). Render auto-deploys on push; rollback restores prior code only, never the DB._
 
-> **STATUS — 2026-06-18:** §0/§1 shipped & live (`343b7bb`); handoff-wording cleanup pushed (`68ae33f`); **§0a Action Center display fixes pushed & live (`94593b9`)**; in-app verification by Tahir in progress. Local = `origin/main` = `8cdd2c3`, 0/0. Data-migration flags `_purgeImpV1`, `_purgeImpDupV1`, `_purgeImpNoTwinV1`, `_fixVU26134L2V1` all `true` in the 18 Jun snapshot. **§0b PO Tracker audit done (read-only) — 1 fix open, not yet implemented.** The old "READY TO PUSH / NOT pushed" labels in §0 and §1 were stale notes — those edits are already shipped and live.
+> **STATUS — 2026-06-19 (push done):** Tahir pushed the pending batch. Now SHIPPED & LIVE: **§0j** (partial-batch packability + close PR + dangling-notification fix), **§0k Stage 4b DIVERT**, **§0l Stage 4c REWORK + pool-leak fix** — all code-only, no data migration. **Production reconcile Stage 4 is COMPLETE** (4a by-product, 4b divert, 4c rework) — the full loss / by-product / divert / rework model is now live. In-app click-through verification by Tahir in progress. Earlier "READY TO PUSH" labels (§0d/§0e/§0g and §0/§1) were stale — those are all already live too. **Not yet built:** Stage 5 (full Command Center display lanes — optional, render-only); §0b PO Tracker's 1 open fix.
 
 ---
 
-## 0l) BUILT — NOT PUSHED — 2026-06-19 · Production STAGE 4c (REWORK) + pool-leak fix — code-only, no data migration, verified offline
+## 0l) SHIPPED & LIVE — 2026-06-19 · Production STAGE 4c (REWORK) + pool-leak fix — code-only, no data migration
 
 **Model:** rework = off-spec material of the **same base** — **NOT QC-cleared, needs re-processing**. Routed at reconcile into a **per-product rework pool**; Production calls it (partial) and **picks per call**: OWN batch or MERGE.
 
@@ -25,7 +25,7 @@ _Updated: 2026-06-18 · COO: Tahir · Single code file: `index.html` (4308 lines
 
 ---
 
-## 0k) BUILT — NOT PUSHED — 2026-06-19 · Production STAGE 4b (DIVERT) — code-only, no data migration, verified offline
+## 0k) SHIPPED & LIVE — 2026-06-19 · Production STAGE 4b (DIVERT) — code-only, no data migration
 
 **Model:** divert = QC-cleared powder of the **same product**, routed at reconcile into a **visible per-product "diverted material" pool** (no own batch #, no QC, no re-processing) — then drawn two ways.
 
@@ -44,7 +44,7 @@ _Updated: 2026-06-18 · COO: Tahir · Single code file: `index.html` (4308 lines
 
 ---
 
-## 0j) READY TO PUSH — 2026-06-19 · 3 live fixes (partial-batch packability + close PR) — code-only, no data migration
+## 0j) SHIPPED & LIVE — 2026-06-19 · 3 live fixes (partial-batch packability + close PR + dangling notification) — code-only, no data migration
 
 1. **Partial-batch packability (master fix):** a batch's QC-cleared, unpacked stock now **lands & accumulates in Ready-to-pack EVEN while the batch keeps producing** the remainder (it accumulates per batch as each lot clears — `batchClearedKg` already sums QC-approved lots). Changes: (a) `journeyCard` shows a **"Pack cleared (X)"** action on a producing batch when `cleared−packed>0.5`; (b) `_jc` count + the **"Ready to pack" chip/lens** include any batch with cleared-unpacked stock (so a batch can be in **Producing AND Ready-to-pack**). Fixes **MAXNK26007** (13,800 cleared of 25,000 plan — was locked under "Producing", now packable & visible in Ready-to-pack). Verified: producing 1 + pack 1, lens shows it.
 2. **Close PR without full receipt:** new `closePR(prId)` + a **"Close PR"** button on the Receive-GRN card (Supply Chain / COO). Closes a PR at what was actually received — e.g. Manganese Sulfate Mono **1,500 of an over-stacked 3,000** (drops the unneeded 1,500), or **cancels** with nothing received (V-Zinc). Sets status closed, `qtyRequired=received`, reason + audit logged. Fixes the "can't close the PR" block.

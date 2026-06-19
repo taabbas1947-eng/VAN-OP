@@ -6,6 +6,16 @@ _Updated: 2026-06-18 · COO: Tahir · Single code file: `index.html` (4308 lines
 
 ---
 
+## 0h) READY TO PUSH (AFTER A FRESH SNAPSHOT) — 2026-06-18 · Production STAGE 2+3 (logic + one-time DATA migration; NOT yet pushed)
+
+**Stage 2 (logic, code-only):** `saveReconcile` by-product branch now **accrues into ONE open pool per base** (find-or-create, `pool:true`, `sources[]`) instead of a new fragmented batch per reconcile — never sets `producedKg`, so no batch#/QC until called for manufacturing. Divert/rework branches left unchanged (0 records today; full pool + call/merge lands in Stage 4).
+
+**Stage 3 (DATA migration — runs once on load):** `consolidateByproductV1` merges the existing **21 by-product accruals → 1 open pool (9,805 Kg, all 21 source links kept, `producedKg` 0)**. Idempotent (`s._bpConsolidateV1`), audit-logged, wired LAST in `ensureState`. **Simulated against the 18-Jun snapshot:** 59→39 batches · 1 pool · 9,805 Kg · 21 sources · **38 normal batches byte-identical & untouched** · idempotent on re-run · pool cannot trigger QC. `node --check` clean; `index.html` intact (4445 lines).
+
+**⚠ REQUIRES A FRESH SNAPSHOT before push** (Stage 3 mutates live `app_state` on load). Rollback: snapshot restore (data) or code revert (deploys don't touch DB). The 2 false QC actions are already gone via Stage 1's display filter; this removes the underlying 21 fragmented batches and replaces them with the single pool.
+
+---
+
 ## 0g) READY TO PUSH — 2026-06-18 · Production STAGE 1 (display de-clutter; CODE-ONLY, no data/flow change; NOT yet pushed)
 
 First stage of the reconcile/by-product rework (see `VAN-Production-Reconcile-Implementation-Plan.md`). **4 read-only display edits, no data write, no workflow change, no snapshot needed:**

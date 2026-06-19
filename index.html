@@ -688,7 +688,7 @@ function ensureState(s){
   s.users=(s.users&&s.users.length)?s.users:deepClone(SEED.users||[]); if(s.currentUser===undefined)s.currentUser=null;
   s.rmRequests=s.rmRequests||[]; s.productionLog=s.productionLog||[]; s.packingLog=s.packingLog||[];
   s.actionLog=s.actionLog||[]; s.shipments=s.shipments||[]; s.inspections=s.inspections||[]; s.warehouses=s.warehouses||SEED.warehouses.slice();
-  s.rawStock=s.rawStock||{}; s.rmMovements=s.rmMovements||[]; s.audit=s.audit||[]; s.masters=s.masters||deepClone(SEED.masters||{}); s.batches=s.batches||[]; s.packedStock=s.packedStock||{}; s.packingLog=s.packingLog||[]; s.orders=s.orders||[]; if(s.seq==null)s.seq=1000; (s.packingLog||[]).forEach(function(p){ if(p&&!p.id) p.id='PK'+(s.seq++); }); if(s.dataFixEnabled==null)s.dataFixEnabled=true; if(!Array.isArray(s.prs))s.prs=[]; (s.batches||[]).forEach(function(b){ if((b.producedKg||0)>0 && (!Array.isArray(b.lots)||!b.lots.length)){ b.lots=[{id:'LOT'+(s.seq++), lotNo:(b.batchNo||'B')+'-L1', qty:b.producedKg, date:b.openedDate||'', by:b.by||'', coa:(b.coa||null), migrated:true}]; } }); ensureMasters(s); ensureProductionModel(s); dedupePackingLots(s); migrateLotTracking(s); healPRFlags(s); migrateBrandNames(s); loadBaseRecipesV2(s); loadBlendRecipesV1(s); loadBlendRecipesV2(s); purgeImportedProduction(s); purgeImportDuplicates(s); purgeImportedNoTwin(s); fixPhantomLotVU26134(s); return s;
+  s.rawStock=s.rawStock||{}; s.rmMovements=s.rmMovements||[]; s.audit=s.audit||[]; s.masters=s.masters||deepClone(SEED.masters||{}); s.batches=s.batches||[]; s.packedStock=s.packedStock||{}; s.packingLog=s.packingLog||[]; s.orders=s.orders||[]; if(s.seq==null)s.seq=1000; (s.packingLog||[]).forEach(function(p){ if(p&&!p.id) p.id='PK'+(s.seq++); }); if(s.dataFixEnabled==null)s.dataFixEnabled=true; if(!Array.isArray(s.prs))s.prs=[]; (s.batches||[]).forEach(function(b){ if((b.producedKg||0)>0 && (!Array.isArray(b.lots)||!b.lots.length)){ b.lots=[{id:'LOT'+(s.seq++), lotNo:(b.batchNo||'B')+'-L1', qty:b.producedKg, date:b.openedDate||'', by:b.by||'', coa:(b.coa||null), migrated:true}]; } }); ensureMasters(s); ensureProductionModel(s); dedupePackingLots(s); migrateLotTracking(s); healPRFlags(s); migrateBrandNames(s); loadBaseRecipesV2(s); loadBlendRecipesV1(s); loadBlendRecipesV2(s); purgeImportedProduction(s); purgeImportDuplicates(s); purgeImportedNoTwin(s); fixPhantomLotVU26134(s); consolidateByproductV1(s); return s;
 }
 /* Lock 1: idempotent master seeding. ADDITIVE ONLY — seeds a list only when it is
    missing or empty, and never overwrites values the team has already added. Touches no
@@ -2122,7 +2122,7 @@ function screenProd(){
   let _jl=_jb.slice().sort((a,b)=>PJORD.indexOf(batchStage(a))-PJORD.indexOf(batchStage(b)));
   if(prodStage) _jl=_jl.filter(b=>batchStage(b)===prodStage);
   const _bpA=(state.batches||[]).filter(b=>b.disposition==='byproduct'); const _bpKg=_bpA.reduce((a,b)=>a+(+b.plannedKg||0),0);
-  const journeyBoard=`<div class="card"><h3>Production journey <span class="hint">${_jb.length} active · base → QC → pack → PO</span></h3>${_bpA.length?`<div class="muted" style="font-size:11.5px;margin:0 0 9px;padding:7px 10px;background:var(--navy-50);border-radius:8px">By-product · Nitro Sulfur: <b>${_bpA.length}</b> accruals · <b>${fmt(_bpKg)}</b> Kg pooled — handled on its own line (not shown in the board).</div>`:''}<div class="pjchips">${_jchips.map(c=>`<span class="pjchip ${prodStage===c[0]?'on':''}" onclick="prodStage='${c[0]}';render()">${c[1]} <b>${c[2]}</b></span>`).join('')}</div><div>${_jl.length?_jl.map(b=>journeyCard(b,ed)).join(''):'<div class="muted" style="padding:14px 2px">No active batches — open one above.</div>'}</div></div>`;
+  const journeyBoard=`<div class="card"><h3>Production journey <span class="hint">${_jb.length} active · base → QC → pack → PO</span></h3>${_bpA.length?`<div class="muted" style="font-size:11.5px;margin:0 0 9px;padding:7px 10px;background:var(--navy-50);border-radius:8px">By-product · Nitro Sulfur: <b>${fmt(_bpKg)}</b> Kg pooled — handled on its own line (not shown in the board).</div>`:''}<div class="pjchips">${_jchips.map(c=>`<span class="pjchip ${prodStage===c[0]?'on':''}" onclick="prodStage='${c[0]}';render()">${c[1]} <b>${c[2]}</b></span>`).join('')}</div><div>${_jl.length?_jl.map(b=>journeyCard(b,ed)).join(''):'<div class="muted" style="padding:14px 2px">No active batches — open one above.</div>'}</div></div>`;
   $('view').innerHTML=`
    ${ed?'':viewOnly('Production')}
    <div class="card"><h3>Open a production batch</h3>
@@ -2337,8 +2337,15 @@ function saveReconcile(){ if(!(canEdit(['Production'])||state.role==='COO')){toa
   const items=(recForm.items||[]).filter(it=>(+it.kg||0)>0); for(const it of items){ if(it.type!=='rework' && !it.base){ toast('Pick a product for each diverted quantity'); return; } }
   const d=TODAY.toISOString().slice(0,10); const created=[];
   items.forEach(it=>{ const tgt=(it.type==='rework')?(b.base||''):it.base; const kg=+it.kg||0; const needsProd=(it.type==='rework')||(it.ready===false);
-    state.batches.unshift({id:'B'+(state.seq++),batchNo:'',kind:'bulk',type:'stock',base:tgt,brand:null,plannedKg:kg,producedKg:(needsProd?0:kg),packedKg:0,status:'open',openedDate:d,by:state.role,sourceBatch:b.id,sourceBatchNo:b.batchNo||'',disposition:it.type,rework:it.type==='rework',needsProduction:needsProd,lots:[]});
-    created.push(it.type+' '+fmt(kg)+'→'+tgt+(needsProd?' (to re-produce)':' (to pack)')); });
+    if(it.type==='byproduct'){ /* Stage 2: by-product accrues into ONE open pool per base — no fragmented batch, no batch#/QC until called for manufacturing */
+      let pool=(state.batches||[]).find(x=>x.disposition==='byproduct'&&x.pool&&x.base===tgt&&x.status==='open');
+      if(!pool){ pool={id:'B'+(state.seq++),batchNo:'',kind:'bulk',type:'stock',base:tgt,brand:null,plannedKg:0,producedKg:0,packedKg:0,status:'open',openedDate:d,by:state.role,disposition:'byproduct',pool:true,sources:[],lots:[]}; state.batches.unshift(pool); }
+      pool.plannedKg=(+pool.plannedKg||0)+kg; (pool.sources=pool.sources||[]).push({batch:b.id,batchNo:b.batchNo||'',kg:kg});
+      created.push('by-product '+fmt(kg)+'→'+tgt+' pool');
+    } else { /* divert / rework: unchanged for now — full pool + call/merge handling lands in Stage 4 (0 records today) */
+      state.batches.unshift({id:'B'+(state.seq++),batchNo:'',kind:'bulk',type:'stock',base:tgt,brand:null,plannedKg:kg,producedKg:(needsProd?0:kg),packedKg:0,status:'open',openedDate:d,by:state.role,sourceBatch:b.id,sourceBatchNo:b.batchNo||'',disposition:it.type,rework:it.type==='rework',needsProduction:needsProd,lots:[]});
+      created.push(it.type+' '+fmt(kg)+'→'+tgt+(needsProd?' (to re-produce)':' (to pack)'));
+    } });
   b.reconciled=true; b.reconciledDate=d; b.reconciledBy=(state.currentUser&&state.currentUser.name)||state.role; b.lossKg=loss; b.lossReason=recForm.lossReason||'';
   b.packReconcile={loss,lossReason:recForm.lossReason||'',items:items.map(it=>({type:it.type,base:(it.type==='rework'?b.base:it.base),kg:+it.kg||0})),by:b.reconciledBy,date:d};
   if(b.status!=='closed'){ b.status='closed'; b.closedDate=d; b.actualYield=b.producedKg||0; }
@@ -3284,6 +3291,26 @@ function fixPhantomLotVU26134(s){ if(s._fixVU26134L2V1) return;
       what:'Removed phantom duplicate lot '+(removed.lotNo||'')+' (id '+removed.id+') from batch VU26134 — batch now '+b.lots.length+' lot(s) / '+prod+' kg'}); }catch(e){}
   });
   s._fixVU26134L2V1=true;
+}
+/* Stage 3 (2026-06-18): consolidate the fragmented by-product accruals into ONE open pool per base.
+   Verified safe on the 18-Jun snapshot: by-product accruals have 0 packed, 0 approved COA, 0 packingLog refs (isolated island).
+   Folds every accrual in by its accrued plannedKg (incl. the 2 'ready' B1285/B1283 — no COA — and drops their empty lots).
+   Idempotent via s._bpConsolidateV1; audit-logged; touches NO normal batch, packing, order, or master data. */
+function consolidateByproductV1(s){ if(s._bpConsolidateV1) return;
+  var bps=(s.batches||[]).filter(function(b){ return b.disposition==='byproduct' && !b.pool; });
+  if(bps.length){
+    var byBase={}; bps.forEach(function(b){ var base=b.base||'By-product'; (byBase[base]=byBase[base]||[]).push(b); });
+    Object.keys(byBase).forEach(function(base){
+      var grp=byBase[base];
+      var kg=grp.reduce(function(a,b){ return a+(+b.plannedKg||0); },0);
+      var sources=grp.map(function(b){ return {batch:b.sourceBatch,batchNo:b.sourceBatchNo,kg:(+b.plannedKg||0)}; });
+      s.batches.unshift({id:'B'+(s.seq++),batchNo:'',kind:'bulk',type:'stock',base:base,brand:null,plannedKg:kg,producedKg:0,packedKg:0,status:'open',openedDate:(grp[0].openedDate||(typeof TODAY!=='undefined'?TODAY.toISOString().slice(0,10):'')),by:'System',disposition:'byproduct',pool:true,sources:sources,lots:[],consolidated:true});
+    });
+    var ids={}; bps.forEach(function(b){ ids[b.id]=1; });
+    s.batches=s.batches.filter(function(b){ return !ids[b.id]; });
+    (s.audit=s.audit||[]).unshift({t:new Date().toISOString(),user:'System',module:'Production',field:'By-product consolidated',val:bps.length+' accruals → '+Object.keys(byBase).length+' pool(s) ('+Math.round(bps.reduce(function(a,b){return a+(+b.plannedKg||0);},0))+' Kg)',batchNo:''});
+  }
+  s._bpConsolidateV1=true;
 }
 function dedupePackingLots(s){ const best={}; (s.packingLog||[]).forEach(p=>{ if(!p||!p.id)return; const sc=(+p.insKg||0)+(+p.shipKg||0); const cur=best[p.id]; if(!cur||sc>cur.sc) best[p.id]={p:p,sc:sc}; }); s.packingLog=(s.packingLog||[]).filter(p=>{ if(!p)return false; if(!p.id)return true; return best[p.id]&&best[p.id].p===p; }); }
 /* Heal lines flagged prRaised but with no actual PR lines (the old empty-PR submit bug):

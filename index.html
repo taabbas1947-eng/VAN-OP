@@ -640,7 +640,7 @@ function deepClone(o){ return JSON.parse(JSON.stringify(o)); }
 
 function buildFromSeed(){
   const s = {
-    role: 'COO', screen: 'dash',
+    role: 'COO', screen: 'approvals',
     rawStock: {}, orders: [], shipments: deepClone(SEED.shipments),
     productionLog: [], packingLog: [], rmRequests: [], rmMovements: [], audit: [], actionLog: [], masters: deepClone(SEED.masters||{}), batches: [], packedStock: {}, packingLog: [],
     warehouses: SEED.warehouses.slice(), dealers: deepClone(SEED.dealers||[]), users: deepClone(SEED.users||[]), currentUser:null, seq: 1
@@ -838,7 +838,7 @@ function ensureProductionModel(s){
 /* ---- server-backed state: code & data are separate ---- */
 const SESSION_KEYS=['currentUser','role','screen','expanded'];
 function dataOnly(s){ const o={}; for(const k in s){ if(SESSION_KEYS.indexOf(k)<0 && k!=='users') o[k]=s[k]; } return o; }
-function sessionInit(s){ s.role=s.role||'COO'; s.screen=s.screen||'dash'; s.expanded=s.expanded||{}; if(s.currentUser===undefined)s.currentUser=null; return s; }
+function sessionInit(s){ s.role=s.role||'COO'; s.screen=s.screen||'approvals'; s.expanded=s.expanded||{}; if(s.currentUser===undefined)s.currentUser=null; return s; }  /* landing page on app open = Action Center (My Actions) for all users */
 let _token=(function(){ try{ return localStorage.getItem('van_token')||''; }catch(e){ return ''; } })();
 let usersList=[];
 function authHdr(){ return _token ? {'Authorization':'Bearer '+_token} : {}; }
@@ -4517,7 +4517,7 @@ async function doLogin(){
   try{ const sr=await fetch('/api/state',{cache:'no-store',headers:authHdr()}); if(sr.ok){ const sj=await sr.json(); _rev=sj.rev||0; if(sj.data&&sj.data.orders){ state=ensureState(sj.data); loaded=true; } else if((sj.rev||0)===0 && !sj.data){ state=buildFromSeed(); loaded=true; await saveNow(); } } }catch(e){}
   if(!loaded){ state=buildFromSeed(); }
   sessionInit(state); state.currentUser=j.user; state.role=j.user.role;
-  const al=allowedScreens(); state.screen=(al[0]&&al[0].id)||'dash';
+  const al=allowedScreens(); state.screen=canView(state.role,'approvals')?'approvals':((al[0]&&al[0].id)||'dash');  /* land on Action Center (My Actions) for all users; fall back only if a role can't view it */
   logAction('Signed in'); save();
   renderApp(); startSync();
 }

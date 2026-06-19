@@ -6,6 +6,12 @@ _Updated: 2026-06-18 · COO: Tahir · Single code file: `index.html` (4308 lines
 
 ---
 
+## 0n) BUILT — NOT PUSHED — 2026-06-19 · Landing page = Action Center for ALL users
+
+On app open / login, every user now lands on the **Action Center ("My Actions", screen id `approvals`)** instead of the Dashboard. `screen` is a session key (never saved/shared), so the landing is set in three client spots, all now `'approvals'`: the seed default (`buildFromSeed`), `sessionInit` (reopen-with-session path), and `doLogin` (fresh login — guarded with `canView`, falls back to the role's first allowed screen only if it somehow can't view Action Center). In-session navigation (`setScreen`) is unchanged; the render-time access guards still redirect to `dash` only if a screen is genuinely unviewable. Verified: `approvals` is owned by every role. Bundled with §0m (same uncommitted `index.html`).
+
+---
+
 ## 0m) BUILT — NOT PUSHED — 2026-06-19 · Production STAGE 5 (Command Center lanes) — RENDER-ONLY, no logic/data change
 
 **Problem (from Tahir's live screenshot):** the Production journey was one giant flat scroll of ~30+ batch cards under the chips — hard to scan.

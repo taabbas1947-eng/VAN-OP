@@ -6,6 +6,45 @@ _Updated: 2026-06-18 · COO: Tahir · Single code file: `index.html` (4308 lines
 
 ---
 
+## 0g) READY TO PUSH — 2026-06-18 · Production STAGE 1 (display de-clutter; CODE-ONLY, no data/flow change; NOT yet pushed)
+
+First stage of the reconcile/by-product rework (see `VAN-Production-Reconcile-Implementation-Plan.md`). **4 read-only display edits, no data write, no workflow change, no snapshot needed:**
+1. `_jb` (Production journey board, screenProd) now excludes `disposition==='byproduct'` → the 19 empty "Producing 0" stubs are gone from the board; the stage chip counts follow (computed from `_jb`).
+2. `noNoBatches` ("Set batch numbers" card) excludes by-product accruals (they get a # at call-for-manufacturing).
+3. `actionItems` COA loop excludes by-product accruals → **clears the 2 false Lab-COA/QC actions** (B1285/B1283, 930 kg, no COA) — My-Actions count only drops.
+4. Added a compact "By-product · Nitro Sulfur: N accruals · X Kg pooled" summary line on the board so the pooled material is still visible, just not cluttering.
+**Live data untouched** — the 21 by-product accruals still exist in the DB; they're just not shown in the cluttered lists. `node --check` clean on all 4 edits; `index.html` intact (4418 lines, proper end). Rollback = code revert (deploys never touch the DB). Stages 2–5 (logic/data) remain gated on snapshot + sign-off.
+
+---
+
+## 0f) PRODUCTION AUDIT — 2026-06-18 (read-only; AUDIT ONLY, nothing built/pushed — Tahir emphatic)
+
+**Write-path logic is sound** (verified): batch# FY-uniqueness, format validation, base-vs-brand guard, RM-availability gating, **105% over-production cap**, shift validation (shift+incharge+reason-if-zero). No flow blockers in the workflow.
+
+**Main problem = clutter, not logic.** Of 48 batches shown, **19 are empty "Nitro Sulfur · 0 kg · no batch#" by-product stubs** (status open → render "Producing" forever), burying ~12 real batches. Also fills the "Set batch numbers" card (21 blank-# entries).
+
+**By-product (Nitro Sulfur) — current behavior (confirmed in `saveReconcile`, ~line 2338):** each SCU batch reconcile **creates a separate by-product batch** (`state.batches.unshift({disposition:'byproduct', needsProduction, sourceBatch...})`). 21 fragmented accruals, 9,805 kg total. Two wrong routes: *needs-production* → empty "Producing 0" stub per routing (19); *ready-to-QC-&-pack* → tiny qty goes **straight to QC → QA** with no grinding (2, 930 kg). Each `plannedKg` = the accrued by-product kg; `sourceBatchNo` links the parent SCU batch.
+
+**TARGET MODEL (Tahir, to build ONLY when approved):** by-product routes **only to Production, into ONE accumulating Nitro Sulfur pool** — every SCU batch adds to a single open by-product batch; **no QA alert, no QC while accumulating.** Stays open until Production **"calls it for manufacturing"** (~5,000 kg threshold, soft, or manual) → assign **batch #** → **grinding** (production process) → on completion follows the **pre-existing standard route** (Lab QC → pack → QA → ship), packing **against a Nitro Sulfur PO if one exists** (stock not managed in-app).
+
+**Planned change set (deferred):** (1) rewrite by-product branch of `saveReconcile` to accumulate into one find-or-create open pool (record each source SCU batch), not spawn-per-reconcile; (2) suppress QC/QA on the accumulator until ground; (3) add "Call for manufacturing / grind" action (batch# + grind start); (4) one-time DATA merge of the existing 21 accruals → one ~9,805 kg pool (snapshot + approval). (5) Display: separate "By-product · Nitro Sulfur" lane + compact primary board (de-clutter), relabel "Producing 0"→"Needs grinding". **NONE BUILT.**
+
+**DESIGN / INFO-FLOW PRINCIPLES recorded (display + information-architecture only — no master data, no real-time records, no business/data logic; from the reference mockup + Tahir):** (1) **Demand-first** — lead Production with a "what to make next" queue (PO · product · need · RM · recipe · due · one next action); demote the raw batch board to a secondary tab. (2) **Decision/KPI strip** at top (To produce / RM ready / In production / Awaiting QC / Ready to pack / Exceptions) computed from live data. (3) **Reconcile + by-product = their own lane**, separate from normal production. (4) **Ready-to-pack is inventory, not My-Actions noise.** (5) **Rows by default; forms open in a drawer only after an action is chosen.** (6) **Don't duplicate the PO Tracker** — Production queue stays production-specific ("what can I physically make now"). Out of scope / ignored: separate Packing/Inventory/Dispatch nav, the dark sidebar/palette, a full start-batch wizard (current open-batch flow already validates).
+
+**WORKING METHOD (Tahir):** build a **full functional offline prototype FIRST** (file `VAN-Production-Command-Center-PROTOTYPE.html`, kept OUTSIDE the `VAN-OP` repo so it can never be pushed), iterate/rework/validate offline, and **do not go live until every challenge is solved.** Prototype saves nothing and is not connected to live data.
+
+**CONFIRMED RECONCILE RULE-SET (Tahir, 2026-06-18 — for the prototype + eventual build; example: a 350/500 kg SCU remainder splits into loss + by-product + divert + rework):**
+- **Loss / overfill** → recorded as loss only. No batch, no onward steps.
+- **By-product (Nitro Sulfur)** → ONE accumulating pool (no batch#/QC/QA while pooling). Production **calls it anytime** (soft ~5,000 kg hint, not a gate) → batch# **at call** → **grind** → standard route (Lab QC → pack → QA → ship). Packs to a Nitro Sulfur PO **if one exists, else HOLDS** (it's its own sellable product).
+- **Divert** → fed **back into a production batch of the ORIGINATING product** (e.g. 150 kg back into SCU production) as input → produced → standard route → **ALWAYS to a PO**.
+- **Rework** (off-spec, same base) → pooled + partial-call; **operator chooses per call: OWN batch (own #, standard route, like by-product) OR merge into an existing base batch (no own #, like divert)** → standard route → **ALWAYS to a PO**.
+- **All "needs-production" routes (by-product, divert, rework) are POOLS with PARTIAL CALL** — accumulate, then Production calls a partial (or full) quantity when ready; the remainder stays pooled. Divert specifically MERGES into the originating product's batch as input (no batch# of its own). Live implementation plan + risk register: `E:\VAN Platform\VAN-Production-Reconcile-Implementation-Plan.md` (5 staged, snapshot-first, reversible). Offline prototype models it all end-to-end.
+- **Batch#** for every routed batch: assigned **at "call for manufacturing" / when it enters processing** — never while accumulating.
+- **KEY:** by-product, divert AND rework **all require a production/processing step before QC** — the old "ready to QC & pack" shortcut (cause of premature QC/QA) is REMOVED for all three.
+- Routes in scope (confirmed all occur): by-product, divert, rework. Modeled in `VAN-Production-Command-Center-PROTOTYPE.html` (Reconcile + By-product tabs) for offline validation — NOT built in the live app.
+
+---
+
 ## 0a) SHIPPED & LIVE — 2026-06-18 · Action Center (My Actions) audit + display fixes (code-only; no data/flow/rules/master change; pushed in commit `94593b9`)
 
 Tab-by-tab audit, Action Center first. **Audit result: logic, rules and accuracy are sound** — replicated every action trigger against the 18-Jun snapshot: **0 stale RM-Check rows** (none on already-produced/packed lines) and **0 false Produce rows** (none where the brand is already fully packed). `Acknowledge` correctly once-per-PO; `shipReadySince` dating, COO role-union view, and urgency-first sort all good. Three display-only improvements made (all in `actionItems`/`actTiming`, read-only — no writes, no flow/ownership/master change):

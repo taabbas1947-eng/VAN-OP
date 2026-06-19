@@ -2083,7 +2083,7 @@ function screenProd(){
   const _pl=regFilter('prodlog',_plRows,_plOpt);
   const openBatches=(state.batches||[]).filter(b=>b.status==='open' && (b.plannedKg>0 ? (b.producedKg||0) < b.plannedKg-0.001 : true));
   const doneBatches=(state.batches||[]).filter(b=>b.status==='open' && b.plannedKg>0 && (b.producedKg||0) >= b.plannedKg-0.001);
-  const noNoBatches=(state.batches||[]).filter(b=>((b.producedKg||0)>0||(b.packedKg||0)>0) && (!(b.batchNo||'').trim() || (state.packingLog||[]).some(p=>p&&p.baseBatchId===b.id&&!((p.baseBatchNo||'').trim()))));
+  const noNoBatches=(state.batches||[]).filter(b=> b.disposition!=='byproduct' && (((b.producedKg||0)>0||(b.packedKg||0)>0) && (!(b.batchNo||'').trim() || (state.packingLog||[]).some(p=>p&&p.baseBatchId===b.id&&!((p.baseBatchNo||'').trim())))));  /* Stage 1: by-product accruals excluded from Set-batch-# (they get a # at call-for-manufacturing) */
   const fixCard=(ed&&noNoBatches.length)?`<div class="card" style="border-left:4px solid var(--amber)"><h3>Set batch numbers <span class="hint">${noNoBatches.length} without a number</span></h3>
    <div class="muted" style="font-size:12px;margin-bottom:10px">These batches were produced without a batch number (a system fill or an earlier edit). Enter the real batch number — it flows to the lots, the production log and the COA. Nothing is deleted.</div>
    <div class="tscroll"><table><thead><tr><th>Product</th><th>PO</th><th class="num">Produced</th><th class="num">Packed</th><th>Date</th><th style="width:240px">Batch #</th></tr></thead><tbody>${noNoBatches.map(b=>`<tr><td><b>${b.brand||b.base||''}</b> <span class="muted" style="font-size:11px">${b.base||''}</span></td><td class="muted">${b.po||'bulk'}</td><td class="num">${fmt(b.producedKg||0)}</td><td class="num">${fmt(b.packedKg||0)}</td><td class="muted">${b.openedDate||b.closedDate||b.date||''}</td><td><div style="display:flex;gap:6px"><input type="text" id="sbn_${b.id}" placeholder="e.g. RUBS26003" style="width:150px"><button class="sm green" onclick="setBatchNo('${b.id}',document.getElementById('sbn_${b.id}').value)">Set #</button></div></td></tr>`).join('')}</tbody></table></div></div>`:'';
@@ -2116,12 +2116,13 @@ function screenProd(){
          <div class="fld" style="width:150px"><label>Planned (Kg/L)</label><input type="number" id="nb_planned" placeholder="Kg/L"></div>
          <button class="green" ${ed?'':'disabled'} onclick="openBatch('bulk')">Open batch</button></div>
        <div class="muted" style="font-size:11px;margin-top:8px">Opens a bulk-base batch with a planned target. Log shift output in <b>Open batches</b> below, then pack it once produced.</div>`;
-  const _jb=(state.batches||[]).filter(b=> b.status==='open' || (batchRemainderKg(b)>0.5 && !b.reconciled) || batchPackableKg(b)>0.5 );
+  const _jb=(state.batches||[]).filter(b=> b.disposition!=='byproduct' && (b.status==='open' || (batchRemainderKg(b)>0.5 && !b.reconciled) || batchPackableKg(b)>0.5) );  /* Stage 1: by-product accruals are pooled & shown on their own line, not in the main journey board (display-only) */
   const _jc={producing:0,qc:0,pack:0,recon:0}; _jb.forEach(b=>{const st=batchStage(b); if(_jc[st]!=null)_jc[st]++;});
   const _jchips=[['','All',_jb.length],['producing','Producing',_jc.producing],['qc','Awaiting QC',_jc.qc],['pack','Ready to pack',_jc.pack],['recon','Reconcile',_jc.recon]];
   let _jl=_jb.slice().sort((a,b)=>PJORD.indexOf(batchStage(a))-PJORD.indexOf(batchStage(b)));
   if(prodStage) _jl=_jl.filter(b=>batchStage(b)===prodStage);
-  const journeyBoard=`<div class="card"><h3>Production journey <span class="hint">${_jb.length} active · base → QC → pack → PO</span></h3><div class="pjchips">${_jchips.map(c=>`<span class="pjchip ${prodStage===c[0]?'on':''}" onclick="prodStage='${c[0]}';render()">${c[1]} <b>${c[2]}</b></span>`).join('')}</div><div>${_jl.length?_jl.map(b=>journeyCard(b,ed)).join(''):'<div class="muted" style="padding:14px 2px">No active batches — open one above.</div>'}</div></div>`;
+  const _bpA=(state.batches||[]).filter(b=>b.disposition==='byproduct'); const _bpKg=_bpA.reduce((a,b)=>a+(+b.plannedKg||0),0);
+  const journeyBoard=`<div class="card"><h3>Production journey <span class="hint">${_jb.length} active · base → QC → pack → PO</span></h3>${_bpA.length?`<div class="muted" style="font-size:11.5px;margin:0 0 9px;padding:7px 10px;background:var(--navy-50);border-radius:8px">By-product · Nitro Sulfur: <b>${_bpA.length}</b> accruals · <b>${fmt(_bpKg)}</b> Kg pooled — handled on its own line (not shown in the board).</div>`:''}<div class="pjchips">${_jchips.map(c=>`<span class="pjchip ${prodStage===c[0]?'on':''}" onclick="prodStage='${c[0]}';render()">${c[1]} <b>${c[2]}</b></span>`).join('')}</div><div>${_jl.length?_jl.map(b=>journeyCard(b,ed)).join(''):'<div class="muted" style="padding:14px 2px">No active batches — open one above.</div>'}</div></div>`;
   $('view').innerHTML=`
    ${ed?'':viewOnly('Production')}
    <div class="card"><h3>Open a production batch</h3>
@@ -2768,7 +2769,7 @@ function actionItems(){
     }
   });
   (state.prs||[]).filter(p=>p.status==='open'&&!p.cfoApproved).forEach(p=>items.push({role:'CFO',pr:p,what:'Approve PR — '+p.rm+' '+fmt(p.qtyRequired)+' Kg/L',act:"cfoApprovePR('"+p.id+"')",label:'Approve PR'}));
-  (state.batches||[]).filter(b=>(b.producedKg||0)>0).forEach(b=>{ const it=coaItemOf(b); const units=(b.lots||[]).length?(b.lots).map(l=>({id:l.id,no:(l.lotNo||b.batchNo||''),coa:l.coa})):[{id:'',no:(b.batchNo||''),coa:b.coa}];
+  (state.batches||[]).filter(b=>(b.producedKg||0)>0 && b.disposition!=='byproduct').forEach(b=>{ const it=coaItemOf(b);  /* Stage 1: by-product accruals don't generate Lab-COA/QC actions until called for manufacturing (read-only; clears the 2 false QC triggers) */ const units=(b.lots||[]).length?(b.lots).map(l=>({id:l.id,no:(l.lotNo||b.batchNo||''),coa:l.coa})):[{id:'',no:(b.batchNo||''),coa:b.coa}];
     units.forEach(u=>{ const st=u.coa&&u.coa.status; if(u.coa&&st==='approved')return; const call="openBatchCOA('"+b.id+"','"+u.id+"')"; const tag=(u.no||'');
       if(!u.coa||st==='draft') items.push({role:'Lab Rep',batch:b,what:'Lab COA — '+it+' '+tag,act:call,label:'Lab QC'});
       else if(st==='analysed') items.push({role:'AQCM',batch:b,what:'Review COA — '+it+' '+tag,act:call,label:'Review'});

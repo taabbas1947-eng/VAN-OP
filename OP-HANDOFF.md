@@ -10,8 +10,14 @@ _Updated: 2026-06-18 · COO: Tahir · Single code file: `index.html` (4308 lines
 
 1. **Partial-batch packability (master fix):** a batch's QC-cleared, unpacked stock now **lands & accumulates in Ready-to-pack EVEN while the batch keeps producing** the remainder (it accumulates per batch as each lot clears — `batchClearedKg` already sums QC-approved lots). Changes: (a) `journeyCard` shows a **"Pack cleared (X)"** action on a producing batch when `cleared−packed>0.5`; (b) `_jc` count + the **"Ready to pack" chip/lens** include any batch with cleared-unpacked stock (so a batch can be in **Producing AND Ready-to-pack**). Fixes **MAXNK26007** (13,800 cleared of 25,000 plan — was locked under "Producing", now packable & visible in Ready-to-pack). Verified: producing 1 + pack 1, lens shows it.
 2. **Close PR without full receipt:** new `closePR(prId)` + a **"Close PR"** button on the Receive-GRN card (Supply Chain / COO). Closes a PR at what was actually received — e.g. Manganese Sulfate Mono **1,500 of an over-stacked 3,000** (drops the unneeded 1,500), or **cancels** with nothing received (V-Zinc). Sets status closed, `qtyRequired=received`, reason + audit logged. Fixes the "can't close the PR" block.
+3. **Dangling Receive notification fixed:** the **My-Actions "Receive" action now requires an OPEN PR** for the line's materials (`actionItems`, line ~2799). Previously it keyed only off the line (`prRaised && !rmReady && rmStatus!=='received`), so a closed/cancelled PR left the Receive action stuck in My Actions. Verified on live snapshot: the V-Zinc Receive (PR closed) disappears (6→5 actions); V-Mg's stays only while its PR is genuinely open, and clears the instant that PR is closed. Part of the PR-close flow.
 
 **Verified:** `node --check` clean on all changes; `index.html` intact (4490 lines). **Code-only — no auto data migration** (both act only on user click); snapshot before use as good practice.
+
+**THESE ARE NOW PART OF THE NEW PRODUCTION FLOW DESIGN (permanent, not hotfixes):**
+- **Ready-to-pack is an accumulating per-batch quantity = QC-cleared − packed.** A batch can be **Producing AND Ready-to-pack at the same time**; each cleared lot lands in and accumulates into that batch's ready-to-pack; it is packable at any time while the batch keeps producing the rest. (Stage-label is no longer mutually exclusive for the pack lens.)
+- **A PR can be closed before full receipt** ("received enough" → closes at the received qty; or "cancel" → nothing received), reason + audit logged — PRs no longer get stuck open.
+- **Design link to Divert:** divert "pack to PO" now largely rides this same Ready-to-pack-while-producing mechanism (pack QC-cleared material to a client PO); the genuinely new divert piece is **recycle into another same-product batch** + the **cross-batch visible divert pool**.
 
 ---
 

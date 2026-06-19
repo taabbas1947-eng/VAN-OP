@@ -6,6 +6,25 @@ _Updated: 2026-06-18 · COO: Tahir · Single code file: `index.html` (4308 lines
 
 ---
 
+## 0l) BUILT — NOT PUSHED — 2026-06-19 · Production STAGE 4c (REWORK) + pool-leak fix — code-only, no data migration, verified offline
+
+**Model:** rework = off-spec material of the **same base** — **NOT QC-cleared, needs re-processing**. Routed at reconcile into a **per-product rework pool**; Production calls it (partial) and **picks per call**: OWN batch or MERGE.
+
+1. **Capture:** `saveReconcile` gains a `rework` branch (mirrors the pools) — accrues into one find-or-create open pool per base (`disposition:'rework', pool:true, sources[]`). No batch #, no QC while pooling.
+2. **Visible line:** a **"Rework · {product}: X Kg pooled · off-spec, needs re-processing"** row on the Production journey (`_rwPools`), with a **"Call for rework ▸"** button (edit-rights only).
+3. **Call** (`openRework`/`renderRework`/`submitRework`) — operator picks per call:
+   - **Own batch** — assigns a batch # **now** (validated: `fyKey`/`batchOwnerInFY`/`validateBatchNo`), creates a normal producing batch (`producedKg:0`, `fromRework:true`, `reworkSources[]`) that shows on the board and follows the standard route — re-process (Log shift output) → Lab QC → pack → QA. Like by-product, but no grind label.
+   - **Merge into a batch** — feeds it into a chosen open same-product batch **as input** (`reworkInputKg` + `plannedKg += qty`, `reworkedFrom[]`); rides that batch's re-process → QC → pack, **no own #**. Like divert's recycle. **Does NOT touch the target's `producedKg`/COA/`lots`/`packedKg`** (risk R6).
+   - Both draws FIFO-consume the pool's `sources[]` (via the shared `consumeDivertSources`) and record the parent-batch slices for traceability; pool total recomputed from remaining sources.
+
+**Pool-leak fix (applies to by-product/divert/rework):** `openBatches` and `doneBatches` now exclude `b.pool`, so **no pool ever appears in the Production "Open batches"/"Completed" cards** with Log-output/Reconcile buttons (this also closed a latent **divert-pool** leak from 4b, since a fully-drained pool with `plannedKg:0` would otherwise have surfaced there).
+
+**Verified offline:** isolation `node --check` clean on the rework functions. Simulated against the 19-Jun snapshot: capture (3 reconciles → 1 pool, 400 kg), pool **not** in Open-batches, OWN call (new RW batch planned 250 / produced 0, pool −250, shows on board), MERGE (target planned +150, **produced/packed/lots unchanged**, pool drains to 0). 0 rework records live today → nothing live touched. **Pools confirmed silent in QC** (`producedKg>0` filters), **Set-batch-#** (`producedKg>0||packedKg>0`), and now **Open/Done batch cards** (`!b.pool`).
+
+**Stage 4 COMPLETE** (4a by-product, 4b divert, 4c rework). The full reconcile model — loss / by-product / divert / rework — is now built end-to-end.
+
+---
+
 ## 0k) BUILT — NOT PUSHED — 2026-06-19 · Production STAGE 4b (DIVERT) — code-only, no data migration, verified offline
 
 **Model:** divert = QC-cleared powder of the **same product**, routed at reconcile into a **visible per-product "diverted material" pool** (no own batch #, no QC, no re-processing) — then drawn two ways.

@@ -757,7 +757,7 @@ function ensureState(s){
   s.users=(s.users&&s.users.length)?s.users:deepClone(SEED.users||[]); if(s.currentUser===undefined)s.currentUser=null;
   s.rmRequests=s.rmRequests||[]; s.productionLog=s.productionLog||[]; s.packingLog=s.packingLog||[];
   s.actionLog=s.actionLog||[]; s.shipments=s.shipments||[]; s.inspections=s.inspections||[]; s.warehouses=s.warehouses||SEED.warehouses.slice();
-  s.rawStock=s.rawStock||{}; s.rmMovements=s.rmMovements||[]; s.audit=s.audit||[]; s.masters=s.masters||deepClone(SEED.masters||{}); s.batches=s.batches||[]; s.packedStock=s.packedStock||{}; s.packingLog=s.packingLog||[]; s.orders=s.orders||[]; if(s.seq==null)s.seq=1000; (s.packingLog||[]).forEach(function(p){ if(p&&!p.id) p.id='PK'+(s.seq++); }); if(s.dataFixEnabled==null)s.dataFixEnabled=true; if(!Array.isArray(s.prs))s.prs=[]; (s.batches||[]).forEach(function(b){ if((b.producedKg||0)>0 && (!Array.isArray(b.lots)||!b.lots.length)){ b.lots=[{id:'LOT'+(s.seq++), lotNo:(b.batchNo||'B')+'-L1', qty:b.producedKg, date:b.openedDate||'', by:b.by||'', coa:(b.coa||null), migrated:true}]; } }); ensureMasters(s); ensureProductionModel(s); dedupePackingLots(s); migrateLotTracking(s); healPRFlags(s); migrateBrandNames(s); loadBaseRecipesV2(s); loadBlendRecipesV1(s); loadBlendRecipesV2(s); purgeImportedProduction(s); purgeImportDuplicates(s); purgeImportedNoTwin(s); fixPhantomLotVU26134(s); consolidateByproductV1(s); dedupeByproductV1(s); return s;
+  s.rawStock=s.rawStock||{}; s.rmMovements=s.rmMovements||[]; s.audit=s.audit||[]; s.masters=s.masters||deepClone(SEED.masters||{}); s.batches=s.batches||[]; s.packedStock=s.packedStock||{}; s.packingLog=s.packingLog||[]; s.orders=s.orders||[]; if(s.seq==null)s.seq=1000; (s.packingLog||[]).forEach(function(p){ if(p&&!p.id) p.id='PK'+(s.seq++); }); if(s.dataFixEnabled==null)s.dataFixEnabled=true; if(!Array.isArray(s.prs))s.prs=[]; (s.batches||[]).forEach(function(b){ if((b.producedKg||0)>0 && (!Array.isArray(b.lots)||!b.lots.length)){ b.lots=[{id:'LOT'+(s.seq++), lotNo:(b.batchNo||'B')+'-L1', qty:b.producedKg, date:b.openedDate||'', by:b.by||'', coa:(b.coa||null), migrated:true}]; } }); ensureMasters(s); ensureProductionModel(s); dedupePackingLots(s); migrateLotTracking(s); healPRFlags(s); migrateBrandNames(s); loadBaseRecipesV2(s); loadBlendRecipesV1(s); loadBlendRecipesV2(s); purgeImportedProduction(s); purgeImportDuplicates(s); purgeImportedNoTwin(s); fixPhantomLotVU26134(s); consolidateByproductV1(s); dedupeByproductV1(s); reconcileShipLotsV1(s); return s;
 }
 /* Lock 1: idempotent master seeding. ADDITIVE ONLY — seeds a list only when it is
    missing or empty, and never overwrites values the team has already added. Touches no
@@ -1282,9 +1282,9 @@ const SCREENS=[
     obj:'<b>Reports \u00b7 read-only.</b> Built from data already captured. Use Explorer to slice by client, product, month or stage, or open a ready report. Filters apply to every view; print from the top-right.'},
   {id:'instructions', name:'Instructions', ic:'\ud83d\udcd6', owners:['KAM','Supply Chain','Production','Lab Rep','AQCM','QCM','QA Inspector','Plant Manager','CFO','COO'], sub:'App manual',
     obj:'<b>Manual.</b> The whole process \u2014 where to add, when, and how information flows.'},
-  {id:'admin', name:'Admin · Master Data', ic:'\u2699\ufe0f', owners:['Lab Rep','AQCM','QCM','COO'], sub:'Manage dropdown lists',
+  {id:'admin', name:'Admin · Master Data', ic:'\u2699\ufe0f', owners:['Lab Rep','AQCM','QCM','Plant Manager','COO'], sub:'Manage dropdown lists',
     obj:'<b>COO / Admin.</b> Add or view dropdown values \u2014 delay reasons, responsible departments, KAM names, forms, statuses, downtime reasons. Changes flow to every dropdown.'},
-  {id:'datafix', name:'Data Fix', ic:'🔧', owners:['KAM','Supply Chain','Production','Lab Rep','QA Inspector','Plant Manager','CFO','COO'], sub:'Implementation backfill & corrections',
+  {id:'datafix', name:'Data Fix', ic:'🔧', owners:['COO'], sub:'Implementation backfill & corrections',
     obj:'<b>Implementation tool (temporary).</b> Correct live records to match actual paper/manual data, back-dated. Every change is logged as RECONCILE. COO can turn it off after cutover.'},
   {id:'users', name:'Users & Access', ic:'\ud83d\udc65', owners:['COO'], sub:'People, roles & passwords',
     obj:'<b>COO only.</b> Add people, set each one\u2019s role and password. Everyone signs in and sees only their role\u2019s screens.'},
@@ -1325,7 +1325,7 @@ function groupOf(id){ for(var i=0;i<NAV_GROUPS.length;i++){ if(NAV_GROUPS[i].ids
 function navBadge(id){ if(id!=='approvals') return ''; try{ var items=actionItems(); var mine=state.role==='COO'?items:items.filter(function(x){return x.role===state.role;}); return mine.length?`<span class="navct">${mine.length}</span>`:''; }catch(e){ return ''; } }
 function renderNav(){
   const byId={}; SCREENS.forEach(s=>byId[s.id]=s);
-  const vis=function(id){ return byId[id] && (id!=='datafix' || state.dataFixEnabled || state.role==='COO') && canView(state.role,id); };
+  const vis=function(id){ return byId[id] && (id!=='datafix' || state.role==='COO') && canView(state.role,id); };
   let html='';
   NAV_GROUPS.forEach(function(g){
     const items=g.ids.filter(vis);
@@ -1439,6 +1439,7 @@ function exportStateJSON(){
 }
 function screenDataFix(){
   const isCOO=state.role==='COO'; const on=!!state.dataFixEnabled;
+  if(!isCOO){ $('view').innerHTML=`<div class="banner warn">Data Fix is COO-only.</div>`; return; }
   if(!on && !isCOO){ $('view').innerHTML=`<div class="banner warn">The Data Fix tab is currently turned off.</div>`; return; }
   const toggle = isCOO
     ? `<button class="${on?'ghost':'green'} sm" onclick="toggleDataFix()">${on?'Turn OFF (after cutover)':'Turn ON'}</button>`
@@ -3361,6 +3362,27 @@ function fifoAlloc(o,l,qty,mode){ const lots=lotsFor(o,l); let rem=Math.max(0,+q
 /* One-time retroactive backfill: allocate already-inspected/shipped quantities to packing lots by FIFO,
    as if batch tracking existed since launch. Writes only insKg/shipKg on lots and batch breakdown on
    completed shipments — never Master Data, never order status. Idempotent via the _lotMig flag. */
+/* Rebuild a line's per-lot shipKg from its dispatched total (FIFO, capped at inspected qty),
+   so Ready-to-ship (= sum of insKg - shipKg) always equals reality. Used after a shipment edit. */
+function resyncLineShipKg(o,l){ var lots=lotsFor(o,l); var rem=Math.max(0,+l.dispatched||0); lots.forEach(function(p){ var cap=Math.max(0,+p.insKg||0); var t=Math.min(Math.max(0,rem),cap); p.shipKg=t; rem-=t; }); }
+/* One-time repair: a shipment edited UP after creation updated the order's dispatched total but not
+   the per-lot shipKg (old saveShipEdit bug), leaving phantom Ready-to-ship. Re-derive every line's
+   lot shipKg from its dispatched total (FIFO, capped at insKg). Idempotent via _shipReconV1;
+   audit-logged; never changes order/line totals, master data, or shipment records. */
+function reconcileShipLotsV1(s){ if(!s||s._shipReconV1) return; var fixed=0;
+  (s.orders||[]).forEach(function(o){ (o.lines||[]).forEach(function(l){
+    var lots=(s.packingLog||[]).filter(function(p){return p&&p.po===o.po&&p.brand===l.brand&&(+p.kg||0)>0.0001;})
+      .sort(function(a,b){return String(a.date||a.mfgDate||'').localeCompare(String(b.date||b.mfgDate||''))||String(a.id||'').localeCompare(String(b.id||''));});
+    if(!lots.length) return;
+    var lotShip=lots.reduce(function(a,p){return a+(+p.shipKg||0);},0);
+    var disp=Math.max(0,+l.dispatched||0);
+    if(Math.abs(lotShip-disp)<=0.5) return;
+    var rem=disp; lots.forEach(function(p){ var cap=Math.max(0,+p.insKg||0); var t=Math.min(Math.max(0,rem),cap); p.shipKg=t; rem-=t; });
+    fixed++;
+  }); });
+  s._shipReconV1=true;
+  if(fixed>0) (s.actionLog=s.actionLog||[]).unshift({t:new Date().toISOString(),role:'System',by:'System',what:'RECONCILE: re-synced packing-lot shipped stock to dispatched totals on '+fixed+' line(s) - fixes phantom Ready-to-ship from edited shipments'});
+}
 function migrateLotTracking(s){
   if(!s||s._lotMig) return;
   const cache={}, FIFO=(a,b)=>String(a.date||a.mfgDate||'').localeCompare(String(b.date||b.mfgDate||''))||String(a.id||'').localeCompare(String(b.id||''));
@@ -3734,6 +3756,7 @@ function saveShipEdit(){ if(!(canEdit(['Supply Chain'])||state.role==='COO')){to
     if(l){ l.dispatched=Math.max(0,(l.dispatched||0)-(+s.kg||0)); if(s.delivered) l.delivered=Math.max(0,(l.delivered||0)-(+s.kg||0)); }
     s.kg=newKg; s.dispatch=f.date; s.destination=f.dest; s.carrier=f.carrier; s.vehicle=f.vehicle; s.dc=f.dc; s.bilty=f.bilty; s.delivered=dd;
     if(l){ l.dispatched=(l.dispatched||0)+newKg; l.dispatchDate=l.dispatchDate||f.date; if(dd){ l.delivered=(l.delivered||0)+newKg; l.deliveredDate=dd; } } });
+  f.rows.forEach(function(r){ if(r.l){ var _o=(state.orders||[]).find(function(x){return x.po===r.s.po;}); if(_o) resyncLineShipKg(_o,r.l); } });
   logAction(`Edited shipment ${(f.rows[0].s.dispId)||''} (PO ${f.rows[0].s.po}) — ${f.rows.length} line(s), DC ${(f.dc||'-')}`);
   (state.audit=state.audit||[]).unshift({t:new Date().toISOString(),user:state.role,module:'Shipment',po:f.rows[0].s.po,brand:f.rows.length+' line(s)',field:'Edited',old:'',val:'DC '+(f.dc||'-')+' · '+(f.vehicle||'')});
   shipEditForm=null; save(); closeModal(); render(); toast('Shipment updated'); }

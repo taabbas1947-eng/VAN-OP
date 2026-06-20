@@ -1,12 +1,23 @@
 # VAN Order Control Tower — OP Handoff
 
-_Updated: 2026-06-18 · COO: Tahir · Single code file: `index.html` (4308 lines, vanilla JS). Backend: `server.js` (Node/Express + Postgres, one `app_state` JSON blob + rev counter). Deploys never touch the DB. Pushes go via GitHub Desktop (Claude cannot push). Render auto-deploys on push; rollback restores prior code only, never the DB._
+_Updated: 2026-06-19 · COO: Tahir · Single code file: `index.html` (4308 lines, vanilla JS). Backend: `server.js` (Node/Express + Postgres, one `app_state` JSON blob + rev counter). Deploys never touch the DB. Pushes go via GitHub Desktop (Claude cannot push). Render auto-deploys on push; rollback restores prior code only, never the DB._
 
-> **STATUS — 2026-06-19 (push done):** Tahir pushed the pending batch. Now SHIPPED & LIVE: **§0j** (partial-batch packability + close PR + dangling-notification fix), **§0k Stage 4b DIVERT**, **§0l Stage 4c REWORK + pool-leak fix** — all code-only, no data migration. **Production reconcile Stage 4 is COMPLETE** (4a by-product, 4b divert, 4c rework) — the full loss / by-product / divert / rework model is now live. **§0m Stage 5 (Command Center lanes)** and **§0n Action-Center landing** are now ALSO pushed & **browser-verified live** (Chrome, COO: lands on My Actions; Production lanes group correctly; chip-drill works). **Production reconcile + Command-Center programme is fully COMPLETE & live.** Earlier "READY TO PUSH" labels (§0d/§0e/§0g and §0/§1) were stale — already live. **Still open:** §0b PO Tracker's 1 fix; remaining audit tabs (QC/Lab, Shipments, Reports, Sales & Budget); functional live test of divert/rework draws (writes data — do on a low-stakes batch when ready).
+> **STATUS — 2026-06-19 (session handoff; new chat starts here):**
+>
+> **LIVE & verified:** Production reconcile programme (§0j/§0k/§0l — by-product/divert/rework + fixes), §0m Stage 5 Command-Center lanes, §0n Action-Center-as-landing, and **§0o Action Center (My Actions) REDESIGN** — the merged urgency-first worklist (risk chips + role chip bar + grouped list + drawer/stepper), browser-confirmed (52 rows, Late 11 / Today 38 / Normal 3).
+>
+> **§0p PO Tracker REDESIGN — PUSHED & BROWSER-VERIFIED LIVE** (Matrix dense table default, stage rail, risk strip, Matrix·List·Board, slide-in drawer, channel filter, sharpened at-risk). All four screens — Production, Action Center, PO Tracker — are now redesigned & live.
+>
+> **Offline prototypes (design source of truth, in `E:\VAN Platform\`):** `VAN-ActionCenter-PROTOTYPE.html` / `-v2.html`, `VAN-POTracker-PROTOTYPE.html`; design re-audit `VAN-Design-ReAudit-MyActions-POTracker-Production.md`. Agreed scheme = **teal/charcoal** (app vars `--navy`/`--amber`/`--red`/`--txt`); blue `#1d4ed8` allowed for Lab/COA only.
+>
+> **Still open after §0p:** §0b PO Tracker's 1 original fix; design pass on remaining tabs (QC/Lab, Shipments, Reports, Sales & Budget — Production/PO-Tracker/Action-Center done); functional live test of divert/rework draws (writes data — low-stakes batch).
+>
+> **Working method (Tahir, firm):** offline-prototype → inline review → port to live → **Tahir pushes via GitHub Desktop** (Claude cannot push) → Claude verifies live + updates this handoff. Snapshot before any data change. Verify every edit (isolation `node --check`; the bash mount is often stale/truncated — trust the Read/Edit file tools + isolation checks, not full-file mount checks).
 
 ---
 
-## 0p) BUILT — NOT PUSHED — 2026-06-19 · PO Tracker REDESIGN ported to live `screenTracker` — render-only
+## 0p) SHIPPED & LIVE (browser-verified) — 2026-06-19 · PO Tracker REDESIGN ported to live `screenTracker` — render-only
+_Live check (Chrome, COO): Matrix dense table default (21 rows), risk strip, 8-button stage rail, Matrix·List·Board toggle (Matrix active), Board = 7 lanes / 20 cards, drawer builds 3 bars + line items. `openTkDrawer`/`tkMatrixTable` present. Deployed cleanly._
 
 Ports the reconciled prototype (`VAN-POTracker-PROTOTYPE.html`, from user's `o2s_po_tracker_improved_v3.html`) onto the existing tracker. **Render-only — reuses `orderBucket()` (the blocking/earliest-incomplete stage rule, already live), `orderBal`, `isOverdue/isStalled/attentionOf`, `t2matrix`, `orderCard`, `openOrder`.** No data/flow/rules change.
 

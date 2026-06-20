@@ -14,7 +14,14 @@ Ports the reconciled prototype (`VAN-POTracker-PROTOTYPE.html`, from user's `o2s
 
 **De-dup respected:** the stage rail replaces the old RM-check/Production/Ready filter chips (which duplicated stage); the strip carries only non-stage signals.
 
-**Matrix = the prototype's dense table** (`tkMatrixTable`, NOT the old PO×stage `t2matrix` grid — corrected after Tahir flagged the mismatch). Columns: PO · Customer · Channel · Stage (blocking) · Prod% · Pack% · Del% · Remaining · Owner · Next · Promise · Risk. Prod/Pack/Del% summed across each PO's lines; stage badge via `t2spill(orderBucket)`; risk pill Late/RM-blocked/Watch/On-track; promise via `t2promText`. Row click → `openOrder`. (`t2matrix` left defined but unused.)
+**Matrix = the prototype's dense table** (`tkMatrixTable`, NOT the old PO×stage `t2matrix` grid — corrected after Tahir flagged the mismatch). Columns: PO · Customer · Channel · Stage (blocking) · Prod% · Pack% · Del% · Remaining · Owner · Next · Promise · Risk. Prod/Pack/Del% summed across each PO's lines; stage badge via `t2spill(orderBucket)`; risk pill Late/RM-blocked/Watch/On-track; promise via `t2promText`. (`t2matrix` left defined but unused.)
+
+**Refinements (2026-06-19, after Tahir's live review):**
+- **Slide-in drawer** (`openTkDrawer`/`closeTkDrawer`/`tkRiskBadge` + `.tkdrawer/.tkdim/.tkd*` CSS): row-click in ALL three views opens the prototype's right drawer (risk badge · Stage/Channel/KAM/Promise/Next/Remaining KV · Produced/Packed/Delivered bars · line items) with an **Open full PO** button → the existing `openOrder` detail. Replaces the prior direct `openOrder` on row-click.
+- **"At risk" sharpened**: strip count = overdue OR RM-blocked OR priority-hot (dropped generic `isStalled` 7d) — was flagging ~17/18.
+- **Header fix**: "N of M shown · stage = blocking" (was mislabeled "M open" while strip said the real open count).
+- **Legend** only renders in List view (explains the flow dots, n/a to the table).
+- **View toggle un-buried**: moved right of the toolbar with a "View" label, bolder buttons, teal border + subtle shadow (`.tkvwrap/.tkvlbl`).
 
 **Verified:** isolation `node --check` clean on `screenTracker`/`t2board`/`trkMatch`/`trkList` (template-literal heavy). Live browser preview of the strip/rail counts couldn't run (extension connection dropped mid-session) — but every number is computed by the **already-live** `orderBucket/orderBal/isOverdue/attentionOf`, so it mirrors what the tracker already shows. Recommend: push, then a live click-through (Matrix default, rail filter, Board lanes, channel) like the Action Center.
 

@@ -6,6 +6,22 @@ _Updated: 2026-06-18 · COO: Tahir · Single code file: `index.html` (4308 lines
 
 ---
 
+## 0o) BUILT — NOT PUSHED — 2026-06-19 · Action Center (My Actions) REDESIGN ported to live `screenApprovals` — render-only
+
+Replaces the COO accordion "dashboard" with the approved **prototype-2 merged worklist** (design ref: user's `Action Center.html`; offline prototypes `VAN-ActionCenter-PROTOTYPE.html` / `-v2.html`). **Render-only — reuses `actionItems()` unchanged**; no rule, flow, or which-actions-exist logic touched.
+
+**What it is:** one urgency-first list. Risk chips **All / Late / Today / Normal** (with counts) + an **oldest** caption; for COO a horizontal **role chip bar** (All + per-role counts, late in red) replaces the old left panel; grouped body **Late/blocked → Today → Normal**; each row = type badge + work (PO + customer · product · role) + waiting badge + the real action button (`it.act`). Row → **modal drawer** with Role/Product/Created/Promised/Qty-left + the 7-stage **stepper** (done / current / waiting) and the action button. Search (partial re-render, keeps focus) + Sort (risk/oldest/newest/customer).
+
+**Role-driven (no manual toggle in live):** COO sees all roles + role bar; any other role sees only their own queue (no role bar) — same `state.role` logic as before.
+
+**Mapping reused:** risk via `actOverdue`→late, else `actUrg()<=2`→today, else normal; age/created via `actTiming`; type colour by label (Pack QC=teal, Produce/RM=amber, Lab/COA=blue `#1d4ed8`, delay/fix=red, ship=grey); stage via `acStageOf`. New code: `acBase/acCounts/acFiltered/acRowHTML/acListHTML/acChipsHTML/acRoleBarHTML/acOpenDrawer` + new `screenApprovals`; scoped CSS `.ac2-*` (uses live `--navy/--amber/--red/--txt` vars).
+
+**Verified offline:** isolation `node --check` clean; live risk-bucket simulation (reusing the live `actOverdue/actUrg`) on today's 64 actions → 8 late / 52 today / 4 normal (sums to 64), oldest 15d, role split Production 43·6late / QA 11·2 / SC 8 / Lab 2. Not yet browser-clicked.
+
+**Notes / fast-follow:** the **Today** bucket is large (52) because "urgent but not overdue" (≥3d or hot) all land there — may want to split into "due soon" vs "this week" later. **Deferred from prototype:** Cards view and bulk-select (core worklist shipped first). Old helpers `actCard`/`acard` remain defined (now unused) — harmless.
+
+---
+
 ## 0n) SHIPPED & LIVE (browser-verified) — 2026-06-19 · Landing page = Action Center for ALL users
 
 On app open / login, every user now lands on the **Action Center ("My Actions", screen id `approvals`)** instead of the Dashboard. `screen` is a session key (never saved/shared), so the landing is set in three client spots, all now `'approvals'`: the seed default (`buildFromSeed`), `sessionInit` (reopen-with-session path), and `doLogin` (fresh login — guarded with `canView`, falls back to the role's first allowed screen only if it somehow can't view Action Center). In-session navigation (`setScreen`) is unchanged; the render-time access guards still redirect to `dash` only if a screen is genuinely unviewable. Verified: `approvals` is owned by every role. Bundled with §0m (same uncommitted `index.html`).

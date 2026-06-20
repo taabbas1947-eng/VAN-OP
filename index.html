@@ -591,6 +591,41 @@ table tbody tr:hover{background:var(--panel2)}
 .pjss{font-size:10px;color:var(--mut)}
 .pjacts{display:flex;gap:7px;flex-wrap:wrap}
 @media(max-width:700px){.pjrail{grid-template-columns:1fr 1fr}}.qcgrp>summary .c{margin-left:auto;color:var(--mut);font-weight:500;font-size:11px}
+.ac2top{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:9px}
+.ac2chips{display:flex;gap:6px;flex-wrap:wrap}
+.ac2chip{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--line);background:#fff;color:var(--txt2);border-radius:99px;padding:5px 12px;font-weight:700;font-size:12px;cursor:pointer;line-height:1}
+.ac2chip b{font-weight:900;font-variant-numeric:tabular-nums}
+.ac2chip.on{background:var(--navy);border-color:var(--navy);color:#fff}
+.ac2chip.red{background:var(--red-50);border-color:#eebfb8;color:var(--red)}
+.ac2chip.amber{background:var(--amber-50);border-color:#ecd3a0;color:var(--amber)}
+.ac2chip.red.on{background:var(--red);border-color:var(--red);color:#fff}
+.ac2chip.amber.on{background:var(--amber);border-color:var(--amber);color:#fff}
+.ac2note{font-size:12px;color:var(--mut);font-weight:600}.ac2note b{color:var(--txt)}
+.ac2tools{display:flex;gap:8px;margin-bottom:9px;flex-wrap:wrap}
+.ac2tools input{flex:1;min-width:200px;height:34px;border:1px solid var(--line);border-radius:9px;padding:0 11px;font-weight:600;background:#fff}
+.ac2tools select{height:34px;border:1px solid var(--line);border-radius:9px;padding:0 9px;font-weight:700;background:#fff}
+.ac2rolebar{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.ac2rchip{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--line);background:#fff;color:var(--txt2);border-radius:99px;padding:5px 11px;font-weight:700;font-size:11.5px;cursor:pointer;line-height:1}
+.ac2rchip b{font-variant-numeric:tabular-nums}.ac2rchip .lt{color:var(--red);font-weight:900}
+.ac2rchip.on{background:var(--navy-50);border-color:var(--navy-100);color:var(--navy)}
+.ac2grouphead{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);font-weight:800;padding:8px 14px;background:var(--panel2);border-bottom:1px solid var(--line)}
+.ac2grouphead.red{color:var(--red)}.ac2grouphead.amber{color:var(--amber)}
+.ac2row{display:flex;align-items:center;gap:11px;padding:9px 14px;border-bottom:1px solid var(--line);cursor:pointer}
+.ac2row:hover{background:var(--panel2)}
+.ac2badge{font-size:11px;font-weight:800;padding:2px 8px;border-radius:99px;white-space:nowrap}
+.ac2work{flex:1;min-width:0}
+.ac2title{font-size:12.5px;font-weight:800;color:var(--txt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ac2sub{font-size:11px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+.ac2wait{font-size:11px;font-weight:800;padding:2px 8px;border-radius:99px;white-space:nowrap;background:#eef2f1;color:var(--txt2)}
+.ac2wait.red{background:var(--red-50);color:var(--red)}
+.ac2wait.amber{background:var(--amber-50);color:var(--amber)}
+.ac2kv{display:grid;grid-template-columns:92px 1fr;gap:7px 10px;margin-bottom:13px;font-size:12.5px}
+.ac2kv div:nth-child(odd){color:var(--mut);font-weight:700}
+.ac2steps{border-left:2px solid var(--line);padding-left:14px;margin-left:5px}
+.ac2step{position:relative;margin-bottom:11px}
+.ac2step:before{content:"";position:absolute;left:-20px;top:3px;width:9px;height:9px;border-radius:50%;background:#cdd9d4;box-shadow:0 0 0 3px #fff}
+.ac2step.done:before{background:var(--navy)}.ac2step.now:before{background:var(--amber)}.ac2step.late:before{background:var(--red)}
+.ac2step b{display:block;font-size:12.5px}.ac2step span{color:var(--mut);font-size:11px}
 </style></head><body>
 <div class="app" id="appShell">
   <div class="navbackdrop" onclick="closeMobileNav()"></div>
@@ -2976,32 +3011,68 @@ function actCard(it){
     +'<button class="sm green" onclick="'+it.act+'">'+it.label+'</button>'
   +'</div>';
 }
+/* ===== Action Center v3 — merged urgency-first worklist (ported from prototype 2; render-only, reuses actionItems/actTiming/actUrg/actOverdue) ===== */
+var acRisk='all', acRoleF='all', acQ='', acSort2='risk';
+var AC_ROLEORDER=['Supply Chain','CFO','Production','Lab Rep','AQCM','QCM','QA Inspector','Plant Manager'];
+var AC_STAGES=['PO Created','RM Check','Production','Lab QC','AQCM Review','Pack QC','Shipment'];
+function acTypeColor(lb){ if(lb==='Pack QC'||lb==='Inspect')return 'var(--navy)'; if(lb==='Open Production'||lb==='RM Check'||lb==='Acknowledge'||lb==='Receive')return 'var(--amber)'; if(lb==='Lab QC'||lb==='Review'||lb==='Approve'||lb==='Approve PR')return '#1d4ed8'; if(lb==='Add reason'||lb==='Correct')return 'var(--red)'; return 'var(--mut)'; }
+function acStageOf(lb){ if(lb==='Acknowledge')return 'PO Created'; if(lb==='RM Check'||lb==='Receive'||lb==='Approve PR')return 'RM Check'; if(lb==='Open Production')return 'Production'; if(lb==='Lab QC')return 'Lab QC'; if(lb==='Review'||lb==='Approve')return 'AQCM Review'; if(lb==='Pack QC'||lb==='Inspect')return 'Pack QC'; if(lb==='Ship')return 'Shipment'; return 'Production'; }
+function acRiskOf(it){ if(actOverdue(it))return 'late'; return actUrg(it)<=2?'today':'normal'; }
+function acWaitTxt(it){ var tm=actTiming(it); if(actOverdue(it))return daysOver(it.o)+'d late'; var d=tm.days; return d==null?'—':((tm.approx?'~':'')+d+'d waiting'); }
+function acBase(){ var all=actionItems(); var b=(state.role==='COO')?all:all.filter(function(x){return x.role===state.role;}); b.forEach(function(it,i){ it._id='A'+i; it._risk=acRiskOf(it); it._days=actTiming(it).days||0; }); return b; }
+function acRoleScoped(b){ return acRoleF==='all'?b:b.filter(function(x){return x.role===acRoleF;}); }
+function acCounts(){ var r=acRoleScoped(acBase()); var late=0,today=0,normal=0,old=0; r.forEach(function(x){ if(x._risk==='late')late++; else if(x._risk==='today')today++; else normal++; if(x._days>old)old=x._days; }); return {all:r.length,late:late,today:today,normal:normal,oldest:old}; }
+function acFiltered(){ var r=acRoleScoped(acBase()); if(acRisk!=='all')r=r.filter(function(x){return x._risk===acRisk;}); var q=(acQ||'').toLowerCase().trim(); if(q)r=r.filter(function(x){var o=x.o||{},l=x.l||{};return ((o.po||'')+(o.client||'')+(l.brand||'')+(x.what||'')+x.role+x.label).toLowerCase().indexOf(q)>-1;}); if(acSort2==='oldest')r.sort(function(a,b){return b._days-a._days;}); else if(acSort2==='newest')r.sort(function(a,b){return a._days-b._days;}); else if(acSort2==='customer')r.sort(function(a,b){return ((a.o&&a.o.client)||'').localeCompare((b.o&&b.o.client)||'');}); else r=actSort(r); return r; }
+function acRowHTML(it){ var col=acTypeColor(it.label),T=ACT_META[it.label]||{s:it.label};
+  var cust=it.o?(it.o.client||''):(it.pr?(it.pr.rm+' (PR)'):(it.batch?coaItemOf(it.batch):''));
+  var prod=it.l?it.l.brand:(it.batch?(it.batch.base||''):'');
+  var title=it.o?it.o.po:(it.batch?(it.batch.batchNo||coaItemOf(it.batch)):(it.pr?('PR · '+it.pr.rm):'—'));
+  var sub=cust+(prod?' · '+prod:'')+' · '+it.role;
+  var wcls=it._risk==='late'?'red':(it._risk==='today'?'amber':'');
+  return '<div class="ac2row" onclick="acOpenDrawer(\''+it._id+'\')">'
+    +'<span class="ac2badge" style="color:'+col+';background:color-mix(in srgb,'+col+' 13%,#fff)">'+(T.s||it.label)+'</span>'
+    +'<div class="ac2work"><div class="ac2title">'+title+'</div><div class="ac2sub">'+sub+'</div></div>'
+    +'<span class="ac2wait '+wcls+'">'+acWaitTxt(it)+'</span>'
+    +'<button class="sm green" onclick="event.stopPropagation();'+it.act+'">'+it.label+'</button>'
+  +'</div>'; }
+function acListHTML(){ var rows=acFiltered(); if(!rows.length)return '<div class="empty" style="padding:26px;text-align:center;color:var(--mut)">No actions in this view.</div>';
+  var groups=[['late','Late / blocked','red'],['today','Today','amber'],['normal','Normal','']];
+  return groups.map(function(g){ var items=rows.filter(function(x){return x._risk===g[0];}); if(!items.length)return ''; return '<div class="ac2grouphead '+g[2]+'">'+g[1]+' · '+items.length+'</div>'+items.map(acRowHTML).join(''); }).join(''); }
+function acChipsHTML(c){ function chip(k,l,n,cls){ return '<span class="ac2chip '+cls+(acRisk===k?' on':'')+'" onclick="acRisk=\''+k+'\';render()">'+l+' <b>'+n+'</b></span>'; }
+  return '<div class="ac2chips">'+chip('all','All',c.all,'')+chip('late','Late',c.late,'red')+chip('today','Today',c.today,'amber')+chip('normal','Normal',c.normal,'')+'</div>'; }
+function acRoleBarHTML(){ var all=actionItems(); all.forEach(function(it){ it._risk=acRiskOf(it); });
+  var present=AC_ROLEORDER.filter(function(r){return all.some(function(x){return x.role===r;});});
+  var extra=[]; all.forEach(function(x){ if(present.indexOf(x.role)<0&&extra.indexOf(x.role)<0)extra.push(x.role); });
+  var roles=present.concat(extra);
+  function rc(role,n,lt){ return '<span class="ac2rchip'+(acRoleF===role?' on':'')+'" onclick="acRoleF=\''+role+'\';render()">'+role+' <b>'+n+'</b>'+(lt?' · <span class="lt">'+lt+'</span>':'')+'</span>'; }
+  var allLate=all.filter(function(x){return x._risk==='late';}).length;
+  var html='<span class="ac2rchip'+(acRoleF==='all'?' on':'')+'" onclick="acRoleF=\'all\';render()">All <b>'+all.length+'</b>'+(allLate?' · <span class="lt">'+allLate+' late</span>':'')+'</span>';
+  html+=roles.map(function(r){ var g=all.filter(function(x){return x.role===r;}); var lt=g.filter(function(x){return x._risk==='late';}).length; return rc(r,g.length,lt); }).join('');
+  return '<div class="ac2rolebar">'+html+'</div>'; }
+function acOpenDrawer(id){ var it=acBase().filter(function(x){return x._id===id;})[0]; if(!it)return; var tm=actTiming(it);
+  var cust=it.o?(it.o.client||''):''; var prod=it.l?it.l.brand:(it.batch?it.batch.base:'');
+  var title=it.o?it.o.po:(it.batch?(it.batch.batchNo||coaItemOf(it.batch)):(it.pr?('PR · '+it.pr.rm):'—'));
+  var qty=it.l?Math.max(0,(+it.l.ordered||0)-(+it.l.packed||0)):(it.pr?(+it.pr.qtyRequired||0):(it.batch?(+it.batch.plannedKg||0):0));
+  var stage=acStageOf(it.label),ci=AC_STAGES.indexOf(stage),late=it._risk==='late';
+  var steps=AC_STAGES.map(function(s,i){ var st=i<ci?'done':(i===ci?(late?'late':'now'):''); var lab=i<ci?'completed':(i===ci?'current step':'waiting'); return '<div class="ac2step '+st+'"><b>'+s+'</b><span>'+lab+'</span></div>'; }).join('');
+  var wcls=late?'red':(it._risk==='today'?'amber':'');
+  $('modal').innerHTML='<div class="mh"><h2>'+title+'</h2><div class="sub">'+cust+(prod?' · '+prod:'')+'</div></div>'
+    +'<div class="mb"><div style="margin-bottom:11px"><span class="ac2wait '+wcls+'">'+acWaitTxt(it)+'</span></div>'
+    +'<div class="ac2kv"><div>Role</div><div>'+it.role+'</div><div>Product</div><div>'+(prod||'—')+'</div><div>Created</div><div>'+(tm.created?_fmtShort(tm.created):'—')+'</div><div>Promised</div><div>'+((it.o&&it.o.promised)?_fmtShort(it.o.promised):'—')+'</div><div>Qty left</div><div>'+fmt(qty)+' Kg/L</div></div>'
+    +'<div class="ac2steps">'+steps+'</div></div>'
+    +'<div class="mf"><button class="ghost" onclick="closeModal()">Close</button><button class="green" onclick="closeModal();'+it.act+'">'+it.label+'</button></div>';
+  $('modalBg').classList.add('open'); }
 function screenApprovals(){
-  const isCOO=state.role==='COO';
-  const all=actionItems();
-  const mine = isCOO ? all : all.filter(x=>x.role===state.role);
-  let body;
-  if(!mine.length){ body=`<div class="card"><div class="empty"><div class="ei">✓</div>Nothing waiting on you right now.</div></div>`; }
-  else if(isCOO){
-    const _pref=['Supply Chain','CFO','Production','Lab Rep','AQCM','QCM','QA Inspector','Plant Manager'];
-    const _present=[...new Set(all.map(x=>x.role))];
-    const roles=_pref.filter(r=>_present.indexOf(r)>-1).concat(_present.filter(r=>_pref.indexOf(r)<0));  // never drop an action whose role isn't in the preferred list
-    body=roles.map(r=>{const g=all.filter(x=>x.role===r); return g.length?acard('act_'+r,r,`${g.length}`,`<div class="aclist">${actSort(g).map(actCard).join('')}</div>`):'';}).join('');
-  } else {
-    const over=mine.filter(actOverdue).length, old=mine.filter(x=>!actOverdue(x)&&(actTiming(x).days||0)>=7).length;
-    const types={}; mine.forEach(x=>{const s=(ACT_META[x.label]||{}).s||x.label; types[s]=(types[s]||0)+1;});
-    let sum=`<span class="t">${mine.length} action${mine.length===1?'':'s'} waiting on you</span>`;
-    if(over) sum+=`<span class="p red">${over} overdue</span>`;
-    if(old) sum+=`<span class="p amber">${old} waiting 7d+</span>`;
-    const cdefs=[['all','All',mine.length],['overdue','Overdue',over]].concat(Object.keys(types).map(s=>[s,s,types[s]]));
-    const chips=`<div class="chips">${cdefs.filter(c=>c[2]>0||c[0]==='all').map(c=>`<span class="chip ${actFilter===c[0]?'on':''}" onclick="actFilter='${c[0]}';render()">${c[1]}<span class="cnt">${c[2]}</span></span>`).join('')}</div>`;
-    let list=mine;
-    if(actFilter==='overdue') list=mine.filter(actOverdue);
-    else if(actFilter!=='all') list=mine.filter(x=>((ACT_META[x.label]||{}).s||x.label)===actFilter);
-    const cards=actSort(list).map(actCard).join('')||`<div class="empty"><div class="ei">✓</div>No actions in this filter.</div>`;
-    body=`<div class="acsum">${sum}</div>${chips}<div class="aclist">${cards}</div>`;
-  }
-  $('view').innerHTML=`<div class="banner info"><b>My Actions.</b> Everything waiting on you, most urgent first — each shows when it was created and how long it's been pending. ${isCOO?'(As COO you see all role queues.)':''}</div>${body}`;
+  var isCOO=state.role==='COO';
+  var base=acBase();
+  if(!base.length){ $('view').innerHTML='<div class="card"><div class="empty"><div class="ei">✓</div>Nothing waiting on you right now.</div></div>'; return; }
+  var c=acCounts();
+  var head='<div class="banner info" style="margin-bottom:10px"><b>My Actions.</b> Everything waiting on you, most urgent first. '+(isCOO?'(As COO you see all role queues.)':'')+'</div>';
+  var top='<div class="ac2top">'+acChipsHTML(c)+'<span class="ac2note">oldest <b>'+c.oldest+'d</b>'+(isCOO?' · all role queues':'')+'</span></div>';
+  var tools='<div class="ac2tools"><input id="ac2search" placeholder="Search PO / customer / product" value="'+(acQ||'').replace(/"/g,'&quot;')+'" oninput="acQ=this.value;var e=document.getElementById(\'ac2list\');if(e)e.innerHTML=acListHTML();">'
+    +'<select onchange="acSort2=this.value;render()"><option value="risk"'+(acSort2==='risk'?' selected':'')+'>Risk first</option><option value="oldest"'+(acSort2==='oldest'?' selected':'')+'>Oldest first</option><option value="newest"'+(acSort2==='newest'?' selected':'')+'>Newest first</option><option value="customer"'+(acSort2==='customer'?' selected':'')+'>Customer A–Z</option></select></div>';
+  var rolebar=isCOO?acRoleBarHTML():'';
+  $('view').innerHTML=head+top+tools+rolebar+'<div class="card" style="padding:0;overflow:hidden"><div id="ac2list" class="ac2list">'+acListHTML()+'</div></div>';
 }
 function screenInstructions(){
   const steps=[

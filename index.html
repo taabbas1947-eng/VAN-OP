@@ -626,6 +626,18 @@ table tbody tr:hover{background:var(--panel2)}
 .ac2step:before{content:"";position:absolute;left:-20px;top:3px;width:9px;height:9px;border-radius:50%;background:#cdd9d4;box-shadow:0 0 0 3px #fff}
 .ac2step.done:before{background:var(--navy)}.ac2step.now:before{background:var(--amber)}.ac2step.late:before{background:var(--red)}
 .ac2step b{display:block;font-size:12.5px}.ac2step span{color:var(--mut);font-size:11px}
+.tkstrip{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#fff;border:1px solid var(--line);border-radius:11px;padding:9px 13px;margin-bottom:9px;font-size:12px;color:var(--mut);font-weight:600}
+.tkstrip b{font-size:16px;color:var(--txt);font-weight:900;font-variant-numeric:tabular-nums}.tkstrip .r b{color:var(--red)}.tkstrip .a b{color:var(--amber)}.tkstrip .sep{color:var(--line)}
+.tkrail{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:9px}
+.tkrail button{height:30px;border:1px solid var(--line);background:#fff;border-radius:8px;padding:0 11px;font-weight:800;color:var(--txt2);font-size:11.5px;display:inline-flex;align-items:center;gap:6px;cursor:pointer}
+.tkrail button.on{background:var(--navy);border-color:var(--navy);color:#fff}.tkrail button b{font-variant-numeric:tabular-nums}
+.tkboard{display:grid;grid-auto-flow:column;grid-auto-columns:228px;gap:8px;overflow:auto;padding:2px 0 4px}
+.tklane{background:var(--panel2);border:1px solid var(--line);border-radius:11px;overflow:hidden}
+.tklh{height:32px;display:flex;align-items:center;justify-content:space-between;padding:0 10px;border-bottom:1px solid var(--line2);font-weight:900;background:#fff;font-size:11.5px}
+.tklb{padding:7px;display:grid;gap:7px;align-content:start;min-height:70px}
+.tkbc{border:1px solid var(--line2);border-left:3px solid var(--line);border-radius:8px;background:#fff;padding:7px 9px;cursor:pointer}.tkbc:hover{background:#fafbfa}
+.tkbc.od{border-left-color:var(--red)}.tkbc.stall{border-left-color:var(--amber)}
+.tkbc b{display:block;font-size:11.6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.tkbc span{display:block;color:var(--mut);font-size:10.4px;font-weight:600;margin-top:1px}
 </style></head><body>
 <div class="app" id="appShell">
   <div class="navbackdrop" onclick="closeMobileNav()"></div>
@@ -1144,7 +1156,8 @@ function t2matrix(list){
   }).join('');
   return '<table class="t2mtx">'+head+body+'</table>';
 }
-var trkView='list';
+function t2board(list){ return '<div class="tkboard">'+BUCKETS.map(function(s){ var g=list.filter(function(o){return orderBucket(o)===s;}); return '<div class="tklane"><div class="tklh"><span>'+s+'</span><b>'+g.length+'</b></div><div class="tklb">'+(g.map(function(o){ var x=orderBal(o); var rc=isOverdue(o)?'od':(isStalled(o)?'stall':''); return '<div class="tkbc '+rc+'" onclick="openOrder(\''+o.id+'\')"><b>'+o.po+'</b><span>'+(o.client||'')+'</span><span>'+fmt(x.rem)+' Kg/L left</span></div>'; }).join('')||'<span class="muted" style="padding:5px;font-size:11px">—</span>')+'</div></div>'; }).join('')+'</div>'; }
+var trkView='matrix';  /* default view = Matrix (PO × stage grid) */
 function setTrkView(v){ trkView=v; render(); }
 const STAGE_COLOR={'New':'--mut','RM / Procurement':'--amber','SO Created':'--blue','PR Raised':'--blue','RM Ready':'--blue','In Production':'--purple','Produced':'--purple','QC Passed':'--leaf','Dispatched':'--green2','Delivered':'--green','Ready to Produce':'--blue','Packed':'--leaf','Closed':'--green'};
 
@@ -1824,7 +1837,7 @@ function addDealer(){
 }
 
 /* ===================== 2. PO TRACKER ===================== */
-let trkFilter='all'; let trkStage='';
+let trkFilter='all'; let trkStage=''; let trkChannel='all';
 /* ===================== PO TRACKER — control tower (UI redesign) ===================== */
 let trkSearch=''; let trkSort='risk_new'; let trkExpanded={};
 const BUCKETS=['PO Created','RM Check','Production','Lab QC','QA Pre-shipment','Shipment','Delivered'];
@@ -1862,6 +1875,7 @@ function attnCounts(){ let delayed=0,rmblock=0,prod=0,qc=0,qahold=0,ready=0;
 }
 function trkMatch(o){ const b=orderBucket(o);
   switch(trkFilter){
+    case 'risk':return (isOverdue(o)||isStalled(o)||attentionOf(o).hot)&&b!=='Delivered';
     case 'open':return b!=='Delivered';
     case 'delivered':return b==='Delivered';
     case 'delayed':return isOverdue(o)&&b!=='Delivered';
@@ -1905,10 +1919,11 @@ function orderCard(o){
 function _trkRecv(o){ return String(o.received||''); }
 function _trkNewCmp(a,b){ return _trkRecv(b).localeCompare(_trkRecv(a)) || String(b.po||'').localeCompare(String(a.po||'')); }
 function _trkRiskCmp(a,b){ var ra=isOverdue(a)?0:1, rb=isOverdue(b)?0:1; if(ra!==rb) return ra-rb; var da=isOverdue(a)?daysOver(a):0, db=isOverdue(b)?daysOver(b):0; if(da!==db) return db-da; var aa=orderAging(a).days||0, ab=orderAging(b).days||0; return ab-aa; }
-function trkList(){ var list=(state.orders||[]).filter(function(o){return trkMatch(o);}); if(trkSearch){ var q=trkSearch.toLowerCase(); list=list.filter(function(o){return ((o.po||'')+' '+(o.client||'')).toLowerCase().indexOf(q)>-1;}); } return list; }
+function trkList(){ var list=(state.orders||[]).filter(function(o){return trkMatch(o);}); if(trkStage) list=list.filter(function(o){return orderBucket(o)===trkStage;}); if(trkChannel&&trkChannel!=='all') list=list.filter(function(o){return (o.channel||'')===trkChannel;}); if(trkSearch){ var q=trkSearch.toLowerCase(); list=list.filter(function(o){return ((o.po||'')+' '+(o.client||'')).toLowerCase().indexOf(q)>-1;}); } return list; }
 function trkBodyHTML(){
   var list=trkList();
   if(!list.length) return '<div class="empty"><div class="ei">&#8709;</div>No orders match this filter.</div>';
+  if(trkView==='board') return t2board(list);
   if(trkView==='matrix') return t2matrix(list);
   if(trkSort==='new') return list.slice().sort(_trkNewCmp).map(orderCard).join('');
   if(trkSort==='oldstage') return list.slice().sort(function(a,b){ return (orderAging(b).days||0)-(orderAging(a).days||0); }).map(orderCard).join('');
@@ -1923,19 +1938,22 @@ function trkBodyHTML(){
 function _trkPaint(){ var el=document.getElementById('trkBody'); if(el) el.innerHTML=trkBodyHTML(); var c=document.getElementById('trkShown'); if(c) c.textContent=trkList().length; }
 function screenTracker(){
   var all=state.orders||[];
-  var P={ delayed:function(o){return isOverdue(o)&&orderBucket(o)!=='Delivered';}, stalled:function(o){return isStalled(o);},
-    priority:function(o){return attentionOf(o).hot;}, rmblock:function(o){return orderBucket(o)==='RM Check';},
-    prod:function(o){return orderBucket(o)==='Production';}, ready:function(o){return o.lines.some(function(l){return lineCleared(o,l)>0.5;});} };
-  var cnt={ all:all.length, delayed:all.filter(P.delayed).length, stalled:all.filter(P.stalled).length,
-    priority:all.filter(P.priority).length, rmblock:all.filter(P.rmblock).length,
-    prod:all.filter(P.prod).length, ready:all.filter(P.ready).length };
-  var today=TODAY.toISOString().slice(0,10); var newToday=all.filter(function(o){return o.received===today;}).length;
-  /* decision-strip removed — it duplicated the filter chips below (same Overdue/Stalled/Ready counts); chips are clickable so they serve both roles */
-  var chips=[['all','All'],['delayed','Overdue'],['stalled','Stalled 7d+'],['priority','Priority'],['rmblock','RM check'],['prod','Production'],['ready','Ready to ship']];
-  var chipbar=`<div class="chips t2bar" style="margin-bottom:10px">`+chips.map(function(c){ var al=(c[0]==='delayed'||c[0]==='stalled')&&cnt[c[0]]?'alert':''; return `<span class="chip ${al} ${trkFilter===c[0]?'on':''}" onclick="trkFilter='${c[0]}';render()">${c[1]}<span class="cnt">${cnt[c[0]]}</span></span>`; }).join('')+`</div>`;
-  var controls=`<div class="tkbar"><span class="tkseg"><button class="${trkView==='list'?'on':''}" onclick="setTrkView('list')">List</button><button class="${trkView==='matrix'?'on':''}" onclick="setTrkView('matrix')">Matrix</button></span><label class="tksortlbl">Sort<select id="trksort" onchange="trkSort=this.value;_trkPaint()"><option value="risk_new"${trkSort==='risk_new'?' selected':''}>At-risk first, then newest</option><option value="new"${trkSort==='new'?' selected':''}>Newest first</option><option value="stage"${trkSort==='stage'?' selected':''}>By stage</option><option value="oldstage"${trkSort==='oldstage'?' selected':''}>Longest in stage</option></select></label><input id="trkq" placeholder="Search PO or customer..." value="${(trkSearch||'').replace(/"/g,'&quot;')}" oninput="trkSearch=this.value;_trkPaint()"></div>`;
+  var openO=all.filter(function(o){return orderBucket(o)!=='Delivered';});
+  var atrisk=all.filter(function(o){return orderBucket(o)!=='Delivered'&&(isOverdue(o)||isStalled(o)||attentionOf(o).hot);}).length;
+  var rmblock=all.filter(function(o){return orderBucket(o)==='RM Check';}).length;
+  var remKg=all.reduce(function(a,o){return a+orderBal(o).rem;},0);
+  var strip=`<div class="tkstrip"><span><b>${openO.length}</b> open POs</span><span class="sep">|</span><span class="r"><b>${atrisk}</b> at risk</span><span class="sep">|</span><span class="a"><b>${rmblock}</b> RM-blocked</span><span class="sep">|</span><span><b>${fmt(remKg)}</b> Kg/L remaining</span></div>`;
+  var rcounts={}; BUCKETS.forEach(function(s){rcounts[s]=0;}); all.forEach(function(o){var b=orderBucket(o); rcounts[b]=(rcounts[b]||0)+1;});
+  var rail=`<div class="tkrail"><button class="${trkStage===''?'on':''}" onclick="trkStage='';render()">All <b>${all.length}</b></button>`+BUCKETS.map(function(s){return `<button class="${trkStage===s?'on':''}" onclick="trkStage='${s}';render()">${s} <b>${rcounts[s]||0}</b></button>`;}).join('')+`</div>`;
+  var channels=Array.from(new Set(all.map(function(o){return o.channel;}).filter(Boolean))).sort();
+  var riskOpts=[['all','All risk'],['risk','At risk'],['delayed','Overdue'],['stalled','Stalled 7d+'],['priority','Priority']];
+  var controls=`<div class="tkbar"><span class="tkseg"><button class="${trkView==='matrix'?'on':''}" onclick="setTrkView('matrix')">Matrix</button><button class="${trkView==='list'?'on':''}" onclick="setTrkView('list')">List</button><button class="${trkView==='board'?'on':''}" onclick="setTrkView('board')">Board</button></span>`
+   +`<select onchange="trkFilter=this.value;render()" title="Risk filter">${riskOpts.map(function(c){return `<option value="${c[0]}"${trkFilter===c[0]?' selected':''}>${c[1]}</option>`;}).join('')}</select>`
+   +`<select onchange="trkChannel=this.value;_trkPaint()" title="Channel"><option value="all"${trkChannel==='all'?' selected':''}>All channels</option>${channels.map(function(c){return `<option value="${c}"${trkChannel===c?' selected':''}>${c}</option>`;}).join('')}</select>`
+   +`<label class="tksortlbl">Sort<select id="trksort" onchange="trkSort=this.value;_trkPaint()"><option value="risk_new"${trkSort==='risk_new'?' selected':''}>At-risk first, then newest</option><option value="new"${trkSort==='new'?' selected':''}>Newest first</option><option value="stage"${trkSort==='stage'?' selected':''}>By stage</option><option value="oldstage"${trkSort==='oldstage'?' selected':''}>Longest in stage</option></select></label>`
+   +`<input id="trkq" placeholder="Search PO or customer..." value="${(trkSearch||'').replace(/"/g,'&quot;')}" oninput="trkSearch=this.value;_trkPaint()"></div>`;
   var legend=`<div class="t2leg"><i><span class="t2dot" style="background:var(--green)"></span> stage complete</i><i><span class="t2dot" style="background:var(--blue)"></span> current</i><i><span class="t2dot" style="background:var(--amber)"></span> ageing 3-6d</i><i><span class="t2dot" style="background:var(--red)"></span> stalled / overdue</i><i>~ = approximate (stage date missing)</i></div>`;
-  $('view').innerHTML=`<div class="card tkhead"><h3 style="margin:0 0 2px">PO Tracker <span class="hint">${all.length} open · <span id="trkShown">${trkList().length}</span> shown</span></h3><div class="muted" style="font-size:11.5px;margin-bottom:12px">Overdue pinned on top; everything else newest-first (stalled marked amber). Each line shows stage, ageing, remaining balance and the next action + owner. Click a PO for the full record; multi-product POs expand for per-product balance.</div>${controls}${chipbar}<div id="trkBody">${trkBodyHTML()}</div>${legend}</div>`;
+  $('view').innerHTML=`<div class="card tkhead"><h3 style="margin:0 0 8px">PO Tracker <span class="hint">${all.length} open · <span id="trkShown">${trkList().length}</span> shown · blocking stage</span></h3>${strip}${rail}${controls}<div id="trkBody">${trkBodyHTML()}</div>${legend}</div>`;
 }
 
 /* ===================== ORDER DRAWER (role-owned lifecycle) ===================== */

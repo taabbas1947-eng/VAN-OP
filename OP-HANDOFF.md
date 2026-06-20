@@ -6,7 +6,20 @@ _Updated: 2026-06-18 · COO: Tahir · Single code file: `index.html` (4308 lines
 
 ---
 
-## 0o) BUILT — NOT PUSHED — 2026-06-19 · Action Center (My Actions) REDESIGN ported to live `screenApprovals` — render-only
+## 0p) BUILT — NOT PUSHED — 2026-06-19 · PO Tracker REDESIGN ported to live `screenTracker` — render-only
+
+Ports the reconciled prototype (`VAN-POTracker-PROTOTYPE.html`, from user's `o2s_po_tracker_improved_v3.html`) onto the existing tracker. **Render-only — reuses `orderBucket()` (the blocking/earliest-incomplete stage rule, already live), `orderBal`, `isOverdue/isStalled/attentionOf`, `t2matrix`, `orderCard`, `openOrder`.** No data/flow/rules change.
+
+**Added:** (1) **slim risk strip** — open POs · at-risk · RM-blocked · Kg remaining; (2) **stage rail** — All + the 7 real buckets (PO Created → … → Delivered) with counts, click sets `trkStage`; (3) **Board view** (`t2board`) — kanban lanes by blocking stage; (4) **channel filter** (`trkChannel`); (5) **risk dropdown** (All risk / At risk / Overdue / Stalled / Priority) replacing the old risk chips that duplicated the rail; (6) **default view = Matrix** (PO × stage grid), toggle order **Matrix · List · Board**. `trkList()` now also gates by `trkStage` + `trkChannel`. New CSS `.tkstrip/.tkrail/.tkboard/.tklane/.tkbc` using live `--navy/--amber/--red` vars.
+
+**De-dup respected:** the stage rail replaces the old RM-check/Production/Ready filter chips (which duplicated stage); the strip carries only non-stage signals.
+
+**Verified:** isolation `node --check` clean on `screenTracker`/`t2board`/`trkMatch`/`trkList` (template-literal heavy). Live browser preview of the strip/rail counts couldn't run (extension connection dropped mid-session) — but every number is computed by the **already-live** `orderBucket/orderBal/isOverdue/attentionOf`, so it mirrors what the tracker already shows. Recommend: push, then a live click-through (Matrix default, rail filter, Board lanes, channel) like the Action Center.
+
+---
+
+## 0o) SHIPPED & LIVE (browser-verified) — 2026-06-19 · Action Center (My Actions) REDESIGN ported to live `screenApprovals` — render-only
+_Live check (Chrome, COO): the merged worklist renders — 4 risk chips, role chip bar (7 roles), grouped Late·11 / Today·38 / Normal·3, 52 rows; `acRowHTML`/`acRoleBarHTML` present. Deployed cleanly._
 
 Replaces the COO accordion "dashboard" with the approved **prototype-2 merged worklist** (design ref: user's `Action Center.html`; offline prototypes `VAN-ActionCenter-PROTOTYPE.html` / `-v2.html`). **Render-only — reuses `actionItems()` unchanged**; no rule, flow, or which-actions-exist logic touched.
 

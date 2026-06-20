@@ -14,6 +14,8 @@ Ports the reconciled prototype (`VAN-POTracker-PROTOTYPE.html`, from user's `o2s
 
 **De-dup respected:** the stage rail replaces the old RM-check/Production/Ready filter chips (which duplicated stage); the strip carries only non-stage signals.
 
+**Matrix = the prototype's dense table** (`tkMatrixTable`, NOT the old PO×stage `t2matrix` grid — corrected after Tahir flagged the mismatch). Columns: PO · Customer · Channel · Stage (blocking) · Prod% · Pack% · Del% · Remaining · Owner · Next · Promise · Risk. Prod/Pack/Del% summed across each PO's lines; stage badge via `t2spill(orderBucket)`; risk pill Late/RM-blocked/Watch/On-track; promise via `t2promText`. Row click → `openOrder`. (`t2matrix` left defined but unused.)
+
 **Verified:** isolation `node --check` clean on `screenTracker`/`t2board`/`trkMatch`/`trkList` (template-literal heavy). Live browser preview of the strip/rail counts couldn't run (extension connection dropped mid-session) — but every number is computed by the **already-live** `orderBucket/orderBal/isOverdue/attentionOf`, so it mirrors what the tracker already shows. Recommend: push, then a live click-through (Matrix default, rail filter, Board lanes, channel) like the Action Center.
 
 ---

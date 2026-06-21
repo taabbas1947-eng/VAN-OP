@@ -820,6 +820,46 @@ tr.clk:hover td{background:var(--panel2)}
 .pbbar{height:5px;border-radius:999px;background:var(--navy-50,#eef3fb);overflow:hidden}
 .pbbar i{display:block;height:100%;border-radius:999px}
 .pbfoot{font-size:10px;color:var(--mut);margin-top:6px}
+.pbm-head{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--line);font-weight:700;font-size:13px}
+.pbm-head span{margin-left:auto;font-size:11px;color:var(--mut);font-weight:600}
+.pbm-list{max-height:560px;overflow-y:auto;padding:8px}
+.pbm{display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:9px;cursor:pointer}
+.pbm:hover{background:var(--surface-2,#f1f6f4)}
+.pbm.on{background:var(--navy-50,#eef3fb)}
+.pbm .dot{width:8px;height:8px;border-radius:50%;flex:none}
+.pbm-main{flex:1;min-width:0}
+.pbm-prod{font-weight:600;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pbm-code{font-size:10.5px;color:var(--mut)}
+.pbm-stage{font-size:9.5px;color:var(--mut);flex:none}
+.pbmwrap{display:grid;grid-template-columns:300px minmax(0,1fr);gap:16px;align-items:start}
+@media(max-width:880px){.pbmwrap{grid-template-columns:1fr}}
+.lifehdr{padding:16px 18px;border-bottom:1px solid var(--line);display:flex;align-items:flex-start;gap:12px}
+.life-eyb{font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--mut);font-weight:600}
+.life-prod{font-weight:700;font-size:18px;letter-spacing:-.02em;margin:3px 0 0}
+.life-own{font-size:11.5px;color:var(--mut);margin-top:2px}
+.life-pill{display:inline-flex;align-items:center;font-size:10.5px;font-weight:600;padding:3px 10px;border-radius:999px}
+.lifestep{padding:20px 18px 6px}
+.pstep{display:flex;align-items:flex-start}
+.pstep .col{flex:1;display:flex;flex-direction:column;align-items:center;position:relative;padding:0 2px}
+.pstep .line{position:absolute;left:-50%;right:50%;top:12px;height:2px}
+.pstep .sdot{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:700;flex:none;position:relative;z-index:1}
+.pstep .snm{font-weight:600;font-size:11.5px;margin-top:8px;text-align:center}
+.pstep .ssub{font-size:10px;color:var(--mut);margin-top:2px;text-align:center}
+.lifefoot{padding:13px 18px;border-top:1px solid var(--line);display:flex;gap:9px}
+.lotlist{display:flex;flex-direction:column;gap:9px}
+.lotrow{display:flex;align-items:center;gap:12px;border:1px solid var(--line);border-radius:10px;padding:11px 13px}
+.lotno{font-weight:600;font-size:12.5px}
+.lotmeta{font-size:11px;color:var(--mut);margin-top:2px}
+.lotqty{font-size:12px;font-weight:600;color:var(--ink-2,#586577)}
+.respill{display:inline-flex;font-size:10px;font-weight:600;padding:3px 9px;border-radius:999px}
+.qbanner{display:flex;align-items:center;gap:9px;background:var(--navy-50,#eef3fb);border:1px solid var(--line);border-radius:9px;padding:9px 12px;margin-bottom:12px;font-size:12px;color:var(--navy)}
+.reconkpis{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
+.rk{border:1px solid var(--line);border-radius:10px;padding:12px 13px}
+.rk-l{font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);font-weight:600}
+.rk-v{font-weight:700;font-size:19px;margin-top:5px}
+.rk-warn{border-color:#ECD9B6;background:var(--amber-50,#fdf0d5)}
+.rk-warn .rk-l,.rk-warn .rk-v{color:var(--amber,#9E6210)}
+.recnote{background:var(--surface-2,#f1f6f4);border:1px solid var(--line);border-radius:10px;padding:12px 13px;font-size:12px;color:var(--ink-2,#586577)}
 body{font-family:var(--font-body);color:var(--ink);background:var(--bg)}
 </style>
 </head><body>
@@ -2266,7 +2306,7 @@ const BULK_BASES=['Potassium Humate','Potassium Humate Liquid','Sulfur Coated Ur
 function brandsForBase(base){ return Object.keys(SEED.brandMap||{}).filter(b=>SEED.brandMap[b].base===base).sort(); }
 function inProdLines(){ const r=[]; state.orders.forEach(o=>o.lines.forEach(l=>{ if(stageOf(o)!=='Delivered' && (l.packed||0)<l.ordered-0.5) r.push({o,l}); })); return r; }
 var prodStage='';
-var prodView='floor', prodOutSub='day', prodLifeSub='po', prodFloorSub='lanes';
+var prodView='floor', prodOutSub='day', prodLifeSub='batch', prodFloorSub='lanes', prodBatchSel=null, prodBatchTab='lots';
 var PJORD=['recon','producing','qc','pack','done'];
 function batchClearedKg(b){ var lots=(b.lots||[]); var s=0; if(lots.length){ lots.forEach(function(l){ if(l.coa&&l.coa.status==='approved'){ var ck=(l.coa.certifiedKg!=null)?l.coa.certifiedKg:(l.qty||0); s+=Math.min(l.qty||0,ck); } }); } else if(b.coa&&b.coa.status==='approved'){ var ck2=(b.coa.certifiedKg!=null)?b.coa.certifiedKg:(b.producedKg||0); s+=Math.min(b.producedKg||0,ck2); } return s; }
 function batchStage(b){ var prod=+b.producedKg||0, plan=+b.plannedKg||0, packed=+b.packedKg||0, cleared=batchClearedKg(b), rem=Math.max(0,prod-packed);
@@ -2339,11 +2379,15 @@ function renderProdOutput(){var PC=window.ProductionCenter;if(!PC)return '<div c
   var rec='<div style="overflow:auto"><table><thead><tr><th>Date</th><th>Shift</th><th>Incharge</th><th>Product</th><th style="text-align:right">Kg</th><th>Batch</th></tr></thead><tbody>'+o.recent.map(function(r){return '<tr><td>'+r.date+'</td><td>'+(r.shift||'')+'</td><td>'+(r.incharge||'')+'</td><td>'+r.product+'</td><td style="text-align:right">'+PC.fmt(r.kg)+'</td><td>'+(r.batchNo||'')+'</td></tr>';}).join('')+'</tbody></table></div>';
   return kpis+_pcCard('Throughput','by '+prodOutSub,seg+body)+_pcCard('Recent production log',o.recent.length+' entries',rec);}
 function renderProdLifecycle(){var PC=window.ProductionCenter;if(!PC)return '<div class="card">Lifecycle unavailable</div>';
-  var seg=_pcSub([['po','By PO'],['quality','Quality (COA)'],['batch','Batches']],prodLifeSub,'prodLifeSub');var body;
+  var seg=_pcSub([['batch','Batch'],['po','By PO'],['quality','Quality']],prodLifeSub,'prodLifeSub');var body;
   if(prodLifeSub==='po'){var g=PC.lifecycleByPO(state);body=g.length?g.map(function(x){return _pcCard(x.po+' <span class="muted" style="font-weight:400">'+x.client+'</span>',x.count+' batch(es)','<div style="overflow:auto"><table><thead><tr><th>Batch</th><th>Product</th><th>Stage</th><th style="text-align:right">Produced</th><th style="text-align:right">Ready</th></tr></thead><tbody>'+x.batches.map(function(b){return '<tr><td>'+b.batchNo+'</td><td>'+b.base+'</td><td>'+_pcStage(b.stage)+'</td><td style="text-align:right">'+PC.fmt(b.produced)+'/'+PC.fmt(b.planned)+'</td><td style="text-align:right">'+PC.fmt(b.readyToPack)+'</td></tr>';}).join('')+'</tbody></table></div>');}).join(''):'<div class="card"><div class="muted">No open PO batches.</div></div>';}
   else if(prodLifeSub==='quality'){var reg=PC.coaRegister(state);body=_pcCard('COA register',reg.length+' lots','<div style="overflow:auto"><table><thead><tr><th>Batch</th><th>Lot</th><th>Product</th><th style="text-align:right">Qty</th><th>QC #</th><th>Result</th></tr></thead><tbody>'+reg.map(function(r){return '<tr><td>'+r.batchNo+'</td><td>'+(r.lotNo||'')+'</td><td>'+r.product+'</td><td style="text-align:right">'+PC.fmt(r.qty)+'</td><td>'+(r.qcNo||'')+'</td><td>'+_pcResult(r.result)+'</td></tr>';}).join('')+'</tbody></table></div>');}
-  else{var m=PC.lifecycleMaster(state);body=_pcCard('Open batches',m.length+'','<div style="overflow:auto"><table><thead><tr><th>Batch</th><th>Product</th><th>Stage</th></tr></thead><tbody>'+m.map(function(b){return '<tr><td>'+b.batchNo+'</td><td>'+b.product+'</td><td>'+_pcStage(b.stage)+'</td></tr>';}).join('')+'</tbody></table></div>');}
+  else{body=renderProdLifecycleBatch();}
   return seg+body;}
+function _pcStep(name,sub,st,first,reached){var ds=st==='done'?'background:var(--navy);color:#fff':st==='active'?'background:var(--navy-50,#eef3fb);color:var(--navy);box-shadow:inset 0 0 0 2px var(--navy)':'background:#eef1f4;color:#9aa3b0';var mark=st==='done'?'✓':'';var nmc=st==='todo'?'color:#9aa3b0':'';var line=first?'':'<div class="line" style="background:'+(reached?'var(--navy)':'#e3e7ec')+'"></div>';return '<div class="col">'+line+'<div class="sdot" style="'+ds+'">'+mark+'</div><div class="snm" style="'+nmc+'">'+name+'</div><div class="ssub">'+sub+'</div></div>';}
+function _pcLotRes(c){c=c||{};if(c.status==='approved'){return c.deviation?['Deviation','var(--amber-50,#fdf0d5)','var(--amber,#9E6210)']:['FIT','var(--green-50,#e7f5e8)','var(--green2,#2f8132)'];}if(c.overall==='UNFIT')return['UNFIT','#fbe9e7','var(--red,#E03127)'];if(c.status)return['In review','var(--navy-50,#eef3fb)','var(--navy)'];return['Pending','#f1f3f5','var(--mut,#8A95A6)'];}
+function _pcLifeAction(b,d,ed){if(!ed)return '';if(b.pool){return b.disposition==='byproduct'?'<button class="green" onclick="openCallBp(\''+b.id+'\')">Call for manufacturing</button>':'';}if(d.stage==='producing')return '<button class="ghost" onclick="prodView=\'floor\';prodFloorSub=\'lanes\';render()">Log output on Floor ▸</button>';if(d.stage==='qc')return '<button class="ghost" onclick="setScreen(\'qc\')">Open in Lab QC ▸</button>';if(d.stage==='pack')return '<button class="green" onclick="openPack(\''+b.id+'\')">Pack cleared stock</button>';if(d.stage==='packed'){return ((+b.producedKg||0)-(+b.packedKg||0))>0.5?'<button onclick="openReconcile(\''+b.id+'\')">Reconcile remainder</button>':'<button class="green" onclick="openCloseBatch(\''+b.id+'\')">Close batch</button>';}return '';}
+function renderProdLifecycleBatch(){var PC=window.ProductionCenter;if(!PC)return '<div class="card">Lifecycle unavailable</div>';var ed=canEdit(['Production']);var open=(state.batches||[]).filter(function(b){return b&&b.status==='open';});if(!open.length)return '<div class="card"><div class="muted" style="padding:8px 2px">No open batches.</div></div>';var sel=open.find(function(b){return b.id===prodBatchSel;})||open[0];prodBatchSel=sel.id;var master=open.map(function(b){var dd=PC.derive(b);var MM=PC.STAGE_META[dd.stage]||{name:dd.stage,dot:'#888'};return '<div class="pbm'+(b.id===sel.id?' on':'')+'" onclick="prodBatchSel=\''+b.id+'\';render()"><span class="dot" style="background:'+MM.dot+'"></span><div class="pbm-main"><div class="pbm-prod">'+(dd.brand||dd.base||'—')+'</div><div class="pbm-code">'+(b.batchNo||'—')+'</div></div><span class="pbm-stage">'+MM.name+'</span></div>';}).join('');var d=PC.derive(sel);var M=PC.STAGE_META[d.stage]||{name:d.stage,dot:'#888'};var steps=PC.lifecycleSteps(d);var stepHtml='';for(var i=0;i<steps.length;i++){var stp=steps[i];var st=stp.state==='done'?'done':stp.state==='curr'?'active':'todo';var rch=i>0&&steps[i-1].state==='done';stepHtml+=_pcStep(stp.label,stp.sub,st,i===0,rch);}var tab=prodBatchTab||'lots';var tabBar=_pcSub([['lots','Lots'],['quality','Quality (COA)'],['recon','Reconcile']],tab,'prodBatchTab');var lots=sel.lots||[];var isPool=!!sel.pool;var srcN=(sel.sources&&sel.sources.length)||0;var inner='';if(tab==='lots'){if(isPool)inner='<div class="muted" style="font-size:12.5px;padding:10px 2px">By-product pool — no production lots. See <b>Reconcile</b> for the '+srcN+' source batches.</div>';else if(!lots.length)inner='<div class="muted" style="font-size:12.5px;padding:10px 2px">No lots logged yet.</div>';else inner='<div class="lotlist">'+lots.map(function(l){var r=_pcLotRes(l.coa);return '<div class="lotrow"><div style="flex:1;min-width:0"><div class="lotno">'+(l.lotNo||sel.batchNo||'—')+'</div><div class="lotmeta">'+[l.shift,l.incharge,l.date].filter(Boolean).join(' · ')+'</div></div><span class="lotqty">'+PC.fmt(l.qty||0)+' Kg</span><span class="respill" style="background:'+r[1]+';color:'+r[2]+'">'+r[0]+'</span></div>';}).join('')+'</div>';}else if(tab==='quality'){var fit=0,unf=0,dev=0,pend=0;lots.forEach(function(l){var c=l.coa||{};if(c.status==='approved'){if(c.deviation)dev++;else fit++;}else if(c.overall==='UNFIT')unf++;else pend++;});var summ=lots.length+' lots · '+fit+' FIT'+(dev?(' · '+dev+' deviation'):'')+(unf?(' · '+unf+' UNFIT'):'')+(pend?(' · '+pend+' pending'):'');if(isPool)inner='<div class="muted" style="font-size:12.5px;padding:6px 2px">By-product pool — no COA. Lots are certified at their parent batch.</div>';else inner='<div class="qbanner">'+summ+'</div>'+(lots.length?('<div class="lotlist">'+lots.map(function(l){var c=l.coa||{};var r=_pcLotRes(c);return '<div class="lotrow"><div style="flex:1;min-width:0"><div class="lotno">'+(l.lotNo||sel.batchNo||'—')+'</div><div class="lotmeta">COA '+(c.qcNo||'—')+' · '+PC.fmt(l.qty||0)+' Kg</div></div><span class="respill" style="background:'+r[1]+';color:'+r[2]+'">'+r[0]+'</span></div>';}).join('')+'</div>'):'<div class="muted" style="font-size:12px;padding:6px 2px">No lots.</div>');}else{var produced=+sel.producedKg||0,packed=+sel.packedKg||0,rem=Math.max(0,produced-packed);var note=isPool?(srcN+' finished batches pooled into a '+PC.fmt(+sel.plannedKg||0)+' Kg by-product lot. Route to a grind run, divert or log as loss.'):rem>0.5?('After packing, '+PC.fmt(rem)+' Kg remains. Reconcile it — pack the rest, route to by-product, or record as loss.'):'Nothing to reconcile — produced quantity is fully packed.';inner='<div class="reconkpis"><div class="rk"><div class="rk-l">Produced</div><div class="rk-v">'+PC.fmt(produced)+' Kg</div></div><div class="rk"><div class="rk-l">Packed</div><div class="rk-v">'+PC.fmt(packed)+' Kg</div></div><div class="rk rk-warn"><div class="rk-l">Remainder</div><div class="rk-v">'+PC.fmt(rem)+' Kg</div></div></div><div class="recnote">'+note+'</div>';}var act=_pcLifeAction(sel,d,ed);var eyebrow=sel.pool?'Reconcile pool':sel.po?('PO '+sel.po):'Bulk → stock';return '<div class="pbmwrap"><div class="card" style="padding:0"><div class="pbm-head">Open batches <span>'+open.length+'</span></div><div class="pbm-list">'+master+'</div></div><div class="card" style="padding:0"><div class="lifehdr"><div style="flex:1"><div class="life-eyb">'+eyebrow+'</div><div class="life-prod">'+(d.brand||d.base||'')+'</div><div class="life-own">'+d.owner+'</div></div><span class="life-pill" style="background:color-mix(in srgb,'+M.dot+' 15%,#fff);color:'+M.dot+'">'+M.name+'</span></div><div class="lifestep"><div class="pstep">'+stepHtml+'</div></div><div style="padding:14px 18px 4px">'+tabBar+'</div><div style="padding:6px 18px 18px">'+inner+'</div>'+(act?('<div class="lifefoot">'+act+'</div>'):'')+'</div></div>';}
 function screenProd(){
   const ed=canEdit(['Production']); { var _pv=prodView||'floor'; if(_pv==='output'){ $('view').innerHTML=prodViewBar('output')+renderProdOutput(); return; } if(_pv==='lifecycle'){ $('view').innerHTML=prodViewBar('lifecycle')+renderProdLifecycle(); return; } }
   const bases=BULK_BASES.slice();

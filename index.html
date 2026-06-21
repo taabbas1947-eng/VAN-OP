@@ -801,6 +801,9 @@ tr.clk:hover td{background:var(--panel2)}
 .side .foot .usermenu.railuser .un{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .side .foot .usermenu.railuser .umc{margin-left:auto}
 .side .foot .usermenu.railuser .umpop{left:0;right:0;bottom:calc(100% + 7px);top:auto}
+.pvbar{display:inline-flex;background:var(--surface-2,#f1f6f4);border:1px solid var(--line);border-radius:7px;padding:2px;gap:2px}
+.pvbtn{border:none;background:transparent;border-radius:5px;padding:6px 13px;font-size:12.5px;font-weight:600;color:var(--ink-2,#586577);cursor:pointer}
+.pvbtn.on{background:var(--navy);color:#fff}
 body{font-family:var(--font-body);color:var(--ink);background:var(--bg)}
 </style>
 </head><body>
@@ -2247,6 +2250,7 @@ const BULK_BASES=['Potassium Humate','Potassium Humate Liquid','Sulfur Coated Ur
 function brandsForBase(base){ return Object.keys(SEED.brandMap||{}).filter(b=>SEED.brandMap[b].base===base).sort(); }
 function inProdLines(){ const r=[]; state.orders.forEach(o=>o.lines.forEach(l=>{ if(stageOf(o)!=='Delivered' && (l.packed||0)<l.ordered-0.5) r.push({o,l}); })); return r; }
 var prodStage='';
+var prodView='floor', prodOutSub='day', prodLifeSub='po';
 var PJORD=['recon','producing','qc','pack','done'];
 function batchClearedKg(b){ var lots=(b.lots||[]); var s=0; if(lots.length){ lots.forEach(function(l){ if(l.coa&&l.coa.status==='approved'){ var ck=(l.coa.certifiedKg!=null)?l.coa.certifiedKg:(l.qty||0); s+=Math.min(l.qty||0,ck); } }); } else if(b.coa&&b.coa.status==='approved'){ var ck2=(b.coa.certifiedKg!=null)?b.coa.certifiedKg:(b.producedKg||0); s+=Math.min(b.producedKg||0,ck2); } return s; }
 function batchStage(b){ var prod=+b.producedKg||0, plan=+b.plannedKg||0, packed=+b.packedKg||0, cleared=batchClearedKg(b), rem=Math.max(0,prod-packed);
@@ -2298,8 +2302,32 @@ function _prodLanes(items,ed){
   const by={}; order.forEach(o=>by[o[0]]=[]); items.forEach(b=>{ const st=batchStage(b); (by[st]||(by[st]=[])).push(b); });
   return order.filter(o=>by[o[0]]&&by[o[0]].length).map(o=>`<div style="margin:0 0 16px"><div style="display:flex;align-items:center;gap:8px;margin:0 0 8px;padding:6px 11px;border-left:3px solid ${o[3]};background:color-mix(in srgb,${o[3]} 8%,#fff);border-radius:7px"><b style="font-size:12.5px">${o[1]}</b><span style="font-size:10.5px;font-weight:700;background:${o[3]};color:#fff;border-radius:10px;padding:1px 8px">${by[o[0]].length}</span><span class="muted" style="font-size:11px;font-weight:400">${o[2]}</span></div>${by[o[0]].map(b=>journeyCard(b,ed)).join('')}</div>`).join('');
 }
+function _pcCard(t,h,b){return '<div class="card"><h3>'+t+(h?' <span class="hint">'+h+'</span>':'')+'</h3>'+b+'</div>';}
+function _pcKpi(l,v,u,d,c){return '<div style="background:var(--surface,#fff);border:1px solid var(--line);border-top:3px solid '+(c||'var(--navy)')+';border-radius:8px;padding:11px 13px"><div style="font-family:var(--font-mono,monospace);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3,#8A95A6)">'+l+'</div><div style="font-family:var(--font-display,sans-serif);font-size:22px;font-weight:800;color:var(--ink,#17202E);line-height:1.1;margin-top:3px">'+v+(u?' <span style="font-size:12px;color:var(--ink-3,#8A95A6);font-weight:600">'+u+'</span>':'')+'</div>'+(d?'<div style="font-size:11px;color:var(--ink-2,#586577);margin-top:2px">'+d+'</div>':'')+'</div>';}
+function _pcBars(rows){var max=Math.max.apply(null,rows.map(function(r){return r.kg;}).concat([1]));return '<div style="display:flex;flex-direction:column;gap:7px">'+rows.map(function(r){return '<div style="display:flex;align-items:center;gap:10px"><div style="width:140px;font-size:11.5px;color:var(--ink-2,#586577);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(r.name||r.date||'')+'</div><div style="flex:1;height:18px;background:var(--surface-2,#f1f6f4);border-radius:5px;overflow:hidden"><div style="width:'+(r.kg/max*100)+'%;height:100%;background:var(--navy);border-radius:5px;min-width:2px"></div></div><div style="width:84px;text-align:right;font-size:11.5px;font-family:var(--font-mono,monospace)">'+window.ProductionCenter.fmt(r.kg)+'</div></div>';}).join('')+'</div>';}
+function _pcStage(st){var M=(window.ProductionCenter&&ProductionCenter.STAGE_META[st])||{name:st,dot:'#888'};return '<span style="background:color-mix(in srgb,'+M.dot+' 15%,#fff);color:'+M.dot+';font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;white-space:nowrap">'+M.name+'</span>';}
+function _pcResult(r){var c=r.tone==='good'?'var(--green,#4FA84E)':r.tone==='bad'?'var(--red,#E03127)':r.tone==='warn'?'var(--amber,#C77D18)':'var(--ink-3,#8A95A6)';return '<span style="color:'+c+';font-weight:700;font-size:11.5px">'+r.label+'</span>';}
+function prodViewBar(active){var V=[['floor','Floor'],['output','Output'],['lifecycle','Lifecycle']];return '<div class="pvbar" style="margin-bottom:14px">'+V.map(function(v){return '<button onclick="prodView=\''+v[0]+'\';render()" class="pvbtn'+(active===v[0]?' on':'')+'">'+v[1]+'</button>';}).join('')+'</div>';}
+function _pcSub(opts,cur,setter){return '<div class="pvbar" style="margin-bottom:12px">'+opts.map(function(o){return '<button onclick="'+setter+'=\''+o[0]+'\';render()" class="pvbtn'+(cur===o[0]?' on':'')+'">'+o[1]+'</button>';}).join('')+'</div>';}
+function renderProdOutput(){var PC=window.ProductionCenter;if(!PC)return '<div class="card">Output unavailable</div>';var o=PC.output(state);
+  var kpis='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:11px;margin-bottom:14px">'+_pcKpi('Output (7d)',PC.fmt(o.totalKg),'Kg','last 7 days','var(--navy)')+_pcKpi('Avg / day',PC.fmt(o.avgPerDay),'Kg','','var(--teal,#1F9C92)')+_pcKpi('Today',PC.fmt(o.todayKg),'Kg','latest day','var(--green,#4FA84E)')+_pcKpi('QA pass rate',o.qcPassRate+'%','','pre-shipment','var(--green,#4FA84E)')+'</div>';
+  var seg=_pcSub([['day','By day'],['shift','By shift'],['incharge','By incharge'],['po','By PO'],['product','By product']],prodOutSub,'prodOutSub');
+  var body;
+  if(prodOutSub==='day')body=_pcBars(o.byDate.map(function(d){return {name:d.date,kg:d.kg};}));
+  else if(prodOutSub==='shift')body=_pcBars(Object.keys(o.byShift).map(function(k){return {name:k,kg:o.byShift[k]};}));
+  else if(prodOutSub==='incharge')body=_pcBars(o.byIncharge);
+  else if(prodOutSub==='po')body=_pcBars(o.byPO.map(function(p){return {name:p.name+(p.client?(' · '+p.client):''),kg:p.kg};}));
+  else body=_pcBars(o.byProduct);
+  var rec='<div style="overflow:auto"><table><thead><tr><th>Date</th><th>Shift</th><th>Incharge</th><th>Product</th><th style="text-align:right">Kg</th><th>Batch</th></tr></thead><tbody>'+o.recent.map(function(r){return '<tr><td>'+r.date+'</td><td>'+(r.shift||'')+'</td><td>'+(r.incharge||'')+'</td><td>'+r.product+'</td><td style="text-align:right">'+PC.fmt(r.kg)+'</td><td>'+(r.batchNo||'')+'</td></tr>';}).join('')+'</tbody></table></div>';
+  return kpis+_pcCard('Throughput','by '+prodOutSub,seg+body)+_pcCard('Recent production log',o.recent.length+' entries',rec);}
+function renderProdLifecycle(){var PC=window.ProductionCenter;if(!PC)return '<div class="card">Lifecycle unavailable</div>';
+  var seg=_pcSub([['po','By PO'],['quality','Quality (COA)'],['batch','Batches']],prodLifeSub,'prodLifeSub');var body;
+  if(prodLifeSub==='po'){var g=PC.lifecycleByPO(state);body=g.length?g.map(function(x){return _pcCard(x.po+' <span class="muted" style="font-weight:400">'+x.client+'</span>',x.count+' batch(es)','<div style="overflow:auto"><table><thead><tr><th>Batch</th><th>Product</th><th>Stage</th><th style="text-align:right">Produced</th><th style="text-align:right">Ready</th></tr></thead><tbody>'+x.batches.map(function(b){return '<tr><td>'+b.batchNo+'</td><td>'+b.base+'</td><td>'+_pcStage(b.stage)+'</td><td style="text-align:right">'+PC.fmt(b.produced)+'/'+PC.fmt(b.planned)+'</td><td style="text-align:right">'+PC.fmt(b.readyToPack)+'</td></tr>';}).join('')+'</tbody></table></div>');}).join(''):'<div class="card"><div class="muted">No open PO batches.</div></div>';}
+  else if(prodLifeSub==='quality'){var reg=PC.coaRegister(state);body=_pcCard('COA register',reg.length+' lots','<div style="overflow:auto"><table><thead><tr><th>Batch</th><th>Lot</th><th>Product</th><th style="text-align:right">Qty</th><th>QC #</th><th>Result</th></tr></thead><tbody>'+reg.map(function(r){return '<tr><td>'+r.batchNo+'</td><td>'+(r.lotNo||'')+'</td><td>'+r.product+'</td><td style="text-align:right">'+PC.fmt(r.qty)+'</td><td>'+(r.qcNo||'')+'</td><td>'+_pcResult(r.result)+'</td></tr>';}).join('')+'</tbody></table></div>');}
+  else{var m=PC.lifecycleMaster(state);body=_pcCard('Open batches',m.length+'','<div style="overflow:auto"><table><thead><tr><th>Batch</th><th>Product</th><th>Stage</th></tr></thead><tbody>'+m.map(function(b){return '<tr><td>'+b.batchNo+'</td><td>'+b.product+'</td><td>'+_pcStage(b.stage)+'</td></tr>';}).join('')+'</tbody></table></div>');}
+  return seg+body;}
 function screenProd(){
-  const ed=canEdit(['Production']);
+  const ed=canEdit(['Production']); { var _pv=prodView||'floor'; if(_pv==='output'){ $('view').innerHTML=prodViewBar('floor')+prodViewBar('output')+renderProdOutput(); return; } if(_pv==='lifecycle'){ $('view').innerHTML=prodViewBar('lifecycle')+renderProdLifecycle(); return; } }
   const bases=BULK_BASES.slice();
   const pos=state.orders.filter(o=>stageOf(o)!=='Delivered');
   const selO=state.orders.find(o=>o.id===prodPOsel);
@@ -4887,5 +4915,342 @@ async function saveEditUser(){ if(!screenEditOK('users')){toast('You need Edit a
 }
 
 bootState();
+</script>
+<script>
+/* ===== Production Center selectors (read-only, drop-in from handoff) ===== */
+/* ============================================================
+   VAN Ops — Production Center selectors (vanilla JS, no React)
+   ------------------------------------------------------------
+   Drop-in for the live app (index.html). Every function reads
+   LIVE `state` and returns plain data for the 3 Views.
+
+   Field names match live state:
+     batch:  { batchNo, kind 'po'|'bulk', po, lineId, base, brand,
+               plannedKg, producedKg, packedKg, status, openedDate,
+               pool, sources, lots:[{ qty, certifiedKg, coa:{ status,
+               overall 'FIT'|'UNFIT', deviation, certifiedKg, qcNo,
+               incharge, shift, date } }] }
+     order:  { po, client, lines:[{ id, brand, base, ordered,
+               produced, rmStatus }] }
+     productionLog: [{ date, base, kg, shift, incharge, batchNo }]
+     inspections:   [{ pass, ... }]
+
+   Usage:
+     const PC = ProductionCenter;
+     const lanes   = PC.floorLanes(state);
+     const kpis    = PC.floorKpis(state);
+     const byDay   = PC.output(state).byDate;
+     const reg     = PC.coaRegister(state);
+   No dependency on prod-data.js — that was demo-only.
+   ============================================================ */
+(function (global) {
+  'use strict';
+
+  // ---- small utils ----------------------------------------------------
+  var round = function (n) { return Math.round(n || 0); };
+  var fmt = function (n) { return round(n).toLocaleString('en-US'); };
+  var sum = function (arr, f) { return arr.reduce(function (a, x) { return a + (f ? f(x) : x); }, 0); };
+  function groupSum(rows, keyFn, valFn) {
+    var m = {};
+    rows.forEach(function (r) { var k = keyFn(r); m[k] = (m[k] || 0) + (valFn(r) || 0); });
+    return m;
+  }
+  function sortedPairs(obj) {
+    return Object.keys(obj).map(function (k) { return { name: k, kg: obj[k] }; })
+      .sort(function (a, b) { return b.kg - a.kg; });
+  }
+
+  // ---- per-batch derivation (mirrors batchStage in source) ------------
+  // Returns the computed quantities + stage for one batch.
+  function derive(b) {
+    var lots = b.lots || [];
+    var cert = 0, pend = 0, unfit = 0, dev = 0;
+    lots.forEach(function (l) {
+      var c = l.coa || {};
+      if (c.status === 'approved') {
+        cert += (l.certifiedKg || c.certifiedKg || l.qty || 0);
+        if (c.deviation) dev++;
+      } else {
+        pend += (l.qty || 0);
+      }
+      if (c.overall === 'UNFIT' && !c.deviation) unfit += (l.qty || 0);
+    });
+    var planned = b.plannedKg || 0;
+    var produced = b.producedKg || 0;
+    var packed = b.packedKg || 0;
+    var toProduce = Math.max(0, planned - produced);
+    var readyToPack = Math.max(0, cert - packed);
+
+    var stage;
+    if (b.pool) stage = 'recon';
+    else if (toProduce > 0 && cert <= packed && pend === 0) stage = 'producing';
+    else if (pend > 0) stage = 'qc';
+    else if (readyToPack > 0) stage = 'pack';
+    else stage = 'packed';
+
+    return {
+      batchNo: b.batchNo, kind: b.pool ? 'pool' : b.kind, po: b.po || '',
+      base: b.base, brand: (b.brand && b.brand !== b.base) ? b.brand : '',
+      planned: planned, produced: produced, packed: packed,
+      cleared: cert, pending: pend, unfit: unfit, deviations: dev,
+      lots: lots.length, sources: b.sources || 0,
+      toProduce: toProduce, readyToPack: readyToPack,
+      stage: stage, opened: b.openedDate,
+      owner: b.pool ? 'By-product pool' : (b.po ? ('PO ' + b.po) : 'Bulk \u2192 stock')
+    };
+  }
+
+  // Only batches still on the floor (status open). Adjust if your
+  // "open" flag differs.
+  function openBatches(state) {
+    return (state.batches || []).filter(function (b) {
+      return b.status === 'open';
+    }).map(derive);
+  }
+
+  var STAGE_ORDER = ['producing', 'qc', 'pack', 'recon', 'packed'];
+  var STAGE_META = {
+    producing: { name: 'In production',        dot: '#0E7C66' },
+    qc:        { name: 'Awaiting Lab QC',       dot: '#C77B0E' },
+    pack:      { name: 'Ready to pack',         dot: '#2FA98D' },
+    recon:     { name: 'Reconcile',             dot: '#C0392B' },
+    packed:    { name: 'Packed \u2014 closing', dot: '#B7C3BC' }
+  };
+
+  // ====================================================================
+  //  VIEW 1 — FLOOR
+  // ====================================================================
+  function floorKpis(state) {
+    var rows = openBatches(state);
+    var by = {}; STAGE_ORDER.forEach(function (k) { by[k] = []; });
+    rows.forEach(function (r) { (by[r.stage] || (by[r.stage] = [])).push(r); });
+    return {
+      producing: { count: by.producing.length, kg: sum(by.producing, function (b) { return b.toProduce; }) },
+      qc:        { count: by.qc.length,        kg: sum(by.qc, function (b) { return b.pending; }) },
+      pack:      { count: by.pack.length,      kg: sum(by.pack, function (b) { return b.readyToPack; }) },
+      recon:     { count: by.recon.length,     kg: sum(by.recon, function (b) { return b.planned; }) }
+    };
+  }
+  // Lanes (sub-view: Lanes / Board both use this; Table uses floorRows)
+  function floorLanes(state) {
+    var rows = openBatches(state);
+    return STAGE_ORDER.map(function (k) {
+      var list = rows.filter(function (r) { return r.stage === k; });
+      var totalKg = sum(list, function (b) {
+        return k === 'pack' ? b.readyToPack : k === 'producing' ? b.toProduce
+             : k === 'qc' ? b.pending : b.planned;
+      });
+      return { stage: k, name: STAGE_META[k].name, dot: STAGE_META[k].dot,
+               count: list.length, totalKg: totalKg, batches: list };
+    });
+  }
+  // Table sub-view (optionally filtered by stage)
+  function floorRows(state, stageFilter) {
+    var rows = openBatches(state);
+    return (stageFilter && stageFilter !== 'all')
+      ? rows.filter(function (r) { return r.stage === stageFilter; })
+      : rows;
+  }
+
+  // ====================================================================
+  //  VIEW 2 — OUTPUT  (analytics off productionLog)
+  // ====================================================================
+  function output(state, days) {
+    var log = state.productionLog || [];
+    // batchNo -> po  (for By PO)
+    var b2po = {};
+    (state.batches || []).forEach(function (b) { if (b.po && b.batchNo) b2po[b.batchNo] = b.po; });
+    var poClient = {};
+    (state.orders || []).forEach(function (o) { poClient[String(o.po)] = o.client; });
+
+    var allDates = log.map(function (p) { return p.date; })
+      .filter(function (v, i, a) { return a.indexOf(v) === i; }).sort();
+    var lastN = days ? allDates.slice(-days) : allDates.slice(-7);
+    var byDate = lastN.map(function (dt) {
+      var rows = log.filter(function (p) { return p.date === dt; });
+      return { date: dt, kg: sum(rows, function (p) { return p.kg; }), entries: rows.length };
+    });
+
+    var byShift = groupSum(log, function (p) { return p.shift; }, function (p) { return p.kg; });
+    var byIncharge = sortedPairs(groupSum(log, function (p) { return p.incharge || p.by; }, function (p) { return p.kg; }));
+    var byProduct  = sortedPairs(groupSum(log, function (p) { return p.base; }, function (p) { return p.kg; }));
+    var byPOraw    = groupSum(log, function (p) { return b2po[p.batchNo] || 'Bulk \u2192 stock'; }, function (p) { return p.kg; });
+    var byPO = sortedPairs(byPOraw).map(function (x) {
+      return { name: x.name, kg: x.kg,
+               client: x.name === 'Bulk \u2192 stock' ? 'to stock' : (poClient[x.name] || '') };
+    });
+
+    var recent = log.slice().sort(function (a, b) { return String(b.date).localeCompare(a.date); })
+      .slice(0, 14).map(function (p) {
+        return { date: p.date, shift: p.shift, incharge: p.incharge || p.by,
+                 product: p.base, kg: p.kg, batchNo: p.batchNo };
+      });
+
+    var total = sum(byDate, function (x) { return x.kg; });
+    return {
+      byDate: byDate, byShift: byShift, byIncharge: byIncharge,
+      byProduct: byProduct, byPO: byPO, recent: recent,
+      totalKg: total, avgPerDay: byDate.length ? round(total / byDate.length) : 0,
+      todayKg: byDate.length ? byDate[byDate.length - 1].kg : 0,
+      qcPassRate: qcPassRate(state)
+    };
+  }
+  function qcPassRate(state) {
+    var ins = state.inspections || [];
+    if (!ins.length) return 100;
+    return round(ins.filter(function (i) { return i.pass; }).length / ins.length * 100);
+  }
+
+  // ====================================================================
+  //  VIEW 3 — LIFECYCLE
+  // ====================================================================
+  // Sub-view "Batch": master list + one batch's stepper
+  function lifecycleMaster(state) {
+    return openBatches(state).map(function (b) {
+      return { batchNo: b.batchNo, product: b.base, stage: b.stage,
+               stageName: STAGE_META[b.stage].name, dot: STAGE_META[b.stage].dot };
+    });
+  }
+  function lifecycleSteps(b /* a derived batch */) {
+    var st = function (state) { return state; };
+    var stProd = b.produced >= b.planned ? 'done' : b.produced > 0 ? 'curr' : 'todo';
+    var stQC   = b.pending > 0 ? 'curr' : b.cleared > 0 ? 'done' : 'todo';
+    var stPack = b.cleared > 0 && b.packed >= b.cleared ? 'done' : (b.stage === 'pack' || b.packed > 0) ? 'curr' : 'todo';
+    var stRec  = b.stage === 'recon' ? 'curr' : (b.produced > b.packed && b.stage === 'packed') ? 'curr' : 'todo';
+    return [
+      { key: 'produced', label: 'Produced',  state: stProd, sub: fmt(b.produced) + '/' + fmt(b.planned) + ' KG' },
+      { key: 'qc',       label: 'Lab QC',     state: stQC,   sub: b.pending > 0 ? fmt(b.pending) + ' KG pending' : b.cleared > 0 ? fmt(b.cleared) + ' KG cleared' : '\u2014' },
+      { key: 'packed',   label: 'Packed',     state: stPack, sub: fmt(b.packed) + '/' + fmt(b.cleared) + ' KG' },
+      { key: 'recon',    label: 'Reconcile',  state: stRec,  sub: b.stage === 'recon' ? fmt(b.planned) + ' KG pool' : (b.produced > b.packed ? fmt(b.produced - b.packed) + ' KG left' : '\u2014') },
+      { key: 'closed',   label: 'Closed',     state: 'todo', sub: 'open' }
+    ];
+  }
+  // Sub-view "By PO": open PO batches grouped under their PO
+  function lifecycleByPO(state) {
+    var rows = openBatches(state).filter(function (b) { return b.kind === 'po' && b.po; });
+    var poClient = {};
+    (state.orders || []).forEach(function (o) { poClient[String(o.po)] = o.client; });
+    var groups = {};
+    rows.forEach(function (b) { (groups[b.po] = groups[b.po] || []).push(b); });
+    return Object.keys(groups).map(function (po) {
+      return { po: po, client: poClient[po] || '', count: groups[po].length, batches: groups[po] };
+    });
+  }
+  // Sub-view "Quality": COA register across all open batch lots
+  function coaRegister(state) {
+    var out = [];
+    (state.batches || []).filter(function (b) { return b.status === 'open' && !b.pool; })
+      .forEach(function (b) {
+        (b.lots || []).forEach(function (l) {
+          var c = l.coa || {};
+          var result;
+          if (c.status !== 'approved') result = { label: 'Lab QC pending', tone: 'muted' };
+          else if (c.deviation)        result = { label: 'Approved \u00b7 deviation', tone: 'warn' };
+          else if (c.overall === 'UNFIT') result = { label: 'UNFIT', tone: 'bad' };
+          else                         result = { label: 'FIT', tone: 'good' };
+          out.push({ batchNo: b.batchNo, lotNo: l.lotNo, product: b.base,
+                     qty: l.qty, qcNo: c.qcNo || '', incharge: l.incharge || c.incharge || '',
+                     date: l.date || c.date || '', result: result });
+        });
+      });
+    return out;
+  }
+
+  // ====================================================================
+  //  OPEN-BATCH support (dropdowns + validation)  — mirrors openBatch()
+  // ====================================================================
+  var BULK_BASES = ['Potassium Humate', 'Potassium Humate Liquid', 'Sulfur Coated Urea',
+    'Sulfur 70%', 'Amino Acid', 'Compost', 'Zinc 21%', 'NP 6.32', 'Nitro Sulfur',
+    'Liquid Phosphrous', 'Mg Sulphate', 'NPK 8.8.6', 'Boron 5%', 'Zinc 10%'];
+
+  // POs that still have producible lines
+  function openablePOs(state) {
+    return (state.orders || []).map(function (o) {
+      var lines = (o.lines || []).filter(function (l) {
+        return (l.produced || 0) < (l.ordered || 0) - 0.5;
+      }).map(function (l) {
+        return { id: l.id, brand: l.brand, base: l.base, ordered: l.ordered,
+                 produced: l.produced || 0,
+                 remaining: Math.max(0, (l.ordered || 0) - (l.produced || 0)),
+                 rmStatus: l.rmStatus || 'pending',
+                 sameBase: (l.base === l.brand) };
+      });
+      return { id: o.id, po: String(o.po), client: o.client, lines: lines };
+    }).filter(function (o) { return o.lines.length > 0; });
+  }
+
+  // Financial year (Jul–Jun) key for a date
+  function fyKey(dateStr) {
+    var d = dateStr ? new Date(dateStr) : new Date();
+    var y = d.getFullYear(), m = d.getMonth(); // 0=Jan
+    return (m >= 6) ? y : (y - 1); // Jul(6)..Dec -> y ; Jan..Jun -> y-1
+  }
+  function usedBatchNos(state, forDate) {
+    var fy = fyKey(forDate);
+    return (state.batches || []).filter(function (b) {
+      return b.batchNo && fyKey(b.openedDate) === fy;
+    }).map(function (b) { return b.batchNo.trim().toUpperCase(); });
+  }
+  // Soft format check — warns, never blocks (matches validateBatchNo)
+  function batchNoFormatOk(no) {
+    no = (no || '').trim();
+    return /^[A-Z]{2,5}[0-9]{3,9}$/.test(no) && no.length >= 5 && no.length <= 14;
+  }
+  // Full validation for the Open-batch modal. Returns
+  // { ok, errors:[], warnings:[] } — RM is a WARNING here; flip to an
+  // error to hard-block (the live app blocks until RM Check confirms).
+  function validateOpenBatch(state, opts) {
+    // opts: { mode:'po'|'bulk', po, lineId, base, plannedKg, batchNo, enforceRM }
+    var errors = [], warnings = [];
+    var no = (opts.batchNo || '').trim().toUpperCase();
+    if (!no) errors.push('Batch # is required.');
+    else if (usedBatchNos(state).indexOf(no) !== -1)
+      errors.push('Batch # "' + no + '" already used this financial year.');
+    if (no && !batchNoFormatOk(no))
+      warnings.push('Unusual format — convention is 2\u20135 capitals + 3\u20139 digits (e.g. AB12345).');
+
+    if (opts.mode === 'po') {
+      var po = openablePOs(state).filter(function (o) { return o.id === opts.po; })[0];
+      var line = po && po.lines.filter(function (l) { return l.id === opts.lineId; })[0];
+      if (!po || !line) { errors.push('Pick a PO and product.'); }
+      else {
+        if (!line.sameBase)
+          errors.push(line.brand + ' is made from base "' + line.base +
+            '". Produce ' + line.base + ' in Bulk \u2192 stock, then pack it into ' + line.brand + '.');
+        var pv = +(opts.plannedKg || 0) || 0;
+        if (pv > 0 && pv > line.remaining + 0.5)
+          errors.push('Plan must be \u2264 ' + fmt(line.remaining) + ' Kg (remaining order).');
+        if (line.rmStatus !== 'full') {
+          var msg = 'No raw material confirmed yet for ' + line.brand + ' \u2014 run RM Check first.';
+          (opts.enforceRM ? errors : warnings).push(msg);
+        }
+      }
+    } else {
+      if (!opts.base) errors.push('Pick a base product.');
+      if (!(+(opts.plannedKg || 0) > 0)) errors.push('Enter a planned quantity.');
+    }
+    return { ok: errors.length === 0, errors: errors, warnings: warnings };
+  }
+
+  // ---- export ---------------------------------------------------------
+  global.ProductionCenter = {
+    // shared
+    derive: derive, openBatches: openBatches,
+    STAGE_ORDER: STAGE_ORDER, STAGE_META: STAGE_META, BULK_BASES: BULK_BASES,
+    fmt: fmt,
+    // View 1 — Floor
+    floorKpis: floorKpis, floorLanes: floorLanes, floorRows: floorRows,
+    // View 2 — Output
+    output: output, qcPassRate: qcPassRate,
+    // View 3 — Lifecycle
+    lifecycleMaster: lifecycleMaster, lifecycleSteps: lifecycleSteps,
+    lifecycleByPO: lifecycleByPO, coaRegister: coaRegister,
+    // Open batch
+    openablePOs: openablePOs, usedBatchNos: usedBatchNos,
+    batchNoFormatOk: batchNoFormatOk, validateOpenBatch: validateOpenBatch,
+    fyKey: fyKey
+  };
+})(typeof window !== 'undefined' ? window : this);
+
 </script>
 </body></html>

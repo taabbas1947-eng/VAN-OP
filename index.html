@@ -807,6 +807,19 @@ tr.clk:hover td{background:var(--panel2)}
 .pvsub{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}
 .pvsub button{border:1px solid var(--line);background:#fff;border-radius:999px;padding:4px 13px;font-size:12px;font-weight:600;color:var(--ink-2,#586577);cursor:pointer}
 .pvsub button.on{background:var(--navy-50,#eef3fb);border-color:var(--navy);color:var(--navy)}
+.pboard{display:flex;gap:12px;overflow-x:auto;padding-bottom:8px;align-items:flex-start}
+.pbcol{flex:none;width:250px;background:var(--surface-2,#f1f6f4);border:1px solid var(--line);border-radius:11px;padding:10px}
+.pbcolh{display:flex;align-items:center;gap:8px;font-weight:700;font-size:12.5px;padding:2px 3px 11px}
+.pbcolh .dot{width:8px;height:8px;border-radius:50%;flex:none}
+.pbcolh .pbcount{margin-left:auto;font-size:11px;color:var(--mut);font-weight:600}
+.pbcard{background:#fff;border:1px solid var(--line);border-radius:9px;padding:10px 11px;box-shadow:0 1px 2px rgba(20,40,35,.05);margin-bottom:9px}
+.pbtop{display:flex;align-items:center;justify-content:space-between;gap:6px}
+.pbcode{font-size:10.5px;color:var(--mut)}
+.pbtag{font-size:9px;color:var(--ink-2,#586577);border:1px solid var(--line);border-radius:4px;padding:1px 6px}
+.pbname{font-weight:600;font-size:12px;margin:3px 0 7px}
+.pbbar{height:5px;border-radius:999px;background:var(--navy-50,#eef3fb);overflow:hidden}
+.pbbar i{display:block;height:100%;border-radius:999px}
+.pbfoot{font-size:10px;color:var(--mut);margin-top:6px}
 body{font-family:var(--font-body);color:var(--ink);background:var(--bg)}
 </style>
 </head><body>
@@ -2253,7 +2266,7 @@ const BULK_BASES=['Potassium Humate','Potassium Humate Liquid','Sulfur Coated Ur
 function brandsForBase(base){ return Object.keys(SEED.brandMap||{}).filter(b=>SEED.brandMap[b].base===base).sort(); }
 function inProdLines(){ const r=[]; state.orders.forEach(o=>o.lines.forEach(l=>{ if(stageOf(o)!=='Delivered' && (l.packed||0)<l.ordered-0.5) r.push({o,l}); })); return r; }
 var prodStage='';
-var prodView='floor', prodOutSub='day', prodLifeSub='po';
+var prodView='floor', prodOutSub='day', prodLifeSub='po', prodFloorSub='lanes';
 var PJORD=['recon','producing','qc','pack','done'];
 function batchClearedKg(b){ var lots=(b.lots||[]); var s=0; if(lots.length){ lots.forEach(function(l){ if(l.coa&&l.coa.status==='approved'){ var ck=(l.coa.certifiedKg!=null)?l.coa.certifiedKg:(l.qty||0); s+=Math.min(l.qty||0,ck); } }); } else if(b.coa&&b.coa.status==='approved'){ var ck2=(b.coa.certifiedKg!=null)?b.coa.certifiedKg:(b.producedKg||0); s+=Math.min(b.producedKg||0,ck2); } return s; }
 function batchStage(b){ var prod=+b.producedKg||0, plan=+b.plannedKg||0, packed=+b.packedKg||0, cleared=batchClearedKg(b), rem=Math.max(0,prod-packed);
@@ -2312,6 +2325,8 @@ function _pcStage(st){var M=(window.ProductionCenter&&ProductionCenter.STAGE_MET
 function _pcResult(r){var c=r.tone==='good'?'var(--green,#4FA84E)':r.tone==='bad'?'var(--red,#E03127)':r.tone==='warn'?'var(--amber,#C77D18)':'var(--ink-3,#8A95A6)';return '<span style="color:'+c+';font-weight:700;font-size:11.5px">'+r.label+'</span>';}
 function prodViewBar(active){var V=[['floor','Floor'],['output','Output'],['lifecycle','Lifecycle']];return '<div class="pvbar" style="margin-bottom:14px">'+V.map(function(v){return '<button onclick="prodView=\''+v[0]+'\';render()" class="pvbtn'+(active===v[0]?' on':'')+'">'+v[1]+'</button>';}).join('')+'</div>';}
 function _pcSub(opts,cur,setter){return '<div class="pvsub">'+opts.map(function(o){return '<button onclick="'+setter+'=\''+o[0]+'\';render()" class="'+(cur===o[0]?'on':'')+'">'+o[1]+'</button>';}).join('')+'</div>';}
+function renderProdFloorBoard(){var PC=window.ProductionCenter;if(!PC)return '<div class="card">Board unavailable</div>';var lanes=PC.floorLanes(state);var cols=lanes.map(function(L){var cards=(L.batches||[]).map(function(b){var pct=b.planned>0?Math.min(100,Math.round((b.produced/b.planned)*100)):0;return '<div class="pbcard"><div class="pbtop"><span class="pbcode">'+(b.batchNo||'\u2014')+'</span><span class="pbtag">'+(b.kind==='pool'?'Pool':b.po?'PO':'Bulk')+'</span></div><div class="pbname">'+(b.brand||b.base||'')+'</div><div class="pbbar"><i style="width:'+pct+'%;background:'+L.dot+'"></i></div><div class="pbfoot">'+PC.fmt(b.produced)+'/'+PC.fmt(b.planned)+' Kg'+(b.readyToPack>0.5?(' \u00b7 '+PC.fmt(b.readyToPack)+' ready'):'')+'</div></div>';}).join('')||'<div class="muted" style="font-size:11px;padding:4px 2px">\u2014</div>';return '<div class="pbcol"><div class="pbcolh"><span class="dot" style="background:'+L.dot+'"></span>'+L.name+'<span class="pbcount">'+L.count+'</span></div>'+cards+'</div>';}).join('');return '<div class="pboard">'+cols+'</div>';}
+function renderProdFloorTable(){var PC=window.ProductionCenter;if(!PC)return '<div class="card">Table unavailable</div>';var rows=PC.floorRows(state);if(!rows.length)return '<div class="card"><div class="muted">No open batches.</div></div>';return '<div class="card"><div class="tscroll"><table><thead><tr><th>Batch</th><th>Product</th><th>Owner</th><th>Stage</th><th class="num">Produced</th><th class="num">Cleared</th><th class="num">Packed</th><th class="num">Ready</th></tr></thead><tbody>'+rows.map(function(b){return '<tr><td><b>'+(b.batchNo||'\u2014')+'</b></td><td>'+(b.brand||b.base||'')+'</td><td class="muted" style="font-size:11px">'+b.owner+'</td><td>'+_pcStage(b.stage)+'</td><td class="num">'+PC.fmt(b.produced)+'</td><td class="num">'+PC.fmt(b.cleared)+'</td><td class="num">'+PC.fmt(b.packed)+'</td><td class="num"><b style="color:'+(b.readyToPack>0.5?'var(--green2)':'var(--mut)')+'">'+PC.fmt(b.readyToPack)+'</b></td></tr>';}).join('')+'</tbody></table></div></div>';}
 function renderProdOutput(){var PC=window.ProductionCenter;if(!PC)return '<div class="card">Output unavailable</div>';var o=PC.output(state);
   var kpis='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:11px;margin-bottom:14px">'+_pcKpi('Output (7d)',PC.fmt(o.totalKg),'Kg','last 7 days','var(--navy)')+_pcKpi('Avg / day',PC.fmt(o.avgPerDay),'Kg','','var(--teal,#1F9C92)')+_pcKpi('Today',PC.fmt(o.todayKg),'Kg','latest day','var(--green,#4FA84E)')+_pcKpi('QA pass rate',o.qcPassRate+'%','','pre-shipment','var(--green,#4FA84E)')+'</div>';
   var seg=_pcSub([['day','By day'],['shift','By shift'],['incharge','By incharge'],['po','By PO'],['product','By product']],prodOutSub,'prodOutSub');
@@ -2392,6 +2407,7 @@ function screenProd(){
   $('view').innerHTML=prodViewBar('floor')+`
    ${ed?'':viewOnly('Production')}
    ${prodKpis}
+   ${_pcSub([['lanes','Lanes'],['board','Board'],['table','Table']],prodFloorSub,'prodFloorSub')}`+(prodFloorSub==='board'?renderProdFloorBoard():prodFloorSub==='table'?renderProdFloorTable():`
    <div class="card"><h3>Open a production batch</h3>
      <div class="seg" style="max-width:440px;margin-bottom:14px">
        <div class="opt full ${prodMode==='po'?'on':''}" onclick="prodMode='po';render()" style="padding:9px">Against a PO</div>
@@ -2418,7 +2434,7 @@ function screenProd(){
      `):''}
 
    ${acard('prod_log','Daily output log',`${state.productionLog.length} entries`,`${regBar('prodlog',_plOpt,_pl.total)}<div class="tscroll" style="max-height:52vh"><table><thead><tr><th style="width:120px">Date</th><th>Base / product</th><th class="num" style="width:100px">Kg/L</th><th style="width:90px">Shift</th><th style="width:120px">Incharge</th><th style="width:100px">By</th>${state.role==='COO'?'<th style="width:90px"></th>':''}</tr></thead>
-       <tbody>${_pl.view.length?_pl.view.map(p=>`<tr><td class="muted">${p.date}</td><td>${p.brand?(p.brand+' '):''}<span class="muted">${p.base}</span>${p.po?(' · '+p.po):''}</td><td class="num">${fmt(p.kg)}</td><td class="muted">${p.shift||'—'}</td><td class="muted">${p.incharge||'—'}</td><td class="muted">${p.by}</td>${state.role==='COO'?`<td><button class="sm ghost" onclick="voidProdEntry(${p._i})">✕ remove</button></td>`:''}</tr>`).join(''):`<tr><td colspan="${state.role==='COO'?7:6}" class="muted">No output logged.</td></tr>`}</tbody></table></div>${regPager('prodlog',_pl.pages)}`)}`;
+       <tbody>${_pl.view.length?_pl.view.map(p=>`<tr><td class="muted">${p.date}</td><td>${p.brand?(p.brand+' '):''}<span class="muted">${p.base}</span>${p.po?(' · '+p.po):''}</td><td class="num">${fmt(p.kg)}</td><td class="muted">${p.shift||'—'}</td><td class="muted">${p.incharge||'—'}</td><td class="muted">${p.by}</td>${state.role==='COO'?`<td><button class="sm ghost" onclick="voidProdEntry(${p._i})">✕ remove</button></td>`:''}</tr>`).join(''):`<tr><td colspan="${state.role==='COO'?7:6}" class="muted">No output logged.</td></tr>`}</tbody></table></div>${regPager('prodlog',_pl.pages)}`)}`);
 }
 /* COO-only: remove a mistaken production entry. Reverses the produced quantity
    (clamped so it never drops below what's already packed) and deletes the log row.

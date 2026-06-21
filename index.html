@@ -673,6 +673,72 @@ table tbody tr:hover{background:var(--panel2)}
 }
 body{font-family:'Geist','Inter',system-ui,-apple-system,'Segoe UI',sans-serif}
 .brand .logo{background:linear-gradient(135deg,#3a6bb0,#223e66)}
+
+/* ---- O2S full visual overhaul (render-only; targets existing classes) ---- */
+.app{background:var(--bg)}
+.side{width:212px;padding:10px 8px;background:var(--panel);border-right:1px solid var(--line)}
+.brand{padding:4px 6px 11px}
+.brand .nm{font-family:'Bricolage Grotesque',var(--head);font-weight:800;font-size:16px;letter-spacing:-.03em}
+.brand .nm span{font-family:var(--font-mono,'Geist Mono',monospace);font-size:8px;letter-spacing:1.4px;margin-top:5px;color:var(--mut)}
+.navgrp{font-size:8.5px;letter-spacing:1.2px;color:#9aa6b4;padding:11px 10px 3px}
+.nav a{padding:6px 9px;font-size:12.5px;font-weight:500;border-radius:7px;color:var(--txt2)}
+.nav a:hover{background:var(--panel2)}
+.nav a.active{font-weight:600;background:var(--navy-50);color:var(--navy)}
+.nav a.active::before{left:-8px;top:6px;bottom:6px;width:3px}
+.navct{background:var(--panel2);color:var(--txt2);font-weight:700}
+.nav a.active .navct{background:var(--navy);color:#fff}
+.navsearch{border-radius:7px;font-size:12px}
+.navsearch kbd{font-family:var(--font-mono,monospace);font-size:9px}
+
+.topbar{padding:8px 20px;background:rgba(255,255,255,.85);backdrop-filter:blur(10px)}
+.topbar h2{font-family:'Bricolage Grotesque',var(--head);font-weight:800;font-size:17px;letter-spacing:-.03em}
+.topbar .sub{font-family:var(--font-mono,monospace);font-size:10px;letter-spacing:.02em;color:var(--mut)}
+.rolebox{border-radius:999px;padding:3px 5px 3px 5px}
+.rolebox .av{border-radius:50%;background:var(--navy)}
+
+.helpbar{padding:7px 20px;font-size:11.5px}
+.wrap{padding:16px 20px;max-width:1560px}
+
+h1,h2,h3,h4,.sec,.subh{font-family:'Bricolage Grotesque',var(--head)}
+.sec{border-bottom:1px solid var(--line);color:var(--txt);font-weight:800;letter-spacing:-.01em;text-transform:none;font-size:13px;padding-bottom:7px}
+.subh{color:var(--txt);font-weight:700}
+
+.card{border-radius:9px;box-shadow:0 1px 2px rgba(23,32,46,.05);padding:16px 18px}
+.card h3{font-family:'Bricolage Grotesque',var(--head);font-weight:700;font-size:14px}
+.card h3 .hint{font-family:var(--font-mono,monospace);font-size:11px}
+
+button{border-radius:7px;padding:9px 15px;font-weight:600;box-shadow:0 1px 2px rgba(23,32,46,.08);letter-spacing:-.01em}
+button:hover{transform:translateY(-1px)}
+button.ghost{color:var(--txt);border:1px solid var(--line)}
+button.ghost:hover{border-color:var(--navy-100);color:var(--navy);background:var(--navy-50)}
+button.sm{border-radius:6px;padding:6px 11px;font-size:12px}
+select,input[type=text],input[type=number],input[type=date],textarea{border-radius:7px}
+
+.kpis{gap:11px}
+.kpi{border-radius:9px;padding:13px 15px}
+.kpi::before{height:3px;background:linear-gradient(90deg,var(--navy),var(--leaf))}
+.kpi .l{font-family:var(--font-mono,monospace);font-size:9px;letter-spacing:.08em;font-weight:600;color:var(--mut)}
+.kpi .v{font-family:'Bricolage Grotesque',var(--head);font-weight:700;font-size:24px}
+
+table{font-size:12px}
+th{font-family:var(--font-mono,monospace);font-size:9.5px;letter-spacing:.05em;color:var(--mut);font-weight:600;background:var(--panel2);padding:8px 11px}
+td{padding:8px 11px}
+tr.clk:hover td{background:var(--panel2)}
+
+/* genuinely-compact mode */
+.app.compact{font-size:12px}
+.app.compact .wrap{padding:11px 15px}
+.app.compact .card{padding:10px 13px;margin-bottom:9px}
+.app.compact .card h3{margin-bottom:9px;font-size:13px}
+.app.compact .kpis{gap:8px;margin-bottom:9px}
+.app.compact .kpi{padding:9px 11px}
+.app.compact .kpi .v{font-size:18px}
+.app.compact .nav a{padding:4px 9px;font-size:12px}
+.app.compact th{padding:5px 9px}
+.app.compact td{padding:4px 9px}
+.app.compact button.sm{padding:5px 9px}
+.app.compact .sec{margin:13px 2px 7px}
+
 </style></head><body>
 <div class="app" id="appShell">
   <div class="navbackdrop" onclick="closeMobileNav()"></div>

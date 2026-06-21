@@ -3804,7 +3804,7 @@ function renderDispatchModal(){ const o=(state.orders||[]).find(x=>x.id===dispFo
        <div class="fld"><label>Destination</label><input type="text" value="${dispForm.dest}" oninput="dispSet('dest',this.value)"></div>
        <div class="fld"><label>Carrier</label><input type="text" value="${dispForm.carrier}" oninput="dispSet('carrier',this.value)" placeholder="transporter"></div>
        <div class="fld"><label>Vehicle #</label><input type="text" value="${dispForm.vehicle}" oninput="dispSet('vehicle',this.value)"></div>
-       <div class="fld"><label>DC number</label><input type="text" value="${dispForm.dc}" oninput="dispSet('dc',this.value)"></div>
+       <div class="fld"><label>DC number <span style="color:var(--red)">*</span> <span class="muted" style="font-weight:400;font-size:10px">generates shipment #</span></label><input type="text" value="${dispForm.dc}" oninput="dispSet('dc',this.value)" placeholder="e.g. 5019"></div>
        <div class="fld"><label>Bilty / reference</label><input type="text" value="${dispForm.bilty}" oninput="dispSet('bilty',this.value)"></div>
        <div class="fld" style="grid-column:1/-1"><label>Remarks</label><input type="text" value="${dispForm.remarks}" oninput="dispSet('remarks',this.value)"></div>
      </div>
@@ -3813,17 +3813,25 @@ function renderDispatchModal(){ const o=(state.orders||[]).find(x=>x.id===dispFo
    <div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" onclick="saveDispatch()">Save shipment</button></div>`; }
 function saveDispatch(){ if(!canEdit(['Supply Chain'])){toast('Supply Chain only');return;} const o=(state.orders||[]).find(x=>x.id===dispForm.oid); if(!o)return;
   const sel=dispForm.lines.filter(r=>r.on&&(+r.qty||0)>0); if(!sel.length){toast('Tick at least one product with a quantity');return;}
-  const dispId='DSP'+(state.seq=(state.seq||1)+1); const d=dispForm.date||TODAY.toISOString().slice(0,10); let n=0,tot=0;
+  const dc=(dispForm.dc||'').trim();
+  if(!dc){ toast('DC number is required — it generates the shipment number.'); return; }
+  { const _ex=(state.shipments||[]).find(x=>x&&!x.voided&&String(x.dc||'').trim().toLowerCase()===dc.toLowerCase());
+    if(_ex){ toast('DC # '+dc+' is already used'+(_ex.po?(' on PO '+_ex.po):'')+' — each DC can be used once.'); return; } }
+  const dispId='DSP'+(state.seq=(state.seq||1)+1); const d=dispForm.date||TODAY.toISOString().slice(0,10);
+  const _p=String(d).split('-'); const _mmddyy=(_p[1]||'')+(_p[2]||'')+((_p[0]||'').slice(-2));
+  state.shipSerial=(state.shipSerial||0)+1; const _ser=('00'+state.shipSerial).slice(-3);
+  const shipNo=_mmddyy+_ser+dc;
+  let n=0,tot=0;
   sel.forEach(r=>{ const l=o.lines.find(x=>x.id===r.lid)||o.lines.find(x=>x.brand===r.brand); if(!l)return; const rem=Math.max(0,lineCleared(o,l)); const want=Math.min(+r.qty||0,rem); if(want<=0)return;
     const alloc=fifoAlloc(o,l,want,'ship'); const batches=[]; let kg=0;
     lotsFor(o,l).forEach((p,i)=>{ const a=Math.min(+alloc[i]||0, lotClearedKg(p)); if(a>0.0001){ p.shipKg=(+p.shipKg||0)+a; batches.push({batch:lotBaseNo(p),brand:lotBrandNo(p),kg:Math.round(a)}); kg+=a; } });
     if(kg<=0)return;
-    state.shipments.unshift({dispId,po:o.po,brand:l.brand,lid:l.id,kg:Math.round(kg),batches,pack:r.pack,dispatch:d,destination:dispForm.dest,carrier:dispForm.carrier,vehicle:dispForm.vehicle,dc:dispForm.dc,bilty:dispForm.bilty,delivered:d,remarks:dispForm.remarks,qa:{pass:true,closed:true},by:state.role});
+    state.shipments.unshift({dispId,po:o.po,brand:l.brand,lid:l.id,kg:Math.round(kg),batches,pack:r.pack,dispatch:d,destination:dispForm.dest,carrier:dispForm.carrier,vehicle:dispForm.vehicle,dc:dc,shipNo:shipNo,bilty:dispForm.bilty,delivered:d,remarks:dispForm.remarks,qa:{pass:true,closed:true},by:state.role});
     l.dispatched=(l.dispatched||0)+kg; l.dispatchDate=l.dispatchDate||d; l.delivered=(l.delivered||0)+kg; l.deliveredDate=d; n++; tot+=kg; });
   if(!n){toast('Nothing cleared to ship — inspect the packed material first');return;}
-  logAction(`Shipment ${dispId} · PO ${o.po}: ${n} product(s), ${fmt(tot)} Kg/L${dispForm.dc?(' · DC '+dispForm.dc):''}${dispForm.vehicle?(' · '+dispForm.vehicle):''}`);
+  logAction(`Shipment ${shipNo} (${dispId}) · PO ${o.po}: ${n} product(s), ${fmt(tot)} Kg/L · DC ${dc}${dispForm.vehicle?(' · '+dispForm.vehicle):''}`);
   (state.audit=state.audit||[]).unshift({t:new Date().toISOString(),user:state.role,module:'Shipment',po:o.po,brand:n+' product(s)',field:'Shipped',old:'',val:fmt(tot)+' Kg/L · DC '+(dispForm.dc||'-')});
-  dispForm=null; save(); closeModal(); render(); toast(`Shipment sent & closed — ${n} product(s)`); }
+  dispForm=null; save(); closeModal(); render(); toast(`Shipment ${shipNo} sent & closed — ${n} product(s)`); }
 function dispatchGroups(){ const g={}; (state.shipments||[]).forEach((s,i)=>{ const k=s.dispId||('leg'+i); if(!g[k]) g[k]={dispId:s.dispId||null,po:s.po,destination:s.destination,date:s.dispatch,vehicle:s.vehicle,carrier:s.carrier,dc:s.dc,bilty:s.bilty,rows:[],kg:0,delivered:true,qaPending:false,qaFail:false}; g[k].rows.push(s); g[k].kg+=(+s.kg||0); if(!s.delivered) g[k].delivered=false; if(s.qa===null) g[k].qaPending=true; if(s.qa&&s.qa.fail) g[k].qaFail=true; }); return Object.values(g).map(x=>{ x.qa=x.qaFail?'fail':(x.qaPending?'pending':'pass'); return x; }).sort((a,b)=>String(b.date||'').localeCompare(String(a.date||''))); }
 let dispQAForm={dispId:null,marks:[],officer:'',remarks:''};
 function dispRowsFor(dispId){ return (state.shipments||[]).filter(s=>(s.dispId||'')===dispId); }

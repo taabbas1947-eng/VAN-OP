@@ -804,6 +804,9 @@ tr.clk:hover td{background:var(--panel2)}
 .pvbar{display:inline-flex;background:var(--surface-2,#f1f6f4);border:1px solid var(--line);border-radius:7px;padding:2px;gap:2px}
 .pvbtn{border:none;background:transparent;border-radius:5px;padding:6px 13px;font-size:12.5px;font-weight:600;color:var(--ink-2,#586577);cursor:pointer}
 .pvbtn.on{background:var(--navy);color:#fff}
+.pvsub{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}
+.pvsub button{border:1px solid var(--line);background:#fff;border-radius:999px;padding:4px 13px;font-size:12px;font-weight:600;color:var(--ink-2,#586577);cursor:pointer}
+.pvsub button.on{background:var(--navy-50,#eef3fb);border-color:var(--navy);color:var(--navy)}
 body{font-family:var(--font-body);color:var(--ink);background:var(--bg)}
 </style>
 </head><body>
@@ -2308,7 +2311,7 @@ function _pcBars(rows){var max=Math.max.apply(null,rows.map(function(r){return r
 function _pcStage(st){var M=(window.ProductionCenter&&ProductionCenter.STAGE_META[st])||{name:st,dot:'#888'};return '<span style="background:color-mix(in srgb,'+M.dot+' 15%,#fff);color:'+M.dot+';font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;white-space:nowrap">'+M.name+'</span>';}
 function _pcResult(r){var c=r.tone==='good'?'var(--green,#4FA84E)':r.tone==='bad'?'var(--red,#E03127)':r.tone==='warn'?'var(--amber,#C77D18)':'var(--ink-3,#8A95A6)';return '<span style="color:'+c+';font-weight:700;font-size:11.5px">'+r.label+'</span>';}
 function prodViewBar(active){var V=[['floor','Floor'],['output','Output'],['lifecycle','Lifecycle']];return '<div class="pvbar" style="margin-bottom:14px">'+V.map(function(v){return '<button onclick="prodView=\''+v[0]+'\';render()" class="pvbtn'+(active===v[0]?' on':'')+'">'+v[1]+'</button>';}).join('')+'</div>';}
-function _pcSub(opts,cur,setter){return '<div class="pvbar" style="margin-bottom:12px">'+opts.map(function(o){return '<button onclick="'+setter+'=\''+o[0]+'\';render()" class="pvbtn'+(cur===o[0]?' on':'')+'">'+o[1]+'</button>';}).join('')+'</div>';}
+function _pcSub(opts,cur,setter){return '<div class="pvsub">'+opts.map(function(o){return '<button onclick="'+setter+'=\''+o[0]+'\';render()" class="'+(cur===o[0]?'on':'')+'">'+o[1]+'</button>';}).join('')+'</div>';}
 function renderProdOutput(){var PC=window.ProductionCenter;if(!PC)return '<div class="card">Output unavailable</div>';var o=PC.output(state);
   var kpis='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:11px;margin-bottom:14px">'+_pcKpi('Output (7d)',PC.fmt(o.totalKg),'Kg','last 7 days','var(--navy)')+_pcKpi('Avg / day',PC.fmt(o.avgPerDay),'Kg','','var(--teal,#1F9C92)')+_pcKpi('Today',PC.fmt(o.todayKg),'Kg','latest day','var(--green,#4FA84E)')+_pcKpi('QA pass rate',o.qcPassRate+'%','','pre-shipment','var(--green,#4FA84E)')+'</div>';
   var seg=_pcSub([['day','By day'],['shift','By shift'],['incharge','By incharge'],['po','By PO'],['product','By product']],prodOutSub,'prodOutSub');

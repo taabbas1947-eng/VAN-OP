@@ -5,7 +5,7 @@
 <!-- VAN build: 2026-06-04 first-push test -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
 :root{
@@ -660,6 +660,19 @@ table tbody tr:hover{background:var(--panel2)}
 .tkdlines{border:1px solid var(--line);border-radius:11px;overflow:hidden}.tkdlines h4{margin:0;padding:8px 10px;border-bottom:1px solid var(--line2);background:var(--panel2);font-size:12px}
 .tkdln{padding:8px 10px;border-bottom:1px solid var(--line2)}.tkdln:last-child{border-bottom:0}.tkdln b{display:block;font-size:11.6px}.tkdln span{color:var(--mut);font-weight:600;font-size:10.6px}
 .tkdact{margin-top:auto;border-top:1px solid var(--line2);display:flex;gap:8px;padding:12px}.tkdact button{flex:1}
+/* ===================== O2S DESIGN-SYSTEM THEME — render-only reskin (navy primary, modern type, sharper radius). Reversible: delete this block to restore the previous look. No logic/markup/data touched. ===================== */
+:root{
+  --bg:#f6f8fa; --panel:#ffffff; --panel2:#f4f6f9; --line:#e5e9ef; --line2:#edf0f4;
+  --navy:#2e4f7c; --navy2:#223e66; --navy-50:#eff3f9; --navy-100:#d8e3f1;
+  --green:#2e4f7c; --green2:#223e66; --leaf:#4fa84e; --green-50:#eff3f9;
+  --teal:#1f9c92; --amber:#c77d18; --amber-50:#faf1e0; --red:#e03127; --red-50:#fcebea;
+  --blue:#2563eb; --purple:#7c5cfc;
+  --txt:#17202e; --txt2:#586577; --mut:#8a95a6;
+  --head:'Bricolage Grotesque','Space Grotesk','Inter',system-ui,sans-serif;
+  --radius:8px; --radius-sm:5px;
+}
+body{font-family:'Geist','Inter',system-ui,-apple-system,'Segoe UI',sans-serif}
+.brand .logo{background:linear-gradient(135deg,#3a6bb0,#223e66)}
 </style></head><body>
 <div class="app" id="appShell">
   <div class="navbackdrop" onclick="closeMobileNav()"></div>
@@ -4231,7 +4244,7 @@ function subh(t){ return `<div class="subh">${t}</div>`; }
 /* one consistent, compact view-only notice (keeps each screen to a single info banner) */
 function viewOnly(owner,note){ return `<div class="viewonly">View-only — owned by <b>${owner}</b> · you're <b>${state.role}</b>${note?(' · '+note):''}</div>`; }
 /* ---- compact / comfortable density (persisted comfort preference) ---- */
-let _density=(function(){ try{ return localStorage.getItem('van_density')||'comfortable'; }catch(e){ return 'comfortable'; } })();
+let _density=(function(){ try{ return localStorage.getItem('van_density')||'compact'; }catch(e){ return 'compact'; } })();
 function applyDensity(){ const app=document.getElementById('appShell'); if(!app)return; const on=_density==='compact'; app.classList.toggle('compact',on); const b=document.getElementById('densityBtn'); if(b){ b.textContent=on?'Comfortable':'Compact'; b.title=on?'Switch to comfortable spacing':'Switch to compact spacing'; } }
 function toggleDensity(){ _density=(_density==='compact')?'comfortable':'compact'; try{ localStorage.setItem('van_density',_density); }catch(e){} applyDensity(); }
 function byproductRules(){ return (state.masters&&state.masters.byproductRules)||[]; }
@@ -4679,7 +4692,7 @@ function renderLogin(msg){
   const el=document.getElementById('authScreen'); if(!el) return;
   el.innerHTML=`<div class="authcard">
     <div class="lhdr"><div class="lmark"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.27 6.96 12 12.01l8.73-5.05"/><path d="M12 22.08V12"/></svg></div>
-      <div><h2 style="font-size:18px">VAN Ops</h2><div class="lsub">Order → Shipment Control</div></div></div>
+      <div><h2 style="font-size:18px">O2S</h2><div class="lsub">Order → Shipment Control</div></div></div>
     <label>Username</label><input id="lg_user" autocomplete="username" onkeydown="if(event.key==='Enter')doLogin()">
     <label>Password</label><input id="lg_pass" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
     ${msg?`<div class="autherr">${msg}</div>`:''}

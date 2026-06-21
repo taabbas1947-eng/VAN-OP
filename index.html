@@ -1061,7 +1061,7 @@ async function bootState(){
   else { const a=$('authScreen'),sh=$('appShell'); if(sh)sh.style.display='none'; if(a){ a.style.display='flex'; renderLogin('Server data looks incomplete \u2014 not overwriting. Please refresh.'); } setTimeout(bootState,4000); return; }
   sessionInit(state); restoreSession(); renderApp(); startSync();
 }
-function recoverLocalAdditions(local, srv, keys){ let n=0; (keys||['orders','batches','prs','packingLog','shiftEntries','shipments']).forEach(k=>{ const sIds=new Set((srv[k]||[]).map(x=>x&&x.id).filter(Boolean)); (local[k]||[]).forEach(it=>{ if(it&&it.id&&!sIds.has(it.id)){ srv[k]=srv[k]||[]; srv[k].unshift(it); n++; } }); }); return n; }
+
 /* 3-way merge so concurrent saves keep BOTH sides' edits (not just additions). */
 let _baseSnapshot=null, _saveRetries=0;
 function _snapBase(){ try{ _baseSnapshot=JSON.parse(JSON.stringify(dataOnly(state))); }catch(e){ _baseSnapshot=null; } }
@@ -1194,11 +1194,7 @@ function attentionOf(o){
     label: risk+(hot?(' · '+pr):''), color };
 }
 /* combined sort key for two orders already in the same stage (lower = more attention) */
-function attnCmp(a,b){ const A=attentionOf(a), B=attentionOf(b);
-  if(A.riskTier!==B.riskTier) return A.riskTier-B.riskTier;
-  if(A.prRank!==B.prRank) return A.prRank-B.prRank;
-  const da=daysOver(a)||0, db=daysOver(b)||0; if(da!==db) return db-da;
-  return String(b.received||'').localeCompare(String(a.received||'')); }
+
 /* ---- Capable-to-promise: per-line committed date from the lead-time model (make-to-order) ----
    committed = received + procurement + ceil(qty/rate) production + qcDays + dispatchDays,
    sequential (production starts after materials arrive), never sooner than received + minDays.
@@ -1230,12 +1226,7 @@ function computeCommitted(received, qty, procureDays, brand, s){
   var d0=received?new Date(received):new Date(TODAY); if(isNaN(d0.getTime())) d0=new Date(TODAY);
   return new Date(d0.getTime()+leadDays(qty,procureDays,brand,s)*86400000).toISOString().slice(0,10); }
 /* ---- Line-level roll-up for a PO (drives the tracker display & line/volume on-time) ---- */
-function lineRollup(o){ var L=o.lines||[]; var lateLines=L.filter(l=>lineOverdue(o,l));
-  return { total:L.length,
-    delivered:L.filter(l=>(l.delivered||0)>=l.ordered-0.5).length,
-    late:lateLines.length,
-    orderedKg:sum(L,l=>+l.ordered||0),
-    lateKg:sum(lateLines,l=>Math.max(0,(+l.ordered||0)-(+l.delivered||0))) }; }
+
 /* ===== PO Tracker v2 helpers (read-only display; no data/master writes) ===== */
 /* Stage dwell (aging): days since the order entered its CURRENT stage. Uses the
    milestone date that marks entry into each bucket; when missing, falls back to the
@@ -1276,11 +1267,7 @@ var T2_SHORT=['PO','RM','Prod','Lab','QA','Ship','Done'];
 var NEXT_ACT={'PO Created':'Acknowledge & run RM check','RM Check':'Confirm materials → mark RM Ready','Production':'Start / complete production','Lab QC':'Run lab QC','QA Pre-shipment':'QA pre-shipment check','Shipment':'Book & dispatch','Delivered':'Delivered — no action'};
 function t2idx(o){ var b=orderBucket(o); return b==='Delivered'?BUCKETS.length:BUCKETS.indexOf(b); }
 function t2sev(o){ var ag=orderAging(o); return isOverdue(o)?'bad':((ag.days!=null&&ag.days>=3)?'warn':''); }
-function t2stepper(o,mixed){
-  var idx=t2idx(o), sev=t2sev(o), segs='', lbls='';
-  BUCKETS.forEach(function(s,i){ var c=i<idx?'done':(i===idx?('cur '+sev):''); segs+='<div class="t2seg '+c+'"></div>'; lbls+='<span class="'+c+'">'+T2_SHORT[i]+'</span>'; });
-  return '<div class="t2step '+(mixed?'mixed':'')+'">'+segs+'</div><div class="t2lbls">'+lbls+'</div>';
-}
+
 function t2ageText(o){
   var ag=orderAging(o), tilde=ag.approx?'~':'';
   if(isOverdue(o)){ var d=daysOver(o); return '<div class="t2age bad">'+d+'d overdue<small>in '+ag.stage+(ag.days!=null?(' · '+tilde+ag.days+'d'):'')+'</small></div>'; }
@@ -1480,7 +1467,14 @@ function openCmdK(){ var el=$('cmdk'); if(!el)return; el.classList.add('open'); 
 function closeCmdK(){ var el=$('cmdk'); if(el) el.classList.remove('open'); }
 function cmdkItems(q){ q=(q||'').toLowerCase().trim(); var out=[];
   SCREENS.forEach(function(s){ if(!canView(state.role,s.id))return; if(!q||s.name.toLowerCase().indexOf(q)>-1) out.push({t:s.name,k:'Screen',act:"setScreen('"+s.id+"');closeCmdK()"}); });
-  if(q){ (state.orders||[]).forEach(function(o){ if((((o.po||'')+' '+(o.client||'')).toLowerCase()).indexOf(q)>-1) out.push({t:(o.po||'')+' · '+(o.client||''),k:'PO',act:"trkFilter='all';trkSearch='"+(o.po||'').replace(/'/g,'')+"';setScreen('tracker');closeCmdK()"}); }); }
+  if(q){
+    (state.orders||[]).forEach(function(o){ var hay=((o.po||'')+' '+(o.client||'')+' '+((o.lines||[]).map(function(l){return l.brand||'';}).join(' '))).toLowerCase(); if(hay.indexOf(q)>-1) out.push({t:(o.po||'')+' · '+(o.client||''),k:'PO',act:"trkFilter='all';trkSearch='"+(o.po||'').replace(/'/g,'')+"';setScreen('tracker');closeCmdK()"}); });
+    var seenB={},nb=0;
+    (state.batches||[]).forEach(function(b){ if(nb>=6)return; var no=(b.batchNo||''); var lk=no.toLowerCase(); if(no && lk.indexOf(q)>-1 && !seenB[lk]){ seenB[lk]=1; nb++; out.push({t:no+' · '+(b.brand||b.base||'batch')+(b.po?(' · '+b.po):''),k:'Batch',act:"setScreen('prod');closeCmdK()"}); } });
+    (state.packingLog||[]).forEach(function(p){ if(nb>=6)return; var no=(p.brandBatchNo||p.baseBatchNo||''); var lk=no.toLowerCase(); if(no && lk.indexOf(q)>-1 && !seenB[lk]){ seenB[lk]=1; nb++; out.push({t:no+' · '+(p.brand||'')+(p.po?(' · '+p.po):''),k:'Batch',act:"setScreen('prod');closeCmdK()"}); } });
+    var seenS={},ns=0;
+    (state.shipments||[]).forEach(function(sh){ if(ns>=6||!sh||sh.voided)return; var key=(sh.dispId||'')+'|'+(sh.dc||''); var hay=((sh.dispId||'')+' '+(sh.dc||'')+' '+(sh.vehicle||'')+' '+(sh.po||'')+' '+(sh.brand||'')).toLowerCase(); if(hay.indexOf(q)>-1 && !seenS[key]){ seenS[key]=1; ns++; out.push({t:(sh.dispId||'Shipment')+' · '+(sh.brand||'')+' · DC '+(sh.dc||'-')+' · '+(sh.vehicle||'-'),k:'Shipment',act:"setScreen('ship');closeCmdK()"}); } });
+  }
   return out.slice(0,12);
 }
 function cmdkRender(){ var q=($('cmdkInput')&&$('cmdkInput').value)||''; var items=cmdkItems(q); window._cmdkSel=0;
@@ -2043,16 +2037,7 @@ function lineBucket(o,l){
  return 'PO Created';
 }
 function orderBucket(o){ if(!o.lines||!o.lines.length) return 'PO Created'; const idx=o.lines.map(l=>BUCKETS.indexOf(lineBucket(o,l))); return BUCKETS[Math.min.apply(null,idx)]; }
-function attnCounts(){ let delayed=0,rmblock=0,prod=0,qc=0,qahold=0,ready=0;
-  state.orders.forEach(o=>{ const b=orderBucket(o);
-    if(isOverdue(o)&&b!=='Delivered')delayed++;
-    if(b==='RM Check')rmblock++;
-    if(b==='Production')prod++;
-    if(b==='Lab QC'||b==='QA Pre-shipment')qc++;
-    if(o.lines.some(l=>lineQA(o,l).anyFail))qahold++;
-    if(o.lines.some(l=>lineCleared(o,l)>0.5))ready++; });
-  return {delayed,rmblock,prod,qc,qahold,ready};
-}
+
 function trkMatch(o){ const b=orderBucket(o);
   switch(trkFilter){
     case 'risk':return (isOverdue(o)||isStalled(o)||attentionOf(o).hot)&&b!=='Delivered';
@@ -2071,8 +2056,8 @@ function trkMatch(o){ const b=orderBucket(o);
     default:return true;
   }
 }
-function trkRender(){ render(); const q=document.getElementById('trkq'); if(q&&q.focus)q.focus(); }
-function priorityPill(p){ p=p||'Normal'; var c=p==='Critical'?'--red':(p==='High'?'--amber':(p==='Low'?'--mut':'--blue')); return `<span class="pill" style="background:color-mix(in srgb,var(${c}) 14%,#fff);color:var(${c});font-size:9px;padding:1px 7px;margin-left:5px">${p}</span>`; }
+
+
 function orderBal(o){ var ord=0,del=0; (o.lines||[]).forEach(function(l){ ord+=(+l.ordered||0); del+=(+l.delivered||0); }); return {ord:ord,del:del,rem:Math.max(0,ord-del),pct:ord>0?Math.min(100,Math.round(del/ord*100)):0}; }
 function tkProg(pct){ return `<div class="tkprog"><span style="width:${pct}%"></span></div>`; }
 function tkBalCell(o){ var x=orderBal(o); return `<div class="tkbalnum">${fmt(x.rem)} <span class="tkbalu">left</span></div><div class="tkbalsub">${fmt(x.del)} / ${fmt(x.ord)} delivered</div>${tkProg(x.pct)}`; }
@@ -2161,7 +2146,7 @@ const LIFE_GROUPS=[
   ['Delay (Plant Manager)',[['delayReason','Delay Reason','select:delayReasons'],['respDept','Responsible Dept','select:respDepts']]],
 ];
 const FIELD_LABEL={soNumber:'SO #',soCreated:'SO Created',prRaised:'PR Raised',cfoApproved:'CFO Approved',rmCheck:'RM Check',rmReady:'RM Ready',prodStart:'Prod Start',prodComplete:'Prod Complete',qcPass:'QC Pass',delayReason:'Delay Reason',respDept:'Responsible Dept',creditDays:'Credit Days',invSent:'Invoice Sent',invConfirmed:'Invoice Confirmed',payDue:'Payment Due',payReceived:'Payment Received',notes:'Notes'};
-function myOpenFields(o,l){ return Object.keys(FIELD_OWNER).filter(k=>canEditField(k) && !l[k]).map(k=>FIELD_LABEL[k]||k); }
+
 function openOrder(id){
   const o=state.orders.find(x=>x.id===id); if(!o)return;
   const a=agg(o); const st=stageOf(o);
@@ -2205,7 +2190,7 @@ function openOrder(id){
 }
 function closeDrawer(){ $('drawer').classList.remove('open'); $('drawerBg').classList.remove('open'); }
 /* ===================== RM CHECK / RAISE PR (manual) ===================== */
-function rmStatusPill(l){ const s=l.rmStatus||'pending'; const m={pending:['Not checked','--mut'],full:['In stock','--green'],partial:['Partial','--amber'],short:['Short — PR raised','--red'],received:['RM received','--green']}; const x=m[s]||m.pending; return pill(x[0],x[1]); }
+
 let rmForm={oid:null,lid:null,status:'full',canMake:'',lines:[]};
 function recipePrefill(o,l){ const rec=recipeFor(l.base); if(!rec||!Object.keys(rec).length) return []; const ks=Object.keys(rec); if(!ks.length||ks[0].startsWith('(')) return []; return ks.map(rm=>({rm,kg:Math.round((l.ordered||0)*rec[rm])})); }
 function openRMCheck(oid,lid){ const o=state.orders.find(x=>x.id===oid); const l=o.lines.find(x=>x.id===lid);
@@ -2791,7 +2776,7 @@ function allocateStock(oid,lid){ const o=state.orders.find(x=>x.id===oid); const
 function lotBaseNo(p){ let base=(p&&p.baseBatchNo)||''; if(!String(base).trim()&&p&&p.baseBatchId){ const bb=(state.batches||[]).find(b=>b.id===p.baseBatchId); base=(bb&&bb.batchNo)||''; } return String(base).trim(); }
 function lotBrandNo(p){ const br=((p&&p.brandBatchNo)||'').trim(); return br||lotBaseNo(p); }
 function batchPairsForLine(o,l){ const seen=new Set(),out=[]; (state.packingLog||[]).forEach(p=>{ if(p&&p.po===o.po&&p.brand===l.brand){ const bs=lotBaseNo(p), br=lotBrandNo(p); const k=bs+'>'+br; if(!seen.has(k)){seen.add(k); out.push({bs:bs||'\u2014',br:br||'\u2014'});} } }); return out; }
-function qcBatchText(o,l){ const pr=batchPairsForLine(o,l); return pr.length?pr.map(x=>x.bs+' \u25b8 '+x.br).join(', '):'not packed yet'; }
+
 /* ===== COA / Lab QC (batch-level, 3-step workflow) ===== */
 let coaForm={};
 function coaTS(){ const d=new Date(); const p=n=>String(n).padStart(2,'0'); return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes()); }
@@ -2799,7 +2784,7 @@ function coaItemOf(b){ return b.kind==='po' ? (b.brand||b.base||'') : (b.base||b
 function coaTemplate(b){ const t=(state.masters&&state.masters.labTemplates)||{}; const it=coaItemOf(b); return (t[it]||t[b.base]||t[b.brand]||autoTemplateFor(b)||[]); }
 function coaOverall(tests){ if(!tests||!tests.length) return ''; let unfit=false,nores=false,fit=false; for(const r of tests){ const rk=String(r.remark||'').toUpperCase().trim(); if(rk==='UNFIT'||rk==='NOT OK'||rk==='FAIL') unfit=true; else if(rk==='NO RESULT'||rk==='') nores=true; else if(rk==='FIT'||rk==='OK') fit=true; else nores=true; } if(unfit) return 'UNFIT'; if(nores) return 'NO RESULT'; return fit?'FIT':''; }
 function batchLabApproved(b){ if(!b)return false; const lots=(b.lots||[]); if(lots.length) return lots.some(l=>l.coa&&l.coa.status==='approved'); return !!(b.coa&&b.coa.status==='approved'); }
-function lotsClearedLabel(b){ const ls=(b&&b.lots)||[]; if(!ls.length) return ''; const ap=ls.filter(l=>l.coa&&l.coa.status==='approved').length; const col=ap===ls.length?'var(--green2)':(ap>0?'var(--amber)':'var(--mut)'); return `<div style="font-size:10px;color:${col};font-weight:600">${ap}/${ls.length} lot${ls.length===1?'':'s'} QC-cleared</div>`; }
+
 function batchPackableKg(b){ if(!b||b.reconciled)return 0; const lots=(b.lots||[]); let cert=0; if(lots.length){ lots.forEach(l=>{ if(l.coa&&l.coa.status==='approved'){ const ck=(l.coa.certifiedKg!=null)?l.coa.certifiedKg:(l.qty||0); cert+=Math.min(l.qty||0,ck); } }); } else { cert=(b.coa&&b.coa.status==='approved')?((b.coa.certifiedKg!=null)?Math.min(b.producedKg||0,b.coa.certifiedKg):(b.producedKg||0)):0; } return Math.max(0,cert-(b.packedKg||0)); }
 function coaStatusPill(c){ if(!c) return '<span class="pill" style="background:var(--amber-50);color:var(--amber);font-size:9px">Lab QC pending</span>';
   const m={draft:['Draft','--mut'],analysed:['Analysed → AQCM','--navy'],reviewed:['Reviewed → QCM','--navy'],approved:['Approved ✓','--green2'],failed:['UNFIT → Plant Mgr','--red']}; const x=m[c.status]||['?','--mut'];
@@ -3019,13 +3004,7 @@ function qcGrpApproved(rows){ if(!rows.length) return '<div class="muted">None a
     const body=g.slice().sort((a,b)=>String((b.coa&&b.coa.approvedDate)||'').localeCompare(String((a.coa&&a.coa.approvedDate)||''))).map(u=>`<tr><td><b>${u.no||'\u2014'}</b></td><td class="num">${fmt(u.qty)}</td><td class="muted">${(u.coa.approvedDate||'')}${u.coa.deviation?' \u00b7 deviation':''}</td><td><button class="sm ghost" onclick="printCOA('${u.b.id}','${u.id}')">Print COA</button></td></tr>`).join('');
     return `<details class="qcgrp"><summary>${nm}<span class="c">${g.length} lot${g.length===1?'':'s'} \u00b7 ${fmt(tot)} Kg/L</span></summary><div style="overflow:auto"><table><thead><tr><th>Batch \u25b8 Lot</th><th class="num">Qty</th><th>Approved</th><th>COA</th></tr></thead><tbody>${body}</tbody></table></div></details>`;
   }).join(''); }
-function qcGrpPassed(rows){ if(!rows.length) return '<div class="muted">None yet.</div>';
-  const lb=p=>`${lotBaseNo(p)||'\u2014'} \u25b8 ${lotBrandNo(p)||'\u2014'}`;
-  const by={}; rows.forEach(p=>{ const k=p.brand||'\u2014'; (by[k]=by[k]||[]).push(p); });
-  return Object.keys(by).sort().map(nm=>{ const g=by[nm]; const tot=g.reduce((a,p)=>a+(p.kg||0),0);
-    const body=g.slice().sort((a,b)=>String((b.qa&&b.qa.date)||'').localeCompare(String((a.qa&&a.qa.date)||''))).map(p=>`<tr><td><b>${p.po}</b></td><td><span class="muted" style="font-size:10px">${lb(p)}</span></td><td class="num">${fmt(p.kg)}</td><td class="muted">${(p.qa&&p.qa.by)||'\u2014'}</td><td class="muted">${(p.qa&&p.qa.date)||''}</td></tr>`).join('');
-    return `<details class="qcgrp"><summary>${nm}<span class="c">${g.length} lot${g.length===1?'':'s'} \u00b7 ${fmt(tot)} Kg/L</span></summary><div style="overflow:auto"><table><thead><tr><th>PO</th><th>Batch</th><th class="num">Packed</th><th>QA by</th><th>Date</th></tr></thead><tbody>${body}</tbody></table></div></details>`;
-  }).join(''); }
+
 function screenQC(){
   const isLab=canEdit(['Lab Rep']), isAQ=canEdit(['AQCM']), isQM=canEdit(['QCM']), isQA=canEdit(['QA Inspector']), isPM=canEdit(['Plant Manager']), isCOO=state.role==='COO', isSC=canEdit(['Supply Chain']);
   const labB=(state.batches||[]).filter(b=>(b.producedKg||0)>0 && b.disposition!=='byproduct');  /* by-product accruals/pool never enter QC here — they get QC only AFTER grinding (call-for-manufacturing) */
@@ -3207,26 +3186,7 @@ function actTiming(it){
 }
 function actUrg(it){ if(actOverdue(it)) return 0; var d=actTiming(it).days||0; var hot=it.o&&attentionOf(it.o).hot; return d>=7?1:((d>=3||hot)?2:3); }
 function actSort(arr){ return arr.slice().sort(function(a,b){ var ua=actUrg(a),ub=actUrg(b); if(ua!==ub)return ua-ub; var oa=actOverdue(a)?daysOver(a.o):0, ob=actOverdue(b)?daysOver(b.o):0; if(oa!==ob)return ob-oa; var pa=actTiming(a).days||0, pb=actTiming(b).days||0; return pb-pa; }); }
-function actCard(it){
-  var T=ACT_META[it.label]||{c:'--mut',s:it.label};
-  var tm=actTiming(it), od=actOverdue(it), pend=tm.days, tilde=tm.approx?'~':'';
-  var hot=it.o&&attentionOf(it.o).hot;
-  var uc=(od||(pend!=null&&pend>=7))?'--red':(((pend!=null&&pend>=3)||hot)?'--amber':T.c);
-  var po=it.o?it.o.po:(it.pr?('PR · '+it.pr.rm):(it.batch?('Batch '+(it.batch.batchNo||coaItemOf(it.batch))):(it.lot?(it.lot.po||'Lot'):'—')));
-  var ctx=it.o?(it.o.client||''):(it.pr?(fmt(it.pr.qtyRequired)+' Kg/L'):(it.batch?coaItemOf(it.batch):(it.lot?(it.lot.brand||''):'')));
-  var prod=it.l?it.l.brand:'';
-  var since=tm.created?('<small class="since">since '+_fmtShort(tm.created)+'</small>'):'';
-  var pd=(pend!=null?(tilde+pend+'d'):'—');
-  var waitCls=od?'red':((pend!=null&&pend>=7)?'red':((pend!=null&&pend>=3)?'amber':'ok'));
-  var odl=od?('<span class="odl">'+daysOver(it.o)+'d overdue</span>'):'';
-  var wait='<div class="acwait '+waitCls+'"><small>pending</small>'+pd+odl+since+'</div>';
-  return '<div class="acrow" style="--uc:var('+uc+')">'
-    +'<div class="actbadge" style="color:var('+T.c+');background:color-mix(in srgb,var('+T.c+') 11%,#fff)">'+T.s+'</div>'
-    +'<div class="acwho"><div class="actt">'+po+(ctx?' <span class="muted" style="font-weight:500">· '+ctx+'</span>':'')+'</div><div class="acdesc">'+(prod?prod+' — ':'')+it.what+'</div></div>'
-    +wait
-    +'<button class="sm green" onclick="'+it.act+'">'+it.label+'</button>'
-  +'</div>';
-}
+
 /* ===== Action Center v3 — merged urgency-first worklist (ported from prototype 2; render-only, reuses actionItems/actTiming/actUrg/actOverdue) ===== */
 var acRisk='all', acRoleF='all', acQ='', acSort2='risk';
 var AC_ROLEORDER=['Supply Chain','CFO','Production','Lab Rep','AQCM','QCM','QA Inspector','Plant Manager'];
@@ -3472,9 +3432,7 @@ function packsCount(ps,kg){ ps=+ps||0; return ps>0?Math.ceil((+kg||0)/ps):null; 
 function linePackSize(po,brand){ const o=(state.orders||[]).find(x=>x.po===po); const l=o&&o.lines.find(x=>x.brand===brand); return (l&&+l.pack)||seedPackForBrand(brand)||0; }
 function shipPacksText(){ const ps=+shipForm.pack||0,q=+shipForm.qty||0; return ps>0?('\u2248 '+fmt(Math.ceil(q/ps))+' packs'):'pack size not set'; }
 let shipForm={};
-function openShip(oid,lid){ const o=state.orders.find(x=>x.id===oid); const l=o.lines.find(x=>x.id===lid); const rem=Math.max(0, Math.min(l.packed||0, lineQAPackedKg(o,l)) - (l.dispatched||0));
-  shipForm={oid,lid,pack:(+l.pack||seedPackForBrand(l.brand)||0),qty:Math.round(rem),date:TODAY.toISOString().slice(0,10),time:'',dest:o.client,carrier:'',vehicle:'',dc:'',bilty:'',delivered:'',remarks:''};
-  renderShipModal(); $('modalBg').classList.add('open'); }
+
 function renderShipModal(){ const o=state.orders.find(x=>x.id===shipForm.oid); const l=o.lines.find(x=>x.id===shipForm.lid); const rem=Math.max(0, Math.min(l.packed||0, lineQAPackedKg(o,l)) - (l.dispatched||0)); const ps=+shipForm.pack||0;
   $('modal').innerHTML=`<div class="mh"><h2>Record shipment</h2><div class="sub">${o.po} · ${l.brand} · up to ${fmt(rem)} Kg/L${ps>0?` · \u2248 ${fmt(Math.ceil(rem/ps))} packs (${fmt(ps)} Kg/L/pack)`:''}</div></div>
    <div class="mb"><div class="formgrid" style="grid-template-columns:repeat(3,minmax(0,1fr))">
@@ -4287,7 +4245,7 @@ function normalizeVZincBase(s){
 }
 function migrateBrandNames(s){ const ren=function(o,depth){ if(!o||typeof o!=='object'||depth>8)return; for(var k in o){ var v=o[k]; if(typeof v==='string'){ if(BRAND_ALIAS[v]) o[k]=BRAND_ALIAS[v]; } else if(v&&typeof v==='object'){ ren(v,depth+1); } } }; ['orders','packingLog','batches','shipments','inspections'].forEach(function(key){ if(Array.isArray(s[key])) s[key].forEach(function(x){ ren(x,0); }); }); }
 function recipeFor(base){ base=(RECIPE_ALIAS[base]||base); const o=(state.masters&&state.masters.recipes&&state.masters.recipes[base]); if(o&&Object.keys(o).length) return o; return (typeof SEED!=='undefined'&&SEED.baseRecipes&&SEED.baseRecipes[base])||{}; }
-function allBases(){ const set=new Set(); try{ Object.values((typeof SEED!=='undefined'&&SEED.catalog&&SEED.catalog.brandsByClient)||{}).forEach(arr=>arr.forEach(b=>set.add(b.base||b.brand))); }catch(e){} Object.keys((typeof SEED!=='undefined'&&SEED.baseRecipes)||{}).forEach(b=>set.add(b)); Object.keys((state.masters&&state.masters.recipes)||{}).forEach(b=>set.add(b)); return [...set].filter(Boolean).sort(); }
+
 function recipeHas(base){ const r=recipeFor(base); const ks=Object.keys(r||{}).filter(k=>!k.startsWith('(')); return ks.length>0; }
 let recipeForm={base:'',rows:[]};
 function openRecipe(base){ if(!base){recipeForm={base:'',rows:[]};render();return;} const r=recipeFor(base); const ks=Object.keys(r||{}).filter(k=>!k.startsWith('(')); recipeForm={base, rows: ks.length?ks.map(k=>({rm:k,pct:r[k]})):[{rm:'',pct:''}]}; render(); }

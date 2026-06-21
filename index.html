@@ -792,6 +792,15 @@ tr.clk:hover td{background:var(--panel2)}
   --nav-py:8px; --kpi-pad:17px; --h1:20px; --card-head-py:15px;
   --well-py:22px; --well-px:26px; --kval:27px; --topbar-py:12px;
 }
+.side .nav{flex:1 1 auto}
+.side .foot .usermenu.railuser{position:relative;width:100%}
+.side .foot .usermenu.railuser>summary{width:100%;display:flex;align-items:center;gap:9px;padding:7px 8px;border:1px solid var(--line);border-radius:8px;background:#fff}
+.side .foot .usermenu.railuser>summary:hover{background:var(--panel2,#f1f6f4)}
+.side .foot .usermenu.railuser .av{width:28px;height:28px;border-radius:7px;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;flex:none}
+.side .foot .usermenu.railuser .umeta{flex:1;min-width:0;overflow:hidden}
+.side .foot .usermenu.railuser .un{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.side .foot .usermenu.railuser .umc{margin-left:auto}
+.side .foot .usermenu.railuser .umpop{left:0;right:0;bottom:calc(100% + 7px);top:auto}
 body{font-family:var(--font-body);color:var(--ink);background:var(--bg)}
 </style>
 </head><body>
@@ -1453,9 +1462,9 @@ function renderNav(){
   });
   $('nav').innerHTML=html;
   const u=state.currentUser;
-  if($('rolebox')) $('rolebox').innerHTML = u
-    ? `<details class="usermenu"><summary><span class="av">${u.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase()}</span><span class="umeta"><span class="un">${u.name}</span><span class="ur">${u.role}</span></span><span class="umc">▾</span></summary><div class="umpop"><button class="ghost sm" style="width:100%" onclick="logout()">Sign out</button></div></details>`
-    : '';
+  var _um = u ? `<details class="usermenu railuser"><summary><span class="av">${u.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase()}</span><span class="umeta"><span class="un">${u.name}</span><span class="ur">${u.role}</span></span><span class="umc">▾</span></summary><div class="umpop"><button class="ghost sm" style="width:100%" onclick="logout()">Sign out</button></div></details>` : '';
+  if($('sidefoot')) $('sidefoot').innerHTML = _um;
+  if($('rolebox')) $('rolebox').innerHTML = '';
   if(!window._cmdkBound){ window._cmdkBound=true; document.addEventListener('keydown',function(e){ if((e.ctrlKey||e.metaKey)&&(e.key==='k'||e.key==='K')){ e.preventDefault(); openCmdK(); } }); }
 }
 function openCmdK(){ var el=$('cmdk'); if(!el)return; el.classList.add('open'); var i=$('cmdkInput'); if(i){ i.value=''; cmdkRender(); setTimeout(function(){ try{i.focus();}catch(e){} },30); } }
@@ -1510,8 +1519,8 @@ function render(){
   renderNav();
   const s=scr(state.screen);
   $('scTitle').textContent=s.name; $('scSub').textContent=(groupOf(s.id)?groupOf(s.id)+' · ':'')+(s.sub||'');
-  if($('helpbar')){ const EDIT_SCREENS={entry:1,dealers:1,prod:1,qc:1,qa:1,ship:1,admin:1,users:1}; let editable=!!EDIT_SCREENS[s.id]; let owner=editable?(s.owners.filter(r=>r!=='COO').join(', ')||'COO'):'Everyone'; let upd=editable?'Yes':'No — view only'; if(false){ /* tracker is view-only - drawer opens read-only; edits live in My Actions */ const tm={'KAM':'SO # & dates','Supply Chain':'RM Check / PR & RM dates','CFO':'CFO approval & invoice','Plant Manager':'delay reason & dept','Production':'production dates','COO':'any field'}; if(tm[state.role]) upd='Yes — '+tm[state.role]+' (click to open)'; } $('helpbar').innerHTML=`This screen: <b>${s.sub}</b> &nbsp;·&nbsp; Owned by: <b>${owner}</b> &nbsp;·&nbsp; Update here: <b>${upd}</b>`+((HINTS[s.id]&&!hintHidden(s.id))?`<div style="display:flex;gap:8px;align-items:flex-start;margin-top:7px;padding-top:7px;border-top:1px dashed var(--line)"><span style="font-size:12px;color:var(--txt2)">\uD83D\uDCA1 ${HINTS[s.id]}</span><button class="ghost sm" style="margin-left:auto;flex:0 0 auto;font-size:11px;padding:2px 8px" onclick="dismissHint('${s.id}')">Got it</button></div>`:''); }
-  if($('sidefoot')) $('sidefoot').innerHTML = '<button class="ghost sm" style="width:100%;margin-bottom:6px" onclick="showAllHints()">\u{1F4A1} Show screen tips</button>';
+  if($('helpbar')) $('helpbar').innerHTML='';  /* help bar removed (declutter) */
+  /* role switcher is rendered into .foot by renderNav (declutter removed the tips button) */
   ({dash:screenDash,approvals:screenApprovals,entry:screenEntry,tracker:screenTracker,prod:screenProd,qc:screenQC,qa:screenQA,ship:screenShip,reports:screenReports,budget:screenBudget,dealers:screenDealers,instructions:screenInstructions,admin:screenAdmin,datafix:screenDataFix,users:screenUsers,}[state.screen])();
 }
 /* ===================== LOCK 4: DATA FIX (reconciliation console — safety frame) ===================== */

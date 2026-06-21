@@ -739,7 +739,62 @@ tr.clk:hover td{background:var(--panel2)}
 .app.compact button.sm{padding:5px 9px}
 .app.compact .sec{margin:13px 2px 7px}
 
-</style></head><body>
+</style><style id="ds-foundation">
+/* PR1: VAN Ops navy design-system tokens (render-only override) */
+:root{
+  /* brand */
+  --navy:#2E4F7C; --navy-d:#223E66; --navy-l:#3D6098; --navy-bright:#3A6BB0;
+  --navy-50:#EFF3F9; --navy-100:#DEE7F3; --navy-200:#C6D5EA;
+  --green:#4FA84E; --green-d:#3C8B3C; --green-50:#EAF5EA;
+  --teal:#1F9C92; --teal-d:#177E76; --teal-50:#E5F4F2;
+  --red:#E03127; --red-d:#BE251D; --red-50:#FCEBEA;
+  --amber:#C77D18; --amber-d:#9E6210; --amber-50:#FBF1E0;
+  --blue:#2563EB; --blue-50:#EAF0FD;
+
+  /* neutrals (cool) */
+  --bg:#F7F8FA;
+  --surface:#FFFFFF;
+  --surface-2:#F5F7FA;
+  --surface-3:#EFF2F6;
+  --line:#E5E9EF;
+  --line-2:#EDF0F4;
+  --ink:#17202E;
+  --ink-2:#586577;
+  --ink-3:#8A95A6;
+
+  /* effects */
+  --sh-xs:0 1px 2px rgba(23,32,46,.05);
+  --sh-sm:0 1px 2px rgba(23,32,46,.06), 0 1px 1px rgba(23,32,46,.03);
+  --sh:0 4px 14px rgba(23,32,46,.08), 0 1px 3px rgba(23,32,46,.05);
+  --sh-lg:0 18px 48px rgba(20,30,48,.16);
+  --ring:0 0 0 3px rgba(46,79,124,.16);
+
+  /* shape — sharp/crisp */
+  --r:5px; --r-sm:4px; --r-lg:7px; --r-pill:999px;
+  --ease:cubic-bezier(.4,0,.2,1);
+
+  /* stage color-flow (PO Created → Delivered) */
+  --st-po:#7A8699; --st-rm:#C77D18; --st-prod:#2563EB; --st-lab:#7C5CFC;
+  --st-qa:#1F9C92; --st-ship:#4FA84E; --st-deliv:#2F8F4E;
+
+  --font-display:'Bricolage Grotesque','Geist',system-ui,sans-serif;
+  --font-body:'Geist','Plus Jakarta Sans',system-ui,sans-serif;
+  --font-mono:'Geist Mono','JetBrains Mono',ui-monospace,monospace;
+
+  /* density (compact defaults) — genuinely dense */
+  --fs:12px; --pad-card:11px; --row-py:4px; --gap:9px;
+  --nav-py:5px; --kpi-pad:11px; --h1:16px; --card-head-py:9px;
+  --well-py:13px; --well-px:16px; --kval:21px; --topbar-py:8px;
+  --rail-w:218px; --rail-cw:54px;
+}
+[data-density="comfortable"]{
+  --fs:13.5px; --pad-card:17px; --row-py:10px; --gap:15px;
+  --nav-py:8px; --kpi-pad:17px; --h1:20px; --card-head-py:15px;
+  --well-py:22px; --well-px:26px; --kval:27px; --topbar-py:12px;
+}
+body{font-family:var(--font-body);color:var(--ink);background:var(--bg)}
+</style>
+</head><body>
 <div class="app" id="appShell">
   <div class="navbackdrop" onclick="closeMobileNav()"></div>
   <aside class="side">
@@ -836,7 +891,7 @@ function ensureState(s){
   s.users=(s.users&&s.users.length)?s.users:deepClone(SEED.users||[]); if(s.currentUser===undefined)s.currentUser=null;
   s.rmRequests=s.rmRequests||[]; s.productionLog=s.productionLog||[]; s.packingLog=s.packingLog||[];
   s.actionLog=s.actionLog||[]; s.shipments=s.shipments||[]; s.inspections=s.inspections||[]; s.warehouses=s.warehouses||SEED.warehouses.slice();
-  s.rawStock=s.rawStock||{}; s.rmMovements=s.rmMovements||[]; s.audit=s.audit||[]; s.masters=s.masters||deepClone(SEED.masters||{}); s.batches=s.batches||[]; s.packedStock=s.packedStock||{}; s.packingLog=s.packingLog||[]; s.orders=s.orders||[]; if(s.seq==null)s.seq=1000; (s.packingLog||[]).forEach(function(p){ if(p&&!p.id) p.id='PK'+(s.seq++); }); if(s.dataFixEnabled==null)s.dataFixEnabled=true; if(!Array.isArray(s.prs))s.prs=[]; (s.batches||[]).forEach(function(b){ if((b.producedKg||0)>0 && (!Array.isArray(b.lots)||!b.lots.length)){ b.lots=[{id:'LOT'+(s.seq++), lotNo:(b.batchNo||'B')+'-L1', qty:b.producedKg, date:b.openedDate||'', by:b.by||'', coa:(b.coa||null), migrated:true}]; } }); ensureMasters(s); ensureProductionModel(s); dedupePackingLots(s); migrateLotTracking(s); healPRFlags(s); migrateBrandNames(s); loadBaseRecipesV2(s); loadBlendRecipesV1(s); loadBlendRecipesV2(s); purgeImportedProduction(s); purgeImportDuplicates(s); purgeImportedNoTwin(s); fixPhantomLotVU26134(s); consolidateByproductV1(s); dedupeByproductV1(s); reconcileShipLotsV1(s); normalizeVZincBase(s); return s;
+  s.rawStock=s.rawStock||{}; s.rmMovements=s.rmMovements||[]; s.audit=s.audit||[]; s.masters=s.masters||deepClone(SEED.masters||{}); s.batches=s.batches||[]; s.packedStock=s.packedStock||{}; s.packingLog=s.packingLog||[]; s.orders=s.orders||[]; if(s.seq==null)s.seq=1000; (s.packingLog||[]).forEach(function(p){ if(p&&!p.id) p.id='PK'+(s.seq++); }); if(s.dataFixEnabled==null)s.dataFixEnabled=true; if(!Array.isArray(s.prs))s.prs=[]; (s.batches||[]).forEach(function(b){ if((b.producedKg||0)>0 && (!Array.isArray(b.lots)||!b.lots.length)){ b.lots=[{id:'LOT'+(s.seq++), lotNo:(b.batchNo||'B')+'-L1', qty:b.producedKg, date:b.openedDate||'', by:b.by||'', coa:(b.coa||null), migrated:true}]; } }); ensureMasters(s); ensureProductionModel(s); dedupePackingLots(s); migrateLotTracking(s); healPRFlags(s); migrateBrandNames(s); loadBaseRecipesV2(s); loadBlendRecipesV1(s); loadBlendRecipesV2(s); purgeImportedProduction(s); purgeImportDuplicates(s); purgeImportedNoTwin(s); fixPhantomLotVU26134(s); consolidateByproductV1(s); dedupeByproductV1(s); reconcileShipLotsV1(s); normalizeVZincBase(s); seedByproductRulesV1(s); return s;
 }
 /* Lock 1: idempotent master seeding. ADDITIVE ONLY — seeds a list only when it is
    missing or empty, and never overwrites values the team has already added. Touches no
@@ -3482,6 +3537,16 @@ function reconcileShipLotsV1(s){ if(!s||s._shipReconV1) return; var fixed=0;
   s._shipReconV1=true;
   if(fixed>0) (s.actionLog=s.actionLog||[]).unshift({t:new Date().toISOString(),role:'System',by:'System',what:'RECONCILE: re-synced packing-lot shipped stock to dispatched totals on '+fixed+' line(s) - fixes phantom Ready-to-ship from edited shipments'});
 }
+/* Seed the editable by-product/off-spec routing master from the hardcoded BYPRODUCT_BASES,
+   so Admin shows the rule and reconcile auto-suggest fires. Idempotent; never removes/overrides
+   COO edits; touches only masters.byproductRules. */
+function seedByproductRulesV1(s){
+  if(!s.masters) s.masters={};
+  if(!Array.isArray(s.masters.byproductRules)) s.masters.byproductRules=[];
+  var arr=s.masters.byproductRules;
+  try{ Object.keys(BYPRODUCT_BASES||{}).forEach(function(to){ var from=(BYPRODUCT_BASES[to]||{}).from;
+    if(from && to && !arr.some(function(r){return r&&r.from===from&&r.to===to;})) arr.push({from:from,to:to}); }); }catch(e){}
+}
 function migrateLotTracking(s){
   if(!s||s._lotMig) return;
   const cache={}, FIFO=(a,b)=>String(a.date||a.mfgDate||'').localeCompare(String(b.date||b.mfgDate||''))||String(a.id||'').localeCompare(String(b.id||''));
@@ -4326,7 +4391,7 @@ function byproductCard(ed){ const arr=byproductRules(); const bases=allBasesForR
    ${ed?`<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:flex-end"><div class="fld" style="min-width:200px"><label>Off-spec of</label><select id="bpr_from"><option value="">— product —</option>${bases.map(x=>`<option>${x}</option>`).join('')}</select></div><div class="fld" style="min-width:200px"><label>Becomes</label><select id="bpr_to"><option value="">— by-product —</option>${bases.map(x=>`<option>${x}</option>`).join('')}</select></div><button class="sm" onclick="bprAdd()">+ Add rule</button></div>`:''}`); }
 function screenAdmin(){
   const ed=canEdit(['COO']);
-  const lists=[['shifts','Shifts'],['incharges','Shift incharges'],['delayReasons','Delay reasons'],['respDepts','Responsible departments'],['priorities','Priorities'],['kamNames','KAM names'],['forms','Product forms'],['statuses','Statuses'],['varianceReasons','Yield variance reasons'],['downtimeReasons','Downtime reasons'],['focalPersons','Delivery focal persons (COBO / VGreen / Dealer)']];
+  const lists=[['shifts','Shifts'],['incharges','Shift incharges'],['delayReasons','Delay reasons'],['respDepts','Responsible departments'],['priorities','Priorities'],['kamNames','KAM names'],['varianceReasons','Yield variance reasons'],['downtimeReasons','Downtime reasons'],['focalPersons','Delivery focal persons (COBO / VGreen / Dealer)']];
   $('view').innerHTML=`
    ${ed?'':viewOnly('COO / Admin')}
    ${sec('Reference lists — dropdown values')}

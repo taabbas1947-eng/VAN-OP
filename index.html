@@ -621,6 +621,19 @@ table tbody tr:hover{background:var(--panel2)}
 .ac2wait{font-size:11px;font-weight:800;padding:2px 8px;border-radius:99px;white-space:nowrap;background:#eef2f1;color:var(--txt2)}
 .ac2wait.red{background:var(--red-50);color:var(--red)}
 .ac2wait.amber{background:var(--amber-50);color:var(--amber)}
+.ac2mini{display:flex;align-items:center;gap:3px;flex:none}
+.ac2dot{width:8px;height:8px;border-radius:50%}
+.ac2gbar{display:flex;align-items:center;gap:6px;margin:0 0 14px;flex-wrap:wrap}
+.ac2glab{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);font-weight:700;margin-right:2px}
+.ac2gtab{border:1px solid var(--line);background:#fff;border-radius:999px;padding:5px 13px;font-size:12px;font-weight:700;color:var(--txt2);cursor:pointer}
+.ac2gtab.on{background:var(--navy-50);border-color:var(--navy);color:var(--navy)}
+.ac2group{margin-bottom:16px}
+.ac2ghead{display:flex;align-items:center;gap:9px;margin-bottom:9px}
+.ac2ghead .dot{width:8px;height:8px;border-radius:50%;background:var(--navy);flex:none}
+.ac2ghead .nm{font-weight:800;font-size:13.5px;color:var(--txt)}
+.ac2ghead .cnt{font-size:11px;font-weight:700;background:var(--navy-50);color:var(--navy);border-radius:999px;padding:1px 8px}
+.ac2ghead .ltb{font-size:11px;font-weight:700;background:var(--red-50);color:var(--red);border-radius:999px;padding:1px 8px}
+.ac2ghead .ln{flex:1;height:1px;background:var(--line)}
 .ac2kv{display:grid;grid-template-columns:92px 1fr;gap:7px 10px;margin-bottom:13px;font-size:12.5px}
 .ac2kv div:nth-child(odd){color:var(--mut);font-weight:700}
 .ac2steps{border-left:2px solid var(--line);padding-left:14px;margin-left:5px}
@@ -3301,7 +3314,7 @@ function actUrg(it){ if(actOverdue(it)) return 0; var d=actTiming(it).days||0; v
 function actSort(arr){ return arr.slice().sort(function(a,b){ var ua=actUrg(a),ub=actUrg(b); if(ua!==ub)return ua-ub; var oa=actOverdue(a)?daysOver(a.o):0, ob=actOverdue(b)?daysOver(b.o):0; if(oa!==ob)return ob-oa; var pa=actTiming(a).days||0, pb=actTiming(b).days||0; return pb-pa; }); }
 
 /* ===== Action Center v3 — merged urgency-first worklist (ported from prototype 2; render-only, reuses actionItems/actTiming/actUrg/actOverdue) ===== */
-var acRisk='all', acRoleF='all', acQ='', acSort2='risk';
+var acRisk='all', acRoleF='all', acQ='', acSort2='risk', acGroup='priority';
 var AC_ROLEORDER=['Supply Chain','CFO','Production','Lab Rep','AQCM','QCM','QA Inspector','Plant Manager'];
 var AC_STAGES=['PO Created','RM Check','Production','Lab QC','AQCM Review','Pack QC','Shipment'];
 function acTypeColor(lb){ if(lb==='Pack QC'||lb==='Inspect')return 'var(--navy)'; if(lb==='Open Production'||lb==='RM Check'||lb==='Acknowledge'||lb==='Receive')return 'var(--amber)'; if(lb==='Lab QC'||lb==='Review'||lb==='Approve'||lb==='Approve PR')return '#1d4ed8'; if(lb==='Add reason'||lb==='Correct')return 'var(--red)'; return 'var(--mut)'; }
@@ -3312,7 +3325,8 @@ function acBase(){ var all=actionItems(); var b=(state.role==='COO')?all:all.fil
 function acRoleScoped(b){ return acRoleF==='all'?b:b.filter(function(x){return x.role===acRoleF;}); }
 function acCounts(){ var r=acRoleScoped(acBase()); var late=0,today=0,normal=0,old=0; r.forEach(function(x){ if(x._risk==='late')late++; else if(x._risk==='today')today++; else normal++; if(x._days>old)old=x._days; }); return {all:r.length,late:late,today:today,normal:normal,oldest:old}; }
 function acFiltered(){ var r=acRoleScoped(acBase()); if(acRisk!=='all')r=r.filter(function(x){return x._risk===acRisk;}); var q=(acQ||'').toLowerCase().trim(); if(q)r=r.filter(function(x){var o=x.o||{},l=x.l||{};return ((o.po||'')+(o.client||'')+(l.brand||'')+(x.what||'')+x.role+x.label).toLowerCase().indexOf(q)>-1;}); if(acSort2==='oldest')r.sort(function(a,b){return b._days-a._days;}); else if(acSort2==='newest')r.sort(function(a,b){return a._days-b._days;}); else if(acSort2==='customer')r.sort(function(a,b){return ((a.o&&a.o.client)||'').localeCompare((b.o&&b.o.client)||'');}); else r=actSort(r); return r; }
-function acRowHTML(it){ var col=acTypeColor(it.label),T=ACT_META[it.label]||{s:it.label};
+function acMini(it){ var ci=AC_STAGES.indexOf(acStageOf(it.label)); var cur=it._risk==='late'?'var(--red)':it._risk==='today'?'var(--amber)':'var(--navy)'; return '<span class="ac2mini">'+AC_STAGES.map(function(s,i){var bg=i<ci?'var(--navy)':(i===ci?cur:'#dfe3e8');return '<span class="ac2dot" style="background:'+bg+'"></span>';}).join('')+'</span>'; }
+function acRowHTML(it,mini){ var col=acTypeColor(it.label),T=ACT_META[it.label]||{s:it.label};
   var cust=it.o?(it.o.client||''):(it.pr?(it.pr.rm+' (PR)'):(it.batch?coaItemOf(it.batch):''));
   var prod=it.l?it.l.brand:(it.batch?(it.batch.base||''):'');
   var title=it.o?it.o.po:(it.batch?(it.batch.batchNo||coaItemOf(it.batch)):(it.pr?('PR · '+it.pr.rm):'—'));
@@ -3321,12 +3335,13 @@ function acRowHTML(it){ var col=acTypeColor(it.label),T=ACT_META[it.label]||{s:i
   return '<div class="ac2row" onclick="acOpenDrawer(\''+it._id+'\')">'
     +'<span class="ac2badge" style="color:'+col+';background:color-mix(in srgb,'+col+' 13%,#fff)">'+(T.s||it.label)+'</span>'
     +'<div class="ac2work"><div class="ac2title">'+title+'</div><div class="ac2sub">'+sub+'</div></div>'
+    +(mini?acMini(it):'')
     +'<span class="ac2wait '+wcls+'">'+acWaitTxt(it)+'</span>'
     +'<button class="sm green" onclick="event.stopPropagation();'+it.act+'">'+it.label+'</button>'
   +'</div>'; }
 function acListHTML(){ var rows=acFiltered(); if(!rows.length)return '<div class="empty" style="padding:26px;text-align:center;color:var(--mut)">No actions in this view.</div>';
   var groups=[['late','Late / blocked','red'],['today','Today','amber'],['normal','Normal','']];
-  return groups.map(function(g){ var items=rows.filter(function(x){return x._risk===g[0];}); if(!items.length)return ''; return '<div class="ac2grouphead '+g[2]+'">'+g[1]+' · '+items.length+'</div>'+items.map(acRowHTML).join(''); }).join(''); }
+  return groups.map(function(g){ var items=rows.filter(function(x){return x._risk===g[0];}); if(!items.length)return ''; return '<div class="ac2grouphead '+g[2]+'">'+g[1]+' · '+items.length+'</div>'+items.map(function(x){return acRowHTML(x,true);}).join(''); }).join(''); }
 function acChipsHTML(c){ function chip(k,l,n,cls){ return '<span class="ac2chip '+cls+(acRisk===k?' on':'')+'" onclick="acRisk=\''+k+'\';render()">'+l+' <b>'+n+'</b></span>'; }
   return '<div class="ac2chips">'+chip('all','All',c.all,'')+chip('late','Late',c.late,'red')+chip('today','Today',c.today,'amber')+chip('normal','Normal',c.normal,'')+'</div>'; }
 function acRoleBarHTML(){ var all=actionItems(); all.forEach(function(it){ it._risk=acRiskOf(it); });
@@ -3351,6 +3366,9 @@ function acOpenDrawer(id){ var it=acBase().filter(function(x){return x._id===id;
     +'<div class="ac2steps">'+steps+'</div></div>'
     +'<div class="mf"><button class="ghost" onclick="closeModal()">Close</button><button class="green" onclick="closeModal();'+it.act+'">'+it.label+'</button></div>';
   $('modalBg').classList.add('open'); }
+function acGroupBarHTML(){ function t(k,l){return '<button class="ac2gtab'+(acGroup===k?' on':'')+'" onclick="acGroup=\''+k+'\';render()">'+l+'</button>';} return '<div class="ac2gbar"><span class="ac2glab">Group by</span>'+t('priority','Priority')+t('stage','By stage')+t('role','By role')+'</div>'; }
+function acGroupedHTML(mode){ var rows=acFiltered(); var EMPTY='<div class="empty" style="padding:26px;text-align:center;color:var(--mut)">No actions in this view.</div>'; if(!rows.length)return EMPTY; var keys=mode==='stage'?AC_STAGES.slice():AC_ROLEORDER.slice(); if(mode==='role'){rows.forEach(function(x){if(keys.indexOf(x.role)<0)keys.push(x.role);});} var html=keys.map(function(k){var items=rows.filter(function(x){return mode==='stage'?acStageOf(x.label)===k:x.role===k;}); if(!items.length)return ''; var late=items.filter(function(x){return x._risk==='late';}).length; var head='<div class="ac2ghead"><span class="dot"></span><span class="nm">'+k+'</span><span class="cnt">'+items.length+'</span>'+(late?'<span class="ltb">'+late+' late</span>':'')+'<span class="ln"></span></div>'; return '<div class="ac2group">'+head+'<div class="card" style="padding:0;overflow:hidden">'+items.map(function(x){return acRowHTML(x,false);}).join('')+'</div></div>';}).join(''); return html||EMPTY; }
+function acBodyHTML(){ if(acGroup==='stage')return acGroupedHTML('stage'); if(acGroup==='role')return acGroupedHTML('role'); return '<div class="card" style="padding:0;overflow:hidden">'+acListHTML()+'</div>'; }
 function screenApprovals(){
   var isCOO=state.role==='COO';
   var base=acBase();
@@ -3358,10 +3376,10 @@ function screenApprovals(){
   var c=acCounts();
   var head='<div class="banner info" style="margin-bottom:10px"><b>My Actions.</b> Everything waiting on you, most urgent first. '+(isCOO?'(As COO you see all role queues.)':'')+'</div>';
   var top='<div class="ac2top">'+acChipsHTML(c)+'<span class="ac2note">oldest <b>'+c.oldest+'d</b>'+(isCOO?' · all role queues':'')+'</span></div>';
-  var tools='<div class="ac2tools"><input id="ac2search" placeholder="Search PO / customer / product" value="'+(acQ||'').replace(/"/g,'&quot;')+'" oninput="acQ=this.value;var e=document.getElementById(\'ac2list\');if(e)e.innerHTML=acListHTML();">'
+  var tools='<div class="ac2tools"><input id="ac2search" placeholder="Search PO / customer / product" value="'+(acQ||'').replace(/"/g,'&quot;')+'" oninput="acQ=this.value;var e=document.getElementById(\'ac2list\');if(e)e.innerHTML=acBodyHTML();">'
     +'<select onchange="acSort2=this.value;render()"><option value="risk"'+(acSort2==='risk'?' selected':'')+'>Risk first</option><option value="oldest"'+(acSort2==='oldest'?' selected':'')+'>Oldest first</option><option value="newest"'+(acSort2==='newest'?' selected':'')+'>Newest first</option><option value="customer"'+(acSort2==='customer'?' selected':'')+'>Customer A–Z</option></select></div>';
   var rolebar=isCOO?acRoleBarHTML():'';
-  $('view').innerHTML=head+top+tools+rolebar+'<div class="card" style="padding:0;overflow:hidden"><div id="ac2list" class="ac2list">'+acListHTML()+'</div></div>';
+  $('view').innerHTML=head+top+tools+acGroupBarHTML()+rolebar+'<div id="ac2list">'+acBodyHTML()+'</div>';
 }
 function screenInstructions(){
   const steps=[

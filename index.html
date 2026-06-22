@@ -4566,8 +4566,37 @@ function screenAdmin(){
    ${labTplCard(canEdit(['Lab Rep','AQCM','QCM']))}
    ${(state.role==='COO'||state.role==='CFO')?salesTargetCard():''}
    ${sec('Access control')}
+   ${rolesCard()}
    ${accessMatrixCard()}`;
 }
+function _roleById(id){ return ((state.masters&&state.masters.roles)||[]).find(function(r){return r&&r.id===id;}); }
+function rolesCard(){ var isCOO=state.role==='COO'; var roles=(state.masters&&state.masters.roles)||[];
+  var row=function(r){ var badge=r.builtin?'<span class="pill" style="background:var(--navy-50);color:var(--navy);font-size:9px">Built-in</span>':'<span class="pill" style="background:#e7f6ec;color:var(--green2);font-size:9px">Custom</span>'; var arch=r.archived?' <span class="pill" style="background:#f1f3f5;color:var(--mut);font-size:9px">Archived</span>':''; var acts='';
+    if(isCOO){ if(r.builtin){ acts='<span class="muted" style="font-size:10.5px">wired in code — locked</span>'; } else if(r.archived){ acts='<button class="sm ghost" onclick="restoreRole(\''+r.id+'\')">Restore</button>'; } else { acts='<button class="sm ghost" onclick="renameRole(\''+r.id+'\')">Rename</button> <button class="sm ghost" style="color:var(--amber)" onclick="archiveRole(\''+r.id+'\')">Archive</button>'; } }
+    return '<tr><td style="padding:6px 4px"><b>'+r.name+'</b> '+badge+arch+'</td><td style="text-align:right;padding:6px 4px">'+acts+'</td></tr>'; };
+  return acard('rolesmaster','Roles','define who exists · '+roles.filter(function(r){return !r.archived;}).length+' active',
+    '<div class="muted" style="font-size:12px;margin-bottom:10px">Add a custom role (e.g. Accounts Officer), then grant it access per screen in the <b>Access control matrix</b> below. New roles are <b>locked out of Admin / Users / Data Fix</b> by default and view-only elsewhere until you grant edit. <b>Built-in roles are wired into the workflow and can’t be renamed or archived. COO is permanent.</b></div>'+
+    '<div style="overflow:auto"><table><tbody>'+roles.map(row).join('')+'</tbody></table></div>'+
+    (isCOO?'<div style="display:flex;gap:8px;margin-top:11px;max-width:440px"><input type="text" id="adm_newrole" placeholder="new role name… e.g. Accounts Officer" style="flex:1"><button class="sm green" onclick="addRole()">Add role</button></div>':'')); }
+function addRole(){ if(state.role!=='COO'){toast('COO only');return;} var el=$('adm_newrole'); var name=(el&&el.value||'').trim(); if(!name){toast('Enter a role name');return;}
+  state.masters.roles=state.masters.roles||[];
+  if(state.masters.roles.some(function(r){return r&&String(r.name).toLowerCase()===name.toLowerCase();})){toast('That role already exists');return;}
+  var base=name.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'')||'role'; var id=base; var i=2;
+  while(state.masters.roles.some(function(r){return r&&r.id===id;})){ id=base+'-'+(i++); }
+  state.masters.roles.push({id:id,name:name,builtin:false,archived:false});
+  state.masters.accessMatrix=state.masters.accessMatrix||{}; state.masters.accessMatrix[name]={users:{v:false,e:false},admin:{v:false,e:false},datafix:{v:false,e:false}};
+  logAction('Role added: '+name+' (locked from Admin/Users/Data Fix by default)'); save(); render(); toast('Role "'+name+'" added — grant it access in the matrix below'); }
+function renameRole(id){ if(state.role!=='COO'){toast('COO only');return;} var r=_roleById(id); if(!r)return; if(r.builtin){toast('Built-in roles can’t be renamed (they’re wired in code).');return;}
+  var nv=(typeof prompt==='function'?prompt('Rename role:',r.name):null); if(nv==null)return; nv=String(nv).trim(); if(!nv||nv===r.name)return;
+  if((state.masters.roles||[]).some(function(x){return x&&x!==r&&String(x.name).toLowerCase()===nv.toLowerCase();})){toast('That role name already exists');return;}
+  var old=r.name; var m=state.masters.accessMatrix; if(m&&m[old]){ m[nv]=m[old]; delete m[old]; }
+  (state.users||[]).forEach(function(u){ if(u&&u.role===old) u.role=nv; });
+  r.name=nv; logAction('Role renamed: '+old+' → '+nv); save(); render(); toast('Renamed to "'+nv+'". Reassign any server-side users from "'+old+'" if needed.'); }
+function archiveRole(id){ if(state.role!=='COO'){toast('COO only');return;} var r=_roleById(id); if(!r)return; if(r.builtin){toast('Built-in roles can’t be archived.');return;}
+  var inUse=(state.users||[]).filter(function(u){return u&&u.role===r.name;}).length;
+  if(inUse>0 && typeof confirm==='function' && !confirm(inUse+' user(s) currently have the "'+r.name+'" role. Archiving hides it from new assignments; existing users keep it. Continue?')) return;
+  r.archived=true; logAction('Role archived: '+r.name); save(); render(); toast('Role "'+r.name+'" archived'); }
+function restoreRole(id){ if(state.role!=='COO'){toast('COO only');return;} var r=_roleById(id); if(!r)return; r.archived=false; logAction('Role restored: '+r.name); save(); render(); toast('Role "'+r.name+'" restored'); }
 function accessMatrixCard(){ const isCOO=state.role==='COO';
   const roles=rolesList().filter(r=>r!=='COO');
   const ids=NAV_ORDER.filter(id=>scr(id));

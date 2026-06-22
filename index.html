@@ -1560,7 +1560,7 @@ function groupOf(id){ for(var i=0;i<NAV_GROUPS.length;i++){ if(NAV_GROUPS[i].ids
 function navBadge(id){ if(id!=='approvals') return ''; try{ var items=actionItems(); var mine=state.role==='COO'?items:items.filter(function(x){return x.role===state.role;}); return mine.length?`<span class="navct">${mine.length}</span>`:''; }catch(e){ return ''; } }
 function renderNav(){
   const byId={}; SCREENS.forEach(s=>byId[s.id]=s);
-  const vis=function(id){ return byId[id] && (id!=='datafix' || state.role==='COO') && canView(state.role,id); };
+  const vis=function(id){ return byId[id] && (id!=='datafix' || state.role==='COO') && id!=='budget' && canView(state.role,id); };
   let html='';
   NAV_GROUPS.forEach(function(g){
     const items=g.ids.filter(vis);
@@ -4292,18 +4292,12 @@ function drawRecon(){ if(typeof Chart==='undefined'||!_xrec) return; const el=$(
 function setReconView(v){ if(!_xrec)return; _xrec.view=v; ['cat','prod','client'].forEach(k=>{ const b=document.getElementById('rcv_'+k); if(b){ b.style.background=(k===v)?'#eaf1fb':'#fff'; b.style.color=(k===v)?'#1f4e87':'#71808f'; b.style.fontWeight=(k===v)?'600':'400'; } }); drawRecon(); }
 var dashTab='';
 function dashDefaultTab(){ var r=state.role; if(r==='CFO'||r==='KAM')return 'sales'; if(r==='Production'||r==='Plant Manager')return 'production'; if(r==='Lab Rep'||r==='AQCM'||r==='QCM'||r==='QA Inspector')return 'quality'; if(r==='Supply Chain')return 'supply'; return 'overview'; }
-function dashTabBar(){ var tabs=[['overview','Performance'],['sales','Sales & Budget'],['production','Production'],['quality','Quality'],['shipments','Shipments'],['supply','Supply Chain']]; return '<div class="dtabbar">'+tabs.map(function(t){return '<button class="dtab'+(dashTab===t[0]?' on':'')+'" onclick="dashTab=\''+t[0]+'\';render()">'+t[1]+'</button>';}).join('')+'</div>'; }
+function dashTabBar(){ var tabs=[['overview','Performance']]; if(accessLevel(state.role,'budget')!=='none')tabs.push(['sales','Sales & Budget']); tabs=tabs.concat([['production','Production'],['quality','Quality'],['shipments','Shipments'],['supply','Supply Chain']]); return '<div class="dtabbar">'+tabs.map(function(t){return '<button class="dtab'+(dashTab===t[0]?' on':'')+'" onclick="dashTab=\''+t[0]+'\';render()">'+t[1]+'</button>';}).join('')+'</div>'; }
 function _dk(l,v,d,c){return '<div class="kpi" style="border-top:3px solid var('+c+')"><div class="l">'+l+'</div><div class="v">'+v+'</div><div class="d">'+d+'</div></div>';}
 var _DQOWN={'Cleared to pack?':['Production'],'Awaiting Lab QC?':['Lab Rep','AQCM','QCM'],'Needs reconcile?':['Production','Plant Manager'],'Today’s output':['Production'],'UNFIT lots?':['Plant Manager'],'Cleared to ship?':['QA Inspector'],'Blocked (no batch #)?':['Production'],'QA failed?':['Supply Chain'],'Awaiting QA inspection?':['QA Inspector'],'Ready to ship?':['Supply Chain'],'Overdue deliveries?':['Supply Chain','KAM'],'Revenue at risk':['CFO','KAM'],'On-time delivery':['Supply Chain','KAM'],'RM-blocked POs?':['Supply Chain'],'PRs awaiting CFO?':['CFO'],'GRN to receive?':['Supply Chain']};
 function _dq(q,val,sub,tone,go){var c=tone==='bad'?'--red':tone==='warn'?'--amber':tone==='good'?'--green2':'--navy';var own=(typeof _DQOWN!=='undefined')?_DQOWN[q]:null;var mine=own&&state.role!=='COO'&&own.indexOf(state.role)>-1;return '<div class="dqcard'+(mine?' mine':'')+'"'+(go?(' onclick="'+go+'" style="cursor:pointer"'):'')+'>'+(mine?'<span class="dq-mine">Your action</span>':'')+'<div class="dq-q">'+q+'</div><div class="dq-v" style="color:var('+c+')">'+val+'</div><div class="dq-s">'+sub+'</div>'+(go?'<div class="dq-go">Open ▸</div>':'')+'</div>';}
 function dashStageBar(){ var counts={}; BUCKETS.forEach(function(b){counts[b]=0;}); (state.orders||[]).forEach(function(o){ var b=orderBucket(o); counts[b]=(counts[b]||0)+1; }); var max=Math.max.apply(null,BUCKETS.map(function(b){return counts[b];}).concat([1])); return '<div class="card"><h3>Where orders are sitting <span class="hint">'+(state.orders||[]).length+' orders · most-blocking stage</span></h3><div class="stagebars">'+BUCKETS.map(function(b){var n=counts[b];var col=(BUCKET_META[b]&&BUCKET_META[b].c)||'--navy';return '<div class="sbrow" onclick="setScreen(\'tracker\')" style="cursor:pointer"><div class="sb-l">'+b+'</div><div class="sb-bar"><i style="width:'+(n/max*100)+'%;background:var('+col+')"></i></div><div class="sb-n">'+n+' PO</div></div>';}).join('')+'</div></div>'; }
-function dashSalesHtml(){ var M=execMetrics(); var bvb=M.budget>0?Math.round(M.booked/M.budget*100):null, dvb=M.budget>0?Math.round(M.delivered/M.budget*100):null;
-  var kpis='<div class="kpis" style="grid-template-columns:repeat(4,1fr)">'+_dk('Budget (FY)',pkr(M.budget),'client targets','--navy')+_dk('Booked',pkr(M.booked),(bvb!=null?bvb+'% of budget':'—'),'--navy')+_dk('Delivered',pkr(M.delivered),(dvb!=null?dvb+'% of budget':'—'),'--green2')+_dk('Revenue at risk',pkr(M.riskVal),'overdue lines','--red')+'</div>';
-  var cards='<div class="dqgrid">'+_dq('On-time delivery',(M.onPct!=null?M.onPct+'%':'—'),M.onD+' delivered lines',(M.onPct!=null&&M.onPct>=90?'good':'warn'),"setScreen('tracker')")+_dq('Revenue at risk',pkr(M.riskVal),'on overdue lines',(M.riskVal>0?'bad':'good'),"setScreen('tracker')")+'</div>';
-  var mx=Math.max(M.budget,M.booked,M.delivered,1); var bars='<div class="card"><h3>Budget · Booked · Delivered</h3><div class="stagebars">'+[['Budget',M.budget,'--navy'],['Booked',M.booked,'--navy2'],['Delivered',M.delivered,'--green2']].map(function(r){return '<div class="sbrow"><div class="sb-l">'+r[0]+'</div><div class="sb-bar"><i style="width:'+(r[1]/mx*100)+'%;background:var('+r[2]+')"></i></div><div class="sb-n">'+pkr(r[1])+'</div></div>';}).join('')+'</div></div>';
-  var rows=M.clients.map(function(c){var att=c.budget>0?Math.round(c.delivered/c.budget*100):null; return '<tr><td><b>'+c.client+'</b></td><td class="num">'+pkr(c.budget)+'</td><td class="num">'+pkr(c.booked)+'</td><td class="num">'+pkr(c.delivered)+'</td><td class="num">'+(att!=null?att+'%':'—')+'</td></tr>';}).join('');
-  var tbl='<div class="card"><h3>By client <span class="hint">'+M.clients.length+'</span></h3><div style="overflow:auto"><table><thead><tr><th>Client</th><th class="num">Budget</th><th class="num">Booked</th><th class="num">Delivered</th><th class="num">Attainment</th></tr></thead><tbody>'+(rows||'<tr><td colspan="5" class="muted">No client targets / orders yet.</td></tr>')+'</tbody></table></div><div style="margin-top:10px"><button class="sm" onclick="setScreen(\'budget\')">Open full Sales & Budget ▸</button></div></div>';
-  return kpis+cards+bars+tbl; }
+function dashSalesHtml(){ if(accessLevel(state.role,'budget')==='none') return '<div class="card"><div class="muted" style="padding:16px 2px">Sales &amp; Budget is restricted for your role.</div></div>'; return budgetHtml(); }
 function dashProdHtml(){ var PC=window.ProductionCenter; var fk=PC?PC.floorKpis(state):{producing:{count:0,kg:0},qc:{count:0,kg:0},pack:{count:0,kg:0},recon:{count:0,kg:0}};
   var todayStr=TODAY.toISOString().slice(0,10); var todayKg=(state.productionLog||[]).filter(function(x){return (x.date||'')===todayStr;}).reduce(function(a,x){return a+(x.kg||0);},0);
   var kpis='<div class="kpis" style="grid-template-columns:repeat(4,1fr)">'+_dk('In production',fk.producing.count+'',fmt(fk.producing.kg)+' Kg to go','--navy')+_dk('Awaiting Lab QC',fk.qc.count+'',fmt(fk.qc.kg)+' Kg pending','--amber')+_dk('Ready to pack',fk.pack.count+'',fmt(fk.pack.kg)+' Kg cleared','--green2')+_dk('Reconcile',fk.recon.count+'',fmt(fk.recon.kg)+' Kg pooled','--red')+'</div>';
@@ -4335,6 +4329,7 @@ function dashSupplyHtml(){ var prs=state.prs||[]; var openPrs=prs.filter(functio
   return kpis+cards+prChart+dashStageBar(); }
 function screenDash(){
   if(!dashTab) dashTab=dashDefaultTab();
+  if(dashTab==='sales' && accessLevel(state.role,'budget')==='none') dashTab='overview';
   var bar=dashTabBar();
   if(dashTab==='overview'){ var M=execMetrics(); $('view').innerHTML=bar+dashExecHtml(M); try{drawDashExec(M);}catch(e){} return; }
   var body = dashTab==='sales'?dashSalesHtml() : dashTab==='production'?dashProdHtml() : dashTab==='quality'?dashQualHtml() : dashTab==='shipments'?dashShipHtml() : dashTab==='supply'?dashSupplyHtml() : '';
@@ -4699,7 +4694,8 @@ function bgtSubRows(c){ if(bgtExpand!==c) return ''; const ed=(state.role==='COO
   }); });
   if(!body) body=`<tr style="background:var(--panel2)"><td colspan="6" class="muted" style="padding-left:26px">No order lines with a quantity for this client.</td></tr>`;
   return body; }
-function screenBudget(){
+function screenBudget(){ dashTab='sales'; state.screen='dash'; screenDash(); }
+function budgetHtml(){
   const fy=fyKey(TODAY.toISOString().slice(0,10)); const targets=(state.masters&&state.masters.salesTargets)||{};
   const rows={};
   const dealerKids=new Set(); (state.orders||[]).forEach(o=>{ const c=budgetKey(o); if(isDealerClient(o)&&o.client) dealerKids.add(o.client); rows[c]=rows[c]||{booked:0,delivered:0,delKg:0}; (o.lines||[]).forEach(l=>{ const pr=+l.invoicePrice||0; rows[c].booked+=(+l.ordered||0)*pr; rows[c].delivered+=(+l.delivered||0)*pr; rows[c].deliveredKg=(rows[c].deliveredKg||0)+(+l.delivered||0); }); });
@@ -4715,7 +4711,7 @@ function screenBudget(){
   // product mix by delivered value
   const pm={}; (state.orders||[]).forEach(o=>(o.lines||[]).forEach(l=>{ const v=(+l.delivered||0)*(+l.invoicePrice||0); if(v>0){ pm[l.brand]=(pm[l.brand]||0)+v; } }));
   const pmRows=Object.entries(pm).sort((a,b)=>b[1]-a[1]).slice(0,15);
-  $('view').innerHTML=`
+  return `
    <div class="banner info"><b>Sales &amp; Budget · COO / CFO only.</b> Achievement = <b>delivered</b> value (delivered Kg/L × VAN invoice price). Targets are per client for <b>${fyRange(fy)}</b> (set in Admin · Master Data). Booked = ordered pipeline value.${(state.role==='COO'||state.role==='CFO')?` <button class="sm" style="margin-left:8px" onclick="openBulkPricing()">💲 Set invoice prices (bulk)</button>`:''}</div>
    ${noPrice?'<div class="banner warn">Some PO lines have <b>no invoice price</b> yet — their value is counted as 0. Set invoice prices on New PO Entry (new POs) or via Data Fix (imported POs).</div>':''}
    <div class="kpis" style="grid-template-columns:repeat(4,1fr)">

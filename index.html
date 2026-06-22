@@ -841,6 +841,12 @@ tr.clk:hover td{background:var(--panel2)}
 .pbfoot{font-size:10px;color:var(--mut);margin-top:6px}
 .pjgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:11px}
 .shipboard{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+.amxwrap{overflow:auto;max-height:64vh}
+.amxtbl{border-collapse:separate;border-spacing:0}
+.amxtbl th,.amxtbl td{background:#fff}
+.amxtbl thead th{position:sticky;top:0;z-index:3;box-shadow:inset 0 -1px 0 var(--line)}
+.amxtbl th:first-child,.amxtbl td:first-child{position:sticky;left:0;z-index:2;box-shadow:inset -1px 0 0 var(--line);min-width:150px}
+.amxtbl thead th:first-child{z-index:4}
 @media(max-width:1000px){.shipboard{grid-template-columns:1fr}}
 @media(max-width:760px){.pjgrid{grid-template-columns:1fr}}
 .pbm-head{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--line);font-weight:700;font-size:13px}
@@ -4604,12 +4610,12 @@ function accessMatrixCard(){ const isCOO=state.role==='COO';
   const LV={none:['No access','#fbecec','#b03a2e'],view:['View','#eef2ec','#5f6b62'],edit:['Edit','#e3f2ee','#0a5d4d']};
   const cell=(role,id)=>{ const x=LV[accessLevel(role,id)]; return `<span ${isCOO?`onclick="amxCycle('${role}','${id}')"`:''} title="${role} · ${scr(id).name}: ${x[0]}${isCOO?' — click to change':''}" style="display:inline-block;min-width:56px;text-align:center;border-radius:7px;font-size:10px;font-weight:700;padding:4px 8px;cursor:${isCOO?'pointer':'default'};background:${x[1]};color:${x[2]}">${x[0]}</span>`; };
   return acard('amx','Access control matrix','role × screen · click to set',`<div class="muted" style="font-size:12px;margin-bottom:10px">Set each role's access per screen — <b style="color:#b03a2e">No access</b> · <b style="color:#5f6b62">View</b> · <b style="color:#0a5d4d">Edit</b>. <b>Edit</b> grants everything on that screen (data entry, approvals &amp; sign-offs). <b>COO always has full access</b> and is the only one who can change this matrix. Click any cell to cycle its level; changes apply on the user's next screen change / refresh.</div>
-    <div style="overflow:auto"><table><thead><tr><th>Screen</th>${roles.map(r=>`<th style="font-size:10px;white-space:nowrap;text-align:center">${r}</th>`).join('')}</tr></thead><tbody>
+    <div class="amxwrap"><table class="amxtbl"><thead><tr><th>Screen</th>${roles.map(r=>`<th style="font-size:10px;white-space:nowrap;text-align:center">${r}</th>`).join('')}</tr></thead><tbody>
     ${ids.map(id=>{const sc=scr(id);return `<tr><td style="white-space:nowrap"><b>${sc.name}</b></td>${roles.map(r=>`<td style="white-space:nowrap;text-align:center">${cell(r,id)}</td>`).join('')}</tr>`;}).join('')}
     </tbody></table></div>`); }
 function amxCycle(role,id){ if(state.role!=='COO'){toast('COO only');return;} const order=['none','view','edit']; const nx=order[(order.indexOf(accessLevel(role,id))+1)%3];
   state.masters.accessMatrix=state.masters.accessMatrix||{}; const m=state.masters.accessMatrix; m[role]=m[role]||{}; m[role][id]={v:(nx!=='none'),e:(nx==='edit')};
-  logAction(`Access set: ${role} · ${id} → ${nx.toUpperCase()}`); save(); render(); }
+  logAction(`Access set: ${role} · ${id} → ${nx.toUpperCase()}`); var _w=document.querySelector('.amxwrap'); var _sl=_w?_w.scrollLeft:0, _st=_w?_w.scrollTop:0; save(); render(); requestAnimationFrame(function(){ var w=document.querySelector('.amxwrap'); if(w){ w.scrollLeft=_sl; w.scrollTop=_st; } }); }
 function pkr(n){ return 'PKR '+Math.round(+n||0).toLocaleString(); }
 function fyRange(fy){ const a=parseInt(String(fy).slice(0,4),10); if(isNaN(a))return fy; return 'FY '+fy+' (1 Jul '+a+' – 30 Jun '+(a+1)+')'; }
 function isDealerClient(o){ return (o&&(o.channel==='Dealer'))||/^DLR/i.test(String((o&&o.client)||'')); }

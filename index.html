@@ -977,7 +977,7 @@ function ensureState(s){
   s.users=(s.users&&s.users.length)?s.users:deepClone(SEED.users||[]); if(s.currentUser===undefined)s.currentUser=null;
   s.rmRequests=s.rmRequests||[]; s.productionLog=s.productionLog||[]; s.packingLog=s.packingLog||[];
   s.actionLog=s.actionLog||[]; s.shipments=s.shipments||[]; s.inspections=s.inspections||[]; s.warehouses=s.warehouses||SEED.warehouses.slice();
-  s.rawStock=s.rawStock||{}; s.rmMovements=s.rmMovements||[]; s.audit=s.audit||[]; s.masters=s.masters||deepClone(SEED.masters||{}); s.batches=s.batches||[]; s.packedStock=s.packedStock||{}; s.packingLog=s.packingLog||[]; s.orders=s.orders||[]; if(s.seq==null)s.seq=1000; (s.packingLog||[]).forEach(function(p){ if(p&&!p.id) p.id='PK'+(s.seq++); }); if(s.dataFixEnabled==null)s.dataFixEnabled=true; if(!Array.isArray(s.prs))s.prs=[]; (s.batches||[]).forEach(function(b){ if((b.producedKg||0)>0 && (!Array.isArray(b.lots)||!b.lots.length)){ b.lots=[{id:'LOT'+(s.seq++), lotNo:(b.batchNo||'B')+'-L1', qty:b.producedKg, date:b.openedDate||'', by:b.by||'', coa:(b.coa||null), migrated:true}]; } }); ensureMasters(s); ensureProductionModel(s); dedupePackingLots(s); migrateLotTracking(s); healPRFlags(s); migrateBrandNames(s); loadBaseRecipesV2(s); loadBlendRecipesV1(s); loadBlendRecipesV2(s); purgeImportedProduction(s); purgeImportDuplicates(s); purgeImportedNoTwin(s); fixPhantomLotVU26134(s); consolidateByproductV1(s); dedupeByproductV1(s); reconcileShipLotsV1(s); normalizeVZincBase(s); seedByproductRulesV1(s); return s;
+  s.rawStock=s.rawStock||{}; s.rmMovements=s.rmMovements||[]; s.audit=s.audit||[]; s.masters=s.masters||deepClone(SEED.masters||{}); s.batches=s.batches||[]; s.packedStock=s.packedStock||{}; s.packingLog=s.packingLog||[]; s.orders=s.orders||[]; if(s.seq==null)s.seq=1000; (s.packingLog||[]).forEach(function(p){ if(p&&!p.id) p.id='PK'+(s.seq++); }); if(s.dataFixEnabled==null)s.dataFixEnabled=true; if(!Array.isArray(s.prs))s.prs=[]; (s.batches||[]).forEach(function(b){ if((b.producedKg||0)>0 && (!Array.isArray(b.lots)||!b.lots.length)){ b.lots=[{id:'LOT'+(s.seq++), lotNo:(b.batchNo||'B')+'-L1', qty:b.producedKg, date:b.openedDate||'', by:b.by||'', coa:(b.coa||null), migrated:true}]; } }); ensureMasters(s); ensureProductionModel(s); dedupePackingLots(s); migrateLotTracking(s); healPRFlags(s); migrateBrandNames(s); loadBaseRecipesV2(s); loadBlendRecipesV1(s); loadBlendRecipesV2(s); purgeImportedProduction(s); purgeImportDuplicates(s); purgeImportedNoTwin(s); fixPhantomLotVU26134(s); consolidateByproductV1(s); dedupeByproductV1(s); reconcileShipLotsV1(s); normalizeVZincBase(s); seedByproductRulesV1(s); seedRolesV1(s); return s;
 }
 /* Lock 1: idempotent master seeding. ADDITIVE ONLY — seeds a list only when it is
    missing or empty, and never overwrites values the team has already added. Touches no
@@ -3680,6 +3680,14 @@ function reconcileShipLotsV1(s){ if(!s||s._shipReconV1) return; var fixed=0;
 /* Seed the editable by-product/off-spec routing master from the hardcoded BYPRODUCT_BASES,
    so Admin shows the rule and reconcile auto-suggest fires. Idempotent; never removes/overrides
    COO edits; touches only masters.byproductRules. */
+function seedRolesV1(s){
+  if(!s.masters) s.masters={};
+  if(!Array.isArray(s.masters.roles) || !s.masters.roles.length){
+    var src=(typeof SEED!=='undefined'&&SEED.roles)||[];
+    s.masters.roles=src.map(function(name){ return {id:String(name).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,''), name:name, builtin:true, archived:false}; });
+  }
+}
+function rolesList(){ try{ var m=(typeof state!=='undefined'&&state&&state.masters&&state.masters.roles); if(m&&m.length) return m.filter(function(r){return r&&!r.archived;}).map(function(r){return r.name;}); }catch(e){} return (typeof SEED!=='undefined'&&SEED.roles)||[]; }
 function seedByproductRulesV1(s){
   if(!s.masters) s.masters={};
   if(!Array.isArray(s.masters.byproductRules)) s.masters.byproductRules=[];
@@ -4561,7 +4569,7 @@ function screenAdmin(){
    ${accessMatrixCard()}`;
 }
 function accessMatrixCard(){ const isCOO=state.role==='COO';
-  const roles=((typeof SEED!=='undefined'&&SEED.roles)||[]).filter(r=>r!=='COO');
+  const roles=rolesList().filter(r=>r!=='COO');
   const ids=NAV_ORDER.filter(id=>scr(id));
   const m=(state.masters&&state.masters.accessMatrix)||{};
   const LV={none:['No access','#fbecec','#b03a2e'],view:['View','#eef2ec','#5f6b62'],edit:['Edit','#e3f2ee','#0a5d4d']};
@@ -5021,7 +5029,7 @@ function paintUsers(){
      <div class="fld"><label>Full name</label><input value="${uForm.name}" oninput="uForm.name=this.value" placeholder="e.g. Muhammad Imran"></div>
      <div class="fld"><label>Username</label><input value="${uForm.username}" oninput="uForm.username=this.value" placeholder="e.g. imran"></div>
      <div class="fld"><label>Password</label><input type="password" value="${uForm.password}" oninput="uForm.password=this.value" placeholder="set a password"></div>
-     <div class="fld"><label>Role</label><select onchange="uForm.role=this.value">${SEED.roles.map(r=>`<option ${r===uForm.role?'selected':''}>${r}</option>`).join('')}</select></div>
+     <div class="fld"><label>Role</label><select onchange="uForm.role=this.value">${rolesList().map(r=>`<option ${r===uForm.role?'selected':''}>${r}</option>`).join('')}</select></div>
    </div><button class="green" style="margin-top:13px" onclick="addUser()">Add person</button></div>
    <div class="card"><h3>People <span class="hint">${us.length} accounts</span></h3><div style="overflow:auto"><table><thead><tr><th>Name</th><th>Username</th><th>Role</th><th class="ctr">Actions</th></tr></thead><tbody>${us.map(u=>`<tr><td><b>${u.name}</b>${u.username===me?' <span class="pill" style="background:var(--navy-50);color:var(--navy)">you</span>':''}</td><td>${u.username}</td><td>${u.role}</td><td class="ctr"><button class="sm ghost" onclick="openEditUser('${u.username}')">Edit</button> <button class="sm ghost" onclick="delUser('${u.username}')">Delete</button></td></tr>`).join('')}</tbody></table></div></div>`;
 }
@@ -5050,7 +5058,7 @@ function renderEditUser(){ const self=state.currentUser&&state.currentUser.usern
     <div class="fld"><label>Full name</label><input value="${uEdit.name}" oninput="uEdit.name=this.value"></div>
     <div class="fld"><label>Username</label><input value="${uEdit.newUsername}" oninput="uEdit.newUsername=this.value"></div>
     <div class="fld"><label>New password <span class="muted" style="text-transform:none">(blank = keep)</span></label><input type="password" value="${uEdit.password}" oninput="uEdit.password=this.value" placeholder="leave blank to keep"></div>
-    <div class="fld"><label>Role</label><select onchange="uEdit.role=this.value">${SEED.roles.map(r=>`<option ${r===uEdit.role?'selected':''}>${r}</option>`).join('')}</select></div>
+    <div class="fld"><label>Role</label><select onchange="uEdit.role=this.value">${rolesList().map(r=>`<option ${r===uEdit.role?'selected':''}>${r}</option>`).join('')}</select></div>
   </div><div class="muted" style="font-size:11px;margin-top:11px">Leave password blank to keep the current one. If you change your OWN account, you'll be signed out to sign in again.</div></div>
   <div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" onclick="saveEditUser()">Save changes</button></div>`; }
 async function saveEditUser(){ if(!screenEditOK('users')){toast('You need Edit access to Users & Access');return;} const old=uEdit.username; const n=(uEdit.name||'').trim(), un=(uEdit.newUsername||'').trim().toLowerCase();

@@ -4608,14 +4608,16 @@ function accessMatrixCard(){ const isCOO=state.role==='COO';
   const ids=NAV_ORDER.filter(id=>scr(id));
   const m=(state.masters&&state.masters.accessMatrix)||{};
   const LV={none:['No access','#fbecec','#b03a2e'],view:['View','#eef2ec','#5f6b62'],edit:['Edit','#e3f2ee','#0a5d4d']};
-  const cell=(role,id)=>{ const x=LV[accessLevel(role,id)]; return `<span ${isCOO?`onclick="amxCycle('${role}','${id}')"`:''} title="${role} · ${scr(id).name}: ${x[0]}${isCOO?' — click to change':''}" style="display:inline-block;min-width:56px;text-align:center;border-radius:7px;font-size:10px;font-weight:700;padding:4px 8px;cursor:${isCOO?'pointer':'default'};background:${x[1]};color:${x[2]}">${x[0]}</span>`; };
+  const cell=(role,id)=>{ const x=LV[accessLevel(role,id)]; return `<span ${isCOO?`onclick="amxCycle('${role}','${id}',this)"`:''} title="${role} · ${scr(id).name}: ${x[0]}${isCOO?' — click to change':''}" style="display:inline-block;min-width:56px;text-align:center;border-radius:7px;font-size:10px;font-weight:700;padding:4px 8px;cursor:${isCOO?'pointer':'default'};background:${x[1]};color:${x[2]}">${x[0]}</span>`; };
   return acard('amx','Access control matrix','role × screen · click to set',`<div class="muted" style="font-size:12px;margin-bottom:10px">Set each role's access per screen — <b style="color:#b03a2e">No access</b> · <b style="color:#5f6b62">View</b> · <b style="color:#0a5d4d">Edit</b>. <b>Edit</b> grants everything on that screen (data entry, approvals &amp; sign-offs). <b>COO always has full access</b> and is the only one who can change this matrix. Click any cell to cycle its level; changes apply on the user's next screen change / refresh.</div>
     <div class="amxwrap"><table class="amxtbl"><thead><tr><th>Screen</th>${roles.map(r=>`<th style="font-size:10px;white-space:nowrap;text-align:center">${r}</th>`).join('')}</tr></thead><tbody>
     ${ids.map(id=>{const sc=scr(id);return `<tr><td style="white-space:nowrap"><b>${sc.name}</b></td>${roles.map(r=>`<td style="white-space:nowrap;text-align:center">${cell(r,id)}</td>`).join('')}</tr>`;}).join('')}
     </tbody></table></div>`); }
-function amxCycle(role,id){ if(state.role!=='COO'){toast('COO only');return;} const order=['none','view','edit']; const nx=order[(order.indexOf(accessLevel(role,id))+1)%3];
-  state.masters.accessMatrix=state.masters.accessMatrix||{}; const m=state.masters.accessMatrix; m[role]=m[role]||{}; m[role][id]={v:(nx!=='none'),e:(nx==='edit')};
-  logAction(`Access set: ${role} · ${id} → ${nx.toUpperCase()}`); var _w=document.querySelector('.amxwrap'); var _sl=_w?_w.scrollLeft:0, _st=_w?_w.scrollTop:0; save(); render(); requestAnimationFrame(function(){ var w=document.querySelector('.amxwrap'); if(w){ w.scrollLeft=_sl; w.scrollTop=_st; } }); }
+function amxCycle(role,id,el){ if(state.role!=='COO'){toast('COO only');return;} var order=['none','view','edit']; var nx=order[(order.indexOf(accessLevel(role,id))+1)%3];
+  state.masters.accessMatrix=state.masters.accessMatrix||{}; var m=state.masters.accessMatrix; m[role]=m[role]||{}; m[role][id]={v:(nx!=='none'),e:(nx==='edit')};
+  logAction('Access set: '+role+' · '+id+' → '+nx.toUpperCase());
+  if(el&&el.style){ var LV={none:['No access','#fbecec','#b03a2e'],view:['View','#eef2ec','#5f6b62'],edit:['Edit','#e3f2ee','#0a5d4d']}; var x=LV[nx]; el.textContent=x[0]; el.style.background=x[1]; el.style.color=x[2]; try{ el.title=role+' · '+((typeof scr==='function'&&scr(id))?scr(id).name:id)+': '+x[0]+' — click to change'; }catch(e){} save(); }
+  else { save(); render(); } }
 function pkr(n){ return 'PKR '+Math.round(+n||0).toLocaleString(); }
 function fyRange(fy){ const a=parseInt(String(fy).slice(0,4),10); if(isNaN(a))return fy; return 'FY '+fy+' (1 Jul '+a+' – 30 Jun '+(a+1)+')'; }
 function isDealerClient(o){ return (o&&(o.channel==='Dealer'))||/^DLR/i.test(String((o&&o.client)||'')); }

@@ -847,6 +847,22 @@ tr.clk:hover td{background:var(--panel2)}
 .amxtbl thead th{position:sticky;top:0;z-index:3;box-shadow:inset 0 -1px 0 var(--line)}
 .amxtbl th:first-child,.amxtbl td:first-child{position:sticky;left:0;z-index:2;box-shadow:inset -1px 0 0 var(--line);min-width:150px}
 .amxtbl thead th:first-child{z-index:4}
+.dtabbar{display:flex;gap:4px;flex-wrap:wrap;margin:0 0 16px;border-bottom:2px solid var(--line)}
+.dtab{border:none;background:transparent;padding:9px 15px;font-size:13px;font-weight:700;color:var(--mut);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px}
+.dtab.on{color:var(--navy);border-bottom-color:var(--navy)}
+.dqgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin:0 0 16px}
+.dqcard{background:#fff;border:1px solid var(--line);border-radius:11px;padding:14px 15px;transition:box-shadow .12s,border-color .12s}
+.dqcard:hover{box-shadow:0 4px 14px rgba(20,40,35,.08);border-color:var(--navy-100,#cdd9ec)}
+.dq-q{font-size:12px;color:var(--mut);font-weight:600}
+.dq-v{font-size:25px;font-weight:800;line-height:1.1;margin-top:6px}
+.dq-s{font-size:11.5px;color:var(--mut);margin-top:3px}
+.dq-go{font-size:11px;color:var(--navy);font-weight:700;margin-top:8px}
+.stagebars{display:flex;flex-direction:column;gap:8px}
+.sbrow{display:flex;align-items:center;gap:11px}
+.sb-l{width:140px;font-size:12px;color:var(--ink-2,#586577);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sb-bar{flex:1;height:20px;background:var(--surface-2,#f1f6f4);border-radius:6px;overflow:hidden}
+.sb-bar i{display:block;height:100%;border-radius:6px;min-width:2px}
+.sb-n{width:84px;text-align:right;font-size:12px;font-weight:700}
 @media(max-width:1000px){.shipboard{grid-template-columns:1fr}}
 @media(max-width:760px){.pjgrid{grid-template-columns:1fr}}
 .pbm-head{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--line);font-weight:700;font-size:13px}
@@ -4272,117 +4288,46 @@ function drawRecon(){ if(typeof Chart==='undefined'||!_xrec) return; const el=$(
   charts.exRecon=new Chart(el,cfg);
 }
 function setReconView(v){ if(!_xrec)return; _xrec.view=v; ['cat','prod','client'].forEach(k=>{ const b=document.getElementById('rcv_'+k); if(b){ b.style.background=(k===v)?'#eaf1fb':'#fff'; b.style.color=(k===v)?'#1f4e87':'#71808f'; b.style.fontWeight=(k===v)?'600':'400'; } }); drawRecon(); }
+var dashTab='';
+function dashDefaultTab(){ var r=state.role; if(r==='CFO'||r==='KAM')return 'sales'; if(r==='Production'||r==='Plant Manager')return 'production'; if(r==='Lab Rep'||r==='AQCM'||r==='QCM'||r==='QA Inspector')return 'quality'; if(r==='Supply Chain')return 'shipments'; return 'overview'; }
+function dashTabBar(){ var tabs=[['overview','Performance'],['sales','Sales & Budget'],['production','Production'],['quality','Quality'],['shipments','Shipments']]; return '<div class="dtabbar">'+tabs.map(function(t){return '<button class="dtab'+(dashTab===t[0]?' on':'')+'" onclick="dashTab=\''+t[0]+'\';render()">'+t[1]+'</button>';}).join('')+'</div>'; }
+function _dk(l,v,d,c){return '<div class="kpi" style="border-top:3px solid var('+c+')"><div class="l">'+l+'</div><div class="v">'+v+'</div><div class="d">'+d+'</div></div>';}
+function _dq(q,val,sub,tone,go){var c=tone==='bad'?'--red':tone==='warn'?'--amber':tone==='good'?'--green2':'--navy';return '<div class="dqcard"'+(go?(' onclick="'+go+'" style="cursor:pointer"'):'')+'><div class="dq-q">'+q+'</div><div class="dq-v" style="color:var('+c+')">'+val+'</div><div class="dq-s">'+sub+'</div>'+(go?'<div class="dq-go">Open ▸</div>':'')+'</div>';}
+function dashStageBar(){ var counts={}; BUCKETS.forEach(function(b){counts[b]=0;}); (state.orders||[]).forEach(function(o){ var b=orderBucket(o); counts[b]=(counts[b]||0)+1; }); var max=Math.max.apply(null,BUCKETS.map(function(b){return counts[b];}).concat([1])); return '<div class="card"><h3>Where orders are sitting <span class="hint">'+(state.orders||[]).length+' orders · most-blocking stage</span></h3><div class="stagebars">'+BUCKETS.map(function(b){var n=counts[b];var col=(BUCKET_META[b]&&BUCKET_META[b].c)||'--navy';return '<div class="sbrow" onclick="setScreen(\'tracker\')" style="cursor:pointer"><div class="sb-l">'+b+'</div><div class="sb-bar"><i style="width:'+(n/max*100)+'%;background:var('+col+')"></i></div><div class="sb-n">'+n+' PO</div></div>';}).join('')+'</div></div>'; }
+function dashSalesHtml(){ var M=execMetrics(); var bvb=M.budget>0?Math.round(M.booked/M.budget*100):null, dvb=M.budget>0?Math.round(M.delivered/M.budget*100):null;
+  var kpis='<div class="kpis" style="grid-template-columns:repeat(4,1fr)">'+_dk('Budget (FY)',pkr(M.budget),'client targets','--navy')+_dk('Booked',pkr(M.booked),(bvb!=null?bvb+'% of budget':'—'),'--navy')+_dk('Delivered',pkr(M.delivered),(dvb!=null?dvb+'% of budget':'—'),'--green2')+_dk('Revenue at risk',pkr(M.riskVal),'overdue lines','--red')+'</div>';
+  var cards='<div class="dqgrid">'+_dq('On-time delivery',(M.onPct!=null?M.onPct+'%':'—'),M.onD+' delivered lines',(M.onPct!=null&&M.onPct>=90?'good':'warn'),"setScreen('tracker')")+_dq('Revenue at risk',pkr(M.riskVal),'on overdue lines',(M.riskVal>0?'bad':'good'),"setScreen('tracker')")+'</div>';
+  var mx=Math.max(M.budget,M.booked,M.delivered,1); var bars='<div class="card"><h3>Budget · Booked · Delivered</h3><div class="stagebars">'+[['Budget',M.budget,'--navy'],['Booked',M.booked,'--navy2'],['Delivered',M.delivered,'--green2']].map(function(r){return '<div class="sbrow"><div class="sb-l">'+r[0]+'</div><div class="sb-bar"><i style="width:'+(r[1]/mx*100)+'%;background:var('+r[2]+')"></i></div><div class="sb-n">'+pkr(r[1])+'</div></div>';}).join('')+'</div></div>';
+  var rows=M.clients.map(function(c){var att=c.budget>0?Math.round(c.delivered/c.budget*100):null; return '<tr><td><b>'+c.client+'</b></td><td class="num">'+pkr(c.budget)+'</td><td class="num">'+pkr(c.booked)+'</td><td class="num">'+pkr(c.delivered)+'</td><td class="num">'+(att!=null?att+'%':'—')+'</td></tr>';}).join('');
+  var tbl='<div class="card"><h3>By client <span class="hint">'+M.clients.length+'</span></h3><div style="overflow:auto"><table><thead><tr><th>Client</th><th class="num">Budget</th><th class="num">Booked</th><th class="num">Delivered</th><th class="num">Attainment</th></tr></thead><tbody>'+(rows||'<tr><td colspan="5" class="muted">No client targets / orders yet.</td></tr>')+'</tbody></table></div><div style="margin-top:10px"><button class="sm" onclick="setScreen(\'budget\')">Open full Sales & Budget ▸</button></div></div>';
+  return kpis+cards+bars+tbl; }
+function dashProdHtml(){ var PC=window.ProductionCenter; var fk=PC?PC.floorKpis(state):{producing:{count:0,kg:0},qc:{count:0,kg:0},pack:{count:0,kg:0},recon:{count:0,kg:0}};
+  var todayStr=TODAY.toISOString().slice(0,10); var todayKg=(state.productionLog||[]).filter(function(x){return (x.date||'')===todayStr;}).reduce(function(a,x){return a+(x.kg||0);},0);
+  var kpis='<div class="kpis" style="grid-template-columns:repeat(4,1fr)">'+_dk('In production',fk.producing.count+'',fmt(fk.producing.kg)+' Kg to go','--navy')+_dk('Awaiting Lab QC',fk.qc.count+'',fmt(fk.qc.kg)+' Kg pending','--amber')+_dk('Ready to pack',fk.pack.count+'',fmt(fk.pack.kg)+' Kg cleared','--green2')+_dk('Reconcile',fk.recon.count+'',fmt(fk.recon.kg)+' Kg pooled','--red')+'</div>';
+  var cards='<div class="dqgrid">'+_dq('Cleared to pack?',fmt(fk.pack.kg)+' Kg',fk.pack.count+' batches QC-cleared & idle',(fk.pack.kg>0?'warn':'good'),"prodView='floor';prodFloorSub='lanes';setScreen('prod')")+_dq('Awaiting Lab QC?',fk.qc.count+'',fmt(fk.qc.kg)+' Kg produced, COA pending',(fk.qc.count>0?'warn':'good'),"qcGroup='status';setScreen('qc')")+_dq('Needs reconcile?',fk.recon.count+'','by-product / remainder pools',(fk.recon.count>0?'bad':'good'),"prodView='floor';prodFloorSub='lanes';setScreen('prod')")+_dq('Today’s output',fmt(todayKg)+' Kg','logged today',(todayKg>0?'good':'warn'),"prodView='output';setScreen('prod')")+'</div>';
+  return kpis+cards+dashStageBar(); }
+function dashQualHtml(){ var aw=0,rev=0,unf=0,appr=0; (state.batches||[]).forEach(function(b){ if((b.producedKg||0)<=0||b.disposition==='byproduct')return; var lots=(b.lots&&b.lots.length)?b.lots:[{coa:b.coa}]; lots.forEach(function(u){var st=u.coa&&u.coa.status; if(st==='approved')appr++; else if(st==='failed')unf++; else if(st==='analysed'||st==='reviewed')rev++; else aw++; }); });
+  var fitPct=(appr+unf)>0?Math.round(appr/(appr+unf)*100):null;
+  var toInspect=(typeof linesToInspect==='function')?linesToInspect():[]; var awKg=toInspect.reduce(function(a,x){return a+(x.batched||0);},0); var blk=toInspect.filter(function(x){return (x.unb||0)>0.5;}).length;
+  var clearedKg=0,clearedN=0; (state.orders||[]).forEach(function(o){(o.lines||[]).forEach(function(l){var c=lineCleared(o,l)||0; if(c>0.5){clearedN++;clearedKg+=c;}});});
+  var qaFail=(state.packingLog||[]).filter(function(x){return x&&x.qa&&x.qa.fail;}).length;
+  var kpis='<div class="kpis" style="grid-template-columns:repeat(4,1fr)">'+_dk('Awaiting COA entry',aw+'','Lab Rep to start','--amber')+_dk('In review chain',rev+'','AQCM / QCM','--navy')+_dk('UNFIT',unf+'','Plant Mgr review','--red')+_dk('FIT pass rate',(fitPct!=null?fitPct+'%':'—'),appr+' approved lots','--green2')+'</div>';
+  var cards='<div class="dqgrid">'+_dq('Awaiting Lab QC?',aw+'','lots need COA entry',(aw>0?'warn':'good'),"qcGroup='status';setScreen('qc')")+_dq('UNFIT lots?',unf+'','need Plant Manager',(unf>0?'bad':'good'),"qcGroup='status';setScreen('qc')")+_dq('Cleared to ship?',fmt(clearedKg)+' Kg',clearedN+' lines inspected & cleared',(clearedKg>0?'good':'warn'),"qaGroup='status';setScreen('qa')")+_dq('Blocked (no batch #)?',blk+'','packed lots without a batch #',(blk>0?'bad':'good'),"qaGroup='status';setScreen('qa')")+_dq('QA failed?',qaFail+'','Supply Chain to correct',(qaFail>0?'bad':'good'),"qaGroup='status';setScreen('qa')")+_dq('Awaiting QA inspection?',fmt(awKg)+' Kg',toInspect.length+' lines',(awKg>0?'warn':'good'),"qaGroup='status';setScreen('qa')")+'</div>';
+  return kpis+cards; }
+function dashShipHtml(){ var M=execMetrics(); var rp=(typeof readyPOs==='function')?readyPOs():[]; var readyKg=rp.reduce(function(a,po){return a+po.ls.reduce(function(b,x){return b+(x.rem||0);},0);},0);
+  var groups=(typeof dispatchGroups==='function')?dispatchGroups():[]; var closed=groups.filter(function(g){return g.delivered;}); var closedKg=closed.reduce(function(a,g){return a+(g.kg||0);},0);
+  var dcs=new Set((state.shipments||[]).filter(function(x){return x&&!x.voided&&x.dc;}).map(function(x){return String(x.dc).trim().toLowerCase();})).size;
+  var overdue=(state.orders||[]).filter(function(o){return isOverdue(o);}).length;
+  var kpis='<div class="kpis" style="grid-template-columns:repeat(4,1fr)">'+_dk('Ready to ship',rp.length+'',fmt(readyKg)+' Kg cleared','--green2')+_dk('Shipments closed',closed.length+'',fmt(closedKg)+' Kg delivered','--navy')+_dk('DCs used',dcs+'','unique DC #s','--navy2')+_dk('On-time delivery',(M.onPct!=null?M.onPct+'%':'—'),M.onD+' delivered lines',(M.onPct!=null&&M.onPct>=90?'--green2':'--amber'))+'</div>';
+  var cards='<div class="dqgrid">'+_dq('Ready to ship?',rp.length+' POs',fmt(readyKg)+' Kg inspected & cleared',(rp.length>0?'warn':'good'),"setScreen('ship')")+_dq('Overdue deliveries?',overdue+'','POs past committed date',(overdue>0?'bad':'good'),"setScreen('tracker')")+_dq('Revenue at risk',pkr(M.riskVal),'on overdue lines',(M.riskVal>0?'bad':'good'),"setScreen('tracker')")+'</div>';
+  return kpis+cards+dashStageBar(); }
 function screenDash(){
-  if(['COO','CEO','CFO'].indexOf(state.role)>-1){ const M=execMetrics(); $('view').innerHTML=dashExecHtml(M); drawDashExec(M); return; }
-  const os=state.orders||[]; const today=TODAY; const monthKey=today.toISOString().slice(0,7);
-  const dnum=(d)=>{ if(!d)return null; const t=new Date(d); if(isNaN(t))return null; return Math.round((t-today)/86400000); };
-  const ageDays=(d)=>{ if(!d)return null; const t=new Date(d); if(isNaN(t))return null; return Math.max(0,Math.round((today-t)/86400000)); };
-  const info=(o,l)=>{ const b=lineBucket(o,l);
-    const ordered=l.ordered||0,produced=l.produced||0,packed=l.packed||0,ship=l.dispatched||0;
-    const qcC=l.qcPass?packed:0; const bal=Math.max(0,ordered-ship); const committed=l.committed||o.promised||''; const days=dnum(committed); const isDeliv=b==='Delivered';
-    const overdue=!isDeliv&&days!=null&&days<0&&bal>0.5; const owner=(BUCKET_META[b]&&BUCKET_META[b].owner)||'—';
-    let blocker=''; if(lineQA(o,l).anyFail)blocker='QA fail'; else if(l.rmStatus==='short'&&!l.rmReady)blocker='RM short'; else if(!isDeliv&&rmAllows(l)<=0&&(b==='RM Check'||b==='PO Created'))blocker='Awaiting RM'; else if(l.delayReason)blocker=l.delayReason;
-    let risk='Low'; if(overdue)risk='Critical'; else if(!isDeliv&&bal>0.5&&days!=null&&days>=0&&days<=3)risk='High'; else if(!isDeliv&&bal>0.5&&days!=null&&days>3&&days<=7)risk='Medium';
-    return {o,l,b,ordered,produced,packed,qcC,ship,bal,committed,days,overdue,owner,blocker,risk,isDeliv}; };
-  const LI=[]; os.forEach(o=>o.lines.forEach(l=>LI.push(info(o,l)))); const openLI=LI.filter(x=>!x.isDeliv);
-  const obk=os.map(orderBucket);
-  const K={ open:obk.filter(b=>b!=='Delivered').length, overdue:os.filter(isOverdue).length,
-    overdueLines:openLI.filter(x=>x.overdue).length,
-    due3:openLI.filter(x=>x.days!=null&&x.days>=0&&x.days<=3&&x.bal>0.5).length,
-    atRisk:os.filter(o=>isOverdue(o)||o.lines.some(l=>l.rmStatus==='short'&&!l.rmReady)).length,
-    prod:openLI.filter(x=>x.produced<x.ordered-0.5).length,
-    qc:openLI.filter(x=>x.b==='Lab QC'||x.b==='QA Pre-shipment').length,
-    ready:openLI.filter(x=>x.l.qcPass&&x.ship<x.packed-0.5).length,
-    deliv:LI.filter(x=>x.isDeliv&&(x.l.deliveredDate||'').slice(0,7)===monthKey).length };
-  const nav=(fl)=>`trkFilter='${fl}';state.screen='tracker';render()`;
-  const kc=(label,val,sub,color,fl)=>`<div class="kpi clk" style="border-top:3px solid var(${color})" onclick="${fl?nav(fl):''}"><div class="l">${label}</div><div class="v" style="color:var(${color})">${val}</div><div class="d">${sub}</div></div>`;
-  const kpis=[
-    kc('Open Orders',K.open,'in progress','--navy','open'),
-    kc('At-Risk',K.atRisk,'overdue / RM-blocked',K.atRisk?'--red':'--green2','delayed'),
-    kc('Overdue Lines',K.overdueLines,(K.overdue+' PO'+(K.overdue===1?'':'s')+' · past committed'),K.overdueLines?'--red':'--green2','delayed'),
-    kc('Due in 3 Days',K.due3,'commitments soon',K.due3?'--amber':'--green2','open'),
-    kc('Production Pending',K.prod,'to produce',K.prod?'--amber':'--green2','prod'),
-    kc('QC / QA Pending',K.qc,'awaiting clearance',K.qc?'--purple':'--green2','qc'),
-    kc('Ready to Ship',K.ready,'cleared, not shipped',K.ready?'--blue':'--mut','ready'),
-    kc('Delivered (mo)',K.deliv,'this month','--green','delivered'),
-  ].join('');
-  // Intervention board — top 12 urgent
-  const urg=x=>x.overdue?0:(x.days===0?1:(x.days!=null&&x.days<=3?2:(x.blocker?3:9)));
-  const board=openLI.filter(x=>x.bal>0.5&&(x.overdue||x.days===null?x.blocker:true)).slice().sort((a,b)=>urg(a)-urg(b)||(a.days==null?999:a.days)-(b.days==null?999:b.days)||b.bal-a.bal).slice(0,12);
-  const rc=r=>r==='Critical'?'--red':r==='High'?'--amber':r==='Medium'?'--blue':'--mut';
-  const boardHtml=board.length?board.map(x=>`<div class="clk" onclick="openOrder('${x.o.id}')" style="display:flex;gap:10px;align-items:center;border-left:4px solid var(${rc(x.risk)});background:#fff;border:1px solid var(--line);border-left-width:4px;border-radius:8px;padding:8px 11px;margin-bottom:7px">
-     <div style="min-width:58px"><span class="pill" style="background:color-mix(in srgb,var(${rc(x.risk)}) 14%,#fff);color:var(${rc(x.risk)});font-size:9.5px">${x.risk}</span></div>
-     <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:12.5px">${x.o.po} <span class="muted" style="font-weight:400">· ${x.o.client}</span></div><div class="muted" style="font-size:11px">${x.l.brand}</div></div>
-     <div style="text-align:right;min-width:74px"><div style="font-weight:700;font-size:12.5px">${fmt(x.bal)}</div><div class="muted" style="font-size:9.5px">Kg/L balance</div></div>
-     <div style="text-align:center;min-width:64px"><div style="font-weight:700;color:${x.overdue?'var(--red)':'var(--txt)'};font-size:12px">${x.overdue?(-x.days)+'d late':(x.days!=null?x.days+'d':'—')}</div><div class="muted" style="font-size:9.5px">${x.committed||'no date'}</div></div>
-     <div style="min-width:96px">${pill(x.b,(BUCKET_META[x.b]&&BUCKET_META[x.b].c)||'--mut')}</div>
-     <div style="min-width:96px;text-align:right"><span class="rbadge">${x.owner}</span>${x.blocker?`<div style="color:var(--red);font-size:10px;margin-top:2px">${x.blocker}</div>`:''}</div></div>`).join(''):'<div class="muted" style="padding:14px 0;text-align:center">No urgent interventions — nothing overdue, due-soon, or blocked. 🎉</div>';
-  // Stage bottleneck blocks
-  const stMap={'RM Check':'rmblock','Production':'prod','Lab QC':'qc','QA Pre-shipment':'qc','Shipment':'ready'};
-  const stageBlocks=BUCKETS.filter(b=>b!=='Delivered').map(b=>{const it=openLI.filter(x=>x.b===b);const pend=it.reduce((a,x)=>a+x.bal,0);const ov=it.filter(x=>x.overdue).length;const oldest=it.length?Math.max(0,...it.map(x=>ageDays(x.o.received)||0)):0;
-    const sev=ov>0?'--red':it.length>=4?'--amber':it.length?'--blue':'--mut'; const fl=stMap[b];
-    return `<div class="${fl?'clk':''}" ${fl?`onclick="${nav(fl)}"`:''} style="flex:1;min-width:120px;background:color-mix(in srgb,var(${sev}) 9%,#fff);border:1px solid color-mix(in srgb,var(${sev}) 30%,#fff);border-radius:9px;padding:9px 10px">
-      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.3px;color:var(--mut)">${b}</div>
-      <div style="font-size:21px;font-weight:800;color:var(${sev});line-height:1.1">${it.length}</div>
-      <div class="muted" style="font-size:10.5px">${fmt(pend)} Kg/L · ${oldest||0}d oldest${ov?` · <span style="color:var(--red)">${ov} overdue</span>`:''}</div>
-      <div class="muted" style="font-size:9.5px;margin-top:2px">${(BUCKET_META[b]&&BUCKET_META[b].owner)||''}</div></div>`;}).join('');
-  // Product aggregation
-  const prm={}; openLI.forEach(x=>{if(x.bal<=0.5)return;const k=x.l.brand;prm[k]=prm[k]||{brand:k,ordered:0,produced:0,qcC:0,ship:0,bal:0,risk:'Low'};const p=prm[k];p.ordered+=x.ordered;p.produced+=x.produced;p.qcC+=x.qcC;p.ship+=x.ship;p.bal+=x.bal;const rk={Critical:3,High:2,Medium:1,Low:0};if(rk[x.risk]>rk[p.risk])p.risk=x.risk;});
-  const prTop=Object.values(prm).sort((a,b)=>b.bal-a.bal).slice(0,10);
-  // Customer aggregation
-  const crm={}; openLI.forEach(x=>{const k=x.o.client;crm[k]=crm[k]||{client:k,open:0,over:0,week:0,ready:0,risk:'Low',blocker:''};const c=crm[k];c.open+=x.bal;if(x.overdue)c.over+=x.bal;if(x.days!=null&&x.days>=0&&x.days<=7)c.week+=x.bal;if(x.l.qcPass&&x.ship<x.packed-0.5)c.ready+=Math.max(0,x.packed-x.ship);const rk={Critical:3,High:2,Medium:1,Low:0};if(rk[x.risk]>rk[c.risk]){c.risk=x.risk;c.blocker=x.blocker;}});
-  const crTop=Object.values(crm).filter(c=>c.open>0.5).sort((a,b)=>b.over-a.over||b.open-a.open).slice(0,6);
-  const custHtml=crTop.length?crTop.map(c=>`<div class="clk" onclick="trkSearch='${(c.client||'').replace(/'/g,'')}';state.screen='tracker';render()" style="display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:8px;padding:8px 11px;margin-bottom:7px">
-     <div style="flex:1"><div style="font-weight:700;font-size:12.5px">${c.client}</div><div class="muted" style="font-size:10.5px">${fmt(c.open)} Kg/L open${c.blocker?' · '+c.blocker:''}</div></div>
-     <div style="text-align:right"><div style="font-weight:700;color:${c.over>0.5?'var(--red)':'var(--mut)'};font-size:12.5px">${fmt(c.over)}</div><div class="muted" style="font-size:9.5px">overdue Kg/L</div></div>
-     <span class="pill" style="background:color-mix(in srgb,var(${rc(c.risk)}) 14%,#fff);color:var(${rc(c.risk)});font-size:9.5px">${c.risk}</span></div>`).join(''):'<div class="muted" style="padding:10px 0">No customers at risk.</div>';
-  // QC/QA gate
-  const _aiQC=actionItems();
-  const labPend=_aiQC.filter(i=>i.role==='Lab Rep'||i.role==='AQCM'||i.role==='QCM').length, labFail=_aiQC.filter(i=>i.role==='Plant Manager'&&/UNFIT lot/.test(i.what||'')).length;
-  const qaPend=_aiQC.filter(i=>i.role==='QA Inspector').length, qaFail=(state.packingLog||[]).filter(p=>p&&p.qa&&p.qa.fail).length;
-  const gate=(lbl,n,color)=>`<div class="clk" onclick="${nav('qc')}" style="flex:1;min-width:110px;text-align:center;background:color-mix(in srgb,var(${color}) 8%,#fff);border:1px solid color-mix(in srgb,var(${color}) 28%,#fff);border-radius:9px;padding:11px 8px"><div style="font-size:22px;font-weight:800;color:var(${color})">${n}</div><div class="muted" style="font-size:10.5px">${lbl}</div></div>`;
-  const gateHtml=`<div style="display:flex;gap:8px;flex-wrap:wrap">${gate('Lab QC pending',labPend,labPend?'--amber':'--mut')}${gate('Lab QC hold/fail',labFail,labFail?'--red':'--mut')}${gate('QA pending',qaPend,qaPend?'--amber':'--mut')}${gate('QA hold/fail',qaFail,qaFail?'--red':'--mut')}</div>`;
-  // Shipment readiness
-  const rs=openLI.filter(x=>x.l.qcPass&&x.ship<x.packed-0.5).sort((a,b)=>(a.days==null?999:a.days)-(b.days==null?999:b.days));
-  const rsQty=rs.reduce((a,x)=>a+Math.max(0,x.packed-x.ship),0);
-  const rsHtml=rs.length?`<div class="muted" style="font-size:12px;margin-bottom:8px"><b style="color:var(--blue);font-size:14px">${fmt(rsQty)} Kg/L</b> ready across <b>${rs.length}</b> item(s)</div>`+rs.slice(0,5).map(x=>`<div class="clk" onclick="${nav('ready')}" style="display:flex;justify-content:space-between;gap:8px;border-bottom:1px solid var(--line2);padding:5px 0;font-size:12px"><span><b>${x.o.po}</b> <span class="muted">${x.l.brand}</span></span><span class="num"><b>${fmt(Math.max(0,x.packed-x.ship))}</b> · <span class="muted">${x.committed||'—'}</span></span></div>`).join(''):'<div class="muted" style="padding:10px 0">Nothing cleared and waiting to ship.</div>';
-  // Cycle stages for chart + chart data stash
-  const stageDefs=[['RM','rmDays'],['Production','prodDays'],['QC→Deliv','qcToDeliv'],['Total','totalCycle']];
-  const cs={}; os.forEach(o=>o.lines.forEach(l=>{const cc=calcLine(o,l);stageDefs.forEach(([nm,k])=>{if(cc[k]!=null){cs[k]=cs[k]||[];cs[k].push(cc[k]);}});}));
-  _dash={ prLabels:prTop.map(p=>p.brand), prBal:prTop.map(p=>p.bal),
-    pvdLabels:prTop.slice(0,6).map(p=>p.brand), pvdOrd:prTop.slice(0,6).map(p=>p.ordered), pvdProd:prTop.slice(0,6).map(p=>p.produced), pvdQc:prTop.slice(0,6).map(p=>p.qcC), pvdShip:prTop.slice(0,6).map(p=>p.ship),
-    cycLabels:stageDefs.map(d=>d[0]), cycVals:stageDefs.map(d=>{const a=cs[d[1]];return a&&a.length?Math.round(a.reduce((x,y)=>x+y,0)/a.length):0;}) };
-  const emptyChart=(id,msg)=>`<div class="muted" style="padding:20px 0;text-align:center;font-size:12px">${msg}</div>`;
-  const MGMT=['COO','CEO','Plant Manager','Supply Chain','CFO']; const isMgmt=MGMT.indexOf(state.role)>-1;
-  const isQCrole=['Lab Rep','AQCM','QCM','QA Inspector'].indexOf(state.role)>-1;
-  const showBoard=isMgmt||state.role==='KAM'; const showCharts=isMgmt; const showTargets=['COO','CFO','KAM'].indexOf(state.role)>-1;
-  const todo=dashMyTodos();
-  const companion = showTargets?dashTargetsPanel() : (isQCrole?sect('Quality gate','Lab + QA',gateHtml) : (state.role==='Production'?sect('Where orders are stuck','live pipeline','<div style="display:flex;flex-wrap:wrap;gap:8px">'+stageBlocks+'</div>'):''));
-  const todoSect=sect(((state.role==='COO'||state.role==='CEO')?'Where action is needed \u2014 by role':'What needs you'), ((state.role==='COO'||state.role==='CEO')?(todo.count+' pending'):(todo.count+' to-do'+(todo.count===1?'':'s'))), '<div style="max-height:380px;overflow:auto">'+todo.html+'</div>');
-  $('view').innerHTML=`
-   <div class="card" style="margin-bottom:12px;display:flex;align-items:center;gap:14px;flex-wrap:wrap">
-     <div style="flex:1;min-width:200px"><div style="font-size:17px;font-weight:800">${dashGreet()}</div><div class="muted" style="font-size:12px">${state.role} \u00b7 ${today.toISOString().slice(0,10)} \u00b7 ${todo.count?('<b style="color:var(--red)">'+todo.count+'</b> '+((state.role==='COO'||state.role==='CEO')?'pending across the team':'waiting on you')):((state.role==='COO'||state.role==='CEO')?'nothing pending across the team':'nothing waiting on you')}</div></div>
-     <button class="sm" onclick="gotoScreen('approvals')">Open My Actions \u2192</button></div>
-   <div class="kpis" style="grid-template-columns:repeat(8,1fr)">${kpis}</div>
-   ${showCharts?dashTrendStrip():''}
-   ${companion?`<div class="dgrid" style="grid-template-columns:1fr 1fr">${todoSect}${companion}</div>`:todoSect}
-   ${showBoard?`<div class="dgrid" style="grid-template-columns:1.5fr 1fr">
-     ${sect("Today's Intervention Board",board.length+' urgent','<div style="max-height:430px;overflow:auto">'+boardHtml+'</div>')}
-     ${sect('Where orders are stuck','live pipeline','<div style="display:flex;flex-wrap:wrap;gap:8px">'+stageBlocks+'</div>')}
-   </div>`:''}
-   ${showCharts?`<div class="dgrid">
-     ${sect('Product risk / shortfall','top 10 by open balance', prTop.length?'<canvas id="chPR" height="200"></canvas>':emptyChart('chPR','No open product balances.'))}
-     ${sect('Customers at risk','top 6', custHtml)}
-   </div>
-   <div class="dgrid">
-     ${sect('Production vs open demand','top products', prTop.length?'<canvas id="chPVD" height="200"></canvas>':emptyChart('chPVD','No open demand.'))}
-     ${sect('Quality gate','Lab + QA', gateHtml)}
-   </div>
-   <div class="dgrid">
-     ${sect('Ready to ship / dispatch pending', rs.length+' ready', rsHtml)}
-     ${sect('Cycle time by stage','avg days', _dash.cycVals.some(v=>v>0)?'<canvas id="chCyc" height="200"></canvas>':emptyChart('chCyc','Cycle times appear once orders have stage dates \u2014 Not available yet.'))}
-   </div>`:''}`;
-  drawDash();
+  if(!dashTab) dashTab=dashDefaultTab();
+  var bar=dashTabBar();
+  if(dashTab==='overview'){ var M=execMetrics(); $('view').innerHTML=bar+dashExecHtml(M); try{drawDashExec(M);}catch(e){} return; }
+  var body = dashTab==='sales'?dashSalesHtml() : dashTab==='production'?dashProdHtml() : dashTab==='quality'?dashQualHtml() : dashTab==='shipments'?dashShipHtml() : '';
+  if(!body){ var M2=execMetrics(); $('view').innerHTML=bar+dashExecHtml(M2); try{drawDashExec(M2);}catch(e){} return; }
+  $('view').innerHTML=bar+body;
 }
 function drawDash(){
   if(typeof Chart==='undefined'||!_dash) return;

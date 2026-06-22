@@ -1533,7 +1533,7 @@ const SCREENS=[
     obj:'<b>Implementation tool (temporary).</b> Correct live records to match actual paper/manual data, back-dated. Every change is logged as RECONCILE. COO can turn it off after cutover.'},
   {id:'users', name:'Users & Access', ic:'\ud83d\udc65', owners:['COO'], sub:'People, roles & passwords',
     obj:'<b>COO only.</b> Add people, set each one\u2019s role and password. Everyone signs in and sees only their role\u2019s screens.'},
-   {id:'budget', name:'Sales & Budget', ic:'💰', owners:['CFO'], sub:'Target vs delivered (PKR)', obj:'<b>Sales vs budget · COO / CFO only.</b> Client annual targets vs delivered invoice value (delivered Kg/L × invoice price). Consolidated and by product.'},
+   {id:'budget', name:'Sales & Budget (dashboard)', ic:'💰', owners:['CFO'], sub:'Target vs delivered (PKR)', obj:'<b>Sales vs budget · COO / CFO only.</b> Client annual targets vs delivered invoice value (delivered Kg/L × invoice price). Consolidated and by product.'},
 ];
 function scr(id){ return SCREENS.find(s=>s.id===id); }
 </script>
@@ -1924,7 +1924,7 @@ function screenEntry(){
   const clients=clientsForChannel(entryChannel);
   $('view').innerHTML=`
    ${ed?'':viewOnly('KAM','switch to KAM to submit')}
-   <div class="banner info" style="font-size:11.5px;padding:7px 11px">Channel → Client → Brand comes from your master data. Pick a channel and client; only that client's brands show, with base / form / pack auto-filled.</div>
+   
    <div class="card"><h3>Step 1 — PO Header</h3>
     <div class="formgrid">
      <div class="fld"><label>Channel</label>
@@ -2102,7 +2102,7 @@ function screenDealers(){
   const cities=citiesFor(dlrForm.region);
   $('view').innerHTML=`
    ${ed?'':viewOnly('KAM')}
-   <div class="banner info">Onboard a dealer; the code auto-generates as <b>DLR-{Region}-{City}-NNN</b> from your region codes (editable). Confirmed dealers appear in New PO Entry when Channel = Dealer.</div>
+   
    <div class="card"><h3>Onboard a dealer</h3>
      <div class="formgrid">
        <div class="fld"><label>Dealer Name</label><input type="text" value="${dlrForm.name}" oninput="dlrForm.name=this.value"></div>
@@ -3230,7 +3230,7 @@ function screenQC(){
   else { qcBody=_qcCard('Awaiting entry',_qcAwait)+_qcCard('Analysed → AQCM',_qcAna)+_qcCard('Reviewed → QCM',_qcRev)+_qcCard('UNFIT → Plant Manager',_qcFail)+_qcCard('Approved',labDone); }
   if(!qcBody)qcBody='<div class="card"><div class="muted">No production lots in Lab QC yet.</div></div>';
   $('view').innerHTML=`
-   <div class="banner info"><b>Lab QC — quantity-true.</b> Lab certifies each <b>production lot</b> (a shift’s output) by COA (Analyst → AQCM → QCM) <b>before it can be packed</b>. New production always needs fresh QC. Pre-shipment QA of packed material is on the <b>Pre-shipment QA</b> tab.</div>
+   
    ${(isLab||isAQ||isQM||isPM||isCOO)?'':viewOnly('Lab, AQCM, QCM &amp; Plant Manager')}
    ${qcKpiStrip}
    ${_pcSub([['status','By status'],['step','My step'],['product','By product']],qcGroup,'qcGroup')}
@@ -3263,7 +3263,7 @@ function screenQA(){
   else { qaBody=qaAwaitCard+qaClearedCard+qaFailedCard; }
   if(!qaBody)qaBody='<div class="card"><div class="muted">Nothing in pre-shipment QA right now.</div></div>';
   $('view').innerHTML=`
-   <div class="banner info"><b>Pre-shipment QA.</b> QA inspects each <b>packed lot</b> before it can ship — only inspected &amp; cleared quantity becomes available in <b>Shipments</b>. Failures route to Supply Chain to correct. (Lab COA certification is on the <b>Lab QC</b> tab.)</div>
+   
    ${(isQA||isSC||isCOO)?'':viewOnly('QA Inspector &amp; Supply Chain')}
    ${qaKpiStrip}
    ${_pcSub([['status','By status'],['po','By PO'],['product','By product']],qaGroup,'qaGroup')}
@@ -3469,7 +3469,7 @@ function screenApprovals(){
   var base=acBase();
   if(!base.length){ $('view').innerHTML='<div class="card"><div class="empty"><div class="ei">✓</div>Nothing waiting on you right now.</div></div>'; return; }
   var c=acCounts();
-  var head='<div class="banner info" style="margin-bottom:10px"><b>My Actions.</b> Everything waiting on you, most urgent first. '+(isCOO?'(As COO you see all role queues.)':'')+'</div>';
+  var head='';
   var top='<div class="ac2top">'+acChipsHTML(c)+'<span class="ac2note">oldest <b>'+c.oldest+'d</b>'+(isCOO?' · all role queues':'')+'</span></div>';
   var tools='<div class="ac2tools"><input id="ac2search" placeholder="Search PO / customer / product" value="'+(acQ||'').replace(/"/g,'&quot;')+'" oninput="acQ=this.value;var e=document.getElementById(\'ac2list\');if(e)e.innerHTML=acBodyHTML();">'
     +'<select onchange="acSort2=this.value;render()"><option value="risk"'+(acSort2==='risk'?' selected':'')+'>Risk first</option><option value="oldest"'+(acSort2==='oldest'?' selected':'')+'>Oldest first</option><option value="newest"'+(acSort2==='newest'?' selected':'')+'>Newest first</option><option value="customer"'+(acSort2==='customer'?' selected':'')+'>Customer A–Z</option></select></div>';
@@ -3531,7 +3531,7 @@ function screenInstructions(){
    ['Production Center','Production','Floor / Output / Lifecycle views; + Open batch (PO or Bulk→stock); log shift output; pack base into brands','→ Lab QC'],
    ['Lab QC + Pre-shipment QA','Lab, AQCM, QCM + QA Inspector','Batch COA (3-step sign-off, gates packing) + quantity-true Pre-shipment QA on packed material (allocate across batch-# lots; only cleared qty ships)','gates Packing &amp; Shipments'],
    ['Shipments','Supply Chain','Two-column board; Record shipment — tick products, DC # (generates the shipment #), one vehicle; recording sends &amp; closes (delivered)','← Pre-shipment QA · → PO Tracker'],
-   ['Reports / Batch Trace','All','Slice all data; <b>Trends</b> (Line/Bar/Table, overlays, range, CSV); <b>Sales &amp; Budget</b> drill-down (per-line invoice, per-Kg cross-check); base ▸ brand batch trace','—'],
+   ['Reports / Batch Trace','All','Slice all data; <b>Trends</b> (Line/Bar/Table, overlays, range, CSV); <b>Sales &amp; Budget</b> (now a <b>Dashboard</b> tab) drill-down (per-line invoice, per-Kg cross-check); base ▸ brand batch trace','—'],
    ['Admin · Master Data','COO (+ Plant Manager: recipes; Lab/QC: COA templates)','Reference lists (dropdowns); Raw materials, <b>Product recipes</b>, Lab COA templates, <b>by-product routing rules</b>, sales targets, <b>Roles</b> (add/rename/archive) &amp; the <b>access-control matrix</b>','—'],
    ['Data Fix','COO (setup only)','Back-fill / correct records to match reality','temporary'],
    ['Users &amp; Access','COO','Add people, assign a role (incl. custom roles) &amp; password','—'],
@@ -3650,7 +3650,7 @@ function screenShip(){
    }).join('')):'';
   $('view').innerHTML=`
    ${ed?'':viewOnly('Supply Chain')}
-   <div class="banner info"><b>How to ship.</b> Only <b>inspected &amp; cleared</b> quantity appears under <b>Ready to ship</b> (QA inspects the packed material first, in QC \u00b7 Pre-shipment). Press <b>Record shipment</b>, tick the products on the truck, fill the DC / vehicle once, Save \u2014 that <b>sends and closes</b> the shipment. Ship some products now and the rest later \u2014 each PO stays open until everything is shipped.</div>
+   
    ${shipKpiStrip}
    <div class="shipboard">
      <div><div class="sec" style="margin-top:4px">Ready to ship</div>${readyHtml}</div>
@@ -4539,7 +4539,7 @@ function screenAdmin(){
   $('view').innerHTML=`
    ${ed?'':viewOnly('COO / Admin')}
    ${sec('Reference lists — dropdown values')}
-   <div class="banner info">These lists power every dropdown in the app. Add a value and it appears wherever that field is used — no code change needed. Each list is collapsible — open the ones you use.</div>
+   
    <div class="row">
    ${lists.map(([k,label])=>{const vals=(state.masters&&state.masters[k])||[];
      return `<div style="flex:1;min-width:300px">${acard('ref_'+k,label,`${vals.length}`,`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:11px">${vals.length?vals.map((v,idx)=>`<span class="pill" style="background:var(--navy-50);color:var(--navy);border:1px solid var(--navy-100);display:inline-flex;align-items:center;gap:7px">${v}${ed?`<span style="cursor:pointer;color:var(--mut)" title="rename" onclick="editMaster('${k}',${idx})">&#9998;</span><span style="cursor:pointer;color:var(--red);font-weight:700" title="delete" onclick="delMaster('${k}',${idx})">&times;</span>`:''}</span>`).join(''):'<span class="muted" style="font-size:12px">none yet</span>'}</div>${ed?`<div style="display:flex;gap:8px"><input type="text" id="adm_${k}" placeholder="add value…" style="flex:1"><button class="sm" onclick="addMaster('${k}')">Add</button></div>`:''}`)}</div>`;}).join('')}
@@ -4738,7 +4738,7 @@ function budgetHtml(){
   const pm={}; (state.orders||[]).forEach(o=>(o.lines||[]).forEach(l=>{ const v=(+l.delivered||0)*(+l.invoicePrice||0); if(v>0){ pm[l.brand]=(pm[l.brand]||0)+v; } }));
   const pmRows=Object.entries(pm).sort((a,b)=>b[1]-a[1]).slice(0,15);
   return `
-   <div class="banner info"><b>Sales &amp; Budget · COO / CFO only.</b> Achievement = <b>delivered</b> value (delivered Kg/L × VAN invoice price). Targets are per client for <b>${fyRange(fy)}</b> (set in Admin · Master Data). Booked = ordered pipeline value.${(state.role==='COO'||state.role==='CFO')?` <button class="sm" style="margin-left:8px" onclick="openBulkPricing()">💲 Set invoice prices (bulk)</button>`:''}</div>
+   ${(state.role==='COO'||state.role==='CFO')?`<div style="margin-bottom:12px"><button class="sm" onclick="openBulkPricing()">💲 Set invoice prices (bulk)</button></div>`:''}
    ${noPrice?'<div class="banner warn">Some PO lines have <b>no invoice price</b> yet — their value is counted as 0. Set invoice prices on New PO Entry (new POs) or via Data Fix (imported POs).</div>':''}
    <div class="kpis" style="grid-template-columns:repeat(4,1fr)">
      <div class="kpi"><div class="l">All clients — target</div><div class="v">${pkr(totT)}</div><div class="d">${fyRange(fy)}</div></div>
@@ -4794,7 +4794,7 @@ function screenReports(){
   else if(rpTab==='ship') body=rpShip();
   else if(rpTab==='delay') body=rpDelay();
   else if(rpTab==='log') body=rpLog();
-  $('view').innerHTML = `<div class="banner info">Reports are <b>read-only</b> and built entirely from data the system already captures — orders, production, packing, QC, shipments and the action log. Use the filters, then Explorer to slice any way (client, product, month, stage), or open a ready report. Print from the top-right.</div>${rpFilterBar()}${rpTabsBar()}${body}`;
+  $('view').innerHTML = `${rpFilterBar()}${rpTabsBar()}${body}`;
   if(rpTab==='explorer'||rpTab==='prod') rpDrawChart();
   if(rpTab==='trends') trDrawChart();
 }
@@ -5042,7 +5042,7 @@ function screenUsers(){ if(!screenEditOK('users')){ $('view').innerHTML='<div cl
 function paintUsers(){
   if(!screenEditOK('users')) return;
   const us=usersList||[]; const me=state.currentUser&&state.currentUser.username;
-  $('view').innerHTML=`<div class="banner info">Add people and assign each a role. They sign in with their username + password and see only their role's screens. Passwords are stored <b>securely on the server</b> (hashed) and are never shown or sent to browsers.</div>
+  $('view').innerHTML=`
    <div class="card"><h3>Add a person</h3><div class="formgrid">
      <div class="fld"><label>Full name</label><input value="${uForm.name}" oninput="uForm.name=this.value" placeholder="e.g. Muhammad Imran"></div>
      <div class="fld"><label>Username</label><input value="${uForm.username}" oninput="uForm.username=this.value" placeholder="e.g. imran"></div>

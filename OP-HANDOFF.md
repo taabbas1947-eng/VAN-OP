@@ -354,3 +354,36 @@ Verification: isolation-sandbox pass on overdue/delay logic; 5/5 `<script>` tags
 - Never connect to the live DB with credentials. Claude cannot push — Tahir pushes via GitHub Desktop.
 - Don't invent recipe ratios or costs; flag anything unverified.
 - NOTE: the bash sandbox CANNOT reach `E:\VAN Platform\VAN-OP` — use Read/Write/Edit/Grep on the host path; sandbox-test logic in isolation only.
+
+---
+
+## Session 2026-06-22 — UI redesign, Production Center, dynamic roles, consolidated Dashboard
+
+All changes were **render/layout only — no business logic, master data, flows, or access model changed** unless noted. Each edited via shell Python (assert count==1 + `/tmp` backup) → `node --check` all `<script>` blocks → runtime smoke → Tahir pushes via GitHub Desktop → verified live read-only (browser, no `save()` fired). App is **live with active users**; verification never mutated data.
+
+**5-screen redesign (prototypes consumed, then built as deltas):**
+- **My Actions** — per-row mini 7-step stepper; Group-by toggle (Priority / By stage / By role). Existing chips/role-bar/drawer/handlers untouched.
+- **PO Tracker** — Matrix is now the PO × 7-stage ✓/●/· grid (`t2matrix` wired); PO drawer has a line×stage matrix; "Open in {owner}" deep-link (`BUCKET_SCREEN`→`setScreen`).
+- **Lab QC** — 4-KPI strip + By status / My step / By product group-by (`qcGroup`). COA chain untouched.
+- **Pre-shipment QA** — 4-KPI strip (incl. No-batch# blocked) + By status / PO / product group-by (`qaGroup`) + Cleared group. Quantity-true engine untouched.
+- **Shipments** — KPI strip; two-column Ready | Shipped&closed board; **live shipNo preview** in record modal; **shipNo column** in log. DC rule already built: `shipNo = MMDDYY + 3-digit serial + DC`, DC single-use, **recording = delivered** (Dispatched≡Delivered; the dead In-transit/Mark-delivered UI was removed).
+
+**Production Center** — global **"+ Open batch" modal** (Against a PO / Bulk → stock) on all 3 views (Floor/Output/Lifecycle), reuses `openBatch` verbatim; Floor sub-views Lanes/Board/Table; Lifecycle Batch master→detail stepper + Lots/Quality/Reconcile tabs. **Open-for-production picker tightened** to lines with `produced < ordered`. **Lanes** redesigned to compact `laneCard` (≈240px, fills the row; click → Lifecycle detail; quick action per stage).
+
+**Dynamic roles** — Stage 1 (`seedRolesV1` → `masters.roles` objects + `rolesList()`; repointed user dropdowns + matrix columns; behaviorally identical) and **Stage 3** (Admin → "Roles" card: add/rename/archive, COO-only, audited; built-ins locked; custom roles auto-locked from admin/users/datafix; access granted via the matrix). **Stage 2 (owners[]→matrix refactor) is PARKED — build only on concrete need.** Access matrix UX: sticky Screen column + header; `amxCycle` updates the clicked cell in place (no re-render, no scroll jump).
+
+**Dashboard — consolidated control center** (`screenDash` now tabbed; old exec/ops split replaced). Tabs: **Performance** (existing exec dashboard), **Sales & Budget**, **Production**, **Quality**, **Shipments**, **Supply Chain (RM/PR)**. Auto-selects the signed-in role's tab; deep-linking question-cards with per-role **"Your action"** highlight (`_DQOWN` map; COO sees none); small CSS trend charts (`_dbars`/`_trail7`); "Where orders are sitting" stage bar. Read-only (`execMetrics`/`floorKpis`/etc.).
+
+**Sales & Budget folded into the Dashboard** — `screenBudget` → `budgetHtml()` rendered by the dashboard Sales tab; standalone removed from sidebar (`vis` hides `budget`); `screenBudget` redirects to the tab; **access gate preserved** (tab shows only for roles with `budget` access — Lab Rep/AQCM/QCM/QA Inspector/Supply Chain Officer are None; invoice-price action stays COO/CFO). Matrix row relabeled **"Sales & Budget (dashboard)"** (still the single control point in Admin → Access control).
+
+**Declutter** — removed the 9 explanatory "tip" banners from screens (My Actions, Lab QC, Pre-shipment QA, Shipments, Admin, New PO Entry, Dealer Master, Reports, Users). Kept the Instructions page header, the Data Fix state banner, and the Sales "Set invoice prices" button. **Instructions rewritten** to match the current app (Production Center + Open-batch modal, quantity-true QA before shipping, DC→shipNo, record=delivered, dynamic Roles, Dashboard).
+
+**Docs in `E:\VAN Platform\`:** added `VAN-O2S-5Screen-Redesign-Gap-Analysis-2026-06-22.md`; `VAN-O2S-Plan-Dynamic-Roles-Control-Center.md` updated (Stage 1/3 done, Stage 2 on-hold).
+
+**Open roadmap (not started):**
+- **Raw-material costs missing/zero**: Sulfuric Acid, MOP Granular (Fly Ash Waste likely intentional 0) — need real values from Tahir; blocks accurate product costing.
+- **Relational DB + API** (design doc exists) — staged, off-prod first.
+- **Dynamic roles Stage 2** (owners[]→matrix) — parked.
+- Custom roles **Supply Chain Officer** and **Finance** exist; grant their screen access via the matrix.
+
+**Prototype source files** (the 5 redesign zips + the Production Center kit in `E:\VAN Platform\Production Center Handoff\`) were **consumed and removed at end of this session** — superseded by the live app + the gap-analysis doc.

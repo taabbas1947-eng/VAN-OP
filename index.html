@@ -792,6 +792,18 @@ body{font-family:'Geist','Inter',system-ui,-apple-system,'Segoe UI',sans-serif}
 .livedot{width:7px;height:7px;border-radius:50%;background:var(--green2,#1d9e75);animation:livepulse 2s infinite}
 @keyframes livepulse{0%{box-shadow:0 0 0 0 rgba(29,158,117,.45)}70%{box-shadow:0 0 0 6px rgba(29,158,117,0)}100%{box-shadow:0 0 0 0 rgba(29,158,117,0)}}
 @media(max-width:900px){.tbtabs,.livepill{display:none}}
+/* My Actions: in-content group bar is a fallback, shown only when header tabs are hidden */
+.acviewbar .ac2gbar{display:none}
+@media(max-width:900px){.acviewbar .ac2gbar{display:flex}}
+/* --- Ops/Production port: segmented lens tabs + KPI grid + flex section heading (prototype parity) --- */
+.kpis-4{grid-template-columns:repeat(4,1fr)}
+@media(max-width:1100px){.kpis-4{grid-template-columns:repeat(2,1fr)}}
+.pvsub{background:var(--surface-2,#f1f6f4);border:1px solid var(--line);border-radius:8px;padding:2px;gap:2px;display:inline-flex;flex-wrap:wrap}
+.pvsub button{border:none;background:transparent;border-radius:6px;padding:5px 12px;font-size:11.5px;font-weight:700;color:var(--ink-2,#586577)}
+.pvsub button.on{background:var(--navy);color:var(--on-accent,#fff);box-shadow:var(--sh-sm);border-color:var(--navy)}
+.sec.secflex{display:flex;align-items:center;gap:10px;border-bottom:none}
+.sec.secflex .gr{flex:1}
+.sec.secflex .hint{font-size:11.5px;color:var(--mut);font-weight:500}
 .rolebox{border-radius:999px;padding:3px 5px 3px 5px}
 .rolebox .av{border-radius:50%;background:var(--navy)}
 
@@ -3610,7 +3622,7 @@ function screenApprovals(){
   var c=acCounts();
   var lensName=acGroup==='priority'?'Priority':(acGroup==='stage'?'By stage':'By role');
   var kpis=acKpiHTML(c);
-  var viewbar='<div class="acviewbar">'+acViewBarHTML()+'<div class="gr"></div><span class="achint">Lens: <b>'+lensName+'</b> · oldest '+c.oldest+'d'+(isCOO?' · all role queues':'')+' · click an action to act</span></div>';
+  var viewbar='<div class="acviewbar">'+acGroupBarHTML()+acViewBarHTML()+'<div class="gr"></div><span class="achint">Lens: <b>'+lensName+'</b> · oldest '+c.oldest+'d'+(isCOO?' · all role queues':'')+' · click an action to act</span></div>';
   var tools='<div class="ac2tools"><input id="ac2search" placeholder="Search PO / customer / product" value="'+(acQ||'').replace(/"/g,'&quot;')+'" oninput="acQ=this.value;var e=document.getElementById(\'ac2list\');if(e)e.innerHTML=acBodyHTML();">'
     +'<select onchange="acSort2=this.value;render()"><option value="risk"'+(acSort2==='risk'?' selected':'')+'>Risk first</option><option value="oldest"'+(acSort2==='oldest'?' selected':'')+'>Oldest first</option><option value="newest"'+(acSort2==='newest'?' selected':'')+'>Newest first</option><option value="customer"'+(acSort2==='customer'?' selected':'')+'>Customer A–Z</option></select></div>';
   var rolebar=isCOO?acRoleBarHTML():'';

@@ -1151,6 +1151,15 @@ body{font-family:var(--font-body);font-size:var(--fs);letter-spacing:-.011em;col
 .kpi .v,.kpi .kv{font-family:var(--head);font-size:var(--kval);font-weight:800;line-height:1;letter-spacing:-.01em;color:var(--txt);margin-top:7px;font-variant-numeric:tabular-nums}
 .app.compact .kpi .v,.app.compact .kpi .kv{font-size:var(--kval)}
 .kpi .d,.kpi .km{font-size:11px;color:var(--mut);margin-top:5px;font-weight:500}
+/* prototype KPI cards are plain — remove the cyan gradient top stripe
+   (dashboard KPIs keep their per-metric inline top border, which already hides ::before) */
+.kpi::before{display:none}
+.kpi.kpion,.kpi.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+/* Matrix view → prototype clean grid: green ✓ done · cyan ● current · grey · pending */
+.t2cell{min-width:30px;width:32px;height:24px;font-weight:800}
+.t2cell.done{background:color-mix(in srgb,var(--good) 18%,#fff);color:var(--good)}
+.t2cell.cur{background:var(--accent);color:#fff}
+.t2cell.pend{background:var(--panel2);color:var(--mut)}
 </style>
 </head><body>
 <div class="app" id="appShell">
@@ -1638,22 +1647,21 @@ function t2flag(o){
   var att=attentionOf(o); if(att.hot) return '<span class="pill" style="background:var(--amber-50);color:var(--amber);font-size:9px;padding:1px 7px;margin-left:5px">'+att.pr+'</span>';
   return '';
 }
-function t2spill(b){ var m=BUCKET_META[b]; return '<span class="t2spill" style="color:var('+m.c+');border-color:color-mix(in srgb,var('+m.c+') 35%,#fff);background:color-mix(in srgb,var('+m.c+') 9%,#fff)">'+b+'</span>'; }
+function t2spill(b){ var m=BUCKET_META[b]; return '<span class="t2spill" style="color:var('+m.c+');border-color:color-mix(in srgb,var('+m.c+') 35%,#fff);background:color-mix(in srgb,var('+m.c+') 9%,#fff)"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:var('+m.c+');margin-right:5px;vertical-align:middle"></span>'+b+'</span>'; }
 function t2matrix(list){
-  var head='<tr><th class="lead">Order</th>'+T2_SHORT.map(function(s){return '<th>'+s+'</th>';}).join('')+'</tr>';
+  var head='<tr><th class="lead">PO</th>'+T2_SHORT.map(function(s){return '<th>'+s+'</th>';}).join('')+'<th>Risk</th></tr>';
   var body=list.map(function(o){
-    var idx=t2idx(o), ag=orderAging(o);
-    var sev=isOverdue(o)?'bad':((ag.days!=null&&ag.days>=3)?'warn':'b');
-    var rc=isOverdue(o)?'od':(isStalled(o)?'stall':'');
+    var idx=t2idx(o);
     var mixed=new Set(o.lines.map(function(l){return lineBucket(o,l);})).size>1;
     var cells='';
     BUCKETS.forEach(function(s,i){ var cls,inner;
       if(i<idx){cls='done';inner='✓';}
-      else if(i===idx){cls='cur '+sev; inner=isOverdue(o)?(daysOver(o)+'d!'):(ag.days!=null?((ag.approx?'~':'')+ag.days+'d'):'now');}
+      else if(i===idx){cls='cur';inner='●';}
       else{cls='pend';inner='·';}
       cells+='<td class="midc'+(i===BUCKETS.length-1?' lastc':'')+'"><span class="t2cell '+cls+'">'+inner+'</span></td>';
     });
-    return '<tr class="'+rc+'" onclick="openTkDrawer(\''+o.id+'\')" style="cursor:pointer"><td class="ordc"><div class="t2mclient" title="'+(o.client||'').replace(/"/g,'&quot;')+'">'+(o.client||'')+(mixed?'<span class="t2tag">mixed</span>':'')+'</div><div class="t2mpo">'+o.po+' · '+fmt(agg(o).ordered)+' Kg/L</div></td>'+cells+'</tr>';
+    var r=_trkRisk(o);
+    return '<tr onclick="openTkDrawer(\''+o.id+'\')" style="cursor:pointer"><td class="ordc"><div class="t2mclient" title="'+(o.client||'').replace(/"/g,'&quot;')+'">'+o.po+(mixed?'<span class="t2tag">mixed</span>':'')+'</div><div class="t2mpo">'+(o.client||'')+'</div></td>'+cells+'<td><span class="rchip '+r[1]+'">'+r[0]+'</span></td></tr>';
   }).join('');
   return '<table class="t2mtx">'+head+body+'</table>';
 }
@@ -2537,9 +2545,6 @@ function screenTracker(){
   var viewbar='<div class="viewbar">'
     +'<div class="ctl"><span class="ctl-l">View</span>'+trkViewSw()+'</div>'
     +'<div class="ctl"><span class="ctl-l">Group</span><select class="wsel" onchange="trkGroup=this.value;_trkPaint()">'+groupOpts.map(function(g){return '<option value="'+g[0]+'"'+(trkGroup===g[0]?' selected':'')+'>'+g[1]+'</option>';}).join('')+'</select></div>'
-    +'<div class="ctl"><span class="ctl-l">Risk</span><select class="wsel" onchange="trkFilter=this.value;render()">'+riskOpts.map(function(c){return '<option value="'+c[0]+'"'+(trkFilter===c[0]?' selected':'')+'>'+c[1]+'</option>';}).join('')+'</select></div>'
-    +'<div class="ctl"><span class="ctl-l">Channel</span><select class="wsel" onchange="trkChannel=this.value;_trkPaint()"><option value="all"'+(trkChannel==='all'?' selected':'')+'>All channels</option>'+channels.map(function(c){return '<option value="'+c+'"'+(trkChannel===c?' selected':'')+'>'+c+'</option>';}).join('')+'</select></div>'
-    +'<div class="ctl"><span class="ctl-l">Sort</span><select class="wsel" onchange="trkSort=this.value;_trkPaint()">'+sortOpts.map(function(c){return '<option value="'+c[0]+'"'+(trkSort===c[0]?' selected':'')+'>'+c[1]+'</option>';}).join('')+'</select></div>'
     +'<div style="flex:1"></div>'
     +'<div class="wsearch"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input id="trkq" placeholder="Search PO, client…" value="'+(trkSearch||'').replace(/"/g,'&quot;')+'" oninput="trkSearch=this.value;_trkPaint()"></div>'
     +'<select class="wsel" onchange="trkApplyView(this.value)" title="Saved views"><option value="">Saved views…</option>'+trkSavedViews.map(function(v,i){return '<option value="'+i+'">'+v.name+'</option>';}).join('')+'</select>'
@@ -2547,8 +2552,7 @@ function screenTracker(){
     +'</div>';
   var anyFilter=(trkStage||trkFilter!=='all'||trkChannel!=='all'||trkSearch||trkGroup!=='none');
   var facets='<div class="tkfacets"><span class="ctl-l">Filter stage</span><div class="facet">'
-    +'<button class="fpill'+(trkStage===''?' on':'')+'" onclick="trkStage=\'\';render()">All <b>'+all.length+'</b></button>'
-    +BUCKETS.map(function(s){var c=(BUCKET_META[s]&&BUCKET_META[s].c)||'--mut';return '<button class="fpill'+(trkStage===s?' on':'')+'" onclick="trkStage=\''+s+'\';render()"><span class="d" style="background:var('+c+')"></span>'+s+' <b>'+(rcounts[s]||0)+'</b></button>';}).join('')
+    +BUCKETS.map(function(s){var c=(BUCKET_META[s]&&BUCKET_META[s].c)||'--mut';return '<button class="fpill'+(trkStage===s?' on':'')+'" onclick="trkStage=(trkStage===\''+s+'\'?\'\':\''+s+'\');render()"><span class="d" style="background:var('+c+')"></span>'+s+'</button>';}).join('')
     +'</div><div style="flex:1"></div><span class="hint"><span id="trkShown">'+trkList().length+'</span> of '+all.length+(anyFilter?' · <b onclick="trkClear()" style="cursor:pointer;color:var(--navy)">clear</b>':'')+'</span></div>';
   var legend=`<div class="t2leg"><i><span class="t2dot" style="background:var(--green)"></span> stage complete</i><i><span class="t2dot" style="background:var(--blue)"></span> current</i><i><span class="t2dot" style="background:var(--amber)"></span> ageing 3-6d</i><i><span class="t2dot" style="background:var(--red)"></span> stalled / overdue</i><i>~ = approximate (stage date missing)</i></div>`;
   $('view').innerHTML='<div class="card tkhead"><h3 style="margin:0 0 10px">PO Tracker <span class="hint">stage = blocking</span></h3>'+strip+viewbar+facets+'<div id="trkBody">'+trkBodyHTML()+'</div>'+(trkView==='list'?legend:'')+'</div>';

@@ -843,6 +843,17 @@ body{font-family:'Geist','Inter',system-ui,-apple-system,'Segoe UI',sans-serif}
 .tkoch b{font-size:13px}
 .tkocsub{font-size:11.5px;color:var(--mut);margin:5px 0}
 .tkocfoot{font-size:10.5px;color:var(--mut);margin-top:7px}
+/* --- Dashboard 6-view: Centers funnel rows + Tuned-for banner --- */
+.tuned{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--navy-50,#e0f3f7);border:1px solid var(--navy-100,#b6e3ec);border-radius:10px;padding:8px 12px;margin-bottom:12px;font-size:12.5px;color:var(--ink-2,#586577)}
+.tuned .tg{background:var(--navy);color:#fff;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;padding:3px 9px;border-radius:999px;flex:0 0 auto}
+.tuned b{color:var(--navy)}
+.funnel{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+.frow{display:flex;align-items:center;gap:10px}
+.frow .fl{width:128px;font-size:12px;font-weight:600;color:var(--ink-2,#586577);flex:0 0 auto}
+.frow .ftrack{flex:1;height:14px;background:var(--surface-2,#f1f6f4);border-radius:5px;overflow:hidden}
+.frow .ftrack i{display:block;height:100%;background:var(--navy);border-radius:5px;min-width:2px;transition:width .4s}
+.frow .fn{width:54px;text-align:right;font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;flex:0 0 auto}
+.ch-foot{font-size:10.5px;color:var(--mut);margin-top:9px}
 .rolebox{border-radius:999px;padding:3px 5px 3px 5px}
 .rolebox .av{border-radius:50%;background:var(--navy)}
 
@@ -4550,8 +4561,8 @@ function drawRecon(){ if(typeof Chart==='undefined'||!_xrec) return; const el=$(
 }
 function setReconView(v){ if(!_xrec)return; _xrec.view=v; ['cat','prod','client'].forEach(k=>{ const b=document.getElementById('rcv_'+k); if(b){ b.style.background=(k===v)?'#eaf1fb':'#fff'; b.style.color=(k===v)?'#1f4e87':'#71808f'; b.style.fontWeight=(k===v)?'600':'400'; } }); drawRecon(); }
 var dashTab='';
-function dashDefaultTab(){ var r=state.role; if(r==='CFO'||r==='KAM')return 'sales'; if(r==='Production'||r==='Plant Manager')return 'production'; if(r==='Lab Rep'||r==='AQCM'||r==='QCM'||r==='QA Inspector')return 'quality'; if(r==='Supply Chain')return 'supply'; return 'overview'; }
-function dashTabBar(){ var tabs=[['overview','Performance']]; if(accessLevel(state.role,'budget')!=='none')tabs.push(['sales','Sales & Budget']); tabs=tabs.concat([['production','Production'],['quality','Quality'],['shipments','Shipments'],['supply','Supply Chain']]); return '<div class="dtabbar">'+tabs.map(function(t){return '<button class="dtab'+(dashTab===t[0]?' on':'')+'" onclick="dashTab=\''+t[0]+'\';render()">'+t[1]+'</button>';}).join('')+'</div>'; }
+function dashDefaultTab(){ var r=state.role; if(r==='CFO')return 'sales'; if(r==='KAM')return 'overview'; if(r==='Plant Manager')return 'centers'; if(r==='Production')return 'production'; if(r==='Lab Rep'||r==='AQCM'||r==='QCM'||r==='QA Inspector')return 'quality'; if(r==='Supply Chain')return 'supply'; return 'overview'; }
+function dashTabBar(){ var tabs=[['overview','Overview'],['centers','Centers'],['production','Production'],['quality','Quality'],['supply','Supply chain']]; if(accessLevel(state.role,'budget')!=='none')tabs.push(['sales','Financial']); return '<div class="dtabbar">'+tabs.map(function(t){return '<button class="dtab'+(dashTab===t[0]?' on':'')+'" onclick="dashTab=\''+t[0]+'\';render()">'+t[1]+'</button>';}).join('')+'</div>'; }
 function _dk(l,v,d,c){return '<div class="kpi" style="border-top:3px solid var('+c+')"><div class="l">'+l+'</div><div class="v">'+v+'</div><div class="d">'+d+'</div></div>';}
 var _DQOWN={'Cleared to pack?':['Production'],'Awaiting Lab QC?':['Lab Rep','AQCM','QCM'],'Needs reconcile?':['Production','Plant Manager'],'Today’s output':['Production'],'UNFIT lots?':['Plant Manager'],'Cleared to ship?':['QA Inspector'],'Blocked (no batch #)?':['Production'],'QA failed?':['Supply Chain'],'Awaiting QA inspection?':['QA Inspector'],'Ready to ship?':['Supply Chain'],'Overdue deliveries?':['Supply Chain','KAM'],'Revenue at risk':['CFO','KAM'],'On-time delivery':['Supply Chain','KAM'],'RM-blocked POs?':['Supply Chain'],'PRs awaiting CFO?':['CFO'],'GRN to receive?':['Supply Chain']};
 function _dq(q,val,sub,tone,go){var c=tone==='bad'?'--red':tone==='warn'?'--amber':tone==='good'?'--green2':'--navy';var own=(typeof _DQOWN!=='undefined')?_DQOWN[q]:null;var mine=own&&state.role!=='COO'&&own.indexOf(state.role)>-1;return '<div class="dqcard'+(mine?' mine':'')+'"'+(go?(' onclick="'+go+'" style="cursor:pointer"'):'')+'>'+(mine?'<span class="dq-mine">Your action</span>':'')+'<div class="dq-q">'+q+'</div><div class="dq-v" style="color:var('+c+')">'+val+'</div><div class="dq-s">'+sub+'</div>'+(go?'<div class="dq-go">Open ▸</div>':'')+'</div>';}
@@ -4586,14 +4597,53 @@ function dashSupplyHtml(){ var prs=state.prs||[]; var openPrs=prs.filter(functio
   var cards='<div class="dqgrid">'+_dq('RM-blocked POs?',rmBlocked+'','lines waiting on material',(rmBlocked>0?'bad':'good'),"setScreen('approvals')")+_dq('PRs awaiting CFO?',awaitCfo+'','cannot receive until approved',(awaitCfo>0?'bad':'good'),"setScreen('approvals')")+_dq('GRN to receive?',receiving+'','approved PRs, partly received',(receiving>0?'warn':'good'),"setScreen('approvals')")+_dq('Ready to ship?',rp.length+' POs',fmt(readyKg)+' Kg inspected & cleared',(rp.length>0?'warn':'good'),"setScreen('ship')")+'</div>';
   var prChart=_dbars('Purchase requests',prs.length+' total',[{n:'Awaiting CFO',v:awaitCfo,c:'--red'},{n:'Approved · receiving',v:receiving,c:'--amber'},{n:'Closed',v:closed,c:'--green2'}],'');
   return kpis+cards+prChart+dashStageBar(); }
+function dashNarrative(M){
+  var dvb=M.budget>0?Math.round(M.delivered/M.budget*100):0;
+  var constraint = M.riskVal>0 ? (pkrM(M.riskVal)+' at risk is the constraint')
+                 : (M.fitPct!=null&&M.fitPct<95 ? ('quality at '+M.fitPct+'% FIT is the drag') : 'flow is clean');
+  return '<div class="tuned"><span class="tg">Tuned for '+state.role+'</span><span>Delivery <b>'+dvb+'%</b> of budget · on-time <b>'+(M.onPct!=null?M.onPct+'%':'—')+'</b> — '+constraint+'.</span></div>';
+}
+function dashCentersHtml(M){
+  var orders=state.orders||[];
+  var openLoad=orders.filter(function(o){return orderBucket(o)!=='Delivered';}).length;
+  var total=M.turn.filter(function(t){return t.name==='Total';})[0];
+  var avgTurn=total&&total.days!=null?(total.days+'d'):'—';
+  var rmBlocked=orders.filter(function(o){return orderBucket(o)==='RM Check';}).length;
+  var counts={}; BUCKETS.forEach(function(s){counts[s]=0;}); orders.forEach(function(o){var b=orderBucket(o); if(b!=='Delivered') counts[b]=(counts[b]||0)+1;});
+  var busiest='—',bmax=-1; BUCKETS.forEach(function(s){ if(s!=='Delivered'&&(counts[s]||0)>bmax){bmax=counts[s]||0;busiest=s;} });
+  var kpis='<div class="kpis" style="grid-template-columns:repeat(4,1fr)">'
+    +_dk('Open load',openLoad,'orders in pipeline','--navy')
+    +_dk('Avg turnaround',avgTurn,'order to delivery','--amber')
+    +_dk('Busiest center',busiest,bmax>=0?(bmax+' orders'):'—','--green2')
+    +_dk('RM-blocked',rmBlocked,'awaiting materials','--red')
+    +'</div>';
+  var tstages=M.turn.filter(function(t){return t.name!=='Total';});
+  var tmax=Math.max.apply(null,tstages.map(function(t){return t.days||0;}).concat([1]));
+  var tbars='<div class="card"><div class="sec" style="margin-top:0">Turnaround by center <span class="hint">avg days per stage</span></div><div class="funnel">'
+    +tstages.map(function(t){var d=t.days!=null?t.days:0; return '<div class="frow"><div class="fl">'+t.name+'</div><div class="ftrack"><i style="width:'+Math.round(d/tmax*100)+'%"></i></div><div class="fn">'+(t.days!=null?t.days+'d':'—')+'</div></div>';}).join('')
+    +'</div><div class="ch-foot">Real, from per-stage timestamps. Lab QC / QA / Shipment are grouped within “QC → delivery” until split from the audit log.</div></div>';
+  var lmax=Math.max.apply(null,BUCKETS.map(function(s){return counts[s]||0;}).concat([1]));
+  var lbars='<div class="card"><div class="sec" style="margin-top:0">Load by center <span class="hint">open orders per stage · click to open the Tracker</span></div><div class="funnel">'
+    +BUCKETS.filter(function(s){return s!=='Delivered';}).map(function(s){var c=counts[s]||0; var col=(BUCKET_META[s]&&BUCKET_META[s].c)||'--mut'; return '<div class="frow" style="cursor:pointer" onclick="trkStage=\''+s+'\';setScreen(\'tracker\')"><div class="fl">'+s+'</div><div class="ftrack"><i style="width:'+Math.round(c/lmax*100)+'%;background:var('+col+')"></i></div><div class="fn">'+c+'</div></div>';}).join('')
+    +'</div></div>';
+  return kpis+'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">'+tbars+lbars+'</div>';
+}
 function screenDash(){
   if(!dashTab) dashTab=dashDefaultTab();
+  if(dashTab==='shipments') dashTab='supply';
   if(dashTab==='sales' && accessLevel(state.role,'budget')==='none') dashTab='overview';
   var bar=dashTabBar();
-  if(dashTab==='overview'){ var M=execMetrics(); $('view').innerHTML=bar+dashExecHtml(M); try{drawDashExec(M);}catch(e){} return; }
-  var body = dashTab==='sales'?dashSalesHtml() : dashTab==='production'?dashProdHtml() : dashTab==='quality'?dashQualHtml() : dashTab==='shipments'?dashShipHtml() : dashTab==='supply'?dashSupplyHtml() : '';
-  if(!body){ var M2=execMetrics(); $('view').innerHTML=bar+dashExecHtml(M2); try{drawDashExec(M2);}catch(e){} return; }
-  $('view').innerHTML=bar+body;
+  var M=execMetrics();
+  var banner=dashNarrative(M);
+  if(dashTab==='overview'){ $('view').innerHTML=bar+banner+dashExecHtml(M); try{drawDashExec(M);}catch(e){} return; }
+  var body = dashTab==='sales'?dashSalesHtml()
+    : dashTab==='centers'?dashCentersHtml(M)
+    : dashTab==='production'?dashProdHtml()
+    : dashTab==='quality'?dashQualHtml()
+    : dashTab==='supply'?(dashSupplyHtml()+dashShipHtml())
+    : '';
+  if(!body){ $('view').innerHTML=bar+banner+dashExecHtml(M); try{drawDashExec(M);}catch(e){} return; }
+  $('view').innerHTML=bar+banner+body;
 }
 function drawDash(){
   if(typeof Chart==='undefined'||!_dash) return;

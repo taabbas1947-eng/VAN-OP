@@ -836,6 +836,25 @@ body{font-family:'Geist','Inter',system-ui,-apple-system,'Segoe UI',sans-serif}
 .fpill.on{background:var(--navy);border-color:var(--navy);color:#fff}
 .fpill.on .d{background:#fff!important}
 .fpill.on b{color:#fff}
+/* PO Tracker flat Table view (prototype parity) */
+.trktblwrap{border:1px solid var(--line);border-radius:11px;background:var(--panel);overflow:auto}
+.trktbl{width:100%;border-collapse:collapse;font-size:12.5px}
+.trktbl thead th{text-align:left;font-size:9.5px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--mut);padding:9px 14px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--panel);z-index:1}
+.trktbl tbody td{padding:9px 14px;border-bottom:1px solid var(--line2);vertical-align:middle;color:var(--txt)}
+.trktbl tbody tr{cursor:pointer;transition:background .1s}
+.trktbl tbody tr:hover td{background:var(--navy-50)}
+.trktbl .trkpo{font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap}
+.trktbl .trksub{font-size:10.5px;color:var(--mut);margin-top:1px}
+.trktbl .trkprogc{display:flex;align-items:center;gap:9px;min-width:140px}
+.trktbl .trkprogc .tkprog{flex:1;height:7px;background:var(--surface-2,#f1f6f4);border-radius:5px;overflow:hidden}
+.trktbl .trkprogc .tkprog span{display:block;height:100%;background:var(--navy);border-radius:5px}
+.trktbl .trkpct{font-size:11.5px;font-weight:700;color:var(--ink-2,#586577);width:40px;text-align:right}
+.trktbl .trkprom{font-family:var(--font-mono,monospace);font-size:11.5px;color:var(--ink-2,#586577);white-space:nowrap}
+.trktbl .tkgrp td{background:var(--surface-2,#f1f6f4);font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--mut);padding:6px 14px}
+.rchip{display:inline-block;font-size:11px;font-weight:700;padding:2px 10px;border-radius:999px;border:1px solid transparent;white-space:nowrap}
+.rchip.ok{background:var(--green-50,#e3f6ee);color:var(--green-d,#0f7a52);border-color:#bfe7d4}
+.rchip.od{background:var(--red-50,#fdeceb);color:var(--red,#e03127);border-color:#f6c9c4}
+.rchip.stall,.rchip.pri{background:var(--amber-50,#fdf6e3);color:#9a6b08;border-color:#efdca0}
 .tkcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(248px,1fr));gap:11px}
 .tkocard{padding:12px;cursor:pointer;transition:.12s}
 .tkocard:hover{box-shadow:0 4px 14px rgba(10,22,42,.10);transform:translateY(-1px);border-color:var(--navy)}
@@ -2397,6 +2416,22 @@ function orderCard(o){
   var sub=(multi&&exp)?`<div class="tksub">${o.lines.map(function(l){return tkLineRow(o,l);}).join('')}</div>`:'';
   return head+sub;
 }
+function _trkRisk(o){ return isOverdue(o)?['Overdue','od']:(isStalled(o)?['Stalled','stall']:(attentionOf(o).hot?['Priority','pri']:['On track','ok'])); }
+function trkTableWrap(rows){ return '<div class="tscroll trktblwrap"><table class="trktbl"><thead><tr><th>PO</th><th>Client</th><th>Brand</th><th>Stage</th><th>Progress</th><th>Risk</th><th>Promised</th></tr></thead><tbody>'+rows+'</tbody></table></div>'; }
+function trkTrow(o){
+  var b=orderBucket(o), x=orderBal(o), r=_trkRisk(o);
+  var brands=(o.lines||[]).map(function(l){return l.brand;}).filter(Boolean);
+  var brand=brands.length<=1?(brands[0]||'—'):(brands[0]+' <span class="muted">+'+(brands.length-1)+'</span>');
+  return '<tr onclick="openTkDrawer(\''+o.id+'\')">'
+    +'<td class="trkpo">'+(o.po||'')+'</td>'
+    +'<td>'+(o.client||'')+'<div class="trksub">'+(o.channel||'')+'</div></td>'
+    +'<td>'+brand+'</td>'
+    +'<td>'+t2spill(b)+'</td>'
+    +'<td><div class="trkprogc"><div class="tkprog"><span style="width:'+Math.max(0,Math.min(100,x.pct))+'%"></span></div><span class="trkpct">'+x.pct+'%</span></div></td>'
+    +'<td><span class="rchip '+r[1]+'">'+r[0]+'</span></td>'
+    +'<td class="trkprom">'+(o.promised||'—')+'</td>'
+    +'</tr>';
+}
 function _trkRecv(o){ return String(o.received||''); }
 function _trkNewCmp(a,b){ return _trkRecv(b).localeCompare(_trkRecv(a)) || String(b.po||'').localeCompare(String(a.po||'')); }
 function _trkRiskCmp(a,b){ var ra=isOverdue(a)?0:1, rb=isOverdue(b)?0:1; if(ra!==rb) return ra-rb; var da=isOverdue(a)?daysOver(a):0, db=isOverdue(b)?daysOver(b):0; if(da!==db) return db-da; var aa=orderAging(a).days||0, ab=orderAging(b).days||0; return ab-aa; }
@@ -2407,22 +2442,16 @@ function trkBodyHTML(){
   if(trkView==='board') return t2board(list);
   if(trkView==='matrix') return t2matrix(list);
   if(trkView==='cards') return tkCards(list);
+  /* Table (flat columnar) view — matches prototype PO/Client/Brand/Stage/Progress/Risk/Promised */
   var sorted=(trkSort==='new')?list.slice().sort(_trkNewCmp)
     :(trkSort==='oldstage')?list.slice().sort(function(a,b){ return (orderAging(b).days||0)-(orderAging(a).days||0); })
     :(trkSort==='stage')?list.slice().sort(function(a,b){ return (t2idx(a)-t2idx(b))||_trkNewCmp(a,b); })
-    :null;
+    :list.slice().sort(_trkRiskCmp);
   if(trkGroup!=='none'){
-    var base=sorted||list.slice().sort(_trkRiskCmp);
-    var g={}; base.forEach(function(o){var k=_trkGroupKey(o);(g[k]=g[k]||[]).push(o);});
-    return Object.keys(g).map(function(k){return '<div class="tksec">'+k+' · '+g[k].length+'</div>'+g[k].map(orderCard).join('');}).join('');
+    var g={}; sorted.forEach(function(o){var k=_trkGroupKey(o);(g[k]=g[k]||[]).push(o);});
+    return trkTableWrap(Object.keys(g).map(function(k){return '<tr class="tkgrp"><td colspan="7">'+k+' · '+g[k].length+'</td></tr>'+g[k].map(trkTrow).join('');}).join(''));
   }
-  if(sorted) return sorted.map(orderCard).join('');
-  var attn=list.filter(function(o){return isOverdue(o)||isStalled(o);}).sort(_trkRiskCmp);
-  var rest=list.filter(function(o){return !(isOverdue(o)||isStalled(o));}).sort(_trkNewCmp);
-  var html='';
-  if(attn.length) html+='<div class="tksec tksec-r">Needs attention · '+attn.length+'</div>'+attn.map(orderCard).join('');
-  if(rest.length) html+='<div class="tksec">Active · newest first · '+rest.length+'</div>'+rest.map(orderCard).join('');
-  return html;
+  return trkTableWrap(sorted.map(trkTrow).join(''));
 }
 function _trkPaint(){ var el=document.getElementById('trkBody'); if(el) el.innerHTML=trkBodyHTML(); var c=document.getElementById('trkShown'); if(c) c.textContent=trkList().length; }
 function tkKpi(label,val,meta,onclick,active){ return '<div class="card kpi tkkpi'+(active?' on':'')+'" '+(onclick?'onclick="'+onclick+'" tabindex="0"':'')+'><div class="kl">'+label+'</div><div class="kv">'+val+'</div><div class="km">'+(meta||'')+'</div></div>'; }

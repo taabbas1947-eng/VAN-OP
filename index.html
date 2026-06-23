@@ -2687,6 +2687,11 @@ function batchStage(b){ var prod=+b.producedKg||0, plan=+b.plannedKg||0, packed=
   if(prod-cleared>0.5) return 'qc';
   if(cleared-packed>0.5) return 'pack';
   return 'done'; }
+/* SINGLE SOURCE OF TRUTH for "what's on the floor" — used by Lanes, the KPI strip,
+   the Table sub-view and the Dashboard tile so every batch count reconciles.
+   Excludes by-product & pools (shown on their own lines); includes open batches
+   plus closed batches that still have remainder or QC-cleared stock to pack. */
+function activeFloorBatches(){ return (state.batches||[]).filter(function(b){ return b.disposition!=='byproduct' && !b.pool && (b.status==='open' || (batchRemainderKg(b)>0.5 && !b.reconciled) || batchPackableKg(b)>0.5); }); }
 function batchAging(b){ var s=batchStage(b), d=null, lots=(b.lots||[]);
   if(s==='producing') d=b.openedDate||b.date;
   else if(s==='qc'){ var ds=lots.map(function(l){return l.date;}).filter(Boolean).sort(); d=ds.length?ds[ds.length-1]:(b.openedDate||b.date); }
@@ -2767,7 +2772,22 @@ function _pcStage(st){var M=(window.ProductionCenter&&ProductionCenter.STAGE_MET
 function _pcResult(r){var c=r.tone==='good'?'var(--green,#4FA84E)':r.tone==='bad'?'var(--red,#E03127)':r.tone==='warn'?'var(--amber,#C77D18)':'var(--ink-3,#8A95A6)';return '<span style="color:'+c+';font-weight:700;font-size:11.5px">'+r.label+'</span>';}
 function prodViewBar(active){var V=[['floor','Floor'],['output','Output'],['lifecycle','Lifecycle']];return '<div class="pvbar" style="margin-bottom:14px">'+V.map(function(v){return '<button onclick="prodView=\''+v[0]+'\';render()" class="pvbtn'+(active===v[0]?' on':'')+'">'+v[1]+'</button>';}).join('')+'</div>';}
 function _pcSub(opts,cur,setter){return '<div class="pvsub">'+opts.map(function(o){return '<button onclick="'+setter+'=\''+o[0]+'\';render()" class="'+(cur===o[0]?'on':'')+'">'+o[1]+'</button>';}).join('')+'</div>';}
-function renderProdFloorBoard(){var PC=window.ProductionCenter;if(!PC)return '<div class="card">Board unavailable</div>';var lanes=PC.floorLanes(state);var cols=lanes.map(function(L){var cards=(L.batches||[]).map(function(b){var pct=b.planned>0?Math.min(100,Math.round((b.produced/b.planned)*100)):0;return '<div class="pbcard"><div class="pbtop"><span class="pbcode">'+(b.batchNo||'\u2014')+'</span><span class="pbtag">'+(b.kind==='pool'?'Pool':b.po?'PO':'Bulk')+'</span></div><div class="pbname">'+(b.brand||b.base||'')+'</div><div class="pbbar"><i style="width:'+pct+'%;background:'+L.dot+'"></i></div><div class="pbfoot">'+PC.fmt(b.produced)+'/'+PC.fmt(b.planned)+' Kg'+(b.readyToPack>0.5?(' \u00b7 '+PC.fmt(b.readyToPack)+' ready'):'')+'</div></div>';}).join('')||'<div class="muted" style="font-size:11px;padding:4px 2px">\u2014</div>';return '<div class="pbcol"><div class="pbcolh"><span class="dot" style="background:'+L.dot+'"></span>'+L.name+'<span class="pbcount">'+L.count+'</span></div>'+cards+'</div>';}).join('');return '<div class="pboard">'+cols+'</div>';}
+/* Board sub-view = PO-stage kanban (order-level: PO Created \u2192 Shipment), distinct from Lanes (batch-flow). Read-only; click a card to open the order. */
+function renderProdFloorBoard(){
+  var orders=(state.orders||[]).filter(function(o){return orderBucket(o)!=='Delivered';});
+  var cols=BUCKETS.filter(function(s){return s!=='Delivered';}).map(function(s){
+    var list=orders.filter(function(o){return orderBucket(o)===s;});
+    var c=(BUCKET_META[s]&&BUCKET_META[s].c)||'--mut';
+    var cards=list.map(function(o){
+      var x=orderBal(o); var pct=Math.max(0,Math.min(100,(x&&x.pct)||0)); var r=_trkRisk(o);
+      var brands=(o.lines||[]).map(function(l){return l.brand;}).filter(Boolean);
+      var brand=brands.length<=1?(brands[0]||''):(brands[0]+' +'+(brands.length-1));
+      return '<div class="pbcard" style="cursor:pointer" onclick="openTkDrawer(\''+o.id+'\')"><div style="font-weight:700;font-size:12.5px">'+(o.po||'')+'</div><div class="muted" style="font-size:11px;margin:2px 0 7px">'+(o.client||'')+(brand?(' \u00b7 '+brand):'')+'</div><div class="tkprog" style="margin-bottom:7px"><span style="width:'+pct+'%"></span></div><div style="display:flex;align-items:center;gap:6px"><span class="rchip '+r[1]+'">'+r[0]+'</span><span class="muted" style="margin-left:auto;font-size:10.5px">'+(o.promised||'')+'</span></div></div>';
+    }).join('')||'<div class="muted" style="font-size:11px;padding:4px 2px">\u2014</div>';
+    return '<div class="pbcol"><div class="pbcolh"><span class="dot" style="background:var('+c+')"></span>'+s+'<span class="pbcount">'+list.length+'</span></div>'+cards+'</div>';
+  }).join('');
+  return '<div class="pboard">'+cols+'</div>';
+}
 function renderProdFloorTable(){var PC=window.ProductionCenter;if(!PC)return '<div class="card">Table unavailable</div>';var rows=PC.floorRows(state);if(!rows.length)return '<div class="card"><div class="muted">No open batches.</div></div>';return '<div class="card"><div class="tscroll"><table><thead><tr><th>Batch</th><th>Product</th><th>Owner</th><th>Stage</th><th class="num">Produced</th><th class="num">Cleared</th><th class="num">Packed</th><th class="num">Ready</th></tr></thead><tbody>'+rows.map(function(b){return '<tr><td><b>'+(b.batchNo||'\u2014')+'</b></td><td>'+(b.brand||b.base||'')+'</td><td class="muted" style="font-size:11px">'+b.owner+'</td><td>'+_pcStage(b.stage)+'</td><td class="num">'+PC.fmt(b.produced)+'</td><td class="num">'+PC.fmt(b.cleared)+'</td><td class="num">'+PC.fmt(b.packed)+'</td><td class="num"><b style="color:'+(b.readyToPack>0.5?'var(--green2)':'var(--mut)')+'">'+PC.fmt(b.readyToPack)+'</b></td></tr>';}).join('')+'</tbody></table></div></div>';}
 function renderProdOutput(){var PC=window.ProductionCenter;if(!PC)return '<div class="card">Output unavailable</div>';var o=PC.output(state);
   var kpis='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:11px;margin-bottom:14px">'+_pcKpi('Output (7d)',PC.fmt(o.totalKg),'Kg','last 7 days','var(--navy)')+_pcKpi('Avg / day',PC.fmt(o.avgPerDay),'Kg','','var(--teal,#1F9C92)')+_pcKpi('Today',PC.fmt(o.todayKg),'Kg','latest day','var(--green,#4FA84E)')+_pcKpi('QA pass rate',o.qcPassRate+'%','','pre-shipment','var(--green,#4FA84E)')+'</div>';
@@ -2860,14 +2880,15 @@ function screenProd(){
          <div class="fld" style="width:150px"><label>Planned (Kg/L)</label><input type="number" id="nb_planned" placeholder="Kg/L"></div>
          <button class="green" ${ed?'':'disabled'} onclick="openBatch('bulk')">Open batch</button></div>
        <div class="muted" style="font-size:11px;margin-top:8px">Opens a bulk-base batch with a planned target. Log shift output in <b>Open batches</b> below, then pack it once produced.</div>`;
-  const _jb=(state.batches||[]).filter(b=> b.disposition!=='byproduct' && !b.pool && (b.status==='open' || (batchRemainderKg(b)>0.5 && !b.reconciled) || batchPackableKg(b)>0.5) );  /* Stage 1/4b: by-product + divert POOLS are shown on their own lines, never in the main journey board */
+  const _jb=activeFloorBatches();  /* canonical floor set (single source of truth) */
   const _ready=b=>Math.max(0,batchClearedKg(b)-(+b.packedKg||0)); const _jc={producing:0,qc:0,pack:0,recon:0}; _jb.forEach(b=>{const st=batchStage(b); if(_jc[st]!=null)_jc[st]++; if(st!=='pack' && _ready(b)>0.5) _jc.pack++;});  /* master: QC-cleared & unpacked stock counts as Ready-to-pack even while the batch still produces the remainder (it accumulates per batch as each lot clears) */
   const _jchips=[['','All',_jb.length],['producing','Producing',_jc.producing],['qc','Awaiting QC',_jc.qc],['pack','Ready to pack',_jc.pack],['recon','Reconcile',_jc.recon]];
   const _readyKg=_jb.reduce((a,b)=>a+_ready(b),0);
   const _toProduceKg=_jb.filter(function(b){return batchStage(b)==='producing';}).reduce(function(a,b){return a+Math.max(0,(+b.plannedKg||0)-(+b.producedKg||0));},0);
   const _rmBlocked=(state.orders||[]).filter(function(o){return orderBucket(o)==='RM Check';}).length;
+  const _openOrders=(state.orders||[]).filter(function(o){return orderBucket(o)!=='Delivered';}).length;
   const _pkpi=(l,v,u,d,c)=>`<div class="kpi"><div class="l">${l}</div><div class="v">${fmt(v)} <span style="font-size:12px;color:var(--mut);font-weight:600">${u}</span></div><div class="d">${d}</div></div>`;
-  const prodKpis=`<div class="kpis" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">${_pkpi('In production',_jc.producing,'batches','producing now','--navy')}${_pkpi('To produce',_toProduceKg,'Kg/L','remaining to make','--blue')}${_pkpi('RM blocked',_rmBlocked,'orders','awaiting material','--red')}${_pkpi('Awaiting Lab QC',_jc.qc,'lots','COA pending','--amber')}${_pkpi('Ready to pack',_jc.pack,'batches',fmt(_readyKg)+' Kg/L cleared','--green2')}${_pkpi('Reconcile',_jc.recon,'batches','remainder to route','--red')}</div>`;
+  const prodKpis=`<div class="kpis" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">${_pkpi('Open orders',_openOrders,'orders','not yet delivered','--navy')}${_pkpi('In production',_jc.producing,'batches','producing now','--navy')}${_pkpi('To produce',_toProduceKg,'Kg/L','remaining to make','--blue')}${_pkpi('RM blocked',_rmBlocked,'orders','awaiting material','--red')}${_pkpi('Awaiting Lab QC',_jc.qc,'lots','COA pending','--amber')}${_pkpi('Ready to pack',_jc.pack,'batches',fmt(_readyKg)+' Kg/L cleared','--green2')}${_pkpi('Reconcile',_jc.recon,'batches','remainder to route','--red')}</div>`;
   let _jl=_jb.slice().sort((a,b)=>PJORD.indexOf(batchStage(a))-PJORD.indexOf(batchStage(b)));
   if(prodStage==='pack') _jl=_jl.filter(b=>_ready(b)>0.5); else if(prodStage) _jl=_jl.filter(b=>batchStage(b)===prodStage);  /* Ready-to-pack lens shows ANY batch with cleared-unpacked stock, incl. ones still producing */
   const _bpAll=(state.batches||[]).filter(b=>b.disposition==='byproduct'&&!b.voided); const _bpPools=_bpAll.filter(b=>b.pool); const _bpA=_bpPools.length?_bpPools:_bpAll; const _bpKg=_bpA.reduce((a,b)=>a+(+b.plannedKg||0),0);  /* count only the pool when one exists (never double-count leftover fragments) */
@@ -5598,12 +5619,8 @@ bootState();
     var toProduce = Math.max(0, planned - produced);
     var readyToPack = Math.max(0, cert - packed);
 
-    var stage;
-    if (b.pool) stage = 'recon';
-    else if (toProduce > 0 && cert <= packed && pend === 0) stage = 'producing';
-    else if (pend > 0) stage = 'qc';
-    else if (readyToPack > 0) stage = 'pack';
-    else stage = 'packed';
+    var stage = b.pool ? 'recon' : ((typeof batchStage === 'function') ? batchStage(b) : (toProduce > 0 ? 'producing' : pend > 0 ? 'qc' : readyToPack > 0 ? 'pack' : 'packed'));
+    if (stage === 'done') stage = 'packed';   // unify with the canonical global batchStage()
 
     return {
       batchNo: b.batchNo, kind: b.pool ? 'pool' : b.kind, po: b.po || '',
@@ -5638,7 +5655,7 @@ bootState();
   //  VIEW 1 — FLOOR
   // ====================================================================
   function floorKpis(state) {
-    var rows = openBatches(state);
+    var rows = (typeof activeFloorBatches === 'function') ? activeFloorBatches().map(derive) : openBatches(state);
     var by = {}; STAGE_ORDER.forEach(function (k) { by[k] = []; });
     rows.forEach(function (r) { (by[r.stage] || (by[r.stage] = [])).push(r); });
     return {
@@ -5663,7 +5680,7 @@ bootState();
   }
   // Table sub-view (optionally filtered by stage)
   function floorRows(state, stageFilter) {
-    var rows = openBatches(state);
+    var rows = (typeof activeFloorBatches === 'function') ? activeFloorBatches().map(derive) : openBatches(state);
     return (stageFilter && stageFilter !== 'all')
       ? rows.filter(function (r) { return r.stage === stageFilter; })
       : rows;

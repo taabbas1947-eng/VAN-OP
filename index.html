@@ -1101,6 +1101,56 @@ tr.clk:hover td{background:var(--panel2)}
 .bt{height:7px;border-radius:5px;background:var(--surface-2,#f1f6f4)}
 .bt i{display:block;height:100%;border-radius:5px;background:var(--navy);transition:width .4s}
 body{font-family:var(--font-body);color:var(--ink);background:var(--bg)}
+
+/* ===================================================================
+   PROTOTYPE-EXACT OVERRIDE  ·  must remain the LAST global style block
+   Aligns the live app to O2S-Redesign-v2.html (approved source of truth):
+   Space Grotesk + Inter · 10px radius family · 12.5px ultra-compact ·
+   prototype neutrals + soft shadows. Reversible: delete this block to
+   restore the prior ds-foundation look. No JS/markup/data touched.
+=================================================================== */
+:root{
+  /* — typography → prototype (Space Grotesk display + Inter body) — */
+  --head:'Space Grotesk','Inter',system-ui,sans-serif;
+  --font-display:'Space Grotesk','Inter',system-ui,sans-serif;
+  --font-body:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --font-mono:'Inter',system-ui,sans-serif;            /* prototype uses no mono */
+  /* — radius → prototype — */
+  --r:10px; --r-sm:7px; --r-lg:16px;
+  --radius:10px; --radius-sm:7px;
+  /* — neutrals → prototype — */
+  --bg:#f8f9fb; --panel:#ffffff; --surface:#ffffff;
+  --panel2:#f1f3f6; --surface-2:#f1f3f6; --panel3:#eaedf1; --surface-3:#eaedf1;
+  --line:#e5e8ee; --line2:#eef0f4; --line-2:#eef0f4;
+  --txt:#161a20; --ink:#161a20; --txt2:#475063; --ink-2:#475063; --mut:#717a88; --ink-3:#717a88;
+  --rail:#eceef1; --rail-line:#dee1e6;
+  /* — accent family (prototype cyan) — */
+  --navy:#0891b2; --navy2:#0e7490; --green:#0891b2; --green2:#0e7490; --teal:#0891b2;
+  --accent:#0891b2; --accent2:#0e7490; --accent-weak:rgba(8,145,178,.13); --on-accent:#ffffff;
+  --navy-50:#e0f3f7; --navy-100:#b6e3ec;
+  --amber:#b9770a; --red:#c0392b; --blue:#2563eb; --purple:#7c5cd6;
+  --good:#0e9f6e; --warn:#c98a12; --bad:#dc4436;
+  /* — shadows → prototype (softer) — */
+  --sh-sm:0 1px 2px rgba(16,33,28,.06);
+  --sh:0 6px 22px rgba(16,33,28,.10);
+  --sh-lg:0 24px 60px rgba(16,33,28,.20);
+  --ring:0 0 0 2px rgba(8,145,178,.20);
+  /* — density (compact) → prototype — */
+  --fs:12.5px; --gap:11px; --pad-card:11px; --kpi-pad:11px; --kval:27px;
+}
+[data-density="comfortable"]{ --fs:13.5px; --gap:15px; --pad-card:16px; --kpi-pad:16px; --kval:30px; }
+body{font-family:var(--font-body);font-size:var(--fs);letter-spacing:-.011em;color:var(--ink);background:var(--bg)}
+/* re-pin hard-coded Bricolage/Geist selectors back to prototype --head */
+.brand .nm,.topbar h2,h1,h2,h3,h4,.sec,.subh{font-family:var(--head);letter-spacing:-.02em}
+/* prototype renders captions/numbers in Inter, not mono */
+.topbar .sub,.brand .nm span,.navsearch kbd,.bl .h span,.trktbl .trkprom{font-family:var(--font-body)}
+/* tabular numerals for KPI/number cells (prototype parity) */
+.kpi .kv,.kval,.num,.qn,td.num,.tnum{font-variant-numeric:tabular-nums}
+/* KPI rhythm → prototype: big 27px Space-Grotesk value, 10.5px uppercase Inter label */
+.kpi .l,.kpi .kl{font-family:var(--font-body);font-size:10.5px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--mut)}
+.kpi .v,.kpi .kv{font-family:var(--head);font-size:var(--kval);font-weight:800;line-height:1;letter-spacing:-.01em;color:var(--txt);margin-top:7px;font-variant-numeric:tabular-nums}
+.app.compact .kpi .v,.app.compact .kpi .kv{font-size:var(--kval)}
+.kpi .d,.kpi .km{font-size:11px;color:var(--mut);margin-top:5px;font-weight:500}
 </style>
 </head><body>
 <div class="app" id="appShell">

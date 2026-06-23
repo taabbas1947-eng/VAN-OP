@@ -2745,6 +2745,21 @@ function _prodLanes(items,ed){
   const by={}; order.forEach(o=>by[o[0]]=[]); items.forEach(b=>{ const st=batchStage(b); (by[st]||(by[st]=[])).push(b); });
   return order.filter(o=>by[o[0]]&&by[o[0]].length).map(o=>`<div style="margin:0 0 16px"><div style="display:flex;align-items:center;gap:8px;margin:0 0 8px;padding:6px 11px;border-left:3px solid ${o[3]};background:color-mix(in srgb,${o[3]} 8%,#fff);border-radius:7px"><b style="font-size:12.5px">${o[1]}</b><span style="font-size:10.5px;font-weight:700;background:${o[3]};color:#fff;border-radius:10px;padding:1px 8px">${by[o[0]].length}</span><span class="muted" style="font-size:11px;font-weight:400">${o[2]}</span></div><div class="pjgrid">${by[o[0]].map(b=>laneCard(b,ed)).join()}</div></div>`).join('');
 }
+/* clean prototype-style Floor kanban (render-only; drops the journey pool banner/chips/inline actions — actions remain on Board/Table & batch detail) */
+function prodKanban(items){
+  var order=[['producing','In production','--blue'],['qc','Awaiting Lab QC','--purple'],['pack','Ready to pack','--green2'],['done','Packed / shipped','--mut'],['recon','Reconcile','--red']];
+  var by={}; order.forEach(function(o){by[o[0]]=[];}); items.forEach(function(b){var st=batchStage(b); (by[st]||(by[st]=[])).push(b);});
+  var cols=order.filter(function(o){return by[o[0]]&&by[o[0]].length;}).map(function(o){
+    var cards=by[o[0]].map(function(b){
+      var prod=+b.producedKg||0; var nm=b.kind==='po'?(b.brand||b.base||''):(b.base||''); var sub=b.kind==='po'?(b.po||''):'bulk → stock';
+      var ord=state.orders.find(function(x){return x.po===b.po;}); var r=ord?_trkRisk(ord):null;
+      var chip=r?('<span class="rchip '+r[1]+'">'+r[0]+'</span>'):'<span class="pill" style="background:var(--navy-50);color:var(--navy);font-size:10px">Bulk</span>';
+      return '<div class="pbcard" style="cursor:pointer" onclick="prodBatchSel=\''+b.id+'\';prodView=\'lifecycle\';prodLifeSub=\'batch\';render()"><div style="font-weight:700;font-size:13px">'+nm+'</div><div class="muted" style="font-size:11.5px;margin:3px 0 8px">'+sub+' · '+fmt(prod)+' Kg/L</div>'+chip+'</div>';
+    }).join('');
+    return '<div class="pbcol"><div class="pbcolh"><span class="dot" style="background:var('+o[2]+')"></span>'+o[1]+'<span class="pbcount">'+by[o[0]].length+'</span></div>'+cards+'</div>';
+  }).join('');
+  return '<div class="pboard">'+cols+'</div>';
+}
 function _pcCard(t,h,b){return '<div class="card"><h3>'+t+(h?' <span class="hint">'+h+'</span>':'')+'</h3>'+b+'</div>';}
 function _pcKpi(l,v,u,d,c){return '<div style="background:var(--surface,#fff);border:1px solid var(--line);border-top:3px solid '+(c||'var(--navy)')+';border-radius:8px;padding:11px 13px"><div style="font-family:var(--font-mono,monospace);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3,#8A95A6)">'+l+'</div><div style="font-family:var(--font-display,sans-serif);font-size:22px;font-weight:800;color:var(--ink,#17202E);line-height:1.1;margin-top:3px">'+v+(u?' <span style="font-size:12px;color:var(--ink-3,#8A95A6);font-weight:600">'+u+'</span>':'')+'</div>'+(d?'<div style="font-size:11px;color:var(--ink-2,#586577);margin-top:2px">'+d+'</div>':'')+'</div>';}
 function _pcBars(rows){var PC=window.ProductionCenter;var max=Math.max.apply(null,rows.map(function(r){return r.kg;}).concat([1]));return '<div class="bars">'+rows.map(function(r){var label=r.name||r.date||'';return '<div class="bl"><div class="h"><b>'+label+'</b><span>'+PC.fmt(r.kg)+' Kg</span></div><div class="bt"><i style="width:'+Math.round(r.kg/max*100)+'%"></i></div></div>';}).join('')+'</div>';}
@@ -2849,8 +2864,10 @@ function screenProd(){
   const _ready=b=>Math.max(0,batchClearedKg(b)-(+b.packedKg||0)); const _jc={producing:0,qc:0,pack:0,recon:0}; _jb.forEach(b=>{const st=batchStage(b); if(_jc[st]!=null)_jc[st]++; if(st!=='pack' && _ready(b)>0.5) _jc.pack++;});  /* master: QC-cleared & unpacked stock counts as Ready-to-pack even while the batch still produces the remainder (it accumulates per batch as each lot clears) */
   const _jchips=[['','All',_jb.length],['producing','Producing',_jc.producing],['qc','Awaiting QC',_jc.qc],['pack','Ready to pack',_jc.pack],['recon','Reconcile',_jc.recon]];
   const _readyKg=_jb.reduce((a,b)=>a+_ready(b),0);
-  const _pkpi=(l,v,u,d,c)=>`<div class="kpi" style="border-top:3px solid var(${c})"><div class="l">${l}</div><div class="v">${fmt(v)} <span style="font-size:12px;color:var(--mut);font-weight:600">${u}</span></div><div class="d">${d}</div></div>`;
-  const prodKpis=`<div class="kpis" style="grid-template-columns:repeat(4,1fr)">${_pkpi('In production',_jc.producing,'batches','producing now','--navy')}${_pkpi('Awaiting Lab QC',_jc.qc,'lots','COA pending','--amber')}${_pkpi('Ready to pack',_jc.pack,'batches',fmt(_readyKg)+' Kg/L cleared','--green2')}${_pkpi('Reconcile',_jc.recon,'batches','remainder to route','--red')}</div>`;
+  const _toProduceKg=_jb.filter(function(b){return batchStage(b)==='producing';}).reduce(function(a,b){return a+Math.max(0,(+b.plannedKg||0)-(+b.producedKg||0));},0);
+  const _rmBlocked=(state.orders||[]).filter(function(o){return orderBucket(o)==='RM Check';}).length;
+  const _pkpi=(l,v,u,d,c)=>`<div class="kpi"><div class="l">${l}</div><div class="v">${fmt(v)} <span style="font-size:12px;color:var(--mut);font-weight:600">${u}</span></div><div class="d">${d}</div></div>`;
+  const prodKpis=`<div class="kpis" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">${_pkpi('In production',_jc.producing,'batches','producing now','--navy')}${_pkpi('To produce',_toProduceKg,'Kg/L','remaining to make','--blue')}${_pkpi('RM blocked',_rmBlocked,'orders','awaiting material','--red')}${_pkpi('Awaiting Lab QC',_jc.qc,'lots','COA pending','--amber')}${_pkpi('Ready to pack',_jc.pack,'batches',fmt(_readyKg)+' Kg/L cleared','--green2')}${_pkpi('Reconcile',_jc.recon,'batches','remainder to route','--red')}</div>`;
   let _jl=_jb.slice().sort((a,b)=>PJORD.indexOf(batchStage(a))-PJORD.indexOf(batchStage(b)));
   if(prodStage==='pack') _jl=_jl.filter(b=>_ready(b)>0.5); else if(prodStage) _jl=_jl.filter(b=>batchStage(b)===prodStage);  /* Ready-to-pack lens shows ANY batch with cleared-unpacked stock, incl. ones still producing */
   const _bpAll=(state.batches||[]).filter(b=>b.disposition==='byproduct'&&!b.voided); const _bpPools=_bpAll.filter(b=>b.pool); const _bpA=_bpPools.length?_bpPools:_bpAll; const _bpKg=_bpA.reduce((a,b)=>a+(+b.plannedKg||0),0);  /* count only the pool when one exists (never double-count leftover fragments) */
@@ -2862,7 +2879,7 @@ function screenProd(){
    ${prodKpis}
    ${_pcSub([['lanes','Lanes'],['board','Board'],['table','Table']],prodFloorSub,'prodFloorSub')}`+(prodFloorSub==='board'?renderProdFloorBoard():prodFloorSub==='table'?renderProdFloorTable():`
    ${fixCard}
-   ${journeyBoard}
+   ${prodKanban(_jb)}
 
    ${acard('prod_orders','Orders in production',`${work.length} open · produced → packed → QC`,`${work.length?`<div class="tscroll"><table><thead><tr><th>PO</th><th>Product</th><th class="num">Ordered</th><th class="num">Produced</th><th class="num">Packed</th><th class="num">To produce</th><th class="num">To pack</th><th style="width:200px"></th></tr></thead>
        <tbody>${work.map(({o,l})=>{const rp=Math.max(0,l.ordered-(l.produced||0)), rk=Math.max(0,(l.produced||0)-(l.packed||0)-(l.disposedKg||0));

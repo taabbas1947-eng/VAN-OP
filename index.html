@@ -804,6 +804,44 @@ body{font-family:'Geist','Inter',system-ui,-apple-system,'Segoe UI',sans-serif}
 .sec.secflex{display:flex;align-items:center;gap:10px;border-bottom:none}
 .sec.secflex .gr{flex:1}
 .sec.secflex .hint{font-size:11.5px;color:var(--mut);font-weight:500}
+/* --- PO Tracker port: KPI cards + labeled viewbar + pill facets + cards view --- */
+.tkkpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:2px 0 12px}
+.tkkpi{padding:11px 13px;cursor:default;transition:.12s}
+.tkkpi[onclick]{cursor:pointer}
+.tkkpi[onclick]:hover{border-color:var(--navy);transform:translateY(-1px);box-shadow:0 4px 14px rgba(10,22,42,.10)}
+.tkkpi.on{border-color:var(--navy);box-shadow:0 0 0 1px var(--navy) inset}
+.tkkpi .kl{font-size:10px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:var(--mut)}
+.tkkpi .kv{font-size:24px;font-weight:800;line-height:1;margin-top:6px;font-variant-numeric:tabular-nums}
+.tkkpi .km{font-size:11px;color:var(--mut);margin-top:4px}
+.tkkpi .km b{color:var(--navy)}
+.viewbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:9px 11px;box-shadow:var(--sh-sm);margin-bottom:11px}
+.viewbar .ctl{display:flex;align-items:center;gap:8px}
+.viewsw{display:inline-flex;background:var(--surface-2,#f1f6f4);border:1px solid var(--line);border-radius:9px;padding:3px;gap:2px}
+.viewsw button{display:flex;align-items:center;gap:6px;border:none;background:none;height:30px;padding:0 13px;border-radius:7px;font-size:12px;font-weight:700;color:var(--ink-2,#586577);cursor:pointer;transition:.12s}
+.viewsw button:hover{color:var(--txt)}
+.viewsw button.on{background:var(--navy);color:#fff;box-shadow:0 1px 3px rgba(8,145,178,.3)}
+.viewsw button svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.wsel{height:30px;border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:0 7px;font-size:11.5px;font-weight:600;color:var(--ink-2,#586577);cursor:pointer}
+.wsearch{display:flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--surface-2,#f1f6f4);border-radius:8px;height:30px;padding:0 9px;min-width:170px}
+.wsearch input{border:none;background:none;outline:none;font:inherit;font-size:12px;color:var(--txt);flex:1}
+.wsearch svg{width:13px;height:13px;stroke:var(--mut);fill:none;stroke-width:2}
+.tkfacets{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:11px}
+.facet{display:flex;gap:5px;flex-wrap:wrap}
+.fpill{border:1px solid var(--line);background:var(--panel);border-radius:999px;height:26px;padding:0 11px;font-size:11px;font-weight:700;color:var(--ink-2,#586577);cursor:pointer;display:inline-flex;align-items:center;gap:5px}
+.fpill .d{width:6px;height:6px;border-radius:50%}
+.fpill b{color:var(--mut);font-weight:800}
+.fpill.on{background:var(--navy);border-color:var(--navy);color:#fff}
+.fpill.on .d{background:#fff!important}
+.fpill.on b{color:#fff}
+.tkcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(248px,1fr));gap:11px}
+.tkocard{padding:12px;cursor:pointer;transition:.12s}
+.tkocard:hover{box-shadow:0 4px 14px rgba(10,22,42,.10);transform:translateY(-1px);border-color:var(--navy)}
+.tkocard.od{border-left:3px solid var(--red)}
+.tkocard.stall{border-left:3px solid var(--amber)}
+.tkoch{display:flex;align-items:center;gap:8px}
+.tkoch b{font-size:13px}
+.tkocsub{font-size:11.5px;color:var(--mut);margin:5px 0}
+.tkocfoot{font-size:10.5px;color:var(--mut);margin-top:7px}
 .rolebox{border-radius:999px;padding:3px 5px 3px 5px}
 .rolebox .av{border-radius:50%;background:var(--navy)}
 
@@ -1548,6 +1586,7 @@ function tkMatrixTable(list){
 }
 function t2board(list){ return '<div class="tkboard">'+BUCKETS.map(function(s){ var g=list.filter(function(o){return orderBucket(o)===s;}); return '<div class="tklane"><div class="tklh"><span>'+s+'</span><b>'+g.length+'</b></div><div class="tklb">'+(g.map(function(o){ var x=orderBal(o); var rc=isOverdue(o)?'od':(isStalled(o)?'stall':''); return '<div class="tkbc '+rc+'" onclick="openTkDrawer(\''+o.id+'\')"><b>'+o.po+'</b><span>'+(o.client||'')+'</span><span>'+fmt(x.rem)+' Kg/L left</span></div>'; }).join('')||'<span class="muted" style="padding:5px;font-size:11px">—</span>')+'</div></div>'; }).join('')+'</div>'; }
 var trkView='matrix';  /* default view = Matrix (PO × stage grid) */
+var trkGroup='none', trkSavedViews=[];  /* prototype parity: group-by + saved views */
 function setTrkView(v){ trkView=v; render(); }
 const STAGE_COLOR={'New':'--mut','RM / Procurement':'--amber','SO Created':'--blue','PR Raised':'--blue','RM Ready':'--blue','In Production':'--purple','Produced':'--purple','QC Passed':'--leaf','Dispatched':'--green2','Delivered':'--green','Ready to Produce':'--blue','Packed':'--leaf','Closed':'--green'};
 
@@ -2340,35 +2379,73 @@ function trkBodyHTML(){
   if(!list.length) return '<div class="empty"><div class="ei">&#8709;</div>No orders match this filter.</div>';
   if(trkView==='board') return t2board(list);
   if(trkView==='matrix') return t2matrix(list);
-  if(trkSort==='new') return list.slice().sort(_trkNewCmp).map(orderCard).join('');
-  if(trkSort==='oldstage') return list.slice().sort(function(a,b){ return (orderAging(b).days||0)-(orderAging(a).days||0); }).map(orderCard).join('');
-  if(trkSort==='stage') return list.slice().sort(function(a,b){ return (t2idx(a)-t2idx(b))||_trkNewCmp(a,b); }).map(orderCard).join('');
+  if(trkView==='cards') return tkCards(list);
+  var sorted=(trkSort==='new')?list.slice().sort(_trkNewCmp)
+    :(trkSort==='oldstage')?list.slice().sort(function(a,b){ return (orderAging(b).days||0)-(orderAging(a).days||0); })
+    :(trkSort==='stage')?list.slice().sort(function(a,b){ return (t2idx(a)-t2idx(b))||_trkNewCmp(a,b); })
+    :null;
+  if(trkGroup!=='none'){
+    var base=sorted||list.slice().sort(_trkRiskCmp);
+    var g={}; base.forEach(function(o){var k=_trkGroupKey(o);(g[k]=g[k]||[]).push(o);});
+    return Object.keys(g).map(function(k){return '<div class="tksec">'+k+' · '+g[k].length+'</div>'+g[k].map(orderCard).join('');}).join('');
+  }
+  if(sorted) return sorted.map(orderCard).join('');
   var attn=list.filter(function(o){return isOverdue(o)||isStalled(o);}).sort(_trkRiskCmp);
   var rest=list.filter(function(o){return !(isOverdue(o)||isStalled(o));}).sort(_trkNewCmp);
   var html='';
-  if(attn.length) html+=`<div class="tksec tksec-r">Needs attention · ${attn.length}</div>`+attn.map(orderCard).join('');
-  if(rest.length) html+=`<div class="tksec">Active · newest first · ${rest.length}</div>`+rest.map(orderCard).join('');
+  if(attn.length) html+='<div class="tksec tksec-r">Needs attention · '+attn.length+'</div>'+attn.map(orderCard).join('');
+  if(rest.length) html+='<div class="tksec">Active · newest first · '+rest.length+'</div>'+rest.map(orderCard).join('');
   return html;
 }
 function _trkPaint(){ var el=document.getElementById('trkBody'); if(el) el.innerHTML=trkBodyHTML(); var c=document.getElementById('trkShown'); if(c) c.textContent=trkList().length; }
+function tkKpi(label,val,meta,onclick,active){ return '<div class="card kpi tkkpi'+(active?' on':'')+'" '+(onclick?'onclick="'+onclick+'" tabindex="0"':'')+'><div class="kl">'+label+'</div><div class="kv">'+val+'</div><div class="km">'+(meta||'')+'</div></div>'; }
+function trkSetQuick(w){ trkFilter=(trkFilter===w?'all':w); render(); }
+var TRK_VIC={ list:'<path d="M3 5h18M3 12h18M3 19h18"/>', matrix:'<rect x="3" y="3" width="18" height="18" rx="1"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/>', board:'<rect x="3" y="4" width="4" height="16" rx="1"/><rect x="10" y="4" width="4" height="11" rx="1"/><rect x="17" y="4" width="4" height="7" rx="1"/>', cards:'<rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/><rect x="13" y="13" width="8" height="8" rx="1"/>' };
+function trkViewSw(){ var V=[['Table','list'],['Matrix','matrix'],['Board','board'],['Cards','cards']]; return '<div class="viewsw">'+V.map(function(v){return '<button class="'+(trkView===v[1]?'on':'')+'" onclick="setTrkView(\''+v[1]+'\')"><svg viewBox="0 0 24 24" aria-hidden="true">'+TRK_VIC[v[1]]+'</svg>'+v[0]+'</button>';}).join('')+'</div>'; }
+function tkCards(list){ return '<div class="tkcards">'+list.map(function(o){ var b=orderBucket(o), x=orderBal(o), rc=isOverdue(o)?'od':(isStalled(o)?'stall':''); return '<div class="card tkocard '+rc+'" onclick="openTkDrawer(\''+o.id+'\')"><div class="tkoch"><b>'+(o.po||'')+'</b><span style="flex:1"></span>'+t2spill(b)+'</div><div class="tkocsub">'+(o.client||'')+' · '+(o.channel||'')+'</div>'+tkProg(x.pct)+'<div class="tkocfoot">'+fmt(x.del)+' / '+fmt(x.ord)+' Kg/L · '+t2promText(o)+'</div></div>'; }).join('')+'</div>'; }
+function _trkGroupKey(o){ return trkGroup==='stage'?orderBucket(o):trkGroup==='channel'?(o.channel||'—'):trkGroup==='client'?(o.client||'—'):trkGroup==='risk'?(isOverdue(o)?'Overdue':isStalled(o)?'Stalled':attentionOf(o).hot?'Priority':'On track'):''; }
+function trkClear(){ trkStage='';trkFilter='all';trkChannel='all';trkSearch='';trkGroup='none';render(); }
+function trkSaveView(){ trkSavedViews.push({name:'View '+(trkSavedViews.length+1),snap:{view:trkView,stage:trkStage,filter:trkFilter,channel:trkChannel,sort:trkSort,q:trkSearch,group:trkGroup}}); if(typeof toast==='function')toast('View saved'); render(); }
+function trkApplyView(i){ if(i===''||!trkSavedViews[+i])return; var s=trkSavedViews[+i].snap; trkView=s.view;trkStage=s.stage;trkFilter=s.filter;trkChannel=s.channel;trkSort=s.sort;trkSearch=s.q;trkGroup=s.group; render(); }
 function screenTracker(){
   var all=state.orders||[];
   var openO=all.filter(function(o){return orderBucket(o)!=='Delivered';});
-  var atrisk=all.filter(function(o){return orderBucket(o)!=='Delivered'&&(isOverdue(o)||orderBucket(o)==='RM Check'||attentionOf(o).hot);}).length;  /* sharpened: truly urgent only (overdue / RM-blocked / priority) — not generic 7d-stalled */
-  var rmblock=all.filter(function(o){return orderBucket(o)==='RM Check';}).length;
-  var remKg=all.reduce(function(a,o){return a+orderBal(o).rem;},0);
-  var strip=`<div class="tkstrip"><span><b>${openO.length}</b> open POs</span><span class="sep">|</span><span class="r"><b>${atrisk}</b> at risk</span><span class="sep">|</span><span class="a"><b>${rmblock}</b> RM-blocked</span><span class="sep">|</span><span><b>${fmt(remKg)}</b> Kg/L remaining</span></div>`;
+  var atrisk=all.filter(function(o){return orderBucket(o)!=='Delivered'&&(isOverdue(o)||orderBucket(o)==='RM Check'||attentionOf(o).hot);}).length;
+  var delivered=all.filter(function(o){return orderBucket(o)==='Delivered';}).length;
+  var priority=all.filter(function(o){return orderBucket(o)!=='Delivered'&&attentionOf(o).hot;}).length;
+  var ordKg=all.reduce(function(a,o){return a+orderBal(o).ord;},0);
+  var delKg=all.reduce(function(a,o){return a+orderBal(o).del;},0);
+  var prodPct=ordKg?Math.round(delKg/ordKg*100):0;
+  var strip='<div class="kpis tkkpis">'
+    +tkKpi('Open',openO.length,'in pipeline',"trkSetQuick('open')",trkFilter==='open')
+    +tkKpi('At risk',atrisk,'overdue + RM-blocked',"trkSetQuick('risk')",trkFilter==='risk')
+    +tkKpi('Priority',priority,'flagged urgent',"trkSetQuick('priority')",trkFilter==='priority')
+    +tkKpi('Delivered',delivered,'this cycle',"trkSetQuick('delivered')",trkFilter==='delivered')
+    +tkKpi('Produced',prodPct+'%','<b>'+fmt(delKg)+'</b> / '+fmt(ordKg)+' Kg/L','',false)
+    +'</div>';
   var rcounts={}; BUCKETS.forEach(function(s){rcounts[s]=0;}); all.forEach(function(o){var b=orderBucket(o); rcounts[b]=(rcounts[b]||0)+1;});
-  var rail=`<div class="tkrail"><button class="${trkStage===''?'on':''}" onclick="trkStage='';render()">All <b>${all.length}</b></button>`+BUCKETS.map(function(s){return `<button class="${trkStage===s?'on':''}" onclick="trkStage='${s}';render()">${s} <b>${rcounts[s]||0}</b></button>`;}).join('')+`</div>`;
   var channels=Array.from(new Set(all.map(function(o){return o.channel;}).filter(Boolean))).sort();
   var riskOpts=[['all','All risk'],['risk','At risk'],['delayed','Overdue'],['stalled','Stalled 7d+'],['priority','Priority']];
-  var seg=`<span class="tkvlbl">View</span><span class="tkseg"><button class="${trkView==='matrix'?'on':''}" onclick="setTrkView('matrix')">Matrix</button><button class="${trkView==='list'?'on':''}" onclick="setTrkView('list')">List</button><button class="${trkView==='board'?'on':''}" onclick="setTrkView('board')">Board</button></span>`;
-  var controls=`<div class="tkbar"><select onchange="trkFilter=this.value;render()" title="Risk filter">${riskOpts.map(function(c){return `<option value="${c[0]}"${trkFilter===c[0]?' selected':''}>${c[1]}</option>`;}).join('')}</select>`
-   +`<select onchange="trkChannel=this.value;_trkPaint()" title="Channel"><option value="all"${trkChannel==='all'?' selected':''}>All channels</option>${channels.map(function(c){return `<option value="${c}"${trkChannel===c?' selected':''}>${c}</option>`;}).join('')}</select>`
-   +`<label class="tksortlbl">Sort<select id="trksort" onchange="trkSort=this.value;_trkPaint()"><option value="risk_new"${trkSort==='risk_new'?' selected':''}>At-risk first, then newest</option><option value="new"${trkSort==='new'?' selected':''}>Newest first</option><option value="stage"${trkSort==='stage'?' selected':''}>By stage</option><option value="oldstage"${trkSort==='oldstage'?' selected':''}>Longest in stage</option></select></label>`
-   +`<input id="trkq" placeholder="Search PO or customer..." value="${(trkSearch||'').replace(/"/g,'&quot;')}" oninput="trkSearch=this.value;_trkPaint()"><span class="tkvwrap">${seg}</span></div>`;
+  var groupOpts=[['none','None'],['stage','Stage'],['client','Client'],['channel','Channel'],['risk','Risk']];
+  var sortOpts=[['risk_new','At-risk, then newest'],['new','Newest first'],['stage','By stage'],['oldstage','Longest in stage']];
+  var viewbar='<div class="viewbar">'
+    +'<div class="ctl"><span class="ctl-l">View</span>'+trkViewSw()+'</div>'
+    +'<div class="ctl"><span class="ctl-l">Group</span><select class="wsel" onchange="trkGroup=this.value;_trkPaint()">'+groupOpts.map(function(g){return '<option value="'+g[0]+'"'+(trkGroup===g[0]?' selected':'')+'>'+g[1]+'</option>';}).join('')+'</select></div>'
+    +'<div class="ctl"><span class="ctl-l">Risk</span><select class="wsel" onchange="trkFilter=this.value;render()">'+riskOpts.map(function(c){return '<option value="'+c[0]+'"'+(trkFilter===c[0]?' selected':'')+'>'+c[1]+'</option>';}).join('')+'</select></div>'
+    +'<div class="ctl"><span class="ctl-l">Channel</span><select class="wsel" onchange="trkChannel=this.value;_trkPaint()"><option value="all"'+(trkChannel==='all'?' selected':'')+'>All channels</option>'+channels.map(function(c){return '<option value="'+c+'"'+(trkChannel===c?' selected':'')+'>'+c+'</option>';}).join('')+'</select></div>'
+    +'<div class="ctl"><span class="ctl-l">Sort</span><select class="wsel" onchange="trkSort=this.value;_trkPaint()">'+sortOpts.map(function(c){return '<option value="'+c[0]+'"'+(trkSort===c[0]?' selected':'')+'>'+c[1]+'</option>';}).join('')+'</select></div>'
+    +'<div style="flex:1"></div>'
+    +'<div class="wsearch"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input id="trkq" placeholder="Search PO, client…" value="'+(trkSearch||'').replace(/"/g,'&quot;')+'" oninput="trkSearch=this.value;_trkPaint()"></div>'
+    +'<select class="wsel" onchange="trkApplyView(this.value)" title="Saved views"><option value="">Saved views…</option>'+trkSavedViews.map(function(v,i){return '<option value="'+i+'">'+v.name+'</option>';}).join('')+'</select>'
+    +'<button class="btn" onclick="trkSaveView()">★ Save</button>'
+    +'</div>';
+  var anyFilter=(trkStage||trkFilter!=='all'||trkChannel!=='all'||trkSearch||trkGroup!=='none');
+  var facets='<div class="tkfacets"><span class="ctl-l">Filter stage</span><div class="facet">'
+    +'<button class="fpill'+(trkStage===''?' on':'')+'" onclick="trkStage=\'\';render()">All <b>'+all.length+'</b></button>'
+    +BUCKETS.map(function(s){var c=(BUCKET_META[s]&&BUCKET_META[s].c)||'--mut';return '<button class="fpill'+(trkStage===s?' on':'')+'" onclick="trkStage=\''+s+'\';render()"><span class="d" style="background:var('+c+')"></span>'+s+' <b>'+(rcounts[s]||0)+'</b></button>';}).join('')
+    +'</div><div style="flex:1"></div><span class="hint"><span id="trkShown">'+trkList().length+'</span> of '+all.length+(anyFilter?' · <b onclick="trkClear()" style="cursor:pointer;color:var(--navy)">clear</b>':'')+'</span></div>';
   var legend=`<div class="t2leg"><i><span class="t2dot" style="background:var(--green)"></span> stage complete</i><i><span class="t2dot" style="background:var(--blue)"></span> current</i><i><span class="t2dot" style="background:var(--amber)"></span> ageing 3-6d</i><i><span class="t2dot" style="background:var(--red)"></span> stalled / overdue</i><i>~ = approximate (stage date missing)</i></div>`;
-  $('view').innerHTML=`<div class="card tkhead"><h3 style="margin:0 0 8px">PO Tracker <span class="hint"><span id="trkShown">${trkList().length}</span> of ${all.length} shown · stage = blocking</span></h3>${strip}${rail}${controls}<div id="trkBody">${trkBodyHTML()}</div>${trkView==='list'?legend:''}</div>`;
+  $('view').innerHTML='<div class="card tkhead"><h3 style="margin:0 0 10px">PO Tracker <span class="hint">stage = blocking</span></h3>'+strip+viewbar+facets+'<div id="trkBody">'+trkBodyHTML()+'</div>'+(trkView==='list'?legend:'')+'</div>';
 }
 
 /* ===================== ORDER DRAWER (role-owned lifecycle) ===================== */

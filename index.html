@@ -658,6 +658,32 @@ table tbody tr:hover{background:var(--panel2)}
 .ac2step:before{content:"";position:absolute;left:-20px;top:3px;width:9px;height:9px;border-radius:50%;background:#cdd9d4;box-shadow:0 0 0 3px #fff}
 .ac2step.done:before{background:var(--navy)}.ac2step.now:before{background:var(--amber)}.ac2step.late:before{background:var(--red)}
 .ac2step b{display:block;font-size:12.5px}.ac2step span{color:var(--mut);font-size:11px}
+/* Action Center — prototype-match (KPIs / view bar / rows / cards) */
+.ac2kpis{grid-template-columns:repeat(4,1fr)}
+.kpi.kpion{border-color:var(--navy);box-shadow:0 0 0 1px var(--navy) inset}
+.acviewbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:9px 11px;box-shadow:var(--sh-sm);margin-bottom:12px}
+.acviewbar .ac2gbar,.acviewbar .ac2vbar{margin:0}
+.acviewbar .gr{flex:1}
+.achint{font-size:11.5px;color:var(--mut)}.achint b{color:var(--txt)}
+.axn{display:flex;gap:11px;align-items:center;padding:10px 13px;border:1px solid var(--line);border-radius:var(--radius);background:var(--panel);box-shadow:var(--sh-sm);cursor:pointer;transition:.12s}
+.axn:hover{box-shadow:var(--sh)}
+.axn+.axn{margin-top:8px}
+.axn-lead{width:4px;align-self:stretch;border-radius:3px;flex-shrink:0;min-height:34px}
+.axn-ic{width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.axn-bd{flex:1;min-width:0}
+.axn-t1{font-weight:800;font-size:12.5px;color:var(--txt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.axn-t2{font-size:11px;color:var(--mut);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.axn-step{display:flex;gap:3px;margin-top:7px;max-width:200px}
+.axn-step i{height:4px;flex:1;border-radius:3px;background:var(--line);max-width:26px}
+.axn-step i.done{background:#0e9f6e}
+.axn-step i.now{background:var(--navy)}
+.axn-cta{display:flex;flex-direction:column;gap:5px;align-items:flex-end;flex-shrink:0}
+.axn-due{font-size:10.5px;color:var(--mut);white-space:nowrap}
+.axn-card{display:flex;flex-direction:column;gap:7px;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:13px;cursor:pointer;transition:.12s}
+.axn-card:hover{border-color:var(--navy);box-shadow:0 4px 14px rgba(8,145,178,.12);transform:translateY(-1px)}
+.axn-ch{display:flex;align-items:center;gap:8px}
+.axn-cf{display:flex;align-items:center;gap:8px;margin-top:2px}
+@media(max-width:760px){.ac2kpis{grid-template-columns:repeat(2,1fr)}}
 .tkstrip{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#fff;border:1px solid var(--line);border-radius:11px;padding:9px 13px;margin-bottom:9px;font-size:12px;color:var(--mut);font-weight:600}
 .tkstrip b{font-size:16px;color:var(--txt);font-weight:900;font-variant-numeric:tabular-nums}.tkstrip .r b{color:var(--red)}.tkstrip .a b{color:var(--amber)}.tkstrip .sep{color:var(--line)}
 .tkrail{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:9px}
@@ -3392,6 +3418,7 @@ var ACT_META={
  'Review':{c:'--purple',s:'Review'}, 'Approve':{c:'--navy',s:'Approve'},
  'Inspect':{c:'--amber',s:'QA Inspect'}, 'Correct':{c:'--red',s:'QA Fix'}, 'Pack QC':{c:'--amber',s:'Pack QC'}
 };
+var ACT_EMOJI={'Acknowledge':'📥','RM Check':'🧪','Receive':'📦','Open Production':'🏭','Lab QC':'🔬','Review':'🔎','Approve':'✅','Approve PR':'🧾','Inspect':'🔎','Pack QC':'🔎','Ship':'🚚','Add reason':'⏰','Correct':'🛠'};
 var actFilter='all';
 function _fmtShort(d){ if(!d)return''; var t=new Date(d); if(isNaN(t))return''; return t.toLocaleDateString('en-GB',{day:'numeric',month:'short'}); }
 function actOverdue(it){ return it.o?isOverdue(it.o):false; }
@@ -3439,22 +3466,21 @@ function acRoleScoped(b){ return acRoleF==='all'?b:b.filter(function(x){return x
 function acCounts(){ var r=acRoleScoped(acBase()); var late=0,today=0,normal=0,old=0; r.forEach(function(x){ if(x._risk==='late')late++; else if(x._risk==='today')today++; else normal++; if(x._days>old)old=x._days; }); return {all:r.length,late:late,today:today,normal:normal,oldest:old}; }
 function acFiltered(){ var r=acRoleScoped(acBase()); if(acRisk!=='all')r=r.filter(function(x){return x._risk===acRisk;}); var q=(acQ||'').toLowerCase().trim(); if(q)r=r.filter(function(x){var o=x.o||{},l=x.l||{};return ((o.po||'')+(o.client||'')+(l.brand||'')+(x.what||'')+x.role+x.label).toLowerCase().indexOf(q)>-1;}); if(acSort2==='oldest')r.sort(function(a,b){return b._days-a._days;}); else if(acSort2==='newest')r.sort(function(a,b){return a._days-b._days;}); else if(acSort2==='customer')r.sort(function(a,b){return ((a.o&&a.o.client)||'').localeCompare((b.o&&b.o.client)||'');}); else r=actSort(r); return r; }
 function acMini(it){ var ci=AC_STAGES.indexOf(acStageOf(it.label)); var cur=it._risk==='late'?'var(--red)':it._risk==='today'?'var(--amber)':'var(--navy)'; return '<span class="ac2mini">'+AC_STAGES.map(function(s,i){var bg=i<ci?'var(--navy)':(i===ci?cur:'#dfe3e8');return '<span class="ac2dot" style="background:'+bg+'"></span>';}).join('')+'</span>'; }
-function acRowHTML(it,mini){ var col=acTypeColor(it.label),T=ACT_META[it.label]||{s:it.label};
+function acStep(it){ var ci=AC_STAGES.indexOf(acStageOf(it.label)); return '<div class="axn-step">'+AC_STAGES.map(function(s,i){var c=i<ci?'done':(i===ci?'now':'');return '<i class="'+c+'"></i>';}).join('')+'</div>'; }
+function acRowHTML(it,mini){ var col=acTypeColor(it.label), em=ACT_EMOJI[it.label]||'•';
   var cust=it.o?(it.o.client||''):(it.pr?(it.pr.rm+' (PR)'):(it.batch?coaItemOf(it.batch):''));
   var prod=it.l?it.l.brand:(it.batch?(it.batch.base||''):'');
-  var title=it.o?it.o.po:(it.batch?(it.batch.batchNo||coaItemOf(it.batch)):(it.pr?('PR · '+it.pr.rm):'—'));
-  var sub=cust+(prod?' · '+prod:'')+' · '+it.role;
-  var wcls=it._risk==='late'?'red':(it._risk==='today'?'amber':'');
-  return '<div class="ac2row" onclick="acOpenDrawer(\''+it._id+'\')">'
-    +'<span class="ac2badge" style="color:'+col+';background:color-mix(in srgb,'+col+' 13%,#fff)">'+(T.s||it.label)+'</span>'
-    +'<div class="ac2work"><div class="ac2title">'+title+'</div><div class="ac2sub">'+sub+'</div></div>'
-    +(mini?acMini(it):'')
-    +'<span class="ac2wait '+wcls+'">'+acWaitTxt(it)+'</span>'
-    +'<button class="sm green" onclick="event.stopPropagation();'+it.act+'">'+it.label+'</button>'
+  var title=it.what||(it.o?(it.label+' — '+it.o.po):(it.batch?(it.batch.batchNo||coaItemOf(it.batch)):(it.pr?('PR · '+it.pr.rm):it.label)));
+  var sub=cust+(prod?' · '+prod:'');
+  var due=(it.o&&it.o.promised)?('due '+_fmtShort(it.o.promised)):acWaitTxt(it);
+  return '<div class="axn" onclick="acOpenDrawer(\''+it._id+'\')">'
+    +'<div class="axn-lead" style="background:'+col+'"></div>'
+    +'<div class="axn-ic" style="background:color-mix(in srgb,'+col+' 14%,#fff)">'+em+'</div>'
+    +'<div class="axn-bd"><div class="axn-t1">'+title+'</div><div class="axn-t2">'+sub+'</div>'+acStep(it)+'</div>'
+    +'<div class="axn-cta"><button class="sm green" onclick="event.stopPropagation();'+it.act+'">'+it.label+'</button><span class="axn-due">'+due+'</span><button class="sm ghost" onclick="event.stopPropagation();acOpenDrawer(\''+it._id+'\')">View</button></div>'
   +'</div>'; }
 function acListHTML(){ var rows=acFiltered(); if(!rows.length)return '<div class="empty" style="padding:26px;text-align:center;color:var(--mut)">No actions in this view.</div>';
-  var groups=[['late','Late / blocked','red'],['today','Today','amber'],['normal','Normal','']];
-  return groups.map(function(g){ var items=rows.filter(function(x){return x._risk===g[0];}); if(!items.length)return ''; return '<div class="ac2grouphead '+g[2]+'">'+g[1]+' · '+items.length+'</div>'+items.map(function(x){return acRowHTML(x,true);}).join(''); }).join(''); }
+  return rows.map(function(x){return acRowHTML(x,true);}).join(''); }
 function acChipsHTML(c){ function chip(k,l,n,cls){ return '<span class="ac2chip '+cls+(acRisk===k?' on':'')+'" onclick="acRisk=\''+k+'\';render()">'+l+' <b>'+n+'</b></span>'; }
   return '<div class="ac2chips">'+chip('all','All',c.all,'')+chip('late','Late',c.late,'red')+chip('today','Today',c.today,'amber')+chip('normal','Normal',c.normal,'')+'</div>'; }
 function acRoleBarHTML(){ var all=actionItems(); all.forEach(function(it){ it._risk=acRiskOf(it); });
@@ -3479,18 +3505,16 @@ function acOpenDrawer(id){ var it=acBase().filter(function(x){return x._id===id;
     +'<div class="ac2steps">'+steps+'</div></div>'
     +'<div class="mf"><button class="ghost" onclick="closeModal()">Close</button><button class="green" onclick="closeModal();'+it.act+'">'+it.label+'</button></div>';
   $('modalBg').classList.add('open'); }
-function acCardHTML(it){ var col=acTypeColor(it.label),T=ACT_META[it.label]||{s:it.label};
+function acCardHTML(it){ var col=acTypeColor(it.label), em=ACT_EMOJI[it.label]||'•';
   var cust=it.o?(it.o.client||''):(it.pr?(it.pr.rm+' (PR)'):(it.batch?coaItemOf(it.batch):''));
   var prod=it.l?it.l.brand:(it.batch?(it.batch.base||''):'');
-  var title=it.o?it.o.po:(it.batch?(it.batch.batchNo||coaItemOf(it.batch)):(it.pr?('PR · '+it.pr.rm):'—'));
-  var sub=cust+(prod?' · '+prod:'')+' · '+it.role;
-  var wcls=it._risk==='late'?'red':(it._risk==='today'?'amber':'');
-  return '<div class="ac2card" onclick="acOpenDrawer(\''+it._id+'\')">'
-    +'<div class="ac2chead"><span class="ac2badge" style="color:'+col+';background:color-mix(in srgb,'+col+' 13%,#fff)">'+(T.s||it.label)+'</span><span class="ac2wait '+wcls+'">'+acWaitTxt(it)+'</span></div>'
-    +'<div class="ac2ctitle">'+title+'</div>'
-    +'<div class="ac2csub">'+sub+'</div>'
-    +'<div class="ac2cmini">'+acMini(it)+'</div>'
-    +'<button class="sm green ac2cbtn" onclick="event.stopPropagation();'+it.act+'">'+it.label+'</button>'
+  var title=it.what||(it.o?(it.label+' — '+it.o.po):(it.batch?(it.batch.batchNo||coaItemOf(it.batch)):(it.pr?('PR · '+it.pr.rm):it.label)));
+  var sub=cust+(prod?' · '+prod:'');
+  var due=(it.o&&it.o.promised)?('due '+_fmtShort(it.o.promised)):acWaitTxt(it);
+  return '<div class="axn-card" onclick="acOpenDrawer(\''+it._id+'\')">'
+    +'<div class="axn-ch"><div class="axn-ic" style="width:28px;height:28px;font-size:14px;background:color-mix(in srgb,'+col+' 14%,#fff)">'+em+'</div><div class="axn-t1" style="flex:1">'+title+'</div></div>'
+    +'<div class="axn-t2">'+sub+'</div>'+acStep(it)
+    +'<div class="axn-cf"><button class="sm green" onclick="event.stopPropagation();'+it.act+'">'+it.label+'</button><span class="axn-due" style="margin-left:auto">'+due+'</span></div>'
   +'</div>'; }
 function acCardsHTML(){ var rows=acFiltered(); if(!rows.length)return '<div class="empty" style="padding:26px;text-align:center;color:var(--mut)">No actions in this view.</div>';
   if(acGroup==='priority'){ var groups=[['late','Late / blocked','red'],['today','Today','amber'],['normal','Normal','']];
@@ -3503,19 +3527,23 @@ function acViewBarHTML(){ function t(k,l,ic){return '<button class="ac2vtab'+(ac
   var cardIc='<svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/><rect x="13" y="13" width="8" height="8" rx="1"/></svg>';
   return '<div class="ac2vbar"><span class="ac2glab">View</span><div class="ac2vseg">'+t('list','List',listIc)+t('cards','Cards',cardIc)+'</div></div>'; }
 function acGroupBarHTML(){ function t(k,l){return '<button class="ac2gtab'+(acGroup===k?' on':'')+'" onclick="acGroup=\''+k+'\';render()">'+l+'</button>';} return '<div class="ac2gbar"><span class="ac2glab">Group by</span>'+t('priority','Priority')+t('stage','By stage')+t('role','By role')+'</div>'; }
-function acGroupedHTML(mode){ var rows=acFiltered(); var EMPTY='<div class="empty" style="padding:26px;text-align:center;color:var(--mut)">No actions in this view.</div>'; if(!rows.length)return EMPTY; var keys=mode==='stage'?AC_STAGES.slice():AC_ROLEORDER.slice(); if(mode==='role'){rows.forEach(function(x){if(keys.indexOf(x.role)<0)keys.push(x.role);});} var html=keys.map(function(k){var items=rows.filter(function(x){return mode==='stage'?acStageOf(x.label)===k:x.role===k;}); if(!items.length)return ''; var late=items.filter(function(x){return x._risk==='late';}).length; var head='<div class="ac2ghead"><span class="dot"></span><span class="nm">'+k+'</span><span class="cnt">'+items.length+'</span>'+(late?'<span class="ltb">'+late+' late</span>':'')+'<span class="ln"></span></div>'; return '<div class="ac2group">'+head+'<div class="card" style="padding:0;overflow:hidden">'+items.map(function(x){return acRowHTML(x,false);}).join('')+'</div></div>';}).join(''); return html||EMPTY; }
-function acBodyHTML(){ if(acView==='cards')return acCardsHTML(); if(acGroup==='stage')return acGroupedHTML('stage'); if(acGroup==='role')return acGroupedHTML('role'); return '<div class="card" style="padding:0;overflow:hidden">'+acListHTML()+'</div>'; }
+function acGroupedHTML(mode){ var rows=acFiltered(); var EMPTY='<div class="empty" style="padding:26px;text-align:center;color:var(--mut)">No actions in this view.</div>'; if(!rows.length)return EMPTY; var keys=mode==='stage'?AC_STAGES.slice():AC_ROLEORDER.slice(); if(mode==='role'){rows.forEach(function(x){if(keys.indexOf(x.role)<0)keys.push(x.role);});} var html=keys.map(function(k){var items=rows.filter(function(x){return mode==='stage'?acStageOf(x.label)===k:x.role===k;}); if(!items.length)return ''; var late=items.filter(function(x){return x._risk==='late';}).length; var head='<div class="ac2ghead"><span class="dot"></span><span class="nm">'+k+'</span><span class="cnt">'+items.length+'</span>'+(late?'<span class="ltb">'+late+' late</span>':'')+'<span class="ln"></span></div>'; return '<div class="ac2group">'+head+items.map(function(x){return acRowHTML(x,true);}).join('')+'</div>';}).join(''); return html||EMPTY; }
+function acBodyHTML(){ if(acView==='cards')return acCardsHTML(); if(acGroup==='stage')return acGroupedHTML('stage'); if(acGroup==='role')return acGroupedHTML('role'); return acListHTML(); }
+function acKpiHTML(c){ var pipe=0; try{ pipe=(state.orders||[]).filter(function(o){return orderBucket(o)!=='Delivered';}).length; }catch(e){ pipe=c.all; }
+  function k(lbl,val,meta,risk){ var on=(risk!=null&&acRisk===risk); return '<div class="kpi'+(on?' kpion':'')+'"'+(risk!=null?' style="cursor:pointer" onclick="acRisk=\''+risk+'\';render()"':'')+'><div class="l">'+lbl+'</div><div class="v">'+val+'</div><div class="d">'+meta+'</div></div>'; }
+  return '<div class="kpis ac2kpis">'+k('In your queue',c.all,'tasks for <b>'+state.role+'</b>','all')+k('Urgent',c.late,c.late?'<b style="color:var(--red)">overdue</b> — first':'none overdue','late')+k('Touch today',Math.min(c.all,6),'recommended focus','today')+k('Pipeline open',pipe,'orders moving',null)+'</div>'; }
 function screenApprovals(){
   var isCOO=state.role==='COO';
   var base=acBase();
   if(!base.length){ $('view').innerHTML='<div class="card"><div class="empty"><div class="ei">✓</div>Nothing waiting on you right now.</div></div>'; return; }
   var c=acCounts();
-  var head='';
-  var top='<div class="ac2top">'+acChipsHTML(c)+'<span class="ac2note">oldest <b>'+c.oldest+'d</b>'+(isCOO?' · all role queues':'')+'</span></div>';
+  var lensName=acGroup==='priority'?'Priority':(acGroup==='stage'?'By stage':'By role');
+  var kpis=acKpiHTML(c);
+  var viewbar='<div class="acviewbar">'+acGroupBarHTML()+acViewBarHTML()+'<div class="gr"></div><span class="achint">Lens: <b>'+lensName+'</b> · oldest '+c.oldest+'d'+(isCOO?' · all role queues':'')+' · click an action to act</span></div>';
   var tools='<div class="ac2tools"><input id="ac2search" placeholder="Search PO / customer / product" value="'+(acQ||'').replace(/"/g,'&quot;')+'" oninput="acQ=this.value;var e=document.getElementById(\'ac2list\');if(e)e.innerHTML=acBodyHTML();">'
     +'<select onchange="acSort2=this.value;render()"><option value="risk"'+(acSort2==='risk'?' selected':'')+'>Risk first</option><option value="oldest"'+(acSort2==='oldest'?' selected':'')+'>Oldest first</option><option value="newest"'+(acSort2==='newest'?' selected':'')+'>Newest first</option><option value="customer"'+(acSort2==='customer'?' selected':'')+'>Customer A–Z</option></select></div>';
   var rolebar=isCOO?acRoleBarHTML():'';
-  $('view').innerHTML=head+top+tools+'<div class="ac2bars">'+acGroupBarHTML()+acViewBarHTML()+'</div>'+rolebar+'<div id="ac2list">'+acBodyHTML()+'</div>';
+  $('view').innerHTML=kpis+viewbar+tools+rolebar+'<div id="ac2list">'+acBodyHTML()+'</div>';
 }
 function screenInstructions(){
   const steps=[

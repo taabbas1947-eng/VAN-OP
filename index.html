@@ -3437,6 +3437,7 @@ function screenQC(){
    ${(isLab||isAQ||isQM||isPM||isCOO)?'':viewOnly('Lab, AQCM, QCM &amp; Plant Manager')}
    ${qcKpiStrip}
    ${_pcSub([['status','By status'],['step','My step'],['product','By product']],qcGroup,'qcGroup')}
+   <div class="sec secflex"><h3>Lots awaiting sign-off</h3><span class="gr"></span><span class="hint">Lens: <b>${({status:'By status',step:'My step',product:'By product'})[qcGroup]||''}</b></span></div>
    ${qcBody}`;
 }
 var qaGroup='status';
@@ -3470,6 +3471,7 @@ function screenQA(){
    ${(isQA||isSC||isCOO)?'':viewOnly('QA Inspector &amp; Supply Chain')}
    ${qaKpiStrip}
    ${_pcSub([['status','By status'],['po','By PO'],['product','By product']],qaGroup,'qaGroup')}
+   <div class="sec secflex"><h3>Awaiting inspection</h3><span class="gr"></span><span class="hint">Lens: <b>${({status:'By status',po:'By PO',product:'By product'})[qaGroup]||''}</b></span></div>
    ${qaBody}`;
 }
 const QC_CHECKLIST=['Packaging intact & correct','Label / artwork correct','Net weight / count verified','Seal & closure OK','Cleanliness — no contamination','Batch & expiry printed','No leakage / damage','Pallet / loading condition'];
@@ -3882,6 +3884,7 @@ function screenShip(){
    ${ed?'':viewOnly('Supply Chain')}
    
    ${shipKpiStrip}
+   <div class="sec secflex"><span class="hint">Dispatched ≡ Delivered · shipNo = MMDDYY + serial + DC</span></div>
    <div class="shipboard">
      <div><div class="sec" style="margin-top:4px">Ready to ship</div>${readyHtml}</div>
      <div><div class="sec" style="margin-top:4px">Shipped &amp; closed</div>${shippedCards}</div>

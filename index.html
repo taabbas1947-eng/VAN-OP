@@ -2909,7 +2909,7 @@ function renderProdOutput(){var PC=window.ProductionCenter;if(!PC)return '<div c
 /* Lifecycle = prototype master/detail only (KPI strip + batch master + stepper · Lots/Quality/Reconcile).
    By-PO grouping and the global COA register are dropped from this view (per-batch COA stays in the detail's Quality tab). */
 function renderProdLifecycle(){var PC=window.ProductionCenter;if(!PC)return '<div class="card">Lifecycle unavailable</div>';
-  return prodTodayBar()+prodStatusStrip()+renderProdLifecycleBatch()+prodReconciledStrip()+prodLeavingList();}
+  return prodTodayBar()+prodStatusStrip()+renderProdLifecycleBatch()+((prodFilter==='call')?'':prodPoolsStrip())+prodReconciledStrip()+prodLeavingList();}
 function _pcStep(name,sub,st,first,reached){var ds=st==='done'?'background:var(--navy);color:#fff':st==='active'?'background:var(--navy-50,#eef3fb);color:var(--navy);box-shadow:inset 0 0 0 2px var(--navy)':'background:#eef1f4;color:#9aa3b0';var mark=st==='done'?'✓':'';var nmc=st==='todo'?'color:#9aa3b0':'';var line=first?'':'<div class="line" style="background:'+(reached?'var(--navy)':'#e3e7ec')+'"></div>';return '<div class="col">'+line+'<div class="sdot" style="'+ds+'">'+mark+'</div><div class="snm" style="'+nmc+'">'+name+'</div><div class="ssub">'+sub+'</div></div>';}
 function _pcLotRes(c){c=c||{};if(c.status==='approved'){return c.deviation?['Deviation','var(--amber-50,#fdf0d5)','var(--amber,#9E6210)']:['FIT','var(--green-50,#e7f5e8)','var(--green2,#2f8132)'];}if(c.overall==='UNFIT')return['UNFIT','#fbe9e7','var(--red,#E03127)'];if(c.status)return['In review','var(--navy-50,#eef3fb)','var(--navy)'];return['Pending','#f1f3f5','var(--mut,#8A95A6)'];}
 function _pcLifeAction(b,d,ed){if(!ed)return '';if(b.status==='closed')return '<span class="muted" style="font-size:12px">Batch closed'+(b.closedDate?(' · '+b.closedDate):'')+'</span>';if(b.pool){return b.disposition==='byproduct'?'<button class="green" onclick="openCallBp(\''+b.id+'\')">Call for manufacturing</button>':'';}var prod=+b.producedKg||0,plan=+b.plannedKg||0,complete=(plan>0&&prod>=plan-0.5);var primary='';if(d.stage==='producing')primary=complete?'<button class="green" onclick="openCloseBatch(\''+b.id+'\')">Production complete — Close batch</button>':'<button class="green" onclick="openShiftLog(\''+b.id+'\')">+ Log shift output</button>';else if(d.stage==='qc')primary='<button class="ghost" onclick="setScreen(\'qc\')">Open in Lab QC ▸</button>';else if(d.stage==='pack')primary='<button class="green" onclick="openPack(\''+b.id+'\')">Pack cleared stock</button>';else if(d.stage==='recon')primary='<button onclick="openReconcile(\''+b.id+'\')">Reconcile remainder</button>';else if(d.stage==='packed')primary=((prod-(+b.packedKg||0))>0.5)?'<button onclick="openReconcile(\''+b.id+'\')">Reconcile remainder</button>':'<button class="green" onclick="openCloseBatch(\''+b.id+'\')">Close batch</button>';var sec=(b.status==='open'&&!(d.stage==='producing'&&complete)&&d.stage!=='packed')?' <button class="sm ghost" onclick="openCloseBatch(\''+b.id+'\')">Close batch (end production)</button>':'';return primary+sec;}
@@ -3951,10 +3951,20 @@ function acBodyHTML(){ if(acView==='cards')return acCardsHTML(); if(acGroup==='s
 function acKpiHTML(c){ var pipe=0; try{ pipe=(state.orders||[]).filter(function(o){return orderBucket(o)!=='Delivered';}).length; }catch(e){ pipe=c.all; }
   function k(lbl,val,meta,risk){ var on=(risk!=null&&acRisk===risk); return '<div class="kpi'+(on?' kpion':'')+'"'+(risk!=null?' style="cursor:pointer" onclick="acRisk=\''+risk+'\';render()"':'')+'><div class="l">'+lbl+'</div><div class="v">'+val+'</div><div class="d">'+meta+'</div></div>'; }
   return '<div class="kpis ac2kpis">'+k('In your queue',c.all,'tasks for <b>'+state.role+'</b>','all')+k('Urgent',c.late,c.late?'<b style="color:var(--red)">overdue</b> — first':'none overdue','late')+k('Touch today',Math.min(c.all,6),'recommended focus','today')+k('Pipeline open',pipe,'orders moving',null)+'</div>'; }
+/* Finance feed (read-only) — shipment & delivery records for Finance/CFO inside the Action Center. Pure read over state.shipments; not an action, no escalation, no writes. */
+function financeFeed(){
+  var sh=(state.shipments||[]).filter(function(s){return s&&!s.voided&&(+s.kg||0)>0;});
+  if(!sh.length) return '';
+  var rows=sh.slice().sort(function(a,b){return String(b.dispatch||'').localeCompare(String(a.dispatch||''));}).slice(0,60).map(function(s){
+    var o=(state.orders||[]).find(function(x){return x.po===s.po;}); var client=(o&&o.client)||'';
+    return '<tr><td class="muted">'+(s.dispatch||'')+'</td><td><b>'+(s.po||'')+'</b></td><td class="muted">'+client+'</td><td>'+(s.brand||'')+'</td><td class="num">'+fmt(s.kg||0)+'</td><td>'+(s.dc||'—')+'</td><td class="muted">'+(s.delivered||'—')+'</td></tr>';
+  }).join('');
+  return '<div class="card" style="margin-top:14px"><h3>Finance &middot; shipment &amp; delivery records <span class="hint">read-only &middot; for invoicing</span></h3><div style="overflow:auto"><table><thead><tr><th>Dispatched</th><th>PO</th><th>Client</th><th>Product</th><th class="num">Kg/L</th><th>DC #</th><th>Delivered</th></tr></thead><tbody>'+rows+'</tbody></table></div></div>';
+}
 function screenApprovals(){
   var isCOO=state.role==='COO';
   var base=acBase();
-  if(!base.length){ $('view').innerHTML='<div class="card"><div class="empty"><div class="ei">✓</div>Nothing waiting on you right now.</div></div>'; return; }
+  if(!base.length){ var _fin=(state.role==='CFO'||isCOO)?financeFeed():''; $('view').innerHTML=_fin||'<div class="card"><div class="empty"><div class="ei">✓</div>Nothing waiting on you right now.</div></div>'; return; }
   var c=acCounts();
   var lensName=acGroup==='priority'?'Priority':(acGroup==='stage'?'By stage':'By role');
   var kpis=acKpiHTML(c);
@@ -3962,7 +3972,7 @@ function screenApprovals(){
   var tools='<div class="ac2tools"><input id="ac2search" placeholder="Search PO / customer / product" value="'+(acQ||'').replace(/"/g,'&quot;')+'" oninput="acQ=this.value;var e=document.getElementById(\'ac2list\');if(e)e.innerHTML=acBodyHTML();">'
     +'<select onchange="acSort2=this.value;render()"><option value="risk"'+(acSort2==='risk'?' selected':'')+'>Risk first</option><option value="oldest"'+(acSort2==='oldest'?' selected':'')+'>Oldest first</option><option value="newest"'+(acSort2==='newest'?' selected':'')+'>Newest first</option><option value="customer"'+(acSort2==='customer'?' selected':'')+'>Customer A–Z</option></select></div>';
   var rolebar=isCOO?acRoleBarHTML():'';
-  $('view').innerHTML=kpis+viewbar+tools+rolebar+'<div id="ac2list">'+acBodyHTML()+'</div>';
+  $('view').innerHTML=kpis+viewbar+tools+rolebar+'<div id="ac2list">'+acBodyHTML()+'</div>'+((state.role==='CFO'||isCOO)?financeFeed():'');
 }
 function screenInstructions(){
   const steps=[

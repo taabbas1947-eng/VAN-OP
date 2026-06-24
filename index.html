@@ -2697,7 +2697,7 @@ const BULK_BASES=['Potassium Humate','Potassium Humate Liquid','Sulfur Coated Ur
 function brandsForBase(base){ return Object.keys(SEED.brandMap||{}).filter(b=>SEED.brandMap[b].base===base).sort(); }
 function inProdLines(){ const r=[]; state.orders.forEach(o=>o.lines.forEach(l=>{ if(stageOf(o)!=='Delivered' && (l.packed||0)<l.ordered-0.5) r.push({o,l}); })); return r; }
 var prodStage='';
-var prodView='floor', prodOutSub='day', prodLifeSub='batch', prodFloorSub='lanes', prodBatchSel=null, prodBatchTab='lots';
+var prodView='lifecycle', prodOutSub='day', prodLifeSub='batch', prodFloorSub='lanes', prodBatchSel=null, prodBatchTab='lots';
 var PJORD=['recon','producing','qc','pack','done'];
 function batchClearedKg(b){ var lots=(b.lots||[]); var s=0; if(lots.length){ lots.forEach(function(l){ if(l.coa&&l.coa.status==='approved'){ var ck=(l.coa.certifiedKg!=null)?l.coa.certifiedKg:(l.qty||0); s+=Math.min(l.qty||0,ck); } }); } else if(b.coa&&b.coa.status==='approved'){ var ck2=(b.coa.certifiedKg!=null)?b.coa.certifiedKg:(b.producedKg||0); s+=Math.min(b.producedKg||0,ck2); } return s; }
 function batchStage(b){ var prod=+b.producedKg||0, plan=+b.plannedKg||0, packed=+b.packedKg||0, cleared=batchClearedKg(b), rem=Math.max(0,prod-packed);
@@ -2722,6 +2722,29 @@ function prodKpiStrip(){
   var openOrders=(state.orders||[]).filter(function(o){return orderBucket(o)!=='Delivered';}).length;
   var k=function(l,v,u,d){return '<div class="kpi"><div class="l">'+l+'</div><div class="v">'+fmt(v)+' <span style="font-size:12px;color:var(--mut);font-weight:600">'+u+'</span></div><div class="d">'+d+'</div></div>';};
   return '<div class="kpis" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">'+k('Open orders',openOrders,'orders','not yet delivered')+k('In production',jc.producing,'batches','producing now')+k('To produce',toProduceKg,'Kg/L','remaining to make')+k('RM blocked',rmBlocked,'orders','awaiting material')+k('Awaiting Lab QC',jc.qc,'lots','COA pending')+k('Ready to pack',jc.pack,'batches',fmt(readyKg)+' Kg/L cleared')+k('Reconcile',jc.recon,'batches','remainder to route')+'</div>';
+}
+/* Passport status strip — the production manager's at-a-glance. Pure compute over existing fields; no data changes. */
+function prodCompletedThisMonth(){ var m=TODAY.toISOString().slice(0,7); return (state.batches||[]).filter(function(b){ return b&&b.status==='closed'&&b.closedDate&&String(b.closedDate).slice(0,7)===m; }).length; }
+function prodNeedsAttention(){ var jb=activeFloorBatches(); var stalled=jb.filter(function(b){ var a=batchAging(b); return batchStage(b)!=='done'&&a!=null&&a>=4; }).length; var rm=(state.orders||[]).filter(function(o){return orderBucket(o)==='RM Check';}).length; return {count:stalled+rm, stalled:stalled, rmBlocked:rm}; }
+function prodStatusStrip(){
+  var jb=activeFloorBatches();
+  var ready=function(b){return Math.max(0,batchClearedKg(b)-(+b.packedKg||0));};
+  var jc={producing:0,qc:0,pack:0,recon:0}, readyKg=0;
+  jb.forEach(function(b){var st=batchStage(b); if(jc[st]!=null)jc[st]++; if(st!=='pack'&&ready(b)>0.5)jc.pack++; readyKg+=ready(b);});
+  var toProduceKg=jb.filter(function(b){return batchStage(b)==='producing';}).reduce(function(a,b){return a+Math.max(0,(+b.plannedKg||0)-(+b.producedKg||0));},0);
+  var producedKg=jb.reduce(function(a,b){return a+(+b.producedKg||0);},0);
+  var plannedKg=jb.reduce(function(a,b){return a+(+b.plannedKg||0);},0);
+  var done=prodCompletedThisMonth(); var att=prodNeedsAttention();
+  var k=function(l,v,u,d,extra){return '<div class="kpi"'+(extra||'')+'><div class="l">'+l+'</div><div class="v">'+fmt(v)+(u?' <span style="font-size:12px;color:var(--mut);font-weight:600">'+u+'</span>':'')+'</div><div class="d">'+d+'</div></div>';};
+  var attExtra=att.count>0?' style="border-top:3px solid var(--red)"':'';
+  return '<div class="kpis" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr))">'
+    +k('Producing',jc.producing,'batches','making now')
+    +k('In Lab QC',jc.qc,'lots','COA pending')
+    +k('Ready to pack',jc.pack,'batches',fmt(readyKg)+' Kg cleared')
+    +k('To reconcile',jc.recon,'batches','remainder to route')
+    +k('Completed',done,'this month','closed batches')
+    +k('Needs attention',att.count,'',att.stalled+' stalled · '+att.rmBlocked+' RM',attExtra)
+    +'</div><div class="muted" style="font-size:12px;margin:2px 2px 14px">Planned (active) '+fmt(plannedKg)+' · produced '+fmt(producedKg)+' · remaining to make '+fmt(toProduceKg)+' Kg/L</div>';
 }
 function batchAging(b){ var s=batchStage(b), d=null, lots=(b.lots||[]);
   if(s==='producing') d=b.openedDate||b.date;
@@ -2803,7 +2826,7 @@ function _pcKpi(l,v,u,d,c){return '<div class="kpi"><div class="l">'+l+'</div><d
 function _pcBars(rows){var PC=window.ProductionCenter;var max=Math.max.apply(null,rows.map(function(r){return r.kg;}).concat([1]));return '<div class="bars">'+rows.map(function(r){var label=r.name||r.date||'';return '<div class="bl"><div class="h"><b>'+label+'</b><span>'+PC.fmt(r.kg)+' Kg</span></div><div class="bt"><i style="width:'+Math.round(r.kg/max*100)+'%"></i></div></div>';}).join('')+'</div>';}
 function _pcStage(st){var M=(window.ProductionCenter&&ProductionCenter.STAGE_META[st])||{name:st,dot:'#888'};return '<span style="background:color-mix(in srgb,'+M.dot+' 15%,#fff);color:'+M.dot+';font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;white-space:nowrap">'+M.name+'</span>';}
 function _pcResult(r){var c=r.tone==='good'?'var(--green,#4FA84E)':r.tone==='bad'?'var(--red,#E03127)':r.tone==='warn'?'var(--amber,#C77D18)':'var(--ink-3,#8A95A6)';return '<span style="color:'+c+';font-weight:700;font-size:11.5px">'+r.label+'</span>';}
-function prodViewBar(active){var V=[['floor','Floor'],['output','Output'],['lifecycle','Lifecycle']];return '<div class="pvbar" style="margin-bottom:14px">'+V.map(function(v){return '<button onclick="prodView=\''+v[0]+'\';render()" class="pvbtn'+(active===v[0]?' on':'')+'">'+v[1]+'</button>';}).join('')+'</div>';}
+function prodViewBar(active){var V=[['lifecycle','Passport'],['floor','Floor'],['output','Output']];return '<div class="pvbar" style="margin-bottom:14px">'+V.map(function(v){return '<button onclick="prodView=\''+v[0]+'\';render()" class="pvbtn'+(active===v[0]?' on':'')+'">'+v[1]+'</button>';}).join('')+'</div>';}
 function _pcSub(opts,cur,setter){return '<div class="pvsub">'+opts.map(function(o){return '<button onclick="'+setter+'=\''+o[0]+'\';render()" class="'+(cur===o[0]?'on':'')+'">'+o[1]+'</button>';}).join('')+'</div>';}
 /* Board sub-view = PO-stage kanban (order-level: PO Created \u2192 Shipment), distinct from Lanes (batch-flow). Read-only; click a card to open the order. */
 function renderProdFloorBoard(){
@@ -2836,7 +2859,7 @@ function renderProdOutput(){var PC=window.ProductionCenter;if(!PC)return '<div c
 /* Lifecycle = prototype master/detail only (KPI strip + batch master + stepper · Lots/Quality/Reconcile).
    By-PO grouping and the global COA register are dropped from this view (per-batch COA stays in the detail's Quality tab). */
 function renderProdLifecycle(){var PC=window.ProductionCenter;if(!PC)return '<div class="card">Lifecycle unavailable</div>';
-  return prodKpiStrip()+renderProdLifecycleBatch();}
+  return prodStatusStrip()+renderProdLifecycleBatch();}
 function _pcStep(name,sub,st,first,reached){var ds=st==='done'?'background:var(--navy);color:#fff':st==='active'?'background:var(--navy-50,#eef3fb);color:var(--navy);box-shadow:inset 0 0 0 2px var(--navy)':'background:#eef1f4;color:#9aa3b0';var mark=st==='done'?'✓':'';var nmc=st==='todo'?'color:#9aa3b0':'';var line=first?'':'<div class="line" style="background:'+(reached?'var(--navy)':'#e3e7ec')+'"></div>';return '<div class="col">'+line+'<div class="sdot" style="'+ds+'">'+mark+'</div><div class="snm" style="'+nmc+'">'+name+'</div><div class="ssub">'+sub+'</div></div>';}
 function _pcLotRes(c){c=c||{};if(c.status==='approved'){return c.deviation?['Deviation','var(--amber-50,#fdf0d5)','var(--amber,#9E6210)']:['FIT','var(--green-50,#e7f5e8)','var(--green2,#2f8132)'];}if(c.overall==='UNFIT')return['UNFIT','#fbe9e7','var(--red,#E03127)'];if(c.status)return['In review','var(--navy-50,#eef3fb)','var(--navy)'];return['Pending','#f1f3f5','var(--mut,#8A95A6)'];}
 function _pcLifeAction(b,d,ed){if(!ed)return '';if(b.pool){return b.disposition==='byproduct'?'<button class="green" onclick="openCallBp(\''+b.id+'\')">Call for manufacturing</button>':'';}if(d.stage==='producing')return '<button class="green" onclick="openShiftLog(\''+b.id+'\')">+ Log shift output</button>';if(d.stage==='qc')return '<button class="ghost" onclick="setScreen(\'qc\')">Open in Lab QC ▸</button>';if(d.stage==='pack')return '<button class="green" onclick="openPack(\''+b.id+'\')">Pack cleared stock</button>';if(d.stage==='packed'){return ((+b.producedKg||0)-(+b.packedKg||0))>0.5?'<button onclick="openReconcile(\''+b.id+'\')">Reconcile remainder</button>':'<button class="green" onclick="openCloseBatch(\''+b.id+'\')">Close batch</button>';}return '';}

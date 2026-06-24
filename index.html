@@ -4359,7 +4359,65 @@ function dedupeByproductV1(s){ if(s._bpDedupV1) return;
   }
   s._bpDedupV1=true;
 }
-function dedupePackingLots(s){ const best={}; (s.packingLog||[]).forEach(p=>{ if(!p||!p.id)return; const sc=(+p.insKg||0)+(+p.shipKg||0); const cur=best[p.id]; if(!cur||sc>cur.sc) best[p.id]={p:p,sc:sc}; }); s.packingLog=(s.packingLog||[]).filter(p=>{ if(!p)return false; if(!p.id)return true; return best[p.id]&&best[p.id].p===p; }); }
+function dedupePackingLots(s){
+  /* Pass 1 — collapse rows that share an id (a stray from a concurrent save/merge). Keeps, per id,
+     the copy carrying the most tracking (inspected+shipped) so nothing real is lost. */
+  const best={}; (s.packingLog||[]).forEach(p=>{ if(!p||!p.id)return; const sc=(+p.insKg||0)+(+p.shipKg||0); const cur=best[p.id]; if(!cur||sc>cur.sc) best[p.id]={p:p,sc:sc}; });
+  s.packingLog=(s.packingLog||[]).filter(p=>{ if(!p)return false; if(!p.id)return true; return best[p.id]&&best[p.id].p===p; });
+  /* Pass 2 — collapse cross-id duplicates of the SAME production batch (a concurrent submit that got a NEW id,
+     which Pass 1 can't see). Acts ONLY when a batch is over-packed (Σ packed kg for a baseBatchId exceeds that
+     batch's packedKg) and ONLY merges identical-kg copies — so legitimate partial packings (different kg) of one
+     batch are never touched. Tracking is merged onto the survivor; inspection lot-refs are re-pointed. Idempotent. */
+  const batchById={}; (s.batches||[]).forEach(b=>{ if(b&&b.id) batchById[b.id]=b; });
+  const groups={}; (s.packingLog||[]).forEach(p=>{ if(p&&p.baseBatchId){ (groups[p.baseBatchId]=groups[p.baseBatchId]||[]).push(p); } });
+  for(const bid in groups){
+    const b=batchById[bid]; if(!b) continue; const cap=+b.packedKg||0; let rows=groups[bid]; let guard=0;
+    while(guard++<50){
+      const sum=rows.reduce((a,p)=>a+(+p.kg||0),0); if(sum<=cap+0.5) break;
+      let pair=null; for(let i=0;i<rows.length&&!pair;i++){ for(let j=i+1;j<rows.length;j++){ if((+rows[i].kg||0)===(+rows[j].kg||0)){ pair=[rows[i],rows[j]]; break; } } }
+      if(!pair) break;
+      pair.sort((a,c)=>((+c.insKg||0)+(+c.shipKg||0))-((+a.insKg||0)+(+a.shipKg||0)));
+      const keep=pair[0], drop=pair[1];
+      keep.insKg=Math.min(+keep.kg||0, Math.max(+keep.insKg||0,+drop.insKg||0));
+      keep.shipKg=Math.min(+keep.kg||0, (+keep.shipKg||0)+(+drop.shipKg||0));
+      (s.inspections||[]).forEach(ins=>{ if(ins&&Array.isArray(ins.batches)){ const had=ins.batches.some(x=>x&&x.lotId===drop.id); ins.batches=ins.batches.filter(x=>!(x&&x.lotId===drop.id)); if(had) ins.kg=ins.batches.reduce((a,x)=>a+(+x.kg||0),0); } });
+      const idx=(s.packingLog||[]).indexOf(drop); if(idx>=0) s.packingLog.splice(idx,1);
+      rows=rows.filter(p=>p!==drop);
+    }
+  }
+}
+/* One-time, gated, signature-verified cleanup of the Rudolf PO 1821412156 duplicate-packing incident
+   (2026-06-24). Orbit-K: same batch B1312 packed twice — handled generically by dedupePackingLots Pass 2,
+   re-asserted here as a guarded fallback. Basic: an ORPHAN packing row (no batch lineage) duplicated the real
+   batch row and carried the 11,000 shipment — merge its tracking onto the real row, drop the orphan, and correct
+   the order-line packed/produced to the true batch figures. Idempotent (gated + signature-checked). */
+function fixRudolfDupV1(s){
+  if(!s || s._fixRudolfDupV1) return false;
+  const PO='1821412156'; const pl=s.packingLog||[];
+  const batchById={}; (s.batches||[]).forEach(b=>{ if(b&&b.id) batchById[b.id]=b; });
+  const removeRow=id=>{ const i=pl.findIndex(p=>p&&p.id===id); if(i>=0){ pl.splice(i,1); return true; } return false; };
+  /* Orbit-K — drop the duplicate copy of batch B1312 if it is still present (fallback to Pass 2). */
+  const ok=pl.filter(p=>p&&p.po===PO&&p.brand==='Orbit-K'&&p.baseBatchId==='B1312'); const okB=batchById['B1312'];
+  if(ok.length===2 && okB && (+ok[0].kg||0)===(+ok[1].kg||0) && (+ok[0].kg)+(+ok[1].kg) > (+okB.packedKg||0)+0.5){
+    ok.sort((a,c)=>(+c.shipKg||0)-(+a.shipKg||0)); const keep=ok[0], drop=ok[1];
+    keep.insKg=Math.min(+keep.kg||0, Math.max(+keep.insKg||0,+drop.insKg||0));
+    keep.shipKg=Math.min(+keep.kg||0, (+keep.shipKg||0)+(+drop.shipKg||0));
+    removeRow(drop.id);
+    (s.inspections||[]).forEach(ins=>{ if(ins&&Array.isArray(ins.batches)){ const had=ins.batches.some(x=>x&&x.lotId===drop.id); ins.batches=ins.batches.filter(x=>!(x&&x.lotId===drop.id)); if(had) ins.kg=ins.batches.reduce((a,x)=>a+(+x.kg||0),0); } });
+  }
+  /* Basic — merge the orphan (no baseBatchId / baseBatchNo) into its real batch row, then fix the line. */
+  const bRows=pl.filter(p=>p&&p.po===PO&&p.brand==='Basic');
+  const orphan=bRows.find(p=>!p.baseBatchId && !String(p.baseBatchNo||'').trim());
+  const twin=orphan && bRows.find(p=>p.baseBatchId && (+p.kg||0)===(+orphan.kg||0));
+  if(orphan && twin){
+    twin.insKg=Math.min(+twin.kg||0, Math.max(+twin.insKg||0,+orphan.insKg||0));
+    twin.shipKg=Math.min(+twin.kg||0, (+twin.shipKg||0)+(+orphan.shipKg||0));
+    removeRow(orphan.id);
+    const o=(s.orders||[]).find(x=>x.po===PO); const l=o&&o.lines.find(x=>x.brand==='Basic'); const bb=batchById[twin.baseBatchId];
+    if(l&&bb){ l.packed=bb.packedKg; l.produced=bb.producedKg; }
+  }
+  s._fixRudolfDupV1=true; return true;
+}
 /* Heal lines flagged prRaised but with no actual PR lines (the old empty-PR submit bug):
    reset them back to RM Check so Supply Chain can requisition properly. Idempotent;
    never touches state.prs, recipes, or any line that has a real requisition. */
@@ -4409,7 +4467,7 @@ function savePackInspect(){ if(!(canEdit(['QA Inspector'])||state.role==='COO'))
   packInspForm=null; save(); closeModal(); render(); toast(anyFail?'Inspection failed — not cleared':`Cleared ${fmt(kg)} Kg/L to ship`); }
 
 /* ===== Multi-product dispatch: one truck / DC, many products of a PO. Recording the shipment closes it. ===== */
-function readyLinesFor(o){ const out=[]; (o.lines||[]).forEach(l=>{ const rem=Math.max(0,lineCleared(o,l)); if(rem>0.5) out.push({l,rem}); }); return out; }
+function readyLinesFor(o){ const out=[]; (o.lines||[]).forEach(l=>{ const cap=Math.max(0,(+l.packed||0)-(+l.dispatched||0)); const rem=Math.max(0,Math.min(lineCleared(o,l),cap)); if(rem>0.5) out.push({l,rem}); }); return out; }
 function readyPOs(){ const out=[]; (state.orders||[]).forEach(o=>{ const ls=readyLinesFor(o); if(ls.length) out.push({o,ls}); }); return out; }
 let dispForm=null;
 function openDispatch(oid){ const o=(state.orders||[]).find(x=>x.id===oid); if(!o)return; const ls=readyLinesFor(o); if(!ls.length){toast('Nothing ready to ship on this PO');return;}

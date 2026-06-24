@@ -1253,12 +1253,31 @@ function buildFromSeed(){
   ensureProductionModel(s);
   return s;
 }
+/* ===== Phase 1 record-identity integrity (2026-06-24) =====
+   The 3-way merge reconciles arrays BY id; rows with no id are dropped, and per-browser
+   sequential ids let two sessions mint different ids for the same event (duplicates).
+   _uid  -> collision-free id for NEW records (assigned at creation).
+   ensureIds -> deterministic, count-preserving back-fill for EXISTING id-less rows, so every
+   session computes the SAME id for the same row (no drop, no spurious duplicate/collapse). */
+function _uid(pfx){ return (pfx||'ID')+Date.now().toString(36)+Math.random().toString(36).slice(2,8); }
+function _hash(str){ var h=0; str=String(str); for(var i=0;i<str.length;i++){ h=((h<<5)-h+str.charCodeAt(i))|0; } return (h>>>0).toString(36); }
+function _stableId(pfx,o,fields){ return pfx+_hash(fields.map(function(f){return o&&o[f]!=null?o[f]:'';}).join('')); }
+function ensureIds(arr,pfx,fields){ if(!Array.isArray(arr))return; var ct={}; arr.forEach(function(o){ if(o&&typeof o==='object'&&!o.id){ var b=_stableId(pfx,o,fields); var n=ct[b]||0; o.id=b+(n?('_'+n):''); ct[b]=n+1; } }); }
+function ensureRecordIds(s){
+  ensureIds(s.packingLog,'PK',['po','brand','baseBatchId','kg','date','mfgDate']);
+  ensureIds(s.shipments,'SH',['po','brand','kg','dispatch','dc','vehicle','bilty','dispId','delivered']);
+  ensureIds(s.productionLog,'PL',['date','base','brand','kg','po','shift','incharge','batchNo']);
+  ensureIds(s.inspections,'INS',['po','brand','lid','kg','date','by']);
+  ensureIds(s.batches,'B',['batchNo','base','po','openedDate','producedKg']);
+  ensureIds(s.audit,'AU',['t','user','module','field','val','po','brand']);
+  ensureIds(s.actionLog,'AL',['t','role','what']);
+}
 function ensureState(s){
   s.dealers   = (s.dealers&&s.dealers.length)? s.dealers : deepClone(SEED.dealers||[]);
   s.users=(s.users&&s.users.length)?s.users:deepClone(SEED.users||[]); if(s.currentUser===undefined)s.currentUser=null;
   s.rmRequests=s.rmRequests||[]; s.productionLog=s.productionLog||[]; s.packingLog=s.packingLog||[];
   s.actionLog=s.actionLog||[]; s.shipments=s.shipments||[]; s.inspections=s.inspections||[]; s.warehouses=s.warehouses||SEED.warehouses.slice();
-  s.rawStock=s.rawStock||{}; s.rmMovements=s.rmMovements||[]; s.audit=s.audit||[]; s.masters=s.masters||deepClone(SEED.masters||{}); s.batches=s.batches||[]; s.packedStock=s.packedStock||{}; s.packingLog=s.packingLog||[]; s.orders=s.orders||[]; if(s.seq==null)s.seq=1000; (s.packingLog||[]).forEach(function(p){ if(p&&!p.id) p.id='PK'+(s.seq++); }); if(s.dataFixEnabled==null)s.dataFixEnabled=true; if(!Array.isArray(s.prs))s.prs=[]; (s.batches||[]).forEach(function(b){ if((b.producedKg||0)>0 && (!Array.isArray(b.lots)||!b.lots.length)){ b.lots=[{id:'LOT'+(s.seq++), lotNo:(b.batchNo||'B')+'-L1', qty:b.producedKg, date:b.openedDate||'', by:b.by||'', coa:(b.coa||null), migrated:true}]; } }); ensureMasters(s); ensureProductionModel(s); dedupePackingLots(s); migrateLotTracking(s); fixRudolfDupV1(s); healPRFlags(s); migrateBrandNames(s); loadBaseRecipesV2(s); loadBlendRecipesV1(s); loadBlendRecipesV2(s); purgeImportedProduction(s); purgeImportDuplicates(s); purgeImportedNoTwin(s); fixPhantomLotVU26134(s); consolidateByproductV1(s); dedupeByproductV1(s); reconcileShipLotsV1(s); normalizeVZincBase(s); seedByproductRulesV1(s); seedRolesV1(s); return s;
+  s.rawStock=s.rawStock||{}; s.rmMovements=s.rmMovements||[]; s.audit=s.audit||[]; s.masters=s.masters||deepClone(SEED.masters||{}); s.batches=s.batches||[]; s.packedStock=s.packedStock||{}; s.packingLog=s.packingLog||[]; s.orders=s.orders||[]; if(s.seq==null)s.seq=1000; ensureRecordIds(s); if(s.dataFixEnabled==null)s.dataFixEnabled=true; if(!Array.isArray(s.prs))s.prs=[]; (s.batches||[]).forEach(function(b){ if((b.producedKg||0)>0 && (!Array.isArray(b.lots)||!b.lots.length)){ b.lots=[{id:'LOT'+(s.seq++), lotNo:(b.batchNo||'B')+'-L1', qty:b.producedKg, date:b.openedDate||'', by:b.by||'', coa:(b.coa||null), migrated:true}]; } }); ensureMasters(s); ensureProductionModel(s); dedupePackingLots(s); migrateLotTracking(s); fixRudolfDupV1(s); reconcileLotShipKgV1(s); healPRFlags(s); migrateBrandNames(s); loadBaseRecipesV2(s); loadBlendRecipesV1(s); loadBlendRecipesV2(s); purgeImportedProduction(s); purgeImportDuplicates(s); purgeImportedNoTwin(s); fixPhantomLotVU26134(s); consolidateByproductV1(s); dedupeByproductV1(s); reconcileShipLotsV1(s); normalizeVZincBase(s); seedByproductRulesV1(s); seedRolesV1(s); return s;
 }
 /* Lock 1: idempotent master seeding. ADDITIVE ONLY — seeds a list only when it is
    missing or empty, and never overwrites values the team has already added. Touches no
@@ -2087,13 +2106,13 @@ function dfSubmitProduction(){
     const base=dfForm.base; if(!base) return toast('Pick a base product');
     let b=(state.batches||[]).find(x=>x.base===base&&x.status==='open');
     if(b){ b.producedKg=(b.producedKg||0)+q; } else { state.batches.unshift({id:'B'+(state.seq++),batchNo:'',kind:'bulk',type:'stock',base,brand:null,plannedKg:q,producedKg:q,packedKg:0,status:'closed',openedDate:d,closedDate:d,by:state.role,recon:true}); }
-    state.productionLog.unshift({date:d,base,kg:q,by:state.role,shift:sh,incharge:inc,recon:true});
+    state.productionLog.unshift({id:_uid('PL'),date:d,base,kg:q,by:state.role,shift:sh,incharge:inc,recon:true});
     reconLog(`Added missing production: ${fmt(q)} Kg/L bulk ${base} — ${dfForm.reason}`, d);
   } else {
     const o=state.orders.find(x=>x.id===dfForm.oid); const l=o&&o.lines.find(x=>x.id===dfForm.lid);
     if(!l) return toast('Pick PO and product');
     l.produced=(l.produced||0)+q; l.prodStart=l.prodStart||d; if((l.produced||0)>=l.ordered-0.001) l.prodComplete=l.prodComplete||d;
-    state.productionLog.unshift({date:d,base:l.base,kg:q,by:state.role,po:o.po,brand:l.brand,shift:sh,incharge:inc,recon:true});
+    state.productionLog.unshift({id:_uid('PL'),date:d,base:l.base,kg:q,by:state.role,po:o.po,brand:l.brand,shift:sh,incharge:inc,recon:true});
     reconLog(`Added missing production: ${fmt(q)} Kg/L ${l.brand} on ${o.po} — ${dfForm.reason}`, d);
   }
   save(); toast('Production backfilled'); dfBack();
@@ -2105,7 +2124,7 @@ function dfSubmitPacking(){
   const o=state.orders.find(x=>x.id===dfForm.oid); const l=o&&o.lines.find(x=>x.id===dfForm.lid);
   if(!l) return toast('Pick PO and product');
   l.packed=(l.packed||0)+q; l.produced=Math.max(l.produced||0,l.packed); l.prodStart=l.prodStart||d; if((l.packed||0)>=l.ordered-0.5) l.prodComplete=l.prodComplete||d;
-  (state.packingLog=state.packingLog||[]).unshift({date:d,base:l.base,brand:l.brand,kg:q,by:state.role,po:o.po,recon:true});
+  (state.packingLog=state.packingLog||[]).unshift({id:_uid('PK'),date:d,base:l.base,brand:l.brand,kg:q,by:state.role,po:o.po,recon:true});
   reconLog(`Added missing packing: ${fmt(q)} Kg/L ${l.brand} on ${o.po} — ${dfForm.reason}`, d);
   save(); toast('Packing backfilled'); dfBack();
 }
@@ -2116,7 +2135,7 @@ function dfSubmitShipment(){
   const o=state.orders.find(x=>x.id===dfForm.oid); const l=o&&o.lines.find(x=>x.id===dfForm.lid);
   if(!l) return toast('Pick PO and product');
   l.dispatched=(l.dispatched||0)+q; l.delivered=(l.delivered||0)+q; l.dispatchDate=l.dispatchDate||dd; l.deliveredDate=dl;
-  state.shipments.unshift({po:o.po,brand:l.brand,kg:q,dispatch:dd,delivered:dl,warehouse:((state.warehouses&&state.warehouses[0])||''),by:state.role,recon:true});
+  state.shipments.unshift({id:_uid('SH'),po:o.po,brand:l.brand,kg:q,dispatch:dd,delivered:dl,warehouse:((state.warehouses&&state.warehouses[0])||''),by:state.role,recon:true});
   reconLog(`Added missing shipment: ${fmt(q)} Kg/L ${l.brand} on ${o.po} (dispatch ${dd}, delivered ${dl}) — ${dfForm.reason}`, dd);
   save(); toast('Shipment backfilled'); dfBack();
 }
@@ -3159,9 +3178,9 @@ function submitShiftLog(){
   if(b.kind==='po'){
     const o=state.orders.find(x=>x.po===b.po); const l=o&&o.lines.find(x=>x.id===b.lineId);
     if(l){ l.produced=(l.produced||0)+q; l.prodStart=l.prodStart||d; if((l.produced||0)>=l.ordered-0.001) l.prodComplete=l.prodComplete||d;
-      state.productionLog.unshift({date:d,base:l.base,kg:q,by:state.role,po:o.po,brand:l.brand,shift:shiftForm.shift,incharge:shiftForm.incharge,batchNo:b.batchNo||''}); }
+      state.productionLog.unshift({id:_uid('PL'),date:d,base:l.base,kg:q,by:state.role,po:o.po,brand:l.brand,shift:shiftForm.shift,incharge:shiftForm.incharge,batchNo:b.batchNo||''}); }
   } else {
-    state.productionLog.unshift({date:d,base:b.base,kg:q,by:state.role,shift:shiftForm.shift,incharge:shiftForm.incharge,batchNo:b.batchNo||''});
+    state.productionLog.unshift({id:_uid('PL'),date:d,base:b.base,kg:q,by:state.role,shift:shiftForm.shift,incharge:shiftForm.incharge,batchNo:b.batchNo||''});
   }
   logAction(`Shift output: ${shiftForm.shift} · ${shiftForm.incharge} · ${fmt(q)} Kg/L on batch ${b.batchNo||'—'}${q<=0?(' (no output: '+shiftForm.reason+')'):''}`);
   save(); closeModal(); render();
@@ -3183,7 +3202,8 @@ function doCloseBatch(){ const b=(state.batches||[]).find(x=>x.id===closeForm.bi
   if(b.kind==='po'){ const o=state.orders.find(x=>x.po===b.po); const l=o&&o.lines.find(x=>x.id===b.lineId); if(l){ l.prodComplete=l.prodComplete||d; } }
   if(varn>0.001){ b.varianceNotify={to:'Plant Manager',date:d,ack:false}; (state.audit=state.audit||[]).unshift({t:new Date().toISOString(),user:state.role,module:'Production',field:'Batch closed — yield variance',po:b.po||'',brand:coaItemOf(b),old:fmt(plan),val:fmt(prod)+' ('+closeForm.reason+')',batchNo:b.batchNo||''}); }
   logAction(`Batch ${b.batchNo||''} closed at ${fmt(prod)}/${fmt(plan)} Kg/L`+(varn>0.001?` — variance ${fmt(varn)} (${closeForm.reason}) → Plant Manager notified`:''));
-  save(); closeModal(); render(); toast('Batch closed'); }
+  var _rem=(typeof batchRemainderKg==='function')?batchRemainderKg(b):Math.max(0,prod-(+b.packedKg||0));
+  save(); closeModal(); render(); toast(_rem>1?('Batch closed — '+fmt(_rem)+' Kg/L produced but not packed; reconcile it on the Reconcile lane (stock / by-product / loss)'):'Batch closed'); }
 /* ===== Finish & reconcile a batch's unpacked remainder (loss / by-product / divert / rework) ===== */
 let recForm=null;
 function batchRemainderKg(b){ return Math.max(0,(+b.producedKg||0)-(+b.packedKg||0)); }
@@ -4073,7 +4093,7 @@ function renderShipModal(){ const o=state.orders.find(x=>x.id===shipForm.oid); c
    <div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button onclick="saveShip()">Save shipment</button></div>`; }
 function saveShip(){ if(!canEdit(['Supply Chain'])){toast('Supply Chain only');return;} const o=state.orders.find(x=>x.id===shipForm.oid); const l=o.lines.find(x=>x.id===shipForm.lid); const rem=Math.max(0, Math.min(l.packed||0, lineQAPackedKg(o,l)) - (l.dispatched||0));
   const kg=Math.min(+shipForm.qty||0,rem); if(kg<=0){toast('Enter a valid qty');return;}
-  state.shipments.unshift({po:o.po,brand:l.brand,kg,pack:(+l.pack||seedPackForBrand(l.brand)||0),dispatch:shipForm.date,destination:shipForm.dest,carrier:shipForm.carrier,vehicle:shipForm.vehicle,dc:shipForm.dc,bilty:shipForm.bilty,delivered:shipForm.delivered||null,remarks:shipForm.remarks,by:state.role});
+  state.shipments.unshift({id:_uid('SH'),po:o.po,brand:l.brand,kg,pack:(+l.pack||seedPackForBrand(l.brand)||0),dispatch:shipForm.date,destination:shipForm.dest,carrier:shipForm.carrier,vehicle:shipForm.vehicle,dc:shipForm.dc,bilty:shipForm.bilty,delivered:shipForm.delivered||null,remarks:shipForm.remarks,by:state.role});
   l.dispatched=(l.dispatched||0)+kg; l.dispatchDate=l.dispatchDate||shipForm.date;
   if(shipForm.delivered){ l.delivered=(l.delivered||0)+kg; l.deliveredDate=shipForm.delivered; }
   const wasClosed=o.lines.every(x=>stageOf(o)==='Delivered');
@@ -4385,7 +4405,31 @@ function dedupePackingLots(s){
       rows=rows.filter(p=>p!==drop);
     }
   }
+  /* Pass 3 — drop ORPHAN packing rows (no batch lineage at all) that duplicate a batch-linked row and
+     over-log a line relative to its authoritative packed total. Survives concurrent-save re-introduction
+     because it is ungated and runs every load. Inspection lot-refs are re-pointed to the surviving row. */
+  const _ordersP3=s.orders||[];
+  const lineFor=(po,brand)=>{ for(const o of _ordersP3){ if(o.po===po){ const l=(o.lines||[]).find(x=>x.brand===brand); if(l) return l; } } return null; };
+  const pbGroups={}; (s.packingLog||[]).forEach(p=>{ if(p){ const k=p.po+'§'+p.brand; (pbGroups[k]=pbGroups[k]||[]).push(p); } });
+  for(const k in pbGroups){
+    const rows=pbGroups[k]; const gi=k.indexOf('§'); const po=k.slice(0,gi), brand=k.slice(gi+1);
+    const l=lineFor(po,brand); if(!l) continue; const target=+l.packed||0;
+    let logSum=rows.reduce((a,p)=>a+(+p.kg||0),0); let guard=0;
+    while(guard++<20 && logSum-target>1){
+      const orphan=rows.find(p=>!p.baseBatchId && !String(p.baseBatchNo||'').trim()); if(!orphan) break;
+      const twin=rows.find(p=>p!==orphan && p.baseBatchId && (+p.kg||0)===(+orphan.kg||0)); if(!twin) break;
+      if((+orphan.kg||0)-(logSum-target)>1) break; /* only remove genuine excess */
+      (s.inspections||[]).forEach(ins=>{ if(ins&&Array.isArray(ins.batches)){ ins.batches.forEach(x=>{ if(x&&x.lotId===orphan.id) x.lotId=twin.id; }); } });
+      const idx=(s.packingLog||[]).indexOf(orphan); if(idx>=0) s.packingLog.splice(idx,1);
+      const ri=rows.indexOf(orphan); if(ri>=0) rows.splice(ri,1);
+      logSum-=(+orphan.kg||0);
+    }
+  }
 }
+/* Ungated, idempotent: re-derive every line's lot shipKg from the authoritative line.dispatched, so a
+   dropped/duplicated lot can never desync ready-to-ship from reality. Distribution is FIFO, capped by insKg;
+   the per-line SUM always equals dispatched, so healthy lines are a no-op. */
+function reconcileLotShipKgV1(s){ (s.orders||[]).forEach(o=>(o.lines||[]).forEach(l=>{ if(typeof resyncLineShipKg==='function') resyncLineShipKg(o,l); })); }
 /* One-time, gated, signature-verified cleanup of the Rudolf PO 1821412156 duplicate-packing incident
    (2026-06-24). Orbit-K: same batch B1312 packed twice — handled generically by dedupePackingLots Pass 2,
    re-asserted here as a guarded fallback. Basic: an ORPHAN packing row (no batch lineage) duplicated the real
@@ -4513,7 +4557,7 @@ function saveDispatch(){ if(!canEdit(['Supply Chain'])){toast('Supply Chain only
     const alloc=fifoAlloc(o,l,want,'ship'); const batches=[]; let kg=0;
     lotsFor(o,l).forEach((p,i)=>{ const a=Math.min(+alloc[i]||0, lotClearedKg(p)); if(a>0.0001){ p.shipKg=(+p.shipKg||0)+a; batches.push({batch:lotBaseNo(p),brand:lotBrandNo(p),kg:Math.round(a)}); kg+=a; } });
     if(kg<=0)return;
-    state.shipments.unshift({dispId,po:o.po,brand:l.brand,lid:l.id,kg:Math.round(kg),batches,pack:r.pack,dispatch:d,destination:dispForm.dest,carrier:dispForm.carrier,vehicle:dispForm.vehicle,dc:dc,shipNo:shipNo,bilty:dispForm.bilty,delivered:d,remarks:dispForm.remarks,qa:{pass:true,closed:true},by:state.role});
+    state.shipments.unshift({id:_uid('SH'),dispId,po:o.po,brand:l.brand,lid:l.id,kg:Math.round(kg),batches,pack:r.pack,dispatch:d,destination:dispForm.dest,carrier:dispForm.carrier,vehicle:dispForm.vehicle,dc:dc,shipNo:shipNo,bilty:dispForm.bilty,delivered:d,remarks:dispForm.remarks,qa:{pass:true,closed:true},by:state.role});
     l.dispatched=(l.dispatched||0)+kg; l.dispatchDate=l.dispatchDate||d; l.delivered=(l.delivered||0)+kg; l.deliveredDate=d; n++; tot+=kg; });
   if(!n){toast('Nothing cleared to ship — inspect the packed material first');return;}
   logAction(`Shipment ${shipNo} (${dispId}) · PO ${o.po}: ${n} product(s), ${fmt(tot)} Kg/L · DC ${dc}${dispForm.vehicle?(' · '+dispForm.vehicle):''}`);

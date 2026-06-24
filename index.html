@@ -4429,7 +4429,12 @@ function dedupePackingLots(s){
 /* Ungated, idempotent: re-derive every line's lot shipKg from the authoritative line.dispatched, so a
    dropped/duplicated lot can never desync ready-to-ship from reality. Distribution is FIFO, capped by insKg;
    the per-line SUM always equals dispatched, so healthy lines are a no-op. */
-function reconcileLotShipKgV1(s){ (s.orders||[]).forEach(o=>(o.lines||[]).forEach(l=>{ if(typeof resyncLineShipKg==='function') resyncLineShipKg(o,l); })); }
+function reconcileLotShipKgV1(s){ (s.orders||[]).forEach(function(o){ (o.lines||[]).forEach(function(l){
+  var lots=(s.packingLog||[]).filter(function(p){return p&&p.po===o.po&&p.brand===l.brand&&(+p.kg||0)>0.0001;})
+    .sort(function(a,b){return String(a.date||a.mfgDate||'').localeCompare(String(b.date||b.mfgDate||''))||String(a.id||'').localeCompare(String(b.id||''));});
+  var rem=Math.max(0,+l.dispatched||0);
+  lots.forEach(function(p){ var cap=Math.max(0,+p.insKg||0); var t=Math.min(Math.max(0,rem),cap); p.shipKg=t; rem-=t; });
+}); }); }
 /* One-time, gated, signature-verified cleanup of the Rudolf PO 1821412156 duplicate-packing incident
    (2026-06-24). Orbit-K: same batch B1312 packed twice — handled generically by dedupePackingLots Pass 2,
    re-asserted here as a guarded fallback. Basic: an ORPHAN packing row (no batch lineage) duplicated the real

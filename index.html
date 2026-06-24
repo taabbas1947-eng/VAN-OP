@@ -2697,7 +2697,7 @@ const BULK_BASES=['Potassium Humate','Potassium Humate Liquid','Sulfur Coated Ur
 function brandsForBase(base){ return Object.keys(SEED.brandMap||{}).filter(b=>SEED.brandMap[b].base===base).sort(); }
 function inProdLines(){ const r=[]; state.orders.forEach(o=>o.lines.forEach(l=>{ if(stageOf(o)!=='Delivered' && (l.packed||0)<l.ordered-0.5) r.push({o,l}); })); return r; }
 var prodStage='';
-var prodView='lifecycle', prodOutSub='day', prodLifeSub='batch', prodFloorSub='lanes', prodBatchSel=null, prodBatchTab='lots';
+var prodView='lifecycle', prodOutSub='day', prodLifeSub='batch', prodFloorSub='lanes', prodBatchSel=null, prodBatchTab='lots', prodFilter='all';
 var PJORD=['recon','producing','qc','pack','done'];
 function batchClearedKg(b){ var lots=(b.lots||[]); var s=0; if(lots.length){ lots.forEach(function(l){ if(l.coa&&l.coa.status==='approved'){ var ck=(l.coa.certifiedKg!=null)?l.coa.certifiedKg:(l.qty||0); s+=Math.min(l.qty||0,ck); } }); } else if(b.coa&&b.coa.status==='approved'){ var ck2=(b.coa.certifiedKg!=null)?b.coa.certifiedKg:(b.producedKg||0); s+=Math.min(b.producedKg||0,ck2); } return s; }
 function batchStage(b){ var prod=+b.producedKg||0, plan=+b.plannedKg||0, packed=+b.packedKg||0, cleared=batchClearedKg(b), rem=Math.max(0,prod-packed);
@@ -2735,16 +2735,29 @@ function prodStatusStrip(){
   var producedKg=jb.reduce(function(a,b){return a+(+b.producedKg||0);},0);
   var plannedKg=jb.reduce(function(a,b){return a+(+b.plannedKg||0);},0);
   var done=prodCompletedThisMonth(); var att=prodNeedsAttention();
-  var k=function(l,v,u,d,extra){return '<div class="kpi"'+(extra||'')+'><div class="l">'+l+'</div><div class="v">'+fmt(v)+(u?' <span style="font-size:12px;color:var(--mut);font-weight:600">'+u+'</span>':'')+'</div><div class="d">'+d+'</div></div>';};
-  var attExtra=att.count>0?' style="border-top:3px solid var(--red)"':'';
+  var f=prodFilter||'all';
+  var k=function(key,l,v,u,d,accent){var on=(f===key);return '<div class="kpi" onclick="prodFilter=\''+key+'\';render()" style="cursor:pointer'+(on?';box-shadow:inset 0 0 0 2px var(--navy)':'')+((accent&&att.count>0&&!on)?';border-top:3px solid var(--red)':'')+'"><div class="l">'+l+'</div><div class="v">'+fmt(v)+(u?' <span style="font-size:12px;color:var(--mut);font-weight:600">'+u+'</span>':'')+'</div><div class="d">'+d+'</div></div>';};
   return '<div class="kpis" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr))">'
-    +k('Producing',jc.producing,'batches','making now')
-    +k('In Lab QC',jc.qc,'lots','COA pending')
-    +k('Ready to pack',jc.pack,'batches',fmt(readyKg)+' Kg cleared')
-    +k('To reconcile',jc.recon,'batches','remainder to route')
-    +k('Completed',done,'this month','closed batches')
-    +k('Needs attention',att.count,'',att.stalled+' stalled · '+att.rmBlocked+' RM',attExtra)
-    +'</div><div class="muted" style="font-size:12px;margin:2px 2px 14px">Planned (active) '+fmt(plannedKg)+' · produced '+fmt(producedKg)+' · remaining to make '+fmt(toProduceKg)+' Kg/L</div>';
+    +k('producing','Producing',jc.producing,'batches','making now')
+    +k('qc','In Lab QC',jc.qc,'lots','COA pending')
+    +k('pack','Ready to pack',jc.pack,'batches',fmt(readyKg)+' Kg cleared')
+    +k('recon','To reconcile',jc.recon,'batches','remainder to route')
+    +k('completed','Completed',done,'this month','closed batches')
+    +k('attention','Needs attention',att.count,'',att.stalled+' stalled · '+att.rmBlocked+' RM',true)
+    +'</div><div class="muted" style="font-size:12px;margin:2px 2px 12px">Planned (active) '+fmt(plannedKg)+' · produced '+fmt(producedKg)+' · remaining to make '+fmt(toProduceKg)+' Kg/L'+(f!=='all'?' &nbsp;·&nbsp; <a onclick="prodFilter=\'all\';render()" style="cursor:pointer;color:var(--navy)">show all active ▸</a>':'')+'</div>';
+}
+/* By-product / diverted / rework pools surfaced in the Passport so the manager can act without leaving. Reuses existing actions. */
+function prodPoolsStrip(){
+  var ed=canEdit(['Production'])||state.role==='COO';
+  var bpAll=(state.batches||[]).filter(function(b){return b.disposition==='byproduct'&&!b.voided;});var bpPools=bpAll.filter(function(b){return b.pool;});var bpA=bpPools.length?bpPools:bpAll;var bpKg=bpA.reduce(function(a,b){return a+(+b.plannedKg||0);},0);
+  var dv=(state.batches||[]).filter(function(b){return b.disposition==='divert'&&b.pool&&!b.voided&&(+b.plannedKg||0)>0.5;});
+  var rw=(state.batches||[]).filter(function(b){return b.disposition==='rework'&&b.pool&&!b.voided&&(+b.plannedKg||0)>0.5;});
+  if(bpKg<=0.5&&!dv.length&&!rw.length)return '';
+  var rows='';
+  if(bpKg>0.5)rows+='<div style="font-size:11.5px;margin:0 0 8px;padding:8px 11px;background:var(--navy-50);border-radius:8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span>By-product · Nitro Sulfur: <b>'+fmt(bpKg)+'</b> Kg pooled'+(bpKg>=5000?' · <b style="color:var(--navy)">ready to call</b>':' · below 5,000 (can still call)')+'</span>'+((ed&&bpPools.length)?'<button class="sm green" style="margin-left:auto" onclick="openCallBp(\''+bpPools[0].id+'\')">Call for manufacturing ▸</button>':'')+'</div>';
+  dv.forEach(function(dp){rows+='<div style="font-size:11.5px;margin:0 0 8px;padding:8px 11px;background:#eef4ff;border-radius:8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span>Diverted · '+dp.base+': <b>'+fmt(dp.plannedKg)+'</b> Kg <span style="color:var(--mut)">· QC-cleared</span></span>'+(ed?'<span style="margin-left:auto;display:flex;gap:6px"><button class="sm" onclick="openDivert(\''+dp.id+'\',\'recycle\')">Recycle ▸</button><button class="sm green" onclick="openDivert(\''+dp.id+'\',\'pack\')">Pack to PO ▸</button></span>':'')+'</div>';});
+  rw.forEach(function(rp){rows+='<div style="font-size:11.5px;margin:0 0 8px;padding:8px 11px;background:#fff3ec;border-radius:8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span>Rework · '+rp.base+': <b>'+fmt(rp.plannedKg)+'</b> Kg <span style="color:var(--mut)">· off-spec, needs re-processing</span></span>'+(ed?'<span style="margin-left:auto"><button class="sm green" onclick="openRework(\''+rp.id+'\')">Call for rework ▸</button></span>':'')+'</div>';});
+  return '<div class="card"><h3>By-product · diverted · rework</h3>'+rows+'</div>';
 }
 function batchAging(b){ var s=batchStage(b), d=null, lots=(b.lots||[]);
   if(s==='producing') d=b.openedDate||b.date;
@@ -2859,7 +2872,7 @@ function renderProdOutput(){var PC=window.ProductionCenter;if(!PC)return '<div c
 /* Lifecycle = prototype master/detail only (KPI strip + batch master + stepper · Lots/Quality/Reconcile).
    By-PO grouping and the global COA register are dropped from this view (per-batch COA stays in the detail's Quality tab). */
 function renderProdLifecycle(){var PC=window.ProductionCenter;if(!PC)return '<div class="card">Lifecycle unavailable</div>';
-  return prodStatusStrip()+renderProdLifecycleBatch();}
+  return prodStatusStrip()+prodPoolsStrip()+renderProdLifecycleBatch();}
 function _pcStep(name,sub,st,first,reached){var ds=st==='done'?'background:var(--navy);color:#fff':st==='active'?'background:var(--navy-50,#eef3fb);color:var(--navy);box-shadow:inset 0 0 0 2px var(--navy)':'background:#eef1f4;color:#9aa3b0';var mark=st==='done'?'✓':'';var nmc=st==='todo'?'color:#9aa3b0':'';var line=first?'':'<div class="line" style="background:'+(reached?'var(--navy)':'#e3e7ec')+'"></div>';return '<div class="col">'+line+'<div class="sdot" style="'+ds+'">'+mark+'</div><div class="snm" style="'+nmc+'">'+name+'</div><div class="ssub">'+sub+'</div></div>';}
 function _pcLotRes(c){c=c||{};if(c.status==='approved'){return c.deviation?['Deviation','var(--amber-50,#fdf0d5)','var(--amber,#9E6210)']:['FIT','var(--green-50,#e7f5e8)','var(--green2,#2f8132)'];}if(c.overall==='UNFIT')return['UNFIT','#fbe9e7','var(--red,#E03127)'];if(c.status)return['In review','var(--navy-50,#eef3fb)','var(--navy)'];return['Pending','#f1f3f5','var(--mut,#8A95A6)'];}
 function _pcLifeAction(b,d,ed){if(!ed)return '';if(b.pool){return b.disposition==='byproduct'?'<button class="green" onclick="openCallBp(\''+b.id+'\')">Call for manufacturing</button>':'';}if(d.stage==='producing')return '<button class="green" onclick="openShiftLog(\''+b.id+'\')">+ Log shift output</button>';if(d.stage==='qc')return '<button class="ghost" onclick="setScreen(\'qc\')">Open in Lab QC ▸</button>';if(d.stage==='pack')return '<button class="green" onclick="openPack(\''+b.id+'\')">Pack cleared stock</button>';if(d.stage==='packed'){return ((+b.producedKg||0)-(+b.packedKg||0))>0.5?'<button onclick="openReconcile(\''+b.id+'\')">Reconcile remainder</button>':'<button class="green" onclick="openCloseBatch(\''+b.id+'\')">Close batch</button>';}return '';}

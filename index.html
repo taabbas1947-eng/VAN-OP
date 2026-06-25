@@ -2828,11 +2828,15 @@ function prodPoolsStrip(){
   var dv=(state.batches||[]).filter(function(b){return b.disposition==='divert'&&b.pool&&!b.voided&&(+b.plannedKg||0)>0.5;});
   var rw=(state.batches||[]).filter(function(b){return b.disposition==='rework'&&b.pool&&!b.voided&&(+b.plannedKg||0)>0.5;});
   if(bpKg<=0.5&&!dv.length&&!rw.length)return '';
-  var rows='';
-  if(bpKg>0.5)rows+='<div style="font-size:11.5px;margin:0 0 8px;padding:8px 11px;background:var(--navy-50);border-radius:8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span>By-product · Nitro Sulfur: <b>'+fmt(bpKg)+'</b> Kg pooled'+(bpKg>=5000?' · <b style="color:var(--navy)">ready to call</b>':' · below 5,000 (can still call)')+'</span>'+((ed&&bpPools.length)?'<button class="sm green" style="margin-left:auto" onclick="openCallBp(\''+bpPools[0].id+'\')">Call for manufacturing ▸</button>':'')+'</div>';
-  dv.forEach(function(dp){rows+='<div style="font-size:11.5px;margin:0 0 8px;padding:8px 11px;background:#eef4ff;border-radius:8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span>Diverted · '+dp.base+': <b>'+fmt(dp.plannedKg)+'</b> Kg <span style="color:var(--mut)">· QC-cleared</span></span>'+(ed?'<span style="margin-left:auto;display:flex;gap:6px"><button class="sm" onclick="openDivert(\''+dp.id+'\',\'recycle\')">Recycle ▸</button><button class="sm green" onclick="openDivert(\''+dp.id+'\',\'pack\')">Pack to PO ▸</button></span>':'')+'</div>';});
-  rw.forEach(function(rp){rows+='<div style="font-size:11.5px;margin:0 0 8px;padding:8px 11px;background:#fff3ec;border-radius:8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span>Rework · '+rp.base+': <b>'+fmt(rp.plannedKg)+'</b> Kg <span style="color:var(--mut)">· off-spec, needs re-processing</span></span>'+(ed?'<span style="margin-left:auto"><button class="sm green" onclick="openRework(\''+rp.id+'\')">Call for rework ▸</button></span>':'')+'</div>';});
-  return '<div class="card"><h3>By-product · diverted · rework</h3>'+rows+'</div>';
+  var pill=function(t,bg,c){return '<span style="font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:999px;background:'+bg+';color:'+c+'">'+t+'</span>';};
+  var rows=[];
+  var bpByBase={}; bpA.forEach(function(b){var k=b.base||'—';(bpByBase[k]=bpByBase[k]||{kg:0,src:0,old:'',id:b.id});bpByBase[k].kg+=(+b.plannedKg||0);bpByBase[k].src+=((b.sources||[]).length||1);var d=b.openedDate||'';if(d&&(!bpByBase[k].old||d<bpByBase[k].old))bpByBase[k].old=d;});
+  Object.keys(bpByBase).forEach(function(k){var p=bpByBase[k];if(p.kg>0.5)rows.push({type:pill('By-product','var(--pb50,#e3f1ef)','var(--pb,#0e6e63)'),base:k,kg:p.kg,src:p.src,old:p.old,next:'Call for manufacturing'+(p.kg>=5000?' · ready':' · below 5,000'),act:(ed&&bpPools.length)?'<button class="sm green" onclick="openCallBp(\''+p.id+'\')">Call material</button>':''});});
+  dv.forEach(function(dp){rows.push({type:pill('Diverted','#e2f3e8','#1d8a4e'),base:dp.base||'—',kg:+dp.plannedKg||0,src:(dp.sources||[]).length||1,old:dp.openedDate||'',next:'Pack same-product PO or recycle',act:ed?'<button class="sm ghost" onclick="openDivert(\''+dp.id+'\',\'recycle\')">Recycle</button> <button class="sm green" onclick="openDivert(\''+dp.id+'\',\'pack\')">Pack to PO</button>':''});});
+  rw.forEach(function(rp){rows.push({type:pill('Rework','#fbf0db','#b9760d'),base:rp.base||'—',kg:+rp.plannedKg||0,src:(rp.sources||[]).length||1,old:rp.openedDate||'',next:'Re-process before QC',act:ed?'<button class="sm green" onclick="openRework(\''+rp.id+'\')">Call material</button>':''});});
+  if(!rows.length)return '';
+  var body=rows.map(function(r){return '<tr><td>'+r.type+'</td><td><b>'+r.base+'</b></td><td class="num">'+fmt(Math.round(r.kg))+'</td><td class="muted">'+r.src+' source(s)'+(r.old?' · oldest '+r.old:'')+'</td><td>'+r.next+'</td><td style="width:210px">'+r.act+'</td></tr>';}).join('');
+  return '<div class="card"><h3>Material pools <span class="hint">'+rows.length+' pool(s) · material waiting outside running batches</span></h3><div style="overflow:auto"><table><thead><tr><th>Pool</th><th>Item / Base</th><th class="num">Available</th><th>Sources</th><th>What it can do next</th><th></th></tr></thead><tbody>'+body+'</tbody></table></div></div>';
 }
 function batchAging(b){ var s=batchStage(b), d=null, lots=(b.lots||[]);
   if(s==='producing') d=b.openedDate||b.date;
@@ -3047,12 +3051,24 @@ function prodStageList(){
   var af=(typeof activeFloorBatches==='function')?activeFloorBatches():[];
   if(f==='producing'){
     var pr=af.filter(function(b){return batchStage(b)==='producing';});
-    var poB=pr.filter(function(b){return b.kind==='po'||b.po;}); var baseB=pr.filter(function(b){return !(b.kind==='po'||b.po);});
     if(!pr.length)return '<div class="card"><div class="muted" style="padding:14px 2px">No batches producing right now.</div></div>';
-    var rowP=function(b){var prod=+b.producedKg||0,plan=+b.plannedKg||0;var nm=(b.kind==='po'?(b.brand||b.base):b.base)||'';var sub=b.kind==='po'?(b.po||''):'→ stock';var lots=(b.lots||[]);var ls='';if(lots.length){var ld=lots.map(function(l){return l.date;}).filter(Boolean).sort();ls=ld.length?ld[ld.length-1]:'';}var act=ed?'<button class="sm green" onclick="event.stopPropagation();openShiftLog(\''+b.id+'\')">Log output</button>':'';return '<tr style="cursor:pointer" onclick="prodBatchSel=\''+b.id+'\';prodDrill=true;render()"><td><b>'+(b.batchNo||'—')+'</b></td><td>'+nm+' <span class="muted" style="font-size:11px">'+sub+'</span></td><td class="num">'+fmt(plan)+'</td><td class="num">'+fmt(prod)+'</td><td class="num"><b>'+fmt(Math.max(0,plan-prod))+'</b></td><td class="muted">'+(ls||'—')+'</td><td style="width:120px">'+act+'</td></tr>';};
-    var hd='<tr><th>Batch #</th><th>Product</th><th class="num">Planned</th><th class="num">Produced</th><th class="num">Remaining</th><th>Last shift</th><th></th></tr>';
-    var grp=function(t,arr){return arr.length?('<div class="muted" style="font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;margin:14px 2px 6px">'+t+' · '+arr.length+'</div><div style="overflow:auto"><table><thead>'+hd+'</thead><tbody>'+arr.map(rowP).join('')+'</tbody></table></div>'):'';};
-    return '<div class="card"><h3>Running batches <span class="hint">'+pr.length+' producing now</span></h3>'+grp('PO batches',poB)+grp('Base → stock',baseB)+'</div>';
+    var pathPill=function(isBulk){return isBulk?'<span style="font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:999px;background:var(--pb50,#e3f1ef);color:var(--pb,#0e6e63)">Bulk Base</span>':'<span style="font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:999px;background:#f1f3f5;color:#5b6675">PO-direct</span>';};
+    var rowP=function(b){var prod=+b.producedKg||0,plan=+b.plannedKg||0;var isPo=(b.kind==='po'||!!b.po);var nm=(isPo?(b.brand||b.base):b.base)||'';var lots=(b.lots||[]);var ls='',lk=0;if(lots.length){var ld=lots.slice().sort(function(a,c){return String(a.date||'').localeCompare(String(c.date||''));});var last=ld[ld.length-1];ls=last.date||'';lk=+last.kg||0;}var act=ed?'<button class="sm green" onclick="event.stopPropagation();openShiftLog(\''+b.id+'\')">Log output</button>':'';return '<tr style="cursor:pointer" onclick="prodBatchSel=\''+b.id+'\';prodDrill=true;render()"><td><b>'+(b.batchNo||'—')+'</b></td><td>'+nm+(isPo&&b.po?' <span class="muted" style="font-size:11px">'+b.po+'</span>':'')+'</td><td>'+pathPill(!isPo)+'</td><td class="num">'+fmt(plan)+'</td><td class="num">'+fmt(prod)+'</td><td class="num"><b>'+fmt(Math.max(0,plan-prod))+'</b></td><td>'+(ls?('<span class="muted">'+ls+(lk?' · '+fmt(lk)+' kg':'')+'</span>'):'<span style="font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:999px;background:#fbf0db;color:#b9760d">No output yet</span>')+'</td><td style="width:120px">'+act+'</td></tr>';};
+    var hd='<tr><th>Batch #</th><th>Product</th><th>Path</th><th class="num">Planned</th><th class="num">Produced</th><th class="num">Remaining</th><th>Last shift</th><th></th></tr>';
+    return '<div class="card"><h3>Running batches <span class="hint">'+pr.length+' open batch(es) · not fully produced</span></h3><div style="overflow:auto"><table><thead>'+hd+'</thead><tbody>'+pr.map(rowP).join('')+'</tbody></table></div></div>';
+  }
+  if(f==='qc'){
+    var qunits=[];
+    (state.batches||[]).filter(function(b){return (+b.producedKg||0)>0&&b.disposition!=='byproduct'&&!b.voided;}).forEach(function(b){
+      var lots=(b.lots||[]);
+      var arr=lots.length?lots.map(function(l){return {id:l.id,no:l.lotNo||b.batchNo||'',coa:l.coa,qty:+l.qty||0,date:l.date||'',shift:l.shift||''};}):[{id:'',no:b.batchNo||'',coa:b.coa,qty:+b.producedKg||0,date:b.openedDate||'',shift:''}];
+      arr.forEach(function(u){var st=u.coa&&u.coa.status; if(u.coa&&(st==='approved'||st==='failed'))return; var owner=(!u.coa||st==='draft')?'Lab Rep':(st==='analysed'?'AQCM':(st==='reviewed'?'QCM':'Lab Rep')); qunits.push({b:b,id:u.id,no:u.no,product:coaItemOf(b),qty:u.qty,shift:u.shift,date:u.date,owner:owner});});
+    });
+    var qcard='<div class="card"><h3>Waiting QC <span class="hint">'+qunits.length+' lot(s) · Lab / QCM owns approval — you have visibility</span></h3>';
+    if(!qunits.length)return qcard+'<div class="muted" style="padding:14px 2px">Nothing waiting for QC right now — every produced lot is QC-cleared.</div></div>';
+    var ageOf=function(d){if(!d)return '—';var t=new Date(d);if(isNaN(t))return '—';var n=Math.max(0,Math.round((TODAY-t)/86400000));return n===0?'today':(n+'d');};
+    var qbody=qunits.map(function(u){return '<tr><td><b>'+(u.no||'—')+'</b>'+(u.b.batchNo&&u.b.batchNo!==u.no?'<div class="muted" style="font-size:11px">'+u.b.batchNo+'</div>':'')+'</td><td>'+u.product+'</td><td class="num">'+fmt(u.qty)+'</td><td>'+(u.shift||'—')+'</td><td><span class="muted">'+ageOf(u.date)+'</span></td><td><span style="font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:999px;background:var(--pb50,#e3f1ef);color:var(--pb,#0e6e63)">'+u.owner+'</span></td><td style="width:130px">'+(ed?'<button class="sm ghost" onclick="openBatchCOA(\''+u.b.id+'\',\''+u.id+'\')">Follow QC</button>':'')+'</td></tr>';}).join('');
+    return qcard+'<div style="overflow:auto"><table><thead><tr><th>Lot / Batch</th><th>Product</th><th class="num">Output</th><th>Shift</th><th>Waiting</th><th>Next owner</th><th></th></tr></thead><tbody>'+qbody+'</tbody></table></div></div>';
   }
   if(f==='attention'){
     var stuck=prodStuckItems(); var defsL=prodDeferredItems();
@@ -3086,8 +3102,8 @@ function prodStageList(){
     var cols;
     if(f==='producing')cols='<td class="num">'+fmt(plan)+'</td><td class="num">'+fmt(prod)+'</td><td class="num"><b>'+fmt(Math.max(0,plan-prod))+'</b></td><td class="muted">'+(lastShift||'—')+'</td>';
     else if(f==='qc')cols='<td class="num">'+fmt(prod)+'</td><td class="num"><b style="color:var(--amber)">'+fmt(Math.max(0,prod-cl))+'</b></td><td class="muted">COA pending</td>';
-    else if(f==='pack')cols='<td class="num">'+fmt(cl)+'</td><td class="num">'+fmt(packed)+'</td><td class="num"><b style="color:var(--green2)">'+fmt(pk)+'</b></td><td class="muted">'+(b.kind==='bulk'?'base → pick brand/PO':(b.po||''))+'</td>';
-    else if(f==='recon')cols='<td class="num"><b style="color:var(--red)">'+fmt(rem)+'</b></td>';
+    else if(f==='pack')cols='<td><span style="font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:999px;'+(b.kind==='bulk'?'background:var(--pb50,#e3f1ef);color:var(--pb,#0e6e63)">Bulk Base':'background:#f1f3f5;color:#5b6675">PO-direct')+'</span></td><td class="num">'+fmt(cl)+'</td><td class="num">'+fmt(packed)+'</td><td class="num"><b style="color:var(--pgreen,#1d8a4e)">'+fmt(pk)+'</b></td><td class="muted">'+(b.kind==='bulk'?'Any open PO of same base':(b.po||'—'))+'</td>';
+    else if(f==='recon')cols='<td class="num">'+fmt(prod)+'</td><td class="num">'+fmt(cl)+'</td><td class="num">'+fmt(packed)+'</td><td class="num"><b style="color:var(--pred,#bc3b2c)">'+fmt(rem)+'</b></td>';
     else if(f==='completed')cols='<td class="num">'+fmt(prod)+'/'+fmt(plan)+'</td><td class="muted">'+(b.closedDate||'')+'</td>';
     else if(f==='toclose')cols='<td class="num">'+fmt(prod)+'/'+fmt(plan)+'</td><td class="num">'+fmt(packed)+'</td>';
     else cols='<td>'+_pcStage(st)+'</td><td class="num">'+fmt(prod)+'/'+fmt(plan)+'</td><td class="num">'+(pk>0.5?(fmt(pk)+' ready'):'')+'</td>';
@@ -3096,8 +3112,8 @@ function prodStageList(){
   var head;
   if(f==='producing')head='<tr><th>Batch #</th><th>Product</th><th class="num">Planned</th><th class="num">Produced</th><th class="num">Remaining</th><th>Last shift</th><th></th></tr>';
   else if(f==='qc')head='<tr><th>Batch #</th><th>Product</th><th class="num">Produced</th><th class="num">In QC</th><th>Status</th><th></th></tr>';
-  else if(f==='pack')head='<tr><th>Batch #</th><th>Product</th><th class="num">Cleared</th><th class="num">Packed</th><th class="num">Ready to pack</th><th>Route</th><th></th></tr>';
-  else if(f==='recon')head='<tr><th>Batch #</th><th>Product</th><th class="num">Remainder</th><th></th></tr>';
+  else if(f==='pack')head='<tr><th>Batch #</th><th>Product</th><th>Path</th><th class="num">Approved</th><th class="num">Packed</th><th class="num">Available</th><th>Matching PO</th><th></th></tr>';
+  else if(f==='recon')head='<tr><th>Batch #</th><th>Product</th><th class="num">Produced</th><th class="num">Approved</th><th class="num">Packed</th><th class="num">Remaining</th><th></th></tr>';
   else if(f==='completed')head='<tr><th>Batch #</th><th>Product</th><th class="num">Made / plan</th><th>Closed</th><th></th></tr>';
   else if(f==='toclose')head='<tr><th>Batch #</th><th>Product</th><th class="num">Made / plan</th><th class="num">Packed</th><th></th></tr>';
   else head='<tr><th>Batch #</th><th>Product</th><th>Stage</th><th class="num">Made / plan</th><th class="num">Ready</th><th></th></tr>';
@@ -3184,6 +3200,8 @@ var PROD_CSS='<style>'
  +'body:has(.pdsk) .modal-bg.open .modal{position:fixed;right:0;top:0;bottom:0;height:auto;max-height:100vh;width:480px;max-width:94vw;border-radius:0;margin:0;display:flex;flex-direction:column;animation:pdslide .26s cubic-bezier(.4,0,.2,1)}body:has(.pdsk) .modal-bg.open .modal .mb{overflow:auto;flex:1}@keyframes pdslide{from{transform:translateX(100%)}to{transform:none}}'
  +'@media(max-width:920px){.pdsk{flex-direction:column}.pdside{flex:auto;width:100%;position:static;min-height:0}.pdnavlist{flex-direction:row;flex-wrap:wrap}.pdnav{width:auto}.pdfoot{display:none}}'
  +'@media(max-width:680px){.pdsk .qgrid{grid-template-columns:1fr 1fr}}@media(max-width:520px){.pdsk .qgrid{grid-template-columns:1fr}}'
+ +'.pdsk td.num{font-family:"Space Grotesk",sans-serif;font-weight:700}'
+ +'.pdsk .card table tbody td{padding:12px 14px;font-size:13px}'
  +'</style>';
 function prodAreaLabel(k){return ({tomake:'What to make',producing:'Running batches',qc:'Waiting QC',pack:'Ready to pack',toclose:'Ready to close',attention:'Stuck / blocked',recon:'Remaining to account',call:'Material pools',completed:'Completed'})[k]||'Production';}
 function prodPulse(){

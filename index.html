@@ -1277,7 +1277,7 @@ function ensureState(s){
   s.users=(s.users&&s.users.length)?s.users:deepClone(SEED.users||[]); if(s.currentUser===undefined)s.currentUser=null;
   s.rmRequests=s.rmRequests||[]; s.productionLog=s.productionLog||[]; s.packingLog=s.packingLog||[];
   s.actionLog=s.actionLog||[]; s.shipments=s.shipments||[]; s.inspections=s.inspections||[]; s.warehouses=s.warehouses||SEED.warehouses.slice();
-  s.rawStock=s.rawStock||{}; s.rmMovements=s.rmMovements||[]; s.audit=s.audit||[]; s.masters=s.masters||deepClone(SEED.masters||{}); s.batches=s.batches||[]; s.packedStock=s.packedStock||{}; s.packingLog=s.packingLog||[]; s.orders=s.orders||[]; if(s.seq==null)s.seq=1000; ensureRecordIds(s); if(s.dataFixEnabled==null)s.dataFixEnabled=true; if(!Array.isArray(s.prs))s.prs=[]; (s.batches||[]).forEach(function(b){ if((b.producedKg||0)>0 && (!Array.isArray(b.lots)||!b.lots.length)){ b.lots=[{id:'LOT'+(s.seq++), lotNo:(b.batchNo||'B')+'-L1', qty:b.producedKg, date:b.openedDate||'', by:b.by||'', coa:(b.coa||null), migrated:true}]; } }); ensureMasters(s); ensureProductionModel(s); dedupePackingLots(s); migrateLotTracking(s); fixRudolfDupV1(s); reconcileLotShipKgV1(s); dedupeShipmentsV1(s); healPRFlags(s); migrateBrandNames(s); loadBaseRecipesV2(s); loadBlendRecipesV1(s); loadBlendRecipesV2(s); purgeImportedProduction(s); purgeImportDuplicates(s); purgeImportedNoTwin(s); fixPhantomLotVU26134(s); consolidateByproductV1(s); dedupeByproductV1(s); reconcileShipLotsV1(s); normalizeVZincBase(s); seedByproductRulesV1(s); seedRolesV1(s); return s;
+  s.rawStock=s.rawStock||{}; s.rmMovements=s.rmMovements||[]; s.audit=s.audit||[]; s.masters=s.masters||deepClone(SEED.masters||{}); s.batches=s.batches||[]; s.packedStock=s.packedStock||{}; s.packingLog=s.packingLog||[]; s.orders=s.orders||[]; if(s.seq==null)s.seq=1000; ensureRecordIds(s); if(s.dataFixEnabled==null)s.dataFixEnabled=true; if(!Array.isArray(s.prs))s.prs=[]; (s.batches||[]).forEach(function(b){ if((b.producedKg||0)>0 && (!Array.isArray(b.lots)||!b.lots.length)){ b.lots=[{id:'LOT'+(s.seq++), lotNo:(b.batchNo||'B')+'-L1', qty:b.producedKg, date:b.openedDate||'', by:b.by||'', coa:(b.coa||null), migrated:true}]; } }); ensureMasters(s); ensureProductionModel(s); dedupePackingLots(s); migrateLotTracking(s); fixRudolfDupV1(s); reconcileLotShipKgV1(s); dedupeShipmentsV1(s); healPRFlags(s); migrateBrandNames(s); loadBaseRecipesV2(s); loadBlendRecipesV1(s); loadBlendRecipesV2(s); purgeImportedProduction(s); purgeImportDuplicates(s); purgeImportedNoTwin(s); fixPhantomLotVU26134(s); fixVU26144ProdLogV1(s); consolidateByproductV1(s); dedupeByproductV1(s); reconcileShipLotsV1(s); normalizeVZincBase(s); seedByproductRulesV1(s); seedRolesV1(s); return s;
 }
 /* Lock 1: idempotent master seeding. ADDITIVE ONLY — seeds a list only when it is
    missing or empty, and never overwrites values the team has already added. Touches no
@@ -4224,6 +4224,24 @@ function resyncLineShipKg(o,l){ var lots=lotsFor(o,l); var rem=Math.max(0,+l.dis
    the per-lot shipKg (old saveShipEdit bug), leaving phantom Ready-to-ship. Re-derive every line's
    lot shipKg from its dispatched total (FIFO, capped at insKg). Idempotent via _shipReconV1;
    audit-logged; never changes order/line totals, master data, or shipment records. */
+/* One-time guarded fix (tested against the 2026-06-25 snapshot): VU26144 productionLog had 4 identical Night rows (14,000) against a 7,000 batch — missing its Morning shift. Conservative guard fires ONLY on that exact broken state (no-op if live data has since changed). Reduces to Morning(Imran)+Night(Adnan)=7,000 and restores the 7,000 to the Sulfur Coated Urea opening balance (kept short to offset the phantom) so productionLog still equals the batch ledger. Self-contained on s; touches no master data. */
+function fixVU26144ProdLogV1(s){
+  if(!s || s._fixVU26144ProdLogV1) return false;
+  var pl=s.productionLog||[];
+  var rows=pl.filter(function(p){return p&&p.batchNo==='VU26144';});
+  var b=(s.batches||[]).find(function(x){return (x.batchNo||'')==='VU26144';});
+  var plk=rows.reduce(function(a,p){return a+(+p.kg||0);},0);
+  if(!b || (+b.producedKg||0)!==7000 || plk!==14000 || rows.length!==4){ return false; }
+  rows[0].shift='Night'; rows[0].incharge='Adnan Rasheed'; rows[0].kg=3500;
+  rows[1].shift='Morning'; rows[1].incharge='Muhammad Imran'; rows[1].kg=3500;
+  var drop={}; drop[rows[2].id]=1; drop[rows[3].id]=1;
+  s.productionLog=pl.filter(function(p){return !drop[p.id];});
+  var op=s.productionLog.find(function(p){return p&&p.opening&&/sulfur coated urea/i.test(p.base||'');});
+  if(op) op.kg=(+op.kg||0)+7000;
+  s._fixVU26144ProdLogV1=true;
+  (s.audit=s.audit||[]).unshift({t:new Date().toISOString(),user:'System',module:'Production',field:'Fix VU26144 productionLog',old:'4 Night rows (14000)',val:'Morning(Imran)+Night(Adnan) 7000; SCU opening +7000',batchNo:'VU26144'});
+  return true;
+}
 function reconcileShipLotsV1(s){ if(!s||s._shipReconV1) return; var fixed=0;
   (s.orders||[]).forEach(function(o){ (o.lines||[]).forEach(function(l){
     var lots=(s.packingLog||[]).filter(function(p){return p&&p.po===o.po&&p.brand===l.brand&&(+p.kg||0)>0.0001;})

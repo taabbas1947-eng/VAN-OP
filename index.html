@@ -3883,22 +3883,43 @@ function acTypeColor(lb){ if(lb==='Pack QC'||lb==='Inspect')return 'var(--navy)'
 function acStageOf(lb){ if(lb==='Acknowledge')return 'PO Created'; if(lb==='RM Check'||lb==='Receive'||lb==='Approve PR')return 'RM Check'; if(lb==='Open Production')return 'Production'; if(lb==='Lab QC')return 'Lab QC'; if(lb==='Review'||lb==='Approve')return 'AQCM Review'; if(lb==='Pack QC'||lb==='Inspect')return 'Pack QC'; if(lb==='Ship')return 'Shipment'; return 'Production'; }
 function acRiskOf(it){ if(actOverdue(it))return 'late'; return actUrg(it)<=2?'today':'normal'; }
 function acWaitTxt(it){ var tm=actTiming(it); if(actOverdue(it))return daysOver(it.o)+'d late'; var d=tm.days; return d==null?'—':((tm.approx?'~':'')+d+'d waiting'); }
-function acBase(){ var all=actionItems(); var b=(state.role==='COO')?all:all.filter(function(x){return x.role===state.role;}); b.forEach(function(it,i){ it._id='A'+i; it._risk=acRiskOf(it); it._days=actTiming(it).days||0; }); return b; }
+function acBase(){ var all=actionItems(); var role=state.role; var b;
+  if(role==='COO'){ b=all.slice(); }
+  else { var own=all.filter(function(x){return x.role===role;});
+    /* notify-also escalation: a manager (Plant Manager / CFO) also sees items escalated TO them from other roles (owner still owns it) */
+    var esc=all.filter(function(x){ if(x.role===role) return false; var e=acEscalation(x); return !!(e&&e.to===role); });
+    esc.forEach(function(x){ x._escalated=true; });
+    b=own.concat(esc); }
+  b.forEach(function(it,i){ it._id='A'+i; it._risk=acRiskOf(it); it._days=(actTiming(it)||{}).days||0; }); return b; }
 function acRoleScoped(b){ return acRoleF==='all'?b:b.filter(function(x){return x.role===acRoleF;}); }
 function acCounts(){ var r=acRoleScoped(acBase()); var late=0,today=0,normal=0,old=0; r.forEach(function(x){ if(x._risk==='late')late++; else if(x._risk==='today')today++; else normal++; if(x._days>old)old=x._days; }); return {all:r.length,late:late,today:today,normal:normal,oldest:old}; }
 function acFiltered(){ var r=acRoleScoped(acBase()); if(acRisk!=='all')r=r.filter(function(x){return x._risk===acRisk;}); var q=(acQ||'').toLowerCase().trim(); if(q)r=r.filter(function(x){var o=x.o||{},l=x.l||{};return ((o.po||'')+(o.client||'')+(l.brand||'')+(x.what||'')+x.role+x.label).toLowerCase().indexOf(q)>-1;}); if(acSort2==='oldest')r.sort(function(a,b){return b._days-a._days;}); else if(acSort2==='newest')r.sort(function(a,b){return a._days-b._days;}); else if(acSort2==='customer')r.sort(function(a,b){return ((a.o&&a.o.client)||'').localeCompare((b.o&&b.o.client)||'');}); else r=actSort(r); return r; }
 function acMini(it){ var ci=AC_STAGES.indexOf(acStageOf(it.label)); var cur=it._risk==='late'?'var(--red)':it._risk==='today'?'var(--amber)':'var(--navy)'; return '<span class="ac2mini">'+AC_STAGES.map(function(s,i){var bg=i<ci?'var(--navy)':(i===ci?cur:'#dfe3e8');return '<span class="ac2dot" style="background:'+bg+'"></span>';}).join('')+'</span>'; }
 function acStep(it){ var ci=AC_STAGES.indexOf(acStageOf(it.label)); return '<div class="axn-step">'+AC_STAGES.map(function(s,i){var c=i<ci?'done':(i===ci?'now':'');return '<i class="'+c+'"></i>';}).join('')+'</div>'; }
+/* Escalation (read-only, derived): locked thresholds per action; Produce uses 3-day INACTIVITY (last shift output / RM-ready), never elapsed time, so long POs don't false-alarm. */
+function acProduceStallDays(it){ var o=it.o,l=it.l; if(!o||!l)return null;
+  var bs=(state.batches||[]).filter(function(b){return b&&b.kind==='po'&&b.po===o.po&&b.lineId===l.id;});
+  if(!bs.length){ var d0=l.rmReady||l.prRaised; if(!d0)return null; var t0=new Date(d0); return isNaN(t0)?null:Math.max(0,Math.round((TODAY-t0)/86400000)); }
+  var dates=[]; bs.forEach(function(b){ (b.lots||[]).forEach(function(lt){ if(lt&&lt.date)dates.push(lt.date); }); if(b.openedDate)dates.push(b.openedDate); });
+  (state.productionLog||[]).forEach(function(p){ if(p&&p.batchNo&&p.date&&bs.some(function(b){return b.batchNo===p.batchNo;}))dates.push(p.date); });
+  if(!dates.length)return null; dates.sort(); var last=new Date(dates[dates.length-1]); return isNaN(last)?null:Math.max(0,Math.round((TODAY-last)/86400000)); }
+function acEscalation(it){ if(!it)return null;
+  var TH={'Acknowledge':[1,'Plant Manager'],'RM Check':[1,'CFO'],'Receive':[1,'CFO'],'Lab QC':[1,'Plant Manager'],'Review':[1,'Plant Manager'],'Approve':[1,'Plant Manager'],'Pack QC':[2,'Plant Manager'],'Inspect':[2,'Plant Manager'],'Ship':[2,'Plant Manager'],'Open Production':[3,'Plant Manager'],'Approve PR':[1,'COO']};
+  var th=TH[it.label]; if(!th)return null;
+  var days=(it.label==='Open Production')?acProduceStallDays(it):((actTiming(it)||{}).days);
+  if(days==null||days<th[0])return null;
+  return {days:days,to:th[1],stall:it.label==='Open Production'}; }
 function acRowHTML(it,mini){ var col=acTypeColor(it.label), em=ACT_EMOJI[it.label]||'•';
   var cust=it.o?(it.o.client||''):(it.pr?(it.pr.rm+' (PR)'):(it.batch?coaItemOf(it.batch):''));
   var prod=it.l?it.l.brand:(it.batch?(it.batch.base||''):'');
   var title=it.what||(it.o?(it.label+' — '+it.o.po):(it.batch?(it.batch.batchNo||coaItemOf(it.batch)):(it.pr?('PR · '+it.pr.rm):it.label)));
   var sub=cust+(prod?' · '+prod:'');
   var due=(it.o&&it.o.promised)?('due '+_fmtShort(it.o.promised)):acWaitTxt(it);
+  var _esc=acEscalation(it); var escB=it._escalated?('<span class="pill" style="background:var(--red-50);color:var(--red);font-size:9px;padding:1px 7px;margin-left:6px">⚠ escalated to you · '+(((_esc&&_esc.days)||0))+'d stalled</span>'):(_esc?('<span class="pill" style="background:var(--red-50);color:var(--red);font-size:9px;padding:1px 7px;margin-left:6px">⚠ '+(_esc.stall?'stalled ':'')+_esc.days+'d → '+_esc.to+'</span>'):'');
   return '<div class="axn" onclick="acOpenDrawer(\''+it._id+'\')">'
     +'<div class="axn-lead" style="background:'+col+'"></div>'
     +'<div class="axn-ic" style="background:color-mix(in srgb,'+col+' 14%,#fff)">'+em+'</div>'
-    +'<div class="axn-bd"><div class="axn-t1">'+title+'</div><div class="axn-t2">'+sub+'</div>'+acStep(it)+'</div>'
+    +'<div class="axn-bd"><div class="axn-t1">'+title+escB+'</div><div class="axn-t2">'+sub+'</div>'+acStep(it)+'</div>'
     +'<div class="axn-cta"><button class="sm green" onclick="event.stopPropagation();'+it.act+'">'+it.label+'</button><span class="axn-due">'+due+'</span><button class="sm ghost" onclick="event.stopPropagation();acOpenDrawer(\''+it._id+'\')">View</button></div>'
   +'</div>'; }
 function acListHTML(){ var rows=acFiltered(); if(!rows.length)return '<div class="empty" style="padding:26px;text-align:center;color:var(--mut)">No actions in this view.</div>';

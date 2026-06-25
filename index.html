@@ -1277,7 +1277,7 @@ function ensureState(s){
   s.users=(s.users&&s.users.length)?s.users:deepClone(SEED.users||[]); if(s.currentUser===undefined)s.currentUser=null;
   s.rmRequests=s.rmRequests||[]; s.productionLog=s.productionLog||[]; s.packingLog=s.packingLog||[];
   s.actionLog=s.actionLog||[]; s.shipments=s.shipments||[]; s.inspections=s.inspections||[]; s.warehouses=s.warehouses||SEED.warehouses.slice();
-  s.rawStock=s.rawStock||{}; s.rmMovements=s.rmMovements||[]; s.audit=s.audit||[]; s.masters=s.masters||deepClone(SEED.masters||{}); s.batches=s.batches||[]; s.packedStock=s.packedStock||{}; s.packingLog=s.packingLog||[]; s.orders=s.orders||[]; if(s.seq==null)s.seq=1000; ensureRecordIds(s); if(s.dataFixEnabled==null)s.dataFixEnabled=true; if(!Array.isArray(s.prs))s.prs=[]; (s.batches||[]).forEach(function(b){ if((b.producedKg||0)>0 && (!Array.isArray(b.lots)||!b.lots.length)){ b.lots=[{id:'LOT'+(s.seq++), lotNo:(b.batchNo||'B')+'-L1', qty:b.producedKg, date:b.openedDate||'', by:b.by||'', coa:(b.coa||null), migrated:true}]; } }); ensureMasters(s); ensureProductionModel(s); dedupePackingLots(s); migrateLotTracking(s); fixRudolfDupV1(s); reconcileLotShipKgV1(s); dedupeShipmentsV1(s); healPRFlags(s); migrateBrandNames(s); loadBaseRecipesV2(s); loadBlendRecipesV1(s); loadBlendRecipesV2(s); purgeImportedProduction(s); purgeImportDuplicates(s); purgeImportedNoTwin(s); fixPhantomLotVU26134(s); fixVU26144ProdLogV1(s); consolidateByproductV1(s); dedupeByproductV1(s); reconcileShipLotsV1(s); normalizeVZincBase(s); seedByproductRulesV1(s); seedRolesV1(s); return s;
+  s.rawStock=s.rawStock||{}; s.rmMovements=s.rmMovements||[]; s.audit=s.audit||[]; s.masters=s.masters||deepClone(SEED.masters||{}); s.batches=s.batches||[]; s.packedStock=s.packedStock||{}; s.packingLog=s.packingLog||[]; s.orders=s.orders||[]; if(s.seq==null)s.seq=1000; ensureRecordIds(s); if(s.dataFixEnabled==null)s.dataFixEnabled=true; if(!Array.isArray(s.prs))s.prs=[]; (s.batches||[]).forEach(function(b){ if((b.producedKg||0)>0 && (!Array.isArray(b.lots)||!b.lots.length)){ b.lots=[{id:'LOT'+(s.seq++), lotNo:(b.batchNo||'B')+'-L1', qty:b.producedKg, date:b.openedDate||'', by:b.by||'', coa:(b.coa||null), migrated:true}]; } }); ensureMasters(s); ensureProductionModel(s); dedupePackingLots(s); migrateLotTracking(s); fixRudolfDupV1(s); reconcileLotShipKgV1(s); dedupeShipmentsV1(s); healPRFlags(s); migrateBrandNames(s); loadBaseRecipesV2(s); loadBlendRecipesV1(s); loadBlendRecipesV2(s); purgeImportedProduction(s); purgeImportDuplicates(s); purgeImportedNoTwin(s); fixPhantomLotVU26134(s); fixVU26144ProdLogV1(s); backfillDisposedV1(s); consolidateByproductV1(s); dedupeByproductV1(s); reconcileShipLotsV1(s); normalizeVZincBase(s); seedByproductRulesV1(s); seedRolesV1(s); return s;
 }
 /* Lock 1: idempotent master seeding. ADDITIVE ONLY — seeds a list only when it is
    missing or empty, and never overwrites values the team has already added. Touches no
@@ -2700,11 +2700,11 @@ var prodStage='';
 var prodView='lifecycle', prodOutSub='day', prodLifeSub='batch', prodFloorSub='lanes', prodBatchSel=null, prodBatchTab='lots', prodFilter='all';
 var PJORD=['recon','producing','qc','pack','done'];
 function batchClearedKg(b){ var lots=(b.lots||[]); var s=0; if(lots.length){ lots.forEach(function(l){ if(l.coa&&l.coa.status==='approved'){ var ck=(l.coa.certifiedKg!=null)?l.coa.certifiedKg:(l.qty||0); s+=Math.min(l.qty||0,ck); } }); } else if(b.coa&&b.coa.status==='approved'){ var ck2=(b.coa.certifiedKg!=null)?b.coa.certifiedKg:(b.producedKg||0); s+=Math.min(b.producedKg||0,ck2); } return s; }
-function batchStage(b){ var prod=+b.producedKg||0, plan=+b.plannedKg||0, packed=+b.packedKg||0, cleared=batchClearedKg(b), rem=Math.max(0,prod-packed);
-  if(b.status==='closed' && rem>0.5 && !b.reconciled && (cleared-packed)<=0.5) return 'recon';  // reconcile ONLY when no QC-cleared stock is left to pack (packable stock is never auto-"reconcile"); the Reconcile button stays available as a choice
+function batchStage(b){ var prod=+b.producedKg||0, plan=+b.plannedKg||0, packed=+b.packedKg||0, cleared=batchClearedKg(b), disp=+b.disposedKg||0, rem=Math.max(0,prod-packed-disp), pk=batchPackableKg(b);
+  if(b.status==='closed' && rem>0.5 && pk<=0.5) return 'recon';  // closed with undisposed remainder & nothing packable → reconcile
   if(b.status==='open' && prod<plan-0.5) return 'producing';
   if(prod-cleared>0.5) return 'qc';
-  if(cleared-packed>0.5) return 'pack';
+  if(pk>0.5) return 'pack';   // packable = disposed-aware (cleared, capped at produced−disposed, minus packed)
   return 'done'; }
 /* SINGLE SOURCE OF TRUTH for "what's on the floor" — used by Lanes, the KPI strip,
    the Table sub-view and the Dashboard tile so every batch count reconciles.
@@ -3285,7 +3285,7 @@ function doCloseBatch(){ const b=(state.batches||[]).find(x=>x.id===closeForm.bi
   save(); closeModal(); render(); toast(_rem>1?('Batch closed — '+fmt(_rem)+' Kg/L produced but not packed; reconcile it on the Reconcile lane (stock / by-product / loss)'):'Batch closed'); }
 /* ===== Finish & reconcile a batch's unpacked remainder (loss / by-product / divert / rework) ===== */
 let recForm=null;
-function batchRemainderKg(b){ return Math.max(0,(+b.producedKg||0)-(+b.packedKg||0)); }
+function batchRemainderKg(b){ return Math.max(0,(+b.producedKg||0)-(+b.packedKg||0)-(+b.disposedKg||0)); }
 function allBasesForRecon(){ const s=new Set(); try{ Object.values((typeof SEED!=='undefined'&&SEED.catalog&&SEED.catalog.brandsByClient)||{}).forEach(arr=>(arr||[]).forEach(x=>x&&x.base&&s.add(x.base))); }catch(e){} (state.batches||[]).forEach(b=>b&&b.base&&s.add(b.base)); ((state.masters&&state.masters.byproductRules)||[]).forEach(r=>{ if(r){ if(r.to)s.add(r.to); if(r.from)s.add(r.from); } }); return [...s].filter(Boolean).sort(); }
 function openReconcile(batchId){ if(!(canEdit(['Production'])||state.role==='COO')){toast('Production / COO only');return;} const b=(state.batches||[]).find(x=>x.id===batchId); if(!b)return; if(batchRemainderKg(b)<=0.5){toast('Nothing unpacked to reconcile on this batch');return;}
   const sug=((state.masters&&state.masters.byproductRules)||[]).find(r=>r&&(r.from||'')===(b.base||''));
@@ -3334,12 +3334,13 @@ function saveReconcile(){ if(!(canEdit(['Production'])||state.role==='COO')){toa
       created.push(it.type+' '+fmt(kg)+'→'+tgt+(needsProd?' (to re-produce)':' (to pack)'));
     } });
   b.reconciled=true; b.reconciledDate=d; b.reconciledBy=(state.currentUser&&state.currentUser.name)||state.role; b.lossKg=loss; b.lossReason=recForm.lossReason||'';
+  b.disposedKg=(+b.disposedKg||0)+rem;  /* DISPOSED model: the reconciled remainder is recorded as disposed (remainder = produced − packed − disposed); partial reconcile is additive */
   b.packReconcile={loss,lossReason:recForm.lossReason||'',items:items.map(it=>({type:it.type,base:(it.type==='rework'?b.base:it.base),kg:+it.kg||0})),by:b.reconciledBy,date:d};
-  if(b.status!=='closed'){ b.status='closed'; b.closedDate=d; b.actualYield=b.producedKg||0; }
+  /* DECOUPLED: reconcile no longer force-closes the batch. Disposing the remainder is separate from ending production; Close stays a manual step that records the yield-variance reason. A batch can be reconciled (in part) while still producing. */
   if(b.kind==='po' && b.lineId){ const o=state.orders.find(x=>x.po===b.po); const l=o&&o.lines.find(x=>x.id===b.lineId); if(l) l.disposedKg=(l.disposedKg||0)+rem; }
   (state.audit=state.audit||[]).unshift({t:new Date().toISOString(),user:state.role,module:'Production',field:'Batch reconciled',po:b.po||'',brand:b.base||coaItemOf(b),old:fmt(rem)+' unpacked',val:'loss '+fmt(loss)+(created.length?(' · '+created.join(' · ')):''),batchNo:b.batchNo||''});
-  logAction(`Reconciled batch ${b.batchNo||b.base}: ${fmt(rem)} Kg/L unpacked (loss ${fmt(loss)}${created.length?(', '+created.join(', ')):''}) — batch closed`);
-  recForm=null; save(); closeModal(); render(); toast('Batch reconciled & closed'); }
+  logAction(`Reconciled batch ${b.batchNo||b.base}: ${fmt(rem)} Kg/L remainder disposed (loss ${fmt(loss)}${created.length?(', '+created.join(', ')):''}) — close separately when production ends`);
+  recForm=null; save(); closeModal(); render(); toast('Remainder reconciled — close the batch separately when production ends'); }
 /* PO-direct pack: pick the QC-approved PO production batch, inherit its batch #, verify print price.
    Mirrors doPack's batch#/price discipline so PO-direct lots are no longer batch-less / price-less. */
 let pqForm={oid:null,lid:null,bid:'',qty:'',date:TODAY.toISOString().slice(0,10),price:'',priceOk:false};
@@ -3432,7 +3433,7 @@ function coaTemplate(b){ const t=(state.masters&&state.masters.labTemplates)||{}
 function coaOverall(tests){ if(!tests||!tests.length) return ''; let unfit=false,nores=false,fit=false; for(const r of tests){ const rk=String(r.remark||'').toUpperCase().trim(); if(rk==='UNFIT'||rk==='NOT OK'||rk==='FAIL') unfit=true; else if(rk==='NO RESULT'||rk==='') nores=true; else if(rk==='FIT'||rk==='OK') fit=true; else nores=true; } if(unfit) return 'UNFIT'; if(nores) return 'NO RESULT'; return fit?'FIT':''; }
 function batchLabApproved(b){ if(!b)return false; const lots=(b.lots||[]); if(lots.length) return lots.some(l=>l.coa&&l.coa.status==='approved'); return !!(b.coa&&b.coa.status==='approved'); }
 
-function batchPackableKg(b){ if(!b||b.reconciled)return 0; const lots=(b.lots||[]); let cert=0; if(lots.length){ lots.forEach(l=>{ if(l.coa&&l.coa.status==='approved'){ const ck=(l.coa.certifiedKg!=null)?l.coa.certifiedKg:(l.qty||0); cert+=Math.min(l.qty||0,ck); } }); } else { cert=(b.coa&&b.coa.status==='approved')?((b.coa.certifiedKg!=null)?Math.min(b.producedKg||0,b.coa.certifiedKg):(b.producedKg||0)):0; } return Math.max(0,cert-(b.packedKg||0)); }
+function batchPackableKg(b){ if(!b)return 0; if(b.reconciled && !(+b.disposedKg>0))return 0; const lots=(b.lots||[]); let cert=0; if(lots.length){ lots.forEach(l=>{ if(l.coa&&l.coa.status==='approved'){ const ck=(l.coa.certifiedKg!=null)?l.coa.certifiedKg:(l.qty||0); cert+=Math.min(l.qty||0,ck); } }); } else { cert=(b.coa&&b.coa.status==='approved')?((b.coa.certifiedKg!=null)?Math.min(b.producedKg||0,b.coa.certifiedKg):(b.producedKg||0)):0; } var disp=+b.disposedKg||0; return Math.max(0,Math.min(cert,(+b.producedKg||0)-disp)-(b.packedKg||0)); }
 function coaStatusPill(c){ if(!c) return '<span class="pill" style="background:var(--amber-50);color:var(--amber);font-size:9px">Lab QC pending</span>';
   const m={draft:['Draft','--mut'],analysed:['Analysed → AQCM','--navy'],reviewed:['Reviewed → QCM','--navy'],approved:['Approved ✓','--green2'],failed:['UNFIT → Plant Mgr','--red']}; const x=m[c.status]||['?','--mut'];
   return `<span class="pill" style="background:var(--navy-50);color:var(${x[1]});font-size:9px">${x[0]}</span>`; }
@@ -4259,6 +4260,8 @@ function resyncLineShipKg(o,l){ var lots=lotsFor(o,l); var rem=Math.max(0,+l.dis
    the per-lot shipKg (old saveShipEdit bug), leaving phantom Ready-to-ship. Re-derive every line's
    lot shipKg from its dispatched total (FIFO, capped at insKg). Idempotent via _shipReconV1;
    audit-logged; never changes order/line totals, master data, or shipment records. */
+/* Backfill for the disposed model: existing reconciled batches (closed by the old force-close reconcile) get disposedKg = their unpacked remainder, so the new disposed-aware remainder/packable math treats them as fully accounted (no resurrection of packable stock). Idempotent; self-contained on s; touches no master data. Tested vs the 2026-06-25 snapshot (active batches unchanged). */
+function backfillDisposedV1(s){ if(!s||s._disposedBackfillV1)return false; var n=0; (s.batches||[]).forEach(function(b){ if(b&&b.reconciled&&!(+b.disposedKg>0)){ var rem=Math.max(0,(+b.producedKg||0)-(+b.packedKg||0)); if(rem>0){ b.disposedKg=rem; n++; } } }); s._disposedBackfillV1=true; if(n>0)(s.actionLog=s.actionLog||[]).unshift({t:new Date().toISOString(),role:'System',by:'System',what:'BACKFILL: set disposedKg on '+n+' reconciled batch(es) to preserve remainder/packable under the disposed model'}); return true; }
 /* One-time guarded fix (tested against the 2026-06-25 snapshot): VU26144 productionLog had 4 identical Night rows (14,000) against a 7,000 batch — missing its Morning shift. Conservative guard fires ONLY on that exact broken state (no-op if live data has since changed). Reduces to Morning(Imran)+Night(Adnan)=7,000 and restores the 7,000 to the Sulfur Coated Urea opening balance (kept short to offset the phantom) so productionLog still equals the batch ledger. Self-contained on s; touches no master data. */
 function fixVU26144ProdLogV1(s){
   if(!s || s._fixVU26144ProdLogV1) return false;
@@ -4720,8 +4723,9 @@ function renderDispatchModal(){ const o=(state.orders||[]).find(x=>x.id===dispFo
        <div class="fld"><label>DC number <span style="color:var(--red)">*</span> <span class="muted" style="font-weight:400;font-size:10px">generates shipment #</span></label><input type="text" value="${dispForm.dc}" oninput="dispDcInput(this.value)" placeholder="e.g. 5019"></div><div class="fld" style="grid-column:1/-1"><div id="disp_shipno" style="font-size:12px;padding:8px 11px;background:var(--navy-50);border-radius:8px">${dispShipNoHtml()}</div></div>
        <div class="fld"><label>Bilty / reference</label><input type="text" value="${dispForm.bilty}" oninput="dispSet('bilty',this.value)"></div>
        <div class="fld" style="grid-column:1/-1"><label>Remarks</label><input type="text" value="${dispForm.remarks}" oninput="dispSet('remarks',this.value)"></div>
+       <div class="fld" style="grid-column:1/-1"><label style="display:flex;gap:7px;align-items:center;font-weight:400"><input type="checkbox" ${dispForm.inTransit?'checked':''} onchange="dispSet('inTransit',this.checked)"> Mark <b>in transit</b> (deliver later) — leave unticked to record as delivered now</label></div>
      </div>
-     <div class="muted" style="font-size:11px;margin-top:10px">Only <b>inspected &amp; cleared</b> quantity can be shipped. Recording the shipment <b>sends and closes it</b> (counts as delivered). Anything you leave un-ticked stays in Ready to ship for the next shipment.</div>
+     <div class="muted" style="font-size:11px;margin-top:10px">Only <b>inspected &amp; cleared</b> quantity can be shipped. By default the shipment records as <b>delivered now</b>; tick <b>in transit</b> to mark it delivered later from the board. Anything you leave un-ticked stays in Ready to ship for the next shipment.</div>
    </div>
    <div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" onclick="saveDispatch()">Save shipment</button></div>`; }
 function saveDispatch(){ if(!canEdit(['Supply Chain'])){toast('Supply Chain only');return;} const o=(state.orders||[]).find(x=>x.id===dispForm.oid); if(!o)return;
@@ -4739,8 +4743,9 @@ function saveDispatch(){ if(!canEdit(['Supply Chain'])){toast('Supply Chain only
     const alloc=fifoAlloc(o,l,want,'ship'); const batches=[]; let kg=0;
     lotsFor(o,l).forEach((p,i)=>{ const a=Math.min(+alloc[i]||0, lotClearedKg(p)); if(a>0.0001){ p.shipKg=(+p.shipKg||0)+a; batches.push({batch:lotBaseNo(p),brand:lotBrandNo(p),kg:Math.round(a)}); kg+=a; } });
     if(kg<=0)return;
-    state.shipments.unshift({id:_uid('SH'),dispId,po:o.po,brand:l.brand,lid:l.id,kg:Math.round(kg),batches,pack:r.pack,dispatch:d,destination:dispForm.dest,carrier:dispForm.carrier,vehicle:dispForm.vehicle,dc:dc,shipNo:shipNo,bilty:dispForm.bilty,delivered:d,remarks:dispForm.remarks,qa:{pass:true,closed:true},by:state.role});
-    l.dispatched=(l.dispatched||0)+kg; l.dispatchDate=l.dispatchDate||d; l.delivered=(l.delivered||0)+kg; l.deliveredDate=d; n++; tot+=kg; });
+    var _deliv=dispForm.inTransit?null:d;  /* default: delivered now (silent). In-transit option leaves delivered blank for a later markDelivered. */
+    state.shipments.unshift({id:_uid('SH'),dispId,po:o.po,brand:l.brand,lid:l.id,kg:Math.round(kg),batches,pack:r.pack,dispatch:d,destination:dispForm.dest,carrier:dispForm.carrier,vehicle:dispForm.vehicle,dc:dc,shipNo:shipNo,bilty:dispForm.bilty,delivered:_deliv,remarks:dispForm.remarks,qa:{pass:true,closed:true},by:state.role});
+    l.dispatched=(l.dispatched||0)+kg; l.dispatchDate=l.dispatchDate||d; if(_deliv){ l.delivered=(l.delivered||0)+kg; l.deliveredDate=d; } n++; tot+=kg; });
   if(!n){toast('Nothing cleared to ship — inspect the packed material first');return;}
   logAction(`Shipment ${shipNo} (${dispId}) · PO ${o.po}: ${n} product(s), ${fmt(tot)} Kg/L · DC ${dc}${dispForm.vehicle?(' · '+dispForm.vehicle):''}`);
   (state.audit=state.audit||[]).unshift({t:new Date().toISOString(),user:state.role,module:'Shipment',po:o.po,brand:n+' product(s)',field:'Shipped',old:'',val:fmt(tot)+' Kg/L · DC '+(dispForm.dc||'-')});

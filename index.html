@@ -1277,7 +1277,7 @@ function ensureState(s){
   s.users=(s.users&&s.users.length)?s.users:deepClone(SEED.users||[]); if(s.currentUser===undefined)s.currentUser=null;
   s.rmRequests=s.rmRequests||[]; s.productionLog=s.productionLog||[]; s.packingLog=s.packingLog||[];
   s.actionLog=s.actionLog||[]; s.shipments=s.shipments||[]; s.inspections=s.inspections||[]; s.warehouses=s.warehouses||SEED.warehouses.slice();
-  s.rawStock=s.rawStock||{}; s.rmMovements=s.rmMovements||[]; s.audit=s.audit||[]; s.masters=s.masters||deepClone(SEED.masters||{}); s.batches=s.batches||[]; s.packedStock=s.packedStock||{}; s.packingLog=s.packingLog||[]; s.orders=s.orders||[]; if(s.seq==null)s.seq=1000; ensureRecordIds(s); if(s.dataFixEnabled==null)s.dataFixEnabled=true; if(!Array.isArray(s.prs))s.prs=[]; (s.batches||[]).forEach(function(b){ if((b.producedKg||0)>0 && (!Array.isArray(b.lots)||!b.lots.length)){ b.lots=[{id:'LOT'+(s.seq++), lotNo:(b.batchNo||'B')+'-L1', qty:b.producedKg, date:b.openedDate||'', by:b.by||'', coa:(b.coa||null), migrated:true}]; } }); ensureMasters(s); ensureProductionModel(s); dedupePackingLots(s); migrateLotTracking(s); fixRudolfDupV1(s); reconcileLotShipKgV1(s); dedupeShipmentsV1(s); healPRFlags(s); migrateBrandNames(s); loadBaseRecipesV2(s); loadBlendRecipesV1(s); loadBlendRecipesV2(s); purgeImportedProduction(s); purgeImportDuplicates(s); purgeImportedNoTwin(s); fixPhantomLotVU26134(s); fixVU26144ProdLogV1(s); fixVU26144ProdLogV2(s); backfillDisposedV1(s); consolidateByproductV1(s); dedupeByproductV1(s); reconcileShipLotsV1(s); normalizeVZincBase(s); seedByproductRulesV1(s); seedRolesV1(s); return s;
+  s.rawStock=s.rawStock||{}; s.rmMovements=s.rmMovements||[]; s.audit=s.audit||[]; s.masters=s.masters||deepClone(SEED.masters||{}); s.batches=s.batches||[]; s.packedStock=s.packedStock||{}; s.packingLog=s.packingLog||[]; s.orders=s.orders||[]; if(s.seq==null)s.seq=1000; ensureRecordIds(s); if(s.dataFixEnabled==null)s.dataFixEnabled=true; if(!Array.isArray(s.prs))s.prs=[]; (s.batches||[]).forEach(function(b){ if((b.producedKg||0)>0 && (!Array.isArray(b.lots)||!b.lots.length)){ b.lots=[{id:'LOT'+(s.seq++), lotNo:(b.batchNo||'B')+'-L1', qty:b.producedKg, date:b.openedDate||'', by:b.by||'', coa:(b.coa||null), migrated:true}]; } }); ensureMasters(s); ensureProductionModel(s); dedupePackingLots(s); migrateLotTracking(s); fixRudolfDupV1(s); reconcileLotShipKgV1(s); dedupeShipmentsV1(s); healPRFlags(s); migrateBrandNames(s); loadBaseRecipesV2(s); loadBlendRecipesV1(s); loadBlendRecipesV2(s); purgeImportedProduction(s); purgeImportDuplicates(s); purgeImportedNoTwin(s); fixPhantomLotVU26134(s); fixVU26144ProdLogV1(s); fixVU26144ProdLogV2(s); healVU26144ProdLog(s); backfillDisposedV1(s); consolidateByproductV1(s); dedupeByproductV1(s); reconcileShipLotsV1(s); normalizeVZincBase(s); seedByproductRulesV1(s); seedRolesV1(s); return s;
 }
 /* Lock 1: idempotent master seeding. ADDITIVE ONLY — seeds a list only when it is
    missing or empty, and never overwrites values the team has already added. Touches no
@@ -4584,6 +4584,34 @@ function fixVU26144ProdLogV2(s){
   s.productionLog=pl.filter(function(p){return !drop[p.id];});
   s._fixVU26144ProdLogV2=true;
   (s.audit=s.audit||[]).unshift({t:new Date().toISOString(),user:'System',module:'Production',field:'Fix VU26144 productionLog (V2)',old:'4 rows (14000) — re-duplicated after V1',val:'removed PLvwzqg_2 + PLvwzqg_3 → 7000 = batch ledger; total back to 557,980',batchNo:'VU26144'});
+  return true;
+}
+/* SELF-HEALING guard (runs every load, no permanent flag): VU26144's productionLog has repeatedly been
+   re-duplicated above its true batch ledger (producedKg). Whenever the sum of VU26144 prod-log rows
+   exceeds its producedKg, trim the EXCESS duplicate rows so the log again equals the batch — keeping the
+   canonical rows (non-suffixed id first, then _N order) and dropping the surplus. This auto-corrects on
+   each load even if a future re-duplication uses new _N ids, and is a no-op once balanced (so it never
+   removes legitimate production). Scoped to VU26144 only; never touches producedKg, packing, or masters.
+   Forward-only and conservative: only ever removes rows in excess of the batch's own authoritative produced qty. */
+function healVU26144ProdLog(s){
+  if(!s) return false;
+  var b=(s.batches||[]).find(function(x){return (x.batchNo||'')==='VU26144';});
+  if(!b) return false;
+  var prod=+b.producedKg||0; if(!(prod>0)) return false;
+  var pl=s.productionLog||[];
+  var rows=pl.filter(function(p){return p&&p.batchNo==='VU26144';});
+  var logged=rows.reduce(function(a,p){return a+(+p.kg||0);},0);
+  if(logged<=prod+0.5) return false; /* balanced or under — nothing to heal */
+  var sorted=rows.slice().sort(function(a,c){
+    var as=/_\d+$/.test(a.id||'')?1:0, cs=/_\d+$/.test(c.id||'')?1:0;
+    return (as-cs) || String(a.id||'').localeCompare(String(c.id||''));
+  });
+  var keep={}, running=0;
+  sorted.forEach(function(p){ if(running+(+p.kg||0) <= prod+0.5){ keep[p.id]=1; running+=(+p.kg||0); } });
+  var droppedIds=rows.filter(function(p){return !keep[p.id];}).map(function(p){return p.id;});
+  if(!droppedIds.length) return false;
+  s.productionLog=pl.filter(function(p){return !(p&&p.batchNo==='VU26144'&&!keep[p.id]);});
+  (s.audit=s.audit||[]).unshift({t:new Date().toISOString(),user:'System',module:'Production',field:'Heal VU26144 productionLog (self-healing)',old:'log '+Math.round(logged)+' > produced '+Math.round(prod),val:'trimmed duplicate rows ['+droppedIds.join(', ')+'] → '+Math.round(prod),batchNo:'VU26144'});
   return true;
 }
 function reconcileShipLotsV1(s){ if(!s||s._shipReconV1) return; var fixed=0;

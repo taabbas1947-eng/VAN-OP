@@ -2774,7 +2774,7 @@ function prodWorkCounts(){
 function prodFilterClamp(){
   var c=prodWorkCounts();
   var present={tomake:c.tomake>0.5,producing:c.producing>0,qc:c.qc>0,pack:c.pack>0,toclose:c.toclose>0,attention:c.attention>0,recon:c.recon>0,call:c.call>0.5,completed:c.completed>0};
-  var order=['tomake','producing','qc','pack','toclose','attention','recon','call','completed'];
+  var order=['tomake','producing','qc','pack','attention','recon','call','toclose','completed'];
   if(!present[prodFilter]){ var nf=null; for(var i=0;i<order.length;i++){ if(present[order[i]]){nf=order[i];break;} } prodFilter=nf||'tomake'; }
 }
 /* Passport status strip — the production manager's at-a-glance. Pure compute over existing fields; no data changes. */
@@ -3132,21 +3132,18 @@ var PROD_ICONS={
  flag:'<svg viewBox="0 0 24 24"><path d="M5 21V4M5 4h12l-2.5 4L17 12H5"/></svg>'};
 var PROD_CSS='<style>'
  +"@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&display=swap');"
- +'.pdsk{display:flex;align-items:flex-start;gap:18px;--pb:#0e6e63;--pb2:#0a544c;--pb50:#e3f1ef;--pleaf:#27b3a0;--prail:#102a26;--pamber:#b9760d;--pred:#bc3b2c;--pgreen:#1d8a4e;--pline:#e2e7ee;--pmut:#778089;--ptxt:#11211f}'
+ +'.pdsk{display:flex;align-items:flex-start;gap:18px;--pb:#0e6e63;--pb2:#0a544c;--pb50:#e3f1ef;--pleaf:#27b3a0;--prail:#e4e7ec;--prailbd:#d2d7df;--prailtxt:#3a4150;--prailmut:#6b7480;--pamber:#b9760d;--pred:#bc3b2c;--pgreen:#1d8a4e;--pline:#e2e7ee;--pmut:#778089;--ptxt:#11211f}'
  +'.pdsk *{box-sizing:border-box}.pdsk h1,.pdsk h2{font-family:"Space Grotesk",system-ui,sans-serif;letter-spacing:-.02em;margin:0}'
- +'.pdside{flex:0 0 218px;width:218px;background:var(--prail);color:#cfe6e2;border-radius:14px;padding:14px 12px;position:sticky;top:12px;align-self:stretch;display:flex;flex-direction:column;min-height:78vh}'
- +'.pdbrand{display:flex;align-items:center;gap:10px;padding:2px 6px 14px;border-bottom:1px solid rgba(255,255,255,.08);margin-bottom:8px}'
- +'.pdlogo{width:32px;height:32px;border-radius:9px;background:linear-gradient(135deg,var(--pleaf),var(--pb));display:flex;align-items:center;justify-content:center;font-family:"Space Grotesk";font-weight:700;color:#06231f;font-size:15px}'
- +'.pdnm{font-family:"Space Grotesk";font-size:14px;font-weight:700;color:#fff;line-height:1.1}.pdnm span{display:block;font-size:8px;font-weight:600;color:#76a39c;letter-spacing:1.2px;text-transform:uppercase;margin-top:3px}'
- +'.pdgrp{font-size:8.5px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;color:#5e857f;padding:12px 10px 5px}'
+ +'.pdside{flex:0 0 218px;width:218px;background:var(--prail);color:var(--prailtxt);border:1px solid var(--prailbd);border-radius:14px;padding:14px 12px;position:sticky;top:12px;align-self:stretch;display:flex;flex-direction:column;min-height:78vh}'
+ +'.pdgrp{font-size:8.5px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;color:var(--prailmut);padding:12px 10px 5px}'
  +'.pdnavlist{display:flex;flex-direction:column;gap:2px}'
- +'.pdnav{display:flex;align-items:center;gap:10px;padding:8px 10px;border:0;background:transparent;border-radius:9px;color:#bcd6d1;font-size:12.5px;font-weight:600;text-align:left;width:100%;cursor:pointer;position:relative}'
- +'.pdnav:hover{background:rgba(255,255,255,.06);color:#fff}.pdnav.active{background:var(--pb);color:#fff}'
- +'.pdnav.active::before{content:"";position:absolute;left:-12px;top:8px;bottom:8px;width:3px;border-radius:0 3px 3px 0;background:var(--pleaf)}'
+ +'.pdnav{display:flex;align-items:center;gap:10px;padding:8px 10px;border:0;background:transparent;border-radius:9px;color:var(--prailtxt);font-size:12.5px;font-weight:600;text-align:left;width:100%;cursor:pointer;position:relative}'
+ +'.pdnav:hover{background:#d8dce3;color:#1f2733}.pdnav.active{background:var(--pb);color:#fff}.pdnav:focus-visible{outline:2px solid var(--pb);outline-offset:2px}'
+ +'.pdnav.active::before{content:"";position:absolute;left:-12px;top:8px;bottom:8px;width:3px;border-radius:0 3px 3px 0;background:var(--pb2)}'
  +'.pdic{width:16px;height:16px;flex-shrink:0;display:flex}.pdic svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}'
  +'.pdlbl{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}'
- +'.pdct{font-size:10px;font-weight:700;background:rgba(255,255,255,.14);color:#eafffb;border-radius:999px;min-width:20px;text-align:center;padding:1px 6px;line-height:16px}.pdnav.active .pdct{background:rgba(255,255,255,.22)}.pdct.warn{background:var(--pamber);color:#fff}'
- +'.pdfoot{margin-top:auto;padding-top:14px;border-top:1px solid rgba(255,255,255,.08);display:flex;align-items:center;gap:9px}.pdav{width:30px;height:30px;border-radius:8px;background:var(--pleaf);color:#06231f;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px}.pdun{font-size:12px;font-weight:700;color:#fff;line-height:1.2}.pdur{font-size:10px;color:#76a39c}'
+ +'.pdct{font-size:10px;font-weight:700;background:#d2d7df;color:#41495a;border-radius:999px;min-width:20px;text-align:center;padding:1px 6px;line-height:16px}.pdnav.active .pdct{background:rgba(255,255,255,.22);color:#fff}.pdct.warn{background:var(--pamber);color:#fff}'
+ +'.pdfoot{margin-top:auto;padding-top:14px;border-top:1px solid var(--prailbd);display:flex;align-items:center;gap:9px}.pdav{width:30px;height:30px;border-radius:8px;background:var(--pb);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px}.pdun{font-size:12px;font-weight:700;color:var(--prailtxt);line-height:1.2}.pdur{font-size:10px;color:var(--prailmut)}'
  +'.pdmain{flex:1;min-width:0}'
  +'.pdtopbar{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:2px 2px 12px}.pdtopbar h2{font-size:17px;font-weight:700;color:var(--ptxt)}.pdsub{font-size:11px;color:var(--pmut);margin-top:1px;font-weight:500}'
  +'.pdpulse{display:flex;align-items:center;padding:0 18px;background:linear-gradient(90deg,#0e6e63,#0a544c);color:#dff5f1;border-radius:12px;overflow-x:auto;margin-bottom:16px}'
@@ -3182,13 +3179,12 @@ function prodDeskRail(){
   var c=prodWorkCounts();
   var act=function(k){return (!prodHome && prodView!=='output' && prodFilter===k);};
   var nav=function(k,label,icon,count,warn,isOut){var on=isOut?(prodView==='output'&&!prodHome):act(k);var oc=isOut?"prodView='output';prodHome=false;render()":"prodOpenArea('"+k+"')";return '<button class="pdnav'+(on?' active':'')+'" onclick="'+oc+'"><span class="pdic">'+PROD_ICONS[icon]+'</span><span class="pdlbl">'+label+'</span>'+(count!=null?'<span class="pdct'+(warn?' warn':'')+'">'+fmt(count)+'</span>':'')+'</button>';};
-  var areas=[['tomake','What to make','square',c.tomake,0],['producing','Running batches','play',c.producing,0],['qc','Waiting QC','flask',c.qc,0],['pack','Ready to pack','box',c.pack,0],['toclose','Ready to close','flag',c.toclose,0],['attention','Stuck / blocked','alert',c.attention,1],['recon','Remaining to account','scale',c.recon,0],['call','Material pools','layers',c.call,0]];
-  var daily=areas.filter(function(a){return (+a[3]||0)>0.5;}).map(function(a){return nav(a[0],a[1],a[2],a[3],a[4]);}).join('');
+  var show=function(k,label,icon,warn){return (+c[k]||0)>0.5 ? nav(k,label,icon,c[k],warn) : '';};
+  var daily=show('tomake','What to make','square',0)+show('producing','Running batches','play',0)+nav('output','Shift output','bars',null,0,1)+show('qc','Waiting QC','flask',0)+show('pack','Ready to pack','box',0)+show('attention','Stuck / blocked','alert',1)+show('recon','Remaining to account','scale',0)+show('call','Material pools','layers',0)+show('toclose','Ready to close','flag',0);
   var all='<button class="pdnav'+(prodHome?' active':'')+'" onclick="prodHome=true;render()"><span class="pdic">'+PROD_ICONS.grid+'</span><span class="pdlbl">All work</span></button>';
   var records=nav('output','Output log','bars',null,0,1)+nav('completed','Completed','check',c.completed,0);
   var role=String(state.role||'Production');
-  return '<div class="pdbrand"><div class="pdlogo">V</div><div class="pdnm">VAN O2S<span>Production desk</span></div></div>'
-    +'<div class="pdgrp">Daily work</div><nav class="pdnavlist">'+all+daily+'</nav>'
+  return '<div class="pdgrp">Daily work</div><nav class="pdnavlist">'+all+daily+'</nav>'
     +'<div class="pdgrp">Records</div><nav class="pdnavlist">'+records+'</nav>'
     +'<div class="pdfoot"><div class="pdav">'+role.slice(0,2).toUpperCase()+'</div><div><div class="pdun">'+role+'</div><div class="pdur">Production</div></div></div>';
 }

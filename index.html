@@ -2962,6 +2962,24 @@ function prodLogBase(){ var pw=periodWindow(state.period); var cmap={}; (state.o
 function prodLogRows(){ var f=prodLogFilter||{}; return prodLogBase().filter(function(r){ return (!f.product||r.product===f.product)&&(!f.shift||r.shift===f.shift)&&(!f.incharge||r.incharge===f.incharge)&&(!f.batch||r.batchNo===f.batch)&&(!f.client||r.client===f.client); }); }
 function _download(name,mime,content){ try{ var blob=new Blob([content],{type:mime}); var url=URL.createObjectURL(blob); var a=document.createElement('a'); a.href=url; a.download=name; document.body.appendChild(a); a.click(); setTimeout(function(){URL.revokeObjectURL(url);a.remove();},600); }catch(e){ if(typeof toast==='function')toast('Export failed'); } }
 function prodLogExport(kind){ var rows=prodLogRows(); var head=['Date','Shift','Incharge','Product','Kg','Batch','Beds','PO','Client']; var data=rows.map(function(r){return [r.date,r.shift,r.incharge,r.product,Math.round(r.kg),r.batchNo,(r.beds||[]).join(' '),r.po,r.client];}); var fn='production-log-'+String(state.period||'period').replace(/\s+/g,'-').toLowerCase()+'-'+TODAY.toISOString().slice(0,10); if(kind==='xls'){ var esc=function(c){return String(c==null?'':c).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}; var html='<table border="1"><tr>'+head.map(function(h){return '<th>'+esc(h)+'</th>';}).join('')+'</tr>'+data.map(function(r){return '<tr>'+r.map(function(c){return '<td>'+esc(c)+'</td>';}).join('')+'</tr>';}).join('')+'</table>'; _download(fn+'.xls','application/vnd.ms-excel','<html><head><meta charset="utf-8"></head><body>'+html+'</body></html>'); } else { var escc=function(c){c=String(c==null?'':c);return /[",\n\r]/.test(c)?'"'+c.replace(/"/g,'""')+'"':c;}; var csv=[head.join(',')].concat(data.map(function(r){return r.map(escc).join(',');})).join('\r\n'); _download(fn+'.csv','text/csv;charset=utf-8','﻿'+csv); } }
+/* Output log (Records) = the full filterable production register — the system of record that replaces the parallel Excel. Distinct from Shift output (Daily), which is the today/period operational snapshot with the six shift tiles. Follows the GLOBAL period selector; dropdown filters + CSV/Excel export reuse the audited prodLog* helpers. */
+function prodRegOpts(rows,key){var s={};rows.forEach(function(r){var v=(key==='batch'?r.batchNo:r[key]);if(v)s[v]=1;});return Object.keys(s).sort();}
+function renderProdRegister(){
+  var all=prodLogBase(); var rows=prodLogRows(); var f=prodLogFilter||{};
+  var th="font-size:9.5px;letter-spacing:.5px;text-transform:uppercase;color:var(--pmut);text-align:left;padding:11px 14px;background:#f4f6f9;font-weight:700;white-space:nowrap"; var thr=th+";text-align:right";
+  var td="padding:11px 14px;border-top:1px solid #eef1f5;font-size:13px;color:var(--ptxt)"; var SG="font-family:'Space Grotesk',sans-serif;letter-spacing:-.02em";
+  var sel=function(key,label){var opts=prodRegOpts(all,key);var cur=(key==='batch'?f.batch:f[key])||'';return '<select onchange="prodLogSetF(\''+key+'\',this.value)" style="font-size:12px;padding:6px 9px;border:1px solid var(--pline);border-radius:8px;background:#fff;color:var(--ptxt)"><option value="">'+label+' (all)</option>'+opts.map(function(o){return '<option'+(o===cur?' selected':'')+'>'+o+'</option>';}).join('')+'</select>';};
+  var anyF=!!(f.product||f.shift||f.incharge||f.batch||f.client);
+  var tot=Math.round(rows.reduce(function(a,r){return a+(+r.kg||0);},0));
+  var bar='<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">'+sel('product','Product')+sel('shift','Shift')+sel('incharge','Incharge')+sel('batch','Batch')+sel('client','Client')+(anyF?'<button class="sm ghost" onclick="prodLogClearF()">Clear</button>':'')+'<span style="margin-left:auto;display:flex;gap:6px"><button class="sm ghost" onclick="prodLogExport(\'csv\')">Export CSV</button><button class="sm ghost" onclick="prodLogExport(\'xls\')">Export Excel</button></span></div>';
+  if(!rows.length){ return bar+'<div style="background:#fff;border:1px solid var(--pline);border-radius:14px;padding:34px;text-align:center;color:var(--pmut);font-size:13px">No production-log rows for '+(state.period||'this period')+(anyF?' with these filters':'')+'.</div>'; }
+  var dfmt=function(s){var t=new Date(s);return isNaN(t)?s:t.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'2-digit'});};
+  var cap=rows.slice(0,400);
+  var body=cap.map(function(r){return '<tr><td style="'+td+'">'+dfmt(r.date)+'</td><td style="'+td+'">'+(r.shift||'—')+'</td><td style="'+td+';font-weight:700">'+(r.batchNo||'—')+'</td><td style="'+td+'">'+r.product+'</td><td style="'+td+'">'+((r.po||r.client)?((r.po||'')+(r.client?(r.po?' · ':'')+r.client:'')):'<span style="color:#9aa3b0">—</span>')+'</td><td style="'+td+'">'+(r.incharge||'—')+'</td><td style="'+td+';text-align:right;'+SG+';font-weight:700;font-size:14px">'+fmt(Math.round(r.kg))+'</td><td style="'+td+';color:var(--pmut)">'+((r.beds||[]).join(' ')||'—')+'</td></tr>';}).join('');
+  var foot=rows.length>cap.length?'<div style="font-size:11px;color:var(--pmut);padding:6px 2px">Showing '+cap.length+' of '+rows.length+' rows · export for the full set</div>':'';
+  var summary='<div style="font-size:12px;color:var(--pmut);margin-bottom:10px">'+rows.length+' log row(s) · <b style="color:var(--ptxt)">'+fmt(tot)+'</b> Kg in '+(state.period||'this period')+'</div>';
+  return summary+bar+'<div style="overflow:auto;background:#fff;border:1px solid var(--pline);border-radius:14px"><table style="width:100%;border-collapse:collapse"><thead><tr><th style="'+th+'">Date</th><th style="'+th+'">Shift</th><th style="'+th+'">Batch</th><th style="'+th+'">Product</th><th style="'+th+'">PO / Client</th><th style="'+th+'">Incharge</th><th style="'+thr+'">Output</th><th style="'+th+'">Beds</th></tr></thead><tbody>'+body+'</tbody></table></div>'+foot;
+}
 var prodOutPeriod='today', prodOutTab='all';
 function prodOutSetPeriod(p){prodOutPeriod=p;render();}
 function prodOutSetTab(t){prodOutTab=t;render();}
@@ -3253,12 +3271,12 @@ function prodPulse(){
 function prodDeskRail(){
   var c=prodWorkCounts();
   var act=function(k){return (!prodHome && prodView!=='output' && prodFilter===k);};
-  var nav=function(k,label,icon,count,warn,isOut){var on=isOut?(prodView==='output'&&!prodHome):act(k);var oc=isOut?"prodView='output';prodHome=false;render()":"prodOpenArea('"+k+"')";return '<button class="pdnav'+(on?' active':'')+'" onclick="'+oc+'"><span class="pdic">'+PROD_ICONS[icon]+'</span><span class="pdlbl">'+label+'</span>'+(count!=null?'<span class="pdct'+(warn?' warn':'')+'">'+fmt(count)+'</span>':'')+'</button>';};
+  var nav=function(k,label,icon,count,warn,outView){var on=outView?(prodView===outView&&!prodHome):act(k);var oc=outView?("prodView='"+outView+"';prodHome=false;render()"):("prodOpenArea('"+k+"')");return '<button class="pdnav'+(on?' active':'')+'" onclick="'+oc+'"><span class="pdic">'+PROD_ICONS[icon]+'</span><span class="pdlbl">'+label+'</span>'+(count!=null?'<span class="pdct'+(warn?' warn':'')+'">'+fmt(count)+'</span>':'')+'</button>';};
   var shiftN=(state.productionLog||[]).filter(function(p){return p&&(+p.kg||0)>0;}).length;
   var poolN=(state.batches||[]).filter(function(b){return b&&b.pool&&!b.voided&&(+b.plannedKg||0)>0.5;}).length;
   /* Fixed menu — exact prototype order, always shown (no drop-empty). What to make · Running batches · Shift output · Waiting QC · Ready to pack · Remaining to account · Material pools */
-  var daily=nav('tomake','What to make','square',c.tomake,0)+nav('producing','Running batches','play',c.producing,0)+nav('output','Shift output','bars',shiftN,0,1)+nav('qc','Waiting QC','flask',c.qc,0)+nav('pack','Ready to pack','box',c.pack,0)+nav('recon','Remaining to account','scale',c.recon,0)+nav('call','Material pools','layers',poolN,0);
-  var records=nav('output','Output log','bars',null,0,1)+nav('completed','Completed','check',c.completed,0);
+  var daily=nav('tomake','What to make','square',c.tomake,0)+nav('producing','Running batches','play',c.producing,0)+nav('output','Shift output','bars',shiftN,0,'output')+nav('qc','Waiting QC','flask',c.qc,0)+nav('pack','Ready to pack','box',c.pack,0)+nav('recon','Remaining to account','scale',c.recon,0)+nav('call','Material pools','layers',poolN,0);
+  var records=nav('register','Output log','bars',shiftN,0,'register')+nav('completed','Completed','check',c.completed,0);
   var role=String(state.role||'Production');
   return '<div class="pdgrp">Daily work</div><nav class="pdnavlist">'+daily+'</nav>'
     +'<div class="pdgrp">Records</div><nav class="pdnavlist">'+records+'</nav>'
@@ -3279,7 +3297,7 @@ function prodDeskCards(){
   ];
   var vis=cards.filter(function(x){return x.always||(+x.n||0)>0.5;});
   var card=function(x){return '<button class="qcard'+(x.cls?(' '+x.cls):'')+'" onclick="prodOpenArea(\''+x.k+'\')"><div class="qtop"><div class="qico">'+PROD_ICONS[x.ic]+'</div><div class="qn">'+fmt(x.n)+' <span class="qu">'+x.u+'</span></div></div><div class="qq">'+x.q+'</div><div class="qs">'+x.s+'</div></button>';};
-  var outCard='<button class="qcard" onclick="prodView=\'output\';prodHome=false;render()"><div class="qtop"><div class="qico">'+PROD_ICONS.bars+'</div></div><div class="qq" style="margin-top:8px">What did each shift produce?</div><div class="qs">Output log — filter by product/shift/incharge/batch/client · export CSV/Excel</div></button>';
+  var outCard='<button class="qcard" onclick="prodView=\'register\';prodHome=false;render()"><div class="qtop"><div class="qico">'+PROD_ICONS.bars+'</div></div><div class="qq" style="margin-top:8px">Full output log</div><div class="qs">Every shift entry for the period — filter by product/shift/incharge/batch/client · export CSV/Excel</div></button>';
   return '<div class="qhead"><h1>Your work today</h1><span class="qd">tap a question to open that work area</span></div><div class="qgrid">'+vis.map(card).join('')+'</div>'
     +'<div class="qhead" style="margin-top:20px"><h1 style="font-size:15px">Records</h1></div><div class="qgrid">'+outCard+'</div>';
 }
@@ -3288,11 +3306,12 @@ function screenProd(){
   const ed=canEdit(['Production']);
   { var _pv=prodView||'lifecycle'; if(_pv==='floor'){_pv='lifecycle';prodView='lifecycle';}
     var ob=(canEdit(['Production'])||state.role==='COO')?'<button class="green" onclick="openBatchModal()" style="white-space:nowrap">+ Open batch</button>':'';
-    var title=prodHome?'Production desk':(_pv==='output'?'Shift output':prodAreaLabel(prodFilter));
+    var title=prodHome?'Production desk':(_pv==='output'?'Shift output':_pv==='register'?'Output log':prodAreaLabel(prodFilter));
     var backBar='<div class="pdbar"><button class="back" onclick="prodHome=true;render()">‹ All work</button></div>';
     var wrap;
     if(prodHome){ wrap=prodDeskCards(); }
     else if(_pv==='output'){ wrap=backBar+renderProdOutput(); }
+    else if(_pv==='register'){ wrap=backBar+renderProdRegister(); }
     else { prodFilterClamp(); wrap=backBar+(prodDrill&&prodBatchSel?('<div style="margin:0 0 10px"><a onclick="prodDrill=false;render()" style="cursor:pointer;color:var(--pb,#0e6e63);font-size:12px">‹ Back to list</a></div>'+renderProdLifecycleBatch()):(prodStageList()+((prodFilter==='completed')?prodReconciledStrip():''))); }
     $('view').innerHTML=PROD_CSS+'<div class="pdsk"><aside class="pdside">'+prodDeskRail()+'</aside><div class="pdmain"><header class="pdtopbar"><div><h2>'+title+'</h2><div class="pdsub">Plant production · live snapshot</div></div>'+ob+'</header>'+prodPulse()+'<div class="pdwrap">'+wrap+'</div></div></div>';
     return;

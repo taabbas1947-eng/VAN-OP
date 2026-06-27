@@ -3259,7 +3259,7 @@ var PROD_CSS='<style>'
  +'.pdsk .card{border:1px solid var(--pline);border-radius:14px;box-shadow:none;background:#fff}.pdsk .card h3{font-family:"Space Grotesk";font-weight:700;font-size:15px;color:var(--ptxt);padding:15px 18px 4px}.pdsk .card h3 .hint{font-weight:500;font-size:11.5px;color:var(--pmut)}'
  +'.pdsk table thead th{font-size:9.5px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--pmut);background:#f4f6f9}'
  +'.pdsk .sm{border-radius:8px;font-weight:700;border:0;background:var(--pb);color:#fff}.pdsk .sm.green{background:var(--pb)}.pdsk .sm.ghost{background:#fff;color:var(--pb);border:1px solid var(--pline)}'
- +'body:has(.pdsk) .modal-bg.open .modal{position:fixed;right:0;top:0;bottom:0;height:auto;max-height:100vh;width:480px;max-width:94vw;border-radius:0;margin:0;display:flex;flex-direction:column;animation:pdslide .26s cubic-bezier(.4,0,.2,1)}body:has(.pdsk) .modal-bg.open .modal .mb{overflow:auto;flex:1}@keyframes pdslide{from{transform:translateX(100%)}to{transform:none}}'
+ +'body:has(.pdsk) .modal-bg.open .modal{position:fixed;right:0;top:0;bottom:0;height:auto;max-height:100vh;width:600px;max-width:94vw;border-radius:0;margin:0;display:flex;flex-direction:column;animation:pdslide .26s cubic-bezier(.4,0,.2,1)}body:has(.pdsk) .modal-bg.open .modal .mb{overflow:auto;flex:1}@keyframes pdslide{from{transform:translateX(100%)}to{transform:none}}'
  +'@media(max-width:920px){.pdtopbar{flex-wrap:wrap;gap:8px}.pdtab{padding:8px 11px;font-size:12px}.pdpulse{font-size:11px}}'
  +'@media(max-width:680px){.pdsk .qgrid{grid-template-columns:1fr 1fr}}@media(max-width:520px){.pdsk .qgrid{grid-template-columns:1fr}}'
  +'.pdsk td.num{font-family:"Space Grotesk",sans-serif;font-weight:700}.pdsk thead th.num,.pdsk thead th.r{text-align:right}'
@@ -4555,8 +4555,10 @@ function screenInstructions(){
 /* ===== Shipments: tabs-on-top (To ship / Sent / All shipments), reusing the Production desk styling ===== */
 var shipView='toship';
 function shipSetView(v){ shipView=v; render(); }
+var shipExpand={};
+function shipToggle(id){ shipExpand[id]=!shipExpand[id]; render(); }
 /* Smart/learning destination: a customer's previously-used delivery locations, most-frequent first (derived from shipment history — no extra storage). */
-function clientDestinations(client){ var m={}; (state.shipments||[]).forEach(function(s){ if(!s||s.voided)return; var o=(state.orders||[]).find(function(x){return x.po===s.po;}); var c=o?o.client:''; if(c!==client)return; var d=(s.destination||'').trim(); if(!d)return; m[d]=(m[d]||0)+1; }); return Object.keys(m).sort(function(a,b){return m[b]-m[a];}); }
+function clientDestinations(client){ var m={}; var cl=String(client||'').trim().toLowerCase(); (state.shipments||[]).forEach(function(s){ if(!s||s.voided)return; var o=(state.orders||[]).find(function(x){return x.po===s.po;}); var c=o?o.client:''; if(c!==client)return; var d=(s.destination||'').trim(); if(!d)return; if(d.toLowerCase()===cl)return; /* ignore legacy rows where destination was just the client name — learn real locations only */ m[d]=(m[d]||0)+1; }); return Object.keys(m).sort(function(a,b){return m[b]-m[a];}); }
 function clientTopDest(client){ var ds=clientDestinations(client); return ds.length?ds[0]:''; }
 /* Delivery confirmation window (own modal): confirm date + how delivery was verified (phone/email/text/other). */
 var delivForm=null;
@@ -4586,9 +4588,16 @@ function renderShipToship(rpos,ed){
   return Object.keys(byC).sort().map(function(c){
     var grps=byC[c]; var cKg=grps.reduce(function(a,g){return a+g.ls.reduce(function(b,x){return b+x.rem;},0);},0);
     var head='<div style="font-weight:700;font-size:13px;padding:8px 12px;background:var(--pb50,#e3f1ef);border:1px solid #cfe3df;border-radius:9px;margin:0 0 10px;color:#0a544c">'+shortClient(c)+' <span style="font-weight:500;font-size:11.5px;color:#5b6675">· '+grps.length+' order(s) · '+fmt(Math.round(cKg))+' kg ready</span></div>';
-    var cards=grps.map(function(g){ var o=g.o, ls=g.ls; var tot=ls.reduce(function(a,x){return a+x.rem;},0);
-      var rows=ls.map(function(x){ var l=x.l, rem=Math.round(x.rem); var pk=(+l.pack||seedPackForBrand(l.brand)); var packs=packsCount(pk,rem); return '<tr><td><div style="font-weight:600">'+l.brand+'</div>'+(l.base&&l.base!==l.brand?'<div class="muted" style="font-size:11px">'+l.base+'</div>':'')+'</td><td class="num"><b style="color:var(--pgreen,#1d8a4e)">'+fmt(rem)+'</b> <span class="muted" style="font-weight:400;font-size:10px">kg</span></td><td class="num">'+(packs!=null?fmt(packs):'—')+' <span class="muted" style="font-weight:400;font-size:10px">packs</span></td></tr>'; }).join('');
-      return '<div class="card" style="margin-bottom:12px"><h3>'+o.po+' <span class="hint">'+ls.length+' product(s) ready · '+fmt(Math.round(tot))+' kg</span></h3><div style="overflow:auto"><table><thead><tr><th>Product</th><th class="num">Ready now</th><th class="num">Packs</th></tr></thead><tbody>'+rows+'</tbody></table></div>'+(ed?'<div style="padding:11px 14px 13px"><button class="sm green" onclick="openDispatch(\''+o.id+'\')">Load a truck — '+ls.length+' product(s)</button></div>':'')+'</div>';
+    var cards=grps.map(function(g){ var o=g.o, ls=g.ls; var tot=ls.reduce(function(a,x){return a+x.rem;},0); var open=!!shipExpand[o.id];
+      var chev='<span style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:8px;background:'+(open?'var(--pb,#0e6e63)':'#eef1f5')+';color:'+(open?'#fff':'#5b6675')+';font-size:13px;font-weight:700;flex-shrink:0">'+(open?'▾':'▸')+'</span>';
+      var hint=open?'Hide products':('Show '+ls.length+' product'+(ls.length>1?'s':''));
+      var hdr='<div onclick="shipToggle(\''+o.id+'\')" style="display:flex;align-items:center;gap:12px;padding:11px 14px;cursor:pointer">'+chev
+        +'<div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13.5px">'+o.po+'</div><div class="muted" style="font-size:11.5px;margin-top:2px">'+ls.length+' product(s) · <b style="color:var(--pgreen,#1d8a4e)">'+fmt(Math.round(tot))+' kg</b> ready · '+hint+'</div></div>'
+        +(ed?'<button class="sm green" onclick="event.stopPropagation();openDispatch(\''+o.id+'\')" style="flex-shrink:0">Load a truck</button>':'')+'</div>';
+      var body='';
+      if(open){ var rows=ls.map(function(x){ var l=x.l, rem=Math.round(x.rem); var pk=(+l.pack||seedPackForBrand(l.brand)); var packs=packsCount(pk,rem); return '<tr><td><div style="font-weight:600">'+l.brand+'</div>'+(l.base&&l.base!==l.brand?'<div class="muted" style="font-size:11px">'+l.base+'</div>':'')+'</td><td class="num"><b style="color:var(--pgreen,#1d8a4e)">'+fmt(rem)+'</b> <span class="muted" style="font-weight:400;font-size:10px">kg</span></td><td class="num">'+(packs!=null?fmt(packs):'—')+' <span class="muted" style="font-weight:400;font-size:10px">packs</span></td></tr>'; }).join('');
+        body='<div style="overflow:auto;border-top:1px solid var(--pline)"><table><thead><tr><th>Product</th><th class="num">Ready now</th><th class="num">Packs</th></tr></thead><tbody>'+rows+'</tbody></table></div>'; }
+      return '<div class="card" style="margin-bottom:8px">'+hdr+body+'</div>';
     }).join('');
     return '<div style="margin-bottom:18px">'+head+cards+'</div>';
   }).join('');
@@ -5231,7 +5240,7 @@ function dispDcInput(v){ dispSet('dc',v); var e=document.getElementById('disp_sh
 function dispLineQty(i,v){ if(dispForm&&dispForm.lines[i]){ dispForm.lines[i].qty=v; const t=document.getElementById('disp_total'); if(t) t.textContent=fmt(dispTotal())+' Kg/L · '+dispCount()+' product(s)'; const pk=document.getElementById('disp_pk_'+i); if(pk){ const ps=+dispForm.lines[i].pack||0; pk.textContent=ps>0?('≈ '+fmt(Math.ceil((+v||0)/ps))+' pk'):''; } } }
 function renderDispatchModal(){ const o=(state.orders||[]).find(x=>x.id===dispForm.oid); if(!o){closeModal();return;}
   const rows=dispForm.lines.map((r,i)=>`<tr style="${r.on?'':'opacity:.5'}"><td style="text-align:center"><input type="checkbox" ${r.on?'checked':''} onclick="dispLineToggle(${i})"></td><td><b>${r.brand}</b> <span class="muted" style="font-size:11px">${r.base}</span></td><td class="num muted">${fmt(r.rem)}</td><td><input type="number" class="num" value="${r.qty}" oninput="dispLineQty(${i},this.value)" ${r.on?'':'disabled'} style="width:110px"></td><td class="muted" id="disp_pk_${i}" style="font-size:11px">${r.pack>0?('≈ '+fmt(Math.ceil((+r.qty||0)/r.pack))+' pk'):''}</td></tr>`).join('');
-  $('modal').innerHTML=`<div class="mh"><h2>Record shipment — ${o.po}</h2><div class="sub">${o.client} · tick the products on this truck, enter the vehicle / DC once</div></div>
+  $('modal').innerHTML=`<div class="mh"><h2>Record shipment — ${o.po}</h2><div class="sub">${shortClient(o.client)} · tick the products on this truck, enter the vehicle / DC once</div></div>
    <div class="mb">
      <div style="overflow:auto;max-height:34vh;margin-bottom:10px"><table><thead><tr><th style="width:34px"></th><th>Product</th><th class="num">Ready</th><th class="num">Qty to ship</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
      <div class="muted" style="font-size:12px;margin-bottom:10px">Dispatching <b id="disp_total">${fmt(dispTotal())} Kg/L · ${dispCount()} product(s)</b></div>
@@ -5243,9 +5252,8 @@ function renderDispatchModal(){ const o=(state.orders||[]).find(x=>x.id===dispFo
        <div class="fld"><label>DC number <span style="color:var(--red)">*</span> <span class="muted" style="font-weight:400;font-size:10px">generates shipment #</span></label><input type="text" value="${dispForm.dc}" oninput="dispDcInput(this.value)" placeholder="e.g. 5019"></div><div class="fld" style="grid-column:1/-1"><div id="disp_shipno" style="font-size:12px;padding:8px 11px;background:var(--navy-50);border-radius:8px">${dispShipNoHtml()}</div></div>
        <div class="fld"><label>Bilty / reference</label><input type="text" value="${dispForm.bilty}" oninput="dispSet('bilty',this.value)"></div>
        <div class="fld" style="grid-column:1/-1"><label>Remarks</label><input type="text" value="${dispForm.remarks}" oninput="dispSet('remarks',this.value)"></div>
-       <div class="fld" style="grid-column:1/-1"><label style="display:flex;gap:7px;align-items:center;font-weight:400"><input type="checkbox" ${dispForm.inTransit?'checked':''} onchange="dispSet('inTransit',this.checked)"> Mark <b>in transit</b> — confirm delivery later from the <b>Sent</b> tab (default). Untick only if it's already delivered.</label></div>
      </div>
-     <div class="muted" style="font-size:11px;margin-top:10px">Only <b>inspected &amp; cleared</b> quantity can be shipped. The load records as <b>in transit</b>; staff press <b>Delivered</b> on the Sent tab (confirming the date &amp; how it was verified) when it arrives. Anything you leave un-ticked stays in <b>Ready to ship</b> for the next truck.</div>
+     <div class="muted" style="font-size:11px;margin-top:10px">Only <b>inspected &amp; cleared</b> quantity can be shipped. The load records as <b>in transit</b> — confirm delivery later from the <b>Sent</b> tab. Anything you leave un-ticked stays in <b>Ready to ship</b> for the next truck.</div>
    </div>
    <div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" onclick="saveDispatch()">Save shipment</button></div>`; }
 function saveDispatch(){ if(!canEdit(['Supply Chain'])){toast('Supply Chain only');return;} const o=(state.orders||[]).find(x=>x.id===dispForm.oid); if(!o)return;

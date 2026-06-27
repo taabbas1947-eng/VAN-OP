@@ -4552,7 +4552,87 @@ function screenInstructions(){
 }
 
 /* ===================== 5. SHIPMENTS (full dispatch form, QC-gated) ===================== */
+/* ===== Shipments: tabs-on-top (To ship / Sent / All shipments), reusing the Production desk styling ===== */
+var shipView='toship';
+function shipSetView(v){ shipView=v; render(); }
+/* Smart/learning destination: a customer's previously-used delivery locations, most-frequent first (derived from shipment history — no extra storage). */
+function clientDestinations(client){ var m={}; (state.shipments||[]).forEach(function(s){ if(!s||s.voided)return; var o=(state.orders||[]).find(function(x){return x.po===s.po;}); var c=o?o.client:''; if(c!==client)return; var d=(s.destination||'').trim(); if(!d)return; m[d]=(m[d]||0)+1; }); return Object.keys(m).sort(function(a,b){return m[b]-m[a];}); }
+function clientTopDest(client){ var ds=clientDestinations(client); return ds.length?ds[0]:''; }
+/* Delivery confirmation window (own modal): confirm date + how delivery was verified (phone/email/text/other). */
+var delivForm=null;
+function openDeliveryConfirm(dispId){ if(!(canEdit(['Supply Chain'])||state.role==='COO')){toast('Supply Chain only');return;} var g=dispatchGroups().find(function(x){return x.dispId===dispId;}); if(!g){toast('Shipment not found');return;} if(g.qa==='pending'){toast('This shipment must pass pre-shipment inspection first');return;} if(g.qa==='fail'){toast('This shipment failed inspection — re-plan it');return;} delivForm={dispId:dispId,date:TODAY.toISOString().slice(0,10),via:'',note:''}; renderDeliveryConfirm(); $('modalBg').classList.add('open'); }
+function delivSet(k,v){ if(delivForm) delivForm[k]=v; }
+function renderDeliveryConfirm(){ var g=dispatchGroups().find(function(x){return x.dispId===delivForm.dispId;}); if(!g){closeModal();return;} var o=(state.orders||[]).find(function(x){return x.po===g.po;}); var via=['Phone call','Email','Text / WhatsApp message','Other'];
+  $('modal').innerHTML='<div class="mh"><h2>Confirm delivery</h2><div class="sub">'+(g.shipNo||g.dc||'—')+' · '+g.po+(o?(' · '+shortClient(o.client)):'')+'</div></div>'
+   +'<div class="mb"><div style="background:var(--panel2,#f4f6f9);border:1px solid var(--line);border-radius:9px;padding:10px 12px;margin-bottom:14px;font-size:12px">'+g.rows.length+' product(s) · <b>'+fmt(g.kg)+' Kg/L</b>'+(g.vehicle?(' · '+g.vehicle):'')+(g.dc?(' · DC '+g.dc):'')+' · sent '+(g.date||'')+'</div>'
+   +'<div class="fld"><label>Delivery date <span style="color:var(--red)">*</span></label><input type="date" value="'+_av(delivForm.date)+'" onchange="delivSet(\'date\',this.value)"></div>'
+   +'<div class="fld"><label>Delivery confirmed via <span style="color:var(--red)">*</span></label><select onchange="delivSet(\'via\',this.value)"><option value="">— select —</option>'+via.map(function(v){return '<option'+(delivForm.via===v?' selected':'')+'>'+v+'</option>';}).join('')+'</select><div class="muted" style="font-size:10.5px;margin-top:4px">How did we verify the customer received it?</div></div>'
+   +'<div class="fld"><label>Reference / note <span class="muted" style="font-weight:400">(required if “Other”)</span></label><input type="text" value="'+_av(delivForm.note)+'" oninput="delivSet(\'note\',this.value)" placeholder="e.g. spoke to Mr. Khan / POD #"></div>'
+   +'</div><div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" onclick="confirmDelivery()">Confirm delivered</button></div>'; }
+function confirmDelivery(){ if(!(canEdit(['Supply Chain'])||state.role==='COO')){toast('Supply Chain only');return;} if(!delivForm)return; var g=dispatchGroups().find(function(x){return x.dispId===delivForm.dispId;}); if(g&&g.qa==='pending'){toast('Must pass pre-shipment inspection first');return;} if(g&&g.qa==='fail'){toast('This shipment failed inspection');return;}
+  if(!delivForm.via){toast('Select how delivery was confirmed');return;}
+  if(delivForm.via==='Other'&&!String(delivForm.note||'').trim()){toast('Add a reference note for “Other”');return;}
+  var d=delivForm.date||TODAY.toISOString().slice(0,10); var n=0;
+  (state.shipments||[]).forEach(function(s){ if((s.dispId||'')===delivForm.dispId && !s.delivered){ s.delivered=d; s.deliveredVia=delivForm.via; s.deliveryNote=delivForm.note||''; var o=(state.orders||[]).find(function(x){return x.po===s.po;}); var l=o&&(o.lines.find(function(x){return x.id===s.lid;})||o.lines.find(function(x){return x.brand===s.brand;})); if(l){ l.delivered=(l.delivered||0)+(+s.kg||0); l.deliveredDate=d; } n++; } });
+  if(!n){toast('Already delivered');return;}
+  logAction('Delivered '+delivForm.dispId+' on '+d+' (via '+delivForm.via+', '+n+' line(s))');
+  (state.audit=state.audit||[]).unshift({t:new Date().toISOString(),user:state.role,module:'Shipment',po:(g&&g.po)||'',brand:n+' line(s)',field:'Delivered',old:'in transit',val:d+' · via '+delivForm.via});
+  delivForm=null; save(); closeModal(); render(); toast('Marked delivered'); }
+function shipTabs(view){ var t=function(k,label){return '<button class="pdtab'+(view===k?' active':'')+'" role="tab" aria-selected="'+(view===k?'true':'false')+'" onclick="shipSetView(\''+k+'\')">'+label+'</button>';}; return '<div class="pdtabs" role="tablist" aria-label="Shipment areas">'+t('toship','To ship')+t('sent','Sent')+t('log','All shipments')+'</div>'; }
+function shipPulse(rpos,allGroups){ var readyKg=rpos.reduce(function(a,po){return a+po.ls.reduce(function(b,x){return b+(x.rem||0);},0);},0); var cust=new Set(rpos.map(function(g){return g.o.client||'—';})).size; var transit=allGroups.filter(function(g){return g.dispId&&!g.delivered;}).length; var deliv=allGroups.filter(function(g){return g.delivered;}).length; var P=[['Loads ready',fmt(rpos.length),''],['Ready to ship',fmt(Math.round(readyKg)),'kg'],['Customers waiting',fmt(cust),''],['In transit',fmt(transit),''],['Delivered',fmt(deliv),'']]; return '<div class="pdpulse">'+P.map(function(p){return '<div class="pp"><span class="ppv">'+p[1]+(p[2]?'<span class="ppu">'+p[2]+'</span>':'')+'</span><span class="ppl">'+p[0]+'</span></div>';}).join('')+'</div>'; }
+function renderShipToship(rpos,ed){
+  if(!rpos.length) return '<div class="card"><div class="muted" style="padding:16px 2px">Nothing QC-passed and waiting to ship right now.</div></div>';
+  var byC={}; rpos.forEach(function(g){ var c=g.o.client||'—'; (byC[c]=byC[c]||[]).push(g); });
+  return Object.keys(byC).sort().map(function(c){
+    var grps=byC[c]; var cKg=grps.reduce(function(a,g){return a+g.ls.reduce(function(b,x){return b+x.rem;},0);},0);
+    var head='<div style="font-weight:700;font-size:13px;padding:8px 12px;background:var(--pb50,#e3f1ef);border:1px solid #cfe3df;border-radius:9px;margin:0 0 10px;color:#0a544c">'+shortClient(c)+' <span style="font-weight:500;font-size:11.5px;color:#5b6675">· '+grps.length+' order(s) · '+fmt(Math.round(cKg))+' kg ready</span></div>';
+    var cards=grps.map(function(g){ var o=g.o, ls=g.ls; var tot=ls.reduce(function(a,x){return a+x.rem;},0);
+      var rows=ls.map(function(x){ var l=x.l, rem=Math.round(x.rem); var pk=(+l.pack||seedPackForBrand(l.brand)); var packs=packsCount(pk,rem); return '<tr><td><div style="font-weight:600">'+l.brand+'</div>'+(l.base&&l.base!==l.brand?'<div class="muted" style="font-size:11px">'+l.base+'</div>':'')+'</td><td class="num"><b style="color:var(--pgreen,#1d8a4e)">'+fmt(rem)+'</b> <span class="muted" style="font-weight:400;font-size:10px">kg</span></td><td class="num">'+(packs!=null?fmt(packs):'—')+' <span class="muted" style="font-weight:400;font-size:10px">packs</span></td></tr>'; }).join('');
+      return '<div class="card" style="margin-bottom:12px"><h3>'+o.po+' <span class="hint">'+ls.length+' product(s) ready · '+fmt(Math.round(tot))+' kg</span></h3><div style="overflow:auto"><table><thead><tr><th>Product</th><th class="num">Ready now</th><th class="num">Packs</th></tr></thead><tbody>'+rows+'</tbody></table></div>'+(ed?'<div style="padding:11px 14px 13px"><button class="sm green" onclick="openDispatch(\''+o.id+'\')">Load a truck — '+ls.length+' product(s)</button></div>':'')+'</div>';
+    }).join('');
+    return '<div style="margin-bottom:18px">'+head+cards+'</div>';
+  }).join('');
+}
+function renderShipSent(allGroups,ed){
+  var transit=allGroups.filter(function(g){return g.dispId&&!g.delivered;});
+  var delivered=allGroups.filter(function(g){return g.delivered;});
+  if(!transit.length&&!delivered.length) return '<div class="card"><div class="muted" style="padding:16px 2px">Nothing sent yet.</div></div>';
+  var card=function(g,isT){ var o=(state.orders||[]).find(function(x){return x.po===g.po;}); var prods=g.rows.map(function(r){return r.brand;}).join(', ');
+    var r0=g.rows.find(function(r){return r.deliveredVia;}); var via=(!isT&&r0)?(' · confirmed via '+r0.deliveredVia):'';
+    var status=isT?'<span class="pill" style="background:#eef1f5;color:#5b6675">In transit</span>':'<span class="pill" style="background:#e2f3e8;color:#1d8a4e">Delivered</span>';
+    var btn=(isT&&ed)?'<button class="sm green" onclick="openDeliveryConfirm(\''+g.dispId+'\')">Delivered ▸</button>':'';
+    var line3=isT?prods:('Delivered '+((g.rows[0]&&g.rows[0].delivered)||'')+via);
+    return '<div class="card" style="margin-bottom:10px;padding:13px 16px"><div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap"><div style="min-width:0"><div style="font-weight:700;font-size:13.5px">'+(g.shipNo||g.dc||'—')+' <span class="muted" style="font-weight:500;font-size:11.5px">· '+g.po+(o?(' · '+shortClient(o.client)):'')+'</span></div><div class="muted" style="font-size:11.5px;margin-top:3px">DC '+(g.dc||'—')+' · '+g.rows.length+' product(s) · '+fmt(g.kg)+' kg'+(g.vehicle?(' · '+g.vehicle):'')+' · sent '+(g.date||'')+'</div><div style="font-size:11px;margin-top:2px;color:'+(isT?'#778089':'#1d8a4e')+'">'+line3+'</div></div><div style="display:flex;align-items:center;gap:10px;flex-shrink:0">'+status+btn+'</div></div></div>';
+  };
+  var html='';
+  if(transit.length) html+='<div style="font-size:11px;color:#5b6675;margin:2px 0 8px;font-weight:600;text-transform:uppercase;letter-spacing:.4px">In transit · '+transit.length+'</div>'+transit.map(function(g){return card(g,true);}).join('');
+  if(delivered.length) html+='<div style="font-size:11px;color:#5b6675;margin:16px 0 8px;font-weight:600;text-transform:uppercase;letter-spacing:.4px">Delivered · '+delivered.length+'</div>'+delivered.slice(0,60).map(function(g){return card(g,false);}).join('');
+  return html;
+}
+function renderShipLog(){
+  var shipRows=(state.shipments||[]).map(function(x){return {dispatch:x.dispatch||'',po:x.po||'',brand:x.brand||'',kg:x.kg||0,pack:x.pack,destination:x.destination||'',vehicle:x.vehicle||'',carrier:x.carrier||'',dc:x.dc||'',bilty:x.bilty||'',delivered:x.delivered||'',shipNo:x.shipNo||''};});
+  var shipOpt={placeholder:'Search PO, product, destination, vehicle, DC…',searchKeys:['po','brand','destination','vehicle','carrier','dc','bilty','shipNo'],dateKey:'dispatch',pageSize:40};
+  var _sr=regFilter('shiplog',shipRows,shipOpt);
+  return '<div class="card"><h3>All shipments — searchable log <span class="hint">'+(state.shipments||[]).length+' line(s)</span></h3>'+regBar('shiplog',shipOpt,_sr.total)
+   +'<div style="max-height:60vh;overflow:auto"><table><thead><tr><th>Shipment #</th><th>Date</th><th>PO</th><th>Product</th><th class="num">Kg/L</th><th class="num">Packs</th><th>Destination</th><th>Vehicle</th><th>DC #</th><th>Delivered</th></tr></thead><tbody>'
+   +(_sr.view.length?_sr.view.map(function(s){return '<tr><td><b>'+(s.shipNo||'—')+'</b></td><td class="muted">'+(s.dispatch||'—')+'</td><td>'+s.po+'</td><td>'+s.brand+'</td><td class="num">'+fmt(s.kg)+'</td><td class="num">'+(packsCount((+s.pack||linePackSize(s.po,s.brand)),s.kg)!=null?fmt(packsCount((+s.pack||linePackSize(s.po,s.brand)),s.kg)):'—')+'</td><td>'+(s.destination||'—')+'</td><td>'+(s.vehicle||'—')+'</td><td>'+(s.dc||'—')+'</td><td class="muted">'+(s.delivered||'—')+'</td></tr>';}).join(''):'<tr><td colspan="10" class="muted">No shipments match.</td></tr>')
+   +'</tbody></table></div>'+regPager('shiplog',_sr.pages)+'</div>';
+}
 function screenShip(){
+  var ed=canEdit(['Supply Chain'])||state.role==='COO';
+  var rpos=readyPOs();
+  var allGroups=dispatchGroups();
+  var view=shipView||'toship';
+  var content = view==='sent'? renderShipSent(allGroups,ed) : (view==='log'? renderShipLog() : renderShipToship(rpos,ed));
+  var title={toship:'To ship',sent:'Sent',log:'All shipments'}[view]||'Shipments';
+  $('view').innerHTML=PROD_CSS+'<div class="pdsk"><div class="pdmain">'
+    +'<header class="pdtopbar"><div><h2>'+title+'</h2><div class="pdsub">Load trucks &amp; record deliveries</div></div></header>'
+    +(ed?'':viewOnly('Supply Chain'))
+    +shipTabs(view)
+    +shipPulse(rpos,allGroups)
+    +'<div class="pdwrap">'+content+'</div></div></div>';
+}
+function screenShipOLD(){
   const ed=canEdit(['Supply Chain']);
   const rpos=readyPOs();
   const blocked=[]; state.orders.forEach(o=>o.lines.forEach(l=>{ if(((l.packed||0)-Math.min(l.packed||0,lineQAPackedKg(o,l)))>0.5 && !l.deliveredDate) blocked.push({o,l}); }));
@@ -5140,7 +5220,7 @@ function readyLinesFor(o){ const out=[]; (o.lines||[]).forEach(l=>{ const cap=Ma
 function readyPOs(){ const out=[]; (state.orders||[]).forEach(o=>{ const ls=readyLinesFor(o); if(ls.length) out.push({o,ls}); }); return out; }
 let dispForm=null;
 function openDispatch(oid){ const o=(state.orders||[]).find(x=>x.id===oid); if(!o)return; const ls=readyLinesFor(o); if(!ls.length){toast('Nothing ready to ship on this PO');return;}
-  dispForm={oid,date:TODAY.toISOString().slice(0,10),dest:o.client,carrier:'',vehicle:'',dc:'',bilty:'',remarks:'',lines:ls.map(x=>({lid:x.l.id,brand:x.l.brand,base:x.l.base||'',pack:(+x.l.pack||seedPackForBrand(x.l.brand)||0),rem:Math.round(x.rem),qty:Math.round(x.rem),on:true}))};
+  dispForm={oid,date:TODAY.toISOString().slice(0,10),dest:(clientTopDest(o.client)||''),inTransit:true,carrier:'',vehicle:'',dc:'',bilty:'',remarks:'',lines:ls.map(x=>({lid:x.l.id,brand:x.l.brand,base:x.l.base||'',pack:(+x.l.pack||seedPackForBrand(x.l.brand)||0),rem:Math.round(x.rem),qty:Math.round(x.rem),on:true}))};
   renderDispatchModal(); $('modalBg').classList.add('open'); }
 function dispTotal(){ return (dispForm&&dispForm.lines||[]).reduce((a,r)=>a+(r.on?(+r.qty||0):0),0); }
 function dispCount(){ return (dispForm&&dispForm.lines||[]).filter(r=>r.on&&(+r.qty||0)>0).length; }
@@ -5157,15 +5237,15 @@ function renderDispatchModal(){ const o=(state.orders||[]).find(x=>x.id===dispFo
      <div class="muted" style="font-size:12px;margin-bottom:10px">Dispatching <b id="disp_total">${fmt(dispTotal())} Kg/L · ${dispCount()} product(s)</b></div>
      <div class="formgrid" style="grid-template-columns:repeat(3,minmax(0,1fr))">
        <div class="fld"><label>Dispatch date</label><input type="date" value="${dispForm.date}" onchange="dispSet('date',this.value);{var e=document.getElementById('disp_shipno');if(e)e.innerHTML=dispShipNoHtml();}"></div>
-       <div class="fld"><label>Destination</label><input type="text" value="${dispForm.dest}" oninput="dispSet('dest',this.value)"></div>
+       <div class="fld"><label>Destination <span class="muted" style="font-weight:400;font-size:10px">· usual location remembered</span></label><input type="text" list="dispDestList" value="${_av(dispForm.dest)}" oninput="dispSet('dest',this.value)" placeholder="where is this going?"><datalist id="dispDestList">${clientDestinations(o.client).map(d=>`<option value="${_av(d)}">`).join('')}</datalist></div>
        <div class="fld"><label>Carrier</label><input type="text" value="${dispForm.carrier}" oninput="dispSet('carrier',this.value)" placeholder="transporter"></div>
        <div class="fld"><label>Vehicle #</label><input type="text" value="${dispForm.vehicle}" oninput="dispSet('vehicle',this.value)"></div>
        <div class="fld"><label>DC number <span style="color:var(--red)">*</span> <span class="muted" style="font-weight:400;font-size:10px">generates shipment #</span></label><input type="text" value="${dispForm.dc}" oninput="dispDcInput(this.value)" placeholder="e.g. 5019"></div><div class="fld" style="grid-column:1/-1"><div id="disp_shipno" style="font-size:12px;padding:8px 11px;background:var(--navy-50);border-radius:8px">${dispShipNoHtml()}</div></div>
        <div class="fld"><label>Bilty / reference</label><input type="text" value="${dispForm.bilty}" oninput="dispSet('bilty',this.value)"></div>
        <div class="fld" style="grid-column:1/-1"><label>Remarks</label><input type="text" value="${dispForm.remarks}" oninput="dispSet('remarks',this.value)"></div>
-       <div class="fld" style="grid-column:1/-1"><label style="display:flex;gap:7px;align-items:center;font-weight:400"><input type="checkbox" ${dispForm.inTransit?'checked':''} onchange="dispSet('inTransit',this.checked)"> Mark <b>in transit</b> (deliver later) — leave unticked to record as delivered now</label></div>
+       <div class="fld" style="grid-column:1/-1"><label style="display:flex;gap:7px;align-items:center;font-weight:400"><input type="checkbox" ${dispForm.inTransit?'checked':''} onchange="dispSet('inTransit',this.checked)"> Mark <b>in transit</b> — confirm delivery later from the <b>Sent</b> tab (default). Untick only if it's already delivered.</label></div>
      </div>
-     <div class="muted" style="font-size:11px;margin-top:10px">Only <b>inspected &amp; cleared</b> quantity can be shipped. By default the shipment records as <b>delivered now</b>; tick <b>in transit</b> to mark it delivered later from the board. Anything you leave un-ticked stays in Ready to ship for the next shipment.</div>
+     <div class="muted" style="font-size:11px;margin-top:10px">Only <b>inspected &amp; cleared</b> quantity can be shipped. The load records as <b>in transit</b>; staff press <b>Delivered</b> on the Sent tab (confirming the date &amp; how it was verified) when it arrives. Anything you leave un-ticked stays in <b>Ready to ship</b> for the next truck.</div>
    </div>
    <div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" onclick="saveDispatch()">Save shipment</button></div>`; }
 function saveDispatch(){ if(!canEdit(['Supply Chain'])){toast('Supply Chain only');return;} const o=(state.orders||[]).find(x=>x.id===dispForm.oid); if(!o)return;

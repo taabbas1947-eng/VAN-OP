@@ -2704,7 +2704,7 @@ const BULK_BASES=['Potassium Humate','Potassium Humate Liquid','Sulfur Coated Ur
 function brandsForBase(base){ return Object.keys(SEED.brandMap||{}).filter(b=>SEED.brandMap[b].base===base).sort(); }
 function inProdLines(){ const r=[]; state.orders.forEach(o=>o.lines.forEach(l=>{ if(stageOf(o)!=='Delivered' && (l.packed||0)<l.ordered-0.5) r.push({o,l}); })); return r; }
 var prodStage='';
-var prodView='lifecycle', prodOutSub='day', prodLifeSub='batch', prodFloorSub='lanes', prodBatchSel=null, prodBatchTab='lots', prodFilter='tomake', prodDrill=false, prodHome=true;
+var prodView='lifecycle', prodOutSub='day', prodLifeSub='batch', prodFloorSub='lanes', prodBatchSel=null, prodBatchTab='lots', prodFilter='tomake', prodDrill=false, prodHome=false;
 var prodMakeSort={col:null,dir:1};
 var prodMakeFilter='all';
 function prodMakeSortBy(col){ if(prodMakeSort.col===col){prodMakeSort.dir=-prodMakeSort.dir;} else {prodMakeSort.col=col;prodMakeSort.dir=1;} render(); }
@@ -2794,6 +2794,8 @@ function prodLeavingList(){
   return '<div class="card"><h3>Left Production <span class="hint">'+rows.length+' product(s) fully packed &amp; dispatched</span></h3><div style="overflow:auto"><table><thead><tr><th>PO</th><th>Client</th><th>Product</th><th>Left production</th></tr></thead><tbody>'+rows.slice(0,40).map(function(r){return '<tr><td><b>'+r.po+'</b></td><td class="muted">'+r.client+'</td><td>'+r.brand+'</td><td class="muted">'+(r.date||'—')+'</td></tr>';}).join('')+'</tbody></table></div></div>';
 }
 function prodCompletedThisMonth(){ var m=TODAY.toISOString().slice(0,7); return (state.batches||[]).filter(function(b){ return b&&b.status==='closed'&&b.closedDate&&String(b.closedDate).slice(0,7)===m; }).length; }
+/* Short client name for compact tab tables: first significant word, trimmed of corporate suffixes — "MAXIM AGRI (PVT) LTD" → "Maxim", "LCI PAKISTAN LIMITED" → "LCI". Display only; full name stays in data/exports. */
+function shortClient(name){ if(!name)return ''; var first=String(name).trim().split(/[\s,]+/)[0]||''; first=first.replace(/[^A-Za-z0-9&-]/g,''); if(!first)return String(name).trim(); if(/^[A-Z0-9]{2,4}$/.test(first))return first; return first.charAt(0).toUpperCase()+first.slice(1).toLowerCase(); }
 /* Completed = prototype PO-level "done with Production": order lines fully packed (production complete), shown with their dispatch status. Single source for BOTH the Completed count and the Completed list so chip == list. */
 function prodCompletedLines(){
   var rows=[];
@@ -2975,7 +2977,7 @@ function renderProdRegister(){
   if(!rows.length){ return bar+'<div style="background:#fff;border:1px solid var(--pline);border-radius:14px;padding:34px;text-align:center;color:var(--pmut);font-size:13px">No production-log rows for '+(state.period||'this period')+(anyF?' with these filters':'')+'.</div>'; }
   var dfmt=function(s){var t=new Date(s);return isNaN(t)?s:t.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'2-digit'});};
   var cap=rows.slice(0,400);
-  var body=cap.map(function(r){return '<tr><td style="'+td+'">'+dfmt(r.date)+'</td><td style="'+td+'">'+(r.shift||'—')+'</td><td style="'+td+';font-weight:700">'+(r.batchNo||'—')+'</td><td style="'+td+'">'+r.product+'</td><td style="'+td+'">'+((r.po||r.client)?((r.po||'')+(r.client?(r.po?' · ':'')+r.client:'')):'<span style="color:#9aa3b0">—</span>')+'</td><td style="'+td+'">'+(r.incharge||'—')+'</td><td style="'+td+';text-align:right;'+SG+';font-weight:700;font-size:14px">'+fmt(Math.round(r.kg))+'</td><td style="'+td+';color:var(--pmut)">'+((r.beds||[]).join(' ')||'—')+'</td></tr>';}).join('');
+  var body=cap.map(function(r){return '<tr><td style="'+td+'">'+dfmt(r.date)+'</td><td style="'+td+'">'+(r.shift||'—')+'</td><td style="'+td+';font-weight:700">'+(r.batchNo||'—')+'</td><td style="'+td+'">'+r.product+'</td><td style="'+td+'">'+((r.po||r.client)?((r.po||'')+(r.client?(r.po?' · ':'')+shortClient(r.client):'')):'<span style="color:#9aa3b0">—</span>')+'</td><td style="'+td+'">'+(r.incharge||'—')+'</td><td style="'+td+';text-align:right;'+SG+';font-weight:700;font-size:14px">'+fmt(Math.round(r.kg))+'</td><td style="'+td+';color:var(--pmut)">'+((r.beds||[]).join(' ')||'—')+'</td></tr>';}).join('');
   var foot=rows.length>cap.length?'<div style="font-size:11px;color:var(--pmut);padding:6px 2px">Showing '+cap.length+' of '+rows.length+' rows · export for the full set</div>':'';
   var summary='<div style="font-size:12px;color:var(--pmut);margin-bottom:10px">'+rows.length+' log row(s) · <b style="color:var(--ptxt)">'+fmt(tot)+'</b> Kg in '+(state.period||'this period')+'</div>';
   return summary+bar+'<div style="overflow:auto;background:#fff;border:1px solid var(--pline);border-radius:14px"><table style="width:100%;border-collapse:collapse"><thead><tr><th style="'+th+'">Date</th><th style="'+th+'">Shift</th><th style="'+th+'">Batch</th><th style="'+th+'">Product</th><th style="'+th+'">PO / Client</th><th style="'+th+'">Incharge</th><th style="'+thr+'">Output</th><th style="'+th+'">Beds</th></tr></thead><tbody>'+body+'</tbody></table></div>'+foot;
@@ -3010,7 +3012,7 @@ function renderProdOutput(){
   else if(prodOutTab==='all'){
     var dfmt=function(s){var t=new Date(s);return isNaN(t)?s:t.toLocaleDateString('en-GB',{day:'numeric',month:'short'});};
     var cap=rows.slice(0,100);
-    var body=cap.map(function(r){var qct=r.qc==='Approved'?'background:#e2f3e8;color:#1d8a4e':'background:#fbf0db;color:#b9760d';return '<tr><td style="'+td+'">'+dfmt(r.date)+'</td><td style="'+td+'">'+r.shift+'</td><td style="'+td+';font-weight:700">'+(r.batch||'—')+'</td><td style="'+td+'">'+r.product+'</td><td style="'+td+'">'+((r.po||r.client)?((r.po||'')+(r.client?(r.po?' · ':'')+r.client:'')):'<span style="color:#9aa3b0">—</span>')+'</td><td style="'+td+'">'+(r.incharge||'')+'</td><td style="'+td+';text-align:right;'+SG+';font-weight:700;font-size:14px">'+fmt(r.kg)+'</td><td style="'+td+'"><span style="color:#9aa3b0">'+(r.lot||'—')+'</span></td><td style="'+td+'">'+(r.qc?'<span style="font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:999px;'+qct+'">'+r.qc+'</span>':'<span style="color:#9aa3b0">—</span>')+'</td></tr>';}).join('');
+    var body=cap.map(function(r){var qct=r.qc==='Approved'?'background:#e2f3e8;color:#1d8a4e':'background:#fbf0db;color:#b9760d';return '<tr><td style="'+td+'">'+dfmt(r.date)+'</td><td style="'+td+'">'+r.shift+'</td><td style="'+td+';font-weight:700">'+(r.batch||'—')+'</td><td style="'+td+'">'+r.product+'</td><td style="'+td+'">'+((r.po||r.client)?((r.po||'')+(r.client?(r.po?' · ':'')+shortClient(r.client):'')):'<span style="color:#9aa3b0">—</span>')+'</td><td style="'+td+'">'+(r.incharge||'')+'</td><td style="'+td+';text-align:right;'+SG+';font-weight:700;font-size:14px">'+fmt(r.kg)+'</td><td style="'+td+'"><span style="color:#9aa3b0">'+(r.lot||'—')+'</span></td><td style="'+td+'">'+(r.qc?'<span style="font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:999px;'+qct+'">'+r.qc+'</span>':'<span style="color:#9aa3b0">—</span>')+'</td></tr>';}).join('');
     content='<div style="overflow:auto;background:#fff;border:1px solid var(--pline);border-radius:14px"><table style="width:100%;border-collapse:collapse"><thead><tr><th style="'+th+'">Date</th><th style="'+th+'">Shift</th><th style="'+th+'">Batch</th><th style="'+th+'">Product</th><th style="'+th+'">PO / Client</th><th style="'+th+'">Incharge</th><th style="'+thr+'">Output</th><th style="'+th+'">Lot</th><th style="'+th+'">QC</th></tr></thead><tbody>'+body+'</tbody></table></div>'+(rows.length>cap.length?'<div style="font-size:11px;color:var(--pmut);padding:6px 2px">Showing '+cap.length+' of '+rows.length+' · export for the full set</div>':'');
   } else {
     var key=prodOutTab; var lbl={shift:'Shift',product:'Product',incharge:'Incharge',client:'Client'}[key];
@@ -3087,7 +3089,7 @@ function prodStageList(){
           if(ed)act='<button class="sm ghost" onclick="prodMode=\'stock\';openBatchModal()">Make base ›</button>';
         }
       }
-      return '<tr style="vertical-align:top"><td><b>'+x.po+'</b>'+(x.o&&x.o.client?'<div class="muted" style="font-size:11px">'+x.o.client+'</div>':'')+'</td><td>'+x.brand+'</td><td class="muted">'+x.base+'</td><td class="num"><b>'+fmt(x.rem)+'</b></td><td>'+rm+'</td><td>'+dueLine+'<div style="font-size:11.5px;margin-top:3px;line-height:1.35">'+why+'</div></td><td style="width:200px">'+act+'</td></tr>';
+      return '<tr style="vertical-align:top"><td><b>'+x.po+'</b>'+(x.o&&x.o.client?'<div class="muted" style="font-size:11px">'+shortClient(x.o.client)+'</div>':'')+'</td><td>'+x.brand+'</td><td class="muted">'+x.base+'</td><td class="num"><b>'+fmt(x.rem)+'</b></td><td>'+rm+'</td><td>'+dueLine+'<div style="font-size:11.5px;margin-top:3px;line-height:1.35">'+why+'</div></td><td style="width:200px">'+act+'</td></tr>';
     }).join('');
     var counts={all:rows.length,ready:rows.filter(function(r){return !r._blocked;}).length,blocked:rows.filter(function(r){return r._blocked;}).length,late:rows.filter(function(r){return r._late;}).length};
     var fbtn=function(k,l){return '<button onclick="prodMakeSetFilter(\''+k+'\')" style="font-size:11.5px;font-weight:600;padding:6px 12px;border-radius:8px;border:1px solid var(--pline);cursor:pointer;margin-left:6px;'+(mf===k?'background:var(--pb,#0e6e63);border-color:var(--pb,#0e6e63);color:#fff':'background:#fff;color:var(--ptxt,#11211f)')+'">'+l+'</button>';};
@@ -3134,7 +3136,7 @@ function prodStageList(){
     var cc='<div class="card"><h3>Completed <span class="hint">'+crows.length+' PO line(s) · produced, packed &amp; dispatch status</span></h3>';
     if(!crows.length)return cc+'<div class="muted" style="padding:14px 2px">No PO lines fully packed yet — items show here once production has packed the full ordered quantity.</div></div>';
     var ctag={ok:'background:#e2f3e8;color:#1d8a4e',warn:'background:#fbf0db;color:#b9760d'};
-    var cbody=crows.map(function(r){return '<tr><td><b>'+r.po+'</b>'+(r.client?'<div class="muted" style="font-size:11px">'+r.client+'</div>':'')+'</td><td>'+r.product+'</td><td class="num">'+fmt(r.ordered)+'</td><td class="num">'+fmt(r.packed)+'</td><td class="num">'+fmt(r.disp)+'</td><td><span style="font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:999px;'+(ctag[r.tag]||ctag.warn)+'">'+r.status+'</span></td></tr>';}).join('');
+    var cbody=crows.map(function(r){return '<tr><td><b>'+r.po+'</b>'+(r.client?'<div class="muted" style="font-size:11px">'+shortClient(r.client)+'</div>':'')+'</td><td>'+r.product+'</td><td class="num">'+fmt(r.ordered)+'</td><td class="num">'+fmt(r.packed)+'</td><td class="num">'+fmt(r.disp)+'</td><td><span style="font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:999px;'+(ctag[r.tag]||ctag.warn)+'">'+r.status+'</span></td></tr>';}).join('');
     return cc+'<div style="overflow:auto"><table><thead><tr><th>PO / Client</th><th>Product</th><th class="num">Ordered</th><th class="num">Packed</th><th class="num">Dispatched</th><th>Status</th></tr></thead><tbody>'+cbody+'</tbody></table></div></div>';
   }
   var list;
@@ -3254,14 +3256,16 @@ var PROD_CSS='<style>'
  +'.pdsk .qcard .qq{font-size:14px;font-weight:700;margin-top:12px;color:var(--ptxt)}.pdsk .qcard .qs{font-size:11.5px;color:var(--pmut);margin-top:3px;line-height:1.35}'
  +'.pdsk .qcard.alert{background:linear-gradient(180deg,#fffaf2,#fff)}.pdsk .qcard.alert .qico{background:#fbf0db;color:var(--pamber)}.pdsk .qcard.alert .qn{color:var(--pamber)}.pdsk .qcard.go .qico{background:#e2f3e8;color:var(--pgreen)}'
  +'.pdbar{display:flex;align-items:center;gap:10px;margin-bottom:14px}.pdbar .back{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--pline);background:#fff;border-radius:9px;padding:7px 12px;font-size:12px;font-weight:600;color:var(--pb);cursor:pointer}.pdbar .back:hover{background:var(--pb50)}'
- +'.pdsk .card{border:1px solid var(--pline);border-radius:14px;box-shadow:none;background:#fff}.pdsk .card h3{font-family:"Space Grotesk"}'
+ +'.pdsk .card{border:1px solid var(--pline);border-radius:14px;box-shadow:none;background:#fff}.pdsk .card h3{font-family:"Space Grotesk";font-weight:700;font-size:15px;color:var(--ptxt);padding:15px 18px 4px}.pdsk .card h3 .hint{font-weight:500;font-size:11.5px;color:var(--pmut)}'
  +'.pdsk table thead th{font-size:9.5px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--pmut);background:#f4f6f9}'
  +'.pdsk .sm{border-radius:8px;font-weight:700;border:0;background:var(--pb);color:#fff}.pdsk .sm.green{background:var(--pb)}.pdsk .sm.ghost{background:#fff;color:var(--pb);border:1px solid var(--pline)}'
  +'body:has(.pdsk) .modal-bg.open .modal{position:fixed;right:0;top:0;bottom:0;height:auto;max-height:100vh;width:480px;max-width:94vw;border-radius:0;margin:0;display:flex;flex-direction:column;animation:pdslide .26s cubic-bezier(.4,0,.2,1)}body:has(.pdsk) .modal-bg.open .modal .mb{overflow:auto;flex:1}@keyframes pdslide{from{transform:translateX(100%)}to{transform:none}}'
  +'@media(max-width:920px){.pdsk{flex-direction:column}.pdside{flex:auto;width:100%;position:static;min-height:0}.pdnavlist{flex-direction:row;flex-wrap:wrap}.pdnav{width:auto}.pdfoot{display:none}}'
  +'@media(max-width:680px){.pdsk .qgrid{grid-template-columns:1fr 1fr}}@media(max-width:520px){.pdsk .qgrid{grid-template-columns:1fr}}'
- +'.pdsk td.num{font-family:"Space Grotesk",sans-serif;font-weight:700}'
- +'.pdsk .card table tbody td{padding:12px 14px;font-size:13px}'
+ +'.pdsk td.num{font-family:"Space Grotesk",sans-serif;font-weight:700}.pdsk thead th.num,.pdsk thead th.r{text-align:right}'
+ +'.pdsk .card table tbody td{padding:10px 14px;font-size:13px;vertical-align:middle}'
+ +'.pdsk .card thead th{padding:10px 14px;border-bottom:1px solid var(--pline)}'
+ +'.pdsk .card tbody tr:hover{background:#fafcfb}.pdsk .card tbody tr td{border-top:1px solid #eef1f5}'
  +'</style>';
 function prodAreaLabel(k){return ({tomake:'What to make',producing:'Running batches',qc:'Waiting QC',pack:'Ready to pack',toclose:'Ready to close',attention:'Stuck / blocked',recon:'Remaining to account',call:'Material pools',completed:'Completed'})[k]||'Production';}
 function prodPulse(){
@@ -3299,7 +3303,6 @@ function prodDeskTabs(){
     return '<button class="pdtab'+(on?' active':'')+'" onclick="'+oc+'">'+label+'</button>';  /* counters removed — live numbers live on the pulse bar + Desk cards, not duplicated here */
   };
   return '<div class="pdtabs">'
-    +tab(null,'Desk',null,{home:true})+'<span class="pdtsep"></span>'
     +tab('tomake','What to make',c.tomake)
     +tab('producing','Running batches',c.producing)
     +tab('output','Shift output',shiftN,{out:'output'})
@@ -3336,10 +3339,9 @@ function screenProd(){
   const ed=canEdit(['Production']);
   { var _pv=prodView||'lifecycle'; if(_pv==='floor'){_pv='lifecycle';prodView='lifecycle';}
     var ob=(canEdit(['Production'])||state.role==='COO')?'<button class="green" onclick="openBatchModal()" style="white-space:nowrap">+ Open batch</button>':'';
-    var title=prodHome?'Production desk':(_pv==='output'?'Shift output':_pv==='register'?'Output log':prodAreaLabel(prodFilter));
+    var title=(_pv==='output'?'Shift output':_pv==='register'?'Output log':prodAreaLabel(prodFilter));
     var wrap;
-    if(prodHome){ wrap=prodDeskCards(); }
-    else if(_pv==='output'){ wrap=renderProdOutput(); }
+    if(_pv==='output'){ wrap=renderProdOutput(); }
     else if(_pv==='register'){ wrap=renderProdRegister(); }
     else { /* NO prodFilterClamp here: every tab is on the top bar, so a clicked tab must open and show its own empty state — never silently reroute (the "Waiting QC jumps to main screen" bug). */ wrap=(prodDrill&&prodBatchSel?('<div style="margin:0 0 10px"><a onclick="prodDrill=false;render()" style="cursor:pointer;color:var(--pb,#0e6e63);font-size:12px">‹ Back to list</a></div>'+renderProdLifecycleBatch()):(prodStageList()+((prodFilter==='completed')?prodReconciledStrip():''))); }
     $('view').innerHTML=PROD_CSS+'<div class="pdsk"><div class="pdmain"><header class="pdtopbar"><div><h2>'+title+'</h2><div class="pdsub">Plant production · live snapshot</div></div>'+ob+'</header>'+prodDeskTabs()+prodPulse()+'<div class="pdwrap">'+wrap+'</div></div></div>';

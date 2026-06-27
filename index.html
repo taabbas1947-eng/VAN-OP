@@ -1902,7 +1902,7 @@ function syncRailToggleLabel(collapsed){
 }
 function applyRailCollapsed(){
   const a=document.querySelector('.app'); if(!a||isMobile())return;
-  var v='1'; /* default COLLAPSED to match prototype rail; persisted per user via localStorage */
+  var v='0'; /* default EXPANDED; only collapses if the user chose to (persisted via localStorage) or on a true small screen (handled separately by isMobile) */
   try{ var s=localStorage.getItem('van_rail_collapsed'); if(s!==null) v=s; }catch(e){}
   var collapsed=v==='1';
   a.classList.toggle('nav-collapsed',collapsed);

@@ -3679,7 +3679,7 @@ function submitShiftLog(){
 }
 let closeForm={bid:null,reason:'',note:''};
 function closeBatch(batchId){ openCloseBatch(batchId); }
-function openCloseBatch(batchId){ if(!canEdit(['Production'])){toast('Production only');return;} const b=(state.batches||[]).find(x=>x.id===batchId); if(!b)return; closeForm={bid:batchId,reason:'',note:''}; renderCloseBatch(); $('modalBg').classList.add('open'); }
+function openCloseBatch(batchId){ if(!(canEdit(['Production'])||state.role==='COO')){toast('Production / COO only');return;} const b=(state.batches||[]).find(x=>x.id===batchId); if(!b)return; closeForm={bid:batchId,reason:'',note:''}; renderCloseBatch(); $('modalBg').classList.add('open'); }
 function renderCloseBatch(){ const b=(state.batches||[]).find(x=>x.id===closeForm.bid); if(!b){closeModal();return;} const plan=+b.plannedKg||0, prod=+b.producedKg||0, varn=Math.round((plan-prod)*100)/100; const reasons=(state.masters&&state.masters.varianceReasons)||['Other'];
   $('modal').innerHTML=`<div class="mh"><h2>Close batch ${b.batchNo||''}</h2><div class="sub">${coaItemOf(b)} · planned ${fmt(plan)} · produced ${fmt(prod)} Kg/L${varn>0?` · <b style="color:var(--amber)">short by ${fmt(varn)}</b>`:(varn<0?` · <b style="color:var(--amber)">over by ${fmt(-varn)}</b>`:' · on plan')}</div></div>
    <div class="mb"><div class="muted" style="font-size:12px;margin-bottom:10px">Closing fixes this batch at its <b>actual yield (${fmt(prod)} Kg/L)</b> — no more shift output can be added. ${varn>0?'A yield variance needs a reason; the Plant Manager is notified.':''}</div>
@@ -3781,7 +3781,7 @@ function renderProdQty(){ const o=state.orders.find(x=>x.id===pqForm.oid); const
    :`<div class="muted" style="font-size:12.5px;padding:6px 0">No QC-approved production batch is available to pack for this product yet — approve the batch COA in Lab QC first.</div>`}
    </div>
    <div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button>${bs.length?`<button class="green" onclick="submitProdQty()">Pack</button>`:''}</div>`; }
-function submitProdQty(){ if(!canEdit(['Production'])){toast('Production only');return;} const o=state.orders.find(x=>x.id===pqForm.oid); const l=o.lines.find(x=>x.id===pqForm.lid); const b=(state.batches||[]).find(x=>x.id===pqForm.bid); if(!b){toast('Pick a production batch');return;} const max=pqMax(o,l); const q=Math.min(+pqForm.qty||0,max); const d=pqForm.date||TODAY.toISOString().slice(0,10);
+function submitProdQty(){ if(!(canEdit(['Production'])||state.role==='COO')){toast('Production / COO only');return;} const o=state.orders.find(x=>x.id===pqForm.oid); const l=o.lines.find(x=>x.id===pqForm.lid); const b=(state.batches||[]).find(x=>x.id===pqForm.bid); if(!b){toast('Pick a production batch');return;} const max=pqMax(o,l); const q=Math.min(+pqForm.qty||0,max); const d=pqForm.date||TODAY.toISOString().slice(0,10);
   if(q<=0){toast('Enter a quantity (max '+fmt(max)+' Kg/L)');return;}
   const ppx=+pqForm.price||0; if(!(ppx>0)){toast('Enter the price to print on the pack.');return;} if(!pqForm.priceOk){toast('Confirm you verified the print price (tick the box).');return;}
   b.packedKg=(b.packedKg||0)+q; l.packed=(l.packed||0)+q; l.produced=Math.max(l.produced||0,l.packed); l.prodStart=l.prodStart||d; if(l.packed>=l.ordered-0.5)l.prodComplete=l.prodComplete||d;
@@ -3809,7 +3809,7 @@ function renderPackModal(){ const b=state.batches.find(x=>x.id===packForm.bid); 
      <div class="fld"><label>6 · Expiry date (auto +2 years, editable)</label><input type="date" value="${packForm.exp||''}" onchange="packForm.exp=this.value"></div></div>
      ${priceBlk}<div class="muted" style="font-size:11px;margin-top:11px">Moves bulk base into the chosen brand. Pick a PO to fill that order (capped to what it still needs), or leave unassigned.</div></div>
    <div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" onclick="doPack()">Pack</button></div>`; }
-function doPack(){ if(!canEdit(['Production'])){toast('Production only');return;} const b=state.batches.find(x=>x.id===packForm.bid); if(!batchLabApproved(b)){toast('This batch is not Lab QC-approved yet — it can be packed only after QCM approves its COA.');return;} const rem=batchPackableKg(b); let kg=Math.min(+packForm.kg||0,rem); const brand=packForm.brand; const d=TODAY.toISOString().slice(0,10);
+function doPack(){ if(!(canEdit(['Production'])||state.role==='COO')){toast('Production / COO only');return;} const b=state.batches.find(x=>x.id===packForm.bid); if(!batchLabApproved(b)){toast('This batch is not Lab QC-approved yet — it can be packed only after QCM approves its COA.');return;} const rem=batchPackableKg(b); let kg=Math.min(+packForm.kg||0,rem); const brand=packForm.brand; const d=TODAY.toISOString().slice(0,10);
   if(!brand||kg<=0){toast('Pick a brand and quantity');return;}
   if(packForm.oid && packForm.oid!=='STOCK' && packForm.lid){
     const o=state.orders.find(x=>x.id===packForm.oid); const l=o&&o.lines.find(x=>x.id===packForm.lid);

@@ -3223,7 +3223,7 @@ var PROD_ICONS={
  flag:'<svg viewBox="0 0 24 24"><path d="M5 21V4M5 4h12l-2.5 4L17 12H5"/></svg>'};
 var PROD_CSS='<style>'
  +"@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&display=swap');"
- +'.pdsk{display:flex;align-items:flex-start;gap:18px;--pb:#0e6e63;--pb2:#0a544c;--pb50:#e3f1ef;--pleaf:#27b3a0;--prail:#e4e7ec;--prailbd:#d2d7df;--prailtxt:#3a4150;--prailmut:#6b7480;--pamber:#b9760d;--pred:#bc3b2c;--pgreen:#1d8a4e;--pline:#e2e7ee;--pmut:#778089;--ptxt:#11211f}'
+ +'.pdsk{display:block;--pb:#0e6e63;--pb2:#0a544c;--pb50:#e3f1ef;--pleaf:#27b3a0;--prail:#e4e7ec;--prailbd:#d2d7df;--prailtxt:#3a4150;--prailmut:#6b7480;--pamber:#b9760d;--pred:#bc3b2c;--pgreen:#1d8a4e;--pline:#e2e7ee;--pmut:#778089;--ptxt:#11211f}'
  +'.pdsk *{box-sizing:border-box}.pdsk h1,.pdsk h2{font-family:"Space Grotesk",system-ui,sans-serif;letter-spacing:-.02em;margin:0}'
  +'.pdside{flex:0 0 244px;width:244px;background:var(--prail);color:var(--prailtxt);border:1px solid var(--prailbd);border-radius:14px;padding:14px 12px;position:sticky;top:12px;align-self:stretch;display:flex;flex-direction:column;min-height:78vh}'
  +'.pdgrp{font-size:9px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;color:var(--prailmut);padding:14px 10px 6px}'
@@ -3235,7 +3235,12 @@ var PROD_CSS='<style>'
  +'.pdlbl{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}'
  +'.pdct{font-size:11px;font-weight:700;background:#d2d7df;color:#41495a;border-radius:999px;min-width:22px;text-align:center;padding:1px 8px;line-height:16px}.pdnav.active .pdct{background:rgba(255,255,255,.22);color:#fff}.pdct.warn{background:var(--pamber);color:#fff}'
  +'.pdfoot{margin-top:auto;padding-top:14px;border-top:1px solid var(--prailbd);display:flex;align-items:center;gap:9px}.pdav{width:30px;height:30px;border-radius:8px;background:var(--pb);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px}.pdun{font-size:12px;font-weight:700;color:var(--prailtxt);line-height:1.2}.pdur{font-size:10px;color:var(--prailmut)}'
- +'.pdmain{flex:1;min-width:0}'
+ +'.pdmain{width:100%;min-width:0}'
+ +'.pdtabs{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin:4px 0 14px;border-bottom:1px solid var(--pline);padding-bottom:10px}'
+ +'.pdtab{display:inline-flex;align-items:center;gap:6px;border:0;background:transparent;color:var(--prailtxt);font-size:13px;font-weight:600;padding:8px 13px;border-radius:10px;cursor:pointer;white-space:nowrap;font-family:inherit}'
+ +'.pdtab:hover{background:#eef1f5;color:#1f2733}.pdtab.active{background:var(--pb);color:#fff}.pdtab.active:hover{background:var(--pb);color:#fff}.pdtab:focus-visible{outline:2px solid var(--pb);outline-offset:2px}'
+ +'.pdtc{font-size:11px;font-weight:700;background:#d2d7df;color:#41495a;border-radius:999px;min-width:20px;text-align:center;padding:1px 7px}.pdtab.active .pdtc{background:rgba(255,255,255,.24);color:#fff}'
+ +'.pdtsep{width:1px;height:22px;background:var(--pline);margin:0 5px}'
  +'.pdtopbar{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:2px 2px 12px}.pdtopbar h2{font-size:17px;font-weight:700;color:var(--ptxt)}.pdsub{font-size:11px;color:var(--pmut);margin-top:1px;font-weight:500}'
  +'.pdpulse{display:flex;align-items:center;padding:0 18px;background:linear-gradient(90deg,#0e6e63,#0a544c);color:#dff5f1;border-radius:12px;overflow-x:auto;margin-bottom:16px}'
  +'.pdpulse .pp{display:flex;flex-direction:column;padding:11px 18px 11px 0;margin-right:18px;border-right:1px solid rgba(255,255,255,.12);white-space:nowrap}.pdpulse .pp:last-child{border-right:0}'
@@ -3282,6 +3287,31 @@ function prodDeskRail(){
     +'<div class="pdgrp">Records</div><nav class="pdnavlist">'+records+'</nav>'
     +'<div class="pdfoot"><div class="pdav">'+role.slice(0,2).toUpperCase()+'</div><div><div class="pdun">'+role+'</div><div class="pdur">Production</div></div></div>';
 }
+/* Top tab bar (replaces the secondary left rail): same items/order/counts, laid out horizontally so the content gets full width. Reconciliation stays the "Remaining to account" tab — no change to its place or its action. */
+function prodDeskTabs(){
+  var c=prodWorkCounts();
+  var shiftN=(state.productionLog||[]).filter(function(p){return p&&!p.opening&&!/opening|reconcile/i.test((p.incharge||'')+(p.by||''))&&(+p.kg||0)>0;}).length;
+  var poolN=(state.batches||[]).filter(function(b){return b&&b.pool&&!b.voided&&(+b.plannedKg||0)>0.5;}).length;
+  var tab=function(k,label,count,opt){ var on,oc;
+    if(opt&&opt.home){ on=prodHome; oc="prodHome=true;render()"; }
+    else if(opt&&opt.out){ on=(prodView===opt.out&&!prodHome); oc="prodView='"+opt.out+"';prodHome=false;render()"; }
+    else { on=(!prodHome&&prodView!=='output'&&prodView!=='register'&&prodFilter===k); oc="prodOpenArea('"+k+"')"; }
+    return '<button class="pdtab'+(on?' active':'')+'" onclick="'+oc+'">'+label+(count!=null?'<span class="pdtc">'+fmt(count)+'</span>':'')+'</button>';
+  };
+  return '<div class="pdtabs">'
+    +tab(null,'Desk',null,{home:true})+'<span class="pdtsep"></span>'
+    +tab('tomake','What to make',c.tomake)
+    +tab('producing','Running batches',c.producing)
+    +tab('output','Shift output',shiftN,{out:'output'})
+    +tab('qc','Waiting QC',c.qc)
+    +tab('pack','Ready to pack',c.pack)
+    +tab('recon','Remaining to account',c.recon)
+    +tab('call','Material pools',poolN)
+    +'<span class="pdtsep"></span>'
+    +tab('register','Output log',shiftN,{out:'register'})
+    +tab('completed','Completed',c.completed)
+    +'</div>';
+}
 function prodDeskCards(){
   var c=prodWorkCounts();
   var cards=[
@@ -3307,13 +3337,12 @@ function screenProd(){
   { var _pv=prodView||'lifecycle'; if(_pv==='floor'){_pv='lifecycle';prodView='lifecycle';}
     var ob=(canEdit(['Production'])||state.role==='COO')?'<button class="green" onclick="openBatchModal()" style="white-space:nowrap">+ Open batch</button>':'';
     var title=prodHome?'Production desk':(_pv==='output'?'Shift output':_pv==='register'?'Output log':prodAreaLabel(prodFilter));
-    var backBar='<div class="pdbar"><button class="back" onclick="prodHome=true;render()">‹ All work</button></div>';
     var wrap;
     if(prodHome){ wrap=prodDeskCards(); }
-    else if(_pv==='output'){ wrap=backBar+renderProdOutput(); }
-    else if(_pv==='register'){ wrap=backBar+renderProdRegister(); }
-    else { /* NO prodFilterClamp here: the rail always shows every tab, so a tab the user clicks must open and show its own empty state — never silently reroute to another tab (that was the "Waiting QC jumps to main screen" bug). */ wrap=backBar+(prodDrill&&prodBatchSel?('<div style="margin:0 0 10px"><a onclick="prodDrill=false;render()" style="cursor:pointer;color:var(--pb,#0e6e63);font-size:12px">‹ Back to list</a></div>'+renderProdLifecycleBatch()):(prodStageList()+((prodFilter==='completed')?prodReconciledStrip():''))); }
-    $('view').innerHTML=PROD_CSS+'<div class="pdsk"><aside class="pdside">'+prodDeskRail()+'</aside><div class="pdmain"><header class="pdtopbar"><div><h2>'+title+'</h2><div class="pdsub">Plant production · live snapshot</div></div>'+ob+'</header>'+prodPulse()+'<div class="pdwrap">'+wrap+'</div></div></div>';
+    else if(_pv==='output'){ wrap=renderProdOutput(); }
+    else if(_pv==='register'){ wrap=renderProdRegister(); }
+    else { /* NO prodFilterClamp here: every tab is on the top bar, so a clicked tab must open and show its own empty state — never silently reroute (the "Waiting QC jumps to main screen" bug). */ wrap=(prodDrill&&prodBatchSel?('<div style="margin:0 0 10px"><a onclick="prodDrill=false;render()" style="cursor:pointer;color:var(--pb,#0e6e63);font-size:12px">‹ Back to list</a></div>'+renderProdLifecycleBatch()):(prodStageList()+((prodFilter==='completed')?prodReconciledStrip():''))); }
+    $('view').innerHTML=PROD_CSS+'<div class="pdsk"><div class="pdmain"><header class="pdtopbar"><div><h2>'+title+'</h2><div class="pdsub">Plant production · live snapshot</div></div>'+ob+'</header>'+prodDeskTabs()+prodPulse()+'<div class="pdwrap">'+wrap+'</div></div></div>';
     return;
   }  /* Production = teal desk: secondary rail + question-card home → work-area lists (audited content); actions open existing modals styled as right drawers. Legacy floor code below is unreachable. */
   const bases=BULK_BASES.slice();

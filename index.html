@@ -3237,8 +3237,8 @@ var PROD_CSS='<style>'
  +'.pdfoot{margin-top:auto;padding-top:14px;border-top:1px solid var(--prailbd);display:flex;align-items:center;gap:9px}.pdav{width:30px;height:30px;border-radius:8px;background:var(--pb);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px}.pdun{font-size:12px;font-weight:700;color:var(--prailtxt);line-height:1.2}.pdur{font-size:10px;color:var(--prailmut)}'
  +'.pdmain{width:100%;min-width:0}'
  +'.pdtabs{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin:4px 0 14px;border-bottom:1px solid var(--pline);padding-bottom:10px}'
- +'.pdtab{display:inline-flex;align-items:center;gap:6px;border:0;background:transparent;color:var(--prailtxt);font-size:13px;font-weight:600;padding:8px 13px;border-radius:10px;cursor:pointer;white-space:nowrap;font-family:inherit}'
- +'.pdtab:hover{background:#eef1f5;color:#1f2733}.pdtab.active{background:var(--pb);color:#fff}.pdtab.active:hover{background:var(--pb);color:#fff}.pdtab:focus-visible{outline:2px solid var(--pb);outline-offset:2px}'
+ +'.pdtab{display:inline-flex;align-items:center;border:1px solid #dfe4ea;background:#f1f3f6;color:#3a4150;font-size:13px;font-weight:600;padding:9px 14px;border-radius:9px;cursor:pointer;white-space:nowrap;font-family:inherit;transition:.12s}'
+ +'.pdtab:hover{background:#e6e9ee;border-color:#cfd5dd;color:#1f2733}.pdtab.active{background:var(--pb);border-color:var(--pb);color:#fff}.pdtab.active:hover{background:var(--pb2);border-color:var(--pb2);color:#fff}.pdtab:focus-visible{outline:2px solid var(--pb);outline-offset:2px}'
  +'.pdtc{font-size:11px;font-weight:700;background:#d2d7df;color:#41495a;border-radius:999px;min-width:20px;text-align:center;padding:1px 7px}.pdtab.active .pdtc{background:rgba(255,255,255,.24);color:#fff}'
  +'.pdtsep{width:1px;height:22px;background:var(--pline);margin:0 5px}'
  +'.pdtopbar{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:2px 2px 12px}.pdtopbar h2{font-size:17px;font-weight:700;color:var(--ptxt)}.pdsub{font-size:11px;color:var(--pmut);margin-top:1px;font-weight:500}'
@@ -3296,7 +3296,7 @@ function prodDeskTabs(){
     if(opt&&opt.home){ on=prodHome; oc="prodHome=true;render()"; }
     else if(opt&&opt.out){ on=(prodView===opt.out&&!prodHome); oc="prodView='"+opt.out+"';prodHome=false;render()"; }
     else { on=(!prodHome&&prodView!=='output'&&prodView!=='register'&&prodFilter===k); oc="prodOpenArea('"+k+"')"; }
-    return '<button class="pdtab'+(on?' active':'')+'" onclick="'+oc+'">'+label+(count!=null?'<span class="pdtc">'+fmt(count)+'</span>':'')+'</button>';
+    return '<button class="pdtab'+(on?' active':'')+'" onclick="'+oc+'">'+label+'</button>';  /* counters removed — live numbers live on the pulse bar + Desk cards, not duplicated here */
   };
   return '<div class="pdtabs">'
     +tab(null,'Desk',null,{home:true})+'<span class="pdtsep"></span>'

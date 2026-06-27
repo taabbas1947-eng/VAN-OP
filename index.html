@@ -2847,7 +2847,7 @@ function prodPoolsStrip(){
   var dv=(state.batches||[]).filter(function(b){return b.disposition==='divert'&&b.pool&&!b.voided&&(+b.plannedKg||0)>0.5;});
   var rw=(state.batches||[]).filter(function(b){return b.disposition==='rework'&&b.pool&&!b.voided&&(+b.plannedKg||0)>0.5;});
   if(bpKg<=0.5&&!dv.length&&!rw.length)return '';
-  var pill=function(t,bg,c){return '<span style="font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:999px;background:'+bg+';color:'+c+'">'+t+'</span>';};
+  var pill=function(t,bg,c){return '<span style="font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:999px;white-space:nowrap;background:'+bg+';color:'+c+'">'+t+'</span>';};
   var rows=[];
   var bpByBase={}; bpA.forEach(function(b){var k=b.base||'—';(bpByBase[k]=bpByBase[k]||{kg:0,src:0,old:'',id:b.id});bpByBase[k].kg+=(+b.plannedKg||0);bpByBase[k].src+=((b.sources||[]).length||1);var d=b.openedDate||'';if(d&&(!bpByBase[k].old||d<bpByBase[k].old))bpByBase[k].old=d;});
   Object.keys(bpByBase).forEach(function(k){var p=bpByBase[k];if(p.kg>0.5)rows.push({type:pill('By-product','var(--pb50,#e3f1ef)','var(--pb,#0e6e63)'),base:k,kg:p.kg,src:p.src,old:p.old,next:'Call for manufacturing'+(p.kg>=5000?' · ready':' · below 5,000'),act:(ed&&bpPools.length)?'<button class="sm green" onclick="openCallBp(\''+p.id+'\')">Call material</button>':''});});
@@ -2968,8 +2968,8 @@ function prodLogExport(kind){ var rows=prodLogRows(); var head=['Date','Shift','
 function prodRegOpts(rows,key){var s={};rows.forEach(function(r){var v=(key==='batch'?r.batchNo:r[key]);if(v)s[v]=1;});return Object.keys(s).sort();}
 function renderProdRegister(){
   var all=prodLogBase(); var rows=prodLogRows(); var f=prodLogFilter||{};
-  var th="font-size:9.5px;letter-spacing:.5px;text-transform:uppercase;color:var(--pmut);text-align:left;padding:11px 14px;background:#f4f6f9;font-weight:700;white-space:nowrap"; var thr=th+";text-align:right";
-  var td="padding:11px 14px;border-top:1px solid #eef1f5;font-size:13px;color:var(--ptxt)"; var SG="font-family:'Space Grotesk',sans-serif;letter-spacing:-.02em";
+  var th="font-size:9.5px;letter-spacing:.5px;text-transform:uppercase;color:var(--pmut);text-align:left;padding:10px 14px;background:#f4f6f9;font-weight:700;white-space:nowrap"; var thr=th+";text-align:right";
+  var td="padding:10px 14px;border-top:1px solid #eef1f5;font-size:13px;color:var(--ptxt)"; var SG="font-family:'Space Grotesk',sans-serif;letter-spacing:-.02em";
   var sel=function(key,label){var opts=prodRegOpts(all,key);var cur=(key==='batch'?f.batch:f[key])||'';return '<select onchange="prodLogSetF(\''+key+'\',this.value)" style="font-size:12px;padding:6px 9px;border:1px solid var(--pline);border-radius:8px;background:#fff;color:var(--ptxt)"><option value="">'+label+' (all)</option>'+opts.map(function(o){return '<option'+(o===cur?' selected':'')+'>'+o+'</option>';}).join('')+'</select>';};
   var anyF=!!(f.product||f.shift||f.incharge||f.batch||f.client);
   var tot=Math.round(rows.reduce(function(a,r){return a+(+r.kg||0);},0));
@@ -2977,7 +2977,7 @@ function renderProdRegister(){
   if(!rows.length){ return bar+'<div style="background:#fff;border:1px solid var(--pline);border-radius:14px;padding:34px;text-align:center;color:var(--pmut);font-size:13px">No production-log rows for '+(state.period||'this period')+(anyF?' with these filters':'')+'.</div>'; }
   var dfmt=function(s){var t=new Date(s);return isNaN(t)?s:t.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'2-digit'});};
   var cap=rows.slice(0,400);
-  var body=cap.map(function(r){return '<tr><td style="'+td+'">'+dfmt(r.date)+'</td><td style="'+td+'">'+(r.shift||'—')+'</td><td style="'+td+';font-weight:700">'+(r.batchNo||'—')+'</td><td style="'+td+'">'+r.product+'</td><td style="'+td+'">'+((r.po||r.client)?((r.po||'')+(r.client?(r.po?' · ':'')+shortClient(r.client):'')):'<span style="color:#9aa3b0">—</span>')+'</td><td style="'+td+'">'+(r.incharge||'—')+'</td><td style="'+td+';text-align:right;'+SG+';font-weight:700;font-size:14px">'+fmt(Math.round(r.kg))+'</td><td style="'+td+';color:var(--pmut)">'+((r.beds||[]).join(' ')||'—')+'</td></tr>';}).join('');
+  var body=cap.map(function(r){return '<tr><td style="'+td+';white-space:nowrap">'+dfmt(r.date)+'</td><td style="'+td+'">'+(r.shift||'—')+'</td><td style="'+td+';font-weight:700">'+(r.batchNo||'—')+'</td><td style="'+td+'">'+r.product+'</td><td style="'+td+'">'+((r.po||r.client)?((r.po||'')+(r.client?(r.po?' · ':'')+shortClient(r.client):'')):'<span style="color:#9aa3b0">—</span>')+'</td><td style="'+td+'">'+(r.incharge||'—')+'</td><td style="'+td+';text-align:right;'+SG+';font-weight:700;font-size:13px">'+fmt(Math.round(r.kg))+'</td><td style="'+td+';color:var(--pmut)">'+((r.beds||[]).join(' ')||'—')+'</td></tr>';}).join('');
   var foot=rows.length>cap.length?'<div style="font-size:11px;color:var(--pmut);padding:6px 2px">Showing '+cap.length+' of '+rows.length+' rows · export for the full set</div>':'';
   var summary='<div style="font-size:12px;color:var(--pmut);margin-bottom:10px">'+rows.length+' log row(s) · <b style="color:var(--ptxt)">'+fmt(tot)+'</b> Kg in '+(state.period||'this period')+'</div>';
   return summary+bar+'<div style="overflow:auto;background:#fff;border:1px solid var(--pline);border-radius:14px"><table style="width:100%;border-collapse:collapse"><thead><tr><th style="'+th+'">Date</th><th style="'+th+'">Shift</th><th style="'+th+'">Batch</th><th style="'+th+'">Product</th><th style="'+th+'">PO / Client</th><th style="'+th+'">Incharge</th><th style="'+thr+'">Output</th><th style="'+th+'">Beds</th></tr></thead><tbody>'+body+'</tbody></table></div>'+foot;
@@ -3005,20 +3005,20 @@ function renderProdOutput(){
   var perBar='<div style="display:flex;gap:6px;margin-bottom:14px">'+per('today','Today')+per('week','This week')+per('month','This month')+'</div>';
   var tab=function(k,l){return '<button onclick="prodOutSetTab(\''+k+'\')" style="font-size:11.5px;font-weight:600;padding:6px 12px;border-radius:8px;border:1px solid var(--pline);cursor:pointer;'+(prodOutTab===k?'background:var(--pb);border-color:var(--pb);color:#fff':'background:#fff;color:var(--ptxt)')+'">'+l+'</button>';};
   var bar='<div style="display:flex;align-items:center;gap:6px;margin-bottom:11px;flex-wrap:wrap"><span style="font-size:13px;font-weight:600;color:var(--ptxt);margin-right:auto">Recent output log</span>'+tab('all','All')+tab('shift','By shift')+tab('product','By product')+tab('incharge','By incharge')+tab('client','By client')+'<button class="sm ghost" onclick="prodOutExport(\'csv\')">Export CSV</button><button class="sm ghost" onclick="prodOutExport(\'xls\')">Export Excel</button></div>';
-  var th="font-size:9.5px;letter-spacing:.5px;text-transform:uppercase;color:var(--pmut);text-align:left;padding:11px 14px;background:#f4f6f9;font-weight:700;white-space:nowrap";
-  var thr=th+";text-align:right"; var td="padding:13px 14px;border-top:1px solid #eef1f5;font-size:13px;color:var(--ptxt)";
+  var th="font-size:9.5px;letter-spacing:.5px;text-transform:uppercase;color:var(--pmut);text-align:left;padding:10px 14px;background:#f4f6f9;font-weight:700;white-space:nowrap";
+  var thr=th+";text-align:right"; var td="padding:10px 14px;border-top:1px solid #eef1f5;font-size:13px;color:var(--ptxt)";
   var content;
   if(!rows.length){ content='<div style="background:#fff;border:1px solid var(--pline);border-radius:14px;padding:34px;text-align:center;color:var(--pmut);font-size:13px">No output logged '+w.label+' yet — switch the period to see history.</div>'; }
   else if(prodOutTab==='all'){
     var dfmt=function(s){var t=new Date(s);return isNaN(t)?s:t.toLocaleDateString('en-GB',{day:'numeric',month:'short'});};
     var cap=rows.slice(0,100);
-    var body=cap.map(function(r){var qct=r.qc==='Approved'?'background:#e2f3e8;color:#1d8a4e':'background:#fbf0db;color:#b9760d';return '<tr><td style="'+td+'">'+dfmt(r.date)+'</td><td style="'+td+'">'+r.shift+'</td><td style="'+td+';font-weight:700">'+(r.batch||'—')+'</td><td style="'+td+'">'+r.product+'</td><td style="'+td+'">'+((r.po||r.client)?((r.po||'')+(r.client?(r.po?' · ':'')+shortClient(r.client):'')):'<span style="color:#9aa3b0">—</span>')+'</td><td style="'+td+'">'+(r.incharge||'')+'</td><td style="'+td+';text-align:right;'+SG+';font-weight:700;font-size:14px">'+fmt(r.kg)+'</td><td style="'+td+'"><span style="color:#9aa3b0">'+(r.lot||'—')+'</span></td><td style="'+td+'">'+(r.qc?'<span style="font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:999px;'+qct+'">'+r.qc+'</span>':'<span style="color:#9aa3b0">—</span>')+'</td></tr>';}).join('');
+    var body=cap.map(function(r){var qct=r.qc==='Approved'?'background:#e2f3e8;color:#1d8a4e':'background:#fbf0db;color:#b9760d';return '<tr><td style="'+td+';white-space:nowrap">'+dfmt(r.date)+'</td><td style="'+td+'">'+r.shift+'</td><td style="'+td+';font-weight:700">'+(r.batch||'—')+'</td><td style="'+td+'">'+r.product+'</td><td style="'+td+'">'+((r.po||r.client)?((r.po||'')+(r.client?(r.po?' · ':'')+shortClient(r.client):'')):'<span style="color:#9aa3b0">—</span>')+'</td><td style="'+td+'">'+(r.incharge||'')+'</td><td style="'+td+';text-align:right;'+SG+';font-weight:700;font-size:13px">'+fmt(r.kg)+'</td><td style="'+td+'"><span style="color:#9aa3b0">'+(r.lot||'—')+'</span></td><td style="'+td+'">'+(r.qc?'<span style="font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:999px;white-space:nowrap;'+qct+'">'+r.qc+'</span>':'<span style="color:#9aa3b0">—</span>')+'</td></tr>';}).join('');
     content='<div style="overflow:auto;background:#fff;border:1px solid var(--pline);border-radius:14px"><table style="width:100%;border-collapse:collapse"><thead><tr><th style="'+th+'">Date</th><th style="'+th+'">Shift</th><th style="'+th+'">Batch</th><th style="'+th+'">Product</th><th style="'+th+'">PO / Client</th><th style="'+th+'">Incharge</th><th style="'+thr+'">Output</th><th style="'+th+'">Lot</th><th style="'+th+'">QC</th></tr></thead><tbody>'+body+'</tbody></table></div>'+(rows.length>cap.length?'<div style="font-size:11px;color:var(--pmut);padding:6px 2px">Showing '+cap.length+' of '+rows.length+' · export for the full set</div>':'');
   } else {
     var key=prodOutTab; var lbl={shift:'Shift',product:'Product',incharge:'Incharge',client:'Client'}[key];
     var m={};rows.forEach(function(r){var k=r[key]||'—';m[k]=(m[k]||0)+r.kg;});
     var arr=Object.keys(m).map(function(k){return {name:k,kg:m[k]};}).sort(function(a,b){return b.kg-a.kg;});
-    var body=arr.map(function(r){return '<tr><td style="'+td+'">'+r.name+'</td><td style="'+td+';text-align:right;'+SG+';font-weight:700;font-size:14px">'+fmt(Math.round(r.kg))+'</td><td style="'+td+';text-align:right;color:var(--pmut)">'+(tot?Math.round(r.kg/tot*100):0)+'%</td></tr>';}).join('');
+    var body=arr.map(function(r){return '<tr><td style="'+td+'">'+r.name+'</td><td style="'+td+';text-align:right;'+SG+';font-weight:700;font-size:13px">'+fmt(Math.round(r.kg))+'</td><td style="'+td+';text-align:right;color:var(--pmut)">'+(tot?Math.round(r.kg/tot*100):0)+'%</td></tr>';}).join('');
     content='<div style="overflow:auto;background:#fff;border:1px solid var(--pline);border-radius:14px"><table style="width:100%;border-collapse:collapse"><thead><tr><th style="'+th+'">'+lbl+'</th><th style="'+thr+'">Kg</th><th style="'+thr+'">Share</th></tr></thead><tbody>'+body+'</tbody></table></div>';
   }
   return perBar+tileH+bar+content;
@@ -3061,7 +3061,7 @@ function prodStageList(){
     var hsort=function(col,label,extra){var on=prodMakeSort.col===col;var car=on?(sd>0?' ▴':' ▾'):'';return '<th'+(extra||'')+' style="cursor:pointer;user-select:none;white-space:nowrap" onclick="prodMakeSortBy(\''+col+'\')">'+label+car+'</th>';};
     var head='<tr>'+hsort('po','PO / Client')+hsort('brand','Product')+hsort('rem','Qty to make',' class="num"')+hsort('rm','RM')+hsort('due','Due · Why now')+'<th style="width:200px"></th></tr>';
     var body=frows.map(function(x){
-      var rm=x.rmText==='ready'?'<span style="color:var(--green2)">ready</span>':x.rmText==='partial'?'<span style="color:var(--amber)">partial</span>':'<span style="color:var(--red)">check</span>';
+      var rm=x.rmText==='ready'?'<span style="color:var(--green2)">✓ ready</span>':x.rmText==='partial'?'<span style="color:var(--amber)">◐ partial</span>':'<span style="color:var(--red)">! check</span>';
       var dueLine=x._late?'<span style="color:var(--red);font-weight:600;white-space:nowrap">'+x.due+' · overdue</span>':'<span class="muted" style="white-space:nowrap">'+(x.due||'—')+'</span>';
       var why='',act='';
       if(x.direct){
@@ -3102,7 +3102,7 @@ function prodStageList(){
   if(f==='producing'){
     var pr=af.filter(function(b){return batchStage(b)==='producing';});
     if(!pr.length)return '<div class="card"><div class="muted" style="padding:14px 2px">No batches producing right now.</div></div>';
-    var pathPill=function(isBulk){return isBulk?'<span style="font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:999px;background:var(--pb50,#e3f1ef);color:var(--pb,#0e6e63)">Bulk Base</span>':'<span style="font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:999px;background:#f1f3f5;color:#5b6675">PO-direct</span>';};
+    var pathPill=function(isBulk){return isBulk?'<span style="font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:999px;white-space:nowrap;background:var(--pb50,#e3f1ef);color:var(--pb,#0e6e63)">Bulk Base</span>':'<span style="font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:999px;white-space:nowrap;background:#f1f3f5;color:#5b6675">PO-direct</span>';};
     var rowP=function(b){var prod=+b.producedKg||0,plan=+b.plannedKg||0;var isPo=(b.kind==='po'||!!b.po);var nm=(isPo?(b.brand||b.base):b.base)||'';var lots=(b.lots||[]);var ls='',lk=0;if(lots.length){var ld=lots.slice().sort(function(a,c){return String(a.date||'').localeCompare(String(c.date||''));});var last=ld[ld.length-1];ls=last.date||'';lk=+last.kg||0;}var act=ed?'<button class="sm green" onclick="event.stopPropagation();openShiftLog(\''+b.id+'\')">Log output</button>':'';return '<tr style="cursor:pointer" onclick="prodBatchSel=\''+b.id+'\';prodDrill=true;render()"><td><b>'+(b.batchNo||'—')+'</b></td><td>'+nm+(isPo&&b.po?' <span class="muted" style="font-size:11px">'+b.po+'</span>':'')+'</td><td>'+pathPill(!isPo)+'</td><td class="num">'+fmt(plan)+'</td><td class="num">'+fmt(prod)+'</td><td class="num"><b>'+fmt(Math.max(0,plan-prod))+'</b></td><td>'+(ls?('<span class="muted">'+ls+(lk?' · '+fmt(lk)+' kg':'')+'</span>'):'<span style="font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:999px;background:#fbf0db;color:#b9760d">No output yet</span>')+'</td><td style="width:120px">'+act+'</td></tr>';};
     var hd='<tr><th>Batch #</th><th>Product</th><th>Path</th><th class="num">Planned</th><th class="num">Produced</th><th class="num">Remaining</th><th>Last shift</th><th></th></tr>';
     return '<div class="card"><h3>Running batches <span class="hint">'+pr.length+' open batch(es) · not fully produced</span></h3><div style="overflow:auto"><table><thead>'+hd+'</thead><tbody>'+pr.map(rowP).join('')+'</tbody></table></div></div>';
@@ -3117,7 +3117,7 @@ function prodStageList(){
     var qcard='<div class="card"><h3>Waiting QC <span class="hint">'+qunits.length+' lot(s) · Lab / QCM owns approval — you have visibility</span></h3>';
     if(!qunits.length)return qcard+'<div class="muted" style="padding:14px 2px">Nothing waiting for QC right now — every produced lot is QC-cleared.</div></div>';
     var ageOf=function(d){if(!d)return '—';var t=new Date(d);if(isNaN(t))return '—';var n=Math.max(0,Math.round((TODAY-t)/86400000));return n===0?'today':(n+'d');};
-    var qbody=qunits.map(function(u){return '<tr><td><b>'+(u.no||'—')+'</b>'+(u.b.batchNo&&u.b.batchNo!==u.no?'<div class="muted" style="font-size:11px">'+u.b.batchNo+'</div>':'')+'</td><td>'+u.product+'</td><td class="num">'+fmt(u.qty)+'</td><td>'+(u.shift||'—')+'</td><td><span class="muted">'+ageOf(u.date)+'</span></td><td><span style="font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:999px;background:var(--pb50,#e3f1ef);color:var(--pb,#0e6e63)">'+u.owner+'</span></td><td style="width:130px">'+(ed?'<button class="sm ghost" onclick="openBatchCOA(\''+u.b.id+'\',\''+u.id+'\')">Follow QC</button>':'')+'</td></tr>';}).join('');
+    var qbody=qunits.map(function(u){return '<tr><td><b>'+(u.no||'—')+'</b>'+(u.b.batchNo&&u.b.batchNo!==u.no?'<div class="muted" style="font-size:11px">'+u.b.batchNo+'</div>':'')+'</td><td>'+u.product+'</td><td class="num">'+fmt(u.qty)+'</td><td>'+(u.shift||'—')+'</td><td><span class="muted">'+ageOf(u.date)+'</span></td><td><span style="font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:999px;white-space:nowrap;background:var(--pb50,#e3f1ef);color:var(--pb,#0e6e63)">'+u.owner+'</span></td><td style="width:130px">'+(ed?'<button class="sm ghost" onclick="openBatchCOA(\''+u.b.id+'\',\''+u.id+'\')">Follow QC</button>':'')+'</td></tr>';}).join('');
     return qcard+'<div style="overflow:auto"><table><thead><tr><th>Lot / Batch</th><th>Product</th><th class="num">Output</th><th>Shift</th><th>Waiting</th><th>Next owner</th><th></th></tr></thead><tbody>'+qbody+'</tbody></table></div></div>';
   }
   if(f==='attention'){
@@ -3159,7 +3159,7 @@ function prodStageList(){
     var cols;
     if(f==='producing')cols='<td class="num">'+fmt(plan)+'</td><td class="num">'+fmt(prod)+'</td><td class="num"><b>'+fmt(Math.max(0,plan-prod))+'</b></td><td class="muted">'+(lastShift||'—')+'</td>';
     else if(f==='qc')cols='<td class="num">'+fmt(prod)+'</td><td class="num"><b style="color:var(--amber)">'+fmt(Math.max(0,prod-cl))+'</b></td><td class="muted">COA pending</td>';
-    else if(f==='pack')cols='<td><span style="font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:999px;'+(b.kind==='bulk'?'background:var(--pb50,#e3f1ef);color:var(--pb,#0e6e63)">Bulk Base':'background:#f1f3f5;color:#5b6675">PO-direct')+'</span></td><td class="num">'+fmt(cl)+'</td><td class="num">'+fmt(packed)+'</td><td class="num"><b style="color:var(--pgreen,#1d8a4e)">'+fmt(pk)+'</b></td><td class="muted">'+(b.kind==='bulk'?'Any open PO of same base':(b.po||'—'))+'</td>';
+    else if(f==='pack')cols='<td><span style="font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:999px;white-space:nowrap;'+(b.kind==='bulk'?'background:var(--pb50,#e3f1ef);color:var(--pb,#0e6e63)">Bulk Base':'background:#f1f3f5;color:#5b6675">PO-direct')+'</span></td><td class="num">'+fmt(cl)+'</td><td class="num">'+fmt(packed)+'</td><td class="num"><b style="color:var(--pgreen,#1d8a4e)">'+fmt(pk)+'</b></td><td class="muted">'+(b.kind==='bulk'?'Any open PO of same base':(b.po||'—'))+'</td>';
     else if(f==='recon')cols='<td class="num">'+fmt(prod)+'</td><td class="num">'+fmt(cl)+'</td><td class="num">'+fmt(packed)+'</td><td class="num"><b style="color:var(--pred,#bc3b2c)">'+fmt(rem)+'</b></td>';
     else if(f==='completed')cols='<td class="num">'+fmt(prod)+'/'+fmt(plan)+'</td><td class="muted">'+(b.closedDate||'')+'</td>';
     else if(f==='toclose')cols='<td class="num">'+fmt(prod)+'/'+fmt(plan)+'</td><td class="num">'+fmt(packed)+'</td>';
@@ -3244,9 +3244,9 @@ var PROD_CSS='<style>'
  +'.pdtc{font-size:11px;font-weight:700;background:#d2d7df;color:#41495a;border-radius:999px;min-width:20px;text-align:center;padding:1px 7px}.pdtab.active .pdtc{background:rgba(255,255,255,.24);color:#fff}'
  +'.pdtsep{width:1px;height:22px;background:var(--pline);margin:0 5px}'
  +'.pdtopbar{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:2px 2px 12px}.pdtopbar h2{font-size:17px;font-weight:700;color:var(--ptxt)}.pdsub{font-size:11px;color:var(--pmut);margin-top:1px;font-weight:500}'
- +'.pdpulse{display:flex;align-items:center;padding:0 18px;background:linear-gradient(90deg,#0e6e63,#0a544c);color:#dff5f1;border-radius:12px;overflow-x:auto;margin-bottom:16px}'
- +'.pdpulse .pp{display:flex;flex-direction:column;padding:11px 18px 11px 0;margin-right:18px;border-right:1px solid rgba(255,255,255,.12);white-space:nowrap}.pdpulse .pp:last-child{border-right:0}'
- +'.pdpulse .ppv{font-family:"Space Grotesk";font-size:16px;font-weight:700;color:#fff;line-height:1}.pdpulse .ppl{font-size:9px;letter-spacing:.5px;text-transform:uppercase;color:#9eccc5;margin-top:4px}.pdpulse .ppu{font-size:9px;font-weight:600;color:#9eccc5;margin-left:2px}.pdpulse .pp.alert .ppv{color:#ffd9a0}'
+ +'.pdpulse{display:flex;align-items:center;padding:0 18px;background:#fff;border:1px solid var(--pline);color:var(--ptxt);border-radius:12px;overflow-x:auto;margin-bottom:16px}'
+ +'.pdpulse .pp{display:flex;flex-direction:column;padding:11px 18px 11px 0;margin-right:18px;border-right:1px solid var(--pline);white-space:nowrap}.pdpulse .pp:last-child{border-right:0}'
+ +'.pdpulse .ppv{font-family:"Space Grotesk";font-size:16px;font-weight:700;color:var(--ptxt);line-height:1}.pdpulse .ppl{font-size:9px;letter-spacing:.5px;text-transform:uppercase;color:var(--pmut);margin-top:4px}.pdpulse .ppu{font-size:9px;font-weight:600;color:var(--pmut);margin-left:2px}.pdpulse .pp.alert .ppv{color:var(--pamber)}'
  +'.pdsk .qgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:13px}'
  +'.pdsk .qhead{display:flex;align-items:baseline;gap:10px;margin:2px 0 13px}.pdsk .qhead h1{font-size:18px;font-weight:700}.pdsk .qhead .qd{font-size:12.5px;color:var(--pmut)}'
  +'.pdsk .qcard{background:#fff;border:1px solid var(--pline);border-radius:14px;padding:16px;text-align:left;cursor:pointer;transition:.14s;display:block;width:100%;font-family:inherit}'
@@ -3260,11 +3260,15 @@ var PROD_CSS='<style>'
  +'.pdsk table thead th{font-size:9.5px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--pmut);background:#f4f6f9}'
  +'.pdsk .sm{border-radius:8px;font-weight:700;border:0;background:var(--pb);color:#fff}.pdsk .sm.green{background:var(--pb)}.pdsk .sm.ghost{background:#fff;color:var(--pb);border:1px solid var(--pline)}'
  +'body:has(.pdsk) .modal-bg.open .modal{position:fixed;right:0;top:0;bottom:0;height:auto;max-height:100vh;width:480px;max-width:94vw;border-radius:0;margin:0;display:flex;flex-direction:column;animation:pdslide .26s cubic-bezier(.4,0,.2,1)}body:has(.pdsk) .modal-bg.open .modal .mb{overflow:auto;flex:1}@keyframes pdslide{from{transform:translateX(100%)}to{transform:none}}'
- +'@media(max-width:920px){.pdsk{flex-direction:column}.pdside{flex:auto;width:100%;position:static;min-height:0}.pdnavlist{flex-direction:row;flex-wrap:wrap}.pdnav{width:auto}.pdfoot{display:none}}'
+ +'@media(max-width:920px){.pdtopbar{flex-wrap:wrap;gap:8px}.pdtab{padding:8px 11px;font-size:12px}.pdpulse{font-size:11px}}'
  +'@media(max-width:680px){.pdsk .qgrid{grid-template-columns:1fr 1fr}}@media(max-width:520px){.pdsk .qgrid{grid-template-columns:1fr}}'
  +'.pdsk td.num{font-family:"Space Grotesk",sans-serif;font-weight:700}.pdsk thead th.num,.pdsk thead th.r{text-align:right}'
  +'.pdsk .card table tbody td{padding:10px 14px;font-size:13px;vertical-align:middle}'
  +'.pdsk .card thead th{padding:10px 14px;border-bottom:1px solid var(--pline)}'
+ +'.pdsk .card table td:first-child,.pdsk .card table th:first-child{width:20%}'
+ +'.pdsk .card table td:last-child,.pdsk .card table th:last-child{text-align:right}'
+ +'.pdsk .card table td{overflow-wrap:anywhere}'
+ +'.pdsk .pill{display:inline-block;white-space:nowrap;font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:999px}'
  +'.pdsk .card tbody tr:hover{background:#fafcfb}.pdsk .card tbody tr td{border-top:1px solid #eef1f5}'
  +'</style>';
 function prodAreaLabel(k){return ({tomake:'What to make',producing:'Running batches',qc:'Waiting QC',pack:'Ready to pack',toclose:'Ready to close',attention:'Stuck / blocked',recon:'Remaining to account',call:'Material pools',completed:'Completed'})[k]||'Production';}
@@ -3277,20 +3281,7 @@ function prodPulse(){
   var P=[['Produced today',fmt(made),'kg'],['Packed today',fmt(packed),'kg'],['Shift logs',Object.keys(sh).length,''],['Running',c.producing,''],['Waiting QC',c.qc,''],['Ready to pack',c.pack,''],['Stuck',c.attention,'',1]];
   return '<div class="pdpulse">'+P.map(function(p){return '<div class="pp'+(p[3]?' alert':'')+'"><span class="ppv">'+p[1]+(p[2]?'<span class="ppu">'+p[2]+'</span>':'')+'</span><span class="ppl">'+p[0]+'</span></div>';}).join('')+'</div>';
 }
-function prodDeskRail(){
-  var c=prodWorkCounts();
-  var act=function(k){return (!prodHome && prodView!=='output' && prodFilter===k);};
-  var nav=function(k,label,icon,count,warn,outView){var on=outView?(prodView===outView&&!prodHome):act(k);var oc=outView?("prodView='"+outView+"';prodHome=false;render()"):("prodOpenArea('"+k+"')");return '<button class="pdnav'+(on?' active':'')+'" onclick="'+oc+'"><span class="pdic">'+PROD_ICONS[icon]+'</span><span class="pdlbl">'+label+'</span>'+(count!=null?'<span class="pdct'+(warn?' warn':'')+'">'+fmt(count)+'</span>':'')+'</button>';};
-  var shiftN=(state.productionLog||[]).filter(function(p){return p&&!p.opening&&!/opening|reconcile/i.test((p.incharge||'')+(p.by||''))&&(+p.kg||0)>0;}).length;  /* real shift logs only — exclude opening-balance / system-reconcile rows so the badge matches the Output-log register */
-  var poolN=(state.batches||[]).filter(function(b){return b&&b.pool&&!b.voided&&(+b.plannedKg||0)>0.5;}).length;
-  /* Fixed menu — exact prototype order, always shown (no drop-empty). What to make · Running batches · Shift output · Waiting QC · Ready to pack · Remaining to account · Material pools */
-  var daily=nav('tomake','What to make','square',c.tomake,0)+nav('producing','Running batches','play',c.producing,0)+nav('output','Shift output','bars',shiftN,0,'output')+nav('qc','Waiting QC','flask',c.qc,0)+nav('pack','Ready to pack','box',c.pack,0)+nav('recon','Remaining to account','scale',c.recon,0)+nav('call','Material pools','layers',poolN,0);
-  var records=nav('register','Output log','bars',shiftN,0,'register')+nav('completed','Completed','check',c.completed,0);
-  var role=String(state.role||'Production');
-  return '<div class="pdgrp">Daily work</div><nav class="pdnavlist">'+daily+'</nav>'
-    +'<div class="pdgrp">Records</div><nav class="pdnavlist">'+records+'</nav>'
-    +'<div class="pdfoot"><div class="pdav">'+role.slice(0,2).toUpperCase()+'</div><div><div class="pdun">'+role+'</div><div class="pdur">Production</div></div></div>';
-}
+/* prodDeskRail removed — replaced by the top tab bar (prodDeskTabs). */
 /* Top tab bar (replaces the secondary left rail): same items/order/counts, laid out horizontally so the content gets full width. Reconciliation stays the "Remaining to account" tab — no change to its place or its action. */
 function prodDeskTabs(){
   var c=prodWorkCounts();
@@ -3300,9 +3291,9 @@ function prodDeskTabs(){
     if(opt&&opt.home){ on=prodHome; oc="prodHome=true;render()"; }
     else if(opt&&opt.out){ on=(prodView===opt.out&&!prodHome); oc="prodView='"+opt.out+"';prodHome=false;render()"; }
     else { on=(!prodHome&&prodView!=='output'&&prodView!=='register'&&prodFilter===k); oc="prodOpenArea('"+k+"')"; }
-    return '<button class="pdtab'+(on?' active':'')+'" onclick="'+oc+'">'+label+'</button>';  /* counters removed — live numbers live on the pulse bar + Desk cards, not duplicated here */
+    return '<button class="pdtab'+(on?' active':'')+'" role="tab" aria-selected="'+(on?'true':'false')+'" onclick="'+oc+'">'+label+'</button>';  /* counters removed — live numbers live on the pulse bar + Desk cards, not duplicated here */
   };
-  return '<div class="pdtabs">'
+  return '<div class="pdtabs" role="tablist" aria-label="Production areas">'
     +tab('tomake','What to make',c.tomake)
     +tab('producing','Running batches',c.producing)
     +tab('output','Shift output',shiftN,{out:'output'})
@@ -3315,25 +3306,7 @@ function prodDeskTabs(){
     +tab('completed','Completed',c.completed)
     +'</div>';
 }
-function prodDeskCards(){
-  var c=prodWorkCounts();
-  var cards=[
-   {k:'tomake',n:c.tomake,u:'lines',q:'What do I need to make today?',s:'PO lines still needing production',ic:'square'},
-   {k:'producing',n:c.producing,u:'batches',q:'Which batch is running?',s:'Open batches needing shift output',ic:'play'},
-   {k:'qc',n:c.qc,u:'lots',q:'What is waiting for QC?',s:'Lots waiting Lab / QCM clearance',ic:'flask'},
-   {k:'pack',n:c.pack,u:'batches',q:'What is ready to pack?',s:'Approved stock, not yet packed',cls:'go',ic:'box'},
-   {k:'toclose',n:c.toclose,u:'batches',q:'What is ready to close?',s:'Fully packed — needs final close',cls:'go',ic:'flag'},
-   {k:'attention',n:c.attention,u:'items',q:'What is stuck and why?',s:'Owner and reason for each blocker',cls:'alert',ic:'alert'},
-   {k:'recon',n:c.recon,u:'batches',q:'Where did the remaining kg go?',s:'Account leftover before batch close',ic:'scale'},
-   {k:'call',n:c.call,u:'kg',q:'What pool material is waiting?',s:'By-product · rework · diverted',ic:'layers'},
-   {k:'completed',n:c.completed,u:'batches',q:'What is done with Production?',s:'Packed & dispatch status',cls:'go',ic:'check',always:1}
-  ];
-  var vis=cards.filter(function(x){return x.always||(+x.n||0)>0.5;});
-  var card=function(x){return '<button class="qcard'+(x.cls?(' '+x.cls):'')+'" onclick="prodOpenArea(\''+x.k+'\')"><div class="qtop"><div class="qico">'+PROD_ICONS[x.ic]+'</div><div class="qn">'+fmt(x.n)+' <span class="qu">'+x.u+'</span></div></div><div class="qq">'+x.q+'</div><div class="qs">'+x.s+'</div></button>';};
-  var outCard='<button class="qcard" onclick="prodView=\'register\';prodHome=false;render()"><div class="qtop"><div class="qico">'+PROD_ICONS.bars+'</div></div><div class="qq" style="margin-top:8px">Full output log</div><div class="qs">Every shift entry for the period — filter by product/shift/incharge/batch/client · export CSV/Excel</div></button>';
-  return '<div class="qhead"><h1>Your work today</h1><span class="qd">tap a question to open that work area</span></div><div class="qgrid">'+vis.map(card).join('')+'</div>'
-    +'<div class="qhead" style="margin-top:20px"><h1 style="font-size:15px">Records</h1></div><div class="qgrid">'+outCard+'</div>';
-}
+/* prodDeskCards (home cards) removed — the top tabs are the single entry point now. */
 function prodOpenArea(k){ prodHome=false; prodView='lifecycle'; prodFilter=k; prodDrill=false; render(); }
 function screenProd(){
   const ed=canEdit(['Production']);

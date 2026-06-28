@@ -1194,6 +1194,20 @@ th{padding:6px 11px}
 td{padding:6px 11px}
 /* Option 2 — tables stretch to fill their card (no empty right band) */
 .card table,.acard .acard-body table{width:100%}
+/* ===== PAPER EDITORIAL pilot (Direction C) — scoped to My Actions via .paperui. Reversible: delete this block + the wrapper in screenApprovals. ===== */
+.paperui{background:#faf8f4;border:1px solid #efe7d8;border-radius:16px;padding:20px 22px 24px;--navy:#0f766e;--navy2:#0b5c54;--accent:#0f766e;--accent2:#0b5c54;--green:#0f766e;--green2:#0f766e;--navy-50:#e7f3f1;--navy-100:#bfe0da;--on-accent:#fff}
+.paperui .kpi{background:#fff;border:1px solid #ece3d3;border-radius:14px;box-shadow:none}
+.paperui .kpi::before{display:none}
+.paperui .kpi .v,.paperui .kpi .kv{font-family:Georgia,'Times New Roman',serif;font-weight:500;color:#1c1b18;letter-spacing:0;font-size:32px}
+.paperui .kpi .l,.paperui .kpi .kl{color:#9a9082;font-weight:600}
+.paperui .kpi .d,.paperui .kpi .km{color:#9a9082}
+.paperui .kpi.kpion,.paperui .kpi.on{border-color:#0f766e;box-shadow:0 0 0 1px #0f766e inset}
+.paperui .card{background:#fff;border:1px solid #ece3d3;border-radius:14px;box-shadow:none}
+.paperui h2,.paperui h3,.paperui .sec,.paperui .subh{color:#1c1b18}
+.paperui button{background:#0f766e;color:#fff}
+.paperui button:hover{background:#0b5c54}
+.paperui button.ghost,.paperui button.sm.ghost{background:#fff;color:#0f766e;border:1px solid #d8cbb6}
+.paperui input,.paperui select{border-color:#e0d6c4;background:#fff}
 </style>
 </head><body>
 <div class="app" id="appShell">
@@ -4440,7 +4454,7 @@ function screenApprovals(){
   var tools='<div class="ac2tools"><input id="ac2search" placeholder="Search PO / customer / product" value="'+(acQ||'').replace(/"/g,'&quot;')+'" oninput="acQ=this.value;var e=document.getElementById(\'ac2list\');if(e)e.innerHTML=acBodyHTML();">'
     +'<select onchange="acSort2=this.value;render()"><option value="risk"'+(acSort2==='risk'?' selected':'')+'>Risk first</option><option value="oldest"'+(acSort2==='oldest'?' selected':'')+'>Oldest first</option><option value="newest"'+(acSort2==='newest'?' selected':'')+'>Newest first</option><option value="customer"'+(acSort2==='customer'?' selected':'')+'>Customer A–Z</option></select></div>';
   var rolebar=isCOO?acRoleBarHTML():'';
-  $('view').innerHTML=kpis+viewbar+tools+rolebar+'<div id="ac2list">'+acBodyHTML()+'</div>'+((state.role==='CFO'||isCOO)?financeFeed():'');
+  $('view').innerHTML='<div class="paperui">'+kpis+viewbar+tools+rolebar+'<div id="ac2list">'+acBodyHTML()+'</div>'+((state.role==='CFO'||isCOO)?financeFeed():'')+'</div>';
 }
 function screenInstructions(){
   const steps=[

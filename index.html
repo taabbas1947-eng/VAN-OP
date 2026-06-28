@@ -160,6 +160,24 @@ tr.clk:hover td{background:var(--navy-50)}
 .ctr{text-align:center}
 th.num{text-align:right}th.ctr{text-align:center}
 .muted{color:var(--mut)}
+/* Compact, no-wrap shipments log: keep dates/PO/codes on one line; let Product & Destination absorb slack */
+.shiplog{font-size:11.5px;table-layout:auto}
+.shiplog th,.shiplog td{padding:6px 9px;white-space:nowrap}
+.shiplog td:nth-child(1),.shiplog th:nth-child(1){width:1%} /* Shipment # */
+.shiplog td:nth-child(2),.shiplog th:nth-child(2){width:1%} /* Date */
+.shiplog td:nth-child(3),.shiplog th:nth-child(3){width:1%} /* PO */
+.shiplog td:nth-child(5),.shiplog th:nth-child(5){width:1%} /* Kg/L */
+.shiplog td:nth-child(6),.shiplog th:nth-child(6){width:1%} /* Packs */
+.shiplog td:nth-child(9),.shiplog th:nth-child(9){width:1%} /* DC # */
+.shiplog td:nth-child(10),.shiplog th:nth-child(10){width:1%} /* Delivered */
+.shiplog td:nth-child(4),.shiplog td:nth-child(7){white-space:normal} /* Product, Destination flex */
+/* Compact To-ship product table */
+.tcmp{font-size:11.5px}
+.tcmp th,.tcmp td{padding:6px 9px;white-space:nowrap}
+/* Compact Shipments-by-PO history table (Products column may wrap) */
+.bypo{font-size:11.5px}
+.bypo th,.bypo td{padding:6px 9px;white-space:nowrap}
+.bypo td:nth-child(3){white-space:normal}
 .barmini{height:7px;background:#eaeef5;border-radius:6px;overflow:hidden;min-width:60px;display:inline-block;vertical-align:middle}
 .barmini>i{display:block;height:100%;background:linear-gradient(90deg,var(--navy),var(--leaf));border-radius:6px}
 .pill{padding:4px 11px;border-radius:999px;font-size:11px;font-weight:700;white-space:nowrap;display:inline-block;letter-spacing:.1px;box-shadow:inset 0 0 0 1px rgba(15,23,42,.04)}
@@ -4580,7 +4598,7 @@ function confirmDelivery(){ if(!(canEdit(['Supply Chain'])||state.role==='COO'))
   logAction('Delivered '+delivForm.dispId+' on '+d+' (via '+delivForm.via+', '+n+' line(s))');
   (state.audit=state.audit||[]).unshift({t:new Date().toISOString(),user:state.role,module:'Shipment',po:(g&&g.po)||'',brand:n+' line(s)',field:'Delivered',old:'in transit',val:d+' · via '+delivForm.via});
   delivForm=null; save(); closeModal(); render(); toast('Marked delivered'); }
-function shipTabs(view){ var t=function(k,label){return '<button class="pdtab'+(view===k?' active':'')+'" role="tab" aria-selected="'+(view===k?'true':'false')+'" onclick="shipSetView(\''+k+'\')">'+label+'</button>';}; return '<div class="pdtabs" role="tablist" aria-label="Shipment areas">'+t('toship','To ship')+t('sent','Sent')+t('log','All shipments')+'</div>'; }
+function shipTabs(view){ var t=function(k,label){return '<button class="pdtab'+(view===k?' active':'')+'" role="tab" aria-selected="'+(view===k?'true':'false')+'" onclick="shipSetView(\''+k+'\')">'+label+'</button>';}; return '<div class="pdtabs" role="tablist" aria-label="Shipment areas">'+t('toship','To ship')+t('sent','Sent')+t('bypo','By PO')+t('log','All shipments')+'</div>'; }
 function shipPulse(rpos,allGroups){ var readyKg=rpos.reduce(function(a,po){return a+po.ls.reduce(function(b,x){return b+(x.rem||0);},0);},0); var cust=new Set(rpos.map(function(g){return g.o.client||'—';})).size; var transit=allGroups.filter(function(g){return g.dispId&&!g.delivered;}).length; var deliv=allGroups.filter(function(g){return g.delivered;}).length; var P=[['Loads ready',fmt(rpos.length),''],['Ready to ship',fmt(Math.round(readyKg)),'kg'],['Customers waiting',fmt(cust),''],['In transit',fmt(transit),''],['Delivered',fmt(deliv),'']]; return '<div class="pdpulse">'+P.map(function(p){return '<div class="pp"><span class="ppv">'+p[1]+(p[2]?'<span class="ppu">'+p[2]+'</span>':'')+'</span><span class="ppl">'+p[0]+'</span></div>';}).join('')+'</div>'; }
 function renderShipToship(rpos,ed){
   if(!rpos.length) return '<div class="card"><div class="muted" style="padding:16px 2px">Nothing QC-passed and waiting to ship right now.</div></div>';
@@ -4596,7 +4614,7 @@ function renderShipToship(rpos,ed){
         +(ed?'<button class="sm green" onclick="event.stopPropagation();openDispatch(\''+o.id+'\')" style="flex-shrink:0">Load a truck</button>':'')+'</div>';
       var body='';
       if(open){ var rows=ls.map(function(x){ var l=x.l, rem=Math.round(x.rem); var pk=(+l.pack||seedPackForBrand(l.brand)); var packs=packsCount(pk,rem); return '<tr><td><div style="font-weight:600">'+l.brand+'</div>'+(l.base&&l.base!==l.brand?'<div class="muted" style="font-size:11px">'+l.base+'</div>':'')+'</td><td class="num"><b style="color:var(--pgreen,#1d8a4e)">'+fmt(rem)+'</b> <span class="muted" style="font-weight:400;font-size:10px">kg</span></td><td class="num">'+(packs!=null?fmt(packs):'—')+' <span class="muted" style="font-weight:400;font-size:10px">packs</span></td></tr>'; }).join('');
-        body='<div style="overflow:auto;border-top:1px solid var(--pline)"><table><thead><tr><th>Product</th><th class="num">Ready now</th><th class="num">Packs</th></tr></thead><tbody>'+rows+'</tbody></table></div>'; }
+        body='<div style="overflow:auto;border-top:1px solid var(--pline)"><table class="tcmp"><thead><tr><th>Product</th><th class="num">Ready now</th><th class="num">Packs</th></tr></thead><tbody>'+rows+'</tbody></table></div>'; }
       return '<div class="card" style="margin-bottom:8px">'+hdr+body+'</div>';
     }).join('');
     return '<div style="margin-bottom:18px">'+head+cards+'</div>';
@@ -4623,17 +4641,28 @@ function renderShipLog(){
   var shipOpt={placeholder:'Search PO, product, destination, vehicle, DC…',searchKeys:['po','brand','destination','vehicle','carrier','dc','bilty','shipNo'],dateKey:'dispatch',pageSize:40};
   var _sr=regFilter('shiplog',shipRows,shipOpt);
   return '<div class="card"><h3>All shipments — searchable log <span class="hint">'+(state.shipments||[]).length+' line(s)</span></h3>'+regBar('shiplog',shipOpt,_sr.total)
-   +'<div style="max-height:60vh;overflow:auto"><table><thead><tr><th>Shipment #</th><th>Date</th><th>PO</th><th>Product</th><th class="num">Kg/L</th><th class="num">Packs</th><th>Destination</th><th>Vehicle</th><th>DC #</th><th>Delivered</th></tr></thead><tbody>'
+   +'<div style="max-height:60vh;overflow:auto"><table class="shiplog"><thead><tr><th>Shipment #</th><th>Date</th><th>PO</th><th>Product</th><th class="num">Kg/L</th><th class="num">Packs</th><th>Destination</th><th>Vehicle</th><th>DC #</th><th>Delivered</th></tr></thead><tbody>'
    +(_sr.view.length?_sr.view.map(function(s){return '<tr><td><b>'+(s.shipNo||'—')+'</b></td><td class="muted">'+(s.dispatch||'—')+'</td><td>'+s.po+'</td><td>'+s.brand+'</td><td class="num">'+fmt(s.kg)+'</td><td class="num">'+(packsCount((+s.pack||linePackSize(s.po,s.brand)),s.kg)!=null?fmt(packsCount((+s.pack||linePackSize(s.po,s.brand)),s.kg)):'—')+'</td><td>'+(s.destination||'—')+'</td><td>'+(s.vehicle||'—')+'</td><td>'+(s.dc||'—')+'</td><td class="muted">'+(s.delivered||'—')+'</td></tr>';}).join(''):'<tr><td colspan="10" class="muted">No shipments match.</td></tr>')
    +'</tbody></table></div>'+regPager('shiplog',_sr.pages)+'</div>';
+}
+function renderShipByPO(allGroups,ed){
+  var histPOs=[...new Set((state.shipments||[]).map(function(s){return s.po||'—';}))].sort();
+  if(!histPOs.length) return '<div class="card"><div class="muted" style="padding:16px 2px">No shipments yet.</div></div>';
+  return '<div class="card"><h3>Shipments by PO — history <span class="hint">'+histPOs.length+' PO(s)</span></h3>'
+   +histPOs.map(function(po){ var grps=allGroups.filter(function(g){return g.po===po;}); var o=(state.orders||[]).find(function(x){return x.po===po;}); var ord=o?o.lines.reduce(function(a,l){return a+(+l.ordered||0);},0):0; var dlv=o?o.lines.reduce(function(a,l){return a+(+l.delivered||0);},0):0;
+     return '<div style="border:1px solid var(--line);border-radius:11px;padding:12px 14px;margin-bottom:10px"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center"><div><b>'+po+'</b> <span class="muted" style="font-size:12px">'+(o?('· '+shortClient(o.client)):'')+'</span></div><div class="muted" style="font-size:11.5px">'+grps.length+' shipment(s)'+(ord?(' · '+pct(dlv,ord)+'% delivered'):'')+'</div></div>'
+       +'<div style="overflow:auto;margin-top:8px"><table class="bypo"><thead><tr><th>DC</th><th>Date</th><th>Products</th><th class="num">Kg/L</th><th>Vehicle</th><th>Status</th>'+(ed?'<th></th>':'')+'</tr></thead><tbody>'
+       +grps.map(function(g){return '<tr><td><b>'+(g.dc||'—')+'</b></td><td class="muted">'+(g.date||'')+'</td><td class="muted">'+g.rows.map(function(r){return r.brand;}).join('; ')+'</td><td class="num">'+fmt(g.kg)+'</td><td class="muted">'+(g.vehicle||'—')+'</td><td>'+(g.delivered?'<span class="pill" style="background:var(--green-50);color:var(--green2)">Delivered</span>':'<span class="pill" style="background:var(--amber-50);color:var(--amber)">In transit</span>')+'</td>'+(ed?'<td><button class="sm" onclick="openShipEdit(\''+(g.dispId||('idx:'+(state.shipments||[]).indexOf(g.rows[0])))+'\')">Edit</button></td>':'')+'</tr>';}).join('')
+       +'</tbody></table></div></div>';
+   }).join('')+'</div>';
 }
 function screenShip(){
   var ed=canEdit(['Supply Chain'])||state.role==='COO';
   var rpos=readyPOs();
   var allGroups=dispatchGroups();
   var view=shipView||'toship';
-  var content = view==='sent'? renderShipSent(allGroups,ed) : (view==='log'? renderShipLog() : renderShipToship(rpos,ed));
-  var title={toship:'To ship',sent:'Sent',log:'All shipments'}[view]||'Shipments';
+  var content = view==='sent'? renderShipSent(allGroups,ed) : (view==='log'? renderShipLog() : (view==='bypo'? renderShipByPO(allGroups,ed) : renderShipToship(rpos,ed)));
+  var title={toship:'To ship',sent:'Sent',log:'All shipments',bypo:'By PO'}[view]||'Shipments';
   $('view').innerHTML=PROD_CSS+'<div class="pdsk"><div class="pdmain">'
     +'<header class="pdtopbar"><div><h2>'+title+'</h2><div class="pdsub">Load trucks &amp; record deliveries</div></div></header>'
     +(ed?'':viewOnly('Supply Chain'))

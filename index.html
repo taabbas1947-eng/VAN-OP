@@ -1534,7 +1534,7 @@ function ensureProductionModel(s){
 /* ---- server-backed state: code & data are separate ---- */
 const SESSION_KEYS=['currentUser','role','screen','expanded'];
 function dataOnly(s){ const o={}; for(const k in s){ if(SESSION_KEYS.indexOf(k)<0 && k!=='users') o[k]=s[k]; } return o; }
-function sessionInit(s){ s.role=s.role||'COO'; s.screen=s.screen||'approvals'; s.expanded=s.expanded||{}; if(s.currentUser===undefined)s.currentUser=null; return s; }  /* landing page on app open = Action Center (My Actions) for all users */
+function sessionInit(s){ s.role=s.role||'COO'; s.screen=s.screen||'approvals'; s.expanded=s.expanded||{}; if(s.currentUser===undefined)s.currentUser=null; return s; }  /* landing page on app open = Action Center (My Actions). custInit() seeds the Customer Master lazily when that screen opens. */
 let _token=(function(){ try{ return localStorage.getItem('van_token')||''; }catch(e){ return ''; } })();
 let usersList=[];
 function authHdr(){ return _token ? {'Authorization':'Bearer '+_token} : {}; }
@@ -1883,7 +1883,7 @@ const SCREENS=[
     obj:'<b>Your live worklist.</b> Everything waiting on you across all orders — acknowledge, RM check, approve PR, close PR, produce, QC, QA, ship, delay reasons — each timestamped.'},
   {id:'entry', name:'New PO Entry', ic:'\u2795', owners:['KAM'], sub:'Add an order',
     obj:'<b>Step 1 \u00b7 KAM.</b> Create a customer PO: Channel \u2192 Client/Dealer \u2192 products (brand auto-maps to base product & pack size) with qty and a committed date. A simple RM-ready flag shows if materials are on hand.'},
-  {id:'dealers', name:'Dealer Master', ic:'\ud83e\udd1d', owners:['KAM'], sub:'Onboard dealers',
+  {id:'dealers', name:'Customer Master', ic:'\ud83e\udd1d', owners:['KAM'], sub:'Add &amp; manage customers',
     obj:'<b>KAM.</b> Add a dealer before their first PO \u2014 Province \u2192 City; the code auto-generates as DLR-Region-City-NNN. Confirmed dealers then appear in New PO Entry.'},
   {id:'tracker', name:'PO Tracker', ic:'\ud83d\udccb', owners:['KAM','Supply Chain','Production','Plant Manager','CFO','COO'], sub:'Track every order from PO to shipment',
     obj:'This screen shows where each order is standing. Updates are entered from each role\u2019s own screen.'},
@@ -2493,35 +2493,94 @@ function submitPO(){
 function regAbbr(region){ return (SEED.geo&&SEED.geo.regionCode&&SEED.geo.regionCode[region]) || (region||'').replace(/[^A-Za-z]/g,'').slice(0,2).toUpperCase(); }
 function cityAbbr(city){ return (city||'').replace(/[^A-Za-z]/g,'').slice(0,3).toUpperCase(); }
 let dlrForm={name:'',region:'Punjab',city:'',contact:'',phone:'',credit:0};
+/* ===== Customer Master (additive — references existing brand keys; never edits SEED/master data) ===== */
+var CUST_SEGMENTS=['White-label','Dealer','Distributor','VGreen','COBO','Direct Farmer'];
+var custSeg='White-label';
+var custForm=null;
+function _custAbbr3(s){ return (String(s||'').replace(/[^A-Za-z]/g,'').slice(0,3).toUpperCase())||'XXX'; }
+function _custYY(y){ return String(y||TODAY.getFullYear()).slice(-2); }
+function custBrandKeyFor(seg){ if(seg==='White-label')return ''; if(seg==='COBO')return 'VITAL AGRI NUTRIENTS (PVT) LTD'; if(seg==='Distributor')return 'BKK'; return 'Vgreen'; /* Dealer/VGreen/Direct Farmer all use VAN brands */ }
+function custCode(seg,name,inducted,outlet){
+  var cs=state.customers||[];
+  if(seg==='Dealer')return (typeof suggestCode==='function')?suggestCode():('DLR-'+_custAbbr3(name)+'-'+(100+cs.filter(function(c){return c.segment==='Dealer';}).length));
+  if(seg==='White-label')return 'WL-'+_custAbbr3(name)+'-'+_custYY(inducted)+'-'+(100+cs.filter(function(c){return c.segment==='White-label';}).length);
+  if(seg==='Distributor')return 'DST-'+_custAbbr3(name)+'-'+_custYY(inducted)+'-'+(100+cs.filter(function(c){return c.segment==='Distributor';}).length);
+  if(seg==='Direct Farmer')return 'FRM-'+_custAbbr3(name)+'-'+_custYY(inducted)+'-'+(100+cs.filter(function(c){return c.segment==='Direct Farmer';}).length);
+  if(seg==='COBO')return 'COBO-'+String(cs.filter(function(c){return c.segment==='COBO'&&c.outlet;}).length+1).padStart(3,'0');
+  if(seg==='VGreen')return 'VG-'+String(outlet||'').toUpperCase();
+  return _custAbbr3(name)+'-'+_custYY(inducted)+'-100';
+}
+function custInit(){
+  state.customers=state.customers||[];
+  if(state._custInitV1){ return; }
+  var has=function(name,seg){ return state.customers.some(function(c){return c.name===name&&c.segment===seg;}); };
+  var add=function(c){ if(!has(c.name,c.segment)) state.customers.push(c); };
+  var yr=TODAY.getFullYear();
+  (state.dealers||[]).forEach(function(d){ add({code:d.code,name:d.name,segment:'Dealer',parent:'',outlet:'',isParent:false,brandKey:'Dealers',region:d.region||'',city:d.city||'',contact:d.contact||'',phone:d.phone||'',creditDays:d.creditDays||0,fed:'Exclusive',kam:'',introducedBy:'',destination:'',ntn:'',inducted:yr,status:d.status||'Active'}); });
+  add({code:'VG',name:'VGreen',segment:'VGreen',parent:'',outlet:'',isParent:true,brandKey:'Vgreen',fed:'Exclusive',kam:'',introducedBy:'',destination:'',status:'Active',inducted:yr});
+  [['VC','Value Chain'],['FM','Farm Management'],['DP','Destination Partner']].forEach(function(s){ add({code:'VG-'+s[0],name:'VGreen — '+s[1],segment:'VGreen',parent:'VGreen',outlet:s[0],isParent:false,brandKey:'Vgreen',fed:'Exclusive',kam:'',introducedBy:'',destination:'',status:'Active',inducted:yr}); });
+  add({code:'COBO',name:'COBO',segment:'COBO',parent:'',outlet:'',isParent:true,brandKey:'VITAL AGRI NUTRIENTS (PVT) LTD',fed:'Exclusive',kam:'',introducedBy:'',destination:'',status:'Active',inducted:yr});
+  add({code:'COBO-001',name:'VITAL AGRI NUTRIENTS (PVT) LTD',segment:'COBO',parent:'COBO',outlet:'001',isParent:false,brandKey:'VITAL AGRI NUTRIENTS (PVT) LTD',fed:'Exclusive',kam:'',introducedBy:'',destination:'',status:'Active',inducted:yr});
+  add({code:custCode('Distributor','BKK',yr),name:'BKK',segment:'Distributor',parent:'',outlet:'',isParent:false,brandKey:'BKK',fed:'Exclusive',kam:'',introducedBy:'',destination:'',status:'Active',inducted:yr});
+  try{ var cl=(typeof SEED!=='undefined'&&SEED.catalog&&SEED.catalog.clients)||[]; var cbc=(SEED.catalog.channelByClient)||{}; cl.filter(function(c){return cbc[c]==='White Label';}).forEach(function(c){ add({code:custCode('White-label',c,yr),name:c,segment:'White-label',parent:'',outlet:'',isParent:false,brandKey:c,fed:'Exclusive',kam:'',introducedBy:'',destination:'',ntn:'',inducted:yr,status:'Active'}); }); }catch(e){}
+  state._custInitV1=true; save&&save();
+}
+function custStartAdd(seg){ custForm={editing:null,segment:seg||custSeg,name:'',parent:'',outlet:'',region:'Punjab',city:'',contact:'',phone:'',fed:'Exclusive',kam:'',introducedBy:'',destination:'',ntn:'',inducted:TODAY.getFullYear(),status:'Active'}; render(); }
+function custEdit(code){ var c=(state.customers||[]).filter(function(x){return x.code===code;})[0]; if(!c)return; custForm=Object.assign({editing:code},c); render(); }
+function custCancel(){ custForm=null; render(); }
+function custParents(seg){ return (state.customers||[]).filter(function(c){return c.segment===seg&&c.isParent;}); }
+function custSave(){ if(!canEdit(['KAM'])&&state.role!=='COO'){toast('KAM / COO only');return;} var f=custForm; if(!f)return;
+  if(!String(f.name||'').trim()){toast('Name required');return;}
+  var isOutlet=(f.segment==='VGreen'||f.segment==='COBO');
+  var code=f.editing||custCode(f.segment,f.name,f.inducted,f.outlet);
+  if(f.segment==='VGreen'&&!f.editing&&!String(f.outlet||'').trim()){toast('VGreen outlet code required (e.g. VC, FM, DP)');return;}
+  if(!f.editing&&(state.customers||[]).some(function(c){return c.code===code;})){toast('Code '+code+' already exists');return;}
+  var rec={code:code,name:String(f.name).trim(),segment:f.segment,parent:isOutlet?(f.parent||f.segment):'',outlet:isOutlet?(f.outlet||''):'',isParent:false,brandKey:(f.segment==='White-label'?String(f.name).trim():custBrandKeyFor(f.segment)),region:f.region||'',city:f.city||'',contact:f.contact||'',phone:f.phone||'',creditDays:+f.creditDays||0,fed:f.fed||'Exclusive',kam:f.kam||'',introducedBy:f.introducedBy||'',destination:f.destination||'',ntn:f.ntn||'',inducted:f.inducted||TODAY.getFullYear(),status:f.status||'Active'};
+  state.customers=state.customers||[];
+  if(f.editing){ var i=state.customers.findIndex(function(c){return c.code===f.editing;}); if(i>=0)state.customers[i]=rec; logAction('Edited customer '+code+' — '+rec.name); }
+  else { state.customers.push(rec); logAction('Added customer '+code+' — '+rec.name+' ('+rec.segment+')'); }
+  if(f.segment==='Dealer'){ state.dealers=state.dealers||[]; if(!state.dealers.some(function(d){return d.code===code;})) state.dealers.push({code:code,name:rec.name,region:rec.region,city:rec.city,contact:rec.contact,phone:rec.phone,creditDays:rec.creditDays,status:rec.status}); }
+  custForm=null; save(); toast('Saved '+code); render();
+}
 function citiesFor(region){ return (SEED.geo&&SEED.geo.citiesByRegion&&SEED.geo.citiesByRegion[region])||[]; }
 function suggestCode(){ const seq=String((state.dealers.length+1)).padStart(3,'0'); return `DLR-${regAbbr(dlrForm.region)}-${cityAbbr(dlrForm.city)||'XXX'}-${seq}`; }
 function onDlrRegion(v){ dlrForm.region=v; dlrForm.city=''; screenDealers(); }
 function onDlrCity(v){ dlrForm.city=v; if($('dlr_code'))$('dlr_code').value=suggestCode(); }
+function custFormHTML(){ var f=custForm; var kam=((state.masters&&state.masters.kamNames)||[]); var regions=(SEED.geo&&SEED.geo.regions)||['Punjab']; var cities=citiesFor(f.region);
+  var loc=(f.segment==='Dealer'||f.segment==='Direct Farmer');
+  var esc=function(s){return String(s==null?'':s).replace(/"/g,'&quot;');};
+  var fld=function(lbl,inner){return '<div class="fld"><label>'+lbl+'</label>'+inner+'</div>';};
+  var parts=[];
+  parts.push(fld('Customer / outlet name *','<input type="text" value="'+esc(f.name)+'" oninput="custForm.name=this.value">'));
+  parts.push(fld('Segment','<select onchange="custForm.segment=this.value;render()">'+CUST_SEGMENTS.map(function(s){return '<option'+(f.segment===s?' selected':'')+'>'+s+'</option>';}).join('')+'</select>'));
+  if(f.segment==='VGreen')parts.push(fld('Outlet code (VC / FM / DP …)','<input type="text" value="'+esc(f.outlet)+'" oninput="custForm.outlet=this.value.toUpperCase()"'+(f.editing?' disabled':'')+'>'));
+  if(f.segment==='COBO')parts.push(fld('Outlet code (auto)','<input type="text" value="'+(f.editing?f.code:custCode('COBO'))+'" disabled>'));
+  if(loc){ parts.push(fld('Region','<select onchange="custForm.region=this.value;render()">'+regions.map(function(r){return '<option'+(f.region===r?' selected':'')+'>'+r+'</option>';}).join('')+'</select>')); parts.push(fld('City','<select onchange="custForm.city=this.value"><option value="">— city —</option>'+cities.map(function(c){return '<option'+(f.city===c?' selected':'')+'>'+c+'</option>';}).join('')+'</select>')); }
+  parts.push(fld('FED treatment','<select onchange="custForm.fed=this.value">'+['None','Exclusive','Inclusive'].map(function(x){return '<option'+(f.fed===x?' selected':'')+'>'+x+'</option>';}).join('')+'</select>'));
+  parts.push(fld('Assigned KAM','<select onchange="custForm.kam=this.value"><option value="">— KAM —</option>'+kam.map(function(k){return '<option'+(f.kam===k?' selected':'')+'>'+k+'</option>';}).join('')+'</select>'));
+  parts.push(fld('Introduced by','<input type="text" value="'+esc(f.introducedBy)+'" oninput="custForm.introducedBy=this.value" placeholder="who introduced / referrer">'));
+  parts.push(fld('Default destination','<input type="text" value="'+esc(f.destination)+'" oninput="custForm.destination=this.value">'));
+  parts.push(fld('Contact','<input type="text" value="'+esc(f.contact)+'" oninput="custForm.contact=this.value">'));
+  parts.push(fld('Phone','<input type="text" value="'+esc(f.phone)+'" oninput="custForm.phone=this.value">'));
+  if(f.segment==='Dealer')parts.push(fld('Credit days','<input type="number" value="'+(f.creditDays||0)+'" oninput="custForm.creditDays=+this.value">'));
+  parts.push(fld('NTN / tax ref (optional)','<input type="text" value="'+esc(f.ntn)+'" oninput="custForm.ntn=this.value">'));
+  return '<div class="card"><h3>'+(f.editing?('Edit '+f.editing):'Add customer')+'</h3><div class="formgrid">'+parts.join('')+'</div><div style="margin-top:12px;display:flex;gap:8px"><button onclick="custSave()">Save customer</button><button class="ghost" onclick="custCancel()">Cancel</button></div></div>';
+}
 function screenDealers(){
-  const ed=canEdit(['KAM']);
-  const regions=(SEED.geo&&SEED.geo.regions)||['Punjab'];
-  const cities=citiesFor(dlrForm.region);
-  $('view').innerHTML=`
-   ${ed?'':viewOnly('KAM')}
-   
-   <div class="card"><h3>Onboard a dealer</h3>
-     <div class="formgrid">
-       <div class="fld"><label>Dealer Name</label><input type="text" value="${dlrForm.name}" oninput="dlrForm.name=this.value"></div>
-       <div class="fld"><label>Province / Region</label>
-         <select onchange="onDlrRegion(this.value)">${regions.map(r=>`<option ${r===dlrForm.region?'selected':''}>${r}</option>`).join('')}</select></div>
-       <div class="fld"><label>City</label>
-         <select onchange="onDlrCity(this.value)"><option value="">— pick city —</option>
-           ${cities.map(c=>`<option ${c===dlrForm.city?'selected':''}>${c}</option>`).join('')}</select></div>
-       <div class="fld"><label>Contact Person</label><input type="text" value="${dlrForm.contact}" oninput="dlrForm.contact=this.value"></div>
-       <div class="fld"><label>Phone</label><input type="text" value="${dlrForm.phone}" oninput="dlrForm.phone=this.value"></div>
-       <div class="fld"><label>Credit Days</label><input type="number" value="${dlrForm.credit}" oninput="dlrForm.credit=+this.value"></div>
-       <div class="fld"><label>Dealer Code <span class="tag">auto · editable</span></label><input id="dlr_code" type="text" value="${suggestCode()}"></div>
-     </div>
-     <button style="margin-top:12px" ${ed?'':'disabled'} onclick="addDealer()">+ Confirm &amp; add dealer</button>
-   </div>
-   <div class="card"><h3>Dealers <span class="hint">${state.dealers.length}</span></h3>
-     <div class="tscroll"><table><thead><tr><th>Code</th><th>Name</th><th>Region</th><th>City</th><th>Contact</th><th>Credit</th><th>Status</th></tr></thead>
-     <tbody>${state.dealers.map(d=>`<tr><td><b>${d.code}</b></td><td>${d.name}</td><td>${d.region}</td><td>${d.city}</td><td class="muted">${d.contact||'—'}</td><td>${d.creditDays||0}d</td><td>${pill(d.status||'Confirmed','--green')}</td></tr>`).join('')}</tbody></table></div></div>`;
+  custInit();
+  var ed=canEdit(['KAM'])||state.role==='COO';
+  var segTab=function(s){var n=(state.customers||[]).filter(function(c){return c.segment===s&&!c.isParent;}).length;return '<button class="ac2gtab'+(custSeg===s?' on':'')+'" onclick="custSeg=\''+s+'\';render()">'+s+' <b>'+n+'</b></button>';};
+  var tabs='<div class="ac2gbar" role="tablist">'+CUST_SEGMENTS.map(segTab).join('')+'</div>';
+  var cur=(state.customers||[]).filter(function(c){return c.segment===custSeg;});
+  var listHtml;
+  if(custSeg==='VGreen'||custSeg==='COBO'){
+    var outlets=cur.filter(function(c){return !c.isParent;});
+    listHtml='<div class="card"><h3>'+custSeg+' outlets <span class="hint">'+outlets.length+'</span>'+(ed?'<button class="sm" style="margin-left:auto" onclick="custStartAdd(\''+custSeg+'\')">+ Add outlet</button>':'')+'</h3>'+(outlets.length?('<div style="overflow:auto"><table><thead><tr><th>Code</th><th>Outlet</th><th>FED</th><th>KAM</th><th>Destination</th><th>Status</th><th></th></tr></thead><tbody>'+outlets.map(function(c){return '<tr><td><b>'+c.code+'</b></td><td>'+c.name+'</td><td>'+c.fed+'</td><td class="muted">'+(c.kam||'—')+'</td><td class="muted">'+(c.destination||'—')+'</td><td>'+pill(c.status||'Active','--green')+'</td><td>'+(ed?'<button class="sm ghost" onclick="custEdit(\''+c.code+'\')">Edit</button>':'')+'</td></tr>';}).join('')+'</tbody></table></div>'):'<div class="muted" style="padding:10px 2px">No outlets yet.</div>')+'</div>';
+  } else {
+    var rows=cur.filter(function(c){return !c.isParent;});
+    listHtml='<div class="card"><h3>'+custSeg+' <span class="hint">'+rows.length+'</span>'+(ed?'<button class="sm" style="margin-left:auto" onclick="custStartAdd(\''+custSeg+'\')">+ Add '+custSeg+'</button>':'')+'</h3>'+(rows.length?('<div style="overflow:auto"><table><thead><tr><th>Code</th><th>Name</th><th>FED</th><th>KAM</th><th>Introduced by</th><th>Status</th><th></th></tr></thead><tbody>'+rows.map(function(c){return '<tr><td><b>'+c.code+'</b></td><td>'+c.name+(c.city?(' <span class="muted" style="font-size:11px">'+c.city+'</span>'):'')+'</td><td>'+c.fed+'</td><td class="muted">'+(c.kam||'—')+'</td><td class="muted">'+(c.introducedBy||'—')+'</td><td>'+pill(c.status||'Active','--green')+'</td><td>'+(ed?'<button class="sm ghost" onclick="custEdit(\''+c.code+'\')">Edit</button>':'')+'</td></tr>';}).join('')+'</tbody></table></div>'):'<div class="muted" style="padding:10px 2px">None yet.</div>')+'</div>';
+  }
+  $('view').innerHTML='<div class="paperui">'+(ed?'':viewOnly('KAM'))+'<div class="rb-top"><div><div class="rb-title">Customer Master</div><div class="rb-sub2">Add &amp; manage every customer · grouped by segment</div></div></div>'+tabs+(custForm?custFormHTML():'')+listHtml+'</div>';
 }
 function addDealer(){
   if(!canEdit(['KAM'])){toast('Only KAM can onboard dealers');return;}

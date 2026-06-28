@@ -148,15 +148,17 @@ button:disabled{opacity:.45;cursor:not-allowed;transform:none;box-shadow:none}
 .kpi .v{font-size:23px;font-weight:700;margin-top:5px;color:var(--txt);font-variant-numeric:tabular-nums;letter-spacing:-.02em;line-height:1;font-family:var(--head)}
 .kpi .d{font-size:10.5px;color:var(--mut);margin-top:6px;font-weight:500}
 /* ---------- tables ---------- */
-table{width:100%;border-collapse:collapse;font-size:12px}
-th{text-align:left;color:#475569;font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:.5px;padding:9px 10px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--panel2);z-index:1}
-td{padding:9px 10px;border-bottom:1px solid var(--line2);vertical-align:middle;color:var(--txt2)}
+table{width:auto;max-width:100%;border-collapse:collapse;font-size:12px}
+th{text-align:left;color:#475569;font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:.5px;padding:6px 10px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--panel2);z-index:1;white-space:nowrap}
+td{padding:6px 10px;border-bottom:1px solid var(--line2);vertical-align:middle;color:var(--txt2)}
+/* Keep wide matrices/sheets full-width despite the new shrink-to-content default */
+.mtx,.tkmx,.coasheet table{width:100%}
 td b,td>b{color:var(--txt)}
 tr.clk{cursor:pointer;transition:.1s}
 tr.clk:hover td{background:var(--navy-50)}
 .empty{text-align:center;padding:30px 18px;color:var(--mut);font-size:12.5px}
 .empty .ei{width:36px;height:36px;border-radius:10px;background:var(--panel2);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;margin:0 auto 10px;color:#94a3b8}
-.num{text-align:right;font-variant-numeric:tabular-nums}
+.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 .ctr{text-align:center}
 th.num{text-align:right}th.ctr{text-align:center}
 .muted{color:var(--mut)}
@@ -1178,6 +1180,18 @@ body{font-family:var(--font-body);font-size:var(--fs);letter-spacing:-.011em;col
 .t2cell.done{background:color-mix(in srgb,var(--good) 18%,#fff);color:var(--good)}
 .t2cell.cur{background:var(--accent);color:#fff}
 .t2cell.pend{background:var(--panel2);color:var(--mut)}
+/* ===== QUIET CALM theme (Direction A — barely-there UI). Reversible: delete this block to revert. ===== */
+/* Flat surfaces: hairline borders only, no drop shadows */
+.card{box-shadow:none}
+.kpi{box-shadow:none}
+button{box-shadow:none}
+.umpop,.umparpop{box-shadow:0 1px 2px rgba(16,33,28,.06)}
+/* Micro-interactions stay subtle: a 1px lift on interactive elements, no heavy shadow */
+.kpi:hover{box-shadow:none;transform:translateY(-1px)}
+button:hover{box-shadow:none;transform:translateY(-1px)}
+/* Tighter table rows (calm density) */
+th{padding:6px 11px}
+td{padding:6px 11px}
 </style>
 </head><body>
 <div class="app" id="appShell">

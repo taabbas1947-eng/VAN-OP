@@ -1216,6 +1216,24 @@ td{padding:6px 11px}
 body .pdsk{--pb:#0f766e;--pb2:#0b5c54;--pb50:#e7f3f1;--pleaf:#0f766e;--pgreen:#0f766e;background:#faf8f4;border:1px solid #efe7d8;border-radius:16px;padding:16px 18px}
 body .pdsk .card,body .pdsk .pdpulse{border-color:#ece3d3}
 body .pdsk .pdpulse .ppv,body .pdsk .qcard .qn{font-family:Georgia,'Times New Roman',serif}
+body .pdsk .pdmore{border:1px solid #d8cbb6;background:#fff;color:#5a5248;border-radius:9px;padding:8px 11px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit}
+/* "What to make" scannable cards */
+.wtmlist{display:flex;flex-direction:column;gap:8px}
+.wtmrow{display:flex;align-items:center;gap:12px;background:#fff;border:1px solid #ece3d3;border-radius:12px;padding:11px 14px}
+.wtm-main{flex:1;min-width:0}
+.wtm-t1{font-weight:600;font-size:13px;color:#1c1b18}
+.wtm-base{color:#8a8279;font-weight:400;font-size:11px}
+.wtm-t2{font-size:11px;color:#8a8279;margin-top:2px;line-height:1.4}
+.wtm-t2 b{color:#1c1b18;font-weight:600}
+.wtm-qty{text-align:right;flex:none}
+.wtm-qn{font-family:Georgia,'Times New Roman',serif;font-size:18px;color:#1c1b18;line-height:1}
+.wtm-ql{font-size:10px;color:#8a8279;margin-top:1px}
+.wtm-rm{flex:none}
+.wtm-chip{font-size:11px;padding:3px 9px;border-radius:999px;white-space:nowrap;font-weight:600}
+.wtm-act{flex:none}
+/* Dispatch "Load a truck" stepped form */
+.dstep{border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:12px}
+.dstep-h{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);font-weight:700;margin-bottom:10px}
 /* In-body Action Center tabs: desktop uses the top-bar tabs, this is the mobile fallback */
 .actabs-m{display:none}
 @media(max-width:900px){.actabs-m{display:block;margin-bottom:10px}}
@@ -3148,12 +3166,15 @@ function prodStageList(){
           if(ed)act='<button class="sm ghost" onclick="prodMode=\'stock\';openBatchModal()">Make base ›</button>';
         }
       }
-      return '<tr style="vertical-align:top"><td><b>'+x.po+'</b>'+(x.o&&x.o.client?'<div class="muted" style="font-size:11px">'+shortClient(x.o.client)+'</div>':'')+'</td><td><div style="font-weight:600">'+x.brand+'</div>'+((x.base&&x.base!==x.brand)?'<div class="muted" style="font-size:11px">'+x.base+'</div>':'')+'</td><td class="num"><b>'+fmt(x.rem)+'</b></td><td style="white-space:nowrap">'+rm+'</td><td>'+dueLine+'<div style="font-size:11.5px;margin-top:3px;line-height:1.35">'+why+'</div></td><td style="width:200px">'+act+'</td></tr>';
+      var rmChip=x.rmText==='ready'?'<span class="wtm-chip" style="background:#e7f3f1;color:#0b5c54">✓ ready</span>':x.rmText==='partial'?'<span class="wtm-chip" style="background:#fbf1e0;color:#9e6210">◐ partial</span>':'<span class="wtm-chip" style="background:#fbeaea;color:#a3402f">! check</span>';
+      var dueInline=x._late?'<span style="color:#b3402f;font-weight:600">'+(x.due||'')+' · overdue</span>':'<span style="color:#8a8279">'+(x.due||'—')+'</span>';
+      return '<div class="wtmrow"><div class="wtm-main"><div class="wtm-t1">'+x.brand+((x.base&&x.base!==x.brand)?' <span class="wtm-base">'+x.base+'</span>':'')+'</div><div class="wtm-t2"><b>'+x.po+'</b>'+(x.o&&x.o.client?' · '+shortClient(x.o.client):'')+' · '+dueInline+' · '+why+'</div></div><div class="wtm-qty"><div class="wtm-qn">'+fmt(x.rem)+'</div><div class="wtm-ql">kg to make</div></div><span class="wtm-rm">'+rmChip+'</span><div class="wtm-act">'+act+'</div></div>';
     }).join('');
     var counts={all:rows.length,ready:rows.filter(function(r){return !r._blocked;}).length,blocked:rows.filter(function(r){return r._blocked;}).length,late:rows.filter(function(r){return r._late;}).length};
     var fbtn=function(k,l){return '<button onclick="prodMakeSetFilter(\''+k+'\')" style="font-size:11.5px;font-weight:600;padding:6px 12px;border-radius:8px;border:1px solid var(--pline);cursor:pointer;margin-left:6px;'+(mf===k?'background:var(--pb,#0e6e63);border-color:var(--pb,#0e6e63);color:#fff':'background:#fff;color:var(--ptxt,#11211f)')+'">'+l+'</button>';};
-    var fbar='<div style="display:flex;align-items:center;margin-bottom:12px;flex-wrap:wrap"><span class="muted" style="font-size:12px">Showing '+frows.length+' of '+rows.length+' line(s)</span><span style="margin-left:auto"></span>'+fbtn('all','All ('+counts.all+')')+fbtn('ready','Ready ('+counts.ready+')')+fbtn('blocked','Blocked ('+counts.blocked+')')+fbtn('late','Late ('+counts.late+')')+'</div>';
-    var bodyHtml=frows.length?('<div style="overflow:auto"><table style="vertical-align:top"><thead>'+head+'</thead><tbody>'+body+'</tbody></table></div>'):'<div class="muted" style="padding:14px 2px">No lines match this filter.</div>';
+    var sortSel='<select class="pdmore" style="margin-left:8px" onchange="prodMakeSort={col:this.value,dir:1};render()" title="Sort"><option value="">Sort…</option><option value="due"'+(sc==='due'?' selected':'')+'>Due date</option><option value="rem"'+(sc==='rem'?' selected':'')+'>Quantity</option><option value="rm"'+(sc==='rm'?' selected':'')+'>RM status</option><option value="brand"'+(sc==='brand'?' selected':'')+'>Product</option></select>';
+    var fbar='<div style="display:flex;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:6px"><span class="muted" style="font-size:12px">Showing '+frows.length+' of '+rows.length+' line(s)</span><span style="margin-left:auto"></span>'+fbtn('all','All ('+counts.all+')')+fbtn('ready','Ready ('+counts.ready+')')+fbtn('blocked','Blocked ('+counts.blocked+')')+fbtn('late','Late ('+counts.late+')')+sortSel+'</div>';
+    var bodyHtml=frows.length?('<div class="wtmlist">'+body+'</div>'):'<div class="muted" style="padding:14px 2px">No lines match this filter.</div>';
     return '<div class="card"><h3>What to make <span class="hint">'+rows.length+' product line(s) need production · tap a column to sort</span></h3>'+fbar+bodyHtml+'</div>';
   }
   if(f==='call')return prodPoolsStrip()||'<div class="card"><div class="muted" style="padding:14px 2px">No by-product / divert / rework to call.</div></div>';
@@ -3355,15 +3376,18 @@ function prodDeskTabs(){
   return '<div class="pdtabs" role="tablist" aria-label="Production areas">'
     +tab('tomake','What to make',c.tomake)
     +tab('producing','Running batches',c.producing)
-    +tab('output','Shift output',shiftN,{out:'output'})
     +tab('qc','Waiting QC',c.qc)
     +tab('pack','Ready to pack',c.pack)
-    +tab('recon','Remaining to account',c.recon)
-    +tab('call','Material pools',poolN)
-    +'<span class="pdtsep"></span>'
-    +tab('register','Output log',shiftN,{out:'register'})
     +tab('completed','Completed',c.completed)
+    +'<span class="pdtsep"></span>'
+    +prodMoreSelect()
     +'</div>';
+}
+/* Secondary production views live under a single More menu */
+function prodMoreGo(v){ if(!v)return; if(v==='output'||v==='register'){ prodView=v; prodHome=false; prodDrill=false; render(); } else { prodOpenArea(v); } }
+function prodMoreSelect(){ var curOut=(prodView==='output'&&!prodHome), curReg=(prodView==='register'&&!prodHome), base=(!prodHome&&prodView!=='output'&&prodView!=='register'); var curRecon=base&&prodFilter==='recon', curCall=base&&prodFilter==='call';
+  function o(v,l,a){return '<option value="'+v+'"'+(a?' selected':'')+'>'+l+'</option>';}
+  return '<select class="pdmore" title="More production views" onchange="prodMoreGo(this.value)"><option value="">More ▾</option>'+o('output','Shift output',curOut)+o('recon','Remaining to account',curRecon)+o('call','Material pools',curCall)+o('register','Output log',curReg)+'</select>';
 }
 /* prodDeskCards (home cards) removed — the top tabs are the single entry point now. */
 function prodOpenArea(k){ prodHome=false; prodView='lifecycle'; prodFilter=k; prodDrill=false; render(); }
@@ -4111,6 +4135,7 @@ function qcGrpApproved(rows){ if(!rows.length) return '<div class="muted">None a
   }).join(''); }
 
 var qcGroup='status';
+var qcTab='awaiting'; /* Lab QC primary tab: awaiting | review | unfit | approved */
 function screenQC(){
   const isLab=canEdit(['Lab Rep']), isAQ=canEdit(['AQCM']), isQM=canEdit(['QCM']), isQA=canEdit(['QA Inspector']), isPM=canEdit(['Plant Manager']), isCOO=state.role==='COO', isSC=canEdit(['Supply Chain']);
   const labB=(state.batches||[]).filter(b=>(b.producedKg||0)>0 && b.disposition!=='byproduct');  /* by-product accruals/pool never enter QC here — they get QC only AFTER grinding (call-for-manufacturing) */
@@ -4141,20 +4166,24 @@ function screenQC(){
   const qcKpiStrip='<div class="kpis" style="grid-template-columns:repeat(4,1fr)">'+_qcKpi('Awaiting entry',_qcAwait.length,'lots','Lab Rep to start','--amber')+_qcKpi('In review chain',_qcAna.length+_qcRev.length,'lots','AQCM / QCM','--navy')+_qcKpi('UNFIT',_qcFail.length,'lots','Plant Mgr review','--red')+_qcKpi('Approved',labDone.length,'lots','packable','--green2')+'</div>';
   const _qcRow=function(u){return '<tr><td><b>'+itemOf(u.b)+'</b> <span class="muted" style="font-size:11px">'+(u.b.kind==='po'?(u.b.po||''):'bulk base')+'</span></td><td><b>'+(u.no||'—')+'</b></td><td class="num">'+fmt(u.qty)+'</td><td>'+coaStatusPill(u.coa)+'</td><td>'+((u.coa&&u.coa.status==='approved')?('<button class="sm ghost" onclick="printCOA(\''+u.b.id+'\',\''+u.id+'\')">Print COA</button>'):labAct(u))+'</td></tr>';};
   const _qcCard=function(name,units,sub){return units.length?('<div class="card"><h3>'+name+' <span class="hint">'+units.length+(sub?(' · '+sub):'')+'</span></h3><div style="overflow:auto"><table><thead><tr><th>Product</th><th>Batch ▸ Lot</th><th class="num">Qty</th><th>Status</th><th style="width:210px">Action</th></tr></thead><tbody>'+units.map(_qcRow).join('')+'</tbody></table></div></div>'):'';};
+  var qcSets={awaiting:_qcAwait,review:_qcAna.concat(_qcRev),unfit:_qcFail,approved:labDone};
+  var qcLabels={awaiting:'Awaiting entry',review:'In review',unfit:'UNFIT',approved:'Approved'};
+  var curUnits=qcSets[qcTab]||_qcAwait;
   let qcBody='';
-  if(qcGroup==='product'){ var _by={}; lotUnits.forEach(function(u){var k=itemOf(u.b)||'—';(_by[k]=_by[k]||[]).push(u);}); qcBody=Object.keys(_by).sort().map(function(nm){return _qcCard(nm,_by[nm]);}).join(''); }
-  else if(qcGroup==='step'){ qcBody=_qcCard('Lab Rep — enter results',_qcAwait)+_qcCard('AQCM — review',_qcAna)+_qcCard('QCM — approve',_qcRev)+_qcCard('Plant Manager — UNFIT',_qcFail)+_qcCard('Approved',labDone); }
-  else { qcBody=_qcCard('Awaiting entry',_qcAwait)+_qcCard('Analysed → AQCM',_qcAna)+_qcCard('Reviewed → QCM',_qcRev)+_qcCard('UNFIT → Plant Manager',_qcFail)+_qcCard('Approved',labDone); }
-  if(!qcBody)qcBody='<div class="card"><div class="muted">No production lots in Lab QC yet.</div></div>';
+  if(qcGroup==='product'){ var _by={}; curUnits.forEach(function(u){var k=itemOf(u.b)||'—';(_by[k]=_by[k]||[]).push(u);}); qcBody=Object.keys(_by).sort().map(function(nm){return _qcCard(nm,_by[nm]);}).join(''); }
+  else { qcBody=_qcCard(qcLabels[qcTab],curUnits); }
+  if(!qcBody)qcBody='<div class="card"><div class="muted" style="padding:14px 2px">Nothing in '+qcLabels[qcTab]+'.</div></div>';
+  var qcTabBar='<div class="ac2gbar" role="tablist">'+['awaiting','review','unfit','approved'].map(function(k){return '<button class="ac2gtab'+(qcTab===k?' on':'')+'" onclick="qcTab=\''+k+'\';render()">'+qcLabels[k]+' <b>'+(qcSets[k].length)+'</b></button>';}).join('')+'</div>';
+  var qcGroupSel='<div class="ac2tools" style="margin-bottom:12px"><div style="flex:1"></div><select onchange="qcGroup=this.value;render()"><option value="status"'+(qcGroup!=='product'?' selected':'')+'>Group: None</option><option value="product"'+(qcGroup==='product'?' selected':'')+'>Group: By product</option></select></div>';
   $('view').innerHTML=`
-   
    <div class="paperui">${(isLab||isAQ||isQM||isPM||isCOO)?'':viewOnly('Lab, AQCM, QCM &amp; Plant Manager')}
    ${qcKpiStrip}
-   ${_pcSub([['status','By status'],['step','My step'],['product','By product']],qcGroup,'qcGroup')}
-   <div class="sec secflex"><h3>Lots awaiting sign-off</h3><span class="gr"></span><span class="hint">Lens: <b>${({status:'By status',step:'My step',product:'By product'})[qcGroup]||''}</b></span></div>
+   ${qcTabBar}
+   ${qcGroupSel}
    ${qcBody}</div>`;
 }
 var qaGroup='status';
+var qaTab='awaiting'; /* Pre-shipment QA primary tab: awaiting | cleared | issues */
 function screenQA(){
   const isQA=canEdit(['QA Inspector']), isSC=canEdit(['Supply Chain']), isCOO=state.role==='COO';
   const lots=(state.packingLog||[]).filter(p=>p&&p.brand&&(p.kg||0)>0);
@@ -4177,17 +4206,22 @@ function screenQA(){
   clearedLines.forEach(function(x){ if(!toInspect.some(function(t){return t.o.po===x.o.po && (t.l.id===x.l.id||t.l.brand===x.l.brand);})) qaUnits.push({o:x.o,l:x.l,status:'cleared',clr:x.clr}); });
   const _qaRow=function(u){ var pill=u.status==='awaiting'?'<span class="pill" style="background:var(--amber-50);color:var(--amber)">Awaiting QA</span>':u.status==='blocked'?'<span class="pill" style="background:var(--red-50);color:var(--red)">No batch #</span>':'<span class="pill" style="background:var(--green-50);color:var(--green2)">Cleared</span>'; var act=u.status==='awaiting'?((isQA||isCOO)?'<button class="sm green" onclick="openPackInspect(\''+u.o.id+'\',\''+(u.l.id!=null?u.l.id:u.l.brand)+'\')">Inspect…</button>':'<span class="muted" style="font-size:11px">QA Inspector</span>'):u.status==='blocked'?'<span class="muted" style="font-size:10.5px;color:var(--red)">set batch # first</span>':'<span class="muted" style="font-size:11px">ready ✓</span>'; return '<tr><td><b>'+u.o.po+'</b></td><td>'+u.l.brand+'</td><td class="num">'+fmt(u.status==='cleared'?u.clr:(u.ins||u.unb||0))+'</td><td>'+pill+'</td><td>'+act+'</td></tr>'; };
   const _qaCard=function(name,units,sub){ return units.length?('<div class="card"><h3>'+name+' <span class="hint">'+units.length+(sub?(' · '+sub):'')+'</span></h3><div style="overflow:auto"><table><thead><tr><th>PO</th><th>Product</th><th class="num">Kg</th><th>Status</th><th style="width:175px">Action</th></tr></thead><tbody>'+units.map(_qaRow).join('')+'</tbody></table></div></div>'):''; };
+  var qaCounts={awaiting:toInspect.length,cleared:clearedLines.length,issues:lotFail.length+lotHold.length};
+  var qaLabels={awaiting:'Awaiting',cleared:'Cleared',issues:'Issues'};
+  var qaTabUnits=qaUnits.filter(function(u){return qaTab==='cleared'?u.status==='cleared':(u.status==='awaiting'||u.status==='blocked');});
   let qaBody='';
-  if(qaGroup==='po'){ var _byp={}; qaUnits.forEach(function(u){(_byp[u.o.po]=_byp[u.o.po]||[]).push(u);}); qaBody=Object.keys(_byp).sort().map(function(po){return _qaCard('PO '+po,_byp[po]);}).join('')+qaFailedCard+qaHeldCard; }
-  else if(qaGroup==='product'){ var _byb={}; qaUnits.forEach(function(u){(_byb[u.l.brand]=_byb[u.l.brand]||[]).push(u);}); qaBody=Object.keys(_byb).sort().map(function(b){return _qaCard(b,_byb[b]);}).join('')+qaFailedCard+qaHeldCard; }
-  else { qaBody=qaAwaitCard+qaClearedCard+qaFailedCard+qaHeldCard; }
-  if(!qaBody)qaBody='<div class="card"><div class="muted">Nothing in pre-shipment QA right now.</div></div>';
+  if(qaTab==='issues'){ qaBody=qaFailedCard+qaHeldCard; }
+  else if(qaGroup==='po'){ var _byp={}; qaTabUnits.forEach(function(u){(_byp[u.o.po]=_byp[u.o.po]||[]).push(u);}); qaBody=Object.keys(_byp).sort().map(function(po){return _qaCard('PO '+po,_byp[po]);}).join(''); }
+  else if(qaGroup==='product'){ var _byb={}; qaTabUnits.forEach(function(u){(_byb[u.l.brand]=_byb[u.l.brand]||[]).push(u);}); qaBody=Object.keys(_byb).sort().map(function(b){return _qaCard(b,_byb[b]);}).join(''); }
+  else { qaBody=_qaCard(qaTab==='cleared'?'Cleared — ready to ship':'Awaiting inspection',qaTabUnits); }
+  if(!qaBody)qaBody='<div class="card"><div class="muted" style="padding:14px 2px">Nothing in '+qaLabels[qaTab]+'.</div></div>';
+  var qaTabBar='<div class="ac2gbar" role="tablist">'+['awaiting','cleared','issues'].map(function(k){return '<button class="ac2gtab'+(qaTab===k?' on':'')+'" onclick="qaTab=\''+k+'\';render()">'+qaLabels[k]+' <b>'+qaCounts[k]+'</b></button>';}).join('')+'</div>';
+  var qaGroupSel=(qaTab==='issues')?'':'<div class="ac2tools" style="margin-bottom:12px"><div style="flex:1"></div><select onchange="qaGroup=this.value;render()"><option value="status"'+(qaGroup!=='po'&&qaGroup!=='product'?' selected':'')+'>Group: None</option><option value="po"'+(qaGroup==='po'?' selected':'')+'>Group: By PO</option><option value="product"'+(qaGroup==='product'?' selected':'')+'>Group: By product</option></select></div>';
   $('view').innerHTML=`
-   
    <div class="paperui">${(isQA||isSC||isCOO)?'':viewOnly('QA Inspector &amp; Supply Chain')}
    ${qaKpiStrip}
-   ${_pcSub([['status','By status'],['po','By PO'],['product','By product']],qaGroup,'qaGroup')}
-   <div class="sec secflex"><h3>Awaiting inspection</h3><span class="gr"></span><span class="hint">Lens: <b>${({status:'By status',po:'By PO',product:'By product'})[qaGroup]||''}</b></span></div>
+   ${qaTabBar}
+   ${qaGroupSel}
    ${qaBody}</div>`;
 }
 const QC_CHECKLIST=['Packaging intact & correct','Label / artwork correct','Net weight / count verified','Seal & closure OK','Cleanliness — no contamination','Batch & expiry printed','No leakage / damage','Pallet / loading condition'];
@@ -4622,6 +4656,7 @@ function screenInstructions(){
 /* ===================== 5. SHIPMENTS (full dispatch form, QC-gated) ===================== */
 /* ===== Shipments: tabs-on-top (To ship / Sent / All shipments), reusing the Production desk styling ===== */
 var shipView='toship';
+var shipHistGroup='po'; /* History tab grouping: 'po' (by PO) | 'log' (flat searchable list) */
 function shipSetView(v){ shipView=v; render(); }
 var shipExpand={};
 function shipToggle(id){ shipExpand[id]=!shipExpand[id]; render(); }
@@ -4648,7 +4683,7 @@ function confirmDelivery(){ if(!(canEdit(['Supply Chain'])||state.role==='COO'))
   logAction('Delivered '+delivForm.dispId+' on '+d+' (via '+delivForm.via+', '+n+' line(s))');
   (state.audit=state.audit||[]).unshift({t:new Date().toISOString(),user:state.role,module:'Shipment',po:(g&&g.po)||'',brand:n+' line(s)',field:'Delivered',old:'in transit',val:d+' · via '+delivForm.via});
   delivForm=null; save(); closeModal(); render(); toast('Marked delivered'); }
-function shipTabs(view){ var t=function(k,label){return '<button class="pdtab'+(view===k?' active':'')+'" role="tab" aria-selected="'+(view===k?'true':'false')+'" onclick="shipSetView(\''+k+'\')">'+label+'</button>';}; return '<div class="pdtabs" role="tablist" aria-label="Shipment areas">'+t('toship','To ship')+t('sent','Sent')+t('bypo','By PO')+t('log','All shipments')+'</div>'; }
+function shipTabs(view){ var hist=(view==='history'||view==='bypo'||view==='log'); var t=function(k,label,act){return '<button class="pdtab'+(act?' active':'')+'" role="tab" aria-selected="'+(act?'true':'false')+'" onclick="shipSetView(\''+k+'\')">'+label+'</button>';}; return '<div class="pdtabs" role="tablist" aria-label="Shipment areas">'+t('toship','To ship',view==='toship')+t('sent','Sent',view==='sent')+t('history','History',hist)+'</div>'; }
 function shipPulse(rpos,allGroups){ var readyKg=rpos.reduce(function(a,po){return a+po.ls.reduce(function(b,x){return b+(x.rem||0);},0);},0); var cust=new Set(rpos.map(function(g){return g.o.client||'—';})).size; var transit=allGroups.filter(function(g){return g.dispId&&!g.delivered;}).length; var deliv=allGroups.filter(function(g){return g.delivered;}).length; var P=[['Loads ready',fmt(rpos.length),''],['Ready to ship',fmt(Math.round(readyKg)),'kg'],['Customers waiting',fmt(cust),''],['In transit',fmt(transit),''],['Delivered',fmt(deliv),'']]; return '<div class="pdpulse">'+P.map(function(p){return '<div class="pp"><span class="ppv">'+p[1]+(p[2]?'<span class="ppu">'+p[2]+'</span>':'')+'</span><span class="ppl">'+p[0]+'</span></div>';}).join('')+'</div>'; }
 function renderShipToship(rpos,ed){
   if(!rpos.length) return '<div class="card"><div class="muted" style="padding:16px 2px">Nothing QC-passed and waiting to ship right now.</div></div>';
@@ -4711,8 +4746,10 @@ function screenShip(){
   var rpos=readyPOs();
   var allGroups=dispatchGroups();
   var view=shipView||'toship';
-  var content = view==='sent'? renderShipSent(allGroups,ed) : (view==='log'? renderShipLog() : (view==='bypo'? renderShipByPO(allGroups,ed) : renderShipToship(rpos,ed)));
-  var title={toship:'To ship',sent:'Sent',log:'All shipments',bypo:'By PO'}[view]||'Shipments';
+  var hist=(view==='history'||view==='bypo'||view==='log');
+  var histToggle='<div style="margin:0 0 12px"><select class="pdmore" onchange="shipHistGroup=this.value;render()"><option value="po"'+(shipHistGroup==='po'?' selected':'')+'>Group: By PO</option><option value="log"'+(shipHistGroup==='log'?' selected':'')+'>Group: Flat list</option></select></div>';
+  var content = view==='sent'? renderShipSent(allGroups,ed) : (hist? (histToggle+(shipHistGroup==='log'?renderShipLog():renderShipByPO(allGroups,ed))) : renderShipToship(rpos,ed));
+  var title=(view==='sent')?'Sent':(hist?'History':'To ship');
   $('view').innerHTML=PROD_CSS+'<div class="pdsk"><div class="pdmain">'
     +'<header class="pdtopbar"><div><h2>'+title+'</h2><div class="pdsub">Load trucks &amp; record deliveries</div></div></header>'
     +(ed?'':viewOnly('Supply Chain'))
@@ -5319,22 +5356,29 @@ function dispDcInput(v){ dispSet('dc',v); var e=document.getElementById('disp_sh
 function dispLineQty(i,v){ if(dispForm&&dispForm.lines[i]){ dispForm.lines[i].qty=v; const t=document.getElementById('disp_total'); if(t) t.textContent=fmt(dispTotal())+' Kg/L · '+dispCount()+' product(s)'; const pk=document.getElementById('disp_pk_'+i); if(pk){ const ps=+dispForm.lines[i].pack||0; pk.textContent=ps>0?('≈ '+fmt(Math.ceil((+v||0)/ps))+' pk'):''; } } }
 function renderDispatchModal(){ const o=(state.orders||[]).find(x=>x.id===dispForm.oid); if(!o){closeModal();return;}
   const rows=dispForm.lines.map((r,i)=>`<tr style="${r.on?'':'opacity:.5'}"><td style="text-align:center"><input type="checkbox" ${r.on?'checked':''} onclick="dispLineToggle(${i})"></td><td><b>${r.brand}</b> <span class="muted" style="font-size:11px">${r.base}</span></td><td class="num muted">${fmt(r.rem)}</td><td><input type="number" class="num" value="${r.qty}" oninput="dispLineQty(${i},this.value)" ${r.on?'':'disabled'} style="width:110px"></td><td class="muted" id="disp_pk_${i}" style="font-size:11px">${r.pack>0?('≈ '+fmt(Math.ceil((+r.qty||0)/r.pack))+' pk'):''}</td></tr>`).join('');
-  $('modal').innerHTML=`<div class="mh"><h2>Record shipment — ${o.po}</h2><div class="sub">${shortClient(o.client)} · tick the products on this truck, enter the vehicle / DC once</div></div>
+  $('modal').innerHTML=`<div class="mh"><h2>Load a truck — ${o.po}</h2><div class="sub">${shortClient(o.client)} · tick products, enter vehicle &amp; DC once</div></div>
    <div class="mb">
-     <div style="overflow:auto;max-height:34vh;margin-bottom:10px"><table><thead><tr><th style="width:34px"></th><th>Product</th><th class="num">Ready</th><th class="num">Qty to ship</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
-     <div class="muted" style="font-size:12px;margin-bottom:10px">Dispatching <b id="disp_total">${fmt(dispTotal())} Kg/L · ${dispCount()} product(s)</b></div>
-     <div class="formgrid" style="grid-template-columns:repeat(3,minmax(0,1fr))">
-       <div class="fld"><label>Dispatch date</label><input type="date" value="${dispForm.date}" onchange="dispSet('date',this.value);{var e=document.getElementById('disp_shipno');if(e)e.innerHTML=dispShipNoHtml();}"></div>
-       <div class="fld"><label>Destination <span class="muted" style="font-weight:400;font-size:10px">· usual location remembered</span></label><input type="text" list="dispDestList" value="${_av(dispForm.dest)}" oninput="dispSet('dest',this.value)" placeholder="where is this going?"><datalist id="dispDestList">${clientDestinations(o.client).map(d=>`<option value="${_av(d)}">`).join('')}</datalist></div>
-       <div class="fld"><label>Carrier</label><input type="text" value="${dispForm.carrier}" oninput="dispSet('carrier',this.value)" placeholder="transporter"></div>
-       <div class="fld"><label>Vehicle #</label><input type="text" value="${dispForm.vehicle}" oninput="dispSet('vehicle',this.value)"></div>
-       <div class="fld"><label>DC number <span style="color:var(--red)">*</span> <span class="muted" style="font-weight:400;font-size:10px">generates shipment #</span></label><input type="text" value="${dispForm.dc}" oninput="dispDcInput(this.value)" placeholder="e.g. 5019"></div><div class="fld" style="grid-column:1/-1"><div id="disp_shipno" style="font-size:12px;padding:8px 11px;background:var(--navy-50);border-radius:8px">${dispShipNoHtml()}</div></div>
-       <div class="fld"><label>Bilty / reference</label><input type="text" value="${dispForm.bilty}" oninput="dispSet('bilty',this.value)"></div>
-       <div class="fld" style="grid-column:1/-1"><label>Remarks</label><input type="text" value="${dispForm.remarks}" oninput="dispSet('remarks',this.value)"></div>
+     <div class="dstep"><div class="dstep-h">1 · Products on this truck</div>
+       <div style="overflow:auto;max-height:30vh"><table><thead><tr><th style="width:34px"></th><th>Product</th><th class="num">Ready</th><th class="num">Qty to ship</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
+       <div class="muted" style="font-size:12px;margin-top:8px">Dispatching <b id="disp_total">${fmt(dispTotal())} Kg/L · ${dispCount()} product(s)</b></div>
      </div>
-     <div class="muted" style="font-size:11px;margin-top:10px">Only <b>inspected &amp; cleared</b> quantity can be shipped. The load records as <b>in transit</b> — confirm delivery later from the <b>Sent</b> tab. Anything you leave un-ticked stays in <b>Ready to ship</b> for the next truck.</div>
+     <div class="dstep"><div class="dstep-h">2 · Truck &amp; destination</div>
+       <div class="formgrid" style="grid-template-columns:repeat(3,minmax(0,1fr))">
+         <div class="fld"><label>Dispatch date</label><input type="date" value="${dispForm.date}" onchange="dispSet('date',this.value);{var e=document.getElementById('disp_shipno');if(e)e.innerHTML=dispShipNoHtml();}"></div>
+         <div class="fld"><label>Destination <span class="muted" style="font-weight:400;font-size:10px">· usual location remembered</span></label><input type="text" list="dispDestList" value="${_av(dispForm.dest)}" oninput="dispSet('dest',this.value)" placeholder="where is this going?"><datalist id="dispDestList">${clientDestinations(o.client).map(d=>`<option value="${_av(d)}">`).join('')}</datalist></div>
+         <div class="fld"><label>Carrier</label><input type="text" value="${dispForm.carrier}" oninput="dispSet('carrier',this.value)" placeholder="transporter"></div>
+         <div class="fld"><label>Vehicle #</label><input type="text" value="${dispForm.vehicle}" oninput="dispSet('vehicle',this.value)"></div>
+         <div class="fld"><label>DC number <span style="color:var(--red)">*</span> <span class="muted" style="font-weight:400;font-size:10px">generates shipment #</span></label><input type="text" value="${dispForm.dc}" oninput="dispDcInput(this.value)" placeholder="e.g. 5019"></div>
+         <div class="fld"><label>Bilty / reference</label><input type="text" value="${dispForm.bilty}" oninput="dispSet('bilty',this.value)"></div>
+         <div class="fld" style="grid-column:1/-1"><label>Remarks</label><input type="text" value="${dispForm.remarks}" oninput="dispSet('remarks',this.value)"></div>
+       </div>
+     </div>
+     <div class="dstep"><div class="dstep-h">3 · Confirm</div>
+       <div id="disp_shipno" style="font-size:12px;padding:8px 11px;background:var(--navy-50);border-radius:8px">${dispShipNoHtml()}</div>
+       <div class="muted" style="font-size:11px;margin-top:10px">Only <b>inspected &amp; cleared</b> quantity can be shipped. The load records as <b>in transit</b> — confirm delivery later from the <b>Sent</b> tab. Anything left un-ticked stays in <b>Ready to ship</b> for the next truck.</div>
+     </div>
    </div>
-   <div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" onclick="saveDispatch()">Save shipment</button></div>`; }
+   <div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" onclick="saveDispatch()">Record shipment</button></div>`; }
 function saveDispatch(){ if(!canEdit(['Supply Chain'])){toast('Supply Chain only');return;} const o=(state.orders||[]).find(x=>x.id===dispForm.oid); if(!o)return;
   const sel=dispForm.lines.filter(r=>r.on&&(+r.qty||0)>0); if(!sel.length){toast('Tick at least one product with a quantity');return;}
   const dc=(dispForm.dc||'').trim();

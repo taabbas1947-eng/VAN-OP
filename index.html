@@ -6244,7 +6244,35 @@ var RB_DATASETS={
   orders:{label:'Orders / PO lines · sales',dateKey:'received',
     rows:function(){ var out=[]; (state.orders||[]).forEach(function(o){ (o.lines||[]).forEach(function(l){ out.push({po:o.po||'',client:o.client||'',channel:o.channel||'',product:l.brand||'',base:l.base||'',received:o.received||'',promised:o.promised||'',priority:o.priority||'Normal',stage:(typeof lineStage==='function'?lineStage(o,l):''),ordered:+l.ordered||0,produced:+l.produced||0,packed:+l.packed||0,dispatched:+l.dispatched||0,delivered:+l.delivered||0,value:Math.round((+l.delivered||0)*(+l.invoicePrice||0))}); }); }); return out; },
     fields:[{k:'po',l:'PO',t:'dim'},{k:'client',l:'Client',t:'dim'},{k:'channel',l:'Channel',t:'dim'},{k:'product',l:'Product',t:'dim'},{k:'base',l:'Base',t:'dim'},{k:'received',l:'Received',t:'dim'},{k:'promised',l:'Promised',t:'dim'},{k:'priority',l:'Priority',t:'dim'},{k:'stage',l:'Stage',t:'dim'},{k:'ordered',l:'Ordered',t:'meas'},{k:'produced',l:'Produced',t:'meas'},{k:'packed',l:'Packed',t:'meas'},{k:'dispatched',l:'Shipped',t:'meas'},{k:'delivered',l:'Delivered',t:'meas'},{k:'value',l:'Delivered value',t:'meas'}],
-    filters:['client','channel','priority','stage','product']}
+    filters:['client','channel','priority','stage','product']},
+  packing:{label:'Packing & batch trace',dateKey:'date',
+    rows:function(){ var cm=_rbClientMap(); var bb={}; (state.batches||[]).forEach(function(b){bb[b.id]=b.batchNo||'';}); return (state.packingLog||[]).filter(function(p){return p&&p.brand&&(+p.kg||0)>0;}).map(function(p){ var base=p.baseBatchNo||(p.baseBatchId?bb[p.baseBatchId]:'')||''; var qa=p.qa?(p.qa.pass?'Pass':(p.qa.fail?'Fail':'Pending')):'Pending'; return {date:p.date||'',po:p.po||'',client:cm[p.po]||'',product:p.brand||'',base:p.base||'',basebatch:base||'—',brandbatch:p.brandBatchNo||base||'—',qa:qa,kg:+p.kg||0}; }); },
+    fields:[{k:'date',l:'Date',t:'dim'},{k:'po',l:'PO',t:'dim'},{k:'client',l:'Client',t:'dim'},{k:'product',l:'Brand',t:'dim'},{k:'base',l:'Base product',t:'dim'},{k:'basebatch',l:'Base batch',t:'dim'},{k:'brandbatch',l:'Brand batch',t:'dim'},{k:'qa',l:'QA status',t:'dim'},{k:'kg',l:'Packed kg',t:'meas'}],
+    filters:['client','product','qa']},
+  qc:{label:'Lab QC · COA',dateKey:'date',
+    rows:function(){ var cm=_rbClientMap(); var out=[]; (state.batches||[]).filter(function(b){return b&&!b.voided&&(+b.producedKg||0)>0;}).forEach(function(b){ var lots=(b.lots&&b.lots.length)?b.lots:[{lotNo:b.batchNo,qty:b.producedKg,coa:b.coa}]; lots.forEach(function(l){ var c=l.coa||b.coa||{}; out.push({product:b.brand||b.base||'',batch:l.lotNo||b.batchNo||'',po:b.po||'',client:cm[b.po]||'',qcno:c.qcNo||'',status:c.status||'—',result:c.overall||(c.deviation?'Deviation':'—'),by:c.by||'',date:c.date||'',qty:+l.qty||+b.producedKg||0}); }); }); return out; },
+    fields:[{k:'product',l:'Product',t:'dim'},{k:'batch',l:'Batch',t:'dim'},{k:'po',l:'PO',t:'dim'},{k:'client',l:'Client',t:'dim'},{k:'qcno',l:'QC #',t:'dim'},{k:'status',l:'Status',t:'dim'},{k:'result',l:'Result',t:'dim'},{k:'by',l:'Signed by',t:'dim'},{k:'date',l:'Date',t:'dim'},{k:'qty',l:'Qty',t:'meas'}],
+    filters:['status','result','client','product']},
+  deferred:{label:'Deferred actions',dateKey:'until',
+    rows:function(){ var m=state.acDefer||{}; var out=[]; var items=(typeof actionItems==='function')?actionItems():[]; items.forEach(function(it){ var k=(typeof acKey==='function')?acKey(it):''; var d=m[k]; if(d&&d.until){ out.push({action:it.label||'',po:(it.o&&it.o.po)||'',client:(it.o&&it.o.client)||'',product:(it.l&&it.l.brand)||'',role:it.role||'',reason:d.reason||'',until:d.until||'',by:d.by||'',at:d.at||''}); } }); return out; },
+    fields:[{k:'action',l:'Action',t:'dim'},{k:'po',l:'PO',t:'dim'},{k:'client',l:'Client',t:'dim'},{k:'product',l:'Product',t:'dim'},{k:'role',l:'Role',t:'dim'},{k:'reason',l:'Reason',t:'dim'},{k:'until',l:'Returns on',t:'dim'},{k:'by',l:'Deferred by',t:'dim'},{k:'at',l:'Deferred on',t:'dim'}],
+    filters:['role','reason','client']},
+  anomalies:{label:'Anomalies · delays / holds / checks',dateKey:'date',
+    rows:function(){ var out=[]; var today=TODAY.toISOString().slice(0,10);
+      (state.orders||[]).forEach(function(o){ (o.lines||[]).forEach(function(l){
+        if((+l.ordered||0)>0&&!(+l.invoicePrice>0))out.push({type:'No invoice price',po:o.po||'',client:o.client||'',product:l.brand||'',detail:'Ordered '+fmt(l.ordered)+' Kg, price not set',date:o.received||'',value:+l.ordered||0});
+        var due=l.committed||o.promised||''; if(due&&due<today&&(+l.delivered||0)<(+l.ordered||0)-0.5)out.push({type:'Overdue',po:o.po||'',client:o.client||'',product:l.brand||'',detail:'Due '+due+', '+fmt((+l.ordered||0)-(+l.delivered||0))+' Kg pending',date:due,value:Math.max(0,(+l.ordered||0)-(+l.delivered||0))});
+        if((+l.dispatched||0)>(+l.ordered||0)+0.5)out.push({type:'Over-supplied',po:o.po||'',client:o.client||'',product:l.brand||'',detail:'Ordered '+fmt(l.ordered)+', shipped '+fmt(l.dispatched),date:o.promised||'',value:(+l.dispatched||0)-(+l.ordered||0)});
+        try{ if(typeof lineQA==='function'){ var q=lineQA(o,l); if(q&&q.anyFail)out.push({type:'QA fail',po:o.po||'',client:o.client||'',product:l.brand||'',detail:'A packed lot failed QA inspection',date:'',value:0}); } }catch(e){}
+      }); });
+      (state.batches||[]).forEach(function(b){ if(b&&!b.voided){ var prod=+b.producedKg||0,disp=+b.disposedKg||0; if(prod>0&&disp/prod>0.05)out.push({type:'High loss / disposal',po:b.po||'',client:'',product:b.brand||b.base||'',detail:fmt(disp)+' of '+fmt(prod)+' Kg disposed ('+Math.round(disp/prod*100)+'%)',date:b.closedDate||b.openedDate||'',value:disp}); } });
+      return out; },
+    fields:[{k:'type',l:'Type',t:'dim'},{k:'po',l:'PO',t:'dim'},{k:'client',l:'Client',t:'dim'},{k:'product',l:'Product',t:'dim'},{k:'detail',l:'Detail',t:'dim'},{k:'date',l:'Date',t:'dim'},{k:'value',l:'Value',t:'meas'}],
+    filters:['type','client']},
+  activity:{label:'Activity log',dateKey:'date',
+    rows:function(){ return (state.audit||[]).map(function(x){ return {when:(x.t||'').replace('T',' ').slice(0,16),date:(x.t||'').slice(0,10),user:x.user||'',module:x.module||'',po:x.po||'',product:x.brand||'',field:x.field||'',value:(x.val!=null?String(x.val):'')}; }); },
+    fields:[{k:'when',l:'When',t:'dim'},{k:'date',l:'Date',t:'dim'},{k:'user',l:'User',t:'dim'},{k:'module',l:'Module',t:'dim'},{k:'po',l:'PO',t:'dim'},{k:'product',l:'Product',t:'dim'},{k:'field',l:'Field',t:'dim'},{k:'value',l:'Value',t:'dim'}],
+    filters:['module','user']}
 };
 function rbDef(){ return RB_DATASETS[rbDS]||RB_DATASETS.production; }
 function rbField(k){ var a=rbDef().fields.filter(function(f){return f.k===k;}); return a[0]; }
@@ -6291,20 +6319,8 @@ function rbRender(){ var d=rbDef(); var res=rbResult();
   return '<div class="rb-top"><div><div class="rb-title">Report Builder</div><div class="rb-sub2">Pick a dataset, tap fields, set a date range — then export. No Excel needed.</div></div><span style="flex:1"></span>'+dsSel+'<button class="sm ghost" onclick="rbExport(\'csv\')">Export CSV</button><button class="sm" onclick="rbExport(\'xls\')">Export Excel</button></div><div class="rb-grid">'+palette+'<div class="rb-build">'+colZone+filterZone+groupZone+'</div></div>'+preview;
 }
 function screenReports(){
-  let body='';
-  if(rpTab==='builder') body=rbRender();
-  else if(rpTab==='trends') body=rpTrends();
-  else if(rpTab==='explorer') body=rpExplorer();
-  else if(rpTab==='postatus') body=rpPOStatus();
-  else if(rpTab==='prod') body=rpMonthly();
-  else if(rpTab==='trace') body=rpTrace();
-  else if(rpTab==='coa') body=rpQCReports();
-  else if(rpTab==='ship') body=rpShip();
-  else if(rpTab==='delay') body=rpDelay();
-  else if(rpTab==='log') body=rpLog();
-  $('view').innerHTML = `<div class="paperui">${rpTab==='builder'?'':rpFilterBar()}${rpTabsBar()}${body}</div>`;
-  if(rpTab==='explorer'||rpTab==='prod') rpDrawChart();
-  if(rpTab==='trends') trDrawChart();
+  /* One dynamic Report Builder replaces all legacy analytical tabs — every tab's data points are now datasets in the builder. */
+  $('view').innerHTML = `<div class="paperui">${rbRender()}</div>`;
 }
 
 /* ---- Explorer (pivot) ---- */

@@ -1208,6 +1208,9 @@ td{padding:6px 11px}
 .paperui button:hover{background:#0b5c54}
 .paperui button.ghost,.paperui button.sm.ghost{background:#fff;color:#0f766e;border:1px solid #d8cbb6}
 .paperui input,.paperui select{border-color:#e0d6c4;background:#fff}
+/* In-body Action Center tabs: desktop uses the top-bar tabs, this is the mobile fallback */
+.actabs-m{display:none}
+@media(max-width:900px){.actabs-m{display:block;margin-bottom:10px}}
 </style>
 </head><body>
 <div class="app" id="appShell">
@@ -4322,6 +4325,7 @@ function actSort(arr){ return arr.slice().sort(function(a,b){ var ua=actUrg(a),u
 
 /* ===== Action Center v3 — merged urgency-first worklist (ported from prototype 2; render-only, reuses actionItems/actTiming/actUrg/actOverdue) ===== */
 var acRisk='all', acRoleF='all', acQ='', acSort2='risk', acGroup='priority';
+var acTab='todo'; /* simplified Action Center: 'todo' (active) | 'deferred' | 'all' */
 var acView='list'; /* My Actions list/cards view toggle — default keeps existing list behavior */
 var AC_ROLEORDER=['Supply Chain','CFO','Production','Lab Rep','AQCM','QCM','QA Inspector','Plant Manager'];
 var AC_STAGES=['PO Created','RM Check','Production','Lab QC','AQCM Review','Pack QC','Shipment'];
@@ -4349,7 +4353,11 @@ function renderAcDefer(){ var f=acDeferForm; if(!f){closeModal();return;} var mi
   $('modal').innerHTML='<div class="mh"><h2>Defer this action</h2><div class="sub">'+f.title+'</div></div><div class="mb"><div class="fld"><label>Reason</label><select onchange="acDeferForm.reason=this.value">'+AC_DEFER_REASONS.map(function(r){return '<option'+(f.reason===r?' selected':'')+'>'+r+'</option>';}).join('')+'</select></div><div class="fld" style="margin-top:10px"><label>Comes back on (1–30 days out)</label><input type="date" value="'+f.until+'" min="'+min.toISOString().slice(0,10)+'" max="'+max.toISOString().slice(0,10)+'" onchange="acDeferForm.until=this.value"></div><div class="muted" style="font-size:11px;margin-top:8px">It leaves your active list until then, stays visible under <b>Deferred</b>, and your manager can still see it.</div></div><div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" onclick="acDeferSubmit()">Defer</button></div>'; }
 function acDeferSubmit(){ var f=acDeferForm; if(!f)return; var u=String(f.until||''); var t1=TODAY.toISOString().slice(0,10); var mx=new Date(TODAY);mx.setDate(mx.getDate()+30); if(!(u>t1)){toast('Pick a return date at least 1 day out');return;} if(u>mx.toISOString().slice(0,10)){toast('Maximum defer is 30 days');return;} state.acDefer=state.acDefer||{}; state.acDefer[f.key]={until:u,reason:f.reason,by:(state.currentUser&&state.currentUser.name)||state.role,at:t1}; logAction('Deferred action ['+f.title+'] until '+u+' ('+f.reason+')'); acDeferForm=null; save(); closeModal(); render(); }
 function acUndefer(id){ var it=acBase().filter(function(x){return x._id===id;})[0]; if(!it)return; var k=acKey(it); if(state.acDefer&&state.acDefer[k]){ delete state.acDefer[k]; logAction('Un-deferred action ['+(it.what||it.label)+']'); save(); closeModal(); render(); } }
-function acFiltered(){ var r=acRoleScoped(acBase()); if(acRisk==='deferred'){ r=r.filter(function(x){return !!acDeferActive(x);}); } else { r=r.filter(function(x){return !acDeferActive(x);}); if(acRisk!=='all')r=r.filter(function(x){return x._risk===acRisk;}); } var q=(acQ||'').toLowerCase().trim(); if(q)r=r.filter(function(x){var o=x.o||{},l=x.l||{};return ((o.po||'')+(o.client||'')+(l.brand||'')+(x.what||'')+x.role+x.label).toLowerCase().indexOf(q)>-1;}); if(acSort2==='oldest')r.sort(function(a,b){return b._days-a._days;}); else if(acSort2==='newest')r.sort(function(a,b){return a._days-b._days;}); else if(acSort2==='customer')r.sort(function(a,b){return ((a.o&&a.o.client)||'').localeCompare((b.o&&b.o.client)||'');}); else r=actSort(r); return r; }
+function acFiltered(){ var r=acRoleScoped(acBase());
+  if(acTab==='deferred'){ r=r.filter(function(x){return !!acDeferActive(x);}); }
+  else if(acTab==='all'){ /* everything: active + deferred, no risk filter */ }
+  else { r=r.filter(function(x){return !acDeferActive(x);}); if(acRisk!=='all')r=r.filter(function(x){return x._risk===acRisk;}); }
+  var q=(acQ||'').toLowerCase().trim(); if(q)r=r.filter(function(x){var o=x.o||{},l=x.l||{};return ((o.po||'')+(o.client||'')+(l.brand||'')+(x.what||'')+x.role+x.label).toLowerCase().indexOf(q)>-1;}); if(acSort2==='oldest')r.sort(function(a,b){return b._days-a._days;}); else if(acSort2==='newest')r.sort(function(a,b){return a._days-b._days;}); else if(acSort2==='customer')r.sort(function(a,b){return ((a.o&&a.o.client)||'').localeCompare((b.o&&b.o.client)||'');}); else r=actSort(r); return r; }
 function acMini(it){ var ci=AC_STAGES.indexOf(acStageOf(it.label)); var cur=it._risk==='late'?'var(--red)':it._risk==='today'?'var(--amber)':'var(--navy)'; return '<span class="ac2mini">'+AC_STAGES.map(function(s,i){var bg=i<ci?'var(--navy)':(i===ci?cur:'#dfe3e8');return '<span class="ac2dot" style="background:'+bg+'"></span>';}).join('')+'</span>'; }
 function acStep(it){ var ci=AC_STAGES.indexOf(acStageOf(it.label)); return '<div class="axn-step">'+AC_STAGES.map(function(s,i){var c=i<ci?'done':(i===ci?'now':'');return '<i class="'+c+'"></i>';}).join('')+'</div>'; }
 /* Escalation (read-only, derived): locked thresholds per action; Produce uses 4-day INACTIVITY (last shift output / RM-ready), never elapsed time, so long POs don't false-alarm. */
@@ -4376,7 +4384,7 @@ function acRowHTML(it,mini){ var col=acTypeColor(it.label), em=ACT_EMOJI[it.labe
     +'<div class="axn-lead" style="background:'+col+'"></div>'
     +'<div class="axn-ic" style="background:color-mix(in srgb,'+col+' 14%,#fff)">'+em+'</div>'
     +'<div class="axn-bd"><div class="axn-t1">'+title+escB+'</div><div class="axn-t2">'+sub+'</div>'+acStep(it)+'</div>'
-    +'<div class="axn-cta"><button class="sm green" onclick="event.stopPropagation();'+it.act+'">'+it.label+'</button><span class="axn-due">'+due+'</span><button class="sm ghost" onclick="event.stopPropagation();acOpenDrawer(\''+it._id+'\')">View</button></div>'
+    +'<div class="axn-cta"><button class="sm green" onclick="event.stopPropagation();'+it.act+'">'+it.label+'</button><span class="axn-due">'+due+'</span>'+(acDeferActive(it)?'<button class="sm ghost" onclick="event.stopPropagation();acUndefer(\''+it._id+'\')">Un-defer</button>':'<button class="sm ghost" onclick="event.stopPropagation();acDefer(\''+it._id+'\')">Defer</button>')+'<button class="sm ghost" onclick="event.stopPropagation();acOpenDrawer(\''+it._id+'\')">View</button></div>'
   +'</div>'; }
 function acListHTML(){ var rows=acFiltered(); if(!rows.length)return '<div class="empty" style="padding:26px;text-align:center;color:var(--mut)">No actions in this view.</div>';
   return rows.map(function(x){return acRowHTML(x,true);}).join(''); }
@@ -4426,12 +4434,16 @@ function acViewBarHTML(){ function t(k,l,ic){return '<button class="ac2vtab'+(ac
   var cardIc='<svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/><rect x="13" y="13" width="8" height="8" rx="1"/></svg>';
   return '<div class="ac2vbar"><span class="ac2glab">View</span><div class="ac2vseg">'+t('list','List',listIc)+t('cards','Cards',cardIc)+'</div></div>'; }
 function acGroupBarHTML(){ function t(k,l){return '<button class="ac2gtab'+(acGroup===k?' on':'')+'" onclick="acGroup=\''+k+'\';render()">'+l+'</button>';} return '<div class="ac2gbar"><span class="ac2glab">Group by</span>'+t('priority','Priority')+t('stage','By stage')+t('role','By role')+'</div>'; }
-function acHeaderTabsHTML(){ function t(k,l){return '<button class="'+(acGroup===k?'on':'')+'" onclick="acGroup=\''+k+'\';render()">'+l+'</button>';} return t('priority','Priority')+t('stage','By stage')+t('role','By role'); }
+/* Simplified Action Center controls: three real tabs + single Group/Role dropdowns */
+function acTabsHTML(c){ function t(k,l,n){return '<button class="ac2gtab'+(acTab===k?' on':'')+'" onclick="acTab=\''+k+'\';acRisk=\'all\';render()">'+l+(n!=null?' <b>'+n+'</b>':'')+'</button>';} return '<div class="ac2gbar" role="tablist">'+t('todo','To do',c.all)+t('deferred','Deferred',c.deferred)+t('all','All actions',c.all+c.deferred)+'</div>'; }
+function acGroupSelect(){ function o(v,l){return '<option value="'+v+'"'+(acGroup===v?' selected':'')+'>'+l+'</option>';} return '<select title="Group actions" onchange="acGroup=this.value;render()">'+o('priority','Group: Priority')+o('stage','Group: Stage')+o('role','Group: Role')+'</select>'; }
+function acRoleSelect(){ var all=actionItems(); var present=AC_ROLEORDER.filter(function(r){return all.some(function(x){return x.role===r;});}); var opts='<option value="all"'+(acRoleF==='all'?' selected':'')+'>Role: All</option>'+present.map(function(r){return '<option value="'+r+'"'+(acRoleF===r?' selected':'')+'>Role: '+r+'</option>';}).join(''); return '<select title="Filter by role" onchange="acRoleF=this.value;render()">'+opts+'</select>'; }
+function acHeaderTabsHTML(){ var c=acCounts(); function t(k,l,n){return '<button class="'+(acTab===k?'on':'')+'" onclick="acTab=\''+k+'\';acRisk=\'all\';render()">'+l+(n!=null?' '+n:'')+'</button>';} return t('todo','To do',c.all)+t('deferred','Deferred',c.deferred)+t('all','All actions',null); }
 function acGroupedHTML(mode){ var rows=acFiltered(); var EMPTY='<div class="empty" style="padding:26px;text-align:center;color:var(--mut)">No actions in this view.</div>'; if(!rows.length)return EMPTY; var keys=mode==='stage'?AC_STAGES.slice():AC_ROLEORDER.slice(); if(mode==='role'){rows.forEach(function(x){if(keys.indexOf(x.role)<0)keys.push(x.role);});} var html=keys.map(function(k){var items=rows.filter(function(x){return mode==='stage'?acStageOf(x.label)===k:x.role===k;}); if(!items.length)return ''; var late=items.filter(function(x){return x._risk==='late';}).length; var head='<div class="ac2ghead"><span class="dot"></span><span class="nm">'+k+'</span><span class="cnt">'+items.length+'</span>'+(late?'<span class="ltb">'+late+' late</span>':'')+'<span class="ln"></span></div>'; return '<div class="ac2group">'+head+items.map(function(x){return acRowHTML(x,true);}).join('')+'</div>';}).join(''); return html||EMPTY; }
 function acBodyHTML(){ if(acView==='cards')return acCardsHTML(); if(acGroup==='stage')return acGroupedHTML('stage'); if(acGroup==='role')return acGroupedHTML('role'); return acListHTML(); }
 function acKpiHTML(c){ var pipe=0; try{ pipe=(state.orders||[]).filter(function(o){return orderBucket(o)!=='Delivered';}).length; }catch(e){ pipe=c.all; }
-  function k(lbl,val,meta,risk){ var on=(risk!=null&&acRisk===risk); return '<div class="kpi'+(on?' kpion':'')+'"'+(risk!=null?' style="cursor:pointer" onclick="acRisk=\''+risk+'\';render()"':'')+'><div class="l">'+lbl+'</div><div class="v">'+val+'</div><div class="d">'+meta+'</div></div>'; }
-  return '<div class="kpis ac2kpis">'+k('In your queue',c.all,'tasks for <b>'+state.role+'</b>','all')+k('Urgent',c.late,c.late?'<b style="color:var(--red)">overdue</b> — first':'none overdue','late')+k('Touch today',Math.min(c.all,6),'recommended focus','today')+(c.deferred?k('Deferred',c.deferred,'snoozed · back later','deferred'):'')+k('Pipeline open',pipe,'orders moving',null)+'</div>'; }
+  function k(lbl,val,meta,risk){ var on=(risk!=null&&acRisk===risk&&acTab==='todo'); return '<div class="kpi'+(on?' kpion':'')+'"'+(risk!=null?' style="cursor:pointer" onclick="acTab=\'todo\';acRisk=\''+risk+'\';render()"':'')+'><div class="l">'+lbl+'</div><div class="v">'+val+'</div><div class="d">'+meta+'</div></div>'; }
+  return '<div class="kpis ac2kpis">'+k('In your queue',c.all,'tasks for <b>'+state.role+'</b>','all')+k('Urgent',c.late,c.late?'<b style="color:var(--red)">overdue</b> — first':'none overdue','late')+k('Touch today',Math.min(c.all,6),'recommended focus','today')+k('Pipeline open',pipe,'orders moving',null)+'</div>'; }
 /* Finance feed (read-only) — shipment & delivery records for Finance/CFO inside the Action Center. Pure read over state.shipments; not an action, no escalation, no writes. */
 function financeFeed(){
   var sh=(state.shipments||[]).filter(function(s){return s&&!s.voided&&(+s.kg||0)>0;});
@@ -4448,13 +4460,12 @@ function screenApprovals(){
   var base=acBase();
   if(!base.length){ var _fin=(state.role==='CFO'||isCOO)?financeFeed():''; $('view').innerHTML=_fin||'<div class="card"><div class="empty"><div class="ei">✓</div>Nothing waiting on you right now.</div></div>'; return; }
   var c=acCounts();
-  var lensName=acGroup==='priority'?'Priority':(acGroup==='stage'?'By stage':'By role');
   var kpis=acKpiHTML(c);
-  var viewbar='<div class="acviewbar">'+acGroupBarHTML()+acViewBarHTML()+'<div class="gr"></div><span class="achint">Lens: <b>'+lensName+'</b> · oldest '+c.oldest+'d'+(isCOO?' · all role queues':'')+' · click an action to act</span></div>';
+  var tabs='<div class="actabs-m">'+acTabsHTML(c)+'</div>';
   var tools='<div class="ac2tools"><input id="ac2search" placeholder="Search PO / customer / product" value="'+(acQ||'').replace(/"/g,'&quot;')+'" oninput="acQ=this.value;var e=document.getElementById(\'ac2list\');if(e)e.innerHTML=acBodyHTML();">'
-    +'<select onchange="acSort2=this.value;render()"><option value="risk"'+(acSort2==='risk'?' selected':'')+'>Risk first</option><option value="oldest"'+(acSort2==='oldest'?' selected':'')+'>Oldest first</option><option value="newest"'+(acSort2==='newest'?' selected':'')+'>Newest first</option><option value="customer"'+(acSort2==='customer'?' selected':'')+'>Customer A–Z</option></select></div>';
-  var rolebar=isCOO?acRoleBarHTML():'';
-  $('view').innerHTML='<div class="paperui">'+kpis+viewbar+tools+rolebar+'<div id="ac2list">'+acBodyHTML()+'</div>'+((state.role==='CFO'||isCOO)?financeFeed():'')+'</div>';
+    +acGroupSelect()+(isCOO?acRoleSelect():'')
+    +'<select onchange="acSort2=this.value;render()"><option value="risk"'+(acSort2==='risk'?' selected':'')+'>Sort: Risk first</option><option value="oldest"'+(acSort2==='oldest'?' selected':'')+'>Sort: Oldest first</option><option value="newest"'+(acSort2==='newest'?' selected':'')+'>Sort: Newest first</option><option value="customer"'+(acSort2==='customer'?' selected':'')+'>Sort: Customer A–Z</option></select></div>';
+  $('view').innerHTML='<div class="paperui">'+kpis+tabs+tools+'<div id="ac2list">'+acBodyHTML()+'</div>'+((state.role==='CFO'||isCOO)?financeFeed():'')+'</div>';
 }
 function screenInstructions(){
   const steps=[

@@ -1212,6 +1212,10 @@ td{padding:6px 11px}
 .paperui .card.tkhead{background:transparent;border:0;box-shadow:none;padding:0}
 .paperui .tkkpis .kpi{background:#fff;border:1px solid #ece3d3;border-radius:12px}
 .paperui .tkkpis .kpi .v,.paperui .tkkpis .kpi .kv,.paperui .tkkpis .kpi b{font-family:Georgia,'Times New Roman',serif}
+/* Production & Shipments desks → Paper Editorial (retint accent to teal + warm canvas). Higher specificity than injected PROD_CSS. */
+body .pdsk{--pb:#0f766e;--pb2:#0b5c54;--pb50:#e7f3f1;--pleaf:#0f766e;--pgreen:#0f766e;background:#faf8f4;border:1px solid #efe7d8;border-radius:16px;padding:16px 18px}
+body .pdsk .card,body .pdsk .pdpulse{border-color:#ece3d3}
+body .pdsk .pdpulse .ppv,body .pdsk .qcard .qn{font-family:Georgia,'Times New Roman',serif}
 /* In-body Action Center tabs: desktop uses the top-bar tabs, this is the mobile fallback */
 .actabs-m{display:none}
 @media(max-width:900px){.actabs-m{display:block;margin-bottom:10px}}
@@ -4144,11 +4148,11 @@ function screenQC(){
   if(!qcBody)qcBody='<div class="card"><div class="muted">No production lots in Lab QC yet.</div></div>';
   $('view').innerHTML=`
    
-   ${(isLab||isAQ||isQM||isPM||isCOO)?'':viewOnly('Lab, AQCM, QCM &amp; Plant Manager')}
+   <div class="paperui">${(isLab||isAQ||isQM||isPM||isCOO)?'':viewOnly('Lab, AQCM, QCM &amp; Plant Manager')}
    ${qcKpiStrip}
    ${_pcSub([['status','By status'],['step','My step'],['product','By product']],qcGroup,'qcGroup')}
    <div class="sec secflex"><h3>Lots awaiting sign-off</h3><span class="gr"></span><span class="hint">Lens: <b>${({status:'By status',step:'My step',product:'By product'})[qcGroup]||''}</b></span></div>
-   ${qcBody}`;
+   ${qcBody}</div>`;
 }
 var qaGroup='status';
 function screenQA(){
@@ -4180,11 +4184,11 @@ function screenQA(){
   if(!qaBody)qaBody='<div class="card"><div class="muted">Nothing in pre-shipment QA right now.</div></div>';
   $('view').innerHTML=`
    
-   ${(isQA||isSC||isCOO)?'':viewOnly('QA Inspector &amp; Supply Chain')}
+   <div class="paperui">${(isQA||isSC||isCOO)?'':viewOnly('QA Inspector &amp; Supply Chain')}
    ${qaKpiStrip}
    ${_pcSub([['status','By status'],['po','By PO'],['product','By product']],qaGroup,'qaGroup')}
    <div class="sec secflex"><h3>Awaiting inspection</h3><span class="gr"></span><span class="hint">Lens: <b>${({status:'By status',po:'By PO',product:'By product'})[qaGroup]||''}</b></span></div>
-   ${qaBody}`;
+   ${qaBody}</div>`;
 }
 const QC_CHECKLIST=['Packaging intact & correct','Label / artwork correct','Net weight / count verified','Seal & closure OK','Cleanliness — no contamination','Batch & expiry printed','No leakage / damage','Pallet / loading condition'];
 

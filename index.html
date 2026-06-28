@@ -1208,6 +1208,10 @@ td{padding:6px 11px}
 .paperui button:hover{background:#0b5c54}
 .paperui button.ghost,.paperui button.sm.ghost{background:#fff;color:#0f766e;border:1px solid #d8cbb6}
 .paperui input,.paperui select{border-color:#e0d6c4;background:#fff}
+/* PO Tracker: dissolve the outer panel so content sits on the warm canvas */
+.paperui .card.tkhead{background:transparent;border:0;box-shadow:none;padding:0}
+.paperui .tkkpis .kpi{background:#fff;border:1px solid #ece3d3;border-radius:12px}
+.paperui .tkkpis .kpi .v,.paperui .tkkpis .kpi .kv,.paperui .tkkpis .kpi b{font-family:Georgia,'Times New Roman',serif}
 /* In-body Action Center tabs: desktop uses the top-bar tabs, this is the mobile fallback */
 .actabs-m{display:none}
 @media(max-width:900px){.actabs-m{display:block;margin-bottom:10px}}
@@ -2632,7 +2636,7 @@ function screenTracker(){
     +BUCKETS.map(function(s){var c=(BUCKET_META[s]&&BUCKET_META[s].c)||'--mut';return '<button class="fpill'+(trkStage===s?' on':'')+'" onclick="trkStage=(trkStage===\''+s+'\'?\'\':\''+s+'\');render()"><span class="d" style="background:var('+c+')"></span>'+s+'</button>';}).join('')
     +'</div><div style="flex:1"></div><span class="hint"><span id="trkShown">'+trkList().length+'</span> of '+all.length+(anyFilter?' · <b onclick="trkClear()" style="cursor:pointer;color:var(--navy)">clear</b>':'')+'</span></div>';
   var legend=`<div class="t2leg"><i><span class="t2dot" style="background:var(--green)"></span> stage complete</i><i><span class="t2dot" style="background:var(--blue)"></span> current</i><i><span class="t2dot" style="background:var(--amber)"></span> ageing 3-6d</i><i><span class="t2dot" style="background:var(--red)"></span> stalled / overdue</i><i>~ = approximate (stage date missing)</i></div>`;
-  $('view').innerHTML='<div class="card tkhead"><h3 style="margin:0 0 10px">PO Tracker <span class="hint">stage = blocking</span></h3>'+strip+viewbar+facets+'<div id="trkBody">'+trkBodyHTML()+'</div>'+(trkView==='list'?legend:'')+'</div>';
+  $('view').innerHTML='<div class="paperui"><div class="card tkhead"><h3 style="margin:0 0 10px">PO Tracker <span class="hint">stage = blocking</span></h3>'+strip+viewbar+facets+'<div id="trkBody">'+trkBodyHTML()+'</div>'+(trkView==='list'?legend:'')+'</div></div>';
 }
 
 /* ===================== ORDER DRAWER (role-owned lifecycle) ===================== */

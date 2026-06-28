@@ -1234,6 +1234,36 @@ body .pdsk .pdmore{border:1px solid #d8cbb6;background:#fff;color:#5a5248;border
 /* Dispatch "Load a truck" stepped form */
 .dstep{border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:12px}
 .dstep-h{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);font-weight:700;margin-bottom:10px}
+/* Report Builder */
+.rb-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.rb-title{font-size:17px;font-weight:500;color:#1c1b18}
+.rb-sub2{font-size:11px;color:#8a8279;margin-top:1px}
+.rb-top select{border:1px solid #d8cbb6;background:#fff;color:#1c1b18;border-radius:9px;padding:8px 11px;font-size:12.5px}
+.rb-grid{display:grid;grid-template-columns:210px 1fr;gap:12px;margin-bottom:12px}
+@media(max-width:760px){.rb-grid{grid-template-columns:1fr}}
+.rb-pal,.rb-zone{background:#fff;border:1px solid #ece3d3;border-radius:12px;padding:10px 12px}
+.rb-build{display:flex;flex-direction:column;gap:10px}
+.rb-lab{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#9a9082;font-weight:700;margin-bottom:7px}
+.rb-sub{font-size:10px;color:#8a8279;margin:8px 0 4px}
+.rb-fldwrap{display:flex;flex-wrap:wrap;gap:5px}
+.rb-fld{background:#eef3f1;color:#0b5c54;font-size:11px;padding:3px 8px;border-radius:6px;cursor:pointer;user-select:none}
+.rb-fld.on{background:#0f766e;color:#fff}
+.rb-colwrap{display:flex;flex-wrap:wrap;gap:6px;min-height:24px}
+.rb-col{background:#fff;border:1px solid #d8cbb6;color:#1c1b18;font-size:11.5px;padding:4px 8px;border-radius:7px;display:inline-flex;align-items:center;gap:5px;cursor:grab}
+.rb-col a{color:#8a8279;cursor:pointer;font-size:10px;text-decoration:none}
+.rb-col a:hover{color:#0f766e}
+.rb-empty{font-size:12px;color:#9a9082}
+.rb-filters{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.rb-filters .rb-lab{margin-bottom:0}
+.rb-filters input,.rb-filters select{border:1px solid #e0d6c4;background:#fff;border-radius:8px;padding:6px 9px;font-size:12px}
+.rb-modeseg{display:inline-flex;border:1px solid #d8cbb6;border-radius:8px;overflow:hidden}
+.rb-modeseg button{border:0;background:#fff;color:#5a5248;font-size:12px;padding:6px 12px;cursor:pointer;font-family:inherit}
+.rb-modeseg button.on{background:#0f766e;color:#fff}
+.rb-pvh{display:flex;justify-content:space-between;align-items:center;padding:9px 14px;border-bottom:1px solid #ece3d3}
+.rbtbl{width:100%;border-collapse:collapse;font-size:12px}
+.rbtbl th{position:sticky;top:0;background:#faf8f4;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:#9a9082;padding:7px 12px;white-space:nowrap;border-bottom:1px solid #ece3d3}
+.rbtbl td{padding:7px 12px;border-bottom:1px solid #f0ece3;color:#3a3a36;white-space:nowrap}
+.rbtbl td.num,.rbtbl th.num{text-align:right;font-variant-numeric:tabular-nums}
 /* In-body Action Center tabs: desktop uses the top-bar tabs, this is the mobile fallback */
 .actabs-m{display:none}
 @media(max-width:900px){.actabs-m{display:block;margin-bottom:10px}}
@@ -6094,13 +6124,15 @@ function editMaster(k,idx){ if(!screenEditOK('admin')){toast('You need Edit acce
 
 /* ===================== INIT ===================== */
 /* ===================== REPORTS (read-only) ===================== */
-let rpTab='trends';
+let rpTab='builder';
 let rpDim='client', rpMeas='ordered', rpCol='none';
+/* ===== Report Builder state ===== */
+var rbDS='production', rbCols=['date','shift','batch','product','output'], rbFilters={}, rbFrom='', rbTo='', rbMode='raw', rbGroup=[], rbDragI=null;
 let rpfMonth='', rpfChannel='', rpfClient='', rpfPriority='';
 let rpChart=null;
 const RP_DIMS={client:'Client',channel:'Channel',brand:'Product (brand)',base:'Base product',month:'Month (PO received)',priority:'Priority',stage:'Stage'};
 const RP_MEAS={ordered:'Ordered (Kg/L)',produced:'Produced (Kg/L)',packed:'Packed (Kg/L)',dispatched:'Shipped (Kg/L)',delivered:'Delivered (Kg/L)',toproduce:'Pending to produce',topack:'Pending to pack',toship:'Pending to ship',pos:'# POs',lines:'# SKU lines'};
-const RP_TABS=[['trends','Trends'],['explorer','Explorer'],['postatus','PO Status'],['prod','Production'],['trace','Batch Trace'],['coa','QC Reports'],['ship','Shipments'],['delay','Delay / Hold'],['log','Action Log']];
+const RP_TABS=[['builder','Report Builder'],['trends','Trends'],['explorer','Explorer'],['postatus','PO Status'],['prod','Production'],['trace','Batch Trace'],['coa','QC Reports'],['ship','Shipments'],['delay','Delay / Hold'],['log','Action Log']];
 function rpReset(){ rpfMonth='';rpfChannel='';rpfClient='';rpfPriority='';screenReports(); }
 function rpMonths(){ const s=new Set(); state.orders.forEach(o=>{const m=(o.received||'').slice(0,7); if(m)s.add(m);}); (state.productionLog||[]).forEach(p=>{const m=(p.date||'').slice(0,7); if(m)s.add(m);}); return [...s].sort().reverse(); }
 function rpLines(){ const out=[]; state.orders.forEach(o=>{ if(rpfChannel&&o.channel!==rpfChannel)return; if(rpfClient&&o.client!==rpfClient)return; if(rpfPriority&&(o.priority||'Normal')!==rpfPriority)return; o.lines.forEach(l=>{ if(rpfMonth&&(o.received||'').slice(0,7)!==rpfMonth)return; out.push({o,l}); }); }); return out; }
@@ -6194,9 +6226,74 @@ function rpQCReports(){
   const body=view.map(r=>`<tr><td><b>${r.qcNo||'—'}</b></td><td>${r.item}</td><td>${r.batchNo}</td><td class="muted">${r.po||'—'}</td><td class="num">${fmt(r.produced)}</td><td>${rb(r.overall)}</td><td><span class="pill" style="background:var(--navy-50);color:var(--navy);font-size:9px">${r.status}</span></td><td class="muted">${r.by||'—'}</td><td class="muted">${r.date||''}</td><td>${r.status==='approved'?`<button class="sm ghost" onclick="printCOA('${r.id}','${r.lid||''}')">Print</button>`:((canEdit(['Lab Rep','AQCM','QCM'])||state.role==='COO')?`<button class="sm ghost" onclick="openBatchCOA('${r.id}','${r.lid||''}')">Open</button>`:'')}</td></tr>`).join('');
   return `<div class="card"><h3>QC Reports — Certificate of Analysis register <span class="hint">${rows.length} total</span></h3>${regBar('coa',opt,total)}<div style="overflow:auto;max-height:62vh"><table><thead><tr><th>QC #</th><th>Product</th><th>Batch</th><th>PO</th><th class="num">Produced</th><th>Result</th><th>Status</th><th>By</th><th>Date</th><th></th></tr></thead><tbody>${body||'<tr><td colspan="10" class="muted">No COA reports match.</td></tr>'}</tbody></table></div>${regPager('coa',pages)}</div>`;
 }
+/* ===== Report Builder — extensible field-schema per dataset; add a field = one line, add a dataset = one block ===== */
+function _rbClientMap(){ var m={}; (state.orders||[]).forEach(function(o){m[o.po]=o.client||'';}); return m; }
+var RB_DATASETS={
+  production:{label:'Production output',dateKey:'date',
+    rows:function(){ var cm=_rbClientMap(); return (state.productionLog||[]).filter(function(p){return p&&!p.opening&&!/opening|reconcile/i.test((p.incharge||'')+(p.by||''))&&(+p.kg||0)>0;}).map(function(p){ var prod=((p.brand?p.brand+' ':'')+(p.base||'')).trim(); return {date:p.date||'',shift:p.shift||'',incharge:p.incharge||'',product:prod||'—',brand:p.brand||'',base:p.base||'',bed:(p.beds||[]).join(', ')||'—',batch:p.batchNo||'',po:p.po||'',client:cm[p.po]||'',output:+p.kg||0}; }); },
+    fields:[{k:'date',l:'Date',t:'dim'},{k:'shift',l:'Shift',t:'dim'},{k:'bed',l:'Bed',t:'dim'},{k:'batch',l:'Batch',t:'dim'},{k:'product',l:'Product',t:'dim'},{k:'brand',l:'Brand',t:'dim'},{k:'base',l:'Base',t:'dim'},{k:'po',l:'PO',t:'dim'},{k:'client',l:'Client',t:'dim'},{k:'incharge',l:'Incharge',t:'dim'},{k:'output',l:'Output kg',t:'meas'}],
+    filters:['shift','product','client','batch','incharge']},
+  batches:{label:'Batches · wastage / loss / by-product',dateKey:'opened',
+    rows:function(){ var cm=_rbClientMap(); return (state.batches||[]).filter(function(b){return b&&!b.voided;}).map(function(b){ return {batch:b.batchNo||'',kind:b.kind||'',po:b.po||'',client:cm[b.po]||'',product:b.brand||b.base||'',base:b.base||'',disposition:b.disposition||'—',status:b.status||'',opened:b.openedDate||'',closed:b.closedDate||'',planned:+b.plannedKg||0,produced:+b.producedKg||0,packed:+b.packedKg||0,disposed:+b.disposedKg||0}; }); },
+    fields:[{k:'batch',l:'Batch',t:'dim'},{k:'kind',l:'Kind',t:'dim'},{k:'po',l:'PO',t:'dim'},{k:'client',l:'Client',t:'dim'},{k:'product',l:'Product',t:'dim'},{k:'base',l:'Base',t:'dim'},{k:'disposition',l:'Disposition',t:'dim'},{k:'status',l:'Status',t:'dim'},{k:'opened',l:'Opened',t:'dim'},{k:'closed',l:'Closed',t:'dim'},{k:'planned',l:'Planned kg',t:'meas'},{k:'produced',l:'Produced kg',t:'meas'},{k:'packed',l:'Packed kg',t:'meas'},{k:'disposed',l:'Disposed kg',t:'meas'}],
+    filters:['kind','disposition','status','client','product']},
+  shipments:{label:'Shipments',dateKey:'date',
+    rows:function(){ var cm=_rbClientMap(); return (state.shipments||[]).filter(function(s){return s&&!s.voided;}).map(function(s){ return {date:s.dispatch||'',po:s.po||'',client:cm[s.po]||'',product:s.brand||'',dc:s.dc||'',vehicle:s.vehicle||'',carrier:s.carrier||'',destination:s.destination||'',bilty:s.bilty||'',delivered:s.delivered||'',shipno:s.shipNo||'',kg:+s.kg||0}; }); },
+    fields:[{k:'date',l:'Dispatched',t:'dim'},{k:'po',l:'PO',t:'dim'},{k:'client',l:'Client',t:'dim'},{k:'product',l:'Product',t:'dim'},{k:'dc',l:'DC #',t:'dim'},{k:'vehicle',l:'Vehicle',t:'dim'},{k:'carrier',l:'Carrier',t:'dim'},{k:'destination',l:'Destination',t:'dim'},{k:'bilty',l:'Bilty',t:'dim'},{k:'delivered',l:'Delivered',t:'dim'},{k:'shipno',l:'Shipment #',t:'dim'},{k:'kg',l:'Kg/L',t:'meas'}],
+    filters:['client','product','destination','dc']},
+  orders:{label:'Orders / PO lines · sales',dateKey:'received',
+    rows:function(){ var out=[]; (state.orders||[]).forEach(function(o){ (o.lines||[]).forEach(function(l){ out.push({po:o.po||'',client:o.client||'',channel:o.channel||'',product:l.brand||'',base:l.base||'',received:o.received||'',promised:o.promised||'',priority:o.priority||'Normal',stage:(typeof lineStage==='function'?lineStage(o,l):''),ordered:+l.ordered||0,produced:+l.produced||0,packed:+l.packed||0,dispatched:+l.dispatched||0,delivered:+l.delivered||0,value:Math.round((+l.delivered||0)*(+l.invoicePrice||0))}); }); }); return out; },
+    fields:[{k:'po',l:'PO',t:'dim'},{k:'client',l:'Client',t:'dim'},{k:'channel',l:'Channel',t:'dim'},{k:'product',l:'Product',t:'dim'},{k:'base',l:'Base',t:'dim'},{k:'received',l:'Received',t:'dim'},{k:'promised',l:'Promised',t:'dim'},{k:'priority',l:'Priority',t:'dim'},{k:'stage',l:'Stage',t:'dim'},{k:'ordered',l:'Ordered',t:'meas'},{k:'produced',l:'Produced',t:'meas'},{k:'packed',l:'Packed',t:'meas'},{k:'dispatched',l:'Shipped',t:'meas'},{k:'delivered',l:'Delivered',t:'meas'},{k:'value',l:'Delivered value',t:'meas'}],
+    filters:['client','channel','priority','stage','product']}
+};
+function rbDef(){ return RB_DATASETS[rbDS]||RB_DATASETS.production; }
+function rbField(k){ var a=rbDef().fields.filter(function(f){return f.k===k;}); return a[0]; }
+function rbIsMeas(k){ if(k==='__count')return true; var f=rbField(k); return !!(f&&f.t==='meas'); }
+function rbColLabel(k){ if(k==='__count')return 'Rows'; var f=rbField(k); return f?f.l:k; }
+function rbSetDS(v){ rbDS=v; var d=rbDef(); rbCols=d.fields.slice(0,5).map(function(f){return f.k;}); rbFilters={}; rbGroup=[]; render(); }
+function rbToggleCol(k){ var i=rbCols.indexOf(k); if(i<0)rbCols.push(k); else rbCols.splice(i,1); render(); }
+function rbMoveCol(k,dir){ var i=rbCols.indexOf(k); if(i<0)return; var j=i+dir; if(j<0||j>=rbCols.length)return; var t=rbCols[i];rbCols[i]=rbCols[j];rbCols[j]=t; render(); }
+function rbDrop(j){ if(rbDragI==null)return; var i=rbDragI; rbDragI=null; if(i===j||i<0||i>=rbCols.length)return; var c=rbCols.splice(i,1)[0]; rbCols.splice(j,0,c); render(); }
+function rbSetFilter(k,v){ if(v)rbFilters[k]=v; else delete rbFilters[k]; render(); }
+function rbToggleGroup(k){ var i=rbGroup.indexOf(k); if(i<0)rbGroup.push(k); else rbGroup.splice(i,1); render(); }
+function rbSetMode(m){ rbMode=m; if(m==='summary'&&!rbGroup.length){ var fd=rbCols.filter(function(k){return rbField(k)&&rbField(k).t==='dim';})[0]; if(fd)rbGroup=[fd]; } render(); }
+function rbDistinct(k){ var s={}; rbDef().rows().forEach(function(r){var v=r[k]; if(v!=null&&v!=='')s[v]=1;}); return Object.keys(s).sort(); }
+function rbRows(){ var d=rbDef(); var rows=d.rows(); var dk=d.dateKey;
+  if(rbFrom)rows=rows.filter(function(r){return String(r[dk]||'')>=rbFrom;});
+  if(rbTo)rows=rows.filter(function(r){return String(r[dk]||'')<=rbTo;});
+  Object.keys(rbFilters).forEach(function(k){ var v=rbFilters[k]; rows=rows.filter(function(r){return String(r[k]==null?'':r[k])===v;}); });
+  return rows; }
+function rbResult(){ var rows=rbRows(); var cols=rbCols.length?rbCols.slice():rbDef().fields.slice(0,5).map(function(f){return f.k;});
+  if(rbMode==='summary'){ var dims=rbGroup.length?rbGroup.slice():[cols.filter(function(k){return rbField(k)&&rbField(k).t==='dim';})[0]].filter(Boolean); var meas=cols.filter(function(k){return rbField(k)&&rbField(k).t==='meas';}); if(!meas.length){ var mm=rbDef().fields.filter(function(f){return f.t==='meas';})[0]; if(mm)meas=[mm.k]; }
+    var groups={},order=[]; rows.forEach(function(r){ var key=dims.map(function(d){return r[d];}).join(''); if(!groups[key]){ groups[key]={}; dims.forEach(function(d){groups[key][d]=r[d];}); meas.forEach(function(m){groups[key][m]=0;}); groups[key].__count=0; order.push(key); } meas.forEach(function(m){groups[key][m]+=(+r[m]||0);}); groups[key].__count++; });
+    return {cols:dims.concat(meas).concat(['__count']),rows:order.map(function(k){return groups[k];}),count:rows.length,summary:true}; }
+  return {cols:cols,rows:rows,count:rows.length,summary:false}; }
+function rbCellFmt(k,v){ if(rbIsMeas(k))return fmt(Math.round(+v||0)); return (v==null||v==='')?'—':String(v); }
+function rbModeSeg(){ return '<span class="rb-modeseg"><button class="'+(rbMode==='raw'?'on':'')+'" onclick="rbSetMode(\'raw\')">Rows</button><button class="'+(rbMode==='summary'?'on':'')+'" onclick="rbSetMode(\'summary\')">Summarize</button></span>'; }
+function rbExport(fmt2){ var res=rbResult(); var cols=res.cols; var lines=[cols.map(rbColLabel).map(_rbCsv).join(',')];
+  res.rows.forEach(function(r){ lines.push(cols.map(function(k){ var v=rbIsMeas(k)?(Math.round(+r[k]||0)):(r[k]==null?'':r[k]); return _rbCsv(String(v)); }).join(',')); });
+  var csv=lines.join('\r\n'); var blob=new Blob([csv],{type:fmt2==='xls'?'application/vnd.ms-excel':'text/csv;charset=utf-8'}); var url=URL.createObjectURL(blob); var a=document.createElement('a'); a.href=url; a.download='report-'+rbDS+'-'+TODAY.toISOString().slice(0,10)+'.'+(fmt2==='xls'?'xls':'csv'); document.body.appendChild(a); a.click(); document.body.removeChild(a); setTimeout(function(){URL.revokeObjectURL(url);},1000); toast('Exported '+res.rows.length+(res.summary?' groups':' rows')); }
+function _rbCsv(v){ v=String(v==null?'':v); return /[",\r\n]/.test(v)?('"'+v.replace(/"/g,'""')+'"'):v; }
+function rbRender(){ var d=rbDef(); var res=rbResult();
+  var dims=d.fields.filter(function(f){return f.t==='dim';}), meas=d.fields.filter(function(f){return f.t==='meas';});
+  var fchip=function(f){ var on=rbCols.indexOf(f.k)>=0; return '<span class="rb-fld'+(on?' on':'')+'" onclick="rbToggleCol(\''+f.k+'\')">'+f.l+(on?' ✓':' +')+'</span>'; };
+  var palette='<div class="rb-pal"><div class="rb-lab">Fields · tap to add</div><div class="rb-sub">Dimensions</div><div class="rb-fldwrap">'+dims.map(fchip).join('')+'</div><div class="rb-sub">Measures</div><div class="rb-fldwrap">'+meas.map(fchip).join('')+'</div></div>';
+  var colChips=rbCols.length?rbCols.map(function(k,i){ return '<span class="rb-col" draggable="true" ondragstart="rbDragI='+i+'" ondragover="event.preventDefault()" ondrop="rbDrop('+i+')">'+rbColLabel(k)+' <a title="left" onclick="rbMoveCol(\''+k+'\',-1)">◀</a><a title="right" onclick="rbMoveCol(\''+k+'\',1)">▶</a><a title="remove" onclick="rbToggleCol(\''+k+'\')">✕</a></span>'; }).join(''):'<span class="rb-empty">Tap fields on the left to add columns</span>';
+  var colZone='<div class="rb-zone"><div class="rb-lab">Columns · drag or use ◀ ▶ to reorder</div><div class="rb-colwrap">'+colChips+'</div></div>';
+  var filterCtl=d.filters.map(function(fk){ var f=rbField(fk); return '<select onchange="rbSetFilter(\''+fk+'\',this.value)"><option value="">'+f.l+': all</option>'+rbDistinct(fk).map(function(o){return '<option'+(rbFilters[fk]===o?' selected':'')+'>'+o+'</option>';}).join('')+'</select>'; }).join('');
+  var filterZone='<div class="rb-zone rb-filters"><span class="rb-lab">Filters</span><input type="date" value="'+rbFrom+'" onchange="rbFrom=this.value;render()" title="from"><span class="muted" style="font-size:11px">to</span><input type="date" value="'+rbTo+'" onchange="rbTo=this.value;render()" title="to">'+filterCtl+'<span style="flex:1"></span>'+rbModeSeg()+'</div>';
+  var groupZone=rbMode==='summary'?('<div class="rb-zone"><div class="rb-lab">Group by</div><div class="rb-colwrap">'+dims.map(function(f){var on=rbGroup.indexOf(f.k)>=0;return '<span class="rb-fld'+(on?' on':'')+'" onclick="rbToggleGroup(\''+f.k+'\')">'+f.l+(on?' ✓':' +')+'</span>';}).join('')+'</div></div>'):'';
+  var head='<tr>'+res.cols.map(function(k){return '<th'+(rbIsMeas(k)?' class="num"':'')+'>'+rbColLabel(k)+'</th>';}).join('')+'</tr>';
+  var cap=res.rows.slice(0,200);
+  var body=cap.length?cap.map(function(r){return '<tr>'+res.cols.map(function(k){return '<td'+(rbIsMeas(k)?' class="num"':'')+'>'+rbCellFmt(k,r[k])+'</td>';}).join('')+'</tr>';}).join(''):'<tr><td class="muted" style="padding:16px" colspan="'+res.cols.length+'">No data — widen the date range or clear filters.</td></tr>';
+  var preview='<div class="card" style="padding:0"><div class="rb-pvh"><span style="font-weight:500">Preview</span><span class="muted">'+res.rows.length+(res.summary?' groups':' rows')+' · '+res.count+' records</span></div><div style="overflow:auto;max-height:50vh"><table class="rbtbl"><thead>'+head+'</thead><tbody>'+body+'</tbody></table></div>'+(res.rows.length>cap.length?'<div class="muted" style="font-size:11px;padding:8px 14px">Showing first 200 of '+res.rows.length+' — Export to get them all.</div>':'')+'</div>';
+  var dsSel='<select onchange="rbSetDS(this.value)" style="font-weight:500">'+Object.keys(RB_DATASETS).map(function(k){return '<option value="'+k+'"'+(rbDS===k?' selected':'')+'>'+RB_DATASETS[k].label+'</option>';}).join('')+'</select>';
+  return '<div class="rb-top"><div><div class="rb-title">Report Builder</div><div class="rb-sub2">Pick a dataset, tap fields, set a date range — then export. No Excel needed.</div></div><span style="flex:1"></span>'+dsSel+'<button class="sm ghost" onclick="rbExport(\'csv\')">Export CSV</button><button class="sm" onclick="rbExport(\'xls\')">Export Excel</button></div><div class="rb-grid">'+palette+'<div class="rb-build">'+colZone+filterZone+groupZone+'</div></div>'+preview;
+}
 function screenReports(){
   let body='';
-  if(rpTab==='trends') body=rpTrends();
+  if(rpTab==='builder') body=rbRender();
+  else if(rpTab==='trends') body=rpTrends();
   else if(rpTab==='explorer') body=rpExplorer();
   else if(rpTab==='postatus') body=rpPOStatus();
   else if(rpTab==='prod') body=rpMonthly();
@@ -6205,7 +6302,7 @@ function screenReports(){
   else if(rpTab==='ship') body=rpShip();
   else if(rpTab==='delay') body=rpDelay();
   else if(rpTab==='log') body=rpLog();
-  $('view').innerHTML = `${rpFilterBar()}${rpTabsBar()}${body}`;
+  $('view').innerHTML = `<div class="paperui">${rpTab==='builder'?'':rpFilterBar()}${rpTabsBar()}${body}</div>`;
   if(rpTab==='explorer'||rpTab==='prod') rpDrawChart();
   if(rpTab==='trends') trDrawChart();
 }

@@ -2512,13 +2512,15 @@ function custCode(seg,name,inducted,outlet){
 }
 function custInit(){
   state.customers=state.customers||[];
+  /* correction: Destination Partner is a per-PO field on VGreen, not an outlet — remove any earlier VG-DP seed (once) */
+  if(!state._custFixDP1){ state.customers=state.customers.filter(function(c){return c.code!=='VG-DP';}); state._custFixDP1=true; if(typeof save==='function')save(); }
   if(state._custInitV1){ return; }
   var has=function(name,seg){ return state.customers.some(function(c){return c.name===name&&c.segment===seg;}); };
   var add=function(c){ if(!has(c.name,c.segment)) state.customers.push(c); };
   var yr=TODAY.getFullYear();
   (state.dealers||[]).forEach(function(d){ add({code:d.code,name:d.name,segment:'Dealer',parent:'',outlet:'',isParent:false,brandKey:'Dealers',region:d.region||'',city:d.city||'',contact:d.contact||'',phone:d.phone||'',creditDays:d.creditDays||0,fed:'Exclusive',kam:'',introducedBy:'',destination:'',ntn:'',inducted:yr,status:d.status||'Active'}); });
   add({code:'VG',name:'VGreen',segment:'VGreen',parent:'',outlet:'',isParent:true,brandKey:'Vgreen',fed:'Exclusive',kam:'',introducedBy:'',destination:'',status:'Active',inducted:yr});
-  [['VC','Value Chain'],['FM','Farm Management'],['DP','Destination Partner']].forEach(function(s){ add({code:'VG-'+s[0],name:'VGreen — '+s[1],segment:'VGreen',parent:'VGreen',outlet:s[0],isParent:false,brandKey:'Vgreen',fed:'Exclusive',kam:'',introducedBy:'',destination:'',status:'Active',inducted:yr}); });
+  [['VC','Value Chain'],['FM','Farm Management']].forEach(function(s){ add({code:'VG-'+s[0],name:'VGreen — '+s[1],segment:'VGreen',parent:'VGreen',outlet:s[0],isParent:false,brandKey:'Vgreen',fed:'Exclusive',kam:'',introducedBy:'',destination:'',status:'Active',inducted:yr}); });
   add({code:'COBO',name:'COBO',segment:'COBO',parent:'',outlet:'',isParent:true,brandKey:'VITAL AGRI NUTRIENTS (PVT) LTD',fed:'Exclusive',kam:'',introducedBy:'',destination:'',status:'Active',inducted:yr});
   add({code:'COBO-001',name:'VITAL AGRI NUTRIENTS (PVT) LTD',segment:'COBO',parent:'COBO',outlet:'001',isParent:false,brandKey:'VITAL AGRI NUTRIENTS (PVT) LTD',fed:'Exclusive',kam:'',introducedBy:'',destination:'',status:'Active',inducted:yr});
   add({code:custCode('Distributor','BKK',yr),name:'BKK',segment:'Distributor',parent:'',outlet:'',isParent:false,brandKey:'BKK',fed:'Exclusive',kam:'',introducedBy:'',destination:'',status:'Active',inducted:yr});

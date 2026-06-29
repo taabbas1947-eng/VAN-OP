@@ -2287,6 +2287,16 @@ function dfSubmitCorrect(){
 
 /* ===================== 1. NEW PO ENTRY ===================== */
 let entryChannel='', entryClient='', entryVsub='', entryFocal='', entryPrintOn=false;
+let entryFOC=false, entryFEDover='', entryDestPartner='';
+/* Resolve the selected Customer Master record (for FED mode / KAM / destination defaults). */
+function curCustomer(){ var cs=(state.customers||[]);
+  if(entryChannel==='Vgreen') return cs.filter(function(c){return c.segment==='VGreen'&&c.outlet===(entryVsub||'');})[0];
+  if(entryChannel==='Cobo') return cs.filter(function(c){return c.segment==='COBO'&&!c.isParent;})[0];
+  if(entryChannel==='Dealer'){ var code=((entryClient||'').split('|')[0]||'').trim(); return cs.filter(function(c){return c.code===code;})[0]; }
+  var seg=(typeof _chanToSeg==='function')?_chanToSeg(entryChannel):''; return cs.filter(function(c){return c.segment===seg&&!c.isParent&&c.name===entryClient;})[0]; }
+function entryFedMode(){ if(entryFOC)return 'None'; if(entryFEDover)return entryFEDover; var c=curCustomer(); return (c&&c.fed)||'None'; }
+function fedSplit(value,mode){ value=+value||0; if(mode==='Exclusive'){ var f=_r2(value*0.05); return {sub:value,fed:f,total:_r2(value+f)}; } if(mode==='Inclusive'){ var sub=_r2(value/1.05); return {sub:sub,fed:_r2(value-sub),total:value}; } return {sub:value,fed:0,total:value}; }
+function entryTotals(){ var mode=entryFedMode(); var value=entryLines.reduce(function(a,l){return a+((!entryFOC&&+l.qty>0&&+l.inv>0)?(+l.qty*+l.inv):0);},0); var s=fedSplit(value,mode); s.mode=mode; return s; }
 let entryLines=[{brand:'',qty:'',pack:'',note:'',committed:''}];
 /* READ-ONLY recall: the most recent print price actually used for a brand (order lines + packing log).
    Pure read — pre-fills the print-price field; stores nothing new in master. */
@@ -2312,7 +2322,7 @@ function clientsForChannel(ch){
 function curClientObj(){ return clientsForChannel(entryChannel).find(c=>c.id===entryClient); }
 function brandPool(){ const co=curClientObj(); return co?(SEED.catalog.brandsByClient[co.brandKey]||[]):[]; }
 function detailForBrand(b){ return brandPool().find(x=>x.brand===b)||{}; }
-function onChannelChange(v){ entryChannel=v; entryClient=''; entryVsub=''; entryFocal=''; entryPrintOn=false; entryLines=[{brand:'',qty:'',pack:'',note:'',committed:''}]; screenEntry(); }
+function onChannelChange(v){ entryChannel=v; entryClient=''; entryVsub=''; entryFocal=''; entryPrintOn=false; entryFOC=false; entryFEDover=''; entryDestPartner=''; entryLines=[{brand:'',qty:'',pack:'',note:'',committed:''}]; screenEntry(); }
 function onClientChange(v){ entryClient=v; entryPrintOn=clientHasPrintHistory(v); entryLines=[{brand:'',qty:'',pack:'',note:'',committed:''}]; screenEntry(); }
 function setPrintOn(v){ entryPrintOn=!!v; renderEntryLines(); }
 function genPO(recv){
@@ -2344,7 +2354,10 @@ function screenEntry(){
      ${entryChannel==='Vgreen'?`<div class="fld"><label>Vgreen Sub</label>
        <select id="e_vsub" onchange="entryVsub=this.value;validate()"><option value="">— VC / FM —</option>
          <option value="VC" ${entryVsub==='VC'?'selected':''}>VC — Value Chain</option>
-         <option value="FM" ${entryVsub==='FM'?'selected':''}>FM — Farm Management</option></select></div>`:''}
+         <option value="FM" ${entryVsub==='FM'?'selected':''}>FM — Farm Management</option></select></div>
+       <div class="fld"><label>Destination Partner</label><input id="e_dpartner" type="text" value="${(entryDestPartner||'').replace(/"/g,'&quot;')}" oninput="entryDestPartner=this.value" placeholder="VGreen destination partner"></div>`:''}
+     <div class="fld"><label>PO type</label><select id="e_potype" onchange="entryFOC=(this.value==='FOC');renderEntryLines();updateEntryTotal();validate()"><option value="Commercial" ${!entryFOC?'selected':''}>Commercial</option><option value="FOC" ${entryFOC?'selected':''}>FOC sample (no charge)</option></select></div>
+     <div class="fld"><label>FED ${(state.role==='COO'||state.role==='CFO')?'<span class="tag">override</span>':'<span class="tag">auto</span>'}</label>${(state.role==='COO'||state.role==='CFO')?`<select onchange="entryFEDover=this.value;updateEntryTotal()"><option value="" ${!entryFEDover?'selected':''}>Auto · ${entryFedMode()}</option><option value="None" ${entryFEDover==='None'?'selected':''}>None</option><option value="Exclusive" ${entryFEDover==='Exclusive'?'selected':''}>Exclusive +5%</option><option value="Inclusive" ${entryFEDover==='Inclusive'?'selected':''}>Inclusive (extract 5%)</option></select>`:`<input type="text" value="${entryFedMode()}" disabled>`}</div>
      <div class="fld"><label>KAM Name</label><select id="e_kam" onchange="validate()"><option value="">— pick KAM —</option>${((state.masters&&state.masters.kamNames)||[]).map(k=>`<option ${k===state._lastKam?'selected':''}>${k}</option>`).join('')}</select></div>
      <div class="fld"><label>Priority</label><select id="e_pri"><option>Normal</option><option>High</option><option>Critical</option><option>Low</option></select></div>
      <div class="fld"><label>PO Received</label><input id="e_recv" type="date" value="${TODAY.toISOString().slice(0,10)}" oninput="validate()"></div>
@@ -2423,8 +2436,8 @@ function renderEntryLines(){
 /* live order summary (display only) — total qty and order value (Σ qty × invoice) */
 function updateEntryTotal(){ const el=document.getElementById('e_total'); if(!el) return;
   const totQty=entryLines.reduce((a,l)=>a+(+l.qty>0?+l.qty:0),0);
-  const totVal=entryLines.reduce((a,l)=>a+((+l.qty>0&&+l.inv>0)?(+l.qty*+l.inv):0),0);
-  el.innerHTML = totQty>0 ? `Order: <b>${fmt(totQty)} Kg/L</b>${totVal>0?` · value <b>PKR ${fmt(Math.round(totVal))}</b>`:''}` : '';
+  var t=entryTotals();
+  el.innerHTML = totQty>0 ? ('Order: <b>'+fmt(totQty)+' Kg/L</b>'+(entryFOC?' · <b style="color:var(--amber)">FOC sample · no charge</b>':(t.total>0?(' · subtotal <b>PKR '+fmt(t.sub)+'</b>'+(t.fed>0?(' · FED 5% <b>PKR '+fmt(t.fed)+'</b> · total <b>PKR '+fmt(t.total)+'</b>'):' · <span class="muted">FED: '+t.mode+'</span>')):'')) ) : '';
 }
 function entryChecks(){
   const lines=entryLines.filter(l=>l.brand&&+l.qty>0);
@@ -2445,9 +2458,9 @@ function entryChecks(){
     ['At least 1 line item (brand + qty)', lines.length>0, 'e_lines'],
     ['Pack size set on every line (> 0)', lines.length>0 && lines.every(l=>+l.pack>0), 'e_lines'],
     ['Each line committed date ≥ PO Received', lines.every(l=>!l.committed || !recv || l.committed>=recv), 'e_lines'],
-    ['Invoice price set on every line (per-Kg or per-pack)', lines.length>0 && lines.every(l=>+l.inv>0), 'e_lines'],
-    ['Per-Kg and per-pack price reconcile', lines.every(l=>{var pk=+l.pack||0;var calc=_r2((+l.inv||0)*pk);return !(+l.invPack>0)||pk<=0||Math.abs(calc-(+l.invPack))<=0.5;}), 'e_lines'],
-    ['Print price set on every line (when printing)', !entryPrintOn || (lines.length>0 && lines.every(l=>+l.printPrice>0)), 'e_lines'],
+    ['Invoice price set on every line (per-Kg or per-pack)', entryFOC || (lines.length>0 && lines.every(l=>+l.inv>0)), 'e_lines'],
+    ['Per-Kg and per-pack price reconcile', entryFOC || lines.every(l=>{var pk=+l.pack||0;var calc=_r2((+l.inv||0)*pk);return !(+l.invPack>0)||pk<=0||Math.abs(calc-(+l.invPack))<=0.5;}), 'e_lines'],
+    ['Print price set on every line (when printing)', entryFOC || !entryPrintOn || (lines.length>0 && lines.every(l=>+l.printPrice>0)), 'e_lines'],
   ];
 }
 function validate(){
@@ -2478,25 +2491,28 @@ function submitPO(){
   if(!canEdit(['KAM'])){toast('Only KAM can submit a PO');return;}
   const lines=entryLines.filter(l=>l.brand&&+l.qty>0); if(!lines.length){toast('Add a line item');return;}
   if(lines.some(l=>!(+l.pack>0))){ toast('Set a pack size (> 0) on every product line.'); return; }
-  if(lines.some(l=>!(+l.inv>0))){ toast('Enter the invoice price (PKR/Kg·L) for every product line.'); return; }
-  if(lines.some(l=>{var pk=+l.pack||0;var calc=_r2((+l.inv||0)*pk);return (+l.invPack>0&&pk>0&&Math.abs(calc-(+l.invPack))>0.5);})){ toast('A line\'s per-Kg and per-pack price don\'t reconcile (per-Kg × pack ≠ per-pack). Fix it before submitting.'); return; }
+  if(!entryFOC && lines.some(l=>!(+l.inv>0))){ toast('Enter the invoice price (PKR/Kg·L) for every product line.'); return; }
+  if(!entryFOC && lines.some(l=>{var pk=+l.pack||0;var calc=_r2((+l.inv||0)*pk);return (+l.invPack>0&&pk>0&&Math.abs(calc-(+l.invPack))>0.5);})){ toast('A line\'s per-Kg and per-pack price don\'t reconcile (per-Kg × pack ≠ per-pack). Fix it before submitting.'); return; }
   const _recv=$('e_recv').value, _prom=$('e_prom').value;
   if(_recv&&_prom&&_prom<_recv){ toast('Promised Delivery cannot be before PO Received.'); return; }
-  if(entryPrintOn && lines.some(l=>!(+l.printPrice>0))){ toast('Print price is ON — enter the print price (PKR/pack) for every line, or untick "Print price on pack".'); return; }
-  if(!entryPrintOn && linesNormallyPrint() && typeof confirm==='function' && !confirm('These products normally carry a printed price on the pack, but "Print price on pack" is OFF.\n\nSubmit WITHOUT a printed price?')) return;
-  if(typeof confirm==='function' && !confirm('Verify these prices match the client PO:\n\n'+lines.map(l=>{const pk=+l.pack||0;const ip=+l.inv||0;return '- '+l.brand+': PKR '+fmt(ip)+'/Kg'+(pk>0?(' = PKR '+fmt(ip*pk)+'/pack of '+fmt(pk)):'');}).join('\n')+'\n\nDo these per-pack prices match the client PO? Confirm to submit.')) return;
+  if(!entryFOC && entryPrintOn && lines.some(l=>!(+l.printPrice>0))){ toast('Print price is ON — enter the print price (PKR/pack) for every line, or untick "Print price on pack".'); return; }
+  if(!entryFOC && !entryPrintOn && linesNormallyPrint() && typeof confirm==='function' && !confirm('These products normally carry a printed price on the pack, but "Print price on pack" is OFF.\n\nSubmit WITHOUT a printed price?')) return;
+  if(!entryFOC && typeof confirm==='function' && !confirm('Verify these prices match the client PO:\n\n'+lines.map(l=>{const pk=+l.pack||0;const ip=+l.inv||0;return '- '+l.brand+': PKR '+fmt(ip)+'/Kg'+(pk>0?(' = PKR '+fmt(ip*pk)+'/pack of '+fmt(pk)):'');}).join('\n')+'\n\nDo these per-pack prices match the client PO? Confirm to submit.')) return;
+  if(entryFOC && typeof confirm==='function' && !confirm('This is a FOC sample PO — all prices will be recorded as 0 (no charge) and every document will be flagged as a free sample.\n\nConfirm to submit?')) return;
   state._lastKam=$('e_kam').value;
   const recv=$('e_recv').value; const po=isManualPO()?$('e_po').value.trim():genPO(recv);
   if((state.orders||[]).some(o=>String(o.po)===String(po))){ toast('A PO with number '+po+' already exists — open it in PO Tracker, or use a different client PO#.'); return; }
   const id='O'+(state.orders.length+1)+'_'+state.seq++;
-  const ord={ id, po, client:entryClient, channel:entryChannel, vgreenSub:entryVsub||null, focalPerson:($('e_focal')&&$('e_focal').value)||'', kam:$('e_kam').value.trim(),
+  var _fedMode=entryFedMode();
+  const ord={ id, po, client:entryClient, channel:entryChannel, vgreenSub:entryVsub||null, destinationPartner:(entryChannel==='Vgreen'?(entryDestPartner||''):''), foc:!!entryFOC, fedMode:_fedMode, focalPerson:($('e_focal')&&$('e_focal').value)||'', kam:$('e_kam').value.trim(),
     priority:$('e_pri').value, promised:$('e_prom').value, received:recv, rmDecision:'pending', printOnPack:!!entryPrintOn,
-    lines:lines.map((l,j)=>{const det=detailForBrand(l.brand);const procD=procureDaysFor(l.brand,det.base||l.brand,+l.qty);const autoCommit=computeCommitted(recv,+l.qty,procD,l.brand);return {id:id+'L'+j, brand:l.brand, base:det.base||l.brand, pack:+l.pack||det.pack||null, note:l.note||'', committed:l.committed||autoCommit||$('e_prom').value, ordered:+l.qty, printPrice:(entryPrintOn?(+l.printPrice||0):0), invoicePrice:+l.inv||0, invoicePack:(+l.invPack||((+l.inv||0)*(+l.pack||0))||0), produced:0,packed:0,dispatched:0,delivered:0};}) };
+    lines:lines.map((l,j)=>{const det=detailForBrand(l.brand);const procD=procureDaysFor(l.brand,det.base||l.brand,+l.qty);const autoCommit=computeCommitted(recv,+l.qty,procD,l.brand);return {id:id+'L'+j, brand:l.brand, base:det.base||l.brand, pack:+l.pack||det.pack||null, note:l.note||'', committed:l.committed||autoCommit||$('e_prom').value, ordered:+l.qty, printPrice:(entryFOC?0:(entryPrintOn?(+l.printPrice||0):0)), invoicePrice:(entryFOC?0:(+l.inv||0)), invoicePack:(entryFOC?0:(+l.invPack||((+l.inv||0)*(+l.pack||0))||0)), produced:0,packed:0,dispatched:0,delivered:0};}) };
   ord.totalOrdered=ord.lines.reduce((a,l)=>a+l.ordered,0);
+  var _ev=entryTotals(); ord.subtotal=_ev.sub; ord.fedAmount=_ev.fed; ord.grandTotal=_ev.total;
   ord.rmDecision='pending';
   state.orders.unshift(ord);
   logAction(`Created PO ${po} (${entryClient}, ${entryChannel}, ${fmt(ord.totalOrdered)} Kg/L)`);
-  entryChannel='';entryClient='';entryVsub='';entryPrintOn=false;entryLines=[{brand:'',qty:'',pack:'',note:'',committed:''}]; save();
+  entryChannel='';entryClient='';entryVsub='';entryPrintOn=false;entryFOC=false;entryFEDover='';entryDestPartner='';entryLines=[{brand:'',qty:'',pack:'',note:'',committed:''}]; save();
   toast('PO '+po+' created'); state.screen='tracker'; render();
 }
 

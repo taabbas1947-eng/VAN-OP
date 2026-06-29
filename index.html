@@ -2850,48 +2850,58 @@ function openOrder(id){
 function closeDrawer(){ $('drawer').classList.remove('open'); $('drawerBg').classList.remove('open'); }
 /* ===================== RM CHECK / RAISE PR (manual) ===================== */
 
-let rmForm={oid:null,lid:null,status:'full',canMake:'',lines:[]};
-function recipePrefill(o,l){ const rec=recipeFor(l.base); if(!rec||!Object.keys(rec).length) return []; const ks=Object.keys(rec); if(!ks.length||ks[0].startsWith('(')) return []; return ks.map(rm=>({rm,kg:Math.round((l.ordered||0)*rec[rm])})); }
-function openRMCheck(oid,lid){ const o=state.orders.find(x=>x.id===oid); const l=o.lines.find(x=>x.id===lid);
-  if(!recipeHas(l.base)){ $('modal').innerHTML=`<div class="mh"><h2>No recipe for ${l.brand}</h2><div class="sub">${o.po} · ${o.client} · base: ${l.base}</div></div><div class="mb"><div class="banner warn" style="margin:4px 0">This product has <b>no recipe defined</b>, so RM Check can't build a purchase requisition. Add its bill of materials in <b>Master Data → Product recipes</b> first, then run RM Check.</div></div><div class="mf"><button class="ghost" onclick="closeModal()">Close</button></div>`; $('modalBg').classList.add('open'); return; }
-  const pre=(l.pr&&l.pr.lines&&l.pr.lines.length)?l.pr.lines.map(x=>({rm:x.rm,kg:x.kg})):recipePrefill(o,l);
-  rmForm={oid,lid,status:(l.rmStatus&&l.rmStatus!=='pending'?l.rmStatus:'full'),canMake:l.canMakeKg||'',lines:pre};
+let rmForm={oid:null,lid:null,status:'full',canMake:'',unit:'kg'};
+/* New RM model: confirmation only (no raw-material inventory). Makeable quantity is in PRODUCT Kg/L. */
+function rmMakeKg(){ var o=state.orders.find(x=>x.id===rmForm.oid); var l=o&&o.lines.find(x=>x.id===rmForm.lid); var ord=(l&&+l.ordered)||0; var v=+rmForm.canMake||0; if(rmForm.unit==='pct') v=ord*v/100; return Math.max(0,Math.min(ord,Math.round(v))); }
+function openRMCheck(oid,lid){ const o=state.orders.find(x=>x.id===oid); const l=o&&o.lines.find(x=>x.id===lid); if(!l)return;
+  rmForm={oid,lid,status:(l.rmStatus&&l.rmStatus!=='pending'?l.rmStatus:'full'),canMake:(l.rmStatus==='partial'&&l.canMakeKg!=null?l.canMakeKg:''),unit:'kg'};
   renderRMModal(); $('modalBg').classList.add('open'); }
 function closeModal(){ $('modalBg').classList.remove('open'); try{$('modal').classList.remove('coa');$('modal').classList.remove('shipdrawer');}catch(e){} }
-function rmSetStatus(s){ rmForm.status=s; if((s==='partial'||s==='short')&&!rmForm.lines.length){ const o=state.orders.find(x=>x.id===rmForm.oid);const l=o.lines.find(x=>x.id===rmForm.lid); rmForm.lines=recipePrefill(o,l); if(!rmForm.lines.length) rmForm.lines=[{rm:'',kg:''}]; } renderRMModal(); }
-function rmAddLine(){ rmForm.lines.push({rm:'',kg:''}); renderRMModal(); }
-function rmDelLine(i){ rmForm.lines.splice(i,1); renderRMModal(); }
-function rmPrefill(){ const o=state.orders.find(x=>x.id===rmForm.oid);const l=o.lines.find(x=>x.id===rmForm.lid); const p=recipePrefill(o,l); if(p.length) rmForm.lines=p; renderRMModal(); }
-function renderRMModal(){ const o=state.orders.find(x=>x.id===rmForm.oid); const l=o.lines.find(x=>x.id===rmForm.lid);
-  const rms=[...new Set([...(((state.masters&&state.masters.rawMaterials)||(typeof SEED!=='undefined'&&SEED.rawMaterials)||[]).map(r=>r.name)), ...Object.keys(state.rawStock||{}), ...((rmForm.lines||[]).map(x=>x.rm).filter(Boolean))])].sort();
-  const hasRecipe=(()=>{const r=recipeFor(l.base);const k=Object.keys(r||{});return k.length&&!k[0].startsWith('(');})();
+function rmSetStatus(s){ rmForm.status=s; renderRMModal(); }
+function renderRMModal(){ const o=state.orders.find(x=>x.id===rmForm.oid); const l=o.lines.find(x=>x.id===rmForm.lid); var ord=+l.ordered||0;
   const seg=`<div class="seg">
-    <div class="opt full ${rmForm.status==='full'?'on':''}" onclick="rmSetStatus('full')"><span class="em">✅</span>In stock<span style="display:block;font-weight:500;font-size:10.5px">make full order</span></div>
+    <div class="opt full ${rmForm.status==='full'?'on':''}" onclick="rmSetStatus('full')"><span class="em">✅</span>In stock<span style="display:block;font-weight:500;font-size:10.5px">make full order · no PR</span></div>
     <div class="opt partial ${rmForm.status==='partial'?'on':''}" onclick="rmSetStatus('partial')"><span class="em">🟡</span>Partial<span style="display:block;font-weight:500;font-size:10.5px">make some now</span></div>
-    <div class="opt short ${rmForm.status==='short'?'on':''}" onclick="rmSetStatus('short')"><span class="em">🔴</span>Short<span style="display:block;font-weight:500;font-size:10.5px">none / not enough</span></div></div>`;
+    <div class="opt short ${rmForm.status==='short'?'on':''}" onclick="rmSetStatus('short')"><span class="em">🔴</span>None<span style="display:block;font-weight:500;font-size:10.5px">nothing yet</span></div></div>`;
   let body='';
-  if(rmForm.status==='partial') body+=`<div class="fld" style="margin:14px 0"><label>How much can you make now? (Kg/L of ${l.brand})</label><input type="number" value="${rmForm.canMake}" oninput="rmForm.canMake=this.value" placeholder="Kg/L" style="max-width:240px"></div>`;
-  if(rmForm.status==='partial'||rmForm.status==='short'){
-    body+=`<div style="display:flex;align-items:center;margin:14px 0 9px"><b style="font-size:12.5px;color:var(--navy)">Purchase Requisition — raw materials required</b>${hasRecipe?`<button class="ghost sm" style="margin-left:auto" onclick="rmPrefill()">↺ Pre-fill from recipe</button>`:''}</div>`;
-    body+=(rms.length?'':`<div class="banner warn" style="margin:6px 0">No raw materials are loaded in the master list. Pick from the recipe values below, or add raw materials in Admin · Master Data.</div>`);
-    body+=rmForm.lines.map((ln,i)=>`<div class="prline"><select onchange="rmForm.lines[${i}].rm=this.value;renderRMModal()"><option value="">— raw material —</option>${rms.map(r=>`<option ${r===ln.rm?'selected':''}>${r}</option>`).join('')}</select><span class="rmstk">${ln.rm?('have '+fmt(state.rawStock[ln.rm]||0)):''}</span><input type="number" value="${ln.kg}" placeholder="Kg/L req" oninput="rmForm.lines[${i}].kg=this.value"><span class="x" onclick="rmDelLine(${i})">✕</span></div>`).join('');
-    body+=`<button class="ghost sm" style="margin-top:4px" onclick="rmAddLine()">+ Add raw material</button>`;
+  if(rmForm.status==='partial'){ var mk=rmMakeKg();
+    body+=`<div class="fld" style="margin:14px 0 6px"><label>How much of ${l.brand} can be made now?</label>
+      <div style="display:flex;gap:8px;align-items:center;max-width:360px"><input type="number" value="${rmForm.canMake}" oninput="rmForm.canMake=this.value;renderRMModal()" placeholder="amount" style="flex:1">
+      <select onchange="rmForm.unit=this.value;renderRMModal()"><option value="kg" ${rmForm.unit==='kg'?'selected':''}>Kg/L</option><option value="pct" ${rmForm.unit==='pct'?'selected':''}>% of order</option></select></div>
+      <div class="muted" style="font-size:11px;margin-top:7px">= <b>${fmt(mk)}</b> Kg/L cleared to produce now · ordered ${fmt(ord)} · <b>${fmt(Math.max(0,ord-mk))}</b> Kg/L goes to a PR.</div></div>`;
   }
-  $('modal').innerHTML=`<div class="mh"><h2>RM Check — ${l.brand}</h2><div class="sub">${o.po} · ${o.client} · ${fmt(l.ordered)} Kg/L to make · base: ${l.base}</div></div>
-   <div class="mb">${seg}${body}<div class="muted" style="font-size:11px;margin-top:14px">Recording only — stock balances are not changed here. Actual material receipt is booked against the PR as a GRN (after CFO approval) in My Actions.</div></div>
-   <div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="${rmForm.status==='full'?'green':''}" onclick="rmSubmit()">${rmForm.status==='full'?'Confirm — materials ready':'Raise PR'}</button></div>`;
+  if(rmForm.status==='short'){ body+=`<div class="muted" style="font-size:12px;margin:12px 0">Nothing can be made yet. The full <b>${fmt(ord)} Kg/L</b> goes to a PR → CFO approval → confirm as RM is received.</div>`; }
+  $('modal').innerHTML=`<div class="mh"><h2>RM Check — ${l.brand}</h2><div class="sub">${o.po} · ${shortClient(o.client)} · ${fmt(ord)} Kg/L to make · base: ${l.base}</div></div>
+   <div class="mb">${seg}${body}<div class="muted" style="font-size:11px;margin-top:14px">Confirmation only — raw-material stock lives in the ERP, not here. Partial / none raises a product-quantity PR for CFO approval; top it up with “Confirm received” in My Actions as RM arrives.</div></div>
+   <div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" onclick="rmSubmit()">${rmForm.status==='full'?'Confirm — materials ready':'Confirm RM check'}</button></div>`;
 }
-function rmSubmit(){ const o=state.orders.find(x=>x.id===rmForm.oid); const l=o.lines.find(x=>x.id===rmForm.lid); const today=TODAY.toISOString().slice(0,10);
-  if(rmForm.status!=='full'){ const _v=(rmForm.lines||[]).filter(x=>x&&x.rm&&+x.kg>0); if(!_v.length){ toast('Add at least one raw material with a quantity to raise a PR.'); return; } }
-  l.rmCheck=today; l.rmStatus=rmForm.status;
-  if(rmForm.status==='full'){ l.rmReady=today; l.canMakeKg=null; l.pr=null; logAction(`RM check ${o.po}·${l.brand}: in stock — materials ready`);
+function rmSubmit(){ const o=state.orders.find(x=>x.id===rmForm.oid); const l=o.lines.find(x=>x.id===rmForm.lid); const today=TODAY.toISOString().slice(0,10); var ord=+l.ordered||0;
+  l.rmCheck=today; l.rmModel='confirm';
+  var mk=(rmForm.status==='full')?ord:((rmForm.status==='partial')?rmMakeKg():0);
+  if(mk>=ord){ l.rmStatus='full'; l.rmReady=today; l.canMakeKg=null; l.rmPR=null; l.prRaised='';
+    logAction(`RM check ${o.po}·${l.brand}: in stock — full order ready (no PR)`);
     (state.audit=state.audit||[]).unshift({t:new Date().toISOString(),user:state.role,module:'RM Check',po:o.po,brand:l.brand,field:'RM status',old:'',val:'In stock — ready'}); }
-  else { const lines=rmForm.lines.filter(x=>x.rm&&+x.kg>0).map(x=>({rm:x.rm,kg:+x.kg}));
-    l.prRaised=today; l.pr={lines,by:state.role,date:today}; l.canMakeKg=(rmForm.status==='partial'?(+rmForm.canMake||0):0); lines.forEach(x=>raisePR(x.rm,x.kg));
-    logAction(`RM check ${o.po}·${l.brand}: ${rmForm.status}${rmForm.status==='partial'?' (can make '+fmt(l.canMakeKg)+' kg)':''} — PR raised, ${lines.length} material(s)`);
-    (state.audit=state.audit||[]).unshift({t:new Date().toISOString(),user:state.role,module:'RM Check',po:o.po,brand:l.brand,field:'PR raised',old:'',val:lines.map(x=>x.rm+' '+x.kg+'kg').join(', ')}); }
-  save(); closeModal(); openOrder(rmForm.oid); render();
+  else { l.rmStatus=(mk>0?'partial':'short'); l.canMakeKg=mk; l.rmReady=''; var short=Math.max(0,ord-mk); l.prRaised=today; l.rmPR={qty:short,cleared:mk,by:state.role,date:today,cfoApproved:'',closed:false};
+    logAction(`RM check ${o.po}·${l.brand}: ${l.rmStatus} — make ${fmt(mk)}/${fmt(ord)} now · PR ${fmt(short)} Kg/L (awaiting CFO)`);
+    (state.audit=state.audit||[]).unshift({t:new Date().toISOString(),user:state.role,module:'RM Check',po:o.po,brand:l.brand,field:'PR raised',old:'',val:'make '+fmt(mk)+' · PR '+fmt(short)+' Kg/L'}); }
+  save(); closeModal(); render(); toast(mk>=ord?'Materials ready':'RM check saved — PR awaiting CFO'); }
+function approveRMPR(oid,lid){ if(!(canEdit(['CFO'])||state.role==='COO')){toast('CFO approves the requisition');return;} var o=state.orders.find(x=>x.id===oid); var l=o&&o.lines.find(x=>x.id===lid); if(!l||!l.rmPR||l.rmPR.closed)return; l.rmPR.cfoApproved=TODAY.toISOString().slice(0,10); logAction('PR approved (CFO) — '+o.po+'·'+l.brand+' '+fmt(l.rmPR.qty)+' Kg/L'); (state.audit=state.audit||[]).unshift({t:new Date().toISOString(),user:state.role,module:'RM PR',po:o.po,brand:l.brand,field:'CFO approved',old:'',val:fmt(l.rmPR.qty)+' Kg/L'}); save(); render(); toast('PR approved'); }
+let rmRcvForm=null;
+function rmRcvKg(){ var o=state.orders.find(x=>x.id===rmRcvForm.oid); var l=o&&o.lines.find(x=>x.id===rmRcvForm.lid); var ord=(l&&+l.ordered)||0; var already=(l&&+l.canMakeKg)||0; var rem=Math.max(0,ord-already); var v=+rmRcvForm.qty||0; if(rmRcvForm.unit==='pct') v=ord*v/100; return Math.max(0,Math.min(rem,Math.round(v))); }
+function openRMReceive(oid,lid){ if(!(canEdit(['Supply Chain'])||state.role==='COO')){toast('Supply Chain only');return;} var o=state.orders.find(x=>x.id===oid); var l=o&&o.lines.find(x=>x.id===lid); if(!l||!l.rmPR||l.rmPR.closed)return; if(!l.rmPR.cfoApproved){toast('PR must be CFO-approved before receiving');return;} rmRcvForm={oid,lid,qty:'',unit:'kg'}; renderRMReceive(); $('modalBg').classList.add('open'); }
+function renderRMReceive(){ var o=state.orders.find(x=>x.id===rmRcvForm.oid); var l=o.lines.find(x=>x.id===rmRcvForm.lid); var ord=+l.ordered||0; var already=+l.canMakeKg||0; var rem=Math.max(0,ord-already); var add=rmRcvKg();
+  $('modal').innerHTML=`<div class="mh"><h2>Confirm RM received — ${l.brand}</h2><div class="sub">${o.po} · ${shortClient(o.client)} · cleared ${fmt(already)}/${fmt(ord)} · ${fmt(rem)} Kg/L pending</div></div>
+   <div class="mb"><div class="fld"><label>How much more can be made now?</label><div style="display:flex;gap:8px;align-items:center;max-width:360px"><input type="number" value="${rmRcvForm.qty}" oninput="rmRcvForm.qty=this.value;renderRMReceive()" placeholder="amount" style="flex:1"><select onchange="rmRcvForm.unit=this.value;renderRMReceive()"><option value="kg" ${rmRcvForm.unit==='kg'?'selected':''}>Kg/L</option><option value="pct" ${rmRcvForm.unit==='pct'?'selected':''}>% of order</option></select></div>
+   <div class="muted" style="font-size:11px;margin-top:7px">Adds <b>${fmt(add)}</b> Kg/L → cleared becomes <b>${fmt(already+add)}</b>/${fmt(ord)}.${(already+add>=ord)?' This closes the PR.':''}</div></div></div>
+   <div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" onclick="rmReceiveSubmit()">Confirm received</button></div>`;
 }
+function rmReceiveSubmit(){ var o=state.orders.find(x=>x.id===rmRcvForm.oid); var l=o.lines.find(x=>x.id===rmRcvForm.lid); var ord=+l.ordered||0; var add=rmRcvKg(); if(add<=0){toast('Enter a quantity');return;} var today=TODAY.toISOString().slice(0,10);
+  var nc=Math.min(ord,(+l.canMakeKg||0)+add);
+  if(nc>=ord){ l.rmStatus='full'; l.rmReady=today; l.canMakeKg=null; if(l.rmPR){l.rmPR.closed=true;l.rmPR.qty=0;l.rmPR.cleared=ord;} }
+  else { l.rmStatus='partial'; l.canMakeKg=nc; if(l.rmPR){ l.rmPR.qty=Math.max(0,ord-nc); l.rmPR.cleared=nc; } }
+  logAction('RM received — '+o.po+'·'+l.brand+': +'+fmt(add)+' Kg/L (cleared '+fmt(nc>=ord?ord:nc)+'/'+fmt(ord)+')'+(nc>=ord?' · PR closed':''));
+  (state.audit=state.audit||[]).unshift({t:new Date().toISOString(),user:state.role,module:'RM Received',po:o.po,brand:l.brand,field:'Top-up',old:'',val:'+'+fmt(add)+' Kg/L'});
+  rmRcvForm=null; save(); closeModal(); render(); toast('RM received — +'+fmt(add)+' Kg/L'); }
 
 </script>
 <script>
@@ -4513,6 +4523,8 @@ function actionItems(){
       const lb=lineBucket(o,l);
       if(lb==='Delivered') return;
       if(o.acknowledged && (!l.rmStatus||l.rmStatus==='pending')) items.push({role:'Supply Chain',o,l,what:'RM Check \u2014 '+o.po+' \u00b7 '+l.brand,act:`openRMCheck('${o.id}','${l.id}')`,label:'RM Check'});
+      if(l.rmPR && !l.rmPR.closed && !l.rmPR.cfoApproved) items.push({role:'CFO',o,l,what:'Approve RM requisition \u2014 '+o.po+' \u00b7 '+l.brand+' ('+fmt(l.rmPR.qty)+' Kg/L)',act:`approveRMPR('${o.id}','${l.id}')`,label:'Approve PR'});
+      if(l.rmPR && !l.rmPR.closed && l.rmPR.cfoApproved) items.push({role:'Supply Chain',o,l,what:'Confirm RM received \u2014 '+o.po+' \u00b7 '+l.brand+' ('+fmt(l.rmPR.qty)+' Kg/L pending)',act:`openRMReceive('${o.id}','${l.id}')`,label:'Receive'});
       { var _prMats=((l.pr&&l.pr.lines)||[]).map(function(x){return x&&x.rm;}).filter(Boolean); var _openPR=(state.prs||[]).some(function(p){return p.status==='open' && _prMats.indexOf(p.rm)>-1;}); if(l.prRaised && !l.rmReady && l.rmStatus!=='received' && _openPR) items.push({role:'Supply Chain',o,l,what:'Receive raw materials (GRN, partial OK)',act:`openReceiveMaterials('${o.id}','${l.id}')`,label:'Receive'}); }  /* fix: Receive disappears once the line's PR(s) are closed (received OR cancelled) — no more dangling notification */
       if(rmAllows(l)>0 && (l.produced||0) < Math.min(l.ordered, rmAllows(l))-0.5) items.push({role:'Production',o,l,what:'Produce '+l.brand+' \u2014 '+o.po,act:`gotoProduce('${o.id}')`,label:'Open Production'});
       if(lineToInspect(o,l)>0.5) items.push({role:'QA Inspector',o,l,what:'Inspect packed '+l.brand+' \u2014 '+o.po,act:`openPackInspect('${o.id}','${l.id}')`,label:'Pack QC'});  // packed & batch-numbered, awaiting pre-ship inspection \u2014 was only on the QC screen
@@ -5552,6 +5564,7 @@ function fixRudolfDupV1(s){
    reset them back to RM Check so Supply Chain can requisition properly. Idempotent;
    never touches state.prs, recipes, or any line that has a real requisition. */
 function healPRFlags(s){ (s.orders||[]).forEach(o=>(o.lines||[]).forEach(l=>{
+  if(l && l.rmModel==='confirm') return; /* new RM model: product-quantity PR, no raw-material lines — don't heal */
   if(l && l.prRaised && l.rmStatus!=='received' && !l.rmReady){
     const valid=((l.pr&&l.pr.lines)||[]).filter(x=>x&&x.rm&&+x.kg>0);
     if(!valid.length){ l.prRaised=null; l.pr=null; l.canMakeKg=null; if(l.rmStatus==='short'||l.rmStatus==='partial') l.rmStatus='pending'; }

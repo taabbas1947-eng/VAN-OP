@@ -3473,6 +3473,10 @@ var PROD_CSS='<style>'
  +'.dwordcard{border:1px solid var(--pline);border-radius:10px;padding:8px 12px;margin-bottom:7px;background:#fff}.dwordcard .oh{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:3px}.dwordcard .oh b{font-size:13px}'
  +'.dwln{display:flex;align-items:center;gap:10px;padding:4px 0;border-top:1px solid #f0ece4}.dwln .nm{flex:1;font-size:12.5px}.dwln input[type=number]{width:88px}'
  +'.shipdrawer .dwordcard .fld label{margin-bottom:2px}.shipdrawer .dwbox input,.shipdrawer .dwordcard input{height:30px}'
+ +'.dwbar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:7px 12px;border:1px solid var(--pline);border-radius:10px;background:#fcfbf8;margin-bottom:9px;font-size:12px}.dwbar .chips{display:flex;gap:5px;flex-wrap:wrap}.dwchip{font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px}.dwchip.ok{background:#e2f3e8;color:#1a7a40}.dwchip.lock{background:var(--pb50);color:var(--pb)}'
+ +'.dwoc{border:1px solid var(--pline);border-radius:10px;margin-bottom:8px;overflow:hidden}.dwoh{display:flex;align-items:center;gap:10px;padding:6px 12px;background:#fcfbf8;border-bottom:1px solid #f0ece4}.dwoh .so{margin-left:auto;display:flex;align-items:center;gap:6px}.dwoh .so label{margin:0;font-size:10px;color:var(--pmut)}.dwoh .so input{width:186px;height:28px}'
+ +'.dwpl{display:grid;grid-template-columns:22px 1fr auto 92px;align-items:center;gap:10px;padding:5px 12px;border-bottom:1px solid #f4efe6}.dwpl:last-child{border-bottom:0}.dwpl .rd{font-size:11px;color:var(--pmut);white-space:nowrap}.dwpl input[type=number]{height:28px;width:100%;text-align:right}'
+ +'.dwmini{display:flex;align-items:center;gap:8px;border:1px solid var(--pline);border-radius:10px;padding:6px 10px;background:#fff}.dwmini label{font-size:11px;color:var(--pmut);white-space:nowrap;margin:0}.dwmini input{height:30px;flex:1;min-width:0}'
  +'@media(max-width:760px){.dwsteps{grid-template-columns:1fr 1fr}.dwgrid{grid-template-columns:1fr}}'
  +'.shipready{display:flex;flex-direction:column;gap:14px}.srgroup{border:1px solid var(--pline);border-radius:12px;overflow:hidden;background:#fff}'
  +'.srhead{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 13px;background:var(--pb50);border-bottom:1px solid #cfe3df}.srhead .srh-l{font-size:13px;font-weight:700;color:#0a544c}.srhead .srh-c{font-weight:500;font-size:11.5px;color:#5b6675}'
@@ -4298,7 +4302,7 @@ function printDC(dispId){ var g=((typeof dispatchGroups==='function')?dispatchGr
   var pend=(g.dcStatus==='pending');
   var meta='No.: <b>'+_pe(g.dc||'')+'</b><br>Date: <b>'+_pe(g.date||'')+'</b><br>SO #: <b>'+_pe(soTxt)+'</b>';
   var col1=(multi?'Orders: <b>'+_pe((g.pos||[]).join(', '))+'</b>':'PO #: <b>'+_pe(po1||'')+'</b>')+'<br>Customer: <b>'+_pe(clientNm)+'</b><br>Focal: <b>'+_pe(focal)+'</b>'+(focalC?(' &middot; '+_pe(focalC)):'')+'<br>Address: <b>'+_pe(g.destination||'')+'</b>';
-  var _mv=(g.transportType==='Ex-factory')?('Bilty #: <b>'+_pe(g.bilty||'—')+'</b>'+(g.vehicle?(' &middot; Vehicle #: <b>'+_pe(g.vehicle)+'</b>'):'')):('Vehicle #: <b>'+_pe(g.vehicle||'—')+'</b>'+(g.bilty?(' &middot; Bilty #: <b>'+_pe(g.bilty)+'</b>'):''));
+  var _mv=[(g.vehicle?'Vehicle #: <b>'+_pe(g.vehicle)+'</b>':''),(g.bilty?'Bilty #: <b>'+_pe(g.bilty)+'</b>':'')].filter(Boolean).join(' &middot; ')||'Vehicle / Bilty: <b>—</b>';
   var col2='Transport: <b>'+_pe(g.transportType||'—')+'</b><br>'+(g.driver?('Driver: <b>'+_pe(g.driver)+'</b>'+(g.driverContact?(' &middot; '+_pe(g.driverContact)):'')+'<br>'):'')+_mv+(g.seal?(' &middot; Seal #: <b>'+_pe(g.seal)+'</b>'):'')+(g.gatePass?(' &middot; Gate Pass: <b>'+_pe(g.gatePass)+'</b>'):'')+'<br>Shipment #: <b>'+_pe(g.shipNo||'')+'</b>';
   var rows=(g.rows||[]).map(function(r,i){ var pk=(typeof linePackSize==='function')?linePackSize(r.po||po1,r.brand):(+r.pack||0); var packs=(pk>0)?Math.round((+r.kg||0)/pk):''; var bn=(r.batches&&r.batches.length)?r.batches.map(function(b){return b.batch;}).join(', '):''; if(multi&&r.po){ bn=_pe(r.po)+(bn?(' — '+bn):''); } else { bn=_pe(bn); } return '<tr><td class="num">'+(i+1)+'</td><td>'+_pe(r.brand)+'</td><td class="num">'+(pk>0?fmt(pk):'—')+'</td><td>Kg</td><td class="num">'+(packs!==''?fmt(packs):'—')+'</td><td class="num">'+fmt(+r.kg||0)+'</td><td>'+bn+'</td></tr>'; }).join('');
   var blanks=''; for(var bi=(g.rows||[]).length;bi<6;bi++){ blanks+='<tr><td class="num">'+(bi+1)+'</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>'; }
@@ -4321,7 +4325,7 @@ function printGatePass(dispId){ var g=((typeof dispatchGroups==='function')?disp
   var totPk=(g.rows||[]).reduce(function(a,r){ var pk=(typeof linePackSize==='function')?linePackSize(r.po||po1,r.brand):(+r.pack||0); return a+((pk>0)?Math.round((+r.kg||0)/pk):0); },0);
   var released=(g.stageNow==='in_transit'||g.dcStatus==='approved'||g.delivered);
   var meta='Gate Pass: <b>'+_pe(g.gatePass)+'</b><br>DC #: <b>'+_pe(g.dc||'')+'</b><br>Date: <b>'+_pe(g.date||'')+'</b>';
-  var _mv=(g.transportType==='Ex-factory')?('Bilty #: <b>'+_pe(g.bilty||'—')+'</b>'):('Vehicle #: <b>'+_pe(g.vehicle||'—')+'</b>');
+  var _mv=[(g.vehicle?'Vehicle #: <b>'+_pe(g.vehicle)+'</b>':''),(g.bilty?'Bilty #: <b>'+_pe(g.bilty)+'</b>':'')].filter(Boolean).join(' &middot; ')||'Vehicle / Bilty: <b>—</b>';
   var col1='Customer: <b>'+_pe(clientNm)+'</b><br>'+(multi?('Orders: <b>'+_pe((g.pos||[]).join(', '))+'</b>'):('PO #: <b>'+_pe(po1||'')+'</b>'))+'<br>Destination: <b>'+_pe(g.destination||'')+'</b>';
   var col2='Transport: <b>'+_pe(g.transportType||'—')+'</b><br>'+_mv+(g.vehicle&&g.transportType==='Ex-factory'?(' &middot; Vehicle: <b>'+_pe(g.vehicle)+'</b>'):'')+'<br>'+(g.driver?('Driver: <b>'+_pe(g.driver)+'</b>'+(g.driverContact?(' &middot; '+_pe(g.driverContact)):'')):'Driver: <b>—</b>')+(g.seal?('<br>Seal #: <b>'+_pe(g.seal)+'</b>'):'');
   var prods=(g.rows||[]).map(function(r,i){ return '<tr><td class="num">'+(i+1)+'</td><td>'+_pe(r.brand)+'</td>'+(multi?('<td>'+_pe(r.po||'')+'</td>'):'')+'<td class="num">'+fmt(+r.kg||0)+'</td></tr>'; }).join('');
@@ -4912,7 +4916,7 @@ function renderShipToship(rpos,ed){
     var esc=String(c).replace(/\\/g,'\\\\').replace(/'/g,"\\'");
     var head='<div class="srhead"><div class="srh-l">'+shortClient(c)+'<span class="srh-c"> · '+grps.length+' order'+(grps.length>1?'s':'')+' · '+fmt(Math.round(cKg))+' kg ready</span></div>'+(ed?'<button class="sm green" onclick="mpStart(\''+esc+'\')">Start shipment ▸</button>':'')+'</div>';
     var rows=grps.map(function(g){ var o=g.o, ls=g.ls; var tot=ls.reduce(function(a,x){return a+x.rem;},0); var open=!!shipExpand[o.id]; var dest=clientTopDest(c)||'';
-      var top='<div class="srrow" onclick="shipToggle(\''+o.id+'\')"><span class="srchev">'+(open?'▾':'▸')+'</span><div class="srmeta"><div class="srpo">'+o.po+'</div><div class="srsub">'+ls.length+' product'+(ls.length>1?'s':'')+' · <b class="srkg">'+fmt(Math.round(tot))+' kg</b> ready'+(dest?(' · '+dest):'')+'</div></div><div class="srchips"><span class="srchip ok">QC passed</span><span class="srchip ok">Trace OK</span>'+(legacy?'<button class="sm ghost" onclick="event.stopPropagation();openDispatch(\''+o.id+'\')" style="margin-left:4px">Load a truck</button>':'')+'</div></div>';
+      var top='<div class="srrow" onclick="shipToggle(\''+o.id+'\')"><span class="srchev">'+(open?'▾':'▸')+'</span><div class="srmeta"><div class="srpo">'+o.po+'</div><div class="srsub">'+ls.length+' product'+(ls.length>1?'s':'')+' · <b class="srkg">'+fmt(Math.round(tot))+' kg</b> ready'+(dest?(' · '+dest):'')+'</div></div><div class="srchips"><span class="srchip ok">QC passed</span><span class="srchip ok">Trace OK</span></div></div>';
       var body='';
       if(open){ body='<div class="srbody">'+ls.map(function(x){ var l=x.l, rem=Math.round(x.rem); var pk=(+l.pack||seedPackForBrand(l.brand)); var packs=packsCount(pk,rem); return '<div class="srln"><span class="nm">'+l.brand+(l.base&&l.base!==l.brand?' <span class="muted" style="font-size:10px">'+l.base+'</span>':'')+'</span><span class="srln-k"><b style="color:var(--pgreen)">'+fmt(rem)+'</b> kg</span><span class="muted" style="font-size:11px;min-width:64px;text-align:right">'+(packs!=null?fmt(packs)+' packs':'')+'</span></div>'; }).join('')+'</div>'; }
       return '<div class="sritem">'+top+body+'</div>';
@@ -4923,7 +4927,7 @@ function renderShipToship(rpos,ed){
 function shipDcBtn(g){return '<button class="sm ghost" onclick="printDC(\''+g.dispId+'\')">DC</button>';}
 function shipGpBtn(g){return (g.gatePass&&typeof printGatePass==='function')?('<button class="sm ghost" onclick="printGatePass(\''+g.dispId+'\')">Gate Pass</button>'):'';}
 function shipCard(g,mode,ed,isPM){ var prods=g.rows.map(function(r){return r.brand;}).join(', ');
-  var r0=g.rows.find(function(r){return r.deliveredVia;}); var via=(mode==='delivered'&&r0)?(' · confirmed via '+r0.deliveredVia):'';
+  var r0=g.rows.find(function(r){return r.deliveredVia;}); var collected=(r0&&r0.deliveredVia==='Collected at factory'); var via=(mode==='delivered'&&r0&&!collected)?(' · confirmed via '+r0.deliveredVia):'';
   var status,btn='';
   if(mode==='planned'){ status='<span class="pill" style="background:var(--navy-50,#eef1fb);color:var(--navy,#1f3a8a)">Truck planned</span>'; btn=(ed?'<button class="sm green" onclick="startLoading(\''+g.dispId+'\')">Start loading ▸</button>':'')+shipDcBtn(g)+(ed?'<button class="sm ghost" onclick="cancelShip(\''+g.dispId+'\')">Cancel</button>':''); }
   else if(mode==='loading'){ status='<span class="pill" style="background:#fff4e5;color:#b9740a">Loading</span>'; var gp=g.gatePass?('<button class="sm green" onclick="approveRelease(\''+g.dispId+'\')">'+(isPM?'Approve &amp; release ▸':'Release (PM)')+'</button>'):(ed?'<button class="sm" onclick="issueGatePass(\''+g.dispId+'\')">Issue Gate Pass</button>':''); btn=gp+shipDcBtn(g)+shipGpBtn(g)+(ed?'<button class="sm ghost" onclick="cancelShip(\''+g.dispId+'\')">Cancel</button>':''); }
@@ -4932,7 +4936,7 @@ function shipCard(g,mode,ed,isPM){ var prods=g.rows.map(function(r){return r.bra
   else { status='<span class="pill" style="background:#e2f3e8;color:#1d8a4e">Delivered</span>'; btn=shipDcBtn(g)+shipGpBtn(g); }
   var meta=[];
   if(mode==='loading'){ meta.push('Batch labels ✓'); meta.push(g.gatePass?('Gate Pass '+g.gatePass):'Gate Pass pending'); }
-  var line3=(mode==='delivered')?('Delivered '+((g.rows[0]&&g.rows[0].delivered)||'')+via):(meta.length?meta.join(' · '):prods);
+  var line3=(mode==='delivered')?((collected?'Collected at factory ':'Delivered ')+((g.rows[0]&&g.rows[0].delivered)||'')+via):(meta.length?meta.join(' · '):prods);
   var poTxt=(g.poLabel||g.po||'')+(g.client?(' · '+shortClient(g.client)):'');
   return '<div class="card" style="margin-bottom:8px;padding:11px 14px"><div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap"><div style="min-width:0"><div style="font-weight:700;font-size:13px">'+(g.shipNo||g.dc||'—')+' <span class="muted" style="font-weight:500;font-size:11px">· '+poTxt+'</span></div><div class="muted" style="font-size:11px;margin-top:2px">DC '+(g.dc||'—')+(g.pos.length>1?(' · '+g.pos.length+' orders'):'')+' · '+g.rows.length+' product(s) · '+fmt(g.kg)+' kg'+(g.vehicle?(' · '+g.vehicle):'')+(g.driver?(' · '+g.driver):'')+' · '+(g.date||'')+'</div><div style="font-size:10.5px;margin-top:2px;color:'+(mode==='delivered'?'#1d8a4e':'#778089')+'">'+line3+'</div></div><div style="display:flex;align-items:center;gap:7px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end">'+status+btn+'</div></div></div>';
 }
@@ -5723,11 +5727,15 @@ function mpStart(client){ if(!(canEdit(['Supply Chain'])||state.role==='COO')){t
     orders:gs.map(function(g){ return {oid:g.o.id,po:g.o.po,so:'',lines:g.ls.map(function(x){ return {lid:x.l.id,brand:x.l.brand,base:x.l.base||'',pack:(+x.l.pack||seedPackForBrand(x.l.brand)||0),rem:Math.round(x.rem),qty:Math.round(x.rem),on:true}; })}; })};
   renderMPShip(); $('modal').classList.add('shipdrawer'); $('modalBg').classList.add('open'); }
 function mpGo(n){ if(!mpForm)return; n=Math.max(1,Math.min(4,n));
-  if(n>mpForm.step){ /* light forward validation */
-    if(mpForm.step===1 && !mpSelLines().length){ toast('Tick at least one product to load'); return; }
-    if(mpForm.step===2){ if(!String(mpForm.truckSize||'').trim()){toast('Pick a truck size');return;} if(!String(mpForm.transportType||'').trim()){toast('Pick a transport type');return;} if(mpForm.transportType==='VAN-delivered'&&!String(mpForm.vehicle||'').trim()){toast('Vehicle # is required for VAN-delivered');return;} if(mpForm.transportType==='Ex-factory'&&!String(mpForm.bilty||'').trim()){toast('Bilty # is required for Ex-factory');return;} }
+  var f=mpForm;
+  if(n>f.step){ /* light forward validation */
+    if(f.step===1 && !mpSelLines().length){ toast('Tick at least one product to load'); return; }
+    if(f.step===2){ if(!String(f.truckSize||'').trim()){toast('Pick a truck size');return;} if(!String(f.transportType||'').trim()){toast('Pick a transport type');return;}
+      if(f.transportType==='Ex-factory' && !String(f.vehicle||'').trim()){toast('Vehicle # is required — Ex-factory means the customer’s truck collects it');return;}
+      if(f.transportType==='VAN-delivered' && !String(f.vehicle||'').trim() && !String(f.bilty||'').trim()){toast('Enter a Vehicle # or a Bilty # (at least one)');return;} }
+    if(f.step===3){ if(String(f.vehicle||'').trim() && (!String(f.driver||'').trim()||!String(f.driverContact||'').trim())){toast('Driver name & contact are required when a vehicle is used');return;} }
   }
-  mpForm.step=n; renderMPShip(); }
+  f.step=n; renderMPShip(); }
 function mpSet(k,v){ if(mpForm) mpForm[k]=v; }
 function mpOrderSet(oi,k,v){ if(mpForm&&mpForm.orders[oi]) mpForm.orders[oi][k]=v; }
 function mpLineToggle(oi,li){ var o=mpForm&&mpForm.orders[oi]; if(o&&o.lines[li]){ o.lines[li].on=!o.lines[li].on; renderMPShip(); } }
@@ -5741,54 +5749,53 @@ function mpCapText(){ if(!mpForm||!mpForm.truckSize) return 'Pick a truck size �
 function renderMPShip(){ if(!mpForm){closeModal();return;} var f=mpForm; var step=f.step||1;
   var selKg=Math.round(mpTotal()), nOrd=mpOrdersIncluded().length, nLine=mpSelLines().length;
   var over=(f.truckSize&&mpTotal()>truckCap(f.truckSize));
-  var names=[['1','Check orders'],['2','Select truck'],['3','Driver &amp; seal'],['4','Review &amp; create']];
+  var names=[['1','Check orders'],['2','Truck &amp; transport'],['3','Driver &amp; seal'],['4','Review']];
   var stepper='<div class="dwsteps">'+names.map(function(s,i){ var n=i+1; var cls=(n===step)?'active':(n<step?'done':''); return '<div class="dwstep '+cls+'"><div class="k">Step '+s[0]+'</div><div class="t">'+s[1]+'</div></div>'; }).join('')+'</div>';
+  var exf=(f.transportType==='Ex-factory'), vd=(f.transportType==='VAN-delivered'); var vehUsed=!!String(f.vehicle||'').trim();
   var body='';
   if(step===1){
-    var ordBlocks=f.orders.map(function(o,oi){
-      var lns=o.lines.map(function(r,li){ return '<div class="dwln" style="'+(r.on?'':'opacity:.5')+'"><input type="checkbox" '+(r.on?'checked':'')+' onclick="mpLineToggle('+oi+','+li+')"><span class="nm"><b>'+r.brand+'</b>'+(r.base&&r.base!==r.brand?' <span class="muted" style="font-size:11px">'+r.base+'</span>':'')+'</span><span class="muted" style="font-size:11px">ready '+fmt(r.rem)+'</span><input type="number" value="'+r.qty+'" oninput="mpLineQty('+oi+','+li+',this.value)" '+(r.on?'':'disabled')+'></div>'; }).join('');
-      return '<div class="dwordcard"><div class="oh"><b>'+o.po+'</b><div class="fld" style="margin:0;min-width:240px"><label style="font-size:10px">SO # <span style="color:#b4231b">*</span></label><input type="text" value="'+_av(o.so)+'" oninput="mpOrderSet('+oi+',\'so\',this.value)" placeholder="e.g. SAL-ORD-2026-00176" style="padding:5px 8px"></div></div>'+lns+'</div>';
+    var ordCards=f.orders.map(function(o,oi){
+      var lns=o.lines.map(function(r,li){ return '<div class="dwpl" style="'+(r.on?'':'opacity:.5')+'"><input type="checkbox" '+(r.on?'checked':'')+' onclick="mpLineToggle('+oi+','+li+')"><span style="font-size:12.5px"><b>'+r.brand+'</b>'+(r.base&&r.base!==r.brand?' <span class="muted" style="font-size:10px">'+r.base+'</span>':'')+'</span><span class="rd">ready '+fmt(r.rem)+'</span><input type="number" value="'+r.qty+'" oninput="mpLineQty('+oi+','+li+',this.value)" '+(r.on?'':'disabled')+'></div>'; }).join('');
+      return '<div class="dwoc"><div class="dwoh"><b style="font-size:13px">'+o.po+'</b><span class="muted" style="font-size:11px">'+o.lines.length+' product'+(o.lines.length>1?'s':'')+'</span><span class="so"><label>SO # *</label><input type="text" value="'+_av(o.so)+'" oninput="mpOrderSet('+oi+',\'so\',this.value)" placeholder="SAL-ORD-2026-00176"></span></div>'+lns+'</div>';
     }).join('');
     body='<div class="dwcard"><div class="dwh"><div><h3>Check orders</h3><p>Confirm the customer and tick the orders going on this truck.</p></div><span class="pill" style="background:var(--pb50);color:var(--pb);font-weight:700">One customer per truck</span></div>'
-      +'<div class="dwgrid"><div class="dwbox"><div class="l">Customer</div><div class="v">'+shortClient(f.client)+'</div><div class="s">Other customers cannot be added.</div></div>'
-      +'<div class="dwbox"><div class="l">On this truck</div><div class="v" id="mp_total">'+fmt(selKg)+' Kg/L</div><div class="s" id="mp_sub">'+nLine+' product(s) · '+nOrd+' order(s)</div></div></div>'
-      +ordBlocks
-      +'<div class="dwgrid"><div class="dwbox"><div class="l">Destination</div><input type="text" list="mpDestList" value="'+_av(f.dest)+'" oninput="mpSet(\'dest\',this.value)" placeholder="where is this going?" style="margin-top:6px"><datalist id="mpDestList">'+clientDestinations(f.client).map(function(d){return '<option value="'+_av(d)+'">';}).join('')+'</datalist></div>'
-      +'<div class="dwbox"><div class="l">Dispatch date</div><input type="date" value="'+f.date+'" onchange="mpSet(\'date\',this.value)" style="margin-top:6px"></div></div>'
-      +'<div class="dwrow"><div><div class="rt">QC result</div><div class="rs">Only inspected &amp; cleared quantity is shippable.</div></div><div class="rv" style="color:var(--pgreen)">Passed</div></div>'
-      +'<div class="dwrow"><div><div class="rt">Batch trace</div><div class="rs">Approved lot &amp; batch carried to the DC.</div></div><div class="rv" style="color:var(--pgreen)">OK</div></div>'
-      +'<div class="dwrow"><div><div class="rt">Client mixing rule</div><div class="rs">Truck cannot combine two customers.</div></div><div class="rv" style="color:var(--pb)">Locked</div></div>'
-      +'<div class="dwnote ok">If staff tries to add another customer&rsquo;s order, the system blocks it — fewer choices, fewer dispatch mistakes.</div></div>';
+      +'<div class="dwbar"><div><b>'+shortClient(f.client)+'</b> <span style="color:var(--pmut)">· <span id="mp_sub">'+nOrd+' orders · '+nLine+' products</span> · <b id="mp_total" style="color:var(--ptxt)">'+fmt(selKg)+' Kg/L</b></span></div><div class="chips"><span class="dwchip ok">QC passed</span><span class="dwchip ok">Trace OK</span><span class="dwchip lock">1 customer locked</span></div></div>'
+      +ordCards
+      +'<div class="dwgrid" style="margin-top:9px"><div class="dwmini"><label>Destination</label><input type="text" list="mpDestList" value="'+_av(f.dest)+'" oninput="mpSet(\'dest\',this.value)" placeholder="where is this going?"><datalist id="mpDestList">'+clientDestinations(f.client).map(function(d){return '<option value="'+_av(d)+'">';}).join('')+'</datalist></div>'
+      +'<div class="dwmini"><label>Dispatch date</label><input type="date" value="'+f.date+'" onchange="mpSet(\'date\',this.value)"></div></div></div>';
   } else if(step===2){
     var picks=TRUCK_SIZES.map(function(t){ var sel=(f.truckSize===t.k); return '<div class="dwpick '+(sel?'sel':'')+'" onclick="mpSet(\'truckSize\',\''+t.k+'\');renderMPShip()"><div><div class="pt">'+t.label+'</div><div class="ps">~'+fmt(t.cap)+' kg capacity</div></div><div class="dot"></div></div>'; }).join('');
-    var tt=[['Ex-factory','Customer transport'],['VAN-delivered','VAN-arranged truck']].map(function(p){ var sel=(f.transportType===p[0]); return '<div class="dwpick '+(sel?'sel':'')+'" onclick="mpSet(\'transportType\',\''+p[0]+'\');renderMPShip()"><div><div class="pt">'+p[0]+'</div><div class="ps">'+p[1]+'</div></div><div class="dot"></div></div>'; }).join('');
-    var mvKey=(f.transportType==='Ex-factory')?'bilty':'vehicle'; var mvLabel=(f.transportType==='Ex-factory')?'Bilty #':'Vehicle #';
-    body='<div class="dwcard"><div class="dwh"><div><h3>Select truck</h3><p>Pick a truck size — the system checks the weight in the background.</p></div></div>'
+    var tt=[['Ex-factory','Customer collects from plant'],['VAN-delivered','VAN delivers to customer']].map(function(p){ var sel=(f.transportType===p[0]); return '<div class="dwpick '+(sel?'sel':'')+'" onclick="mpSet(\'transportType\',\''+p[0]+'\');renderMPShip()"><div><div class="pt">'+p[0]+'</div><div class="ps">'+p[1]+'</div></div><div class="dot"></div></div>'; }).join('');
+    var vehTag=exf?' *':(vd?' <span class="muted">(or bilty)</span>':' <span class="muted">(opt)</span>');
+    var biltyTag=vd?' <span class="muted">(or vehicle)</span>':' <span class="muted">(opt)</span>';
+    body='<div class="dwcard"><div class="dwh"><div><h3>Truck &amp; transport</h3><p>Pick a truck size and how the load leaves. Capacity is checked in the background.</p></div></div>'
       +picks
-      +'<div class="dwh" style="margin:18px 0 10px"><div><h3 style="font-size:15px">Transport</h3></div></div>'+tt
-      +'<div class="dwgrid" style="margin-top:12px"><div class="dwbox"><div class="l">'+mvLabel+(f.transportType?' *':'')+'</div><input type="text" value="'+_av(f.transportType==='Ex-factory'?f.bilty:f.vehicle)+'" oninput="mpSet(\''+mvKey+'\',this.value)" style="margin-top:6px" placeholder="'+(f.transportType?'':'pick transport type first')+'"></div>'
-      +'<div class="dwbox"><div class="l">Carrier / transporter</div><input type="text" value="'+_av(f.carrier)+'" oninput="mpSet(\'carrier\',this.value)" style="margin-top:6px" placeholder="optional"></div></div>'
-      +'<div class="dwnote '+(over?'warn':'ok')+'" id="mp_cap">'+mpCapText()+'</div></div>';
+      +'<div class="dwh" style="margin:12px 0 8px"><div><h3 style="font-size:15px">Transport type</h3></div></div>'+tt
+      +'<div class="dwgrid" style="margin-top:10px"><div class="dwmini"><label>Vehicle #'+vehTag+'</label><input type="text" value="'+_av(f.vehicle)+'" oninput="mpSet(\'vehicle\',this.value);renderMPShip()" placeholder="'+(exf?'collecting truck':(f.transportType?'truck number':'pick transport first'))+'"></div>'
+      +'<div class="dwmini"><label>Bilty #'+biltyTag+'</label><input type="text" value="'+_av(f.bilty)+'" oninput="mpSet(\'bilty\',this.value)" placeholder="transporter consignment"></div></div>'
+      +'<div class="dwgrid" style="margin-top:8px"><div class="dwmini"><label>Carrier</label><input type="text" value="'+_av(f.carrier)+'" oninput="mpSet(\'carrier\',this.value)" placeholder="transporter name (optional)"></div><div></div></div>'
+      +'<div class="dwnote '+(over?'warn':'ok')+'" id="mp_cap">'+mpCapText()+'</div>'
+      +(exf?'<div class="dwnote ok" style="margin-top:6px">Ex-factory: the customer’s truck collects. On release this closes as <b>Collected at factory</b> — no in-transit step.</div>':'')+'</div>';
   } else if(step===3){
-    body='<div class="dwcard"><div class="dwh"><div><h3>Driver &amp; seal</h3><p>Capture who is carrying the load. The Delivery Challan and Gate Pass are issued during Loading, before release.</p></div></div>'
-      +'<div class="dwgrid"><div class="dwbox"><div class="l">Driver name</div><input type="text" value="'+_av(f.driver)+'" oninput="mpSet(\'driver\',this.value)" style="margin-top:6px" placeholder="optional"></div>'
-      +'<div class="dwbox"><div class="l">Driver contact</div><input type="text" value="'+_av(f.driverContact)+'" oninput="mpSet(\'driverContact\',this.value)" style="margin-top:6px" placeholder="required if driver named"></div></div>'
-      +'<div class="dwgrid"><div class="dwbox"><div class="l">Seal #</div><input type="text" value="'+_av(f.seal)+'" oninput="mpSet(\'seal\',this.value)" style="margin-top:6px" placeholder="optional"></div>'
-      +'<div class="dwbox"><div class="l">Remarks</div><input type="text" value="'+_av(f.remarks)+'" oninput="mpSet(\'remarks\',this.value)" style="margin-top:6px" placeholder="optional"></div></div>'
-      +'<div class="dwrow"><div><div class="rt">Product labels</div><div class="rs">Checked against order &amp; batch at loading.</div></div><div class="rv" style="color:var(--pgreen)">At loading</div></div>'
-      +'<div class="dwnote warn">Do not release the truck until the Delivery Challan and Gate Pass are printed and the Plant Manager approves.</div></div>';
+    body='<div class="dwcard"><div class="dwh"><div><h3>Driver &amp; seal</h3><p>'+(vehUsed?'A vehicle is on this load, so driver name and contact are required.':'No vehicle entered — driver details are optional (goods move by transporter / bilty).')+'</p></div></div>'
+      +'<div class="dwgrid"><div class="dwmini"><label>Driver name'+(vehUsed?' *':' (opt)')+'</label><input type="text" value="'+_av(f.driver)+'" oninput="mpSet(\'driver\',this.value)"></div>'
+      +'<div class="dwmini"><label>Driver contact'+(vehUsed?' *':' (opt)')+'</label><input type="text" value="'+_av(f.driverContact)+'" oninput="mpSet(\'driverContact\',this.value)" placeholder="03xx-xxxxxxx"></div></div>'
+      +'<div class="dwgrid" style="margin-top:8px"><div class="dwmini"><label>Seal # (opt)</label><input type="text" value="'+_av(f.seal)+'" oninput="mpSet(\'seal\',this.value)"></div>'
+      +'<div class="dwmini"><label>Remarks</label><input type="text" value="'+_av(f.remarks)+'" oninput="mpSet(\'remarks\',this.value)"></div></div>'
+      +'<div class="dwnote warn">Do not release until the Delivery Challan and Gate Pass are printed and the Plant Manager approves.</div></div>';
   } else {
     var tlabel=(TRUCK_SIZES.find(function(t){return t.k===f.truckSize;})||{}).label||'—';
-    body='<div class="dwcard"><div class="dwh"><div><h3>Review &amp; create</h3><p>Final check before this becomes a Truck Planned shipment.</p></div><span class="pill" style="background:var(--pb50);color:var(--pb);font-weight:700">Ready to create</span></div>'
+    var movement=[(f.vehicle?'Vehicle '+_av(f.vehicle):''),(f.bilty?'Bilty '+_av(f.bilty):'')].filter(Boolean).join(' · ')||'—';
+    var closeNote=exf?'On release it closes as <b>Collected at factory</b> (handover at the gate) — no in-transit step.':'On release it goes <b>In transit</b>; confirm delivery later from the In transit tab.';
+    body='<div class="dwcard"><div class="dwh"><div><h3>Review</h3><p>Final check before this becomes a Truck Planned shipment.</p></div><span class="pill" style="background:var(--pb50);color:var(--pb);font-weight:700">Ready to create</span></div>'
       +'<div class="dwgrid"><div class="dwbox"><div class="l">Customer</div><div class="v">'+shortClient(f.client)+'</div><div class="s">No other customer included.</div></div>'
       +'<div class="dwbox"><div class="l">Orders / products</div><div class="v">'+nOrd+' / '+nLine+'</div><div class="s">'+fmt(selKg)+' Kg/L total</div></div>'
-      +'<div class="dwbox"><div class="l">Truck</div><div class="v">'+tlabel+'</div><div class="s">'+(f.transportType||'—')+'</div></div>'
-      +'<div class="dwbox"><div class="l">Destination</div><div class="v" style="font-size:16px">'+(_av(f.dest)||'—')+'</div></div></div>'
+      +'<div class="dwbox"><div class="l">Truck · transport</div><div class="v" style="font-size:15px">'+tlabel+'</div><div class="s">'+(f.transportType||'—')+'</div></div>'
+      +'<div class="dwbox"><div class="l">Movement</div><div class="v" style="font-size:14px">'+movement+'</div><div class="s">'+(_av(f.dest)||'destination not set')+'</div></div></div>'
       +'<div class="dwrow"><div class="rt">QC passed</div><div class="rv" style="color:var(--pgreen)">Yes</div></div>'
-      +'<div class="dwrow"><div class="rt">Batch trace</div><div class="rv" style="color:var(--pgreen)">OK</div></div>'
       +'<div class="dwrow"><div class="rt">No client mixing</div><div class="rv" style="color:var(--pgreen)">Yes</div></div>'
       +'<div class="dwrow"><div class="rt">Capacity check</div><div class="rv" style="color:'+(over?'var(--pamber)':'var(--pgreen)')+'">'+(over?'Over — review':'OK')+'</div></div>'
-      +'<div class="dwnote ok">Creates a <b>Truck Planned</b> shipment for <b>'+shortClient(f.client)+'</b>'+(dcControlOn(f.date)?(', DC # '+nextDCNo()):'')+'. Loading, Gate Pass and Plant Manager release come next.</div></div>';
+      +'<div class="dwnote ok">Creates a <b>Truck Planned</b> shipment for <b>'+shortClient(f.client)+'</b>'+(dcControlOn(f.date)?(', DC # '+nextDCNo()):'')+'. '+closeNote+'</div></div>';
   }
   var foot='<div class="dwfoot"><span class="hint">One truck = one customer · '+fmt(selKg)+' Kg/L selected</span><div class="gp">'+(step>1?'<button class="ghost" onclick="mpGo('+(step-1)+')">Back</button>':'<button class="ghost" onclick="closeModal()">Cancel</button>')+(step<4?'<button class="green" onclick="mpGo('+(step+1)+')">Next ▸</button>':'<button class="green" onclick="mpCreate()">Create shipment</button>')+'</div></div>';
   $('modal').innerHTML='<div class="mh" style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px"><div><h2>Start shipment · '+shortClient(f.client)+'</h2><div class="sub">'+fmt(selKg)+' Kg/L · '+nOrd+' order(s) · '+(_av(f.dest)||'destination not set')+'</div></div><button class="ghost" onclick="closeModal()" aria-label="Close" style="font-size:15px;line-height:1;padding:6px 12px;border-radius:9px">✕</button></div>'
@@ -5798,9 +5805,9 @@ function mpCreate(){ if(!(canEdit(['Supply Chain'])||state.role==='COO')){toast(
   var sel=mpSelLines(); if(!sel.length){toast('Tick at least one product with a quantity');return;}
   if(!String(f.transportType||'').trim()){toast('Select a Transport type (Ex-factory / VAN-delivered)');return;}
   if(!String(f.truckSize||'').trim()){toast('Pick a truck size');return;}
-  if(f.transportType==='VAN-delivered' && !String(f.vehicle||'').trim()){toast('Vehicle # is required for VAN-delivered transport');return;}
-  if(f.transportType==='Ex-factory' && !String(f.bilty||'').trim()){toast('Bilty # is required for Ex-factory transport');return;}
-  if(String(f.driver||'').trim() && !String(f.driverContact||'').trim()){toast('Driver contact is required when a driver name is entered');return;}
+  if(f.transportType==='Ex-factory' && !String(f.vehicle||'').trim()){toast('Vehicle # is required for Ex-factory (the customer’s truck collects it)');return;}
+  if(f.transportType==='VAN-delivered' && !String(f.vehicle||'').trim() && !String(f.bilty||'').trim()){toast('Enter a Vehicle # or a Bilty # (at least one)');return;}
+  if(String(f.vehicle||'').trim() && (!String(f.driver||'').trim()||!String(f.driverContact||'').trim())){toast('Driver name & contact are required when a vehicle is used');return;}
   var incl=mpOrdersIncluded(); for(var pi=0;pi<incl.length;pi++){ var od=f.orders.find(function(x){return x.po===incl[pi];}); if(od && !String(od.so||'').trim()){ toast('SO # is required for order '+incl[pi]); return; } }
   var dc=nextDCNo(); var d=f.date||TODAY.toISOString().slice(0,10);
   var _p=String(d).split('-'); var _mmddyy=(_p[1]||'')+(_p[2]||'')+((_p[0]||'').slice(-2));
@@ -5827,8 +5834,9 @@ function issueGatePass(dispId){ if(!(canEdit(['Supply Chain'])||state.role==='CO
 /* Plant Manager release = approval. Requires the Gate Pass to be issued (DC is already auto-generated).
    On release: stage → in_transit, DC approved, and the dispatched quantity is counted (deferred until now). */
 function approveRelease(dispId){ if(!(canEdit(['Plant Manager'])||state.role==='COO')){ toast('Plant Manager / COO releases the truck'); return; } var rows=shipRowsOf(dispId); if(!rows.length)return; if(rows[0].stage!=='loading'){ toast('Truck must be in Loading before release'); return; } if(!rows[0].gatePass){ toast('Issue the Gate Pass before release'); return; } var who=(state.currentUser&&state.currentUser.name)||state.role; var dt=TODAY.toISOString().slice(0,10);
-  rows.forEach(function(s){ s.stage='in_transit'; s.dcStatus='approved'; s.approvedBy=who; s.approvedDate=dt; if(!s.dispCounted){ var o=(state.orders||[]).find(function(x){return x.po===s.po;}); var l=o&&(o.lines||[]).find(function(x){return x.id===s.lid||x.brand===s.brand;}); if(l){ l.dispatched=(+l.dispatched||0)+(+s.kg||0); l.dispatchDate=l.dispatchDate||dt; } s.dispCounted=true; } });
-  logAction('DC '+(rows[0].dc||'')+' released by '+who+' — truck dispatched (in transit)'); (state.audit=state.audit||[]).unshift({t:new Date().toISOString(),user:state.role,module:'Shipment',po:(rows[0].po||''),brand:rows.length+' line(s)',field:'Released',old:'loading',val:dt+' · '+who}); save(); render(); toast('DC '+(rows[0].dc||'')+' released — in transit'); }
+  var exf=(rows[0].transportType==='Ex-factory'); /* customer collects → closes at the gate, no in-transit */
+  rows.forEach(function(s){ s.dcStatus='approved'; s.approvedBy=who; s.approvedDate=dt; var o=(state.orders||[]).find(function(x){return x.po===s.po;}); var l=o&&(o.lines||[]).find(function(x){return x.id===s.lid||x.brand===s.brand;}); if(!s.dispCounted){ if(l){ l.dispatched=(+l.dispatched||0)+(+s.kg||0); l.dispatchDate=l.dispatchDate||dt; } s.dispCounted=true; } if(exf){ s.stage='delivered'; s.delivered=dt; s.deliveredVia='Collected at factory'; if(l){ l.delivered=(+l.delivered||0)+(+s.kg||0); l.deliveredDate=dt; } } else { s.stage='in_transit'; } });
+  logAction('DC '+(rows[0].dc||'')+' released by '+who+(exf?' — collected at factory':' — truck dispatched (in transit)')); (state.audit=state.audit||[]).unshift({t:new Date().toISOString(),user:state.role,module:'Shipment',po:(rows[0].po||''),brand:rows.length+' line(s)',field:(exf?'Released · collected':'Released'),old:'loading',val:dt+' · '+who}); save(); render(); toast('DC '+(rows[0].dc||'')+(exf?' released — collected at factory':' released — in transit')); }
 /* Cancel a shipment before delivery (any pre-delivery stage): void rows, return material to Ready to ship. */
 function cancelShip(dispId){ if(!(canEdit(['Supply Chain','Plant Manager'])||state.role==='COO')){ toast('Supply Chain / Plant Manager only'); return; } if(typeof confirm==='function'&&!confirm('Cancel this shipment? The material returns to Ready to ship.'))return; var rows=shipRowsOf(dispId); rows.forEach(function(s){ s.voided=true; s.stage='cancelled'; s.dcStatus='cancelled'; var o=(state.orders||[]).find(function(x){return x.po===s.po;}); var l=o&&(o.lines||[]).find(function(x){return x.id===s.lid||x.brand===s.brand;}); _releaseShip(o,l,s.batches); if(s.dispCounted&&l){ l.dispatched=Math.max(0,(+l.dispatched||0)-(+s.kg||0)); s.dispCounted=false; } }); logAction('Shipment cancelled — DC '+((rows[0]&&rows[0].dc)||'')+' — material returned to Ready to ship'); save(); render(); toast('Shipment cancelled'); }
 

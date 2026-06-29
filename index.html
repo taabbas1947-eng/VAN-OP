@@ -4872,22 +4872,32 @@ function renderShipToship(rpos,ed){
 }
 function renderShipSent(allGroups,ed){
   var isPM=(canEdit(['Plant Manager'])||state.role==='COO');
-  var pending=allGroups.filter(function(g){return g.dispId&&g.dcStatus==='pending'&&!g.delivered;});
-  var transit=allGroups.filter(function(g){return g.dispId&&g.dcStatus!=='pending'&&!g.delivered;});
+  var planned=allGroups.filter(function(g){return g.dispId&&g.stageNow==='truck_planned';});
+  var loading=allGroups.filter(function(g){return g.dispId&&g.stageNow==='loading';});
+  var pending=allGroups.filter(function(g){return g.dispId&&g.stageNow==='pending_approval';}); /* legacy per-PO flow */
+  var transit=allGroups.filter(function(g){return g.dispId&&g.stageNow==='in_transit'&&!g.delivered;});
   var delivered=allGroups.filter(function(g){return g.delivered;});
-  if(!pending.length&&!transit.length&&!delivered.length) return '<div class="card"><div class="muted" style="padding:16px 2px">Nothing sent yet.</div></div>';
-  var card=function(g,mode){ var o=(state.orders||[]).find(function(x){return x.po===g.po;}); var prods=g.rows.map(function(r){return r.brand;}).join(', ');
+  if(!planned.length&&!loading.length&&!pending.length&&!transit.length&&!delivered.length) return '<div class="card"><div class="muted" style="padding:16px 2px">Nothing sent yet.</div></div>';
+  var dcBtn=function(g){return '<button class="sm ghost" onclick="printDC(\''+g.dispId+'\')">DC</button>';};
+  var gpBtn=function(g){return (g.gatePass&&typeof printGatePass==='function')?('<button class="sm ghost" onclick="printGatePass(\''+g.dispId+'\')">Gate Pass</button>'):'';};
+  var card=function(g,mode){ var prods=g.rows.map(function(r){return r.brand;}).join(', ');
     var r0=g.rows.find(function(r){return r.deliveredVia;}); var via=(mode==='delivered'&&r0)?(' · confirmed via '+r0.deliveredVia):'';
-    var dcBtn='<button class="sm ghost" onclick="printDC(\''+g.dispId+'\')">DC</button>';
-    var status,btn;
-    if(mode==='pending'){ status='<span class="pill" style="background:var(--amber-50);color:var(--amber)">Pending approval</span>'; btn=(isPM?('<button class="sm green" onclick="approveDC(\''+g.dispId+'\')">Approve</button><button class="sm ghost" onclick="rejectDC(\''+g.dispId+'\')">Reject</button>'):'<span class="muted" style="font-size:11px">awaiting Plant Manager</span>')+dcBtn; }
-    else if(mode==='transit'){ status='<span class="pill" style="background:#eef1f5;color:#5b6675">In transit</span>'; btn=((ed)?'<button class="sm green" onclick="openDeliveryConfirm(\''+g.dispId+'\')">Delivered ▸</button>':'')+dcBtn; }
-    else { status='<span class="pill" style="background:#e2f3e8;color:#1d8a4e">Delivered</span>'; btn=dcBtn; }
-    var line3=(mode==='delivered')?('Delivered '+((g.rows[0]&&g.rows[0].delivered)||'')+via):prods;
-    return '<div class="card" style="margin-bottom:10px;padding:13px 16px"><div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap"><div style="min-width:0"><div style="font-weight:700;font-size:13.5px">'+(g.shipNo||g.dc||'—')+' <span class="muted" style="font-weight:500;font-size:11.5px">· '+g.po+(o?(' · '+shortClient(o.client)):'')+'</span></div><div class="muted" style="font-size:11.5px;margin-top:3px">DC '+(g.dc||'—')+' · '+g.rows.length+' product(s) · '+fmt(g.kg)+' kg'+(g.vehicle?(' · '+g.vehicle):'')+(g.driver?(' · '+g.driver):'')+' · sent '+(g.date||'')+'</div><div style="font-size:11px;margin-top:2px;color:'+(mode==='delivered'?'#1d8a4e':'#778089')+'">'+line3+'</div></div><div style="display:flex;align-items:center;gap:8px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end">'+status+btn+'</div></div></div>';
+    var status,btn='';
+    if(mode==='planned'){ status='<span class="pill" style="background:var(--navy-50,#eef1fb);color:var(--navy,#1f3a8a)">Truck planned</span>'; btn=(ed?'<button class="sm green" onclick="startLoading(\''+g.dispId+'\')">Start loading ▸</button>':'')+dcBtn(g)+(ed?'<button class="sm ghost" onclick="cancelShip(\''+g.dispId+'\')">Cancel</button>':''); }
+    else if(mode==='loading'){ status='<span class="pill" style="background:#fff4e5;color:#b9740a">Loading</span>'; var gp=g.gatePass?('<button class="sm green" onclick="approveRelease(\''+g.dispId+'\')">'+(isPM?'Approve &amp; release ▸':'Release (PM)')+'</button>'):(ed?'<button class="sm" onclick="issueGatePass(\''+g.dispId+'\')">Issue Gate Pass</button>':''); btn=gp+dcBtn(g)+gpBtn(g)+(ed?'<button class="sm ghost" onclick="cancelShip(\''+g.dispId+'\')">Cancel</button>':''); }
+    else if(mode==='pending'){ status='<span class="pill" style="background:var(--amber-50);color:var(--amber)">Pending approval</span>'; btn=(isPM?('<button class="sm green" onclick="approveDC(\''+g.dispId+'\')">Approve</button><button class="sm ghost" onclick="rejectDC(\''+g.dispId+'\')">Reject</button>'):'<span class="muted" style="font-size:11px">awaiting Plant Manager</span>')+dcBtn(g); }
+    else if(mode==='transit'){ status='<span class="pill" style="background:#eef1f5;color:#5b6675">In transit</span>'; btn=((ed)?'<button class="sm green" onclick="openDeliveryConfirm(\''+g.dispId+'\')">Delivered ▸</button>':'')+dcBtn(g)+gpBtn(g); }
+    else { status='<span class="pill" style="background:#e2f3e8;color:#1d8a4e">Delivered</span>'; btn=dcBtn(g)+gpBtn(g); }
+    var meta=[];
+    if(mode==='loading'){ meta.push('Batch labels ✓ system-allocated'); meta.push(g.gatePass?('Gate Pass '+g.gatePass):'Gate Pass pending'); }
+    var line3=(mode==='delivered')?('Delivered '+((g.rows[0]&&g.rows[0].delivered)||'')+via):(meta.length?meta.join(' · '):prods);
+    var poTxt=(g.poLabel||g.po||'')+(g.client?(' · '+shortClient(g.client)):'');
+    return '<div class="card" style="margin-bottom:10px;padding:13px 16px"><div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap"><div style="min-width:0"><div style="font-weight:700;font-size:13.5px">'+(g.shipNo||g.dc||'—')+' <span class="muted" style="font-weight:500;font-size:11.5px">· '+poTxt+'</span></div><div class="muted" style="font-size:11.5px;margin-top:3px">DC '+(g.dc||'—')+(g.pos.length>1?(' · '+g.pos.length+' orders'):'')+' · '+g.rows.length+' product(s) · '+fmt(g.kg)+' kg'+(g.vehicle?(' · '+g.vehicle):'')+(g.driver?(' · '+g.driver):'')+' · '+(g.date||'')+'</div><div style="font-size:11px;margin-top:2px;color:'+(mode==='delivered'?'#1d8a4e':'#778089')+'">'+line3+'</div></div><div style="display:flex;align-items:center;gap:8px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end">'+status+btn+'</div></div></div>';
   };
   var hdr=function(t){return '<div style="font-size:11px;color:#5b6675;margin:14px 0 8px;font-weight:600;text-transform:uppercase;letter-spacing:.4px">'+t+'</div>';};
   var html='';
+  if(planned.length) html+=hdr('Truck planned · '+planned.length)+planned.map(function(g){return card(g,'planned');}).join('');
+  if(loading.length) html+=hdr('Loading · '+loading.length)+loading.map(function(g){return card(g,'loading');}).join('');
   if(pending.length) html+=hdr('Pending Plant Manager approval · '+pending.length)+pending.map(function(g){return card(g,'pending');}).join('');
   if(transit.length) html+=hdr('In transit · '+transit.length)+transit.map(function(g){return card(g,'transit');}).join('');
   if(delivered.length) html+=hdr('Delivered · '+delivered.length)+delivered.slice(0,60).map(function(g){return card(g,'delivered');}).join('');
@@ -5602,7 +5612,7 @@ function shipClientFor(po){ var o=(state.orders||[]).find(function(x){return x.p
 /* Derive the prototype lifecycle stage from a dispatch group. Backward-compatible:
    legacy/per-PO rows have no .stage, so we fall back to delivered/dcStatus. New multi-PO
    flow (from 1 Jul) sets .stage explicitly: truck_planned → loading → in_transit → delivered. */
-function shipStageOf(g){ if(g.delivered) return 'delivered'; if(g.stage) return g.stage; if((g.dcStatus||'approved')==='pending') return 'truck_planned'; return 'in_transit'; }
+function shipStageOf(g){ if(g.delivered) return 'delivered'; if(g.stage) return g.stage; if((g.dcStatus||'approved')==='pending') return 'pending_approval'; return 'in_transit'; }
 function dispatchGroups(){ const g={}; (state.shipments||[]).forEach((s,i)=>{ if(s.voided)return; const k=s.dispId||('leg'+i); if(!g[k]) g[k]={dispId:s.dispId||null,po:s.po,pos:[],client:s.client||shipClientFor(s.po)||'',destination:s.destination,date:s.dispatch,vehicle:s.vehicle,carrier:s.carrier,dc:s.dc,shipNo:s.shipNo,bilty:s.bilty,so:s.so||'',transportType:s.transportType||'',driver:s.driver||'',driverContact:s.driverContact||'',seal:s.seal||'',gatePass:s.gatePass||'',loadStarted:s.loadStarted||'',stage:s.stage||'',dcStatus:(s.dcStatus||'approved'),approvedBy:s.approvedBy||'',approvedDate:s.approvedDate||'',rows:[],kg:0,delivered:true,qaPending:false,qaFail:false}; g[k].rows.push(s); g[k].kg+=(+s.kg||0); if(s.po&&g[k].pos.indexOf(s.po)<0) g[k].pos.push(s.po); if(!s.delivered) g[k].delivered=false; if(s.qa===null) g[k].qaPending=true; if(s.qa&&s.qa.fail) g[k].qaFail=true; if((s.dcStatus||'approved')==='pending') g[k].dcStatus='pending'; }); return Object.values(g).map(x=>{ x.qa=x.qaFail?'fail':(x.qaPending?'pending':'pass'); x.poLabel=(x.pos.length>1?(x.pos[0]+' + '+(x.pos.length-1)+' more'):(x.pos[0]||x.po||'')); x.stageNow=shipStageOf(x); return x; }).sort((a,b)=>String(b.date||'').localeCompare(String(a.date||''))); }
 let dispQAForm={dispId:null,marks:[],officer:'',remarks:''};
 function dispRowsFor(dispId){ return (state.shipments||[]).filter(s=>(s.dispId||'')===dispId); }
@@ -5700,6 +5710,20 @@ function mpCreate(){ if(!(canEdit(['Supply Chain'])||state.role==='COO')){toast(
   logAction('Shipment '+shipNo+' ('+dispId+') created — '+shortClient(f.client)+' · '+incl.length+' order(s), '+n+' product(s), '+fmt(Math.round(tot))+' Kg/L · DC '+dc+' · Truck Planned');
   (state.audit=state.audit||[]).unshift({t:new Date().toISOString(),user:state.role,module:'Shipment',po:incl.join(', '),brand:n+' product(s)',field:'Truck planned',old:'',val:fmt(Math.round(tot))+' Kg/L · DC '+dc});
   mpForm=null; save(); closeModal(); render(); toast('DC '+dc+' created — Truck Planned. Start loading next.'); }
+
+/* ===== Stage pipeline: Truck Planned → Loading → (Gate Pass) → Plant Manager release → In transit ===== */
+/* Gate Pass serial — continues its own running number, like the DC serial. */
+function nextGatePassNo(){ var mx=0; (state.shipments||[]).forEach(function(s){ if(!s||s.voided)return; var n=parseInt(String(s.gatePass||'').replace(/\D/g,''),10); if(!isNaN(n)&&n>mx)mx=n; }); return 'GP-'+('0000'+(mx+1)).slice(-4); }
+function shipRowsOf(dispId){ return (state.shipments||[]).filter(function(s){return (s.dispId||'')===dispId && !s.voided;}); }
+function startLoading(dispId){ if(!(canEdit(['Supply Chain'])||state.role==='COO')){toast('Supply Chain only');return;} var rows=shipRowsOf(dispId); if(!rows.length)return; if(rows[0].stage!=='truck_planned'){toast('Loading can only start on a Truck Planned shipment');return;} var d=TODAY.toISOString().slice(0,10); rows.forEach(function(s){ s.stage='loading'; s.loadStarted=d; }); logAction('Loading started — DC '+(rows[0].dc||'')+' ('+dispId+')'); save(); render(); toast('Loading started'); }
+function issueGatePass(dispId){ if(!(canEdit(['Supply Chain'])||state.role==='COO')){toast('Supply Chain only');return;} var rows=shipRowsOf(dispId); if(!rows.length)return; if(rows[0].stage!=='loading'){toast('Start loading before issuing the Gate Pass');return;} if(rows[0].gatePass){toast('Gate Pass already issued: '+rows[0].gatePass);return;} var gp=nextGatePassNo(); rows.forEach(function(s){ s.gatePass=gp; }); logAction('Gate Pass '+gp+' issued — DC '+(rows[0].dc||'')+' ('+dispId+')'); save(); render(); toast('Gate Pass '+gp+' issued'); }
+/* Plant Manager release = approval. Requires the Gate Pass to be issued (DC is already auto-generated).
+   On release: stage → in_transit, DC approved, and the dispatched quantity is counted (deferred until now). */
+function approveRelease(dispId){ if(!(canEdit(['Plant Manager'])||state.role==='COO')){ toast('Plant Manager / COO releases the truck'); return; } var rows=shipRowsOf(dispId); if(!rows.length)return; if(rows[0].stage!=='loading'){ toast('Truck must be in Loading before release'); return; } if(!rows[0].gatePass){ toast('Issue the Gate Pass before release'); return; } var who=(state.currentUser&&state.currentUser.name)||state.role; var dt=TODAY.toISOString().slice(0,10);
+  rows.forEach(function(s){ s.stage='in_transit'; s.dcStatus='approved'; s.approvedBy=who; s.approvedDate=dt; if(!s.dispCounted){ var o=(state.orders||[]).find(function(x){return x.po===s.po;}); var l=o&&(o.lines||[]).find(function(x){return x.id===s.lid||x.brand===s.brand;}); if(l){ l.dispatched=(+l.dispatched||0)+(+s.kg||0); l.dispatchDate=l.dispatchDate||dt; } s.dispCounted=true; } });
+  logAction('DC '+(rows[0].dc||'')+' released by '+who+' — truck dispatched (in transit)'); (state.audit=state.audit||[]).unshift({t:new Date().toISOString(),user:state.role,module:'Shipment',po:(rows[0].po||''),brand:rows.length+' line(s)',field:'Released',old:'loading',val:dt+' · '+who}); save(); render(); toast('DC '+(rows[0].dc||'')+' released — in transit'); }
+/* Cancel a shipment before delivery (any pre-delivery stage): void rows, return material to Ready to ship. */
+function cancelShip(dispId){ if(!(canEdit(['Supply Chain','Plant Manager'])||state.role==='COO')){ toast('Supply Chain / Plant Manager only'); return; } if(typeof confirm==='function'&&!confirm('Cancel this shipment? The material returns to Ready to ship.'))return; var rows=shipRowsOf(dispId); rows.forEach(function(s){ s.voided=true; s.stage='cancelled'; s.dcStatus='cancelled'; var o=(state.orders||[]).find(function(x){return x.po===s.po;}); var l=o&&(o.lines||[]).find(function(x){return x.id===s.lid||x.brand===s.brand;}); _releaseShip(o,l,s.batches); if(s.dispCounted&&l){ l.dispatched=Math.max(0,(+l.dispatched||0)-(+s.kg||0)); s.dispCounted=false; } }); logAction('Shipment cancelled — DC '+((rows[0]&&rows[0].dc)||'')+' — material returned to Ready to ship'); save(); render(); toast('Shipment cancelled'); }
 
 /* ===== Edit an existing shipment (correct DC / date / vehicle / qty / status) ===== */
 let shipEditForm=null;

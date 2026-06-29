@@ -4866,8 +4866,8 @@ function screenInstructions(){
 
 /* ===================== 5. SHIPMENTS (full dispatch form, QC-gated) ===================== */
 /* ===== Shipments: tabs-on-top (To ship / Sent / All shipments), reusing the Production desk styling ===== */
-var shipView='toship';
-var shipHistGroup='po'; /* History tab grouping: 'po' (by PO) | 'log' (flat searchable list) */
+var shipView='ready';
+var shipHistGroup='cards'; /* Delivered view: 'cards' (recent) | 'po' (by PO) | 'log' (searchable list) */
 function shipSetView(v){ shipView=v; render(); }
 var shipExpand={};
 function shipToggle(id){ shipExpand[id]=!shipExpand[id]; render(); }
@@ -4894,8 +4894,15 @@ function confirmDelivery(){ if(!(canEdit(['Supply Chain'])||state.role==='COO'))
   logAction('Delivered '+delivForm.dispId+' on '+d+' (via '+delivForm.via+', '+n+' line(s))');
   (state.audit=state.audit||[]).unshift({t:new Date().toISOString(),user:state.role,module:'Shipment',po:(g&&g.po)||'',brand:n+' line(s)',field:'Delivered',old:'in transit',val:d+' · via '+delivForm.via});
   delivForm=null; save(); closeModal(); render(); toast('Marked delivered'); }
-function shipTabs(view){ var hist=(view==='history'||view==='bypo'||view==='log'); var t=function(k,label,act){return '<button class="pdtab'+(act?' active':'')+'" role="tab" aria-selected="'+(act?'true':'false')+'" onclick="shipSetView(\''+k+'\')">'+label+'</button>';}; return '<div class="pdtabs" role="tablist" aria-label="Shipment areas">'+t('toship','To ship',view==='toship')+t('sent','Sent',view==='sent')+t('history','History',hist)+'</div>'; }
-function shipPulse(rpos,allGroups){ var readyKg=rpos.reduce(function(a,po){return a+po.ls.reduce(function(b,x){return b+(x.rem||0);},0);},0); var cust=new Set(rpos.map(function(g){return g.o.client||'—';})).size; var transit=allGroups.filter(function(g){return g.dispId&&!g.delivered;}).length; var deliv=allGroups.filter(function(g){return g.delivered;}).length; var P=[['Loads ready',fmt(rpos.length),''],['Ready to ship',fmt(Math.round(readyKg)),'kg'],['Customers waiting',fmt(cust),''],['In transit',fmt(transit),''],['Delivered',fmt(deliv),'']]; return '<div class="pdpulse">'+P.map(function(p){return '<div class="pp"><span class="ppv">'+p[1]+(p[2]?'<span class="ppu">'+p[2]+'</span>':'')+'</span><span class="ppl">'+p[0]+'</span></div>';}).join('')+'</div>'; }
+function shipNaCount(){ var g=dispatchGroups(); var pend=g.filter(function(x){return x.dispId&&x.stageNow==='pending_approval';}).length; var fail=(state.packingLog||[]).filter(function(p){return p&&p.qa&&p.qa.fail;}).length; return pend+fail; }
+function shipTabs(view){ var t=function(k,label,act,badge){return '<button class="pdtab'+(act?' active':'')+'" role="tab" aria-selected="'+(act?'true':'false')+'" onclick="shipSetView(\''+k+'\')">'+label+(badge?' <span style="display:inline-block;min-width:15px;padding:0 5px;border-radius:9px;background:#fdecec;color:#b4231b;font-size:10px;font-weight:700;vertical-align:1px">'+badge+'</span>':'')+'</button>';}; var na=shipNaCount();
+  return '<div class="pdtabs" role="tablist" aria-label="Shipment stages">'+t('ready','Ready',view==='ready')+t('planned','Truck planned',view==='planned')+t('loading','Loading',view==='loading')+t('transit','In transit',view==='transit')+t('delivered','Delivered',view==='delivered')+t('needaction','Need action',view==='needaction',na||'')+'</div>'; }
+function shipPulse(rpos,allGroups){ var readyKg=rpos.reduce(function(a,po){return a+po.ls.reduce(function(b,x){return b+(x.rem||0);},0);},0);
+  var planned=allGroups.filter(function(g){return g.dispId&&g.stageNow==='truck_planned';}).length;
+  var loading=allGroups.filter(function(g){return g.dispId&&g.stageNow==='loading';}).length;
+  var transit=allGroups.filter(function(g){return g.dispId&&g.stageNow==='in_transit'&&!g.delivered;}).length;
+  var deliv=allGroups.filter(function(g){return g.delivered;}).length;
+  var P=[['Ready orders',fmt(rpos.length),''],['Ready to ship',fmt(Math.round(readyKg)),'kg'],['Truck planned',fmt(planned),''],['Loading',fmt(loading),''],['In transit',fmt(transit),''],['Delivered',fmt(deliv),'']]; return '<div class="pdpulse">'+P.map(function(p){return '<div class="pp"><span class="ppv">'+p[1]+(p[2]?'<span class="ppu">'+p[2]+'</span>':'')+'</span><span class="ppl">'+p[0]+'</span></div>';}).join('')+'</div>'; }
 function renderShipToship(rpos,ed){
   if(!rpos.length) return '<div class="card"><div class="muted" style="padding:16px 2px">Nothing QC-passed and waiting to ship right now.</div></div>';
   var legacy=(ed&&!dcControlOn(TODAY.toISOString().slice(0,10)));
@@ -4913,37 +4920,51 @@ function renderShipToship(rpos,ed){
     return '<div class="srgroup">'+head+rows+'</div>';
   }).join('')+'</div>';
 }
-function renderShipSent(allGroups,ed){
+function shipDcBtn(g){return '<button class="sm ghost" onclick="printDC(\''+g.dispId+'\')">DC</button>';}
+function shipGpBtn(g){return (g.gatePass&&typeof printGatePass==='function')?('<button class="sm ghost" onclick="printGatePass(\''+g.dispId+'\')">Gate Pass</button>'):'';}
+function shipCard(g,mode,ed,isPM){ var prods=g.rows.map(function(r){return r.brand;}).join(', ');
+  var r0=g.rows.find(function(r){return r.deliveredVia;}); var via=(mode==='delivered'&&r0)?(' · confirmed via '+r0.deliveredVia):'';
+  var status,btn='';
+  if(mode==='planned'){ status='<span class="pill" style="background:var(--navy-50,#eef1fb);color:var(--navy,#1f3a8a)">Truck planned</span>'; btn=(ed?'<button class="sm green" onclick="startLoading(\''+g.dispId+'\')">Start loading ▸</button>':'')+shipDcBtn(g)+(ed?'<button class="sm ghost" onclick="cancelShip(\''+g.dispId+'\')">Cancel</button>':''); }
+  else if(mode==='loading'){ status='<span class="pill" style="background:#fff4e5;color:#b9740a">Loading</span>'; var gp=g.gatePass?('<button class="sm green" onclick="approveRelease(\''+g.dispId+'\')">'+(isPM?'Approve &amp; release ▸':'Release (PM)')+'</button>'):(ed?'<button class="sm" onclick="issueGatePass(\''+g.dispId+'\')">Issue Gate Pass</button>':''); btn=gp+shipDcBtn(g)+shipGpBtn(g)+(ed?'<button class="sm ghost" onclick="cancelShip(\''+g.dispId+'\')">Cancel</button>':''); }
+  else if(mode==='pending'){ status='<span class="pill" style="background:var(--amber-50);color:var(--amber)">Pending approval</span>'; btn=(isPM?('<button class="sm green" onclick="approveDC(\''+g.dispId+'\')">Approve</button><button class="sm ghost" onclick="rejectDC(\''+g.dispId+'\')">Reject</button>'):'<span class="muted" style="font-size:11px">awaiting Plant Manager</span>')+shipDcBtn(g); }
+  else if(mode==='transit'){ status='<span class="pill" style="background:#eef1f5;color:#5b6675">In transit</span>'; btn=((ed)?'<button class="sm green" onclick="openDeliveryConfirm(\''+g.dispId+'\')">Delivered ▸</button>':'')+shipDcBtn(g)+shipGpBtn(g); }
+  else { status='<span class="pill" style="background:#e2f3e8;color:#1d8a4e">Delivered</span>'; btn=shipDcBtn(g)+shipGpBtn(g); }
+  var meta=[];
+  if(mode==='loading'){ meta.push('Batch labels ✓'); meta.push(g.gatePass?('Gate Pass '+g.gatePass):'Gate Pass pending'); }
+  var line3=(mode==='delivered')?('Delivered '+((g.rows[0]&&g.rows[0].delivered)||'')+via):(meta.length?meta.join(' · '):prods);
+  var poTxt=(g.poLabel||g.po||'')+(g.client?(' · '+shortClient(g.client)):'');
+  return '<div class="card" style="margin-bottom:8px;padding:11px 14px"><div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap"><div style="min-width:0"><div style="font-weight:700;font-size:13px">'+(g.shipNo||g.dc||'—')+' <span class="muted" style="font-weight:500;font-size:11px">· '+poTxt+'</span></div><div class="muted" style="font-size:11px;margin-top:2px">DC '+(g.dc||'—')+(g.pos.length>1?(' · '+g.pos.length+' orders'):'')+' · '+g.rows.length+' product(s) · '+fmt(g.kg)+' kg'+(g.vehicle?(' · '+g.vehicle):'')+(g.driver?(' · '+g.driver):'')+' · '+(g.date||'')+'</div><div style="font-size:10.5px;margin-top:2px;color:'+(mode==='delivered'?'#1d8a4e':'#778089')+'">'+line3+'</div></div><div style="display:flex;align-items:center;gap:7px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end">'+status+btn+'</div></div></div>';
+}
+function _shipEmpty(msg){ return '<div class="card"><div class="muted" style="padding:16px 2px">'+msg+'</div></div>'; }
+function renderShipStage(stage,allGroups,ed){
   var isPM=(canEdit(['Plant Manager'])||state.role==='COO');
-  var planned=allGroups.filter(function(g){return g.dispId&&g.stageNow==='truck_planned';});
-  var loading=allGroups.filter(function(g){return g.dispId&&g.stageNow==='loading';});
-  var pending=allGroups.filter(function(g){return g.dispId&&g.stageNow==='pending_approval';}); /* legacy per-PO flow */
-  var transit=allGroups.filter(function(g){return g.dispId&&g.stageNow==='in_transit'&&!g.delivered;});
-  var delivered=allGroups.filter(function(g){return g.delivered;});
-  if(!planned.length&&!loading.length&&!pending.length&&!transit.length&&!delivered.length) return '<div class="card"><div class="muted" style="padding:16px 2px">Nothing sent yet.</div></div>';
-  var dcBtn=function(g){return '<button class="sm ghost" onclick="printDC(\''+g.dispId+'\')">DC</button>';};
-  var gpBtn=function(g){return (g.gatePass&&typeof printGatePass==='function')?('<button class="sm ghost" onclick="printGatePass(\''+g.dispId+'\')">Gate Pass</button>'):'';};
-  var card=function(g,mode){ var prods=g.rows.map(function(r){return r.brand;}).join(', ');
-    var r0=g.rows.find(function(r){return r.deliveredVia;}); var via=(mode==='delivered'&&r0)?(' · confirmed via '+r0.deliveredVia):'';
-    var status,btn='';
-    if(mode==='planned'){ status='<span class="pill" style="background:var(--navy-50,#eef1fb);color:var(--navy,#1f3a8a)">Truck planned</span>'; btn=(ed?'<button class="sm green" onclick="startLoading(\''+g.dispId+'\')">Start loading ▸</button>':'')+dcBtn(g)+(ed?'<button class="sm ghost" onclick="cancelShip(\''+g.dispId+'\')">Cancel</button>':''); }
-    else if(mode==='loading'){ status='<span class="pill" style="background:#fff4e5;color:#b9740a">Loading</span>'; var gp=g.gatePass?('<button class="sm green" onclick="approveRelease(\''+g.dispId+'\')">'+(isPM?'Approve &amp; release ▸':'Release (PM)')+'</button>'):(ed?'<button class="sm" onclick="issueGatePass(\''+g.dispId+'\')">Issue Gate Pass</button>':''); btn=gp+dcBtn(g)+gpBtn(g)+(ed?'<button class="sm ghost" onclick="cancelShip(\''+g.dispId+'\')">Cancel</button>':''); }
-    else if(mode==='pending'){ status='<span class="pill" style="background:var(--amber-50);color:var(--amber)">Pending approval</span>'; btn=(isPM?('<button class="sm green" onclick="approveDC(\''+g.dispId+'\')">Approve</button><button class="sm ghost" onclick="rejectDC(\''+g.dispId+'\')">Reject</button>'):'<span class="muted" style="font-size:11px">awaiting Plant Manager</span>')+dcBtn(g); }
-    else if(mode==='transit'){ status='<span class="pill" style="background:#eef1f5;color:#5b6675">In transit</span>'; btn=((ed)?'<button class="sm green" onclick="openDeliveryConfirm(\''+g.dispId+'\')">Delivered ▸</button>':'')+dcBtn(g)+gpBtn(g); }
-    else { status='<span class="pill" style="background:#e2f3e8;color:#1d8a4e">Delivered</span>'; btn=dcBtn(g)+gpBtn(g); }
-    var meta=[];
-    if(mode==='loading'){ meta.push('Batch labels ✓ system-allocated'); meta.push(g.gatePass?('Gate Pass '+g.gatePass):'Gate Pass pending'); }
-    var line3=(mode==='delivered')?('Delivered '+((g.rows[0]&&g.rows[0].delivered)||'')+via):(meta.length?meta.join(' · '):prods);
-    var poTxt=(g.poLabel||g.po||'')+(g.client?(' · '+shortClient(g.client)):'');
-    return '<div class="card" style="margin-bottom:10px;padding:13px 16px"><div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap"><div style="min-width:0"><div style="font-weight:700;font-size:13.5px">'+(g.shipNo||g.dc||'—')+' <span class="muted" style="font-weight:500;font-size:11.5px">· '+poTxt+'</span></div><div class="muted" style="font-size:11.5px;margin-top:3px">DC '+(g.dc||'—')+(g.pos.length>1?(' · '+g.pos.length+' orders'):'')+' · '+g.rows.length+' product(s) · '+fmt(g.kg)+' kg'+(g.vehicle?(' · '+g.vehicle):'')+(g.driver?(' · '+g.driver):'')+' · '+(g.date||'')+'</div><div style="font-size:11px;margin-top:2px;color:'+(mode==='delivered'?'#1d8a4e':'#778089')+'">'+line3+'</div></div><div style="display:flex;align-items:center;gap:8px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end">'+status+btn+'</div></div></div>';
-  };
-  var hdr=function(t){return '<div style="font-size:11px;color:#5b6675;margin:14px 0 8px;font-weight:600;text-transform:uppercase;letter-spacing:.4px">'+t+'</div>';};
+  var gs=allGroups.filter(function(g){return g.dispId&&g.stageNow===stage&&(stage!=='in_transit'||!g.delivered);});
+  var mode=(stage==='truck_planned')?'planned':(stage==='loading'?'loading':'transit');
+  var empt={truck_planned:'No trucks planned. Start one from the Ready tab.',loading:'No trucks loading. Start loading a planned truck.',in_transit:'Nothing in transit.'}[stage]||'Nothing here.';
+  if(!gs.length) return _shipEmpty(empt);
+  return gs.map(function(g){return shipCard(g,mode,ed,isPM);}).join('');
+}
+function renderShipDelivered(allGroups,ed){
+  var isPM=(canEdit(['Plant Manager'])||state.role==='COO');
+  var dl=allGroups.filter(function(g){return g.delivered;});
+  var toggle='<div style="margin:0 0 10px"><select class="pdmore" onchange="shipHistGroup=this.value;render()"><option value="cards"'+(shipHistGroup==='cards'?' selected':'')+'>View: Recent</option><option value="po"'+(shipHistGroup==='po'?' selected':'')+'>View: By PO</option><option value="log"'+(shipHistGroup==='log'?' selected':'')+'>View: Searchable log</option></select></div>';
+  var body;
+  if(shipHistGroup==='log') body=renderShipLog();
+  else if(shipHistGroup==='po') body=renderShipByPO(allGroups,ed);
+  else body=(dl.length?dl.slice(0,80).map(function(g){return shipCard(g,'delivered',ed,isPM);}).join(''):_shipEmpty('Nothing delivered yet.'));
+  return toggle+body;
+}
+function renderNeedAction(allGroups,ed){
+  var isPM=(canEdit(['Plant Manager'])||state.role==='COO');
+  var pending=allGroups.filter(function(g){return g.dispId&&g.stageNow==='pending_approval';});
+  var failed=(state.packingLog||[]).filter(function(p){return p&&p.qa&&p.qa.fail;});
+  if(!pending.length&&!failed.length) return '<div class="card"><div style="padding:14px 2px 4px;color:#1d8a4e;font-weight:700">✓ Nothing needs attention right now.</div><div class="muted" style="padding:0 2px 12px;font-size:12px">Shipments waiting on an approval, and material that failed inspection, will appear here with the owner who must fix it.</div></div>';
+  var hdr=function(t){return '<div style="font-size:11px;color:#5b6675;margin:4px 0 8px;font-weight:600;text-transform:uppercase;letter-spacing:.4px">'+t+'</div>';};
   var html='';
-  if(planned.length) html+=hdr('Truck planned · '+planned.length)+planned.map(function(g){return card(g,'planned');}).join('');
-  if(loading.length) html+=hdr('Loading · '+loading.length)+loading.map(function(g){return card(g,'loading');}).join('');
-  if(pending.length) html+=hdr('Pending Plant Manager approval · '+pending.length)+pending.map(function(g){return card(g,'pending');}).join('');
-  if(transit.length) html+=hdr('In transit · '+transit.length)+transit.map(function(g){return card(g,'transit');}).join('');
-  if(delivered.length) html+=hdr('Delivered · '+delivered.length)+delivered.slice(0,60).map(function(g){return card(g,'delivered');}).join('');
+  if(pending.length) html+=hdr('Awaiting Plant Manager approval · '+pending.length)+pending.map(function(g){return shipCard(g,'pending',ed,isPM);}).join('');
+  if(failed.length){ html+=hdr('Failed pre-shipment inspection · '+failed.length)
+    +failed.map(function(p){ var o=(state.orders||[]).find(function(x){return x.po===p.po;}); return '<div class="card" style="margin-bottom:8px;padding:11px 14px"><div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap"><div style="min-width:0"><div style="font-weight:700;font-size:13px">'+(p.po||'—')+' <span class="muted" style="font-weight:500;font-size:11px">· '+(o?shortClient(o.client):'')+' · '+(p.brand||'')+'</span></div><div style="font-size:11px;margin-top:2px;color:#b4231b">Inspection failed — needs re-inspection or rework before it can ship.</div></div><span class="pill" style="background:#fdecec;color:#b4231b;flex-shrink:0">Owner: QA</span></div></div>'; }).join(''); }
   return html;
 }
 function renderShipLog(){
@@ -4970,11 +4991,15 @@ function screenShip(){
   var ed=canEdit(['Supply Chain'])||state.role==='COO';
   var rpos=readyPOs();
   var allGroups=dispatchGroups();
-  var view=shipView||'toship';
-  var hist=(view==='history'||view==='bypo'||view==='log');
-  var histToggle='<div style="margin:0 0 12px"><select class="pdmore" onchange="shipHistGroup=this.value;render()"><option value="po"'+(shipHistGroup==='po'?' selected':'')+'>Group: By PO</option><option value="log"'+(shipHistGroup==='log'?' selected':'')+'>Group: Flat list</option></select></div>';
-  var content = view==='sent'? renderShipSent(allGroups,ed) : (hist? (histToggle+(shipHistGroup==='log'?renderShipLog():renderShipByPO(allGroups,ed))) : renderShipToship(rpos,ed));
-  var title=(view==='sent')?'Sent':(hist?'History':'To ship');
+  var view=shipView||'ready';
+  if(view==='toship')view='ready'; if(view==='sent')view='planned'; if(view==='history'||view==='bypo'||view==='log')view='delivered';
+  var content,title;
+  if(view==='planned'){ content=renderShipStage('truck_planned',allGroups,ed); title='Truck planned'; }
+  else if(view==='loading'){ content=renderShipStage('loading',allGroups,ed); title='Loading'; }
+  else if(view==='transit'){ content=renderShipStage('in_transit',allGroups,ed); title='In transit'; }
+  else if(view==='delivered'){ content=renderShipDelivered(allGroups,ed); title='Delivered'; }
+  else if(view==='needaction'){ content=renderNeedAction(allGroups,ed); title='Need action'; }
+  else { content=renderShipToship(rpos,ed); title='Ready'; }
   $('view').innerHTML=PROD_CSS+'<div class="pdsk"><div class="pdmain">'
     +'<header class="pdtopbar"><div><h2>'+title+'</h2><div class="pdsub">Load trucks &amp; record deliveries</div></div></header>'
     +(ed?'':viewOnly('Supply Chain'))
@@ -6589,9 +6614,9 @@ var RB_DATASETS={
     fields:[{k:'batch',l:'Batch',t:'dim'},{k:'kind',l:'Kind',t:'dim'},{k:'po',l:'PO',t:'dim'},{k:'client',l:'Client',t:'dim'},{k:'product',l:'Product',t:'dim'},{k:'base',l:'Base',t:'dim'},{k:'disposition',l:'Disposition',t:'dim'},{k:'status',l:'Status',t:'dim'},{k:'opened',l:'Opened',t:'dim'},{k:'closed',l:'Closed',t:'dim'},{k:'planned',l:'Planned kg',t:'meas'},{k:'produced',l:'Produced kg',t:'meas'},{k:'packed',l:'Packed kg',t:'meas'},{k:'disposed',l:'Disposed kg',t:'meas'}],
     filters:['kind','disposition','status','client','product']},
   shipments:{label:'Shipments',dateKey:'date',
-    rows:function(){ var cm=_rbClientMap(); return (state.shipments||[]).filter(function(s){return s&&!s.voided;}).map(function(s){ return {date:s.dispatch||'',po:s.po||'',client:cm[s.po]||'',product:s.brand||'',dc:s.dc||'',so:s.so||'',dcstatus:(s.dcStatus||'approved'),approvedby:s.approvedBy||'',transport:s.transportType||'',vehicle:s.vehicle||'',carrier:s.carrier||'',driver:s.driver||'',seal:s.seal||'',destination:s.destination||'',bilty:s.bilty||'',delivered:s.delivered||'',shipno:s.shipNo||'',kg:+s.kg||0}; }); },
-    fields:[{k:'date',l:'Dispatched',t:'dim'},{k:'po',l:'PO',t:'dim'},{k:'so',l:'SO #',t:'dim'},{k:'client',l:'Client',t:'dim'},{k:'product',l:'Product',t:'dim'},{k:'dc',l:'DC #',t:'dim'},{k:'dcstatus',l:'DC status',t:'dim'},{k:'approvedby',l:'Approved by',t:'dim'},{k:'transport',l:'Transport type',t:'dim'},{k:'vehicle',l:'Vehicle',t:'dim'},{k:'driver',l:'Driver',t:'dim'},{k:'carrier',l:'Carrier',t:'dim'},{k:'seal',l:'Seal #',t:'dim'},{k:'destination',l:'Destination',t:'dim'},{k:'bilty',l:'Bilty',t:'dim'},{k:'delivered',l:'Delivered',t:'dim'},{k:'shipno',l:'Shipment #',t:'dim'},{k:'kg',l:'Kg/L',t:'meas'}],
-    filters:['client','product','destination','dc','dcstatus']},
+    rows:function(){ var cm=_rbClientMap(); return (state.shipments||[]).filter(function(s){return s&&!s.voided;}).map(function(s){ return {date:s.dispatch||'',po:s.po||'',client:cm[s.po]||'',product:s.brand||'',dc:s.dc||'',so:s.so||'',dcstatus:(s.dcStatus||'approved'),approvedby:s.approvedBy||'',transport:s.transportType||'',vehicle:s.vehicle||'',carrier:s.carrier||'',driver:s.driver||'',seal:s.seal||'',destination:s.destination||'',bilty:s.bilty||'',delivered:s.delivered||'',shipno:s.shipNo||'',stage:(s.delivered?'delivered':(s.stage||((s.dcStatus||'approved')==='pending'?'pending_approval':'in_transit'))),gatepass:s.gatePass||'',trucksize:s.truckSize||'',kg:+s.kg||0}; }); },
+    fields:[{k:'date',l:'Dispatched',t:'dim'},{k:'po',l:'PO',t:'dim'},{k:'so',l:'SO #',t:'dim'},{k:'client',l:'Client',t:'dim'},{k:'product',l:'Product',t:'dim'},{k:'dc',l:'DC #',t:'dim'},{k:'stage',l:'Stage',t:'dim'},{k:'dcstatus',l:'DC status',t:'dim'},{k:'gatepass',l:'Gate Pass',t:'dim'},{k:'approvedby',l:'Approved by',t:'dim'},{k:'transport',l:'Transport type',t:'dim'},{k:'trucksize',l:'Truck size',t:'dim'},{k:'vehicle',l:'Vehicle',t:'dim'},{k:'driver',l:'Driver',t:'dim'},{k:'carrier',l:'Carrier',t:'dim'},{k:'seal',l:'Seal #',t:'dim'},{k:'destination',l:'Destination',t:'dim'},{k:'bilty',l:'Bilty',t:'dim'},{k:'delivered',l:'Delivered',t:'dim'},{k:'shipno',l:'Shipment #',t:'dim'},{k:'kg',l:'Kg/L',t:'meas'}],
+    filters:['client','product','destination','dc','stage','dcstatus']},
   orders:{label:'Orders / PO lines · sales',dateKey:'received',
     rows:function(){ var out=[]; (state.orders||[]).forEach(function(o){ var nL=(o.lines||[]).length||1; (o.lines||[]).forEach(function(l){ out.push({po:o.po||'',client:o.client||'',channel:o.channel||'',segment:(typeof _chanToSeg==='function'?(_chanToSeg(o.channel)||o.channel||''):(o.channel||'')),type:(o.foc?'FOC sample':'Commercial'),product:l.brand||'',base:l.base||'',destpartner:o.destinationPartner||'',received:o.received||'',promised:o.promised||'',priority:o.priority||'Normal',stage:(typeof lineStage==='function'?lineStage(o,l):''),fedmode:o.fedMode||'',ordered:+l.ordered||0,produced:+l.produced||0,packed:+l.packed||0,dispatched:+l.dispatched||0,delivered:+l.delivered||0,pricekg:+l.invoicePrice||0,pricepack:+l.invoicePack||0,value:Math.round((+l.delivered||0)*(+l.invoicePrice||0)),fed:Math.round((+o.fedAmount||0)/nL)}); }); }); return out; },
     fields:[{k:'po',l:'PO',t:'dim'},{k:'client',l:'Client',t:'dim'},{k:'channel',l:'Channel',t:'dim'},{k:'segment',l:'Segment',t:'dim'},{k:'type',l:'Type (Commercial/FOC)',t:'dim'},{k:'product',l:'Product',t:'dim'},{k:'base',l:'Base',t:'dim'},{k:'destpartner',l:'Destination Partner',t:'dim'},{k:'received',l:'Received',t:'dim'},{k:'promised',l:'Promised',t:'dim'},{k:'priority',l:'Priority',t:'dim'},{k:'stage',l:'Stage',t:'dim'},{k:'fedmode',l:'FED mode',t:'dim'},{k:'ordered',l:'Ordered',t:'meas'},{k:'produced',l:'Produced',t:'meas'},{k:'packed',l:'Packed',t:'meas'},{k:'dispatched',l:'Shipped',t:'meas'},{k:'delivered',l:'Delivered',t:'meas'},{k:'pricekg',l:'Price PKR/Kg',t:'meas'},{k:'pricepack',l:'Price PKR/pack',t:'meas'},{k:'value',l:'Delivered value',t:'meas'},{k:'fed',l:'FED amount',t:'meas'}],

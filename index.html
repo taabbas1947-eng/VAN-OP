@@ -2298,12 +2298,16 @@ function recallPrintPrice(brand){ if(!brand) return 0; var best=0, key='';
 function clientHasPrintHistory(client){ return (state.orders||[]).some(function(o){ return o.client===client && (o.lines||[]).some(function(l){ return +l.printPrice>0; }); }); }
 /* do any of the current lines' brands normally carry a printed price? (drives the soft submit warning) — read-only */
 function linesNormallyPrint(){ return entryLines.some(function(l){ return l.brand && recallPrintPrice(l.brand)>0; }); }
+function _chanToSeg(ch){ return ({'White Label':'White-label',Dealer:'Dealer',Distributor:'Distributor',Vgreen:'VGreen',Cobo:'COBO',Farmer:'Direct Farmer'})[ch]||''; }
 function clientsForChannel(ch){
-  if(ch==='Dealer') return (state.dealers||[]).map(d=>({id:d.code+' | '+d.name, label:d.code+' | '+d.name, brandKey:'Dealers'}));
-  if(ch==='Distributor') return [{id:'BKK',label:'BKK',brandKey:'BKK'}];
+  try{ if(typeof custInit==='function')custInit(); }catch(e){}
   if(ch==='Vgreen') return [{id:'Vgreen',label:'Vgreen',brandKey:'Vgreen'}];
-  if(ch==='Cobo') return [{id:'VITAL AGRI NUTRIENTS (PVT) LTD',label:'Vital Agri Nutrients — Cobo outlets',brandKey:'VITAL AGRI NUTRIENTS (PVT) LTD'}];
-  return SEED.catalog.clients.filter(c=>SEED.catalog.channelByClient[c]==='White Label').map(c=>({id:c,label:c,brandKey:c}));
+  if(ch==='Cobo') return [{id:'VITAL AGRI NUTRIENTS (PVT) LTD',label:'Vital Agri Nutrients — Cobo',brandKey:'VITAL AGRI NUTRIENTS (PVT) LTD'}];
+  var seg=_chanToSeg(ch); var cs=(state.customers||[]).filter(function(c){return c.segment===seg&&!c.isParent&&(c.status||'Active')!=='Inactive';});
+  if(ch==='Dealer') return cs.map(function(c){return {id:c.code+' | '+c.name,label:c.code+' | '+c.name,brandKey:'Dealers',cust:c};});
+  if(ch==='Farmer') return cs.map(function(c){return {id:c.name,label:c.code+' · '+c.name,brandKey:c.brandKey||'Vgreen',cust:c};});
+  if(ch==='White Label'&&!cs.length) return ((SEED.catalog&&SEED.catalog.clients)||[]).filter(function(c){return SEED.catalog.channelByClient[c]==='White Label';}).map(function(c){return {id:c,label:c,brandKey:c};});
+  return cs.map(function(c){return {id:c.name,label:c.name,brandKey:c.brandKey||c.name,cust:c};});
 }
 function curClientObj(){ return clientsForChannel(entryChannel).find(c=>c.id===entryClient); }
 function brandPool(){ const co=curClientObj(); return co?(SEED.catalog.brandsByClient[co.brandKey]||[]):[]; }
@@ -2316,6 +2320,7 @@ function genPO(recv){
   const seq=String(Math.floor(Math.random()*9000+1000));
   if(entryChannel==='Cobo') return 'COBO-'+ym+'-'+seq;
   if(entryChannel==='Vgreen') return 'VG-'+(entryVsub||'VC')+'-'+ym+'-'+seq;
+  if(entryChannel==='Farmer') return 'FRM-'+ym+'-'+seq;
   if(entryChannel==='Dealer'){ const code=(entryClient.split('|')[0]||'DLR').trim(); return code+'-'+ym+'-'+seq; }
   return null; // White Label & Distributor = manual
 }
@@ -2331,7 +2336,7 @@ function screenEntry(){
      <div class="fld"><label>Channel</label>
        <select id="e_chan" onchange="onChannelChange(this.value)">
          <option value="">— pick channel —</option>
-         ${SEED.channels.map(c=>`<option ${c===entryChannel?'selected':''}>${c}</option>`).join('')}</select></div>
+         ${SEED.channels.concat(SEED.channels.indexOf('Farmer')<0?['Farmer']:[]).map(c=>`<option ${c===entryChannel?'selected':''}>${c}</option>`).join('')}</select></div>
      <div class="fld"><label>${entryChannel==='Dealer'?'Dealer (code | name)':'Client'}</label>
        <select id="e_client" onchange="onClientChange(this.value)" ${entryChannel?'':'disabled'}>
          <option value="">${entryChannel?'— pick —':'pick channel first'}</option>

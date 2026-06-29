@@ -2352,7 +2352,7 @@ function screenEntry(){
    <div class="card"><h3>Step 2 — Line Items <span class="hint">pack size auto-fills, override allowed</span></h3>
     ${entryClient?`<label style="display:inline-flex;align-items:center;gap:7px;font-size:12px;margin-bottom:10px;cursor:pointer"><input type="checkbox" ${entryPrintOn?'checked':''} onchange="setPrintOn(this.checked)"> <b>Print price on pack?</b> <span class="muted">— retail/MRP printed on the package${clientHasPrintHistory(entryClient)?' · this client usually prints':''}</span></label>`:''}
     ${entryClient?'':'<div class="muted" style="font-size:12.5px">Pick a channel and client above to load brands.</div>'}
-    <table class="fixedtbl ${entryClient?'':'hide'}" style="font-size:12px"><thead><tr><th>Brand</th><th style="width:84px">Form</th><th style="width:66px">Pack</th><th style="width:80px">Qty</th><th style="width:72px">Packs</th><th style="width:160px">Invoice price (PKR/Kg·L)</th><th style="width:118px">Committed</th><th style="width:130px">Note</th><th style="width:26px"></th></tr></thead>
+    <table class="fixedtbl ${entryClient?'':'hide'}" style="font-size:12px"><thead><tr><th>Brand</th><th style="width:84px">Form</th><th style="width:66px">Pack</th><th style="width:80px">Qty</th><th style="width:72px">Packs</th><th style="width:172px">Invoice price · PKR/Kg + PKR/pack</th><th style="width:118px">Committed</th><th style="width:130px">Note</th><th style="width:26px"></th></tr></thead>
     <tbody id="e_lines"></tbody></table>
     <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:10px" class="${entryClient?'':'hide'}">
       <button class="ghost sm" onclick="entryLines.push({brand:'',qty:'',pack:'',note:'',committed:''});renderEntryLines()">+ Add line</button>
@@ -2381,8 +2381,14 @@ function updateCommitted(i){ const l=entryLines[i]; if(!l) return;
   if(inp&&auto) inp.value=auto;
   if(hint) hint.innerHTML=auto?('auto · '+leadDays(+l.qty,procD,l.brand)+'d lead'+(procD?' · incl '+procD+'d RM':'')):'';
 }
-function invPerPackText(l){ const ip=+(l&&l.inv)||0, pk=+(l&&l.pack)||0; if(ip<=0) return ''; if(ip>=1000) return '⚠ ≥ PKR 1000/Kg — looks like a per-pack price'; return pk>0?('= PKR '+fmt(ip*pk)+' / pack of '+fmt(pk)+' — verify vs client PO'):'per Kg/L'; }
-function invPerPack(i){ const l=entryLines[i]; const el=document.getElementById('ipp_'+i); if(el){ el.innerHTML=invPerPackText(l); el.style.color=((+l.inv>=1000))?'#c0392b':'var(--mut)'; } }
+function invPerPackText(l){ var ip=+(l&&l.inv)||0, pk=+(l&&l.pack)||0, ppk=+(l&&l.invPack)||0; if(ip<=0&&ppk<=0)return ''; if(pk<=0)return 'set pack size to link per-Kg ↔ per-pack'; var calc=_r2(ip*pk); if(ppk>0&&Math.abs(calc-ppk)>0.5)return '⚠ per-Kg×pack = '+fmt(calc)+' ≠ per-pack '+fmt(ppk); return '✓ '+fmt(ip)+'/Kg × '+fmt(pk)+' = PKR '+fmt(calc)+'/pack'; }
+function invPerPack(i){ const l=entryLines[i]; const el=document.getElementById('ipp_'+i); if(el){ el.innerHTML=invPerPackText(l); var pk=+l.pack||0,calc=_r2((+l.inv||0)*pk),bad=(+l.invPack>0&&pk>0&&Math.abs(calc-(+l.invPack))>0.5); el.style.color=bad?'#c0392b':'var(--green2)'; } }
+/* Two-way invoice price: per-Kg ↔ per-pack stay in sync via pack size; both stored, must reconcile (replaces the old <1000 hard lock). */
+function _r2(n){ return Math.round((+n||0)*100)/100; }
+function _r4(n){ return Math.round((+n||0)*10000)/10000; }
+function setInvKg(i,v){ var l=entryLines[i]; if(!l)return; l.inv=v; var pk=+l.pack||0; l.invPack=(pk>0&&+v>0)?_r2(+v*pk):''; var e=document.getElementById('ipk_'+i); if(e&&document.activeElement!==e)e.value=(l.invPack===''?'':l.invPack); invPerPack(i); validate(); }
+function setInvPack(i,v){ var l=entryLines[i]; if(!l)return; l.invPack=v; var pk=+l.pack||0; l.inv=(pk>0&&+v>0)?_r4(+v/pk):''; var e=document.getElementById('ikg_'+i); if(e&&document.activeElement!==e)e.value=(l.inv===''?'':l.inv); invPerPack(i); validate(); }
+function onEntryPack(i,v){ var l=entryLines[i]; if(!l)return; l.pack=v; var pk=+v||0; if(+l.inv>0&&pk>0){ l.invPack=_r2(+l.inv*pk); var e=document.getElementById('ipk_'+i); if(e&&document.activeElement!==e)e.value=l.invPack; } updatePacks(i); invPerPack(i); validate(); }
 function renderEntryLines(){
   const brs=brandPool();
   const recv=($('e_recv')&&$('e_recv').value)||TODAY.toISOString().slice(0,10);
@@ -2399,10 +2405,10 @@ function renderEntryLines(){
      <td><select onchange="entryLines[${i}].brand=this.value;entryLines[${i}].pack=(detailForBrand(this.value).pack||'');renderEntryLines()">
        <option value="">— pick brand —</option>${brs.map(b=>`<option ${b.brand===l.brand?'selected':''}>${b.brand}</option>`).join('')}</select></td>
      <td class="muted">${det.form||'—'}</td>
-     <td><input type="number" value="${l.pack}" placeholder="${det.pack||''}" oninput="entryLines[${i}].pack=this.value;updatePacks(${i})"></td>
+     <td><input type="number" value="${l.pack}" placeholder="${det.pack||''}" oninput="onEntryPack(${i},this.value)"></td>
      <td><input type="number" value="${l.qty}" placeholder="Kg/L" oninput="entryLines[${i}].qty=this.value;updatePacks(${i});updateCommitted(${i});validate()"></td>
      <td class="num"><b id="pk_${i}">${packs!==''?fmt(packs):'—'}</b></td>
-     <td><input type="number" value="${l.inv||''}" placeholder="PKR/Kg·L" title="VAN invoice rate per Kg/L — must be under PKR 1000. The per-pack equivalent is shown so you can verify it against the client PO." oninput="entryLines[${i}].inv=this.value;invPerPack(${i});validate()"><div id="ipp_${i}" style="font-size:10px;margin-top:3px;color:${(+l.inv>=1000)?'#c0392b':'var(--mut)'}">${invPerPackText(l)}</div></td>
+     <td><div style="display:flex;gap:5px"><input id="ikg_${i}" type="number" value="${l.inv||''}" placeholder="PKR/Kg" title="Per Kg/L — type here and per-pack fills automatically" oninput="setInvKg(${i},this.value)" style="width:74px"><input id="ipk_${i}" type="number" value="${l.invPack||''}" placeholder="PKR/pack" title="Per pack — type here and per-Kg fills automatically" oninput="setInvPack(${i},this.value)" style="width:86px"></div><div id="ipp_${i}" style="font-size:10px;margin-top:3px;color:var(--mut)">${invPerPackText(l)}</div></td>
      <td><input type="date" id="cm_${i}" value="${committedVal}" onchange="entryLines[${i}].committed=this.value;updateCommitted(${i})"><div id="cmh_${i}" style="font-size:9px;color:var(--mut);margin-top:2px" title="Auto from the lead-time model — edit to override">${(!l.committed&&autoCommit)?('auto · '+leadDays(+l.qty,procD,l.brand)+'d lead'+(procD?' · incl '+procD+'d RM':'')):''}</div></td>
      <td><input type="text" value="${(l.note||'').replace(/"/g,'&quot;')}" placeholder="optional" oninput="entryLines[${i}].note=this.value" style="width:100%;font-size:11px"></td>
      <td>${entryLines.length>1?`<button class="ghost sm" onclick="entryLines.splice(${i},1);renderEntryLines()">✕</button>`:''}</td></tr>${printRow}`;
@@ -2434,8 +2440,8 @@ function entryChecks(){
     ['At least 1 line item (brand + qty)', lines.length>0, 'e_lines'],
     ['Pack size set on every line (> 0)', lines.length>0 && lines.every(l=>+l.pack>0), 'e_lines'],
     ['Each line committed date ≥ PO Received', lines.every(l=>!l.committed || !recv || l.committed>=recv), 'e_lines'],
-    ['Invoice price set on every line (PKR/Kg·L)', lines.length>0 && lines.every(l=>+l.inv>0), 'e_lines'],
-    ['Invoice price under PKR 1000/Kg', lines.length>0 && lines.every(l=>+l.inv>0 && +l.inv<1000), 'e_lines'],
+    ['Invoice price set on every line (per-Kg or per-pack)', lines.length>0 && lines.every(l=>+l.inv>0), 'e_lines'],
+    ['Per-Kg and per-pack price reconcile', lines.every(l=>{var pk=+l.pack||0;var calc=_r2((+l.inv||0)*pk);return !(+l.invPack>0)||pk<=0||Math.abs(calc-(+l.invPack))<=0.5;}), 'e_lines'],
     ['Print price set on every line (when printing)', !entryPrintOn || (lines.length>0 && lines.every(l=>+l.printPrice>0)), 'e_lines'],
   ];
 }
@@ -2468,7 +2474,7 @@ function submitPO(){
   const lines=entryLines.filter(l=>l.brand&&+l.qty>0); if(!lines.length){toast('Add a line item');return;}
   if(lines.some(l=>!(+l.pack>0))){ toast('Set a pack size (> 0) on every product line.'); return; }
   if(lines.some(l=>!(+l.inv>0))){ toast('Enter the invoice price (PKR/Kg·L) for every product line.'); return; }
-  if(lines.some(l=>+l.inv>=1000)){ toast('Invoice price must be under PKR 1000/Kg·L. A value ≥ 1000 usually means a per-pack price was entered in the per-Kg field.'); return; }
+  if(lines.some(l=>{var pk=+l.pack||0;var calc=_r2((+l.inv||0)*pk);return (+l.invPack>0&&pk>0&&Math.abs(calc-(+l.invPack))>0.5);})){ toast('A line\'s per-Kg and per-pack price don\'t reconcile (per-Kg × pack ≠ per-pack). Fix it before submitting.'); return; }
   const _recv=$('e_recv').value, _prom=$('e_prom').value;
   if(_recv&&_prom&&_prom<_recv){ toast('Promised Delivery cannot be before PO Received.'); return; }
   if(entryPrintOn && lines.some(l=>!(+l.printPrice>0))){ toast('Print price is ON — enter the print price (PKR/pack) for every line, or untick "Print price on pack".'); return; }
@@ -2480,7 +2486,7 @@ function submitPO(){
   const id='O'+(state.orders.length+1)+'_'+state.seq++;
   const ord={ id, po, client:entryClient, channel:entryChannel, vgreenSub:entryVsub||null, focalPerson:($('e_focal')&&$('e_focal').value)||'', kam:$('e_kam').value.trim(),
     priority:$('e_pri').value, promised:$('e_prom').value, received:recv, rmDecision:'pending', printOnPack:!!entryPrintOn,
-    lines:lines.map((l,j)=>{const det=detailForBrand(l.brand);const procD=procureDaysFor(l.brand,det.base||l.brand,+l.qty);const autoCommit=computeCommitted(recv,+l.qty,procD,l.brand);return {id:id+'L'+j, brand:l.brand, base:det.base||l.brand, pack:+l.pack||det.pack||null, note:l.note||'', committed:l.committed||autoCommit||$('e_prom').value, ordered:+l.qty, printPrice:(entryPrintOn?(+l.printPrice||0):0), invoicePrice:+l.inv||0, produced:0,packed:0,dispatched:0,delivered:0};}) };
+    lines:lines.map((l,j)=>{const det=detailForBrand(l.brand);const procD=procureDaysFor(l.brand,det.base||l.brand,+l.qty);const autoCommit=computeCommitted(recv,+l.qty,procD,l.brand);return {id:id+'L'+j, brand:l.brand, base:det.base||l.brand, pack:+l.pack||det.pack||null, note:l.note||'', committed:l.committed||autoCommit||$('e_prom').value, ordered:+l.qty, printPrice:(entryPrintOn?(+l.printPrice||0):0), invoicePrice:+l.inv||0, invoicePack:(+l.invPack||((+l.inv||0)*(+l.pack||0))||0), produced:0,packed:0,dispatched:0,delivered:0};}) };
   ord.totalOrdered=ord.lines.reduce((a,l)=>a+l.ordered,0);
   ord.rmDecision='pending';
   state.orders.unshift(ord);

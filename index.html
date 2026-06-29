@@ -4854,13 +4854,14 @@ function renderShipToship(rpos,ed){
   var byC={}; rpos.forEach(function(g){ var c=g.o.client||'—'; (byC[c]=byC[c]||[]).push(g); });
   return Object.keys(byC).sort().map(function(c){
     var grps=byC[c]; var cKg=grps.reduce(function(a,g){return a+g.ls.reduce(function(b,x){return b+x.rem;},0);},0);
-    var head='<div style="font-weight:700;font-size:13px;padding:8px 12px;background:var(--pb50,#e3f1ef);border:1px solid #cfe3df;border-radius:9px;margin:0 0 10px;color:#0a544c">'+shortClient(c)+' <span style="font-weight:500;font-size:11.5px;color:#5b6675">· '+grps.length+' order(s) · '+fmt(Math.round(cKg))+' kg ready</span></div>';
+    var startBtn=ed?'<button class="sm green" onclick="mpStart(\''+String(c).replace(/\\/g,'\\\\').replace(/'/g,"\\'")+'\')">Start shipment ▸</button>':'';
+    var head='<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;font-weight:700;font-size:13px;padding:8px 12px;background:var(--pb50,#e3f1ef);border:1px solid #cfe3df;border-radius:9px;margin:0 0 10px;color:#0a544c"><div>'+shortClient(c)+' <span style="font-weight:500;font-size:11.5px;color:#5b6675">· '+grps.length+' order(s) · '+fmt(Math.round(cKg))+' kg ready</span></div>'+startBtn+'</div>';
     var cards=grps.map(function(g){ var o=g.o, ls=g.ls; var tot=ls.reduce(function(a,x){return a+x.rem;},0); var open=!!shipExpand[o.id];
       var chev='<span style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:8px;background:'+(open?'var(--pb,#0e6e63)':'#eef1f5')+';color:'+(open?'#fff':'#5b6675')+';font-size:13px;font-weight:700;flex-shrink:0">'+(open?'▾':'▸')+'</span>';
       var hint=open?'Hide products':('Show '+ls.length+' product'+(ls.length>1?'s':''));
       var hdr='<div onclick="shipToggle(\''+o.id+'\')" style="display:flex;align-items:center;gap:12px;padding:11px 14px;cursor:pointer">'+chev
         +'<div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13.5px">'+o.po+'</div><div class="muted" style="font-size:11.5px;margin-top:2px">'+ls.length+' product(s) · <b style="color:var(--pgreen,#1d8a4e)">'+fmt(Math.round(tot))+' kg</b> ready · '+hint+'</div></div>'
-        +(ed?'<button class="sm green" onclick="event.stopPropagation();openDispatch(\''+o.id+'\')" style="flex-shrink:0">Load a truck</button>':'')+'</div>';
+        +((ed&&!dcControlOn(TODAY.toISOString().slice(0,10)))?'<button class="sm ghost" onclick="event.stopPropagation();openDispatch(\''+o.id+'\')" style="flex-shrink:0">Load a truck</button>':'')+'</div>';
       var body='';
       if(open){ var rows=ls.map(function(x){ var l=x.l, rem=Math.round(x.rem); var pk=(+l.pack||seedPackForBrand(l.brand)); var packs=packsCount(pk,rem); return '<tr><td><div style="font-weight:600">'+l.brand+'</div>'+(l.base&&l.base!==l.brand?'<div class="muted" style="font-size:11px">'+l.base+'</div>':'')+'</td><td class="num"><b style="color:var(--pgreen,#1d8a4e)">'+fmt(rem)+'</b> <span class="muted" style="font-weight:400;font-size:10px">kg</span></td><td class="num">'+(packs!=null?fmt(packs):'—')+' <span class="muted" style="font-weight:400;font-size:10px">packs</span></td></tr>'; }).join('');
         body='<div style="overflow:auto;border-top:1px solid var(--pline)"><table class="tcmp"><thead><tr><th>Product</th><th class="num">Ready now</th><th class="num">Packs</th></tr></thead><tbody>'+rows+'</tbody></table></div>'; }
@@ -5596,7 +5597,13 @@ function saveDispatch(){ if(!canEdit(['Supply Chain'])){toast('Supply Chain only
   dispForm=null; save(); closeModal(); render(); toast(`DC ${dc} recorded — pending Plant Manager approval`); }
 function approveDC(dispId){ if(!(canEdit(['Plant Manager'])||state.role==='COO')){ toast('Plant Manager / COO approves the DC'); return; } var rows=(state.shipments||[]).filter(function(s){return (s.dispId||'')===dispId&&!s.voided;}); if(!rows.length)return; var who=(state.currentUser&&state.currentUser.name)||state.role; var dt=TODAY.toISOString().slice(0,10); rows.forEach(function(s){ s.dcStatus='approved'; s.approvedBy=who; s.approvedDate=dt; if(!s.dispCounted){ var o=(state.orders||[]).find(function(x){return x.po===s.po;}); var l=o&&(o.lines||[]).find(function(x){return x.id===s.lid||x.brand===s.brand;}); if(l){ l.dispatched=(+l.dispatched||0)+(+s.kg||0); l.dispatchDate=l.dispatchDate||dt; } s.dispCounted=true; } }); var dc=rows[0].dc||''; logAction('DC '+dc+' approved by '+who+' — cleared for outward movement'); save(); render(); toast('DC '+dc+' approved — cleared to ship'); }
 function rejectDC(dispId){ if(!(canEdit(['Plant Manager'])||state.role==='COO')){ toast('Plant Manager / COO only'); return; } if(typeof confirm==='function'&&!confirm('Reject this DC? It will be voided and the material returns to Ready to ship.'))return; var rows=(state.shipments||[]).filter(function(s){return (s.dispId||'')===dispId&&!s.voided;}); rows.forEach(function(s){ s.voided=true; s.dcStatus='rejected'; var o=(state.orders||[]).find(function(x){return x.po===s.po;}); var l=o&&(o.lines||[]).find(function(x){return x.id===s.lid||x.brand===s.brand;}); _releaseShip(o,l,s.batches); if(s.dispCounted&&l){ l.dispatched=Math.max(0,(+l.dispatched||0)-(+s.kg||0)); s.dispCounted=false; } }); logAction('DC '+((rows[0]&&rows[0].dc)||'')+' rejected — material returned to Ready to ship'); save(); render(); toast('DC rejected'); }
-function dispatchGroups(){ const g={}; (state.shipments||[]).forEach((s,i)=>{ if(s.voided)return; const k=s.dispId||('leg'+i); if(!g[k]) g[k]={dispId:s.dispId||null,po:s.po,destination:s.destination,date:s.dispatch,vehicle:s.vehicle,carrier:s.carrier,dc:s.dc,shipNo:s.shipNo,bilty:s.bilty,so:s.so||'',transportType:s.transportType||'',driver:s.driver||'',driverContact:s.driverContact||'',seal:s.seal||'',dcStatus:(s.dcStatus||'approved'),approvedBy:s.approvedBy||'',approvedDate:s.approvedDate||'',rows:[],kg:0,delivered:true,qaPending:false,qaFail:false}; g[k].rows.push(s); g[k].kg+=(+s.kg||0); if(!s.delivered) g[k].delivered=false; if(s.qa===null) g[k].qaPending=true; if(s.qa&&s.qa.fail) g[k].qaFail=true; if((s.dcStatus||'approved')==='pending') g[k].dcStatus='pending'; }); return Object.values(g).map(x=>{ x.qa=x.qaFail?'fail':(x.qaPending?'pending':'pass'); return x; }).sort((a,b)=>String(b.date||'').localeCompare(String(a.date||''))); }
+/* Client of a PO (used to enforce one-truck-one-client and to group multi-PO shipments). */
+function shipClientFor(po){ var o=(state.orders||[]).find(function(x){return x.po===po;}); return o?(o.client||''):''; }
+/* Derive the prototype lifecycle stage from a dispatch group. Backward-compatible:
+   legacy/per-PO rows have no .stage, so we fall back to delivered/dcStatus. New multi-PO
+   flow (from 1 Jul) sets .stage explicitly: truck_planned → loading → in_transit → delivered. */
+function shipStageOf(g){ if(g.delivered) return 'delivered'; if(g.stage) return g.stage; if((g.dcStatus||'approved')==='pending') return 'truck_planned'; return 'in_transit'; }
+function dispatchGroups(){ const g={}; (state.shipments||[]).forEach((s,i)=>{ if(s.voided)return; const k=s.dispId||('leg'+i); if(!g[k]) g[k]={dispId:s.dispId||null,po:s.po,pos:[],client:s.client||shipClientFor(s.po)||'',destination:s.destination,date:s.dispatch,vehicle:s.vehicle,carrier:s.carrier,dc:s.dc,shipNo:s.shipNo,bilty:s.bilty,so:s.so||'',transportType:s.transportType||'',driver:s.driver||'',driverContact:s.driverContact||'',seal:s.seal||'',gatePass:s.gatePass||'',loadStarted:s.loadStarted||'',stage:s.stage||'',dcStatus:(s.dcStatus||'approved'),approvedBy:s.approvedBy||'',approvedDate:s.approvedDate||'',rows:[],kg:0,delivered:true,qaPending:false,qaFail:false}; g[k].rows.push(s); g[k].kg+=(+s.kg||0); if(s.po&&g[k].pos.indexOf(s.po)<0) g[k].pos.push(s.po); if(!s.delivered) g[k].delivered=false; if(s.qa===null) g[k].qaPending=true; if(s.qa&&s.qa.fail) g[k].qaFail=true; if((s.dcStatus||'approved')==='pending') g[k].dcStatus='pending'; }); return Object.values(g).map(x=>{ x.qa=x.qaFail?'fail':(x.qaPending?'pending':'pass'); x.poLabel=(x.pos.length>1?(x.pos[0]+' + '+(x.pos.length-1)+' more'):(x.pos[0]||x.po||'')); x.stageNow=shipStageOf(x); return x; }).sort((a,b)=>String(b.date||'').localeCompare(String(a.date||''))); }
 let dispQAForm={dispId:null,marks:[],officer:'',remarks:''};
 function dispRowsFor(dispId){ return (state.shipments||[]).filter(s=>(s.dispId||'')===dispId); }
 function openDispatchQA(dispId){ if(!(canEdit(['QA Inspector'])||state.role==='COO')){toast('QA Inspector only');return;} const rows=dispRowsFor(dispId); if(!rows.length)return; const ex=rows[0].qa; dispQAForm={dispId,marks:QC_CHECKLIST.map((_,i)=>(ex&&ex.checklist&&ex.checklist[i]&&ex.checklist[i].result)||''),officer:(ex&&ex.by)||((state.currentUser&&state.currentUser.name)||''),remarks:(ex&&ex.remarks)||''}; renderDispatchQA(); $('modalBg').classList.add('open'); }
@@ -5620,6 +5627,79 @@ function markDelivered(dispId,date){ if(!canEdit(['Supply Chain'])){toast('Suppl
   (state.shipments||[]).forEach(s=>{ if((s.dispId||'')===dispId && !s.delivered){ s.delivered=d; const o=(state.orders||[]).find(x=>x.po===s.po); const l=o&&(o.lines.find(x=>x.id===s.lid)||o.lines.find(x=>x.brand===s.brand)); if(l){ l.delivered=(l.delivered||0)+(+s.kg||0); l.deliveredDate=d; } n++; } });
   if(!n){toast('Already delivered');return;}
   logAction(`Delivered ${dispId} on ${d} (${n} line(s))`); save(); render(); toast('Marked delivered'); }
+
+/* ===================== MULTI-PO SHIPMENT BUILDER (one truck = one client, from 1 Jul) =====================
+   Prototype flow: pick a client → add one or more of THAT client's ready orders → truck & transport →
+   creates a Truck Planned shipment (one DC spanning the orders). Loading, Gate Pass, Plant Manager
+   approval and release happen in the next stages. Date-gated: only the path from go-live; the per-PO
+   "Load a truck" remains for before go-live and as fallback. No master-data change — truck size is a
+   simple preset, not a truck master. */
+var TRUCK_SIZES=[{k:'parcel',label:'Small parcel',cap:200},{k:'1t',label:'Small truck · 1 ton',cap:1000},{k:'5t',label:'Medium truck · 5 ton',cap:5000},{k:'10t',label:'Large truck · 10 ton',cap:10000}];
+function truckCap(k){ var t=TRUCK_SIZES.find(function(x){return x.k===k;}); return t?t.cap:0; }
+function readyPOsForClient(client){ return readyPOs().filter(function(g){return (g.o.client||'')===client;}); }
+var mpForm=null;
+function mpStart(client){ if(!(canEdit(['Supply Chain'])||state.role==='COO')){toast('Supply Chain only');return;}
+  var gs=readyPOsForClient(client); if(!gs.length){toast('Nothing QC-cleared and ready for this customer');return;}
+  mpForm={client:client,date:TODAY.toISOString().slice(0,10),dest:(clientTopDest(client)||''),transportType:'',truckSize:'',carrier:'',vehicle:'',bilty:'',driver:'',driverContact:'',seal:'',remarks:'',
+    orders:gs.map(function(g){ return {oid:g.o.id,po:g.o.po,so:'',lines:g.ls.map(function(x){ return {lid:x.l.id,brand:x.l.brand,base:x.l.base||'',pack:(+x.l.pack||seedPackForBrand(x.l.brand)||0),rem:Math.round(x.rem),qty:Math.round(x.rem),on:true}; })}; })};
+  renderMPShip(); $('modalBg').classList.add('open'); }
+function mpSet(k,v){ if(mpForm) mpForm[k]=v; }
+function mpOrderSet(oi,k,v){ if(mpForm&&mpForm.orders[oi]) mpForm.orders[oi][k]=v; }
+function mpLineToggle(oi,li){ var o=mpForm&&mpForm.orders[oi]; if(o&&o.lines[li]){ o.lines[li].on=!o.lines[li].on; renderMPShip(); } }
+function mpLineQty(oi,li,v){ var o=mpForm&&mpForm.orders[oi]; if(o&&o.lines[li]){ o.lines[li].qty=v; mpRefreshTotal(); } }
+function mpSelLines(){ var out=[]; (mpForm&&mpForm.orders||[]).forEach(function(o,oi){ o.lines.forEach(function(r,li){ if(r.on&&(+r.qty||0)>0) out.push({oi:oi,li:li,o:o,r:r}); }); }); return out; }
+function mpTotal(){ return mpSelLines().reduce(function(a,x){return a+(+x.r.qty||0);},0); }
+function mpOrdersIncluded(){ var s={}; mpSelLines().forEach(function(x){s[x.o.po]=1;}); return Object.keys(s); }
+function mpCapWarnHtml(){ var cap=truckCap(mpForm.truckSize); var tot=mpTotal(); if(!mpForm.truckSize) return '<span class="muted">Pick a truck size — the system checks the load against it.</span>'; if(tot>cap) return '<span style="color:var(--amber);font-weight:700">⚠ Load '+fmt(Math.round(tot))+' kg exceeds the '+(TRUCK_SIZES.find(function(t){return t.k===mpForm.truckSize;})||{}).label+' (~'+fmt(cap)+' kg). You can proceed, but consider a bigger truck.</span>'; return '<span style="color:var(--pgreen,#1d8a4e)">Load '+fmt(Math.round(tot))+' kg fits the selected truck (~'+fmt(cap)+' kg).</span>'; }
+function mpRefreshTotal(){ var t=document.getElementById('mp_total'); if(t) t.textContent=fmt(Math.round(mpTotal()))+' Kg/L · '+mpSelLines().length+' product(s) · '+mpOrdersIncluded().length+' order(s)'; var c=document.getElementById('mp_cap'); if(c) c.innerHTML=mpCapWarnHtml(); }
+function renderMPShip(){ if(!mpForm){closeModal();return;} var f=mpForm; var auto=dcControlOn(f.date);
+  var orderBlocks=f.orders.map(function(o,oi){
+    var rows=o.lines.map(function(r,li){ return '<tr style="'+(r.on?'':'opacity:.45')+'"><td style="text-align:center"><input type="checkbox" '+(r.on?'checked':'')+' onclick="mpLineToggle('+oi+','+li+')"></td><td><b>'+r.brand+'</b>'+(r.base&&r.base!==r.brand?' <span class="muted" style="font-size:11px">'+r.base+'</span>':'')+'</td><td class="num muted">'+fmt(r.rem)+'</td><td><input type="number" class="num" value="'+r.qty+'" oninput="mpLineQty('+oi+','+li+',this.value)" '+(r.on?'':'disabled')+' style="width:104px"></td></tr>'; }).join('');
+    return '<div style="border:1px solid var(--pline,#e3e7ec);border-radius:10px;padding:10px 12px;margin-bottom:10px"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px"><div style="font-weight:700;font-size:13px">'+o.po+'</div><div class="fld" style="margin:0;min-width:230px"><label style="font-size:10px">SO # (sales order) <span style="color:var(--red)">*</span></label><input type="text" value="'+_av(o.so)+'" oninput="mpOrderSet('+oi+',\'so\',this.value)" placeholder="e.g. SAL-ORD-2026-00176" style="padding:5px 8px"></div></div><div style="overflow:auto"><table><thead><tr><th style="width:32px"></th><th>Product</th><th class="num">Ready</th><th class="num">Qty to ship</th></tr></thead><tbody>'+rows+'</tbody></table></div></div>';
+  }).join('');
+  $('modal').innerHTML='<div class="mh"><h2>Start shipment — '+shortClient(f.client)+'</h2><div class="sub">One truck carries one customer only. Tick orders &amp; products for this load.</div></div>'
+   +'<div class="mb">'
+   +'<div class="dstep"><div class="dstep-h">1 · Orders &amp; products on this truck</div>'+orderBlocks
+   +'<div class="muted" style="font-size:12px;margin-top:4px">Loading <b id="mp_total">'+fmt(Math.round(mpTotal()))+' Kg/L · '+mpSelLines().length+' product(s) · '+mpOrdersIncluded().length+' order(s)</b></div></div>'
+   +'<div class="dstep"><div class="dstep-h">2 · Truck &amp; transport</div>'
+   +'<div class="formgrid" style="grid-template-columns:repeat(3,minmax(0,1fr))">'
+   +'<div class="fld"><label>Dispatch date</label><input type="date" value="'+f.date+'" onchange="mpSet(\'date\',this.value);renderMPShip()"></div>'
+   +'<div class="fld"><label>Truck size <span style="color:var(--red)">*</span></label><select onchange="mpSet(\'truckSize\',this.value);renderMPShip()"><option value="">— pick —</option>'+TRUCK_SIZES.map(function(t){return '<option value="'+t.k+'"'+(f.truckSize===t.k?' selected':'')+'>'+t.label+'</option>';}).join('')+'</select></div>'
+   +'<div class="fld"><label>Destination <span class="muted" style="font-weight:400;font-size:10px">· usual location remembered</span></label><input type="text" list="mpDestList" value="'+_av(f.dest)+'" oninput="mpSet(\'dest\',this.value)" placeholder="where is this going?"><datalist id="mpDestList">'+clientDestinations(f.client).map(function(d){return '<option value="'+_av(d)+'">';}).join('')+'</datalist></div>'
+   +'<div class="fld"><label>Transport type <span style="color:var(--red)">*</span></label><select onchange="mpSet(\'transportType\',this.value);renderMPShip()"><option value="">— pick —</option><option value="Ex-factory"'+(f.transportType==='Ex-factory'?' selected':'')+'>Ex-factory (customer transport)</option><option value="VAN-delivered"'+(f.transportType==='VAN-delivered'?' selected':'')+'>VAN-delivered (arranged)</option></select></div>'
+   +'<div class="fld"><label>Vehicle # '+(f.transportType==='VAN-delivered'?'<span style="color:var(--red)">*</span>':'<span class="muted" style="font-weight:400;font-size:10px">· optional</span>')+'</label><input type="text" value="'+_av(f.vehicle)+'" oninput="mpSet(\'vehicle\',this.value)" '+(f.transportType==='Ex-factory'?'placeholder="(via transporter)"':'')+'></div>'
+   +'<div class="fld"><label>Bilty # '+(f.transportType==='Ex-factory'?'<span style="color:var(--red)">*</span>':'<span class="muted" style="font-weight:400;font-size:10px">· optional</span>')+'</label><input type="text" value="'+_av(f.bilty)+'" oninput="mpSet(\'bilty\',this.value)" '+(f.transportType==='VAN-delivered'?'placeholder="(own truck)"':'')+'></div>'
+   +'<div class="fld"><label>Carrier / transporter</label><input type="text" value="'+_av(f.carrier)+'" oninput="mpSet(\'carrier\',this.value)" placeholder="transporter name"></div>'
+   +'<div class="fld"><label>Driver name <span class="muted" style="font-weight:400;font-size:10px">· optional</span></label><input type="text" value="'+_av(f.driver)+'" oninput="mpSet(\'driver\',this.value)"></div>'
+   +'<div class="fld"><label>Driver contact <span class="muted" style="font-weight:400;font-size:10px">· req. if driver named</span></label><input type="text" value="'+_av(f.driverContact)+'" oninput="mpSet(\'driverContact\',this.value)" placeholder="03xx-xxxxxxx"></div>'
+   +'<div class="fld"><label>Seal # <span class="muted" style="font-weight:400;font-size:10px">· optional</span></label><input type="text" value="'+_av(f.seal)+'" oninput="mpSet(\'seal\',this.value)"></div>'
+   +'<div class="fld" style="grid-column:1/-1"><label>Remarks</label><input type="text" value="'+_av(f.remarks)+'" oninput="mpSet(\'remarks\',this.value)"></div>'
+   +'</div><div id="mp_cap" style="font-size:12px;margin-top:8px">'+mpCapWarnHtml()+'</div></div>'
+   +'<div class="dstep"><div class="dstep-h">3 · Confirm</div><div style="font-size:12px;padding:8px 11px;background:var(--navy-50);border-radius:8px">'+(auto?'DC # <b style="color:var(--navy)">'+nextDCNo()+'</b> will be assigned. ':'')+'This creates a <b>Truck Planned</b> shipment for <b>'+shortClient(f.client)+'</b>. Next steps: start loading, issue the Gate Pass, then Plant Manager approval releases it.</div></div>'
+   +'</div><div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" onclick="mpCreate()">Create shipment</button></div>'; }
+function mpCreate(){ if(!(canEdit(['Supply Chain'])||state.role==='COO')){toast('Supply Chain only');return;} var f=mpForm; if(!f)return;
+  var sel=mpSelLines(); if(!sel.length){toast('Tick at least one product with a quantity');return;}
+  if(!String(f.transportType||'').trim()){toast('Select a Transport type (Ex-factory / VAN-delivered)');return;}
+  if(!String(f.truckSize||'').trim()){toast('Pick a truck size');return;}
+  if(f.transportType==='VAN-delivered' && !String(f.vehicle||'').trim()){toast('Vehicle # is required for VAN-delivered transport');return;}
+  if(f.transportType==='Ex-factory' && !String(f.bilty||'').trim()){toast('Bilty # is required for Ex-factory transport');return;}
+  if(String(f.driver||'').trim() && !String(f.driverContact||'').trim()){toast('Driver contact is required when a driver name is entered');return;}
+  var incl=mpOrdersIncluded(); for(var pi=0;pi<incl.length;pi++){ var od=f.orders.find(function(x){return x.po===incl[pi];}); if(od && !String(od.so||'').trim()){ toast('SO # is required for order '+incl[pi]); return; } }
+  var dc=nextDCNo(); var d=f.date||TODAY.toISOString().slice(0,10);
+  var _p=String(d).split('-'); var _mmddyy=(_p[1]||'')+(_p[2]||'')+((_p[0]||'').slice(-2));
+  state.shipSerial=(state.shipSerial||0)+1; var _ser=('00'+state.shipSerial).slice(-3); var shipNo=_mmddyy+_ser+dc;
+  var dispId='DSP'+(state.seq=(state.seq||1)+1); var n=0,tot=0;
+  sel.forEach(function(x){ var o=(state.orders||[]).find(function(y){return y.id===x.o.oid;}); if(!o)return; var l=o.lines.find(function(y){return y.id===x.r.lid;})||o.lines.find(function(y){return y.brand===x.r.brand;}); if(!l)return;
+    var rem=Math.max(0,lineCleared(o,l)); var want=Math.min(+x.r.qty||0,rem); if(want<=0)return;
+    var alloc=fifoAlloc(o,l,want,'ship'); var batches=[]; var kg=0;
+    lotsFor(o,l).forEach(function(p,i){ var a=Math.min(+alloc[i]||0,lotClearedKg(p)); if(a>0.0001){ p.shipKg=(+p.shipKg||0)+a; batches.push({batch:lotBaseNo(p),brand:lotBrandNo(p),kg:Math.round(a)}); kg+=a; } });
+    if(kg<=0)return;
+    state.shipments.unshift({id:_uid('SH'),dispId:dispId,po:o.po,client:f.client,brand:l.brand,lid:l.id,kg:Math.round(kg),batches:batches,pack:x.r.pack,dispatch:d,destination:f.dest,carrier:f.carrier,vehicle:f.vehicle,dc:dc,shipNo:shipNo,bilty:f.bilty,so:x.o.so||'',transportType:f.transportType,truckSize:f.truckSize,driver:f.driver,driverContact:f.driverContact,seal:f.seal,stage:'truck_planned',loadStarted:'',gatePass:'',dcStatus:'pending',approvedBy:'',approvedDate:'',dispCounted:false,delivered:null,remarks:f.remarks,qa:{pass:true,closed:true},by:state.role});
+    n++; tot+=kg; });
+  if(!n){toast('Nothing cleared to ship — inspect the packed material first');return;}
+  logAction('Shipment '+shipNo+' ('+dispId+') created — '+shortClient(f.client)+' · '+incl.length+' order(s), '+n+' product(s), '+fmt(Math.round(tot))+' Kg/L · DC '+dc+' · Truck Planned');
+  (state.audit=state.audit||[]).unshift({t:new Date().toISOString(),user:state.role,module:'Shipment',po:incl.join(', '),brand:n+' product(s)',field:'Truck planned',old:'',val:fmt(Math.round(tot))+' Kg/L · DC '+dc});
+  mpForm=null; save(); closeModal(); render(); toast('DC '+dc+' created — Truck Planned. Start loading next.'); }
 
 /* ===== Edit an existing shipment (correct DC / date / vehicle / qty / status) ===== */
 let shipEditForm=null;

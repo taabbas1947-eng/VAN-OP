@@ -4264,15 +4264,21 @@ function printPO(po){ var o=(state.orders||[]).find(function(x){return String(x.
   var inner=_docHead('PURCHASE ORDER CONFIRMATION',meta)+'<div class="meta"><div class="col l">'+custLine+'</div><div class="col">'+rt+'</div></div>'+(o.foc?'<div class="banner" style="color:#b9760d">FOC SAMPLE — NO CHARGE</div>':'')+'<table><thead><tr><th>Product</th><th>Qty Kg/L</th><th>Pack</th><th>PKR/Kg</th><th>PKR/pack</th><th>Value</th></tr></thead><tbody>'+rows+'</tbody></table>'+(o.foc?'':'<div class="tot"><div class="box"><div class="r"><span>Subtotal (ex-FED)</span><b>'+fmt(sub)+'</b></div><div class="r"><span>FED 5% ('+_pe(o.fedMode||'None')+')</span><b>'+fmt(fed)+'</b></div><div class="r g"><span>Grand total (PKR)</span><b>'+fmt(gt)+'</b></div></div></div>')+'<div class="signs"><div class="s">Prepared by — KAM<br><br>'+_pe(o.kam||'')+'</div><div class="s">Approved by</div><div class="s">Customer acknowledgement</div></div>';
   printDoc('PO '+o.po,inner); }
 function printDC(dispId){ var g=((typeof dispatchGroups==='function')?dispatchGroups():[]).filter(function(x){return x.dispId===dispId;})[0]; if(!g){toast('Shipment not found');return;}
-  var o=(state.orders||[]).find(function(x){return x.po===g.po;});
-  var cust=(state.customers||[]).find(function(c){return o&&c.name===o.client;});
+  /* Reverted to the original challan format & design. The only additions are the genuinely new
+     data points that had no place before: multiple orders on one truck (one customer), and the
+     Gate Pass #. No new columns, no extra totals — the layout is the prior DC. */
+  var multi=(g.pos&&g.pos.length>1); var po1=(g.pos&&g.pos[0])||g.po;
+  var o=(state.orders||[]).find(function(x){return x.po===po1;});
+  var clientNm=g.client||(o&&o.client)||'';
+  var cust=(state.customers||[]).find(function(c){return c.name===clientNm;});
   var focal=(o&&o.focalPerson)||''; var focalC=(cust&&cust.phone)||'';
+  var soSet={}; (g.rows||[]).forEach(function(r){ if(r.so) soSet[r.so]=1; }); var soList=Object.keys(soSet); var soTxt=soList.length?soList.join(', '):(g.so||'');
   var pend=(g.dcStatus==='pending');
-  var meta='No.: <b>'+_pe(g.dc||'')+'</b><br>Date: <b>'+_pe(g.date||'')+'</b><br>SO #: <b>'+_pe(g.so||'')+'</b>';
-  var col1='PO #: <b>'+_pe(g.po||'')+'</b><br>Customer: <b>'+_pe((o&&o.client)||'')+'</b><br>Focal: <b>'+_pe(focal)+'</b>'+(focalC?(' &middot; '+_pe(focalC)):'')+'<br>Address: <b>'+_pe(g.destination||'')+'</b>';
+  var meta='No.: <b>'+_pe(g.dc||'')+'</b><br>Date: <b>'+_pe(g.date||'')+'</b><br>SO #: <b>'+_pe(soTxt)+'</b>';
+  var col1=(multi?'Orders: <b>'+_pe((g.pos||[]).join(', '))+'</b>':'PO #: <b>'+_pe(po1||'')+'</b>')+'<br>Customer: <b>'+_pe(clientNm)+'</b><br>Focal: <b>'+_pe(focal)+'</b>'+(focalC?(' &middot; '+_pe(focalC)):'')+'<br>Address: <b>'+_pe(g.destination||'')+'</b>';
   var _mv=(g.transportType==='Ex-factory')?('Bilty #: <b>'+_pe(g.bilty||'—')+'</b>'+(g.vehicle?(' &middot; Vehicle #: <b>'+_pe(g.vehicle)+'</b>'):'')):('Vehicle #: <b>'+_pe(g.vehicle||'—')+'</b>'+(g.bilty?(' &middot; Bilty #: <b>'+_pe(g.bilty)+'</b>'):''));
-  var col2='Transport: <b>'+_pe(g.transportType||'—')+'</b><br>'+(g.driver?('Driver: <b>'+_pe(g.driver)+'</b>'+(g.driverContact?(' &middot; '+_pe(g.driverContact)):'')+'<br>'):'')+_mv+(g.seal?(' &middot; Seal #: <b>'+_pe(g.seal)+'</b>'):'')+'<br>Shipment #: <b>'+_pe(g.shipNo||'')+'</b>';
-  var rows=(g.rows||[]).map(function(r,i){ var pk=(typeof linePackSize==='function')?linePackSize(g.po,r.brand):(+r.pack||0); var packs=(pk>0)?Math.round((+r.kg||0)/pk):''; var bn=(r.batches&&r.batches.length)?r.batches.map(function(b){return b.batch;}).join(', '):''; return '<tr><td class="num">'+(i+1)+'</td><td>'+_pe(r.brand)+'</td><td class="num">'+(pk>0?fmt(pk):'—')+'</td><td>Kg</td><td class="num">'+(packs!==''?fmt(packs):'—')+'</td><td class="num">'+fmt(+r.kg||0)+'</td><td>'+_pe(bn)+'</td></tr>'; }).join('');
+  var col2='Transport: <b>'+_pe(g.transportType||'—')+'</b><br>'+(g.driver?('Driver: <b>'+_pe(g.driver)+'</b>'+(g.driverContact?(' &middot; '+_pe(g.driverContact)):'')+'<br>'):'')+_mv+(g.seal?(' &middot; Seal #: <b>'+_pe(g.seal)+'</b>'):'')+(g.gatePass?(' &middot; Gate Pass: <b>'+_pe(g.gatePass)+'</b>'):'')+'<br>Shipment #: <b>'+_pe(g.shipNo||'')+'</b>';
+  var rows=(g.rows||[]).map(function(r,i){ var pk=(typeof linePackSize==='function')?linePackSize(r.po||po1,r.brand):(+r.pack||0); var packs=(pk>0)?Math.round((+r.kg||0)/pk):''; var bn=(r.batches&&r.batches.length)?r.batches.map(function(b){return b.batch;}).join(', '):''; if(multi&&r.po){ bn=_pe(r.po)+(bn?(' — '+bn):''); } else { bn=_pe(bn); } return '<tr><td class="num">'+(i+1)+'</td><td>'+_pe(r.brand)+'</td><td class="num">'+(pk>0?fmt(pk):'—')+'</td><td>Kg</td><td class="num">'+(packs!==''?fmt(packs):'—')+'</td><td class="num">'+fmt(+r.kg||0)+'</td><td>'+bn+'</td></tr>'; }).join('');
   var blanks=''; for(var bi=(g.rows||[]).length;bi<6;bi++){ blanks+='<tr><td class="num">'+(bi+1)+'</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>'; }
   var stamp=(g.qa==='pass')?'<div class="banner" style="color:#1a8a3c;border:0">QC PASSED &middot; cleared for dispatch</div>':'';
   var approved=(g.dcStatus==='approved');
@@ -4284,7 +4290,26 @@ function printDC(dispId){ var g=((typeof dispatchGroups==='function')?dispatchGr
     +stamp
     +'<div class="signs"><div class="s">Issued by<br><br>'+_pe((g.rows[0]&&g.rows[0].by)||'')+'</div><div class="s">Approved by'+(approved?('<br><br><b>'+_pe(g.approvedBy)+'</b><br>'+_pe(g.approvedDate)):'<br><br><span style="color:#b9760d">pending</span>')+'</div><div class="s">Received by (sign &amp; date)</div></div>';
   if(pend){ toast('Draft DC — the official signed PDF is available after Plant Manager approval'); }
-  printDoc('DC '+(g.dc||g.po),inner,pend); }
+  printDoc('DC '+(g.dc||po1),inner,pend); }
+/* Gate Pass — short authorization the truck carries at the gate. Issued during Loading, before release. */
+function printGatePass(dispId){ var g=((typeof dispatchGroups==='function')?dispatchGroups():[]).filter(function(x){return x.dispId===dispId;})[0]; if(!g){toast('Shipment not found');return;}
+  if(!g.gatePass){toast('No Gate Pass issued for this shipment yet');return;}
+  var clientNm=g.client||''; var po1=(g.pos&&g.pos[0])||g.po; if(!clientNm){ var o=(state.orders||[]).find(function(x){return x.po===po1;}); clientNm=o?(o.client||''):''; }
+  var multi=(g.pos&&g.pos.length>1); var totW=(g.rows||[]).reduce(function(a,r){return a+(+r.kg||0);},0);
+  var totPk=(g.rows||[]).reduce(function(a,r){ var pk=(typeof linePackSize==='function')?linePackSize(r.po||po1,r.brand):(+r.pack||0); return a+((pk>0)?Math.round((+r.kg||0)/pk):0); },0);
+  var released=(g.stageNow==='in_transit'||g.dcStatus==='approved'||g.delivered);
+  var meta='Gate Pass: <b>'+_pe(g.gatePass)+'</b><br>DC #: <b>'+_pe(g.dc||'')+'</b><br>Date: <b>'+_pe(g.date||'')+'</b>';
+  var _mv=(g.transportType==='Ex-factory')?('Bilty #: <b>'+_pe(g.bilty||'—')+'</b>'):('Vehicle #: <b>'+_pe(g.vehicle||'—')+'</b>');
+  var col1='Customer: <b>'+_pe(clientNm)+'</b><br>'+(multi?('Orders: <b>'+_pe((g.pos||[]).join(', '))+'</b>'):('PO #: <b>'+_pe(po1||'')+'</b>'))+'<br>Destination: <b>'+_pe(g.destination||'')+'</b>';
+  var col2='Transport: <b>'+_pe(g.transportType||'—')+'</b><br>'+_mv+(g.vehicle&&g.transportType==='Ex-factory'?(' &middot; Vehicle: <b>'+_pe(g.vehicle)+'</b>'):'')+'<br>'+(g.driver?('Driver: <b>'+_pe(g.driver)+'</b>'+(g.driverContact?(' &middot; '+_pe(g.driverContact)):'')):'Driver: <b>—</b>')+(g.seal?('<br>Seal #: <b>'+_pe(g.seal)+'</b>'):'');
+  var prods=(g.rows||[]).map(function(r,i){ return '<tr><td class="num">'+(i+1)+'</td><td>'+_pe(r.brand)+'</td>'+(multi?('<td>'+_pe(r.po||'')+'</td>'):'')+'<td class="num">'+fmt(+r.kg||0)+'</td></tr>'; }).join('');
+  var inner=_docHead('GATE PASS',meta)
+    +(released?'':'<div class="banner" style="color:#b9760d">NOT YET RELEASED — valid only after Plant Manager approval</div>')
+    +'<div class="meta"><div class="col l">'+col1+'</div><div class="col">'+col2+'</div></div>'
+    +'<table><thead><tr><th>Sr</th><th>Product</th>'+(multi?'<th>PO</th>':'')+'<th>Weight (Kg)</th></tr></thead><tbody>'+prods+'</tbody></table>'
+    +'<div class="tot"><div class="box"><div class="r"><span>Total packages (approx.)</span><b>'+fmt(totPk)+'</b></div><div class="r g"><span>Total weight (Kg/L)</span><b>'+fmt(Math.round(totW))+'</b></div></div></div>'
+    +'<div class="signs"><div class="s">Issued by — Supply Chain<br><br>'+_pe((g.rows[0]&&g.rows[0].by)||'')+'</div><div class="s">Released by — Plant Manager'+(released?('<br><br><b>'+_pe(g.approvedBy)+'</b><br>'+_pe(g.approvedDate)):'<br><br><span style="color:#b9760d">pending</span>')+'</div><div class="s">Gate / Security (sign &amp; time out)</div></div>';
+  printDoc('Gate Pass '+g.gatePass,inner,!released); }
 function printInspect(po){ var lots=(state.packingLog||[]).filter(function(p){return p&&p.po===po&&p.qa;}); if(!lots.length){toast('No pre-shipment inspection recorded for this PO yet');return;}
   var meta='PO #: <b>'+_pe(po)+'</b><br>Date: <b>'+_pe((lots[0].qa&&lots[0].qa.date)||TODAY.toISOString().slice(0,10))+'</b>';
   var body=lots.map(function(p){ var cl=(p.qa.checklist||[]); var rows=cl.map(function(c){return '<tr><td>'+_pe(c.item)+'</td><td class="num">'+(c.result==='fail'?'✗ FAIL':'☑ OK')+'</td></tr>';}).join(''); var bn=(typeof lotBrandNo==='function'?lotBrandNo(p):'')||''; var res=p.qa.fail?'FAILED':'CLEARED — ready to ship'; return '<div class="meta"><div class="col l">Product: <b>'+_pe(p.brand)+'</b> &middot; Batch: <b>'+_pe(bn)+'</b> &middot; Qty: <b>'+fmt(+p.kg||0)+' Kg</b> &middot; Inspector: <b>'+_pe(p.qa.by||'')+'</b></div></div>'+(rows?('<table><tbody>'+rows+'</tbody></table>'):'')+'<div class="banner" style="color:'+(p.qa.fail?'#c0392b':'#1a8a3c')+'">Result: '+res+'</div>'; }).join('');

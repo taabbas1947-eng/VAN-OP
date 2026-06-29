@@ -2338,9 +2338,9 @@ function isManualPO(){ return entryChannel==='White Label'||entryChannel==='Dist
 function screenEntry(){
   const ed=canEdit(['KAM']);
   const clients=clientsForChannel(entryChannel);
-  $('view').innerHTML=`
+  $('view').innerHTML=`<div class="paperui">
    ${ed?'':viewOnly('KAM','switch to KAM to submit')}
-   
+   <div class="rb-top"><div><div class="rb-title">New PO Entry</div><div class="rb-sub2">Create a customer order · price, tax and documents stay consistent</div></div></div>
    <div class="card"><h3>Step 1 — PO Header</h3>
     <div class="formgrid">
      <div class="fld"><label>Channel</label>
@@ -2382,7 +2382,7 @@ function screenEntry(){
      <div class="card" style="flex:1.3;min-width:300px"><h3>Raw-material check</h3><div id="e_preview" class="muted" style="font-size:12.5px"></div></div>
    </div>
    <div class="card"><h3>Step 4 — Submit</h3>
-    <button id="e_submit" ${ed?'':'disabled'} onclick="submitPO()">▶ Submit PO &amp; run RM check</button></div>`;
+    <button id="e_submit" ${ed?'':'disabled'} onclick="submitPO()">▶ Submit PO &amp; run RM check</button></div></div>`;
   if(entryClient) renderEntryLines(); else validate();
 }
 function updatePacks(i){ const l=entryLines[i]; const el=document.getElementById('pk_'+i); if(el) el.textContent=(+l.qty>0&&+l.pack>0)?fmt(Math.ceil(+l.qty/+l.pack)):'—'; }
@@ -6330,9 +6330,9 @@ var RB_DATASETS={
     fields:[{k:'date',l:'Dispatched',t:'dim'},{k:'po',l:'PO',t:'dim'},{k:'client',l:'Client',t:'dim'},{k:'product',l:'Product',t:'dim'},{k:'dc',l:'DC #',t:'dim'},{k:'vehicle',l:'Vehicle',t:'dim'},{k:'carrier',l:'Carrier',t:'dim'},{k:'destination',l:'Destination',t:'dim'},{k:'bilty',l:'Bilty',t:'dim'},{k:'delivered',l:'Delivered',t:'dim'},{k:'shipno',l:'Shipment #',t:'dim'},{k:'kg',l:'Kg/L',t:'meas'}],
     filters:['client','product','destination','dc']},
   orders:{label:'Orders / PO lines · sales',dateKey:'received',
-    rows:function(){ var out=[]; (state.orders||[]).forEach(function(o){ (o.lines||[]).forEach(function(l){ out.push({po:o.po||'',client:o.client||'',channel:o.channel||'',product:l.brand||'',base:l.base||'',received:o.received||'',promised:o.promised||'',priority:o.priority||'Normal',stage:(typeof lineStage==='function'?lineStage(o,l):''),ordered:+l.ordered||0,produced:+l.produced||0,packed:+l.packed||0,dispatched:+l.dispatched||0,delivered:+l.delivered||0,value:Math.round((+l.delivered||0)*(+l.invoicePrice||0))}); }); }); return out; },
-    fields:[{k:'po',l:'PO',t:'dim'},{k:'client',l:'Client',t:'dim'},{k:'channel',l:'Channel',t:'dim'},{k:'product',l:'Product',t:'dim'},{k:'base',l:'Base',t:'dim'},{k:'received',l:'Received',t:'dim'},{k:'promised',l:'Promised',t:'dim'},{k:'priority',l:'Priority',t:'dim'},{k:'stage',l:'Stage',t:'dim'},{k:'ordered',l:'Ordered',t:'meas'},{k:'produced',l:'Produced',t:'meas'},{k:'packed',l:'Packed',t:'meas'},{k:'dispatched',l:'Shipped',t:'meas'},{k:'delivered',l:'Delivered',t:'meas'},{k:'value',l:'Delivered value',t:'meas'}],
-    filters:['client','channel','priority','stage','product']},
+    rows:function(){ var out=[]; (state.orders||[]).forEach(function(o){ var nL=(o.lines||[]).length||1; (o.lines||[]).forEach(function(l){ out.push({po:o.po||'',client:o.client||'',channel:o.channel||'',segment:(typeof _chanToSeg==='function'?(_chanToSeg(o.channel)||o.channel||''):(o.channel||'')),type:(o.foc?'FOC sample':'Commercial'),product:l.brand||'',base:l.base||'',destpartner:o.destinationPartner||'',received:o.received||'',promised:o.promised||'',priority:o.priority||'Normal',stage:(typeof lineStage==='function'?lineStage(o,l):''),fedmode:o.fedMode||'',ordered:+l.ordered||0,produced:+l.produced||0,packed:+l.packed||0,dispatched:+l.dispatched||0,delivered:+l.delivered||0,pricekg:+l.invoicePrice||0,pricepack:+l.invoicePack||0,value:Math.round((+l.delivered||0)*(+l.invoicePrice||0)),fed:Math.round((+o.fedAmount||0)/nL)}); }); }); return out; },
+    fields:[{k:'po',l:'PO',t:'dim'},{k:'client',l:'Client',t:'dim'},{k:'channel',l:'Channel',t:'dim'},{k:'segment',l:'Segment',t:'dim'},{k:'type',l:'Type (Commercial/FOC)',t:'dim'},{k:'product',l:'Product',t:'dim'},{k:'base',l:'Base',t:'dim'},{k:'destpartner',l:'Destination Partner',t:'dim'},{k:'received',l:'Received',t:'dim'},{k:'promised',l:'Promised',t:'dim'},{k:'priority',l:'Priority',t:'dim'},{k:'stage',l:'Stage',t:'dim'},{k:'fedmode',l:'FED mode',t:'dim'},{k:'ordered',l:'Ordered',t:'meas'},{k:'produced',l:'Produced',t:'meas'},{k:'packed',l:'Packed',t:'meas'},{k:'dispatched',l:'Shipped',t:'meas'},{k:'delivered',l:'Delivered',t:'meas'},{k:'pricekg',l:'Price PKR/Kg',t:'meas'},{k:'pricepack',l:'Price PKR/pack',t:'meas'},{k:'value',l:'Delivered value',t:'meas'},{k:'fed',l:'FED amount',t:'meas'}],
+    filters:['client','channel','segment','type','priority','stage','product','fedmode']},
   finance:{label:'Finance · sales & invoicing',dateKey:'date',
     rows:function(){ var cm=_rbClientMap(); var pmap={}; (state.orders||[]).forEach(function(o){ (o.lines||[]).forEach(function(l){ pmap[(o.po||'')+'|'+(l.brand||'')]=+l.invoicePrice||0; }); }); return (state.shipments||[]).filter(function(s){return s&&!s.voided&&(+s.kg||0)>0;}).map(function(s){ var price=pmap[(s.po||'')+'|'+(s.brand||'')]||0; var kg=+s.kg||0; return {date:s.dispatch||'',dc:s.dc||'',po:s.po||'',client:cm[s.po]||'',product:s.brand||'',destination:s.destination||'',vehicle:s.vehicle||'',delivered:s.delivered||'',shipno:s.shipNo||'',kg:kg,price:price,value:Math.round(kg*price)}; }); },
     fields:[{k:'date',l:'Date',t:'dim'},{k:'dc',l:'DC #',t:'dim'},{k:'po',l:'PO',t:'dim'},{k:'client',l:'Client',t:'dim'},{k:'product',l:'Product',t:'dim'},{k:'destination',l:'Destination',t:'dim'},{k:'vehicle',l:'Vehicle',t:'dim'},{k:'delivered',l:'Delivered',t:'dim'},{k:'shipno',l:'Shipment #',t:'dim'},{k:'kg',l:'Kg/L',t:'meas'},{k:'price',l:'Price PKR/Kg',t:'meas'},{k:'value',l:'Sale value PKR',t:'meas'}],
@@ -6364,7 +6364,11 @@ var RB_DATASETS={
   activity:{label:'Activity log',dateKey:'date',
     rows:function(){ return (state.audit||[]).map(function(x){ return {when:(x.t||'').replace('T',' ').slice(0,16),date:(x.t||'').slice(0,10),user:x.user||'',module:x.module||'',po:x.po||'',product:x.brand||'',field:x.field||'',value:(x.val!=null?String(x.val):'')}; }); },
     fields:[{k:'when',l:'When',t:'dim'},{k:'date',l:'Date',t:'dim'},{k:'user',l:'User',t:'dim'},{k:'module',l:'Module',t:'dim'},{k:'po',l:'PO',t:'dim'},{k:'product',l:'Product',t:'dim'},{k:'field',l:'Field',t:'dim'},{k:'value',l:'Value',t:'dim'}],
-    filters:['module','user']}
+    filters:['module','user']},
+  customers:{label:'Customers',dateKey:'inducted',
+    rows:function(){ try{ if(typeof custInit==='function')custInit(); }catch(e){} return (state.customers||[]).filter(function(c){return !c.isParent;}).map(function(c){ return {code:c.code||'',name:c.name||'',segment:c.segment||'',outlet:c.outlet||'',fed:c.fed||'',kam:c.kam||'',introducedBy:c.introducedBy||'',destination:c.destination||'',region:c.region||'',city:c.city||'',phone:c.phone||'',status:c.status||'Active',inducted:String(c.inducted||'')}; }); },
+    fields:[{k:'code',l:'Code',t:'dim'},{k:'name',l:'Name',t:'dim'},{k:'segment',l:'Segment',t:'dim'},{k:'outlet',l:'Outlet',t:'dim'},{k:'fed',l:'FED mode',t:'dim'},{k:'kam',l:'KAM',t:'dim'},{k:'introducedBy',l:'Introduced by',t:'dim'},{k:'destination',l:'Destination',t:'dim'},{k:'region',l:'Region',t:'dim'},{k:'city',l:'City',t:'dim'},{k:'phone',l:'Phone',t:'dim'},{k:'status',l:'Status',t:'dim'},{k:'inducted',l:'Inducted',t:'dim'}],
+    filters:['segment','fed','kam','status']}
 };
 function rbDef(){ return RB_DATASETS[rbDS]||RB_DATASETS.production; }
 function rbField(k){ var a=rbDef().fields.filter(function(f){return f.k===k;}); return a[0]; }

@@ -47,7 +47,8 @@ function readToken(tok) {
 /* ---------- storage (Postgres or local file) ---------- */
 let store;
 if (DATABASE_URL) {
-  const { Pool } = require('pg');
+  // const { Pool } = require('pg');
+  const mysql = require('mysql2/promise');
   const pool = new Pool({ connectionString: DATABASE_URL, ssl: { rejectUnauthorized: false } });
   store = {
     async init() {

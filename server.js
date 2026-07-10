@@ -49,7 +49,7 @@ let store;
 if (DATABASE_URL) {
   // const { Pool } = require('pg');
   const mysql = require('mysql2/promise');
-  const pool = new Pool({ connectionString: DATABASE_URL, ssl: { rejectUnauthorized: false } });
+  const pool = mysql.createPool(parseMysqlUrl(DATABASE_URL));
   store = {
     async init() {
       await pool.query('CREATE TABLE IF NOT EXISTS app_state (id int PRIMARY KEY, rev int NOT NULL DEFAULT 0, data text)');

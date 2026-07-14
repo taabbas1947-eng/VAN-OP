@@ -4,6 +4,6 @@
   "private": true,
   "description": "VAN Order Control Tower — order-to-shipment control system",
   "scripts": { "start": "node server.js" },
-  "dependencies": { "express": "^4.19.2", "pg": "^8.11.5" },
+  "dependencies": { "express": "^4.19.2", "mysql2": "^3.11.0" },
   "engines": { "node": ">=18" }
 }

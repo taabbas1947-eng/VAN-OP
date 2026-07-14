@@ -29,6 +29,7 @@ function verifyPw(pw, stored) {
   const hh = crypto.scryptSync(String(pw), salt, 64).toString('hex');
   try { return crypto.timingSafeEqual(Buffer.from(h, 'hex'), Buffer.from(hh, 'hex')); } catch (e) { return false; }
 }
+
 /* ---------- stateless signed session token ---------- */
 function makeToken(u) {
   const payload = Buffer.from(JSON.stringify({ u: u.username, r: u.role, n: u.name, exp: Date.now() + 1000 * 60 * 60 * 24 * 30 })).toString('base64url');
@@ -44,28 +45,110 @@ function readToken(tok) {
   try { const p = JSON.parse(Buffer.from(payload, 'base64url').toString()); if (!p.exp || p.exp < Date.now()) return null; return p; } catch (e) { return null; }
 }
 
-/* ---------- storage (Postgres or local file) ---------- */
+/* ---------- parse DATABASE_URL into mysql2 config ---------- */
+function parseMysqlUrl(url) {
+  // Supports:  mysql://user:pass@host:port/dbname
+  // Also handles blank password: mysql://user:@host:port/dbname
+  const m = url.match(/^mysql:\/\/([^:]+):([^@]*)@([^:/]+)(?::(\d+))?\/(.+)$/);
+  if (!m) throw new Error('DATABASE_URL must be in the form mysql://user:pass@host:port/dbname');
+  return {
+    host: m[3],
+    port: m[4] ? parseInt(m[4]) : 3306,
+    user: m[1],
+    password: m[2],  // blank string is fine for XAMPP default root
+    database: m[5],
+    ssl: false,
+    waitForConnections: true,
+    connectionLimit: 5,
+  };
+}
+
+/* ---------- storage (MySQL or local file) ---------- */
 let store;
 if (DATABASE_URL) {
-  const { Pool } = require('pg');
-  const pool = new Pool({ connectionString: DATABASE_URL, ssl: { rejectUnauthorized: false } });
+  const mysql = require('mysql2/promise');
+  const pool = mysql.createPool(parseMysqlUrl(DATABASE_URL));
+
+  // Helper: run a query, return [rows, fields]. mysql2 always returns [rows, fields].
+  const q = (sql, params) => pool.execute(sql, params || []);
+
   store = {
     async init() {
-      await pool.query('CREATE TABLE IF NOT EXISTS app_state (id int PRIMARY KEY, rev int NOT NULL DEFAULT 0, data text)');
-      await pool.query('INSERT INTO app_state (id, rev, data) VALUES (1, 0, NULL) ON CONFLICT (id) DO NOTHING');
-      await pool.query('CREATE TABLE IF NOT EXISTS auth_users (username text PRIMARY KEY, name text, role text, pass_hash text)');
+      // LONGTEXT for data — MySQL's TEXT max is 65KB, app_state JSON can be much larger.
+      await q(`CREATE TABLE IF NOT EXISTS app_state (
+        id INT PRIMARY KEY,
+        rev INT NOT NULL DEFAULT 0,
+        data LONGTEXT
+      )`);
+      // INSERT IGNORE = ON CONFLICT DO NOTHING in MySQL
+      await q('INSERT IGNORE INTO app_state (id, rev, data) VALUES (1, 0, NULL)');
+      await q(`CREATE TABLE IF NOT EXISTS auth_users (
+        username VARCHAR(191) PRIMARY KEY,
+        name TEXT,
+        role TEXT,
+        pass_hash TEXT
+      )`);
     },
-    async getState() { const r = await pool.query('SELECT rev, data FROM app_state WHERE id=1'); const row = r.rows[0] || { rev: 0, data: null }; return { rev: row.rev, data: row.data ? JSON.parse(row.data) : null }; },
-    async setState(d) { const r = await pool.query('UPDATE app_state SET rev=rev+1, data=$1 WHERE id=1 RETURNING rev', [JSON.stringify(d)]); return r.rows[0].rev; },
-    async setStateGuarded(baseRev, d) { const r = await pool.query('UPDATE app_state SET rev=rev+1, data=$1 WHERE id=1 AND rev=$2 RETURNING rev', [JSON.stringify(d), baseRev]); if (r.rows.length === 0) { const cur = await this.getState(); return { conflict: true, rev: cur.rev, data: cur.data }; } return { conflict: false, rev: r.rows[0].rev }; },
-    async usersCount() { const r = await pool.query('SELECT count(*)::int c FROM auth_users'); return r.rows[0].c; },
-    async listUsers() { const r = await pool.query('SELECT username, name, role FROM auth_users ORDER BY username'); return r.rows; },
-    async getUser(u) { const r = await pool.query('SELECT username, name, role, pass_hash FROM auth_users WHERE username=$1', [u]); return r.rows[0] || null; },
-    async putUser(u) { await pool.query('INSERT INTO auth_users(username,name,role,pass_hash) VALUES($1,$2,$3,$4) ON CONFLICT(username) DO UPDATE SET name=$2, role=$3, pass_hash=$4', [u.username, u.name, u.role, u.pass_hash]); },
-    async renameUser(oldU, u) { await pool.query('DELETE FROM auth_users WHERE username=$1', [oldU]); await this.putUser(u); },
-    async delUser(u) { await pool.query('DELETE FROM auth_users WHERE username=$1', [u]); }
+
+    async getState() {
+      const [rows] = await q('SELECT rev, data FROM app_state WHERE id=1');
+      const row = rows[0] || { rev: 0, data: null };
+      return { rev: row.rev, data: row.data ? JSON.parse(row.data) : null };
+    },
+
+    async setState(d) {
+      await q('UPDATE app_state SET rev=rev+1, data=? WHERE id=1', [JSON.stringify(d)]);
+      const [rows] = await q('SELECT rev FROM app_state WHERE id=1');
+      return rows[0].rev;
+    },
+
+    async setStateGuarded(baseRev, d) {
+      const [result] = await q(
+        'UPDATE app_state SET rev=rev+1, data=? WHERE id=1 AND rev=?',
+        [JSON.stringify(d), baseRev]
+      );
+      // result.affectedRows === 0 means the rev didn't match — conflict
+      if (result.affectedRows === 0) {
+        const cur = await this.getState();
+        return { conflict: true, rev: cur.rev, data: cur.data };
+      }
+      const [rows] = await q('SELECT rev FROM app_state WHERE id=1');
+      return { conflict: false, rev: rows[0].rev };
+    },
+
+    async usersCount() {
+      const [rows] = await q('SELECT count(*) AS c FROM auth_users');
+      return rows[0].c;
+    },
+
+    async listUsers() {
+      const [rows] = await q('SELECT username, name, role FROM auth_users ORDER BY username');
+      return rows;
+    },
+
+    async getUser(u) {
+      const [rows] = await q('SELECT username, name, role, pass_hash FROM auth_users WHERE username=?', [u]);
+      return rows[0] || null;
+    },
+
+    async putUser(u) {
+      // ON DUPLICATE KEY UPDATE = ON CONFLICT DO UPDATE in MySQL
+      await q(
+        'INSERT INTO auth_users(username,name,role,pass_hash) VALUES(?,?,?,?) ON DUPLICATE KEY UPDATE name=VALUES(name), role=VALUES(role), pass_hash=VALUES(pass_hash)',
+        [u.username, u.name, u.role, u.pass_hash]
+      );
+    },
+
+    async renameUser(oldU, u) {
+      await q('DELETE FROM auth_users WHERE username=?', [oldU]);
+      await this.putUser(u);
+    },
+
+    async delUser(u) {
+      await q('DELETE FROM auth_users WHERE username=?', [u]);
+    }
   };
-  console.log('Storage: PostgreSQL');
+  console.log('Storage: MySQL');
 } else {
   const SDIR = path.join(__dirname, 'data'); fs.mkdirSync(SDIR, { recursive: true });
   const SF = path.join(SDIR, 'state.json'), AF = path.join(SDIR, 'auth.json');
@@ -116,15 +199,17 @@ app.post('/api/login', async (req, res) => {
 });
 
 app.get('/api/state', auth, async (req, res) => { try { const s = await store.getState(); res.json({ rev: s.rev, data: s.data ? stripUsers(s.data) : null }); } catch (e) { res.status(500).json({ error: String(e) }); } });
-app.post('/api/state', auth, async (req, res) => { try {
-  const h = req.headers['x-base-rev'];
-  if (h !== undefined && h !== '' && !isNaN(Number(h))) {
-    const out = await store.setStateGuarded(Number(h), stripUsers(req.body));
-    if (out.conflict) return res.status(409).json({ conflict: true, rev: out.rev, data: out.data ? stripUsers(out.data) : null });
-    return res.json({ rev: out.rev });
-  }
-  res.json({ rev: await store.setState(stripUsers(req.body)) });
-} catch (e) { res.status(500).json({ error: String(e) }); } });
+app.post('/api/state', auth, async (req, res) => {
+  try {
+    const h = req.headers['x-base-rev'];
+    if (h !== undefined && h !== '' && !isNaN(Number(h))) {
+      const out = await store.setStateGuarded(Number(h), stripUsers(req.body));
+      if (out.conflict) return res.status(409).json({ conflict: true, rev: out.rev, data: out.data ? stripUsers(out.data) : null });
+      return res.json({ rev: out.rev });
+    }
+    res.json({ rev: await store.setState(stripUsers(req.body)) });
+  } catch (e) { res.status(500).json({ error: String(e) }); }
+});
 
 app.get('/api/users', auth, async (req, res) => { try { res.json(await store.listUsers()); } catch (e) { res.status(500).json({ error: String(e) }); } });
 app.post('/api/users', auth, admin, async (req, res) => {

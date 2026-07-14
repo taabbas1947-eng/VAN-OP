@@ -2093,6 +2093,57 @@ function exportStateJSON(){
     logAction('Downloaded data snapshot (Data Fix)'); save(); toast('Snapshot downloaded');
   }catch(e){ toast('Could not export'); }
 }
+/* ===================== YEAR-END RESET — clean slate (COO only) =====================
+   Wipes ALL transaction data to zero for a new financial year while keeping every
+   piece of master data untouched (products/brands, clients, channels, recipes,
+   production groups, lead times, users/access, warehouses, dealers, customer master).
+   Forces a snapshot download first, then requires an exact phrase + name-typed confirm.
+   DC#, Gate Pass# and dispatch groups are computed from shipments, so clearing
+   shipments restarts those serials at 1 automatically. Mutates the LIVE state in
+   place (never rebuilds from seed), so no historical seed numbers can come back. */
+function startNewYearClean(){
+  if(state.role!=='COO'){ toast('COO only'); return; }
+  if(!screenEditOK('datafix')){ toast('You need Edit access to Data Fix'); return; }
+  /* 1) Always take a backup first — this is the restore point. */
+  try{ exportStateJSON(); }catch(e){}
+  /* 2) Explicit, spelled-out confirmation. */
+  var counts=[
+    (state.orders||[]).length+' orders',
+    (state.shipments||[]).length+' shipments',
+    (state.batches||[]).length+' batches',
+    (state.productionLog||[]).length+' production rows',
+    (state.packingLog||[]).length+' packing rows'
+  ].join(' · ');
+  if(typeof confirm==='function' && !confirm(
+    '⚠ START NEW FINANCIAL YEAR — CLEAN SLATE\n\n'+
+    'This PERMANENTLY DELETES all transaction data from the LIVE system:\n'+
+    '• Orders, shipments, DCs & gate passes\n'+
+    '• Production, packing, batches, lots, inspections\n'+
+    '• RM checks / PRs, raw-material stock, finished-goods stock\n'+
+    '• Audit log & action history, all serial counters\n\n'+
+    'It KEEPS all master data (products, clients, channels, recipes,\n'+
+    'production groups, lead times, users/access, warehouses, dealers,\n'+
+    'customer master).\n\n'+
+    'Current data: '+counts+'.\n\n'+
+    'A snapshot has just been downloaded as your restore point.\n'+
+    'This cannot be undone from inside the app. Continue?'
+  )) return;
+  /* 3) Require the exact phrase. */
+  var phrase=((typeof prompt==='function'?prompt('To confirm a full year-end wipe, type exactly:  RESET TO ZERO'):'')||'').trim();
+  if(phrase.toUpperCase()!=='RESET TO ZERO'){ toast('Phrase did not match — cancelled. Nothing was changed.'); return; }
+  /* 4) Name-typed confirmation. */
+  if(!typeNameToConfirm('RESET ALL TRANSACTION DATA TO ZERO for the new financial year')) return;
+  /* 5) Wipe transaction data ONLY. Master data is deliberately left untouched. */
+  state.orders=[]; state.shipments=[]; state.productionLog=[]; state.packingLog=[];
+  state.rmRequests=[]; state.rmMovements=[]; state.prs=[]; state.inspections=[];
+  state.batches=[]; state.packedStock={}; state.rawStock={};
+  state.audit=[]; state.actionLog=[];
+  state.seq=1000;
+  /* 6) One self-documenting first entry so there's a record the reset ran. */
+  var when=TODAY.toISOString().slice(0,10);
+  logAction('YEAR-END RESET: all transaction data cleared to zero — clean slate for FY '+(typeof fyKey==='function'?fyKey(when):when)+' (master data kept). Snapshot taken before wipe.');
+  save(); render(); toast('Done — clean slate. All numbers are zero; master data kept.');
+}
 function screenDataFix(){
   const isCOO=state.role==='COO'; const on=!!state.dataFixEnabled;
   if(!isCOO){ $('view').innerHTML=`<div class="banner warn">Data Fix is COO-only.</div>`; return; }
@@ -2109,9 +2160,10 @@ function screenDataFix(){
      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
        <div>Status: <b style="color:${on?'var(--green2)':'var(--mut)'}">${on?'ON — corrections enabled':'OFF'}</b></div>
        ${toggle}
-       <button class="sm" onclick="exportStateJSON()">⬇ Download data snapshot (JSON)</button>${isCOO?`<button class="sm" style="background:var(--navy);color:#fff;border-color:var(--navy)" onclick="importGoLivePOs()">⬆ Import opening POs (go-live)</button>`:``}
+       <button class="sm" onclick="exportStateJSON()">⬇ Download data snapshot (JSON)</button>${isCOO?`<button class="sm" style="background:var(--navy);color:#fff;border-color:var(--navy)" onclick="importGoLivePOs()">⬆ Import opening POs (go-live)</button>`:``}${isCOO?`<button class="sm" style="background:#b42318;color:#fff;border-color:#b42318" onclick="startNewYearClean()">🗓 Start new year (clean) — reset all numbers to zero</button>`:``}
      </div>
      <div class="muted" style="font-size:11px;margin-top:10px">Always download a snapshot before a reconciliation session — it's your restore point. The snapshot is read-only and changes nothing.</div>
+     <div class="muted" style="font-size:11px;margin-top:6px"><b>Start new year (clean)</b> permanently zeroes every transaction number (orders, shipments, production, packing, batches, stock, logs, serials) and keeps all master data. It downloads a backup first and asks you to type <b>RESET TO ZERO</b> plus your name to confirm.</div>
    </div>${ops}`;
 }
 

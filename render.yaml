@@ -6,10 +6,14 @@ services:
     buildCommand: npm install
     startCommand: node server.js
     envVars:
+      # Live data lives in an EXTERNAL MySQL database on HostGator — NOT a Render-managed DB.
+      # (Render's managed databases are PostgreSQL only, which this app no longer speaks.)
+      # Set DATABASE_URL by hand in the Render dashboard as a mysql:// URL, e.g.
+      #   mysql://<user>:<url-encoded-password>@<hostgator-host>:3306/<dbname>
+      # If the password contains @ : / etc., percent-encode it (@ -> %40).
+      # sync:false = "managed in the dashboard, don't touch it from this blueprint".
       - key: DATABASE_URL
-        fromDatabase:
-          name: van-db
-          property: connectionString
-databases:
-  - name: van-db
-    plan: free
+        sync: false
+      # Stable secret so logins survive restarts (server.js warns if unset). Set in dashboard.
+      - key: SESSION_SECRET
+        sync: false

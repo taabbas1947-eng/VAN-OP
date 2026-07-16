@@ -1443,6 +1443,7 @@ function ensureMasters(s){
     };
     for(var _rk in _R){ if(!s.masters.recipes[_rk]) s.masters.recipes[_rk]=Object.assign({},_R[_rk]); } }
   if(!s.masters.salesTargets||typeof s.masters.salesTargets!=='object') s.masters.salesTargets={};
+  if(!s.masters.salesTargetsMonthly||typeof s.masters.salesTargetsMonthly!=='object') s.masters.salesTargetsMonthly={};
   if(!Array.isArray(s.masters.varianceReasons)||!s.masters.varianceReasons.length) s.masters.varianceReasons=['Wastage','Raw-material moisture loss','Raw-material availability / shortage','Process / handling loss','Recipe / assay adjustment','Other'];
   if(!Array.isArray(s.masters.rawMaterials)||!s.masters.rawMaterials.length) s.masters.rawMaterials=(((typeof SEED!=='undefined'&&SEED.rawMaterials)||[]).map(r=>({name:r.name,cost:+r.cost||0})));
   if(Array.isArray(s.masters.rawMaterials)&&!s.masters.rawMaterials.some(r=>String(r.name).toUpperCase()==='MKP')) s.masters.rawMaterials.push({name:'MKP',cost:475});
@@ -4999,24 +5000,28 @@ function clientDestinations(client){ var m={}; var cl=String(client||'').trim().
 function clientTopDest(client){ var ds=clientDestinations(client); return ds.length?ds[0]:''; }
 /* Delivery confirmation window (own modal): confirm date + how delivery was verified (phone/email/text/other). */
 var delivForm=null;
-function openDeliveryConfirm(dispId){ if(!(canEdit(['Supply Chain'])||state.role==='COO')){toast('Supply Chain only');return;} var g=dispatchGroups().find(function(x){return x.dispId===dispId;}); if(!g){toast('Shipment not found');return;} if(g.qa==='pending'){toast('This shipment must pass pre-shipment inspection first');return;} if(g.qa==='fail'){toast('This shipment failed inspection — re-plan it');return;} delivForm={dispId:dispId,date:TODAY.toISOString().slice(0,10),via:'',note:''}; renderDeliveryConfirm(); $('modalBg').classList.add('open'); }
+function openDeliveryConfirm(dispId){ if(!(canEdit(['Supply Chain'])||state.role==='COO')){toast('Supply Chain only');return;} var g=dispatchGroups().find(function(x){return x.dispId===dispId;}); if(!g){toast('Shipment not found');return;} if(g.qa==='pending'){toast('This shipment must pass pre-shipment inspection first');return;} if(g.qa==='fail'){toast('This shipment failed inspection — re-plan it');return;} delivForm={dispId:dispId,date:TODAY.toISOString().slice(0,10),via:'',note:'',rows:(state.shipments||[]).map(function(s,i){return {i:i,s:s};}).filter(function(x){return (x.s.dispId||'')===dispId && !x.s.delivered && !x.s.voided;}).map(function(x){return {idx:x.i,brand:x.s.brand||'',kg:(+x.s.kg||0),on:true};})}; renderDeliveryConfirm(); $('modalBg').classList.add('open'); }
 function delivSet(k,v){ if(delivForm) delivForm[k]=v; }
+function delivToggle(idx){ if(!delivForm||!delivForm.rows)return; var r=delivForm.rows.find(function(x){return x.idx===idx;}); if(r)r.on=!r.on; }
 function renderDeliveryConfirm(){ var g=dispatchGroups().find(function(x){return x.dispId===delivForm.dispId;}); if(!g){closeModal();return;} var o=(state.orders||[]).find(function(x){return x.po===g.po;}); var via=['Phone call','Email','Text / WhatsApp message','Other'];
+  var picker=(delivForm.rows&&delivForm.rows.length>1)?('<div class="fld"><label>Products delivered on this trip</label>'+delivForm.rows.map(function(r){return '<label style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:12.5px"><input type="checkbox" '+(r.on?'checked':'')+' onchange="delivToggle('+r.idx+')"> '+_pe(r.brand)+' · '+fmt(r.kg)+' Kg/L</label>';}).join('')+'<div class="muted" style="font-size:10.5px;margin-top:2px">Untick anything that did not arrive — it stays In transit for a later delivery.</div></div>'):'';
   $('modal').innerHTML='<div class="mh"><h2>Confirm delivery</h2><div class="sub">'+(g.shipNo||g.dc||'—')+' · '+g.po+(o?(' · '+shortClient(o.client)):'')+'</div></div>'
    +'<div class="mb"><div style="background:var(--panel2,#f4f6f9);border:1px solid var(--line);border-radius:9px;padding:10px 12px;margin-bottom:14px;font-size:12px">'+g.rows.length+' product(s) · <b>'+fmt(g.kg)+' Kg/L</b>'+(g.vehicle?(' · '+g.vehicle):'')+(g.dc?(' · DC '+g.dc):'')+' · sent '+(g.date||'')+'</div>'
-   +'<div class="fld"><label>Delivery date <span style="color:var(--red)">*</span></label><input type="date" value="'+_av(delivForm.date)+'" onchange="delivSet(\'date\',this.value)"></div>'
+   +picker+'<div class="fld"><label>Delivery date <span style="color:var(--red)">*</span></label><input type="date" value="'+_av(delivForm.date)+'" onchange="delivSet(\'date\',this.value)"></div>'
    +'<div class="fld"><label>Delivery confirmed via <span style="color:var(--red)">*</span></label><select onchange="delivSet(\'via\',this.value)"><option value="">— select —</option>'+via.map(function(v){return '<option'+(delivForm.via===v?' selected':'')+'>'+v+'</option>';}).join('')+'</select><div class="muted" style="font-size:10.5px;margin-top:4px">How did we verify the customer received it?</div></div>'
    +'<div class="fld"><label>Reference / note <span class="muted" style="font-weight:400">(required if “Other”)</span></label><input type="text" value="'+_av(delivForm.note)+'" oninput="delivSet(\'note\',this.value)" placeholder="e.g. spoke to Mr. Khan / POD #"></div>'
    +'</div><div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" onclick="confirmDelivery()">Confirm delivered</button></div>'; }
 function confirmDelivery(){ if(!(canEdit(['Supply Chain'])||state.role==='COO')){toast('Supply Chain only');return;} if(!delivForm)return; var g=dispatchGroups().find(function(x){return x.dispId===delivForm.dispId;}); if(g&&g.dcStatus==='pending'){toast('DC is pending Plant Manager approval');return;} if(g&&g.qa==='pending'){toast('Must pass pre-shipment inspection first');return;} if(g&&g.qa==='fail'){toast('This shipment failed inspection');return;}
   if(!delivForm.via){toast('Select how delivery was confirmed');return;}
   if(delivForm.via==='Other'&&!String(delivForm.note||'').trim()){toast('Add a reference note for “Other”');return;}
-  var d=delivForm.date||TODAY.toISOString().slice(0,10); var n=0;
-  (state.shipments||[]).forEach(function(s){ if((s.dispId||'')===delivForm.dispId && !s.delivered){ s.delivered=d; s.deliveredVia=delivForm.via; s.deliveryNote=delivForm.note||''; var o=(state.orders||[]).find(function(x){return x.po===s.po;}); var l=o&&(o.lines.find(function(x){return x.id===s.lid;})||o.lines.find(function(x){return x.brand===s.brand;})); if(l){ l.delivered=(l.delivered||0)+(+s.kg||0); l.deliveredDate=d; } n++; } });
+  var d=delivForm.date||TODAY.toISOString().slice(0,10); var _tdy=TODAY.toISOString().slice(0,10); if(g&&g.date&&d<g.date){toast('Delivery date cannot be before the dispatch date ('+g.date+')');return;} if(d>_tdy){toast('Delivery date cannot be in the future');return;} var n=0;
+  var pickSet=null; if(delivForm.rows&&delivForm.rows.length>1){ pickSet={}; delivForm.rows.forEach(function(r){ if(r.on) pickSet[r.idx]=true; }); if(!Object.keys(pickSet).length){toast('Select at least one product that was delivered');return;} }
+  (state.shipments||[]).forEach(function(s,i){ if((s.dispId||'')===delivForm.dispId && !s.delivered && !s.voided && (!pickSet||pickSet[i])){ s.delivered=d; s.deliveredVia=delivForm.via; s.deliveryNote=delivForm.note||''; var o=(state.orders||[]).find(function(x){return x.po===s.po;}); var l=o&&(o.lines.find(function(x){return x.id===s.lid;})||o.lines.find(function(x){return x.brand===s.brand;})); if(l){ l.delivered=(l.delivered||0)+(+s.kg||0); l.deliveredDate=d; } n++; } });
   if(!n){toast('Already delivered');return;}
-  logAction('Delivered '+delivForm.dispId+' on '+d+' (via '+delivForm.via+', '+n+' line(s))');
-  (state.audit=state.audit||[]).unshift({t:new Date().toISOString(),user:state.role,module:'Shipment',po:(g&&g.po)||'',brand:n+' line(s)',field:'Delivered',old:'in transit',val:d+' · via '+delivForm.via});
-  delivForm=null; save(); closeModal(); render(); toast('Marked delivered'); }
+  var remain=(state.shipments||[]).filter(function(s){return (s.dispId||'')===delivForm.dispId && !s.delivered && !s.voided;}).length;
+  logAction('Delivered '+n+' line(s) of '+delivForm.dispId+' on '+d+' (via '+delivForm.via+')'+(remain?(' — '+remain+' line(s) still in transit'):''));
+  (state.audit=state.audit||[]).unshift({t:new Date().toISOString(),user:state.role,module:'Shipment',po:(g&&g.po)||'',brand:n+' line(s)',field:(remain?'Partly delivered':'Delivered'),old:'in transit',val:d+' · via '+delivForm.via});
+  delivForm=null; save(); closeModal(); render(); toast(remain?('Partial delivery recorded — '+remain+' line(s) still in transit'):'Marked delivered'); }
 function shipNaCount(){ var g=dispatchGroups(); var pend=g.filter(function(x){return x.dispId&&x.stageNow==='pending_approval';}).length; var fail=(state.packingLog||[]).filter(function(p){return p&&p.qa&&p.qa.fail;}).length; return pend+fail; }
 function shipTabs(view){ var t=function(k,label,act,badge){return '<button class="pdtab'+(act?' active':'')+'" role="tab" aria-selected="'+(act?'true':'false')+'" onclick="shipSetView(\''+k+'\')">'+label+(badge?' <span style="display:inline-block;min-width:15px;padding:0 5px;border-radius:9px;background:#fdecec;color:#b4231b;font-size:10px;font-weight:700;vertical-align:1px">'+badge+'</span>':'')+'</button>';}; var na=shipNaCount();
   return '<div class="pdtabs" role="tablist" aria-label="Shipment stages">'+t('ready','Ready',view==='ready')+t('planned','Truck planned',view==='planned')+t('loading','Loading',view==='loading')+t('transit','In transit',view==='transit')+t('delivered','Delivered',view==='delivered')+t('needaction','Need action',view==='needaction',na||'')+'</div>'; }
@@ -5161,7 +5166,7 @@ function screenShipOLD(){
       return '<div style="margin-bottom:16px"><div style="font-weight:700;font-size:13px;padding:8px 12px;background:var(--navy-50);border-radius:9px;margin-bottom:9px">'+c+' <span class="muted" style="font-weight:500;font-size:11.5px">· '+grps.length+' PO(s) · '+cProd+' product(s) · <b style="color:var(--green2)">'+fmt(cKg)+'</b> Kg/L ready</span></div>'+cards+'</div>';
     }).join('');
   })():'<div class="card"><div class="empty"><div class="ei">✓</div>Nothing QC-passed and waiting to ship right now.</div></div>';
-  const transitHtml=transit.length?`<div class="sec" style="color:var(--amber)">In transit · press "Mark delivered" when it arrives</div>`+transit.map(g=>`<div class="card" style="padding:13px 16px;border-left:4px solid var(--amber)"><div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center"><div><b>${g.po}</b> <span class="muted" style="font-size:12px">· ${g.destination||''}</span><div class="muted" style="font-size:11.5px;margin-top:3px">${g.rows.length} product(s) · ${fmt(g.kg)} Kg/L · ${g.date||''}${g.vehicle?(' · '+g.vehicle):''}${g.dc?(' · DC '+g.dc):''}</div><div class="muted" style="font-size:11px;margin-top:3px">${g.rows.map(r=>r.brand+' '+fmt(r.kg)).join(' · ')}</div></div>${ed?`<div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap"><input type="date" id="dlv_${g.dispId}" value="${TODAY.toISOString().slice(0,10)}"><button class="green sm" onclick="markDelivered('${g.dispId}',document.getElementById('dlv_${g.dispId}').value)">Mark delivered</button></div>`:''}</div></div>`).join(''):'';
+  const transitHtml=transit.length?`<div class="sec" style="color:var(--amber)">In transit · press "Mark delivered" when it arrives</div>`+transit.map(g=>`<div class="card" style="padding:13px 16px;border-left:4px solid var(--amber)"><div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center"><div><b>${g.po}</b> <span class="muted" style="font-size:12px">· ${g.destination||''}</span><div class="muted" style="font-size:11.5px;margin-top:3px">${g.rows.length} product(s) · ${fmt(g.kg)} Kg/L · ${g.date||''}${g.vehicle?(' · '+g.vehicle):''}${g.dc?(' · DC '+g.dc):''}</div><div class="muted" style="font-size:11px;margin-top:3px">${g.rows.map(r=>r.brand+' '+fmt(r.kg)).join(' · ')}</div></div>${ed?`<div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap"><button class="green sm" onclick="openDeliveryConfirm('${g.dispId}')">Mark delivered ▸</button></div>`:''}</div></div>`).join(''):'';
   const histPOs=[...new Set((state.shipments||[]).map(s=>s.po||'—'))].sort();
   const histHtml=histPOs.length?acard('ship_bypo','Shipments by PO — history',`${histPOs.length} PO(s)`,histPOs.map(po=>{ const grps=allGroups.filter(g=>g.po===po); const o=(state.orders||[]).find(x=>x.po===po); const ord=o?o.lines.reduce((a,l)=>a+(+l.ordered||0),0):0; const dlv=o?o.lines.reduce((a,l)=>a+(+l.delivered||0),0):0;
      return `<div style="border:1px solid var(--line);border-radius:11px;padding:12px 14px;margin-bottom:10px"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center"><div><b>${po}</b> <span class="muted" style="font-size:12px">${o?('· '+o.client):''}</span></div><div class="muted" style="font-size:11.5px">${grps.length} shipment(s)${ord?(' · '+pct(dlv,ord)+'% delivered'):''}</div></div>
@@ -5825,7 +5830,7 @@ function dispQASubmit(){ if(!(canEdit(['QA Inspector'])||state.role==='COO')){to
   if(anyFail){ rows.forEach(s=>{ s.voided=true; const o=(state.orders||[]).find(x=>x.po===s.po); const l=o&&(o.lines.find(x=>x.id===s.lid)||o.lines.find(x=>x.brand===s.brand)); if(l) l.dispatched=Math.max(0,(l.dispatched||0)-(+s.kg||0)); }); logAction(`Pre-shipment inspection FAILED — ${dispQAForm.dispId} (${rows[0].po}) — material returned to Ready to ship`); }
   else logAction(`Pre-shipment inspection PASSED — ${dispQAForm.dispId} (${rows[0].po}, ${fmt(rows.reduce((a,r)=>a+(+r.kg||0),0))} Kg/L) by ${qa.by}`);
   dispQAForm={dispId:null,marks:[],officer:'',remarks:''}; save(); closeModal(); render(); toast(anyFail?'Inspection failed — returned to ready':'Inspection passed'); }
-function markDelivered(dispId,date){ if(!canEdit(['Supply Chain'])){toast('Supply Chain only');return;} const grp=dispatchGroups().find(x=>x.dispId===dispId); if(grp&&grp.qa==='pending'){toast('This shipment must pass pre-shipment inspection first');return;} if(grp&&grp.qa==='fail'){toast('This shipment failed inspection — re-plan it');return;} const d=date||TODAY.toISOString().slice(0,10); let n=0;
+function markDelivered(dispId,date){ if(!canEdit(['Supply Chain'])){toast('Supply Chain only');return;} const grp=dispatchGroups().find(x=>x.dispId===dispId); if(grp&&grp.qa==='pending'){toast('This shipment must pass pre-shipment inspection first');return;} if(grp&&grp.qa==='fail'){toast('This shipment failed inspection — re-plan it');return;} if(grp&&!(grp.stageNow==='in_transit'||grp.stageNow==='delivered')){toast('This truck must be released and in transit before it can be marked delivered');return;} const d=date||TODAY.toISOString().slice(0,10); let n=0;
   (state.shipments||[]).forEach(s=>{ if((s.dispId||'')===dispId && !s.delivered){ s.delivered=d; const o=(state.orders||[]).find(x=>x.po===s.po); const l=o&&(o.lines.find(x=>x.id===s.lid)||o.lines.find(x=>x.brand===s.brand)); if(l){ l.delivered=(l.delivered||0)+(+s.kg||0); l.deliveredDate=d; } n++; } });
   if(!n){toast('Already delivered');return;}
   logAction(`Delivered ${dispId} on ${d} (${n} line(s))`); save(); render(); toast('Marked delivered'); }
@@ -5963,7 +5968,7 @@ function approveRelease(dispId){ if(!(canEdit(['Plant Manager'])||state.role==='
   rows.forEach(function(s){ s.dcStatus='approved'; s.approvedBy=who; s.approvedDate=dt; var o=(state.orders||[]).find(function(x){return x.po===s.po;}); var l=o&&(o.lines||[]).find(function(x){return x.id===s.lid||x.brand===s.brand;}); if(!s.dispCounted){ if(l){ l.dispatched=(+l.dispatched||0)+(+s.kg||0); l.dispatchDate=l.dispatchDate||dt; } s.dispCounted=true; } if(exf){ s.stage='delivered'; s.delivered=dt; s.deliveredVia='Collected at factory'; if(l){ l.delivered=(+l.delivered||0)+(+s.kg||0); l.deliveredDate=dt; } } else { s.stage='in_transit'; } });
   logAction('DC '+(rows[0].dc||'')+' released by '+who+(exf?' — collected at factory':' — truck dispatched (in transit)')); (state.audit=state.audit||[]).unshift({t:new Date().toISOString(),user:state.role,module:'Shipment',po:(rows[0].po||''),brand:rows.length+' line(s)',field:(exf?'Released · collected':'Released'),old:'loading',val:dt+' · '+who}); save(); render(); toast('DC '+(rows[0].dc||'')+(exf?' released — collected at factory':' released — in transit')); }
 /* Cancel a shipment before delivery (any pre-delivery stage): void rows, return material to Ready to ship. */
-function cancelShip(dispId){ if(!(canEdit(['Supply Chain','Plant Manager'])||state.role==='COO')){ toast('Supply Chain / Plant Manager only'); return; } if(typeof confirm==='function'&&!confirm('Cancel this shipment? The material returns to Ready to ship.'))return; var rows=shipRowsOf(dispId); rows.forEach(function(s){ s.voided=true; s.stage='cancelled'; s.dcStatus='cancelled'; var o=(state.orders||[]).find(function(x){return x.po===s.po;}); var l=o&&(o.lines||[]).find(function(x){return x.id===s.lid||x.brand===s.brand;}); _releaseShip(o,l,s.batches); if(s.dispCounted&&l){ l.dispatched=Math.max(0,(+l.dispatched||0)-(+s.kg||0)); s.dispCounted=false; } }); logAction('Shipment cancelled — DC '+((rows[0]&&rows[0].dc)||'')+' — material returned to Ready to ship'); save(); render(); toast('Shipment cancelled'); }
+function cancelShip(dispId){ if(!(canEdit(['Supply Chain','Plant Manager'])||state.role==='COO')){ toast('Supply Chain / Plant Manager only'); return; } if(typeof confirm==='function'&&!confirm('Cancel this shipment? The material returns to Ready to ship.'))return; var rows=shipRowsOf(dispId); if(rows.some(function(s){return s.delivered;})){ toast('This shipment is already delivered - set it back to In transit (Edit) before cancelling.'); return; } rows.forEach(function(s){ s.voided=true; s.stage='cancelled'; s.dcStatus='cancelled'; var o=(state.orders||[]).find(function(x){return x.po===s.po;}); var l=o&&(o.lines||[]).find(function(x){return x.id===s.lid||x.brand===s.brand;}); _releaseShip(o,l,s.batches); if(s.dispCounted&&l){ l.dispatched=Math.max(0,(+l.dispatched||0)-(+s.kg||0)); s.dispCounted=false; } }); logAction('Shipment cancelled — DC '+((rows[0]&&rows[0].dc)||'')+' — material returned to Ready to ship'); save(); render(); toast('Shipment cancelled'); }
 
 /* ===== Edit an existing shipment (correct DC / date / vehicle / qty / status) ===== */
 let shipEditForm=null;
@@ -5995,6 +6000,8 @@ function renderShipEdit(){ const f=shipEditForm; if(!f){closeModal();return;} co
    <div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" onclick="saveShipEdit()">Save changes</button></div>`; }
 function saveShipEdit(){ if(!(canEdit(['Supply Chain'])||state.role==='COO')){toast('Supply Chain only');return;}
   const f=shipEditForm; if(!f){closeModal();return;} const dd=f.delivered?(f.deliveredDate||TODAY.toISOString().slice(0,10)):null;
+  if(dd){ var _t=TODAY.toISOString().slice(0,10); if(f.date&&dd<f.date){toast('Delivered date cannot be before the dispatch date');return;} if(dd>_t){toast('Delivered date cannot be in the future');return;} }
+  if(f.dc){ var _thisDisp=(f.rows[0]&&f.rows[0].s.dispId)||''; var _dupe=(state.shipments||[]).some(function(s){ return s && !s.voided && (s.dispId||'')!==_thisDisp && String(s.dc||'')===String(f.dc); }); if(_dupe && !(typeof confirm==='function'&&confirm('DC '+f.dc+' is already used by another shipment. Save with a duplicate DC anyway?'))) return; }
   f.rows.forEach(r=>{ const s=r.s, l=r.l, newKg=Math.max(0,+r.kg||0);
     if(l){ l.dispatched=Math.max(0,(l.dispatched||0)-(+s.kg||0)); if(s.delivered) l.delivered=Math.max(0,(l.delivered||0)-(+s.kg||0)); }
     s.kg=newKg; s.dispatch=f.date; s.destination=f.dest; s.carrier=f.carrier; s.vehicle=f.vehicle; s.dc=f.dc; s.bilty=f.bilty; s.delivered=dd;
@@ -6380,7 +6387,7 @@ function normalizeVZincBase(s){
   (s.batches||[]).forEach(function(b){ if(b&&b.brand==='V-Zinc'&&b.base!=='Zinc 10%') b.base='Zinc 10%'; });
 }
 function migrateBrandNames(s){ const ren=function(o,depth){ if(!o||typeof o!=='object'||depth>8)return; for(var k in o){ var v=o[k]; if(typeof v==='string'){ if(BRAND_ALIAS[v]) o[k]=BRAND_ALIAS[v]; } else if(v&&typeof v==='object'){ ren(v,depth+1); } } }; ['orders','packingLog','batches','shipments','inspections'].forEach(function(key){ if(Array.isArray(s[key])) s[key].forEach(function(x){ ren(x,0); }); }); }
-function recipeFor(base){ base=(RECIPE_ALIAS[base]||base); const o=(state.masters&&state.masters.recipes&&state.masters.recipes[base]); if(o&&Object.keys(o).length) return o; return (typeof SEED!=='undefined'&&SEED.baseRecipes&&SEED.baseRecipes[base])||{}; }
+function recipeFor(base){ base=(RECIPE_ALIAS[base]||base); const o=(typeof state!=='undefined'&&state&&state.masters&&state.masters.recipes&&state.masters.recipes[base]); if(o&&Object.keys(o).length) return o; return (typeof SEED!=='undefined'&&SEED.baseRecipes&&SEED.baseRecipes[base])||{}; }
 
 function recipeHas(base){ const r=recipeFor(base); const ks=Object.keys(r||{}).filter(k=>!k.startsWith('(')); return ks.length>0; }
 let recipeForm={base:'',rows:[]};
@@ -6501,6 +6508,7 @@ function screenAdmin(){
    ${byproductCard(canEdit(['Plant Manager','Production'])||state.role==='COO')}
    ${labTplCard(canEdit(['Lab Rep','AQCM','QCM']))}
    ${(state.role==='COO'||state.role==='CFO')?salesTargetCard():''}
+   ${(state.role==='COO'||state.role==='CFO')?salesTargetMonthlyCard():''}
    ${sec('Access control')}
    ${rolesCard()}
    ${accessMatrixCard()}`;
@@ -6580,6 +6588,30 @@ function salesTargetCard(){ const fy=fyKey(TODAY.toISOString().slice(0,10)); con
       <button class="sm" onclick="salesTargetSet()">Set target</button>
     </div>
     ${have.length?`<div style="overflow:auto"><table><thead><tr><th>Client</th><th class="num">Annual target</th><th></th></tr></thead><tbody>${have.map(c=>`<tr><td>${c}</td><td class="num"><b>${pkr(t[c][fy])}</b></td><td><button class="sm ghost" onclick="stForm={client:'${c.replace(/'/g,"\\'")}',amt:'${t[c][fy]}'};render()">Edit</button></td></tr>`).join('')}</tbody></table></div>`:'<div class="muted">No targets set yet.</div>'}`); }
+/* ===== Monthly sales targets (additive: masters.salesTargetsMonthly[client][fy]={ 'YYYY-MM':amt }; annual salesTargets untouched) ===== */
+let stmForm={client:''};
+function fyMonthKeys(fy){ var y1=parseInt(String(fy).slice(0,4),10); if(isNaN(y1)){var t=new Date();y1=(t.getMonth()+1>=7)?t.getFullYear():t.getFullYear()-1;} var out=[],i; for(i=7;i<=12;i++)out.push(y1+'-'+('0'+i).slice(-2)); for(i=1;i<=6;i++)out.push((y1+1)+'-'+('0'+i).slice(-2)); return out; }
+function monthLabel(m){ var p=String(m).split('-'); var mm=['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+p[1]]||p[1]; return mm+' '+(p[0]||''); }
+function stMonthly(client,fy){ var t=(state.masters&&state.masters.salesTargetsMonthly)||{}; return (t[client]&&t[client][fy])||{}; }
+function salesTargetMonthlySaveAll(){ if(!(state.role==='COO'||state.role==='CFO')){toast('COO / CFO only');return;} var c=stmForm.client; if(!c){toast('Pick a client');return;} var fy=fyKey(TODAY.toISOString().slice(0,10)); var months=fyMonthKeys(fy); state.masters.salesTargetsMonthly=state.masters.salesTargetsMonthly||{}; state.masters.salesTargetsMonthly[c]=state.masters.salesTargetsMonthly[c]||{}; var obj={},any=false; months.forEach(function(m){ var el=document.getElementById('stm_'+m); var v=el?Math.max(0,+el.value||0):0; if(v>0){obj[m]=v;any=true;} }); if(any) state.masters.salesTargetsMonthly[c][fy]=obj; else if(state.masters.salesTargetsMonthly[c]) delete state.masters.salesTargetsMonthly[c][fy]; logAction('Monthly sales targets '+(any?'set':'cleared')+' for '+c+' (FY '+fy+')'); save(); render(); toast('Monthly targets saved'); }
+function salesTargetMonthlyCard(){ var fy=fyKey(TODAY.toISOString().slice(0,10)); var months=fyMonthKeys(fy); var cls=budgetClients(); var cur=stmForm.client?stMonthly(stmForm.client,fy):{}; var sumM=months.reduce(function(a,m){return a+(+cur[m]||0);},0); var annual=(state.masters&&state.masters.salesTargets&&state.masters.salesTargets[stmForm.client]&&+state.masters.salesTargets[stmForm.client][fy])||0;
+  var editor=stmForm.client?('<div style="overflow:auto;margin-top:6px"><table><thead><tr>'+months.map(function(m){return '<th class="num" style="font-size:10.5px">'+monthLabel(m)+'</th>';}).join('')+'</tr></thead><tbody><tr>'+months.map(function(m){return '<td><input type="number" id="stm_'+m+'" value="'+(cur[m]||'')+'" style="width:92px" placeholder="0"></td>';}).join('')+'</tr></tbody></table></div>'
+    +'<div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:10px"><button class="sm" onclick="salesTargetMonthlySaveAll()">Save monthly targets</button>'
+    +'<span class="muted" style="font-size:11.5px">Sum of months: <b>'+pkr(sumM)+'</b>'+(annual>0?(' · annual target: <b>'+pkr(annual)+'</b>'+(Math.abs(sumM-annual)>0.5?(' · <span style="color:var(--amber)">differ by '+pkr(Math.abs(sumM-annual))+'</span>'):' · <span style="color:var(--green2)">matches</span>')):' · no annual target set')+'</span></div>'):'';
+  var have=cls.filter(function(c){ return Object.keys(stMonthly(c,fy)).length>0; });
+  return acard('stargetM','Client monthly sales targets',fyRange(fy)+' · COO/CFO',
+    '<div class="muted" style="font-size:12px;margin-bottom:10px">Optional month-by-month targets (PKR) for the current financial year (Jul–Jun). Independent of the annual target above; leave a month blank for none. Shows on the <b>Sales &amp; Budget</b> monthly-pace view.</div>'
+    +'<div class="fld" style="min-width:240px;max-width:340px"><label>Client</label><select onchange="stmForm.client=this.value;render()"><option value="">— pick client —</option>'+cls.map(function(c){return '<option '+(c===stmForm.client?'selected':'')+'>'+_pe(c)+'</option>';}).join('')+'</select></div>'
+    +editor
+    +(have.length?('<div class="muted" style="font-size:11px;margin-top:12px">Clients with monthly targets set: '+have.map(function(c){return _pe(c);}).join(', ')+'</div>'):'')); }
+/* Read-only monthly pace (company-wide): delivered value per month vs monthly target sum. Pure compute. */
+function monthlyTargetTotals(fy){ var t=(state.masters&&state.masters.salesTargetsMonthly)||{}; var out={}; Object.keys(t).forEach(function(c){ var mm=t[c]&&t[c][fy]; if(mm) Object.keys(mm).forEach(function(m){ out[m]=(out[m]||0)+(+mm[m]||0); }); }); return out; }
+function monthlyDeliveredTotals(){ var priceOf={}; (state.orders||[]).forEach(function(o){ (o.lines||[]).forEach(function(l){ priceOf[(o.po||'')+'|'+(l.brand||'')]=+l.invoicePrice||0; }); }); var out={}; (state.shipments||[]).forEach(function(s){ if(!s||s.voided||!s.delivered)return; var m=String(s.delivered).slice(0,7); out[m]=(out[m]||0)+(+s.kg||0)*(priceOf[(s.po||'')+'|'+(s.brand||'')]||0); }); return out; }
+function monthlyPaceCard(){ var fy=fyKey(TODAY.toISOString().slice(0,10)); var months=fyMonthKeys(fy); var T=monthlyTargetTotals(fy); var D=monthlyDeliveredTotals(); if(!months.some(function(m){return +T[m]>0;})) return '';
+  var bar=function(p){return '<div style="background:#eef1f6;border-radius:5px;height:6px;overflow:hidden;min-width:54px"><div style="height:6px;width:'+Math.min(100,p)+'%;background:'+(p>=100?'var(--green2)':p>=60?'var(--navy)':'var(--amber)')+'"></div></div>';};
+  var totT=0,totD=0; var body=months.map(function(m){ var t=+T[m]||0,d=+D[m]||0; totT+=t;totD+=d; var p=t>0?Math.round(d/t*100):0; return '<tr><td>'+monthLabel(m)+'</td><td class="num">'+(t>0?pkr(t):'<span class="muted">—</span>')+'</td><td class="num"><b>'+pkr(d)+'</b></td><td>'+(t>0?('<div style="display:flex;gap:6px;align-items:center">'+bar(p)+'<span style="font-size:10.5px;font-weight:700;color:'+(p>=100?'var(--green2)':p>=60?'var(--navy)':'var(--amber)')+'">'+p+'%</span></div>'):'<span class="muted" style="font-size:11px">no target</span>')+'</td></tr>'; }).join('');
+  var pAll=totT>0?Math.round(totD/totT*100):0;
+  return '<div class="card"><h3>Monthly pace <span class="hint">'+fy+' · target vs delivered</span></h3><div style="overflow:auto"><table><thead><tr><th>Month</th><th class="num">Target</th><th class="num">Delivered</th><th>Attainment</th></tr></thead><tbody>'+body+'<tr style="border-top:2px solid var(--navy);background:var(--navy-50)"><td><b>FY total</b></td><td class="num"><b>'+pkr(totT)+'</b></td><td class="num"><b>'+pkr(totD)+'</b></td><td><b>'+pAll+'%</b></td></tr></tbody></table></div></div>'; }
 function rmMaster(){ return (state.masters&&state.masters.rawMaterials)||[]; }
 function rmCanEdit(){ return canEdit(['Supply Chain']); }
 function rmMasterAdd(){ if(!rmCanEdit()){toast('COO / Supply Chain only');return;} const nm=(($('rm_new_name')&&$('rm_new_name').value)||'').trim(); const cost=+(($('rm_new_cost')&&$('rm_new_cost').value)||0)||0; if(!nm){toast('Enter a material name');return;} const arr=rmMaster(); if(arr.some(r=>(r.name||'').toLowerCase()===nm.toLowerCase())){toast('Already exists');return;} state.masters.rawMaterials=arr.concat([{name:nm,cost}]); logAction('Raw material added: '+nm+(cost?(' @ PKR '+cost+'/Kg'):'')); save(); render(); }
@@ -6702,7 +6734,8 @@ function budgetHtml(){
      <div style="overflow:auto"><table><thead><tr><th>Client</th><th class="num">Target</th><th class="num">Delivered</th><th class="num">Booked</th><th>Attainment</th><th class="num">Gap</th></tr></thead>
      <tbody>${clients.map(c=>crow(c)+bgtSubRows(c)).join('')}<tr style="border-top:2px solid var(--navy);background:var(--navy-50)"><td><b>TOTAL — all clients</b></td><td class="num"><b>${pkr(totT)}</b></td><td class="num"><b>${pkr(totD)}</b></td><td class="num">${pkr(totB)}</td><td><b>${pctAll}%</b></td><td class="num"><b>${pkr(Math.max(0,totT-totD))}</b></td></tr></tbody></table></div></div>
    <div class="card"><h3>Top products by delivered value <span class="hint">FY to date</span></h3>
-     ${pmRows.length?`<div style="overflow:auto"><table><thead><tr><th>Product</th><th class="num">Delivered value</th></tr></thead><tbody>${pmRows.map(([b,v])=>`<tr><td>${b}</td><td class="num"><b>${pkr(v)}</b></td></tr>`).join('')}</tbody></table></div>`:'<div class="muted">No delivered value yet — appears once deliveries are recorded against priced lines.</div>'}</div>`;
+     ${pmRows.length?`<div style="overflow:auto"><table><thead><tr><th>Product</th><th class="num">Delivered value</th></tr></thead><tbody>${pmRows.map(([b,v])=>`<tr><td>${b}</td><td class="num"><b>${pkr(v)}</b></td></tr>`).join('')}</tbody></table></div>`:'<div class="muted">No delivered value yet — appears once deliveries are recorded against priced lines.</div>'}</div>
+   ${(state.role==='COO'||state.role==='CFO')?monthlyPaceCard():''}`;
 }
 /* ===== Reusable searchable register (search · filter · date-range · sort · paging) ===== */
 let REG={};
@@ -6786,6 +6819,10 @@ var RB_DATASETS={
     rows:function(){ return (state.audit||[]).map(function(x){ return {when:(x.t||'').replace('T',' ').slice(0,16),date:(x.t||'').slice(0,10),user:x.user||'',module:x.module||'',po:x.po||'',product:x.brand||'',field:x.field||'',value:(x.val!=null?String(x.val):'')}; }); },
     fields:[{k:'when',l:'When',t:'dim'},{k:'date',l:'Date',t:'dim'},{k:'user',l:'User',t:'dim'},{k:'module',l:'Module',t:'dim'},{k:'po',l:'PO',t:'dim'},{k:'product',l:'Product',t:'dim'},{k:'field',l:'Field',t:'dim'},{k:'value',l:'Value',t:'dim'}],
     filters:['module','user']},
+  requisitions:{label:'RM requisitions (RM Check)',dateKey:'raised',
+    rows:function(){ var cm=_rbClientMap(); var out=[]; (state.orders||[]).forEach(function(o){ (o.lines||[]).forEach(function(l){ var pr=l.rmPR; var st=l.rmStatus||''; if(!(pr||l.prRaised||st==='partial'||st==='short'||st==='received'))return; var ord=+l.ordered||0; var makeable=(l.canMakeKg!=null?+l.canMakeKg:(pr?+pr.cleared||0:ord))||0; var shortfall=pr?+pr.qty||0:Math.max(0,ord-makeable); var cfo=pr?(pr.cfoApproved?('Approved '+pr.cfoApproved):(pr.closed?'—':'Awaiting CFO')):'—'; out.push({po:o.po||'',client:o.client||cm[o.po]||'',product:l.brand||'',base:l.base||'',status:st||'pending',cfo:cfo,raised:l.prRaised||(pr&&pr.date)||'',ready:l.rmReady||'',prstate:(pr&&pr.closed)?'closed':'open',ordered:ord,makeable:makeable,shortfall:shortfall}); }); }); return out; },
+    fields:[{k:'po',l:'PO',t:'dim'},{k:'client',l:'Client',t:'dim'},{k:'product',l:'Product',t:'dim'},{k:'base',l:'Base',t:'dim'},{k:'status',l:'RM status',t:'dim'},{k:'cfo',l:'CFO approval',t:'dim'},{k:'raised',l:'Raised',t:'dim'},{k:'ready',l:'RM ready',t:'dim'},{k:'prstate',l:'PR state',t:'dim'},{k:'ordered',l:'Ordered',t:'meas'},{k:'makeable',l:'Makeable now',t:'meas'},{k:'shortfall',l:'Shortfall',t:'meas'}],
+    filters:['status','cfo','client','product','prstate']},
   customers:{label:'Customers',dateKey:'inducted',
     rows:function(){ try{ if(typeof custInit==='function')custInit(); }catch(e){} return (state.customers||[]).filter(function(c){return !c.isParent;}).map(function(c){ return {code:c.code||'',name:c.name||'',segment:c.segment||'',outlet:c.outlet||'',fed:c.fed||'',kam:c.kam||'',introducedBy:c.introducedBy||'',destination:c.destination||'',region:c.region||'',city:c.city||'',phone:c.phone||'',status:c.status||'Active',inducted:String(c.inducted||'')}; }); },
     fields:[{k:'code',l:'Code',t:'dim'},{k:'name',l:'Name',t:'dim'},{k:'segment',l:'Segment',t:'dim'},{k:'outlet',l:'Outlet',t:'dim'},{k:'fed',l:'FED mode',t:'dim'},{k:'kam',l:'KAM',t:'dim'},{k:'introducedBy',l:'Introduced by',t:'dim'},{k:'destination',l:'Destination',t:'dim'},{k:'region',l:'Region',t:'dim'},{k:'city',l:'City',t:'dim'},{k:'phone',l:'Phone',t:'dim'},{k:'status',l:'Status',t:'dim'},{k:'inducted',l:'Inducted',t:'dim'}],
@@ -6835,9 +6872,67 @@ function rbRender(){ var d=rbDef(); var res=rbResult();
   var dsSel='<select onchange="rbSetDS(this.value)" style="font-weight:500">'+Object.keys(RB_DATASETS).map(function(k){return '<option value="'+k+'"'+(rbDS===k?' selected':'')+'>'+RB_DATASETS[k].label+'</option>';}).join('')+'</select>';
   return '<div class="rb-top"><div><div class="rb-title">Report Builder</div><div class="rb-sub2">Pick a dataset, tap fields, set a date range — then export. No Excel needed.</div></div><span style="flex:1"></span>'+dsSel+'<button class="sm ghost" onclick="rbExport(\'csv\')">Export CSV</button><button class="sm ghost" onclick="rbExport(\'xls\')">Export Excel</button><button class="sm" onclick="rbPrint()">Print / PDF</button></div><div class="rb-grid">'+palette+'<div class="rb-build">'+colZone+filterZone+groupZone+'</div></div>'+preview;
 }
+/* ---- Document Viewer (read-only): find & open every DC + Gate Pass ---- */
+function rpDocRows(){ return dispatchGroups().filter(function(g){ return g.dispId; }); }
+function rpDocSearch(q){
+  q=(q||'').trim().toLowerCase();
+  var trs=[].slice.call(document.querySelectorAll('#rpDocTbl tbody tr[data-k]'));
+  var vis=0;
+  trs.forEach(function(tr){ var show=(!q||tr.getAttribute('data-k').indexOf(q)>=0); tr.style.display=show?'':'none'; if(show)vis++; });
+  var c=document.getElementById('rpDocCount'); if(c) c.textContent=vis+' document'+(vis===1?'':'s');
+}
+function rpDocs(){
+  var gs=rpDocRows();
+  if(!gs.length) return rpEmpty('No shipments yet — Delivery Challans and Gate Passes appear here once a truck is dispatched.');
+  var rows=gs.map(function(g){
+    var key=[g.dc,g.gatePass,g.shipNo,g.poLabel,(g.pos||[]).join(' '),g.client,g.vehicle,g.driver,g.date,g.stageNow].join(' ').toLowerCase().replace(/"/g,'');
+    var gp=(g.gatePass&&typeof printGatePass==='function')?('<button class="sm ghost" onclick="printGatePass(\''+g.dispId+'\')">Gate Pass</button>'):'<span class="muted" style="font-size:11px">—</span>';
+    return '<tr data-k="'+_pe(key)+'">'
+      +'<td>'+_pe(g.date||'—')+'</td>'
+      +'<td><b>'+_pe(g.dc||'—')+'</b></td>'
+      +'<td>'+_pe(g.gatePass||'—')+'</td>'
+      +'<td>'+_pe(g.poLabel||g.po||'—')+'</td>'
+      +'<td>'+_pe(shortClient(g.client)||'—')+'</td>'
+      +'<td>'+_pe(g.vehicle||'—')+'</td>'
+      +'<td>'+_pe(g.stageNow||'—')+'</td>'
+      +'<td style="white-space:nowrap;text-align:right"><button class="sm ghost" onclick="printDC(\''+g.dispId+'\')">DC</button> '+gp+'</td>'
+      +'</tr>';
+  }).join('');
+  return '<div class="card" style="padding:12px 16px;margin-bottom:12px"><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">'
+    +'<div style="font-weight:600">Document viewer</div>'
+    +'<span class="muted" style="font-size:12px">Every Delivery Challan &amp; Gate Pass issued. Search, then open to print / PDF.</span>'
+    +'<span style="flex:1"></span>'
+    +'<input type="text" placeholder="Search DC#, Gate Pass#, PO, client, vehicle…" oninput="rpDocSearch(this.value)" style="min-width:240px;padding:6px 10px">'
+    +'</div></div>'
+    +'<div class="card" style="padding:0"><div class="rb-pvh"><span style="font-weight:500">Documents</span><span class="muted" id="rpDocCount">'+gs.length+' document'+(gs.length===1?'':'s')+'</span></div>'
+    +'<div style="overflow:auto;max-height:60vh"><table class="rbtbl" id="rpDocTbl"><thead><tr><th>Date</th><th>DC #</th><th>Gate Pass #</th><th>PO(s)</th><th>Client</th><th>Vehicle</th><th>Stage</th><th style="text-align:right">Open</th></tr></thead><tbody>'+rows+'</tbody></table></div></div>';
+}
+/* ---- RM Chain (read-only): raw material → stock → the products & open POs that consume it, with each line's live RM-check readiness (l.rmStatus/l.rmPR). No per-RM PR register (the live model requisitions per product line, not per raw material). ---- */
+var rpRmSel='';
+function rmChainList(){ var set={}; ((state.masters&&state.masters.rawMaterials)||[]).forEach(function(x){ var n=String((x&&x.name)||x||''); if(n)set[n]=1; }); Object.values((state.masters&&state.masters.recipes)||{}).forEach(function(r){ Object.keys(r||{}).forEach(function(k){ if(k&&k.charAt(0)!=='(')set[k]=1; }); }); Object.keys(state.rawStock||{}).forEach(function(k){ if(k)set[k]=1; }); return Object.keys(set).sort(); }
+function rmChainBasesUsing(rm){ var bases=(typeof BULK_BASES!=='undefined'?BULK_BASES:[])||[]; var out=[]; bases.forEach(function(b){ var rec=recipeFor(b)||{}; var ratio=+rec[rm]||0; if(!(ratio>0))return; var lines=[],totalNeed=0; (state.orders||[]).forEach(function(o){ (o.lines||[]).forEach(function(l){ if((RECIPE_ALIAS[l.base]||l.base)!==b)return; var remain=Math.max(0,(+l.ordered||0)-(+l.produced||0)); if(remain>0.5){ var need=remain*ratio; totalNeed+=need; var pr=l.rmPR; lines.push({po:o.po,client:o.client,brand:l.brand,remain:remain,need:need,rmStatus:l.rmStatus||'pending',cfo:(pr&&pr.cfoApproved)?'CFO ✓':((pr&&!pr.closed)?'awaiting CFO':'')}); } }); }); out.push({base:b,ratio:ratio,lines:lines,totalNeed:totalNeed}); }); return out; }
+function rmChainData(rm){ return {stock:+((state.rawStock&&state.rawStock[rm])||0), bases:rmChainBasesUsing(rm)}; }
+function rpRmChain(){
+  var rms=rmChainList(); if(!rms.length) return rpEmpty('No raw materials yet — they appear once the RM master or received stock exists.');
+  var rm=(rpRmSel&&rms.indexOf(rpRmSel)>=0)?rpRmSel:rms[0];
+  var picker='<div class="fld" style="min-width:260px;max-width:360px"><label>Raw material</label><select onchange="rpRmSel=this.value;screenReports()">'+rms.map(function(n){return '<option '+(n===rm?'selected':'')+'>'+_pe(n)+'</option>';}).join('')+'</select></div>';
+  var d=rmChainData(rm);
+  var totNeed=d.bases.reduce(function(a,x){return a+x.totalNeed;},0);
+  var openCount=d.bases.reduce(function(a,x){return a+x.lines.length;},0);
+  var stockCard='<div class="card" style="padding:12px 16px"><div style="display:flex;gap:28px;flex-wrap:wrap"><div><div style="font-weight:600;margin-bottom:2px">Stock on hand</div><div style="font-size:22px;font-weight:800">'+fmt(d.stock)+' <span class="muted" style="font-size:12px;font-weight:500">Kg/L</span></div></div><div><div style="font-weight:600;margin-bottom:2px">Est. demand · open POs</div><div style="font-size:22px;font-weight:800;color:'+(totNeed>d.stock?'var(--amber)':'var(--green2)')+'">'+fmt(totNeed)+'</div><div class="muted" style="font-size:11px">'+(totNeed>d.stock?('short '+fmt(totNeed-d.stock)):'covered by stock')+' · '+openCount+' open line(s)</div></div></div></div>';
+  var stMap={full:'Ready',received:'Ready',partial:'Partial',short:'Short',pending:'RM check pending'};
+  var rows=[]; d.bases.forEach(function(x){ x.lines.forEach(function(ln){ var sl=stMap[ln.rmStatus]||ln.rmStatus||'RM check pending'; var col=(ln.rmStatus==='full'||ln.rmStatus==='received')?'var(--green2)':(ln.rmStatus==='short'?'var(--red)':(ln.rmStatus==='partial'?'var(--amber)':'var(--mut)')); rows.push('<tr><td><b>'+_pe(x.base)+'</b></td><td>'+_pe(ln.brand)+'</td><td>'+_pe(ln.po)+(ln.client?(' <span class="muted">'+_pe(shortClient(ln.client))+'</span>'):'')+'</td><td class="num">'+fmt(ln.remain)+'</td><td class="num">'+fmt(ln.need)+'</td><td style="color:'+col+';font-weight:600">'+sl+(ln.cfo?(' <span class="muted" style="font-weight:400">· '+ln.cfo+'</span>'):'')+'</td></tr>'); }); });
+  var body=rows.length?rows.join(''):'<tr><td colspan="6" class="muted" style="padding:14px">No open PO lines need this raw material right now.</td></tr>';
+  var useCard='<div class="card" style="padding:0;margin-top:12px"><div class="rb-pvh"><span style="font-weight:500">Consumed by · open orders needing '+_pe(rm)+'</span><span class="muted">recipe demand → each product line + its live RM-check status</span></div><div style="overflow:auto"><table class="rbtbl"><thead><tr><th>Base product</th><th>Product (brand)</th><th>PO</th><th class="num">Remaining (Kg/L)</th><th class="num">Est. RM need</th><th>RM status</th></tr></thead><tbody>'+body+'</tbody></table></div></div>';
+  return '<div class="card" style="padding:12px 16px;margin-bottom:12px"><div style="display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap"><div style="font-weight:600">RM chain</div><span class="muted" style="font-size:12px">Trace a raw material: stock on hand → the products & open POs that consume it (recipe demand) → each line’s live RM-check readiness. Requisition detail is in Report Builder → “RM requisitions”.</span><span style="flex:1"></span>'+picker+'</div></div>'+stockCard+useCard;
+}
 function screenReports(){
-  /* One dynamic Report Builder replaces all legacy analytical tabs — every tab's data points are now datasets in the builder. */
-  $('view').innerHTML = `<div class="paperui">${rbRender()}</div>`;
+  /* Report Builder (datasets) + Document Viewer (DC/Gate Pass) + RM Chain (raw-material trace). */
+  var tab=(rpTab==='docs')?'docs':(rpTab==='rmchain')?'rmchain':'builder';
+  var opt=function(id,label){ return '<div class="opt '+(tab===id?'on full':'')+'" style="flex:0 0 auto;padding:8px 14px;font-size:12.5px" onclick="rpTab=\''+id+'\';screenReports()">'+label+'</div>'; };
+  var seg='<div class="seg" style="flex-wrap:wrap;gap:6px;margin-bottom:14px">'+opt('builder','Report Builder')+opt('docs','Documents (DC / Gate Pass)')+opt('rmchain','RM Chain')+'</div>';
+  var body=(tab==='docs')?rpDocs():(tab==='rmchain')?rpRmChain():rbRender();
+  $('view').innerHTML = '<div class="paperui">'+seg+body+'</div>';
 }
 
 /* ---- Explorer (pivot) ---- */

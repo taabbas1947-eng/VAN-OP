@@ -1652,7 +1652,8 @@ function startSync(){ if(_syncOn)return; _syncOn=true; setInterval(async ()=>{
   if(($('modalBg')&&$('modalBg').classList.contains('open'))||($('drawerBg')&&$('drawerBg').classList.contains('open'))) return;
   if(hasUnsavedEntry()) return; // don't re-render over the user's in-progress data entry
   if(_savePending) return;      // a local change is still being saved — pulling now would overwrite it before it lands
-  try{ const r=await fetch('/api/state',{cache:'no-store',headers:authHdr()}); if(r.status===401){ setSession('',null); renderApp(); return; } if(!r.ok) return; const j=await r.json();
+  try{ const rr=await fetch('/api/rev',{cache:'no-store',headers:authHdr()}); if(rr.status===401){ setSession('',null); renderApp(); return; } if(!rr.ok) return; const rj=await rr.json(); if(typeof rj.rev!=='number' || rj.rev===_rev) return; /* nothing changed — skip the full state pull */
+    const r=await fetch('/api/state',{cache:'no-store',headers:authHdr()}); if(r.status===401){ setSession('',null); renderApp(); return; } if(!r.ok) return; const j=await r.json();
     if(typeof j.rev==='number' && j.rev!==_rev && j.data && j.data.orders){
       const cu=state.currentUser, sc=state.screen, ro=state.role, ex=state.expanded;
       // MERGE the server's changes into local (3-way, same as the save-conflict path) rather than a blind

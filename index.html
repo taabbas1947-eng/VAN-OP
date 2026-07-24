@@ -1391,6 +1391,35 @@ function ensureState(s){
 /* Lock 1: idempotent master seeding. ADDITIVE ONLY — seeds a list only when it is
    missing or empty, and never overwrites values the team has already added. Touches no
    transaction data. Runs on every state load (live + fresh seed). */
+/* ---- Custom products (Admin · Master Data · Products) ----
+   Products added at runtime live in state.masters.customProducts (so they sync to every
+   user via the server) and are injected into the in-memory SEED catalog (brandsByClient +
+   brandMap) on every state load. After injection they behave exactly like seeded products
+   everywhere: PO entry, committed dates, production, QC, packing, shipping and reports.
+   Idempotent full sweep: strip every previously-injected entry, then re-add from the list. */
+function applyCustomProducts(s){
+  try{
+    if(typeof SEED==='undefined'||!SEED.catalog) return;
+    var list=(s&&s.masters&&Array.isArray(s.masters.customProducts))?s.masters.customProducts:[];
+    var bbc=SEED.catalog.brandsByClient=SEED.catalog.brandsByClient||{};
+    for(var k in bbc){ bbc[k]=(bbc[k]||[]).filter(function(x){return !(x&&x._custom);}); }
+    var bm=SEED.brandMap=SEED.brandMap||{};
+    for(var b in bm){ if(bm[b]&&bm[b]._custom) delete bm[b]; }
+    list.forEach(function(p){
+      if(!p||!p.brand) return;
+      var packs=(Array.isArray(p.packs)&&p.packs.length)?p.packs.map(Number).filter(function(x){return x>0;}):[];
+      if(!packs.length) packs=[+p.pack>0?+p.pack:1];
+      var entry={brand:p.brand,base:p.base||p.brand,generic:p.generic||'',form:p.form||'Powder',owner:p.owner||'VAN',pack:packs[0],packs:packs,_custom:true};
+      (Array.isArray(p.clients)?p.clients:[]).forEach(function(ck){
+        if(!ck) return; var arr=bbc[ck]=bbc[ck]||[];
+        if(!arr.some(function(x){return x&&x.brand===p.brand;})) arr.push(Object.assign({},entry));
+      });
+      if(!bm[p.brand]) bm[p.brand]={base:entry.base,owner:(p.wl?'White Label':'VAN'),_custom:true};
+      /* group assignment drives committed dates & capacity; never overwrite a later manual reassignment */
+      if(s&&s.masters){ s.masters.groupOfBrand=s.masters.groupOfBrand||{}; if(p.group&&s.masters.groupOfBrand[p.brand]==null) s.masters.groupOfBrand[p.brand]=p.group; }
+    });
+  }catch(e){}
+}
 function ensureMasters(s){
   s.masters = s.masters || {};
   if(!s.masters.accessMatrix||typeof s.masters.accessMatrix!=='object') s.masters.accessMatrix={};
@@ -1412,6 +1441,8 @@ function ensureMasters(s){
   { var _pg=s.masters.productionGroups;
     [['Powder',5000],['Crystalline',5000],['Liquid',5000],['Granular',5000],['Humic',10000],['Sulfur Coated Urea',14000]]
       .forEach(function(p){ if(_pg[p[0]]==null) _pg[p[0]]=p[1]; }); }
+  /* Inject runtime-added products BEFORE brand→group defaults so they are treated like seeded ones. */
+  applyCustomProducts(s);
   /* Brand → group assignment (mandatory). Pre-filled by product FORM, with Potassium Humate → Humic and
      Sulfur Coated Urea → SCU as special lines. Additive: only assigns brands not already set, so manual
      reassignments are never overwritten and new brands get a sensible default. */
@@ -6531,6 +6562,7 @@ function screenAdmin(){
      return `<div style="flex:1;min-width:300px">${acard('ref_'+k,label,`${vals.length}`,`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:11px">${vals.length?vals.map((v,idx)=>`<span class="pill" style="background:var(--navy-50);color:var(--navy);border:1px solid var(--navy-100);display:inline-flex;align-items:center;gap:7px">${v}${ed?`<span style="cursor:pointer;color:var(--mut)" title="rename" onclick="editMaster('${k}',${idx})">&#9998;</span><span style="cursor:pointer;color:var(--red);font-weight:700" title="delete" onclick="delMaster('${k}',${idx})">&times;</span>`:''}</span>`).join(''):'<span class="muted" style="font-size:12px">none yet</span>'}</div>${ed?`<div style="display:flex;gap:8px"><input type="text" id="adm_${k}" placeholder="add value…" style="flex:1"><button class="sm" onclick="addMaster('${k}')">Add</button></div>`:''}`)}</div>`;}).join('')}
    </div>
    ${sec('Business masters &amp; data')}
+   ${productMasterCard(ed)}
    ${leadTimeCard(canEdit(['COO']))}
    ${rmMasterCard(canEdit(['Supply Chain']))}
    ${recipeMasterCard(canEdit(['Plant Manager'])||state.role==='COO')}
@@ -6691,6 +6723,118 @@ function delMaster(k,idx){ if(!screenEditOK('admin')){toast('You need Edit acces
 function editMaster(k,idx){ if(!screenEditOK('admin')){toast('You need Edit access to Master Data');return;} const arr=(state.masters&&state.masters[k])||[]; const old=arr[idx]; if(old==null)return;
   const nv=(typeof prompt==='function'?prompt('Rename value:',old):old); if(nv==null)return; const v=String(nv).trim();
   if(!v||v===old)return; if(arr.includes(v)){toast('Already exists');return;} arr[idx]=v; logAction(`Admin renamed in ${k}: ${old} -> ${v}`); save(); toast('Renamed'); render(); }
+
+/* ===================== PRODUCTS MASTER (Admin · Master Data) =====================
+   Add a NEW sellable product with everything the system needs to run it end-to-end:
+   catalog entry (brand, base, generic, form, packs) per client/channel, production
+   group (committed dates & capacity), recipe for a new base (RM check, PRs, costing)
+   and a Lab QC template placeholder. Seeded products stay fixed in code. */
+let prodMForm=null;
+function customProducts(){ state.masters.customProducts=state.masters.customProducts||[]; return state.masters.customProducts; }
+function pmBases(){ var s=new Set(); try{(typeof BULK_BASES!=='undefined'?BULK_BASES:[]).forEach(function(b){if(b)s.add(b);});}catch(e){} try{ Object.values(SEED.catalog.brandsByClient||{}).forEach(function(arr){(arr||[]).forEach(function(x){if(x&&x.base)s.add(x.base);});});}catch(e){} return Array.from(s).sort(); }
+function pmBrandKeys(){ var s=[]; try{ s=((SEED.catalog&&SEED.catalog.clients)||[]).slice(); }catch(e){} (state.customers||[]).forEach(function(c){ if(c&&c.segment==='White-label'&&c.brandKey&&s.indexOf(c.brandKey)<0) s.push(c.brandKey); }); return s; }
+function pmOwners(){ var s=new Set(['VAN']); try{ Object.values(SEED.catalog.brandsByClient||{}).forEach(function(arr){(arr||[]).forEach(function(x){if(x&&x.owner)s.add(x.owner);});});}catch(e){} return Array.from(s).sort(); }
+function pmFormGroup(f){ return ({'Powder':'Powder','Crystal':'Crystalline','Liquid':'Liquid','Granular':'Granular','Pellet':'Granular','Flakes':'Granular','Micro Granule':'Granular'})[f]||'Powder'; }
+function pmCanEdit(){ return state.role==='COO'||screenEditOK('admin'); }
+function pmStartAdd(){ if(!pmCanEdit()){toast('COO only');return;} prodMForm={editing:null,brand:'',base:'',ownBase:false,generic:'',form:'Powder',group:'Powder',groupTouched:false,clients:{},packs:'',owner:'VAN',recipe:[{rm:'',kg:''}]}; render(); }
+function pmEdit(i){ if(!pmCanEdit()){toast('COO only');return;} var p=customProducts()[i]; if(!p)return;
+  var cl={}; (p.clients||[]).forEach(function(k){cl[k]=true;});
+  var own=(p.base===p.brand);
+  var rec=[]; try{ var r=(state.masters.recipes||{})[p.base]||{}; for(var m in r) rec.push({rm:m,kg:r[m]}); }catch(e){}
+  if(!rec.length)rec=[{rm:'',kg:''}];
+  prodMForm={editing:p.brand,brand:p.brand,base:own?'':p.base,ownBase:own,generic:p.generic||'',form:p.form||'Powder',group:p.group||(state.masters.groupOfBrand||{})[p.brand]||'Powder',groupTouched:true,clients:cl,packs:(p.packs||[]).join(', '),owner:p.owner||'VAN',recipe:rec}; render(); }
+function pmCancel(){ prodMForm=null; render(); }
+function pmSet(k,v){ if(prodMForm)prodMForm[k]=v; }
+function pmSetForm(v){ if(!prodMForm)return; prodMForm.form=v; if(!prodMForm.groupTouched)prodMForm.group=pmFormGroup(v); render(); }
+function pmSetGroup(v){ if(!prodMForm)return; prodMForm.group=v; prodMForm.groupTouched=true; }
+function pmSetOwnBase(on){ if(!prodMForm)return; prodMForm.ownBase=!!on; render(); }
+function pmClient(k,on){ if(!prodMForm)return; prodMForm.clients[k]=!!on; }
+function pmRecipeAdd(){ if(!prodMForm)return; prodMForm.recipe.push({rm:'',kg:''}); render(); }
+function pmRecipeDel(i){ if(!prodMForm)return; prodMForm.recipe.splice(i,1); if(!prodMForm.recipe.length)prodMForm.recipe.push({rm:'',kg:''}); render(); }
+function pmSave(){
+  if(!pmCanEdit()){toast('COO only');return;}
+  var f=prodMForm; if(!f)return;
+  var brand=String(f.brand||'').trim(); if(!brand){toast('Enter the product / brand name');return;}
+  var clients=Object.keys(f.clients||{}).filter(function(k){return f.clients[k];});
+  if(!clients.length){toast('Tick at least one client / channel that can order it');return;}
+  var clash=customProducts().some(function(p){return String(p.brand).toLowerCase()===brand.toLowerCase()&&p.brand!==f.editing;});
+  try{ if(!clash&&SEED.brandMap[brand]&&!(SEED.brandMap[brand]._custom&&f.editing===brand)) clash=true; }catch(e){}
+  if(clash){toast('A product named "'+brand+'" already exists');return;}
+  var base=f.ownBase?brand:String(f.base||'').trim();
+  if(!base){toast('Pick the base product (or tick "new base of its own")');return;}
+  var generic=String(f.generic||'').trim(); if(!generic){toast('Enter the generic / composition — it prints on the CoA');return;}
+  var packs=String(f.packs||'').split(/[,\s]+/).map(Number).filter(function(x){return x>0;});
+  if(!packs.length){toast('Enter at least one pack size in Kg/L, e.g. 1, 20');return;}
+  var wl=clients.some(function(k){ var ch; try{ ch=SEED.catalog.channelByClient[k]; }catch(e){} return (ch||'White Label')==='White Label'; });
+  var rec={brand:brand,base:base,generic:generic,form:f.form||'Powder',group:f.group||pmFormGroup(f.form),clients:clients,packs:packs,pack:packs[0],owner:String(f.owner||'').trim()||'VAN',wl:wl};
+  var arr=customProducts();
+  if(f.editing){ var i=arr.findIndex(function(p){return p.brand===f.editing;}); if(i>=0)arr[i]=rec; else arr.push(rec);
+    if(f.editing!==brand){ delete (state.masters.groupOfBrand||{})[f.editing]; } }
+  else arr.push(rec);
+  state.masters.groupOfBrand=state.masters.groupOfBrand||{}; state.masters.groupOfBrand[brand]=rec.group;
+  if(f.ownBase){ var rows=(f.recipe||[]).filter(function(r){return r&&String(r.rm||'').trim()&&(+r.kg>0);});
+    if(rows.length){ var o={}; rows.forEach(function(r){o[String(r.rm).trim()]=+r.kg;}); state.masters.recipes=state.masters.recipes||{}; state.masters.recipes[base]=o; } }
+  state.masters.labTemplates=state.masters.labTemplates||{}; if(!state.masters.labTemplates[base])state.masters.labTemplates[base]=[];
+  applyCustomProducts(state);
+  logAction((f.editing?'Edited product ':'Added product ')+brand+' — base '+base+', '+rec.form+', packs '+packs.join('/')+', for: '+clients.join(', '));
+  prodMForm=null; save(); toast('Saved '+brand); render();
+}
+function pmDel(i){
+  if(!pmCanEdit()){toast('COO only');return;}
+  var p=customProducts()[i]; if(!p)return; var brand=p.brand;
+  var used=(state.orders||[]).some(function(o){return (o.lines||[]).some(function(l){return l&&l.brand===brand;});})||
+           (state.batches||[]).some(function(b){return b&&(b.brand===brand||(p.base===brand&&b.base===brand));});
+  if(used){toast('Cannot delete — '+brand+' is on existing POs or batches. Edit it instead.');return;}
+  if(!typeNameToConfirm('Delete product "'+brand+'" from the catalog'))return;
+  customProducts().splice(i,1); delete (state.masters.groupOfBrand||{})[brand];
+  applyCustomProducts(state); logAction('Deleted product '+brand); save(); toast('Deleted '+brand); render();
+}
+function productMasterCard(ed){
+  var esc=function(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');};
+  var arr=customProducts(); var f=prodMForm;
+  var list=arr.length?`<div style="overflow:auto"><table><thead><tr><th>Product</th><th>Base</th><th>Form</th><th>Packs (Kg/L)</th><th>Group</th><th>Clients</th>${ed?'<th style="width:110px"></th>':''}</tr></thead><tbody>
+    ${arr.map(function(p,i){return `<tr><td><b>${esc(p.brand)}</b><div class="muted" style="font-size:10.5px">${esc(p.generic||'')}</div></td><td>${esc(p.base)}${p.base===p.brand?' <span class="muted" style="font-size:10px">(own)</span>':''}</td><td>${esc(p.form)}</td><td>${(p.packs||[]).join(', ')}</td><td>${esc(p.group||'')}</td><td class="muted" style="font-size:11px">${(p.clients||[]).length}</td>${ed?`<td style="white-space:nowrap"><button class="sm ghost" onclick="pmEdit(${i})">Edit</button> <button class="sm ghost" style="color:var(--red)" onclick="pmDel(${i})">✕</button></td>`:''}</tr>`;}).join('')}
+    </tbody></table></div>`:`<div class="muted" style="font-size:12px">No products added here yet. The seeded catalog is fixed in code — new products added below join it everywhere in the app.</div>`;
+  var form='';
+  if(f&&ed){
+    var bases=pmBases(); var keys=pmBrandKeys(); var groups=Object.keys((state.masters&&state.masters.productionGroups)||{});
+    var forms=((state.masters&&state.masters.forms)||['Powder','Crystal','Pellet','Granular','Liquid','Flakes','Micro Granule']);
+    var rmNames=((state.masters&&state.masters.rawMaterials)||[]).map(function(x){return String(x.name||x);});
+    var recipeRows=(f.recipe||[]).map(function(r,i){return `<tr><td><input list="pm_rm_dl" value="${esc(r.rm)}" oninput="prodMForm.recipe[${i}].rm=this.value" placeholder="raw material"></td><td style="width:150px"><input class="num" type="number" step="0.0001" min="0" value="${esc(r.kg)}" oninput="prodMForm.recipe[${i}].kg=this.value" placeholder="Kg per 1 Kg"></td><td style="width:34px"><button class="sm ghost" onclick="pmRecipeDel(${i})">✕</button></td></tr>`;}).join('');
+    form=`<div style="border-top:1px solid var(--line);margin-top:12px;padding-top:12px">
+      <div style="font-weight:700;margin-bottom:8px">${f.editing?('Edit product — '+esc(f.editing)):'New product'}</div>
+      <div class="row" style="gap:10px;flex-wrap:wrap">
+        <div style="flex:1;min-width:220px"><label>Product / brand name *</label><input type="text" value="${esc(f.brand)}" oninput="pmSet('brand',this.value)" placeholder="e.g. Vital Boron Plus"></div>
+        <div style="flex:1.4;min-width:260px"><label>Generic / composition * <span class="muted" style="font-size:10px">(prints on CoA)</span></label><input type="text" value="${esc(f.generic)}" oninput="pmSet('generic',this.value)" placeholder="e.g. NPK 10:10:10 + Zn 1%"></div>
+        <div style="min-width:140px"><label>Form *</label><select onchange="pmSetForm(this.value)">${forms.map(function(x){return `<option ${x===f.form?'selected':''}>${esc(x)}</option>`;}).join('')}</select></div>
+      </div>
+      <div class="row" style="gap:10px;flex-wrap:wrap;margin-top:8px">
+        <div style="flex:1;min-width:260px"><label>Base product * <span class="muted" style="font-size:10px">(what the plant actually manufactures in bulk)</span></label>
+          <select onchange="pmSet('base',this.value)" ${f.ownBase?'disabled':''}><option value="">— pick existing base —</option>${bases.map(function(b){return `<option value="${esc(b)}" ${b===f.base?'selected':''}>${esc(b)}</option>`;}).join('')}</select>
+          <div style="margin-top:4px"><label style="font-weight:400;font-size:11.5px"><input type="checkbox" ${f.ownBase?'checked':''} onchange="pmSetOwnBase(this.checked)"> This product is a <b>new base of its own</b> (bulk is made specifically for it)</label></div></div>
+        <div style="min-width:170px"><label>Production group * <span class="muted" style="font-size:10px">(daily rate → committed dates)</span></label><select onchange="pmSetGroup(this.value)">${groups.map(function(g){return `<option ${g===f.group?'selected':''}>${esc(g)}</option>`;}).join('')}</select></div>
+        <div style="min-width:170px"><label>Pack sizes (Kg/L) *</label><input type="text" value="${esc(f.packs)}" oninput="pmSet('packs',this.value)" placeholder="e.g. 1, 20"><div class="muted" style="font-size:10px;margin-top:2px">comma-separated; first = default pack</div></div>
+        <div style="min-width:150px"><label>Brand owner</label><input type="text" list="pm_own_dl" value="${esc(f.owner)}" oninput="pmSet('owner',this.value)"><datalist id="pm_own_dl">${pmOwners().map(function(o){return `<option value="${esc(o)}">`;}).join('')}</datalist></div>
+      </div>
+      <div style="margin-top:10px"><label>Sold under — tick every client / channel whose PO screen should offer it *</label>
+        <div style="display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:4px">${keys.map(function(k,ki){return `<label style="font-weight:400;font-size:11.5px;white-space:nowrap"><input type="checkbox" ${f.clients[k]?'checked':''} onchange="pmClient(pmBrandKeys()[${ki}],this.checked)"> ${esc(k)}</label>`;}).join('')}</div>
+        <div class="muted" style="font-size:10.5px;margin-top:3px">BKK · Dealers · Vgreen · VITAL AGRI share the VAN range — tick each channel that should be able to order it.</div></div>
+      ${f.ownBase?`<div style="margin-top:12px"><label>Recipe — raw materials per 1 Kg of ${esc(f.brand||'product')} <span class="muted" style="font-size:10px">(drives RM check, procurement lead time, PRs & costing — leave empty to add later in the Recipes card)</span></label>
+        <datalist id="pm_rm_dl">${rmNames.map(function(n){return `<option value="${esc(n)}">`;}).join('')}</datalist>
+        <div style="max-width:560px"><table><tbody>${recipeRows}</tbody></table></div>
+        <button class="sm ghost" onclick="pmRecipeAdd()">+ material</button>
+        <span class="muted" style="font-size:10.5px">total: ${(f.recipe||[]).reduce(function(a,r){return a+(+r.kg||0);},0).toFixed(4)} Kg per Kg</span></div>`
+      :`<div class="muted" style="font-size:11px;margin-top:10px">Recipe: uses the existing recipe of the chosen base — edit it in the <b>Recipes</b> card if needed.</div>`}
+      <div style="display:flex;gap:8px;margin-top:12px"><button class="green" onclick="pmSave()">${f.editing?'Save changes':'Add product'}</button><button class="ghost" onclick="pmCancel()">Cancel</button></div>
+      <div class="muted" style="font-size:10.5px;margin-top:8px">On save: it appears in the PO dropdown for the ticked clients (with pack auto-conversion), gets its production group for committed dates, its recipe feeds the RM check, and an empty Lab QC template is created for the Lab to fill (Lab templates card).</div>
+    </div>`;
+  }
+  return acard('prodmaster','Products',(arr.length?arr.length+' added here':'add new')+' · COO',
+    `<div class="muted" style="font-size:12px;margin-bottom:10px">Add a <b>new sellable product</b> with everything the system needs: catalog entry per client, form, pack sizes, production group, recipe and Lab QC template. It flows through PO entry → production → QC → packing → shipping like any seeded product.</div>
+     ${list}
+     ${ed&&!f?`<div style="margin-top:11px"><button class="sm green" onclick="pmStartAdd()">+ Add product</button></div>`:''}
+     ${form}`);
+}
 
 /* ===================== INIT ===================== */
 /* ===================== REPORTS (read-only) ===================== */

@@ -241,6 +241,10 @@ app.delete('/api/users/:username', auth, admin, async (req, res) => {
   } catch (e) { res.status(500).json({ error: String(e) }); }
 });
 
-app.get('*', (req, res) => { res.set('Cache-Control', 'no-store, no-cache, must-revalidate'); res.sendFile(path.join(__dirname, 'index.html')); });
+const _NOCACHE = 'no-store, no-cache, must-revalidate';
+// Front door: the platform launcher.
+app.get(['/', '/launcher', '/launcher.html'], (req, res) => { res.set('Cache-Control', _NOCACHE); res.sendFile(path.join(__dirname, 'launcher.html')); });
+// O2S app: /o2s (and any other non-API path falls through to it).
+app.get('*', (req, res) => { res.set('Cache-Control', _NOCACHE); res.sendFile(path.join(__dirname, 'index.html')); });
 
 store.init().then(migrateAuth).then(() => app.listen(PORT, () => console.log('VAN Order Control Tower on port ' + PORT)));

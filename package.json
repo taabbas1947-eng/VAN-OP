@@ -3,7 +3,15 @@
   "version": "1.0.0",
   "private": true,
   "description": "VAN Order Control Tower — order-to-shipment control system",
-  "scripts": { "start": "node server.js" },
-  "dependencies": { "express": "^4.19.2", "mysql2": "^3.11.0" },
-  "engines": { "node": ">=18" }
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "compression": "^1.8.1",
+    "express": "^4.19.2",
+    "mysql2": "^3.11.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
 }

@@ -3,6 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 const app = express();
+app.use(require('compression')());
 app.use(express.json({ limit: '15mb' }));
 
 const PORT = process.env.PORT || 3000;
@@ -96,6 +97,8 @@ if (DATABASE_URL) {
       return { rev: row.rev, data: row.data ? JSON.parse(row.data) : null };
     },
 
+    async getRev() { const [rows] = await q('SELECT rev FROM app_state WHERE id=1'); return rows[0] ? rows[0].rev : 0; },
+
     async setState(d) {
       await q('UPDATE app_state SET rev=rev+1, data=? WHERE id=1', [JSON.stringify(d)]);
       const [rows] = await q('SELECT rev FROM app_state WHERE id=1');
@@ -156,6 +159,7 @@ if (DATABASE_URL) {
   store = {
     async init() {},
     async getState() { return rd(SF, { rev: 0, data: null }); },
+    async getRev() { return (rd(SF, { rev: 0 }).rev) || 0; },
     async setState(d) { const c = rd(SF, { rev: 0 }); const rev = (c.rev || 0) + 1; fs.writeFileSync(SF, JSON.stringify({ rev, data: d })); return rev; },
     async setStateGuarded(baseRev, d) { const c = rd(SF, { rev: 0, data: null }); if ((c.rev || 0) !== baseRev) { return { conflict: true, rev: c.rev || 0, data: c.data }; } const rev = (c.rev || 0) + 1; fs.writeFileSync(SF, JSON.stringify({ rev, data: d })); return { conflict: false, rev }; },
     async usersCount() { return rd(AF, []).length; },
@@ -199,6 +203,8 @@ app.post('/api/login', async (req, res) => {
 });
 
 app.get('/api/state', auth, async (req, res) => { try { const s = await store.getState(); res.json({ rev: s.rev, data: s.data ? stripUsers(s.data) : null }); } catch (e) { res.status(500).json({ error: String(e) }); } });
+// Lightweight change-check: returns ONLY the rev (no data blob). The client polls this and pulls full /api/state only when rev changed.
+app.get('/api/rev', auth, async (req, res) => { try { res.json({ rev: await store.getRev() }); } catch (e) { res.status(500).json({ error: String(e) }); } });
 app.post('/api/state', auth, async (req, res) => {
   try {
     const h = req.headers['x-base-rev'];

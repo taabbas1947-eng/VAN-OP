@@ -2145,6 +2145,34 @@ function startNewYearClean(){
   logAction('YEAR-END RESET: all transaction data cleared to zero — clean slate for FY '+(typeof fyKey==='function'?fyKey(when):when)+' (master data kept). Snapshot taken before wipe.');
   save(); render(); toast('Done — clean slate. All numbers are zero; master data kept.');
 }
+/* ---- Import / restore a full data snapshot (COO, Data Fix) — the safe rollback for the year-end reset ---- */
+function importSnapshotStart(){
+  if(state.role!=='COO'){ toast('COO only'); return; }
+  if(!screenEditOK('datafix')){ toast('You need Edit access to Data Fix'); return; }
+  var inp=document.createElement('input'); inp.type='file'; inp.accept='.json,application/json';
+  inp.onchange=function(){ var f=inp.files&&inp.files[0]; if(!f)return; var rd=new FileReader();
+    rd.onload=function(){ var data; try{ data=JSON.parse(rd.result); }catch(e){ toast('That file is not valid JSON'); return; } importSnapshotApply(data, f.name); };
+    rd.onerror=function(){ toast('Could not read the file'); };
+    rd.readAsText(f); };
+  inp.click();
+}
+function importSnapshotApply(data, fname){
+  if(state.role!=='COO'){ toast('COO only'); return; }
+  if(!screenEditOK('datafix')){ toast('You need Edit access to Data Fix'); return; }
+  if(!data || typeof data!=='object' || !Array.isArray(data.orders) || !data.masters || typeof data.masters!=='object'){ toast('That file is not a VAN snapshot (needs orders + masters).'); return; }
+  var counts=[ (data.orders||[]).length+' orders', (data.shipments||[]).length+' shipments', (data.batches||[]).length+' batches', Object.keys(data.masters||{}).length+' master sets', (data.customers||[]).length+' customers' ].join(' · ');
+  try{ exportStateJSON(); }catch(e){}
+  if(typeof confirm==='function' && !confirm('↩ RESTORE FROM SNAPSHOT\n\nThis REPLACES ALL current data with the file:\n'+(fname||'(selected file)')+'\n\nSnapshot contains: '+counts+'.\n\nA backup of the CURRENT data was just downloaded first.\nEveryone will see the restored data. It can only be undone by importing another snapshot. Continue?')) return;
+  var phrase=((typeof prompt==='function'?prompt('To confirm a full restore, type exactly:  RESTORE'):'')||'').trim();
+  if(phrase.toUpperCase()!=='RESTORE'){ toast('Phrase did not match — cancelled. Nothing was changed.'); return; }
+  if(!typeNameToConfirm('RESTORE all data from snapshot '+(fname||''))) return;
+  var keep={ screen:state.screen, role:state.role, currentUser:state.currentUser, expanded:state.expanded, dataFixEnabled:state.dataFixEnabled, period:state.period };
+  var ns=ensureState(JSON.parse(JSON.stringify(data))); if(typeof sessionInit==='function') sessionInit(ns);
+  Object.keys(keep).forEach(function(k){ if(keep[k]!==undefined) ns[k]=keep[k]; });
+  state=ns;
+  logAction('RESTORED all data from snapshot '+(fname||'')+' — a backup of prior data was taken first');
+  save(); render(); toast('Restored from snapshot — data replaced.');
+}
 function screenDataFix(){
   const isCOO=state.role==='COO'; const on=!!state.dataFixEnabled;
   if(!isCOO){ $('view').innerHTML=`<div class="banner warn">Data Fix is COO-only.</div>`; return; }
@@ -2161,10 +2189,11 @@ function screenDataFix(){
      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
        <div>Status: <b style="color:${on?'var(--green2)':'var(--mut)'}">${on?'ON — corrections enabled':'OFF'}</b></div>
        ${toggle}
-       <button class="sm" onclick="exportStateJSON()">⬇ Download data snapshot (JSON)</button>${isCOO?`<button class="sm" style="background:var(--navy);color:#fff;border-color:var(--navy)" onclick="importGoLivePOs()">⬆ Import opening POs (go-live)</button>`:``}${isCOO?`<button class="sm" style="background:#b42318;color:#fff;border-color:#b42318" onclick="startNewYearClean()">🗓 Start new year (clean) — reset all numbers to zero</button>`:``}
+       <button class="sm" onclick="exportStateJSON()">⬇ Download data snapshot (JSON)</button>${isCOO?`<button class="sm" style="background:var(--navy);color:#fff;border-color:var(--navy)" onclick="importGoLivePOs()">⬆ Import opening POs (go-live)</button>`:``}${isCOO?`<button class="sm" style="background:#0e6e63;color:#fff;border-color:#0e6e63" onclick="importSnapshotStart()">↩ Import / restore snapshot</button>`:``}${isCOO?`<button class="sm" style="background:#b42318;color:#fff;border-color:#b42318" onclick="startNewYearClean()">🗓 Start new year (clean) — reset all numbers to zero</button>`:``}
      </div>
      <div class="muted" style="font-size:11px;margin-top:10px">Always download a snapshot before a reconciliation session — it's your restore point. The snapshot is read-only and changes nothing.</div>
      <div class="muted" style="font-size:11px;margin-top:6px"><b>Start new year (clean)</b> permanently zeroes every transaction number (orders, shipments, production, packing, batches, stock, logs, serials) and keeps all master data. It downloads a backup first and asks you to type <b>RESET TO ZERO</b> plus your name to confirm.</div>
+     <div class="muted" style="font-size:11px;margin-top:6px"><b>Import / restore snapshot</b> replaces ALL current data with a previously downloaded snapshot file — the safe rollback for a reset. It downloads a backup of the current data first, then asks you to type <b>RESTORE</b> plus your name.</div>
    </div>${ops}`;
 }
 

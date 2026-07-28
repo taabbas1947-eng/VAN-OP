@@ -1387,8 +1387,25 @@ function ensureState(s){
   s.users=(s.users&&s.users.length)?s.users:deepClone(SEED.users||[]); if(s.currentUser===undefined)s.currentUser=null;
   s.rmRequests=s.rmRequests||[]; s.productionLog=s.productionLog||[]; s.packingLog=s.packingLog||[];
   s.actionLog=s.actionLog||[]; s.shipments=s.shipments||[]; s.inspections=s.inspections||[]; s.warehouses=s.warehouses||SEED.warehouses.slice();
-  s.rawStock=s.rawStock||{}; s.rmMovements=s.rmMovements||[]; s.audit=s.audit||[]; s.masters=s.masters||deepClone(SEED.masters||{}); s.batches=s.batches||[]; s.packedStock=s.packedStock||{}; s.packingLog=s.packingLog||[]; s.orders=s.orders||[]; if(s.seq==null)s.seq=1000; ensureRecordIds(s); if(s.dataFixEnabled==null)s.dataFixEnabled=true; if(!Array.isArray(s.prs))s.prs=[]; (s.batches||[]).forEach(function(b){ if((b.producedKg||0)>0 && (!Array.isArray(b.lots)||!b.lots.length)){ b.lots=[{id:'LOT'+(s.seq++), lotNo:(b.batchNo||'B')+'-L1', qty:b.producedKg, date:b.openedDate||'', by:b.by||'', coa:(b.coa||null), migrated:true}]; } }); ensureMasters(s); ensureProductionModel(s); dedupePackingLots(s); migrateLotTracking(s); fixRudolfDupV1(s); reconcileLotShipKgV1(s); dedupeShipmentsV1(s); healPRFlags(s); migrateBrandNames(s); loadBaseRecipesV2(s); loadBlendRecipesV1(s); loadBlendRecipesV2(s); purgeImportedProduction(s); purgeImportDuplicates(s); purgeImportedNoTwin(s); fixPhantomLotVU26134(s); fixVU26144ProdLogV1(s); fixVU26144ProdLogV2(s); healVU26144ProdLog(s); backfillDisposedV1(s); consolidateByproductV1(s); dedupeByproductV1(s); reconcileShipLotsV1(s); normalizeVZincBase(s); seedByproductRulesV1(s); seedRolesV1(s); return s;
+  s.rawStock=s.rawStock||{}; s.rmMovements=s.rmMovements||[]; s.audit=s.audit||[]; s.masters=s.masters||deepClone(SEED.masters||{}); s.batches=s.batches||[]; s.packedStock=s.packedStock||{}; s.packingLog=s.packingLog||[]; s.orders=s.orders||[]; if(s.seq==null)s.seq=1000; ensureRecordIds(s); if(s.dataFixEnabled==null)s.dataFixEnabled=true; if(!Array.isArray(s.prs))s.prs=[]; (s.batches||[]).forEach(function(b){ if((b.producedKg||0)>0 && (!Array.isArray(b.lots)||!b.lots.length)){ b.lots=[{id:'LOT'+(s.seq++), lotNo:(b.batchNo||'B')+'-L1', qty:b.producedKg, date:b.openedDate||'', by:b.by||'', coa:(b.coa||null), migrated:true}]; } }); ensureMasters(s); ensureProductionModel(s); dedupePackingLots(s); migrateLotTracking(s); fixRudolfDupV1(s); reconcileLotShipKgV1(s); dedupeShipmentsV1(s); healPRFlags(s); migrateBrandNames(s); loadBaseRecipesV2(s); loadBlendRecipesV1(s); loadBlendRecipesV2(s); purgeImportedProduction(s); purgeImportDuplicates(s); purgeImportedNoTwin(s); fixPhantomLotVU26134(s); fixVU26144ProdLogV1(s); fixVU26144ProdLogV2(s); healVU26144ProdLog(s); backfillDisposedV1(s); consolidateByproductV1(s); dedupeByproductV1(s); reconcileShipLotsV1(s); normalizeVZincBase(s); seedByproductRulesV1(s); seedRolesV1(s); bumpSeqV1(s); healDupBatchIdsV1(s); return s;
 }
+/* 2026-07-28 fix: seq can lag behind ids already in the data (stale tab saved over a
+   newer state), so bump it above every numeric id suffix before anything generates ids. */
+function bumpSeqV1(s){ try{ var mx=s.seq||1000; var scan=function(o){ var m=String((o&&o.id)||'').match(/^(?:B|LOT|SE|PK|PR|INS|BK)(\d+)/); if(m) mx=Math.max(mx,+m[1]+1); }; (s.batches||[]).forEach(function(b){ scan(b); (b.lots||[]).forEach(scan); }); (s.shiftEntries||[]).forEach(scan); (s.packingLog||[]).forEach(scan); (s.prs||[]).forEach(scan); (s.inspections||[]).forEach(scan); s.seq=mx; }catch(e){} }
+/* 2026-07-28 fix: if two batches ever share one internal id (stale-tab collision),
+   give every later twin a fresh id and take its own shift/packing entries with it
+   (matched by batch number, which stays unique per physical batch). Runs on every
+   load AND on every 409 merge, so a bad state heals itself instead of spreading. */
+function healDupBatchIdsV1(s){ try{
+  var seen={}; (s.batches||[]).forEach(function(b){ (seen[b.id]=seen[b.id]||[]).push(b); });
+  Object.keys(seen).forEach(function(id){ var arr=seen[id]; if(arr.length<2) return;
+    for(var i=1;i<arr.length;i++){ var b=arr[i], old=b.id, nu='B'+(s.seq++)+'-h'+i; b.id=nu;
+      (s.shiftEntries||[]).forEach(function(e){ if(e.batchId===old && e.batchNo && b.batchNo && e.batchNo===b.batchNo) e.batchId=nu; });
+      (s.packingLog||[]).forEach(function(p){ if(p.baseBatchId===old && p.baseBatchNo && b.batchNo && p.baseBatchNo===b.batchNo) p.baseBatchId=nu; });
+      (s.audit=s.audit||[]).unshift({ts:new Date().toISOString(),by:'System',action:'healDupBatchIdsV1: batch '+(b.batchNo||'?')+' had duplicate id '+old+' — reassigned to '+nu});
+    }
+  });
+}catch(e){} }
 /* Lock 1: idempotent master seeding. ADDITIVE ONLY — seeds a list only when it is
    missing or empty, and never overwrites values the team has already added. Touches no
    transaction data. Runs on every state load (live + fresh seed). */
@@ -1595,6 +1612,11 @@ let _baseSnapshot=null, _saveRetries=0;
 function _snapBase(){ try{ _baseSnapshot=JSON.parse(JSON.stringify(dataOnly(state))); }catch(e){ _baseSnapshot=null; } }
 function _arrId(a){ return Array.isArray(a)&&a.length>0&&a.every(x=>x&&typeof x==='object'&&!Array.isArray(x)&&x.id!=null); }
 function _eq(a,b){ try{ return JSON.stringify(a)===JSON.stringify(b); }catch(e){ return a===b; } }
+/* Collision-proof ids (2026-07-28 fix): two open tabs hold the same seq counter, so
+   nid('B') can hand the SAME id to two different records — that is how batch
+   VLNPK26002 and VB26003 both became B1114 and merge3 cross-merged their lots. New ids
+   get a per-tab random suffix; existing ids are untouched and stay valid. */
+function nid(p){ return p+(state.seq++)+'-'+Math.random().toString(36).slice(2,6); }
 function merge3(base, local, srv){
   if(_arrId(local) && Array.isArray(srv)){
     const bm={},sm={}; (Array.isArray(base)?base:[]).forEach(x=>{ if(x&&x.id!=null) bm[x.id]=x; }); srv.forEach(x=>{ if(x&&x.id!=null) sm[x.id]=x; });
@@ -2108,7 +2130,7 @@ function importGoLivePOs(){
   if(typeof confirm==='function' && !confirm('Import '+fresh.length+' opening PO(s) — '+totLines+' product line(s)?\n\n'+(skip?('('+skip+' already exist and will be skipped)\n\n'):'')+'· Received 2026-06-01 · Promised 2026-06-30 (editable)\n· Print price blank (set later; packing verifies)\n· Logged as RECONCILE import.\n\nProceed?')) return;
   if(!typeNameToConfirm('IMPORT '+fresh.length+' opening PO(s) into the live system')) return;
   const recv='2026-06-01', prom='2026-06-30'; let n=0;
-  fresh.forEach(p=>{ const id='O'+((state.orders||[]).length+1)+'_'+(state.seq++);
+  fresh.forEach(p=>{ const id='O'+((state.orders||[]).length+1)+'_'+nid('');
     const ch=p.channel||'White Label';
     const ord={ id, po:String(p.po), client:p.client, channel:ch, vgreenSub:null, kam:'Tahir Abbas', priority:p.priority||'Normal', promised:prom, received:recv, rmDecision:'pending',
       lines:p.lines.map((l,j)=>({ id:id+'L'+j, brand:l.brand, base:l.base||l.brand, pack:(l.pack!=null?l.pack:(typeof seedPackForBrand==='function'?seedPackForBrand(l.brand):null)), note:'', committed:prom, ordered:+l.ordered||0, printPrice:0, invoicePrice:0, produced:0, packed:0, dispatched:0, delivered:0 })) };
@@ -2336,7 +2358,7 @@ function dfSubmitProduction(){
   if(dfForm.kind==='bulk'){
     const base=dfForm.base; if(!base) return toast('Pick a base product');
     let b=(state.batches||[]).find(x=>x.base===base&&x.status==='open');
-    if(b){ b.producedKg=(b.producedKg||0)+q; } else { state.batches.unshift({id:'B'+(state.seq++),batchNo:'',kind:'bulk',type:'stock',base,brand:null,plannedKg:q,producedKg:q,packedKg:0,status:'closed',openedDate:d,closedDate:d,by:state.role,recon:true}); }
+    if(b){ b.producedKg=(b.producedKg||0)+q; } else { state.batches.unshift({id:nid('B'),batchNo:'',kind:'bulk',type:'stock',base,brand:null,plannedKg:q,producedKg:q,packedKg:0,status:'closed',openedDate:d,closedDate:d,by:state.role,recon:true}); }
     state.productionLog.unshift({id:_uid('PL'),date:d,base,kg:q,by:state.role,shift:sh,incharge:inc,recon:true});
     reconLog(`Added missing production: ${fmt(q)} Kg/L bulk ${base} — ${dfForm.reason}`, d);
   } else {
@@ -2376,7 +2398,7 @@ function dfSubmitPO(){
   if(!po) return toast('Enter PO #'); if(!client) return toast('Enter customer'); if(!brand) return toast('Enter product/brand'); if(ord<=0) return toast('Enter ordered qty');
   if(state.orders.some(o=>o.po===po)) return toast('A PO with that number already exists');
   const base=((typeof SEED!=='undefined'&&SEED.brandMap&&SEED.brandMap[brand]&&SEED.brandMap[brand].base))||brand;
-  const id='O'+(state.seq++);
+  const id=nid('O');
   state.orders.unshift({id,po,client,channel:dfForm.channel||'White Label',priority:dfForm.priority||'Normal',promised:dfForm.promised||'',received:dfForm.received||'',rmDecision:'pending',recon:true,
     lines:[{id:id+'L1',brand,base,ordered:ord,committed:dfForm.promised||'',produced:0,packed:0,dispatched:0,delivered:0,soCreated:'',prRaised:'',cfoApproved:'',rmCheck:'',rmReady:'',prodStart:'',prodComplete:'',qcPass:'',dispatchDate:'',deliveredDate:'',notes:'(reconcile backfill)'}]});
   reconLog(`Added missing PO ${po} · ${client} · ${brand} ${fmt(ord)} Kg/L (received ${dfForm.received||'—'}) — ${dfForm.reason}`, dfForm.received);
@@ -2619,7 +2641,7 @@ function submitPO(){
   state._lastKam=$('e_kam').value;
   const recv=$('e_recv').value; const po=isManualPO()?$('e_po').value.trim():genPO(recv);
   if((state.orders||[]).some(o=>String(o.po)===String(po))){ toast('A PO with number '+po+' already exists — open it in PO Tracker, or use a different client PO#.'); return; }
-  const id='O'+(state.orders.length+1)+'_'+state.seq++;
+  const id='O'+(state.orders.length+1)+'_'+nid('');
   var _fedMode=entryFedMode();
   const ord={ id, po, client:entryClient, channel:entryChannel, vgreenSub:entryVsub||null, destinationPartner:(entryChannel==='Vgreen'?(entryDestPartner||''):''), foc:!!entryFOC, fedMode:_fedMode, focalPerson:($('e_focal')&&$('e_focal').value)||'', kam:$('e_kam').value.trim(),
     priority:$('e_pri').value, promised:$('e_prom').value, received:recv, rmDecision:'pending', printOnPack:!!entryPrintOn,
@@ -3851,7 +3873,7 @@ function openBatch(kind){
     if(_bb && _bb!==l.brand){ toast(l.brand+' is made from base "'+_bb+'" — produce '+_bb+' in Bulk Base, then pack it into '+l.brand+' for this PO.'); return; }
     if(!validateBatchNo(batchNo) && typeof confirm==='function' && !confirm(`Batch number "${batchNo}" doesn't match the usual format (${fmtRule}). Is it correct?`)) return;
     const cap=rmAllows(l); if(cap<=(l.produced||0)+0.001){ toast('No raw material confirmed yet — run RM Check first. (Partial RM lets you make the available qty.)'); return; } const remCap=Math.max(0,Math.min(l.ordered-(l.produced||0), cap-(l.produced||0))); let planned=remCap; const _pv=+(($('pp_planned')&&$('pp_planned').value)||0)||0; if(_pv>0){ if(_pv>remCap+0.001){ toast('Plan must be ≤ '+fmt(remCap)+' Kg/L (remaining order / RM-allowed).'); return; } planned=_pv; } if(planned<=0){ toast('Nothing left to plan for this product.'); return; }
-    state.batches.unshift({id:'B'+(state.seq++),batchNo,kind:'po',po:o.po,lineId:l.id,base:l.base,brand:l.brand,plannedKg:planned,producedKg:0,packedKg:0,status:'open',openedDate:today,by:state.role});
+    state.batches.unshift({id:nid('B'),batchNo,kind:'po',po:o.po,lineId:l.id,base:l.base,brand:l.brand,plannedKg:planned,producedKg:0,packedKg:0,status:'open',openedDate:today,by:state.role});
     logAction(`Opened PO batch ${batchNo} for ${o.po} · ${l.brand} (planned ${fmt(planned)} Kg/L)`);
   } else {
     const base=$('pb_base')&&$('pb_base').value;
@@ -3861,7 +3883,7 @@ function openBatch(kind){
     if(!batchNo){toast('Enter a batch number');return;} {const _fy=fyKey(today); if(batchOwnerInFY(batchNo,_fy)){toast('Batch # "'+batchNo+'" already used this financial year ('+_fy+') — use a unique number.');return;}}
     if(planned<=0){toast('Enter a planned quantity');return;}
     if(!validateBatchNo(batchNo) && typeof confirm==='function' && !confirm(`Batch number "${batchNo}" doesn't match the usual format (${fmtRule}). Is it correct?`)) return;
-    state.batches.unshift({id:'B'+(state.seq++),batchNo,kind:'bulk',type:'stock',base,brand:null,plannedKg:planned,producedKg:0,packedKg:0,status:'open',openedDate:today,by:state.role});
+    state.batches.unshift({id:nid('B'),batchNo,kind:'bulk',type:'stock',base,brand:null,plannedKg:planned,producedKg:0,packedKg:0,status:'open',openedDate:today,by:state.role});
     logAction(`Opened bulk batch ${batchNo} for ${base} (planned ${fmt(planned)} Kg/L)`);
   }
   save(); closeModal(); toast('Batch opened'); render();
@@ -3890,7 +3912,7 @@ function submitMultiBatch(){
   {const _fy=fyKey(today); if(batchOwnerInFY(bn,_fy)){toast('Batch # "'+bn+'" already used this financial year ('+_fy+') — use a unique number.');return;}}
   if(!validateBatchNo(bn) && typeof confirm==='function' && !confirm('Batch number "'+bn+'" doesn\'t match the usual format (2-5 capital letters then 3-9 digits). Is it correct?')) return;
   const planned=picks.reduce(function(a,x){return a+x.kg;},0);
-  state.batches.unshift({id:'B'+(state.seq++),batchNo:bn,kind:'multi',base:mbForm.base,brand:null,allocations:picks,plannedKg:planned,producedKg:0,packedKg:0,status:'open',openedDate:today,by:state.role,lots:[]});
+  state.batches.unshift({id:nid('B'),batchNo:bn,kind:'multi',base:mbForm.base,brand:null,allocations:picks,plannedKg:planned,producedKg:0,packedKg:0,status:'open',openedDate:today,by:state.role,lots:[]});
   logAction('Opened multi-PO batch '+bn+' for '+mbForm.base+' — '+picks.length+' PO line'+(picks.length===1?'':'s')+' ('+picks.map(function(x){return x.po+' '+fmt(x.kg);}).join(', ')+') · planned '+fmt(planned)+' Kg/L · one batch, one COA');
   mbForm={base:'',batchNo:'',alloc:{}};
   save(); closeModal(); toast('Batch '+bn+' opened for '+picks.length+' PO line'+(picks.length===1?'':'s')); render();
@@ -3914,7 +3936,7 @@ function submitCallBp(){ if(!(canEdit(['Production'])||state.role==='COO')){toas
   const fy=fyKey(TODAY.toISOString().slice(0,10)); if(batchOwnerInFY(bn,fy)){toast('Batch # "'+bn+'" already used this financial year ('+fy+') — use a unique number.');return;}
   if(!validateBatchNo(bn) && typeof confirm==='function' && !confirm('Batch number "'+bn+'" doesn\'t match the usual format. Is it correct?')) return;
   const d=TODAY.toISOString().slice(0,10);
-  state.batches.unshift({id:'B'+(state.seq++),batchNo:bn,kind:'bulk',type:'stock',base:p.base,brand:null,plannedKg:qty,producedKg:0,packedKg:0,status:'open',openedDate:d,by:state.role,fromByproduct:true,sourcePool:p.id,lots:[]});
+  state.batches.unshift({id:nid('B'),batchNo:bn,kind:'bulk',type:'stock',base:p.base,brand:null,plannedKg:qty,producedKg:0,packedKg:0,status:'open',openedDate:d,by:state.role,fromByproduct:true,sourcePool:p.id,lots:[]});
   p.plannedKg=Math.max(0,(+p.plannedKg||0)-qty);
   (state.audit=state.audit||[]).unshift({t:new Date().toISOString(),user:state.role,module:'Production',field:'By-product called for manufacturing',po:'',brand:p.base,val:fmt(qty)+' Kg called as batch '+bn+' (grind)',batchNo:bn});
   logAction('Called '+fmt(qty)+' Kg '+p.base+' by-product for manufacturing as batch '+bn+' (grind → standard route)');
@@ -3956,7 +3978,7 @@ function submitDivert(){ if(!(canEdit(['Production'])||state.role==='COO')){toas
   const srcNo=slices.length===1?(slices[0].sourceBatchNo||'DIVERT'):((slices[0].sourceBatchNo||'DIVERT')+' +'+(slices.length-1));
   const t=new Date(d); t.setFullYear(t.getFullYear()+2);
   l.packed=(l.packed||0)+qty; l.produced=Math.max(l.produced||0,l.packed); l.prodStart=l.prodStart||d; if(l.packed>=l.ordered-0.5)l.prodComplete=l.prodComplete||d; if(l.printPrice==null||l.printPrice==='') l.printPrice=ppx;
-  (state.packingLog=state.packingLog||[]).unshift({id:'PK'+(state.seq++),date:d,base:l.base,brand:l.brand,kg:qty,by:state.role,po:o.po,baseBatchId:p.id,baseBatchNo:srcNo,brandBatchNo:srcNo,mfgDate:d,expDate:t.toISOString().slice(0,10),printPrice:ppx,priceVerifiedBy:state.role,fromDivert:true,fromDivertSources:slices});
+  (state.packingLog=state.packingLog||[]).unshift({id:nid('PK'),date:d,base:l.base,brand:l.brand,kg:qty,by:state.role,po:o.po,baseBatchId:p.id,baseBatchNo:srcNo,brandBatchNo:srcNo,mfgDate:d,expDate:t.toISOString().slice(0,10),printPrice:ppx,priceVerifiedBy:state.role,fromDivert:true,fromDivertSources:slices});
   p.plannedKg=(p.sources||[]).reduce((a,s)=>a+(+s.kg||0),0);
   (state.audit=state.audit||[]).unshift({t:new Date().toISOString(),user:state.role,module:'Production',field:'Diverted material packed',po:o.po,brand:l.brand,val:fmt(qty)+' Kg packed from divert pool ('+slices.length+' source batch'+(slices.length===1?'':'es')+': '+slices.map(s=>(s.sourceBatchNo||'?')+' '+fmt(s.kg)).join(', ')+')',batchNo:srcNo});
   logAction('Packed '+fmt(qty)+' Kg/L diverted '+l.brand+' ['+srcNo+'] for '+o.po+' ('+fmt(l.packed)+'/'+fmt(l.ordered)+'; '+slices.length+' source slice'+(slices.length===1?'':'s')+')');
@@ -3982,7 +4004,7 @@ function submitRework(){ if(!(canEdit(['Production'])||state.role==='COO')){toas
     const fy=fyKey(d); if(batchOwnerInFY(bn,fy)){toast('Batch # "'+bn+'" already used this financial year ('+fy+') — use a unique number.');return;}
     if(!validateBatchNo(bn) && typeof confirm==='function' && !confirm('Batch number "'+bn+'" doesn\'t match the usual format. Is it correct?')) return;
     const slices=consumeDivertSources(p,qty);
-    state.batches.unshift({id:'B'+(state.seq++),batchNo:bn,kind:'bulk',type:'stock',base:p.base,brand:null,plannedKg:qty,producedKg:0,packedKg:0,status:'open',openedDate:d,by:state.role,fromRework:true,sourcePool:p.id,reworkSources:slices,lots:[]});
+    state.batches.unshift({id:nid('B'),batchNo:bn,kind:'bulk',type:'stock',base:p.base,brand:null,plannedKg:qty,producedKg:0,packedKg:0,status:'open',openedDate:d,by:state.role,fromRework:true,sourcePool:p.id,reworkSources:slices,lots:[]});
     p.plannedKg=(p.sources||[]).reduce((a,s)=>a+(+s.kg||0),0);
     (state.audit=state.audit||[]).unshift({t:new Date().toISOString(),user:state.role,module:'Production',field:'Rework called (own batch)',po:'',brand:p.base,val:fmt(qty)+' Kg called as batch '+bn+' (re-process; from '+slices.length+' source batch'+(slices.length===1?'':'es')+')',batchNo:bn});
     logAction('Called '+fmt(qty)+' Kg '+p.base+' rework as batch '+bn+' (re-process → standard route)');
@@ -4049,9 +4071,9 @@ function submitShiftLog(){
   if(b.kind==='po'){ const _o=state.orders.find(x=>x.po===b.po); const _l=_o&&_o.lines.find(x=>x.id===b.lineId); if(_l){ const rem=(_l.ordered||0)-(_l.produced||0); if(q>rem+0.001){ toast('PO over-run blocked: '+_l.brand+' is ordered '+fmt(_l.ordered)+' Kg/L; only '+fmt(Math.max(0,Math.round(rem)))+' left to produce. Production cannot exceed the PO.'); return; } } }
   const d=shiftForm.date||TODAY.toISOString().slice(0,10);
   state.shiftEntries=state.shiftEntries||[];
-  state.shiftEntries.unshift({id:'SE'+(state.seq++),batchId:b.id,batchNo:b.batchNo||'',date:d,shift:shiftForm.shift,incharge:shiftForm.incharge,kg:q,reason:shiftForm.reason||'',note:shiftForm.note||'',beds:(shiftForm.beds||[]).slice(),by:state.role,ts:new Date().toISOString()});
+  state.shiftEntries.unshift({id:nid('SE'),batchId:b.id,batchNo:b.batchNo||'',date:d,shift:shiftForm.shift,incharge:shiftForm.incharge,kg:q,reason:shiftForm.reason||'',note:shiftForm.note||'',beds:(shiftForm.beds||[]).slice(),by:state.role,ts:new Date().toISOString()});
   b.producedKg=(b.producedKg||0)+q;
-  if(q>0){ b.lots=b.lots||[]; const ln=b.lots.length+1; b.lots.push({id:'LOT'+(state.seq++), lotNo:(b.batchNo||'B')+'-L'+ln, qty:q, shift:shiftForm.shift, incharge:shiftForm.incharge, date:d, beds:(shiftForm.beds||[]).slice(), by:state.role, coa:null}); }
+  if(q>0){ b.lots=b.lots||[]; const ln=b.lots.length+1; b.lots.push({id:nid('LOT'), lotNo:(b.batchNo||'B')+'-L'+ln, qty:q, shift:shiftForm.shift, incharge:shiftForm.incharge, date:d, beds:(shiftForm.beds||[]).slice(), by:state.role, coa:null}); }
   if(b.kind==='po'){
     const o=state.orders.find(x=>x.po===b.po); const l=o&&o.lines.find(x=>x.id===b.lineId);
     if(l){ l.produced=(l.produced||0)+q; l.prodStart=l.prodStart||d; if((l.produced||0)>=l.ordered-0.001) l.prodComplete=l.prodComplete||d;
@@ -4137,21 +4159,21 @@ function saveReconcile(){ if(!(canEdit(['Production'])||state.role==='COO')){toa
   items.forEach(it=>{ const tgt=(it.type==='rework')?(b.base||''):it.base; const kg=+it.kg||0; const needsProd=(it.type==='rework')||(it.ready===false);
     if(it.type==='byproduct'){ /* Stage 2: by-product accrues into ONE open pool per base — no fragmented batch, no batch#/QC until called for manufacturing */
       let pool=(state.batches||[]).find(x=>x.disposition==='byproduct'&&x.pool&&x.base===tgt&&x.status==='open');
-      if(!pool){ pool={id:'B'+(state.seq++),batchNo:'',kind:'bulk',type:'stock',base:tgt,brand:null,plannedKg:0,producedKg:0,packedKg:0,status:'open',openedDate:d,by:state.role,disposition:'byproduct',pool:true,sources:[],lots:[]}; state.batches.unshift(pool); }
+      if(!pool){ pool={id:nid('B'),batchNo:'',kind:'bulk',type:'stock',base:tgt,brand:null,plannedKg:0,producedKg:0,packedKg:0,status:'open',openedDate:d,by:state.role,disposition:'byproduct',pool:true,sources:[],lots:[]}; state.batches.unshift(pool); }
       pool.plannedKg=(+pool.plannedKg||0)+kg; (pool.sources=pool.sources||[]).push({batch:b.id,batchNo:b.batchNo||'',kg:kg});
       created.push('by-product '+fmt(kg)+'→'+tgt+' pool');
     } else if(it.type==='divert'){ /* Stage 4b: divert (QC-cleared, SAME product) accrues into a per-product 'diverted material' pool — visible to Production, drawn to recycle or pack; no QC, no processing, no batch# of its own */
       let dp=(state.batches||[]).find(x=>x.disposition==='divert'&&x.pool&&x.base===tgt&&x.status==='open');
-      if(!dp){ dp={id:'B'+(state.seq++),batchNo:'',kind:'bulk',type:'stock',base:tgt,brand:null,plannedKg:0,producedKg:0,packedKg:0,status:'open',openedDate:d,by:state.role,disposition:'divert',pool:true,qcCleared:true,sources:[],lots:[]}; state.batches.unshift(dp); }
+      if(!dp){ dp={id:nid('B'),batchNo:'',kind:'bulk',type:'stock',base:tgt,brand:null,plannedKg:0,producedKg:0,packedKg:0,status:'open',openedDate:d,by:state.role,disposition:'divert',pool:true,qcCleared:true,sources:[],lots:[]}; state.batches.unshift(dp); }
       dp.plannedKg=(+dp.plannedKg||0)+kg; (dp.sources=dp.sources||[]).push({batch:b.id,batchNo:b.batchNo||'',kg:kg});
       created.push('divert '+fmt(kg)+'→'+tgt+' pool');
     } else if(it.type==='rework'){ /* Stage 4c: rework (off-spec, SAME base) accrues into a per-base pool — NOT QC-cleared, needs re-processing. Called as OWN batch (own #, standard route) or MERGED into an existing base batch. No batch#/QC while pooling. */
       let rp=(state.batches||[]).find(x=>x.disposition==='rework'&&x.pool&&x.base===tgt&&x.status==='open');
-      if(!rp){ rp={id:'B'+(state.seq++),batchNo:'',kind:'bulk',type:'stock',base:tgt,brand:null,plannedKg:0,producedKg:0,packedKg:0,status:'open',openedDate:d,by:state.role,disposition:'rework',pool:true,sources:[],lots:[]}; state.batches.unshift(rp); }
+      if(!rp){ rp={id:nid('B'),batchNo:'',kind:'bulk',type:'stock',base:tgt,brand:null,plannedKg:0,producedKg:0,packedKg:0,status:'open',openedDate:d,by:state.role,disposition:'rework',pool:true,sources:[],lots:[]}; state.batches.unshift(rp); }
       rp.plannedKg=(+rp.plannedKg||0)+kg; (rp.sources=rp.sources||[]).push({batch:b.id,batchNo:b.batchNo||'',kg:kg});
       created.push('rework '+fmt(kg)+'→'+tgt+' pool');
     } else { /* fallback (should not occur — loss handled separately, byproduct/divert/rework above) */
-      state.batches.unshift({id:'B'+(state.seq++),batchNo:'',kind:'bulk',type:'stock',base:tgt,brand:null,plannedKg:kg,producedKg:(needsProd?0:kg),packedKg:0,status:'open',openedDate:d,by:state.role,sourceBatch:b.id,sourceBatchNo:b.batchNo||'',disposition:it.type,needsProduction:needsProd,lots:[]});
+      state.batches.unshift({id:nid('B'),batchNo:'',kind:'bulk',type:'stock',base:tgt,brand:null,plannedKg:kg,producedKg:(needsProd?0:kg),packedKg:0,status:'open',openedDate:d,by:state.role,sourceBatch:b.id,sourceBatchNo:b.batchNo||'',disposition:it.type,needsProduction:needsProd,lots:[]});
       created.push(it.type+' '+fmt(kg)+'→'+tgt+(needsProd?' (to re-produce)':' (to pack)'));
     } });
   b.reconciled=true; b.reconciledDate=d; b.reconciledBy=(state.currentUser&&state.currentUser.name)||state.role; b.lossKg=loss; b.lossReason=recForm.lossReason||'';
@@ -4186,7 +4208,7 @@ function submitProdQty(){ if(!(canEdit(['Production'])||state.role==='COO')){toa
   b.packedKg=(b.packedKg||0)+q; l.packed=(l.packed||0)+q; l.produced=Math.max(l.produced||0,l.packed); l.prodStart=l.prodStart||d; if(l.packed>=l.ordered-0.5)l.prodComplete=l.prodComplete||d;
   if(l.printPrice==null||l.printPrice==='') l.printPrice=ppx;
   const t=new Date(d); t.setFullYear(t.getFullYear()+2); const bn=b.batchNo||'';
-  (state.packingLog=state.packingLog||[]).unshift({id:'PK'+(state.seq++),date:d,base:l.base,brand:l.brand,kg:q,by:state.role,po:o.po,baseBatchId:b.id,baseBatchNo:bn,brandBatchNo:bn,mfgDate:d,expDate:t.toISOString().slice(0,10),printPrice:ppx,priceVerifiedBy:state.role});
+  (state.packingLog=state.packingLog||[]).unshift({id:nid('PK'),date:d,base:l.base,brand:l.brand,kg:q,by:state.role,po:o.po,baseBatchId:b.id,baseBatchNo:bn,brandBatchNo:bn,mfgDate:d,expDate:t.toISOString().slice(0,10),printPrice:ppx,priceVerifiedBy:state.role});
   logAction(`Packed ${fmt(q)} Kg/L of ${l.brand} [${bn}] for ${o.po} (${fmt(l.packed)}/${fmt(l.ordered)})`);
   save(); closeModal(); render(); }
 let packForm={bid:null,brand:'',kg:''};
@@ -4233,7 +4255,7 @@ function doPack(){ if(!(canEdit(['Production'])||state.role==='COO')){toast('Pro
       if(otherBrandClash){ toast('Brand batch # "'+brandBatchNo+'" is already used by a DIFFERENT brand this year \u2014 use a unique number.'); return; }
     }
     if(l.printPrice==null||l.printPrice===''){ l.printPrice=ppx; }
-    (state.packingLog=state.packingLog||[]).unshift({date:d,base:b.base,brand,kg,by:state.role,po:o.po,id:'PK'+(state.seq++),baseBatchId:b.id,baseBatchNo,brandBatchNo,mfgDate:mfgD,expDate:expD,printPrice:ppx,priceVerifiedBy:state.role});
+    (state.packingLog=state.packingLog||[]).unshift({date:d,base:b.base,brand,kg,by:state.role,po:o.po,id:nid('PK'),baseBatchId:b.id,baseBatchNo,brandBatchNo,mfgDate:mfgD,expDate:expD,printPrice:ppx,priceVerifiedBy:state.role});
     logAction(`Packed ${fmt(kg)} Kg/L ${b.base} [${baseBatchNo}] → ${brand} [${brandBatchNo}]${brandBatchNo!==baseBatchNo?' (re-batched)':''} for ${o.po}`);
   } else {
     toast('Packing must be against a PO for this brand — select the PO above (no unassigned packing).'); return;
@@ -4706,7 +4728,7 @@ function gotoProduce(oid){ prodMode='po'; prodPOsel=oid||''; state.screen='prod'
 function cfoApprovePR(prId){ if(!canEdit(['CFO'])){toast('Not allowed — needs CFO or a matrix Edit grant');return;} const p=(state.prs||[]).find(x=>x.id===prId); if(!p)return; p.cfoApproved=TODAY.toISOString().slice(0,10); logAction(`CFO approved PR ${p.id} — ${p.rm} ${fmt(p.qtyRequired)} Kg/L`); save(); toast('PR approved'); render(); }
 function raisePR(rm, qty){ if(!rm||!(qty>0))return; state.prs=state.prs||[]; const open=state.prs.find(p=>p.rm===rm&&p.status==='open');
   if(open){ open.qtyRequired+=qty; logAction(`PR (open) for ${rm}: +${fmt(qty)} Kg/L attached — required now ${fmt(open.qtyRequired)}`); }
-  else { state.prs.unshift({id:'PR'+(state.seq++),rm,qtyRequired:qty,qtyReceived:0,receipts:[],status:'open',cfoApproved:null,date:TODAY.toISOString().slice(0,10),by:state.role}); logAction(`PR raised for ${rm}: ${fmt(qty)} Kg/L`); } }
+  else { state.prs.unshift({id:nid('PR'),rm,qtyRequired:qty,qtyReceived:0,receipts:[],status:'open',cfoApproved:null,date:TODAY.toISOString().slice(0,10),by:state.role}); logAction(`PR raised for ${rm}: ${fmt(qty)} Kg/L`); } }
 let recvScope=null;
 function recvPRCard(p){ const rem=Math.max(0,p.qtyRequired-(p.qtyReceived||0)); return `<div style="border:1px solid var(--line);border-radius:9px;padding:9px 11px;margin-bottom:8px"><div style="font-weight:600">${p.rm}</div><div class="muted" style="font-size:11px;margin-bottom:6px">required ${fmt(p.qtyRequired)} · received ${fmt(p.qtyReceived||0)} · remaining ${fmt(rem)} Kg/L${(p.receipts&&p.receipts.length)?(' · '+p.receipts.length+' receipt(s)'):''}${p.cfoApproved?' · <span style="color:var(--green2)">CFO approved</span>':' · <span style="color:var(--amber)">awaiting CFO approval</span>'}</div><div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap"><div class="fld" style="width:120px"><label>Receive qty</label><input type="number" id="rcv_${p.id}" placeholder="max ${fmt(rem)}"></div><div class="fld" style="width:140px"><label>GRN #</label><input type="text" id="grn_${p.id}"></div><div class="fld" style="width:140px"><label>Date</label><input type="date" id="rdt_${p.id}" value="${TODAY.toISOString().slice(0,10)}"></div><button class="sm green" onclick="receivePR('${p.id}')">Receive</button><button class="sm ghost" style="color:var(--red)" onclick="closePR('${p.id}')">Close PR</button></div></div>`; }
 function openReceiveMaterials(oid,lid){

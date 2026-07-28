@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VAN Operations Platform</title>
+<meta name="description" content="Vital Agri Nutrients operations platform — one sign-in for O2S, PD, QMS and ComPha.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='88'>%F0%9F%8C%B1</text></svg>">
+<style>
+  :root{
+    --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,"Times New Roman",serif;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono:"SF Mono","Cascadia Code",Consolas,"Liberation Mono",ui-monospace,monospace;
+    --ground:#f4f7f2; --surface:#ffffff; --surface-2:#eef2ea;
+    --line:#dbe3d8; --line-strong:#c6d1c2;
+    --text:#122236; --muted:#5a6b74; --faint:#84939b;
+    --green:#2e9e63; --green-deep:#1c7a49; --green-soft:#e3f0e8;
+    --amber:#a9781f; --amber-soft:#f2e9d4;
+    --ink:#0f2942;
+    --shadow:0 1px 2px rgba(18,34,54,.05),0 10px 30px -18px rgba(18,34,54,.25);
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --ground:#0b1a2a; --surface:#122539; --surface-2:#162c43;
+      --line:#22384f; --line-strong:#2c435c;
+      --text:#e7eef5; --muted:#95a6b7; --faint:#6f8194;
+      --green:#4cbc83; --green-deep:#2e9e63; --green-soft:rgba(76,188,131,.13);
+      --amber:#d6a94e; --amber-soft:rgba(214,169,78,.13);
+      --ink:#dfe8f1;
+      --shadow:0 1px 2px rgba(0,0,0,.3),0 14px 34px -20px rgba(0,0,0,.7);
+    }
+  }
+  :root[data-theme="light"]{
+    --ground:#f4f7f2; --surface:#ffffff; --surface-2:#eef2ea;
+    --line:#dbe3d8; --line-strong:#c6d1c2; --text:#122236; --muted:#5a6b74; --faint:#84939b;
+    --green:#2e9e63; --green-deep:#1c7a49; --green-soft:#e3f0e8; --amber:#a9781f; --amber-soft:#f2e9d4; --ink:#0f2942;
+    --shadow:0 1px 2px rgba(18,34,54,.05),0 10px 30px -18px rgba(18,34,54,.25);
+  }
+  :root[data-theme="dark"]{
+    --ground:#0b1a2a; --surface:#122539; --surface-2:#162c43; --line:#22384f; --line-strong:#2c435c;
+    --text:#e7eef5; --muted:#95a6b7; --faint:#6f8194; --green:#4cbc83; --green-deep:#2e9e63;
+    --green-soft:rgba(76,188,131,.13); --amber:#d6a94e; --amber-soft:rgba(214,169,78,.13); --ink:#dfe8f1;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 14px 34px -20px rgba(0,0,0,.7);
+  }
+
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;background:var(--ground)}
+  .wrap{font-family:var(--sans);color:var(--text);background:var(--ground);min-height:100%;
+    padding:clamp(20px,5vw,56px);line-height:1.55;-webkit-font-smoothing:antialiased}
+  .inner{max-width:1060px;margin:0 auto}
+  .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0}
+
+  .topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;
+    padding-bottom:20px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .brand{display:flex;align-items:center;gap:12px}
+  .mark{font-family:var(--mono);font-weight:700;font-size:15px;letter-spacing:.06em;color:#fff;
+    background:var(--ink);padding:7px 9px;border-radius:7px}
+  :root[data-theme="dark"] .mark{color:#0b1a2a;background:var(--green)}
+  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .mark{color:#0b1a2a;background:var(--green)}}
+  .brandtxt{font-weight:600;font-size:14px;letter-spacing:.01em}
+  .topmeta{font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint)}
+
+  .hero{padding:clamp(38px,7vw,72px) 0 clamp(26px,4vw,40px);max-width:44ch}
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.22em;text-transform:uppercase;
+    color:var(--green-deep);margin:0 0 18px;display:flex;align-items:center;gap:10px}
+  .eyebrow::after{content:"";height:1px;width:44px;background:var(--green);opacity:.6}
+  .title{font-family:var(--serif);font-weight:600;font-size:clamp(2.1rem,5.4vw,3.3rem);line-height:1.03;
+    letter-spacing:-.015em;margin:0 0 18px;text-wrap:balance;color:var(--text)}
+  .title em{font-style:italic;color:var(--green-deep)}
+  .lead{font-size:clamp(1rem,1.6vw,1.12rem);color:var(--muted);margin:0;max-width:52ch}
+
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;margin-top:8px}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:14px;
+    padding:22px 22px 20px;display:flex;flex-direction:column;min-height:210px;
+    box-shadow:var(--shadow);transition:transform .22s ease,border-color .22s ease,box-shadow .22s ease;
+    opacity:0;transform:translateY(14px);animation:rise .6s cubic-bezier(.2,.7,.3,1) forwards}
+  .card:nth-child(1){animation-delay:.05s}.card:nth-child(2){animation-delay:.13s}
+  .card:nth-child(3){animation-delay:.21s}.card:nth-child(4){animation-delay:.29s}
+  @keyframes rise{to{opacity:1;transform:none}}
+  .card-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+  .code{font-family:var(--mono);font-size:14px;font-weight:600;letter-spacing:.03em;color:var(--text)}
+  .sysname{font-family:var(--serif);font-weight:600;font-size:1.4rem;line-height:1.12;margin:0 0 8px;
+    letter-spacing:-.01em;color:var(--text)}
+  .sysdesc{font-size:.93rem;color:var(--muted);margin:0;line-height:1.52;flex:1}
+  .card-foot{margin-top:18px;display:flex;align-items:center;gap:12px}
+
+  .chip{font-family:var(--mono);font-size:10.5px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;
+    padding:4px 9px;border-radius:20px;white-space:nowrap;display:inline-flex;align-items:center;gap:6px}
+  .chip.live{color:var(--green-deep);background:var(--green-soft)}
+  .chip.live::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--green);
+    box-shadow:0 0 0 3px color-mix(in srgb,var(--green) 22%,transparent)}
+  .chip.planned{color:var(--muted);background:var(--surface-2)}
+  .tag{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--amber);background:var(--amber-soft);padding:3px 8px;border-radius:5px}
+
+  .card.live{border-color:var(--line-strong)}
+  .card.live:hover{transform:translateY(-4px);border-color:var(--green);
+    box-shadow:0 1px 2px rgba(18,34,54,.05),0 20px 40px -22px rgba(46,158,99,.55)}
+  .card.planned:hover{transform:translateY(-3px);border-color:var(--line-strong)}
+  .btn{font-family:var(--sans);font-size:.9rem;font-weight:600;text-decoration:none;border-radius:9px;
+    padding:9px 16px;display:inline-flex;align-items:center;gap:7px;transition:background .18s ease,color .18s ease;cursor:pointer}
+  .btn.open{background:var(--green);color:#06231a}
+  :root[data-theme="dark"] .btn.open{color:#06120c}
+  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .btn.open{color:#06120c}}
+  .btn.open:hover{background:var(--green-deep);color:#fff}
+  .btn.ghost{background:transparent;color:var(--faint);border:1px dashed var(--line-strong);cursor:default;font-weight:500}
+  a.btn:focus-visible{outline:2px solid var(--green);outline-offset:2px}
+
+  .platform{margin-top:34px;border-top:1px solid var(--line);padding-top:22px;
+    display:flex;align-items:baseline;gap:14px 26px;flex-wrap:wrap}
+  .platform .lab{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
+  .services{display:flex;gap:22px;flex-wrap:wrap}
+  .svc{font-size:.9rem;color:var(--muted);display:flex;align-items:center;gap:8px}
+  .svc::before{content:"";width:5px;height:5px;border-radius:50%;background:var(--green)}
+
+  footer{margin-top:30px;font-size:12px;color:var(--faint);display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+
+  @media (prefers-reduced-motion:reduce){
+    .card{animation:none;opacity:1;transform:none}
+    .card:hover{transform:none}
+    .btn,.card{transition:none}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="inner">
+    <h1 class="sr-only">Vital Agri Nutrients Operations Platform — choose a system</h1>
+
+    <header class="topbar">
+      <div class="brand">
+        <span class="mark">VAN</span>
+        <span class="brandtxt">Operations Platform</span>
+      </div>
+      <span class="topmeta">Vital Agri Nutrients</span>
+    </header>
+
+    <section class="hero">
+      <p class="eyebrow">Operations Platform</p>
+      <p class="title">Four systems,<br>one <em>sign-in</em>.</p>
+      <p class="lead">Everything the plant runs on — from the customer's order to the lab bench — under one roof. Pick a system to get to work.</p>
+    </section>
+
+    <section class="grid" aria-label="Systems">
+
+      <article class="card live">
+        <div class="card-top"><span class="code">O2S</span><span class="chip live">Live</span></div>
+        <h2 class="sysname">Order&nbsp;to&nbsp;Ship</h2>
+        <p class="sysdesc">Every customer order, PO to delivery — raw materials, production, quality checks, dispatch and proof of delivery.</p>
+        <div class="card-foot"><a class="btn open" href="/o2s">Open O2S &rarr;</a></div>
+      </article>
+
+      <article class="card planned">
+        <div class="card-top"><span class="code">PD</span><span class="chip planned">Planned</span></div>
+        <h2 class="sysname">Product Development</h2>
+        <p class="sysdesc">The R&amp;D pipeline. Track each new product from idea through formulation, trials and scale-up to launch.</p>
+        <div class="card-foot"><span class="btn ghost" aria-disabled="true">In design</span></div>
+      </article>
+
+      <article class="card planned">
+        <div class="card-top"><span class="code">QMS</span><span class="chip planned">Planned</span></div>
+        <h2 class="sysname">Quality Management</h2>
+        <p class="sysdesc">Controlled documents, deviations, CAPA and audits — the quality system around everything we manufacture.</p>
+        <div class="card-foot"><span class="btn ghost" aria-disabled="true">In design</span></div>
+      </article>
+
+      <article class="card planned">
+        <div class="card-top"><span class="code">ComPha</span><span class="chip planned">Planned</span></div>
+        <h2 class="sysname">Testing&nbsp;Lab</h2>
+        <p class="sysdesc">Testing-lab services for outside clients — sample intake, analysis, results and issued certificates.</p>
+        <div class="card-foot"><span class="btn ghost" aria-disabled="true">In design</span><span class="tag">External clients</span></div>
+      </article>
+
+    </section>
+
+    <section class="platform" aria-label="Shared platform services">
+      <span class="lab">Shared across every system</span>
+      <div class="services">
+        <span class="svc">Single sign-in</span>
+        <span class="svc">Roles &amp; permissions</span>
+        <span class="svc">Audit trail</span>
+      </div>
+    </section>
+
+    <footer>
+      <span>Your role decides which systems you see.</span>
+      <span>VAN &middot; internal platform</span>
+    </footer>
+  </div>
+</div>
+</body>
+</html>

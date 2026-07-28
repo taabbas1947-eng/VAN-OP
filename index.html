@@ -1272,7 +1272,7 @@ body .pdsk .pdmore{border:1px solid #d8cbb6;background:#fff;color:#5a5248;border
 @media(max-width:900px){.actabs-m{display:block;margin-bottom:10px}}
 </style>
 </head><body>
-<div class="app" id="appShell">
+<div class="app" id="appShell" style="display:none">
   <div class="navbackdrop" onclick="closeMobileNav()"></div>
   <aside class="side">
     <div class="brand">
@@ -1300,7 +1300,7 @@ body .pdsk .pdmore{border:1px solid #d8cbb6;background:#fff;color:#5a5248;border
     <div class="wrap" id="view"></div>
   </div>
 </div>
-<div id="authScreen" class="authscreen"></div>
+<div id="authScreen" class="authscreen" style="display:flex"><div style="text-align:center;font-family:'Segoe UI',Arial,sans-serif;color:#5b6675"><div style="font-size:22px;font-weight:800;letter-spacing:.02em;color:#13307a">VAN&nbsp;Ops</div><div style="font-size:12.5px;margin-top:6px">Loading…</div></div></div>
 <div class="drawer-bg" id="drawerBg" onclick="closeDrawer()"></div>
 <div class="drawer" id="drawer"></div>
 <div id="coaFS"></div>
@@ -1653,7 +1653,8 @@ function startSync(){ if(_syncOn)return; _syncOn=true; setInterval(async ()=>{
   if(($('modalBg')&&$('modalBg').classList.contains('open'))||($('drawerBg')&&$('drawerBg').classList.contains('open'))) return;
   if(hasUnsavedEntry()) return; // don't re-render over the user's in-progress data entry
   if(_savePending) return;      // a local change is still being saved — pulling now would overwrite it before it lands
-  try{ const r=await fetch('/api/state',{cache:'no-store',headers:authHdr()}); if(r.status===401){ setSession('',null); renderApp(); return; } if(!r.ok) return; const j=await r.json();
+  try{ const rr=await fetch('/api/rev',{cache:'no-store',headers:authHdr()}); if(rr.status===401){ setSession('',null); renderApp(); return; } if(!rr.ok) return; const rj=await rr.json(); if(typeof rj.rev!=='number' || rj.rev===_rev) return; /* nothing changed — skip the full state pull */
+    const r=await fetch('/api/state',{cache:'no-store',headers:authHdr()}); if(r.status===401){ setSession('',null); renderApp(); return; } if(!r.ok) return; const j=await r.json();
     if(typeof j.rev==='number' && j.rev!==_rev && j.data && j.data.orders){
       const cu=state.currentUser, sc=state.screen, ro=state.role, ex=state.expanded;
       // MERGE the server's changes into local (3-way, same as the save-conflict path) rather than a blind

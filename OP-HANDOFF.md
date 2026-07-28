@@ -2,6 +2,8 @@
 
 _Updated: 2026-06-19 · COO: Tahir · Single code file: `index.html` (4308 lines, vanilla JS). Backend: `server.js` (Node/Express + MySQL on HostGator, one `app_state` JSON blob + rev counter). Deploys never touch the DB. Pushes go via GitHub Desktop (Claude cannot push). Render auto-deploys on push; rollback restores prior code only, never the DB._
 
+> **STATUS ADD — 2026-07-28 (cloud session):** **§0q MULTI-PO BATCH — READY TO PUSH (not pushed).** One production run serving several POs of the same product (the Fusion Potash 3-client problem): "+ Open batch" gains a **Multiple POs** mode → one batch #, one Lab COA, pack out to each linked PO. Built per Tahir's decisions: pack **defaults** to linked POs (not locked) · shift output spreads **pro-rata** · **multi-PO only** (no bulk opened for the ~40 own-base products). Code-only, no data migration, no master change. All script blocks `node --check` clean; end-to-end simulation passed (open → FY-unique guard → RM guard → pro-rata shifts → 105% cap → QC once → pack ×3 POs → stage done); render smoke passed. Tahir pushes via GitHub Desktop.
+>
 > **STATUS — 2026-06-19 (session handoff; new chat starts here):**
 >
 > **LIVE & verified:** Production reconcile programme (§0j/§0k/§0l — by-product/divert/rework + fixes), §0m Stage 5 Command-Center lanes, §0n Action-Center-as-landing, and **§0o Action Center (My Actions) REDESIGN** — the merged urgency-first worklist (risk chips + role chip bar + grouped list + drawer/stepper), browser-confirmed (52 rows, Late 11 / Today 38 / Normal 3).
@@ -13,6 +15,29 @@ _Updated: 2026-06-19 · COO: Tahir · Single code file: `index.html` (4308 lines
 > **Still open after §0p:** §0b PO Tracker's 1 original fix; design pass on remaining tabs (QC/Lab, Shipments, Reports, Sales & Budget — Production/PO-Tracker/Action-Center done); functional live test of divert/rework draws (writes data — low-stakes batch).
 >
 > **Working method (Tahir, firm):** offline-prototype → inline review → port to live → **Tahir pushes via GitHub Desktop** (Claude cannot push) → Claude verifies live + updates this handoff. Snapshot before any data change. Verify every edit (isolation `node --check`; the bash mount is often stale/truncated — trust the Read/Edit file tools + isolation checks, not full-file mount checks).
+
+---
+
+## 0q) READY TO PUSH — 2026-07-28 · MULTI-PO BATCH (one run · several POs · one batch # · one COA) — code-only, no data migration
+
+**Problem (floor, via Production & Lab):** products registered as their own base (e.g. **Fusion Potash** — ~40 such own-base/blend products) are NOT in `BULK_BASES`, so they can only be produced "Against a PO", and a PO batch's plan + shift output are capped to that single PO. One physical run serving 3 small POs was impossible as one batch → the floor was forced into 3 batch numbers → 3 COAs for one kettle. QC principle: **one production run = one batch = one COA** (clients get copies of the same batch COA; the per-client document is the pre-shipment QA, already per PO line).
+
+**Design decisions (Tahir, 2026-07-28):** (1) pack **defaults** to the linked POs but is **not locked** — surplus can pack to any open PO of the product; (2) production progress spreads **pro-rata** across the linked PO lines so all clients' POs show In-Production; (3) **multi-PO only** — the ~40 own-base products do NOT get speculative "Bulk → stock" (make-to-order discipline kept). `BULK_BASES` untouched.
+
+**Built (all in `index.html`, ready to push, NOT pushed):**
+1. **"+ Open batch" → third mode "Multiple POs"** (`renderOpenBatch` rebuilt; new `mbForm`/`mbBasePick`/`mbTick`/`mbQty`): pick product (derived from open PO lines via brandMap→base) → tick PO lines, allocate full/partial per line (default = remaining, capped at remaining-order AND RM-allowed; RM-unconfirmed lines disabled with "RM not confirmed") → one batch # → live planned total (`#mbTotal`, no re-render so typing keeps focus).
+2. **`submitMultiBatch()`** (+ dispatch in `openBatch('multi')`): per-line guards mirror the PO path (remaining order, `rmAllows` cap), batch # FY-unique via `batchOwnerInFY` + soft format check; creates `{kind:'multi', base, allocations:[{oid,lid,po,client,brand,kg}], plannedKg:Σ}`.
+3. **`submitShiftLog` pro-rata branch**: each shift's output spreads across linked lines by allocation share (last line takes the rounding remainder; capped at each line's remaining order — residual stays as batch stock); sets `prodStart`/`prodComplete`; writes **one `productionLog` slice per PO** (line-accurate registers & reversals; `multi:true` marker). Zero-output shifts log one 0-kg entry. 105% plan cap + closed-batch guard unchanged.
+4. **Packing**: `openPack` preselects the brand when all allocations share one; `renderPackModal` lists **linked POs first** with a "· linked" tag and shows "opened for N POs (…)" in the header. `doPack` itself unchanged (cross-PO packing already existed).
+5. **Display**: journey/lane/board/lifecycle/output-table cards + shift-log header + QC rows show the multi kind (`MULTI-PO` tag, `batchPOsLabel(b)` = "3 POs · A, B, C"); pack buttons route multi via `openPack` (was bulk-only); per-PO-line "Log output" shortcut also finds multi batches covering that line. New CSS `.pjk.multi`.
+
+**Untouched:** Lab QC/COA chain (batch-level already — one COA per multi batch automatically), pre-shipment QA (per PO line, quantity-true off packingLog), reconcile, pools (by-product/divert/rework — their targets include multi batches automatically), `BULK_BASES`, all master data. **No migration; additive only** (new kind exists only once the floor opens one; merge-safe via record addition).
+
+**Naming note:** the multi-PO **shipment** wizard already owned `mpForm`/`mp*` — the batch form is `mbForm`/`mb*` to avoid the collision (caught by `node --check`).
+
+**Verified (2026-07-28, isolation):** all 6 script blocks `node --check` clean; file 7,801 lines, 6 script tags, proper end; function census = exactly +5 (`batchPOsLabel`, `mbBasePick`, `mbQty`, `mbTick`, `submitMultiBatch`). Simulation (3 Fusion Potash POs 125/175/200 = 500 Kg): open ✓ · FY-reuse blocked ✓ · RM-unconfirmed blocked ✓ · pro-rata shifts 300+200 → lines land exactly 125/175/200, `producedKg` 500, 2 lots, 6 productionLog slices summing 500 ✓ · 105% cap blocks ✓ · QC approve → packable 500 ✓ · pack ×3 POs from the one batch, 3 packingLog entries all carrying FP26001, stage → done, remainder 0 ✓ · over-alloc blocked ("max 100"), partial alloc (60 of 100) ✓. Render smoke: multi modal (tabs/rows/RM flag/total/submit) ✓, pack modal linked-first + tag ✓, brand preselect ✓.
+
+**Known nuances (accepted v1):** (a) reconcile of a shortfall doesn't walk back the pro-rata `l.produced` (packing's `produced=max(produced,packed)` never decreases; tracker delivery truth is `packed`); (b) budget/cost view classes multi batches as "Bulk / unassigned" (cost attribution per PO can ride packingLog later); (c) COA QC# client-prefix defaults to 'VN' for multi (no single client).
 
 ---
 

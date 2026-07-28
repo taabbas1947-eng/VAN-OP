@@ -617,6 +617,7 @@ table tbody tr:hover{background:var(--panel2)}
 .pjk{font-size:8px;font-weight:800;letter-spacing:.3px;padding:1px 6px;border-radius:4px}
 .pjk.po{background:var(--blue-50);color:var(--blue)}
 .pjk.bulk{background:var(--navy-50);color:var(--navy)}
+.pjk.multi{background:var(--amber-50);color:var(--amber)}
 .pjpill{font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px}
 .pjage{font-size:11px;color:var(--mut);margin-left:auto}
 .pjage.bad{color:var(--red);font-weight:700}
@@ -3190,7 +3191,7 @@ function journeyCard(b,ed){
   var SM={producing:['Producing','--blue'],qc:['Awaiting Lab QC','--purple'],pack:['Ready to pack','--green2'],recon:['Reconcile required','--red'],done:['Packed','--mut']};
   var lbl=SM[s][0], col='var('+SM[s][1]+')';
   var nm=b.kind==='po'?(b.brand||b.base||''):(b.base||'');
-  var sub=b.kind==='po'?((b.base||'')+' · '+(b.po||'')):'bulk to stock';
+  var sub=b.kind==='po'?((b.base||'')+' · '+(b.po||'')):(b.kind==='multi'?batchPOsLabel(b):'bulk to stock');
   var ageBad=age!=null&&age>=4&&s!=='done';
   var ageHtml=s==='done'?'':('<span class="pjage'+(ageBad?' bad':'')+'">'+(age!=null?(age+'d in '+lbl.toLowerCase()+(ageBad?' · stalled':'')):'—')+'</span>');
   function seg(t,v,ss,active){ return '<div class="pjseg'+(active?' on':'')+'" style="--sc:'+(active?col:'var(--line)')+'"><div class="pjsl">'+t+'</div><div class="pjsv">'+v+'</div><div class="pjss">'+(ss||'&nbsp;')+'</div></div>'; }
@@ -3202,15 +3203,15 @@ function journeyCard(b,ed){
     +'</div>';
   var acts='';
   if(ed){
-    if(s==='producing'){ acts+='<button class="sm green" onclick="openShiftLog(\''+b.id+'\')">Log shift output</button>'; if(ready>0.5){ if(b.kind==='bulk') acts+=' <button class="sm" onclick="openPack(\''+b.id+'\')">Pack cleared ('+fmt(ready)+')</button>'; else { var _o=state.orders.find(function(x){return x.po===b.po;}); var _l=_o&&_o.lines.find(function(x){return x.id===b.lineId;}); if(_o&&_l) acts+=' <button class="sm" onclick="openProdQty(\''+_o.id+'\',\''+_l.id+'\')">Pack cleared ('+fmt(ready)+')</button>'; } } }  /* fix: QC-cleared partial stock is packable while the batch keeps producing the rest */
+    if(s==='producing'){ acts+='<button class="sm green" onclick="openShiftLog(\''+b.id+'\')">Log shift output</button>'; if(ready>0.5){ if(b.kind==='bulk'||b.kind==='multi') acts+=' <button class="sm" onclick="openPack(\''+b.id+'\')">Pack cleared ('+fmt(ready)+')</button>'; else { var _o=state.orders.find(function(x){return x.po===b.po;}); var _l=_o&&_o.lines.find(function(x){return x.id===b.lineId;}); if(_o&&_l) acts+=' <button class="sm" onclick="openProdQty(\''+_o.id+'\',\''+_l.id+'\')">Pack cleared ('+fmt(ready)+')</button>'; } } }  /* fix: QC-cleared partial stock is packable while the batch keeps producing the rest */
     else if(s==='qc') acts+='<button class="sm ghost" onclick="gotoScreen(\'qc\')">Open Lab QC ▸</button>';
-    else if(s==='pack'){ if(b.kind==='bulk') acts+='<button class="sm" onclick="openPack(\''+b.id+'\')">Pack into brand</button>'; else { var o=state.orders.find(function(x){return x.po===b.po;}); var l=o&&o.lines.find(function(x){return x.id===b.lineId;}); if(o&&l) acts+='<button class="sm" onclick="openProdQty(\''+o.id+'\',\''+l.id+'\')">Pack…</button>'; } }
+    else if(s==='pack'){ if(b.kind==='bulk'||b.kind==='multi') acts+='<button class="sm" onclick="openPack(\''+b.id+'\')">Pack into brand</button>'; else { var o=state.orders.find(function(x){return x.po===b.po;}); var l=o&&o.lines.find(function(x){return x.id===b.lineId;}); if(o&&l) acts+='<button class="sm" onclick="openProdQty(\''+o.id+'\',\''+l.id+'\')">Pack…</button>'; } }
     else if(s==='recon') acts+='<button class="sm" style="background:var(--red);color:#fff" onclick="openReconcile(\''+b.id+'\')">Reconcile '+fmt(rem)+' Kg ▸</button>';
     if(b.status==='open'&&prod>0&&s!=='recon') acts+=' <button class="sm ghost" onclick="closeBatch(\''+b.id+'\')">Close</button>';
     if(rem>0.5&&!b.reconciled&&s!=='recon'&&s!=='producing') acts+=' <button class="sm ghost" style="color:var(--amber)" onclick="openReconcile(\''+b.id+'\')">Reconcile</button>';
   }
   return '<div class="pjcard'+(s==='recon'?' rec':'')+'">'
-    +'<div class="pjhd"><b style="font-size:13px">'+(b.batchNo||'—')+'</b> <span class="pjk '+b.kind+'">'+(b.kind==='po'?'PO':'BULK')+'</span> <span style="font-size:12px;color:var(--mut)">'+nm+' · '+sub+'</span>'
+    +'<div class="pjhd"><b style="font-size:13px">'+(b.batchNo||'—')+'</b> <span class="pjk '+b.kind+'">'+(b.kind==='po'?'PO':(b.kind==='multi'?'MULTI-PO':'BULK'))+'</span> <span style="font-size:12px;color:var(--mut)">'+nm+' · '+sub+'</span>'
       +'<span class="pjpill" style="background:color-mix(in srgb,'+col+' 14%,#fff);color:'+col+'">'+lbl+'</span>'+ageHtml+'</div>'
     +rail+(acts?'<div class="pjacts">'+acts+'</div>':'')+'</div>';
 }
@@ -3220,15 +3221,15 @@ function laneCard(b,ed){
   var ready=Math.max(0,cleared-packed); var s=batchStage(b);
   var SM={producing:['In production','--blue'],qc:['Awaiting Lab QC','--purple'],pack:['Ready to pack','--green2'],recon:['Reconcile','--red'],done:['Packed','--mut']};
   var col='var('+(SM[s]?SM[s][1]:'--navy')+')';
-  var nm=b.kind==='po'?(b.brand||b.base||''):(b.base||''); var sub=b.kind==='po'?(b.po||''):'bulk → stock';
+  var nm=b.kind==='po'?(b.brand||b.base||''):(b.base||''); var sub=b.kind==='po'?(b.po||''):(b.kind==='multi'?batchPOsLabel(b):'bulk → stock');
   var pct=plan>0?Math.min(100,Math.round(prod/plan*100)):0;
   var foot=fmt(prod)+'/'+fmt(plan)+' Kg'+(ready>0.5?(' · '+fmt(ready)+' ready'):'');
   var act='';
   if(ed){ if(s==='producing') act='<button class="sm green" onclick="event.stopPropagation();openShiftLog(\''+b.id+'\')">Log output</button>';
     else if(s==='qc') act='<button class="sm ghost" onclick="event.stopPropagation();gotoScreen(\'qc\')">Lab QC ▸</button>';
-    else if(s==='pack'){ if(b.kind==='bulk') act='<button class="sm" onclick="event.stopPropagation();openPack(\''+b.id+'\')">Pack</button>'; else { var o=state.orders.find(function(x){return x.po===b.po;}); var l=o&&o.lines.find(function(x){return x.id===b.lineId;}); if(o&&l) act='<button class="sm" onclick="event.stopPropagation();openProdQty(\''+o.id+'\',\''+l.id+'\')">Pack</button>'; } }
+    else if(s==='pack'){ if(b.kind==='bulk'||b.kind==='multi') act='<button class="sm" onclick="event.stopPropagation();openPack(\''+b.id+'\')">Pack</button>'; else { var o=state.orders.find(function(x){return x.po===b.po;}); var l=o&&o.lines.find(function(x){return x.id===b.lineId;}); if(o&&l) act='<button class="sm" onclick="event.stopPropagation();openProdQty(\''+o.id+'\',\''+l.id+'\')">Pack</button>'; } }
     else if(s==='recon') act='<button class="sm" style="background:var(--red);color:#fff" onclick="event.stopPropagation();openReconcile(\''+b.id+'\')">Reconcile</button>'; }
-  return '<div class="lncard" onclick="prodBatchSel=\''+b.id+'\';prodView=\'lifecycle\';prodLifeSub=\'batch\';render()"><div class="lnhd"><span class="lncode">'+(b.batchNo||'—')+'</span><span class="lntag">'+(b.kind==='po'?'PO':'BULK')+'</span></div><div class="lnnm">'+nm+'</div><div class="lnsub">'+sub+'</div><div class="lnbar"><i style="width:'+pct+'%;background:'+col+'"></i></div><div class="lnfoot">'+foot+'</div>'+(act?('<div class="lnact">'+act+'</div>'):'')+'</div>';
+  return '<div class="lncard" onclick="prodBatchSel=\''+b.id+'\';prodView=\'lifecycle\';prodLifeSub=\'batch\';render()"><div class="lnhd"><span class="lncode">'+(b.batchNo||'—')+'</span><span class="lntag">'+(b.kind==='po'?'PO':(b.kind==='multi'?'MULTI':'BULK'))+'</span></div><div class="lnnm">'+nm+'</div><div class="lnsub">'+sub+'</div><div class="lnbar"><i style="width:'+pct+'%;background:'+col+'"></i></div><div class="lnfoot">'+foot+'</div>'+(act?('<div class="lnact">'+act+'</div>'):'')+'</div>';
 }
 function _prodLanes(items,ed){
   const order=[['producing','In production','producing the planned quantity','var(--navy)'],['qc','Awaiting Lab QC','produced — COA pending','var(--amber)'],['pack','Ready to pack','QC-cleared, awaiting packing','var(--green2)'],['recon','Reconcile','finished — route the remainder','#b06a00'],['done','Packed — ready to close','fully packed','var(--mut)']];
@@ -3241,7 +3242,7 @@ function prodKanban(items){
   var by={}; order.forEach(function(o){by[o[0]]=[];}); items.forEach(function(b){var st=batchStage(b); (by[st]||(by[st]=[])).push(b);});
   var cols=order.filter(function(o){return by[o[0]]&&by[o[0]].length;}).map(function(o){
     var cards=by[o[0]].map(function(b){
-      var prod=+b.producedKg||0; var nm=b.kind==='po'?(b.brand||b.base||''):(b.base||''); var sub=b.kind==='po'?(b.po||''):'bulk → stock';
+      var prod=+b.producedKg||0; var nm=b.kind==='po'?(b.brand||b.base||''):(b.base||''); var sub=b.kind==='po'?(b.po||''):(b.kind==='multi'?batchPOsLabel(b):'bulk → stock');
       var ord=state.orders.find(function(x){return x.po===b.po;}); var r=ord?_trkRisk(ord):null;
       var chip=r?('<span class="rchip '+r[1]+'">'+r[0]+'</span>'):'<span class="pill" style="background:var(--navy-50);color:var(--navy);font-size:10px">Bulk</span>';
       var bno=b.batchNo?('<span style="font-family:ui-monospace,monospace;font-size:11px;font-weight:700;color:var(--navy)">'+b.batchNo+'</span>'):'<span style="font-size:10px;font-weight:700;color:var(--red)">no batch #</span>';
@@ -3361,7 +3362,7 @@ function prodStageList(){
   if(f==='tomake'){
     var rows=[]; (state.orders||[]).forEach(function(o){ if(stageOf(o)==='Delivered')return; (o.lines||[]).forEach(function(l){ var rem=(+l.ordered||0)-(+l.produced||0); if(rem>0.5){
       var direct=isPODirectLine(l);
-      var prodBs=direct?(state.batches||[]).filter(function(b){return b.kind==='po'&&b.status==='open'&&!b.voided&&b.po===o.po&&b.lineId===l.id&&(+b.producedKg||0)<(+b.plannedKg||0)-0.5;}):[];
+      var prodBs=direct?(state.batches||[]).filter(function(b){return b.status==='open'&&!b.voided&&(+b.producedKg||0)<(+b.plannedKg||0)-0.5&&((b.kind==='po'&&b.po===o.po&&b.lineId===l.id)||(b.kind==='multi'&&(b.allocations||[]).some(function(a){return a.po===o.po&&a.lid===l.id;})));}):[];
       var bs=direct?null:baseStockKg(l.base);
       var srank=direct?(prodBs.length?4:((+l.produced||0)>0.5?2:0)):((bs.packable>0.5)?3:(bs.producing.length?1:0));
       rows.push({o:o,l:l,po:o.po,brand:l.brand||'',base:l.base||'',rem:rem,made:(+l.produced||0),rmText:(l.rmReady||l.rmStatus==='full')?'ready':(l.rmStatus==='partial'?'partial':'check'),due:o.promised||l.committed||'',direct:direct,prodBs:prodBs,bs:bs,srank:srank}); } }); });
@@ -3426,7 +3427,7 @@ function prodStageList(){
     var pr=af.filter(function(b){return batchStage(b)==='producing';});
     if(!pr.length)return '<div class="card"><div class="muted" style="padding:14px 2px">No batches producing right now.</div></div>';
     var pathPill=function(isBulk){return isBulk?'<span style="font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:999px;white-space:nowrap;background:var(--pb50,#e3f1ef);color:var(--pb,#0e6e63)">Bulk Base</span>':'<span style="font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:999px;white-space:nowrap;background:#f1f3f5;color:#5b6675">PO-direct</span>';};
-    var rowP=function(b){var prod=+b.producedKg||0,plan=+b.plannedKg||0;var isPo=(b.kind==='po'||!!b.po);var nm=(isPo?(b.brand||b.base):b.base)||'';var lots=(b.lots||[]);var ls='',lk=0;if(lots.length){var ld=lots.slice().sort(function(a,c){return String(a.date||'').localeCompare(String(c.date||''));});var last=ld[ld.length-1];ls=last.date||'';lk=+last.kg||0;}var act=ed?'<button class="sm green" onclick="event.stopPropagation();openShiftLog(\''+b.id+'\')">Log output</button>':'';return '<tr style="cursor:pointer" onclick="prodBatchSel=\''+b.id+'\';prodDrill=true;render()"><td><b>'+(b.batchNo||'—')+'</b></td><td>'+nm+(isPo&&b.po?' <span class="muted" style="font-size:11px">'+b.po+'</span>':'')+'</td><td>'+pathPill(!isPo)+'</td><td class="num">'+fmt(plan)+'</td><td class="num">'+fmt(prod)+'</td><td class="num"><b>'+fmt(Math.max(0,plan-prod))+'</b></td><td>'+(ls?('<span class="muted">'+ls+(lk?' · '+fmt(lk)+' kg':'')+'</span>'):'<span style="font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:999px;background:#fbf0db;color:#b9760d">No output yet</span>')+'</td><td style="width:120px">'+act+'</td></tr>';};
+    var rowP=function(b){var prod=+b.producedKg||0,plan=+b.plannedKg||0;var isPo=(b.kind==='po'||(!!b.po&&b.kind!=='multi'));var nm=(isPo?(b.brand||b.base):b.base)||'';var lots=(b.lots||[]);var ls='',lk=0;if(lots.length){var ld=lots.slice().sort(function(a,c){return String(a.date||'').localeCompare(String(c.date||''));});var last=ld[ld.length-1];ls=last.date||'';lk=+last.kg||0;}var act=ed?'<button class="sm green" onclick="event.stopPropagation();openShiftLog(\''+b.id+'\')">Log output</button>':'';return '<tr style="cursor:pointer" onclick="prodBatchSel=\''+b.id+'\';prodDrill=true;render()"><td><b>'+(b.batchNo||'—')+'</b></td><td>'+nm+(isPo&&b.po?' <span class="muted" style="font-size:11px">'+b.po+'</span>':'')+(b.kind==='multi'?' <span class="muted" style="font-size:11px">'+batchPOsLabel(b)+'</span>':'')+'</td><td>'+(b.kind==='multi'?'<span style="font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:999px;white-space:nowrap;background:#fdf3e0;color:#b9760d">Multi-PO</span>':pathPill(!isPo))+'</td><td class="num">'+fmt(plan)+'</td><td class="num">'+fmt(prod)+'</td><td class="num"><b>'+fmt(Math.max(0,plan-prod))+'</b></td><td>'+(ls?('<span class="muted">'+ls+(lk?' · '+fmt(lk)+' kg':'')+'</span>'):'<span style="font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:999px;background:#fbf0db;color:#b9760d">No output yet</span>')+'</td><td style="width:120px">'+act+'</td></tr>';};
     var hd='<tr><th>Batch #</th><th>Product</th><th>Path</th><th class="num">Planned</th><th class="num">Produced</th><th class="num">Remaining</th><th>Last shift</th><th></th></tr>';
     return '<div class="card"><h3>Running batches <span class="hint">'+pr.length+' open batch(es) · not fully produced</span></h3><div style="overflow:auto"><table><thead>'+hd+'</thead><tbody>'+pr.map(rowP).join('')+'</tbody></table></div></div>';
   }
@@ -3470,12 +3471,12 @@ function prodStageList(){
   else list=af;
   if(!list.length)return '<div class="card"><div class="muted" style="padding:14px 2px">Nothing in this view.'+(f!=='tomake'?' <a onclick="prodFilter=\'tomake\';render()" style="cursor:pointer;color:var(--navy)">Back to what to make ›</a>':'')+'</div></div>';
   var row=function(b){ var st=batchStage(b),prod=+b.producedKg||0,plan=+b.plannedKg||0,packed=+b.packedKg||0,cl=batchClearedKg(b),rem=batchRemainderKg(b),pk=batchPackableKg(b);
-    var nm=(b.kind==='po'?(b.brand||b.base):b.base)||''; var sub=b.kind==='po'?(b.po||''):'bulk → stock';
+    var nm=(b.kind==='po'?(b.brand||b.base):b.base)||''; var sub=b.kind==='po'?(b.po||''):(b.kind==='multi'?batchPOsLabel(b):'bulk → stock');
     var lastShift=''; var lots=(b.lots||[]); if(lots.length){var ld=lots.map(function(l){return l.date;}).filter(Boolean).sort();lastShift=ld.length?ld[ld.length-1]:'';}
     var act='';
     if(ed){ if(st==='producing')act='<button class="sm green" onclick="event.stopPropagation();openShiftLog(\''+b.id+'\')">Log output</button>';
       else if(st==='qc')act='<button class="sm ghost" onclick="event.stopPropagation();setScreen(\'qc\')">Lab QC ›</button>';
-      else if(pk>0.5){ if(b.kind==='bulk')act='<button class="sm" onclick="event.stopPropagation();openPack(\''+b.id+'\')">Pack</button>'; else {var o=state.orders.find(function(x){return x.po===b.po;});var l=o&&o.lines.find(function(x){return x.id===b.lineId;});if(o&&l)act='<button class="sm" onclick="event.stopPropagation();openProdQty(\''+o.id+'\',\''+l.id+'\')">Pack</button>';} }
+      else if(pk>0.5){ if(b.kind==='bulk'||b.kind==='multi')act='<button class="sm" onclick="event.stopPropagation();openPack(\''+b.id+'\')">Pack</button>'; else {var o=state.orders.find(function(x){return x.po===b.po;});var l=o&&o.lines.find(function(x){return x.id===b.lineId;});if(o&&l)act='<button class="sm" onclick="event.stopPropagation();openProdQty(\''+o.id+'\',\''+l.id+'\')">Pack</button>';} }
       else if(rem>0.5)act='<button class="sm" style="background:var(--red);color:#fff" onclick="event.stopPropagation();openReconcile(\''+b.id+'\')">Reconcile</button>';
       else if(st==='done')act='<button class="sm" onclick="event.stopPropagation();closeBatch(\''+b.id+'\')">Close batch</button>';
     }
@@ -3513,26 +3514,52 @@ var _actB=open.filter(function(b){return PC.derive(b).stage!=='packed';}).sort(f
 var _clsB=open.filter(function(b){return PC.derive(b).stage==='packed';});
 var _hd=(_f==='completed')?'Completed':(_f==='recon')?'Remaining to account':(_f==='producing')?'Running batches':(_f==='qc')?'Waiting QC':(_f==='pack')?'Ready to pack':(_f==='attention')?'Stuck / blocked':'Active batches';var _hc=open.length;var master=(_f==='all')?(_actB.map(_pbmRow).join('')+(_clsB.length?('<div style="font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.4px;padding:9px 12px 5px;border-top:1px solid var(--line);margin-top:4px">Packed — closing ('+_clsB.length+')</div>'+_clsB.map(_pbmRow).join('')):'')):open.map(_pbmRow).join('');var d=PC.derive(sel);var M=PC.STAGE_META[d.stage]||{name:d.stage,dot:'#888'};var steps=PC.lifecycleSteps(d);var stepHtml='';for(var i=0;i<steps.length;i++){var stp=steps[i];var st=stp.state==='done'?'done':stp.state==='curr'?'active':'todo';var rch=i>0&&steps[i-1].state==='done';stepHtml+=_pcStep(stp.label,stp.sub,st,i===0,rch);}var tab=prodBatchTab||'lots';var tabBar=_pcSub([['lots','Lots'],['quality','Quality (COA)'],['recon','Reconcile']],tab,'prodBatchTab');var lots=sel.lots||[];var isPool=!!sel.pool;var srcN=(sel.sources&&sel.sources.length)||0;var inner='';if(tab==='lots'){if(isPool)inner='<div class="muted" style="font-size:12.5px;padding:10px 2px">By-product pool — no production lots. See <b>Reconcile</b> for the '+srcN+' source batches.</div>';else if(!lots.length)inner='<div class="muted" style="font-size:12.5px;padding:10px 2px">No lots logged yet.</div>';else inner='<div class="lotlist">'+lots.map(function(l){var r=_pcLotRes(l.coa);return '<div class="lotrow"><div style="flex:1;min-width:0"><div class="lotno">'+(l.lotNo||sel.batchNo||'—')+'</div><div class="lotmeta">'+[l.shift,l.incharge,l.date].filter(Boolean).join(' · ')+'</div></div><span class="lotqty">'+PC.fmt(l.qty||0)+' Kg</span><span class="respill" style="background:'+r[1]+';color:'+r[2]+'">'+r[0]+'</span></div>';}).join('')+'</div>';}else if(tab==='quality'){var fit=0,unf=0,dev=0,pend=0;lots.forEach(function(l){var c=l.coa||{};if(c.status==='approved'){if(c.deviation)dev++;else fit++;}else if(c.overall==='UNFIT')unf++;else pend++;});var summ=lots.length+' lots · '+fit+' FIT'+(dev?(' · '+dev+' deviation'):'')+(unf?(' · '+unf+' UNFIT'):'')+(pend?(' · '+pend+' pending'):'');if(isPool)inner='<div class="muted" style="font-size:12.5px;padding:6px 2px">By-product pool — no COA. Lots are certified at their parent batch.</div>';else inner='<div class="qbanner">'+summ+'</div>'+(lots.length?('<div class="lotlist">'+lots.map(function(l){var c=l.coa||{};var r=_pcLotRes(c);return '<div class="lotrow"><div style="flex:1;min-width:0"><div class="lotno">'+(l.lotNo||sel.batchNo||'—')+'</div><div class="lotmeta">COA '+(c.qcNo||'—')+' · '+PC.fmt(l.qty||0)+' Kg</div></div><span class="respill" style="background:'+r[1]+';color:'+r[2]+'">'+r[0]+'</span></div>';}).join('')+'</div>'):'<div class="muted" style="font-size:12px;padding:6px 2px">No lots.</div>');}else{var produced=+sel.producedKg||0,packed=+sel.packedKg||0,rem=Math.max(0,produced-packed);var note=isPool?(srcN+' finished batches pooled into a '+PC.fmt(+sel.plannedKg||0)+' Kg by-product lot. Route to a grind run, divert or log as loss.'):rem>0.5?('After packing, '+PC.fmt(rem)+' Kg remains. Reconcile it — pack the rest, route to by-product, or record as loss.'):'Nothing to reconcile — produced quantity is fully packed.';inner='<div class="reconkpis"><div class="rk"><div class="rk-l">Produced</div><div class="rk-v">'+PC.fmt(produced)+' Kg</div></div><div class="rk"><div class="rk-l">Packed</div><div class="rk-v">'+PC.fmt(packed)+' Kg</div></div><div class="rk rk-warn"><div class="rk-l">Remainder</div><div class="rk-v">'+PC.fmt(rem)+' Kg</div></div></div><div class="recnote">'+note+'</div>';}var act=_pcLifeAction(sel,d,ed);var eyebrow=sel.pool?'Reconcile pool':sel.po?('PO '+sel.po):'Bulk → stock';return '<div class="pbmwrap"><div class="card" style="padding:0"><div class="pbm-head">'+_hd+' <span>'+_hc+'</span></div><div class="pbm-list">'+master+'</div></div><div class="card" style="padding:0"><div class="lifehdr"><div style="flex:1"><div class="life-eyb">'+eyebrow+'</div><div class="life-prod">'+(d.brand||d.base||'')+'</div><div class="life-own">'+d.owner+'</div></div><span class="life-pill" style="background:color-mix(in srgb,'+M.dot+' 15%,#fff);color:'+M.dot+'">'+M.name+'</span></div>'+prodBucketBar(sel)+'<div class="lifestep"><div class="pstep">'+stepHtml+'</div></div><div style="padding:14px 18px 4px">'+tabBar+'</div><div style="padding:6px 18px 18px">'+inner+'</div>'+(act?('<div class="lifefoot">'+act+'</div>'):'')+'</div></div>';}
 function prodHeader(active){var ob=(canEdit(['Production'])||state.role==='COO')?'<button class="green" onclick="openBatchModal()" style="white-space:nowrap;align-self:flex-start">+ Open batch</button>':'';return '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">'+prodViewBar(active)+ob+'</div>';}
+/* ── MULTI-PO BATCH: one production run serving several POs of the same product — one batch #, one Lab COA.
+      Pack defaults to the linked POs (not locked); shift output spreads pro-rata across the linked PO lines. ── */
+let mbForm={base:'',batchNo:'',alloc:{}};
+function mbBasePick(v){ mbForm.base=v; mbForm.alloc={}; renderOpenBatch(); }
+function mbTick(k,on,cap){ const a=mbForm.alloc[k]||(mbForm.alloc[k]={}); a.on=!!on; if(on&&!((+a.kg||0)>0))a.kg=cap; renderOpenBatch(); }
+function mbQty(k,v){ const a=mbForm.alloc[k]||(mbForm.alloc[k]={on:true}); a.kg=v; const el=document.getElementById('mbTotal'); if(el){ let t=0; Object.keys(mbForm.alloc).forEach(function(kk){ const x=mbForm.alloc[kk]; if(x&&x.on)t+=(+x.kg||0); }); el.textContent=fmt(t); } }
+function batchPOsLabel(b){ if(b&&b.kind==='multi'&&Array.isArray(b.allocations)&&b.allocations.length){ return b.allocations.length===1?(b.allocations[0].po||''):(b.allocations.length+' POs \u00b7 '+b.allocations.map(function(a){return a.po;}).join(', ')); } return (b&&b.po)||''; }
 function openBatchModal(){ if(!(canEdit(['Production'])||state.role==='COO')){toast('Production / COO only');return;} if(!prodMode)prodMode='po'; renderOpenBatch(); $('modalBg').classList.add('open'); }
 function renderOpenBatch(){
   const ed=canEdit(['Production'])||state.role==='COO';
   const pos=state.orders.filter(o=>(o.lines||[]).some(l=>(l.produced||0)<(l.ordered||0)-0.5));
   const selO=state.orders.find(o=>o.id===prodPOsel);
   const bases=BULK_BASES.slice();
-  const seg=`<div class="seg" style="max-width:340px;margin-bottom:16px"><div class="opt full ${prodMode==='po'?'on':''}" onclick="prodMode='po';renderOpenBatch()" style="padding:9px">Against a PO</div><div class="opt full ${prodMode==='stock'?'on':''}" onclick="prodMode='stock';renderOpenBatch()" style="padding:9px">Bulk → stock</div></div>`;
-  const body = prodMode==='po'
-    ? `<div class="formgrid" style="grid-template-columns:1fr 1fr">
+  const seg=`<div class="seg" style="max-width:480px;margin-bottom:16px"><div class="opt full ${prodMode==='po'?'on':''}" onclick="prodMode='po';renderOpenBatch()" style="padding:9px">Against a PO</div><div class="opt full ${prodMode==='multi'?'on':''}" onclick="prodMode='multi';renderOpenBatch()" style="padding:9px">Multiple POs</div><div class="opt full ${prodMode==='stock'?'on':''}" onclick="prodMode='stock';renderOpenBatch()" style="padding:9px">Bulk → stock</div></div>`;
+  let body;
+  if(prodMode==='po'){
+    body=`<div class="formgrid" style="grid-template-columns:1fr 1fr">
          <div class="fld" style="grid-column:1/-1"><label>Purchase Order</label><select id="pp_po" onchange="prodPOsel=this.value;renderOpenBatch()"><option value="">— pick PO —</option>${pos.map(o=>`<option value="${o.id}" ${o.id===prodPOsel?'selected':''}>${o.po} · ${o.client}</option>`).join('')}</select></div>
          <div class="fld" style="grid-column:1/-1"><label>Product (as on the PO)</label><select id="pp_line" ${selO?'':'disabled'}><option value="">${selO?'— pick product —':'pick PO first'}</option>${selO?selO.lines.filter(l=>(l.produced||0)<(l.ordered||0)-0.5).map(l=>`<option value="${l.id}">${l.brand} (${fmt(l.produced||0)}/${fmt(l.ordered)} done)</option>`).join(''):''}</select></div>
          <div class="fld"><label>Plan this batch (Kg/L)</label><input type="number" id="pp_planned" placeholder="remaining"></div>
          <div class="fld"><label>Batch #</label><input type="text" id="nb_batch" placeholder="e.g. AB12345" oninput="batchNoFx(this)"></div>
-       </div><div class="muted" style="font-size:11px;margin-top:10px">Opens a batch for this PO line. <b>Plan a partial quantity</b> if you'll run it in parts (blank = full remaining); open more for the rest. Log shift output from the Floor.</div>`
-    : `<div class="formgrid" style="grid-template-columns:1fr 1fr">
+       </div><div class="muted" style="font-size:11px;margin-top:10px">Opens a batch for this PO line. <b>Plan a partial quantity</b> if you'll run it in parts (blank = full remaining); open more for the rest. Log shift output from the Floor.</div>`;
+  } else if(prodMode==='multi'){
+    const mlines=[]; (state.orders||[]).forEach(function(o){ if(stageOf(o)==='Delivered')return; (o.lines||[]).forEach(function(l){ const rem=(l.ordered||0)-(l.produced||0); if(rem>0.5){ const bb=((typeof SEED!=='undefined'&&SEED.brandMap&&SEED.brandMap[l.brand]&&SEED.brandMap[l.brand].base)||l.base||l.brand); mlines.push({o:o,l:l,base:bb,rem:rem}); } }); });
+    const mbases=[...new Set(mlines.map(x=>x.base))].sort();
+    const msel=mlines.filter(x=>x.base===mbForm.base);
+    let mtot=0; msel.forEach(function(x){ const a=mbForm.alloc[x.o.id+'|'+x.l.id]; if(a&&a.on)mtot+=(+a.kg||0); });
+    const mrows=msel.map(function(x){ const k=x.o.id+'|'+x.l.id; const a=mbForm.alloc[k]||{}; const rmCap=Math.max(0,rmAllows(x.l)-(x.l.produced||0)); const cap=Math.min(x.rem,rmCap); const dis=cap<=0.001;
+      const rmCell=dis?'<span style="color:var(--amber);font-size:11px">RM not confirmed</span>':(rmCap<x.rem-0.5?('<span style="color:var(--amber);font-size:11px">RM allows '+fmt(Math.floor(cap))+'</span>'):'<span style="color:var(--green2,#1a7f37);font-size:11px">RM ok</span>');
+      return '<tr'+(dis?' style="opacity:.55"':'')+'><td><input type="checkbox" '+(a.on?'checked':'')+(dis?' disabled':'')+' onchange="mbTick(\''+k+'\',this.checked,'+Math.floor(cap)+')"></td><td><b>'+x.o.po+'</b> <span class="muted" style="font-size:11px">'+(x.o.client||'')+'</span></td><td>'+x.l.brand+'</td><td class="num">'+fmt(x.rem)+'</td><td>'+rmCell+'</td><td><input type="number" value="'+(a.on?(a.kg!=null?a.kg:''):'')+'"'+(a.on?'':' disabled')+' style="width:110px" placeholder="max '+fmt(Math.floor(cap))+'" oninput="mbQty(\''+k+'\',this.value)"></td></tr>'; }).join('');
+    body='<div class="formgrid" style="grid-template-columns:1fr 1fr">'
+      +'<div class="fld" style="grid-column:1/-1"><label>Product (one run can serve several POs of the same product)</label><select onchange="mbBasePick(this.value)"><option value="">— pick product —</option>'+mbases.map(function(b){return '<option '+(b===mbForm.base?'selected':'')+'>'+b+'</option>';}).join('')+'</select></div></div>'
+      +(mbForm.base?(msel.length?('<div style="margin-top:10px;border:1px solid var(--line);border-radius:9px;overflow:auto"><table><thead><tr><th></th><th>PO</th><th>Product</th><th class="num">Remaining</th><th>RM</th><th>Allocate (Kg/L)</th></tr></thead><tbody>'+mrows+'</tbody></table></div>'
+        +'<div style="display:flex;gap:14px;align-items:flex-end;margin-top:12px;flex-wrap:wrap">'
+        +'<div class="fld" style="width:190px"><label>Batch # (one for the whole run)</label><input type="text" value="'+String(mbForm.batchNo||'').replace(/"/g,'&quot;')+'" placeholder="e.g. FP26001" oninput="mbForm.batchNo=this.value;batchNoFx(this)"></div>'
+        +'<div style="font-size:13px;padding-bottom:9px">Planned total: <b><span id="mbTotal">'+fmt(mtot)+'</span> Kg/L</b></div></div>'
+        +'<div class="muted" style="font-size:11px;margin-top:8px">One production run · <b>one batch #</b> · <b>one Lab COA</b>. Tick the POs this run will serve (full or partial). Shift output spreads across the ticked POs pro-rata; packing then fills each PO from this batch (linked POs are offered first, but the stock stays packable to any open PO of this product).</div>')
+      :('<div class="muted" style="font-size:12.5px;padding:8px 0">No open PO lines for '+mbForm.base+'.</div>')):'');
+  } else {
+    body=`<div class="formgrid" style="grid-template-columns:1fr 1fr">
          <div class="fld" style="grid-column:1/-1"><label>Base Product (bulk)</label><select id="pb_base"><option value="">— pick base —</option>${bases.map(b=>`<option>${b}</option>`).join('')}</select></div>
          <div class="fld"><label>Planned (Kg/L)</label><input type="number" id="nb_planned" placeholder="Kg/L"></div>
          <div class="fld"><label>Batch #</label><input type="text" id="nb_batch_b" placeholder="e.g. AB12345" oninput="batchNoFx(this)"></div>
        </div><div class="muted" style="font-size:11px;margin-top:10px">Opens a bulk-base batch with a planned target. Log shift output from the Floor, then pack once produced.</div>`;
-  $('modal').innerHTML=`<div class="mh"><h2>Open a batch</h2><div class="sub">Plan a partial quantity if you'll run it in parts, then log shift output to fill it.</div></div><div class="mb">${seg}${body}</div><div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" ${ed?'':'disabled'} onclick="openBatch('${prodMode==='po'?'po':'bulk'}')">Open batch</button></div>`;
+  }
+  $('modal').innerHTML=`<div class="mh"><h2>Open a batch</h2><div class="sub">Plan a partial quantity if you'll run it in parts, then log shift output to fill it.</div></div><div class="mb">${seg}${body}</div><div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" ${ed?'':'disabled'} onclick="openBatch('${prodMode==='po'?'po':(prodMode==='multi'?'multi':'bulk')}')">Open batch</button></div>`;
 }
 var PROD_ICONS={
  grid:'<svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>',
@@ -3812,6 +3839,7 @@ function setBatchNo(batchId,raw){ if(!(canEdit(['Production'])||state.role==='CO
 function openBatch(kind){
   const today=TODAY.toISOString().slice(0,10);
   const fmtRule='2-5 capital letters then 3-9 digits';
+  if(kind==='multi'){ submitMultiBatch(); return; }
   if(kind==='po'){
     const oid=$('pp_po')&&$('pp_po').value, lid=$('pp_line')&&$('pp_line').value;
     const batchNo=(($('nb_batch')&&$('nb_batch').value)||'').trim();
@@ -3836,6 +3864,35 @@ function openBatch(kind){
     logAction(`Opened bulk batch ${batchNo} for ${base} (planned ${fmt(planned)} Kg/L)`);
   }
   save(); closeModal(); toast('Batch opened'); render();
+}
+/* MULTI-PO batch submit: one batch serving several PO lines of the same product (full or partial per line).
+   Same guards as the PO path per line (remaining order + RM-allowed cap); batch # FY-unique; planned = sum of allocations. */
+function submitMultiBatch(){
+  if(!(canEdit(['Production'])||state.role==='COO')){toast('Production / COO only');return;}
+  const today=TODAY.toISOString().slice(0,10);
+  const bn=(mbForm.batchNo||'').trim();
+  if(!mbForm.base){toast('Pick a product');return;}
+  const picks=[]; let bad=null;
+  (state.orders||[]).forEach(function(o){ (o.lines||[]).forEach(function(l){ const k=o.id+'|'+l.id; const a=mbForm.alloc[k]; if(!(a&&a.on))return;
+    const kg=Math.round(+a.kg||0);
+    const remOrd=Math.max(0,(l.ordered||0)-(l.produced||0));
+    const rmCap=Math.max(0,rmAllows(l)-(l.produced||0));
+    const cap=Math.min(remOrd,rmCap);
+    if(rmCap<=0.001){ bad=bad||(o.po+' · '+l.brand+': no raw material confirmed — run RM Check first.'); return; }
+    if(!(kg>0)){ bad=bad||('Enter a quantity for '+o.po+' · '+l.brand); return; }
+    if(kg>cap+0.001){ bad=bad||(o.po+' · '+l.brand+': max '+fmt(Math.floor(cap))+' Kg/L (remaining order / RM-allowed).'); return; }
+    picks.push({oid:o.id,lid:l.id,po:o.po,client:o.client||'',brand:l.brand,kg:kg});
+  }); });
+  if(bad){toast(bad);return;}
+  if(!picks.length){toast('Tick at least one PO line');return;}
+  if(!bn){toast('Enter a batch number');return;}
+  {const _fy=fyKey(today); if(batchOwnerInFY(bn,_fy)){toast('Batch # "'+bn+'" already used this financial year ('+_fy+') — use a unique number.');return;}}
+  if(!validateBatchNo(bn) && typeof confirm==='function' && !confirm('Batch number "'+bn+'" doesn\'t match the usual format (2-5 capital letters then 3-9 digits). Is it correct?')) return;
+  const planned=picks.reduce(function(a,x){return a+x.kg;},0);
+  state.batches.unshift({id:'B'+(state.seq++),batchNo:bn,kind:'multi',base:mbForm.base,brand:null,allocations:picks,plannedKg:planned,producedKg:0,packedKg:0,status:'open',openedDate:today,by:state.role,lots:[]});
+  logAction('Opened multi-PO batch '+bn+' for '+mbForm.base+' — '+picks.length+' PO line'+(picks.length===1?'':'s')+' ('+picks.map(function(x){return x.po+' '+fmt(x.kg);}).join(', ')+') · planned '+fmt(planned)+' Kg/L · one batch, one COA');
+  mbForm={base:'',batchNo:'',alloc:{}};
+  save(); closeModal(); toast('Batch '+bn+' opened for '+picks.length+' PO line'+(picks.length===1?'':'s')); render();
 }
 let shiftForm={batchId:null,date:'',shift:'',incharge:'',qty:'',reason:'',note:''};
 /* Stage 4a: by-product "call for manufacturing" — partial qty, batch# assigned AT call, creates a real grind batch
@@ -3951,7 +4008,7 @@ function renderShiftLog(){
   const incs=(state.masters&&state.masters.incharges)||[];
   const reasons=(state.masters&&state.masters.downtimeReasons)||[];
   const prod=b.producedKg||0,plan=b.plannedKg||0,rem=Math.max(0,plan-prod);
-  const name=b.kind==='po'?`${b.brand||''} · ${b.po||''}`:`${b.base||''} (bulk)`;
+  const name=b.kind==='po'?`${b.brand||''} · ${b.po||''}`:(b.kind==='multi'?`${b.base||''} · ${batchPOsLabel(b)}`:`${b.base||''} (bulk)`);
   $('modal').innerHTML=`<div class="mh"><h2>Log shift output</h2><div class="sub">Batch ${b.batchNo||'—'} · ${name} · planned ${fmt(plan)} · produced ${fmt(prod)} · remaining ${fmt(rem)} Kg/L</div></div>
    <div class="mb"><div class="formgrid" style="grid-template-columns:1fr 1fr 1fr">
      <div class="fld"><label>Date</label><input type="date" value="${shiftForm.date}" onchange="shiftForm.date=this.value"></div>
@@ -3998,6 +4055,20 @@ function submitShiftLog(){
     const o=state.orders.find(x=>x.po===b.po); const l=o&&o.lines.find(x=>x.id===b.lineId);
     if(l){ l.produced=(l.produced||0)+q; l.prodStart=l.prodStart||d; if((l.produced||0)>=l.ordered-0.001) l.prodComplete=l.prodComplete||d;
       state.productionLog.unshift({id:_uid('PL'),date:d,base:l.base,kg:q,by:state.role,po:o.po,brand:l.brand,shift:shiftForm.shift,incharge:shiftForm.incharge,batchNo:b.batchNo||'',beds:(shiftForm.beds||[]).slice()}); }
+  } else if(b.kind==='multi'&&Array.isArray(b.allocations)&&b.allocations.length){
+    /* pro-rata: each shift's output spreads across the linked PO lines by allocation share (capped at each line's remaining order);
+       one productionLog slice per PO so registers/reversals stay line-accurate. Residual beyond line caps stays as batch stock. */
+    if(q>0){ const tot=b.allocations.reduce(function(a,x){return a+(+x.kg||0);},0)||1; let left=q;
+      b.allocations.forEach(function(al,ix){ const o=state.orders.find(function(x){return x.id===al.oid;})||state.orders.find(function(x){return x.po===al.po;}); const l=o&&(o.lines||[]).find(function(x){return x.id===al.lid;}); if(!l)return;
+        let share=(ix===b.allocations.length-1)?left:Math.round(q*((+al.kg||0)/tot)*100)/100;
+        share=Math.min(share,Math.max(0,(l.ordered||0)-(l.produced||0)),left);
+        if(share<=0.0001)return; left=Math.round((left-share)*100)/100;
+        l.produced=(l.produced||0)+share; l.prodStart=l.prodStart||d; if((l.produced||0)>=(l.ordered||0)-0.001) l.prodComplete=l.prodComplete||d;
+        state.productionLog.unshift({id:_uid('PL'),date:d,base:b.base,kg:share,by:state.role,po:al.po,brand:l.brand||'',shift:shiftForm.shift,incharge:shiftForm.incharge,batchNo:b.batchNo||'',beds:(shiftForm.beds||[]).slice(),multi:true});
+      });
+    } else {
+      state.productionLog.unshift({id:_uid('PL'),date:d,base:b.base,kg:0,by:state.role,po:batchPOsLabel(b),shift:shiftForm.shift,incharge:shiftForm.incharge,batchNo:b.batchNo||'',beds:(shiftForm.beds||[]).slice(),multi:true});
+    }
   } else {
     state.productionLog.unshift({id:_uid('PL'),date:d,base:b.base,kg:q,by:state.role,shift:shiftForm.shift,incharge:shiftForm.incharge,batchNo:b.batchNo||'',beds:(shiftForm.beds||[]).slice()});
   }
@@ -4118,18 +4189,21 @@ function submitProdQty(){ if(!(canEdit(['Production'])||state.role==='COO')){toa
   logAction(`Packed ${fmt(q)} Kg/L of ${l.brand} [${bn}] for ${o.po} (${fmt(l.packed)}/${fmt(l.ordered)})`);
   save(); closeModal(); render(); }
 let packForm={bid:null,brand:'',kg:''};
-function openPack(bid){ const b=state.batches.find(x=>x.id===bid); packForm={bid,base:b.base,brand:'',oid:'',lid:'',kg:Math.round(batchPackableKg(b)),brandBatch:'',price:'',priceOk:false,mfg:TODAY.toISOString().slice(0,10),exp:(function(){const t=new Date(TODAY);t.setFullYear(t.getFullYear()+2);return t.toISOString().slice(0,10);})()}; renderPackModal(); $('modalBg').classList.add('open'); }
+function openPack(bid){ const b=state.batches.find(x=>x.id===bid); packForm={bid,base:b.base,brand:'',oid:'',lid:'',kg:Math.round(batchPackableKg(b)),brandBatch:'',price:'',priceOk:false,mfg:TODAY.toISOString().slice(0,10),exp:(function(){const t=new Date(TODAY);t.setFullYear(t.getFullYear()+2);return t.toISOString().slice(0,10);})()};
+  if(b&&b.kind==='multi'&&Array.isArray(b.allocations)&&b.allocations.length){ const _bs=[]; b.allocations.forEach(function(a){ if(a.brand&&_bs.indexOf(a.brand)<0)_bs.push(a.brand); }); if(_bs.length===1&&brandsForBase(b.base).indexOf(_bs[0])>-1) packForm.brand=_bs[0]; }
+  renderPackModal(); $('modalBg').classList.add('open'); }
 function poLinesForBrand(brand){ const r=[]; state.orders.forEach(o=>o.lines.forEach(l=>{ if(l.brand===brand && (l.packed||0)<l.ordered-0.5 && stageOf(o)!=='Delivered') r.push({o,l}); })); return r; }
 function packPickPO(v){ packForm.oid=(v.split('|')[0]||''); packForm.lid=(v.split('|')[1]||''); const o=state.orders.find(x=>x.id===packForm.oid); const l=o&&o.lines.find(x=>x.id===packForm.lid); packForm.price=(l&&l.printPrice!=null&&l.printPrice!=='')?l.printPrice:''; packForm.priceOk=false; renderPackModal(); }
 function renderPackModal(){ const b=state.batches.find(x=>x.id===packForm.bid); const rem=batchPackableKg(b); const opts=brandsForBase(b.base);
-  const poOpts=packForm.brand?poLinesForBrand(packForm.brand):[];
+  let poOpts=packForm.brand?poLinesForBrand(packForm.brand):[]; const _mpLink={};
+  if(b.kind==='multi'&&Array.isArray(b.allocations)){ b.allocations.forEach(function(a){ _mpLink[a.oid+'|'+a.lid]=1; }); poOpts=poOpts.slice().sort(function(x,y){ return ((_mpLink[y.o.id+'|'+y.l.id]||0)-(_mpLink[x.o.id+'|'+x.l.id]||0)); }); }
   let priceBlk='';
   if(packForm.oid&&packForm.oid!=='STOCK'&&packForm.lid){ const _o=state.orders.find(x=>x.id===packForm.oid); const _l=_o&&_o.lines.find(x=>x.id===packForm.lid); const setp=(_l&&_l.printPrice!=null&&_l.printPrice!=='')?_l.printPrice:null; const cur=(packForm.price!=null&&packForm.price!=='')?packForm.price:(setp!=null?setp:'');
     priceBlk=`<div style="margin-top:12px;background:var(--amber-50);border:1px solid var(--amber);border-radius:8px;padding:11px"><div style="font-weight:600;font-size:12.5px;margin-bottom:6px">7 \u00b7 Verify price to print on pack ${setp!=null?`<span class="muted" style="font-weight:400">(PO set: ${setp})</span>`:`<span style="color:var(--red)">(no price on PO \u2014 enter it)</span>`}</div><div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap"><input type="number" value="${cur}" oninput="packForm.price=this.value" style="max-width:170px" placeholder="price per pack"><label style="font-weight:400;font-size:12px;display:flex;gap:6px;align-items:center"><input type="checkbox" ${packForm.priceOk?'checked':''} onchange="packForm.priceOk=this.checked"> I verified this is the correct print price</label></div></div>`; }
-  $('modal').innerHTML=`<div class="mh"><h2>Pack bulk base → brand → PO</h2><div class="sub">Bulk base <b>${b.base}</b> · base batch <b>${b.batchNo||'—'}</b> · ${fmt(rem)} Kg/L available</div></div>
+  $('modal').innerHTML=`<div class="mh"><h2>Pack bulk base → brand → PO</h2><div class="sub">Bulk base <b>${b.base}</b> · base batch <b>${b.batchNo||'—'}</b> · ${fmt(rem)} Kg/L available${(b.kind==='multi'&&Array.isArray(b.allocations)&&b.allocations.length)?(' · opened for '+b.allocations.length+' PO'+(b.allocations.length===1?'':'s')+': '+b.allocations.map(function(a){return a.po+' ('+fmt(a.kg)+')';}).join(', ')):''}</div></div>
    <div class="mb"><div class="formgrid" style="grid-template-columns:1fr 1fr">
      <div class="fld"><label>1 · Pack into brand</label><select onchange="packForm.brand=this.value;packForm.oid='';packForm.lid='';renderPackModal()"><option value="">— pick brand —</option>${opts.map(x=>`<option ${x===packForm.brand?'selected':''}>${x}</option>`).join('')}</select></div>
-     <div class="fld"><label>2 · For which PO</label><select ${packForm.brand?'':'disabled'} onchange="packPickPO(this.value)"><option value="">${packForm.brand?(poOpts.length?'— pick PO —':'no open PO'):'pick brand first'}</option>${poOpts.map(x=>`<option value="${x.o.id}|${x.l.id}" ${packForm.oid===x.o.id&&packForm.lid===x.l.id?'selected':''}>${x.o.po} · ${x.o.client} (needs ${fmt(x.l.ordered-(x.l.packed||0))})</option>`).join('')}</select></div>
+     <div class="fld"><label>2 · For which PO</label><select ${packForm.brand?'':'disabled'} onchange="packPickPO(this.value)"><option value="">${packForm.brand?(poOpts.length?'— pick PO —':'no open PO'):'pick brand first'}</option>${poOpts.map(x=>`<option value="${x.o.id}|${x.l.id}" ${packForm.oid===x.o.id&&packForm.lid===x.l.id?'selected':''}>${x.o.po} · ${x.o.client} (needs ${fmt(x.l.ordered-(x.l.packed||0))})${_mpLink[x.o.id+'|'+x.l.id]?' · linked':''}</option>`).join('')}</select></div>
      <div class="fld"><label>3 · Qty (Kg/L)</label><input type="number" value="${packForm.kg}" oninput="packForm.kg=this.value" placeholder="max ${fmt(rem)}"></div>
      <div class="fld"><label>4 · Brand batch # (on pack — reuse the same # to merge several base batches)</label><input type="text" value="${packForm.brandBatch||''}" oninput="packForm.brandBatch=this.value" placeholder="blank = same as base (${b.batchNo||'—'})"></div>
      <div class="fld"><label>5 · Mfg date (printed on pack)</label><input type="date" value="${packForm.mfg||''}" onchange="packForm.mfg=this.value;{const t=new Date(this.value);if(!isNaN(t)){t.setFullYear(t.getFullYear()+2);packForm.exp=t.toISOString().slice(0,10);}}renderPackModal()"></div>
@@ -4540,7 +4614,7 @@ function screenQC(){
     if(st==='reviewed') return (isQM||isCOO)?`<button class="sm green" onclick="${call}">Approve (QCM)</button>`:'<span class="muted" style="font-size:11px">waiting for QCM</span>';
     if(st==='failed') return (isPM||isCOO)?`<button class="sm" onclick="${call}">Review (Plant Mgr)</button>`:'<span class="muted" style="font-size:11px">UNFIT — waiting for Plant Manager</span>';
     return ''; };
-  const labRows=labPending.map(u=>`<tr><td><b>${itemOf(u.b)}</b> <span class="muted" style="font-size:11px">${u.b.kind==='po'?(u.b.po||''):'bulk base'}</span></td><td><b>${u.no||'—'}</b></td><td class="num">${fmt(u.qty)}</td><td>${coaStatusPill(u.coa)}</td><td>${labAct(u)}</td></tr>`).join('');
+  const labRows=labPending.map(u=>`<tr><td><b>${itemOf(u.b)}</b> <span class="muted" style="font-size:11px">${u.b.kind==='po'?(u.b.po||''):(u.b.kind==='multi'?batchPOsLabel(u.b):'bulk base')}</span></td><td><b>${u.no||'—'}</b></td><td class="num">${fmt(u.qty)}</td><td>${coaStatusPill(u.coa)}</td><td>${labAct(u)}</td></tr>`).join('');
   const lots=(state.packingLog||[]).filter(p=>p&&p.brand&&(p.kg||0)>0);
   const lotPending=lots.filter(p=>!p.qa || (!p.qa.pass&&!p.qa.fail));
   const lotFail=lots.filter(p=>p.qa&&p.qa.fail);
@@ -4555,7 +4629,7 @@ function screenQC(){
   const _qcFail=lotUnits.filter(function(u){return u.coa&&u.coa.status==='failed';});
   const _qcKpi=function(l,v,u2,d,c){return '<div class="kpi" style="border-top:3px solid var('+c+')"><div class="l">'+l+'</div><div class="v">'+v+' <span style="font-size:12px;color:var(--mut);font-weight:600">'+u2+'</span></div><div class="d">'+d+'</div></div>';};
   const qcKpiStrip='<div class="kpis" style="grid-template-columns:repeat(4,1fr)">'+_qcKpi('Awaiting entry',_qcAwait.length,'lots','Lab Rep to start','--amber')+_qcKpi('In review chain',_qcAna.length+_qcRev.length,'lots','AQCM / QCM','--navy')+_qcKpi('UNFIT',_qcFail.length,'lots','Plant Mgr review','--red')+_qcKpi('Approved',labDone.length,'lots','packable','--green2')+'</div>';
-  const _qcRow=function(u){return '<tr><td><b>'+itemOf(u.b)+'</b> <span class="muted" style="font-size:11px">'+(u.b.kind==='po'?(u.b.po||''):'bulk base')+'</span></td><td><b>'+(u.no||'—')+'</b></td><td class="num">'+fmt(u.qty)+'</td><td>'+coaStatusPill(u.coa)+'</td><td>'+((u.coa&&u.coa.status==='approved')?('<button class="sm ghost" onclick="printCOA(\''+u.b.id+'\',\''+u.id+'\')">Print COA</button>'):labAct(u))+'</td></tr>';};
+  const _qcRow=function(u){return '<tr><td><b>'+itemOf(u.b)+'</b> <span class="muted" style="font-size:11px">'+(u.b.kind==='po'?(u.b.po||''):(u.b.kind==='multi'?batchPOsLabel(u.b):'bulk base'))+'</span></td><td><b>'+(u.no||'—')+'</b></td><td class="num">'+fmt(u.qty)+'</td><td>'+coaStatusPill(u.coa)+'</td><td>'+((u.coa&&u.coa.status==='approved')?('<button class="sm ghost" onclick="printCOA(\''+u.b.id+'\',\''+u.id+'\')">Print COA</button>'):labAct(u))+'</td></tr>';};
   const _qcCard=function(name,units,sub){return units.length?('<div class="card"><h3>'+name+' <span class="hint">'+units.length+(sub?(' · '+sub):'')+'</span></h3><div style="overflow:auto"><table><thead><tr><th>Product</th><th>Batch ▸ Lot</th><th class="num">Qty</th><th>Status</th><th style="width:210px">Action</th></tr></thead><tbody>'+units.map(_qcRow).join('')+'</tbody></table></div></div>'):'';};
   var qcSets={awaiting:_qcAwait,review:_qcAna.concat(_qcRev),unfit:_qcFail,approved:labDone};
   var qcLabels={awaiting:'Awaiting entry',review:'In review',unfit:'UNFIT',approved:'Approved'};

@@ -1,5 +1,26 @@
 # VAN Order Control Tower — OP Handoff
 
+> **STATUS ADD — 2026-07-28 (cloud session, latest):** **CHARTER SET · DEPLOY VERIFIED · DEAD-CODE AUDIT DONE · 3-PHASE PLAN AGREED.**
+>
+> **SYSTEM CHARTER (Tahir, 2026-07-28 — governs all future work):** This system does **NOT manage cost** (no product costing, no RM cost tracking, no cost attribution, no financial analysis). Its purpose: **track every task from order to shipment**, ensure each process step is handled **timely and carefully**, track **quality and production**, and build **clean data for future learning and modelling**. The **batch ID is the CORE key** — it traces production, packing, shipment, logistics and supply chain end-to-end. All cost-related backlog items are DROPPED (marked below). Existing cost fields/functions in code are dormant — candidates for the dead-code removal pass, build nothing new on them. (Sales-side data — invoice price on POs, sales targets — is order data, not costing, and stays.)
+>
+> **DEPLOY VERIFIED LIVE (2026-07-28):** Tahir pushed; served code confirmed to carry `nid()` random-suffix ids + `bumpSeqV1` + `healDupBatchIdsV1` + `fixVB26003LotRenameV1`. The rename migration FIRED on live (rev 1173): batch VB26003 lot is now **VB26003-L1**, COA SF0256 batchNo updated, flag `_fixVB26003LotRenameV1` set. Remaining operational step: **AQCM review → QCM approve COA SF0256** (status is back at "analysed" by design after the repair), then the batch can pack. Also still pending from §0q: the multi-PO **live click-through**, and the **divert/rework live functional test** (low-stakes batch, snapshot first).
+>
+> **3-PHASE PLAN (Tahir, 2026-07-28):**
+> - **Phase 1 — build one by one:** (a) **New PO Entry P1: hardcoded catalog → master data** (seed from `VAN-Product-Master-FINAL.csv`, Admin Product/Client Master UI; then P2 quality-of-life); (b) production-group **rates tuning in Admin** as real output accrues (Tahir, ongoing — placeholders stand until then); (c) grant **Supply Chain Officer / Finance** custom-role screen access via the Admin access matrix.
+> - **Phase 2 — settle the backlog:** #18 concurrent-save merge hardening (largely covered by the new id guards — still verify the `_NNNN` order-id artifact), #19 Ready-to-ship column alignment, monthly sales-budget data model + Master Data UI (#15, sales-side), relational DB + API (off-prod first), dynamic roles Stage 2 (only on concrete need), PO Tracker §0b enhancements (stalled tiering, debounce, "+N more", dispatch clear-date), Action Center deferred items (Cards view, bulk-select, Today-bucket split), and the **dead-code removal pass** (list below).
+> - **Phase 3 — full system test:** logic, bugs, concurrency (multi-tab/409 merge), database integrity, end-to-end batch traceability.
+>
+> **DEAD-CODE AUDIT (2026-07-28, read-only — NOTHING removed yet; removal is a Phase-2 task).** Method: every declared function/const counted across the whole file (includes onclick strings in templates); no dynamic dispatch (`window[...]`/name-concat) exists in the app, so 0 extra references = genuinely unreachable. **~48 dead functions found:**
+> - _Old screens/renderers superseded by redesigns:_ `screenShipOLD`, `renderShipModal`, `journeyCard`, `orderCard`, `renderProdLifecycle` (live path calls `renderProdLifecycleBatch`), `tkMatrixTable` (Matrix now = `t2matrix`), `rowS`.
+> - _Old Action Center helpers:_ `acChipsHTML`, `acGroupBarHTML`, `acRoleBarHTML`, `acViewBarHTML`, `acMini`.
+> - _Old Reports tab renderers (Reports is now Builder · Documents · RM chain):_ `rpTabsBar`, `rpMonthly`, `rpTrends`, `rpTrace`, `rpQCReports`, `rpShip`, `rpDelay`, `rpPOStatus`, `rpLog`, `rpExplorer`, `rpFilterBar`, `rpDrawChart` (+ `RP_TABS` transitively — its only reference is inside dead `rpTabsBar`).
+> - _Dashboard / Production-Center leftovers:_ `drawDash`, `dashMyTodos`, `dashTargetsPanel`, `dashTrendStrip`, `trDrawChart`, `prodKpiStrip`, `prodCompletedThisMonth`, `prodLeavingList`, `qcGrpApproved`, `_pcBars`, `_pcCard`, `_pcKpi`, `_pcResult`, `batchPairsForLine`, `prodUndefer` (un-snooze is handled inline in `acDeferSubmit`).
+> - _Misc:_ `dismissHint`, `hintHidden`, `showAllHints` (tip banners were removed 06-22), `addDealer`, `onDlrCity`, `onDlrRegion` (⚠ verify the dealer-add path moved to the Customers card before removing), `custParents`, `recAddItem`, `recDelItem`, `mpCapWarnHtml`, `raisePR` (PRs ride `rmSubmit`), `ACT_META`, `FIELD_LABEL`, `LIFE_GROUPS`, `LS_KEY`, `VAN_LOGO` (`VAN_LOGO_REAL` is the live one), `PROD_ICONS`.
+> - _Corrections to older notes:_ `fld`/`editField`/`canEditField` are **NOT dead** (referenced by the order-drawer field grid, ~line 2930) — §0b item 2.5 is outdated on those; `myOpenFields`/`priorityPill`/`actCard`/`lastPackDate` are already gone. Line field `qcPass` is alive (in `AUTO_FIELDS`, written by Shipments, read by reports/drawer).
+> - _Cost-touching functions (dormant under the no-cost charter, fold into the removal pass after Tahir confirms scope):_ `baseCost`, `rmMasterCost`, cost columns in masters/reports.
+
+
 _Updated: 2026-06-19 · COO: Tahir · Single code file: `index.html` (4308 lines, vanilla JS). Backend: `server.js` (Node/Express + MySQL on HostGator, one `app_state` JSON blob + rev counter). Deploys never touch the DB. Pushes go via GitHub Desktop (Claude cannot push). Render auto-deploys on push; rollback restores prior code only, never the DB._
 
 > **STATUS ADD — 2026-07-28 (cloud session, later):** **DUPLICATE BATCH-ID CORRUPTION — LIVE DATA REPAIRED, CODE GUARD READY TO PUSH.** Incident: batches VLNPK26002 (NPK 8.8.6) and VB26003 (Potassium Humate) were both created as internal id `B1114` — two open tabs each held seq=1114 and `'B'+(state.seq++)` handed out the same id; `merge3` (which pairs array records by id) then cross-merged their lots on every 409, wiping VLNPK26002's 500 kg output, parking lot VLNPK26002-L1 (wrong product) + a wrong QC sample (SF0255, "VB26002-L1"/Vibrant) inside VB26003, and leaking a stray lot into VBO26001 (which had separately collided as B1132). **Live DB repaired in-app (rev 1153–1155, admin session, all other users off):** VLNPK26002 → `B1556` (500/500, lot VLNPK26002-L1 fresh in Lab QC awaiting COA), VB26003 rebuilt as `B1134` (1160/1160, lot VB26003-L2 keeps its correct analysed COA SF0256), phantom twin removed, SF0255 deleted, VBO26001 cleaned, shiftEntries SE1114/SE1130 re-pointed, seq bumped to 1558; audit lines written. **Code fix (this working tree, NOT yet pushed):** (1) `nid(prefix)` — all 17 `'X'+(state.seq++)` id sites (B/LOT/SE/PK/PR + 3 order-id sites) now append a per-tab random suffix so two tabs can never mint the same id; (2) `bumpSeqV1(s)` — on every load/merge, seq jumps above the highest numeric id suffix in the data; (3) `healDupBatchIdsV1(s)` — end of `ensureState` chain (so it also runs on every 409-merge result): any batches still sharing an id get split, later twins re-id'd, their shiftEntries/packingLog re-pointed **by batchNo**, audit line logged. All 6 script blocks `node --check` clean; heal + collision simulated in node (twin split ✓, SE re-point ✓, no dups left ✓, two same-seq tabs mint distinct ids ✓). Old ids untouched. Tahir pushes via GitHub Desktop. ⚠ Stale tabs running pre-fix code can still re-corrupt until the deploy is live and everyone reloads.
@@ -41,7 +62,7 @@ _Updated: 2026-06-19 · COO: Tahir · Single code file: `index.html` (4308 lines
 
 **Verified (2026-07-28, isolation):** all 6 script blocks `node --check` clean; file 7,801 lines, 6 script tags, proper end; function census = exactly +5 (`batchPOsLabel`, `mbBasePick`, `mbQty`, `mbTick`, `submitMultiBatch`). Simulation (3 Fusion Potash POs 125/175/200 = 500 Kg): open ✓ · FY-reuse blocked ✓ · RM-unconfirmed blocked ✓ · pro-rata shifts 300+200 → lines land exactly 125/175/200, `producedKg` 500, 2 lots, 6 productionLog slices summing 500 ✓ · 105% cap blocks ✓ · QC approve → packable 500 ✓ · pack ×3 POs from the one batch, 3 packingLog entries all carrying FP26001, stage → done, remainder 0 ✓ · over-alloc blocked ("max 100"), partial alloc (60 of 100) ✓. Render smoke: multi modal (tabs/rows/RM flag/total/submit) ✓, pack modal linked-first + tag ✓, brand preselect ✓.
 
-**Known nuances (accepted v1):** (a) reconcile of a shortfall doesn't walk back the pro-rata `l.produced` (packing's `produced=max(produced,packed)` never decreases; tracker delivery truth is `packed`); (b) budget/cost view classes multi batches as "Bulk / unassigned" (cost attribution per PO can ride packingLog later); (c) COA QC# client-prefix defaults to 'VN' for multi (no single client).
+**Known nuances (accepted v1):** (a) reconcile of a shortfall doesn't walk back the pro-rata `l.produced` (packing's `produced=max(produced,packed)` never decreases; tracker delivery truth is `packed`); (b) ~~budget/cost view classes multi batches as "Bulk / unassigned" (cost attribution per PO can ride packingLog later)~~ **cost attribution DROPPED 2026-07-28 — no-cost charter**; (c) COA QC# client-prefix defaults to 'VN' for multi (no single client).
 
 ---
 
@@ -369,7 +390,7 @@ Verification: isolation-sandbox pass on overdue/delay logic; 5/5 `<script>` tags
 - Phase 2b: monthly-budget data model + Master Data UI (#15).
 - #18 harden concurrent-save merge (don't duplicate freshly-packed lots) — note the `_NNNN` order ids may be a merge artifact; check.
 - #19 align Ready-to-ship columns across PO cards.
-- Set MOP Granular cost (currently 0, flagged).
+- ~~Set MOP Granular cost (currently 0, flagged).~~ **DROPPED 2026-07-28 — no-cost charter (system does not manage cost).**
 - Product master single source of truth: `E:\VAN Platform\VAN-Product-Master-FINAL.csv` (Tahir editing Owner/Client cols).
 
 ---
@@ -410,7 +431,7 @@ All changes were **render/layout only — no business logic, master data, flows,
 **Docs in `E:\VAN Platform\`:** added `VAN-O2S-5Screen-Redesign-Gap-Analysis-2026-06-22.md`; `VAN-O2S-Plan-Dynamic-Roles-Control-Center.md` updated (Stage 1/3 done, Stage 2 on-hold).
 
 **Open roadmap (not started):**
-- **Raw-material costs missing/zero**: Sulfuric Acid, MOP Granular (Fly Ash Waste likely intentional 0) — need real values from Tahir; blocks accurate product costing.
+- ~~**Raw-material costs missing/zero**: Sulfuric Acid, MOP Granular — need real values from Tahir; blocks accurate product costing.~~ **DROPPED 2026-07-28 — no-cost charter (system does not manage cost; product costing out of scope).**
 - **Relational DB + API** (design doc exists) — staged, off-prod first.
 - **Dynamic roles Stage 2** (owners[]→matrix) — parked.
 - Custom roles **Supply Chain Officer** and **Finance** exist; grant their screen access via the matrix.

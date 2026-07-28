@@ -2,6 +2,12 @@
 
 _Set by Tahir, 2026-06-17. These are standing rules for every change in this repo. Claude must honour them in every session. They override convenience or speed._
 
+## 0. SYSTEM CHARTER (Tahir, 2026-07-28 — what this system IS and IS NOT)
+- **This system does NOT manage cost.** No product costing, no raw-material cost tracking, no cost attribution, no margin/financial analysis — do not build, extend, or surface cost features. Existing cost fields in code are dormant legacy; they are removal candidates, never a foundation.
+- **Purpose:** track every task **from order to shipment**; ensure each process step is handled **timely and carefully**; track **quality and production**; and build **clean, trustworthy data for future learning and modelling**.
+- **The batch ID is the CORE key.** Every feature must preserve batch-id traceability across production → lots/COA → packing → shipment → logistics → supply chain. Nothing may break, blur, or duplicate a batch id (see the 2026-07-28 duplicate-id incident).
+- Sales-side order data (invoice price on POs, sales targets/budget) is order information, not costing — it stays in scope.
+
 ## 1. We are MODELING, not pushing
 - Build and verify changes locally only. **Never push.** Tahir pushes via GitHub Desktop. Claude cannot push and must not assume anything is live.
 - After building, leave changes "ready to push (not pushed)" and say so.
@@ -25,7 +31,7 @@ _Set by Tahir, 2026-06-17. These are standing rules for every change in this rep
 - Any data migration must be idempotent and guarded (one-time flag), and must never delete real work (packing/production/shipments). Verify against the real snapshot in isolation before it can run.
 
 ## 6. Integrity
-- Don't invent recipe ratios, costs, rates, or lead times — flag anything unverified as a placeholder and make it editable.
+- Don't invent recipe ratios, rates, or lead times — flag anything unverified as a placeholder and make it editable. (Costs are out of scope entirely — rule 0.)
 - Verify edits against the real snapshot/logic in the sandbox; confirm host-file integrity (the bash mount can be stale — trust the file tools).
 
 ---

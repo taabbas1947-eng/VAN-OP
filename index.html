@@ -3044,7 +3044,7 @@ function rmReceiveSubmit(){ var o=state.orders.find(x=>x.id===rmRcvForm.oid); va
 <script>
 /* ===================== PRODUCTION (PO-centric + to-stock) ===================== */
 let prodMode='po', prodPOsel='';
-const BULK_BASES=['Potassium Humate','Potassium Humate Liquid','Sulfur Coated Urea','Sulfur 70%','Amino Acid','Compost','Zinc 21%','NP 6.32','Nitro Sulfur','Liquid Phosphrous','Mg Sulphate','NPK 8.8.6','Boron 5%','Zinc 10%'];
+const BULK_BASES=['Potassium Humate','Potassium Humate Liquid','Sulfur Coated Urea','Sulfur 70%','Amino Acid','Compost','Zinc 21%','NP 6.32','Nitro Sulfur','Liquid Phosphrous','Mg Sulphate','NPK 8.8.6','Boron 5%','Zinc 10%','VL-Micro Mix','VL-Potash'];
 function brandsForBase(base){ return Object.keys(SEED.brandMap||{}).filter(b=>SEED.brandMap[b].base===base).sort(); }
 function inProdLines(){ const r=[]; state.orders.forEach(o=>o.lines.forEach(l=>{ if(stageOf(o)!=='Delivered' && (l.packed||0)<l.ordered-0.5) r.push({o,l}); })); return r; }
 var prodStage='';
@@ -3057,6 +3057,10 @@ function prodMakeSetFilter(f){ prodMakeFilter=f; render(); }
 function baseStockKg(base){ var packable=0,physical=0,producing=[]; (state.batches||[]).forEach(function(b){ if(b.kind==='bulk'&&!b.voided&&!b.pool&&b.disposition!=='byproduct'&&(b.base||'')===base){ physical+=Math.max(0,(+b.producedKg||0)-(+b.packedKg||0)); packable+=batchPackableKg(b); if(b.status==='open'&&(+b.producedKg||0)<(+b.plannedKg||0)-0.5)producing.push(b); } }); return {packable:Math.round(packable),physical:Math.round(physical),producing:producing}; }
 function firstPackableBaseBatch(base){ var hit=null; (state.batches||[]).forEach(function(b){ if(!hit&&b.kind==='bulk'&&!b.voided&&!b.pool&&b.disposition!=='byproduct'&&(b.base||'')===base&&batchPackableKg(b)>0.5)hit=b; }); return hit; }
 function isPODirectLine(l){ return !!l && (l.base===l.brand || !l.base); }
+/* Own-base product that is ALSO a bulk base (VL-Micro Mix, VL-Potash, Nitro Sulfur): PO, multi-PO
+   and bulk->stock are all legal, so the To-make row must show BOTH the PO/multi batches and the
+   packable bulk. Pure read/display - never routes one path away in favour of the other. */
+function isHybridBulkLine(l){ return isPODirectLine(l) && !!(l&&l.base) && (typeof BULK_BASES!=='undefined') && BULK_BASES.indexOf(l.base)>=0; }
 var PJORD=['recon','producing','qc','pack','done'];
 function batchClearedKg(b){ var lots=(b.lots||[]); var s=0; if(lots.length){ lots.forEach(function(l){ if(l.coa&&l.coa.status==='approved'){ var ck=(l.coa.certifiedKg!=null)?l.coa.certifiedKg:(l.qty||0); s+=Math.min(l.qty||0,ck); } }); } else if(b.coa&&b.coa.status==='approved'){ var ck2=(b.coa.certifiedKg!=null)?b.coa.certifiedKg:(b.producedKg||0); s+=Math.min(b.producedKg||0,ck2); } return s; }
 function batchStage(b){ var prod=+b.producedKg||0, plan=+b.plannedKg||0, packed=+b.packedKg||0, cleared=batchClearedKg(b), disp=+b.disposedKg||0, rem=Math.max(0,prod-packed-disp), pk=batchPackableKg(b);
@@ -3386,15 +3390,17 @@ function prodStageList(){
     var rows=[]; (state.orders||[]).forEach(function(o){ if(stageOf(o)==='Delivered')return; (o.lines||[]).forEach(function(l){ var rem=(+l.ordered||0)-(+l.produced||0); if(rem>0.5){
       var direct=isPODirectLine(l);
       var prodBs=direct?(state.batches||[]).filter(function(b){return b.status==='open'&&!b.voided&&(+b.producedKg||0)<(+b.plannedKg||0)-0.5&&((b.kind==='po'&&b.po===o.po&&b.lineId===l.id)||(b.kind==='multi'&&(b.allocations||[]).some(function(a){return a.po===o.po&&a.lid===l.id;})));}):[];
-      var bs=direct?null:baseStockKg(l.base);
+      var hybrid=isHybridBulkLine(l);
+      var bs=(!direct||hybrid)?baseStockKg(l.base):null;
       var srank=direct?(prodBs.length?4:((+l.produced||0)>0.5?2:0)):((bs.packable>0.5)?3:(bs.producing.length?1:0));
-      rows.push({o:o,l:l,po:o.po,brand:l.brand||'',base:l.base||'',rem:rem,made:(+l.produced||0),rmText:(l.rmReady||l.rmStatus==='full')?'ready':(l.rmStatus==='partial'?'partial':'check'),due:o.promised||l.committed||'',direct:direct,prodBs:prodBs,bs:bs,srank:srank}); } }); });
+      if(hybrid&&bs)srank=Math.max(srank,(bs.packable>0.5)?3:(bs.producing.length?1:0));
+      rows.push({o:o,l:l,po:o.po,brand:l.brand||'',base:l.base||'',rem:rem,made:(+l.produced||0),rmText:(l.rmReady||l.rmStatus==='full')?'ready':(l.rmStatus==='partial'?'partial':'check'),due:o.promised||l.committed||'',direct:direct,hybrid:hybrid,prodBs:prodBs,bs:bs,srank:srank}); } }); });
     if(!rows.length)return '<div class="card"><div class="muted" style="padding:14px 2px">Nothing waiting to be produced.</div></div>';
     /* classify each line for the prototype filter bar: All / Ready / Blocked / Late */
     rows.forEach(function(x){
       var od=!!x.due&&!isNaN(new Date(x.due).getTime())&&new Date(x.due)<TODAY;
       var blocked=false;
-      if(x.direct){ if(x.rmText==='check')blocked=true; }
+      if(x.direct){ if(x.rmText==='check')blocked=true; if(x.hybrid&&x.bs&&x.bs.packable>0.5)blocked=false; }
       else { if(x.bs.packable<=0.5&&!x.bs.producing.length)blocked=true; if(x.rmText==='check')blocked=true; }
       x._late=od; x._blocked=blocked;
     });
@@ -3431,6 +3437,21 @@ function prodStageList(){
         } else {
           why='<span style="color:var(--red);font-weight:600">Base short</span> <span class="muted">· '+x.base+': none ready</span>';
           if(ed)act='<button class="sm ghost" onclick="prodMode=\'stock\';openBatchModal()">Make base ›</button>';
+        }
+      }
+      if(x.hybrid&&x.bs){ var hb=x.bs;
+        var hpt=hb.producing.length?hb.producing.map(function(pb){return (pb.batchNo||'open')+' '+fmt(pb.producedKg||0)+'/'+fmt(pb.plannedKg||0);}).join(', '):'';
+        if(hb.packable>0.5){
+          why+=' <span style="color:var(--green2);font-weight:600">· Bulk ready</span> <span class="muted">'+x.base+': ~'+fmt(hb.packable)+' kg to pack (shared)'+(hpt?(' · '+hpt+' producing'):'')+'</span>';
+          var hpbk=firstPackableBaseBatch(x.base);
+          if(ed&&hpbk)act+=' <button class="sm green" onclick="openPack(\''+hpbk.id+'\')">Pack from bulk</button>';
+        } else if(hb.producing.length){
+          why+=' <span style="color:var(--amber);font-weight:600">· Bulk in production</span> <span class="muted">'+hpt+(hb.physical>0.5?(' · '+fmt(hb.physical)+' kg in QC'):'')+'</span>';
+        } else if(hb.physical>0.5){
+          /* made but not yet QC-cleared - show it, and do NOT invite a second bulk batch */
+          why+=' <span style="color:var(--amber);font-weight:600">· Bulk awaiting QC</span> <span class="muted">'+x.base+': '+fmt(hb.physical)+' kg made, not cleared</span>';
+        } else if(ed){
+          act+=' <button class="sm ghost" onclick="prodMode=\'stock\';openBatchModal()">Make in bulk ›</button>';
         }
       }
       var rmChip=x.rmText==='ready'?'<span class="wtm-chip" style="background:#e7f3f1;color:#0b5c54">✓ ready</span>':x.rmText==='partial'?'<span class="wtm-chip" style="background:#fbf1e0;color:#9e6210">◐ partial</span>':'<span class="wtm-chip" style="background:#fbeaea;color:#a3402f">! check</span>';
@@ -7754,7 +7775,8 @@ bootState();
   // ====================================================================
   var BULK_BASES = ['Potassium Humate', 'Potassium Humate Liquid', 'Sulfur Coated Urea',
     'Sulfur 70%', 'Amino Acid', 'Compost', 'Zinc 21%', 'NP 6.32', 'Nitro Sulfur',
-    'Liquid Phosphrous', 'Mg Sulphate', 'NPK 8.8.6', 'Boron 5%', 'Zinc 10%'];
+    'Liquid Phosphrous', 'Mg Sulphate', 'NPK 8.8.6', 'Boron 5%', 'Zinc 10%',
+    'VL-Micro Mix', 'VL-Potash'];
 
   // POs that still have producible lines
   function openablePOs(state) {

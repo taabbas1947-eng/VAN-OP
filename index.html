@@ -1387,7 +1387,7 @@ function ensureState(s){
   s.users=(s.users&&s.users.length)?s.users:deepClone(SEED.users||[]); if(s.currentUser===undefined)s.currentUser=null;
   s.rmRequests=s.rmRequests||[]; s.productionLog=s.productionLog||[]; s.packingLog=s.packingLog||[];
   s.actionLog=s.actionLog||[]; s.shipments=s.shipments||[]; s.inspections=s.inspections||[]; s.warehouses=s.warehouses||SEED.warehouses.slice();
-  s.rawStock=s.rawStock||{}; s.rmMovements=s.rmMovements||[]; s.audit=s.audit||[]; s.masters=s.masters||deepClone(SEED.masters||{}); s.batches=s.batches||[]; s.packedStock=s.packedStock||{}; s.packingLog=s.packingLog||[]; s.orders=s.orders||[]; if(s.seq==null)s.seq=1000; ensureRecordIds(s); if(s.dataFixEnabled==null)s.dataFixEnabled=true; if(!Array.isArray(s.prs))s.prs=[]; (s.batches||[]).forEach(function(b){ if((b.producedKg||0)>0 && (!Array.isArray(b.lots)||!b.lots.length)){ b.lots=[{id:'LOT'+(s.seq++), lotNo:(b.batchNo||'B')+'-L1', qty:b.producedKg, date:b.openedDate||'', by:b.by||'', coa:(b.coa||null), migrated:true}]; } }); ensureMasters(s); ensureProductionModel(s); dedupePackingLots(s); migrateLotTracking(s); fixRudolfDupV1(s); reconcileLotShipKgV1(s); dedupeShipmentsV1(s); healPRFlags(s); migrateBrandNames(s); loadBaseRecipesV2(s); loadBlendRecipesV1(s); loadBlendRecipesV2(s); purgeImportedProduction(s); purgeImportDuplicates(s); purgeImportedNoTwin(s); fixPhantomLotVU26134(s); fixVU26144ProdLogV1(s); fixVU26144ProdLogV2(s); healVU26144ProdLog(s); backfillDisposedV1(s); consolidateByproductV1(s); dedupeByproductV1(s); reconcileShipLotsV1(s); normalizeVZincBase(s); seedByproductRulesV1(s); seedRolesV1(s); bumpSeqV1(s); healDupBatchIdsV1(s); fixVB26003LotRenameV1(s); return s;
+  s.rawStock=s.rawStock||{}; s.rmMovements=s.rmMovements||[]; s.audit=s.audit||[]; s.masters=s.masters||deepClone(SEED.masters||{}); s.batches=s.batches||[]; s.packedStock=s.packedStock||{}; s.packingLog=s.packingLog||[]; s.orders=s.orders||[]; if(s.seq==null)s.seq=1000; ensureRecordIds(s); if(s.dataFixEnabled==null)s.dataFixEnabled=true; if(!Array.isArray(s.prs))s.prs=[]; (s.batches||[]).forEach(function(b){ if((b.producedKg||0)>0 && (!Array.isArray(b.lots)||!b.lots.length)){ b.lots=[{id:'LOT'+(s.seq++), lotNo:(b.batchNo||'B')+'-L1', qty:b.producedKg, date:b.openedDate||'', by:b.by||'', coa:(b.coa||null), migrated:true}]; } }); ensureMasters(s); ensureProductionModel(s); dedupePackingLots(s); migrateLotTracking(s); fixRudolfDupV1(s); reconcileLotShipKgV1(s); dedupeShipmentsV1(s); healPRFlags(s); migrateBrandNames(s); loadBaseRecipesV2(s); loadBlendRecipesV1(s); loadBlendRecipesV2(s); purgeImportedProduction(s); purgeImportDuplicates(s); purgeImportedNoTwin(s); fixPhantomLotVU26134(s); fixVU26144ProdLogV1(s); fixVU26144ProdLogV2(s); healVU26144ProdLog(s); backfillDisposedV1(s); consolidateByproductV1(s); dedupeByproductV1(s); reconcileShipLotsV1(s); normalizeVZincBase(s); normalizeBoronBase(s); seedByproductRulesV1(s); seedRolesV1(s); bumpSeqV1(s); healDupBatchIdsV1(s); fixVB26003LotRenameV1(s); return s;
 }
 /* 2026-07-28 fix: seq can lag behind ids already in the data (stale tab saved over a
    newer state), so bump it above every numeric id suffix before anything generates ids. */
@@ -6535,7 +6535,12 @@ function drawDash(){
 let monthSel=null;
 /* ===================== ADMIN · MASTER DATA ===================== */
 const RECIPE_ALIAS={'Cal-Mag V':'Cala Mag V','Zinc 10%':'V-Zinc'}; /* merge naming-variant products to one canonical recipe */
-const BRAND_ALIAS={'V-Mag Essential':'V-Mg Essential'}; /* canonical brand spelling */
+const BRAND_ALIAS={'V-Mag Essential':'V-Mg Essential',
+  /* Boron duplicate resolved (Tahir, 2026-07-29): one physical product carried two names -
+     'VL Boron' (correctly based on Boron 5%, but used by nobody) and 'V-Boron Liquid' (wrongly
+     registered as its own base, so it could never be packed from a Boron 5% bulk batch).
+     Canonical name is VL-Boron, matching VL-NPK / VL-Micro Mix / VL-Potash. */
+  'V-Boron Liquid':'VL-Boron', 'VL Boron':'VL-Boron'}; /* canonical brand spelling */
 /* === Verified base↔brand map (Yawar sheet, confirmed by COO). Drives the produce-base-then-pack rule. === */
 const BRANDMAP_FIX={
   'Max Amino':{base:'Amino Acid',owner:'White Label',client:'Maxim'},
@@ -6555,6 +6560,7 @@ const BRANDMAP_FIX={
   'Green Phosphate':{base:'NP 6.32',owner:'VAN',client:'VAN'},
   'Pro Mix Liquid':{base:'NPK 8.8.6',owner:'White Label',client:'Syngenta'},
   'VL-NPK':{base:'NPK 8.8.6',owner:'VAN',client:'VAN'},
+  'VL-Boron':{base:'Boron 5%',owner:'VAN',client:'VAN'},
   'Nitro Sulfur':{base:'Nitro Sulfur',owner:'VAN',client:'VAN'},
   'Enrich':{base:'Potassium Humate',owner:'White Label',client:'Syngenta'},
   'Ferti Huma Pellets':{base:'Potassium Humate',owner:'White Label',client:'LCI'},
@@ -6581,6 +6587,20 @@ try{ if(typeof SEED!=='undefined'&&SEED.brandMap){ Object.keys(BRANDMAP_FIX).for
 /* Nitro Sulfur is a BYPRODUCT of Sulfur Coated Urea — no raw-material recipe; needs a finishing step before packing. */
 const BYPRODUCT_BASES={'Nitro Sulfur':{from:'Sulfur Coated Urea',needsStep:true}};
 try{ if(typeof SEED!=='undefined'&&SEED.brandMap){ for(var _ob in BRAND_ALIAS){ if(SEED.brandMap[_ob]&&!SEED.brandMap[BRAND_ALIAS[_ob]]) SEED.brandMap[BRAND_ALIAS[_ob]]=SEED.brandMap[_ob]; } } }catch(e){}
+/* Boron: retire the two superseded names so neither can be picked on a new PO or offered as a pack
+   target, and point the client catalog at VL-Boron / Boron 5%. Runs once at load, code-side only -
+   it rewrites the in-memory SEED, never the database. Idempotent. */
+try{
+  ['V-Boron Liquid','VL Boron'].forEach(function(_old){
+    try{ if(SEED.brandMap&&SEED.brandMap[_old]&&SEED.brandMap['VL-Boron']) delete SEED.brandMap[_old]; }catch(e){}
+    try{ if(SEED.baseRecipes&&SEED.baseRecipes[_old]) delete SEED.baseRecipes[_old]; }catch(e){}
+  });
+  var _cbc=(SEED.catalog&&SEED.catalog.brandsByClient)||{};
+  Object.keys(_cbc).forEach(function(_c){ (_cbc[_c]||[]).forEach(function(_x){ if(!_x)return;
+    if(_x.brand==='V-Boron Liquid'||_x.brand==='VL Boron') _x.brand='VL-Boron';
+    if(_x.base ==='V-Boron Liquid'||_x.base ==='VL Boron'||(_x.brand==='VL-Boron'&&_x.base!=='Boron 5%')) _x.base='Boron 5%';
+  }); });
+}catch(e){}
 /* V-Zinc is packed from the bulk base "Zinc 10%" (bought as semi-finished V Zinc Semi (10%)).
    Keep every V-Zinc record's base = 'Zinc 10%' (mirrors how Enrich lines carry base Potassium Humate).
    Idempotent normaliser; runs each load like migrateBrandNames. */
@@ -6588,6 +6608,20 @@ function normalizeVZincBase(s){
   (s.orders||[]).forEach(function(o){ (o.lines||[]).forEach(function(l){ if(l&&l.brand==='V-Zinc'&&l.base!=='Zinc 10%') l.base='Zinc 10%'; }); });
   (s.packingLog||[]).forEach(function(p){ if(p&&p.brand==='V-Zinc'&&p.base!=='Zinc 10%') p.base='Zinc 10%'; });
   (s.batches||[]).forEach(function(b){ if(b&&b.brand==='V-Zinc'&&b.base!=='Zinc 10%') b.base='Zinc 10%'; });
+}
+/* VL-Boron is packed from the bulk base "Boron 5%" (same shape as V-Zinc / Zinc 10% above).
+   Runs after migrateBrandNames, so brand is already the canonical 'VL-Boron' by this point.
+   Idempotent; runs each load, so a PO raised before the fix self-heals and new ones stay correct.
+   Deliberately does NOT touch audit or actionLog - those are history and must read as they happened. */
+function normalizeBoronBase(s){
+  (s.orders||[]).forEach(function(o){ (o.lines||[]).forEach(function(l){ if(l&&l.brand==='VL-Boron'&&l.base!=='Boron 5%') l.base='Boron 5%'; }); });
+  (s.packingLog||[]).forEach(function(p){ if(p&&p.brand==='VL-Boron'&&p.base!=='Boron 5%') p.base='Boron 5%'; });
+  (s.batches||[]).forEach(function(b){ if(b&&b.brand==='VL-Boron'&&b.base!=='Boron 5%') b.base='Boron 5%'; });
+  /* production group follows the rename so lead-time/capacity keeps working for the new name */
+  try{ var g=s.masters&&s.masters.groupOfBrand; if(g){
+    if(!g['VL-Boron']) g['VL-Boron']=g['V-Boron Liquid']||g['VL Boron']||'Liquid';
+    delete g['V-Boron Liquid']; delete g['VL Boron'];
+  } }catch(e){}
 }
 function migrateBrandNames(s){ const ren=function(o,depth){ if(!o||typeof o!=='object'||depth>8)return; for(var k in o){ var v=o[k]; if(typeof v==='string'){ if(BRAND_ALIAS[v]) o[k]=BRAND_ALIAS[v]; } else if(v&&typeof v==='object'){ ren(v,depth+1); } } }; ['orders','packingLog','batches','shipments','inspections'].forEach(function(key){ if(Array.isArray(s[key])) s[key].forEach(function(x){ ren(x,0); }); }); }
 function recipeFor(base){ base=(RECIPE_ALIAS[base]||base); const o=(typeof state!=='undefined'&&state&&state.masters&&state.masters.recipes&&state.masters.recipes[base]); if(o&&Object.keys(o).length) return o; return (typeof SEED!=='undefined'&&SEED.baseRecipes&&SEED.baseRecipes[base])||{}; }

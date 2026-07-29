@@ -2,6 +2,7 @@ const express = require('express');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
+const pd = require('./pd/pd-lib'); // everything Product Development lives under ./pd — kept apart from the O2S files in this root on purpose
 const app = express();
 app.use(require('compression')());
 app.use(express.json({ limit: '15mb' }));
@@ -66,12 +67,14 @@ function parseMysqlUrl(url) {
 
 /* ---------- storage (MySQL or local file) ---------- */
 let store;
+let pdq = null; // set below when DATABASE_URL is present — PD (Product Development) needs real relational SQL, not the local-file fallback.
 if (DATABASE_URL) {
   const mysql = require('mysql2/promise');
   const pool = mysql.createPool(parseMysqlUrl(DATABASE_URL));
 
   // Helper: run a query, return [rows, fields]. mysql2 always returns [rows, fields].
   const q = (sql, params) => pool.execute(sql, params || []);
+  pdq = q;
 
   store = {
     async init() {
@@ -172,6 +175,46 @@ if (DATABASE_URL) {
   console.log('Storage: local file');
 }
 
+/* ---------- PD (Product Development) foundation migration ---------- */
+// Additive, idempotent: safe to run on every boot. Statements that have
+// already been applied (duplicate column, table already exists) are skipped
+// individually rather than aborting the whole file, since MySQL 5.7 (some
+// cPanel/HostGator hosts) doesn't support "ADD COLUMN IF NOT EXISTS".
+async function runPdMigration() {
+  if (!pdq) { console.log('PD migration skipped — no DATABASE_URL (local-file mode has no relational SQL to migrate).'); return; }
+  const sqlPath = path.join(__dirname, 'pd', 'migrations', '001_pd_foundation.sql');
+  let sql;
+  try { sql = fs.readFileSync(sqlPath, 'utf8'); } catch (e) { console.log('PD migration file not found, skipping: ' + sqlPath); return; }
+  const sqlNoComments = sql.split('\n').filter(line => !line.trim().startsWith('--')).join('\n');
+  const statements = sqlNoComments
+    .split(/;\s*\n/)
+    .map(s => s.trim())
+    .filter(Boolean);
+  let applied = 0, skipped = 0;
+  for (const stmt of statements) {
+    try { await pdq(stmt); applied++; }
+    catch (e) {
+      // 1060 duplicate column, 1061 duplicate key name, 1050 table exists (CREATE TABLE already has IF NOT EXISTS so this is belt-and-braces)
+      if ([1060, 1061, 1050].includes(e.errno)) { skipped++; continue; }
+      console.error('PD migration statement failed:\n' + stmt.slice(0, 120) + '...\n', e.message);
+      throw e;
+    }
+  }
+  console.log(`PD migration: ${applied} statements applied, ${skipped} already in place.`);
+  // Bootstrap: give the seeded 'admin' account (already the hardcoded O2S COO —
+  // see DEFAULT_USERS above) the matching PD role too, but only if NOBODY has a
+  // PD role yet. This makes a fresh install/local dev DB immediately usable
+  // (sign in as admin, everything's unlocked) without a manual API call, while
+  // never overwriting a real deployment's own role assignments.
+  try {
+    const [countRows] = await pdq("SELECT COUNT(*) AS n FROM auth_users WHERE pd_role IS NOT NULL");
+    if (Number(countRows[0].n) === 0) {
+      await pdq("UPDATE auth_users SET pd_role='coo' WHERE username='admin'");
+      console.log("PD bootstrap: no PD roles existed yet — granted 'admin' the coo PD role so a fresh install/local DB is immediately usable.");
+    }
+  } catch (e) { console.error('PD role bootstrap check failed (non-fatal):', e.message); }
+}
+
 /* ---------- one-time migration: move existing users into hashed auth ---------- */
 async function migrateAuth() {
   if ((await store.usersCount()) > 0) return;
@@ -188,6 +231,28 @@ async function migrateAuth() {
 function auth(req, res, next) { const p = readToken((req.headers.authorization || '').replace(/^Bearer /, '')); if (!p) return res.status(401).json({ error: 'unauthorized' }); req.user = p; next(); }
 function admin(req, res, next) { if (!req.user || req.user.r !== 'COO') return res.status(403).json({ error: 'admin only' }); next(); }
 const stripUsers = (d) => { if (d && typeof d === 'object') { const o = { ...d }; delete o.users; return o; } return d; };
+
+/* ---------- PD auth: same token as O2S (auth() above), plus the PD role loaded fresh from
+   the DB on every request rather than baked into the 30-day token, so a role change takes
+   effect immediately instead of waiting for re-login. */
+async function pdAuth(req, res, next) {
+  if (!pdq) return res.status(503).json({ error: 'PD is not available — this server has no DATABASE_URL (local-file mode).' });
+  try {
+    const [rows] = await pdq('SELECT id, username, name, pd_role, active FROM auth_users WHERE username=?', [req.user.u]);
+    const u = rows[0];
+    if (!u || !u.active) return res.status(403).json({ error: 'No PD account for this login.' });
+    req.pdUser = u;
+    next();
+  } catch (e) { res.status(500).json({ error: String(e) }); }
+}
+function pdSurface(surface) {
+  return (req, res, next) => {
+    if (!pd.can_pd(req.pdUser.pd_role, surface)) {
+      return res.status(403).json({ error: `Not permitted: ${surface}. Your PD role: ${req.pdUser.pd_role || '(none)'}. Ask the COO or Data Custodian for access.` });
+    }
+    next();
+  };
+}
 
 /* ---------- routes ---------- */
 app.get('/api/health', (req, res) => res.json({ ok: true }));
@@ -247,10 +312,122 @@ app.delete('/api/users/:username', auth, admin, async (req, res) => {
   } catch (e) { res.status(500).json({ error: String(e) }); }
 });
 
+/* ---------- PD (Product Development) API ----------
+   MVP slice ported from the standalone van-rd-app: idea intake, the two-lane
+   G1 screen, and the gate log. Everything else the PHP app has (records/G2,
+   samples, tests, trials, gates G3-G6, candidates/materials, library,
+   projects, users admin, audit, regulatory, learnings, formulations,
+   dropbox) is not yet ported — see PORTING_STATUS.md. */
+
+app.get('/api/pd/me', auth, pdAuth, (req, res) => {
+  res.json({
+    id: req.pdUser.id, username: req.pdUser.username, name: req.pdUser.name,
+    pd_role: req.pdUser.pd_role, label: pd.PD_ROLES[req.pdUser.pd_role] || null,
+    landing: pd.landing_for_pd(req.pdUser.pd_role),
+    surfaces: pd.allowed_surfaces(req.pdUser.pd_role),
+  });
+});
+
+// Ideas: submit (BASE_SURFACES — anyone with a PD role) and list (own vs all per role).
+app.post('/api/pd/ideas', auth, pdAuth, pdSurface('ideas.new'), async (req, res) => {
+  try {
+    const b = req.body || {};
+    if (!b.title || !b.idea_text || !b.change_type) return res.status(400).json({ error: 'title, idea_text and change_type are required' });
+    if (!pd.CHANGE_TYPES[b.change_type]) return res.status(400).json({ error: 'invalid change_type' });
+    const lane = pd.lane_for(b.change_type); // the submitter never picks or sees a lane — set from the kind of idea, same rule as the PHP app
+    const h = await pd.insert_numbered(pdq, 'pd_hypotheses', 'h_number', async (n) => {
+      await pdq(
+        `INSERT INTO pd_hypotheses (h_number, title, change_type, lane, idea_text, problem_text, reasoning_text, materials_text, success_text, crop_area, support_text, risk_text, submitted_by)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        [n, b.title, b.change_type, lane, b.idea_text, b.problem_text || null, b.reasoning_text || null,
+         b.materials_text || null, b.success_text || null, b.crop_area || null, b.support_text || null,
+         b.risk_text || null, req.pdUser.id]
+      );
+    });
+    res.json({ ok: true, h_number: h, h_label: pd.fmt_h(h), lane });
+  } catch (e) { res.status(500).json({ error: String(e) }); }
+});
+
+app.get('/api/pd/ideas', auth, pdAuth, pdSurface('ideas.own'), async (req, res) => {
+  try {
+    const seeAll = pd.may_see_all_ideas(req.pdUser.pd_role) && pd.can_pd(req.pdUser.pd_role, 'ideas.all');
+    const [rows] = seeAll
+      ? await pdq(`SELECT h.*, u.name AS submitted_by_name FROM pd_hypotheses h JOIN auth_users u ON u.id=h.submitted_by ORDER BY h.h_number DESC`)
+      : await pdq(`SELECT h.*, u.name AS submitted_by_name FROM pd_hypotheses h JOIN auth_users u ON u.id=h.submitted_by WHERE h.submitted_by=? ORDER BY h.h_number DESC`, [req.pdUser.id]);
+    res.json(rows.map(r => ({ ...r, h_label: pd.fmt_h(r.h_number), stage_label: pd.STAGES[r.stage] })));
+  } catch (e) { res.status(500).json({ error: String(e) }); }
+});
+
+app.get('/api/pd/ideas/:id', auth, pdAuth, pdSurface('ideas.own'), async (req, res) => {
+  try {
+    const [[idea]] = [( await pdq(`SELECT h.*, u.name AS submitted_by_name FROM pd_hypotheses h JOIN auth_users u ON u.id=h.submitted_by WHERE h.id=?`, [req.params.id]))[0]];
+    if (!idea) return res.status(404).json({ error: 'not found' });
+    if (idea.submitted_by !== req.pdUser.id && !(pd.may_see_all_ideas(req.pdUser.pd_role) && pd.can_pd(req.pdUser.pd_role, 'ideas.all'))) {
+      return res.status(403).json({ error: 'Not your idea to view.' });
+    }
+    const [gates] = await pdq(`SELECT g.*, u.name AS decided_by_name FROM pd_gate_decisions g JOIN auth_users u ON u.id=g.decided_by WHERE g.hypothesis_id=? ORDER BY g.decided_at ASC`, [req.params.id]);
+    res.json({ ...idea, h_label: pd.fmt_h(idea.h_number), stage_label: pd.STAGES[idea.stage], gates });
+  } catch (e) { res.status(500).json({ error: String(e) }); }
+});
+
+// G1 screen: the two-lane decision. Deputy screens (Plant Manager on either lane) land as PROVISIONAL.
+app.post('/api/pd/ideas/:id/screen', auth, pdAuth, pdSurface('screen'), async (req, res) => {
+  try {
+    const b = req.body || {};
+    // The G1 form's real vocabulary (log/park/kill/merge — see the note in pd-lib.js),
+    // not the GATE_OUTCOMES label set, which the PHP app itself doesn't use here.
+    if (!pd.PD_SCREEN_DECISIONS[b.decision]) return res.status(400).json({ error: 'decision must be one of: ' + Object.keys(pd.PD_SCREEN_DECISIONS).join(', ') });
+    if (!b.reason || !b.reason.trim()) return res.status(400).json({ error: 'A written reason is required for every gate decision.' });
+    const [[idea]] = [(await pdq('SELECT * FROM pd_hypotheses WHERE id=?', [req.params.id]))[0]];
+    if (!idea) return res.status(404).json({ error: 'not found' });
+    if (idea.screen_decision) return res.status(409).json({ error: 'This idea has already been screened.' });
+    if (!pd.may_screen(req.pdUser.pd_role, idea.lane)) return res.status(403).json({ error: `Your PD role (${req.pdUser.pd_role}) does not screen the ${idea.lane} lane.` });
+    const provisional = pd.screens_as_deputy(req.pdUser.pd_role, idea.lane);
+    await pdq('UPDATE pd_hypotheses SET screen_decision=?, screen_reason=?, screened_by=?, screened_at=NOW(), stage=? WHERE id=?',
+      [b.decision, b.reason, req.pdUser.id, pd.SCREEN_TO_STAGE[b.decision], req.params.id]);
+    await pdq('INSERT INTO pd_gate_decisions (hypothesis_id, gate, decision, reason, decided_by, provisional) VALUES (?,?,?,?,?,?)',
+      [req.params.id, 'G1', pd.SCREEN_TO_GATE_DECISION[b.decision], b.reason, req.pdUser.id, provisional ? 1 : 0]);
+    res.json({ ok: true, provisional });
+  } catch (e) { res.status(500).json({ error: String(e) }); }
+});
+
+app.get('/api/pd/gatelog', auth, pdAuth, pdSurface('gatelog'), async (req, res) => {
+  try {
+    const [rows] = await pdq(`SELECT g.*, h.h_number, h.title, u.name AS decided_by_name
+       FROM pd_gate_decisions g JOIN pd_hypotheses h ON h.id=g.hypothesis_id JOIN auth_users u ON u.id=g.decided_by
+       ORDER BY g.decided_at DESC LIMIT 200`);
+    res.json(rows.map(r => ({ ...r, h_label: pd.fmt_h(r.h_number) })));
+  } catch (e) { res.status(500).json({ error: String(e) }); }
+});
+
+// My Work: ideas in this lane/role's screening queue (mirrors mywork.php's "the button that does the thing").
+app.get('/api/pd/mywork', auth, pdAuth, pdSurface('mywork'), async (req, res) => {
+  try {
+    const [rows] = await pdq(`SELECT h.* FROM pd_hypotheses h WHERE h.screen_decision='' ORDER BY h.submitted_at ASC`);
+    const mine = rows.filter(r => pd.may_screen(req.pdUser.pd_role, r.lane));
+    res.json(mine.map(r => ({ ...r, h_label: pd.fmt_h(r.h_number), lane_label: pd.LANES[r.lane] })));
+  } catch (e) { res.status(500).json({ error: String(e) }); }
+});
+
+/* ---------- PD/O2S admin: assign a PD role to an existing O2S account (COO only, mirrors O2S's own admin gate) ---------- */
+app.put('/api/pd/users/:username/role', auth, admin, pdAuth, async (req, res) => {
+  try {
+    const role = req.body && req.body.pd_role;
+    if (role !== null && !pd.PD_ROLES[role]) return res.status(400).json({ error: 'invalid pd_role' });
+    const [result] = await pdq('UPDATE auth_users SET pd_role=? WHERE username=?', [role, String(req.params.username).toLowerCase()]);
+    if (result.affectedRows === 0) return res.status(404).json({ error: 'not found' });
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: String(e) }); }
+});
+
 const _NOCACHE = 'no-store, no-cache, must-revalidate';
 // Front door: the platform launcher.
 app.get(['/', '/launcher', '/launcher.html'], (req, res) => { res.set('Cache-Control', _NOCACHE); res.sendFile(path.join(__dirname, 'launcher.html')); });
-// O2S app: /o2s (and any other non-API path falls through to it).
+// PD app: /pd (must come before the O2S catch-all below, or it silently serves O2S instead — this bit us once already).
+app.get(['/pd', '/pd/*'], (req, res) => { res.set('Cache-Control', _NOCACHE); res.sendFile(path.join(__dirname, 'pd', 'pd.html')); });
+// O2S app: any other non-API path falls through to it.
 app.get('*', (req, res) => { res.set('Cache-Control', _NOCACHE); res.sendFile(path.join(__dirname, 'index.html')); });
 
-store.init().then(migrateAuth).then(() => app.listen(PORT, () => console.log('VAN Order Control Tower on port ' + PORT)));
+// migrateAuth runs BEFORE runPdMigration: the PD bootstrap step (inside runPdMigration)
+// grants the seeded 'admin' row a PD role, which only works if that row already exists.
+store.init().then(migrateAuth).then(runPdMigration).then(() => app.listen(PORT, () => console.log('VAN Order Control Tower on port ' + PORT)));

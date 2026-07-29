@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VAN · Product Development</title>
+<meta name="description" content="Vital Agri Nutrients — Product Development pipeline (idea intake, gates, gate log).">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='88'>%F0%9F%8C%B1</text></svg>">
+<style>
+  :root{
+    --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,"Times New Roman",serif;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono:"SF Mono","Cascadia Code",Consolas,"Liberation Mono",ui-monospace,monospace;
+    --ground:#f4f7f2; --surface:#ffffff; --surface-2:#eef2ea;
+    --line:#dbe3d8; --line-strong:#c6d1c2;
+    --text:#122236; --muted:#5a6b74; --faint:#84939b;
+    --green:#2e9e63; --green-deep:#1c7a49; --green-soft:#e3f0e8;
+    --amber:#a9781f; --amber-soft:#f2e9d4; --red:#b3402f; --red-soft:#f5e4e0;
+    --ink:#0f2942;
+    --shadow:0 1px 2px rgba(18,34,54,.05),0 10px 30px -18px rgba(18,34,54,.25);
+  }
+  @media (prefers-color-scheme:dark){
+    :root{ --ground:#0b1a2a; --surface:#122539; --surface-2:#162c43; --line:#22384f; --line-strong:#2c435c;
+      --text:#e7eef5; --muted:#95a6b7; --faint:#6f8194; --green:#4cbc83; --green-deep:#2e9e63; --green-soft:rgba(76,188,131,.13);
+      --amber:#d6a94e; --amber-soft:rgba(214,169,78,.13); --red:#e08a78; --red-soft:rgba(224,138,120,.13); --ink:#dfe8f1; }
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;background:var(--ground);font-family:var(--sans);color:var(--text)}
+  .wrap{min-height:100%;padding:0}
+  a{color:var(--green-deep)}
+  .topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;
+    padding:16px clamp(16px,4vw,40px);border-bottom:1px solid var(--line);background:var(--surface)}
+  .brand{display:flex;align-items:center;gap:10px;text-decoration:none}
+  .mark{font-family:var(--mono);font-weight:700;font-size:14px;letter-spacing:.06em;color:#fff;background:var(--ink);padding:6px 8px;border-radius:6px}
+  .brandtxt{font-weight:600;font-size:14px;color:var(--text)}
+  .who{font-size:12.5px;color:var(--muted);display:flex;align-items:center;gap:10px}
+  .who button{font:inherit;background:none;border:1px solid var(--line-strong);color:var(--muted);border-radius:6px;padding:5px 10px;cursor:pointer}
+  .shell{display:flex;min-height:calc(100% - 57px)}
+  nav.side{width:200px;flex:none;border-right:1px solid var(--line);padding:18px 10px;background:var(--surface)}
+  nav.side a{display:block;padding:9px 12px;border-radius:8px;color:var(--muted);text-decoration:none;font-size:14px;margin-bottom:2px}
+  nav.side a.on{background:var(--green-soft);color:var(--green-deep);font-weight:600}
+  main{flex:1;padding:clamp(18px,3vw,36px);max-width:960px}
+  h1{font-family:var(--serif);font-size:1.7rem;margin:0 0 6px;color:var(--text)}
+  .sub{color:var(--muted);font-size:14px;margin:0 0 22px}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px 20px;box-shadow:var(--shadow);margin-bottom:16px}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  label{display:block;font-size:12.5px;font-weight:600;color:var(--muted);margin:12px 0 5px}
+  input,select,textarea{width:100%;font:inherit;font-size:14px;padding:9px 11px;border:1px solid var(--line-strong);border-radius:8px;background:var(--ground);color:var(--text)}
+  textarea{min-height:70px;resize:vertical}
+  button.btn{font:inherit;font-weight:600;font-size:14px;border:none;border-radius:8px;padding:9px 16px;cursor:pointer;background:var(--green);color:#06231a}
+  button.btn:hover{background:var(--green-deep);color:#fff}
+  button.ghost{background:transparent;border:1px solid var(--line-strong);color:var(--muted)}
+  table{width:100%;border-collapse:collapse;font-size:13.5px}
+  th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line)}
+  th{color:var(--muted);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.04em}
+  tr.clickable{cursor:pointer}
+  tr.clickable:hover{background:var(--surface-2)}
+  .chip{font-family:var(--mono);font-size:10.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;padding:3px 8px;border-radius:20px;display:inline-block}
+  .chip.heavy{color:var(--red);background:var(--red-soft)}
+  .chip.light{color:var(--green-deep);background:var(--green-soft)}
+  .chip.stage{color:var(--muted);background:var(--surface-2)}
+  .err{background:var(--red-soft);color:var(--red);border-radius:8px;padding:10px 14px;font-size:13.5px;margin:10px 0}
+  .msg{background:var(--green-soft);color:var(--green-deep);border-radius:8px;padding:10px 14px;font-size:13.5px;margin:10px 0}
+  .center{display:flex;align-items:center;justify-content:center;min-height:100vh}
+  .loginbox{width:340px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:28px;box-shadow:var(--shadow)}
+  .status-note{font-size:12.5px;color:var(--faint);margin-top:18px;padding-top:14px;border-top:1px solid var(--line)}
+</style>
+</head>
+<body>
+<div id="app" class="wrap"></div>
+
+<script>
+/* ---------- shared auth (same convention as O2S index.html: van_token in localStorage) ---------- */
+let _token = (function(){ try{ return localStorage.getItem('van_token')||''; }catch(e){ return ''; } })();
+function authHdr(){ return _token ? {'Authorization':'Bearer '+_token} : {}; }
+function decodeToken(t){ try{ if(!t)return null; const p=t.split('.')[0]; const o=JSON.parse(atob(p.replace(/-/g,'+').replace(/_/g,'/'))); if(!o.exp||o.exp<Date.now())return null; return {name:o.n,username:o.u,role:o.r}; }catch(e){ return null; } }
+function setToken(t){ _token=t||''; try{ t?localStorage.setItem('van_token',t):localStorage.removeItem('van_token'); }catch(e){} }
+
+async function api(method, url, body){
+  const r = await fetch(url, { method, headers: Object.assign({'Content-Type':'application/json'}, authHdr()), body: body?JSON.stringify(body):undefined });
+  let j = null; try{ j = await r.json(); }catch(e){}
+  if(!r.ok) throw Object.assign(new Error((j&&j.error)||('HTTP '+r.status)), {status:r.status, body:j});
+  return j;
+}
+
+let me = null; // /api/pd/me response
+const app = document.getElementById('app');
+
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+/* ---------- login ---------- */
+function renderLogin(err){
+  app.innerHTML =
+    '<div class="center"><div class="loginbox">'
+    + '<div class="row" style="margin-bottom:18px"><span class="mark">VAN</span><span class="brandtxt">Product Development</span></div>'
+    + (err ? '<div class="err">'+esc(err)+'</div>' : '')
+    + '<label>Username</label><input id="lu" autocomplete="username">'
+    + '<label>Password</label><input id="lp" type="password" autocomplete="current-password">'
+    + '<div style="margin-top:16px"><button class="btn" id="lbtn" style="width:100%">Sign in</button></div>'
+    + '<p class="status-note">One sign-in for the whole VAN Operations Platform — the same account you use for O2S.</p>'
+    + '</div></div>';
+  document.getElementById('lbtn').onclick = doLogin;
+  document.getElementById('lp').addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); });
+}
+async function doLogin(){
+  const u = document.getElementById('lu').value.trim(), p = document.getElementById('lp').value;
+  try{
+    const j = await api('POST','/api/login',{username:u,password:p});
+    setToken(j.token);
+    boot();
+  }catch(e){ renderLogin(e.message || 'Sign-in failed.'); }
+}
+
+/* ---------- shell + router ---------- */
+const NAV = [
+  {href:'#home', label:'Home', surface:'home'},
+  {href:'#mywork', label:'My Work', surface:'mywork'},
+  {href:'#ideas', label:'Ideas', surface:'ideas.own'},
+  {href:'#gatelog', label:'Gate log', surface:'gatelog'},
+];
+function shell(bodyHtml, activeHash){
+  const navHtml = NAV.filter(n => me.surfaces.includes(n.surface)).map(n =>
+    '<a href="'+n.href+'" class="'+(activeHash===n.href?'on':'')+'">'+n.label+'</a>').join('');
+  app.innerHTML =
+    '<div class="topbar">'
+    + '<a class="brand" href="#home"><span class="mark">VAN</span><span class="brandtxt">Product Development</span></a>'
+    + '<div class="who">'+esc(me.name)+' · '+esc(me.label||'no PD role')+' &nbsp; <button id="back">O2S launcher</button> <button id="out">Sign out</button></div>'
+    + '</div>'
+    + '<div class="shell"><nav class="side">'+navHtml+'</nav><main id="main">'+bodyHtml+'</main></div>';
+  document.getElementById('out').onclick = () => { me = null; setToken(''); location.hash=''; boot(); };
+  document.getElementById('back').onclick = () => { location.href = '/launcher'; };
+}
+function setMain(html){ const m = document.getElementById('main'); if(m) m.innerHTML = html; }
+
+async function route(){
+  if (!me) return; // signed out (or not yet booted) — the hashchange listener can fire after sign-out via location.hash=''; don't let it repaint a stale session
+  const hash = location.hash || ('#'+me.landing);
+  try{
+    if (hash === '#home') return renderHome(hash);
+    if (hash === '#mywork') return renderMyWork(hash);
+    if (hash === '#ideas') return renderIdeas(hash);
+    if (hash.startsWith('#idea/')) return renderIdea(hash, hash.split('/')[1]);
+    if (hash === '#gatelog') return renderGateLog(hash);
+    if (hash === '#new') return renderNewIdea(hash);
+    return renderHome(hash);
+  } catch(e) {
+    shell('<div class="err">'+esc(e.message)+'</div>', hash);
+  }
+}
+window.addEventListener('hashchange', route);
+
+function renderHome(hash){
+  shell(
+    '<h1>Welcome, '+esc(me.name)+'</h1>'
+    + '<p class="sub">Bring something in — an idea, a problem, or a challenge to a product you already make.</p>'
+    + '<div class="card"><a class="btn" href="#new" style="text-decoration:none;display:inline-block">+ New idea</a></div>'
+    + (me.surfaces.includes('mywork') ? '<p class="sub"><a href="#mywork">Go to My Work →</a></p>' : ''),
+    hash
+  );
+}
+
+function renderNewIdea(hash){
+  const CT = {new:'Brand-new product concept', reformulation:'Improve / re-engineer an existing formulation',
+    variant:'New variant of an existing product', process:'Process / manufacturing improvement', challenge:'Challenge to a product we already make'};
+  const opts = Object.keys(CT).map(k=>'<option value="'+k+'">'+CT[k]+'</option>').join('');
+  shell(
+    '<h1>New idea</h1><p class="sub">You never pick a lane — it\'s set from the kind of idea below.</p>'
+    + '<div class="card" id="frm">'
+    + '<label>Title</label><input id="f_title">'
+    + '<label>Kind of idea</label><select id="f_ct">'+opts+'</select>'
+    + '<label>The idea</label><textarea id="f_idea"></textarea>'
+    + '<label>What problem does it solve? (optional)</label><textarea id="f_problem"></textarea>'
+    + '<label>Why might it work? (optional)</label><textarea id="f_reason"></textarea>'
+    + '<div style="margin-top:14px"><button class="btn" id="f_submit">Submit idea</button></div>'
+    + '<div id="f_msg"></div>'
+    + '</div>',
+    hash
+  );
+  document.getElementById('f_submit').onclick = async () => {
+    const b = { title: document.getElementById('f_title').value.trim(), change_type: document.getElementById('f_ct').value,
+      idea_text: document.getElementById('f_idea').value.trim(), problem_text: document.getElementById('f_problem').value.trim(),
+      reasoning_text: document.getElementById('f_reason').value.trim() };
+    if(!b.title || !b.idea_text){ setMain(document.getElementById('frm').outerHTML); document.getElementById('f_msg').innerHTML='<div class="err">Title and the idea itself are required.</div>'; return; }
+    try{ const j = await api('POST','/api/pd/ideas', b); location.hash = '#idea/'+ (await api('GET','/api/pd/ideas')).find(x=>x.h_number===j.h_number).id; }
+    catch(e){ document.getElementById('f_msg').innerHTML = '<div class="err">'+esc(e.message)+'</div>'; }
+  };
+}
+
+async function renderIdeas(hash){
+  shell('<h1>Ideas</h1><p class="sub">Loading…</p>', hash);
+  const rows = await api('GET','/api/pd/ideas');
+  const trs = rows.map(r =>
+    '<tr class="clickable" onclick="location.hash=\'#idea/'+r.id+'\'"><td>'+r.h_label+'</td><td>'+esc(r.title)+'</td>'
+    + '<td><span class="chip '+r.lane+'">'+r.lane+'</span></td><td><span class="chip stage">'+esc(r.stage_label)+'</span></td>'
+    + '<td>'+esc(r.submitted_by_name)+'</td></tr>').join('');
+  setMain('<h1>Ideas</h1><p class="sub">'+rows.length+' idea(s).</p>'
+    + '<div class="card"><table><tr><th>H#</th><th>Title</th><th>Lane</th><th>Stage</th><th>Submitted by</th></tr>'+trs+'</table></div>');
+}
+
+async function renderMyWork(hash){
+  shell('<h1>My Work</h1><p class="sub">Loading…</p>', hash);
+  const rows = await api('GET','/api/pd/mywork');
+  const trs = rows.map(r =>
+    '<tr class="clickable" onclick="location.hash=\'#idea/'+r.id+'\'"><td>'+r.h_label+'</td><td>'+esc(r.title)+'</td><td><span class="chip '+r.lane+'">'+r.lane_label+'</span></td></tr>').join('');
+  setMain('<h1>My Work</h1><p class="sub">Ideas waiting on your G1 screen.</p>'
+    + '<div class="card"><table><tr><th>H#</th><th>Title</th><th>Lane</th></tr>'+trs+'</table>'
+    + (rows.length===0 ? '<p class="sub" style="margin-top:10px">Nothing waiting on you right now.</p>' : '') + '</div>');
+}
+
+async function renderIdea(hash, id){
+  shell('<p class="sub">Loading…</p>', hash);
+  const idea = await api('GET','/api/pd/ideas/'+id);
+  const canScreen = !idea.screen_decision && me.surfaces.includes('screen');
+  const gatesHtml = idea.gates.map(g =>
+    '<tr><td>'+g.gate+'</td><td>'+g.decision+(g.provisional?' <span class="chip stage">provisional</span>':'')+'</td><td>'+esc(g.reason)+'</td><td>'+esc(g.decided_by_name)+'</td></tr>').join('')
+    || '<tr><td colspan="4" class="sub">No gate decisions yet.</td></tr>';
+  setMain(
+    '<h1>'+idea.h_label+' · '+esc(idea.title)+'</h1>'
+    + '<p class="sub"><span class="chip '+idea.lane+'">'+idea.lane+' lane</span> &nbsp; <span class="chip stage">'+esc(idea.stage_label)+'</span> &nbsp; submitted by '+esc(idea.submitted_by_name)+'</p>'
+    + '<div class="card"><label>The idea</label><p>'+esc(idea.idea_text)+'</p>'
+    + (idea.problem_text?'<label>Problem it solves</label><p>'+esc(idea.problem_text)+'</p>':'')
+    + (idea.reasoning_text?'<label>Why it might work</label><p>'+esc(idea.reasoning_text)+'</p>':'')
+    + '</div>'
+    + (canScreen ?
+      '<div class="card" id="screenCard"><h2 style="font-size:1.05rem;margin:0 0 10px">G1 screen</h2>'
+      + '<label>Decision</label><select id="s_dec"><option value="log">LOG — worth designing (advance)</option><option value="park">PARK — not now</option><option value="kill">KILL — with reason, kept forever</option><option value="merge">MERGE — into an existing hypothesis</option></select>'
+      + '<label>Reason (required)</label><textarea id="s_reason"></textarea>'
+      + '<div style="margin-top:12px"><button class="btn" id="s_submit">Record decision</button></div><div id="s_msg"></div></div>'
+      : '')
+    + '<div class="card"><h2 style="font-size:1.05rem;margin:0 0 10px">Gate log</h2><table><tr><th>Gate</th><th>Decision</th><th>Reason</th><th>By</th></tr>'+gatesHtml+'</table></div>'
+  );
+  if(canScreen) document.getElementById('s_submit').onclick = async () => {
+    try{ await api('POST','/api/pd/ideas/'+id+'/screen', {decision:document.getElementById('s_dec').value, reason:document.getElementById('s_reason').value}); location.reload(); }
+    catch(e){ document.getElementById('s_msg').innerHTML = '<div class="err">'+esc(e.message)+'</div>'; }
+  };
+}
+
+async function renderGateLog(hash){
+  shell('<h1>Gate log</h1><p class="sub">Loading…</p>', hash);
+  const rows = await api('GET','/api/pd/gatelog');
+  const trs = rows.map(r => '<tr class="clickable" onclick="location.hash=\'#idea/'+r.hypothesis_id+'\'"><td>'+r.h_label+'</td><td>'+esc(r.title)+'</td><td>'+r.gate+'</td><td>'+r.decision+(r.provisional?' <span class="chip stage">provisional</span>':'')+'</td><td>'+esc(r.reason)+'</td><td>'+esc(r.decided_by_name)+'</td></tr>').join('');
+  setMain('<h1>Gate log</h1><p class="sub">Every gate decision, most recent first. A comment is not a decision — this is.</p>'
+    + '<div class="card"><table><tr><th>H#</th><th>Title</th><th>Gate</th><th>Decision</th><th>Reason</th><th>By</th></tr>'+trs+'</table></div>');
+}
+
+/* ---------- boot ---------- */
+async function boot(){
+  const u = decodeToken(_token);
+  if(!u){ renderLogin(); return; }
+  try{
+    me = await api('GET','/api/pd/me');
+    if(!me.pd_role){
+      app.innerHTML = '<div class="center"><div class="loginbox"><div class="row" style="margin-bottom:14px"><span class="mark">VAN</span><span class="brandtxt">Product Development</span></div>'
+        + '<p>Signed in as '+esc(me.name)+', but this account has no Product Development role yet.</p>'
+        + '<p class="sub">Ask the COO or Data Custodian to grant one, then reload this page.</p>'
+        + '<button class="ghost btn" onclick="location.href=\'/launcher\'">Back to launcher</button></div></div>';
+      return;
+    }
+    route();
+  }catch(e){
+    if(e.status===401){ setToken(''); renderLogin('Session expired — sign in again.'); return; }
+    if(e.status===503){ app.innerHTML = '<div class="center"><div class="loginbox"><p class="err">'+esc(e.message)+'</p></div></div>'; return; }
+    app.innerHTML = '<div class="center"><div class="loginbox"><p class="err">'+esc(e.message)+'</p></div></div>';
+  }
+}
+boot();
+</script>
+</body>
+</html>

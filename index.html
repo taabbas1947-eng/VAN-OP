@@ -6099,7 +6099,7 @@ function renderMPShip(){ if(!mpForm){closeModal();return;} var f=mpForm; var ste
     body='<div class="dwcard"><div class="dwh"><div><h3>Truck &amp; transport</h3><p>Pick a truck size and how the load leaves. Capacity is checked in the background.</p></div></div>'
       +picks
       +'<div class="dwh" style="margin:12px 0 8px"><div><h3 style="font-size:15px">Transport type</h3></div></div>'+tt
-      +'<div class="dwgrid" style="margin-top:10px"><div class="dwmini"><label>Vehicle #'+vehTag+'</label><input type="text" value="'+_av(f.vehicle)+'" oninput="mpSet(\'vehicle\',this.value);renderMPShip()" placeholder="'+(exf?'collecting truck':(f.transportType?'truck number':'pick transport first'))+'"></div>'
+      +'<div class="dwgrid" style="margin-top:10px"><div class="dwmini"><label>Vehicle #'+vehTag+'</label><input type="text" value="'+_av(f.vehicle)+'" oninput="mpSet(\'vehicle\',this.value)" placeholder="'+(exf?'collecting truck':(f.transportType?'truck number':'pick transport first'))+'"></div>'
       +'<div class="dwmini"><label>Bilty #'+biltyTag+'</label><input type="text" value="'+_av(f.bilty)+'" oninput="mpSet(\'bilty\',this.value)" placeholder="transporter consignment"></div></div>'
       +'<div class="dwgrid" style="margin-top:8px"><div class="dwmini"><label>Carrier</label><input type="text" value="'+_av(f.carrier)+'" oninput="mpSet(\'carrier\',this.value)" placeholder="transporter name (optional)"></div><div></div></div>'
       +'<div class="dwnote '+(over?'warn':'ok')+'" id="mp_cap">'+mpCapText()+'</div>'

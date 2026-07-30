@@ -1387,7 +1387,7 @@ function ensureState(s){
   s.users=(s.users&&s.users.length)?s.users:deepClone(SEED.users||[]); if(s.currentUser===undefined)s.currentUser=null;
   s.rmRequests=s.rmRequests||[]; s.productionLog=s.productionLog||[]; s.packingLog=s.packingLog||[];
   s.actionLog=s.actionLog||[]; s.shipments=s.shipments||[]; s.inspections=s.inspections||[]; s.warehouses=s.warehouses||SEED.warehouses.slice();
-  s.rawStock=s.rawStock||{}; s.rmMovements=s.rmMovements||[]; s.audit=s.audit||[]; s.masters=s.masters||deepClone(SEED.masters||{}); s.batches=s.batches||[]; s.packedStock=s.packedStock||{}; s.packingLog=s.packingLog||[]; s.orders=s.orders||[]; if(s.seq==null)s.seq=1000; ensureRecordIds(s); if(s.dataFixEnabled==null)s.dataFixEnabled=true; if(!Array.isArray(s.prs))s.prs=[]; (s.batches||[]).forEach(function(b){ if((b.producedKg||0)>0 && (!Array.isArray(b.lots)||!b.lots.length)){ b.lots=[{id:'LOT'+(s.seq++), lotNo:(b.batchNo||'B')+'-L1', qty:b.producedKg, date:b.openedDate||'', by:b.by||'', coa:(b.coa||null), migrated:true}]; } }); ensureMasters(s); ensureProductionModel(s); dedupePackingLots(s); migrateLotTracking(s); fixRudolfDupV1(s); reconcileLotShipKgV1(s); dedupeShipmentsV1(s); healPRFlags(s); migrateBrandNames(s); loadBaseRecipesV2(s); loadBlendRecipesV1(s); loadBlendRecipesV2(s); purgeImportedProduction(s); purgeImportDuplicates(s); purgeImportedNoTwin(s); fixPhantomLotVU26134(s); fixVU26144ProdLogV1(s); fixVU26144ProdLogV2(s); healVU26144ProdLog(s); backfillDisposedV1(s); consolidateByproductV1(s); dedupeByproductV1(s); reconcileShipLotsV1(s); normalizeVZincBase(s); normalizeBoronBase(s); seedByproductRulesV1(s); seedRolesV1(s); bumpSeqV1(s); healDupBatchIdsV1(s); fixVB26003LotRenameV1(s); return s;
+  s.rawStock=s.rawStock||{}; s.rmMovements=s.rmMovements||[]; s.audit=s.audit||[]; s.masters=s.masters||deepClone(SEED.masters||{}); s.batches=s.batches||[]; s.packedStock=s.packedStock||{}; s.packingLog=s.packingLog||[]; s.orders=s.orders||[]; if(s.seq==null)s.seq=1000; ensureRecordIds(s); if(s.dataFixEnabled==null)s.dataFixEnabled=true; if(!Array.isArray(s.prs))s.prs=[]; (s.batches||[]).forEach(function(b){ if((b.producedKg||0)>0 && (!Array.isArray(b.lots)||!b.lots.length)){ b.lots=[{id:'LOT'+(s.seq++), lotNo:(b.batchNo||'B')+'-L1', qty:b.producedKg, date:b.openedDate||'', by:b.by||'', coa:(b.coa||null), migrated:true}]; } }); ensureMasters(s); ensureProductionModel(s); dedupePackingLots(s); migrateLotTracking(s); fixRudolfDupV1(s); reconcileLotShipKgV1(s); dedupeShipmentsV1(s); healPRFlags(s); migrateBrandNames(s); loadBaseRecipesV2(s); loadBlendRecipesV1(s); loadBlendRecipesV2(s); purgeImportedProduction(s); purgeImportDuplicates(s); purgeImportedNoTwin(s); fixPhantomLotVU26134(s); fixVU26144ProdLogV1(s); fixVU26144ProdLogV2(s); healVU26144ProdLog(s); backfillDisposedV1(s); consolidateByproductV1(s); dedupeByproductV1(s); reconcileShipLotsV1(s); normalizeVZincBase(s); normalizeBoronBase(s); seedByproductRulesV1(s); seedRolesV1(s); bumpSeqV1(s); healDupBatchIdsV1(s); fixVB26003LotRenameV1(s); fixRudolfTBPPOV1(s); return s;
 }
 /* 2026-07-28 fix: seq can lag behind ids already in the data (stale tab saved over a
    newer state), so bump it above every numeric id suffix before anything generates ids. */
@@ -1638,7 +1638,11 @@ function merge3(base, local, srv){
 }
 function save(){ _savePending=true; if(_saveTimer)clearTimeout(_saveTimer); _saveTimer=setTimeout(saveNow,400); }  // _savePending set synchronously so the auto-refresh can't pull over an unsaved change
 async function saveNow(){ if(!_token) return; try{
-    const r=await fetch('/api/state',{method:'POST',headers:Object.assign({'Content-Type':'application/json','X-Base-Rev':String(_rev)},authHdr()),body:JSON.stringify(dataOnly(state))});
+    /* 2026-07-30 fix: capture the exact wire payload ONCE, synchronously, before the request
+       goes out. Passing this same string (not a fresh live read) to _baseSnapshot on success
+       is the whole fix below — see the comment at that line for why. */
+    const _bodyStr=JSON.stringify(dataOnly(state));
+    const r=await fetch('/api/state',{method:'POST',headers:Object.assign({'Content-Type':'application/json','X-Base-Rev':String(_rev)},authHdr()),body:_bodyStr});
     if(r.status===401){ setSession('',null); renderApp(); return; }
     if(r.status===409){
       // Someone else saved since we loaded. 3-way merge keeps THEIR edits AND ours
@@ -1658,7 +1662,20 @@ async function saveNow(){ if(!_token) return; try{
       toast('Refreshed — please re-check your last change.');
       return;
     }
-    if(r.ok){ const j=await r.json(); if(j&&typeof j.rev==='number') _rev=j.rev; _saveRetries=0; _savePending=false; _snapBase(); }
+    /* 2026-07-30 fix (gate-pass/action "reverts back" bug): on a clean (non-conflict) save,
+       the baseline must be pinned to EXACTLY what this request sent and the server just
+       confirmed - _bodyStr, captured above before the await. The old code called _snapBase(),
+       which re-reads whatever is LIVE in `state` at this moment. When a SLOWER, earlier-
+       dispatched save from the same tab (e.g. an unrelated shipment row) finishes after a
+       newer local edit (e.g. issuing a Gate Pass) has already been made, that live re-read
+       silently "absorbs" the newer edit into the baseline even though the server was never
+       actually sent it. If that earlier save's own still-in-flight sibling then comes back
+       as a 409, the merge sees local === (poisoned) base for that field and wrongly takes the
+       server's stale value - reverting the just-issued Gate Pass / approval / etc. back to
+       blank, so the action looks like it "came back again" and the button reappears.
+       Pinning to _bodyStr closes that gap: the baseline can never claim more than the server
+       actually has. Reproduced and verified fixed in isolation (see OP-HANDOFF.md). */
+    if(r.ok){ const j=await r.json(); if(j&&typeof j.rev==='number') _rev=j.rev; _saveRetries=0; _savePending=false; _baseSnapshot=JSON.parse(_bodyStr); }
   }catch(e){} }
 function hasUnsavedEntry(){ try{ const v=document.getElementById('view'); if(!v) return false;
   const els=v.querySelectorAll('input,textarea,select');
@@ -6622,6 +6639,26 @@ function normalizeBoronBase(s){
     if(!g['VL-Boron']) g['VL-Boron']=g['V-Boron Liquid']||g['VL Boron']||'Liquid';
     delete g['V-Boron Liquid']; delete g['VL Boron'];
   } }catch(e){}
+}
+/* Rudolf Life Sciences PO "TBP" was a manually-entered placeholder (real PO number not on hand
+   at entry time, 2026-07-22). Tahir supplied the real number 2026-07-30: RUDPO0033. Renames the
+   po field on the order, its 2 own-base batches (RUG26003/RUBS26003 - the bulk-type batch
+   RUHAL26004 carries no po field of its own, only linked via packingLog/lots), and its 3
+   packing + 3 inspection rows, so pack/QC/dispatch tracking runs off the real PO from here on.
+   Scoped to this ONE order only (matched by the exact placeholder string 'TBP', which is not a
+   PO format used anywhere else in the system). Guarded + idempotent - runs once, self-heals if
+   it ever runs again. Deliberately does NOT touch audit or actionLog - those are history and
+   must read as they happened (same rule as normalizeBoronBase above). */
+function fixRudolfTBPPOV1(s){
+  if(!s || s._fixRudolfTBPPOV1) return;
+  var OLD='TBP', NEW='RUDPO0033', changed=false;
+  (s.orders||[]).forEach(function(o){ if(o&&o.po===OLD){ o.po=NEW; changed=true; } });
+  (s.batches||[]).forEach(function(b){ if(b&&b.po===OLD){ b.po=NEW; changed=true; } });
+  (s.packingLog||[]).forEach(function(p){ if(p&&p.po===OLD){ p.po=NEW; changed=true; } });
+  (s.inspections||[]).forEach(function(i){ if(i&&i.po===OLD){ i.po=NEW; changed=true; } });
+  if(changed){ try{ (s.audit=s.audit||[]).push({id:'AU'+(s.seq++), t:new Date().toISOString(), module:'Data Fix', field:'PO renamed', old:OLD, val:NEW, user:'System', note:'RUDOLF LIFE SCIENCES placeholder PO TBP corrected to the real PO number'}); }catch(e){}
+  }
+  s._fixRudolfTBPPOV1=true;
 }
 function migrateBrandNames(s){ const ren=function(o,depth){ if(!o||typeof o!=='object'||depth>8)return; for(var k in o){ var v=o[k]; if(typeof v==='string'){ if(BRAND_ALIAS[v]) o[k]=BRAND_ALIAS[v]; } else if(v&&typeof v==='object'){ ren(v,depth+1); } } }; ['orders','packingLog','batches','shipments','inspections'].forEach(function(key){ if(Array.isArray(s[key])) s[key].forEach(function(x){ ren(x,0); }); }); }
 function recipeFor(base){ base=(RECIPE_ALIAS[base]||base); const o=(typeof state!=='undefined'&&state&&state.masters&&state.masters.recipes&&state.masters.recipes[base]); if(o&&Object.keys(o).length) return o; return (typeof SEED!=='undefined'&&SEED.baseRecipes&&SEED.baseRecipes[base])||{}; }

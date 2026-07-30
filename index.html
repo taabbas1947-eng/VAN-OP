@@ -1387,7 +1387,7 @@ function ensureState(s){
   s.users=(s.users&&s.users.length)?s.users:deepClone(SEED.users||[]); if(s.currentUser===undefined)s.currentUser=null;
   s.rmRequests=s.rmRequests||[]; s.productionLog=s.productionLog||[]; s.packingLog=s.packingLog||[];
   s.actionLog=s.actionLog||[]; s.shipments=s.shipments||[]; s.inspections=s.inspections||[]; s.warehouses=s.warehouses||SEED.warehouses.slice();
-  s.rawStock=s.rawStock||{}; s.rmMovements=s.rmMovements||[]; s.audit=s.audit||[]; s.masters=s.masters||deepClone(SEED.masters||{}); s.batches=s.batches||[]; s.packedStock=s.packedStock||{}; s.packingLog=s.packingLog||[]; s.orders=s.orders||[]; if(s.seq==null)s.seq=1000; ensureRecordIds(s); if(s.dataFixEnabled==null)s.dataFixEnabled=true; if(!Array.isArray(s.prs))s.prs=[]; (s.batches||[]).forEach(function(b){ if((b.producedKg||0)>0 && (!Array.isArray(b.lots)||!b.lots.length)){ b.lots=[{id:'LOT'+(s.seq++), lotNo:(b.batchNo||'B')+'-L1', qty:b.producedKg, date:b.openedDate||'', by:b.by||'', coa:(b.coa||null), migrated:true}]; } }); ensureMasters(s); ensureProductionModel(s); dedupePackingLots(s); migrateLotTracking(s); fixRudolfDupV1(s); reconcileLotShipKgV1(s); dedupeShipmentsV1(s); healPRFlags(s); migrateBrandNames(s); loadBaseRecipesV2(s); loadBlendRecipesV1(s); loadBlendRecipesV2(s); purgeImportedProduction(s); purgeImportDuplicates(s); purgeImportedNoTwin(s); fixPhantomLotVU26134(s); fixVU26144ProdLogV1(s); fixVU26144ProdLogV2(s); healVU26144ProdLog(s); backfillDisposedV1(s); consolidateByproductV1(s); dedupeByproductV1(s); reconcileShipLotsV1(s); normalizeVZincBase(s); normalizeBoronBase(s); seedByproductRulesV1(s); seedRolesV1(s); bumpSeqV1(s); healDupBatchIdsV1(s); fixVB26003LotRenameV1(s); fixRudolfTBPPOV1(s); return s;
+  s.rawStock=s.rawStock||{}; s.rmMovements=s.rmMovements||[]; s.audit=s.audit||[]; s.masters=s.masters||deepClone(SEED.masters||{}); s.batches=s.batches||[]; s.packedStock=s.packedStock||{}; s.packingLog=s.packingLog||[]; s.orders=s.orders||[]; if(s.seq==null)s.seq=1000; ensureRecordIds(s); if(s.dataFixEnabled==null)s.dataFixEnabled=true; if(!Array.isArray(s.prs))s.prs=[]; (s.batches||[]).forEach(function(b){ if((b.producedKg||0)>0 && (!Array.isArray(b.lots)||!b.lots.length)){ b.lots=[{id:'LOT'+(s.seq++), lotNo:(b.batchNo||'B')+'-L1', qty:b.producedKg, date:b.openedDate||'', by:b.by||'', coa:(b.coa||null), migrated:true}]; } }); ensureMasters(s); ensureProductionModel(s); dedupePackingLots(s); migrateLotTracking(s); migratePackingLotLidV1(s); fixRudolfDupV1(s); reconcileLotShipKgV1(s); dedupeShipmentsV1(s); healPRFlags(s); migrateBrandNames(s); loadBaseRecipesV2(s); loadBlendRecipesV1(s); loadBlendRecipesV2(s); purgeImportedProduction(s); purgeImportDuplicates(s); purgeImportedNoTwin(s); fixPhantomLotVU26134(s); fixVU26144ProdLogV1(s); fixVU26144ProdLogV2(s); healVU26144ProdLog(s); backfillDisposedV1(s); consolidateByproductV1(s); dedupeByproductV1(s); reconcileShipLotsV1(s); normalizeVZincBase(s); normalizeBoronBase(s); seedByproductRulesV1(s); seedRolesV1(s); bumpSeqV1(s); healDupBatchIdsV1(s); fixVB26003LotRenameV1(s); fixRudolfTBPPOV1(s); return s;
 }
 /* 2026-07-28 fix: seq can lag behind ids already in the data (stale tab saved over a
    newer state), so bump it above every numeric id suffix before anything generates ids. */
@@ -2394,7 +2394,7 @@ function dfSubmitPacking(){
   const o=state.orders.find(x=>x.id===dfForm.oid); const l=o&&o.lines.find(x=>x.id===dfForm.lid);
   if(!l) return toast('Pick PO and product');
   l.packed=(l.packed||0)+q; l.produced=Math.max(l.produced||0,l.packed); l.prodStart=l.prodStart||d; if((l.packed||0)>=l.ordered-0.5) l.prodComplete=l.prodComplete||d;
-  (state.packingLog=state.packingLog||[]).unshift({id:_uid('PK'),date:d,base:l.base,brand:l.brand,kg:q,by:state.role,po:o.po,recon:true});
+  (state.packingLog=state.packingLog||[]).unshift({id:_uid('PK'),date:d,base:l.base,brand:l.brand,kg:q,by:state.role,po:o.po,lid:l.id,recon:true});
   reconLog(`Added missing packing: ${fmt(q)} Kg/L ${l.brand} on ${o.po} — ${dfForm.reason}`, d);
   save(); toast('Packing backfilled'); dfBack();
 }
@@ -4016,7 +4016,7 @@ function submitDivert(){ if(!(canEdit(['Production'])||state.role==='COO')){toas
   const srcNo=slices.length===1?(slices[0].sourceBatchNo||'DIVERT'):((slices[0].sourceBatchNo||'DIVERT')+' +'+(slices.length-1));
   const t=new Date(d); t.setFullYear(t.getFullYear()+2);
   l.packed=(l.packed||0)+qty; l.produced=Math.max(l.produced||0,l.packed); l.prodStart=l.prodStart||d; if(l.packed>=l.ordered-0.5)l.prodComplete=l.prodComplete||d; if(l.printPrice==null||l.printPrice==='') l.printPrice=ppx;
-  (state.packingLog=state.packingLog||[]).unshift({id:nid('PK'),date:d,base:l.base,brand:l.brand,kg:qty,by:state.role,po:o.po,baseBatchId:p.id,baseBatchNo:srcNo,brandBatchNo:srcNo,mfgDate:d,expDate:t.toISOString().slice(0,10),printPrice:ppx,priceVerifiedBy:state.role,fromDivert:true,fromDivertSources:slices});
+  (state.packingLog=state.packingLog||[]).unshift({id:nid('PK'),date:d,base:l.base,brand:l.brand,kg:qty,by:state.role,po:o.po,lid:l.id,baseBatchId:p.id,baseBatchNo:srcNo,brandBatchNo:srcNo,mfgDate:d,expDate:t.toISOString().slice(0,10),printPrice:ppx,priceVerifiedBy:state.role,fromDivert:true,fromDivertSources:slices});
   p.plannedKg=(p.sources||[]).reduce((a,s)=>a+(+s.kg||0),0);
   (state.audit=state.audit||[]).unshift({t:new Date().toISOString(),user:state.role,module:'Production',field:'Diverted material packed',po:o.po,brand:l.brand,val:fmt(qty)+' Kg packed from divert pool ('+slices.length+' source batch'+(slices.length===1?'':'es')+': '+slices.map(s=>(s.sourceBatchNo||'?')+' '+fmt(s.kg)).join(', ')+')',batchNo:srcNo});
   logAction('Packed '+fmt(qty)+' Kg/L diverted '+l.brand+' ['+srcNo+'] for '+o.po+' ('+fmt(l.packed)+'/'+fmt(l.ordered)+'; '+slices.length+' source slice'+(slices.length===1?'':'s')+')');
@@ -4246,7 +4246,7 @@ function submitProdQty(){ if(!(canEdit(['Production'])||state.role==='COO')){toa
   b.packedKg=(b.packedKg||0)+q; l.packed=(l.packed||0)+q; l.produced=Math.max(l.produced||0,l.packed); l.prodStart=l.prodStart||d; if(l.packed>=l.ordered-0.5)l.prodComplete=l.prodComplete||d;
   if(l.printPrice==null||l.printPrice==='') l.printPrice=ppx;
   const t=new Date(d); t.setFullYear(t.getFullYear()+2); const bn=b.batchNo||'';
-  (state.packingLog=state.packingLog||[]).unshift({id:nid('PK'),date:d,base:l.base,brand:l.brand,kg:q,by:state.role,po:o.po,baseBatchId:b.id,baseBatchNo:bn,brandBatchNo:bn,mfgDate:d,expDate:t.toISOString().slice(0,10),printPrice:ppx,priceVerifiedBy:state.role});
+  (state.packingLog=state.packingLog||[]).unshift({id:nid('PK'),date:d,base:l.base,brand:l.brand,kg:q,by:state.role,po:o.po,lid:l.id,baseBatchId:b.id,baseBatchNo:bn,brandBatchNo:bn,mfgDate:d,expDate:t.toISOString().slice(0,10),printPrice:ppx,priceVerifiedBy:state.role});
   logAction(`Packed ${fmt(q)} Kg/L of ${l.brand} [${bn}] for ${o.po} (${fmt(l.packed)}/${fmt(l.ordered)})`);
   save(); closeModal(); render(); }
 let packForm={bid:null,brand:'',kg:''};
@@ -4293,7 +4293,7 @@ function doPack(){ if(!(canEdit(['Production'])||state.role==='COO')){toast('Pro
       if(otherBrandClash){ toast('Brand batch # "'+brandBatchNo+'" is already used by a DIFFERENT brand this year \u2014 use a unique number.'); return; }
     }
     if(l.printPrice==null||l.printPrice===''){ l.printPrice=ppx; }
-    (state.packingLog=state.packingLog||[]).unshift({date:d,base:b.base,brand,kg,by:state.role,po:o.po,id:nid('PK'),baseBatchId:b.id,baseBatchNo,brandBatchNo,mfgDate:mfgD,expDate:expD,printPrice:ppx,priceVerifiedBy:state.role});
+    (state.packingLog=state.packingLog||[]).unshift({date:d,base:b.base,brand,kg,by:state.role,po:o.po,id:nid('PK'),lid:l.id,baseBatchId:b.id,baseBatchNo,brandBatchNo,mfgDate:mfgD,expDate:expD,printPrice:ppx,priceVerifiedBy:state.role});
     logAction(`Packed ${fmt(kg)} Kg/L ${b.base} [${baseBatchNo}] → ${brand} [${brandBatchNo}]${brandBatchNo!==baseBatchNo?' (re-batched)':''} for ${o.po}`);
   } else {
     toast('Packing must be against a PO for this brand — select the PO above (no unassigned packing).'); return;
@@ -5475,7 +5475,7 @@ function saveShip(){ if(!canEdit(['Supply Chain'])){toast('Supply Chain only');r
    the historical lot-tracking backfill already run for insKg/shipKg). Until that lands, avoid adding
    a second order line with the same brand to a PO that already has one — extend the existing line's
    ordered qty instead. */
-function lotsFor(o,l){ return (state.packingLog||[]).filter(p=>p&&p.po===o.po&&p.brand===l.brand&&(+p.kg||0)>0.0001).sort((a,b)=>String(a.date||a.mfgDate||'').localeCompare(String(b.date||b.mfgDate||''))||String(a.id||'').localeCompare(String(b.id||''))); }
+function lotsFor(o,l){ return (state.packingLog||[]).filter(function(p){ if(!p) return false; if((+p.kg||0)<=0.0001) return false; if(p.po!==o.po) return false; return p.lid ? (p.lid===l.id) : (p.brand===l.brand); }).sort(function(a,b){return String(a.date||a.mfgDate||'').localeCompare(String(b.date||b.mfgDate||''))||String(a.id||'').localeCompare(String(b.id||''));}); }
 function lotHasBatch(p){ return !!lotBaseNo(p); }
 function lotAvail(p){ if(p&&p.qaHold) return 0; return Math.max(0,(+p.kg||0)-(+p.insKg||0)); }       // packed, not yet inspected (a QA-held lot drops out of the queue until corrected)
 function lotClearedKg(p){ return Math.max(0,(+p.insKg||0)-(+p.shipKg||0)); }                       // inspected, not yet shipped
@@ -5601,6 +5601,35 @@ function migrateLotTracking(s){
     if(batches.length) sh.batches=batches; });
   (s.orders||[]).forEach(o=>(o.lines||[]).forEach(l=>{ const lots=lotsOf(o.po,l.brand); if(!lots.length)return; let insTot=0; (s.inspections||[]).forEach(x=>{ if(x&&x.pass&&x.po===o.po&&((l.id!=null&&x.lid===l.id)||x.brand===l.brand)) insTot+=(+x.kg||0); }); let have=lots.reduce((a,p)=>a+(+p.insKg||0),0); let rem=insTot-have; if(rem>0.5){ for(const p of lots){ if(rem<=0.5)break; const cap=(+p.kg||0)-(+p.insKg||0); if(cap<=0.0001)continue; const t=Math.min(rem,cap); p.insKg=(+p.insKg||0)+t; rem-=t; } } }));
   s._lotMig=true;
+}
+/* Backfills packingLog[].lid (order-line id) so lotsFor()/shipKg tracking can key on the exact line instead of
+   po+brand, which is ambiguous whenever an order has 2+ lines for the same brand (see Kashmir Sugar Mills /
+   PO 06493 incident). New packingLog entries are created with lid already set; this migration is only for
+   pre-existing rows. Single line per (po,brand): unambiguous, just stamp it. Multiple lines sharing a brand:
+   FIFO-fill each line's already-recorded packed qty, oldest lot first, in line (array) order — this reproduces
+   the same order the app itself allocates "packed" against lines, so it matches reality for existing data. */
+function migratePackingLotLidV1(s){
+  if(!s||s._lotLidMigV1) return; s._lotLidMigV1=true;
+  const byPoBrand={};
+  (s.packingLog||[]).forEach(function(p){ if(!p||p.lid) return; const k=(p.po||'')+''+(p.brand||''); (byPoBrand[k]=byPoBrand[k]||[]).push(p); });
+  (s.orders||[]).forEach(function(o){
+    const byBrand={};
+    (o.lines||[]).forEach(function(l){ (byBrand[l.brand]=byBrand[l.brand]||[]).push(l); });
+    Object.keys(byBrand).forEach(function(brand){
+      const lines=byBrand[brand];
+      const k=o.po+''+brand;
+      const lots=(byPoBrand[k]||[]).slice().sort(function(a,b){return String(a.date||a.mfgDate||'').localeCompare(String(b.date||b.mfgDate||''))||String(a.id||'').localeCompare(String(b.id||''));});
+      if(!lots.length) return;
+      if(lines.length===1){ lots.forEach(function(p){ p.lid=lines[0].id; }); return; }
+      let li=0, remainingForLine=(+lines[0].packed||0);
+      lots.forEach(function(p){
+        const kg=+p.kg||0;
+        while(li<lines.length-1 && remainingForLine<=0.001){ li++; remainingForLine=(+lines[li].packed||0); }
+        p.lid=lines[li].id;
+        remainingForLine-=kg;
+      });
+    });
+  });
 }
 /* Remove duplicate packing-lot rows that share an id (a stray from a concurrent save/merge). Keeps, per id,
    the copy carrying the most tracking (inspected+shipped) so nothing real is lost. Runs every load — self-healing. */

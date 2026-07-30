@@ -1950,6 +1950,16 @@ function accessLevel(role,id){ if(role==='COO') return 'edit'; const o=accessOv(
 function canView(role,scrId){ return accessLevel(role,scrId)!=='none'; }
 function screenEditOK(scrId){ return accessLevel(state.role,scrId)==='edit'; }
 function canEdit(owners){ if(state.role==='COO') return true; const o=accessOv(state.role,state.screen); if(o){ if(o.e===true) return true; if(o.e===false) return false; } return owners.includes(state.role); }
+/* Segregation-of-duty gate for sign-off/approval actions (DC approval, truck release, Lab QC
+   analyst/AQCM/QCM/Plant-Manager sign-off). Unlike canEdit(), this NEVER consults the per-screen
+   Users & Access override (accessMatrix) — it checks the user's actual assigned role only. A
+   screen-level "Edit" grant given for an unrelated reason (e.g. a Supply Chain role being able to
+   log dispatches on the Shipments screen, or being given Edit on a screen by mistake) must never
+   also unlock an approval step meant for a specific role. See the 2026-07-30 incident: "Supply
+   Chain Officer" was granted Edit on the Shipments AND Lab QC screens, which — via canEdit()'s
+   screen-override-wins logic — silently let that account approve/release DCs (and would have let
+   it sign Lab QC COAs) despite not holding the Plant Manager/AQCM/QCM role. */
+function hardRole(roles){ return state.role==='COO' || roles.includes(state.role); }
 /* ===================== SCREENS REGISTRY ===================== */
 const SCREENS=[
   {id:'dash', name:'Dashboard', ic:'\ud83d\udcca', owners:['KAM','Supply Chain','Production','Lab Rep','AQCM','QCM','QA Inspector','Plant Manager','CFO','COO'], sub:'Executive overview',
@@ -4382,7 +4392,7 @@ function coaEsc(x){ return String(x==null?'':x).replace(/&/g,'&amp;').replace(/"
 function coaFSClose(){ const el=$('coaFS'); if(el){ el.classList.remove('open'); el.innerHTML=''; } render(); }
 function renderCOAModal(){ const b=(state.batches||[]).find(x=>x.id===coaForm.bid); if(!b){coaFSClose();return;}
   const st=coaForm.status||'draft'; const ro=(st!=='draft');
-  const isLab=canEdit(['Lab Rep']), isAQ=canEdit(['AQCM']), isQM=canEdit(['QCM']), isCOO=state.role==='COO', isPM=canEdit(['Plant Manager']);
+  const isLab=hardRole(['Lab Rep']), isAQ=hardRole(['AQCM']), isQM=hardRole(['QCM']), isCOO=state.role==='COO', isPM=hardRole(['Plant Manager']);
   const dis=ro?'disabled':'';
   const uf=(f,extra)=>`<input class="ufld" ${dis} value="${coaEsc(coaForm[f])}" onchange="coaSet('${f}',this.value)" ${extra||''}>`;
   const ml=(lbl,f)=>`<div class="mline"><span class="lbl">${lbl}</span>${uf(f)}</div>`;
@@ -4451,11 +4461,11 @@ function coaSubmitAnalyst(){ const ctx=coaCtx(); const b=ctx.b, h=ctx.h; if(!b||
   state.masters.labTemplates=state.masters.labTemplates||{}; if(coaForm.item) state.masters.labTemplates[coaForm.item]=coaForm.tests.map(r=>({g:r.g,test:r.test,spec:r.spec,method:r.method,mu:r.mu}));
   qcAudit2(b,'Lab analysed',ov); logAction(`Lab COA submitted for ${L} (${coaForm.item}) — ${ov}`+(ov!=='FIT'?' → Plant Manager':' → AQCM'));
   save(); coaFSClose(); }
-function coaReview(){ if(!(canEdit(['AQCM'])||state.role==='COO')){toast('AQCM only');return;} const ctx=coaCtx(); const b=ctx.b,h=ctx.h; if(!b||!h||!h.coa)return; const nm=(state.currentUser&&state.currentUser.name)||state.role; h.coa.reviewer={name:nm,date:coaTS()}; h.coa.status='reviewed'; qcAudit2(b,'AQCM reviewed',''); logAction(`COA reviewed (AQCM) for ${ctx.L} → QCM`); save(); coaFSClose(); }
-function coaApprove(){ if(!(canEdit(['QCM'])||state.role==='COO')){toast('QCM only');return;} const ctx=coaCtx(); const b=ctx.b,h=ctx.h; if(!b||!h||!h.coa)return; const nm=(state.currentUser&&state.currentUser.name)||state.role; h.coa.approver={name:nm,date:coaTS()}; h.coa.status='approved'; h.coa.approvedDate=TODAY.toISOString().slice(0,10); h.coa.certifiedKg=ctx.qkg; if(ctx.lot) ctx.lot.certifiedKg=ctx.qkg; qcAudit2(b,'QCM approved','cleared'); logAction(`COA APPROVED (QCM) for ${ctx.L} — cleared for packing`); save(); coaFSClose(); }
+function coaReview(){ if(!hardRole(['AQCM'])){toast('AQCM only');return;} const ctx=coaCtx(); const b=ctx.b,h=ctx.h; if(!b||!h||!h.coa)return; const nm=(state.currentUser&&state.currentUser.name)||state.role; h.coa.reviewer={name:nm,date:coaTS()}; h.coa.status='reviewed'; qcAudit2(b,'AQCM reviewed',''); logAction(`COA reviewed (AQCM) for ${ctx.L} → QCM`); save(); coaFSClose(); }
+function coaApprove(){ if(!hardRole(['QCM'])){toast('QCM only');return;} const ctx=coaCtx(); const b=ctx.b,h=ctx.h; if(!b||!h||!h.coa)return; const nm=(state.currentUser&&state.currentUser.name)||state.role; h.coa.approver={name:nm,date:coaTS()}; h.coa.status='approved'; h.coa.approvedDate=TODAY.toISOString().slice(0,10); h.coa.certifiedKg=ctx.qkg; if(ctx.lot) ctx.lot.certifiedKg=ctx.qkg; qcAudit2(b,'QCM approved','cleared'); logAction(`COA APPROVED (QCM) for ${ctx.L} — cleared for packing`); save(); coaFSClose(); }
 function coaReject(stage){ if(!canEdit(['AQCM','QCM'])){toast('AQCM / QCM only');return;} const ctx=coaCtx(); const b=ctx.b,h=ctx.h; if(!b||!h||!h.coa)return; const why=(typeof prompt==='function'?prompt('Reason for rejecting back to the analyst:'):'')||''; h.coa.status='draft'; h.coa.rejected={by:state.role,stage,why:why||'',date:TODAY.toISOString().slice(0,10)}; qcAudit2(b,'COA rejected',why||''); logAction(`COA rejected at ${stage} for ${ctx.L} — back to analyst`); save(); coaFSClose(); }
-function coaDeviation(){ if(!(canEdit(['Plant Manager'])||state.role==='COO')){toast('Plant Manager only');return;} const ctx=coaCtx(); const b=ctx.b,h=ctx.h; if(!b||!h||!h.coa)return; const note=(typeof prompt==='function'?prompt('Deviation note (why accept this UNFIT lot):'):'')||''; h.coa.deviation=true; h.coa.deviationNote=note||''; h.coa.deviationBy={name:(state.currentUser&&state.currentUser.name)||state.role,date:coaTS()}; h.coa.status='analysed'; qcAudit2(b,'PM deviation accepted',note||''); logAction(`UNFIT ${ctx.L} accepted as DEVIATION by Plant Manager → AQCM review → QCM approval`); save(); coaFSClose(); }
-function coaRework(){ if(!(canEdit(['Plant Manager'])||state.role==='COO')){toast('Plant Manager only');return;} const ctx=coaCtx(); const b=ctx.b,h=ctx.h; if(!b||!h||!h.coa)return; h.coa.reworks=(h.coa.reworks||0)+1; const item=h.coa.item; h.coa=null; qcAudit2(b,'Sent to rework',''); logAction(`${ctx.L} (${item}) sent to rework after UNFIT`); save(); coaFSClose(); }
+function coaDeviation(){ if(!hardRole(['Plant Manager'])){toast('Plant Manager only');return;} const ctx=coaCtx(); const b=ctx.b,h=ctx.h; if(!b||!h||!h.coa)return; const note=(typeof prompt==='function'?prompt('Deviation note (why accept this UNFIT lot):'):'')||''; h.coa.deviation=true; h.coa.deviationNote=note||''; h.coa.deviationBy={name:(state.currentUser&&state.currentUser.name)||state.role,date:coaTS()}; h.coa.status='analysed'; qcAudit2(b,'PM deviation accepted',note||''); logAction(`UNFIT ${ctx.L} accepted as DEVIATION by Plant Manager → AQCM review → QCM approval`); save(); coaFSClose(); }
+function coaRework(){ if(!hardRole(['Plant Manager'])){toast('Plant Manager only');return;} const ctx=coaCtx(); const b=ctx.b,h=ctx.h; if(!b||!h||!h.coa)return; h.coa.reworks=(h.coa.reworks||0)+1; const item=h.coa.item; h.coa=null; qcAudit2(b,'Sent to rework',''); logAction(`${ctx.L} (${item}) sent to rework after UNFIT`); save(); coaFSClose(); }
 function qcAudit2(b,field,val){ (state.audit=state.audit||[]).unshift({t:new Date().toISOString(),user:state.role,module:'Lab QC',po:b.po||'',brand:coaItemOf(b),field,old:'',val,batchNo:b.batchNo||''}); }
 
 /* ===== quantity-true QC helpers + QA per packed lot + print COA ===== */
@@ -4709,7 +4719,7 @@ function qcGrpApproved(rows){ if(!rows.length) return '<div class="muted">None a
 var qcGroup='status';
 var qcTab='awaiting'; /* Lab QC primary tab: awaiting | review | unfit | approved */
 function screenQC(){
-  const isLab=canEdit(['Lab Rep']), isAQ=canEdit(['AQCM']), isQM=canEdit(['QCM']), isQA=canEdit(['QA Inspector']), isPM=canEdit(['Plant Manager']), isCOO=state.role==='COO', isSC=canEdit(['Supply Chain']);
+  const isLab=hardRole(['Lab Rep']), isAQ=hardRole(['AQCM']), isQM=hardRole(['QCM']), isQA=hardRole(['QA Inspector']), isPM=hardRole(['Plant Manager']), isCOO=state.role==='COO', isSC=canEdit(['Supply Chain']);
   const labB=(state.batches||[]).filter(b=>(b.producedKg||0)>0 && b.disposition!=='byproduct');  /* by-product accruals/pool never enter QC here — they get QC only AFTER grinding (call-for-manufacturing) */
   const lotUnits=[]; labB.forEach(b=>{ const lots=(b.lots||[]); if(lots.length){ lots.forEach(l=>lotUnits.push({b,id:l.id,no:(l.lotNo||b.batchNo),qty:(l.qty||0),coa:l.coa})); } else { lotUnits.push({b,id:'',no:b.batchNo,qty:(b.producedKg||0),coa:b.coa}); } });
   const labPending=lotUnits.filter(u=>!u.coa || u.coa.status!=='approved');
@@ -5307,7 +5317,7 @@ function shipCard(g,mode,ed,isPM){ var prods=g.rows.map(function(r){return r.bra
 }
 function _shipEmpty(msg){ return '<div class="card"><div class="muted" style="padding:16px 2px">'+msg+'</div></div>'; }
 function renderShipStage(stage,allGroups,ed){
-  var isPM=(canEdit(['Plant Manager'])||state.role==='COO');
+  var isPM=hardRole(['Plant Manager']);
   var gs=allGroups.filter(function(g){return g.dispId&&g.stageNow===stage&&(stage!=='in_transit'||!g.delivered);});
   var mode=(stage==='truck_planned')?'planned':(stage==='loading'?'loading':'transit');
   var empt={truck_planned:'No trucks planned. Start one from the Ready tab.',loading:'No trucks loading. Start loading a planned truck.',in_transit:'Nothing in transit.'}[stage]||'Nothing here.';
@@ -5315,7 +5325,7 @@ function renderShipStage(stage,allGroups,ed){
   return gs.map(function(g){return shipCard(g,mode,ed,isPM);}).join('');
 }
 function renderShipDelivered(allGroups,ed){
-  var isPM=(canEdit(['Plant Manager'])||state.role==='COO');
+  var isPM=hardRole(['Plant Manager']);
   var dl=allGroups.filter(function(g){return g.delivered;});
   var toggle='<div style="margin:0 0 10px"><select class="pdmore" onchange="shipHistGroup=this.value;render()"><option value="cards"'+(shipHistGroup==='cards'?' selected':'')+'>View: Recent</option><option value="po"'+(shipHistGroup==='po'?' selected':'')+'>View: By PO</option><option value="log"'+(shipHistGroup==='log'?' selected':'')+'>View: Searchable log</option></select></div>';
   var body;
@@ -5325,7 +5335,7 @@ function renderShipDelivered(allGroups,ed){
   return toggle+body;
 }
 function renderNeedAction(allGroups,ed){
-  var isPM=(canEdit(['Plant Manager'])||state.role==='COO');
+  var isPM=hardRole(['Plant Manager']);
   var pending=allGroups.filter(function(g){return g.dispId&&g.stageNow==='pending_approval';});
   var failed=(state.packingLog||[]).filter(function(p){return p&&p.qa&&p.qa.fail;});
   if(!pending.length&&!failed.length) return '<div class="card"><div style="padding:14px 2px 4px;color:#1d8a4e;font-weight:700">✓ Nothing needs attention right now.</div><div class="muted" style="padding:0 2px 12px;font-size:12px">Shipments waiting on an approval, and material that failed inspection, will appear here with the owner who must fix it.</div></div>';
@@ -6112,8 +6122,8 @@ function saveDispatch(){ if(!canEdit(['Supply Chain'])){toast('Supply Chain only
   logAction(`Shipment ${shipNo} (${dispId}) · PO ${o.po}: ${n} product(s), ${fmt(tot)} Kg/L · DC ${dc}${dispForm.vehicle?(' · '+dispForm.vehicle):''}`);
   (state.audit=state.audit||[]).unshift({t:new Date().toISOString(),user:state.role,module:'Shipment',po:o.po,brand:n+' product(s)',field:'Shipped',old:'',val:fmt(tot)+' Kg/L · DC '+(dispForm.dc||'-')});
   dispForm=null; save(); closeModal(); render(); toast(`DC ${dc} recorded — pending Plant Manager approval`); }
-function approveDC(dispId){ if(!(canEdit(['Plant Manager'])||state.role==='COO')){ toast('Plant Manager / COO approves the DC'); return; } var rows=(state.shipments||[]).filter(function(s){return (s.dispId||'')===dispId&&!s.voided;}); if(!rows.length)return; var who=(state.currentUser&&state.currentUser.name)||state.role; var dt=TODAY.toISOString().slice(0,10); rows.forEach(function(s){ s.dcStatus='approved'; s.approvedBy=who; s.approvedDate=dt; if(!s.dispCounted){ var o=(state.orders||[]).find(function(x){return x.po===s.po;}); var l=o&&((o.lines||[]).find(function(x){return x.id===s.lid;})||(o.lines||[]).find(function(x){return x.brand===s.brand;})); if(l){ l.dispatched=(+l.dispatched||0)+(+s.kg||0); l.dispatchDate=l.dispatchDate||dt; } s.dispCounted=true; } }); var dc=rows[0].dc||''; logAction('DC '+dc+' approved by '+who+' — cleared for outward movement'); save(); render(); toast('DC '+dc+' approved — cleared to ship'); }
-function rejectDC(dispId){ if(!(canEdit(['Plant Manager'])||state.role==='COO')){ toast('Plant Manager / COO only'); return; } if(typeof confirm==='function'&&!confirm('Reject this DC? It will be voided and the material returns to Ready to ship.'))return; var rows=(state.shipments||[]).filter(function(s){return (s.dispId||'')===dispId&&!s.voided;}); rows.forEach(function(s){ s.voided=true; s.dcStatus='rejected'; var o=(state.orders||[]).find(function(x){return x.po===s.po;}); var l=o&&((o.lines||[]).find(function(x){return x.id===s.lid;})||(o.lines||[]).find(function(x){return x.brand===s.brand;})); _releaseShip(o,l,s.batches); if(s.dispCounted&&l){ l.dispatched=Math.max(0,(+l.dispatched||0)-(+s.kg||0)); s.dispCounted=false; } }); logAction('DC '+((rows[0]&&rows[0].dc)||'')+' rejected — material returned to Ready to ship'); save(); render(); toast('DC rejected'); }
+function approveDC(dispId){ if(!hardRole(['Plant Manager'])){ toast('Plant Manager / COO approves the DC'); return; } var rows=(state.shipments||[]).filter(function(s){return (s.dispId||'')===dispId&&!s.voided;}); if(!rows.length)return; var who=(state.currentUser&&state.currentUser.name)||state.role; var dt=TODAY.toISOString().slice(0,10); rows.forEach(function(s){ s.dcStatus='approved'; s.approvedBy=who; s.approvedDate=dt; if(!s.dispCounted){ var o=(state.orders||[]).find(function(x){return x.po===s.po;}); var l=o&&((o.lines||[]).find(function(x){return x.id===s.lid;})||(o.lines||[]).find(function(x){return x.brand===s.brand;})); if(l){ l.dispatched=(+l.dispatched||0)+(+s.kg||0); l.dispatchDate=l.dispatchDate||dt; } s.dispCounted=true; } }); var dc=rows[0].dc||''; logAction('DC '+dc+' approved by '+who+' — cleared for outward movement'); save(); render(); toast('DC '+dc+' approved — cleared to ship'); }
+function rejectDC(dispId){ if(!hardRole(['Plant Manager'])){ toast('Plant Manager / COO only'); return; } if(typeof confirm==='function'&&!confirm('Reject this DC? It will be voided and the material returns to Ready to ship.'))return; var rows=(state.shipments||[]).filter(function(s){return (s.dispId||'')===dispId&&!s.voided;}); rows.forEach(function(s){ s.voided=true; s.dcStatus='rejected'; var o=(state.orders||[]).find(function(x){return x.po===s.po;}); var l=o&&((o.lines||[]).find(function(x){return x.id===s.lid;})||(o.lines||[]).find(function(x){return x.brand===s.brand;})); _releaseShip(o,l,s.batches); if(s.dispCounted&&l){ l.dispatched=Math.max(0,(+l.dispatched||0)-(+s.kg||0)); s.dispCounted=false; } }); logAction('DC '+((rows[0]&&rows[0].dc)||'')+' rejected — material returned to Ready to ship'); save(); render(); toast('DC rejected'); }
 /* Client of a PO (used to enforce one-truck-one-client and to group multi-PO shipments). */
 function shipClientFor(po){ var o=(state.orders||[]).find(function(x){return x.po===po;}); return o?(o.client||''):''; }
 /* Derive the prototype lifecycle stage from a dispatch group. Backward-compatible:
@@ -6273,7 +6283,7 @@ function startLoading(dispId){ if(!(canEdit(['Supply Chain'])||state.role==='COO
 function issueGatePass(dispId){ if(!(canEdit(['Supply Chain'])||state.role==='COO')){toast('Supply Chain only');return;} var rows=shipRowsOf(dispId); if(!rows.length)return; if(rows[0].stage!=='loading'){toast('Start loading before issuing the Gate Pass');return;} if(rows[0].gatePass){toast('Gate Pass already issued: '+rows[0].gatePass);return;} var gp=nextGatePassNo(); rows.forEach(function(s){ s.gatePass=gp; }); logAction('Gate Pass '+gp+' issued — DC '+(rows[0].dc||'')+' ('+dispId+')'); save(); render(); toast('Gate Pass '+gp+' issued'); }
 /* Plant Manager release = approval. Requires the Gate Pass to be issued (DC is already auto-generated).
    On release: stage → in_transit, DC approved, and the dispatched quantity is counted (deferred until now). */
-function approveRelease(dispId){ if(!(canEdit(['Plant Manager'])||state.role==='COO')){ toast('Plant Manager / COO releases the truck'); return; } var rows=shipRowsOf(dispId); if(!rows.length)return; if(rows[0].stage!=='loading'){ toast('Truck must be in Loading before release'); return; } if(!rows[0].gatePass && dcControlOn(rows[0].dispatch||TODAY.toISOString().slice(0,10))){ toast('Issue the Gate Pass before release'); return; } var who=(state.currentUser&&state.currentUser.name)||state.role; var dt=TODAY.toISOString().slice(0,10);
+function approveRelease(dispId){ if(!hardRole(['Plant Manager'])){ toast('Plant Manager / COO releases the truck'); return; } var rows=shipRowsOf(dispId); if(!rows.length)return; if(rows[0].stage!=='loading'){ toast('Truck must be in Loading before release'); return; } if(!rows[0].gatePass && dcControlOn(rows[0].dispatch||TODAY.toISOString().slice(0,10))){ toast('Issue the Gate Pass before release'); return; } var who=(state.currentUser&&state.currentUser.name)||state.role; var dt=TODAY.toISOString().slice(0,10);
   var exf=(rows[0].transportType==='Ex-factory'); /* customer collects → closes at the gate, no in-transit */
   rows.forEach(function(s){ s.dcStatus='approved'; s.approvedBy=who; s.approvedDate=dt; var o=(state.orders||[]).find(function(x){return x.po===s.po;}); var l=o&&((o.lines||[]).find(function(x){return x.id===s.lid;})||(o.lines||[]).find(function(x){return x.brand===s.brand;})); if(!s.dispCounted){ if(l){ l.dispatched=(+l.dispatched||0)+(+s.kg||0); l.dispatchDate=l.dispatchDate||dt; } s.dispCounted=true; } if(exf){ s.stage='delivered'; s.delivered=dt; s.deliveredVia='Collected at factory'; if(l){ l.delivered=(+l.delivered||0)+(+s.kg||0); l.deliveredDate=dt; } } else { s.stage='in_transit'; } });
   logAction('DC '+(rows[0].dc||'')+' released by '+who+(exf?' — collected at factory':' — truck dispatched (in transit)')); (state.audit=state.audit||[]).unshift({t:new Date().toISOString(),user:state.role,module:'Shipment',po:(rows[0].po||''),brand:rows.length+' line(s)',field:(exf?'Released · collected':'Released'),old:'loading',val:dt+' · '+who}); save(); render(); toast('DC '+(rows[0].dc||'')+(exf?' released — collected at factory':' released — in transit')); }

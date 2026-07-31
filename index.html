@@ -2502,7 +2502,7 @@ function genPO(recv){
 }
 function isManualPO(){ return entryChannel==='White Label'||entryChannel==='Distributor'; }
 function screenEntry(){
-  const ed=canEdit(['KAM']);
+  const ed=hardRole(['KAM']);
   const clients=clientsForChannel(entryChannel);
   $('view').innerHTML=`<div class="paperui">
    ${ed?'':viewOnly('KAM','switch to KAM to submit')}
@@ -2630,10 +2630,10 @@ function entryChecks(){
   ];
 }
 function validate(){
-  const checks=entryChecks(); const ok=checks.every(c=>c[1]) && canEdit(['KAM']);
+  const checks=entryChecks(); const ok=checks.every(c=>c[1]) && hardRole(['KAM']);
   if($('e_checks')) $('e_checks').innerHTML=checks.map(c=>{ const fail=!c[1], fid=c[2], clk=fail&&fid;
     return `<div ${clk?`onclick="focusField('${fid}')" `:''}style="font-size:12px;padding:3px 0${clk?';cursor:pointer':''}">${c[1]?'<span style="color:var(--green2)">✓</span>':'<span style="color:var(--red)">✗</span>'} &nbsp;${c[0]}${clk?' <span class="muted" style="font-size:10px">→ fix</span>':''}</div>`; }).join('')
-    + (canEdit(['KAM'])?'':'<div style="font-size:12px;color:var(--amber);padding-top:4px">Switch role to KAM to enable submit.</div>');
+    + (hardRole(['KAM'])?'':'<div style="font-size:12px;color:var(--amber);padding-top:4px">Switch role to KAM to enable submit.</div>');
   if($('e_submit')) $('e_submit').disabled=!ok;
   updateEntryTotal();
   previewRM();
@@ -2654,7 +2654,7 @@ function previewRM(){
     + `<div class="muted" style="margin-top:7px;font-size:11px">Supply Chain confirms availability &amp; raises any PR in the PO Tracker.</div>`;
 }
 function submitPO(){
-  if(!canEdit(['KAM'])){toast('Only KAM can submit a PO');return;}
+  if(!hardRole(['KAM'])){toast('Only KAM can submit a PO');return;}
   const lines=entryLines.filter(l=>l.brand&&+l.qty>0); if(!lines.length){toast('Add a line item');return;}
   if(lines.some(l=>!(+l.pack>0))){ toast('Set a pack size (> 0) on every product line.'); return; }
   if(!entryFOC && lines.some(l=>!(+l.inv>0))){ toast('Enter the invoice price (PKR/Kg·L) for every product line.'); return; }
@@ -2724,7 +2724,7 @@ function custStartAdd(seg){ custForm={editing:null,segment:seg||custSeg,name:'',
 function custEdit(code){ var c=(state.customers||[]).filter(function(x){return x.code===code;})[0]; if(!c)return; custForm=Object.assign({editing:code},c); render(); }
 function custCancel(){ custForm=null; render(); }
 function custParents(seg){ return (state.customers||[]).filter(function(c){return c.segment===seg&&c.isParent;}); }
-function custSave(){ if(!canEdit(['KAM'])&&state.role!=='COO'){toast('KAM / COO only');return;} var f=custForm; if(!f)return;
+function custSave(){ if(!hardRole(['KAM'])){toast('KAM / COO only');return;} var f=custForm; if(!f)return;
   if(!String(f.name||'').trim()){toast('Name required');return;}
   var isOutlet=(f.segment==='VGreen'||f.segment==='COBO');
   var code=f.editing||custCode(f.segment,f.name,f.inducted,f.outlet);
@@ -2763,7 +2763,7 @@ function custFormHTML(){ var f=custForm; var kam=((state.masters&&state.masters.
 }
 function screenDealers(){
   custInit();
-  var ed=canEdit(['KAM'])||state.role==='COO';
+  var ed=hardRole(['KAM']);
   var segTab=function(s){var n=(state.customers||[]).filter(function(c){return c.segment===s&&!c.isParent;}).length;return '<button class="ac2gtab'+(custSeg===s?' on':'')+'" onclick="custSeg=\''+s+'\';render()">'+s+' <b>'+n+'</b></button>';};
   var tabs='<div class="ac2gbar" role="tablist">'+CUST_SEGMENTS.map(segTab).join('')+'</div>';
   var cur=(state.customers||[]).filter(function(c){return c.segment===custSeg;});
@@ -2778,7 +2778,7 @@ function screenDealers(){
   $('view').innerHTML='<div class="paperui">'+(ed?'':viewOnly('KAM'))+'<div class="rb-top"><div><div class="rb-title">Customer Master</div><div class="rb-sub2">Add &amp; manage every customer · grouped by segment</div></div></div>'+tabs+(custForm?custFormHTML():'')+listHtml+'</div>';
 }
 function addDealer(){
-  if(!canEdit(['KAM'])){toast('Only KAM can onboard dealers');return;}
+  if(!hardRole(['KAM'])){toast('Only KAM can onboard dealers');return;}
   if(!dlrForm.name.trim()||!dlrForm.city.trim()){ toast('Name and city required'); return; }
   const code=$('dlr_code').value.trim()||suggestCode();
   if(state.dealers.some(d=>d.code===code)){ toast('Code already exists'); return; }
@@ -3217,7 +3217,7 @@ function prodStatusStrip(){
 }
 /* By-product / diverted / rework pools surfaced in the Passport so the manager can act without leaving. Reuses existing actions. */
 function prodPoolsStrip(){
-  var ed=canEdit(['Production'])||state.role==='COO';
+  var ed=hardRole(['Production']);
   var bpAll=(state.batches||[]).filter(function(b){return b.disposition==='byproduct'&&!b.voided;});var bpPools=bpAll.filter(function(b){return b.pool;});var bpA=bpPools.length?bpPools:bpAll;var bpKg=bpA.reduce(function(a,b){return a+(+b.plannedKg||0);},0);
   var dv=(state.batches||[]).filter(function(b){return b.disposition==='divert'&&b.pool&&!b.voided&&(+b.plannedKg||0)>0.5;});
   var rw=(state.batches||[]).filter(function(b){return b.disposition==='rework'&&b.pool&&!b.voided&&(+b.plannedKg||0)>0.5;});
@@ -3300,7 +3300,7 @@ function prodKanban(items){
       var ord=state.orders.find(function(x){return x.po===b.po;}); var r=ord?_trkRisk(ord):null;
       var chip=r?('<span class="rchip '+r[1]+'">'+r[0]+'</span>'):'<span class="pill" style="background:var(--navy-50);color:var(--navy);font-size:10px">Bulk</span>';
       var bno=b.batchNo?('<span style="font-family:ui-monospace,monospace;font-size:11px;font-weight:700;color:var(--navy)">'+b.batchNo+'</span>'):'<span style="font-size:10px;font-weight:700;color:var(--red)">no batch #</span>';
-      var logBtn=(o[0]==='producing'&&(canEdit(['Production'])||state.role==='COO'))?'<button class="green sm" style="margin-top:8px;width:100%" onclick="event.stopPropagation();openShiftLog(\''+b.id+'\')">+ Log shift output</button>':'';
+      var logBtn=(o[0]==='producing'&&(hardRole(['Production'])))?'<button class="green sm" style="margin-top:8px;width:100%" onclick="event.stopPropagation();openShiftLog(\''+b.id+'\')">+ Log shift output</button>':'';
       return '<div class="pbcard" style="cursor:pointer" onclick="prodBatchSel=\''+b.id+'\';prodView=\'lifecycle\';prodLifeSub=\'batch\';render()"><div style="display:flex;justify-content:space-between;align-items:baseline;gap:6px"><div style="font-weight:700;font-size:13px">'+nm+'</div>'+bno+'</div><div class="muted" style="font-size:11.5px;margin:3px 0 8px">'+sub+' · '+fmt(prod)+' Kg/L</div>'+chip+logBtn+'</div>';
     }).join('');
     return '<div class="pbcol"><div class="pbcolh"><span class="dot" style="background:var('+o[2]+')"></span>'+o[1]+'<span class="pbcount">'+by[o[0]].length+'</span></div>'+cards+'</div>';
@@ -3412,7 +3412,7 @@ function prodBucketBar(b){ if(!b)return ''; var prod=+b.producedKg||0, plan=+b.p
 }
 /* Focused single-stage list (work model): click a stage in the strip → see ONLY that stage's short list with stage-specific columns and the one action that moves each item forward. Tap a row for the full batch passport (drill-in). */
 function prodStageList(){
-  var ed=canEdit(['Production'])||state.role==='COO'; var f=prodFilter||'all';
+  var ed=hardRole(['Production']); var f=prodFilter||'all';
   if(f==='tomake'){
     var rows=[]; (state.orders||[]).forEach(function(o){ if(stageOf(o)==='Delivered')return; (o.lines||[]).forEach(function(l){ var rem=(+l.ordered||0)-(+l.produced||0); if(rem>0.5){
       var direct=isPODirectLine(l);
@@ -3579,12 +3579,12 @@ function renderProdLifecycle(){var PC=window.ProductionCenter;if(!PC)return '<di
 function _pcStep(name,sub,st,first,reached){var ds=st==='done'?'background:var(--navy);color:#fff':st==='active'?'background:var(--navy-50,#eef3fb);color:var(--navy);box-shadow:inset 0 0 0 2px var(--navy)':'background:#eef1f4;color:#9aa3b0';var mark=st==='done'?'✓':'';var nmc=st==='todo'?'color:#9aa3b0':'';var line=first?'':'<div class="line" style="background:'+(reached?'var(--navy)':'#e3e7ec')+'"></div>';return '<div class="col">'+line+'<div class="sdot" style="'+ds+'">'+mark+'</div><div class="snm" style="'+nmc+'">'+name+'</div><div class="ssub">'+sub+'</div></div>';}
 function _pcLotRes(c){c=c||{};if(c.status==='approved'){return c.deviation?['Deviation','var(--amber-50,#fdf0d5)','var(--amber,#9E6210)']:['FIT','var(--green-50,#e7f5e8)','var(--green2,#2f8132)'];}if(c.overall==='UNFIT')return['UNFIT','#fbe9e7','var(--red,#E03127)'];if(c.status)return['In review','var(--navy-50,#eef3fb)','var(--navy)'];return['Pending','#f1f3f5','var(--mut,#8A95A6)'];}
 function _pcLifeAction(b,d,ed){if(!ed)return '';if(b.status==='closed')return '<span class="muted" style="font-size:12px">Batch closed'+(b.closedDate?(' · '+b.closedDate):'')+'</span>';if(b.pool){return b.disposition==='byproduct'?'<button class="green" onclick="openCallBp(\''+b.id+'\')">Call for manufacturing</button>':'';}var prod=+b.producedKg||0,plan=+b.plannedKg||0,complete=(plan>0&&prod>=plan-0.5);var primary='';if(d.stage==='producing')primary=complete?'<button class="green" onclick="openCloseBatch(\''+b.id+'\')">Production complete — Close batch</button>':'<button class="green" onclick="openShiftLog(\''+b.id+'\')">+ Log shift output</button>';else if(d.stage==='qc')primary='<button class="ghost" onclick="setScreen(\'qc\')">Open in Lab QC ▸</button>';else if(d.stage==='pack')primary='<button class="green" onclick="openPack(\''+b.id+'\')">Pack cleared stock</button>';else if(d.stage==='recon')primary='<button onclick="openReconcile(\''+b.id+'\')">Reconcile remainder</button>';else if(d.stage==='packed')primary=((prod-(+b.packedKg||0))>0.5)?'<button onclick="openReconcile(\''+b.id+'\')">Reconcile remainder</button>':'<button class="green" onclick="openCloseBatch(\''+b.id+'\')">Close batch</button>';var sec=(b.status==='open'&&!(d.stage==='producing'&&complete)&&d.stage!=='packed')?' <button class="sm ghost" onclick="openCloseBatch(\''+b.id+'\')">Close batch (end production)</button>':'';return primary+sec;}
-function renderProdLifecycleBatch(){var PC=window.ProductionCenter;if(!PC)return '<div class="card">Lifecycle unavailable</div>';var ed=canEdit(['Production'])||state.role==='COO';var _f=prodFilter||'all';if(_f==='call')return prodPoolsStrip()||'<div class="card"><div class="muted" style="padding:10px 2px">No by-product, diverted or rework material to call right now.</div></div>';var _af=(typeof activeFloorBatches==='function')?activeFloorBatches():(state.batches||[]).filter(function(b){return b&&b.status==='open';});var _ps=function(b){return PC.derive(b).stage;};var open;if(_f==='completed'){open=(state.batches||[]).filter(function(b){return b&&b.status==='closed'&&!b.pool&&b.disposition!=='byproduct'&&!b.voided&&!_af.some(function(x){return x.id===b.id;});}).sort(function(a,c){return String(c.closedDate||'').localeCompare(String(a.closedDate||''));});}else if(_f==='recon'){open=(state.batches||[]).filter(function(b){return b&&!b.pool&&b.disposition!=='byproduct'&&!b.voided&&batchRemainderKg(b)>0.5&&!b.reconciled;});}else if(_f==='producing'||_f==='qc'||_f==='pack'){open=_af.filter(function(b){return _ps(b)===_f;});}else if(_f==='toclose'){open=_af.filter(function(b){return batchStage(b)==='done';});}else if(_f==='attention'){open=_af.filter(function(b){var a=batchAging(b);return _ps(b)!=='packed'&&a!=null&&a>=4;});}else{open=_af;}if(!open.length)return '<div class="card"><div class="muted" style="padding:8px 2px">Nothing in this view.'+(_f!=='tomake'?' <a onclick="prodFilter=\'tomake\';prodDrill=false;render()" style="cursor:pointer;color:var(--navy)">Back to what to make ▸</a>':'')+'</div></div>';var sel=open.find(function(b){return b.id===prodBatchSel;})||open[0];prodBatchSel=sel.id;var _pbmRow=function(b){var dd=PC.derive(b);var MM=PC.STAGE_META[dd.stage]||{name:dd.stage,dot:'#888'};var closed=(b.status==='closed');var plan=+dd.planned||+b.plannedKg||0,prod=+dd.produced||+b.producedKg||0;var pv=plan>0?Math.min(100,Math.round(prod/plan*100)):(prod>0?100:0);var a=batchAging(b);var stalled=(!closed&&dd.stage!=='packed'&&a!=null&&a>=4);var right=closed?'<span class="pbm-stage">'+(b.closedDate||'done')+'</span>':(stalled?'<span class="pbm-stage" style="color:var(--red)">⚠ stalled</span>':'<span class="pbm-stage">'+pv+'%</span>');return '<div class="pbm'+(b.id===sel.id?' on':'')+'" onclick="prodBatchSel=\''+b.id+'\';render()"><span class="dot" style="background:'+(closed?'#B7C3BC':MM.dot)+'"></span><div class="pbm-main"><div class="pbm-prod">'+(dd.brand||dd.base||'—')+'</div><div class="pbm-code">'+(b.batchNo||'—')+'</div><div style="height:4px;border-radius:999px;background:var(--line);margin-top:5px;overflow:hidden"><span style="display:block;height:100%;width:'+pv+'%;background:'+(closed?'#9aa3b0':'var(--navy)')+'"></span></div></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px">'+'<span class="pbm-stage">'+(closed?'Completed':MM.name)+'</span>'+right+'</div></div>';};
+function renderProdLifecycleBatch(){var PC=window.ProductionCenter;if(!PC)return '<div class="card">Lifecycle unavailable</div>';var ed=hardRole(['Production']);var _f=prodFilter||'all';if(_f==='call')return prodPoolsStrip()||'<div class="card"><div class="muted" style="padding:10px 2px">No by-product, diverted or rework material to call right now.</div></div>';var _af=(typeof activeFloorBatches==='function')?activeFloorBatches():(state.batches||[]).filter(function(b){return b&&b.status==='open';});var _ps=function(b){return PC.derive(b).stage;};var open;if(_f==='completed'){open=(state.batches||[]).filter(function(b){return b&&b.status==='closed'&&!b.pool&&b.disposition!=='byproduct'&&!b.voided&&!_af.some(function(x){return x.id===b.id;});}).sort(function(a,c){return String(c.closedDate||'').localeCompare(String(a.closedDate||''));});}else if(_f==='recon'){open=(state.batches||[]).filter(function(b){return b&&!b.pool&&b.disposition!=='byproduct'&&!b.voided&&batchRemainderKg(b)>0.5&&!b.reconciled;});}else if(_f==='producing'||_f==='qc'||_f==='pack'){open=_af.filter(function(b){return _ps(b)===_f;});}else if(_f==='toclose'){open=_af.filter(function(b){return batchStage(b)==='done';});}else if(_f==='attention'){open=_af.filter(function(b){var a=batchAging(b);return _ps(b)!=='packed'&&a!=null&&a>=4;});}else{open=_af;}if(!open.length)return '<div class="card"><div class="muted" style="padding:8px 2px">Nothing in this view.'+(_f!=='tomake'?' <a onclick="prodFilter=\'tomake\';prodDrill=false;render()" style="cursor:pointer;color:var(--navy)">Back to what to make ▸</a>':'')+'</div></div>';var sel=open.find(function(b){return b.id===prodBatchSel;})||open[0];prodBatchSel=sel.id;var _pbmRow=function(b){var dd=PC.derive(b);var MM=PC.STAGE_META[dd.stage]||{name:dd.stage,dot:'#888'};var closed=(b.status==='closed');var plan=+dd.planned||+b.plannedKg||0,prod=+dd.produced||+b.producedKg||0;var pv=plan>0?Math.min(100,Math.round(prod/plan*100)):(prod>0?100:0);var a=batchAging(b);var stalled=(!closed&&dd.stage!=='packed'&&a!=null&&a>=4);var right=closed?'<span class="pbm-stage">'+(b.closedDate||'done')+'</span>':(stalled?'<span class="pbm-stage" style="color:var(--red)">⚠ stalled</span>':'<span class="pbm-stage">'+pv+'%</span>');return '<div class="pbm'+(b.id===sel.id?' on':'')+'" onclick="prodBatchSel=\''+b.id+'\';render()"><span class="dot" style="background:'+(closed?'#B7C3BC':MM.dot)+'"></span><div class="pbm-main"><div class="pbm-prod">'+(dd.brand||dd.base||'—')+'</div><div class="pbm-code">'+(b.batchNo||'—')+'</div><div style="height:4px;border-radius:999px;background:var(--line);margin-top:5px;overflow:hidden"><span style="display:block;height:100%;width:'+pv+'%;background:'+(closed?'#9aa3b0':'var(--navy)')+'"></span></div></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px">'+'<span class="pbm-stage">'+(closed?'Completed':MM.name)+'</span>'+right+'</div></div>';};
 var _stp={producing:0,qc:1,pack:2,recon:3};var _sk=function(b){var k=PC.derive(b).stage;return _stp[k]==null?5:_stp[k];};
 var _actB=open.filter(function(b){return PC.derive(b).stage!=='packed';}).sort(function(x,y){return _sk(x)-_sk(y);});
 var _clsB=open.filter(function(b){return PC.derive(b).stage==='packed';});
 var _hd=(_f==='completed')?'Completed':(_f==='recon')?'Remaining to account':(_f==='producing')?'Running batches':(_f==='qc')?'Waiting QC':(_f==='pack')?'Ready to pack':(_f==='attention')?'Stuck / blocked':'Active batches';var _hc=open.length;var master=(_f==='all')?(_actB.map(_pbmRow).join('')+(_clsB.length?('<div style="font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.4px;padding:9px 12px 5px;border-top:1px solid var(--line);margin-top:4px">Packed — closing ('+_clsB.length+')</div>'+_clsB.map(_pbmRow).join('')):'')):open.map(_pbmRow).join('');var d=PC.derive(sel);var M=PC.STAGE_META[d.stage]||{name:d.stage,dot:'#888'};var steps=PC.lifecycleSteps(d);var stepHtml='';for(var i=0;i<steps.length;i++){var stp=steps[i];var st=stp.state==='done'?'done':stp.state==='curr'?'active':'todo';var rch=i>0&&steps[i-1].state==='done';stepHtml+=_pcStep(stp.label,stp.sub,st,i===0,rch);}var tab=prodBatchTab||'lots';var tabBar=_pcSub([['lots','Lots'],['quality','Quality (COA)'],['recon','Reconcile']],tab,'prodBatchTab');var lots=sel.lots||[];var isPool=!!sel.pool;var srcN=(sel.sources&&sel.sources.length)||0;var inner='';if(tab==='lots'){if(isPool)inner='<div class="muted" style="font-size:12.5px;padding:10px 2px">By-product pool — no production lots. See <b>Reconcile</b> for the '+srcN+' source batches.</div>';else if(!lots.length)inner='<div class="muted" style="font-size:12.5px;padding:10px 2px">No lots logged yet.</div>';else inner='<div class="lotlist">'+lots.map(function(l){var r=_pcLotRes(l.coa);return '<div class="lotrow"><div style="flex:1;min-width:0"><div class="lotno">'+(l.lotNo||sel.batchNo||'—')+'</div><div class="lotmeta">'+[l.shift,l.incharge,l.date].filter(Boolean).join(' · ')+'</div></div><span class="lotqty">'+PC.fmt(l.qty||0)+' Kg</span><span class="respill" style="background:'+r[1]+';color:'+r[2]+'">'+r[0]+'</span></div>';}).join('')+'</div>';}else if(tab==='quality'){var fit=0,unf=0,dev=0,pend=0;lots.forEach(function(l){var c=l.coa||{};if(c.status==='approved'){if(c.deviation)dev++;else fit++;}else if(c.overall==='UNFIT')unf++;else pend++;});var summ=lots.length+' lots · '+fit+' FIT'+(dev?(' · '+dev+' deviation'):'')+(unf?(' · '+unf+' UNFIT'):'')+(pend?(' · '+pend+' pending'):'');if(isPool)inner='<div class="muted" style="font-size:12.5px;padding:6px 2px">By-product pool — no COA. Lots are certified at their parent batch.</div>';else inner='<div class="qbanner">'+summ+'</div>'+(lots.length?('<div class="lotlist">'+lots.map(function(l){var c=l.coa||{};var r=_pcLotRes(c);return '<div class="lotrow"><div style="flex:1;min-width:0"><div class="lotno">'+(l.lotNo||sel.batchNo||'—')+'</div><div class="lotmeta">COA '+(c.qcNo||'—')+' · '+PC.fmt(l.qty||0)+' Kg</div></div><span class="respill" style="background:'+r[1]+';color:'+r[2]+'">'+r[0]+'</span></div>';}).join('')+'</div>'):'<div class="muted" style="font-size:12px;padding:6px 2px">No lots.</div>');}else{var produced=+sel.producedKg||0,packed=+sel.packedKg||0,rem=Math.max(0,produced-packed);var note=isPool?(srcN+' finished batches pooled into a '+PC.fmt(+sel.plannedKg||0)+' Kg by-product lot. Route to a grind run, divert or log as loss.'):rem>0.5?('After packing, '+PC.fmt(rem)+' Kg remains. Reconcile it — pack the rest, route to by-product, or record as loss.'):'Nothing to reconcile — produced quantity is fully packed.';inner='<div class="reconkpis"><div class="rk"><div class="rk-l">Produced</div><div class="rk-v">'+PC.fmt(produced)+' Kg</div></div><div class="rk"><div class="rk-l">Packed</div><div class="rk-v">'+PC.fmt(packed)+' Kg</div></div><div class="rk rk-warn"><div class="rk-l">Remainder</div><div class="rk-v">'+PC.fmt(rem)+' Kg</div></div></div><div class="recnote">'+note+'</div>';}var act=_pcLifeAction(sel,d,ed);var eyebrow=sel.pool?'Reconcile pool':sel.po?('PO '+sel.po):'Bulk → stock';return '<div class="pbmwrap"><div class="card" style="padding:0"><div class="pbm-head">'+_hd+' <span>'+_hc+'</span></div><div class="pbm-list">'+master+'</div></div><div class="card" style="padding:0"><div class="lifehdr"><div style="flex:1"><div class="life-eyb">'+eyebrow+'</div><div class="life-prod">'+(d.brand||d.base||'')+'</div><div class="life-own">'+d.owner+'</div></div><span class="life-pill" style="background:color-mix(in srgb,'+M.dot+' 15%,#fff);color:'+M.dot+'">'+M.name+'</span></div>'+prodBucketBar(sel)+'<div class="lifestep"><div class="pstep">'+stepHtml+'</div></div><div style="padding:14px 18px 4px">'+tabBar+'</div><div style="padding:6px 18px 18px">'+inner+'</div>'+(act?('<div class="lifefoot">'+act+'</div>'):'')+'</div></div>';}
-function prodHeader(active){var ob=(canEdit(['Production'])||state.role==='COO')?'<button class="green" onclick="openBatchModal()" style="white-space:nowrap;align-self:flex-start">+ Open batch</button>':'';return '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">'+prodViewBar(active)+ob+'</div>';}
+function prodHeader(active){var ob=(hardRole(['Production']))?'<button class="green" onclick="openBatchModal()" style="white-space:nowrap;align-self:flex-start">+ Open batch</button>':'';return '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">'+prodViewBar(active)+ob+'</div>';}
 /* ── MULTI-PO BATCH: one production run serving several POs of the same product — one batch #, one Lab COA.
       Pack defaults to the linked POs (not locked); shift output spreads pro-rata across the linked PO lines. ── */
 let mbForm={base:'',batchNo:'',alloc:{}};
@@ -3592,9 +3592,9 @@ function mbBasePick(v){ mbForm.base=v; mbForm.alloc={}; renderOpenBatch(); }
 function mbTick(k,on,cap){ const a=mbForm.alloc[k]||(mbForm.alloc[k]={}); a.on=!!on; if(on&&!((+a.kg||0)>0))a.kg=cap; renderOpenBatch(); }
 function mbQty(k,v){ const a=mbForm.alloc[k]||(mbForm.alloc[k]={on:true}); a.kg=v; const el=document.getElementById('mbTotal'); if(el){ let t=0; Object.keys(mbForm.alloc).forEach(function(kk){ const x=mbForm.alloc[kk]; if(x&&x.on)t+=(+x.kg||0); }); el.textContent=fmt(t); } }
 function batchPOsLabel(b){ if(b&&b.kind==='multi'&&Array.isArray(b.allocations)&&b.allocations.length){ return b.allocations.length===1?(b.allocations[0].po||''):(b.allocations.length+' POs \u00b7 '+b.allocations.map(function(a){return a.po;}).join(', ')); } return (b&&b.po)||''; }
-function openBatchModal(){ if(!(canEdit(['Production'])||state.role==='COO')){toast('Production / COO only');return;} if(!prodMode)prodMode='po'; renderOpenBatch(); $('modalBg').classList.add('open'); }
+function openBatchModal(){ if(!(hardRole(['Production']))){toast('Production / COO only');return;} if(!prodMode)prodMode='po'; renderOpenBatch(); $('modalBg').classList.add('open'); }
 function renderOpenBatch(){
-  const ed=canEdit(['Production'])||state.role==='COO';
+  const ed=hardRole(['Production']);
   const pos=state.orders.filter(o=>(o.lines||[]).some(l=>(l.produced||0)<(l.ordered||0)-0.5));
   const selO=state.orders.find(o=>o.id===prodPOsel);
   const bases=BULK_BASES.slice();
@@ -3759,9 +3759,9 @@ function prodMoreSelect(){ var curOut=(prodView==='output'&&!prodHome), curReg=(
 /* prodDeskCards (home cards) removed — the top tabs are the single entry point now. */
 function prodOpenArea(k){ prodHome=false; prodView='lifecycle'; prodFilter=k; prodDrill=false; render(); }
 function screenProd(){
-  const ed=canEdit(['Production']);
+  const ed=hardRole(['Production']);
   { var _pv=prodView||'lifecycle'; if(_pv==='floor'){_pv='lifecycle';prodView='lifecycle';}
-    var ob=(canEdit(['Production'])||state.role==='COO')?'<button class="green" onclick="openBatchModal()" style="white-space:nowrap">+ Open batch</button>':'';
+    var ob=(hardRole(['Production']))?'<button class="green" onclick="openBatchModal()" style="white-space:nowrap">+ Open batch</button>':'';
     var title=(_pv==='output'?'Shift output':_pv==='register'?'Output log':prodAreaLabel(prodFilter));
     var wrap;
     if(_pv==='output'){ wrap=renderProdOutput(); }
@@ -3878,7 +3878,7 @@ function _voidReverseBatch(p){
   b.producedKg=Math.max(b.packedKg||0,(b.producedKg||0)-(p.kg||0));
 }
 function voidProdEntry(i){
-  if(!screenEditOK('prod')){ toast('You need Edit access to Production'); return; }
+  if(!hardRole(['Production'])){ toast('You need Edit access to Production'); return; }
   const p=state.productionLog[i]; if(!p) return;
   const desc=`${p.date} · ${p.brand?p.brand+' ':''}${p.base||''}${p.po?(' · '+p.po):''} · ${fmt(p.kg)} Kg/L`;
   if(!typeNameToConfirm('Remove production entry — '+desc+' (reverses produced qty)')) return;
@@ -3894,7 +3894,7 @@ function voidProdEntry(i){
 }
 /* ===================== LOCK 3: shift-based batch production ===================== */
 function batchNoFx(el){ el.style.background = (!el.value.trim()||validateBatchNo(el.value)) ? '' : '#fff8d6'; }
-function setBatchNo(batchId,raw){ if(!(canEdit(['Production'])||state.role==='COO')){toast('Production / COO only');return;}
+function setBatchNo(batchId,raw){ if(!(hardRole(['Production']))){toast('Production / COO only');return;}
   const b=(state.batches||[]).find(x=>x.id===batchId); if(!b)return; const no=(raw||'').trim(); if(!no){toast('Enter a batch number');return;}
   const fy=fyKey(b.openedDate||b.closedDate||b.date||TODAY.toISOString().slice(0,10));
   if(batchOwnerInFY(no,fy) && (b.batchNo||'').trim()!==no){ toast('Batch # "'+no+'" already used this financial year ('+fy+') — use a unique number.'); return; }
@@ -3939,7 +3939,7 @@ function openBatch(kind){
 /* MULTI-PO batch submit: one batch serving several PO lines of the same product (full or partial per line).
    Same guards as the PO path per line (remaining order + RM-allowed cap); batch # FY-unique; planned = sum of allocations. */
 function submitMultiBatch(){
-  if(!(canEdit(['Production'])||state.role==='COO')){toast('Production / COO only');return;}
+  if(!(hardRole(['Production']))){toast('Production / COO only');return;}
   const today=TODAY.toISOString().slice(0,10);
   const bn=(mbForm.batchNo||'').trim();
   if(!mbForm.base){toast('Pick a product');return;}
@@ -3969,7 +3969,7 @@ let shiftForm={batchId:null,date:'',shift:'',incharge:'',qty:'',reason:'',note:'
 /* Stage 4a: by-product "call for manufacturing" — partial qty, batch# assigned AT call, creates a real grind batch
    (NO byproduct disposition → shows in the board & follows the standard route: grind via Log shift output → QC → pack → QA). Pool decrements; remainder stays pooled. */
 let callBpForm={poolId:null,qty:'',batchNo:''};
-function openCallBp(poolId){ if(!(canEdit(['Production'])||state.role==='COO')){toast('Production / COO only');return;} const p=(state.batches||[]).find(x=>x.id===poolId); if(!p){toast('Pool not found');return;} callBpForm={poolId,qty:Math.round(+p.plannedKg||0),batchNo:''}; renderCallBp(); $('modalBg').classList.add('open'); }
+function openCallBp(poolId){ if(!(hardRole(['Production']))){toast('Production / COO only');return;} const p=(state.batches||[]).find(x=>x.id===poolId); if(!p){toast('Pool not found');return;} callBpForm={poolId,qty:Math.round(+p.plannedKg||0),batchNo:''}; renderCallBp(); $('modalBg').classList.add('open'); }
 function renderCallBp(){ const p=(state.batches||[]).find(x=>x.id===callBpForm.poolId); if(!p)return; const avail=Math.round(+p.plannedKg||0);
   $('modal').innerHTML=`<div class="mh"><h2>Call by-product for manufacturing</h2><div class="sub">${p.base} · ${fmt(avail)} Kg pooled${avail>=5000?' · ready (≥5,000 recommended)':' · below 5,000 (you can still call)'}</div></div>
    <div class="mb"><div class="formgrid" style="grid-template-columns:1fr 1fr">
@@ -3977,7 +3977,7 @@ function renderCallBp(){ const p=(state.batches||[]).find(x=>x.id===callBpForm.p
      <div class="fld"><label>Batch # (assigned now)</label><input type="text" value="${callBpForm.batchNo}" oninput="callBpForm.batchNo=this.value" placeholder="e.g. NS26001"></div>
    </div><div class="muted" style="font-size:11px;margin-top:10px">Creates a ${p.base} grind batch for the called quantity; the rest stays pooled. It then follows the standard route — grind (Log shift output) → Lab QC → pack → QA → ship. Packs to a ${p.base} PO if one exists, else holds.</div></div>
    <div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" onclick="submitCallBp()">Call & start grinding</button></div>`; }
-function submitCallBp(){ if(!(canEdit(['Production'])||state.role==='COO')){toast('Production / COO only');return;} const p=(state.batches||[]).find(x=>x.id===callBpForm.poolId); if(!p)return; const avail=+p.plannedKg||0; const qty=Math.round(+callBpForm.qty||0); const bn=(callBpForm.batchNo||'').trim();
+function submitCallBp(){ if(!(hardRole(['Production']))){toast('Production / COO only');return;} const p=(state.batches||[]).find(x=>x.id===callBpForm.poolId); if(!p)return; const avail=+p.plannedKg||0; const qty=Math.round(+callBpForm.qty||0); const bn=(callBpForm.batchNo||'').trim();
   if(!(qty>0)){toast('Enter a quantity to call');return;}
   if(qty>avail+0.5){toast('Quantity must be ≤ '+fmt(Math.round(avail))+' Kg pooled');return;}
   if(!bn){toast('Enter a batch number (assigned at call)');return;}
@@ -3997,7 +3997,7 @@ function consumeDivertSources(p,qty){ const out=[]; let need=qty; const src=p.so
   for(let i=0;i<src.length && need>0.0001;i++){ const have=+src[i].kg||0; if(have<=0)continue; const take=Math.min(have,need); src[i].kg=have-take; need-=take; out.push({sourceBatchId:src[i].batch,sourceBatchNo:src[i].batchNo||'',kg:take}); }
   p.sources=(p.sources||[]).filter(s=>(+s.kg||0)>0.001);
   return out; }
-function openDivert(poolId,mode){ if(!(canEdit(['Production'])||state.role==='COO')){toast('Production / COO only');return;} const p=(state.batches||[]).find(x=>x.id===poolId); if(!p){toast('Pool not found');return;} const tb=divTargets(p); divForm={poolId,mode:mode||'recycle',qty:Math.round(+p.plannedKg||0),bid:(tb[0]&&tb[0].id)||'',brand:'',oid:'',lid:'',price:'',priceOk:false}; renderDivert(); $('modalBg').classList.add('open'); }
+function openDivert(poolId,mode){ if(!(hardRole(['Production']))){toast('Production / COO only');return;} const p=(state.batches||[]).find(x=>x.id===poolId); if(!p){toast('Pool not found');return;} const tb=divTargets(p); divForm={poolId,mode:mode||'recycle',qty:Math.round(+p.plannedKg||0),bid:(tb[0]&&tb[0].id)||'',brand:'',oid:'',lid:'',price:'',priceOk:false}; renderDivert(); $('modalBg').classList.add('open'); }
 function renderDivert(){ const p=(state.batches||[]).find(x=>x.id===divForm.poolId); if(!p)return; const avail=Math.round(+p.plannedKg||0); const m=divForm.mode;
   const tabs=`<div style="display:flex;gap:6px;margin-bottom:12px"><button class="sm ${m==='recycle'?'green':'ghost'}" onclick="divForm.mode='recycle';renderDivert()">Recycle into a batch</button><button class="sm ${m==='pack'?'green':'ghost'}" onclick="divForm.mode='pack';renderDivert()">Pack to a PO</button></div>`;
   let body='';
@@ -4007,7 +4007,7 @@ function renderDivert(){ const p=(state.batches||[]).find(x=>x.id===divForm.pool
     body=`<div class="formgrid" style="grid-template-columns:1fr 1fr"><div class="fld"><label>1 · Pack into brand</label><select onchange="divForm.brand=this.value;divForm.oid='';divForm.lid='';renderDivert()"><option value="">— pick brand —</option>${opts.map(x=>`<option ${x===divForm.brand?'selected':''}>${x}</option>`).join('')}</select></div><div class="fld"><label>2 · For which PO</label><select ${divForm.brand?'':'disabled'} onchange="divForm.oid=this.value.split('|')[0];divForm.lid=this.value.split('|')[1];divForm.price='';divForm.priceOk=false;renderDivert()"><option value="">${divForm.brand?(poOpts.length?'— pick PO —':'no open PO'):'pick brand first'}</option>${poOpts.map(x=>`<option value="${x.o.id}|${x.l.id}" ${divForm.oid===x.o.id&&divForm.lid===x.l.id?'selected':''}>${x.o.po} · ${x.o.client} (needs ${fmt(x.l.ordered-(x.l.packed||0))})</option>`).join('')}</select></div><div class="fld"><label>3 · Qty (Kg/L)</label><input type="number" value="${divForm.qty}" oninput="divForm.qty=this.value" placeholder="max ${avail}"></div></div>${(divForm.oid&&divForm.lid)?`<div style="margin-top:12px;background:var(--amber-50);border:1px solid var(--amber);border-radius:8px;padding:11px"><div style="font-weight:600;font-size:12.5px;margin-bottom:6px">Verify price to print on pack ${setp!=null?`<span class="muted" style="font-weight:400">(PO set: ${setp})</span>`:`<span style="color:var(--red)">(no price on PO — enter it)</span>`}</div><div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap"><input type="number" value="${divForm.price}" oninput="divForm.price=this.value" style="max-width:170px" placeholder="price per pack"><label style="font-weight:400;font-size:12px;display:flex;gap:6px;align-items:center"><input type="checkbox" ${divForm.priceOk?'checked':''} onchange="divForm.priceOk=this.checked"> I verified this is the correct print price</label></div></div>`:''}<div class="muted" style="font-size:11px;margin-top:10px">Packs QC-cleared diverted ${p.base} straight into the chosen brand for that PO (no re-processing); the pack carries the source batch number. The rest stays pooled.</div>`;
   }
   $('modal').innerHTML=`<div class="mh"><h2>Diverted material — ${p.base}</h2><div class="sub">${fmt(avail)} Kg available · QC-cleared</div></div><div class="mb">${tabs}${body}</div><div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" onclick="submitDivert()">${m==='recycle'?'Recycle':'Pack'}</button></div>`; }
-function submitDivert(){ if(!(canEdit(['Production'])||state.role==='COO')){toast('Production / COO only');return;} const p=(state.batches||[]).find(x=>x.id===divForm.poolId); if(!p)return; const avail=+p.plannedKg||0; let qty=Math.round(+divForm.qty||0); const d=TODAY.toISOString().slice(0,10);
+function submitDivert(){ if(!(hardRole(['Production']))){toast('Production / COO only');return;} const p=(state.batches||[]).find(x=>x.id===divForm.poolId); if(!p)return; const avail=+p.plannedKg||0; let qty=Math.round(+divForm.qty||0); const d=TODAY.toISOString().slice(0,10);
   if(!(qty>0)){toast('Enter a quantity');return;}
   if(qty>avail+0.5){toast('Quantity must be ≤ '+fmt(Math.round(avail))+' Kg available');return;}
   if(divForm.mode==='recycle'){ const tb=(state.batches||[]).find(x=>x.id===divForm.bid); if(!tb){toast('Pick a batch to recycle into');return;}
@@ -4034,7 +4034,7 @@ function submitDivert(){ if(!(canEdit(['Production'])||state.role==='COO')){toas
 /* ── Stage 4c: REWORK call (off-spec, same base; operator picks OWN batch [own #, standard route] OR MERGE into an existing base batch as input) ── */
 let rwForm={poolId:null,mode:'own',qty:'',batchNo:'',bid:''};
 function rwTargets(p){ return (state.batches||[]).filter(x=>x.base===p.base&&!x.pool&&x.disposition!=='byproduct'&&x.disposition!=='divert'&&x.disposition!=='rework'&&x.status==='open'); }
-function openRework(poolId,mode){ if(!(canEdit(['Production'])||state.role==='COO')){toast('Production / COO only');return;} const p=(state.batches||[]).find(x=>x.id===poolId); if(!p){toast('Pool not found');return;} const tb=rwTargets(p); rwForm={poolId,mode:mode||'own',qty:Math.round(+p.plannedKg||0),batchNo:'',bid:(tb[0]&&tb[0].id)||''}; renderRework(); $('modalBg').classList.add('open'); }
+function openRework(poolId,mode){ if(!(hardRole(['Production']))){toast('Production / COO only');return;} const p=(state.batches||[]).find(x=>x.id===poolId); if(!p){toast('Pool not found');return;} const tb=rwTargets(p); rwForm={poolId,mode:mode||'own',qty:Math.round(+p.plannedKg||0),batchNo:'',bid:(tb[0]&&tb[0].id)||''}; renderRework(); $('modalBg').classList.add('open'); }
 function renderRework(){ const p=(state.batches||[]).find(x=>x.id===rwForm.poolId); if(!p)return; const avail=Math.round(+p.plannedKg||0); const m=rwForm.mode;
   const tabs=`<div style="display:flex;gap:6px;margin-bottom:12px"><button class="sm ${m==='own'?'green':'ghost'}" onclick="rwForm.mode='own';renderRework()">Own batch (own #)</button><button class="sm ${m==='merge'?'green':'ghost'}" onclick="rwForm.mode='merge';renderRework()">Merge into a batch</button></div>`;
   let body='';
@@ -4044,7 +4044,7 @@ function renderRework(){ const p=(state.batches||[]).find(x=>x.id===rwForm.poolI
     body=tb.length?`<div class="formgrid" style="grid-template-columns:1fr 1fr"><div class="fld"><label>Merge into batch (same product, as input)</label><select onchange="rwForm.bid=this.value"><option value="">— pick batch —</option>${tb.map(x=>`<option value="${x.id}" ${x.id===rwForm.bid?'selected':''}>${x.batchNo||'—'} · planned ${fmt(x.plannedKg)} / made ${fmt(x.producedKg||0)}</option>`).join('')}</select></div><div class="fld"><label>Quantity (Kg/L)</label><input type="number" value="${rwForm.qty}" oninput="rwForm.qty=this.value" placeholder="max ${avail}"></div></div><div class="muted" style="font-size:11px;margin-top:10px">Feeds the rework into the chosen ${p.base} batch as input (no own #); it rides that batch's re-process → QC → pack. The rest stays pooled.</div>`:`<div class="muted" style="font-size:12.5px;padding:6px 0">No open ${p.base} production batch to merge into. Open one first, or use “Own batch”.</div>`;
   }
   $('modal').innerHTML=`<div class="mh"><h2>Call rework — ${p.base}</h2><div class="sub">${fmt(avail)} Kg pooled · off-spec (re-processed before QC)</div></div><div class="mb">${tabs}${body}</div><div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" onclick="submitRework()">${m==='own'?'Call & start':'Merge'}</button></div>`; }
-function submitRework(){ if(!(canEdit(['Production'])||state.role==='COO')){toast('Production / COO only');return;} const p=(state.batches||[]).find(x=>x.id===rwForm.poolId); if(!p)return; const avail=+p.plannedKg||0; const qty=Math.round(+rwForm.qty||0); const d=TODAY.toISOString().slice(0,10);
+function submitRework(){ if(!(hardRole(['Production']))){toast('Production / COO only');return;} const p=(state.batches||[]).find(x=>x.id===rwForm.poolId); if(!p)return; const avail=+p.plannedKg||0; const qty=Math.round(+rwForm.qty||0); const d=TODAY.toISOString().slice(0,10);
   if(!(qty>0)){toast('Enter a quantity to call');return;}
   if(qty>avail+0.5){toast('Quantity must be ≤ '+fmt(Math.round(avail))+' Kg pooled');return;}
   if(rwForm.mode==='own'){ const bn=(rwForm.batchNo||'').trim();
@@ -4103,7 +4103,7 @@ function renderShiftLog(){
    <div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" onclick="submitShiftLog()">Save shift output</button></div>`;
 }
 function submitShiftLog(){
-  if(!(canEdit(['Production'])||state.role==='COO')){toast('Production / COO only');return;}
+  if(!(hardRole(['Production']))){toast('Production / COO only');return;}
   const b=(state.batches||[]).find(x=>x.id===shiftForm.batchId); if(!b){toast('Batch not found');return;}
   if(b.status==='closed'){ toast('Batch '+(b.batchNo||'')+' is closed — open a new batch for further production.'); return; }
   const q=+shiftForm.qty||0;
@@ -4148,7 +4148,7 @@ function submitShiftLog(){
 }
 let closeForm={bid:null,reason:'',note:''};
 function closeBatch(batchId){ openCloseBatch(batchId); }
-function openCloseBatch(batchId){ if(!(canEdit(['Production'])||state.role==='COO')){toast('Production / COO only');return;} const b=(state.batches||[]).find(x=>x.id===batchId); if(!b)return; closeForm={bid:batchId,reason:'',note:''}; renderCloseBatch(); $('modalBg').classList.add('open'); }
+function openCloseBatch(batchId){ if(!(hardRole(['Production']))){toast('Production / COO only');return;} const b=(state.batches||[]).find(x=>x.id===batchId); if(!b)return; closeForm={bid:batchId,reason:'',note:''}; renderCloseBatch(); $('modalBg').classList.add('open'); }
 function renderCloseBatch(){ const b=(state.batches||[]).find(x=>x.id===closeForm.bid); if(!b){closeModal();return;} const plan=+b.plannedKg||0, prod=+b.producedKg||0, varn=Math.round((plan-prod)*100)/100; const reasons=(state.masters&&state.masters.varianceReasons)||['Other'];
   $('modal').innerHTML=`<div class="mh"><h2>Close batch ${b.batchNo||''}</h2><div class="sub">${coaItemOf(b)} · planned ${fmt(plan)} · produced ${fmt(prod)} Kg/L${varn>0?` · <b style="color:var(--amber)">short by ${fmt(varn)}</b>`:(varn<0?` · <b style="color:var(--amber)">over by ${fmt(-varn)}</b>`:' · on plan')}</div></div>
    <div class="mb"><div class="muted" style="font-size:12px;margin-bottom:10px">Closing fixes this batch at its <b>actual yield (${fmt(prod)} Kg/L)</b> — no more shift output can be added. ${varn>0?'A yield variance needs a reason; the Plant Manager is notified.':''}</div>
@@ -4156,7 +4156,7 @@ function renderCloseBatch(){ const b=(state.batches||[]).find(x=>x.id===closeFor
      <div class="fld" style="margin-top:8px"><label>Note (optional)</label><input type="text" value="${(closeForm.note||'').replace(/"/g,'&quot;')}" oninput="closeForm.note=this.value" placeholder="optional detail"></div>
    </div>
    <div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" onclick="doCloseBatch()">Close batch</button></div>`; }
-function doCloseBatch(){ if(!(canEdit(['Production'])||state.role==='COO')){toast('Production / COO only');return;} const b=(state.batches||[]).find(x=>x.id===closeForm.bid); if(!b)return; const plan=+b.plannedKg||0, prod=+b.producedKg||0, varn=Math.round((plan-prod)*100)/100;
+function doCloseBatch(){ if(!(hardRole(['Production']))){toast('Production / COO only');return;} const b=(state.batches||[]).find(x=>x.id===closeForm.bid); if(!b)return; const plan=+b.plannedKg||0, prod=+b.producedKg||0, varn=Math.round((plan-prod)*100)/100;
   if(varn>0.001 && !closeForm.reason){ toast('Pick a variance reason — produced is below plan'); return; }
   const d=TODAY.toISOString().slice(0,10);
   b.status='closed'; b.closedDate=d; b.actualYield=prod; b.varianceKg=varn; b.varianceReason=closeForm.reason||''; b.varianceNote=closeForm.note||''; b.closedBy=(state.currentUser&&state.currentUser.name)||state.role;
@@ -4169,7 +4169,7 @@ function doCloseBatch(){ if(!(canEdit(['Production'])||state.role==='COO')){toas
 let recForm=null;
 function batchRemainderKg(b){ return Math.max(0,(+b.producedKg||0)-(+b.packedKg||0)-(+b.disposedKg||0)); }
 function allBasesForRecon(){ const s=new Set(); try{ Object.values((typeof SEED!=='undefined'&&SEED.catalog&&SEED.catalog.brandsByClient)||{}).forEach(arr=>(arr||[]).forEach(x=>x&&x.base&&s.add(x.base))); }catch(e){} (state.batches||[]).forEach(b=>b&&b.base&&s.add(b.base)); ((state.masters&&state.masters.byproductRules)||[]).forEach(r=>{ if(r){ if(r.to)s.add(r.to); if(r.from)s.add(r.from); } }); return [...s].filter(Boolean).sort(); }
-function openReconcile(batchId){ if(!(canEdit(['Production'])||state.role==='COO')){toast('Production / COO only');return;} const b=(state.batches||[]).find(x=>x.id===batchId); if(!b)return; if(batchRemainderKg(b)<=0.5){toast('Nothing unpacked to reconcile on this batch');return;}
+function openReconcile(batchId){ if(!(hardRole(['Production']))){toast('Production / COO only');return;} const b=(state.batches||[]).find(x=>x.id===batchId); if(!b)return; if(batchRemainderKg(b)<=0.5){toast('Nothing unpacked to reconcile on this batch');return;}
   const sug=((state.masters&&state.masters.byproductRules)||[]).find(r=>r&&(r.from||'')===(b.base||''));
   recForm={bid:batchId, loss:'', lossReason:'', items: sug?[{type:'byproduct',base:sug.to||'',kg:''}]:[]};
   renderReconcile(); $('modalBg').classList.add('open'); }
@@ -4199,7 +4199,7 @@ function renderReconcile(){ const b=(state.batches||[]).find(x=>x.id===recForm.b
    +'<div id="rec_unacc" style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-radius:9px;margin-top:8px;font-weight:700;font-size:13px;background:'+(okZero?'var(--green-50,#e7f5e8)':'var(--amber-50,#fdf0d5)')+';color:'+(okZero?'var(--green2)':'var(--amber)')+'"><span>Still unaccounted</span><span id="rec_leftv">'+(okZero?'0 — fully accounted':fmt(left)+' Kg/L')+'</span></div>'
    +'</div></div>'
    +'<div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" id="rec_save"'+(okZero?'':' disabled style="opacity:.5;cursor:not-allowed"')+' onclick="saveReconcile()">Save &amp; account remaining</button></div>'; }
-function saveReconcile(){ if(!(canEdit(['Production'])||state.role==='COO')){toast('Production / COO only');return;} const b=(state.batches||[]).find(x=>x.id===recForm.bid); if(!b)return; const rem=batchRemainderKg(b);
+function saveReconcile(){ if(!(hardRole(['Production']))){toast('Production / COO only');return;} const b=(state.batches||[]).find(x=>x.id===recForm.bid); if(!b)return; const rem=batchRemainderKg(b);
   if(Math.abs(rem-recAllocated())>0.5){ toast('Account for the full unpacked quantity ('+fmt(rem)+' Kg/L) — still '+fmt(rem-recAllocated())+' unaccounted'); return; }
   const loss=+recForm.loss||0; if(loss>0 && !recForm.lossReason){ toast('Pick a reason for the loss'); return; }
   const items=(recForm.items||[]).filter(it=>(+it.kg||0)>0); for(const it of items){ if(it.type!=='rework' && !it.base){ toast('Pick a product for each diverted quantity'); return; } }
@@ -4250,7 +4250,7 @@ function renderProdQty(){ const o=state.orders.find(x=>x.id===pqForm.oid); const
    :`<div class="muted" style="font-size:12.5px;padding:6px 0">No QC-approved production batch is available to pack for this product yet — approve the batch COA in Lab QC first.</div>`}
    </div>
    <div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button>${bs.length?`<button class="green" onclick="submitProdQty()">Pack</button>`:''}</div>`; }
-function submitProdQty(){ if(!(canEdit(['Production'])||state.role==='COO')){toast('Production / COO only');return;} const o=state.orders.find(x=>x.id===pqForm.oid); const l=o.lines.find(x=>x.id===pqForm.lid); const b=(state.batches||[]).find(x=>x.id===pqForm.bid); if(!b){toast('Pick a production batch');return;} const max=pqMax(o,l); const q=Math.min(+pqForm.qty||0,max); const d=pqForm.date||TODAY.toISOString().slice(0,10);
+function submitProdQty(){ if(!(hardRole(['Production']))){toast('Production / COO only');return;} const o=state.orders.find(x=>x.id===pqForm.oid); const l=o.lines.find(x=>x.id===pqForm.lid); const b=(state.batches||[]).find(x=>x.id===pqForm.bid); if(!b){toast('Pick a production batch');return;} const max=pqMax(o,l); const q=Math.min(+pqForm.qty||0,max); const d=pqForm.date||TODAY.toISOString().slice(0,10);
   if(q<=0){toast('Enter a quantity (max '+fmt(max)+' Kg/L)');return;}
   const ppx=+pqForm.price||0; if(!(ppx>0)){toast('Enter the price to print on the pack.');return;} if(!pqForm.priceOk){toast('Confirm you verified the print price (tick the box).');return;}
   b.packedKg=(b.packedKg||0)+q; l.packed=(l.packed||0)+q; l.produced=Math.max(l.produced||0,l.packed); l.prodStart=l.prodStart||d; if(l.packed>=l.ordered-0.5)l.prodComplete=l.prodComplete||d;
@@ -4281,7 +4281,7 @@ function renderPackModal(){ const b=state.batches.find(x=>x.id===packForm.bid); 
      <div class="fld"><label>6 · Expiry date (auto +2 years, editable)</label><input type="date" value="${packForm.exp||''}" onchange="packForm.exp=this.value"></div></div>
      ${priceBlk}<div class="muted" style="font-size:11px;margin-top:11px">Moves bulk base into the chosen brand. Pick a PO to fill that order (capped to what it still needs), or leave unassigned.</div></div>
    <div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" onclick="doPack()">Pack</button></div>`; }
-function doPack(){ if(!(canEdit(['Production'])||state.role==='COO')){toast('Production / COO only');return;} const b=state.batches.find(x=>x.id===packForm.bid); if(!batchLabApproved(b)){toast('This batch is not Lab QC-approved yet — it can be packed only after QCM approves its COA.');return;} const rem=batchPackableKg(b); let kg=Math.min(+packForm.kg||0,rem); const brand=packForm.brand; const d=TODAY.toISOString().slice(0,10);
+function doPack(){ if(!(hardRole(['Production']))){toast('Production / COO only');return;} const b=state.batches.find(x=>x.id===packForm.bid); if(!batchLabApproved(b)){toast('This batch is not Lab QC-approved yet — it can be packed only after QCM approves its COA.');return;} const rem=batchPackableKg(b); let kg=Math.min(+packForm.kg||0,rem); const brand=packForm.brand; const d=TODAY.toISOString().slice(0,10);
   if(!brand||kg<=0){toast('Pick a brand and quantity');return;}
   if(packForm.oid && packForm.oid!=='STOCK' && packForm.lid){
     const o=state.orders.find(x=>x.id===packForm.oid); const l=o&&o.lines.find(x=>x.id===packForm.lid);
@@ -5928,7 +5928,12 @@ function dedupePackingLots(s){
    dropped/duplicated lot can never desync ready-to-ship from reality. Distribution is FIFO, capped by insKg;
    the per-line SUM always equals dispatched, so healthy lines are a no-op. */
 function reconcileLotShipKgV1(s){ (s.orders||[]).forEach(function(o){ (o.lines||[]).forEach(function(l){
-  var lots=(s.packingLog||[]).filter(function(p){return p&&p.po===o.po&&p.brand===l.brand&&(+p.kg||0)>0.0001;})
+  /* 2026-07-31 fix: this ran on EVERY state load (no idempotency guard) and pooled lots by
+     po+brand only, ignoring lid — so on any PO with two lines of the same brand (e.g. 06493,
+     PO0250, VG-VC-2607-8715) processing line[0] then line[1] against the SAME shared lot pool
+     clobbered each other's shipKg every single load, even after being manually corrected. Now
+     scoped by lid first (same rule as lotsFor), falling back to brand only for legacy un-migrated rows. */
+  var lots=(s.packingLog||[]).filter(function(p){ if(!p) return false; if((+p.kg||0)<=0.0001) return false; if(p.po!==o.po) return false; return p.lid ? (p.lid===l.id) : (p.brand===l.brand); })
     .sort(function(a,b){return String(a.date||a.mfgDate||'').localeCompare(String(b.date||b.mfgDate||''))||String(a.id||'').localeCompare(String(b.id||''));});
   var rem=Math.max(0,+l.dispatched||0);
   lots.forEach(function(p){ var cap=Math.max(0,+p.insKg||0); var t=Math.min(Math.max(0,rem),cap); p.shipKg=t; rem-=t; });
@@ -6865,7 +6870,7 @@ function byproductCard(ed){ const arr=byproductRules(); const bases=allBasesForR
    <div class="tscroll"><table><thead><tr><th>Off-spec of (product)</th><th></th><th>Becomes (by-product)</th>${ed?'<th style="width:40px"></th>':''}</tr></thead><tbody>${arr.length?arr.map((r,i)=>`<tr><td><b>${r.from}</b></td><td class="muted">→</td><td><b>${r.to}</b></td>${ed?`<td style="text-align:center"><span style="cursor:pointer;color:var(--red);font-weight:700" onclick="bprDel(${i})">&times;</span></td>`:''}</tr>`).join(''):`<tr><td colspan="${ed?4:3}" class="muted">No rules yet.</td></tr>`}</tbody></table></div>
    ${ed?`<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:flex-end"><div class="fld" style="min-width:200px"><label>Off-spec of</label><select id="bpr_from"><option value="">— product —</option>${bases.map(x=>`<option>${x}</option>`).join('')}</select></div><div class="fld" style="min-width:200px"><label>Becomes</label><select id="bpr_to"><option value="">— by-product —</option>${bases.map(x=>`<option>${x}</option>`).join('')}</select></div><button class="sm" onclick="bprAdd()">+ Add rule</button></div>`:''}`); }
 function screenAdmin(){
-  const ed=canEdit(['COO']);
+  const ed=hardRole(['COO']);
   const lists=[['shifts','Shifts'],['incharges','Shift incharges'],['delayReasons','Delay reasons'],['respDepts','Responsible departments'],['priorities','Priorities'],['kamNames','KAM names'],['varianceReasons','Yield variance reasons'],['downtimeReasons','Downtime reasons'],['focalPersons','Delivery focal persons (COBO / VGreen / Dealer)']];
   $('view').innerHTML=`
    ${ed?'':viewOnly('COO / Admin')}
@@ -7028,13 +7033,13 @@ function labTplCard(ed){
     </tbody></table></div>
     ${ed?`<div style="margin-top:10px;display:flex;gap:8px"><button class="sm" onclick="labTplAddRow('Physical')">+ Physical test</button><button class="sm" onclick="labTplAddRow('Chemical')">+ Chemical test</button></div>`:''}`:'<div class="muted">Pick a product to view or edit its template, or add a new one.</div>'}`);
 }
-function addMaster(k){ const el=$('adm_'+k); const v=(el&&el.value||'').trim(); if(!v)return;
+function addMaster(k){ if(!hardRole(['COO'])){toast('You need Edit access to Master Data');return;} const el=$('adm_'+k); const v=(el&&el.value||'').trim(); if(!v)return;
   state.masters[k]=state.masters[k]||[]; if(state.masters[k].includes(v)){toast('Already exists');return;}
   state.masters[k].push(v); logAction(`Admin added to ${k}: ${v}`); save(); toast('Added'); render(); }
-function delMaster(k,idx){ if(!screenEditOK('admin')){toast('You need Edit access to Master Data');return;} const arr=(state.masters&&state.masters[k])||[]; const v=arr[idx]; if(v==null)return;
+function delMaster(k,idx){ if(!hardRole(['COO'])){toast('You need Edit access to Master Data');return;} const arr=(state.masters&&state.masters[k])||[]; const v=arr[idx]; if(v==null)return;
   if(!typeNameToConfirm('Delete "'+v+'" from the '+k+' master list')) return;
   arr.splice(idx,1); logAction(`Admin removed from ${k}: ${v}`); save(); toast('Deleted'); render(); }
-function editMaster(k,idx){ if(!screenEditOK('admin')){toast('You need Edit access to Master Data');return;} const arr=(state.masters&&state.masters[k])||[]; const old=arr[idx]; if(old==null)return;
+function editMaster(k,idx){ if(!hardRole(['COO'])){toast('You need Edit access to Master Data');return;} const arr=(state.masters&&state.masters[k])||[]; const old=arr[idx]; if(old==null)return;
   const nv=(typeof prompt==='function'?prompt('Rename value:',old):old); if(nv==null)return; const v=String(nv).trim();
   if(!v||v===old)return; if(arr.includes(v)){toast('Already exists');return;} arr[idx]=v; logAction(`Admin renamed in ${k}: ${old} -> ${v}`); save(); toast('Renamed'); render(); }
 
@@ -7049,7 +7054,7 @@ function pmBases(){ var s=new Set(); try{(typeof BULK_BASES!=='undefined'?BULK_B
 function pmBrandKeys(){ var s=[]; try{ s=((SEED.catalog&&SEED.catalog.clients)||[]).slice(); }catch(e){} (state.customers||[]).forEach(function(c){ if(c&&c.segment==='White-label'&&c.brandKey&&s.indexOf(c.brandKey)<0) s.push(c.brandKey); }); return s; }
 function pmOwners(){ var s=new Set(['VAN']); try{ Object.values(SEED.catalog.brandsByClient||{}).forEach(function(arr){(arr||[]).forEach(function(x){if(x&&x.owner)s.add(x.owner);});});}catch(e){} return Array.from(s).sort(); }
 function pmFormGroup(f){ return ({'Powder':'Powder','Crystal':'Crystalline','Liquid':'Liquid','Granular':'Granular','Pellet':'Granular','Flakes':'Granular','Micro Granule':'Granular'})[f]||'Powder'; }
-function pmCanEdit(){ return state.role==='COO'||screenEditOK('admin'); }
+function pmCanEdit(){ return hardRole(['COO']); }
 function pmStartAdd(){ if(!pmCanEdit()){toast('COO only');return;} prodMForm={editing:null,brand:'',base:'',ownBase:false,generic:'',form:'Powder',group:'Powder',groupTouched:false,clients:{},packs:'',owner:'VAN',recipe:[{rm:'',kg:''}]}; render(); }
 function pmEdit(i){ if(!pmCanEdit()){toast('COO only');return;} var p=customProducts()[i]; if(!p)return;
   var cl={}; (p.clients||[]).forEach(function(k){cl[k]=true;});

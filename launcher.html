@@ -1,193 +1,399 @@
 <!doctype html>
 <html lang="en">
+
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>VAN Operations Platform</title>
-<meta name="description" content="Vital Agri Nutrients operations platform — one sign-in for O2S, PD, QMS and ComPha.">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='88'>%F0%9F%8C%B1</text></svg>">
-<style>
-  :root{
-    --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,"Times New Roman",serif;
-    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-    --mono:"SF Mono","Cascadia Code",Consolas,"Liberation Mono",ui-monospace,monospace;
-    --ground:#f4f7f2; --surface:#ffffff; --surface-2:#eef2ea;
-    --line:#dbe3d8; --line-strong:#c6d1c2;
-    --text:#122236; --muted:#5a6b74; --faint:#84939b;
-    --green:#2e9e63; --green-deep:#1c7a49; --green-soft:#e3f0e8;
-    --amber:#a9781f; --amber-soft:#f2e9d4;
-    --ink:#0f2942;
-    --shadow:0 1px 2px rgba(18,34,54,.05),0 10px 30px -18px rgba(18,34,54,.25);
-  }
-  @media (prefers-color-scheme:dark){
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VAN Operations Platform</title>
+  <meta name="description"
+    content="Vital Agri Nutrients operations platform — one sign-in for O2S, PD, HRMS, QMS and CRMS.">
+  <link rel="icon" href="/assets/favicon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <style>
     :root{
-      --ground:#0b1a2a; --surface:#122539; --surface-2:#162c43;
-      --line:#22384f; --line-strong:#2c435c;
-      --text:#e7eef5; --muted:#95a6b7; --faint:#6f8194;
-      --green:#4cbc83; --green-deep:#2e9e63; --green-soft:rgba(76,188,131,.13);
-      --amber:#d6a94e; --amber-soft:rgba(214,169,78,.13);
-      --ink:#dfe8f1;
-      --shadow:0 1px 2px rgba(0,0,0,.3),0 14px 34px -20px rgba(0,0,0,.7);
+      --bg:#f6f8fb; --panel:#fff; --line:#e5e8ee; --line2:#eef0f4;
+      --txt:#161a20; --txt2:#4a5567; --mut:#8a95a6;
+      --cyan:#0891b2; --leaf:#22b8cf;
+      --head:'Space Grotesk','Inter',system-ui,sans-serif;
+      --sh:0 1px 2px rgba(15,23,42,.06); --sh2:0 6px 20px -8px rgba(15,23,42,.18);
     }
-  }
-  :root[data-theme="light"]{
-    --ground:#f4f7f2; --surface:#ffffff; --surface-2:#eef2ea;
-    --line:#dbe3d8; --line-strong:#c6d1c2; --text:#122236; --muted:#5a6b74; --faint:#84939b;
-    --green:#2e9e63; --green-deep:#1c7a49; --green-soft:#e3f0e8; --amber:#a9781f; --amber-soft:#f2e9d4; --ink:#0f2942;
-    --shadow:0 1px 2px rgba(18,34,54,.05),0 10px 30px -18px rgba(18,34,54,.25);
-  }
-  :root[data-theme="dark"]{
-    --ground:#0b1a2a; --surface:#122539; --surface-2:#162c43; --line:#22384f; --line-strong:#2c435c;
-    --text:#e7eef5; --muted:#95a6b7; --faint:#6f8194; --green:#4cbc83; --green-deep:#2e9e63;
-    --green-soft:rgba(76,188,131,.13); --amber:#d6a94e; --amber-soft:rgba(214,169,78,.13); --ink:#dfe8f1;
-    --shadow:0 1px 2px rgba(0,0,0,.3),0 14px 34px -20px rgba(0,0,0,.7);
-  }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--txt);font-family:'Inter',system-ui,sans-serif;letter-spacing:-.01em;-webkit-font-smoothing:antialiased}
+    .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0}
 
-  *{box-sizing:border-box}
-  html,body{height:100%}
-  body{margin:0;background:var(--ground)}
-  .wrap{font-family:var(--sans);color:var(--text);background:var(--ground);min-height:100%;
-    padding:clamp(20px,5vw,56px);line-height:1.55;-webkit-font-smoothing:antialiased}
-  .inner{max-width:1060px;margin:0 auto}
-  .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0}
+    /* ---- top bar ---- */
+    .top{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px clamp(16px,4vw,44px);background:var(--panel);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20}
+    .brand{display:flex;align-items:center;gap:14px}
+    .logo{height:44px;width:auto;display:block}
+    .platlbl{font-family:var(--head);font-weight:600;font-size:11.5px;letter-spacing:1.2px;text-transform:uppercase;color:var(--mut);padding-left:14px;border-left:1px solid var(--line)}
+    .who{display:flex;align-items:center;gap:12px}
+    .user{display:flex;align-items:center;gap:9px}
+    .av{width:32px;height:32px;border-radius:9px;background:var(--cyan);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex:none}
+    .un{font-weight:600;font-size:13px;line-height:1.1}
+    .ur{font-size:11px;color:var(--mut)}
+    .out{font:inherit;font-weight:600;font-size:12.5px;color:var(--txt2);background:#fff;border:1px solid var(--line);border-radius:8px;padding:7px 13px;cursor:pointer}
+    .out:hover{border-color:var(--cyan);color:var(--txt)}
 
-  .topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;
-    padding-bottom:20px;border-bottom:1px solid var(--line);flex-wrap:wrap}
-  .brand{display:flex;align-items:center;gap:12px}
-  .mark{font-family:var(--mono);font-weight:700;font-size:15px;letter-spacing:.06em;color:#fff;
-    background:var(--ink);padding:7px 9px;border-radius:7px}
-  :root[data-theme="dark"] .mark{color:#0b1a2a;background:var(--green)}
-  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .mark{color:#0b1a2a;background:var(--green)}}
-  .brandtxt{font-weight:600;font-size:14px;letter-spacing:.01em}
-  .topmeta{font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint)}
+    /* ---- launcher body ---- */
+    .wrap{max-width:1080px;margin:0 auto;padding:clamp(22px,4vw,40px) clamp(16px,4vw,44px);position:relative;overflow:hidden}
+    .wm{position:absolute;top:-24px;right:-30px;width:330px;opacity:.05;pointer-events:none;z-index:0}
+    .wrap > h1, .wrap > .sub, .wrap > .grid, .wrap > .note, .wrap > #nomods{position:relative;z-index:1}
+    h1{font-family:var(--head);font-weight:700;font-size:1.7rem;letter-spacing:-.02em;margin:0 0 6px}
+    .sub{color:var(--txt2);font-size:14px;margin:0 0 26px;font-weight:500}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+    .tile{position:relative;display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px;text-decoration:none;color:inherit;box-shadow:var(--sh);transition:transform .16s,box-shadow .16s,border-color .16s;min-height:190px}
+    .tile.live{cursor:pointer}
+    .tile.live:hover{transform:translateY(-3px);box-shadow:var(--sh2);border-color:#d4dce8}
+    .tile.soon{opacity:.72}
+    .ico{width:46px;height:46px;border-radius:12px;display:flex;align-items:center;justify-content:center;color:#fff;font-family:var(--head);font-weight:700;font-size:15px;letter-spacing:.01em;margin-bottom:14px;flex:none}
+    .ico svg{width:24px;height:24px;stroke:#fff;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+    .row1{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+    .code{font-family:var(--head);font-weight:700;font-size:1.15rem;letter-spacing:-.02em}
+    .pill{font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:3px 8px;border-radius:999px}
+    .pill.live{color:#0f6e56;background:#e1f5ee}
+    .pill.soon{color:#854f0b;background:#faf0da}
+    .pill.coo{color:#0c447c;background:#e6f1fb}
+    .nm{font-size:13.5px;font-weight:600;color:var(--txt);margin:0 0 4px}
+    .tag{font-size:12.5px;color:var(--txt2);line-height:1.5;margin:0;flex:1}
+    .open{margin-top:12px;font-size:12.5px;font-weight:700;color:var(--cyan);opacity:0;transition:opacity .16s}
+    .tile.live:hover .open{opacity:1}
+    /* granted-but-not-you: visible, dimmed, not openable */
+    .pill.lock{color:var(--mut);background:#eef0f4}
+    .tile.locked{opacity:.6;cursor:not-allowed}
+    .tile.locked:hover{transform:none;box-shadow:var(--sh);border-color:var(--line)}
+    .tile.locked .open{display:none}
+    .lockcta{display:none;margin-top:12px;font-size:12.5px;font-weight:700;color:var(--mut);align-items:center;gap:6px}
+    .tile.locked .lockcta{display:flex}
+    .note{margin:24px 0 0;font-size:12px;color:var(--mut)}
+    #nomods{display:none;background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:var(--sh);padding:20px 22px;color:var(--txt2);margin-bottom:18px;font-size:14px}
+    #nomods b{color:var(--txt)}
 
-  .hero{padding:clamp(38px,7vw,72px) 0 clamp(26px,4vw,40px);max-width:44ch}
-  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.22em;text-transform:uppercase;
-    color:var(--green-deep);margin:0 0 18px;display:flex;align-items:center;gap:10px}
-  .eyebrow::after{content:"";height:1px;width:44px;background:var(--green);opacity:.6}
-  .title{font-family:var(--serif);font-weight:600;font-size:clamp(2.1rem,5.4vw,3.3rem);line-height:1.03;
-    letter-spacing:-.015em;margin:0 0 18px;text-wrap:balance;color:var(--text)}
-  .title em{font-style:italic;color:var(--green-deep)}
-  .lead{font-size:clamp(1rem,1.6vw,1.12rem);color:var(--muted);margin:0;max-width:52ch}
+    /* ---- login ---- */
+    .loginview{min-height:100vh;display:none;align-items:center;justify-content:center;padding:24px;background:var(--bg)}
+    .logincard{background:var(--panel);border:1px solid var(--line);border-radius:16px;box-shadow:var(--sh2);padding:30px 28px;width:100%;max-width:360px;display:flex;flex-direction:column}
+    .loginbrand{display:flex;align-items:center;justify-content:center;margin-bottom:6px}
+    .loginbrand img{height:46px}
+    .loginhint{color:var(--txt2);font-size:.92rem;margin:0 0 16px;text-align:center}
+    .lglabel{font-family:var(--head);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--mut);margin:10px 0 5px}
+    .inp{font:inherit;font-size:.95rem;padding:10px 12px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--txt)}
+    .inp:focus{outline:2px solid var(--cyan);outline-offset:1px;border-color:var(--cyan)}
+    .inp.au{min-width:130px;width:auto;font-size:.9rem;padding:8px 11px}
+    .lgerr,.auerr{color:#c0392b;font-size:.85rem;min-height:1.1em;margin-top:8px}
+    .lgbtn{justify-content:center;margin-top:16px;width:100%;font:inherit;font-weight:700;font-size:.95rem;background:var(--cyan);color:#fff;border:none;border-radius:9px;padding:11px;cursor:pointer}
+    .lgbtn:hover{background:#0e7490}
+    .lgbtn[disabled]{opacity:.6;cursor:default}
 
-  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;margin-top:8px}
-  .card{background:var(--surface);border:1px solid var(--line);border-radius:14px;
-    padding:22px 22px 20px;display:flex;flex-direction:column;min-height:210px;
-    box-shadow:var(--shadow);transition:transform .22s ease,border-color .22s ease,box-shadow .22s ease;
-    opacity:0;transform:translateY(14px);animation:rise .6s cubic-bezier(.2,.7,.3,1) forwards}
-  .card:nth-child(1){animation-delay:.05s}.card:nth-child(2){animation-delay:.13s}
-  .card:nth-child(3){animation-delay:.21s}.card:nth-child(4){animation-delay:.29s}
-  @keyframes rise{to{opacity:1;transform:none}}
-  .card-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
-  .code{font-family:var(--mono);font-size:14px;font-weight:600;letter-spacing:.03em;color:var(--text)}
-  .sysname{font-family:var(--serif);font-weight:600;font-size:1.4rem;line-height:1.12;margin:0 0 8px;
-    letter-spacing:-.01em;color:var(--text)}
-  .sysdesc{font-size:.93rem;color:var(--muted);margin:0;line-height:1.52;flex:1}
-  .card-foot{margin-top:18px;display:flex;align-items:center;gap:12px}
+    /* ---- manage access (COO) ---- */
+    .eyebrow{font-family:var(--head);font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--cyan);margin:0 0 10px}
+    .h2{font-family:var(--head);font-weight:700;font-size:1.4rem;margin:0 0 8px}
+    .lead{color:var(--txt2);font-size:14px;margin:0 0 8px;max-width:64ch}
+    .addcard{display:flex;gap:10px;flex-wrap:wrap;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:var(--sh);padding:14px 16px;margin:16px 0 8px}
+    .addlabel{font-family:var(--head);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--mut)}
+    .btnp{font:inherit;font-weight:700;font-size:.9rem;background:var(--cyan);color:#fff;border:none;border-radius:9px;padding:9px 16px;cursor:pointer}
+    .btnp:hover{background:#0e7490}
+    .back{font:inherit;font-weight:600;font-size:12.5px;color:var(--txt2);background:#fff;border:1px solid var(--line);border-radius:8px;padding:7px 13px;cursor:pointer}
+    .back:hover{border-color:var(--cyan);color:var(--txt)}
+    .tablecard{background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:var(--sh);overflow:auto;margin-top:8px}
+    .acctable{width:100%;border-collapse:collapse;font-size:.92rem}
+    .acctable th{text-align:left;font-family:var(--head);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);padding:12px 16px;border-bottom:1px solid var(--line);background:var(--bg);white-space:nowrap}
+    .acctable td{padding:11px 16px;border-bottom:1px solid var(--line);vertical-align:middle;color:var(--txt)}
+    .acctable tr:last-child td{border-bottom:none}
+    .umuser{font-family:var(--head);font-size:11px;color:var(--mut);margin-left:8px}
+    .pdsel{font:inherit;font-size:.88rem;padding:6px 9px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--txt)}
+    .pdsel:focus{outline:2px solid var(--cyan);outline-offset:1px}
+    .muted{color:var(--mut)}
 
-  .chip{font-family:var(--mono);font-size:10.5px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;
-    padding:4px 9px;border-radius:20px;white-space:nowrap;display:inline-flex;align-items:center;gap:6px}
-  .chip.live{color:var(--green-deep);background:var(--green-soft)}
-  .chip.live::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--green);
-    box-shadow:0 0 0 3px color-mix(in srgb,var(--green) 22%,transparent)}
-  .chip.planned{color:var(--muted);background:var(--surface-2)}
-  .tag{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;
-    color:var(--amber);background:var(--amber-soft);padding:3px 8px;border-radius:5px}
-
-  .card.live{border-color:var(--line-strong)}
-  .card.live:hover{transform:translateY(-4px);border-color:var(--green);
-    box-shadow:0 1px 2px rgba(18,34,54,.05),0 20px 40px -22px rgba(46,158,99,.55)}
-  .card.planned:hover{transform:translateY(-3px);border-color:var(--line-strong)}
-  .btn{font-family:var(--sans);font-size:.9rem;font-weight:600;text-decoration:none;border-radius:9px;
-    padding:9px 16px;display:inline-flex;align-items:center;gap:7px;transition:background .18s ease,color .18s ease;cursor:pointer}
-  .btn.open{background:var(--green);color:#06231a}
-  :root[data-theme="dark"] .btn.open{color:#06120c}
-  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .btn.open{color:#06120c}}
-  .btn.open:hover{background:var(--green-deep);color:#fff}
-  .btn.ghost{background:transparent;color:var(--faint);border:1px dashed var(--line-strong);cursor:default;font-weight:500}
-  a.btn:focus-visible{outline:2px solid var(--green);outline-offset:2px}
-
-  .platform{margin-top:34px;border-top:1px solid var(--line);padding-top:22px;
-    display:flex;align-items:baseline;gap:14px 26px;flex-wrap:wrap}
-  .platform .lab{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
-  .services{display:flex;gap:22px;flex-wrap:wrap}
-  .svc{font-size:.9rem;color:var(--muted);display:flex;align-items:center;gap:8px}
-  .svc::before{content:"";width:5px;height:5px;border-radius:50%;background:var(--green)}
-
-  footer{margin-top:30px;font-size:12px;color:var(--faint);display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
-
-  @media (prefers-reduced-motion:reduce){
-    .card{animation:none;opacity:1;transform:none}
-    .card:hover{transform:none}
-    .btn,.card{transition:none}
-  }
-</style>
+    .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:#161a20;color:#fff;font-size:.9rem;padding:10px 16px;border-radius:10px;opacity:0;transition:opacity .3s;pointer-events:none;z-index:100}
+    @media (prefers-reduced-motion:reduce){.tile{transition:none}}
+  </style>
 </head>
+
 <body>
-<div class="wrap">
-  <div class="inner">
+
+  <!-- Logged-out: the platform front door -->
+  <section id="loginView" class="loginview" aria-label="Sign in">
+    <form class="logincard" onsubmit="return __login(event)">
+      <div class="loginbrand"><img src="/assets/van-logo.png" alt="VAN — Vital Agri Nutrients (Pvt) Ltd"></div>
+      <p class="loginhint">One sign-in for the whole VAN Operations Platform.</p>
+      <label class="lglabel" for="lg_user">Username</label>
+      <input id="lg_user" class="inp" autocomplete="username">
+      <label class="lglabel" for="lg_pass">Password</label>
+      <input id="lg_pass" class="inp" type="password" autocomplete="current-password">
+      <div id="lg_err" class="lgerr" role="alert"></div>
+      <button id="lg_btn" class="lgbtn" type="submit">Sign in</button>
+    </form>
+  </section>
+
+  <!-- Logged-in: the launcher -->
+  <div id="appView" style="display:none">
     <h1 class="sr-only">Vital Agri Nutrients Operations Platform — choose a system</h1>
 
-    <header class="topbar">
+    <header class="top">
       <div class="brand">
-        <span class="mark">VAN</span>
-        <span class="brandtxt">Operations Platform</span>
+        <img class="logo" src="/assets/van-logo.png" alt="VAN — Vital Agri Nutrients (Pvt) Ltd">
+        <span class="platlbl">Operations Platform</span>
       </div>
-      <span class="topmeta">Vital Agri Nutrients</span>
+      <div id="userchip" class="who"></div>
     </header>
 
-    <section class="hero">
-      <p class="eyebrow">Operations Platform</p>
-      <p class="title">Four systems,<br>one <em>sign-in</em>.</p>
-      <p class="lead">Everything the plant runs on — from the customer's order to the lab bench — under one roof. Pick a system to get to work.</p>
-    </section>
+    <div class="wrap">
+      <img class="wm" src="/assets/van-emblem.png" alt="" aria-hidden="true">
+      <h1 id="hello">Welcome back</h1>
+      <p class="sub">Choose a system to open — one sign-in covers every VAN module.</p>
 
-    <section class="grid" aria-label="Systems">
+      <div id="nomods">No core systems are assigned to your account yet. <b>Ask your COO</b> to grant you O2S or PD access. Live and upcoming modules are still shown below.</div>
 
-      <article class="card live">
-        <div class="card-top"><span class="code">O2S</span><span class="chip live">Live</span></div>
-        <h2 class="sysname">Order&nbsp;to&nbsp;Ship</h2>
-        <p class="sysdesc">Every customer order, PO to delivery — raw materials, production, quality checks, dispatch and proof of delivery.</p>
-        <div class="card-foot"><a class="btn open" href="/o2s">Open O2S &rarr;</a></div>
-      </article>
+      <section class="grid" aria-label="Systems">
 
-      <article class="card live">
-        <div class="card-top"><span class="code">PD</span><span class="chip live">Live</span></div>
-        <h2 class="sysname">Product Development</h2>
-        <p class="sysdesc">The R&amp;D pipeline. Track each new product from idea through formulation, trials and scale-up to launch.</p>
-        <div class="card-foot"><a class="btn open" href="/pd">Open PD &rarr;</a></div>
-      </article>
+        <!-- O2S — cyan -->
+        <a class="tile live" data-module="o2s" data-href="/o2s" href="/o2s">
+          <div class="ico" style="background:linear-gradient(135deg,#22b8cf,#0891b2)">
+            <svg viewBox="0 0 24 24"><path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 7v10l9 4 9-4V7"/><path d="M12 11v10"/></svg>
+          </div>
+          <div class="row1"><span class="code">O2S</span><span class="pill live">Live</span></div>
+          <p class="nm">Order to Ship</p>
+          <p class="tag">Orders, production, packing, shipments, DCs and gate passes.</p>
+          <span class="open">Open O2S →</span>
+          <span class="lockcta">🔒 Access not granted</span>
+        </a>
 
-      <article class="card planned">
-        <div class="card-top"><span class="code">QMS</span><span class="chip planned">Planned</span></div>
-        <h2 class="sysname">Quality Management</h2>
-        <p class="sysdesc">Controlled documents, deviations, CAPA and audits — the quality system around everything we manufacture.</p>
-        <div class="card-foot"><span class="btn ghost" aria-disabled="true">In design</span></div>
-      </article>
+        <!-- PD — green -->
+        <a class="tile live" data-module="pd" data-href="/pd" href="/pd">
+          <div class="ico" style="background:linear-gradient(135deg,#22c55e,#16a34a)">
+            <svg viewBox="0 0 24 24"><path d="M9 3h6"/><path d="M10 3v6l-5 8a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-8V3"/><path d="M7 15h10"/></svg>
+          </div>
+          <div class="row1"><span class="code">PD</span><span class="pill live">Live</span></div>
+          <p class="nm">Product Development</p>
+          <p class="tag">Ideas through the gates G1–G6, from the bench to launch.</p>
+          <span class="open" style="color:#16a34a">Open PD →</span>
+          <span class="lockcta">🔒 Access not granted</span>
+        </a>
 
-      <article class="card planned">
-        <div class="card-top"><span class="code">ComPha</span><span class="chip planned">Planned</span></div>
-        <h2 class="sysname">Testing&nbsp;Lab</h2>
-        <p class="sysdesc">Testing-lab services for outside clients — sample intake, analysis, results and issued certificates.</p>
-        <div class="card-foot"><span class="btn ghost" aria-disabled="true">In design</span><span class="tag">External clients</span></div>
-      </article>
+        <!-- HRMS — live external (Django on Render); always shown -->
+        <a class="tile live" href="https://van-hrms-31hl.onrender.com/" target="_blank" rel="noopener">
+          <div class="ico" style="background:linear-gradient(135deg,#f472b6,#db2777)">
+            <svg viewBox="0 0 24 24"><circle cx="8" cy="8" r="3"/><path d="M2.5 20a5.5 5.5 0 0 1 11 0"/><circle cx="17.5" cy="9" r="2.3"/><path d="M15.5 20a4.6 4.6 0 0 1 6.2-4.3"/></svg>
+          </div>
+          <div class="row1"><span class="code">HRMS</span><span class="pill live">Live</span></div>
+          <p class="nm">Human Resources</p>
+          <p class="tag">People, attendance, leave, payroll and appraisals.</p>
+          <span class="open" style="color:#db2777">Open HRMS →</span>
+        </a>
 
-    </section>
+        <!-- QMS — planned -->
+        <div class="tile soon">
+          <div class="ico" style="background:linear-gradient(135deg,#e0a33e,#c77b0e)">
+            <svg viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3z"/><path d="M9 12l2 2 4-4"/></svg>
+          </div>
+          <div class="row1"><span class="code">QMS</span><span class="pill soon">Coming soon</span></div>
+          <p class="nm">Quality Management</p>
+          <p class="tag">SOPs, deviations, CAPA, change control and audit readiness.</p>
+        </div>
 
-    <section class="platform" aria-label="Shared platform services">
-      <span class="lab">Shared across every system</span>
-      <div class="services">
-        <span class="svc">Single sign-in</span>
-        <span class="svc">Roles &amp; permissions</span>
-        <span class="svc">Audit trail</span>
-      </div>
-    </section>
+        <!-- CRMS — planned (was ComPha) -->
+        <div class="tile soon">
+          <div class="ico" style="background:linear-gradient(135deg,#a78bfa,#7c3aed)">
+            <svg viewBox="0 0 24 24"><path d="M12 3v18"/><path d="M7 6h10"/><path d="M6 6l-3 6h6l-3-6z"/><path d="M18 6l-3 6h6l-3-6z"/><path d="M3 12a3 3 0 0 0 6 0"/><path d="M15 12a3 3 0 0 0 6 0"/><path d="M8 21h8"/></svg>
+          </div>
+          <div class="row1"><span class="code">CRMS</span><span class="pill soon">Coming soon</span></div>
+          <p class="nm">Compliance &amp; Risk</p>
+          <p class="tag">Regulatory compliance, risk registers, controls and mitigation tracking.</p>
+        </div>
 
-    <footer>
-      <span>Your role decides which systems you see.</span>
-      <span>VAN &middot; internal platform</span>
-    </footer>
+        <!-- Access — COO only; opens manage-access -->
+        <a class="tile live" id="tileAccess" role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}">
+          <div class="ico" style="background:linear-gradient(135deg,#64748b,#334155)">
+            <svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0"/><path d="M15 9h6"/><path d="M18 6v6"/></svg>
+          </div>
+          <div class="row1"><span class="code">Access</span><span class="pill coo">COO</span></div>
+          <p class="nm">People &amp; Access</p>
+          <p class="tag">Add people, grant modules and set each person's role.</p>
+          <span class="open" style="color:#334155">Manage access →</span>
+          <span class="lockcta">🔒 COO only</span>
+        </a>
+
+      </section>
+      <p class="note">Every system is shown here. You can open the ones you're granted; the rest stay locked until your COO grants you access. QMS and CRMS are still in build.</p>
+    </div>
   </div>
-</div>
+
+  <!-- COO only: assign/revoke module roles -->
+  <div id="adminView" style="display:none">
+    <header class="top">
+      <div class="brand">
+        <img class="logo" src="/assets/van-logo.png" alt="VAN — Vital Agri Nutrients (Pvt) Ltd">
+        <span class="platlbl">Manage access</span>
+      </div>
+      <button class="back" type="button" onclick="__backLauncher()">← Back to launcher</button>
+    </header>
+    <div class="wrap">
+      <p class="eyebrow">Platform · access control</p>
+      <p class="h2">Who can enter which systems</p>
+      <p class="lead">Create a user (identity only), then grant them a role per module below. QMS &amp; CRMS appear here once they're built. Changes apply immediately.</p>
+      <div class="addcard">
+        <span class="addlabel">Add user</span>
+        <input id="au_user" class="inp au" placeholder="username" autocomplete="off">
+        <input id="au_name" class="inp au" placeholder="full name" autocomplete="off">
+        <input id="au_pass" class="inp au" type="password" placeholder="initial password" autocomplete="new-password">
+        <button class="btnp" type="button" onclick="__adduser()">Create</button>
+        <span id="au_err" class="auerr" role="alert"></span>
+      </div>
+      <div class="tablecard">
+        <table class="acctable">
+          <thead>
+            <tr><th>User</th><th>O2S role</th><th>PD role</th></tr>
+          </thead>
+          <tbody id="adminBody">
+            <tr><td colspan="3" class="muted" style="padding:16px">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" role="status"></div>
+
+  <script>
+    (function () {
+      var TOKEN_KEY = 'van_token';
+      // PD's role vocabulary (matches the server's validation + auth_users.pd_role ENUM).
+      var PD_ROLES = ['coo', 'ceo', 'qc_head', 'rta', 'production', 'agronomy', 'custodian', 'member', 'lab_tech', 'consultant'];
+      var $ = function (id) {return document.getElementById(id);};
+      function tok() {try {return localStorage.getItem(TOKEN_KEY) || '';} catch (e) {return '';} }
+      function setTok(t) {try {t ? localStorage.setItem(TOKEN_KEY, t) : localStorage.removeItem(TOKEN_KEY);} catch (e) { } }
+      function esc(s) {return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c];});}
+      function auth() {return {Authorization: 'Bearer ' + tok()};}
+      function toast(m) {var t = $('toast'); if (!t) return; t.textContent = m; t.style.opacity = '1'; clearTimeout(t._h); t._h = setTimeout(function () {t.style.opacity = '0';}, 2200);}
+      function view(v) {$('loginView').style.display = v === 'login' ? 'flex' : 'none'; $('appView').style.display = v === 'app' ? 'block' : 'none'; $('adminView').style.display = v === 'admin' ? 'block' : 'none';}
+
+      var _isCOO = false;
+      function initials(nm) {var p = String(nm || '').trim().split(/\s+/).filter(Boolean); if (!p.length) return '?'; return (p[0][0] + (p.length > 1 ? p[p.length - 1][0] : '')).toUpperCase();}
+
+      // Show a tile either as openable or as a visible-but-locked card.
+      // allowed=true  -> restore href / click-through (openFn if given, else the link's href).
+      // allowed=false -> dim it, drop the link, and explain on click via a toast.
+      function lockTile(card, allowed, href, openFn, lockMsg) {
+        if (allowed) {
+          card.classList.remove('locked'); card.removeAttribute('aria-disabled');
+          if (href) card.setAttribute('href', href);
+          card.onclick = openFn || null;
+        } else {
+          card.classList.add('locked'); card.setAttribute('aria-disabled', 'true');
+          card.removeAttribute('href');
+          card.onclick = function (e) { if (e && e.preventDefault) e.preventDefault(); toast(lockMsg || 'You don\'t have access to this system.'); };
+        }
+      }
+
+      function renderApp(me) {
+        _isCOO = (me.o2sRole === 'COO');
+        var list = me.modules || [];
+        var mods = {}; list.forEach(function (m) {mods[m.module] = m.role;});
+
+        // Every core tile stays visible; you can open the ones you're granted, the rest lock.
+        Array.prototype.forEach.call(document.querySelectorAll('.tile[data-module]'), function (card) {
+          var m = card.getAttribute('data-module');
+          var code = (card.querySelector('.code') || {}).textContent || m.toUpperCase();
+          lockTile(card, !!mods[m], card.getAttribute('data-href'), null, code + ' — ask your COO for access.');
+        });
+        // Access tile: COO opens it, everyone else sees it locked.
+        var acc = $('tileAccess');
+        if (acc) lockTile(acc, _isCOO, null, function () { __manage(); }, 'People & Access is COO-only.');
+
+        if ($('nomods')) $('nomods').style.display = 'none';
+
+        var nm = me.name || me.username || '';
+        var first = String(nm).trim().split(/\s+/)[0] || 'there';
+        $('hello').textContent = 'Welcome back, ' + first;
+        var roleline = _isCOO ? 'COO · all modules'
+          : (Object.keys(mods).length ? Object.keys(mods).map(function (k) {return k.toUpperCase() + ' · ' + mods[k];}).join('   ') : 'No modules yet');
+        $('userchip').innerHTML =
+          '<div class="user"><div class="av">' + esc(initials(nm)) + '</div>'
+          + '<div><div class="un">' + esc(nm) + '</div><div class="ur">' + esc(roleline) + '</div></div></div>'
+          + '<button class="out" type="button" onclick="__signout()">Sign out</button>';
+        view('app');
+      }
+
+      async function me(t) {var r = await fetch('/api/me', {headers: {Authorization: 'Bearer ' + t}}); if (!r.ok) throw new Error('unauth'); return r.json();}
+
+      async function boot() {
+        var t = tok();
+        if (!t) {view('login'); focusUser(); return;}
+        try {renderApp(await me(t));}
+        catch (e) {setTok(''); view('login'); focusUser();}
+      }
+      function focusUser() {var u = $('lg_user'); if (u) {try {u.focus();} catch (e) { } } }
+
+      window.__login = async function (ev) {
+        if (ev && ev.preventDefault) ev.preventDefault();
+        var u = ($('lg_user').value || '').trim(), p = $('lg_pass').value || '', err = $('lg_err');
+        err.textContent = '';
+        if (!u || !p) {err.textContent = 'Enter your username and password.'; return false;}
+        $('lg_btn').disabled = true;
+        try {
+          var r = await fetch('/api/login', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({username: u, password: p})});
+          if (!r.ok) {err.textContent = 'Incorrect username or password.'; $('lg_btn').disabled = false; return false;}
+          var j = await r.json(); setTok(j.token);
+          try {renderApp(await me(j.token));}
+          catch (e) {renderApp({name: (j.user && j.user.name), username: (j.user && j.user.username), o2sRole: (j.user && j.user.role), modules: [{module: 'o2s', role: (j.user && j.user.role)}]});}
+        } catch (e) {err.textContent = 'Cannot reach the server. Try again.';}
+        $('lg_btn').disabled = false;
+        return false;
+      };
+      window.__signout = function () {setTok(''); view('login'); $('lg_user').value = ''; $('lg_pass').value = ''; focusUser();};
+
+      /* ---- Manage access (COO) ---- */
+      window.__manage = function () {if (!_isCOO) return; view('admin'); loadAdmin();};
+      window.__backLauncher = function () {view('app');};
+
+      function roleSelect(username, module, options, current) {
+        var opts = '<option value="">— none —</option>' + options.map(function (o) {return '<option value="' + esc(o) + '"' + (o === current ? ' selected' : '') + '>' + esc(o) + '</option>';}).join('');
+        return '<select class="pdsel" onchange="__setmod(\'' + esc(username) + '\',\'' + module + '\',this.value)">' + opts + '</select>';
+      }
+      async function loadAdmin() {
+        var body = $('adminBody'); body.innerHTML = '<tr><td colspan="3" class="muted" style="padding:16px">Loading…</td></tr>';
+        try {
+          var r = await fetch('/api/platform/users', {headers: auth()});
+          if (!r.ok) {body.innerHTML = '<tr><td colspan="3" class="muted" style="padding:16px">Could not load users (' + r.status + ').</td></tr>'; return;}
+          var data = await r.json();
+          var users = data.users || [], o2sRoles = data.o2sRoles || [], pdRoles = data.pdRoles || PD_ROLES;
+          body.innerHTML = users.map(function (u) {
+            var mods = u.modules || {};
+            return '<tr><td><b>' + esc(u.name || u.username) + '</b><span class="umuser">' + esc(u.username) + '</span></td>'
+              + '<td>' + roleSelect(u.username, 'o2s', o2sRoles, mods.o2s || '') + '</td>'
+              + '<td>' + roleSelect(u.username, 'pd', pdRoles, mods.pd || '') + '</td></tr>';
+          }).join('') || '<tr><td colspan="3" class="muted" style="padding:16px">No users.</td></tr>';
+        } catch (e) {body.innerHTML = '<tr><td colspan="3" class="muted" style="padding:16px">Error loading users.</td></tr>';}
+      }
+
+      window.__setmod = async function (username, module, role) {
+        try {
+          var r;
+          if (role) {r = await fetch('/api/platform/access', {method: 'POST', headers: Object.assign({'Content-Type': 'application/json'}, auth()), body: JSON.stringify({username: username, module: module, role: role})});}
+          else {r = await fetch('/api/platform/access', {method: 'DELETE', headers: Object.assign({'Content-Type': 'application/json'}, auth()), body: JSON.stringify({username: username, module: module})});}
+          if (!r.ok) {toast('Could not update (' + r.status + ')'); loadAdmin(); return;}
+          toast(username + ' — ' + module.toUpperCase() + ' ' + (role ? ('set to ' + role) : 'access removed'));
+        } catch (e) {toast('Update failed'); loadAdmin();}
+      };
+
+      window.__adduser = async function () {
+        var u = ($('au_user').value || '').trim(), n = ($('au_name').value || '').trim(), p = $('au_pass').value || '', err = $('au_err');
+        err.textContent = '';
+        if (!u || !n || !p) {err.textContent = 'Fill in username, name and password.'; return;}
+        try {
+          var r = await fetch('/api/platform/users', {method: 'POST', headers: Object.assign({'Content-Type': 'application/json'}, auth()), body: JSON.stringify({username: u, name: n, password: p})});
+          var j = {}; try {j = await r.json();} catch (e) { }
+          if (!r.ok) {err.textContent = j.error || ('Could not create (' + r.status + ')'); return;}
+          $('au_user').value = ''; $('au_name').value = ''; $('au_pass').value = '';
+          toast('User ' + j.username + ' created — now grant their modules below');
+          loadAdmin();
+        } catch (e) {err.textContent = 'Create failed.';}
+      };
+
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
+    })();
+  </script>
 </body>
+
 </html>

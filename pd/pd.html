@@ -5,66 +5,140 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>VAN · Product Development</title>
 <meta name="description" content="Vital Agri Nutrients — Product Development pipeline (idea intake, gates, gate log).">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='88'>%F0%9F%8C%B1</text></svg>">
+<link rel="icon" href="/assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
+  /* Reskinned 2026-07-31 to match O2S (index.html): Inter/Space Grotesk, SaaS-dashboard components,
+     light-only. Accent recolored 2026-08-03 to PD's green launcher-tile hue (#16a34a / leaf #22c55e) so
+     the module interior matches its tile — each module is colour-coded, O2S cyan, PD green, etc.
+     Same CSS-variable NAMES as before (the misleadingly-named --green* / --leaf carry the accent, so every
+     inline var(--…) in the render code re-maps automatically); only the VALUES + component rules changed. */
   :root{
-    --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,"Times New Roman",serif;
-    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-    --mono:"SF Mono","Cascadia Code",Consolas,"Liberation Mono",ui-monospace,monospace;
-    --ground:#f4f7f2; --surface:#ffffff; --surface-2:#eef2ea;
-    --line:#dbe3d8; --line-strong:#c6d1c2;
-    --text:#122236; --muted:#5a6b74; --faint:#84939b;
-    --green:#2e9e63; --green-deep:#1c7a49; --green-soft:#e3f0e8;
-    --amber:#a9781f; --amber-soft:#f2e9d4; --red:#b3402f; --red-soft:#f5e4e0;
-    --ink:#0f2942;
-    --shadow:0 1px 2px rgba(18,34,54,.05),0 10px 30px -18px rgba(18,34,54,.25);
-  }
-  @media (prefers-color-scheme:dark){
-    :root{ --ground:#0b1a2a; --surface:#122539; --surface-2:#162c43; --line:#22384f; --line-strong:#2c435c;
-      --text:#e7eef5; --muted:#95a6b7; --faint:#6f8194; --green:#4cbc83; --green-deep:#2e9e63; --green-soft:rgba(76,188,131,.13);
-      --amber:#d6a94e; --amber-soft:rgba(214,169,78,.13); --red:#e08a78; --red-soft:rgba(224,138,120,.13); --ink:#dfe8f1; }
+    --serif:'Space Grotesk','Inter',system-ui,-apple-system,'Segoe UI',sans-serif; /* headings — O2S --head */
+    --sans:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+    --mono:'Geist Mono','SF Mono','Cascadia Code',Consolas,ui-monospace,monospace;
+    --ground:#f8f9fb; --surface:#ffffff; --surface-2:#f1f3f6; --line2:#eef0f4; --leaf:#22c55e;
+    --line:#e5e8ee; --line-strong:#dce2ec;
+    --text:#161a20; --muted:#5a6675; --faint:#8a95a6;
+    --green:#16a34a; --green-deep:#15803d; --green-soft:#e7f7ee;
+    --amber:#c77b0e; --amber-soft:#faf0da; --red:#c0392b; --red-soft:#fbe7e4;
+    --ink:#12291b;
+    --shadow:0 1px 2px rgba(15,23,42,.07),0 1px 1px rgba(15,23,42,.04);
+    --sh:0 3px 12px rgba(15,23,42,.10),0 1px 3px rgba(15,23,42,.06);
+    --ring:0 0 0 3px rgba(22,163,74,.16); --radius:15px; --radius-sm:10px;
   }
   *{box-sizing:border-box}
   html,body{height:100%}
-  body{margin:0;background:var(--ground);font-family:var(--sans);color:var(--text)}
+  body{margin:0;background:var(--ground);font-family:var(--sans);color:var(--text);font-size:14px;-webkit-font-smoothing:antialiased;letter-spacing:-.01em}
   .wrap{min-height:100%;padding:0}
-  a{color:var(--green-deep)}
-  .topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;
-    padding:16px clamp(16px,4vw,40px);border-bottom:1px solid var(--line);background:var(--surface)}
+  a{color:var(--green-deep);text-decoration:none}
+  a:hover{text-decoration:underline}
+  ::-webkit-scrollbar{width:10px;height:10px}
+  ::-webkit-scrollbar-thumb{background:#d6deea;border-radius:8px;border:2px solid var(--ground)}
   .brand{display:flex;align-items:center;gap:10px;text-decoration:none}
-  .mark{font-family:var(--mono);font-weight:700;font-size:14px;letter-spacing:.06em;color:#fff;background:var(--ink);padding:6px 8px;border-radius:6px}
-  .brandtxt{font-weight:600;font-size:14px;color:var(--text)}
-  .who{font-size:12.5px;color:var(--muted);display:flex;align-items:center;gap:10px}
-  .who button{font:inherit;background:none;border:1px solid var(--line-strong);color:var(--muted);border-radius:6px;padding:5px 10px;cursor:pointer}
-  .shell{display:flex;min-height:calc(100% - 57px)}
-  nav.side{width:200px;flex:none;border-right:1px solid var(--line);padding:18px 10px;background:var(--surface)}
-  nav.side a{display:block;padding:9px 12px;border-radius:8px;color:var(--muted);text-decoration:none;font-size:14px;margin-bottom:2px}
-  nav.side a.on{background:var(--green-soft);color:var(--green-deep);font-weight:600}
-  main{flex:1;padding:clamp(18px,3vw,36px);max-width:960px}
-  h1{font-family:var(--serif);font-size:1.7rem;margin:0 0 6px;color:var(--text)}
-  .sub{color:var(--muted);font-size:14px;margin:0 0 22px}
-  .card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px 20px;box-shadow:var(--shadow);margin-bottom:16px}
-  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
-  label{display:block;font-size:12.5px;font-weight:600;color:var(--muted);margin:12px 0 5px}
-  input,select,textarea{width:100%;font:inherit;font-size:14px;padding:9px 11px;border:1px solid var(--line-strong);border-radius:8px;background:var(--ground);color:var(--text)}
+  .brandlogo{height:32px;width:auto;display:block}
+  .brandlogo.lg{height:44px}
+  .platlbl{font-family:var(--serif);font-weight:600;font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);padding-left:12px;border-left:1px solid var(--line)}
+  main{flex:1;min-width:0;padding:clamp(16px,2.4vw,34px)}   /* full width — fills the panel beside the rail */
+
+  /* ===== O2S-style left rail (added 2026-08-03) ===== */
+  .app-shell{display:flex;min-height:100vh}
+  .pdside{width:216px;flex:none;background:var(--surface-2);border-right:1px solid var(--line-strong);padding:11px 9px;position:sticky;top:0;height:100vh;display:flex;flex-direction:column;transition:width .18s ease,padding .18s ease;z-index:20}
+  .pdside .brand{display:flex;align-items:center;gap:9px;padding:3px 6px 10px;border-bottom:1px solid var(--line2);margin-bottom:8px;text-decoration:none}
+  .pdside .brandmark{height:30px;width:auto;display:block;flex:none}
+  .pdside .nm{font-family:var(--serif);font-weight:700;font-size:14.5px;color:var(--text);line-height:1.05;letter-spacing:-.02em}
+  .pdside .nm span{display:block;font-family:var(--mono);font-size:8px;font-weight:600;color:var(--faint);letter-spacing:1.3px;text-transform:uppercase;margin-top:5px}
+  .pdside .raillauncher{display:flex;align-items:center;gap:9px;width:100%;border:1px solid var(--line);background:#fff;border-radius:8px;padding:7px 9px;color:var(--muted);font-size:12px;font-weight:600;cursor:pointer;text-decoration:none;margin-bottom:8px;transition:.13s}
+  .pdside .raillauncher svg{width:16px;height:16px;flex:none;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .pdside .raillauncher:hover{background:var(--green-soft);color:var(--green-deep);border-color:#cdeed7}
+  .pdside .nav{display:flex;flex-direction:column;gap:1px;flex:1 1 auto;overflow-y:auto;overflow-x:hidden;margin:0 -3px;padding:0 3px}
+  .pdside .nav::-webkit-scrollbar{width:8px}
+  .pdside .nav::-webkit-scrollbar-thumb{background:#d0d8e2;border-radius:8px;border:2px solid var(--surface-2)}
+  .pdside .navgrp{font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:1.2px;text-transform:uppercase;color:var(--faint);padding:11px 11px 4px}
+  .pdside .nav a{display:flex;align-items:center;gap:10px;padding:6px 11px;border-radius:8px;color:var(--muted);text-decoration:none;font-size:12.5px;font-weight:600;transition:.13s;position:relative;white-space:nowrap}
+  .pdside .nav a svg{width:17px;height:17px;flex:none;stroke:currentColor;fill:none;stroke-width:1.85;stroke-linecap:round;stroke-linejoin:round}
+  .pdside .nav a:hover{background:var(--surface);color:var(--text)}
+  .pdside .nav a.on{background:var(--green-soft);color:var(--green-deep);font-weight:700}
+  .pdside .nav a.on::before{content:'';position:absolute;left:-9px;top:6px;bottom:6px;width:3px;border-radius:0 3px 3px 0;background:var(--green)}
+  .pdside .railcollapse{display:flex;align-items:center;gap:9px;width:100%;border:1px solid var(--line);background:#fff;border-radius:8px;padding:7px 9px;color:var(--muted);font-size:12px;font-weight:600;cursor:pointer;margin-top:8px}
+  .pdside .railcollapse svg{width:16px;height:16px;flex:none;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;transition:transform .18s}
+  .pdside .railcollapse:hover{background:var(--surface)}
+  .pdside .foot{padding-top:10px;border-top:1px solid var(--line2);margin-top:8px}
+  .pdside .usermenu{position:relative;width:100%}
+  .pdside .usermenu>summary{list-style:none;width:100%;display:flex;align-items:center;gap:9px;padding:7px 8px;border:1px solid var(--line);border-radius:8px;background:#fff;cursor:pointer}
+  .pdside .usermenu>summary::-webkit-details-marker{display:none}
+  .pdside .usermenu>summary:hover{background:var(--surface)}
+  .pdside .av{width:28px;height:28px;border-radius:8px;background:var(--green);color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;flex:none}
+  .pdside .umeta{flex:1;min-width:0;overflow:hidden;display:flex;flex-direction:column;line-height:1.15}
+  .pdside .un{font-weight:700;font-size:12px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .pdside .ur{font-size:10px;color:var(--faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .pdside .umc{margin-left:auto;color:var(--faint);font-size:11px}
+  .pdside .umpop{position:absolute;left:0;right:0;bottom:calc(100% + 7px);background:#fff;border:1px solid var(--line);border-radius:9px;box-shadow:var(--sh);padding:8px;z-index:60}
+  .pdside .pdsignout{font:inherit;font-weight:600;font-size:12.5px;width:100%;background:#fff;color:var(--green-deep);border:1px solid var(--line);border-radius:8px;padding:8px;cursor:pointer}
+  .pdside .pdsignout:hover{background:var(--green-soft)}
+  /* collapsed rail */
+  .app-shell.nav-collapsed .pdside{width:56px;padding:10px 8px}
+  .app-shell.nav-collapsed .pdside .nm,
+  .app-shell.nav-collapsed .pdside .navgrp,
+  .app-shell.nav-collapsed .pdside .nav a .nlbl,
+  .app-shell.nav-collapsed .pdside .raillauncher .lb,
+  .app-shell.nav-collapsed .pdside .railcollapse .lb,
+  .app-shell.nav-collapsed .pdside .umeta,
+  .app-shell.nav-collapsed .pdside .umc{opacity:0;width:0;overflow:hidden;white-space:nowrap;pointer-events:none}
+  .app-shell.nav-collapsed .pdside .brand{justify-content:center;padding:4px 0 11px}
+  .app-shell.nav-collapsed .pdside .nav a,
+  .app-shell.nav-collapsed .pdside .raillauncher,
+  .app-shell.nav-collapsed .pdside .railcollapse,
+  .app-shell.nav-collapsed .pdside .usermenu>summary{justify-content:center;padding:7px 6px}
+  .app-shell.nav-collapsed .pdside .navgrp{padding:6px 0 2px}
+  .app-shell.nav-collapsed .pdside .railcollapse svg{transform:rotate(180deg)}
+  /* responsive: rail becomes a top strip */
+  @media(max-width:760px){
+    .app-shell{flex-direction:column}
+    .pdside{width:100%;height:auto;position:static;flex-direction:row;flex-wrap:wrap;align-items:center;gap:6px}
+    .pdside .brand{border-bottom:none;margin-bottom:0;padding:3px 6px}
+    .pdside .nav{flex-direction:row;flex-wrap:wrap;overflow:visible;flex-basis:100%;order:3}
+    .pdside .navgrp{display:none}
+    .pdside .raillauncher{width:auto;margin-bottom:0}
+    .pdside .raillauncher .lb,.pdside .railcollapse{display:none}
+    .pdside .foot{border-top:none;margin-top:0;margin-left:auto;padding-top:0}
+  }
+  h1{font-family:var(--serif);font-size:1.4rem;font-weight:700;letter-spacing:-.02em;margin:0 0 6px;color:var(--text)}
+  h2,h3{font-family:var(--serif);letter-spacing:-.02em}
+  .sub{color:var(--muted);font-size:13px;margin:0 0 20px;font-weight:500;line-height:1.5}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;box-shadow:var(--shadow);margin-bottom:14px}
+  .card h2,.card h3{font-family:var(--serif)}
+  .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+  label{display:block;font-size:11.5px;font-weight:700;color:var(--muted);margin:12px 0 5px}
+  input,select,textarea{width:100%;font:inherit;font-size:13px;padding:9px 12px;border:1px solid var(--line);border-radius:var(--radius-sm);background:#fff;color:var(--text);outline:none;transition:.14s}
+  input:hover,select:hover{border-color:var(--line-strong)}
+  input:focus,select:focus,textarea:focus{border-color:var(--green);box-shadow:var(--ring)}
   textarea{min-height:70px;resize:vertical}
-  button.btn{font:inherit;font-weight:600;font-size:14px;border:none;border-radius:8px;padding:9px 16px;cursor:pointer;background:var(--green);color:#06231a}
-  button.btn:hover{background:var(--green-deep);color:#fff}
-  button.ghost{background:transparent;border:1px solid var(--line-strong);color:var(--muted)}
-  table{width:100%;border-collapse:collapse;font-size:13.5px}
-  th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line)}
-  th{color:var(--muted);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.04em}
-  tr.clickable{cursor:pointer}
-  tr.clickable:hover{background:var(--surface-2)}
-  .chip{font-family:var(--mono);font-size:10.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;padding:3px 8px;border-radius:20px;display:inline-block}
+  .btn,button.btn{font:inherit;font-weight:700;font-size:13px;border:none;border-radius:var(--radius-sm);padding:9px 16px;cursor:pointer;background:var(--green);color:#fff;box-shadow:var(--shadow);letter-spacing:-.01em;transition:.14s;text-decoration:none;display:inline-block}
+  .btn:hover,button.btn:hover{background:var(--green-deep);transform:translateY(-1px);box-shadow:var(--sh);color:#fff;text-decoration:none}
+  .btn:active,button.btn:active{transform:translateY(0)}
+  .btn.ghost,button.ghost{background:#fff;color:var(--green-deep);border:1px solid var(--line);box-shadow:none}
+  .btn.ghost:hover,button.ghost:hover{background:var(--surface-2);border-color:var(--line-strong)}
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th{text-align:left;color:#475569;font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:.5px;padding:7px 10px;border-bottom:1px solid var(--line);background:var(--surface-2)}
+  td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line2);color:var(--muted);vertical-align:middle}
+  td b{color:var(--text)}
+  tr.clickable{cursor:pointer;transition:.1s}
+  tr.clickable:hover td{background:var(--green-soft)}
+  .chip{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:3px 9px;border-radius:999px;display:inline-block}
   .chip.heavy{color:var(--red);background:var(--red-soft)}
   .chip.light{color:var(--green-deep);background:var(--green-soft)}
   .chip.stage{color:var(--muted);background:var(--surface-2)}
-  .err{background:var(--red-soft);color:var(--red);border-radius:8px;padding:10px 14px;font-size:13.5px;margin:10px 0}
-  .msg{background:var(--green-soft);color:var(--green-deep);border-radius:8px;padding:10px 14px;font-size:13.5px;margin:10px 0}
+  .err{background:var(--red-soft);color:var(--red);border-radius:var(--radius-sm);padding:9px 13px;font-size:13px;margin:8px 0}
+  .msg{background:var(--green-soft);color:var(--green-deep);border-radius:var(--radius-sm);padding:9px 13px;font-size:13px;margin:8px 0}
   .center{display:flex;align-items:center;justify-content:center;min-height:100vh}
-  .loginbox{width:340px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:28px;box-shadow:var(--shadow)}
-  .status-note{font-size:12.5px;color:var(--faint);margin-top:18px;padding-top:14px;border-top:1px solid var(--line)}
+  .loginbox{width:350px;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:28px;box-shadow:var(--sh)}
+  .status-note{font-size:12px;color:var(--faint);margin-top:18px;padding-top:14px;border-top:1px solid var(--line)}
+  .sec{font-family:var(--serif);font-size:12.5px;font-weight:700;color:var(--green);letter-spacing:.4px;text-transform:uppercase;margin:22px 0 8px;padding-bottom:6px;border-bottom:2px solid var(--green-soft)}
+  .ro{background:var(--surface-2);border:1px solid var(--line);border-radius:var(--radius-sm);padding:9px 11px;font-size:13px;min-height:20px;color:var(--text);white-space:pre-wrap}
+  table.signoff td{vertical-align:top}
 </style>
 </head>
 <body>
@@ -88,12 +162,14 @@ let me = null; // /api/pd/me response
 const app = document.getElementById('app');
 
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function num(v){ const n = Number(v); return Number.isFinite(n) ? String(n) : '0'; } // DECIMALs arrive as strings like "54.000"
+function money(v){ const n = Number(v)||0; return 'Rs ' + Math.round(n).toLocaleString('en-US'); }
 
 /* ---------- login ---------- */
 function renderLogin(err){
   app.innerHTML =
     '<div class="center"><div class="loginbox">'
-    + '<div class="row" style="margin-bottom:18px"><span class="mark">VAN</span><span class="brandtxt">Product Development</span></div>'
+    + '<div class="row" style="margin-bottom:18px;gap:11px"><img class="brandlogo lg" src="/assets/van-logo.png" alt="VAN — Vital Agri Nutrients (Pvt) Ltd"><span class="platlbl">Product Development</span></div>'
     + (err ? '<div class="err">'+esc(err)+'</div>' : '')
     + '<label>Username</label><input id="lu" autocomplete="username">'
     + '<label>Password</label><input id="lp" type="password" autocomplete="current-password">'
@@ -114,22 +190,86 @@ async function doLogin(){
 
 /* ---------- shell + router ---------- */
 const NAV = [
-  {href:'#home', label:'Home', surface:'home'},
-  {href:'#mywork', label:'My Work', surface:'mywork'},
-  {href:'#ideas', label:'Ideas', surface:'ideas.own'},
-  {href:'#gatelog', label:'Gate log', surface:'gatelog'},
+  {href:'#home',        label:'Home',         surface:'home',        group:'Workspace'},
+  {href:'#mywork',      label:'My Work',      surface:'mywork',      group:'Workspace'},
+  {href:'#ideas',       label:'Ideas',        surface:'ideas.own',   group:'Pipeline'},
+  {href:'#board',       label:'Board',        surface:'ideas.all',   group:'Pipeline'},
+  {href:'#candidates',  label:'Candidates',   surface:'candidates',  group:'Pipeline'},
+  {href:'#materials',   label:'Materials',    surface:'candidates',  group:'Pipeline'},
+  {href:'#samples',     label:'Samples',      surface:'samples',     group:'Pipeline'},
+  {href:'#tests',       label:'Lab tests',    surface:'samples',     group:'Pipeline'},
+  {href:'#trials',      label:'Field trials', surface:'trials',      group:'Pipeline'},
+  {href:'#gatelog',     label:'Gate log',     surface:'gatelog',     group:'Pipeline'},
+  {href:'#records',     label:'Records',      surface:'records',     group:'Registers'},
+  {href:'#formulations',label:'Formulations', surface:'formulations',group:'Registers'},
+  {href:'#regulatory',  label:'Regulatory',   surface:'regulatory',  group:'Registers'},
+  {href:'#portfolio',   label:'Portfolio',    surface:'registers',   group:'Registers'},
+  {href:'#projects',    label:'Projects',     surface:'registers',   group:'Registers'},
+  {href:'#problems',    label:'Problems',     surface:'registers',   group:'Registers'},
+  {href:'#library',     label:'Library',      surface:'library',     group:'Knowledge'},
+  {href:'#learnings',   label:'Learnings',    surface:'learnings',   group:'Knowledge'},
+  {href:'#dropbox',     label:'Drop box',     surface:'dropbox',     group:'Knowledge'},
+  {href:'#audit',       label:'Activity log', surface:'audit',       group:'Knowledge'},
+  {href:'#guide',       label:'Guide',        surface:'guide',       group:'Knowledge'},
 ];
+// Line icons per nav destination (inner SVG paths; wrapped in <svg> at render time).
+const NAV_ICONS = {
+  '#home':'<path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/>',
+  '#mywork':'<path d="M9 11l3 3 8-8"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>',
+  '#ideas':'<path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12c1 1 1 2 1 3h6c0-1 0-2 1-3a7 7 0 0 0-4-12z"/>',
+  '#board':'<rect x="3" y="4" width="5" height="16" rx="1"/><rect x="10" y="4" width="5" height="11" rx="1"/><rect x="17" y="4" width="4" height="14" rx="1"/>',
+  '#candidates':'<path d="M9 3h6"/><path d="M10 3v6l-5 9a1.5 1.5 0 0 0 1.3 2.2h11.4A1.5 1.5 0 0 0 19 18l-5-9V3"/>',
+  '#materials':'<path d="M12 2 3 7v10l9 5 9-5V7z"/><path d="M3 7l9 5 9-5"/><path d="M12 12v10"/>',
+  '#samples':'<path d="M12 3c3.5 4 6 6.5 6 10a6 6 0 0 1-12 0c0-3.5 2.5-6 6-10z"/>',
+  '#tests':'<path d="M9 2v6l-4 9a2 2 0 0 0 1.8 3h10.4A2 2 0 0 0 19 17l-4-9V2"/><path d="M8 2h8"/><path d="M8 14h8"/>',
+  '#trials':'<path d="M12 22V11"/><path d="M12 12C12 8 9 6 5 6c0 4 3 6 7 6z"/><path d="M12 11c0-4 3-6 7-6 0 4-3 6-7 6z"/>',
+  '#gatelog':'<path d="M4 21V6l8-3 8 3v15"/><path d="M4 21h16"/><path d="M9 21v-6h6v6"/>',
+  '#records':'<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+  '#formulations':'<path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3.5 6h.01M3.5 12h.01M3.5 18h.01"/>',
+  '#regulatory':'<path d="M12 3l8 3v5c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6z"/><path d="M9 12l2 2 4-4"/>',
+  '#portfolio':'<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
+  '#projects':'<path d="M12 2 2 7l10 5 10-5z"/><path d="M2 12l10 5 10-5"/><path d="M2 17l10 5 10-5"/>',
+  '#problems':'<path d="M12 3 2 20h20z"/><path d="M12 10v4"/><path d="M12 17.5h.01"/>',
+  '#library':'<path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19a2 2 0 0 1 2-2h13"/>',
+  '#learnings':'<path d="M2 8l10-4 10 4-10 4z"/><path d="M6 10v5c0 1.5 3 3 6 3s6-1.5 6-3v-5"/>',
+  '#dropbox':'<path d="M4 6h16l1 6v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-6z"/><path d="M3 12h5l2 3h4l2-3h5"/>',
+  '#audit':'<path d="M3 12h4l3 8 4-16 3 8h4"/>',
+  '#guide':'<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 0 1 4 1.8c0 1.6-2 2-2 3.2"/><path d="M12 17.5h.01"/>',
+};
+function fmtDate(v){ return v ? String(v).slice(0,10) : ''; }
+const GATES_LABEL = { G3:'G3 · Beaker gate', G4:'G4 · Bench evaluation', G5:'G5 · Field trial approval', G6:'G6 · Scale-up & production' };
+const PD_SOURCES = { team:'Team / internal', farmer:'Farmer', dealer:'Dealer', regulator:'Regulator', consultant:'Consultant / outside reviewer', management:'Management', other:'Other' };
+const PD_GATE_OUTCOMES = {
+  G3:[['advance','ADVANCE — fund the bench, runs may begin'],['iterate','ITERATE — tighten the route before spending'],['park','PARK — budget/priority hold'],['kill','KILL — close before materials are committed']],
+  G4:[['advance','ADVANCE — a run met the criteria, promote it to Formulation v1'],['iterate','ITERATE — near miss, another combination is worth a run'],['park','PARK — shelve for later'],['kill','KILL — no run met the bar, closed with reason']],
+  G5:[['advance','ADVANCE — beat the DAP control, move toward launch'],['iterate','REPEAT — inconclusive, run another season/site'],['park','PARK — hold'],['kill','KILL — did not perform in the field']],
+  G6:[['advance','LAUNCH — make it at the agreed margin, hand to Production'],['park','HOLD — registration/costing/supply must clear first'],['kill','STOP — not commercially viable']],
+};
 function shell(bodyHtml, activeHash){
-  const navHtml = NAV.filter(n => me.surfaces.includes(n.surface)).map(n =>
-    '<a href="'+n.href+'" class="'+(activeHash===n.href?'on':'')+'">'+n.label+'</a>').join('');
+  const items = NAV.filter(n => me.surfaces.includes(n.surface));
+  let navHtml = '', lastGroup = null;
+  for (const n of items){
+    if (n.group !== lastGroup){ navHtml += '<div class="navgrp">'+esc(n.group)+'</div>'; lastGroup = n.group; }
+    navHtml += '<a href="'+n.href+'" class="'+(activeHash===n.href?'on':'')+'" title="'+esc(n.label)+'">'
+      + '<svg viewBox="0 0 24 24">'+(NAV_ICONS[n.href]||'')+'</svg><span class="nlbl">'+esc(n.label)+'</span></a>';
+  }
+  let collapsed = false; try{ collapsed = localStorage.getItem('pd_nav_collapsed')==='1'; }catch(e){}
+  const initials = esc(((me.name||'?').trim().split(/\s+/).map(w=>w[0]).join('').slice(0,2)||'?').toUpperCase());
   app.innerHTML =
-    '<div class="topbar">'
-    + '<a class="brand" href="#home"><span class="mark">VAN</span><span class="brandtxt">Product Development</span></a>'
-    + '<div class="who">'+esc(me.name)+' · '+esc(me.label||'no PD role')+' &nbsp; <button id="back">O2S launcher</button> <button id="out">Sign out</button></div>'
-    + '</div>'
-    + '<div class="shell"><nav class="side">'+navHtml+'</nav><main id="main">'+bodyHtml+'</main></div>';
+    '<div class="app-shell'+(collapsed?' nav-collapsed':'')+'" id="appShell">'
+    + '<aside class="pdside">'
+      + '<a class="brand" href="#home"><img class="brandmark" src="/assets/van-emblem.png" alt="VAN"><span class="nm">Product Development<span>Vital Agri Nutrients</span></span></a>'
+      + '<a class="raillauncher" href="/" title="Back to the VAN launcher"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7.5" height="7.5" rx="1.6"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.6"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.6"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.6"/></svg><span class="lb">Back to launcher</span></a>'
+      + '<nav class="nav">'+navHtml+'</nav>'
+      + '<button class="railcollapse" id="pdCollapse" title="Collapse / expand menu"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg><span class="lb">Collapse</span></button>'
+      + '<div class="foot"><details class="usermenu"><summary><span class="av">'+initials+'</span><span class="umeta"><span class="un">'+esc(me.name)+'</span><span class="ur">'+esc(me.label||'no PD role')+'</span></span><span class="umc">▴</span></summary><div class="umpop"><button class="pdsignout" id="out">Sign out</button></div></details></div>'
+    + '</aside>'
+    + '<main id="main">'+bodyHtml+'</main>'
+    + '</div>';
   document.getElementById('out').onclick = () => { me = null; setToken(''); location.hash=''; boot(); };
-  document.getElementById('back').onclick = () => { location.href = '/launcher'; };
+  const cb = document.getElementById('pdCollapse');
+  if (cb) cb.onclick = () => { const c = document.getElementById('appShell').classList.toggle('nav-collapsed'); try{ localStorage.setItem('pd_nav_collapsed', c?'1':'0'); }catch(e){} };
+  if (!window._pdMenuInit){ window._pdMenuInit = true; document.addEventListener('click', (e) => { document.querySelectorAll('details.usermenu[open]').forEach(d => { if(!d.contains(e.target)) d.removeAttribute('open'); }); }); }
 }
 function setMain(html){ const m = document.getElementById('main'); if(m) m.innerHTML = html; }
 
@@ -141,8 +281,32 @@ async function route(){
     if (hash === '#mywork') return renderMyWork(hash);
     if (hash === '#ideas') return renderIdeas(hash);
     if (hash.startsWith('#idea/')) return renderIdea(hash, hash.split('/')[1]);
+    if (hash === '#records') return renderRecords(hash);
+    if (hash.startsWith('#record/')) return renderRecord(hash, hash.split('/')[1]);
+    if (hash === '#candidates') return renderCandidates(hash);
+    if (hash.startsWith('#route/')) return renderRoute(hash, hash.split('/')[1]);
+    if (hash === '#materials') return renderMaterials(hash);
+    if (hash === '#samples') return renderSamples(hash);
+    if (hash === '#tests') return renderTests(hash);
+    if (hash === '#trials') return renderTrials(hash);
     if (hash === '#gatelog') return renderGateLog(hash);
+    if (hash === '#portfolio') return renderPortfolio(hash);
+    if (hash === '#projects') return renderProjects(hash);
+    if (hash.startsWith('#project/')) return renderProject(hash, hash.split('/')[1]);
+    if (hash === '#problems') return renderProblems(hash);
+    if (hash === '#newproblem') return renderNewProblem(hash);
+    if (hash === '#formulations') return renderFormulations(hash);
+    if (hash === '#regulatory') return renderRegulatory(hash);
+    if (hash === '#learnings') return renderLearnings(hash);
+    if (hash === '#audit') return renderAudit(hash);
+    if (hash === '#dropbox') return renderDropbox(hash);
+    if (hash === '#board') return renderBoard(hash);
+    if (hash === '#library') return renderLibrary(hash);
+    if (hash.startsWith('#libitem/')) return renderLibItem(hash, hash.split('/')[1]);
     if (hash === '#new') return renderNewIdea(hash);
+    if (hash === '#challenge') return renderChallenge(hash);
+    if (hash === '#guide') return renderGuide(hash);
+    if (hash === '#doctrine') return renderDoctrine(hash);
     return renderHome(hash);
   } catch(e) {
     shell('<div class="err">'+esc(e.message)+'</div>', hash);
@@ -150,40 +314,109 @@ async function route(){
 }
 window.addEventListener('hashchange', route);
 
-function renderHome(hash){
-  shell(
-    '<h1>Welcome, '+esc(me.name)+'</h1>'
-    + '<p class="sub">Bring something in — an idea, a problem, or a challenge to a product you already make.</p>'
-    + '<div class="card"><a class="btn" href="#new" style="text-decoration:none;display:inline-block">+ New idea</a></div>'
-    + (me.surfaces.includes('mywork') ? '<p class="sub"><a href="#mywork">Go to My Work →</a></p>' : ''),
-    hash
-  );
+async function renderHome(hash){
+  shell('<h1>Bring something in</h1><p class="sub">Loading…</p>', hash);
+  let d; try { d = await api('GET','/api/pd/home'); } catch(e){ d = { total:0, isSubmitter:false, submissions:[] }; }
+  const door = (href, emoji, title, desc) => '<a href="'+href+'" style="text-decoration:none;color:inherit"><div class="card" style="margin:0;height:100%"><h3 style="margin:0 0 6px;font-size:1rem;color:var(--text)">'+emoji+' '+title+'</h3><p class="sub" style="margin:0">'+desc+'</p></div></a>';
+  const doors = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-bottom:14px">'
+    + door('#new','💡','Share an idea','A recipe, an ingredient, a route, a tweak, something a farmer said. A good question is enough — it need not be worked out.')
+    + door('#newproblem','🎯','Register a problem','Something wrong in the field or in farmer economics that a product should solve. Problems are few and live long.')
+    + door('#challenge','🔧','Challenge an existing product','A complaint, a weakness, or an improvement for something we already make. You will see its current version before you write.')
+    + '</div>';
+  const zero = d.total === 0 ? '<div class="card" style="border:2px solid var(--green)"><h2 style="margin:0 0 6px;font-size:1.05rem">Nothing logged yet — that is how a zero-data pilot starts</h2><p class="sub" style="margin:0">The Registrar checks the intake queue every working day and nudges the screener so nothing breaches the 15-day answer target.</p></div>' : '';
+  const subs = d.submissions.length
+    ? '<div style="overflow-x:auto"><table><tr><th>ID</th><th>Title</th>'+(d.isSubmitter?'':'<th>From</th>')+'<th>Kind</th>'+(d.isSubmitter?'':'<th>Lane</th>')+'<th>Stage</th><th>G1</th></tr>'
+      + d.submissions.map(x=>'<tr class="clickable" onclick="location.hash=\'#idea/'+x.id+'\'"><td><b>'+x.h_label+'</b></td><td>'+esc(x.title)+'</td>'+(d.isSubmitter?'':'<td class="sub">'+esc(x.submitter_name)+'</td>')+'<td class="sub">'+esc(x.change_type_label)+'</td>'+(d.isSubmitter?'':'<td><span class="chip '+x.lane+'">'+x.lane+'</span></td>')+'<td><span class="chip stage">'+esc(x.stage_label)+'</span></td><td>'+(x.screen_decision?'<b>'+esc(x.screen_decision.toUpperCase())+'</b>':'<span class="sub">awaiting</span>')+'</td></tr>').join('')
+      + '</table></div>'
+    : '<p class="sub" style="margin:0">Nothing yet. Use a door above — yours could be the first.</p>';
+  setMain('<h1>Bring something in</h1>'
+    + '<p class="sub">The front door. Everything the system does starts with one of three things going in — each logged, answered with a reason inside 15 days, and remembered forever. You never need permission to put something in.</p>'
+    + doors + zero
+    + '<h2 style="font-family:var(--serif);font-size:1.15rem;margin:16px 0 8px">'+(d.isSubmitter?'Your submissions':'Recent submissions')+'</h2>'
+    + '<div class="card">'+subs+'</div>');
 }
 
-function renderNewIdea(hash){
-  const CT = {new:'Brand-new product concept', reformulation:'Improve / re-engineer an existing formulation',
-    variant:'New variant of an existing product', process:'Process / manufacturing improvement', challenge:'Challenge to a product we already make'};
-  const opts = Object.keys(CT).map(k=>'<option value="'+k+'">'+CT[k]+'</option>').join('');
-  shell(
-    '<h1>New idea</h1><p class="sub">You never pick a lane — it\'s set from the kind of idea below.</p>'
-    + '<div class="card" id="frm">'
-    + '<label>Title</label><input id="f_title">'
-    + '<label>Kind of idea</label><select id="f_ct">'+opts+'</select>'
-    + '<label>The idea</label><textarea id="f_idea"></textarea>'
-    + '<label>What problem does it solve? (optional)</label><textarea id="f_problem"></textarea>'
-    + '<label>Why might it work? (optional)</label><textarea id="f_reason"></textarea>'
-    + '<div style="margin-top:14px"><button class="btn" id="f_submit">Submit idea</button></div>'
-    + '<div id="f_msg"></div>'
-    + '</div>',
-    hash
+async function renderChallenge(hash){
+  shell('<h1>Challenge an existing product</h1><p class="sub">Loading…</p>', hash);
+  const d = await api('GET','/api/pd/challenge');
+  if (!d.products.length) {
+    setMain('<h1>Challenge an existing product</h1>'
+      + '<p class="sub">Raise a weakness, complaint or improvement for something we already make — it is logged as a <b>challenge</b> idea, linked to that product, and screened like everything else.</p>'
+      + '<div class="card"><p class="sub" style="margin:0">No products are registered yet, so there is nothing to challenge. If you are describing something wrong in the field rather than with a product, <a href="#newproblem">register it as a problem</a> instead.</p></div>');
+    return;
+  }
+  const opts = d.products.map(p=>'<option value="'+p.id+'">'+esc(p.code+' — '+p.name)+'</option>').join('');
+  const VER = {}; d.products.forEach(p=>VER[p.id]=p.current);
+  setMain('<h1>Challenge an existing product</h1>'
+    + '<p class="sub">Raise a weakness, a complaint or an improvement for something we already make — caking, dust, a field failure, a dealer objection. Saying a product has a problem is not disloyalty; it is how the next version gets made.</p>'
+    + '<div class="card"><label>Which product?</label><select id="ch_prod">'+opts+'</select>'
+    + '<div class="card" style="background:var(--green-soft);border-color:var(--green);margin-top:10px"><div class="sec" style="margin-top:0">How it fits the current version</div><p class="sub" id="ch_current" style="margin:0 0 6px"></p><p class="sub" style="margin:0">Your challenge is recorded against this version, so the fix can be read against what we actually make today.</p></div>'
+    + '<label>What is the challenge?</label><textarea id="ch_text" placeholder="What is weak or wrong, where did you see it, and what would better look like?"></textarea>'
+    + '<label>Short title</label><input id="ch_title" maxlength="200">'
+    + '<div style="margin-top:12px"><button class="btn" id="ch_submit">Log the challenge</button> <a class="btn ghost" href="#home">Cancel</a> <span id="ch_msg"></span></div></div>');
+  const cur = () => { document.getElementById('ch_current').textContent = VER[document.getElementById('ch_prod').value] || '—'; };
+  document.getElementById('ch_prod').onchange = cur; cur();
+  document.getElementById('ch_submit').onclick = async () => {
+    const g = i => document.getElementById(i).value;
+    if(!g('ch_title').trim() || !g('ch_text').trim()){ document.getElementById('ch_msg').innerHTML='<span class="err">Title and the challenge are required.</span>'; return; }
+    try { const j = await api('POST','/api/pd/challenge', { product_id:g('ch_prod'), title:g('ch_title'), challenge_text:g('ch_text') }); location.hash='#idea/'+j.id; }
+    catch(e){ document.getElementById('ch_msg').innerHTML='<span class="err">'+esc(e.message)+'</span>'; }
+  };
+}
+
+async function renderNewIdea(hash){
+  shell('<h1>Share an idea</h1><p class="sub">Loading…</p>', hash);
+  let form; try { form = await api('GET','/api/pd/idea-form'); } catch(e){ form = { products:[], problems:[] }; }
+  const CT = {new:'Brand-new product idea', reformulation:'Improve / re-engineer an existing formulation', variant:'New variant of an existing product', process:'Process / manufacturing improvement'};
+  const ctOpts = Object.keys(CT).map(k=>'<option value="'+k+'">'+esc(CT[k])+'</option>').join('');
+  const prodOpts = '<option value="">—</option>'+form.products.map(p=>'<option value="'+p.id+'">'+esc(p.code+' — '+p.name)+'</option>').join('');
+  const probOpts = '<option value="">—</option>'+form.problems.map(p=>'<option value="'+p.id+'">'+esc(p.label)+'</option>').join('');
+  const hint = t => '<p class="sub" style="margin:4px 0 0">'+t+'</p>';
+  setMain(
+    '<h1>Share an idea</h1>'
+    + '<p class="sub"><b>Have an idea?</b> A recipe, an ingredient, a route, a tweak, something a farmer said — anything. You do not need it fully worked out; a good question is enough. Every idea is logged, screened the same way whoever sends it, and answered with a reason within 15 days. You never pick a lane — it is set from the kind of idea.</p>'
+    + '<div class="card">'
+    + '<div class="row" style="gap:12px"><div style="flex:1;min-width:200px"><label>What kind of idea is this?</label><select id="f_ct">'+ctOpts+'</select></div>'
+    + '<div style="flex:1;min-width:200px"><label>Related existing product (if any)</label><select id="f_prod">'+prodOpts+'</select></div>'
+    + '<div style="flex:1;min-width:200px"><label>Which registered problem does it address (if known)?</label><select id="f_prob">'+probOpts+'</select></div></div>'
+    + hint('Seeing a NEW problem nobody has named? <a href="#newproblem">Register it as a problem</a> instead. A fault in something we already sell? <a href="#challenge">Challenge the product</a>.')
+    + '<label>Idea in a few words (title)</label><input id="f_title">'
+    + '<div id="f_similar"></div>'
+    + '<label>1. What is the idea?</label><textarea id="f_idea"></textarea>'
+    + '<label>2. What problem does it solve?</label><textarea id="f_problem"></textarea>'+hint('e.g. less fixation, cheaper, uses local rock, adds Zn/S')
+    + '<label>3. Why might it work? A hunch is fine.</label><textarea id="f_reason"></textarea>'
+    + '<label>4. What would it be made from? (rough)</label><textarea id="f_materials"></textarea>'
+    + '<label>5. How would we know it worked?</label><textarea id="f_success"></textarea>'+hint('yield, greener crop, a lab number…')
+    + '<label>6. Which crop / area (if any)?</label><input id="f_crop">'
+    + '<label>7. Anything you have seen that supports it?</label><textarea id="f_support"></textarea>'
+    + '<label>8. Any risk or worry you already see?</label><textarea id="f_risk"></textarea>'
+    + '<div style="margin-top:14px"><button class="btn" id="f_submit">Submit idea</button> <a class="btn ghost" href="#home">Cancel</a> <span id="f_msg"></span></div>'
+    + '</div>'
   );
+  // "The system remembers similar ideas" — live fulltext check against past ideas.
+  let _sim;
+  const checkSimilar = async () => {
+    const box = document.getElementById('f_similar'); if (!box) return;
+    const q = (document.getElementById('f_title').value + ' ' + document.getElementById('f_idea').value).trim();
+    if (q.length < 6) { box.innerHTML = ''; return; }
+    try {
+      const d = await api('GET','/api/pd/similar?q='+encodeURIComponent(q));
+      if (!d.matches.length) { box.innerHTML = ''; return; }
+      box.innerHTML = '<div class="card" style="background:var(--amber-soft);border-color:var(--amber);margin:8px 0"><b style="color:var(--amber)">⚠ The system remembers similar ideas — check before submitting:</b>'
+        + d.matches.map(m=>'<div style="margin-top:6px"><a href="#idea/'+m.id+'"><b>'+esc(m.label)+'</b></a> <span class="sub">· '+esc(m.fate)+'</span><div class="sub">'+esc(m.advice)+'</div></div>').join('')
+        + '<p class="sub" style="margin:6px 0 0">Still different? Submit anyway — the screen will judge it on merit.</p></div>';
+    } catch(e){ box.innerHTML = ''; }
+  };
+  const deb = () => { clearTimeout(_sim); _sim = setTimeout(checkSimilar, 500); };
+  document.getElementById('f_title').oninput = deb;
+  document.getElementById('f_idea').oninput = deb;
   document.getElementById('f_submit').onclick = async () => {
-    const b = { title: document.getElementById('f_title').value.trim(), change_type: document.getElementById('f_ct').value,
-      idea_text: document.getElementById('f_idea').value.trim(), problem_text: document.getElementById('f_problem').value.trim(),
-      reasoning_text: document.getElementById('f_reason').value.trim() };
-    if(!b.title || !b.idea_text){ setMain(document.getElementById('frm').outerHTML); document.getElementById('f_msg').innerHTML='<div class="err">Title and the idea itself are required.</div>'; return; }
+    const gv = i => (document.getElementById(i).value || '').trim();
+    if(!gv('f_title') || !gv('f_idea')){ document.getElementById('f_msg').innerHTML='<span class="err">Title and the idea itself are required.</span>'; return; }
+    const b = { title:gv('f_title'), change_type:document.getElementById('f_ct').value, parent_product_id:document.getElementById('f_prod').value, problem_id:document.getElementById('f_prob').value,
+      idea_text:gv('f_idea'), problem_text:gv('f_problem'), reasoning_text:gv('f_reason'), materials_text:gv('f_materials'), success_text:gv('f_success'), crop_area:gv('f_crop'), support_text:gv('f_support'), risk_text:gv('f_risk') };
     try{ const j = await api('POST','/api/pd/ideas', b); location.hash = '#idea/'+ (await api('GET','/api/pd/ideas')).find(x=>x.h_number===j.h_number).id; }
-    catch(e){ document.getElementById('f_msg').innerHTML = '<div class="err">'+esc(e.message)+'</div>'; }
+    catch(e){ document.getElementById('f_msg').innerHTML = '<span class="err">'+esc(e.message)+'</span>'; }
   };
 }
 
@@ -199,49 +432,1248 @@ async function renderIdeas(hash){
 }
 
 async function renderMyWork(hash){
-  shell('<h1>My Work</h1><p class="sub">Loading…</p>', hash);
-  const rows = await api('GET','/api/pd/mywork');
-  const trs = rows.map(r =>
-    '<tr class="clickable" onclick="location.hash=\'#idea/'+r.id+'\'"><td>'+r.h_label+'</td><td>'+esc(r.title)+'</td><td><span class="chip '+r.lane+'">'+r.lane_label+'</span></td></tr>').join('');
-  setMain('<h1>My Work</h1><p class="sub">Ideas waiting on your G1 screen.</p>'
-    + '<div class="card"><table><tr><th>H#</th><th>Title</th><th>Lane</th></tr>'+trs+'</table>'
-    + (rows.length===0 ? '<p class="sub" style="margin-top:10px">Nothing waiting on you right now.</p>' : '') + '</div>');
+  shell('<h1>My work today</h1><p class="sub">Loading…</p>', hash);
+  const d = await api('GET','/api/pd/mywork');
+  const heading = '<h1>My work today'+(d.firstName?' — '+esc(d.firstName):'')+'</h1><p class="sub">Everything that needs <b>you</b>, right now. When this page is empty, you are caught up.</p>';
+  if (d.caughtUp) {
+    setMain(heading + '<div class="card" style="border-color:var(--green);background:var(--green-soft)"><b>You are all caught up.</b> Nothing is waiting on you.<p class="sub" style="margin:6px 0 0">Work reaches this page by itself as ideas move through the gates.</p></div>');
+    return;
+  }
+  const section = s => {
+    const rows = s.items.map(it => '<div class="row" style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:7px 0;border-top:1px solid var(--line)"><span>'+it.label+'</span><a class="btn'+(it.btn.ghost?' ghost':'')+'" style="text-decoration:none;white-space:nowrap" href="'+it.btn.hash+'">'+esc(it.btn.label)+'</a></div>').join('');
+    const moreLine = s.more ? '<div class="sub" style="padding-top:7px;border-top:1px solid var(--line)">… and '+s.more+' more</div>' : '';
+    return '<div class="card"'+(s.act?' style="border-left:3px solid var(--green)"':' style="border-left:3px solid var(--amber)"')+'><h3 style="margin:0 0 4px;font-size:1rem">'+s.title+' <span class="sub">('+(s.items.length+s.more)+')</span></h3>'+rows+moreLine+'</div>';
+  };
+  setMain(heading + d.sections.map(section).join(''));
 }
 
 async function renderIdea(hash, id){
   shell('<p class="sub">Loading…</p>', hash);
   const idea = await api('GET','/api/pd/ideas/'+id);
-  const canScreen = !idea.screen_decision && me.surfaces.includes('screen');
+  const op = idea.isOperator;
+
+  // ---- details table ----
+  const rd = [];
+  rd.push(['Submitted by', esc(idea.submitted_by_name)+' on '+esc(fmtDate(idea.submitted_at))]);
+  rd.push(['Type of idea', esc(idea.change_type_label)+(idea.product?' — parent product: '+esc(idea.product.code)+' ('+esc(idea.product.name)+')':'')+(idea.problem?' — problem: '+esc(idea.problem.label):'')]);
+  if (op) rd.push(['Screening lane', '<span class="chip '+idea.lane+'">'+idea.lane+'</span> — screened by '+esc(idea.lane_who)]);
+  const fld = (label, v) => { if (v && String(v).trim()) rd.push([label, esc(v)]); };
+  fld('The idea', idea.idea_text); fld('Problem it solves', idea.problem_text); fld('Why it might work', idea.reasoning_text);
+  fld('Made from', idea.materials_text); fld('How we would know', idea.success_text); fld('Crop / area', idea.crop_area);
+  fld('Supporting evidence', idea.support_text); fld('Risks flagged', idea.risk_text);
+  if (idea.project) rd.push(['Development Project', '<a href="#project/'+idea.project.id+'">'+esc(idea.project.label)+'</a> — '+esc(idea.project.title)+(idea.route?'<br><span class="sub">this route: <b>'+esc(idea.route)+'</b></span>':'')]);
+  if (idea.screen_decision) rd.push(['G1 screen', '<b>'+esc(idea.screen_decision.toUpperCase())+'</b> — '+esc(idea.screen_reason)
+    + (idea.screen_manuf_note?'<br><b>Manufacturability:</b> '+esc(idea.screen_manuf_note):'')
+    + (idea.screen_chem_note?'<br><b>Chemistry check:</b> '+esc(idea.screen_chem_note):'')
+    + (idea.park_condition?'<br><b>Re-look condition:</b> '+esc(idea.park_condition):'')
+    + (idea.route?'<br><b>Route:</b> '+esc(idea.route):'')+(idea.lever?' · <b>Lever:</b> '+esc(idea.lever):'')
+    + '<br><span class="sub">by '+esc(idea.screened_by_name||'')+', '+esc(fmtDate(idea.screened_at))+'</span>']);
+  if (op && idea.next_action) rd.push(['Next action', esc(idea.next_action)]);
+  const detailsTable = '<div class="card"><table>'+rd.map(([k,v])=>'<tr><th style="width:190px">'+k+'</th><td>'+v+'</td></tr>').join('')+'</table></div>';
+
+  // ---- system memory ----
+  let memory = '';
+  if (idea.memory && (idea.memory.similar.length || idea.memory.learnings.length)) {
+    memory = '<div class="card" style="background:var(--amber-soft);border-color:var(--amber)"><h2 style="font-size:1.05rem;margin:0 0 8px">System memory</h2>';
+    if (idea.memory.similar.length) memory += '<b class="sub">Similar past ideas:</b><ul style="margin:4px 0 8px 18px">'+idea.memory.similar.map(s=>'<li><a href="#idea/'+s.id+'">'+esc(s.label)+'</a> <span class="sub">('+esc(s.note)+')</span></li>').join('')+'</ul>';
+    if (idea.memory.learnings.length) memory += '<b class="sub">What we already know (Learnings):</b><ul style="margin:4px 0 0 18px">'+idea.memory.learnings.map(l=>'<li>'+esc(l.fact)+' <span class="sub">['+esc((l.evidence||'').toUpperCase())+(l.source?' · '+esc(l.source):'')+']</span></li>').join('')+'</ul>';
+    memory += '</div>';
+  }
+
+  // ---- full G1 screen card ----
+  let screenCard = '';
+  if (idea.caps.screen) {
+    const ownerOpts = (idea.lists?idea.lists.users:[]).map(u=>'<option value="'+u.id+'">'+esc(u.name)+'</option>').join('');
+    screenCard = '<div class="card"><h2 style="font-size:1.05rem;margin:0 0 6px">Screen this idea (G1) — '+esc((idea.lane||'').toUpperCase())+' lane</h2>'
+      + '<p class="sub" style="margin:0 0 10px">Same scrutiny for every idea. Record the manufacturability read and the chemistry sense-check, decide, and give the reason — the submitter is told.</p>'
+      + '<div class="row" style="gap:12px"><div style="flex:1;min-width:200px"><label>Manufacturability read</label><textarea id="s_manuf"></textarea></div><div style="flex:1;min-width:200px"><label>Chemistry sense-check</label><textarea id="s_chem"></textarea></div></div>'
+      + '<div class="row" style="gap:12px"><div style="flex:1;min-width:170px"><label>Decision</label><select id="s_dec"><option value="log">LOG — worth designing (advance)</option><option value="park">PARK — not now</option><option value="kill">KILL — with reason, kept forever</option><option value="merge">MERGE — into an existing hypothesis</option></select></div>'
+      + '<div style="flex:1;min-width:110px"><label>Priority</label><select id="s_prio"><option value=""></option><option>high</option><option>medium</option><option>low</option></select></div>'
+      + '<div style="flex:1;min-width:120px"><label>Route (R1–R8)</label><input id="s_route"></div>'
+      + '<div style="flex:1;min-width:160px"><label>Lever</label><input id="s_lever" placeholder="acidification / anti-fixation"></div>'
+      + '<div style="flex:1;min-width:150px"><label>Owner</label><select id="s_owner"><option value=""></option>'+ownerOpts+'</select></div></div>'
+      + '<label>Re-look condition (if parked)</label><input id="s_park" placeholder="e.g. revisit if rock price falls">'
+      + '<label>Reason (told to the submitter)</label><textarea id="s_reason"></textarea>'
+      + '<div style="margin-top:12px"><button class="btn" id="s_submit">Record G1 decision</button> <span id="s_msg"></span></div></div>';
+  }
+
+  const reversalCard = idea.reversal
+    ? '<div class="card" style="border-color:var(--amber);background:var(--amber-soft)"><h2 style="font-size:1.05rem;margin:0 0 6px">Your reversal window — '+idea.reversal.daysLeft+' day'+(idea.reversal.daysLeft===1?'':'s')+' left</h2>'
+      + '<p class="sub" style="margin:0 0 10px">The PD Lead screened this on the light lane. It stands unless you reverse it inside 7 days. A short veto, not a gate: use it when the call was wrong, not merely when you would have worded it differently.</p>'
+      + '<label>Reason for reversing</label><textarea id="rev_reason" placeholder="What the screen missed. Both the submitter and the PD Lead read this."></textarea>'
+      + '<div style="margin-top:10px"><button class="btn" id="rev_btn">Reverse this screen</button> <span id="rev_msg"></span></div></div>'
+    : '';
+
+  const cc = idea.candidateCounts || {total:0, selected:0};
+  const candLink = (idea.screen_decision==='log' && me.surfaces.includes('candidates'))
+    ? '<div class="card"><span class="sub" style="margin:0"><b>Pre-bench candidate screen</b> — '+(cc.total?cc.total+' combination'+(cc.total===1?'':'s')+' screened on paper, '+cc.selected+' selected for the bench.':'nothing screened yet: decide which combinations are worth making, on paper, before a beaker comes out.')+' <a href="#route/'+idea.id+'">Open the candidate screen →</a></span></div>' : '';
+  const samplesTrials = '<div class="card"><h2 style="font-size:1.05rem;margin:0 0 6px">Samples &amp; trials</h2><div class="sub" style="margin:0">'
+    + (idea.samples && idea.samples.length ? 'Samples: '+idea.samples.map(esc).join(', ') : 'No samples yet (created on the Samples page after G3).') + '<br>'
+    + (idea.trials && idea.trials.length ? 'Trials: '+idea.trials.map(esc).join(', ') : 'No field trials yet.') + '</div></div>';
+
   const gatesHtml = idea.gates.map(g =>
-    '<tr><td>'+g.gate+'</td><td>'+g.decision+(g.provisional?' <span class="chip stage">provisional</span>':'')+'</td><td>'+esc(g.reason)+'</td><td>'+esc(g.decided_by_name)+'</td></tr>').join('')
-    || '<tr><td colspan="4" class="sub">No gate decisions yet.</td></tr>';
+    '<tr><td>'+g.gate+(g.is_site_quorum?'<br><span class="sub">site quorum</span>':'')+'</td><td><b>'+esc(g.decision)+'</b></td><td>'+esc(g.reason)+'</td><td>'+esc(g.decided_by_name)+'</td><td class="sub">'+esc(fmtDate(g.decided_at))+'</td><td class="sub">'+(g.ratified_by_name?esc(g.ratified_by_name):(g.provisional?'<b>pending</b>':'—'))+'</td></tr>').join('')
+    || '<tr><td colspan="6" class="sub">No gate decisions yet.</td></tr>';
+
+  // ---- tracker update (custodian) ----
+  let tracker = '';
+  if (idea.caps.update && idea.lists) {
+    const st = Object.keys(idea.lists.stages).map(k=>'<option value="'+k+'"'+(idea.stage===k?' selected':'')+'>'+esc(idea.lists.stages[k])+'</option>').join('');
+    const ow = '<option value=""></option>'+idea.lists.users.map(u=>'<option value="'+u.id+'"'+(idea.owner_id===u.id?' selected':'')+'>'+esc(u.name)+'</option>').join('');
+    const pr = '<option value=""></option>'+idea.lists.products.map(p=>'<option value="'+p.id+'"'+(idea.parent_product_id===p.id?' selected':'')+'>'+esc(p.code)+'</option>').join('');
+    const pb = '<option value=""></option>'+idea.lists.problems.map(p=>'<option value="'+p.id+'"'+(idea.problem_id===p.id?' selected':'')+'>'+esc(p.label)+'</option>').join('');
+    const prio = ['','high','medium','low'].map(p=>'<option'+(idea.priority===p?' selected':'')+'>'+p+'</option>').join('');
+    tracker = '<div class="card"><h2 style="font-size:1.05rem;margin:0 0 10px">Tracker update (Custodian)</h2><div class="row" style="gap:12px">'
+      + '<div style="flex:1;min-width:140px"><label>Stage</label><select id="t_stage">'+st+'</select></div>'
+      + '<div style="flex:1;min-width:110px"><label>Priority</label><select id="t_prio">'+prio+'</select></div>'
+      + '<div style="flex:1;min-width:150px"><label>Owner</label><select id="t_owner">'+ow+'</select></div>'
+      + '<div style="flex:2;min-width:200px"><label>Next action</label><input id="t_next" value="'+esc(idea.next_action||'')+'"></div>'
+      + '<div style="flex:1;min-width:150px"><label>Product concept</label><select id="t_prod">'+pr+'</select></div>'
+      + '<div style="flex:1;min-width:170px"><label>Problem</label><select id="t_prob">'+pb+'</select></div></div>'
+      + '<div style="margin-top:12px"><button class="btn ghost" id="t_save">Save</button> <span id="t_msg"></span></div></div>';
+  }
+
+  // ---- pinned reading + discussion (operators) ----
+  let pinned = '', comments = '';
+  if (idea.canDiscuss) {
+    pinned = '<h2 style="font-family:var(--serif);font-size:1.2rem">Reading pinned here ('+idea.pinned.length+')</h2>'
+      + (idea.pinned.length ? '<div class="card">'+idea.pinned.map(i=>'<div style="padding:6px 0;border-bottom:1px solid var(--line)"><a href="#libitem/'+i.id+'"><b>'+i.l_label+'</b> '+esc(i.title)+'</a> <span class="sub" style="color:'+(EVCOL[i.evidence]||'')+';font-weight:600">'+esc(i.evidence_short)+'</span><div class="sub">'+esc(i.why)+'</div></div>').join('')+'</div>'
+        : '<div class="card"><p class="sub" style="margin:0">Nothing pinned. Pin background / a paper / a spec from the <a href="#library">Library</a> so the reading sits next to the work.</p></div>');
+    comments = '<h2 style="font-family:var(--serif);font-size:1.2rem">Discussion ('+idea.comments.length+')</h2>'
+      + '<p class="sub">Discussion, not a decision — gate reasons stay in the gate log.</p>'
+      + (idea.comments.length ? idea.comments.map(c=>'<div class="card" style="padding:10px 12px"><div class="sub">'+esc(c.name)+' · '+esc(c.role_label)+' · '+esc(fmtDate(c.added_at))+'</div><div style="margin-top:4px;white-space:pre-wrap">'+esc(c.body)+'</div></div>').join('') : '<div class="card"><p class="sub" style="margin:0">Nothing said yet.</p></div>')
+      + '<div class="card"><label>Add a comment</label><textarea id="ic_body"></textarea><div style="margin-top:10px"><button class="btn" id="ic_btn">Post comment</button> <span id="ic_msg"></span></div></div>';
+  }
+
+  const nb = idea.next_step;
+  const nextBar = (nb && nb.text) ? '<div class="card" style="background:var(--green-soft);border-color:var(--green);display:flex;gap:12px;align-items:center;flex-wrap:wrap"><span style="flex:1;min-width:220px"><b>Next step'+(nb.who && nb.who!=='—'?' · '+esc(nb.who):'')+':</b> '+esc(nb.text)+'</span>'+(nb.hash?'<a class="btn ghost" href="'+nb.hash+'">Go →</a>':'')+'</div>' : '';
   setMain(
     '<h1>'+idea.h_label+' · '+esc(idea.title)+'</h1>'
-    + '<p class="sub"><span class="chip '+idea.lane+'">'+idea.lane+' lane</span> &nbsp; <span class="chip stage">'+esc(idea.stage_label)+'</span> &nbsp; submitted by '+esc(idea.submitted_by_name)+'</p>'
-    + '<div class="card"><label>The idea</label><p>'+esc(idea.idea_text)+'</p>'
-    + (idea.problem_text?'<label>Problem it solves</label><p>'+esc(idea.problem_text)+'</p>':'')
-    + (idea.reasoning_text?'<label>Why it might work</label><p>'+esc(idea.reasoning_text)+'</p>':'')
-    + '</div>'
-    + (canScreen ?
-      '<div class="card" id="screenCard"><h2 style="font-size:1.05rem;margin:0 0 10px">G1 screen</h2>'
-      + '<label>Decision</label><select id="s_dec"><option value="log">LOG — worth designing (advance)</option><option value="park">PARK — not now</option><option value="kill">KILL — with reason, kept forever</option><option value="merge">MERGE — into an existing hypothesis</option></select>'
-      + '<label>Reason (required)</label><textarea id="s_reason"></textarea>'
-      + '<div style="margin-top:12px"><button class="btn" id="s_submit">Record decision</button></div><div id="s_msg"></div></div>'
-      : '')
-    + '<div class="card"><h2 style="font-size:1.05rem;margin:0 0 10px">Gate log</h2><table><tr><th>Gate</th><th>Decision</th><th>Reason</th><th>By</th></tr>'+gatesHtml+'</table></div>'
+    + '<p class="sub">'+(op?'<span class="chip '+idea.lane+'">'+idea.lane+' lane</span> &nbsp; ':'')+'<span class="chip stage">'+esc(idea.stage_label)+'</span> &nbsp; submitted by '+esc(idea.submitted_by_name)+'</p>'
+    + nextBar
+    + detailsTable + memory + screenCard + reversalCard
+    + (me.surfaces.includes('records') ? devRecordsSection(idea) : '')
+    + candLink + samplesTrials
+    + '<div class="card"><h2 style="font-size:1.05rem;margin:0 0 10px">Gate history</h2><div style="overflow-x:auto"><table><tr><th>Gate</th><th>Decision</th><th>Reason</th><th>By</th><th>When</th><th>Ratified</th></tr>'+gatesHtml+'</table></div>'+(idea.caps.recordGate?'<div style="margin-top:10px"><a class="btn ghost" href="#gatelog">Record a gate decision →</a></div>':'')+'</div>'
+    + tracker + pinned + comments
   );
-  if(canScreen) document.getElementById('s_submit').onclick = async () => {
-    try{ await api('POST','/api/pd/ideas/'+id+'/screen', {decision:document.getElementById('s_dec').value, reason:document.getElementById('s_reason').value}); location.reload(); }
-    catch(e){ document.getElementById('s_msg').innerHTML = '<div class="err">'+esc(e.message)+'</div>'; }
-  };
+
+  const on = (i, fn) => { const el = document.getElementById(i); if (el) el.onclick = fn; };
+  on('rev_btn', async () => { try{ await api('POST','/api/pd/ideas/'+id+'/reverse', { reason: document.getElementById('rev_reason').value }); location.reload(); } catch(e){ document.getElementById('rev_msg').innerHTML = '<span class="err">'+esc(e.message)+'</span>'; } });
+  on('s_submit', async () => {
+    const g = i => document.getElementById(i).value;
+    try{ await api('POST','/api/pd/ideas/'+id+'/screen', { decision:g('s_dec'), reason:g('s_reason'), screen_manuf_note:g('s_manuf'), screen_chem_note:g('s_chem'), park_condition:g('s_park'), priority:g('s_prio'), route:g('s_route'), lever:g('s_lever'), owner_id:g('s_owner') }); location.reload(); }
+    catch(e){ document.getElementById('s_msg').innerHTML = '<span class="err">'+esc(e.message)+'</span>'; }
+  });
+  on('t_save', async () => {
+    const g = i => document.getElementById(i).value;
+    try{ await api('POST','/api/pd/ideas/'+id+'/update', { stage:g('t_stage'), priority:g('t_prio'), owner_id:g('t_owner'), next_action:g('t_next'), parent_product_id:g('t_prod'), problem_id:g('t_prob') }); renderIdea(hash, id); }
+    catch(e){ document.getElementById('t_msg').innerHTML = '<span class="err">'+esc(e.message)+'</span>'; }
+  });
+  on('ic_btn', async () => {
+    const v = document.getElementById('ic_body').value; if(!v.trim()){ document.getElementById('ic_msg').innerHTML='<span class="err">Write something first.</span>'; return; }
+    try{ await api('POST','/api/pd/ideas/'+id+'/comment', { body:v }); renderIdea(hash, id); }
+    catch(e){ document.getElementById('ic_msg').innerHTML = '<span class="err">'+esc(e.message)+'</span>'; }
+  });
+  on('newrec', async () => { try{ const j = await api('POST','/api/pd/records', {hypothesis_id: idea.id}); location.hash = '#record/'+j.id; } catch(e){ document.getElementById('newrec_msg').innerHTML = '<div class="err">'+esc(e.message)+'</div>'; } });
+}
+
+/* ---------- Development Records (G2) ---------- */
+function devRecordsSection(idea){
+  const rows = (idea.records||[]).map(r =>
+    '<tr class="clickable" onclick="location.hash=\'#record/'+r.id+'\'"><td>'+esc(r.record_no)+'</td><td>'+esc(r.target_analysis||'—')+'</td><td><span class="chip stage">'+esc(r.status)+'</span></td><td>'+(r.approved_g2_at?'G2 ✓':'—')+'</td></tr>').join('');
+  return '<div class="card"><h2 style="font-size:1.05rem;margin:0 0 10px">Development Records</h2>'
+    + ((idea.records&&idea.records.length)
+        ? '<table><tr><th>Record</th><th>Target</th><th>Status</th><th>G2</th></tr>'+rows+'</table>'
+        : '<p class="sub" style="margin:0">No Development Record yet.</p>')
+    + (idea.can_create_record ? '<div style="margin-top:12px"><button class="btn" id="newrec">+ New Development Record</button><div id="newrec_msg"></div></div>' : '')
+    + '</div>';
+}
+
+async function renderRecords(hash){
+  shell('<h1>Development Records</h1><p class="sub">Loading…</p>', hash);
+  const rows = await api('GET','/api/pd/records');
+  const trs = rows.map(r =>
+    '<tr class="clickable" onclick="location.hash=\'#record/'+r.id+'\'"><td>'+esc(r.record_no)+'</td>'
+    + '<td>'+r.h_label+' '+esc((r.title||'').slice(0,40))+'</td><td>'+esc(r.target_analysis||'—')+'</td>'
+    + '<td><span class="chip stage">'+esc(r.status)+'</span></td><td>'+(r.review_rta_at?'✔':'—')+'</td>'
+    + '<td>'+(r.review_complete_at?'✔':'—')+'</td>'
+    + '<td>'+(r.approved_g2_at?'✔'+(r.approved_g2_delegated?' <span class="chip stage">'+(r.ratified_by?'ratified':'RTA')+'</span>':''):'—')+'</td>'
+    + '<td>'+esc(r.s5_decision||'')+'</td></tr>').join('');
+  setMain('<h1>Development Records</h1>'
+    + '<p class="sub">One record per recipe — a new molar ratio, ingredient role or target is a NEW record. Sections 1–3 before the beaker; RTA review + completeness + G2 unlock the bench; Sections 4–5 after. Records are created from the idea\'s page.</p>'
+    + '<div class="card">'+(rows.length
+        ? '<table><tr><th>Record</th><th>Hypothesis</th><th>Target</th><th>Status</th><th>RTA</th><th>Complete</th><th>G2</th><th>S5</th></tr>'+trs+'</table>'
+        : '<p class="sub" style="margin:0">No records yet.</p>')+'</div>');
+}
+
+function collect(containerId){
+  const out = {};
+  document.querySelectorAll('#'+containerId+' [data-f]').forEach(el => { out[el.getAttribute('data-f')] = el.value; });
+  return out;
+}
+
+async function renderRecord(hash, id){
+  shell('<p class="sub">Loading…</p>', hash);
+  const r = await api('GET','/api/pd/records/'+id);
+  const c = r.caps;
+  const sec = t => '<div class="sec">'+t+'</div>';
+  const ta = (name, val, edit) => edit
+    ? '<textarea data-f="'+name+'">'+esc(val||'')+'</textarea>'
+    : '<div class="ro">'+(String(val==null?'':val).trim()!=='' ? esc(val) : '—')+'</div>';
+  const inp = (name, val, edit, ph) => edit
+    ? '<input data-f="'+name+'" value="'+esc(val||'')+'"'+(ph?' placeholder="'+esc(ph)+'"':'')+'>'
+    : '<div class="ro">'+esc(String(val==null||val===''?'—':val))+'</div>';
+  const sel = (name, val, opts) => '<select data-f="'+name+'">'+opts.map(o=>'<option'+(val===o?' selected':'')+'>'+o+'</option>').join('')+'</select>';
+
+  const lighter = (r.change_type && r.change_type !== 'new')
+    ? '<div class="card" style="border-color:var(--green);background:var(--green-soft)"><b>Lighter path — this is a '+esc(r.change_type)+' of an existing product.</b> Section 1 may inherit the parent product’s rationale: state only what THIS change improves and for whom. Sections 2–5 (chemistry, validation, bench, discussion) stay full-strength.</div>' : '';
+  const statusLine = '<div class="card" style="padding:12px 16px"><span class="sub" style="margin:0"><b>The rule this form enforces:</b> no sample is made until Sections 1–3 are written, reviewed (RTA), checked complete (Custodian), and approved at G2. Status: <b>'+esc(r.status)+'</b>'
+    + (c.locked_pre ? ' · Sections 1–3 locked (approved '+esc((r.approved_g2_at||'').slice(0,10))+(r.approved_g2_delegated?', delegated RTA sign-off':'')+')' : '')+'</span></div>';
+
+  const preHtml = '<div id="preForm">'
+    + '<div class="row" style="gap:16px">'
+    + '<div style="flex:1;min-width:150px"><label>Target analysis (N-P-K)</label>'+inp('target_analysis', r.target_analysis, c.can_edit_pre)+'</div>'
+    + '<div style="flex:1;min-width:170px"><label>Platform concept</label>'+inp('platform_concept', r.platform_concept, c.can_edit_pre, 'PAPR dual-release / humate / coated…')+'</div>'
+    + '<div style="flex:1;min-width:110px"><label>Batch size</label>'+inp('batch_size', r.batch_size, c.can_edit_pre)+'</div></div>'
+    + sec('Section 1 — Agronomic &amp; market rationale (pre-bench)')
+    + '<label>1.1 Soil problem attacked, and by which lever (name the fixation pathway)</label>'+ta('s1_soil_problem', r.s1_soil_problem, c.can_edit_pre)
+    + '<label>1.2 Target crop(s) and region — justify if universal</label>'+ta('s1_crop_region', r.s1_crop_region, c.can_edit_pre)
+    + '<label>1.3 The farmer’s reason to switch vs DAP</label>'+ta('s1_farmer_reason', r.s1_farmer_reason, c.can_edit_pre)
+    + '<label>1.4 Claims carried in, each tagged [VERIFIED]/[VALIDATE]/[OPEN]</label>'+ta('s1_claims_tags', r.s1_claims_tags, c.can_edit_pre)
+    + sec('Section 2 — Chemistry &amp; formulation design (pre-bench)')
+    + '<label>2.1 Reaction chemistry — balanced equation, molar ratio</label>'+ta('s2_reactions', r.s2_reactions, c.can_edit_pre)
+    + '<label>2.2 Mass balance corrected for actual acid strength; predicted recovery</label>'+ta('s2_mass_balance', r.s2_mass_balance, c.can_edit_pre)
+    + '<label>2.3 Water balance, moisture path, CO₂ evolution, neutralisation</label>'+ta('s2_water_balance', r.s2_water_balance, c.can_edit_pre)
+    + '<label>2.4 Role of EVERY ingredient as a function (filler = flag it)</label>'+ta('s2_ingredient_roles', r.s2_ingredient_roles, c.can_edit_pre)
+    + '<label>2.5 Predicted P-fraction split (water-sol / citrate-sol / residual)</label>'+ta('s2_predicted_split', r.s2_predicted_split, c.can_edit_pre)
+    + sec('Section 3 — Validation design (pre-bench)')
+    + '<label>3.1 Hypothesis in one sentence</label>'+ta('s3_hypothesis_one_line', r.s3_hypothesis_one_line, c.can_edit_pre)
+    + '<label>3.2 Success criteria AND kill criteria, as numbers</label>'+ta('s3_success_kill_criteria', r.s3_success_kill_criteria, c.can_edit_pre)
+    + '<label>3.3 Assays and named methods</label>'+ta('s3_assays_methods', r.s3_assays_methods, c.can_edit_pre)
+    + '<label>3.4 Release-curve protocol (for any release claim)</label>'+ta('s3_release_protocol', r.s3_release_protocol, c.can_edit_pre)
+    + (c.can_edit_pre ? '<div style="margin-top:12px"><button class="btn" id="savePre">Save Sections 1–3</button> <span id="pre_msg"></span></div>' : '')
+    + '</div>';
+
+  const signoff = '<div class="card"><h2 style="font-size:1.05rem;margin:0 0 10px">Pre-bench sign-off — the beaker gate path</h2>'
+    + '<table class="signoff"><tr><th>Step</th><th>Status</th></tr>'
+    + '<tr><td>RTA technical review</td><td>'+(r.review_rta_at ? '✔ '+esc(r.review_rta_by_name||'')+', '+esc((r.review_rta_at||'').slice(0,10))+(r.review_rta_note?' — '+esc(r.review_rta_note):'') : 'pending')+'</td></tr>'
+    + '<tr><td>Completeness check</td><td>'+(r.review_complete_at ? '✔ '+esc(r.review_complete_by_name||'')+', '+esc((r.review_complete_at||'').slice(0,10)) : 'pending')+'</td></tr>'
+    + '<tr><td>G2 design approval</td><td>'+(r.approved_g2_at ? '✔ '+esc(r.approved_g2_by_name||'')+', '+esc((r.approved_g2_at||'').slice(0,10))+(r.approved_g2_delegated?' — <b>delegated (RTA on site)</b>, COO ratifies within 48 h':'') : 'pending')+'</td></tr>'
+    + '</table>'
+    + (c.can_review_rta ? '<div style="margin-top:12px"><label>Review note (optional)</label><input id="rta_note"><div style="margin-top:8px"><button class="btn" id="doRta">Record technical review</button></div></div>' : '')
+    + (c.can_complete ? '<div style="margin-top:12px"><button class="btn" id="doComplete">Confirm record is complete</button></div>' : '')
+    + (c.can_approve_g2 ? '<div style="margin-top:12px"><button class="btn" id="doG2">Approve design (G2)</button> <span class="sub">'+(c.would_delegate?'You are signing on site under delegated authority — the COO ratifies in the Gate Log.':'')+(!c.g2_ready?' Needs the RTA review and completeness check first.':'')+'</span></div>' : '')
+    + '<div id="sign_msg"></div></div>';
+
+  const canPost = c.can_edit_post;
+  const postHtml = '<div id="postForm">'
+    + sec('Section 4 — Bench synthesis &amp; recording (post-bench)')
+    + (!c.locked_pre ? '<div class="card" style="background:var(--amber-soft);border-color:var(--amber)"><span class="sub" style="margin:0">Locked until G2 is approved — no sample before sign-off.</span></div>' : '')
+    + '<label>4.1 Actual quantities charged vs design, acid strength used</label>'+ta('s4_actual_charges', r.s4_actual_charges, canPost)
+    + '<label>4.2 Observations (temperature, CO₂/foaming, free acid, granulation, drying)</label>'+ta('s4_observations', r.s4_observations, canPost)
+    + '<label>4.3 Deviations from design, and why each was made</label>'+ta('s4_deviations', r.s4_deviations, canPost)
+    + '<label>4.4 Recovered mass vs predicted; moisture achieved</label>'+ta('s4_recovery', r.s4_recovery, canPost)
+    + sec('Section 5 — Analysis, discussion &amp; decision (post-bench)')
+    + '<label>5.1 Measured P-fraction split vs Section 2 prediction</label>'+ta('s5_measured_vs_predicted', r.s5_measured_vs_predicted, canPost)
+    + '<label>5.2 Result vs Section 3 criteria</label>'+(canPost ? sel('s5_result_vs_criteria', r.s5_result_vs_criteria, ['','pass','fail','ambiguous']) : '<div class="ro">'+esc(r.s5_result_vs_criteria||'—')+'</div>')
+    + '<label>5.3 Discussion of the gap, with the likely chemical reason</label>'+ta('s5_discussion', r.s5_discussion, canPost)
+    + '<label>5.4 Decision + single most informative next experiment</label>'+(canPost ? sel('s5_decision', r.s5_decision, ['','advance','iterate','stop']) : '<div class="ro">'+esc(r.s5_decision||'—')+'</div>')
+    + ta('s5_next_experiment', r.s5_next_experiment, canPost)
+    + (canPost ? '<div style="margin-top:12px"><button class="btn" id="savePost">Save Sections 4–5</button> <span id="post_msg"></span></div>' : '')
+    + '</div>';
+
+  setMain(
+    '<h1>'+esc(r.record_no)+' — Development Record</h1>'
+    + '<p class="sub">for '+r.h_label+' '+esc(r.title)+'</p>'
+    + lighter + statusLine + preHtml + signoff + postHtml
+    + '<p class="sub" style="margin-top:14px"><i>A recipe is a hypothesis about how phosphorus will behave in a calcareous soil — not a target number on a bag.</i></p>'
+  );
+
+  const on = (elId, fn) => { const el = document.getElementById(elId); if(el) el.onclick = fn; };
+  const reload = () => renderRecord(hash, id);
+  on('savePre', async () => { try{ await api('POST','/api/pd/records/'+id+'/pre', collect('preForm')); reload(); } catch(e){ const m=document.getElementById('pre_msg'); if(m) m.innerHTML='<span class="err">'+esc(e.message)+'</span>'; } });
+  on('doRta', async () => { try{ await api('POST','/api/pd/records/'+id+'/rta-review', {note:(document.getElementById('rta_note')||{}).value||''}); reload(); } catch(e){ document.getElementById('sign_msg').innerHTML='<div class="err">'+esc(e.message)+'</div>'; } });
+  on('doComplete', async () => { try{ await api('POST','/api/pd/records/'+id+'/complete', {}); reload(); } catch(e){ document.getElementById('sign_msg').innerHTML='<div class="err">'+esc(e.message)+'</div>'; } });
+  on('doG2', async () => { try{ await api('POST','/api/pd/records/'+id+'/g2', {}); reload(); } catch(e){ document.getElementById('sign_msg').innerHTML='<div class="err">'+esc(e.message)+'</div>'; } });
+  on('savePost', async () => { try{ await api('POST','/api/pd/records/'+id+'/post', collect('postForm')); reload(); } catch(e){ const m=document.getElementById('post_msg'); if(m) m.innerHTML='<span class="err">'+esc(e.message)+'</span>'; } });
 }
 
 async function renderGateLog(hash){
   shell('<h1>Gate log</h1><p class="sub">Loading…</p>', hash);
   const rows = await api('GET','/api/pd/gatelog');
-  const trs = rows.map(r => '<tr class="clickable" onclick="location.hash=\'#idea/'+r.hypothesis_id+'\'"><td>'+r.h_label+'</td><td>'+esc(r.title)+'</td><td>'+r.gate+'</td><td>'+r.decision+(r.provisional?' <span class="chip stage">provisional</span>':'')+'</td><td>'+esc(r.reason)+'</td><td>'+esc(r.decided_by_name)+'</td></tr>').join('');
-  setMain('<h1>Gate log</h1><p class="sub">Every gate decision, most recent first. A comment is not a decision — this is.</p>'
-    + '<div class="card"><table><tr><th>H#</th><th>Title</th><th>Gate</th><th>Decision</th><th>Reason</th><th>By</th></tr>'+trs+'</table></div>');
+  const role = me.pd_role;
+  const canRecord = ['rta','custodian','coo'].includes(role);
+  const isCoo = role === 'coo';
+  let ideas = [];
+  if (canRecord) { try { ideas = await api('GET','/api/pd/ideas'); } catch(e){ ideas = []; } }
+
+  const pending = rows.filter(r => r.provisional && !r.ratified_by);
+  let pendingHtml = '';
+  if (isCoo && pending.length) {
+    pendingHtml = '<div class="card"><h2 style="font-size:1.05rem;margin:0 0 10px">Awaiting your ratification (48-hour rule)</h2>'
+      + '<table><tr><th>Gate</th><th>Idea</th><th>Decision</th><th>Reason</th><th>By</th><th>When</th><th></th></tr>'
+      + pending.map(g => '<tr><td>'+g.gate+'</td><td>'+g.h_label+' '+esc(g.title)+'</td><td>'+esc(g.decision)+'</td><td>'+esc(g.reason)+'</td><td>'+esc(g.decided_by_name)+'</td><td class="sub" style="white-space:nowrap">'+esc((g.decided_at||'').slice(0,16).replace("T"," "))+'</td>'
+        + '<td><button class="btn" data-ratify="'+g.id+'">Ratify</button></td></tr>').join('')
+      + '</table></div>';
+  }
+
+  let recorderHtml = '';
+  if (canRecord) {
+    const hypOpts = ideas.filter(i => i.stage_label !== 'Killed').map(i => '<option value="'+i.id+'">'+i.h_label+' — '+esc(i.title)+'</option>').join('');
+    const gateOpts = Object.keys(GATES_LABEL).map(g => '<option value="'+g+'">'+esc(GATES_LABEL[g])+'</option>').join('');
+    recorderHtml = '<div class="card"><h2 style="font-size:1.05rem;margin:0 0 10px">Record a committee decision (G3–G6)</h2>'
+      + '<div class="row" style="gap:14px">'
+      + '<div style="flex:2;min-width:220px"><label>Idea / hypothesis</label><select id="g_hyp"><option value="">—</option>'+hypOpts+'</select></div>'
+      + '<div style="flex:1;min-width:150px"><label>Gate</label><select id="g_gate">'+gateOpts+'</select></div>'
+      + '<div style="flex:1;min-width:150px"><label>Decision</label><select id="g_dec"></select></div>'
+      + '</div>'
+      + '<label>Committee members present (roles)</label><input id="g_att" placeholder="COO, Plant Manager, QC Head…">'
+      + '<label>Reason (recorded forever — the owner is told)</label><textarea id="g_reason"></textarea>'
+      + '<label style="font-weight:400;display:flex;align-items:center;gap:8px;margin-top:8px"><input type="checkbox" id="g_site" style="width:auto"> Site quorum — Plant Manager presiding under delegated authority (provisional until the COO ratifies within 48 h)</label>'
+      + '<div style="margin-top:12px"><button class="btn" id="g_submit">Record decision</button> <span id="g_msg"></span></div></div>';
+  }
+
+  const logTable = '<div class="card"><h2 style="font-size:1.05rem;margin:0 0 10px">Decision log</h2>'
+    + (rows.length ? '<table><tr><th>When</th><th>Gate</th><th>Idea</th><th>Decision</th><th>Reason</th><th>By</th><th>Ratified</th></tr>'
+      + rows.map(r => '<tr class="clickable" onclick="location.hash=\'#idea/'+r.hypothesis_id+'\'"><td>'+esc((r.decided_at||'').slice(0,10))+'</td><td>'+r.gate+(r.is_site_quorum?'<br><span class="sub">site quorum</span>':'')+'</td><td>'+r.h_label+' '+esc(r.title)+'</td><td><b>'+esc(r.decision)+'</b></td><td>'+esc(r.reason)+'</td><td>'+esc(r.decided_by_name)+'</td><td class="sub">'+(r.ratified_by_name?esc(r.ratified_by_name):(r.provisional?'<b>pending</b>':'—'))+'</td></tr>').join('')
+      + '</table>' : '<p class="sub" style="margin:0">No decisions yet.</p>')
+    + '</div>';
+
+  setMain('<h1>Gate log</h1><p class="sub">Every gate decision, with its reason, kept forever. G1 is on the idea, G2 on the Development Record; G3–G6 are recorded here.</p>'
+    + '<details class="card"><summary style="cursor:pointer;font-weight:600">The possible decisions at each gate (G3–G6)</summary><p class="sub" style="margin:8px 0">A gate never ends "pending" — it ends in exactly one of these, always with a written reason kept forever.</p><table><tr><th>Gate</th><th>Possible decisions</th></tr>'
+      + Object.keys(GATES_LABEL).map(g=>'<tr><td><b>'+esc(GATES_LABEL[g])+'</b></td><td>'+(PD_GATE_OUTCOMES[g]||[]).map(o=>esc(o[1])).join('<br>')+'</td></tr>').join('')+'</table></details>'
+    + pendingHtml + recorderHtml + logTable);
+
+  document.querySelectorAll('[data-ratify]').forEach(btn => btn.onclick = async () => {
+    try { await api('POST','/api/pd/gates/'+btn.getAttribute('data-ratify')+'/ratify', {}); renderGateLog(hash); }
+    catch(e){ alert(e.message); }
+  });
+  if (canRecord) {
+    const gsel = document.getElementById('g_gate'), dsel = document.getElementById('g_dec');
+    const sync = () => { dsel.innerHTML = (PD_GATE_OUTCOMES[gsel.value]||[]).map(o=>'<option value="'+o[0]+'">'+esc(o[1])+'</option>').join(''); };
+    gsel.onchange = sync; sync();
+    document.getElementById('g_submit').onclick = async () => {
+      const body = { hypothesis_id: document.getElementById('g_hyp').value, gate: gsel.value, decision: dsel.value,
+        reason: document.getElementById('g_reason').value, attendees: document.getElementById('g_att').value, is_site_quorum: document.getElementById('g_site').checked };
+      if(!body.hypothesis_id){ document.getElementById('g_msg').innerHTML='<span class="err">Pick an idea.</span>'; return; }
+      try { await api('POST','/api/pd/gates/decide', body); renderGateLog(hash); }
+      catch(e){ document.getElementById('g_msg').innerHTML='<span class="err">'+esc(e.message)+'</span>'; }
+    };
+  }
+}
+
+async function renderSamples(hash){
+  shell('<h1>Samples</h1><p class="sub">Loading…</p>', hash);
+  const rows = await api('GET','/api/pd/samples');
+  const canLog = ['qc_head','custodian','lab_tech','coo'].includes(me.pd_role);
+  let ideas = [], recs = [];
+  if (canLog) { try { ideas = await api('GET','/api/pd/ideas'); } catch(e){} try { recs = await api('GET','/api/pd/records'); } catch(e){} }
+
+  let form = '';
+  if (canLog) {
+    const hypOpts = ideas.filter(i => !['Killed','Parked'].includes(i.stage_label)).map(i => '<option value="'+i.id+'">'+i.h_label+' — '+esc(i.title)+'</option>').join('');
+    const recOpts = recs.map(r => '<option value="'+r.id+'">'+esc(r.record_no)+'</option>').join('');
+    form = '<div class="card"><h2 style="font-size:1.05rem;margin:0 0 6px">Log a sample</h2>'
+      + '<p class="sub" style="margin:0 0 10px">Only after the idea has a <b>G3 (beaker gate) advance</b> in the gate log.</p>'
+      + '<div class="row" style="gap:14px">'
+      + '<div style="flex:2;min-width:220px"><label>Hypothesis</label><select id="s_hyp"><option value="">—</option>'+hypOpts+'</select></div>'
+      + '<div style="flex:1;min-width:150px"><label>Development Record</label><select id="s_dr"><option value="">—</option>'+recOpts+'</select></div>'
+      + '<div style="flex:1;min-width:130px"><label>Date made</label><input type="date" id="s_made"></div>'
+      + '<div style="flex:1;min-width:150px"><label>Recipe (short)</label><input id="s_recipe"></div>'
+      + '<div style="flex:1;min-width:130px"><label>Target analysis</label><input id="s_target"></div>'
+      + '<div style="flex:1;min-width:110px"><label>Batch size</label><input id="s_batch"></div>'
+      + '<div style="flex:1;min-width:130px"><label>Made by</label><input id="s_by"></div>'
+      + '<div style="flex:1;min-width:150px"><label>Retain / location</label><input id="s_retain"></div>'
+      + '</div>'
+      + '<label>Key materials &amp; quantities</label><textarea id="s_materials"></textarea>'
+      + '<label>Physical observation</label><textarea id="s_obs"></textarea>'
+      + '<label>Notes</label><textarea id="s_notes"></textarea>'
+      + '<div style="margin-top:12px"><button class="btn" id="s_submit">Log sample</button> <span id="s_msg"></span></div></div>';
+  }
+
+  const table = '<div class="card"><h2 style="font-size:1.05rem;margin:0 0 10px">Sample inventory</h2>'
+    + (rows.length ? '<div style="overflow-x:auto"><table><tr><th>ID</th><th>Hyp</th><th>Date</th><th>Recipe</th><th>Target</th><th>Batch</th><th>Made by</th><th>Status</th><th>Observation</th></tr>'
+      + rows.map(s => '<tr><td>'+s.s_label+'</td><td>'+s.h_label+'</td><td>'+esc(s.made_on||'')+'</td><td>'+esc(s.recipe_short||'')+'</td><td>'+esc(s.target_analysis||'')+'</td><td>'+esc(s.batch_size||'')+'</td><td>'+esc(s.made_by||'')+'</td><td><span class="chip stage">'+esc(s.status)+'</span></td><td class="sub">'+esc(s.observation||'')+'</td></tr>').join('')
+      + '</table></div>' : '<p class="sub" style="margin:0">No samples yet.</p>')
+    + '</div>';
+
+  setMain('<h1>Samples</h1><p class="sub">One row per physical sample or batch actually made — even failed ones. Every sample gets an ID.</p>'+form+table);
+
+  if (canLog) document.getElementById('s_submit').onclick = async () => {
+    const g = id => document.getElementById(id).value;
+    const body = { hypothesis_id:g('s_hyp'), dev_record_id:g('s_dr'), made_on:g('s_made'), recipe_short:g('s_recipe'), target_analysis:g('s_target'),
+      batch_size:g('s_batch'), made_by:g('s_by'), materials:g('s_materials'), retain_location:g('s_retain'), observation:g('s_obs'), notes:g('s_notes') };
+    if(!body.hypothesis_id){ document.getElementById('s_msg').innerHTML='<span class="err">Pick a hypothesis.</span>'; return; }
+    try { await api('POST','/api/pd/samples', body); renderSamples(hash); }
+    catch(e){ document.getElementById('s_msg').innerHTML='<span class="err">'+esc(e.message)+'</span>'; }
+  };
+}
+
+async function renderTests(hash){
+  shell('<h1>Lab tests</h1><p class="sub">Loading…</p>', hash);
+  const rows = await api('GET','/api/pd/tests');
+  const canLog = ['qc_head','custodian','lab_tech','coo'].includes(me.pd_role);
+  let samples = [];
+  if (canLog) { try { samples = await api('GET','/api/pd/samples'); } catch(e){} }
+
+  const TYPES = ['Water-soluble P','Citrate-soluble P','Residual P','Total P2O5','Nitrogen','Free acid','Moisture','Granule crush strength','Release curve point','Stability — caking','Stability — moisture pickup','Stability — granule integrity','Other'];
+  let form = '';
+  if (canLog) {
+    const sOpts = samples.map(s => '<option value="'+s.id+'">'+s.s_label+' ('+s.h_label+')</option>').join('');
+    const tOpts = TYPES.map(t => '<option>'+esc(t)+'</option>').join('');
+    form = '<div class="card"><h2 style="font-size:1.05rem;margin:0 0 10px">Log a test</h2>'
+      + '<div class="row" style="gap:14px">'
+      + '<div style="flex:1;min-width:170px"><label>Sample</label><select id="t_sample"><option value="">—</option>'+sOpts+'</select></div>'
+      + '<div style="flex:1;min-width:130px"><label>Date</label><input type="date" id="t_date"></div>'
+      + '<div style="flex:1;min-width:180px"><label>Test type</label><select id="t_type">'+tOpts+'</select></div>'
+      + '<div style="flex:1;min-width:130px"><label>Stability day</label><input id="t_stab" placeholder="e.g. 30"></div>'
+      + '<div style="flex:1;min-width:170px"><label>Method (named)</label><input id="t_method" placeholder="2% citric acid extraction"></div>'
+      + '<div style="flex:1;min-width:120px"><label>Result</label><input id="t_result"></div>'
+      + '<div style="flex:1;min-width:110px"><label>Units</label><input id="t_units" placeholder="% / mg/kg"></div>'
+      + '<div style="flex:1;min-width:150px"><label>Pass vs criteria?</label><select id="t_pf"><option value=""></option><option>pass</option><option>fail</option><option>na</option></select></div>'
+      + '<div style="flex:1;min-width:130px"><label>Tested by</label><input id="t_by"></div>'
+      + '</div>'
+      + '<label>Notes</label><textarea id="t_notes"></textarea>'
+      + '<div style="margin-top:12px"><button class="btn" id="t_submit">Log test</button> <span id="t_msg"></span></div></div>';
+  }
+
+  const table = '<div class="card"><h2 style="font-size:1.05rem;margin:0 0 10px">Test results</h2>'
+    + (rows.length ? '<table><tr><th>ID</th><th>Sample</th><th>Date</th><th>Type</th><th>Method</th><th>Result</th><th>Pass?</th><th>By</th></tr>'
+      + rows.map(t => '<tr><td>'+t.t_label+'</td><td>'+t.s_label+'</td><td>'+esc(t.tested_on||'')+'</td><td>'+esc(t.test_type||'')+(t.stability_day?' (d'+t.stability_day+')':'')+'</td><td>'+esc(t.method||'')+'</td><td>'+esc(t.result||'')+' '+esc(t.units||'')+'</td><td>'+esc(t.pass_fail||'')+'</td><td>'+esc(t.tested_by||'')+'</td></tr>').join('')
+      + '</table>' : '<p class="sub" style="margin:0">No tests yet.</p>')
+    + '</div>';
+
+  setMain('<h1>Lab tests</h1><p class="sub">One row per analysis. The P-fraction split — water-soluble vs citrate-soluble vs residual — is the number that tells you if a product beats DAP.</p>'+form+table);
+
+  if (canLog) document.getElementById('t_submit').onclick = async () => {
+    const g = id => document.getElementById(id).value;
+    const body = { sample_id:g('t_sample'), tested_on:g('t_date'), test_type:g('t_type'), stability_day:g('t_stab'), method:g('t_method'),
+      result:g('t_result'), units:g('t_units'), pass_fail:g('t_pf'), tested_by:g('t_by'), notes:g('t_notes') };
+    if(!body.sample_id){ document.getElementById('t_msg').innerHTML='<span class="err">Pick a sample.</span>'; return; }
+    try { await api('POST','/api/pd/tests', body); renderTests(hash); }
+    catch(e){ document.getElementById('t_msg').innerHTML='<span class="err">'+esc(e.message)+'</span>'; }
+  };
+}
+
+/* ---------- Materials register ---------- */
+async function renderMaterials(hash){
+  shell('<h1>Materials register</h1><p class="sub">Loading…</p>', hash);
+  const d = await api('GET','/api/pd/materials');
+  const edit = d.caps.edit, canConfirm = d.caps.confirm;
+  const abOpts = sel => Object.keys(d.assayBasis).map(k=>'<option value="'+k+'"'+(sel===k?' selected':'')+'>assay: '+esc(d.assayBasis[k])+'</option>').join('');
+  const cbOpts = sel => Object.keys(d.costBasis).map(k=>'<option value="'+k+'"'+(sel===k?' selected':'')+'>price: '+esc(d.costBasis[k])+'</option>').join('');
+
+  const warn = d.placeholders ? '<div class="card" style="background:var(--amber-soft);border-color:var(--amber)"><span class="sub" style="margin:0"><b>'+d.placeholders+' of '+d.materials.length+' materials still carry a placeholder price or assay.</b> Until they are replaced, every candidate the screen ranks is marked <b>provisional</b> — it shows the shape of the answer, not the answer.</span></div>' : '';
+
+  let matRows;
+  if (edit) matRows = d.materials.map(m => '<tr><td><b>'+esc(m.code)+'</b></td><td>'+esc(m.name)+(m.spec_note?'<br><span class="sub">'+esc(m.spec_note)+'</span>':'')+'</td>'
+    + '<td><input data-mid="'+m.id+'" data-f="n_pct" value="'+esc(num(m.n_pct))+'" style="width:60px"></td>'
+    + '<td><input data-mid="'+m.id+'" data-f="p2o5_pct" value="'+esc(num(m.p2o5_pct))+'" style="width:60px"></td>'
+    + '<td><input data-mid="'+m.id+'" data-f="s_pct" value="'+esc(num(m.s_pct))+'" style="width:60px"></td>'
+    + '<td><input data-mid="'+m.id+'" data-f="zn_pct" value="'+esc(num(m.zn_pct))+'" style="width:60px"></td>'
+    + '<td><input data-mid="'+m.id+'" data-f="cost_per_tonne" value="'+esc(num(m.cost_per_tonne))+'" style="width:90px"></td>'
+    + '<td><select data-mid="'+m.id+'" data-f="assay_basis" style="min-width:130px">'+abOpts(m.assay_basis)+'</select><br><select data-mid="'+m.id+'" data-f="cost_basis" style="min-width:130px;margin-top:4px">'+cbOpts(m.cost_basis)+'</select></td>'
+    + '<td><input data-mid="'+m.id+'" data-f="spec_note" type="hidden" value="'+esc(m.spec_note||'')+'"><button class="btn ghost" data-savemat="'+m.id+'">save</button></td></tr>').join('');
+  else matRows = d.materials.map(m => { const flagged = m.cost_basis==='placeholder'||m.assay_basis==='placeholder';
+    return '<tr><td><b>'+esc(m.code)+'</b></td><td>'+esc(m.name)+(m.spec_note?'<br><span class="sub">'+esc(m.spec_note)+'</span>':'')+'</td>'
+      + '<td>'+num(m.n_pct)+'</td><td>'+num(m.p2o5_pct)+'</td><td>'+num(m.s_pct)+'</td><td>'+num(m.zn_pct)+'</td><td>'+money(m.cost_per_tonne)+'</td>'
+      + '<td class="sub">'+(flagged?'<b style="color:var(--red)">placeholder</b>':esc(d.assayBasis[m.assay_basis]))+'</td></tr>'; }).join('');
+  const matTable = '<div class="card"><h2 style="font-size:1.05rem;margin:0 0 10px">Materials</h2><div style="overflow-x:auto"><table><tr><th>Code</th><th>Material</th><th>N%</th><th>P2O5%</th><th>S%</th><th>Zn%</th><th>Rs/tonne</th><th>Basis</th>'+(edit?'<th></th>':'')+'</tr>'+matRows+'</table></div></div>';
+
+  const addMat = edit ? '<div class="card"><h2 style="font-size:1.05rem;margin:0 0 10px">Add a material</h2><div class="row" style="gap:12px">'
+    + '<div style="flex:1;min-width:100px"><label>Short code</label><input id="am_code" placeholder="TSP"></div>'
+    + '<div style="flex:2;min-width:200px"><label>Name</label><input id="am_name"></div>'
+    + '<div style="flex:1;min-width:70px"><label>N%</label><input id="am_n" value="0"></div>'
+    + '<div style="flex:1;min-width:70px"><label>P2O5%</label><input id="am_p" value="0"></div>'
+    + '<div style="flex:1;min-width:70px"><label>S%</label><input id="am_s" value="0"></div>'
+    + '<div style="flex:1;min-width:70px"><label>Zn%</label><input id="am_zn" value="0"></div>'
+    + '<div style="flex:1;min-width:110px"><label>Rs/tonne</label><input id="am_cost" value="0"></div>'
+    + '<div style="flex:1;min-width:150px"><label>Assay basis</label><select id="am_ab">'+abOpts('placeholder')+'</select></div>'
+    + '<div style="flex:1;min-width:150px"><label>Cost basis</label><select id="am_cb">'+cbOpts('placeholder')+'</select></div></div>'
+    + '<label>The spec that actually matters</label><input id="am_spec" placeholder="The one or two numbers that decide whether a delivery is usable.">'
+    + '<div style="margin-top:12px"><button class="btn" id="am_submit">Add material</button> <span id="am_msg"></span></div></div>' : '';
+
+  const confRows = d.conflicts.map(c => { const okc = !!c.confirmed_at;
+    return '<tr><td><b>'+esc(c.ca)+' + '+esc(c.cb)+'</b><br><span class="sub">'+esc(c.na)+' / '+esc(c.nb)+'</span></td>'
+      + '<td>'+(c.severity==='avoid'?'<b style="color:var(--red)">avoid</b>':'caution')+'</td><td class="sub">'+esc(c.reason)+'</td>'
+      + '<td class="sub">'+(okc?'confirmed by '+esc(c.confirmed_by_name||''):'<b>advisory — not confirmed</b>')+'</td>'
+      + (canConfirm?'<td>'+(okc?'':'<button class="btn ghost" data-confirm="'+c.id+'">Confirm</button>')+'</td>':'')+'</tr>'; }).join('');
+  const confTable = '<div class="card"><h2 style="font-size:1.05rem;margin:0 0 6px">Physical compatibility</h2>'
+    + '<p class="sub" style="margin:0 0 10px">VAN\'s own table, not a chemistry claim shipped with the app. A flag starts <b>advisory</b> — it warns but never fails a candidate. Once the QC Head confirms it, an <b>avoid</b> pair fails a candidate outright.</p>'
+    + (d.conflicts.length?'<table><tr><th>Pair</th><th>Severity</th><th>Reason</th><th>Status</th>'+(canConfirm?'<th></th>':'')+'</tr>'+confRows+'</table>':'<p class="sub" style="margin:0">No pairs flagged yet.</p>')+'</div>';
+
+  let flag = '';
+  if (edit && d.materials.length>1) { const opts = d.materials.map(m=>'<option value="'+m.id+'">'+esc(m.code+' — '+m.name)+'</option>').join('');
+    flag = '<div class="card"><h2 style="font-size:1.05rem;margin:0 0 10px">Flag a pair</h2><div class="row" style="gap:12px">'
+      + '<div style="flex:1;min-width:170px"><label>Material A</label><select id="fp_a">'+opts+'</select></div>'
+      + '<div style="flex:1;min-width:170px"><label>Material B</label><select id="fp_b">'+opts+'</select></div>'
+      + '<div style="flex:1;min-width:150px"><label>Severity</label><select id="fp_sev"><option value="caution">caution — worth knowing</option><option value="avoid">avoid — do not put these together</option></select></div></div>'
+      + '<label>Why</label><input id="fp_reason" placeholder="What goes wrong when they meet — caking, moisture release, loss of solubility.">'
+      + '<div style="margin-top:12px"><button class="btn" id="fp_submit">Flag pair</button> <span id="fp_msg"></span></div></div>'; }
+
+  setMain('<h1>Materials register</h1><p class="sub">The numbers the candidate screen does its arithmetic on. Every row states where its numbers came from, so a placeholder can never pass itself off as procurement data.</p>'
+    + warn + matTable + addMat + confTable + flag);
+
+  document.querySelectorAll('[data-savemat]').forEach(btn => btn.onclick = async () => {
+    const mid = btn.getAttribute('data-savemat'); const body = { material_id: mid };
+    document.querySelectorAll('[data-mid="'+mid+'"]').forEach(el => body[el.getAttribute('data-f')] = el.value);
+    try { await api('POST','/api/pd/materials', body); renderMaterials(hash); } catch(e){ alert(e.message); }
+  });
+  document.querySelectorAll('[data-confirm]').forEach(btn => btn.onclick = async () => {
+    try { await api('POST','/api/pd/materials/conflicts/'+btn.getAttribute('data-confirm')+'/confirm', {}); renderMaterials(hash); } catch(e){ alert(e.message); }
+  });
+  if (edit) {
+    document.getElementById('am_submit').onclick = async () => { const g = id => document.getElementById(id).value;
+      const body = { code:g('am_code'), name:g('am_name'), n_pct:g('am_n'), p2o5_pct:g('am_p'), s_pct:g('am_s'), zn_pct:g('am_zn'), cost_per_tonne:g('am_cost'), assay_basis:g('am_ab'), cost_basis:g('am_cb'), spec_note:g('am_spec') };
+      try { await api('POST','/api/pd/materials', body); renderMaterials(hash); } catch(e){ document.getElementById('am_msg').innerHTML='<span class="err">'+esc(e.message)+'</span>'; } };
+    const fp = document.getElementById('fp_submit');
+    if (fp) fp.onclick = async () => { const g = id => document.getElementById(id).value;
+      try { await api('POST','/api/pd/materials/conflicts', { material_a_id:g('fp_a'), material_b_id:g('fp_b'), severity:g('fp_sev'), reason:g('fp_reason') }); renderMaterials(hash); }
+      catch(e){ document.getElementById('fp_msg').innerHTML='<span class="err">'+esc(e.message)+'</span>'; } };
+  }
+}
+
+/* ---------- Candidate screen: route picker + one route ---------- */
+async function renderCandidates(hash){
+  shell('<h1>Candidate screen</h1><p class="sub">Loading…</p>', hash);
+  const rows = await api('GET','/api/pd/candidates');
+  const trs = rows.map(r => '<tr class="clickable" onclick="location.hash=\'#route/'+r.id+'\'"><td><b>'+esc(r.route||'—')+'</b></td><td>'+r.h_label+'</td><td>'+esc(r.title)+'</td><td><span class="chip stage">'+esc(r.stage_label)+'</span></td><td>'+r.cands+'</td><td>'+r.sel+'</td><td class="sub">'+(r.g3_open?'open (G3 passed)':'<b>shut</b>')+'</td></tr>').join('');
+  setMain('<h1>Pre-bench candidate screen</h1>'
+    + '<p class="sub">The filter between opening a route and making anything: which combinations are worth physically making? Mass balance, the target window, a cost ceiling, and VAN\'s compatibility table. It is arithmetic — it does not predict soil behaviour.</p>'
+    + '<div class="card">'+(rows.length?'<div style="overflow-x:auto"><table><tr><th>Route</th><th>ID</th><th>Title</th><th>Stage</th><th>Cands</th><th>Selected</th><th>Beaker gate</th></tr>'+trs+'</table></div>':'<p class="sub" style="margin:0">No open routes yet. A route appears here once its idea is screened LOG at G1.</p>')+'</div>'
+    + '<p class="sub">Materials, prices and compatibility live in the <a href="#materials">materials register</a>.</p>');
+}
+
+async function renderRoute(hash, hid){
+  shell('<p class="sub">Loading…</p>', hash);
+  const d = await api('GET','/api/pd/candidates/'+hid);
+  const { hyp, rs, materials, candidates, g3_open, caps } = d;
+  const barInput = (id,label,val) => '<div style="flex:1;min-width:115px"><label>'+label+'</label><input id="'+id+'" value="'+esc(num(val))+'"></div>';
+
+  const bar = caps.editBar
+    ? '<div class="card"><h2 style="font-size:1.05rem;margin:0 0 6px">The bar for this route</h2>'
+      + '<p class="sub" style="margin:0 0 10px">The cost ceiling belongs to the DAP cost-parity model — its maximum ex-works cost at target E. Write down which E it assumes: a ceiling without its E is a number with no meaning.</p>'
+      + '<div class="row" style="gap:12px">'
+      + barInput('b_p2min','P2O5 % min', rs.target_p2o5_min) + barInput('b_p2max','P2O5 % max', rs.target_p2o5_max)
+      + barInput('b_nmin','N % min', rs.target_n_min) + barInput('b_nmax','N % max', rs.target_n_max)
+      + barInput('b_smin','S % min', rs.target_s_min) + barInput('b_znmin','Zn % min', rs.target_zn_min)
+      + barInput('b_ceil','Ex-works ceiling Rs/t', rs.cost_ceiling_per_tonne) + barInput('b_conv','Conversion Rs/t', rs.conversion_cost_per_tonne) + barInput('b_loss','Process loss %', rs.process_loss_pct)
+      + '</div><label>Where the ceiling came from</label><input id="b_basis" value="'+esc(rs.ceiling_basis||'')+'" placeholder="e.g. DAP cost-parity model v1, target E = 1.30">'
+      + '<div style="margin-top:12px"><button class="btn" id="b_save">Save the bar and re-screen everything</button> <span id="b_msg"></span></div></div>'
+    : '<div class="card"><h2 style="font-size:1.05rem;margin:0 0 10px">The bar for this route</h2><table>'
+      + '<tr><th style="width:220px">P2O5 window</th><td>'+num(rs.target_p2o5_min)+'% – '+num(rs.target_p2o5_max)+'%</td></tr>'
+      + '<tr><th>N window</th><td>'+num(rs.target_n_min)+'% – '+num(rs.target_n_max)+'%</td></tr>'
+      + '<tr><th>Ex-works ceiling</th><td>'+(Number(rs.cost_ceiling_per_tonne)>0?money(rs.cost_ceiling_per_tonne)+' / tonne':'<b>not set</b>')+'</td></tr>'
+      + '<tr><th>Ceiling basis</th><td class="sub">'+(rs.ceiling_basis?esc(rs.ceiling_basis):'— not stated —')+'</td></tr></table></div>';
+
+  const vcol = { pass:'var(--green)', borderline:'var(--amber)', fail:'var(--red)' };
+  let candHtml;
+  if (!candidates.length) candHtml = '<div class="card"><p class="sub" style="margin:0">No candidates yet. A candidate is one combination on paper: the recipe, and one line saying what it tests.</p></div>';
+  else {
+    const rowsH = candidates.map(c => {
+      const main = '<tr><td>'+c.c_label+'</td><td><b>'+esc(c.label)+'</b><br><span class="sub">'+esc(c.micro_hypothesis)+'</span></td>'
+        + '<td>'+num(c.calc_n)+'</td><td><b>'+num(c.calc_p2o5)+'</b></td><td>'+num(c.calc_s)+'</td><td>'+num(c.calc_zn)+'</td>'
+        + '<td>'+Math.round(Number(c.calc_exworks_cost)).toLocaleString('en-US')+'</td>'
+        + '<td><b>'+(Number(c.calc_cost_per_kg_p)>0?Number(c.calc_cost_per_kg_p).toFixed(1):'—')+'</b></td>'
+        + '<td style="color:'+(vcol[c.verdict]||'#666')+'"><b>'+esc((c.verdict||'').toUpperCase())+'</b>'+(c.provisional_pricing?'<br><span class="sub">provisional</span>':'')+'</td>'
+        + '<td class="sub">'+esc(c.status)+(c.s_label?'<br>'+c.s_label:'')+'</td></tr>';
+      let act = '';
+      if (caps.decide && ['screened','rejected'].includes(c.status)) act += '<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center"><input id="dr_'+c.id+'" placeholder="Reason (kept forever)" style="flex:1;min-width:200px"><button class="btn" data-decide="'+c.id+'" data-want="selected">Select for bench</button><button class="btn ghost" data-decide="'+c.id+'" data-want="rejected">Rule out</button></div>';
+      if (c.decision_reason) act += '<div class="sub" style="margin-top:6px"><b>'+esc((c.status||'').toUpperCase())+':</b> '+esc(c.decision_reason)+(c.decided_by_name?' — '+esc(c.decided_by_name):'')+'</div>';
+      if (caps.make && c.status==='selected') act += '<div style="margin-top:8px"><button class="btn'+(g3_open?'':' ghost')+'" data-make="'+c.id+'">Make this — log a sample</button>'+(g3_open?'':' <span class="sub">the beaker gate is shut; this will be refused</span>')+'</div>';
+      const reasons = '<tr><td colspan="10" style="background:var(--surface-2)"><span class="sub" style="white-space:pre-wrap">'+esc(c.verdict_reasons||'')+'</span>'+act+'</td></tr>';
+      return main + reasons;
+    }).join('');
+    candHtml = '<div class="card"><h2 style="font-size:1.05rem;margin:0 0 6px">Candidates ('+candidates.length+')</h2>'
+      + '<p class="sub" style="margin:0 0 10px">Ranked by <b>rupees per kg of P2O5</b> — a cheaper bag that carries less phosphorus is not cheaper. Failures stay on the list, with their reasons.</p>'
+      + '<div style="overflow-x:auto"><table><tr><th>ID</th><th>Candidate</th><th>N%</th><th>P2O5%</th><th>S%</th><th>Zn%</th><th>Ex-works<br>Rs/t</th><th>Rs/kg<br>P2O5</th><th>Verdict</th><th>Status</th></tr>'+rowsH+'</table></div></div>';
+  }
+
+  let addForm = '';
+  if (caps.addCandidate) {
+    if (!materials.length) addForm = '<div class="card"><p class="sub" style="margin:0">The materials register is empty — <a href="#materials">add materials first</a>.</p></div>';
+    else { const matRows = materials.map(m => '<tr><td>'+esc(m.code+' — '+m.name)+' <span class="sub">(N '+num(m.n_pct)+' · P2O5 '+num(m.p2o5_pct)+' · S '+num(m.s_pct)+' · Zn '+num(m.zn_pct)+' · '+money(m.cost_per_tonne)+'/t'+((m.cost_basis==='placeholder'||m.assay_basis==='placeholder')?' · placeholder':'')+')</span></td><td><input data-cl="'+m.id+'" value="0" style="width:90px"></td></tr>').join('');
+      addForm = '<div class="card"><h2 style="font-size:1.05rem;margin:0 0 6px">Screen a candidate</h2>'
+        + '<p class="sub" style="margin:0 0 10px">One combination, on paper. The analysis is computed from the recipe by <b>mass balance</b> — not a prediction of reaction yield. Treat it as a first approximation and measure the real assay at the bench.</p>'
+        + '<div class="row" style="gap:12px"><div style="flex:1;min-width:180px"><label>Label</label><input id="c_label" placeholder="SSP + 3% Zn, 5% S"></div><div style="flex:2;min-width:240px"><label>One-line micro-hypothesis</label><input id="c_micro" placeholder="What this combination tests, and what you expect."></div></div>'
+        + '<label>Recipe — inclusion % of each material (must total 100)</label><div style="overflow-x:auto"><table><tr><th>Material</th><th style="width:120px">Inclusion %</th></tr>'+matRows+'</table></div>'
+        + '<div style="margin-top:12px"><button class="btn" id="c_submit">Screen it</button> <span id="c_msg"></span></div></div>'; }
+  }
+
+  setMain('<h1>Candidate screen — '+hyp.h_label+' '+esc(hyp.title)+(hyp.route?' <span class="sub">['+esc(hyp.route)+']</span>':'')+'</h1>'
+    + '<p class="sub"><a href="#idea/'+hyp.id+'">back to the idea</a> · <a href="#candidates">all routes</a> · <a href="#materials">materials</a></p>'
+    + '<div class="card" style="'+(g3_open?'border-color:var(--green);background:var(--green-soft)':'background:var(--amber-soft);border-color:var(--amber)')+'"><span class="sub" style="margin:0">'+(g3_open?'<b>Beaker gate open.</b> A selected candidate may be made — everything made carries its micro-hypothesis into the sample record.':'<b>Beaker gate shut.</b> Screen and rank as much as you like — nothing can be physically made until the committee records a G3 ADVANCE for this route.')+'</span></div>'
+    + bar + candHtml + addForm);
+
+  const on = (id, fn) => { const el = document.getElementById(id); if (el) el.onclick = fn; };
+  on('b_save', async () => { const g = id => document.getElementById(id).value;
+    const body = { target_p2o5_min:g('b_p2min'), target_p2o5_max:g('b_p2max'), target_n_min:g('b_nmin'), target_n_max:g('b_nmax'), target_s_min:g('b_smin'), target_zn_min:g('b_znmin'), cost_ceiling_per_tonne:g('b_ceil'), conversion_cost_per_tonne:g('b_conv'), process_loss_pct:g('b_loss'), ceiling_basis:g('b_basis') };
+    try { await api('POST','/api/pd/candidates/'+hid+'/settings', body); renderRoute(hash, hid); } catch(e){ document.getElementById('b_msg').innerHTML='<span class="err">'+esc(e.message)+'</span>'; } });
+  document.querySelectorAll('[data-decide]').forEach(btn => btn.onclick = async () => {
+    const cid = btn.getAttribute('data-decide'), want = btn.getAttribute('data-want');
+    const reason = (document.getElementById('dr_'+cid)||{}).value || '';
+    try { await api('POST','/api/pd/candidates/'+hid+'/decide', { candidate_id:cid, decision:want, decision_reason:reason }); renderRoute(hash, hid); } catch(e){ alert(e.message); } });
+  document.querySelectorAll('[data-make]').forEach(btn => btn.onclick = async () => {
+    try { await api('POST','/api/pd/candidates/'+hid+'/make', { candidate_id: btn.getAttribute('data-make') }); renderRoute(hash, hid); } catch(e){ alert(e.message); } });
+  on('c_submit', async () => {
+    const label = document.getElementById('c_label').value, micro = document.getElementById('c_micro').value; const lines = [];
+    document.querySelectorAll('[data-cl]').forEach(el => { const pct = Number(el.value)||0; if (pct>0) lines.push({ material_id: el.getAttribute('data-cl'), inclusion_pct: pct }); });
+    try { await api('POST','/api/pd/candidates/'+hid+'/add', { label, micro_hypothesis:micro, lines }); renderRoute(hash, hid); } catch(e){ document.getElementById('c_msg').innerHTML='<span class="err">'+esc(e.message)+'</span>'; } });
+}
+
+/* ---------- Field trials (G5) ---------- */
+async function renderTrials(hash){
+  shell('<h1>Field trials</h1><p class="sub">Loading…</p>', hash);
+  const d = await api('GET','/api/pd/trials');
+  const caps = d.caps;
+
+  let design = '';
+  if (caps.design) {
+    const hopts = d.hyps.map(h=>'<option value="'+h.id+'">'+h.h_label+' — '+esc(h.title)+'</option>').join('');
+    design = '<div class="card"><h2 style="font-size:1.05rem;margin:0 0 10px">Design a trial</h2>'
+      + '<div class="row" style="gap:12px">'
+      + '<div style="flex:2;min-width:220px"><label>Hypothesis (bench survivors)</label><select id="ft_hyp"><option value="">—</option>'+hopts+'</select></div>'
+      + '<div style="flex:1;min-width:150px"><label>Season</label><input id="ft_season" placeholder="Rabi 2026-27"></div>'
+      + '<div style="flex:1;min-width:150px"><label>Crop &amp; variety</label><input id="ft_crop"></div>'
+      + '<div style="flex:1;min-width:150px"><label>District / village</label><input id="ft_loc"></div></div>'
+      + '<label>Soil (pH, CaCO₃, available P — pre-trial soil test required)</label><input id="ft_soil">'
+      + '<label>Objective (one sentence: what this trial must answer)</label><textarea id="ft_obj"></textarea>'
+      + '<label>Success / kill criteria (the number that decides)</label><textarea id="ft_sk"></textarea>'
+      + '<label>Treatments (incl. DAP control at recommended rate; equal P rate unless rate is the variable)</label><textarea id="ft_treat"></textarea>'
+      + '<label>Design &amp; layout</label><input id="ft_design" value="RCBD, 3 replications">'
+      + '<label>Measurements &amp; timing (decide now, not at harvest)</label><textarea id="ft_meas" placeholder="Early vigour 2-4 wk; plant P% mid & harvest; grain yield; post-harvest soil P"></textarea>'
+      + '<div style="margin-top:12px"><button class="btn" id="ft_submit">Save trial design</button> <span id="ft_msg"></span></div></div>';
+  }
+
+  let list;
+  if (!d.trials.length) list = '<div class="card"><p class="sub" style="margin:0">No trials yet. Only hypotheses that survived the bench (G4) can be trialled; a trial needs a G5 approval before sowing.</p></div>';
+  else list = d.trials.map(t => {
+    const obs = (t.observations||[]).map(o=>'<li>'+esc(o.obs_date)+' — '+esc(o.obs_text)+' <i>('+esc(o.added_by_name)+')</i></li>').join('');
+    const obsBlock = obs ? '<div style="margin-top:8px"><b class="sub">Season observations:</b><ul class="sub" style="margin:4px 0 0 18px">'+obs+'</ul></div>' : '';
+    const detail = '<div class="sub" style="margin-top:6px">'
+      + (t.objective?'<b>Objective:</b> '+esc(t.objective)+'<br>':'')
+      + (t.success_kill?'<b>Decides:</b> '+esc(t.success_kill)+'<br>':'')
+      + (t.treatments?'<b>Treatments:</b> '+esc(t.treatments)+'<br>':'')
+      + '<b>Design:</b> '+esc(t.design_layout||'')+(t.sown?' · sown '+esc(t.sown):'')+(t.harvest?' · harvest '+esc(t.harvest):'')
+      + (t.result_summary?'<br><b>Result:</b> '+esc(t.result_summary)+' → <b>'+esc(t.decision||'')+'</b>':'')
+      + '</div>';
+    const observe = caps.observe ? '<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">'
+      + '<div style="flex:2;min-width:200px"><label>Add season observation</label><input id="ob_'+t.id+'" placeholder="What you saw in the field"></div>'
+      + '<div style="flex:1;min-width:150px"><label>Date</label><input type="date" id="obd_'+t.id+'"></div>'
+      + '<button class="btn ghost" data-observe="'+t.id+'">Save observation</button></div>' : '';
+    const update = caps.update ? '<div style="margin-top:10px;border-top:1px solid var(--line);padding-top:10px"><div class="row" style="gap:12px">'
+      + '<div style="flex:1;min-width:130px"><label>Status</label><select id="st_'+t.id+'">'+['designed','approved','running','harvested','analysed','closed'].map(s=>'<option'+(t.status===s?' selected':'')+'>'+s+'</option>').join('')+'</select></div>'
+      + '<div style="flex:1;min-width:150px"><label>Decision after harvest</label><select id="de_'+t.id+'">'+['','advance','repeat','stop'].map(s=>'<option'+(t.decision===s?' selected':'')+'>'+s+'</option>').join('')+'</select></div>'
+      + '<div style="flex:1;min-width:130px"><label>Sown</label><input type="date" id="sw_'+t.id+'" value="'+esc(t.sown||'')+'"></div>'
+      + '<div style="flex:1;min-width:130px"><label>Harvest</label><input type="date" id="hv_'+t.id+'" value="'+esc(t.harvest||'')+'"></div></div>'
+      + '<label>Result summary (a non-significant difference is not a result — say so)</label><textarea id="rs_'+t.id+'">'+esc(t.result_summary||'')+'</textarea>'
+      + '<div style="margin-top:8px"><button class="btn ghost" data-update="'+t.id+'">Update trial</button></div></div>' : '';
+    return '<div class="card"><div><b>'+esc(t.trial_code)+'</b> — '+t.h_label+' '+esc(t.title)+' · '+esc(t.crop||'')+' · '+esc(t.season||'')+' · status <b>'+esc(t.status)+'</b> · '
+      + (t.g5ok?'<span class="chip light">G5 approved</span>':'<span class="chip heavy">awaiting G5</span>')+'</div>'
+      + detail + obsBlock + observe + update + '</div>';
+  }).join('');
+
+  setMain('<h1>Field trials</h1><p class="sub">Only for hypotheses that survived the bench (G4). A trial is worth the season only with a real DAP control, enough replication (RCBD, 3–4 blocks), and measurements fixed before sowing. G5 approval in the gate log is required before sowing.</p>'
+    + design + list);
+
+  if (caps.design) document.getElementById('ft_submit').onclick = async () => {
+    const g = id => document.getElementById(id).value;
+    const body = { hypothesis_id:g('ft_hyp'), season:g('ft_season'), crop:g('ft_crop'), location:g('ft_loc'), soil_info:g('ft_soil'), objective:g('ft_obj'), success_kill:g('ft_sk'), treatments:g('ft_treat'), design_layout:g('ft_design'), measurements:g('ft_meas') };
+    if(!body.hypothesis_id){ document.getElementById('ft_msg').innerHTML='<span class="err">Pick a hypothesis.</span>'; return; }
+    try { await api('POST','/api/pd/trials', body); renderTrials(hash); } catch(e){ document.getElementById('ft_msg').innerHTML='<span class="err">'+esc(e.message)+'</span>'; }
+  };
+  document.querySelectorAll('[data-observe]').forEach(btn => btn.onclick = async () => {
+    const tid = btn.getAttribute('data-observe');
+    try { await api('POST','/api/pd/trials/'+tid+'/observe', { obs_text: document.getElementById('ob_'+tid).value, obs_date: document.getElementById('obd_'+tid).value }); renderTrials(hash); } catch(e){ alert(e.message); }
+  });
+  document.querySelectorAll('[data-update]').forEach(btn => btn.onclick = async () => {
+    const tid = btn.getAttribute('data-update');
+    try { await api('POST','/api/pd/trials/'+tid+'/update', { status:document.getElementById('st_'+tid).value, decision:document.getElementById('de_'+tid).value, sown:document.getElementById('sw_'+tid).value, harvest:document.getElementById('hv_'+tid).value, result_summary:document.getElementById('rs_'+tid).value }); renderTrials(hash); } catch(e){ alert(e.message); }
+  });
+}
+
+/* ---------- Registers: Problems, Projects, Portfolio ---------- */
+function renderNewProblem(hash){
+  const opts = Object.keys(PD_SOURCES).map(k=>'<option value="'+k+'">'+esc(PD_SOURCES[k])+'</option>').join('');
+  shell('<h1>Register a problem</h1>'
+    + '<p class="sub">A problem is stated in the field and in farmer economics, never in chemistry. "80% of applied P locks up in calcareous soil; farmers pay DAP prices for 15–20% efficiency" is a problem. "Make NP 5-40" is not — that is a product concept answering a problem.</p>'
+    + '<div class="card">'
+    + '<label>Title</label><input id="np_title">'
+    + '<label>The problem, stated in field / farmer-economics terms</label><textarea id="np_stmt" placeholder="Who suffers, where, and what does it cost them today?"></textarea>'
+    + '<label>Context (crop, region, soil, market size, what farmers currently do)</label><textarea id="np_ctx"></textarea>'
+    + '<label>Where did this problem come from?</label><select id="np_src">'+opts+'</select>'
+    + '<div style="margin-top:12px"><button class="btn" id="np_submit">Register problem</button> <span id="np_msg"></span></div></div>', hash);
+  document.getElementById('np_submit').onclick = async () => {
+    const g = id => document.getElementById(id).value;
+    if(!g('np_title').trim() || !g('np_stmt').trim()){ document.getElementById('np_msg').innerHTML='<span class="err">Title and statement are required.</span>'; return; }
+    try { await api('POST','/api/pd/problems', { title:g('np_title'), statement:g('np_stmt'), context:g('np_ctx'), source:g('np_src') });
+      location.hash = me.surfaces.includes('registers') ? '#problems' : '#home'; }
+    catch(e){ document.getElementById('np_msg').innerHTML='<span class="err">'+esc(e.message)+'</span>'; }
+  };
+}
+
+async function renderProblems(hash){
+  shell('<h1>Problem register</h1><p class="sub">Loading…</p>', hash);
+  const d = await api('GET','/api/pd/problems');
+  const rows = d.problems.map(p => {
+    const work = [...p.work.projects.map(pj=>'<a href="#project/'+pj.id+'">'+esc(pj.label)+'</a>'), ...(p.work.products.length?[esc(p.work.products.join(', '))]:[])];
+    const workHtml = (work.length?work.join('<br>'):'—') + (p.ideas?'<br>'+p.ideas+' direct idea'+(p.ideas===1?'':'s'):'');
+    const status = d.caps.setStatus
+      ? '<select data-status="'+p.id+'">'+['open','being_addressed','solved','retired'].map(s=>'<option'+(p.status===s?' selected':'')+'>'+s+'</option>').join('')+'</select>'
+      : esc(p.status);
+    return '<tr><td>'+p.p_label+'</td><td><b>'+esc(p.title)+'</b><br><span class="sub">from: '+esc(p.source_label)+'</span></td>'
+      + '<td class="sub">'+esc(p.statement)+(p.context?'<br><i>'+esc(p.context)+'</i>':'')+'</td><td>'+status+'</td>'
+      + '<td class="sub">'+workHtml+'</td><td class="sub">'+esc(p.added_by_name)+'</td></tr>';
+  }).join('');
+  setMain('<h1>Problem register — why products exist</h1>'
+    + '<p class="sub">A problem is stated in the field and in farmer economics, never in chemistry. Problems are few, owned by management, and live for years. Every product concept must point at one. <a href="#newproblem">Register a problem →</a></p>'
+    + '<div class="card">'+(d.problems.length?'<div style="overflow-x:auto"><table><tr><th>ID</th><th>Title</th><th>Statement</th><th>Status</th><th>Work aimed at it</th><th>By</th></tr>'+rows+'</table></div>':'<p class="sub" style="margin:0">No problems registered yet.</p>')+'</div>');
+  document.querySelectorAll('[data-status]').forEach(sel => sel.onchange = async () => {
+    try { await api('POST','/api/pd/problems/'+sel.getAttribute('data-status')+'/status', { status: sel.value }); renderProblems(hash); } catch(e){ alert(e.message); }
+  });
+}
+
+async function renderProjects(hash){
+  shell('<h1>Development Projects</h1><p class="sub">Loading…</p>', hash);
+  const d = await api('GET','/api/pd/projects');
+  const rows = d.projects.map(p => '<tr class="clickable" onclick="location.hash=\'#project/'+p.id+'\'"><td>'+p.prj_label+'</td><td><b>'+esc(p.code)+'</b><br>'+esc(p.title)+'</td><td class="sub">'+(p.problem_label?esc(p.problem_label):'—')+'</td><td>'+p.routes+'</td><td class="sub">'+esc(p.owner_name||'—')+'</td><td class="sub">'+esc(p.status_label)+'</td></tr>').join('');
+  let open = '';
+  if (d.caps.open) {
+    const pOpts = d.problems.map(p=>'<option value="'+p.id+'">'+esc(p.label)+'</option>').join('');
+    const uOpts = d.users.map(u=>'<option value="'+u.id+'">'+esc(u.name)+'</option>').join('');
+    open = '<div class="card"><h2 style="font-size:1.05rem;margin:0 0 6px">Open a Development Project</h2>'
+      + '<p class="sub" style="margin:0 0 10px">The Brief is the opening case — written before the work, so G4 has something to read the runs against.</p>'
+      + '<div class="row" style="gap:12px"><div style="flex:1;min-width:130px"><label>Short code</label><input id="pj_code" placeholder="NP 5-40"></div>'
+      + '<div style="flex:2;min-width:240px"><label>Title</label><input id="pj_title"></div>'
+      + '<div style="flex:1;min-width:180px"><label>Problem it answers</label><select id="pj_prob"><option value="">—</option>'+pOpts+'</select></div>'
+      + '<div style="flex:1;min-width:150px"><label>Owner</label><select id="pj_owner"><option value="">—</option>'+uOpts+'</select></div></div>'
+      + '<label>Why — the problem, in field and economic terms, and why now</label><textarea id="pj_why"></textarea>'
+      + '<label>How — the thesis: what we believe will beat the incumbent</label><textarea id="pj_how"></textarea>'
+      + '<label>Routes to explore</label><textarea id="pj_routes" placeholder="R1 …&#10;R2 …"></textarea>'
+      + '<label>Success target — written before any bench work</label><textarea id="pj_target"></textarea>'
+      + '<div style="margin-top:12px"><button class="btn" id="pj_submit">Open project</button> <span id="pj_msg"></span></div></div>';
+  }
+  setMain('<h1>Development Projects</h1>'
+    + '<p class="sub">One effort against one problem, opened by a Product Brief, running several routes in parallel. The gates do not move — G2 and G3 still bite per route; a project groups the work, it never approves it.</p>'
+    + '<div class="card">'+(d.projects.length?'<div style="overflow-x:auto"><table><tr><th>ID</th><th>Code / title</th><th>Answers problem</th><th>Routes</th><th>Owner</th><th>Status</th></tr>'+rows+'</table></div>':'<p class="sub" style="margin:0">No projects opened yet. Open one the moment a single problem needs several routes grouped — not before.</p>')+'</div>'
+    + open);
+  if (d.caps.open) document.getElementById('pj_submit').onclick = async () => {
+    const g = id => document.getElementById(id).value;
+    if(!g('pj_code').trim() || !g('pj_title').trim()){ document.getElementById('pj_msg').innerHTML='<span class="err">Code and title are required.</span>'; return; }
+    try { const j = await api('POST','/api/pd/projects', { code:g('pj_code'), title:g('pj_title'), problem_id:g('pj_prob'), owner_id:g('pj_owner'), brief_why:g('pj_why'), brief_how:g('pj_how'), brief_routes:g('pj_routes'), brief_target:g('pj_target') });
+      location.hash = '#project/'+j.id; }
+    catch(e){ document.getElementById('pj_msg').innerHTML='<span class="err">'+esc(e.message)+'</span>'; }
+  };
+}
+
+async function renderProject(hash, id){
+  shell('<p class="sub">Loading…</p>', hash);
+  const d = await api('GET','/api/pd/projects/'+id);
+  const p = d.project, edit = d.caps.edit;
+  const problemCard = d.problem
+    ? '<div class="card" style="border-color:var(--green);background:var(--green-soft)"><b>Answers '+d.problem.p_label+' — '+esc(d.problem.title)+'</b><div class="sub" style="margin-top:4px">'+esc(d.problem.statement)+'</div></div>'
+    : '<div class="card" style="background:var(--amber-soft);border-color:var(--amber)"><span class="sub" style="margin:0">This project does not point at a registered problem yet. Every product concept must answer one.</span></div>';
+  const brief = '<div class="card"><h2 style="font-size:1.05rem;margin:0 0 10px">Product Brief</h2><table>'
+    + [['Why — the problem, and why now', p.brief_why],['How — the thesis', p.brief_how],['Routes to explore', p.brief_routes],['Success target (written before the work)', p.brief_target]].map(([k,v])=>'<tr><th style="width:230px">'+k+'</th><td>'+(v&&String(v).trim()?esc(v):'<span class="sub">— not written yet —</span>')+'</td></tr>').join('')
+    + '<tr><th>Owner</th><td>'+esc(p.owner_name||'—')+'</td></tr></table></div>';
+  const routes = d.routes.length
+    ? '<div style="overflow-x:auto"><table><tr><th>Route</th><th>ID</th><th>Title</th><th>Lane</th><th>Stage</th><th>G1</th>'+(edit?'<th></th>':'')+'</tr>'
+      + d.routes.map(r=>'<tr><td><b>'+esc(r.route||'—')+'</b></td><td>'+r.h_label+'</td><td><a href="#idea/'+r.id+'">'+esc(r.title)+'</a></td><td class="sub">'+esc(r.lane)+'</td><td><span class="chip stage">'+esc(r.stage_label)+'</span></td><td class="sub">'+(r.screen_decision?esc(r.screen_decision.toUpperCase()):'awaiting screen')+'</td>'+(edit?'<td><button class="btn ghost" data-detach="'+r.id+'">Detach</button></td>':'')+'</tr>').join('')
+      + '</table></div>'
+    : '<p class="sub" style="margin:0">No routes attached yet. A project with one route is just a route — attach the second one and the grouping starts earning its keep.</p>';
+  let attach = '', editForm = '';
+  if (edit) {
+    const fOpts = d.free.map(f=>'<option value="'+f.id+'">'+f.h_label+' — '+esc(f.title)+(f.route?' ['+esc(f.route)+']':'')+'</option>').join('');
+    attach = '<div class="card"><h2 style="font-size:1.05rem;margin:0 0 6px">Attach a route</h2><p class="sub" style="margin:0 0 10px">Grouping only. The route keeps its own H-number, Development Record, G2 and beaker gate.</p>'
+      + '<div class="row" style="gap:10px;align-items:flex-end"><div style="flex:1;min-width:240px"><label>Idea / route</label><select id="at_hyp"><option value="">—</option>'+fOpts+'</select></div><button class="btn" id="at_submit">Attach</button></div></div>';
+    const pOpts = d.problems.map(pb=>'<option value="'+pb.id+'"'+(p.problem_id===pb.id?' selected':'')+'>'+esc(pb.label)+'</option>').join('');
+    const uOpts = d.users.map(u=>'<option value="'+u.id+'"'+(p.owner_id===u.id?' selected':'')+'>'+esc(u.name)+'</option>').join('');
+    const sOpts = Object.keys(d.projectStatus).map(k=>'<option value="'+k+'"'+(p.status===k?' selected':'')+'>'+esc(d.projectStatus[k])+'</option>').join('');
+    editForm = '<div class="card"><h2 style="font-size:1.05rem;margin:0 0 10px">Edit the Brief</h2>'
+      + '<div class="row" style="gap:12px"><div style="flex:1;min-width:130px"><label>Code</label><input id="e_code" value="'+esc(p.code)+'"></div>'
+      + '<div style="flex:2;min-width:220px"><label>Title</label><input id="e_title" value="'+esc(p.title)+'"></div>'
+      + '<div style="flex:1;min-width:170px"><label>Problem</label><select id="e_prob"><option value="">—</option>'+pOpts+'</select></div>'
+      + '<div style="flex:1;min-width:150px"><label>Owner</label><select id="e_owner"><option value="">—</option>'+uOpts+'</select></div>'
+      + '<div style="flex:1;min-width:130px"><label>Status</label><select id="e_status">'+sOpts+'</select></div></div>'
+      + '<label>Why</label><textarea id="e_why">'+esc(p.brief_why||'')+'</textarea>'
+      + '<label>How — the thesis</label><textarea id="e_how">'+esc(p.brief_how||'')+'</textarea>'
+      + '<label>Routes to explore</label><textarea id="e_routes">'+esc(p.brief_routes||'')+'</textarea>'
+      + '<label>Success target</label><textarea id="e_target">'+esc(p.brief_target||'')+'</textarea>'
+      + '<div style="margin-top:12px"><button class="btn" id="e_submit">Save brief</button> <span id="e_msg"></span></div></div>';
+  }
+  setMain('<h1>'+p.prj_label+' — '+esc(p.code)+' <span class="sub">'+esc(p.status_label)+'</span></h1><p class="sub">'+esc(p.title)+' · <a href="#projects">all projects</a></p>'
+    + problemCard + brief + '<h2 style="font-family:var(--serif);font-size:1.2rem">Routes under this project ('+d.routes.length+')</h2><div class="card">'+routes+'</div>' + attach + editForm);
+  document.querySelectorAll('[data-detach]').forEach(btn => btn.onclick = async () => {
+    try { await api('POST','/api/pd/projects/'+id+'/detach', { hypothesis_id: btn.getAttribute('data-detach') }); renderProject(hash, id); } catch(e){ alert(e.message); }
+  });
+  if (edit) {
+    document.getElementById('at_submit').onclick = async () => {
+      const v = document.getElementById('at_hyp').value; if(!v){ return; }
+      try { await api('POST','/api/pd/projects/'+id+'/attach', { hypothesis_id: v }); renderProject(hash, id); } catch(e){ alert(e.message); }
+    };
+    document.getElementById('e_submit').onclick = async () => {
+      const g = i => document.getElementById(i).value;
+      try { await api('POST','/api/pd/projects/'+id+'/save', { code:g('e_code'), title:g('e_title'), problem_id:g('e_prob'), owner_id:g('e_owner'), status:g('e_status'), brief_why:g('e_why'), brief_how:g('e_how'), brief_routes:g('e_routes'), brief_target:g('e_target') }); renderProject(hash, id); }
+      catch(e){ document.getElementById('e_msg').innerHTML='<span class="err">'+esc(e.message)+'</span>'; }
+    };
+  }
+}
+
+async function renderPortfolio(hash){
+  shell('<h1>Portfolio</h1><p class="sub">Loading…</p>', hash);
+  const d = await api('GET','/api/pd/portfolio');
+  const gk = Object.keys(d.conceptGates);
+  const productCard = p => {
+    const c = p.counts;
+    const gates = gk.map(g => { const st = (p.gates[g]||{}).status || 'open'; const col = st==='pass'?'var(--green)':(st==='fail'?'var(--red)':'var(--muted)');
+      const note = (p.gates[g]||{}).note; return '<span class="chip" title="'+esc(d.conceptGates[g]+(note?' — '+note:''))+'" style="color:'+col+';border:1px solid '+col+';margin-right:4px">'+g+' '+st+'</span>'; }).join('');
+    let gateForm = '';
+    if (d.caps.gate) {
+      const gOpts = gk.map(g=>'<option value="'+g+'">'+esc(d.conceptGates[g])+'</option>').join('');
+      gateForm = '<details style="margin-top:8px"><summary class="sub" style="cursor:pointer">Record a concept gate (A–E)</summary>'
+        + '<div class="row" style="gap:10px;margin-top:8px;align-items:flex-end"><div style="flex:2;min-width:220px"><label>Gate</label><select data-gate-sel="'+p.id+'">'+gOpts+'</select></div>'
+        + '<div style="flex:1;min-width:110px"><label>Status</label><select data-gate-st="'+p.id+'"><option>open</option><option>pass</option><option>fail</option></select></div>'
+        + '<div style="flex:2;min-width:200px"><label>Evidence / note</label><input data-gate-note="'+p.id+'"></div>'
+        + '<button class="btn ghost" data-gate="'+p.id+'">Record</button></div></details>';
+    }
+    let linkForm = '';
+    if (d.caps.manage && !p.problem_id) {
+      const pOpts = d.problems.map(pr=>'<option value="'+pr.id+'">'+pr.p_label+' '+esc(pr.title)+'</option>').join('');
+      linkForm = '<div class="sub" style="margin-top:6px">link to problem: <select data-link="'+p.id+'"><option value=""></option>'+pOpts+'</select></div>';
+    }
+    return '<div class="card" style="margin-left:18px"><b style="font-size:15px">'+esc(p.code)+'</b> — '+esc(p.name)+' <span class="sub">('+esc(p.status)+')</span>'
+      + '<div class="sub" style="margin-top:4px"><b>Ideas:</b> '+c.proposed+' awaiting screen · '+c.alive+' alive · '+c.killed+' killed · '+c.parked+' parked · '+c.validated+' validated</div>'
+      + (p.current ? '<div class="sub"><b>Current formulation:</b> v'+p.current.version+' '+esc(p.current.name)+'</div>' : '<div class="sub">No current formulation yet.</div>')
+      + '<div style="margin-top:6px">'+gates+' <span class="sub">(hover a gate for its question)</span></div>'+gateForm+linkForm+'</div>';
+  };
+  let body = '';
+  for (const pr of d.problems) {
+    body += '<div class="card" style="background:var(--green-soft)"><b style="font-size:15px">'+pr.p_label+' — '+esc(pr.title)+'</b> <span class="sub">('+esc(pr.status)+')</span><div class="sub" style="margin-top:4px">'+esc(pr.statement)+'</div></div>';
+    const prods = d.products.filter(p => p.problem_id === pr.id);
+    if (prods.length) body += prods.map(productCard).join('');
+    else body += '<div class="sub" style="margin:0 0 10px 18px">No product concept attacks this problem yet.</div>';
+    if (pr.direct) body += '<div class="sub" style="margin:0 0 10px 18px">'+pr.direct+' idea(s) address this problem directly, not yet attached to a product concept.</div>';
+  }
+  const orphans = d.products.filter(p => !p.problem_id);
+  if (orphans.length) body += '<h2 style="font-family:var(--serif);font-size:1.2rem">Product concepts not yet linked to a problem</h2>' + orphans.map(productCard).join('');
+  let newProd = '';
+  if (d.caps.manage) {
+    const pOpts = d.problems.map(pr=>'<option value="'+pr.id+'">'+pr.p_label+' — '+esc(pr.title)+'</option>').join('');
+    newProd = '<div class="card"><h2 style="font-size:1.05rem;margin:0 0 6px">New product concept</h2><p class="sub" style="margin:0 0 10px">Created when an idea is judged a distinct product answer to a problem — not for every recipe.</p>'
+      + '<div class="row" style="gap:12px"><div style="flex:1;min-width:130px"><label>Code</label><input id="pr_code" placeholder="NP 5-40"></div>'
+      + '<div style="flex:2;min-width:220px"><label>Name</label><input id="pr_name"></div>'
+      + '<div style="flex:1;min-width:180px"><label>Problem it attacks</label><select id="pr_prob"><option value="">—</option>'+pOpts+'</select></div></div>'
+      + '<div style="margin-top:12px"><button class="btn" id="pr_submit">Create concept</button> <span id="pr_msg"></span></div></div>';
+  }
+  setMain('<h1>Portfolio — problem → product concepts → ideas</h1>'
+    + '<p class="sub">A problem is stated in the field; a product concept is stated on a bag (an analysis + a claim answering one problem); an idea is stated at the bench. Ideas run gates G1–G6; concepts are judged on Gates A–E.</p>'
+    + (d.problems.length||d.products.length?body:'<div class="card"><p class="sub" style="margin:0">Nothing in the portfolio yet. Register a problem, then create a product concept for it.</p></div>') + newProd);
+
+  document.querySelectorAll('[data-gate]').forEach(btn => btn.onclick = async () => {
+    const pid = btn.getAttribute('data-gate');
+    const body = { gate: document.querySelector('[data-gate-sel="'+pid+'"]').value, status: document.querySelector('[data-gate-st="'+pid+'"]').value, note: document.querySelector('[data-gate-note="'+pid+'"]').value };
+    try { await api('POST','/api/pd/portfolio/products/'+pid+'/gate', body); renderPortfolio(hash); } catch(e){ alert(e.message); }
+  });
+  document.querySelectorAll('[data-link]').forEach(sel => sel.onchange = async () => {
+    try { await api('POST','/api/pd/portfolio/products/'+sel.getAttribute('data-link')+'/link', { problem_id: sel.value }); renderPortfolio(hash); } catch(e){ alert(e.message); }
+  });
+  if (d.caps.manage) document.getElementById('pr_submit').onclick = async () => {
+    const g = i => document.getElementById(i).value;
+    if(!g('pr_code').trim() || !g('pr_name').trim()){ document.getElementById('pr_msg').innerHTML='<span class="err">Code and name are required.</span>'; return; }
+    try { await api('POST','/api/pd/portfolio/products', { code:g('pr_code'), name:g('pr_name'), problem_id:g('pr_prob') }); renderPortfolio(hash); }
+    catch(e){ document.getElementById('pr_msg').innerHTML='<span class="err">'+esc(e.message)+'</span>'; }
+  };
+}
+
+/* ---------- Admin: Regulatory, Learnings, Formulations, Activity log ---------- */
+async function renderRegulatory(hash){
+  shell('<h1>Regulatory</h1><p class="sub">Loading…</p>', hash);
+  const d = await api('GET','/api/pd/regulatory');
+  const provinces = ['Punjab','Sindh','KPK','Balochistan','Federal / other'];
+  let form = '';
+  if (d.caps.edit) {
+    const pOpts = d.products.map(p=>'<option value="'+p.id+'">'+esc(p.code)+'</option>').join('');
+    const sOpts = Object.keys(d.statuses).map(k=>'<option value="'+k+'">'+esc(d.statuses[k])+'</option>').join('');
+    const provOpts = provinces.map(p=>'<option>'+esc(p)+'</option>').join('');
+    form = '<div class="card"><h2 style="font-size:1.05rem;margin:0 0 10px">Add / update status</h2><div class="row" style="gap:12px">'
+      + '<div style="flex:1;min-width:140px"><label>Product</label><select id="rg_prod"><option value="">—</option>'+pOpts+'</select></div>'
+      + '<div style="flex:1;min-width:140px"><label>Province</label><select id="rg_prov">'+provOpts+'</select></div>'
+      + '<div style="flex:1;min-width:170px"><label>Status</label><select id="rg_status">'+sOpts+'</select></div>'
+      + '<div style="flex:1;min-width:160px"><label>Authority</label><input id="rg_auth" placeholder="Punjab Agriculture Dept."></div>'
+      + '<div style="flex:1;min-width:120px"><label>Reference no.</label><input id="rg_ref"></div>'
+      + '<div style="flex:1;min-width:140px"><label>Submitted on</label><input type="date" id="rg_sub"></div>'
+      + '<div style="flex:1;min-width:140px"><label>Registered on</label><input type="date" id="rg_reg"></div>'
+      + '<div style="flex:1;min-width:140px"><label>Renewal due</label><input type="date" id="rg_ren"></div></div>'
+      + '<label>Notes</label><textarea id="rg_notes"></textarea>'
+      + '<div style="margin-top:12px"><button class="btn" id="rg_submit">Save</button> <span id="rg_msg"></span></div></div>';
+  }
+  const rows = d.rows.map(r=>'<tr><td>'+esc(r.code)+'</td><td>'+esc(r.province)+'</td><td><b>'+esc(r.status_label)+'</b></td><td>'+esc(r.authority||'')+'</td><td>'+esc(r.ref_no||'')+'</td><td>'+esc(fmtDate(r.submitted_on))+'</td><td>'+esc(fmtDate(r.registered_on))+'</td><td>'+esc(fmtDate(r.renewal_due))+'</td><td class="sub">'+esc(r.notes||'')+'</td></tr>').join('');
+  setMain('<h1>Regulatory — fertilizer registration track</h1>'
+    + '<p class="sub">Registration is provincial and a real pre-launch gate: G6 should not conclude "launch" in a province where the product is not registered. One row per product per province. Verify current requirements with the authority — rules and fees change.</p>'
+    + form + '<div class="card">'+(d.rows.length?'<div style="overflow-x:auto"><table><tr><th>Product</th><th>Province</th><th>Status</th><th>Authority</th><th>Ref</th><th>Submitted</th><th>Registered</th><th>Renewal</th><th>Notes</th></tr>'+rows+'</table></div>':'<p class="sub" style="margin:0">No regulatory entries yet.</p>')+'</div>');
+  if (d.caps.edit) document.getElementById('rg_submit').onclick = async () => {
+    const g = i => document.getElementById(i).value;
+    if(!g('rg_prod')){ document.getElementById('rg_msg').innerHTML='<span class="err">Pick a product.</span>'; return; }
+    try { await api('POST','/api/pd/regulatory', { product_id:g('rg_prod'), province:g('rg_prov'), status:g('rg_status'), authority:g('rg_auth'), ref_no:g('rg_ref'), submitted_on:g('rg_sub'), registered_on:g('rg_reg'), renewal_due:g('rg_ren'), notes:g('rg_notes') }); renderRegulatory(hash); }
+    catch(e){ document.getElementById('rg_msg').innerHTML='<span class="err">'+esc(e.message)+'</span>'; }
+  };
+}
+
+async function renderLearnings(hash, search){
+  shell('<h1>Learnings</h1><p class="sub">Loading…</p>', hash);
+  const d = await api('GET','/api/pd/learnings'+(search?('?s='+encodeURIComponent(search)):''));
+  let form = '';
+  if (d.caps.add) {
+    const hOpts = d.hyps.map(h=>'<option value="'+h.id+'">'+h.h_label+' — '+esc(h.title.slice(0,50))+'</option>').join('');
+    form = '<div class="card"><h2 style="font-size:1.05rem;margin:0 0 10px">Add a learning</h2>'
+      + '<label>The fact (1–2 sentences)</label><textarea id="ln_fact"></textarea>'
+      + '<div class="row" style="gap:12px"><div style="flex:1;min-width:200px"><label>Evidence level</label><select id="ln_ev"><option value="verified">VERIFIED — proven on VAN bench or field</option><option value="validate" selected>VALIDATE — observed once, needs confirmation</option><option value="open">OPEN — plausible, untested</option></select></div>'
+      + '<div style="flex:1;min-width:160px"><label>Tag</label><input id="ln_tag" placeholder="chemistry / process / agronomy / market"></div>'
+      + '<div style="flex:1;min-width:150px"><label>Source</label><input id="ln_src" placeholder="DR-0001, T-0003…"></div>'
+      + '<div style="flex:1;min-width:180px"><label>Linked idea</label><select id="ln_hyp"><option value="">—</option>'+hOpts+'</select></div></div>'
+      + '<div style="margin-top:12px"><button class="btn" id="ln_submit">Save learning</button> <span id="ln_msg"></span></div></div>';
+  }
+  const rows = d.learnings.map(l=>'<tr><td>'+esc(l.fact)+'</td><td>'+esc((l.evidence||'').toUpperCase())+'</td><td>'+esc(l.tag||'')+'</td><td>'+esc(l.source||'')+(l.h_label?' · '+l.h_label:'')+'</td><td class="sub">'+esc(l.added_by_name)+'</td><td class="sub">'+esc(fmtDate(l.added_at))+'</td></tr>').join('');
+  setMain('<h1>Learnings — what VAN knows</h1>'
+    + '<p class="sub">One verified fact per entry, written so it is useful without opening the record it came from. Tag entries so the system can surface them next to new ideas.</p>'
+    + form
+    + '<div class="card" style="display:flex;gap:8px;align-items:flex-end"><div style="flex:1"><label>Search learnings</label><input id="ln_search" value="'+esc(search||'')+'"></div><button class="btn ghost" id="ln_go">Search</button></div>'
+    + '<div class="card">'+(d.learnings.length?'<div style="overflow-x:auto"><table><tr><th>Fact</th><th>Evidence</th><th>Tag</th><th>Source</th><th>By</th><th>When</th></tr>'+rows+'</table></div>':'<p class="sub" style="margin:0">No learnings yet'+(search?' matching that search':'')+'.</p>')+'</div>');
+  document.getElementById('ln_go').onclick = () => renderLearnings(hash, document.getElementById('ln_search').value);
+  document.getElementById('ln_search').onkeydown = e => { if(e.key==='Enter') renderLearnings(hash, document.getElementById('ln_search').value); };
+  if (d.caps.add) document.getElementById('ln_submit').onclick = async () => {
+    const g = i => document.getElementById(i).value;
+    if(!g('ln_fact').trim()){ document.getElementById('ln_msg').innerHTML='<span class="err">Write the fact.</span>'; return; }
+    try { await api('POST','/api/pd/learnings', { fact:g('ln_fact'), evidence:g('ln_ev'), tag:g('ln_tag'), source:g('ln_src'), hypothesis_id:g('ln_hyp') }); renderLearnings(hash); }
+    catch(e){ document.getElementById('ln_msg').innerHTML='<span class="err">'+esc(e.message)+'</span>'; }
+  };
+}
+
+async function renderFormulations(hash){
+  shell('<h1>Formulations</h1><p class="sub">Loading…</p>', hash);
+  const d = await api('GET','/api/pd/formulations');
+  let form = '';
+  if (d.caps.add) {
+    const pOpts = d.products.map(p=>'<option value="'+p.id+'">'+esc(p.code+' — '+p.name)+'</option>').join('');
+    const fOpts = d.forms.map(f=>'<option value="'+f.id+'">'+esc(f.code+' v'+f.version+' — '+f.name)+'</option>').join('');
+    const hOpts = d.hyps.map(h=>'<option value="'+h.id+'">'+h.h_label+' — '+esc(h.title.slice(0,45))+'</option>').join('');
+    const rOpts = d.recs.map(r=>'<option value="'+r.id+'">'+esc(r.record_no)+'</option>').join('');
+    form = '<div class="card"><h2 style="font-size:1.05rem;margin:0 0 10px">Register a formulation version</h2><div class="row" style="gap:12px">'
+      + '<div style="flex:1;min-width:180px"><label>Product</label><select id="fm_prod"><option value="">—</option>'+pOpts+'</select></div>'
+      + '<div style="flex:2;min-width:220px"><label>Name</label><input id="fm_name" placeholder="NP 5-40 humate-integrated"></div>'
+      + '<div style="flex:1;min-width:180px"><label>Parent version</label><select id="fm_parent"><option value="">—</option>'+fOpts+'</select></div>'
+      + '<div style="flex:1;min-width:180px"><label>Born from idea</label><select id="fm_hyp"><option value="">—</option>'+hOpts+'</select></div>'
+      + '<div style="flex:1;min-width:150px"><label>Proven by record</label><select id="fm_rec"><option value="">—</option>'+rOpts+'</select></div>'
+      + '<div style="flex:1;min-width:130px"><label>Status</label><select id="fm_status"><option value="candidate">candidate</option><option value="current">current</option></select></div></div>'
+      + '<label>Composition</label><textarea id="fm_comp" placeholder="Ingredients, roles and proportions"></textarea>'
+      + '<label>What changed vs the parent, and why</label><textarea id="fm_change"></textarea>'
+      + '<div style="margin-top:12px"><button class="btn" id="fm_submit">Register version</button> <span id="fm_msg"></span></div></div>';
+  }
+  let body = '';
+  for (const p of d.products) {
+    const vers = d.forms.filter(f => f.product_id === p.id);
+    body += '<h2 style="font-family:var(--serif);font-size:1.15rem;margin:16px 0 6px">'+esc(p.code)+' — '+esc(p.name)+'</h2>';
+    if (!vers.length) { body += '<div class="card"><p class="sub" style="margin:0">No formulation versions registered yet.</p></div>'; continue; }
+    body += '<div class="card"><div style="overflow-x:auto"><table><tr><th>Ver</th><th>Name</th><th>Status</th><th>Parent</th><th>From idea / record</th><th>Change &amp; why</th>'+(d.caps.add?'<th></th>':'')+'</tr>'
+      + vers.map(f=>'<tr><td>v'+f.version+'</td><td>'+esc(f.name)+'</td><td>'+(f.status==='current'?'<span class="chip light">current</span>':esc(f.status))+'</td><td>'+(f.parent_version?'v'+f.parent_version:'—')+'</td><td>'+(f.h_label||'—')+(f.record_no?' / '+esc(f.record_no):'')+'</td><td class="sub">'+(d.seesComposition?esc((f.change_reason||'').slice(0,120)):'<i>restricted</i>')+'</td>'+(d.caps.add?'<td>'+(f.status!=='current'?'<button class="btn ghost" data-current="'+f.id+'">Make current</button>':'')+'</td>':'')+'</tr>').join('')
+      + '</table></div></div>';
+  }
+  setMain('<h1>Formulation register — why the product is the way it is</h1>'
+    + (d.seesComposition?'':'<div class="card" style="background:var(--amber-soft);border-color:var(--amber)"><span class="sub" style="margin:0">Compositions and change details are restricted to senior technical roles — you can see the version chain and status.</span></div>')
+    + '<p class="sub">Every version of every product formulation, with its parent, the idea that changed it, and the record that proved it. Nothing is overwritten: superseded versions keep their place in the chain.</p>'
+    + form + (d.products.length?body:'<div class="card"><p class="sub" style="margin:0">No products yet — create a product concept in the Portfolio first.</p></div>'));
+  document.querySelectorAll('[data-current]').forEach(btn => btn.onclick = async () => {
+    try { await api('POST','/api/pd/formulations/'+btn.getAttribute('data-current')+'/current', {}); renderFormulations(hash); } catch(e){ alert(e.message); }
+  });
+  if (d.caps.add) document.getElementById('fm_submit').onclick = async () => {
+    const g = i => document.getElementById(i).value;
+    if(!g('fm_prod')||!g('fm_name').trim()||!g('fm_comp').trim()){ document.getElementById('fm_msg').innerHTML='<span class="err">Product, name and composition are required.</span>'; return; }
+    try { await api('POST','/api/pd/formulations', { product_id:g('fm_prod'), name:g('fm_name'), parent_formulation_id:g('fm_parent'), hypothesis_id:g('fm_hyp'), dev_record_id:g('fm_rec'), status:g('fm_status'), composition:g('fm_comp'), change_reason:g('fm_change') }); renderFormulations(hash); }
+    catch(e){ document.getElementById('fm_msg').innerHTML='<span class="err">'+esc(e.message)+'</span>'; }
+  };
+}
+
+async function renderAudit(hash, fa, fu){
+  shell('<h1>Activity log</h1><p class="sub">Loading…</p>', hash);
+  const qs = []; if (fa) qs.push('a='+encodeURIComponent(fa)); if (fu) qs.push('u='+encodeURIComponent(fu));
+  const d = await api('GET','/api/pd/audit'+(qs.length?('?'+qs.join('&')):''));
+  const aOpts = ['<option value="">— all —</option>'].concat(d.actions.map(a=>'<option value="'+esc(a)+'"'+(a===fa?' selected':'')+'>'+esc(a)+'</option>')).join('');
+  const uOpts = ['<option value="">— all —</option>'].concat(d.users.map(u=>'<option value="'+u.id+'"'+(String(u.id)===String(fu)?' selected':'')+'>'+esc(u.name)+'</option>')).join('');
+  const rows = d.rows.map(r=>'<tr><td style="white-space:nowrap">'+esc(r.at)+'</td><td>'+esc(r.name||'—')+'</td><td>'+esc(r.action)+'</td><td class="sub">'+esc(r.detail||'')+'</td></tr>').join('');
+  setMain('<h1>Activity log</h1><p class="sub">Latest 300 entries. Every PD submission, screen, gate decision and admin change lands here automatically.</p>'
+    + '<div class="card" style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap"><div><label>Action</label><select id="au_a">'+aOpts+'</select></div><div><label>Person</label><select id="au_u">'+uOpts+'</select></div><button class="btn" id="au_go">Filter</button></div>'
+    + '<div class="card">'+(d.rows.length?'<div style="overflow-x:auto"><table><tr><th>When</th><th>Who</th><th>Action</th><th>Detail</th></tr>'+rows+'</table></div>':'<p class="sub" style="margin:0">No activity recorded yet.</p>')+'</div>');
+  document.getElementById('au_go').onclick = () => renderAudit(hash, document.getElementById('au_a').value, document.getElementById('au_u').value);
+}
+
+/* ---------- Pipeline board (kanban) ---------- */
+async function renderBoard(hash){
+  shell('<h1>Pipeline board</h1><p class="sub">Loading…</p>', hash);
+  const d = await api('GET','/api/pd/board');
+  const cols = [['proposed','G1 · Awaiting screen'],['screened','Screened → design'],['designed','G2 · Design signed'],['sampled','G3 · Bench open'],['tested','Tested (lab)'],['evaluated','G4 · Evaluated'],['field_trial','G5 · Field trial'],['validated','G6 · Validated']];
+  const byStage = {}; d.items.forEach(x => (byStage[x.stage] = byStage[x.stage] || []).push(x));
+  const card = x => {
+    let flag = '';
+    if (x.stage === 'proposed' && x.age_days > d.slaDays) flag = '<br><b style="color:var(--red);font-size:12px">'+x.age_days+' days — over target</b>';
+    const st = (x.stage==='parked'||x.stage==='killed') ? ' <span class="chip stage">'+x.stage+'</span>' : '';
+    return '<a class="clickable" style="display:block;border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin-bottom:8px;text-decoration:none;color:inherit;background:var(--surface)" href="#idea/'+x.id+'"><b>'+x.h_label+'</b>'+(x.lane==='light'?' <span class="sub">light</span>':'')+st+'<br>'+esc(x.title)+flag+'</a>';
+  };
+  const col = (key, label, items) => '<div style="min-width:210px;max-width:230px;flex:0 0 auto;background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:10px">'
+    + '<div style="display:flex;justify-content:space-between;font-weight:600;font-size:.85rem;margin-bottom:10px"><span>'+esc(label)+'</span><span class="sub">'+items.length+'</span></div>'
+    + (items.length ? items.map(card).join('') : '<span class="sub">—</span>') + '</div>';
+  const parked = [...(byStage.parked||[]), ...(byStage.killed||[])];
+  const board = '<div style="display:flex;gap:12px;overflow-x:auto;padding-bottom:8px">'
+    + cols.map(([k,l]) => col(k, l, byStage[k]||[])).join('')
+    + col('parked', 'Parked / closed', parked) + '</div>';
+  const total = d.items.length;
+  const stale = d.stale.length ? '<h2 style="font-family:var(--serif);font-size:1.2rem">Needs a decision — untouched 4+ weeks</h2>'
+    + '<div class="card"><ul style="margin:0;padding-left:18px">'+d.stale.map(s=>'<li><a href="#idea/'+s.id+'">'+s.h_label+'</a> — '+esc(s.title)+' <span class="sub">('+esc(s.stage_label)+', last touched '+esc(fmtDate(s.updated_at))+')</span></li>').join('')+'</ul><p class="sub" style="margin:8px 0 0">A gate that cannot yet be answered is explicitly PARKED with a reason — never left pending in silence.</p></div>' : '';
+  setMain('<h1>Pipeline board</h1>'
+    + (total ? '<p class="sub">The pipeline, left to right by stage. Ideas enter at G1 and move right <b>only</b> through a gate — no card drifts forward on its own. Scroll sideways for later stages. Click a card to open it.</p>' : '<div class="card"><p class="sub" style="margin:0">Nothing logged yet. That is normal for day one — bring something in from <a href="#new">New idea</a>.</p></div>')
+    + (total ? board : '') + stale);
+}
+
+/* ---------- Drop box triage ---------- */
+async function renderDropbox(hash){
+  shell('<h1>Drop box</h1><p class="sub">Loading…</p>', hash);
+  const d = await api('GET','/api/pd/dropbox');
+  const rows = d.entries.map(e => {
+    let status, action;
+    if (e.status==='new') { status='<b>NEW</b>';
+      action = '<div style="display:flex;flex-direction:column;gap:6px;min-width:200px"><input id="dbt_'+e.id+'" placeholder="Short title for the idea" maxlength="200"><button class="btn" data-convert="'+e.id+'">Log as idea</button><button class="btn ghost" data-dismiss="'+e.id+'">Dismiss</button></div>'; }
+    else if (e.status==='converted') { status='converted'+(e.h_label?' → '+e.h_label:'')+'<br><span class="sub">by '+esc(e.handler||'')+'</span>'; action='—'; }
+    else { status='dismissed<br><span class="sub">by '+esc(e.handler||'')+'</span>'; action='—'; }
+    return '<tr><td class="sub" style="white-space:nowrap">'+esc(fmtDate(e.created_at))+'</td>'
+      + '<td><b>'+esc(e.name)+'</b>'+(e.contact?'<br><span class="sub">'+esc(e.contact)+'</span>':'')+'<br><span class="sub">from: '+esc(e.source_label)+'</span></td>'
+      + '<td class="sub" style="white-space:pre-wrap;max-width:340px">'+esc(e.text)+'</td><td class="sub">'+status+'</td><td>'+action+'</td></tr>';
+  }).join('');
+  setMain('<h1>Drop box — the open door</h1>'
+    + '<p class="sub">Anyone — factory staff, a dealer, a farmer, a regulator — can drop an idea or problem in <b>without an account</b> at <a href="/pd/drop" target="_blank">/pd/drop</a>. Triage them here: convert the good ones into logged ideas (H-numbers), dismiss the rest. Nothing is deleted.</p>'
+    + '<div class="card">'+(d.entries.length?'<div style="overflow-x:auto"><table><tr><th>When</th><th>Who / source</th><th>Text</th><th>Status</th><th>Action</th></tr>'+rows+'</table></div>':'<p class="sub" style="margin:0">Nothing in the box yet.</p>')+'</div>');
+  document.querySelectorAll('[data-convert]').forEach(b => b.onclick = async () => {
+    const eid = b.getAttribute('data-convert'); const title = document.getElementById('dbt_'+eid).value;
+    try { await api('POST','/api/pd/dropbox/'+eid+'/convert', { title }); renderDropbox(hash); } catch(e){ alert(e.message); }
+  });
+  document.querySelectorAll('[data-dismiss]').forEach(b => b.onclick = async () => {
+    try { await api('POST','/api/pd/dropbox/'+b.getAttribute('data-dismiss')+'/dismiss', {}); renderDropbox(hash); } catch(e){ alert(e.message); }
+  });
+}
+
+/* ---------- The Library ---------- */
+function fileToBase64(file){ return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=rej; r.readAsDataURL(file); }); }
+async function openLibFile(id){
+  try {
+    const r = await fetch('/api/pd/library/'+id+'/file', { headers: authHdr() });
+    if (!r.ok) { alert('Could not open the file.'); return; }
+    const url = URL.createObjectURL(await r.blob());
+    window.open(url, '_blank');
+    setTimeout(()=>URL.revokeObjectURL(url), 60000);
+  } catch(e){ alert(e.message); }
+}
+const EVCOL = { verified:'var(--green)', validate:'var(--amber)', open:'var(--muted)' };
+
+async function renderLibrary(hash, kind, ev, qy){
+  shell('<h1>Library</h1><p class="sub">Loading…</p>', hash);
+  const qs = []; if (kind) qs.push('kind='+encodeURIComponent(kind)); if (ev) qs.push('ev='+encodeURIComponent(ev)); if (qy) qs.push('q='+encodeURIComponent(qy));
+  const d = await api('GET','/api/pd/library'+(qs.length?('?'+qs.join('&')):''));
+  const f = d.filters;
+  const kindOpts = '<option value="">all</option>'+Object.keys(d.kinds).map(k=>'<option value="'+k+'"'+(f.kind===k?' selected':'')+'>'+esc(d.kinds[k].split(' — ')[0])+'</option>').join('');
+  const evOpts = '<option value="">all</option>'+Object.keys(d.evidenceShort).map(k=>'<option value="'+k+'"'+(f.ev===k?' selected':'')+'>'+esc(d.evidenceShort[k])+'</option>').join('');
+  const filter = '<div class="card" style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">'
+    + '<div style="flex:1;min-width:200px"><label>Search</label><input id="lb_q" value="'+esc(f.q||'')+'" placeholder="title, why, body, tag, source"></div>'
+    + '<div><label>Kind</label><select id="lb_kind">'+kindOpts+'</select></div>'
+    + '<div><label>Evidence</label><select id="lb_ev">'+evOpts+'</select></div>'
+    + '<button class="btn ghost" id="lb_filter">Filter</button>'
+    + ((f.q||f.kind||f.ev)?'<button class="btn ghost" id="lb_clear">clear</button>':'')+'</div>';
+
+  const items = d.items.length ? d.items.map(r => '<div class="card"><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:baseline">'
+    + '<b>'+r.l_label+'</b><a href="#libitem/'+r.id+'" style="font-weight:600;font-size:15px">'+esc(r.title)+'</a>'
+    + '<span class="sub" style="color:'+(EVCOL[r.evidence]||'')+';font-weight:600">'+esc(r.evidence_short)+'</span>'
+    + '<span class="sub">'+esc(r.kind_label)+(r.kind==='document'?' · '+esc((r.file_ext||'').toUpperCase())+' · '+esc(r.size_h||''):'')+'</span>'
+    + (r.tag?'<span class="sub">#'+esc(r.tag)+'</span>':'')+'</div>'
+    + '<div class="sub" style="margin-top:6px;color:var(--text)">'+esc(r.why)+'</div>'
+    + '<div class="sub" style="margin-top:6px">added by '+esc(r.aname)+' · '+esc(fmtDate(r.added_at))+' · '+r.ncom+' comment'+(r.ncom===1?'':'s')
+    + (r.npin?' · pinned to '+r.npin+' place'+(r.npin===1?'':'s'):'')+' · <a href="#libitem/'+r.id+'">open</a>'
+    + (r.kind==='link'?' · <a href="'+esc(r.url)+'" target="_blank" rel="noopener noreferrer nofollow">go to source</a>':'')
+    + (r.kind==='document'?' · <a href="javascript:void(0)" data-file="'+r.id+'">open file</a>':'')+'</div></div>').join('')
+    : '<div class="card"><p class="sub" style="margin:0">Nothing here yet'+((f.q||f.kind||f.ev)?' matching that filter':'')+'.</p></div>';
+
+  const storeCard = d.store ? '<div class="card" style="background:var(--surface-2)"><span class="sub" style="margin:0"><b>File store:</b> '+esc(d.store.totalH)+' across '+d.store.documents+' documents, in <code>'+esc(d.store.dir)+'</code> (outside the web folder). The daily DB backup does <b>not</b> include these files — back that folder up separately.</span></div>' : '';
+
+  // add form
+  const kindAdd = Object.keys(d.kinds).filter(k => k!=='document' || d.mayUpload).map(k=>'<option value="'+k+'">'+esc(d.kinds[k])+'</option>').join('');
+  const evAdd = Object.keys(d.evidence).map(k=>'<option value="'+k+'"'+(k==='open'?' selected':'')+'>'+esc(d.evidence[k])+'</option>').join('');
+  const pinOpts = '<option value="">— nowhere in particular —</option>'
+    + d.pins.hyps.map(x=>'<option value="'+x.value+'">'+esc(x.label)+'</option>').join('')
+    + d.pins.projects.map(x=>'<option value="'+x.value+'">'+esc(x.label)+'</option>').join('')
+    + d.pins.problems.map(x=>'<option value="'+x.value+'">'+esc(x.label)+'</option>').join('');
+  const addForm = '<div class="card"><h2 style="font-size:1.05rem;margin:0 0 6px">Add something</h2>'
+    + '<p class="sub" style="margin:0 0 10px">Prefer a <b>note</b> or a <b>link</b> over an upload — a note can be read on a phone and costs nothing; a link raises no copyright question.'+(d.mayUpload?'':' Uploading is an operator action; you can add notes and links.')+'</p>'
+    + '<div class="row" style="gap:12px"><div style="flex:1;min-width:170px"><label>Kind</label><select id="la_kind">'+kindAdd+'</select></div>'
+    + '<div style="flex:2;min-width:220px"><label>Title</label><input id="la_title"></div>'
+    + '<div style="flex:1;min-width:200px"><label>Evidence tag</label><select id="la_ev">'+evAdd+'</select></div>'
+    + '<div style="flex:1;min-width:160px"><label>Source</label><input id="la_src" placeholder="Author, journal, supplier"></div>'
+    + '<div style="flex:1;min-width:140px"><label>Tag</label><input id="la_tag" placeholder="phosphate, zinc…"></div>'
+    + '<div style="flex:1;min-width:200px"><label>Pin it to</label><select id="la_pin">'+pinOpts+'</select></div></div>'
+    + '<label>Why should the team read this?</label><input id="la_why" placeholder="One line. If you cannot say why it matters, it does not belong in the library.">'
+    + '<div id="la_note"><label>The note</label><textarea id="la_body" rows="5" placeholder="A summary you wrote is worth more to the team than the paper itself — and raises no copyright question."></textarea></div>'
+    + '<div id="la_link" style="display:none"><label>Web address</label><input id="la_url" placeholder="https://doi.org/…"></div>'
+    + '<div id="la_doc" style="display:none"><label>File</label><input type="file" id="la_file" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.csv,.txt,.jpg,.jpeg,.png"><p class="sub">'+esc(d.libTypes.join(', '))+' · up to '+esc(d.maxSizeH)+' each.</p></div>'
+    + '<div style="margin-top:12px"><button class="btn" id="la_submit">Add to the library</button> <span id="la_msg"></span></div></div>';
+
+  setMain('<h1>Library</h1><p class="sub">Everything worth reading, in one place. Every item says <b>why</b> it is here and what kind of evidence it is — VERIFIED, VALIDATE, or OPEN. Anyone signed in can read anything here and comment on it.</p>'
+    + filter + storeCard + items + addForm);
+
+  const go = () => renderLibrary(hash, document.getElementById('lb_kind').value, document.getElementById('lb_ev').value, document.getElementById('lb_q').value);
+  document.getElementById('lb_filter').onclick = go;
+  document.getElementById('lb_q').onkeydown = e => { if(e.key==='Enter') go(); };
+  const clr = document.getElementById('lb_clear'); if (clr) clr.onclick = () => renderLibrary(hash);
+  document.querySelectorAll('[data-file]').forEach(a => a.onclick = () => openLibFile(a.getAttribute('data-file')));
+  const swap = () => { const k = document.getElementById('la_kind').value;
+    document.getElementById('la_note').style.display = k==='note'?'':'none';
+    document.getElementById('la_link').style.display = k==='link'?'':'none';
+    document.getElementById('la_doc').style.display = k==='document'?'':'none'; };
+  document.getElementById('la_kind').onchange = swap; swap();
+  document.getElementById('la_submit').onclick = async () => {
+    const g = i => document.getElementById(i).value;
+    const kind = g('la_kind');
+    const body = { kind, title:g('la_title'), why:g('la_why'), evidence:g('la_ev'), source:g('la_src'), tag:g('la_tag'), pin:g('la_pin'), body:g('la_body'), url:g('la_url') };
+    if (kind==='document') { const fi = document.getElementById('la_file'); if(!fi.files[0]){ document.getElementById('la_msg').innerHTML='<span class="err">Choose a file.</span>'; return; } body.file_data = await fileToBase64(fi.files[0]); body.file_name = fi.files[0].name; }
+    try { await api('POST','/api/pd/library', body); renderLibrary(hash); }
+    catch(e){ document.getElementById('la_msg').innerHTML='<span class="err">'+esc(e.message)+'</span>'; }
+  };
+}
+
+async function renderLibItem(hash, id){
+  shell('<p class="sub">Loading…</p>', hash);
+  const d = await api('GET','/api/pd/library/'+id);
+  const it = d.item;
+  const archived = Number(it.archived) ? '<div class="card" style="background:var(--amber-soft);border-color:var(--amber)"><span class="sub" style="margin:0"><b>Archived.</b> '+esc(it.archived_reason||'')+' — off the shelf, not deleted.</span></div>' : '';
+  const detail = '<div class="card"><table>'
+    + '<tr><th style="width:180px">Why it is here</th><td>'+esc(it.why)+'</td></tr>'
+    + '<tr><th>Evidence</th><td style="color:'+(EVCOL[it.evidence]||'')+';font-weight:600">'+esc(it.evidence_label)+'</td></tr>'
+    + '<tr><th>Kind</th><td>'+esc(it.kind_label)+'</td></tr>'
+    + (it.source?'<tr><th>Source</th><td>'+esc(it.source)+'</td></tr>':'')
+    + (it.tag?'<tr><th>Tag</th><td>#'+esc(it.tag)+'</td></tr>':'')
+    + '<tr><th>Added by</th><td>'+esc(it.aname)+' · '+esc(it.role_label)+' · '+esc(fmtDate(it.added_at))+'</td></tr></table></div>';
+  let content = '';
+  if (it.kind==='link') content = '<div class="card"><a class="btn" href="'+esc(it.url)+'" target="_blank" rel="noopener noreferrer nofollow">Open the source →</a><p class="sub" style="margin:8px 0 0">'+esc(it.url)+'</p></div>';
+  if (it.kind==='document') content = '<div class="card"><button class="btn" id="li_file">Open '+esc(it.file_name||'file')+'</button><p class="sub" style="margin:8px 0 0">'+esc((it.file_ext||'').toUpperCase())+' · '+esc(it.size_h||'')+' · not reachable except through this system, and only when signed in.</p></div>';
+  if (it.kind==='note' && (it.body||'').trim()) content = '<h2 style="font-family:var(--serif);font-size:1.2rem">The note</h2><div class="card"><div style="white-space:pre-wrap">'+esc(it.body)+'</div></div>';
+
+  const pinRows = d.pins.length ? '<div class="card"><table>'+d.pins.map(p=>'<tr><td>'+(p.href?'<a href="'+p.href+'">'+esc(p.label)+'</a>':esc(p.label))+'</td><td style="width:80px"><button class="btn ghost" data-unpin="'+p.id+'">unpin</button></td></tr>').join('')+'</table></div>' : '<div class="card"><p class="sub" style="margin:0">Nowhere yet. Pin it to a route, project or problem so the reading sits next to the work.</p></div>';
+  const pinOpts = '<option value="">—</option>'+d.targets.hyps.map(x=>'<option value="'+x.value+'">'+esc(x.label)+'</option>').join('')+d.targets.projects.map(x=>'<option value="'+x.value+'">'+esc(x.label)+'</option>').join('')+d.targets.problems.map(x=>'<option value="'+x.value+'">'+esc(x.label)+'</option>').join('');
+  const pinForm = '<div class="card" style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end"><div style="flex:1;min-width:240px"><label>Pin it somewhere</label><select id="li_pin">'+pinOpts+'</select></div><button class="btn ghost" id="li_pinbtn">Pin</button></div>';
+
+  const comments = d.comments.map(c=>'<div class="card" style="padding:10px 12px"><div class="sub">'+esc(c.name)+' · '+esc(c.role_label)+' · '+esc(fmtDate(c.added_at))+'</div><div style="margin-top:4px;white-space:pre-wrap">'+esc(c.body)+'</div></div>').join('');
+  const commentBlock = '<h2 style="font-family:var(--serif);font-size:1.2rem">Discussion ('+d.comments.length+')</h2>'
+    + '<p class="sub">Anyone signed in can comment. This is discussion, not a decision — gate decisions stay in the Gate log. Comments are permanent.</p>'
+    + (d.comments.length?comments:'<div class="card"><p class="sub" style="margin:0">Nothing said yet.</p></div>')
+    + '<div class="card"><label>Add a comment</label><textarea id="li_comment" placeholder="What do you make of this? Disagreement is welcome."></textarea><div style="margin-top:10px"><button class="btn" id="li_cbtn">Post comment</button> <span id="li_cmsg"></span></div></div>';
+
+  let registrar = '';
+  if (d.caps.archive) {
+    registrar = Number(it.archived)
+      ? '<h2 style="font-family:var(--serif);font-size:1.2rem">Registrar</h2><div class="card"><button class="btn ghost" id="li_restore">Put it back on the shelf</button></div>'
+      : '<h2 style="font-family:var(--serif);font-size:1.2rem">Registrar</h2><div class="card" style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end"><div style="flex:1;min-width:240px"><label>Take it off the shelf (never deleted)</label><input id="li_reason" placeholder="Why — superseded, wrong file, duplicate of L-0xx"></div><button class="btn ghost" id="li_archive">Archive</button></div>';
+  }
+
+  setMain('<h1>'+it.l_label+' · '+esc(it.title)+'</h1><p class="sub"><a href="#library">back to the library</a></p>'
+    + archived + detail + content
+    + '<h2 style="font-family:var(--serif);font-size:1.2rem">Pinned to</h2>'+pinRows+pinForm
+    + commentBlock + registrar);
+
+  const fileBtn = document.getElementById('li_file'); if (fileBtn) fileBtn.onclick = () => openLibFile(id);
+  document.querySelectorAll('[data-unpin]').forEach(b => b.onclick = async () => { try { await api('POST','/api/pd/library/'+id+'/unpin', { pin_id: b.getAttribute('data-unpin') }); renderLibItem(hash, id); } catch(e){ alert(e.message); } });
+  document.getElementById('li_pinbtn').onclick = async () => { const v = document.getElementById('li_pin').value; if(!v) return; try { await api('POST','/api/pd/library/'+id+'/pin', { pin: v }); renderLibItem(hash, id); } catch(e){ alert(e.message); } };
+  document.getElementById('li_cbtn').onclick = async () => { const v = document.getElementById('li_comment').value; if(!v.trim()){ document.getElementById('li_cmsg').innerHTML='<span class="err">Write something first.</span>'; return; } try { await api('POST','/api/pd/library/'+id+'/comment', { body: v }); renderLibItem(hash, id); } catch(e){ document.getElementById('li_cmsg').innerHTML='<span class="err">'+esc(e.message)+'</span>'; } };
+  if (d.caps.archive) {
+    const ar = document.getElementById('li_archive'); if (ar) ar.onclick = async () => { try { await api('POST','/api/pd/library/'+id+'/archive', { reason: document.getElementById('li_reason').value }); renderLibItem(hash, id); } catch(e){ alert(e.message); } };
+    const rs = document.getElementById('li_restore'); if (rs) rs.onclick = async () => { try { await api('POST','/api/pd/library/'+id+'/restore', {}); renderLibItem(hash, id); } catch(e){ alert(e.message); } };
+  }
+}
+
+/* ---------- Guide + Doctrine (static content pages) ---------- */
+async function renderGuide(hash){
+  shell('<h1>How VAN R&amp;D works</h1><p class="sub">Loading…</p>', hash);
+  const d = await api('GET','/api/pd/guide');
+  const SLA = d.slaDays, REV = d.reversalDays;
+  const HOWTO = {
+    coo:{ line:'You own the framework and screen new-product ideas — the HEAVY lane.', go:'#board', goLabel:'Go to the Board', first:'Open the Board and look at "Awaiting screen".',
+      does:['Open the <b>Board</b> each day and clear anything in "Awaiting screen".','Screen every new-product idea within '+SLA+' days: LOG, PARK or CLOSE — always with a reason.','Chair the committee at G3–G6 and record each decision in the <b>Gate log</b>.','Skim the weekly light-lane digest; you may reverse a PD-Lead decision within '+REV+' days.'] },
+    ceo:{ line:'You are the independent voice at the expensive gates — not a routine approver.', go:'#gatelog', goLabel:'Go to the Gate log', first:'Open the Gate log to see how decisions are recorded.',
+      does:['Advise and challenge at G5 (field trial) and G6 (launch).','Read the Gate log when you want the full decision history — every reason is kept forever.'] },
+    qc_head:{ line:'You own the chemistry, and you wear the PD Lead hat to screen the LIGHT lane (improvements, variants, reformulations, product-fixes).', go:'#ideas', goLabel:'Go to Ideas', first:'Open Ideas to see what has passed the screen and needs a record.',
+      does:['Screen light-lane items in the weekly triage — LOG, PARK or CLOSE with a reason.','Write the <b>Development Record</b> for each route — the chemistry, on paper, with pass/kill numbers — BEFORE any sample is made.','Never sign G2 on your own team\'s design; the Plant Manager (or COO) signs.','Propose the winning experiment run for promotion to Formulation v1.'] },
+    rta:{ line:'You are the Plant Manager — the technical reviewer, and the on-site signer when the COO is not there.', go:'#records', goLabel:'Go to Dev Records', first:'Open Dev Records to see what is waiting for your review.',
+      does:['Review every Development Record: is the chemistry sound and the record honest?','Sign <b>G2</b> on site under delegated authority (the COO ratifies within 48 h).','Deputise as the light-lane screener when the PD Lead is away.','<b>Backup G1 screener:</b> when the COO is unavailable, you screen — provisional, ratified by the COO, but the submitter gets their answer on time.'] },
+    production:{ line:'You are the voice of "can we actually make it?" — at triage and before any scale-up.', go:'#board', goLabel:'Go to the Board', first:'Open the Board to see what is in the pipeline.',
+      does:['Give a quick manufacturability read at triage (kills unmakeable ideas for free).','Do the full feasibility & costing review before G6 — that review is the ticket to launch.'] },
+    agronomy:{ line:'You design and run the field trials that prove a product beats DAP in the ground.', go:'#trials', goLabel:'Go to Field Trials', first:'Open Field Trials to see what is planned or running.',
+      does:['Design each trial with a real DAP control, replication, and measures fixed before sowing.','Record the trial and its result against the criteria written before the season.'] },
+    custodian:{ line:'You are the Registrar — you keep the memory whole and keep the queue moving.', go:'#board', goLabel:'Go to the Board', first:'Open the Board and check "Awaiting screen" for anything ageing.',
+      does:['Check the intake queue <b>every working day</b>; nudge the screener on anything waiting more than 2 working days so nothing breaches the '+SLA+'-day target.','Minute every committee decision in the Gate log; run the monthly parked-idea re-look.','Keep accounts, run backups, and watch data quality.'] },
+    lab_tech:{ line:'You run the bench: every sample and every lab test you make gets an ID and lives forever.', go:'#samples', goLabel:'Go to Samples', first:'Open Samples and check what is awaiting bench work.',
+      does:['Log each sample the day it is made — failed batches too; a failed batch with honest notes is data.','Log each measurement on Lab Tests against its sample, with method and pass/fail.','Samples only start after the committee opens the beaker gate (G3) — the system enforces this.'] },
+    consultant:{ line:'You are an outside pair of eyes — you can read everything and suggest anything, and decisions stay with the committee.', go:'#portfolio', goLabel:'See the Portfolio', first:'Open the Portfolio for the current state of play.',
+      does:['Read the Portfolio, Dev Records and Gate log to see the state of play and the reasons behind each decision.','Put suggestions or challenges in through the Ideas page — they are screened like everything else.'] },
+    member:{ line:'You can share a problem, an idea, or a challenge with a product we already make — and you will always get an answer with a reason.', go:'#new', goLabel:'Share an idea', first:'Share your first idea.',
+      does:['Share anything through the New idea page — you never need permission.','You will be told the decision and the reason within '+SLA+' days. A killed idea is still a contribution.'] },
+  };
+  const r = HOWTO[d.role] || HOWTO.member;
+  const gatesRows = Object.keys(d.gates).map(gk => '<tr><td><b>'+esc(d.gates[gk])+'</b></td><td>'+(d.outcomes[gk]||[]).map(o=>esc(o[1])).join('<br>')+'</td></tr>').join('');
+  const H = t => '<h2 style="font-family:var(--serif);font-size:1.15rem;margin:20px 0 8px">'+t+'</h2>';
+  setMain(
+    '<h1>How VAN R&amp;D works — and how to use it</h1>'
+    + '<p class="sub">The working guide — the <i>how</i> and the <i>why</i> in one place. It speaks in role titles; the people behind each role are set on the platform\'s access page.</p>'
+    + '<div class="card" style="background:var(--green-soft);border-color:var(--green)"><div class="sec" style="margin-top:0">Why this exists — read once, then get on with it</div>'
+    + '<p style="margin:0 0 8px"><b>Buy the discipline, not the system.</b> No software makes an organisation careful. Three habits do:</p>'
+    + '<ol style="margin:0 0 8px 18px"><li><b>Every idea is logged and answered with a reason.</b></li><li><b>Every decision names an outcome and a reason.</b> "We discussed it" is not a decision.</li><li><b>Every claim cites evidence, not memory.</b></li></ol>'
+    + '<p class="sub" style="margin:0">The longer version is on the <a href="#doctrine"><b>Why this exists</b></a> page.</p></div>'
+    + '<div class="card" style="border:2px solid var(--green)"><div class="sec" style="margin-top:0">Your part — '+esc(d.roleLabel)+'</div><p>'+r.line+'</p><ul style="margin:0 0 10px 18px">'+r.does.map(x=>'<li style="margin-bottom:4px">'+x+'</li>').join('')+'</ul>'
+    + '<p style="margin:0"><b>Start here:</b> '+esc(r.first)+' <a class="btn" href="'+d.landingHash+'" style="margin-left:6px">Start</a>'+(r.go!==d.landingHash?' <a class="btn ghost" href="'+r.go+'">'+esc(r.goLabel)+'</a>':'')+'</p></div>'
+    + H('1. The one goal')
+    + '<div class="card"><p style="margin:0">Catch and kill weak ideas at the cheapest possible stage — on paper — so time, energy and money are only invested in ideas that survive scrutiny. Ideas come in freely; money goes out slowly through gates; every decision is kept forever. <b>The gates scrutinise ideas, never people.</b></p></div>'
+    + H('2. How the work is shaped — four levels')
+    + '<div class="card" style="padding:2px 0"><div style="overflow-x:auto"><table><tr><th>Level</th><th>What it is</th><th>Example</th></tr>'
+      + '<tr><td><b>Problem</b></td><td>A pain in the field or market, in farmer terms — never chemistry.</td><td>P fixation locks up 80% of applied P.</td></tr>'
+      + '<tr><td><b>Development Project</b></td><td>A product concept answering a problem, opened by a Brief. Runs several routes at once.</td><td>The "NP 5-40 project", running R1–R8.</td></tr>'
+      + '<tr><td><b>Route</b></td><td>One named approach. Gets ONE signed Development Record.</td><td>R3 — humate-coated granule.</td></tr>'
+      + '<tr><td><b>Experiment run</b></td><td>One recipe-and-test cycle. Many per route; most fail — that is their job.</td><td>Batch #37: humate 15%, acid 52%.</td></tr></table></div></div>'
+    + H('3. Two lanes — not everything needs the COO')
+    + '<div class="card" style="padding:2px 0"><div style="overflow-x:auto"><table><tr><th>Lane</th><th>What\'s in it</th><th>Who screens</th></tr>'
+      + '<tr><td><span class="chip light">light</span></td><td>Improvement · variant · reformulation · process · product challenge</td><td>PD Lead (the QC Head\'s hat), in weekly triage. The COO sees every one and may reverse within '+REV+' days.</td></tr>'
+      + '<tr><td><span class="chip heavy">heavy</span></td><td>A brand-new product concept</td><td>The COO, directly.</td></tr></table></div></div>'
+    + H('4. The six gates — and the possible decisions at each')
+    + '<div class="card"><p class="sub" style="margin:0 0 8px">A gate never ends "pending". It ends in exactly one of a fixed, named set — always with a written reason kept forever.</p><div style="overflow-x:auto"><table><tr><th>Gate</th><th>Possible decisions</th></tr>'+gatesRows+'</table></div></div>'
+    + H('5. The rules that never bend')
+    + '<div class="card"><ul style="margin:0 0 0 18px"><li>No advance without a gate; every decision carries a reason.</li><li>The writer never approves their own design — the QC Head never signs G2 on their own team\'s work.</li><li>Nothing is ever deleted — killed and parked ideas keep their number and reason forever.</li><li>When a step\'s holder is away, a named deputy covers.</li><li>The system speaks in role titles; names live only on the access page.</li></ul></div>'
+    + '<p class="sub">Questions about the process go to the COO. Questions about your account or the record go to the Registrar.</p>'
+  );
+}
+
+function renderDoctrine(hash){
+  const thesis = t => '<div style="border-left:4px solid var(--green);padding:2px 0 2px 16px;margin:20px 0;font-size:16px;color:var(--text)">'+t+'</div>';
+  const h2 = t => '<h2 style="font-family:var(--serif);font-size:1.2rem;margin:22px 0 8px">'+t+'</h2>';
+  const p = t => '<div class="card"><p style="margin:0;font-size:15px;line-height:1.6">'+t+'</p></div>';
+  shell('<div style="max-width:680px;margin:0 auto">'
+    + '<h1 style="font-size:1.6rem;line-height:1.25;margin:6px 0 4px">Why we built this</h1>'
+    + '<p class="sub" style="font-size:15px;margin:0 0 16px">Read this once, slowly. It is not the rules — it is the reason. If it does not feel true to you, tell us; a doctrine only works if the people living it believe it. &nbsp;<a href="#guide">← back to the Guide</a></p>'
+    + thesis('We are small, and that is our advantage — not our excuse.<br>Everyone here wears three hats. So we will not build a heavy machine that needs a full-time crew to feed it. We will build the lightest possible discipline, and let it earn the right to grow.')
+    + p('<b>Buy the discipline, not the system.</b> Discipline is what every one of us adopts on day one — a few honest habits that take a sentence to perform. The system is only the place those habits live. If we ever get that order backwards — a rich system first, and hope discipline follows — the weight will kill it. A small, disciplined core earns the right to grow.')
+    + h2('The three habits — this is the whole foundation')
+    + '<div style="background:var(--green);color:#fff;border-radius:12px;padding:18px 20px;margin:14px 0"><p style="margin:0 0 10px;font-size:15px;line-height:1.5"><b>1. Every idea is logged, and every idea gets an answer with a reason.</b> No idea is ever killed in silence. A killed idea, answered honestly, is still a contribution.</p><p style="margin:0 0 10px;font-size:15px;line-height:1.5"><b>2. Every decision names its outcome and its reason.</b> We do not say only "no." We say which door it went through and why. The gates weigh ideas, never people.</p><p style="margin:0;font-size:15px;line-height:1.5"><b>3. Every claim that moves an idea forward points at evidence — not memory, not a feeling.</b> A note, a number, a study, a past result.</p></div>'
+    + p('That is it. Those three habits are the foundation. Everything else — the boards, the records, the trials, the drop box — is scaffolding around them, and any of it can change. The habits cannot.')
+    + h2('What we believe about ideas')
+    + p('Good ideas do not only come from senior people, and they rarely arrive fully formed. A rough note from the packing line, a complaint a dealer passed on, a question a farmer asked — these are the raw material. The door is open to everyone, always, and you never need permission to put something in.')
+    + h2('What we believe about memory')
+    + p('A company our size cannot afford to forget. When a person leaves, their judgment should not leave with them. Every idea, every reason, every dead end we log is memory we keep — so the next person does not pay again for a lesson we already bought.')
+    + h2('Why the process speaks in roles, not names')
+    + p('The process describes a <i>chair</i>, a <i>custodian</i>, a <i>reviewer</i> — not people. Roles outlive the people in them, and a role can be shared or handed over without rewriting how we work. Your name lives in one place; everywhere else, you are the part you are playing that day.')
+    + thesis('If you do only one thing after reading this: the next time you see a problem, or half an idea, put it in. That single act — logged, answered, remembered — is the entire company working the way it is meant to.')
+    + '<p class="sub" style="margin-top:6px">This is our doctrine. It is deliberately short. Argue with it, improve it, make it yours. — The VAN R&amp;D system</p>'
+    + '</div>', hash);
 }
 
 /* ---------- boot ---------- */
@@ -251,7 +1683,7 @@ async function boot(){
   try{
     me = await api('GET','/api/pd/me');
     if(!me.pd_role){
-      app.innerHTML = '<div class="center"><div class="loginbox"><div class="row" style="margin-bottom:14px"><span class="mark">VAN</span><span class="brandtxt">Product Development</span></div>'
+      app.innerHTML = '<div class="center"><div class="loginbox"><div class="row" style="margin-bottom:14px;gap:11px"><img class="brandlogo lg" src="/assets/van-logo.png" alt="VAN — Vital Agri Nutrients (Pvt) Ltd"><span class="platlbl">Product Development</span></div>'
         + '<p>Signed in as '+esc(me.name)+', but this account has no Product Development role yet.</p>'
         + '<p class="sub">Ask the COO or Data Custodian to grant one, then reload this page.</p>'
         + '<button class="ghost btn" onclick="location.href=\'/launcher\'">Back to launcher</button></div></div>';

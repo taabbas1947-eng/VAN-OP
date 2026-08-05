@@ -325,13 +325,16 @@ app.get('/api/me', auth, async (req, res) => {
     let modules = [];
     if (pdq) {
       // user_module_roles is the single source of truth for ACCESS (which modules you may enter).
-      const [rows] = await pdq('SELECT module, role FROM user_module_roles WHERE username=?', [req.user.u]);
-      modules = rows.map(r => ({ module: r.module, role: r.role }));
+      const [rows] = await pdq('SELECT module, role, is_admin FROM user_module_roles WHERE username=?', [req.user.u]);
+      modules = rows.map(r => ({ module: r.module, role: r.role, admin: !!r.is_admin }));
     } else if (req.user.r) {
-      modules = [{ module: 'o2s', role: req.user.r }]; // file-store fallback (no relational table)
+      modules = [{ module: 'o2s', role: req.user.r, admin: req.user.r === 'COO' }]; // file-store fallback (no relational table)
     }
     const o2s = modules.find(m => m.module === 'o2s');
-    res.json({ username: req.user.u, name: req.user.n, o2sRole: o2s ? o2s.role : null, modules });
+    const isCOO = !!(o2s && o2s.role === 'COO');
+    // Which modules this person may ADMINISTER: the COO administers all; others only their is_admin grants.
+    const adminModules = isCOO ? REAL_MODULES.slice() : modules.filter(m => m.admin).map(m => m.module);
+    res.json({ username: req.user.u, name: req.user.n, o2sRole: o2s ? o2s.role : null, modules, adminModules });
   } catch (e) { res.status(500).json({ error: String(e) }); }
 });
 
@@ -344,32 +347,67 @@ function validModuleRole(module, role) {
   if (module === 'o2s') return true; // O2S roles are free-form (managed in O2S master data)
   return false; // qms/compha not built yet
 }
-// The admin grid: every user + their module roles.
-app.get('/api/platform/users', auth, admin, async (req, res) => {
+const REAL_MODULES = ['o2s', 'pd'];
+// Load a caller's platform-admin capabilities fresh from the DB (roles/admin can change between logins).
+async function loadAdminCaps(username) {
+  const [rows] = await pdq('SELECT module, role, is_admin FROM user_module_roles WHERE username=?', [username]);
+  const o2s = rows.find(r => r.module === 'o2s');
+  const isCOO = !!(o2s && o2s.role === 'COO');                          // COO = platform admin
+  const adminModules = isCOO ? REAL_MODULES.slice() : rows.filter(r => r.is_admin).map(r => r.module);
+  return { isCOO, adminModules };
+}
+async function isUserCOO(username) {
+  const [rows] = await pdq("SELECT role FROM user_module_roles WHERE username=? AND module='o2s'", [username]);
+  return !!(rows[0] && rows[0].role === 'COO');
+}
+// Gate for access administration: the COO (platform admin) OR any subsystem admin. Caps land on req.adminCaps.
+async function accessAdmin(req, res, next) {
+  if (!pdq) return res.status(503).json({ error: 'Platform access admin needs DATABASE_URL (relational store).' });
   try {
-    if (!pdq) return res.status(503).json({ error: 'Platform access admin needs DATABASE_URL (relational store).' });
+    const caps = await loadAdminCaps(req.user.u);
+    if (!caps.isCOO && caps.adminModules.length === 0) return res.status(403).json({ error: 'You are not an access administrator.' });
+    req.adminCaps = caps;
+    next();
+  } catch (e) { res.status(500).json({ error: String(e) }); }
+}
+// The admin grid: every user + their module roles (+ which modules each person administers).
+app.get('/api/platform/users', auth, accessAdmin, async (req, res) => {
+  try {
     const [users] = await pdq('SELECT username, name FROM auth_users ORDER BY username');
-    const [roles] = await pdq('SELECT username, module, role FROM user_module_roles');
-    const byUser = {};
-    roles.forEach(r => { (byUser[r.username] = byUser[r.username] || {})[r.module] = r.role; });
-    // O2S role options for the grid dropdown = the O2S roles already in use.
-    const [o2sRoleRows] = await pdq("SELECT DISTINCT role FROM auth_users WHERE role IS NOT NULL AND role <> '' ORDER BY role");
+    const [roles] = await pdq('SELECT username, module, role, is_admin FROM user_module_roles');
+    const byUser = {}, adminBy = {};
+    roles.forEach(r => {
+      (byUser[r.username] = byUser[r.username] || {})[r.module] = r.role;
+      if (r.is_admin) (adminBy[r.username] = adminBy[r.username] || []).push(r.module);
+    });
+    // O2S role options = O2S's master roles list (from app_state) UNION roles already assigned,
+    // so a newly-created O2S role shows up in the grid even before anyone holds it.
+    let masterRoles = [];
+    try { const st = await store.getState(); const rs = st && st.data && st.data.masters && st.data.masters.roles; if (Array.isArray(rs)) masterRoles = rs.filter(r => r && !r.archived).map(r => r.name); } catch (e) {}
+    const [o2sRoleRows] = await pdq("SELECT DISTINCT role FROM auth_users WHERE role IS NOT NULL AND role <> ''");
+    const o2sRoles = Array.from(new Set(masterRoles.concat(o2sRoleRows.map(r => r.role)))).filter(Boolean).sort();
     res.json({
-      users: users.map(u => ({ username: u.username, name: u.name, modules: byUser[u.username] || {} })),
-      o2sRoles: o2sRoleRows.map(r => r.role),
-      pdRoles: PD_ROLE_KEYS
+      users: users.map(u => ({ username: u.username, name: u.name, modules: byUser[u.username] || {}, adminOf: adminBy[u.username] || [] })),
+      o2sRoles: o2sRoles,
+      pdRoles: PD_ROLE_KEYS,
+      caps: req.adminCaps
     });
   } catch (e) { res.status(500).json({ error: String(e) }); }
 });
-// Set/replace a user's role in a module (dual-write).
-app.post('/api/platform/access', auth, admin, async (req, res) => {
+// Set/replace a user's role in a module (dual-write). COO does any module; a subsystem admin only their own.
+app.post('/api/platform/access', auth, accessAdmin, async (req, res) => {
   try {
-    if (!pdq) return res.status(503).json({ error: 'Platform access admin needs DATABASE_URL.' });
     const username = String((req.body && req.body.username) || '').trim().toLowerCase();
     const module = String((req.body && req.body.module) || '').trim().toLowerCase();
     const role = String((req.body && req.body.role) || '').trim();
     if (!username || !module) return res.status(400).json({ error: 'username and module required' });
     if (!validModuleRole(module, role)) return res.status(400).json({ error: 'invalid role "' + role + '" for module ' + module });
+    const caps = req.adminCaps;
+    if (!caps.isCOO) {                                                  // subsystem-admin guardrails
+      if (caps.adminModules.indexOf(module) < 0) return res.status(403).json({ error: 'You administer only: ' + (caps.adminModules.join(', ') || '(none)') + '.' });
+      if (module === 'o2s' && role === 'COO') return res.status(403).json({ error: 'Only the COO can assign the COO role.' });
+      if (await isUserCOO(username)) return res.status(403).json({ error: "You can't change the COO's access." });
+    }
     const [ex] = await pdq('SELECT username FROM auth_users WHERE username=?', [username]);
     if (!ex[0]) return res.status(404).json({ error: 'no such user' });
     await pdq('INSERT INTO user_module_roles (username, module, role) VALUES (?,?,?) ON DUPLICATE KEY UPDATE role=VALUES(role)', [username, module, role]);
@@ -378,13 +416,17 @@ app.post('/api/platform/access', auth, admin, async (req, res) => {
     res.json({ ok: true, username, module, role });
   } catch (e) { res.status(500).json({ error: String(e) }); }
 });
-// Revoke a user's access to a module (dual-write). O2S is the base account — change the role, don't remove it.
-app.delete('/api/platform/access', auth, admin, async (req, res) => {
+// Revoke a user's access to a module (dual-write). COO does any module; a subsystem admin only their own.
+app.delete('/api/platform/access', auth, accessAdmin, async (req, res) => {
   try {
-    if (!pdq) return res.status(503).json({ error: 'Platform access admin needs DATABASE_URL.' });
     const username = String((req.body && req.body.username) || '').trim().toLowerCase();
     const module = String((req.body && req.body.module) || '').trim().toLowerCase();
     if (!username || !module) return res.status(400).json({ error: 'username and module required' });
+    const caps = req.adminCaps;
+    if (!caps.isCOO) {                                                  // subsystem-admin guardrails
+      if (caps.adminModules.indexOf(module) < 0) return res.status(403).json({ error: 'You administer only: ' + (caps.adminModules.join(', ') || '(none)') + '.' });
+      if (await isUserCOO(username)) return res.status(403).json({ error: "You can't change the COO's access." });
+    }
     await pdq('DELETE FROM user_module_roles WHERE username=? AND module=?', [username, module]);
     // mirror the removal to the module's legacy column
     if (module === 'o2s') await pdq('UPDATE auth_users SET role=NULL WHERE username=?', [username]);
@@ -407,6 +449,21 @@ app.post('/api/platform/users', auth, admin, async (req, res) => {
     // role and pd_role stay NULL — the account exists but has no module access until granted in Manage access.
     await pdq('INSERT INTO auth_users (username, name, pass_hash, active) VALUES (?,?,?,1)', [username, name, hashPw(password)]);
     res.json({ ok: true, username, name });
+  } catch (e) { res.status(500).json({ error: String(e) }); }
+});
+// Appoint / remove a SUBSYSTEM ADMIN for a module (sets user_module_roles.is_admin). COO-only.
+// The person must already have a role in that module — admin is an attribute of an existing grant.
+app.post('/api/platform/admin', auth, admin, async (req, res) => {
+  try {
+    if (!pdq) return res.status(503).json({ error: 'Platform admin needs DATABASE_URL.' });
+    const username = String((req.body && req.body.username) || '').trim().toLowerCase();
+    const module = String((req.body && req.body.module) || '').trim().toLowerCase();
+    const isAdmin = !!(req.body && req.body.is_admin);
+    if (!username || REAL_MODULES.indexOf(module) < 0) return res.status(400).json({ error: 'valid username and module (o2s|pd) required' });
+    const [ex] = await pdq('SELECT role FROM user_module_roles WHERE username=? AND module=?', [username, module]);
+    if (!ex[0]) return res.status(400).json({ error: 'Grant ' + username + ' a role in ' + module.toUpperCase() + ' first, then make them its admin.' });
+    await pdq('UPDATE user_module_roles SET is_admin=? WHERE username=? AND module=?', [isAdmin ? 1 : 0, username, module]);
+    res.json({ ok: true, username, module, is_admin: isAdmin });
   } catch (e) { res.status(500).json({ error: String(e) }); }
 });
 
@@ -2022,6 +2079,9 @@ async function runPlatformMigration() {
   )`);
   await pdq("INSERT IGNORE INTO user_module_roles (username, module, role) SELECT username, 'o2s', role FROM auth_users WHERE role IS NOT NULL AND role <> ''");
   try { await pdq("INSERT IGNORE INTO user_module_roles (username, module, role) SELECT username, 'pd', pd_role FROM auth_users WHERE pd_role IS NOT NULL"); } catch (e) { /* pd_role column not present yet */ }
+  // is_admin: marks a grant as a SUBSYSTEM ADMIN of that module (can manage roles within it).
+  // Additive + idempotent — error 1060 (duplicate column) on re-run is expected and ignored.
+  try { await pdq("ALTER TABLE user_module_roles ADD COLUMN is_admin TINYINT(1) NOT NULL DEFAULT 0"); } catch (e) { if (e && e.errno !== 1060) console.log('is_admin column add skipped: ' + e.message); }
   try { const [c] = await pdq('SELECT COUNT(*) AS n FROM user_module_roles'); console.log('Platform migration: user_module_roles ready (' + (c[0] ? c[0].n : '?') + ' rows).'); } catch (e) {}
 }
 

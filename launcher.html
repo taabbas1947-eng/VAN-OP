@@ -103,6 +103,8 @@
     .umuser{font-family:var(--head);font-size:11px;color:var(--mut);margin-left:8px}
     .pdsel{font:inherit;font-size:.88rem;padding:6px 9px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--txt)}
     .pdsel:focus{outline:2px solid var(--cyan);outline-offset:1px}
+    .admtog{display:inline-flex;align-items:center;gap:4px;margin-left:8px;font-size:11px;font-weight:600;color:var(--mut);cursor:pointer;user-select:none}
+    .admtog input{cursor:pointer;accent-color:var(--cyan)}
     .muted{color:var(--mut)}
 
     .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:#161a20;color:#fff;font-size:.9rem;padding:10px 16px;border-radius:10px;opacity:0;transition:opacity .3s;pointer-events:none;z-index:100}
@@ -231,8 +233,8 @@
     <div class="wrap">
       <p class="eyebrow">Platform · access control</p>
       <p class="h2">Who can enter which systems</p>
-      <p class="lead">Create a user (identity only), then grant them a role per module below. QMS &amp; CRMS appear here once they're built. Changes apply immediately.</p>
-      <div class="addcard">
+      <p class="lead" id="adminLead">Create a user (identity only), then grant them a role per module below. Changes apply immediately.</p>
+      <div class="addcard" id="addUserCard">
         <span class="addlabel">Add user</span>
         <input id="au_user" class="inp au" placeholder="username" autocomplete="off">
         <input id="au_name" class="inp au" placeholder="full name" autocomplete="off">
@@ -242,11 +244,9 @@
       </div>
       <div class="tablecard">
         <table class="acctable">
-          <thead>
-            <tr><th>User</th><th>O2S role</th><th>PD role</th></tr>
-          </thead>
+          <thead id="adminHead"></thead>
           <tbody id="adminBody">
-            <tr><td colspan="3" class="muted" style="padding:16px">Loading…</td></tr>
+            <tr><td class="muted" style="padding:16px">Loading…</td></tr>
           </tbody>
         </table>
       </div>
@@ -268,7 +268,7 @@
       function toast(m) {var t = $('toast'); if (!t) return; t.textContent = m; t.style.opacity = '1'; clearTimeout(t._h); t._h = setTimeout(function () {t.style.opacity = '0';}, 2200);}
       function view(v) {$('loginView').style.display = v === 'login' ? 'flex' : 'none'; $('appView').style.display = v === 'app' ? 'block' : 'none'; $('adminView').style.display = v === 'admin' ? 'block' : 'none';}
 
-      var _isCOO = false;
+      var _isCOO = false, _adminModules = [], _adminCaps = null;
       function initials(nm) {var p = String(nm || '').trim().split(/\s+/).filter(Boolean); if (!p.length) return '?'; return (p[0][0] + (p.length > 1 ? p[p.length - 1][0] : '')).toUpperCase();}
 
       // Show a tile either as openable or as a visible-but-locked card.
@@ -288,6 +288,7 @@
 
       function renderApp(me) {
         _isCOO = (me.o2sRole === 'COO');
+        _adminModules = me.adminModules || [];
         var list = me.modules || [];
         var mods = {}; list.forEach(function (m) {mods[m.module] = m.role;});
 
@@ -297,9 +298,10 @@
           var code = (card.querySelector('.code') || {}).textContent || m.toUpperCase();
           lockTile(card, !!mods[m], card.getAttribute('data-href'), null, code + ' — ask your COO for access.');
         });
-        // Access tile: COO opens it, everyone else sees it locked.
+        // Access tile: opens for the COO and for any subsystem admin; locked for everyone else.
         var acc = $('tileAccess');
-        if (acc) lockTile(acc, _isCOO, null, function () { __manage(); }, 'People & Access is COO-only.');
+        var canAdmin = _isCOO || _adminModules.length > 0;
+        if (acc) lockTile(acc, canAdmin, null, function () { __manage(); }, 'Access management is for the COO and subsystem admins.');
 
         if ($('nomods')) $('nomods').style.display = 'none';
 
@@ -344,27 +346,50 @@
       window.__signout = function () {setTok(''); view('login'); $('lg_user').value = ''; $('lg_pass').value = ''; focusUser();};
 
       /* ---- Manage access (COO) ---- */
-      window.__manage = function () {if (!_isCOO) return; view('admin'); loadAdmin();};
+      window.__manage = function () {if (!_isCOO && !_adminModules.length) return; view('admin'); loadAdmin();};
       window.__backLauncher = function () {view('app');};
 
       function roleSelect(username, module, options, current) {
         var opts = '<option value="">— none —</option>' + options.map(function (o) {return '<option value="' + esc(o) + '"' + (o === current ? ' selected' : '') + '>' + esc(o) + '</option>';}).join('');
         return '<select class="pdsel" onchange="__setmod(\'' + esc(username) + '\',\'' + module + '\',this.value)">' + opts + '</select>';
       }
+      function adminToggle(username, module, on) {
+        return '<label class="admtog" title="Can manage access for ' + esc(module.toUpperCase()) + '"><input type="checkbox"' + (on ? ' checked' : '') + ' onchange="__setadmin(\'' + esc(username) + '\',\'' + module + '\',this.checked)"> admin</label>';
+      }
       async function loadAdmin() {
-        var body = $('adminBody'); body.innerHTML = '<tr><td colspan="3" class="muted" style="padding:16px">Loading…</td></tr>';
+        var head = $('adminHead'), body = $('adminBody');
+        body.innerHTML = '<tr><td class="muted" style="padding:16px">Loading…</td></tr>';
         try {
           var r = await fetch('/api/platform/users', {headers: auth()});
-          if (!r.ok) {body.innerHTML = '<tr><td colspan="3" class="muted" style="padding:16px">Could not load users (' + r.status + ').</td></tr>'; return;}
+          if (!r.ok) {body.innerHTML = '<tr><td class="muted" style="padding:16px">Could not load users (' + r.status + ').</td></tr>'; return;}
           var data = await r.json();
           var users = data.users || [], o2sRoles = data.o2sRoles || [], pdRoles = data.pdRoles || PD_ROLES;
+          _adminCaps = data.caps || {isCOO: false, adminModules: []};
+          var isCOO = !!_adminCaps.isCOO;
+          // Columns: the COO manages every module; a subsystem admin only the modules they administer.
+          var order = ['o2s', 'pd'];
+          var showMods = isCOO ? order : order.filter(function (m) {return (_adminCaps.adminModules || []).indexOf(m) >= 0;});
+          var cols = showMods.map(function (m) {
+            var roles = (m === 'pd') ? pdRoles : o2sRoles;
+            if (!isCOO && m === 'o2s') roles = roles.filter(function (x) {return x !== 'COO';});   // only the COO can grant COO
+            return {key: m, label: m.toUpperCase(), roles: roles};
+          });
+          head.innerHTML = '<tr><th>User</th>' + cols.map(function (c) {return '<th>' + esc(c.label) + ' role</th>';}).join('') + '</tr>';
+          var ncol = 1 + cols.length;
+          if ($('addUserCard')) $('addUserCard').style.display = isCOO ? 'flex' : 'none';
+          if ($('adminLead')) $('adminLead').textContent = isCOO
+            ? 'Create a user (identity only), then grant a role per module. Tick “admin” to let someone manage access for that subsystem. Changes apply immediately.'
+            : 'You administer: ' + (_adminCaps.adminModules || []).map(function (m) {return m.toUpperCase();}).join(', ') + '. Set each person’s role in your subsystem below.';
           body.innerHTML = users.map(function (u) {
-            var mods = u.modules || {};
-            return '<tr><td><b>' + esc(u.name || u.username) + '</b><span class="umuser">' + esc(u.username) + '</span></td>'
-              + '<td>' + roleSelect(u.username, 'o2s', o2sRoles, mods.o2s || '') + '</td>'
-              + '<td>' + roleSelect(u.username, 'pd', pdRoles, mods.pd || '') + '</td></tr>';
-          }).join('') || '<tr><td colspan="3" class="muted" style="padding:16px">No users.</td></tr>';
-        } catch (e) {body.innerHTML = '<tr><td colspan="3" class="muted" style="padding:16px">Error loading users.</td></tr>';}
+            var mods = u.modules || {}, adminOf = u.adminOf || [];
+            var cells = cols.map(function (c) {
+              var cur = mods[c.key] || '';
+              var tog = (isCOO && cur) ? adminToggle(u.username, c.key, adminOf.indexOf(c.key) >= 0) : '';
+              return '<td>' + roleSelect(u.username, c.key, c.roles, cur) + tog + '</td>';
+            }).join('');
+            return '<tr><td><b>' + esc(u.name || u.username) + '</b><span class="umuser">' + esc(u.username) + '</span></td>' + cells + '</tr>';
+          }).join('') || '<tr><td colspan="' + ncol + '" class="muted" style="padding:16px">No users.</td></tr>';
+        } catch (e) {body.innerHTML = '<tr><td class="muted" style="padding:16px">Error loading users.</td></tr>';}
       }
 
       window.__setmod = async function (username, module, role) {
@@ -372,8 +397,20 @@
           var r;
           if (role) {r = await fetch('/api/platform/access', {method: 'POST', headers: Object.assign({'Content-Type': 'application/json'}, auth()), body: JSON.stringify({username: username, module: module, role: role})});}
           else {r = await fetch('/api/platform/access', {method: 'DELETE', headers: Object.assign({'Content-Type': 'application/json'}, auth()), body: JSON.stringify({username: username, module: module})});}
-          if (!r.ok) {toast('Could not update (' + r.status + ')'); loadAdmin(); return;}
+          var j = {}; try {j = await r.json();} catch (e) { }
+          if (!r.ok) {toast(j.error || ('Could not update (' + r.status + ')')); loadAdmin(); return;}
           toast(username + ' — ' + module.toUpperCase() + ' ' + (role ? ('set to ' + role) : 'access removed'));
+          loadAdmin();
+        } catch (e) {toast('Update failed'); loadAdmin();}
+      };
+      // Appoint / remove a subsystem admin (COO only — server enforces).
+      window.__setadmin = async function (username, module, isAdmin) {
+        try {
+          var r = await fetch('/api/platform/admin', {method: 'POST', headers: Object.assign({'Content-Type': 'application/json'}, auth()), body: JSON.stringify({username: username, module: module, is_admin: isAdmin})});
+          var j = {}; try {j = await r.json();} catch (e) { }
+          if (!r.ok) {toast(j.error || ('Could not update (' + r.status + ')')); loadAdmin(); return;}
+          toast(username + (isAdmin ? ' is now' : ' is no longer') + ' a ' + module.toUpperCase() + ' admin');
+          loadAdmin();
         } catch (e) {toast('Update failed'); loadAdmin();}
       };
 

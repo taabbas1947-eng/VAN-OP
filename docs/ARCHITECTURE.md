@@ -34,17 +34,18 @@ The intent: anyone opening the repo should immediately see **one main app** with
 ```
 VAN-OP/
 ├─ server.js              The "main app": auth, sessions, platform access,
-│                         data store, and the routes that mount each subsystem
+│                         the shared data store, and the mount points for each subsystem
 ├─ launcher.html          Front door (the platform launcher)
 ├─ assets/                Shared brand assets (logo, emblem, favicon)
 │   ├─ van-logo.png
 │   ├─ van-emblem.png
 │   └─ favicon.png
-├─ o2s/                   ← Planned: O2S gets its own folder (see note)
-│   └─ o2s.html           (currently index.html at repo root)
+├─ o2s/                   Order to Ship subsystem
+│   └─ o2s.html           O2S single-page app (was index.html at repo root)
 ├─ pd/                    Product Development subsystem
 │   ├─ pd.html            PD single-page app
 │   ├─ pd-lib.js          PD business logic (roles, surfaces, gate/screen engine)
+│   ├─ pd-routes.js       All /api/pd/* routes (mounted by server.js)
 │   ├─ drop.html          Public "drop box" page (no login)
 │   └─ migrations/        PD schema (001_pd_foundation.sql)
 ├─ docs/
@@ -52,12 +53,13 @@ VAN-OP/
 └─ Logo/                  Source brand PDFs
 ```
 
-> **Planned move:** O2S currently lives as `index.html` at the repo root. It will
-> move to `o2s/o2s.html` (via `git mv`, preserving history) with a one-line route
-> update in `server.js`. O2S uses absolute paths (`/api/…`, `/assets/…`), so the
-> move is behaviour-neutral. **Coordinate this move with any contributor actively
-> editing `index.html`** — renaming a file that has concurrent edits causes messy
-> merges. Do it at a clean point and announce that O2S now lives at `o2s/o2s.html`.
+> **Done 2026-08-05:** O2S moved from root `index.html` → `o2s/o2s.html`, and PD's
+> ~1,530 lines of `/api/pd/*` routes moved out of `server.js` into `pd/pd-routes.js`
+> (mounted via `require('./pd/pd-routes')(app, {…deps})`). `server.js` dropped from
+> ~2,088 to ~557 lines — platform + a thin O2S sync layer. Both were pure moves
+> (behaviour-neutral); O2S's few server routes (`/api/state`, `/api/users`) still
+> live in `server.js` (the deferred, optional O2S-routes split — see
+> [`PROPOSAL-o2s-split.md`](PROPOSAL-o2s-split.md)).
 
 ### How a subsystem plugs in (the repeatable pattern)
 

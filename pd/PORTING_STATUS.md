@@ -12,21 +12,32 @@ You chose "full port in one go" (don't put PD in front of users until it's compl
 
 ## Folder structure
 
-Everything PD-specific lives under this `pd/` folder, kept apart from the O2S files in the repo root — the whole reason this port exists is that the two got mixed up once already (the standalone PHP app built in the wrong directory). The only PD-aware code outside this folder is a few lines in the shared `server.js` (it has to be — one Express server serves both apps) and the PD card in `launcher.html`; everything else PD owns lives here:
+Everything PD-specific lives under this `pd/` folder, kept apart from the O2S files — the whole reason this port exists is that the two got mixed up once already (the standalone PHP app built in the wrong directory). As of **2026-08-05** the separation is near-total: PD's ~1,530 lines of `/api/pd/*` routes moved out of `server.js` into `pd/pd-routes.js`, and O2S moved from a root `index.html` into its own `o2s/` folder. The only PD-aware code left outside `pd/` is the one-line mount plus a little shared PD middleware (`pdAuth`, `pdSurface`, `pdAuditLogger`) in `server.js`, and the PD card in `launcher.html`.
 
 ```
 VAN-OP/
-  server.js          <- shared O2S + PD server (routes, auth, both apps' APIs)
-  index.html          <- O2S frontend (untouched by this port)
+  server.js          <- platform: auth, /api/login, /api/me, access control; mounts each subsystem
   launcher.html        <- shared front door (O2S card + PD card)
-  package.json, render.yaml, etc.  <- O2S/deploy infra (untouched)
+  package.json, render.yaml, etc.  <- deploy infra
+  o2s/
+    o2s.html           <- O2S frontend (was index.html at repo root; moved 2026-08-05)
   pd/                 <- everything Product Development
     pd.html            <- PD frontend
     pd-lib.js           <- PD business rules (lanes, gates, roles) ported from the PHP app
+    pd-routes.js         <- all /api/pd/* routes, mounted by server.js (extracted 2026-08-05)
     PORTING_STATUS.md    <- this file
     migrations/
       001_pd_foundation.sql  <- PD's database schema (additive, same DB as O2S)
 ```
+
+> **2026-08-05 — subsystem separation (pure refactor, no behaviour change).** PD's route
+> block left `server.js` (now ~556 lines, down from ~2,088) for `pd/pd-routes.js`, mounted with
+> dependency injection (`require('./pd/pd-routes')(app, { pdq, auth, admin, pdAuth, pdSurface, pd, path, fs, crypto })`)
+> so nothing in it reaches into platform code. O2S became `o2s/o2s.html`. Route order is
+> preserved — the mount sits where the block used to, so `/api/pd/*` still registers before the
+> `/pd` and catch-all routes. Verified locally: server boots clean, all pages load, all 20 PD
+> surfaces respond (26/26). **PD development now happens entirely in `pd/` and never opens
+> `server.js`.** Still deferred: the optional O2S-routes split — see `../docs/PROPOSAL-o2s-split.md`.
 
 ## What's built and verified (this session)
 

@@ -1,0 +1,173 @@
+--- a/pd/pd.html
++++ b/pd/pd.html
+@@ -1530,8 +1530,16 @@
+   const card = x => {
+     let flag = '';
+     if (x.stage === 'proposed' && x.age_days > d.slaDays) flag = '<br><b style="color:var(--red);font-size:12px">'+x.age_days+' days — over target</b>';
+-    const st = (x.stage==='parked'||x.stage==='killed') ? ' <span class="chip stage">'+x.stage+'</span>' : '';
+-    return '<a class="clickable" style="display:block;border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin-bottom:8px;text-decoration:none;color:inherit;background:var(--surface)" href="#idea/'+x.id+'"><b>'+x.h_label+'</b>'+(x.lane==='light'?' <span class="sub">light</span>':'')+st+'<br>'+esc(x.title)+flag+'</a>';
++    // FIX D9 — this printed the raw database value ("field_trial", "parked"). pd-lib already
++    // defines a human label for every stage; the server now sends it.
++    const st = (x.stage==='parked'||x.stage==='killed') ? ' <span class="chip stage">'+esc(x.stage_label||x.stage)+'</span>' : '';
++    // FIX D7 — the next step, on the card, so the board says what happens next and who does it.
++    const ns = (x.next_step && x.next_step.text)
++      ? '<div class="sub" style="margin-top:5px;padding-top:5px;border-top:1px dashed var(--line)">'
++        + (x.next_step.who && x.next_step.who!=='—' ? '<b>'+esc(x.next_step.who)+':</b> ' : '')
++        + esc(x.next_step.text.length > 90 ? x.next_step.text.slice(0,88)+'…' : x.next_step.text) + '</div>'
++      : '';
++    return '<a class="clickable" style="display:block;border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin-bottom:8px;text-decoration:none;color:inherit;background:var(--surface)" href="#idea/'+x.id+'"><b>'+x.h_label+'</b>'+(x.lane==='light'?' <span class="sub">light</span>':'')+st+'<br>'+esc(x.title)+flag+ns+'</a>';
+   };
+   const col = (key, label, items) => '<div style="min-width:210px;max-width:230px;flex:0 0 auto;background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:10px">'
+     + '<div style="display:flex;justify-content:space-between;font-weight:600;font-size:.85rem;margin-bottom:10px"><span>'+esc(label)+'</span><span class="sub">'+items.length+'</span></div>'
+--- a/pd/pd-routes.js
++++ b/pd/pd-routes.js
+@@ -209,6 +209,73 @@
+     const dropNew = await one("SELECT id, name, text FROM pd_dropbox WHERE status='new' ORDER BY created_at");
+     const routesNoCandidates = await one("SELECT h.id, h.h_number, h.title FROM pd_hypotheses h WHERE h.screen_decision='log' AND h.stage NOT IN ('killed','parked','validated') AND NOT EXISTS (SELECT 1 FROM pd_candidates c WHERE c.hypothesis_id=h.id) ORDER BY h.h_number");
+     const candsToMake = await one("SELECT c.cand_no, c.label, c.hypothesis_id, h.h_number FROM pd_candidates c JOIN pd_hypotheses h ON h.id=c.hypothesis_id WHERE c.status='selected' AND EXISTS (SELECT 1 FROM pd_gate_decisions g WHERE g.hypothesis_id=c.hypothesis_id AND g.gate='G3' AND g.decision='advance') ORDER BY c.calc_cost_per_kg_p");
++    /* FIX D7 — G3, G4, G5 and G6 appeared in NOBODY's queue. The only prompt for them lived on
++       the idea detail page, so the committee was never told a gate was due and the pipeline
++       stalled silently: nothing errored, everyone read "caught up", and the sample, the test,
++       the trial and the launch behind it stayed frozen. A gate is due when the stage before it
++       has been reached and that gate has not yet advanced. */
++    const gatesDue = await one(`
++      SELECT h.id, h.h_number, h.title, 'G3' gate, 'commit materials and bench time?' ask,
++             DATEDIFF(NOW(), COALESCE((SELECT MAX(g2.decided_at) FROM pd_gate_decisions g2 WHERE g2.hypothesis_id=h.id), h.submitted_at)) age
++        FROM pd_hypotheses h
++       WHERE h.stage='designed'
++         AND NOT EXISTS (SELECT 1 FROM pd_gate_decisions g WHERE g.hypothesis_id=h.id AND g.gate='G3' AND g.decision='advance')
++      UNION ALL
++      SELECT h.id, h.h_number, h.title, 'G4', 'which run wins, against the criteria written before the runs?',
++             DATEDIFF(NOW(), COALESCE((SELECT MAX(g2.decided_at) FROM pd_gate_decisions g2 WHERE g2.hypothesis_id=h.id), h.submitted_at))
++        FROM pd_hypotheses h
++       WHERE h.stage IN ('sampled','tested')
++         AND EXISTS (SELECT 1 FROM pd_gate_decisions g WHERE g.hypothesis_id=h.id AND g.gate='G3' AND g.decision='advance')
++         AND NOT EXISTS (SELECT 1 FROM pd_gate_decisions g WHERE g.hypothesis_id=h.id AND g.gate='G4' AND g.decision='advance')
++         AND EXISTS (SELECT 1 FROM pd_lab_tests t JOIN pd_samples s ON s.id=t.sample_id WHERE s.hypothesis_id=h.id)
++      UNION ALL
++      SELECT h.id, h.h_number, h.title, 'G5', 'worth a season in the field, against a real DAP control?',
++             DATEDIFF(NOW(), COALESCE((SELECT MAX(g2.decided_at) FROM pd_gate_decisions g2 WHERE g2.hypothesis_id=h.id), h.submitted_at))
++        FROM pd_hypotheses h
++       WHERE h.stage='evaluated'
++         AND NOT EXISTS (SELECT 1 FROM pd_gate_decisions g WHERE g.hypothesis_id=h.id AND g.gate='G5' AND g.decision='advance')
++      UNION ALL
++      SELECT h.id, h.h_number, h.title, 'G6', 'can the plant make it, at what margin, is it registered?',
++             DATEDIFF(NOW(), COALESCE((SELECT MAX(g2.decided_at) FROM pd_gate_decisions g2 WHERE g2.hypothesis_id=h.id), h.submitted_at))
++        FROM pd_hypotheses h
++       WHERE h.stage='field_trial'
++         AND NOT EXISTS (SELECT 1 FROM pd_gate_decisions g WHERE g.hypothesis_id=h.id AND g.gate='G6' AND g.decision='advance')
++         AND EXISTS (SELECT 1 FROM pd_field_trials t WHERE t.hypothesis_id=h.id AND t.status IN ('analysed','closed'))
++      ORDER BY age DESC`);
++
++    /* FIX D6 — Agronomy had ONE query behind My Work, so once a trial existed the page read
++       "caught up" for the whole growing season: no sowing prompt, no observation prompt, no
++       harvest prompt, no results prompt. These four cover the rest of the trial's life. */
++    const trialAwaitG5 = await one(`SELECT t.id, t.trial_code, t.crop, t.location, h.h_number, h.title
++        FROM pd_field_trials t JOIN pd_hypotheses h ON h.id=t.hypothesis_id
++       WHERE t.status='designed'
++         AND NOT EXISTS (SELECT 1 FROM pd_gate_decisions g WHERE g.hypothesis_id=t.hypothesis_id AND g.gate='G5' AND g.decision='advance')
++       ORDER BY t.created_at`);
++    const trialToSow = await one(`SELECT t.id, t.trial_code, t.crop, t.location, h.h_number, h.title
++        FROM pd_field_trials t JOIN pd_hypotheses h ON h.id=t.hypothesis_id
++       WHERE t.status IN ('designed','approved') AND t.sown IS NULL
++         AND EXISTS (SELECT 1 FROM pd_gate_decisions g WHERE g.hypothesis_id=t.hypothesis_id AND g.gate='G5' AND g.decision='advance')
++       ORDER BY t.created_at`);
++    const trialNeedObs = await one(`SELECT t.id, t.trial_code, t.crop, h.h_number, h.title,
++             DATEDIFF(NOW(), COALESCE((SELECT MAX(o.obs_date) FROM pd_field_obs o WHERE o.trial_id=t.id), t.sown)) since
++        FROM pd_field_trials t JOIN pd_hypotheses h ON h.id=t.hypothesis_id
++       WHERE t.status='running' AND t.sown IS NOT NULL
++         AND DATEDIFF(NOW(), COALESCE((SELECT MAX(o.obs_date) FROM pd_field_obs o WHERE o.trial_id=t.id), t.sown)) >= 21
++       ORDER BY since DESC`);
++    const trialToClose = await one(`SELECT t.id, t.trial_code, t.crop, h.h_number, h.title
++        FROM pd_field_trials t JOIN pd_hypotheses h ON h.id=t.hypothesis_id
++       WHERE t.status='harvested' OR (t.harvest IS NOT NULL AND t.status NOT IN ('analysed','closed'))
++       ORDER BY t.harvest`);
++
++    /* FIX D6 — Production's two sections were both grey and non-actionable, and its one link
++       pointed at a page Production may not write to. The specification and the briefing both
++       promise a feasibility and costing review before G6; there is no field for it, so until
++       there is, the read goes on the idea as a comment, which Production is allowed to write. */
++    const preG6 = await one(`SELECT h.id, h.h_number, h.title, h.stage FROM pd_hypotheses h
++       WHERE h.stage IN ('evaluated','field_trial')
++         AND NOT EXISTS (SELECT 1 FROM pd_gate_decisions g WHERE g.hypothesis_id=h.id AND g.gate='G6' AND g.decision='advance')
++       ORDER BY h.h_number`);
++
+     const digest = await one(`SELECT h.id, h.h_number, h.title, h.screen_decision, u2.name screener FROM pd_hypotheses h JOIN auth_users u2 ON u2.id=h.screened_by WHERE h.lane='light' AND h.screen_decision<>'' AND h.screened_at IS NOT NULL AND h.screened_at > DATE_SUB(NOW(), INTERVAL ${REV} DAY) AND u2.pd_role <> 'coo' AND NOT EXISTS (SELECT 1 FROM pd_gate_decisions g WHERE g.hypothesis_id=h.id AND g.gate='G1' AND g.decision='reverse') ORDER BY h.screened_at DESC`);
+ 
+     const sections = [];
+@@ -219,6 +286,10 @@
+     const add = (items, title, rowFn, act = true) => { if (items.length) sections.push({ title, act, items: items.slice(0, 8).map(rowFn), more: Math.max(0, items.length - 8) }); };
+     const idea = (x, extra, btnLabel, ghost) => ({ label: H(x) + (extra || ''), btn: { label: btnLabel, hash: '#idea/' + x.id, ghost: !!ghost } });
+     const rec = (r, btnLabel, ghost) => ({ label: r.record_no + ' — ' + pd.fmt_h(r.h_number) + ' ' + E(r.title), btn: { label: btnLabel, hash: '#record/' + r.id, ghost: !!ghost } });
++    const gateRow = g => ({ label: '<b>' + g.gate + '</b> · ' + pd.fmt_h(g.h_number) + ' — ' + E(g.title) + ' <span class="sub">· ' + E(g.ask) + (g.age > SLA ? ' · ' + g.age + ' days, over the ' + SLA + '-day target' : '') + '</span>',
++                            btn: { label: 'Record ' + g.gate, hash: '#gatelog' } });
++    const trialRow = (t, btnLabel, extra, ghost) => ({ label: E(t.trial_code) + ' — ' + pd.fmt_h(t.h_number) + ' ' + E(t.title) + '<span class="sub"> · ' + E([t.crop, t.location].filter(Boolean).join(', ')) + (extra || '') + '</span>',
++                            btn: { label: btnLabel, hash: '#trials', ghost: !!ghost } });
+ 
+     if (R === 'coo') {
+       add(awaitingHeavy, 'Ideas awaiting your screen (G1 · heavy lane — new product concepts)', x => idea(x, ageStr(x), 'Screen'));
+@@ -226,6 +297,7 @@
+       add(openProblems, 'New problems to review & set direction', p => ({ label: pd.fmt_p(p.p_number) + ' — ' + E(p.title), btn: { label: 'Review', hash: '#problems' } }));
+       add(recReadyG2, 'Designs ready for you to sign (G2)', r => rec(r, 'Review & sign'));
+       add(pendRatify, 'Provisional decisions waiting on your ratification', g => ({ label: g.gate + ' ' + String(g.decision).toUpperCase() + ' — ' + pd.fmt_h(g.h_number) + ' ' + E(g.title), btn: { label: 'Ratify', hash: '#gatelog' } }));
++      add(gatesDue, 'Committee gates due — you chair these (G3–G6)', gateRow);
+     }
+     if (R === 'qc_head') {
+       add(awaitingLight, 'Ideas awaiting your screen (G1 · light lane — improvements, variants, fixes)', x => idea(x, ageStr(x), 'Screen'));
+@@ -239,6 +311,7 @@
+       add(recNeedRta, 'Development Records awaiting your technical review', r => rec(r, 'Review'));
+       add(recReadyG2, 'Designs ready for G2 — you may sign on site (the COO ratifies)', r => rec(r, 'Open'));
+       add(awaitingAll, 'Intake queue — screen ONLY as deputy, when the named screener is away', x => idea(x, ageStr(x), 'View', true), false);
++      add(gatesDue, 'Committee gates due — you may record these (site quorum; the COO ratifies)', gateRow);
+     }
+     if (R === 'custodian') {
+       add(awaitingAll, 'Intake queue — nudge the screener if it is ageing', x => idea(x, ageStr(x), 'View', true), false);
+@@ -246,6 +319,7 @@
+       add(dropNew, 'Drop-box entries to triage', d => ({ label: E(d.name) + ' — ' + E(String(d.text).slice(0, 50)), btn: { label: 'Triage', hash: '#dropbox' } }));
+       add(openProblems, 'New problems — log them and nudge management (they decide)', p => ({ label: pd.fmt_p(p.p_number) + ' — ' + E(p.title), btn: { label: 'Open', hash: '#problems', ghost: true } }), false);
+       add(pendRatify, 'Provisional decisions to minute', g => ({ label: g.gate + ' ' + String(g.decision).toUpperCase() + ' — ' + pd.fmt_h(g.h_number) + ' ' + E(g.title), btn: { label: 'Open', hash: '#gatelog', ghost: true } }), false);
++      add(gatesDue, 'Committee gates due — put them on the agenda and minute the decision', gateRow);
+     }
+     if (R === 'lab_tech') {
+       add(candsToMake, 'Candidates selected and cleared by the beaker gate — make them', c => ({ label: pd.fmt_c(c.cand_no) + ' ' + E(c.label) + ' (on ' + pd.fmt_h(c.h_number) + ')', btn: { label: 'Make', hash: '#route/' + c.hypothesis_id } }));
+@@ -254,10 +328,15 @@
+     }
+     if (R === 'agronomy') {
+       add(fieldNoTrial, 'Field-stage ideas needing a trial designed (DAP control, replication, measures fixed before sowing)', x => ({ label: H(x), btn: { label: 'Design trial', hash: '#trials' } }));
++      add(trialToSow,    'Approved at G5 — sow, and record the sowing date', t => trialRow(t, 'Open trial'));
++      add(trialNeedObs,  'Running trials with no observation for three weeks', t => trialRow(t, 'Add observation', ' · ' + t.since + ' days since the last note'));
++      add(trialToClose,  'Harvested — write the result against the prediction, and the decision', t => trialRow(t, 'Write up'));
++      add(trialAwaitG5,  'Designed, waiting on G5 before sowing — chase the committee if the season is closing', t => trialRow(t, 'Open trial', '', true), false);
+     }
+     if (R === 'production') {
+-      add(validated, 'Validated — take to costing, registration and launch', x => ({ label: H(x), btn: { label: 'Open', hash: '#formulations', ghost: true } }), false);
+-      add(screenedNoRecord, 'Newly screened — your quick "can we make it?" read is wanted', x => idea(x, '', 'View', true), false);
++      add(preG6, 'Heading for G6 — your feasibility and costing read is the ticket to launch. Put it on the idea as a comment before the gate.', x => idea(x, '', 'Add your read'));
++      add(screenedNoRecord, 'Newly screened — your quick "can we make it?" read is wanted', x => idea(x, '', 'Add your read'));
++      add(validated, 'Validated — take to costing, registration and launch', x => ({ label: H(x), btn: { label: 'Open', hash: '#idea/' + x.id, ghost: true } }), false);
+     }
+     if (R === 'ceo') {
+       add(recReadyG2, 'Designs at G2 — read the reasoning if you want to weigh in', r => rec(r, 'Read', true), false);
+@@ -1476,10 +1555,20 @@
+ // The pipeline board — every idea grouped by stage, plus the "untouched 4+ weeks" list (faithful to index.php).
+ app.get('/api/pd/board', auth, pdAuth, pdSurface('ideas.all'), async (req, res) => {
+   try {
+-    const [rows] = await pdq('SELECT id, h_number, title, stage, lane, priority, submitted_at, updated_at, DATEDIFF(NOW(), submitted_at) age_days FROM pd_hypotheses ORDER BY h_number');
++    /* FIX D7 — the "Next step" prompt existed on exactly one screen, the idea detail page.
++       Anyone who landed anywhere else got no guidance at all. The Board now carries it too,
++       which is where the whole pipeline is visible at once. */
++    const [rows] = await pdq(`SELECT h.id, h.h_number, h.title, h.stage, h.lane, h.priority, h.change_type,
++             h.screen_decision, h.screen_reason, h.submitted_at, h.updated_at, DATEDIFF(NOW(), h.submitted_at) age_days,
++             r.id rec_id, r.review_rta_at, r.review_complete_by, r.approved_g2_at
++        FROM pd_hypotheses h
++        LEFT JOIN pd_dev_records r ON r.id = (SELECT MAX(r2.id) FROM pd_dev_records r2 WHERE r2.hypothesis_id = h.id)
++       ORDER BY h.h_number`);
+     const [stale] = await pdq("SELECT id, h_number, title, stage, updated_at FROM pd_hypotheses WHERE stage NOT IN ('parked','killed','validated') AND updated_at < DATE_SUB(NOW(), INTERVAL 28 DAY) ORDER BY updated_at");
+     res.json({
+-      items: rows.map(r => ({ id: r.id, h_label: pd.fmt_h(r.h_number), title: r.title, stage: r.stage, lane: r.lane, age_days: Number(r.age_days) })),
++      items: rows.map(r => ({ id: r.id, h_label: pd.fmt_h(r.h_number), title: r.title, stage: r.stage, lane: r.lane, age_days: Number(r.age_days),
++        stage_label: pd.STAGES[r.stage] || r.stage,
++        next_step: pdNextStep(r, r.rec_id ? { id: r.rec_id, review_rta_at: r.review_rta_at, review_complete_by: r.review_complete_by, approved_g2_at: r.approved_g2_at } : null) })),
+       stale: stale.map(s => ({ id: s.id, h_label: pd.fmt_h(s.h_number), title: s.title, stage_label: pd.STAGES[s.stage], updated_at: s.updated_at })),
+       slaDays: pd.GATE_SLA_DAYS,
+     });

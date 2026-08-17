@@ -6,3 +6,6 @@ desktop.ini
 *.log
 .env
 _to_delete/
+
+# Word/Excel lock files
+~$*

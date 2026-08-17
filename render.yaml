@@ -2,9 +2,21 @@ services:
   - type: web
     name: van-control-tower
     runtime: node
-    plan: free
+    # starter ($7/mo), NOT free. Three things depend on this and all fail silently on free:
+    #   1. Free web services block outbound SMTP (ports 25/465/587), so notifications time out.
+    #   2. Free has no persistent disk, so every Library upload is deleted on each deploy
+    #      while the database row survives — the user sees "file missing from the store".
+    #   3. Free instances sleep, so the first person in each morning waits for a cold start.
+    # Do not set this back to free without also turning off mail and document upload.
+    plan: starter
     buildCommand: npm install
     startCommand: node server.js
+    # Persistent storage for PD Library documents. mountPath must contain PD_LIBRARY_DIR below.
+    # Uploads are capped at 15MB each (pd-lib.js LIB_MAX_BYTES), so 1GB is ample.
+    disk:
+      name: pd-library
+      mountPath: /var/data
+      sizeGB: 1
     envVars:
       # Live data lives in an EXTERNAL MySQL database on HostGator — NOT a Render-managed DB.
       # (Render's managed databases are PostgreSQL only, which this app no longer speaks.)
@@ -15,5 +27,17 @@ services:
       - key: DATABASE_URL
         sync: false
       # Stable secret so logins survive restarts (server.js warns if unset). Set in dashboard.
+      # If this is unset, server.js generates a random one per boot and EVERY deploy silently
+      # signs everybody out.
       - key: SESSION_SECRET
         sync: false
+      # Where PD Library files are written. Must sit inside the disk mountPath above, or
+      # uploads go to ephemeral storage and are lost on the next deploy. The app creates
+      # the directory on first upload (pd-routes.js libDirReady).
+      - key: PD_LIBRARY_DIR
+        value: /var/data/pd-library
+      # --- notifications: uncomment once the mail transport is chosen and the code is merged ---
+      # - key: MAIL_TRANSPORT
+      #   sync: false
+      # - key: MAIL_FROM
+      #   sync: false

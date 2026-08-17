@@ -530,3 +530,42 @@ All changes were **render/layout only — no business logic, master data, flows,
 - Custom roles **Supply Chain Officer** and **Finance** exist; grant their screen access via the matrix.
 
 **Prototype source files** (the 5 redesign zips + the Production Center kit in `E:\VAN Platform\Production Center Handoff\`) were **consumed and removed at end of this session** — superseded by the live app + the gap-analysis doc.
+
+---
+
+## 2026-08-17 · PD + PLATFORM · pre-launch fixes applied
+
+**Module:** PD, and PLATFORM (the patches cross the boundary — `server.js` sign-in and
+error handling, `launcher.html` escaping and role labels, `render.yaml`). Flagged and
+authorised before applying.
+
+**Branch:** `prelaunch-fixes`, cut from `df3ce60`. **NOT committed, NOT pushed.**
+Review the diff in GitHub Desktop and commit there.
+
+**Applied, in this order:**
+1. `pd/reviews/VAN_PD_fixpack.patch` — 13 pre-launch faults (A1, A2, B1, B2, B5, C1, C2,
+   C3, C5, C8, D10, D12, E9)
+2. `pd/reviews/VAN_PD_02_intake.patch` — idea form to 3 fields, draft saving, calmer
+   duplicate check, drop box linked from Home (D1–D5)
+3. `pd/reviews/VAN_PD_03_queues.patch` — G3–G6 into My Work, Agronomy trial lifecycle,
+   Production feasibility queue, next step on the Board (D6, D7, D9)
+
+**Also changed:** `render.yaml` — `plan: free` → `plan: starter`, added the `disk` block
+and `PD_LIBRARY_DIR`. Backup at `render.yaml.bak`. `.gitignore` — added `~$*`.
+Untracked the stray Word lock file.
+
+**Verified:** all 21 fix markers present; gate-order, blank-record and login-throttle
+guards confirmed by their user-facing text; `server.js`, `pd-routes.js`, `pd-lib.js` and
+both inline scripts parse. The four patched files are byte-for-byte identical (sha256)
+to the build that was booted against MariaDB and driven through a browser as each role.
+
+**Still to do before anyone signs in:**
+- Change every seeded password. Confirm `van@2026` is not live, especially on `admin`.
+- Confirm the Render instance really is Starter, and that a disk is attached at `/var/data`.
+- Confirm `SESSION_SECRET` is set to a fixed value.
+
+**Next:** notification layer (one G1-decision email to the submitter, plus a daily My Work
+digest — no other events). Blocked on the mail transport decision. Then the DAP-parity
+calculation, blocked on VAN margin + freight + dealer margin. NP 5-40 seeding deferred.
+
+**Note:** commit `df3ce60 "FIXES ON PD"` added review documents only — no code changed in it.

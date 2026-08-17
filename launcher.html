@@ -263,7 +263,8 @@
       var $ = function (id) {return document.getElementById(id);};
       function tok() {try {return localStorage.getItem(TOKEN_KEY) || '';} catch (e) {return '';} }
       function setTok(t) {try {t ? localStorage.setItem(TOKEN_KEY, t) : localStorage.removeItem(TOKEN_KEY);} catch (e) { } }
-      function esc(s) {return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c];});}
+      // FIX C8 — the apostrophe was missing, and esc() output is placed inside a JS string in an HTML attribute.
+      function esc(s) {return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c];});}
       function auth() {return {Authorization: 'Bearer ' + tok()};}
       function toast(m) {var t = $('toast'); if (!t) return; t.textContent = m; t.style.opacity = '1'; clearTimeout(t._h); t._h = setTimeout(function () {t.style.opacity = '0';}, 2200);}
       function view(v) {$('loginView').style.display = v === 'login' ? 'flex' : 'none'; $('appView').style.display = v === 'app' ? 'block' : 'none'; $('adminView').style.display = v === 'admin' ? 'block' : 'none';}
@@ -350,7 +351,9 @@
       window.__backLauncher = function () {view('app');};
 
       function roleSelect(username, module, options, current) {
-        var opts = '<option value="">— none —</option>' + options.map(function (o) {return '<option value="' + esc(o) + '"' + (o === current ? ' selected' : '') + '>' + esc(o) + '</option>';}).join('');
+        // FIX D10 — show the human label ("Plant Manager (RTA)"), not the database key ("rta").
+        var L = (window.__pdRoleLabels || {});
+        var opts = '<option value="">— none —</option>' + options.map(function (o) {return '<option value="' + esc(o) + '"' + (o === current ? ' selected' : '') + '>' + esc(module === 'pd' ? (L[o] || o) : o) + '</option>';}).join('');
         return '<select class="pdsel" onchange="__setmod(\'' + esc(username) + '\',\'' + module + '\',this.value)">' + opts + '</select>';
       }
       function adminToggle(username, module, on) {
@@ -364,6 +367,7 @@
           if (!r.ok) {body.innerHTML = '<tr><td class="muted" style="padding:16px">Could not load users (' + r.status + ').</td></tr>'; return;}
           var data = await r.json();
           var users = data.users || [], o2sRoles = data.o2sRoles || [], pdRoles = data.pdRoles || PD_ROLES;
+          window.__pdRoleLabels = data.pdRoleLabels || {}; // FIX D10 — the labels the server now sends
           _adminCaps = data.caps || {isCOO: false, adminModules: []};
           var isCOO = !!_adminCaps.isCOO;
           // Columns: the COO manages every module; a subsystem admin only the modules they administer.

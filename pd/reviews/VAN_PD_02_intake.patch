@@ -1,0 +1,213 @@
+--- a/pd/pd.html
++++ b/pd/pd.html
+@@ -351,6 +351,13 @@
+     + door('#newproblem','🎯','Register a problem','Something wrong in the field or in farmer economics that a product should solve. Problems are few and live long.')
+     + door('#challenge','🔧','Challenge an existing product','A complaint, a weakness, or an improvement for something we already make. You will see its current version before you write.')
+     + '</div>';
++  /* FIX D1 — the public drop box was linked from exactly one screen in the whole application,
++     and that screen is restricted to the COO and the Registrar. The people it exists for could
++     never find it. It is the lowest-friction door in the system: four fields, no sign-in. */
++  const dropline = '<div class="card" style="margin:0 0 14px;background:var(--bg-soft,#fafafa)">'
++    + '<b>Someone without an account?</b> <span class="sub">A dealer, a farmer, a driver, anyone — they can drop an idea or a problem at '
++    + '<a href="/pd/drop" target="_blank" rel="noopener"><b>/pd/drop</b></a>. No login, four fields, about a minute. '
++    + 'The Registrar picks these up and turns the good ones into logged ideas.</span></div>';
+   const zero = d.total === 0 ? '<div class="card" style="border:2px solid var(--green)"><h2 style="margin:0 0 6px;font-size:1.05rem">Nothing logged yet — that is how a zero-data pilot starts</h2><p class="sub" style="margin:0">The Registrar checks the intake queue every working day and nudges the screener so nothing breaches the 15-day answer target.</p></div>' : '';
+   const subs = d.submissions.length
+     ? '<div style="overflow-x:auto"><table><tr><th>ID</th><th>Title</th>'+(d.isSubmitter?'':'<th>From</th>')+'<th>Kind</th>'+(d.isSubmitter?'':'<th>Lane</th>')+'<th>Stage</th><th>G1</th></tr>'
+@@ -359,7 +366,7 @@
+     : '<p class="sub" style="margin:0">Nothing yet. Use a door above — yours could be the first.</p>';
+   setMain('<h1>Bring something in</h1>'
+     + '<p class="sub">The front door. Everything the system does starts with one of three things going in — each logged, answered with a reason inside 15 days, and remembered forever. You never need permission to put something in.</p>'
+-    + doors + zero
++    + doors + dropline + zero
+     + '<h2 style="font-family:var(--serif);font-size:1.15rem;margin:16px 0 8px">'+(d.isSubmitter?'Your submissions':'Recent submissions')+'</h2>'
+     + '<div class="card">'+subs+'</div>');
+ }
+@@ -395,56 +402,135 @@
+ async function renderNewIdea(hash){
+   shell('<h1>Share an idea</h1><p class="sub">Loading…</p>', hash);
+   let form; try { form = await api('GET','/api/pd/idea-form'); } catch(e){ form = { products:[], problems:[] }; }
+-  const CT = {new:'Brand-new product idea', reformulation:'Improve / re-engineer an existing formulation', variant:'New variant of an existing product', process:'Process / manufacturing improvement'};
+-  const ctOpts = Object.keys(CT).map(k=>'<option value="'+k+'">'+esc(CT[k])+'</option>').join('');
+-  const prodOpts = '<option value="">—</option>'+form.products.map(p=>'<option value="'+p.id+'">'+esc(p.code+' — '+p.name)+'</option>').join('');
+-  const probOpts = '<option value="">—</option>'+form.problems.map(p=>'<option value="'+p.id+'">'+esc(p.label)+'</option>').join('');
++  /* FIX D2 — the form used to show twelve fields, eight of them numbered like exam questions,
++     with no indication that only the title and the idea itself are required. Everything optional
++     now sits behind one toggle. FIX D3 — a draft is kept as you type, so a phone call or a stray
++     click no longer costs the whole submission. */
++  const CT = [
++    ['reformulation','Improve something we already make', 'A better version of a product or formulation we sell today.'],
++    ['variant',      'A new variant of one of our products','Same family, different grade, crop or pack.'],
++    ['process',      'A process or manufacturing idea',   'How we make it, not what we make.'],
++    ['new',          'A brand-new product idea',          'Something we do not make at all yet. This one goes to the COO.'],
++  ];
++  const DRAFT_KEY = 'pd_draft_idea';
++  let draft = {}; try { draft = JSON.parse(localStorage.getItem(DRAFT_KEY) || '{}') || {}; } catch(e){ draft = {}; }
++  const dv = k => esc(draft[k] || '');
++  const req = '<span style="color:var(--red,#b3261e)" title="required">*</span>';
+   const hint = t => '<p class="sub" style="margin:4px 0 0">'+t+'</p>';
++  const prodOpts = '<option value="">—</option>'+form.products.map(p=>'<option value="'+p.id+'"'+(String(draft.f_prod)===String(p.id)?' selected':'')+'>'+esc(p.code+' — '+p.name)+'</option>').join('');
++  const probOpts = '<option value="">—</option>'+form.problems.map(p=>'<option value="'+p.id+'"'+(String(draft.f_prob)===String(p.id)?' selected':'')+'>'+esc(p.label)+'</option>').join('');
++  // width:auto is needed — the stylesheet sets every input to width:100%, which stretches a radio.
++  const kinds = CT.map(([k,label,sub]) =>
++      '<label class="kindopt" style="display:flex;align-items:flex-start;gap:10px;border:1px solid var(--line,#ddd);border-radius:8px;padding:10px 12px;margin:0 0 6px;cursor:pointer">'
++    + '<input type="radio" name="f_ct" value="'+k+'"'+(draft.f_ct===k?' checked':'')+' style="width:auto;flex:0 0 auto;margin:3px 0 0;padding:0">'
++    + '<span><b>'+esc(label)+'</b><span class="sub" style="display:block">'+esc(sub)+'</span></span></label>').join('');
++
+   setMain(
+     '<h1>Share an idea</h1>'
+-    + '<p class="sub"><b>Have an idea?</b> A recipe, an ingredient, a route, a tweak, something a farmer said — anything. You do not need it fully worked out; a good question is enough. Every idea is logged, screened the same way whoever sends it, and answered with a reason within 15 days. You never pick a lane — it is set from the kind of idea.</p>'
++    + '<p class="sub"><b>Two boxes is a complete submission.</b> A recipe, an ingredient, a route, a tweak, something a farmer said. You do not need it worked out — a good question is enough. Everything is logged, answered with a reason, and kept forever.</p>'
+     + '<div class="card">'
+-    + '<div class="row" style="gap:12px"><div style="flex:1;min-width:200px"><label>What kind of idea is this?</label><select id="f_ct">'+ctOpts+'</select></div>'
+-    + '<div style="flex:1;min-width:200px"><label>Related existing product (if any)</label><select id="f_prod">'+prodOpts+'</select></div>'
+-    + '<div style="flex:1;min-width:200px"><label>Which registered problem does it address (if known)?</label><select id="f_prob">'+probOpts+'</select></div></div>'
+-    + hint('Seeing a NEW problem nobody has named? <a href="#newproblem">Register it as a problem</a> instead. A fault in something we already sell? <a href="#challenge">Challenge the product</a>.')
+-    + '<label>Idea in a few words (title)</label><input id="f_title">'
++    + '<div id="f_restored"></div>'
++    + '<label>Idea in a few words '+req+'</label><input id="f_title" value="'+dv('f_title')+'" placeholder="e.g. use local rock as the slow phase instead of filler">'
+     + '<div id="f_similar"></div>'
+-    + '<label>1. What is the idea?</label><textarea id="f_idea"></textarea>'
+-    + '<label>2. What problem does it solve?</label><textarea id="f_problem"></textarea>'+hint('e.g. less fixation, cheaper, uses local rock, adds Zn/S')
+-    + '<label>3. Why might it work? A hunch is fine.</label><textarea id="f_reason"></textarea>'
+-    + '<label>4. What would it be made from? (rough)</label><textarea id="f_materials"></textarea>'
+-    + '<label>5. How would we know it worked?</label><textarea id="f_success"></textarea>'+hint('yield, greener crop, a lab number…')
+-    + '<label>6. Which crop / area (if any)?</label><input id="f_crop">'
+-    + '<label>7. Anything you have seen that supports it?</label><textarea id="f_support"></textarea>'
+-    + '<label>8. Any risk or worry you already see?</label><textarea id="f_risk"></textarea>'
+-    + '<div style="margin-top:14px"><button class="btn" id="f_submit">Submit idea</button> <a class="btn ghost" href="#home">Cancel</a> <span id="f_msg"></span></div>'
++    + '<label>What is the idea? '+req+'</label><textarea id="f_idea" placeholder="What is it, and what made you think of it? Two sentences is plenty.">'+dv('f_idea')+'</textarea>'
++    + '<label style="margin-top:14px">What kind of idea is this? '+req+'</label>'
++    + hint('This decides who screens it — nothing else. Pick the closest; triage can move it.')
++    + '<div style="margin-top:6px">'+kinds+'</div>'
++    + '<div style="margin-top:10px"><button class="btn ghost" id="f_more" type="button">+ Add more detail (all optional)</button></div>'
++    + '<div id="f_detail" style="display:none;margin-top:12px;border-top:1px solid var(--line,#e4e4e4);padding-top:12px">'
++      + '<p class="sub" style="margin:0 0 10px">None of this is required. Fill in whatever you already know and leave the rest — a blank box is not a worse submission.</p>'
++      + '<div class="row" style="gap:12px">'
++        + '<div style="flex:1;min-width:200px"><label>Related existing product</label><select id="f_prod">'+prodOpts+'</select></div>'
++        + '<div style="flex:1;min-width:200px"><label>Which registered problem does it address?</label><select id="f_prob">'+probOpts+'</select></div>'
++      + '</div>'
++      + hint('Seeing a NEW problem nobody has named? <a href="#newproblem">Register it as a problem</a> instead. A fault in something we already sell? <a href="#challenge">Challenge the product</a>.')
++      + '<label>What problem does it solve?</label><textarea id="f_problem">'+dv('f_problem')+'</textarea>'+hint('e.g. less fixation, cheaper, uses local rock, adds Zn/S')
++      + '<label>Why might it work? A hunch is fine.</label><textarea id="f_reason">'+dv('f_reason')+'</textarea>'
++      + '<label>What would it be made from? (rough)</label><textarea id="f_materials">'+dv('f_materials')+'</textarea>'
++      + '<label>How would we know it worked?</label><textarea id="f_success">'+dv('f_success')+'</textarea>'+hint('yield, greener crop, a lab number… leave blank if it is too early to say')
++      + '<label>Which crop / area?</label><input id="f_crop" value="'+dv('f_crop')+'">'
++      + '<label>Anything you have seen that supports it?</label><textarea id="f_support">'+dv('f_support')+'</textarea>'
++      + '<label>Any risk or worry you already see?</label><textarea id="f_risk">'+dv('f_risk')+'</textarea>'
++    + '</div>'
++    + '<div style="margin-top:14px"><button class="btn" id="f_submit">Submit idea</button> <a class="btn ghost" href="#home">Cancel</a> <button class="btn ghost" id="f_clear" type="button">Discard draft</button> <span id="f_msg"></span></div>'
++    + '<p class="sub" id="f_draftnote" style="margin:8px 0 0"></p>'
+     + '</div>'
+   );
+-  // "The system remembers similar ideas" — live fulltext check against past ideas.
++
++  const $ = i => document.getElementById(i);
++  const FIELDS = ['f_title','f_idea','f_problem','f_reason','f_materials','f_success','f_crop','f_support','f_risk','f_prod','f_prob'];
++  const kindNow = () => { const r = document.querySelector('input[name=f_ct]:checked'); return r ? r.value : ''; };
++
++  // FIX D2 — the detail section stays open if the person had it open, so a draft restore is not confusing.
++  const openDetail = (on) => { $('f_detail').style.display = on ? 'block' : 'none'; $('f_more').textContent = on ? '– Hide the optional questions' : '+ Add more detail (all optional)'; };
++  if (draft._open) openDetail(true);
++  $('f_more').onclick = () => { const on = $('f_detail').style.display === 'none'; openDetail(on); saveDraft(); };
++
++  // FIX D3 — keep a draft as they type. Cleared only on a successful submit or an explicit discard.
++  let _dt;
++  function saveDraft(){
++    if (!$('f_detail')) return; // the page may have been left while the debounce was pending
++    const o = { _open: $('f_detail').style.display !== 'none', f_ct: kindNow() };
++    FIELDS.forEach(k => { const el = $(k); if (el) o[k] = el.value; });
++    const anything = FIELDS.some(k => ($(k) && String($(k).value || '').trim()));
++    try { anything ? localStorage.setItem(DRAFT_KEY, JSON.stringify(o)) : localStorage.removeItem(DRAFT_KEY); } catch(e){}
++    if ($('f_draftnote')) $('f_draftnote').textContent = anything ? 'Saved on this device — you can close this page and come back to it.' : '';
++  }
++  const onAny = () => { clearTimeout(_dt); _dt = setTimeout(saveDraft, 400); };
++  FIELDS.forEach(k => { const el = $(k); if (el) el.oninput = el.onchange = onAny; });
++  document.querySelectorAll('input[name=f_ct]').forEach(r => r.onchange = onAny);
++  if (Object.keys(draft).length) {
++    $('f_restored').innerHTML = '<p class="sub" style="margin:0 0 10px;padding:8px 10px;background:var(--green-soft,#f1f8f3);border-radius:6px">Picked up where you left off. <a href="#" id="f_discard2">Start fresh instead</a>.</p>';
++    const dd = $('f_discard2'); if (dd) dd.onclick = (e) => { e.preventDefault(); try{ localStorage.removeItem(DRAFT_KEY); }catch(_){} renderNewIdea(hash); };
++  }
++  $('f_clear').onclick = () => { try{ localStorage.removeItem(DRAFT_KEY); }catch(e){} renderNewIdea(hash); };
++
++  /* FIX D4 — the duplicate check used to fire at six characters and shout "KILLED" in an amber
++     warning box, which reads as a rejection before you have finished your first sentence. It now
++     waits for twenty characters, is styled as information rather than a warning, and opens matches
++     in a new tab so following one cannot destroy the draft. */
+   let _sim;
+   const checkSimilar = async () => {
+-    const box = document.getElementById('f_similar'); if (!box) return;
+-    const q = (document.getElementById('f_title').value + ' ' + document.getElementById('f_idea').value).trim();
+-    if (q.length < 6) { box.innerHTML = ''; return; }
++    const box = $('f_similar'); if (!box) return;
++    const q = (($('f_title')||{}).value + ' ' + ($('f_idea')||{}).value).trim();
++    if (q.length < 20) { box.innerHTML = ''; return; }
+     try {
+       const d = await api('GET','/api/pd/similar?q='+encodeURIComponent(q));
+-      if (!d.matches.length) { box.innerHTML = ''; return; }
+-      box.innerHTML = '<div class="card" style="background:var(--amber-soft);border-color:var(--amber);margin:8px 0"><b style="color:var(--amber)">⚠ The system remembers similar ideas — check before submitting:</b>'
+-        + d.matches.map(m=>'<div style="margin-top:6px"><a href="#idea/'+m.id+'"><b>'+esc(m.label)+'</b></a> <span class="sub">· '+esc(m.fate)+'</span><div class="sub">'+esc(m.advice)+'</div></div>').join('')
+-        + '<p class="sub" style="margin:6px 0 0">Still different? Submit anyway — the screen will judge it on merit.</p></div>';
++      if (!d.matches || !d.matches.length) { box.innerHTML = ''; return; }
++      box.innerHTML = '<div class="card" style="margin:8px 0;background:var(--bg-soft,#fafafa)">'
++        + '<b class="sub">Related work already in the system</b>'
++        + d.matches.map(m => '<div style="margin-top:6px">'
++            + (m.id ? '<a href="/pd#idea/'+m.id+'" target="_blank" rel="noopener"><b>'+esc(m.label)+'</b></a>' : '<b>'+esc(m.label)+'</b>')
++            + ' <span class="sub">· '+esc(m.fate)+'</span><div class="sub">'+esc(m.advice)+'</div></div>').join('')
++        + '<p class="sub" style="margin:8px 0 0">Opens in a new tab, so you will not lose what you have written. If yours is different, submit it — the screen judges it on merit.</p></div>';
+     } catch(e){ box.innerHTML = ''; }
+   };
+-  const deb = () => { clearTimeout(_sim); _sim = setTimeout(checkSimilar, 500); };
+-  document.getElementById('f_title').oninput = deb;
+-  document.getElementById('f_idea').oninput = deb;
+-  document.getElementById('f_submit').onclick = async () => {
+-    const gv = i => (document.getElementById(i).value || '').trim();
+-    if(!gv('f_title') || !gv('f_idea')){ document.getElementById('f_msg').innerHTML='<span class="err">Title and the idea itself are required.</span>'; return; }
+-    const b = { title:gv('f_title'), change_type:document.getElementById('f_ct').value, parent_product_id:document.getElementById('f_prod').value, problem_id:document.getElementById('f_prob').value,
+-      idea_text:gv('f_idea'), problem_text:gv('f_problem'), reasoning_text:gv('f_reason'), materials_text:gv('f_materials'), success_text:gv('f_success'), crop_area:gv('f_crop'), support_text:gv('f_support'), risk_text:gv('f_risk') };
+-    try{ const j = await api('POST','/api/pd/ideas', b); location.hash = '#idea/'+ (await api('GET','/api/pd/ideas')).find(x=>x.h_number===j.h_number).id; }
+-    catch(e){ document.getElementById('f_msg').innerHTML = '<span class="err">'+esc(e.message)+'</span>'; }
++  const deb = () => { clearTimeout(_sim); _sim = setTimeout(checkSimilar, 600); };
++  $('f_title').addEventListener('input', deb);
++  $('f_idea').addEventListener('input', deb);
++
++  $('f_submit').onclick = async () => {
++    const gv = i => (($(i)||{}).value || '').trim();
++    /* FIX D5 — the error used to be one line below twelve fields, naming neither field.
++       It now names the missing one and puts the cursor in it. */
++    const fail = (id, msg) => { $('f_msg').innerHTML = '<span class="err">'+esc(msg)+'</span>'; const el = $(id); if (el){ el.focus(); el.scrollIntoView({block:'center'}); } };
++    if (!gv('f_title')) return fail('f_title', 'Give it a few words as a title.');
++    if (!gv('f_idea'))  return fail('f_idea',  'Say what the idea is — two sentences is plenty.');
++    if (!kindNow())     return fail('f_title', 'Pick what kind of idea it is — that is what decides who screens it.');
++    const b = { title:gv('f_title'), change_type:kindNow(),
++      parent_product_id:gv('f_prod'), problem_id:gv('f_prob'),
++      idea_text:gv('f_idea'), problem_text:gv('f_problem'), reasoning_text:gv('f_reason'),
++      materials_text:gv('f_materials'), success_text:gv('f_success'), crop_area:gv('f_crop'),
++      support_text:gv('f_support'), risk_text:gv('f_risk') };
++    $('f_submit').disabled = true; $('f_msg').innerHTML = '<span class="sub">Logging it…</span>';
++    try{
++      const j = await api('POST','/api/pd/ideas', b);
++      try{ localStorage.removeItem(DRAFT_KEY); }catch(e){}
++      // the POST now returns the id directly — no fragile lookup, no risk of a double submit
++      if (j && j.id) { location.hash = '#idea/'+j.id; }
++      else { location.hash = '#ideas'; }
++    }
++    catch(e){ $('f_submit').disabled = false; $('f_msg').innerHTML = '<span class="err">'+esc(e.message)+'</span>'; }
+   };
+ }
+ 
+--- a/pd/pd-routes.js
++++ b/pd/pd-routes.js
+@@ -41,7 +41,11 @@
+          b.risk_text || null, req.pdUser.id]
+       );
+     });
+-    res.json({ ok: true, h_number: h, h_label: pd.fmt_h(h), lane });
++    /* FIX D5 — return the row id. The client used to re-fetch the whole idea list and search it
++       by h_number, which threw a raw TypeError if the lookup missed — after the idea was already
++       saved, so the user's instinct was to press Submit again and create a duplicate. */
++    const [[justMade]] = [(await pdq('SELECT id FROM pd_hypotheses WHERE h_number=?', [h]))[0]];
++    res.json({ ok: true, id: justMade ? justMade.id : null, h_number: h, h_label: pd.fmt_h(h), lane });
+   } catch (e) { res.status(500).json({ error: String(e) }); }
+ });
+ 

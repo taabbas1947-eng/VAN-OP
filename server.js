@@ -25,6 +25,14 @@ try {
 const app = express();
 app.use(require('compression')());
 app.use(express.json({ limit: '25mb' })); // 25mb so a 15MB Library upload (base64 ~+37%) fits in the JSON body
+/* FIX C5 — a malformed body used to return the framework's HTML stack trace, complete with server
+   file paths, to anyone — including unauthenticated callers on /api/login. */
+app.use((err, req, res, next) => {
+  if (!err) return next();
+  if (err.type === 'entity.too.large') return res.status(413).json({ error: 'That is too large to upload here.' });
+  if (err instanceof SyntaxError || err.type === 'entity.parse.failed') return res.status(400).json({ error: 'The request could not be read.' });
+  return next(err);
+});
 
 const PORT = process.env.PORT || 3000;
 const DATABASE_URL = process.env.DATABASE_URL;
@@ -308,12 +316,32 @@ app.use('/api/pd', pdAuditLogger);
 /* ---------- routes ---------- */
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 
+/* FIX C1 — sign-in throttle. Ten failures per username per fifteen minutes, then a cool-off.
+   In-memory is deliberate: one process, and a restart clearing it is an acceptable trade. */
+const LOGIN_MAX = 10, LOGIN_WINDOW_MS = 15 * 60 * 1000;
+const loginFails = new Map(); // username -> { n, first }
+function loginBlockedFor(u) {
+  const e = loginFails.get(u);
+  if (!e) return 0;
+  if (Date.now() - e.first > LOGIN_WINDOW_MS) { loginFails.delete(u); return 0; }
+  return e.n >= LOGIN_MAX ? Math.ceil((LOGIN_WINDOW_MS - (Date.now() - e.first)) / 60000) : 0;
+}
+function noteLoginFail(u) {
+  const e = loginFails.get(u);
+  if (!e || Date.now() - e.first > LOGIN_WINDOW_MS) loginFails.set(u, { n: 1, first: Date.now() });
+  else e.n++;
+}
+setInterval(() => { const now = Date.now(); for (const [k, v] of loginFails) if (now - v.first > LOGIN_WINDOW_MS) loginFails.delete(k); }, 60000).unref();
+
 app.post('/api/login', async (req, res) => {
   try {
     const u = String((req.body && req.body.username) || '').trim().toLowerCase();
     const p = String((req.body && req.body.password) || '');
+    const mins = loginBlockedFor(u);
+    if (mins) return res.status(429).json({ error: 'Too many failed sign-ins for this account. Try again in about ' + mins + ' minute' + (mins === 1 ? '' : 's') + ', or ask the COO to reset the password.' });
     const usr = await store.getUser(u);
-    if (!usr || !verifyPw(p, usr.pass_hash)) return res.status(401).json({ error: 'Incorrect username or password' });
+    if (!usr || !verifyPw(p, usr.pass_hash)) { noteLoginFail(u); return res.status(401).json({ error: 'Incorrect username or password' }); }
+    loginFails.delete(u);
     res.json({ token: makeToken(usr), user: { name: usr.name, username: usr.username, role: usr.role } });
   } catch (e) { res.status(500).json({ error: String(e) }); }
 });
@@ -390,6 +418,7 @@ app.get('/api/platform/users', auth, accessAdmin, async (req, res) => {
       users: users.map(u => ({ username: u.username, name: u.name, modules: byUser[u.username] || {}, adminOf: adminBy[u.username] || [] })),
       o2sRoles: o2sRoles,
       pdRoles: PD_ROLE_KEYS,
+      pdRoleLabels: (pd && pd.PD_ROLES) || {}, // FIX D10: the Access screen showed raw keys (rta, qc_head, ...)
       caps: req.adminCaps
     });
   } catch (e) { res.status(500).json({ error: String(e) }); }

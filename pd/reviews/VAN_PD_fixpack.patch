@@ -1,0 +1,267 @@
+--- a/server.js
++++ b/server.js
+@@ -25,6 +25,14 @@
+ const app = express();
+ app.use(require('compression')());
+ app.use(express.json({ limit: '25mb' })); // 25mb so a 15MB Library upload (base64 ~+37%) fits in the JSON body
++/* FIX C5 — a malformed body used to return the framework's HTML stack trace, complete with server
++   file paths, to anyone — including unauthenticated callers on /api/login. */
++app.use((err, req, res, next) => {
++  if (!err) return next();
++  if (err.type === 'entity.too.large') return res.status(413).json({ error: 'That is too large to upload here.' });
++  if (err instanceof SyntaxError || err.type === 'entity.parse.failed') return res.status(400).json({ error: 'The request could not be read.' });
++  return next(err);
++});
+ 
+ const PORT = process.env.PORT || 3000;
+ const DATABASE_URL = process.env.DATABASE_URL;
+@@ -308,12 +316,32 @@
+ /* ---------- routes ---------- */
+ app.get('/api/health', (req, res) => res.json({ ok: true }));
+ 
++/* FIX C1 — sign-in throttle. Ten failures per username per fifteen minutes, then a cool-off.
++   In-memory is deliberate: one process, and a restart clearing it is an acceptable trade. */
++const LOGIN_MAX = 10, LOGIN_WINDOW_MS = 15 * 60 * 1000;
++const loginFails = new Map(); // username -> { n, first }
++function loginBlockedFor(u) {
++  const e = loginFails.get(u);
++  if (!e) return 0;
++  if (Date.now() - e.first > LOGIN_WINDOW_MS) { loginFails.delete(u); return 0; }
++  return e.n >= LOGIN_MAX ? Math.ceil((LOGIN_WINDOW_MS - (Date.now() - e.first)) / 60000) : 0;
++}
++function noteLoginFail(u) {
++  const e = loginFails.get(u);
++  if (!e || Date.now() - e.first > LOGIN_WINDOW_MS) loginFails.set(u, { n: 1, first: Date.now() });
++  else e.n++;
++}
++setInterval(() => { const now = Date.now(); for (const [k, v] of loginFails) if (now - v.first > LOGIN_WINDOW_MS) loginFails.delete(k); }, 60000).unref();
++
+ app.post('/api/login', async (req, res) => {
+   try {
+     const u = String((req.body && req.body.username) || '').trim().toLowerCase();
+     const p = String((req.body && req.body.password) || '');
++    const mins = loginBlockedFor(u);
++    if (mins) return res.status(429).json({ error: 'Too many failed sign-ins for this account. Try again in about ' + mins + ' minute' + (mins === 1 ? '' : 's') + ', or ask the COO to reset the password.' });
+     const usr = await store.getUser(u);
+-    if (!usr || !verifyPw(p, usr.pass_hash)) return res.status(401).json({ error: 'Incorrect username or password' });
++    if (!usr || !verifyPw(p, usr.pass_hash)) { noteLoginFail(u); return res.status(401).json({ error: 'Incorrect username or password' }); }
++    loginFails.delete(u);
+     res.json({ token: makeToken(usr), user: { name: usr.name, username: usr.username, role: usr.role } });
+   } catch (e) { res.status(500).json({ error: String(e) }); }
+ });
+@@ -390,6 +418,7 @@
+       users: users.map(u => ({ username: u.username, name: u.name, modules: byUser[u.username] || {}, adminOf: adminBy[u.username] || [] })),
+       o2sRoles: o2sRoles,
+       pdRoles: PD_ROLE_KEYS,
++      pdRoleLabels: (pd && pd.PD_ROLES) || {}, // FIX D10: the Access screen showed raw keys (rta, qc_head, ...)
+       caps: req.adminCaps
+     });
+   } catch (e) { res.status(500).json({ error: String(e) }); }
+--- a/launcher.html
++++ b/launcher.html
+@@ -263,7 +263,8 @@
+       var $ = function (id) {return document.getElementById(id);};
+       function tok() {try {return localStorage.getItem(TOKEN_KEY) || '';} catch (e) {return '';} }
+       function setTok(t) {try {t ? localStorage.setItem(TOKEN_KEY, t) : localStorage.removeItem(TOKEN_KEY);} catch (e) { } }
+-      function esc(s) {return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c];});}
++      // FIX C8 — the apostrophe was missing, and esc() output is placed inside a JS string in an HTML attribute.
++      function esc(s) {return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c];});}
+       function auth() {return {Authorization: 'Bearer ' + tok()};}
+       function toast(m) {var t = $('toast'); if (!t) return; t.textContent = m; t.style.opacity = '1'; clearTimeout(t._h); t._h = setTimeout(function () {t.style.opacity = '0';}, 2200);}
+       function view(v) {$('loginView').style.display = v === 'login' ? 'flex' : 'none'; $('appView').style.display = v === 'app' ? 'block' : 'none'; $('adminView').style.display = v === 'admin' ? 'block' : 'none';}
+@@ -350,7 +351,9 @@
+       window.__backLauncher = function () {view('app');};
+ 
+       function roleSelect(username, module, options, current) {
+-        var opts = '<option value="">— none —</option>' + options.map(function (o) {return '<option value="' + esc(o) + '"' + (o === current ? ' selected' : '') + '>' + esc(o) + '</option>';}).join('');
++        // FIX D10 — show the human label ("Plant Manager (RTA)"), not the database key ("rta").
++        var L = (window.__pdRoleLabels || {});
++        var opts = '<option value="">— none —</option>' + options.map(function (o) {return '<option value="' + esc(o) + '"' + (o === current ? ' selected' : '') + '>' + esc(module === 'pd' ? (L[o] || o) : o) + '</option>';}).join('');
+         return '<select class="pdsel" onchange="__setmod(\'' + esc(username) + '\',\'' + module + '\',this.value)">' + opts + '</select>';
+       }
+       function adminToggle(username, module, on) {
+@@ -364,6 +367,7 @@
+           if (!r.ok) {body.innerHTML = '<tr><td class="muted" style="padding:16px">Could not load users (' + r.status + ').</td></tr>'; return;}
+           var data = await r.json();
+           var users = data.users || [], o2sRoles = data.o2sRoles || [], pdRoles = data.pdRoles || PD_ROLES;
++          window.__pdRoleLabels = data.pdRoleLabels || {}; // FIX D10 — the labels the server now sends
+           _adminCaps = data.caps || {isCOO: false, adminModules: []};
+           var isCOO = !!_adminCaps.isCOO;
+           // Columns: the COO manages every module; a subsystem admin only the modules they administer.
+--- a/pd/pd.html
++++ b/pd/pd.html
+@@ -161,6 +161,16 @@
+ let me = null; // /api/pd/me response
+ const app = document.getElementById('app');
+ 
++/* FIX D12 — there was no confirmation anywhere in the application. Any button carrying a
++   data-confirm attribute now asks before it fires. One capture-phase listener covers every
++   screen, present and future, without touching each render function. */
++document.addEventListener('click', function(ev){
++  const b = ev.target && ev.target.closest && ev.target.closest('[data-confirm]');
++  if (!b || b.dataset.confirmed === '1') return;
++  ev.preventDefault(); ev.stopPropagation();
++  if (window.confirm(b.getAttribute('data-confirm'))) { b.dataset.confirmed = '1'; b.click(); b.dataset.confirmed = ''; }
++}, true);
++
+ function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+ function num(v){ const n = Number(v); return Number.isFinite(n) ? String(n) : '0'; } // DECIMALs arrive as strings like "54.000"
+ function money(v){ const n = Number(v)||0; return 'Rs ' + Math.round(n).toLocaleString('en-US'); }
+@@ -275,8 +285,9 @@
+ 
+ async function route(){
+   if (!me) return; // signed out (or not yet booted) — the hashchange listener can fire after sign-out via location.hash=''; don't let it repaint a stale session
+-  const hash = location.hash || ('#'+me.landing);
++  const hash = location.hash || ('#'+(me.landing === 'index' ? 'board' : me.landing)); // FIX B5: 'index' is not a route
+   try{
++    await (async function(){
+     if (hash === '#home') return renderHome(hash);
+     if (hash === '#mywork') return renderMyWork(hash);
+     if (hash === '#ideas') return renderIdeas(hash);
+@@ -308,10 +319,27 @@
+     if (hash === '#guide') return renderGuide(hash);
+     if (hash === '#doctrine') return renderDoctrine(hash);
+     return renderHome(hash);
++    })();
+   } catch(e) {
+-    shell('<div class="err">'+esc(e.message)+'</div>', hash);
++    // FIX B2: an expired or invalidated session returns to sign-in, not a frozen screen.
++    if (e && e.status === 401){ setToken(''); me = null; renderLogin('Your session has ended — please sign in again.'); return; }
++    var msg = '<div class="card" style="border-color:#e0b4b4">'
++      + '<b>This page could not be loaded.</b>'
++      + '<div class="sub" style="margin-top:6px">'+esc((e && e.message) || 'Something went wrong.')+'</div>'
++      + '<div class="sub" style="margin-top:10px">If this keeps happening, tell the Registrar what you were doing.</div></div>';
++    try { setMain(msg); } catch(_) { shell(msg, hash); }
+   }
+ }
++// FIX B1: belt and braces — nothing should ever fail silently into a permanent "Loading...".
++window.addEventListener('unhandledrejection', function(ev){
++  try {
++    var e = ev && ev.reason;
++    if (e && e.status === 401){ setToken(''); me = null; renderLogin('Your session has ended — please sign in again.'); ev.preventDefault(); return; }
++    setMain('<div class="card" style="border-color:#e0b4b4"><b>This page could not be loaded.</b>'
++      + '<div class="sub" style="margin-top:6px">'+esc((e && e.message) || 'Something went wrong.')+'</div></div>');
++    ev.preventDefault();
++  } catch(_){}
++});
+ window.addEventListener('hashchange', route);
+ 
+ async function renderHome(hash){
+@@ -663,7 +691,7 @@
+     + '</table>'
+     + (c.can_review_rta ? '<div style="margin-top:12px"><label>Review note (optional)</label><input id="rta_note"><div style="margin-top:8px"><button class="btn" id="doRta">Record technical review</button></div></div>' : '')
+     + (c.can_complete ? '<div style="margin-top:12px"><button class="btn" id="doComplete">Confirm record is complete</button></div>' : '')
+-    + (c.can_approve_g2 ? '<div style="margin-top:12px"><button class="btn" id="doG2">Approve design (G2)</button> <span class="sub">'+(c.would_delegate?'You are signing on site under delegated authority — the COO ratifies in the Gate Log.':'')+(!c.g2_ready?' Needs the RTA review and completeness check first.':'')+'</span></div>' : '')
++    + (c.can_approve_g2 ? '<div style="margin-top:12px"><button class="btn" id="doG2" data-confirm="Approve the design at G2?\n\nSections 1-3 of this record lock permanently. They cannot be edited afterwards — a changed design has to be written as a brand-new record.\n\nApprove?">Approve design (G2)</button> <span class="sub">'+(c.would_delegate?'You are signing on site under delegated authority — the COO ratifies in the Gate Log.':'')+(!c.g2_ready?' Needs the RTA review and completeness check first.':'')+'</span></div>' : '')
+     + '<div id="sign_msg"></div></div>';
+ 
+   const canPost = c.can_edit_post;
+--- a/pd/pd-routes.js
++++ b/pd/pd-routes.js
+@@ -370,6 +370,16 @@
+     const [[r]] = [(await pdq('SELECT review_complete_at FROM pd_dev_records WHERE id=?', [req.params.id]))[0]];
+     if (!r) return res.status(404).json({ error: 'Record not found.' });
+     if (r.review_complete_at) return res.status(409).json({ error: 'Completeness already confirmed.' });
++    /* FIX A2 — a completeness check must actually check something.
++       Sections 1-3 lock permanently at G2, so a blank record approved here can never be repaired. */
++    const [[c]] = [(await pdq('SELECT s1_soil_problem, s3_hypothesis_one_line, s3_success_kill_criteria FROM pd_dev_records WHERE id=?', [req.params.id]))[0]];
++    const missing = [];
++    if (!String((c && c.s1_soil_problem) || '').trim())          missing.push('the problem this route addresses (Section 1)');
++    if (!String((c && c.s3_hypothesis_one_line) || '').trim())   missing.push('the one-line hypothesis (Section 3)');
++    if (!String((c && c.s3_success_kill_criteria) || '').trim()) missing.push('the success / kill criteria (Section 3)');
++    if (missing.length) return res.status(409).json({
++      error: 'This record is not complete. Still missing: ' + missing.join(', ') + '. A record signed at G2 locks permanently — it cannot be filled in afterwards.'
++    });
+     await pdq('UPDATE pd_dev_records SET review_complete_by=?, review_complete_at=NOW() WHERE id=?', [req.pdUser.id, req.params.id]);
+     res.json({ ok: true });
+   } catch (e) { res.status(500).json({ error: String(e) }); }
+@@ -429,8 +439,28 @@
+     if (!['G3', 'G4', 'G5', 'G6'].includes(gate)) return res.status(400).json({ error: 'gate must be one of G3, G4, G5, G6 (G1 is the screen, G2 the Development Record).' });
+     if (!['advance', 'iterate', 'park', 'kill'].includes(decision)) return res.status(400).json({ error: 'decision must be advance, iterate, park or kill.' });
+     if (!reason) return res.status(400).json({ error: 'A written reason is required — no decision exists without a reason.' });
+-    const [[hyp]] = [(await pdq('SELECT id FROM pd_hypotheses WHERE id=?', [hid]))[0]];
++    const [[hyp]] = [(await pdq('SELECT id, stage, screen_decision FROM pd_hypotheses WHERE id=?', [hid]))[0]];
+     if (!hyp) return res.status(404).json({ error: 'Pick a hypothesis.' });
++    /* FIX A1 — gate order. A gate may only be recorded once the gate before it has ADVANCED.
++       Without this, one request can take a never-screened idea straight to 'validated'. */
++    const PRIOR = { G3: 'G2', G4: 'G3', G5: 'G4', G6: 'G5' };
++    const GATE_LABEL = { G2: 'G2 (design approval)', G3: 'G3 (the beaker gate)', G4: 'G4 (bench evaluation)', G5: 'G5 (field trial approval)' };
++    if (hyp.screen_decision !== 'log') {
++      return res.status(409).json({ error: 'This idea has not passed G1 yet. It must be screened and logged before any committee gate can be recorded.' });
++    }
++    const need = PRIOR[gate];
++    const [[prior]] = [(await pdq(
++      "SELECT id FROM pd_gate_decisions WHERE hypothesis_id=? AND gate=? AND decision='advance' ORDER BY id DESC LIMIT 1",
++      [hid, need]))[0]];
++    if (!prior) {
++      return res.status(409).json({ error: 'Gates are taken in order. ' + GATE_LABEL[need] + ' has not been passed for this idea, so ' + gate + ' cannot be recorded yet.' });
++    }
++    const [[already]] = [(await pdq(
++      "SELECT id FROM pd_gate_decisions WHERE hypothesis_id=? AND gate=? AND decision='advance' LIMIT 1",
++      [hid, gate]))[0]];
++    if (already && decision === 'advance') {
++      return res.status(409).json({ error: gate + ' has already been advanced for this idea. Record the next gate, or reverse this one first.' });
++    }
+     const site = b.is_site_quorum ? 1 : 0;
+     const provisional = site ? 1 : 0; // site-quorum decisions are provisional until the COO ratifies
+     await pdq('INSERT INTO pd_gate_decisions (hypothesis_id, gate, decision, reason, decided_by, is_site_quorum, attendees, provisional) VALUES (?,?,?,?,?,?,?,?)',
+@@ -1234,13 +1264,17 @@
+   } catch (e) { res.status(500).json({ error: String(e) }); }
+ });
+ app.post('/api/pd/library/:id/pin', auth, pdAuth, pdSurface('library'), async (req, res) => {
+-  try { const m = String((req.body && req.body.pin) || '').match(/^(hypothesis|project|problem):(\d+)$/);
++  try { // FIX C3 — pinning is curation, not reading. Members and outside reviewers may read the library, not rearrange it.
++    if (!pd.can_role(req.pdUser.pd_role, ['qc_head', 'rta', 'production', 'agronomy', 'custodian', 'lab_tech'])) return res.status(403).json({ error: 'Pinning reading to a route, project or problem is for the technical team.' });
++    const m = String((req.body && req.body.pin) || '').match(/^(hypothesis|project|problem):(\d+)$/);
+     if (!m) return res.status(400).json({ error: 'Pick somewhere to pin it.' });
+     await pdq('INSERT IGNORE INTO pd_library_pins (item_id, target_type, target_id, pinned_by) VALUES (?,?,?,?)', [req.params.id, m[1], Number(m[2]), req.pdUser.id]);
+     res.json({ ok: true }); } catch (e) { res.status(500).json({ error: String(e) }); }
+ });
+ app.post('/api/pd/library/:id/unpin', auth, pdAuth, pdSurface('library'), async (req, res) => {
+-  try { await pdq('DELETE FROM pd_library_pins WHERE id=? AND item_id=?', [Number((req.body && req.body.pin_id) || 0), req.params.id]); res.json({ ok: true }); }
++  try { // FIX C3 — see /pin above.
++    if (!pd.can_role(req.pdUser.pd_role, ['qc_head', 'rta', 'production', 'agronomy', 'custodian', 'lab_tech'])) return res.status(403).json({ error: 'Removing a pin is for the technical team.' });
++    await pdq('DELETE FROM pd_library_pins WHERE id=? AND item_id=?', [Number((req.body && req.body.pin_id) || 0), req.params.id]); res.json({ ok: true }); }
+   catch (e) { res.status(500).json({ error: String(e) }); }
+ });
+ app.post('/api/pd/library/:id/archive', auth, pdAuth, pdSurface('library'), async (req, res) => {
+@@ -1466,12 +1500,17 @@
+     const out = [];
+     for (const r of rows) {
+       if (Number(r.score) <= 0) continue;
++      /* FIX C2 — this route had no surface gate, so a Team member or an outside reviewer could
++         enumerate the whole portfolio and read why each idea was killed, despite being refused a
++         direct read of the same idea. Titles and written reasons are now shown only to roles that
++         are allowed to see all ideas; everyone else still gets the duplicate warning. */
++      const seesAll = pd.can_pd(req.pdUser.pd_role, 'ideas.all');
+       let fate = 'in process', advice = 'Talk to its owner before duplicating work.';
+-      if (r.stage === 'killed') { fate = 'KILLED'; advice = 'Killed before — reason: ' + (r.screen_reason || 'see its gate log') + '. Only resubmit if something material has changed.'; }
+-      else if (r.stage === 'parked') { fate = 'PARKED'; advice = 'Parked' + (r.park_condition ? ' — re-look condition: ' + r.park_condition : '') + '. It may be time to revive it instead of duplicating it.'; }
++      if (r.stage === 'killed') { fate = 'KILLED'; advice = seesAll ? ('Killed before — reason: ' + (r.screen_reason || 'see its gate log') + '. Only resubmit if something material has changed.') : 'A similar idea was looked at before and closed. Submit anyway if yours differs — the screener will see both.'; }
++      else if (r.stage === 'parked') { fate = 'PARKED'; advice = seesAll ? ('Parked' + (r.park_condition ? ' — re-look condition: ' + r.park_condition : '') + '. It may be time to revive it instead of duplicating it.') : 'A similar idea is parked for now. Submit anyway if yours differs.'; }
+       else if (r.stage === 'validated') { fate = 'VALIDATED'; advice = 'This already exists as a proven result — consider proposing a VARIANT of it instead.'; }
+       else if (r.stage === 'proposed') { fate = 'awaiting screen'; advice = 'A very similar idea is already waiting to be screened.'; }
+-      out.push({ id: r.id, label: pd.fmt_h(r.h_number) + ' — ' + r.title, stage: pd.STAGES[r.stage] || r.stage, fate, advice, score: Math.round(Number(r.score) * 10000) / 10000 });
++      out.push({ id: seesAll ? r.id : null, label: seesAll ? (pd.fmt_h(r.h_number) + ' — ' + r.title) : (pd.fmt_h(r.h_number) + ' — (a similar idea, not yours to read)'), stage: pd.STAGES[r.stage] || r.stage, fate, advice, score: Math.round(Number(r.score) * 10000) / 10000 });
+     }
+     res.json({ matches: out });
+   } catch (e) { res.status(500).json({ error: String(e) }); }
+@@ -1533,14 +1572,8 @@
+   } catch (e) { res.status(500).json({ error: String(e) }); }
+ });
+ 
+-/* ---------- PD/O2S admin: assign a PD role to an existing O2S account (COO only, mirrors O2S's own admin gate) ---------- */
+-app.put('/api/pd/users/:username/role', auth, admin, pdAuth, async (req, res) => {
+-  try {
+-    const role = req.body && req.body.pd_role;
+-    if (role !== null && !pd.PD_ROLES[role]) return res.status(400).json({ error: 'invalid pd_role' });
+-    const [result] = await pdq('UPDATE auth_users SET pd_role=? WHERE username=?', [role, String(req.params.username).toLowerCase()]);
+-    if (result.affectedRows === 0) return res.status(404).json({ error: 'not found' });
+-    res.json({ ok: true });
+-  } catch (e) { res.status(500).json({ error: String(e) }); }
+-});
++/* FIX E9 — REMOVED. This endpoint wrote only auth_users.pd_role and never user_module_roles,
++   so using it split the two stores: PD access without a launcher tile, or a locked-out user whose
++   grant still shows on the COO's Access screen. Nothing called it. PD roles are assigned in one
++   place only: POST /api/platform/access (server.js), which dual-writes both tables. */
+ };

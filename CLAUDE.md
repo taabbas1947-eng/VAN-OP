@@ -28,6 +28,21 @@ or
 MODULE: PLATFORM        (launcher, login, /api/me, access matrix)
 ```
 
+### 0.1 The shorthand — Tahir does not have to type "MODULE:"
+
+Tahir works fast and types short. **The bare word is the declaration.** These
+are all the same instruction and Claude treats them as binding:
+
+| What Tahir types | What it means |
+|---|---|
+| `pd` · `PD` · "lets do pd" · "pd app" · "working on pd" | `MODULE: PD` |
+| `o2s` · `O2S` · "the 2nd app" · "order to ship" | `MODULE: O2S` |
+| `platform` · "launcher" · "login" · "the access matrix" | `MODULE: PLATFORM` |
+
+The declaration **holds for the whole session** until Tahir names a different
+one. He does not have to repeat it every message. Claude does not ask again
+mid-session for something already declared.
+
 **Claude must reply, before its first edit, with:**
 
 1. the module it is working in,
@@ -38,6 +53,19 @@ MODULE: PLATFORM        (launcher, login, /api/me, access matrix)
 If Tahir has not declared a module, **Claude asks — it does not guess.**
 If a request would cross the boundary, Claude **stops and says so** rather than
 quietly editing both sides.
+
+### 0.2 Switching modules mid-session
+
+Saying the other module's name switches modules. When that happens Claude must,
+**before the next edit**:
+
+1. state that the module changed, PD → O2S or the reverse,
+2. report anything left unfinished in the module being left,
+3. re-echo the new module's allowed and forbidden file lists.
+
+**Never edit both modules in one change.** If a job genuinely needs both sides,
+Claude splits it into two declared pieces and does them one after the other —
+it does not quietly touch both and call it one task.
 
 ---
 
@@ -94,25 +122,76 @@ Tahir pushes with GitHub Desktop.
 
 ---
 
-## 3. Verified state (checked 2026-08-04)
+## 2A. Security and access control are NOT Tahir's job
+
+**Ownership.** Security, authentication, passwords, access control and
+infrastructure hardening belong to a **different department**. They are not
+Tahir's work and they are not a gate on Tahir's work. Tahir's job is the
+**application** — features, correctness, usability, and getting changes live.
+
+**So the rule is:**
+
+1. When Claude finds a security defect, it **records it and moves on.** It does
+   not stop the session, does not put it at the top of the reply, and does not
+   ask Tahir to fix it.
+2. Every finding goes into **`docs/security-register/SECURITY-REGISTER.md`** —
+   one row, dated, with what it is, how it was confirmed, and what it lets an
+   attacker do. That file is the standing letter to the other department.
+3. Claude mentions security **once, briefly, at the end of a session** — a
+   pointer to the register, not a lecture. If nothing new was found, it says
+   nothing at all.
+4. Claude **never blocks a release** on a security item, and never writes
+   "before you launch you must…" about one. It ships the app.
+5. If Tahir explicitly says *"do the security work"*, that is a
+   `MODULE: PLATFORM` declaration and the normal rules apply. Only then.
+
+**What Claude still does without asking:** it will not *introduce* a new
+security hole, and it will not remove an existing protection. Writing safe code
+is part of writing code. Fixing the department's backlog is not.
+
+**Delivery is the priority.** When Claude has to choose between a perfect change
+and a live one, it ships the live one and writes the remainder down.
+
+---
+
+## 3. Verified state (checked 2026-08-16)
 
 - Folder: `E:\VAN-OP` — **correct folder**, this is the live repo.
 - Remote: `https://github.com/taabbas1947-eng/VAN-OP.git`
-- Branch: `main` @ `3b8014b`, working tree **clean**, nothing uncommitted.
-- Other branch: `dashboard-intervention-view` @ `759342e` — stale, behind main.
-- Last push: **AhmerVG, 2026-08-03** — *"VAN platform branding, launcher
-  redesign & PD module UI"* (13 files: launcher redesign, VAN logo/branding
-  assets, `pd/pd.html` +1,672 lines, `pd/pd-lib.js` +140, `server.js` +1,625).
-  Before that, Tahir's own 2026-07-31 *"DILIVERY AND ROLE"*.
-- **Live site is byte-for-byte identical to this working copy** — SHA-256 of
-  `launcher.html`, `index.html`, `pd/pd.html`, `pd/drop.html` all match what
-  `van-control-tower.onrender.com` serves. What you see live is what you have.
+- Branch: `main` @ `bad0680` *"real pd major chnages"* — working tree clean,
+  in sync with `origin/main`.
+- **This commit is confirmed deployed and running.** Proof is the migration
+  statement count in the Render log: the migration file gained exactly one
+  statement (the A6 `ALTER`), and the log moved `25 statements applied` →
+  `26 statements applied` in step. No failed-statement line, no aborted boot.
+- Structure changed on 2026-08-15: PD routes now live in **`pd/pd-routes.js`**
+  (~1,550 lines), O2S under **`o2s/`**. `server.js` is down to ~556 lines and is
+  now genuinely PLATFORM-only — auth, login, `/api/me`, mounting the two
+  modules. **Section 1's "one shared file" note is now much narrower than it
+  was: the modules barely touch.**
+- Other branches: `dashboard-intervention-view` @ `759342e` (stale) and
+  `prelaunch-fixes` @ `6134503` — **redundant, its changes are inside `main`.**
+  Safe to delete.
 - Live auth confirmed working: `/api/me` → `tahir` / COO, modules `o2s:COO` +
-  `pd:coo`. `GET /api/pd/home` returns `{"total":0}` — **PD has no real data
-  yet** (empty pilot, as intended).
+  `pd:coo`. **PD has no real data yet** (empty pilot, as intended).
 - `_to_delete/` holds **stale duplicate copies** of `pd.html`, `pd-lib.js`,
   `migrations/`, `PORTING_STATUS.md`. It is gitignored. **Never open, edit, or
   read these as source** — they are the old versions and will mislead.
+
+### 3.1 How changes reach the working tree — no patch files, ever
+
+Four commits in a row committed `.patch` **files** instead of applying them:
+435 lines of patch text, zero lines of changed code. In GitHub Desktop,
+committing a patch and applying one look identical. That was a **method**
+failure, not a carelessness failure, so the method changed:
+
+- **Claude writes finished files directly into `E:\VAN-OP`.** No `.patch` files
+  are produced, handed over, or stored. Ever.
+- **Tahir's whole job is: commit and push what GitHub Desktop shows.** No apply
+  step. No merge step. No branch step.
+- Claude still **never pushes** (§2).
+
+If Claude ever finds itself about to write a `.patch` file, that is the bug.
 
 ---
 

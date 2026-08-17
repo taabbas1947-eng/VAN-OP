@@ -306,7 +306,7 @@ CREATE TABLE IF NOT EXISTS pd_candidates (
   calc_zn DECIMAL(8,3) NOT NULL DEFAULT 0,
   calc_rm_cost DECIMAL(12,2) NOT NULL DEFAULT 0,
   calc_exworks_cost DECIMAL(12,2) NOT NULL DEFAULT 0,
-  calc_cost_per_kg_p DECIMAL(12,2) NOT NULL DEFAULT 0,
+  calc_cost_per_kg_p DECIMAL(12,2) NULL DEFAULT NULL,
   provisional_pricing TINYINT(1) NOT NULL DEFAULT 1,
   verdict ENUM('','pass','borderline','fail') NOT NULL DEFAULT '',
   verdict_reasons TEXT,
@@ -323,6 +323,10 @@ CREATE TABLE IF NOT EXISTS pd_candidates (
   FOREIGN KEY (created_by) REFERENCES auth_users(id),
   FOREIGN KEY (decided_by) REFERENCES auth_users(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- FIX A6: existing installs — the column was NOT NULL DEFAULT 0, which made a phosphorus-free
+-- candidate score as the cheapest thing on the route. Safe to re-run.
+ALTER TABLE pd_candidates MODIFY COLUMN calc_cost_per_kg_p DECIMAL(12,2) NULL DEFAULT NULL;
 
 CREATE TABLE IF NOT EXISTS pd_candidate_lines (
   id INT AUTO_INCREMENT PRIMARY KEY,

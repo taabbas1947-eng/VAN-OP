@@ -100,10 +100,23 @@
     .pdside{width:100%;height:auto;position:static;flex-direction:row;flex-wrap:wrap;align-items:center;gap:6px}
     .pdside .brand{border-bottom:none;margin-bottom:0;padding:3px 6px}
     .pdside .nav{flex-direction:row;flex-wrap:wrap;overflow:visible;flex-basis:100%;order:3}
-    .pdside .navgrp{display:none}
+    /* FIX D13 — this hid the four menu group headings, leaving up to twenty-one undifferentiated
+       links wrapping across the top with no structure at all. They are the only thing telling you
+       which part of the pipeline you are looking at, so on a small screen they matter MORE. */
+    /* flex-basis:100% forces the heading onto its own line so the links that follow sit under it.
+       No `order` — the DOM already interleaves heading, links, heading, links; setting an order
+       collects all four headings at the end, away from the groups they name. */
+    .pdside .navgrp{display:block;flex:0 0 100%;width:100%;margin:10px 0 2px;font-size:11px;opacity:.75}
     .pdside .raillauncher{width:auto;margin-bottom:0}
     .pdside .raillauncher .lb,.pdside .railcollapse{display:none}
     .pdside .foot{border-top:none;margin-top:0;margin-left:auto;padding-top:0}
+    /* FIX D13 — iOS Safari zooms the whole page whenever a field smaller than 16px is tapped, and
+       every input here was 13px. Buttons were ~33px against a 44px touch guideline. */
+    input,textarea,select{font-size:16px !important}
+    .btn{min-height:44px;padding:10px 14px}
+    table{font-size:13px}
+    td,th{padding:8px 6px}
+    h1{font-size:1.2rem}
   }
   h1{font-family:var(--serif);font-size:1.4rem;font-weight:700;letter-spacing:-.02em;margin:0 0 6px;color:var(--text)}
   h2,h3{font-family:var(--serif);letter-spacing:-.02em}
@@ -161,7 +174,42 @@ async function api(method, url, body){
 let me = null; // /api/pd/me response
 const app = document.getElementById('app');
 
+/* FIX D12 — there was no confirmation anywhere in the application. Any button carrying a
+   data-confirm attribute now asks before it fires. One capture-phase listener covers every
+   screen, present and future, without touching each render function. */
+document.addEventListener('click', function(ev){
+  const b = ev.target && ev.target.closest && ev.target.closest('[data-confirm]');
+  if (!b || b.dataset.confirmed === '1') return;
+  ev.preventDefault(); ev.stopPropagation();
+  if (window.confirm(b.getAttribute('data-confirm'))) { b.dataset.confirmed = '1'; b.click(); b.dataset.confirmed = ''; }
+}, true);
+
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+/* FIX D9 — about two dozen places printed raw database values at people: "heavy", "field_trial",
+   "being_addressed", "bench_done", "qc_head", "superseded", "ideas_screen". Every one of these
+   already has a written label in pd-lib.js on the server; the screens simply were not using them.
+   One table here, used everywhere, so nobody has to learn the database's vocabulary. */
+const LANE_LABEL = { heavy: 'Heavy lane', light: 'Light lane' };
+const STATUS_LABEL = {
+  open: 'Open', being_addressed: 'Being addressed', solved: 'Solved', retired: 'Retired',
+  draft: 'Draft', reviewed: 'Reviewed', approved: 'Approved', bench_done: 'Bench work done', closed: 'Closed',
+  candidate: 'Candidate version', current: 'Current version', superseded: 'Superseded',
+  active: 'Active', parked: 'Parked', launched: 'Launched',
+  designed: 'Designed', running: 'Running', harvested: 'Harvested', analysed: 'Analysed',
+  screened: 'Screened on paper', selected: 'Selected', rejected: 'Rejected', made: 'Made',
+  pass: 'Pass', borderline: 'Borderline', fail: 'Fail',
+  not_started: 'Not started', submitted: 'Submitted', granted: 'Granted',
+  new: 'New', converted: 'Converted', dismissed: 'Dismissed',
+};
+const humanise = v => {
+  const k = String(v == null ? '' : v).trim();
+  if (!k) return '—';
+  if (STATUS_LABEL[k]) return STATUS_LABEL[k];
+  if (LANE_LABEL[k]) return LANE_LABEL[k];
+  // last resort: turn a database key into words rather than showing the key
+  return k.replace(/[_.]+/g, ' ').replace(/^\w/, c => c.toUpperCase());
+};
 function num(v){ const n = Number(v); return Number.isFinite(n) ? String(n) : '0'; } // DECIMALs arrive as strings like "54.000"
 function money(v){ const n = Number(v)||0; return 'Rs ' + Math.round(n).toLocaleString('en-US'); }
 
@@ -275,8 +323,9 @@ function setMain(html){ const m = document.getElementById('main'); if(m) m.inner
 
 async function route(){
   if (!me) return; // signed out (or not yet booted) — the hashchange listener can fire after sign-out via location.hash=''; don't let it repaint a stale session
-  const hash = location.hash || ('#'+me.landing);
+  const hash = location.hash || ('#'+(me.landing === 'index' ? 'board' : me.landing)); // FIX B5: 'index' is not a route
   try{
+    await (async function(){
     if (hash === '#home') return renderHome(hash);
     if (hash === '#mywork') return renderMyWork(hash);
     if (hash === '#ideas') return renderIdeas(hash);
@@ -308,30 +357,64 @@ async function route(){
     if (hash === '#guide') return renderGuide(hash);
     if (hash === '#doctrine') return renderDoctrine(hash);
     return renderHome(hash);
+    })();
   } catch(e) {
-    shell('<div class="err">'+esc(e.message)+'</div>', hash);
+    // FIX B2: an expired or invalidated session returns to sign-in, not a frozen screen.
+    if (e && e.status === 401){ setToken(''); me = null; renderLogin('Your session has ended — please sign in again.'); return; }
+    var msg = '<div class="card" style="border-color:#e0b4b4">'
+      + '<b>This page could not be loaded.</b>'
+      + '<div class="sub" style="margin-top:6px">'+esc((e && e.message) || 'Something went wrong.')+'</div>'
+      + '<div class="sub" style="margin-top:10px">If this keeps happening, tell the Registrar what you were doing.</div></div>';
+    try { setMain(msg); } catch(_) { shell(msg, hash); }
   }
 }
+// FIX B1: belt and braces — nothing should ever fail silently into a permanent "Loading...".
+window.addEventListener('unhandledrejection', function(ev){
+  try {
+    var e = ev && ev.reason;
+    if (e && e.status === 401){ setToken(''); me = null; renderLogin('Your session has ended — please sign in again.'); ev.preventDefault(); return; }
+    setMain('<div class="card" style="border-color:#e0b4b4"><b>This page could not be loaded.</b>'
+      + '<div class="sub" style="margin-top:6px">'+esc((e && e.message) || 'Something went wrong.')+'</div></div>');
+    ev.preventDefault();
+  } catch(_){}
+});
 window.addEventListener('hashchange', route);
 
 async function renderHome(hash){
   shell('<h1>Bring something in</h1><p class="sub">Loading…</p>', hash);
-  let d; try { d = await api('GET','/api/pd/home'); } catch(e){ d = { total:0, isSubmitter:false, submissions:[] }; }
+  /* FIX B10 — this swallowed every failure and drew the reassuring "Nothing logged yet — that is
+     how a zero-data pilot starts" panel. A database outage, a dropped connection and a genuinely
+     empty pilot all looked identical, so a real fault could sit there for days looking like calm. */
+  let d, loadFailed = null;
+  try { d = await api('GET','/api/pd/home'); }
+  catch(e){ loadFailed = e; d = { total:0, isSubmitter:false, submissions:[] }; }
   const door = (href, emoji, title, desc) => '<a href="'+href+'" style="text-decoration:none;color:inherit"><div class="card" style="margin:0;height:100%"><h3 style="margin:0 0 6px;font-size:1rem;color:var(--text)">'+emoji+' '+title+'</h3><p class="sub" style="margin:0">'+desc+'</p></div></a>';
   const doors = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-bottom:14px">'
     + door('#new','💡','Share an idea','A recipe, an ingredient, a route, a tweak, something a farmer said. A good question is enough — it need not be worked out.')
     + door('#newproblem','🎯','Register a problem','Something wrong in the field or in farmer economics that a product should solve. Problems are few and live long.')
     + door('#challenge','🔧','Challenge an existing product','A complaint, a weakness, or an improvement for something we already make. You will see its current version before you write.')
     + '</div>';
+  /* FIX D1 — the public drop box was linked from exactly one screen in the whole application,
+     and that screen is restricted to the COO and the Registrar. The people it exists for could
+     never find it. It is the lowest-friction door in the system: four fields, no sign-in. */
+  const dropline = '<div class="card" style="margin:0 0 14px;background:var(--bg-soft,#fafafa)">'
+    + '<b>Someone without an account?</b> <span class="sub">A dealer, a farmer, a driver, anyone — they can drop an idea or a problem at '
+    + '<a href="/pd/drop" target="_blank" rel="noopener"><b>/pd/drop</b></a>. No login, four fields, about a minute. '
+    + 'The Registrar picks these up and turns the good ones into logged ideas.</span></div>';
   const zero = d.total === 0 ? '<div class="card" style="border:2px solid var(--green)"><h2 style="margin:0 0 6px;font-size:1.05rem">Nothing logged yet — that is how a zero-data pilot starts</h2><p class="sub" style="margin:0">The Registrar checks the intake queue every working day and nudges the screener so nothing breaches the 15-day answer target.</p></div>' : '';
   const subs = d.submissions.length
     ? '<div style="overflow-x:auto"><table><tr><th>ID</th><th>Title</th>'+(d.isSubmitter?'':'<th>From</th>')+'<th>Kind</th>'+(d.isSubmitter?'':'<th>Lane</th>')+'<th>Stage</th><th>G1</th></tr>'
       + d.submissions.map(x=>'<tr class="clickable" onclick="location.hash=\'#idea/'+x.id+'\'"><td><b>'+x.h_label+'</b></td><td>'+esc(x.title)+'</td>'+(d.isSubmitter?'':'<td class="sub">'+esc(x.submitter_name)+'</td>')+'<td class="sub">'+esc(x.change_type_label)+'</td>'+(d.isSubmitter?'':'<td><span class="chip '+x.lane+'">'+x.lane+'</span></td>')+'<td><span class="chip stage">'+esc(x.stage_label)+'</span></td><td>'+(x.screen_decision?'<b>'+esc(x.screen_decision.toUpperCase())+'</b>':'<span class="sub">awaiting</span>')+'</td></tr>').join('')
       + '</table></div>'
     : '<p class="sub" style="margin:0">Nothing yet. Use a door above — yours could be the first.</p>';
+  const loadWarn = loadFailed
+    ? '<div class="card" style="border-color:#e0b4b4;margin:0 0 14px"><b>The pipeline could not be loaded just now,</b> so this page may be showing nothing when there is something.'
+      + '<div class="sub" style="margin-top:6px">'+esc(loadFailed.message || 'The server did not answer.')+'</div>'
+      + '<div class="sub" style="margin-top:8px">The three doors below still work — anything you submit is saved.</div></div>'
+    : '';
   setMain('<h1>Bring something in</h1>'
     + '<p class="sub">The front door. Everything the system does starts with one of three things going in — each logged, answered with a reason inside 15 days, and remembered forever. You never need permission to put something in.</p>'
-    + doors + zero
+    + loadWarn + doors + dropline + (loadFailed ? '' : zero)
     + '<h2 style="font-family:var(--serif);font-size:1.15rem;margin:16px 0 8px">'+(d.isSubmitter?'Your submissions':'Recent submissions')+'</h2>'
     + '<div class="card">'+subs+'</div>');
 }
@@ -367,68 +450,187 @@ async function renderChallenge(hash){
 async function renderNewIdea(hash){
   shell('<h1>Share an idea</h1><p class="sub">Loading…</p>', hash);
   let form; try { form = await api('GET','/api/pd/idea-form'); } catch(e){ form = { products:[], problems:[] }; }
-  const CT = {new:'Brand-new product idea', reformulation:'Improve / re-engineer an existing formulation', variant:'New variant of an existing product', process:'Process / manufacturing improvement'};
-  const ctOpts = Object.keys(CT).map(k=>'<option value="'+k+'">'+esc(CT[k])+'</option>').join('');
-  const prodOpts = '<option value="">—</option>'+form.products.map(p=>'<option value="'+p.id+'">'+esc(p.code+' — '+p.name)+'</option>').join('');
-  const probOpts = '<option value="">—</option>'+form.problems.map(p=>'<option value="'+p.id+'">'+esc(p.label)+'</option>').join('');
+  /* FIX D2 — the form used to show twelve fields, eight of them numbered like exam questions,
+     with no indication that only the title and the idea itself are required. Everything optional
+     now sits behind one toggle. FIX D3 — a draft is kept as you type, so a phone call or a stray
+     click no longer costs the whole submission. */
+  const CT = [
+    ['reformulation','Improve something we already make', 'A better version of a product or formulation we sell today.'],
+    ['variant',      'A new variant of one of our products','Same family, different grade, crop or pack.'],
+    ['process',      'A process or manufacturing idea',   'How we make it, not what we make.'],
+    ['new',          'A brand-new product idea',          'Something we do not make at all yet. This one goes to the COO.'],
+  ];
+  const DRAFT_KEY = 'pd_draft_idea';
+  let draft = {}; try { draft = JSON.parse(localStorage.getItem(DRAFT_KEY) || '{}') || {}; } catch(e){ draft = {}; }
+  const dv = k => esc(draft[k] || '');
+  const req = '<span style="color:var(--red,#b3261e)" title="required">*</span>';
   const hint = t => '<p class="sub" style="margin:4px 0 0">'+t+'</p>';
+  const prodOpts = '<option value="">—</option>'+form.products.map(p=>'<option value="'+p.id+'"'+(String(draft.f_prod)===String(p.id)?' selected':'')+'>'+esc(p.code+' — '+p.name)+'</option>').join('');
+  const probOpts = '<option value="">—</option>'+form.problems.map(p=>'<option value="'+p.id+'"'+(String(draft.f_prob)===String(p.id)?' selected':'')+'>'+esc(p.label)+'</option>').join('');
+  // width:auto is needed — the stylesheet sets every input to width:100%, which stretches a radio.
+  const kinds = CT.map(([k,label,sub]) =>
+      '<label class="kindopt" style="display:flex;align-items:flex-start;gap:10px;border:1px solid var(--line,#ddd);border-radius:8px;padding:10px 12px;margin:0 0 6px;cursor:pointer">'
+    + '<input type="radio" name="f_ct" value="'+k+'"'+(draft.f_ct===k?' checked':'')+' style="width:auto;flex:0 0 auto;margin:3px 0 0;padding:0">'
+    + '<span><b>'+esc(label)+'</b><span class="sub" style="display:block">'+esc(sub)+'</span></span></label>').join('');
+
   setMain(
     '<h1>Share an idea</h1>'
-    + '<p class="sub"><b>Have an idea?</b> A recipe, an ingredient, a route, a tweak, something a farmer said — anything. You do not need it fully worked out; a good question is enough. Every idea is logged, screened the same way whoever sends it, and answered with a reason within 15 days. You never pick a lane — it is set from the kind of idea.</p>'
+    + '<p class="sub"><b>Two boxes is a complete submission.</b> A recipe, an ingredient, a route, a tweak, something a farmer said. You do not need it worked out — a good question is enough. Everything is logged, answered with a reason, and kept forever.</p>'
     + '<div class="card">'
-    + '<div class="row" style="gap:12px"><div style="flex:1;min-width:200px"><label>What kind of idea is this?</label><select id="f_ct">'+ctOpts+'</select></div>'
-    + '<div style="flex:1;min-width:200px"><label>Related existing product (if any)</label><select id="f_prod">'+prodOpts+'</select></div>'
-    + '<div style="flex:1;min-width:200px"><label>Which registered problem does it address (if known)?</label><select id="f_prob">'+probOpts+'</select></div></div>'
-    + hint('Seeing a NEW problem nobody has named? <a href="#newproblem">Register it as a problem</a> instead. A fault in something we already sell? <a href="#challenge">Challenge the product</a>.')
-    + '<label>Idea in a few words (title)</label><input id="f_title">'
+    + '<div id="f_restored"></div>'
+    + '<label>Idea in a few words '+req+'</label><input id="f_title" value="'+dv('f_title')+'" placeholder="e.g. use local rock as the slow phase instead of filler">'
     + '<div id="f_similar"></div>'
-    + '<label>1. What is the idea?</label><textarea id="f_idea"></textarea>'
-    + '<label>2. What problem does it solve?</label><textarea id="f_problem"></textarea>'+hint('e.g. less fixation, cheaper, uses local rock, adds Zn/S')
-    + '<label>3. Why might it work? A hunch is fine.</label><textarea id="f_reason"></textarea>'
-    + '<label>4. What would it be made from? (rough)</label><textarea id="f_materials"></textarea>'
-    + '<label>5. How would we know it worked?</label><textarea id="f_success"></textarea>'+hint('yield, greener crop, a lab number…')
-    + '<label>6. Which crop / area (if any)?</label><input id="f_crop">'
-    + '<label>7. Anything you have seen that supports it?</label><textarea id="f_support"></textarea>'
-    + '<label>8. Any risk or worry you already see?</label><textarea id="f_risk"></textarea>'
-    + '<div style="margin-top:14px"><button class="btn" id="f_submit">Submit idea</button> <a class="btn ghost" href="#home">Cancel</a> <span id="f_msg"></span></div>'
+    + '<label>What is the idea? '+req+'</label><textarea id="f_idea" placeholder="What is it, and what made you think of it? Two sentences is plenty.">'+dv('f_idea')+'</textarea>'
+    + '<label style="margin-top:14px">What kind of idea is this? '+req+'</label>'
+    + hint('This decides who screens it — nothing else. Pick the closest; triage can move it.')
+    + '<div style="margin-top:6px">'+kinds+'</div>'
+    + '<div style="margin-top:10px"><button class="btn ghost" id="f_more" type="button">+ Add more detail (all optional)</button></div>'
+    + '<div id="f_detail" style="display:none;margin-top:12px;border-top:1px solid var(--line,#e4e4e4);padding-top:12px">'
+      + '<p class="sub" style="margin:0 0 10px">None of this is required. Fill in whatever you already know and leave the rest — a blank box is not a worse submission.</p>'
+      + '<div class="row" style="gap:12px">'
+        + '<div style="flex:1;min-width:200px"><label>Related existing product</label><select id="f_prod">'+prodOpts+'</select></div>'
+        + '<div style="flex:1;min-width:200px"><label>Which registered problem does it address?</label><select id="f_prob">'+probOpts+'</select></div>'
+      + '</div>'
+      + hint('Seeing a NEW problem nobody has named? <a href="#newproblem">Register it as a problem</a> instead. A fault in something we already sell? <a href="#challenge">Challenge the product</a>.')
+      + '<label>What problem does it solve?</label><textarea id="f_problem">'+dv('f_problem')+'</textarea>'+hint('e.g. less fixation, cheaper, uses local rock, adds Zn/S')
+      + '<label>Why might it work? A hunch is fine.</label><textarea id="f_reason">'+dv('f_reason')+'</textarea>'
+      + '<label>What would it be made from? (rough)</label><textarea id="f_materials">'+dv('f_materials')+'</textarea>'
+      + '<label>How would we know it worked?</label><textarea id="f_success">'+dv('f_success')+'</textarea>'+hint('yield, greener crop, a lab number… leave blank if it is too early to say')
+      + '<label>Which crop / area?</label><input id="f_crop" value="'+dv('f_crop')+'">'
+      + '<label>Anything you have seen that supports it?</label><textarea id="f_support">'+dv('f_support')+'</textarea>'
+      + '<label>Any risk or worry you already see?</label><textarea id="f_risk">'+dv('f_risk')+'</textarea>'
+    + '</div>'
+    + '<div style="margin-top:14px"><button class="btn" id="f_submit">Submit idea</button> <a class="btn ghost" href="#home">Cancel</a> <button class="btn ghost" id="f_clear" type="button">Discard draft</button> <span id="f_msg"></span></div>'
+    + '<p class="sub" id="f_draftnote" style="margin:8px 0 0"></p>'
     + '</div>'
   );
-  // "The system remembers similar ideas" — live fulltext check against past ideas.
+
+  const $ = i => document.getElementById(i);
+  const FIELDS = ['f_title','f_idea','f_problem','f_reason','f_materials','f_success','f_crop','f_support','f_risk','f_prod','f_prob'];
+  const kindNow = () => { const r = document.querySelector('input[name=f_ct]:checked'); return r ? r.value : ''; };
+
+  // FIX D2 — the detail section stays open if the person had it open, so a draft restore is not confusing.
+  const openDetail = (on) => { $('f_detail').style.display = on ? 'block' : 'none'; $('f_more').textContent = on ? '– Hide the optional questions' : '+ Add more detail (all optional)'; };
+  if (draft._open) openDetail(true);
+  $('f_more').onclick = () => { const on = $('f_detail').style.display === 'none'; openDetail(on); saveDraft(); };
+
+  // FIX D3 — keep a draft as they type. Cleared only on a successful submit or an explicit discard.
+  let _dt;
+  function saveDraft(){
+    if (!$('f_detail')) return; // the page may have been left while the debounce was pending
+    const o = { _open: $('f_detail').style.display !== 'none', f_ct: kindNow() };
+    FIELDS.forEach(k => { const el = $(k); if (el) o[k] = el.value; });
+    const anything = FIELDS.some(k => ($(k) && String($(k).value || '').trim()));
+    try { anything ? localStorage.setItem(DRAFT_KEY, JSON.stringify(o)) : localStorage.removeItem(DRAFT_KEY); } catch(e){}
+    if ($('f_draftnote')) $('f_draftnote').textContent = anything ? 'Saved on this device — you can close this page and come back to it.' : '';
+  }
+  const onAny = () => { clearTimeout(_dt); _dt = setTimeout(saveDraft, 400); };
+  FIELDS.forEach(k => { const el = $(k); if (el) el.oninput = el.onchange = onAny; });
+  document.querySelectorAll('input[name=f_ct]').forEach(r => r.onchange = onAny);
+  if (Object.keys(draft).length) {
+    $('f_restored').innerHTML = '<p class="sub" style="margin:0 0 10px;padding:8px 10px;background:var(--green-soft,#f1f8f3);border-radius:6px">Picked up where you left off. <a href="#" id="f_discard2">Start fresh instead</a>.</p>';
+    const dd = $('f_discard2'); if (dd) dd.onclick = (e) => { e.preventDefault(); try{ localStorage.removeItem(DRAFT_KEY); }catch(_){} renderNewIdea(hash); };
+  }
+  $('f_clear').onclick = () => { try{ localStorage.removeItem(DRAFT_KEY); }catch(e){} renderNewIdea(hash); };
+
+  /* FIX D4 — the duplicate check used to fire at six characters and shout "KILLED" in an amber
+     warning box, which reads as a rejection before you have finished your first sentence. It now
+     waits for twenty characters, is styled as information rather than a warning, and opens matches
+     in a new tab so following one cannot destroy the draft. */
   let _sim;
   const checkSimilar = async () => {
-    const box = document.getElementById('f_similar'); if (!box) return;
-    const q = (document.getElementById('f_title').value + ' ' + document.getElementById('f_idea').value).trim();
-    if (q.length < 6) { box.innerHTML = ''; return; }
+    const box = $('f_similar'); if (!box) return;
+    const q = (($('f_title')||{}).value + ' ' + ($('f_idea')||{}).value).trim();
+    if (q.length < 20) { box.innerHTML = ''; return; }
     try {
       const d = await api('GET','/api/pd/similar?q='+encodeURIComponent(q));
-      if (!d.matches.length) { box.innerHTML = ''; return; }
-      box.innerHTML = '<div class="card" style="background:var(--amber-soft);border-color:var(--amber);margin:8px 0"><b style="color:var(--amber)">⚠ The system remembers similar ideas — check before submitting:</b>'
-        + d.matches.map(m=>'<div style="margin-top:6px"><a href="#idea/'+m.id+'"><b>'+esc(m.label)+'</b></a> <span class="sub">· '+esc(m.fate)+'</span><div class="sub">'+esc(m.advice)+'</div></div>').join('')
-        + '<p class="sub" style="margin:6px 0 0">Still different? Submit anyway — the screen will judge it on merit.</p></div>';
+      if (!d.matches || !d.matches.length) { box.innerHTML = ''; return; }
+      box.innerHTML = '<div class="card" style="margin:8px 0;background:var(--bg-soft,#fafafa)">'
+        + '<b class="sub">Related work already in the system</b>'
+        + d.matches.map(m => '<div style="margin-top:6px">'
+            + (m.id ? '<a href="/pd#idea/'+m.id+'" target="_blank" rel="noopener"><b>'+esc(m.label)+'</b></a>' : '<b>'+esc(m.label)+'</b>')
+            + ' <span class="sub">· '+esc(m.fate)+'</span><div class="sub">'+esc(m.advice)+'</div></div>').join('')
+        + '<p class="sub" style="margin:8px 0 0">Opens in a new tab, so you will not lose what you have written. If yours is different, submit it — the screen judges it on merit.</p></div>';
     } catch(e){ box.innerHTML = ''; }
   };
-  const deb = () => { clearTimeout(_sim); _sim = setTimeout(checkSimilar, 500); };
-  document.getElementById('f_title').oninput = deb;
-  document.getElementById('f_idea').oninput = deb;
-  document.getElementById('f_submit').onclick = async () => {
-    const gv = i => (document.getElementById(i).value || '').trim();
-    if(!gv('f_title') || !gv('f_idea')){ document.getElementById('f_msg').innerHTML='<span class="err">Title and the idea itself are required.</span>'; return; }
-    const b = { title:gv('f_title'), change_type:document.getElementById('f_ct').value, parent_product_id:document.getElementById('f_prod').value, problem_id:document.getElementById('f_prob').value,
-      idea_text:gv('f_idea'), problem_text:gv('f_problem'), reasoning_text:gv('f_reason'), materials_text:gv('f_materials'), success_text:gv('f_success'), crop_area:gv('f_crop'), support_text:gv('f_support'), risk_text:gv('f_risk') };
-    try{ const j = await api('POST','/api/pd/ideas', b); location.hash = '#idea/'+ (await api('GET','/api/pd/ideas')).find(x=>x.h_number===j.h_number).id; }
-    catch(e){ document.getElementById('f_msg').innerHTML = '<span class="err">'+esc(e.message)+'</span>'; }
+  const deb = () => { clearTimeout(_sim); _sim = setTimeout(checkSimilar, 600); };
+  $('f_title').addEventListener('input', deb);
+  $('f_idea').addEventListener('input', deb);
+
+  $('f_submit').onclick = async () => {
+    const gv = i => (($(i)||{}).value || '').trim();
+    /* FIX D5 — the error used to be one line below twelve fields, naming neither field.
+       It now names the missing one and puts the cursor in it. */
+    const fail = (id, msg) => { $('f_msg').innerHTML = '<span class="err">'+esc(msg)+'</span>'; const el = $(id); if (el){ el.focus(); el.scrollIntoView({block:'center'}); } };
+    if (!gv('f_title')) return fail('f_title', 'Give it a few words as a title.');
+    if (!gv('f_idea'))  return fail('f_idea',  'Say what the idea is — two sentences is plenty.');
+    if (!kindNow())     return fail('f_title', 'Pick what kind of idea it is — that is what decides who screens it.');
+    const b = { title:gv('f_title'), change_type:kindNow(),
+      parent_product_id:gv('f_prod'), problem_id:gv('f_prob'),
+      idea_text:gv('f_idea'), problem_text:gv('f_problem'), reasoning_text:gv('f_reason'),
+      materials_text:gv('f_materials'), success_text:gv('f_success'), crop_area:gv('f_crop'),
+      support_text:gv('f_support'), risk_text:gv('f_risk') };
+    $('f_submit').disabled = true; $('f_msg').innerHTML = '<span class="sub">Logging it…</span>';
+    try{
+      const j = await api('POST','/api/pd/ideas', b);
+      try{ localStorage.removeItem(DRAFT_KEY); }catch(e){}
+      // the POST now returns the id directly — no fragile lookup, no risk of a double submit
+      if (j && j.id) { location.hash = '#idea/'+j.id; }
+      else { location.hash = '#ideas'; }
+    }
+    catch(e){ $('f_submit').disabled = false; $('f_msg').innerHTML = '<span class="err">'+esc(e.message)+'</span>'; }
   };
 }
 
 async function renderIdeas(hash){
   shell('<h1>Ideas</h1><p class="sub">Loading…</p>', hash);
   const rows = await api('GET','/api/pd/ideas');
-  const trs = rows.map(r =>
-    '<tr class="clickable" onclick="location.hash=\'#idea/'+r.id+'\'"><td>'+r.h_label+'</td><td>'+esc(r.title)+'</td>'
-    + '<td><span class="chip '+r.lane+'">'+r.lane+'</span></td><td><span class="chip stage">'+esc(r.stage_label)+'</span></td>'
-    + '<td>'+esc(r.submitted_by_name)+'</td></tr>').join('');
-  setMain('<h1>Ideas</h1><p class="sub">'+rows.length+' idea(s).</p>'
-    + '<div class="card"><table><tr><th>H#</th><th>Title</th><th>Lane</th><th>Stage</th><th>Submitted by</th></tr>'+trs+'</table></div>');
+
+  /* FIX D11 — H-numbers are printed on every screen in the application and were searchable on
+     none of them. Somebody holding a printed board and the number H-042 had no way to reach it.
+     Matches the number, the title, the stage or the person, and understands "H-42", "H42", "42". */
+  const norm = s => String(s || '').toLowerCase().trim();
+  const hNum = s => { const m = norm(s).match(/^h?-?0*(\d+)$/); return m ? Number(m[1]) : null; };
+  const match = (r, q) => {
+    if (!q) return true;
+    const n = hNum(q);
+    if (n !== null && Number(r.h_number) === n) return true;
+    return [r.h_label, r.title, r.stage_label, r.submitted_by_name, LANE_LABEL[r.lane] || r.lane]
+      .some(v => norm(v).includes(q));
+  };
+
+  const draw = (q) => {
+    const list = rows.filter(r => match(r, q));
+    // FIX D9 — the lane chip printed the raw database value ("heavy" / "light").
+    const trs = list.map(r =>
+      '<tr class="clickable" onclick="location.hash=\'#idea/'+r.id+'\'"><td><b>'+r.h_label+'</b></td><td>'+esc(r.title)+'</td>'
+      + '<td><span class="chip '+r.lane+'">'+esc(LANE_LABEL[r.lane] || r.lane)+'</span></td>'
+      + '<td><span class="chip stage">'+esc(r.stage_label)+'</span></td>'
+      + '<td>'+esc(r.submitted_by_name)+'</td></tr>').join('');
+
+    /* FIX B9 — this was the only list in the application with no empty state. On a new system it
+       drew a table of headings and nothing else, which reads as "broken" rather than "nothing yet".
+       It is also the screen a new person is most likely to open first. */
+    const body = list.length
+      ? '<div style="overflow-x:auto"><table><tr><th>H#</th><th>Title</th><th>Lane</th><th>Stage</th><th>Submitted by</th></tr>'+trs+'</table></div>'
+      : (rows.length
+          ? '<p class="sub" style="margin:0">Nothing matches “'+esc(q)+'”. <a href="#" id="i_clear">Show all '+rows.length+'</a>.</p>'
+          : '<div style="text-align:center;padding:26px 10px">'
+            + '<p style="margin:0 0 6px;font-weight:600">No ideas have been logged yet.</p>'
+            + '<p class="sub" style="margin:0 0 14px">This is how a new pipeline starts. The first one can be two sentences.</p>'
+            + '<a class="btn" href="#new">Share the first idea</a></div>');
+
+    setMain('<h1>Ideas</h1>'
+      + '<p class="sub">'+(rows.length ? (q ? list.length+' of '+rows.length+' shown' : rows.length+' idea'+(rows.length===1?'':'s')) : 'The full pipeline, oldest number first.')+'</p>'
+      + (rows.length ? '<div class="card" style="padding:10px 12px"><input id="i_q" placeholder="Search — H-number, title, stage or person" value="'+esc(q||'')+'" style="margin:0"></div>' : '')
+      + '<div class="card">'+body+'</div>');
+
+    const qi = document.getElementById('i_q');
+    if (qi) { qi.oninput = () => { const v = qi.value; draw(norm(v)); const el = document.getElementById('i_q'); if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); } }; }
+    const cl = document.getElementById('i_clear');
+    if (cl) cl.onclick = (e) => { e.preventDefault(); draw(''); };
+  };
+  draw('');
 }
 
 async function renderMyWork(hash){
@@ -663,7 +865,7 @@ async function renderRecord(hash, id){
     + '</table>'
     + (c.can_review_rta ? '<div style="margin-top:12px"><label>Review note (optional)</label><input id="rta_note"><div style="margin-top:8px"><button class="btn" id="doRta">Record technical review</button></div></div>' : '')
     + (c.can_complete ? '<div style="margin-top:12px"><button class="btn" id="doComplete">Confirm record is complete</button></div>' : '')
-    + (c.can_approve_g2 ? '<div style="margin-top:12px"><button class="btn" id="doG2">Approve design (G2)</button> <span class="sub">'+(c.would_delegate?'You are signing on site under delegated authority — the COO ratifies in the Gate Log.':'')+(!c.g2_ready?' Needs the RTA review and completeness check first.':'')+'</span></div>' : '')
+    + (c.can_approve_g2 ? '<div style="margin-top:12px"><button class="btn" id="doG2" data-confirm="Approve the design at G2?\n\nSections 1-3 of this record lock permanently. They cannot be edited afterwards — a changed design has to be written as a brand-new record.\n\nApprove?">Approve design (G2)</button> <span class="sub">'+(c.would_delegate?'You are signing on site under delegated authority — the COO ratifies in the Gate Log.':'')+(!c.g2_ready?' Needs the RTA review and completeness check first.':'')+'</span></div>' : '')
     + '<div id="sign_msg"></div></div>';
 
   const canPost = c.can_edit_post;
@@ -731,7 +933,7 @@ async function renderGateLog(hash){
       + '<label>Committee members present (roles)</label><input id="g_att" placeholder="COO, Plant Manager, QC Head…">'
       + '<label>Reason (recorded forever — the owner is told)</label><textarea id="g_reason"></textarea>'
       + '<label style="font-weight:400;display:flex;align-items:center;gap:8px;margin-top:8px"><input type="checkbox" id="g_site" style="width:auto"> Site quorum — Plant Manager presiding under delegated authority (provisional until the COO ratifies within 48 h)</label>'
-      + '<div style="margin-top:12px"><button class="btn" id="g_submit">Record decision</button> <span id="g_msg"></span></div></div>';
+      + '<div style="margin-top:12px"><button class="btn" id="g_submit" data-confirm="Record this gate decision?\n\nGate decisions are kept forever and there is no undo. A KILL closes the idea permanently — it keeps its number and its reason, but it does not come back.\n\nRecord it?">Record decision</button> <span id="g_msg"></span></div></div>';
   }
 
   const logTable = '<div class="card"><h2 style="font-size:1.05rem;margin:0 0 10px">Decision log</h2>'
@@ -767,18 +969,29 @@ async function renderSamples(hash){
   shell('<h1>Samples</h1><p class="sub">Loading…</p>', hash);
   const rows = await api('GET','/api/pd/samples');
   const canLog = ['qc_head','custodian','lab_tech','coo'].includes(me.pd_role);
-  let ideas = [], recs = [];
-  if (canLog) { try { ideas = await api('GET','/api/pd/ideas'); } catch(e){} try { recs = await api('GET','/api/pd/records'); } catch(e){} }
+  /* FIX B6 — the Development Record list is refused to a Lab Technician, and the error was
+     discarded, so the dropdown rendered empty every single time with nothing to explain it.
+     A control that never works and never says why is worse than one that is not there. */
+  let ideas = [], recs = [], recsDenied = false;
+  if (canLog) {
+    try { ideas = await api('GET','/api/pd/ideas'); } catch(e){}
+    try { recs = await api('GET','/api/pd/records'); } catch(e){ if (e && (e.status === 403 || e.status === 401)) recsDenied = true; }
+  }
 
   let form = '';
   if (canLog) {
     const hypOpts = ideas.filter(i => !['Killed','Parked'].includes(i.stage_label)).map(i => '<option value="'+i.id+'">'+i.h_label+' — '+esc(i.title)+'</option>').join('');
     const recOpts = recs.map(r => '<option value="'+r.id+'">'+esc(r.record_no)+'</option>').join('');
+    // FIX B6 — a Lab Technician may not read the record list, so this select is always empty for
+    // them. Say so, instead of leaving a control that looks broken.
+    const recNote = recsDenied
+      ? '<p class="sub" style="margin:4px 0 0">Development Records are not on your menu, so this list stays empty — that is expected. Leave it blank; the QC Head links the record.</p>'
+      : (recs.length ? '' : '<p class="sub" style="margin:4px 0 0">No Development Records exist yet. Leave this blank.</p>');
     form = '<div class="card"><h2 style="font-size:1.05rem;margin:0 0 6px">Log a sample</h2>'
       + '<p class="sub" style="margin:0 0 10px">Only after the idea has a <b>G3 (beaker gate) advance</b> in the gate log.</p>'
       + '<div class="row" style="gap:14px">'
       + '<div style="flex:2;min-width:220px"><label>Hypothesis</label><select id="s_hyp"><option value="">—</option>'+hypOpts+'</select></div>'
-      + '<div style="flex:1;min-width:150px"><label>Development Record</label><select id="s_dr"><option value="">—</option>'+recOpts+'</select></div>'
+      + '<div style="flex:1;min-width:150px"><label>Development Record</label><select id="s_dr"'+(recsDenied?' disabled':'')+'><option value="">—</option>'+recOpts+'</select>'+recNote+'</div>'
       + '<div style="flex:1;min-width:130px"><label>Date made</label><input type="date" id="s_made"></div>'
       + '<div style="flex:1;min-width:150px"><label>Recipe (short)</label><input id="s_recipe"></div>'
       + '<div style="flex:1;min-width:130px"><label>Target analysis</label><input id="s_target"></div>'
@@ -981,7 +1194,7 @@ async function renderRoute(hash, hid){
       let act = '';
       if (caps.decide && ['screened','rejected'].includes(c.status)) act += '<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center"><input id="dr_'+c.id+'" placeholder="Reason (kept forever)" style="flex:1;min-width:200px"><button class="btn" data-decide="'+c.id+'" data-want="selected">Select for bench</button><button class="btn ghost" data-decide="'+c.id+'" data-want="rejected">Rule out</button></div>';
       if (c.decision_reason) act += '<div class="sub" style="margin-top:6px"><b>'+esc((c.status||'').toUpperCase())+':</b> '+esc(c.decision_reason)+(c.decided_by_name?' — '+esc(c.decided_by_name):'')+'</div>';
-      if (caps.make && c.status==='selected') act += '<div style="margin-top:8px"><button class="btn'+(g3_open?'':' ghost')+'" data-make="'+c.id+'">Make this — log a sample</button>'+(g3_open?'':' <span class="sub">the beaker gate is shut; this will be refused</span>')+'</div>';
+      if (caps.make && c.status==='selected') act += '<div style="margin-top:8px"><button class="btn'+(g3_open?'':' ghost')+'" data-confirm="Make this candidate?\n\nThis creates a permanent numbered sample record and commits materials and bench time. It cannot be undone.\n\nMake it?" data-make="'+c.id+'">Make this — log a sample</button>'+(g3_open?'':' <span class="sub">the beaker gate is shut; this will be refused</span>')+'</div>';
       const reasons = '<tr><td colspan="10" style="background:var(--surface-2)"><span class="sub" style="white-space:pre-wrap">'+esc(c.verdict_reasons||'')+'</span>'+act+'</td></tr>';
       return main + reasons;
     }).join('');
@@ -1416,8 +1629,16 @@ async function renderBoard(hash){
   const card = x => {
     let flag = '';
     if (x.stage === 'proposed' && x.age_days > d.slaDays) flag = '<br><b style="color:var(--red);font-size:12px">'+x.age_days+' days — over target</b>';
-    const st = (x.stage==='parked'||x.stage==='killed') ? ' <span class="chip stage">'+x.stage+'</span>' : '';
-    return '<a class="clickable" style="display:block;border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin-bottom:8px;text-decoration:none;color:inherit;background:var(--surface)" href="#idea/'+x.id+'"><b>'+x.h_label+'</b>'+(x.lane==='light'?' <span class="sub">light</span>':'')+st+'<br>'+esc(x.title)+flag+'</a>';
+    // FIX D9 — this printed the raw database value ("field_trial", "parked"). pd-lib already
+    // defines a human label for every stage; the server now sends it.
+    const st = (x.stage==='parked'||x.stage==='killed') ? ' <span class="chip stage">'+esc(x.stage_label||x.stage)+'</span>' : '';
+    // FIX D7 — the next step, on the card, so the board says what happens next and who does it.
+    const ns = (x.next_step && x.next_step.text)
+      ? '<div class="sub" style="margin-top:5px;padding-top:5px;border-top:1px dashed var(--line)">'
+        + (x.next_step.who && x.next_step.who!=='—' ? '<b>'+esc(x.next_step.who)+':</b> ' : '')
+        + esc(x.next_step.text.length > 90 ? x.next_step.text.slice(0,88)+'…' : x.next_step.text) + '</div>'
+      : '';
+    return '<a class="clickable" style="display:block;border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin-bottom:8px;text-decoration:none;color:inherit;background:var(--surface)" href="#idea/'+x.id+'"><b>'+x.h_label+'</b>'+(x.lane==='light'?' <span class="sub">light</span>':'')+st+'<br>'+esc(x.title)+flag+ns+'</a>';
   };
   const col = (key, label, items) => '<div style="min-width:210px;max-width:230px;flex:0 0 auto;background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:10px">'
     + '<div style="display:flex;justify-content:space-between;font-weight:600;font-size:.85rem;margin-bottom:10px"><span>'+esc(label)+'</span><span class="sub">'+items.length+'</span></div>'

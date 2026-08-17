@@ -1,0 +1,30 @@
+--- a/server.js
++++ b/server.js
+@@ -549,6 +549,27 @@
+ const _NOCACHE = 'no-store, no-cache, must-revalidate';
+ // Shared brand assets (VAN logo + horse-emblem trademark), used by the launcher and every module top bar.
+ // Cacheable — these are stable files; bump the filename if a logo ever changes.
++/* FIX B8b — the catch-all at the bottom answers EVERY unmatched path with the O2S page and
++   HTTP 200. That means /robots.txt returns a web page, so anything that checks robots first
++   — crawlers, link previews in WhatsApp and Slack, uptime monitors, automated fetchers —
++   gets HTML where it expected a text file and gives up. It also means a typo'd API path
++   returns a 200 full of HTML instead of an error, which is the most silent way for a bug
++   to hide. Both are answered here, before the catch-all. */
++app.get('/robots.txt', (req, res) => {
++  res.type('text/plain').set('Cache-Control', 'public, max-age=86400').send(
++    // The app is behind a login and renders everything client-side, so there is nothing for a
++    // crawler to index anyway. The API is closed off explicitly. If you would rather the whole
++    // site stayed out of search results, change the last two lines to a single "Disallow: /"
++    // — but note that also stops link previews and automated page checks from working.
++    'User-agent: *\n' +
++    'Disallow: /api/\n' +
++    'Allow: /\n'
++  );
++});
++// Any /api path that reached this far matched no route. Say so, in JSON, rather than
++// handing the caller a web page with a 200 on it.
++app.use('/api', (req, res) => res.status(404).json({ error: 'No such endpoint.' }));
++
+ app.use('/assets', express.static(path.join(__dirname, 'assets'), { maxAge: '7d', immutable: false }));
+ // Front door: the platform launcher.
+ app.get(['/', '/launcher', '/launcher.html'], (req, res) => { res.set('Cache-Control', _NOCACHE); res.sendFile(path.join(__dirname, 'launcher.html')); });

@@ -41,7 +41,11 @@ app.post('/api/pd/ideas', auth, pdAuth, pdSurface('ideas.new'), async (req, res)
          b.risk_text || null, req.pdUser.id]
       );
     });
-    res.json({ ok: true, h_number: h, h_label: pd.fmt_h(h), lane });
+    /* FIX D5 — return the row id. The client used to re-fetch the whole idea list and search it
+       by h_number, which threw a raw TypeError if the lookup missed — after the idea was already
+       saved, so the user's instinct was to press Submit again and create a duplicate. */
+    const [[justMade]] = [(await pdq('SELECT id FROM pd_hypotheses WHERE h_number=?', [h]))[0]];
+    res.json({ ok: true, id: justMade ? justMade.id : null, h_number: h, h_label: pd.fmt_h(h), lane });
   } catch (e) { res.status(500).json({ error: String(e) }); }
 });
 
@@ -205,6 +209,73 @@ app.get('/api/pd/mywork', auth, pdAuth, pdSurface('mywork'), async (req, res) =>
     const dropNew = await one("SELECT id, name, text FROM pd_dropbox WHERE status='new' ORDER BY created_at");
     const routesNoCandidates = await one("SELECT h.id, h.h_number, h.title FROM pd_hypotheses h WHERE h.screen_decision='log' AND h.stage NOT IN ('killed','parked','validated') AND NOT EXISTS (SELECT 1 FROM pd_candidates c WHERE c.hypothesis_id=h.id) ORDER BY h.h_number");
     const candsToMake = await one("SELECT c.cand_no, c.label, c.hypothesis_id, h.h_number FROM pd_candidates c JOIN pd_hypotheses h ON h.id=c.hypothesis_id WHERE c.status='selected' AND EXISTS (SELECT 1 FROM pd_gate_decisions g WHERE g.hypothesis_id=c.hypothesis_id AND g.gate='G3' AND g.decision='advance') ORDER BY c.calc_cost_per_kg_p");
+    /* FIX D7 — G3, G4, G5 and G6 appeared in NOBODY's queue. The only prompt for them lived on
+       the idea detail page, so the committee was never told a gate was due and the pipeline
+       stalled silently: nothing errored, everyone read "caught up", and the sample, the test,
+       the trial and the launch behind it stayed frozen. A gate is due when the stage before it
+       has been reached and that gate has not yet advanced. */
+    const gatesDue = await one(`
+      SELECT h.id, h.h_number, h.title, 'G3' gate, 'commit materials and bench time?' ask,
+             DATEDIFF(NOW(), COALESCE((SELECT MAX(g2.decided_at) FROM pd_gate_decisions g2 WHERE g2.hypothesis_id=h.id), h.submitted_at)) age
+        FROM pd_hypotheses h
+       WHERE h.stage='designed'
+         AND NOT EXISTS (SELECT 1 FROM pd_gate_decisions g WHERE g.hypothesis_id=h.id AND g.gate='G3' AND g.decision='advance')
+      UNION ALL
+      SELECT h.id, h.h_number, h.title, 'G4', 'which run wins, against the criteria written before the runs?',
+             DATEDIFF(NOW(), COALESCE((SELECT MAX(g2.decided_at) FROM pd_gate_decisions g2 WHERE g2.hypothesis_id=h.id), h.submitted_at))
+        FROM pd_hypotheses h
+       WHERE h.stage IN ('sampled','tested')
+         AND EXISTS (SELECT 1 FROM pd_gate_decisions g WHERE g.hypothesis_id=h.id AND g.gate='G3' AND g.decision='advance')
+         AND NOT EXISTS (SELECT 1 FROM pd_gate_decisions g WHERE g.hypothesis_id=h.id AND g.gate='G4' AND g.decision='advance')
+         AND EXISTS (SELECT 1 FROM pd_lab_tests t JOIN pd_samples s ON s.id=t.sample_id WHERE s.hypothesis_id=h.id)
+      UNION ALL
+      SELECT h.id, h.h_number, h.title, 'G5', 'worth a season in the field, against a real DAP control?',
+             DATEDIFF(NOW(), COALESCE((SELECT MAX(g2.decided_at) FROM pd_gate_decisions g2 WHERE g2.hypothesis_id=h.id), h.submitted_at))
+        FROM pd_hypotheses h
+       WHERE h.stage='evaluated'
+         AND NOT EXISTS (SELECT 1 FROM pd_gate_decisions g WHERE g.hypothesis_id=h.id AND g.gate='G5' AND g.decision='advance')
+      UNION ALL
+      SELECT h.id, h.h_number, h.title, 'G6', 'can the plant make it, at what margin, is it registered?',
+             DATEDIFF(NOW(), COALESCE((SELECT MAX(g2.decided_at) FROM pd_gate_decisions g2 WHERE g2.hypothesis_id=h.id), h.submitted_at))
+        FROM pd_hypotheses h
+       WHERE h.stage='field_trial'
+         AND NOT EXISTS (SELECT 1 FROM pd_gate_decisions g WHERE g.hypothesis_id=h.id AND g.gate='G6' AND g.decision='advance')
+         AND EXISTS (SELECT 1 FROM pd_field_trials t WHERE t.hypothesis_id=h.id AND t.status IN ('analysed','closed'))
+      ORDER BY age DESC`);
+
+    /* FIX D6 — Agronomy had ONE query behind My Work, so once a trial existed the page read
+       "caught up" for the whole growing season: no sowing prompt, no observation prompt, no
+       harvest prompt, no results prompt. These four cover the rest of the trial's life. */
+    const trialAwaitG5 = await one(`SELECT t.id, t.trial_code, t.crop, t.location, h.h_number, h.title
+        FROM pd_field_trials t JOIN pd_hypotheses h ON h.id=t.hypothesis_id
+       WHERE t.status='designed'
+         AND NOT EXISTS (SELECT 1 FROM pd_gate_decisions g WHERE g.hypothesis_id=t.hypothesis_id AND g.gate='G5' AND g.decision='advance')
+       ORDER BY t.created_at`);
+    const trialToSow = await one(`SELECT t.id, t.trial_code, t.crop, t.location, h.h_number, h.title
+        FROM pd_field_trials t JOIN pd_hypotheses h ON h.id=t.hypothesis_id
+       WHERE t.status IN ('designed','approved') AND t.sown IS NULL
+         AND EXISTS (SELECT 1 FROM pd_gate_decisions g WHERE g.hypothesis_id=t.hypothesis_id AND g.gate='G5' AND g.decision='advance')
+       ORDER BY t.created_at`);
+    const trialNeedObs = await one(`SELECT t.id, t.trial_code, t.crop, h.h_number, h.title,
+             DATEDIFF(NOW(), COALESCE((SELECT MAX(o.obs_date) FROM pd_field_obs o WHERE o.trial_id=t.id), t.sown)) since
+        FROM pd_field_trials t JOIN pd_hypotheses h ON h.id=t.hypothesis_id
+       WHERE t.status='running' AND t.sown IS NOT NULL
+         AND DATEDIFF(NOW(), COALESCE((SELECT MAX(o.obs_date) FROM pd_field_obs o WHERE o.trial_id=t.id), t.sown)) >= 21
+       ORDER BY since DESC`);
+    const trialToClose = await one(`SELECT t.id, t.trial_code, t.crop, h.h_number, h.title
+        FROM pd_field_trials t JOIN pd_hypotheses h ON h.id=t.hypothesis_id
+       WHERE t.status='harvested' OR (t.harvest IS NOT NULL AND t.status NOT IN ('analysed','closed'))
+       ORDER BY t.harvest`);
+
+    /* FIX D6 — Production's two sections were both grey and non-actionable, and its one link
+       pointed at a page Production may not write to. The specification and the briefing both
+       promise a feasibility and costing review before G6; there is no field for it, so until
+       there is, the read goes on the idea as a comment, which Production is allowed to write. */
+    const preG6 = await one(`SELECT h.id, h.h_number, h.title, h.stage FROM pd_hypotheses h
+       WHERE h.stage IN ('evaluated','field_trial')
+         AND NOT EXISTS (SELECT 1 FROM pd_gate_decisions g WHERE g.hypothesis_id=h.id AND g.gate='G6' AND g.decision='advance')
+       ORDER BY h.h_number`);
+
     const digest = await one(`SELECT h.id, h.h_number, h.title, h.screen_decision, u2.name screener FROM pd_hypotheses h JOIN auth_users u2 ON u2.id=h.screened_by WHERE h.lane='light' AND h.screen_decision<>'' AND h.screened_at IS NOT NULL AND h.screened_at > DATE_SUB(NOW(), INTERVAL ${REV} DAY) AND u2.pd_role <> 'coo' AND NOT EXISTS (SELECT 1 FROM pd_gate_decisions g WHERE g.hypothesis_id=h.id AND g.gate='G1' AND g.decision='reverse') ORDER BY h.screened_at DESC`);
 
     const sections = [];
@@ -215,6 +286,10 @@ app.get('/api/pd/mywork', auth, pdAuth, pdSurface('mywork'), async (req, res) =>
     const add = (items, title, rowFn, act = true) => { if (items.length) sections.push({ title, act, items: items.slice(0, 8).map(rowFn), more: Math.max(0, items.length - 8) }); };
     const idea = (x, extra, btnLabel, ghost) => ({ label: H(x) + (extra || ''), btn: { label: btnLabel, hash: '#idea/' + x.id, ghost: !!ghost } });
     const rec = (r, btnLabel, ghost) => ({ label: r.record_no + ' — ' + pd.fmt_h(r.h_number) + ' ' + E(r.title), btn: { label: btnLabel, hash: '#record/' + r.id, ghost: !!ghost } });
+    const gateRow = g => ({ label: '<b>' + g.gate + '</b> · ' + pd.fmt_h(g.h_number) + ' — ' + E(g.title) + ' <span class="sub">· ' + E(g.ask) + (g.age > SLA ? ' · ' + g.age + ' days, over the ' + SLA + '-day target' : '') + '</span>',
+                            btn: { label: 'Record ' + g.gate, hash: '#gatelog' } });
+    const trialRow = (t, btnLabel, extra, ghost) => ({ label: E(t.trial_code) + ' — ' + pd.fmt_h(t.h_number) + ' ' + E(t.title) + '<span class="sub"> · ' + E([t.crop, t.location].filter(Boolean).join(', ')) + (extra || '') + '</span>',
+                            btn: { label: btnLabel, hash: '#trials', ghost: !!ghost } });
 
     if (R === 'coo') {
       add(awaitingHeavy, 'Ideas awaiting your screen (G1 · heavy lane — new product concepts)', x => idea(x, ageStr(x), 'Screen'));
@@ -222,6 +297,7 @@ app.get('/api/pd/mywork', auth, pdAuth, pdSurface('mywork'), async (req, res) =>
       add(openProblems, 'New problems to review & set direction', p => ({ label: pd.fmt_p(p.p_number) + ' — ' + E(p.title), btn: { label: 'Review', hash: '#problems' } }));
       add(recReadyG2, 'Designs ready for you to sign (G2)', r => rec(r, 'Review & sign'));
       add(pendRatify, 'Provisional decisions waiting on your ratification', g => ({ label: g.gate + ' ' + String(g.decision).toUpperCase() + ' — ' + pd.fmt_h(g.h_number) + ' ' + E(g.title), btn: { label: 'Ratify', hash: '#gatelog' } }));
+      add(gatesDue, 'Committee gates due — you chair these (G3–G6)', gateRow);
     }
     if (R === 'qc_head') {
       add(awaitingLight, 'Ideas awaiting your screen (G1 · light lane — improvements, variants, fixes)', x => idea(x, ageStr(x), 'Screen'));
@@ -235,6 +311,7 @@ app.get('/api/pd/mywork', auth, pdAuth, pdSurface('mywork'), async (req, res) =>
       add(recNeedRta, 'Development Records awaiting your technical review', r => rec(r, 'Review'));
       add(recReadyG2, 'Designs ready for G2 — you may sign on site (the COO ratifies)', r => rec(r, 'Open'));
       add(awaitingAll, 'Intake queue — screen ONLY as deputy, when the named screener is away', x => idea(x, ageStr(x), 'View', true), false);
+      add(gatesDue, 'Committee gates due — you may record these (site quorum; the COO ratifies)', gateRow);
     }
     if (R === 'custodian') {
       add(awaitingAll, 'Intake queue — nudge the screener if it is ageing', x => idea(x, ageStr(x), 'View', true), false);
@@ -242,6 +319,7 @@ app.get('/api/pd/mywork', auth, pdAuth, pdSurface('mywork'), async (req, res) =>
       add(dropNew, 'Drop-box entries to triage', d => ({ label: E(d.name) + ' — ' + E(String(d.text).slice(0, 50)), btn: { label: 'Triage', hash: '#dropbox' } }));
       add(openProblems, 'New problems — log them and nudge management (they decide)', p => ({ label: pd.fmt_p(p.p_number) + ' — ' + E(p.title), btn: { label: 'Open', hash: '#problems', ghost: true } }), false);
       add(pendRatify, 'Provisional decisions to minute', g => ({ label: g.gate + ' ' + String(g.decision).toUpperCase() + ' — ' + pd.fmt_h(g.h_number) + ' ' + E(g.title), btn: { label: 'Open', hash: '#gatelog', ghost: true } }), false);
+      add(gatesDue, 'Committee gates due — put them on the agenda and minute the decision', gateRow);
     }
     if (R === 'lab_tech') {
       add(candsToMake, 'Candidates selected and cleared by the beaker gate — make them', c => ({ label: pd.fmt_c(c.cand_no) + ' ' + E(c.label) + ' (on ' + pd.fmt_h(c.h_number) + ')', btn: { label: 'Make', hash: '#route/' + c.hypothesis_id } }));
@@ -250,10 +328,15 @@ app.get('/api/pd/mywork', auth, pdAuth, pdSurface('mywork'), async (req, res) =>
     }
     if (R === 'agronomy') {
       add(fieldNoTrial, 'Field-stage ideas needing a trial designed (DAP control, replication, measures fixed before sowing)', x => ({ label: H(x), btn: { label: 'Design trial', hash: '#trials' } }));
+      add(trialToSow,    'Approved at G5 — sow, and record the sowing date', t => trialRow(t, 'Open trial'));
+      add(trialNeedObs,  'Running trials with no observation for three weeks', t => trialRow(t, 'Add observation', ' · ' + t.since + ' days since the last note'));
+      add(trialToClose,  'Harvested — write the result against the prediction, and the decision', t => trialRow(t, 'Write up'));
+      add(trialAwaitG5,  'Designed, waiting on G5 before sowing — chase the committee if the season is closing', t => trialRow(t, 'Open trial', '', true), false);
     }
     if (R === 'production') {
-      add(validated, 'Validated — take to costing, registration and launch', x => ({ label: H(x), btn: { label: 'Open', hash: '#formulations', ghost: true } }), false);
-      add(screenedNoRecord, 'Newly screened — your quick "can we make it?" read is wanted', x => idea(x, '', 'View', true), false);
+      add(preG6, 'Heading for G6 — your feasibility and costing read is the ticket to launch. Put it on the idea as a comment before the gate.', x => idea(x, '', 'Add your read'));
+      add(screenedNoRecord, 'Newly screened — your quick "can we make it?" read is wanted', x => idea(x, '', 'Add your read'));
+      add(validated, 'Validated — take to costing, registration and launch', x => ({ label: H(x), btn: { label: 'Open', hash: '#idea/' + x.id, ghost: true } }), false);
     }
     if (R === 'ceo') {
       add(recReadyG2, 'Designs at G2 — read the reasoning if you want to weigh in', r => rec(r, 'Read', true), false);
@@ -370,6 +453,16 @@ app.post('/api/pd/records/:id/complete', auth, pdAuth, pdSurface('records'), asy
     const [[r]] = [(await pdq('SELECT review_complete_at FROM pd_dev_records WHERE id=?', [req.params.id]))[0]];
     if (!r) return res.status(404).json({ error: 'Record not found.' });
     if (r.review_complete_at) return res.status(409).json({ error: 'Completeness already confirmed.' });
+    /* FIX A2 — a completeness check must actually check something.
+       Sections 1-3 lock permanently at G2, so a blank record approved here can never be repaired. */
+    const [[c]] = [(await pdq('SELECT s1_soil_problem, s3_hypothesis_one_line, s3_success_kill_criteria FROM pd_dev_records WHERE id=?', [req.params.id]))[0]];
+    const missing = [];
+    if (!String((c && c.s1_soil_problem) || '').trim())          missing.push('the problem this route addresses (Section 1)');
+    if (!String((c && c.s3_hypothesis_one_line) || '').trim())   missing.push('the one-line hypothesis (Section 3)');
+    if (!String((c && c.s3_success_kill_criteria) || '').trim()) missing.push('the success / kill criteria (Section 3)');
+    if (missing.length) return res.status(409).json({
+      error: 'This record is not complete. Still missing: ' + missing.join(', ') + '. A record signed at G2 locks permanently — it cannot be filled in afterwards.'
+    });
     await pdq('UPDATE pd_dev_records SET review_complete_by=?, review_complete_at=NOW() WHERE id=?', [req.pdUser.id, req.params.id]);
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: String(e) }); }
@@ -429,8 +522,28 @@ app.post('/api/pd/gates/decide', auth, pdAuth, pdSurface('gatelog'), async (req,
     if (!['G3', 'G4', 'G5', 'G6'].includes(gate)) return res.status(400).json({ error: 'gate must be one of G3, G4, G5, G6 (G1 is the screen, G2 the Development Record).' });
     if (!['advance', 'iterate', 'park', 'kill'].includes(decision)) return res.status(400).json({ error: 'decision must be advance, iterate, park or kill.' });
     if (!reason) return res.status(400).json({ error: 'A written reason is required — no decision exists without a reason.' });
-    const [[hyp]] = [(await pdq('SELECT id FROM pd_hypotheses WHERE id=?', [hid]))[0]];
+    const [[hyp]] = [(await pdq('SELECT id, stage, screen_decision FROM pd_hypotheses WHERE id=?', [hid]))[0]];
     if (!hyp) return res.status(404).json({ error: 'Pick a hypothesis.' });
+    /* FIX A1 — gate order. A gate may only be recorded once the gate before it has ADVANCED.
+       Without this, one request can take a never-screened idea straight to 'validated'. */
+    const PRIOR = { G3: 'G2', G4: 'G3', G5: 'G4', G6: 'G5' };
+    const GATE_LABEL = { G2: 'G2 (design approval)', G3: 'G3 (the beaker gate)', G4: 'G4 (bench evaluation)', G5: 'G5 (field trial approval)' };
+    if (hyp.screen_decision !== 'log') {
+      return res.status(409).json({ error: 'This idea has not passed G1 yet. It must be screened and logged before any committee gate can be recorded.' });
+    }
+    const need = PRIOR[gate];
+    const [[prior]] = [(await pdq(
+      "SELECT id FROM pd_gate_decisions WHERE hypothesis_id=? AND gate=? AND decision='advance' ORDER BY id DESC LIMIT 1",
+      [hid, need]))[0]];
+    if (!prior) {
+      return res.status(409).json({ error: 'Gates are taken in order. ' + GATE_LABEL[need] + ' has not been passed for this idea, so ' + gate + ' cannot be recorded yet.' });
+    }
+    const [[already]] = [(await pdq(
+      "SELECT id FROM pd_gate_decisions WHERE hypothesis_id=? AND gate=? AND decision='advance' LIMIT 1",
+      [hid, gate]))[0]];
+    if (already && decision === 'advance') {
+      return res.status(409).json({ error: gate + ' has already been advanced for this idea. Record the next gate, or reverse this one first.' });
+    }
     const site = b.is_site_quorum ? 1 : 0;
     const provisional = site ? 1 : 0; // site-quorum decisions are provisional until the COO ratifies
     await pdq('INSERT INTO pd_gate_decisions (hypothesis_id, gate, decision, reason, decided_by, is_site_quorum, attendees, provisional) VALUES (?,?,?,?,?,?,?,?)',
@@ -1234,13 +1347,17 @@ app.get('/api/pd/library/:id', auth, pdAuth, pdSurface('library'), async (req, r
   } catch (e) { res.status(500).json({ error: String(e) }); }
 });
 app.post('/api/pd/library/:id/pin', auth, pdAuth, pdSurface('library'), async (req, res) => {
-  try { const m = String((req.body && req.body.pin) || '').match(/^(hypothesis|project|problem):(\d+)$/);
+  try { // FIX C3 — pinning is curation, not reading. Members and outside reviewers may read the library, not rearrange it.
+    if (!pd.can_role(req.pdUser.pd_role, ['qc_head', 'rta', 'production', 'agronomy', 'custodian', 'lab_tech'])) return res.status(403).json({ error: 'Pinning reading to a route, project or problem is for the technical team.' });
+    const m = String((req.body && req.body.pin) || '').match(/^(hypothesis|project|problem):(\d+)$/);
     if (!m) return res.status(400).json({ error: 'Pick somewhere to pin it.' });
     await pdq('INSERT IGNORE INTO pd_library_pins (item_id, target_type, target_id, pinned_by) VALUES (?,?,?,?)', [req.params.id, m[1], Number(m[2]), req.pdUser.id]);
     res.json({ ok: true }); } catch (e) { res.status(500).json({ error: String(e) }); }
 });
 app.post('/api/pd/library/:id/unpin', auth, pdAuth, pdSurface('library'), async (req, res) => {
-  try { await pdq('DELETE FROM pd_library_pins WHERE id=? AND item_id=?', [Number((req.body && req.body.pin_id) || 0), req.params.id]); res.json({ ok: true }); }
+  try { // FIX C3 — see /pin above.
+    if (!pd.can_role(req.pdUser.pd_role, ['qc_head', 'rta', 'production', 'agronomy', 'custodian', 'lab_tech'])) return res.status(403).json({ error: 'Removing a pin is for the technical team.' });
+    await pdq('DELETE FROM pd_library_pins WHERE id=? AND item_id=?', [Number((req.body && req.body.pin_id) || 0), req.params.id]); res.json({ ok: true }); }
   catch (e) { res.status(500).json({ error: String(e) }); }
 });
 app.post('/api/pd/library/:id/archive', auth, pdAuth, pdSurface('library'), async (req, res) => {
@@ -1438,10 +1555,20 @@ app.post('/api/pd/ideas/:id/comment', auth, pdAuth, pdSurface('ideas.own'), asyn
 // The pipeline board — every idea grouped by stage, plus the "untouched 4+ weeks" list (faithful to index.php).
 app.get('/api/pd/board', auth, pdAuth, pdSurface('ideas.all'), async (req, res) => {
   try {
-    const [rows] = await pdq('SELECT id, h_number, title, stage, lane, priority, submitted_at, updated_at, DATEDIFF(NOW(), submitted_at) age_days FROM pd_hypotheses ORDER BY h_number');
+    /* FIX D7 — the "Next step" prompt existed on exactly one screen, the idea detail page.
+       Anyone who landed anywhere else got no guidance at all. The Board now carries it too,
+       which is where the whole pipeline is visible at once. */
+    const [rows] = await pdq(`SELECT h.id, h.h_number, h.title, h.stage, h.lane, h.priority, h.change_type,
+             h.screen_decision, h.screen_reason, h.submitted_at, h.updated_at, DATEDIFF(NOW(), h.submitted_at) age_days,
+             r.id rec_id, r.review_rta_at, r.review_complete_by, r.approved_g2_at
+        FROM pd_hypotheses h
+        LEFT JOIN pd_dev_records r ON r.id = (SELECT MAX(r2.id) FROM pd_dev_records r2 WHERE r2.hypothesis_id = h.id)
+       ORDER BY h.h_number`);
     const [stale] = await pdq("SELECT id, h_number, title, stage, updated_at FROM pd_hypotheses WHERE stage NOT IN ('parked','killed','validated') AND updated_at < DATE_SUB(NOW(), INTERVAL 28 DAY) ORDER BY updated_at");
     res.json({
-      items: rows.map(r => ({ id: r.id, h_label: pd.fmt_h(r.h_number), title: r.title, stage: r.stage, lane: r.lane, age_days: Number(r.age_days) })),
+      items: rows.map(r => ({ id: r.id, h_label: pd.fmt_h(r.h_number), title: r.title, stage: r.stage, lane: r.lane, age_days: Number(r.age_days),
+        stage_label: pd.STAGES[r.stage] || r.stage,
+        next_step: pdNextStep(r, r.rec_id ? { id: r.rec_id, review_rta_at: r.review_rta_at, review_complete_by: r.review_complete_by, approved_g2_at: r.approved_g2_at } : null) })),
       stale: stale.map(s => ({ id: s.id, h_label: pd.fmt_h(s.h_number), title: s.title, stage_label: pd.STAGES[s.stage], updated_at: s.updated_at })),
       slaDays: pd.GATE_SLA_DAYS,
     });
@@ -1466,12 +1593,17 @@ app.get('/api/pd/similar', auth, pdAuth, async (req, res) => {
     const out = [];
     for (const r of rows) {
       if (Number(r.score) <= 0) continue;
+      /* FIX C2 — this route had no surface gate, so a Team member or an outside reviewer could
+         enumerate the whole portfolio and read why each idea was killed, despite being refused a
+         direct read of the same idea. Titles and written reasons are now shown only to roles that
+         are allowed to see all ideas; everyone else still gets the duplicate warning. */
+      const seesAll = pd.can_pd(req.pdUser.pd_role, 'ideas.all');
       let fate = 'in process', advice = 'Talk to its owner before duplicating work.';
-      if (r.stage === 'killed') { fate = 'KILLED'; advice = 'Killed before — reason: ' + (r.screen_reason || 'see its gate log') + '. Only resubmit if something material has changed.'; }
-      else if (r.stage === 'parked') { fate = 'PARKED'; advice = 'Parked' + (r.park_condition ? ' — re-look condition: ' + r.park_condition : '') + '. It may be time to revive it instead of duplicating it.'; }
+      if (r.stage === 'killed') { fate = 'KILLED'; advice = seesAll ? ('Killed before — reason: ' + (r.screen_reason || 'see its gate log') + '. Only resubmit if something material has changed.') : 'A similar idea was looked at before and closed. Submit anyway if yours differs — the screener will see both.'; }
+      else if (r.stage === 'parked') { fate = 'PARKED'; advice = seesAll ? ('Parked' + (r.park_condition ? ' — re-look condition: ' + r.park_condition : '') + '. It may be time to revive it instead of duplicating it.') : 'A similar idea is parked for now. Submit anyway if yours differs.'; }
       else if (r.stage === 'validated') { fate = 'VALIDATED'; advice = 'This already exists as a proven result — consider proposing a VARIANT of it instead.'; }
       else if (r.stage === 'proposed') { fate = 'awaiting screen'; advice = 'A very similar idea is already waiting to be screened.'; }
-      out.push({ id: r.id, label: pd.fmt_h(r.h_number) + ' — ' + r.title, stage: pd.STAGES[r.stage] || r.stage, fate, advice, score: Math.round(Number(r.score) * 10000) / 10000 });
+      out.push({ id: seesAll ? r.id : null, label: seesAll ? (pd.fmt_h(r.h_number) + ' — ' + r.title) : (pd.fmt_h(r.h_number) + ' — (a similar idea, not yours to read)'), stage: pd.STAGES[r.stage] || r.stage, fate, advice, score: Math.round(Number(r.score) * 10000) / 10000 });
     }
     res.json({ matches: out });
   } catch (e) { res.status(500).json({ error: String(e) }); }
@@ -1533,14 +1665,8 @@ app.post('/api/pd/dropbox/:id/convert', auth, pdAuth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: String(e) }); }
 });
 
-/* ---------- PD/O2S admin: assign a PD role to an existing O2S account (COO only, mirrors O2S's own admin gate) ---------- */
-app.put('/api/pd/users/:username/role', auth, admin, pdAuth, async (req, res) => {
-  try {
-    const role = req.body && req.body.pd_role;
-    if (role !== null && !pd.PD_ROLES[role]) return res.status(400).json({ error: 'invalid pd_role' });
-    const [result] = await pdq('UPDATE auth_users SET pd_role=? WHERE username=?', [role, String(req.params.username).toLowerCase()]);
-    if (result.affectedRows === 0) return res.status(404).json({ error: 'not found' });
-    res.json({ ok: true });
-  } catch (e) { res.status(500).json({ error: String(e) }); }
-});
+/* FIX E9 — REMOVED. This endpoint wrote only auth_users.pd_role and never user_module_roles,
+   so using it split the two stores: PD access without a launcher tile, or a locked-out user whose
+   grant still shows on the COO's Access screen. Nothing called it. PD roles are assigned in one
+   place only: POST /api/platform/access (server.js), which dual-writes both tables. */
 };

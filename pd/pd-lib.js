@@ -196,7 +196,11 @@ function screen_candidate(lines, rs, conflicts) {
   // Ex-works cost, exactly as the cost-parity workbook builds it: (raw materials + conversion) / (1 - process loss).
   const loss = Math.max(0, Math.min(0.95, Number(rs.process_loss_pct) / 100));
   const exworks = (rm + Number(rs.conversion_cost_per_tonne)) / (1 - loss);
-  const cost_per_kg_p = p > 0 ? exworks / (10 * p) : 0; // 1 t x p% = 10p kg P2O5
+  /* FIX A6 — the divide-by-zero guard used zero as its sentinel, and zero is the BEST possible
+     value in every ranking in this system. A candidate containing no phosphorus therefore
+     scored "cheapest" and headed the make-queue. null sorts last in MySQL's ORDER BY ASC and
+     reads as "not applicable" rather than "free". */
+  const cost_per_kg_p = p > 0 ? exworks / (10 * p) : null; // 1 t x p% = 10p kg P2O5
   const fails = [], warns = [];
   if (Math.abs(total - 100) > INCLUSION_TOLERANCE) fails.push(`Recipe is not closed: inclusions total ${total.toFixed(2)}%, not 100%.`);
   const ceiling = Number(rs.cost_ceiling_per_tonne);
@@ -204,7 +208,10 @@ function screen_candidate(lines, rs, conflicts) {
     if (exworks > ceiling) fails.push(`Over the ex-works cost ceiling by ${rs_fmt(exworks - ceiling)}/tonne (${rs_fmt(exworks)} vs ${rs_fmt(ceiling)}).`);
     else if (exworks > ceiling * (1 - CEILING_MARGIN)) warns.push(`Within ${Math.round(CEILING_MARGIN * 100)}% of the cost ceiling — no headroom for conversion-cost surprises (${rs_fmt(exworks)} vs ${rs_fmt(ceiling)}).`);
   } else warns.push('No cost ceiling is set for this route, so cost was not judged. Set it from the DAP cost-parity model.');
-  if (p < Number(rs.target_p2o5_min)) fails.push(`P2O5 ${p.toFixed(2)}% is below the route target minimum of ${Number(rs.target_p2o5_min).toFixed(2)}%.`);
+  /* FIX A6 — a phosphate route whose recipe carries no phosphorus is not a borderline case,
+     it is a mistake. Say so outright rather than letting it through on a zero target. */
+  if (p <= 0) fails.push('This recipe contains no phosphorus at all. Every route here is a phosphate route — check the materials and their inclusions.');
+  else if (p < Number(rs.target_p2o5_min)) fails.push(`P2O5 ${p.toFixed(2)}% is below the route target minimum of ${Number(rs.target_p2o5_min).toFixed(2)}%.`);
   if (Number(rs.target_p2o5_max) < 100 && p > Number(rs.target_p2o5_max)) warns.push(`P2O5 ${p.toFixed(2)}% is above the target maximum of ${Number(rs.target_p2o5_max).toFixed(2)}% — check the grade is still what you meant to make.`);
   if (n < Number(rs.target_n_min)) warns.push(`N ${n.toFixed(2)}% is below the target minimum of ${Number(rs.target_n_min).toFixed(2)}%. The farmer buys the shortfall as urea; that cost sits in the parity model, not here.`);
   if (Number(rs.target_n_max) < 100 && n > Number(rs.target_n_max)) warns.push(`N ${n.toFixed(2)}% is above the target maximum of ${Number(rs.target_n_max).toFixed(2)}%.`);
@@ -221,7 +228,9 @@ function screen_candidate(lines, rs, conflicts) {
   const reasons = [...fails.map(f => 'FAIL · ' + f), ...warns.map(w => 'NOTE · ' + w)];
   if (provisional) reasons.push('PROVISIONAL · Priced or assayed on placeholders (' + [...new Set(prov_why)].join(', ') + '). This ranking is a shape, not a costing. Replace with VAN procurement and assay data before it decides anything.');
   if (!reasons.length) reasons.push('Passes on every arithmetic test: recipe closed, inside the target window, under the cost ceiling, no compatibility flags.');
-  return { total: _r3(total), n: _r3(n), p2o5: _r3(p), s: _r3(s), zn: _r3(zn), rm_cost: _r2(rm), exworks: _r2(exworks), cost_per_kg_p: _r2(cost_per_kg_p), provisional: provisional ? 1 : 0, verdict, reasons: reasons.join('\n') };
+  return { total: _r3(total), n: _r3(n), p2o5: _r3(p), s: _r3(s), zn: _r3(zn), rm_cost: _r2(rm), exworks: _r2(exworks),
+           cost_per_kg_p: cost_per_kg_p === null ? null : _r2(cost_per_kg_p),
+           provisional: provisional ? 1 : 0, verdict, reasons: reasons.join('\n') };
 }
 const CONFLICT_MIN_PCT_EXPORT = CONFLICT_MIN_PCT;
 

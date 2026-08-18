@@ -7658,7 +7658,7 @@ async function doLogin(){
   const u=($('lg_user').value||'').trim().toLowerCase();
   const p=$('lg_pass').value||'';
   let r; try{ r=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p})}); }catch(e){ renderLogin('Cannot reach the server. Check your connection and try again.'); return; }
-  if(!r.ok){ renderLogin('Incorrect username or password.'); return; }
+  if(!r.ok){ let ej={}; try{ ej=await r.json(); }catch(e){} renderLogin(ej.error || 'Incorrect username or password.'); return; }
   const j=await r.json(); setSession(j.token, j.user);
   let loaded=false;
   try{ const sr=await fetch('/api/state',{cache:'no-store',headers:authHdr()}); if(sr.ok){ const sj=await sr.json(); _rev=sj.rev||0; if(sj.data&&sj.data.orders){ state=ensureState(sj.data); loaded=true; } else if((sj.rev||0)===0 && !sj.data){ state=buildFromSeed(); loaded=true; await saveNow(); } } }catch(e){}

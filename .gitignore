@@ -9,3 +9,6 @@ _to_delete/
 
 # Word/Excel lock files
 ~$*
+
+# patch/backup leftovers (e.g. from `git apply` / `patch`)
+*.orig

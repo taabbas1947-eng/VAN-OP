@@ -336,7 +336,7 @@
         $('lg_btn').disabled = true;
         try {
           var r = await fetch('/api/login', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({username: u, password: p})});
-          if (!r.ok) {err.textContent = 'Incorrect username or password.'; $('lg_btn').disabled = false; return false;}
+          if (!r.ok) {var ej = {}; try { ej = await r.json(); } catch (e) { } err.textContent = ej.error || 'Incorrect username or password.'; $('lg_btn').disabled = false; return false;}
           var j = await r.json(); setTok(j.token);
           try {renderApp(await me(j.token));}
           catch (e) {renderApp({name: (j.user && j.user.name), username: (j.user && j.user.username), o2sRole: (j.user && j.user.role), modules: [{module: 'o2s', role: (j.user && j.user.role)}]});}

@@ -1,5 +1,27 @@
 # VAN Order Control Tower — OP Handoff
 
+> **STATUS ADD — 2026-08-18 (cloud session, latest): PD · COMBINATION BANK — DESIGN AGREED AND WRITTEN DOWN. NO CODE. NOT PUSHED.**
+>
+> **Module worked in: PD.** Nothing under `pd/` was opened for edit. No schema, no route, no migration. `server.js`, `o2s/`, `launcher.html` untouched.
+>
+> **What this was.** Tahir asked for a searchable place to dump every combination anyone has ever thought of — tagged by the problem it answers and what it was thought up against — so nobody walks the same dead end twice ("like we did in case of NP"). The whole session was design, driven by Tahir's decisions one at a time. Six demo iterations were built and reviewed; only v6 was kept.
+>
+> **Where it lives:** `docs/pd-model/combination-bank/` — `RULES.md` (the rules, in words, not code — it wins over any code that disagrees), `README.md`, and `combination-bank-demo-v6.html` (standalone, opens in a browser, wired to nothing). **Read `RULES.md` before writing a line of this.**
+>
+> **The decisions, in brief:** composition is **one row per material**, never free text · the material register is held at **grade** level (MAP 11-52 is not MAP 10-50), **supplier is not part of grade identity** · **only moderators add materials**, but nobody is ever blocked — request it and the row saves flagged · every material carries a **"grade not yet decided"** placeholder · **analysis is computed by mass balance, never typed** · entry is a form or a template file, **free paste removed** (both file shapes accepted) · duplicates: **hard stop only on clear evidence** (same grades, same inclusions ±0.5%, same form, same route, **same problem**, and both records fully graded), everything else **saves flagged pending review and stays searchable** · moderator group is **configurable**, unactioned items **escalate into My Work after 3 days, never auto-accept** · **nothing is ever deleted**.
+>
+> **Data reality check (RULES.md §10):** the 51 raw materials read from `data/state.json` are real and were read verbatim, spellings included. Their assays **do not exist anywhere** — Tahir is supplying them. Every other grade in the demo is **invented by Claude and marked as such**. Tahir's instruction: leave them in place, he will say which grades and materials to add. The bank starts **empty** — the 46 real recipes in O2S masters are deliberately not loaded.
+>
+> **Two findings in the real master needing Tahir's word:** `Sulfur` and `Sulphur` both exist as separate substances, so recipes using one will never match recipes using the other; and `MAP` / `DAP` are listed with **no grade at all**.
+>
+> **Housekeeping:** `docs/pd-audit/README.md` was **replaced** and the original moved to `_to_delete/README-pd-audit-SUPERSEDED-2026-08-18.md` — it instructed the `.patch` / `git apply` workflow that `CLAUDE.md` §3.1 now forbids, pointed at four `.patch` files that no longer exist in the repo, and stated a branch status contradicting `CLAUDE.md` §3. No finding or document was lost; only the dead instructions. Three other docs that mention patches were **deliberately kept** — reasons in `_to_delete/WHY-THESE-ARE-HERE.md`.
+>
+> **OPEN — blocks the schema:** is a Combination a **tenth object**, or a register beneath Bet/Run? `MODEL.md` §3 fixes the model at nine without Tahir's sign-off. Also open: the real material/grade list, the assays, the controlled vocabularies (crops/soils/problems — all invented today), and the similarity weights (Claude's, untested against real data). Full list: `RULES.md` §11.
+>
+> **Pushed?** No. Files are in the working tree for Tahir to commit via GitHub Desktop. Changed: `docs/pd-audit/README.md` (modified), `docs/pd-model/` (new, untracked), `_to_delete/` (gitignored).
+>
+> **Next:** Tahir sends the material/grade additions and the assay figures; then rule on the tenth-object question; then, and only then, a schema.
+
 > **STATUS ADD — 2026-07-30 (cloud session, latest): "ACTIONS RETURN BACK" BUG — ROOT CAUSE FOUND, FIXED & TESTED, READY TO PUSH (not yet pushed).**
 >
 > **Symptom reported by Plant Manager / Supply Chain:** taking an action in My Actions, issuing a Gate Pass, or approving/releasing a shipment would sometimes silently undo itself — the button/prompt reappeared, forcing the user to redo it.

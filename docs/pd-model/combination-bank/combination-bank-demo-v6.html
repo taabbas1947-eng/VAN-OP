@@ -1,0 +1,850 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PD · Combination Bank — visual demo v5 (not connected)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --serif:'Space Grotesk','Inter',system-ui,sans-serif;
+  --sans:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+  --mono:'Geist Mono','SF Mono',Consolas,ui-monospace,monospace;
+  --ground:#f8f9fb; --surface:#fff; --surface-2:#f1f3f6; --line2:#eef0f4;
+  --line:#e5e8ee; --line-strong:#dce2ec;
+  --text:#161a20; --muted:#5a6675; --faint:#8a95a6;
+  --green:#16a34a; --green-deep:#15803d; --green-soft:#e7f7ee;
+  --amber:#c77b0e; --amber-soft:#faf0da; --red:#c0392b; --red-soft:#fbe7e4;
+  --blue:#1d64c4; --blue-soft:#e6effb;
+  --shadow:0 1px 2px rgba(15,23,42,.07),0 1px 1px rgba(15,23,42,.04);
+  --sh:0 3px 12px rgba(15,23,42,.10),0 1px 3px rgba(15,23,42,.06);
+  --ring:0 0 0 3px rgba(22,163,74,.16); --radius:15px; --radius-sm:10px;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);font-family:var(--sans);color:var(--text);font-size:14px;letter-spacing:-.01em;-webkit-font-smoothing:antialiased}
+h1{font-family:var(--serif);font-size:1.35rem;font-weight:700;letter-spacing:-.02em;margin:0 0 4px}
+h2{font-family:var(--serif);font-size:1rem;margin:0 0 8px}
+h3{font-family:var(--serif);font-size:.85rem;margin:0 0 6px}
+.sub{color:var(--muted);font-size:13px;margin:0 0 16px;font-weight:500;line-height:1.5}
+.demoflag{background:#fff5d6;border-bottom:1px solid #ecd9a0;color:#7a5a12;font-size:12px;font-weight:600;padding:7px 16px;text-align:center;font-family:var(--mono)}
+main{padding:20px clamp(14px,2.4vw,34px) 70px;max-width:1500px;margin:0 auto}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;box-shadow:var(--shadow);margin-bottom:14px}
+label{display:block;font-size:10.5px;font-weight:700;color:var(--muted);margin:10px 0 4px;text-transform:uppercase;letter-spacing:.4px}
+input,select,textarea{width:100%;font:inherit;font-size:13px;padding:8px 11px;border:1px solid var(--line);border-radius:var(--radius-sm);background:#fff;outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--green);box-shadow:var(--ring)}
+textarea{min-height:58px;resize:vertical}
+.btn{font:inherit;font-weight:700;font-size:12.5px;border:none;border-radius:var(--radius-sm);padding:9px 15px;cursor:pointer;background:var(--green);color:#fff;box-shadow:var(--shadow)}
+.btn:hover{background:var(--green-deep)}
+.btn:disabled{background:#c8d2dd;cursor:not-allowed}
+.btn.ghost{background:#fff;color:var(--green-deep);border:1px solid var(--line);box-shadow:none}
+.btn.ghost:hover{background:var(--surface-2)}
+.btn.sm{padding:4px 9px;font-size:11px}
+.row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.f3{display:grid;grid-template-columns:repeat(3,1fr);gap:0 12px}
+.f2{display:grid;grid-template-columns:repeat(2,1fr);gap:0 12px}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th{text-align:left;color:#475569;font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:.5px;padding:7px 10px;border-bottom:1px solid var(--line);background:var(--surface-2)}
+td{padding:8px 10px;border-bottom:1px solid var(--line2);color:var(--muted);vertical-align:top}
+td b{color:var(--text)}
+tr.hit:hover{background:#fafcfe;cursor:pointer}
+.chip{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:700;padding:3px 8px;border-radius:999px;background:var(--surface-2);color:var(--muted);border:1px solid var(--line);margin:2px 3px 2px 0;white-space:nowrap}
+.chip.p{background:var(--green-soft);color:var(--green-deep);border-color:#cdeed7}
+.chip.b{background:var(--blue-soft);color:var(--blue);border-color:#cfe0f7}
+.chip.a{background:var(--amber-soft);color:var(--amber);border-color:#f0e0b6}
+.chip.r{background:var(--red-soft);color:var(--red);border-color:#f3d3ce}
+.chip.click{cursor:pointer}
+.chip.click:hover{border-color:var(--green);color:var(--green-deep)}
+.grid{display:grid;grid-template-columns:238px 1fr;gap:14px;align-items:start}
+@media(max-width:980px){.grid{grid-template-columns:1fr}.f3,.f2{grid-template-columns:1fr}}
+.facet{border-bottom:1px solid var(--line2);padding:10px 0}
+.facet:last-child{border-bottom:none}
+.facet .ft{font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:1.1px;text-transform:uppercase;color:var(--faint);margin-bottom:7px}
+.fopt{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:600;color:var(--muted);padding:3px 0;cursor:pointer}
+.fopt input{width:auto;padding:0;margin:0;accent-color:var(--green)}
+.fopt .ct{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--faint)}
+.searchbar{display:flex;gap:8px;align-items:center;margin-bottom:10px}
+.searchbar input{font-size:14px;padding:11px 14px}
+.count{font-family:var(--mono);font-size:11px;color:var(--faint);margin:0 0 8px}
+.mini{font-size:11px;color:var(--faint);font-weight:600}
+.num{font-family:var(--mono);font-size:11.5px;color:var(--text)}
+.drawer{position:fixed;top:0;right:0;width:min(520px,94vw);height:100vh;background:#fff;border-left:1px solid var(--line-strong);box-shadow:-8px 0 30px rgba(15,23,42,.12);padding:20px 22px;overflow-y:auto;transform:translateX(102%);transition:transform .2s ease;z-index:80}
+.drawer.open{transform:none}
+.drawer .x{position:absolute;top:14px;right:16px;border:none;background:var(--surface-2);border-radius:8px;padding:5px 10px;cursor:pointer;font-weight:700;color:var(--muted)}
+.kv{display:grid;grid-template-columns:118px 1fr;gap:6px 12px;font-size:12.5px;margin:10px 0}
+.kv dt{font-weight:700;color:var(--faint);font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;padding-top:2px}
+.kv dd{margin:0;color:var(--text)}
+.topbar{background:#fff;border-bottom:1px solid var(--line);padding:0 clamp(14px,2.4vw,34px)}
+.topbar .inner{max-width:1500px;margin:0 auto;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.topbar .who{font-family:var(--serif);font-weight:700;font-size:13px;padding:12px 0}
+.topbar .who span{font-family:var(--mono);font-size:9px;color:var(--faint);letter-spacing:1.2px;text-transform:uppercase;display:block;margin-top:3px}
+.tabs{display:flex;gap:2px;flex-wrap:wrap}
+.tabs button{background:none;border:none;font:inherit;font-weight:700;font-size:12.5px;color:var(--muted);padding:16px 12px;cursor:pointer;border-bottom:2px solid transparent}
+.tabs button:hover{color:var(--text)}
+.tabs button.on{color:var(--green-deep);border-bottom-color:var(--green)}
+pre.code{background:#0f172a;color:#d7e3f4;font-family:var(--mono);font-size:11px;line-height:1.6;padding:13px 15px;border-radius:12px;overflow-x:auto;margin:0}
+.note{background:var(--green-soft);border:1px solid #cdeed7;border-radius:10px;padding:10px 13px;font-size:12.5px;color:#14532d;font-weight:600;line-height:1.5}
+.warn{background:var(--amber-soft);border:1px solid #f0e0b6;border-radius:10px;padding:10px 13px;font-size:12.5px;color:#7a5a12;font-weight:600;line-height:1.5}
+.stop{background:var(--red-soft);border:1px solid #f3d3ce;border-radius:10px;padding:10px 13px;font-size:12.5px;color:#7f1d1d;font-weight:600;line-height:1.5}
+.kpi{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.kpi div{flex:1;min-width:110px;background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px 12px;box-shadow:var(--shadow)}
+.kpi b{display:block;font-family:var(--serif);font-size:1.35rem;line-height:1.1}
+.kpi span{font-size:10.5px;font-weight:700;color:var(--faint);text-transform:uppercase;letter-spacing:.5px}
+.lines td{padding:5px 6px}
+.lines input,.lines select{padding:6px 8px;font-size:12px}
+.drop{border:2px dashed var(--line-strong);border-radius:14px;padding:22px;text-align:center;color:var(--muted);font-weight:600;font-size:13px;background:#fcfdfe;cursor:pointer}
+.drop b{display:block;font-family:var(--serif);font-size:15px;color:var(--text);margin-bottom:5px}
+.an{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.an div{background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:7px 11px;min-width:78px}
+.an b{display:block;font-family:var(--mono);font-size:15px;color:var(--text)}
+.an span{font-size:9.5px;font-weight:700;color:var(--faint);text-transform:uppercase;letter-spacing:.6px}
+</style>
+</head>
+<body>
+<div class="demoflag">VISUAL DEMO v5 — dummy data, nothing saved, not wired to VAN-OP. Recipes are invented, so computed analyses are illustrative, not real product grades.</div>
+<div class="topbar"><div class="inner">
+  <div class="who">Combination Bank<span>PD · Knowledge</span></div>
+  <div class="tabs">
+    <button class="on" data-t="search">Search</button>
+    <button data-t="project">In a project</button>
+    <button data-t="add">Add one</button>
+    <button data-t="imp">Import a batch</button>
+    <button data-t="mats">Material register</button>
+    <button data-t="queue">Moderator queue <span id="qbadge" class="chip a" style="margin:0 0 0 5px">0</span></button>
+    <button data-t="format">Format contract</button>
+    <button data-t="dup">Duplicate rules</button>
+  </div>
+</div></div>
+<main>
+
+<!-- SEARCH -->
+<section id="t-search">
+  <h1>Every combination we ever thought of</h1>
+  <p class="sub">Idea-stage dumps, screened candidates and competitor products in one place — tagged by <b>what problem it answers</b>, <b>what it was thought up against</b>, and <b>what it is made of</b>. Composition is material rows, never free text, so two people describing the same recipe produce the same record.</p>
+  <div class="kpi">
+    <div><b id="k1">0</b><span>combinations</span></div>
+    <div><b id="k2">0</b><span>idea stage</span></div>
+    <div><b id="k3">0</b><span>screened+</span></div>
+    <div><b id="k4">0</b><span>competitor / external</span></div>
+    <div><b id="k5">0</b><span>pending review</span></div>
+  </div>
+  <div class="grid">
+    <div class="card" style="padding:6px 14px 12px">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding-top:10px">
+        <h3 style="margin:0">Filters</h3><button class="btn ghost sm" id="clearf">Clear</button>
+      </div>
+      <div id="facets"></div>
+    </div>
+    <div>
+      <div class="searchbar">
+        <input id="q" placeholder="Search anything — 'calcareous', 'humate', 'NP 5-40', 'Zarkhez', 'gypsum' …">
+        <select id="sort" style="width:auto"><option value="new">Newest first</option><option value="code">Code A→Z</option><option value="status">Status</option></select>
+      </div>
+      <div id="active"></div>
+      <p class="count" id="cnt"></p>
+      <div class="card" style="padding:0;overflow:hidden">
+        <div style="max-height:56vh;overflow:auto">
+          <table><thead><tr><th style="width:118px">Code</th><th>What it is</th><th style="width:145px">Against</th><th style="width:128px">Computed</th><th style="width:100px">State</th></tr></thead>
+          <tbody id="rows"></tbody></table>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PROJECT -->
+<section id="t-project" style="display:none">
+  <h1>NP 5-40 — combinations</h1>
+  <p class="sub">Same bank, same rows, project filter locked on. Nothing stored twice.</p>
+  <div class="card"><div class="row" style="justify-content:space-between">
+    <div><span class="chip p">Project: NP 5-40</span><span class="chip">Problem: P lock-up in calcareous soil</span></div>
+    <div class="mini">locked · <a href="#" id="unlock" style="color:var(--green-deep)">open in search</a></div>
+  </div></div>
+  <div class="card" style="padding:0;overflow:hidden">
+    <table><thead><tr><th style="width:110px">Code</th><th>What it is</th><th style="width:170px">Origin</th><th style="width:96px">Status</th></tr></thead><tbody id="projrows"></tbody></table>
+  </div>
+</section>
+
+<!-- ADD -->
+<section id="t-add" style="display:none">
+  <h1>Add one combination</h1>
+  <p class="sub">One record at a time, with its material lines. For a whole session's worth, use <b>Import a batch</b> — a wide grid cannot hold child rows and stay readable.</p>
+  <div class="grid" style="grid-template-columns:1fr 330px">
+    <div>
+      <div class="card">
+        <h2>Identity &amp; intent</h2>
+        <div class="f3">
+          <div><label>Code <span style="color:var(--red)">*</span></label><input id="a_code"></div>
+          <div><label>Name <span style="color:var(--red)">*</span></label><input id="a_name"></div>
+          <div><label>Status <span style="color:var(--red)">*</span></label><select id="a_status"></select></div>
+          <div><label>Origin <span style="color:var(--red)">*</span></label><select id="a_origin"></select></div>
+          <div><label>Thought up against <span style="color:var(--red)">*</span></label><select id="a_against_type"></select></div>
+          <div><label>Against what <span style="color:var(--red)">*</span></label><input id="a_against"></div>
+          <div><label>Project</label><select id="a_project"></select></div>
+          <div><label>Form <span style="color:var(--red)">*</span></label><select id="a_form"></select></div>
+          <div><label>Route <span style="color:var(--red)">*</span></label><select id="a_route"></select></div>
+        </div>
+        <div class="f3">
+          <div><label>Problem tags <span style="color:var(--red)">*</span></label><select id="a_prob" multiple size="4"></select></div>
+          <div><label>Crop</label><select id="a_crop" multiple size="4"></select></div>
+          <div><label>Soil / condition</label><select id="a_soil" multiple size="4"></select></div>
+        </div>
+        <label>Rationale — what it tests, or why parked <span style="color:var(--red)">*</span></label><textarea id="a_why"></textarea>
+      </div>
+
+      <div class="card">
+        <div class="row" style="justify-content:space-between">
+          <h2 style="margin:0">Composition — one row per material</h2>
+          <span class="mini" id="a_total"></span>
+        </div>
+        <p class="sub" style="margin:6px 0 10px">Pick the material, then the <b>grade</b> — MAP 11-52 and MAP 10-50 are different things and are never treated as the same. The same material at two grades on one recipe is allowed and expected; the same <i>grade</i> twice is flagged as a slip you can merge in one click, never a block. If the grade is not settled yet, pick <b>"grade not yet decided"</b> — the row saves and simply cannot be called an exact repeat by anyone.</p>
+        <table class="lines"><thead><tr><th>Material &amp; grade</th><th style="width:100px">Inclusion %</th><th style="width:140px">Assay on file</th><th style="width:44px"></th></tr></thead><tbody id="a_lines"></tbody></table>
+        <div id="a_issues"></div>
+        <div class="row" style="margin-top:10px">
+          <button class="btn ghost sm" id="a_addline">+ Add material</button>
+          <button class="btn ghost sm" id="a_request">Material not in the register?</button>
+        </div>
+        <div id="a_reqbox"></div>
+      </div>
+
+      <div class="card">
+        <h2>Computed analysis</h2>
+        <p class="sub" style="margin:0 0 4px">Mass-balanced from the material assays. Never typed — so the same recipe can never carry two different analyses.</p>
+        <div class="an" id="a_an"></div>
+        <div id="a_anwarn"></div>
+      </div>
+
+      <div class="row"><button class="btn" id="a_save">Save combination</button><span class="mini" id="a_state"></span></div>
+    </div>
+    <div>
+      <div class="card" style="position:sticky;top:12px">
+        <h2 style="margin-bottom:2px">Have we seen this?</h2>
+        <p class="mini" style="margin:0 0 10px">live · fingerprint = material codes + inclusions</p>
+        <div id="simpanel"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- IMPORT -->
+<section id="t-imp" style="display:none">
+  <h1>Import a batch</h1>
+  <p class="sub">Two shapes are accepted and the importer works out which it was given. Header check runs first: a renamed, missing or reordered column rejects the file and names the exact difference.</p>
+  <div class="grid" style="grid-template-columns:1fr 1fr">
+    <div class="card">
+      <h2>Upload</h2>
+      <div class="f2">
+        <div class="drop" id="dropA"><b>Flat .csv</b>code repeated once per material row<br><span class="mini">demo: click to load a sample</span></div>
+        <div class="drop" id="dropB"><b>Two-sheet .xlsx</b>combinations + combination_lines<br><span class="mini">demo: click to load a sample</span></div>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <button class="btn ghost sm" id="tmpl">Download both templates</button>
+        <span class="mini">templates carry the register as dropdown lists</span>
+      </div>
+      <div class="warn" style="margin-top:12px">A material name in the file that is not in the register <b>never creates a material</b>. The row still imports — flagged, with the unmatched text preserved — and a moderator maps it once.</div>
+    </div>
+    <div class="card"><h2>Validation &amp; preview</h2><div id="pv"><p class="sub" style="margin:0">No file loaded yet.</p></div></div>
+  </div>
+</section>
+
+<!-- MATERIALS -->
+<section id="t-mats" style="display:none">
+  <h1>Material register</h1>
+  <p class="sub">The single controlled list, held at <b>grade</b> level — because "MAP" is not something you can put in a recipe, "MAP 11-52 imported" is. Every combination line points at one of these ids, which is why the duplicate check is exact rather than a guess at spelling. <b>Only a moderator adds to this list.</b></p>
+  <div class="warn" style="margin-bottom:14px">Each material also carries a <b>"grade not yet decided"</b> placeholder. Idea-stage work often predates the sourcing decision, and forcing a grade that early would either stall the idea or put a fictional grade on record. A recipe holding a placeholder is fully searchable — it simply can never be hard-stopped as an exact repeat, because nobody can prove it is one.</div>
+  <div class="note" style="margin-bottom:14px">This must be PD's existing <span class="num">pd_materials</span> table — the one the candidate screen already uses for <span class="num">pd_candidate_lines</span> — not a second list. Two material registers drift apart within a month and the costing arithmetic stops agreeing with the bank.</div>
+  <div id="matsum" style="margin-bottom:14px"></div>
+  <div class="card" style="padding:0;overflow:hidden">
+    <table><thead><tr><th style="width:150px">Id / source</th><th>Grade</th><th style="width:250px">Assay on file</th><th style="width:130px">Used in</th></tr></thead><tbody id="matrows"></tbody></table>
+  </div>
+</section>
+
+<!-- QUEUE -->
+<section id="t-queue" style="display:none">
+  <h1>Moderator queue</h1>
+  <p class="sub">Two kinds of item: combinations the checker could not call, and requests for a new material. Flagged combinations are <b>already in the bank and already searchable</b> — the flag says "not yet confirmed", not "not yet real".</p>
+  <div class="card"><div class="row" style="justify-content:space-between">
+    <div><span class="chip">Moderator group: <b>configurable</b></span><span class="chip">currently: Custodian · Registrar · COO</span></div>
+    <div class="mini">granted in Admin like any other PD surface · unactioned for <b>3 days</b> → escalates into My Work, no auto-accept</div>
+  </div></div>
+  <div id="queue"></div>
+</section>
+
+<!-- FORMAT -->
+<section id="t-format" style="display:none">
+  <h1>The fixed format</h1>
+  <p class="sub">Two tables now, not one: the combination and its material lines. Analysis columns are gone from entry entirely — they are computed.</p>
+  <div class="grid" style="grid-template-columns:1fr 1fr">
+    <div class="card"><h2>combinations</h2><table><tbody id="fmt1"></tbody></table></div>
+    <div class="card"><h2>combination_lines</h2><table><tbody id="fmt2"></tbody></table>
+      <div class="warn" style="margin-top:10px">Inclusions must total 100% (use a filler or "water q.s." line). A total outside 99.5–100.5% blocks the row.</div>
+    </div>
+  </div>
+  <div class="grid" style="grid-template-columns:1fr 1fr">
+    <div class="card"><h2>Shape A — one flat file</h2><pre class="code" id="shapeA"></pre></div>
+    <div class="card"><h2>Shape B — two sheets</h2><pre class="code" id="shapeB"></pre></div>
+  </div>
+</section>
+
+<!-- DUP -->
+<section id="t-dup" style="display:none">
+  <h1>How the duplicate check works</h1>
+  <p class="sub"><b>Hard stop only on clear evidence; anything less comes in, flagged, and a moderator settles it.</b> Nothing is ever refused because the app was unsure.</p>
+  <div class="card">
+    <h2>Grades — where a naive check would block honest work</h2>
+    <p class="sub" style="margin:0 0 8px">A material is not one thing. MAP has several grades, phosphoric acid has more. Three rules follow, and each exists to stop a false block:</p>
+    <table><thead><tr><th style="width:230px">Situation</th><th>Rule</th></tr></thead><tbody>
+      <tr><td><b>Same material, two grades, one recipe</b><br><span class="mini">MAP 11-52 + MAP 10-50 in one blend</span></td><td><b>Allowed, no warning beyond a note.</b> They are different materials with different assays and different prices. A rule of "MAP cannot repeat" would block a legitimate blend, so the rule is on the <i>grade</i>, never the substance.</td></tr>
+      <tr><td><b>Same grade twice in one recipe</b></td><td>Almost always an arithmetic slip. <b>Flagged with a one-click merge — never blocked.</b></td></tr>
+      <tr><td><b>A grade is not decided yet</b></td><td>Pick the <b>placeholder</b>. The row saves and is searchable. It can <b>never</b> be hard-stopped as a repeat: two recipes holding a placeholder may look identical and be different things, and the app will not assert something it cannot prove.</td></tr>
+      <tr><td><b>Two recipes, same substances, different grades</b></td><td><b>Variant, not a duplicate.</b> Swapping 52% phosphoric acid for 61% is a real experiment with a real cost consequence — treating it as a repeat would erase the finding.</td></tr>
+    </tbody></table>
+    <div class="note" style="margin-top:10px">Net effect: the hard stop needs <b>every line on both records to name a real grade</b>. Anything less falls to the queue. The failure direction is always "ask a person", never "refuse a person".</div>
+  </div>
+  <div class="card">
+    <h2>What changed now that composition is material rows</h2>
+    <p class="sub" style="margin:0 0 8px">The fingerprint is no longer a string. It is the sorted list of <span class="num">material_id : inclusion%</span> plus form and route. Two records either have the same materials at the same inclusions or they do not — there is nothing to interpret.</p>
+    <div class="row"><span class="chip p">no name-matching at runtime</span><span class="chip p">no synonym risk</span><span class="chip p">no "humate vs humic acid" problem</span></div>
+    <p class="sub" style="margin:10px 0 0">The alias table survives in exactly one place: <b>mapping names inside an imported file to register ids</b>. An unmatched name there parks the row for a moderator; it never invents a material. So the old failure mode — a bad alias causing a false hard stop — is gone from the live path.</p>
+  </div>
+  <div class="grid" style="grid-template-columns:1fr 1fr">
+    <div class="card">
+      <h2>The four bands</h2>
+      <table><thead><tr><th style="width:92px">Band</th><th>What the app does</th></tr></thead><tbody>
+        <tr><td><span class="chip r">Identical</span></td><td><b>Clear evidence — hard stop.</b> Same material ids, same inclusions (±0.5%), same form, same route, <b>same problem</b>. Does not save. One way through: <i>save as a repeat run</i>, linked, with its own date and reason.</td></tr>
+        <tr><td><span class="chip a">Variant</span></td><td>Same materials, different inclusions — or the same recipe aimed at a different problem. <b>Saves, flagged pending review.</b> A ratio is the experiment, not a duplicate.</td></tr>
+        <tr><td><span class="chip b">Related</span></td><td>Different chemistry, same intent. <b>Saves, flagged pending review.</b></td></tr>
+        <tr><td><span class="chip">Clear</span></td><td>Saves straight in, confirmed, no flag.</td></tr>
+      </tbody></table>
+    </div>
+    <div class="card">
+      <h2>Guards against a false accusation</h2>
+      <ul class="sub" style="line-height:1.85;margin:0;padding-left:18px">
+        <li><b>Same recipe, different problem is not a duplicate</b> — it is the same chemistry reached from another direction, which is the point of the bank.</li>
+        <li><b>A flagged row is a full citizen</b> — in the bank and in search from the moment it is entered.</li>
+        <li><b>"Not the same, because…" is remembered</b> — a dismissed pair is never raised again, for anyone.</li>
+        <li><b>The checker names its evidence</b>, never a bare score. A person can argue with a reason.</li>
+        <li><b>Nobody is stopped by a missing material</b> — request it, the row saves flagged, the moderator adds it once.</li>
+        <li><b>3 days unactioned escalates into My Work.</b> No auto-accept: a person decides, or it keeps asking.</li>
+      </ul>
+      <div class="note" style="margin-top:10px">Settled 2026-08-18: one row per material · materials added by moderators only · analysis always computed · both import shapes accepted.</div>
+    </div>
+  </div>
+</section>
+</main>
+
+<div class="drawer" id="dr"><button class="x" id="drx">Close</button><div id="drc"></div></div>
+
+<script>
+/* ============ MATERIAL REGISTER (the controlled list) ============ */
+/* A register row is a GRADE, not a substance. "MAP" is not a thing you can put in a
+   recipe — "MAP 11-52 imported" is. Every grade carries its own assay, so the analysis
+   and the fingerprint are both grade-exact. Each substance also carries one
+   grade-unspecified row for idea-stage work where nobody knows the grade yet. */
+const MATS=[
+ {id:'M01a',sub:'MAP',grade:'11-52 (imported)',a:{n:11,p:52},spec:1},
+ {id:'M01b',sub:'MAP',grade:'10-50 (local)',a:{n:10,p:50},spec:1},
+ {id:'M01c',sub:'MAP',grade:'12-61 tech / water-soluble',a:{n:12,p:61},spec:1},
+ {id:'M01z',sub:'MAP',grade:'grade not yet decided',a:null,spec:0},
+ {id:'M02a',sub:'DAP',grade:'18-46 standard',a:{n:18,p:46},spec:1},
+ {id:'M02z',sub:'DAP',grade:'grade not yet decided',a:null,spec:0},
+ {id:'M28a',sub:'Phosphoric acid',grade:'52% merchant',a:{p:52},spec:1},
+ {id:'M28b',sub:'Phosphoric acid',grade:'61% purified',a:{p:61},spec:1},
+ {id:'M28c',sub:'Phosphoric acid',grade:'85% food',a:{p:61.6},spec:1},
+ {id:'M28z',sub:'Phosphoric acid',grade:'grade not yet decided',a:null,spec:0},
+ {id:'M03a',sub:'SSP',grade:'18% P₂O₅ granular',a:{p:18,s:11},spec:1},
+ {id:'M04a',sub:'Urea',grade:'46-0-0 prilled',a:{n:46},spec:1},
+ {id:'M04b',sub:'Urea',grade:'46-0-0 granular',a:{n:46},spec:1},
+ {id:'M05a',sub:'Elemental sulphur',grade:'99% bentonite-free',a:{s:99},spec:1},
+ {id:'M05b',sub:'Elemental sulphur',grade:'90% bentonite',a:{s:90},spec:1},
+ {id:'M06a',sub:'Zinc sulphate',grade:'monohydrate 33%',a:{zn:33,s:17},spec:1},
+ {id:'M06b',sub:'Zinc sulphate',grade:'heptahydrate 21%',a:{zn:21,s:11},spec:1},
+ {id:'M07a',sub:'Zinc EDTA',grade:'15% chelated',a:{zn:15},spec:1},
+ {id:'M08a',sub:'Potassium humate',grade:'flake 70% HA',a:{k:10},spec:1},
+ {id:'M08b',sub:'Potassium humate',grade:'powder 85% HA',a:{k:12},spec:1},
+ {id:'M08z',sub:'Potassium humate',grade:'grade not yet decided',a:null,spec:0},
+ {id:'M09a',sub:'Mono-potassium phosphate',grade:'0-52-34',a:{p:52,k:34},spec:1},
+ {id:'M10a',sub:'Gypsum',grade:'mined, 85% purity',a:{s:18.6},spec:1},
+ {id:'M11a',sub:'Struvite',grade:'recovered 5.7-28.9',a:{n:5.7,p:28.9},spec:1},
+ {id:'M12z',sub:'Bone meal',grade:'grade not yet decided',a:null,spec:0},
+ {id:'M13a',sub:'Polyacrylate polymer',grade:'standard',a:{},spec:1},
+ {id:'M14a',sub:'Binder',grade:'generic',a:{},spec:1},
+ {id:'M15a',sub:'Filler',grade:'inert',a:{},spec:1},
+ {id:'M16a',sub:'Water',grade:'q.s.',a:{},spec:1},
+ {id:'M17a',sub:'Calcium nitrate',grade:'15.5-0-0 + 19 Ca',a:{n:15.5},spec:1},
+ {id:'M18a',sub:'Magnesium nitrate',grade:'11-0-0 + 9.5 Mg',a:{n:11},spec:1},
+ {id:'M19a',sub:'Boric acid',grade:'17% B',a:{},spec:1},
+ {id:'M20a',sub:'Seaweed extract',grade:'flake',a:{},spec:1},
+ {id:'M21a',sub:'Amino acid',grade:'80% free',a:{},spec:1},
+ {id:'M22a',sub:'Trichoderma culture',grade:'2×10⁸ cfu',a:{},spec:1},
+ {id:'M23a',sub:'Potassium thiosulphate',grade:'0-0-25 + 17 S',a:{k:25,s:17},spec:1},
+ {id:'M24a',sub:'Citric acid',grade:'anhydrous',a:{},spec:1},
+ {id:'M25a',sub:'Nano zinc oxide',grade:'78% dispersion',a:{zn:78},spec:1},
+ {id:'M26a',sub:'Surfactant',grade:'non-ionic',a:{},spec:1},
+ {id:'M27z',sub:'NPK compound',grade:'declared only',a:null,spec:0},
+];
+MATS.forEach(m=>m.src='demo');
+/* ---- the 51 raw materials that are ALREADY in the app (O2S masters.rawMaterials).
+   Read verbatim from data/state.json — names kept exactly as VAN wrote them, including
+   the Sulfur/Sulphur and "Magnisium" spellings, because correcting a master-data string
+   is a data change and not mine to make. Grade is split off only where the source name
+   carries an unambiguous grade token (a %, Powder/Granular/Mono, Imported, Mesh, WDG).
+   No assays exist in that file, so every one loads as "no assay on file". ---- */
+const O2S_RAW=[
+ ['Amino Acid Powder','Amino Acid','Powder'],['Ammonium Sulfate','Ammonium Sulfate','as listed'],
+ ['Boric Acid','Boric Acid','as listed'],['Calcium Hydroxide','Calcium Hydroxide','as listed'],
+ ['Citric Acid','Citric Acid','as listed'],['Copper Sulfate','Copper Sulfate','local'],
+ ['Copper Sulfate-Imported','Copper Sulfate','imported'],['DAP','DAP','as listed — grade not stated'],
+ ['Dye Blue','Dye Blue','as listed'],['Ferrous Sulfate','Ferrous Sulfate','as listed'],
+ ['Fly Ash Waste','Fly Ash Waste','as listed'],['Fume Silica','Fume Silica','as listed'],
+ ['Grinded Lignite 25%','Grinded Lignite','25%'],['Grinded Lignite 55%','Grinded Lignite','55%'],
+ ['Gypsum Powder','Gypsum','Powder'],['KOH','KOH','as listed'],
+ ['MAP','MAP','as listed — grade not stated'],['MOP','MOP','as listed'],['MOP Powder','MOP','Powder'],
+ ['MOP Granular','MOP','Granular'],['Magnisium Oxide','Magnisium Oxide','as listed'],
+ ['Magnisium Sulfate Hepta Hydrate','Magnisium Sulfate','Hepta Hydrate'],
+ ['Manganese Sulfate','Manganese Sulfate','as listed'],['Manganese Sulfate Mono','Manganese Sulfate','Mono'],
+ ['Molasses','Molasses','as listed'],['Nitric Acid','Nitric Acid','as listed'],
+ ['Phosphoric Acid 60%','Phosphoric Acid','60%'],['Phosphoric Acid 65%','Phosphoric Acid','65%'],
+ ['Phosphoric Acid 75%','Phosphoric Acid','75%'],['Plaster of Paris','Plaster of Paris','as listed'],
+ ['Potassium Carbonate','Potassium Carbonate','as listed'],['Red Dye','Red Dye','as listed'],
+ ['Rock Phosphate','Rock Phosphate','as listed'],['SOP','SOP','as listed'],
+ ['Starch Powder','Starch','Powder'],['Sugar Press Mud','Sugar Press Mud','as listed'],
+ ['Sulfur Fine (WDG)-A','Sulfur','Fine (WDG)-A'],['Sulfuric Acid','Sulfuric Acid','as listed'],
+ ['Sulphur Grinded- 200-250 Mesh','Sulphur','Grinded 200-250 Mesh'],['Sulphur WDG','Sulphur','WDG'],
+ ['TSP','TSP','as listed'],['Talc','Talc','as listed'],
+ ['Urea N-46%','Urea','N-46%'],['Urea N-46%-Filler','Urea','N-46%-Filler'],
+ ['V Zinc Semi (10%)','V Zinc Semi','10%'],['Zinc 21%','Zinc','21%'],
+ ['Zinc Sulfate Mono 33%','Zinc Sulfate','Mono 33%'],['Zinc Sulfate Powder 33%','Zinc Sulfate','Powder 33%'],
+ ['MKP','MKP','as listed'],['Mg Sulphate','Mg Sulphate','as listed'],['MEA','MEA','as listed'],
+];
+O2S_RAW.forEach((r,i)=>MATS.push({id:'R'+String(i+1).padStart(2,'0'),sub:r[1],grade:r[2],a:null,
+  spec:/not stated/.test(r[2])?0:1,src:'o2s',srcname:r[0]}));
+const MAT=id=>MATS.find(m=>m.id===id);
+const SUBS=[...new Set(MATS.map(m=>m.sub))].sort();
+const gradesOf=s=>MATS.filter(m=>m.sub===s);
+const matLabel=m=>m?m.sub+' · '+m.grade:'?';
+/* alias table — used ONLY to map names inside an imported file. Synonyms of the same
+   substance only, never a chemistry family. An unmatched name parks the row. */
+const ALIAS={'map':'M01z','mono ammonium phosphate':'M01z','mono-ammonium phosphate':'M01z',
+ 'map 11-52':'M01a','map 10-50':'M01b','map 12-61':'M01c',
+ 'dap':'M02z','dap 18-46':'M02a','phosphoric acid':'M28z','phosphoric acid 52':'M28a','phosphoric acid 61':'M28b','phosphoric acid 85':'M28c',
+ 'ssp':'M03a','urea':'M04a','elemental s':'M05a','elemental sulphur':'M05a','sulphur':'M05a','sulfur':'M05a',
+ 'znso4':'M06a','zinc sulphate':'M06a','zn-edta':'M07a','zinc edta':'M07a','potassium humate':'M08z','humate':'M08z',
+ 'humic':'M08z','humic acid':'M08z','mono-k phosphate':'M09a','mkp':'M09a','gypsum':'M10a','struvite':'M11a',
+ 'bone meal':'M12z','polyacrylate':'M13a','binder':'M14a','filler':'M15a','water':'M16a','water q.s.':'M16a',
+ 'ca nitrate':'M17a','calcium nitrate':'M17a','mg nitrate':'M18a','boric acid':'M19a','seaweed extract':'M20a',
+ 'amino acid':'M21a','trichoderma':'M22a','kts':'M23a','citric acid':'M24a','zn oxide nano-dispersion':'M25a',
+ 'surfactant':'M26a','npk blend':'M27z','compound npk':'M27z'};
+
+const VOCAB={
+ status:['idea','screened','selected','bench','formulation','parked','killed','external'],
+ origin:['internal','ai_session','competitor','literature','dropbox'],
+ against_type:['problem','idea','product','project','none'],
+ form:['granular','liquid','SC','powder','coated'],
+ route:['soil','foliar','fertigation','seed treatment'],
+ project:['—','NP 5-40','V Germinator Pro','Cala-Mag','Humi Grow Plus'],
+ crop:['wheat','maize','rice','cotton','sugarcane','citrus','mango','tomato','potato','canola','vegetables'],
+ soil:['calcareous','high pH','saline','sodic','sandy','low OM','any'],
+ prob:['P lock-up','Zn deficiency','S deficiency','N volatilisation','Ca deficiency','fruit cracking','low organic matter','salinity stress','sodicity','poor germination','soil-borne disease','poor infiltration','balanced nutrition']
+};
+const L=(id,pct)=>({m:id,pct});
+const DATA=[
+ {id:'CMB-0001',code:'NP 5-40 R1-c3',name:'MAP + elemental S + Zn-EDTA',status:'screened',origin:'internal',against_type:'problem',against:'P lock-up in calcareous soil',project:'NP 5-40',lines:[L('M01a',62),L('M05a',12),L('M07a',3),L('M15a',23)],form:'granular',route:'soil',crop:['wheat','maize'],soil:['calcareous','high pH'],prob:['P lock-up','Zn deficiency'],why:'Acidulation at the granule surface should hold P plant-available past week 3.',by:'Bench session',on:'2026-06-14'},
+ {id:'CMB-0002',code:'NP 5-40 R1-c4',name:'MAP + humate-integrated',status:'selected',origin:'internal',against_type:'problem',against:'P lock-up in calcareous soil',project:'NP 5-40',lines:[L('M01a',64),L('M08a',5),L('M05a',8),L('M15a',23)],form:'granular',route:'soil',crop:['wheat'],soil:['calcareous'],prob:['P lock-up'],why:'Humate chelates free calcium before it reaches the phosphate — cheapest route to the same effect.',by:'Bench session',on:'2026-06-14'},
+ {id:'CMB-0003',code:'NP 5-40 R2-c1',name:'DAP + citric-acid coat',status:'killed',origin:'internal',against_type:'problem',against:'P lock-up in calcareous soil',project:'NP 5-40',lines:[L('M02a',70),L('M24a',4),L('M14a',2),L('M15a',24)],form:'granular',route:'soil',crop:['wheat','maize'],soil:['calcareous'],prob:['P lock-up'],why:'Killed — coat dissolves in under 48h in field moisture, no persistence.',by:'Bench session',on:'2026-06-15'},
+ {id:'CMB-0004',code:'NP 5-40 R3-c2',name:'SSP + Zn + S',status:'idea',origin:'ai_session',against_type:'problem',against:'P lock-up in calcareous soil',project:'NP 5-40',lines:[L('M03a',78),L('M06a',3),L('M05a',5),L('M15a',14)],form:'granular',route:'soil',crop:['wheat','cotton'],soil:['calcareous','saline'],prob:['P lock-up','Zn deficiency','S deficiency'],why:'Never screened — SSP grade too low for an NP 5-40 slot, kept as a low-analysis idea.',by:'Idea session',on:'2026-06-02'},
+ {id:'CMB-0005',code:'NP 5-40 R3-c5',name:'MAP + struvite blend',status:'parked',origin:'ai_session',against_type:'idea',against:'Slow-release P without coating',project:'NP 5-40',lines:[L('M01a',45),L('M11a',30),L('M05a',6),L('M15a',19)],form:'granular',route:'soil',crop:['wheat','rice'],soil:['calcareous'],prob:['P lock-up'],why:'Parked — no reliable struvite supply in Pakistan at price. Revisit if a local recovery stream appears.',by:'Idea session',on:'2026-06-02'},
+ {id:'CMB-0006',code:'IDEA-114',name:'Sulphur-coated urea + Zn',status:'idea',origin:'ai_session',against_type:'product',against:'Competitor: Sarsabz Urea',project:'—',lines:[L('M04a',82),L('M05a',14),L('M06a',2),L('M14a',2)],form:'granular',route:'soil',crop:['maize','sugarcane'],soil:['calcareous','sandy'],prob:['N volatilisation','Zn deficiency'],why:'Sits against plain urea on volatilisation loss — VAN already has ScU trial data on maize.',by:'Idea session',on:'2026-05-20'},
+ {id:'CMB-0007',code:'IDEA-115',name:'Ca-Mg foliar + boron',status:'idea',origin:'ai_session',against_type:'problem',against:'Fruit cracking / blossom-end rot',project:'Cala-Mag',lines:[L('M17a',22),L('M18a',9),L('M19a',1.5),L('M16a',67.5)],form:'liquid',route:'foliar',crop:['tomato','citrus','mango'],soil:['any'],prob:['Ca deficiency','fruit cracking'],why:'Cala-Mag extension — boron carries the calcium into the fruit, the gap in the current label.',by:'Idea session',on:'2026-05-20'},
+ {id:'CMB-0008',code:'IDEA-131',name:'Humic + seaweed + amino',status:'idea',origin:'internal',against_type:'product',against:'Own: Humi Grow Plus',project:'Humi Grow Plus',lines:[L('M08a',12),L('M20a',5),L('M21a',3),L('M16a',80)],form:'liquid',route:'fertigation',crop:['wheat','vegetables'],soil:['saline','low OM'],prob:['low organic matter','salinity stress'],why:'Third-generation Humi Grow — does amino add anything measurable over seaweed alone?',by:'Tahir',on:'2026-07-03'},
+ {id:'CMB-0009',code:'EXT-004',name:'Engro Zarkhez Plus',status:'external',origin:'competitor',against_type:'product',against:'Competitor benchmark',project:'—',lines:[L('M27z',100)],form:'granular',route:'soil',crop:['wheat','maize','cotton'],soil:['any'],prob:['balanced nutrition'],why:'Reference row — what the market already offers in this slot.',by:'Market scan',on:'2026-04-11'},
+ {id:'CMB-0010',code:'EXT-007',name:'Yara YaraMila',status:'external',origin:'competitor',against_type:'product',against:'Competitor benchmark',project:'—',lines:[L('M27z',100)],form:'granular',route:'soil',crop:['vegetables','potato'],soil:['any'],prob:['balanced nutrition'],why:'Reference row — compound, not blended; segregation-free, the claim we would have to match.',by:'Market scan',on:'2026-04-11'},
+ {id:'CMB-0011',code:'GRM-002',name:'Germinator seed primer + Zn',status:'bench',origin:'internal',against_type:'project',against:'V Germinator Pro',project:'V Germinator Pro',lines:[L('M09a',18),L('M06a',4),L('M08a',6),L('M16a',72)],form:'liquid',route:'seed treatment',crop:['wheat','maize'],soil:['calcareous'],prob:['poor germination','Zn deficiency'],why:'At bench — germination count vs untreated is the only number that matters here.',by:'Bench session',on:'2026-07-19'},
+ {id:'CMB-0012',code:'GRM-003',name:'Germinator + Trichoderma',status:'parked',origin:'ai_session',against_type:'idea',against:'Bio-integration of the primer',project:'V Germinator Pro',lines:[L('M09a',16),L('M22a',1),L('M08a',6),L('M16a',77)],form:'liquid',route:'seed treatment',crop:['wheat'],soil:['any'],prob:['poor germination','soil-borne disease'],why:'Parked — a live organism in a salt-heavy carrier is a shelf-life problem before it is an efficacy one.',by:'Idea session',on:'2026-07-19'},
+ {id:'CMB-0013',code:'IDEA-140',name:'Gypsum + humate granule',status:'idea',origin:'ai_session',against_type:'problem',against:'Sodic soil reclamation at farm scale',project:'—',lines:[L('M10a',88),L('M08a',4),L('M14a',3),L('M15a',5)],form:'granular',route:'soil',crop:['wheat','rice'],soil:['sodic','saline'],prob:['sodicity','poor infiltration'],why:'Spreadable gypsum — the whole idea is the farmer uses the same spreader as urea.',by:'Idea session',on:'2026-08-01'},
+ {id:'CMB-0014',code:'IDEA-141',name:'Nano-Zn foliar',status:'idea',origin:'ai_session',against_type:'idea',against:'Micro-dose micronutrients',project:'—',lines:[L('M25a',4),L('M26a',1),L('M16a',95)],form:'liquid',route:'foliar',crop:['rice','wheat'],soil:['any'],prob:['Zn deficiency'],why:'Idea only — the PSQC registration position on nano is unknown, flag before spending on it.',by:'Idea session',on:'2026-08-01'},
+ {id:'CMB-0015',code:'NP 5-40 R4-c1',name:'MAP + PAA polymer',status:'screened',origin:'internal',against_type:'problem',against:'P lock-up in calcareous soil',project:'NP 5-40',lines:[L('M01a',66),L('M13a',2),L('M05a',8),L('M15a',24)],form:'granular',route:'soil',crop:['wheat'],soil:['calcareous'],prob:['P lock-up'],why:'Screened borderline — works on paper, polymer cost puts it above the ceiling at current P prices.',by:'Bench session',on:'2026-08-05'},
+ {id:'CMB-0016',code:'IDEA-149',name:'MAP + humate, higher loading',status:'idea',origin:'ai_session',against_type:'problem',against:'P lock-up in calcareous soil',project:'NP 5-40',lines:[L('M01a',64),L('M08a',8),L('M05a',8),L('M15a',20)],form:'granular',route:'soil',crop:['wheat'],soil:['calcareous'],prob:['P lock-up'],why:'Same recipe as R1-c4 with humate at 8% instead of 5% — the ratio is the experiment.',by:'Idea session',on:'2026-08-16',review:'pending',rband:'variant',rvs:'CMB-0002',rdays:2},
+ {id:'CMB-0017',code:'IDEA-150',name:'ScU + zinc, leaner urea',status:'idea',origin:'ai_session',against_type:'product',against:'Competitor: Sarsabz Urea',project:'—',lines:[L('M04a',80),L('M05a',14),L('M06a',3),L('M14a',3)],form:'granular',route:'soil',crop:['maize'],soil:['sandy'],prob:['N volatilisation','Zn deficiency'],why:'Slightly leaner urea than IDEA-114, more zinc. Is this the same thing or not?',by:'Idea session',on:'2026-08-13',review:'pending',rband:'variant',rvs:'CMB-0006',rdays:5},
+ {id:'CMB-0018',code:'IDEA-151',name:'Gypsum + bone meal granule',status:'idea',origin:'ai_session',against_type:'problem',against:'Sodic soil reclamation at farm scale',project:'—',lines:[L('M10a',85),L('M12z',7),L('M14a',3),L('M15a',5)],form:'granular',route:'soil',crop:['wheat','rice'],soil:['sodic'],prob:['sodicity'],why:'Same spreadable-gypsum idea as IDEA-140 with an organic P fraction added.',by:'Idea session',on:'2026-08-17',review:'pending',rband:'related',rvs:'CMB-0013',rdays:1},
+];
+const MATREQ=[{id:'MR-01',text:'"Lignosulphonate" — binder from the paper mill, used it in the gypsum trial',by:'Idea session',on:'2026-08-17',row:'IDEA-153',days:1}];
+
+/* ============ engine ============ */
+const $=id=>document.getElementById(id);
+const arr=v=>Array.isArray(v)?v:[v];
+const NUT=['n','p','k','s','zn'];
+const NUTL={n:'N',p:'P₂O₅',k:'K₂O',s:'S',zn:'Zn'};
+function analysis(lines){
+  const out={n:0,p:0,k:0,s:0,zn:0},miss=[];
+  lines.forEach(l=>{const m=MAT(l.m);if(!m)return;
+    if(m.a===null){miss.push(matLabel(m));return}
+    NUT.forEach(x=>out[x]+=(l.pct||0)*((m.a[x]||0)/100));});
+  NUT.forEach(x=>out[x]=Math.round(out[x]*10)/10);
+  return {out,miss};
+}
+const fp=(lines,form,route)=>lines.map(l=>l.m+':'+(Math.round((l.pct||0)*2)/2)).sort().join('|')+'#'+form+'#'+route;
+/* a fingerprint is only PROVABLE when every line names a real grade. If any line says
+   "grade not yet decided", two records can look identical and still be different things —
+   so that pair can never hard-stop. It falls to the queue instead. */
+const allGraded=lines=>lines.length&&lines.every(l=>(MAT(l.m)||{}).spec);
+/* substance repeated at two different grades is legitimate and common (two MAP grades in
+   one blend). The SAME grade twice is just an arithmetic slip — offer to merge, never block. */
+function lineIssues(lines){
+  const bySub={},byGrade={},out={dupGrade:[],multiGrade:[]};
+  lines.forEach((l,i)=>{const m=MAT(l.m);if(!m)return;
+    (byGrade[l.m]=byGrade[l.m]||[]).push(i);(bySub[m.sub]=bySub[m.sub]||[]).push(i)});
+  Object.entries(byGrade).forEach(([g,ix])=>{if(ix.length>1)out.dupGrade.push({g,ix})});
+  Object.entries(bySub).forEach(([s,ix])=>{if(ix.length>1&&!out.dupGrade.some(d=>MAT(d.g).sub===s))out.multiGrade.push({s,ix})});
+  return out;
+}
+const jac=(a,b)=>{a=new Set(a);b=new Set(b);if(!a.size&&!b.size)return 0;
+  const i=[...a].filter(x=>b.has(x)).length;return i/[...new Set([...a,...b])].length};
+const DISMISSED=new Set();
+function compare(row,d){
+  const rM=row.lines.map(l=>l.m),dM=d.lines.map(l=>l.m);
+  const sameFp=row.lines.length&&fp(row.lines,row.form,row.route)===fp(d.lines,d.form,d.route);
+  const provable=allGraded(row.lines)&&allGraded(d.lines);
+  const sameAim=!!row.against&&row.against.trim().toLowerCase()===d.against.trim().toLowerCase();
+  const sameSubs=jac(rM.map(x=>(MAT(x)||{}).sub),dM.map(x=>(MAT(x)||{}).sub));
+  const mat=jac(rM,dM);
+  const a1=analysis(row.lines).out,a2=analysis(d.lines).out;
+  let dd=0;NUT.forEach(x=>dd+=Math.abs(a1[x]-a2[x])/Math.max(3,Math.max(a1[x],a2[x],1)));
+  const ana=Math.max(0,1-dd/NUT.length);
+  const tags=jac([].concat(row.prob||[],row.crop||[],row.soil||[],[row.form,row.route]),
+                 [].concat(d.prob,d.crop,d.soil,[d.form,d.route]));
+  const score=Math.round(100*(0.40*(sameFp?1:mat*0.5)+0.20*mat+0.15*ana+0.15*tags+0.10*0));
+  const why=[];
+  if(sameFp&&sameAim&&provable)why.push('same grades at the same inclusions, same form, route and problem');
+  else if(sameFp&&sameAim)why.push('looks identical, but a grade is still undecided — cannot be called a repeat');
+  else if(sameFp)why.push('same recipe — aimed at a different problem, so not a duplicate');
+  else if(mat>=0.99)why.push('same grades, inclusions differ');
+  else if(sameSubs>=0.99)why.push('same materials at different grades — a real difference, not a repeat');
+  else if(mat>=0.4)why.push('shares '+Math.round(mat*100)+'% of its grades');
+  if(!sameFp&&ana>0.85&&row.lines.length)why.push('computes to about the same analysis');
+  if(tags>=0.5)why.push('same problem / crop / route');
+  else if(tags>0)why.push('overlapping tags');
+  let band='clear';
+  if(sameFp&&sameAim&&provable)band='identical';
+  else if(sameFp||mat>=0.99||sameSubs>=0.99||score>=62)band='variant';
+  else if(score>=40||tags>=0.55)band='related';
+  return {d,score,band,why,hard:sameFp&&sameAim&&provable};
+}
+function simFor(row){
+  if(!row||(!row.lines.length&&!(row.prob||[]).length))return [];
+  return DATA.map(d=>compare(row,d)).filter(r=>r.band!=='clear'&&!DISMISSED.has(r.d.id))
+    .sort((a,b)=>({identical:0,variant:1,related:2}[a.band]-{identical:0,variant:1,related:2}[b.band])||b.score-a.score).slice(0,5);
+}
+const BAND={identical:['r','Identical'],variant:['a','Variant'],related:['b','Related']};
+const STATUS={idea:['a','Idea'],screened:['b','Screened'],selected:['p','Selected'],bench:['p','At bench'],parked:['','Parked'],killed:['r','Killed'],external:['','External']};
+const chipS=s=>{const[c,l]=STATUS[s]||['',s];return '<span class="chip '+c+'">'+l+'</span>'};
+const compText=d=>d.lines.map(l=>{const m=MAT(l.m);return (m?m.sub+(m.spec?'':' (grade?)'):'?')+' '+l.pct+'%'}).join(' · ');
+
+/* ============ search ============ */
+const FACETS=[{k:'prob',t:'Problem'},{k:'crop',t:'Crop'},{k:'soil',t:'Soil / condition'},{k:'matsub',t:'Contains material'},{k:'matgrade',t:'Contains grade'},{k:'gradestate',t:'Grade completeness'},{k:'form',t:'Form'},{k:'route',t:'Route'},{k:'against_type',t:'Thought up against'},{k:'origin',t:'Origin'},{k:'project',t:'Project'},{k:'status',t:'Status'},{k:'rev',t:'Review state'}];
+let sel={},q='';
+function derive(){DATA.forEach(d=>{d.rev=d.review==='pending'?'pending review':'confirmed';
+  d.matsub=d.lines.map(l=>(MAT(l.m)||{sub:'?'}).sub);
+  d.matgrade=d.lines.map(l=>matLabel(MAT(l.m)));
+  d.gradestate=d.lines.every(l=>(MAT(l.m)||{}).spec)?'all grades named':'some grades not decided'})}
+function counts(k){const m={};DATA.forEach(d=>arr(d[k]).forEach(v=>m[v]=(m[v]||0)+1));return Object.entries(m).sort((a,b)=>b[1]-a[1])}
+function match(d){
+  if(q){const hay=(d.code+' '+d.name+' '+compText(d)+' '+d.lines.map(l=>matLabel(MAT(l.m))).join(' ')+' '+d.why+' '+d.against+' '+d.project+' '+d.prob.join(' ')+' '+d.crop.join(' ')+' '+d.soil.join(' ')).toLowerCase();
+    if(!q.toLowerCase().split(/\s+/).every(t=>hay.includes(t)))return false}
+  return Object.entries(sel).every(([k,vs])=>!vs.length||arr(d[k]).some(v=>vs.includes(v)));
+}
+function render(){
+  derive();
+  $('facets').innerHTML=FACETS.map(f=>'<div class="facet"><div class="ft">'+f.t+'</div>'+counts(f.k).slice(0,12).map(([v,n])=>
+    '<label class="fopt"><input type="checkbox" data-k="'+f.k+'" data-v="'+v+'"'+((sel[f.k]||[]).includes(v)?' checked':'')+'>'+v+'<span class="ct">'+n+'</span></label>').join('')+'</div>').join('');
+  $('facets').querySelectorAll('input').forEach(i=>i.onchange=e=>{const{k,v}=e.target.dataset;sel[k]=sel[k]||[];
+    sel[k]=e.target.checked?sel[k].concat(v):sel[k].filter(x=>x!==v);render()});
+  const act=Object.entries(sel).flatMap(([k,vs])=>vs.map(v=>'<span class="chip p click" data-k="'+k+'" data-v="'+v+'">'+v+' ✕</span>')).join('');
+  $('active').innerHTML=act?act+'<span class="mini"> &nbsp;AND across groups, OR inside a group</span>':'';
+  $('active').querySelectorAll('.chip').forEach(c=>c.onclick=()=>{sel[c.dataset.k]=sel[c.dataset.k].filter(x=>x!==c.dataset.v);render()});
+  let rs=DATA.filter(match);
+  const s=$('sort').value;
+  if(s==='code')rs.sort((a,b)=>a.code.localeCompare(b.code));else if(s==='status')rs.sort((a,b)=>a.status.localeCompare(b.status));else rs.sort((a,b)=>b.on.localeCompare(a.on));
+  $('cnt').textContent=rs.length+' of '+DATA.length+' combinations';
+  $('rows').innerHTML=rs.map(d=>{const{out,miss}=analysis(d.lines);
+    return '<tr class="hit" data-id="'+d.id+'"><td><b>'+d.code+'</b><br><span class="mini">'+d.id+'</span></td>'
+    +'<td><b>'+d.name+'</b><br><span class="num" style="color:var(--muted)">'+compText(d)+'</span><br>'+d.prob.map(p=>'<span class="chip">'+p+'</span>').join('')+'</td>'
+    +'<td>'+d.against+'<br><span class="mini">'+d.against_type+' · '+d.project+'</span></td>'
+    +'<td class="num">'+(miss.length?'<span class="chip a">assay missing</span>':'N '+out.n+' · P '+out.p+'<br>S '+out.s+' · Zn '+out.zn)+'<br><span class="mini">'+d.form+' / '+d.route+'</span></td>'
+    +'<td>'+chipS(d.status)+(d.review==='pending'?'<br><span class="chip a">pending · '+d.rdays+'d</span>':'')+'</td></tr>'}).join('')
+    ||'<tr><td colspan="5" style="padding:26px;text-align:center">Nothing matches. Every dead end is still a row — if it is not here, nobody has thought of it yet.</td></tr>';
+  document.querySelectorAll('#rows tr.hit').forEach(r=>r.onclick=()=>openRec(r.dataset.id));
+  $('k1').textContent=DATA.length;
+  $('k2').textContent=DATA.filter(d=>d.status==='idea').length;
+  $('k3').textContent=DATA.filter(d=>['screened','selected','bench'].includes(d.status)).length;
+  $('k4').textContent=DATA.filter(d=>d.origin==='competitor').length;
+  $('k5').textContent=DATA.filter(d=>d.review==='pending').length;
+  $('projrows').innerHTML=DATA.filter(d=>d.project==='NP 5-40').map(d=>
+   '<tr><td><b>'+d.code+'</b></td><td><b>'+d.name+'</b><br><span class="num" style="color:var(--muted)">'+compText(d)+'</span></td><td>'+d.origin+'<br><span class="mini">'+d.on+'</span></td><td>'+chipS(d.status)+'</td></tr>').join('');
+}
+function openRec(id){const d=DATA.find(x=>x.id===id);const{out,miss}=analysis(d.lines);
+  $('drc').innerHTML='<h1>'+d.code+'</h1><p class="sub">'+d.name+' · '+chipS(d.status)+(d.review==='pending'?'<span class="chip a">pending review</span>':'')+'</p>'
+   +'<div class="note">'+d.why+'</div>'
+   +'<h3 style="margin-top:14px">Composition</h3><table><thead><tr><th>Material</th><th style="width:70px">%</th></tr></thead><tbody>'
+   +d.lines.map(l=>{const m=MAT(l.m);return '<tr><td><b>'+(m?m.sub:'unmapped')+'</b> <span class="mini">'+(m?m.grade:'')+'</span>'+(m&&!m.spec?' <span class="chip a">grade not decided</span>':'')+'</td><td class="num">'+l.pct+'</td></tr>'}).join('')
+   +'<tr><td><b>Total</b></td><td class="num"><b>'+d.lines.reduce((a,l)=>a+l.pct,0).toFixed(1)+'</b></td></tr></tbody></table>'
+   +'<h3 style="margin-top:14px">Computed analysis</h3>'
+   +(miss.length?'<div class="warn">Cannot compute — no assay on file for '+miss.join(', ')+'. Fill the material register and it resolves itself.</div>'
+     :'<div class="an">'+NUT.map(x=>'<div><b>'+out[x]+'</b><span>'+NUTL[x]+'</span></div>').join('')+'</div>')
+   +'<dl class="kv"><dt>Combination no.</dt><dd class="num">'+d.id+'</dd>'
+   +'<dt>Form / route</dt><dd>'+d.form+' · '+d.route+'</dd>'
+   +'<dt>Against</dt><dd>'+d.against+' <span class="mini">('+d.against_type+')</span></dd>'
+   +'<dt>Project</dt><dd>'+d.project+'</dd>'
+   +'<dt>Problem</dt><dd>'+d.prob.map(p=>'<span class="chip">'+p+'</span>').join('')+'</dd>'
+   +'<dt>Crop</dt><dd>'+d.crop.map(p=>'<span class="chip">'+p+'</span>').join('')+'</dd>'
+   +'<dt>Soil</dt><dd>'+d.soil.map(p=>'<span class="chip">'+p+'</span>').join('')+'</dd>'
+   +'<dt>Origin</dt><dd>'+d.origin+' · '+d.by+'</dd><dt>Recorded</dt><dd class="num">'+d.on+'</dd></dl>'
+   +'<div class="row"><button class="btn ghost sm">Find similar</button><button class="btn ghost sm">Promote to candidate</button></div>'
+   +'<p class="mini" style="margin-top:12px">Buttons inert in this demo.</p>';
+  $('dr').classList.add('open');
+}
+$('drx').onclick=()=>$('dr').classList.remove('open');
+$('q').oninput=e=>{q=e.target.value;render()};
+$('sort').onchange=render;
+$('clearf').onclick=()=>{sel={};q='';$('q').value='';render()};
+$('unlock').onclick=e=>{e.preventDefault();document.querySelector('.tabs button').click();sel={project:['NP 5-40']};render()};
+document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('.tabs button').forEach(x=>x.classList.remove('on'));b.classList.add('on');
+  ['search','project','add','imp','mats','queue','format','dup'].forEach(t=>$('t-'+t).style.display=t===b.dataset.t?'':'none');
+  window.scrollTo(0,0);
+});
+
+/* ============ add one ============ */
+const NEW={code:'NP 5-40 R5-c3',name:'MAP + humate, 7% loading',status:'idea',origin:'ai_session',
+ against_type:'problem',against:'P lock-up in calcareous soil',project:'NP 5-40',form:'granular',route:'soil',
+ prob:['P lock-up'],crop:['wheat'],soil:['calcareous'],
+ why:'Humate at 7% — between R1-c4 (5%) and IDEA-149 (8%). The ratio is the experiment.',
+ lines:[L('M01a',64),L('M08a',7),L('M05a',8),L('M15a',21)]};
+let REQTEXT='';
+function fill(id,list,val,multi){const el=$(id);
+  el.innerHTML=list.map(o=>'<option'+((multi?(val||[]).includes(o):val===o)?' selected':'')+'>'+o+'</option>').join('');
+  el.onchange=()=>{NEW[id.slice(2)]=multi?[...el.selectedOptions].map(o=>o.value):el.value;aRender()};}
+['code','name','against','why'].forEach(k=>{const el=$('a_'+k);el.value=NEW[k];
+  el.oninput=()=>{NEW[k]=el.value;aRender()}});
+fill('a_status',VOCAB.status,NEW.status);fill('a_origin',VOCAB.origin,NEW.origin);
+fill('a_against_type',VOCAB.against_type,NEW.against_type);fill('a_project',VOCAB.project,NEW.project);
+fill('a_form',VOCAB.form,NEW.form);fill('a_route',VOCAB.route,NEW.route);
+fill('a_prob',VOCAB.prob,NEW.prob,1);fill('a_crop',VOCAB.crop,NEW.crop,1);fill('a_soil',VOCAB.soil,NEW.soil,1);
+function aRender(){
+  $('a_lines').innerHTML=NEW.lines.map((l,i)=>{const m=MAT(l.m);const sub=m?m.sub:SUBS[0];
+    return '<tr><td><div class="row" style="gap:6px;flex-wrap:nowrap">'
+      +'<select data-sub="'+i+'" style="flex:1">'+SUBS.map(x=>'<option'+(x===sub?' selected':'')+'>'+x+'</option>').join('')+'</select>'
+      +'<select data-i="'+i+'" style="flex:1">'+gradesOf(sub).map(x=>'<option value="'+x.id+'"'+(x.id===l.m?' selected':'')+'>'+x.grade+'</option>').join('')+'</select>'
+      +'</div>'+(m&&!m.spec?'<span class="chip a">grade not decided — this row can never be called an exact repeat</span>':'')+'</td>'
+    +'<td><input type="number" step="0.1" data-p="'+i+'" value="'+l.pct+'"></td>'
+    +'<td class="mini">'+(m&&m.a===null?'<span class="chip a">no assay</span>':m&&Object.keys(m.a).length?Object.keys(m.a).map(k=>NUTL[k]+' '+m.a[k]).join(' · '):'inert / none')+'</td>'
+    +'<td><button class="btn ghost sm" data-x="'+i+'">✕</button></td></tr>'}).join('');
+  $('a_lines').querySelectorAll('[data-sub]').forEach(s=>s.onchange=e=>{
+    NEW.lines[e.target.dataset.sub].m=gradesOf(e.target.value)[0].id;aRender()});
+  $('a_lines').querySelectorAll('[data-i]').forEach(s=>s.onchange=e=>{NEW.lines[e.target.dataset.i].m=e.target.value;aRender()});
+  $('a_lines').querySelectorAll('[data-p]').forEach(s=>s.oninput=e=>{NEW.lines[e.target.dataset.p].pct=parseFloat(e.target.value)||0;aTotals()});
+  $('a_lines').querySelectorAll('[data-x]').forEach(b=>b.onclick=()=>{NEW.lines.splice(+b.dataset.x,1);aRender()});
+  aTotals();
+}
+function aTotals(){
+  const tot=NEW.lines.reduce((a,l)=>a+(l.pct||0),0);
+  const okTot=Math.abs(tot-100)<=0.5;
+  $('a_total').innerHTML='total <b class="num" style="color:'+(okTot?'var(--green-deep)':'var(--red)')+'">'+tot.toFixed(1)+'%</b>'+(okTot?'':' — must be 100%');
+  const iss=lineIssues(NEW.lines);
+  $('a_issues').innerHTML=
+    iss.dupGrade.map(d=>'<div class="warn" style="margin-top:8px"><b>'+matLabel(MAT(d.g))+'</b> appears on '+d.ix.length+' lines — the same grade twice is almost always an arithmetic slip, not a recipe. '
+      +'<button class="btn ghost sm" data-merge="'+d.g+'">Merge those lines</button> <span class="mini">or leave it — this does not block the save</span></div>').join('')
+   +iss.multiGrade.map(d=>'<div class="note" style="margin-top:8px"><b>'+d.s+'</b> appears at '+d.ix.length+' different grades. That is legitimate — a blend can carry two grades of the same material, and the two are treated as different things throughout. Nothing to fix.</div>').join('');
+  $('a_issues').querySelectorAll('[data-merge]').forEach(b=>b.onclick=()=>{
+    const g=b.dataset.merge,tot=NEW.lines.filter(l=>l.m===g).reduce((a,l)=>a+l.pct,0);
+    NEW.lines=NEW.lines.filter(l=>l.m!==g);NEW.lines.push(L(g,Math.round(tot*10)/10));aRender()});
+  const{out,miss}=analysis(NEW.lines);
+  $('a_an').innerHTML=NUT.map(x=>'<div><b>'+out[x]+'</b><span>'+NUTL[x]+'</span></div>').join('');
+  $('a_anwarn').innerHTML=(miss.length?'<div class="warn" style="margin-top:8px">Incomplete — no assay on file for <b>'+miss.join(', ')+'</b>. The figures above exclude it. Filling that grade in the register fixes every combination using it at once.</div>':'')
+   +(allGraded(NEW.lines)?'':'<div class="warn" style="margin-top:8px">A grade is still undecided, so this recipe cannot be compared exactly to anything. It saves — and it can never be hard-stopped as a repeat, because nobody can prove it is one.</div>');
+  const hits=simFor(NEW);const hard=hits.find(h=>h.hard);
+  $('simpanel').innerHTML=(hard
+    ?'<div class="stop" style="margin-bottom:10px"><b>Blocked — this already exists.</b><br>'+hard.d.code+' ('+hard.d.id+') has the same grades at the same inclusions, same form, same route, same problem.</div>'
+    :hits.length?'<div class="warn" style="margin-bottom:10px"><b>Saves normally</b>, flagged <b>pending review</b> — searchable at once, and in the moderator queue.</div>'
+    :'<div class="note" style="margin-bottom:10px">Nothing close. Saves confirmed, no flag.</div>')
+   +hits.map(h=>'<div style="border:1px solid var(--line);border-radius:11px;padding:9px 11px;margin-bottom:8px">'
+    +'<div class="row" style="justify-content:space-between;gap:6px"><b style="font-size:12.5px">'+h.d.code+'</b><span class="chip '+BAND[h.band][0]+'">'+BAND[h.band][1]+'</span></div>'
+    +'<div class="mini" style="margin:3px 0 4px">'+h.d.name+'</div>'
+    +'<div class="num" style="color:var(--muted);font-size:10.5px">'+compText(h.d)+'</div>'
+    +'<div class="mini" style="color:var(--muted);margin-top:4px">'+h.why.join(' · ')+'</div>'
+    +'<div class="row" style="gap:6px;margin-top:7px">'+(h.hard
+      ?'<button class="btn ghost sm" data-rep="'+h.d.id+'">Save as a repeat run</button><button class="btn ghost sm" data-open="'+h.d.id+'">Open original</button>'
+      :'<button class="btn ghost sm" data-open="'+h.d.id+'">Open it</button><button class="btn ghost sm" data-diff="'+h.d.id+'">Not the same</button>')+'</div></div>').join('');
+  $('simpanel').querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>openRec(b.dataset.open));
+  $('simpanel').querySelectorAll('[data-rep]').forEach(b=>b.onclick=()=>alert('Demo only — would save this as a repeat run linked to '+b.dataset.rep+'.'));
+  $('simpanel').querySelectorAll('[data-diff]').forEach(b=>{b.onclick=()=>{
+    const r=prompt('Why is this not the same? (recorded once — never raised again)');
+    if(r!==null){DISMISSED.add(b.dataset.diff);aTotals()}}});
+  const req=['code','name','against','why'].every(k=>(NEW[k]||'').trim())&&NEW.prob.length&&NEW.lines.length;
+  $('a_save').disabled=!!hard||!okTot||!req;
+  $('a_state').innerHTML=hard?'<span class="chip r">blocked — exact repeat</span>'
+    :!okTot?'<span class="chip r">inclusions must total 100%</span>'
+    :!req?'<span class="chip r">required fields missing</span>'
+    :hits.length?'<span class="chip a">will save flagged pending review</span>':'<span class="chip p">will save confirmed</span>';
+}
+$('a_addline').onclick=()=>{NEW.lines.push(L('M15a',0));aRender()};
+$('a_request').onclick=()=>{
+  $('a_reqbox').innerHTML='<div class="warn" style="margin-top:10px"><b>Request a material.</b> Describe what you mean — this text never becomes a material name. A moderator adds the real entry once, and every row waiting on it resolves to that id.'
+   +'<textarea id="a_reqtext" placeholder="e.g. lignosulphonate binder from the paper mill" style="margin-top:8px"></textarea>'
+   +'<div class="row" style="margin-top:8px"><button class="btn sm" id="a_reqsend">Send request &amp; keep going</button><span class="mini">your row still saves — flagged, never blocked</span></div></div>';
+  $('a_reqsend').onclick=()=>{REQTEXT=$('a_reqtext').value.trim();
+    if(!REQTEXT)return;
+    MATREQ.push({id:'MR-0'+(MATREQ.length+1),text:'"'+REQTEXT+'"',by:'you',on:'2026-08-18',row:NEW.code,days:0});
+    $('a_reqbox').innerHTML='<div class="note" style="margin-top:10px">Request sent to the moderator queue. Your combination saves as normal, flagged until the material is added.</div>';
+    qRender();};
+};
+$('a_save').onclick=()=>alert('Demo only — nothing is saved.');
+aRender();
+
+/* ============ import ============ */
+const FILE_FLAT=[
+ {code:'NP 5-40 R5-c1',name:'MAP + bone meal',status:'idea',form:'granular',route:'soil',against:'P lock-up in calcareous soil',prob:['P lock-up'],crop:['wheat'],soil:['calcareous'],why:'Slow organic P as a second release',lines:[['MAP',55],['bone meal',20],['elemental S',6],['filler',19]]},
+ {code:'NP 5-40 R5-c4',name:'MAP + humate-integrated',status:'idea',form:'granular',route:'soil',against:'P lock-up in calcareous soil',prob:['P lock-up'],crop:['wheat'],soil:['calcareous'],why:'Humate chelates calcium first',lines:[['MAP',64],['humic acid',5],['elemental S',8],['filler',23]]},
+ {code:'IDEA-153',name:'Gypsum + lignosulphonate',status:'idea',form:'granular',route:'soil',against:'Sodic soil reclamation at farm scale',prob:['sodicity'],crop:['wheat'],soil:['sodic'],why:'Cheaper binder than the current one',lines:[['gypsum',87],['lignosulphonate',5],['binder',3],['filler',5]]},
+ {code:'IDEA-154',name:'KTS foliar',status:'',form:'liquid',route:'sprinkle',against:'S deficiency in canola',prob:['S deficiency'],crop:['canola'],soil:['any'],why:'Foliar sulphur with no burn',lines:[['KTS',25],['water',75]]},
+];
+function runImport(shape){
+  const out=FILE_FLAT.map(o=>{
+    const errs=[],unmapped=[];
+    const lines=o.lines.map(([nm,pct])=>{const id=ALIAS[nm.toLowerCase()];if(!id)unmapped.push(nm);return {m:id||null,pct}});
+    if(!o.status)errs.push('status empty — required');
+    if(!VOCAB.route.includes(o.route))errs.push('route "'+o.route+'" not in the register');
+    const tot=lines.reduce((a,l)=>a+l.pct,0);
+    if(Math.abs(tot-100)>0.5)errs.push('inclusions total '+tot+'% — must be 100%');
+    const row={...o,lines:lines.filter(l=>l.m)};
+    const hits=unmapped.length?[]:simFor(row);
+    return {o,errs,unmapped,hits};
+  });
+  const blocked=out.filter(r=>r.errs.length).length;
+  const hard=out.filter(r=>r.hits.some(h=>h.hard)).length;
+  const unm=out.filter(r=>r.unmapped.length).length;
+  $('pv').innerHTML='<p class="mini" style="margin-bottom:8px">'+shape+' · header check <b style="color:var(--green-deep)">passed</b> · 4 combinations, 14 material lines</p>'
+   +'<div class="row" style="margin-bottom:8px"><span class="chip p">'+(out.length-blocked-hard)+' import</span><span class="chip r">'+blocked+' blocked on format</span><span class="chip r">'+hard+' exact repeat</span><span class="chip a">'+unm+' unmapped material</span></div>'
+   +'<table><thead><tr><th style="width:34%">Row</th><th>Check</th></tr></thead><tbody>'
+   +out.map(r=>'<tr><td><b>'+r.o.code+'</b><br><span class="mini">'+r.o.name+'</span></td><td>'
+     +(r.errs.length?r.errs.map(e=>'<span class="chip r">'+e+'</span>').join('<br>'):'<span class="chip p">format valid</span>')
+     +(r.unmapped.length?'<br><span class="chip a">"'+r.unmapped.join('", "')+'" not in the register</span><br><span class="mini">imports flagged, text preserved, moderator maps it once — no material is invented</span>':'')
+     +(r.hits.length?'<br>'+r.hits.slice(0,1).map(h=>'<span class="chip '+BAND[h.band][0]+'">'+BAND[h.band][1]+' · '+h.d.code+'</span> <span class="mini">'+h.why.join(' · ')+'</span>').join(''):'')
+     +'</td></tr>').join('')
+   +'</tbody></table>'
+   +'<div class="row" style="margin-top:12px"><button class="btn">Commit the clean rows</button><button class="btn ghost">Fix here</button><button class="btn ghost">Download the rejects</button></div>'
+   +'<p class="mini" style="margin-top:8px">Format errors and exact repeats block. Similarity and unmapped materials never do — the batch is not held up because two rows need a person.</p>';
+}
+$('dropA').onclick=()=>runImport('combinations_2026-08-18.csv — flat shape');
+$('dropB').onclick=()=>runImport('combinations_2026-08-18.xlsx — two-sheet shape');
+$('tmpl').onclick=()=>alert('Demo only. In the app this downloads both templates with the material register and vocabularies embedded as dropdown lists.');
+
+/* ============ materials tab ============ */
+function matRender(){
+  const o2s=MATS.filter(m=>m.src==='o2s').length,demo=MATS.filter(m=>m.src==='demo').length;
+  const noassay=MATS.filter(m=>m.a===null).length;
+  $('matsum').innerHTML='<div class="row" style="gap:8px">'
+   +'<span class="chip b">'+o2s+' from the app’s existing master</span>'
+   +'<span class="chip a">'+demo+' invented for this demo — unverified</span>'
+   +'<span class="chip r">'+noassay+' with no assay on file</span>'
+   +'<span class="chip">'+SUBS.length+' substances</span></div>'
+   +'<div class="warn" style="margin-top:10px"><b>Nothing here has been removed and nothing has been written to the app.</b> The blue rows are read verbatim from <span class="num">data/state.json</span> — names exactly as VAN wrote them. The amber rows are mine, invented to demonstrate the mechanism; they must be confirmed or dropped by you before any of this becomes real master data.</div>'
+   +'<div class="note" style="margin-top:8px"><b>Two things the real list shows up, worth a decision when you send your additions:</b> the master carries both <span class="num">Sulfur</span> and <span class="num">Sulphur</span> spellings, which the app will treat as two different substances; and <span class="num">MAP</span> and <span class="num">DAP</span> are listed with no grade at all, so anything built on them can never be called an exact repeat until a grade is named.</div>';
+  $('matrows').innerHTML=SUBS.map(s=>{const gs=gradesOf(s);
+    return '<tr style="background:var(--surface-2)"><td colspan="4"><b>'+s+'</b> <span class="mini">'+gs.length+' grade'+(gs.length===1?'':'s')+'</span></td></tr>'
+    +gs.map(m=>{const used=DATA.filter(d=>d.lines.some(l=>l.m===m.id)).length;
+      return '<tr><td class="num" style="padding-left:22px">'+m.id+' <span class="chip '+(m.src==='o2s'?'b':'a')+'">'+(m.src==='o2s'?'in app':'demo')+'</span></td>'
+      +'<td><b>'+m.grade+'</b>'+(m.spec?'':' <span class="chip a">no grade named</span>')+(m.srcname?'<br><span class="mini">master name: '+m.srcname+'</span>':'')+'</td>'
+      +'<td class="num">'+(m.a===null?'<span class="chip a">no assay — analysis cannot compute</span>':Object.keys(m.a).length?Object.keys(m.a).map(k=>NUTL[k]+' '+m.a[k]+'%').join(' · '):'<span class="mini">inert</span>')+'</td>'
+      +'<td class="mini">'+(used?used+' combination'+(used===1?'':'s'):'—')+'</td></tr>'}).join('')}).join('');
+}
+
+/* ============ queue ============ */
+function qRender(){
+  const q=DATA.filter(d=>d.review==='pending').sort((a,b)=>b.rdays-a.rdays);
+  $('qbadge').textContent=q.length+MATREQ.length;
+  $('queue').innerHTML=
+   (MATREQ.length?'<div class="card"><h2>Material requests · '+MATREQ.length+'</h2>'
+    +MATREQ.map(r=>'<div style="border:1px solid var(--line);border-radius:11px;padding:10px 12px;margin-bottom:8px">'
+      +'<div class="row" style="justify-content:space-between"><b>'+r.text+'</b>'+(r.days>=3?'<span class="chip r">escalated</span>':'<span class="chip">'+r.days+'d</span>')+'</div>'
+      +'<div class="mini" style="margin:4px 0 8px">requested by '+r.by+' · '+r.on+' · needed by row '+r.row+'</div>'
+      +'<div class="row" style="gap:6px"><button class="btn sm" data-mr="add" data-id="'+r.id+'">Add to the register</button>'
+      +'<button class="btn ghost sm" data-mr="map" data-id="'+r.id+'">It is an existing material</button>'
+      +'<button class="btn ghost sm" data-mr="no" data-id="'+r.id+'">Decline with a reason</button></div></div>').join('')+'</div>':'')
+   +(q.length?'<div class="card"><h2>Combinations awaiting a verdict · '+q.length+'</h2><p class="sub" style="margin:0 0 10px">Each is already searchable. The verdict says what it <i>is</i>, not whether it may exist.</p></div>':'')
+   +q.map(d=>{const vs=DATA.find(x=>x.id===d.rvs)||{code:'—',lines:[],id:''};
+    return '<div class="card"><div class="row" style="justify-content:space-between;align-items:flex-start">'
+    +'<div style="flex:1;min-width:250px"><b style="font-family:var(--serif);font-size:14px">'+d.code+'</b> <span class="chip '+BAND[d.rband][0]+'">'+BAND[d.rband][1]+'</span>'
+      +(d.rdays>=3?'<span class="chip r">escalated · in My Work</span>':'')
+      +'<div class="mini" style="margin:4px 0 6px">waiting '+d.rdays+'d · '+d.by+' · '+d.on+'</div>'
+      +'<b style="font-size:12.5px">'+d.name+'</b><div class="num" style="margin:3px 0">'+compText(d)+'</div>'
+      +'<div class="mini">'+d.why+'</div></div>'
+    +'<div style="flex:1;min-width:250px;background:var(--surface-2);border-radius:11px;padding:10px 12px">'
+      +'<div class="mini" style="margin-bottom:3px">looks like</div><b style="font-size:12.5px">'+vs.code+'</b> <span class="mini">'+vs.id+'</span>'
+      +'<div class="num" style="margin:3px 0">'+(vs.lines.length?compText(vs):'')+'</div>'
+      +'<div class="mini" style="color:var(--muted)">'+(compare(d,vs).why.join(' · ')||'—')+'</div></div></div>'
+    +'<div class="row" style="margin-top:10px;gap:6px">'
+      +'<button class="btn sm" data-q="own" data-id="'+d.id+'">It is its own thing</button>'
+      +'<button class="btn ghost sm" data-q="var" data-id="'+d.id+'">Variant of '+vs.code+'</button>'
+      +'<button class="btn ghost sm" data-q="merge" data-id="'+d.id+'">Merge into '+vs.code+'</button>'
+      +'<button class="btn ghost sm" data-q="ask" data-id="'+d.id+'">Needs the author</button>'
+      +'<button class="btn ghost sm" data-q="open" data-id="'+d.id+'">Open record</button></div></div>'}).join('')
+   +((!q.length&&!MATREQ.length)?'<div class="card"><p class="sub" style="margin:0">Queue empty. Nothing is waiting on a person.</p></div>':'');
+  $('queue').querySelectorAll('[data-q]').forEach(b=>b.onclick=()=>{
+    const d=DATA.find(x=>x.id===b.dataset.id);
+    if(b.dataset.q==='open')return openRec(d.id);
+    if(b.dataset.q==='ask')return alert('Demo only — sends it back to the author with a question. Stays pending, keeps ageing.');
+    d.review='';if(b.dataset.q==='merge')DATA.splice(DATA.indexOf(d),1);
+    qRender();render();});
+  $('queue').querySelectorAll('[data-mr]').forEach(b=>b.onclick=()=>{
+    const i=MATREQ.findIndex(r=>r.id===b.dataset.id);
+    if(b.dataset.mr==='add'){const n=MATREQ[i];
+      MATS.push({id:'M'+(MATS.length+1),code:'NEWMAT'+(MATS.length+1),name:n.text.replace(/"/g,'').slice(0,40),a:null});
+      matRender();}
+    MATREQ.splice(i,1);qRender();aRender();});
+}
+
+/* ============ format tab ============ */
+const F1=[['combination_no','auto','CMB-0001…'],['code','required','NP 5-40 R1-c3'],['name','required','MAP + humate-integrated'],
+ ['status','required','idea · screened · selected · bench · formulation · parked · killed · external'],
+ ['origin','required','internal · ai_session · competitor · literature · dropbox'],
+ ['against_type','required','problem · idea · product · project · none'],['against_ref','required','P lock-up in calcareous soil'],
+ ['project','optional','NP 5-40'],['form','required','granular · liquid · SC · powder · coated'],
+ ['route','required','soil · foliar · fertigation · seed treatment'],['crop_tags','optional','wheat;maize'],
+ ['soil_tags','optional','calcareous;high pH'],['problem_tags','required','P lock-up;Zn deficiency'],
+ ['rationale','required','one line — what it tests, or why parked'],['source','required','Idea session'],['generated_on','required','2026-06-14']];
+const F2=[['combination_code','required','NP 5-40 R1-c3 — ties the line to its parent'],
+ ['material_code','required','must exist in the register · unmatched text is preserved and flagged, never auto-created'],
+ ['inclusion_pct','required','number · all lines must total 100%'],
+ ['line_note','optional','free text, e.g. "coated on"']];
+$('fmt1').innerHTML='<tr><th style="width:150px">Column</th><th style="width:74px">Req</th><th>Example / allowed</th></tr>'
+ +F1.map(r=>'<tr><td><b class="num">'+r[0]+'</b></td><td>'+(r[1]==='required'?'<span class="chip r">req</span>':r[1]==='auto'?'<span class="chip b">auto</span>':'<span class="chip">opt</span>')+'</td><td class="mini">'+r[2]+'</td></tr>').join('')
+ +'<tr><td colspan="3" class="mini" style="padding-top:10px"><b>Gone from entry:</b> n · p2o5 · k2o · s · zn · composition-as-text. All computed or replaced by lines.</td></tr>';
+$('fmt2').innerHTML='<tr><th style="width:150px">Column</th><th style="width:74px">Req</th><th>Notes</th></tr>'
+ +F2.map(r=>'<tr><td><b class="num">'+r[0]+'</b></td><td><span class="chip r">req</span></td><td class="mini">'+r[2]+'</td></tr>').join('');
+$('shapeA').textContent=
+`code,name,status,...,material_code,inclusion_pct
+NP 5-40 R1-c4,MAP + humate,idea,...,MAP,64
+NP 5-40 R1-c4,,,,KHUM,5
+NP 5-40 R1-c4,,,,ES,8
+NP 5-40 R1-c4,,,,FILL,23
+
+# header fields repeat or stay blank after
+# the first line of each combination`;
+$('shapeB').textContent=
+`Sheet "combinations"
+code,name,status,origin,...,generated_on
+NP 5-40 R1-c4,MAP + humate,idea,ai_session,...,2026-06-14
+
+Sheet "combination_lines"
+combination_code,material_code,inclusion_pct
+NP 5-40 R1-c4,MAP,64
+NP 5-40 R1-c4,KHUM,5
+NP 5-40 R1-c4,ES,8
+NP 5-40 R1-c4,FILL,23`;
+
+render();matRender();qRender();
+</script>
+</body>
+</html>

@@ -9,6 +9,8 @@ Serves intent 4: *nothing leaves the factory unless it meets quality, packing,
 ## The principle
 
 > **A price that only one person can see is not a control. It is a note.**
+>
+> **And a price is not compulsory — the decision about it is.**
 
 The print price is set by the KAM from the client's PO and printed on packs
 that go to the market. Between those two points it currently passes through
@@ -17,7 +19,53 @@ makes it visible at every one of those points and verified at the last one.
 
 ---
 
-## Rule 1 · The PO is the only authority for the print price
+## Rule 0 · A price is not compulsory — the *decision* is
+
+**Corrected 2026-08-21 after Tahir's review.** Some clients do not want any
+price printed on the bag. A PO with no print price is therefore a **legitimate
+state**, not a gap, and must never be flagged as an error. Doing so would put a
+standing false alarm on every line of those customers, which
+`MODELING-GROUND-RULES.md` forbids outright.
+
+What must be enforced is not *a price on every PO* but *a recorded decision on
+every PO*, and — where a price does exist — that it is visible, checked and
+verified by everyone in the chain.
+
+The decision is **already stored**: `order.printOnPack` is written at PO entry
+from the "Print price on pack" tick (`screenEntry` L2544 → the order object at
+L2681). Nothing new needs capturing at PO level. What was missing is that
+nothing downstream ever read it.
+
+### The four states
+
+| State | Condition | How it must read |
+|---|---|---|
+| **priced** | `printOnPack === true`, price set | `MRP 1,250 /pack` — amber. Everyone checks against it |
+| **no-print** | `printOnPack === false` | `No price on pack` — **grey and calm.** A correct, deliberate state |
+| **missing** | `printOnPack === true`, no price | `MRP not set` — red. This is the only real gap |
+| **not specified** | no flag at all | `Print price not specified` — grey. Legacy POs and every line from the opening-PO import (which hard-codes `printPrice: 0`, L2170). We cannot know, so we do not guess |
+
+A fifth, softer case: no flag, no price, but the brand has carried a printed
+price before (`recallPrintPrice(brand) > 0`) → `MRP not recorded`, amber
+outline. Worth asking about, not worth blocking.
+
+> **Status: BUILT 2026-08-21.** `printPolicy()` / `printPolicyOL()` /
+> `mrpTag()` / `mrpTagFor()` in `o2s.html`. All five states verified in a
+> headless browser.
+
+### The check inverts for a no-print PO
+
+This is the part that is easy to miss. Where the PO says *no price*, the QA
+failure is **a price appearing on a bag that should carry none** — which is
+just as much a market problem as a wrong price. The inspection panel says so
+explicitly, and flags it red if the packing lot recorded a price against a
+no-print PO.
+
+> **Status: BUILT 2026-08-21.** `mrpCheckHtml()` handles the inversion.
+
+---
+
+## Rule 1 · Packing must not author the PO's price
 
 Today the packer's typed value is written back onto the PO line when the PO has
 none:
@@ -27,17 +75,19 @@ none:
 if(l.printPrice==null||l.printPrice===''){ l.printPrice=ppx; }
 ```
 
-**Remove this.** Packing must never author the PO's price. Replace with:
+**Remove this.** Packing must never author the PO's price. Replace with,
+keyed on the states in Rule 0:
 
-| PO line state | Packing behaviour |
+| State | Packing behaviour |
 |---|---|
-| `printPrice > 0` | Show it, read-only. The operator confirms it matches the artwork; they do not type a number |
-| `printPrice` missing, and the client normally prints a price (`recallPrintPrice(brand) > 0`) | **Block packing.** Message: *"This PO line has no print price. KAM or COO must set it before this can be packed."* Offer a one-click "Request price" that raises an Action Center item for the KAM |
-| `printPrice` missing, and no print history for this client | Allow packing, record `printPrice: null` and `noPrintPrice: true` on the packing lot, so it is explicit rather than absent |
+| **priced** | Show it, read-only. The operator confirms it matches the artwork; they do not type a number |
+| **no-print** | Pack normally. Record `printPrice: null` and `printOnPack: false` on the lot so the intent travels with the material. **No prompt, no warning, no friction** |
+| **missing** | This is the only case that should hold anything up — and even then, prefer a **warning plus a one-click "Ask the KAM"** over a hard block. Blocking the floor because an office field is empty moves the cost to the wrong person. Escalate hard only if the same line is packed a second time still unpriced |
+| **not specified** | Pack normally, but raise the Action Center item in Rule 7 so someone records the decision once, for good |
 
 The packing lot keeps recording what was **actually** printed, as a separate
-field — see Rule 4. If the two ever differ, that is a finding, not a
-correction.
+field — see Rule 4. If that ever contradicts the PO's state, that is a finding,
+not a correction.
 
 ## Rule 2 · The print price is shown wherever the PO line is shown
 
@@ -52,9 +102,15 @@ Add it as a visible column or line item on:
 | **Reports** — PO/line dataset (L7287) and the shipment dataset (L7291) | New dimension `printPrice` | Everyone with Reports access |
 | **PO Dossier** (SPEC-02) | Header block | Everyone with dossier access |
 
-Format everywhere: `MRP PKR 1,250 / pack` — never a bare number, because the
-invoice price is a per-Kg number and the two get confused. Where both appear,
-label them explicitly: `Invoice PKR 240/Kg · MRP PKR 1,250/pack`.
+Format everywhere: one chip, in whichever of the four states of Rule 0 applies —
+never a bare number, because the invoice price is a per-Kg number and the two get
+confused. Where both appear, label them explicitly:
+`Invoice PKR 240/Kg · MRP PKR 1,250/pack`.
+
+> **Status: BUILT 2026-08-21** — PO Tracker drawer, Load-a-truck modal, and all
+> three inspection modals. **Still to do:** the Production batch master and
+> lifecycle panel, the Shipments ready-to-ship rows, the two Reports datasets,
+> and the PO Dossier header.
 
 **Access note.** `invoicePrice` is COO/CFO-only and stays that way — that is a
 commercial figure. `printPrice` is the opposite: it is printed on the pack and
@@ -79,7 +135,7 @@ remembering:
 |---|---|---|
 | 1 | Packaging intact & correct | — |
 | 2 | Label / artwork correct | — |
-| 3 | **Printed price matches the PO** | `order.line.printPrice` |
+| 3 | **Price on pack is as the PO requires** | Rule 0 state + `line.printPrice` |
 | 4 | **Batch # on pack matches the record** | `lot.brandBatchNo` |
 | 5 | **Mfg & expiry on pack match the record** | `lot.mfgDate`, `lot.expDate` |
 | 6 | Net weight / count verified | `line.pack` |
@@ -88,8 +144,17 @@ remembering:
 | 9 | No leakage / damage | — |
 | 10 | Pallet / loading condition | — |
 
-Items 3, 4 and 5 render as: *Printed price matches the PO — **expected PKR
-1,250/pack*** with Pass / Fail beside it.
+Item 3 is worded *"Price on pack is as the PO requires"*, not *"matches the
+PO"* — because for a no-print client the correct pack has **no price on it at
+all**, and an inspector reading "matches" on a blank bag has nothing to match.
+The line renders differently by state:
+
+| State | What item 3 shows beside Pass / Fail |
+|---|---|
+| priced | *expected **PKR 1,250 /pack*** |
+| no-print | ***no price should appear on this pack*** |
+| missing | *this PO prints a price but none is set — ask the KAM before passing* |
+| not specified | *check the client PO before passing* |
 
 > **Compatibility.** `QC_CHECKLIST` is stored by index inside every saved
 > inspection (`checklist: QC_CHECKLIST.map((it,i)=>({item:it,result:...}))`,
@@ -142,37 +207,52 @@ not the gate's business.
 
 ---
 
-## New Action Center item
+## Rule 7 · One Action Center item, and it is about the *decision*, not the price
 
-**"PO line has no print price"** — owner: **KAM**, escalates to **COO** after
-1 day.
+**"PO has no print/no-print decision recorded"** — owner: **KAM**, escalates to
+**COO** after 2 days.
 
-Raised when a PO line has `ordered > 0`, no `printPrice`, and
-`recallPrintPrice(brand) > 0` (this brand has carried a printed price before).
-It clears when the price is set. This puts the gap in front of the person who
-can close it, on the day it appears, rather than at the moment a packer is
-standing at the line waiting.
+Raised only where `printOnPack` is absent — legacy POs and everything from the
+opening-PO import. It clears the moment someone ticks or unticks the box. Once
+every open PO carries a decision, this item disappears for good and never comes
+back, because new POs cannot be created without one.
 
-Also add it to the Reports exception list at L7308, alongside the existing
-`'No invoice price'` exception, as `'No print price'`.
+A separate, narrower item — **"PO prints a price, but none is set"** — covers
+the `missing` state only. That one is a genuine gap.
+
+Neither item fires for a no-print PO. There is nothing wrong with a no-print PO.
+
+Add both to the Reports exception list at L7308 alongside the existing
+`'No invoice price'` row, so the size of the backlog is one number you can look
+at before deciding whether any of this needs to block anything.
 
 ---
 
 ## Acceptance tests
 
 1. Open PO Tracker as **Supply Chain**. Every priced line shows
-   `MRP PKR x/pack`. → *Today: not shown at all.*
-2. Open a pre-shipment inspection as **QA Inspector**. The header shows the PO's
-   print price, and checklist item 3 shows the expected value. → *Today: neither.*
-3. Try to pack a PO line with no print price, for a brand that has printed
-   before. Packing is blocked with a clear message and a "Request price" button.
-   → *Today: the packer types a number and it silently becomes the PO's price.*
-4. Pack with a `printedPrice` different from `poPrintPrice`. The lot is flagged
-   and cannot pass QA. → *Today: no comparison is made.*
-5. Correct a print price in Data Fix. It saves, logs old → new, and warns about
+   `MRP PKR x/pack`. → *Today: not shown at all.* ✅ **built**
+2. A PO for a client who does not print a price shows a **calm grey** *"No price
+   on pack"* — never a red flag, never a warning, never an Action Center item.
+   ✅ **built**
+3. A PO whose `printOnPack` is on but has no price shows red *"MRP not set"* —
+   and only that PO. ✅ **built**
+4. An imported PO with no `printOnPack` flag shows grey *"Print price not
+   specified"*, not an error. ✅ **built**
+5. Open a pre-shipment inspection as **QA Inspector**. The panel shows what the
+   PO requires and, where a price was recorded at packing, whether it agrees.
+   ✅ **built**
+6. A **no-print** PO whose packing lot recorded a price is flagged red —
+   *CHECK THE BAG, this PO should carry NO printed price*. ✅ **built**
+7. Checklist item 3 renders the right wording for each of the four states.
+   → *Not built.*
+8. Pack a line whose PO is priced. The operator confirms the number; they cannot
+   author it. → *Today: the packer types a number and it silently becomes the
+   PO's price.*
+9. Correct a print price in Data Fix. It saves, logs old → new, and warns about
    already-packed lots. → *Today: the field does not exist on that screen.*
-6. Open an inspection saved **before** this change. It renders correctly with
-   its original 8 items. → *Regression test for the index-vs-key issue.*
+10. Open an inspection saved **before** this change. It renders correctly with
+    its original 8 items. → *Regression test for the index-vs-key issue.*
 
 ---
 
@@ -193,4 +273,9 @@ renamed or removed, so old records keep working.
 
 ---
 
-*Spec written 2026-08-21. Module: O2S. Status: not implemented.*
+*Spec written 2026-08-21. Corrected the same day after Tahir's review: a print
+price is not compulsory, so Rule 0 replaced the "every line must have a price"
+assumption that ran through the first draft. Module: O2S.*
+
+*Status: Rules 0 and 2 built (display and inspection panels). Rules 1, 3, 4, 5,
+6 and 7 specified, not built.*

@@ -687,3 +687,45 @@ needs individual QA logins in `auth_users` / `user_module_roles` — a `MODULE: 
 job, recorded in SPEC-04 but not actionable here.
 
 **Security:** nothing new found this session; no entry added to the register.
+
+### Correction, same day — a print price is NOT compulsory
+
+Tahir flagged it before pushing: some clients do not want any price on the bag.
+The first cut of the price chip showed red **MRP not set** whenever `printPrice`
+was 0, which would have been a standing false alarm on every line of those
+customers — the exact thing `MODELING-GROUND-RULES.md` forbids. It would also
+have fired on every PO from the opening-import, which hard-codes `printPrice:0`
+(L2170).
+
+The decision was already being stored and simply never read: `order.printOnPack`,
+written at PO entry (L2544 → L2681). New `printPolicy()` / `printPolicyOL()`
+resolve four states, and `mrpTag()` / `mrpCheckHtml()` were rewritten around them:
+
+| State | Condition | Reads as |
+|---|---|---|
+| priced | `printOnPack` true, price set | `MRP 1,250 /pack` — amber |
+| no-print | `printOnPack` false | `No price on pack` — **grey, calm** |
+| missing | `printOnPack` true, no price | `MRP not set` — red. The only real gap |
+| not specified | no flag (legacy + imported POs) | `Print price not specified` — grey |
+
+The QA check **inverts** for a no-print PO: the failure there is a price
+appearing on a bag that should carry none, and `mrpCheckHtml` flags that red.
+All seven state combinations verified in a headless browser; no false reds.
+
+`SPEC-01` gained Rule 0 and was rewritten throughout — the "every line must have
+a price" assumption ran through the whole first draft. Rule 1 softened from
+"block packing" to "warn and offer to ask the KAM", because blocking the floor
+over an empty office field moves the cost to the wrong person.
+
+### Also added — `docs/o2s/`
+
+- `TEAM-NOTE-2026-08-21.md` — one page for the team: the three changes, the four
+  price states, and advance notice of the two-date change, framed as "tell me now
+  if you can't record same-day" rather than a new rule
+- `SOP-PRE-SHIPMENT-INSPECTION.md` — the QA inspector's procedure: the price
+  check in all four states (including the inverse check), batch, mfg/expiry,
+  when to fail, what to write in remarks, and the standing caveat that the
+  inspection date is still stamped as today
+
+Both are drafts for Tahir to adjust and circulate. Markdown, in the repo. Can be
+turned into Word or a printable PDF on request.

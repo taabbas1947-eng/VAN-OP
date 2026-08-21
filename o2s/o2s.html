@@ -1336,6 +1336,8 @@ textarea:focus{border-color:var(--navy);box-shadow:var(--ring)}
   font-weight:700;white-space:nowrap;letter-spacing:.1px;
   background:var(--amber-50);color:#8a5a00;border:1px solid var(--amber)}
 .mrp.none{background:#fdecec;color:#b4231b;border-color:#f0b7b3}
+.mrp.off{background:var(--panel2);color:var(--mut);border-color:var(--line);font-weight:600}
+.mrp.soft{background:#fff;color:#8a5a00;border-color:var(--amber);font-weight:600}
 .mrp-lg{font-size:12px;padding:3px 11px}
 /* === END FIELD-SIZING FIX PACK 2026-08-21 === */
 </style>
@@ -3050,7 +3052,7 @@ function openOrder(id){
     const prcfo=`${l.prRaised?'<span style="color:var(--green2);font-size:10px">PR✓</span>':'<span class="muted">—</span>'}${l.cfoApproved?' <span style="color:var(--green2);font-size:10px">CFO✓</span>':(l.prRaised?' <span class="pill" style="background:var(--amber-50);color:var(--amber);font-size:8px;padding:0 4px">CFO?</span>':'')}`;
     const rmc=l.rmReady?dcell(l.rmReady):(l.rmStatus==='partial'?`<span class="pill" style="background:var(--amber-50);color:var(--amber);font-size:8.5px;padding:1px 6px">partial</span>`:(l.rmCheck?dcell(l.rmCheck):dcell(null, ls==='New'||ls==='SO Created')));
     return `<tr${ov?' style="background:#fdecec"':''}>
-      <td style="min-width:150px"><b style="font-size:12.5px">${l.brand}</b><div class="muted" style="font-size:9.5px">${l.base} · ${fmt(l.ordered)} Kg/L</div><div style="margin-top:3px">${mrpTag(l.printPrice)}</div></td>
+      <td style="min-width:150px"><b style="font-size:12.5px">${l.brand}</b><div class="muted" style="font-size:9.5px">${l.base} · ${fmt(l.ordered)} Kg/L</div><div style="margin-top:3px">${mrpTag(printPolicyOL(o,l))}</div></td>
       <td style="text-align:center">${rmc}</td>
       <td style="text-align:center">${prcfo}</td>
       <td style="text-align:center">${qcell(l.produced,l.ordered)}</td>
@@ -4571,30 +4573,72 @@ function poPrintPrice(po,brand,lid){
   var r=poLineFor(po,brand,lid); if(!r)return null;
   var v=+r.l.printPrice; return (v>0)?v:null;
 }
+/* NOT EVERY PO PRINTS A PRICE.  Some clients do not want a price on the bag at
+   all, and a PO carrying no print price is then a correct, deliberate state —
+   not a gap. Flagging those red would be a standing false alarm on every line
+   of those customers, which MODELING-GROUND-RULES.md forbids outright.
+
+   The decision is already stored: `order.printOnPack` is written at PO entry
+   from the "Print price on pack" tick. Older POs, and every line brought in
+   through the opening-PO import, have no flag at all — for those we must say
+   "not specified" rather than guess.
+
+   So the honest model is four states, not two:
+
+     priced      printOnPack ON, price set          -> show it, everyone checks it
+     missing     printOnPack ON, no price           -> a REAL gap, flag it
+     noprint     printOnPack OFF                    -> deliberate. Say so, calmly
+     unrecorded  no flag, no price, brand usually
+                 carries one                        -> unknown, ask. Never shout
+*/
+function printPolicy(po,brand,lid){ var r=poLineFor(po,brand,lid); return r?printPolicyOL(r.o,r.l):{mode:'unknown',price:null}; }
+function printPolicyOL(o,l){
+  var price=(+((l||{}).printPrice)>0)?+l.printPrice:null;
+  var on=(o||{}).printOnPack;
+  if(on===false) return {mode:'noprint', price:price};
+  if(on===true)  return {mode:price?'priced':'missing', price:price};
+  if(price)      return {mode:'priced', price:price};
+  var hist=0; try{ hist=(typeof recallPrintPrice==='function')?recallPrintPrice((l||{}).brand):0; }catch(e){}
+  return {mode:hist>0?'unrecorded':'unknown', price:null};
+}
 /* One consistent chip everywhere the MRP appears. Never a bare number — the
    invoice price is PKR/Kg and the print price is PKR/pack, and the whole
    problem started with those two being confused. */
-function mrpTag(v,big){
+function mrpTag(pol,big){
+  if(pol==null||typeof pol!=='object') pol={mode:(+pol>0)?'priced':'unknown', price:(+pol>0)?+pol:null};
   var cls='mrp'+(big?' mrp-lg':'');
-  if(!(+v>0)) return '<span class="'+cls+' none" title="No print price is set on this PO line">MRP not set</span>';
-  return '<span class="'+cls+'" title="Price to print on the pack, from the PO">MRP '+fmt(+v)+' /pack</span>';
+  switch(pol.mode){
+    case 'priced':  return '<span class="'+cls+'" title="Price to be printed on the pack, from the PO">MRP '+fmt(pol.price)+' /pack</span>';
+    case 'noprint': return '<span class="'+cls+' off" title="This PO is set to ship with NO price printed on the pack">No price on pack</span>';
+    case 'missing': return '<span class="'+cls+' none" title="This PO is set to print a price, but no price has been entered">MRP not set</span>';
+    case 'unrecorded': return '<span class="'+cls+' soft" title="This product usually carries a printed price, but this PO does not record one. Confirm with the KAM.">MRP not recorded</span>';
+    default:        return '<span class="'+cls+' off" title="Whether this PO prints a price has not been recorded">Print price not specified</span>';
+  }
 }
-/* Packed lots record the price that was actually verified at packing. If that
-   differs from what the PO authorises, the inspector must see BOTH. */
-function mrpCheckHtml(poPrice,lotPrice){
-  var a=+poPrice||0, b=+lotPrice||0;
-  if(!a&&!b) return '<span class="mrp none">No print price on the PO or the lot</span>';
-  if(!a)     return mrpTag(b)+' <span class="mrp none">not set on the PO</span>';
-  if(!b)     return mrpTag(a)+' <span class="muted" style="font-size:11px">— no price recorded at packing</span>';
-  if(Math.abs(a-b)<0.005) return mrpTag(a)+' <span style="color:#1d8a4e;font-weight:700;font-size:11px">&#10003; matches the price recorded at packing</span>';
-  return mrpTag(a)+' <span style="color:var(--red);font-weight:700;font-size:11.5px">&#9888; the lot was packed at PKR '+fmt(b)+' /pack &mdash; DOES NOT MATCH THE PO</span>';
+function mrpTagFor(po,brand,lid,big){ return mrpTag(printPolicy(po,brand,lid),big); }
+/* Packed lots record the price that was actually verified at packing. The
+   inspector's check differs by state — and for a no-print PO it INVERTS: the
+   failure there is a price appearing on a bag that should carry none. */
+function mrpCheckHtml(pol,lotPrice){
+  if(pol==null||typeof pol!=='object') pol={mode:(+pol>0)?'priced':'unknown', price:(+pol>0)?+pol:null};
+  var b=+lotPrice||0;
+  if(pol.mode==='noprint'){
+    if(b>0) return mrpTag(pol)+' <span style="color:var(--red);font-weight:700;font-size:11.5px">&#9888; but the lot was packed at PKR '+fmt(b)+' /pack &mdash; CHECK THE BAG, this PO should carry NO printed price</span>';
+    return mrpTag(pol)+' <span style="color:#1d8a4e;font-weight:700;font-size:11px">&#10003; confirm no price is printed on the pack</span>';
+  }
+  if(pol.mode==='missing') return mrpTag(pol)+(b>0?(' <span class="muted" style="font-size:11px">&mdash; the lot was packed at PKR '+fmt(b)+' /pack. Confirm with the KAM before passing.</span>'):' <span class="muted" style="font-size:11px">&mdash; this PO is set to print a price. Get it from the KAM before passing.</span>');
+  if(pol.mode!=='priced') return mrpTag(pol)+(b>0?(' <span class="muted" style="font-size:11px">&mdash; the lot was packed at PKR '+fmt(b)+' /pack</span>'):' <span class="muted" style="font-size:11px">&mdash; check the client PO before passing</span>');
+  var a=+pol.price||0;
+  if(!b) return mrpTag(pol)+' <span class="muted" style="font-size:11px">&mdash; no price was recorded at packing. Check the bag against the PO.</span>';
+  if(Math.abs(a-b)<0.005) return mrpTag(pol)+' <span style="color:#1d8a4e;font-weight:700;font-size:11px">&#10003; matches the price recorded at packing</span>';
+  return mrpTag(pol)+' <span style="color:var(--red);font-weight:700;font-size:11.5px">&#9888; the lot was packed at PKR '+fmt(b)+' /pack &mdash; DOES NOT MATCH THE PO</span>';
 }
 let lotQAForm={lotId:null,marks:[],officer:'',remarks:''};
 function openLotQA(lotId){ const p=lotById(lotId); if(!p)return; lotQAForm={lotId, marks:QC_CHECKLIST.map((_,i)=> (p.qa&&p.qa.checklist&&p.qa.checklist[i]&&p.qa.checklist[i].result)||''), officer:(p.qa&&p.qa.by)||'', remarks:(p.qa&&p.qa.remarks)||''}; renderLotQA(); $('modalBg').classList.add('open'); }
 function lotQASet(i,v){ lotQAForm.marks[i]=v; renderLotQA(); }
 function renderLotQA(){ const p=lotById(lotQAForm.lotId); if(!p){closeModal();return;}
   const rows=QC_CHECKLIST.map((it,i)=>`<tr><td>${it}</td><td style="white-space:nowrap"><label style="margin-right:12px"><input type="radio" name="qa${i}" ${lotQAForm.marks[i]==='pass'?'checked':''} onclick="lotQASet(${i},'pass')"> Pass</label><label><input type="radio" name="qa${i}" ${lotQAForm.marks[i]==='fail'?'checked':''} onclick="lotQASet(${i},'fail')"> Fail</label></td></tr>`).join('');
-  const _poMrp=poPrintPrice(p.po,p.brand,p.lid);
+  const _poMrp=printPolicy(p.po,p.brand,p.lid);
   $('modal').innerHTML=`<div class="mh"><h2>QA pre-shipment inspection</h2><div class="sub">${p.po} · ${p.brand} · ${fmt(p.kg)} Kg/L · batch ${lotBaseNo(p)||'—'} ▸ ${lotBrandNo(p)||'—'} · mfg ${p.mfgDate||'—'} · exp ${p.expDate||'—'} · inspector ${state.role}</div></div>
    <div class="mb"><div style="background:var(--amber-50);border:1px solid var(--amber);border-radius:8px;padding:10px 12px;margin-bottom:11px">
        <div style="font-weight:700;font-size:11.5px;margin-bottom:5px">Check the pack against the PO before you pass it</div>
@@ -6143,9 +6187,9 @@ function renderPackInspect(){ const f=packInspForm; if(!f){closeModal();return;}
   $('modal').innerHTML=`<div class="mh"><h2>Pre-shipment inspection</h2><div class="sub">${o.po} · <b>${l.brand}</b> <span class="muted">${l.base||''}</span></div></div>
    <div class="mb">
      <div style="background:var(--amber-50);border:1px solid var(--amber);border-radius:8px;padding:10px 12px;margin-bottom:11px">
-       <div style="font-weight:700;font-size:11.5px;margin-bottom:5px">Price to be printed on the pack — per the PO</div>
-       <div style="font-size:12px">${mrpTag(poPrintPrice(o.po,l.brand,l.id),true)}</div>
-       <div class="muted" style="font-size:10.5px;margin-top:6px">Fail the lot if the printed price on the packs does not match this.</div>
+       <div style="font-weight:700;font-size:11.5px;margin-bottom:5px">Price on the pack — what this PO says</div>
+       <div style="font-size:12px">${mrpTag(printPolicyOL(o,l),true)}</div>
+       <div class="muted" style="font-size:10.5px;margin-top:6px">Fail the lot if the pack does not match this &mdash; a wrong price, or any price at all where the PO says none.</div>
      </div>
      <div class="muted" style="font-size:12px;margin-bottom:8px">Enter the quantity going out — the oldest batches fill first. Adjust any batch, or zero one and use another. Partial batches are fine. <b>Only lots with a batch number can be released.</b></div>
      <div class="fld" style="max-width:220px;margin-bottom:10px"><label>Quantity going out (Kg/L)</label><input type="number" value="${_av(f.qty)}" oninput="packInspQty(this.value)"></div>
@@ -6193,7 +6237,7 @@ function dispDcInput(v){ dispSet('dc',v); var e=document.getElementById('disp_sh
 function dispLineQty(i,v){ if(dispForm&&dispForm.lines[i]){ dispForm.lines[i].qty=v; const t=document.getElementById('disp_total'); if(t) t.textContent=fmt(dispTotal())+' Kg/L · '+dispCount()+' product(s)'; const pk=document.getElementById('disp_pk_'+i); if(pk){ const ps=+dispForm.lines[i].pack||0; pk.textContent=ps>0?('≈ '+fmt(Math.ceil((+v||0)/ps))+' pk'):''; } } }
 function renderDispatchModal(){ const o=(state.orders||[]).find(x=>x.id===dispForm.oid); if(!o){closeModal();return;}
   if(typeof dcControlOn==='function'&&dcControlOn(dispForm.date)){ dispForm.dc=nextDCNo(); }
-  const rows=dispForm.lines.map((r,i)=>`<tr style="${r.on?'':'opacity:.5'}"><td style="text-align:center"><input type="checkbox" ${r.on?'checked':''} onclick="dispLineToggle(${i})"></td><td><b>${r.brand}</b> <span class="muted" style="font-size:11px">${r.base}</span><div style="margin-top:2px">${mrpTag(poPrintPrice(o.po,r.brand,r.lid))}</div></td><td class="num muted">${fmt(r.rem)}</td><td><input type="number" class="num" value="${r.qty}" oninput="dispLineQty(${i},this.value)" ${r.on?'':'disabled'} style="width:110px"></td><td class="muted" id="disp_pk_${i}" style="font-size:11px">${r.pack>0?('≈ '+fmt(Math.ceil((+r.qty||0)/r.pack))+' pk'):''}</td></tr>`).join('');
+  const rows=dispForm.lines.map((r,i)=>`<tr style="${r.on?'':'opacity:.5'}"><td style="text-align:center"><input type="checkbox" ${r.on?'checked':''} onclick="dispLineToggle(${i})"></td><td><b>${r.brand}</b> <span class="muted" style="font-size:11px">${r.base}</span><div style="margin-top:2px">${mrpTagFor(o.po,r.brand,r.lid)}</div></td><td class="num muted">${fmt(r.rem)}</td><td><input type="number" class="num" value="${r.qty}" oninput="dispLineQty(${i},this.value)" ${r.on?'':'disabled'} style="width:110px"></td><td class="muted" id="disp_pk_${i}" style="font-size:11px">${r.pack>0?('≈ '+fmt(Math.ceil((+r.qty||0)/r.pack))+' pk'):''}</td></tr>`).join('');
   $('modal').innerHTML=`<div class="mh"><h2>Load a truck — ${o.po}</h2><div class="sub">${shortClient(o.client)} · tick products, enter vehicle &amp; DC once</div></div>
    <div class="mb">
      <div class="dstep"><div class="dstep-h">1 · Products on this truck</div>
@@ -6271,9 +6315,9 @@ function renderDispatchQA(){ const rows=dispRowsFor(dispQAForm.dispId); if(!rows
   const cl=QC_CHECKLIST.map((it,i)=>`<tr><td>${it}</td><td style="white-space:nowrap"><label style="margin-right:12px"><input type="radio" name="dqa${i}" ${dispQAForm.marks[i]==='pass'?'checked':''} onclick="dispQASet(${i},'pass')"> Pass</label><label><input type="radio" name="dqa${i}" ${dispQAForm.marks[i]==='fail'?'checked':''} onclick="dispQASet(${i},'fail')"> Fail</label></td></tr>`).join('');
   $('modal').innerHTML=`<div class="mh"><h2>Pre-shipment inspection</h2><div class="sub">${g0.po} · ${rows.length} product(s) · <b>${fmt(tot)} Kg/L on this shipment</b>${g0.dc?(' · DC '+g0.dc):''}${g0.vehicle?(' · '+g0.vehicle):''}</div></div>
    <div class="mb"><div style="background:var(--amber-50);border:1px solid var(--amber);border-radius:8px;padding:10px 12px;margin-bottom:10px">
-       <div style="font-weight:700;font-size:11.5px;margin-bottom:6px">Price to be printed on the pack — per the PO</div>
-       <div style="font-size:12px;line-height:1.95">${rows.map(r=>`<div><b>${r.brand}</b> &middot; ${fmt(r.kg)} Kg/L &nbsp; ${mrpTag(poPrintPrice(r.po,r.brand,r.lid))}</div>`).join('')}</div>
-       <div class="muted" style="font-size:10.5px;margin-top:6px">Do not pass this truck if the printed price on the packs does not match.</div>
+       <div style="font-weight:700;font-size:11.5px;margin-bottom:6px">Price on the pack — what each PO says</div>
+       <div style="font-size:12px;line-height:1.95">${rows.map(r=>`<div><b>${r.brand}</b> &middot; ${fmt(r.kg)} Kg/L &nbsp; ${mrpTagFor(r.po,r.brand,r.lid)}</div>`).join('')}</div>
+       <div class="muted" style="font-size:10.5px;margin-top:6px">Do not pass this truck if a pack carries a price the PO does not authorise &mdash; including a price on a PO that should carry none.</div>
      </div>
      <div class="muted" style="font-size:12px;margin-bottom:8px">Inspect only the quantity going out on this shipment: ${rows.map(r=>r.brand+' '+fmt(r.kg)).join(' · ')}</div>
      <div style="overflow:auto"><table><thead><tr><th>Check</th><th style="width:170px">Result</th></tr></thead><tbody>${cl}</tbody></table></div>

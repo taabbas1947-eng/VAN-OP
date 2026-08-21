@@ -33,6 +33,8 @@ edits the file; treat them as *where to look*, not as an address.
 | [`SPEC-02-PO-DOSSIER.md`](SPEC-02-PO-DOSSIER.md) | One page per PO line holding every record and every trail | Fault 3 |
 | [`SPEC-03-EDIT-STANDARD.md`](SPEC-03-EDIT-STANDARD.md) | The single correction path that must apply to every record type | Fault 4 |
 | [`SPEC-04-REALTIME-DISCIPLINE.md`](SPEC-04-REALTIME-DISCIPLINE.md) | Actual date vs recorded date, entry-lag visibility, and the N-day lock with Plant Manager override | Fault 5 |
+| [`TEAM-NOTE-2026-08-21.md`](TEAM-NOTE-2026-08-21.md) | One page for the team: what changed, why, and what is expected differently | Before the change reaches people |
+| [`SOP-PRE-SHIPMENT-INSPECTION.md`](SOP-PRE-SHIPMENT-INSPECTION.md) | The QA inspector's procedure, including the four price states | Standing reference for QA |
 
 ---
 
@@ -56,7 +58,7 @@ Measured against those five, the honest position today is:
 | 1 · Where is the order, who holds it, since when | **Partly** | Owner and escalation exist in the Action Center; "since when" is unreliable because event dates are stamped at keying time, not at event time (Fault 5) |
 | 2 · Batch traces everything, years later | **Partly** | `rpTrace` traces base batch ⇄ brand batch by quantity. It does not reach the COA, the inspection, the DC or the customer from one place (Fault 3) |
 | 3 · Production: when, where stuck, who | **Mostly** | Lots carry shift and incharge; the stuck/blocked view works. Weakened by Fault 5 |
-| 4 · Nothing leaves unless it meets quality, packing, **price as per PO**, batch, mfg, expiry | **No** | The 8-point QA checklist has no price line, and the PO's print price is not shown to the inspector at all (Faults 1 and 5) |
+| 4 · Nothing leaves unless it meets quality, packing, **price as per PO**, batch, mfg, expiry | **Partly** — improved 2026-08-21 | The inspector is now shown what the PO requires (including *no price*, where that is the client's instruction) and is warned on a mismatch. Still missing: the price line inside the checklist itself, and a trustworthy inspection date (Fault 5) |
 | 5 · Shipment documents and approvals automatic | **Yes** | DC, Gate Pass, serial generation, Plant Manager approval and truck release all work. This is the strongest part of the system |
 
 ---

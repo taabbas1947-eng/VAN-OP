@@ -67,12 +67,25 @@ screen, table, report or printed document display it.
 - Data Fix "Correct a PO" (L2345–2363) — it exposes `invoicePrice` but **not**
   `printPrice`, so a wrong print price has no correction path at all
 
+### An important qualification (Tahir, 2026-08-21)
+
+**A printed price is not compulsory.** Some clients do not want any price on
+the bag. So the fault is *not* "some POs have no price" — that is a legitimate
+state. The fault is that **the decision is invisible and unverifiable**: nobody
+downstream can tell a no-print PO from a PO where someone forgot, and where a
+price does exist nobody can check it.
+
+The decision is already captured — `order.printOnPack`, written at PO entry
+(L2544 → L2681). Until 2026-08-21 nothing downstream read it. See
+[SPEC-01 Rule 0](SPEC-01-PRICE-VISIBILITY.md) for the four states.
+
 ### Three defects, not one
 
 **1a — Invisibility.** The person packing sees it. Nobody else does. Supply
 Chain planning the truck, QA inspecting before shipment, the Plant Manager
 approving the DC, the KAM who set it — none of them can see what price is
-supposed to be on that pack, or what price actually went on it.
+supposed to be on that pack, whether one is supposed to be on it at all, or
+what price actually went on it.
 
 **1b — The packer's typo becomes the PO's price.** At L4312:
 

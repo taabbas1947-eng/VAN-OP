@@ -21,6 +21,8 @@
 > **Pushed?** No. Files are in the working tree for Tahir to commit via GitHub Desktop. Changed: `docs/pd-audit/README.md` (modified), `docs/pd-model/` (new, untracked), `_to_delete/` (gitignored).
 >
 > **Next:** Tahir sends the material/grade additions and the assay figures; then rule on the tenth-object question; then, and only then, a schema.
+>
+> **ADD — same session, later:** Tahir ruled: **build on the existing app, do not delete `pd/`.** Reuse is **component-level and whitelisted**, never an extension of the old spine — six items only (candidate arithmetic engine `pd-lib.js:188–232`, Library file storage + auth-gated serve `pd-routes.js:1291/1435`, drop box + `/api/pd/similar` `:1658`, `pd_materials` + line-row shape, the `pdAuth`/`pdSurface`/`pdAuditLogger` plumbing, and the `/pd`-before-catch-all route rule). Everything else in `pd/` is opened only to delete it. Rules, vocabulary ban, reading rule and the **drift metrics** (old system measured 7 screens · 16 actions · ~95 fields · 19–21 menu items — targets and the stop-rule) are in **`docs/pd-model/REUSE-RULES.md`**. Everything the rebuild is waiting on is in **`docs/pd-model/PENDING-DECISIONS.md`** — §A is the three that **block the schema**: do the gates survive, is a Combination a tenth object, and is cost in or out of PD. Tahir confirmed **PD holds no real data** (which is what makes a core rebuild cheap — it stops being true the moment the team enters anything) and that **security/access findings are out of scope** for this rebuild per `CLAUDE.md` §2A. **Team review of the new rules and layout has not landed. No PD code is to be written until §A is answered.**
 
 > **STATUS ADD — 2026-07-30 (cloud session, latest): "ACTIONS RETURN BACK" BUG — ROOT CAUSE FOUND, FIXED & TESTED, READY TO PUSH (not yet pushed).**
 >
@@ -591,3 +593,97 @@ digest — no other events). Blocked on the mail transport decision. Then the DA
 calculation, blocked on VAN margin + freight + dealer margin. NP 5-40 seeding deferred.
 
 **Note:** commit `df3ce60 "FIXES ON PD"` added review documents only — no code changed in it.
+
+---
+
+## 2026-08-21 · O2S · fault register, spec pack, and the first safe fixes
+
+**Module:** O2S only. No PD file, no `pd/` path, no `/api/pd/*` route, `launcher.html`
+or auth block was opened. The working tree already held uncommitted PD work
+(`OP-HANDOFF.md`, `docs/pd-model/*`); none of it was touched.
+
+**Branch:** `main` @ `ab23747`. **NOT committed, NOT pushed.** Review in GitHub Desktop.
+
+### Why this session happened
+
+Tahir raised five problems on a system that is now live with real orders and a real
+team: (1) the print price is captured but invisible downstream, (2) fields are too
+small to read what is being typed, (3) nothing shows every record attached to a PO in
+one place, (4) there is no standard way to correct a record, (5) people are entering
+work late and in bulk, which the system cannot detect.
+
+All five were confirmed by reading `o2s/o2s.html` before anything was changed.
+
+### New — `docs/o2s/`
+
+| File | What it is |
+|---|---|
+| `README.md` | Index, module boundary, and the five original intents restated as acceptance tests with an honest status against each |
+| `FAULT-REGISTER.md` | The five faults with file/line evidence, severity, business cost, and a suggested order of work |
+| `UI-FIELD-AUDIT.md` | All 167 labelled controls, the pixel arithmetic explaining why text is hidden, and nine sizing rules (R1–R9) |
+| `SPEC-01-PRICE-VISIBILITY.md` | Six rules making the print price visible and verifiable end-to-end |
+| `SPEC-02-PO-DOSSIER.md` | One page per PO line holding every record and trail. Spine = PO line, batch # is an equal entry point |
+| `SPEC-03-EDIT-STANDARD.md` | AMEND / REVERSE / SUPERSEDE — one correction path for every record type |
+| `SPEC-04-REALTIME-DISCIPLINE.md` | `actualDate` + `recordedAt` on every event, entry-lag dashboard, N-day lock with Plant Manager authority |
+
+### Changed — `o2s/o2s.html` (+141 lines, −16, all replaced in place)
+
+**CSS fix pack**, one delimited block before `</style>`, purely additive:
+
+- R4 · `.fld select{text-overflow:clip}` — dropdowns no longer truncate the selected value
+- R6 · `input[type=date]{min-width:150px}` — 23 date fields stop clipping
+- R5 · `.fld{justify-content:flex-end}` — wrapped labels no longer push their input out of row
+- R2 · `.formgrid` → `repeat(auto-fit,minmax(220px,1fr))` — a field is never below 220px
+- R1 · `.modal` grows by field count via `:has()` — 580 / 800 / 1040px, no JS, no class plumbing
+- R3 · global `textarea` sizing + `.fld-long` full-width wrapper
+- `.mrp` chip styling for the print price
+
+**11 single-line inputs became textareas** (there were zero textareas in the app before
+this): Data Fix backfill reason, Data Fix correction reason, shift note, batch-close
+variance note, QA lot remarks, shipment remarks, pack-inspection remarks, dispatch
+remarks, dispatch QA remarks, multi-PO truck remarks, delivery reference/note.
+
+**Print price made visible** — new pure-read helpers `poLineFor` / `poPrintPrice` /
+`mrpTag` / `mrpCheckHtml` / `_tx`, rendered in:
+
+- Pre-shipment QA lot inspection — a check panel showing the PO price against the price
+  recorded at packing, plus batch #, mfg and expiry; flags a mismatch in red
+- Dispatch QA — the MRP per product on the truck
+- Pack inspection — the MRP for the line
+- PO Tracker order drawer — the MRP on every product line
+- Load-a-truck modal — the MRP beside each product
+
+**Deliberately NOT changed** (riskier, specified but not implemented): the write-back at
+`doPack` / `doProdQty` / `doDivert` where a packer's typed number silently becomes the
+PO's print price (SPEC-01 rule 1); the QA checklist price item (SPEC-01 rule 3); the
+10 `prompt()` calls (UI audit rule R7).
+
+### Verified
+
+- `node --check` on all five inline script blocks — pass, before and after
+- Headless Chromium load — zero page errors, zero console errors beyond the expected
+  offline `/api/*` and CDN failures
+- Functional: MRP renders in all five places; matching price shows a green confirmation;
+  a mismatched price shows the red DOES-NOT-MATCH warning; a missing PO price shows
+  "not set on the PO"; `co_reason` is a `TEXTAREA` and reads back correctly through the
+  same `getElementById().value` path `dfSubmitCorrect` uses
+- Layout at 390 / 1024 / 1920px — no horizontal overflow at any width. The dispatch
+  modal goes 580px → 1040px, its fields 170px → 232px, its date field 170px → 232px
+- Line endings unchanged (LF, 0 CRLF). Only the 16 intended lines were removed
+
+### Next
+
+In the order the fault register recommends: finish SPEC-01 (the write-back and the QA
+checklist), then SPEC-04 step 1 — `actualDate` / `recordedAt` on the four events that
+currently force today's date (COA approval, packing run, lot QA, dispatch QA). Nothing
+downstream is trustworthy until that lands.
+
+**Open decision for Tahir:** sequence validation was offered and not selected. The
+recommendation stands in SPEC-04 — build the six rules as warnings first, run for a
+month, then promote the ones that prove correct. Not built unless you say so.
+
+**Out of module:** QA signs inspections with a self-typed name on a shared login. That
+needs individual QA logins in `auth_users` / `user_module_roles` — a `MODULE: PLATFORM`
+job, recorded in SPEC-04 but not actionable here.
+
+**Security:** nothing new found this session; no entry added to the register.

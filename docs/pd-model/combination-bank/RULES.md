@@ -321,7 +321,21 @@ Three days without a verdict and the item appears in the moderator's My Work wit
 an ageing counter, and keeps appearing. **No auto-accept**: a person decides, or it
 keeps asking. A queue that clears itself is a queue nobody reads.
 
-### 8.5 Material requests sit in the same queue
+### 8.5 Any record can be corrected, re-typed and re-parented
+
+The same principle as `../PENDING-DECISIONS.md` B13, applied here: a combination filed
+against the wrong problem, tagged with the wrong mechanism, or holding the wrong grade
+on a line **must be correctable without being re-entered**, by the moderator group.
+
+- The combination keeps its number through any correction.
+- The correction is recorded — what it was, what it became, who, when — and the
+  original values are never overwritten in place.
+- The person who entered it is told what changed.
+- A correction that changes a material grade **re-runs the duplicate check**, because
+  the fingerprint has changed. If that turns the record into an exact repeat of
+  another, it goes to the queue — it is never auto-merged behind someone's back.
+
+### 8.6 Material requests sit in the same queue
 
 Add to the register · map to an existing grade · decline with a reason. Same
 three-day escalation.

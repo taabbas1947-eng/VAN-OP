@@ -45,7 +45,7 @@ and the team uses it.
 
 ---
 
-## Three breaks, and what was done
+## Four breaks, and what was done
 
 ### 1 · The DC printed the wrong number
 
@@ -125,6 +125,108 @@ else. **That hole was introduced this morning and is closed in the same change.*
 The two identities stay separate: renumbering an internal batch does **not**
 overwrite a client pack number that was deliberately made different.
 
+### 4 · Manufacturing and expiry were typed, and meant nothing
+
+Tahir asked whether these could become part of the same unbreakable chain, and
+assumed mfg would be derived while expiry stayed manual. **The measurement said
+the opposite on both counts.**
+
+**Where the bag's mfg date came from: nothing.** A free date box defaulting to
+the packing day.
+
+| Bag mfg date equalled… | Lots |
+|---|---|
+| the batch's opened date | 2 |
+| the packing date | 10 |
+| **none of those** | **141** |
+
+Commonest value: `2026-07-01`, on **58 lots** — a month-start typed by habit.
+
+**Expiry was already automatic.** 152 of 153 lots were exactly mfg + 2 years.
+Nobody was entering it; they were accepting the default — off a mfg date that
+meant nothing.
+
+**The COA and the bag disagreed.** Every sampled batch: `VLM26001` COA Jan-2026
+vs bag Aug-2026. **And 14 pack batch numbers carried conflicting dates** —
+`VLNPK26002` had **four** different mfg and expiry dates across its 10 lots.
+Bags in the market under one batch number, with different expiry dates.
+
+### Where manufacturing actually happens
+
+Tahir's question: *"where in real does the manufacturing date happen in the
+system — on the day production closes a batch?"*
+
+It should be. **It has never happened once: 0 of 69 batches carry a status of
+"closed" or a `closedDate`.** The *"Production complete — Close batch"* button
+exists, captures yield variance and a reason, and has never been pressed.
+Anchoring to it would print a blank date on every bag.
+
+**What is captured, on 76 of 76 lots, is the lot production date.** That is the
+anchor. `closedDate` is kept as second preference so that when batches do start
+being closed properly, nothing here has to change.
+
+### The chain, as built
+
+```
+batchProdDate(b)   = lots[].date  →  closedDate  →  openedDate
+packMfgFor(no)     = EARLIEST batchProdDate across every internal batch
+                     feeding this pack batch number
+  → MFG DATE       derived; no box
+  + shelf life     24 months; PRODUCTION may extend to 25-36, never shorten
+  → EXPIRY DATE    derived; no box
+        ↓
+  COA  ·  packing (shows it, cannot type it)  ·  QA verifies the bag against it
+       ·  the Delivery Challan prints it
+```
+
+**Earliest**, because the oldest material in the bag sets the shelf life. Take
+the latest and you overstate the life of everything older in the same pack.
+
+**`syncPackBatchDates()`** — deriving one lot at a time is not enough. Pack under
+a number from batch A, then add batch B produced earlier: the new lot correctly
+takes B's date while the lot already written keeps A's, and the number carries
+two dates again. After every pack the whole number is levelled to the derived
+date. Lots already **inspected or shipped are left alone** — bags are printed and
+a certificate signed against them — and that divergence is logged rather than
+hidden.
+
+**Shelf life** is bounded at both ends: below 24 or above 36 falls back to 24, so
+a mis-key cannot produce a five-year date, and it can only ever be *extended*.
+The two date boxes are gone from the packing screen; what remains is the
+actual-packing-date field and, for Production only, the shelf-life band.
+
+**Both dates are locked after material moves**, exactly like the batch number.
+The rule that emerged: **Production may correct what they recorded — quantity,
+the date they keyed. They may not change what is printed on a bag.** Batch
+number, mfg and expiry belong to the Plant Manager, and only until the material
+is cleared or shipped.
+
+### What it costs
+
+Bags now show a date earlier than packing, because that is when the clock
+actually started:
+
+| Production → packing gap | Days |
+|---|---|
+| Median | **23** |
+| Mean | 22 |
+| Worst (`M10419`, `VLNPK26003`) | **51** |
+| Pack batches over 30 days | 4 of 53 |
+| Ever negative *(sanity check)* | 0 |
+
+A median of 23 fewer days of apparent shelf life than the packing-date rule —
+and 23 days of *real* life that had already elapsed.
+
+### Not repaired by this
+
+**The bags already in the market.** The 14 conflicting pack batch numbers are a
+record of what was printed. Going forward they cannot recur; historically they
+can be reported, not corrected.
+
+**Nobody closes batches.** 0 of 69. Separately worth attention: it means
+"production complete" is never recorded, yield variance is never captured, and
+`prodCompletedThisMonth()` returns zero every month.
+
 ---
 
 ## The focal person
@@ -144,14 +246,15 @@ an empty **FOCAL PERSON** line. Every Syngenta order is White Label.
 
 ## Verified
 
-**208 checks across four suites**, all passing:
+**260 checks across five suites**, all passing:
 
 | Suite | |
 |---|---|
 | Correction path assertions | 109 |
 | Click-through, interface only | 40 |
-| **DC layout + batch link** | **28** |
-| **Batch-number gate** | **31** |
+| DC layout + batch link | 28 |
+| Batch-number gate | 32 |
+| **Mfg / expiry chain** | **51** |
 
 The DC suite reproduces the two real shipments — DC 69 and DC 29 — and asserts
 the split, the quantities, the pairing, that `VU26166` correctly appears on both
@@ -166,9 +269,10 @@ any of the nine roles.
 
 ## Open
 
-- **`mfgDate`, `expDate` and `printedPrice` are also on the bag** and are not yet
-  locked after shipping the way the batch number is. Same class of problem —
-  worth a decision.
+- **`printedPrice`** is on the bag and is still amendable by Production after
+  shipping, unlike the batch number and the two dates. Lower risk — the MRP
+  control already flags a mismatch at inspection — but the same class of problem,
+  and the only one of the four printed values left open.
 - The Gate Pass carries **no batch column at all**. Not raised, but it is the
   document at the gate.
 - `state._shipLotLink` should be read after the first live load to confirm the

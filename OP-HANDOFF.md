@@ -1208,3 +1208,137 @@ split, the pairing, the quantities, and the A4 measurement. `node --check` on al
 - Still blocking: **44 POs need a print/no-print answer** (136 lines tell QA nothing)
 
 **Ready to push, not pushed.**
+
+---
+
+## 2026-08-21 (evening, cont.) — MODULE: O2S — mfg & expiry as a derived chain
+
+Tahir: *"can we automate the manufacturing and expiry dates like an unbreakable,
+unmistakable chain? Where from we pick that data?"*
+
+### The measurement that set the design
+
+| | |
+|---|---|
+| Bag mfg date equalling the batch opened date | **2 / 153** |
+| …equalling the packing date | **10 / 153** |
+| …equalling **none of those** | **141 / 153** |
+| Commonest single value (`2026-07-01`) | **58 lots** |
+| Lots whose expiry was exactly mfg + 2 years | **152 / 153** |
+| Pack batch numbers carrying CONFLICTING dates | **14** (`VLNPK26002` had four) |
+
+So mfg was noise and expiry was already automatic — the opposite of the
+assumption. And one batch number could mean four different expiry dates on bags
+in the market.
+
+### Where manufacturing actually happens — the decisive finding
+
+Tahir asked whether the anchor should be the day production closes a batch.
+**It has never happened once: 0 of 69 batches carry `status:'closed'` or a
+`closedDate`.** The "Production complete — Close batch" button exists, captures
+yield variance and a reason, and has never been pressed. Anchoring to it would
+print a blank date on every bag.
+
+**`lots[].date` is populated on 76 of 76 lots.** That is the anchor;
+`closedDate` is kept as second preference so nothing changes here when batches
+do start being closed.
+
+> Tahir first chose the packing date, then reconsidered and asked whether the
+> production chain was stronger. It is — the COA is a statement about the batch,
+> so a packing-date anchor leaves certificate and label permanently describing
+> different days. He switched. Cost: median **23 days** less apparent shelf life
+> (max 51). That is 23 days of real life that had already elapsed.
+
+### Built
+
+```
+batchProdDate(b) = lots[].date → closedDate → openedDate
+packMfgFor(no)   = EARLIEST batchProdDate across every internal batch feeding
+                   this pack batch number
+  → MFG DATE     derived, no box
+  + shelf life   24m; PRODUCTION may extend 25-36, never shorten, bounded both ends
+  → EXPIRY DATE  derived, no box
+```
+
+- `syncPackBatchDates()` levels the whole pack batch number after every pack.
+  Lots already inspected or shipped are **left alone** and the divergence is
+  logged — bags are printed and a certificate is signed against them
+- Both date boxes removed from the packing screen; all three packing paths
+  (doPack, submitProdQty, divert) derive from the one function
+- `mfgDate` and `expDate` now **lock after material moves**, like the batch number
+
+> **The rule that emerged, worth keeping:** Production may correct what they
+> RECORDED — quantity, the date they keyed. They may not change what is PRINTED
+> ON A BAG. Batch number, mfg and expiry belong to the Plant Manager, and only
+> until the material is cleared or shipped.
+
+### Verified — 260 checks, five suites
+
+109 correction · 40 click-through · 28 DC layout+link · 32 batch gate ·
+**51 mfg/expiry chain**. Covers month-end arithmetic (31 Jan + 1m = 28 Feb),
+the shelf-life band including forced out-of-range values, the anchor falling
+back to closedDate, an older internal batch pulling the date back, levelling,
+and a shipped lot refusing to be levelled. `node --check` on all 5 blocks.
+
+### Open
+
+- **`printedPrice`** is the only one of the four printed values still amendable
+  by Production after shipping. Same class of problem, lower risk
+- **Nobody closes batches — 0 of 69.** Worth attention on its own: "production
+  complete" is never recorded, yield variance is never captured, and
+  `prodCompletedThisMonth()` returns zero every month
+- The 14 pack batch numbers with conflicting dates are a record of what was
+  printed. They cannot recur; they cannot be corrected either
+- Read `state._shipLotLink` after the first live load
+- Still blocking: **44 POs need a print/no-print answer**
+
+**Ready to push, not pushed.**
+
+---
+
+## 2026-08-21 (evening, cont. 2) — MODULE: O2S — the historical dates
+
+Tahir: *"so now we resolve it? manufacturing date / expiry, lot etc?"*
+
+**Going forward: yes. Historically: it cannot be, and the numbers say why.**
+
+| Of 153 live packing lots | |
+|---|---|
+| Free — nothing inspected, nothing shipped | **1** |
+| QA-cleared, not yet shipped | 21 |
+| Already shipped | **131** |
+| Lots whose mfg date differs from the derived date | **66** |
+| …of those, correctable now | **1** |
+| …frozen because the material has moved | **65** |
+| Pack batch numbers still carrying conflicting dates | **14** |
+
+65 of the 66 wrong dates are on bags that have been inspected or have left the
+factory. Those bags exist. Rewriting the record would make it disagree with the
+physical material — the precise fault the Plant Manager raised — so the levelling
+deliberately refuses them.
+
+### So the treatment for the past is visibility, not repair
+
+New anomaly row: **"One batch number, more than one mfg date."** Per pack batch
+number, it names every date found, how many packing runs are involved, the
+quantity, and whether the lots have moved:
+
+> Batch VLNPK26002 carries 4 different mfg dates (2026-07-01, 2026-07-05,
+> 2026-07-07, 2026-08-16) across 10 packing run(s). 9 of them have been cleared
+> or shipped — those bags are printed and cannot be corrected.
+
+Where nothing has moved it says the opposite: *"None have moved yet — correcting
+the packing runs will level them."* So the row is actionable when action is
+possible and honest when it is not.
+
+**Expect 14 rows on the first live load.** That is the backlog, not a fault, and
+the count should only ever go down. A NEW row appearing after this deploy means
+something has gone wrong that day.
+
+### Verified
+
+**266 checks, five suites** (109 / 40 / 28 / 32 / 57). The new anomaly tests
+cover a conflicting number, a clean number that must NOT be reported, the wording
+in both the moved and not-moved cases, and the affected quantity.
+
+**Ready to push, not pushed.**

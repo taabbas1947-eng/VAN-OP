@@ -4391,9 +4391,10 @@ function submitDivert(){ if(!(hardRole(['Production']))){toast('Production / COO
   const _gate=packPriceGate(o,l,divForm); if(_gate){toast(_gate);return;} const _prec=packPriceRecord(o,l,divForm);
   const slices=consumeDivertSources(p,qty);
   const srcNo=slices.length===1?(slices[0].sourceBatchNo||'DIVERT'):((slices[0].sourceBatchNo||'DIVERT')+' +'+(slices.length-1));
-  const t=new Date(d); t.setFullYear(t.getFullYear()+2);
+  const _dt=packDates(srcNo, p.id, d, null);
   l.packed=(l.packed||0)+qty; l.produced=Math.max(l.produced||0,l.packed); l.prodStart=l.prodStart||d; if(l.packed>=l.ordered-0.5)l.prodComplete=l.prodComplete||d; /* NO write-back to l.printPrice */
-  (state.packingLog=state.packingLog||[]).unshift(Object.assign({id:nid('PK'),date:d,base:l.base,brand:l.brand,kg:qty,by:((state.currentUser&&state.currentUser.name)||state.role),po:o.po,lid:l.id,baseBatchId:p.id,baseBatchNo:srcNo,brandBatchNo:srcNo,mfgDate:d,expDate:t.toISOString().slice(0,10),fromDivert:true,fromDivertSources:slices},evStamp(d,'pack',''),_prec));
+  (state.packingLog=state.packingLog||[]).unshift(Object.assign({id:nid('PK'),date:d,base:l.base,brand:l.brand,kg:qty,by:((state.currentUser&&state.currentUser.name)||state.role),po:o.po,lid:l.id,baseBatchId:p.id,baseBatchNo:srcNo,brandBatchNo:srcNo,mfgDate:_dt.mfgDate,expDate:_dt.expDate,shelfMonths:_dt.shelfMonths,fromDivert:true,fromDivertSources:slices},evStamp(d,'pack',''),_prec));
+  syncPackBatchDates(srcNo);
   p.plannedKg=(p.sources||[]).reduce((a,s)=>a+(+s.kg||0),0);
   (state.audit=state.audit||[]).unshift({t:new Date().toISOString(),user:state.role,module:'Production',field:'Diverted material packed',po:o.po,brand:l.brand,val:fmt(qty)+' Kg packed from divert pool ('+slices.length+' source batch'+(slices.length===1?'':'es')+': '+slices.map(s=>(s.sourceBatchNo||'?')+' '+fmt(s.kg)).join(', ')+')',batchNo:srcNo});
   logAction('Packed '+fmt(qty)+' Kg/L diverted '+l.brand+' ['+srcNo+'] for '+o.po+' ('+fmt(l.packed)+'/'+fmt(l.ordered)+'; '+slices.length+' source slice'+(slices.length===1?'':'s')+')');
@@ -4613,6 +4614,7 @@ function renderProdQty(){ const o=state.orders.find(x=>x.id===pqForm.oid); const
        <div class="fld"><label>Qty packed now (Kg/L)</label><input type="number" value="${pqForm.qty}" oninput="pqForm.qty=this.value" placeholder="max ${fmt(max)}"></div>
        </div>
      ${evDateField('pqForm','date','pack','Date this was actually packed','renderProdQty()')}
+     <div class="formgrid" style="grid-template-columns:1fr">${packDatesBlock((b&&b.batchNo)||'', (b&&b.id)||'', pqForm.date||TODAY.toISOString().slice(0,10), pqForm, 'pqForm', 'renderProdQty()')}</div>
      ${packPriceBlock(o,l,pqForm,'pqForm')}
      <div class="muted" style="font-size:11px;margin-top:11px">Packs QC-cleared material from the chosen production batch into ${l.brand} for ${o.po}; the pack carries that batch number.</div>`
    :`<div class="muted" style="font-size:12.5px;padding:6px 0">No QC-approved production batch is available to pack for this product yet — approve the batch COA in Lab QC first.</div>`}
@@ -4623,12 +4625,13 @@ function submitProdQty(){ if(!(hardRole(['Production']))){toast('Production / CO
   const _gate=packPriceGate(o,l,pqForm); if(_gate){toast(_gate);return;} const _prec=packPriceRecord(o,l,pqForm);
   b.packedKg=(b.packedKg||0)+q; l.packed=(l.packed||0)+q; l.produced=Math.max(l.produced||0,l.packed); l.prodStart=l.prodStart||d; if(l.packed>=l.ordered-0.5)l.prodComplete=l.prodComplete||d;
   /* NO write-back to l.printPrice — packing records, it does not author. */
-  const t=new Date(d); t.setFullYear(t.getFullYear()+2); const bn=b.batchNo||'';
-  (state.packingLog=state.packingLog||[]).unshift(Object.assign({id:nid('PK'),date:d,base:l.base,brand:l.brand,kg:q,by:((state.currentUser&&state.currentUser.name)||state.role),po:o.po,lid:l.id,baseBatchId:b.id,baseBatchNo:bn,brandBatchNo:bn,mfgDate:d,expDate:t.toISOString().slice(0,10)},evStamp(d,'pack',pqForm.dateReason),_prec));
+  const bn=b.batchNo||''; const _dt=packDates(bn, b.id, d, pqForm.shelfMonths);
+  (state.packingLog=state.packingLog||[]).unshift(Object.assign({id:nid('PK'),date:d,base:l.base,brand:l.brand,kg:q,by:((state.currentUser&&state.currentUser.name)||state.role),po:o.po,lid:l.id,baseBatchId:b.id,baseBatchNo:bn,brandBatchNo:bn,mfgDate:_dt.mfgDate,expDate:_dt.expDate,shelfMonths:_dt.shelfMonths},evStamp(d,'pack',pqForm.dateReason),_prec));
+  syncPackBatchDates(bn);
   logAction(`Packed ${fmt(q)} Kg/L of ${l.brand} [${bn}] for ${o.po} (${fmt(l.packed)}/${fmt(l.ordered)})`);
   save(); closeModal(); render(); }
 let packForm={bid:null,brand:'',kg:''};
-function openPack(bid){ const b=state.batches.find(x=>x.id===bid); packForm={bid,base:b.base,brand:'',oid:'',lid:'',kg:Math.round(batchPackableKg(b)),brandBatch:'',price:'',priceOk:false,noPrice:false,packDate:evToday(),packDateReason:'',mfg:TODAY.toISOString().slice(0,10),exp:(function(){const t=new Date(TODAY);t.setFullYear(t.getFullYear()+2);return t.toISOString().slice(0,10);})()};
+function openPack(bid){ const b=state.batches.find(x=>x.id===bid); packForm={bid,base:b.base,brand:'',oid:'',lid:'',kg:Math.round(batchPackableKg(b)),brandBatch:'',price:'',priceOk:false,noPrice:false,packDate:evToday(),packDateReason:'',shelfMonths:null};
   if(b&&b.kind==='multi'&&Array.isArray(b.allocations)&&b.allocations.length){ const _bs=[]; b.allocations.forEach(function(a){ if(a.brand&&_bs.indexOf(a.brand)<0)_bs.push(a.brand); }); if(_bs.length===1&&brandsForBase(b.base).indexOf(_bs[0])>-1) packForm.brand=_bs[0]; }
   renderPackModal(); $('modalBg').classList.add('open'); }
 function poLinesForBrand(brand){ const r=[]; state.orders.forEach(o=>o.lines.forEach(l=>{ if(l.brand===brand && (l.packed||0)<l.ordered-0.5 && stageOf(o)!=='Delivered') r.push({o,l}); })); return r; }
@@ -4645,9 +4648,8 @@ function renderPackModal(){ const b=state.batches.find(x=>x.id===packForm.bid); 
      <div class="fld"><label>2 · For which PO</label><select ${packForm.brand?'':'disabled'} onchange="packPickPO(this.value)"><option value="">${packForm.brand?(poOpts.length?'— pick PO —':'no open PO'):'pick brand first'}</option>${poOpts.map(x=>`<option value="${x.o.id}|${x.l.id}" ${packForm.oid===x.o.id&&packForm.lid===x.l.id?'selected':''}>${x.o.po} · ${x.o.client} (needs ${fmt(x.l.ordered-(x.l.packed||0))})${_mpLink[x.o.id+'|'+x.l.id]?' · linked':''}</option>`).join('')}</select></div>
      <div class="fld"><label>3 · Qty (Kg/L)</label><input type="number" value="${packForm.kg}" oninput="packForm.kg=this.value" placeholder="max ${fmt(rem)}"></div>
      <div class="fld"><label>4 · Brand batch # (on pack — reuse the same # to merge several base batches)</label><input type="text" value="${packForm.brandBatch||''}" oninput="packForm.brandBatch=this.value" placeholder="blank = same as base (${b.batchNo||'—'})"></div>
-     <div class="fld"><label>5 · Mfg date (printed on pack)</label><input type="date" value="${packForm.mfg||''}" onchange="packForm.mfg=this.value;{const t=new Date(this.value);if(!isNaN(t)){t.setFullYear(t.getFullYear()+2);packForm.exp=t.toISOString().slice(0,10);}}renderPackModal()"></div>
-     <div class="fld"><label>6 · Expiry date (auto +2 years, editable)</label><input type="date" value="${packForm.exp||''}" onchange="packForm.exp=this.value"></div>
-     ${evDateField('packForm','packDate','pack','Date this was actually packed','renderPackModal()')}</div>
+     ${evDateField('packForm','packDate','pack','Date this was actually packed','renderPackModal()')}
+     ${packDatesBlock((packForm.brandBatch||'').trim()||(b.batchNo||''), b.id, packForm.packDate||TODAY.toISOString().slice(0,10), packForm, 'packForm', 'renderPackModal()')}</div>
      ${priceBlk}<div class="muted" style="font-size:11px;margin-top:11px">Moves bulk base into the chosen brand. Pick a PO to fill that order (capped to what it still needs), or leave unassigned.</div></div>
    <div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" onclick="doPack()">Pack</button></div>`; }
 function doPack(){ if(!(hardRole(['Production']))){toast('Production / COO only');return;} const b=state.batches.find(x=>x.id===packForm.bid); if(!batchLabApproved(b)){toast('This batch is not Lab QC-approved yet — it can be packed only after QCM approves its COA.');return;} const rem=batchPackableKg(b); let kg=Math.min(+packForm.kg||0,rem); const brand=packForm.brand; const _dgP=evDateGate(packForm,'packDate','pack'); if(_dgP){toast(_dgP);return;} const d=packForm.packDate||evToday(); const _evP=evStamp(d,'pack',packForm.packDateReason);
@@ -4661,9 +4663,12 @@ function doPack(){ if(!(hardRole(['Production']))){toast('Production / COO only'
     if(_gate){toast(_gate);return;}
     const _prec=packPriceRecord(_pgO,_pgL,packForm);
     b.packedKg+=kg; l.packed=(l.packed||0)+kg; l.produced=Math.max(l.produced||0,l.packed); l.prodStart=l.prodStart||d; if(l.packed>=l.ordered-0.5)l.prodComplete=l.prodComplete||d;
-    const mfgD=packForm.mfg||d; let expD=packForm.exp||''; if(!expD){ const t=new Date(mfgD); t.setFullYear(t.getFullYear()+2); expD=t.toISOString().slice(0,10); }
-    { const lim=new Date(mfgD); lim.setFullYear(lim.getFullYear()+2); if(new Date(expD)>lim && typeof confirm==='function' && !confirm('Expiry '+expD+' is MORE than 2 years after the mfg date '+mfgD+'. Are you sure?')) return; }
     const baseBatchNo=b.batchNo||''; const brandBatchNo=(packForm.brandBatch||'').trim()||baseBatchNo;
+    /* derived, never typed — see packDates() */
+    const _dt=packDates(brandBatchNo, b.id, d, packForm.shelfMonths);
+    const mfgD=_dt.mfgDate, expD=_dt.expDate;
+    if(_dt.shelfMonths!==SHELF_DEFAULT_MONTHS && !hardRole(SHELF_OVERRIDE_ROLES)){
+      toast('Only Production may extend shelf life beyond '+SHELF_DEFAULT_MONTHS+' months'); return; }
     const _fy=fyKey(d);
     if(brandBatchNo!==baseBatchNo){
       const baseClash=(state.batches||[]).some(bb=>bb.id!==b.id && (bb.batchNo||'').trim()===brandBatchNo && fyKey(bb.openedDate||bb.date||'')===_fy);
@@ -4672,7 +4677,8 @@ function doPack(){ if(!(hardRole(['Production']))){toast('Production / COO only'
       if(otherBrandClash){ toast('Brand batch # "'+brandBatchNo+'" is already used by a DIFFERENT brand this year \u2014 use a unique number.'); return; }
     }
     /* NO write-back to l.printPrice — packing records, it does not author. See packPriceRecord(). */
-    (state.packingLog=state.packingLog||[]).unshift(Object.assign({date:d,base:b.base,brand,kg,by:((state.currentUser&&state.currentUser.name)||state.role),po:o.po,id:nid('PK'),lid:l.id,baseBatchId:b.id,baseBatchNo,brandBatchNo,mfgDate:mfgD,expDate:expD},_evP,_prec));
+    (state.packingLog=state.packingLog||[]).unshift(Object.assign({date:d,base:b.base,brand,kg,by:((state.currentUser&&state.currentUser.name)||state.role),po:o.po,id:nid('PK'),lid:l.id,baseBatchId:b.id,baseBatchNo,brandBatchNo,mfgDate:mfgD,expDate:expD,shelfMonths:_dt.shelfMonths},_evP,_prec));
+    syncPackBatchDates(brandBatchNo);
     logAction(`Packed ${fmt(kg)} Kg/L ${b.base} [${baseBatchNo}] → ${brand} [${brandBatchNo}]${brandBatchNo!==baseBatchNo?' (re-batched)':''} for ${o.po}`);
   } else {
     toast('Packing must be against a PO for this brand — select the PO above (no unassigned packing).'); return;
@@ -4686,6 +4692,139 @@ function allocateStock(oid,lid){ const o=state.orders.find(x=>x.id===oid); const
 /* ===================== QC · PRE-SHIPMENT (2-layer gate) ===================== */
 function lotBaseNo(p){ let base=(p&&p.baseBatchNo)||''; if(!String(base).trim()&&p&&p.baseBatchId){ const bb=(state.batches||[]).find(b=>b.id===p.baseBatchId); base=(bb&&bb.batchNo)||''; } return String(base).trim(); }
 function lotBrandNo(p){ const br=((p&&p.brandBatchNo)||'').trim(); return br||lotBaseNo(p); }
+/* ===== MFG & EXPIRY \u2014 DERIVED, NOT TYPED. 2026-08-21 =====
+   Tahir: "can we automate the manufacturing and expiry dates like an
+   unbreakable, unmistakable chain?"
+
+   WHAT WAS THERE. Two free date boxes. Expiry defaulted to mfg + 2 years and in
+   practice was never touched \u2014 152 of 153 live lots are exactly +2 years. Mfg
+   was whatever somebody typed: on live data it matched the batch's opened date
+   on 2 lots, the packing date on 10, and NOTHING on 141. The single commonest
+   value was 2026-07-01, on 58 lots \u2014 a month-start typed out of habit.
+
+   THE RULE (Tahir's decisions, 21 Aug):
+     \u00b7 mfg = THE PACKING DATE
+     \u00b7 but ONE date per pack batch number \u2014 the packing date of the FIRST lot
+       under it. Without that, VLNPK26002 (packed across four different days)
+       keeps carrying four mfg dates on bags sharing one batch number, which
+       destroys exactly the traceability the number exists to provide.
+     \u00b7 expiry = mfg + shelf life
+     \u00b7 shelf life = 24 months, overridable to 25-36 by PRODUCTION only. It can
+       only ever be EXTENDED, and it is bounded at both ends so a mis-key cannot
+       produce a five-year date.
+
+   Neither date is a box any more. What a person may set is the shelf life, and
+   only within the band. ============================================== */
+var SHELF_DEFAULT_MONTHS=24, SHELF_MAX_MONTHS=36;
+var SHELF_OVERRIDE_ROLES=['Production'];
+function shelfMonthsOf(p){ var m=+((p||{}).shelfMonths)||0;
+  return (m>=SHELF_DEFAULT_MONTHS && m<=SHELF_MAX_MONTHS) ? m : SHELF_DEFAULT_MONTHS; }
+/* month arithmetic that does not roll 31 January into 3 March */
+function addMonthsISO(iso, n){
+  var s=String(iso||''); if(!/^\d{4}-\d{2}-\d{2}$/.test(s)) return '';
+  var y=+s.slice(0,4), m=+s.slice(5,7)-1, day=+s.slice(8,10);
+  var t=new Date(y, m+(+n||0), 1);
+  var last=new Date(t.getFullYear(), t.getMonth()+1, 0).getDate();
+  t.setDate(Math.min(day,last));
+  var p2=function(x){ return (x<10?'0':'')+x; };
+  return t.getFullYear()+'-'+p2(t.getMonth()+1)+'-'+p2(t.getDate());
+}
+/* WHERE MANUFACTURING ACTUALLY HAPPENS.
+   Tahir asked whether the anchor should be the day production closes a batch.
+   It should — but on the live system NOT ONE batch has ever been closed: 0 of
+   69 carry a status of "closed" or a closedDate. The button exists and has
+   never been pressed. Anchoring to it would print a blank date on every bag.
+
+   What IS captured, on 76 of 76 lots, is the LOT PRODUCTION DATE. That is where
+   manufacturing lands in O2S today, so that is the anchor. closedDate is kept
+   as the second preference so that the day batches do start being closed
+   properly, nothing has to change here. */
+function batchProdDate(b){
+  if(!b) return '';
+  var ds=(b.lots||[]).map(function(l){ return String((l||{}).date||'').trim(); }).filter(Boolean).sort();
+  if(ds.length) return ds[0];
+  return String(b.closedDate||b.openedDate||b.date||'').trim();
+}
+/* The mfg date for a pack batch number: the EARLIEST production date across
+   every internal batch feeding it. Derived purely from the material — never
+   from when somebody got round to packing it, and never from a typed box.
+
+   Earliest, because the oldest material in the bag sets the shelf life. Take
+   the latest and you overstate the life of everything older in the same pack. */
+function packMfgFor(brandBatchNo, batchId, packDate){
+  var cands=[], bs=(state.batches||[]);
+  var addB=function(id){ if(!id) return;
+    var b=bs.find(function(x){return x.id===id;}); var d=batchProdDate(b); if(d) cands.push(d); };
+  addB(batchId);
+  var no=String(brandBatchNo||'').trim();
+  if(no) (state.packingLog||[]).forEach(function(p){
+    if(!p||p.reversed) return;
+    if(String(p.brandBatchNo||'').trim()!==no) return;
+    addB(p.baseBatchId);
+  });
+  if(!cands.length) return String(packDate||'');
+  cands.sort();
+  return cands[0];
+}
+/* All three packing paths derive their dates HERE, so they cannot drift apart
+   the way the price handling did. */
+function packDates(brandBatchNo, batchId, packDate, shelfMonths){
+  var mfg=packMfgFor(brandBatchNo, batchId, packDate);
+  var months=(+shelfMonths>=SHELF_DEFAULT_MONTHS && +shelfMonths<=SHELF_MAX_MONTHS)?+shelfMonths:SHELF_DEFAULT_MONTHS;
+  return { mfgDate:mfg, expDate:addMonthsISO(mfg, months), shelfMonths:months,
+           fromProduction:(String(mfg)!==String(packDate||'')) };
+}
+/* Deriving one lot at a time is not enough on its own.
+   Pack under VAN6GE002 from batch A, then add batch B which was produced
+   earlier: the new lot correctly takes B's date, but the lot already written
+   keeps A's — and one batch number carries two dates again, which is the fault
+   we are fixing.
+
+   So after every pack the whole number is re-levelled to the derived date.
+   Lots already INSPECTED or SHIPPED are left alone — bags are printed and a
+   certificate has been signed against them — and that is logged, so a real
+   divergence is visible rather than silent. */
+function syncPackBatchDates(brandBatchNo){
+  var no=String(brandBatchNo||'').trim(); if(!no) return {moved:0,frozen:[]};
+  var target=packMfgFor(no, null, ''); if(!target) return {moved:0,frozen:[]};
+  var moved=0, frozen=[];
+  (state.packingLog||[]).forEach(function(p){
+    if(!p||p.reversed) return;
+    if(String(p.brandBatchNo||'').trim()!==no) return;
+    if(String(p.mfgDate||'')===target) return;
+    if((+p.insKg||0)>0.5 || (+p.shipKg||0)>0.5){
+      frozen.push((p.mfgDate||'(none)')+' on '+fmt(Math.round(+p.kg||0))+' Kg already '+((+p.shipKg||0)>0.5?'shipped':'cleared'));
+      return; }
+    p.mfgDate=target; p.expDate=addMonthsISO(target, shelfMonthsOf(p)); moved++;
+  });
+  if(moved) logAction('Batch '+no+' levelled to mfg '+target+' — '+moved+' lot(s) followed, so one batch number carries one date');
+  if(frozen.length) logAction('Batch '+no+' has '+frozen.length+' lot(s) that CANNOT be levelled (already cleared or shipped): '+frozen.join('; '));
+  return {moved:moved, frozen:frozen, mfg:target};
+}
+/* Replaces the two date boxes: read-only dates, plus the one control a person
+   is allowed \u2014 the shelf-life band. */
+function packDatesBlock(brandBatchNo, batchId, packDate, form, fname, reRender){
+  var d=packDates(brandBatchNo, batchId, packDate, (form||{}).shelfMonths);
+  var canOv=hardRole(SHELF_OVERRIDE_ROLES);
+  var opts=''; for(var m=SHELF_DEFAULT_MONTHS;m<=SHELF_MAX_MONTHS;m++)
+    opts+='<option value="'+m+'"'+(d.shelfMonths===m?' selected':'')+'>'+m+' months'+(m===SHELF_DEFAULT_MONTHS?' (standard)':'')+'</option>';
+  return '<div style="grid-column:1/-1;padding:10px 12px;border:1px solid var(--line);background:var(--panel2);border-radius:9px">'
+    +'<div style="font-weight:700;font-size:11.5px;margin-bottom:6px">What will be printed on the pack</div>'
+    +'<div style="display:flex;gap:22px;flex-wrap:wrap;font-size:12.5px;align-items:flex-end">'
+    +'<div><span class="muted" style="font-size:10.5px;display:block">MFG</span><b>'+_pe(d.mfgDate||'\u2014')+'</b></div>'
+    +'<div><span class="muted" style="font-size:10.5px;display:block">EXPIRY</span><b>'+_pe(d.expDate||'\u2014')+'</b></div>'
+    +'<div style="min-width:150px"><span class="muted" style="font-size:10.5px;display:block">Shelf life</span>'
+    +(canOv
+      ? '<select onchange="'+fname+'.shelfMonths=this.value;'+reRender+'" style="padding:3px 6px;font-size:12px">'+opts+'</select>'
+      : '<b>'+d.shelfMonths+' months</b> <span class="muted" style="font-size:10.5px">\u00b7 Production only</span>')
+    +'</div></div>'
+    +(d.fromProduction
+      ? '<div style="font-size:10.5px;margin-top:6px;color:var(--amber)">This is the <b>production date of the oldest material</b> in this batch number, not today. Every bag under it carries the same date, and the shelf-life clock started when the material was made.</div>'
+      : '<div class="muted" style="font-size:10.5px;margin-top:6px">Derived from the production date \u2014 neither date is typed. That is what keeps the COA, the record, the bag and the challan saying the same thing.</div>')
+    +(d.shelfMonths!==SHELF_DEFAULT_MONTHS
+      ? '<div style="font-size:10.5px;margin-top:5px;color:var(--amber)"><b>Extended shelf life</b> \u2014 '+d.shelfMonths+' months instead of '+SHELF_DEFAULT_MONTHS+'. Recorded against this lot with your name.</div>':'')
+    +'</div>';
+}
 function batchPairsForLine(o,l){ const seen=new Set(),out=[]; (state.packingLog||[]).forEach(p=>{ if(p&&p.po===o.po&&p.brand===l.brand){ const bs=lotBaseNo(p), br=lotBrandNo(p); const k=bs+'>'+br; if(!seen.has(k)){seen.add(k); out.push({bs:bs||'\u2014',br:br||'\u2014'});} } }); return out; }
 
 /* ===== COA / Lab QC (batch-level, 3-step workflow) ===== */
@@ -5124,8 +5263,21 @@ var CORRECT_ENTITY={
          if((+p.shipKg||0)>0.5) return fmt(Math.round(+p.shipKg||0))+' Kg has already SHIPPED under this number — the bags in the market say it. Quarantine and re-label; do not edit the record.';
          if((+p.insKg||0)>0.5) return fmt(Math.round(+p.insKg||0))+' Kg has been CLEARED by QA under this number. Withdraw the inspection first if it was wrong.';
          return null; }},
-      {k:'mfgDate',      l:'Mfg date',    t:'date'},
-      {k:'expDate',      l:'Expiry date', t:'date'},
+      /* Printed on the bag, exactly like the batch number, so the same rule
+         applies: once material has been cleared or shipped, the record must
+         keep saying what the bag says. Both are derived at packing now
+         (packDates()); this is the only route by which they can change, and it
+         closes once anything has moved. */
+      {k:'mfgDate',      l:'Mfg date',    t:'date', roles:['Plant Manager','COO'],
+       lockedIf:function(p){
+         if((+p.shipKg||0)>0.5) return fmt(Math.round(+p.shipKg||0))+' Kg has already SHIPPED carrying this mfg date.';
+         if((+p.insKg||0)>0.5) return fmt(Math.round(+p.insKg||0))+' Kg has been CLEARED by QA against this mfg date.';
+         return null; }},
+      {k:'expDate',      l:'Expiry date', t:'date', roles:['Plant Manager','COO'],
+       lockedIf:function(p){
+         if((+p.shipKg||0)>0.5) return fmt(Math.round(+p.shipKg||0))+' Kg has already SHIPPED carrying this expiry date.';
+         if((+p.insKg||0)>0.5) return fmt(Math.round(+p.insKg||0))+' Kg has been CLEARED by QA against this expiry date.';
+         return null; }},
       {k:'printedPrice', l:'Price printed on the pack', t:'number'},
       {k:'actualDate',   l:'Date actually packed', t:'date'}
     ],
@@ -9209,6 +9361,34 @@ var RB_DATASETS={
         if(q&&q.actualDate&&sh.dispatch&&q.actualDate>sh.dispatch) out.push({type:'Inspection dated after dispatch',po:sh.po||'',client:sh.client||'',product:sh.brand||'',detail:'Truck left '+sh.dispatch+', inspection dated '+q.actualDate+' — the inspection cannot have authorised this shipment',date:sh.dispatch||'',value:+sh.kg||0});
       });
       (state.batches||[]).forEach(function(b){ if(b&&!b.voided){ var prod=+b.producedKg||0,disp=+b.disposedKg||0; if(prod>0&&disp/prod>0.05)out.push({type:'High loss / disposal',po:b.po||'',client:'',product:b.brand||b.base||'',detail:fmt(disp)+' of '+fmt(prod)+' Kg disposed ('+Math.round(disp/prod*100)+'%)',date:b.closedDate||b.openedDate||'',value:disp}); } });
+      /* ONE BATCH NUMBER, MORE THAN ONE DATE — 2026-08-21.
+         Derivation stops this happening again but cannot repair what has already
+         been printed: on the live system 14 pack batch numbers carry conflicting
+         mfg dates, and 65 of the 66 wrong lots have been cleared or shipped.
+         Those bags exist. So the treatment for the past is not a fix, it is
+         VISIBILITY — countable, watchable, impossible to mistake for healthy.
+         Any new occurrence surfaces here the same day. */
+      (function(){
+        var byNo={};
+        (state.packingLog||[]).forEach(function(p){
+          if(!p||p.reversed) return; var no=String(p.brandBatchNo||'').trim(); if(!no) return;
+          (byNo[no]=byNo[no]||[]).push(p); });
+        Object.keys(byNo).forEach(function(no){
+          var lots=byNo[no], mfgs=[];
+          lots.forEach(function(p){ var m=String(p.mfgDate||''); if(m&&mfgs.indexOf(m)<0) mfgs.push(m); });
+          if(mfgs.length<2) return;
+          mfgs.sort();
+          var moved=lots.filter(function(p){ return (+p.insKg||0)>0.5||(+p.shipKg||0)>0.5; }).length;
+          var kg=lots.reduce(function(a,p){ return a+(+p.kg||0); },0);
+          out.push({ type:'One batch number, more than one mfg date',
+            po:(lots[0].po||''), client:((typeof shipClientFor==='function')?shipClientFor(lots[0].po):'')||'',
+            product:(lots[0].brand||''),
+            detail:'Batch '+no+' carries '+mfgs.length+' different mfg dates ('+mfgs.join(', ')+') across '+lots.length+' packing run(s). '
+              +(moved?(moved+' of them have been cleared or shipped — those bags are printed and cannot be corrected.')
+                     :'None have moved yet — correcting the packing runs will level them.'),
+            date:mfgs[0], value:Math.round(kg) });
+        });
+      })();
       return out; },
     fields:[{k:'type',l:'Type',t:'dim'},{k:'po',l:'PO',t:'dim'},{k:'client',l:'Client',t:'dim'},{k:'product',l:'Product',t:'dim'},{k:'detail',l:'Detail',t:'dim'},{k:'date',l:'Date',t:'dim'},{k:'value',l:'Value',t:'meas'}],
     filters:['type','client']},

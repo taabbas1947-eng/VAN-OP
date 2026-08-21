@@ -380,3 +380,114 @@ reports what is actually unresolved.
 
 *Rule 0 completed 2026-08-21. Rules 3 (the QA checklist price item) and 6 (the
 printed documents) remain.*
+
+---
+
+# Rule 3 built, and the backlog made clearable — 2026-08-21
+
+## First, what the live data said
+
+With the question deployed and nobody having answered it yet:
+
+| | |
+|---|---|
+| POs | 44 — **none answered**, as expected |
+| Lines reading **MRP not recorded** | 136 |
+| Lines reading **No price on pack** (no history anywhere) | 15 |
+| Lines **priced** | 7 |
+| *"No print/no-print decision"* anomaly rows | **136** |
+
+The count is now real. It was reporting zero the day before.
+
+## The backlog needed a way to be cleared
+
+Data Fix answers one PO at a time — pick it from a dropdown, answer, type a
+reason, save, repeat. **Forty-four times.** A backlog that tedious does not get
+cleared, and until it is cleared 136 lines read "not recorded" and the whole
+price control sits inert.
+
+So: **one screen, every unanswered PO, two clicks each, one save.**
+
+For each PO it shows what the system is currently *inferring*, and — more useful —
+**what has actually been printed on that PO's packs**:
+
+> `COBO-2607-4034` · VITAL AGRI NUTRIENTS · 10 products
+> *10× unrecorded* — **packs already printed at 1,500 (VL-NPK), 950 (Tornado), 4,500 (Nitro Sulfur)**
+> `[ Prints a price ]` `[ No price ]`
+
+That evidence line is the point. The COO is not guessing; they are looking at
+what came off the line. Nothing is written until Save, and POs already answered
+never appear.
+
+Reached from **one** Action Center item — not 44. Forty-four identical rows
+would bury every other action in the list. Owner **KAM** (they know the client's
+instruction), escalating to **COO** after 3 days. It disappears for good once
+every PO carries an answer.
+
+> **Expect a second layer.** Answering "prints a price" turns a line from
+> *not recorded* into ***MRP not set*** until somebody enters the actual number.
+> That is correct — the price genuinely is not on the PO — but it means the
+> backlog has two stages, and the second is the bigger one.
+>
+> The printed prices are sitting in the packing lots and could be adopted as the
+> PO's authorised price in one sweep. **Deliberately not built.** That is
+> uncomfortably close to Fault 10 — a packer's number becoming the authorised
+> one — and the difference is only that a human reviewed it. If it is built, it
+> must be an explicit per-PO opt-in, logged as an adoption rather than a
+> correction, and it needs Tahir's decision first.
+
+## Rule 3 — the three record checks
+
+The original 8-point checklist asks *"Batch & expiry printed"* — **printed, not
+correct**. An inspector can honestly tick that on a bag carrying the wrong batch
+number. And it never mentions price at all, which is half of intent 4.
+
+Three new items sit **above** the checklist, each carrying the expected value
+beside it, because nobody should be checking a batch number from memory:
+
+| Check | What it shows |
+|---|---|
+| **Price on the pack is as the PO requires** | *expected **PKR 1,250 /pack*** · or ***no price should appear on this pack*** · or *not recorded — check the client PO before passing* |
+| **Batch # on the pack matches the record** | *expected **ZR-2026-0042*** |
+| **Mfg & expiry on the pack match the record** | *expected mfg **2026-08-06** · exp **2028-08-06*** |
+
+Worded *"as the PO requires"*, not *"matches the PO"* — for a no-print client the
+correct pack has **no price on it at all**, and an inspector reading "matches" on
+a blank bag has nothing to match.
+
+All three are **mandatory**, and **any Fail fails the lot or the truck**, even
+when all eight original items pass.
+
+On a truck carrying several products each check lists the expectation **per
+product** and is marked once for the load.
+
+### Where it was built, and where it was not
+
+Live data decided this. The per-lot QA screen holds **zero** records; the paths
+your team actually uses are `savePackInspect` (**113 records**) and
+`dispQASubmit` (**137 shipments**). Both now carry the verify block.
+
+### Stored separately, on purpose
+
+Under `qa.verify` / `ins.verify` — **not appended to `QC_CHECKLIST`**. Every
+existing inspection stores its checklist *by array index*
+(`QC_CHECKLIST.map((it,i)=>…)`), so extending that array would silently re-label
+every inspection ever saved.
+
+## Verified
+
+| Case | Result |
+|---|---|
+| PO answered **yes**, price 1,250 | *expected PKR 1,250 /pack* |
+| PO answered **no** | ***no price should appear on this pack*** |
+| PO never answered | *not recorded — check the client PO before passing* |
+| Three checks left unmarked | **blocked** |
+| Price check **failed**, all 8 others pass | lot **fails**, goes on hold |
+| Batch check failed on a truck | truck **fails**, shipment voided |
+| All pass | cleared, quantity released to ship |
+| Bulk screen | 2 POs answered, decision + person + timestamp stored, action item drops to zero |
+
+---
+
+*Rules 0, 1, 2, 3, 4, 5 and 7 are now built. **Rule 6** — the print price on the
+printed PO, Delivery Challan and inspection report — is the last one open.*

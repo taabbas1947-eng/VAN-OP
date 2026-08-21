@@ -4726,10 +4726,10 @@ function coaSubmitAnalyst(){ const ctx=coaCtx(); const b=ctx.b, h=ctx.h; if(!b||
   state.masters.labTemplates=state.masters.labTemplates||{}; if(coaForm.item) state.masters.labTemplates[coaForm.item]=coaForm.tests.map(r=>({g:r.g,test:r.test,spec:r.spec,method:r.method,mu:r.mu}));
   qcAudit2(b,'Lab analysed',ov); logAction(`Lab COA submitted for ${L} (${coaForm.item}) — ${ov}`+(ov!=='FIT'?' → Plant Manager':' → AQCM'));
   save(); coaFSClose(); }
-function coaReview(){ if(!hardRole(['AQCM'])){toast('AQCM only');return;} const ctx=coaCtx(); const b=ctx.b,h=ctx.h; if(!b||!h||!h.coa)return; const nm=(state.currentUser&&state.currentUser.name)||state.role; h.coa.reviewer={name:nm,date:coaTS()}; h.coa.status='reviewed'; qcAudit2(b,'AQCM reviewed',''); logAction(`COA reviewed (AQCM) for ${ctx.L} → QCM`); save(); coaFSClose(); }
-function coaApprove(){ if(!hardRole(['QCM'])){toast('QCM only');return;} const ctx=coaCtx(); const b=ctx.b,h=ctx.h; if(!b||!h||!h.coa)return; const nm=(state.currentUser&&state.currentUser.name)||state.role; h.coa.approver={name:nm,date:coaTS()}; h.coa.status='approved'; h.coa.approvedDate=evToday(); Object.assign(h.coa,evStamp(evToday(),'coa','')); /* a signature's date is the moment of signing, so there is no 'actual date' to enter — but recordedAt/By still belong on the record */ h.coa.certifiedKg=ctx.qkg; if(ctx.lot) ctx.lot.certifiedKg=ctx.qkg; qcAudit2(b,'QCM approved','cleared'); logAction(`COA APPROVED (QCM) for ${ctx.L} — cleared for packing`); save(); coaFSClose(); }
+function coaReview(){ if(!hardRole(['AQCM'])){toast('AQCM only');return;} const ctx=coaCtx(); const b=ctx.b,h=ctx.h; if(!b||!h||!h.coa)return; const nm=(state.currentUser&&state.currentUser.name)||state.role; h.coa.reviewer=Object.assign(sigStamp(),{name:nm,date:coaTS()}); h.coa.status='reviewed'; qcAudit2(b,'AQCM reviewed',''); logAction(`COA reviewed (AQCM) for ${ctx.L} → QCM`); save(); coaFSClose(); }
+function coaApprove(){ if(!hardRole(['QCM'])){toast('QCM only');return;} const ctx=coaCtx(); const b=ctx.b,h=ctx.h; if(!b||!h||!h.coa)return; const nm=(state.currentUser&&state.currentUser.name)||state.role; h.coa.approver=Object.assign(sigStamp(),{name:nm,date:coaTS()}); h.coa.status='approved'; h.coa.approvedDate=evToday(); Object.assign(h.coa,evStamp(evToday(),'coa','')); /* a signature's date is the moment of signing, so there is no 'actual date' to enter — but recordedAt/By still belong on the record */ h.coa.certifiedKg=ctx.qkg; if(ctx.lot) ctx.lot.certifiedKg=ctx.qkg; qcAudit2(b,'QCM approved','cleared'); logAction(`COA APPROVED (QCM) for ${ctx.L} — cleared for packing`); save(); coaFSClose(); }
 function coaReject(stage){ if(!canEdit(['AQCM','QCM'])){toast('AQCM / QCM only');return;} const ctx=coaCtx(); const b=ctx.b,h=ctx.h; if(!b||!h||!h.coa)return; const why=(typeof prompt==='function'?prompt('Reason for rejecting back to the analyst:'):'')||''; h.coa.status='draft'; h.coa.rejected={by:state.role,stage,why:why||'',date:TODAY.toISOString().slice(0,10)}; qcAudit2(b,'COA rejected',why||''); logAction(`COA rejected at ${stage} for ${ctx.L} — back to analyst`); save(); coaFSClose(); }
-function coaDeviation(){ if(!hardRole(['Plant Manager'])){toast('Plant Manager only');return;} const ctx=coaCtx(); const b=ctx.b,h=ctx.h; if(!b||!h||!h.coa)return; const note=(typeof prompt==='function'?prompt('Deviation note (why accept this UNFIT lot):'):'')||''; h.coa.deviation=true; h.coa.deviationNote=note||''; h.coa.deviationBy={name:(state.currentUser&&state.currentUser.name)||state.role,date:coaTS()}; h.coa.status='analysed'; qcAudit2(b,'PM deviation accepted',note||''); logAction(`UNFIT ${ctx.L} accepted as DEVIATION by Plant Manager → AQCM review → QCM approval`); save(); coaFSClose(); }
+function coaDeviation(){ if(!hardRole(['Plant Manager'])){toast('Plant Manager only');return;} const ctx=coaCtx(); const b=ctx.b,h=ctx.h; if(!b||!h||!h.coa)return; const note=(typeof prompt==='function'?prompt('Deviation note (why accept this UNFIT lot):'):'')||''; h.coa.deviation=true; h.coa.deviationNote=note||''; h.coa.deviationBy=Object.assign(sigStamp(),{name:(state.currentUser&&state.currentUser.name)||state.role,date:coaTS()}); h.coa.status='analysed'; qcAudit2(b,'PM deviation accepted',note||''); logAction(`UNFIT ${ctx.L} accepted as DEVIATION by Plant Manager → AQCM review → QCM approval`); save(); coaFSClose(); }
 function coaRework(){ if(!hardRole(['Plant Manager'])){toast('Plant Manager only');return;} const ctx=coaCtx(); const b=ctx.b,h=ctx.h; if(!b||!h||!h.coa)return; h.coa.reworks=(h.coa.reworks||0)+1; const item=h.coa.item; h.coa=null; qcAudit2(b,'Sent to rework',''); logAction(`${ctx.L} (${item}) sent to rework after UNFIT`); save(); coaFSClose(); }
 function qcAudit2(b,field,val){ (state.audit=state.audit||[]).unshift({t:new Date().toISOString(),user:state.role,module:'Lab QC',po:b.po||'',brand:coaItemOf(b),field,old:'',val,batchNo:b.batchNo||''}); }
 
@@ -4882,6 +4882,233 @@ function evDateGate(form,prop,kind){
   if(late>th && !((form[prop+'Reason']||'').trim().length>=6))
     return 'This is '+late+' day'+(late===1?'':'s')+' old — say why it is being recorded now.';
   return null;
+}
+/* ===== SAMPLING — ISO 2859-1, added 2026-08-21
+
+   Tahir: "make a simple, realistic inspection which matches bare minimum
+   quantity and accuracy."
+
+   The inspection recorded "1,000 Kg inspected". Nobody opened 200 bags. That
+   number is the quantity CLEARED, not the quantity CHECKED, and the report read
+   as though the whole lot had been examined. There was no field anywhere for
+   how many bags were actually looked at.
+
+   Now there is, and the sample size comes from the standard rather than from
+   whoever is standing there. The inspector sees two numbers and enters two
+   numbers; all the complexity lives in the table, not in their hands.
+
+   ── A WARNING THAT MUST NOT BE REMOVED ────────────────────────────────────
+   The LOT-SIZE and SAMPLE-SIZE tables below are the standard's general
+   inspection levels and I am confident in them. The ACCEPT / REJECT numbers
+   are seeded from my best understanding and are NOT VERIFIED against a copy of
+   ISO 2859-1. The real table carries arrows at small sample sizes that redirect
+   you to a different plan, and those are not reproduced here.
+
+   So until the QCM has checked these against the actual standard:
+     · the plan is shown as a SUGGESTION,
+     · nothing is auto-rejected on the numbers,
+     · the report prints "accept/reject numbers unverified".
+   Set `state.masters.aqlVerified = true` (COO/QCM, after checking) to drop the
+   warning. Getting these wrong means shipping what should be held, or holding
+   what should ship — it is not a detail to guess at.
+   ────────────────────────────────────────────────────────────────────────── */
+var AQL_LEVELS={'S-3':'Special S-3','S-4':'Special S-4','I':'General I','II':'General II','III':'General III'};
+/* lot size (in PACKS) -> sample-size code letter */
+var AQL_CODE=[
+  {max:8,      'S-3':'A','S-4':'A','I':'A','II':'A','III':'B'},
+  {max:15,     'S-3':'A','S-4':'A','I':'A','II':'B','III':'C'},
+  {max:25,     'S-3':'B','S-4':'B','I':'B','II':'C','III':'D'},
+  {max:50,     'S-3':'B','S-4':'C','I':'C','II':'D','III':'E'},
+  {max:90,     'S-3':'C','S-4':'C','I':'C','II':'E','III':'F'},
+  {max:150,    'S-3':'D','S-4':'D','I':'D','II':'F','III':'G'},
+  {max:280,    'S-3':'E','S-4':'E','I':'E','II':'G','III':'H'},
+  {max:500,    'S-3':'E','S-4':'F','I':'F','II':'H','III':'J'},
+  {max:1200,   'S-3':'F','S-4':'G','I':'G','II':'J','III':'K'},
+  {max:3200,   'S-3':'G','S-4':'H','I':'H','II':'K','III':'L'},
+  {max:10000,  'S-3':'G','S-4':'J','I':'J','II':'L','III':'M'},
+  {max:35000,  'S-3':'H','S-4':'K','I':'K','II':'M','III':'N'},
+  {max:150000, 'S-3':'J','S-4':'K','I':'L','II':'N','III':'P'},
+  {max:500000, 'S-3':'J','S-4':'L','I':'M','II':'P','III':'Q'},
+  {max:Infinity,'S-3':'K','S-4':'L','I':'N','II':'Q','III':'R'}
+];
+var AQL_N={A:2,B:3,C:5,D:8,E:13,F:20,G:32,H:50,J:80,K:125,L:200,M:315,N:500,P:800,Q:1250,R:2000};
+/* SEED ONLY — accept numbers by sample size, per AQL. NOT VERIFIED. See the warning above. */
+var AQL_AC={
+ '1.0':{2:0,3:0,5:0,8:0,13:0,20:0,32:1,50:1,80:2,125:3,200:5,315:7,500:10,800:14,1250:21,2000:21},
+ '1.5':{2:0,3:0,5:0,8:0,13:0,20:1,32:1,50:2,80:3,125:5,200:7,315:10,500:14,800:21,1250:21,2000:21},
+ '2.5':{2:0,3:0,5:0,8:0,13:1,20:1,32:2,50:3,80:5,125:7,200:10,315:14,500:21,800:21,1250:21,2000:21},
+ '4.0':{2:0,3:0,5:0,8:1,13:1,20:2,32:3,50:5,80:7,125:10,200:14,315:21,500:21,800:21,1250:21,2000:21},
+ '6.5':{2:0,3:0,5:1,8:1,13:2,20:3,32:5,50:7,80:10,125:14,200:21,315:21,500:21,800:21,1250:21,2000:21}
+};
+function aqlSettings(){ var m=state.masters||{};
+  return { level:(m.aqlLevel||'II'), aql:String(m.aql||'2.5'), verified:!!m.aqlVerified }; }
+/* packs in the lot -> the plan. Returns null when the lot size is unknown. */
+function aqlPlan(packs){
+  var n=Math.max(0,Math.round(+packs||0)); if(!n) return null;
+  var st=aqlSettings();
+  var row=AQL_CODE.find(function(r){ return n<=r.max; }); if(!row) return null;
+  var letter=row[st.level]||row['II'];
+  var size=Math.min(AQL_N[letter]||0, n);           /* never ask for more bags than exist */
+  var table=AQL_AC[st.aql]||AQL_AC['2.5'];
+  var ac=table[AQL_N[letter]]; if(ac==null) ac=0;
+  return { lot:n, level:st.level, aql:st.aql, letter:letter, sample:size, accept:ac, reject:ac+1, verified:st.verified };
+}
+/* packs in a lot, from Kg and the pack size */
+function lotPacks(o,l,kg){ var ps=+((l&&l.pack)||0); if(!(ps>0)) return 0; return Math.round((+kg||0)/ps); }
+function aqlLine(pl){
+  if(!pl) return '<span class="muted">pack size unknown — cannot size a sample</span>';
+  return 'Lot <b>'+fmt(pl.lot)+'</b> packs &middot; ISO 2859-1 level <b>'+pl.level+'</b>, AQL <b>'+pl.aql+'</b> &middot; code <b>'+pl.letter+'</b>'
+    +' &rarr; check <b>'+fmt(pl.sample)+'</b> bags &middot; accept if defects &le; <b>'+pl.accept+'</b>, reject at <b>'+pl.reject+'</b>'
+    +(pl.verified?'':' <span style="color:#b4231b;font-weight:700">· accept/reject numbers NOT yet verified against the standard</span>');
+}
+/* ===== WHO SIGNED IT — 2026-08-21
+
+   Every COA in the system is signed `Lab Rep`, `AQCM`, `QCM`; every inspection
+   `QA Inspector`. Those are job titles, not people. The cause is upstream of
+   this code: all eight accounts have their `name` field SET TO THE ROLE
+   (`qa` → "QA Inspector", `lab` → "Lab Rep"), so anything "system-generated"
+   from the signed-in account reproduces the job title faithfully.
+
+   The COA carries ISO/IEC 17025:2017 disclaimers. A certificate signed by a post
+   rather than a named person does not survive an accreditation audit.
+
+   Two halves to the fix and only one of them is code:
+     · CODE (here)  — print the person under the title, and where no person is on
+                      file SAY SO rather than printing a title dressed as a name.
+     · DATA (COO)   — put real names on the accounts in Users & Access, and
+                      ideally one login per person rather than one per function.
+
+   Printing "QCM" on the name line would hide the gap. Printing the gap creates
+   the pressure to close it. ===== */
+function _isRoleName(nm){
+  if(!nm) return true;
+  var n=String(nm).trim().toLowerCase();
+  var roles=(state.users||[]).map(function(u){return String(u.role||'').toLowerCase();});
+  ['coo','ceo','cfo','kam','qcm','aqcm','lab rep','qa inspector','plant manager','supply chain','production','administrator','admin']
+    .forEach(function(r){ roles.push(r); });
+  return roles.indexOf(n)>-1;
+}
+/* Returns the name line for a signature block: the person, or an honest gap. */
+function sigName(sig){
+  var nm=(sig&&sig.name)?String(sig.name).trim():'';
+  if(nm && !_isRoleName(nm)) return _pe(nm);
+  var acct=(sig&&sig.user)?(' — signed on the shared “'+_pe(sig.user)+'” login'):'';
+  return '<span style="font-weight:400;font-style:italic;color:#a33">no individual name on file'+acct+'</span>';
+}
+/* Captured at sign time so the document can always say WHICH account acted,
+   even once the names are fixed. */
+function sigStamp(){
+  var u=state.currentUser||{};
+  return { name:(u.name||state.role||''), user:(u.username||''), role:state.role||'' };
+}
+/* ===== THE THREE VERIFY ITEMS — SPEC-01 rule 3, built 2026-08-21
+
+   The 8-point checklist asks "Batch & expiry printed" — printed, not CORRECT.
+   An inspector can honestly tick it on a bag carrying the wrong batch number.
+   And nowhere does it mention price at all, which is half of intent 4.
+
+   These three items are the ones where the inspector is COMPARING the bag
+   against a record, so each one carries the expected value beside it. Nobody
+   should be checking a batch number from memory.
+
+   Stored SEPARATELY under `qa.verify`, NOT appended to QC_CHECKLIST. Existing
+   inspections store their checklist by array index (`QC_CHECKLIST.map((it,i)=>…)`),
+   so touching that array would silently re-label every inspection ever saved. ===== */
+var QC_VERIFY=[
+  {k:'price', label:'Price on the pack is as the PO requires'},
+  {k:'batch', label:'Batch # on the pack matches the record'},
+  {k:'dates', label:'Mfg &amp; expiry on the pack match the record'}
+];
+/* expectations for ONE po+line (+ optional lot), as plain strings */
+function qcExpect(o,l,lot){
+  var pol=printPolicyOL(o,l);
+  var price = pol.mode==='priced'  ? 'expected <b>PKR '+fmt(pol.price)+' /pack</b>'
+            : pol.mode==='noprint' ? '<b>no price should appear on this pack</b>'
+            : pol.mode==='missing' ? '<span style="color:var(--red)">this PO prints a price but none is set — ask the KAM before passing</span>'
+            :                        '<span style="color:var(--red)">not recorded — check the client PO before passing</span>';
+  var batch = lot ? ('expected <b>'+(lotBrandNo(lot)||lotBaseNo(lot)||'—')+'</b>') : '—';
+  var dates = lot ? ('expected mfg <b>'+(lot.mfgDate||'—')+'</b> · exp <b>'+(lot.expDate||'—')+'</b>') : '—';
+  return {price:price, batch:batch, dates:dates};
+}
+/* One renderer for all three inspection screens. `exp` maps item key -> html. */
+function qcVerifyRows(exp,marks,fname,reRender){
+  return QC_VERIFY.map(function(it,i){
+    var m=(marks&&marks[i])||'';
+    var r=function(v,t){ return '<label style="margin-right:12px"><input type="radio" name="vf'+i+'" '+(m===v?'checked':'')+' onclick="'+fname+'.verify['+i+']=\''+v+'\';'+reRender+'"> '+t+'</label>'; };
+    return '<tr><td>'+it.label+'<div class="muted" style="font-size:11px;margin-top:2px">'+(exp[it.k]||'—')+'</div></td>'
+      +'<td style="white-space:nowrap">'+r('pass','Pass')+r('fail','Fail')+'</td></tr>';
+  }).join('');
+}
+function qcVerifyTable(exp,marks,fname,reRender){
+  return '<div style="overflow:auto;margin-bottom:12px"><table><thead><tr>'
+    +'<th>Check against the record</th><th style="width:170px">Result</th></tr></thead><tbody>'
+    +qcVerifyRows(exp,marks,fname,reRender)+'</tbody></table></div>';
+}
+function qcVerifyGate(marks){
+  if(!marks || marks.length<QC_VERIFY.length || marks.some(function(m){return !m;}))
+    return 'Mark each of the three record checks Pass or Fail.';
+  return null;
+}
+function qcVerifyRecord(marks){ return QC_VERIFY.map(function(it,i){ return {key:it.k,item:it.label,result:(marks&&marks[i])||''}; }); }
+function qcVerifyFailed(marks){ return !!(marks&&marks.some(function(m){return m==='fail';})); }
+/* ===== ANSWER THE PRINT QUESTION IN BULK — 2026-08-21
+   Fault 11 aftermath. Asking the question at PO entry fixes every PO from here
+   on. It does nothing for the 44 already in flight, and Data Fix answers them
+   one at a time — pick a PO, answer, type a reason, save, repeat. Forty-four
+   times. A backlog that tedious to clear does not get cleared, and until it is
+   cleared 136 lines read "MRP not recorded" and the price control stays inert.
+
+   So: one screen, every unanswered PO, two clicks each, one save.
+   Read-only until Save — nothing is written while you are deciding. ===== */
+var bulkPD={};
+function openBulkPrintDecision(){
+  if(!(state.role==='COO'||state.role==='KAM')){toast('COO / KAM only');return;}
+  bulkPD={}; renderBulkPrintDecision(); $('modalBg').classList.add('open');
+}
+function bulkPDSet(oid,v){ bulkPD[oid]=v; renderBulkPrintDecision(); }
+function bulkPDAll(v){ (state.orders||[]).forEach(function(o){ if(!o.printDecision) bulkPD[o.id]=v; }); renderBulkPrintDecision(); }
+function renderBulkPrintDecision(){
+  var open=(state.orders||[]).filter(function(o){ return !o.printDecision; });
+  var answered=Object.keys(bulkPD).filter(function(k){return bulkPD[k];}).length;
+  var rows=open.map(function(o){
+    var pick=bulkPD[o.id]||'';
+    /* what the system is currently INFERRING, so the decision is informed */
+    var inf={}; (o.lines||[]).forEach(function(l){ var m=printPolicyOL(o,l).mode; inf[m]=(inf[m]||0)+1; });
+    var infTxt=Object.keys(inf).map(function(k){return inf[k]+'× '+k;}).join(', ');
+    /* the strongest evidence available: what has actually been printed on this PO's packs */
+    var seen={}; (state.packingLog||[]).forEach(function(pk){ if(pk&&pk.po===o.po&&+pk.printPrice>0) seen[pk.brand]=+pk.printPrice; });
+    var seenKeys=Object.keys(seen);
+    var evid=seenKeys.length
+      ? '<span style="color:#8a5a00;font-weight:700">packs already printed at '+seenKeys.slice(0,3).map(function(b){return fmt(seen[b])+' ('+b+')';}).join(', ')+(seenKeys.length>3?(' +'+(seenKeys.length-3)+' more'):'')+'</span>'
+      : '<span class="muted">nothing printed on this PO yet</span>';
+    var btn=function(v,t){ return '<button type="button" class="sm '+(pick===v?'green':'ghost')+'" onclick="bulkPDSet(\''+o.id+'\',\''+v+'\')">'+(pick===v?'&#10003; ':'')+t+'</button>'; };
+    return '<tr'+(pick?' style="background:#f3faf6"':'')+'><td><b>'+_pe(o.po)+'</b><div class="muted" style="font-size:10.5px">'+_pe(shortClient(o.client)||'')+' · '+((o.lines||[]).length)+' product(s)</div></td>'
+      +'<td class="muted" style="font-size:10.5px">'+infTxt+'<div style="margin-top:2px">'+evid+'</div></td>'
+      +'<td style="white-space:nowrap;text-align:right">'+btn('yes','Prints a price')+' '+btn('no','No price')+'</td></tr>';
+  }).join('');
+  $('modal').className='modal m-lg';
+  $('modal').innerHTML='<div class="mh"><h2>Does this PO print a price on the pack?</h2>'
+    +'<div class="sub">'+open.length+' PO(s) were created before this question was asked. '+answered+' answered here so far. Nothing is saved until you press Save.</div></div>'
+    +'<div class="mb">'
+    +(open.length?('<div class="muted" style="font-size:11.5px;margin-bottom:9px">The middle column shows what the system is <b>inferring</b> and what has actually been printed on this PO’s packs. Your answer replaces the inference — packing and QA are both shown it.</div>'
+      +'<div style="margin-bottom:9px;display:flex;gap:7px;flex-wrap:wrap"><button class="sm ghost" onclick="bulkPDAll(\'yes\')">Set all to “prints a price”</button><button class="sm ghost" onclick="bulkPDAll(\'no\')">Set all to “no price”</button><button class="sm ghost" onclick="bulkPD={};renderBulkPrintDecision()">Clear</button></div>'
+      +'<div style="max-height:56vh;overflow:auto"><table><thead><tr><th>PO</th><th>What the system infers today</th><th style="text-align:right;width:250px">Your answer</th></tr></thead><tbody>'+rows+'</tbody></table></div>')
+      :'<div class="muted" style="padding:16px 2px">Every PO has been answered. Nothing to do here.</div>')
+    +'</div>'
+    +'<div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" onclick="saveBulkPrintDecision()">Save '+answered+' answer(s)</button></div>';
+}
+function saveBulkPrintDecision(){
+  if(!(state.role==='COO'||state.role==='KAM')){toast('COO / KAM only');return;}
+  var who=(state.currentUser&&state.currentUser.name)||state.role, at=new Date().toISOString(), n=0;
+  (state.orders||[]).forEach(function(o){
+    var v=bulkPD[o.id]; if(!v||o.printDecision) return;
+    o.printDecision=v; o.printOnPack=(v==='yes'); o.printDecisionBy=who; o.printDecisionAt=at;
+    if(typeof reconLog==='function') reconLog('CORRECT '+o.po+' print-on-pack decision: (never answered) → '+v+' — answered in bulk after the question was added to PO entry');
+    n++;
+  });
+  if(!n){ toast('Nothing answered yet'); return; }
+  logAction('Print-on-pack answered for '+n+' PO(s) by '+who);
+  save(); closeModal(); render(); toast(n+' PO(s) answered');
 }
 /* ===== THE PACKING PRICE STEP — rebuilt 2026-08-21
    docs/o2s/SPEC-01-PRICE-VISIBILITY.md rules 1 and 4
@@ -5092,9 +5319,9 @@ function printCOA(bid,lid){ const ctx=coaCtx(bid,lid); const b=ctx.b, h=ctx.h; i
      <div>Sample Quantity: <b>${e(c.sampleQty)}</b></div><div>Date of Test: <b>${e(c.dateOfTest)}</b></div><div>Humidity %: <b>${e(c.humidity)}</b></div></div></div>
    <table><thead><tr><th>Test</th><th>Specs</th><th>Results</th><th>Methods</th><th>MU (%)</th><th>Remarks</th></tr></thead><tbody>${trows}</tbody></table>
    <div class="disc"><h4>Report Disclaimer</h4><ol>${disc.map(x=>`<li>${e(x)}</li>`).join('')}</ol><div class="r"><b>MU Stand for:</b> Measurement of Uncertainty.</div><div class="r"><b>Decision Rule:</b> If the sum of the result and uncertainty is more than the specified/claimed/permissible limit, the sample will be declared as OK and vice versa.</div>${c.deviation?`<div class="r" style="color:#c0392b"><b>Deviation accepted by Plant Manager:</b> ${e(c.deviationNote)}</div>`:''}</div>
-   <div class="signs"><div class="s"><div class="nm">${e(c.analyst&&c.analyst.name)}</div><div class="role"><b>Analysed By</b><br>Assistant Analyst/Analyst</div><div class="dt">Date: ${e(c.analyst&&c.analyst.date)}</div></div>
-     <div class="s"><div class="nm">${e(c.reviewer&&c.reviewer.name)}</div><div class="role"><b>Reviewed By</b><br>AQCM</div><div class="dt">Date: ${e(c.reviewer&&c.reviewer.date)}</div></div>
-     <div class="s"><div class="nm">${e(c.approver&&c.approver.name)}</div><div class="role"><b>Approved By</b><br>QCM</div><div class="dt">Date: ${e(c.approver&&c.approver.date)}</div></div></div>
+   <div class="signs"><div class="s"><div class="nm">${sigName(c.analyst)}</div><div class="role"><b>Analysed By</b><br>Assistant Analyst/Analyst</div><div class="dt">Date: ${e(c.analyst&&c.analyst.date)}</div></div>
+     <div class="s"><div class="nm">${sigName(c.reviewer)}</div><div class="role"><b>Reviewed By</b><br>AQCM</div><div class="dt">Date: ${e(c.reviewer&&c.reviewer.date)}</div></div>
+     <div class="s"><div class="nm">${sigName(c.approver)}</div><div class="role"><b>Approved By</b><br>QCM</div><div class="dt">Date: ${e(c.approver&&c.approver.date)}</div></div></div>
    <div class="sysnote">This is a <b>system-generated report</b>. It is electronically prepared, reviewed and approved within the VAN QC system (Analyst &rarr; AQCM &rarr; QCM), <b>access-controlled and audit-logged</b>. It is <b>valid without manual verification or a physical signature</b>.</div>
    <div class="end">-------------------END OF REPORT-------------------<br>Overall: <b>${e(c.overall||'')}</b></div>
   </div></body></html>`;
@@ -5116,8 +5343,13 @@ function printPO(po){ var o=(state.orders||[]).find(function(x){return String(x.
   var meta='PO #: <b>'+_pe(o.po)+'</b><br>Date: <b>'+_pe(o.received||'')+'</b><br>KAM: <b>'+_pe(o.kam||'')+'</b>';
   var custLine='Customer: <b>'+_pe(o.client)+'</b>'+(o.vgreenSub?(' ('+_pe(o.vgreenSub)+')'):'')+'<br>Segment: <b>'+_pe(seg)+'</b>'+(o.destinationPartner?(' &middot; Destination Partner: <b>'+_pe(o.destinationPartner)+'</b>'):'');
   var rt='Promised: <b>'+_pe(o.promised||'')+'</b> &middot; Priority: <b>'+_pe(o.priority||'')+'</b><br>Type: <b>'+(o.foc?'FOC sample':'Commercial')+'</b> &middot; FED: <b>'+_pe(o.fedMode||'None')+'</b>';
-  var rows=lines.map(function(l){return '<tr><td>'+_pe(l.brand)+'</td><td class="num">'+fmt(+l.ordered||0)+'</td><td class="num">'+fmt(+l.pack||0)+'</td><td class="num">'+(o.foc?'0':fmt(+l.invoicePrice||0))+'</td><td class="num">'+(o.foc?'0':fmt(+l.invoicePack||0))+'</td><td class="num">'+(o.foc?'0':fmt(Math.round((+l.ordered||0)*(+l.invoicePrice||0))))+'</td></tr>';}).join('');
-  var inner=_docHead('PURCHASE ORDER CONFIRMATION',meta)+'<div class="meta"><div class="col l">'+custLine+'</div><div class="col">'+rt+'</div></div>'+(o.foc?'<div class="banner" style="color:#b9760d">FOC SAMPLE — NO CHARGE</div>':'')+'<table><thead><tr><th>Product</th><th>Qty Kg/L</th><th>Pack</th><th>PKR/Kg</th><th>PKR/pack</th><th>Value</th></tr></thead><tbody>'+rows+'</tbody></table>'+(o.foc?'':'<div class="tot"><div class="box"><div class="r"><span>Subtotal (ex-FED)</span><b>'+fmt(sub)+'</b></div><div class="r"><span>FED 5% ('+_pe(o.fedMode||'None')+')</span><b>'+fmt(fed)+'</b></div><div class="r g"><span>Grand total (PKR)</span><b>'+fmt(gt)+'</b></div></div></div>')+'<div class="signs"><div class="s">Prepared by — KAM<br><br>'+_pe(o.kam||'')+'</div><div class="s">Approved by</div><div class="s">Customer acknowledgement</div></div>';
+  var _mrpCell=function(l){ var pol=printPolicyOL(o,l);
+    if(pol.mode==='priced')  return fmt(pol.price);
+    if(pol.mode==='noprint') return '<span style="font-size:9px">none</span>';
+    if(pol.mode==='missing') return '<span style="font-size:9px;color:#c0392b">not set</span>';
+    return '<span style="font-size:9px;color:#8a5a00">not recorded</span>'; };
+  var rows=lines.map(function(l){return '<tr><td>'+_pe(l.brand)+'</td><td class="num">'+fmt(+l.ordered||0)+'</td><td class="num">'+fmt(+l.pack||0)+'</td><td class="num">'+(o.foc?'0':fmt(+l.invoicePrice||0))+'</td><td class="num">'+(o.foc?'0':fmt(+l.invoicePack||0))+'</td><td class="num">'+_mrpCell(l)+'</td><td class="num">'+(o.foc?'0':fmt(Math.round((+l.ordered||0)*(+l.invoicePrice||0))))+'</td></tr>';}).join('');
+  var inner=_docHead('PURCHASE ORDER CONFIRMATION',meta)+'<div class="meta"><div class="col l">'+custLine+'</div><div class="col">'+rt+'</div></div>'+(o.foc?'<div class="banner" style="color:#b9760d">FOC SAMPLE — NO CHARGE</div>':'')+'<table><thead><tr><th>Product</th><th>Qty Kg/L</th><th>Pack</th><th>PKR/Kg</th><th>PKR/pack</th><th>MRP on pack</th><th>Value</th></tr></thead><tbody>'+rows+'</tbody></table><div style="font-size:9px;color:#666;margin-top:3px">PKR/Kg and PKR/pack are the invoice price to the customer. <b>MRP on pack</b> is the retail price printed on the bag &mdash; a different figure, for a different audience.</div>'+(o.foc?'':'<div class="tot"><div class="box"><div class="r"><span>Subtotal (ex-FED)</span><b>'+fmt(sub)+'</b></div><div class="r"><span>FED 5% ('+_pe(o.fedMode||'None')+')</span><b>'+fmt(fed)+'</b></div><div class="r g"><span>Grand total (PKR)</span><b>'+fmt(gt)+'</b></div></div></div>')+'<div class="signs"><div class="s">Prepared by — KAM<br><br>'+_pe(o.kam||'')+'</div><div class="s">Approved by</div><div class="s">Customer acknowledgement</div></div>';
   printDoc('PO '+o.po,inner); }
 function printDC(dispId){ var g=((typeof dispatchGroups==='function')?dispatchGroups():[]).filter(function(x){return x.dispId===dispId;})[0]; if(!g){toast('Shipment not found');return;}
   /* Restyled to match the branded VAN DC design (branded_DC_single/multi/draft.html).
@@ -5262,7 +5494,78 @@ function printGatePass(dispId){ var g=((typeof dispatchGroups==='function')?disp
   var html='<!doctype html><html lang="ur" dir="rtl"><head><meta charset="utf-8"><title>Gate Pass '+_pe(g.gatePass)+'</title><style>'+css+'</style></head><body'+onload+'>'+inner+'</body></html>';
   var w=window.open('','_blank'); if(!w){toast('Allow pop-ups to print / save the document');return;} w.document.write(html); w.document.close(); w.focus();
   if(!released){ toast('Gate Pass not yet released — print/PDF available after Plant Manager approval'); } }
-function printInspect(po){ var lots=(state.packingLog||[]).filter(function(p){return p&&p.po===po&&p.qa;}); if(!lots.length){toast('No pre-shipment inspection recorded for this PO yet');return;}
+/* ===== PRE-SHIPMENT INSPECTION REPORT — rebuilt 2026-08-21
+
+   FAULT 12. This function read `state.packingLog[].qa`. On the live system that
+   array holds ZERO inspections — the 113 real ones are in `state.inspections[]`
+   and the 137 truck-level ones on `state.shipments[].qa`. So for all 44 live POs
+   this printed "No pre-shipment inspection recorded for this PO yet".
+
+   The document that proves the check happened has never been producible. An
+   auditor, a customer or a court asking "show me the pre-shipment inspection"
+   would have been told none exists, on a PO that was inspected and shipped.
+
+   It now reads every source, and carries what was actually checked against —
+   the price the PO authorised, the batch number, the mfg and expiry dates
+   (SPEC-01 rule 6). ===== */
+function printInspect(po){
+  var recs=[];
+  /* 1 · the main path — savePackInspect */
+  (state.inspections||[]).forEach(function(x){ if(x&&x.po===po) recs.push({
+    kind:'Packed material', brand:x.brand, lid:x.lid, kg:+x.kg||0, by:x.by,
+    date:x.actualDate||x.date, recordedAt:x.recordedAt, recordedBy:x.recordedBy, lateReason:x.lateReason,
+    pass:!!x.pass, checklist:x.checklist||[], verify:x.verify||[], sampling:x.sampling||null, remarks:x.remarks||'',
+    batches:(x.batches||[]).map(function(b){return (b.batch||'')+(b.brand&&b.brand!==b.batch?(' ▸ '+b.brand):'')+' ('+fmt(b.kg||0)+' Kg)';}).join(', ') }); });
+  /* 2 · the truck-level check — dispQASubmit, one record per shipment row */
+  var seenDisp={};
+  (state.shipments||[]).forEach(function(sx){ if(!sx||sx.voided||sx.po!==po||!sx.qa) return;
+    var k=(sx.dispId||sx.id)+'|'+(sx.brand||''); if(seenDisp[k]) return; seenDisp[k]=1;
+    var q=sx.qa; recs.push({ kind:'Truck load'+(sx.dc?(' · DC '+sx.dc):''), brand:sx.brand, lid:sx.lid, kg:+sx.kg||0, by:q.by,
+      date:q.actualDate||q.date, recordedAt:q.recordedAt, recordedBy:q.recordedBy, lateReason:q.lateReason,
+      pass:!!q.pass, checklist:q.checklist||[], verify:q.verify||[], remarks:q.remarks||'',
+      batches:(sx.vehicle||'')+(sx.gatePass?(' · Gate Pass '+sx.gatePass):'') }); });
+  /* 3 · the legacy per-lot path, kept so nothing already recorded is lost */
+  (state.packingLog||[]).forEach(function(pl){ if(!pl||pl.po!==po||!pl.qa) return; var q=pl.qa;
+    recs.push({ kind:'Packed lot', brand:pl.brand, lid:pl.lid, kg:+pl.kg||0, by:q.by,
+      date:q.actualDate||q.date, recordedAt:q.recordedAt, recordedBy:q.recordedBy, lateReason:q.lateReason,
+      pass:!!q.pass, checklist:q.checklist||[], verify:q.verify||[], remarks:q.remarks||'',
+      batches:((typeof lotBrandNo==='function'?lotBrandNo(pl):'')||'') }); });
+
+  if(!recs.length){toast('No pre-shipment inspection recorded for this PO yet');return;}
+  recs.sort(function(a,b){ return String(a.date||'').localeCompare(String(b.date||'')); });
+
+  var o=(state.orders||[]).find(function(x){return x.po===po;});
+  var meta='PO #: <b>'+_pe(po)+'</b><br>Client: <b>'+_pe((o&&o.client)||'')+'</b><br>Inspections: <b>'+recs.length+'</b>';
+
+  var body=recs.map(function(r){
+    var l=o&&((o.lines||[]).find(function(x){return x.id===r.lid;})||(o.lines||[]).find(function(x){return x.brand===r.brand;}));
+    var lot=(state.packingLog||[]).find(function(pl){return pl&&pl.po===po&&pl.brand===r.brand;});
+    /* SPEC-01 rule 6 — the report states what the pack was required to carry,
+       so the document is evidence of a comparison and not just a tick. */
+    var req='';
+    if(o&&l){ var ex=qcExpect(o,l,lot||null);
+      req='<div class="meta"><div class="col l" style="font-size:10.5px">Required on the pack &mdash; '
+        +'price: '+ex.price+' &middot; batch: '+ex.batch+' &middot; '+ex.dates+'</div></div>'; }
+    var smp=r.sampling? ('<div class="meta"><div class="col l" style="font-size:10.5px">Sample &mdash; lot <b>'+fmt(r.sampling.lotPacks||0)+'</b> packs, ISO 2859-1 level <b>'+_pe(r.sampling.level||'')+'</b> AQL <b>'+_pe(r.sampling.aql||'')+'</b>, required <b>'+fmt(r.sampling.required||0)+'</b> bags &middot; <b>'+fmt(r.sampling.checked||0)+'</b> checked, <b>'+fmt(r.sampling.defects||0)+'</b> defective (accept &le;'+(r.sampling.accept!=null?r.sampling.accept:'—')+')'
+      +(r.sampling.reduced?' <span style="color:#8a5a00"><b>&mdash; REDUCED SAMPLE</b></span>':'')
+      +(r.sampling.tableVerified?'':' <span style="color:#b4231b">&middot; accept/reject numbers unverified</span>')
+      +'</div></div>') : '';
+    var vrows=(r.verify||[]).map(function(v){ return '<tr><td>'+_pe(v.item||v.key||'')+'</td><td class="num">'+(v.result==='fail'?'✗ FAIL':(v.result==='pass'?'☑ OK':'—'))+'</td></tr>'; }).join('');
+    var crows=(r.checklist||[]).map(function(c){ return '<tr><td>'+_pe(c.item)+'</td><td class="num">'+(c.result==='fail'?'✗ FAIL':(c.result==='pass'?'☑ OK':'—'))+'</td></tr>'; }).join('');
+    var lag=(r.recordedAt&&r.date)?evLag({actualDate:r.date,recordedAt:r.recordedAt}):null;
+    var lateTxt=(lag!=null&&lag>0)?('<div class="col l" style="font-size:10px;color:#8a5a00">Inspected '+_pe(r.date)+', recorded '+String(r.recordedAt).slice(0,10)+' &mdash; '+lag+' day'+(lag===1?'':'s')+' later'+(r.lateReason?(': '+_pe(r.lateReason)):'')+'</div>'):'';
+    return '<div class="meta"><div class="col l">'+_pe(r.kind)+': <b>'+_pe(r.brand||'')+'</b> &middot; Qty: <b>'+fmt(r.kg)+' Kg</b>'
+      +(r.batches?(' &middot; '+_pe(r.batches)):'')+' &middot; Date: <b>'+_pe(r.date||'')+'</b> &middot; Inspector: <b>'+sigName({name:r.by,user:(r.recordedBy&&r.recordedBy!==r.by)?'':''})+'</b>'
+      +((r.recordedBy&&r.recordedBy!==r.by)?(' <span style="font-size:10px">(keyed by '+_pe(r.recordedBy)+')</span>'):'')+'</div>'+lateTxt+'</div>'
+      +req+smp
+      +(vrows?('<table><tbody>'+vrows+'</tbody></table>'):'')
+      +(crows?('<table><tbody>'+crows+'</tbody></table>'):'')
+      +(r.remarks?('<div class="meta"><div class="col l" style="font-size:10.5px">Remarks: '+_pe(r.remarks)+'</div></div>'):'')
+      +'<div class="banner" style="color:'+(r.pass?'#1a8a3c':'#c0392b')+'">Result: '+(r.pass?'CLEARED — ready to ship':'FAILED')+'</div>';
+  }).join('');
+
+  printDoc('Inspection '+po,_docHead('PRE-SHIPMENT INSPECTION REPORT',meta)+body); }
+function _printInspect_OLD(po){ var lots=(state.packingLog||[]).filter(function(p){return p&&p.po===po&&p.qa;}); if(!lots.length){toast('No pre-shipment inspection recorded for this PO yet');return;}
   var meta='PO #: <b>'+_pe(po)+'</b><br>Date: <b>'+_pe((lots[0].qa&&lots[0].qa.date)||TODAY.toISOString().slice(0,10))+'</b>';
   var body=lots.map(function(p){ var cl=(p.qa.checklist||[]); var rows=cl.map(function(c){return '<tr><td>'+_pe(c.item)+'</td><td class="num">'+(c.result==='fail'?'✗ FAIL':'☑ OK')+'</td></tr>';}).join(''); var bn=(typeof lotBrandNo==='function'?lotBrandNo(p):'')||''; var res=p.qa.fail?'FAILED':'CLEARED — ready to ship'; return '<div class="meta"><div class="col l">Product: <b>'+_pe(p.brand)+'</b> &middot; Batch: <b>'+_pe(bn)+'</b> &middot; Qty: <b>'+fmt(+p.kg||0)+' Kg</b> &middot; Inspector: <b>'+_pe(p.qa.by||'')+'</b></div></div>'+(rows?('<table><tbody>'+rows+'</tbody></table>'):'')+'<div class="banner" style="color:'+(p.qa.fail?'#c0392b':'#1a8a3c')+'">Result: '+res+'</div>'; }).join('');
   printDoc('Inspection '+po,_docHead('PRE-SHIPMENT INSPECTION REPORT',meta)+body); }
@@ -5457,6 +5760,15 @@ function actionItems(){
       else if(st==='analysed') items.push({role:'AQCM',batch:b,what:'Review COA — '+it+' '+tag,act:call,label:'Review'});
       else if(st==='reviewed') items.push({role:'QCM',batch:b,what:'Approve COA — '+it+' '+tag,act:call,label:'Approve'});
       else if(st==='failed') items.push({role:'Plant Manager',batch:b,what:'UNFIT lot — '+it+' '+tag,act:call,label:'Review'}); }); });
+  /* SPEC-01 rule 7 — one item, not one per PO. Forty-four identical rows would
+     bury every other action in the list and get scrolled past; a single row that
+     opens the bulk screen gets cleared in one sitting. Owned by the KAM because
+     the KAM knows the client's instruction; escalates to the COO, who can also
+     answer. Disappears for good once every PO carries an answer. */
+  { var _noDec=(state.orders||[]).filter(function(o){ return !o.printDecision && (o.lines||[]).some(function(l){return (+l.ordered||0)>0;}); });
+    if(_noDec.length) items.push({role:'KAM',
+      what:'Answer print-on-pack for '+_noDec.length+' PO'+(_noDec.length===1?'':'s')+' created before the question existed',
+      act:"openBulkPrintDecision()", label:'Print price', disp:{date:(_noDec[0].received||'')}}); }
   /* ===== THE TRUCK PIPELINE — 2026-08-21 (Fahim: "Gate pass approval is assigned
      to Plant Manager but it does not appear in my actions")
 
@@ -5512,7 +5824,7 @@ var ACT_META={
  'Review':{c:'--purple',s:'Review'}, 'Approve':{c:'--navy',s:'Approve'},
  'Inspect':{c:'--amber',s:'QA Inspect'}, 'Correct':{c:'--red',s:'QA Fix'}, 'Pack QC':{c:'--amber',s:'Pack QC'}
 };
-var ACT_EMOJI={'Load':'📦','Gate Pass':'🎫','Release':'🔓','Approve DC':'✅','Confirm delivery':'📍','Acknowledge':'📥','RM Check':'🧪','Receive':'📦','Open Production':'🏭','Lab QC':'🔬','Review':'🔎','Approve':'✅','Approve PR':'🧾','Inspect':'🔎','Pack QC':'🔎','Ship':'🚚','Add reason':'⏰','Correct':'🛠'};
+var ACT_EMOJI={'Print price':'🏷','Load':'📦','Gate Pass':'🎫','Release':'🔓','Approve DC':'✅','Confirm delivery':'📍','Acknowledge':'📥','RM Check':'🧪','Receive':'📦','Open Production':'🏭','Lab QC':'🔬','Review':'🔎','Approve':'✅','Approve PR':'🧾','Inspect':'🔎','Pack QC':'🔎','Ship':'🚚','Add reason':'⏰','Correct':'🛠'};
 var actFilter='all';
 function _fmtShort(d){ if(!d)return''; var t=new Date(d); if(isNaN(t))return''; return t.toLocaleDateString('en-GB',{day:'numeric',month:'short'}); }
 function actOverdue(it){ return it.o?isOverdue(it.o):false; }
@@ -5552,8 +5864,8 @@ var acTab='todo'; /* simplified Action Center: 'todo' (active) | 'deferred' | 'a
 var acView='list'; /* My Actions list/cards view toggle — default keeps existing list behavior */
 var AC_ROLEORDER=['Supply Chain','CFO','Production','Lab Rep','AQCM','QCM','QA Inspector','Plant Manager'];
 var AC_STAGES=['PO Created','RM Check','Production','Lab QC','AQCM Review','Pack QC','Shipment'];
-function acTypeColor(lb){ if(lb==='Release'||lb==='Approve DC')return 'var(--red)'; if(lb==='Load'||lb==='Gate Pass'||lb==='Confirm delivery')return '#0f766e'; if(lb==='Pack QC'||lb==='Inspect')return 'var(--navy)'; if(lb==='Open Production'||lb==='RM Check'||lb==='Acknowledge'||lb==='Receive')return 'var(--amber)'; if(lb==='Lab QC'||lb==='Review'||lb==='Approve'||lb==='Approve PR')return '#1d4ed8'; if(lb==='Add reason'||lb==='Correct')return 'var(--red)'; return 'var(--mut)'; }
-function acStageOf(lb){ if(lb==='Load'||lb==='Gate Pass'||lb==='Release'||lb==='Approve DC'||lb==='Confirm delivery')return 'Shipment'; if(lb==='Acknowledge')return 'PO Created'; if(lb==='RM Check'||lb==='Receive'||lb==='Approve PR')return 'RM Check'; if(lb==='Open Production')return 'Production'; if(lb==='Lab QC')return 'Lab QC'; if(lb==='Review'||lb==='Approve')return 'AQCM Review'; if(lb==='Pack QC'||lb==='Inspect')return 'Pack QC'; if(lb==='Ship')return 'Shipment'; return 'Production'; }
+function acTypeColor(lb){ if(lb==='Print price')return 'var(--amber)'; if(lb==='Release'||lb==='Approve DC')return 'var(--red)'; if(lb==='Load'||lb==='Gate Pass'||lb==='Confirm delivery')return '#0f766e'; if(lb==='Pack QC'||lb==='Inspect')return 'var(--navy)'; if(lb==='Open Production'||lb==='RM Check'||lb==='Acknowledge'||lb==='Receive')return 'var(--amber)'; if(lb==='Lab QC'||lb==='Review'||lb==='Approve'||lb==='Approve PR')return '#1d4ed8'; if(lb==='Add reason'||lb==='Correct')return 'var(--red)'; return 'var(--mut)'; }
+function acStageOf(lb){ if(lb==='Print price')return 'PO Created'; if(lb==='Load'||lb==='Gate Pass'||lb==='Release'||lb==='Approve DC'||lb==='Confirm delivery')return 'Shipment'; if(lb==='Acknowledge')return 'PO Created'; if(lb==='RM Check'||lb==='Receive'||lb==='Approve PR')return 'RM Check'; if(lb==='Open Production')return 'Production'; if(lb==='Lab QC')return 'Lab QC'; if(lb==='Review'||lb==='Approve')return 'AQCM Review'; if(lb==='Pack QC'||lb==='Inspect')return 'Pack QC'; if(lb==='Ship')return 'Shipment'; return 'Production'; }
 function acRiskOf(it){ if(actOverdue(it))return 'late'; return actUrg(it)<=2?'today':'normal'; }
 function acWaitTxt(it){ var tm=actTiming(it); if(actOverdue(it))return daysOver(it.o)+'d late'; var d=tm.days; return d==null?'—':((tm.approx?'~':'')+d+'d waiting'); }
 function acBase(){ var all=actionItems(); var role=state.role; var b;
@@ -5594,7 +5906,7 @@ function acEscalation(it){ if(!it)return null;
   var TH={'Acknowledge':[1,'Plant Manager'],'RM Check':[1,'CFO'],'Receive':[1,'CFO'],'Lab QC':[1,'Plant Manager'],'Review':[1,'Plant Manager'],'Approve':[1,'Plant Manager'],'Pack QC':[2,'Plant Manager'],'Inspect':[2,'Plant Manager'],'Ship':[2,'Plant Manager'],'Open Production':[4,'Plant Manager'],'Approve PR':[1,'COO'],
     /* 2026-08-21 — the truck pipeline. A loaded truck waiting on a release is the
        most expensive thing to leave sitting, so it escalates after one day. */
-    'Load':[1,'Plant Manager'],'Gate Pass':[1,'Plant Manager'],'Release':[1,'COO'],'Approve DC':[1,'COO'],'Confirm delivery':[3,'Plant Manager']};
+    'Print price':[3,'COO'],'Load':[1,'Plant Manager'],'Gate Pass':[1,'Plant Manager'],'Release':[1,'COO'],'Approve DC':[1,'COO'],'Confirm delivery':[3,'Plant Manager']};
   var th=TH[it.label]; if(!th)return null;
   var days=(it.label==='Open Production')?acProduceStallDays(it):((actTiming(it)||{}).days);
   if(days==null||days<th[0])return null;
@@ -6607,7 +6919,7 @@ let packInspForm=null;
 function openPackInspect(oid,lid){ if(!(canEdit(['QA Inspector'])||state.role==='COO')){toast('QA Inspector only');return;}
   const o=(state.orders||[]).find(x=>x.id===oid); if(!o)return; const l=(o.lines||[]).find(x=>x.id===lid)||(o.lines||[]).find(x=>x.brand===lid); if(!l)return;
   const rem=lineToInspect(o,l); if(rem<=0.5){ const unb=lineUnbatched(o,l); toast(unb>0.5?('All remaining packed material ('+fmt(unb)+' Kg/L) has no batch number — set it in Production first'):'Nothing packed left to inspect on this product');return; }
-  packInspForm={oid,lid:(l.id!=null?l.id:l.brand),qty:Math.round(rem),alloc:fifoAlloc(o,l,Math.round(rem),'ins'),marks:QC_CHECKLIST.map(()=>''),officer:((state.currentUser&&state.currentUser.name)||''),remarks:'',date:evToday(),dateReason:''};
+  packInspForm={oid,lid:(l.id!=null?l.id:l.brand),qty:Math.round(rem),alloc:fifoAlloc(o,l,Math.round(rem),'ins'),marks:QC_CHECKLIST.map(()=>''),verify:QC_VERIFY.map(()=>''),bagsChecked:'',defects:'',officer:((state.currentUser&&state.currentUser.name)||''),remarks:'',date:evToday(),dateReason:''};
   renderPackInspect(); $('modalBg').classList.add('open'); }
 function packInspQty(v){ if(!packInspForm)return; packInspForm.qty=v; const o=(state.orders||[]).find(x=>x.id===packInspForm.oid); const l=o&&((o.lines||[]).find(x=>x.id===packInspForm.lid)||(o.lines||[]).find(x=>x.brand===packInspForm.lid)); if(o&&l) packInspForm.alloc=fifoAlloc(o,l,v,'ins'); renderPackInspect(); }
 function packInspLot(idx,v){ if(packInspForm){ packInspForm.alloc[idx]=(+v||0); const t=document.getElementById('pi_tot'); if(t) t.textContent=fmt(piAllocTotal())+' Kg/L'; } }
@@ -6629,6 +6941,27 @@ function renderPackInspect(){ const f=packInspForm; if(!f){closeModal();return;}
      <div class="fld" style="max-width:220px;margin-bottom:10px"><label>Quantity going out (Kg/L)</label><input type="number" value="${_av(f.qty)}" oninput="packInspQty(this.value)"></div>
      <div style="overflow:auto;margin-bottom:6px"><table><thead><tr><th>Batch (base ▸ brand)</th><th class="num">Available</th><th>Inspect now</th></tr></thead><tbody>${lotRows}</tbody></table></div>
      <div class="muted" style="font-size:12px;margin-bottom:10px">Inspecting <b id="pi_tot">${fmt(piAllocTotal())} Kg/L</b> across the batches above.</div>
+     ${(function(){
+        /* Two numbers in, two numbers out. The standard does the arithmetic. */
+        const kg=piAllocTotal(); const pl=aqlPlan(lotPacks(o,l,kg));
+        const bc=(f.bagsChecked===''||f.bagsChecked==null)?'':(+f.bagsChecked||0);
+        const df=(f.defects===''||f.defects==null)?'':(+f.defects||0);
+        const short=(pl&&bc!==''&&bc<pl.sample);
+        const over =(pl&&df!==''&&df>pl.accept);
+        return `<div style="margin-bottom:12px;padding:11px 13px;border:1px solid ${short||over?'var(--amber)':'var(--line)'};background:${short||over?'var(--amber-50)':'var(--panel2)'};border-radius:9px">
+          <div style="font-weight:700;font-size:12.5px;margin-bottom:4px">How much was actually checked?</div>
+          <div class="muted" style="font-size:11.5px;margin-bottom:8px">${aqlLine(pl)}</div>
+          <div class="formgrid" style="grid-template-columns:repeat(2,minmax(0,1fr))">
+            <div class="fld"><label>Bags actually opened and checked</label>
+              <input type="number" min="0" value="${bc}" oninput="packInspForm.bagsChecked=this.value;renderPackInspect()" placeholder="${pl?('at least '+pl.sample):'how many?'}"></div>
+            <div class="fld"><label>Defective bags found</label>
+              <input type="number" min="0" value="${df}" oninput="packInspForm.defects=this.value;renderPackInspect()" placeholder="0"></div>
+          </div>
+          ${short?`<div style="color:#8a5a00;font-weight:700;font-size:11.5px;margin-top:7px">Below the sample the standard asks for (${pl.sample}). It will be recorded as a reduced sample &mdash; say why in the remarks.</div>`:''}
+          ${over?`<div style="color:var(--red);font-weight:700;font-size:11.5px;margin-top:7px">${df} defective is at or past the reject number (${pl.reject}). The standard says reject this lot.${pl.verified?'':' <span style="font-weight:400">— but these numbers are not yet verified, so this is advice, not a block.</span>'}</div>`:''}
+        </div>`;})()}
+     ${(function(){ const sel=lotsFor(o,l).filter((p,i)=>(+f.alloc[i]||0)>0.0001);
+        return qcVerifyTable(qcExpect(o,l,sel[0]||null), f.verify, 'packInspForm', 'renderPackInspect()'); })()}
      <div style="overflow:auto"><table><thead><tr><th>Check</th><th style="width:170px">Result</th></tr></thead><tbody>${cl}</tbody></table></div>
      <div class="fld" style="margin-top:10px;max-width:280px"><label>Inspector name</label><input type="text" value="${_av(f.officer)}" oninput="packInspForm.officer=this.value"></div>
      ${evDateField('packInspForm','date','packinsp','Date this material was actually inspected','renderPackInspect()')}
@@ -6639,14 +6972,27 @@ function savePackInspect(){ if(!(canEdit(['QA Inspector'])||state.role==='COO'))
   const f=packInspForm; if(!f)return; const o=(state.orders||[]).find(x=>x.id===f.oid); if(!o)return; const l=(o.lines||[]).find(x=>x.id===f.lid)||(o.lines||[]).find(x=>x.brand===f.lid); if(!l)return;
   const sel=[]; let kg=0; lotsFor(o,l).forEach((p,i)=>{ const a=Math.min(+f.alloc[i]||0, lotAvail(p)); if(a>0.0001 && lotHasBatch(p)){ sel.push({p,kg:a}); kg+=a; } });
   if(kg<=0){toast('Allocate a quantity to at least one batch with a batch number');return;}
-  if(f.marks.some(m=>!m)){toast('Mark every item Pass or Fail');return;} if(!(f.officer||'').trim()){toast('Enter inspector name');return;}
+  if(f.marks.some(m=>!m)){toast('Mark every item Pass or Fail');return;}
+  { const _vg=qcVerifyGate(f.verify); if(_vg){toast(_vg);return;} }
+  { const _pl=aqlPlan(lotPacks(o,l,kg));
+    if(f.bagsChecked===''||f.bagsChecked==null){toast('Enter how many bags you actually opened and checked.');return;}
+    if(f.defects===''||f.defects==null){toast('Enter how many defective bags you found (0 if none).');return;}
+    if(_pl && (+f.bagsChecked||0)<_pl.sample && !(f.remarks||'').trim()){
+      toast('You checked fewer bags than the standard asks for ('+_pl.sample+') — say why in the remarks.');return; } }
+  if(!(f.officer||'').trim()){toast('Enter inspector name');return;}
   const _dg=evDateGate(f,'date','packinsp'); if(_dg){toast(_dg);return;}
-  const anyFail=f.marks.some(m=>m==='fail'); const d=f.date||evToday(); const _ev=evStamp(d,'packinsp',f.dateReason);
+  const anyFail=f.marks.some(m=>m==='fail') || qcVerifyFailed(f.verify); const d=f.date||evToday(); const _ev=evStamp(d,'packinsp',f.dateReason);
   if(anyFail && !(f.remarks||'').trim()){toast('Enter a reason / remark for the failure (it is recorded on the hold) before submitting');return;}
   const batches=sel.map(s=>({lotId:s.p.id,batch:lotBaseNo(s.p),brand:lotBrandNo(s.p),kg:Math.round(s.kg)}));
   if(!anyFail){ sel.forEach(s=>{ s.p.insKg=(+s.p.insKg||0)+s.kg; }); if(linePassedInsp(o,l)>=(l.ordered||0)-0.001) l.qcPass=l.qcPass||d; }
   else { var _fails=QC_CHECKLIST.filter(function(it,i){return f.marks[i]==='fail';}); sel.forEach(function(s){ s.p.qaHold=Object.assign({reason:(f.remarks||'').trim(),by:f.officer.trim(),date:d,kg:Math.round(s.kg),fails:_fails},_ev); }); }
-  (state.inspections=state.inspections||[]).unshift(Object.assign({id:'INS'+(state.seq=(state.seq||1000)+1),po:o.po,brand:l.brand,lid:(l.id!=null?l.id:null),kg:Math.round(kg),by:f.officer.trim(),date:d,pass:!anyFail,checklist:QC_CHECKLIST.map((it,i)=>({item:it,result:f.marks[i]})),remarks:f.remarks||'',batches},_ev));
+  (state.inspections=state.inspections||[]).unshift(Object.assign({id:'INS'+(state.seq=(state.seq||1000)+1),po:o.po,brand:l.brand,lid:(l.id!=null?l.id:null),kg:Math.round(kg),by:f.officer.trim(),date:d,pass:!anyFail,checklist:QC_CHECKLIST.map((it,i)=>({item:it,result:f.marks[i]})),verify:qcVerifyRecord(f.verify),
+    sampling:(function(){ const _pl=aqlPlan(lotPacks(o,l,kg));
+      return { lotPacks:(_pl?_pl.lot:null), level:(_pl?_pl.level:null), aql:(_pl?_pl.aql:null), codeLetter:(_pl?_pl.letter:null),
+               required:(_pl?_pl.sample:null), accept:(_pl?_pl.accept:null), reject:(_pl?_pl.reject:null),
+               checked:(+f.bagsChecked||0), defects:(+f.defects||0),
+               reduced:(_pl? ((+f.bagsChecked||0)<_pl.sample) : null), tableVerified:(_pl?_pl.verified:false) }; })(),
+    remarks:f.remarks||'',batches},_ev));
   logAction(`Pre-shipment inspection ${anyFail?'FAILED':'PASSED'} — ${o.po} · ${l.brand} · ${fmt(kg)} Kg/L (${batches.map(b=>b.batch+' '+fmt(b.kg)).join(', ')}) by ${f.officer.trim()}`);
   (state.audit=state.audit||[]).unshift({t:new Date().toISOString(),user:state.role,module:'QA',po:o.po,brand:l.brand,field:anyFail?'Inspection FAILED':'Inspection passed',old:'',val:fmt(kg)+' Kg/L · '+batches.map(b=>b.batch).join(', ')});
   packInspForm=null; save(); closeModal(); render(); toast(anyFail?'Inspection failed — not cleared':`Cleared ${fmt(kg)} Kg/L to ship`); }
@@ -6745,7 +7091,7 @@ function shipStageOf(g){ if(g.delivered) return 'delivered'; if(g.stage) return 
 function dispatchGroups(){ const g={}; (state.shipments||[]).forEach((s,i)=>{ if(s.voided)return; const k=s.dispId||('leg'+i); if(!g[k]) g[k]={dispId:s.dispId||null,po:s.po,pos:[],client:s.client||shipClientFor(s.po)||'',destination:s.destination,date:s.dispatch,vehicle:s.vehicle,carrier:s.carrier,dc:s.dc,shipNo:s.shipNo,bilty:s.bilty,so:s.so||'',transportType:s.transportType||'',driver:s.driver||'',driverContact:s.driverContact||'',seal:s.seal||'',gatePass:s.gatePass||'',loadStarted:s.loadStarted||'',stage:s.stage||'',dcStatus:(s.dcStatus||'approved'),approvedBy:s.approvedBy||'',approvedDate:s.approvedDate||'',rows:[],kg:0,delivered:true,qaPending:false,qaFail:false}; g[k].rows.push(s); g[k].kg+=(+s.kg||0); if(s.po&&g[k].pos.indexOf(s.po)<0) g[k].pos.push(s.po); if(!s.delivered) g[k].delivered=false; if(s.qa===null) g[k].qaPending=true; if(s.qa&&s.qa.fail) g[k].qaFail=true; if((s.dcStatus||'approved')==='pending') g[k].dcStatus='pending'; }); return Object.values(g).map(x=>{ x.qa=x.qaFail?'fail':(x.qaPending?'pending':'pass'); x.poLabel=(x.pos.length>1?(x.pos[0]+' + '+(x.pos.length-1)+' more'):(x.pos[0]||x.po||'')); x.stageNow=shipStageOf(x); return x; }).sort((a,b)=>String(b.date||'').localeCompare(String(a.date||''))); }
 let dispQAForm={dispId:null,marks:[],officer:'',remarks:''};
 function dispRowsFor(dispId){ return (state.shipments||[]).filter(s=>(s.dispId||'')===dispId); }
-function openDispatchQA(dispId){ if(!(canEdit(['QA Inspector'])||state.role==='COO')){toast('QA Inspector only');return;} const rows=dispRowsFor(dispId); if(!rows.length)return; const ex=rows[0].qa; dispQAForm={dispId,marks:QC_CHECKLIST.map((_,i)=>(ex&&ex.checklist&&ex.checklist[i]&&ex.checklist[i].result)||''),officer:(ex&&ex.by)||((state.currentUser&&state.currentUser.name)||''),remarks:(ex&&ex.remarks)||'',date:(ex&&ex.actualDate)||evToday(),dateReason:''}; renderDispatchQA(); $('modalBg').classList.add('open'); }
+function openDispatchQA(dispId){ if(!(canEdit(['QA Inspector'])||state.role==='COO')){toast('QA Inspector only');return;} const rows=dispRowsFor(dispId); if(!rows.length)return; const ex=rows[0].qa; dispQAForm={dispId,marks:QC_CHECKLIST.map((_,i)=>(ex&&ex.checklist&&ex.checklist[i]&&ex.checklist[i].result)||''),verify:QC_VERIFY.map((_,i)=>(ex&&ex.verify&&ex.verify[i]&&ex.verify[i].result)||''),officer:(ex&&ex.by)||((state.currentUser&&state.currentUser.name)||''),remarks:(ex&&ex.remarks)||'',date:(ex&&ex.actualDate)||evToday(),dateReason:''}; renderDispatchQA(); $('modalBg').classList.add('open'); }
 function dispQASet(i,v){ dispQAForm.marks[i]=v; renderDispatchQA(); }
 function renderDispatchQA(){ const rows=dispRowsFor(dispQAForm.dispId); if(!rows.length){closeModal();return;} const tot=rows.reduce((a,r)=>a+(+r.kg||0),0); const g0=rows[0];
   const cl=QC_CHECKLIST.map((it,i)=>`<tr><td>${it}</td><td style="white-space:nowrap"><label style="margin-right:12px"><input type="radio" name="dqa${i}" ${dispQAForm.marks[i]==='pass'?'checked':''} onclick="dispQASet(${i},'pass')"> Pass</label><label><input type="radio" name="dqa${i}" ${dispQAForm.marks[i]==='fail'?'checked':''} onclick="dispQASet(${i},'fail')"> Fail</label></td></tr>`).join('');
@@ -6756,19 +7102,28 @@ function renderDispatchQA(){ const rows=dispRowsFor(dispQAForm.dispId); if(!rows
        <div class="muted" style="font-size:10.5px;margin-top:6px">Do not pass this truck if a pack carries a price the PO does not authorise &mdash; including a price on a PO that should carry none.</div>
      </div>
      <div class="muted" style="font-size:12px;margin-bottom:8px">Inspect only the quantity going out on this shipment: ${rows.map(r=>r.brand+' '+fmt(r.kg)).join(' · ')}</div>
+     ${(function(){
+        /* One truck carries several products, so each check lists what to expect
+           per product and the inspector marks it once for the load. */
+        const per = k => rows.map(r=>{ const o=(state.orders||[]).find(x=>x.po===r.po);
+          const l=o&&((o.lines||[]).find(x=>x.id===r.lid)||(o.lines||[]).find(x=>x.brand===r.brand));
+          const lot=(state.packingLog||[]).find(p=>p&&p.po===r.po&&p.brand===r.brand);
+          if(!o||!l) return `<div><b>${r.brand}</b> — no PO line found</div>`;
+          return `<div><b>${r.brand}</b> — ${qcExpect(o,l,lot||null)[k]}</div>`; }).join('');
+        return qcVerifyTable({price:per('price'),batch:per('batch'),dates:per('dates')}, dispQAForm.verify, 'dispQAForm', 'renderDispatchQA()'); })()}
      <div style="overflow:auto"><table><thead><tr><th>Check</th><th style="width:170px">Result</th></tr></thead><tbody>${cl}</tbody></table></div>
      <div class="fld" style="margin-top:10px;max-width:280px"><label>Inspector name</label><input type="text" value="${(dispQAForm.officer||'').replace(/"/g,'&quot;')}" oninput="dispQAForm.officer=this.value"></div>
      ${evDateField('dispQAForm','date','dispqa','Date this truck was actually inspected','renderDispatchQA()')}
      <div class="fld fld-long" style="margin-top:8px"><label>Remarks (optional)</label><textarea rows="3" oninput="dispQAForm.remarks=this.value" placeholder="what did you see? note anything the checklist does not cover.">${_tx(dispQAForm.remarks||'')}</textarea></div>
    </div>
    <div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" onclick="dispQASubmit()">Submit inspection</button></div>`; }
-function dispQASubmit(){ if(!(canEdit(['QA Inspector'])||state.role==='COO')){toast('QA Inspector only');return;} const rows=dispRowsFor(dispQAForm.dispId); if(!rows.length)return; if(dispQAForm.marks.some(m=>!m)){toast('Mark every item Pass or Fail');return;} if(!(dispQAForm.officer||'').trim()){toast('Enter inspector name');return;}
+function dispQASubmit(){ if(!(canEdit(['QA Inspector'])||state.role==='COO')){toast('QA Inspector only');return;} const rows=dispRowsFor(dispQAForm.dispId); if(!rows.length)return; if(dispQAForm.marks.some(m=>!m)){toast('Mark every item Pass or Fail');return;} { const _vg=qcVerifyGate(dispQAForm.verify); if(_vg){toast(_vg);return;} } if(!(dispQAForm.officer||'').trim()){toast('Enter inspector name');return;}
   const _dg=evDateGate(dispQAForm,'date','dispqa'); if(_dg){toast(_dg);return;}
-  const anyFail=dispQAForm.marks.some(m=>m==='fail'); const d=dispQAForm.date||evToday(); const qa=Object.assign(evStamp(d,'dispqa',dispQAForm.dateReason),{pass:!anyFail,fail:anyFail,by:dispQAForm.officer.trim(),date:d,checklist:QC_CHECKLIST.map((it,i)=>({item:it,result:dispQAForm.marks[i]})),remarks:dispQAForm.remarks||''});
+  const anyFail=dispQAForm.marks.some(m=>m==='fail') || qcVerifyFailed(dispQAForm.verify); const d=dispQAForm.date||evToday(); const qa=Object.assign(evStamp(d,'dispqa',dispQAForm.dateReason),{pass:!anyFail,fail:anyFail,by:dispQAForm.officer.trim(),date:d,checklist:QC_CHECKLIST.map((it,i)=>({item:it,result:dispQAForm.marks[i]})),verify:qcVerifyRecord(dispQAForm.verify),remarks:dispQAForm.remarks||''});
   rows.forEach(s=>{ s.qa=JSON.parse(JSON.stringify(qa)); });
   if(anyFail){ rows.forEach(s=>{ s.voided=true; const o=(state.orders||[]).find(x=>x.po===s.po); const l=o&&(o.lines.find(x=>x.id===s.lid)||o.lines.find(x=>x.brand===s.brand)); if(l) l.dispatched=Math.max(0,(l.dispatched||0)-(+s.kg||0)); }); logAction(`Pre-shipment inspection FAILED — ${dispQAForm.dispId} (${rows[0].po}) — material returned to Ready to ship`); }
   else logAction(`Pre-shipment inspection PASSED — ${dispQAForm.dispId} (${rows[0].po}, ${fmt(rows.reduce((a,r)=>a+(+r.kg||0),0))} Kg/L) by ${qa.by}`);
-  dispQAForm={dispId:null,marks:[],officer:'',remarks:'',date:evToday(),dateReason:''}; save(); closeModal(); render(); toast(anyFail?'Inspection failed — returned to ready':'Inspection passed'); }
+  dispQAForm={dispId:null,marks:[],verify:[],officer:'',remarks:'',date:evToday(),dateReason:''}; save(); closeModal(); render(); toast(anyFail?'Inspection failed — returned to ready':'Inspection passed'); }
 function markDelivered(dispId,date){ if(!canEdit(['Supply Chain'])){toast('Supply Chain only');return;} const grp=dispatchGroups().find(x=>x.dispId===dispId); if(grp&&grp.qa==='pending'){toast('This shipment must pass pre-shipment inspection first');return;} if(grp&&grp.qa==='fail'){toast('This shipment failed inspection — re-plan it');return;} if(grp&&!(grp.stageNow==='in_transit'||grp.stageNow==='delivered')){toast('This truck must be released and in transit before it can be marked delivered');return;} const d=date||TODAY.toISOString().slice(0,10); let n=0;
   (state.shipments||[]).forEach(s=>{ if((s.dispId||'')===dispId && !s.delivered){ s.delivered=d; const o=(state.orders||[]).find(x=>x.po===s.po); const l=o&&(o.lines.find(x=>x.id===s.lid)||o.lines.find(x=>x.brand===s.brand)); if(l){ l.delivered=(l.delivered||0)+(+s.kg||0); l.deliveredDate=d; } n++; } });
   if(!n){toast('Already delivered');return;}
@@ -7828,7 +8183,7 @@ function budgetHtml(){
   const pm={}; (state.orders||[]).forEach(o=>(o.lines||[]).forEach(l=>{ const v=(+l.delivered||0)*(+l.invoicePrice||0); if(v>0){ pm[l.brand]=(pm[l.brand]||0)+v; } }));
   const pmRows=Object.entries(pm).sort((a,b)=>b[1]-a[1]).slice(0,15);
   return `
-   ${(state.role==='COO'||state.role==='CFO')?`<div style="margin-bottom:12px"><button class="sm" onclick="openBulkPricing()">💲 Set invoice prices (bulk)</button></div>`:''}
+   ${(state.role==='COO'||state.role==='CFO')?`<div style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap"><button class="sm" onclick="openBulkPricing()">💲 Set invoice prices (bulk)</button>${(function(){const n=(state.orders||[]).filter(o=>!o.printDecision).length;return n?`<button class="sm" onclick="openBulkPrintDecision()">🏷️ Answer print-on-pack for ${n} PO(s)</button>`:'';})()}</div>`:''}
    ${noPrice?'<div class="banner warn">Some PO lines have <b>no invoice price</b> yet — their value is counted as 0. Set invoice prices on New PO Entry (new POs) or via Data Fix (imported POs).</div>':''}
    <div class="kpis" style="grid-template-columns:repeat(4,1fr)">
      <div class="kpi"><div class="l">All clients — target</div><div class="v">${pkr(totT)}</div><div class="d">${fyRange(fy)}</div></div>

@@ -729,3 +729,101 @@ over an empty office field moves the cost to the wrong person.
 
 Both are drafts for Tahir to adjust and circulate. Markdown, in the repo. Can be
 turned into Word or a printable PDF on request.
+
+---
+
+## 2026-08-21 (later) · O2S · team feedback round
+
+**Module:** O2S. No PD path touched. **NOT pushed.**
+
+Three items came back from the team within a day of the first change going live.
+
+### Majid — "a formal correction mechanism for data-entry mistakes"
+
+Fault 4, arrived at independently without having seen the register. No analysis
+to add; `SPEC-03-EDIT-STANDARD.md` already covers it. What changes is priority —
+a fault two people raise unprompted in one week costs more than the register
+credited it with.
+
+### Fahim — "Gate pass approval is assigned to Plant Manager but it does not
+appear in my actions"
+
+Confirmed, and it was five faults not one. `actionItems()` had **no entry for
+any step after "Ship"** — verified by listing every `act:` target in the
+function. Missing: `startLoading`, `issueGatePass`, `approveRelease`,
+`approveDC`, `openDeliveryConfirm`.
+
+The moment a truck was planned it vanished from every worklist. Worse for the
+Plant Manager than anyone: the Shipments screen is `owners:['Supply Chain']`, so
+he gets view access by default and had to hunt on someone else's screen for a
+button nothing told him was waiting. He had **two** action item types in the
+whole system before this.
+
+This revises Fault 5. People were not ignoring the Action Center for the second
+half of the shipment process — the Action Center was not telling them.
+
+All five items added with escalation thresholds ('Load', 'Gate Pass', 'Release',
+'Approve DC', 'Confirm delivery'), plus `ACT_EMOJI`, `acTypeColor` and
+`acStageOf` entries. A loaded truck waiting on release escalates to COO after
+1 day. **The release item stays hidden while the shipment's pre-shipment
+inspection is pending**, so the PM is never invited to release ahead of QA.
+
+### Fahim — "mobile friendly version please", then Tahir — "still too dense"
+
+Two passes, both measured rather than eyeballed.
+
+**Pass 1 — the page slid sideways.** 7 of 12 screens overflowed horizontally at
+390px; PO Tracker worst at 204px. Found by hiding each element and re-measuring.
+Three causes: `.tbttl` ships as `flex:0 0 auto` so the top bar physically could
+not shrink and a long screen title held the page open (`min-width:0` alone did
+**not** fix this — the shrink factor was the real culprit and took a second
+pass); `.axn-bd` had no `min-width:0` so a long client name forced every Action
+Center card wide; `table.t2mtx` had no scroll container. Fixed with CSS plus a
+`:has()` scroll container.
+
+**Pass 2 — density.** 659px of chrome before the first task on an 844px screen
+(78%). Stat cards were 360px stacked one per row; filters 160px stacked one per
+row. Now 375px (44%) — stat cards 2-up at 129px, search on its own row with the
+dropdowns two-up, tighter padding and type scale. Three tasks now visible on the
+first screen; before, none were.
+
+Built three dropdowns per row first — it clipped their selected values to
+"Group: ..." which is Fault 2 again, so it went back to two per row at a cost of
+39px.
+
+**The iOS zoom floor now costs only iOS.** `input,select,textarea{font-size:16px}`
+below 820px is correct for iOS Safari (below 16px it zooms on focus) but Android
+was paying for it too. Scoped with `@supports (-webkit-touch-callout:none)`;
+Android gets 13.5px, iOS keeps 16px, failed detection falls back to today.
+
+### Verified
+
+- `node --check` on all five script blocks — pass
+- All 12 screens: **0px horizontal overflow at 390px**, unchanged at 1600px
+- Truck-pipeline items assert-tested across six states (planned / loading no
+  gate pass / loading with gate pass / QA pending / in transit / DC pending) for
+  both Supply Chain and Plant Manager
+- Desktop regression: titles, subtitles and the 1040px dispatch modal all intact
+
+### Fault 8 — NEW, open, needs Tahir's decision
+
+Found while fixing Fahim's bug, not reported by anyone. **`approveRelease()`
+never checks the shipment-level pre-shipment inspection.** It checks role, stage
+and gate pass only.
+
+Material on the truck has always passed *lot-level* QA (`readyLinesFor()` only
+offers inspected & cleared quantity). What can be skipped is the second,
+truck-level check. `markDelivered` and `openDeliveryConfirm` both refuse when
+`qa === 'pending'` — release is the one step that does not. Fault 4 again: the
+same rule applied in two places and not a third.
+
+Adding the check is ~4 lines. It would stop trucks that today would go, and
+given the backlog of unrecorded inspections it may block real ones on the day it
+deploys. **Recorded, not fixed — Tahir's call.** Interim mitigation: the Action
+Center release item already stays hidden while inspection is pending.
+
+### Next
+
+Unchanged: the "no print/no-print decision recorded" pre-flight count, then
+SPEC-04 step 1 (actualDate / recordedAt). Majid's message moves SPEC-03 up
+behind those.

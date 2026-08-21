@@ -14,6 +14,9 @@ the code, it says so.
 | 3 | No single place showing everything attached to a PO | **Critical** | Yes | [SPEC-02](SPEC-02-PO-DOSSIER.md) |
 | 4 | No standard way to correct a record | **High** | Yes | [SPEC-03](SPEC-03-EDIT-STANDARD.md) |
 | 5 | Event dates are keying dates, so late/bulk entry is invisible | **Critical** | Yes | [SPEC-04](SPEC-04-REALTIME-DISCIPLINE.md) |
+| 6 | The whole truck pipeline is missing from the Action Center | **Critical** | Yes | Fixed 2026-08-21 |
+| 7 | Seven of twelve screens push the page sideways on a phone | **High** | Yes | Fixed 2026-08-21 |
+| 8 | A truck can be gate-released before its shipment-level inspection | **Open question** | Yes | Awaiting Tahir's decision |
 
 ---
 
@@ -361,3 +364,468 @@ Ordered by risk removed per unit of change, not by how hard each is.
 ---
 
 *Register opened 2026-08-21. Module: O2S. Source: `o2s/o2s.html` @ 2026-08-16.*
+
+---
+
+# Round two — from the team, 2026-08-21
+
+The first register came from Tahir. These came from the people using the system,
+within a day of the first change going live. All three were checked against the
+code before anything was written here.
+
+---
+
+## Fault 4 confirmed independently — Majid
+
+> Sir, I would also suggest incorporating a formal correction mechanism to
+> address data-entry mistakes.
+
+Majid arrived at [Fault 4](#fault-4--no-standard-way-to-correct-a-record)
+independently, without having seen the register. That is the strongest evidence
+in this document that the fault is real and is felt daily, and it moves
+[SPEC-03](SPEC-03-EDIT-STANDARD.md) up the queue.
+
+Nothing to add to the analysis. The spec already covers it. What Majid's message
+changes is the priority: a fault two people raise unprompted in the same week is
+costing more than the register credited it with.
+
+---
+
+## Fault 6 — the whole truck pipeline was missing from the Action Center
+
+**Raised by Fahim:** *"Gate pass approval is assigned to Plant Manager but it
+does not appear in my actions."*
+
+### What the code showed
+
+He was right, and it was five faults, not one. `actionItems()` had **no entry at
+all** for any step after "Ship". Verified by listing every `act:` target in the
+function:
+
+```
+ackOrder · approveRMPR · cfoApprovePR · clearQaHold · gotoProduce ·
+lotQACorrect · openDelayReason · openDispatch · openDispatchQA ·
+openPackInspect · openRMCheck · openRMReceive · openReceiveMaterials
+```
+
+Absent: `startLoading`, `issueGatePass`, `approveRelease`, `approveDC`,
+`openDeliveryConfirm`.
+
+| Stage | Owner | Action | Was in My Actions? |
+|---|---|---|---|
+| Ready to ship | Supply Chain | `openDispatch` | Yes |
+| Truck planned | Supply Chain | `startLoading` | **No** |
+| Loading, no gate pass | Supply Chain | `issueGatePass` | **No** |
+| Loading + gate pass | **Plant Manager** | `approveRelease` | **No** ← Fahim |
+| DC pending approval | Plant Manager | `approveDC` | **No** |
+| In transit | Supply Chain | `openDeliveryConfirm` | **No** |
+
+So the moment a truck was planned it **disappeared from every worklist** and
+could only be found by remembering to open the Shipments screen and scroll.
+
+It is worse for the Plant Manager than for anyone else. The Shipments screen
+lists `owners:['Supply Chain']`, so he gets view access by default and no more —
+the role that owns the release gate has to go hunting on someone else's screen
+for a button, with nothing anywhere telling him it is waiting. Before this fix
+the Plant Manager had exactly **two** action item types in the entire system
+(UNFIT lot review, and add-a-delay-reason), so he had no reason to build the
+habit of looking at all.
+
+### Why this matters more than a missing button
+
+Tahir's Fault 5 was *"they are not responding to Action Center notifications."*
+Part of that is a habit. But for the entire second half of the shipment process,
+**there were no notifications to respond to.** People were being asked to check
+a list that did not contain their work.
+
+### Fixed 2026-08-21
+
+All five items added, each with an escalation threshold. A loaded truck sitting
+unreleased escalates to the COO after one day — it is the most expensive thing
+in the process to leave standing.
+
+The release item deliberately stays hidden while the shipment's pre-shipment
+inspection is still pending, so it never invites the Plant Manager to release
+ahead of QA.
+
+---
+
+## Fault 7 — the app pushes the page sideways on a phone
+
+**Raised by Fahim:** *"Mobile friendly version please."*
+
+### What the measurement showed
+
+There is a responsive layer already (`@media(max-width:820px)`), and the parts
+it covers work — the nav becomes a drawer, the toggle appears, grids collapse to
+one column. The problem was elsewhere.
+
+At 390px, **7 of 12 screens pushed the page horizontally**, which is what makes
+an app feel broken on a phone: you scroll down and the whole page drifts
+sideways.
+
+| Screen | Overflow |
+|---|---|
+| PO Tracker | **204px** |
+| Sales & Budget | 92px |
+| My Actions | 68px |
+| Users & Access | 53px |
+| Production | 46px |
+| Admin | 39px |
+| Shipments | 32px |
+| Pre-shipment QA | 24px |
+
+Found by hiding each element in turn and re-measuring, rather than by eye. Three
+root causes, not eight:
+
+**7a · The top bar could not shrink** — 7 screens. `.tbttl`, which holds the
+screen title and subtitle, ships as `flex: 0 0 auto`. `flex-shrink: 0` means it
+refuses to narrow below its content, so a title like *"Sales & Budget
+(dashboard)"* (261px) held the whole bar — and therefore the page — open by
+92px. Adding `min-width: 0` alone did **not** fix it; the shrink factor was the
+real culprit and took a second pass to find.
+
+**7b · The same flexbox problem in every Action Center card** — `.axn-bd` had no
+`min-width: 0`, so a long client name (*"· Ittefaq Traders & Company, Multan"*)
+forced the card wide.
+
+**7c · The PO Tracker matrix had no scroll container** — `table.t2mtx` sits in a
+plain `div` with `overflow-x: visible`, so a 555px table stretched the page
+instead of scrolling inside itself. This was the worst single offender, on the
+screen everyone uses most.
+
+### Fixed 2026-08-21
+
+Three CSS causes, three CSS fixes, plus a `:has()` scroll container for the
+tracker matrix. **All 12 screens now measure 0px overflow at 390px, with no
+change at 1600px.** On a phone the tracker matrix keeps a 520px minimum width and
+scrolls inside its own card, so the columns stay readable instead of being
+crushed.
+
+This is not "a mobile version". It is the existing app no longer breaking on a
+phone. A layout genuinely designed for a phone — the Action Center as the home
+screen, one-thumb approve/reject, a camera for batch numbers — is a separate
+piece of work and a much larger one.
+
+---
+
+## Fault 8 — a truck can be released before its shipment inspection
+
+**Not reported by anyone. Found while fixing Fault 6.** Recorded because it sits
+directly on intent 4, and flagged rather than fixed because changing a gate on a
+live system is Tahir's call, not mine.
+
+`approveRelease()` checks three things: the caller is the Plant Manager, the
+truck is in `loading`, and a gate pass has been issued. **It does not check
+whether the shipment-level pre-shipment inspection has passed.**
+
+There are two QA layers, and only one of them gates:
+
+| Layer | What it is | Does it gate? |
+|---|---|---|
+| **Lot-level** (`packingLog[].qa`) | Each packed lot inspected before it can be loaded | **Yes** — `readyLinesFor()` only offers inspected & cleared quantity |
+| **Shipment-level** (`shipments[].qa`, `openDispatchQA`) | The truck-load inspected as a whole | **No** — nothing stops release without it |
+
+So material on the truck has always been inspected at lot level. What can be
+skipped is the second, truck-level check. `markDelivered` and
+`openDeliveryConfirm` both refuse when `qa === 'pending'` — so the release step
+is the one place in the chain that does not.
+
+That inconsistency is [Fault 4](#fault-4--no-standard-way-to-correct-a-record)
+showing up again: the same rule applied in two places and not a third.
+
+**The question for Tahir:** should `approveRelease` refuse when the shipment
+inspection is still pending? Adding the check is about four lines. It would stop
+a truck that today would go. Given the current backlog of un-recorded
+inspections (Fault 5), it may block real trucks on the day it deploys — which is
+why it is a decision and not a fix.
+
+As an interim, the Action Center item for the release already stays hidden while
+inspection is pending, so nobody is *invited* to skip it.
+
+---
+
+*Round two opened 2026-08-21. Faults 6 and 7 fixed the same day; 4 specified;
+8 awaiting a decision.*
+
+---
+
+## Fault 7b — the mobile layout was too sparse to be useful
+
+**Tahir, on seeing the first mobile fix:** *"Still too dense and large text, it
+should be compact ... and it should adjust based on the field, tab size, length
+and open tabs."*
+
+Fault 7 stopped the page sliding sideways. It did nothing about how much of the
+screen was spent before you saw any work — and that is the difference between
+"it fits" and "it is usable on a phone".
+
+### What the measurement showed
+
+My Actions, 390 × 844:
+
+| Block | Height | Why |
+|---|---|---|
+| Stat cards | **360px** | 4 cards, **one per row**, 84px each |
+| Filter controls | **160px** | 4 controls, **one per row**, 34px each |
+| `.paperui` padding | 44px | desktop padding on a phone |
+| **Total before the first task** | **659px** | **78% of the screen** |
+
+You scrolled most of a screen before reaching a single piece of work. On the
+screen whose entire job is to show you your work.
+
+The type scale was part of it but not the main part. The real cost was that
+every container was full-width and stacked, because the responsive layer only
+ever collapsed things to one column — it never re-packed them.
+
+### What changed
+
+| Block | Before | After |
+|---|---|---|
+| Stat cards | 360px, 1-up | **129px, 2-up** — all four still visible, no swiping |
+| Filters | 160px, 4 rows | **110px** — search on its own row, dropdowns two-up |
+| `.paperui` padding | 44px | 26px |
+| Stat value / label | 27px / 10.5px | 18px / 9px |
+| Screen title | 17px | 15px |
+| Action card title | 12.5px | 12px |
+| **Before the first task** | **659px** | **375px — 44% instead of 78%** |
+
+Three tasks now sit on the first screen. Before, none did.
+
+### The one place I spent height rather than saved it
+
+Three dropdowns across a 390px screen fits the height budget, and I built it
+that way first. It clipped their own selected values to *"Group: ..."* and
+*"Sort: Ri..."*.
+
+That is [Fault 2](#fault-2--fields-are-too-small-to-read-what-is-being-typed)
+all over again — a control that will not tell you what it is set to. So they
+went back to two per row, at a cost of 39px. Readable beats compact when the
+thing being compressed is the answer to *"what am I looking at?"*
+
+### The iOS zoom floor, now paid only by iOS
+
+The original stylesheet forced `input, select, textarea { font-size: 16px }`
+below 820px, with the comment *"iOS: >=16px stops focus auto-zoom"*. That is
+correct and worth keeping — below 16px, iOS Safari zooms the page every time a
+field is focused and the user has to pinch back out.
+
+But **Android was paying for it too, and Android does not have the problem.**
+The floor is now scoped with `@supports (-webkit-touch-callout: none)`, which is
+true on iOS WebKit and false on Android Chrome. Android gets 13.5px; iOS keeps
+16px. If the detection ever fails, the fallback is exactly today's behaviour.
+
+### What this still is not
+
+A layout genuinely designed for a phone. This is the desktop app packed
+sensibly. A real mobile design would make the Action Center the home screen,
+put approve/reject under one thumb, and use the camera for batch numbers.
+That is a separate and much larger piece of work — worth asking Fahim which of
+the two he was asking for.
+
+---
+
+*Fault 7b measured and fixed 2026-08-21. All 12 screens: 0px horizontal
+overflow at 390px, unchanged at 1600px.*
+
+---
+
+## Fault 9 — the desktop app: silent truncation and empty screens
+
+**Tahir:** *"The app overall has too much clusters and white empty spaces and
+sometimes the app even flows text outside the window. It's about the webapp
+equally, not just mobile."*
+
+### First, an honest correction
+
+**I could not reproduce text escaping the browser window on desktop.** Every
+screen measures 0px horizontal page overflow at 1024, 1280, 1366, 1600 and
+1920px, with 40 POs of realistic data loaded.
+
+What I did find looks the same to a user and is worse than it looks: **text
+silently truncated inside its own card, with no ellipsis and no warning.**
+
+If the case you have in mind is different — a modal, a print preview, a specific
+screen with specific data — send a screenshot. I have not hit it.
+
+### Why this was missed until now
+
+The first mobile pass used a tidy fixture: one PO, one client, short names,
+`PKR 1.2M`. Everything passed. The faults below only appear with **real data** —
+long client names, nine-figure PKR values, 40 orders. The fixture was rebuilt to
+match production before any of this was written.
+
+### 9a · A financial figure was losing its last digit
+
+Sales & Budget at 1024px, with real annual targets:
+
+```
+BEFORE:   PKR 625,000,00(     ← the card renders "PKR 625,000,000"
+AFTER:    PKR 625,000,000        clipped mid-digit
+```
+
+`.kpi .v` was fixed at 23px. `PKR 625,000,000` needs 181px in a 166px box, and
+`.kpi` carries `overflow: hidden` — so the surplus is not painted outside the
+card, it is **cut off inside it**, mid-number, with nothing to indicate that
+anything is missing.
+
+Three of the four tiles on that screen were affected. **A CFO reading the budget
+screen was being shown a number missing its last digit.** This is the most
+serious defect found in the app so far, and it is invisible — there is no error,
+no ellipsis, nothing to notice.
+
+**Fixed** by making the value size itself to the card rather than the card being
+asked to fit the value:
+
+```css
+.kpi{container-type:inline-size}
+.kpi .v{font-size:min(23px,10.5cqi)!important;white-space:normal}
+```
+
+23px when there is room, shrinking only when the card is too narrow for what it
+holds. This is what Tahir asked for as *"adjust based on the field, length"*.
+Container-query units need the same browser generation as `:has()`, which this
+file already depends on.
+
+Side effect worth having: the long values had been wrapping onto two lines, so
+fixing this also gave ~65px back on that screen — the "By client" table now
+shows two rows in the fold where it showed one.
+
+### 9b · My own action titles were the worst clipped text in the app
+
+The truck-pipeline items added earlier the same day carried the client name, the
+DC number **and** the quantity in a single `.axn-t1`, which is one nowrap line.
+Measured clipping **474px of itself** off the right edge at 1024px.
+
+Fixed: the headline is now PO and DC only. The card already prints client and
+product underneath, and the detail belongs in the drawer.
+
+### 9c · Empty screens — measured
+
+`ink` = the fraction of the first screen occupied by cards, tables or task rows,
+at 1366 × 768 (the common office laptop) with 40 POs loaded:
+
+| Screen | Ink | Chrome before the first data row |
+|---|---|---|
+| **Dashboard** | **0.00** | **1,707px — over two screens** |
+| **Shipments** | **0.00** | — |
+| Lab QC | 0.15 | — |
+| Pre-shipment QA | 0.15 | — |
+| Reports | 0.18 | 412px |
+| Users & Access | 0.25 | 251px |
+| Production | 0.53 | — |
+| My Actions | 0.58 | 213px |
+| Admin | 0.65 | 799px |
+| PO Tracker | high | 320px |
+
+**Dashboard and Shipments show no data at all in the first screen.** On the
+Dashboard that is three stacked banners saying nearly the same thing (the
+"Tuned for COO" strip, the "Executive overview" heading block, and the "Today's
+read · auto-generated" summary), then a row of stat tiles, then two chart cards
+— one of which is a large empty box when it has no data to draw.
+
+**Not fixed, and deliberately so.** Deciding which of those three banners earns
+its place is a product decision about what a COO should see first, not a
+formatting one. Deleting a summary Tahir wrote is not mine to do. The measurement
+is here so the decision can be made with a number attached.
+
+---
+
+*Fault 9 opened 2026-08-21. 9a and 9b fixed; 9c measured and left for a
+decision. Verified across 1024 / 1280 / 1366 / 1600 / 1920 with a 40-PO
+production-shaped fixture.*
+
+---
+
+## Fault 10 — a PO that prints no price could not be packed at all
+
+**Not reported by anyone. Found while implementing SPEC-01 rule 1, the same day
+Tahir said "not every PO prints a price".**
+
+This is the most direct example in the register of a rule being written into
+code before anyone asked whether it was true.
+
+### What the code did
+
+All three packing paths — `doPack`, `doProdQty`, `doDivert` — carried the same
+gate:
+
+```js
+const ppx = +form.price || 0;
+if(!(ppx > 0)){ toast('Enter the price to print on the pack.'); return; }
+```
+
+**A positive print price was mandatory to pack anything.** So for a client who
+does not want a price on the bag, the operator had two options: leave the
+material unpacked, or invent a number.
+
+They invented a number. And then:
+
+```js
+if(l.printPrice == null || l.printPrice === ''){ l.printPrice = ppx; }
+```
+
+the invented number was written back onto the PO line, where it became
+indistinguishable from a price the KAM had set. Packing was authoring
+commercial data, on exactly the customers who had asked for none.
+
+### The principle now
+
+> **Packing records what went on the bag. It never authors what should have.**
+
+The PO is the only authority. A difference between the two is a finding for the
+inspector, not a silent correction.
+
+### Fixed 2026-08-21
+
+One shared price step across all three packing paths (`packPriceBlock` /
+`packPriceGate` / `packPriceRecord`), behaving by the four states of
+[SPEC-01 Rule 0](SPEC-01-PRICE-VISIBILITY.md):
+
+| PO state | What packing asks for |
+|---|---|
+| **no-print** | Nothing to enter. One confirmation: *"I confirm no price is printed on this pack."* |
+| **priced** | The PO's price, pre-filled. Type what is actually on the bag; if it differs, a red warning says it will be recorded as a discrepancy and **the PO is left unchanged** |
+| **missing / not specified** | Record what is printed, with a note that this does **not** set the PO's price — ask the KAM |
+
+The packing lot now stores both sides of the question:
+
+| Field | Meaning |
+|---|---|
+| `poPrintPrice` | what the PO authorised at that moment |
+| `printedPrice` | what the operator says went on the bag |
+| `priceMismatch` | true when they differ |
+| `noPrintPack` | true when the PO prints nothing |
+| `priceVerifiedBy` | **the person's name** — was `state.role`, which stored `"Production"`. That names a job, and you cannot go back and ask a job what it saw |
+| `priceVerifiedAt` | timestamp |
+
+### Verified — six cases in a browser
+
+| Case | Result |
+|---|---|
+| No-print PO, confirmation not ticked | blocked, clear message |
+| **No-print PO, confirmed** | **packs — was impossible before** |
+| Priced PO 1250, operator confirms 1250 | packs, no mismatch, PO unchanged |
+| Priced PO 1250, bag says 900 | packs, `priceMismatch: true`, **PO still 1250** |
+| **PO has no price, operator types 777** | packs, `printedPrice: 777`, **PO price still unset** |
+| **Legacy PO, operator types 500** | packs, **PO price still unset** |
+
+The last two are the ones that matter: the write-back is gone.
+
+### Also added — the pre-flight count
+
+Two rows in Reports → Anomalies, so the size of the backlog is a number rather
+than a guess before anything is made to block:
+
+- **"No print/no-print decision"** — nobody has recorded whether this PO prints a
+  price. Every PO from the opening import is in this state
+- **"No print price"** — the PO says it prints one and none is set
+
+A PO that deliberately prints no price is **not** an anomaly and never appears
+in either.
+
+---
+
+*Fault 10 opened and fixed 2026-08-21. SPEC-01 rules 1, 4 and 7 are now built;
+rules 3 (the QA checklist price item), 5 (correcting a print price) and 6 (the
+printed documents) remain.*

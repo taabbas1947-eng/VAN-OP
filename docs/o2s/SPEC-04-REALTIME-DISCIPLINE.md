@@ -316,3 +316,126 @@ Raise it as a separate `MODULE: PLATFORM` piece of work.
 ---
 
 *Spec written 2026-08-21. Module: O2S. Status: not implemented.*
+
+---
+
+# BUILT — 2026-08-21 · Step 1 and part of steps 3, 4
+
+## What is now in the code
+
+Three fields travel with every event that previously forced today's date:
+
+| Field | Meaning | Set by | Editable |
+|---|---|---|---|
+| `actualDate` | when it happened in the factory | the person | yes, within the window |
+| `recordedAt` | when it was keyed into O2S | system, ISO | never |
+| `recordedBy` | who keyed it | the person's name | never |
+| `enteredLate` | days late, only when past the threshold | derived | — |
+| `lateReason` | why it is being recorded now | the person | — |
+
+`date` is still written, set to `actualDate`, so **every existing reader picks up
+the true date without being touched** — stage rollups, escalation, the QA gates,
+reports, the packing log. That was the design choice that kept this change small.
+
+### The four that could not record a real date — now can
+
+| Event | Before | Now |
+|---|---|---|
+| Packing run (`doPack`) | `date: TODAY`, not enterable | "Date this was actually packed" |
+| PO-direct pack (`submitProdQty`) | had a date field that was never used | wired through, with the late-entry gate |
+| Lot inspection (`lotQASubmit`) | `date: TODAY`, not enterable | "Date this lot was actually inspected" |
+| Shipment inspection (`dispQASubmit`) | `date: TODAY`, not enterable | "Date this truck was actually inspected" |
+| Pack inspection (`savePackInspect`) | `date: TODAY`, not enterable | "Date this material was actually inspected" |
+
+Divert-packing is stamped at today, since a divert happens as it is recorded.
+
+**COA approval is deliberately different.** It gets `recordedAt` and `recordedBy`
+but no date entry: a signature's date *is* the moment of signing, and letting
+someone backdate their own sign-off would weaken the record rather than
+strengthen it. Backdating a COA belongs in the correction path
+([SPEC-03](SPEC-03-EDIT-STANDARD.md)), where it leaves a trail.
+
+## The entry control
+
+`evDateField()` — one control, used by every event form. The late-entry reason
+box appears **only** once the date is past that event's threshold.
+
+That conditional matters more than it looks. If recording today's work were
+slower than recording last week's, the system would be teaching the wrong habit.
+Same-day entry is one date field and nothing else.
+
+`evDateGate()` refuses two things:
+
+- a **future date** — outright, no override. There is no honest reason to record
+  something that has not happened
+- a **late entry with no reason** — minimum six characters, in a real textarea
+
+## Thresholds
+
+In master data (`state.masters.entryThresholds`), so they can be tuned without a
+deploy — COO only. Defaults:
+
+| Event | Reason required after |
+|---|---|
+| Shipment inspection · pack inspection · dispatch | same day |
+| Lot inspection | same day |
+| Packing run · COA · shift output | 1 day |
+| Delivery confirmation | 2 days |
+
+The inspection and dispatch thresholds are tightest on purpose: those are the
+two where a late entry destroys the control rather than merely delaying the
+record.
+
+## Legacy records
+
+`recordedAt` is absent, so `evLag()` returns **null** and the badge reads
+*"entry date not tracked"*. **It never renders as 0.** Showing zero lag for
+records nobody verified would manufacture a clean history and defeat the point
+of the change.
+
+## Visible today, without the dashboard
+
+Five new rows in **Reports → Anomalies**, so the pattern is countable now rather
+than after step 5:
+
+- **Packed late — recorded Nd after**
+- **Inspected late — recorded Nd after** (lot and pre-shipment)
+- **Truck inspected late — recorded Nd after**
+- **Inspection dated after dispatch** — *the exact case Tahir described*: the
+  truck left on the 14th, the inspection is dated the 19th, so the inspection
+  cannot have authorised the shipment
+
+Each row names the person who keyed it and quotes the reason they gave, or says
+*"no reason given"*.
+
+## Verified — six cases in a browser
+
+| Case | Result |
+|---|---|
+| Inspected today | saves, lag 0, no reason asked, no friction |
+| Inspected 5 days ago, no reason | **blocked** — "say why it is being recorded now" |
+| Inspected 5 days ago, with reason | saves · `actualDate` 16th · `recordedAt` 21st · `enteredLate: 5` · reason stored · **`date` is the 16th, not today** |
+| Date in the future | **blocked** |
+| Legacy record | lag `null`, badge "entry date not tracked" — never 0 |
+| Inspection dated after its dispatch | **flagged in Anomalies** |
+
+## Still to build
+
+| Step | Work |
+|---|---|
+| 2 | The same three fields on the remaining event records — shift output, RM/PR events, gate release |
+| 5 | The Entry Discipline dashboard — by person, by screen, bulk-entry detection |
+| 6 | Bulk-entry detection: 5+ events across 3+ distinct actual dates keyed within 15 minutes |
+| 9 | **A baseline period of at least four weeks before any lock.** Locking against an unmeasured baseline means nobody can tell whether it helped |
+| 10 | The hard lock with Plant Manager approval |
+| 11 | Sequence validation as warnings — *partly delivered already*: "inspection dated after dispatch" is the first of the six rules, running as a report rather than a block |
+
+## A note on the escalation engine
+
+`acEscalation` now measures from dates that are true rather than from dates that
+were themselves entered late. **The numbers will look worse before they look
+better.** That is the correction working, not a regression.
+
+---
+
+*Step 1 built and verified 2026-08-21. Module: O2S.*

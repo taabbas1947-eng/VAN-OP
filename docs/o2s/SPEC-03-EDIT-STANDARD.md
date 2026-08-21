@@ -391,3 +391,150 @@ character found it.*
 ---
 
 *Spine, AMEND and REVERSE built and verified 2026-08-21. Module: O2S.*
+
+---
+
+# BUILT — 2026-08-21 (later) · the paths closed, and SUPERSEDE
+
+Tahir: *"close all and keep one."* The first pass built the one path. This pass
+shuts the others and adds the third operation.
+
+## The rule that made one path possible
+
+The reason there were eight editors is that **filling a blank and changing a
+value had been treated as the same act.** They are not.
+
+> **Entry** is putting a number in an empty box. **Correction** is changing a
+> number somebody may already have relied on.
+
+A CFO typing 136 invoice prices into empty boxes must not be made to write 136
+reasons — that is data entry, and forcing ceremony on it is how a control gets
+worked around. A CFO changing one price that was already there must be on the
+register. `isCorrection(before, after)` asks that question the same way
+everywhere, so no screen invents its own answer. Zero counts as blank: a price
+of zero is not a price somebody set, it is a box nobody filled.
+
+With that rule, every remaining path resolves itself.
+
+## What happened to each of the fourteen
+
+| Was | Now |
+|---|---|
+| Data Fix — add production / packing / shipment / PO (5 sites) | **BACKFILL** on the ledger, with the real event date |
+| Opening-PO import (1) | **BACKFILL**, one entry per PO |
+| Data Fix — correct a PO (5 sites, one sentence each) | **AMEND**, one entry per record, reason code required |
+| Bulk print-on-pack answer (1) | **Entry.** Every PO it touches had no answer. Filing 44 "corrections" on the day we started asking the question would be a lie |
+| Bulk invoice pricing (1) | Fills blanks; **refuses** to overwrite an existing price and names the one path |
+| Inline invoice price on Sales & Budget (1) | Fills blanks; **opens the correction modal** when the value already exists |
+
+`reconLog()` now has **zero call sites**. It is kept defined, and anything that
+still reaches it lands in the register as a `legacy` entry rather than
+disappearing into a sentence. A net, not a path.
+
+### The fourth operation
+
+**BACKFILL** — a record that should have existed and did not. Data Fix creates
+production, packing, shipments and POs after the fact. That is not an AMEND —
+there was nothing to amend — but it is still somebody changing live history, and
+the one place you go to ask *"what has been changed by hand?"* has to answer it.
+It carries `eventDate`: the day the thing actually happened.
+
+A backfilled packing run is registered as a `packingLot`, so it can afterwards be
+amended and reversed like any other. It is not a second-class row.
+
+### Authority is now per field as well as per record
+
+The CFO owns the invoice price on a PO line and nothing else on it. They are not
+in `orderLine.amend`, so routing them to the correction modal would have told
+them they had no authority over the one number that is theirs. `correctFieldOK()`
+reads the field's own role list first and falls back to the record's. A CFO
+opening a PO line sees **one box**.
+
+---
+
+## SUPERSEDE — the two records that could not be touched
+
+A signed certificate and a passed inspection are the two records that must never
+be edited or deleted. They were true when they were signed, and **somebody
+outside this building may be holding a printed copy.**
+
+So `amend` and `reverse` are **empty lists** for both — and an empty list now
+means *nobody, the COO included*, rather than merely "restricted". `hardRole()`
+waves the COO through anything; that is right for operations and wrong for a
+signature.
+
+### Certificate of Analysis — QCM or COO
+
+Rev N is stamped SUPERSEDED and archived. Rev N+1 is created carrying the same
+values **as a draft**, and the lab chain runs again — analyst → AQCM → QCM. Until
+it is approved the material is not certified and cannot be packed.
+
+Before it happens, the screen says what will follow, including the line that
+earns the whole feature:
+
+> ⚠ 9,600 Kg has already SHIPPED under Rev 0. The certificate the customer is
+> holding is now superseded — Rev 1 must be sent to them once it is approved.
+
+Both revisions print. The replaced one carries a red band —
+*"SUPERSEDED on 2026-08-21 by Dr Nadeem — this revision is NO LONGER VALID"* —
+and the new one an amber band naming what it replaces and why. Two certificates
+for the same batch can no longer circulate with nothing to tell them apart.
+
+### Pre-shipment inspection — QA Inspector, Plant Manager or COO
+
+Withdraw it. The clearance is returned to the lots, the line loses its QC-pass
+date, and no truck can be released on that material until a fresh inspection
+passes. The record stays on file and still prints, stamped WITHDRAWN with the
+reason, and reading *"does NOT clear this material."*
+
+**It refuses when the material has already left.** On the live system that is
+**93 of 113 passed inspections** — the refusal is the common case, not the edge
+case, and the screen shows no action button at all when it applies.
+
+### Somewhere to find an inspection
+
+There was no screen anywhere that listed the inspections themselves — only their
+effect on an order line. A passed inspection could not be found, let alone
+corrected. **Pre-shipment QA → Cleared → Inspections on file** is that list.
+
+---
+
+## Two defects found while building, both by clicking rather than calling
+
+**The modal could be read but not typed into.** The COA full-screen sheet is
+`z-index:300`; the modal backdrop was `60`. Opening a supersede from the
+certificate produced a dialogue that was perfectly visible and swallowed every
+click. Every assertion test passed, because assertions call functions. Fixed at
+both ends: the backdrop now sits at 320, and the COA sheet is closed on the way
+in so a stale APPROVED certificate is not left showing underneath.
+
+**A green button that could only refuse.** A blocked reversal or supersede still
+offered its action button and two required reason fields, then toasted a refusal
+after all of it. Both are now suppressed — offering a button guaranteed to fail
+is how people learn to ignore warnings.
+
+## Verified
+
+149 checks across two suites: 109 assertions and 40 click-through steps driven
+only through the interface, on a fixture rebuilt to the live system's measured
+shape — every packing lot with a resolving `baseBatchId`, every inspection with
+a resolving `lotId`, no COA carrying a `rev` field, and 80% of material already
+shipped. Layout checked at 390 / 820 / 1440 px: no page overflow, table scrolls
+inside its own container. `node --check` on all five script blocks.
+
+## Still not done
+
+**Data Fix does not apply the per-record authority table.** It edits many lines
+at once and is COO implementation tooling; the screen now says so in amber
+rather than pretending otherwise. Changing its gate on a live system is a
+decision for Tahir, not a side-effect of this work.
+
+**Nothing enforces that a superseded COA's revision is re-approved before the
+next shipment.** Packing is blocked because the certificate is a draft, but a
+truck loaded before the supersede is not recalled. It cannot be — the material
+has left. What the system does is tell you, in writing, that the customer's copy
+is stale.
+
+---
+
+*Built and verified 2026-08-21. Module: O2S.*

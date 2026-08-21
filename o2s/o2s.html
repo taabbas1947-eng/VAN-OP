@@ -248,7 +248,11 @@ td.skufirst{padding-left:10px;box-shadow:inset 3px 0 0 var(--navy)}
 @media(max-width:1100px){.kpis{grid-template-columns:repeat(3,1fr)}}
 
 /* modal */
-.modal-bg{position:fixed;inset:0;background:rgba(17,30,66,.5);display:none;z-index:60;backdrop-filter:blur(2px)}
+/* 320, not 60. The COA full-screen sheet is z-index 300, so the correction
+   modal opened from it was VISIBLE BUT UNCLICKABLE — the reason box could be
+   read and not typed into, and the certificate underneath swallowed every
+   click. A modal must sit above every panel that can launch it. */
+.modal-bg{position:fixed;inset:0;background:rgba(17,30,66,.5);display:none;z-index:320;backdrop-filter:blur(2px)}
 .modal-bg.open{display:flex;align-items:center;justify-content:center;animation:fade .18s ease}
 .modal{background:#fff;border-radius:16px;width:580px;max-width:95vw;max-height:90vh;overflow:auto;box-shadow:var(--sh-lg)}
 .modal.coa{width:920px;max-width:97vw}
@@ -2366,7 +2370,19 @@ function typeNameToConfirm(actionText){
   if(typeof logAction==='function') logAction('CONFIRMED (name-typed): '+actionText);
   return true;
 }
-function reconLog(msg, eventDate){ logAction(`RECONCILE: ${msg}${eventDate?` [event ${eventDate}]`:''}`); }
+/* DEPRECATED 2026-08-21 — a correction used to be a SENTENCE. All 14 call sites
+   were moved onto state.corrections[]; none remain. Kept defined so that any
+   path I did not find still reaches the register instead of vanishing into the
+   action log. Do not add new calls — use recordCorrection() / recordBackfill(). */
+function reconLog(msg, eventDate){
+  logAction(`RECONCILE: ${msg}${eventDate?` [event ${eventDate}]`:''}`);
+  try{
+    if(typeof recordCorrection==='function')
+      recordCorrection('AMEND','legacy','','(legacy path)',
+        [{field:'note',label:'Note',before:'',after:String(msg)}],
+        'other','Written through the deprecated reconLog() path'+(eventDate?(' — event '+eventDate):''),[]);
+  }catch(e){}
+}
 function toggleDataFix(){
   if(!screenEditOK('datafix')){ toast('You need Edit access to Data Fix'); return; }
   state.dataFixEnabled = !state.dataFixEnabled;
@@ -2390,7 +2406,10 @@ function importGoLivePOs(){
       lines:p.lines.map((l,j)=>({ id:id+'L'+j, brand:l.brand, base:l.base||l.brand, pack:(l.pack!=null?l.pack:(typeof seedPackForBrand==='function'?seedPackForBrand(l.brand):null)), note:'', committed:prom, ordered:+l.ordered||0, printPrice:0, invoicePrice:0, produced:0, packed:0, dispatched:0, delivered:0 })) };
     ord.totalOrdered=ord.lines.reduce((a,l)=>a+(+l.ordered||0),0);
     (state.orders=state.orders||[]).push(ord);
-    reconLog('Imported opening PO '+ord.po+' ('+ord.client+', '+ord.lines.length+' line(s))', recv);
+    recordBackfill('order', ord.id, ord.po+' · '+ord.client,
+      [{field:'lines',label:'Product lines created',before:'',after:ord.lines.length},
+       {field:'received',label:'PO received',before:'',after:recv}],
+      'Opening PO imported from the go-live list', recv);
     n++; });
   save(); render(); toast('Imported '+n+' opening PO(s)'+(skip?(' · '+skip+' skipped'):''));
 }
@@ -2594,7 +2613,16 @@ if(op==='correct'){
          <div class="fld"><label>Dispatched</label><input id="cl_dispatched_${l.id}" type="number" value="${l.dispatched||0}"></div>
          <div class="fld"><label>Delivered</label><input id="cl_delivered_${l.id}" type="number" value="${l.delivered||0}"></div>${(state.role==='COO'||state.role==='CFO')?`<div class="fld"><label>Invoice price (PKR/Kg·L)</label><input id="cl_invoicePrice_${l.id}" type="number" value="${l.invoicePrice||''}"></div>`:''}
          <div class="fld"><label>Print price (PKR/pack)</label><input id="cl_printPrice_${l.id}" type="number" value="${l.printPrice||''}" placeholder="MRP on the bag"></div></div></div>`).join('');
-    return wrap('Correct a PO — fields & quantities', picker+meta+lines+`<div class="fld fld-long" style="margin-top:10px"><label>Reason / note (required)</label><textarea id="co_reason" rows="3" placeholder="why the correction?"></textarea></div><div class="muted" style="font-size:11px;margin-top:6px">Edits the live values in place; every change is logged old → new as RECONCILE.</div><div style="margin-top:12px"><button class="green" onclick="dfSubmitCorrect()">Apply corrections</button></div>`);
+    return wrap('Correct a PO — fields & quantities', picker+meta+lines
+      +`<div class="formgrid" style="margin-top:10px;grid-template-columns:1fr">
+          <div class="fld"><label>Why <span style="color:var(--red)">*</span></label>
+            <select id="co_reasonCode" style="max-width:420px"><option value="">— pick a reason —</option>${CORRECT_REASONS.map(r=>`<option value="${r.k}">${r.t}</option>`).join('')}</select></div>
+          <div class="fld fld-long"><label>What happened <span style="color:var(--red)">*</span></label>
+            <textarea id="co_reason" rows="3" placeholder="what went wrong, and how you know"></textarea></div>
+        </div>
+        <div class="muted" style="font-size:11px;margin-top:6px">Every change is written to <b>Reports → Corrections</b> with your name, the role you hold, and the value before and after — one entry per record. <b>Nothing is deleted.</b></div>
+        <div class="muted" style="font-size:11px;margin-top:4px;color:var(--amber)">This screen edits many lines at once and therefore <b>does not apply the per-record authority table</b> that the Correct button on a record does. It is COO implementation tooling — treat it as such.</div>
+        <div style="margin-top:12px"><button class="green" onclick="dfSubmitCorrect()">Apply corrections</button></div>`);
   }
   if(op==='po'){
     const chans=((typeof SEED!=='undefined'&&SEED.channels)||['White Label']); const pris=(state.masters&&state.masters.priorities)||['Normal','High','Critical'];
@@ -2628,13 +2656,21 @@ function dfSubmitProduction(){
     let b=(state.batches||[]).find(x=>x.base===base&&x.status==='open');
     if(b){ b.producedKg=(b.producedKg||0)+q; } else { state.batches.unshift({id:nid('B'),batchNo:'',kind:'bulk',type:'stock',base,brand:null,plannedKg:q,producedKg:q,packedKg:0,status:'closed',openedDate:d,closedDate:d,by:state.role,recon:true}); }
     state.productionLog.unshift({id:_uid('PL'),date:d,base,kg:q,by:state.role,shift:sh,incharge:inc,recon:true});
-    reconLog(`Added missing production: ${fmt(q)} Kg/L bulk ${base} — ${dfForm.reason}`, d);
+    recordBackfill('production', state.productionLog[0].id, 'Bulk '+base+' · '+sh+' shift',
+      [{field:'kg',label:'Produced (Kg/L)',before:'',after:fmt(q)},
+       {field:'date',label:'Date produced',before:'',after:d}],
+      dfForm.reason, d);
   } else {
     const o=state.orders.find(x=>x.id===dfForm.oid); const l=o&&o.lines.find(x=>x.id===dfForm.lid);
     if(!l) return toast('Pick PO and product');
+    const _wasProd=+l.produced||0;
     l.produced=(l.produced||0)+q; l.prodStart=l.prodStart||d; if((l.produced||0)>=l.ordered-0.001) l.prodComplete=l.prodComplete||d;
     state.productionLog.unshift({id:_uid('PL'),date:d,base:l.base,kg:q,by:state.role,po:o.po,brand:l.brand,shift:sh,incharge:inc,recon:true});
-    reconLog(`Added missing production: ${fmt(q)} Kg/L ${l.brand} on ${o.po} — ${dfForm.reason}`, d);
+    recordBackfill('production', state.productionLog[0].id, o.po+' · '+l.brand,
+      [{field:'kg',label:'Production added (Kg/L)',before:'',after:fmt(q)},
+       {field:'produced',label:'Line produced total',before:fmt(_wasProd),after:fmt(+l.produced||0)},
+       {field:'date',label:'Date produced',before:'',after:d}],
+      dfForm.reason, d);
   }
   save(); toast('Production backfilled'); dfBack();
 }
@@ -2644,9 +2680,17 @@ function dfSubmitPacking(){
   const d=dfForm.date||TODAY.toISOString().slice(0,10);
   const o=state.orders.find(x=>x.id===dfForm.oid); const l=o&&o.lines.find(x=>x.id===dfForm.lid);
   if(!l) return toast('Pick PO and product');
+  const _wasPacked=+l.packed||0;
   l.packed=(l.packed||0)+q; l.produced=Math.max(l.produced||0,l.packed); l.prodStart=l.prodStart||d; if((l.packed||0)>=l.ordered-0.5) l.prodComplete=l.prodComplete||d;
   (state.packingLog=state.packingLog||[]).unshift({id:_uid('PK'),date:d,base:l.base,brand:l.brand,kg:q,by:state.role,po:o.po,lid:l.id,recon:true});
-  reconLog(`Added missing packing: ${fmt(q)} Kg/L ${l.brand} on ${o.po} — ${dfForm.reason}`, d);
+  /* type 'packingLot' on purpose — this lot is a registered record, so a
+     backfilled packing run can afterwards be amended and reversed like any
+     other rather than being a second-class row nobody can touch. */
+  recordBackfill('packingLot', state.packingLog[0].id, l.brand+' · '+fmt(q)+' Kg · '+o.po,
+    [{field:'kg',label:'Packed (Kg/L)',before:'',after:fmt(q)},
+     {field:'packed',label:'Line packed total',before:fmt(_wasPacked),after:fmt(+l.packed||0)},
+     {field:'date',label:'Date packed',before:'',after:d}],
+    dfForm.reason, d);
   save(); toast('Packing backfilled'); dfBack();
 }
 function dfSubmitShipment(){
@@ -2657,7 +2701,11 @@ function dfSubmitShipment(){
   if(!l) return toast('Pick PO and product');
   l.dispatched=(l.dispatched||0)+q; l.delivered=(l.delivered||0)+q; l.dispatchDate=l.dispatchDate||dd; l.deliveredDate=dl;
   state.shipments.unshift({id:_uid('SH'),po:o.po,brand:l.brand,kg:q,dispatch:dd,delivered:dl,warehouse:((state.warehouses&&state.warehouses[0])||''),by:state.role,recon:true});
-  reconLog(`Added missing shipment: ${fmt(q)} Kg/L ${l.brand} on ${o.po} (dispatch ${dd}, delivered ${dl}) — ${dfForm.reason}`, dd);
+  recordBackfill('shipment', state.shipments[0].id, l.brand+' · '+fmt(q)+' Kg · '+o.po,
+    [{field:'kg',label:'Shipped (Kg/L)',before:'',after:fmt(q)},
+     {field:'dispatch',label:'Dispatch date',before:'',after:dd},
+     {field:'delivered',label:'Delivered date',before:'',after:dl}],
+    dfForm.reason, dd);
   save(); toast('Shipment backfilled'); dfBack();
 }
 function dfSubmitPO(){
@@ -2669,33 +2717,70 @@ function dfSubmitPO(){
   const id=nid('O');
   state.orders.unshift({id,po,client,channel:dfForm.channel||'White Label',priority:dfForm.priority||'Normal',promised:dfForm.promised||'',received:dfForm.received||'',rmDecision:'pending',recon:true,
     lines:[{id:id+'L1',brand,base,ordered:ord,committed:dfForm.promised||'',produced:0,packed:0,dispatched:0,delivered:0,soCreated:'',prRaised:'',cfoApproved:'',rmCheck:'',rmReady:'',prodStart:'',prodComplete:'',qcPass:'',dispatchDate:'',deliveredDate:'',notes:'(reconcile backfill)'}]});
-  reconLog(`Added missing PO ${po} · ${client} · ${brand} ${fmt(ord)} Kg/L (received ${dfForm.received||'—'}) — ${dfForm.reason}`, dfForm.received);
+  recordBackfill('order', id, po+' · '+client,
+    [{field:'client',label:'Customer',before:'',after:client},
+     {field:'ordered',label:brand+' ordered (Kg/L)',before:'',after:fmt(ord)},
+     {field:'received',label:'PO received',before:'',after:dfForm.received||''}],
+    dfForm.reason, dfForm.received);
   save(); toast('PO added'); dfBack();
 }
+/* Rewritten 2026-08-21 onto the one ledger. This screen stays because editing
+   every line of a PO at once is a genuinely different job from correcting one
+   record, and it is the implementation backfill tool. What it no longer has is
+   its own private idea of what a correction is: same ledger, same reason codes,
+   same before → after, one entry per record instead of a scatter of sentences. */
 function dfSubmitCorrect(){
   const o=state.orders.find(x=>x.id===dfForm.oid); if(!o) return toast('Pick a PO');
-  const reason=(($('co_reason')&&$('co_reason').value)||'').trim(); if(!reason) return toast('Reason is required');
-  let n=0;
-  const setO=(field,val,label)=>{ const old=o[field]||''; val=(val==null?'':val); if(String(old)!==String(val)){ o[field]=val; reconLog(`CORRECT ${o.po} ${label}: ${old||'—'} → ${val||'—'} — ${reason}`); n++; } };
-  setO('client',(($('co_client')&&$('co_client').value)||'').trim(),'customer');
-  setO('channel',($('co_channel')&&$('co_channel').value),'channel');
-  setO('priority',($('co_priority')&&$('co_priority').value),'priority');
-  setO('received',($('co_received')&&$('co_received').value),'received date');
-  setO('promised',($('co_promised')&&$('co_promised').value),'promised date');
+  const reason=(($('co_reason')&&$('co_reason').value)||'').trim();
+  const rcode=(($('co_reasonCode')&&$('co_reasonCode').value)||'').trim();
+  if(!rcode) return toast('Pick a reason');
+  if(reason.length<10) return toast('Say what happened — a sentence, not a word');
+
+  /* --- PO header --- */
+  const hdr=[];
+  const setO=(field,val,label)=>{ const old=o[field]||''; val=(val==null?'':val);
+    if(String(old)!==String(val)){ hdr.push({field:field,label:label,before:old,after:val}); o[field]=val; } };
+  setO('client',(($('co_client')&&$('co_client').value)||'').trim(),'Customer');
+  setO('channel',($('co_channel')&&$('co_channel').value),'Channel');
+  setO('priority',($('co_priority')&&$('co_priority').value),'Priority');
+  setO('received',($('co_received')&&$('co_received').value),'PO received');
+  setO('promised',($('co_promised')&&$('co_promised').value),'Promised delivery');
   { const el=$('co_printDecision'); const nv=el?el.value:'';
     if(nv && nv!==(o.printDecision||'')){
-      const old=o.printDecision||'(never answered)';
+      hdr.push({field:'printDecision',label:'Print price on the pack',
+                before:(o.printDecision||'(never answered)'),after:nv});
       o.printDecision=nv; o.printOnPack=(nv==='yes');
-      o.printDecisionBy=((state.currentUser&&state.currentUser.name)||state.role); o.printDecisionAt=new Date().toISOString();
-      reconLog(`CORRECT ${o.po} print-on-pack decision: ${old} → ${nv} — ${reason}`); n++; } }
-  o.lines.forEach(l=>{ [['ordered','Ordered'],['produced','Produced'],['packed','Packed'],['dispatched','Dispatched'],['delivered','Delivered'],['invoicePrice','Invoice price'],['printPrice','Print price']].forEach(([field,label])=>{
-    const el=$('cl_'+field+'_'+l.id); if(!el) return; const nv=+el.value||0; const old=+l[field]||0;
-    if(Math.abs(nv-old)>0.001){ l[field]=nv; reconLog(`CORRECT ${o.po} · ${l.brand} ${label}: ${fmt(old)} → ${fmt(nv)} — ${reason}`); n++; }
-  }); });
-  // Auto-sync: a line's committed date must not be EARLIER than the PO promised (prevents false 'late' from drifted line dates).
-  if(o.promised){ o.lines.forEach(l=>{ const oldc=l.committed||''; if((!l.committed||l.committed<o.promised) && oldc!==o.promised){ l.committed=o.promised; reconLog(`CORRECT ${o.po} · ${l.brand} committed ${oldc||'(blank)'} → ${o.promised} (synced to PO promised) — ${reason}`); n++; } }); }
+      o.printDecisionBy=((state.currentUser&&state.currentUser.name)||state.role);
+      o.printDecisionAt=new Date().toISOString(); } }
+
+  /* Auto-sync: a line's committed date must never be EARLIER than the PO
+     promised date, or the line reads as late when it is not. The system does
+     this, not the person — so it is recorded as a cascade, not as their edit. */
+  const casc=[];
+  if(o.promised){ o.lines.forEach(l=>{ const oldc=l.committed||'';
+    if((!l.committed||l.committed<o.promised) && oldc!==o.promised){
+      l.committed=o.promised;
+      casc.push(l.brand+' committed '+(oldc||'(blank)')+' → '+o.promised+' (synced to PO promised)'); } }); }
+
+  /* --- each product line, one entry per line --- */
+  let nLines=0;
+  o.lines.forEach(l=>{
+    const chg=[];
+    [['ordered','Ordered (Kg/L)'],['produced','Produced (Kg/L)'],['packed','Packed (Kg/L)'],
+     ['dispatched','Dispatched (Kg/L)'],['delivered','Delivered (Kg/L)'],
+     ['invoicePrice','Invoice price (PKR/Kg·L)'],['printPrice','Print price (PKR/pack)']]
+    .forEach(([field,label])=>{
+      const el=$('cl_'+field+'_'+l.id); if(!el) return;
+      const nv=+el.value||0, old=+l[field]||0;
+      if(Math.abs(nv-old)>0.001){ chg.push({field:field,label:label,before:fmt(old),after:fmt(nv)}); l[field]=nv; }
+    });
+    if(chg.length){ recordCorrection('AMEND','orderLine',l.id,o.po+' · '+l.brand,chg,rcode,reason,[]); nLines++; }
+  });
+
+  if(hdr.length||casc.length) recordCorrection('AMEND','order',o.id,o.po+' · '+(shortClient(o.client)||''),hdr,rcode,reason,casc);
+  const n=(hdr.length?1:0)+nLines+(casc.length&&!hdr.length?1:0);
   if(!n) return toast('No changes to apply');
-  save(); toast(n+' correction(s) applied'); dfBack();
+  save(); toast(n+' correction(s) recorded — see Reports → Corrections'); dfBack();
 }
 
 /* ===================== 1. NEW PO ENTRY ===================== */
@@ -4673,7 +4758,15 @@ function renderCOAModal(){ const b=(state.batches||[]).find(x=>x.id===coaForm.bi
   else if(st==='reviewed'&&(isQM||isCOO)) acts=`<button class="b-ghost" onclick="coaReject('reviewed')">Reject</button><button class="b-green" onclick="coaApprove()">Approve (final) ✓</button>`;
   else if(st==='failed'&&(isPM||isCOO)) acts=`<button class="b-ghost" onclick="coaRework()">Send to rework</button><button class="b-green" onclick="coaDeviation()">Approve as deviation</button>`;
   if(st==='approved') acts+=`<button class="b-ghost" onclick="printCOA('${coaForm.bid}','${coaForm.lid||''}')">🖨 Print / Save PDF</button>`;
-  const stTxt=({draft:'DRAFT',analysed:'ANALYSED → AQCM',reviewed:'REVIEWED → QCM',approved:'APPROVED ✓',failed:'UNFIT → PLANT MGR'})[st]||st;
+  /* SPEC-03: an approved certificate is never edited and never deleted. The one
+     correction it has is a numbered revision that names what it replaces. */
+  if(st==='approved' && correctAllowed('coa','SUPERSEDE'))
+    acts+=`<button class="b-ghost" onclick="openCorrect('coa','${coaForm.bid}|${coaForm.lid||''}')">Supersede — re-issue</button>`;
+  /* Every replaced revision stays printable. Without this, superseding would be
+     deleting with extra steps. */
+  (function(){ const _cx=coaCtx(coaForm.bid,coaForm.lid||''); const hist=(_cx.h&&_cx.h.coaHistory)||[];
+    hist.forEach(function(hc,i){ acts+=`<button class="b-ghost" onclick="printCOA('${coaForm.bid}','${coaForm.lid||''}',${i})">🖨 Rev ${(+hc.rev||0)} (superseded)</button>`; }); })();
+  const stTxt=({draft:'DRAFT',analysed:'ANALYSED → AQCM',reviewed:'REVIEWED → QCM',approved:'APPROVED ✓',failed:'UNFIT → PLANT MGR',superseded:'SUPERSEDED — replaced by a later revision'})[st]||st;
   const typeRow=['Raw Material','Batch','Outside Sample'].map(t=>{ const lab=t==='Batch'?'Batch Analysis':t; const on=(coaForm.type===t)||(t==='Batch'&&!coaForm.type); return `<label><input type="checkbox" ${on?'checked':''} ${dis} onchange="coaSet('type','${t}');renderCOAModal()" style="width:16px;height:16px;accent-color:#0a4b8c"> ${lab}</label>`; }).join('');
   const sign=(lbl,sub,o,editable)=>`<div class="s">${editable?`<input class="ufld" style="text-align:center;flex:0 1 auto" placeholder="type analyst name" value="${coaEsc(o&&o.name)}" onchange="coaForm.analyst={name:this.value,date:(coaForm.analyst&&coaForm.analyst.date)||''};coaPersistDraft()">`:`<div class="nmv">${coaEsc(o&&o.name||'')}</div>`}<div class="role">${lbl}</div><div class="subr">${sub}</div><div class="dt">Date: ${coaEsc(o&&o.date||'')}</div></div>`;
   const VANSVG='<img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAQMAAABGCAMAAAD/7QGSAAABJlBMVEX+/v7P3+qWutLr8vZkmb2nxdm1zt/V4+3c6PCxzN660uLj7fM9ga3H2ueOtc9uoMJ3psWCrcoqc6Vx0dAWZZyewNYibaEAUI4dbKBak7kMYJkAS4uw5uYDr65Cgq6gvtUBWZRJh7JNxsUAq6oTs7M3e6oTXJaPs84EsK8vvLvp8O6d39/j9OWK0pmz4r2Jss1SjbVVyMjH6c6W16Rjw3c6s1NDt1tqnsDV79p1yodPu2Y1sU/W8eiK3OGF2NYvr0k/fqzK5bWz25St2I7X7MjD4qyVzGyAwk52vkPA3ZEkaJ7j8M+FxVUAPoJ8wUq55MLY8N1vn8GhjKL4pajcm6SdMkv4EBXrDBXWFiP0HCLsHSXqICjXIy/rEhqeUmvzSlDxSlHZS1asZK6KAAARB0lEQVR42uVcC5vbxnUdYADiRZAACmIIjEQNvAHoOHKIypFoW2mzfiRy11o3Sms3tpM6/f9/ovfODF5cgtpH16uk93PEJQCCuGfOPfcBMIRIM0xKBjZ68//GLHs2ctxx5Ivr+cFdT/13A6g5D01b/20slpEPV27ESRKHd3WB/tND+3YtCwJCkzQI4xm8WWVsnUeRNS94upJOGDPvDnR49PjRQ/t3HQs3Dn3Ci5CYubvkQqSCc84yk1IvKpOCwTuRziPjVid/7+wXfxfRUOW+l/DaIFvwl3EmRCHW+WbN0ERq2Q6lgW+Gtzj1o7P3z3750P5dxzxuhmbNl4BGsrAXZQo4cDRAQIj1PEmqMr4dDX559v77Z++NNn3w0O4eNadkDgBRQiKQ72lo2zPfM2NrvhZcsgEASc2bk/pXj99/DEz4Vb/l6Ye/fmh3j9uusu3GsQdbXM18GsZzZMPaiipeL2564vfOHoOd/bM619NnH/3m+Yt3kwfE3W94qv/Wi+3N08QyZZlgWDUo5XxlLEV6QxQQg7PHZ5AfP/7ok09fvHz54uWHD+3slM04q/SfZrvNiRPGi2YFaTHIMR7mBrE3c/smEfHoTBLht+TD5y+fv0B7/o6GAiExY7FmwCoPg9ZNuioZF41PiJ8xSJIWwGHaNznxvwAIZ/9KPvrdC23PP35oX6fsnBVuGwWrMkmLatXCsM04r0JCc4gHlt4IgM8+/+LLR7+ASHj6aQfBp++oHJBAsII6efuWGl7OMhRFCYudcAZ5M8JEyTb+Nc9Jf/+HV69evfVvvwVBfPb8xXONwW8e2tcps4HoC2JeeP0m94L173aCVy6JgAlQQiY7560n/PrLL16/evUa7KvP4e2vn3c8+ORWF+jY9tu/9G5mQU10QUheq7chMj5IeQ+Ck/ALBw4TIqnEJU8i2z11vg+++Oob8F+B8DVg8LLD4FZpwYz8MLpxYr6ZpWlsQx24aHNCAvFPQsF63tOGX7gkgcp56XlRApXTOjqVID573dqrPxDy7z0PbpMWVtL9m4nxTS3UznZONTJRmrwYENDiFQlRF0VjuzSYReV8cQKFz161IHz1BepBK4m3aaCiJxYQL97dJwY7Qc29OfSXyV55wzeDo/JLC3YUIquRBHiAd0ofP/um5cGX5GNdG7x88ewWl0e3ZBeWS8u88zznhFWZzxl42FmspCBk/MnwMO5T4EETUMOOyvhtZ/38m1etJj5DPXj+4tNPnt7q+iK68KOlGd0jBFRkJhPFoDXeXqrvK3k1OC6oLyAiCraWgRm+tZX+/etvXgMJwJ4++yPY09sOElAJKDHNW378Oubx5AkfVT8Gz+SrzephSrK56UKRwHh6zYHKl1//31xhvHCc7VuJdxezLjeOHY6CreILVMhRfgRrUlLhhIVxVnrTJwxcF/6Df8abaaitzavUsc04XtjHGQUd/C7emTM82jdvNcG5viX8CsuWOFWSWIx2ucyzuWBJHBWczye5EINyShtfN9RYcjClRSa01kIOJhhL80MPqV0WcidnIonuUwylGRj0Di5rX/d4UAigi/lIFIEyFRWqbYihn55K2K5gEgK+H23OFDBCxlnQMDmlEhIuxvYjsfATrk5RyJ2FqfL2ycLsLrZjDgnXkObs84EXgtUu8mGc/oLaaTgWzHsSWLKPPGq5IgJLh47ZyivBI3Qy5WJkfD44NGbsYK8Sg3uLh6ohNEUaVKy7ZLpmgpWIwQH0zQ6CIbELDg2W0fCJPnKmF5ENI2nT+gUyaxQHToKbXcsGEIhivLPgKhfd04iaCo+8QQUMq6zTuUByMCR7dnB0uEGKmLS6xEt24s3+qDYmykU2WFxDu8Ma+M7sCgSwYzZGsI0TtfOCKgwCf4bqYMx8YnghcXxlwJBg5kvSur4/hCrwfc1lasexvFr1CTzInckXG2pCuceyvVIfDFkQsV8Qa33oXWOcA0VsLJ2pPviI7Vo3evYuNfmxHY26QGA961lblCas39nvRUrhMIfLCIQejjS8xm5PTnwr/ALGMJPHnA/VOoLN8r2R8ktQcoCRqVsm8kLkvryNgPOAWFoBgzJCdi6JNT/0zrR32DRExKvFdHoMNNfZm3bLB6l2JgHY2r95WjYDSqhaxO4gyJqykw0564MFpiliBee3AIOURHUCZFmnJYZyLbMYRNIQgzmrmey5El7HDaqRC/V+U4HgBZjBHLyeC81y5Gglw86de9gng6PRFdULtqEskyo4QWFNxqelHelU8UlLg+3g7yXuNesWESUupf5ojQ7RPX6bjItA6UHF1xTCBXiBGAANS55JWou6kpoSczEo7IJaVLxB/xj4Q5LLCgDEWyl7BoyM5LEeUEvq3hbbsh2v4riZ+xiUGAvx1eLMDjJYoQsuAFxvNoWBrx1hrWhWmhjoSqP/jtQub5gwcKFH8rBsz+SrvACXbWDiCAGDNTpfqqLW5slCoiEP6AyKYFNuNvEjZFtaiIGFdINrU5yxuBFK9V4ieE+ggklXVDkB32pf1X2HAkXW4V4gFaZN+8y1xIStvuNKqYBnndbkvFNLXC/1pmVgh4mpeCCvvUG3GnU/oFRQWLx0pJvxAANK9nzjys0Rb+t+t5CjQZQCxYO6JOeSB1K93jAmiUVxcWDJ/GMZGUvFkjg55ysyaWYbyOqLO0UMddIRSMj2XoYiu8oiNu+WXdle7cUSAa/GrYEvCWKbtzyQYCawec13YwwwdJbkAj+75+APVuooJtUirxEIyYOQuU3ZB0/Kav3dADeWj8cC3sUrgqzg5jyaxCDQy6eqm1YFpZvuQOnbE3ayRxYara4wMfvIkUkv4Q2ViIxiwamhtSkRmpEmOjWwRm5e8oKGmEUoDgAgMSCNYxwTRY1x2cd8w7tBqjldBSLP63VmAgqb6dnOXl+65FUb8tJvYySBiNcYg6KVwHY1OrUIVeQkHkOa5EMMACkf/AQNHvEA5FduDhCDwJknrKBBzcqZmfJEc6a0yUUXeTmv/f6b+aR/NhTzjbdagBOryXFv2LqNqFp6cWUAawxY14o4xaCiilmnnSMeSAxkHuGpBZ6g81oPMolMXUBNBUo6wgDyU1HLi1BSGSEGBTYyUgoiXhgkt62ZhUnRJ+4FL3uV8xibTv8mtI31Uj6cMl29VqxTwTYUVOwYbJwyulhQGCi4WgzoFR6AvKaSMg2/0DyAl1TlUDgqGuZGqD7kbZElQIdfCE5TKjFYoFKqJEMuzgPkjwNIDqt7WMYTHQr1ojms1fJU/a6vnQEPZ4NW4QgPdJ+pYmHHDmJhxTsMVBG8ZlLP4IJbHsgheBQ4TgIFI9RwZuirWacDVZreDPVBSYKs44GJ8ST1YEcS8QGgiHVWOfTAEeItdzWoa2/ScVs5fsKv1cFd2y7pRGn0yU5jUA/0YMcPYmGlP7xs+8aSM6klDU8VDwCKLZeJBMpnulMPkMjSb8vbUAzInLOsYLWgtJb1AYeTyAS5CUsstmo4exMNPQgGK3FiretBleTvl9ZykJbafFhXfcFESVcriD/9h7b/7GOB6lbjCgZFpwdkka4zXJ99IUGz8MUqEvyAmaahWWRZkq0l3vs0cdXmGQh4wVJ7s6ZBkuK51vDvokgcYpQhtrIlfHk0woCsxXWmN17d5zAcgzh5D4rRFf76JRlv//a7/5L23Z+H9cFurAddwSBj4RpXNE1M4k7MYHzMCrIctMY1YcWuNcEqz1uPdf+f9x8rxx0yi0cYFN9+//0PYD9+/5dhLCwOMVj19cF9zQ8WEQ7wiVkelAMNu9bkymunrjszz5c7sjT74tEeY9C61U4SvgUI/gogfPeXYX2wU/WBOKwPJAb3AwF8B6Qfd1+OWUChV7kW6DTVDN8Tz/YSO/G3/b6LIQisHRT1PPjxhx9//OGHjgeD+kAU3QrYA028z0cd6dWTx8X1PhrpevINtW3PKqPtIMPGw6Eha1ex48F3f1X25+HUSX+m7uqDVV8foB5AqqM4lnfhf/gXvncdZRQ2Oa4jP2oYAR6B5sJBBn7IcIg6VB4TwKKdjvdI3WYhrrdbeCfwp6mqfEwTvsIIg+GY3BlA0N+yMrRQ/vdPfwP76W8//c8oFmR9MJ0XSjkHWEBCVGXcnqdO25vYKxzfiyKn2Fot5byKoRbnDFm4ggJprhXWImYNGfT0o3ZWiaVQnrJsOTuJ1oxBEwOvuVRtezncN1DFvgLTuZHbrWwfqQ/EZH2wka0tYiC7aIlBImqZWDzoVpOkZjgswg8Ap4qiEAl25ylOCGtaSogLFkGjnb3JGDulMcmO7Nacz0djkqPPAMxSXm8pofvIXu2j0a5eFQdz9rCrFsgYg0FuZIe5secBx+pfY+CpnpjSEF12oSaC6tZIYeUlBhE0UjQIAuABfh3wwKWBu2Zz6iI+Id5VjsikBSJPGD6MpQgfuE5oR0V5/NhlwZkVENe+0kL189GeH22d2CUQV00fNQbskAfj+qDkNfB6O8JAltsRocoxsoEuSg7MoraNzlkBRepKHkoyWa9a8jG0eHninuEOI0tjtNisofmC6JnEjHr7TBx7XKtXxb6AnOyZBrnxSK3c8aBKC2weUQ9kLGAPqTHYSQwSPgdcRxjwKmPAqAEGoBXlaUXEmyz6XlqYYAHORLY8XTAEi6ZZHB7i6lsEbMAg4zAW1Pyg0LXyoR6Y7IAHlsV98woP5ALtGIttECFbYQArkCUV1MQ5L5eXtodtA7gmHy0BPWB1fqryxCvxdXUPSjuPvOs8F0Z98/BGbK5VfSAkPQatJo55IE7z4DL3Li1Y0hEGTtHyAG8dxETzgOPE6DKHXqoMea55sFa9m79mjLN82puE6WVyUs6a2z23L021zSwbbOrzQsuDUV6Y6J3bOrHkDSkuItbGwlJhUCsecLE0S2xJFQ+YWMw8OyT55YZcFBGTlde6HfTapUySEwYQ63vG5zw9oRrXMKmKfDijvxILoxnK1Z5JgdLrQQm9cMJ6HqSSB7zTA4pOqrzAez0AsBJ5Vqr0IMAOytOjrWPWqPsWqByJe7efpm35qPIlRzRxNE+82jtzcYgBjicLzYNcaqLEQOpBiLPk6kATLVBJOdzrNXEj21jE8rhB7acqGluVP3exoAC1a4ZbjGOxUHTzA8wLhUj7WRpXe6M+FnBEVgCWmHArNVYe8IDMedLpgQ3FsQFAnUtG1i0P8O5EDZVz2jb0V8zjak9YyAYouFO/lkNaGcmvoX8a0/9KQP1wimtNlO/6rnXL1d5IzdI2uIoWFIAUcqDYVEzGmSNaPZAYZH2tDJJewzVsVJ5GZFPJA5uzNM8Y305cdqTjN8Ibkl65vvHsYmhOlY7v2DmbclOWZdXxwEnQqkxqtJlV8m2Xh8w1bqjw5yNqXAaHhXWRUDgzZAEhiy83FYjBguHjdRZL3QA3RCIt0qJYkz3mZqeoJbsqlQxifKxq+kcpJZdXQPGhoZpX9/249LVNPkove1z1L3HC9lkyql7VZhpQ0h5G1ZvBh/QLPiN2wrOk7Rmrw4bhYc2/z/nBgRWqcnBrtn9nOIB2hzrl5hgooZhv7v2huHs0NUJRc1UqZyeUtHeF5MAFt00TSz1qZdzzLwbu15yQzGzH84gNjkP/4O8c+dCREcqHQ6HDpVvohSdBSO73odCfxTxKfBd/phf6xPAxv8FGEEFD3bBDJGClnUm1K98pFbglBtCrmCH0CuAqrrbEAMihnjUPfYUBnfxhSHRvD4T+vBiEMmPODFzsMQaG5kEwiYH9j4GB7veDGF/lioPrAAjVGJiwcZLxwc+Yh+/L/IC42g1Z5lJXbaSe7wX4/3uBv8OZ/QME/Qlzj+n6MQX8X0uBJzyPid4OAAAAAElFTkSuQmCC" alt="VAN — Vital Agri Nutrients" style="width:104px;max-width:100%;height:auto;display:block;margin:0 auto">';
@@ -4905,10 +4998,18 @@ function evDateGate(form,prop,kind){
    Each entry is a complete, self-describing fact: you can reconstruct the
    change from the entry alone, without the record it changed.
 
-   Three operations and only three:
+   Four operations and only four:
      AMEND      a value on the record is wrong; the record stands
      REVERSE    the record should not exist; it is cancelled, not deleted
      SUPERSEDE  it was right at the time and is replaced; BOTH remain
+     BACKFILL   the record should have existed and did not; it is created late
+
+   ENTRY IS NOT CORRECTION — the rule that makes one path possible.
+   Filling a blank is data entry. Changing a value somebody may already have
+   relied on is a correction. A CFO typing 136 invoice prices into empty boxes
+   must not be made to write 136 reasons; a CFO changing one price that was
+   already there must be. `isCorrection(before, after)` asks that question the
+   same way everywhere, so each screen does not get to invent its own answer.
 
    NOTHING IS EVER DELETED. A reversed record stays visible, struck through,
    with its reason. That is what makes a batch number traceable in five years.
@@ -4940,6 +5041,25 @@ var CORRECT_REASONS=[
   {k:'other',     t:'Other — explained below'}
 ];
 function correctReasonText(k){ var r=CORRECT_REASONS.find(function(x){return x.k===k;}); return r?r.t:(k||''); }
+
+/* Record types that appear in the register but are not correctable through the
+   modal — a backfilled production entry has no editor yet. Listed here only so
+   the register reads in English instead of showing a variable name. */
+var CORRECT_TYPE_LABEL={ production:'Production entry', legacy:'(legacy path)' };
+function correctTypeLabel(t){
+  return (CORRECT_ENTITY[t]&&CORRECT_ENTITY[t].label) || CORRECT_TYPE_LABEL[t] || t || '';
+}
+
+/* Filling a blank is ENTRY. Changing a value is a CORRECTION. See the header.
+   0 counts as blank for a price or a quantity — a price of zero is not a price
+   somebody set, it is a box nobody filled. */
+function isCorrection(before, after){
+  var b=(before==null?'':String(before).trim());
+  var a=(after==null?'':String(after).trim());
+  if(b===a) return false;
+  if(b==='' || b==='0' || b==='0.00') return false;
+  return true;
+}
 
 /* ---- the registry: every correctable record type, described once ---- */
 var CORRECT_ENTITY={
@@ -5032,6 +5152,102 @@ var CORRECT_ENTITY={
       {k:'openedDate', l:'Opened date',        t:'date'},
       {k:'plannedKg',  l:'Planned (Kg/L)',     t:'number'}
     ]
+  },
+
+  /* ================= SUPERSEDE-ONLY RECORD TYPES =================
+     A signed certificate and a passed inspection are the two records that
+     could not be touched at all, and they are the two that must never be
+     edited or deleted. They were true when they were signed, and somebody
+     outside this building may be holding a printed copy.
+
+     The only honest correction is a NEW one that states what it replaces,
+     with both staying on file and both printing. That is what SUPERSEDE is
+     for, and it is why AMEND and REVERSE are empty lists here rather than
+     merely restricted — an empty list means nobody, the COO included.
+     ================================================================ */
+  coa:{
+    label:'Certificate of Analysis',
+    /* id is 'batchId|lotId' — a COA hangs off a lot, or off the batch itself
+       where a batch has no lots. */
+    find:function(id){ var p=String(id||'').split('|');
+      var ctx=(typeof coaCtx==='function')?coaCtx(p[0],p[1]||''):null;
+      return (ctx && ctx.b && ctx.h && ctx.h.coa) ? ctx : null; },
+    name:function(ctx){ var c=ctx.h.coa;
+      return 'COA '+(c.qcNo||'—')+' · '+(c.batchNo||ctx.L||'')+' · Rev '+(+c.rev||0); },
+    amend:[], reverse:[], supersede:['QCM','COO'], fields:[],
+    supBlocks:function(ctx){ var c=ctx.h.coa;
+      if(c.status==='approved') return [];
+      return ['This certificate is not approved — its status is "'+(c.status||'draft')+'". '
+             +'An unapproved COA is still being worked on: reject it back to the analyst instead. '
+             +'Superseding is for a certificate that has been signed and issued.']; },
+    supEffect:function(ctx){
+      var c=ctx.h.coa, rev=(+c.rev||0), out=[];
+      out.push('Rev '+rev+' is stamped SUPERSEDED. It stays on file and still prints — nothing is deleted.');
+      out.push('Rev '+(rev+1)+' is created carrying the same values as a DRAFT. The lab chain runs again: analyst → AQCM review → QCM approval.');
+      var qty=ctx.lot?(+ctx.lot.qty||0):(+ctx.b.producedKg||0);
+      var packed=+ctx.b.packedKg||0;
+      var unpacked=Math.max(0,qty-packed);
+      if(unpacked>0.5) out.push(fmt(Math.round(unpacked))+' Kg is not yet packed and CANNOT be packed until Rev '+(rev+1)+' is approved.');
+      if(packed>0.5) out.push(fmt(Math.round(packed))+' Kg has already been packed under Rev '+rev+'.');
+      var shipped=0; (state.packingLog||[]).forEach(function(p){ if(p&&!p.reversed&&p.baseBatchId===ctx.b.id) shipped+=(+p.shipKg||0); });
+      if(shipped>0.5) out.push('⚠ '+fmt(Math.round(shipped))+' Kg has already SHIPPED under Rev '+rev+'. The certificate the customer is holding is now superseded — Rev '+(rev+1)+' must be sent to them once it is approved.');
+      return out; },
+    doSupersede:function(ctx,reason){
+      var h=ctx.h, prev=h.coa, rev=(+prev.rev||0);
+      var who=(state.currentUser&&state.currentUser.name)||state.role;
+      prev.rev=rev; prev.status='superseded';
+      prev.supersededAt=new Date().toISOString();
+      prev.supersededBy=who; prev.supersededRole=state.role; prev.supersededReason=reason||'';
+      (h.coaHistory=h.coaHistory||[]).unshift(JSON.parse(JSON.stringify(prev)));
+      var next=JSON.parse(JSON.stringify(prev));
+      next.rev=rev+1; next.status='draft';
+      next.supersedes={qcNo:prev.qcNo||'', rev:rev, approvedDate:prev.approvedDate||'', reason:reason||'', by:who};
+      next.issueDate=evToday(); next.issueStatus='R'+(rev+1);
+      next.reviewer={name:'',date:''}; next.approver={name:'',date:''};
+      ['approvedDate','supersededAt','supersededBy','supersededRole','supersededReason','deviation','deviationNote','deviationBy','rejected','recordedAt','recordedBy','actualDate']
+        .forEach(function(k){ delete next[k]; });
+      h.coa=next;
+      if(ctx.lot) ctx.lot.certifiedKg=null;
+    }
+  },
+
+  inspection:{
+    label:'Pre-shipment inspection',
+    find:function(id){ return (state.inspections||[]).find(function(x){return x&&x.id===id;}); },
+    name:function(x){ return x.po+' · '+x.brand+' · '+fmt(+x.kg||0)+' Kg · '+(x.actualDate||x.date||''); },
+    amend:[], reverse:[], supersede:['QA Inspector','Plant Manager','COO'], fields:[],
+    supBlocks:function(x){
+      var out=[];
+      if(x.superseded) out.push('This inspection has already been withdrawn — see the register for who did it and why.');
+      if(!x.pass) out.push('This inspection did not pass, so it cleared nothing. There is nothing to withdraw — correct the material and re-inspect.');
+      (x.batches||[]).forEach(function(bt){
+        var p=(state.packingLog||[]).find(function(q){return q&&q.id===bt.lotId;});
+        if(!p) return;
+        var after=Math.max(0,(+p.insKg||0)-(+bt.kg||0));
+        if(after < (+p.shipKg||0)-0.5)
+          out.push('Batch '+(bt.batch||bt.lotId||'')+': '+fmt(+p.shipKg||0)+' Kg has already left on this clearance. Material that has shipped cannot be un-cleared.');
+      });
+      return out; },
+    supEffect:function(x){
+      var out=['The inspection stays on file stamped WITHDRAWN, with your reason, and still prints. Nothing is deleted.'];
+      out.push(fmt(+x.kg||0)+' Kg goes back to awaiting inspection.');
+      (x.batches||[]).forEach(function(bt){
+        out.push('Batch '+(bt.batch||'')+' cleared '+fmt(+bt.kg||0)+' Kg → 0'); });
+      out.push('No truck can be released on this material until a fresh inspection passes.');
+      return out; },
+    doSupersede:function(x,reason){
+      var who=(state.currentUser&&state.currentUser.name)||state.role;
+      x.superseded={at:new Date().toISOString(), by:who, role:state.role, reason:reason||''};
+      (x.batches||[]).forEach(function(bt){
+        var p=(state.packingLog||[]).find(function(q){return q&&q.id===bt.lotId;});
+        /* never below what has already shipped — supBlocks refuses that case,
+           this is the belt as well as the braces */
+        if(p) p.insKg=Math.max(+p.shipKg||0, (+p.insKg||0)-(+bt.kg||0));
+      });
+      var o=(state.orders||[]).find(function(y){return y.po===x.po;});
+      var l=o&&((o.lines||[]).find(function(y){return y.id===x.lid;})||(o.lines||[]).find(function(y){return y.brand===x.brand;}));
+      if(o&&l && linePassedInsp(o,l) < (+l.ordered||0)-0.001) l.qcPass='';
+    }
   }
 };
 
@@ -5045,18 +5261,52 @@ function recordCorrection(op, type, id, label, changes, reasonCode, reason, casc
           cascade:cascade||[] };
   (state.corrections=state.corrections||[]).unshift(e);
   /* still written to the existing trails so nothing that reads them goes blind */
-  var summary=op+' · '+((CORRECT_ENTITY[type]&&CORRECT_ENTITY[type].label)||type)+' '+label
+  var summary=op+' · '+correctTypeLabel(type)+' '+label
     +(changes&&changes.length?(' — '+changes.map(function(c){return c.label+': '+(c.before===''||c.before==null?'(blank)':c.before)+' → '+(c.after===''||c.after==null?'(blank)':c.after);}).join('; ')):'')
     +' — '+correctReasonText(reasonCode)+(e.reason?(': '+e.reason):'');
   logAction(summary);
   (state.audit=state.audit||[]).unshift({t:e.at,user:e.by,module:'Correction',po:'',brand:'',field:op+' '+type,old:'',val:summary});
   return e;
 }
+/* ---- BACKFILL: a record that should have existed, created late ----
+   Data Fix creates production, packing, shipments and POs after the fact. That
+   is not an AMEND — there was nothing there to amend — but it is still somebody
+   changing live history, and it belongs in the same register as everything
+   else. Otherwise the one place you go to ask "what has been changed by hand?"
+   answers only half the question. `eventDate` is the day the thing actually
+   happened, which is the whole point of a backfill. */
+function recordBackfill(type,id,label,changes,reason,eventDate){
+  var e=recordCorrection('BACKFILL',type,id||'',label,changes||[],'backdate',
+        (reason||'')+(eventDate?(' [actually happened '+eventDate+']'):''),[]);
+  if(eventDate) e.eventDate=eventDate;
+  return e;
+}
 /* who may do what, by record type and operation. hardRole only — never canEdit. */
 function correctAllowed(type,op){
   var d=CORRECT_ENTITY[type]; if(!d) return false;
-  var roles=(op==='REVERSE')?(d.reverse||[]):(d.amend||[]);
+  var roles=(op==='REVERSE')?d.reverse:((op==='SUPERSEDE')?d.supersede:d.amend);
+  /* An EMPTY list means nobody — the COO included. That is how a signed COA is
+     declared un-amendable and un-deletable, rather than merely discouraged.
+     hardRole() would otherwise wave the COO through anything. */
+  if(!roles || !roles.length) return false;
   return hardRole(roles);
+}
+/* Authority is per FIELD as well as per record. The CFO owns the invoice price
+   and nothing else on a PO line: they are not in orderLine.amend, but the
+   invoicePrice field names them. Without this a CFO sent here from Sales &
+   Budget would be told they have no authority over the one number that is
+   theirs. A field with no `roles` of its own inherits the record's list. */
+function correctFieldOK(type,x){
+  return x.roles ? hardRole(x.roles) : correctAllowed(type,'AMEND');
+}
+function correctAnyField(type){
+  var d=CORRECT_ENTITY[type]; if(!d) return false;
+  return (d.fields||[]).some(function(x){ return correctFieldOK(type,x); });
+}
+function correctCanAmend(type){
+  var d=CORRECT_ENTITY[type]; if(!d) return false;
+  if(!(d.fields||[]).length) return false;   /* nothing on this record may be amended */
+  return correctAllowed(type,'AMEND') || correctAnyField(type);
 }
 
 /* ---- the single modal ---- */
@@ -5064,9 +5314,16 @@ var correctForm=null;
 function openCorrect(type,id){
   var d=CORRECT_ENTITY[type]; if(!d){toast('That record type cannot be corrected yet');return;}
   var rec=d.find(id); if(!rec){toast('Record not found');return;}
-  if(!correctAllowed(type,'AMEND') && !correctAllowed(type,'REVERSE')){
+  if(!correctCanAmend(type) && !correctAllowed(type,'REVERSE') && !correctAllowed(type,'SUPERSEDE')){
     toast('You do not have authority to correct a '+d.label.toLowerCase()); return; }
-  correctForm={type:type,id:id,op:(correctAllowed(type,'AMEND')?'AMEND':'REVERSE'),
+  /* The COA sheet is a full-screen panel that would otherwise sit behind the
+     modal showing an APPROVED certificate while it is being superseded. Close
+     it: the z-index fix stops the clicks being swallowed, this stops the
+     stale document being read. */
+  try{ var _fs=document.getElementById('coaFS');
+       if(_fs && _fs.classList.contains('open') && typeof coaFSClose==='function') coaFSClose(); }catch(e){}
+  correctForm={type:type,id:id,
+               op:(correctCanAmend(type)?'AMEND':(correctAllowed(type,'SUPERSEDE')?'SUPERSEDE':'REVERSE')),
                vals:{},reasonCode:'',reason:''};
   renderCorrect(); $('modalBg').classList.add('open');
 }
@@ -5076,12 +5333,19 @@ function renderCorrect(){
   var f=correctForm; if(!f){closeModal();return;}
   var d=CORRECT_ENTITY[f.type]; var rec=d.find(f.id); if(!rec){closeModal();return;}
   var tgt=correctTarget(d,rec); var label=d.name(rec);
-  var canA=correctAllowed(f.type,'AMEND'), canR=correctAllowed(f.type,'REVERSE');
+  var canA=correctCanAmend(f.type), canR=correctAllowed(f.type,'REVERSE'), canS=correctAllowed(f.type,'SUPERSEDE');
   var opBtn=function(op,txt,on){ return on?('<button type="button" class="sm '+(f.op===op?'green':'ghost')+'" onclick="correctSetOp(\''+op+'\')">'+(f.op===op?'&#10003; ':'')+txt+'</button>'):''; };
+
+  /* Why the record cannot take this operation — computed BEFORE the body so
+     the footer can drop the action button entirely. Offering a green button
+     that is guaranteed to refuse is how you teach people to ignore warnings. */
+  var stopped=[];
+  if(f.op==='REVERSE')   stopped=(d.blocks?d.blocks(rec):[]);
+  if(f.op==='SUPERSEDE') stopped=(d.supBlocks?d.supBlocks(rec):[]);
 
   var body='';
   if(f.op==='AMEND'){
-    var flds=(d.fields||[]).filter(function(x){ return !x.roles || hardRole(x.roles); });
+    var flds=(d.fields||[]).filter(function(x){ return correctFieldOK(f.type,x); });
     body='<div class="formgrid">'+flds.map(function(x){
       var cur=(f.vals[x.k]!==undefined)?f.vals[x.k]:(tgt[x.k]==null?'':tgt[x.k]);
       var chg=(String(cur)!==String(tgt[x.k]==null?'':tgt[x.k]));
@@ -5090,9 +5354,17 @@ function renderCorrect(){
         +'oninput="correctForm.vals[\''+x.k+'\']=this.value" onchange="correctForm.vals[\''+x.k+'\']=this.value;renderCorrect()"></div>';
     }).join('')+'</div>'
     +'<div class="muted" style="font-size:11px;margin-top:8px">Only the fields you actually change are recorded. Everything else is left alone.</div>';
+  } else if(f.op==='SUPERSEDE'){
+    var sBlk=stopped;
+    var sEff=(d.supEffect?d.supEffect(rec):[]);
+    body='<div style="padding:11px 13px;border:1px solid '+(sBlk.length?'var(--red)':'var(--navy)')+';background:'+(sBlk.length?'#fdecec':'var(--navy-50)')+';border-radius:9px">'
+      +'<div style="font-weight:700;font-size:12.5px;margin-bottom:6px">'+(sBlk.length?'This cannot be superseded':'Re-issuing this will:')+'</div>'
+      +'<ul style="margin:0 0 0 16px;font-size:12px">'+(sBlk.length?sBlk:sEff).map(function(x){return '<li style="margin-bottom:3px">'+_pe(x)+'</li>';}).join('')+'</ul>'
+      +'</div>'
+      +'<div class="muted" style="font-size:11px;margin-top:8px">A signed record is never edited and never deleted — somebody outside this building may be holding a printed copy. It is replaced by a numbered revision that says what it replaces, and <b>both stay on file and both print</b>.</div>';
   } else {
     var casc=(d.cascade?d.cascade(rec):[]);
-    var blocked=(d.blocks?d.blocks(rec):[]);
+    var blocked=stopped;
     body='<div style="padding:11px 13px;border:1px solid '+(blocked.length?'var(--red)':'var(--amber)')+';background:'+(blocked.length?'#fdecec':'var(--amber-50)')+';border-radius:9px">'
       +'<div style="font-weight:700;font-size:12.5px;margin-bottom:6px">'+(blocked.length?'This cannot be reversed':'Reversing this will also:')+'</div>'
       +(blocked.length
@@ -5105,24 +5377,28 @@ function renderCorrect(){
   $('modal').className='modal m-md';
   $('modal').innerHTML='<div class="mh"><h2>Correct a record</h2><div class="sub">'+_pe(d.label)+' &middot; '+_pe(label)+'</div></div>'
     +'<div class="mb">'
-    +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">'+opBtn('AMEND','Amend a value',canA)+opBtn('REVERSE','Reverse it — it should not exist',canR)+'</div>'
+    +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">'+opBtn('AMEND','Amend a value',canA)+opBtn('SUPERSEDE','Supersede — re-issue it',canS)+opBtn('REVERSE','Reverse it — it should not exist',canR)+'</div>'
     +body
-    +'<div class="formgrid" style="margin-top:12px;grid-template-columns:1fr">'
+    /* No reason fields when the operation cannot proceed — asking someone to
+       justify something the system is about to refuse is just noise. */
+    +(stopped.length?'':('<div class="formgrid" style="margin-top:12px;grid-template-columns:1fr">'
     +'<div class="fld"><label>Why <span style="color:var(--red)">*</span></label>'
     +'<select onchange="correctForm.reasonCode=this.value;renderCorrect()"><option value="">— pick a reason —</option>'
     + CORRECT_REASONS.map(function(r){return '<option value="'+r.k+'" '+(f.reasonCode===r.k?'selected':'')+'>'+r.t+'</option>';}).join('')+'</select></div>'
     +'<div class="fld fld-long"><label>What happened <span style="color:var(--red)">*</span></label>'
     +'<textarea rows="3" oninput="correctForm.reason=this.value" placeholder="what went wrong, and how you know">'+_tx(f.reason)+'</textarea></div>'
     +'</div>'
-    +'<div class="muted" style="font-size:11px;margin-top:8px">Recorded as <b>'+_pe((state.currentUser&&state.currentUser.name)||state.role)+'</b> &middot; '+_pe(state.role)+' &middot; '+evToday()+'</div>'
+    +'<div class="muted" style="font-size:11px;margin-top:8px">Recorded as <b>'+_pe((state.currentUser&&state.currentUser.name)||state.role)+'</b> &middot; '+_pe(state.role)+' &middot; '+evToday()+'</div>'))
     +'</div>'
-    +'<div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button>'
-    +'<button class="green" onclick="applyCorrect()">'+(f.op==='AMEND'?'Apply correction':'Reverse this record')+'</button></div>';
+    +'<div class="mf"><button class="ghost" onclick="closeModal()">'+(stopped.length?'Close':'Cancel')+'</button>'
+    +(stopped.length?'':('<button class="green" onclick="applyCorrect()">'+(f.op==='AMEND'?'Apply correction':(f.op==='SUPERSEDE'?'Supersede — issue a revision':'Reverse this record'))+'</button>'))
+    +'</div>';
 }
 function applyCorrect(){
   var f=correctForm; if(!f)return;
   var d=CORRECT_ENTITY[f.type]; var rec=d.find(f.id); if(!rec){toast('Record not found');return;}
-  if(!correctAllowed(f.type,f.op)){toast('You do not have authority for that');return;}
+  if(f.op==='AMEND' ? !correctCanAmend(f.type) : !correctAllowed(f.type,f.op)){toast('You do not have authority for that');return;}
+  /* SUPERSEDE re-reads the record after acting, so it must not be a stale copy */
   if(!f.reasonCode){toast('Pick a reason');return;}
   if((f.reason||'').trim().length<10){toast('Say what happened — a sentence, not a word');return;}
   var tgt=correctTarget(d,rec), label=d.name(rec);
@@ -5131,7 +5407,7 @@ function applyCorrect(){
     var changes=[];
     (d.fields||[]).forEach(function(x){
       if(f.vals[x.k]===undefined) return;
-      if(x.roles && !hardRole(x.roles)) return;
+      if(!correctFieldOK(f.type,x)) return;
       var before=(tgt[x.k]==null?'':tgt[x.k]);
       var after=(x.t==='number')?(+f.vals[x.k]||0):f.vals[x.k];
       if(String(before)===String(after)) return;
@@ -5141,6 +5417,19 @@ function applyCorrect(){
     if(!changes.length){toast('Nothing changed');return;}
     recordCorrection('AMEND',f.type,f.id,label,changes,f.reasonCode,f.reason,[]);
     toast(changes.length+' value(s) corrected');
+  } else if(f.op==='SUPERSEDE'){
+    var sBlk=(d.supBlocks?d.supBlocks(rec):[]);
+    if(sBlk.length){toast(sBlk[0]);return;}
+    if(!d.doSupersede){toast('That record type cannot be superseded yet');return;}
+    var sEff=(d.supEffect?d.supEffect(rec):[]);
+    d.doSupersede(rec, f.reason);
+    /* the label is re-read AFTER the operation so the register shows the
+       revision that now exists, not the one that was replaced */
+    var newLabel=label; try{ var r2=d.find(f.id); if(r2) newLabel=d.name(r2); }catch(e){}
+    recordCorrection('SUPERSEDE',f.type,f.id,label,
+      (newLabel!==label?[{field:'revision',label:'Revision',before:label,after:newLabel}]:[]),
+      f.reasonCode,f.reason,sEff);
+    toast('Superseded — the previous record stays on file and still prints');
   } else {
     var blocked=(d.blocks?d.blocks(rec):[]);
     if(blocked.length){toast('Cannot reverse — '+blocked.length+' shipment(s) reference this record');return;}
@@ -5151,9 +5440,11 @@ function applyCorrect(){
   }
   correctForm=null; save(); closeModal(); render();
 }
-/* Legacy bridge: the 14 reconLog() call sites keep working AND now leave a
-   structured trace, so the register is complete from day one rather than from
-   the day the last call site is rewritten. */
+/* Legacy bridge — kept as a net, not as a path.
+   All 14 reconLog() call sites were moved onto the ledger on 2026-08-21 and
+   none remain. This stays defined so that any call site I did not find still
+   lands in the register rather than in a sentence nobody can count.
+   DO NOT ADD NEW CALLS. Use recordCorrection() or recordBackfill(). */
 function reconCorrection(type,id,label,changes,reason){
   return recordCorrection('AMEND',type,id,label,changes,'other',reason||'recorded through the legacy Data Fix path',[]);
 }
@@ -5377,7 +5668,11 @@ function saveBulkPrintDecision(){
   (state.orders||[]).forEach(function(o){
     var v=bulkPD[o.id]; if(!v||o.printDecision) return;
     o.printDecision=v; o.printOnPack=(v==='yes'); o.printDecisionBy=who; o.printDecisionAt=at;
-    if(typeof reconLog==='function') reconLog('CORRECT '+o.po+' print-on-pack decision: (never answered) → '+v+' — answered in bulk after the question was added to PO entry');
+    /* This is ENTRY, not correction — see isCorrection(). Every PO touched here
+       had NO answer; the loop above skips any that do. Filing it in the
+       corrections register would put 44 "corrections" on the record on the day
+       we started asking the question, and none of them would be a correction. */
+    logAction('Print-on-pack ANSWERED for '+o.po+': '+(v==='yes'?'prints a price':'no price on the bag')+' — first answer, PO predates the question');
     n++;
   });
   if(!n){ toast('Nothing answered yet'); return; }
@@ -5556,7 +5851,12 @@ function lotQASubmit(){ const p=lotById(lotQAForm.lotId); if(!p)return; if(lotQA
 function clearQaHold(lotId){ if(!(canEdit(['QA Inspector'])||canEdit(['Supply Chain'])||state.role==='COO')){toast('QA Inspector / Supply Chain only');return;} var p=lotById(lotId); if(!p||!p.qaHold)return; var note=(typeof prompt==='function'?prompt('Correction note before re-inspection:'):'')||''; p.reinsp=(p.reinsp||0)+1; var was=p.qaHold; p.qaHold=null; (state.audit=state.audit||[]).unshift({t:new Date().toISOString(),user:state.role,module:'QA',po:p.po,brand:p.brand,field:'QA hold cleared — re-inspect',old:(was&&was.reason)||'',val:'re-inspect #'+p.reinsp+(note?(' — '+note):'')}); logAction('QA hold cleared on lot '+(p.brandBatchNo||p.baseBatchNo||'')+' ('+p.brand+') — back to inspection #'+p.reinsp+(note?(' — '+note):'')); save(); render(); }
 function lotQACorrect(lotId){ if(!(canEdit(['Supply Chain'])||state.role==='COO')){toast('Supply Chain only');return;} const p=lotById(lotId); if(!p||!(p.qa&&p.qa.fail))return; const note=(typeof prompt==='function'?prompt('Correction note before re-inspection:'):'')||''; p.reinsp=(p.reinsp||0)+1; p.qa=null; logAction(`Lot ${p.brandBatchNo||p.baseBatchNo||''} corrected & resubmitted for re-inspection #${p.reinsp} (${p.po})`+(note?(' — '+note):'')); save(); render(); }
 
-function printCOA(bid,lid){ const ctx=coaCtx(bid,lid); const b=ctx.b, h=ctx.h; if(!b||!h||!h.coa){toast('No COA on this lot');return;} const c=h.coa;
+/* histIdx prints a SUPERSEDED revision from the archive instead of the current
+   one. A replaced certificate has to stay printable — that is the difference
+   between superseding and deleting. */
+function printCOA(bid,lid,histIdx){ const ctx=coaCtx(bid,lid); const b=ctx.b, h=ctx.h; if(!b||!h){toast('No COA on this lot');return;}
+  const c=(histIdx!=null && h.coaHistory && h.coaHistory[histIdx]) ? h.coaHistory[histIdx] : h.coa;
+  if(!c){toast('No COA on this lot');return;}
   const e=x=>String(x==null?'':x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   const disc=['This test result is based solely on the particular sample supplied by the client. VAN QC Lab doesn’t involve in any type of sampling activity.','The results are reported with a confidence level of 95%; i.e. [K=2] and are pertaining to analyzed sample(s) only.','Provided sample will be retained for 01-month period after reporting date of the result unless otherwise as agreed with the customer.','The reproducibility of sample is only applicable on the same retained sample.','The test report shall not be reproduced except in full, without written approval by the laboratory.','The uncertainty of this parameter has been calculated by laboratory and will be reported as per client instructions.','The result would be declared “OK” or “Not OK” as per desire/declaration of the client in accordance with the decision rule given below.','Test Result(s) mentioned with * (Asterisk) is/are Accredited by ISO/IEC 17025:2017.'];
   let lastG=''; const trows=(c.tests||[]).map(r=>{ let pre=''; if(r.g!==lastG){pre=`<tr><td colspan="6" class="grp">${(r.g||'').toUpperCase()} PARAMETER</td></tr>`;lastG=r.g;} return pre+`<tr><td>${e(r.test)}</td><td>${e(r.spec)}</td><td>${e(r.result)}</td><td>${e(r.method)}</td><td>${e(r.mu)}</td><td>${e(r.remark)}</td></tr>`; }).join('');
@@ -5584,7 +5884,16 @@ function printCOA(bid,lid){ const ctx=coaCtx(bid,lid); const b=ctx.b, h=ctx.h; i
      <div class="d">DOC #: <b>QCL-FRM-12.03</b><br>REV NO.: <b>03</b><br>Issue Date: <b>June 10, 2025</b></div>
      <div class="a"><svg width="78" height="30" viewBox="0 0 78 30"><ellipse cx="39" cy="14" rx="33" ry="12" fill="#1a8a3c"/><text x="39" y="19" text-anchor="middle" font-family="Arial" font-weight="800" font-size="12" fill="#fff">PNAC</text></svg><div style="font-size:6.5px;line-height:1.1">Pakistan National Accreditation Council</div><div class="ln">LAB 336<br>17025</div></div></div>
    <div class="types"><span>${chk(c.type==='Raw Material')} Raw Material</span><span>${chk(c.type==='Batch'||!c.type)} Batch Analysis</span><span>${chk(c.type==='Outside Sample')} Outside Sample</span></div>
-   <div class="iss"><b style="border:0">Issue Date:</b> ${e(c.issueDate)} &nbsp;&nbsp; <b style="border:0">Issue status:</b> ${e(c.issueStatus)}</div>
+   <div class="iss"><b style="border:0">Issue Date:</b> ${e(c.issueDate)} &nbsp;&nbsp; <b style="border:0">Issue status:</b> ${e(c.issueStatus)} &nbsp;&nbsp; <b style="border:0">Revision:</b> ${e(+c.rev||0)}</div>
+   ${(function(){
+     /* SPEC-03. A certificate that has been replaced, and a certificate that
+        replaces one, must each say so on the paper. Anything less and two
+        different certificates for the same batch are circulating with nothing
+        on either to tell them apart. */
+     if(c.status==='superseded') return `<div class="iss" style="border-bottom:1.5px solid #111;background:#fdecec;font-weight:700">SUPERSEDED on ${e(String(c.supersededAt||'').slice(0,10))} by ${e(c.supersededBy||'—')} — this revision is NO LONGER VALID. Obtain Revision ${e((+c.rev||0)+1)}.${c.supersededReason?(' Reason: '+e(c.supersededReason)):''}</div>`;
+     if(c.supersedes) return `<div class="iss" style="border-bottom:1.5px solid #111;background:#fffbe6;font-weight:700">Revision ${e(+c.rev||0)} — supersedes Revision ${e(c.supersedes.rev)}${c.supersedes.approvedDate?(' issued '+e(c.supersedes.approvedDate)):''}${c.supersedes.reason?('. Reason: '+e(c.supersedes.reason)):''}</div>`;
+     return '';
+   })()}
    <div class="meta"><div class="col l">
      <div>Item Name: <b>${e(c.item)}</b></div><div>Source: <b>${e(c.source)}</b></div><div>Batch No. <b>${e(c.batchNo)}</b></div>
      <div>Mfg. Date: <b>${e(c.mfgDate)}</b></div><div>Q.C. No: <b>${e(c.qcNo)}</b></div><div>Sampled Received by: <b>${e(c.sampledBy)}</b></div>
@@ -5788,7 +6097,7 @@ function printInspect(po){
   (state.inspections||[]).forEach(function(x){ if(x&&x.po===po) recs.push({
     kind:'Packed material', brand:x.brand, lid:x.lid, kg:+x.kg||0, by:x.by,
     date:x.actualDate||x.date, recordedAt:x.recordedAt, recordedBy:x.recordedBy, lateReason:x.lateReason,
-    pass:!!x.pass, checklist:x.checklist||[], verify:x.verify||[], sampling:x.sampling||null, remarks:x.remarks||'',
+    pass:!!x.pass, superseded:(x.superseded||null), checklist:x.checklist||[], verify:x.verify||[], sampling:x.sampling||null, remarks:x.remarks||'',
     batches:(x.batches||[]).map(function(b){return (b.batch||'')+(b.brand&&b.brand!==b.batch?(' ▸ '+b.brand):'')+' ('+fmt(b.kg||0)+' Kg)';}).join(', ') }); });
   /* 2 · the truck-level check — dispQASubmit, one record per shipment row */
   var seenDisp={};
@@ -5835,7 +6144,14 @@ function printInspect(po){
       +(vrows?('<table><tbody>'+vrows+'</tbody></table>'):'')
       +(crows?('<table><tbody>'+crows+'</tbody></table>'):'')
       +(r.remarks?('<div class="meta"><div class="col l" style="font-size:10.5px">Remarks: '+_pe(r.remarks)+'</div></div>'):'')
-      +'<div class="banner" style="color:'+(r.pass?'#1a8a3c':'#c0392b')+'">Result: '+(r.pass?'CLEARED — ready to ship':'FAILED')+'</div>';
+      +'<div class="banner" style="color:'+(r.superseded?'#7a8696':(r.pass?'#1a8a3c':'#c0392b'))+'">Result: '
+      +(r.superseded?'WITHDRAWN':(r.pass?'CLEARED — ready to ship':'FAILED'))+'</div>'
+      /* A withdrawn inspection still prints — that is the whole point of
+         superseding rather than deleting — but it must never read as a clearance. */
+      +(r.superseded?('<div class="banner" style="color:#c0392b;font-size:11px">This inspection was WITHDRAWN on '
+        +_pe(String(r.superseded.at||'').slice(0,10))+' by '+_pe(r.superseded.by||'—')
+        +' ('+_pe(r.superseded.role||'')+') and does NOT clear this material. Reason: '
+        +_pe(r.superseded.reason||'—')+'</div>'):'');
   }).join('');
 
   printDoc('Inspection '+po,_docHead('PRE-SHIPMENT INSPECTION REPORT',meta)+body); }
@@ -5928,11 +6244,39 @@ function screenQA(){
   var qaLabels={awaiting:'Awaiting',cleared:'Cleared',issues:'Issues'};
   var qaTabUnits=qaUnits.filter(function(u){return qaTab==='cleared'?u.status==='cleared':(u.status==='awaiting'||u.status==='blocked');});
   let qaBody='';
+  /* SPEC-03 / problem 3: until now there was NO screen anywhere that listed the
+     inspections themselves — only their effect on a line. So a passed
+     inspection could not be found, let alone corrected. This is that list, and
+     it carries the only correction a signed inspection has: withdraw and
+     re-inspect, with both records staying on file. */
+  const qaInsCard=(function(){
+    var all=(state.inspections||[]).slice(0,40);
+    if(!all.length) return '';
+    var rows=all.map(function(x){
+      var pill=x.superseded
+        ? '<span class="pill" style="background:var(--panel2);color:var(--mut)">Withdrawn</span>'
+        : (x.pass?'<span class="pill" style="background:var(--green-50);color:var(--green2)">Pass</span>'
+                 :'<span class="pill" style="background:var(--red-50);color:var(--red)">Fail</span>');
+      var lag=(typeof evLag==='function')?evLag(x):null;
+      var sub=(x.actualDate||x.date||'')+(lag!=null&&lag>0?(' <span class="muted">· keyed '+lag+'d later</span>'):'');
+      var act='<button class="sm ghost" onclick="printInspect(\''+x.po+'\')">Report</button>';
+      if(!x.superseded && x.pass && correctAllowed('inspection','SUPERSEDE'))
+        act+=' <button class="sm ghost" onclick="openCorrect(\'inspection\',\''+x.id+'\')">Withdraw…</button>';
+      return '<tr'+(x.superseded?' style="opacity:.55"':'')+'><td><b>'+x.po+'</b></td><td>'+(x.brand||'')
+        +'<div class="muted" style="font-size:10.5px;margin-top:2px">'+sub+'</div></td>'
+        +'<td class="num"'+(x.superseded?' style="text-decoration:line-through"':'')+'>'+fmt(+x.kg||0)+'</td>'
+        +'<td class="muted" style="font-size:11px">'+(x.by||'')+'</td><td>'+pill+'</td><td style="white-space:nowrap">'+act+'</td></tr>';
+    }).join('');
+    return '<div class="card"><h3>Inspections on file <span class="hint">'+all.length+' most recent</span></h3>'
+      +'<div class="muted" style="font-size:11px;margin-bottom:8px">A signed inspection is never edited and never deleted. If one was wrong, <b>withdraw</b> it — the material returns to the queue, both records stay on file, and the reason goes on <b>Reports → Corrections</b>.</div>'
+      +'<div style="overflow-x:auto"><table><thead><tr><th>PO</th><th>Product / date</th><th class="num">Kg</th><th>Inspector</th><th>Result</th><th>Action</th></tr></thead><tbody>'+rows+'</tbody></table></div></div>';
+  })();
   if(qaTab==='issues'){ qaBody=qaFailedCard+qaHeldCard; }
   else if(qaGroup==='po'){ var _byp={}; qaTabUnits.forEach(function(u){(_byp[u.o.po]=_byp[u.o.po]||[]).push(u);}); qaBody=Object.keys(_byp).sort().map(function(po){return _qaCard('PO '+po,_byp[po]);}).join(''); }
   else if(qaGroup==='product'){ var _byb={}; qaTabUnits.forEach(function(u){(_byb[u.l.brand]=_byb[u.l.brand]||[]).push(u);}); qaBody=Object.keys(_byb).sort().map(function(b){return _qaCard(b,_byb[b]);}).join(''); }
   else { qaBody=_qaCard(qaTab==='cleared'?'Cleared — ready to ship':'Awaiting inspection',qaTabUnits); }
   if(!qaBody)qaBody='<div class="card"><div class="muted" style="padding:14px 2px">Nothing in '+qaLabels[qaTab]+'.</div></div>';
+  if(qaTab==='cleared') qaBody+=qaInsCard;
   var qaTabBar='<div class="ac2gbar" role="tablist">'+['awaiting','cleared','issues'].map(function(k){return '<button class="ac2gtab'+(qaTab===k?' on':'')+'" onclick="qaTab=\''+k+'\';render()">'+qaLabels[k]+' <b>'+qaCounts[k]+'</b></button>';}).join('')+'</div>';
   var qaGroupSel=(qaTab==='issues')?'':'<div class="ac2tools" style="margin-bottom:12px"><div style="flex:1"></div><select onchange="qaGroup=this.value;render()"><option value="status"'+(qaGroup!=='po'&&qaGroup!=='product'?' selected':'')+'>Group: None</option><option value="po"'+(qaGroup==='po'?' selected':'')+'>Group: By PO</option><option value="product"'+(qaGroup==='product'?' selected':'')+'>Group: By product</option></select></div>';
   $('view').innerHTML=`
@@ -7640,7 +7984,7 @@ function execMetrics(){
   let budget=0; Object.values(byc).forEach(r=>budget+=r.budget);
   let fit=0,unfit=0; (state.batches||[]).forEach(b=>{ const units=(b.lots&&b.lots.length)?b.lots:[{coa:b.coa}]; units.forEach(u=>{ const st=u.coa&&u.coa.status; if(st==='approved')fit++; else if(st==='failed')unfit++; }); });
   const fitPct=(fit+unfit)>0?Math.round(fit/(fit+unfit)*100):null;
-  let insP=0,insF=0; (state.inspections||[]).forEach(x=>{ if(x.pass)insP++; else insF++; });
+  let insP=0,insF=0; (state.inspections||[]).forEach(x=>{ if(x.superseded)return; if(x.pass)insP++; else insF++; });
   const psPct=(insP+insF)>0?Math.round(insP/(insP+insF)*100):null;
   const rmCost={}; ((state.masters&&state.masters.rawMaterials)||[]).forEach(r=>{ if(r&&r.name) rmCost[r.name]=+r.cost||0; });
   const baseCost=base=>{ const rec=(typeof recipeFor==='function'?recipeFor(base):{})||{}; let c=0; for(const rm in rec){ c+=(+rec[rm]||0)*(rmCost[rm]||0); } return c; };
@@ -8220,9 +8564,32 @@ function renderBulkPricing(){
    <div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" onclick="saveBulkPricing()">Save all prices</button></div>`; }
 function saveBulkPricing(){ if(!(state.role==='COO'||state.role==='CFO')){toast('COO / CFO only');return;} let n=0;
   if(Object.keys(bulkPrice).some(k=>(+bulkPrice[k]||0)>=1000)){ if(!(typeof confirm==='function'&&confirm('Some invoice prices are ≥ PKR 1000/Kg — a per-Kg rate should be under 1000 (likely a per-pack price). Save anyway?'))) return; }
-  (state.orders||[]).forEach(o=>(o.lines||[]).forEach(l=>{ if(bulkPrice[l.id]!==undefined){ const nv=+bulkPrice[l.id]||0; const old=+l.invoicePrice||0; if(Math.abs(nv-old)>0.001){ l.invoicePrice=nv; reconLog(`CORRECT ${o.po} · ${l.brand} Invoice price: ${old} → ${nv}`); n++; } } }));
-  if(!n){ toast('No price changes'); return; }
-  save(); closeModal(); render(); toast(n+' invoice price(s) saved'); }
+  /* Filling a blank is entry; changing a price somebody already invoiced against
+     is a correction and needs a reason. Both happen on this one screen, so it
+     asks for a reason ONLY if at least one line is genuinely being changed. */
+  const held=[];
+  (state.orders||[]).forEach(o=>(o.lines||[]).forEach(l=>{ if(bulkPrice[l.id]===undefined) return;
+    const nv=+bulkPrice[l.id]||0, old=+l.invoicePrice||0;
+    if(Math.abs(nv-old)<=0.001) return;
+    if(isCorrection(old,nv)){
+      /* Deliberately NOT changed here. This screen has no reason field and no
+         per-record authority check, so letting it overwrite a price the CFO has
+         already invoiced against would be exactly the second path we are
+         closing. It is named and handed to the one path instead. */
+      held.push(o.po+' · '+l.brand+' ('+fmt(old)+' → '+fmt(nv)+')');
+    } else {
+      l.invoicePrice=nv;
+      logAction('Invoice price SET for '+o.po+' · '+l.brand+': '+fmt(nv)+' PKR/Kg·L (first price on this line)');
+      n++;
+    } }));
+  if(!n && !held.length){ toast('No price changes'); return; }
+  if(n) save();
+  if(held.length){
+    toast((n?(n+' blank price(s) filled. '):'')+held.length+' line(s) already had a price — use Correct on the PO line so it goes on the register with a reason.');
+    logAction('Bulk pricing held '+held.length+' existing price change(s) for the correction path: '+held.slice(0,6).join('; ')+(held.length>6?(' …+'+(held.length-6)):''));
+    renderBulkPricing(); render(); return;
+  }
+  closeModal(); render(); toast(n+' invoice price(s) saved'); }
 function salesTargetSet(){ if(!(state.role==='COO'||state.role==='CFO')){toast('COO / CFO only');return;} const c=stForm.client; const a=+stForm.amt||0; if(!c){toast('Pick a client');return;} const fy=fyKey(TODAY.toISOString().slice(0,10)); state.masters.salesTargets=state.masters.salesTargets||{}; state.masters.salesTargets[c]=state.masters.salesTargets[c]||{}; if(a>0) state.masters.salesTargets[c][fy]=a; else delete state.masters.salesTargets[c][fy]; logAction(`Sales target ${a>0?('set '+pkr(a)):'cleared'} for ${c} (FY ${fy})`); stForm={client:'',amt:''}; save(); render(); }
 function salesTargetCard(){ const fy=fyKey(TODAY.toISOString().slice(0,10)); const t=(state.masters&&state.masters.salesTargets)||{}; const cls=budgetClients();
   const have=cls.filter(c=>t[c]&&+t[c][fy]>0);
@@ -8452,9 +8819,22 @@ function rpTabsBar(){ return `<div class="seg" style="flex-wrap:wrap;gap:6px;mar
 
 let bgtExpand='';
 function bgtToggle(c){ bgtExpand=(bgtExpand===c?'':c); render(); }
+/* One of the eight editors, closed 2026-08-21.
+   Setting a price that was blank is ENTRY and stays here — that is the job this
+   box is good at. CHANGING a price that already exists is a correction, and it
+   now goes to the one path instead of quietly overwriting a number Finance may
+   already have invoiced against. */
 function setLineInvoice(oid,lid,v){ if(!(state.role==='COO'||state.role==='CFO')){toast('COO / CFO only');return;} const o=(state.orders||[]).find(x=>x.id===oid); const l=o&&o.lines.find(x=>x.id===lid); if(!l)return; const old=+l.invoicePrice||0; const nv=+v||0; if(Math.abs(nv-old)<0.001)return;
+  if(isCorrection(old,nv)){
+    render();
+    toast('This line already has a price. Changing it goes through Correct, so it lands on the register with a reason.');
+    openCorrect('orderLine', lid);
+    return;
+  }
   if(nv>=1000){ if(!(typeof confirm==='function'&&confirm('PKR '+fmt(nv)+'/Kg is ≥ 1000 — a per-Kg rate should be under 1000 (this looks like a per-pack price). Save anyway?'))){ render(); return; } }
-  l.invoicePrice=nv; reconLog(`CORRECT ${o.po} · ${l.brand} Invoice price: ${old} → ${nv} (PKR/Kg·L)`); save(); render(); toast('Invoice price updated'); }
+  l.invoicePrice=nv;
+  logAction('Invoice price SET for '+o.po+' · '+l.brand+': '+fmt(nv)+' PKR/Kg·L (first price on this line)');
+  save(); render(); toast('Invoice price set'); }
 function bgtSubRows(c){ if(bgtExpand!==c) return ''; const ed=(state.role==='COO'||state.role==='CFO'); const os=(state.orders||[]).filter(o=>budgetKey(o)===c);
   let body=''; os.forEach(o=>{ (o.lines||[]).forEach(l=>{ if(!(+l.ordered>0))return; const ip=+l.invoicePrice||0; const bk=(+l.ordered||0)*ip; const dv=(+l.delivered||0)*ip; const perBag=(ip>0&&+l.pack>0)?(' <span class="muted" style="font-size:10px">= PKR '+fmt(ip*l.pack)+'/bag of '+fmt(l.pack)+'</span>'):'';
     body+=`<tr style="background:var(--panel2)"><td style="padding-left:26px"><b style="font-size:12px">${l.brand}</b> <span class="muted" style="font-size:10.5px">${o.po}${(isDealerClient(o)&&o.client&&c==='Dealers')?(' · '+String(o.client).split('|').pop().trim()):''} · ${fmt(l.ordered)} Kg/L ordered</span><div style="margin-top:5px;display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span class="muted" style="font-size:10.5px">Invoice PKR/Kg·L</span>${ed?`<input type="number" value="${l.invoicePrice||''}" onchange="setLineInvoice('${o.id}','${l.id}',this.value)" style="width:100px;padding:4px 7px" placeholder="0">`:('<b>'+pkr(ip)+'</b>')}${perBag}</div></td><td class="num muted">—</td><td class="num">${dv>0?pkr(dv):'<span class="muted">—</span>'}</td><td class="num"><b>${ip>0?pkr(bk):'<span class="muted" style="font-weight:400">— set price</span>'}</b></td><td></td><td></td></tr>`;
@@ -8568,7 +8948,7 @@ var RB_DATASETS={
       var chg=(c.changes||[]).map(function(x){ return x.label+': '+(x.before===''||x.before==null?'(blank)':x.before)+' → '+(x.after===''||x.after==null?'(blank)':x.after); }).join('; ');
       return { date:String(c.at||'').slice(0,10),
                when:String(c.at||'').replace('T',' ').slice(0,16),
-               op:c.op||'', type:((CORRECT_ENTITY[c.entityType]&&CORRECT_ENTITY[c.entityType].label)||c.entityType||''),
+               op:c.op||'', type:correctTypeLabel(c.entityType),
                record:c.entityLabel||'', by:c.by||'', role:c.byRole||'', account:c.byUser||'',
                reasonCode:correctReasonText(c.reasonCode), reason:c.reason||'',
                changed:chg, fields:(c.changes||[]).length,
@@ -9202,7 +9582,9 @@ bootState();
     };
   }
   function qcPassRate(state) {
-    var ins = state.inspections || [];
+    /* a withdrawn inspection is neither a pass nor a fail — it is not an
+       inspection any more, so it leaves the denominator too */
+    var ins = (state.inspections || []).filter(function (i) { return i && !i.superseded; });
     if (!ins.length) return 100;
     return round(ins.filter(function (i) { return i.pass; }).length / ins.length * 100);
   }

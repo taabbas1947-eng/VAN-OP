@@ -1028,3 +1028,108 @@ re-render on `onchange`.**
 4. SPEC-04 steps 2, 5, 6, 9, 10
 
 **Ready to push, not pushed.**
+
+---
+
+## 2026-08-21 (later) — MODULE: O2S — paths closed + SUPERSEDE
+
+Continues the entry above. Tahir: *"close all and keep one."* That pass built
+the one path; this one shuts the others.
+
+Files: `o2s/o2s.html`, `docs/o2s/SPEC-03-EDIT-STANDARD.md`. Nothing in `pd/`,
+`server.js`, `launcher.html` or the auth block.
+
+### The distinction that unlocked it
+
+**Filling a blank is ENTRY. Changing a value is a CORRECTION.** Eight editors
+existed partly because those two acts had never been separated. `isCorrection()`
+now asks it the same way everywhere; 0 counts as blank.
+
+Without this, closing the paths meant making a CFO write 136 reasons to fill 136
+empty price boxes — a control that would have been worked around inside a week.
+
+### All 14 reconLog() sites moved
+
+- 6 Data Fix / import creations → **BACKFILL** (new fourth op) with `eventDate`
+- 5 Data Fix "correct a PO" → **AMEND**, one entry per record, reason code required
+- Bulk print-on-pack → **entry**, not a correction (every PO it touches had no answer)
+- Bulk invoice pricing → fills blanks, **refuses** to overwrite an existing price
+- Inline invoice price (Sales & Budget) → fills blanks, **opens the modal** otherwise
+
+`reconLog()` has **zero call sites**; kept as a net that files anything reaching
+it as a `legacy` register entry. Do not add new calls.
+
+### Field-level authority
+
+`correctFieldOK()` — a field's own role list wins, else the record's. Without it
+the CFO, routed to the modal for an invoice price, would have been told they had
+no authority over the one number that is theirs. A CFO opening a PO line sees
+one box.
+
+`correctAllowed()` now returns false for an **empty** role list — nobody,
+including the COO. That is how a signed COA is declared un-amendable rather than
+merely discouraged.
+
+### SUPERSEDE
+
+- **COA** (QCM/COO) — Rev N archived + stamped SUPERSEDED, Rev N+1 created as a
+  draft, lab chain re-runs, material not packable until re-approved. Both print;
+  the replaced one carries a red NO LONGER VALID band. Warns when material has
+  already shipped that the customer's copy is stale
+- **Inspection** (QA Inspector/Plant Manager/COO) — withdraw; clearance returned
+  to the lots, `qcPass` cleared, still on file and still prints stamped WITHDRAWN
+- New card: **Pre-shipment QA → Cleared → Inspections on file.** There had been
+  no screen anywhere listing inspections themselves
+
+### Live-data facts, measured before building (Fault 11 discipline)
+
+| | |
+|---|---|
+| Inspections with a resolving `batches[].lotId` | **113 / 113** |
+| Packing lots with a resolving `baseBatchId` | **153 / 153** |
+| Approved COAs on `lots[].coa` / on `batch.coa` | **71 / 0** |
+| Approved COAs carrying a `rev` field | **0** — must default to 0 |
+| Passed inspections **blocked** by shipped material | **93 of 113** |
+| Passed inspections free to withdraw | **20** |
+
+The refusal is the common case, not the edge case. Worth knowing before anyone
+reports the feature as broken.
+
+### Two defects found by CLICKING, not calling
+
+1. **Modal visible but unclickable.** `#coaFS` is z-index 300; `.modal-bg` was
+   60. A supersede opened from the certificate produced a dialogue that could be
+   read and not typed into. Every assertion test passed — assertions call
+   functions. Backdrop now 320, and `openCorrect()` closes `coaFS` so a stale
+   APPROVED certificate is not left showing underneath.
+2. **A green button that could only refuse.** Blocked reversals/supersedes still
+   offered the action button and two required reason fields, then toasted a
+   refusal. Both now suppressed.
+
+> **Rule, reinforced twice in one day:** assertion tests set values and call
+> functions. They cannot find focus loss, z-index capture, or a button that is
+> present but dead. Click through at least one full path in a real browser
+> before calling anything done.
+
+### Verified
+
+149 checks — 109 assertions + 40 click-through steps driven only through the
+interface, on a fixture rebuilt to the live system's measured shape (above).
+Layout at 390/820/1440 px: no page overflow, table scrolls in its own container.
+`node --check` on all 5 script blocks. All nine roles render every permitted
+screen with zero console errors.
+
+### Still open
+
+- **Data Fix bypasses the per-record authority table.** It edits many lines at
+  once and is COO tooling; the screen now says so in amber. Changing its gate on
+  a live system is Tahir's decision, not a side-effect
+- A truck loaded before a COA supersede is not recalled — it cannot be. The
+  system tells you the customer's copy is stale; acting on it is a person's job
+- SPEC-02 (PO dossier) — the last untouched problem from the opening brief
+- SPEC-04 steps 2, 5, 6, 9, 10
+- The three human tasks in `docs/o2s/HANDOVER-CHECKLIST.md` still block three
+  controls. Item 1 (print-on-pack for 44 POs) is the costly one — 136 lines still
+  tell the QA inspector nothing
+
+**Ready to push, not pushed.**

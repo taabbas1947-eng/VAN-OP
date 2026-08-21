@@ -953,3 +953,78 @@ future-date paths.
 - **Fault 9c** — which of the Dashboard's three stacked banners earns its place
 - **Sequence validation** — five of the six rules still unbuilt; the sixth
   ("inspection dated after dispatch") now runs as a report rather than a block
+
+---
+
+## 2026-08-21 (late) — MODULE: O2S — the correction path (SPEC-03)
+
+**Tahir:** *"a universal path and strategy to edit and correct with a log of who
+corrected and when… close all the multiple paths and keep one which best suits a
+system which has to become an ERP 2–3 years down the line."*
+
+Files touched: `o2s/o2s.html`, `docs/o2s/SPEC-03-EDIT-STANDARD.md`.
+Nothing in `pd/`, `server.js`, `launcher.html` or the auth block.
+
+### The finding that shaped the build
+
+A "correction" in O2S was **a sentence**, not a record. `reconLog()` prefixed
+`RECONCILE:` onto free text in the action log — 14 call sites, no structure.
+Corrections could not be counted, filtered by person, or replayed. `state.audit`
+stamped `user: state.role` — the job, not the person.
+
+"Eight editors" was the symptom. The cause was that a correction was not a record.
+
+### Built
+
+- `state.corrections[]` — append-only ledger. `recordCorrection()` writes
+  `{id, at, by, byUser, byRole, op, entityType, entityId, entityLabel,
+  changes[], reasonCode, reason, cascade[]}`. Still writes `actionLog`/`audit`
+  so nothing that reads those goes blind
+- `CORRECT_ENTITY` registry — order, orderLine, packingLot, shipment, batch.
+  Each entry carries find/name/amend/reverse/fields/cascade/blocks/doReverse.
+  **This is the ERP-scaling property**: a new record type is a registry entry,
+  not a ninth bespoke editor
+- One modal — `openCorrect` / `renderCorrect` / `applyCorrect`. AMEND + REVERSE
+- `correctAllowed()` uses **`hardRole()`, never `canEdit()`** (2026-07-30
+  incident: a screen-level Edit grant silently unlocked approval steps)
+- `CORRECT_REASONS` codes, so corrections become countable
+- Reports → **Corrections** register; reversed rows render struck through
+- `reconCorrection()` — bridge so the 14 legacy `reconLog()` sites can move onto
+  the ledger one at a time. **None moved yet.** Data Fix first
+
+### Verified in a browser
+
+KAM blocked on a packing run; Production blocked on a PO line. AMEND records
+person/account/role/before→after. No reason blocked; one-word reason blocked.
+REVERSE warned `["Batch B-88 packed 1,200 → 0 Kg", "PO-1 · Zorro packed
+1,200 → 0 Kg", "Voids the inspection dated 2026-08-09 (PASS)"]` then applied all
+three. REVERSE refused when a shipment referenced the lot. 7 regression suites,
+23 layout checks, `node --check` on all 5 script blocks.
+
+### Bug found while building — focus destroyed on `oninput`
+
+Re-rendering a form on `oninput` destroys and rebuilds the input. Typing
+`ZR-2026-0099` landed as **`ZR-42Z`**. Six places: four mine from the same day
+(correction reason/note, bags checked, defects, packing price), two pre-existing
+(`rmRcvForm.qty`, `rmForm.canMake`). Pattern now: **store on `oninput`,
+re-render on `onchange`.**
+
+> **Rule, recorded:** every assertion test passed, because tests set values
+> directly instead of typing them. Only a browser typing character by character
+> found it. Same family as the too-clean-fixture rule from earlier today.
+
+### Not built — do not assume otherwise
+
+- **SUPERSEDE.** An approved COA and a passed inspection still cannot be
+  replaced with a corrected revision. Both need a revision number on the record
+  and both print — a larger change than AMEND or REVERSE
+- The 14 legacy `reconLog()` sites still bypass the ledger
+
+### Next, in order
+
+1. Move Data Fix onto `reconCorrection()`, then the remaining 13 sites
+2. SUPERSEDE — revision numbers on COA and inspection, both printing
+3. SPEC-02 — the PO dossier (PO line spine, batch # as equal entry point)
+4. SPEC-04 steps 2, 5, 6, 9, 10
+
+**Ready to push, not pushed.**

@@ -3252,7 +3252,7 @@ function openOrder(id){
       <td style="text-align:center">${qcell(l.packed,l.ordered)}</td>
       <td style="text-align:center">${qcell(l.dispatched,l.ordered)}</td>
       <td style="text-align:center">${qcell(l.delivered,l.ordered)}</td>
-      <td style="white-space:nowrap">${pill(ls,STAGE_COLOR[ls]||'--mut')}${ov?` <span class="pill" style="background:var(--red-50);color:var(--red);font-size:8.5px;padding:1px 5px">${ov}d late</span>`:''}</td>
+      <td style="white-space:nowrap">${pill(ls,STAGE_COLOR[ls]||'--mut')}${ov?` <span class="pill" style="background:var(--red-50);color:var(--red);font-size:8.5px;padding:1px 5px">${ov}d late</span>`:''}${(correctAllowed('orderLine','AMEND')||correctAllowed('orderLine','REVERSE'))?` <button class="sm ghost" style="margin-left:6px;font-size:10.5px;padding:3px 8px" onclick="event.stopPropagation();openCorrect('orderLine','${l.id}')" title="Correct this line — logged with your name and a reason">Correct</button>`:''}</td>
     </tr>`; }).join('');
   $('drawer').innerHTML=`
    <div class="dh"><div><h2 style="font-size:16px">${o.po}</h2>
@@ -3293,7 +3293,7 @@ function renderRMModal(){ const o=state.orders.find(x=>x.id===rmForm.oid); const
   let body='';
   if(rmForm.status==='partial'){ var mk=rmMakeKg();
     body+=`<div class="fld" style="margin:14px 0 6px"><label>How much of ${l.brand} can be made now?</label>
-      <div style="display:flex;gap:8px;align-items:center;max-width:360px"><input type="number" value="${rmForm.canMake}" oninput="rmForm.canMake=this.value;renderRMModal()" placeholder="amount" style="flex:1">
+      <div style="display:flex;gap:8px;align-items:center;max-width:360px"><input type="number" value="${rmForm.canMake}" oninput="rmForm.canMake=this.value" onchange="rmForm.canMake=this.value;renderRMModal()" placeholder="amount" style="flex:1">
       <select onchange="rmForm.unit=this.value;renderRMModal()"><option value="kg" ${rmForm.unit==='kg'?'selected':''}>Kg/L</option><option value="pct" ${rmForm.unit==='pct'?'selected':''}>% of order</option></select></div>
       <div class="muted" style="font-size:11px;margin-top:7px">= <b>${fmt(mk)}</b> Kg/L cleared to produce now · ordered ${fmt(ord)} · <b>${fmt(Math.max(0,ord-mk))}</b> Kg/L goes to a PR.</div></div>`;
   }
@@ -3318,7 +3318,7 @@ function rmRcvKg(){ var o=state.orders.find(x=>x.id===rmRcvForm.oid); var l=o&&o
 function openRMReceive(oid,lid){ if(!(canEdit(['Supply Chain'])||state.role==='COO')){toast('Supply Chain only');return;} var o=state.orders.find(x=>x.id===oid); var l=o&&o.lines.find(x=>x.id===lid); if(!l||!l.rmPR||l.rmPR.closed)return; if(!l.rmPR.cfoApproved){toast('PR must be CFO-approved before receiving');return;} rmRcvForm={oid,lid,qty:'',unit:'kg'}; renderRMReceive(); $('modalBg').classList.add('open'); }
 function renderRMReceive(){ var o=state.orders.find(x=>x.id===rmRcvForm.oid); var l=o.lines.find(x=>x.id===rmRcvForm.lid); var ord=+l.ordered||0; var already=+l.canMakeKg||0; var rem=Math.max(0,ord-already); var add=rmRcvKg();
   $('modal').innerHTML=`<div class="mh"><h2>Confirm RM received — ${l.brand}</h2><div class="sub">${o.po} · ${shortClient(o.client)} · cleared ${fmt(already)}/${fmt(ord)} · ${fmt(rem)} Kg/L pending</div></div>
-   <div class="mb"><div class="fld"><label>How much more can be made now?</label><div style="display:flex;gap:8px;align-items:center;max-width:360px"><input type="number" value="${rmRcvForm.qty}" oninput="rmRcvForm.qty=this.value;renderRMReceive()" placeholder="amount" style="flex:1"><select onchange="rmRcvForm.unit=this.value;renderRMReceive()"><option value="kg" ${rmRcvForm.unit==='kg'?'selected':''}>Kg/L</option><option value="pct" ${rmRcvForm.unit==='pct'?'selected':''}>% of order</option></select></div>
+   <div class="mb"><div class="fld"><label>How much more can be made now?</label><div style="display:flex;gap:8px;align-items:center;max-width:360px"><input type="number" value="${rmRcvForm.qty}" oninput="rmRcvForm.qty=this.value" onchange="rmRcvForm.qty=this.value;renderRMReceive()" placeholder="amount" style="flex:1"><select onchange="rmRcvForm.unit=this.value;renderRMReceive()"><option value="kg" ${rmRcvForm.unit==='kg'?'selected':''}>Kg/L</option><option value="pct" ${rmRcvForm.unit==='pct'?'selected':''}>% of order</option></select></div>
    <div class="muted" style="font-size:11px;margin-top:7px">Adds <b>${fmt(add)}</b> Kg/L → cleared becomes <b>${fmt(already+add)}</b>/${fmt(ord)}.${(already+add>=ord)?' This closes the PR.':''}</div></div></div>
    <div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" onclick="rmReceiveSubmit()">Confirm received</button></div>`;
 }
@@ -4883,6 +4883,280 @@ function evDateGate(form,prop,kind){
     return 'This is '+late+' day'+(late===1?'':'s')+' old — say why it is being recorded now.';
   return null;
 }
+/* ==================================================================
+   THE CORRECTION PATH — one route, one ledger. 2026-08-21
+   docs/o2s/SPEC-03-EDIT-STANDARD.md · Fault 4
+   Raised by Tahir, and independently by Majid.
+
+   WHAT WAS WRONG
+   Eight different ways to change a record, no two alike. Some demanded a
+   written reason, most did not. Some logged old → new, some wrote a sentence,
+   some wrote nothing. And three record types could not be corrected AT ALL —
+   a packing run, a passed inspection, an approved COA — which in a live system
+   with a learning team guarantees permanently wrong data.
+
+   A "correction" today is a SENTENCE. `reconLog()` prefixes "RECONCILE:" onto
+   free text in the action log. You cannot count corrections, filter them by
+   person, or reconstruct what a record held before one. For a system meant to
+   become an ERP, that is the gap that matters.
+
+   THE MODEL
+   One append-only ledger, `state.corrections[]`. Never edited, never deleted.
+   Each entry is a complete, self-describing fact: you can reconstruct the
+   change from the entry alone, without the record it changed.
+
+   Three operations and only three:
+     AMEND      a value on the record is wrong; the record stands
+     REVERSE    the record should not exist; it is cancelled, not deleted
+     SUPERSEDE  it was right at the time and is replaced; BOTH remain
+
+   NOTHING IS EVER DELETED. A reversed record stays visible, struck through,
+   with its reason. That is what makes a batch number traceable in five years.
+
+   WHY A REGISTRY
+   `CORRECT_ENTITY` describes each record type once — how to find it, what to
+   call it, which fields may be amended, who may act, what cascades. Adding a
+   new record type is a registry entry, not another bespoke editor. That is the
+   property that has to hold when this becomes an ERP: the correction path must
+   not grow a ninth mechanism the next time somebody adds a table.
+
+   AUTHORITY uses hardRole(), NEVER canEdit(). See the comment at the top of
+   hardRole: on 2026-07-30 a screen-level Edit grant silently unlocked approval
+   steps. A correction is an approval. It checks the assigned role, never the
+   per-screen access-matrix override.
+   ================================================================== */
+
+/* Reason codes make corrections countable. "47 keying errors this month on the
+   packing screen" is an instruction to go and look at that screen; forty-seven
+   free-text sentences are not. */
+var CORRECT_REASONS=[
+  {k:'keying',    t:'Keying error — typed the wrong number'},
+  {k:'wrongrec',  t:'Wrong record — right data, wrong PO / batch / lot'},
+  {k:'miscount',  t:'Quantity miscount on the floor'},
+  {k:'price',     t:'Price wrong on the PO'},
+  {k:'backdate',  t:'Recorded late / against the wrong date'},
+  {k:'customer',  t:'Customer amended the order'},
+  {k:'duplicate', t:'Duplicate entry'},
+  {k:'other',     t:'Other — explained below'}
+];
+function correctReasonText(k){ var r=CORRECT_REASONS.find(function(x){return x.k===k;}); return r?r.t:(k||''); }
+
+/* ---- the registry: every correctable record type, described once ---- */
+var CORRECT_ENTITY={
+  order:{
+    label:'Purchase order',
+    find:function(id){ return (state.orders||[]).find(function(o){return o.id===id;}); },
+    name:function(o){ return o.po+' · '+(shortClient(o.client)||''); },
+    amend:['KAM','COO'], reverse:['COO'],
+    fields:[
+      {k:'client',   l:'Customer',        t:'text'},
+      {k:'priority', l:'Priority',        t:'text'},
+      {k:'received', l:'PO received',     t:'date'},
+      {k:'promised', l:'Promised delivery',t:'date'}
+    ]
+  },
+  orderLine:{
+    label:'PO product line',
+    find:function(id){ var r=null; (state.orders||[]).forEach(function(o){ (o.lines||[]).forEach(function(l){ if(l.id===id) r={o:o,l:l}; }); }); return r; },
+    name:function(r){ return r.o.po+' · '+r.l.brand; },
+    target:function(r){ return r.l; },
+    amend:['KAM','COO'], amendPriced:['CFO','COO'], reverse:['COO'],
+    fields:[
+      {k:'ordered',    l:'Ordered (Kg/L)', t:'number'},
+      {k:'committed',  l:'Committed date', t:'date'},
+      {k:'printPrice', l:'Print price (PKR/pack)', t:'number'},
+      {k:'invoicePrice',l:'Invoice price (PKR/Kg·L)', t:'number', roles:['CFO','COO']}
+    ]
+  },
+  packingLot:{
+    label:'Packing run',
+    find:function(id){ return (state.packingLog||[]).find(function(p){return p&&p.id===id;}); },
+    name:function(p){ return p.brand+' · '+(p.brandBatchNo||p.baseBatchNo||'')+' · '+fmt(+p.kg||0)+' Kg · '+p.po; },
+    amend:['Production','COO'], reverse:['Production','Plant Manager','COO'],
+    fields:[
+      {k:'brandBatchNo', l:'Brand batch # (on the pack)', t:'text'},
+      {k:'mfgDate',      l:'Mfg date',    t:'date'},
+      {k:'expDate',      l:'Expiry date', t:'date'},
+      {k:'printedPrice', l:'Price printed on the pack', t:'number'},
+      {k:'actualDate',   l:'Date actually packed', t:'date'}
+    ],
+    /* A packing run is the case that could not be corrected at all, and the one
+       that moves the most when it is. */
+    cascade:function(p){
+      var out=[];
+      var b=(state.batches||[]).find(function(x){return x.id===p.baseBatchId;});
+      if(b) out.push('Batch '+(b.batchNo||b.id)+' packed '+fmt(+b.packedKg||0)+' → '+fmt(Math.max(0,(+b.packedKg||0)-(+p.kg||0)))+' Kg');
+      var o=(state.orders||[]).find(function(x){return x.po===p.po;});
+      var l=o&&((o.lines||[]).find(function(x){return x.id===p.lid;})||(o.lines||[]).find(function(x){return x.brand===p.brand;}));
+      if(l) out.push(o.po+' · '+l.brand+' packed '+fmt(+l.packed||0)+' → '+fmt(Math.max(0,(+l.packed||0)-(+p.kg||0)))+' Kg');
+      if(p.qa) out.push('Voids the inspection dated '+(p.qa.actualDate||p.qa.date||'')+' ('+(p.qa.pass?'PASS':'FAIL')+')');
+      return out;
+    },
+    /* Refuse rather than cascade into something that has already left. */
+    blocks:function(p){
+      var out=[];
+      (state.shipments||[]).forEach(function(sx){ if(!sx||sx.voided) return;
+        if(sx.po===p.po && sx.brand===p.brand) out.push('Shipment '+(sx.dc||sx.dispId||sx.id)+' ('+fmt(+sx.kg||0)+' Kg, '+(sx.stage||'')+')'); });
+      return out;
+    },
+    doReverse:function(p){
+      var b=(state.batches||[]).find(function(x){return x.id===p.baseBatchId;});
+      if(b) b.packedKg=Math.max(0,(+b.packedKg||0)-(+p.kg||0));
+      var o=(state.orders||[]).find(function(x){return x.po===p.po;});
+      var l=o&&((o.lines||[]).find(function(x){return x.id===p.lid;})||(o.lines||[]).find(function(x){return x.brand===p.brand;}));
+      if(l){ l.packed=Math.max(0,(+l.packed||0)-(+p.kg||0)); if(l.produced!=null) l.produced=Math.max(+l.packed||0,(+l.produced||0)); }
+      p.reversed=true; p.qa=null; p.insKg=0;
+    }
+  },
+  shipment:{
+    label:'Shipment',
+    find:function(id){ return (state.shipments||[]).find(function(x){return x&&x.id===id;}); },
+    name:function(sx){ return (sx.dc?('DC '+sx.dc+' · '):'')+sx.brand+' · '+fmt(+sx.kg||0)+' Kg · '+sx.po; },
+    amend:['Supply Chain','COO'], reverse:['Supply Chain','Plant Manager','COO'],
+    fields:[
+      {k:'dispatch',    l:'Dispatch date', t:'date'},
+      {k:'destination', l:'Destination',   t:'text'},
+      {k:'vehicle',     l:'Vehicle #',     t:'text'},
+      {k:'carrier',     l:'Carrier',       t:'text'},
+      {k:'bilty',       l:'Bilty / reference', t:'text'},
+      {k:'so',          l:'SO #',          t:'text'}
+    ]
+  },
+  batch:{
+    label:'Production batch',
+    find:function(id){ return (state.batches||[]).find(function(b){return b.id===id;}); },
+    name:function(b){ return (b.batchNo||b.id)+' · '+(b.base||'')+(b.po?(' · '+b.po):''); },
+    amend:['Production','COO'], reverse:['Plant Manager','COO'],
+    fields:[
+      {k:'batchNo',    l:'Batch #',            t:'text'},
+      {k:'openedDate', l:'Opened date',        t:'date'},
+      {k:'plannedKg',  l:'Planned (Kg/L)',     t:'number'}
+    ]
+  }
+};
+
+/* ---- the ledger: one writer, append-only ---- */
+function recordCorrection(op, type, id, label, changes, reasonCode, reason, cascade){
+  var u=state.currentUser||{};
+  var e={ id:nid('CR'), at:new Date().toISOString(),
+          by:(u.name||state.role||''), byUser:(u.username||''), byRole:state.role||'',
+          op:op, entityType:type, entityId:id, entityLabel:label,
+          changes:changes||[], reasonCode:reasonCode||'', reason:(reason||'').trim(),
+          cascade:cascade||[] };
+  (state.corrections=state.corrections||[]).unshift(e);
+  /* still written to the existing trails so nothing that reads them goes blind */
+  var summary=op+' · '+((CORRECT_ENTITY[type]&&CORRECT_ENTITY[type].label)||type)+' '+label
+    +(changes&&changes.length?(' — '+changes.map(function(c){return c.label+': '+(c.before===''||c.before==null?'(blank)':c.before)+' → '+(c.after===''||c.after==null?'(blank)':c.after);}).join('; ')):'')
+    +' — '+correctReasonText(reasonCode)+(e.reason?(': '+e.reason):'');
+  logAction(summary);
+  (state.audit=state.audit||[]).unshift({t:e.at,user:e.by,module:'Correction',po:'',brand:'',field:op+' '+type,old:'',val:summary});
+  return e;
+}
+/* who may do what, by record type and operation. hardRole only — never canEdit. */
+function correctAllowed(type,op){
+  var d=CORRECT_ENTITY[type]; if(!d) return false;
+  var roles=(op==='REVERSE')?(d.reverse||[]):(d.amend||[]);
+  return hardRole(roles);
+}
+
+/* ---- the single modal ---- */
+var correctForm=null;
+function openCorrect(type,id){
+  var d=CORRECT_ENTITY[type]; if(!d){toast('That record type cannot be corrected yet');return;}
+  var rec=d.find(id); if(!rec){toast('Record not found');return;}
+  if(!correctAllowed(type,'AMEND') && !correctAllowed(type,'REVERSE')){
+    toast('You do not have authority to correct a '+d.label.toLowerCase()); return; }
+  correctForm={type:type,id:id,op:(correctAllowed(type,'AMEND')?'AMEND':'REVERSE'),
+               vals:{},reasonCode:'',reason:''};
+  renderCorrect(); $('modalBg').classList.add('open');
+}
+function correctTarget(d,rec){ return d.target?d.target(rec):rec; }
+function correctSetOp(op){ correctForm.op=op; renderCorrect(); }
+function renderCorrect(){
+  var f=correctForm; if(!f){closeModal();return;}
+  var d=CORRECT_ENTITY[f.type]; var rec=d.find(f.id); if(!rec){closeModal();return;}
+  var tgt=correctTarget(d,rec); var label=d.name(rec);
+  var canA=correctAllowed(f.type,'AMEND'), canR=correctAllowed(f.type,'REVERSE');
+  var opBtn=function(op,txt,on){ return on?('<button type="button" class="sm '+(f.op===op?'green':'ghost')+'" onclick="correctSetOp(\''+op+'\')">'+(f.op===op?'&#10003; ':'')+txt+'</button>'):''; };
+
+  var body='';
+  if(f.op==='AMEND'){
+    var flds=(d.fields||[]).filter(function(x){ return !x.roles || hardRole(x.roles); });
+    body='<div class="formgrid">'+flds.map(function(x){
+      var cur=(f.vals[x.k]!==undefined)?f.vals[x.k]:(tgt[x.k]==null?'':tgt[x.k]);
+      var chg=(String(cur)!==String(tgt[x.k]==null?'':tgt[x.k]));
+      return '<div class="fld"><label>'+x.l+(chg?' <span style="color:var(--amber)">· changed</span>':'')+'</label>'
+        +'<input type="'+(x.t==='number'?'number':(x.t==='date'?'date':'text'))+'" value="'+_av(cur)+'" '
+        +'oninput="correctForm.vals[\''+x.k+'\']=this.value" onchange="correctForm.vals[\''+x.k+'\']=this.value;renderCorrect()"></div>';
+    }).join('')+'</div>'
+    +'<div class="muted" style="font-size:11px;margin-top:8px">Only the fields you actually change are recorded. Everything else is left alone.</div>';
+  } else {
+    var casc=(d.cascade?d.cascade(rec):[]);
+    var blocked=(d.blocks?d.blocks(rec):[]);
+    body='<div style="padding:11px 13px;border:1px solid '+(blocked.length?'var(--red)':'var(--amber)')+';background:'+(blocked.length?'#fdecec':'var(--amber-50)')+';border-radius:9px">'
+      +'<div style="font-weight:700;font-size:12.5px;margin-bottom:6px">'+(blocked.length?'This cannot be reversed':'Reversing this will also:')+'</div>'
+      +(blocked.length
+        ? '<div style="font-size:12px">It is referenced by material that has already left or is on a truck:<ul style="margin:6px 0 0 16px">'+blocked.map(function(x){return '<li>'+_pe(x)+'</li>';}).join('')+'</ul><div style="margin-top:7px">Deal with those first. Nothing here will silently unpick a shipment.</div></div>'
+        : (casc.length?('<ul style="margin:0 0 0 16px;font-size:12px">'+casc.map(function(x){return '<li>'+_pe(x)+'</li>';}).join('')+'</ul>'):'<div class="muted" style="font-size:12px">Nothing else moves.</div>'))
+      +'</div>'
+      +'<div class="muted" style="font-size:11px;margin-top:8px">The record is <b>not deleted</b>. It stays visible, struck through, with this reason on it — that is what keeps a batch traceable years from now.</div>';
+  }
+
+  $('modal').className='modal m-md';
+  $('modal').innerHTML='<div class="mh"><h2>Correct a record</h2><div class="sub">'+_pe(d.label)+' &middot; '+_pe(label)+'</div></div>'
+    +'<div class="mb">'
+    +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">'+opBtn('AMEND','Amend a value',canA)+opBtn('REVERSE','Reverse it — it should not exist',canR)+'</div>'
+    +body
+    +'<div class="formgrid" style="margin-top:12px;grid-template-columns:1fr">'
+    +'<div class="fld"><label>Why <span style="color:var(--red)">*</span></label>'
+    +'<select onchange="correctForm.reasonCode=this.value;renderCorrect()"><option value="">— pick a reason —</option>'
+    + CORRECT_REASONS.map(function(r){return '<option value="'+r.k+'" '+(f.reasonCode===r.k?'selected':'')+'>'+r.t+'</option>';}).join('')+'</select></div>'
+    +'<div class="fld fld-long"><label>What happened <span style="color:var(--red)">*</span></label>'
+    +'<textarea rows="3" oninput="correctForm.reason=this.value" placeholder="what went wrong, and how you know">'+_tx(f.reason)+'</textarea></div>'
+    +'</div>'
+    +'<div class="muted" style="font-size:11px;margin-top:8px">Recorded as <b>'+_pe((state.currentUser&&state.currentUser.name)||state.role)+'</b> &middot; '+_pe(state.role)+' &middot; '+evToday()+'</div>'
+    +'</div>'
+    +'<div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="green" onclick="applyCorrect()">'+(f.op==='AMEND'?'Apply correction':'Reverse this record')+'</button></div>';
+}
+function applyCorrect(){
+  var f=correctForm; if(!f)return;
+  var d=CORRECT_ENTITY[f.type]; var rec=d.find(f.id); if(!rec){toast('Record not found');return;}
+  if(!correctAllowed(f.type,f.op)){toast('You do not have authority for that');return;}
+  if(!f.reasonCode){toast('Pick a reason');return;}
+  if((f.reason||'').trim().length<10){toast('Say what happened — a sentence, not a word');return;}
+  var tgt=correctTarget(d,rec), label=d.name(rec);
+
+  if(f.op==='AMEND'){
+    var changes=[];
+    (d.fields||[]).forEach(function(x){
+      if(f.vals[x.k]===undefined) return;
+      if(x.roles && !hardRole(x.roles)) return;
+      var before=(tgt[x.k]==null?'':tgt[x.k]);
+      var after=(x.t==='number')?(+f.vals[x.k]||0):f.vals[x.k];
+      if(String(before)===String(after)) return;
+      changes.push({field:x.k,label:x.l,before:before,after:after});
+      tgt[x.k]=after;
+    });
+    if(!changes.length){toast('Nothing changed');return;}
+    recordCorrection('AMEND',f.type,f.id,label,changes,f.reasonCode,f.reason,[]);
+    toast(changes.length+' value(s) corrected');
+  } else {
+    var blocked=(d.blocks?d.blocks(rec):[]);
+    if(blocked.length){toast('Cannot reverse — '+blocked.length+' shipment(s) reference this record');return;}
+    var casc=(d.cascade?d.cascade(rec):[]);
+    if(d.doReverse) d.doReverse(rec); else rec.reversed=true;
+    recordCorrection('REVERSE',f.type,f.id,label,[],f.reasonCode,f.reason,casc);
+    toast('Reversed — the record stays on file, struck through');
+  }
+  correctForm=null; save(); closeModal(); render();
+}
+/* Legacy bridge: the 14 reconLog() call sites keep working AND now leave a
+   structured trace, so the register is complete from day one rather than from
+   the day the last call site is rewritten. */
+function reconCorrection(type,id,label,changes,reason){
+  return recordCorrection('AMEND',type,id,label,changes,'other',reason||'recorded through the legacy Data Fix path',[]);
+}
 /* ===== SAMPLING — ISO 2859-1, added 2026-08-21
 
    Tahir: "make a simple, realistic inspection which matches bare minimum
@@ -5153,7 +5427,7 @@ function packPriceBlock(o,l,form,fname){
   return box('var(--amber-50)','var(--amber)',
     '<div style="font-weight:600;font-size:12.5px">'+head+'</div>'
     +'<div class="muted" style="font-size:11.5px;margin:4px 0 8px">'+note+'</div>'
-    +'<input type="number" value="'+cur+'" oninput="'+fname+'.price=this.value;'+reRender+'" style="max-width:180px" placeholder="price per pack">'
+    +'<input type="number" value="'+cur+'" oninput="'+fname+'.price=this.value" onchange="'+fname+'.price=this.value;'+reRender+'" style="max-width:180px" placeholder="price per pack">'
     +diff
     +tick(!!form.priceOk,'I verified this is what is printed on the pack',fname+'.priceOk=this.checked'));
 }
@@ -6953,9 +7227,9 @@ function renderPackInspect(){ const f=packInspForm; if(!f){closeModal();return;}
           <div class="muted" style="font-size:11.5px;margin-bottom:8px">${aqlLine(pl)}</div>
           <div class="formgrid" style="grid-template-columns:repeat(2,minmax(0,1fr))">
             <div class="fld"><label>Bags actually opened and checked</label>
-              <input type="number" min="0" value="${bc}" oninput="packInspForm.bagsChecked=this.value;renderPackInspect()" placeholder="${pl?('at least '+pl.sample):'how many?'}"></div>
+              <input type="number" min="0" value="${bc}" oninput="packInspForm.bagsChecked=this.value" onchange="packInspForm.bagsChecked=this.value;renderPackInspect()" placeholder="${pl?('at least '+pl.sample):'how many?'}"></div>
             <div class="fld"><label>Defective bags found</label>
-              <input type="number" min="0" value="${df}" oninput="packInspForm.defects=this.value;renderPackInspect()" placeholder="0"></div>
+              <input type="number" min="0" value="${df}" oninput="packInspForm.defects=this.value" onchange="packInspForm.defects=this.value;renderPackInspect()" placeholder="0"></div>
           </div>
           ${short?`<div style="color:#8a5a00;font-weight:700;font-size:11.5px;margin-top:7px">Below the sample the standard asks for (${pl.sample}). It will be recorded as a reduced sample &mdash; say why in the remarks.</div>`:''}
           ${over?`<div style="color:var(--red);font-weight:700;font-size:11.5px;margin-top:7px">${df} defective is at or past the reject number (${pl.reject}). The standard says reject this lot.${pl.verified?'':' <span style="font-weight:400">— but these numbers are not yet verified, so this is advice, not a block.</span>'}</div>`:''}
@@ -7257,7 +7531,29 @@ function startLoading(dispId){ if(!(canEdit(['Supply Chain'])||state.role==='COO
 function issueGatePass(dispId){ if(!(canEdit(['Supply Chain'])||state.role==='COO')){toast('Supply Chain only');return;} var rows=shipRowsOf(dispId); if(!rows.length)return; if(rows[0].stage!=='loading'){toast('Start loading before issuing the Gate Pass');return;} if(rows[0].gatePass){toast('Gate Pass already issued: '+rows[0].gatePass);return;} var gp=nextGatePassNo(); rows.forEach(function(s){ s.gatePass=gp; }); logAction('Gate Pass '+gp+' issued — DC '+(rows[0].dc||'')+' ('+dispId+')'); save(); render(); toast('Gate Pass '+gp+' issued'); }
 /* Plant Manager release = approval. Requires the Gate Pass to be issued (DC is already auto-generated).
    On release: stage → in_transit, DC approved, and the dispatched quantity is counted (deferred until now). */
-function approveRelease(dispId){ if(!hardRole(['Plant Manager'])){ toast('Plant Manager / COO releases the truck'); return; } var rows=shipRowsOf(dispId); if(!rows.length)return; if(rows[0].stage!=='loading'){ toast('Truck must be in Loading before release'); return; } if(!rows[0].gatePass && dcControlOn(rows[0].dispatch||TODAY.toISOString().slice(0,10))){ toast('Issue the Gate Pass before release'); return; } var who=(state.currentUser&&state.currentUser.name)||state.role; var dt=TODAY.toISOString().slice(0,10);
+function approveRelease(dispId){ if(!hardRole(['Plant Manager'])){ toast('Plant Manager / COO releases the truck'); return; } var rows=shipRowsOf(dispId); if(!rows.length)return; if(rows[0].stage!=='loading'){ toast('Truck must be in Loading before release'); return; } if(!rows[0].gatePass && dcControlOn(rows[0].dispatch||TODAY.toISOString().slice(0,10))){ toast('Issue the Gate Pass before release'); return; }
+  /* FAULT 8, closed 2026-08-21 on Tahir's decision.
+
+     Release checked the role, the stage and the gate pass — but never whether the
+     shipment-level pre-shipment inspection had passed. `markDelivered` and
+     `openDeliveryConfirm` both already refuse when it is pending, so release was
+     the one step in the chain that did not. Fault 4 showing up again: the same
+     rule applied in two places and not a third.
+
+     Blast radius checked against live data before adding it: 135 shipments, all
+     135 carrying a passing inspection, and zero trucks sitting in Loading. This
+     blocks nothing that exists today. It blocks the next one that tries.
+
+     Material on the truck has always passed LOT-level QA — `readyLinesFor()` only
+     offers inspected-and-cleared quantity. What could be skipped was the second,
+     truck-level check. This is the gate that makes intent 4 true: nothing leaves
+     the factory unless somebody checked it. */
+  { var _un=rows.filter(function(s){ return !(s.qa && s.qa.pass); });
+    if(_un.length){
+      var _f=rows.filter(function(s){ return s.qa && s.qa.fail; }).length;
+      toast(_f ? 'This truck FAILED pre-shipment inspection — it cannot be released. Correct it and re-inspect.'
+               : 'Pre-shipment inspection has not passed on this truck yet — QA must inspect it before it can be released.');
+      return; } } var who=(state.currentUser&&state.currentUser.name)||state.role; var dt=TODAY.toISOString().slice(0,10);
   var exf=(rows[0].transportType==='Ex-factory'); /* customer collects → closes at the gate, no in-transit */
   rows.forEach(function(s){ s.dcStatus='approved'; s.approvedBy=who; s.approvedDate=dt; var o=(state.orders||[]).find(function(x){return x.po===s.po;}); var l=o&&((o.lines||[]).find(function(x){return x.id===s.lid;})||(o.lines||[]).find(function(x){return x.brand===s.brand;})); if(!s.dispCounted){ if(l){ l.dispatched=(+l.dispatched||0)+(+s.kg||0); l.dispatchDate=l.dispatchDate||dt; } s.dispCounted=true; } if(exf){ s.stage='delivered'; s.delivered=dt; s.deliveredVia='Collected at factory'; if(l){ l.delivered=(+l.delivered||0)+(+s.kg||0); l.deliveredDate=dt; } } else { s.stage='in_transit'; } });
   logAction('DC '+(rows[0].dc||'')+' released by '+who+(exf?' — collected at factory':' — truck dispatched (in transit)')); (state.audit=state.audit||[]).unshift({t:new Date().toISOString(),user:state.role,module:'Shipment',po:(rows[0].po||''),brand:rows.length+' line(s)',field:(exf?'Released · collected':'Released'),old:'loading',val:dt+' · '+who}); save(); render(); toast('DC '+(rows[0].dc||'')+(exf?' released — collected at factory':' released — in transit')); }
@@ -8264,6 +8560,25 @@ var RB_DATASETS={
     rows:function(){ var m=state.acDefer||{}; var out=[]; var items=(typeof actionItems==='function')?actionItems():[]; items.forEach(function(it){ var k=(typeof acKey==='function')?acKey(it):''; var d=m[k]; if(d&&d.until){ out.push({action:it.label||'',po:(it.o&&it.o.po)||'',client:(it.o&&it.o.client)||'',product:(it.l&&it.l.brand)||'',role:it.role||'',reason:d.reason||'',until:d.until||'',by:d.by||'',at:d.at||''}); } }); return out; },
     fields:[{k:'action',l:'Action',t:'dim'},{k:'po',l:'PO',t:'dim'},{k:'client',l:'Client',t:'dim'},{k:'product',l:'Product',t:'dim'},{k:'role',l:'Role',t:'dim'},{k:'reason',l:'Reason',t:'dim'},{k:'until',l:'Returns on',t:'dim'},{k:'by',l:'Deferred by',t:'dim'},{k:'at',l:'Deferred on',t:'dim'}],
     filters:['role','reason','client']},
+  corrections:{label:'Corrections · who changed what, and why',dateKey:'date',
+    /* The register. Forty-seven "keying errors" on the packing screen is an
+       instruction to go and look at that screen; forty-seven free-text sentences
+       are not. That is the whole reason corrections are structured now. */
+    rows:function(){ return (state.corrections||[]).map(function(c){
+      var chg=(c.changes||[]).map(function(x){ return x.label+': '+(x.before===''||x.before==null?'(blank)':x.before)+' → '+(x.after===''||x.after==null?'(blank)':x.after); }).join('; ');
+      return { date:String(c.at||'').slice(0,10),
+               when:String(c.at||'').replace('T',' ').slice(0,16),
+               op:c.op||'', type:((CORRECT_ENTITY[c.entityType]&&CORRECT_ENTITY[c.entityType].label)||c.entityType||''),
+               record:c.entityLabel||'', by:c.by||'', role:c.byRole||'', account:c.byUser||'',
+               reasonCode:correctReasonText(c.reasonCode), reason:c.reason||'',
+               changed:chg, fields:(c.changes||[]).length,
+               cascade:(c.cascade||[]).join(' · ') }; }); },
+    fields:[{k:'when',l:'When',t:'dim'},{k:'op',l:'Operation',t:'dim'},{k:'type',l:'Record type',t:'dim'},
+            {k:'record',l:'Record',t:'dim'},{k:'by',l:'Corrected by',t:'dim'},{k:'role',l:'Role',t:'dim'},
+            {k:'reasonCode',l:'Reason',t:'dim'},{k:'reason',l:'What happened',t:'dim'},
+            {k:'changed',l:'Changed',t:'dim'},{k:'cascade',l:'Also moved',t:'dim'},
+            {k:'fields',l:'Fields changed',t:'meas'}],
+    filters:['op','type','by','role','reasonCode']},
   anomalies:{label:'Anomalies · delays / holds / checks',dateKey:'date',
     rows:function(){ var out=[]; var today=TODAY.toISOString().slice(0,10);
       (state.orders||[]).forEach(function(o){ (o.lines||[]).forEach(function(l){
@@ -8607,9 +8922,9 @@ function rpTrace(){
     return `<details class="qcgrp"><summary><b style="color:var(--navy)">${g.brandB}</b> · ${g.brand}<span class="c">${fmt(g.total)} Kg/L · ${bases.length} base batch${bases.length===1?'':'es'}</span></summary><div style="overflow:auto"><table><thead><tr><th>Base batch</th><th>Base product</th><th style="text-align:right">Qty (Kg/L)</th><th style="text-align:right">Share</th></tr></thead><tbody>${rows}<tr style="border-top:2px solid var(--navy);background:var(--navy-50)"><td colspan="2"><b>Total — ${g.brandB}</b></td><td style="text-align:right"><b>${fmt(g.total)}</b></td><td></td></tr></tbody></table></div></details>`;
   }).join('');
   // per-run flat list (audit-level)
-  const rows=pk.map(p=>({baseB:baseOf(p),brandB:p.brandBatchNo||p.baseBatchNo||'—',baseName:p.base||'',brand:p.brand,po:p.po||'',kg:p.kg||0,date:p.date||''}));
+  const rows=pk.map(p=>({id:p.id,rev:!!p.reversed,baseB:baseOf(p),brandB:p.brandBatchNo||p.baseBatchNo||'—',baseName:p.base||'',brand:p.brand,po:p.po||'',kg:p.kg||0,date:p.actualDate||p.date||''}));
   rows.sort((a,b)=>(a.brandB+a.date).localeCompare(b.brandB+b.date));
-  const flat=`<div class="card"><h3>Every pack run <span class="hint">${rows.length}</span></h3><div class="muted" style="font-size:11px;margin-bottom:8px">The raw log behind the composition above — one row per packing run.</div><div style="overflow:auto;max-height:420px"><table><thead><tr><th>Base batch</th><th>Base product</th><th>→ Brand batch</th><th>Brand</th><th>PO</th><th style="text-align:right">Qty</th><th>Date</th></tr></thead><tbody>${rows.map(r=>`<tr><td><b>${r.baseB}</b></td><td class="muted">${r.baseName}</td><td><b style="color:var(--navy)">${r.brandB}</b></td><td>${r.brand}</td><td>${r.po}</td><td style="text-align:right">${fmt(r.kg)}</td><td class="muted">${r.date}</td></tr>`).join('')}</tbody></table></div></div>`;
+  const flat=`<div class="card"><h3>Every pack run <span class="hint">${rows.length}</span></h3><div class="muted" style="font-size:11px;margin-bottom:8px">The raw log behind the composition above — one row per packing run.</div><div style="overflow:auto;max-height:420px"><table><thead><tr><th>Base batch</th><th>Base product</th><th>→ Brand batch</th><th>Brand</th><th>PO</th><th style="text-align:right">Qty</th><th>Date</th><th></th></tr></thead><tbody>${rows.map(r=>`<tr${r.rev?' style="text-decoration:line-through;opacity:.5"':''}><td><b>${r.baseB}</b></td><td class="muted">${r.baseName}</td><td><b style="color:var(--navy)">${r.brandB}</b></td><td>${r.brand}</td><td>${r.po}</td><td style="text-align:right">${fmt(r.kg)}</td><td class="muted">${r.date}</td><td style="text-align:right;white-space:nowrap">${r.rev?'<span class="pill" style="background:var(--panel2);color:var(--mut);font-size:9px">reversed</span>':((correctAllowed('packingLot','AMEND')||correctAllowed('packingLot','REVERSE'))?`<button class="sm ghost" style="font-size:10.5px;padding:3px 8px" onclick="openCorrect('packingLot','${r.id}')">Correct</button>`:'')}</td></tr>`).join('')}</tbody></table></div></div>`;
   return `<div class="card"><h3>Brand batch composition — every Kg traced to its base <span class="hint">${glist.length} brand batch${glist.length===1?'':'es'}</span></h3><div class="muted" style="font-size:11.5px;margin:2px 0 10px">Each brand batch (printed on the client's pack) is built from one or more <b>base production batches</b>. Tap a brand batch to see which base batches make it up and how many Kg each contributed — the total reconciles to the packed quantity, so <b>every Kg is traceable</b> to a base batch (any number of base batches per brand batch).</div>${comp}</div>${flat}`;
 }
 function rpLog(){ const rows=(state.audit||[]).map(x=>({when:(x.t||'').replace('T',' ').slice(0,16),date:(x.t||'').slice(0,10),user:x.user||'',module:x.module||'',po:x.po||'',brand:x.brand||'',field:x.field||'',val:(x.val!=null?String(x.val):'')}));

@@ -232,3 +232,162 @@ times"* become visible facts rather than suspicions.
 ---
 
 *Spec written 2026-08-21. Module: O2S. Status: not implemented.*
+
+---
+
+# BUILT — 2026-08-21 · the spine, AMEND and REVERSE
+
+Tahir: *"a universal path and strategy to edit and correct with a log of who
+corrected and when… right now we have multiple paths and we need to close all
+and keep one which best suits a system which has to become an ERP 2–3 years
+down the line."*
+
+## What was actually there
+
+A "correction" was **a sentence**. `reconLog()` prefixed `RECONCILE:` onto free
+text in the action log — 14 call sites, no structure. You could not count
+corrections, filter them by person, or reconstruct what a record held before
+one. `state.audit` carried some field changes but stamped `user: state.role` —
+the job, not the person.
+
+For a system meant to become an ERP, that is the gap that matters. Not "there
+are eight editors" — that is a symptom. The cause is that a correction was not
+a **record**.
+
+## What exists now
+
+### One ledger, append-only
+
+`state.corrections[]`. Never edited, never deleted. Each entry is a complete,
+self-describing fact — the change can be reconstructed from the entry alone,
+without the record it changed:
+
+| Field | |
+|---|---|
+| `id` `at` | identity and an immutable timestamp |
+| `by` `byUser` `byRole` | **the person**, their account, and the role they held |
+| `op` | `AMEND` · `REVERSE` · `SUPERSEDE` |
+| `entityType` `entityId` `entityLabel` | what was corrected — the label captured **at the time**, because labels change |
+| `changes[]` | field, label, **before**, **after** |
+| `reasonCode` `reason` | a code *and* a sentence |
+| `cascade[]` | everything else that moved |
+
+It still writes to `actionLog` and `audit`, so nothing that reads those goes
+blind.
+
+### One registry, not eight editors
+
+`CORRECT_ENTITY` describes each record type **once**: how to find it, what to
+call it, which fields may be amended, who may act, what cascades, and what
+blocks a reversal.
+
+**This is the property that has to hold when this becomes an ERP.** Adding a
+record type is a registry entry, not another bespoke editor — so the correction
+path cannot grow a ninth mechanism the next time somebody adds a table.
+
+Registered today: **purchase order · PO product line · packing run · shipment ·
+production batch.**
+
+### One modal
+
+`openCorrect(type, id)` — the same screen everywhere, reached from the record
+you are already looking at. No separate destination to remember, which is most
+of why the old paths went unused.
+
+### Reason codes, so corrections become countable
+
+*Keying error · wrong record · quantity miscount · price wrong on the PO ·
+recorded late · customer amended · duplicate · other.*
+
+Forty-seven keying errors on the packing screen is an instruction to go and look
+at that screen. Forty-seven free-text sentences are not.
+
+### Authority, by record type and operation
+
+Uses **`hardRole()`, never `canEdit()`** — see the 2026-07-30 incident comment:
+a screen-level Edit grant once silently unlocked approval steps. A correction is
+an approval.
+
+| Record | Amend | Reverse |
+|---|---|---|
+| Purchase order | KAM, COO | COO |
+| PO product line | KAM, COO *(invoice price: CFO, COO)* | COO |
+| Packing run | Production, COO | Production, Plant Manager, COO |
+| Shipment | Supply Chain, COO | Supply Chain, Plant Manager, COO |
+| Production batch | Production, COO | Plant Manager, COO |
+
+Verified: a KAM cannot touch a packing run; Production cannot touch a PO line.
+
+### Nothing is ever deleted
+
+A reversed record stays visible, **struck through**, with its reason. That is
+what keeps a batch number traceable in five years.
+
+### The cascade is shown before it happens
+
+Reversing a packing run says what will move, then moves it:
+
+> - Batch B-88 packed 1,200 → 0 Kg
+> - PO-1 · Zorro packed 1,200 → 0 Kg
+> - Voids the inspection dated 2026-08-09 (PASS)
+
+And it **refuses** rather than unpicking something that has left:
+
+> *Cannot reverse — 1 shipment(s) reference this record: DC-9 (500 Kg, in transit)*
+
+### The register
+
+**Reports → Corrections · who changed what, and why.** Filterable by operation,
+record type, person, role and reason code.
+
+## The one that mattered most
+
+**A packing run could not be corrected at all.** It can now be amended *and*
+reversed, with the batch and the PO line returning to their correct quantities
+and the inspection voided. That was the most damaging gap in the register.
+
+## Verified
+
+| | |
+|---|---|
+| Authority | KAM blocked on a packing run; Production blocked on a PO line |
+| AMEND | person, account, role, field-level before→after, reason all recorded |
+| No reason | blocked |
+| One-word reason | blocked — *"a sentence, not a word"* |
+| REVERSE | cascade warned, then applied; ledger holds all three cascade lines |
+| REVERSE with a shipment attached | **refused**, naming the DC |
+| Register | structured row, every column populated |
+
+## Not built
+
+**SUPERSEDE.** A QCM-approved COA and a passed inspection still cannot be
+replaced with a corrected revision. Both need a revision number on the record
+and both print, so it is a larger change than AMEND or REVERSE and deserves its
+own pass.
+
+**The 14 legacy `reconLog()` sites.** They still work and still log. A bridge —
+`reconCorrection()` — exists so they can be moved onto the ledger one at a time
+without a big-bang rewrite. Data Fix should be the first to move.
+
+---
+
+# A bug found while building this, and fixed in six places
+
+Re-rendering a form on `oninput` **destroys and rebuilds the input**, so focus is
+lost after the first keystroke. Typing `ZR-2026-0099` landed as **`ZR-42Z`**.
+
+Four of the six were mine, added the same day — the correction fields, the two
+sampling boxes and the packing price. Two were pre-existing (RM receive quantity,
+RM can-make quantity) and had the same fault; fixed while there rather than left
+broken.
+
+The pattern now: **store on `oninput`, re-render on `onchange`.** The conditional
+warnings still appear — they just wait until you have finished typing.
+
+*This is worth remembering: every assertion-based test passed, because tests set
+values directly instead of typing them. Only a browser typing character by
+character found it.*
+
+---
+
+*Spine, AMEND and REVERSE built and verified 2026-08-21. Module: O2S.*

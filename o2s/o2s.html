@@ -1618,7 +1618,7 @@ function ensureState(s){
   s.users=(s.users&&s.users.length)?s.users:deepClone(SEED.users||[]); if(s.currentUser===undefined)s.currentUser=null;
   s.rmRequests=s.rmRequests||[]; s.productionLog=s.productionLog||[]; s.packingLog=s.packingLog||[];
   s.actionLog=s.actionLog||[]; s.shipments=s.shipments||[]; s.inspections=s.inspections||[]; s.warehouses=s.warehouses||SEED.warehouses.slice();
-  s.rawStock=s.rawStock||{}; s.rmMovements=s.rmMovements||[]; s.audit=s.audit||[]; s.masters=s.masters||deepClone(SEED.masters||{}); s.batches=s.batches||[]; s.packedStock=s.packedStock||{}; s.packingLog=s.packingLog||[]; s.orders=s.orders||[]; if(s.seq==null)s.seq=1000; ensureRecordIds(s); if(s.dataFixEnabled==null)s.dataFixEnabled=true; if(!Array.isArray(s.prs))s.prs=[]; (s.batches||[]).forEach(function(b){ if((b.producedKg||0)>0 && (!Array.isArray(b.lots)||!b.lots.length)){ b.lots=[{id:'LOT'+(s.seq++), lotNo:(b.batchNo||'B')+'-L1', qty:b.producedKg, date:b.openedDate||'', by:b.by||'', coa:(b.coa||null), migrated:true}]; } }); ensureMasters(s); ensureProductionModel(s); dedupePackingLots(s); migrateLotTracking(s); migratePackingLotLidV1(s); fixRudolfDupV1(s); reconcileLotShipKgV1(s); dedupeShipmentsV1(s); healPRFlags(s); migrateBrandNames(s); loadBaseRecipesV2(s); loadBlendRecipesV1(s); loadBlendRecipesV2(s); purgeImportedProduction(s); purgeImportDuplicates(s); purgeImportedNoTwin(s); fixPhantomLotVU26134(s); fixVU26144ProdLogV1(s); fixVU26144ProdLogV2(s); healVU26144ProdLog(s); backfillDisposedV1(s); consolidateByproductV1(s); dedupeByproductV1(s); reconcileShipLotsV1(s); normalizeVZincBase(s); normalizeBoronBase(s); seedByproductRulesV1(s); seedRolesV1(s); bumpSeqV1(s); healDupBatchIdsV1(s); fixVB26003LotRenameV1(s); fixRudolfTBPPOV1(s); return s;
+  s.rawStock=s.rawStock||{}; s.rmMovements=s.rmMovements||[]; s.audit=s.audit||[]; s.masters=s.masters||deepClone(SEED.masters||{}); s.batches=s.batches||[]; s.packedStock=s.packedStock||{}; s.packingLog=s.packingLog||[]; s.orders=s.orders||[]; if(s.seq==null)s.seq=1000; ensureRecordIds(s); if(s.dataFixEnabled==null)s.dataFixEnabled=true; if(!Array.isArray(s.prs))s.prs=[]; (s.batches||[]).forEach(function(b){ if((b.producedKg||0)>0 && (!Array.isArray(b.lots)||!b.lots.length)){ b.lots=[{id:'LOT'+(s.seq++), lotNo:(b.batchNo||'B')+'-L1', qty:b.producedKg, date:b.openedDate||'', by:b.by||'', coa:(b.coa||null), migrated:true}]; } }); ensureMasters(s); ensureProductionModel(s); dedupePackingLots(s); migrateLotTracking(s); migratePackingLotLidV1(s); fixRudolfDupV1(s); reconcileLotShipKgV1(s); dedupeShipmentsV1(s); healPRFlags(s); migrateBrandNames(s); loadBaseRecipesV2(s); loadBlendRecipesV1(s); loadBlendRecipesV2(s); purgeImportedProduction(s); purgeImportDuplicates(s); purgeImportedNoTwin(s); fixPhantomLotVU26134(s); fixVU26144ProdLogV1(s); fixVU26144ProdLogV2(s); healVU26144ProdLog(s); backfillDisposedV1(s); consolidateByproductV1(s); dedupeByproductV1(s); reconcileShipLotsV1(s); normalizeVZincBase(s); normalizeBoronBase(s); seedByproductRulesV1(s); seedRolesV1(s); bumpSeqV1(s); healDupBatchIdsV1(s); fixVB26003LotRenameV1(s); fixRudolfTBPPOV1(s); linkShipBatchLotsV1(s); return s;
 }
 /* 2026-07-28 fix: seq can lag behind ids already in the data (stale tab saved over a
    newer state), so bump it above every numeric id suffix before anything generates ids. */
@@ -2861,7 +2861,13 @@ function screenEntry(){
      <div class="fld"><label>Priority</label><select id="e_pri"><option>Normal</option><option>High</option><option>Critical</option><option>Low</option></select></div>
      <div class="fld"><label>PO Received</label><input id="e_recv" type="date" value="${TODAY.toISOString().slice(0,10)}" oninput="validate()"></div>
      <div class="fld"><label>Promised Delivery</label><input id="e_prom" type="date" value="${new Date(TODAY.getTime()+7*864e5).toISOString().slice(0,10)}" oninput="validate()"></div>
-     ${['Cobo','Vgreen','Dealer'].includes(entryChannel)?`<div class="fld"><label>Delivery focal person</label><select id="e_focal" onchange="entryFocal=this.value"><option value="">\u2014 pick \u2014</option>${(((state.masters&&state.masters.focalPersons)||[])).map(p=>`<option ${p===entryFocal?'selected':''}>${p}</option>`).join('')}</select></div>`:''}
+     ${/* Every channel, 2026-08-21. This was offered only for Cobo / VGreen /
+          Dealer, so 36 of 44 live POs carry no focal person and the Delivery
+          Challan prints an empty FOCAL PERSON line \u2014 including every Syngenta
+          order, which is White Label. Free text as well as the master list:
+          a one-off contact on a White Label load is not worth a master record.
+          Supply Chain can still override it per truck at dispatch. */''}
+     <div class="fld"><label>Delivery focal person</label><input type="text" id="e_focal" list="e_focal_list" value="${_av(entryFocal)}" oninput="entryFocal=this.value" placeholder="who receives it \u2014 optional"><datalist id="e_focal_list">${(((state.masters&&state.masters.focalPersons)||[])).map(p=>`<option>${p}</option>`).join('')}</datalist></div>
      <div class="fld"><label>Client PO # ${isManualPO()?'<span class="tag">manual</span>':'<span class="tag">auto on submit</span>'}</label>
        ${isManualPO()?`<input id="e_po" type="text" placeholder="type client's PO#" oninput="validate()">`
          :`<input id="e_po" type="text" value="${entryChannel?genPO(TODAY.toISOString().slice(0,10)):''}" disabled>`}</div>
@@ -4247,7 +4253,20 @@ function setBatchNo(batchId,raw){ if(!(hardRole(['Production']))){toast('Product
   const fy=fyKey(b.openedDate||b.closedDate||b.date||TODAY.toISOString().slice(0,10));
   if(batchOwnerInFY(no,fy) && (b.batchNo||'').trim()!==no){ toast('Batch # "'+no+'" already used this financial year ('+fy+') — use a unique number.'); return; }
   if(!validateBatchNo(no) && typeof confirm==='function' && !confirm('Batch number "'+no+'" doesn\'t match the usual format. Set it anyway?')) return;
-  const old=(b.batchNo||'').trim(); b.batchNo=no;
+  const old=(b.batchNo||'').trim();
+  /* SETTING a blank number is Production's job and stays here. CHANGING one
+     that already exists is a correction to an identity — it goes through the
+     one path, where the authority table and the shipped/inspected lock apply,
+     and where it leaves a reason on the register. 2026-08-21, Tahir:
+     "a batch number change authorisation should be done through a strong gate". */
+  if(old && old!==no){
+    if(typeof openCorrect==='function'){
+      toast('Changing an existing batch number goes through Correct — it is an identity, not a value.');
+      openCorrect('batch', b.id);
+    } else { toast('Changing an existing batch number is Plant Manager / COO only'); }
+    return;
+  }
+  b.batchNo=no;
   (b.lots||[]).forEach((lt,i)=>{ lt.lotNo=no+'-L'+(i+1); if(lt.coa && (!lt.coa.batchNo||lt.coa.batchNo===old)) lt.coa.batchNo=no; });
   if(b.coa && (!b.coa.batchNo||b.coa.batchNo===old)) b.coa.batchNo=no;
   (state.shiftEntries||[]).forEach(se=>{ if(se.batchId===b.id) se.batchNo=no; });
@@ -5094,7 +5113,17 @@ var CORRECT_ENTITY={
     name:function(p){ return p.brand+' · '+(p.brandBatchNo||p.baseBatchNo||'')+' · '+fmt(+p.kg||0)+' Kg · '+p.po; },
     amend:['Production','COO'], reverse:['Production','Plant Manager','COO'],
     fields:[
-      {k:'brandBatchNo', l:'Brand batch # (on the pack)', t:'text'},
+      /* A BATCH NUMBER IS AN IDENTITY, NOT A VALUE — Tahir, 2026-08-21.
+         Once bags carry it, the record must match the bag; changing the record
+         to something else breaks the link to the physical material instead of
+         repairing it. So: Plant Manager or COO only, and impossible once
+         anything has been inspected or shipped under it. A mislabelled bag is a
+         quarantine-and-relabel event on the floor, not a text box in here. */
+      {k:'brandBatchNo', l:'Brand batch # (on the pack)', t:'text', roles:['Plant Manager','COO'],
+       lockedIf:function(p){
+         if((+p.shipKg||0)>0.5) return fmt(Math.round(+p.shipKg||0))+' Kg has already SHIPPED under this number — the bags in the market say it. Quarantine and re-label; do not edit the record.';
+         if((+p.insKg||0)>0.5) return fmt(Math.round(+p.insKg||0))+' Kg has been CLEARED by QA under this number. Withdraw the inspection first if it was wrong.';
+         return null; }},
       {k:'mfgDate',      l:'Mfg date',    t:'date'},
       {k:'expDate',      l:'Expiry date', t:'date'},
       {k:'printedPrice', l:'Price printed on the pack', t:'number'},
@@ -5126,6 +5155,24 @@ var CORRECT_ENTITY={
       var l=o&&((o.lines||[]).find(function(x){return x.id===p.lid;})||(o.lines||[]).find(function(x){return x.brand===p.brand;}));
       if(l){ l.packed=Math.max(0,(+l.packed||0)-(+p.kg||0)); if(l.produced!=null) l.produced=Math.max(+l.packed||0,(+l.produced||0)); }
       p.reversed=true; p.qa=null; p.insKg=0;
+    },
+    /* Without this, amending the number here would change the lot and leave
+       every document that quotes it saying something else. The link has to
+       follow the record. */
+    onAmend:function(p,changes){
+      if(!changes.some(function(c){return c.field==='brandBatchNo';})) return [];
+      var was=changes.filter(function(c){return c.field==='brandBatchNo';})[0].before;
+      var now=p.brandBatchNo||'';
+      var touched=[];
+      (state.shipments||[]).forEach(function(sx){ if(!sx||sx.voided) return;
+        (sx.batches||[]).forEach(function(b){
+          if(b && ((b.lotId&&b.lotId===p.id) || (!b.lotId && String(b.brand||'')===String(was)))){
+            b.brand=now; touched.push('DC '+(sx.dc||sx.id)+' batch line updated'); } }); });
+      (state.inspections||[]).forEach(function(x){ if(!x) return;
+        (x.batches||[]).forEach(function(b){
+          if(b && ((b.lotId&&b.lotId===p.id) || (!b.lotId && String(b.brand||'')===String(was)))){
+            b.brand=now; touched.push('Inspection '+(x.actualDate||x.date||x.id)+' updated'); } }); });
+      return touched;
     }
   },
   shipment:{
@@ -5148,10 +5195,49 @@ var CORRECT_ENTITY={
     name:function(b){ return (b.batchNo||b.id)+' · '+(b.base||'')+(b.po?(' · '+b.po):''); },
     amend:['Production','COO'], reverse:['Plant Manager','COO'],
     fields:[
-      {k:'batchNo',    l:'Batch #',            t:'text'},
+      /* Same rule as the pack number, and this one is wider: the internal batch
+         number is quoted on the COA, the lot numbers, the shift entries and
+         every packing run drawn from it. */
+      {k:'batchNo',    l:'Batch #',            t:'text', roles:['Plant Manager','COO'],
+       lockedIf:function(b){
+         var ins=0, shp=0;
+         (state.packingLog||[]).forEach(function(p){ if(!p||p.reversed||p.baseBatchId!==b.id) return;
+           ins+=(+p.insKg||0); shp+=(+p.shipKg||0); });
+         if(shp>0.5) return fmt(Math.round(shp))+' Kg has already SHIPPED under this batch number. It is on documents the customer holds — it cannot be changed.';
+         if(ins>0.5) return fmt(Math.round(ins))+' Kg has been CLEARED by QA under this batch number. Withdraw the inspection first if it was wrong.';
+         return null; }},
       {k:'openedDate', l:'Opened date',        t:'date'},
       {k:'plannedKg',  l:'Planned (Kg/L)',     t:'number'}
-    ]
+    ],
+    /* Mirrors setBatchNo()'s propagation. Amending the number here without this
+       would leave the COA, the lot numbers and every packing run quoting a
+       batch number that no longer exists. */
+    onAmend:function(b,changes){
+      var ch=changes.filter(function(c){return c.field==='batchNo';})[0];
+      if(!ch) return [];
+      var old=String(ch.before||'').trim(), no=b.batchNo||'';
+      var out=[];
+      (b.lots||[]).forEach(function(lt,i){ lt.lotNo=no+'-L'+(i+1);
+        if(lt.coa && (!lt.coa.batchNo||lt.coa.batchNo===old)) lt.coa.batchNo=no; });
+      if((b.lots||[]).length) out.push((b.lots||[]).length+' lot number(s) and their COAs renumbered');
+      if(b.coa && (!b.coa.batchNo||b.coa.batchNo===old)){ b.coa.batchNo=no; out.push('COA batch number updated'); }
+      var se=0; (state.shiftEntries||[]).forEach(function(x){ if(x.batchId===b.id){ x.batchNo=no; se++; } });
+      if(se) out.push(se+' shift entr'+(se===1?'y':'ies')+' updated');
+      var pl=0; (state.productionLog||[]).forEach(function(p){ if(old && (p.batchNo||'')===old){ p.batchNo=no; pl++; } });
+      if(pl) out.push(pl+' production log row(s) updated');
+      var pk=0; (state.packingLog||[]).forEach(function(p){ if(p && p.baseBatchId===b.id){ p.baseBatchNo=no;
+        if(!((p.brandBatchNo||'').trim()) || p.brandBatchNo===old) p.brandBatchNo=no; pk++; } });
+      if(pk) out.push(pk+' packing run(s) updated');
+      /* documents that quote the internal number — defensive: the lock above
+         means none of these should exist, but legacy rows may predate it */
+      var dcn=0; (state.shipments||[]).forEach(function(sx){ if(!sx||sx.voided) return;
+        (sx.batches||[]).forEach(function(x){ if(x && String(x.batch||'')===old){ x.batch=no; dcn++; } }); });
+      if(dcn) out.push(dcn+' delivery challan line(s) updated');
+      var isn=0; (state.inspections||[]).forEach(function(x){ if(!x) return;
+        (x.batches||[]).forEach(function(y){ if(y && String(y.batch||'')===old){ y.batch=no; isn++; } }); });
+      if(isn) out.push(isn+' inspection line(s) updated');
+      return out;
+    }
   },
 
   /* ================= SUPERSEDE-ONLY RECORD TYPES =================
@@ -5349,6 +5435,13 @@ function renderCorrect(){
     body='<div class="formgrid">'+flds.map(function(x){
       var cur=(f.vals[x.k]!==undefined)?f.vals[x.k]:(tgt[x.k]==null?'':tgt[x.k]);
       var chg=(String(cur)!==String(tgt[x.k]==null?'':tgt[x.k]));
+      /* A field can be locked by the state of the record rather than by role —
+         a batch number that bags already carry, for instance. Show it, show why,
+         and do not offer a box. */
+      var lock=null; try{ lock=x.lockedIf?x.lockedIf(tgt):null; }catch(e){}
+      if(lock) return '<div class="fld"><label>'+x.l+' <span style="color:var(--red)">· locked</span></label>'
+        +'<input type="text" value="'+_av(tgt[x.k]==null?'':tgt[x.k])+'" disabled style="background:var(--panel2);color:var(--mut)">'
+        +'<div class="muted" style="font-size:10.5px;margin-top:4px;color:var(--red)">'+_pe(lock)+'</div></div>';
       return '<div class="fld"><label>'+x.l+(chg?' <span style="color:var(--amber)">· changed</span>':'')+'</label>'
         +'<input type="'+(x.t==='number'?'number':(x.t==='date'?'date':'text'))+'" value="'+_av(cur)+'" '
         +'oninput="correctForm.vals[\''+x.k+'\']=this.value" onchange="correctForm.vals[\''+x.k+'\']=this.value;renderCorrect()"></div>';
@@ -5404,19 +5497,26 @@ function applyCorrect(){
   var tgt=correctTarget(d,rec), label=d.name(rec);
 
   if(f.op==='AMEND'){
-    var changes=[];
+    var changes=[], refused=null;
     (d.fields||[]).forEach(function(x){
       if(f.vals[x.k]===undefined) return;
       if(!correctFieldOK(f.type,x)) return;
       var before=(tgt[x.k]==null?'':tgt[x.k]);
       var after=(x.t==='number')?(+f.vals[x.k]||0):f.vals[x.k];
       if(String(before)===String(after)) return;
+      var lock=null; try{ lock=x.lockedIf?x.lockedIf(tgt):null; }catch(e){}
+      if(lock){ refused=refused||(x.l+' cannot be changed — '+lock); return; }
       changes.push({field:x.k,label:x.l,before:before,after:after});
       tgt[x.k]=after;
     });
+    if(refused){toast(refused);return;}
     if(!changes.length){toast('Nothing changed');return;}
-    recordCorrection('AMEND',f.type,f.id,label,changes,f.reasonCode,f.reason,[]);
-    toast(changes.length+' value(s) corrected');
+    /* Some fields are quoted on other records. The registry says what has to
+       follow, and what followed is recorded as the cascade so the register
+       shows the full blast radius rather than one field. */
+    var after=[]; try{ if(d.onAmend) after=d.onAmend(tgt,changes)||[]; }catch(e){}
+    recordCorrection('AMEND',f.type,f.id,label,changes,f.reasonCode,f.reason,after);
+    toast(changes.length+' value(s) corrected'+(after.length?(' · '+after.length+' linked record(s) followed'):''));
   } else if(f.op==='SUPERSEDE'){
     var sBlk=(d.supBlocks?d.supBlocks(rec):[]);
     if(sBlk.length){toast(sBlk[0]);return;}
@@ -5945,7 +6045,9 @@ function printDC(dispId){ var g=((typeof dispatchGroups==='function')?dispatchGr
   var o=(state.orders||[]).find(function(x){return x.po===po1;});
   var clientNm=g.client||(o&&o.client)||'';
   var cust=(state.customers||[]).find(function(c){return c.name===clientNm;});
-  var focal=(o&&o.focalPerson)||''; var focalC=(cust&&cust.phone)||'';
+  /* The truck's own focal person wins over the PO's — a customer can send a
+     different person to receive a particular load. Falls back to the PO. */
+  var focal=String(g.focalPerson||'').trim()||(o&&o.focalPerson)||''; var focalC=(cust&&cust.phone)||'';
   var soSet={}; (g.rows||[]).forEach(function(r){ if(r.so) soSet[r.so]=1; }); var soList=Object.keys(soSet); var soTxt=soList.length?soList.join(', '):(g.so||'');
   var pend=(g.dcStatus==='pending');
   var meta='No.: <b>'+_pe(g.dc||'')+'</b><br>Date: <b>'+_pe(g.date||'')+'</b><br>SO #: <b>'+_pe(soTxt)+'</b>';
@@ -5958,8 +6060,59 @@ function printDC(dispId){ var g=((typeof dispatchGroups==='function')?dispatchGr
     +(_mv?('<div>'+_mv+'</div>'):'')
     +(g.driver?('<div><span class="lbl">Driver</span>&nbsp; <b>'+_pe(g.driver)+'</b>'+(g.driverContact?(' &middot; '+_pe(g.driverContact)):'')+'</div>'):'')
     +'<div>'+(g.seal?('<span class="lbl">Seal #</span>&nbsp; <b>'+_pe(g.seal)+'</b>&nbsp;&nbsp; '):'')+(g.gatePass?('<span class="lbl">Gate Pass</span>&nbsp; <b>'+_pe(g.gatePass)+'</b>&nbsp;&nbsp; '):'')+'<span class="lbl">Shipment #</span>&nbsp; <b>'+_pe(g.shipNo||'')+'</b></div>';
-  var rows=(g.rows||[]).map(function(r,i){ var pk=(typeof linePackSize==='function')?linePackSize(r.po||po1,r.brand):(+r.pack||0); var packs=(pk>0)?Math.round((+r.kg||0)/pk):''; var bn=(r.batches&&r.batches.length)?r.batches.map(function(b){return b.batch;}).join(', '):''; if(multi&&r.po){ bn=_pe(r.po)+(bn?(' — '+bn):''); } else { bn=_pe(bn); } return '<tr><td class="num">'+(i+1)+'</td><td>'+_pe(r.brand)+'</td><td class="num">'+(pk>0?fmt(pk):'—')+'</td><td>Kg</td><td class="num">'+(packs!==''?fmt(packs):'—')+'</td><td class="num">'+fmt(+r.kg||0)+'</td><td>'+bn+'</td></tr>'; }).join('');
-  var blanks=''; for(var bi=(g.rows||[]).length;bi<6;bi++){ blanks+='<tr><td class="num">'+(bi+1)+'</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>'; }
+  /* ===== THE PACKING LIST — rebuilt 2026-08-21 =====
+     Raised by the Plant Manager, and he was right.
+
+     This printed `b.batch` — the INTERNAL batch number — and threw away
+     `b.brand`, which is the number actually printed on the bag. On a re-batched
+     order the challan therefore named a number that appears nowhere on the
+     pallet. DC 69 (Syngenta) said "HG26024, HG26023"; every bag said
+     "VAN6GE002". 49 of 153 packing lots on the live system are re-batched.
+
+     The bag's number now leads and the internal batches sit in their own
+     column, so the trace from a customer complaint back to production is on
+     the face of the document rather than only inside the system.
+
+     ONE LINE PER (product x pack batch number). A single product line can
+     carry more than one pack batch — DC 29 ships Naya S Urea under BOTH
+     VAN6FU006 and VAN6GU001, with internal batch VU26166 split across the two.
+     Two columns cannot express that on one line without lying about which
+     internal batch went into which bag, so the line splits. Quantities still
+     total the same. ================================================= */
+  var _plines=[];
+  (g.rows||[]).forEach(function(r){
+    var pk=(typeof linePackSize==='function')?linePackSize(r.po||po1,r.brand):(+r.pack||0);
+    var bl=(r.batches||[]);
+    if(!bl.length){ _plines.push({po:r.po,brand:r.brand,pk:pk,kg:(+r.kg||0),packNo:'',internal:[]}); return; }
+    /* group this line's batch entries by the number on the pack */
+    var byPack={}, order=[];
+    bl.forEach(function(b){
+      var key=String((b.brand||b.batch||'')).trim()||'—';
+      if(!byPack[key]){ byPack[key]={kg:0,internal:[],seen:{}}; order.push(key); }
+      byPack[key].kg+=(+b.kg||0);
+      var inb=String(b.batch||'').trim();
+      if(inb && !byPack[key].seen[inb]){ byPack[key].seen[inb]=1; byPack[key].internal.push({no:inb,kg:+b.kg||0}); }
+      else if(inb){ byPack[key].internal.forEach(function(x){ if(x.no===inb) x.kg+=(+b.kg||0); }); }
+    });
+    order.forEach(function(key){
+      _plines.push({po:r.po,brand:r.brand,pk:pk,kg:byPack[key].kg,packNo:(key==='—'?'':key),internal:byPack[key].internal});
+    });
+  });
+  var rows=_plines.map(function(L,i){
+    var packs=(L.pk>0)?Math.round((+L.kg||0)/L.pk):'';
+    /* the internal column pairs number with quantity ONLY when a pack batch
+       draws on more than one — otherwise the quantity is already in the row */
+    var many=(L.internal.length>1);
+    var inTxt=L.internal.length
+      ? L.internal.map(function(x){ return _pe(x.no)+(many?(' <span class="ikg">'+fmt(Math.round(x.kg))+'</span>'):''); }).join(many?'<br>':', ')
+      : '<span class="dash">—</span>';
+    var packCell=L.packNo ? _pe(L.packNo) : '<span class="dash">—</span>';
+    var prod=_pe(L.brand)+(multi&&L.po?('<div class="rpo">'+_pe(L.po)+'</div>'):'');
+    return '<tr><td class="num">'+(i+1)+'</td><td>'+prod+'</td><td class="num">'+(L.pk>0?fmt(L.pk):'—')+'</td><td>Kg</td>'
+      +'<td class="num">'+(packs!==''?fmt(packs):'—')+'</td><td class="num">'+fmt(+L.kg||0)+'</td>'
+      +'<td class="bpack">'+packCell+'</td><td class="bint">'+inTxt+'</td></tr>';
+  }).join('');
+  var blanks=''; for(var bi=_plines.length;bi<6;bi++){ blanks+='<tr><td class="num">'+(bi+1)+'</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>'; }
   var stamp=(g.qa==='pass')?'<div class="stamprow"><div class="stamp"><div class="b">QC PASSED</div><div class="s">CLEARED FOR DISPATCH</div></div></div>':'';
   var approved=(g.dcStatus==='approved');
   var issuedBy=(g.rows[0]&&g.rows[0].by)||'';
@@ -5979,8 +6132,14 @@ function printDC(dispId){ var g=((typeof dispatchGroups==='function')?dispatchGr
     +'h2.sec{font-size:11px;letter-spacing:1.5px;color:#13307a;text-transform:uppercase;margin:18px 0 8px;font-weight:700}'
     +'table{width:100%;border-collapse:collapse;font-size:12px}'
     +'thead th{background:#13307a;color:#fff;font-weight:600;text-align:left;padding:8px 10px;font-size:11px}'
-    +'tbody td{padding:8px 10px;border-bottom:1px solid #edf0f3}tbody tr:nth-child(even){background:#fafbfc}'
+    +'tbody td{padding:8px 10px;border-bottom:1px solid #edf0f3;vertical-align:top}tbody tr:nth-child(even){background:#fafbfc}'
     +'.num{text-align:right}'
+    +'thead th .thsub{display:block;font-weight:400;font-size:8.5px;letter-spacing:.4px;opacity:.72;text-transform:uppercase}'
+    +'td.bpack{font-weight:700;letter-spacing:.2px}'
+    +'td.bint{font-family:Consolas,"Courier New",monospace;font-size:10.5px;color:#4a5563;line-height:1.5;word-break:break-word}'
+    +'td.bint .ikg{color:#8893a2;font-family:"Segoe UI",Arial,sans-serif;font-size:9.5px}'
+    +'td .rpo{font-size:9.5px;color:#8893a2;margin-top:2px}'
+    +'.dash{color:#b6bec8}'
     +'.stamprow{position:relative;height:8px}'
     +'.stamp{position:absolute;right:24px;top:-4px;transform:rotate(-7deg);border:2.5px solid #1a8a3c;color:#1a8a3c;border-radius:8px;padding:5px 14px 4px;text-align:center;opacity:.92;box-shadow:inset 0 0 0 1.5px #1a8a3c;background:rgba(26,138,60,.04)}'
     +'.stamp .b{font-size:15px;font-weight:800;letter-spacing:2px;line-height:1}.stamp .s{font-size:8px;font-weight:700;letter-spacing:1px;margin-top:2px}'
@@ -5997,7 +6156,7 @@ function printDC(dispId){ var g=((typeof dispatchGroups==='function')?dispatchGr
     +(pend?'<div class="draftbar">DRAFT — PENDING PLANT MANAGER APPROVAL</div>':'')
     +'<div class="parties"><div class="col">'+col1+'</div><div class="col">'+col2+'</div></div>'
     +'<h2 class="sec">Packing list</h2>'
-    +'<table><thead><tr><th style="width:34px">Sr</th><th>Product</th><th style="width:52px">SKU</th><th style="width:46px">UOM</th><th class="num" style="width:74px">Quantity</th><th class="num" style="width:86px">Weight (Kg)</th><th style="width:165px">Remarks (batch)</th></tr></thead><tbody>'+rows+blanks+'</tbody></table>'
+    +'<table><thead><tr><th style="width:30px">Sr</th><th>Product</th><th class="num" style="width:44px">SKU</th><th style="width:38px">UOM</th><th class="num" style="width:66px">Quantity</th><th class="num" style="width:78px">Weight (Kg)</th><th style="width:104px">Batch # <span class="thsub">on pack</span></th><th style="width:118px">Internal batch</th></tr></thead><tbody>'+rows+blanks+'</tbody></table>'
     +stamp
     +'<div class="signs"><div class="s"><div class="role">Issued by</div>'+(issuedBy?('<div class="nm">'+_pe(issuedBy)+'</div><div class="ok">&#10003; digital signature</div>'):'')+'</div>'
     +'<div class="s"><div class="role">Approved by</div>'+(approved?('<div class="nm">'+_pe(g.approvedBy)+'</div><div class="ts">'+_pe(g.approvedDate)+'</div><div class="ok">&#10003; digital signature</div>'):'<div class="pend">pending</div>')+'</div>'
@@ -7131,6 +7290,52 @@ function seedByproductRulesV1(s){
   try{ Object.keys(BYPRODUCT_BASES||{}).forEach(function(to){ var from=(BYPRODUCT_BASES[to]||{}).from;
     if(from && to && !arr.some(function(r){return r&&r.from===from&&r.to===to;})) arr.push({from:from,to:to}); }); }catch(e){}
 }
+/* ===== THE BATCH LINK — 2026-08-21 =====
+   Raised by the Plant Manager: "batch integrity and the link should be
+   traceable and unbreakable, it's a critical link."
+
+   `shipments[].batches[]` stored {batch, brand, kg} — the batch NUMBERS as
+   text, with nothing pointing at the packing lot they came from. On the live
+   system that was 0 of 176 rows carrying an id, against 113 of 113 for
+   inspections. A quoted number is a photocopy: correct the number anywhere and
+   the challan keeps printing the old one, with nothing to detect it.
+
+   New dispatches store `lotId`. This backfills existing rows by matching on
+   PO + product + both batch numbers, and links ONLY where the match is
+   unambiguous — a wrong link is worse than no link. Whatever it cannot resolve
+   is counted on `s._shipLotLink` rather than guessed at. */
+function linkShipBatchLotsV1(s){
+  if(!s || s._shipLotLinkV1) return;
+  var linked=0, already=0, ambiguous=0, unmatched=0;
+  (s.shipments||[]).forEach(function(sx){
+    if(!sx || !Array.isArray(sx.batches)) return;
+    (sx.batches||[]).forEach(function(b){
+      if(!b) return;
+      if(b.lotId){ already++; return; }
+      var want=String(b.batch||'').trim(), wantBrand=String(b.brand||b.batch||'').trim();
+      var cands=(s.packingLog||[]).filter(function(p){
+        if(!p || p.reversed) return false;
+        if(String(p.po||'')!==String(sx.po||'')) return false;
+        if(String(p.brand||'')!==String(sx.brand||'')) return false;
+        if(sx.lid!=null && p.lid!=null && p.lid!==sx.lid) return false;
+        var base=String(p.baseBatchNo||'').trim();
+        var brnd=String(p.brandBatchNo||'').trim()||base;
+        return base===want && brnd===wantBrand;
+      });
+      if(cands.length===1){ b.lotId=cands[0].id; linked++; }
+      else if(cands.length>1){
+        /* several lots share both numbers — prefer one that actually shipped
+           and is not already claimed by another line of this shipment */
+        var claimed={}; (sx.batches||[]).forEach(function(y){ if(y&&y.lotId) claimed[y.lotId]=1; });
+        var free=cands.filter(function(p){ return !claimed[p.id] && (+p.shipKg||0)>0.5; });
+        if(free.length===1){ b.lotId=free[0].id; linked++; } else { ambiguous++; }
+      }
+      else unmatched++;
+    });
+  });
+  s._shipLotLink={linked:linked,already:already,ambiguous:ambiguous,unmatched:unmatched,at:new Date().toISOString()};
+  s._shipLotLinkV1=true;
+}
 function migrateLotTracking(s){
   if(!s||s._lotMig) return;
   const cache={}, FIFO=(a,b)=>String(a.date||a.mfgDate||'').localeCompare(String(b.date||b.mfgDate||''))||String(a.id||'').localeCompare(String(b.id||''));
@@ -7689,7 +7894,7 @@ function saveDispatch(){ if(!canEdit(['Supply Chain'])){toast('Supply Chain only
   let n=0,tot=0;
   sel.forEach(r=>{ const l=o.lines.find(x=>x.id===r.lid)||o.lines.find(x=>x.brand===r.brand); if(!l)return; const rem=Math.max(0,lineCleared(o,l)); const want=Math.min(+r.qty||0,rem); if(want<=0)return;
     const alloc=fifoAlloc(o,l,want,'ship'); const batches=[]; let kg=0;
-    lotsFor(o,l).forEach((p,i)=>{ const a=Math.min(+alloc[i]||0, lotClearedKg(p)); if(a>0.0001){ p.shipKg=(+p.shipKg||0)+a; batches.push({batch:lotBaseNo(p),brand:lotBrandNo(p),kg:Math.round(a)}); kg+=a; } });
+    lotsFor(o,l).forEach((p,i)=>{ const a=Math.min(+alloc[i]||0, lotClearedKg(p)); if(a>0.0001){ p.shipKg=(+p.shipKg||0)+a; batches.push({lotId:p.id,batch:lotBaseNo(p),brand:lotBrandNo(p),kg:Math.round(a)}); kg+=a; } });
     if(kg<=0)return;
     var _deliv=dispForm.inTransit?null:d;  /* default: delivered now (silent). In-transit option leaves delivered blank for a later markDelivered. */
     state.shipments.unshift({id:_uid('SH'),dispId,po:o.po,brand:l.brand,lid:l.id,kg:Math.round(kg),batches,pack:r.pack,dispatch:d,destination:dispForm.dest,carrier:dispForm.carrier,vehicle:dispForm.vehicle,dc:dc,shipNo:shipNo,bilty:dispForm.bilty,so:dispForm.so,transportType:dispForm.transportType,driver:dispForm.driver,driverContact:dispForm.driverContact,seal:dispForm.seal,dcStatus:(_ctrlOn?'pending':'approved'),approvedBy:'',approvedDate:(_ctrlOn?'':d),dispCounted:!_ctrlOn,delivered:_deliv,remarks:dispForm.remarks,qa:{pass:true,closed:true},by:state.role});
@@ -7706,7 +7911,7 @@ function shipClientFor(po){ var o=(state.orders||[]).find(function(x){return x.p
    legacy/per-PO rows have no .stage, so we fall back to delivered/dcStatus. New multi-PO
    flow (from 1 Jul) sets .stage explicitly: truck_planned → loading → in_transit → delivered. */
 function shipStageOf(g){ if(g.delivered) return 'delivered'; if(g.stage) return g.stage; if((g.dcStatus||'approved')==='pending') return 'pending_approval'; return 'in_transit'; }
-function dispatchGroups(){ const g={}; (state.shipments||[]).forEach((s,i)=>{ if(s.voided)return; const k=s.dispId||('leg'+i); if(!g[k]) g[k]={dispId:s.dispId||null,po:s.po,pos:[],client:s.client||shipClientFor(s.po)||'',destination:s.destination,date:s.dispatch,vehicle:s.vehicle,carrier:s.carrier,dc:s.dc,shipNo:s.shipNo,bilty:s.bilty,so:s.so||'',transportType:s.transportType||'',driver:s.driver||'',driverContact:s.driverContact||'',seal:s.seal||'',gatePass:s.gatePass||'',loadStarted:s.loadStarted||'',stage:s.stage||'',dcStatus:(s.dcStatus||'approved'),approvedBy:s.approvedBy||'',approvedDate:s.approvedDate||'',rows:[],kg:0,delivered:true,qaPending:false,qaFail:false}; g[k].rows.push(s); g[k].kg+=(+s.kg||0); if(s.po&&g[k].pos.indexOf(s.po)<0) g[k].pos.push(s.po); if(!s.delivered) g[k].delivered=false; if(s.qa===null) g[k].qaPending=true; if(s.qa&&s.qa.fail) g[k].qaFail=true; if((s.dcStatus||'approved')==='pending') g[k].dcStatus='pending'; }); return Object.values(g).map(x=>{ x.qa=x.qaFail?'fail':(x.qaPending?'pending':'pass'); x.poLabel=(x.pos.length>1?(x.pos[0]+' + '+(x.pos.length-1)+' more'):(x.pos[0]||x.po||'')); x.stageNow=shipStageOf(x); return x; }).sort((a,b)=>String(b.date||'').localeCompare(String(a.date||''))); }
+function dispatchGroups(){ const g={}; (state.shipments||[]).forEach((s,i)=>{ if(s.voided)return; const k=s.dispId||('leg'+i); if(!g[k]) g[k]={dispId:s.dispId||null,po:s.po,pos:[],client:s.client||shipClientFor(s.po)||'',destination:s.destination,focalPerson:s.focalPerson||'',date:s.dispatch,vehicle:s.vehicle,carrier:s.carrier,dc:s.dc,shipNo:s.shipNo,bilty:s.bilty,so:s.so||'',transportType:s.transportType||'',driver:s.driver||'',driverContact:s.driverContact||'',seal:s.seal||'',gatePass:s.gatePass||'',loadStarted:s.loadStarted||'',stage:s.stage||'',dcStatus:(s.dcStatus||'approved'),approvedBy:s.approvedBy||'',approvedDate:s.approvedDate||'',rows:[],kg:0,delivered:true,qaPending:false,qaFail:false}; g[k].rows.push(s); g[k].kg+=(+s.kg||0); if(s.po&&g[k].pos.indexOf(s.po)<0) g[k].pos.push(s.po); if(!s.delivered) g[k].delivered=false; if(s.qa===null) g[k].qaPending=true; if(s.qa&&s.qa.fail) g[k].qaFail=true; if((s.dcStatus||'approved')==='pending') g[k].dcStatus='pending'; }); return Object.values(g).map(x=>{ x.qa=x.qaFail?'fail':(x.qaPending?'pending':'pass'); x.poLabel=(x.pos.length>1?(x.pos[0]+' + '+(x.pos.length-1)+' more'):(x.pos[0]||x.po||'')); x.stageNow=shipStageOf(x); return x; }).sort((a,b)=>String(b.date||'').localeCompare(String(a.date||''))); }
 let dispQAForm={dispId:null,marks:[],officer:'',remarks:''};
 function dispRowsFor(dispId){ return (state.shipments||[]).filter(s=>(s.dispId||'')===dispId); }
 function openDispatchQA(dispId){ if(!(canEdit(['QA Inspector'])||state.role==='COO')){toast('QA Inspector only');return;} const rows=dispRowsFor(dispId); if(!rows.length)return; const ex=rows[0].qa; dispQAForm={dispId,marks:QC_CHECKLIST.map((_,i)=>(ex&&ex.checklist&&ex.checklist[i]&&ex.checklist[i].result)||''),verify:QC_VERIFY.map((_,i)=>(ex&&ex.verify&&ex.verify[i]&&ex.verify[i].result)||''),officer:(ex&&ex.by)||((state.currentUser&&state.currentUser.name)||''),remarks:(ex&&ex.remarks)||'',date:(ex&&ex.actualDate)||evToday(),dateReason:''}; renderDispatchQA(); $('modalBg').classList.add('open'); }
@@ -7857,7 +8062,7 @@ function mpCreate(){ if(!(canEdit(['Supply Chain'])||state.role==='COO')){toast(
   sel.forEach(function(x){ var o=(state.orders||[]).find(function(y){return y.id===x.o.oid;}); if(!o)return; var l=o.lines.find(function(y){return y.id===x.r.lid;})||o.lines.find(function(y){return y.brand===x.r.brand;}); if(!l)return;
     var rem=Math.max(0,lineCleared(o,l)); var want=Math.min(+x.r.qty||0,rem); if(want<=0)return;
     var alloc=fifoAlloc(o,l,want,'ship'); var batches=[]; var kg=0;
-    lotsFor(o,l).forEach(function(p,i){ var a=Math.min(+alloc[i]||0,lotClearedKg(p)); if(a>0.0001){ p.shipKg=(+p.shipKg||0)+a; batches.push({batch:lotBaseNo(p),brand:lotBrandNo(p),kg:Math.round(a)}); kg+=a; } });
+    lotsFor(o,l).forEach(function(p,i){ var a=Math.min(+alloc[i]||0,lotClearedKg(p)); if(a>0.0001){ p.shipKg=(+p.shipKg||0)+a; batches.push({lotId:p.id,batch:lotBaseNo(p),brand:lotBrandNo(p),kg:Math.round(a)}); kg+=a; } });
     if(kg<=0)return;
     if(auto){ l.dispatched=(+l.dispatched||0)+Math.round(kg); l.dispatchDate=l.dispatchDate||d; if(exf){ l.delivered=(+l.delivered||0)+Math.round(kg); l.deliveredDate=d; } }
     state.shipments.unshift({id:_uid('SH'),dispId:dispId,po:o.po,client:f.client,brand:l.brand,lid:l.id,kg:Math.round(kg),batches:batches,pack:x.r.pack,dispatch:d,destination:f.dest,carrier:f.carrier,vehicle:f.vehicle,dc:dc,shipNo:shipNo,bilty:f.bilty,so:x.o.so||'',transportType:f.transportType,truckSize:f.truckSize,driver:f.driver,driverContact:f.driverContact,seal:f.seal,stage:(auto?(exf?'delivered':'in_transit'):'truck_planned'),loadStarted:'',gatePass:'',dcStatus:(auto?'approved':'pending'),approvedBy:(auto?'Auto · pre go-live':''),approvedDate:(auto?d:''),dispCounted:!!auto,delivered:(auto&&exf?d:null),deliveredVia:(auto&&exf?'Collected at factory':''),remarks:f.remarks,qa:{pass:true,closed:true},by:state.role});
@@ -7912,6 +8117,9 @@ function openShipEdit(key){ if(!(canEdit(['Supply Chain'])||state.role==='COO'))
   const rows=shipRowsByKey(key); if(!rows.length){toast('Shipment not found');return;} const g0=rows[0];
   shipEditForm={ rows:rows.map(s=>{ const o=(state.orders||[]).find(x=>x.po===s.po); const l=o&&(o.lines.find(x=>x.id===s.lid)||o.lines.find(x=>x.brand===s.brand)); return {s,l,kg:(+s.kg||0)}; }),
     date:g0.dispatch||'', dest:g0.destination||'', carrier:g0.carrier||'', vehicle:g0.vehicle||'', dc:g0.dc||'', bilty:g0.bilty||'',
+    /* pre-fills from the PO; whatever is set here wins on this truck's DC */
+    focal:(g0.focalPerson!=null&&g0.focalPerson!=='')?g0.focalPerson
+          :(((state.orders||[]).find(function(x){return x.po===g0.po;})||{}).focalPerson||''),
     delivered:!!g0.delivered, deliveredDate:g0.delivered||TODAY.toISOString().slice(0,10) };
   renderShipEdit(); $('modalBg').classList.add('open'); }
 function renderShipEdit(){ const f=shipEditForm; if(!f){closeModal();return;} const g0=f.rows[0].s;
@@ -7926,6 +8134,7 @@ function renderShipEdit(){ const f=shipEditForm; if(!f){closeModal();return;} co
        <div class="fld"><label>Vehicle #</label><input type="text" value="${_av(f.vehicle)}" oninput="shipEditForm.vehicle=this.value"></div>
        <div class="fld"><label>DC number</label><input type="text" value="${_av(f.dc)}" oninput="shipEditForm.dc=this.value"></div>
        <div class="fld"><label>Bilty / reference</label><input type="text" value="${_av(f.bilty)}" oninput="shipEditForm.bilty=this.value"></div>
+       <div class="fld"><label>Focal person <span class="muted" style="font-weight:400">· on the DC</span></label><input type="text" list="se_focal_list" value="${_av(f.focal)}" oninput="shipEditForm.focal=this.value" placeholder="who receives this load"><datalist id="se_focal_list">${(((state.masters&&state.masters.focalPersons)||[])).map(p=>`<option>${p}</option>`).join('')}</datalist></div>
        <div class="fld"><label>Status</label><select onchange="shipEditForm.delivered=(this.value==='delivered');renderShipEdit()"><option value="transit" ${f.delivered?'':'selected'}>In transit</option><option value="delivered" ${f.delivered?'selected':''}>Delivered</option></select></div>
        ${f.delivered?`<div class="fld"><label>Delivered date</label><input type="date" value="${_av(f.deliveredDate)}" onchange="shipEditForm.deliveredDate=this.value"></div>`:''}
      </div>
@@ -7938,7 +8147,7 @@ function saveShipEdit(){ if(!(canEdit(['Supply Chain'])||state.role==='COO')){to
   if(f.dc){ var _thisDisp=(f.rows[0]&&f.rows[0].s.dispId)||''; var _dupe=(state.shipments||[]).some(function(s){ return s && !s.voided && (s.dispId||'')!==_thisDisp && String(s.dc||'')===String(f.dc); }); if(_dupe && !(typeof confirm==='function'&&confirm('DC '+f.dc+' is already used by another shipment. Save with a duplicate DC anyway?'))) return; }
   f.rows.forEach(r=>{ const s=r.s, l=r.l, newKg=Math.max(0,+r.kg||0);
     if(l){ l.dispatched=Math.max(0,(l.dispatched||0)-(+s.kg||0)); if(s.delivered) l.delivered=Math.max(0,(l.delivered||0)-(+s.kg||0)); }
-    s.kg=newKg; s.dispatch=f.date; s.destination=f.dest; s.carrier=f.carrier; s.vehicle=f.vehicle; s.dc=f.dc; s.bilty=f.bilty; s.delivered=dd;
+    s.kg=newKg; s.dispatch=f.date; s.destination=f.dest; s.carrier=f.carrier; s.vehicle=f.vehicle; s.dc=f.dc; s.bilty=f.bilty; s.focalPerson=(f.focal||'').trim(); s.delivered=dd;
     if(l){ l.dispatched=(l.dispatched||0)+newKg; l.dispatchDate=l.dispatchDate||f.date; if(dd){ l.delivered=(l.delivered||0)+newKg; l.deliveredDate=dd; } } });
   f.rows.forEach(function(r){ if(r.l){ var _o=(state.orders||[]).find(function(x){return x.po===r.s.po;}); if(_o) resyncLineShipKg(_o,r.l); } });
   logAction(`Edited shipment ${(f.rows[0].s.dispId)||''} (PO ${f.rows[0].s.po}) — ${f.rows.length} line(s), DC ${(f.dc||'-')}`);

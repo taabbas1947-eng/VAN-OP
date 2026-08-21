@@ -1133,3 +1133,78 @@ screen with zero console errors.
   tell the QA inspector nothing
 
 **Ready to push, not pushed.**
+
+---
+
+## 2026-08-21 (evening) — MODULE: O2S — batch identity (SPEC-05)
+
+Plant Manager feedback, relayed by Tahir: the DC prints the wrong batch number,
+the focal person should be editable, and *"batch integrity and the link should be
+traceable and unbreakable — it's a critical link."*
+
+Files: `o2s/o2s.html`, `docs/o2s/SPEC-05-BATCH-IDENTITY.md`. Nothing in `pd/`,
+`server.js`, `launcher.html` or the auth block.
+
+### Measured on live data BEFORE building
+
+| | |
+|---|---|
+| Packing lots re-batched (pack # ≠ internal #) | **49 / 153** |
+| Client batch numbers drawing on several internal batches | **7** (largest 9) |
+| Shipment batch rows carrying a lot id | **0 / 176** |
+| Inspection batch rows carrying a lot id | **113 / 113** |
+| POs with no delivery focal person | **36 / 44** |
+
+Many-to-**many**, not many-to-one: `VU26174` sits under both `VAN6GU001` and
+`VAN6GU002`. The packing lot is the join row and already holds a hard
+`baseBatchId` — **the model was right; the paperwork and the durability were not.**
+
+### Built
+
+1. **DC packing list rebuilt.** `Batch # (on pack)` leads, `Internal batch` in its
+   own column with per-batch quantities. **One printed line per (product × pack
+   batch number)** — DC 29 carries Naya S Urea under both `VAN6FU006` and
+   `VAN6GU001` with `VU26166` split across them, which two columns cannot express
+   on one line without lying. A4 portrait measured: table 688px into 688px usable,
+   nothing clipped, one page. **No landscape needed.**
+2. **A batch number is an identity, not a value** (Tahir's rule). Pack number and
+   internal number: Plant Manager / COO only, **refused** once anything is
+   inspected or shipped, with the reason on the disabled box. Production can still
+   SET a blank number; CHANGING one reroutes to the correction path.
+3. **`lotId` on shipment batch rows** (both dispatch paths) + `linkShipBatchLotsV1`
+   backfill that links only unambiguous matches and reports the rest on
+   `state._shipLotLink`.
+4. **`onAmend` hook on the registry** — correcting a number now propagates to lot
+   numbers, the COA, shift entries, production log, packing runs, inspections and
+   challan lines, matched by lot id where present and by the old number where not.
+   Everything that moved is recorded as the correction's cascade.
+5. **Focal person** on every channel at PO Entry (free text + master list), plus a
+   per-truck override on the shipment screen. DC uses truck value → PO value.
+
+> **A hole I opened this morning and closed tonight:** the correction path let
+> `brandBatchNo` be amended with no propagation and no lock. It would have changed
+> the lot and left the COA and every document saying something else.
+
+### Verified — 208 checks, four suites
+
+109 correction assertions · 40 click-through · **28 DC layout + link** ·
+**31 batch gate**. The DC suite reproduces DC 69 and DC 29 exactly and asserts the
+split, the pairing, the quantities, and the A4 measurement. `node --check` on all
+5 script blocks. Nine roles × every permitted screen, zero console errors.
+
+### Open
+
+- `mfgDate`, `expDate`, `printedPrice` are also printed on the bag and are **not**
+  locked after shipping the way the batch number now is. Same class of problem —
+  needs a decision from Tahir
+- The **Gate Pass carries no batch column at all**
+- Read `state._shipLotLink` after the first live load. If `ambiguous` or
+  `unmatched` is above zero those rows need a human
+- Data Fix gate: checked and **there is nothing to change** — `screenDataFix()`
+  hard-checks `state.role==='COO'`, immune to the access matrix. But the live
+  matrix has a stale `datafix {e:true}` grant for **Production** that does nothing
+  today and would become live if that check were ever refactored to
+  `screenEditOK()`. Worth clearing in Users & Access
+- Still blocking: **44 POs need a print/no-print answer** (136 lines tell QA nothing)
+
+**Ready to push, not pushed.**

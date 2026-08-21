@@ -279,3 +279,104 @@ assumption that ran through the first draft. Module: O2S.*
 
 *Status: Rules 0 and 2 built (display and inspection panels). Rules 1, 3, 4, 5,
 6 and 7 specified, not built.*
+
+---
+
+# Rule 0 completed — 2026-08-21 · the question is now asked
+
+Fault 11 happened because `printOnPack` could not hold the answer. It was
+`!!entryPrintOn` — the state of a checkbox — so "no" and "nobody said" were the
+same value, and I inferred one from the other and got it wrong on 41 of 44 live
+POs.
+
+Inferring around a field that cannot express the answer is not a fix. **The fix
+is to ask the question.**
+
+## At PO entry
+
+The checkbox is gone. In its place, a required question with **no default**:
+
+> **Does this PO print a price on the pack? \***
+> The retail/MRP figure printed on the bag. *This client has printed a price
+> before.* Whoever packs and whoever inspects will be shown your answer — so it
+> has to be an answer, not a blank.
+>
+> `[ Yes — prints a price ]` `[ No — no price on the bag ]`
+>
+> **Not answered yet**
+
+- Neither option is preselected. The panel is amber until answered.
+- The client's history is shown as a **hint beside the question**, never as a
+  silent answer to it. That was the original mistake, one layer down.
+- The PO **cannot be submitted** unanswered — it fails the pre-submit checklist
+  and the submit gate.
+- Answering "No" on products that normally print a price still asks for
+  confirmation, and the confirmation now states the consequence: *"Packing and QA
+  will both be told not to print a price."*
+
+## What is stored
+
+| Field | Meaning |
+|---|---|
+| `printDecision` | `'yes'` / `'no'` — **only ever written when somebody answered** |
+| `printDecisionBy` | who answered |
+| `printDecisionAt` | when |
+| `printOnPack` | kept in sync, so nothing downstream breaks |
+
+`printDecision` existing at all is the signal. That is what separates it from
+`printOnPack`, which every PO has whether anyone thought about it or not.
+
+## How it resolves
+
+`printPolicyOL()` now trusts an explicit answer **absolutely** — no inference,
+no second-guessing:
+
+| Order | Rule |
+|---|---|
+| 1 | `printDecision === 'no'` → **no price on pack**, full stop. Even if the brand has printed a price before |
+| 2 | `printDecision === 'yes'` → priced, or **MRP not set** if no price is entered |
+| 3 | *legacy only, no decision recorded* | a price on the line wins, then brand history, then "not specified" |
+
+Rules 1 and 2 are the future. Rule 3 is the Fault 11 salvage path, and it exists
+only until every open PO has been answered for.
+
+## Answering for POs already in flight
+
+**Data Fix → Correct a PO** gained the question, and it says plainly when nobody
+has ever answered it:
+
+> *Never answered. The system is currently inferring **unrecorded** from what has
+> been printed before — an inference, not a decision.*
+
+Saving records the answer with the person and the timestamp, exactly like a new
+PO. Print price is now correctable per line on the same screen, which also
+closes **Rule 5** — until today a wrong print price had no correction path
+anywhere in the app.
+
+> This is COO-only because Data Fix is. The KAM owns the PO and should be able to
+> answer for their own, which is [SPEC-03](SPEC-03-EDIT-STANDARD.md)'s authority
+> table. Until that lands, the COO sweeps the backlog.
+
+## The backlog is countable
+
+The *"No print/no-print decision"* anomaly row was itself wrong at first — it
+counted `printOnPack === undefined`, which is **zero** on live data, while 151
+lines were genuinely undecided. It now counts through `printPolicyOL`, so it
+reports what is actually unresolved.
+
+## Verified
+
+| Case | Result |
+|---|---|
+| Answered **No**, brand has printed 1,500 before | **no price on pack** — the decision beats the history |
+| Answered **Yes**, no price set | MRP not set |
+| Answered **Yes**, price 1,250 | MRP 1,250 /pack |
+| Legacy, never answered, history 1,500 | **MRP not recorded** — honest, no false instruction |
+| PO Entry opens | `entryPrintOn === null` — unanswered, not defaulted |
+| Data Fix, PO never answered | control present, "Never answered" banner shown |
+| Data Fix save | `printDecision: 'yes'`, `printOnPack: true`, person recorded, line price set, policy flips to **priced** |
+
+---
+
+*Rule 0 completed 2026-08-21. Rules 3 (the QA checklist price item) and 6 (the
+printed documents) remain.*

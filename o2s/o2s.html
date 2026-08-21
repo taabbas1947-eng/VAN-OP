@@ -2572,14 +2572,28 @@ if(op==='correct'){
        <div class="fld"><label>Channel</label><select id="co_channel">${chans.map(c=>`<option ${o.channel===c?'selected':''}>${c}</option>`).join('')}</select></div>
        <div class="fld"><label>Priority</label><select id="co_priority">${pris.map(p=>`<option ${(o.priority||'Normal')===p?'selected':''}>${p}</option>`).join('')}</select></div>
        <div class="fld"><label>PO received</label><input id="co_received" type="date" value="${o.received||''}"></div>
-       <div class="fld"><label>Promised</label><input id="co_promised" type="date" value="${o.promised||''}"></div></div>`;
+       <div class="fld"><label>Promised</label><input id="co_promised" type="date" value="${o.promised||''}"></div></div>
+     ${(function(){
+       /* Fault 11: POs created before the question was asked carry no answer, only
+          the default of an unticked box. This is where somebody answers for them.
+          `_pp` is shown so the COO can see what the system is currently INFERRING
+          before overriding it with a real answer. */
+       const dec=o.printDecision||'';
+       const inferred=(o.lines&&o.lines[0])?printPolicyOL(o,o.lines[0]).mode:'unknown';
+       const pill=v=>`<option value="${v}" ${dec===v?'selected':''}>${v==='yes'?'Yes — this PO prints a price':(v==='no'?'No — no price on the bag':'— not answered —')}</option>`;
+       return `<div style="margin-top:12px;padding:11px 13px;border:1px solid ${dec?'var(--line)':'var(--amber)'};background:${dec?'var(--panel2)':'var(--amber-50)'};border-radius:9px">
+         <div style="font-weight:700;font-size:12.5px">Does this PO print a price on the pack?</div>
+         <div class="muted" style="font-size:11px;margin:3px 0 8px">${dec?'Answered.':'<b>Never answered.</b> The system is currently inferring <b>'+inferred+'</b> from what has been printed before — an inference, not a decision.'} Packing and QA are both shown this.</div>
+         <select id="co_printDecision" style="max-width:320px">${pill('')}${pill('yes')}${pill('no')}</select>
+       </div>`;})()}`;
     const lines=o.lines.map(l=>`<div style="border:1px solid var(--line);border-radius:9px;padding:9px 11px;margin-top:8px"><b style="font-size:12px">${l.brand}</b> <span class="muted" style="font-size:10.5px">${l.base}</span>
        <div class="formgrid" style="grid-template-columns:repeat(6,1fr);margin-top:6px">
          <div class="fld"><label>Ordered</label><input id="cl_ordered_${l.id}" type="number" value="${l.ordered||0}"></div>
          <div class="fld"><label>Produced</label><input id="cl_produced_${l.id}" type="number" value="${l.produced||0}"></div>
          <div class="fld"><label>Packed</label><input id="cl_packed_${l.id}" type="number" value="${l.packed||0}"></div>
          <div class="fld"><label>Dispatched</label><input id="cl_dispatched_${l.id}" type="number" value="${l.dispatched||0}"></div>
-         <div class="fld"><label>Delivered</label><input id="cl_delivered_${l.id}" type="number" value="${l.delivered||0}"></div>${(state.role==='COO'||state.role==='CFO')?`<div class="fld"><label>Invoice price (PKR/Kg·L)</label><input id="cl_invoicePrice_${l.id}" type="number" value="${l.invoicePrice||''}"></div>`:''}</div></div>`).join('');
+         <div class="fld"><label>Delivered</label><input id="cl_delivered_${l.id}" type="number" value="${l.delivered||0}"></div>${(state.role==='COO'||state.role==='CFO')?`<div class="fld"><label>Invoice price (PKR/Kg·L)</label><input id="cl_invoicePrice_${l.id}" type="number" value="${l.invoicePrice||''}"></div>`:''}
+         <div class="fld"><label>Print price (PKR/pack)</label><input id="cl_printPrice_${l.id}" type="number" value="${l.printPrice||''}" placeholder="MRP on the bag"></div></div></div>`).join('');
     return wrap('Correct a PO — fields & quantities', picker+meta+lines+`<div class="fld fld-long" style="margin-top:10px"><label>Reason / note (required)</label><textarea id="co_reason" rows="3" placeholder="why the correction?"></textarea></div><div class="muted" style="font-size:11px;margin-top:6px">Edits the live values in place; every change is logged old → new as RECONCILE.</div><div style="margin-top:12px"><button class="green" onclick="dfSubmitCorrect()">Apply corrections</button></div>`);
   }
   if(op==='po'){
@@ -2668,7 +2682,13 @@ function dfSubmitCorrect(){
   setO('priority',($('co_priority')&&$('co_priority').value),'priority');
   setO('received',($('co_received')&&$('co_received').value),'received date');
   setO('promised',($('co_promised')&&$('co_promised').value),'promised date');
-  o.lines.forEach(l=>{ [['ordered','Ordered'],['produced','Produced'],['packed','Packed'],['dispatched','Dispatched'],['delivered','Delivered'],['invoicePrice','Invoice price']].forEach(([field,label])=>{
+  { const el=$('co_printDecision'); const nv=el?el.value:'';
+    if(nv && nv!==(o.printDecision||'')){
+      const old=o.printDecision||'(never answered)';
+      o.printDecision=nv; o.printOnPack=(nv==='yes');
+      o.printDecisionBy=((state.currentUser&&state.currentUser.name)||state.role); o.printDecisionAt=new Date().toISOString();
+      reconLog(`CORRECT ${o.po} print-on-pack decision: ${old} → ${nv} — ${reason}`); n++; } }
+  o.lines.forEach(l=>{ [['ordered','Ordered'],['produced','Produced'],['packed','Packed'],['dispatched','Dispatched'],['delivered','Delivered'],['invoicePrice','Invoice price'],['printPrice','Print price']].forEach(([field,label])=>{
     const el=$('cl_'+field+'_'+l.id); if(!el) return; const nv=+el.value||0; const old=+l[field]||0;
     if(Math.abs(nv-old)>0.001){ l[field]=nv; reconLog(`CORRECT ${o.po} · ${l.brand} ${label}: ${fmt(old)} → ${fmt(nv)} — ${reason}`); n++; }
   }); });
@@ -2679,7 +2699,7 @@ function dfSubmitCorrect(){
 }
 
 /* ===================== 1. NEW PO ENTRY ===================== */
-let entryChannel='', entryClient='', entryVsub='', entryFocal='', entryPrintOn=false;
+let entryChannel='', entryClient='', entryVsub='', entryFocal='', entryPrintOn=null; /* null = NOT ANSWERED. See Fault 11: a default is not a decision. */
 let entryFOC=false, entryFEDover='', entryDestPartner='';
 /* Resolve the selected Customer Master record (for FED mode / KAM / destination defaults). */
 function curCustomer(){ var cs=(state.customers||[]);
@@ -2715,9 +2735,10 @@ function clientsForChannel(ch){
 function curClientObj(){ return clientsForChannel(entryChannel).find(c=>c.id===entryClient); }
 function brandPool(){ const co=curClientObj(); return co?(SEED.catalog.brandsByClient[co.brandKey]||[]):[]; }
 function detailForBrand(b){ return brandPool().find(x=>x.brand===b)||{}; }
-function onChannelChange(v){ entryChannel=v; entryClient=''; entryVsub=''; entryFocal=''; entryPrintOn=false; entryFOC=false; entryFEDover=''; entryDestPartner=''; entryLines=[{brand:'',qty:'',pack:'',note:'',committed:''}]; screenEntry(); }
-function onClientChange(v){ entryClient=v; entryPrintOn=clientHasPrintHistory(v); entryLines=[{brand:'',qty:'',pack:'',note:'',committed:''}]; screenEntry(); }
-function setPrintOn(v){ entryPrintOn=!!v; renderEntryLines(); }
+function onChannelChange(v){ entryChannel=v; entryClient=''; entryVsub=''; entryFocal=''; entryPrintOn=null; entryFOC=false; entryFEDover=''; entryDestPartner=''; entryLines=[{brand:'',qty:'',pack:'',note:'',committed:''}]; screenEntry(); }
+/* The client's history is now a HINT beside the question, not a silent answer to it. */
+function onClientChange(v){ entryClient=v; entryPrintOn=null; entryLines=[{brand:'',qty:'',pack:'',note:'',committed:''}]; screenEntry(); }
+function setPrintOn(v){ entryPrintOn=(v===null||v==='')?null:!!v; screenEntry(); }
 function genPO(recv){
   const d=recv?new Date(recv):TODAY; const ym=String(d.getFullYear()).slice(2)+String(d.getMonth()+1).padStart(2,'0');
   const seq=String(Math.floor(Math.random()*9000+1000));
@@ -2761,7 +2782,20 @@ function screenEntry(){
          :`<input id="e_po" type="text" value="${entryChannel?genPO(TODAY.toISOString().slice(0,10)):''}" disabled>`}</div>
     </div></div>
    <div class="card"><h3>Step 2 — Line Items <span class="hint">pack size auto-fills, override allowed</span></h3>
-    ${entryClient?`<label style="display:inline-flex;align-items:center;gap:7px;font-size:12px;margin-bottom:10px;cursor:pointer"><input type="checkbox" ${entryPrintOn?'checked':''} onchange="setPrintOn(this.checked)"> <b>Print price on pack?</b> <span class="muted">— retail/MRP printed on the package${clientHasPrintHistory(entryClient)?' · this client usually prints':''}</span></label>`:''}
+    ${entryClient?(function(){
+      const hist=clientHasPrintHistory(entryClient);
+      const unanswered=(entryPrintOn===null||entryPrintOn===undefined);
+      const btn=(val,txt)=>`<button type="button" class="sm ${entryPrintOn===val?'green':'ghost'}" style="min-width:150px" onclick="setPrintOn(${val})">${entryPrintOn===val?'&#10003; ':''}${txt}</button>`;
+      /* Fault 11: this used to be one checkbox that defaulted to the client's history.
+         An unticked box then read downstream as "this client wants no price", which put
+         a wrong instruction in front of the QA inspector on 41 of 44 live POs.
+         It is now a question with no default, and the PO cannot be submitted unanswered. */
+      return `<div style="margin-bottom:12px;padding:11px 13px;border:1px solid ${unanswered?'var(--amber)':'var(--line)'};background:${unanswered?'var(--amber-50)':'var(--panel2)'};border-radius:9px">
+        <div style="font-weight:700;font-size:12.5px">Does this PO print a price on the pack? <span style="color:var(--red)">*</span></div>
+        <div class="muted" style="font-size:11px;margin:3px 0 8px">The retail/MRP figure printed on the bag. ${hist?'This client <b>has printed a price before</b>.':'No printed price has been recorded for this client before.'} Whoever packs and whoever inspects will be shown your answer &mdash; so it has to be an answer, not a blank.</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">${btn(true,'Yes — prints a price')}${btn(false,'No — no price on the bag')}</div>
+        ${unanswered?'<div style="font-size:11px;color:#8a5a00;font-weight:700;margin-top:8px">Not answered yet</div>':''}
+      </div>`;})():''}
     ${entryClient?'':'<div class="muted" style="font-size:12.5px">Pick a channel and client above to load brands.</div>'}
     <table class="fixedtbl ${entryClient?'':'hide'}" style="font-size:12px"><thead><tr><th>Brand</th><th style="width:84px">Form</th><th style="width:66px">Pack</th><th style="width:80px">Qty</th><th style="width:72px">Packs</th><th style="width:172px">Invoice price · PKR/Kg + PKR/pack</th><th style="width:150px">Committed</th><th style="width:200px">Note</th><th style="width:26px"></th></tr></thead>
     <tbody id="e_lines"></tbody></table>
@@ -2853,7 +2887,8 @@ function entryChecks(){
     ['Each line committed date ≥ PO Received', lines.every(l=>!l.committed || !recv || l.committed>=recv), 'e_lines'],
     ['Invoice price set on every line (per-Kg or per-pack)', entryFOC || (lines.length>0 && lines.every(l=>+l.inv>0)), 'e_lines'],
     ['Per-Kg and per-pack price reconcile', entryFOC || lines.every(l=>{var pk=+l.pack||0;var calc=_r2((+l.inv||0)*pk);return !(+l.invPack>0)||pk<=0||Math.abs(calc-(+l.invPack))<=0.5;}), 'e_lines'],
-    ['Print price set on every line (when printing)', entryFOC || !entryPrintOn || (lines.length>0 && lines.every(l=>+l.printPrice>0)), 'e_lines'],
+    ['Print / no-print answered', entryFOC || (entryPrintOn===true||entryPrintOn===false), 'e_lines'],
+    ['Print price set on every line (when printing)', entryFOC || entryPrintOn!==true || (lines.length>0 && lines.every(l=>+l.printPrice>0)), 'e_lines'],
   ];
 }
 function validate(){
@@ -2888,8 +2923,9 @@ function submitPO(){
   if(!entryFOC && lines.some(l=>{var pk=+l.pack||0;var calc=_r2((+l.inv||0)*pk);return (+l.invPack>0&&pk>0&&Math.abs(calc-(+l.invPack))>0.5);})){ toast('A line\'s per-Kg and per-pack price don\'t reconcile (per-Kg × pack ≠ per-pack). Fix it before submitting.'); return; }
   const _recv=$('e_recv').value, _prom=$('e_prom').value;
   if(_recv&&_prom&&_prom<_recv){ toast('Promised Delivery cannot be before PO Received.'); return; }
-  if(!entryFOC && entryPrintOn && lines.some(l=>!(+l.printPrice>0))){ toast('Print price is ON — enter the print price (PKR/pack) for every line, or untick "Print price on pack".'); return; }
-  if(!entryFOC && !entryPrintOn && linesNormallyPrint() && typeof confirm==='function' && !confirm('These products normally carry a printed price on the pack, but "Print price on pack" is OFF.\n\nSubmit WITHOUT a printed price?')) return;
+  if(!entryFOC && !(entryPrintOn===true||entryPrintOn===false)){ toast('Answer whether this PO prints a price on the pack — packing and QA are both shown your answer.'); return; }
+  if(!entryFOC && entryPrintOn===true && lines.some(l=>!(+l.printPrice>0))){ toast('This PO prints a price — enter the print price (PKR/pack) for every line.'); return; }
+  if(!entryFOC && entryPrintOn===false && linesNormallyPrint() && typeof confirm==='function' && !confirm('You have answered NO — these packs will carry no printed price.\n\nBut these products normally DO carry one. Packing and QA will both be told not to print a price.\n\nIs that right?')) return;
   if(!entryFOC && typeof confirm==='function' && !confirm('Verify these prices match the client PO:\n\n'+lines.map(l=>{const pk=+l.pack||0;const ip=+l.inv||0;return '- '+l.brand+': PKR '+fmt(ip)+'/Kg'+(pk>0?(' = PKR '+fmt(ip*pk)+'/pack of '+fmt(pk)):'');}).join('\n')+'\n\nDo these per-pack prices match the client PO? Confirm to submit.')) return;
   if(entryFOC && typeof confirm==='function' && !confirm('This is a FOC sample PO — all prices will be recorded as 0 (no charge) and every document will be flagged as a free sample.\n\nConfirm to submit?')) return;
   state._lastKam=$('e_kam').value;
@@ -2898,14 +2934,14 @@ function submitPO(){
   const id='O'+(state.orders.length+1)+'_'+nid('');
   var _fedMode=entryFedMode();
   const ord={ id, po, client:entryClient, channel:entryChannel, vgreenSub:entryVsub||null, destinationPartner:(entryChannel==='Vgreen'?(entryDestPartner||''):''), foc:!!entryFOC, fedMode:_fedMode, focalPerson:($('e_focal')&&$('e_focal').value)||'', kam:$('e_kam').value.trim(),
-    priority:$('e_pri').value, promised:$('e_prom').value, received:recv, rmDecision:'pending', printOnPack:!!entryPrintOn,
+    priority:$('e_pri').value, promised:$('e_prom').value, received:recv, rmDecision:'pending', printOnPack:(entryPrintOn===true), printDecision:(entryPrintOn===true?'yes':'no'), printDecisionBy:((state.currentUser&&state.currentUser.name)||state.role), printDecisionAt:new Date().toISOString(),
     lines:lines.map((l,j)=>{const det=detailForBrand(l.brand);const procD=procureDaysFor(l.brand,det.base||l.brand,+l.qty);const autoCommit=computeCommitted(recv,+l.qty,procD,l.brand);return {id:id+'L'+j, brand:l.brand, base:det.base||l.brand, pack:+l.pack||det.pack||null, note:l.note||'', committed:l.committed||autoCommit||$('e_prom').value, ordered:+l.qty, printPrice:(entryFOC?0:(entryPrintOn?(+l.printPrice||0):0)), invoicePrice:(entryFOC?0:(+l.inv||0)), invoicePack:(entryFOC?0:(+l.invPack||((+l.inv||0)*(+l.pack||0))||0)), produced:0,packed:0,dispatched:0,delivered:0};}) };
   ord.totalOrdered=ord.lines.reduce((a,l)=>a+l.ordered,0);
   var _ev=entryTotals(); ord.subtotal=_ev.sub; ord.fedAmount=_ev.fed; ord.grandTotal=_ev.total;
   ord.rmDecision='pending';
   state.orders.unshift(ord);
   logAction(`Created PO ${po} (${entryClient}, ${entryChannel}, ${fmt(ord.totalOrdered)} Kg/L)`);
-  entryChannel='';entryClient='';entryVsub='';entryPrintOn=false;entryFOC=false;entryFEDover='';entryDestPartner='';entryLines=[{brand:'',qty:'',pack:'',note:'',committed:''}]; save();
+  entryChannel='';entryClient='';entryVsub='';entryPrintOn=null;entryFOC=false;entryFEDover='';entryDestPartner='';entryLines=[{brand:'',qty:'',pack:'',note:'',committed:''}]; save();
   toast('PO '+po+' created'); state.screen='tracker'; render();
 }
 
@@ -4919,13 +4955,41 @@ function packPriceRecord(o,l,form){
   return rec;
 }
 function printPolicy(po,brand,lid){ var r=poLineFor(po,brand,lid); return r?printPolicyOL(r.o,r.l):{mode:'unknown',price:null}; }
+/* HOTFIX 2026-08-21, found on the live system within an hour of deploying.
+
+   `order.printOnPack` is written as `!!entryPrintOn` — the state of an UNTICKED
+   CHECKBOX at PO entry. I read `false` as "this client wants no price on the
+   bag". It does not mean that. It means "the KAM did not tick the box."
+
+   On the live data that is 41 of 44 POs. Their PO lines carry no price, and
+   150 of their PACKED LOTS carry a real one — VL-NPK at 1,500, Vibrant at
+   6,700, Nitro Sulfur at 4,500. So the first version of this function put a
+   calm grey "No price on pack" against products whose bags demonstrably have
+   prices printed on them, and showed it to the QA inspector as an instruction.
+
+   Telling the last control before the gate that a priced bag should be blank is
+   worse than telling it nothing. Reading a default as a decision is the error.
+
+   The rule now: a printed price is only "deliberately none" when NOTHING
+   contradicts it. Any evidence that this product does carry a price — a price
+   on the line, or any history of one for that brand — outranks the flag, and
+   the honest answer becomes "not recorded, check the client PO". */
 function printPolicyOL(o,l){
   var price=(+((l||{}).printPrice)>0)?+l.printPrice:null;
   var on=(o||{}).printOnPack;
-  if(on===false) return {mode:'noprint', price:price};
-  if(on===true)  return {mode:price?'priced':'missing', price:price};
-  if(price)      return {mode:'priced', price:price};
+  /* An EXPLICIT answer is trusted absolutely — no inference, no second-guessing.
+     `printDecision` only exists where somebody actually answered the question,
+     which is what separates it from `printOnPack`. Everything below this line is
+     the legacy path, for POs created before the question was asked. */
+  var dec=(o||{}).printDecision;
+  if(dec==='no')  return {mode:'noprint', price:null};
+  if(dec==='yes') return price?{mode:'priced',price:price}:{mode:'missing',price:null};
+  /* A price on the line is the strongest signal there is — it beats the flag. */
+  if(price) return {mode:'priced', price:price};
   var hist=0; try{ hist=(typeof recallPrintPrice==='function')?recallPrintPrice((l||{}).brand):0; }catch(e){}
+  if(on===true)  return {mode:'missing', price:null};
+  if(on===false) return hist>0 ? {mode:'unrecorded', price:null}   /* the box was simply never ticked */
+                               : {mode:'noprint',    price:null};  /* nothing anywhere contradicts it */
   return {mode:hist>0?'unrecorded':'unknown', price:null};
 }
 /* One consistent chip everywhere the MRP appears. Never a bare number — the
@@ -7852,8 +7916,14 @@ var RB_DATASETS={
            a missing PRICE or a missing DECISION? Two different jobs for two
            different people, so they are counted separately. A PO that
            deliberately prints no price is NOT an anomaly and never appears. */
-        if((+l.ordered||0)>0&&o.printOnPack===undefined)out.push({type:'No print/no-print decision',po:o.po||'',client:o.client||'',product:l.brand||'',detail:'Nobody has recorded whether this PO prints a price on the pack',date:o.received||'',value:+l.ordered||0});
-        if((+l.ordered||0)>0&&o.printOnPack===true&&!(+l.printPrice>0))out.push({type:'No print price',po:o.po||'',client:o.client||'',product:l.brand||'',detail:'This PO prints a price but none is set',date:o.received||'',value:+l.ordered||0});
+        /* Counted through printPolicyOL, not through the raw flag. `printOnPack:false`
+           is the default of an unticked box, so counting `undefined` alone reported
+           ZERO on live data while 151 lines were in fact undecided. See Fault 11. */
+        if((+l.ordered||0)>0){ var _pp=printPolicyOL(o,l);
+          if(_pp.mode==='unrecorded') out.push({type:'No print/no-print decision',po:o.po||'',client:o.client||'',product:l.brand||'',detail:'This product has carried a printed price before, but nobody has recorded whether THIS PO prints one',date:o.received||'',value:+l.ordered||0});
+          else if(_pp.mode==='unknown') out.push({type:'No print/no-print decision',po:o.po||'',client:o.client||'',product:l.brand||'',detail:'Nobody has recorded whether this PO prints a price on the pack',date:o.received||'',value:+l.ordered||0});
+          else if(_pp.mode==='missing')  out.push({type:'No print price',po:o.po||'',client:o.client||'',product:l.brand||'',detail:'This PO prints a price but none is set',date:o.received||'',value:+l.ordered||0});
+        }
         if((+l.ordered||0)>0&&!(+l.invoicePrice>0))out.push({type:'No invoice price',po:o.po||'',client:o.client||'',product:l.brand||'',detail:'Ordered '+fmt(l.ordered)+' Kg, price not set',date:o.received||'',value:+l.ordered||0});
         var due=l.committed||o.promised||''; if(due&&due<today&&(+l.delivered||0)<(+l.ordered||0)-0.5)out.push({type:'Overdue',po:o.po||'',client:o.client||'',product:l.brand||'',detail:'Due '+due+', '+fmt((+l.ordered||0)-(+l.delivered||0))+' Kg pending',date:due,value:Math.max(0,(+l.ordered||0)-(+l.delivered||0))});
         if((+l.dispatched||0)>(+l.ordered||0)+0.5)out.push({type:'Over-supplied',po:o.po||'',client:o.client||'',product:l.brand||'',detail:'Ordered '+fmt(l.ordered)+', shipped '+fmt(l.dispatched),date:o.promised||'',value:(+l.dispatched||0)-(+l.ordered||0)});

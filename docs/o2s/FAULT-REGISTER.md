@@ -17,6 +17,9 @@ the code, it says so.
 | 6 | The whole truck pipeline is missing from the Action Center | **Critical** | Yes | Fixed 2026-08-21 |
 | 7 | Seven of twelve screens push the page sideways on a phone | **High** | Yes | Fixed 2026-08-21 |
 | 8 | A truck can be gate-released before its shipment-level inspection | **Open question** | Yes | Awaiting Tahir's decision |
+| 9 | Desktop: a nine-figure PKR value was silently losing its last digit | **Critical** | Yes | Fixed 2026-08-21 |
+| 10 | A PO that prints no price could not be packed at all | **Critical** | Yes | Fixed 2026-08-21 |
+| 11 | `printOnPack:false` read as a decision when it is an unticked default | **Critical** | Yes, on live data | Hotfixed 2026-08-21 |
 
 ---
 
@@ -829,3 +832,99 @@ in either.
 *Fault 10 opened and fixed 2026-08-21. SPEC-01 rules 1, 4 and 7 are now built;
 rules 3 (the QA checklist price item), 5 (correcting a print price) and 6 (the
 printed documents) remain.*
+
+---
+
+## Fault 11 — I read a default as a decision, and shipped it live
+
+**Found on the live system by Tahir asking me to go and look, within an hour of
+the deploy. This is my error, not the app's.**
+
+### What was on screen
+
+`COBO-2608-4613` · VITAL AGRI NUTRIENTS. Every one of its sixteen products
+showed the calm grey chip **"No price on pack"**.
+
+The packed lots on that same PO:
+
+| Product | Actually printed on the bag |
+|---|---|
+| VL-NPK | PKR 1,500 /pack |
+| Tornado | PKR 950 /pack |
+| Vibrant | PKR 6,700 /pack |
+| Nitro Sulfur | PKR 4,500 /pack |
+| VL-Micro Mix | PKR 1,500 /pack |
+
+So the app was telling the QA inspector *"this pack should carry no price"* about
+bags that plainly have prices printed on them — **a wrong instruction at the last
+control before material leaves the factory.** Worse than showing nothing, because
+an inspector who trusts it would pass a bag they should have questioned, or fail
+one they should have passed.
+
+### The error
+
+`order.printOnPack` is written as `!!entryPrintOn` — the state of an **unticked
+checkbox** at PO entry. I read `false` as *"this client does not want a price on
+the bag"*. It means *"the KAM did not tick the box."*
+
+Those are not the same thing, and the live data says so plainly:
+
+| | |
+|---|---|
+| POs with `printOnPack === false` | **41 of 44** |
+| Their PO lines carrying a price | **0** |
+| Their packed lots carrying a real printed price | **150** |
+
+A 93% "no price" rate should have been the tell. Tahir told me *some* clients do
+not want a price printed. I built a model where almost all of them do not, and
+never checked that against the data before shipping it.
+
+### Why the tests did not catch it
+
+Every test I wrote fed `printOnPack` explicitly — `true`, `false`, or absent —
+and asserted the branch behaved as designed. **The branch behaved exactly as
+designed. The design was wrong**, because the meaning I assigned to `false` was
+not the meaning the field carries in production.
+
+No unit test can catch that. Only the live data could, and I did not look at the
+live data before shipping. The lesson is not "write more tests" — it is
+**check what a field actually contains before deciding what it means.**
+
+### The rule now
+
+> **A printed price is "deliberately none" only when nothing contradicts it.**
+
+Any evidence that the product does carry a price outranks the flag:
+
+| Evidence | Result |
+|---|---|
+| The line itself carries a price | **priced** — the strongest signal there is, it beats the flag |
+| `printOnPack === true`, no price | **missing** — a real gap |
+| `printOnPack === false`, but this brand has printed a price before | **not recorded** — the box was simply never ticked. *This is the live case: 151 lines* |
+| `printOnPack === false`, and nothing anywhere contradicts it | **no price on pack** — genuine |
+| No flag at all | history decides: **not recorded** or **not specified** |
+
+The 151 affected lines now read **"MRP not recorded"** in amber — honest, and it
+prompts the KAM to set the price rather than reassuring an inspector about a
+decision nobody made.
+
+Fault 10's fix is unaffected: a genuinely no-print PO still packs with a single
+confirmation. Verified, along with all seven states.
+
+### What this does not fix
+
+`printOnPack` still cannot express *"the KAM decided this PO prints no price"*
+distinctly from *"the KAM did not answer"*. Until PO entry forces an explicit
+choice, the flag stays a default rather than a decision, and this function is
+inferring around it.
+
+**That is the real fix and it is not built.** PO entry should ask the question
+outright — *prints a price / does not print a price* — with no default, so the
+data starts meaning something. Existing POs stay "not recorded" until someone
+answers for them, which is what the *"No print/no-print decision"* anomaly row
+is for.
+
+---
+
+*Fault 11 opened and hotfixed 2026-08-21, same day as the fault it corrects.
+The underlying data-model gap is recorded, unbuilt, and needs Tahir's decision.*

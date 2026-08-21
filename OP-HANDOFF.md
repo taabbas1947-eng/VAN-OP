@@ -827,3 +827,129 @@ Center release item already stays hidden while inspection is pending.
 Unchanged: the "no print/no-print decision recorded" pre-flight count, then
 SPEC-04 step 1 (actualDate / recordedAt). Majid's message moves SPEC-03 up
 behind those.
+
+---
+
+## 2026-08-21 (session close) · O2S · price authority, then dates
+
+**Module:** O2S throughout. No `pd/` path, no `/api/pd/*`, no `launcher.html`,
+no auth block. **Pushed by Tahir as `adcc491` "Dates in O2S"**, working tree
+clean, in sync with origin.
+
+Order of work this session, after the first batch: team feedback → desktop
+audit → price authority → dates. Tahir's instruction was "settle issues one by
+one", and the Dashboard was explicitly deferred — it needs its purpose
+rethought, not its CSS corrected.
+
+### Fault 10 — a PO that prints no price could not be packed at all
+
+The sharpest live bug of the session, found while implementing SPEC-01 rule 1.
+
+All three packing paths carried `if(!(ppx>0)){toast('Enter the price…');return;}`.
+A positive print price was **mandatory to pack anything**, so for a client who
+does not want a price on the bag the operator had to invent a number — and the
+next line wrote that invented number back onto the PO line, where it became
+indistinguishable from one the KAM had set.
+
+Packing was authoring commercial data, on exactly the customers who had asked
+for none.
+
+Rebuilt as one shared step across all three paths (`packPriceBlock` /
+`packPriceGate` / `packPriceRecord`), behaving by the four states of SPEC-01
+Rule 0. The lot now stores `poPrintPrice` (what the PO authorised) and
+`printedPrice` (what went on the bag) separately, with `priceMismatch` when they
+differ. `priceVerifiedBy` is the person's name — it was storing `state.role`,
+the string `"Production"`, which names a job you cannot go back and question.
+
+Six cases verified in a browser. The two that matter: a PO with no price and a
+legacy PO both pack correctly and **leave `l.printPrice` unset**. The write-back
+is gone.
+
+### Fault 9 — the desktop app
+
+**Honest correction recorded in the register: I could not reproduce text
+escaping the browser window.** Every screen measures 0px horizontal overflow at
+1024 / 1280 / 1366 / 1600 / 1920 with a 40-PO production-shaped fixture.
+
+What was found looks identical to a user and is worse: **`PKR 625,000,00(` — a
+nine-figure budget figure losing its last digit**, silently, inside a card with
+`overflow:hidden`. Three of four tiles on Sales & Budget. A CFO was being shown
+a number missing a digit with nothing to indicate it.
+
+Fixed by making the value size itself to its card (`container-type:inline-size`
++ `min(23px,10.5cqi)`) rather than the card being asked to fit the value.
+
+This only reproduced once the fixture carried real data. The tidy one-PO fixture
+passed everything, which is why it was missed. **Test with production-shaped
+data or do not claim a layout is clean.**
+
+Empty space measured and left alone: Dashboard and Shipments show **0% content**
+in the first screen at 1366×768; Dashboard has 1,707px of chrome before any data
+row. Deferred at Tahir's instruction.
+
+### Fault 5 / SPEC-04 step 1 — actual date vs recorded date  ← the main build
+
+`actualDate` / `recordedAt` / `recordedBy` now travel with every event that
+previously forced today's date. **`date` is still written, set to `actualDate`**,
+which is what kept the change small — every existing reader picks up the true
+date without being touched.
+
+Wired into: `doPack`, `submitProdQty`, divert-pack, `lotQASubmit`,
+`dispQASubmit`, `savePackInspect`. COA approval gets `recordedAt`/`recordedBy`
+only — a signature's date is the moment of signing, and letting someone backdate
+their own sign-off weakens the record; that belongs in SPEC-03.
+
+`evDateField()` shows the late-entry reason box **only** past the threshold, so
+same-day entry stays one field. `evDateGate()` refuses a future date outright
+and a late entry with no reason.
+
+Thresholds in `state.masters.entryThresholds`, COO-tunable, defaults in SPEC-04.
+
+**Legacy records: `evLag()` returns null and the badge reads "entry date not
+tracked". It must never render 0.** Zero lag on unverified records would
+manufacture a clean history.
+
+Five new **Reports → Anomalies** rows make the pattern countable now, before the
+dashboard exists — including **"Inspection dated after dispatch"**, which is
+Tahir's original complaint detected directly: *truck left the 14th, inspection
+dated the 19th*.
+
+Six cases verified in a browser, including the blocked-without-a-reason and
+future-date paths.
+
+### Also this session
+
+- `actionItems()` gained the five missing truck-pipeline items (Fahim's gate-pass
+  report — see the earlier entry). Titles later shortened after they measured
+  clipping 474px of themselves at 1024px
+- Mobile: 7 of 12 screens were pushing the page sideways; then a density pass
+  took My Actions from 659px of chrome before the first task down to 375px
+- Two anomaly rows count the print-price backlog: **"No print/no-print decision"**
+  (every PO from the opening import is in this state) and **"No print price"**
+
+### What to watch after this deploys
+
+1. **Escalation numbers will get worse before they get better.** `acEscalation`
+   now measures from true dates instead of dates that were themselves entered
+   late. That is the correction working. Tell the team before they see it.
+2. Pull the two print-price anomaly counts. That number decides whether anything
+   on price should ever block.
+3. Let the late-entry rows run **at least four weeks** before considering the
+   lock. Locking against an unmeasured baseline means nobody can tell afterwards
+   whether it helped or whether people simply stopped recording.
+
+### Next, in order
+
+1. SPEC-04 step 2 — the same three fields on the remaining events (shift output,
+   RM/PR, gate release), then steps 5–6, the entry-lag dashboard
+2. SPEC-03 — the correction path. Raised independently by Majid and by Tahir
+3. SPEC-02 — the PO dossier. Pure read, cannot break anything, wants honest
+   dates underneath it — which it now has
+
+### Open, needing Tahir
+
+- **Fault 8** — `approveRelease()` never checks the shipment-level inspection.
+  ~4 lines to add; would stop trucks that today would go. Unfixed by choice
+- **Fault 9c** — which of the Dashboard's three stacked banners earns its place
+- **Sequence validation** — five of the six rules still unbuilt; the sixth
+  ("inspection dated after dispatch") now runs as a report rather than a block

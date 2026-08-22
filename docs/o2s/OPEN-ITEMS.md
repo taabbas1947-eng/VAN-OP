@@ -26,7 +26,7 @@ this morning.
 None of these can be done by writing anything. Three controls stay inert until
 they are.
 
-### 1.1 · Answer print-on-pack — **you** · *the expensive one*
+### 1.1 · Answer print-on-pack — **you** · *the expensive one · see §1A.1 for how to do it safely*
 
 **44 POs on live** (I could not verify that count — `data/state.json` here is a
 16 July snapshot with 21). Until they are answered, **136 product lines tell the
@@ -60,7 +60,7 @@ and the warnings go.
 
 > Wrong here means shipping what should be held, or holding what should ship.
 
-### 1.3 · Put real names on the eight accounts — **you**
+### 1.3 · Put real names on the eight accounts — **you** · *read §1A.3 first, this is not as simple as it looks*
 
 Every login is named after the job, not the person, so every COA prints
 *"no individual name on file"* where the analyst's name belongs. A certificate
@@ -75,6 +75,168 @@ still produce one name. That is `MODULE: PLATFORM` and needs its own session.
 The live access matrix carries `datafix {e:true}` for **Production**. It does
 nothing today (`screenDataFix()` hard-checks `role==='COO'`) but it becomes live
 the day that check is ever refactored. Users & Access.
+
+---
+
+## 1A · How to run each of the four without breaking anyone's day
+
+*Added 22 August 2026, after Tahir asked how to handle these. Two of my earlier
+recommendations were wrong and are corrected here.*
+
+---
+
+### 1A.1 · The 44 POs — **do not do all 44 in one sitting**
+
+**The risk nobody flagged yesterday:** answering a PO does not just tidy a
+record. It changes, immediately and live, what packing and QA are shown on
+orders that are already in flight.
+
+Two specific consequences:
+
+- Answer **"current list price"** → every future inspection touching that PO now
+  has a **new mandatory field**. QA cannot save without reading the price off the
+  bag. A truck at the gate this afternoon meets a required box that was not there
+  this morning, with no warning
+- Answer **"a price set on this PO"** → the line goes from grey *not recorded* to
+  **red "MRP not set"** until somebody types the number, and QA is told
+  *"this PO prints a price but none is set — ask the KAM before passing."*
+  **That is a real block on a real truck**
+
+Neither is a bug. Both are the control doing its job. But arriving unannounced,
+mid-shift, they read as the system breaking.
+
+### The sequence
+
+1. **Send the brief first.** QA needs to know about the new box, and needs to
+   have the current price list in hand, before the first PO is answered
+2. **Answer five, not forty-four.** Pick five that are finished — nothing in
+   production, nothing loading — and watch what the screens do for a day
+3. **Then the rest, outside shift hours.** The screen is read-only until you
+   press Save, so you can work through it and abandon it safely
+4. **Answer "a price set on this PO" ONLY where you will enter the number in the
+   same sitting.** Leaving it half-done converts a quiet grey line into a red
+   block on a truck. If you are not sure of the number, leave the PO unanswered
+   — grey is honest, red is a stoppage
+5. **Prefer "list price" where the evidence supports it.** It carries no number,
+   so it cannot half-land
+
+### On the recommendation column
+
+It reads the evidence, it does not know the answer. It is right about the shape
+of the thing — *packs on this PO already went out with a price and none of it
+came from the PO* is a fact, not a guess. But **the KAM has the client's
+instruction and the system does not.** Where the recommendation and the KAM
+disagree, the KAM is right.
+
+It refuses to guess on 2 of 21 in the snapshot. Those are the ones to ask about.
+
+---
+
+### 1A.2 · The AQL table — **the flag is cosmetic, the checking is not**
+
+**Correction to what I told you.** `masters.aqlVerified` does exactly one thing:
+it removes the red *"accept/reject numbers NOT yet verified against the standard"*
+line from the screen and the printed report. Verified in the code today — it is
+the only thing that flag touches. **Nothing auto-rejects either before or after.**
+
+So the danger is not that turning it on changes behaviour. **The danger is that
+it stops the report admitting it is unverified while the numbers are still
+unchecked.** A report that says nothing is trusted more than one carrying a
+warning.
+
+### What to actually ask the QCM
+
+Do not ask him to review code. Ask him one narrow question:
+
+> For **AQL 2.5, General Inspection Level II**, single sampling, normal
+> inspection — for each sample size we use (2, 3, 5, 8, 13, 20, 32, 50, 80, 125,
+> 200, 315, 500, 800, 1250, 2000): what are the **accept** and **reject**
+> numbers, and **is there an arrow** on that cell?
+
+**The arrows are the whole point.** In ISO 2859-1 an arrow on a cell means *this
+plan does not apply — use the sample size the arrow points to instead*, which
+changes both the sample size and the accept number. **Our table has no arrow
+handling at all.** It is a flat lookup. That is the specific defect to check for,
+and it is the one most likely to be wrong.
+
+**I cannot check this for you.** I do not have the standard in front of me and I
+will not reconstruct the numbers from memory — inventing an accept number is
+exactly the failure this control exists to prevent. It needs a copy of ISO 2859-1
+and an hour of the QCM's time.
+
+### How to ask without it landing as blame
+
+It was not his error. The table was seeded from a best reading and **shipped
+carrying its own warning**, which is the honest way to ship something unverified.
+He is being asked to close it, not to explain it.
+
+**Only set the flag once he has confirmed in writing** — an email is enough. Then
+the report stops apologising, and it has earned the right to.
+
+> **Also worth knowing:** lot QA carries **no sample plan and no record checks at
+> all** — those exist only on pack inspection and pre-shipment QA. The earliest
+> gate is the thinnest one. Not urgent, but it is a gap, not a design.
+
+---
+
+### 1A.3 · Real names — **this is the one that can do harm. Do not do it as written.**
+
+**I gave you bad advice yesterday.** The checklist says put a real name on each
+of the eight logins. **Do not do that where a login is shared.**
+
+The logins are named after jobs — `qa`, `lab`, `plant`. If **two inspectors share
+`qa`** and you set the name to *"Asif Mehmood"*, then every inspection either of
+them performs prints **Asif's name**. Every certificate. Every report that goes
+to a customer.
+
+Today the certificate prints *"no individual name on file — signed on the shared
+'lab' login."* That is ugly, and it is **honest**. It says: a person did this and
+we cannot tell you which one.
+
+Replacing it with one person's name does not fix the problem. **It converts a
+visible gap into an invisible false attribution** — a name on a QA document
+belonging to someone who was not there. That is worse in an audit, not better,
+and it is worse for the person whose name it is.
+
+### So, the rule
+
+| Login | Set a real name? |
+|---|---|
+| Used by **exactly one person**, and will stay that way | **Yes** — set it today |
+| Used by **two or more people**, now or in future | **No.** Leave it. The blank is the truth |
+
+**Confirm who actually uses each login before you type anything.** Ask; do not
+assume from the role name. `tahir` is safe — it is already one person.
+
+**The real fix is one login per person**, and that is `MODULE: PLATFORM` work —
+`auth_users`, `user_module_roles` — needing its own declared session. Until then
+a blank line on a certificate is the correct output, not a defect to be cleared.
+
+---
+
+### 1A.4 · The stale `datafix` grant — safe, two minutes
+
+`screenDataFix()` hard-checks `state.role === 'COO'`. The Production grant does
+nothing today and removing it takes nothing away from anyone. **No announcement
+needed and nobody will notice.**
+
+Do it because the day someone refactors that check to use the access matrix, the
+grant becomes real, and nobody will remember it is there.
+
+Users & Access → Production → clear `datafix`.
+
+---
+
+### The order to do them in
+
+1. **Send the brief** — everything else is safer once people have read it
+2. **The datafix grant** — two minutes, zero risk, get it off the list
+3. **Names, but only on single-person logins** — after asking who shares what
+4. **Five POs**, watch for a day
+5. **The QCM's hour on the AQL table** — start the ask now, it runs in parallel
+6. **The remaining POs**, outside shift hours
+
+Nothing on this list needs to happen today except the brief.
 
 ---
 
@@ -173,12 +335,12 @@ Everything before this morning is in `main` @ `46123ff`.
 
 ## The shortest version
 
-**Tomorrow:** answer the 44 · send the two documents · get the QCM onto the AQL
-table · put real names on the accounts.
+**Tomorrow, in this order:** send the brief · clear the datafix grant · ask who
+shares which login before touching a single name · answer **five** POs and watch
+for a day · start the QCM on the AQL table.
 
-Three of those are half an hour each. The 44 is one sitting, and it is the one
-that unblocks the most.
+The 44 in one sitting is the thing not to do. §1A.1 says why.
 
 ---
 
-*Assembled 22 August 2026. Module: O2S.*
+*Assembled 22 August 2026. Module: O2S. §0 and §1A correct earlier advice.*

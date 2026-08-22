@@ -2599,11 +2599,15 @@ if(op==='correct'){
           before overriding it with a real answer. */
        const dec=o.printDecision||'';
        const inferred=(o.lines&&o.lines[0])?printPolicyOL(o,o.lines[0]).mode:'unknown';
-       const pill=v=>`<option value="${v}" ${dec===v?'selected':''}>${v==='yes'?'Yes — this PO prints a price':(v==='no'?'No — no price on the bag':'— not answered —')}</option>`;
+       /* THREE options, not two — SPEC-06. This select was left on the old
+          yes/no pair when the third window was added, so a PO answered `list`
+          at entry opened here with NOTHING selected and could only be changed
+          to yes or no. The list answer was unreachable from the edit screen. */
+       const pill=v=>`<option value="${v}" ${dec===v?'selected':''}>${v==='list'?'Current list price — the bag carries VAN’s standard MRP':(v==='yes'?'A price set on this PO — negotiated for this customer':(v==='no'?'No price on the bag':'— not answered —'))}</option>`;
        return `<div style="margin-top:12px;padding:11px 13px;border:1px solid ${dec?'var(--line)':'var(--amber)'};background:${dec?'var(--panel2)':'var(--amber-50)'};border-radius:9px">
-         <div style="font-weight:700;font-size:12.5px">Does this PO print a price on the pack?</div>
+         <div style="font-weight:700;font-size:12.5px">Which price goes on the pack?</div>
          <div class="muted" style="font-size:11px;margin:3px 0 8px">${dec?'Answered.':'<b>Never answered.</b> The system is currently inferring <b>'+inferred+'</b> from what has been printed before — an inference, not a decision.'} Packing and QA are both shown this.</div>
-         <select id="co_printDecision" style="max-width:320px">${pill('')}${pill('yes')}${pill('no')}</select>
+         <select id="co_printDecision" style="max-width:380px">${pill('')}${pill('list')}${pill('yes')}${pill('no')}</select>
        </div>`;})()}`;
     const lines=o.lines.map(l=>`<div style="border:1px solid var(--line);border-radius:9px;padding:9px 11px;margin-top:8px"><b style="font-size:12px">${l.brand}</b> <span class="muted" style="font-size:10.5px">${l.base}</span>
        <div class="formgrid" style="grid-template-columns:repeat(6,1fr);margin-top:6px">
@@ -2749,7 +2753,9 @@ function dfSubmitCorrect(){
     if(nv && nv!==(o.printDecision||'')){
       hdr.push({field:'printDecision',label:'Print price on the pack',
                 before:(o.printDecision||'(never answered)'),after:nv});
-      o.printDecision=nv; o.printOnPack=(nv==='yes');
+      /* `list` also means a price IS printed — only `no` means a bare bag.
+         Matches PO entry and the bulk screen, both of which use `!=='no'`. */
+      o.printDecision=nv; o.printOnPack=(nv!=='no');
       o.printDecisionBy=((state.currentUser&&state.currentUser.name)||state.role);
       o.printDecisionAt=new Date().toISOString(); } }
 
@@ -2823,7 +2829,17 @@ function detailForBrand(b){ return brandPool().find(x=>x.brand===b)||{}; }
 function onChannelChange(v){ entryChannel=v; entryClient=''; entryVsub=''; entryFocal=''; entryPrintOn=null; entryFOC=false; entryFEDover=''; entryDestPartner=''; entryLines=[{brand:'',qty:'',pack:'',note:'',committed:''}]; screenEntry(); }
 /* The client's history is now a HINT beside the question, not a silent answer to it. */
 function onClientChange(v){ entryClient=v; entryPrintOn=null; entryLines=[{brand:'',qty:'',pack:'',note:'',committed:''}]; screenEntry(); }
-function setPrintOn(v){ entryPrintOn=(v===null||v==='')?null:!!v; screenEntry(); }
+/* THREE answers now, not two. `entryPrintOn` carries 'yes' | 'list' | 'no'
+   (booleans still accepted so nothing older breaks). */
+function setPrintOn(v){
+  if(v===null||v===''||v===undefined) entryPrintOn=null;
+  else if(v===true) entryPrintOn='yes';
+  else if(v===false) entryPrintOn='no';
+  else entryPrintOn=String(v);
+  screenEntry(); }
+function entryPrintMode(){ var v=entryPrintOn;
+  if(v===true) return 'yes'; if(v===false) return 'no';
+  return (v==='yes'||v==='list'||v==='no')?v:null; }
 function genPO(recv){
   const d=recv?new Date(recv):TODAY; const ym=String(d.getFullYear()).slice(2)+String(d.getMonth()+1).padStart(2,'0');
   const seq=String(Math.floor(Math.random()*9000+1000));
@@ -2875,16 +2891,21 @@ function screenEntry(){
    <div class="card"><h3>Step 2 — Line Items <span class="hint">pack size auto-fills, override allowed</span></h3>
     ${entryClient?(function(){
       const hist=clientHasPrintHistory(entryClient);
-      const unanswered=(entryPrintOn===null||entryPrintOn===undefined);
-      const btn=(val,txt)=>`<button type="button" class="sm ${entryPrintOn===val?'green':'ghost'}" style="min-width:150px" onclick="setPrintOn(${val})">${entryPrintOn===val?'&#10003; ':''}${txt}</button>`;
+      const _pm=entryPrintMode();
+      const unanswered=(_pm===null);
+      const btn=(val,txt)=>`<button type="button" class="sm ${_pm===val?'green':'ghost'}" style="min-width:150px" onclick="setPrintOn('${val}')">${_pm===val?'&#10003; ':''}${txt}</button>`;
       /* Fault 11: this used to be one checkbox that defaulted to the client's history.
          An unticked box then read downstream as "this client wants no price", which put
          a wrong instruction in front of the QA inspector on 41 of 44 live POs.
          It is now a question with no default, and the PO cannot be submitted unanswered. */
       return `<div style="margin-bottom:12px;padding:11px 13px;border:1px solid ${unanswered?'var(--amber)':'var(--line)'};background:${unanswered?'var(--amber-50)':'var(--panel2)'};border-radius:9px">
-        <div style="font-weight:700;font-size:12.5px">Does this PO print a price on the pack? <span style="color:var(--red)">*</span></div>
+        <div style="font-weight:700;font-size:12.5px">Which price goes on the pack? <span style="color:var(--red)">*</span></div>
         <div class="muted" style="font-size:11px;margin:3px 0 8px">The retail/MRP figure printed on the bag. ${hist?'This client <b>has printed a price before</b>.':'No printed price has been recorded for this client before.'} Whoever packs and whoever inspects will be shown your answer &mdash; so it has to be an answer, not a blank.</div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">${btn(true,'Yes — prints a price')}${btn(false,'No — no price on the bag')}</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">${btn('list','Current list price')}${btn('yes','A price set on this PO')}${btn('no','No price on the bag')}</div>
+        <div class="muted" style="font-size:10.5px;margin-top:7px;line-height:1.8">
+          <b>Current list price</b> — the bag carries VAN's standard MRP. QA checks it against the latest price list and writes down what they saw. Most of the range works this way.<br>
+          <b>A price set on this PO</b> — a figure negotiated for this customer. Enter it per line below; QA checks the bag against that exact number.<br>
+          <b>No price</b> — nothing printed. Any price on the bag is then a failure.</div>
         ${unanswered?'<div style="font-size:11px;color:#8a5a00;font-weight:700;margin-top:8px">Not answered yet</div>':''}
       </div>`;})():''}
     ${entryClient?'':'<div class="muted" style="font-size:12.5px">Pick a channel and client above to load brands.</div>'}
@@ -2935,8 +2956,8 @@ function renderEntryLines(){
     const autoCommit=(+l.qty>0)?computeCommitted(recv,+l.qty,procD,l.brand):'';
     const committedVal=l.committed||autoCommit||(($('e_prom')&&$('e_prom').value)||'');
     const recalled=recallPrintPrice(l.brand);
-    if(entryPrintOn && l.brand && l.printPrice==null && recalled>0) l.printPrice=recalled;  // recall pre-fill (only when never touched)
-    const printRow = entryPrintOn ? `<tr><td colspan="9" style="border-top:none;padding-top:0;padding-bottom:8px"><div style="display:flex;align-items:center;gap:8px;font-size:11px"><span class="muted" style="min-width:118px">Print price (MRP on pack):</span><input type="number" value="${l.printPrice!=null?l.printPrice:''}" placeholder="PKR / pack" oninput="entryLines[${i}].printPrice=this.value;validate()" style="width:150px"><span class="muted">PKR per pack${+l.pack>0?(' of '+fmt(l.pack)):''}${recalled>0?` · <span style="cursor:pointer;color:var(--navy)" title="recall last used" onclick="entryLines[${i}].printPrice=${recalled};renderEntryLines()">use last ${fmt(recalled)}</span>`:' · no previous price on file'}</span></div></td></tr>` : '';
+    if(entryPrintMode()==='yes' && l.brand && l.printPrice==null && recalled>0) l.printPrice=recalled;  // recall pre-fill (only when never touched)
+    const printRow = (entryPrintMode()==='yes') ? `<tr><td colspan="9" style="border-top:none;padding-top:0;padding-bottom:8px"><div style="display:flex;align-items:center;gap:8px;font-size:11px"><span class="muted" style="min-width:118px">Print price (MRP on pack):</span><input type="number" value="${l.printPrice!=null?l.printPrice:''}" placeholder="PKR / pack" oninput="entryLines[${i}].printPrice=this.value;validate()" style="width:150px"><span class="muted">PKR per pack${+l.pack>0?(' of '+fmt(l.pack)):''}${recalled>0?` · <span style="cursor:pointer;color:var(--navy)" title="recall last used" onclick="entryLines[${i}].printPrice=${recalled};renderEntryLines()">use last ${fmt(recalled)}</span>`:' · no previous price on file'}</span></div></td></tr>` : '';
     return `<tr>
      <td><select onchange="entryLines[${i}].brand=this.value;entryLines[${i}].pack=(detailForBrand(this.value).pack||'');renderEntryLines()">
        <option value="">— pick brand —</option>${brs.map(b=>`<option ${b.brand===l.brand?'selected':''}>${b.brand}</option>`).join('')}</select></td>
@@ -2978,8 +2999,8 @@ function entryChecks(){
     ['Each line committed date ≥ PO Received', lines.every(l=>!l.committed || !recv || l.committed>=recv), 'e_lines'],
     ['Invoice price set on every line (per-Kg or per-pack)', entryFOC || (lines.length>0 && lines.every(l=>+l.inv>0)), 'e_lines'],
     ['Per-Kg and per-pack price reconcile', entryFOC || lines.every(l=>{var pk=+l.pack||0;var calc=_r2((+l.inv||0)*pk);return !(+l.invPack>0)||pk<=0||Math.abs(calc-(+l.invPack))<=0.5;}), 'e_lines'],
-    ['Print / no-print answered', entryFOC || (entryPrintOn===true||entryPrintOn===false), 'e_lines'],
-    ['Print price set on every line (when printing)', entryFOC || entryPrintOn!==true || (lines.length>0 && lines.every(l=>+l.printPrice>0)), 'e_lines'],
+    ['Price-on-pack answered', entryFOC || entryPrintMode()!==null, 'e_lines'],
+    ['Print price set on every line (when the PO carries the price)', entryFOC || entryPrintMode()!=='yes' || (lines.length>0 && lines.every(l=>+l.printPrice>0)), 'e_lines'],
   ];
 }
 function validate(){
@@ -3014,9 +3035,14 @@ function submitPO(){
   if(!entryFOC && lines.some(l=>{var pk=+l.pack||0;var calc=_r2((+l.inv||0)*pk);return (+l.invPack>0&&pk>0&&Math.abs(calc-(+l.invPack))>0.5);})){ toast('A line\'s per-Kg and per-pack price don\'t reconcile (per-Kg × pack ≠ per-pack). Fix it before submitting.'); return; }
   const _recv=$('e_recv').value, _prom=$('e_prom').value;
   if(_recv&&_prom&&_prom<_recv){ toast('Promised Delivery cannot be before PO Received.'); return; }
-  if(!entryFOC && !(entryPrintOn===true||entryPrintOn===false)){ toast('Answer whether this PO prints a price on the pack — packing and QA are both shown your answer.'); return; }
-  if(!entryFOC && entryPrintOn===true && lines.some(l=>!(+l.printPrice>0))){ toast('This PO prints a price — enter the print price (PKR/pack) for every line.'); return; }
-  if(!entryFOC && entryPrintOn===false && linesNormallyPrint() && typeof confirm==='function' && !confirm('You have answered NO — these packs will carry no printed price.\n\nBut these products normally DO carry one. Packing and QA will both be told not to print a price.\n\nIs that right?')) return;
+  if(!entryFOC && entryPrintMode()===null){ toast('Answer which price goes on the pack — packing and QA are both shown your answer.'); return; }
+  if(!entryFOC && entryPrintMode()==='yes' && lines.some(l=>!(+l.printPrice>0))){ toast('This PO carries its own price — enter the print price (PKR/pack) for every line.'); return; }
+  /* SPEC-06: `entryPrintOn` now carries the STRING 'no', never boolean false,
+     so `===false` silently stopped matching and this safety confirm — the one
+     that stands between a slip of the mouse and a whole PO shipping bare —
+     never fired again. Asked through entryPrintMode() so it survives the next
+     change of representation too. */
+  if(!entryFOC && entryPrintMode()==='no' && linesNormallyPrint() && typeof confirm==='function' && !confirm('You have answered NO — these packs will carry no printed price.\n\nBut these products normally DO carry one. Packing and QA will both be told not to print a price.\n\nIs that right?')) return;
   if(!entryFOC && typeof confirm==='function' && !confirm('Verify these prices match the client PO:\n\n'+lines.map(l=>{const pk=+l.pack||0;const ip=+l.inv||0;return '- '+l.brand+': PKR '+fmt(ip)+'/Kg'+(pk>0?(' = PKR '+fmt(ip*pk)+'/pack of '+fmt(pk)):'');}).join('\n')+'\n\nDo these per-pack prices match the client PO? Confirm to submit.')) return;
   if(entryFOC && typeof confirm==='function' && !confirm('This is a FOC sample PO — all prices will be recorded as 0 (no charge) and every document will be flagged as a free sample.\n\nConfirm to submit?')) return;
   state._lastKam=$('e_kam').value;
@@ -3025,8 +3051,8 @@ function submitPO(){
   const id='O'+(state.orders.length+1)+'_'+nid('');
   var _fedMode=entryFedMode();
   const ord={ id, po, client:entryClient, channel:entryChannel, vgreenSub:entryVsub||null, destinationPartner:(entryChannel==='Vgreen'?(entryDestPartner||''):''), foc:!!entryFOC, fedMode:_fedMode, focalPerson:($('e_focal')&&$('e_focal').value)||'', kam:$('e_kam').value.trim(),
-    priority:$('e_pri').value, promised:$('e_prom').value, received:recv, rmDecision:'pending', printOnPack:(entryPrintOn===true), printDecision:(entryPrintOn===true?'yes':'no'), printDecisionBy:((state.currentUser&&state.currentUser.name)||state.role), printDecisionAt:new Date().toISOString(),
-    lines:lines.map((l,j)=>{const det=detailForBrand(l.brand);const procD=procureDaysFor(l.brand,det.base||l.brand,+l.qty);const autoCommit=computeCommitted(recv,+l.qty,procD,l.brand);return {id:id+'L'+j, brand:l.brand, base:det.base||l.brand, pack:+l.pack||det.pack||null, note:l.note||'', committed:l.committed||autoCommit||$('e_prom').value, ordered:+l.qty, printPrice:(entryFOC?0:(entryPrintOn?(+l.printPrice||0):0)), invoicePrice:(entryFOC?0:(+l.inv||0)), invoicePack:(entryFOC?0:(+l.invPack||((+l.inv||0)*(+l.pack||0))||0)), produced:0,packed:0,dispatched:0,delivered:0};}) };
+    priority:$('e_pri').value, promised:$('e_prom').value, received:recv, rmDecision:'pending', printOnPack:(entryPrintMode()!=='no'), printDecision:(entryPrintMode()||'no'), printDecisionBy:((state.currentUser&&state.currentUser.name)||state.role), printDecisionAt:new Date().toISOString(),
+    lines:lines.map((l,j)=>{const det=detailForBrand(l.brand);const procD=procureDaysFor(l.brand,det.base||l.brand,+l.qty);const autoCommit=computeCommitted(recv,+l.qty,procD,l.brand);return {id:id+'L'+j, brand:l.brand, base:det.base||l.brand, pack:+l.pack||det.pack||null, note:l.note||'', committed:l.committed||autoCommit||$('e_prom').value, ordered:+l.qty, printPrice:(entryFOC?0:(entryPrintMode()==='yes'?(+l.printPrice||0):0))/* SPEC-06: only the PO-price answer puts a number on the line. `entryPrintOn` is now a truthy STRING for all three answers, so the old test let a price typed under "yes" ride along after the user switched to list or no — where it is not wrong, just not true, and the "not a real price" anomaly reads it. */, invoicePrice:(entryFOC?0:(+l.inv||0)), invoicePack:(entryFOC?0:(+l.invPack||((+l.inv||0)*(+l.pack||0))||0)), produced:0,packed:0,dispatched:0,delivered:0};}) };
   ord.totalOrdered=ord.lines.reduce((a,l)=>a+l.ordered,0);
   var _ev=entryTotals(); ord.subtotal=_ev.sub; ord.fedAmount=_ev.fed; ord.grandTotal=_ev.total;
   ord.rmDecision='pending';
@@ -5853,7 +5879,7 @@ function sigStamp(){
    inspections store their checklist by array index (`QC_CHECKLIST.map((it,i)=>…)`),
    so touching that array would silently re-label every inspection ever saved. ===== */
 var QC_VERIFY=[
-  {k:'price', label:'Price on the pack is as the PO requires'},
+  {k:'price', label:'Price on the pack is correct'},
   {k:'batch', label:'Batch # on the pack matches the record'},
   {k:'dates', label:'Mfg &amp; expiry on the pack match the record'}
 ];
@@ -5862,6 +5888,11 @@ function qcExpect(o,l,lot){
   var pol=printPolicyOL(o,l);
   var price = pol.mode==='priced'  ? 'expected <b>PKR '+fmt(pol.price)+' /pack</b>'
             : pol.mode==='noprint' ? '<b>no price should appear on this pack</b>'
+            /* The list price is not held here, deliberately — it moves, and a
+               stale copy in the system would be worse than no copy. The
+               inspector is sent to the authority and asked to write down what
+               they actually saw, which is how the evidence gets built. */
+            : pol.mode==='list'    ? '<b>carries the LIST price</b> — check the bag against the <b>latest price list</b> and enter the price you see below'
             : pol.mode==='missing' ? '<span style="color:var(--red)">this PO prints a price but none is set — ask the KAM before passing</span>'
             :                        '<span style="color:var(--red)">not recorded — check the client PO before passing</span>';
   var batch = lot ? ('expected <b>'+(lotBrandNo(lot)||lotBaseNo(lot)||'—')+'</b>') : '—';
@@ -5877,17 +5908,53 @@ function qcVerifyRows(exp,marks,fname,reRender){
       +'<td style="white-space:nowrap">'+r('pass','Pass')+r('fail','Fail')+'</td></tr>';
   }).join('');
 }
-function qcVerifyTable(exp,marks,fname,reRender){
+/* `seen` is the price the inspector actually read off the bag. It is only asked
+   for where the system does NOT hold the number — i.e. the list-price case,
+   where the authority is the paper price list and the system's job is to make
+   somebody write down what was really there. Over a few months these become the
+   only evidence of which list revision each bag was printed under. */
+function qcVerifyTable(exp,marks,fname,reRender,form,askSeen){
+  var seenRow='';
+  if(askSeen){
+    var v=(form&&form.priceSeen!=null)?form.priceSeen:'';
+    seenRow='<div style="margin:-4px 0 12px;padding:10px 12px;border:1px solid var(--amber);background:var(--amber-50);border-radius:8px">'
+      +'<div style="font-weight:600;font-size:12px">Price printed on the bag <span style="color:var(--red)">*</span></div>'
+      +'<div class="muted" style="font-size:11px;margin:3px 0 7px">The system does not hold the list price &mdash; it changes. Read the number off the bag, check it against the <b>latest price list</b>, and write it here.</div>'
+      +'<input type="number" value="'+_av(v)+'" placeholder="PKR / pack" style="max-width:170px" '
+      +'oninput="'+fname+'.priceSeen=this.value" onchange="'+fname+'.priceSeen=this.value;'+reRender+'"></div>';
+  }
   return '<div style="overflow:auto;margin-bottom:12px"><table><thead><tr>'
     +'<th>Check against the record</th><th style="width:170px">Result</th></tr></thead><tbody>'
-    +qcVerifyRows(exp,marks,fname,reRender)+'</tbody></table></div>';
+    +qcVerifyRows(exp,marks,fname,reRender)+'</tbody></table></div>'+seenRow;
 }
-function qcVerifyGate(marks){
+function qcVerifyGate(marks,form,askSeen){
   if(!marks || marks.length<QC_VERIFY.length || marks.some(function(m){return !m;}))
     return 'Mark each of the three record checks Pass or Fail.';
+  if(askSeen && !(+((form||{}).priceSeen)>0))
+    return 'Enter the price printed on the bag — this PO carries the list price, so the number has to come from you.';
   return null;
 }
-function qcVerifyRecord(marks){ return QC_VERIFY.map(function(it,i){ return {key:it.k,item:it.label,result:(marks&&marks[i])||''}; }); }
+/* Does this inspection need the inspector to write the price down? True only
+   where at least one line on it carries the list price. */
+function qcNeedsSeenPrice(pairs){
+  return (pairs||[]).some(function(x){
+    try{ return printPolicyOL(x.o,x.l).mode==='list'; }catch(e){ return false; } });
+}
+/* The inspector's number is stored as a ROW, not as a property hung on the
+   array. State is persisted with `JSON.stringify(dataOnly(state))` (see
+   saveNow) and JSON.stringify DROPS non-index properties of an array without
+   error — so `out.priceSeen = 1250` survived in memory, rendered correctly on
+   screen, and was gone the moment the page reloaded. The whole point of asking
+   the question is the record it builds over months; it was building nothing.
+   A row survives, needs no reader changes, and prints in the dossier. */
+function qcVerifyRecord(marks,form){
+  var out=QC_VERIFY.map(function(it,i){ return {key:it.k,item:it.label,result:(marks&&marks[i])||''}; });
+  if(form && +form.priceSeen>0){
+    out.push({key:'priceSeen', item:'Price printed on the bag (read off the bag, checked against the current price list)',
+              result:String(+form.priceSeen), priceSeen:+form.priceSeen});
+    Object.defineProperty(out,'priceSeen',{value:+form.priceSeen,enumerable:false,writable:true,configurable:true}); /* convenience for in-memory readers; the ROW is the record */
+  }
+  return out; }
 function qcVerifyFailed(marks){ return !!(marks&&marks.some(function(m){return m==='fail';})); }
 /* ===== ANSWER THE PRINT QUESTION IN BULK — 2026-08-21
    Fault 11 aftermath. Asking the question at PO entry fixes every PO from here
@@ -5899,14 +5966,50 @@ function qcVerifyFailed(marks){ return !!(marks&&marks.some(function(m){return m
    So: one screen, every unanswered PO, two clicks each, one save.
    Read-only until Save — nothing is written while you are deciding. ===== */
 var bulkPD={};
+/* ONE definition of the backlog, used by all three places that count it — the
+   Reports button, the Action Center item and this screen. They each had their
+   own filter: the Action Center required an ordered line, the other two did
+   not. On this snapshot all three happen to agree, so nothing was visibly
+   wrong; on live data a PO with no ordered quantity would make the button and
+   the action item disagree about the size of the same backlog, and there is no
+   way for anyone reading the two numbers to tell which one is lying. */
+function openPrintDecisionPOs(){
+  return (state.orders||[]).filter(function(o){
+    return !o.printDecision && (o.lines||[]).some(function(l){ return (+l.ordered||0)>0; }); });
+}
 function openBulkPrintDecision(){
   if(!(state.role==='COO'||state.role==='KAM')){toast('COO / KAM only');return;}
   bulkPD={}; renderBulkPrintDecision(); $('modalBg').classList.add('open');
 }
+/* What the evidence looks like for one PO. Text only — this NEVER writes into
+   `bulkPD`, so nothing is ever answered without a human clicking it.
+
+   It will never suggest "no price". You cannot evidence a negative from silence:
+   a PO with no printed history might print nothing, or might simply be new. That
+   exact inference — absence read as a decision — is Fault 11, where an unticked
+   box was taken to mean "this client wants a bare bag" on 41 of 44 live POs.
+   Where there is nothing to go on it says so and names who has to answer. */
+function bulkPDSuggest(o){
+  var lines=(o&&o.lines)||[];
+  var onLine=lines.filter(function(l){ return +l.printPrice>0; });
+  if(onLine.length)
+    return {pick:'yes', label:'a price set on this PO',
+            why:'the PO line already carries PKR '+fmt(+onLine[0].printPrice)+' /pack'};
+  var onPO=(state.packingLog||[]).filter(function(pk){ return pk&&pk.po===o.po&&+pk.printPrice>0; });
+  if(onPO.length)
+    return {pick:'list', label:'the current list price',
+            why:onPO.length+' pack'+(onPO.length===1?'':'s')+' on this PO already went out with a price on them, and none of it came from the PO'};
+  var brands=lines.map(function(l){return l.brand;}).filter(function(b,i,a){return b&&a.indexOf(b)===i;});
+  var withHist=brands.filter(function(b){ var h=0; try{ h=recallPrintPrice(b); }catch(e){} return h>0; });
+  if(withHist.length)
+    return {pick:'list', label:'the current list price',
+            why:withHist.length+' of '+brands.length+' product'+(brands.length===1?'':'s')+' on this PO has carried a printed price before, though not on this PO'};
+  return {pick:null, why:'nothing on this PO and nothing in these products&rsquo; history has ever carried a printed price. The KAM has the client&rsquo;s instruction — the system does not.'};
+}
 function bulkPDSet(oid,v){ bulkPD[oid]=v; renderBulkPrintDecision(); }
-function bulkPDAll(v){ (state.orders||[]).forEach(function(o){ if(!o.printDecision) bulkPD[o.id]=v; }); renderBulkPrintDecision(); }
+function bulkPDAll(v){ openPrintDecisionPOs().forEach(function(o){ bulkPD[o.id]=v; }); renderBulkPrintDecision(); }
 function renderBulkPrintDecision(){
-  var open=(state.orders||[]).filter(function(o){ return !o.printDecision; });
+  var open=openPrintDecisionPOs();
   var answered=Object.keys(bulkPD).filter(function(k){return bulkPD[k];}).length;
   var rows=open.map(function(o){
     var pick=bulkPD[o.id]||'';
@@ -5914,22 +6017,44 @@ function renderBulkPrintDecision(){
     var inf={}; (o.lines||[]).forEach(function(l){ var m=printPolicyOL(o,l).mode; inf[m]=(inf[m]||0)+1; });
     var infTxt=Object.keys(inf).map(function(k){return inf[k]+'× '+k;}).join(', ');
     /* the strongest evidence available: what has actually been printed on this PO's packs */
-    var seen={}; (state.packingLog||[]).forEach(function(pk){ if(pk&&pk.po===o.po&&+pk.printPrice>0) seen[pk.brand]=+pk.printPrice; });
+    /* EVERY distinct price per brand, not the last one seen. SPEC-06's own
+       finding is that a brand carrying two prices is normal — a price list was
+       revised and old stock kept the old number. Collapsing to `seen[brand]=x`
+       showed one number and hid the other, which is precisely the case where
+       the COO most needs to see both before answering. */
+    var seen={}; (state.packingLog||[]).forEach(function(pk){
+      if(pk&&pk.po===o.po&&+pk.printPrice>0){ (seen[pk.brand]=seen[pk.brand]||[]).push(+pk.printPrice); } });
     var seenKeys=Object.keys(seen);
     var evid=seenKeys.length
-      ? '<span style="color:#8a5a00;font-weight:700">packs already printed at '+seenKeys.slice(0,3).map(function(b){return fmt(seen[b])+' ('+b+')';}).join(', ')+(seenKeys.length>3?(' +'+(seenKeys.length-3)+' more'):'')+'</span>'
+      ? '<span style="color:#8a5a00;font-weight:700">packs already printed at '+seenKeys.slice(0,3).map(function(b){
+          var ps=seen[b].filter(function(v,i,a){return a.indexOf(v)===i;}).sort(function(x,y){return x-y;});
+          return ps.map(fmt).join(' &amp; ')+' ('+b+')'+(ps.length>1?' <span style="color:var(--red)">— two different prices</span>':'');
+        }).join(', ')+(seenKeys.length>3?(' +'+(seenKeys.length-3)+' more'):'')+'</span>'
       : '<span class="muted">nothing printed on this PO yet</span>';
     var btn=function(v,t){ return '<button type="button" class="sm '+(pick===v?'green':'ghost')+'" onclick="bulkPDSet(\''+o.id+'\',\''+v+'\')">'+(pick===v?'&#10003; ':'')+t+'</button>'; };
+    /* Rendered as text, never as a selection. Tahir, 2026-08-22: recommend, but
+       never pre-select. Reading the evidence is work the machine can do; making
+       the decision is not, and a pre-selected row saved unread is a default
+       wearing a signature — Fault 11 with better manners. */
+    var sug=bulkPDSuggest(o);
+    var sugTxt=sug.pick
+      ? '<div style="margin-top:3px;font-size:10.5px"><b>Looks like: '+sug.label+'</b> <span class="muted">&mdash; '+sug.why+'. Still needs your click.</span></div>'
+      : '<div style="margin-top:3px;font-size:10.5px;color:var(--red)"><b>No evidence either way.</b> <span class="muted">'+sug.why+'</span></div>';
     return '<tr'+(pick?' style="background:#f3faf6"':'')+'><td><b>'+_pe(o.po)+'</b><div class="muted" style="font-size:10.5px">'+_pe(shortClient(o.client)||'')+' · '+((o.lines||[]).length)+' product(s)</div></td>'
-      +'<td class="muted" style="font-size:10.5px">'+infTxt+'<div style="margin-top:2px">'+evid+'</div></td>'
-      +'<td style="white-space:nowrap;text-align:right">'+btn('yes','Prints a price')+' '+btn('no','No price')+'</td></tr>';
+      +'<td class="muted" style="font-size:10.5px">'+infTxt+'<div style="margin-top:2px">'+evid+'</div>'+sugTxt+'</td>'
+      +'<td style="white-space:nowrap;text-align:right">'+btn('list','List price')+' '+btn('yes','Price on this PO')+' '+btn('no','No price')+'</td></tr>';
   }).join('');
   $('modal').className='modal m-lg';
-  $('modal').innerHTML='<div class="mh"><h2>Does this PO print a price on the pack?</h2>'
+  $('modal').innerHTML='<div class="mh"><h2>Which price goes on the pack?</h2>'
     +'<div class="sub">'+open.length+' PO(s) were created before this question was asked. '+answered+' answered here so far. Nothing is saved until you press Save.</div></div>'
     +'<div class="mb">'
+    +'<div style="padding:9px 12px;border:1px solid var(--line);background:var(--panel2);border-radius:8px;margin-bottom:10px;font-size:11.5px;line-height:1.9">'
+    +'<b>List price</b> &mdash; the bag carries VAN&rsquo;s standard MRP. QA checks it against the latest price list and records what they saw. <b>This is the normal case for most of the range.</b><br>'
+    +'<b>Price on this PO</b> &mdash; negotiated for this customer and set on the PO line. QA checks the bag against that exact number.<br>'
+    +'<b>No price</b> &mdash; nothing printed. Any price on the bag is then a failure.'
+    +'</div>'
     +(open.length?('<div class="muted" style="font-size:11.5px;margin-bottom:9px">The middle column shows what the system is <b>inferring</b> and what has actually been printed on this PO’s packs. Your answer replaces the inference — packing and QA are both shown it.</div>'
-      +'<div style="margin-bottom:9px;display:flex;gap:7px;flex-wrap:wrap"><button class="sm ghost" onclick="bulkPDAll(\'yes\')">Set all to “prints a price”</button><button class="sm ghost" onclick="bulkPDAll(\'no\')">Set all to “no price”</button><button class="sm ghost" onclick="bulkPD={};renderBulkPrintDecision()">Clear</button></div>'
+      +'<div style="margin-bottom:9px;display:flex;gap:7px;flex-wrap:wrap"><button class="sm ghost" onclick="bulkPDAll(\'list\')">Set all to list price</button><button class="sm ghost" onclick="bulkPDAll(\'yes\')">Set all to price on this PO</button><button class="sm ghost" onclick="bulkPDAll(\'no\')">Set all to no price</button><button class="sm ghost" onclick="bulkPD={};renderBulkPrintDecision()">Clear</button></div>'
       +'<div style="max-height:56vh;overflow:auto"><table><thead><tr><th>PO</th><th>What the system infers today</th><th style="text-align:right;width:250px">Your answer</th></tr></thead><tbody>'+rows+'</tbody></table></div>')
       :'<div class="muted" style="padding:16px 2px">Every PO has been answered. Nothing to do here.</div>')
     +'</div>'
@@ -5940,12 +6065,12 @@ function saveBulkPrintDecision(){
   var who=(state.currentUser&&state.currentUser.name)||state.role, at=new Date().toISOString(), n=0;
   (state.orders||[]).forEach(function(o){
     var v=bulkPD[o.id]; if(!v||o.printDecision) return;
-    o.printDecision=v; o.printOnPack=(v==='yes'); o.printDecisionBy=who; o.printDecisionAt=at;
+    o.printDecision=v; o.printOnPack=(v!=='no'); o.printDecisionBy=who; o.printDecisionAt=at;
     /* This is ENTRY, not correction — see isCorrection(). Every PO touched here
        had NO answer; the loop above skips any that do. Filing it in the
        corrections register would put 44 "corrections" on the record on the day
        we started asking the question, and none of them would be a correction. */
-    logAction('Print-on-pack ANSWERED for '+o.po+': '+(v==='yes'?'prints a price':'no price on the bag')+' — first answer, PO predates the question');
+    logAction('Price-on-pack ANSWERED for '+o.po+': '+(v==='yes'?'price set on this PO':(v==='list'?'current list price':'no price on the bag'))+' — first answer, PO predates the question');
     n++;
   });
   if(!n){ toast('Nothing answered yet'); return; }
@@ -5985,6 +6110,12 @@ function packPriceBlock(o,l,form,fname){
   if(pol.mode==='priced'){
     head='Price to print on the pack &mdash; '+mrpTag(pol);
     note='Check the number on the bag against the PO. If it differs, record what is actually printed &mdash; the difference is flagged for the inspector.';
+  } else if(pol.mode==='list'){
+    /* Nothing is wrong here and the packer should not be made to feel there is.
+       The list price is the normal case for most of the range — the packer
+       simply records the number they are printing, from the current list. */
+    head='Price to print on the pack &mdash; '+mrpTag(pol);
+    note='This pack carries VAN&rsquo;s <b>current list price</b>. Take it from the <b>latest price list</b> and record the number you are printing, so QA and the challan can be checked against it.';
   } else {
     head='Price on the pack &mdash; <span style="color:var(--red);font-weight:700">this PO does not record one</span>';
     note='Record what is actually being printed. <b>This does not set the PO’s price</b> &mdash; ask the KAM to set it on the PO so the next lot is not a guess.';
@@ -6016,7 +6147,8 @@ function packPriceGate(o,l,form){
 function packPriceRecord(o,l,form){
   var pol=printPolicyOL(o,l);
   var who=(state.currentUser&&state.currentUser.name)||state.role;
-  var rec={ poPrintPrice:(pol.price!=null?pol.price:null), printOnPack:(pol.mode==='noprint'?false:(pol.mode==='priced'||pol.mode==='missing')?true:null),
+  var rec={ poPrintPrice:(pol.price!=null?pol.price:null), printOnPack:(pol.mode==='noprint'?false:(pol.mode==='priced'||pol.mode==='missing'||pol.mode==='list')?true:null),
+            priceSource:(pol.mode==='list'?'list':(pol.mode==='priced'?'po':(pol.mode==='noprint'?'none':'unknown'))),
             priceVerifiedBy:who, priceVerifiedAt:new Date().toISOString() };
   if(pol.mode==='noprint'){ rec.printedPrice=null; rec.noPrintPack=true; rec.printPrice=null; }
   else { rec.printedPrice=+form.price||0; rec.printPrice=+form.price||0; /* printPrice kept for older readers */
@@ -6052,6 +6184,20 @@ function printPolicyOL(o,l){
      the legacy path, for POs created before the question was asked. */
   var dec=(o||{}).printDecision;
   if(dec==='no')  return {mode:'noprint', price:null};
+  /* THE THIRD WINDOW — Tahir, 2026-08-21.
+     Most packs do not carry a price negotiated on the PO. They carry VAN's
+     CURRENT LIST PRICE, which moves: eleven brands already show two different
+     prices on packs in the market (VL-NPK at 1,250 and 1,500; Green Phosphate
+     at 15,800 and 17,700). Forcing those onto the PO would be inventing a
+     number that never existed there — which is why 136 lines read "not
+     recorded" and told the inspector nothing.
+
+     The price list itself lives OUTSIDE the system (Tahir's decision): the
+     inspector checks the current paper list and RECORDS the price they saw.
+     So the system's job here is not to know the number — it is to say which
+     of the three situations applies, and to make the inspector write down what
+     was actually on the bag. */
+  if(dec==='list') return {mode:'list', price:null};
   if(dec==='yes') return price?{mode:'priced',price:price}:{mode:'missing',price:null};
   /* A price on the line is the strongest signal there is — it beats the flag. */
   if(price) return {mode:'priced', price:price};
@@ -6071,6 +6217,7 @@ function mrpTag(pol,big){
     case 'priced':  return '<span class="'+cls+'" title="Price to be printed on the pack, from the PO">MRP '+fmt(pol.price)+' /pack</span>';
     case 'noprint': return '<span class="'+cls+' off" title="This PO is set to ship with NO price printed on the pack">No price on pack</span>';
     case 'missing': return '<span class="'+cls+' none" title="This PO is set to print a price, but no price has been entered">MRP not set</span>';
+    case 'list':    return '<span class="'+cls+'" title="This pack carries VAN\'s current LIST price. Check the bag against the latest price list — the number is not held in the system.">List price &middot; check price list</span>';
     case 'unrecorded': return '<span class="'+cls+' soft" title="This product usually carries a printed price, but this PO does not record one. Confirm with the KAM.">MRP not recorded</span>';
     default:        return '<span class="'+cls+' off" title="Whether this PO prints a price has not been recorded">Print price not specified</span>';
   }
@@ -6470,7 +6617,9 @@ function printInspect(po){
       +(r.sampling.reduced?' <span style="color:#8a5a00"><b>&mdash; REDUCED SAMPLE</b></span>':'')
       +(r.sampling.tableVerified?'':' <span style="color:#b4231b">&middot; accept/reject numbers unverified</span>')
       +'</div></div>') : '';
-    var vrows=(r.verify||[]).map(function(v){ return '<tr><td>'+_pe(v.item||v.key||'')+'</td><td class="num">'+(v.result==='fail'?'✗ FAIL':(v.result==='pass'?'☑ OK':'—'))+'</td></tr>'; }).join('');
+    /* The priceSeen row carries a NUMBER, not pass/fail — print it as it stands
+       rather than showing an em dash against a real recorded reading. */
+    var vrows=(r.verify||[]).map(function(v){ return '<tr><td>'+_pe(v.item||v.key||'')+'</td><td class="num">'+(v.result==='fail'?'✗ FAIL':(v.result==='pass'?'☑ OK':(v.result?_pe(String(v.result)):'—')))+'</td></tr>'; }).join('');
     var crows=(r.checklist||[]).map(function(c){ return '<tr><td>'+_pe(c.item)+'</td><td class="num">'+(c.result==='fail'?'✗ FAIL':(c.result==='pass'?'☑ OK':'—'))+'</td></tr>'; }).join('');
     var lag=(r.recordedAt&&r.date)?evLag({actualDate:r.date,recordedAt:r.recordedAt}):null;
     var lateTxt=(lag!=null&&lag>0)?('<div class="col l" style="font-size:10px;color:#8a5a00">Inspected '+_pe(r.date)+', recorded '+String(r.recordedAt).slice(0,10)+' &mdash; '+lag+' day'+(lag===1?'':'s')+' later'+(r.lateReason?(': '+_pe(r.lateReason)):'')+'</div>'):'';
@@ -6720,7 +6869,7 @@ function actionItems(){
      opens the bulk screen gets cleared in one sitting. Owned by the KAM because
      the KAM knows the client's instruction; escalates to the COO, who can also
      answer. Disappears for good once every PO carries an answer. */
-  { var _noDec=(state.orders||[]).filter(function(o){ return !o.printDecision && (o.lines||[]).some(function(l){return (+l.ordered||0)>0;}); });
+  { var _noDec=openPrintDecisionPOs();
     if(_noDec.length) items.push({role:'KAM',
       what:'Answer print-on-pack for '+_noDec.length+' PO'+(_noDec.length===1?'':'s')+' created before the question existed',
       act:"openBulkPrintDecision()", label:'Print price', disp:{date:(_noDec[0].received||'')}}); }
@@ -8034,7 +8183,7 @@ function renderPackInspect(){ const f=packInspForm; if(!f){closeModal();return;}
           ${over?`<div style="color:var(--red);font-weight:700;font-size:11.5px;margin-top:7px">${df} defective is at or past the reject number (${pl.reject}). The standard says reject this lot.${pl.verified?'':' <span style="font-weight:400">— but these numbers are not yet verified, so this is advice, not a block.</span>'}</div>`:''}
         </div>`;})()}
      ${(function(){ const sel=lotsFor(o,l).filter((p,i)=>(+f.alloc[i]||0)>0.0001);
-        return qcVerifyTable(qcExpect(o,l,sel[0]||null), f.verify, 'packInspForm', 'renderPackInspect()'); })()}
+        return qcVerifyTable(qcExpect(o,l,sel[0]||null), f.verify, 'packInspForm', 'renderPackInspect()', f, qcNeedsSeenPrice([{o:o,l:l}])); })()}
      <div style="overflow:auto"><table><thead><tr><th>Check</th><th style="width:170px">Result</th></tr></thead><tbody>${cl}</tbody></table></div>
      <div class="fld" style="margin-top:10px;max-width:280px"><label>Inspector name</label><input type="text" value="${_av(f.officer)}" oninput="packInspForm.officer=this.value"></div>
      ${evDateField('packInspForm','date','packinsp','Date this material was actually inspected','renderPackInspect()')}
@@ -8046,7 +8195,7 @@ function savePackInspect(){ if(!(canEdit(['QA Inspector'])||state.role==='COO'))
   const sel=[]; let kg=0; lotsFor(o,l).forEach((p,i)=>{ const a=Math.min(+f.alloc[i]||0, lotAvail(p)); if(a>0.0001 && lotHasBatch(p)){ sel.push({p,kg:a}); kg+=a; } });
   if(kg<=0){toast('Allocate a quantity to at least one batch with a batch number');return;}
   if(f.marks.some(m=>!m)){toast('Mark every item Pass or Fail');return;}
-  { const _vg=qcVerifyGate(f.verify); if(_vg){toast(_vg);return;} }
+  { const _vg=qcVerifyGate(f.verify, f, qcNeedsSeenPrice([{o:o,l:l}])); if(_vg){toast(_vg);return;} }
   { const _pl=aqlPlan(lotPacks(o,l,kg));
     if(f.bagsChecked===''||f.bagsChecked==null){toast('Enter how many bags you actually opened and checked.');return;}
     if(f.defects===''||f.defects==null){toast('Enter how many defective bags you found (0 if none).');return;}
@@ -8059,7 +8208,7 @@ function savePackInspect(){ if(!(canEdit(['QA Inspector'])||state.role==='COO'))
   const batches=sel.map(s=>({lotId:s.p.id,batch:lotBaseNo(s.p),brand:lotBrandNo(s.p),kg:Math.round(s.kg)}));
   if(!anyFail){ sel.forEach(s=>{ s.p.insKg=(+s.p.insKg||0)+s.kg; }); if(linePassedInsp(o,l)>=(l.ordered||0)-0.001) l.qcPass=l.qcPass||d; }
   else { var _fails=QC_CHECKLIST.filter(function(it,i){return f.marks[i]==='fail';}); sel.forEach(function(s){ s.p.qaHold=Object.assign({reason:(f.remarks||'').trim(),by:f.officer.trim(),date:d,kg:Math.round(s.kg),fails:_fails},_ev); }); }
-  (state.inspections=state.inspections||[]).unshift(Object.assign({id:'INS'+(state.seq=(state.seq||1000)+1),po:o.po,brand:l.brand,lid:(l.id!=null?l.id:null),kg:Math.round(kg),by:f.officer.trim(),date:d,pass:!anyFail,checklist:QC_CHECKLIST.map((it,i)=>({item:it,result:f.marks[i]})),verify:qcVerifyRecord(f.verify),
+  (state.inspections=state.inspections||[]).unshift(Object.assign({id:'INS'+(state.seq=(state.seq||1000)+1),po:o.po,brand:l.brand,lid:(l.id!=null?l.id:null),kg:Math.round(kg),by:f.officer.trim(),date:d,pass:!anyFail,checklist:QC_CHECKLIST.map((it,i)=>({item:it,result:f.marks[i]})),verify:qcVerifyRecord(f.verify,f),
     sampling:(function(){ const _pl=aqlPlan(lotPacks(o,l,kg));
       return { lotPacks:(_pl?_pl.lot:null), level:(_pl?_pl.level:null), aql:(_pl?_pl.aql:null), codeLetter:(_pl?_pl.letter:null),
                required:(_pl?_pl.sample:null), accept:(_pl?_pl.accept:null), reject:(_pl?_pl.reject:null),
@@ -8183,16 +8332,22 @@ function renderDispatchQA(){ const rows=dispRowsFor(dispQAForm.dispId); if(!rows
           const lot=(state.packingLog||[]).find(p=>p&&p.po===r.po&&p.brand===r.brand);
           if(!o||!l) return `<div><b>${r.brand}</b> — no PO line found</div>`;
           return `<div><b>${r.brand}</b> — ${qcExpect(o,l,lot||null)[k]}</div>`; }).join('');
-        return qcVerifyTable({price:per('price'),batch:per('batch'),dates:per('dates')}, dispQAForm.verify, 'dispQAForm', 'renderDispatchQA()'); })()}
+        var _pairs=rows.map(function(r){ var o=(state.orders||[]).find(function(x){return x.po===r.po;});
+          var l=o&&((o.lines||[]).find(function(x){return x.id===r.lid;})||(o.lines||[]).find(function(x){return x.brand===r.brand;}));
+          return (o&&l)?{o:o,l:l}:null; }).filter(Boolean);
+        return qcVerifyTable({price:per('price'),batch:per('batch'),dates:per('dates')}, dispQAForm.verify, 'dispQAForm', 'renderDispatchQA()', dispQAForm, qcNeedsSeenPrice(_pairs)); })()}
      <div style="overflow:auto"><table><thead><tr><th>Check</th><th style="width:170px">Result</th></tr></thead><tbody>${cl}</tbody></table></div>
      <div class="fld" style="margin-top:10px;max-width:280px"><label>Inspector name</label><input type="text" value="${(dispQAForm.officer||'').replace(/"/g,'&quot;')}" oninput="dispQAForm.officer=this.value"></div>
      ${evDateField('dispQAForm','date','dispqa','Date this truck was actually inspected','renderDispatchQA()')}
      <div class="fld fld-long" style="margin-top:8px"><label>Remarks (optional)</label><textarea rows="3" oninput="dispQAForm.remarks=this.value" placeholder="what did you see? note anything the checklist does not cover.">${_tx(dispQAForm.remarks||'')}</textarea></div>
    </div>
    <div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" onclick="dispQASubmit()">Submit inspection</button></div>`; }
-function dispQASubmit(){ if(!(canEdit(['QA Inspector'])||state.role==='COO')){toast('QA Inspector only');return;} const rows=dispRowsFor(dispQAForm.dispId); if(!rows.length)return; if(dispQAForm.marks.some(m=>!m)){toast('Mark every item Pass or Fail');return;} { const _vg=qcVerifyGate(dispQAForm.verify); if(_vg){toast(_vg);return;} } if(!(dispQAForm.officer||'').trim()){toast('Enter inspector name');return;}
+function dispQASubmit(){ if(!(canEdit(['QA Inspector'])||state.role==='COO')){toast('QA Inspector only');return;} const rows=dispRowsFor(dispQAForm.dispId); if(!rows.length)return; if(dispQAForm.marks.some(m=>!m)){toast('Mark every item Pass or Fail');return;} { var _pr=rows.map(function(r){ var o=(state.orders||[]).find(function(x){return x.po===r.po;});
+      var l=o&&((o.lines||[]).find(function(x){return x.id===r.lid;})||(o.lines||[]).find(function(x){return x.brand===r.brand;}));
+      return (o&&l)?{o:o,l:l}:null; }).filter(Boolean);
+      const _vg=qcVerifyGate(dispQAForm.verify, dispQAForm, qcNeedsSeenPrice(_pr)); if(_vg){toast(_vg);return;} } if(!(dispQAForm.officer||'').trim()){toast('Enter inspector name');return;}
   const _dg=evDateGate(dispQAForm,'date','dispqa'); if(_dg){toast(_dg);return;}
-  const anyFail=dispQAForm.marks.some(m=>m==='fail') || qcVerifyFailed(dispQAForm.verify); const d=dispQAForm.date||evToday(); const qa=Object.assign(evStamp(d,'dispqa',dispQAForm.dateReason),{pass:!anyFail,fail:anyFail,by:dispQAForm.officer.trim(),date:d,checklist:QC_CHECKLIST.map((it,i)=>({item:it,result:dispQAForm.marks[i]})),verify:qcVerifyRecord(dispQAForm.verify),remarks:dispQAForm.remarks||''});
+  const anyFail=dispQAForm.marks.some(m=>m==='fail') || qcVerifyFailed(dispQAForm.verify); const d=dispQAForm.date||evToday(); const qa=Object.assign(evStamp(d,'dispqa',dispQAForm.dateReason),{pass:!anyFail,fail:anyFail,by:dispQAForm.officer.trim(),date:d,checklist:QC_CHECKLIST.map((it,i)=>({item:it,result:dispQAForm.marks[i]})),verify:qcVerifyRecord(dispQAForm.verify,dispQAForm),remarks:dispQAForm.remarks||''});
   rows.forEach(s=>{ s.qa=JSON.parse(JSON.stringify(qa)); });
   if(anyFail){ rows.forEach(s=>{ s.voided=true; const o=(state.orders||[]).find(x=>x.po===s.po); const l=o&&(o.lines.find(x=>x.id===s.lid)||o.lines.find(x=>x.brand===s.brand)); if(l) l.dispatched=Math.max(0,(l.dispatched||0)-(+s.kg||0)); }); logAction(`Pre-shipment inspection FAILED — ${dispQAForm.dispId} (${rows[0].po}) — material returned to Ready to ship`); }
   else logAction(`Pre-shipment inspection PASSED — ${dispQAForm.dispId} (${rows[0].po}, ${fmt(rows.reduce((a,r)=>a+(+r.kg||0),0))} Kg/L) by ${qa.by}`);
@@ -9318,7 +9473,7 @@ function budgetHtml(){
   const pm={}; (state.orders||[]).forEach(o=>(o.lines||[]).forEach(l=>{ const v=(+l.delivered||0)*(+l.invoicePrice||0); if(v>0){ pm[l.brand]=(pm[l.brand]||0)+v; } }));
   const pmRows=Object.entries(pm).sort((a,b)=>b[1]-a[1]).slice(0,15);
   return `
-   ${(state.role==='COO'||state.role==='CFO')?`<div style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap"><button class="sm" onclick="openBulkPricing()">💲 Set invoice prices (bulk)</button>${(function(){const n=(state.orders||[]).filter(o=>!o.printDecision).length;return n?`<button class="sm" onclick="openBulkPrintDecision()">🏷️ Answer print-on-pack for ${n} PO(s)</button>`:'';})()}</div>`:''}
+   ${(state.role==='COO'||state.role==='CFO')?`<div style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap"><button class="sm" onclick="openBulkPricing()">💲 Set invoice prices (bulk)</button>${(function(){const n=openPrintDecisionPOs().length;/* same definition as the Action Center and the screen itself */return n?`<button class="sm" onclick="openBulkPrintDecision()">🏷️ Answer print-on-pack for ${n} PO(s)</button>`:'';})()}</div>`:''}
    ${noPrice?'<div class="banner warn">Some PO lines have <b>no invoice price</b> yet — their value is counted as 0. Set invoice prices on New PO Entry (new POs) or via Data Fix (imported POs).</div>':''}
    <div class="kpis" style="grid-template-columns:repeat(4,1fr)">
      <div class="kpi"><div class="l">All clients — target</div><div class="v">${pkr(totT)}</div><div class="d">${fyRange(fy)}</div></div>
@@ -9431,7 +9586,11 @@ var RB_DATASETS={
         if((+l.ordered||0)>0){ var _pp=printPolicyOL(o,l);
           if(_pp.mode==='unrecorded') out.push({type:'No print/no-print decision',po:o.po||'',client:o.client||'',product:l.brand||'',detail:'This product has carried a printed price before, but nobody has recorded whether THIS PO prints one',date:o.received||'',value:+l.ordered||0});
           else if(_pp.mode==='unknown') out.push({type:'No print/no-print decision',po:o.po||'',client:o.client||'',product:l.brand||'',detail:'Nobody has recorded whether this PO prints a price on the pack',date:o.received||'',value:+l.ordered||0});
-          else if(_pp.mode==='missing')  out.push({type:'No print price',po:o.po||'',client:o.client||'',product:l.brand||'',detail:'This PO prints a price but none is set',date:o.received||'',value:+l.ordered||0});
+          else if(_pp.mode==='missing')  out.push({type:'No print price',po:o.po||'',client:o.client||'',product:l.brand||'',detail:'This PO carries its own price but none is set',date:o.received||'',value:+l.ordered||0});
+          /* A token price typed to get past the old mandatory-price gate. Two
+             live examples found 2026-08-21: V-Borate 17% and V-NPK 20:20:20,
+             both PKR 0.1 per pack. Not a price — a way round a control. */
+          if(+l.printPrice>0 && +l.printPrice<10) out.push({type:'Print price is not a real price',po:o.po||'',client:o.client||'',product:l.brand||'',detail:'Print price is PKR '+l.printPrice+' per pack — almost certainly typed to get past the old mandatory-price gate, not a real MRP',date:o.received||'',value:+l.ordered||0});
         }
         if((+l.ordered||0)>0&&!(+l.invoicePrice>0))out.push({type:'No invoice price',po:o.po||'',client:o.client||'',product:l.brand||'',detail:'Ordered '+fmt(l.ordered)+' Kg, price not set',date:o.received||'',value:+l.ordered||0});
         var due=l.committed||o.promised||''; if(due&&due<today&&(+l.delivered||0)<(+l.ordered||0)-0.5)out.push({type:'Overdue',po:o.po||'',client:o.client||'',product:l.brand||'',detail:'Due '+due+', '+fmt((+l.ordered||0)-(+l.delivered||0))+' Kg pending',date:due,value:Math.max(0,(+l.ordered||0)-(+l.delivered||0))});

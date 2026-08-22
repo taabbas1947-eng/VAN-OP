@@ -1423,3 +1423,125 @@ notification, and the PO register including the printed stamp and count.
 - Still blocking: **44 POs need a print/no-print answer**
 
 **Ready to push, not pushed.**
+
+---
+
+## 2026-08-22 (morning) — MODULE: O2S — SPEC-06 was not finished, and the tests were not real
+
+Session opened to *"finish/verify SPEC-06 and get it commit-ready, work the 44
+POs."* The verification part turned out to be the whole job.
+
+### First: the handoff and the working tree disagreed
+
+The 21 August entry lists `printedPrice` as **"parked by Tahir."** The working
+tree contained a built SPEC-06 and `docs/o2s/SPEC-06-PRICE-ON-PACK.md` dated the
+same day. **The handoff was wrong** — it was built, not parked. Corrected here.
+
+### The tests reported on 21 August do not exist
+
+`docs/o2s/SPEC-06` closes with *"376 checks across seven suites, all passing."*
+There are **no test files in the repository.** The same is true of the 266 and
+313 reported on the two entries before it. Three sessions of verification, none
+of it re-runnable, none of it checkable the next morning.
+
+So the first thing built this session was a suite that exists.
+
+### Four defects, all live in the file called finished
+
+| | What it was |
+|---|---|
+| **1** | **The inspector's price reading was discarded on every save.** `qcVerifyRecord` hung `priceSeen` on an *array*; state saves through `JSON.stringify`, which drops non-index array properties **silently**. On screen it worked. On reload it was gone. The one part of SPEC-06 meant to build evidence over months was recording nothing |
+| **2** | **The list answer was unreachable from the edit screen.** Still the old two options; a PO answered `list` opened with nothing selected and could only be changed to yes or no. Its save also set `printOnPack=(nv==='yes')` — which turns a list-price PO into a **no-price** PO and tells packing and QA exactly that |
+| **3** | **The NO-price safety confirmation stopped firing.** `entryPrintOn` became a string when the third window was added; `submitPO` still tested `=== false`. `'no' === false` is never true. The guard between a mis-click and a whole PO shipping bare has been dead since the third answer shipped |
+| **4** | A price typed under *yes* rides along onto the line after switching to *list* or *no*. Harmless to policy, but read by the "not a real price" anomaly |
+
+Defect 1 is the one that matters. It fails in the direction that looks like
+success, which is why a session could report it verified in good faith.
+
+### Also hardened
+
+- **One definition of the backlog.** Reports button, Action Center item and the
+  bulk screen each had their own filter — two required an ordered line, one did
+  not. They agree on the local snapshot, so nothing looked wrong, but they could
+  report different sizes for the same backlog with no way to tell which was
+  lying. All three now call `openPrintDecisionPOs()`
+- **Evidence showed one price where two existed.** `seen[brand]=price` kept only
+  the last. A brand carrying two prices is SPEC-06's central finding and exactly
+  the PO where the COO needs to see both. Now shows every distinct price and
+  marks the conflict
+
+### On the 44 POs
+
+**I could not verify the number.** `data/state.json` in this repo is a **16 July
+snapshot** — 21 orders, all unanswered. The 44 is live-only. What I can say is
+that the mechanism to clear them works: 19 checks against the real snapshot cover
+the predicate, "set all", the save path, that an answered PO is never overwritten,
+and that `list` correctly means a price **is** printed.
+
+**Answering them is still a human decision** and needs the live system. One open
+question for Tahir below.
+
+### Verified — 71 checks, two suites, and they are on disk
+
+```
+node o2s/tests/spec06.test.js     # 52 passed
+node o2s/tests/backlog.test.js    # 19 passed
+```
+
+Run from `E:\VAN-OP`, no dependencies. The harness pulls the **real function
+source out of `o2s/o2s.html`** by name and runs it sandboxed — no second copy of
+the logic, so a passing check passed against the file that ships.
+`node --check` clean on all six script blocks.
+
+### Files changed
+
+- `o2s/o2s.html` — ten regions, the four fixes plus the two hardenings
+- `docs/o2s/SPEC-06-PRICE-ON-PACK.md` — addendum, corrections on the record
+- `o2s/tests/` — **new**: `harness.js`, `spec06.test.js`, `backlog.test.js`, `README.md`
+
+**Ready to push, not pushed.**
+
+### Next
+
+1. **Open question for Tahir:** should the backlog screen *recommend* an answer
+   per PO from the printed-pack evidence? It would clear most of the 44 in one
+   pass — but Fault 11 was precisely a default being mistaken for a decision, and
+   a recommendation is a default wearing better clothes. Not built, deliberately
+2. Once live, `priceSeen` readings start accumulating from the first inspection
+   on a list-price PO. They have been accumulating nothing until now
+3. The 44 still need a human answer
+
+### Standing rule this run adds
+
+> The artefact includes the tests. If they are not on disk, the verification did
+> not happen — no matter how many checks the note claims.
+
+### Added after the above — the recommendation (Tahir, same session)
+
+Asked, and answered: **recommend, but never pre-select.**
+
+`bulkPDSuggest(o)` reads the evidence for one PO and prints a line beside it —
+*"Looks like: the current list price — 9 packs on this PO already went out with a
+price on them, and none of it came from the PO. Still needs your click."*
+
+It is text. It never writes into `bulkPD`, so a PO cannot become answered without
+a human clicking. The reading is done for him; the deciding is not.
+
+**It will never suggest "no price."** You cannot evidence a negative from
+silence — a PO with no printed history might print nothing, or might just be new.
+That inference *is* Fault 11, where an unticked box was read as "this client
+wants a bare bag" on 41 of 44 live POs. Where there is nothing to go on it says
+so and names the KAM.
+
+Order of evidence: a price on the PO line → *price set on this PO* · packs
+already printed under this PO → *list price* · the brand has carried a price
+before, but not here → *list price*, said more weakly · nothing anywhere → no
+suggestion.
+
+On the 16 July snapshot's 21 open POs it says: **6 price-on-PO, 13 list, 2 it
+will not guess.** Live will differ.
+
+**Now 85 checks, two suites** (52 / 33) — the new ones cover each rung of the
+evidence ladder, that the wording admits how weak the weak case is, that "no
+price" can never be suggested, and that a full render-and-save cycle with
+suggestions on screen still writes nothing.

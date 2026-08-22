@@ -3926,10 +3926,31 @@ function prodStageList(){
   var title=({producing:'Running batches',qc:'Waiting QC',pack:'Ready to pack',toclose:'Ready to close',recon:'Remaining to account',completed:'Completed',attention:'Stuck / blocked',all:'All active'})[f]||'Batches';
   return '<div class="card"><h3>'+title+' <span class="hint">'+list.length+' batch(es) · tap a row for the full passport</span></h3><div style="overflow:auto"><table><thead>'+head+'</thead><tbody>'+list.map(row).join('')+'</tbody></table></div></div>';
 }
+/* The bulk close, shown on EVERY Production view rather than behind a filter.
+   Hiding it inside the "Ready to close" tab would repeat the original fault:
+   the reason nobody closes a batch is that nobody is ever shown that it needs
+   closing. A prompt you have to go looking for is not a prompt.
+   Only ever the settled ones — at or above plan with everything placed — so
+   nothing a person would have had to explain is lost by doing them together. */
+function prodSettledStrip(){
+  if(typeof settledBatches!=='function') return '';
+  if(!hardRole(['Production'])) return '';
+  var st=settledBatches(); if(!st.length) return '';
+  var oldest=0; st.forEach(function(b){ var a=null; try{a=batchAging(b);}catch(e){} if(a!=null&&a>oldest)oldest=a; });
+  var kg=st.reduce(function(a,b){return a+(+b.producedKg||0);},0);
+  return '<div class="card" style="padding:11px 14px;margin-bottom:12px;border-left:3px solid var(--green2)">'
+    +'<div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">'
+    +'<div style="flex:1;min-width:220px"><b style="font-size:12.5px">'+st.length+' batch'+(st.length===1?'':'es')+' finished and on plan &middot; '+fmt(Math.round(kg))+' Kg/L</b>'
+    +'<div class="muted" style="font-size:11px;margin-top:2px">Everything produced has been packed or accounted for and none is short of plan, so there is no yield variance for anyone to explain.'
+    +(oldest?(' The oldest has been open <b>'+oldest+' day'+(oldest===1?'':'s')+'</b>.'):'')+'</div></div>'
+    +'<button class="green sm" onclick="closeSettledBatches()">Close all '+st.length+'</button></div></div>';
+}
+/* NOTE 2026-08-21: screenProd() builds the desk itself and does NOT call this.
+   Left in place, but do not add anything here expecting it to appear. */
 function renderProdLifecycle(){var PC=window.ProductionCenter;if(!PC)return '<div class="card">Lifecycle unavailable</div>';
-  if(prodDrill && prodBatchSel) return prodTodayBar()+prodStatusStrip()+'<div style="margin:6px 0 10px"><a onclick="prodDrill=false;render()" style="cursor:pointer;color:var(--navy);font-size:12px">‹ Back to list</a></div>'+renderProdLifecycleBatch();
+  if(prodDrill && prodBatchSel) return prodTodayBar()+prodStatusStrip()+prodSettledStrip()+'<div style="margin:6px 0 10px"><a onclick="prodDrill=false;render()" style="cursor:pointer;color:var(--navy);font-size:12px">‹ Back to list</a></div>'+renderProdLifecycleBatch();
   prodFilterClamp();
-  return prodTodayBar()+prodStatusStrip()+prodStageList()+((prodFilter==='completed')?prodReconciledStrip():'');}
+  return prodTodayBar()+prodStatusStrip()+prodSettledStrip()+prodStageList()+((prodFilter==='completed')?prodReconciledStrip():'');}
 function _pcStep(name,sub,st,first,reached){var ds=st==='done'?'background:var(--navy);color:#fff':st==='active'?'background:var(--navy-50,#eef3fb);color:var(--navy);box-shadow:inset 0 0 0 2px var(--navy)':'background:#eef1f4;color:#9aa3b0';var mark=st==='done'?'✓':'';var nmc=st==='todo'?'color:#9aa3b0':'';var line=first?'':'<div class="line" style="background:'+(reached?'var(--navy)':'#e3e7ec')+'"></div>';return '<div class="col">'+line+'<div class="sdot" style="'+ds+'">'+mark+'</div><div class="snm" style="'+nmc+'">'+name+'</div><div class="ssub">'+sub+'</div></div>';}
 function _pcLotRes(c){c=c||{};if(c.status==='approved'){return c.deviation?['Deviation','var(--amber-50,#fdf0d5)','var(--amber,#9E6210)']:['FIT','var(--green-50,#e7f5e8)','var(--green2,#2f8132)'];}if(c.overall==='UNFIT')return['UNFIT','#fbe9e7','var(--red,#E03127)'];if(c.status)return['In review','var(--navy-50,#eef3fb)','var(--navy)'];return['Pending','#f1f3f5','var(--mut,#8A95A6)'];}
 function _pcLifeAction(b,d,ed){if(!ed)return '';if(b.status==='closed')return '<span class="muted" style="font-size:12px">Batch closed'+(b.closedDate?(' · '+b.closedDate):'')+'</span>';if(b.pool){return b.disposition==='byproduct'?'<button class="green" onclick="openCallBp(\''+b.id+'\')">Call for manufacturing</button>':'';}var prod=+b.producedKg||0,plan=+b.plannedKg||0,complete=(plan>0&&prod>=plan-0.5);var primary='';if(d.stage==='producing')primary=complete?'<button class="green" onclick="openCloseBatch(\''+b.id+'\')">Production complete — Close batch</button>':'<button class="green" onclick="openShiftLog(\''+b.id+'\')">+ Log shift output</button>';else if(d.stage==='qc')primary='<button class="ghost" onclick="setScreen(\'qc\')">Open in Lab QC ▸</button>';else if(d.stage==='pack')primary='<button class="green" onclick="openPack(\''+b.id+'\')">Pack cleared stock</button>';else if(d.stage==='recon')primary='<button onclick="openReconcile(\''+b.id+'\')">Reconcile remainder</button>';else if(d.stage==='packed')primary=((prod-(+b.packedKg||0))>0.5)?'<button onclick="openReconcile(\''+b.id+'\')">Reconcile remainder</button>':'<button class="green" onclick="openCloseBatch(\''+b.id+'\')">Close batch</button>';var sec=(b.status==='open'&&!(d.stage==='producing'&&complete)&&d.stage!=='packed')?' <button class="sm ghost" onclick="openCloseBatch(\''+b.id+'\')">Close batch (end production)</button>':'';return primary+sec;}
@@ -4121,7 +4142,7 @@ function screenProd(){
     if(_pv==='output'){ wrap=renderProdOutput(); }
     else if(_pv==='register'){ wrap=renderProdRegister(); }
     else { /* NO prodFilterClamp here: every tab is on the top bar, so a clicked tab must open and show its own empty state — never silently reroute (the "Waiting QC jumps to main screen" bug). */ wrap=(prodDrill&&prodBatchSel?('<div style="margin:0 0 10px"><a onclick="prodDrill=false;render()" style="cursor:pointer;color:var(--pb,#0e6e63);font-size:12px">‹ Back to list</a></div>'+renderProdLifecycleBatch()):(prodStageList()+((prodFilter==='completed')?prodReconciledStrip():''))); }
-    $('view').innerHTML=PROD_CSS+'<div class="pdsk"><div class="pdmain"><header class="pdtopbar"><div><h2>'+title+'</h2><div class="pdsub">Plant production · live snapshot</div></div>'+ob+'</header>'+prodDeskTabs()+prodPulse()+'<div class="pdwrap">'+wrap+'</div></div></div>';
+    $('view').innerHTML=PROD_CSS+'<div class="pdsk"><div class="pdmain"><header class="pdtopbar"><div><h2>'+title+'</h2><div class="pdsub">Plant production · live snapshot</div></div>'+ob+'</header>'+prodDeskTabs()+prodPulse()+'<div class="pdwrap">'+prodSettledStrip()+wrap+'</div></div></div>';
     return;
   }  /* Production = teal desk: secondary rail + question-card home → work-area lists (audited content); actions open existing modals styled as right drawers. Legacy floor code below is unreachable. */
   const bases=BULK_BASES.slice();
@@ -6172,6 +6193,11 @@ function _docHead(title,meta){ return '<div class="head"><div class="l"><img src
 var VAN_FOOTER='Vital Agri Nutrients (Pvt) Ltd';
 function printDoc(title,inner,noPrint){ var onload=noPrint?'':' onload="setTimeout(function(){try{window.print();}catch(e){}},250)"'; var html='<!doctype html><html><head><meta charset="utf-8"><title>'+_pe(title)+'</title><style>'+_DOC_CSS+'</style></head><body'+onload+'><div class="sheet">'+inner+'<div class="sysnote">System-generated by the VAN O2S system &middot; access-controlled &amp; audit-logged &middot; valid without a manual signature.</div></div><div class="docfoot">'+_pe(VAN_FOOTER)+' &middot; Generated '+TODAY.toISOString().slice(0,10)+' &middot; van-control-tower</div></body></html>'; var w=window.open('','_blank'); if(!w){toast('Allow pop-ups to print / save the document');return;} w.document.write(html); w.document.close(); w.focus(); }
 function printPO(po){ var o=(state.orders||[]).find(function(x){return String(x.po)===String(po)||x.id===po;}); if(!o){toast('PO not found');return;}
+  /* Stamped so the register can answer "has this one been printed yet?" — the
+     PO document was reachable from exactly one place before today, so for most
+     POs the honest answer is no. */
+  try{ o.printedAt=new Date().toISOString(); o.printedBy=(state.currentUser&&state.currentUser.name)||state.role;
+       o.printCount=(+o.printCount||0)+1; if(typeof save==='function') save(); }catch(e){}
   var lines=(o.lines||[]); var sub=+o.subtotal||0,fed=+o.fedAmount||0,gt=+o.grandTotal||0;
   if(!gt){ var v=lines.reduce(function(a,l){return a+((+l.ordered||0)*(+l.invoicePrice||0));},0); var s=(typeof fedSplit==='function')?fedSplit(v,o.fedMode||'None'):{sub:v,fed:0,total:v}; sub=s.sub;fed=s.fed;gt=s.total; }
   var seg=(typeof _chanToSeg==='function'?(_chanToSeg(o.channel)||o.channel):o.channel)||'';
@@ -6739,7 +6765,79 @@ function actionItems(){
   dispatchGroups().filter(g=>g.dispId&&g.qa==='pending').forEach(g=>items.push({role:'QA Inspector',what:'Pre-shipment inspection — '+g.po+' ('+g.rows.length+' product(s), '+fmt(g.kg)+' Kg/L)',act:"openDispatchQA('"+g.dispId+"')",label:'Inspect',disp:g}));
   (state.packingLog||[]).filter(p=>p&&p.qa&&p.qa.fail).forEach(p=>items.push({role:'Supply Chain',lot:p,what:'QA failed lot — correct & resubmit ('+p.brand+')',act:"lotQACorrect('"+p.id+"')",label:'Correct'}));
   (state.packingLog||[]).filter(p=>p&&p.qaHold).forEach(p=>items.push({role:'QA Inspector',lot:p,what:'QA held lot — fix & re-inspect ('+p.brand+')',act:"clearQaHold('"+p.id+"')",label:'Re-inspect'}));
+  /* CLOSE A FINISHED BATCH — added 2026-08-21.
+     NOT ONE batch has ever been closed: 0 of 69. The button exists, on the
+     Production lifecycle screen, and has never been pressed.
+
+     The reason is not laziness. Nothing ever ASKED. Ninety items in the Action
+     Center and not one of them was about closing — the same fault as Fahim's
+     gate pass this morning, where half the truck process raised no item at all
+     and people were blamed for not responding to something that was not there.
+
+     And closing buys the person nothing: packing needs an approved COA, not a
+     closed batch, so the whole order-to-ship chain runs without it. What it
+     COSTS them is a form, and — when yield is short — a variance reason that
+     notifies the Plant Manager. A step that costs you paperwork and tells your
+     boss you were short, in exchange for nothing, does not get done. That is an
+     incentive structure working exactly as built.
+
+     So it becomes a worklist item, and it says which kind it is: the ones that
+     need a human judgement are named as such. */
+  (state.batches||[]).forEach(function(b){
+    if(!b || b.voided || b.pool || b.disposition==='byproduct') return;
+    if(b.status==='closed') return;
+    var prod=+b.producedKg||0; if(prod<=0) return;
+    var rem=(typeof batchRemainderKg==='function')?batchRemainderKg(b):Math.max(0,prod-(+b.packedKg||0));
+    if(rem>0.5) return;                                   /* still has material to place — that is the Reconcile step, not this */
+    var plan=+b.plannedKg||0, varn=Math.round((plan-prod)*100)/100;
+    var age=null; try{ age=(typeof batchAging==='function')?batchAging(b):null; }catch(e){}
+    items.push({ role:'Production', batch:b,
+      what:'Close batch '+(b.batchNo||b.id)+' — '+(coaItemOf?coaItemOf(b):(b.brand||b.base||''))
+           +' · '+fmt(prod)+' Kg/L, all placed'
+           +(varn>0.001?(' · short by '+fmt(varn)+' — needs a reason'):' · on plan')
+           +(age!=null?(' · open '+age+' day'+(age===1?'':'s')):''),
+      act:"openCloseBatch('"+b.id+"')", label:'Close batch' });
+  });
   return items;
+}
+/* Batches that are finished and have nothing left to explain: produced at or
+   above plan, everything packed or reconciled. Closing one of these records no
+   information that is not already on the record — which is precisely why it can
+   be done in bulk, and precisely why a batch WITH a variance never can. */
+function settledBatches(){
+  return (state.batches||[]).filter(function(b){
+    if(!b || b.voided || b.pool || b.disposition==='byproduct') return false;
+    if(b.status==='closed') return false;
+    var prod=+b.producedKg||0; if(prod<=0) return false;
+    var rem=(typeof batchRemainderKg==='function')?batchRemainderKg(b):Math.max(0,prod-(+b.packedKg||0));
+    if(rem>0.5) return false;
+    var plan=+b.plannedKg||0;
+    return Math.round((plan-prod)*100)/100 <= 0.001;      /* no variance to explain */
+  });
+}
+/* One click, Production's name on all of them, every one logged individually.
+   Deliberately NOT automatic on load: closing is the moment a person says
+   "this batch is finished", and a system that says it for them silently is not
+   recording a judgement, it is manufacturing one. */
+function closeSettledBatches(){
+  if(!hardRole(['Production'])){toast('Production / COO only');return;}
+  var list=settledBatches();
+  if(!list.length){toast('No settled batches to close');return;}
+  var names=list.slice(0,8).map(function(b){return b.batchNo||b.id;}).join(', ')+(list.length>8?(' …and '+(list.length-8)+' more'):'');
+  if(typeof confirm==='function' && !confirm('Close '+list.length+' finished batch(es)?\n\n'+names
+      +'\n\nEvery one is at or above plan with nothing left to place, so there is no yield variance to explain.\nNo more shift output can be added to them afterwards.')) return;
+  var who=(state.currentUser&&state.currentUser.name)||state.role, d=evToday();
+  list.forEach(function(b){
+    b.status='closed'; b.closedDate=d; b.actualYield=+b.producedKg||0;
+    b.varianceKg=0; b.varianceReason=''; b.varianceNote='';
+    b.closedBy=who; b.closedBulk=true;
+    if(b.kind==='po'){ var o=(state.orders||[]).find(function(x){return x.po===b.po;});
+      var l=o&&(o.lines||[]).find(function(x){return x.id===b.lineId;});
+      if(l) l.prodComplete=l.prodComplete||d; }
+    logAction('Batch '+(b.batchNo||b.id)+' closed at '+fmt(+b.producedKg||0)+'/'+fmt(+b.plannedKg||0)+' Kg/L — on plan, closed in bulk by '+who);
+  });
+  save(); render();
+  toast(list.length+' batch(es) closed — all on plan, nothing to explain');
 }
 /* ===== Action Center v2 — urgency-first worklist (read-only display) =====
    Re-ranks & restyles whatever actionItems() already emits. Does NOT change which
@@ -9451,6 +9549,54 @@ function rbRender(){ var d=rbDef(); var res=rbResult();
 }
 /* ---- Document Viewer (read-only): find & open every DC + Gate Pass ---- */
 function rpDocRows(){ return dispatchGroups().filter(function(g){ return g.dispId; }); }
+/* ===== THE PO REGISTER — 2026-08-21 =====
+   Tahir: "we need a PO print option, and a home for all POs in Reports where
+   one can see each PO as it came, and print it if not already."
+
+   The PO document could be produced from exactly ONE place in the whole system
+   — a small button buried in a shipment grouping. There was a document viewer,
+   but only for Delivery Challans and Gate Passes. The order itself, the
+   document the whole chain starts from, had no register at all. */
+var rpDocKind='po';
+function rpPoRows(){
+  return (state.orders||[]).slice().sort(function(a,b){
+    return String(b.received||'').localeCompare(String(a.received||''))
+        || String(b.po||'').localeCompare(String(a.po||'')); });
+}
+function rpPos(){
+  var os=rpPoRows();
+  if(!os.length) return rpEmpty('No purchase orders yet.');
+  var printed=os.filter(function(o){return o.printedAt;}).length;
+  var rows=os.map(function(o){
+    var lines=(o.lines||[]);
+    var kg=lines.reduce(function(a,l){return a+(+l.ordered||0);},0);
+    var val=(+o.grandTotal||0)||lines.reduce(function(a,l){return a+((+l.ordered||0)*(+l.invoicePrice||0));},0);
+    var stage=(typeof stageOf==='function')?stageOf(o):'';
+    var key=[o.po,o.client,o.channel,o.kam,stage,o.received,lines.map(function(l){return l.brand;}).join(' ')].join(' ').toLowerCase().replace(/"/g,'');
+    var pr=o.printedAt
+      ? '<span class="muted" style="font-size:10.5px">printed '+_pe(String(o.printedAt).slice(0,10))+(o.printedBy?(' · '+_pe(o.printedBy)):'')+(+o.printCount>1?(' · ×'+(+o.printCount)):'')+'</span>'
+      : '<span style="font-size:10.5px;color:var(--amber);font-weight:600">not printed</span>';
+    return '<tr data-k="'+_pe(key)+'">'
+      +'<td>'+_pe(o.received||'—')+'</td>'
+      +'<td><b>'+_pe(o.po||'—')+'</b><div class="muted" style="font-size:10.5px">'+_pe(o.channel||'')+'</div></td>'
+      +'<td>'+_pe(shortClient(o.client)||'—')+'</td>'
+      +'<td class="num">'+lines.length+'</td>'
+      +'<td class="num">'+fmt(kg)+'</td>'
+      +'<td class="num">'+(val>0?pkr(val):'<span class="muted">—</span>')+'</td>'
+      +'<td>'+_pe(stage||'—')+'</td>'
+      +'<td>'+pr+'</td>'
+      +'<td style="white-space:nowrap;text-align:right"><button class="sm ghost" onclick="printPO(\''+_pe(o.po)+'\');screenReports()">Open / print</button></td>'
+      +'</tr>';
+  }).join('');
+  return '<div class="card" style="padding:12px 16px;margin-bottom:12px"><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">'
+    +'<div style="font-weight:600">Purchase orders</div>'
+    +'<span class="muted" style="font-size:12px">Every PO as it came in. '+printed+' of '+os.length+' have been printed from the system.</span>'
+    +'<span style="flex:1"></span>'
+    +'<input type="text" placeholder="Search PO#, client, channel, product, KAM…" oninput="rpDocSearch(this.value)" style="min-width:240px;padding:6px 10px">'
+    +'</div></div>'
+    +'<div class="card" style="padding:0"><div class="rb-pvh"><span style="font-weight:500">PO register</span><span class="muted" id="rpDocCount">'+os.length+' order'+(os.length===1?'':'s')+'</span></div>'
+    +'<div style="overflow:auto;max-height:60vh"><table class="rbtbl" id="rpDocTbl"><thead><tr><th>Received</th><th>PO #</th><th>Client</th><th class="num">Lines</th><th class="num">Kg/L</th><th class="num">Value</th><th>Stage</th><th>Printed</th><th style="text-align:right">Open</th></tr></thead><tbody>'+rows+'</tbody></table></div></div>';
+}
 function rpDocSearch(q){
   q=(q||'').trim().toLowerCase();
   var trs=[].slice.call(document.querySelectorAll('#rpDocTbl tbody tr[data-k]'));
@@ -9507,8 +9653,17 @@ function screenReports(){
   /* Report Builder (datasets) + Document Viewer (DC/Gate Pass) + RM Chain (raw-material trace). */
   var tab=(rpTab==='docs')?'docs':(rpTab==='rmchain')?'rmchain':'builder';
   var opt=function(id,label){ return '<div class="opt '+(tab===id?'on full':'')+'" style="flex:0 0 auto;padding:8px 14px;font-size:12.5px" onclick="rpTab=\''+id+'\';screenReports()">'+label+'</div>'; };
-  var seg='<div class="seg" style="flex-wrap:wrap;gap:6px;margin-bottom:14px">'+opt('builder','Report Builder')+opt('docs','Documents (DC / Gate Pass)')+opt('rmchain','RM Chain')+'</div>';
-  var body=(tab==='docs')?rpDocs():(tab==='rmchain')?rpRmChain():rbRender();
+  var seg='<div class="seg" style="flex-wrap:wrap;gap:6px;margin-bottom:14px">'+opt('builder','Report Builder')+opt('docs','Documents')+opt('rmchain','RM Chain')+'</div>';
+  /* Documents now covers the order as well as the truck. The PO was the one
+     document in the chain with nowhere to find it. */
+  var kindBar='';
+  if(tab==='docs'){
+    var kopt=function(id,label,n){ return '<div class="opt '+(rpDocKind===id?'on full':'')+'" style="flex:0 0 auto;padding:7px 13px;font-size:12px" onclick="rpDocKind=\''+id+'\';screenReports()">'+label+(n!=null?(' <b>'+n+'</b>'):'')+'</div>'; };
+    kindBar='<div class="seg" style="flex-wrap:wrap;gap:6px;margin-bottom:12px">'
+      +kopt('po','Purchase orders',(state.orders||[]).length)
+      +kopt('dc','Delivery Challans & Gate Passes',rpDocRows().length)+'</div>';
+  }
+  var body=(tab==='docs')?(kindBar+((rpDocKind==='dc')?rpDocs():rpPos())):(tab==='rmchain')?rpRmChain():rbRender();
   $('view').innerHTML = '<div class="paperui">'+seg+body+'</div>';
 }
 

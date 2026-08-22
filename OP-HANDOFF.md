@@ -1342,3 +1342,84 @@ cover a conflicting number, a clean number that must NOT be reported, the wordin
 in both the moved and not-moved cases, and the affected quantity.
 
 **Ready to push, not pushed.**
+
+---
+
+## 2026-08-21 (late) — MODULE: O2S — why nobody closes a batch, + the PO register
+
+### Why it never happens — investigated, not guessed
+
+Three causes, all structural:
+
+1. **Nothing ever asked.** 90 items in the Action Center, **not one about
+   closing a batch.** Same fault as Fahim's gate pass this morning: people were
+   not ignoring a prompt, there was no prompt.
+2. **Nothing depends on it.** Packing needs an approved COA, not a closed batch.
+   The whole order-to-ship chain runs without ever closing one.
+3. **It costs the person and pays them nothing.** The modal says *"no more shift
+   output can be added"*, and where yield is short it demands a variance reason
+   and **notifies the Plant Manager**. Paperwork plus telling your boss you were
+   short, in exchange for nothing. That is an incentive structure working as
+   built, not laziness.
+
+### The real scale — smaller than "0 of 69"
+
+| | |
+|---|---|
+| Real batches | 69 |
+| **Finished but still open** | **23** (140,712 Kg) |
+| Genuinely still running | 46 |
+| Of the 23, needing a human reason | **0 — all are on plan** |
+| Oldest finished-but-open | **24 days** |
+
+### On auto-closing — the answer to Tahir's question
+
+**Auto-close is safe exactly where it is worthless, and worthless exactly where
+it matters.** The entire value of the close step is `varianceReason` — *why* the
+yield was short. Auto-close either skips it (losing the only structured record
+of yield loss, permanently) or fires only on zero-variance batches, where there
+was nothing to learn anyway.
+
+So: **not automatic.** Instead —
+
+- **`settledBatches()`** — at or above plan, everything packed or reconciled,
+  nothing to explain
+- **`closeSettledBatches()`** — one click, Production's name on all of them,
+  each logged individually, `closedBulk:true` so it is never mistaken for a
+  judgement. Refuses anything with a variance
+- **`prodSettledStrip()`** — a banner on EVERY Production view, not behind the
+  "Ready to close" filter. Hiding the prompt behind a tab you have to find is
+  the original fault repeated
+- **A real Action Center item per finished batch**, owned by Production, saying
+  the quantity, whether it is on plan or short, and how many days it has sat
+
+> **Gotcha for the next session:** `renderProdLifecycle()` is DEAD — `screenProd()`
+> builds the desk itself and never calls it. I put the banner there first and it
+> silently did not appear. A test caught it. Comment added at the function.
+
+### PO register — Reports → Documents
+
+`printPO()` was reachable from **exactly one** buried button; there was a
+document viewer for Delivery Challans and Gate Passes but none for the order
+itself. Documents now has two registers: **Purchase orders** and **Delivery
+Challans & Gate Passes**. The PO register shows received date, PO, client,
+channel, lines, Kg, value, stage, and **whether it has ever been printed** —
+`printPO()` now stamps `printedAt` / `printedBy` / `printCount`. Header reads
+"N of M have been printed from the system"; expect **0 of 44** on first load.
+
+### Verified — 313 checks, six suites
+
+109 / 40 / 28 / 32 / 57 / **47**. The new suite covers the worklist item in all
+four batch states, settled-vs-needs-a-reason, the bulk close by clicking, that a
+short batch survives it untouched and still demands its reason, the Plant Manager
+notification, and the PO register including the printed stamp and count.
+
+### Open
+
+- `printedPrice` — parked by Tahir
+- The 3 batches below plan (HG26025/26/27, short 14,600 / 47,200 / 21,000 Kg)
+  are still producing, so no variance reason is due yet. When they finish, the
+  new action item will ask for one
+- Still blocking: **44 POs need a print/no-print answer**
+
+**Ready to push, not pushed.**

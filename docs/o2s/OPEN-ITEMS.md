@@ -344,3 +344,128 @@ The 44 in one sitting is the thing not to do. §1A.1 says why.
 ---
 
 *Assembled 22 August 2026. Module: O2S. §0 and §1A correct earlier advice.*
+
+---
+
+## Observation from the production floor — 22 August, Tahir
+
+*Dropped in passing, not to be solved now. Checked against the 16 July snapshot
+so the note is accurate; the live system may differ and the counts should be
+re-taken there.*
+
+### "Some batches do not have a floor ID"
+
+**In the snapshot: 1 of 83.** It is a **by-product pool**, not a batch.
+
+When a batch is reconciled and some of what came out is by-product, that material
+does not become its own batch. It accrues into an open pool for that base
+product, and the pool sits there with no batch number, nothing produced and
+nothing packed, until somebody calls it for manufacturing — at which point it
+becomes a real batch and gets a number.
+
+So the missing number is deliberate. **The problem is that a pool looks like a
+batch on the floor.** Somebody reading a list sees a nameless row and reasonably
+concludes the system lost a batch number. The fix is not to give pools numbers —
+it is to stop them appearing as though they were batches, or to label them as
+pools where they do appear.
+
+If the live system shows more than one or two of these, that is a different
+finding and worth looking at properly.
+
+### "Some batches do not have a PO or client number"
+
+**70 of 83.** Tahir's guess is right, and the reason is simpler than a fault.
+
+| | |
+|---|---|
+| Made against a customer order (`kind: po`) | **13** — all 13 carry a PO |
+| Made to stock (`kind: bulk`) | **70** — none carry a PO, and none should |
+
+A stock batch has no customer because nobody has bought it yet. It is produced
+against the base product and drawn down later when an order arrives. Blank is the
+truth there, not a gap.
+
+**On "shouldn't we name an ID to a base batch"** — they already have one. Every
+one of the 70 has a batch number. What they do not have is an *owner*.
+
+The real gap is on the floor: a person looking at a batch cannot easily tell
+"this one is against VITAL AGRI's order" from "this one is stock". The
+distinction exists in the data and may not be visible on screen. That is worth
+fixing, and it is a labelling job, not a numbering one.
+
+**To decide when this is picked up:** should a stock batch show something in the
+client column — "Stock", or the base product name — rather than blank? Blank
+reads as missing data; "Stock" reads as an answer.
+
+---
+
+## Batch close and reopen — built, reviewed, refused (22 August)
+
+Both were built as agreed and both were refused by review. **Nothing reached the
+app.** The detail is worth keeping because the fixes are specific.
+
+### The one that matters
+
+**The Reopen button cannot appear for any batch the bulk close closes.** It is
+the exact case the whole thing was built for.
+
+Reaching it means clicking a batch on the Production desk to open its detail
+view. A batch only becomes clickable there if it still has material to pack or
+account for. A batch closed by the bulk button has neither — that is the
+definition of being on the list. So it drops off every clickable screen the
+moment it is closed.
+
+Measured: **3 of the 35 closed batches can show the button today**, and all three
+still have unpacked stock. None of the 16 the bulk button would close could ever
+show it.
+
+That is the third time in one day that something was built onto a screen that
+does not render it, and the third time my own test checked for the button by
+searching the file's text rather than by checking it appears.
+
+### Closing while somebody is logging output
+
+With the close list open the app stops refreshing. If a shift incharge logs
+250 Kg during that time, the close still records the older figure: **batch closed
+at 5,000 of 5,000, on plan, no variance** — while it actually produced 5,250. The
+extra 250 Kg becomes stranded on a closed batch that will not accept more output,
+and the only ways out are to write it off as loss or find the Plant Manager.
+Nobody is told.
+
+### The reopen loop
+
+A reopened batch goes straight back into the close list, ticked by default, with
+nothing on the row saying it was reopened. Its "days open" is measured from when
+the batch was first opened, so a batch reopened this morning shows as the oldest
+on the list and reads as "close this one first". The reason the Plant Manager
+wrote survives only in the corrections register.
+
+### The promise that is mostly not true
+
+The reopen dialog says it will "let shift output be added again". Output is
+capped at 105% of plan, and **all 35 closed batches sit at exactly 100%** — so
+the most that can ever be added is 5%, about 350 Kg on a 7,000 Kg batch. For a PO
+batch whose order is fully produced it is blocked outright, which is **6 of the
+16**. The dialog should work out the headroom, show it, and refuse when it is zero.
+
+### Also
+
+- The PO tracker still reads **Produced** after a reopen — the production-complete
+  date on the order line is set by the close and never cleared
+- Unticking a row rebuilds the whole list and throws you back to the top, which
+  with 26 rows means people stop reviewing and just close everything — the exact
+  behaviour the change was meant to end
+- The reopen is filed in the register as an **AMEND on a batch**, which the
+  Plant Manager is not allowed to do. Anyone filtering the register will see rows
+  that contradict the authority table
+- Entries in the batch's close history carry no id, so if two people reopen the
+  same batch one of the two records is silently dropped. One word fixes it
+
+### What the reviewers confirmed is right
+
+The banner reaches a real screen. The generated screens are well formed. Everything
+written survives being saved. Reopening then closing again keeps the history in
+order. And reopening cannot damage anything QA, packing or the customer holds —
+new material lands in a new lot with no certificate, and uncertified material
+cannot be packed or shipped, so a signed certificate can never be changed after
+the fact by reopening.

@@ -125,3 +125,96 @@ thing you did not think of.** That is what the reviewer is for.
 ---
 
 *Parked 22 August 2026. Module: O2S. Nothing from this reached the app.*
+
+---
+
+# Second attempt, 22 August — also stopped
+
+The faults from the first attempt were fixed and verified. The reviewers checked
+each one and agreed: the double-counting, the wrong PO line, the multi-product
+truck, the missed focal person, the lost validations, the half-applied
+correction. All genuinely fixed, 109 checks covering them.
+
+**And the second attempt was still refused, for a better reason than the first.
+The reviewers found that the design is wrong, not just the code.**
+
+## The thing that cannot be fixed by trying harder
+
+When a shipment's quantity is corrected, the number has to ripple outward: the
+order line's running total, the batch line on the printed challan, and the
+shipped figure on every packing lot behind it.
+
+Those totals are kept by adding and subtracting as things happen. And the system
+lets two people work at the same time and merges what they did. A merge can
+combine two people's edits to two different *values* perfectly well. **It cannot
+combine two people's arithmetic on the same total.** One person's sum wins
+outright and the other person's is thrown away, silently, with a green tick shown
+to both of them.
+
+Measured, not guessed:
+
+> Ahmed corrects a truck down by 200 Kg at the same minute Bilal records a new
+> 3,000 Kg dispatch on the same order line. Both saves succeed. Both see a green
+> tick. The order line ends up **missing Bilal's entire 3,000 Kg truck**, and
+> 3,000 Kg that has physically left the factory shows as still available to ship.
+> The wrong number is then saved back as the truth.
+
+A second one, on the real data in this repo:
+
+> Correcting DC 5033 down by 500 Kg hands back **3,224 Kg** of already-shipped
+> stock to Ready to ship. The batch number on that shipment matches seven
+> different packing lots, and the code took the full 500 off each of them. Nine
+> live shipments have that shape.
+
+Neither of these is a coding slip. They both come from the same decision: letting
+a correction rewrite totals that something else is already maintaining.
+
+## What should be done instead
+
+**Do not make the shipped quantity correctable at all.**
+
+If the quantity on a shipment is wrong, the shipment record is wrong. The system
+already has the right tool for that: cancel it and enter it again. `cancelShip`
+returns the material to the lots properly, unwinds the order total properly, and
+leaves both records visible. It is one extra step and it is correct.
+
+That single decision removes, at a stroke: the merge hazard, the packing-lot
+fan-out, the quantity-and-delivery-date interaction, the incomplete rollback, and
+the missing upper bound. Every one of those exists only because a correction was
+touching arithmetic.
+
+**What is still worth closing.** The second door should still be shut for
+everything that is just a label — vehicle, carrier, bilty, destination, dispatch
+date, focal person, SO number, DC number. None of those touch a total, so none of
+them carry any of the problems above. That is most of what the door was being
+used for anyway, and closing it there is safe and simple.
+
+**The delivered date** should not go through the correction modal either. Marking
+something as never having arrived is not a typo fix; it needs its own action that
+unwinds delivery the way cancelling unwinds dispatch.
+
+## Two other things worth knowing
+
+**The Correct button I added is on a dead screen.** `screenShipOLD` is not
+reachable; the live screen is a near-identical copy elsewhere in the file that I
+did not touch. So the button would never have appeared. My own test for it
+searched the file's text rather than checking the button renders, which is
+exactly the kind of test that passes while the feature does not exist.
+
+**"Supply Chain Officer" is locked out, and it matters more than it looked.**
+**68 of the 69 shipments in this system were entered by that account.** It is a
+real role in the access matrix with edit rights on the shipments screen, but it
+is not named in any correction list, so under this change the person who records
+every shipment in the factory could no longer fix a mistyped vehicle number.
+Whatever is built next has to name that role.
+
+## On testing, again
+
+109 checks passed. Three of them did not test what their names said, and they
+were the three covering the biggest gaps — including one asserting that the Plant
+Manager cannot open the edit screen, which is **false in production**, because the
+live access matrix grants him edit rights on it. The premise the whole ownership
+rule rested on was wrong, and only a reviewer reading the real access matrix
+found it.
+
+*Second attempt parked 22 August 2026. Nothing reached the app.*

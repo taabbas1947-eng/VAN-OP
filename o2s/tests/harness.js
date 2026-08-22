@@ -17,8 +17,10 @@ const html = fs.readFileSync(APP, 'utf8');
    that never closed, the depth count went out of step, and the slice came back
    truncated. It failed as a SyntaxError inside the sandbox, hundreds of lines
    from the comment that caused it. Prose in this file is not code. */
-function matchBlock(from, what) {
-  let j = html.indexOf('{', from);
+function matchBlock(from, what, open) {
+  open = open || '{';
+  const close = open === '[' ? ']' : '}';
+  let j = html.indexOf(open, from);
   if (j < 0) throw new Error('no block: ' + what);
   let depth = 0, inS = null, inC = null, prev = '';
   for (let k = j; k < html.length; k++) {
@@ -31,8 +33,8 @@ function matchBlock(from, what) {
     } else if (c === '/' && n === '/') { inC = '//'; }
     else if (c === '/' && n === '*') { inC = '/*'; prev = ''; continue; }
     else if (c === '"' || c === "'" || c === '`') inS = c;
-    else if (c === '{') depth++;
-    else if (c === '}') { depth--; if (depth === 0) return html.slice(from, k + 1); }
+    else if (c === open) depth++;
+    else if (c === close) { depth--; if (depth === 0) return html.slice(from, k + 1); }
     prev = c;
   }
   throw new Error('unbalanced: ' + what);
@@ -45,11 +47,15 @@ function grab(name) {
   return matchBlock(html.indexOf('function ' + name, m.index), name);
 }
 
-/* A top-level `var NAME = { ... };` object, source and all. */
+/* A top-level `var NAME = { ... };` or `var NAME = [ ... ];`, source and all.
+   Works out which from the first character after the `=`, because asking for an
+   array and brace-matching it returns one element of it and fails far away. */
 function grabObj(name) {
   const i = html.indexOf('var ' + name + '=');
   if (i < 0) throw new Error('object not found: ' + name);
-  return matchBlock(i, name) + ';';
+  const opener = html.slice(i).match(/=\s*([\[{])/);
+  if (!opener) throw new Error('not an object or array: ' + name);
+  return matchBlock(i, name, opener[1]) + ';';
 }
 
 function grabVar(name) {

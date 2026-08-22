@@ -2173,7 +2173,31 @@ const fmt=n=>Math.round(n).toLocaleString();
 const pct=(a,b)=>b>0?Math.min(100,Math.round(a/b*100)):0;
 function pill(txt,colvar){ return `<span class="pill" style="background:color-mix(in srgb, var(${colvar}) 14%, #fff);color:var(${colvar});border:1px solid color-mix(in srgb, var(${colvar}) 28%, #fff)">${txt}</span>`; }
 function toast(m){ const t=$('toast'); t.textContent=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),1900); }
-function logAction(what){ state.actionLog.unshift({t:new Date().toISOString(), role:state.role, by:(state.currentUser&&state.currentUser.name)||state.role, what}); }
+/* Every row carries an id from the moment it is written.
+   Without one, a merge cannot match rows between two people's copies and falls
+   back to keeping one whole array and discarding the other. A bulk close writes
+   up to 26 of these in a single save, at the end of the longest window in which
+   the app is NOT refreshing — so it was the most collision-prone save in the
+   system, and a collision silently deleted whatever anyone else had logged in
+   that window. Ids were being backfilled, but only AFTER the merge had run. */
+function logAction(what){ state.actionLog=state.actionLog||[]; state.actionLog.unshift({id:nid('AL'), t:new Date().toISOString(), role:state.role, by:(state.currentUser&&state.currentUser.name)||state.role, what}); }
+/* THE AUDIT TRAIL IS NOT SAFE TO HALF-FIX, and finding this out cost a round.
+
+   The merge matches array rows by id only when EVERY row on both sides has one.
+   Give ids to some writers and not others and it takes the id-matching path,
+   then silently drops every row from the other person's copy that has no id. So
+   adding an id to one of the 25 places that write an audit row did not improve
+   the trail — it started destroying the other 24.
+
+   `logAction` is safe because it is the ONLY thing that writes the action log:
+   one writer, so every row has an id and the matching works.
+
+   This helper is here ready, but the audit trail only becomes mergeable when all
+   25 writers use it, and that is a change of its own with its own review. Until
+   then, do NOT add an id to one audit row and leave the rest bare. */
+/* Deliberately NOT provided as a helper. A helper sitting here named auditRow is
+   exactly what the next edit reaches for, and using it on one row is the thing
+   that breaks the trail. When all 25 writers are moved together, add it then. */
 function accessOv(role,scrId){ const m=(state.masters&&state.masters.accessMatrix)||{}; return (m[role]&&m[role][scrId])||null; }
 function _ownerEdit(role,id){ const s=scr(id); return !!(s&&s.owners&&s.owners.includes(role)); }
 /* The access matrix is authoritative: each role×screen is No access / View / Edit. COO is always Edit. */
@@ -3791,6 +3815,73 @@ function prodBucketBar(b){ if(!b)return ''; var prod=+b.producedKg||0, plan=+b.p
   return '<div style="padding:10px 18px 2px"><div style="display:flex;height:9px;border-radius:5px;overflow:hidden;background:var(--line)">'+bar+'</div><div style="margin-top:7px;line-height:1.9">'+legend+'</div></div>';
 }
 /* Focused single-stage list (work model): click a stage in the strip → see ONLY that stage's short list with stage-specific columns and the one action that moves each item forward. Tap a row for the full batch passport (drill-in). */
+/* ===== WHERE A CLOSED BATCH LIVES — 2026-08-22
+
+   It lived nowhere. A batch drops off every clickable screen on the Production
+   desk the moment it is closed, because those screens list batches that still
+   have material to pack or account for — and a closed one has none. That is
+   exactly the state the bulk-close button puts a batch into.
+
+   So the Reopen button, built to undo a mistaken bulk close, could not appear
+   for a single batch the bulk close had closed. Measured on the live data: 3 of
+   35 closed batches could show it, and all three still had unpacked stock.
+
+   The Completed tab lists PO LINES, not batches, which is why nobody noticed.
+   Closed batches now have their own card underneath it. */
+function closedBatches(){
+  return (state.batches||[]).filter(function(b){
+    return b && !b.voided && !b.pool && b.status==='closed'; })
+   .sort(function(a,b){ return String(b.closedDate||'').localeCompare(String(a.closedDate||'')); });
+}
+/* A closed batch whose recorded yield no longer matches what it produced. This
+   happens when somebody logs shift output while the close list is open: the app
+   stops refreshing behind a modal, so the close writes the older figure and the
+   merge keeps the newer output. The batch then reads "on plan" while it made
+   more than that. Nothing else in the system would ever mention it. */
+function batchYieldMismatch(b){
+  if(!b || b.status!=='closed') return 0;
+  if(b.actualYield==null) return 0;
+  var d=(+b.producedKg||0)-(+b.actualYield||0);
+  return Math.abs(d)>0.5 ? d : 0;
+}
+function closedBatchesCard(){
+  var list=closedBatches();
+  var canReopen=hardRole(['Plant Manager']);
+  var head='<div class="card" style="margin-top:12px"><h3>Closed batches <span class="hint">'+list.length+'</span></h3>';
+  if(!list.length) return head+'<div class="muted" style="padding:14px 2px">Nothing closed yet.</div></div>';
+  var bad=list.filter(function(b){ return batchYieldMismatch(b)!==0; });
+  var warn = bad.length
+    ? '<div style="padding:9px 12px;border:1px solid var(--red);background:#fdecec;border-radius:8px;margin-bottom:10px;font-size:11.5px;line-height:1.7">'
+      +'<b>'+bad.length+' of these recorded a yield that no longer matches what the batch produced.</b> '
+      +'That happens when shift output is logged while somebody has the close list open. The batch is marked below. '
+      +(canReopen?'Reopen it, let Production close it again, and the figure will be right.':'Ask the Plant Manager to reopen it so Production can close it again.')
+      +'</div>'
+    : '';
+  var rows=list.map(function(b){
+    var mm=batchYieldMismatch(b);
+    var re=(b.closeHistory&&b.closeHistory.length)||0;
+    /* The row is NOT clickable. Drilling into a batch goes through a list that
+       excludes closed ones and silently falls back to whichever batch happens to
+       be first — so clicking three of these opened a different batch's page, and
+       the Reopen button there belonged to that other batch. The button on this
+       row carries the right id, so the row does not need to navigate anywhere. */
+    return '<tr>'
+      +'<td><b>'+_pe(b.batchNo||'—')+'</b>'+(re?(' <span class="pill" style="background:var(--amber-50);color:var(--amber);font-size:9.5px;padding:1px 6px">reopened '+re+'&times;</span>'):'')+'</td>'
+      +'<td>'+_pe(coaItemOf(b))+'<div class="muted" style="font-size:11px">'+_pe(b.kind==='po'?(b.po||''):'bulk → stock')+'</div></td>'
+      +'<td class="num">'+fmt(+b.plannedKg||0)+'</td>'
+      +'<td class="num">'+fmt(+b.producedKg||0)
+        +(mm?('<div style="color:var(--red);font-size:10.5px;font-weight:700">closed at '+fmt(+b.actualYield||0)+'</div>'):'')+'</td>'
+      +'<td class="muted" style="font-size:11.5px">'+_pe(b.closedDate||'')+(b.closedBy?('<div style="font-size:10.5px">'+_pe(b.closedBy)+'</div>'):'')+'</td>'
+      +'<td style="white-space:nowrap;text-align:right">'
+      +(canReopen?('<button class="sm ghost" title="Put this batch back to open. Needs a reason." onclick="openReopenBatch(\''+b.id+'\')">Reopen</button>')
+                 :'<span class="muted" style="font-size:10.5px">Plant Manager reopens</span>')
+      +'</td></tr>';
+  }).join('');
+  return head+warn
+    +'<div style="overflow:auto"><table><thead><tr><th>Batch</th><th>Product</th>'
+    +'<th class="num">Planned</th><th class="num">Produced</th><th>Closed</th><th></th>'
+    +'</tr></thead><tbody>'+rows+'</tbody></table></div></div>';
+}
 function prodStageList(){
   var ed=hardRole(['Production']); var f=prodFilter||'all';
   if(f==='tomake'){
@@ -3909,10 +4000,11 @@ function prodStageList(){
   if(f==='completed'){
     var crows=prodCompletedLines();
     var cc='<div class="card"><h3>Completed <span class="hint">'+crows.length+' PO line(s) · produced, packed &amp; dispatch status</span></h3>';
-    if(!crows.length)return cc+'<div class="muted" style="padding:14px 2px">No PO lines fully packed yet — items show here once production has packed the full ordered quantity.</div></div>';
+    if(!crows.length)return cc+'<div class="muted" style="padding:14px 2px">No PO lines fully packed yet — items show here once production has packed the full ordered quantity.</div></div>'+closedBatchesCard();
     var ctag={ok:'background:#e2f3e8;color:#1d8a4e',warn:'background:#fbf0db;color:#b9760d'};
     var cbody=crows.map(function(r){return '<tr><td><b>'+r.po+'</b>'+(r.client?'<div class="muted" style="font-size:11px">'+shortClient(r.client)+'</div>':'')+'</td><td>'+r.product+'</td><td class="num">'+fmt(r.ordered)+'</td><td class="num">'+fmt(r.packed)+'</td><td class="num">'+fmt(r.disp)+'</td><td><span style="font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:999px;'+(ctag[r.tag]||ctag.warn)+'">'+r.status+'</span></td></tr>';}).join('');
-    return cc+'<div style="overflow:auto"><table><thead><tr><th>PO / Client</th><th>Product</th><th class="num">Ordered</th><th class="num">Packed</th><th class="num">Dispatched</th><th>Status</th></tr></thead><tbody>'+cbody+'</tbody></table></div></div>';
+    return cc+'<div style="overflow:auto"><table><thead><tr><th>PO / Client</th><th>Product</th><th class="num">Ordered</th><th class="num">Packed</th><th class="num">Dispatched</th><th>Status</th></tr></thead><tbody>'+cbody+'</tbody></table></div></div>'
+      +closedBatchesCard();
   }
   var list;
   if(f==='recon')list=af.filter(function(b){return batchStage(b)==='recon';});
@@ -3969,7 +4061,7 @@ function prodSettledStrip(){
     +'<div style="flex:1;min-width:220px"><b style="font-size:12.5px">'+st.length+' batch'+(st.length===1?'':'es')+' finished and on plan &middot; '+fmt(Math.round(kg))+' Kg/L</b>'
     +'<div class="muted" style="font-size:11px;margin-top:2px">Everything produced has been packed or accounted for and none is short of plan, so there is no yield variance for anyone to explain.'
     +(oldest?(' The oldest has been open <b>'+oldest+' day'+(oldest===1?'':'s')+'</b>.'):'')+'</div></div>'
-    +'<button class="green sm" onclick="closeSettledBatches()">Close all '+st.length+'</button></div></div>';
+    +'<button class="green sm" onclick="openSettledClose()">Review and close '+st.length+'</button></div></div>';
 }
 /* NOTE 2026-08-21: screenProd() builds the desk itself and does NOT call this.
    Left in place, but do not add anything here expecting it to appear. */
@@ -3979,7 +4071,7 @@ function renderProdLifecycle(){var PC=window.ProductionCenter;if(!PC)return '<di
   return prodTodayBar()+prodStatusStrip()+prodSettledStrip()+prodStageList()+((prodFilter==='completed')?prodReconciledStrip():'');}
 function _pcStep(name,sub,st,first,reached){var ds=st==='done'?'background:var(--navy);color:#fff':st==='active'?'background:var(--navy-50,#eef3fb);color:var(--navy);box-shadow:inset 0 0 0 2px var(--navy)':'background:#eef1f4;color:#9aa3b0';var mark=st==='done'?'✓':'';var nmc=st==='todo'?'color:#9aa3b0':'';var line=first?'':'<div class="line" style="background:'+(reached?'var(--navy)':'#e3e7ec')+'"></div>';return '<div class="col">'+line+'<div class="sdot" style="'+ds+'">'+mark+'</div><div class="snm" style="'+nmc+'">'+name+'</div><div class="ssub">'+sub+'</div></div>';}
 function _pcLotRes(c){c=c||{};if(c.status==='approved'){return c.deviation?['Deviation','var(--amber-50,#fdf0d5)','var(--amber,#9E6210)']:['FIT','var(--green-50,#e7f5e8)','var(--green2,#2f8132)'];}if(c.overall==='UNFIT')return['UNFIT','#fbe9e7','var(--red,#E03127)'];if(c.status)return['In review','var(--navy-50,#eef3fb)','var(--navy)'];return['Pending','#f1f3f5','var(--mut,#8A95A6)'];}
-function _pcLifeAction(b,d,ed){if(!ed)return '';if(b.status==='closed')return '<span class="muted" style="font-size:12px">Batch closed'+(b.closedDate?(' · '+b.closedDate):'')+'</span>';if(b.pool){return b.disposition==='byproduct'?'<button class="green" onclick="openCallBp(\''+b.id+'\')">Call for manufacturing</button>':'';}var prod=+b.producedKg||0,plan=+b.plannedKg||0,complete=(plan>0&&prod>=plan-0.5);var primary='';if(d.stage==='producing')primary=complete?'<button class="green" onclick="openCloseBatch(\''+b.id+'\')">Production complete — Close batch</button>':'<button class="green" onclick="openShiftLog(\''+b.id+'\')">+ Log shift output</button>';else if(d.stage==='qc')primary='<button class="ghost" onclick="setScreen(\'qc\')">Open in Lab QC ▸</button>';else if(d.stage==='pack')primary='<button class="green" onclick="openPack(\''+b.id+'\')">Pack cleared stock</button>';else if(d.stage==='recon')primary='<button onclick="openReconcile(\''+b.id+'\')">Reconcile remainder</button>';else if(d.stage==='packed')primary=((prod-(+b.packedKg||0))>0.5)?'<button onclick="openReconcile(\''+b.id+'\')">Reconcile remainder</button>':'<button class="green" onclick="openCloseBatch(\''+b.id+'\')">Close batch</button>';var sec=(b.status==='open'&&!(d.stage==='producing'&&complete)&&d.stage!=='packed')?' <button class="sm ghost" onclick="openCloseBatch(\''+b.id+'\')">Close batch (end production)</button>':'';return primary+sec;}
+function _pcLifeAction(b,d,ed){/* The closed-batch line is built BEFORE the `ed` gate, because reopening belongs   to the Plant Manager and `ed` is Production. Leaving it below the gate is how a   button ends up existing and never appearing to the person it is for. */if(b.status==='closed'){var _rr=hardRole(['Plant Manager'])?' <button class="sm ghost" title="Put this batch back to open. Needs a reason." onclick="openReopenBatch(\''+b.id+'\')">Reopen</button>':'';return '<span class="muted" style="font-size:12px">Batch closed'+(b.closedDate?(' · '+b.closedDate):'')+(b.closedBy?(' · by '+_pe(b.closedBy)):'')+((b.closeHistory&&b.closeHistory.length)?(' · reopened '+b.closeHistory.length+'&times; before'):'')+'</span>'+_rr;}if(!ed)return '';if(b.pool){return b.disposition==='byproduct'?'<button class="green" onclick="openCallBp(\''+b.id+'\')">Call for manufacturing</button>':'';}var prod=+b.producedKg||0,plan=+b.plannedKg||0,complete=(plan>0&&prod>=plan-0.5);var primary='';if(d.stage==='producing')primary=complete?'<button class="green" onclick="openCloseBatch(\''+b.id+'\')">Production complete — Close batch</button>':'<button class="green" onclick="openShiftLog(\''+b.id+'\')">+ Log shift output</button>';else if(d.stage==='qc')primary='<button class="ghost" onclick="setScreen(\'qc\')">Open in Lab QC ▸</button>';else if(d.stage==='pack')primary='<button class="green" onclick="openPack(\''+b.id+'\')">Pack cleared stock</button>';else if(d.stage==='recon')primary='<button onclick="openReconcile(\''+b.id+'\')">Reconcile remainder</button>';else if(d.stage==='packed')primary=((prod-(+b.packedKg||0))>0.5)?'<button onclick="openReconcile(\''+b.id+'\')">Reconcile remainder</button>':'<button class="green" onclick="openCloseBatch(\''+b.id+'\')">Close batch</button>';var sec=(b.status==='open'&&!(d.stage==='producing'&&complete)&&d.stage!=='packed')?' <button class="sm ghost" onclick="openCloseBatch(\''+b.id+'\')">Close batch (end production)</button>':'';return primary+sec;}
 function renderProdLifecycleBatch(){var PC=window.ProductionCenter;if(!PC)return '<div class="card">Lifecycle unavailable</div>';var ed=hardRole(['Production']);var _f=prodFilter||'all';if(_f==='call')return prodPoolsStrip()||'<div class="card"><div class="muted" style="padding:10px 2px">No by-product, diverted or rework material to call right now.</div></div>';var _af=(typeof activeFloorBatches==='function')?activeFloorBatches():(state.batches||[]).filter(function(b){return b&&b.status==='open';});var _ps=function(b){return PC.derive(b).stage;};var open;if(_f==='completed'){open=(state.batches||[]).filter(function(b){return b&&b.status==='closed'&&!b.pool&&b.disposition!=='byproduct'&&!b.voided&&!_af.some(function(x){return x.id===b.id;});}).sort(function(a,c){return String(c.closedDate||'').localeCompare(String(a.closedDate||''));});}else if(_f==='recon'){open=(state.batches||[]).filter(function(b){return b&&!b.pool&&b.disposition!=='byproduct'&&!b.voided&&batchRemainderKg(b)>0.5&&!b.reconciled;});}else if(_f==='producing'||_f==='qc'||_f==='pack'){open=_af.filter(function(b){return _ps(b)===_f;});}else if(_f==='toclose'){open=_af.filter(function(b){return batchStage(b)==='done';});}else if(_f==='attention'){open=_af.filter(function(b){var a=batchAging(b);return _ps(b)!=='packed'&&a!=null&&a>=4;});}else{open=_af;}if(!open.length)return '<div class="card"><div class="muted" style="padding:8px 2px">Nothing in this view.'+(_f!=='tomake'?' <a onclick="prodFilter=\'tomake\';prodDrill=false;render()" style="cursor:pointer;color:var(--navy)">Back to what to make ▸</a>':'')+'</div></div>';var sel=open.find(function(b){return b.id===prodBatchSel;})||open[0];prodBatchSel=sel.id;var _pbmRow=function(b){var dd=PC.derive(b);var MM=PC.STAGE_META[dd.stage]||{name:dd.stage,dot:'#888'};var closed=(b.status==='closed');var plan=+dd.planned||+b.plannedKg||0,prod=+dd.produced||+b.producedKg||0;var pv=plan>0?Math.min(100,Math.round(prod/plan*100)):(prod>0?100:0);var a=batchAging(b);var stalled=(!closed&&dd.stage!=='packed'&&a!=null&&a>=4);var right=closed?'<span class="pbm-stage">'+(b.closedDate||'done')+'</span>':(stalled?'<span class="pbm-stage" style="color:var(--red)">⚠ stalled</span>':'<span class="pbm-stage">'+pv+'%</span>');return '<div class="pbm'+(b.id===sel.id?' on':'')+'" onclick="prodBatchSel=\''+b.id+'\';render()"><span class="dot" style="background:'+(closed?'#B7C3BC':MM.dot)+'"></span><div class="pbm-main"><div class="pbm-prod">'+(dd.brand||dd.base||'—')+'</div><div class="pbm-code">'+(b.batchNo||'—')+'</div><div style="height:4px;border-radius:999px;background:var(--line);margin-top:5px;overflow:hidden"><span style="display:block;height:100%;width:'+pv+'%;background:'+(closed?'#9aa3b0':'var(--navy)')+'"></span></div></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px">'+'<span class="pbm-stage">'+(closed?'Completed':MM.name)+'</span>'+right+'</div></div>';};
 var _stp={producing:0,qc:1,pack:2,recon:3};var _sk=function(b){var k=PC.derive(b).stage;return _stp[k]==null?5:_stp[k];};
 var _actB=open.filter(function(b){return PC.derive(b).stage!=='packed';}).sort(function(x,y){return _sk(x)-_sk(y);});
@@ -4566,7 +4658,17 @@ function closeBatch(batchId){ openCloseBatch(batchId); }
 function openCloseBatch(batchId){ if(!(hardRole(['Production']))){toast('Production / COO only');return;} const b=(state.batches||[]).find(x=>x.id===batchId); if(!b)return; closeForm={bid:batchId,reason:'',note:''}; renderCloseBatch(); $('modalBg').classList.add('open'); }
 function renderCloseBatch(){ const b=(state.batches||[]).find(x=>x.id===closeForm.bid); if(!b){closeModal();return;} const plan=+b.plannedKg||0, prod=+b.producedKg||0, varn=Math.round((plan-prod)*100)/100; const reasons=(state.masters&&state.masters.varianceReasons)||['Other'];
   $('modal').innerHTML=`<div class="mh"><h2>Close batch ${b.batchNo||''}</h2><div class="sub">${coaItemOf(b)} · planned ${fmt(plan)} · produced ${fmt(prod)} Kg/L${varn>0?` · <b style="color:var(--amber)">short by ${fmt(varn)}</b>`:(varn<0?` · <b style="color:var(--amber)">over by ${fmt(-varn)}</b>`:' · on plan')}</div></div>
-   <div class="mb"><div class="muted" style="font-size:12px;margin-bottom:10px">Closing fixes this batch at its <b>actual yield (${fmt(prod)} Kg/L)</b> — no more shift output can be added. ${varn>0?'A yield variance needs a reason; the Plant Manager is notified.':''}</div>
+   <div class="mb">${(function(){
+     /* A batch somebody reopened on purpose says so HERE, where the person about
+        to close it is looking. The worklist button says "Reopened — check first"
+        and used to open a modal with nothing to check on it, so the reason the
+        Plant Manager wrote was invisible at the one moment it mattered. */
+     var _h=(b.closeHistory&&b.closeHistory[0])||null; if(!_h) return '';
+     return '<div style="padding:10px 12px;border:1px solid var(--amber);background:var(--amber-50);border-radius:8px;margin-bottom:10px;font-size:11.5px;line-height:1.7">'
+       +'<b>This batch was reopened'+(_h.reopenedBy?(' by '+_pe(_h.reopenedBy)):'')+(_h.reopenedAt?(' on '+_pe(_h.reopenedAt)):'')+'.</b><br>'
+       +'&ldquo;'+_pe(_h.reopenReason||'no reason given')+'&rdquo;<br>'
+       +'Close it again only if that has been dealt with.</div>';
+   })()}<div class="muted" style="font-size:12px;margin-bottom:10px">Closing fixes this batch at its <b>actual yield (${fmt(prod)} Kg/L)</b> — no more shift output can be added. ${varn>0?'A yield variance needs a reason; the Plant Manager is notified.':''}</div>
      ${varn>0?`<div class="fld"><label>Variance reason (required)</label><select onchange="closeForm.reason=this.value"><option value="">— pick reason —</option>${reasons.map(r=>`<option ${closeForm.reason===r?'selected':''}>${r}</option>`).join('')}</select></div>`:''}
      <div class="fld fld-long" style="margin-top:8px"><label>Note (optional)</label><textarea rows="3" oninput="closeForm.note=this.value" placeholder="explain the variance">${_tx(closeForm.note||'')}</textarea></div>
    </div>
@@ -6940,12 +7042,37 @@ function actionItems(){
     if(rem>0.5) return;                                   /* still has material to place — that is the Reconcile step, not this */
     var plan=+b.plannedKg||0, varn=Math.round((plan-prod)*100)/100;
     var age=null; try{ age=(typeof batchAging==='function')?batchAging(b):null; }catch(e){}
+    /* If somebody reopened this batch on purpose, the worklist does NOT ask for
+       it to be closed again as though nothing had happened. Left as it was, the
+       Plant Manager reopened a batch at 09:00 with a written reason and
+       Production's actions told them to close it within one refresh, with no
+       mention of the reopen. Both people would have done exactly as asked and
+       the reopen would have been undone by the app itself. */
+    var _re=(b.closeHistory&&b.closeHistory[0])||null;
+    /* The batch number comes FIRST. The first version led with the reopen notice
+       and the row is a single clipped line, so the number never appeared on
+       screen — the reader saw a warning about a batch they could not identify.
+       The reason is escaped and trimmed: it is the only free-typed text that
+       reaches this list, and this list does not escape what it is given. */
+    var _esc=function(t){ try{ return _pe(String(t||'')); }catch(e){ return String(t||'').replace(/[<>&]/g,''); } };
+    /* Trim the RAW text, then escape. Escaping first made the 70 count characters
+       of markup rather than characters a person reads — an ampersand-heavy note
+       showed 34 real characters — and let the cut land inside an entity, so the
+       row ended "…&am". */
+    var _whyRaw=_re?String(_re.reopenReason||'no reason given'):'';
+    if(_whyRaw.length>70) _whyRaw=_whyRaw.slice(0,70)+'…';
+    var _why=_esc(_whyRaw);
     items.push({ role:'Production', batch:b,
-      what:'Close batch '+(b.batchNo||b.id)+' — '+(coaItemOf?coaItemOf(b):(b.brand||b.base||''))
+      what:(_re?'REOPENED · ':'Close batch ')
+           /* the batch number is typed by an operator, so it is escaped too. The
+              round before escaped the reason and the product name and left the
+              one genuinely free-typed field between them bare. */
+           +_esc(b.batchNo||b.id)+' — '+_esc(coaItemOf?coaItemOf(b):(b.brand||b.base||''))
            +' · '+fmt(prod)+' Kg/L, all placed'
            +(varn>0.001?(' · short by '+fmt(varn)+' — needs a reason'):' · on plan')
-           +(age!=null?(' · open '+age+' day'+(age===1?'':'s')):''),
-      act:"openCloseBatch('"+b.id+"')", label:'Close batch' });
+           +(_re?(' · reopened by '+_esc(_re.reopenedBy||'the Plant Manager')+': '+_why)
+                :(age!=null?(' · open '+age+' day'+(age===1?'':'s')):'')),
+      act:"openCloseBatch('"+b.id+"')", label:(_re?'Reopened — check first':'Close batch') });
   });
   return items;
 }
@@ -6964,29 +7091,327 @@ function settledBatches(){
     return Math.round((plan-prod)*100)/100 <= 0.001;      /* no variance to explain */
   });
 }
-/* One click, Production's name on all of them, every one logged individually.
-   Deliberately NOT automatic on load: closing is the moment a person says
-   "this batch is finished", and a system that says it for them silently is not
-   recording a judgement, it is manufacturing one. */
-function closeSettledBatches(){
+/* ===== CLOSING THE SETTLED BATCHES — rebuilt 2026-08-22
+
+   It used to be a browser confirm box that listed the FIRST EIGHT batch numbers
+   and said "…and 18 more", then closed all 26. Tahir: show all of them, with
+   quantities, and let me untick.
+
+   He was right, and the reason is not squeamishness. Closing a batch is ONE WAY
+   through the app — there was no reopen anywhere in the file, and `status` is not
+   a field the correction path can amend. So the old box asked a person to make 26
+   irreversible decisions while showing them 8. A list you cannot see is a list you
+   cannot object to.
+
+   Reviewing each one is still not asked for, and deliberately so: the only thing
+   closing records that is not already on the batch is WHY the yield was short,
+   and none of these are short. There is nothing to review. What there is, is
+   something to CHECK — that each of these really is finished — and for that you
+   need to see the row. */
+var settledForm=null;
+function openSettledClose(){
   if(!hardRole(['Production'])){toast('Production / COO only');return;}
   var list=settledBatches();
   if(!list.length){toast('No settled batches to close');return;}
-  var names=list.slice(0,8).map(function(b){return b.batchNo||b.id;}).join(', ')+(list.length>8?(' …and '+(list.length-8)+' more'):'');
-  if(typeof confirm==='function' && !confirm('Close '+list.length+' finished batch(es)?\n\n'+names
-      +'\n\nEvery one is at or above plan with nothing left to place, so there is no yield variance to explain.\nNo more shift output can be added to them afterwards.')) return;
+  settledForm={pick:{},scroll:0};
+  /* A batch that somebody reopened on purpose starts UNTICKED. Ticking it would
+     put the close straight back on it, and the row gives no sign it was ever
+     reopened — so the person who reopened it this morning watches it close again
+     this afternoon and nobody has done anything wrong. */
+  list.forEach(function(b){ settledForm.pick[b.id]=!((b.closeHistory&&b.closeHistory.length)||b.reopenedAt); });
+  renderSettledClose(); $('modalBg').classList.add('open');
+}
+function settledPick(id,on){
+  if(!settledForm) return;
+  settledForm.pick[id]=!!on;
+  /* Hold the scroll position. The whole list is redrawn on every tick, and with
+     26 rows in a half-screen box that threw the reader back to row 1 each time.
+     Three of those and people stop reading and just close everything, which is
+     the exact behaviour this screen was built to end. */
+  try{ var sc=document.getElementById('settledScroll'); settledForm.scroll=sc?sc.scrollTop:0; }catch(e){}
+  renderSettledClose();
+  try{ var sc2=document.getElementById('settledScroll'); if(sc2) sc2.scrollTop=settledForm.scroll||0; }catch(e){}
+}
+function settledPickAll(on){ if(!settledForm) return;
+  /* Tick all does NOT re-tick a batch somebody reopened on purpose. It is the
+     first control above the list and the one people reach for, so leaving it to
+     override the guard made the guard one click wide. Unticking all still
+     unticks everything — taking something OUT of a close is always allowed. */
+  settledBatches().forEach(function(b){
+    var reopened=((b.closeHistory&&b.closeHistory.length)||b.reopenedAt);
+    /* SKIP a reopened batch, do not force it off. Forcing meant somebody who had
+       read it, agreed it was finished and ticked it by hand watched their tick
+       disappear when they pressed Tick all for the rest. Leaving it alone keeps
+       the decision with the person who made it. */
+    if(on && reopened) return;
+    settledForm.pick[b.id]=!!on; });
+  try{ var sc=document.getElementById('settledScroll'); settledForm.scroll=sc?sc.scrollTop:0; }catch(e){}
+  renderSettledClose();
+  try{ var sc2=document.getElementById('settledScroll'); if(sc2) sc2.scrollTop=settledForm.scroll||0; }catch(e){}
+}
+function renderSettledClose(){
+  var f=settledForm; if(!f){closeModal();return;}
+  var list=settledBatches();
+  if(!list.length){ closeModal(); toast('Nothing left to close'); return; }
+  var n=list.filter(function(b){return f.pick[b.id];}).length;
+  var kg=list.reduce(function(a,b){ return a+(f.pick[b.id]?(+b.producedKg||0):0); },0);
+  var rows=list.map(function(b){
+    var on=!!f.pick[b.id];
+    var age=null; try{ age=batchAging(b); }catch(e){}
+    var plan=+b.plannedKg||0, prod=+b.producedKg||0, packed=+b.packedKg||0;
+    return '<tr'+(on?'':' style="opacity:.45"')+'>'
+      +'<td style="width:34px"><input type="checkbox" '+(on?'checked':'')+' onchange="settledPick(\''+b.id+'\',this.checked)"></td>'
+      +'<td><b>'+_pe(b.batchNo||b.id)+'</b>'
+      +((b.closeHistory&&b.closeHistory.length)?(' <span class="pill" style="background:var(--amber-50);color:var(--amber);font-size:9.5px;padding:1px 6px">reopened</span>'):'')
+      +'<div class="muted" style="font-size:10.5px">'+_pe(coaItemOf(b))+(b.po?(' · '+_pe(b.po)):'')
+      +((b.closeHistory&&b.closeHistory[0]&&b.closeHistory[0].reopenReason)?('<div style="color:var(--amber);font-size:10px;margin-top:2px">reopened: '+_pe(b.closeHistory[0].reopenReason)+'</div>'):'')
+      +'</div></td>'
+      +'<td class="num">'+fmt(plan)+'</td>'
+      +'<td class="num"><b>'+fmt(prod)+'</b></td>'
+      +'<td class="num">'+fmt(packed)+'</td>'
+      +'<td class="num">'+(age!=null?(age+' day'+(age===1?'':'s')):'—')+'</td></tr>';
+  }).join('');
+  $('modal').className='modal m-lg';
+  $('modal').innerHTML='<div class="mh"><h2>Close finished batches</h2>'
+    +'<div class="sub">'+list.length+' batch'+(list.length===1?'':'es')+' produced at or above plan with everything packed or accounted for. Untick anything that is not actually finished.</div></div>'
+    +'<div class="mb">'
+    +'<div style="padding:9px 12px;border:1px solid var(--line);background:var(--panel2);border-radius:8px;margin-bottom:10px;font-size:11.5px;line-height:1.8">'
+    +'Closing fixes a batch at its actual yield. <b>No more shift output can be added to it afterwards.</b><br>'
+    +'None of these is short of plan, so there is no yield variance for anyone to explain — that is why they can be done together.<br>'
+    +'A closed batch can be reopened by the <b>Plant Manager</b>, with a reason, if one of these turns out to still be running.'
+    +'</div>'
+    +'<div style="margin-bottom:9px;display:flex;gap:7px;flex-wrap:wrap">'
+    +'<button class="sm ghost" onclick="settledPickAll(true)">Tick all</button>'
+    +'<button class="sm ghost" onclick="settledPickAll(false)">Untick all</button></div>'
+    +'<div id="settledScroll" style="max-height:52vh;overflow:auto"><table><thead><tr><th></th><th>Batch</th>'
+    +'<th class="num">Planned</th><th class="num">Produced</th><th class="num">Packed</th><th class="num">Open</th>'
+    +'</tr></thead><tbody>'+rows+'</tbody></table></div>'
+    +'<div class="muted" style="font-size:11.5px;margin-top:8px">Closing <b>'+n+'</b> of '+list.length+' &middot; '+fmt(Math.round(kg))+' Kg/L &middot; recorded as <b>'+_pe((state.currentUser&&state.currentUser.name)||state.role)+'</b></div>'
+    +'</div>'
+    +'<div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button>'
+    +(n?('<button class="green" onclick="closeSettledBatches()">Close '+n+' batch'+(n===1?'':'es')+'</button>'):'')
+    +'</div>';
+}
+/* Production's name on every one, each logged individually, and `closedBulk` so
+   nobody later reads it as a judgement about yield. */
+function closeSettledBatches(){
+  if(!hardRole(['Production'])){toast('Production / COO only');return;}
+  var f=settledForm; if(!f){toast('Open the list first');return;}
+  var list=settledBatches().filter(function(b){ return f.pick[b.id]; });
+  if(!list.length){toast('Nothing ticked');return;}
   var who=(state.currentUser&&state.currentUser.name)||state.role, d=evToday();
   list.forEach(function(b){
     b.status='closed'; b.closedDate=d; b.actualYield=+b.producedKg||0;
     b.varianceKg=0; b.varianceReason=''; b.varianceNote='';
     b.closedBy=who; b.closedBulk=true;
+    /* NO audit row is written here, and that is deliberate — see the note above logAction().
+       Adding one made this save DELETE other people's audit rows, which is
+       worse than the gap it filled. */
     if(b.kind==='po'){ var o=(state.orders||[]).find(function(x){return x.po===b.po;});
       var l=o&&(o.lines||[]).find(function(x){return x.id===b.lineId;});
       if(l) l.prodComplete=l.prodComplete||d; }
     logAction('Batch '+(b.batchNo||b.id)+' closed at '+fmt(+b.producedKg||0)+'/'+fmt(+b.plannedKg||0)+' Kg/L — on plan, closed in bulk by '+who);
   });
-  save(); render();
+  settledForm=null; save(); closeModal(); render();
   toast(list.length+' batch(es) closed — all on plan, nothing to explain');
+}
+/* ===== REOPENING A CLOSED BATCH — 2026-08-22
+
+   Closing was one way. There was no reopen anywhere in the file and `status` is
+   not amendable through the correction path, so a mis-click on the bulk button
+   could not be walked back by anyone, including the COO.
+
+   Gated to the Plant Manager because reopening lets shift output be added again,
+   which changes a yield figure that Production reported and somebody may already
+   have acted on. It needs a reason and it goes in the corrections register beside
+   every other change to a finished record.
+
+   What closing recorded is ARCHIVED rather than wiped. If a batch is closed with
+   a variance reason, reopened, and closed again, the first explanation is still
+   on the record — that is the yield history, and it is the whole point of asking
+   for a reason in the first place. */
+/* How much output could actually be added if this batch were reopened.
+   The reopen dialogue used to promise "shift output can be added again" without
+   checking. Output is capped at 105% of plan, and every closed batch on the live
+   system sits at exactly 100% — so the real answer is 5% of plan, and for a PO
+   batch whose order is fully produced it is nothing at all. Promising something
+   the next screen refuses is worse than refusing here. */
+function batchReopenHeadroom(b){
+  if(!b) return 0;
+  var plan=+b.plannedKg||0, prod=+b.producedKg||0;
+  var room=Math.max(0, Math.round((plan*1.05-prod)*100)/100);
+  if(b.kind==='po'){
+    var o=(state.orders||[]).find(function(x){return x.po===b.po;});
+    var l=o&&(o.lines||[]).find(function(x){return x.id===b.lineId;});
+    if(l) room=Math.min(room, Math.max(0,(+l.ordered||0)-(+l.produced||0)));
+  }
+  return room;
+}
+/* Reopening is NEVER refused for lack of production headroom, and the first
+   version of this got that badly wrong.
+
+   It reasoned: no room to add output, so no point reopening. But a settled batch
+   is at or above plan BY DEFINITION — that is what puts it on the close list —
+   so the refusal fired hardest on exactly the batches the button closes.
+   Measured on the live data: 6 of the 16 in today's list would have been
+   impossible to reopen by anyone, the COO included, and `status` is not a field
+   the correction path can amend either. The single mis-click this whole feature
+   exists to undo was the one case it refused.
+
+   Two different questions were being confused. "Can more be made on this batch?"
+   is about headroom. "Was this closed by mistake?" is about the record, and the
+   answer must never depend on how much room is left. Headroom is now shown as
+   information and never as a gate. */
+function batchReopenBlocked(b){
+  if(!b) return 'Batch not found.';
+  if(b.status!=='closed') return 'This batch is not closed.';
+  return null;
+}
+var reopenForm=null;
+function openReopenBatch(batchId){
+  if(!hardRole(['Plant Manager'])){toast('Plant Manager / COO reopens a closed batch');return;}
+  var b=(state.batches||[]).find(function(x){return x.id===batchId;}); if(!b)return;
+  var blk=batchReopenBlocked(b); if(blk){toast(blk);return;}
+  reopenForm={bid:batchId,reasonCode:'',reason:''};
+  renderReopenBatch(); $('modalBg').classList.add('open');
+}
+function renderReopenBatch(){
+  var f=reopenForm; if(!f){closeModal();return;}
+  var b=(state.batches||[]).find(function(x){return x.id===f.bid;}); if(!b){closeModal();return;}
+  var shipped=0, cleared=0;
+  (state.packingLog||[]).forEach(function(p){ if(!p||p.reversed||p.baseBatchId!==b.id) return;
+    shipped+=(+p.shipKg||0); cleared+=(+p.insKg||0); });
+  var warn=[];
+  if(shipped>0.5) warn.push(fmt(Math.round(shipped))+' Kg from this batch has already SHIPPED. Reopening does not recall it and does not change any document the customer holds.');
+  else if(cleared>0.5) warn.push(fmt(Math.round(cleared))+' Kg has been cleared by QA and is waiting to ship.');
+  if(b.varianceReason) warn.push('This batch was closed with a yield variance recorded: '+_pe(b.varianceReason)+'. That stays on the record.');
+  if(b.closedBulk) warn.push('It was closed in bulk with others that were all on plan, so nothing was judged about it individually.');
+  $('modal').className='modal m-md';
+  $('modal').innerHTML='<div class="mh"><h2>Reopen batch '+_pe(b.batchNo||b.id)+'</h2>'
+    +'<div class="sub">'+_pe(coaItemOf(b))+' · closed '+_pe(b.closedDate||'')+' by '+_pe(b.closedBy||'')+'</div></div>'
+    +'<div class="mb">'
+    +'<div style="padding:11px 13px;border:1px solid var(--amber);background:var(--amber-50);border-radius:9px">'
+    +'<div style="font-weight:700;font-size:12.5px;margin-bottom:6px">Reopening this batch will:</div>'
+    +'<ul style="margin:0 0 0 16px;font-size:12px">'
+    /* NO promise of output. A batch on this list is fully packed by definition,
+       so reopening puts it back at the packed stage — where the desk offers
+       "Close batch" and nothing else. There is no Log shift output button for it
+       anywhere. The earlier version stopped BLOCKING on headroom, correctly, and
+       then went on promising headroom, which is the same lie the other way up. */
+    +'<li style="margin-bottom:3px"><b>undo the close</b> — the batch goes back to open and its yield figure can be set again when it is closed</li>'
+    +'<li style="margin-bottom:3px">it will NOT let more output be logged: everything on this batch is already packed. If more needs to be made, open a new batch</li>'
+    +'<li style="margin-bottom:3px">put it back on the Production desk as an open batch</li>'
+    +'<li style="margin-bottom:3px">keep what the close recorded, filed against the batch as history</li>'
+    +'</ul>'
+    +(warn.length?('<div style="margin-top:8px;font-size:11.5px;line-height:1.7">'+warn.map(function(w){return '&middot; '+w;}).join('<br>')+'</div>'):'')
+    +'</div>'
+    +'<div class="formgrid" style="margin-top:12px;grid-template-columns:1fr">'
+    +'<div class="fld"><label>Why <span style="color:var(--red)">*</span></label>'
+    +'<select onchange="reopenForm.reasonCode=this.value"><option value="">— pick a reason —</option>'
+    +CORRECT_REASONS.map(function(r){return '<option value="'+r.k+'" '+(f.reasonCode===r.k?'selected':'')+'>'+r.t+'</option>';}).join('')+'</select></div>'
+    +'<div class="fld fld-long"><label>What happened <span style="color:var(--red)">*</span></label>'
+    +'<textarea rows="3" oninput="reopenForm.reason=this.value" placeholder="why this batch should not have been closed">'+_tx(f.reason||'')+'</textarea></div>'
+    +'</div>'
+    +'<div class="muted" style="font-size:11px;margin-top:8px">Recorded in <b>Reports &rarr; Corrections</b> as <b>'+_pe((state.currentUser&&state.currentUser.name)||state.role)+'</b> &middot; '+_pe(state.role)+' &middot; '+evToday()+'</div>'
+    +'</div>'
+    +'<div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button>'
+    +'<button class="green" onclick="doReopenBatch()">Reopen this batch</button></div>';
+}
+function doReopenBatch(){
+  if(!hardRole(['Plant Manager'])){toast('Plant Manager / COO reopens a closed batch');return;}
+  var f=reopenForm; if(!f)return;
+  var b=(state.batches||[]).find(function(x){return x.id===f.bid;}); if(!b){toast('Batch not found');return;}
+  var blk=batchReopenBlocked(b); if(blk){toast(blk);return;}
+  if(!f.reasonCode){toast('Pick a reason');return;}
+  if((f.reason||'').trim().length<10){toast('Say what happened — a sentence, not a word');return;}
+  var who=(state.currentUser&&state.currentUser.name)||state.role;
+  /* Everything below is a single act. The first version changed the batch and
+     the order line and only THEN tried to file the record, so a failure left the
+     batch reopened with nothing in the register saying so, and the toast still
+     said it had worked.
+     Captured BEFORE the history entry is added, or the undo restores the phantom
+     entry along with everything else. */
+  var _regLen=(state.corrections||[]).length;
+  var _undo={status:b.status,closedDate:b.closedDate,closedBy:b.closedBy,closedBulk:b.closedBulk,
+             actualYield:b.actualYield,varianceKg:b.varianceKg,varianceReason:b.varianceReason,
+             varianceNote:b.varianceNote,varianceNotify:b.varianceNotify,
+             reopenedBy:b.reopenedBy,reopenedAt:b.reopenedAt,history:(b.closeHistory||[]).slice()};
+  /* archive, do not wipe */
+  /* Each entry carries an id so two people reopening the same batch keep BOTH
+     records. Without one the whole array merges as a single value and one of the
+     two is dropped with nothing to say it happened. */
+  (b.closeHistory=b.closeHistory||[]).unshift({
+    id:nid('CH'),
+    closedDate:b.closedDate||'', closedBy:b.closedBy||'', closedBulk:!!b.closedBulk,
+    actualYield:(b.actualYield==null?null:+b.actualYield), varianceKg:(b.varianceKg==null?null:+b.varianceKg),
+    varianceReason:b.varianceReason||'', varianceNote:b.varianceNote||'',
+    reopenedBy:who, reopenedRole:state.role||'', reopenedAt:evToday(), reopenReason:(f.reason||'').trim() });
+  var wasDate=b.closedDate||'';
+  var _undoLine=null;
+  b.status='open'; b.closedDate=null; b.closedBy=null; b.closedBulk=false;
+  b.actualYield=null; b.varianceKg=null; b.varianceReason=''; b.varianceNote='';
+  b.varianceNotify=null;      /* it pointed at a variance that no longer exists */
+  b.reopenedBy=who; b.reopenedAt=evToday();
+  /* The order line still said "Produced". Closing sets that date; reopening never
+     cleared it, so the KAM's tracker and every lead-time report went on showing
+     production as finished while the batch was open again. Cleared only where
+     this batch is the reason it was set. */
+  var _cascade=['Shift output can be added to this batch again',
+                'What the close recorded is kept as history on the batch'];
+  if(b.kind==='po'){
+    var _o=(state.orders||[]).find(function(x){return x.po===b.po;});
+    var _l=_o&&(_o.lines||[]).find(function(x){return x.id===b.lineId;});
+    /* Only clear it if no OTHER closed batch on this line still justifies it.
+       PO 1821412156 carries two Orbit-K batches; a bulk close stamps both with
+       the same date, so matching on the date alone let reopening one wipe the
+       tracker while the other was still closed. */
+    /* ANY other closed batch on this line keeps the date, whatever day it was
+       closed. The first version compared close dates, which only worked because
+       a bulk close stamps them all the same day — close two batches on the 18th
+       and the 20th, reopen the earlier one, and the tracker went back to "not
+       produced" while the other was still closed. The question is whether
+       anything still justifies the date, not when it was set. */
+    var _sib=(state.batches||[]).some(function(x){
+      return x && x!==b && !x.voided && x.status==='closed' && x.kind==='po'
+          && x.po===b.po && x.lineId===b.lineId; });
+    if(_l && _l.prodComplete && String(_l.prodComplete)===String(wasDate) && !_sib){
+      _undoLine={line:_l,was:_l.prodComplete};
+      _l.prodComplete='';
+      _cascade.push('PO line '+(_l.brand||'')+' is no longer marked Produced on the tracker');
+    }
+  }
+  /* Filed as a REVERSE, not an AMEND. The batch registry says AMEND on a batch
+     belongs to Production and the COO; REVERSE belongs to the Plant Manager and
+     the COO, which is exactly who is allowed to do this. Filing it as an AMEND
+     put rows in the register that contradict the authority table, and anyone
+     filtering by "AMEND · Production batch" would read them as Production's. */
+  try{
+    recordCorrection('REVERSE','batch',b.id,(b.batchNo||b.id)+' · '+coaItemOf(b),
+      [{field:'status',label:'Batch status',before:'closed'+(wasDate?(' on '+wasDate):''),after:'open'}],
+      f.reasonCode, f.reason, _cascade);
+  }catch(e){
+    /* Put everything back. A reopen that is not on the record did not happen.
+       Including the register itself: recordCorrection files the entry before it
+       finishes building the summary, so a failure after that point left a REVERSE
+       row describing a change that was undone one line later. The one register
+       that answers "what was changed by hand" must not contain things that were
+       not. */
+    /* Truncate back to the length captured before the attempt. Matching on
+       "newest row with this batch id and this op" also matches an EARLIER,
+       genuine reopen of the same batch — so a failure could delete somebody
+       else's real entry out of a ledger this file promises never deletes. */
+    try{ var _c=(state.corrections||[]); while(_c.length>_regLen) _c.shift(); }catch(e2){}
+    b.status=_undo.status; b.closedDate=_undo.closedDate; b.closedBy=_undo.closedBy;
+    b.closedBulk=_undo.closedBulk; b.actualYield=_undo.actualYield; b.varianceKg=_undo.varianceKg;
+    b.varianceReason=_undo.varianceReason; b.varianceNote=_undo.varianceNote;
+    b.varianceNotify=_undo.varianceNotify; b.reopenedBy=_undo.reopenedBy; b.reopenedAt=_undo.reopenedAt;
+    b.closeHistory=_undo.history;
+    if(_undoLine){ _undoLine.line.prodComplete=_undoLine.was; }
+    toast('Nothing was changed — the reopen could not be recorded, so it was undone. Tell Tahir.');
+    return;
+  }
+  reopenForm=null; save(); closeModal(); render();
+  toast('Batch '+(b.batchNo||b.id)+' reopened — the close is undone. It can be closed again when it really is finished.');
 }
 /* ===== Action Center v2 — urgency-first worklist (read-only display) =====
    Re-ranks & restyles whatever actionItems() already emits. Does NOT change which
@@ -7595,7 +8020,7 @@ function resyncLineShipKg(o,l){ var lots=lotsFor(o,l); var rem=Math.max(0,+l.dis
    lot shipKg from its dispatched total (FIFO, capped at insKg). Idempotent via _shipReconV1;
    audit-logged; never changes order/line totals, master data, or shipment records. */
 /* Backfill for the disposed model: existing reconciled batches (closed by the old force-close reconcile) get disposedKg = their unpacked remainder, so the new disposed-aware remainder/packable math treats them as fully accounted (no resurrection of packable stock). Idempotent; self-contained on s; touches no master data. Tested vs the 2026-06-25 snapshot (active batches unchanged). */
-function backfillDisposedV1(s){ if(!s||s._disposedBackfillV1)return false; var n=0; (s.batches||[]).forEach(function(b){ if(b&&b.reconciled&&!(+b.disposedKg>0)){ var rem=Math.max(0,(+b.producedKg||0)-(+b.packedKg||0)); if(rem>0){ b.disposedKg=rem; n++; } } }); s._disposedBackfillV1=true; if(n>0)(s.actionLog=s.actionLog||[]).unshift({t:new Date().toISOString(),role:'System',by:'System',what:'BACKFILL: set disposedKg on '+n+' reconciled batch(es) to preserve remainder/packable under the disposed model'}); return true; }
+function backfillDisposedV1(s){ if(!s||s._disposedBackfillV1)return false; var n=0; (s.batches||[]).forEach(function(b){ if(b&&b.reconciled&&!(+b.disposedKg>0)){ var rem=Math.max(0,(+b.producedKg||0)-(+b.packedKg||0)); if(rem>0){ b.disposedKg=rem; n++; } } }); s._disposedBackfillV1=true; if(n>0)(s.actionLog=s.actionLog||[]).unshift({id:'AL'+(s.seq=(s.seq||1000)+1)+'-mig',t:new Date().toISOString(),role:'System',by:'System',what:'BACKFILL: set disposedKg on '+n+' reconciled batch(es) to preserve remainder/packable under the disposed model'}); return true; }
 /* One-time guarded fix (tested against the 2026-06-25 snapshot): VU26144 productionLog had 4 identical Night rows (14,000) against a 7,000 batch — missing its Morning shift. Conservative guard fires ONLY on that exact broken state (no-op if live data has since changed). Reduces to Morning(Imran)+Night(Adnan)=7,000 and restores the 7,000 to the Sulfur Coated Urea opening balance (kept short to offset the phantom) so productionLog still equals the batch ledger. Self-contained on s; touches no master data. */
 function fixVU26144ProdLogV1(s){
   if(!s || s._fixVU26144ProdLogV1) return false;
@@ -7669,7 +8094,7 @@ function reconcileShipLotsV1(s){ if(!s||s._shipReconV1) return; var fixed=0;
     fixed++;
   }); });
   s._shipReconV1=true;
-  if(fixed>0) (s.actionLog=s.actionLog||[]).unshift({t:new Date().toISOString(),role:'System',by:'System',what:'RECONCILE: re-synced packing-lot shipped stock to dispatched totals on '+fixed+' line(s) - fixes phantom Ready-to-ship from edited shipments'});
+  if(fixed>0) (s.actionLog=s.actionLog||[]).unshift({id:'AL'+(s.seq=(s.seq||1000)+1)+'-mig',t:new Date().toISOString(),role:'System',by:'System',what:'RECONCILE: re-synced packing-lot shipped stock to dispatched totals on '+fixed+' line(s) - fixes phantom Ready-to-ship from edited shipments'});
 }
 /* Seed the editable by-product/off-spec routing master from the hardcoded BYPRODUCT_BASES,
    so Admin shows the rule and reconcile auto-suggest fires. Idempotent; never removes/overrides

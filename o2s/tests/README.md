@@ -7,42 +7,51 @@ nothing could be trusted the next morning.
 ## Run them
 
 ```
-node o2s/tests/spec06.test.js     # 52 checks - which price goes on the pack
-node o2s/tests/backlog.test.js    # 33 checks - the print-decision backlog screen
+node o2s/tests/spec06.test.js       #  52 - which price goes on the pack
+node o2s/tests/backlog.test.js      #  33 - the print-decision backlog screen
+node o2s/tests/batchclose.test.js   # 182 - closing and reopening a batch
 ```
 
-**85 checks.** Exit code 0 means all passing. No dependencies, no build step,
+**267 checks.** Exit code 0 means all passing. No dependencies, no build step,
 Node only.
 
 ## How they work
 
-`harness.js` pulls the **real function source out of `o2s/o2s.html`** by name
-and runs it in a sandbox with minimal stubs. There is no second copy of the
-logic in here. If a check passes, it passed against the file that ships.
+`harness.js` pulls the **real function source out of `o2s/o2s.html`** by name and
+runs it in a sandbox with minimal stubs. There is no second copy of the logic in
+here. If a check passes, it passed against the file that ships.
 
-`backlog.test.js` also runs against the real `data/state.json`, so the backlog
-count it prints is the count that snapshot actually produces.
+`backlog.test.js` and `batchclose.test.js` also run against the real
+`data/state.json`, so the counts they print are the counts that snapshot actually
+produces.
 
-## Two rules these were written under
+## Three rules these were written under
 
 > When a test fails, look at the real thing before deciding the test is at fault.
 
-Both directions have happened. Two checks failed because the test was written to
-document old behaviour on purpose; two failed because the code was wrong. Only
-looking settles it.
+Both directions have happened many times. Some checks failed because the test
+encoded old behaviour on purpose; others because the code was wrong. Only looking
+settles it.
 
 > A passing test is not a review.
 
-85 green checks did not stop a shipment change from double-counting delivered
-quantities. See `docs/o2s/parked-shipment-edit/WHAT-WENT-WRONG.md`. Tests check
-what you thought to check. An independent reviewer checks what you did not.
+The batch work passed 76 checks and was refused by review four times. Tests check
+what you thought to check. A reviewer checks what you did not. See
+`docs/o2s/parked-shipment-edit/WHAT-WENT-WRONG.md`.
 
-## One trap worth knowing about
+> Do not stub a function into a no-op and then test what it was supposed to do.
 
-`matchBlock()` in `harness.js` skips **comments** as well as strings. An earlier
-version did not, and an ordinary apostrophe inside a comment ("Tahir's rule")
-opened a string that never closed. The depth count went out of step, the
-extracted source came back truncated, and it surfaced as a syntax error hundreds
-of lines from the comment that caused it.
+`_pe` escapes HTML. It was stubbed here as `String()`, which meant every escaping
+check in this file proved nothing at all while reading as though it proved
+something. If a stub removes the behaviour under test, the test is decoration.
 
-Prose in `o2s.html` is not code. The extractor has to know that.
+## Two traps worth knowing about
+
+**`matchBlock()` skips comments as well as strings.** An earlier version did not,
+and an apostrophe inside a comment ("Tahir's rule") opened a string that never
+closed. The extracted source came back truncated and failed as a syntax error
+hundreds of lines from the cause. Prose in `o2s.html` is not code.
+
+**Searching the file for a button is not proof the button appears.** Three
+separate changes were built onto screens that do not render, and each time a
+check that grepped the source passed. Trace the route a person takes instead.

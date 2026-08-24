@@ -469,3 +469,635 @@ order. And reopening cannot damage anything QA, packing or the customer holds �
 new material lands in a new lot with no certificate, and uncertified material
 cannot be packed or shipped, so a signed certificate can never be changed after
 the fact by reopening.
+
+---
+
+## 22 August, afternoon — the printing slip, and a save bug found underneath it
+
+### The decision on record
+
+**Option A, the hard gate.** No QA signature, no printed bags. The Plant Manager
+is the second signature and his job is to **resolve a delay** — not to be a
+routine alternative signer. When he signs, the record says he signed and that QA
+was late.
+
+**The price list is parked, deliberately.** Same brand, different price by
+customer, by region, by channel. Building that table badly is worse than not
+having it.
+
+Design on record: https://claude.ai/code/artifact/50c95c3d-9031-45d6-a441-e7014108a5c2
+
+### The review sent it back
+
+Two reviewers — workflow, and data safety. Neither disagreed with the idea.
+Three things stop it being built as written:
+
+1. **The gate has nowhere to stand.** "Supply Chain cannot issue printed bags
+   against an unsigned slip" assumes the system knows when bags are issued. It
+   does not. Zero references to a printing request anywhere in the app; no
+   bag-issue step at all. The only place a printed price is committed is the
+   packing screen, which is Production's. A real gate stops the packer, not
+   Supply Chain — a different sentence about a different person.
+2. **Most batches have no customer.** 36 of 48 open batches are stock batches:
+   no PO, no customer, brand often not chosen until packing. Under a
+   customer/region/channel price, every field that decides the number is blank.
+3. **Two people signing at once produces a signature nobody gave.** Measured on
+   the real merge: QA types 1,500 without signing, the Plant Manager signs at
+   1,450 — the record says the Plant Manager approved 1,500.
+
+Also found, true today with or without the slip: Zain's role string is "Supply
+Chain Officer", which is not one of the ten seeded roles, so any rule written
+for "Supply Chain" misses him. The Plant Manager has view-only on the QA screen.
+The printed price on a packed lot has no lock and can be changed after shipment.
+The stale `qc {e:true}` grant on Supply Chain Officer from 30 July is still live.
+
+### The buildable order of work
+
+1. Answer the print-on-pack backlog — the slip's key line is blank without it
+2. Scope the slip to PO batches only; stock batches out until the price table
+3. Put the gate at packing, and agree out loud that it stops Production
+4. Lock the signature against merging; lock the printed price once bags exist
+5. Fix the role strings and the Plant Manager's access; clear the July grants
+6. Set the wait threshold in hours, and count Plant Manager resolutions
+
+### Fixed today — a live defect, nothing to do with the slip
+
+**The first change anyone makes after opening the app could be silently thrown
+away.** `_baseSnapshot` was never set at boot, so on the first save that hit a
+conflict the merge ran with base === local, every field looked unchanged, and
+the server's value won. Adding a record was safe; **editing** an existing one was
+not. No error — the toast said it synced.
+
+Three fixes, all reviewed before going in:
+
+- `bootState()` now pins the baseline after the state loads
+- `doLogin()` does the same — most sessions start at the login screen, not a
+  refresh, and after a token expires mid-shift the old baseline was still live
+- the PO Tracker audit writer now mints an `id`, so `state.audit` stays on the
+  id-matching path. Without it, one edit dropped the array to the leaf rule and
+  a conflicting save **deleted the other person's audit rows**
+
+`o2s/tests/firstsave.test.js` — 15 new checks, measured against the real
+`merge3` pulled out of the shipping file. Suite is now 282.
+
+### Still open on the save path — NOT fixed, needs its own design
+
+`_savePending` is only cleared inside `if(r.ok)`. A network blip, a 500, or a
+sixth conflict leaves it true forever, and the background sync returns early on
+it — so that tab stops receiving the team's changes for the rest of the day,
+silently. The obvious fix makes a third bug: clearing the flag lets the sync run
+and pin the baseline to a local change the server never received, which is
+exactly the 30 July gate-pass revert. Needs designing, not patching.
+
+---
+
+## 22 August, evening — the slip: stage settled, second refusal
+
+### The COO's answers
+
+- Printing supervisor is a **separate person, outside the system**, no login
+- Zain's job is Supply Chain (the system carries him under a second role string)
+- **Production raises the price request for a batch from their plan to pack the
+  next day**
+- COO's proposal: generate the slip as a **PDF** — QA sees it in the system, the
+  identical document goes to the printer outside, so a discrepancy can be
+  settled by comparing the two sheets
+- Do not stop the line. Do not add process.
+
+### The stage — answered
+
+**The packing plan.** Order entry is too early (no batch, no bags, no dates),
+batch open is too early (a stock batch has no brand, PO or customer), packing
+entry is too late (bags already printed).
+
+**And this is what dissolves the "no customer" problem.** `doPack` already
+refuses anything not against a PO — *"no unassigned packing"*. So a **pack**
+always has a customer even when the **batch** does not. Raise the slip at the
+packing plan and customer / channel / region are present by construction. No
+price table needed.
+
+### I was wrong about the Gate Pass precedent
+
+I told the COO the PDF idea had a working precedent — that `printGatePass`
+refuses to produce a document until released. **It does not.** It writes the
+full sheet into the new tab and *then* toasts "not yet released". The only
+difference for an unreleased pass is that `window.print()` is not auto-called.
+
+The real Gate Pass control is `approveRelease`: four state gates before
+`l.dispatched` moves. The paper is a receipt for a decision enforced in the data.
+
+**So "no signature, no PDF" is not a gate.** The enforcement has to be at the
+moment a pack is *recorded* — `doPack`, `submitProdQty` and `submitDivert`. Be
+honest about what that buys: it does not stop a bag being printed (printing is
+outside the system), it stops unslipped bags becoming sellable stock, caught the
+same day rather than at inspection.
+
+### One slip per pack was the wrong size — measured
+
+- `packingLog`: 102 rows over 14 packing days. **7.3/day average, 21 on 20 June**
+- 44 (date, brand) groups; **8 span more than one PO** — same bag, several
+  customers. On 20 June Tornado was packed 4×(4, 17, 25, 12 Kg) for 4 customers
+  from one batch
+- **7 base batches were packed into more than one brand** (HG26018 → Enrich +
+  Humi Cash, AM26003 → Tornado + Max Amino same day, VU26142 → Naya S Urea +
+  Vital Urea). The brand is a changeover decision at the filler, not a plan
+- **20 of 102 packing runs happened on or before the day the batch's COA was
+  approved**, 6 of them before it — so for those there was no evening beforehand
+
+**One slip per print run**: one brand, one brand batch number, one printing
+order, drawn down by however many packs across however many POs and days. This
+also answers the left-over-bags question.
+
+### Found while checking — a 0.1 price on 23 packing runs
+
+`packPriceGate` demands `+form.price > 0` and offers no "this bag carries no
+price" option, so operators type **0.1**. 23 of 102 rows, nine dates, all
+`priceVerifiedBy: "Production"`, **`noPrintPack` false on every one** — so the
+system believes 0.1 PKR was printed.
+
+- **21 of 23 are White Label / Cobo / Vgreen** (Maxim Agri 22032/22033/21630/
+  21775, United Distributor 260400001, COBO-2606-2537, VG-VC-2606-6451) where the
+  bag almost certainly carries no VAN MRP. A workaround, not a wrong price.
+- **2 are on a Dealer order** — Humi Grow and V-Zinc on DLR-2606-0001, Kissan
+  Zarai Merkaz. A printed MRP normally applies there. **Needs a human to check
+  what was physically on those bags.**
+- `printPolicyOL` also returns "MRP 1 /pack" or "MRP 0.1 /pack" on 6 of 71 lines.
+
+Fix: answer print-on-pack, and give the packing screen a real "no price" option.
+
+### Blockers, in build order
+
+1. Answer the print-on-pack backlog — no code, unblocks everything
+2. Real "no price on this bag" option at packing
+3. Plant Manager access to the QA screen (`accessMatrix['Plant Manager'].qa` is
+   absent → view only, so his delay-resolution path is unreachable); fold
+   "Supply Chain Officer" into "Supply Chain"
+4. Build the slip — one per print run
+5. The check at the packing screen; close the Data Fix side door
+   (`dfSubmitPacking` writes a packing row with no price, no batch, no dates, no
+   lab check, no future-date guard — and Data Fix is ON); guard `allocateStock`
+   (marks a line packed with no lot behind it, no role check)
+6. Wait threshold in hours + a count of Plant Manager releases
+
+### Still with the COO
+
+- **Refuse or flag** at the packing screen when there is no signed slip
+- Can a slip be raised against a batch the lab has not cleared?
+- Who signs when the QA inspector is off (one person, active 13 of 24 days)
+- The two Dealer bags at 0.1
+
+### Also confirmed dead / wrong, do not build into these
+
+- `screenProd` returns at its first `innerHTML`; everything below is marked
+  *"Legacy floor code below is unreachable"* — including the packed-stock card
+  and an `openProdQty` button. Live routes are `prodStageList()` and
+  `_pcLifeAction`
+- `screenQC` computes a `qaRows` table it never renders; `openLotQA` has no live
+  caller. The QA slip queue belongs in `screenQA`'s own `innerHTML`, outside the
+  tab switch
+- `actTiming` clamps `days<0` to 0, so a slip due tomorrow sorts to the BOTTOM of
+  My Actions as "0d waiting, Normal". Urgency has to count down, not up
+- `submitProdQty` never calls `evDateGate`; `dfSubmitPacking`'s date input has no
+  `max`. The "no future dates" rule is not universal today
+
+### COO's two answers, 22 Aug evening — the design is now locked
+
+1. **The packing screen REFUSES.** No signed slip, no packing entry. Not a
+   warning, not a reason box.
+2. **The lab does not hold the slip up.** A slip may be raised for a batch the
+   lab has not cleared, and QA may sign it whenever. `doPack` already refuses to
+   pack an uncleared batch, so the two controls stack.
+
+Consequences, both accepted knowingly:
+
+- **The side doors close in the same piece of work, not later.** A refusal at
+  `doPack`/`submitProdQty`/`submitDivert` while `dfSubmitPacking` still writes a
+  packing row with no price, no batch, no dates and no lab check is not a
+  control. Same for `allocateStock`, which marks a line packed with no lot behind
+  it and no role check.
+- **The slip is no longer an evening-before ritual.** It can be raised and signed
+  minutes before packing, which is what keeps the line moving. The day of
+  thinking time the CFO wanted becomes a habit, not a rule.
+- **Risk carried:** bags can be printed with a batch number and dates for
+  material the lab later fails. Scrap cost, accepted.
+
+### 22 Aug, late — two more answers from the COO
+
+1. **The Dealer bags were correct.** The real dealer list price was printed on
+   PK1550 (V-Zinc) and PK1551 (Humi Grow), DLR-2606-0001. So the bag that went
+   out is right and the O2S record is wrong — a record correction, not a product
+   problem. Needs the actual number to correct `printedPrice` through the ledger.
+2. **The Plant Manager signs when QA is on leave**, as well as when QA is
+   delayed. One rule: when QA cannot sign, the Plant Manager signs, recorded as
+   who signed and why (late / on leave).
+
+### The 0.1 fix needs NO CODE — verified
+
+`packPriceGate`:
+
+```js
+if(pol.mode==='noprint') return form.noPrice ? null : 'Confirm that no price is printed on this pack.';
+if(!(+form.price>0))     return 'Enter the price that is printed on the pack.';
+```
+
+The "no price on this pack" path **already exists and works**. It only opens
+when `printPolicyOL` returns `noprint`, which needs `o.printDecision==='no'` (or
+`printOnPack===false` with no brand history). `printDecision` is null on all 21
+orders and `printOnPack` is undefined on 19, so the option never appears — the
+operator is asked for a number they do not have and types 0.1.
+
+**Answer print-on-pack and the workaround stops by itself.** No build.
+
+**All 23 rows sit on just 8 POs**: 22032 (10), 22033 (6), DLR-2606-0001 (2),
+21630, 21775, 260400001, COBO-2606-2537, VG-VC-2606-6451 (1 each). Full worklist
+with record ids: `docs/o2s/PRICE-0.1-WORKLIST.md`.
+
+Still to confirm: what was physically printed on the 21 White Label / Cobo /
+Vgreen bags. If the answer is "no VAN price on white label", one answer corrects
+all 21.
+
+### 22 Aug, late — Maxim answered, and a FOURTH price case discovered
+
+**Maxim Agri: no price on their bags.** POs 22032, 22033, 21630, 21775 can be
+answered "no price printed" today — **18 of the 23 rows settled**, no code.
+Side effect to expect and not be alarmed by: `mrpCheckHtml` inverts for a
+no-print PO, so those 18 historic 0.1 rows will immediately show
+*"but the lot was packed at PKR 0.1 /pack — CHECK THE BAG"*. That is the system
+correctly listing the rows that need correcting.
+
+**UDPL send bags with the price ALREADY PRINTED — VAN has no action on price.**
+This is a case `printDecision` cannot express. All three existing answers
+misinform the inspector; the worst is "no price", because `qcExpect` then says
+*"no price should appear on this pack"* and every UDPL lot raises a false
+failure on a correct bag. A warning that is wrong every time is one people learn
+to click past.
+
+**DO NOT ANSWER PO 260400001** until a fourth option exists.
+
+Proposed fourth `printDecision` value — **`supplied`** (bags supplied pre-printed
+by the customer):
+- packing: no price asked for, as per no-print
+- record: `priceSource:'customer'`, `printedPrice:null`, **not** `noPrintPack`
+  (a price exists, it is simply not ours)
+- inspection: "the customer supplies these bags printed — check the bag matches
+  what they sent, do not check against a VAN price"
+- **printing slip: none at all.** VAN is not printing these bags. This is the
+  first case where the right answer is that no slip exists, and the slip design
+  had no branch for it.
+
+**The question that sizes it.** White Label is six customers, not one:
+Syngenta 58 packing rows / 348,020 Kg, Maxim 18 / 77,355, Rudolf 3 / 50,560,
+UDPL 1 / 8,000, plus LCI and Arysta (ordered, not yet packed). **Syngenta alone
+is 57% of all packing on record.** If Syngenta, LCI, Rudolf and Arysta also
+supply their own printed bags, `supplied` is not an edge case — it is how most of
+the volume works, and it goes ahead of everything else on the price side.
+
+Full detail and the row-by-row status: `docs/o2s/PRICE-0.1-WORKLIST.md`.
+
+### 22 Aug — the price picture is now complete, and it found 128 tonnes
+
+COO's answers: **Syngenta, LCI, Rudolf and Arysta — VAN prints the price; the
+customer supplies it on the PO or later by email.** **Cobo and Vgreen bags do
+carry a price.** So UDPL is the ONLY pre-printed-bag account — the `supplied`
+option is one PO, not the main road.
+
+**Four ways a price reaches a bag:**
+
+1. Maxim Agri — no price at all. VAN prints. → `printDecision='no'` (exists)
+2. Syngenta / LCI / Rudolf / Arysta — customer sets it (PO or email), VAN prints.
+   → `'yes'` + price, but **nothing records the email**
+3. UDPL — customer sets it AND prints it. → **no option fits**; needs `supplied`
+4. Cobo / Vgreen / Dealer / Farmer / Distributor — VAN sets it, VAN prints
+
+**Of 102 packing runs:**
+
+| | Rows | Kg |
+|---|---|---|
+| price matches the order line | 53 | 285,754 |
+| **price exists ONLY on the packing row** | **24** | **128,293** |
+| 0.1 placeholder | 23 | 87,691 |
+| printed price differs from the order line | 2 | 122 |
+
+The 128,293 Kg, largest first: Syngenta Enrich 68,195 @ 4,500 (line 0);
+Rudolf Orbit-K 37,500 @ 23,750 (line 0); Rudolf Basic 13,060 @ 13,750 (line 0);
+Cobo Vital Potash 7,000 @ 10,500; Cobo V-Mg Essential 1,500 @ 1,350; Kissan
+V-Mg Essential 585 @ 1,350; BKK Vibrant 400 @ 6,000; plus four small rows.
+
+The numbers look right — read off an email and typed in. **But that typing is
+the whole record.** No PO line, no email reference, no approval, no name beyond
+"Production". This is the CFO's concern as a measurement, and the strongest
+argument the slip has: its "taken from" line is exactly what is missing.
+
+The 2 mismatches are both Vgreen placeholders (line=1, printed 1,250 and 795 —
+the correct VAN prices). Bags right, orders wrong.
+
+### The price list may be far smaller than feared — needs the COO's answer
+
+**Every VAN own-brand shows ONE printed MRP across every channel it sold
+through.** No brand shows two:
+
+VL-NPK 1,250 (Farmer/Vgreen/Dealer/Cobo) · V-Mg Essential 1,350
+(Dealer/Cobo/Farmer) · Tornado 795 (Dealer/Vgreen/Cobo) · V-Transfarm 1,875 ·
+Vital Potash 10,500 · Fusion Potash 13,000 · Vital Urea 6,500 · Vibrant 6,000
+
+The COO parked the price list because price differs customer-, region- and
+channel-wise. That describes a **trade/invoice price**, not the **MRP on the
+bag**. O2S already separates them: `invoicePrice` (CFO/COO only) vs
+`printPrice`. **If the printed MRP is one number per brand, the list needed for
+printing is an afternoon's work, not a project** — and the parked blocker
+disappears.
+
+Eight brands in a July snapshot is suggestive, not proof. **Ask the COO.**
+
+Full analysis: `docs/o2s/PRICE-INTEGRITY.md`.
+
+### 22 Aug — COO corrected the MRP hypothesis, and settled the design
+
+**I was wrong.** I suggested the printed MRP might be one number per brand
+(every VAN own-brand showed a single price across channels in the July
+snapshot). **The COO: the printed MRP can vary.** Eight brands over five weeks
+was a coincidence of the sample. The price list stays parked as a careful piece
+of work, and nothing in the slip design may assume one lookupable number.
+
+**Dealer numbers received** — DLR-2606-0001, both currently 0.1:
+- PK1551 Humi Grow, 136 Kg → **3,100**
+- PK1550 V-Zinc, 200 Kg → **4,800**
+
+**The decisive answer:** *"Syngenta and Rudolf orders are large POs and price
+can change in mid of the PO."*
+
+This **withdraws my recommendation** to put the proven prices on the order lines
+for the big accounts. `l.printPrice` holds ONE number for the whole line. Writing
+4,500 on the Syngenta Enrich line claims all 271,504 Kg carries 4,500; if the
+price moves at 150,000 Kg the line is wrong about everything after, and
+correcting it makes it wrong about everything before. **One field cannot hold a
+price that changes over time.**
+
+Exposure now:
+
+| PO | Customer | Runs | Packed | Still to pack |
+|----|----------|------|--------|---------------|
+| 6595010464 | Syngenta | 48 over 11 days | 279,825 Kg | 170,175 Kg |
+| 6595010236 | Syngenta | 10 over 4 days | 68,195 Kg | 203,309 Kg |
+| 1821412156 | Rudolf | 3 | 50,560 Kg | 86,880 Kg |
+
+Measured: **0 of 41 (PO, brand) combos carry more than one printed price** — it
+has not bitten yet. But 460 tonnes remain to pack on those three, over weeks.
+(Caveat: no packing row in this snapshot carries a `lid` — `_lotLidMigV1` is
+absent, so `migratePackingLotLidV1` had not run. Rows matched by PO + brand,
+which is how that migration matches them too.)
+
+### What it settles
+
+**The price belongs to the print run, not the order line.** Exactly the shape
+already chosen for a different reason — one slip per print run. A mid-PO price
+change is then just the next slip carrying a different number: nothing to
+correct, no contradiction, history intact.
+
+**Code consequence:** `printPolicyOL(o,l)` takes only an order and a line and
+cannot express "4,500 until 20 June, 4,800 after". If the slip is the price
+authority it must consult the slip covering the run. Same gap a reviewer flagged
+("printPolicyOL cannot select among several slips") — now with a business reason.
+
+### Revised recommendation — split by PO size
+
+- **Short POs** (Cobo, Vgreen, dealers, BKK): price on the order line. Clean.
+- **Large POs** (Syngenta, Rudolf): put today's price on the line too, knowing it
+  is the CURRENT price and needs a manual update whenever a new one arrives by
+  email. Still far better than 0, which tells the inspector nothing.
+- **Correct the packing rows** through the ledger either way; the rows already
+  hold the right numbers for runs that have happened.
+
+### New open question for the COO
+
+Once the slip exists, should the order line's price be **advisory** with the slip
+as the authority? That is the cleanest answer to a moving price, and it is a
+business call.
+
+### 22 Aug — the authority rule (COO). This changes who fills the slip in.
+
+> *"KAM number is suggestive and advisory, the list [too]. But once Production
+> has issued the printing slip, and if they have updated the price, the price
+> Production updated is authority and can't change."*
+
+| Source | Standing |
+|--------|----------|
+| KAM's price on the PO | Advisory |
+| The price list | Advisory |
+| **Price Production puts on the issued slip** | **Authority. Frozen.** |
+
+**This reverses something I had backwards.** My design had QA *supplying* the
+MRP. The CFO never asked for that — his words were that the slip already states
+the MRP and QA should be involved *"for MRP validation"*.
+
+So: **Production enters the price** (they hold the PO and the customer email),
+**QA validates and signs**. QA's load drops sharply — checking one number against
+a source, not hunting for it — and it matches what already happens.
+
+**"Can't change" has to be BUILT, not just stated.** `printedPrice` on a packed
+lot has no lock today; Production can amend it after QA clearance and after
+shipment. Four things make the rule real:
+
+1. Slip price locks on issue — same `lockedIf` pattern as `brandBatchNo`/`mfgDate`
+2. Wrong price = a NEW slip, not an edit → `CORRECT_ENTITY` supersede-only, like
+   `coa` and `inspection`, blocked once bags are printed
+3. `printedPrice` on the packing lot locks once a slip covers it
+4. `printPolicyOL` must prefer the slip over the line; `mrpTag`/`qcExpect` must
+   say "from the issued slip", not "from the PO"
+
+**Tension to watch, not to solve:** Production now both sets the price AND is the
+party the packing gate refuses. QA's signature is the only independent check —
+and the Plant Manager fallback (QA late or on leave) is where that check can
+quietly disappear. Watch the count of PM signatures.
+
+### The 1 July email — the dates do not fit, and that IS the argument
+
+Asked where the Syngenta/Rudolf prices came from, the COO answered **1 July**.
+
+| PO | Brand | Price | Packed | Kg |
+|----|-------|-------|--------|-----|
+| 6595010236 | Enrich | 4,500 | 13–22 Jun | 68,195 |
+| 1821412156 | Orbit-K | 23,750 | 18–20 Jun | 37,500 |
+| 1821412156 | Basic | 13,750 | 7 Jun | 13,060 |
+
+All **118,755 Kg** was packed BEFORE that email existed (Basic 3½ weeks before).
+Either an earlier email/call set them and 1 July was the latest in the thread, or
+they were agreed verbally and confirmed after.
+
+**The record cannot tell us.** A senior person reconstructing from memory five
+weeks later against a system that kept no trace is exactly the failure the slip
+removes. Not a criticism — the best demonstration yet of why "taken from"
+matters.
+
+### New open question
+
+**Who wins when Production and QA disagree on the number?** The slip now carries
+Production's price and QA's signature. If QA will not sign what Production
+entered, the design has no route out of that yet.
+
+### 22 Aug — deadlock route: Plant Manager, via the Action Center (COO)
+
+Right answer, and for a reason worth knowing: **it routes around the access
+blocker.** `accessMatrix['Plant Manager']` has no `qa` key → view-only on the QA
+screen, which has been blocking his whole fallback role. But `SCREENS`
+`approvals` ("My Actions") lists Plant Manager among its owners AND he carries
+`approvals:{v:true,e:true}`. Full rights there already.
+
+**So put ALL THREE Plant Manager cases in the Action Center:**
+
+| Case | What happened | Kind |
+|------|---------------|------|
+| Late | QA has not signed, run is due | Cover |
+| Absent | QA on leave | Cover |
+| **Overruled** | **QA refused to sign Production's price** | **A decision** |
+
+His QA-screen access then drops from blocker to tidy-up.
+
+**Record the three separately and count the third.** The first two are cover; the
+third is an independent check raised and set aside. Never collapse them into one
+"Plant Manager signed" line — the third is what an auditor asks about, and it
+needs its own figure in the report.
+
+**Precedent to copy: Fahim's own.** The 21 Aug truck-pipeline work exists because
+he reported *"gate pass approval is assigned to Plant Manager but it does not
+appear in my actions"*. Same failure shape, already fixed once.
+
+A new action label must be registered in **four** tables or it renders wrong and
+escalates to nobody: `ACT_EMOJI` (else a bare bullet), `acTypeColor` (else grey),
+`acStageOf` (else files under "Production"), `acEscalation.TH` (else **never
+escalates**). Set `role:'Plant Manager'` directly rather than relying on
+escalation — a blocked print run needs deciding today. Escalate on to COO after
+1 day, matching `Release` / `Approve DC`.
+
+### New gap found: the Action Center cannot say "blocking now"
+
+`actUrg` is purely age-based: `overdue→0 · 7d→1 · 3d or hot→2 · else→3`. So a
+price dispute raised this morning holding a print run scores **3 — bottom of the
+list**, below a five-day-old inspection. `actTiming` also clamps negative days to
+0, so a slip due tomorrow sorts bottom too.
+
+**It measures how long something has waited, not how soon it is needed.** Right
+for everything it handles today; wrong for a slip. Must be fixed in the same
+piece of work or the dispute item is invisible on the screen it was built for.
+
+### Practical
+
+- **The print-on-pack backlog is already in the COO's own Action Center** — a
+  `Print price` item (KAM-owned, escalates to COO after 3 days; `acBase()` gives
+  the COO every item regardless of owner), with a button that opens
+  `openBulkPrintDecision()`. No PO hunting.
+- **Syngenta Enrich confirmed still at 4,500** — the line can be set now, closing
+  68,195 Kg of unrecorded pricing. Rudolf Orbit-K 23,750 and Basic 13,750 are
+  NOT confirmed current.
+
+### Remaining open with the COO
+
+- How many hours is "late" before Fahim can sign for QA?
+- Are the Rudolf prices still current?
+- Can Production find the 1 July email?
+
+### 22 Aug — "1 working day" (COO). Two blockers before it can be built.
+
+**1. The app has NO concept of a working day.** Zero references to weekend,
+holiday, working day or `getDay()` anywhere in `o2s.html`. `evThreshold` and
+`acEscalation.TH` both count plain calendar days. So "1 working day" must either
+be built from scratch or redefined as 1 calendar day.
+
+**Shortcut question: is Sunday a working day at VAN?** The record says the plant
+is not closed — production entries on Sundays, some packing, some dispatch, and
+the COO is one of the heaviest Sunday users in the log. **If Sunday counts, 1
+working day = 1 calendar day and no calendar needs building.**
+
+**2. A full working day lands the fallback AFTER the run it protects.**
+
+> Slip raised Thu 4pm for Friday's 6am run. One working day later = Fri 4pm. The
+> run was at 6am. Fahim can step in ten hours after the bags were needed.
+
+The clock starts when the slip is *raised*; what it protects is when the bags are
+*needed*, and those are a day apart by design.
+
+**Suggested wording, same intent, lands in time:**
+> *If the slip is still unsigned at the end of the working day it was raised, the
+> Plant Manager can sign it.*
+
+QA gets the whole day; recovery happens the evening before, not the morning after.
+
+### Saturday: the fallback is thinnest where the gate bites hardest
+
+`actionLog` by weekday, 15 Jun – 16 Jul:
+
+| Role | Sun | Mon | Tue | Wed | Thu | Fri | Sat |
+|------|-----|-----|-----|-----|-----|-----|-----|
+| QA Inspector | 2 | 4 | 3 | 14 | 5 | **1** | **23** |
+| Plant Manager | **0** | **0** | 3 | 13 | 5 | 6 | **0** |
+| Production | 2 | 23 | 39 | 35 | 52 | 33 | 31 |
+| QCM | 0 | 18 | 21 | 14 | 15 | 20 | 6 |
+| COO | 34 | 43 | 23 | 21 | 16 | 13 | 6 |
+
+**Saturday is the busiest packing day (29 rows, ahead of Thu 26, Wed 20)** and
+QA's busiest day by far — while the Plant Manager logged nothing on any Saturday
+or Sunday on record.
+
+**If QA is away on a Saturday, the designated fallback has historically not been
+in the system that day.**
+
+**CAVEAT — the sample is thin and this is a flag, not an accusation.** 24
+distinct dates: only 3 Saturdays, 3 Fridays, 2 Sundays. The action log records
+what someone did *in the app*, not whether they were at work. Check with the
+people concerned.
+
+If it holds, Saturday needs a named answer before the gate goes live, and each
+obvious candidate has a problem: Majid sets the price so cannot approve it; QCM's
+Saturday presence is light (6); the COO's is lighter (6).
+
+### Open with the COO
+
+1. Is Sunday a working day? (decides whether a calendar gets built)
+2. Clock from slip-raised, or to bags-needed? (recommend the latter wording above)
+3. Who covers Saturday when QA is away?
+4. Rudolf Orbit-K 23,750 and Basic 13,750 — still current?
+5. Can Production find the 1 July email?
+
+### 22 Aug — the last four answers. Threshold settled, fix sheet issued.
+
+**Sunday IS a working day** → *1 working day = 1 calendar day*. **No calendar
+needs building.** The threshold is a plain day count, which every existing
+threshold in the app already is.
+
+**Plant Manager covers Saturday when QA is away.** Answered. Worth telling Fahim
+explicitly, because the design now depends on him being reachable on the busiest
+packing day of the week and he logged nothing in the app on any Saturday in the
+record.
+
+**Rudolf Orbit-K 23,750 and Basic 13,750 are current.** With Enrich at 4,500,
+the three biggest orphaned prices are confirmed — 118,755 Kg.
+
+**The 1 July email: dropped. Record "Tahir (COO)" as the reference instead.**
+That is a legitimate source — the COO is the authority — and it means the 118
+tonnes stops being unsourced. Use it as the "taken from" on every correction.
+
+**Still worth taking:** measure the wait to when the **bags are needed**, not
+from when the slip was raised. Thursday-afternoon slip for Friday's early run
+would otherwise only become releasable Friday afternoon, after the run.
+*"Unsigned at the end of the day it was raised"* gives QA the whole day and puts
+the recovery the evening before.
+
+### `docs/o2s/PRICE-FIX-SHEET.md` — the whole backlog, no code required
+
+- **Part A — 14 order-line prices, closing 128,415 Kg.** Every number proven by
+  what was actually packed. Enrich 4,500 / Orbit-K 23,750 / Basic 13,750 /
+  Vital Potash 10,500 / V-Mg Essential 1,350 / Vibrant 6,000 / VL-NPK 1,250 /
+  Tornado 795.
+- **Part B — print-on-pack for all 21 orders.** 5 Maxim POs = no price
+  (22032, 22033, 21630, 21301, 21775); 11 = yes with a price; 1 HOLD (UDPL
+  260400001); **4 need a decision** — 4204003607 LCI Authority, 4204003087 LCI
+  Ferti Rise, 7500003652 Arysta Fruitlish, VG-2605-0002 Vgreen. Nothing is packed
+  against those four, so there is no bag to read the answer off.
+- **Part C — the 23 placeholder rows.** 18 Maxim → no price; PK1551 Humi Grow →
+  3,100; PK1550 V-Zinc → 4,800; PK1366 UDPL blocked; **2 still need a number** —
+  PK1390 Vgreen V-Mg Essential (very likely 1,350, five other rows agree, but
+  printed MRP can vary so confirm) and PK1313 Cobo V-Ammonium Phosphate (**no
+  evidence anywhere** — only packing row that brand has, no order line priced).
+
+After this sheet: 2 numbers, 4 decisions, 1 PO waiting on code. The rest of the
+price backlog closes.

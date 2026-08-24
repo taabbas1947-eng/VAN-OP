@@ -1835,7 +1835,18 @@ async function bootState(){
   if(resp.data && resp.data.orders){ state=ensureState(resp.data); }
   else if((resp.rev||0)===0 && !resp.data){ state=buildFromSeed(); sessionInit(state); restoreSession(); await saveNow(); renderApp(); startSync(); return; }
   else { const a=$('authScreen'),sh=$('appShell'); if(sh)sh.style.display='none'; if(a){ a.style.display='flex'; renderLogin('Server data looks incomplete \u2014 not overwriting. Please refresh.'); } setTimeout(bootState,4000); return; }
-  sessionInit(state); restoreSession(); renderApp(); startSync();
+  sessionInit(state); restoreSession();
+  /* 2026-08-22 fix (first-save-of-the-session revert): pin the merge baseline to
+     the state we just loaded from the server. Without this _baseSnapshot stays
+     null until the first background sync or the first successful save, so the
+     FIRST save of a session that comes back 409 runs merge3 with base === local.
+     Every leaf then satisfies _eq(local, base) and takes the SERVER's value —
+     i.e. the edit the person just made is thrown away, silently, with the toast
+     saying it synced. Records newly ADDED in that save survive (the id-array
+     path pushes local-only rows), which is why this stayed invisible: it only
+     eats EDITS to existing records. Measured in tests/firstsave.test.js. */
+  _snapBase();
+  renderApp(); startSync();
 }
 
 /* 3-way merge so concurrent saves keep BOTH sides' edits (not just additions). */
@@ -2162,7 +2173,15 @@ function editField(oid,lid,key,val){
   const old=l[key]; if(String(old||'')===String(val||'')) return;
   l[key]=val;
   state.audit=state.audit||[];
-  state.audit.unshift({t:new Date().toISOString(), user:state.role, module:'PO Tracker', po:o.po, brand:l.brand, field:key, old:old||'', val:val||''});
+  /* 2026-08-22: this row carries an id. state.audit is merged by id ONLY when
+     EVERY row has one (_arrId). Every row loaded from the server is given an
+     'AU' id by ensureRecordIds, and this is the only writer that adds rows
+     during a session — the three others are one-time migrations behind flags
+     that are already set. So id-ing this one keeps the whole array on the
+     id-matching path. Without it, one edit here drops the array to the leaf
+     rule and a conflicting save silently DELETES the other person's audit
+     rows. Do not remove the id, and do not add another writer without one. */
+  state.audit.unshift({id:nid('AU'), t:new Date().toISOString(), user:state.role, module:'PO Tracker', po:o.po, brand:l.brand, field:key, old:old||'', val:val||''});
   logAction(`${o.po} · ${l.brand}: set ${key} = ${val||'(cleared)'}`);
   save(); if($('drawerBg')&&$('drawerBg').classList.contains('open')) openOrder(oid); render();
 }
@@ -10482,6 +10501,13 @@ async function doLogin(){
   if(!loaded){ state=buildFromSeed(); }
   sessionInit(state); state.currentUser=j.user; state.role=j.user.role;
   const al=allowedScreens(); state.screen=canView(state.role,'approvals')?'approvals':((al[0]&&al[0].id)||'dash');  /* land on Action Center (My Actions) for all users; fall back only if a role can't view it */
+  /* 2026-08-22: pin the merge baseline here as well as in bootState(). Most
+     sessions at the plant START at this screen (shift change, or after a token
+     expires mid-shift), and without a baseline the first save that hits a 409
+     throws the person's edit away. Only when the server's data actually
+     loaded: if we fell back to the seed, the baseline would claim things the
+     server never had, which is worse than having none. */
+  if(loaded) _snapBase();
   logAction('Signed in'); save();
   renderApp(); startSync();
 }

@@ -6098,8 +6098,33 @@ function openPrintDecisionPOs(){
   return (state.orders||[]).filter(function(o){
     return !o.printDecision && (o.lines||[]).some(function(l){ return (+l.ordered||0)>0; }); });
 }
+/* Who may answer print-on-pack. 2026-08-22, Tahir: "it should be for everyone
+   who got access to New PO Entry." Answering this question is part of TAKING AN
+   ORDER, not an approval — so it deliberately follows the access matrix for the
+   'entry' screen rather than a fixed role list, and a PO-entry grant made in
+   future carries this with it without another code change.
+   screenEditOK('entry') asks about the ENTRY screen specifically, not whatever
+   screen the person is standing on — which is why canEdit() is wrong here.
+   Today that set is COO (always edit), KAM (screen owner) and Plant Manager
+   (explicit entry:{e:true} in the matrix). Anyone else is refused, and the
+   refusal names the screen so the reason is visible rather than implied.
+   NOTE the deliberate difference from hardRole(): the 2026-07-30 incident was a
+   screen Edit grant silently unlocking an APPROVAL step. This is not an approval
+   step. Approvals keep using hardRole(); see the comment above canEdit(). */
+function bulkPDWhoMay(){ var out=[]; var rl=[]; try{ rl=(typeof rolesList==='function')?rolesList():[]; }catch(e){ rl=[]; }
+  if(!rl.length) rl=(((state.masters&&state.masters.roles)||[])); if(!Array.isArray(rl)) rl=[];
+  rl.map(function(r){return (r&&r.name)||r;}).concat(['COO']).forEach(function(r){ if(r&&typeof r==='string'&&out.indexOf(r)<0&&accessLevel(r,'entry')==='edit') out.push(r); });
+  if(out.indexOf('COO')<0) out.push('COO'); return out; }
+/* ONE predicate, asked in BOTH places. 2026-08-22: the first cut of this moved
+   the check on openBulkPrintDecision() and left saveBulkPrintDecision() on the
+   old role list — so a newly-permitted person could answer twenty-one POs, press
+   Save, get "COO / KAM only" and lose every one of them. A rule that lives in
+   two places and is changed in one is the recurring fault in this file; if this
+   gate ever changes again, it changes here and nowhere else. */
+function bulkPDMayAnswer(){ return screenEditOK('entry'); }
+function bulkPDDenied(){ return 'Answering this needs PO-entry access \u2014 '+(bulkPDWhoMay().join(', ')||'COO'); }
 function openBulkPrintDecision(){
-  if(!(state.role==='COO'||state.role==='KAM')){toast('COO / KAM only');return;}
+  if(!bulkPDMayAnswer()){toast(bulkPDDenied());return;}
   bulkPD={}; renderBulkPrintDecision(); $('modalBg').classList.add('open');
 }
 /* What the evidence looks like for one PO. Text only — this NEVER writes into
@@ -6182,7 +6207,7 @@ function renderBulkPrintDecision(){
     +'<div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" onclick="saveBulkPrintDecision()">Save '+answered+' answer(s)</button></div>';
 }
 function saveBulkPrintDecision(){
-  if(!(state.role==='COO'||state.role==='KAM')){toast('COO / KAM only');return;}
+  if(!bulkPDMayAnswer()){toast(bulkPDDenied());return;}   /* same predicate as the opener — see bulkPDMayAnswer */
   var who=(state.currentUser&&state.currentUser.name)||state.role, at=new Date().toISOString(), n=0;
   (state.orders||[]).forEach(function(o){
     var v=bulkPD[o.id]; if(!v||o.printDecision) return;
@@ -7473,10 +7498,43 @@ function actTiming(it){
   var days=null;
   if(c){ var t=new Date(c); if(!isNaN(t)){ days=Math.round((TODAY-t)/86400000); if(days<0)days=0; } else c=null; }
   if(!c) approx=true;
-  return {created:c||null, days:days, approx:approx};
+  /* 2026-08-22 — `days` answers "how long has this waited". Every action in the
+     app until now was judged on that, and for those it is the right measure.
+     It is the WRONG measure for anything with a deadline: a printing slip due
+     tomorrow has waited 0 days, so it scored as the least urgent thing on the
+     screen — below a five-day-old inspection. (The clamp above is why: a future
+     date collapses to 0. It stays, because `created` really is always in the
+     past — the app refuses future event dates on purpose.)
+     `dueIn` is the other question: how many days until this is NEEDED. Negative
+     means the deadline has passed. It is only set when an item declares `due`,
+     so nothing that exists today changes behaviour. */
+  /* Measured DATE to DATE. TODAY (see its definition) carries a time of day, and
+     a bare 'YYYY-MM-DD' parses as midnight — so subtracting them directly gives
+     whole-days-minus-hours-elapsed, and Math.round flips it at noon. Every
+     afternoon "due today" would have read "1d past due" and turned the row red:
+     the exact mislabelling this whole change exists to prevent, in every
+     timezone, every day. Normalising TODAY to its own date is the pattern used
+     elsewhere in the Action Center. */
+  var dueIn=null;
+  if(it.due){ var d2=new Date(it.due);
+    if(!isNaN(d2)){ var t0=new Date(TODAY.toISOString().slice(0,10)); dueIn=Math.round((d2-t0)/86400000); } }
+  return {created:c||null, days:days, approx:approx, dueIn:dueIn};
 }
-function actUrg(it){ if(actOverdue(it)) return 0; var d=actTiming(it).days||0; var hot=it.o&&attentionOf(it.o).hot; return d>=7?1:((d>=3||hot)?2:3); }
-function actSort(arr){ return arr.slice().sort(function(a,b){ var ua=actUrg(a),ub=actUrg(b); if(ua!==ub)return ua-ub; var oa=actOverdue(a)?daysOver(a.o):0, ob=actOverdue(b)?daysOver(b.o):0; if(oa!==ob)return ob-oa; var pa=actTiming(a).days||0, pb=actTiming(b).days||0; return pb-pa; }); }
+/* 0 = drop everything, 3 = whenever. An item that declares a deadline is judged
+   on how soon it is NEEDED; everything else is judged, as before, on how long it
+   has waited. Due today or already past scores 0 alongside an overdue order. */
+function actUrg(it){ if(actOverdue(it)) return 0;
+  var tm=actTiming(it);
+  if(tm.dueIn!=null) return tm.dueIn<=0?0:(tm.dueIn<=1?1:(tm.dueIn<=2?2:3));
+  var d=tm.days||0; var hot=it.o&&attentionOf(it.o).hot; return d>=7?1:((d>=3||hot)?2:3); }
+function actSort(arr){ return arr.slice().sort(function(a,b){ var ua=actUrg(a),ub=actUrg(b); if(ua!==ub)return ua-ub;
+  /* inside one urgency band, the nearest deadline goes first; an item with a
+     deadline outranks one without, because "needed tomorrow" beats "has sat for
+     a while" when both are equally urgent. */
+  var da=actTiming(a).dueIn, db=actTiming(b).dueIn;
+  if(da!=null||db!=null){ if(da==null)return 1; if(db==null)return -1; if(da!==db)return da-db; }
+  var oa=actOverdue(a)?daysOver(a.o):0, ob=actOverdue(b)?daysOver(b.o):0; if(oa!==ob)return ob-oa;
+  var pa=actTiming(a).days||0, pb=actTiming(b).days||0; return pb-pa; }); }
 
 /* ===== Action Center v3 — merged urgency-first worklist (ported from prototype 2; render-only, reuses actionItems/actTiming/actUrg/actOverdue) ===== */
 var acRisk='all', acRoleF='all', acQ='', acSort2='risk', acGroup='priority';
@@ -7486,8 +7544,13 @@ var AC_ROLEORDER=['Supply Chain','CFO','Production','Lab Rep','AQCM','QCM','QA I
 var AC_STAGES=['PO Created','RM Check','Production','Lab QC','AQCM Review','Pack QC','Shipment'];
 function acTypeColor(lb){ if(lb==='Print price')return 'var(--amber)'; if(lb==='Release'||lb==='Approve DC')return 'var(--red)'; if(lb==='Load'||lb==='Gate Pass'||lb==='Confirm delivery')return '#0f766e'; if(lb==='Pack QC'||lb==='Inspect')return 'var(--navy)'; if(lb==='Open Production'||lb==='RM Check'||lb==='Acknowledge'||lb==='Receive')return 'var(--amber)'; if(lb==='Lab QC'||lb==='Review'||lb==='Approve'||lb==='Approve PR')return '#1d4ed8'; if(lb==='Add reason'||lb==='Correct')return 'var(--red)'; return 'var(--mut)'; }
 function acStageOf(lb){ if(lb==='Print price')return 'PO Created'; if(lb==='Load'||lb==='Gate Pass'||lb==='Release'||lb==='Approve DC'||lb==='Confirm delivery')return 'Shipment'; if(lb==='Acknowledge')return 'PO Created'; if(lb==='RM Check'||lb==='Receive'||lb==='Approve PR')return 'RM Check'; if(lb==='Open Production')return 'Production'; if(lb==='Lab QC')return 'Lab QC'; if(lb==='Review'||lb==='Approve')return 'AQCM Review'; if(lb==='Pack QC'||lb==='Inspect')return 'Pack QC'; if(lb==='Ship')return 'Shipment'; return 'Production'; }
-function acRiskOf(it){ if(actOverdue(it))return 'late'; return actUrg(it)<=2?'today':'normal'; }
-function acWaitTxt(it){ var tm=actTiming(it); if(actOverdue(it))return daysOver(it.o)+'d late'; var d=tm.days; return d==null?'—':((tm.approx?'~':'')+d+'d waiting'); }
+function acRiskOf(it){ if(actOverdue(it))return 'late'; var tm=actTiming(it); if(tm.dueIn!=null&&tm.dueIn<0)return 'late'; return actUrg(it)<=2?'today':'normal'; }
+/* What the chip says. A deadline item is described by its deadline — "due today"
+   reads as something to act on; "0d waiting" reads as something that just
+   arrived, which is the opposite of the truth. */
+function acWaitTxt(it){ var tm=actTiming(it); if(actOverdue(it))return daysOver(it.o)+'d late';
+  if(tm.dueIn!=null){ return tm.dueIn<0?((-tm.dueIn)+'d past due'):(tm.dueIn===0?'due today':(tm.dueIn===1?'due tomorrow':('due in '+tm.dueIn+'d'))); }
+  var d=tm.days; return d==null?'—':((tm.approx?'~':'')+d+'d waiting'); }
 function acBase(){ var all=actionItems(); var role=state.role; var b;
   if(role==='COO'){ b=all.slice(); }
   else { var own=all.filter(function(x){return x.role===role;});

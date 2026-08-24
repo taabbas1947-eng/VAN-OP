@@ -169,3 +169,95 @@ needed**, not from when the slip was raised. A slip raised Thursday afternoon fo
 Friday's early run would otherwise only become releasable on Friday afternoon —
 after the run. *"Unsigned at the end of the day it was raised"* gives QA the whole
 day and puts the recovery the evening before.
+
+---
+
+# Answered — 22 August, end of day
+
+| Question | Answer |
+|----------|--------|
+| Vgreen V-Mg Essential (PK1390) | **1,350** — confirmed. Correct the row. |
+| The four POs with nothing packed | **Leave them** until something is packed against them |
+| When the Plant Manager can sign for QA | **End of the working day the slip was raised** |
+| What gets built first | **The Action Center urgency fix** |
+
+## What that means for the sheet
+
+**Part C is now one row short of complete.** PK1390 goes to 1,350. The only row
+left without a number is **PK1313 — Cobo, V-Ammonium Phosphate, 1,500 Kg, packed
+17 June**. It is the only packing row that brand has ever had and no order line
+prices it, so there is nothing in the system to infer from. It needs a person.
+
+**Part B loses its "needs a decision" section.** 4204003607, 4204003087,
+7500003652 and VG-2605-0002 stay unanswered on purpose. Nothing has been packed
+against any of them, so no bag has gone out wrong and nothing is at risk. The
+question becomes answerable the moment the first pack is planned — which is
+exactly when the slip will ask it. That is the honest position rather than a
+guess recorded as an answer.
+
+## The threshold, final wording
+
+> **If the printing slip is still unsigned at the end of the working day it was
+> raised, the Plant Manager can sign it.**
+
+QA gets the whole day. The recovery lands the evening before the run rather than
+after it. Sunday is a working day, so this is a plain day boundary and no
+calendar has to be built.
+
+The Plant Manager signs in three situations, and the record must keep them apart:
+
+| Case | What it is |
+|------|-----------|
+| Late | unsigned at day's end — cover |
+| Absent | QA on leave — cover |
+| **Overruled** | **QA refused to sign Production's price — a decision** |
+
+Only the third is a control being set aside. It gets its own count in the report.
+
+## Build order, decided
+
+1. **The Action Center urgency fix.** Smallest piece and everything depends on
+   it. Today a slip due tomorrow and a dispute raised this morning both sort to
+   the bottom of My Actions, below a five-day-old inspection — because urgency is
+   worked out purely from how long something has waited (`actUrg`), and
+   `actTiming` clamps a future date to zero days. Build the slip before this and
+   nobody sees it in time. It also improves the screen the team already uses
+   every day, so the benefit is not conditional on the slip landing.
+2. The `supplied` option, unblocking UDPL.
+3. The slip itself.
+4. The refusal at packing, with the Data Fix door closed in the same pass.
+
+Each goes through the reviewers before any code, per the standing rule.
+
+---
+
+# 22 August — the last number. The sheet is complete.
+
+**Cobo V-Ammonium Phosphate is 6,700.**
+
+That was the only row in the entire price backlog with nothing to infer from —
+the single packing row that brand has ever had, on an order line carrying no
+price. It now has a number, and **every row in this sheet is answerable.**
+
+## Two places it goes
+
+| Where | What | Now |
+|-------|------|-----|
+| Packing row **PK1313** | COBO-2606-2537, V-Ammonium Phosphate, 1,500 Kg, packed 17 June | 0.1 → **6,700** |
+| Order line | COBO-2606-2537 · V-Ammonium Phosphate | 0 → **6,700** |
+
+So **Part A is 15 order lines, not 14**, and the coverage rises to **129,915 Kg**.
+
+## The backlog, closed
+
+| | Count | Status |
+|---|-------|--------|
+| Order-line prices to set | 15 | every number known |
+| Print-on-pack answers | 21 orders | 5 no-price · 11 yes · 1 held (UDPL) · 4 deliberately left |
+| Packing rows to correct | 23 | 18 no-price · 4 priced · 1 held |
+
+Nothing in the price backlog is now waiting on information. What remains is
+either a correction to make, a deliberate decision to leave something open, or
+the one PO that waits on the `supplied` option being built.
+
+**Source on every correction:** *Tahir (COO), 22 August 2026.*

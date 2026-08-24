@@ -3,7 +3,13 @@ const vm = require('vm');
 const H = require('./harness.js');
 const html = H.html;
 
-const src = H.grab('openPrintDecisionPOs') + '\n' + H.grab('bulkPDAll') + '\n' + H.grab('saveBulkPrintDecision');
+/* saveBulkPrintDecision now asks bulkPDMayAnswer() — the SAME predicate as the
+   opener — so the real gate and the access machinery under it come into the
+   sandbox too. Stubbing the gate to true would make the refusal checks below
+   prove nothing. */
+const src = ['openPrintDecisionPOs', 'bulkPDAll', 'accessOv', '_ownerEdit', 'accessLevel',
+             'screenEditOK', 'bulkPDWhoMay', 'bulkPDMayAnswer', 'bulkPDDenied',
+             'saveBulkPrintDecision'].map(H.grab).join('\n');
 const data = require(H.STATE).data;
 
 let pass = 0, fail = 0; const fails = [];
@@ -13,8 +19,15 @@ const eq = (n, g, w) => ok(n, g === w, 'got ' + JSON.stringify(g) + ' want ' + J
 function ctx(orders) {
   const s = {
     console, bulkPD: {}, logAction: () => {}, save: () => {}, closeModal: () => {},
-    render: () => {}, toast: () => {}, renderBulkPrintDecision: () => {}, Date,
-    state: { role: 'COO', currentUser: { name: 'tahir' }, orders },
+    render: () => {}, toast: m => { s.lastToast = m; }, renderBulkPrintDecision: () => {}, Date,
+    /* the real SCREENS entry for 'entry', so _ownerEdit answers honestly */
+    scr: id => (id === 'entry' ? { id: 'entry', owners: ['KAM'] } : { id, owners: [] }),
+    state: { role: 'COO', currentUser: { name: 'tahir' }, orders,
+             masters: { accessMatrix: { 'Plant Manager': { entry: { v: true, e: true } },
+                                        'Production':    { entry: { v: false, e: false } },
+                                        'CFO':           { entry: { v: true, e: false } } },
+                        roles: [{ name: 'KAM' }, { name: 'Plant Manager' },
+                                { name: 'Production' }, { name: 'CFO' }] } },
   };
   s.globalThis = s; vm.createContext(s); vm.runInContext(src, s); return s;
 }
@@ -57,6 +70,26 @@ eq('a list answer still means a price IS printed',
   s2.state.orders.find(o => o.id === 'A').printOnPack, true);
 eq('D keeps its existing answer', s2.state.orders.find(o => o.id === 'D').printDecision, 'list');
 eq('stamped with the person', s2.state.orders.find(o => o.id === 'A').printDecisionBy, 'tahir');
+/* ---- 4b. THE GATE, on the WRITER. 2026-08-22.
+   The first cut of the access change moved the check on openBulkPrintDecision()
+   and left this function on the old COO/KAM list, so a newly-permitted person
+   would have answered every PO in the backlog, pressed Save, and lost the lot.
+   These run the real predicate, not a stub. ---- */
+{
+  const mk = role => { const c = ctx([{ id: 'A', po: 'A', lines: [{ ordered: 100 }] }]);
+                       c.state.role = role; c.bulkPD = { A: 'list' }; return c; };
+  ['COO', 'KAM', 'Plant Manager'].forEach(r => {
+    const c = mk(r); c.saveBulkPrintDecision();
+    eq('WRITER accepts ' + r, c.state.orders[0].printDecision, 'list');
+  });
+  ['Production', 'CFO'].forEach(r => {
+    const c = mk(r); c.saveBulkPrintDecision();
+    ok('WRITER refuses ' + r, c.state.orders[0].printDecision === undefined,
+       'wrote ' + c.state.orders[0].printDecision);
+    ok('and says why to ' + r, /PO-entry access/.test(c.lastToast || ''), c.lastToast);
+  });
+}
+
 const s3 = ctx([{ id: 'A', po: 'A', lines: [{ ordered: 1 }] }]);
 s3.bulkPD = { A: 'no' };
 s3.saveBulkPrintDecision();

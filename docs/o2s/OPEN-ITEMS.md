@@ -1101,3 +1101,191 @@ the recovery the evening before.
 
 After this sheet: 2 numbers, 4 decisions, 1 PO waiting on code. The rest of the
 price backlog closes.
+
+### 22 Aug, end of day — four answers. Design closed, build order set.
+
+| Question | Answer |
+|----------|--------|
+| Vgreen V-Mg Essential PK1390 | **1,350** confirmed |
+| The four POs with nothing packed | **Leave unanswered** until something is packed |
+| Plant Manager threshold | **End of the working day the slip was raised** |
+| Build first | **The Action Center urgency fix** |
+
+**One number still unknown in the whole price backlog:** PK1313 — Cobo,
+V-Ammonium Phosphate, 1,500 Kg, 17 June. Only packing row that brand has ever
+had; no order line prices it. Nothing to infer from. Needs a person.
+
+**Final threshold wording:**
+> If the printing slip is still unsigned at the end of the working day it was
+> raised, the Plant Manager can sign it.
+
+Sunday is a working day, so this is a plain day boundary — no calendar to build.
+The Plant Manager's three cases (late / absent / **overruled**) stay separate in
+the record; only the third is a control being set aside and it gets its own count.
+
+**Build order:**
+
+1. **Action Center urgency fix** — `actUrg` scores purely on how long something
+   has waited, and `actTiming` clamps a future date to 0 days. So a slip due
+   tomorrow and a dispute raised this morning both sort BELOW a five-day-old
+   inspection. Build the slip first and nobody sees it in time. Also improves the
+   screen the team already uses daily, so the value is not conditional on the
+   slip landing.
+2. `supplied` option → unblocks UDPL 260400001
+3. The slip itself
+4. The refusal at packing + Data Fix door closed in the same pass
+
+Reviewers before code on every one of them, per the standing rule.
+
+### 22 Aug — last number in. Price backlog fully specified.
+
+**Cobo V-Ammonium Phosphate = 6,700.** The one row with nothing to infer from
+(only packing row that brand ever had; order line unpriced) now has a number.
+
+Goes in two places: packing row **PK1313** (0.1 → 6,700) and the
+COBO-2606-2537 order line (0 → 6,700). **Part A of the fix sheet is now 15 order
+lines covering 129,915 Kg.**
+
+**Nothing in the price backlog is waiting on information any more.** What is left
+is corrections to make, four POs deliberately left open until something is packed
+against them, and one PO (UDPL 260400001) waiting on the `supplied` option.
+
+Next build, in order, reviewers before code on each:
+1. Action Center urgency fix
+2. `supplied` option → unblocks UDPL
+3. The slip
+4. The refusal at packing + Data Fix door closed in the same pass
+
+### 22 Aug — COO: don't backfill. History is closed. (Right call.)
+
+> *"Why we need to back fill things? we should ignore them, we should consider
+> them closed."*
+
+**And it costs nothing — checked.** The worry was that answering Maxim "no price"
+would leave the 18 historic 0.1 rows showing a permanent red warning. It will
+not. That warning comes from `mrpCheckHtml`, rendered in exactly one place —
+inside `renderLotQA`. The chain is:
+
+`mrpCheckHtml ← renderLotQA ← openLotQA ← qaRows ← nothing`
+
+`qaRows` is built at line 6800 and never inserted into any screen; `screenQC`
+computes and discards it. **That warning has never been seen by anybody.**
+
+The LIVE inspection check is a different one and it is fine: `qcExpect` /
+`qcVerifyTable` / `priceSeen` (SPEC-06) renders through `openPackInspect`, which
+is reachable from three live places — the Awaiting QA card, the QA unit rows, and
+an Action Center item.
+
+**Dropped deliberately:** all 23 packing-row corrections, and line prices on the
+4 fully-packed orders. The 0.1 stays on those June rows for ever; the explanation
+lives in `docs/o2s/PRICE-INTEGRITY.md` rather than being rewritten into the data.
+
+### What actually matters now: 358 tonnes NOT YET PACKED
+
+17 of 21 orders still have material to pack — **539,248 Kg**. Of the lines still
+to pack, **31 carry no printed price at all, covering 358,005 Kg**.
+
+- **No number needed** — 4 Maxim POs (22032, 22033, 21630, 21301), 8 lines,
+  28,720 Kg. Answer "no price" and they are done.
+- **Number already proven** — Enrich 4,500 (203,309 Kg), Basic 13,750 (34,940),
+  Orbit-K 23,750 (12,500). **251 tonnes, three numbers, all confirmed current.**
+- **NO NUMBER ANYWHERE — ~66,000 Kg**: Rudolf 39,440 across six brands (Tervalis
+  16,000, Tervalis Plus 10,000, Harbor Fertigation 7,000, V Germinator Pro 5,000,
+  Cala Mag V 1,000, Genius 440); Arysta Fruitlish 14,772; LCI Authority 10,000
+  (line carries the 0.1 placeholder) and Ferti Rise 1,770; Cobo 5,024; Vgreen
+  1,530.
+- **On hold** — UDPL 260400001 Humi Cash 6,000 Kg, waits for `supplied`.
+
+**That last group is the live version of the whole problem.** When those runs
+happen somebody needs a number and nothing is written down — a phone call and a
+value typed onto a packing row, which is exactly how the 128 tonnes of unsourced
+pricing happened. It is about to happen again on 66 more.
+
+### COO: print-on-pack should be open to everyone with New PO Entry access
+
+`openBulkPrintDecision` is gated `state.role==='COO'||state.role==='KAM'`.
+`SCREENS` entry owners = `['KAM']`; `accessMatrix` also grants
+`entry:{v:true,e:true}` to **Plant Manager**. So today the intended set is
+**KAM, Plant Manager, COO** — and it should follow the entry screen automatically
+so a future PO-entry grant carries this with it.
+
+**Trade-off, stated:** following the access matrix rather than a fixed role list
+is the same mechanism behind the 30 July incident (a screen-level Edit grant
+silently unlocked approval steps). Here it is deliberate and is what was asked
+for — the price answer is part of taking an order, not an approval. Write it so
+the set of people it opens to is visible on screen, not implied.
+
+### Sequence
+
+1. Answer print-on-pack on the 17 live orders (4 Maxim POs need no numbers)
+2. Set the three proven prices — Enrich, Basic, Orbit-K — 251 tonnes
+3. Get the missing numbers for the ~66,000 Kg, **Rudolf first**
+4. Open the screen to PO-entry roles (small code change, reviewed)
+5. Then: Action Center urgency → `supplied` → the slip → the refusal at packing
+
+Steps 1–3 in a quiet window, snapshot before, row-by-row report after.
+
+Full detail: `docs/o2s/PRICE-FORWARD-ONLY.md`.
+
+### 22 Aug — two changes built, REVIEW REFUSED, two of my faults fixed. NOT pushed.
+
+Built: (1) print-on-pack opened to PO-entry access, (2) Action Center able to
+express a deadline. Both reviewers refused. Two findings were plain mistakes:
+
+**MY FAULT 1 — the gate moved on the door, not on the till.**
+`openBulkPrintDecision()` was widened; `saveBulkPrintDecision()` was left on
+`COO||KAM`. A newly-permitted person would have answered 21 POs, pressed Save,
+got "COO / KAM only" and lost every one (`bulkPD={}` on next open). The
+one-rule-in-two-places fault, again. **Fixed:** a single `bulkPDMayAnswer()` now
+asked in both places, plus `bulkPDDenied()` for one refusal message. Regression
+checks in `backlog.test.js` run the REAL predicate for five roles — COO, KAM,
+Plant Manager accepted; Production, CFO refused with the reason.
+
+**MY FAULT 2 — the deadline flipped at noon, every day, every timezone.**
+`TODAY` carries a time of day; a bare 'YYYY-MM-DD' parses as midnight; so
+`Math.round((due-TODAY)/86400000)` gave whole-days-minus-hours-elapsed. Measured:
+
+```
+ 9:00 due today -> dueIn  0  "due today"
+13:00 due today -> dueIn -1  "1d past due"  ROW TURNS RED
+18:00 due today -> dueIn -1  "1d past due"
+```
+
+The exact mislabelling the change existed to prevent. **Fixed:** normalise TODAY
+to its own date before subtracting.
+
+**AND MY TEST HID IT.** It pinned `TODAY` to `new Date('2026-08-22T00:00:00Z')` —
+exact UTC midnight, which the app produces for one millisecond a day. Every
+deadline assertion passed only because of that. **Fixed:** the test now builds
+TODAY with the app's own expression and runs the deadline checks at 00:00, 09:00,
+12:00, 13:00, 18:00 and 23:00.
+
+Suite: 387 checks, all passing (52 / 40 / 182 / 15 / 98).
+
+### Still open from the review — NOT fixed, needs decisions
+
+1. **The Plant Manager cannot reach the screen at all.** Two callers of
+   `openBulkPrintDecision`: the Sales & Budget button (gated `COO||CFO`, line
+   ~9964) and the Action Center item (`role:'KAM'`, `acEscalation` sends
+   'Print price' to COO). So the widened permission is unreachable by the only
+   role it adds. Also the **CFO sees that button and is always refused by it.**
+2. **`screenEditOK('entry')` does not mean "can create a PO".** `submitPO` is
+   `hardRole(['KAM'])` — the Plant Manager holds `entry:{e:true}` and still
+   cannot submit a PO. Both reviewers say the honest gate is an explicit
+   `hardRole(['KAM','Plant Manager'])`, or widen `submitPO` to match. **COO
+   decision.**
+3. **Bulk "set all to no price" has no confirmation.** The single-PO path
+   (`submitPO`) refuses "no" without a confirm when the products normally carry
+   a price. Two clicks can set 21 POs to no-price and invert 21 QA checks.
+4. **Two people answering the same PO: the second silently wins.** Sync is
+   paused while the modal is open, so the `o.printDecision` guard reads stale
+   state; `merge3`'s leaf rule keeps local. Both writers log "first answer".
+5. **`dfSubmitCorrect()` writes `printDecision` with NO permission check at all**
+   — its five siblings all carry `screenEditOK('datafix')`. Production holds
+   `datafix:{e:true}`, inert only because the screen hardcodes COO.
+6. `_days` is 0 for a deadline item, so "Oldest first" / "Newest first" sort a
+   past-due slip as if it arrived this morning.
+7. `acRowHTML` / `acCardHTML` show the PO promised date instead of the deadline
+   the row is being coloured and sorted by.
+
+**Nothing pushed. Working tree has the two fixes and the hardened tests.**

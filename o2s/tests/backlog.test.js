@@ -8,7 +8,8 @@ const html = H.html;
    sandbox too. Stubbing the gate to true would make the refusal checks below
    prove nothing. */
 const src = ['openPrintDecisionPOs', 'bulkPDAll', 'accessOv', '_ownerEdit', 'accessLevel',
-             'screenEditOK', 'bulkPDWhoMay', 'bulkPDMayAnswer', 'bulkPDDenied',
+             'screenEditOK', 'mayWork', 'whoMayEdit', 'denyWork',
+             'bulkPDWhoMay', 'bulkPDMayAnswer', 'bulkPDDenied',
              'saveBulkPrintDecision'].map(H.grab).join('\n');
 const data = require(H.STATE).data;
 
@@ -21,7 +22,10 @@ function ctx(orders) {
     console, bulkPD: {}, logAction: () => {}, save: () => {}, closeModal: () => {},
     render: () => {}, toast: m => { s.lastToast = m; }, renderBulkPrintDecision: () => {}, Date,
     /* the real SCREENS entry for 'entry', so _ownerEdit answers honestly */
-    scr: id => (id === 'entry' ? { id: 'entry', owners: ['KAM'] } : { id, owners: [] }),
+    /* carries `name`, like the real SCREENS entry does — a stub that drops a
+       field the code reads makes the message assertion below prove nothing. */
+    scr: id => (id === 'entry' ? { id: 'entry', name: 'New PO Entry', owners: ['KAM'] }
+                               : { id, name: id, owners: [] }),
     state: { role: 'COO', currentUser: { name: 'tahir' }, orders,
              masters: { accessMatrix: { 'Plant Manager': { entry: { v: true, e: true } },
                                         'Production':    { entry: { v: false, e: false } },
@@ -86,7 +90,7 @@ eq('stamped with the person', s2.state.orders.find(o => o.id === 'A').printDecis
     const c = mk(r); c.saveBulkPrintDecision();
     ok('WRITER refuses ' + r, c.state.orders[0].printDecision === undefined,
        'wrote ' + c.state.orders[0].printDecision);
-    ok('and says why to ' + r, /PO-entry access/.test(c.lastToast || ''), c.lastToast);
+    ok('and says why to ' + r, /New PO Entry/.test(c.lastToast || ''), c.lastToast);
   });
 }
 

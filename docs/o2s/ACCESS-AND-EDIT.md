@@ -243,3 +243,66 @@ are deliberately not yours to move.
 Each through the reviewers, one at a time. Item 1 is the one that answers your
 question, and it is the biggest — 115 decisions is not a small sweep, and the
 whole point is that it must not go in half-done.
+
+---
+
+# 22 August — the KAM field is doing two jobs, and neither well
+
+> *"KAM's core feature was to track which KAM is managing which client. KAM is
+> not always the person who is adding a new PO. What if Tahir is KAM for Syngenta
+> but the new PO entry is made by Ismael?"*
+
+Right, and the data already agrees with you.
+
+## What is there now
+
+**The customer master already carries a `kam` field.** 8 of 21 customers have it
+filled — Arysta, LCI and Maxim all point at Tahir Abbas; BKK points at Muhammad
+Ali. That is account ownership, stored where it belongs.
+
+**And the order carries its own `kam` as well**, typed from a dropdown on every
+PO: 19 orders say Tahir Abbas, 2 say Muhammad Imran.
+
+So the same fact is stored twice, and one of the two is re-typed by hand on every
+order. **No client currently shows two different KAMs across its POs**, so the
+duplication has not bitten yet — but nothing prevents it, and once someone else
+enters the PO it becomes wrong immediately, which is your point.
+
+## Two fields, two jobs
+
+| Field | What it means | Where it comes from |
+|-------|---------------|---------------------|
+| **Account KAM** | who manages this client | the **customer record** — inherited onto the order, not typed |
+| **Entered by** | who created this PO | the **login** — automatic, never typed, never editable |
+
+The order stops asking "which KAM?" and starts showing "Account KAM: Tahir Abbas
+(from the customer record)". If the account moves to another KAM, it moves once
+on the customer and every future order follows.
+
+**Today the order has no "entered by" field at all.** Who really created a PO
+exists only in the action log, not on the record and not on any document.
+
+## The customer-facing document
+
+The PO Confirmation currently prints **"Prepared by — KAM"** with the dropdown
+value. If Ismael enters a Syngenta order, that document tells Syngenta it was
+prepared by Tahir. It should read:
+
+```
+Account KAM     Tahir Abbas
+Prepared by     Ismael  ·  Finance  ·  22 Aug 2026
+```
+
+## The migration is unambiguous
+
+13 of 21 customers have no KAM on the master. Their orders do. Since **no client
+has conflicting KAMs across its POs**, `customer.kam` can be filled from the
+orders with no judgement calls and no ambiguity — then the order-level field
+becomes inherited rather than entered.
+
+## Why this belongs in the authorisation redesign
+
+It is the same mistake in a different place: **one field carrying two meanings
+because the model had nowhere to put the second one.** "Production" is a
+department pretending to be a role; "KAM" is an account owner pretending to be an
+author. Both get fixed by naming the thing you actually mean.

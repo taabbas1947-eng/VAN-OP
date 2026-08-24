@@ -1,0 +1,217 @@
+/* The tab that goes quiet — 22 August 2026.
+
+   `_savePending` means "this browser holds a change the server has not
+   confirmed", and startSync() refuses to pull while it is true, so a background
+   refresh can never overwrite an unsaved edit. That guard is correct and stays.
+
+   The defect: `_savePending=false` was set ONLY inside `if(r.ok)`. A network
+   drop, a 500, a 401, an unusable 409 body or a sixth conflict all left it true
+   with nothing scheduled to try again — so that tab stopped receiving the team's
+   changes for the rest of the day, silently, behind a "synced" toast.
+
+   The fix is a RETRY on every failing exit, NOT clearing the flag. Clearing it
+   would let the sync run, and the sync ends with _snapBase() — pinning the merge
+   baseline to a state holding the change the server never received. The next
+   conflict would then see local === base and take the server's older value, and
+   the edit would vanish. That is the 30 July gate-pass revert rebuilt, so this
+   suite checks for it explicitly.
+
+   Run: node savepath.test.js */
+const H = require('./harness.js');
+const vm = require('vm');
+
+/* Real source. The mutable save state is `let` at top level, which grab() (a
+   function matcher) cannot see, so those declaration lines are lifted verbatim
+   from the file by regex rather than retyped. */
+function lift(re, what) {
+  const m = re.exec(H.html);
+  if (!m) throw new Error('not found in o2s.html: ' + what);
+  return m[0];
+}
+/* grab() matches `function NAME(` at line start; saveNow is `async function`,
+   so it is bracket-matched directly rather than loosening the shared helper. */
+function grabAsync(name) {
+  const i = H.html.indexOf('async function ' + name);
+  if (i < 0) throw new Error('async function not found: ' + name);
+  return H.matchBlock(i, name, '{');
+}
+
+const SAVENOW = grabAsync('saveNow');
+const src = lift(/let _rev=0,_saveTimer=null,_syncOn=false,_savePending=false;/, 'save state')
+          + '\n' + lift(/let _saveFailN=0, _saveRetryTimer=null;/, 'retry state')
+          + '\nlet _baseSnapshot=null, _saveRetries=0;\n'
+          + ['_saveOK', '_saveRetryLater', 'save', '_snapBase', 'dataOnly']
+              .map(H.grab).join('\n\n')
+          + '\n\n' + SAVENOW
+          /* `let` in a vm script is lexical and never lands on the sandbox
+             object, so the flags cannot be read from outside. This probe is the
+             only line of non-app code in the sandbox. */
+          + '\nfunction _probe(){ return {pending:_savePending, failN:_saveFailN}; }';
+
+let pass = 0, fail = 0; const fails = [];
+function ok(n, c, x) { if (c) pass++; else { fail++; fails.push(n + (x ? '  [' + x + ']' : '')); } }
+function eq(n, g, w) { ok(n, g === w, 'got ' + JSON.stringify(g) + ' want ' + JSON.stringify(w)); }
+
+const DEBOUNCE = 400;   /* save()'s own timer — not a retry */
+
+function mk(responses) {
+  const timers = [];
+  const box = {
+    /* Object is needed for Object.assign in saveNow's headers, authHdr for the
+       same line, SESSION_KEYS for dataOnly. Leave any of them out and the save
+       throws before the request — and the suite then measures its own gap and
+       calls it a network failure. That happened while writing this. */
+    console, JSON, Date, Object,
+    SESSION_KEYS: ['currentUser', 'role', 'screen', 'expanded'],
+    authHdr: () => ({}),
+    _token: 'tok',
+    state: { role: 'COO', orders: [{ id: 'O1' }], currentUser: { name: 't' } },
+    toasts: [], calls: [],
+    toast: m => box.toasts.push(m),
+    setSession: () => {}, renderApp: () => {}, render: () => {},
+    authed: () => true, ensureState: x => x, merge3: (b, l, s) => l,
+    $: () => null, document: { activeElement: null },
+    setTimeout: (fn, ms) => { timers.push({ fn, ms }); return timers.length; },
+    clearTimeout: id => { if (timers[id - 1]) timers[id - 1].cleared = true; },
+    fetch: async () => {
+      const r = responses.shift() || { status: 500, ok: false };
+      box.calls.push(r.status);
+      if (r.throw) throw new Error('network down');
+      return { status: r.status, ok: r.status === 200,
+               json: async () => (r.body === undefined ? { rev: 1 } : r.body) };
+    },
+    timers,
+  };
+  box.globalThis = box;
+  vm.createContext(box);
+  vm.runInContext(src, box);
+  /* fire the newest pending RETRY (never save()'s own debounce) */
+  const fire = skipDebounce => {
+    for (let i = timers.length - 1; i >= 0; i--) {
+      const t = timers[i];
+      if (t.cleared || t.fired) continue;
+      if (skipDebounce && t.ms === DEBOUNCE) continue;
+      t.fired = true; return t.fn();
+    }
+  };
+  box.tick = () => fire(true);      /* retries only */
+  box.tickAny = () => fire(false);  /* including save()'s debounce */
+  return box;
+}
+const retries = b => b.timers.filter(t => !t.cleared && !t.fired && t.ms !== DEBOUNCE);
+/* _saveRetryLater's callback calls saveNow() without returning it, so awaiting
+   tick() does not wait for the request to finish. Drain the queue after each. */
+const settle = () => new Promise(r => setImmediate(r));
+
+/* One change made, then the request goes out — the order the app uses. */
+async function attempt(b) { b.save(); await b.saveNow(); }
+
+const FAILURES = [
+  ['network drops',             { throw: true }],
+  ['server returns 500',        { status: 500 }],
+  ['server returns 413',        { status: 413 }],
+  ['signed out mid-save (401)', { status: 401 }],
+  ['a 409 we cannot merge',     { status: 409, body: { rev: 2 } }],
+];
+
+(async function main() {
+
+/* ---------- 1. every failing exit leaves a retry scheduled ---------- */
+for (const [name, resp] of FAILURES) {
+  const b = mk([resp]);
+  await attempt(b);
+  ok('this used to hang for ever — ' + name + ': a retry is scheduled',
+     retries(b).length > 0, 'nothing scheduled');
+  ok('...and the person is told: ' + name,
+     b.toasts.some(t => /not reached the server/.test(t)), JSON.stringify(b.toasts));
+}
+
+/* ---------- 2. THE TRAP: the flag must NOT simply be cleared ---------- */
+for (const [name, resp] of FAILURES) {
+  const b = mk([resp]);
+  await attempt(b);
+  ok('the unsaved change still blocks the background pull — ' + name,
+     b._probe().pending === true,
+     'cleared, which would let the sync pin the baseline to unsaved work');
+}
+
+/* ---------- 3. the retry actually goes back to the server ---------- */
+{
+  const b = mk([{ status: 500 }, { status: 200 }]);
+  await attempt(b);
+  eq('one attempt so far', b.calls.length, 1);
+  eq('and it is marked unsaved', b._probe().pending, true);
+  await b.tick(); await settle();
+  eq('the retry made a second attempt', b.calls.length, 2);
+  eq('it succeeded, so nothing is pending', b._probe().pending, false);
+  eq('the failure count is reset', b._probe().failN, 0);
+  eq('no retry left hanging', retries(b).length, 0);
+}
+
+/* ---------- 4. backoff climbs, then holds at a minute, and never stops ---------- */
+{
+  const b = mk(Array.from({ length: 10 }, () => ({ status: 500 })));
+  const waits = [];
+  await attempt(b);
+  /* Defensive: with the fix removed there is no retry at all, and reading [0].ms
+     would crash the file. A crashed file prints a stack and the runner carries on
+     to the next one — so a regression could hide behind other green summaries.
+     It must read as a FAIL. */
+  const first = retries(b)[0];
+  ok('a retry exists to measure the backoff on', !!first, 'no retry scheduled at all');
+  if (first) waits.push(first.ms);
+  for (let i = 0; i < 6; i++) {
+    await b.tick(); await settle();
+    const r = retries(b);
+    if (r.length) waits.push(r[r.length - 1].ms);
+  }
+  eq('backoff: 2s, 5s, 15s, 30s, then a minute and stays there',
+     waits.join(','), '2000,5000,15000,30000,60000,60000,60000');
+  ok('it never gives up — still trying after seven failures', retries(b).length > 0);
+  ok('and it is still marked unsaved', b._probe().pending === true);
+}
+
+/* ---------- 5. the sixth conflict keeps trying instead of saying "synced" ---------- */
+{
+  /* merge3 is stubbed to return local, so the 409 path merges and re-saves.
+     Five retries were the existing behaviour; the sixth used to toast "synced"
+     and stop, with the merged state never sent to anybody. */
+  const conflict = { status: 409, body: { rev: 9, data: { orders: [{ id: 'O1' }] } } };
+  const b = mk(Array.from({ length: 20 }, () => conflict));
+  await attempt(b);
+  /* drive it past the five-retry limit the way the app does — through save() */
+  for (let i = 0; i < 8; i++) { await b.tickAny(); await settle(); }
+  ok('the conflict path is still trying after its retry limit',
+     retries(b).length > 0 || b.calls.length > 6, 'calls=' + b.calls.length);
+  ok('the merged state is still marked unsaved', b._probe().pending === true);
+}
+
+/* ---------- 6. a clean save is untouched ---------- */
+{
+  const b = mk([{ status: 200 }]);
+  b.save();
+  eq('save() marks the change pending straight away', b._probe().pending, true);
+  await b.saveNow();
+  eq('a clean save clears it', b._probe().pending, false);
+  eq('no retry scheduled', retries(b).length, 0);
+  eq('and no noise', b.toasts.length, 0);
+}
+
+/* ---------- 7. the guards that must not be undone ---------- */
+{
+  const i = H.html.indexOf('function startSync()');
+  const sync = i < 0 ? '' : H.html.slice(i, i + 1600);
+  ok('GUARD: startSync still refuses to pull while a change is unsaved',
+     /if\(_savePending\) return;/.test(sync), i < 0 ? 'startSync not found' : 'guard missing');
+  /* Counted inside saveNow only, so the declaration and any prose mentioning the
+     flag cannot affect it. One clear, on the success path, is correct. */
+  eq('GUARD: saveNow clears the flag in exactly one place',
+     (SAVENOW.match(/_savePending=false/g) || []).length, 1);
+  eq('GUARD: every failing exit calls the retry',
+     (SAVENOW.match(/_saveRetryLater\(\)/g) || []).length, 5);
+}
+
+console.log('\nSave path — the tab that goes quiet: ' + pass + ' passed, ' + fail + ' failed');
+fails.forEach(f => console.log('  FAIL  ' + f));
+process.exit(fail ? 1 : 0);
+})();

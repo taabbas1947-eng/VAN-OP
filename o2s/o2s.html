@@ -2224,6 +2224,57 @@ function accessLevel(role,id){ if(role==='COO') return 'edit'; const o=accessOv(
 function canView(role,scrId){ return accessLevel(role,scrId)!=='none'; }
 function screenEditOK(scrId){ return accessLevel(state.role,scrId)==='edit'; }
 function canEdit(owners){ if(state.role==='COO') return true; const o=accessOv(state.role,state.screen); if(o){ if(o.e===true) return true; if(o.e===false) return false; } return owners.includes(state.role); }
+/* ===== RIGHTS — two kinds, and only one of them is the matrix's to give =====
+   2026-08-22, Tahir: "when we have made the authority and rights matrix, then
+   every seeded right should be catered by the matrix. I have given access of New
+   PO Entry to the Finance but he couldn't add the PO as it was gated to KAM
+   only. What is the purpose of access matrix then?"
+
+   He was right, and the comment above accessLevel already claimed the matrix was
+   authoritative. It was not: 56 hardRole() gates and 59 raw state.role checks
+   sat underneath it, deciding things the matrix could not reach. So the matrix
+   governed which doors opened and almost nothing about what you could do once
+   you were through one.
+
+   Sorting those gates by what they PROTECT gives two kinds:
+
+   KIND A — doing your own job. Packing a batch, entering production, submitting
+   a PO, onboarding a dealer. There is no safety argument for hard-coding these;
+   they were written role-first before the matrix existed. **These use mayWork()
+   and follow the matrix**, so a grant made in Users & Access actually works and
+   the next grant works too, with no code change.
+
+   KIND B — signing off on somebody else's work. The COA chain (Lab Rep →
+   AQCM → QCM → Plant Manager), releasing a loaded truck, reopening a closed
+   batch. **These keep hardRole() and must never follow the matrix** — see the
+   2026-07-30 incident described below, where a screen grant given for an
+   ordinary reason silently bought the right to approve and release DCs.
+
+   The rule is therefore NOT "the matrix controls everything". It is: the matrix
+   controls everything except a named list of sign-offs, AND it shows you that
+   list (RIGHTS_LOCKED) so it never lies by omission about what it cannot give.
+
+   mayWork() is deliberately a thin name over screenEditOK(): asking about a
+   NAMED screen, never the screen the person happens to be standing on. canEdit()
+   does the latter and is wrong for this — QA Inspector holds prod:{e:true}, so
+   canEdit() would let them through from the Production screen. */
+function mayWork(scrId){ return screenEditOK(scrId); }
+/* The role names to put in a refusal, read off the matrix so the message can
+   never drift from the rule. Falls back to rolesList() then masters.roles then
+   COO alone; a refusal that cannot name anybody still names the COO. */
+function whoMayEdit(scrId){ var out=[], rl=[];
+  try{ rl=(typeof rolesList==='function')?rolesList():[]; }catch(e){ rl=[]; }
+  if(!rl||!rl.length) rl=((state.masters&&state.masters.roles)||[]);
+  if(!Array.isArray(rl)) rl=[];
+  rl.map(function(r){ return (r&&r.name)||r; }).concat(['COO']).forEach(function(r){
+    if(r&&typeof r==='string'&&out.indexOf(r)<0&&accessLevel(r,scrId)==='edit') out.push(r); });
+  if(out.indexOf('COO')<0) out.push('COO');
+  return out; }
+/* One refusal sentence, so every Kind A gate says the same thing the same way
+   and points at the screen whose access actually decides it. */
+function denyWork(scrId,what){ var sc=(typeof scr==='function')?scr(scrId):null;
+  return (what||'That')+' needs Edit on '+((sc&&sc.name)||scrId)+' \u2014 '+whoMayEdit(scrId).join(', ')+'. Ask the COO in Users & Access.'; }
+
 /* Segregation-of-duty gate for sign-off/approval actions (DC approval, truck release, Lab QC
    analyst/AQCM/QCM/Plant-Manager sign-off). Unlike canEdit(), this NEVER consults the per-screen
    Users & Access override (accessMatrix) — it checks the user's actual assigned role only. A
@@ -2894,7 +2945,7 @@ function genPO(recv){
 }
 function isManualPO(){ return entryChannel==='White Label'||entryChannel==='Distributor'; }
 function screenEntry(){
-  const ed=hardRole(['KAM']);
+  const ed=mayWork('entry');   /* Kind A: follows the matrix — see RIGHTS above */
   const clients=clientsForChannel(entryChannel);
   $('view').innerHTML=`<div class="paperui">
    ${ed?'':viewOnly('KAM','switch to KAM to submit')}
@@ -3047,10 +3098,13 @@ function entryChecks(){
   ];
 }
 function validate(){
-  const checks=entryChecks(); const ok=checks.every(c=>c[1]) && hardRole(['KAM']);
+  const checks=entryChecks(); const ok=checks.every(c=>c[1]) && mayWork('entry');
   if($('e_checks')) $('e_checks').innerHTML=checks.map(c=>{ const fail=!c[1], fid=c[2], clk=fail&&fid;
     return `<div ${clk?`onclick="focusField('${fid}')" `:''}style="font-size:12px;padding:3px 0${clk?';cursor:pointer':''}">${c[1]?'<span style="color:var(--green2)">✓</span>':'<span style="color:var(--red)">✗</span>'} &nbsp;${c[0]}${clk?' <span class="muted" style="font-size:10px">→ fix</span>':''}</div>`; }).join('')
-    + (hardRole(['KAM'])?'':'<div style="font-size:12px;color:var(--amber);padding-top:4px">Switch role to KAM to enable submit.</div>');
+    /* was "Switch role to KAM to enable submit" \u2014 demo-era copy that read as if
+       roles were self-service. They are not: state.role comes from the login
+       token. Name who actually may, off the matrix. */
+    + (mayWork('entry')?'':'<div style="font-size:12px;color:var(--amber);padding-top:4px">'+_pe(denyWork('entry','Submitting a PO'))+'</div>');
   if($('e_submit')) $('e_submit').disabled=!ok;
   updateEntryTotal();
   previewRM();
@@ -3071,7 +3125,7 @@ function previewRM(){
     + `<div class="muted" style="margin-top:7px;font-size:11px">Supply Chain confirms availability &amp; raises any PR in the PO Tracker.</div>`;
 }
 function submitPO(){
-  if(!hardRole(['KAM'])){toast('Only KAM can submit a PO');return;}
+  if(!mayWork('entry')){toast(denyWork('entry','Submitting a PO'));return;}
   const lines=entryLines.filter(l=>l.brand&&+l.qty>0); if(!lines.length){toast('Add a line item');return;}
   if(lines.some(l=>!(+l.pack>0))){ toast('Set a pack size (> 0) on every product line.'); return; }
   if(!entryFOC && lines.some(l=>!(+l.inv>0))){ toast('Enter the invoice price (PKR/Kg·L) for every product line.'); return; }
@@ -3147,7 +3201,16 @@ function custStartAdd(seg){ custForm={editing:null,segment:seg||custSeg,name:'',
 function custEdit(code){ var c=(state.customers||[]).filter(function(x){return x.code===code;})[0]; if(!c)return; custForm=Object.assign({editing:code},c); render(); }
 function custCancel(){ custForm=null; render(); }
 function custParents(seg){ return (state.customers||[]).filter(function(c){return c.segment===seg&&c.isParent;}); }
-function custSave(){ if(!hardRole(['KAM'])){toast('KAM / COO only');return;} var f=custForm; if(!f)return;
+/* HELD BACK 2026-08-22, on the COO's instruction. Customer Master stays on the
+   old hard gate until `state.customers` and `state.dealers` carry ids.
+   Why: neither array has an id on any row, so merge3 treats each as a single
+   leaf and the last writer takes the whole array — two people on this screen at
+   once silently delete one another's work. Widening the screen first would make
+   that reachable by four roles instead of two. Ids go in ensureRecordIds, then
+   this comes back as mayWork('dealers').
+   The COO's related decision the same day: Plant Manager gets New PO Entry but
+   NOT Customer Master. */
+function custSave(){ if(!hardRole(['KAM'])){toast('KAM / COO only \u2014 Customer Master is held back until customer records carry ids');return;} var f=custForm; if(!f)return;
   if(!String(f.name||'').trim()){toast('Name required');return;}
   var isOutlet=(f.segment==='VGreen'||f.segment==='COBO');
   var code=f.editing||custCode(f.segment,f.name,f.inducted,f.outlet);
@@ -3186,7 +3249,7 @@ function custFormHTML(){ var f=custForm; var kam=((state.masters&&state.masters.
 }
 function screenDealers(){
   custInit();
-  var ed=hardRole(['KAM']);
+  var ed=hardRole(['KAM']);   /* held back — see the note above custSave */
   var segTab=function(s){var n=(state.customers||[]).filter(function(c){return c.segment===s&&!c.isParent;}).length;return '<button class="ac2gtab'+(custSeg===s?' on':'')+'" onclick="custSeg=\''+s+'\';render()">'+s+' <b>'+n+'</b></button>';};
   var tabs='<div class="ac2gbar" role="tablist">'+CUST_SEGMENTS.map(segTab).join('')+'</div>';
   var cur=(state.customers||[]).filter(function(c){return c.segment===custSeg;});
@@ -3201,7 +3264,7 @@ function screenDealers(){
   $('view').innerHTML='<div class="paperui">'+(ed?'':viewOnly('KAM'))+'<div class="rb-top"><div><div class="rb-title">Customer Master</div><div class="rb-sub2">Add &amp; manage every customer · grouped by segment</div></div></div>'+tabs+(custForm?custFormHTML():'')+listHtml+'</div>';
 }
 function addDealer(){
-  if(!hardRole(['KAM'])){toast('Only KAM can onboard dealers');return;}
+  if(!hardRole(['KAM'])){toast('KAM / COO only \u2014 Customer Master is held back until customer records carry ids');return;}
   if(!dlrForm.name.trim()||!dlrForm.city.trim()){ toast('Name and city required'); return; }
   const code=$('dlr_code').value.trim()||suggestCode();
   if(state.dealers.some(d=>d.code===code)){ toast('Code already exists'); return; }
@@ -6111,18 +6174,15 @@ function openPrintDecisionPOs(){
    NOTE the deliberate difference from hardRole(): the 2026-07-30 incident was a
    screen Edit grant silently unlocking an APPROVAL step. This is not an approval
    step. Approvals keep using hardRole(); see the comment above canEdit(). */
-function bulkPDWhoMay(){ var out=[]; var rl=[]; try{ rl=(typeof rolesList==='function')?rolesList():[]; }catch(e){ rl=[]; }
-  if(!rl.length) rl=(((state.masters&&state.masters.roles)||[])); if(!Array.isArray(rl)) rl=[];
-  rl.map(function(r){return (r&&r.name)||r;}).concat(['COO']).forEach(function(r){ if(r&&typeof r==='string'&&out.indexOf(r)<0&&accessLevel(r,'entry')==='edit') out.push(r); });
-  if(out.indexOf('COO')<0) out.push('COO'); return out; }
+function bulkPDWhoMay(){ return whoMayEdit('entry'); }   /* kept as a name; the logic lives in whoMayEdit */
 /* ONE predicate, asked in BOTH places. 2026-08-22: the first cut of this moved
    the check on openBulkPrintDecision() and left saveBulkPrintDecision() on the
    old role list — so a newly-permitted person could answer twenty-one POs, press
    Save, get "COO / KAM only" and lose every one of them. A rule that lives in
    two places and is changed in one is the recurring fault in this file; if this
    gate ever changes again, it changes here and nowhere else. */
-function bulkPDMayAnswer(){ return screenEditOK('entry'); }
-function bulkPDDenied(){ return 'Answering this needs PO-entry access \u2014 '+(bulkPDWhoMay().join(', ')||'COO'); }
+function bulkPDMayAnswer(){ return mayWork('entry'); }
+function bulkPDDenied(){ return denyWork('entry','Answering print-on-pack'); }
 function openBulkPrintDecision(){
   if(!bulkPDMayAnswer()){toast(bulkPDDenied());return;}
   bulkPD={}; renderBulkPrintDecision(); $('modalBg').classList.add('open');

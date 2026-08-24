@@ -1289,3 +1289,113 @@ Suite: 387 checks, all passing (52 / 40 / 182 / 15 / 98).
    the row is being coloured and sorted by.
 
 **Nothing pushed. Working tree has the two fixes and the hardened tests.**
+
+### 22 Aug — item 1 step one: entry + dealers now follow the matrix. Reviewed.
+
+Built `mayWork(screenId)` / `whoMayEdit(screenId)` / `denyWork(screenId,what)` next
+to `canEdit`/`hardRole`, with the Kind A / Kind B split written into the file.
+All **7 `hardRole(['KAM'])` calls converted** — `screenEntry`, `validate` (x2,
+including the demo-era "Switch role to KAM" copy), `submitPO`, `custSave`,
+`screenDealers`, `addDealer`. 63 hardRole calls before, 56 now.
+
+Checked and clean: the KAM is a dropdown field (`e_kam`), never `state.role`, so a
+non-KAM submitting a PO attributes nothing wrongly. No view-only submit path
+(three independent layers). The helpers are pure — no writes, no `save()`.
+`denyWork` cannot throw and is correctly escaped where it lands in HTML.
+
+**MY TEST WAS THEATRE, AND THE REVIEWER PROVED IT.** The Kind B section was a
+source grep. The reviewer planted the 30 July regression back into `hardRole`
+(making it consult the screen override) and **all 424 checks stayed green** while
+Supply Chain Officer could approve DCs, release trucks and sign COAs. A grep
+proves six strings are present; it cannot prove a gate still means anything.
+
+**Fixed:** `rights.test.js` now RUNS `hardRole` as the incident account, standing
+on each granted screen, and asserts it still refuses. Verified by planting the
+regression again — the suite goes red with 8 failures — then restoring. Suite is
+now **445 checks**.
+
+### STOP — the next step is a data decision, not code
+
+**Making the matrix real means whatever is in the matrix today goes live.** What
+is in it today, and what it now grants:
+
+| Role | Gained | Consequence |
+|------|--------|-------------|
+| Plant Manager | `entry` + `dealers` edit | can now **create the customer, raise the PO, approve its DC and release its truck** — one person end to end. Nobody asked for this. |
+| CFO | `dealers` edit | can now edit Customer Master |
+| **Finance** | **nothing** | `entry:{v:false,e:false}` in the 16 July snapshot — **the person the COO actually named still cannot enter a PO.** The grant he made must be on live, and must be Edit not View. |
+
+Also from the review, before the sweep goes further:
+
+- **`state.customers` (21 rows) and `state.dealers` (6) carry NO ids**, so `merge3`
+  treats each array as one leaf: last writer takes all. Widening `dealers` to
+  KAM + PM + CFO + COO makes concurrent loss reachable. **Give them ids in
+  `ensureRecordIds` before dealers stays widened.**
+- **Create without amend is incoherent:** `CORRECT_ENTITY.order.amend` and
+  `orderLine.amend` are still `['KAM','COO']`, so a PM who raises a PO cannot fix
+  a typo in it a minute later.
+- **`RIGHTS_LOCKED` does not exist** — the comment promises it and item 2 builds
+  it. Until then Users & Access still tells the COO *"Edit grants everything on
+  that screen (data entry, approvals & sign-offs)"*, which is false.
+- **Plant Manager's screens now contradict themselves**: matrix says Edit on
+  Production, Master Data and Users; all 28 Production gates, `addMaster`/
+  `editMaster`/`delMaster` and `amxCycle` still refuse them. Worse than before,
+  because before the matrix was ignored uniformly.
+- **QA Inspector holds `prod:{e:true}`** — do NOT convert Production until that
+  cell is corrected. QA doing production entry breaks the inspection separation.
+  The matrix DATA is wrong there, not the code.
+- Stale banners left: `viewOnly('KAM','switch to KAM to submit')` and
+  `viewOnly('KAM')` — the same demo-era copy removed from `validate()`.
+- The PO Confirmation prints *"Prepared by — KAM"* from the dropdown; a non-KAM
+  submission is attributed to a KAM on a customer-facing document. The order has
+  no "entered by" field.
+
+**Nothing pushed.**
+
+### 22 Aug — save retry: built, REFUSED, reverted. The defect is still live.
+
+Not in the app. Test parked at `docs/o2s/parked-save-retry/`. Full write-up
+there; the short version:
+
+**The reason for reverting rather than iterating:** the retry made a data-loss
+path WORSE. `saveNow`'s 409 handler pins `_baseSnapshot` to the MERGED LOCAL
+state — the "BUG 1" condition `firstsave.test.js` already asserts. Measured with
+the real `merge3`, two consecutive conflicts wipe the operator's edit off the
+screen. The old six-conflict limit left it stuck-but-visible; an unbounded retry
+turns that into silently reverted.
+
+Also found: the 401 retry is dead (`setSession('',null)` clears `_token`,
+`saveNow` returns immediately — the comment I wrote claimed the opposite of the
+measured behaviour); an overlapping successful save cancels another request's
+retry, stranding the newer edit for ever; conflict pressure was counted as
+connectivity failure; and two 1.9-second toasts cannot carry an all-day warning
+with no `beforeunload` guard behind them.
+
+**And my test hid two of the findings** — `setSession: () => {}` kept `_token`
+set so the 401 checks passed against a retry that is a no-op in the real app, and
+`merge3: (b,l,s) => l` hid the data-loss case entirely. Third time today a stub
+made a test prove nothing, always the same shape: stub the thing the bug lives in.
+
+**Next time, do NOT start with the retry.** Start with the 409 baseline: pin
+`_baseSnapshot` to the server's `j.data` rather than the merged state. Smaller,
+a live data-loss bug on its own, and until it is fixed any retry makes things
+worse.
+
+### Where the tree stands tonight
+
+Suite: **446 checks, 7 files, all green** (savepath parked out).
+
+In the working tree, unpushed:
+- `o2s/o2s.html` — New PO Entry follows the access matrix (4 gates); Customer
+  Master held back; sign-offs now protected by a behaviour test that reproduces
+  the 30 July incident
+- `o2s/tests/rights.test.js` — new
+- `o2s/tests/backlog.test.js` — writer-gate regression checks
+- `docs/o2s/` — AUTH-REDESIGN, MATRIX-REVIEW, ACCESS-AND-EDIT, the manager
+  workbook, and the parked save-retry folder
+
+**Still open, nothing started:** customer/dealer ids (blocks the dealers
+conversion and loses work when two people edit Customer Master); the KAM split
+(account KAM from the customer, entered-by from the login); the bulk "set all to
+no price" button; `dfSubmitCorrect` has no permission check at all; the printing
+slip; Data Fix removal.

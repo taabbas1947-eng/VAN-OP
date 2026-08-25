@@ -2380,7 +2380,60 @@ var RIGHTS=[
   {code:'customer.create',     dept:'commercial', name:'Add a customer or dealer', delegable:false,
    note:'HELD BACK until customer rows carry ids — COO only, not the lead.',   legacy:{kind:'hard', roles:['KAM']}},
   {code:'customer.amend',      dept:'commercial', name:'Change a customer record', delegable:false,
-   note:'HELD BACK until customer rows carry ids — COO only, not the lead.',   legacy:{kind:'hard', roles:['KAM']}}
+   note:'HELD BACK until customer rows carry ids — COO only, not the lead.',   legacy:{kind:'hard', roles:['KAM']}},
+
+  /* ---- Supply Chain, converted 25 August 2026 ----
+     These gates were canEdit(['Supply Chain']), which asks the access matrix about
+     WHICHEVER SCREEN the person is standing on — and these buttons are rendered on
+     THREE screens (Shipments, My Actions, and Production's stuck list), so that is
+     a live difference, not a technicality. `scr` records the
+     screen the job actually belongs to; screenLoopholes() lists everyone who
+     qualifies only by standing somewhere else, so closing that is the COO's
+     decision rather than a side effect of this change.
+     Three Supply Chain gates are NOT here yet and are still raw canEdit calls:
+     clearQaHold and lotQACorrect (shared with QA Inspector — they go in with
+     Quality) and rmCanEdit (the Raw Material master, which is master data).
+     NOT here, and never will be: approving or rejecting a delivery challan, and
+     releasing a loaded truck. Those are sign-offs — a second person checking a
+     first person's work — and they stay on hardRole. That is the 2026-07-30
+     incident, and it must stay impossible. */
+  /* `scr` is the screen the job belongs to. `alsoOn` lists the OTHER places where
+     somebody who does not own the item can actually reach this button — which is
+     what makes a loophole real rather than arithmetic. Each entry is
+     {scr:'<screen>'} for a list anyone can reach, or {scr:'…',roles:[…]} when only
+     particular people are shown it.
+     Traced through the code, not assumed:
+       · Production's "stuck / blocked" list (prodStuckItems) is NOT filtered by
+         role, and PROD_STUCK_CAT includes 'Receive'. That item opens
+         openReceiveMaterials, which has no check of its own and draws BOTH the
+         Receive and the Close PR buttons — so rm.receive AND pr.close are
+         reachable from Production by anyone who can open it.
+       · My Actions (acBase) is NOT simply "your own items". Its second branch
+         hands a manager the items escalated TO him, still owned by somebody else,
+         and draws the owner's live button. acEscalation's table sends Ship, Load,
+         Gate Pass and Confirm delivery to the Plant Manager, and Receive to the
+         CFO. An earlier version of this comment claimed acBase was role-filtered
+         with no exception. It is not, and the exception is the whole point.
+       · The Dashboard renders none of them: dashMyTodos, which would have, has
+         no callers — screenDash dispatches to the dashExec/Sales/Centers/Prod/
+         Qual/Supply views and none of them draws an action button. An earlier
+         version of this note counted the Dashboard as a fourth screen. */
+  {code:'shipment.plan',    dept:'supply-chain', name:'Plan a shipment / raise a DC',
+   note:'Create and edit a dispatch on the Shipments screen.',     legacy:{kind:'canEdit', owners:['Supply Chain'], scr:'ship', alsoOn:[{scr:'approvals',roles:['Plant Manager']}]}},
+  {code:'shipment.load',    dept:'supply-chain', name:'Start loading a truck',
+   note:'Move a planned truck into loading.',                      legacy:{kind:'canEdit', owners:['Supply Chain'], scr:'ship', alsoOn:[{scr:'approvals',roles:['Plant Manager']}]}},
+  {code:'gatepass.issue',   dept:'supply-chain', name:'Issue a Gate Pass',
+   note:'Needed before the Plant Manager can release the truck.',  legacy:{kind:'canEdit', owners:['Supply Chain'], scr:'ship', alsoOn:[{scr:'approvals',roles:['Plant Manager']}]}},
+  {code:'delivery.confirm', dept:'supply-chain', name:'Confirm a delivery',
+   note:'Record that the customer received the load.',             legacy:{kind:'canEdit', owners:['Supply Chain'], scr:'ship', alsoOn:[{scr:'approvals',roles:['Plant Manager']}]}},
+  {code:'rm.receive',       dept:'supply-chain', name:'Receive raw material against a PR',
+   note:'Only after the CFO has approved the requisition.',        legacy:{kind:'canEdit', owners:['Supply Chain'], scr:'approvals', alsoOn:[{scr:'prod'}]}},
+  {code:'pr.close',         dept:'supply-chain', name:'Close a purchase requisition',
+   /* Close PR is drawn by recvPRCard alongside Receive, so it rides in on the
+      same unfiltered Production list. Missing this was a live under-warning: a QA
+      Inspector can close a requisition from Production today, and the card said
+      one role, one right, when it was one role, two rights. */
+   note:'Ends a PR that is finished or abandoned.',                legacy:{kind:'canEdit', owners:['Supply Chain'], scr:'approvals', alsoOn:[{scr:'prod'}]}}
 ];
 
 /* Pairs that must never sit on one role. Enforced only where BOTH codes are in
@@ -2429,10 +2482,26 @@ function rolesUnfiled(){ return rolesOfState().filter(function(r){ return r&&!r.
 function roleRightsOf(n){ var id=roleIdOf(n); var t=(state.masters&&state.masters.roleRights)||{};
   return (id&&t[id])||{}; }
 
+/* The canEdit() rule, for any state, any role, any screen. canEdit() itself asks
+   it about the LIVE state and WHICHEVER SCREEN the person is standing on — which
+   is the whole disease this redesign exists to cure. Measured on the data on
+   record: canEdit(['Supply Chain']) is true for a Lab Rep, an AQCM, a QCM, a QA
+   Inspector, a CFO, a Supply Chain Officer and a Finance officer whenever they
+   are standing on Reports — seven roles — because each has an explicit Edit
+   override on Reports in the matrix. (Owning a screen is not enough: KAM,
+   Production and the Plant Manager own Reports but hold no override there, so
+   they do not qualify that way.) Nobody decided any of it. */
+function _canEditOn(s,role,scrId,owners){ if(role==='COO') return true;
+  var m=(s.masters&&s.masters.accessMatrix)||{}; var o=(m[role]&&m[role][scrId])||null;
+  if(o){ if(o.e===true) return true; if(o.e===false) return false; }
+  return (owners||[]).indexOf(role)>=0; }
 function mayLegacyRole(role,code){ var r=rightByCode(code); if(!r) return false; var lg=r.legacy||{};
   if(lg.kind==='all') return true;
   if(lg.kind==='hard') return role==='COO' || (lg.roles||[]).indexOf(role)>=0;
   if(lg.kind==='screen') return accessLevel(role,lg.scr)==='edit';
+  /* Exactly canEdit(owners): the screen the person is on, not the screen the job
+     belongs to. Byte-for-byte what the gate did before it was converted. */
+  if(lg.kind==='canEdit') return _canEditOn(state,role,state.screen,lg.owners);
   return false; }
 function mayRole(role,code){ if(role==='COO') return true;
   if(RIGHTS_LIVE[code]!==true) return mayLegacyRole(role,code);
@@ -2441,7 +2510,7 @@ function may(code){ return mayRole(state.role,code); }
 
 /* Who can do it, for a refusal that is actionable rather than just a no. */
 function whoMayRight(code){ var out=[];
-  rolesOfState().forEach(function(r){ if(r&&!r.archived&&mayRole(r.name,code)&&out.indexOf(r.name)<0) out.push(r.name); });
+  rolesOfState().forEach(function(r){ if(r&&!r.archived&&mayHere(r.name,code)&&out.indexOf(r.name)<0) out.push(r.name); });
   if(out.indexOf('COO')<0) out.push('COO'); return out; }
 /* Who could actually give THIS right to THIS person. Naming the department lead
    unconditionally sent people to somebody who structurally cannot help: a lead
@@ -2453,16 +2522,28 @@ function whoCanGrant(code,toRole){ var out=[];
     try{ if(grantRefusal(r.name,toRole,code)==='' && accessLevel(r.name,'admin')!=='none') out.push(r.name); }catch(e){} });
   out.push('COO'); return out; }
 function denyRight(code,what){ var r=rightByCode(code); var d=r?deptById(r.dept):null;
+  /* Special case worth its own sentence: this person DOES hold the right where the
+     job belongs, and was refused only because of the screen he is standing on.
+     Sending him to the COO would be useless — the COO cannot grant what he already
+     has, and the right is not live so a tick would change nothing. Tell him where
+     the button works instead. */
+  if(r && mayHere(state.role,code) && (r.legacy||{}).kind==='canEdit'){
+    var sc=(typeof scr==='function')?scr(r.legacy.scr):null;
+    return (what||'That')+' is your job, but this button only works from '
+      +((sc&&sc.name)||r.legacy.scr)+' at the moment. Open '+((sc&&sc.name)||r.legacy.scr)+' and do it there.'; }
   var ask=whoCanGrant(code,state.role);
   return (what||'That')+' needs the right "'+((r&&r.name)||code)+'" ('+((d&&d.name)||'')+') — '
     + whoMayRight(code).join(', ')+'. Ask '+ask.join(' or ')
     + ' to grant it: Admin \u00b7 Master Data \u2192 Authorisation.'; }
 
-/* THE FREEZE CHECK. For every role and every right the answer must be the same
-   whether the right is live or not — because the grants were seeded from the
-   old checks. Any mismatch is a person who gains or loses an authority the
-   moment a right is switched on, which is exactly what must never happen
-   silently. Returns [] when the system is safe to convert. */
+/* THE FREEZE CHECK, and exactly what it does and does not prove.
+   It compares each tick against what that role can do TODAY ON THE SCREEN THE JOB
+   BELONGS TO. For a hard or screen right that is the whole answer, and [] means
+   switching it on changes nobody.
+   For a canEdit right it is only half the answer: it proves the tick matches the
+   job's own screen. Who ELSE can reach the same button from somewhere else is not
+   in here — that is the loophole list (screenLoopholes), shown on the same card,
+   and those people DO lose the right when it goes live. Read the two together. */
 /* Archived roles ARE checked. archiveRole tells the COO that "existing users
    keep it", and state.role comes from the login token — so an archived role is
    still a live authority. It is also invisible in the access matrix (rolesList
@@ -2471,7 +2552,7 @@ function denyRight(code,what){ var r=rightByCode(code); var d=r?deptById(r.dept)
 function rightsFreezeCheck(){ var bad=[];
   rolesOfState().forEach(function(ro){ if(!ro) return;
     RIGHTS.forEach(function(r){
-      var legacy=mayLegacyRole(ro.name,r.code);
+      var legacy=rightAnswerToday(ro.name,r.code);
       var granted=(ro.name==='COO')?true:(roleRightsOf(ro.name)[r.code]===true);
       if(ro.name!=='COO' && legacy!==granted) bad.push(ro.name+(ro.archived?' (archived)':'')+' / '+r.code+': was '+legacy+', grant says '+granted);
     }); });
@@ -2508,7 +2589,48 @@ function seedAnswer(s,roleName,r){ var lg=r.legacy||{};
   if(lg.kind==='all') return true;
   if(lg.kind==='hard') return (lg.roles||[]).indexOf(roleName)>=0;
   if(lg.kind==='screen'){ try{ return accessLevelOn(s,roleName,lg.scr)==='edit'; }catch(e){ return false; } }
+  /* For a canEdit right the honest answer to "who does this today" is: who can do
+     it ON THE SCREEN THE JOB BELONGS TO. That is the rule the COO would recognise,
+     and it is what the right will mean once it is live.
+     It is NOT the only place the button appears — the same actions are rendered
+     from My Actions and from Production's stuck list — so people can reach them
+     while standing elsewhere, and the old rule then answers about that other
+     screen instead. screenLoopholes() names every one of those people. */
+  if(lg.kind==='canEdit'){ try{ return _canEditOn(s,roleName,lg.scr,lg.owners); }catch(e){ return false; } }
   return false; }
+/* What this role can do ON ITS OWN SCREEN — screen-independent, and therefore the
+   only sensible thing to show in a panel or compare a tick against. may() below
+   keeps using the exact, screen-dependent old rule, because that is what must not
+   change today. */
+function rightAnswerToday(role,code){ var r=rightByCode(code); if(!r) return false;
+  if(role==='COO') return true; return seedAnswer(state,role,r); }
+function mayHere(role,code){ if(role==='COO') return true;
+  if(RIGHTS_LIVE[code]!==true) return rightAnswerToday(role,code);
+  return roleRightsOf(role)[code]===true; }
+/* Every role that can REALLY do a canEdit right today only because of some other
+   screen — the people who lose it the day that right goes live, so nobody finds
+   out by being locked out.
+   Two conditions, and both matter. The old rule has to say yes on that other
+   screen, AND the button has to be reachable there (`alsoOn`). Without the second
+   condition this listed 44 authorities across 8 roles, of which 2 were real: it
+   said Finance, the CFO, three lab roles and Production could plan shipments and
+   issue gate passes, none of which they can, because no such button is rendered
+   anywhere they can go. A warning that is 95% false is worse than none — the safe
+   response to it is to grant six roles a shipment right they have never had.
+   Archived roles are included, for the same reason rightsFreezeCheck includes
+   them: their accounts still sign in. */
+function screenLoopholes(){ var out=[];
+  rolesOfState().forEach(function(ro){ if(!ro||ro.name==='COO') return;
+    RIGHTS.forEach(function(r){ var lg=r.legacy||{}; if(lg.kind!=='canEdit') return;
+      if(RIGHTS_LIVE[r.code]===true) return;
+      if(_canEditOn(state,ro.name,lg.scr,lg.owners)) return;   /* already allowed properly */
+      var extra=(lg.alsoOn||[]).filter(function(a){
+        if(!a||a.scr===lg.scr) return false;
+        if(a.roles && a.roles.indexOf(ro.name)<0) return false;   /* only shown to those people */
+        return _canEditOn(state,ro.name,a.scr,lg.owners) && accessLevel(ro.name,a.scr)!=='none'; })
+        .map(function(a){ return a.scr; });
+      if(extra.length) out.push({role:ro.name,code:r.code,name:r.name,archived:!!ro.archived,screens:extra}); }); });
+  return out; }
 /* THE DRIFT FIX. A right whose old rule was "Edit on screen X" is answered from
    the matrix until it goes live, and from the grant table afterwards. If the COO
    changes that matrix cell in between, the two stop agreeing — and the day the
@@ -2522,7 +2644,10 @@ function resyncScreenRights(roleName,scrId){
   state.masters.roleRights=state.masters.roleRights||{};
   var row=state.masters.roleRights[id]||{};
   RIGHTS.forEach(function(r){ var lg=r.legacy||{};
-    if(lg.kind!=='screen') return;
+    /* Both kinds that read the matrix — a screen right and a canEdit right — move
+       when the matrix moves. Covering only one made a COO matrix edit self-heal on
+       New PO Entry and leave a permanent drift warning on Shipments. */
+    if(lg.kind!=='screen' && lg.kind!=='canEdit') return;
     /* ONLY the rights that hang off the screen that just changed. Re-pointing
        every screen-kind right on any matrix click reached across screens that
        had nothing to do with it. */
@@ -2566,7 +2691,7 @@ function grantRefusal(granter,targetRole,code){
   if(targetRole===granter) return 'A lead cannot change his own rights — only the COO can. This is what stops a lead widening himself.';
   if(roleDeptId(targetRole)!==gd) return (targetRole||'That role')+' is not in '+((deptById(gd)||{}).name||'your department')+'. Ask the COO.';
   if(r.dept!==gd) return '"'+r.name+'" belongs to '+((deptById(r.dept)||{}).name||'another department')+'. Ask the COO.';
-  if(!mayRole(granter,code)) return 'You cannot hand out a right you do not hold yourself.';
+  if(!mayHere(granter,code)) return 'You cannot hand out a right you do not hold yourself.';
   return ''; }
 /* Separation of duty: two rights that must not land on one role. Checked only
    where both codes exist in the catalogue today. */
@@ -2574,7 +2699,7 @@ function separationRefusal(targetRole,code){
   for(var i=0;i<SEPARATION.length;i++){ var a=SEPARATION[i][0],bC=SEPARATION[i][1],why=SEPARATION[i][2];
     if(!rightByCode(a)||!rightByCode(bC)) continue;
     var other=(code===a)?bC:((code===bC)?a:null); if(!other) continue;
-    if(mayRole(targetRole,other)) return (targetRole||'That role')+' already has "'+((rightByCode(other)||{}).name||other)+'" — '+why+'.'; }
+    if(mayHere(targetRole,other)) return (targetRole||'That role')+' already has "'+((rightByCode(other)||{}).name||other)+'" — '+why+'.'; }
   return ''; }
 
 </script>
@@ -3821,14 +3946,21 @@ function rmSubmit(){ const o=state.orders.find(x=>x.id===rmForm.oid); const l=o.
 function approveRMPR(oid,lid){ if(!(canEdit(['CFO'])||state.role==='COO')){toast('CFO approves the requisition');return;} var o=state.orders.find(x=>x.id===oid); var l=o&&o.lines.find(x=>x.id===lid); if(!l||!l.rmPR||l.rmPR.closed)return; l.rmPR.cfoApproved=TODAY.toISOString().slice(0,10); logAction('PR approved (CFO) — '+o.po+'·'+l.brand+' '+fmt(l.rmPR.qty)+' Kg/L'); (state.audit=state.audit||[]).unshift({t:new Date().toISOString(),user:state.role,module:'RM PR',po:o.po,brand:l.brand,field:'CFO approved',old:'',val:fmt(l.rmPR.qty)+' Kg/L'}); save(); render(); toast('PR approved'); }
 let rmRcvForm=null;
 function rmRcvKg(){ var o=state.orders.find(x=>x.id===rmRcvForm.oid); var l=o&&o.lines.find(x=>x.id===rmRcvForm.lid); var ord=(l&&+l.ordered)||0; var already=(l&&+l.canMakeKg)||0; var rem=Math.max(0,ord-already); var v=+rmRcvForm.qty||0; if(rmRcvForm.unit==='pct') v=ord*v/100; return Math.max(0,Math.min(rem,Math.round(v))); }
-function openRMReceive(oid,lid){ if(!(canEdit(['Supply Chain'])||state.role==='COO')){toast('Supply Chain only');return;} var o=state.orders.find(x=>x.id===oid); var l=o&&o.lines.find(x=>x.id===lid); if(!l||!l.rmPR||l.rmPR.closed)return; if(!l.rmPR.cfoApproved){toast('PR must be CFO-approved before receiving');return;} rmRcvForm={oid,lid,qty:'',unit:'kg'}; renderRMReceive(); $('modalBg').classList.add('open'); }
+function openRMReceive(oid,lid){ if(!may('rm.receive')){toast(denyRight('rm.receive','Receiving raw material'));return;} var o=state.orders.find(x=>x.id===oid); var l=o&&o.lines.find(x=>x.id===lid); if(!l||!l.rmPR||l.rmPR.closed)return; if(!l.rmPR.cfoApproved){toast('PR must be CFO-approved before receiving');return;} rmRcvForm={oid,lid,qty:'',unit:'kg'}; renderRMReceive(); $('modalBg').classList.add('open'); }
 function renderRMReceive(){ var o=state.orders.find(x=>x.id===rmRcvForm.oid); var l=o.lines.find(x=>x.id===rmRcvForm.lid); var ord=+l.ordered||0; var already=+l.canMakeKg||0; var rem=Math.max(0,ord-already); var add=rmRcvKg();
   $('modal').innerHTML=`<div class="mh"><h2>Confirm RM received — ${l.brand}</h2><div class="sub">${o.po} · ${shortClient(o.client)} · cleared ${fmt(already)}/${fmt(ord)} · ${fmt(rem)} Kg/L pending</div></div>
    <div class="mb"><div class="fld"><label>How much more can be made now?</label><div style="display:flex;gap:8px;align-items:center;max-width:360px"><input type="number" value="${rmRcvForm.qty}" oninput="rmRcvForm.qty=this.value" onchange="rmRcvForm.qty=this.value;renderRMReceive()" placeholder="amount" style="flex:1"><select onchange="rmRcvForm.unit=this.value;renderRMReceive()"><option value="kg" ${rmRcvForm.unit==='kg'?'selected':''}>Kg/L</option><option value="pct" ${rmRcvForm.unit==='pct'?'selected':''}>% of order</option></select></div>
    <div class="muted" style="font-size:11px;margin-top:7px">Adds <b>${fmt(add)}</b> Kg/L → cleared becomes <b>${fmt(already+add)}</b>/${fmt(ord)}.${(already+add>=ord)?' This closes the PR.':''}</div></div></div>
    <div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" onclick="rmReceiveSubmit()">Confirm received</button></div>`;
 }
-function rmReceiveSubmit(){ var o=state.orders.find(x=>x.id===rmRcvForm.oid); var l=o.lines.find(x=>x.id===rmRcvForm.lid); var ord=+l.ordered||0; var add=rmRcvKg(); if(add<=0){toast('Enter a quantity');return;} var today=TODAY.toISOString().slice(0,10);
+function rmReceiveSubmit(){
+  /* The opener (openRMReceive) was gated and this, the writer, was not — the same
+     shape of fault as the print-on-pack Save in August: permitted at the door,
+     refused at the till, or the reverse. The modal is only reachable through the
+     opener, which asks for this same right, so nobody who could receive material
+     yesterday is stopped today. */
+  if(!may('rm.receive')){toast(denyRight('rm.receive','Receiving raw material'));return;}
+  var o=state.orders.find(x=>x.id===rmRcvForm.oid); var l=o.lines.find(x=>x.id===rmRcvForm.lid); var ord=+l.ordered||0; var add=rmRcvKg(); if(add<=0){toast('Enter a quantity');return;} var today=TODAY.toISOString().slice(0,10);
   var nc=Math.min(ord,(+l.canMakeKg||0)+add);
   if(nc>=ord){ l.rmStatus='full'; l.rmReady=today; l.canMakeKg=null; if(l.rmPR){l.rmPR.closed=true;l.rmPR.qty=0;l.rmPR.cleared=ord;} }
   else { l.rmStatus='partial'; l.canMakeKg=nc; if(l.rmPR){ l.rmPR.qty=Math.max(0,ord-nc); l.rmPR.cleared=nc; } }
@@ -7327,14 +7459,14 @@ function openReceiveMaterials(oid,lid){
     + (other.length?`<details style="margin-top:6px"><summary style="cursor:pointer;font-size:12px;color:var(--mut)">Other open PRs (${other.length}) — not for this product</summary><div style="margin-top:8px">${other.map(recvPRCard).join('')}</div></details>`:'');
   $('modal').innerHTML=`<div class="mh"><h2>Receive raw materials (GRN)</h2><div class="sub">${rel.length} open PR(s)${label} · partial receipts allowed</div></div><div class="mb">${body}</div><div class="mf"><button class="ghost" onclick="closeModal()">Close</button></div>`;
   $('modalBg').classList.add('open'); }
-function receivePR(prId){ if(!canEdit(['Supply Chain'])){toast('Supply Chain only');return;} const p=(state.prs||[]).find(x=>x.id===prId); if(!p)return; if(!p.cfoApproved){toast('This PR must be approved by CFO before raw material can be received.');return;} const qty=+(($('rcv_'+prId)&&$('rcv_'+prId).value))||0; const grn=((($('grn_'+prId)&&$('grn_'+prId).value))||'').trim(); const d=(($('rdt_'+prId)&&$('rdt_'+prId).value))||TODAY.toISOString().slice(0,10);
+function receivePR(prId){ if(!may('rm.receive')){toast(denyRight('rm.receive','Receiving raw material'));return;} const p=(state.prs||[]).find(x=>x.id===prId); if(!p)return; if(!p.cfoApproved){toast('This PR must be approved by CFO before raw material can be received.');return;} const qty=+(($('rcv_'+prId)&&$('rcv_'+prId).value))||0; const grn=((($('grn_'+prId)&&$('grn_'+prId).value))||'').trim(); const d=(($('rdt_'+prId)&&$('rdt_'+prId).value))||TODAY.toISOString().slice(0,10);
   if(!(qty>0)){toast('Enter received qty');return;} if(!grn){toast('Enter GRN #');return;}
   p.receipts=p.receipts||[]; p.receipts.push({date:d,grn,qty,by:state.role}); p.qtyReceived=(p.qtyReceived||0)+qty; state.rawStock[p.rm]=(state.rawStock[p.rm]||0)+qty;
   if(p.qtyReceived>=p.qtyRequired-0.001) p.status='closed';
   logAction(`GRN ${grn}: received ${fmt(qty)} Kg/L ${p.rm} (PR ${p.id} ${p.status})`);
   save(); toast(p.status==='closed'?'PR fully received — closed':'Partial receipt recorded'); openReceiveMaterials(); }
 /* Close/cancel a PR without full receipt — for "received enough" (e.g. got 1,500 of an over-stacked 3,000) or "cancelled — not receiving". Supply Chain / COO. Reason logged; reflects the closed PR at what was actually received so it stops blocking. */
-function closePR(prId){ if(!(canEdit(['Supply Chain'])||state.role==='COO')){toast('Supply Chain / COO only');return;} const p=(state.prs||[]).find(x=>x.id===prId); if(!p||p.status!=='open')return;
+function closePR(prId){ if(!may('pr.close')){toast(denyRight('pr.close','Closing a requisition'));return;} const p=(state.prs||[]).find(x=>x.id===prId); if(!p||p.status!=='open')return;
   const got=+p.qtyReceived||0; const left=Math.max(0,(+p.qtyRequired||0)-got);
   const msg=got>0?('Close PR for '+p.rm+'? Received '+fmt(got)+' of '+fmt(p.qtyRequired)+' Kg/L — the remaining '+fmt(left)+' will be dropped (no longer expected).'):('Cancel PR for '+p.rm+' with nothing received?');
   if(typeof confirm==='function' && !confirm(msg)) return;
@@ -8222,7 +8354,7 @@ function clientDestinations(client){ var m={}; var cl=String(client||'').trim().
 function clientTopDest(client){ var ds=clientDestinations(client); return ds.length?ds[0]:''; }
 /* Delivery confirmation window (own modal): confirm date + how delivery was verified (phone/email/text/other). */
 var delivForm=null;
-function openDeliveryConfirm(dispId){ if(!(canEdit(['Supply Chain'])||state.role==='COO')){toast('Supply Chain only');return;} var g=dispatchGroups().find(function(x){return x.dispId===dispId;}); if(!g){toast('Shipment not found');return;} if(g.qa==='pending'){toast('This shipment must pass pre-shipment inspection first');return;} if(g.qa==='fail'){toast('This shipment failed inspection — re-plan it');return;} delivForm={dispId:dispId,date:TODAY.toISOString().slice(0,10),via:'',note:'',rows:(state.shipments||[]).map(function(s,i){return {i:i,s:s};}).filter(function(x){return (x.s.dispId||'')===dispId && !x.s.delivered && !x.s.voided;}).map(function(x){return {idx:x.i,brand:x.s.brand||'',kg:(+x.s.kg||0),on:true};})}; renderDeliveryConfirm(); $('modalBg').classList.add('open'); }
+function openDeliveryConfirm(dispId){ if(!may('delivery.confirm')){toast(denyRight('delivery.confirm','Confirming a delivery'));return;} var g=dispatchGroups().find(function(x){return x.dispId===dispId;}); if(!g){toast('Shipment not found');return;} if(g.qa==='pending'){toast('This shipment must pass pre-shipment inspection first');return;} if(g.qa==='fail'){toast('This shipment failed inspection — re-plan it');return;} delivForm={dispId:dispId,date:TODAY.toISOString().slice(0,10),via:'',note:'',rows:(state.shipments||[]).map(function(s,i){return {i:i,s:s};}).filter(function(x){return (x.s.dispId||'')===dispId && !x.s.delivered && !x.s.voided;}).map(function(x){return {idx:x.i,brand:x.s.brand||'',kg:(+x.s.kg||0),on:true};})}; renderDeliveryConfirm(); $('modalBg').classList.add('open'); }
 function delivSet(k,v){ if(delivForm) delivForm[k]=v; }
 function delivToggle(idx){ if(!delivForm||!delivForm.rows)return; var r=delivForm.rows.find(function(x){return x.idx===idx;}); if(r)r.on=!r.on; }
 function renderDeliveryConfirm(){ var g=dispatchGroups().find(function(x){return x.dispId===delivForm.dispId;}); if(!g){closeModal();return;} var o=(state.orders||[]).find(function(x){return x.po===g.po;}); var via=['Phone call','Email','Text / WhatsApp message','Other'];
@@ -8233,7 +8365,7 @@ function renderDeliveryConfirm(){ var g=dispatchGroups().find(function(x){return
    +'<div class="fld"><label>Delivery confirmed via <span style="color:var(--red)">*</span></label><select onchange="delivSet(\'via\',this.value)"><option value="">— select —</option>'+via.map(function(v){return '<option'+(delivForm.via===v?' selected':'')+'>'+v+'</option>';}).join('')+'</select><div class="muted" style="font-size:10.5px;margin-top:4px">How did we verify the customer received it?</div></div>'
    +'<div class="fld fld-long"><label>Reference / note <span class="muted" style="font-weight:400">(required if “Other”)</span></label><textarea rows="3" oninput="delivSet(\'note\',this.value)" placeholder="e.g. spoke to Mr. Khan / POD #">'+_tx(delivForm.note)+'</textarea></div>'
    +'</div><div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" onclick="confirmDelivery()">Confirm delivered</button></div>'; }
-function confirmDelivery(){ if(!(canEdit(['Supply Chain'])||state.role==='COO')){toast('Supply Chain only');return;} if(!delivForm)return; var g=dispatchGroups().find(function(x){return x.dispId===delivForm.dispId;}); if(g&&g.dcStatus==='pending'){toast('DC is pending Plant Manager approval');return;} if(g&&g.qa==='pending'){toast('Must pass pre-shipment inspection first');return;} if(g&&g.qa==='fail'){toast('This shipment failed inspection');return;}
+function confirmDelivery(){ if(!may('delivery.confirm')){toast(denyRight('delivery.confirm','Confirming a delivery'));return;} if(!delivForm)return; var g=dispatchGroups().find(function(x){return x.dispId===delivForm.dispId;}); if(g&&g.dcStatus==='pending'){toast('DC is pending Plant Manager approval');return;} if(g&&g.qa==='pending'){toast('Must pass pre-shipment inspection first');return;} if(g&&g.qa==='fail'){toast('This shipment failed inspection');return;}
   if(!delivForm.via){toast('Select how delivery was confirmed');return;}
   if(delivForm.via==='Other'&&!String(delivForm.note||'').trim()){toast('Add a reference note for “Other”');return;}
   var d=delivForm.date||TODAY.toISOString().slice(0,10); var _tdy=TODAY.toISOString().slice(0,10); if(g&&g.date&&d<g.date){toast('Delivery date cannot be before the dispatch date ('+g.date+')');return;} if(d>_tdy){toast('Delivery date cannot be in the future');return;} var n=0;
@@ -8338,7 +8470,7 @@ function renderShipByPO(allGroups,ed){
    }).join('')+'</div>';
 }
 function screenShip(){
-  var ed=canEdit(['Supply Chain'])||state.role==='COO';
+  var ed=may('shipment.plan');   /* Supply Chain \u00b7 converted 25 Aug. Not live yet: answers exactly as canEdit did. */
   var rpos=readyPOs();
   var allGroups=dispatchGroups();
   var view=shipView||'ready';
@@ -8358,7 +8490,7 @@ function screenShip(){
     +'<div class="pdwrap">'+content+'</div></div></div>';
 }
 function screenShipOLD(){
-  const ed=canEdit(['Supply Chain']);
+  const ed=may('shipment.plan');   /* Supply Chain \u00b7 converted 25 Aug */
   const rpos=readyPOs();
   const blocked=[]; state.orders.forEach(o=>o.lines.forEach(l=>{ if(((l.packed||0)-Math.min(l.packed||0,lineQAPackedKg(o,l)))>0.5 && !l.deliveredDate) blocked.push({o,l}); }));
   const allGroups=dispatchGroups();
@@ -8428,7 +8560,7 @@ function renderShipModal(){ const o=state.orders.find(x=>x.id===shipForm.oid); c
      <div class="fld fld-long" style="grid-column:1 / -1"><label>Remarks</label><textarea rows="3" oninput="shipForm.remarks=this.value">${_tx(shipForm.remarks)}</textarea></div>
    </div></div>
    <div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button onclick="saveShip()">Save shipment</button></div>`; }
-function saveShip(){ if(!canEdit(['Supply Chain'])){toast('Supply Chain only');return;} const o=state.orders.find(x=>x.id===shipForm.oid); const l=o.lines.find(x=>x.id===shipForm.lid); const rem=Math.max(0, Math.min(l.packed||0, lineQAPackedKg(o,l)) - (l.dispatched||0));
+function saveShip(){ if(!may('shipment.plan')){toast(denyRight('shipment.plan','Recording a shipment'));return;} const o=state.orders.find(x=>x.id===shipForm.oid); const l=o.lines.find(x=>x.id===shipForm.lid); const rem=Math.max(0, Math.min(l.packed||0, lineQAPackedKg(o,l)) - (l.dispatched||0));
   const kg=Math.min(+shipForm.qty||0,rem); if(kg<=0){toast('Enter a valid qty');return;}
   state.shipments.unshift({id:_uid('SH'),po:o.po,brand:l.brand,kg,pack:(+l.pack||seedPackForBrand(l.brand)||0),dispatch:shipForm.date,destination:shipForm.dest,carrier:shipForm.carrier,vehicle:shipForm.vehicle,dc:shipForm.dc,bilty:shipForm.bilty,delivered:shipForm.delivered||null,remarks:shipForm.remarks,by:state.role});
   l.dispatched=(l.dispatched||0)+kg; l.dispatchDate=l.dispatchDate||shipForm.date;
@@ -9153,7 +9285,7 @@ function renderDispatchModal(){ const o=(state.orders||[]).find(x=>x.id===dispFo
      </div>
    </div>
    <div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" onclick="saveDispatch()">Record shipment</button></div>`; }
-function saveDispatch(){ if(!canEdit(['Supply Chain'])){toast('Supply Chain only');return;} const o=(state.orders||[]).find(x=>x.id===dispForm.oid); if(!o)return;
+function saveDispatch(){ if(!may('shipment.plan')){toast(denyRight('shipment.plan','Saving a dispatch'));return;} const o=(state.orders||[]).find(x=>x.id===dispForm.oid); if(!o)return;
   const sel=dispForm.lines.filter(r=>r.on&&(+r.qty||0)>0); if(!sel.length){toast('Tick at least one product with a quantity');return;}
   var _ctrlOn=dcControlOn(dispForm.date);
   const dc=_ctrlOn?nextDCNo():(dispForm.dc||'').trim();
@@ -9235,7 +9367,7 @@ function dispQASubmit(){ if(!(canEdit(['QA Inspector'])||state.role==='COO')){to
   if(anyFail){ rows.forEach(s=>{ s.voided=true; const o=(state.orders||[]).find(x=>x.po===s.po); const l=o&&(o.lines.find(x=>x.id===s.lid)||o.lines.find(x=>x.brand===s.brand)); if(l) l.dispatched=Math.max(0,(l.dispatched||0)-(+s.kg||0)); }); logAction(`Pre-shipment inspection FAILED — ${dispQAForm.dispId} (${rows[0].po}) — material returned to Ready to ship`); }
   else logAction(`Pre-shipment inspection PASSED — ${dispQAForm.dispId} (${rows[0].po}, ${fmt(rows.reduce((a,r)=>a+(+r.kg||0),0))} Kg/L) by ${qa.by}`);
   dispQAForm={dispId:null,marks:[],verify:[],officer:'',remarks:'',date:evToday(),dateReason:''}; save(); closeModal(); render(); toast(anyFail?'Inspection failed — returned to ready':'Inspection passed'); }
-function markDelivered(dispId,date){ if(!canEdit(['Supply Chain'])){toast('Supply Chain only');return;} const grp=dispatchGroups().find(x=>x.dispId===dispId); if(grp&&grp.qa==='pending'){toast('This shipment must pass pre-shipment inspection first');return;} if(grp&&grp.qa==='fail'){toast('This shipment failed inspection — re-plan it');return;} if(grp&&!(grp.stageNow==='in_transit'||grp.stageNow==='delivered')){toast('This truck must be released and in transit before it can be marked delivered');return;} const d=date||TODAY.toISOString().slice(0,10); let n=0;
+function markDelivered(dispId,date){ if(!may('delivery.confirm')){toast(denyRight('delivery.confirm','Marking a shipment delivered'));return;} const grp=dispatchGroups().find(x=>x.dispId===dispId); if(grp&&grp.qa==='pending'){toast('This shipment must pass pre-shipment inspection first');return;} if(grp&&grp.qa==='fail'){toast('This shipment failed inspection — re-plan it');return;} if(grp&&!(grp.stageNow==='in_transit'||grp.stageNow==='delivered')){toast('This truck must be released and in transit before it can be marked delivered');return;} const d=date||TODAY.toISOString().slice(0,10); let n=0;
   (state.shipments||[]).forEach(s=>{ if((s.dispId||'')===dispId && !s.delivered){ s.delivered=d; const o=(state.orders||[]).find(x=>x.po===s.po); const l=o&&(o.lines.find(x=>x.id===s.lid)||o.lines.find(x=>x.brand===s.brand)); if(l){ l.delivered=(l.delivered||0)+(+s.kg||0); l.deliveredDate=d; } n++; } });
   if(!n){toast('Already delivered');return;}
   logAction(`Delivered ${dispId} on ${d} (${n} line(s))`); save(); render(); toast('Marked delivered'); }
@@ -9250,7 +9382,7 @@ var TRUCK_SIZES=[{k:'parcel',label:'Small parcel',cap:200},{k:'1t',label:'Small 
 function truckCap(k){ var t=TRUCK_SIZES.find(function(x){return x.k===k;}); return t?t.cap:0; }
 function readyPOsForClient(client){ return readyPOs().filter(function(g){return (g.o.client||'')===client;}); }
 var mpForm=null;
-function mpStart(client){ if(!(canEdit(['Supply Chain'])||state.role==='COO')){toast('Supply Chain only');return;}
+function mpStart(client){ if(!may('shipment.plan')){toast(denyRight('shipment.plan','Planning a truck'));return;}
   var gs=readyPOsForClient(client); if(!gs.length){toast('Nothing QC-cleared and ready for this customer');return;}
   mpForm={client:client,date:TODAY.toISOString().slice(0,10),dest:(clientTopDest(client)||''),transportType:'',truckSize:'',carrier:'',vehicle:'',bilty:'',driver:'',driverContact:'',seal:'',remarks:'',
     step:1,
@@ -9331,7 +9463,7 @@ function renderMPShip(){ if(!mpForm){closeModal();return;} var f=mpForm; var ste
   $('modal').innerHTML='<div class="mh" style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px"><div><h2>Start shipment · '+shortClient(f.client)+'</h2><div class="sub">'+fmt(selKg)+' Kg/L · '+nOrd+' order(s) · '+(_av(f.dest)||'destination not set')+'</div></div><button class="ghost" onclick="closeModal()" aria-label="Close" style="font-size:15px;line-height:1;padding:6px 12px;border-radius:9px">✕</button></div>'
    +'<div class="mb">'+stepper+body+'</div>'
    +'<div class="mf" style="justify-content:stretch">'+foot+'</div>'; }
-function mpCreate(){ if(!(canEdit(['Supply Chain'])||state.role==='COO')){toast('Supply Chain only');return;} var f=mpForm; if(!f)return;
+function mpCreate(){ if(!may('shipment.plan')){toast(denyRight('shipment.plan','Creating a truck plan'));return;} var f=mpForm; if(!f)return;
   var sel=mpSelLines(); if(!sel.length){toast('Tick at least one product with a quantity');return;}
   if(!String(f.transportType||'').trim()){toast('Select a Transport type (Ex-factory / VAN-delivered)');return;}
   if(!String(f.truckSize||'').trim()){toast('Pick a truck size');return;}
@@ -9364,8 +9496,8 @@ function mpCreate(){ if(!(canEdit(['Supply Chain'])||state.role==='COO')){toast(
 /* Gate Pass serial — continues its own running number, like the DC serial. */
 function nextGatePassNo(){ var mx=0; (state.shipments||[]).forEach(function(s){ if(!s||s.voided)return; var n=parseInt(String(s.gatePass||'').replace(/\D/g,''),10); if(!isNaN(n)&&n>mx)mx=n; }); return 'GP-'+('0000'+(mx+1)).slice(-4); }
 function shipRowsOf(dispId){ return (state.shipments||[]).filter(function(s){return (s.dispId||'')===dispId && !s.voided;}); }
-function startLoading(dispId){ if(!(canEdit(['Supply Chain'])||state.role==='COO')){toast('Supply Chain only');return;} var rows=shipRowsOf(dispId); if(!rows.length)return; if(rows[0].stage!=='truck_planned'){toast('Loading can only start on a Truck Planned shipment');return;} var d=TODAY.toISOString().slice(0,10); rows.forEach(function(s){ s.stage='loading'; s.loadStarted=d; }); logAction('Loading started — DC '+(rows[0].dc||'')+' ('+dispId+')'); save(); render(); toast('Loading started'); }
-function issueGatePass(dispId){ if(!(canEdit(['Supply Chain'])||state.role==='COO')){toast('Supply Chain only');return;} var rows=shipRowsOf(dispId); if(!rows.length)return; if(rows[0].stage!=='loading'){toast('Start loading before issuing the Gate Pass');return;} if(rows[0].gatePass){toast('Gate Pass already issued: '+rows[0].gatePass);return;} var gp=nextGatePassNo(); rows.forEach(function(s){ s.gatePass=gp; }); logAction('Gate Pass '+gp+' issued — DC '+(rows[0].dc||'')+' ('+dispId+')'); save(); render(); toast('Gate Pass '+gp+' issued'); }
+function startLoading(dispId){ if(!may('shipment.load')){toast(denyRight('shipment.load','Starting loading'));return;} var rows=shipRowsOf(dispId); if(!rows.length)return; if(rows[0].stage!=='truck_planned'){toast('Loading can only start on a Truck Planned shipment');return;} var d=TODAY.toISOString().slice(0,10); rows.forEach(function(s){ s.stage='loading'; s.loadStarted=d; }); logAction('Loading started — DC '+(rows[0].dc||'')+' ('+dispId+')'); save(); render(); toast('Loading started'); }
+function issueGatePass(dispId){ if(!may('gatepass.issue')){toast(denyRight('gatepass.issue','Issuing a Gate Pass'));return;} var rows=shipRowsOf(dispId); if(!rows.length)return; if(rows[0].stage!=='loading'){toast('Start loading before issuing the Gate Pass');return;} if(rows[0].gatePass){toast('Gate Pass already issued: '+rows[0].gatePass);return;} var gp=nextGatePassNo(); rows.forEach(function(s){ s.gatePass=gp; }); logAction('Gate Pass '+gp+' issued — DC '+(rows[0].dc||'')+' ('+dispId+')'); save(); render(); toast('Gate Pass '+gp+' issued'); }
 /* Plant Manager release = approval. Requires the Gate Pass to be issued (DC is already auto-generated).
    On release: stage → in_transit, DC approved, and the dispatched quantity is counted (deferred until now). */
 function approveRelease(dispId){ if(!hardRole(['Plant Manager'])){ toast('Plant Manager / COO releases the truck'); return; } var rows=shipRowsOf(dispId); if(!rows.length)return; if(rows[0].stage!=='loading'){ toast('Truck must be in Loading before release'); return; } if(!rows[0].gatePass && dcControlOn(rows[0].dispatch||TODAY.toISOString().slice(0,10))){ toast('Issue the Gate Pass before release'); return; }
@@ -9401,7 +9533,7 @@ function cancelShip(dispId){ if(!(canEdit(['Supply Chain','Plant Manager'])||sta
 let shipEditForm=null;
 function _av(x){ return String(x==null?'':x).replace(/&/g,'&amp;').replace(/"/g,'&quot;'); }
 function shipRowsByKey(key){ if(typeof key==='string' && key.indexOf('idx:')===0){ const n=+key.slice(4); const s=(state.shipments||[])[n]; return s?[s]:[]; } return (state.shipments||[]).filter(s=>(s.dispId||'')===key); }
-function openShipEdit(key){ if(!(canEdit(['Supply Chain'])||state.role==='COO')){toast('Supply Chain only');return;}
+function openShipEdit(key){ if(!may('shipment.plan')){toast(denyRight('shipment.plan','Editing a shipment'));return;}
   const rows=shipRowsByKey(key); if(!rows.length){toast('Shipment not found');return;} const g0=rows[0];
   shipEditForm={ rows:rows.map(s=>{ const o=(state.orders||[]).find(x=>x.po===s.po); const l=o&&(o.lines.find(x=>x.id===s.lid)||o.lines.find(x=>x.brand===s.brand)); return {s,l,kg:(+s.kg||0)}; }),
     date:g0.dispatch||'', dest:g0.destination||'', carrier:g0.carrier||'', vehicle:g0.vehicle||'', dc:g0.dc||'', bilty:g0.bilty||'',
@@ -9429,7 +9561,7 @@ function renderShipEdit(){ const f=shipEditForm; if(!f){closeModal();return;} co
      <div class="muted" style="font-size:11px;margin-top:10px">Corrects this saved shipment. Reducing the Kg/L returns the difference to <b>Ready to ship</b>; the order&rsquo;s dispatched &amp; delivered totals are recomputed automatically.</div>
    </div>
    <div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" onclick="saveShipEdit()">Save changes</button></div>`; }
-function saveShipEdit(){ if(!(canEdit(['Supply Chain'])||state.role==='COO')){toast('Supply Chain only');return;}
+function saveShipEdit(){ if(!may('shipment.plan')){toast(denyRight('shipment.plan','Editing a shipment'));return;}
   const f=shipEditForm; if(!f){closeModal();return;} const dd=f.delivered?(f.deliveredDate||TODAY.toISOString().slice(0,10)):null;
   if(dd){ var _t=TODAY.toISOString().slice(0,10); if(f.date&&dd<f.date){toast('Delivered date cannot be before the dispatch date');return;} if(dd>_t){toast('Delivered date cannot be in the future');return;} }
   if(f.dc){ var _thisDisp=(f.rows[0]&&f.rows[0].s.dispId)||''; var _dupe=(state.shipments||[]).some(function(s){ return s && !s.voided && (s.dispId||'')!==_thisDisp && String(s.dc||'')===String(f.dc); }); if(_dupe && !(typeof confirm==='function'&&confirm('DC '+f.dc+' is already used by another shipment. Save with a duplicate DC anyway?'))) return; }
@@ -10104,18 +10236,63 @@ function rightTick(roleName,code,on){
   toast((on?'Granted — ':'Removed — ')+((rightByCode(code)||{}).name||code)+' \u00b7 '+roleName
         +(live?'':'. Takes effect when this right goes live.'));
 }
-/* THE DRIFT WARNING. rightsFreezeCheck() proves that switching a right live
-   changes nobody's answer. Proving it in a test file and never showing it to
-   anybody is how it stops being true: this puts it on the screen where the
-   decision is actually taken. */
-function authDriftBanner(){ var bad=[]; try{ bad=rightsFreezeCheck(); }catch(e){ bad=['could not be checked: '+e.message]; }
-  if(!bad.length) return '<div class="muted" style="font-size:11.5px;margin-bottom:8px">'
-    +'\u2713 Checked: switching any of these rights on today would change nobody\u2019s access.</div>';
+/* THE DRIFT WARNING. rightsFreezeCheck() proves that every tick matches what
+   that role can do on the screen the job belongs to. It does NOT prove that
+   nobody loses anything — for a canEdit right, whoever can reach the same button
+   from another screen loses it at go-live, and that is authLoopholeBanner's job,
+   printed directly underneath. The two are read together or not at all. */
+function authDriftBanner(deptId){ var bad=[]; try{ bad=rightsFreezeCheck(); }catch(e){ bad=['could not be checked: '+e.message]; }
+  if(!bad.length){
+    /* The clean message has to say what it actually proves. rightsFreezeCheck
+       compares each tick against what that role can do ON THE JOB'S OWN SCREEN.
+       For a canEdit right that is only half the picture, and the other half is
+       printed immediately below — so a flat "nobody's access changes" here would
+       contradict the loophole list three lines down, which is exactly what the
+       COO reads before deciding whether to switch a right on. */
+    /* Fail CLOSED. If the loophole check throws, the honest answer is "I could
+       not check", never the clean sentence — that sentence is the one a previous
+       version printed while people were quietly losing access. */
+    var loop=0, loopErr=false;
+    try{ loop=screenLoopholes().filter(function(x){ var r=rightByCode(x.code); return !deptId||(r&&r.dept===deptId); }).length; }
+    catch(e){ loopErr=true; }
+    if(loopErr) return '<div class="banner warn" style="margin-bottom:10px">'
+      +'Every tick matches what that role can do on the screen the job belongs to \u2014 but the check for '
+      +'people who reach these buttons from ANOTHER screen could not be run. Do not switch anything on until it can.</div>';
+    return '<div class="muted" style="font-size:11.5px;margin-bottom:8px">'
+      +'\u2713 Checked: every tick matches what that role can do on the screen the job belongs to.'
+      +(loop?' <b>But see below</b> \u2014 some people can reach these buttons from another screen, and they DO lose that.'
+            :' Switching any of these rights on today would change nobody\u2019s access.')+'</div>'; }
   return '<div class="banner warn" style="margin-bottom:10px"><b>'+bad.length+' tick'+(bad.length===1?' does':'s do')
     +' not match what the app does today.</b> Each one is a change that takes effect the moment that right goes '
     +'live \u2014 fine if you meant it, worth a second look if you did not:<div style="font-size:11px;margin-top:6px">'
     +bad.slice(0,12).map(_pe).join('<br>')+(bad.length>12?('<br>and '+(bad.length-12)+' more'):'')+'</div></div>'; }
 
+/* What changes when a canEdit right goes live, in words. These roles can do the
+   job today ONLY because some other screen gives them Edit.
+   Do NOT read this as theoretical. Supply Chain buttons are rendered on THREE
+   screens, not one — Shipments, My Actions, and Production's "stuck / blocked"
+   list, which is not filtered by role. On the data
+   on record that last one means a QA INSPECTOR standing on Production can press
+   Receive and book raw material into stock, because he holds Edit on Production;
+   the Supply Chain officer beside him cannot, because he does not. That is true
+   today, before this change, and it is what these rights fix. */
+function authLoopholeBanner(deptId){
+  var L=[]; try{ L=screenLoopholes(); }catch(e){ return ''; }
+  L=L.filter(function(x){ var r=rightByCode(x.code); return r&&r.dept===deptId; });
+  if(!L.length) return '';
+  var byRole={}; L.forEach(function(x){ (byRole[x.role]=byRole[x.role]||[]).push(x); });
+  var names=Object.keys(byRole);
+  var scrName=function(id){ var sc=(typeof scr==='function')?scr(id):null; return (sc&&sc.name)||id; };
+  return '<div class="banner warn" style="margin-bottom:10px"><b>'+names.length+' role'+(names.length===1?'':'s')
+    +' can do this work today only because of another screen.</b> '
+    +'These gates ask the access matrix about whichever screen the person happens to be on, not about the job. '
+    +'Switching these rights on ends that \u2014 which is the point, but it is a change, so here is exactly who:'
+    +'<div style="font-size:11px;margin-top:6px">'
+    +names.slice(0,10).map(function(rn){ var scrs=[]; byRole[rn].forEach(function(x){ x.screens.forEach(function(sd){ if(scrs.indexOf(sd)<0) scrs.push(sd); }); });
+        return '<b>'+_pe(rn)+'</b> \u2014 '+byRole[rn].length+' right'+(byRole[rn].length===1?'':'s')
+          +', via '+scrs.map(scrName).map(_pe).join(', '); }).join('<br>')
+    +(names.length>10?('<br>and '+(names.length-10)+' more'):'')
+    +'</div></div>'; }
 function authCard(){
   var isCOO=state.role==='COO';
   var deps=((state.masters&&state.masters.departments)||[]);
@@ -10136,8 +10313,12 @@ function authCard(){
      role that holds one of these rights gets a column, marked as a guest. */
   var inDept=rolesOfState().filter(function(r){ return r&&r.name!=='COO'&&roleDeptId(r.name)===d.id; })
     .map(function(r){return r.name;});
+  /* mayHere, not mayRole. authCard only ever renders from the Admin screen, and
+     mayRole answers the OLD rule — which for a canEdit right depends on the screen
+     the person is standing on. Asking it from Admin said the Supply Chain team
+     cannot plan a shipment, which they do every day. */
   var holders=rolesOfState().filter(function(r){ return r&&r.name!=='COO'
-      && rights.some(function(rt){ return mayRole(r.name,rt.code); }); })
+      && rights.some(function(rt){ return mayHere(r.name,rt.code); }); })
     .map(function(r){return r.name;});
   var roles=inDept.slice();
   holders.forEach(function(rn){ if(roles.indexOf(rn)<0) roles.push(rn); });
@@ -10192,7 +10373,7 @@ function authCard(){
      when today's answer is still different. */
   var cell=function(rn,code){
     var stored=(rn==='COO')||(roleRightsOf(rn)[code]===true);
-    var today=mayRole(rn,code);
+    var today=mayHere(rn,code);   /* see the note on `holders` above */
     var why=grantRefusal(state.role,rn,code);
     if(!why && stored===false){ var sep=separationRefusal(rn,code); if(sep) why=sep; }
     var clickable=!why;
@@ -10234,7 +10415,7 @@ function authCard(){
      and would quietly disagree the moment Quality lands. */
   var pendingN=0;
   roles.filter(function(rn){return rn!=='COO';}).forEach(function(rn){ rights.forEach(function(r){
-    var stored=(roleRightsOf(rn)[r.code]===true); if(stored!==mayRole(rn,r.code)) pendingN++; }); });
+    var stored=(roleRightsOf(rn)[r.code]===true); if(stored!==mayHere(rn,r.code)) pendingN++; }); });
   var guests=roles.filter(isGuest);
   var foot=(guests.length?('<div class="muted" style="font-size:11.5px;margin-top:10px">'
       +'<b>'+guests.map(_pe).join(', ')+'</b> '+(guests.length===1?'is':'are')+' not in this department but already '
@@ -10254,7 +10435,7 @@ function authCard(){
      collapse itself every time you clicked a tab. */
   return acard('authpanel','Authorisation','departments \u00b7 roles \u00b7 rights'
     +(isCOO?' \u00b7 you are the COO, you can tick anything':(isDeptLead(state.role)?' \u00b7 you lead '+((deptById(roleDeptId(state.role))||{}).name||''):' \u00b7 read-only for you')),
-    tabs+head+authDriftBanner()+unfiledBlock+table+foot);
+    tabs+head+authDriftBanner(d.id)+authLoopholeBanner(d.id)+unfiledBlock+table+foot);
 }
 
 function accessMatrixCard(){ const isCOO=state.role==='COO';

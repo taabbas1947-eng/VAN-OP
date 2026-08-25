@@ -113,7 +113,7 @@ function grabTopVar(name, open) {
 const AUTH_MODEL_FNS = ['rightByCode', 'rightsOfDept', 'deptById', 'rolesOfState',
   'roleByName', 'roleIdOf', 'roleDeptId', 'deptLeadRole', 'isDeptLead', 'rolesInDept',
   'roleRightsOf', 'mayLegacyRole', 'mayRole', 'may', 'whoMayRight', 'whoCanGrant', 'denyRight',
-  'rightsFreezeCheck', 'seedAnswer', 'seedDeptRightsV1', 'resyncScreenRights', 'rightDecided', 'markRightDecided', 'accessLevelOn', 'grantRefusal', 'separationRefusal', 'rolesUnfiled'];
+  'rightsFreezeCheck', '_canEditOn', 'rightAnswerToday', 'mayHere', 'screenLoopholes', 'seedAnswer', 'seedDeptRightsV1', 'resyncScreenRights', 'rightDecided', 'markRightDecided', 'accessLevelOn', 'grantRefusal', 'separationRefusal', 'rolesUnfiled'];
 function authModelSrc() {
   return ['DEPTS', 'ROLE_DEPT', 'RIGHTS', 'SEPARATION'].map(n => grabTopVar(n, n === 'ROLE_DEPT' ? '{' : '[')).join('\n')
        + grabTopVar('RIGHTS_LIVE', '{') + '\n'

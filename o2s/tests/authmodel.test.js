@@ -29,7 +29,12 @@ const SCREENS_SRC = (function () {
 })();
 function mk(roleName) {
   const b = { console, JSON, Date,
-    state: { role: roleName || 'COO', users: [],
+    /* screen:'admin' because that is where the Authorisation card renders, and
+       the app can never be in a state with no screen (render() forces one). The
+       panel defect that survived four review rounds survived because this
+       sandbox had no screen at all, so mayRole answered a question the running
+       app never asks. */
+    state: { role: roleName || 'COO', screen: 'admin', users: [],
              masters: JSON.parse(JSON.stringify(STATE.masters)) } };
   b.globalThis = b;
   vm.createContext(b);
@@ -84,8 +89,12 @@ const asRole = r => { B.state.role = r; };
      B.roleDeptId('Supply Chain') === 'supply-chain' && B.roleDeptId('Supply Chain Officer') === 'supply-chain');
   ok('every right belongs to a department that exists',
      B.RIGHTS.every(r => !!B.deptById(r.dept)));
-  ok('only Commercial is converted so far',
-     B.RIGHTS.every(r => r.dept === 'commercial'), JSON.stringify(B.RIGHTS.map(r => r.dept)));
+  ok('two departments are converted: Commercial and Supply Chain',
+     B.RIGHTS.every(r => r.dept === 'commercial' || r.dept === 'supply-chain')
+     && B.RIGHTS.some(r => r.dept === 'supply-chain'), JSON.stringify(B.RIGHTS.map(r => r.dept)));
+  /* The sign-offs are NOT in the catalogue and must never be. */
+  ['dc.approve', 'dc.reject', 'shipment.release', 'batch.reopen', 'coa.approve']
+    .forEach(c => ok('sign-off NOT converted: ' + c, !B.rightByCode(c)));
   ok('and nothing is live yet — this is what makes the conversion safe',
      Object.keys(B.RIGHTS_LIVE).length === 0, JSON.stringify(B.RIGHTS_LIVE));
 }
@@ -98,20 +107,51 @@ const asRole = r => { B.state.role = r; };
    before the change. mayWork(x) was accessLevel(role,x)==='edit';
    hardRole([r]) was role==='COO'||role===r; ackOrder had no check at all. */
 {
+  function OLDCANEDIT(role, owners) {
+    if (role === 'COO') return true;
+    const m = (B.state.masters && B.state.masters.accessMatrix) || {};
+    const o = (m[role] && m[role][B.state.screen]) || null;
+    if (o) { if (o.e === true) return true; if (o.e === false) return false; }
+    return owners.indexOf(role) >= 0;
+  }
   const OLD = {
     'order.create':         r => B.accessLevel(r, 'entry') === 'edit',
     'order.print_decision': r => B.accessLevel(r, 'entry') === 'edit',
     'order.acknowledge':    () => true,
     'customer.create':      r => r === 'COO' || r === 'KAM',
     'customer.amend':       r => r === 'COO' || r === 'KAM',
+    /* Supply Chain's gates were canEdit(['Supply Chain']), which is: the COO
+       always; otherwise the access matrix override for WHICHEVER SCREEN the
+       person is standing on, if it has an opinion; otherwise the owners list.
+       Written out here because this file is the record of what the app did. */
+    'shipment.plan':        r => OLDCANEDIT(r, ['Supply Chain']),
+    'shipment.load':        r => OLDCANEDIT(r, ['Supply Chain']),
+    'gatepass.issue':       r => OLDCANEDIT(r, ['Supply Chain']),
+    'delivery.confirm':     r => OLDCANEDIT(r, ['Supply Chain']),
+    'rm.receive':           r => OLDCANEDIT(r, ['Supply Chain']),
+    'pr.close':             r => OLDCANEDIT(r, ['Supply Chain']),
   };
   eq('every right in the catalogue has its old check written down here',
      B.RIGHTS.filter(r => !OLD[r.code]).length, 0);
-  B.RIGHTS.forEach(rt => {
-    ROLES.forEach(r => {
-      eq('unchanged: ' + r + ' · ' + rt.code, B.mayRole(r, rt.code), OLD[rt.code](r));
+  /* Checked ON EVERY SCREEN, because the old canEdit rule gives a different
+     answer depending on where the person is standing — and reproducing that
+     exactly, screen by screen, is the whole claim. */
+  const SCRIDS = B.SCREENS.map(x => x.id).concat([undefined]);
+  let checked = 0;
+  SCRIDS.forEach(sid => {
+    B.state.screen = sid;
+    B.RIGHTS.forEach(rt => {
+      ROLES.forEach(r => {
+        checked++;
+        const got = B.mayRole(r, rt.code), want = OLD[rt.code](r);
+        if (got !== want) fail++, fails.push('CHANGED on screen ' + sid + ': ' + r + ' · ' + rt.code
+          + ' now ' + got + ', was ' + want);
+        else pass++;
+      });
     });
   });
+  B.state.screen='admin';
+  ok('...and that was every right, every role, on every screen', checked > 1500, 'checked ' + checked);
 }
 
 /* 2b. And it STAYS unchanged when the right is switched on, because the grants
@@ -121,12 +161,31 @@ const asRole = r => { B.state.role = r; };
   eq('the freeze check is clean — no role gains or loses anything when a right goes live',
      B.rightsFreezeCheck().join(' | '), '');
 
-  /* Actually switch them all on and compare, role by role. */
-  const before = ROLES.map(r => B.RIGHTS.map(rt => B.mayRole(r, rt.code)).join(','));
+  /* Switch them all on and compare — using the SCREEN-INDEPENDENT answer, which
+     is what a right means once it is live. (mayRole answers the old rule exactly,
+     and for the Supply Chain rights that rule depends on the screen the person is
+     standing on. Comparing a screen-dependent answer against a screen-independent
+     one is comparing two different questions; the thing that must not change is
+     what each role can do ON THE SCREEN WHERE THE JOB IS DONE.) */
+  const before = ROLES.map(r => B.RIGHTS.map(rt => B.mayHere(r, rt.code)).join(','));
   B.RIGHTS.forEach(rt => { B.RIGHTS_LIVE[rt.code] = true; });
-  const after = ROLES.map(r => B.RIGHTS.map(rt => B.mayRole(r, rt.code)).join(','));
+  const after = ROLES.map(r => B.RIGHTS.map(rt => B.mayHere(r, rt.code)).join(','));
   ROLES.forEach((r, i) => eq('switching every right live changes nothing for ' + r, after[i], before[i]));
   B.RIGHTS.forEach(rt => { delete B.RIGHTS_LIVE[rt.code]; });
+
+  /* And on the screen each job actually lives on, the real gate is unchanged too. */
+  B.RIGHTS.forEach(rt => {
+    const nat = (rt.legacy || {}).scr; if (!nat) return;
+    B.state.screen = nat;
+    ROLES.forEach(r => {
+      const live = B.mayRole(r, rt.code);
+      B.RIGHTS_LIVE[rt.code] = true;
+      eq('on its own screen (' + nat + '), going live changes nothing: ' + r + ' · ' + rt.code,
+         B.mayRole(r, rt.code), live);
+      delete B.RIGHTS_LIVE[rt.code];
+    });
+  });
+  B.state.screen='admin';
 }
 
 /* 2c. Customer Master is still as locked as it was — the whole point of the
@@ -492,7 +551,7 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
       usersList: [{ name: 'ahmed', role: 'Sales Officer' }, { name: 'bilal', role: 'Sales Officer' }], acard: (k, t, h, body) => '<CARD ' + k + '>' + body + '</CARD>',
       _pe: x => String(x == null ? '' : x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'),
     });
-    vm.runInContext(['_at', 'screenEditOK', 'accessLevel', 'authRepaint', 'rightTickById', 'rightTick', 'authPick', 'authDriftBanner', 'authCard']
+    vm.runInContext(['_at', 'screenEditOK', 'accessLevel', 'authRepaint', 'rightTickById', 'rightTick', 'authPick', 'authDriftBanner', 'authLoopholeBanner', 'authCard']
                     .map(H.grab).join('\n\n'), b);
     b.state.masters.accessMatrix[role] = b.state.masters.accessMatrix[role] || {};
     if (role !== 'COO') b.state.masters.accessMatrix[role].admin = { v: true, e: false };
@@ -739,7 +798,7 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
     acOpen: {}, authDept: 'commercial', $: () => null, usersList: [],
     acard: (k, t, h, body) => '<CARD>' + body + '</CARD>',
     _pe: x => String(x == null ? '' : x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') });
-  vm.runInContext(['_at', 'screenEditOK', 'accessLevel', 'authRepaint', 'rightTickById', 'rightTick', 'authPick', 'authDriftBanner', 'authCard']
+  vm.runInContext(['_at', 'screenEditOK', 'accessLevel', 'authRepaint', 'rightTickById', 'rightTick', 'authPick', 'authDriftBanner', 'authLoopholeBanner', 'authCard']
                   .map(H.grab).join('\n\n'), b);
   const html = b.authCard();
   ok('setting up: the Plant Manager really does hold order.create',
@@ -767,7 +826,7 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
       state: Object.assign(b.state, { users: [{ name: 'ghost', role: 'KAM' }, { name: 'ghost2', role: 'KAM' }] }),
       acard: (k, t, h, body) => '<CARD>' + body + '</CARD>',
       _pe: x => String(x == null ? '' : x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') });
-    vm.runInContext(['_at', 'screenEditOK', 'accessLevel', 'authRepaint', 'rightTickById', 'rightTick', 'authPick', 'authDriftBanner', 'authCard']
+    vm.runInContext(['_at', 'screenEditOK', 'accessLevel', 'authRepaint', 'rightTickById', 'rightTick', 'authPick', 'authDriftBanner', 'authLoopholeBanner', 'authCard']
                     .map(H.grab).join('\n\n'), b);
     return b.authCard();
   }
@@ -897,7 +956,7 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
       acOpen: {}, authDept: 'commercial', $: () => null, usersList: [],
       acard: (k, t, h, body) => '<CARD>' + body + '</CARD>',
       _pe: x => String(x == null ? '' : x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') });
-    vm.runInContext(['_at', 'screenEditOK', 'accessLevel', 'authRepaint', 'rightTickById', 'rightTick', 'authPick', 'authDriftBanner', 'authCard']
+    vm.runInContext(['_at', 'screenEditOK', 'accessLevel', 'authRepaint', 'rightTickById', 'rightTick', 'authPick', 'authDriftBanner', 'authLoopholeBanner', 'authCard']
                     .map(H.grab).join('\n\n'), b);
     return b;
   }
@@ -978,7 +1037,7 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
     acOpen: {}, authDept: 'commercial', $: () => null, usersList: [],
     acard: (k, t, h, body) => '<CARD>' + body + '</CARD>',
     _pe: x => String(x == null ? '' : x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') });
-  vm.runInContext(['_at', 'screenEditOK', 'accessLevel', 'authRepaint', 'rightTickById', 'rightTick', 'authPick', 'authDriftBanner', 'authCard']
+  vm.runInContext(['_at', 'screenEditOK', 'accessLevel', 'authRepaint', 'rightTickById', 'rightTick', 'authPick', 'authDriftBanner', 'authLoopholeBanner', 'authCard']
                   .map(H.grab).join('\n\n'), c);
   const html = c.authCard();
   ok('an archived role holding a right is shown', /Supply Chain Officer/.test(html));
@@ -1028,6 +1087,466 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
        JSON.stringify(b.state.masters.roleRights), before);
     ok('...and says so', b.toasts.some(t => /Unknown role/.test(t)), JSON.stringify(b.toasts));
   }
+}
+
+/* ================= 23. Supply Chain: converted, and the sign-offs are not ================= */
+{
+  const b = mk('COO');
+  const SC = b.RIGHTS.filter(r => r.dept === 'supply-chain').map(r => r.code);
+  eq('six Supply Chain rights', SC.length, 6);
+  ok('all six carry the canEdit rule they replaced, with the screen the job lives on',
+     b.RIGHTS.filter(r => r.dept === 'supply-chain')
+      .every(r => r.legacy.kind === 'canEdit' && r.legacy.owners.join() === 'Supply Chain' && !!r.legacy.scr),
+     JSON.stringify(b.RIGHTS.filter(r => r.dept === 'supply-chain').map(r => r.legacy)));
+
+  /* The gates really were converted, and the sign-offs really were not. */
+  [['saveShip', 'shipment.plan'], ['saveDispatch', 'shipment.plan'], ['mpCreate', 'shipment.plan'],
+   ['saveShipEdit', 'shipment.plan'], ['startLoading', 'shipment.load'],
+   ['issueGatePass', 'gatepass.issue'], ['confirmDelivery', 'delivery.confirm'],
+   ['markDelivered', 'delivery.confirm'], ['receivePR', 'rm.receive'],
+   ['rmReceiveSubmit', 'rm.receive'], ['closePR', 'pr.close']].forEach(([fn, code]) =>
+    ok('GUARD: ' + fn + ' asks may(\'' + code + '\')',
+       new RegExp("may\\('" + code.replace('.', '\\.') + "'\\)").test(H.grab(fn)), H.grab(fn).slice(0, 100)));
+
+  /* THE LINE THAT MUST NOT BE CROSSED. A delivery challan is approved by a second
+     person, and a loaded truck is released by a second person. Those are the
+     2026-07-30 incident. They stay on hardRole and out of the catalogue. */
+  [['approveDC', 'Plant Manager'], ['rejectDC', 'Plant Manager'], ['approveRelease', 'Plant Manager']]
+    .forEach(([fn, role]) => {
+      const body = H.grab(fn);
+      ok('SIGN-OFF still hard-gated: ' + fn,
+         new RegExp("hardRole\\(\\['" + role + "'\\]\\)").test(body), body.slice(0, 120));
+      ok('SIGN-OFF not converted by mistake: ' + fn + ' asks for no right',
+         !/(^|[^\w])may\(/.test(body), body.slice(0, 120));
+    });
+  /* And the gate pass still has to be issued before release — the two are a pair,
+     one converted and one not, so this is worth pinning. */
+  ok('a Gate Pass is still required before the truck is released',
+     /gatePass/.test(H.grab('approveRelease')) && /Issue the Gate Pass before release/.test(H.grab('approveRelease')));
+
+  /* The people who can actually do the job, read off the live matrix. */
+  eq('who may plan a shipment', b.whoMayRight('shipment.plan').join(', '),
+     'Supply Chain, Plant Manager, COO, Supply Chain Officer');
+  eq('who may receive raw material', b.whoMayRight('rm.receive').join(', '),
+     'Supply Chain, Plant Manager, COO');
+  ok('Zain\'s two role names are both in Supply Chain, so one lead covers both',
+     b.roleDeptId('Supply Chain') === 'supply-chain' && b.roleDeptId('Supply Chain Officer') === 'supply-chain');
+}
+
+/* ================= 24. the loophole the conversion closes, named out loud ================= */
+/* canEdit() asks the matrix about whichever screen the person is standing on.
+   Seven roles hold an explicit Edit override on Reports, and each therefore
+   satisfies canEdit(['Supply Chain']) while standing there. (Owning a screen is
+   not enough — KAM, Production and the Plant Manager own Reports but hold no
+   override, so they do not qualify that way. Getting that mechanism wrong is how
+   this comment previously said five.)
+   And it is NOT only a hole in the rule: the same actions are rendered from My
+   Actions, the Dashboard and Production's stuck list, so people do reach them
+   while standing elsewhere. The QA Inspector case below is a live one. */
+{
+  const b = mk('COO');
+  const L = b.screenLoopholes();
+  ok('the loophole really exists on the data on record', L.length > 0);
+  const roles = [...new Set(L.map(x => x.role))];
+  /* ONLY the reachable ones. The first cut listed 44 authorities across 8 roles
+     of which 2 were real — it told the COO that Finance, the CFO and three lab
+     roles could plan shipments and issue gate passes, none of which they can,
+     because no such button is rendered anywhere they can go. The safe-looking
+     response to a warning like that is to grant six roles a shipment right they
+     have never had, which is the opposite of what the warning is for. */
+  eq('exactly one role is really affected', roles.join(', '), 'QA Inspector');
+  ['Lab Rep', 'AQCM', 'QCM', 'CFO', 'Finance', 'Production'].forEach(r =>
+    ok(r + ' is NOT listed — the old rule says yes, but no button is reachable',
+       roles.indexOf(r) < 0, JSON.stringify(roles)));
+  eq('and only for the rights whose buttons really appear elsewhere',
+     [...new Set(L.map(x => x.code))].sort().join(', '), 'pr.close, rm.receive');
+  /* THE LIVE ONE. Production's stuck list is not filtered by role and renders the
+     Supply Chain "Receive" action. A QA Inspector standing there holds Edit on
+     Production, so canEdit(['Supply Chain']) says yes and he books raw material
+     into stock — while the Supply Chain officer beside him is refused, because he
+     has no Edit on Production. This is true today, before the conversion. */
+  {
+    const qa = L.filter(x => x.role === 'QA Inspector' && x.code === 'rm.receive')[0];
+    ok('QA Inspector can receive raw material via the Production screen',
+       !!qa && qa.screens.indexOf('prod') >= 0, JSON.stringify(qa || null));
+    ok('...and Supply Chain itself cannot, standing on that same screen',
+       b._canEditOn(b.state, 'Supply Chain', 'prod', ['Supply Chain']) === false);
+    ok('...while on the screen the job belongs to, it is the other way round',
+       b._canEditOn(b.state, 'Supply Chain', 'approvals', ['Supply Chain']) === true
+       && b._canEditOn(b.state, 'QA Inspector', 'approvals', ['Supply Chain']) === false);
+  }
+  ok('the people who hold it properly are NOT listed as a loophole',
+     !roles.some(r => ['Supply Chain', 'Plant Manager', 'COO'].indexOf(r) >= 0), JSON.stringify(roles));
+
+  /* Take away QA Inspector's Edit on Production and it closes — the COO's
+     one-cell fix, which is also cell 2 of the matrix review. Proves cause, not
+     coincidence. */
+  b.state.masters.accessMatrix['QA Inspector'].prod = { v: true, e: false };
+  eq('removing QA Inspector\'s Edit on Production closes it', b.screenLoopholes().length, 0);
+  b.state.masters.accessMatrix['QA Inspector'].prod = { v: true, e: true };
+
+  /* A right whose button is reachable from nowhere else has no loophole, however
+     generous the old rule is elsewhere. This is the whole of the fix. */
+  const saved = {};
+  b.RIGHTS.forEach(r => { if (r.legacy.alsoOn) { saved[r.code] = r.legacy.alsoOn; r.legacy.alsoOn = []; } });
+  eq('no reachable screen means no loophole', b.screenLoopholes().length, 0);
+  ok('...even though the old rule still says yes for QA Inspector on Production',
+     b._canEditOn(b.state, 'QA Inspector', 'prod', ['Supply Chain']) === true);
+  b.RIGHTS.forEach(r => { if (saved[r.code]) r.legacy.alsoOn = saved[r.code]; });
+  ok('and putting the reachable screens back restores the real ones', b.screenLoopholes().length > 0);
+
+  /* A list is only a way in for the people it is SHOWN to. My Actions hands a
+     manager somebody else's escalated item — but only the manager named in
+     acEscalation's table. Reporting everyone with Edit on My Actions would put
+     the false names back, which is the fault this whole banner was rebuilt to
+     stop. */
+  {
+    const c = mk('COO');
+    c.state.masters.accessMatrix['Finance'] = c.state.masters.accessMatrix['Finance'] || {};
+    c.state.masters.accessMatrix['Finance'].approvals = { v: true, e: true };
+    ok('setting up: the old rule now says yes for Finance on My Actions',
+       c._canEditOn(c.state, 'Finance', 'approvals', ['Supply Chain']) === true);
+    ok('...but Finance is NOT reported, because nothing escalates a shipment to Finance',
+       !c.screenLoopholes().some(x => x.role === 'Finance'),
+       JSON.stringify(c.screenLoopholes().filter(x => x.role === 'Finance')));
+    /* and the manager the table DOES name would be reported, if he were not
+       already allowed on the job's own screen */
+    c.state.masters.accessMatrix['Plant Manager'].ship = { v: true, e: false };
+    ok('the Plant Manager IS reported once he loses Shipments, because escalation still reaches him',
+       c.screenLoopholes().some(x => x.role === 'Plant Manager' && x.screens.indexOf('approvals') >= 0),
+       JSON.stringify(c.screenLoopholes().filter(x => x.role === 'Plant Manager')));
+  }
+
+  /* Archived roles are included, for the same reason rightsFreezeCheck includes
+     them: archiveRole tells the COO "existing users keep it" and state.role comes
+     from the login token, so those accounts still sign in and still press the
+     button. Leaving them out is a silent revocation at go-live with no warning —
+     and the snapshot has no archived role, so nothing else would catch it. */
+  {
+    const c = mk('COO');
+    const qa = c.state.masters.roles.find(x => x.name === 'QA Inspector');
+    ok('reported while active', c.screenLoopholes().some(x => x.role === 'QA Inspector'));
+    qa.archived = true;
+    const arch = c.screenLoopholes().filter(x => x.role === 'QA Inspector');
+    ok('STILL reported once archived — the account can still sign in', arch.length > 0,
+       JSON.stringify(c.screenLoopholes()));
+    ok('...and marked as archived', arch.every(x => x.archived === true), JSON.stringify(arch));
+    qa.archived = false;
+  }
+
+  /* Once a right is live the matrix no longer speaks for it, so it stops being
+     reported as a loophole. */
+  const b3 = mk('COO');
+  ok('reported while the right is not live', b3.screenLoopholes().some(x => x.code === 'rm.receive'));
+  b3.RIGHTS_LIVE['rm.receive'] = true;
+  ok('and not once it is live — the hole is closed, not hidden',
+     !b3.screenLoopholes().some(x => x.code === 'rm.receive'));
+  delete b3.RIGHTS_LIVE['rm.receive'];
+
+  /* It has to be on the screen, not only in this file. */
+  const c = mk('COO');
+  Object.assign(c, { toast: () => {}, save: () => {}, render: () => {}, logAction: () => {},
+    acOpen: {}, authDept: 'supply-chain', usersList: [], $: () => null,
+    acard: (k, t, h, body) => '<CARD>' + body + '</CARD>',
+    _pe: x => String(x == null ? '' : x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') });
+  vm.runInContext(['_at', 'screenEditOK', 'accessLevel', 'authRepaint', 'rightTickById', 'rightTick',
+                   'authPick', 'authDriftBanner', 'authLoopholeBanner', 'authCard'].map(H.grab).join('\n\n'), c);
+  const html = c.authCard();
+  /* If the check itself cannot run, the card must NOT print the clean sentence.
+     That sentence is the one an earlier version printed while people were quietly
+     losing access, so this fails closed. */
+  {
+    const d = mk('COO');
+    Object.assign(d, { toast: () => {}, save: () => {}, render: () => {}, logAction: () => {},
+      acOpen: {}, authDept: 'supply-chain', usersList: [], $: () => null,
+      acard: (k, t, h, body) => '<CARD>' + body + '</CARD>',
+      _pe: x => String(x == null ? '' : x) });
+    vm.runInContext(['_at', 'screenEditOK', 'accessLevel', 'authRepaint', 'rightTickById', 'rightTick',
+                     'authPick', 'authDriftBanner', 'authLoopholeBanner', 'authCard'].map(H.grab).join('\n\n'), d);
+    d.screenLoopholes = () => { throw new Error('boom'); };
+    const broken = d.authCard();
+    ok('a broken loophole check does NOT print the clean sentence',
+       !/would change nobody/.test(broken), (broken.match(/Checked[^<]{0,140}/) || [''])[0]);
+    ok('...it says so and says not to switch anything on',
+       /could not be run/.test(broken) && /Do not switch anything on/.test(broken),
+       broken.slice(0, 400));
+  }
+  ok('the Supply Chain tab warns about it', /only because of another screen/.test(html), html.slice(0, 300));
+  ok('...naming the role', /QA Inspector/.test(html));
+  ok('...and both of the rights he can reach', /2 rights/.test(html), (html.match(/QA Inspector[^<]{0,60}/) || [''])[0]);
+  ok('...and naming the screen, in words the COO uses', /Production/.test(html));
+  { /* inside the warning itself — "Finance" is also a department tab on this card */
+    const warn = html.slice(html.indexOf('only because of another screen'));
+    const box = warn.slice(0, warn.indexOf('</div></div>') + 12);
+    ok('...and NOT naming people it is not true of',
+       !/Finance/.test(box) && !/Lab Rep/.test(box) && !/CFO/.test(box), box.slice(0, 400)); }
+  /* THE TWO SENTENCES MUST AGREE. The card used to open with "switching any of
+     these rights on today would change nobody's access" and then immediately list
+     people who lose access. */
+  ok('the clean notice does not claim nobody is affected while the list says otherwise',
+     !/would change nobody/.test(html), (html.match(/Checked[^<]{0,140}/) || [''])[0]);
+  ok('...it says what it really proves, and points at the list',
+     /on the screen the job belongs to/.test(html) && /But see below/.test(html),
+     (html.match(/Checked[^<]{0,200}/) || [''])[0]);
+  c.authDept = 'commercial';
+  const html2 = c.authCard();
+  ok('and Commercial does not warn, because its rights never worked that way',
+     !/only because of another screen/.test(html2));
+  ok('...so on Commercial the notice CAN say nobody is affected', /would change nobody/.test(html2),
+     (html2.match(/Checked[^<]{0,200}/) || [''])[0]);
+}
+
+/* ================= 25. the panel, rendered where the app renders it ================= */
+/* The Supply Chain tab is the first one whose old rule depends on the screen the
+   person is standing on. authCard only ever renders from Admin, so asking the
+   OLD rule there said the Supply Chain team cannot plan a shipment — 10 amber
+   asterisks and a footer contradicting the banner three lines above it. */
+{
+  function panelAt(dept) {
+    const b = mk('COO');                    /* state.screen is 'admin', as in the app */
+    Object.assign(b, { toast: () => {}, save: () => {}, render: () => {}, logAction: () => {},
+      acOpen: {}, authDept: dept, usersList: [], $: () => null,
+      acard: (k, t, h, body) => '<CARD>' + body + '</CARD>',
+      _pe: x => String(x == null ? '' : x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') });
+    vm.runInContext(['_at', 'screenEditOK', 'accessLevel', 'authRepaint', 'rightTickById', 'rightTick',
+                     'authPick', 'authDriftBanner', 'authLoopholeBanner', 'authCard'].map(H.grab).join('\n\n'), b);
+    return b;
+  }
+  ['commercial', 'supply-chain'].forEach(dep => {
+    const b = panelAt(dep);
+    eq('the card renders from the Admin screen, like the app', b.state.screen, 'admin');
+    const html = b.authCard();
+    const stars = (html.match(/<sup style="font-size:8px">\*<\/sup>/g) || []).length;
+    eq('NOTHING is pending on the ' + dep + ' tab — every tick matches today', stars, 0);
+    ok('so the card does not claim otherwise in its footer',
+       !/tick.{0,40}marked/.test(html), (html.match(/tick[^<]{0,60}marked[^<]{0,80}/) || [''])[0]);
+    ok('and the drift notice says the ticks are clean', /Checked: every tick matches/.test(html), html.slice(0, 260));
+    ok('...without claiming more than it proves',
+       dep !== 'supply-chain' || !/would change nobody/.test(html), html.slice(0, 260));
+    ok('no tooltip tells somebody their own daily job is refused today',
+       !/today the app still says no/.test(html),
+       (html.match(/title="[^"]*today the app still says no[^"]*"/) || [''])[0]);
+  });
+  /* And the people who actually do the work are columns on the tab — including
+     the ones from OTHER departments who hold the right. The Plant Manager is the
+     case that matters: he is Leadership, not Supply Chain, and he holds all six.
+     Asking the old screen-dependent rule for that list happens to keep him while
+     the card renders from Admin (he has Edit on Admin); take that away and only
+     the screen-independent question still finds him. */
+  {
+    const b = panelAt('supply-chain');
+    b.state.masters.accessMatrix['Plant Manager'].admin = { v: true, e: false };
+    const h = b.authCard();
+    ok('a right-holder from another department is a column even when he cannot edit Admin',
+       h.indexOf('Plant Manager') >= 0, h.slice(0, 400));
+    ok('...and is marked as not belonging to this department', /holds it/.test(h));
+    b.state.masters.accessMatrix['Plant Manager'].admin = { v: true, e: true };
+  }
+  {
+    const html = panelAt('supply-chain').authCard();
+    ['Supply Chain', 'Supply Chain Officer', 'Plant Manager'].forEach(r =>
+      ok('the Supply Chain tab has a column for ' + r, html.indexOf(r) >= 0));
+    ok('and it shows their rights as granted, not withheld',
+       (html.match(/Granted/g) || []).length >= 6, (html.match(/Not granted/g) || []).length + ' not-granted');
+  }
+  /* A deliberate untick still shows as pending — the marker is not simply dead. */
+  {
+    const b = panelAt('supply-chain');
+    b.rightTickById('supply-chain', 'shipment.plan', false);
+    const html = b.authCard();
+    eq('after a real untick, exactly one tick is marked pending',
+       (html.match(/<sup style="font-size:8px">\*<\/sup>/g) || []).length, 1);
+    ok('...and the footer says so', /1 tick.{0,20}marked/.test(html), (html.match(/1 tick[^<]{0,70}/) || [''])[0]);
+  }
+}
+
+/* ================= 26. mayHere must switch over when a right goes live ================= */
+/* mayHere answers for the panel, for whoMayRight, for grantRefusal and for
+   separation. RIGHTS_LIVE is empty, so every one of those calls currently falls
+   through to the old rule and nothing would notice if the live branch were
+   missing. The equivalent hole in mayRole is covered; this one was not. */
+{
+  const b = mk('COO');
+  eq('before: Production cannot plan a shipment', b.mayHere('Production', 'shipment.plan'), false);
+  b.state.masters.roleRights['production']['shipment.plan'] = true;
+  eq('...and the grant alone does nothing while the right is not live',
+     b.mayHere('Production', 'shipment.plan'), false);
+  b.RIGHTS_LIVE['shipment.plan'] = true;
+  eq('ONCE LIVE, mayHere answers from the grant table', b.mayHere('Production', 'shipment.plan'), true);
+  b.state.masters.roleRights['production']['shipment.plan'] = false;
+  eq('...and follows it back down', b.mayHere('Production', 'shipment.plan'), false);
+  eq('the old rule no longer speaks for it: Supply Chain has the grant, so still yes',
+     b.mayHere('Supply Chain', 'shipment.plan'), true);
+  b.state.masters.roleRights[b.roleIdOf('Supply Chain')]['shipment.plan'] = false;
+  eq('...and losing the grant loses the right, whatever the matrix says',
+     b.mayHere('Supply Chain', 'shipment.plan'), false);
+  ok('and the refusal list follows', b.whoMayRight('shipment.plan').indexOf('Supply Chain') < 0,
+     b.whoMayRight('shipment.plan').join(', '));
+  delete b.RIGHTS_LIVE['shipment.plan'];
+}
+
+/* ================= 27. the call sites the guard list had missed ================= */
+{
+  [['mpStart', 'shipment.plan'], ['openShipEdit', 'shipment.plan'],
+   ['openRMReceive', 'rm.receive'], ['openDeliveryConfirm', 'delivery.confirm']].forEach(([fn, code]) =>
+    ok('GUARD: ' + fn + ' asks may(\'' + code + '\')',
+       new RegExp("may\\('" + code.replace('.', '\\.') + "'\\)").test(H.grab(fn)), H.grab(fn).slice(0, 110)));
+  /* An opener and its writer must ask for the SAME right, or somebody fills a
+     form and loses it at the Save — the print-on-pack fault of 22 August. */
+  [['openDeliveryConfirm', 'confirmDelivery'], ['openShipEdit', 'saveShipEdit'],
+   ['mpStart', 'mpCreate'], ['openRMReceive', 'rmReceiveSubmit']].forEach(([o, w]) => {
+    const codeOf = src => (src.match(/may\('([^']+)'\)/) || [])[1];
+    eq('opener and writer agree: ' + o + ' / ' + w, codeOf(H.grab(o)), codeOf(H.grab(w)));
+  });
+  /* The Shipments screen's edit flag follows the same right its buttons do —
+     a screen that renders every control and then refuses each one is a screen
+     nobody can read. Anchored on the assignment, not on the file. */
+  ok('GUARD: the Shipments screen edit flag asks for shipment.plan',
+     /var ed=may\('shipment\.plan'\)/.test(H.grab('screenShip')), H.grab('screenShip').slice(0, 160));
+  ok('GUARD: and the older Shipments renderer does too',
+     /const ed=may\('shipment\.plan'\)/.test(H.grab('screenShipOLD')), H.grab('screenShipOLD').slice(0, 160));
+  /* grantRefusal must ask the screen-independent question, or a lead standing on
+     Admin would be told he does not hold a right he uses every day. */
+  ok('GUARD: grantRefusal asks mayHere, not the screen-dependent rule',
+     /mayHere\(granter,code\)/.test(H.grab('grantRefusal')), H.grab('grantRefusal').slice(-260));
+  ok('GUARD: a matrix change re-points canEdit grants as well as screen ones',
+     /lg\.kind!=='screen' && lg\.kind!=='canEdit'/.test(H.grab('resyncScreenRights')));
+}
+
+/* ================= 28. the refusal that used to send you to the COO ================= */
+/* A Supply Chain user pressing Load on his own Dashboard was told he needed a
+   right that the panel already showed him holding, and to go ask the COO — who
+   could not have helped, because the right is not live and he already has it. */
+{
+  const b = mk('Supply Chain');
+  b.state.screen = 'dash';
+  ok('setting up: he is refused on the Dashboard', b.may('shipment.load') === false);
+  ok('...but he does hold the right where the job belongs', b.mayHere('Supply Chain', 'shipment.load') === true);
+  const msg = b.denyRight('shipment.load', 'Starting loading');
+  ok('so the message does NOT send him to the COO', !/Ask /.test(msg), msg);
+  ok('it tells him it is his job', /is your job/.test(msg), msg);
+  ok('and where the button works', /Shipments/.test(msg), msg);
+  /* somebody who genuinely does not hold it still gets the grant route */
+  const c = mk('Lab Rep');
+  c.state.screen = 'qc';
+  const msg2 = c.denyRight('shipment.load', 'Starting loading');
+  ok('a role that does not hold it is still told who to ask', /Ask /.test(msg2), msg2);
+  ok('...and it is not told this is its job', !/is your job/.test(msg2), msg2);
+}
+
+/* ================= 29. the screen each right belongs to ================= */
+/* legacy.scr drives the seed, the freeze baseline, the loophole list, what
+   denyRight tells people and what the right means once live — and nothing
+   asserted it. Moving pr.close from My Actions to Shipments passes silently and
+   hands Supply Chain Officer an authority he does not have today. */
+{
+  const WANT = {
+    'order.create':         { kind: 'screen',  scr: 'entry' },
+    'order.print_decision': { kind: 'screen',  scr: 'entry' },
+    'order.acknowledge':    { kind: 'all',     scr: undefined },
+    'customer.create':      { kind: 'hard',    scr: undefined },
+    'customer.amend':       { kind: 'hard',    scr: undefined },
+    'shipment.plan':        { kind: 'canEdit', scr: 'ship',      alsoOn: 'approvals:Plant Manager' },
+    'shipment.load':        { kind: 'canEdit', scr: 'ship',      alsoOn: 'approvals:Plant Manager' },
+    'gatepass.issue':       { kind: 'canEdit', scr: 'ship',      alsoOn: 'approvals:Plant Manager' },
+    'delivery.confirm':     { kind: 'canEdit', scr: 'ship',      alsoOn: 'approvals:Plant Manager' },
+    'rm.receive':           { kind: 'canEdit', scr: 'approvals', alsoOn: 'prod' },
+    'pr.close':             { kind: 'canEdit', scr: 'approvals', alsoOn: 'prod' },
+  };
+  eq('every right in the catalogue is pinned here', B.RIGHTS.filter(r => !WANT[r.code]).length, 0);
+  eq('and nothing pinned here has been dropped',
+     Object.keys(WANT).filter(c => !B.rightByCode(c)).join(', '), '');
+  B.RIGHTS.forEach(r => {
+    const w = WANT[r.code];
+    eq(r.code + ' — kind', r.legacy.kind, w.kind);
+    eq(r.code + ' — the screen the job belongs to', r.legacy.scr, w.scr);
+    if (w.alsoOn !== undefined)
+      eq(r.code + ' — the other places its button is reachable from',
+         (r.legacy.alsoOn || []).map(a => a.scr + (a.roles ? ':' + a.roles.join('+') : '')).join(','), w.alsoOn);
+  });
+  /* And the screen named is one that exists. */
+  B.RIGHTS.forEach(r => {
+    const ids = B.SCREENS.map(x => x.id);
+    if (r.legacy.scr) ok(r.code + ' points at a real screen', ids.indexOf(r.legacy.scr) >= 0, r.legacy.scr);
+    (r.legacy.alsoOn || []).forEach(a =>
+      ok(r.code + ' alsoOn points at a real screen', ids.indexOf(a.scr) >= 0, JSON.stringify(a)));
+  });
+  /* Moving one is not cosmetic — prove it changes who holds the right. */
+  {
+    const b = mk('COO');
+    eq('today Supply Chain Officer cannot close a PR', b.mayHere('Supply Chain Officer', 'pr.close'), false);
+    b.rightByCode('pr.close').legacy.scr = 'ship';
+    const b2 = mk('COO');
+    b2.rightByCode('pr.close').legacy.scr = 'ship';
+    b2.state.masters.roleRights = {};
+    b2.seedDeptRightsV1(b2.state);
+    eq('moving its screen to Shipments would silently hand it to him',
+       b2.mayHere('Supply Chain Officer', 'pr.close'), true);
+    b.rightByCode('pr.close').legacy.scr = 'approvals';
+  }
+}
+
+/* ================= 30. alsoOn, derived from where the buttons actually are ================= */
+/* `alsoOn` is hand-written, and a hand-written list of render sites drifts. This
+   reads the real tables out of the app — PROD_STUCK_CAT (the unfiltered
+   Production list) and acEscalation's TH (the My Actions branch that shows a
+   manager somebody else's item, with the owner's live button) — and checks the
+   catalogue covers every one of them. pr.close was missing 'prod' because
+   recvPRCard draws Close PR next to Receive; this is the check that would have
+   caught it. */
+{
+  /* label -> the Supply Chain rights that label's button can trigger */
+  const LABEL_RIGHTS = {
+    'Receive':          ['rm.receive', 'pr.close'],   /* openReceiveMaterials -> recvPRCard draws both */
+    'Ship':             ['shipment.plan'],
+    'Load':             ['shipment.load'],
+    'Gate Pass':        ['gatepass.issue'],
+    'Confirm delivery': ['delivery.confirm'],
+  };
+  const alsoOnOf = code => ((B.rightByCode(code) || {}).legacy || {}).alsoOn || [];
+  const scrOf = code => ((B.rightByCode(code) || {}).legacy || {}).scr;
+
+  /* --- Production's stuck list: unfiltered, so anyone who can open it gets in --- */
+  const stuck = H.grabTopVar('PROD_STUCK_CAT', '{');
+  ok('PROD_STUCK_CAT was found in the app', /Receive/.test(stuck), stuck.slice(0, 120));
+  Object.keys(LABEL_RIGHTS).forEach(label => {
+    const inStuck = new RegExp("'" + label + "'\\s*:").test(stuck);
+    LABEL_RIGHTS[label].forEach(code => {
+      if (scrOf(code) === 'prod') return;
+      const has = alsoOnOf(code).some(a => a.scr === 'prod' && !a.roles);
+      if (inStuck) ok('reachable from Production, so alsoOn says so: ' + label + ' -> ' + code, has,
+                      JSON.stringify(alsoOnOf(code)));
+      else ok('NOT on the Production list, so alsoOn does not claim it: ' + label + ' -> ' + code, !has);
+    });
+  });
+
+  /* --- My Actions: acEscalation hands a manager somebody else's item --- */
+  const esc = H.grab('acEscalation');
+  ok('acEscalation was found', /var TH=\{/.test(esc), esc.slice(0, 80));
+  Object.keys(LABEL_RIGHTS).forEach(label => {
+    const m = new RegExp("'" + label + "'\\s*:\\s*\\[\\s*\\d+\\s*,\\s*'([^']+)'\\]").exec(esc);
+    LABEL_RIGHTS[label].forEach(code => {
+      if (scrOf(code) === 'approvals') return;      /* its own screen — nothing to disclose */
+      const entry = alsoOnOf(code).filter(a => a.scr === 'approvals')[0];
+      if (m) {
+        ok('escalated to a manager, so alsoOn says so: ' + label + ' -> ' + code, !!entry,
+            JSON.stringify(alsoOnOf(code)));
+        ok('...and names the manager the app escalates to (' + m[1] + ')',
+           !!entry && (entry.roles || []).indexOf(m[1]) >= 0, JSON.stringify(entry));
+      } else {
+        ok('not escalated, so alsoOn does not claim My Actions: ' + label + ' -> ' + code, !entry);
+      }
+    });
+  });
+
+  /* Nothing in alsoOn that the tables do not justify. */
+  B.RIGHTS.forEach(r => {
+    (r.legacy.alsoOn || []).forEach(a => {
+      const labels = Object.keys(LABEL_RIGHTS).filter(l => LABEL_RIGHTS[l].indexOf(r.code) >= 0);
+      ok(r.code + ' alsoOn ' + a.scr + ' is backed by a real render site',
+         labels.length > 0, 'no label maps to ' + r.code);
+    });
+  });
 }
 
 console.log('\nAuthorisation model — departments, roles, rights: ' + pass + ' passed, ' + fail + ' failed');

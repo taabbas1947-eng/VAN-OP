@@ -1,0 +1,301 @@
+diff --git a/o2s/o2s.html b/o2s/o2s.html
+index b1f4fb1..5d82299 100644
+--- a/o2s/o2s.html
++++ b/o2s/o2s.html
+@@ -1599,24 +1599,39 @@ function buildFromSeed(){
+    sequential ids let two sessions mint different ids for the same event (duplicates).
+    _uid  -> collision-free id for NEW records (assigned at creation).
+    ensureIds -> deterministic, count-preserving back-fill for EXISTING id-less rows, so every
+    session computes the SAME id for the same row (no drop, no spurious duplicate/collapse). */
+ function _uid(pfx){ return (pfx||'ID')+Date.now().toString(36)+Math.random().toString(36).slice(2,8); }
+ function _hash(str){ var h=0; str=String(str); for(var i=0;i<str.length;i++){ h=((h<<5)-h+str.charCodeAt(i))|0; } return (h>>>0).toString(36); }
+ function _stableId(pfx,o,fields){ return pfx+_hash(fields.map(function(f){return o&&o[f]!=null?o[f]:'';}).join('')); }
+ function ensureIds(arr,pfx,fields){ if(!Array.isArray(arr))return; var ct={}; arr.forEach(function(o){ if(o&&typeof o==='object'&&!o.id){ var b=_stableId(pfx,o,fields); var n=ct[b]||0; o.id=b+(n?('_'+n):''); ct[b]=n+1; } }); }
++/* One source of truth for the fields that identify a customer / dealer row.
++   ensureIds back-fills with these, and every creation site mints with the same
++   list, so the SAME logical row gets the SAME id in every browser. Two lists
++   that drift apart is how one row ends up with two ids and becomes two rows. */
++var CUST_ID_FIELDS=['code','name','segment','city'], DLR_ID_FIELDS=['code','name','region','city'];
+ function ensureRecordIds(s){
+   ensureIds(s.packingLog,'PK',['po','brand','baseBatchId','kg','date','mfgDate']);
+   ensureIds(s.shipments,'SH',['po','brand','kg','dispatch','dc','vehicle','bilty','dispId','delivered']);
+   ensureIds(s.productionLog,'PL',['date','base','brand','kg','po','shift','incharge','batchNo']);
+   ensureIds(s.inspections,'INS',['po','brand','lid','kg','date','by']);
+   ensureIds(s.batches,'B',['batchNo','base','po','openedDate','producedKg']);
+   ensureIds(s.audit,'AU',['t','user','module','field','val','po','brand']);
+   ensureIds(s.actionLog,'AL',['t','role','what']);
++  /* 2026-08-22 — customers and dealers carried NO id on any row, so merge3 saw
++     each array as a single leaf and the last writer took the whole thing: two
++     people editing the Customer Master silently deleted one another's work, with
++     no error. `code` is the natural key and is unique in the live data; the
++     other fields only break a tie if two rows ever share one.
++     NOTE the rollout window: while one browser runs this code and another runs
++     the old one, the old browser's rows arrive with no id and merge3's id path
++     skips them. Do this at a quiet time, and get everyone to reload. */
++  ensureIds(s.customers,'CU',CUST_ID_FIELDS);
++  ensureIds(s.dealers,'DL',DLR_ID_FIELDS);
+ }
+ function ensureState(s){
+   s.dealers   = (s.dealers&&s.dealers.length)? s.dealers : deepClone(SEED.dealers||[]);
+   s.users=(s.users&&s.users.length)?s.users:deepClone(SEED.users||[]); if(s.currentUser===undefined)s.currentUser=null;
+   s.rmRequests=s.rmRequests||[]; s.productionLog=s.productionLog||[]; s.packingLog=s.packingLog||[];
+   s.actionLog=s.actionLog||[]; s.shipments=s.shipments||[]; s.inspections=s.inspections||[]; s.warehouses=s.warehouses||SEED.warehouses.slice();
+   s.rawStock=s.rawStock||{}; s.rmMovements=s.rmMovements||[]; s.audit=s.audit||[]; s.masters=s.masters||deepClone(SEED.masters||{}); s.batches=s.batches||[]; s.packedStock=s.packedStock||{}; s.packingLog=s.packingLog||[]; s.orders=s.orders||[]; if(s.seq==null)s.seq=1000; ensureRecordIds(s); if(s.dataFixEnabled==null)s.dataFixEnabled=true; if(!Array.isArray(s.prs))s.prs=[]; (s.batches||[]).forEach(function(b){ if((b.producedKg||0)>0 && (!Array.isArray(b.lots)||!b.lots.length)){ b.lots=[{id:'LOT'+(s.seq++), lotNo:(b.batchNo||'B')+'-L1', qty:b.producedKg, date:b.openedDate||'', by:b.by||'', coa:(b.coa||null), migrated:true}]; } }); ensureMasters(s); ensureProductionModel(s); dedupePackingLots(s); migrateLotTracking(s); migratePackingLotLidV1(s); fixRudolfDupV1(s); reconcileLotShipKgV1(s); dedupeShipmentsV1(s); healPRFlags(s); migrateBrandNames(s); loadBaseRecipesV2(s); loadBlendRecipesV1(s); loadBlendRecipesV2(s); purgeImportedProduction(s); purgeImportDuplicates(s); purgeImportedNoTwin(s); fixPhantomLotVU26134(s); fixVU26144ProdLogV1(s); fixVU26144ProdLogV2(s); healVU26144ProdLog(s); backfillDisposedV1(s); consolidateByproductV1(s); dedupeByproductV1(s); reconcileShipLotsV1(s); normalizeVZincBase(s); normalizeBoronBase(s); seedByproductRulesV1(s); seedRolesV1(s); bumpSeqV1(s); healDupBatchIdsV1(s); fixVB26003LotRenameV1(s); fixRudolfTBPPOV1(s); linkShipBatchLotsV1(s); return s;
+ }
+@@ -1855,17 +1870,23 @@ function _snapBase(){ try{ _baseSnapshot=JSON.parse(JSON.stringify(dataOnly(stat
+ function _arrId(a){ return Array.isArray(a)&&a.length>0&&a.every(x=>x&&typeof x==='object'&&!Array.isArray(x)&&x.id!=null); }
+ function _eq(a,b){ try{ return JSON.stringify(a)===JSON.stringify(b); }catch(e){ return a===b; } }
+ /* Collision-proof ids (2026-07-28 fix): two open tabs hold the same seq counter, so
+    nid('B') can hand the SAME id to two different records — that is how batch
+    VLNPK26002 and VB26003 both became B1114 and merge3 cross-merged their lots. New ids
+    get a per-tab random suffix; existing ids are untouched and stay valid. */
+ function nid(p){ return p+(state.seq++)+'-'+Math.random().toString(36).slice(2,6); }
+ function merge3(base, local, srv){
+-  if(_arrId(local) && Array.isArray(srv)){
++  /* 2026-08-24 — the id path needs BOTH sides id'd. During a rollout one browser
++     runs the new code (its rows carry ids) and another still runs the old one (its
++     rows do not). The server map below then found nothing, and the final pass —
++     which only re-adds server rows that HAVE an id — dropped every server row.
++     An empty server array still takes the id path: there is nothing there to lose.
++     Once both sides carry ids again the id path resumes on its own. */
++  if(_arrId(local) && Array.isArray(srv) && (srv.length===0 || _arrId(srv))){
+     const bm={},sm={}; (Array.isArray(base)?base:[]).forEach(x=>{ if(x&&x.id!=null) bm[x.id]=x; }); srv.forEach(x=>{ if(x&&x.id!=null) sm[x.id]=x; });
+     const seen={}, out=[];
+     local.forEach(l=>{ if(l&&l.id!=null){ seen[l.id]=1; const s=sm[l.id]; out.push(s!==undefined?merge3(bm[l.id], l, s):l); } });
+     srv.forEach(s=>{ if(s&&s.id!=null && !seen[s.id]) out.push(s); });
+     return out;
+   }
+   if(local&&srv&&typeof local==='object'&&!Array.isArray(local)&&typeof srv==='object'&&!Array.isArray(srv)){
+     const out={}, keys={}; [base,local,srv].forEach(o=>{ if(o&&typeof o==='object'&&!Array.isArray(o)) for(const k in o) keys[k]=1; });
+@@ -2503,16 +2524,17 @@ function importGoLivePOs(){
+     recordBackfill('order', ord.id, ord.po+' · '+ord.client,
+       [{field:'lines',label:'Product lines created',before:'',after:ord.lines.length},
+        {field:'received',label:'PO received',before:'',after:recv}],
+       'Opening PO imported from the go-live list', recv);
+     n++; });
+   save(); render(); toast('Imported '+n+' opening PO(s)'+(skip?(' · '+skip+' skipped'):''));
+ }
+ function exportStateJSON(){
++  if(!screenEditOK('datafix')){ toast('You need Edit access to Data Fix'); return; }
+   try{
+     const blob=new Blob([JSON.stringify(dataOnly(state),null,2)],{type:'application/json'});
+     const url=URL.createObjectURL(blob); const a=document.createElement('a');
+     a.href=url; a.download=`van-data-snapshot-${TODAY.toISOString().slice(0,10)}.json`;
+     document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+     logAction('Downloaded data snapshot (Data Fix)'); save(); toast('Snapshot downloaded');
+   }catch(e){ toast('Could not export'); }
+ }
+@@ -2741,16 +2763,17 @@ if(op==='correct'){
+         <div class="fld"><label>Ordered (Kg/L)</label><input type="number" value="${dfForm.ordered||''}" oninput="dfForm.ordered=this.value"></div>
+       </div>${dfReasonField()}
+       <div class="muted" style="font-size:11px;margin-top:6px">Adds a single-product PO. For multi-product orders use New PO Entry (it also back-dates).</div>
+       <div style="margin-top:12px"><button class="green" onclick="dfSubmitPO()">Add PO</button></div>`);
+   }
+   return `<div class="card">Unknown operation. <button class="ghost sm" onclick="dfBack()">← Back</button></div>`;
+ }
+ function dfSubmitProduction(){
++  if(!screenEditOK('datafix')){ toast('You need Edit access to Data Fix'); return; }
+   if(!dfReasonOk()) return toast('Reason is required');
+   const q=+dfForm.qty||0; if(q<=0) return toast('Enter a quantity');
+   const d=dfForm.date||TODAY.toISOString().slice(0,10); const sh=dfForm.shift||'Morning'; const inc=dfForm.incharge||'';
+   if(dfForm.kind==='bulk'){
+     const base=dfForm.base; if(!base) return toast('Pick a base product');
+     let b=(state.batches||[]).find(x=>x.base===base&&x.status==='open');
+     if(b){ b.producedKg=(b.producedKg||0)+q; } else { state.batches.unshift({id:nid('B'),batchNo:'',kind:'bulk',type:'stock',base,brand:null,plannedKg:q,producedKg:q,packedKg:0,status:'closed',openedDate:d,closedDate:d,by:state.role,recon:true}); }
+     state.productionLog.unshift({id:_uid('PL'),date:d,base,kg:q,by:state.role,shift:sh,incharge:inc,recon:true});
+@@ -2768,16 +2791,17 @@ function dfSubmitProduction(){
+       [{field:'kg',label:'Production added (Kg/L)',before:'',after:fmt(q)},
+        {field:'produced',label:'Line produced total',before:fmt(_wasProd),after:fmt(+l.produced||0)},
+        {field:'date',label:'Date produced',before:'',after:d}],
+       dfForm.reason, d);
+   }
+   save(); toast('Production backfilled'); dfBack();
+ }
+ function dfSubmitPacking(){
++  if(!screenEditOK('datafix')){ toast('You need Edit access to Data Fix'); return; }
+   if(!dfReasonOk()) return toast('Reason is required');
+   const q=+dfForm.qty||0; if(q<=0) return toast('Enter a quantity');
+   const d=dfForm.date||TODAY.toISOString().slice(0,10);
+   const o=state.orders.find(x=>x.id===dfForm.oid); const l=o&&o.lines.find(x=>x.id===dfForm.lid);
+   if(!l) return toast('Pick PO and product');
+   const _wasPacked=+l.packed||0;
+   l.packed=(l.packed||0)+q; l.produced=Math.max(l.produced||0,l.packed); l.prodStart=l.prodStart||d; if((l.packed||0)>=l.ordered-0.5) l.prodComplete=l.prodComplete||d;
+   (state.packingLog=state.packingLog||[]).unshift({id:_uid('PK'),date:d,base:l.base,brand:l.brand,kg:q,by:state.role,po:o.po,lid:l.id,recon:true});
+@@ -2787,31 +2811,33 @@ function dfSubmitPacking(){
+   recordBackfill('packingLot', state.packingLog[0].id, l.brand+' · '+fmt(q)+' Kg · '+o.po,
+     [{field:'kg',label:'Packed (Kg/L)',before:'',after:fmt(q)},
+      {field:'packed',label:'Line packed total',before:fmt(_wasPacked),after:fmt(+l.packed||0)},
+      {field:'date',label:'Date packed',before:'',after:d}],
+     dfForm.reason, d);
+   save(); toast('Packing backfilled'); dfBack();
+ }
+ function dfSubmitShipment(){
++  if(!screenEditOK('datafix')){ toast('You need Edit access to Data Fix'); return; }
+   if(!dfReasonOk()) return toast('Reason is required');
+   const q=+dfForm.qty||0; if(q<=0) return toast('Enter a quantity');
+   const dd=dfForm.date||TODAY.toISOString().slice(0,10); const dl=dfForm.date2||dd;
+   const o=state.orders.find(x=>x.id===dfForm.oid); const l=o&&o.lines.find(x=>x.id===dfForm.lid);
+   if(!l) return toast('Pick PO and product');
+   l.dispatched=(l.dispatched||0)+q; l.delivered=(l.delivered||0)+q; l.dispatchDate=l.dispatchDate||dd; l.deliveredDate=dl;
+   state.shipments.unshift({id:_uid('SH'),po:o.po,brand:l.brand,kg:q,dispatch:dd,delivered:dl,warehouse:((state.warehouses&&state.warehouses[0])||''),by:state.role,recon:true});
+   recordBackfill('shipment', state.shipments[0].id, l.brand+' · '+fmt(q)+' Kg · '+o.po,
+     [{field:'kg',label:'Shipped (Kg/L)',before:'',after:fmt(q)},
+      {field:'dispatch',label:'Dispatch date',before:'',after:dd},
+      {field:'delivered',label:'Delivered date',before:'',after:dl}],
+     dfForm.reason, dd);
+   save(); toast('Shipment backfilled'); dfBack();
+ }
+ function dfSubmitPO(){
++  if(!screenEditOK('datafix')){ toast('You need Edit access to Data Fix'); return; }
+   if(!dfReasonOk()) return toast('Reason is required');
+   const po=(dfForm.po||'').trim(), client=(dfForm.client||'').trim(), brand=(dfForm.brand||'').trim(), ord=+dfForm.ordered||0;
+   if(!po) return toast('Enter PO #'); if(!client) return toast('Enter customer'); if(!brand) return toast('Enter product/brand'); if(ord<=0) return toast('Enter ordered qty');
+   if(state.orders.some(o=>o.po===po)) return toast('A PO with that number already exists');
+   const base=((typeof SEED!=='undefined'&&SEED.brandMap&&SEED.brandMap[brand]&&SEED.brandMap[brand].base))||brand;
+   const id=nid('O');
+   state.orders.unshift({id,po,client,channel:dfForm.channel||'White Label',priority:dfForm.priority||'Normal',promised:dfForm.promised||'',received:dfForm.received||'',rmDecision:'pending',recon:true,
+     lines:[{id:id+'L1',brand,base,ordered:ord,committed:dfForm.promised||'',produced:0,packed:0,dispatched:0,delivered:0,soCreated:'',prRaised:'',cfoApproved:'',rmCheck:'',rmReady:'',prodStart:'',prodComplete:'',qcPass:'',dispatchDate:'',deliveredDate:'',notes:'(reconcile backfill)'}]});
+@@ -2823,16 +2849,26 @@ function dfSubmitPO(){
+   save(); toast('PO added'); dfBack();
+ }
+ /* Rewritten 2026-08-21 onto the one ledger. This screen stays because editing
+    every line of a PO at once is a genuinely different job from correcting one
+    record, and it is the implementation backfill tool. What it no longer has is
+    its own private idea of what a correction is: same ledger, same reason codes,
+    same before → after, one entry per record instead of a scatter of sentences. */
+ function dfSubmitCorrect(){
++  /* 2026-08-22 — this writer had NO permission check of any kind. The five
++     functions that already carried this line are the console controls
++     (toggleDataFix, importGoLivePOs, startNewYearClean, importSnapshotStart,
++     importSnapshotApply), NOT the backfill writers — those were ungated too, and
++     are gated in the same change as this one (2026-08-24). It writes
++     printDecision / printOnPack on an order, i.e. whether a price is printed on
++     a bag. The screen happens to render for the COO only today, so nothing was
++     reachable — but that is the screen's accident, not this function's rule, and
++     Production already holds datafix:{e:true} in the live matrix. */
++  if(!screenEditOK('datafix')){ toast('You need Edit access to Data Fix'); return; }
+   const o=state.orders.find(x=>x.id===dfForm.oid); if(!o) return toast('Pick a PO');
+   const reason=(($('co_reason')&&$('co_reason').value)||'').trim();
+   const rcode=(($('co_reasonCode')&&$('co_reasonCode').value)||'').trim();
+   if(!rcode) return toast('Pick a reason');
+   if(reason.length<10) return toast('Say what happened — a sentence, not a word');
+ 
+   /* --- PO header --- */
+   const hdr=[];
+@@ -3181,17 +3217,17 @@ function custCode(seg,name,inducted,outlet){
+   return _custAbbr3(name)+'-'+_custYY(inducted)+'-100';
+ }
+ function custInit(){
+   state.customers=state.customers||[];
+   /* correction: Destination Partner is a per-PO field on VGreen, not an outlet — remove any earlier VG-DP seed (once) */
+   if(!state._custFixDP1){ state.customers=state.customers.filter(function(c){return c.code!=='VG-DP';}); state._custFixDP1=true; if(typeof save==='function')save(); }
+   if(state._custInitV1){ return; }
+   var has=function(name,seg){ return state.customers.some(function(c){return c.name===name&&c.segment===seg;}); };
+-  var add=function(c){ if(!has(c.name,c.segment)) state.customers.push(c); };
++  var add=function(c){ if(!has(c.name,c.segment)){ c.id=c.id||_stableId('CU',c,CUST_ID_FIELDS); state.customers.push(c); } };
+   var yr=TODAY.getFullYear();
+   (state.dealers||[]).forEach(function(d){ add({code:d.code,name:d.name,segment:'Dealer',parent:'',outlet:'',isParent:false,brandKey:'Dealers',region:d.region||'',city:d.city||'',contact:d.contact||'',phone:d.phone||'',creditDays:d.creditDays||0,fed:'Exclusive',kam:'',introducedBy:'',destination:'',ntn:'',inducted:yr,status:d.status||'Active'}); });
+   add({code:'VG',name:'VGreen',segment:'VGreen',parent:'',outlet:'',isParent:true,brandKey:'Vgreen',fed:'Exclusive',kam:'',introducedBy:'',destination:'',status:'Active',inducted:yr});
+   [['VC','Value Chain'],['FM','Farm Management']].forEach(function(s){ add({code:'VG-'+s[0],name:'VGreen — '+s[1],segment:'VGreen',parent:'VGreen',outlet:s[0],isParent:false,brandKey:'Vgreen',fed:'Exclusive',kam:'',introducedBy:'',destination:'',status:'Active',inducted:yr}); });
+   add({code:'COBO',name:'COBO',segment:'COBO',parent:'',outlet:'',isParent:true,brandKey:'VITAL AGRI NUTRIENTS (PVT) LTD',fed:'Exclusive',kam:'',introducedBy:'',destination:'',status:'Active',inducted:yr});
+   add({code:'COBO-001',name:'VITAL AGRI NUTRIENTS (PVT) LTD',segment:'COBO',parent:'COBO',outlet:'001',isParent:false,brandKey:'VITAL AGRI NUTRIENTS (PVT) LTD',fed:'Exclusive',kam:'',introducedBy:'',destination:'',status:'Active',inducted:yr});
+   add({code:custCode('Distributor','BKK',yr),name:'BKK',segment:'Distributor',parent:'',outlet:'',isParent:false,brandKey:'BKK',fed:'Exclusive',kam:'',introducedBy:'',destination:'',status:'Active',inducted:yr});
+   try{ var cl=(typeof SEED!=='undefined'&&SEED.catalog&&SEED.catalog.clients)||[]; var cbc=(SEED.catalog.channelByClient)||{}; cl.filter(function(c){return cbc[c]==='White Label';}).forEach(function(c){ add({code:custCode('White-label',c,yr),name:c,segment:'White-label',parent:'',outlet:'',isParent:false,brandKey:c,fed:'Exclusive',kam:'',introducedBy:'',destination:'',ntn:'',inducted:yr,status:'Active'}); }); }catch(e){}
+@@ -3213,19 +3249,25 @@ function custParents(seg){ return (state.customers||[]).filter(function(c){retur
+ function custSave(){ if(!hardRole(['KAM'])){toast('KAM / COO only \u2014 Customer Master is held back until customer records carry ids');return;} var f=custForm; if(!f)return;
+   if(!String(f.name||'').trim()){toast('Name required');return;}
+   var isOutlet=(f.segment==='VGreen'||f.segment==='COBO');
+   var code=f.editing||custCode(f.segment,f.name,f.inducted,f.outlet);
+   if(f.segment==='VGreen'&&!f.editing&&!String(f.outlet||'').trim()){toast('VGreen outlet code required (e.g. VC, FM, DP)');return;}
+   if(!f.editing&&(state.customers||[]).some(function(c){return c.code===code;})){toast('Code '+code+' already exists');return;}
+   var rec={code:code,name:String(f.name).trim(),segment:f.segment,parent:isOutlet?(f.parent||f.segment):'',outlet:isOutlet?(f.outlet||''):'',isParent:false,brandKey:(f.segment==='White-label'?String(f.name).trim():custBrandKeyFor(f.segment)),region:f.region||'',city:f.city||'',contact:f.contact||'',phone:f.phone||'',creditDays:+f.creditDays||0,fed:f.fed||'Exclusive',kam:f.kam||'',introducedBy:f.introducedBy||'',destination:f.destination||'',ntn:f.ntn||'',inducted:f.inducted||TODAY.getFullYear(),status:f.status||'Active'};
+   state.customers=state.customers||[];
+-  if(f.editing){ var i=state.customers.findIndex(function(c){return c.code===f.editing;}); if(i>=0)state.customers[i]=rec; logAction('Edited customer '+code+' — '+rec.name); }
+-  else { state.customers.push(rec); logAction('Added customer '+code+' — '+rec.name+' ('+rec.segment+')'); }
+-  if(f.segment==='Dealer'){ state.dealers=state.dealers||[]; if(!state.dealers.some(function(d){return d.code===code;})) state.dealers.push({code:code,name:rec.name,region:rec.region,city:rec.city,contact:rec.contact,phone:rec.phone,creditDays:rec.creditDays,status:rec.status}); }
++  /* 2026-08-24 — rec is a FRESH object literal, so an edit used to replace the
++     stored row with an id-less copy. ensureIds then re-minted an id from the NEW
++     field values on the next load and one customer became two rows. The id is the
++     row's identity: carry the old one across an edit, never recompute it. */
++  if(f.editing){ var i=state.customers.findIndex(function(c){return c.code===f.editing;});
++    if(i>=0){ rec.id=state.customers[i].id||_stableId('CU',state.customers[i],CUST_ID_FIELDS); state.customers[i]=rec; }
++    logAction('Edited customer '+code+' — '+rec.name); }
++  else { rec.id=_stableId('CU',rec,CUST_ID_FIELDS); state.customers.push(rec); logAction('Added customer '+code+' — '+rec.name+' ('+rec.segment+')'); }
++  if(f.segment==='Dealer'){ state.dealers=state.dealers||[]; if(!state.dealers.some(function(d){return d.code===code;})){ var drec={code:code,name:rec.name,region:rec.region,city:rec.city,contact:rec.contact,phone:rec.phone,creditDays:rec.creditDays,status:rec.status}; drec.id=_stableId('DL',drec,DLR_ID_FIELDS); state.dealers.push(drec); } }
+   custForm=null; save(); toast('Saved '+code); render();
+ }
+ function citiesFor(region){ return (SEED.geo&&SEED.geo.citiesByRegion&&SEED.geo.citiesByRegion[region])||[]; }
+ function suggestCode(){ const seq=String((state.dealers.length+1)).padStart(3,'0'); return `DLR-${regAbbr(dlrForm.region)}-${cityAbbr(dlrForm.city)||'XXX'}-${seq}`; }
+ function onDlrRegion(v){ dlrForm.region=v; dlrForm.city=''; screenDealers(); }
+ function onDlrCity(v){ dlrForm.city=v; if($('dlr_code'))$('dlr_code').value=suggestCode(); }
+ function custFormHTML(){ var f=custForm; var kam=((state.masters&&state.masters.kamNames)||[]); var regions=(SEED.geo&&SEED.geo.regions)||['Punjab']; var cities=citiesFor(f.region);
+   var loc=(f.segment==='Dealer'||f.segment==='Direct Farmer');
+@@ -3263,18 +3305,20 @@ function screenDealers(){
+   }
+   $('view').innerHTML='<div class="paperui">'+(ed?'':viewOnly('KAM'))+'<div class="rb-top"><div><div class="rb-title">Customer Master</div><div class="rb-sub2">Add &amp; manage every customer · grouped by segment</div></div></div>'+tabs+(custForm?custFormHTML():'')+listHtml+'</div>';
+ }
+ function addDealer(){
+   if(!hardRole(['KAM'])){toast('KAM / COO only \u2014 Customer Master is held back until customer records carry ids');return;}
+   if(!dlrForm.name.trim()||!dlrForm.city.trim()){ toast('Name and city required'); return; }
+   const code=$('dlr_code').value.trim()||suggestCode();
+   if(state.dealers.some(d=>d.code===code)){ toast('Code already exists'); return; }
+-  state.dealers.unshift({code, name:dlrForm.name.trim(), region:dlrForm.region, city:dlrForm.city,
+-    contact:dlrForm.contact.trim(), phone:dlrForm.phone.trim(), creditDays:dlrForm.credit||0, status:'Confirmed'});
++  const drec={code, name:dlrForm.name.trim(), region:dlrForm.region, city:dlrForm.city,
++    contact:dlrForm.contact.trim(), phone:dlrForm.phone.trim(), creditDays:dlrForm.credit||0, status:'Confirmed'};
++  drec.id=_stableId('DL',drec,DLR_ID_FIELDS);   /* id at creation — see ensureRecordIds */
++  state.dealers.unshift(drec);
+   logAction(`Onboarded dealer ${code} — ${dlrForm.name.trim()} (${dlrForm.city}, ${dlrForm.region})`);
+   dlrForm={name:'',region:'Punjab',city:'',contact:'',phone:'',credit:0}; save(); toast('Dealer '+code+' added'); render();
+ }
+ 
+ /* ===================== 2. PO TRACKER ===================== */
+ let trkFilter='all'; let trkStage=''; let trkChannel='all';
+ /* ===================== PO TRACKER — control tower (UI redesign) ===================== */
+ let trkSearch=''; let trkSort='risk_new'; let trkExpanded={};
+@@ -6255,24 +6299,44 @@ function renderBulkPrintDecision(){
+     +'<div class="sub">'+open.length+' PO(s) were created before this question was asked. '+answered+' answered here so far. Nothing is saved until you press Save.</div></div>'
+     +'<div class="mb">'
+     +'<div style="padding:9px 12px;border:1px solid var(--line);background:var(--panel2);border-radius:8px;margin-bottom:10px;font-size:11.5px;line-height:1.9">'
+     +'<b>List price</b> &mdash; the bag carries VAN&rsquo;s standard MRP. QA checks it against the latest price list and records what they saw. <b>This is the normal case for most of the range.</b><br>'
+     +'<b>Price on this PO</b> &mdash; negotiated for this customer and set on the PO line. QA checks the bag against that exact number.<br>'
+     +'<b>No price</b> &mdash; nothing printed. Any price on the bag is then a failure.'
+     +'</div>'
+     +(open.length?('<div class="muted" style="font-size:11.5px;margin-bottom:9px">The middle column shows what the system is <b>inferring</b> and what has actually been printed on this PO’s packs. Your answer replaces the inference — packing and QA are both shown it.</div>'
+-      +'<div style="margin-bottom:9px;display:flex;gap:7px;flex-wrap:wrap"><button class="sm ghost" onclick="bulkPDAll(\'list\')">Set all to list price</button><button class="sm ghost" onclick="bulkPDAll(\'yes\')">Set all to price on this PO</button><button class="sm ghost" onclick="bulkPDAll(\'no\')">Set all to no price</button><button class="sm ghost" onclick="bulkPD={};renderBulkPrintDecision()">Clear</button></div>'
++      +'<div style="margin-bottom:9px;display:flex;gap:7px;flex-wrap:wrap"><button class="sm ghost" onclick="bulkPDAll(\'list\')">Set all to list price</button><button class="sm ghost" onclick="bulkPDAll(\'yes\')">Set all to price on this PO</button><button class="sm ghost" onclick="bulkPD={};renderBulkPrintDecision()">Clear</button></div>'
+       +'<div style="max-height:56vh;overflow:auto"><table><thead><tr><th>PO</th><th>What the system infers today</th><th style="text-align:right;width:250px">Your answer</th></tr></thead><tbody>'+rows+'</tbody></table></div>')
+       :'<div class="muted" style="padding:16px 2px">Every PO has been answered. Nothing to do here.</div>')
+     +'</div>'
+     +'<div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" onclick="saveBulkPrintDecision()">Save '+answered+' answer(s)</button></div>';
+ }
+ function saveBulkPrintDecision(){
+   if(!bulkPDMayAnswer()){toast(bulkPDDenied());return;}   /* same predicate as the opener — see bulkPDMayAnswer */
++  /* 2026-08-22 — "no price" is the one answer that DISARMS a control: it tells
++     packing not to ask for a number and inverts the inspector's later check, so
++     a bag that DOES carry a price becomes the failure. Entering a single PO has
++     asked for confirmation since SPEC-06 (see submitPO). This screen could set
++     every open PO to "no" and had no such question — and a "Set all to no price"
++     button sat directly above the list, which is why that button is gone.
++     Same test as the single-PO path: products whose brand has carried a printed
++     price before. Named, counted, and answered by a person. */
++  { var _noPOs=(state.orders||[]).filter(function(o){ return bulkPD[o.id]==='no' && !o.printDecision; });
++    var _brands=[];
++    _noPOs.forEach(function(o){ (o.lines||[]).forEach(function(l){
++      var h=0; try{ h=(typeof recallPrintPrice==='function')?recallPrintPrice(l.brand):0; }catch(e){ h=0; }
++      if(l.brand && h>0 && _brands.indexOf(l.brand)<0) _brands.push(l.brand); }); });
++    if(_brands.length && typeof confirm==='function'){
++      var _msg='You are setting '+_noPOs.length+' PO'+(_noPOs.length===1?'':'s')+' to NO PRINTED PRICE.\n\n'
++        +_brands.length+' of the products on them normally DO carry one:\n  '+_brands.slice(0,8).join(', ')
++        +(_brands.length>8?(' and '+(_brands.length-8)+' more'):'')
++        +'\n\nPacking will stop asking for a price, and QA will be told a price on the bag is a FAILURE.\n\nIs that right?';
++      if(!confirm(_msg)) return;
++    } }
+   var who=(state.currentUser&&state.currentUser.name)||state.role, at=new Date().toISOString(), n=0;
+   (state.orders||[]).forEach(function(o){
+     var v=bulkPD[o.id]; if(!v||o.printDecision) return;
+     o.printDecision=v; o.printOnPack=(v!=='no'); o.printDecisionBy=who; o.printDecisionAt=at;
+     /* This is ENTRY, not correction — see isCorrection(). Every PO touched here
+        had NO answer; the loop above skips any that do. Filing it in the
+        corrections register would put 44 "corrections" on the record on the day
+        we started asking the question, and none of them would be a correction. */

@@ -19,7 +19,7 @@ const vm = require('vm');
 const STATE = JSON.parse(fs.readFileSync(H.STATE, 'utf8')).data;
 
 /* Real source, pulled out of the shipping file. */
-const src = ['accessOv', '_ownerEdit', 'accessLevel', 'canView', 'screenEditOK',
+const src = ['accessOv', '_ownerEdit', 'accessLevelOn', 'accessLevel', 'canView', 'screenEditOK',
              'actOverdue', 'actTiming', 'actUrg', 'actSort', 'acRiskOf', 'acWaitTxt']
             .map(H.grab).join('\n\n')
           + '\n' + (function(){

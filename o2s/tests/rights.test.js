@@ -18,7 +18,7 @@ const vm = require('vm');
 
 const STATE = JSON.parse(fs.readFileSync(H.STATE, 'utf8')).data;
 
-const src = ['accessOv', '_ownerEdit', 'accessLevel', 'screenEditOK',
+const src = ['accessOv', '_ownerEdit', 'accessLevelOn', 'accessLevel', 'screenEditOK',
              'mayWork', 'whoMayEdit', 'denyWork'].map(H.grab).join('\n\n')
           + '\n' + (function () {
               const i = H.html.indexOf('const SCREENS=');
@@ -55,12 +55,26 @@ const ALL = (STATE.masters.roles || []).map(r => r.name).concat(['COO'])
   /* Entry is converted. Plant Manager here is the COO's DELIBERATE choice of
      22 Aug ("entry yes, Customer Master no") — not an accident of the matrix. */
   eq('New PO Entry — who may work it', can('entry').join(', '), 'KAM, Plant Manager, COO');
-  /* Customer Master is HELD BACK until customer/dealer rows carry ids, so the
-     matrix must NOT govern it yet. If somebody converts it, this fails. */
+  /* Customer Master is HELD BACK until customer/dealer rows carry ids. Since
+     24 Aug it says so through the rights model instead of a role name in code —
+     customer.create / customer.amend carry the OLD rule as their legacy and are
+     not live, so the lock is byte-for-byte the same lock. Checked by behaviour
+     (who actually gets through) rather than by grepping for a role name, which
+     would go green again the moment somebody wrote a different wrong thing. */
   const dealerSrc = H.grab('custSave') + H.grab('addDealer');
-  ok('Customer Master is still hard-gated (held back until ids exist)',
-     /hardRole\(\['KAM'\]\)/.test(dealerSrc) && !/mayWork\('dealers'\)/.test(dealerSrc));
-  ok('...and the refusal says why', /held back until customer records carry ids/.test(dealerSrc));
+  ok('Customer Master asks the rights model, not a role name',
+     !/hardRole\(\['KAM'\]\)/.test(dealerSrc) && /may\(/.test(dealerSrc));
+  ok('...and the refusal still says why', /held back until customer records carry ids/.test(dealerSrc));
+  {
+    const ab = H.grabTopVar('RIGHTS', '[');
+    ok('and neither customer right is live yet',
+       /var RIGHTS_LIVE=\{\s*\}/.test(H.grabTopVar('RIGHTS_LIVE', '{').replace(/\s+/g, ' ')
+                                       .replace('var RIGHTS_LIVE= {', 'var RIGHTS_LIVE={')),
+       H.grabTopVar('RIGHTS_LIVE', '{'));
+    ok('their old rule is recorded as KAM only, so the lock is unchanged',
+       /'customer\.create'[\s\S]{0,240}?legacy:\{kind:'hard', roles:\['KAM'\]\}/.test(ab)
+       && /'customer\.amend'[\s\S]{0,240}?legacy:\{kind:'hard', roles:\['KAM'\]\}/.test(ab));
+  }
 }
 
 /* THE POINT OF THE WHOLE CHANGE. The COO grants Finance PO entry in Users &
@@ -194,18 +208,17 @@ const ALL = (STATE.masters.roles || []).map(r => r.name).concat(['COO'])
   });
 }
 
-/* The sweep so far: every KAM gate is gone. When Production and admin are done,
-   this list grows. */
+/* The sweep so far. Deliberately NOT an exact count any more: a number like
+   "59 remaining" goes stale on the next conversion, and a stale number that
+   still passes gets quoted as fact. What matters is the direction and the
+   floor — Commercial is converted, and the sign-off gates are all still there. */
 {
   const kam = (H.html.match(/hardRole\(\['KAM'\]\)/g) || []).length;
-  eq('the 3 remaining KAM gates are the held-back Customer Master ones', kam, 3);
-  /* 63 hardRole CALLS on 56 lines before the sweep (the earlier "56" was a line
-     count, not a call count — worth being exact, because this number will get
-     quoted). Seven KAM calls converted, so 56 calls remain. */
+  eq('every KAM gate is gone — Commercial asks for rights now', kam, 0);
   const total = (H.html.match(/hardRole\(\[/g) || []).length;
-  eq('4 of the 63 hardRole calls converted (entry only; dealers held back)', total, 59);
-  ok('the Kind B sign-off gates are untouched', total >= 40, 'remaining: ' + total);
-  console.log('    hardRole calls: 63 before the sweep, ' + total + ' now  (' + (63 - total) + ' converted; Customer Master held back)');
+  ok('the sweep really has removed some (63 before it started)', total < 63, 'remaining: ' + total);
+  ok('and the Kind B sign-off gates are untouched', total >= 40, 'remaining: ' + total);
+  console.log('    hardRole calls: 63 before the sweep, ' + total + ' now  (' + (63 - total) + ' converted)');
 }
 
 console.log('\nRights — matrix vs sign-off: ' + pass + ' passed, ' + fail + ' failed');

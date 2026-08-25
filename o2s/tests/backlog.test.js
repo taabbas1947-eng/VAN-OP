@@ -7,10 +7,11 @@ const html = H.html;
    opener — so the real gate and the access machinery under it come into the
    sandbox too. Stubbing the gate to true would make the refusal checks below
    prove nothing. */
-const src = ['openPrintDecisionPOs', 'bulkPDAll', 'accessOv', '_ownerEdit', 'accessLevel',
+const src = ['openPrintDecisionPOs', 'bulkPDAll', 'accessOv', '_ownerEdit', 'accessLevelOn', 'accessLevel',
              'screenEditOK', 'mayWork', 'whoMayEdit', 'denyWork',
              'bulkPDWhoMay', 'bulkPDMayAnswer', 'bulkPDDenied',
-             'saveBulkPrintDecision'].map(H.grab).join('\n');
+             'saveBulkPrintDecision'].map(H.grab).join('\n')
+          + '\n' + H.authModelSrc();   /* bulkPDMayAnswer now asks may('order.print_decision') */
 const data = require(H.STATE).data;
 
 let pass = 0, fail = 0; const fails = [];
@@ -90,7 +91,11 @@ eq('stamped with the person', s2.state.orders.find(o => o.id === 'A').printDecis
     const c = mk(r); c.saveBulkPrintDecision();
     ok('WRITER refuses ' + r, c.state.orders[0].printDecision === undefined,
        'wrote ' + c.state.orders[0].printDecision);
-    ok('and says why to ' + r, /New PO Entry/.test(c.lastToast || ''), c.lastToast);
+    /* The refusal now names the RIGHT and where to get it, not the screen —
+       the screen was only ever a stand-in for the right. */
+    ok('and says why to ' + r, /Answer print-on-pack/.test(c.lastToast || ''), c.lastToast);
+    ok('...naming who can, and where to ask, for ' + r,
+       /KAM/.test(c.lastToast || '') && /Authorisation/.test(c.lastToast || ''), c.lastToast);
   });
 }
 

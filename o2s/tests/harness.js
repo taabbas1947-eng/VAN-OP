@@ -96,7 +96,32 @@ function ok(name, cond, extra) {
 }
 function eq(name, got, want) { ok(name, got === want, 'got ' + JSON.stringify(got) + ' want ' + JSON.stringify(want)); }
 
-module.exports = { sandbox, ok, eq, report, grab, grabObj, matchBlock, APP, STATE, html };
+/* A top-level `var NAME = [ ... ];` or `var NAME = { ... };`, source and all —
+   the opening bracket is given rather than guessed. */
+function grabTopVar(name, open) {
+  const re = new RegExp('\\nvar ' + name + '\\s*=\\s*\\' + open);
+  const m = re.exec(html);
+  if (!m) throw new Error('var not found: ' + name);
+  return matchBlock(m.index + 1, name, open) + ';';
+}
+
+/* The departments -> roles -> rights model, pulled whole out of the app.
+   EVERY suite that runs a converted gate needs this, because a converted gate
+   asks may('some.right') instead of naming a role. Kept in one place so the
+   suites cannot drift apart on what the model is. Callers still supply their
+   own `state` and `scr`. */
+const AUTH_MODEL_FNS = ['rightByCode', 'rightsOfDept', 'deptById', 'rolesOfState',
+  'roleByName', 'roleIdOf', 'roleDeptId', 'deptLeadRole', 'isDeptLead', 'rolesInDept',
+  'roleRightsOf', 'mayLegacyRole', 'mayRole', 'may', 'whoMayRight', 'whoCanGrant', 'denyRight',
+  'rightsFreezeCheck', 'seedAnswer', 'seedDeptRightsV1', 'resyncScreenRights', 'rightDecided', 'markRightDecided', 'accessLevelOn', 'grantRefusal', 'separationRefusal', 'rolesUnfiled'];
+function authModelSrc() {
+  return ['DEPTS', 'ROLE_DEPT', 'RIGHTS', 'SEPARATION'].map(n => grabTopVar(n, n === 'ROLE_DEPT' ? '{' : '[')).join('\n')
+       + grabTopVar('RIGHTS_LIVE', '{') + '\n'
+       + AUTH_MODEL_FNS.map(grab).join('\n\n');
+}
+
+module.exports = { sandbox, ok, eq, report, grab, grabObj, grabTopVar, matchBlock,
+                   authModelSrc, AUTH_MODEL_FNS, APP, STATE, html };
 function report(label) {
   console.log('\n' + label + ': ' + pass + ' passed, ' + fail + ' failed');
   fails.forEach(f => console.log('  FAIL  ' + f));

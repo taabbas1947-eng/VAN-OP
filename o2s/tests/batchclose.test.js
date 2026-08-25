@@ -23,14 +23,23 @@ const SRC = [
   H.grab('openReopenBatch'), H.grab('renderReopenBatch'),
   H.grab('doReopenBatch'), H.grab('recordCorrection'), H.grab('correctTypeLabel'),
   H.grab('correctReasonText'), H.grab('nid'), H.grab('hardRole'), H.grab('coaItemOf'),
-  H.grab('logAction'),
-].join('\n');
+  H.grab('logAction'), H.grab('accessLevelOn'), H.grab('accessLevel'), H.grab('scr'),
+  /* the closed-batches row carries a Correct button since 25 Aug */
+  H.grab('_pcCorrectBtn'), H.grab('correctAllowed'), H.grab('correctFieldOK'),
+  H.grab('correctAnyField'), H.grab('correctCanAmend'), H.grabObj('CORRECT_ENTITY'),
+].join('\n')
+  /* The bulk-close gates ask may('batch.close_bulk') since 25 Aug. The whole
+     rights model comes in so the gate is the REAL one — stubbing may() to true
+     would make every refusal check below prove nothing. */
+  + '\n' + H.authModelSrc()
+  + '\n' + (function(){ const i = H.html.indexOf('const SCREENS=');
+      return H.matchBlock(i, 'SCREENS', '[').replace(/^const /, 'var ') + ';'; })();
 
 function ctx(role, st) {
   const log = { toasts: [], actions: [], saved: 0, closed: 0, html: '' };
   const modal = { className: '', set innerHTML(v) { log.html = v; }, get innerHTML() { return log.html; } };
   const s = {
-    console, Date, TODAY: new Date('2026-08-22T00:00:00Z'),
+    console, Date, JSON, TODAY: new Date('2026-08-22T00:00:00Z'),
     /* a REAL escaper, not the identity. Stubbing _pe as String() meant every
        escaping check in this file proved nothing. */
     fmt: n => String(n),
@@ -42,7 +51,9 @@ function ctx(role, st) {
     $: id => (id === 'modal' ? modal : { classList: { add() {}, remove() {} } }),
     settledForm: null, reopenForm: null,
   };
-  s.state = Object.assign({ role, currentUser: { name: 'Prod Person', username: 'prod' }, seq: 100, corrections: [], audit: [], actionLog: [] }, st);
+  s.state = Object.assign({ role, screen: 'prod', currentUser: { name: 'Prod Person', username: 'prod' }, seq: 100,
+    corrections: [], audit: [], actionLog: [],
+    masters: JSON.parse(JSON.stringify(require(H.STATE).data.masters)) }, st);
   s.globalThis = s; vm.createContext(s); vm.runInContext(SRC, s);
   s._log = log; return s;
 }
@@ -261,8 +272,10 @@ ok('the Reopen button is on the batch lifecycle view',
 {
   /* the reopen button must be built BEFORE the Production-only gate, or the
      Plant Manager never sees it */
+  /* The gate returns the Correct button since 25 Aug (`if(!ed)return _cb;`), so
+     the anchor is the gate itself, not what it used to return. */
   const fn = H.grab('_pcLifeAction');
-  const gate = fn.indexOf("if(!ed)return ''");
+  const gate = fn.indexOf('if(!ed)return');
   const btn = fn.indexOf('openReopenBatch');
   ok('and it is not hidden behind the Production gate', btn >= 0 && btn < gate,
     'button at ' + btn + ', gate at ' + gate);
@@ -419,10 +432,22 @@ ok('...on the empty branch too', (html.match(/\+closedBatchesCard\(\)/g) || []).
   s.reopenForm.reason = 'Closed by mistake in the bulk list this morning.';
   s.doReopenBatch();
   eq('recorded as a REVERSE, which is the Plant Manager\'s to do', s.state.corrections[0].op, 'REVERSE');
+  /* A reopen writes its own REVERSE row through recordCorrection — it does not
+     go through applyCorrect, so what authorises it is doReopenBatch's own
+     hardRole(['Plant Manager']) gate, not the registry's `reverse` list. Those
+     are two different things, and this test used to conflate them.
+     The registry's list is deliberately EMPTY: the batch entity has no
+     doReverse, so a generic REVERSE would fall through to rec.reversed=true,
+     which nothing reads for a batch — a no-op that told the Plant Manager the
+     batch had been struck through while it carried on shipping. */
   const reg = H.grabObj('CORRECT_ENTITY');
   const seg = reg.slice(reg.indexOf('batch:{'));
-  ok('and the registry agrees a Plant Manager may reverse a batch',
-    /reverse:\['Plant Manager','COO'\]/.test(seg));
+  ok('the reopen is authorised by doReopenBatch itself',
+     /hardRole\(\['Plant Manager'\]\)/.test(H.grab('doReopenBatch')));
+  ok('and the registry grants the generic REVERSE to nobody, because it would do nothing',
+     /reverse:\[\]/.test(seg), seg.slice(0, 200));
+  ok('...while AMEND on a batch is still somebody\'s',
+     /amend:\['Production','COO'\]/.test(seg));
 }
 
 /* ---- the stale variance notice is cleared ---- */

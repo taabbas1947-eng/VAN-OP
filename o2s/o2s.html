@@ -4372,6 +4372,13 @@ function closedBatchesCard(){
       +'<td style="white-space:nowrap;text-align:right">'
       +(canReopen?('<button class="sm ghost" title="Put this batch back to open. Needs a reason." onclick="openReopenBatch(\''+b.id+'\')">Reopen</button>')
                  :'<span class="muted" style="font-size:10.5px">Plant Manager reopens</span>')
+      /* The batch action row only exists while a batch is still on the floor —
+         open, or closed with something left to pack or reconcile. Once the last
+         kilo is packed the batch lives ONLY here, and this is the row a Plant
+         Manager looking at a finished batch actually reaches. Without this, the
+         correction built for HG26025 would stop working the moment its 35,400 Kg
+         was packed, which is the same week it was needed. */
+      +_pcCorrectBtn(b)
       +'</td></tr>';
   }).join('');
   return head+warn
@@ -4568,7 +4575,20 @@ function renderProdLifecycle(){var PC=window.ProductionCenter;if(!PC)return '<di
   return prodTodayBar()+prodStatusStrip()+prodSettledStrip()+prodStageList()+((prodFilter==='completed')?prodReconciledStrip():'');}
 function _pcStep(name,sub,st,first,reached){var ds=st==='done'?'background:var(--navy);color:#fff':st==='active'?'background:var(--navy-50,#eef3fb);color:var(--navy);box-shadow:inset 0 0 0 2px var(--navy)':'background:#eef1f4;color:#9aa3b0';var mark=st==='done'?'✓':'';var nmc=st==='todo'?'color:#9aa3b0':'';var line=first?'':'<div class="line" style="background:'+(reached?'var(--navy)':'#e3e7ec')+'"></div>';return '<div class="col">'+line+'<div class="sdot" style="'+ds+'">'+mark+'</div><div class="snm" style="'+nmc+'">'+name+'</div><div class="ssub">'+sub+'</div></div>';}
 function _pcLotRes(c){c=c||{};if(c.status==='approved'){return c.deviation?['Deviation','var(--amber-50,#fdf0d5)','var(--amber,#9E6210)']:['FIT','var(--green-50,#e7f5e8)','var(--green2,#2f8132)'];}if(c.overall==='UNFIT')return['UNFIT','#fbe9e7','var(--red,#E03127)'];if(c.status)return['In review','var(--navy-50,#eef3fb)','var(--navy)'];return['Pending','#f1f3f5','var(--mut,#8A95A6)'];}
-function _pcLifeAction(b,d,ed){/* The closed-batch line is built BEFORE the `ed` gate, because reopening belongs   to the Plant Manager and `ed` is Production. Leaving it below the gate is how a   button ends up existing and never appearing to the person it is for. */if(b.status==='closed'){var _rr=hardRole(['Plant Manager'])?' <button class="sm ghost" title="Put this batch back to open. Needs a reason." onclick="openReopenBatch(\''+b.id+'\')">Reopen</button>':'';return '<span class="muted" style="font-size:12px">Batch closed'+(b.closedDate?(' · '+b.closedDate):'')+(b.closedBy?(' · by '+_pe(b.closedBy)):'')+((b.closeHistory&&b.closeHistory.length)?(' · reopened '+b.closeHistory.length+'&times; before'):'')+'</span>'+_rr;}if(!ed)return '';if(b.pool){return b.disposition==='byproduct'?'<button class="green" onclick="openCallBp(\''+b.id+'\')">Call for manufacturing</button>':'';}var prod=+b.producedKg||0,plan=+b.plannedKg||0,complete=(plan>0&&prod>=plan-0.5);var primary='';if(d.stage==='producing')primary=complete?'<button class="green" onclick="openCloseBatch(\''+b.id+'\')">Production complete — Close batch</button>':'<button class="green" onclick="openShiftLog(\''+b.id+'\')">+ Log shift output</button>';else if(d.stage==='qc')primary='<button class="ghost" onclick="setScreen(\'qc\')">Open in Lab QC ▸</button>';else if(d.stage==='pack')primary='<button class="green" onclick="openPack(\''+b.id+'\')">Pack cleared stock</button>';else if(d.stage==='recon')primary='<button onclick="openReconcile(\''+b.id+'\')">Reconcile remainder</button>';else if(d.stage==='packed')primary=((prod-(+b.packedKg||0))>0.5)?'<button onclick="openReconcile(\''+b.id+'\')">Reconcile remainder</button>':'<button class="green" onclick="openCloseBatch(\''+b.id+'\')">Close batch</button>';var sec=(b.status==='open'&&!(d.stage==='producing'&&complete)&&d.stage!=='packed')?' <button class="sm ghost" onclick="openCloseBatch(\''+b.id+'\')">Close batch (end production)</button>':'';return primary+sec;}
+/* The one way into a batch correction. Before 25 Aug the only route was inside
+   setBatchNo, on a card that lists batches with NO batch number — and in the data
+   on record that card is empty, so the whole batch entity was unreachable: batch
+   #, opened date, planned, and now produced. HG26025 could not be repaired from
+   any screen in the app.
+   It is built OUTSIDE the `ed` gate for the same reason Reopen is: `ed` is
+   Production's flag, and the produced total is the Plant Manager's field. A
+   button behind the wrong flag exists and never appears to the person it is for. */
+function _pcCorrectBtn(b){
+  var can=false; try{ can=correctCanAmend('batch'); }catch(e){}
+  if(!can) return '';
+  return ' <button class="sm ghost" title="Correct a value on this batch. Needs a reason and goes in the register." onclick="openCorrect(\'batch\',\''+b.id+'\')">Correct\u2026</button>';
+}
+function _pcLifeAction(b,d,ed){/* The closed-batch line is built BEFORE the `ed` gate, because reopening belongs   to the Plant Manager and `ed` is Production. Leaving it below the gate is how a   button ends up existing and never appearing to the person it is for. */if(b.status==='closed'){var _rr=hardRole(['Plant Manager'])?' <button class="sm ghost" title="Put this batch back to open. Needs a reason." onclick="openReopenBatch(\''+b.id+'\')">Reopen</button>':'';return '<span class="muted" style="font-size:12px">Batch closed'+(b.closedDate?(' · '+b.closedDate):'')+(b.closedBy?(' · by '+_pe(b.closedBy)):'')+((b.closeHistory&&b.closeHistory.length)?(' · reopened '+b.closeHistory.length+'&times; before'):'')+'</span>'+_rr+_pcCorrectBtn(b);}var _cb=_pcCorrectBtn(b);if(!ed)return _cb;if(b.pool){return (b.disposition==='byproduct'?'<button class="green" onclick="openCallBp(\''+b.id+'\')">Call for manufacturing</button>':'')+_cb;}var prod=+b.producedKg||0,plan=+b.plannedKg||0,complete=(plan>0&&prod>=plan-0.5);var primary='';if(d.stage==='producing')primary=complete?'<button class="green" onclick="openCloseBatch(\''+b.id+'\')">Production complete — Close batch</button>':'<button class="green" onclick="openShiftLog(\''+b.id+'\')">+ Log shift output</button>';else if(d.stage==='qc')primary='<button class="ghost" onclick="setScreen(\'qc\')">Open in Lab QC ▸</button>';else if(d.stage==='pack')primary='<button class="green" onclick="openPack(\''+b.id+'\')">Pack cleared stock</button>';else if(d.stage==='recon')primary='<button onclick="openReconcile(\''+b.id+'\')">Reconcile remainder</button>';else if(d.stage==='packed')primary=((prod-(+b.packedKg||0))>0.5)?'<button onclick="openReconcile(\''+b.id+'\')">Reconcile remainder</button>':'<button class="green" onclick="openCloseBatch(\''+b.id+'\')">Close batch</button>';var sec=(b.status==='open'&&!(d.stage==='producing'&&complete)&&d.stage!=='packed')?' <button class="sm ghost" onclick="openCloseBatch(\''+b.id+'\')">Close batch (end production)</button>':'';return primary+sec+_cb;}
 function renderProdLifecycleBatch(){var PC=window.ProductionCenter;if(!PC)return '<div class="card">Lifecycle unavailable</div>';var ed=hardRole(['Production']);var _f=prodFilter||'all';if(_f==='call')return prodPoolsStrip()||'<div class="card"><div class="muted" style="padding:10px 2px">No by-product, diverted or rework material to call right now.</div></div>';var _af=(typeof activeFloorBatches==='function')?activeFloorBatches():(state.batches||[]).filter(function(b){return b&&b.status==='open';});var _ps=function(b){return PC.derive(b).stage;};var open;if(_f==='completed'){open=(state.batches||[]).filter(function(b){return b&&b.status==='closed'&&!b.pool&&b.disposition!=='byproduct'&&!b.voided&&!_af.some(function(x){return x.id===b.id;});}).sort(function(a,c){return String(c.closedDate||'').localeCompare(String(a.closedDate||''));});}else if(_f==='recon'){open=(state.batches||[]).filter(function(b){return b&&!b.pool&&b.disposition!=='byproduct'&&!b.voided&&batchRemainderKg(b)>0.5&&!b.reconciled;});}else if(_f==='producing'||_f==='qc'||_f==='pack'){open=_af.filter(function(b){return _ps(b)===_f;});}else if(_f==='toclose'){open=_af.filter(function(b){return batchStage(b)==='done';});}else if(_f==='attention'){open=_af.filter(function(b){var a=batchAging(b);return _ps(b)!=='packed'&&a!=null&&a>=4;});}else{open=_af;}if(!open.length)return '<div class="card"><div class="muted" style="padding:8px 2px">Nothing in this view.'+(_f!=='tomake'?' <a onclick="prodFilter=\'tomake\';prodDrill=false;render()" style="cursor:pointer;color:var(--navy)">Back to what to make ▸</a>':'')+'</div></div>';var sel=open.find(function(b){return b.id===prodBatchSel;})||open[0];prodBatchSel=sel.id;var _pbmRow=function(b){var dd=PC.derive(b);var MM=PC.STAGE_META[dd.stage]||{name:dd.stage,dot:'#888'};var closed=(b.status==='closed');var plan=+dd.planned||+b.plannedKg||0,prod=+dd.produced||+b.producedKg||0;var pv=plan>0?Math.min(100,Math.round(prod/plan*100)):(prod>0?100:0);var a=batchAging(b);var stalled=(!closed&&dd.stage!=='packed'&&a!=null&&a>=4);var right=closed?'<span class="pbm-stage">'+(b.closedDate||'done')+'</span>':(stalled?'<span class="pbm-stage" style="color:var(--red)">⚠ stalled</span>':'<span class="pbm-stage">'+pv+'%</span>');return '<div class="pbm'+(b.id===sel.id?' on':'')+'" onclick="prodBatchSel=\''+b.id+'\';render()"><span class="dot" style="background:'+(closed?'#B7C3BC':MM.dot)+'"></span><div class="pbm-main"><div class="pbm-prod">'+(dd.brand||dd.base||'—')+'</div><div class="pbm-code">'+(b.batchNo||'—')+'</div><div style="height:4px;border-radius:999px;background:var(--line);margin-top:5px;overflow:hidden"><span style="display:block;height:100%;width:'+pv+'%;background:'+(closed?'#9aa3b0':'var(--navy)')+'"></span></div></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px">'+'<span class="pbm-stage">'+(closed?'Completed':MM.name)+'</span>'+right+'</div></div>';};
 var _stp={producing:0,qc:1,pack:2,recon:3};var _sk=function(b){var k=PC.derive(b).stage;return _stp[k]==null?5:_stp[k];};
 var _actB=open.filter(function(b){return PC.derive(b).stage!=='packed';}).sort(function(x,y){return _sk(x)-_sk(y);});
@@ -4848,12 +4868,54 @@ function screenProd(){
    ${acard('prod_log','Daily output log',`${state.productionLog.length} entries`,`${regBar('prodlog',_plOpt,_pl.total)}<div class="tscroll" style="max-height:52vh"><table><thead><tr><th style="width:120px">Date</th><th>Base / product</th><th class="num" style="width:100px">Kg/L</th><th style="width:90px">Shift</th><th style="width:120px">Incharge</th><th style="width:100px">By</th>${state.role==='COO'?'<th style="width:90px"></th>':''}</tr></thead>
        <tbody>${_pl.view.length?_pl.view.map(p=>`<tr><td class="muted">${p.date}</td><td>${p.brand?(p.brand+' '):''}<span class="muted">${p.base}</span>${p.po?(' · '+p.po):''}</td><td class="num">${fmt(p.kg)}</td><td class="muted">${p.shift||'—'}</td><td class="muted">${p.incharge||'—'}</td><td class="muted">${p.by}</td>${state.role==='COO'?`<td><button class="sm ghost" onclick="voidProdEntry(${p._i})">✕ remove</button></td>`:''}</tr>`).join(''):`<tr><td colspan="${state.role==='COO'?7:6}" class="muted">No output logged.</td></tr>`}</tbody></table></div>${regPager('prodlog',_pl.pages)}`)}`);
 }
-/* COO-only: remove a mistaken production entry. Reverses the produced quantity
+/* Remove a mistaken production entry. NOTE: this has no live caller — its only
+   button sits below screenProd's early return, in the block the file marks
+   unreachable, and that button is gated state.role==='COO' while the function
+   below asks hardRole(['Production']). Three different answers about who may.
+   The certified-lot refusal added on 25 Aug is therefore defence-in-depth, not
+   an active control: it protects this path for whenever the screen comes back.
+   Reverses the produced quantity
    (clamped so it never drops below what's already packed) and deletes the log row.
    Logged to the Action Log. Index maps directly to state.productionLog (recent = slice(0,15)). */
 /* Reverse a production-log entry's effect on its batch: drop one matching un-approved lot
    and decrement producedKg (never below what's already packed). Approved-COA lots are left
    intact (don't break the QC chain); producedKg is still corrected. */
+/* Why a void can be refused. The reversal below removes the lot the entry
+   created — but only if the lab has NOT certified it, because deleting a
+   certificate is not something a production reversal gets to do. It used to
+   reduce the produced total anyway, which left the batch holding certified lots
+   it no longer claimed to have produced (HG26025, 25 Aug: 38,800 Kg certified,
+   35,400 Kg produced, 3,400 Kg of good material unpackable and no message).
+   Once the lab has certified material, it exists. Removing it is a DISPOSAL — a
+   different act with its own record — not an un-logging. */
+function _voidBlockedBy(p){
+  if(!p) return null;
+  var bn=(p.batchNo||'').trim();
+  var b=bn?(state.batches||[]).find(function(x){return (x.batchNo||'').trim()===bn;}):null;
+  if(!b){ b=(state.batches||[]).find(function(x){return x.base===p.base && ((x.producedKg||0)-(x.packedKg||0))>0.001; })
+            || (state.batches||[]).find(function(x){return x.base===p.base;}); }
+  if(!b) return null;
+  var ap=function(lt){ return lt&&lt.coa&&lt.coa.status==='approved'; };
+  var lots=(b.lots||[]);
+  /* A MULTI batch splits one shift's output across several POs, so its
+     productionLog rows carry a SHARE and no lot ever equals one. Matching on size
+     would find nothing and wave the void through — the same hole, one batch kind
+     along. For multi, ask whether the batch holds any certified lot at all. */
+  if(b.kind==='multi'){
+    var anyCert=lots.filter(ap)[0];
+    if(anyCert) return 'This batch has certified lots (lot '+(anyCert.lotNo||'')+' on '+(b.batchNo||b.id)+', COA approved), '
+      +'and its output is split across several POs, so a single entry cannot be un-logged without disturbing them. '
+      +'If the material is gone, dispose of it.';
+    return null;
+  }
+  /* an uncertified lot of the same size is what the reversal would take, so the
+     void is honest and may proceed */
+  if(lots.some(function(lt){ return Math.abs((lt.qty||0)-(p.kg||0))<0.001 && !ap(lt); })) return null;
+  var cert=lots.filter(function(lt){ return Math.abs((lt.qty||0)-(p.kg||0))<0.001 && ap(lt); })[0];
+  if(cert) return 'That output is already certified by the lab (lot '+(cert.lotNo||'')+' on batch '+(b.batchNo||b.id)+', COA approved). '
+    +'It cannot be un-logged — if the material is gone, dispose of it, so the certificate and the quantity stay together.';
+  return null;
+}
 function _voidReverseBatch(p){
   const bn=(p.batchNo||'').trim();
   let b=bn?(state.batches||[]).find(x=>(x.batchNo||'').trim()===bn):null;
@@ -4870,6 +4932,9 @@ function _voidReverseBatch(p){
 function voidProdEntry(i){
   if(!hardRole(['Production'])){ toast('You need Edit access to Production'); return; }
   const p=state.productionLog[i]; if(!p) return;
+  /* Asked BEFORE anything is written, and before the person is made to type a
+     confirmation for something that is going to be refused anyway. */
+  const blocked=_voidBlockedBy(p); if(blocked){ toast(blocked); return; }
   const desc=`${p.date} · ${p.brand?p.brand+' ':''}${p.base||''}${p.po?(' · '+p.po):''} · ${fmt(p.kg)} Kg/L`;
   if(!typeNameToConfirm('Remove production entry — '+desc+' (reverses produced qty)')) return;
   if(p.po){
@@ -5991,7 +6056,15 @@ var CORRECT_ENTITY={
     label:'Production batch',
     find:function(id){ return (state.batches||[]).find(function(b){return b.id===id;}); },
     name:function(b){ return (b.batchNo||b.id)+' · '+(b.base||'')+(b.po?(' · '+b.po):''); },
-    amend:['Production','COO'], reverse:['Plant Manager','COO'],
+    /* reverse is DELIBERATELY nobody's. There is no doReverse for a batch, so
+       applyCorrect falls through to rec.reversed=true — and `.reversed` is read
+       in ten places, every one of them on a packing run, never on a batch. The
+       result was a no-op that told the Plant Manager the batch had been reversed
+       and struck through while it carried on producing, packing and shipping.
+       Harmless before 25 Aug because nothing could open a batch correction at
+       all; two clicks away the moment the Correct button landed. A batch that
+       should not exist is voided or reopened, not reversed. */
+    amend:['Production','COO'], reverse:[],
     fields:[
       /* Same rule as the pack number, and this one is wider: the internal batch
          number is quoted on the COA, the lot numbers, the shift entries and
@@ -6005,16 +6078,93 @@ var CORRECT_ENTITY={
          if(ins>0.5) return fmt(Math.round(ins))+' Kg has been CLEARED by QA under this batch number. Withdraw the inspection first if it was wrong.';
          return null; }},
       {k:'openedDate', l:'Opened date',        t:'date'},
-      {k:'plannedKg',  l:'Planned (Kg/L)',     t:'number'}
+      /* The plan is the 105% over-production ceiling submitShiftLog enforces, so
+         Production amending its own plan is Production raising its own limit —
+         the same objection as the produced total four lines down. Plant Manager
+         or COO. Production keeps the opened date. */
+      {k:'plannedKg',  l:'Planned (Kg/L)',     t:'number', roles:['Plant Manager','COO']},
+      /* PRODUCED — added 25 Aug 2026, after HG26025.
+         What went wrong: a production entry of 3,400 Kg was voided AFTER the lab
+         had certified its lot. The reversal removes the matching lot only if it
+         is NOT approved, but it reduced the produced total either way — so the
+         batch kept eight certified lots totalling 38,800 Kg while its produced
+         total read 35,400. Packable stock is capped at produced, so 3,400 Kg of
+         certified material became unpackable and nothing said why.
+         The lots and the certificates were right; only the total was wrong, and
+         that is what this repairs. It is a correction, not data entry: a reason
+         is required, it goes in the register, and it belongs to the Plant Manager
+         or the COO — NOT to Production, because raising your own produced figure
+         is a quantity claim and somebody else signs those. */
+      {k:'producedKg', l:'Produced (Kg/L)',    t:'number', roles:['Plant Manager','COO'],
+       checkIf:function(b,after){
+         var packed=+b.packedKg||0, disp=+b.disposedKg||0;
+         if(after < packed+disp-0.5)
+           return 'Produced cannot go below what has already left the batch — '
+             +fmt(Math.round(packed))+' Kg packed'
+             +(disp>0.5?(' and '+fmt(Math.round(disp))+' Kg disposed'):'')+'.';
+         /* Certified material exists — the lab weighed it. Setting produced below
+            it recreates exactly the HG26025 condition this field was built to
+            repair, and an empty box reads as 0, so it would be one slip away. */
+         var cert=0; try{ cert=batchClearedKg(b); }catch(e){}
+         if(cert>0.5 && after<cert-0.5)
+           return 'The lab has certified '+fmt(Math.round(cert))+' Kg on this batch. '
+             +'Produced cannot be less than that — certified material exists. If it has gone, dispose of it.';
+         /* A multi batch spreads one shift across several POs by allocation, and
+            the mirror below only follows a single PO line. Correcting the batch
+            total would leave every allocated line stale, so it is refused until
+            the mirror handles allocations. */
+         if(b.kind==='multi')
+           return 'This batch serves several POs by allocation, and correcting the total here '
+             +'would leave those PO lines behind. Correct it on the PO lines, or ask for this to be built.';
+         var lots=(b.lots||[]).reduce(function(a,l){return a+(+l.qty||0);},0);
+         /* An empty box reads as 0. On a batch with lots that is not a
+            correction, it is a deletion — and on an uncertified batch the
+            certified floor above is 0, so nothing else would catch it. */
+         if(lots>0.5 && after<0.5)
+           return 'Setting produced to nothing on a batch with '+((b.lots||[]).length)+' lot(s) is not a correction. '
+             +'If the shifts were never made, void them; if the material is gone, dispose of it.';
+         if(lots<=0.5)
+           return 'This batch has no lots, so there is no shift output to correct against. '
+             +'Log the shift that made the material instead.';
+         if(after>lots+0.5)
+           return 'This batch has '+((b.lots||[]).length)+' lot(s) totalling '+fmt(Math.round(lots))
+             +' Kg. Setting produced above that would be material no shift ever logged — log the missing shift instead of correcting the total.';
+         return null; }}
     ],
     /* Mirrors setBatchNo()'s propagation. Amending the number here without this
        would leave the COA, the lot numbers and every packing run quoting a
        batch number that no longer exists. */
     onAmend:function(b,changes){
+      var out0=[];
+      /* Correcting the produced total moves what can be packed. That figure is
+         computed, not stored, so the register would otherwise show a number
+         change with no consequence — the least useful thing a correction record
+         can say. */
+      var pq=changes.filter(function(c){return c.field==='producedKg';})[0];
+      if(pq){ var pk=0; try{ pk=batchPackableKg(b); }catch(e){}
+        out0.push('Ready to pack is now '+fmt(Math.round(pk))+' Kg');
+        /* A PO batch and its order line move together everywhere else —
+           submitShiftLog raises both, voidProdEntry lowers both. Correcting only
+           the batch would leave the PO Tracker reporting the old figure AND would
+           hand the over-run guard the wrong remaining quantity, so Production
+           could log past the ordered amount without the app calling it an
+           over-run. saveReconcile mirrors to the line the same way. */
+        var delta=(+pq.after||0)-(+pq.before||0);
+        if(Math.abs(delta)>0.001 && b.kind==='po' && b.po){
+          var o=(state.orders||[]).find(function(x){return x.po===b.po;});
+          var l=o&&(o.lines||[]).find(function(x){return x.id===b.lineId;});
+          if(l){ var was=+l.produced||0;
+            l.produced=Math.max(+l.packed||0, was+delta);
+            /* cleared on the way down AND set on the way up, the same as
+               submitShiftLog — a line left blank stays on worklists as unfinished */
+            if((l.produced||0) < (l.ordered||0)-0.001) l.prodComplete='';
+            else if(!l.prodComplete) l.prodComplete=TODAY.toISOString().slice(0,10);
+            out0.push('PO '+b.po+' \u00b7 '+(l.brand||'')+' produced '+fmt(Math.round(was))+' \u2192 '+fmt(Math.round(l.produced))+' Kg'); }
+        } }
       var ch=changes.filter(function(c){return c.field==='batchNo';})[0];
-      if(!ch) return [];
+      if(!ch) return out0;
       var old=String(ch.before||'').trim(), no=b.batchNo||'';
-      var out=[];
+      var out=out0;
       (b.lots||[]).forEach(function(lt,i){ lt.lotNo=no+'-L'+(i+1);
         if(lt.coa && (!lt.coa.batchNo||lt.coa.batchNo===old)) lt.coa.batchNo=no; });
       if((b.lots||[]).length) out.push((b.lots||[]).length+' lot number(s) and their COAs renumbered');
@@ -6304,10 +6454,25 @@ function applyCorrect(){
       if(String(before)===String(after)) return;
       var lock=null; try{ lock=x.lockedIf?x.lockedIf(tgt):null; }catch(e){}
       if(lock){ refused=refused||(x.l+' cannot be changed — '+lock); return; }
+      /* lockedIf asks about the RECORD; checkIf asks about the VALUE going in. A
+         quantity can be correctable in principle and still wrong at a particular
+         number — you cannot correct a produced total down below what has already
+         been packed out of it. */
+      var bad=null; try{ bad=x.checkIf?x.checkIf(tgt,after):null; }catch(e){}
+      if(bad){ refused=refused||bad; return; }
       changes.push({field:x.k,label:x.l,before:before,after:after});
       tgt[x.k]=after;
     });
-    if(refused){toast(refused);return;}
+    if(refused){
+      /* Put back anything an earlier field in the same submit already wrote.
+         The loop writes per field and only asks about `refused` at the end, so a
+         refusal on the LAST field used to leave the earlier ones changed in state
+         and absent from the register — a silent edit, which is the one thing this
+         module exists to make impossible. Newly reachable because a checkIf field
+         renders as an ordinary editable box, where a lockedIf field renders
+         disabled and never reaches this loop at all. */
+      changes.forEach(function(c){ tgt[c.field]=c.before; });
+      toast(refused); return; }
     if(!changes.length){toast('Nothing changed');return;}
     /* Some fields are quoted on other records. The registry says what has to
        follow, and what followed is recorded as the cascade so the register

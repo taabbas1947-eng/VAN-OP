@@ -4221,6 +4221,12 @@ function doRemoveLot(){
   if((rmLotForm.reason||'').trim().length<10){toast('Say what happened \u2014 a sentence, not a word');return;}
   var q=+lt.qty||0, was=+b.producedKg||0;
   var cascade=[];
+  /* The multi-batch log block is found BEFORE the lot leaves b.lots: its rank
+     among same-signature lots is what picks the block, and once the lot is gone
+     the rank is off by one and the OLDER submission's rows get reversed. Found
+     by the capped-second-submission check in certremove.test.js §12 — on
+     identical submissions the two blocks match and nothing notices. */
+  var _multiRows=(b.kind==='multi')?(lotMultiLogRows(b,lt)||[]):[];
   /* 1. the lot */
   b.lots=(b.lots||[]).filter(function(l){return l.id!==rmLotForm.lid;});
   /* 2. the batch total */
@@ -4236,7 +4242,7 @@ function doRemoveLot(){
         shift wrote, one per PO, whose shares come back off the linked lines */
   var pl=(state.productionLog||[]);
   if(b.kind==='multi'){
-    var _rows=lotMultiLogRows(b,lt)||[];
+    var _rows=_multiRows;
     var _lines=[];
     _rows.forEach(function(ix){ var p=pl[ix]; if(!p) return;
       var al=(b.allocations||[]).find(function(a){ return a && (a.po||'')===(p.po||''); });

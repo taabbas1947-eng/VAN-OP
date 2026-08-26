@@ -2502,7 +2502,7 @@ var RIGHTS=[
      Manager is created it is one tick to move it across. Deliberately NOT the
      Production role: the floor logs the output, somebody above them unwinds it. */
   {code:'production.void',   dept:'production', name:'Remove a shift\u2019s output',
-   note:'Un-log a shift that should never have been recorded — a double submission, the wrong batch, a typo. Needs a reason and goes in the correction register. Refused once the lab has certified the lot: certified material exists, and it is disposed of, not un-made. The COO\u2019s decision, 26 Aug: Production Manager and above, never the floor officer who logged it.',
+   note:'Un-log a shift that should never have been recorded — a double submission, the wrong batch, a typo. Needs a reason and goes in the correction register. Refused once the lab has certified the lot: certified material exists, and it is disposed of, not un-made \u2014 unless the certificate itself was issued in error and the QCM / COO supersedes it first. The COO\u2019s decision, 26 Aug: Production Manager and above, never the floor officer who logged it.',
                                                               legacy:{kind:'hard', roles:['Plant Manager']}}
 ];
 
@@ -4098,17 +4098,25 @@ function lotRemoveBlockedBy(b,lt){
      the material exists and is disposed of, not un-made — holds from the moment
      the lab has it. The sharp case is UNFIT: the Plant Manager holds this right
      AND coaDeviation/coaRework, so the person who must decide what to do about
-     failed material could otherwise un-log it instead of deciding. */
+     failed material could otherwise un-log it instead of deciding.
+     Each refusal names the way back, because on 26 Aug the COO stood in front of
+     the certified duplicate on AP26012 with no message telling him one existed:
+     a certificate issued in error is SUPERSEDED by the QCM or COO (Lab QC →
+     Approved → Open), which leaves a draft on the lot; a certificate still in the
+     chain is sent back with Reject; an UNFIT one is the Plant Manager's decision.
+     Only once the lot is back to draft, or has no certificate, does this pass. */
   var _cs=(lt.coa&&lt.coa.status)||'';
   if(_cs==='approved')
     return 'The lab has certified lot '+(lt.lotNo||'')+'. It cannot be un-logged \u2014 certified material exists. '
-      +'If it has gone, dispose of it, so the certificate and the quantity stay together.';
+      +'If it has gone, dispose of it, so the certificate and the quantity stay together. '
+      +'If the certificate itself was issued in error \u2014 this lot was never made \u2014 the QCM or COO can '
+      +'supersede it (Lab QC \u2192 Approved \u2192 Open \u2192 Supersede). Once it is back to a draft, Remove is offered here again \u2014 the other checks still apply.';
   if(_cs==='failed')
     return 'Lot '+(lt.lotNo||'')+' came back UNFIT. That is a decision for the Plant Manager \u2014 accept the '
       +'deviation, send it for rework, or dispose of it. It is not un-logged: the material was made and tested.';
   if(_cs && _cs!=='draft')
-    return 'The lab has lot '+(lt.lotNo||'')+' in hand (COA '+_cs+'). Finish or withdraw the certificate first \u2014 '
-      +'un-logging it now would leave a certificate with nothing under it.';
+    return 'The lab has lot '+(lt.lotNo||'')+' in hand (COA '+_cs+'). Finish it, or have the AQCM / QCM press Reject on the '
+      +'certificate to send it back to the analyst \u2014 un-logging it now would leave a certificate with nothing under it.';
   if(b.kind==='multi')
     return 'This batch serves several POs by allocation, so one shift\u2019s output cannot be un-logged '
       +'without disturbing them. Correct the batch instead, or dispose of the material.';
@@ -4116,6 +4124,18 @@ function lotRemoveBlockedBy(b,lt){
   if((+b.producedKg||0)-q < gone-0.5)
     return 'Removing '+fmt(Math.round(q))+' Kg would take this batch below the '+fmt(Math.round(gone))
       +' Kg already packed or disposed. That material has left the batch and cannot be un-made.';
+  /* The certified floor — the same floor the produced-quantity AMEND has (HG26025).
+     This lot is not certified (the checks above saw to that), so what the lab
+     has certified sits entirely on the OTHER lots, and produced may not drop
+     below it. Reachable in practice only when produced already disagrees with
+     the lots: a removal that another tab's save put back leaves produced at
+     1,010 with two lots of 1,010 on the batch, and a second Remove would take
+     produced to 0 under a certified 1,010. Refused, and the reason says why. */
+  var certified=batchClearedKg(b);
+  if((+b.producedKg||0)-q < certified-0.5)
+    return 'Removing '+fmt(Math.round(q))+' Kg would take produced to '+fmt(Math.round((+b.producedKg||0)-q))
+      +' Kg, below the '+fmt(Math.round(certified))+' Kg the lab has certified on this batch\u2019s other lots. '
+      +'Certified material exists. If produced and the lots disagree, reload the page first and tell the COO \u2014 do not remove again.';
   return null;
 }
 var rmLotForm={bid:'',lid:'',reasonCode:'',reason:''};
@@ -4137,7 +4157,11 @@ function renderRemoveLot(){
     +'<div class="mb"><div class="card" style="border-left:4px solid var(--amber);padding:10px 12px;margin-bottom:12px">'
     +'<div style="font-size:12.5px">Batch '+_pe(b.batchNo||'\u2014')+' produced goes from <b>'+fmt(was)+'</b> to <b>'
     +fmt(Math.max(0,was-q))+'</b> Kg. The lot, its shift entry and its production-log row are removed. '
-    +'This goes in the correction register with your name.</div></div>'
+    +'This goes in the correction register with your name.'
+    +((lt.coaHistory&&lt.coaHistory.length)?(' <b>This lot carries '+lt.coaHistory.length+' superseded certificate revision(s) ('
+      +_pe(lt.coaHistory.map(function(h){return (h&&h.qcNo?h.qcNo:'')+' Rev '+(+(h&&h.rev)||0);}).join(', '))
+      +'). Their printable copies go with the lot; the register keeps the number, revision, who signed, when, and why it was superseded.</b>'):'')
+    +'</div></div>'
     +'<div class="fld"><label>Reason</label><select onchange="rmLotForm.reasonCode=this.value">'
     +'<option value="">\u2014 pick \u2014</option>'
     +CORRECT_REASONS.map(function(r){return '<option value="'+r.k+'"'+(rmLotForm.reasonCode===r.k?' selected':'')+'>'+r.t+'</option>';}).join('')
@@ -4188,12 +4212,26 @@ function doRemoveLot(){
       cascade.push('PO '+b.po+' \u00b7 '+(l.brand||'')+' produced '+fmt(lw)+' \u2192 '+fmt(l.produced)+' Kg'); }
   }
   cascade.push('Ready to pack is now '+fmt(Math.round(batchPackableKg(b)))+' Kg');
+  /* The certificate line. A lot reaches here as draft or with no certificate —
+     but a draft can be Rev 1 of a certificate the QCM signed and then superseded
+     (AP26012-L2, 26 Aug). The printable copy of that revision leaves with the
+     lot, by the COO's decision the same day, so the register must say what it
+     was: number, revision, who approved it and when, who superseded it and why.
+     Without this the entry reads "draft", as if the lab had barely started. */
+  var _coaDesc=(lt.coa&&lt.coa.status)
+    ? (lt.coa.status+((lt.coa.qcNo)?(' \u00b7 '+lt.coa.qcNo):'')+((+lt.coa.rev||0)?(' \u00b7 Rev '+(+lt.coa.rev)):''))
+    : 'none';
+  (lt.coaHistory||[]).forEach(function(hc){ if(!hc) return;
+    _coaDesc+=' \u2014 Rev '+(+hc.rev||0)+((hc.qcNo)?(' '+hc.qcNo):'')
+      +((hc.approver&&hc.approver.name)?(' approved by '+hc.approver.name+((hc.approvedDate)?(' on '+hc.approvedDate):'')):(' ('+(hc.status||'')+')'))
+      +', superseded'+((hc.supersededAt)?(' on '+String(hc.supersededAt).slice(0,10)):'')+((hc.supersededBy)?(' by '+hc.supersededBy):'')
+      +((hc.supersededReason)?(': '+hc.supersededReason):'');
+    cascade.push('Certificate '+(hc.qcNo||'')+' Rev '+(+hc.rev||0)+' (superseded) is no longer printable \u2014 see its SUPERSEDE entry in this register'); });
   recordCorrection('Removed shift output','batch',b.id,(b.batchNo||b.id),
     [{field:'lot',label:'Lot '+(lt.lotNo||''),before:fmt(q)+' Kg',after:'removed'},
      /* the COA state goes in the register too. Without it a removal reads the same
         whether the lab had never seen the lot or had it half-signed. */
-     {field:'coa',label:'Lab COA on that lot',
-      before:((lt.coa&&lt.coa.status)?(lt.coa.status+((lt.coa.qcNo)?(' \u00b7 '+lt.coa.qcNo):'')):'none'),after:'removed with the lot'},
+     {field:'coa',label:'Lab COA on that lot',before:_coaDesc,after:'removed with the lot'},
      {field:'producedKg',label:'Produced (Kg/L)',before:fmt(was),after:fmt(b.producedKg)}],
     rmLotForm.reasonCode, rmLotForm.reason, cascade);
   save(); closeModal(); render();
@@ -4839,7 +4877,7 @@ function renderProdLifecycle(){var PC=window.ProductionCenter;if(!PC)return '<di
   prodFilterClamp();
   return prodTodayBar()+prodStatusStrip()+prodSettledStrip()+prodStageList()+((prodFilter==='completed')?prodReconciledStrip():'');}
 function _pcStep(name,sub,st,first,reached){var ds=st==='done'?'background:var(--navy);color:#fff':st==='active'?'background:var(--navy-50,#eef3fb);color:var(--navy);box-shadow:inset 0 0 0 2px var(--navy)':'background:#eef1f4;color:#9aa3b0';var mark=st==='done'?'✓':'';var nmc=st==='todo'?'color:#9aa3b0':'';var line=first?'':'<div class="line" style="background:'+(reached?'var(--navy)':'#e3e7ec')+'"></div>';return '<div class="col">'+line+'<div class="sdot" style="'+ds+'">'+mark+'</div><div class="snm" style="'+nmc+'">'+name+'</div><div class="ssub">'+sub+'</div></div>';}
-function _pcLotRes(c){c=c||{};if(c.status==='approved'){return c.deviation?['Deviation','var(--amber-50,#fdf0d5)','var(--amber,#9E6210)']:['FIT','var(--green-50,#e7f5e8)','var(--green2,#2f8132)'];}if(c.overall==='UNFIT')return['UNFIT','#fbe9e7','var(--red,#E03127)'];if(c.status)return['In review','var(--navy-50,#eef3fb)','var(--navy)'];return['Pending','#f1f3f5','var(--mut,#8A95A6)'];}
+function _pcLotRes(c){c=c||{};if(c.status==='approved'){return c.deviation?['Deviation','var(--amber-50,#fdf0d5)','var(--amber,#9E6210)']:['FIT','var(--green-50,#e7f5e8)','var(--green2,#2f8132)'];}if(c.overall==='UNFIT')return['UNFIT','#fbe9e7','var(--red,#E03127)'];if(c.status==='draft')return['Draft','#f1f3f5','var(--mut,#8A95A6)'];if(c.status)return['In review','var(--navy-50,#eef3fb)','var(--navy)'];return['Pending','#f1f3f5','var(--mut,#8A95A6)'];}
 /* The one way into a batch correction. Before 25 Aug the only route was inside
    setBatchNo, on a card that lists batches with NO batch number — and in the data
    on record that card is empty, so the whole batch entity was unreachable: batch
@@ -4879,10 +4917,27 @@ function renderProdLifecycleBatch(){var PC=window.ProductionCenter;if(!PC)return
        asked again inside openRemoveLot and once more in doRemoveLot, because the
        lab can certify a lot while the modal is open. */
     var _mayRm=may('production.void');
-    inner='<div class="lotlist">'+lots.map(function(l){var r=_pcLotRes(l.coa);
-      var rm=(_mayRm && !lotRemoveBlockedBy(sel,l))
-        ? '<button class="sm ghost" title="Un-log this shift\u2019s output. Needs a reason and goes in the register." onclick="openRemoveLot(\''+sel.id+'\',\''+l.id+'\')">Remove</button>' : '';
-      return '<div class="lotrow"><div style="flex:1;min-width:0"><div class="lotno">'+(l.lotNo||sel.batchNo||'—')+'</div><div class="lotmeta">'+[l.shift,l.incharge,l.date].filter(Boolean).join(' · ')+'</div></div><span class="lotqty">'+PC.fmt(l.qty||0)+' Kg</span><span class="respill" style="background:'+r[1]+';color:'+r[2]+'">'+r[0]+'</span>'+rm+'</div>';}).join('')+'</div>';
+    /* Lots vs produced, stated when they disagree. Both are stored: produced is a
+       number on the batch, the lots are rows. A removal that another tab's save
+       put back (the 3-way merge cannot express a deleted row) leaves produced
+       lowered and the lot returned — 1,010 against two lots of 1,010 — and until
+       26 Aug no screen said so. This is a statement of two figures, not an
+       alarm: on the 16 July snapshot no batch trips it. */
+    var _lotSum=lots.reduce(function(a,l){return a+(+l.qty||0);},0), _prodKg=+sel.producedKg||0, _lotsNote='';
+    if(Math.abs(_lotSum-_prodKg)>0.5)
+      _lotsNote='<div class="qbanner" style="background:var(--amber-50,#fdf0d5);color:var(--amber,#9E6210)">The lots on this batch total <b>'+PC.fmt(Math.round(_lotSum))+' Kg</b> but produced reads <b>'+PC.fmt(Math.round(_prodKg))+' Kg</b>. '
+        +'They should match. Reload the page before acting on this batch; if they still differ, a removal may have been put back by another user\u2019s save \u2014 tell the COO rather than removing again.</div>';
+    inner=_lotsNote+'<div class="lotlist">'+lots.map(function(l){var r=_pcLotRes(l.coa);
+      /* The holder of the right sees the control whether or not it will act, and
+         when it will not, the reason is written under the lot. Until 26 Aug a
+         refused lot simply had no button, and the reason — including the way
+         back — lived in a toast that only the modal-open race could trigger. */
+      var _why=_mayRm?lotRemoveBlockedBy(sel,l):null;
+      var rm=(_mayRm && !_why)
+        ? '<button class="sm ghost" title="Un-log this shift\u2019s output. Needs a reason and goes in the register." onclick="openRemoveLot(\''+sel.id+'\',\''+l.id+'\')">Remove</button>'
+        : (_mayRm ? '<button class="sm ghost" disabled title="'+_pe(_why).split('"').join('&quot;')+'" style="opacity:.45;cursor:not-allowed">Remove</button>' : '');
+      var _note=(_mayRm&&_why)?('<div class="lotmeta" style="flex-basis:100%;color:var(--amber,#9E6210);margin-top:4px">Cannot be removed: '+_pe(_why)+'</div>'):'';
+      return '<div class="lotrow" style="flex-wrap:wrap"><div style="flex:1;min-width:0"><div class="lotno">'+(l.lotNo||sel.batchNo||'—')+'</div><div class="lotmeta">'+[l.shift,l.incharge,l.date].filter(Boolean).join(' · ')+'</div></div><span class="lotqty">'+PC.fmt(l.qty||0)+' Kg</span><span class="respill" style="background:'+r[1]+';color:'+r[2]+'">'+r[0]+'</span>'+rm+_note+'</div>';}).join('')+'</div>';
   }}else if(tab==='quality'){var fit=0,unf=0,dev=0,pend=0;lots.forEach(function(l){var c=l.coa||{};if(c.status==='approved'){if(c.deviation)dev++;else fit++;}else if(c.overall==='UNFIT')unf++;else pend++;});var summ=lots.length+' lots · '+fit+' FIT'+(dev?(' · '+dev+' deviation'):'')+(unf?(' · '+unf+' UNFIT'):'')+(pend?(' · '+pend+' pending'):'');if(isPool)inner='<div class="muted" style="font-size:12.5px;padding:6px 2px">By-product pool — no COA. Lots are certified at their parent batch.</div>';else inner='<div class="qbanner">'+summ+'</div>'+(lots.length?('<div class="lotlist">'+lots.map(function(l){var c=l.coa||{};var r=_pcLotRes(c);return '<div class="lotrow"><div style="flex:1;min-width:0"><div class="lotno">'+(l.lotNo||sel.batchNo||'—')+'</div><div class="lotmeta">COA '+(c.qcNo||'—')+' · '+PC.fmt(l.qty||0)+' Kg</div></div><span class="respill" style="background:'+r[1]+';color:'+r[2]+'">'+r[0]+'</span></div>';}).join('')+'</div>'):'<div class="muted" style="font-size:12px;padding:6px 2px">No lots.</div>');}else{var produced=+sel.producedKg||0,packed=+sel.packedKg||0,rem=Math.max(0,produced-packed);var note=isPool?(srcN+' finished batches pooled into a '+PC.fmt(+sel.plannedKg||0)+' Kg by-product lot. Route to a grind run, divert or log as loss.'):rem>0.5?('After packing, '+PC.fmt(rem)+' Kg remains. Reconcile it — pack the rest, route to by-product, or record as loss.'):'Nothing to reconcile — produced quantity is fully packed.';inner='<div class="reconkpis"><div class="rk"><div class="rk-l">Produced</div><div class="rk-v">'+PC.fmt(produced)+' Kg</div></div><div class="rk"><div class="rk-l">Packed</div><div class="rk-v">'+PC.fmt(packed)+' Kg</div></div><div class="rk rk-warn"><div class="rk-l">Remainder</div><div class="rk-v">'+PC.fmt(rem)+' Kg</div></div></div><div class="recnote">'+note+'</div>';}var act=_pcLifeAction(sel,d);var eyebrow=sel.pool?'Reconcile pool':sel.po?('PO '+sel.po):'Bulk → stock';return '<div class="pbmwrap"><div class="card" style="padding:0"><div class="pbm-head">'+_hd+' <span>'+_hc+'</span></div><div class="pbm-list">'+master+'</div></div><div class="card" style="padding:0"><div class="lifehdr"><div style="flex:1"><div class="life-eyb">'+eyebrow+'</div><div class="life-prod">'+(d.brand||d.base||'')+'</div><div class="life-own">'+d.owner+'</div></div><span class="life-pill" style="background:color-mix(in srgb,'+M.dot+' 15%,#fff);color:'+M.dot+'">'+M.name+'</span></div>'+prodBucketBar(sel)+'<div class="lifestep"><div class="pstep">'+stepHtml+'</div></div><div style="padding:14px 18px 4px">'+tabBar+'</div><div style="padding:6px 18px 18px">'+inner+'</div>'+(act?('<div class="lifefoot">'+act+'</div>'):'')+'</div></div>';}
 function prodHeader(active){var ob=(may('batch.open'))?'<button class="green" onclick="openBatchModal()" style="white-space:nowrap;align-self:flex-start">+ Open batch</button>':'';return '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">'+prodViewBar(active)+ob+'</div>';}
 /* ── MULTI-PO BATCH: one production run serving several POs of the same product — one batch #, one Lab COA.
@@ -5958,12 +6013,20 @@ function renderCOAModal(){ const b=(state.batches||[]).find(x=>x.id===coaForm.bi
   const PNACSVG='<svg width="78" height="30" viewBox="0 0 78 30"><ellipse cx="39" cy="14" rx="33" ry="12" fill="#1a8a3c"/><text x="39" y="19" text-anchor="middle" font-family="Arial" font-weight="800" font-size="12" fill="#fff">PNAC</text></svg>';
   const disc=['This test result is based solely on the particular sample supplied by the client. VAN QC Lab doesn’t involve in any type of sampling activity.','The results are reported with a confidence level of 95%; i.e. [K=2] and are pertaining to analyzed sample(s) only.','Provided sample will be retained for 01-month period after reporting date of the result unless otherwise as agreed with the customer.','The reproducibility of sample is only applicable on the same retained sample.','The test report shall not be reproduced except in full, without written approval by the laboratory.','The uncertainty of this parameter has been calculated by laboratory and will be reported as per client instructions.','The result would be declared “OK” or “Not OK” as per desire/declaration of the client in accordance with the decision rule given below.','Test Result(s) mentioned with * (Asterisk) is/are Accredited by ISO/IEC 17025:2017.'];
   const el=$('coaFS');
+  /* A re-issue carries the previous revision's values, so to the analyst it looks
+     like any other draft — and until 26 Aug nothing on the sheet said otherwise.
+     The reason a certificate was superseded printed on Rev N+1 and appeared
+     nowhere on screen. Now it is the first thing on the sheet, while the
+     revision is still open. A lot superseded because it was never made
+     (AP26012-L2) is about to be removed, not re-certified. */
+  const _sup=coaForm.supersedes||null;
+  const supBanner=_sup?`<div style="background:#fdf0d5;color:#9E6210;border-bottom:1px solid #e9d8a6;padding:8px 14px;font-size:12px"><b>Revision ${coaEsc(coaForm.rev||'')} — a re-issue.</b> It replaces Rev ${coaEsc(_sup.rev)}${_sup.qcNo?(' ('+coaEsc(_sup.qcNo)+')'):''}${_sup.approvedDate?(', approved '+coaEsc(_sup.approvedDate)):''}, superseded by ${coaEsc(_sup.by||'')}${_sup.reason?(': <i>'+coaEsc(_sup.reason)+'</i>'):''}. ${(st==='draft')?'Do not certify this again without reading that reason — if the lot itself is being removed, leave this draft alone.':''}</div>`:'';
   el.innerHTML=`
    <div class="cofbar"><span class="ttl">Lab QC — Certificate of Analysis · ${coaEsc(coaForm.item)} · batch ${coaEsc(coaForm.batchNo)}</span>
      <span class="badge ${coaBcls(ov==='NO RESULT'?'No Result':ov)}" id="coa_ovr">${ov||'—'}</span>
      <span style="font-size:11px;font-weight:700;background:rgba(255,255,255,.14);padding:4px 10px;border-radius:12px">${stTxt}</span>
      ${acts}<button class="b-ghost" onclick="coaFSClose()">Close ✕</button></div>
-   <div class="sheet-wrap"><div class="sheet">
+   ${supBanner}<div class="sheet-wrap"><div class="sheet">
      <div class="rpt-head">
        <div class="cell logo-cell">${VANSVG}<div style="font-size:7px;color:#667085;letter-spacing:.5px;margin-top:2px">VITAL AGRI NUTRIENTS</div></div>
        <div class="cell title-cell"><h1>QUALITY ANALYSIS REPORT</h1><div class="subt">Vital Agri Nutrients Quality Control Laboratory<small>Lahore, Pakistan.</small></div></div>
@@ -7814,7 +7877,15 @@ function screenQC(){
   const _qcFail=lotUnits.filter(function(u){return u.coa&&u.coa.status==='failed';});
   const _qcKpi=function(l,v,u2,d,c){return '<div class="kpi" style="border-top:3px solid var('+c+')"><div class="l">'+l+'</div><div class="v">'+v+' <span style="font-size:12px;color:var(--mut);font-weight:600">'+u2+'</span></div><div class="d">'+d+'</div></div>';};
   const qcKpiStrip='<div class="kpis" style="grid-template-columns:repeat(4,1fr)">'+_qcKpi('Awaiting entry',_qcAwait.length,'lots','Lab Rep to start','--amber')+_qcKpi('In review chain',_qcAna.length+_qcRev.length,'lots','AQCM / QCM','--navy')+_qcKpi('UNFIT',_qcFail.length,'lots','Plant Mgr review','--red')+_qcKpi('Approved',labDone.length,'lots','packable','--green2')+'</div>';
-  const _qcRow=function(u){return '<tr><td><b>'+itemOf(u.b)+'</b> <span class="muted" style="font-size:11px">'+(u.b.kind==='po'?(u.b.po||''):(u.b.kind==='multi'?batchPOsLabel(u.b):'bulk base'))+'</span></td><td><b>'+(u.no||'—')+'</b></td><td class="num">'+fmt(u.qty)+'</td><td>'+coaStatusPill(u.coa)+'</td><td>'+((u.coa&&u.coa.status==='approved')?('<button class="sm ghost" onclick="printCOA(\''+u.b.id+'\',\''+u.id+'\')">Print COA</button>'):labAct(u))+'</td></tr>';};
+  /* An approved certificate is offered as Open as well as Print. Until 26 Aug
+     it was Print only — and the certificate sheet is the ONLY place the
+     "Supersede — re-issue" button lives, so a signed certificate could not be
+     superseded from any screen by anyone. The COO found out on AP26012-L2: a
+     certificate signed on a duplicate lot, a Remove control that (rightly)
+     refuses a certified lot, and no way to reach the one correction that would
+     have unlocked it. The sheet is read-only once approved; Supersede inside it
+     is still gated by correctAllowed('coa','SUPERSEDE') — QCM and COO. */
+  const _qcRow=function(u){return '<tr><td><b>'+itemOf(u.b)+'</b> <span class="muted" style="font-size:11px">'+(u.b.kind==='po'?(u.b.po||''):(u.b.kind==='multi'?batchPOsLabel(u.b):'bulk base'))+'</span></td><td><b>'+(u.no||'—')+'</b></td><td class="num">'+fmt(u.qty)+'</td><td>'+coaStatusPill(u.coa)+((u.coa&&u.coa.supersedes&&u.coa.status!=='approved')?('<div class="muted" style="font-size:10.5px;margin-top:3px;color:var(--amber,#9E6210)">Re-issue of Rev '+_pe(u.coa.supersedes.rev)+(u.coa.supersedes.reason?(' \u2014 '+_pe(u.coa.supersedes.reason)):'')+'</div>'):'')+'</td><td>'+((u.coa&&u.coa.status==='approved')?('<button class="sm ghost" title="Open the certificate sheet \u2014 read-only; the QCM or COO can supersede it from there." onclick="openBatchCOA(\''+u.b.id+'\',\''+u.id+'\')">Open</button> <button class="sm ghost" onclick="printCOA(\''+u.b.id+'\',\''+u.id+'\')">Print COA</button>'):labAct(u))+'</td></tr>';};
   const _qcCard=function(name,units,sub){return units.length?('<div class="card"><h3>'+name+' <span class="hint">'+units.length+(sub?(' · '+sub):'')+'</span></h3><div style="overflow:auto"><table><thead><tr><th>Product</th><th>Batch ▸ Lot</th><th class="num">Qty</th><th>Status</th><th style="width:210px">Action</th></tr></thead><tbody>'+units.map(_qcRow).join('')+'</tbody></table></div></div>'):'';};
   var qcSets={awaiting:_qcAwait,review:_qcAna.concat(_qcRev),unfit:_qcFail,approved:labDone};
   var qcLabels={awaiting:'Awaiting entry',review:'In review',unfit:'UNFIT',approved:'Approved'};
@@ -7995,7 +8066,11 @@ function actionItems(){
   (state.prs||[]).filter(p=>p.status==='open'&&!p.cfoApproved).forEach(p=>items.push({role:'CFO',pr:p,what:'Approve PR — '+p.rm+' '+fmt(p.qtyRequired)+' Kg/L',act:"cfoApprovePR('"+p.id+"')",label:'Approve PR'}));
   (state.batches||[]).filter(b=>(b.producedKg||0)>0 && b.disposition!=='byproduct').forEach(b=>{ const it=coaItemOf(b);  /* Stage 1: by-product accruals don't generate Lab-COA/QC actions until called for manufacturing (read-only; clears the 2 false QC triggers) */ const units=(b.lots||[]).length?(b.lots).map(l=>({id:l.id,no:(l.lotNo||b.batchNo||''),coa:l.coa})):[{id:'',no:(b.batchNo||''),coa:b.coa}];
     units.forEach(u=>{ const st=u.coa&&u.coa.status; if(u.coa&&st==='approved')return; const call="openBatchCOA('"+b.id+"','"+u.id+"')"; const tag=(u.no||'');
-      if(!u.coa||st==='draft') items.push({role:'Lab Rep',batch:b,what:'Lab COA — '+it+' '+tag,act:call,label:'Lab QC'});
+      /* A re-issued draft is named as one, with its reason, so the Lab Rep is not
+         handed "Lab COA — AP26012-L2" as ordinary work when the certificate was
+         withdrawn because the lot was never made. */
+      const _re=(u.coa&&u.coa.supersedes)?(' · re-issue of Rev '+u.coa.supersedes.rev+(u.coa.supersedes.reason?(': '+u.coa.supersedes.reason):'')):'';
+      if(!u.coa||st==='draft') items.push({role:'Lab Rep',batch:b,what:'Lab COA — '+it+' '+tag+_re,act:call,label:'Lab QC'});
       else if(st==='analysed') items.push({role:'AQCM',batch:b,what:'Review COA — '+it+' '+tag,act:call,label:'Review'});
       else if(st==='reviewed') items.push({role:'QCM',batch:b,what:'Approve COA — '+it+' '+tag,act:call,label:'Approve'});
       else if(st==='failed') items.push({role:'Plant Manager',batch:b,what:'UNFIT lot — '+it+' '+tag,act:call,label:'Review'}); }); });

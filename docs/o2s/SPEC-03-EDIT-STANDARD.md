@@ -538,3 +538,18 @@ is stale.
 ---
 
 *Built and verified 2026-08-21. Module: O2S.*
+
+---
+
+## Recorded exception — 26 August 2026 (COO decision)
+
+A lot whose certificate was superseded back to a draft can be removed with
+`production.void` (Plant Manager, COO). The lot leaves `b.lots` and its `coaHistory`
+— the superseded revision's results and signatures — leaves with it. The correction
+register keeps: certificate number, revision, who approved it and when, who
+superseded it, when and why, plus a cascade line saying the revision is no longer
+printable. The COO chose this over keeping the revision printable (a data-model
+addition) on 26 August. It contradicts "nothing is ever deleted" above and the
+SUPERSEDE cascade's "still prints"; the standing recommendation is to make the
+removal a strike-through (`removed: {at, by, reason}`), which would restore both —
+see `AP26012-CERTIFIED-2026-08-26.md`.

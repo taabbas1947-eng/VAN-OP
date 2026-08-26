@@ -1708,8 +1708,16 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
        + ', first write at ' + H.grab('doRemoveLot').indexOf('b.lots='));
   ok('GUARD: openRemoveLot asks it too, so no modal opens on a refusal',
      /lotRemoveBlockedBy\(b,lt\)/.test(H.grab('openRemoveLot')));
-  ok('GUARD: and the render only draws Remove where it would be allowed',
-     /!lotRemoveBlockedBy\(sel,l\)/.test(H.grab('renderProdLifecycleBatch')));
+  /* 26 Aug (afternoon): a refused lot now draws a DISABLED Remove with the reason
+     under it, so the live button is conditioned on the answer held in _why rather
+     than on the call inline. Same guard, one variable further along: the render
+     asks lotRemoveBlockedBy, and only the "no reason" branch gets an onclick.
+     certremove.test.js §8 renders it per role. */
+  ok('GUARD: and the render only draws a live Remove where it would be allowed',
+     /var _why=_mayRm\?lotRemoveBlockedBy\(sel,l\):null;/.test(H.grab('renderProdLifecycleBatch'))
+     && /\(_mayRm && !_why\)\s*\?\s*'<button class="sm ghost" title="[^"]*" onclick="openRemoveLot/.test(H.grab('renderProdLifecycleBatch'))
+     && /_mayRm \? '<button class="sm ghost" disabled title="/.test(H.grab('renderProdLifecycleBatch')),
+     H.grab('renderProdLifecycleBatch').slice(H.grab('renderProdLifecycleBatch').indexOf('_why'), H.grab('renderProdLifecycleBatch').indexOf('_why') + 400));
   ok('GUARD: the converted Production gates no longer name the role in code',
      !/hardRole\(\['Production'\]\)/.test(H.grab('doCloseBatch') + H.grab('submitProdQty')
        + H.grab('doPack') + H.grab('closeSettledBatches')));

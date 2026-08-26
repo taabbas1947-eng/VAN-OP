@@ -1680,3 +1680,140 @@ guess either way.
 > look identical from Tahir's side. Once review is running, nothing gets
 > written into the folder until it clears — so what GitHub Desktop shows is
 > always safe to push, full stop.
+
+---
+
+## 2026-08-26, resumed session — O2S — the #1 pick from this morning: RM Check had no gate at all
+
+### What happened
+
+Picked up the item flagged "not started this session — was the #1 pick" from
+the AP26012 handoff above: Production's stuck/blocked list renders action
+items belonging to other departments for visibility, but the render path drew
+every one of them as a real, clickable button regardless of who's looking.
+
+Traced it to the exact line. `grpS` (inside `prodStageList`'s `'attention'`
+branch) called `acRowHTML` — the same renderer "My Actions" uses, where it's
+safe because `acBase()` already scopes items to the viewer's own role plus
+explicit escalations. Production's list has no such scoping: `prodStuckItems()`
+pulls straight from `actionItems()`, unfiltered. A function called `rowS`
+already existed two lines above `grpS`, already did the right thing (a live
+button only for `_cat==='produce'` — Production's own, navigation-only —
+`'owner: <role>'` text for `'rm'` and `'qc'` either way), and was never called.
+This morning's own commit found it and named it exactly: *"rowS is defined and
+never called... it wants a decision of its own, not a flag."* This is that
+decision.
+
+Wired `rowS` back in. Added a sibling `rowD` for the Deferred section beside
+it — same idea, always read-only, because Un-defer's correct home is My
+Actions (which does scope correctly) and the `_id` the old Un-defer button
+depended on was never even set on items reached this path — it was already
+silently inert, not something this change breaks.
+
+**The one real gap underneath the UI issue:** RM Check itself (`openRMCheck` /
+`rmSubmit`) checked nothing — not a role name, not a screen, not the access
+matrix, for anyone, from anywhere. Unlike Receive and Close PR (converted 25
+Aug, `may('rm.receive')` / `may('pr.close')`), which the button-fix alone
+neutralizes since the writers already refuse an unauthorized role, RM Check's
+writer had no refusal to fall back on. Added `rm.check` to the RIGHTS
+catalogue — same shape as `rm.receive` (`canEdit`, owners Supply Chain,
+home screen `approvals`, also reachable from `prod`) — and gated both opener
+and writer, same "opener AND writer both ask" pattern as `rm.receive`'s own
+fix on 25 Aug.
+
+**Audited the other two categories the same list exposes**, since the bug
+class (unconditional live button, any category) touches four things, not one:
+`approveRMPR` / `cfoApprovePR` (Approve PR) and `coaReview` / `coaApprove` /
+`coaDeviation` (Lab QC) all already carry a real check — legacy `canEdit`/
+`hardRole`, not yet in the `may()` catalogue, but not zero. RM Check was the
+only one of the four with nothing behind it at all.
+
+### Reviewed
+
+Two independent reviews (code + data-safety, neither having done the work) on
+the diff before calling this done:
+
+- **Confirmed not an issue:** `it.act` embedded unescaped in the new live
+  `onclick` — this is the same pattern `acRowHTML` and every other action
+  button in the file already uses; ids come only from `nid()` (alphanumeric +
+  hyphen, never free text), so this isn't new exposure, just the file's
+  existing convention reproduced.
+- **Confirmed not an issue:** whether `rm.check`'s `alsoOn` field could itself
+  be granting the right rather than just documenting where the button is
+  reachable — it isn't read anywhere in `mayLegacyRole`'s `canEdit` branch;
+  it's declarative, used only by `screenLoopholes()` and the tests.
+- **Confirmed not an issue:** `whoMayRight('rm.check')` matches
+  `whoMayRight('rm.receive')` exactly (Supply Chain, Plant Manager, COO) —
+  tested directly, not assumed.
+- **A pre-existing gap, not a new one, worth naming:** a CFO who sees an
+  *escalated* RM Check or Receive item in My Actions and clicks it is refused
+  today — `CFO` has no Edit override on the `approvals` screen in the matrix
+  on record, so `may('rm.receive')` already said no for CFO before this
+  session, and `rm.check` inherits the identical shape rather than inventing a
+  new one. Checked empirically against the live matrix data, not asserted.
+  Not fixed — widening it is a matrix/policy call, not a code fix, and it
+  affects an already-shipped right, not the one touched today.
+
+### Verified
+
+```
+node o2s/tests/spec06.test.js          # 52 passed
+node o2s/tests/backlog.test.js         # 42 passed
+node o2s/tests/actioncenter.test.js    # 98 passed
+node o2s/tests/batchclose.test.js      # 184 passed
+node o2s/tests/batchqty.test.js        # 113 passed
+node o2s/tests/certremove.test.js      # 255 passed
+node o2s/tests/datafix-bulkprice.test.js  # 41 passed
+node o2s/tests/firstsave.test.js       # 15 passed
+node o2s/tests/lotpack.test.js         # 118 passed
+node o2s/tests/prodrender.test.js      # 102 passed
+node o2s/tests/rights.test.js          # 61 passed
+node o2s/tests/authmodel.test.js       # 5218 passed (81 lines of updates: a
+                                        #   rights-count assertion, a screen-
+                                        #   loophole report that now correctly
+                                        #   lists 3 codes instead of 2, and a
+                                        #   new CLOSED_GAP category alongside
+                                        #   OLD/NEW_RIGHTS for a right that
+                                        #   closes a real hole rather than
+                                        #   freezing or inventing one)
+node o2s/tests/prodstuck.test.js       # 46 passed — NEW, this session
+```
+
+`prodstuck.test.js` renders the real `prodStageList('attention')` for 9 roles
+(QA Inspector, KAM, Sales, Lab Rep, Finance, Supply Chain, CFO, Production,
+COO) against fabricated stalled RM and produce items, and asserts: no role
+ever gets a clickable `openRMCheck(` on this screen; every one of them sees
+`owner: Supply Chain` instead; Production and COO still get their own
+`Resolve`/`gotoProduce(` button for the produce-category item; a deferred item
+reads `deferred to <date>` with no button, for anyone. `node --check` clean on
+all 5 script blocks.
+
+### Files changed
+
+- `o2s/o2s.html` — `RIGHTS[]` (new `rm.check`), `openRMCheck`/`rmSubmit`
+  (guard), `prodDeferredItems` (tags `_cat`), `prodStageList`'s `'attention'`
+  branch (`grpS`/`defHtml` now render through `rowS`/new `rowD`, table-wrapped)
+- `o2s/tests/authmodel.test.js` — `CLOSED_GAP` category (section 2a), Supply
+  Chain right count 6→7 with a CONV/GAP split (section 23), `rm.check` added
+  to the opener/writer guard lists (section 27), pinned in the screen map
+  (section 29) and the `alsoOn`-derivation table (section 30), the
+  `screenLoopholes()` report updated 2→3 codes (section 24)
+- `o2s/tests/prodstuck.test.js` — **new**, 46 checks
+
+A stray 0-byte `.git/index.lock` was found blocking `git add`/`commit`
+entirely (`Another git process seems to be running`) — asked permission and
+deleted it. Unrelated to this change; would have blocked the next commit in
+GitHub Desktop regardless of what it was.
+
+**Ready to push, not pushed.**
+
+### Next
+
+1. The CFO-escalation gap named above (My Actions can show CFO a button for
+   an item `may()` then refuses) — pre-existing on `rm.receive` too, a matrix/
+   policy call for Tahir, not something this session widened or fixed.
+2. Of the six items in the AP26012 entry above this one, item 1 (Production's
+   stuck/blocked list, `rmSubmit`) is what this entry closes. Items 2–6 there
+   — HG26026/Ali Raza, the two AP26012 design follow-ups, the
+   `lotMultiLogRows`/`merge3` edge cases, and the deferred `coaRework`/soft-
+   delete work — are untouched, still open.

@@ -156,6 +156,29 @@ const asRole = r => { B.state.role = r; };
                             + 'the only unwind in the file sat below screenProd\'s unreachable '
                             + 'return and was COO-only besides.' },
   };
+  /* CLOSED GAPS — the third shape, neither of the two above. NOT a conversion:
+     there is no old answer to freeze, because the old answer was "anyone, no
+     check at all" — writing that into OLD would make the freeze loop below
+     assert the hole is a feature. NOT a new capability either: the handler is
+     not new, it had real callers all along, so NEW_RIGHTS's own proof ("had NO
+     caller before") would fail it, correctly — that proof exists to stop a
+     conversion hiding in NEW_RIGHTS, and a gap-closure hiding there is the same
+     kind of mistake. Proved the other way round: the handler DID have a caller
+     before, AND its body is quoted here byte-for-byte from the pre-change
+     snapshot to show it asked nothing at all. */
+  const CLOSED_GAP = {
+    'rm.check': { handlers: ['openRMCheck', 'rmSubmit'], since: '26 Aug 2026',
+      before: {
+        openRMCheck: "function openRMCheck(oid,lid){ const o=state.orders.find(x=>x.id===oid); const l=o&&o.lines.find(x=>x.id===lid); if(!l)return;",
+        rmSubmit: "function rmSubmit(){ const o=state.orders.find(x=>x.id===rmForm.oid); const l=o.lines.find(x=>x.id===rmForm.lid); const today=TODAY.toISOString().slice(0,10); var ord=+l.ordered||0;",
+      },
+      why: 'RM Check confirms a line makeable, in part or not at all, and short/none '
+         + 'raises a PR for CFO approval — and nothing, ever, asked who was doing it. '
+         + 'Found while closing the same Production stuck list that let a QA Inspector '
+         + 'reach Receive and Close PR before those two were converted on 25 Aug: this '
+         + 'one was worse, because those two DID have a real check behind the button '
+         + '(the button was reachable, the write was not) and this one had neither.' },
+  };
   {
     const before = fs.readFileSync(require('path').join(__dirname, '_before-lot.html'), 'utf8');
     Object.keys(NEW_RIGHTS).forEach(code => {
@@ -171,9 +194,21 @@ const asRole = r => { B.state.role = r; };
       /* and it must not have quietly taken a right's place */
       ok(code + ' asks no old code', !OLD[code]);
     });
+    Object.keys(CLOSED_GAP).forEach(code => {
+      const n = CLOSED_GAP[code];
+      ok(code + ' is in the catalogue', !!B.rightByCode(code));
+      ok(code + ' is NOT in OLD — the old answer was "anyone", not a rule to freeze', !OLD[code]);
+      ok(code + ' is NOT in NEW_RIGHTS — its handlers are not new', !NEW_RIGHTS[code]);
+      n.handlers.forEach(h => {
+        ok(code + ': ' + h + ' really was unguarded before ' + n.since + ' — quoted, not assumed',
+           before.indexOf(n.before[h]) >= 0, 'literal not found in _before-lot.html: ' + n.before[h].slice(0, 80));
+        ok(code + ': ' + h + ' asks may(\'' + code + '\') now',
+           new RegExp("may\\('" + code.replace('.', '\\.') + "'\\)").test(H.grab(h)), H.grab(h).slice(0, 140));
+      });
+    });
   }
-  eq('every right in the catalogue has its old check written down here, or is a declared new capability',
-     B.RIGHTS.filter(r => !OLD[r.code] && !NEW_RIGHTS[r.code]).length, 0);
+  eq('every right in the catalogue has its old check written down here, is a declared new capability, or closes a gap that was never checked',
+     B.RIGHTS.filter(r => !OLD[r.code] && !NEW_RIGHTS[r.code] && !CLOSED_GAP[r.code]).length, 0);
   /* Checked ON EVERY SCREEN, because the old canEdit rule gives a different
      answer depending on where the person is standing — and reproducing that
      exactly, screen by screen, is the whole claim. */
@@ -182,7 +217,7 @@ const asRole = r => { B.state.role = r; };
   SCRIDS.forEach(sid => {
     B.state.screen = sid;
     B.RIGHTS.forEach(rt => {
-      if (NEW_RIGHTS[rt.code]) return;          /* no old answer exists to freeze against */
+      if (NEW_RIGHTS[rt.code] || CLOSED_GAP[rt.code]) return;   /* no old answer exists to freeze against */
       ROLES.forEach(r => {
         checked++;
         const got = B.mayRole(r, rt.code), want = OLD[rt.code](r);
@@ -1142,12 +1177,16 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
 /* ================= 23. Supply Chain: converted, and the sign-offs are not ================= */
 {
   const b = mk('COO');
-  const SC = b.RIGHTS.filter(r => r.dept === 'supply-chain').map(r => r.code);
-  eq('six Supply Chain rights', SC.length, 6);
-  ok('all six carry the canEdit rule they replaced, with the screen the job lives on',
-     b.RIGHTS.filter(r => r.dept === 'supply-chain')
-      .every(r => r.legacy.kind === 'canEdit' && r.legacy.owners.join() === 'Supply Chain' && !!r.legacy.scr),
-     JSON.stringify(b.RIGHTS.filter(r => r.dept === 'supply-chain').map(r => r.legacy)));
+  const SCR = b.RIGHTS.filter(r => r.dept === 'supply-chain');
+  const SC = SCR.map(r => r.code);
+  eq('seven Supply Chain rights', SC.length, 7);
+  ok('all seven carry the canEdit rule, with the screen the job lives on — six frozen '
+     + 'conversions and rm.check besides, which never had an old rule to freeze but is '
+     + 'shaped the same way',
+     SCR.every(r => r.legacy.kind === 'canEdit' && r.legacy.owners.join() === 'Supply Chain' && !!r.legacy.scr),
+     JSON.stringify(SCR.map(r => r.legacy)));
+  eq('...six of them frozen conversions, one a closed gap',
+     SCR.filter(r => r.code !== 'rm.check').length, 6);
 
   /* The gates really were converted, and the sign-offs really were not. */
   [['saveShip', 'shipment.plan'], ['saveDispatch', 'shipment.plan'], ['mpCreate', 'shipment.plan'],
@@ -1179,6 +1218,8 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
      'Supply Chain, Plant Manager, COO, Supply Chain Officer');
   eq('who may receive raw material', b.whoMayRight('rm.receive').join(', '),
      'Supply Chain, Plant Manager, COO');
+  eq('who may RM Check — same shape as rm.receive, same owners',
+     b.whoMayRight('rm.check').join(', '), b.whoMayRight('rm.receive').join(', '));
   ok('Zain\'s two role names are both in Supply Chain, so one lead covers both',
      b.roleDeptId('Supply Chain') === 'supply-chain' && b.roleDeptId('Supply Chain Officer') === 'supply-chain');
 }
@@ -1208,8 +1249,15 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
   ['Lab Rep', 'AQCM', 'QCM', 'CFO', 'Finance', 'Production'].forEach(r =>
     ok(r + ' is NOT listed — the old rule says yes, but no button is reachable',
        roles.indexOf(r) < 0, JSON.stringify(roles)));
+  /* 26 Aug — rm.check joins the two above: it was given the same canEdit shape
+     (see CLOSED_GAP, section 2a) because it IS the same shape of gate, so it
+     inherits the same matrix-driven exposure for the same reason. Wiring the
+     Production stuck list to stop drawing a live button for it (this session,
+     see rowS) closes the one path that made this reachable; the cell below is
+     what would reopen it if that render ever regressed, which is the point of
+     tracking it here rather than only in the UI. */
   eq('and only for the rights whose buttons really appear elsewhere',
-     [...new Set(L.map(x => x.code))].sort().join(', '), 'pr.close, rm.receive');
+     [...new Set(L.map(x => x.code))].sort().join(', '), 'pr.close, rm.check, rm.receive');
   /* THE LIVE ONE. Production's stuck list is not filtered by role and renders the
      Supply Chain "Receive" action. A QA Inspector standing there holds Edit on
      Production, so canEdit(['Supply Chain']) says yes and he books raw material
@@ -1323,7 +1371,7 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
   }
   ok('the Supply Chain tab warns about it', /only because of another screen/.test(html), html.slice(0, 300));
   ok('...naming the role', /QA Inspector/.test(html));
-  ok('...and both of the rights he can reach', /2 rights/.test(html), (html.match(/QA Inspector[^<]{0,60}/) || [''])[0]);
+  ok('...and all three of the rights he can reach', /3 rights/.test(html), (html.match(/QA Inspector[^<]{0,60}/) || [''])[0]);
   ok('...and naming the screen, in words the COO uses', /Production/.test(html));
   { /* inside the warning itself — "Finance" is also a department tab on this card */
     const warn = html.slice(html.indexOf('only because of another screen'));
@@ -1438,13 +1486,15 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
 /* ================= 27. the call sites the guard list had missed ================= */
 {
   [['mpStart', 'shipment.plan'], ['openShipEdit', 'shipment.plan'],
-   ['openRMReceive', 'rm.receive'], ['openDeliveryConfirm', 'delivery.confirm']].forEach(([fn, code]) =>
+   ['openRMReceive', 'rm.receive'], ['openDeliveryConfirm', 'delivery.confirm'],
+   ['openRMCheck', 'rm.check'], ['rmSubmit', 'rm.check']].forEach(([fn, code]) =>
     ok('GUARD: ' + fn + ' asks may(\'' + code + '\')',
        new RegExp("may\\('" + code.replace('.', '\\.') + "'\\)").test(H.grab(fn)), H.grab(fn).slice(0, 110)));
   /* An opener and its writer must ask for the SAME right, or somebody fills a
      form and loses it at the Save — the print-on-pack fault of 22 August. */
   [['openDeliveryConfirm', 'confirmDelivery'], ['openShipEdit', 'saveShipEdit'],
-   ['mpStart', 'mpCreate'], ['openRMReceive', 'rmReceiveSubmit']].forEach(([o, w]) => {
+   ['mpStart', 'mpCreate'], ['openRMReceive', 'rmReceiveSubmit'],
+   ['openRMCheck', 'rmSubmit']].forEach(([o, w]) => {
     const codeOf = src => (src.match(/may\('([^']+)'\)/) || [])[1];
     eq('opener and writer agree: ' + o + ' / ' + w, codeOf(H.grab(o)), codeOf(H.grab(w)));
   });
@@ -1515,6 +1565,10 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
     'delivery.confirm':     { kind: 'canEdit', scr: 'ship',      alsoOn: 'approvals:Plant Manager' },
     'rm.receive':           { kind: 'canEdit', scr: 'approvals', alsoOn: 'prod' },
     'pr.close':             { kind: 'canEdit', scr: 'approvals', alsoOn: 'prod' },
+    /* closes a gap, 26 Aug — see CLOSED_GAP in section 2a. Same shape as
+       rm.receive: its own screen is My Actions, and Production's stuck list is
+       the other place the button (used to) reach it. */
+    'rm.check':             { kind: 'canEdit', scr: 'approvals', alsoOn: 'prod' },
     'batch.open':           { kind: 'hard',    scr: undefined },
     'production.enter':     { kind: 'hard',    scr: undefined },
     'shift.log':            { kind: 'hard',    scr: undefined },
@@ -1573,6 +1627,7 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
 {
   /* label -> the Supply Chain rights that label's button can trigger */
   const LABEL_RIGHTS = {
+    'RM Check':         ['rm.check'],
     'Receive':          ['rm.receive', 'pr.close'],   /* openReceiveMaterials -> recvPRCard draws both */
     'Ship':             ['shipment.plan'],
     'Load':             ['shipment.load'],

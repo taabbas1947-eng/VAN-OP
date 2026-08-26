@@ -2418,6 +2418,23 @@ var RIGHTS=[
          no callers — screenDash dispatches to the dashExec/Sales/Centers/Prod/
          Qual/Supply views and none of them draws an action button. An earlier
          version of this note counted the Dashboard as a fourth screen. */
+  /* 2026-08-26, later the same day — the decision the note above asked for.
+     rowS (in prodStageList, the 'attention' branch) was already written to
+     answer exactly this: a live button only for _cat==='produce' (Production's
+     own, navigation-only), 'owner: <role>' text for 'rm' and 'qc' either way.
+     It was never called — grpS called acRowHTML instead, which draws every
+     item's live button regardless of viewer or category. Fixed: grpS and the
+     deferred list beside it now render through rowS/rowD, so Production's
+     stuck list can no longer trigger RM Check, Receive, Approve PR, or Lab QC
+     review/approve — only see that they're stalled and who owns them.
+     One of those had no right behind it at all, for anyone, from any screen:
+     RM Check itself (openRMCheck / rmSubmit) checked nothing — the only action
+     in this chain a QA Inspector could actually complete, not just see a
+     button for. rm.check, below, closes that; opener and writer both ask it,
+     the same shape as rm.receive's own fix on 25 Aug. */
+  {code:'rm.check',         dept:'supply-chain', name:'RM Check — confirm material availability',
+   note:'Confirms a line can be made in full, in part, or not yet; partial/none raises a PR for CFO approval.',
+                                                              legacy:{kind:'canEdit', owners:['Supply Chain'], scr:'approvals', alsoOn:[{scr:'prod'}]}},
   {code:'shipment.plan',    dept:'supply-chain', name:'Plan a shipment / raise a DC',
    note:'Create and edit a dispatch on the Shipments screen.',     legacy:{kind:'canEdit', owners:['Supply Chain'], scr:'ship', alsoOn:[{scr:'approvals',roles:['Plant Manager']}]}},
   {code:'shipment.load',    dept:'supply-chain', name:'Start loading a truck',
@@ -3981,7 +3998,7 @@ function closeDrawer(){ $('drawer').classList.remove('open'); $('drawerBg').clas
 let rmForm={oid:null,lid:null,status:'full',canMake:'',unit:'kg'};
 /* New RM model: confirmation only (no raw-material inventory). Makeable quantity is in PRODUCT Kg/L. */
 function rmMakeKg(){ var o=state.orders.find(x=>x.id===rmForm.oid); var l=o&&o.lines.find(x=>x.id===rmForm.lid); var ord=(l&&+l.ordered)||0; var v=+rmForm.canMake||0; if(rmForm.unit==='pct') v=ord*v/100; return Math.max(0,Math.min(ord,Math.round(v))); }
-function openRMCheck(oid,lid){ const o=state.orders.find(x=>x.id===oid); const l=o&&o.lines.find(x=>x.id===lid); if(!l)return;
+function openRMCheck(oid,lid){ if(!may('rm.check')){toast(denyRight('rm.check','RM Check'));return;} const o=state.orders.find(x=>x.id===oid); const l=o&&o.lines.find(x=>x.id===lid); if(!l)return;
   rmForm={oid,lid,status:(l.rmStatus&&l.rmStatus!=='pending'?l.rmStatus:'full'),canMake:(l.rmStatus==='partial'&&l.canMakeKg!=null?l.canMakeKg:''),unit:'kg'};
   renderRMModal(); $('modalBg').classList.add('open'); }
 function closeModal(){ $('modalBg').classList.remove('open'); try{$('modal').classList.remove('coa');$('modal').classList.remove('shipdrawer');}catch(e){} }
@@ -4003,7 +4020,13 @@ function renderRMModal(){ const o=state.orders.find(x=>x.id===rmForm.oid); const
    <div class="mb">${seg}${body}<div class="muted" style="font-size:11px;margin-top:14px">Confirmation only — raw-material stock lives in the ERP, not here. Partial / none raises a product-quantity PR for CFO approval; top it up with “Confirm received” in My Actions as RM arrives.</div></div>
    <div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" onclick="rmSubmit()">${rmForm.status==='full'?'Confirm — materials ready':'Confirm RM check'}</button></div>`;
 }
-function rmSubmit(){ const o=state.orders.find(x=>x.id===rmForm.oid); const l=o.lines.find(x=>x.id===rmForm.lid); const today=TODAY.toISOString().slice(0,10); var ord=+l.ordered||0;
+function rmSubmit(){
+  /* Opener and writer both ask rm.check — the same shape as rm.receive's fix on
+     25 Aug. Before this, rmSubmit checked nothing at all: openRMCheck was the
+     only gate, and a fault that trusts the opener alone is exactly how the
+     print-on-pack Save went unguarded in August. */
+  if(!may('rm.check')){toast(denyRight('rm.check','RM Check'));return;}
+  const o=state.orders.find(x=>x.id===rmForm.oid); const l=o.lines.find(x=>x.id===rmForm.lid); const today=TODAY.toISOString().slice(0,10); var ord=+l.ordered||0;
   l.rmCheck=today; l.rmModel='confirm';
   var mk=(rmForm.status==='full')?ord:((rmForm.status==='partial')?rmMakeKg():0);
   if(mk>=ord){ l.rmStatus='full'; l.rmReady=today; l.canMakeKg=null; l.rmPR=null; l.prRaised='';
@@ -4427,7 +4450,7 @@ function prodCompletedLines(){
    Reuses the one Action-Center engine so the Desk and My Actions can never disagree. */
 var PROD_STUCK_CAT={'Open Production':'produce','RM Check':'rm','Receive':'rm','Approve PR':'rm','Lab QC':'qc','Review':'qc','Approve':'qc'};
 function prodStuckItems(){ var out=[]; (typeof actionItems==='function'?actionItems():[]).forEach(function(it){ var cat=PROD_STUCK_CAT[it.label]; if(!cat)return; if(acDeferActive(it))return; var e=acEscalation(it); if(!e)return; it._cat=cat; it._esc=e; out.push(it); }); return out; }
-function prodDeferredItems(){ return (typeof actionItems==='function'?actionItems():[]).filter(function(it){ return PROD_STUCK_CAT[it.label] && acDeferActive(it); }); }
+function prodDeferredItems(){ return (typeof actionItems==='function'?actionItems():[]).filter(function(it){ var cat=PROD_STUCK_CAT[it.label]; if(!cat||!acDeferActive(it))return false; it._cat=cat; return true; }); }
 function prodDefer(key,title){ var t=new Date(TODAY); t.setDate(t.getDate()+7); acDeferForm={id:'',key:key,title:title,reason:AC_DEFER_REASONS[0],until:t.toISOString().slice(0,10)}; renderAcDefer(); $('modalBg').classList.add('open'); }
 function prodUndefer(key){ if(state.acDefer&&state.acDefer[key]){ delete state.acDefer[key]; if(typeof logAction==='function')logAction('Un-deferred production action'); save(); render(); } }
 function prodNeedsAttention(){ var s=prodStuckItems(); var c={produce:0,rm:0,qc:0}; s.forEach(function(it){c[it._cat]++;}); return {count:s.length, produce:c.produce, rm:c.rm, qc:c.qc, deferred:prodDeferredItems().length, stalled:c.produce, rmBlocked:c.rm}; }
@@ -4859,9 +4882,21 @@ function prodStageList(){
     var esc1=function(c){return String(c==null?'':c).replace(/\\/g,'\\\\').replace(/'/g,"\\'");};
     var cat={produce:[],rm:[],qc:[]}; stuck.forEach(function(it){cat[it._cat].push(it);});
     var subT=function(it){ var o=it.o||{},l=it.l||{}; var p=[]; if(o.po)p.push(o.po); if(l.brand)p.push(l.brand); else if(it.batch)p.push(it.batch.batchNo||it.batch.base||''); if(o.client)p.push(o.client); return p.filter(Boolean).join(' · '); };
+    /* 2026-08-26 — wired in. rowS already existed and already did the right
+       thing (a live button only for _cat==='produce', 'owner: <role>' text
+       otherwise); it was defined and never called. grpS drew every item
+       through acRowHTML instead, which shows the SAME live button regardless
+       of category or who is standing on this screen — so RM Check, Receive,
+       Approve PR and Lab QC review/approve all looked equally clickable to
+       anyone on Production, whether or not the underlying write was gated.
+       rowD is the same idea for the deferred list below: read-only always.
+       Un-defer belongs on My Actions, where acBase() actually scopes items to
+       the viewer — the _id it depends on isn't even set on items reached this
+       way, so wiring Un-defer in here would only look like it worked. */
     var rowS=function(it){ var e=it._esc||{}; var note=(it._cat==='produce'?'no output ':'')+e.days+'d → '+e.to; var own=edAny&&it._cat==='produce'; var act=own?('<button class="sm green" onclick="'+(it.act||'')+'">Resolve</button> <button class="sm ghost" onclick="prodDefer(\''+esc1(acKey(it))+'\',\''+esc1(it.what||'')+'\')">Defer</button>'):('<span class="muted" style="font-size:11px">owner: '+it.role+'</span>'); return '<tr style="vertical-align:top"><td>'+(it.what||it.label)+'<div class="muted" style="font-size:11px;margin-top:2px">'+subT(it)+'</div></td><td style="white-space:nowrap;color:var(--red)">⚠ '+note+'</td><td style="width:215px">'+act+'</td></tr>'; };
-    var grpS=function(t,arr){ return arr.length?('<div class="muted" style="font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;margin:14px 2px 6px">'+t+' · '+arr.length+'</div>'+arr.map(function(it){return acRowHTML(it,true);}).join('')):''; };
-    var defHtml=''; if(defsL.length){ defHtml='<div class="muted" style="font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;margin:16px 2px 6px">Deferred · '+defsL.length+'</div>'+defsL.map(function(it){return acRowHTML(it,true);}).join(''); }
+    var rowD=function(it){ var d=acDeferActive(it)||{}; var sub=subT(it); return '<tr style="vertical-align:top"><td>'+(it.what||it.label)+(sub?'<div class="muted" style="font-size:11px;margin-top:2px">'+sub+'</div>':'')+'</td><td style="white-space:nowrap;color:var(--mut)">deferred to '+(d.until||'—')+(d.reason?' · '+d.reason:'')+'</td><td style="width:215px"><span class="muted" style="font-size:11px">owner: '+it.role+'</span></td></tr>'; };
+    var grpS=function(t,arr){ return arr.length?('<div class="muted" style="font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;margin:14px 2px 6px">'+t+' · '+arr.length+'</div><div style="overflow:auto"><table><thead><tr><th>Action</th><th>Stalled</th><th></th></tr></thead><tbody>'+arr.map(rowS).join('')+'</tbody></table></div>'):''; };
+    var defHtml=''; if(defsL.length){ defHtml='<div class="muted" style="font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;margin:16px 2px 6px">Deferred · '+defsL.length+'</div><div style="overflow:auto"><table><thead><tr><th>Action</th><th>Status</th><th></th></tr></thead><tbody>'+defsL.map(rowD).join('')+'</tbody></table></div>'; }
     return '<div class="card"><h3>Stuck / blocked <span class="hint">'+stuck.length+' past escalation threshold'+(defsL.length?(' · '+defsL.length+' deferred'):'')+'</span></h3>'+grpS('Production stalled — no output ≥ 4 days',cat.produce)+grpS('Blocked — waiting on materials',cat.rm)+grpS('Waiting on Lab QC',cat.qc)+defHtml+'</div>';
   }
   if(f==='completed'){

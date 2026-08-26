@@ -563,6 +563,7 @@ const mB = c => run(c, 'state.batches.find(function(b){ return b.id === "B-AP260
   const r2 = x => Math.round(x * 100) / 100;
   eq('four log rows, one per PO per submission, newest first', logRows(c).map(x => x.split(':')[0] + ':' + r2(+x.split(':')[1])).join(' '), 'PO-B:' + r2(1010 - 559.04) + ' PO-A:559.04 PO-B:' + r2(1010 - 559.04) + ' PO-A:559.04');
   const la1 = line(c, 'LA').produced, lb1 = line(c, 'LB').produced;
+  const olderIds = run(c, 'state.productionLog.filter(function(p){ return p && p.batchNo === "AP26012"; }).slice(2).map(function(p){ return p.id; })');
   /* the lab certifies L1; L2 is the draft left by the supersede */
   run(c, 'var b = state.batches.find(function(x){ return x.id === "B-AP26012"; }); b.lots[0].coa = { status: "approved", certifiedKg: 1010, qcNo: "Q-1", tests: [] }; b.lots[1].coa = { status: "draft", qcNo: "Q-2", rev: 1, tests: [], supersedes: { rev: 0, qcNo: "Q-2", reason: "never made", by: "Tahir Abbas" } }; b.lots[1].coaHistory = [{ status: "superseded", rev: 0, qcNo: "Q-2", approver: { name: "QCM One" }, approvedDate: "2026-08-26", supersededBy: "Tahir Abbas", supersededAt: "2026-08-26T11:00:00Z", supersededReason: "never made" }];');
   const l2 = mB(c).lots[1];
@@ -581,6 +582,7 @@ const mB = c => run(c, 'state.batches.find(function(b){ return b.id === "B-AP260
   eq('PO-A line back to one share', line(c, 'LA').produced, la1 / 2);
   eq('PO-B line back to one share', Math.round(line(c, 'LB').produced * 100) / 100, Math.round(lb1 / 2 * 100) / 100);
   eq('two log rows left — the first submission\'s', logRows(c).map(x => x.split(':')[0] + ':' + r2(+x.split(':')[1])).join(' '), 'PO-B:' + r2(1010 - 559.04) + ' PO-A:559.04');
+  eq('...and they are the FIRST submission\'s rows by id, not merely rows of the same size', run(c, 'state.productionLog.filter(function(p){ return p && p.batchNo === "AP26012"; }).map(function(p){ return p.id; })').join(','), olderIds.join(','));
   eq('one shift entry left', run(c, 'state.shiftEntries.filter(function(e){ return e.batchId === "B-AP26012"; }).length'), 1);
   eq('packable 1,010', c.batchPackableKg(mB(c)), 1010);
   const reg = run(c, 'state.corrections[0]');

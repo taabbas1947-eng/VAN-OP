@@ -1545,3 +1545,138 @@ will not guess.** Live will differ.
 evidence ladder, that the wording admits how weak the weak case is, that "no
 price" can never be suggested, and that a full render-and-save cycle with
 suggestions on screen still writes nothing.
+
+---
+
+## 2026-08-26 — O2S — AP26012 certified-duplicate lot, and the HG26026 pack question
+
+### What happened
+
+Morning: Tahir reported AP26012-L2 — a duplicate lot from a shift logged twice —
+could not be removed because the lab had mistakenly certified it. Traced the
+root cause: **no screen in the app ever opened the certificate sheet for an
+approved COA**, so Supersede — the only correction a signed certificate allows
+(SPEC-03) — was unreachable from anywhere. Remove correctly refused a
+lab-touched lot; there was simply no route to the one correction that would
+have freed it.
+
+Built, in order: an **Open** button on Lab QC → Approved that reaches the
+certificate sheet; visible refusal reasons on the Lots tab (round 1 found the
+rewritten messages reached nobody — no button rendered at all for a blocked
+lot, so the wording only reached an unreachable 1.9s toast); a re-issue banner
+so a superseded draft doesn't come back to Lab Rep as if it were new work
+(round 2 found this gap, and a new XSS-style injection round 2 also found —
+both fixed round 3); a certified floor and a lots-vs-produced banner against
+the one real unmitigated hole, `merge3` cannot express deletion, so a removed
+lot can be silently resurrected by another open tab's later save.
+
+**Mid-repair, 16:20** — the batch turned out to be **multi-PO**
+(`kind:'multi'`, output spread pro-rata across 4 linked PO lines), not bulk as
+every fixture in the repo assumed. The flat "cannot un-log a multi-batch
+shift" refusal had to become real: new `lotMultiLogRows(b,lt)` locates the
+exact block of `productionLog` rows a shift wrote (allocation order + lot rank
+among same-signature lots) so Remove can reverse the exact PO-line shares.
+Caught, via a test that built the duplicate through the real `submitShiftLog`
+twice, a rank-computed-after-the-splice bug — the fix is what's live.
+
+**Process note, disclosed to Tahir at the time:** while that fix was still
+mid-review, Tahir pushed the pre-fix commit (`13c9fa8`) himself via GitHub
+Desktop. The corrected version went up 60 seconds later (`fc38986`). Went
+live as `f454e80`, confirmed by diff to contain only the fix plus doc/test
+updates — no gap between what was reviewed and what shipped, but the near
+miss is why the standing rule below exists.
+
+Reviewed independently four times as the build evolved (code, design,
+workflow, data-safety — the data-safety reviewer runs every round regardless
+of what changed). Round 1: four refusals. Rounds 2–3: fixed what was found,
+cleared. Round 4 (the multi-PO emergency): code / data-safety / workflow all
+**PUSH, BUT KNOW THIS**; design reviewer hit an API session limit mid-round —
+re-run after the push, this session, retrospectively: **NEEDS A FOLLOW-UP
+FIX**, nothing urgent, nothing that lost or corrupted data (see Next, below).
+
+**Verified live, after push:** opened AP26012 on the live site — one lot
+left (L1, 1,010 Kg, certified, Remove correctly greyed with the Supersede
+note), batch bar Produced 1,010 / Packed 1,010, matches the test's predicted
+end-state exactly. No errors on the live app anywhere touched this session.
+
+### Files changed
+
+- `o2s/o2s.html` — `RIGHTS[]` note text; `lotRemoveBlockedBy` (certified floor,
+  reworded refusals, multi-batch condition); `openRemoveLot`/`renderRemoveLot`/
+  `doRemoveLot` (new multi-branch reversal, superseded-cert naming); new
+  function `lotMultiLogRows`; `screenQC`/`_qcRow` (Open button, re-issue note);
+  `renderProdLifecycleBatch` (greyed Remove button, refusal text, lots-vs-
+  produced banner); `renderCOAModal` (re-issue banner); `actionItems()`
+  (escaped re-issue reason); `_pcLotRes` (Draft pill)
+- `o2s/tests/certremove.test.js` — **new**, 255 checks, 12 sections
+- `o2s/tests/authmodel.test.js` — one guard rewritten for the new button
+- `docs/o2s/AP26012-2026-08-26.md` — correction pointer to the doc below
+- `docs/o2s/AP26012-CERTIFIED-2026-08-26.md` — **new**, the full repair
+  procedure, reviewer findings each round, the multi-PO pivot
+- `docs/o2s/SPEC-03-EDIT-STANDARD.md` — recorded exception: Remove destroys a
+  superseded cert's printable copy; COO chose register-line-is-enough over a
+  data-model change
+- `docs/o2s/HANDOFF-2026-08-26.md` — recorded the `coaRework` bypass as open,
+  not fixed
+- `docs/o2s/HG26026-PACKED-2026-08-26.md` — **new**, see below
+
+### Pushed
+
+Everything above is live as of commit `f454e80 "LIVE"`. Confirmed by diff
+against the last-reviewed commit that nothing beyond docs and one test landed
+on top of the reviewed code.
+
+### HG26026 — the "2,800 Kg packed, production says they haven't" report
+
+Read the live app's in-memory data directly (no database access, nothing
+changed). It's real: a complete pack transaction, id `PK2074-1vih`, 2,800 Kg
+from HG26026's lot L1 into brand batch GPH26002 against PO 0254, dated
+**2026-08-22**, recorded by **Ali Raza**. Timeline is clean — produced 08-20,
+certified 08-21, packed 08-22 — and every figure that depends on it agrees.
+Not a bug, not a phantom number. Full detail in
+`docs/o2s/HG26026-PACKED-2026-08-26.md`.
+
+**Open question, unresolved:** why Production told the COO nothing was
+packed when the record names Ali Raza and a specific date four days back.
+**Next step is to ask Ali Raza directly** — not to touch the record on a
+guess either way.
+
+### Next
+
+1. **Not started this session — was the #1 pick at session start:** the
+   Production "stuck/blocked" list has no role filtering (`rmSubmit` has no
+   permission check; a QA Inspector can receive RM, close PRs, CFO-approve
+   PRs from that screen).
+2. **HG26026** — confirm with Ali Raza; if he says he did not pack it, that's
+   a deliberate `REVERSE` with a reason, not a silent edit.
+3. Two small design-review follow-ups on the AP26012 work, neither urgent,
+   neither a data-safety issue: the batch lifecycle screen's eyebrow still
+   reads "Bulk → stock" for a multi-PO batch instead of naming its POs
+   (`renderProdLifecycleBatch` never checks `sel.kind==='multi'`, unlike four
+   other places in the app that already do); the Remove confirmation dialog
+   doesn't preview which POs a multi-batch removal will touch before the
+   person commits (it only lists them afterward, in a toast).
+4. **Known, documented, not fixed this session** (round-4 reviewer findings):
+   a zero-kg "no output" shift row sharing a signature with a real one can
+   become `lotMultiLogRows`'s "newest block" and cause Remove to touch the
+   wrong (empty) block — a one-clause skip fixes it; `merge3` appends
+   server-only rows at the end of `productionLog`, which can invert the
+   newest-first assumption the rank lookup relies on (16 inversions already
+   measured in the 81-row live snapshot) — recommended fix is to match by
+   summed-kg-vs-lot-qty before falling back to rank.
+5. **Deferred, "the next job," not this session:** the `coaRework` bypass
+   lets UNFIT material get un-logged with no trace; the real fix for the
+   multi-tab resurrection hole is replacing `doRemoveLot`'s hard splice with
+   a flagged/soft-delete model instead of the certified-floor/banner
+   mitigation now in place.
+6. The app has no screen anywhere that shows `actionLog`/`packingLog`
+   history to a person — it's write-only. That's what made the HG26026
+   question hard to answer from inside the app at all. Worth a simple
+   batch/PO "history" tab at some point; not requested, not built.
+
+### Standing rule this run adds
+
+> A working file written into the folder and a reviewed, safe-to-push file
+> look identical from Tahir's side. Once review is running, nothing gets
+> written into the folder until it clears — so what GitHub Desktop shows is
+> always safe to push, full stop.

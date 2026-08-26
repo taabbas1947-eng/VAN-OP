@@ -443,7 +443,7 @@ const HG = () => ({
     [['closed batch', /\+_rr\+_pcCorrectBtn\(b\)/],
      ['not-editable', /if\(!edAny\)return _cb;/],
      ['pool',         /Call for manufacturing<\/button>':''\)\+_cb;/],
-     ['the main row', /return primary\+sec\+_cb;/]].forEach(([name, re]) =>
+     ['the main row', /return primary\+pknow\+sec\+_cb;/]].forEach(([name, re]) =>
       ok('the ' + name + ' exit carries the Correct button', re.test(life), life.slice(0, 160)));
     ok('...and there is no exit that returns nothing at all',
        !/return '';/.test(life), (life.match(/return '';/g) || []).length + " bare empty return(s)"); }

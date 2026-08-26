@@ -144,8 +144,36 @@ const asRole = r => { B.state.role = r; };
     'batch.close':          r => r === 'COO' || r === 'Production',
     'batch.close_bulk':     r => r === 'COO' || r === 'Production',
   };
-  eq('every right in the catalogue has its old check written down here',
-     B.RIGHTS.filter(r => !OLD[r.code]).length, 0);
+  /* NEW CAPABILITIES — rights that never had an old answer, because the button
+     did not exist. They cannot be in OLD and must not be silently skipped, so
+     they are named here and each one has to PROVE it is new: the file as it stood
+     before must contain no caller of its handler. A conversion smuggled in as a
+     new capability would escape the freeze proof entirely, which is exactly the
+     shape this list has to make impossible. */
+  const NEW_RIGHTS = {
+    'production.void': { handler: 'openRemoveLot', since: '26 Aug 2026',
+                         why: 'Removing a wrongly logged shift. Nothing could do it before: '
+                            + 'the only unwind in the file sat below screenProd\'s unreachable '
+                            + 'return and was COO-only besides.' },
+  };
+  {
+    const before = fs.readFileSync(require('path').join(__dirname, '_before-lot.html'), 'utf8');
+    Object.keys(NEW_RIGHTS).forEach(code => {
+      const n = NEW_RIGHTS[code];
+      ok(code + ' is in the catalogue', !!B.rightByCode(code));
+      ok(code + ' is NOT in OLD — it has no old answer to freeze', !OLD[code]);
+      /* the proof that it is new, not a conversion in disguise */
+      ok(code + ': ' + n.handler + ' had NO caller before ' + n.since,
+         !new RegExp(n.handler + '\\s*\\(').test(before),
+         'found ' + n.handler + ' in the pre-change file');
+      ok(code + ': ' + n.handler + ' HAS a caller now',
+         new RegExp(n.handler + '\\s*\\(').test(H.html));
+      /* and it must not have quietly taken a right's place */
+      ok(code + ' asks no old code', !OLD[code]);
+    });
+  }
+  eq('every right in the catalogue has its old check written down here, or is a declared new capability',
+     B.RIGHTS.filter(r => !OLD[r.code] && !NEW_RIGHTS[r.code]).length, 0);
   /* Checked ON EVERY SCREEN, because the old canEdit rule gives a different
      answer depending on where the person is standing — and reproducing that
      exactly, screen by screen, is the whole claim. */
@@ -154,6 +182,7 @@ const asRole = r => { B.state.role = r; };
   SCRIDS.forEach(sid => {
     B.state.screen = sid;
     B.RIGHTS.forEach(rt => {
+      if (NEW_RIGHTS[rt.code]) return;          /* no old answer exists to freeze against */
       ROLES.forEach(r => {
         checked++;
         const got = B.mayRole(r, rt.code), want = OLD[rt.code](r);
@@ -1496,6 +1525,9 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
     'packing.rework':       { kind: 'hard',    scr: undefined },
     'batch.close':          { kind: 'hard',    scr: undefined },
     'batch.close_bulk':     { kind: 'hard',    scr: undefined },
+    /* new 26 Aug. The only production right that is not the Production role:
+       the floor logs the output, somebody above them unwinds it. */
+    'production.void':      { kind: 'hard',    scr: undefined },
   };
   eq('every right in the catalogue is pinned here', B.RIGHTS.filter(r => !WANT[r.code]).length, 0);
   eq('and nothing pinned here has been dropped',
@@ -1597,15 +1629,33 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
 {
   const b = mk('COO');
   const PR = b.RIGHTS.filter(r => r.dept === 'production');
-  eq('ten Production rights', PR.length, 10);
-  ok('every one of them carries the old role check, with no screen in it',
-     PR.every(r => r.legacy.kind === 'hard' && r.legacy.roles.join() === 'Production' && !r.legacy.scr),
-     JSON.stringify(PR.map(r => r.legacy)));
+  eq('eleven Production rights', PR.length, 11);
+  /* TEN are conversions of the old hardRole(['Production']) gate. ONE —
+     production.void, added 26 Aug — is a new capability with no old answer, and
+     it deliberately does NOT start with the Production role: the floor logs the
+     output, somebody above them unwinds it. Split here so the ten keep their
+     strict freeze check instead of it being loosened to accommodate the one. */
+  const CONV = PR.filter(r => r.code !== 'production.void');
+  const NEWC = PR.filter(r => r.code === 'production.void');
+  eq('...ten of them conversions', CONV.length, 10);
+  eq('...and one a new capability', NEWC.length, 1);
+  ok('every converted one carries the old role check, with no screen in it',
+     CONV.every(r => r.legacy.kind === 'hard' && r.legacy.roles.join() === 'Production' && !r.legacy.scr),
+     JSON.stringify(CONV.map(r => r.legacy)));
+  ok('the new one is hard-gated too, on the head above the floor',
+     NEWC.every(r => r.legacy.kind === 'hard' && r.legacy.roles.join() === 'Plant Manager' && !r.legacy.scr),
+     JSON.stringify(NEWC.map(r => r.legacy)));
 
-  /* Who can do the work — unchanged, and that is the point. */
-  PR.forEach(r => eq('who may ' + r.code, b.whoMayRight(r.code).join(', '), 'Production, COO'));
+  /* Who can do the work — unchanged for the ten, and that is the point. */
+  CONV.forEach(r => eq('who may ' + r.code, b.whoMayRight(r.code).join(', '), 'Production, COO'));
   ['QA Inspector', 'Plant Manager', 'KAM', 'Supply Chain', 'Lab Rep', 'CFO'].forEach(role =>
-    PR.forEach(r => eq(role + ' still cannot ' + r.code, b.mayHere(role, r.code), false)));
+    CONV.forEach(r => eq(role + ' still cannot ' + r.code, b.mayHere(role, r.code), false)));
+  /* and the new one goes to the head, not the floor */
+  eq('who may production.void', b.whoMayRight('production.void').join(', '), 'Plant Manager, COO');
+  eq('the floor officer who logged it cannot un-log it',
+     b.mayHere('Production', 'production.void'), false);
+  ['QA Inspector', 'KAM', 'Supply Chain', 'Lab Rep', 'CFO'].forEach(role =>
+    eq(role + ' cannot production.void', b.mayHere(role, 'production.void'), false));
 
   /* THE CELL THE COO SET ON 25 AUG. He set QA Inspector's Production access to
      view. It closed the raw-material hole, and it makes NO difference to these
@@ -1631,17 +1681,35 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
    ['openDivert', 'packing.divert'], ['submitDivert', 'packing.divert'],
    ['openRework', 'packing.rework'], ['submitRework', 'packing.rework'],
    ['openCloseBatch', 'batch.close'], ['doCloseBatch', 'batch.close'],
-   ['openSettledClose', 'batch.close_bulk'], ['closeSettledBatches', 'batch.close_bulk']].forEach(([fn, code]) =>
+   ['openSettledClose', 'batch.close_bulk'], ['closeSettledBatches', 'batch.close_bulk'],
+   /* The only function in Production that DESTROYS a production record, and the
+      newest. A reviewer stripped both of these gates on 26 Aug and every suite
+      stayed green while a KAM deleted a lot. */
+   ['openRemoveLot', 'production.void'], ['doRemoveLot', 'production.void']].forEach(([fn, code]) =>
     ok('GUARD: ' + fn + ' asks may(\'' + code + '\')',
        new RegExp("may\\('" + code.replace('.', '\\.') + "'\\)").test(H.grab(fn)), H.grab(fn).slice(0, 110)));
   /* opener and writer must agree, or somebody fills a form and loses it */
   [['openBatchModal', 'submitMultiBatch'], ['openCloseBatch', 'doCloseBatch'],
    ['openReconcile', 'saveReconcile'], ['openCallBp', 'submitCallBp'],
    ['openDivert', 'submitDivert'], ['openRework', 'submitRework'],
-   ['openSettledClose', 'closeSettledBatches']].forEach(([o, w]) => {
+   ['openSettledClose', 'closeSettledBatches'],
+   ['openRemoveLot', 'doRemoveLot']].forEach(([o, w]) => {
     const codeOf = src => (src.match(/may\('([^']+)'\)/) || [])[1];
     eq('opener and writer agree: ' + o + ' / ' + w, codeOf(H.grab(o)), codeOf(H.grab(w)));
   });
+  /* The re-check the comment advertises: the lab can certify a lot while the
+     modal is open, so doRemoveLot must ask lotRemoveBlockedBy AGAIN and not
+     trust openRemoveLot's answer. Removing it left the suite green. */
+  ok('GUARD: doRemoveLot re-asks lotRemoveBlockedBy, it does not trust the opener',
+     /lotRemoveBlockedBy\(b,lt\)/.test(H.grab('doRemoveLot')), H.grab('doRemoveLot').slice(0, 200));
+  ok('GUARD: ...and it asks BEFORE it writes anything',
+     H.grab('doRemoveLot').indexOf('lotRemoveBlockedBy') < H.grab('doRemoveLot').indexOf('b.lots='),
+     'guard at ' + H.grab('doRemoveLot').indexOf('lotRemoveBlockedBy')
+       + ', first write at ' + H.grab('doRemoveLot').indexOf('b.lots='));
+  ok('GUARD: openRemoveLot asks it too, so no modal opens on a refusal',
+     /lotRemoveBlockedBy\(b,lt\)/.test(H.grab('openRemoveLot')));
+  ok('GUARD: and the render only draws Remove where it would be allowed',
+     /!lotRemoveBlockedBy\(sel,l\)/.test(H.grab('renderProdLifecycleBatch')));
   ok('GUARD: the converted Production gates no longer name the role in code',
      !/hardRole\(\['Production'\]\)/.test(H.grab('doCloseBatch') + H.grab('submitProdQty')
        + H.grab('doPack') + H.grab('closeSettledBatches')));
@@ -1656,11 +1724,29 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
        H.grab(fn).slice(0, 130));
     ok('...and says why in the file: ' + fn, /not a right yet/.test(H.grab(fn)));
   });
-  ['batch.set_number', 'production.void'].forEach(c =>
-    ok('...and ' + c + ' is not in the catalogue', !B.rightByCode(c)));
-  ok('the catalogue note tells the COO the app has no button for them',
-     /NO WORKING\s+BUTTON FOR EITHER/.test(H.html.slice(H.html.indexOf('Production, converted 25 August'),
-       H.html.indexOf('Production, converted 25 August') + 2600)));
+  ok('batch.set_number is still not in the catalogue', !B.rightByCode('batch.set_number'));
+  /* production.void IS in the catalogue since 26 Aug, because removeLot gave it a
+     working button. voidProdEntry — the register's index-and-quantity version —
+     is a different function and stays hard-gated with no live caller. */
+  ok('production.void IS in the catalogue now', !!B.rightByCode('production.void'));
+  ok('...and its handler has a live caller', /openRemoveLot\s*\(/.test(H.html));
+  /* voidProdEntry's ONLY call site is the ✕ remove button in the legacy floor
+     block, below screenProd's unconditional return — so it has a caller in the
+     source and none a user can reach. Counted, and its position proved, rather
+     than asserted. */
+  {
+    const sp = H.grab('screenProd');
+    const ret = sp.indexOf('Legacy floor code below is unreachable');
+    const call = sp.indexOf('voidProdEntry(');
+    ok('voidProdEntry is called once, inside screenProd', call >= 0);
+    ok('...and that call sits BELOW the unreachable marker', ret >= 0 && call > ret,
+       'marker at ' + ret + ', call at ' + call);
+    eq('...and there is no other call anywhere in the file',
+       (H.html.match(/voidProdEntry\s*\(/g) || []).length, 2);   /* the definition + that one */
+  }
+  ok('the catalogue note tells the COO the app has no button for the one left',
+     /NO WORKING\s+BUTTON FOR IT/.test(H.html.slice(H.html.indexOf('Production, converted 25 August'),
+       H.html.indexOf('Production, converted 25 August') + 3200)));
   ok('screenProd really does return before that code',
      /Legacy floor code below is unreachable/.test(H.html));
 
@@ -1675,7 +1761,7 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
        that forbids its own repair is worse than no test. What must hold is that
        the file and the note agree, and that the flag decides nothing. */
     const marked = B.RIGHTS.filter(r => r.leadLevel).map(r => r.code);
-    const noteSaysNoneMarked = /no head-level marking in this catalogue at all/.test(H.html);
+    const noteSaysNoneMarked = /no head-level marking in this\s+catalogue at all/.test(H.html);
     ok('the note and the catalogue agree about whether anything is marked',
        noteSaysNoneMarked === (marked.length === 0),
        'marked: ' + JSON.stringify(marked) + '; note says none marked: ' + noteSaysNoneMarked);
@@ -1709,11 +1795,13 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
      /same rule as closing one/.test(b.rightByCode('batch.close_bulk').note));
   ok('closing a batch records why it is Production\'s own',
      /reopening one is already the Plant Manager/.test(b.rightByCode('batch.close').note));
-  /* His decision about voiding is recorded where it belongs for now — in the
-     catalogue note that explains why the right is NOT there yet. */
-  ok('the COO\'s decision about voiding is written down, with why it cannot apply yet',
-     /voiding belongs to the Production Manager/.test(H.html)
-     && /nothing yet to apply it to/.test(H.html));
+  /* His decision about who may un-log a shift is now recorded on the right
+     itself, together with why it does not start with the Production Manager. */
+  ok('the removal right records the COO\'s decision',
+     /Production Manager and above, never the floor officer who logged it/
+       .test(b.rightByCode('production.void').note));
+  ok('...and why it sits with the Plant Manager until that role exists',
+     /That role does not exist\s+yet/.test(H.html) && /one tick to move it across/.test(H.html));
 }
 
 /* ================= 32. pointing a department at its head ================= */
@@ -2039,8 +2127,15 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
    TWELVE and there are TEN. Nothing pinned it, so the number was free to drift
    and be quoted back as fact. It is now tied to the catalogue itself. */
 {
-  const N = B.RIGHTS.filter(r => r.dept === 'production').length;
-  eq('ten Production rights (again, from the catalogue)', N, 10);
+  const DEPT_N = B.RIGHTS.filter(r => r.dept === 'production').length;
+  eq('eleven Production rights in the department', DEPT_N, 11);
+  /* The sentence is about what the PRODUCTION ROLE holds, not what the department
+     contains — and since 26 Aug those are different numbers, because
+     production.void went to the head instead. Tying the prose to the department
+     total would have made the true sentence fail. */
+  const N = B.RIGHTS.filter(r => r.dept === 'production'
+              && B.whoMayRight(r.code).indexOf('Production') >= 0).length;
+  eq('...of which the Production role holds ten', N, 10);
   const WORDS = ['zero','one','two','three','four','five','six','seven','eight','nine',
                  'ten','eleven','twelve','thirteen','fourteen','fifteen'];
   const m = /it holds all (\w+) of these/.exec(H.html);
@@ -2170,7 +2265,9 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
   r.globalThis = r; vm.createContext(r);
   vm.runInContext(SCREENS_SRC + '\n'
     + ['scr', 'accessOv', '_ownerEdit', 'accessLevel', 'screenEditOK', 'hardRole', '_pe',
+       'batchClearedKg', 'batchPackableKg', 'batchLabApproved', 'batchPackNow',
        'correctCanAmend', 'correctAllowed', '_pcCorrectBtn', '_pcLifeAction'].map(H.grab).join('\n\n')
+    + '\nvar fmt=function(n){return Math.round(n).toLocaleString();};'
     + '\n' + H.authModelSrc(), r);
   r.state.masters.roles.push({ id: 'floor-officer', name: 'Floor Officer',
                                deptId: 'production', builtin: false, archived: false });

@@ -2445,31 +2445,25 @@ var RIGHTS=[
      there is one role, "Production", and it holds all ten of these. The split
      happens in the Authorisation panel, not here: add the Production Manager
      role, make it the department's lead, then move the head-level rights across.
-     The one right he named for the head — removing a shift's output — IS in the
-     list below now (production.void), because it finally has a working button:
-     Remove, on each lot of the batch passport, added 26 Aug. It is the only right
-     here that does not start with the Production role, because it did not exist
-     to start anywhere — see its own note. There is no head-level marking in this
-     catalogue at all — the split is made by ticking rights against roles in the
-     panel, and a moved right shows as pending until it goes live.
+     The one right he named for the head — voiding a production entry — is NOT in
+     the list below, because the app has no working button for it (see the note
+     further down). There is no head-level marking in this catalogue at all — the
+     split is made by ticking rights against roles in the panel, and a moved right
+     shows as pending until it goes live.
 
      NOT here, and never: reopening a closed batch, accepting a lab deviation and
      sending a batch for rework after an UNFIT result. Those are the Plant
      Manager's, they are second signatures, and they stay on hardRole.
 
-     NOT here YET, and worth reading: SETTING A BATCH NUMBER is still a raw
-     hardRole call, because THE APP HAS NO WORKING BUTTON FOR IT. It lives in the
-     legacy floor block below screenProd's early return, which the file itself
-     marks unreachable. Listing it here would put a tick in the panel that decides
-     nothing, which is the one thing the catalogue rule above forbids. It goes in
-     when a working screen does.
-
-     voidProdEntry, the OTHER function down there, is a different thing from
-     production.void and stays on raw hardRole: it removes a row from the
-     production register by its index, guesses which lot it meant by matching
-     quantity, and has no live button either. removeLot — the new one — works
-     from the lot's own id, which is why it can tell two identical 1,010 Kg lots
-     apart. That is exactly what AP26012 needed. */
+     NOT here YET, and worth reading: SETTING A BATCH NUMBER and VOIDING A
+     PRODUCTION ENTRY are still raw hardRole calls, because THE APP HAS NO WORKING
+     BUTTON FOR EITHER. Both live in the legacy floor block below screenProd's
+     early return, which the file itself marks unreachable, and the void button's
+     render condition there is COO-only anyway — a third answer again. Listing
+     them here would put two ticks in the panel that decide nothing, which is the
+     one thing the catalogue rule above forbids. The COO decided on 25 Aug that
+     voiding belongs to the Production Manager; the decision is sound and there is
+     nothing yet to apply it to. It goes in when a working screen does. */
   {code:'batch.open',        dept:'production', name:'Open a batch',
    note:'Start a new production batch.',                      legacy:{kind:'hard', roles:['Production']}},
   {code:'production.enter',  dept:'production', name:'Enter produced quantity',
@@ -2492,18 +2486,7 @@ var RIGHTS=[
                                                               legacy:{kind:'hard', roles:['Production']}},
   {code:'batch.close_bulk',  dept:'production', name:'Close settled batches in bulk',
    note:'The COO\u2019s decision, 25 Aug: the same rule as closing one.',
-                                                              legacy:{kind:'hard', roles:['Production']}},
-  /* NOT a conversion — a new capability, so there is no old answer to freeze.
-     Nobody could remove a wrongly logged shift before 26 Aug: the only unwind in
-     the file sat below screenProd's unreachable return and was COO-only besides.
-     The COO asked for "Production Manager and above". That role does not exist
-     yet, so the right starts with the head who DOES exist — the Plant Manager,
-     the same authority that reopens a closed batch — and the day a Production
-     Manager is created it is one tick to move it across. Deliberately NOT the
-     Production role: the floor logs the output, somebody above them unwinds it. */
-  {code:'production.void',   dept:'production', name:'Remove a shift\u2019s output',
-   note:'Un-log a shift that should never have been recorded — a double submission, the wrong batch, a typo. Needs a reason and goes in the correction register. Refused once the lab has certified the lot: certified material exists, and it is disposed of, not un-made. The COO\u2019s decision, 26 Aug: Production Manager and above, never the floor officer who logged it.',
-                                                              legacy:{kind:'hard', roles:['Plant Manager']}}
+                                                              legacy:{kind:'hard', roles:['Production']}}
 ];
 
 /* Pairs that must never sit on one role. Enforced only where BOTH codes are in
@@ -4061,153 +4044,6 @@ function isPODirectLine(l){ return !!l && (l.base===l.brand || !l.base); }
 function isHybridBulkLine(l){ return isPODirectLine(l) && !!(l&&l.base) && (typeof BULK_BASES!=='undefined') && BULK_BASES.indexOf(l.base)>=0; }
 var PJORD=['recon','producing','qc','pack','done'];
 function batchClearedKg(b){ var lots=(b.lots||[]); var s=0; if(lots.length){ lots.forEach(function(l){ if(l.coa&&l.coa.status==='approved'){ var ck=(l.coa.certifiedKg!=null)?l.coa.certifiedKg:(l.qty||0); s+=Math.min(l.qty||0,ck); } }); } else if(b.coa&&b.coa.status==='approved'){ var ck2=(b.coa.certifiedKg!=null)?b.coa.certifiedKg:(b.producedKg||0); s+=Math.min(b.producedKg||0,ck2); } return s; }
-/* "Is there anything on this batch that can be packed RIGHT NOW?"
-   A batch has ONE stage, decided by its worst part: while any of the plan is
-   unmade it reads 'producing', and while any lot is uncertified it reads 'qc'.
-   That is right for a heading and wrong for a button. A lot the lab has certified
-   is finished goods — it can be packed, inspected and shipped on its own, and it
-   traces to its batch through the batch number either way. The COO's decision,
-   26 Aug 2026, after AP26012 sat with 1,010 Kg certified and no way to pack it.
-
-   Nothing about the arithmetic changes, and that is the point: batchPackableKg
-   already counts ONLY certified, undisposed, unpacked material, and doPack caps
-   at it. batchLabApproved already passes a batch with ANY approved lot. The
-   engine was right; only the offer was missing.
-
-   batchStage is deliberately NOT touched. Its callers include PC.derive (the step
-   dots and the stage heading), batchAging, prodWorkCounts and prodStageList, and
-   its own first line is the reconcile rule. No count is given on purpose: this
-   comment has already carried one wrong number, and the named consumers make the
-   argument without one. NOT prodBucketBar: the bar reads
-   plannedKg, producedKg, batchClearedKg, batchPackableKg and disposedKg directly
-   and never asks for the stage — which is exactly why it could say "Ready to pack
-   1,010" on a batch the stage called 'producing'. Had the bar depended on the
-   stage there would have been nothing to notice and no fault to report. */
-/* Un-log a shift's output that should never have been recorded. It is the exact
-   opposite of submitShiftLog and it undoes the same four things: the lot, the
-   batch's produced total, the shift entry and the production-log row — and, on a
-   PO batch, the order line.
-
-   Keyed on the LOT'S OWN ID, never on its quantity. AP26012 held two identical
-   1,010 Kg lots from one double submission; anything matching on size has to
-   guess which, and voidProdEntry — the register's older version, still below
-   screenProd's unreachable return — does exactly that. */
-function lotRemoveBlockedBy(b,lt){
-  if(!b||!lt) return 'That lot is no longer on this batch \u2014 close this and look again.';
-  /* ANY COA past draft, not only an approved one. The reason given below —
-     the material exists and is disposed of, not un-made — holds from the moment
-     the lab has it. The sharp case is UNFIT: the Plant Manager holds this right
-     AND coaDeviation/coaRework, so the person who must decide what to do about
-     failed material could otherwise un-log it instead of deciding. */
-  var _cs=(lt.coa&&lt.coa.status)||'';
-  if(_cs==='approved')
-    return 'The lab has certified lot '+(lt.lotNo||'')+'. It cannot be un-logged \u2014 certified material exists. '
-      +'If it has gone, dispose of it, so the certificate and the quantity stay together.';
-  if(_cs==='failed')
-    return 'Lot '+(lt.lotNo||'')+' came back UNFIT. That is a decision for the Plant Manager \u2014 accept the '
-      +'deviation, send it for rework, or dispose of it. It is not un-logged: the material was made and tested.';
-  if(_cs && _cs!=='draft')
-    return 'The lab has lot '+(lt.lotNo||'')+' in hand (COA '+_cs+'). Finish or withdraw the certificate first \u2014 '
-      +'un-logging it now would leave a certificate with nothing under it.';
-  if(b.kind==='multi')
-    return 'This batch serves several POs by allocation, so one shift\u2019s output cannot be un-logged '
-      +'without disturbing them. Correct the batch instead, or dispose of the material.';
-  var q=+lt.qty||0, gone=(+b.packedKg||0)+(+b.disposedKg||0);
-  if((+b.producedKg||0)-q < gone-0.5)
-    return 'Removing '+fmt(Math.round(q))+' Kg would take this batch below the '+fmt(Math.round(gone))
-      +' Kg already packed or disposed. That material has left the batch and cannot be un-made.';
-  return null;
-}
-var rmLotForm={bid:'',lid:'',reasonCode:'',reason:''};
-function openRemoveLot(batchId,lotId){
-  if(!may('production.void')){toast(denyRight('production.void','Removing a shift\u2019s output'));return;}
-  var b=(state.batches||[]).find(function(x){return x.id===batchId;});
-  var lt=b&&(b.lots||[]).filter(function(l){return l.id===lotId;})[0];
-  var blocked=lotRemoveBlockedBy(b,lt); if(blocked){toast(blocked);return;}
-  rmLotForm={bid:batchId,lid:lotId,reasonCode:'',reason:''};
-  renderRemoveLot(); $('modalBg').classList.add('open');
-}
-function renderRemoveLot(){
-  var b=(state.batches||[]).find(function(x){return x.id===rmLotForm.bid;}); if(!b)return;
-  var lt=(b.lots||[]).filter(function(l){return l.id===rmLotForm.lid;})[0]; if(!lt)return;
-  var q=+lt.qty||0, was=+b.producedKg||0;
-  $('modal').innerHTML='<div class="mh"><h2>Remove this shift\u2019s output</h2>'
-    +'<div class="sub">Lot '+_pe(lt.lotNo||'')+' \u00b7 '+fmt(q)+' Kg \u00b7 '
-    +_pe([lt.shift,lt.incharge,lt.date].filter(Boolean).join(' \u00b7 '))+'</div></div>'
-    +'<div class="mb"><div class="card" style="border-left:4px solid var(--amber);padding:10px 12px;margin-bottom:12px">'
-    +'<div style="font-size:12.5px">Batch '+_pe(b.batchNo||'\u2014')+' produced goes from <b>'+fmt(was)+'</b> to <b>'
-    +fmt(Math.max(0,was-q))+'</b> Kg. The lot, its shift entry and its production-log row are removed. '
-    +'This goes in the correction register with your name.</div></div>'
-    +'<div class="fld"><label>Reason</label><select onchange="rmLotForm.reasonCode=this.value">'
-    +'<option value="">\u2014 pick \u2014</option>'
-    +CORRECT_REASONS.map(function(r){return '<option value="'+r.k+'"'+(rmLotForm.reasonCode===r.k?' selected':'')+'>'+r.t+'</option>';}).join('')
-    +'</select></div>'
-    +'<div class="fld" style="margin-top:10px"><label>What happened</label>'
-    +'<textarea rows="3" oninput="rmLotForm.reason=this.value" placeholder="A sentence, not a word.">'+_pe(rmLotForm.reason||'')+'</textarea></div></div>'
-    +'<div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button>'
-    +'<button class="green" onclick="doRemoveLot()">Remove this output</button></div>';
-}
-function doRemoveLot(){
-  if(!may('production.void')){toast(denyRight('production.void','Removing a shift\u2019s output'));return;}
-  var b=(state.batches||[]).find(function(x){return x.id===rmLotForm.bid;});
-  var lt=b&&(b.lots||[]).filter(function(l){return l.id===rmLotForm.lid;})[0];
-  /* asked again here, not only at the opener: the batch can have moved on while
-     the modal was open, and the lab can have certified the lot in the meantime */
-  var blocked=lotRemoveBlockedBy(b,lt); if(blocked){toast(blocked);return;}
-  if(!rmLotForm.reasonCode){toast('Pick a reason');return;}
-  if((rmLotForm.reason||'').trim().length<10){toast('Say what happened \u2014 a sentence, not a word');return;}
-  var q=+lt.qty||0, was=+b.producedKg||0;
-  var cascade=[];
-  /* 1. the lot */
-  b.lots=(b.lots||[]).filter(function(l){return l.id!==rmLotForm.lid;});
-  /* 2. the batch total */
-  b.producedKg=Math.max(0,was-q);
-  cascade.push('Batch produced '+fmt(was)+' \u2192 '+fmt(b.producedKg)+' Kg');
-  /* 3. the shift entry — the ONE that made this lot, matched on its own fields,
-        and only one even when two identical ones exist */
-  var se=(state.shiftEntries||[]);
-  var si=se.findIndex(function(e){ return e && e.batchId===b.id && Math.abs((+e.kg||0)-q)<0.001
-      && (!lt.date||e.date===lt.date) && (!lt.shift||e.shift===lt.shift) && (!lt.incharge||e.incharge===lt.incharge); });
-  if(si>=0){ se.splice(si,1); cascade.push('Shift entry removed'); }
-  /* 4. the production-log row */
-  var pl=(state.productionLog||[]);
-  /* the same fields as the shift-entry matcher above, incharge included. With two
-     lots of the same size on one batch, date and shift but different incharges,
-     matching on fewer fields here than there takes the wrong row. */
-  var pi=pl.findIndex(function(p){ return p && Math.abs((+p.kg||0)-q)<0.001
-      && (p.batchNo||'')===(b.batchNo||'') && (!lt.date||p.date===lt.date)
-      && (!lt.shift||p.shift===lt.shift) && (!lt.incharge||p.incharge===lt.incharge); });
-  if(pi>=0){ pl.splice(pi,1); cascade.push('Production log row removed'); }
-  /* 5. the PO line, if this batch feeds one */
-  if(b.kind==='po'&&b.po){
-    var o=(state.orders||[]).find(function(x){return x.po===b.po;});
-    var l=o&&(o.lines||[]).find(function(x){return x.id===b.lineId;});
-    if(l){ var lw=+l.produced||0;
-      l.produced=Math.max(+l.packed||0,lw-q);
-      if((l.produced||0)<(l.ordered||0)-0.001) l.prodComplete='';
-      cascade.push('PO '+b.po+' \u00b7 '+(l.brand||'')+' produced '+fmt(lw)+' \u2192 '+fmt(l.produced)+' Kg'); }
-  }
-  cascade.push('Ready to pack is now '+fmt(Math.round(batchPackableKg(b)))+' Kg');
-  recordCorrection('Removed shift output','batch',b.id,(b.batchNo||b.id),
-    [{field:'lot',label:'Lot '+(lt.lotNo||''),before:fmt(q)+' Kg',after:'removed'},
-     /* the COA state goes in the register too. Without it a removal reads the same
-        whether the lab had never seen the lot or had it half-signed. */
-     {field:'coa',label:'Lab COA on that lot',
-      before:((lt.coa&&lt.coa.status)?(lt.coa.status+((lt.coa.qcNo)?(' \u00b7 '+lt.coa.qcNo):'')):'none'),after:'removed with the lot'},
-     {field:'producedKg',label:'Produced (Kg/L)',before:fmt(was),after:fmt(b.producedKg)}],
-    rmLotForm.reasonCode, rmLotForm.reason, cascade);
-  save(); closeModal(); render();
-  toast('Removed \u2014 '+cascade.join(' \u00b7 '));
-}
-function batchPackNow(b){ return !!b && !b.pool && !b.voided
-  /* batchLabApproved is belt-and-braces, not a second condition: batchPackableKg
-     only ever counts lots whose COA is approved, so a positive result already
-     implies one — checked against all 111 batches in the snapshot and true of
-     every one. It is kept because the two functions could drift apart, and this
-     is the gate that decides whether uncertified material is offered for packing.
-     !b.voided is NOT redundant: activeFloorBatches does not exclude voided
-     batches, so it is the only thing keeping one out of Ready to pack. */
-  && batchPackableKg(b)>0.5 && batchLabApproved(b); }
 function batchStage(b){ var prod=+b.producedKg||0, plan=+b.plannedKg||0, packed=+b.packedKg||0, cleared=batchClearedKg(b), disp=+b.disposedKg||0, rem=Math.max(0,prod-packed-disp), pk=batchPackableKg(b);
   if(b.status==='closed' && rem>0.5 && pk<=0.5) return 'recon';  // closed with undisposed remainder & nothing packable → reconcile
   if(b.status==='open' && prod<plan-0.5) return 'producing';
@@ -4224,14 +4060,7 @@ function prodKpiStrip(){
   var jb=activeFloorBatches();
   var ready=function(b){return Math.max(0,batchClearedKg(b)-(+b.packedKg||0));};
   var jc={producing:0,qc:0,pack:0,recon:0}, readyKg=0;
-  /* Dead code — nothing calls prodKpiStrip. Kept in step with prodWorkCounts,
-     which is the live one, so this is not left as the single place in the file
-     that would disagree with the tabs. Its old comment said a batch is counted in
-     exactly one stage; since 26 Aug that is deliberately no longer true, because a
-     batch still producing a certified lot really is in two places at once. */
-  var packNow=0;
-  jb.forEach(function(b){var st=batchStage(b); if(jc[st]!=null)jc[st]++; if(batchPackNow(b))packNow++; readyKg+=ready(b);});
-  jc.pack=packNow;
+  jb.forEach(function(b){var st=batchStage(b); if(jc[st]!=null)jc[st]++; readyKg+=ready(b);});  /* NO DOUBLE-COUNT: a batch is counted in exactly one stage; cleared-but-unpacked stock is carried by the readyKg Kg figure, never as a 2nd batch tally in jc.pack */
   var toProduceKg=jb.filter(function(b){return batchStage(b)==='producing';}).reduce(function(a,b){return a+Math.max(0,(+b.plannedKg||0)-(+b.producedKg||0));},0);
   var rmBlocked=(state.orders||[]).filter(function(o){return orderBucket(o)==='RM Check';}).length;
   var openOrders=(state.orders||[]).filter(function(o){return orderBucket(o)!=='Delivered';}).length;
@@ -4262,15 +4091,7 @@ function prodTodayBar(){
 function prodWorkCounts(){
   var jb=activeFloorBatches();
   var jc={producing:0,qc:0,pack:0,recon:0,done:0}, readyKg=0;
-  /* Ready to pack counts what CAN be packed, not what the batch is called. A
-     batch still producing, holding a certified lot, belongs in both lists — and
-     the Kg figure beside it was always counted this way, which is why the strip
-     used to read "0 batches · 1,010 Kg cleared". */
-  var packNow=0;
-  jb.forEach(function(b){var st=batchStage(b); if(jc[st]!=null)jc[st]++;
-    if(batchPackNow(b))packNow++;
-    readyKg+=Math.max(0,batchClearedKg(b)-(+b.packedKg||0));});
-  jc.pack=packNow;
+  jb.forEach(function(b){var st=batchStage(b); if(jc[st]!=null)jc[st]++; readyKg+=Math.max(0,batchClearedKg(b)-(+b.packedKg||0));});
   var toMakeN=0; (state.orders||[]).forEach(function(o){ if(stageOf(o)==='Delivered')return; (o.lines||[]).forEach(function(l){ if(((+l.ordered||0)-(+l.produced||0))>0.5)toMakeN++; }); });
   var bpAll=(state.batches||[]).filter(function(b){return b.disposition==='byproduct'&&!b.voided;});var bpPools=bpAll.filter(function(b){return b.pool;});var bpKg=(bpPools.length?bpPools:bpAll).reduce(function(a,b){return a+(+b.plannedKg||0);},0);
   var callKg=bpKg+(state.batches||[]).filter(function(b){return (b.disposition==='divert'||b.disposition==='rework')&&b.pool&&!b.voided;}).reduce(function(a,b){return a+(+b.plannedKg||0);},0);
@@ -4774,7 +4595,7 @@ function prodStageList(){
   var list;
   if(f==='recon')list=af.filter(function(b){return batchStage(b)==='recon';});
   else if(f==='producing'||f==='qc')list=af.filter(function(b){return batchStage(b)===f;});
-  else if(f==='pack')list=af.filter(batchPackNow);   /* what can be packed, not what the batch is called */
+  else if(f==='pack')list=af.filter(function(b){return batchStage(b)==='pack';});
   else if(f==='toclose')list=af.filter(function(b){return batchStage(b)==='done';});
   else list=af;
   if(!list.length)return '<div class="card"><div class="muted" style="padding:14px 2px">Nothing in this view.'+(f!=='tomake'?' <a onclick="prodFilter=\'tomake\';render()" style="cursor:pointer;color:var(--navy)">Back to what to make ›</a>':'')+'</div></div>';
@@ -4784,11 +4605,8 @@ function prodStageList(){
     var act='';
     /* The branch order is the one the list had; only the flag on each branch has
        changed from the shared one to the right that branch's own button asks. */
-    /* Same rule as the batch row: a certified lot is packable while the rest of
-       the batch is still being made or still waiting on the lab. */
-    var _pnow=(edPack&&batchPackNow(b))?' <button class="sm green" onclick="event.stopPropagation();openPack(\''+b.id+'\')">Pack '+fmt(Math.round(batchPackableKg(b)))+'</button>':'';
-    if(st==='producing'){ if(edLog)act='<button class="sm green" onclick="event.stopPropagation();openShiftLog(\''+b.id+'\')">Log output</button>'; act+=_pnow; }
-    else if(st==='qc'){ if(edAny)act='<button class="sm ghost" onclick="event.stopPropagation();setScreen(\'qc\')">Lab QC ›</button>'; act+=_pnow; }
+    if(st==='producing'){ if(edLog)act='<button class="sm green" onclick="event.stopPropagation();openShiftLog(\''+b.id+'\')">Log output</button>'; }
+    else if(st==='qc'){ if(edAny)act='<button class="sm ghost" onclick="event.stopPropagation();setScreen(\'qc\')">Lab QC ›</button>'; }
     else if(pk>0.5){ if(b.kind==='bulk'||b.kind==='multi'){ if(edPack)act='<button class="sm" onclick="event.stopPropagation();openPack(\''+b.id+'\')">Pack</button>'; } else {var o=state.orders.find(function(x){return x.po===b.po;});var l=o&&o.lines.find(function(x){return x.id===b.lineId;});if(o&&l&&edQty)act='<button class="sm" onclick="event.stopPropagation();openProdQty(\''+o.id+'\',\''+l.id+'\')">Pack</button>';} }
     else if(rem>0.5){ if(edRecon)act='<button class="sm" style="background:var(--red);color:#fff" onclick="event.stopPropagation();openReconcile(\''+b.id+'\')">Reconcile</button>'; }
     else if(st==='done'){ if(edClose)act='<button class="sm" onclick="event.stopPropagation();closeBatch(\''+b.id+'\')">Close batch</button>'; }
@@ -4861,29 +4679,12 @@ function _pcLifeAction(b,d){/* The closed-batch line is built BEFORE the edit ga
   var edLog=may('shift.log'),edClose=may('batch.close'),edPack=may('packing.pack'),
       edRecon=may('packing.reconcile'),edBp=may('byproduct.call');
   var edAny=edLog||edClose||edPack||edRecon||edBp;
-  if(!edAny)return _cb;if(b.pool){return ((b.disposition==='byproduct'&&edBp)?'<button class="green" onclick="openCallBp(\''+b.id+'\')">Call for manufacturing</button>':'')+_cb;}var prod=+b.producedKg||0,plan=+b.plannedKg||0,complete=(plan>0&&prod>=plan-0.5);var primary='';if(d.stage==='producing')primary=complete?(edClose?'<button class="green" onclick="openCloseBatch(\''+b.id+'\')">Production complete — Close batch</button>':''):(edLog?'<button class="green" onclick="openShiftLog(\''+b.id+'\')">+ Log shift output</button>':'');else if(d.stage==='qc')primary='<button class="ghost" onclick="setScreen(\'qc\')">Open in Lab QC ▸</button>';else if(d.stage==='pack')primary=edPack?'<button class="green" onclick="openPack(\''+b.id+'\')">Pack cleared stock</button>':'';else if(d.stage==='recon')primary=edRecon?'<button onclick="openReconcile(\''+b.id+'\')">Reconcile remainder</button>':'';else if(d.stage==='packed')primary=((prod-(+b.packedKg||0))>0.5)?(edRecon?'<button onclick="openReconcile(\''+b.id+'\')">Reconcile remainder</button>':''):(edClose?'<button class="green" onclick="openCloseBatch(\''+b.id+'\')">Close batch</button>':'');/* A certified lot can be packed whatever the rest of the batch is doing, so this
-     sits BESIDE the stage's own button rather than replacing it. Suppressed when
-     the stage is already 'pack', where primary is this same button. */
-  var pknow=(edPack && d.stage!=='pack' && batchPackNow(b))
-    ? ' <button class="green" onclick="openPack(\''+b.id+'\')">Pack '+fmt(Math.round(batchPackableKg(b)))+' Kg cleared</button>' : '';
-  var sec=(edClose&&b.status==='open'&&!(d.stage==='producing'&&complete)&&d.stage!=='packed')?' <button class="sm ghost" onclick="openCloseBatch(\''+b.id+'\')">Close batch (end production)</button>':'';return primary+pknow+sec+_cb;}
-function renderProdLifecycleBatch(){var PC=window.ProductionCenter;if(!PC)return '<div class="card">Lifecycle unavailable</div>';var _f=prodFilter||'all';if(_f==='call')return prodPoolsStrip()||'<div class="card"><div class="muted" style="padding:10px 2px">No by-product, diverted or rework material to call right now.</div></div>';var _af=(typeof activeFloorBatches==='function')?activeFloorBatches():(state.batches||[]).filter(function(b){return b&&b.status==='open';});var _ps=function(b){return PC.derive(b).stage;};var open;if(_f==='completed'){open=(state.batches||[]).filter(function(b){return b&&b.status==='closed'&&!b.pool&&b.disposition!=='byproduct'&&!b.voided&&!_af.some(function(x){return x.id===b.id;});}).sort(function(a,c){return String(c.closedDate||'').localeCompare(String(a.closedDate||''));});}else if(_f==='recon'){open=(state.batches||[]).filter(function(b){return b&&!b.pool&&b.disposition!=='byproduct'&&!b.voided&&batchRemainderKg(b)>0.5&&!b.reconciled;});}else if(_f==='pack'){open=_af.filter(batchPackNow);}
-  else if(_f==='producing'||_f==='qc'){open=_af.filter(function(b){return _ps(b)===_f;});}else if(_f==='toclose'){open=_af.filter(function(b){return batchStage(b)==='done';});}else if(_f==='attention'){open=_af.filter(function(b){var a=batchAging(b);return _ps(b)!=='packed'&&a!=null&&a>=4;});}else{open=_af;}if(!open.length)return '<div class="card"><div class="muted" style="padding:8px 2px">Nothing in this view.'+(_f!=='tomake'?' <a onclick="prodFilter=\'tomake\';prodDrill=false;render()" style="cursor:pointer;color:var(--navy)">Back to what to make ▸</a>':'')+'</div></div>';var sel=open.find(function(b){return b.id===prodBatchSel;})||open[0];prodBatchSel=sel.id;var _pbmRow=function(b){var dd=PC.derive(b);var MM=PC.STAGE_META[dd.stage]||{name:dd.stage,dot:'#888'};var closed=(b.status==='closed');var plan=+dd.planned||+b.plannedKg||0,prod=+dd.produced||+b.producedKg||0;var pv=plan>0?Math.min(100,Math.round(prod/plan*100)):(prod>0?100:0);var a=batchAging(b);var stalled=(!closed&&dd.stage!=='packed'&&a!=null&&a>=4);var right=closed?'<span class="pbm-stage">'+(b.closedDate||'done')+'</span>':(stalled?'<span class="pbm-stage" style="color:var(--red)">⚠ stalled</span>':'<span class="pbm-stage">'+pv+'%</span>');return '<div class="pbm'+(b.id===sel.id?' on':'')+'" onclick="prodBatchSel=\''+b.id+'\';render()"><span class="dot" style="background:'+(closed?'#B7C3BC':MM.dot)+'"></span><div class="pbm-main"><div class="pbm-prod">'+(dd.brand||dd.base||'—')+'</div><div class="pbm-code">'+(b.batchNo||'—')+'</div><div style="height:4px;border-radius:999px;background:var(--line);margin-top:5px;overflow:hidden"><span style="display:block;height:100%;width:'+pv+'%;background:'+(closed?'#9aa3b0':'var(--navy)')+'"></span></div></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px">'+'<span class="pbm-stage">'+(closed?'Completed':MM.name)+'</span>'+right+'</div></div>';};
+  if(!edAny)return _cb;if(b.pool){return ((b.disposition==='byproduct'&&edBp)?'<button class="green" onclick="openCallBp(\''+b.id+'\')">Call for manufacturing</button>':'')+_cb;}var prod=+b.producedKg||0,plan=+b.plannedKg||0,complete=(plan>0&&prod>=plan-0.5);var primary='';if(d.stage==='producing')primary=complete?(edClose?'<button class="green" onclick="openCloseBatch(\''+b.id+'\')">Production complete — Close batch</button>':''):(edLog?'<button class="green" onclick="openShiftLog(\''+b.id+'\')">+ Log shift output</button>':'');else if(d.stage==='qc')primary='<button class="ghost" onclick="setScreen(\'qc\')">Open in Lab QC ▸</button>';else if(d.stage==='pack')primary=edPack?'<button class="green" onclick="openPack(\''+b.id+'\')">Pack cleared stock</button>':'';else if(d.stage==='recon')primary=edRecon?'<button onclick="openReconcile(\''+b.id+'\')">Reconcile remainder</button>':'';else if(d.stage==='packed')primary=((prod-(+b.packedKg||0))>0.5)?(edRecon?'<button onclick="openReconcile(\''+b.id+'\')">Reconcile remainder</button>':''):(edClose?'<button class="green" onclick="openCloseBatch(\''+b.id+'\')">Close batch</button>':'');var sec=(edClose&&b.status==='open'&&!(d.stage==='producing'&&complete)&&d.stage!=='packed')?' <button class="sm ghost" onclick="openCloseBatch(\''+b.id+'\')">Close batch (end production)</button>':'';return primary+sec+_cb;}
+function renderProdLifecycleBatch(){var PC=window.ProductionCenter;if(!PC)return '<div class="card">Lifecycle unavailable</div>';var _f=prodFilter||'all';if(_f==='call')return prodPoolsStrip()||'<div class="card"><div class="muted" style="padding:10px 2px">No by-product, diverted or rework material to call right now.</div></div>';var _af=(typeof activeFloorBatches==='function')?activeFloorBatches():(state.batches||[]).filter(function(b){return b&&b.status==='open';});var _ps=function(b){return PC.derive(b).stage;};var open;if(_f==='completed'){open=(state.batches||[]).filter(function(b){return b&&b.status==='closed'&&!b.pool&&b.disposition!=='byproduct'&&!b.voided&&!_af.some(function(x){return x.id===b.id;});}).sort(function(a,c){return String(c.closedDate||'').localeCompare(String(a.closedDate||''));});}else if(_f==='recon'){open=(state.batches||[]).filter(function(b){return b&&!b.pool&&b.disposition!=='byproduct'&&!b.voided&&batchRemainderKg(b)>0.5&&!b.reconciled;});}else if(_f==='producing'||_f==='qc'||_f==='pack'){open=_af.filter(function(b){return _ps(b)===_f;});}else if(_f==='toclose'){open=_af.filter(function(b){return batchStage(b)==='done';});}else if(_f==='attention'){open=_af.filter(function(b){var a=batchAging(b);return _ps(b)!=='packed'&&a!=null&&a>=4;});}else{open=_af;}if(!open.length)return '<div class="card"><div class="muted" style="padding:8px 2px">Nothing in this view.'+(_f!=='tomake'?' <a onclick="prodFilter=\'tomake\';prodDrill=false;render()" style="cursor:pointer;color:var(--navy)">Back to what to make ▸</a>':'')+'</div></div>';var sel=open.find(function(b){return b.id===prodBatchSel;})||open[0];prodBatchSel=sel.id;var _pbmRow=function(b){var dd=PC.derive(b);var MM=PC.STAGE_META[dd.stage]||{name:dd.stage,dot:'#888'};var closed=(b.status==='closed');var plan=+dd.planned||+b.plannedKg||0,prod=+dd.produced||+b.producedKg||0;var pv=plan>0?Math.min(100,Math.round(prod/plan*100)):(prod>0?100:0);var a=batchAging(b);var stalled=(!closed&&dd.stage!=='packed'&&a!=null&&a>=4);var right=closed?'<span class="pbm-stage">'+(b.closedDate||'done')+'</span>':(stalled?'<span class="pbm-stage" style="color:var(--red)">⚠ stalled</span>':'<span class="pbm-stage">'+pv+'%</span>');return '<div class="pbm'+(b.id===sel.id?' on':'')+'" onclick="prodBatchSel=\''+b.id+'\';render()"><span class="dot" style="background:'+(closed?'#B7C3BC':MM.dot)+'"></span><div class="pbm-main"><div class="pbm-prod">'+(dd.brand||dd.base||'—')+'</div><div class="pbm-code">'+(b.batchNo||'—')+'</div><div style="height:4px;border-radius:999px;background:var(--line);margin-top:5px;overflow:hidden"><span style="display:block;height:100%;width:'+pv+'%;background:'+(closed?'#9aa3b0':'var(--navy)')+'"></span></div></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px">'+'<span class="pbm-stage">'+(closed?'Completed':MM.name)+'</span>'+right+'</div></div>';};
   var _stp={producing:0,qc:1,pack:2,recon:3};var _sk=function(b){var k=PC.derive(b).stage;return _stp[k]==null?5:_stp[k];};
   var _actB=open.filter(function(b){return PC.derive(b).stage!=='packed';}).sort(function(x,y){return _sk(x)-_sk(y);});
   var _clsB=open.filter(function(b){return PC.derive(b).stage==='packed';});
-  var _hd=(_f==='completed')?'Completed':(_f==='recon')?'Remaining to account':(_f==='producing')?'Running batches':(_f==='qc')?'Waiting QC':(_f==='pack')?'Ready to pack':(_f==='attention')?'Stuck / blocked':'Active batches';var _hc=open.length;var master=(_f==='all')?(_actB.map(_pbmRow).join('')+(_clsB.length?('<div style="font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.4px;padding:9px 12px 5px;border-top:1px solid var(--line);margin-top:4px">Packed — closing ('+_clsB.length+')</div>'+_clsB.map(_pbmRow).join('')):'')):open.map(_pbmRow).join('');var d=PC.derive(sel);var M=PC.STAGE_META[d.stage]||{name:d.stage,dot:'#888'};var steps=PC.lifecycleSteps(d);var stepHtml='';for(var i=0;i<steps.length;i++){var stp=steps[i];var st=stp.state==='done'?'done':stp.state==='curr'?'active':'todo';var rch=i>0&&steps[i-1].state==='done';stepHtml+=_pcStep(stp.label,stp.sub,st,i===0,rch);}var tab=prodBatchTab||'lots';var tabBar=_pcSub([['lots','Lots'],['quality','Quality (COA)'],['recon','Reconcile']],tab,'prodBatchTab');var lots=sel.lots||[];var isPool=!!sel.pool;var srcN=(sel.sources&&sel.sources.length)||0;var inner='';if(tab==='lots'){if(isPool)inner='<div class="muted" style="font-size:12.5px;padding:10px 2px">By-product pool — no production lots. See <b>Reconcile</b> for the '+srcN+' source batches.</div>';else if(!lots.length)inner='<div class="muted" style="font-size:12.5px;padding:10px 2px">No lots logged yet.</div>';else {
-    /* The Remove control, on the lot itself. It is drawn only for somebody who
-       holds the right AND only where the removal would actually be allowed, so
-       nobody is shown a button that refuses on the click. lotRemoveBlockedBy is
-       asked again inside openRemoveLot and once more in doRemoveLot, because the
-       lab can certify a lot while the modal is open. */
-    var _mayRm=may('production.void');
-    inner='<div class="lotlist">'+lots.map(function(l){var r=_pcLotRes(l.coa);
-      var rm=(_mayRm && !lotRemoveBlockedBy(sel,l))
-        ? '<button class="sm ghost" title="Un-log this shift\u2019s output. Needs a reason and goes in the register." onclick="openRemoveLot(\''+sel.id+'\',\''+l.id+'\')">Remove</button>' : '';
-      return '<div class="lotrow"><div style="flex:1;min-width:0"><div class="lotno">'+(l.lotNo||sel.batchNo||'—')+'</div><div class="lotmeta">'+[l.shift,l.incharge,l.date].filter(Boolean).join(' · ')+'</div></div><span class="lotqty">'+PC.fmt(l.qty||0)+' Kg</span><span class="respill" style="background:'+r[1]+';color:'+r[2]+'">'+r[0]+'</span>'+rm+'</div>';}).join('')+'</div>';
-  }}else if(tab==='quality'){var fit=0,unf=0,dev=0,pend=0;lots.forEach(function(l){var c=l.coa||{};if(c.status==='approved'){if(c.deviation)dev++;else fit++;}else if(c.overall==='UNFIT')unf++;else pend++;});var summ=lots.length+' lots · '+fit+' FIT'+(dev?(' · '+dev+' deviation'):'')+(unf?(' · '+unf+' UNFIT'):'')+(pend?(' · '+pend+' pending'):'');if(isPool)inner='<div class="muted" style="font-size:12.5px;padding:6px 2px">By-product pool — no COA. Lots are certified at their parent batch.</div>';else inner='<div class="qbanner">'+summ+'</div>'+(lots.length?('<div class="lotlist">'+lots.map(function(l){var c=l.coa||{};var r=_pcLotRes(c);return '<div class="lotrow"><div style="flex:1;min-width:0"><div class="lotno">'+(l.lotNo||sel.batchNo||'—')+'</div><div class="lotmeta">COA '+(c.qcNo||'—')+' · '+PC.fmt(l.qty||0)+' Kg</div></div><span class="respill" style="background:'+r[1]+';color:'+r[2]+'">'+r[0]+'</span></div>';}).join('')+'</div>'):'<div class="muted" style="font-size:12px;padding:6px 2px">No lots.</div>');}else{var produced=+sel.producedKg||0,packed=+sel.packedKg||0,rem=Math.max(0,produced-packed);var note=isPool?(srcN+' finished batches pooled into a '+PC.fmt(+sel.plannedKg||0)+' Kg by-product lot. Route to a grind run, divert or log as loss.'):rem>0.5?('After packing, '+PC.fmt(rem)+' Kg remains. Reconcile it — pack the rest, route to by-product, or record as loss.'):'Nothing to reconcile — produced quantity is fully packed.';inner='<div class="reconkpis"><div class="rk"><div class="rk-l">Produced</div><div class="rk-v">'+PC.fmt(produced)+' Kg</div></div><div class="rk"><div class="rk-l">Packed</div><div class="rk-v">'+PC.fmt(packed)+' Kg</div></div><div class="rk rk-warn"><div class="rk-l">Remainder</div><div class="rk-v">'+PC.fmt(rem)+' Kg</div></div></div><div class="recnote">'+note+'</div>';}var act=_pcLifeAction(sel,d);var eyebrow=sel.pool?'Reconcile pool':sel.po?('PO '+sel.po):'Bulk → stock';return '<div class="pbmwrap"><div class="card" style="padding:0"><div class="pbm-head">'+_hd+' <span>'+_hc+'</span></div><div class="pbm-list">'+master+'</div></div><div class="card" style="padding:0"><div class="lifehdr"><div style="flex:1"><div class="life-eyb">'+eyebrow+'</div><div class="life-prod">'+(d.brand||d.base||'')+'</div><div class="life-own">'+d.owner+'</div></div><span class="life-pill" style="background:color-mix(in srgb,'+M.dot+' 15%,#fff);color:'+M.dot+'">'+M.name+'</span></div>'+prodBucketBar(sel)+'<div class="lifestep"><div class="pstep">'+stepHtml+'</div></div><div style="padding:14px 18px 4px">'+tabBar+'</div><div style="padding:6px 18px 18px">'+inner+'</div>'+(act?('<div class="lifefoot">'+act+'</div>'):'')+'</div></div>';}
+  var _hd=(_f==='completed')?'Completed':(_f==='recon')?'Remaining to account':(_f==='producing')?'Running batches':(_f==='qc')?'Waiting QC':(_f==='pack')?'Ready to pack':(_f==='attention')?'Stuck / blocked':'Active batches';var _hc=open.length;var master=(_f==='all')?(_actB.map(_pbmRow).join('')+(_clsB.length?('<div style="font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.4px;padding:9px 12px 5px;border-top:1px solid var(--line);margin-top:4px">Packed — closing ('+_clsB.length+')</div>'+_clsB.map(_pbmRow).join('')):'')):open.map(_pbmRow).join('');var d=PC.derive(sel);var M=PC.STAGE_META[d.stage]||{name:d.stage,dot:'#888'};var steps=PC.lifecycleSteps(d);var stepHtml='';for(var i=0;i<steps.length;i++){var stp=steps[i];var st=stp.state==='done'?'done':stp.state==='curr'?'active':'todo';var rch=i>0&&steps[i-1].state==='done';stepHtml+=_pcStep(stp.label,stp.sub,st,i===0,rch);}var tab=prodBatchTab||'lots';var tabBar=_pcSub([['lots','Lots'],['quality','Quality (COA)'],['recon','Reconcile']],tab,'prodBatchTab');var lots=sel.lots||[];var isPool=!!sel.pool;var srcN=(sel.sources&&sel.sources.length)||0;var inner='';if(tab==='lots'){if(isPool)inner='<div class="muted" style="font-size:12.5px;padding:10px 2px">By-product pool — no production lots. See <b>Reconcile</b> for the '+srcN+' source batches.</div>';else if(!lots.length)inner='<div class="muted" style="font-size:12.5px;padding:10px 2px">No lots logged yet.</div>';else inner='<div class="lotlist">'+lots.map(function(l){var r=_pcLotRes(l.coa);return '<div class="lotrow"><div style="flex:1;min-width:0"><div class="lotno">'+(l.lotNo||sel.batchNo||'—')+'</div><div class="lotmeta">'+[l.shift,l.incharge,l.date].filter(Boolean).join(' · ')+'</div></div><span class="lotqty">'+PC.fmt(l.qty||0)+' Kg</span><span class="respill" style="background:'+r[1]+';color:'+r[2]+'">'+r[0]+'</span></div>';}).join('')+'</div>';}else if(tab==='quality'){var fit=0,unf=0,dev=0,pend=0;lots.forEach(function(l){var c=l.coa||{};if(c.status==='approved'){if(c.deviation)dev++;else fit++;}else if(c.overall==='UNFIT')unf++;else pend++;});var summ=lots.length+' lots · '+fit+' FIT'+(dev?(' · '+dev+' deviation'):'')+(unf?(' · '+unf+' UNFIT'):'')+(pend?(' · '+pend+' pending'):'');if(isPool)inner='<div class="muted" style="font-size:12.5px;padding:6px 2px">By-product pool — no COA. Lots are certified at their parent batch.</div>';else inner='<div class="qbanner">'+summ+'</div>'+(lots.length?('<div class="lotlist">'+lots.map(function(l){var c=l.coa||{};var r=_pcLotRes(c);return '<div class="lotrow"><div style="flex:1;min-width:0"><div class="lotno">'+(l.lotNo||sel.batchNo||'—')+'</div><div class="lotmeta">COA '+(c.qcNo||'—')+' · '+PC.fmt(l.qty||0)+' Kg</div></div><span class="respill" style="background:'+r[1]+';color:'+r[2]+'">'+r[0]+'</span></div>';}).join('')+'</div>'):'<div class="muted" style="font-size:12px;padding:6px 2px">No lots.</div>');}else{var produced=+sel.producedKg||0,packed=+sel.packedKg||0,rem=Math.max(0,produced-packed);var note=isPool?(srcN+' finished batches pooled into a '+PC.fmt(+sel.plannedKg||0)+' Kg by-product lot. Route to a grind run, divert or log as loss.'):rem>0.5?('After packing, '+PC.fmt(rem)+' Kg remains. Reconcile it — pack the rest, route to by-product, or record as loss.'):'Nothing to reconcile — produced quantity is fully packed.';inner='<div class="reconkpis"><div class="rk"><div class="rk-l">Produced</div><div class="rk-v">'+PC.fmt(produced)+' Kg</div></div><div class="rk"><div class="rk-l">Packed</div><div class="rk-v">'+PC.fmt(packed)+' Kg</div></div><div class="rk rk-warn"><div class="rk-l">Remainder</div><div class="rk-v">'+PC.fmt(rem)+' Kg</div></div></div><div class="recnote">'+note+'</div>';}var act=_pcLifeAction(sel,d);var eyebrow=sel.pool?'Reconcile pool':sel.po?('PO '+sel.po):'Bulk → stock';return '<div class="pbmwrap"><div class="card" style="padding:0"><div class="pbm-head">'+_hd+' <span>'+_hc+'</span></div><div class="pbm-list">'+master+'</div></div><div class="card" style="padding:0"><div class="lifehdr"><div style="flex:1"><div class="life-eyb">'+eyebrow+'</div><div class="life-prod">'+(d.brand||d.base||'')+'</div><div class="life-own">'+d.owner+'</div></div><span class="life-pill" style="background:color-mix(in srgb,'+M.dot+' 15%,#fff);color:'+M.dot+'">'+M.name+'</span></div>'+prodBucketBar(sel)+'<div class="lifestep"><div class="pstep">'+stepHtml+'</div></div><div style="padding:14px 18px 4px">'+tabBar+'</div><div style="padding:6px 18px 18px">'+inner+'</div>'+(act?('<div class="lifefoot">'+act+'</div>'):'')+'</div></div>';}
 function prodHeader(active){var ob=(may('batch.open'))?'<button class="green" onclick="openBatchModal()" style="white-space:nowrap;align-self:flex-start">+ Open batch</button>':'';return '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">'+prodViewBar(active)+ob+'</div>';}
 /* ── MULTI-PO BATCH: one production run serving several POs of the same product — one batch #, one Lab COA.
       Pack defaults to the linked POs (not locked); shift output spreads pro-rata across the linked PO lines. ── */
@@ -5487,22 +5288,6 @@ function submitShiftLog(){
   }
   if(b.kind==='po'){ const _o=state.orders.find(x=>x.po===b.po); const _l=_o&&_o.lines.find(x=>x.id===b.lineId); if(_l){ const rem=(_l.ordered||0)-(_l.produced||0); if(q>rem+0.001){ toast('PO over-run blocked: '+_l.brand+' is ordered '+fmt(_l.ordered)+' Kg/L; only '+fmt(Math.max(0,Math.round(rem)))+' left to produce. Production cannot exceed the PO.'); return; } } }
   const d=shiftForm.date||TODAY.toISOString().slice(0,10);
-  /* DUPLICATE. AP26012 carried two identical 1,010 Kg lots from one shift logged
-     twice, and nothing had objected: lot numbers are minted by counting the lots
-     already there, so the repeat came out as "-L2" and looked like a second lot
-     rather than the same one again. Warned, not refused — the COO's decision,
-     26 Aug — because a batch can genuinely run twice under one incharge in a day.
-     The signature is remembered, so changing the shift or the incharge asks
-     again rather than riding on the last confirmation. */
-  var _sig=b.id+'|'+d+'|'+shiftForm.shift+'|'+shiftForm.incharge;
-  var _dup=(state.shiftEntries||[]).filter(function(e){ return e && e.batchId===b.id
-      && e.date===d && e.shift===shiftForm.shift && e.incharge===shiftForm.incharge; })[0];
-  if(_dup && shiftForm.dupOk!==_sig){
-    shiftForm.dupOk=_sig;
-    toast('Already logged: '+shiftForm.shift+' \u00b7 '+shiftForm.incharge+' \u00b7 '
-      +fmt(_dup.kg||0)+' Kg on batch '+(b.batchNo||'\u2014')+' for '+d
-      +'. If this is a second, separate run, press Log output again to confirm it.');
-    return; }
   state.shiftEntries=state.shiftEntries||[];
   state.shiftEntries.unshift({id:nid('SE'),batchId:b.id,batchNo:b.batchNo||'',date:d,shift:shiftForm.shift,incharge:shiftForm.incharge,kg:q,reason:shiftForm.reason||'',note:shiftForm.note||'',beds:(shiftForm.beds||[]).slice(),by:state.role,ts:new Date().toISOString()});
   b.producedKg=(b.producedKg||0)+q;

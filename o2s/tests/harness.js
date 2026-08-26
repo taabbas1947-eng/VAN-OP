@@ -40,11 +40,34 @@ function matchBlock(from, what, open) {
   throw new Error('unbalanced: ' + what);
 }
 
+
+
 function grab(name) {
   const re = new RegExp('(^|\\n)(function\\s+' + name + '\\s*\\()');
   const m = re.exec(html);
   if (!m) throw new Error('not found: ' + name);
-  return matchBlock(html.indexOf('function ' + name, m.index), name);
+  const start = html.indexOf('function ' + name, m.index);
+  let body;
+  try { body = matchBlock(start, name); } catch (e) { body = null; }
+  /* SANITY. matchBlock counts braces with a scanner that does not understand
+     regex literals or NESTED template literals, and on such a body its brace
+     count desynchronises and it runs on for half the file. Nothing noticed:
+     grab() returned 728 KB of app instead of a 126-line function, and every
+     check written against that body — "does it contain X?", "does it declare
+     the flag it reads?" — passed against the whole file and could never fail.
+     Found by a reviewer on 25 Aug 2026 on renderOpenBatch, which contains
+     .replace(/"/g, ...).
+     A body that ran past its own end is detected by the next top-level
+     `function` at column 0, and the fallback slices to exactly there. Loud and
+     approximate beats silent and wrong. */
+  const overrun = !body || /\n(?:function\s+\w+\s*\()/.test(body.slice(1));
+  if (overrun) {
+    const rest = html.slice(start + 1);
+    const nxt = rest.search(/\n(?:function\s+\w+\s*\(|const\s+\w+\s*=|let\s+\w+\s*=|var\s+\w+\s*=)/);
+    if (nxt < 0) { if (body) return body; throw new Error('unbalanced: ' + name); }
+    return html.slice(start, start + 1 + nxt);
+  }
+  return body;
 }
 
 /* A top-level `var NAME = { ... };` or `var NAME = [ ... ];`, source and all.
@@ -113,7 +136,7 @@ function grabTopVar(name, open) {
 const AUTH_MODEL_FNS = ['rightByCode', 'rightsOfDept', 'deptById', 'rolesOfState',
   'roleByName', 'roleIdOf', 'roleDeptId', 'deptLeadRole', 'isDeptLead', 'rolesInDept',
   'roleRightsOf', 'mayLegacyRole', 'mayRole', 'may', 'whoMayRight', 'whoCanGrant', 'denyRight',
-  'rightsFreezeCheck', '_canEditOn', 'rightAnswerToday', 'mayHere', 'screenLoopholes', 'seedAnswer', 'seedDeptRightsV1', 'resyncScreenRights', 'rightDecided', 'markRightDecided', 'accessLevelOn', 'grantRefusal', 'separationRefusal', 'rolesUnfiled'];
+  'rightsFreezeCheck', '_canEditOn', 'rolesUnfiled', 'rightAnswerToday', 'mayHere', 'screenLoopholes', 'seedAnswer', 'seedDeptRightsV1', 'resyncScreenRights', 'rightDecided', 'markRightDecided', 'accessLevelOn', 'grantRefusal', 'separationRefusal', 'rolesUnfiled'];
 function authModelSrc() {
   return ['DEPTS', 'ROLE_DEPT', 'RIGHTS', 'SEPARATION'].map(n => grabTopVar(n, n === 'ROLE_DEPT' ? '{' : '[')).join('\n')
        + grabTopVar('RIGHTS_LIVE', '{') + '\n'

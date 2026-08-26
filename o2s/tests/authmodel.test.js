@@ -89,9 +89,10 @@ const asRole = r => { B.state.role = r; };
      B.roleDeptId('Supply Chain') === 'supply-chain' && B.roleDeptId('Supply Chain Officer') === 'supply-chain');
   ok('every right belongs to a department that exists',
      B.RIGHTS.every(r => !!B.deptById(r.dept)));
-  ok('two departments are converted: Commercial and Supply Chain',
-     B.RIGHTS.every(r => r.dept === 'commercial' || r.dept === 'supply-chain')
-     && B.RIGHTS.some(r => r.dept === 'supply-chain'), JSON.stringify(B.RIGHTS.map(r => r.dept)));
+  ok('three departments are converted: Commercial, Supply Chain and Production',
+     B.RIGHTS.every(r => ['commercial', 'supply-chain', 'production'].indexOf(r.dept) >= 0)
+     && ['supply-chain', 'production'].every(d => B.RIGHTS.some(r => r.dept === d)),
+     JSON.stringify(B.RIGHTS.map(r => r.dept)));
   /* The sign-offs are NOT in the catalogue and must never be. */
   ['dc.approve', 'dc.reject', 'shipment.release', 'batch.reopen', 'coa.approve']
     .forEach(c => ok('sign-off NOT converted: ' + c, !B.rightByCode(c)));
@@ -130,6 +131,18 @@ const asRole = r => { B.state.role = r; };
     'delivery.confirm':     r => OLDCANEDIT(r, ['Supply Chain']),
     'rm.receive':           r => OLDCANEDIT(r, ['Supply Chain']),
     'pr.close':             r => OLDCANEDIT(r, ['Supply Chain']),
+    /* Production's gates were hardRole(['Production']) — the COO, or that exact
+       role name. No screen in it, then or now. */
+    'batch.open':           r => r === 'COO' || r === 'Production',
+    'production.enter':     r => r === 'COO' || r === 'Production',
+    'shift.log':            r => r === 'COO' || r === 'Production',
+    'packing.pack':         r => r === 'COO' || r === 'Production',
+    'packing.reconcile':    r => r === 'COO' || r === 'Production',
+    'byproduct.call':       r => r === 'COO' || r === 'Production',
+    'packing.divert':       r => r === 'COO' || r === 'Production',
+    'packing.rework':       r => r === 'COO' || r === 'Production',
+    'batch.close':          r => r === 'COO' || r === 'Production',
+    'batch.close_bulk':     r => r === 'COO' || r === 'Production',
   };
   eq('every right in the catalogue has its old check written down here',
      B.RIGHTS.filter(r => !OLD[r.code]).length, 0);
@@ -247,7 +260,7 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
        /Only the COO and a department lead/.test(refuse('Lab Rep', 'Sales Officer', 'order.create')),
        refuse('Lab Rep', 'Sales Officer', 'order.create'));
     ok('and a right that does not exist cannot be granted',
-       /does not exist/.test(refuse('KAM', 'Sales Officer', 'batch.close')));
+       /does not exist/.test(refuse('KAM', 'Sales Officer', 'no.such.right')));
     B.state.masters.roles = B.state.masters.roles.filter(r => r.id !== 'sales-officer');
   }
 }
@@ -318,8 +331,15 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
        && /'customer\.create'/.test(H.grab('custSave')), H.grab('custSave').slice(0, 140));
   ok('GUARD: no Commercial gate still calls hardRole([\'KAM\'])',
      !/hardRole\(\['KAM'\]\)/.test(H.grab('custSave') + H.grab('addDealer')));
-  ok('GUARD: the sign-off gates were NOT touched — hardRole is still used elsewhere',
-     (H.html.match(/hardRole\(\[/g) || []).length >= 40);
+  /* Named, not counted. A floor like ">= 40" goes stale on every conversion and
+     then gets quoted as if it meant something; these are the actual gates that
+     must never become rights. */
+  ['coaReview', 'coaApprove', 'coaDeviation', 'coaRework', 'approveDC', 'rejectDC',
+   'approveRelease', 'doReopenBatch', 'openReopenBatch'].forEach(fn => {
+    const body = H.grab(fn);
+    ok('SIGN-OFF still hard-gated: ' + fn, /hardRole\(\[/.test(body), body.slice(0, 110));
+    ok('SIGN-OFF asks for no right: ' + fn, !/(^|[^\w])may\(/.test(body), body.slice(0, 110));
+  });
 }
 
 /* ================= 8. the matrix rule really is the OLD matrix rule ================= */
@@ -708,7 +728,8 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
     /* Only what is INSIDE a tag can become an attribute. Between tags the name
        is text, and _pe has already taken the angle brackets out of it. */
     const tags = html.match(/<[^>]*>/g) || [];
-    const badTag = tags.filter(t => /\son\w+\s*=/.test(t) && !/on(?:click|change)\s*="(?:rightTick|setRoleDept|authPick)/.test(t));
+    const badTag = tags.filter(t => /\son\w+\s*=/.test(t)
+      && !/on(?:click|change)\s*="(?:rightTickById|setRoleDept|setDeptLead|authPick)/.test(t));
     ok('no tag gained an event handler from a role name', badTag.length === 0, badTag.slice(0, 2).join(' | '));
     /* Since the handler moved to the role ID, the hostile NAME reaches no
        attribute at all — it is only text between tags. That is the stronger
@@ -1409,6 +1430,19 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
      Admin would be told he does not hold a right he uses every day. */
   ok('GUARD: grantRefusal asks mayHere, not the screen-dependent rule',
      /mayHere\(granter,code\)/.test(H.grab('grantRefusal')), H.grab('grantRefusal').slice(-260));
+  /* A comment that says nothing writes a value, next to a function that reads it,
+     is how the next person decides the value is derived and safe to regenerate.
+     Prose is not usually worth a test — this one is, because a reviewer caught
+     exactly that sentence going stale the moment setDeptLead landed. */
+  {
+    const writes = /d\.leadRoleId\s*=/.test(H.grab('setDeptLead'));
+    /* the note sits INSIDE deptLeadRole, above the lookup */
+    const readerComment = H.grab('deptLeadRole');
+    ok('setDeptLead really does write the lead', writes);
+    ok('GUARD: and deptLeadRole does not claim nothing writes it',
+       !/[Nn]othing writes leadRoleId/.test(readerComment)
+       && /setDeptLead writes leadRoleId/.test(readerComment), readerComment.slice(-220));
+  }
   ok('GUARD: a matrix change re-points canEdit grants as well as screen ones',
      /lg\.kind!=='screen' && lg\.kind!=='canEdit'/.test(H.grab('resyncScreenRights')));
 }
@@ -1452,6 +1486,16 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
     'delivery.confirm':     { kind: 'canEdit', scr: 'ship',      alsoOn: 'approvals:Plant Manager' },
     'rm.receive':           { kind: 'canEdit', scr: 'approvals', alsoOn: 'prod' },
     'pr.close':             { kind: 'canEdit', scr: 'approvals', alsoOn: 'prod' },
+    'batch.open':           { kind: 'hard',    scr: undefined },
+    'production.enter':     { kind: 'hard',    scr: undefined },
+    'shift.log':            { kind: 'hard',    scr: undefined },
+    'packing.pack':         { kind: 'hard',    scr: undefined },
+    'packing.reconcile':    { kind: 'hard',    scr: undefined },
+    'byproduct.call':       { kind: 'hard',    scr: undefined },
+    'packing.divert':       { kind: 'hard',    scr: undefined },
+    'packing.rework':       { kind: 'hard',    scr: undefined },
+    'batch.close':          { kind: 'hard',    scr: undefined },
+    'batch.close_bulk':     { kind: 'hard',    scr: undefined },
   };
   eq('every right in the catalogue is pinned here', B.RIGHTS.filter(r => !WANT[r.code]).length, 0);
   eq('and nothing pinned here has been dropped',
@@ -1547,6 +1591,631 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
          labels.length > 0, 'no label maps to ' + r.code);
     });
   });
+}
+
+/* ================= 31. Production ================= */
+{
+  const b = mk('COO');
+  const PR = b.RIGHTS.filter(r => r.dept === 'production');
+  eq('ten Production rights', PR.length, 10);
+  ok('every one of them carries the old role check, with no screen in it',
+     PR.every(r => r.legacy.kind === 'hard' && r.legacy.roles.join() === 'Production' && !r.legacy.scr),
+     JSON.stringify(PR.map(r => r.legacy)));
+
+  /* Who can do the work — unchanged, and that is the point. */
+  PR.forEach(r => eq('who may ' + r.code, b.whoMayRight(r.code).join(', '), 'Production, COO'));
+  ['QA Inspector', 'Plant Manager', 'KAM', 'Supply Chain', 'Lab Rep', 'CFO'].forEach(role =>
+    PR.forEach(r => eq(role + ' still cannot ' + r.code, b.mayHere(role, r.code), false)));
+
+  /* THE CELL THE COO SET ON 25 AUG. He set QA Inspector's Production access to
+     view. It closed the raw-material hole, and it makes NO difference to these
+     rights either way — their rule is a role name, not a screen. Proved rather
+     than asserted, because I told him the cell was blocking this conversion and
+     it was not. */
+  {
+    const c = mk('COO');
+    c.state.masters.accessMatrix['QA Inspector'].prod = { v: true, e: true };   /* as it was */
+    const before = PR.map(r => c.mayHere('QA Inspector', r.code)).join(',');
+    c.state.masters.accessMatrix['QA Inspector'].prod = { v: true, e: false };  /* as he set it */
+    const after = PR.map(r => c.mayHere('QA Inspector', r.code)).join(',');
+    eq('the Production access cell does not touch these rights', after, before);
+    ok('...and the answer is no, both ways', before === PR.map(() => 'false').join(','), before);
+  }
+
+  /* The gates really were converted. */
+  [['openBatchModal', 'batch.open'], ['submitMultiBatch', 'batch.open'],
+   ['submitProdQty', 'production.enter'],
+   ['submitShiftLog', 'shift.log'], ['doPack', 'packing.pack'],
+   ['openReconcile', 'packing.reconcile'], ['saveReconcile', 'packing.reconcile'],
+   ['openCallBp', 'byproduct.call'], ['submitCallBp', 'byproduct.call'],
+   ['openDivert', 'packing.divert'], ['submitDivert', 'packing.divert'],
+   ['openRework', 'packing.rework'], ['submitRework', 'packing.rework'],
+   ['openCloseBatch', 'batch.close'], ['doCloseBatch', 'batch.close'],
+   ['openSettledClose', 'batch.close_bulk'], ['closeSettledBatches', 'batch.close_bulk']].forEach(([fn, code]) =>
+    ok('GUARD: ' + fn + ' asks may(\'' + code + '\')',
+       new RegExp("may\\('" + code.replace('.', '\\.') + "'\\)").test(H.grab(fn)), H.grab(fn).slice(0, 110)));
+  /* opener and writer must agree, or somebody fills a form and loses it */
+  [['openBatchModal', 'submitMultiBatch'], ['openCloseBatch', 'doCloseBatch'],
+   ['openReconcile', 'saveReconcile'], ['openCallBp', 'submitCallBp'],
+   ['openDivert', 'submitDivert'], ['openRework', 'submitRework'],
+   ['openSettledClose', 'closeSettledBatches']].forEach(([o, w]) => {
+    const codeOf = src => (src.match(/may\('([^']+)'\)/) || [])[1];
+    eq('opener and writer agree: ' + o + ' / ' + w, codeOf(H.grab(o)), codeOf(H.grab(w)));
+  });
+  ok('GUARD: the converted Production gates no longer name the role in code',
+     !/hardRole\(\['Production'\]\)/.test(H.grab('doCloseBatch') + H.grab('submitProdQty')
+       + H.grab('doPack') + H.grab('closeSettledBatches')));
+  /* TWO GATES DELIBERATELY LEFT ALONE. Their only buttons sit below screenProd's
+     early return, in code the file itself marks unreachable — and the void
+     button's render condition there is COO-only, a third answer again. A right
+     nobody can ask for would be a tick in the panel that decides nothing, which
+     is the one thing the catalogue rule forbids. They go in when a working
+     screen does. */
+  ['setBatchNo', 'voidProdEntry'].forEach(fn => {
+    ok('NOT a right yet, still hard-gated: ' + fn, /hardRole\(\['Production'\]\)/.test(H.grab(fn)),
+       H.grab(fn).slice(0, 130));
+    ok('...and says why in the file: ' + fn, /not a right yet/.test(H.grab(fn)));
+  });
+  ['batch.set_number', 'production.void'].forEach(c =>
+    ok('...and ' + c + ' is not in the catalogue', !B.rightByCode(c)));
+  ok('the catalogue note tells the COO the app has no button for them',
+     /NO WORKING\s+BUTTON FOR EITHER/.test(H.html.slice(H.html.indexOf('Production, converted 25 August'),
+       H.html.indexOf('Production, converted 25 August') + 2600)));
+  ok('screenProd really does return before that code',
+     /Legacy floor code below is unreachable/.test(H.html));
+
+  /* leadLevel: the flag exists for the day a right needs it, and TODAY NOTHING
+     CARRIES IT and nothing reads it. Both halves are checked, because a flag that
+     quietly starts deciding is exactly the 30 July shape. */
+  {
+    /* CONSISTENCY, not a fixed answer. The first version of this pinned BOTH
+       "nothing is marked" and "the word appears exactly once" — so the note above
+       the catalogue could claim rights were marked when none were, and every
+       correct fix (mark them, or delete the claim) turned the suite red. A test
+       that forbids its own repair is worse than no test. What must hold is that
+       the file and the note agree, and that the flag decides nothing. */
+    const marked = B.RIGHTS.filter(r => r.leadLevel).map(r => r.code);
+    const noteSaysNoneMarked = /no head-level marking in this catalogue at all/.test(H.html);
+    ok('the note and the catalogue agree about whether anything is marked',
+       noteSaysNoneMarked === (marked.length === 0),
+       'marked: ' + JSON.stringify(marked) + '; note says none marked: ' + noteSaysNoneMarked);
+    ok('nothing READS the flag — it decides nothing, whatever is marked',
+       !/leadLevel\s*(?:===|!==|\?|&&|\|\|)/.test(H.html)
+       && !/\.leadLevel\)/.test(H.html.replace(/r\.leadLevel === undefined/g, '')),
+       (H.html.match(/.{0,40}leadLevel.{0,40}/g) || []).join(' | ').slice(0, 300));
+  }
+  {
+    const c = mk('COO');
+    c.state.masters.roles.push({ id: 'floor-officer', name: 'Floor Officer', deptId: 'production', builtin: false, archived: false });
+    c.seedDeptRightsV1(c.state);
+    ok('setting up: Floor Officer is in Production and is NOT the lead',
+       c.roleDeptId('Floor Officer') === 'production' && c.isDeptLead('Floor Officer') === false
+       && c.deptLeadRole('production') === 'Production');
+    /* give the floor role both rights and switch them live */
+    /* Mark a right by hand and prove the mark changes nothing. */
+    c.rightByCode('batch.close').leadLevel = true;
+    c.state.masters.roleRights['floor-officer']['batch.close'] = true;
+    c.state.masters.roleRights['floor-officer']['packing.pack'] = true;
+    c.RIGHTS_LIVE['batch.close'] = true; c.RIGHTS_LIVE['packing.pack'] = true;
+    eq('a marked right behaves exactly like an unmarked one for a non-lead',
+       c.mayHere('Floor Officer', 'batch.close'), c.mayHere('Floor Officer', 'packing.pack'));
+    eq('...and that answer is the grant, not the label', c.mayHere('Floor Officer', 'batch.close'), true);
+    eq('the real gate says the same', c.mayRole('Floor Officer', 'batch.close'), true);
+    delete c.RIGHTS_LIVE['batch.close']; delete c.RIGHTS_LIVE['packing.pack'];
+    delete c.rightByCode('batch.close').leadLevel;
+  }
+  /* The COO's decisions of 25 Aug, written where he can read them back. */
+  ok('the bulk close records that he chose the same rule as a single close',
+     /same rule as closing one/.test(b.rightByCode('batch.close_bulk').note));
+  ok('closing a batch records why it is Production\'s own',
+     /reopening one is already the Plant Manager/.test(b.rightByCode('batch.close').note));
+  /* His decision about voiding is recorded where it belongs for now — in the
+     catalogue note that explains why the right is NOT there yet. */
+  ok('the COO\'s decision about voiding is written down, with why it cannot apply yet',
+     /voiding belongs to the Production Manager/.test(H.html)
+     && /nothing yet to apply it to/.test(H.html));
+}
+
+/* ================= 32. pointing a department at its head ================= */
+/* The COO's design: Production needs a Production Manager as head, with floor
+   officers under him. Until now the lead was whatever the built-in list said and
+   there was no way for him to say otherwise. */
+{
+  function box() {
+    const b = mk('COO');
+    Object.assign(b, { toasts: [], toast: m => b.toasts.push(m), save: () => { b.saved = (b.saved || 0) + 1; },
+      render: () => {}, authRepaint: () => {}, logged: [], logAction: m => b.logged.push(m), $: () => null,
+      _pe: x => String(x == null ? '' : x), _at: x => String(x == null ? '' : x),
+      _roleById: id => b.state.masters.roles.find(r => r.id === id) });
+    vm.runInContext(H.grab('setDeptLead'), b);
+    return b;
+  }
+  {
+    const b = box();
+    eq('Production is led by the Production role to begin with', b.deptLeadRole('production'), 'Production');
+    /* the COO creates the head role, in Production */
+    b.state.masters.roles.push({ id: 'production-manager', name: 'Production Manager', deptId: 'production', builtin: false, archived: false });
+    b.seedDeptRightsV1(b.state);
+    b.setDeptLead('production', 'production-manager');
+    eq('and can now hand the department to him', b.deptLeadRole('production'), 'Production Manager');
+    ok('the change is logged', b.logged.some(l => /Department lead: Production/.test(l) && /Production Manager/.test(l)),
+       JSON.stringify(b.logged));
+    ok('and saved', b.saved === 1);
+    /* the floor role is still in the department, and still holds the work */
+    ok('the floor officers are still Production', b.roleDeptId('Production') === 'production');
+    eq('...and still do the job', b.mayHere('Production', 'production.enter'), true);
+    /* the new head holds nothing until the COO ticks it — nothing is assumed */
+    /* Checked against a right that EXISTS. The first version used
+       production.void, which had been dropped from the catalogue — rightByCode
+       returned null and both assertions passed for a code like 'zzz.nonsense'. */
+    ok('setting up: batch.close is a real right', !!b.rightByCode('batch.close'));
+    eq('the new head starts with nothing, as every new role does',
+       b.mayHere('Production Manager', 'batch.close'), false);
+    ok('...and the COO may tick it across', b.grantRefusal('COO', 'Production Manager', 'batch.close') === '');
+    /* WORTH KNOWING, and it surprised me: a brand-new head cannot manage his team
+       on day one, because he holds nothing himself and a lead may only hand out a
+       right he holds. So the order is: COO creates the role, makes it the lead,
+       THEN gives it the rights — and only then can the head run his own
+       department. That is the rule working, not a gap. */
+    ok('a brand-new head cannot pass on a right he does not hold yet',
+       /do not hold yourself/.test(b.grantRefusal('Production Manager', 'Production', 'batch.open')),
+       b.grantRefusal('Production Manager', 'Production', 'batch.open'));
+    b.state.masters.roleRights['production-manager']['batch.open'] = true;
+    b.RIGHTS_LIVE['batch.open'] = true;
+    eq('once the COO gives it to him, he can pass it on',
+       b.grantRefusal('Production Manager', 'Production', 'batch.open'), '');
+    ok('...but still not to himself', /cannot change his own/.test(
+       b.grantRefusal('Production Manager', 'Production Manager', 'batch.open')));
+    delete b.RIGHTS_LIVE['batch.open'];
+  }
+  /* the guards */
+  {
+    const b = box();
+    b.state.role = 'Production';
+    b.setDeptLead('production', 'kam');
+    ok('only the COO can move a lead', b.deptLeadRole('production') === 'Production'
+       && b.toasts.some(t => /COO only/.test(t)), JSON.stringify(b.toasts));
+    b.state.role = 'COO'; b.toasts = [];
+    b.setDeptLead('production', 'kam');
+    ok('a lead must be a role that is IN the department', b.deptLeadRole('production') === 'Production'
+       && b.toasts.some(t => /not in Production/.test(t)), JSON.stringify(b.toasts));
+    b.toasts = [];
+    b.setDeptLead('nope', 'production');
+    ok('an unknown department is refused', b.toasts.some(t => /Unknown department/.test(t)));
+    b.toasts = [];
+    b.setDeptLead('production', 'no-such-role');
+    ok('an unknown role is refused', b.toasts.some(t => /Unknown role/.test(t)));
+    b.toasts = [];
+    b.state.masters.roles.push({ id: 'ghost', name: 'Ghost', deptId: 'production', builtin: false, archived: true });
+    b.setDeptLead('production', 'ghost');
+    ok('an archived role cannot be made the lead', b.deptLeadRole('production') === 'Production'
+       && b.toasts.some(t => /archived/.test(t)), JSON.stringify(b.toasts));
+  }
+  /* it is on the card, for the COO only */
+  {
+    const b = mk('COO');
+    Object.assign(b, { toast: () => {}, save: () => {}, render: () => {}, logAction: () => {},
+      acOpen: {}, authDept: 'production', usersList: [], $: () => null,
+      acard: (k, t, h, body) => '<CARD>' + body + '</CARD>',
+      _pe: x => String(x == null ? '' : x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') });
+    vm.runInContext(['_at', 'screenEditOK', 'accessLevel', 'authRepaint', 'rightTickById', 'rightTick',
+                     'authPick', 'authDriftBanner', 'authLoopholeBanner', 'authCard'].map(H.grab).join('\n\n'), b);
+    b.state.masters.roles.push({ id: 'production-manager', name: 'Production Manager', deptId: 'production', builtin: false, archived: false });
+    b.seedDeptRightsV1(b.state);
+    const html = b.authCard();
+    ok('the COO gets a way to change the lead on the card', /setDeptLead\('production'/.test(html), html.slice(0, 400));
+    ok('...offering the other roles in the department', /Production Manager<\/option>/.test(html), (html.match(/<select[^>]*setDeptLead[\s\S]{0,200}/) || [''])[0]);
+    ok('...and not offering the current lead to itself',
+       !/<option value="production">Production<\/option>/.test((html.match(/<select[^>]*setDeptLead[\s\S]{0,240}/) || [''])[0]));
+    b.state.role = 'Production';
+    ok('and nobody else gets it', !/setDeptLead/.test(b.authCard()));
+  }
+}
+
+/* ================= 33. a screen must not draw a button its action refuses ================= */
+/* Every one of these render flags was keyed to one chosen right. Nothing pinned
+   them, so re-keying any of them passed the whole suite — and the catalogue's own
+   note promises the COO that moving a right is a tick. Give the Production
+   Manager batch.open and nothing else: he would have seen "+ Open batch", the
+   modal would have opened, and its Submit would have rendered disabled. */
+{
+  /* renderer -> the rights of the buttons it draws */
+  /* Read off the buttons each function actually emits, not from memory. Two of
+     these rows were wrong on the first attempt and the check then enforced the
+     error — a reviewer measured it: correcting either flag turned the suite red,
+     so the next person to fix it would have reverted. Anything changed here must
+     be re-read against the emitted onclicks. */
+  /* ONE FLAG PER BUTTON, not one per renderer.
+     A renderer that draws several buttons, each handler asking its own single
+     right, must gate each button on that button's own right. A shared union flag
+     shows a person buttons that refuse the moment he clicks them. That is not a
+     hypothetical: it is what the COO's head/floor split produces on day two, when
+     a floor officer holds shift.log and nothing else.
+     Read off the buttons each function actually emits, not from memory. Anything
+     changed here must be re-read against the emitted onclicks. */
+
+  /* renderers with exactly ONE gated button — a single flag is correct there */
+  const SINGLE = {
+    'prodSettledStrip':  'batch.close_bulk',   /* draws exactly one: bulk close */
+    'renderOpenBatch':   'batch.open',         /* draws exactly one: the Submit  */
+  };
+  Object.keys(SINGLE).forEach(fn => {
+    let body = ''; try { body = H.grab(fn); } catch (e) { }
+    ok(fn + ' was found', !!body, fn + ' not in the file');
+    if (!body) return;
+    const m = /(?:var|const)\s+ed\s*=\s*([^;]+);/.exec(body)
+           || /if\(!(may\([^)]*\)[^)]*)\)\s*return/.exec(body);
+    ok(fn + ' has an edit flag built from may()', !!m && /may\(/.test(m[1]), (m && m[1] || '').slice(0, 120));
+    if (!m) return;
+    const asked = (m[1].match(/may\('([^']+)'\)/g) || []).map(x => x.slice(5, -2));
+    eq(fn + ' asks for exactly its one right', asked.join(','), SINGLE[fn]);
+  });
+
+  /* renderers that draw SEVERAL buttons — flag, right, and the handler it draws */
+  const PERBUTTON = {
+    /* its rows draw Produce, Open batch, Log shift, Pack, Reconcile, Close batch */
+    'prodStageList': [
+      ['edLog',   'shift.log',          'openShiftLog'],
+      ['edOpen',  'batch.open',         'openBatchModal'],
+      ['edPack',  'packing.pack',       'openPack'],
+      ['edQty',   'production.enter',   'openProdQty'],
+      ['edRecon', 'packing.reconcile',  'openReconcile'],
+      ['edClose', 'batch.close',        'closeBatch'],
+    ],
+    /* the batch action row: a different button at every stage */
+    '_pcLifeAction': [
+      ['edLog',   'shift.log',          'openShiftLog'],
+      ['edClose', 'batch.close',        'openCloseBatch'],
+      ['edPack',  'packing.pack',       'openPack'],
+      ['edRecon', 'packing.reconcile',  'openReconcile'],
+      ['edBp',    'byproduct.call',     'openCallBp'],
+    ],
+    /* the pools strip: one flag per row type */
+    'prodPoolsStrip': [
+      ['edBp',    'byproduct.call',     'openCallBp'],
+      ['edDv',    'packing.divert',     'openDivert'],
+      ['edRw',    'packing.rework',     'openRework'],
+    ],
+  };
+  Object.keys(PERBUTTON).forEach(fn => {
+    let body = ''; try { body = H.grab(fn); } catch (e) { }
+    ok(fn + ' was found', !!body, fn + ' not in the file');
+    if (!body) return;
+    PERBUTTON[fn].forEach(([flag, code, handler]) => {
+      ok(fn + ': ' + flag + ' is bound to ' + code,
+         new RegExp(flag + "\\s*=\\s*may\\('" + code.replace(/\./g, '\\.') + "'\\)").test(body),
+         body.slice(0, 220));
+      /* EVERY place that handler is drawn must sit under that flag — not just the
+         first. The first version of this checked only body.indexOf(handler) and
+         would have passed with four of five sites ungated. */
+      let i = -1, sites = 0, bad = [];
+      while ((i = body.indexOf(handler + '(', i + 1)) >= 0) {
+        sites++;
+        const win = body.slice(Math.max(0, i - 220), i);
+        if (win.indexOf(flag) < 0) bad.push(body.slice(Math.max(0, i - 90), i + 24));
+      }
+      ok(fn + ': ' + handler + ' is drawn (' + sites + ' site(s))', sites > 0, 'no call site found');
+      ok(fn + ': every ' + handler + ' site sits under ' + flag, bad.length === 0, bad.join(' || ').slice(0, 260));
+    });
+    /* and no flag may ask for a right whose button this renderer does not draw */
+    const flagLines = (body.match(/(?:var|const)\s+ed[A-Za-z]*\s*=\s*[^;]+;/g) || []).join(' ');
+    const askedAll = [...new Set((flagLines.match(/may\('([^']+)'\)/g) || []).map(x => x.slice(5, -2)))];
+    const drawn = PERBUTTON[fn].map(t => t[1]);
+    askedAll.forEach(code =>
+      ok(fn + ' asks for no right its buttons do not use: ' + code,
+         drawn.indexOf(code) >= 0, 'asks ' + code + ', draws ' + drawn.join(', ')));
+  });
+
+  /* edAny is the one flag in prodStageList with no button of its own: it gates the
+     stuck-item Resolve row (whose action is whatever the item carries) and the two
+     navigation buttons. Re-keyed to a single right it would hide both from a floor
+     officer, and nothing noticed — a reviewer planted exactly that. */
+  {
+    const body = H.grab('prodStageList');
+    const m = /var\s+edAny\s*=\s*([^;]+);/.exec(body);
+    ok('prodStageList declares edAny', !!m, body.slice(0, 200));
+    if (m) {
+      const parts = m[1].split('||').map(x => x.trim());
+      const flags = ['edLog', 'edOpen', 'edPack', 'edQty', 'edRecon', 'edClose'];
+      flags.forEach(f =>
+        ok('edAny includes ' + f, parts.indexOf(f) >= 0, 'edAny = ' + m[1]));
+      eq('...and nothing else', parts.length, flags.length);
+    }
+    /* The comment above edAny says WHY a union is still allowed inside a function
+       whose whole point is one-flag-per-button. A reviewer found that sentence
+       naming the wrong buttons — it pointed at dead code and omitted both live
+       readers. Pin the claim to the code so it cannot drift again. */
+    /* comments stripped first — the sentence being checked contains the word */
+    const code = body.replace(/\/\*[\s\S]*?\*\//g, m => ' '.repeat(m.length));
+    const readers = [];
+    let i = -1;
+    while ((i = code.indexOf('edAny', i + 1)) >= 0) {
+      if (/var\s+edAny\s*=/.test(code.slice(Math.max(0, i - 6), i + 8))) continue;  /* the declaration */
+      readers.push(code.slice(i, i + 200));
+    }
+    ok('edAny has readers', readers.length > 0);
+    const named = ['openBatchCOA', "setScreen(\\'qc"];
+    readers.forEach((r, k) => {
+      const inRowS = /Resolve<\/button>/.test(r.slice(0, 200));
+      ok('edAny reader ' + (k + 1) + ' is one the comment names',
+         inRowS || named.some(nm => new RegExp(nm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).test(r.slice(0, 200))),
+         r.slice(0, 160));
+    });
+    /* and each named button is gated on edAny SPECIFICALLY. Re-keyed to any single
+       right — edLog, say — the nav button vanishes for everyone who does not log
+       shifts, which is the opposite of "navigates and writes nothing". */
+    [['openBatchCOA', 'Follow QC'], ["setScreen(\\'qc", 'Lab QC']].forEach(([handler, label]) => {
+      const j = code.indexOf(handler);
+      ok(label + ' is drawn in prodStageList', j > 0, handler + ' not found');
+      if (j > 0) ok(label + ' is gated on edAny, not on a single right',
+                    /edAny/.test(code.slice(Math.max(0, j - 220), j)),
+                    code.slice(Math.max(0, j - 120), j + 20));
+    });
+    ok('...and the comment names Follow QC', /"Follow QC" on the Waiting-QC tab/.test(H.html));
+    ok('...and Lab QC', /"Lab QC \u203a" on a batch\s+row/.test(H.html) || /Lab QC/.test(H.html));
+    /* the comment's claim that rowS is never called */
+    const calls = (body.match(/rowS\(/g) || []).length;
+    const defs = (body.match(/var\s+rowS\s*=/g) || []).length;
+    eq('rowS is defined once', defs, 1);
+    eq('...and never called, exactly as the comment says', calls, 0);
+  }
+
+  /* screenProd's live "+ Open batch" button. It was the one live render flag on
+     the Production screen with nothing pinning it: a reviewer re-keyed it to any
+     right and all nine suites stayed green. */
+  {
+    const body = H.grab('screenProd');
+    const i = body.indexOf('openBatchModal()');
+    ok('screenProd draws + Open batch', i > 0);
+    ok('...and it is gated on batch.open',
+       i > 0 && /may\('batch\.open'\)/.test(body.slice(Math.max(0, i - 220), i)),
+       body.slice(Math.max(0, i - 220), i + 30));
+  }
+
+  /* The pools strip, row by row. One shared flag showed all three row types to
+     anybody holding any one of the three rights, and the other two refused on the
+     click — the same fault as above, one level down. */
+  {
+    const body = H.grab('prodPoolsStrip');
+    [['edBp', 'byproduct.call', 'openCallBp'],
+     ['edDv', 'packing.divert', 'openDivert'],
+     ['edRw', 'packing.rework', 'openRework']].forEach(([flag, code, fn]) => {
+      ok('prodPoolsStrip has a flag for ' + code,
+         new RegExp(flag + "\\s*=\\s*may\\('" + code.replace('.', '\\.') + "'\\)").test(body), body.slice(0, 200));
+      /* the button for that job is drawn under THAT flag and no other */
+      const i = body.indexOf(fn + '(');
+      ok('...and ' + fn + ' is drawn under it',
+         i > 0 && body.slice(Math.max(0, i - 160), i).indexOf(flag) >= 0,
+         body.slice(Math.max(0, i - 160), i + 30));
+    });
+    ok('and there is no shared union flag left to re-share them',
+       !/(?:var|const)\s+ed\s*=/.test(body), body.slice(0, 260));
+  }
+
+  /* Behaviour, not just source: a role holding exactly one of a strip's rights
+     must see the strip. */
+  {
+    const b = mk('COO');
+    b.state.masters.roles.push({ id: 'floor2', name: 'Floor Two', deptId: 'production', builtin: false, archived: false });
+    b.seedDeptRightsV1(b.state);
+    b.state.masters.roleRights['floor2']['byproduct.call'] = true;
+    b.RIGHTS_LIVE['byproduct.call'] = true;
+    b.state.role = 'Floor Two';
+    ok('a role holding only byproduct.call can do it', b.may('byproduct.call') === true);
+    ok('...and holds none of the others', b.may('production.enter') === false && b.may('packing.divert') === false);
+    /* the strip shows if ANY of its three jobs applies, and his row's own flag
+       is the one his button hangs off */
+    const body = H.grab('prodPoolsStrip');
+    ok('so the strip that holds his button shows it to him',
+       /var edBp=may\('byproduct\.call'\)/.test(body) && /edBp\s*(?:\?|&&)/.test(body),
+       body.slice(0, 240));
+    ok('...while the divert and rework rows stay hidden from him',
+       /edDv\?/.test(body) && /edRw\?/.test(body), body.slice(0, 240));
+    delete b.RIGHTS_LIVE['byproduct.call'];
+  }
+}
+
+/* ================= 34. the sign-off boundary, on the RENDER side too ================= */
+/* Converting a gate is only half of it. If the screen draws a Plant-Manager-only
+   button for whoever holds a Production right, every Production user sees Reopen
+   on every closed batch and finds out by being refused — and that is the 30 July
+   shape wearing a different hat. */
+{
+  const life = H.grab('_pcLifeAction');
+  ok('_pcLifeAction was found', !!life);
+  const reopen = life.slice(Math.max(0, life.indexOf('openReopenBatch') - 400), life.indexOf('openReopenBatch') + 60);
+  ok('the Reopen button is drawn on a hardRole Plant Manager check',
+     /hardRole\(\['Plant Manager'\]\)/.test(reopen), reopen.slice(0, 200));
+  ok('...and NOT on any right', !/may\('/.test(reopen), reopen.slice(0, 200));
+  /* the same for the other reopen entry point */
+  const closed = H.grab('closedBatchesCard');
+  ok('the closed-batch card also keeps Reopen on hardRole',
+     !/may\('/.test(closed) || /hardRole\(\['Plant Manager'\]\)/.test(closed), closed.slice(0, 200));
+}
+
+/* ================= 35. the faults the 25 Aug review refused on ================= */
+
+/* 35a. The catalogue note tells the COO how many rights Production holds. It said
+   TWELVE and there are TEN. Nothing pinned it, so the number was free to drift
+   and be quoted back as fact. It is now tied to the catalogue itself. */
+{
+  const N = B.RIGHTS.filter(r => r.dept === 'production').length;
+  eq('ten Production rights (again, from the catalogue)', N, 10);
+  const WORDS = ['zero','one','two','three','four','five','six','seven','eight','nine',
+                 'ten','eleven','twelve','thirteen','fourteen','fifteen'];
+  const m = /it holds all (\w+) of these/.exec(H.html);
+  ok('the note states a count', !!m, 'sentence not found');
+  ok('...and the number in the prose is the number in the catalogue',
+     !!m && m[1] === WORDS[N], m ? ('note says "' + m[1] + '", catalogue has ' + N) : '');
+}
+
+/* 35b. openBatch() — the Submit behind the Open-batch form — had NO permission
+   check of any kind. The only guards were openBatchModal and the button being
+   rendered disabled. A reviewer found the new comment asserting a check that was
+   not there. */
+{
+  const body = H.grab('openBatch');
+  ok('openBatch was found', !!body);
+  ok('openBatch asks batch.open before it writes anything',
+     /^function openBatch\(kind\)\{[\s\S]{0,700}?if\(!may\('batch\.open'\)\)/.test(body),
+     body.slice(0, 260));
+  /* and BEFORE the multi delegation. Moved below it, submitMultiBatch still asks
+     the same right so the multi path looks fine — and the po and bulk paths are
+     ungated again, which is the fault this was written for. */
+  ok('...and before the multi delegation, not after it',
+     body.indexOf("may('batch.open')") < body.indexOf("kind==='multi'"),
+     'gate at ' + body.indexOf("may('batch.open')") + ', multi at ' + body.indexOf("kind==='multi'"));
+  /* and the gate is genuinely FIRST — before any state is touched */
+  const gate = body.indexOf("may('batch.open')");
+  const write = Math.min(...['state.batches', 'state.orders', 'nid(']
+                  .map(t => { const i = body.indexOf(t); return i < 0 ? 1e9 : i; }));
+  ok('...and it is asked before the first write', gate >= 0 && gate < write,
+     'gate at ' + gate + ', first write at ' + write);
+  /* the modal opener asks the same right, so nobody loses access */
+  ok('openBatchModal asks the same right', /may\('batch\.open'\)/.test(H.grab('openBatchModal')));
+}
+
+/* 35c. archiveRole could archive a department's lead. setRoleDept already refuses
+   to move a lead out; archiving was the way round it, and it left the department
+   pointing at a role nobody can hold. Only reachable now that setDeptLead lets
+   the COO choose a lead at all. */
+{
+  const body = H.grab('archiveRole');
+  ok('archiveRole refuses to archive a lead',
+     /leadRoleId\s*===\s*r\.id/.test(body), body.slice(0, 300));
+  const g = body.indexOf('leadRoleId'), w = body.indexOf('r.archived=true');
+  ok('...and it refuses BEFORE it writes', g >= 0 && w >= 0 && g < w, 'guard ' + g + ', write ' + w);
+  /* BEHAVIOUR, not a regex. The first version of this re-implemented the filter
+     in the test and asserted its own copy found the lead — so neutering the guard
+     in the app (`if(false&&_ld)`) left the suite green. A reviewer measured that.
+     This calls archiveRole and reads the role back. */
+  {
+    const c = { console, JSON, Date, toasts: [], logs: [],
+      state: { role: 'COO', screen: 'admin', users: [],
+               masters: JSON.parse(JSON.stringify(STATE.masters)) } };
+    c.globalThis = c; vm.createContext(c);
+    c.state.masters.roles.push({ id: 'prod-mgr', name: 'Production Manager',
+                                 deptId: 'production', builtin: false, archived: false });
+    c.state.masters.departments = (c.state.masters.departments || [])
+      .map(d => Object.assign({}, d));
+    if (!c.state.masters.departments.some(d => d && d.id === 'production'))
+      c.state.masters.departments.push({ id: 'production', name: 'Production' });
+    vm.runInContext('function toast(m){toasts.push(String(m));}\n'
+      + 'function logAction(m){logs.push(String(m));}\n'
+      + 'function save(){}\nfunction render(){}\nfunction confirm(){return true;}\n'
+      + ['_roleById', 'archiveRole', 'restoreRole'].map(H.grab).join('\n\n'), c);
+
+    const pd = c.state.masters.departments.filter(d => d && d.id === 'production')[0];
+    pd.leadRoleId = 'prod-mgr';
+    c.archiveRole('prod-mgr');
+    const r = c.state.masters.roles.filter(x => x.id === 'prod-mgr')[0];
+    ok('archiveRole REFUSES to archive a department lead', r.archived !== true,
+       'archived=' + r.archived);
+    ok('...and says which department he leads',
+       c.toasts.some(t => /Production Manager/.test(t) && /Production/.test(t)),
+       c.toasts.join(' | '));
+    ok('...and writes nothing to the log', c.logs.length === 0, c.logs.join(' | '));
+
+    /* and it still archives a role that leads nothing */
+    c.state.masters.roles.push({ id: 'floor-officer', name: 'Floor Officer',
+                                 deptId: 'production', builtin: false, archived: false });
+    c.archiveRole('floor-officer');
+    const f = c.state.masters.roles.filter(x => x.id === 'floor-officer')[0];
+    ok('a role that leads nothing still archives normally', f.archived === true,
+       'archived=' + f.archived);
+
+    /* give the department a new lead, and the old one archives */
+    pd.leadRoleId = 'production';
+    c.archiveRole('prod-mgr');
+    ok('once the department has another lead, he archives',
+       c.state.masters.roles.filter(x => x.id === 'prod-mgr')[0].archived === true);
+  }
+}
+
+/* 35d. The lead dropdown offered archived roles, which setDeptLead then always
+   refused — a dead option that can only produce an error. */
+{
+  const card = H.grab('authCard');
+  const i = card.indexOf('var inDept=');
+  ok('the lead list is built', i >= 0);
+  ok('...and it excludes archived roles, like rolesInDept does',
+     i >= 0 && /!r\.archived/.test(card.slice(i, i + 200)), card.slice(i, i + 200));
+  ok('rolesInDept still excludes them too', /!r\.archived/.test(H.grab('rolesInDept')));
+}
+
+/* 35e. toast() sets textContent, so HTML-escaping a name there prints the escape.
+   Both new calls did it, and inconsistently — one name escaped, the one beside
+   it not. */
+{
+  const t = H.grab('toast');
+  ok('toast still writes textContent, not innerHTML', /textContent/.test(t) && !/innerHTML/.test(t), t.slice(0, 200));
+  ['setDeptLead', 'archiveRole'].forEach(fn => {
+    const body = H.grab(fn);
+    const bad = (body.match(/toast\([^;]*_pe\(/g) || []);
+    ok(fn + ' does not escape a name inside a toast', bad.length === 0, bad.join(' | ').slice(0, 200));
+  });
+}
+
+/* ================= 36. the head/floor split, actually rendered =================
+   Every check above reads source. This one runs the batch action row for two
+   invented roles — a floor officer who may only log a shift, and a head who may
+   only close and reconcile — and reads the buttons back. It is the whole point of
+   the COO's design, and it is the test that would have caught the shared flag:
+   before the split, BOTH of these roles saw all four buttons and were refused by
+   three of them. */
+{
+  const r = { console, JSON, Date, Math, Object, String, Array,
+    state: { role: 'COO', screen: 'prod', users: [], batches: [], orders: [],
+             masters: JSON.parse(JSON.stringify(STATE.masters)) } };
+  r.globalThis = r; vm.createContext(r);
+  vm.runInContext(SCREENS_SRC + '\n'
+    + ['scr', 'accessOv', '_ownerEdit', 'accessLevel', 'screenEditOK', 'hardRole', '_pe',
+       'correctCanAmend', 'correctAllowed', '_pcCorrectBtn', '_pcLifeAction'].map(H.grab).join('\n\n')
+    + '\n' + H.authModelSrc(), r);
+  r.state.masters.roles.push({ id: 'floor-officer', name: 'Floor Officer',
+                               deptId: 'production', builtin: false, archived: false });
+  r.state.masters.roles.push({ id: 'prod-mgr', name: 'Production Manager',
+                               deptId: 'production', builtin: false, archived: false });
+  r.seedDeptRightsV1(r.state);
+
+  const CODES = r.RIGHTS.filter(x => x.dept === 'production').map(x => x.code);
+  CODES.forEach(c => {
+    r.RIGHTS_LIVE[c] = true;                                   /* the split is live */
+    r.state.masters.roleRights['floor-officer'][c] = (c === 'shift.log');
+    r.state.masters.roleRights['prod-mgr'][c] = (c === 'batch.close' || c === 'packing.reconcile');
+  });
+
+  const batch = () => ({ id: 'B1', batchNo: 'X1', status: 'open', kind: 'bulk',
+                         producedKg: 100, plannedKg: 1000, packedKg: 0, lots: [] });
+  const draw = (role, stage) => { r.state.role = role;
+    return (r._pcLifeAction(batch(), { stage: stage }) || '').replace(/<[^>]*>/g, '|'); };
+
+  /* the floor officer: his one button, and none of the others */
+  ok('floor officer sees Log shift output',      /Log shift output/.test(draw('Floor Officer', 'producing')));
+  ok('...and no Close batch on the same row',   !/Close batch/.test(draw('Floor Officer', 'producing')),
+     draw('Floor Officer', 'producing'));
+  ok('...and nothing at all on Ready to pack',  draw('Floor Officer', 'pack') === '',
+     draw('Floor Officer', 'pack'));
+  ok('...and nothing at all on Reconcile',      draw('Floor Officer', 'recon') === '',
+     draw('Floor Officer', 'recon'));
+
+  /* the head: his two, and not the floor's */
+  ok('the head sees Close batch',                /Close batch/.test(draw('Production Manager', 'producing')));
+  ok('...and NOT Log shift output',             !/Log shift output/.test(draw('Production Manager', 'producing')),
+     draw('Production Manager', 'producing'));
+  ok('...and sees Reconcile remainder',          /Reconcile remainder/.test(draw('Production Manager', 'recon')));
+  ok('...and NOT Pack cleared stock',           !/Pack cleared stock/.test(draw('Production Manager', 'pack')),
+     draw('Production Manager', 'pack'));
+
+  /* and nothing changed for the role that holds everything */
+  r.state.role = 'Production';
+  CODES.forEach(c => { delete r.RIGHTS_LIVE[c]; });            /* back to frozen */
+  ok('with the rights frozen, Production still sees Log shift output',
+     /Log shift output/.test(draw('Production', 'producing')));
+  ok('...and Pack cleared stock',  /Pack cleared stock/.test(draw('Production', 'pack')));
+  ok('...and Reconcile remainder', /Reconcile remainder/.test(draw('Production', 'recon')));
+  ok('while a role outside Production still sees no action button',
+     draw('KAM', 'producing') === '', draw('KAM', 'producing'));
 }
 
 console.log('\nAuthorisation model — departments, roles, rights: ' + pass + ' passed, ' + fail + ' failed');

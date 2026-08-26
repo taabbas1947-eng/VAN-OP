@@ -275,7 +275,7 @@ ok('the Reopen button is on the batch lifecycle view',
   /* The gate returns the Correct button since 25 Aug (`if(!ed)return _cb;`), so
      the anchor is the gate itself, not what it used to return. */
   const fn = H.grab('_pcLifeAction');
-  const gate = fn.indexOf('if(!ed)return');
+  const gate = fn.indexOf('if(!edAny)return');
   const btn = fn.indexOf('openReopenBatch');
   ok('and it is not hidden behind the Production gate', btn >= 0 && btn < gate,
     'button at ' + btn + ', gate at ' + gate);

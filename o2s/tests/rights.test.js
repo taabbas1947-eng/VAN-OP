@@ -216,9 +216,18 @@ const ALL = (STATE.masters.roles || []).map(r => r.name).concat(['COO'])
   const kam = (H.html.match(/hardRole\(\['KAM'\]\)/g) || []).length;
   eq('every KAM gate is gone — Commercial asks for rights now', kam, 0);
   const total = (H.html.match(/hardRole\(\[/g) || []).length;
-  ok('the sweep really has removed some (63 before it started)', total < 63, 'remaining: ' + total);
-  ok('and the Kind B sign-off gates are untouched', total >= 40, 'remaining: ' + total);
-  console.log('    hardRole calls: 63 before the sweep, ' + total + ' now  (' + (63 - total) + ' converted)');
+  /* Counted from the file as it stood before the sweep, not from memory — the
+     earlier "63" was wrong and this line printed it as fact three lines under a
+     comment warning about exactly that. */
+  const BEFORE = (fs.readFileSync(require('path').join(__dirname, '_before-auth.html'), 'utf8')
+                    .match(/hardRole\(\[/g) || []).length;
+  ok('the pre-sweep file was found to count against', BEFORE > 0, 'BEFORE=' + BEFORE);
+  ok('the sweep really has removed some', total < BEFORE, BEFORE + ' before, ' + total + ' now');
+  /* NOT a floor. A number like ">= 40" goes stale on every conversion and then
+     gets quoted as if it meant something. What must be true is that the specific
+     sign-off gates are still hard — and those are named one by one in the Kind B
+     block above, which is where a regression would actually show. */
+  console.log('    hardRole calls: ' + BEFORE + ' before the sweep, ' + total + ' now  (' + (BEFORE - total) + ' converted)');
 }
 
 console.log('\nRights — matrix vs sign-off: ' + pass + ' passed, ' + fail + ' failed');

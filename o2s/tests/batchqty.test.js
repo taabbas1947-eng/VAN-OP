@@ -441,7 +441,7 @@ const HG = () => ({
        naive match stops at that semicolon. */
     const life = H.grab('_pcLifeAction');
     [['closed batch', /\+_rr\+_pcCorrectBtn\(b\)/],
-     ['not-editable', /if\(!ed\)return _cb;/],
+     ['not-editable', /if\(!edAny\)return _cb;/],
      ['pool',         /Call for manufacturing<\/button>':''\)\+_cb;/],
      ['the main row', /return primary\+sec\+_cb;/]].forEach(([name, re]) =>
       ok('the ' + name + ' exit carries the Correct button', re.test(life), life.slice(0, 160)));
@@ -450,7 +450,7 @@ const HG = () => ({
   ok('GUARD: including on a closed batch, which is where HG26025 was',
      /_rr\+_pcCorrectBtn\(b\)/.test(H.grab('_pcLifeAction')));
   ok('GUARD: and it is outside the Production-only edit flag',
-     /var _cb=_pcCorrectBtn\(b\);if\(!ed\)return _cb;/.test(H.grab('_pcLifeAction')),
+     /var _cb=_pcCorrectBtn\(b\);[\s\S]{0,900}if\(!edAny\)return _cb;/.test(H.grab('_pcLifeAction')),
      H.grab('_pcLifeAction').slice(0, 200));
 }
 

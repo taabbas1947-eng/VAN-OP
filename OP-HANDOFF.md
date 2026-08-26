@@ -1817,3 +1817,33 @@ GitHub Desktop regardless of what it was.
    — HG26026/Ali Raza, the two AP26012 design follow-ups, the
    `lotMultiLogRows`/`merge3` edge cases, and the deferred `coaRework`/soft-
    delete work — are untouched, still open.
+
+### Live-verified, same day — pushed, deployed, checked on the running app
+
+Tahir pushed via GitHub Desktop and confirmed Render redeployed. Checked the
+live app directly (`https://van-control-tower.onrender.com/o2s`, deployed
+commit `4a18d52`) rather than trusting the test suite alone:
+
+- App loads clean as COO, no console errors on load.
+- Called the real `prodStageList()` in the live page against real production
+  data (not fixtures) with the attention view active: zero `openRMCheck(`
+  anywhere in the output — the RM Check button is gone from Production's
+  stuck list for everyone, on the actual deployed bundle. 33 live Resolve/
+  Defer buttons for Production's own stalled (produce-category) items, 0
+  `approveRMPR(`/`coaReview(`/`coaApprove(`/`coaDeviation(` calls, and 2 items
+  correctly rendered as read-only "owner:" text (Lab QC category — same code
+  path `rm` uses, proven correct here since QC items exist naturally in
+  today's real data).
+- No RM Check item happens to be stalled past threshold in today's live data,
+  so the exact "owner: Supply Chain" text couldn't be eyeballed on a real rm
+  item today — that path is what `prodstuck.test.js` fixtures exist to prove
+  and it passed 46/46 against this same shipped file; did not fabricate a
+  fake stuck order on the live database to force one, per "no invented data /
+  read-only by default."
+- Did not attempt to switch live role to check the fix from a non-COO
+  seat — no in-app impersonation available without changing a real user's
+  role, and the role-sweep (9 roles) is exactly what `prodstuck.test.js`
+  already exercises against the real function extracted from this file.
+
+Net: the fix is live and behaving as designed on the deployed app, not just
+in the local test run.

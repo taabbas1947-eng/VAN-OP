@@ -355,9 +355,12 @@ const strip = s => String(s).replace(/<[^>]*>/g, '|').replace(/\s+/g, ' ').slice
     if (mayRm) {
       ok(role + ': a greyed Remove is drawn on the certified L2', /<button class="sm ghost" disabled title="[^"]*certified[^"]*"[^>]*>Remove<\/button>/.test(l2), strip(l2));
       ok(role + ': ...its tooltip carries the whole reason', /title="[^"]*Lab QC → Approved → Open → Supersede[^"]*"/.test(l2), strip(l2));
-      ok(role + ': ...and the reason is written UNDER the lot, visibly', /Cannot be removed: The lab has certified lot AP26012-L2/.test(l2), strip(l2));
-      ok(role + ': ...naming the route', /Lab QC → Approved → Open → Supersede/.test(l2.replace(/title="[^"]*"/g, '')), strip(l2));
-      ok(role + ': ...and who — QCM or COO', /QCM or COO/.test(l2.replace(/title="[^"]*"/g, '')));
+      /* a certified lot is the normal state, so the visible line is short and muted — not the 400-character refusal, not amber */
+      const vis = l2.replace(/title="[^"]*"/g, '');
+      ok(role + ': ...and a SHORT line is written under the lot, visibly', /Certified — cannot be un-logged\./.test(vis), strip(vis));
+      ok(role + ': ...naming the route', /Lab QC → Approved → Open → Supersede/.test(vis), strip(vis));
+      ok(role + ': ...and who — QCM or COO', /QCM or COO/.test(vis));
+      ok(role + ': ...not the full refusal, not in amber', !/Cannot be removed:/.test(vis.slice(0, vis.indexOf('</div></div>') + 1)) && !/color:var\(--amber[^>]*>Certified/.test(vis), strip(vis));
       ok(role + ': no live Remove on L2', !/onclick="openRemoveLot\('B-AP26012','LOT-B'\)"/.test(l2));
     } else {
       ok(role + ': holds no removal right, so no Remove control, live or greyed', !/>Remove<\/button>/.test(lots) && !/Cannot be removed/.test(lots), strip(lots.slice(lots.indexOf('AP26012-L1'), lots.indexOf('AP26012-L1') + 800)));
@@ -370,7 +373,7 @@ const strip = s => String(s).replace(/<[^>]*>/g, '|').replace(/\s+/g, ' ').slice
   run(c, 'state.batches[state.batches.length-1].lots[1].coa.status = "reviewed";');
   const lots = lotsTab(c);
   const l2 = lots.slice(lots.indexOf('AP26012-L2'), lots.indexOf('AP26012-L2') + 1200).replace(/title="[^"]*"/g, '');
-  ok('a reviewed lot: the note under it says Reject', /Cannot be removed: The lab has lot AP26012-L2 in hand \(COA reviewed\)/.test(l2) && /press Reject/.test(l2), strip(l2));
+  ok('a reviewed lot: the FULL reason under it, in amber, saying Reject', /color:var\(--amber[^>]*>Cannot be removed: The lab has lot AP26012-L2 in hand \(COA reviewed\)/.test(l2) && /press Reject/.test(l2), strip(l2));
   /* the message no longer promises removal unconditionally */
   const msg = c.lotRemoveBlockedBy(B(c), lot(c, 'LOT-A')) || '';
   ok('the certified refusal says the other checks still apply', /the other checks still apply/.test(msg), msg);
@@ -418,6 +421,8 @@ const strip = s => String(s).replace(/<[^>]*>/g, '|').replace(/\s+/g, ' ').slice
   const lots2 = lotsTab(c);
   ok('the Lots tab states the two figures', /lots on this batch total <b>2,020 Kg<\/b> but produced reads <b>1,010 Kg<\/b>/.test(lots2), strip(lots2.slice(0, 600)));
   ok('...and says reload before acting', /Reload the page before acting/.test(lots2));
+  ok('...and names the three things NOT to do', /do not remove again, do not correct produced upward and do not log a shift/.test(lots2));
+  ok('...as one block, not a flex row of words', /<div class="qbanner" style="display:block;/.test(lots2));
   ok('...with the greyed Remove and the floor\'s reason under L2', /Cannot be removed: Removing 1,010 Kg would take produced to 0 Kg/.test(lots2), strip(lots2.slice(lots2.indexOf('AP26012-L2'), lots2.indexOf('AP26012-L2') + 900)));
   /* and pressing it anyway is refused, nothing changes */
   run(c, 'openRemoveLot("B-AP26012","LOT-B")');
@@ -471,6 +476,20 @@ const strip = s => String(s).replace(/<[^>]*>/g, '|').replace(/\s+/g, ' ').slice
   const items = run(c, 'actionItems().filter(function(i){ return i.role === "Lab Rep" && /AP26012-L2/.test(i.what); })');
   eq('one Lab Rep item for the lot', items.length, 1);
   ok('...named as a re-issue with the reason', /re-issue of Rev 0: Certificate issued against a lot that was never made\./.test(items[0].what), items[0].what);
+  /* the reason is free text typed by a QCM or COO; `what` is inserted raw by three
+     sinks, so it must arrive escaped — checked on the rendered Action Center */
+  const c3 = app('COO');
+  run(c3, 'var l = state.batches[state.batches.length-1].lots[1]; l.coa.status = "draft"; l.coa.rev = 1; l.coa.supersedes = { rev: 0, qcNo: "Q-2", reason: "<img src=x onerror=alert(1)> & <b>bold</b>", by: "x" }; state.role = "Lab Rep";');
+  const w = run(c3, 'actionItems().filter(function(i){ return i.role === "Lab Rep" && /AP26012-L2/.test(i.what); })[0].what');
+  ok('the label carries the reason escaped', /&lt;img src=x onerror=alert\(1\)&gt; &amp; &lt;b&gt;bold&lt;\/b&gt;/.test(w), w);
+  clear(c3); run(c3, 'state.screen = "approvals"; render();');
+  const ac = page(c3);
+  ok('the rendered Action Center has no live <img> from it', !/<img src=x onerror/.test(ac));
+  ok('...and shows the text', /&lt;img src=x onerror=alert\(1\)&gt;/.test(ac), strip(ac.slice(ac.indexOf('AP26012-L2') - 200, ac.indexOf('AP26012-L2') + 300)));
+  clear(c3); run(c3, 'state.screen = "qc"; qcTab = "awaiting"; render();');
+  ok('...nor the Lab QC row', !/<img src=x onerror/.test(page(c3)) && /&lt;img src=x/.test(page(c3)));
+  run(c3, 'openBatchCOA("B-AP26012","LOT-B")');
+  ok('...nor the certificate sheet', !/<img src=x onerror/.test(c3.__els.coaFS.innerHTML) && /&lt;img src=x/.test(c3.__els.coaFS.innerHTML));
   /* an ordinary draft — no supersedes — has no banner and an unchanged label */
   const c2 = app('Lab Rep');
   run(c2, 'state.batches[state.batches.length-1].lots[1].coa = { status: "draft", qcNo: "Q-9", tests: [] };');
@@ -498,6 +517,113 @@ const strip = s => String(s).replace(/<[^>]*>/g, '|').replace(/\s+/g, ' ').slice
   const c2 = app('COO');
   run(c2, 'state.batches[state.batches.length-1].lots[1].coa = null; state.screen = "prod"; openRemoveLot("B-AP26012","LOT-B");');
   ok('a lot with no certificate history: the dialogue does not mention one', !/superseded certificate/.test(c2.__els.modal.innerHTML));
+}
+
+/* ================= 12. AP26012 is a MULTI-PO batch ================= */
+/* Found by the COO at 16:20 on 26 Aug, one step into the repair: L2 read Draft with a
+   greyed Remove and "This batch serves several POs by allocation…". The morning's
+   build refused every multi batch flat, and every fixture above had said `bulk`.
+   A multi batch spreads each shift across its linked PO lines and writes one
+   production-log row per PO with the exact share; un-logging the shift takes those
+   exact shares back. Built here through the REAL submitShiftLog, twice — the
+   duplicate — so the rows and the lines are what the shipping code writes. */
+function multiApp(role, opts) {
+  opts = opts || {};
+  const c = app(role);
+  run(c, 'state.batches.pop();');                                   /* drop the bulk AP26012 */
+  run(c, `
+    state.orders.unshift(
+      { id: 'O-A', po: 'PO-A', client: 'Client A', lines: [{ id: 'LA', brand: 'V-AP Bag', base: 'V-Ammonium Phosphate', ordered: ${opts.orderedA || 1500}, produced: 0, packed: 0 }] },
+      { id: 'O-B', po: 'PO-B', client: 'Client B', lines: [{ id: 'LB', brand: 'V-AP Bulk', base: 'V-Ammonium Phosphate', ordered: ${opts.orderedB || 1210}, produced: 0, packed: 0 }] });
+    state.batches.unshift({ id: 'B-AP26012', batchNo: 'AP26012', kind: 'multi', base: 'V-Ammonium Phosphate', brand: null,
+      allocations: [{ oid: 'O-A', lid: 'LA', po: 'PO-A', client: 'Client A', brand: 'V-AP Bag', kg: ${opts.orderedA || 1500} },
+                    { oid: 'O-B', lid: 'LB', po: 'PO-B', client: 'Client B', brand: 'V-AP Bulk', kg: ${opts.orderedB || 1210} }],
+      plannedKg: 2710, producedKg: 0, packedKg: 0, status: 'open', openedDate: '2026-08-20', lots: [] });
+    state.role = 'Production'; state.screen = 'prod';
+    shiftForm = { batchId: 'B-AP26012', qty: 1010, shift: 'Morning', incharge: 'Muhammad Imran', date: '2026-08-21', beds: [] };
+    submitShiftLog();
+    ${opts.fillB ? 'var _lb = state.orders.find(function(o){ return o.id === "O-B"; }).lines[0]; _lb.produced = _lb.ordered;' : ''}
+    shiftForm = { batchId: 'B-AP26012', qty: 1010, shift: 'Morning', incharge: 'Muhammad Imran', date: '2026-08-21', beds: [] };
+    submitShiftLog();            /* first press: the duplicate warning, nothing written */
+    submitShiftLog();            /* second press: confirmed */
+    state.role = ${JSON.stringify(role)};
+  `);
+  return c;
+}
+const line = (c, id) => run(c, 'state.orders.flatMap(function(o){ return o.lines; }).find(function(l){ return l.id === ' + JSON.stringify(id) + '; })');
+const logRows = c => run(c, 'state.productionLog.filter(function(p){ return p && p.batchNo === "AP26012"; }).map(function(p){ return p.po + ":" + p.kg; })');
+const mB = c => run(c, 'state.batches.find(function(b){ return b.id === "B-AP26012"; })');
+{
+  const c = multiApp('COO');
+  /* what the real code wrote */
+  eq('two lots from the duplicate', mB(c).lots.length, 2);
+  eq('produced 2,020', mB(c).producedKg, 2020);
+  eq('PO-A line produced (pro-rata 1500/2710 of 1,010, twice)', line(c, 'LA').produced, 2 * Math.round(1010 * 1500 / 2710 * 100) / 100);
+  eq('PO-B line produced (the residual, twice)', Math.round(line(c, 'LB').produced * 100) / 100, Math.round(2 * (1010 - Math.round(1010 * 1500 / 2710 * 100) / 100) * 100) / 100);
+  const r2 = x => Math.round(x * 100) / 100;
+  eq('four log rows, one per PO per submission, newest first', logRows(c).map(x => x.split(':')[0] + ':' + r2(+x.split(':')[1])).join(' '), 'PO-B:' + r2(1010 - 559.04) + ' PO-A:559.04 PO-B:' + r2(1010 - 559.04) + ' PO-A:559.04');
+  const la1 = line(c, 'LA').produced, lb1 = line(c, 'LB').produced;
+  /* the lab certifies L1; L2 is the draft left by the supersede */
+  run(c, 'var b = state.batches.find(function(x){ return x.id === "B-AP26012"; }); b.lots[0].coa = { status: "approved", certifiedKg: 1010, qcNo: "Q-1", tests: [] }; b.lots[1].coa = { status: "draft", qcNo: "Q-2", rev: 1, tests: [], supersedes: { rev: 0, qcNo: "Q-2", reason: "never made", by: "Tahir Abbas" } }; b.lots[1].coaHistory = [{ status: "superseded", rev: 0, qcNo: "Q-2", approver: { name: "QCM One" }, approvedDate: "2026-08-26", supersededBy: "Tahir Abbas", supersededAt: "2026-08-26T11:00:00Z", supersededReason: "never made" }];');
+  const l2 = mB(c).lots[1];
+  eq('the multi refusal is gone: the rows are on file', c.lotRemoveBlockedBy(mB(c), l2), null);
+  ok('the block found for L2 is the NEWEST pair of rows', JSON.stringify(c.lotMultiLogRows(mB(c), l2)) === '[0,1]', JSON.stringify(c.lotMultiLogRows(mB(c), l2)));
+  ok('...and for L1 the older pair', JSON.stringify(c.lotMultiLogRows(mB(c), mB(c).lots[0])) === '[2,3]', JSON.stringify(c.lotMultiLogRows(mB(c), mB(c).lots[0])));
+  /* click it */
+  const lots = lotsTab(c);
+  ok('the Lots tab draws a live Remove on L2', /onclick="openRemoveLot\('B-AP26012','LOT/.test(lots) && /AP26012-L2/.test(lots), strip(lots.slice(lots.indexOf('AP26012-L2') - 100, lots.indexOf('AP26012-L2') + 600)));
+  const rm = click(c, lots, new RegExp("openRemoveLot\\('B-AP26012','" + l2.id + "'\\)"));
+  ok('Remove opens', !!rm);
+  run(c, 'rmLotForm.reasonCode = "duplicate"; rmLotForm.reason = "The same shift was logged twice; one lot was made.";');
+  click(c, c.__els.modal.innerHTML, /^doRemoveLot\(\)$/);
+  eq('one lot left', mB(c).lots.length, 1);
+  eq('produced 1,010', mB(c).producedKg, 1010);
+  eq('PO-A line back to one share', line(c, 'LA').produced, la1 / 2);
+  eq('PO-B line back to one share', Math.round(line(c, 'LB').produced * 100) / 100, Math.round(lb1 / 2 * 100) / 100);
+  eq('two log rows left — the first submission\'s', logRows(c).map(x => x.split(':')[0] + ':' + r2(+x.split(':')[1])).join(' '), 'PO-B:' + r2(1010 - 559.04) + ' PO-A:559.04');
+  eq('one shift entry left', run(c, 'state.shiftEntries.filter(function(e){ return e.batchId === "B-AP26012"; }).length'), 1);
+  eq('packable 1,010', c.batchPackableKg(mB(c)), 1010);
+  const reg = run(c, 'state.corrections[0]');
+  ok('the register cascade names both PO lines', reg.cascade.some(x => /PO PO-A · V-AP Bag produced/.test(x)) && reg.cascade.some(x => /PO PO-B · V-AP Bulk produced/.test(x)), JSON.stringify(reg.cascade));
+  ok('...and the two rows', reg.cascade.some(x => /2 production log row\(s\) removed/.test(x)));
+  ok('...and the superseded certificate', /Rev 0 Q-2 approved by QCM One/.test(reg.changes.find(x => x.field === 'coa').before));
+  const last = run(c, 'toasts[toasts.length-1]');
+  ok('the toast says so too', /2,020 → 1,010/.test(last) && /PO-A/.test(last) && /PO-B/.test(last), last);
+  ok('no lots-vs-produced banner afterwards', !/lots on this batch total/.test(lotsTab(c)));
+}
+{
+  /* the capped case: PO-B was filled by another batch between the two submissions,
+     so the SECOND submission writes only one row (PO-A) and its residual goes to
+     batch stock — submitShiftLog writes no row for a zero share */
+  const c = multiApp('COO', { orderedA: 1500, orderedB: 1210, fillB: true });
+  eq('three log rows: two for the first submission, one for the capped second', logRows(c).length, 3);
+  ok('...the second submission put its residual into batch stock (PO-B full)', line(c, 'LB').produced === 1210 && mB(c).producedKg === 2020);
+  run(c, 'var b = state.batches.find(function(x){ return x.id === "B-AP26012"; }); b.lots[0].coa = { status: "approved", certifiedKg: 1010, qcNo: "Q-1" }; b.lots[1].coa = null;');
+  const l2 = mB(c).lots[1];
+  ok('L2 owns the one-row block (rank 0)', JSON.stringify(c.lotMultiLogRows(mB(c), l2)) === '[0]', JSON.stringify(c.lotMultiLogRows(mB(c), l2)));
+  ok('L1 owns the two-row block (rank 1) — not swallowed into L2\'s', JSON.stringify(c.lotMultiLogRows(mB(c), mB(c).lots[0])) === '[1,2]', JSON.stringify(c.lotMultiLogRows(mB(c), mB(c).lots[0])));
+  const laBefore = line(c, 'LA').produced;
+  run(c, 'state.screen = "prod"; openRemoveLot("B-AP26012", ' + JSON.stringify(l2.id) + '); rmLotForm.reasonCode = "duplicate"; rmLotForm.reason = "Logged twice by mistake on the floor."; doRemoveLot();');
+  eq('produced 1,010', mB(c).producedKg, 1010);
+  eq('PO-B untouched at 1,210 — the second submission never reached it', line(c, 'LB').produced, 1210);
+  ok('PO-A lost exactly the second submission\'s share', Math.abs(line(c, 'LA').produced - (laBefore - 559.04)) < 0.001, String(line(c, 'LA').produced));
+  eq('two rows left', logRows(c).length, 2);
+}
+{
+  /* the rows are missing (older data, or already removed): refused, with the reason */
+  const c = multiApp('COO');
+  run(c, 'var b = state.batches.find(function(x){ return x.id === "B-AP26012"; }); b.lots[0].coa = { status: "approved", certifiedKg: 1010, qcNo: "Q-1" }; b.lots[1].coa = null; state.productionLog = state.productionLog.filter(function(p){ return p.batchNo !== "AP26012"; });');
+  const why = c.lotRemoveBlockedBy(mB(c), mB(c).lots[1]) || '';
+  ok('no rows on file: refused', /production-log rows that spread this shift across them are not on file/.test(why), why);
+  ok('...pointing at the batch correction', /Correct the batch instead/.test(why));
+  /* a multi batch with no allocations at all: refused the same way */
+  const c2 = multiApp('COO');
+  run(c2, 'var b = state.batches.find(function(x){ return x.id === "B-AP26012"; }); b.allocations = []; b.lots[1].coa = null;');
+  ok('no allocations: refused', /not on file/.test(c2.lotRemoveBlockedBy(mB(c2), mB(c2).lots[1]) || ''));
+  /* a PO batch and a bulk batch are untouched by the multi branch */
+  const c3 = app('COO');
+  run(c3, 'state.batches[state.batches.length-1].lots[1].coa = null;');
+  ok('bulk: lotMultiLogRows is null and irrelevant', c3.lotMultiLogRows(B(c3), lot(c3, 'LOT-B')) === null && c3.lotRemoveBlockedBy(B(c3), lot(c3, 'LOT-B')) === null);
 }
 
 console.log('\ncertremove: ' + pass + ' passed, ' + fail + ' failed');

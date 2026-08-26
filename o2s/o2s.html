@@ -4117,9 +4117,9 @@ function lotRemoveBlockedBy(b,lt){
   if(_cs && _cs!=='draft')
     return 'The lab has lot '+(lt.lotNo||'')+' in hand (COA '+_cs+'). Finish it, or have the AQCM / QCM press Reject on the '
       +'certificate to send it back to the analyst \u2014 un-logging it now would leave a certificate with nothing under it.';
-  if(b.kind==='multi')
-    return 'This batch serves several POs by allocation, so one shift\u2019s output cannot be un-logged '
-      +'without disturbing them. Correct the batch instead, or dispose of the material.';
+  if(b.kind==='multi' && !lotMultiLogRows(b,lt))
+    return 'This batch serves several POs by allocation, and the production-log rows that spread this shift '
+      +'across them are not on file, so it cannot be un-logged exactly. Correct the batch instead, or dispose of the material.';
   var q=+lt.qty||0, gone=(+b.packedKg||0)+(+b.disposedKg||0);
   if((+b.producedKg||0)-q < gone-0.5)
     return 'Removing '+fmt(Math.round(q))+' Kg would take this batch below the '+fmt(Math.round(gone))
@@ -4137,6 +4137,45 @@ function lotRemoveBlockedBy(b,lt){
       +' Kg, below the '+fmt(Math.round(certified))+' Kg the lab has certified on this batch\u2019s other lots. '
       +'Certified material exists. If produced and the lots disagree, reload the page first and tell the COO \u2014 do not remove again.';
   return null;
+}
+/* A MULTI-PO batch spreads each shift's output across its linked PO lines pro-rata
+   (submitShiftLog), writing one productionLog row per PO with the exact share, all
+   in one go — so the rows for one submission sit together, newest first, at most
+   one row per PO. Un-logging that shift means taking those exact shares back off
+   the lines, not re-computing them: caps may have bitten differently on the
+   second submission than the first.
+   Returns the indexes of that block, or null when it cannot be found — in which
+   case the removal is refused rather than guessed (AP26012, 26 Aug: the batch
+   turned out to be multi, and the first build refused every multi batch flat).
+   The block is chosen by RANK: the same signature (date · shift · incharge) can
+   appear twice — that is the duplicate case — and lots and blocks were written
+   in the same order, so the n-th newest lot of a signature owns the n-th newest
+   block. */
+function lotMultiLogRows(b,lt){
+  if(!b||!lt||b.kind!=='multi') return null;
+  if(!Array.isArray(b.allocations)||!b.allocations.length) return null;
+  var same=(b.lots||[]).filter(function(l){ return l && l.date===lt.date && l.shift===lt.shift && l.incharge===lt.incharge; });
+  var rank=0; for(var i=same.length-1;i>=0;i--){ if(same[i].id===lt.id) break; rank++; }
+  /* Block boundaries come from ALLOCATION ORDER, not from a PO repeating: the rows
+     of one submission are unshifted in allocation order, so within a block the
+     allocation index strictly DECREASES down the array, and a row whose index is
+     not lower than the previous row's starts the next block. A PO-repeat rule
+     would fail the very case this exists for — a second submission capped on
+     one line writes fewer rows, and the first submission's leading row would
+     be swallowed into it. A row whose PO is no longer allocated counts as a
+     boundary. Only the log rows of THIS batch, date, shift and incharge are
+     looked at; rows in between belong to other batches and are skipped. */
+  var _alIx={}; b.allocations.forEach(function(a,i){ if(a) _alIx[a.po||'']=i; });
+  var pl=(state.productionLog||[]), blocks=[], cur=[], prev=Infinity;
+  for(var k=0;k<pl.length;k++){ var p=pl[k]; if(!p) continue;
+    var hit=p.multi && (p.batchNo||'')===(b.batchNo||'') && (!lt.date||p.date===lt.date)
+         && (!lt.shift||p.shift===lt.shift) && (!lt.incharge||p.incharge===lt.incharge);
+    if(!hit) continue;
+    var ix=(_alIx[p.po||'']!=null)?_alIx[p.po||'']:-1;
+    if(cur.length && ix>=prev){ blocks.push(cur); cur=[]; }
+    cur.push(k); prev=ix; }
+  if(cur.length) blocks.push(cur);
+  return blocks[rank]||null;
 }
 var rmLotForm={bid:'',lid:'',reasonCode:'',reason:''};
 function openRemoveLot(batchId,lotId){
@@ -4193,8 +4232,26 @@ function doRemoveLot(){
   var si=se.findIndex(function(e){ return e && e.batchId===b.id && Math.abs((+e.kg||0)-q)<0.001
       && (!lt.date||e.date===lt.date) && (!lt.shift||e.shift===lt.shift) && (!lt.incharge||e.incharge===lt.incharge); });
   if(si>=0){ se.splice(si,1); cascade.push('Shift entry removed'); }
-  /* 4. the production-log row */
+  /* 4. the production-log row — or, on a multi-PO batch, the BLOCK of rows this
+        shift wrote, one per PO, whose shares come back off the linked lines */
   var pl=(state.productionLog||[]);
+  if(b.kind==='multi'){
+    var _rows=lotMultiLogRows(b,lt)||[];
+    var _lines=[];
+    _rows.forEach(function(ix){ var p=pl[ix]; if(!p) return;
+      var al=(b.allocations||[]).find(function(a){ return a && (a.po||'')===(p.po||''); });
+      var o=al?((state.orders||[]).find(function(x){return x.id===al.oid;})||(state.orders||[]).find(function(x){return x.po===al.po;})):(state.orders||[]).find(function(x){return x.po===p.po;});
+      var l=o&&(o.lines||[]).find(function(x){ return al?(x.id===al.lid):(x.brand===p.brand); });
+      if(!l) return;
+      var lw=+l.produced||0, sh=+p.kg||0;
+      l.produced=Math.max(+l.packed||0, Math.round((lw-sh)*100)/100);
+      if((l.produced||0)<(l.ordered||0)-0.001) l.prodComplete='';
+      _lines.push('PO '+(p.po||'')+' \u00b7 '+(l.brand||'')+' produced '+fmt(lw)+' \u2192 '+fmt(l.produced)+' Kg'); });
+    /* remove the rows highest index first so the earlier indexes stay valid */
+    _rows.slice().sort(function(a,c){return c-a;}).forEach(function(ix){ pl.splice(ix,1); });
+    if(_rows.length) cascade.push(_rows.length+' production log row(s) removed');
+    _lines.forEach(function(x){ cascade.push(x); });
+  } else {
   /* the same fields as the shift-entry matcher above, incharge included. With two
      lots of the same size on one batch, date and shift but different incharges,
      matching on fewer fields here than there takes the wrong row. */
@@ -4202,6 +4259,7 @@ function doRemoveLot(){
       && (p.batchNo||'')===(b.batchNo||'') && (!lt.date||p.date===lt.date)
       && (!lt.shift||p.shift===lt.shift) && (!lt.incharge||p.incharge===lt.incharge); });
   if(pi>=0){ pl.splice(pi,1); cascade.push('Production log row removed'); }
+  }
   /* 5. the PO line, if this batch feeds one */
   if(b.kind==='po'&&b.po){
     var o=(state.orders||[]).find(function(x){return x.po===b.po;});
@@ -4925,8 +4983,11 @@ function renderProdLifecycleBatch(){var PC=window.ProductionCenter;if(!PC)return
        alarm: on the 16 July snapshot no batch trips it. */
     var _lotSum=lots.reduce(function(a,l){return a+(+l.qty||0);},0), _prodKg=+sel.producedKg||0, _lotsNote='';
     if(Math.abs(_lotSum-_prodKg)>0.5)
-      _lotsNote='<div class="qbanner" style="background:var(--amber-50,#fdf0d5);color:var(--amber,#9E6210)">The lots on this batch total <b>'+PC.fmt(Math.round(_lotSum))+' Kg</b> but produced reads <b>'+PC.fmt(Math.round(_prodKg))+' Kg</b>. '
-        +'They should match. Reload the page before acting on this batch; if they still differ, a removal may have been put back by another user\u2019s save \u2014 tell the COO rather than removing again.</div>';
+      /* display:block — .qbanner is a flex row, and a flex row turns each text run
+         and each <b> into its own column. */
+      _lotsNote='<div class="qbanner" style="display:block;background:var(--amber-50,#fdf0d5);color:var(--amber,#9E6210)">The lots on this batch total <b>'+PC.fmt(Math.round(_lotSum))+' Kg</b> but produced reads <b>'+PC.fmt(Math.round(_prodKg))+' Kg</b>. '
+        +'They should match. Reload the page before acting on this batch. If they still differ, a removal may have been put back by another user\u2019s save: '
+        +'do not remove again, do not correct produced upward and do not log a shift to make them match \u2014 tell the COO.</div>';
     inner=_lotsNote+'<div class="lotlist">'+lots.map(function(l){var r=_pcLotRes(l.coa);
       /* The holder of the right sees the control whether or not it will act, and
          when it will not, the reason is written under the lot. Until 26 Aug a
@@ -4936,7 +4997,17 @@ function renderProdLifecycleBatch(){var PC=window.ProductionCenter;if(!PC)return
       var rm=(_mayRm && !_why)
         ? '<button class="sm ghost" title="Un-log this shift\u2019s output. Needs a reason and goes in the register." onclick="openRemoveLot(\''+sel.id+'\',\''+l.id+'\')">Remove</button>'
         : (_mayRm ? '<button class="sm ghost" disabled title="'+_pe(_why).split('"').join('&quot;')+'" style="opacity:.45;cursor:not-allowed">Remove</button>' : '');
-      var _note=(_mayRm&&_why)?('<div class="lotmeta" style="flex-basis:100%;color:var(--amber,#9E6210);margin-top:4px">Cannot be removed: '+_pe(_why)+'</div>'):'';
+      /* A certified lot is the NORMAL good state — on the 16 July snapshot nearly
+         every lot is one — so its line is one short, muted sentence with the route, and the
+         full refusal sits in the button's title. Every other refusal (in the lab
+         chain, UNFIT, a floor, a multi batch) is rarer and gets its full text, in
+         amber, because it describes something that needs a decision. */
+      var _plainCert=!!(l.coa&&l.coa.status==='approved');
+      var _note=(_mayRm&&_why)
+        ? (_plainCert
+            ? '<div class="lotmeta" style="flex-basis:100%;margin-top:4px">Certified \u2014 cannot be un-logged. If the certificate itself was issued in error, the QCM or COO can supersede it: Lab QC \u2192 Approved \u2192 Open \u2192 Supersede.</div>'
+            : '<div class="lotmeta" style="flex-basis:100%;color:var(--amber,#9E6210);margin-top:4px">Cannot be removed: '+_pe(_why)+'</div>')
+        : '';
       return '<div class="lotrow" style="flex-wrap:wrap"><div style="flex:1;min-width:0"><div class="lotno">'+(l.lotNo||sel.batchNo||'—')+'</div><div class="lotmeta">'+[l.shift,l.incharge,l.date].filter(Boolean).join(' · ')+'</div></div><span class="lotqty">'+PC.fmt(l.qty||0)+' Kg</span><span class="respill" style="background:'+r[1]+';color:'+r[2]+'">'+r[0]+'</span>'+rm+_note+'</div>';}).join('')+'</div>';
   }}else if(tab==='quality'){var fit=0,unf=0,dev=0,pend=0;lots.forEach(function(l){var c=l.coa||{};if(c.status==='approved'){if(c.deviation)dev++;else fit++;}else if(c.overall==='UNFIT')unf++;else pend++;});var summ=lots.length+' lots · '+fit+' FIT'+(dev?(' · '+dev+' deviation'):'')+(unf?(' · '+unf+' UNFIT'):'')+(pend?(' · '+pend+' pending'):'');if(isPool)inner='<div class="muted" style="font-size:12.5px;padding:6px 2px">By-product pool — no COA. Lots are certified at their parent batch.</div>';else inner='<div class="qbanner">'+summ+'</div>'+(lots.length?('<div class="lotlist">'+lots.map(function(l){var c=l.coa||{};var r=_pcLotRes(c);return '<div class="lotrow"><div style="flex:1;min-width:0"><div class="lotno">'+(l.lotNo||sel.batchNo||'—')+'</div><div class="lotmeta">COA '+(c.qcNo||'—')+' · '+PC.fmt(l.qty||0)+' Kg</div></div><span class="respill" style="background:'+r[1]+';color:'+r[2]+'">'+r[0]+'</span></div>';}).join('')+'</div>'):'<div class="muted" style="font-size:12px;padding:6px 2px">No lots.</div>');}else{var produced=+sel.producedKg||0,packed=+sel.packedKg||0,rem=Math.max(0,produced-packed);var note=isPool?(srcN+' finished batches pooled into a '+PC.fmt(+sel.plannedKg||0)+' Kg by-product lot. Route to a grind run, divert or log as loss.'):rem>0.5?('After packing, '+PC.fmt(rem)+' Kg remains. Reconcile it — pack the rest, route to by-product, or record as loss.'):'Nothing to reconcile — produced quantity is fully packed.';inner='<div class="reconkpis"><div class="rk"><div class="rk-l">Produced</div><div class="rk-v">'+PC.fmt(produced)+' Kg</div></div><div class="rk"><div class="rk-l">Packed</div><div class="rk-v">'+PC.fmt(packed)+' Kg</div></div><div class="rk rk-warn"><div class="rk-l">Remainder</div><div class="rk-v">'+PC.fmt(rem)+' Kg</div></div></div><div class="recnote">'+note+'</div>';}var act=_pcLifeAction(sel,d);var eyebrow=sel.pool?'Reconcile pool':sel.po?('PO '+sel.po):'Bulk → stock';return '<div class="pbmwrap"><div class="card" style="padding:0"><div class="pbm-head">'+_hd+' <span>'+_hc+'</span></div><div class="pbm-list">'+master+'</div></div><div class="card" style="padding:0"><div class="lifehdr"><div style="flex:1"><div class="life-eyb">'+eyebrow+'</div><div class="life-prod">'+(d.brand||d.base||'')+'</div><div class="life-own">'+d.owner+'</div></div><span class="life-pill" style="background:color-mix(in srgb,'+M.dot+' 15%,#fff);color:'+M.dot+'">'+M.name+'</span></div>'+prodBucketBar(sel)+'<div class="lifestep"><div class="pstep">'+stepHtml+'</div></div><div style="padding:14px 18px 4px">'+tabBar+'</div><div style="padding:6px 18px 18px">'+inner+'</div>'+(act?('<div class="lifefoot">'+act+'</div>'):'')+'</div></div>';}
 function prodHeader(active){var ob=(may('batch.open'))?'<button class="green" onclick="openBatchModal()" style="white-space:nowrap;align-self:flex-start">+ Open batch</button>':'';return '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">'+prodViewBar(active)+ob+'</div>';}
@@ -8069,7 +8140,10 @@ function actionItems(){
       /* A re-issued draft is named as one, with its reason, so the Lab Rep is not
          handed "Lab COA — AP26012-L2" as ordinary work when the certificate was
          withdrawn because the lot was never made. */
-      const _re=(u.coa&&u.coa.supersedes)?(' · re-issue of Rev '+u.coa.supersedes.rev+(u.coa.supersedes.reason?(': '+u.coa.supersedes.reason):'')):'';
+      /* Escaped HERE: `what` is inserted raw by acRowHTML, acCardHTML and the
+         Production attention list, and this is the first free text ever routed
+         into it. Found by the 26 Aug review before it shipped. */
+      const _re=(u.coa&&u.coa.supersedes)?(' · re-issue of Rev '+_pe(u.coa.supersedes.rev)+(u.coa.supersedes.reason?(': '+_pe(u.coa.supersedes.reason)):'')):'';
       if(!u.coa||st==='draft') items.push({role:'Lab Rep',batch:b,what:'Lab COA — '+it+' '+tag+_re,act:call,label:'Lab QC'});
       else if(st==='analysed') items.push({role:'AQCM',batch:b,what:'Review COA — '+it+' '+tag,act:call,label:'Review'});
       else if(st==='reviewed') items.push({role:'QCM',batch:b,what:'Approve COA — '+it+' '+tag,act:call,label:'Approve'});

@@ -1,0 +1,37 @@
+*O2S — three changes on the Production screen (26 Aug)*
+
+*1. You can now pack a lot as soon as the lab clears it.*
+You no longer have to wait for the whole batch to be finished and certified.
+If the lab has cleared 1,000 Kg out of a running batch, a green
+*Pack 1,000 Kg cleared* button now appears on the batch — next to
+"Log shift output", not instead of it. The batch shows in both
+"Running batches" and "Ready to pack", because it is in both.
+The system will still only let you pack what the lab has actually cleared.
+This was never possible before. It was not a new fault — the button was
+simply never offered.
+
+*2. Logging the same shift twice now warns you.*
+If the same batch, date, shift and incharge is entered a second time,
+the first press does *nothing* and shows a message saying what is already
+recorded. If it really was a second, separate run, press *Log output* again
+and it will go through.
+
+*3. A shift logged by mistake can now be removed.*
+On the batch passport, *Lots* tab, each lot has a *Remove* button.
+It takes out the lot, the produced quantity, the shift entry and the
+production log together — a written reason is required and it is recorded
+with the name of whoever did it.
+
+*Who can remove:* Plant Manager and COO only — not the floor officers.
+The person who logs the output is not the person who unlogs it.
+
+*Cannot be removed:* any lot the lab has already touched — certified,
+part-signed, or failed UNFIT. Certified material exists; if it has gone,
+it is *disposed of*, not deleted. UNFIT material goes to the Plant Manager
+for the deviation / rework / disposal decision.
+
+*Please do:*
+- Check batch AP26012 (V-Ammonium Phosphate). It shows 2 lots of 1,010 Kg
+  from the same shift. Only one was made. The duplicate (AP26012-L2,
+  Pending) needs removing, then the certified 1,010 can be packed.
+- Tell me if any other batch shows lots you did not make.

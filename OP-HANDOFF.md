@@ -2506,3 +2506,54 @@ username, so this was unaffected as expected.
 
 15 accounts total now (was 14). This is the template Tahir wants repeated department-by-
 department over time — next department to redo this way is still open/undecided.
+
+## 2026-08-27 (night, yet later) — MODULE: O2S — Production nav was invisible for the screens they already had access to
+
+Tahir asked: does Production actually have enough access to do the job, and can
+they see the relevant incoming/outgoing screens too? Checked the live accessMatrix
++ rights + the sidebar nav code together — found a THIRD, previously-undiscussed
+permission mechanism behind the two already documented this session (RIGHTS/
+roleRights, and accessMatrix/screenEditOK): the sidebar itself
+(`allowedScreens()`) doesn't consult either of those — it filters purely on a
+hardcoded `owners:[...]` array per screen in the `SCREENS` constant, untouched by
+anything done live in Access control.
+
+**Found, live, right now (before this fix):**
+- **Abdul Majid (Production Manager) has an EMPTY sidebar.** `owners` was never
+  updated when the role was created — 'Production Manager' appears in zero
+  screens' owner lists. He lands on My Actions after login (that one screen checks
+  access a different way) but from there has no nav path to Production, PO
+  Tracker, Dashboard, Reports, Instructions, or Data Fix — despite already holding
+  full rights and an explicit Data Fix edit grant.
+- **Ali Raza / Jawad Naseer (Production) are missing Lab QC and Pre-shipment QA
+  from the sidebar** even though accessMatrix already explicitly grants Production
+  qc (view) and qa (edit) — someone configured that access at some point but the
+  nav never reflected it. This is almost certainly the "incoming/outgoing screen"
+  gap Tahir was asking about — QC (COA certifying output before packing) and QA
+  (pre-shipment inspection before it ships) bracket Production's own work.
+- Data Fix was in the same boat for both: already access-granted, invisible in nav.
+
+**Fixed:** added 'Production' and 'Production Manager' to the SCREENS.owners list
+everywhere they were missing — qc, qa, datafix (both roles), plus dash/approvals/
+tracker/prod/reports/instructions for Production Manager specifically (mirroring
+what Production already had). Also added both to **Shipments (ship)** — no
+existing accessMatrix grant for that one, this was a judgment call on my part
+given "outgoing" — it's view-only in practice (nothing anywhere gates an actual
+dispatch action by screen ownership, only by the shipment.plan/shipment.load
+rights, which neither role holds), so worth flagging but low-risk; easy to remove
+from Users & Access → Admin · Master Data → Access control if not wanted.
+
+Confirmed this is nav-visibility only, not a rights change: `screenEditOK()` (the
+function that actually gates edit actions) is only ever called for the Data Fix
+and Users & Access screens, and both roles' accessMatrix overrides on those two
+already existed and are unchanged — so no one gained an edit capability they
+didn't already have live. Also confirmed `screenLoopholes()` (the test suite's
+cross-department-edit-leak detector) doesn't read SCREENS.owners at all, so this
+couldn't have opened a new one.
+
+**Verified:** full suite still exactly 6,592/6,592 (17 files, 0 failures) —
+matches baseline. Also ran a standalone node check against the patched SCREENS
+array confirming both roles now resolve to the same 10-screen nav: dash,
+approvals, tracker, prod, qc, qa, ship, reports, instructions, datafix.
+
+**Not pushed yet.** Same GitHub Desktop step as the other changes tonight.

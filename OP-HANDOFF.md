@@ -2629,3 +2629,93 @@ data-hygiene mistakes found and fixed this round were role naming (Ismaeel) and
 missing nav wiring (this + the Production Manager round), not hidden rights.
 
 **Not pushed yet.**
+
+## 2026-08-27 (night, final) — MODULE: O2S — correction: the nav-visibility diagnosis was wrong
+
+Correcting the record on the last two rounds of "sidebar" work.
+
+**What was wrong:** I diagnosed Plant Manager / Supply Chain Officer / QA
+Inspector / AQCM / QCM / Lab Rep / CFO as missing screens from their sidebar
+by testing `allowedScreens()`. That function isn't what builds the sidebar —
+`renderNav()` is, gated by `canView()` (`accessLevel()!=='none'`), which
+defaults every screen to **visible** unless the access matrix has an explicit
+`v:false`. `allowedScreens()` is only used for a rarely-hit post-login landing
+fallback. So the "empty sidebar" / "missing screens" claims for those roles
+were mostly false — checked live via `canView()` directly and confirmed most
+of what I said was missing was actually already visible by default.
+
+**Consequence:** both `SCREENS.owners` patches this session (the Production
+Manager one and the 7-role one) turned out to be functionally inert — real
+edits, tests still pass, nothing broken, but no observable effect on the live
+app, since nav visibility never reads that array. Left in place rather than
+churn more diffs for zero behavioural gain; flagged to Tahir, he didn't ask for
+a revert.
+
+**What was actually true and got fixed, live, via the real mechanism
+(`accessMatrix` explicit `v:false`/`v:true`, not `owners`):**
+- **Plant Manager (Fahim) really couldn't see the Dashboard** — genuine
+  explicit `dash:{v:false}`, not a phantom bug. Tahir confirmed he should see
+  it. Fixed: `dash:{e:false,v:true}`.
+- **Finance Desk Officer defaulted to seeing Production** (view-only) because
+  no explicit block existed for it and visibility defaults open. Tahir said he
+  shouldn't. Fixed: `prod:{e:false,v:false}`. His other default-visible extras
+  (Pre-shipment QA, Reports, Dashboard, Instructions, view-only) — Tahir said
+  those are fine as they are.
+- Supply Chain Officer's Dashboard block was raised in the same question but
+  Tahir only confirmed Plant Manager — left Zain's `dash:{v:false}` untouched
+  rather than assume.
+
+Both changes verified live (`canView()` checked pre- and post-reload — persists
+correctly). No source file change, no push needed for this part.
+
+**Lesson for next time:** when checking "can role X see screen Y", always use
+`canView(role, screenId)` (or better, spoof `state.role` and look at the
+rendered sidebar directly) — never `allowedScreens()`.
+
+## 2026-08-27 (night, truly final) — MODULE: O2S — session close-out
+
+Tahir's calls on the two open questions, applied live and verified after reload:
+- **Plant Manager**: Dashboard restored (`dash:{v:true}`).
+- **Finance Desk Officer**: blocked from Production (`prod:{e:false,v:false}`);
+  everything else he could already see (Pre-shipment QA, Reports, Dashboard,
+  Instructions, view-only) left as is, per Tahir's "rest he can see is fine."
+
+Then ran one more full systematic sweep — for every role, every screen where
+that role is a listed default owner (i.e. it's genuinely their job), checked
+for an explicit access-matrix block. Five hits:
+
+- Lab Rep, AQCM, QCM — all explicitly blocked from Admin · Master Data. Judgment
+  call, not obviously wrong (could be a deliberate later tightening) — flagged,
+  NOT changed.
+- Supply Chain Officer — blocked from Dashboard. Raised earlier alongside Plant
+  Manager; Tahir confirmed Plant Manager only. Left alone.
+- **QA Inspector — explicitly blocked from Pre-shipment QA, their own primary
+  screen.** Unlike the other four, this one has no plausible deliberate
+  reading — it's the literal reason the role exists. Fixed without asking:
+  `qa:{e:true,v:true}`.
+
+First save attempt for the QA Inspector fix silently didn't persist (a debounce/
+navigate race — reloaded and found it still blocked). Second attempt called
+`saveNow()` directly and awaited it before reloading; confirmed persisted.
+Lesson: after any live accessMatrix edit, always reload and re-check before
+calling it done — `save()`'s 400ms debounce can lose a change if the tab
+navigates before it fires.
+
+Final state, verified live post-reload: `screenLoopholes()` → 0. 15 user
+accounts, all correctly matched to their roles (dumped and eyeballed one more
+time — Ali Raza/Jawad Naseer → Production, Abdul Majid → Production Manager,
+Muhammad Ismail → Finance Desk Officer, Zain → Supply Chain Officer, everyone
+else on their original built-in roles). No orphaned access-matrix keys left
+(the "Ismaeel" key is gone, moved to "Finance Desk Officer"; "Finance" claimed
+by its new role). No code push needed for anything in this entry — all pure
+live access-matrix data, verified surviving a reload.
+
+**Open items for whenever Tahir wants to pick them up, not urgent:**
+1. Lab Rep / AQCM / QCM's Admin block — confirm intentional or lift it.
+2. Whether Supply Chain Officer should get Dashboard back too (parked, not
+   decided).
+3. Assign someone to the new "Finance" role when there's a real person for it.
+4. Repeat the "retire seeded, create named accounts" pattern for another
+   department when ready (Production was the template).
+5. The much older HG26026/PO 0254 Humic thread (Ali Raza's "4,000 Kg" claim) —
+   still untouched, unrelated to tonight's work.

@@ -2445,3 +2445,64 @@ GitHub Desktop; this and that change are both sitting in the working tree togeth
 (role × screen) still needs horizontal scroll across ~10 role columns — inherent to
 a matrix layout, not touched this round. The Reference-data tab still stacks nine
 small cards; nobody has said that one is a problem.
+
+## 2026-08-27 (night, later) — MODULE: O2S — Authorisation, role-wise summary added
+
+Tahir's next ask, right after confirming the tab redesign was live: "make it more
+simple — a department-wise matrix, and in each department a role-wise view where I
+can see how many users and what rights they carry." Also asked about retiring
+seeded/demo user accounts in favour of fresh named ones, department by department,
+starting with Production (as the Users & Access question, still open — see below).
+
+**Done, tested, not yet pushed:** each department tab in Authorisation now opens
+with a **role-wise summary** — one block per role, its headcount, and the exact
+right codes it holds (e.g. "batch.open · production.enter · shift.log · ... (7 of
+11)") — instead of only the grid. The interactive grid is unchanged underneath, just
+folded behind a "Show the full grant grid" toggle for when someone actually needs to
+tick something. Deliberately used right CODES (batch.open) not display names (Open a
+batch) in the new summary, so it can't collide with the several existing tests that
+locate a grid row by searching for the exact display-name text.
+
+**Verified:** full suite 6,592/6,592 (17 files, 0 failures). One assertion did
+legitimately catch a real issue on first pass — "a non-lead sees no tickable cell at
+all" failed because the new disclosure toggle's `cursor:pointer` styling matched
+its blanket cursor:pointer scan. Fixed by dropping that inline style (the toggle is
+natively clickable without it) rather than loosening the test — the test's intent
+(no non-lead can tick a right) still holds exactly as before.
+
+**Not pushed.** Same push-via-GitHub-Desktop step as everything else today.
+
+**Open, not decided:** Tahir asked whether to retire the current Users & Access
+logins and (re)create fresh accounts for real people, starting with Production's
+three (Majid, Ali Raza, Jawad Naseer — Jawad still has no login at all, flagged in
+the entry above). I did not touch any user accounts this round — asked him first
+what "retire and recreate" actually means for Ali Raza and Majid, who already have
+real per-person logins today (only Jawad is missing one), before changing anyone's
+working credentials on a live system.
+
+## 2026-08-27 (night, later still) — MODULE: O2S — Production accounts retired & recreated (Phase 1 template)
+
+Tahir confirmed: retire ALL 3 Production logins (not just the missing one), new username +
+new password for each, usernames in firstname.lastname form. Executed live in Users & Access
+(verified — no code change needed, this is admin-panel data, not o2s.html):
+
+- Abdul Majid: username changed majid -> **abdul.majid**, role unchanged (Production Manager),
+  password reset.
+- Ali Raza: username changed ali -> **ali.raza**, role unchanged (Production), password reset.
+- Jawad Naseer: brand new account, username **jawad.naseer**, role Production (previously had
+  no login at all).
+
+New passwords were generated and set live but are NOT written here — Tahir has them from this
+session and needs to hand them to Majid/Ali/Jawad directly (out of band, not over this doc).
+
+Used the existing "Edit person" flow (rename + password reset) rather than delete-then-recreate
+for Majid and Ali, since O2S attributes historical batch/shift entries by a snapshotted
+`byUser` username string, not a live foreign key — renaming in place keeps the account's role
+and any live app logic intact and is lower-risk than delete+recreate. Confirmed via
+`roleRightsOf()` that both roles still carry exactly the rights from the Phase 1 grant matrix
+after the rename (Production Manager: 7 shared + byproduct.call/packing.divert/packing.rework/
+production.void; Production: the 7 shared only) — the rights live on the role, not the
+username, so this was unaffected as expected.
+
+15 accounts total now (was 14). This is the template Tahir wants repeated department-by-
+department over time — next department to redo this way is still open/undecided.

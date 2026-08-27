@@ -11354,7 +11354,33 @@ function authCard(){
       +(stored?'\u2713':'\u00b7')+(pend?'<sup style="font-size:8px">*</sup>':'')+'</span>'; };
 
   var cols=roles.filter(function(r){return r!=='COO';});
-  var table='<div class="amxwrap"><table class="amxtbl"><thead><tr><th>Right</th>'
+  /* "Make it simpler — a role-wise view where I can see how many users and
+     what rights they carry", Tahir, 27 Aug: the grid answers this only by
+     reading down a column. This is the same data read the other way round —
+     one block per role, headcount up front, and every right it holds spelled
+     out — with the full grant grid (unchanged) folded behind a toggle for the
+     rare case of actually changing something. Right CODES are used here
+     (batch.open, not "Open a batch") on purpose: the grid below is still the
+     one place that prints the human-readable names inside a <tr>, and several
+     tests locate a row by searching for that exact name text — reusing it here
+     too would make them find this summary first instead of the grid. */
+  var roleSummary='<div style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px">'
+    +cols.map(function(rn){
+      var got=rights.filter(function(r){ return (rn==='COO')||(roleRightsOf(rn)[r.code]===true); });
+      var badges=(rn===lead?' <span class="pill" style="background:var(--navy-50);color:var(--navy);font-size:9px">Lead</span>':'')
+        +(isGuest(rn)?' <span class="muted" style="font-size:10px">guest — filed in another department</span>':'')
+        +(isArchivedRole(rn)?' <span class="pill" style="background:#f1f3f5;color:var(--mut);font-size:9px">Archived</span>':'');
+      return '<div style="border:1px solid var(--line);border-radius:9px;padding:9px 13px">'
+        +'<div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap"><b style="font-size:13px">'+_pe(rn)+'</b>'
+        +'<span class="muted" style="font-size:11.5px">'+headTxt(rn)+'</span>'+badges+'</div>'
+        +(got.length?('<div class="muted" style="font-size:10.5px;margin-top:5px">'
+          +got.map(function(r){return _pe(r.code);}).join(' · ')+' <b style="color:var(--txt2)">('+got.length+' of '+rights.length+')</b></div>')
+          :'<div class="muted" style="font-size:10.5px;margin-top:5px">no rights held here yet</div>')
+        +'</div>';
+    }).join('')
+    +'</div>';
+  var table='<details class="card" style="margin:0"><summary style="font-weight:700;font-size:12.5px;color:var(--navy)">Show the full grant grid — tick a right for a role</summary>'
+    +'<div style="margin-top:12px"><div class="amxwrap"><table class="amxtbl"><thead><tr><th>Right</th>'
     +cols.map(function(rn){ return '<th style="font-size:10px;white-space:nowrap;text-align:center">'+_pe(rn)
         +(rn===lead?'<br><span class="muted" style="font-size:9px">lead</span>':'')
         +(isGuest(rn)?'<br><span class="muted" style="font-size:9px" title="not in this department, but holds one of these rights">holds it</span>':'')
@@ -11367,7 +11393,7 @@ function authCard(){
         +(r.delegable===false?' <span class="pill" style="background:var(--navy-50);color:var(--navy);font-size:9px">COO only</span>':'')
         +'<div class="muted" style="font-size:10.5px">'+_pe(r.note||'')+'</div></td>'
         +cols.map(function(rn){ return '<td style="text-align:center">'+cell(rn,r.code)+'</td>'; }).join('')+'</tr>'; }).join('')
-    +'</tbody></table></div>';
+    +'</tbody></table></div></div></details>';
 
   /* Counted over THIS TAB only, and said so — the drift banner above counts
      every department. They are equal while Commercial is the only one converted,
@@ -11378,23 +11404,23 @@ function authCard(){
   var guests=roles.filter(isGuest);
   var foot=(guests.length?('<div class="muted" style="font-size:11.5px;margin-top:10px">'
       +'<b>'+guests.map(_pe).join(', ')+'</b> '+(guests.length===1?'is':'are')+' not in this department but already '
-      +(guests.length===1?'holds':'hold')+' one or more of these rights \u2014 shown so it can be seen and taken away. '
+      +(guests.length===1?'holds':'hold')+' one or more of these rights — shown so it can be seen and taken away. '
       +'Only the COO can change a role outside the department.</div>'):'')
     +(pendingN?('<div class="muted" style="font-size:11.5px;margin-top:10px">'
       +'<b>'+pendingN+' tick'+(pendingN===1?'':'s')+' marked <span style="color:var(--amber)">*</span></b> '
-      +(pendingN===1?'is':'are')+' set on this <b>'+_pe(d.name)+'</b> tab but not what the app does today \u2014 '
+      +(pendingN===1?'is':'are')+' set on this <b>'+_pe(d.name)+'</b> tab but not what the app does today — '
       +(pendingN===1?'it takes':'they take')+' effect when that right goes live. '
       +'(The notice at the top of this card counts every department, not only this tab.)</div>'):'')
     +'<div class="muted" style="font-size:11.5px;margin-top:10px">'
-    +'<b>\u201cNot live yet\u201d</b> means the tick is recorded but the app still answers the way it always has. '
+    +'<b>“Not live yet”</b> means the tick is recorded but the app still answers the way it always has. '
     +'That is deliberate: the ticks are set up and checked first, and a right is switched on as its own separate decision. '
     +'Nothing in the plant changes until then.</div>';
 
-  /* One acard key for every tab \u2014 keying it per department made the card
+  /* One acard key for every tab — keying it per department made the card
      collapse itself every time you clicked a tab. */
-  return acard('authpanel','Authorisation','departments \u00b7 roles \u00b7 rights'
-    +(isCOO?' \u00b7 you are the COO, you can tick anything':(isDeptLead(state.role)?' \u00b7 you lead '+((deptById(roleDeptId(state.role))||{}).name||''):' \u00b7 read-only for you')),
-    tabs+head+authDriftBanner(d.id)+authLoopholeBanner(d.id)+unfiledBlock+table+foot);
+  return acard('authpanel','Authorisation','departments · roles · rights'
+    +(isCOO?' · you are the COO, you can tick anything':(isDeptLead(state.role)?' · you lead '+((deptById(roleDeptId(state.role))||{}).name||''):' · read-only for you')),
+    tabs+head+roleSummary+authDriftBanner(d.id)+authLoopholeBanner(d.id)+unfiledBlock+table+foot);
 }
 
 function accessMatrixCard(){ const isCOO=state.role==='COO';

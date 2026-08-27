@@ -3101,18 +3101,36 @@ function screenDataFix(){
 /* ===================== LOCK 5: Data Fix — Add-missing operations ===================== */
 let dfOp=null, dfForm={};
 function dfBack(){ dfOp=null; dfForm={}; render(); }
-function dfStart(op){ dfOp=op; dfForm={kind:'po',oid:'',lid:'',base:'',brand:'',qty:'',date:TODAY.toISOString().slice(0,10),date2:TODAY.toISOString().slice(0,10),reason:'',shift:(((state.masters&&state.masters.shifts)||['Morning'])[0]),incharge:'',po:'',client:'',channel:(((typeof SEED!=='undefined'&&SEED.channels)||['White Label'])[0]),priority:'Normal',received:TODAY.toISOString().slice(0,10),promised:new Date(TODAY.getTime()+7*864e5).toISOString().slice(0,10),ordered:''}; render(); }
+function dfStart(op){ dfOp=op; dfForm={kind:'po',oid:'',lid:'',base:'',brand:'',qty:'',date:TODAY.toISOString().slice(0,10),date2:TODAY.toISOString().slice(0,10),reason:'',shift:(((state.masters&&state.masters.shifts)||['Morning'])[0]),incharge:'',po:'',client:'',channel:(((typeof SEED!=='undefined'&&SEED.channels)||['White Label'])[0]),priority:'Normal',received:TODAY.toISOString().slice(0,10),promised:new Date(TODAY.getTime()+7*864e5).toISOString().slice(0,10),ordered:'',bid:'',pid:'',restoreBatch:true}; render(); }
 function dfReasonOk(){ return !!(dfForm.reason && String(dfForm.reason).trim()); }
-function dfPOSelect(){ return `<select onchange="dfForm.oid=this.value;dfForm.lid='';render()"><option value="">— pick PO —</option>${state.orders.map(o=>`<option value="${o.id}" ${dfForm.oid===o.id?'selected':''}>${o.po} · ${o.client}</option>`).join('')}</select>`; }
-function dfLineSelect(){ const o=state.orders.find(x=>x.id===dfForm.oid); const ls=o?o.lines:[]; return `<select onchange="dfForm.lid=this.value" ${o?'':'disabled'}><option value="">${o?'— pick product —':'pick PO first'}</option>${ls.map(l=>`<option value="${l.id}" ${dfForm.lid===l.id?'selected':''}>${l.brand} (${fmt(l.produced||0)}/${fmt(l.ordered)})</option>`).join('')}</select>`; }
+function dfPOSelect(){ return `<select onchange="dfForm.oid=this.value;dfForm.lid='';dfForm.bid='';dfForm.pid='';render()"><option value="">— pick PO —</option>${state.orders.map(o=>`<option value="${o.id}" ${dfForm.oid===o.id?'selected':''}>${o.po} · ${o.client}</option>`).join('')}</select>`; }
+function dfLineSelect(){ const o=state.orders.find(x=>x.id===dfForm.oid); const ls=o?o.lines:[]; return `<select onchange="dfForm.lid=this.value;dfForm.bid='';dfForm.pid='';render()" ${o?'':'disabled'}><option value="">${o?'— pick product —':'pick PO first'}</option>${ls.map(l=>`<option value="${l.id}" ${dfForm.lid===l.id?'selected':''}>${l.brand} (${fmt(l.produced||0)}/${fmt(l.ordered)})</option>`).join('')}</select>`; }
+function _batchApprovedDate(b){
+  if(!b) return '';
+  const lots=(b.lots||[]);
+  if(lots.length){ const app=lots.filter(l=>l.coa&&l.coa.status==='approved').map(l=>l.coa.approvedDate||l.coa.issueDate||'').filter(Boolean).sort(); return app.length?app[app.length-1]:''; }
+  return (b.coa&&b.coa.approvedDate)||'';
+}
+function dfBatchSelect(base){
+  const opts=(state.batches||[]).filter(b=>b.base===base && batchLabApproved(b));
+  const sel=`<select onchange="dfForm.bid=this.value;render()" ${base?'':'disabled'}><option value="">${base?'— pick the batch this was actually packed from —':'pick a product first'}</option>${opts.map(b=>{const ad=_batchApprovedDate(b);return `<option value="${b.id}" ${dfForm.bid===b.id?'selected':''}>${b.batchNo||b.id} — ${fmt(batchPackableKg(b))} Kg available${ad?(' (COA approved '+ad+')'):''}</option>`;}).join('')}</select>`;
+  const warn=(base&&!opts.length)?`<div class="muted" style="font-size:10.5px;color:var(--red);margin-top:4px">No QC-approved batch found for <b>${base}</b> yet — get its COA approved first, or this backfill will block at QA exactly like the Vital Urea case did.</div>`:'';
+  return sel+warn;
+}
+function dfVoidEntrySelect(){
+  const o=state.orders.find(x=>x.id===dfForm.oid); const l=o&&o.lines.find(x=>x.id===dfForm.lid);
+  const opts=l?(state.packingLog||[]).filter(p=>p&&p.po===o.po&&(p.lid?p.lid===l.id:p.brand===l.brand)&&!p.reversed&&!p.void&&(+p.kg||0)>0.0001).sort((a,b)=>String(a.date||'').localeCompare(String(b.date||''))):[];
+  return `<select onchange="dfForm.pid=this.value;render()" ${l?'':'disabled'}><option value="">${l?'— pick the stray record —':'pick PO and product first'}</option>${opts.map(p=>`<option value="${p.id}" ${dfForm.pid===p.id?'selected':''}>${p.date||''} · ${fmt(p.kg)} Kg · batch ${p.baseBatchNo||lotBaseNo(p)||'(none)'}${(+p.insKg||0)>0.5?' · already inspected':' · not yet inspected'}</option>`).join('')}</select>`;
+}
 function dfReasonField(){ const rs=(state.masters&&state.masters.downtimeReasons)||[]; return `<div class="fld fld-long" style="margin-top:10px"><label>Reason / note (required)</label><textarea rows="3" oninput="dfForm.reason=this.value" placeholder="why was this missed?">${_tx(dfForm.reason||'')}</textarea><datalist id="dfreasons">${rs.map(r=>`<option>${r}</option>`).join('')}</datalist></div>`; }
 function dfHead(t){ return `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><h3 style="margin:0">${t}</h3><button class="ghost sm" onclick="dfBack()">← Back</button></div>`; }
 function dfCardsHtml(){
   const card=(title,op,active)=>`<div class="card" style="flex:1;min-width:175px;${active?'':'opacity:.55'}"><b>${title}</b>`+(active?`<div style="margin-top:8px"><button class="sm green" onclick="dfStart('${op}')">Add missing…</button></div>`:`<div class="muted" style="font-size:11px;margin-top:4px">Correct · Reclassify — coming next lock</div>`)+`</div>`;
+  const voidCard=`<div class="card" style="flex:1;min-width:175px"><b>Void an entry <span class="muted" style="font-size:10px">(Packing)</span></b><div class="muted" style="font-size:11px;margin:3px 0 8px">Remove a stray record — restores the batch's capacity too. Production / Shipment / Order still coming.</div><div style="margin-top:8px"><button class="sm" style="background:#b42318;color:#fff;border-color:#b42318" onclick="dfStart('void')">Void…</button></div></div>`;
   return `<div class="card"><h3>What needs fixing?</h3>
-    <div class="muted" style="font-size:12.5px;margin-bottom:12px">Add a record that happened but was never entered. Back-dated and logged as RECONCILE. (Correct / Reclassify / Void arrive in later locks.)</div>
+    <div class="muted" style="font-size:12.5px;margin-bottom:12px">Add a record that happened but was never entered. Back-dated and logged as RECONCILE. (Correct / Reclassify arrive in later locks.)</div>
     <div class="row">${card('Order / PO','po',true)}${card('Production','production',true)}${card('Packing','packing',true)}${card('Shipment / Delivery','shipment',true)}<div class="card" style="flex:1;min-width:175px"><b>Correct values</b><div style="margin-top:8px"><button class="sm" onclick="dfStart('correct')">Correct…</button></div></div></div>
-    <div class="row" style="margin-top:10px">${card('RM / Procurement','',false)}${card('QC (Lab)','',false)}${card('QA (pre-shipment)','',false)}${card('Inventory / Stock','',false)}${card('Void an entry','',false)}</div></div>`;
+    <div class="row" style="margin-top:10px">${card('RM / Procurement','',false)}${card('QC (Lab)','',false)}${card('QA (pre-shipment)','',false)}${card('Inventory / Stock','',false)}${voidCard}</div></div>`;
 }
 function dfFormHtml(op){
   const wrap=(t,body)=>`<div class="card">${dfHead(t)}<div class="banner warn" style="margin-bottom:12px">Writes a back-dated record to live data, logged as RECONCILE. Take a snapshot first if you haven't.</div>${body}<div style="margin-top:12px">${body.indexOf('id="dfSaveBtn"')>-1?'':''}</div></div>`;
@@ -3134,13 +3152,42 @@ function dfFormHtml(op){
       <div style="margin-top:12px"><button class="green" onclick="dfSubmitProduction()">Add production record</button></div>`);
   }
   if(op==='packing'){
+    const _pfo=state.orders.find(x=>x.id===dfForm.oid); const _pfl=_pfo&&_pfo.lines.find(x=>x.id===dfForm.lid);
     return wrap('Add missing packing',`
       <div class="formgrid" style="grid-template-columns:1fr 1fr 1fr">
         <div class="fld"><label>Purchase Order</label>${dfPOSelect()}</div><div class="fld"><label>Product</label>${dfLineSelect()}</div>
         <div class="fld"><label>Quantity packed (Kg/L)</label><input type="number" value="${dfForm.qty||''}" oninput="dfForm.qty=this.value"></div>
       </div>
+      <div class="formgrid" style="grid-template-columns:1fr;margin-top:10px"><div class="fld"><label>Batch # — links to a QC-approved batch</label>${dfBatchSelect(_pfl&&_pfl.base)}</div></div>
       <div class="formgrid" style="grid-template-columns:1fr;max-width:220px;margin-top:10px"><div class="fld"><label>Date (actual)</label><input type="date" value="${dfForm.date}" onchange="dfForm.date=this.value"></div></div>${dfReasonField()}
       <div style="margin-top:12px"><button class="green" onclick="dfSubmitPacking()">Add packing record</button></div>`);
+  }
+  if(op==='void'){
+    const _vfo=state.orders.find(x=>x.id===dfForm.oid); const _vfl=_vfo&&_vfo.lines.find(x=>x.id===dfForm.lid);
+    const _ventry=(state.packingLog||[]).find(p=>p.id===dfForm.pid);
+    const _vbatch=(_ventry&&_ventry.baseBatchId)?(state.batches||[]).find(b=>b.id===_ventry.baseBatchId):null;
+    const _vblocked=_ventry&&(+_ventry.insKg||0)>0.5;
+    let _vimpact='';
+    if(_ventry){
+      const _bBefore=_vbatch?(+_vbatch.packedKg||0):0;
+      const _bAfter=(_vbatch&&dfForm.restoreBatch)?Math.max(0,_bBefore-(+_ventry.kg||0)):_bBefore;
+      _vimpact=_vblocked
+        ? `<div class="banner warn" style="margin-top:10px"><b>This record has already been QA-inspected (${fmt(_ventry.insKg)} Kg) — it cannot be voided from here.</b> Withdraw the inspection first (QA screen), then come back.</div>`
+        : `<div class="banner info" style="margin-top:10px">
+            <div>This packing record: <b>${fmt(_ventry.kg)} Kg → voided</b> (removed from Awaiting QA)</div>
+            <div style="margin-top:4px">Order line packed / produced: <span class="muted">unaffected — only this record changes; use <b>Correct values</b> separately if the line itself is wrong</span></div>
+            ${_vbatch?`<div style="margin-top:4px">Batch <b>${_vbatch.batchNo||_vbatch.id}</b> packed total: <b>${fmt(_bBefore)} Kg → ${fmt(_bAfter)} Kg</b></div>
+            <label style="display:flex;gap:7px;align-items:flex-start;margin-top:8px;font-size:12px"><input type="checkbox" ${dfForm.restoreBatch?'checked':''} onchange="dfForm.restoreBatch=this.checked;render()" style="margin-top:2px">Also restore this batch's packed capacity — uncheck only if that Kg really was consumed for real and should stay counted against the batch.</label>`:'<div class="muted" style="font-size:11px;margin-top:4px">This record has no batch linked, so there is nothing to restore.</div>'}
+          </div>`;
+    }
+    return wrap('Void an entry — Packing',`
+      <div class="muted" style="font-size:12px;margin-bottom:10px">Removes a stray packing record from the Awaiting QA queue and restores the batch capacity it consumed. Doesn't touch the order line's packed/produced totals — use <b>Correct values</b> for those, separately, if they're wrong too.</div>
+      <div class="formgrid" style="grid-template-columns:1fr 1fr">
+        <div class="fld"><label>Purchase Order</label>${dfPOSelect()}</div><div class="fld"><label>Product</label>${dfLineSelect()}</div>
+      </div>
+      <div class="formgrid" style="grid-template-columns:1fr;margin-top:10px"><div class="fld"><label>Packing record to void</label>${dfVoidEntrySelect()}</div></div>
+      ${_vimpact}${dfReasonField()}
+      <div style="margin-top:12px"><button ${(_ventry&&!_vblocked)?'':'disabled'} style="background:#b42318;color:#fff;border-color:#b42318;border-radius:8px;padding:9px 16px;font-weight:700;border-width:1px;border-style:solid;cursor:pointer" onclick="dfSubmitVoid()">Void entry</button></div>`);
   }
   if(op==='shipment'){
     return wrap('Add missing shipment / delivery',`
@@ -3259,18 +3306,59 @@ function dfSubmitPacking(){
   const d=dfForm.date||TODAY.toISOString().slice(0,10);
   const o=state.orders.find(x=>x.id===dfForm.oid); const l=o&&o.lines.find(x=>x.id===dfForm.lid);
   if(!l) return toast('Pick PO and product');
+  /* Batch # is required — this is the fix for the Vital Urea case: a
+     backfilled pack with no batch link cannot be verified at Pre-shipment QA
+     ("No batch # — set batch # first"), with no way to clear it afterwards.
+     Same rule doPack() already enforces for a normal pack (batchLabApproved). */
+  const b=state.batches.find(x=>x.id===dfForm.bid);
+  if(!b) return toast('Pick a batch — this is what prevents another "No batch #" block at QA');
+  if(!batchLabApproved(b)) return toast('That batch is not QC-approved yet — it can only be linked once its COA is approved');
   const _wasPacked=+l.packed||0;
   l.packed=(l.packed||0)+q; l.produced=Math.max(l.produced||0,l.packed); l.prodStart=l.prodStart||d; if((l.packed||0)>=l.ordered-0.5) l.prodComplete=l.prodComplete||d;
-  (state.packingLog=state.packingLog||[]).unshift({id:_uid('PK'),date:d,base:l.base,brand:l.brand,kg:q,by:state.role,po:o.po,lid:l.id,recon:true});
+  const baseBatchNo=b.batchNo||''; const brandBatchNo=baseBatchNo;
+  /* Same derivation doPack() uses — never typed, always derived. */
+  const _dt=packDates(brandBatchNo, b.id, d, undefined);
+  b.packedKg=(+b.packedKg||0)+q;
+  (state.packingLog=state.packingLog||[]).unshift({id:_uid('PK'),date:d,base:l.base,brand:l.brand,kg:q,by:state.role,po:o.po,lid:l.id,baseBatchId:b.id,baseBatchNo,brandBatchNo,mfgDate:_dt.mfgDate,expDate:_dt.expDate,shelfMonths:_dt.shelfMonths,recon:true});
   /* type 'packingLot' on purpose — this lot is a registered record, so a
      backfilled packing run can afterwards be amended and reversed like any
      other rather than being a second-class row nobody can touch. */
   recordBackfill('packingLot', state.packingLog[0].id, l.brand+' · '+fmt(q)+' Kg · '+o.po,
     [{field:'kg',label:'Packed (Kg/L)',before:'',after:fmt(q)},
      {field:'packed',label:'Line packed total',before:fmt(_wasPacked),after:fmt(+l.packed||0)},
+     {field:'baseBatchNo',label:'Batch #',before:'',after:baseBatchNo},
      {field:'date',label:'Date packed',before:'',after:d}],
     dfForm.reason, d);
-  save(); toast('Packing backfilled'); dfBack();
+  save(); toast('Packing backfilled — batch # linked, QA can verify it'); dfBack();
+}
+/* Voids one stray packing record: removes it from the Awaiting QA queue and,
+   unless unchecked, restores the batch capacity it consumed. Deliberately does
+   NOT touch the order line — that's Correct values' job, kept separate so a
+   line already fixed there is never double-adjusted. See the RUD26824 case. */
+function dfSubmitVoid(){
+  if(!screenEditOK('datafix')){ toast('You need Edit access to Data Fix'); return; }
+  if(!dfReasonOk()) return toast('Reason is required');
+  const entry=(state.packingLog||[]).find(p=>p.id===dfForm.pid);
+  if(!entry) return toast('Pick the record to void');
+  if(entry.reversed||entry.void) return toast('That record has already been voided/reversed');
+  if((+entry.insKg||0)>0.5) return toast('Already QA-inspected — withdraw the inspection first, then void it');
+  const kg=+entry.kg||0;
+  const batch=entry.baseBatchId?(state.batches||[]).find(x=>x.id===entry.baseBatchId):null;
+  const changes=[{field:'kg',label:'Packed (Kg/L)',before:fmt(kg),after:'0 (voided)'}];
+  const cascade=[];
+  if(batch && dfForm.restoreBatch!==false){
+    const before=+batch.packedKg||0; const after=Math.max(0,before-kg);
+    changes.push({field:'batchPackedKg',label:'Batch '+(batch.batchNo||batch.id)+' packed total',before:fmt(before),after:fmt(after)});
+    cascade.push('Batch '+(batch.batchNo||batch.id)+' packed '+fmt(before)+' → '+fmt(after)+' Kg');
+    batch.packedKg=after;
+  }
+  entry.voidedKg=kg; entry.kg=0; entry.void=true; entry.voidedAt=new Date().toISOString();
+  entry.voidedBy=(state.currentUser&&state.currentUser.name)||state.role;
+  const o=state.orders.find(x=>x.po===entry.po);
+  const l=o&&((o.lines||[]).find(x=>x.id===entry.lid)||(o.lines||[]).find(x=>x.brand===entry.brand));
+  const label=(l?l.brand:entry.brand||'')+' · '+fmt(kg)+' Kg · '+(entry.po||'');
+  recordCorrection('VOID','packingLot',entry.id,label,changes,'wrongrec',dfForm.reason,cascade);
+  save(); toast('Voided — removed from Awaiting QA'+((batch&&dfForm.restoreBatch!==false)?', batch capacity restored.':'.')); dfBack();
 }
 function dfSubmitShipment(){
   if(!screenEditOK('datafix')){ toast('You need Edit access to Data Fix'); return; }

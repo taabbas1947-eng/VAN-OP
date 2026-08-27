@@ -2037,3 +2037,120 @@ didn't run into any problem — it's just parked, not blocked on anything.
    request, HG26026/Ali Raza, `lotMultiLogRows`/`merge3` edge cases, deferred `coaRework`
    bypass, CFO-escalation matrix gap, S-01/S-02/S-03/S-04, the design canvas's own
    "considered, not built" list) is untouched by this entry.
+
+## 2026-08-27 (later) — MODULE: O2S — two untraced packs, both a Data Fix cascade gap
+
+**Module: O2S** (continuing).
+
+### What happened
+
+1. Revisited the HG26026 Humic/PO 0254 thread (Ali Raza's account of 4,000 Kg vs the
+   system's 2,800 Kg, and "this batch was not available in ready to pack till yesterday").
+   Tahir wasn't able to say what the referenced request was without checking with Ali Raza
+   or Majid — **left open, not resolved this session**, pivoted to a concrete, verifiable
+   report instead.
+2. New report: "Sulfur coated urea 2500 Kg produced, packed, but now its has no visible
+   trace... 100 bags of vital urea." Investigated **live**, via the Chrome extension against
+   `van-control-tower.onrender.com/o2s` (not the stale local `data/state.json` fixture) —
+   read-only `state` queries throughout. Traced to order line `COBO-2608-4613 · Vital Urea`:
+   `produced:2500, packed:2500` with no packingLog/actionLog/audit entry backing either
+   number. Tahir named the batch — `VU26190` — and the accounting gap on that batch
+   (`producedKg:7000, packedKg:6375`, only 3,875 Kg traceable to a real pack run) matched the
+   2,500 Kg gap exactly: a real pack transaction that updated totals but was never logged,
+   bypassing `doPack()`'s atomic write entirely.
+3. Corrected live, in three steps Tahir approved and (after the platform's automation
+   classifier blocked scripted form-filling on live-data writes, three separate times —
+   correctly stopped rather than worked around, per its own guidance) completed manually
+   himself: (1) downloaded a snapshot, (2) zeroed the untraceable 2,500/2,500 via **Correct
+   values** (`CR2325-ci2k`), (3) re-added it via **Add missing packing** — which surfaced the
+   real bug: the new record had no batch link, so Pre-shipment QA answered "No batch # — set
+   batch # first" with no UI path to fix it.
+4. Second report, mid-session: `RUD26824 · Tervalis Plus` showing 13,000 Kg "Awaiting QA"
+   against a real total of 10,000. Traced live: two packingLog entries against that line —
+   `PK2132-wpn7` (3,000 Kg, Aug 25, batch **VB26004** — a "Vibrant" base-material batch,
+   picked by mistake) and `PK2276-fu9m` (10,000 Kg, Aug 26, the correct batch RUHLS26005).
+   Tahir had already corrected the order line back to 0 via **Correct values**
+   (`CR2166-5p20`, reason: "Mistakenly select the wrong batch") — but that tool only sets
+   order-line numbers; the stray `PK2132-wpn7` record was never removed, so
+   `lineToInspect()`/`lotsFor()` (which sum straight off `packingLog`, unfiltered by any
+   later order-line correction) kept counting it: 3,000 + 10,000 = 13,000. Batch VB26004's
+   `packedKg` also stayed at 5,000, never freed back up. Found in the process: a *generic*
+   Reverse already exists (`openCorrect('packingLot', id)` → `CORRECT_ENTITY.packingLot.
+   doReverse`, reachable today from Reports → Traceability → "Every pack run" → Correct) —
+   but it unconditionally re-subtracts from the order line too, which here would have
+   double-counted (the line's 3,000 was already zeroed separately). Confirmed by inspection,
+   not assumption, before ruling it out for this case.
+5. Both bugs share one root cause: **Data Fix's writers only set the numbers on the record
+   they're pointed at — none of them cascade to the related batch or packingLog record.**
+   Confirmed with Tahir which fix to build (AskUserQuestion): void `PK2132-wpn7` *and* free
+   the 3,000 Kg back onto VB26004's capacity; build the Batch # field and a Void tool in one
+   combined design pass rather than two.
+6. Design artifact — `https://claude.ai/code/artifact/86e18d4d-92d1-488e-815e-e9803d2b8759`
+   ("Data Fix — Batch # and Void"), a working clickable prototype seeded with both real
+   cases (Vital Urea for the Batch # picker, RUD26824 for Void). Tahir approved ("GO AHEAD").
+7. Implemented in `o2s/o2s.html`, scoped to exactly what the canvas showed:
+   - **Add missing packing** now has a required **Batch #** field (`dfBatchSelect`, new),
+     filtered to `state.batches` matching the line's `base` and `batchLabApproved()` — same
+     rule `doPack()` already enforces. `dfSubmitPacking()` now refuses without a batch, or
+     with an un-approved one; on success it derives `baseBatchId`/`baseBatchNo`/
+     `brandBatchNo`/`mfgDate`/`expDate` via the same `packDates()` call `doPack()` uses (no
+     re-implemented date logic), and adds the backfilled qty onto the batch's own `packedKg`
+     (previously left unrecorded on the batch side too).
+   - **Void an entry** (Packing) — new, `dfStart('void')` now active on the Data Fix cards
+     grid (was the greyed-out placeholder). New `dfSubmitVoid()`: picks a stray packingLog
+     record for a PO/product (`dfVoidEntrySelect`, excludes already-reversed/voided/
+     already-inspected records), zeroes its `kg` (so it naturally drops out of `lotsFor()`'s
+     `kg>0.0001` filter — no change needed to the QA-queue math itself) and flags
+     `void:true`/`voidedKg`/`voidedAt`/`voidedBy`. Unless the "restore batch capacity"
+     checkbox is unchecked, reduces the linked batch's `packedKg` by the same amount.
+     **Deliberately does not touch the order line** — that's what makes it safe to use after
+     a line has already been corrected separately with Correct values (the RUD26824 case);
+     using the existing generic Reverse there would have double-subtracted. Logged via
+     `recordCorrection('VOID', 'packingLot', ...)` — same ledger, visible in Reports →
+     Corrections, cascade text names the batch change.
+8. New test file `o2s/tests/datafix-batchvoid.test.js` (37 checks), same real-execution
+   pattern as `customermaster.test.js`/`datafix-bulkprice.test.js`: both writers still gate
+   on `screenEditOK('datafix')`; `dfSubmitPacking` refuses with no batch and with an
+   un-approved one, and on success links the real batch fields, derives real dates, credits
+   the batch's `packedKg`, and records a BACKFILL naming the batch #; `dfSubmitVoid` refuses
+   with no record picked, no reason, or an already-inspected record; on success zeroes the
+   stray record while leaving the *other* (correct) record and **the order line untouched**,
+   restores batch capacity unless unchecked, is a no-op the second time it's run on the same
+   record, and records a VOID correction with the batch cascade named; the Data Fix card is
+   confirmed switched on in the actual markup, not just in a comment.
+9. Ran the full suite: **all 16 files pass, 0 failures** (new file 37/37; every other file
+   unchanged from before this entry). All 5 inline `<script>` blocks in `o2s.html` still
+   parse cleanly (`new Function()` check, corrected this session to actually isolate each
+   inline block rather than one greedy regex across all `<script>` tags).
+
+### Files changed
+
+- `o2s/o2s.html` — `dfStart` (new form fields `bid`/`pid`/`restoreBatch`), `dfPOSelect`/
+  `dfLineSelect` (reset the new fields on change), new `_batchApprovedDate`,
+  `dfBatchSelect`, `dfVoidEntrySelect`; `dfCardsHtml` (Void an entry activated);
+  `dfFormHtml` (`packing` branch gets the Batch # field; new `void` branch);
+  `dfSubmitPacking` (batch required + linked); new `dfSubmitVoid`.
+- `o2s/tests/datafix-batchvoid.test.js` — **new**, 37 checks.
+
+**Ready to push, not pushed.** Tahir pushes via GitHub Desktop. **The two live records this
+was meant to fix are still broken on the deployed app** — the new Data Fix fields only exist
+in this local build. Once pushed and deployed:
+1. Data Fix → Void an entry (Packing) → `RUD26824` / Tervalis Plus → the 3,000 Kg / batch
+   VB26004 record → restore-batch-capacity checked → void it. Restores VB26004 to 2,000 Kg
+   packed and drops "Awaiting QA" for that line from 13,000 to the correct 10,000.
+2. For the Vital Urea record (`COBO-2608-4613`, currently blocked "No batch # — set batch #
+   first"): the already-created backfilled entry has no batch fields and the new Batch #
+   field only applies going forward — it will need voiding (no batch to restore, since it
+   was never linked) and re-adding via Add missing packing with **VU26190** picked, to pick
+   up the batch link this time.
+
+### Next
+
+1. **The HG26026 Humic/PO 0254 thread is still open** — Ali Raza's "4,000 Kg, 1st PO of
+   Kisan" claim vs the system's 2,800 Kg, and what "we requested you to resolve" referred to.
+   Needs Ali Raza or Majid directly; not something to guess at from the data alone.
+2. The two live records above need the push + the two Data Fix actions listed to actually
+   be fixed — this session built and tested the tool, it did not yet apply it live.
+3. The name-vs-code join-key issue (Customer Master, flagged 2026-08-27 morning), Admin/
+   Master Data scope, and everything else already open before this session, remain
+   untouched by this entry.

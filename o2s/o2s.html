@@ -1052,7 +1052,7 @@ tr.clk:hover td{background:var(--panel2)}
 .amxtbl{border-collapse:separate;border-spacing:0}
 .amxtbl th,.amxtbl td{background:#fff}
 .amxtbl thead th{position:sticky;top:0;z-index:3;box-shadow:inset 0 -1px 0 var(--line)}
-.amxtbl th:first-child,.amxtbl td:first-child{position:sticky;left:0;z-index:2;box-shadow:inset -1px 0 0 var(--line);min-width:150px}
+.amxtbl th:first-child,.amxtbl td:first-child{position:sticky;left:0;z-index:2;box-shadow:inset -1px 0 0 var(--line);min-width:150px;max-width:280px;white-space:normal;word-wrap:break-word}
 .amxtbl thead th:first-child{z-index:4}
 .dtabbar{display:flex;gap:4px;flex-wrap:wrap;margin:0 0 16px;border-bottom:2px solid var(--line)}
 .dtab{border:none;background:transparent;padding:9px 15px;font-size:13px;font-weight:700;color:var(--mut);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px}
@@ -11020,15 +11020,19 @@ function screenAdmin(){
   try{ if(typeof loadUsers==='function' && !(usersList&&usersList.length)) loadUsers(); }catch(e){}
   const ed=hardRole(['COO']);
   const lists=[['shifts','Shifts'],['incharges','Shift incharges'],['delayReasons','Delay reasons'],['respDepts','Responsible departments'],['priorities','Priorities'],['kamNames','KAM names'],['varianceReasons','Yield variance reasons'],['downtimeReasons','Downtime reasons'],['focalPersons','Delivery focal persons (COBO / VGreen / Dealer)']];
-  $('view').innerHTML=`
-   ${ed?'':viewOnly('COO / Admin')}
-   ${sec('Reference lists — dropdown values')}
-   
-   <div class="row">
+  /* One admin screen used to be a single endless scroll through ~20 collapsible
+     cards with no way to jump anywhere, and "Access control" was three separate
+     cards (Roles, Authorisation, Access control matrix) buried near the bottom
+     under nine reference-list cards and eight business-master cards. Tahir's
+     call, 27 Aug: unusable as one page. Split into three top-level tabs; the
+     three access-control cards folded into the third tab behind their own
+     small switcher, since they are one subject (who exists, what they can do,
+     which screens they can open), not three. */
+  const refTab=`<div class="row">
    ${lists.map(([k,label])=>{const vals=(state.masters&&state.masters[k])||[];
      return `<div style="flex:1;min-width:300px">${acard('ref_'+k,label,`${vals.length}`,`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:11px">${vals.length?vals.map((v,idx)=>`<span class="pill" style="background:var(--navy-50);color:var(--navy);border:1px solid var(--navy-100);display:inline-flex;align-items:center;gap:7px">${v}${ed?`<span style="cursor:pointer;color:var(--mut)" title="rename" onclick="editMaster('${k}',${idx})">&#9998;</span><span style="cursor:pointer;color:var(--red);font-weight:700" title="delete" onclick="delMaster('${k}',${idx})">&times;</span>`:''}</span>`).join(''):'<span class="muted" style="font-size:12px">none yet</span>'}</div>${ed?`<div style="display:flex;gap:8px"><input type="text" id="adm_${k}" placeholder="add value…" style="flex:1"><button class="sm" onclick="addMaster('${k}')">Add</button></div>`:''}`)}</div>`;}).join('')}
-   </div>
-   ${sec('Business masters &amp; data')}
+   </div>`;
+  const bizTab=`
    ${productMasterCard(ed)}
    ${leadTimeCard(canEdit(['COO']))}
    ${rmMasterCard(canEdit(['Supply Chain']))}
@@ -11036,11 +11040,23 @@ function screenAdmin(){
    ${byproductCard(canEdit(['Plant Manager','Production'])||state.role==='COO')}
    ${labTplCard(canEdit(['Lab Rep','AQCM','QCM']))}
    ${(state.role==='COO'||state.role==='CFO')?salesTargetCard():''}
-   ${(state.role==='COO'||state.role==='CFO')?salesTargetMonthlyCard():''}
-   ${sec('Access control')}
-   <div id="authwrap">${authCard()}</div>
-   ${rolesCard()}
-   ${accessMatrixCard()}`;
+   ${(state.role==='COO'||state.role==='CFO')?salesTargetMonthlyCard():''}`;
+  const acSubBar=(function(){function t(k,l){return '<button class="ac2gtab'+(admAcTab===k?' on':'')+'" onclick="admAcTab=\''+k+'\';render()">'+l+'</button>';}
+    return '<div class="ac2gbar" role="tablist">'+t('rights','Rights')+t('roles','Roles')+t('screens','Screens')+'</div>';})();
+  const accessTab=`
+   <div class="muted" style="font-size:12px;margin:2px 2px 12px">Who exists, what each role can do, and which screens each role can open — three views of the same thing.</div>
+   ${acSubBar}
+   ${admAcTab==='rights'?`<div id="authwrap">${authCard()}</div>`:''}
+   ${admAcTab==='roles'?rolesCard():''}
+   ${admAcTab==='screens'?accessMatrixCard():''}`;
+  const admTabs=(function(){function t(k,l){return '<button class="ac2gtab'+(admTab===k?' on':'')+'" onclick="admTab=\''+k+'\';render()">'+l+'</button>';}
+    return '<div class="ac2gbar" role="tablist" style="margin-bottom:16px">'+t('ref','Reference data')+t('biz','Business masters')+t('access','Access control')+'</div>';})();
+  $('view').innerHTML=`
+   ${ed?'':viewOnly('COO / Admin')}
+   ${admTabs}
+   ${admTab==='ref'?refTab:''}
+   ${admTab==='biz'?bizTab:''}
+   ${admTab==='access'?accessTab:''}`;
 }
 function _roleById(id){ return ((state.masters&&state.masters.roles)||[]).find(function(r){return r&&r.id===id;}); }
 function rolesCard(){ var isCOO=state.role==='COO'; var roles=(state.masters&&state.masters.roles)||[];
@@ -11125,6 +11141,8 @@ function restoreRole(id){ if(state.role!=='COO'){toast('COO only');return;} var 
    Department → its lead → the roles under him → the rights, ticked.
    Read the model block above before changing anything here. */
 var authDept='commercial';
+var admTab='ref';        /* which top-level Admin tab is showing: ref | biz | access */
+var admAcTab='rights';   /* inside the access tab, which sub-view: rights | roles | screens */
 /* Repaint the card, not the screen. A full render() here throws away anything
    half-typed in the master-data boxes on the same screen — they are read from
    the DOM, not from state — and resets the scroll. Same reason as amxCycle. */
@@ -11344,7 +11362,7 @@ function authCard(){
         +'<br><span class="muted" style="font-size:9px">'+headTxt(rn)+'</span></th>'; }).join('')
     +'</tr></thead><tbody>'
     +rights.map(function(r){ var live=RIGHTS_LIVE[r.code]===true;
-      return '<tr><td style="white-space:nowrap"><b>'+_pe(r.name)+'</b>'
+      return '<tr><td><b>'+_pe(r.name)+'</b>'
         +(live?'':' <span class="pill" style="background:#fff4e5;color:var(--amber);font-size:9px">not live yet</span>')
         +(r.delegable===false?' <span class="pill" style="background:var(--navy-50);color:var(--navy);font-size:9px">COO only</span>':'')
         +'<div class="muted" style="font-size:10.5px">'+_pe(r.note||'')+'</div></td>'

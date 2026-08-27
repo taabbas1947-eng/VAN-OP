@@ -2358,3 +2358,90 @@ first.
      this session — browser was disconnected throughout.
 3. The HG26026 Humic/PO 0254 thread (Ali Raza's "4,000 Kg" claim) remains open, unchanged.
 4. Everything else open before this entry is unchanged.
+
+## 2026-08-27 (evening, later still) — MODULE: O2S — Production Manager split, LIVE CONFIG DONE
+
+Picked back up once the browser reconnected ("chrome is a connected"). Code was already
+pushed and deployed (`git log` shows `Production Rights` as the top commit, clean working
+tree). Did the live Admin steps myself, verified every change via read-only JS state reads
+(not just the UI/toasts) after each click.
+
+**Done, verified:**
+
+- Role **"Production Manager"** created, department Production, and set as the
+  department's lead (`departments.find(d=>d.id==='production').leadRoleId ===
+  'production-manager'`).
+- All eleven Production rights granted to Production Manager: `batch.open`,
+  `production.enter`, `shift.log`, `packing.pack`, `packing.reconcile`, `byproduct.call`,
+  `packing.divert`, `packing.rework`, `batch.close`, `batch.close_bulk`, `production.void`.
+- On the **Production** role: `byproduct.call`, `packing.divert`, `packing.rework` revoked
+  (now false); the other seven stay true, matching the approved matrix exactly.
+- `production.void` stays on **Plant Manager** too — "keep both" as decided, not moved
+  exclusively.
+- Access control matrix, Data Fix screen: **Production Manager** → Edit, **Production** →
+  View (was Edit).
+- Users & Access: **Abdul Majid** (`majid`) role changed from Production to **Production
+  Manager**. **Ali Raza** (`ali`) confirmed still on Production, unchanged.
+
+**Flag for Tahir — not resolved this session:** there is no user account for **Jawad
+Naseer** anywhere in Users & Access (14 accounts total, checked the full list). Ali Raza
+has his own login; Majid now has his own Production Manager login. Jawad either needs a
+new account created on the Production role, or he's been sharing/using someone else's
+login — worth checking before this split changes what "Production" can and can't do, since
+whoever is actually doing his shifts needs to still be on the Production role to keep
+floor access.
+
+**Browser automation note** (only relevant if this comes up again): the Authorisation
+screen's rights grid is wider than the viewport, and its first ("Right") column is
+`position:sticky` but not width-constrained — at max horizontal scroll it still visually
+and click-wise covers the role columns. Worked around per-session with an injected
+`pointer-events:none` style rule on `.amxtbl tr > *:first-child`; did not touch the app's
+actual CSS. Not filed as a code bug since it only affects scripted/automated use of the
+grid, not a real mouse click at native resolution — flag if a person hits it too.
+
+Everything else open before this entry (the HG26026/PO 0254 Humic thread) is unchanged.
+
+## 2026-08-27 (night) — MODULE: O2S — Admin · Master Data redesign, code done, not pushed
+
+Tahir's call after the Production Manager work above: the Admin screen itself was
+"badly designed, no human can handle it" — right after I'd spent this session fighting
+the Authorisation grid to grant rights. Traced it to a real bug, not just an
+automation problem, then restructured the page.
+
+**Root cause found:** the Authorisation grid's first ("Right") column had
+`min-width:150px` and no cap. Its cell markup forced `white-space:nowrap` on the
+whole cell — title AND the long explanatory note below it (e.g. the Divert-material
+note). A long note with no wrap meant the column's natural width could run to
+2000px+, and because that column is `position:sticky;left:0`, it sat on top of the
+Production / Production Manager / Plant Manager checkbox columns for EVERY viewer,
+not just scripted ones — the grant checkboxes were effectively unreachable on a
+normal screen. This is very likely most of what "no human can handle it" was about.
+
+**Fixed:**
+- `.amxtbl td:first-child` now has `max-width:280px; white-space:normal;
+  word-wrap:break-word` and the inline `white-space:nowrap` that caused the bug is
+  gone from the row markup. Notes wrap inside a normal-width column now.
+- Admin · Master Data was one endless scroll of ~20 collapsible cards with no way
+  to jump anywhere. Split into three top-level tabs: **Reference data** · **Business
+  masters** · **Access control**.
+- Tahir separately asked whether Roles / Authorisation / Access control matrix
+  really need to be separate tabs — they don't. Folded into the **Access control**
+  tab as one card with a small **Rights / Roles / Screens** switcher inside it,
+  instead of three stacked cards.
+
+**Verified:** full suite still 6,592/6,592 (17 files, 0 failures) — the two source
+guards in `authmodel.test.js` that check `screenAdmin()`'s literal text
+(`${authCard()}`, `id="authwrap"`) still hold, since both survived inside the new
+tab structure. Also wrote a one-off smoke test executing `screenAdmin()` itself
+(not just source-text checks) across every tab × sub-tab combination — no runtime
+errors, `$('view').innerHTML` renders sane output for each. That throwaway script
+was not added to `tests/`; the structural coverage exists only in that ad hoc run,
+worth a real test file if this area changes again.
+
+**Not deployed.** Same as the Production Manager entry above — Tahir pushes via
+GitHub Desktop; this and that change are both sitting in the working tree together.
+
+**Not done / worth a second pass, not asked for yet:** the Access control matrix
+(role × screen) still needs horizontal scroll across ~10 role columns — inherent to
+a matrix layout, not touched this round. The Reference-data tab still stacks nine
+small cards; nobody has said that one is a problem.

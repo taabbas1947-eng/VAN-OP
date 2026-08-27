@@ -3372,6 +3372,13 @@ function dfSubmitCorrect(){
 /* ===================== 1. NEW PO ENTRY ===================== */
 let entryChannel='', entryClient='', entryVsub='', entryFocal='', entryPrintOn=null; /* null = NOT ANSWERED. See Fault 11: a default is not a decision. */
 let entryFOC=false, entryFEDover='', entryDestPartner='';
+/* 2026-08-26 -- New PO Entry redesign (design-reviewed with Tahir first): three optional
+   capture fields the screen never asked for before. None of these are required to submit --
+   they ride alongside the existing optional field (Delivery focal person) rather than adding
+   a new blocking rule. (A real client-PO attachment was designed alongside these but held
+   back for a later session -- Tahir: "leave the attachment part for now" -- so no attachment
+   code exists yet; add it back as its own change when picked up.) */
+let entryFocalPhone='', entrySource='', entryInstructions='';
 /* Resolve the selected Customer Master record (for FED mode / KAM / destination defaults). */
 function curCustomer(){ var cs=(state.customers||[]);
   if(entryChannel==='Vgreen') return cs.filter(function(c){return c.segment==='VGreen'&&c.outlet===(entryVsub||'');})[0];
@@ -3406,7 +3413,7 @@ function clientsForChannel(ch){
 function curClientObj(){ return clientsForChannel(entryChannel).find(c=>c.id===entryClient); }
 function brandPool(){ const co=curClientObj(); return co?(SEED.catalog.brandsByClient[co.brandKey]||[]):[]; }
 function detailForBrand(b){ return brandPool().find(x=>x.brand===b)||{}; }
-function onChannelChange(v){ entryChannel=v; entryClient=''; entryVsub=''; entryFocal=''; entryPrintOn=null; entryFOC=false; entryFEDover=''; entryDestPartner=''; entryLines=[{brand:'',qty:'',pack:'',note:'',committed:''}]; screenEntry(); }
+function onChannelChange(v){ entryChannel=v; entryClient=''; entryVsub=''; entryFocal=''; entryFocalPhone=''; entrySource=''; entryInstructions=''; entryPrintOn=null; entryFOC=false; entryFEDover=''; entryDestPartner=''; entryLines=[{brand:'',qty:'',pack:'',note:'',committed:''}]; screenEntry(); }
 /* The client's history is now a HINT beside the question, not a silent answer to it. */
 function onClientChange(v){ entryClient=v; entryPrintOn=null; entryLines=[{brand:'',qty:'',pack:'',note:'',committed:''}]; screenEntry(); }
 /* THREE answers now, not two. `entryPrintOn` carries 'yes' | 'list' | 'no'
@@ -3430,12 +3437,103 @@ function genPO(recv){
   return null; // White Label & Distributor = manual
 }
 function isManualPO(){ return entryChannel==='White Label'||entryChannel==='Distributor'; }
+/* ---- New PO Entry redesign, 2026-08-26 -- purely additive on top of the existing form:
+   a step-progress strip, a sticky "Order Summary" panel that mirrors every field back at
+   a glance, and the new optional fields' own small helpers. Existing fields, validation
+   and submit logic are untouched by this block. ---- */
+function entryStepDots(){
+  var lines=entryLines.filter(function(l){return l.brand&&+l.qty>0;});
+  var headerOk=!!entryChannel&&!!entryClient;
+  var linesOk=lines.length>0&&lines.every(function(l){return +l.pack>0;});
+  var priceOk=entryFOC||(lines.length>0&&lines.every(function(l){return +l.inv>0;})&&entryPrintMode()!==null);
+  var allOk=headerOk&&linesOk&&priceOk;
+  function c(done,started){ return done?'#0f766e':(started?'#c77b0e':'#d8cfc0'); }
+  return [
+    {label:'Header',color:c(headerOk,!!entryChannel)},
+    {label:'Line items',color:c(linesOk,lines.length>0)},
+    {label:'Pricing',color:c(priceOk,entryPrintMode()!==null||lines.some(function(l){return +l.inv>0;}))},
+    {label:'Submit',color:c(allOk,false)}
+  ];
+}
+function entryStepsHtml(){ return entryStepDots().map(function(s){return '<div class="step"><span class="dot" style="background:'+s.color+'"></span><span class="lbl">'+s.label+'</span></div>';}).join(''); }
+function updateEntrySummary(){
+  var stepsEl=$('e_steps'); if(stepsEl) stepsEl.innerHTML=entryStepsHtml();
+  var el=$('e_summary'); if(!el) return;
+  var lines=entryLines.filter(function(l){return l.brand&&+l.qty>0;});
+  var t=entryTotals();
+  var priVal=$('e_pri')?$('e_pri').value:'Normal';
+  var priCls=({Critical:'crit',High:'high',Normal:'normal',Low:'low'})[priVal]||'normal';
+  var recv=$('e_recv')?$('e_recv').value:'';
+  var prom=$('e_prom')?$('e_prom').value:'';
+  var focal=$('e_focal')?$('e_focal').value:'';
+  var phone=$('e_focalphone')?$('e_focalphone').value:'';
+  var src=$('e_source')?$('e_source').value:'';
+  var instr=$('e_instructions')?$('e_instructions').value:'';
+  var clientLabel=(clientsForChannel(entryChannel).filter(function(c){return c.id===entryClient;})[0]||{}).label||entryClient||'';
+  var linesHtml=lines.length?lines.map(function(l){
+    var packs=(+l.pack>0&&+l.qty>0)?Math.ceil(+l.qty/+l.pack):null;
+    var priceText=entryFOC?'FOC — no charge':(+l.inv>0?('PKR '+fmt(l.inv)+'/Kg'):'price not set');
+    return '<div class="lineitem"><b>'+(l.brand||'')+'</b><div class="muted" style="font-size:11px;margin-top:2px">'+fmt(+l.qty||0)+' Kg/L'+(packs!=null?(' → '+packs+' packs'):'')+' · '+priceText+'</div></div>';
+  }).join(''):'<div class="muted" style="font-size:12px;font-style:italic">No lines added yet.</div>';
+  var printAns=entryPrintMode();
+  var printText=printAns==='list'?'List price':printAns==='yes'?'PO price set':printAns==='no'?'No price':'not answered';
+  el.innerHTML=
+    '<div class="srow"><span class="k">Channel</span><span class="v'+(entryChannel?'':' ph')+'">'+(entryChannel||'not selected yet')+'</span></div>'+
+    '<div class="srow"><span class="k">Client</span><span class="v'+(entryClient?'':' ph')+'">'+(clientLabel||'not selected yet')+'</span></div>'+
+    '<div class="srow"><span class="k">Type</span><span class="v">'+(entryFOC?'FOC sample':'Commercial')+'</span></div>'+
+    '<div class="srow"><span class="k">Priority</span><span class="v"><span class="chip '+priCls+'">'+priVal+'</span></span></div>'+
+    '<div class="srow"><span class="k">Received → Promised</span><span class="v">'+(recv||'—')+' → '+(prom||'—')+'</span></div>'+
+    '<div class="srow"><span class="k">Focal / phone</span><span class="v'+((focal||phone)?'':' ph')+'">'+([focal,phone].filter(Boolean).join(' · ')||'not set')+'</span></div>'+
+    '<div class="srow"><span class="k">Order source</span><span class="v'+(src?'':' ph')+'">'+(src||'not set')+'</span></div>'+
+    (instr?('<div class="srow" style="display:block"><span class="k">Instructions</span><div class="v" style="text-align:left;font-weight:500;margin-top:3px">'+instr+'</div></div>'):'')+
+    '<hr><div class="muted" style="font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;font-weight:700;margin-bottom:7px">Line items — '+lines.length+'</div>'+
+    linesHtml+
+    '<hr>'+
+    '<div class="srow"><span class="k">Total quantity</span><span class="v">'+fmt(lines.reduce(function(a,l){return a+(+l.qty||0);},0))+' Kg/L</span></div>'+
+    '<div class="srow"><span class="k">Subtotal</span><span class="v">PKR '+fmt(t.sub)+'</span></div>'+
+    '<div class="srow"><span class="k">FED</span><span class="v">PKR '+fmt(t.fed)+'</span></div>'+
+    '<div class="srow" style="align-items:center;margin-top:3px"><span class="k" style="font-weight:700;color:#1c1b18">Grand total</span><span class="grand">PKR '+fmt(t.total)+'</span></div>'+
+    '<hr><div class="srow" style="align-items:center"><span class="k">Price on pack</span><span class="'+(printAns?'badge-ok':'badge-warn')+'">'+printText+'</span></div>';
+}
 function screenEntry(){
   const ed=may('order.create');   /* Commercial · converted 2026-08-24. Not live yet: answers off the matrix exactly as before. */
   const clients=clientsForChannel(entryChannel);
-  $('view').innerHTML=`<div class="paperui">
+  $('view').innerHTML=`<div class="paperui po2"><style>
+    .po2 .steps{display:flex;gap:8px;margin-bottom:14px}
+    .po2 .step{flex:1;background:#fff;border:1px solid #ece3d3;border-radius:10px;padding:8px 11px;display:flex;align-items:center;gap:7px}
+    .po2 .step .dot{width:8px;height:8px;border-radius:50%;flex:none}
+    .po2 .step .lbl{font-size:11px;font-weight:700;color:#4a453c}
+    .po2 .layout2{display:flex;gap:16px;align-items:flex-start}
+    .po2 .po-main{flex:1.6;min-width:0}
+    .po2 .po-side{flex:1;min-width:270px;position:sticky;top:14px}
+    .po2 .fld.wide{grid-column:1/-1}
+    .po2 .tag.new{color:#fff;background:#7a6cc0;border-color:#7a6cc0}
+    .po2 .tag.opt{color:#9a9082;background:#f1ede4;border-color:#e0d6c4}
+    .po2 .formgrid.newrow{border-top:1px dashed #d6cdef;margin-top:14px;padding-top:14px}
+    .po2 .summary{background:#fff;border:1px solid #ece3d3;border-radius:14px;padding:18px}
+    .po2 .summary .srow{display:flex;justify-content:space-between;gap:10px;font-size:12.5px;padding:4px 0;color:#4a453c}
+    .po2 .summary .srow .k{color:#8a8279}
+    .po2 .summary .srow .v{text-align:right;font-weight:600}
+    .po2 .summary .v.ph{color:#c7bfae;font-style:italic;font-weight:500}
+    .po2 .summary hr{border:none;border-top:1px solid #f0eae0;margin:11px 0}
+    .po2 .summary .lineitem{border:1px solid #f0eae0;border-radius:9px;padding:8px 10px;margin-bottom:7px;background:#fdfcfa;font-size:12px}
+    .po2 .grand{font-family:Georgia,'Times New Roman',serif;font-size:24px;font-weight:500}
+    .po2 .chip{display:inline-flex;font-size:11px;font-weight:700;border-radius:7px;padding:2px 9px}
+    .po2 .chip.crit{background:#fbe7e4;color:#c0392b}
+    .po2 .chip.high{background:#faf0da;color:#c77b0e}
+    .po2 .chip.normal{background:#e7f3f1;color:#0f766e}
+    .po2 .chip.low{background:#eee9df;color:#9a9082}
+    .po2 .filechip{display:inline-flex;align-items:center;gap:7px;background:#e7f3f1;color:#0b5c54;border:1px solid #bfe0da;border-radius:8px;padding:6px 10px;font-size:11.5px;font-weight:600}
+    .po2 .uploadbtn{display:flex;align-items:center;gap:7px;border:1px dashed #d6cdef;background:#efecf8;color:#463d78;border-radius:9px;padding:9px 11px;font-size:12px;font-weight:600;cursor:pointer;justify-content:center;text-align:center}
+    .po2 .fileinput{display:none}
+    .po2 .badge-ok{background:#e7f3f1;color:#0f766e;border-radius:7px;padding:2px 8px;font-size:11px;font-weight:700}
+    .po2 .badge-warn{background:#faf0da;color:#c77b0e;border-radius:7px;padding:2px 8px;font-size:11px;font-weight:700}
+    @media(max-width:900px){.po2 .layout2{flex-direction:column}.po2 .po-side{position:static}}
+   </style>
    ${ed?'':viewOnly('KAM','switch to KAM to submit')}
    <div class="rb-top"><div><div class="rb-title">New PO Entry</div><div class="rb-sub2">Create a customer order · price, tax and documents stay consistent</div></div></div>
+   <div class="steps" id="e_steps">${entryStepsHtml()}</div>
+   <div class="layout2"><div class="po-main">
    <div class="card"><h3>Step 1 — PO Header</h3>
     <div class="formgrid">
      <div class="fld"><label>Channel</label>
@@ -3454,7 +3552,7 @@ function screenEntry(){
      <div class="fld"><label>PO type</label><select id="e_potype" onchange="entryFOC=(this.value==='FOC');renderEntryLines();updateEntryTotal();validate()"><option value="Commercial" ${!entryFOC?'selected':''}>Commercial</option><option value="FOC" ${entryFOC?'selected':''}>FOC sample (no charge)</option></select></div>
      <div class="fld"><label>FED ${(state.role==='COO'||state.role==='CFO')?'<span class="tag">override</span>':'<span class="tag">auto</span>'}</label>${(state.role==='COO'||state.role==='CFO')?`<select onchange="entryFEDover=this.value;updateEntryTotal()"><option value="" ${!entryFEDover?'selected':''}>Auto · ${entryFedMode()}</option><option value="None" ${entryFEDover==='None'?'selected':''}>None</option><option value="Exclusive" ${entryFEDover==='Exclusive'?'selected':''}>Exclusive +5%</option><option value="Inclusive" ${entryFEDover==='Inclusive'?'selected':''}>Inclusive (extract 5%)</option></select>`:`<input type="text" value="${entryFedMode()}" disabled>`}</div>
      <div class="fld"><label>KAM Name</label><select id="e_kam" onchange="validate()"><option value="">— pick KAM —</option>${((state.masters&&state.masters.kamNames)||[]).map(k=>`<option ${k===state._lastKam?'selected':''}>${k}</option>`).join('')}</select></div>
-     <div class="fld"><label>Priority</label><select id="e_pri"><option>Normal</option><option>High</option><option>Critical</option><option>Low</option></select></div>
+     <div class="fld"><label>Priority</label><select id="e_pri" onchange="validate()"><option>Normal</option><option>High</option><option>Critical</option><option>Low</option></select></div>
      <div class="fld"><label>PO Received</label><input id="e_recv" type="date" value="${TODAY.toISOString().slice(0,10)}" oninput="validate()"></div>
      <div class="fld"><label>Promised Delivery</label><input id="e_prom" type="date" value="${new Date(TODAY.getTime()+7*864e5).toISOString().slice(0,10)}" oninput="validate()"></div>
      ${/* Every channel, 2026-08-21. This was offered only for Cobo / VGreen /
@@ -3463,10 +3561,15 @@ function screenEntry(){
           order, which is White Label. Free text as well as the master list:
           a one-off contact on a White Label load is not worth a master record.
           Supply Chain can still override it per truck at dispatch. */''}
-     <div class="fld"><label>Delivery focal person</label><input type="text" id="e_focal" list="e_focal_list" value="${_av(entryFocal)}" oninput="entryFocal=this.value" placeholder="who receives it \u2014 optional"><datalist id="e_focal_list">${(((state.masters&&state.masters.focalPersons)||[])).map(p=>`<option>${p}</option>`).join('')}</datalist></div>
+     <div class="fld"><label>Delivery focal person</label><input type="text" id="e_focal" list="e_focal_list" value="${_av(entryFocal)}" oninput="entryFocal=this.value;validate()" placeholder="who receives it \u2014 optional"><datalist id="e_focal_list">${(((state.masters&&state.masters.focalPersons)||[])).map(p=>`<option>${p}</option>`).join('')}</datalist></div>
      <div class="fld"><label>Client PO # ${isManualPO()?'<span class="tag">manual</span>':'<span class="tag">auto on submit</span>'}</label>
        ${isManualPO()?`<input id="e_po" type="text" placeholder="type client's PO#" oninput="validate()">`
          :`<input id="e_po" type="text" value="${entryChannel?genPO(TODAY.toISOString().slice(0,10)):''}" disabled>`}</div>
+    </div>
+    <div class="formgrid newrow">
+     <div class="fld"><label>Delivery Contact Phone <span class="tag new">new</span></label><input type="tel" id="e_focalphone" value="${_av(entryFocalPhone)}" oninput="entryFocalPhone=this.value;validate()" placeholder="03xx-xxxxxxx — optional"></div>
+     <div class="fld"><label>Order Source <span class="tag new">new</span></label><select id="e_source" onchange="entrySource=this.value;validate()"><option value="">— how did it arrive —</option>${['Phone call','WhatsApp','Email','Portal','In-person visit'].map(s=>`<option ${s===entrySource?'selected':''}>${s}</option>`).join('')}</select></div>
+     <div class="fld wide"><label>General Instructions / Delivery Notes <span class="tag new">new</span> <span class="tag opt">optional</span></label><textarea id="e_instructions" oninput="entryInstructions=this.value;validate()" placeholder="e.g. deliver only Mon-Fri before 2pm, call before dispatch, handle with care...">${_av(entryInstructions)}</textarea></div>
     </div></div>
    <div class="card"><h3>Step 2 — Line Items <span class="hint">pack size auto-fills, override allowed</span></h3>
     ${entryClient?(function(){
@@ -3496,12 +3599,12 @@ function screenEntry(){
       <div id="e_total" class="muted" style="font-size:12px;text-align:right"></div>
     </div>
    </div>
-   <div class="row">
-     <div class="card" style="flex:1;min-width:280px"><h3>Step 3 — Validation</h3><div id="e_checks"></div></div>
-     <div class="card" style="flex:1.3;min-width:300px"><h3>Raw-material check</h3><div id="e_preview" class="muted" style="font-size:12.5px"></div></div>
-   </div>
+   <div class="card"><h3>Step 3 — Validation</h3><div id="e_checks"></div></div>
    <div class="card"><h3>Step 4 — Submit</h3>
-    <button id="e_submit" ${ed?'':'disabled'} onclick="submitPO()">▶ Submit PO &amp; run RM check</button></div></div>`;
+    <button id="e_submit" ${ed?'':'disabled'} onclick="submitPO()">▶ Submit PO &amp; run RM check</button></div>
+   </div>
+   <div class="po-side"><div class="summary"><h3>Order Summary <span class="hint">everything entered, at a glance</span></h3><div id="e_summary"></div></div></div>
+   </div></div>`;
   if(entryClient) renderEntryLines(); else validate();
 }
 function updatePacks(i){ const l=entryLines[i]; const el=document.getElementById('pk_'+i); if(el) el.textContent=(+l.qty>0&&+l.pack>0)?fmt(Math.ceil(+l.qty/+l.pack)):'—'; }
@@ -3593,23 +3696,13 @@ function validate(){
     + (may('order.create')?'':'<div style="font-size:12px;color:var(--amber);padding-top:4px">'+_pe(denyRight('order.create','Submitting a PO'))+'</div>');
   if($('e_submit')) $('e_submit').disabled=!ok;
   updateEntryTotal();
-  previewRM();
+  updateEntrySummary();
 }
 /* scroll to + focus the field a failed check points at (header field by id, or the lines table) */
 function focusField(id){ var el=document.getElementById(id); if(!el)return;
   try{ el.scrollIntoView({block:'center',behavior:'smooth'}); }catch(e){}
   var t=(el.tagName==='INPUT'||el.tagName==='SELECT')?el:(el.querySelector&&el.querySelector('input,select'));
   if(t&&t.focus){ try{ t.focus(); }catch(e){} } }
-function previewRM(){
-  const tmp={lines:entryLines.filter(l=>l.brand&&+l.qty>0).map(l=>({brand:l.brand,base:detailForBrand(l.brand).base||l.brand,ordered:+l.qty}))};
-  if(!$('e_preview'))return;
-  if(!tmp.lines.length){ $('e_preview').innerHTML='Add a brand and qty to preview.'; return; }
-  const need=Object.entries(rmCheck(tmp).need).filter(([k])=>!k.startsWith('(')).sort((a,b)=>b[1]-a[1]);
-  $('e_preview').innerHTML = (need.length
-    ? `<div class="muted" style="margin-bottom:5px">Estimated raw material (reference only):</div>`+need.map(([rm,kg])=>`<div style="padding:1px 0">${rm}: <b>${fmt(kg)} Kg/L</b></div>`).join('')
-    : `<div class="muted">No recipe on file for this product.</div>`)
-    + `<div class="muted" style="margin-top:7px;font-size:11px">Supply Chain confirms availability &amp; raises any PR in the PO Tracker.</div>`;
-}
 function submitPO(){
   if(!may('order.create')){toast(denyRight('order.create','Submitting a PO'));return;}
   const lines=entryLines.filter(l=>l.brand&&+l.qty>0); if(!lines.length){toast('Add a line item');return;}
@@ -3633,7 +3726,7 @@ function submitPO(){
   if((state.orders||[]).some(o=>String(o.po)===String(po))){ toast('A PO with number '+po+' already exists — open it in PO Tracker, or use a different client PO#.'); return; }
   const id='O'+(state.orders.length+1)+'_'+nid('');
   var _fedMode=entryFedMode();
-  const ord={ id, po, client:entryClient, channel:entryChannel, vgreenSub:entryVsub||null, destinationPartner:(entryChannel==='Vgreen'?(entryDestPartner||''):''), foc:!!entryFOC, fedMode:_fedMode, focalPerson:($('e_focal')&&$('e_focal').value)||'', kam:$('e_kam').value.trim(),
+  const ord={ id, po, client:entryClient, channel:entryChannel, vgreenSub:entryVsub||null, destinationPartner:(entryChannel==='Vgreen'?(entryDestPartner||''):''), foc:!!entryFOC, fedMode:_fedMode, focalPerson:($('e_focal')&&$('e_focal').value)||'', focalPhone:($('e_focalphone')&&$('e_focalphone').value)||'', source:($('e_source')&&$('e_source').value)||'', instructions:($('e_instructions')&&$('e_instructions').value.trim())||'', kam:$('e_kam').value.trim(),
     priority:$('e_pri').value, promised:$('e_prom').value, received:recv, rmDecision:'pending', printOnPack:(entryPrintMode()!=='no'), printDecision:(entryPrintMode()||'no'), printDecisionBy:((state.currentUser&&state.currentUser.name)||state.role), printDecisionAt:new Date().toISOString(),
     lines:lines.map((l,j)=>{const det=detailForBrand(l.brand);const procD=procureDaysFor(l.brand,det.base||l.brand,+l.qty);const autoCommit=computeCommitted(recv,+l.qty,procD,l.brand);return {id:id+'L'+j, brand:l.brand, base:det.base||l.brand, pack:+l.pack||det.pack||null, note:l.note||'', committed:l.committed||autoCommit||$('e_prom').value, ordered:+l.qty, printPrice:(entryFOC?0:(entryPrintMode()==='yes'?(+l.printPrice||0):0))/* SPEC-06: only the PO-price answer puts a number on the line. `entryPrintOn` is now a truthy STRING for all three answers, so the old test let a price typed under "yes" ride along after the user switched to list or no — where it is not wrong, just not true, and the "not a real price" anomaly reads it. */, invoicePrice:(entryFOC?0:(+l.inv||0)), invoicePack:(entryFOC?0:(+l.invPack||((+l.inv||0)*(+l.pack||0))||0)), produced:0,packed:0,dispatched:0,delivered:0};}) };
   ord.totalOrdered=ord.lines.reduce((a,l)=>a+l.ordered,0);

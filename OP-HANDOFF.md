@@ -1847,3 +1847,193 @@ commit `4a18d52`) rather than trusting the test suite alone:
 
 Net: the fix is live and behaving as designed on the deployed app, not just
 in the local test run.
+
+## 2026-08-26, resumed session (2) — O2S — New PO Entry redesign (design-artifact-approved)
+
+**Scope decision, confirmed with Tahir before touching anything:** work moves to O2S's
+master-level screens — New PO Entry, Customer Master, Admin/Master Data, Data Fix, Users &
+Access, Instructions — because they're master-level control, not daily workflow/logic.
+"Users & Access" was excluded from this scope on Tahir's confirmation: despite living inside
+`o2s.html`, it calls `/api/login` and `/api/users*`, which are PLATFORM-owned. This entry is
+New PO Entry only; Customer Master / Admin·Master Data / Data Fix are untouched, still open.
+
+**New standing rule, Tahir's words:** *"we will build a design artifact every time before we
+approve and make a change."* A Claude Design canvas prototype was built, iterated live with
+Tahir (he removed the raw-material preview card himself in the canvas editor), and explicitly
+approved ("This is fine. lets built it and push..") before any of `o2s.html` was touched.
+Published prototype: `https://claude.ai/code/artifact/d5d37664-d202-4b7f-9f7b-7be4b17003d4`.
+
+### What changed on the real screen
+
+- **Three new optional capture fields** that the screen never asked for before: Delivery
+  Contact Phone, Order Source (dropdown: Phone call / WhatsApp / Email / Portal / In-person
+  visit), and a full-width General Instructions / Delivery Notes textarea. None are required
+  to submit — they ride alongside the existing optional Delivery Focal Person field rather
+  than adding a new blocking rule. Priority and Delivery Focal Person, which previously had
+  no live handler, now refresh the summary panel as they're changed too.
+- **Raw-material preview card removed from the live screen** (Tahir, on the design canvas:
+  *"i have removed the raw material calculation window which is not rewuierd here"*). The
+  `previewRM()` function is deleted outright — dead code once its `#e_preview` element no
+  longer exists. The **real, shared** `rmCheck()` function (used elsewhere for actual order
+  `rmDecision` computation, lines ~1592 and ~2024) is untouched — it is a different function
+  from the entry-screen-only preview wrapper that was removed.
+- **Step-progress strip** (Header → Line items → Pricing → Submit, colour-coded not-started/
+  in-progress/done) and a **sticky "Order Summary" panel** that mirrors every field back live
+  as it's typed — replacing the removed raw-material card's screen real estate.
+
+### A real client-PO file upload was designed and built, then pulled back out — not shipping yet
+
+A first pass of this session also built a full attachment feature end to end: client-side
+pick/validate (8MB cap, pdf/jpg/jpeg/png), new `/api/o2s/attachments` POST/GET routes in
+`server.js` mirroring PD's existing no-DB upload pattern, a new `O2S_ATTACH_DIR` disk mount in
+`render.yaml`, and `submitPO()` made `async` to upload-then-abort-on-failure before creating
+the order. It was fully working and test-covered (38 checks) — then Tahir asked to hold it
+back: *"leave the attachment part for now"* / *"we will do it later"*. All of it has been
+**cleanly reverted**: `server.js`, `render.yaml`, `.gitignore` and `o2s/tests/harness.js` are
+back to their exact pre-session committed state (confirmed via `git status` — zero diff on
+all four), and `o2s.html` no longer contains `entryAttachFile`, the attach/upload helper
+functions, or any reference to `/api/o2s/attachments`. Nothing about it is half-applied.
+**Worth knowing for whenever this gets picked back up:** the design and the server-side
+pattern (mirror PD's `libStoreUpload`, same disk, same auth level as every other O2S route,
+loud warning instead of PD's silent ephemeral-storage fallback) are already worked out and
+didn't run into any problem — it's just parked, not blocked on anything.
+
+### Verification done this session
+
+- All 5 `<script>` blocks in the patched `o2s.html` parse clean (`new Function(...)` per
+  block, no syntax errors). `node -c server.js` clean (server.js is untouched, back to
+  original).
+- Full existing suite re-run after the change — **no regressions**, all 13 pre-existing
+  files still green (actioncenter 98, authmodel 5218, backlog 42, batchclose 184, batchqty
+  113, certremove 255, datafix-bulkprice 41, firstsave 15, lotpack 118, prodrender 102,
+  prodstuck 46, rights 61, spec06 52 — all passed, 0 failed).
+- **New test file, `o2s/tests/poentry.test.js` — 24 checks, all passing**, covering: the
+  raw-material card/`previewRM`/`e_preview` are genuinely gone from the whole file (not just
+  from a possibly-truncated function extract — `screenEntry()` is too irregular, nested
+  template literals plus a `.replace(/"/g,...)` regex literal, for `harness.js`'s brace-
+  matcher, a pre-existing limitation documented in its own comments, not something this
+  change caused — so these checks search the whole file rather than trusting `grab()` on
+  `screenEntry` specifically); `onChannelChange` resets all three new globals; `submitPO`
+  still gates on `may('order.create')` and records the three new fields on the order object;
+  `entryStepDots()` actually reflects real completion state (grey → teal once header fields
+  are filled), not just presence of the function; `updateEntrySummary()` renders "not set"
+  placeholders correctly and picks up real values from the DOM fields once filled in; and an
+  explicit check that no attachment code shipped this round.
+- `git status` confirms the final diff is exactly: `o2s.html` modified, `poentry.test.js`
+  new. Nothing else touched.
+
+### Files changed
+
+- `o2s/o2s.html` — new draft-state globals (`entryFocalPhone`, `entrySource`,
+  `entryInstructions`); `onChannelChange` reset list extended; new helpers
+  `entryStepDots`/`entryStepsHtml`/`updateEntrySummary`; `screenEntry()` restructured (scoped
+  `.po2` style block, step strip, two-column layout, new fields row, raw-material card
+  removed, sticky summary side column); Priority select wired to `validate()`; Delivery Focal
+  Person wired to `validate()`; `validate()` calls `updateEntrySummary()` instead of the
+  removed `previewRM()`; `previewRM()` deleted; the order object gains `focalPhone`/
+  `source`/`instructions`.
+- `o2s/tests/poentry.test.js` — **new**, 24 checks
+
+**Ready to push, not pushed.** Tahir pushes via GitHub Desktop.
+
+### Next
+
+1. Customer Master, Admin/Master Data, Data Fix — same "master-level, design-artifact-first"
+   scope, still fully open, not started.
+2. The client-PO attachment feature, parked per Tahir's explicit request this session — the
+   design and server-side pattern are already worked out (see above), ready to pick up
+   whenever wanted. Not on any list until Tahir asks for it again.
+3. From the design canvas's own "also considered, not in this draft" list (Tahir has seen
+   this, nothing decided yet): delivery drop-location per PO for non-VGreen channels (needs a
+   Customer Master change too), a reference/quotation number field, minimum shelf-life per
+   line, and a payment-terms override per PO. None built — flagged for a future decision, not
+   assumed.
+4. Everything already open before this session (HG26026/Ali Raza, `lotMultiLogRows`/`merge3`
+   edge cases, deferred `coaRework` bypass, the CFO-escalation matrix gap, S-01/S-02/S-03/S-04)
+   is untouched by this entry.
+
+---
+
+## 2026-08-27 — Customer Master: design-artifact review → prototype → shipped fix
+
+**Module: O2S.** Declared at session start ("we are working on o2s").
+
+### What happened
+
+1. Read `o2s/o2s.html`'s Customer Master screen cold (no prior assumption) and found 6
+   design issues for long-term use: (1) downstream screens (New PO Entry, Shipments/DC
+   printing) join customers by **name**, not by the code this screen assigns — a rename here
+   would silently break past-order matching; **not fixed this round, flagged below**. (2)
+   `state.customers`/`state.dealers` records had no stable `id`, so merge3's per-record merge
+   (`_arrId`) couldn't apply — a save conflict replaced the whole array, silently dropping a
+   concurrent edit. (3) The live dealer-code generator read region/city from an orphaned
+   `dlrForm` global left over from a pre-unification screen, not from the form actually being
+   filled in — every dealer got stamped with the same wrong region/city regardless of what
+   was picked. (4) `state.dealers` was a second, one-way-synced copy of Dealer-segment
+   customers that silently went stale. (5) No way to deactivate/reactivate a customer record
+   at all. (6) A code-generation race condition (`array.length+1` at read time).
+2. Per the standing "design artifact before any change" rule: built and published a Claude
+   Design canvas (`https://claude.ai/code/artifact/7d83cbb7-59d0-429b-b6d2-1b675a70742f`,
+   "Customer Master Fix") showing the Add/Edit form with a live Status field, working
+   Deactivate/Reactivate, and a sticky note listing the under-the-hood fixes (ids, code-gen
+   fix, dealers-array retirement). Tahir approved ("good to go").
+3. Implemented in `o2s/o2s.html`, scoped to exactly what the canvas showed:
+   - `ensureRecordIds()` backfills `.id = .code` on every existing `state.customers`/
+     `state.dealers` record.
+   - `custCode(seg,name,inducted,outlet,region,city)` — signature extended; the Dealer
+     branch now reads the region/city actually passed in (`regAbbr(region)`/`cityAbbr(city)`)
+     instead of the orphaned `dlrForm` global.
+   - The dead pre-unification path (`dlrForm`, `suggestCode`, `onDlrRegion`, `onDlrCity`,
+     `addDealer`) deleted outright — confirmed genuinely unreachable, `custSave()` alone
+     already covers the equivalent gate checks.
+   - `custSave()` stamps `id:code` on every saved record; call site passes the form's own
+     `region`/`city` into `custCode`; the buggy one-way `state.dealers` write-sync removed
+     (state.customers is now the single source of truth; comment left explaining why).
+   - New Status field (Active/Inactive) on the Add/Edit form; new `custToggleStatus()`
+     (gated on `may('customer.amend')`, same as `custSave`); wired into both branches of
+     `screenDealers()`'s row rendering (Edit + Deactivate/Reactivate buttons).
+4. **Deliberately not built this round**: the name-vs-code join-key issue (finding #1 above).
+   Fixing it touches New PO Entry's `curCustomer()`/`clientsForChannel()` and Shipments'
+   `printDC()` — a separate, larger change that needs its own design/decision, not something
+   to fold into this one silently.
+5. New test file `o2s/tests/customermaster.test.js` (36 checks) — source-level checks (dead
+   code really gone, `custCode`/`custSave`/`ensureRecordIds`/`custInit` all stamp/consume ids
+   and region/city correctly, `state.dealers` no longer written) plus real-execution checks
+   via the repo's `vm`-sandbox `app()` pattern (same shape as `poentry.test.js`): dealer codes
+   for Lahore/Punjab vs Karachi/Sindh come out correctly and differently
+   (`regAbbr`/`cityAbbr` are the app's real ones — Punjab → `PB`, Sindh → `SN`, confirmed via
+   `SEED.geo.regionCode`, not the `PU`/`SI` I first assumed and had to correct in the test);
+   `custSave()` produces `id===code` and never touches `state.dealers`; `custToggleStatus()`
+   flips status and is correctly denied when `may()` is stubbed false; `ensureRecordIds()`
+   backfills legacy records.
+   Also fixed two pre-existing test files that referenced the now-deleted `addDealer`:
+   `authmodel.test.js` and `rights.test.js` (both just dropped the dead reference — the gate
+   check they were making is already covered by `custSave()`).
+6. Ran the full suite: **all 15 files pass, 0 failures** (`customermaster.test.js`: 36/36;
+   everything else unchanged from before this session). All 6 `<script>` blocks in
+   `o2s.html` still parse cleanly (`new Function()` check).
+
+### Files changed
+
+- `o2s/o2s.html` — `ensureRecordIds`, `custCode`, `custInit`'s seed helper, `custSave`,
+  `custFormHTML` (Status field), new `custToggleStatus`, `screenDealers` (Edit/
+  Deactivate-Reactivate buttons); dead `dlrForm`/`suggestCode`/`onDlrRegion`/`onDlrCity`/
+  `addDealer` deleted.
+- `o2s/tests/customermaster.test.js` — **new**, 36 checks.
+- `o2s/tests/authmodel.test.js`, `o2s/tests/rights.test.js` — dropped references to the
+  deleted `addDealer`.
+
+**Ready to push, not pushed.** Tahir pushes via GitHub Desktop.
+
+### Next
+
+1. **The name-vs-code join-key issue is still open** — order entry and DC printing resolve
+   customers by name, not by the code Customer Master assigns. This is a separate, larger
+   change (touches New PO Entry and Shipments) and needs its own design pass before starting.
+   Not started, not scheduled — flagging for a decision, not assuming it's next.
+2. Admin/Master Data, Data Fix — same "master-level, design-artifact-first" scope as
+   Customer Master, still fully open, not started (carried over from before this session).
+3. Everything already open before this session (client-PO attachment parked per Tahir's
+   request, HG26026/Ali Raza, `lotMultiLogRows`/`merge3` edge cases, deferred `coaRework`
+   bypass, CFO-escalation matrix gap, S-01/S-02/S-03/S-04, the design canvas's own
+   "considered, not built" list) is untouched by this entry.

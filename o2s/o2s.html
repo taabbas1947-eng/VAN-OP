@@ -1612,6 +1612,13 @@ function ensureRecordIds(s){
   ensureIds(s.batches,'B',['batchNo','base','po','openedDate','producedKg']);
   ensureIds(s.audit,'AU',['t','user','module','field','val','po','brand']);
   ensureIds(s.actionLog,'AL',['t','role','what']);
+  /* Customer Master ids — 2026-08-27. `code` is already a stable, unique key
+     for both arrays, so we use it directly rather than ensureIds' computed
+     hash. This is what makes merge3's per-record merge apply to customer /
+     dealer edits instead of falling back to whole-array replace on a save
+     conflict — see the note above custSave() further down in this file. */
+  (s.customers||[]).forEach(function(c){ if(c && c.id==null) c.id=c.code; });
+  (s.dealers||[]).forEach(function(d){ if(d && d.id==null) d.id=d.code; });
 }
 function ensureState(s){
   s.dealers   = (s.dealers&&s.dealers.length)? s.dealers : deepClone(SEED.dealers||[]);
@@ -3741,7 +3748,6 @@ function submitPO(){
 /* ===================== DEALER MASTER ===================== */
 function regAbbr(region){ return (SEED.geo&&SEED.geo.regionCode&&SEED.geo.regionCode[region]) || (region||'').replace(/[^A-Za-z]/g,'').slice(0,2).toUpperCase(); }
 function cityAbbr(city){ return (city||'').replace(/[^A-Za-z]/g,'').slice(0,3).toUpperCase(); }
-let dlrForm={name:'',region:'Punjab',city:'',contact:'',phone:'',credit:0};
 /* ===== Customer Master (additive — references existing brand keys; never edits SEED/master data) ===== */
 var CUST_SEGMENTS=['White-label','Dealer','Distributor','VGreen','COBO','Direct Farmer'];
 var custSeg='White-label';
@@ -3749,9 +3755,9 @@ var custForm=null;
 function _custAbbr3(s){ return (String(s||'').replace(/[^A-Za-z]/g,'').slice(0,3).toUpperCase())||'XXX'; }
 function _custYY(y){ return String(y||TODAY.getFullYear()).slice(-2); }
 function custBrandKeyFor(seg){ if(seg==='White-label')return ''; if(seg==='COBO')return 'VITAL AGRI NUTRIENTS (PVT) LTD'; if(seg==='Distributor')return 'BKK'; return 'Vgreen'; /* Dealer/VGreen/Direct Farmer all use VAN brands */ }
-function custCode(seg,name,inducted,outlet){
+function custCode(seg,name,inducted,outlet,region,city){
   var cs=state.customers||[];
-  if(seg==='Dealer')return (typeof suggestCode==='function')?suggestCode():('DLR-'+_custAbbr3(name)+'-'+(100+cs.filter(function(c){return c.segment==='Dealer';}).length));
+  if(seg==='Dealer'){ var _reg=regAbbr(region||''); var _cty=city?cityAbbr(city):'XXX'; var _seq=String(cs.filter(function(c){return c.segment==='Dealer';}).length+1).padStart(3,'0'); return 'DLR-'+_reg+'-'+_cty+'-'+_seq; }
   if(seg==='White-label')return 'WL-'+_custAbbr3(name)+'-'+_custYY(inducted)+'-'+(100+cs.filter(function(c){return c.segment==='White-label';}).length);
   if(seg==='Distributor')return 'DST-'+_custAbbr3(name)+'-'+_custYY(inducted)+'-'+(100+cs.filter(function(c){return c.segment==='Distributor';}).length);
   if(seg==='Direct Farmer')return 'FRM-'+_custAbbr3(name)+'-'+_custYY(inducted)+'-'+(100+cs.filter(function(c){return c.segment==='Direct Farmer';}).length);
@@ -3765,7 +3771,7 @@ function custInit(){
   if(!state._custFixDP1){ state.customers=state.customers.filter(function(c){return c.code!=='VG-DP';}); state._custFixDP1=true; if(typeof save==='function')save(); }
   if(state._custInitV1){ return; }
   var has=function(name,seg){ return state.customers.some(function(c){return c.name===name&&c.segment===seg;}); };
-  var add=function(c){ if(!has(c.name,c.segment)) state.customers.push(c); };
+  var add=function(c){ if(!has(c.name,c.segment)){ if(c.id==null) c.id=c.code; state.customers.push(c); } };
   var yr=TODAY.getFullYear();
   (state.dealers||[]).forEach(function(d){ add({code:d.code,name:d.name,segment:'Dealer',parent:'',outlet:'',isParent:false,brandKey:'Dealers',region:d.region||'',city:d.city||'',contact:d.contact||'',phone:d.phone||'',creditDays:d.creditDays||0,fed:'Exclusive',kam:'',introducedBy:'',destination:'',ntn:'',inducted:yr,status:d.status||'Active'}); });
   add({code:'VG',name:'VGreen',segment:'VGreen',parent:'',outlet:'',isParent:true,brandKey:'Vgreen',fed:'Exclusive',kam:'',introducedBy:'',destination:'',status:'Active',inducted:yr});
@@ -3779,38 +3785,51 @@ function custInit(){
 function custStartAdd(seg){ custForm={editing:null,segment:seg||custSeg,name:'',parent:'',outlet:'',region:'Punjab',city:'',contact:'',phone:'',fed:'Exclusive',kam:'',introducedBy:'',destination:'',ntn:'',inducted:TODAY.getFullYear(),status:'Active'}; render(); }
 function custEdit(code){ var c=(state.customers||[]).filter(function(x){return x.code===code;})[0]; if(!c)return; custForm=Object.assign({editing:code},c); render(); }
 function custCancel(){ custForm=null; render(); }
+function custToggleStatus(code){
+  if(!may('customer.amend')){toast(whoMayRight('customer.amend').join(' / ')+' only — Customer Master is held back until customer records carry ids');return;}
+  var c=(state.customers||[]).filter(function(x){return x.code===code;})[0]; if(!c)return;
+  c.status=((c.status||'Active')==='Active')?'Inactive':'Active';
+  logAction((c.status==='Active'?'Reactivated ':'Deactivated ')+'customer '+code+' — '+c.name);
+  save(); toast(c.name+' '+(c.status==='Active'?'reactivated':'deactivated')); render();
+}
 function custParents(seg){ return (state.customers||[]).filter(function(c){return c.segment===seg&&c.isParent;}); }
-/* HELD BACK 2026-08-22, on the COO's instruction, and still held back. Since
-   24 Aug it says so through the rights model rather than a role name in code:
-   customer.create / customer.amend carry the OLD rule (the KAM-only hard check)
-   as their legacy, neither is live, and both are marked delegable:false so the
-   department lead cannot hand them out either. The lock is the same lock.
-   Why: neither array has an id on any row, so merge3 treats each as a single
-   leaf and the last writer takes the whole array — two people on this screen at
-   once silently delete one another's work. Widening the screen first would make
-   that reachable by four roles instead of two. Ids go in ensureRecordIds, then
-   this comes back as mayWork('dealers').
-   The COO's related decision the same day: Plant Manager gets New PO Entry but
+/* HELD BACK 2026-08-22, on the COO's instruction, and still held back — this is
+   a policy decision now, not a technical one. Since 24 Aug it says so through
+   the rights model rather than a role name in code: customer.create /
+   customer.amend carry the OLD rule (the KAM-only hard check) as their legacy,
+   neither is live, and both are marked delegable:false so the department lead
+   cannot hand them out either. The lock is the same lock.
+   2026-08-27 update: the technical reason for the hold is fixed. Every
+   customer/dealer row now carries an id (see ensureRecordIds()), so merge3
+   merges concurrent edits field-by-field instead of one save silently
+   deleting the other's work. mayWork('dealers') can be turned on whenever the
+   COO decides to — that is his call to make, not something flipped here on
+   its own.
+   The COO's related decision on 22 Aug: Plant Manager gets New PO Entry but
    NOT Customer Master. */
 function custSave(){ var f=custForm; if(!f)return;
   var _rt=f.editing?'customer.amend':'customer.create';
   if(!may(_rt)){toast(whoMayRight(_rt).join(' / ')+' only \u2014 Customer Master is held back until customer records carry ids');return;}
   if(!String(f.name||'').trim()){toast('Name required');return;}
   var isOutlet=(f.segment==='VGreen'||f.segment==='COBO');
-  var code=f.editing||custCode(f.segment,f.name,f.inducted,f.outlet);
+  var code=f.editing||custCode(f.segment,f.name,f.inducted,f.outlet,f.region,f.city);
   if(f.segment==='VGreen'&&!f.editing&&!String(f.outlet||'').trim()){toast('VGreen outlet code required (e.g. VC, FM, DP)');return;}
   if(!f.editing&&(state.customers||[]).some(function(c){return c.code===code;})){toast('Code '+code+' already exists');return;}
-  var rec={code:code,name:String(f.name).trim(),segment:f.segment,parent:isOutlet?(f.parent||f.segment):'',outlet:isOutlet?(f.outlet||''):'',isParent:false,brandKey:(f.segment==='White-label'?String(f.name).trim():custBrandKeyFor(f.segment)),region:f.region||'',city:f.city||'',contact:f.contact||'',phone:f.phone||'',creditDays:+f.creditDays||0,fed:f.fed||'Exclusive',kam:f.kam||'',introducedBy:f.introducedBy||'',destination:f.destination||'',ntn:f.ntn||'',inducted:f.inducted||TODAY.getFullYear(),status:f.status||'Active'};
+  var rec={id:code,code:code,name:String(f.name).trim(),segment:f.segment,parent:isOutlet?(f.parent||f.segment):'',outlet:isOutlet?(f.outlet||''):'',isParent:false,brandKey:(f.segment==='White-label'?String(f.name).trim():custBrandKeyFor(f.segment)),region:f.region||'',city:f.city||'',contact:f.contact||'',phone:f.phone||'',creditDays:+f.creditDays||0,fed:f.fed||'Exclusive',kam:f.kam||'',introducedBy:f.introducedBy||'',destination:f.destination||'',ntn:f.ntn||'',inducted:f.inducted||TODAY.getFullYear(),status:f.status||'Active'};
   state.customers=state.customers||[];
   if(f.editing){ var i=state.customers.findIndex(function(c){return c.code===f.editing;}); if(i>=0)state.customers[i]=rec; logAction('Edited customer '+code+' — '+rec.name); }
   else { state.customers.push(rec); logAction('Added customer '+code+' — '+rec.name+' ('+rec.segment+')'); }
-  if(f.segment==='Dealer'){ state.dealers=state.dealers||[]; if(!state.dealers.some(function(d){return d.code===code;})) state.dealers.push({code:code,name:rec.name,region:rec.region,city:rec.city,contact:rec.contact,phone:rec.phone,creditDays:rec.creditDays,status:rec.status}); }
+  /* state.dealers is retired as a write target (2026-08-27) — state.customers (segment==='Dealer') is the single source of truth. custInit()'s one-time seed below still reads the old array once, for historical installs. */
   custForm=null; save(); toast('Saved '+code); render();
 }
 function citiesFor(region){ return (SEED.geo&&SEED.geo.citiesByRegion&&SEED.geo.citiesByRegion[region])||[]; }
-function suggestCode(){ const seq=String((state.dealers.length+1)).padStart(3,'0'); return `DLR-${regAbbr(dlrForm.region)}-${cityAbbr(dlrForm.city)||'XXX'}-${seq}`; }
-function onDlrRegion(v){ dlrForm.region=v; dlrForm.city=''; screenDealers(); }
-function onDlrCity(v){ dlrForm.city=v; if($('dlr_code'))$('dlr_code').value=suggestCode(); }
+/* suggestCode()/onDlrRegion()/onDlrCity()/dlrForm — removed 2026-08-27. Leftover
+   from the pre-unification dealer-only onboarding screen; nothing in the live
+   UI called them, but custCode('Dealer',...) still routed through suggestCode(),
+   which read this orphaned dlrForm global instead of the region/city actually
+   picked in the unified Customer Master form — every dealer code was silently
+   stamped with dlrForm's frozen defaults regardless of what was selected.
+   Fixed directly in custCode() instead. */
 function custFormHTML(){ var f=custForm; var kam=((state.masters&&state.masters.kamNames)||[]); var regions=(SEED.geo&&SEED.geo.regions)||['Punjab']; var cities=citiesFor(f.region);
   var loc=(f.segment==='Dealer'||f.segment==='Direct Farmer');
   var esc=function(s){return String(s==null?'':s).replace(/"/g,'&quot;');};
@@ -3829,6 +3848,7 @@ function custFormHTML(){ var f=custForm; var kam=((state.masters&&state.masters.
   parts.push(fld('Phone','<input type="text" value="'+esc(f.phone)+'" oninput="custForm.phone=this.value">'));
   if(f.segment==='Dealer')parts.push(fld('Credit days','<input type="number" value="'+(f.creditDays||0)+'" oninput="custForm.creditDays=+this.value">'));
   parts.push(fld('NTN / tax ref (optional)','<input type="text" value="'+esc(f.ntn)+'" oninput="custForm.ntn=this.value">'));
+  parts.push(fld('Status','<select onchange="custForm.status=this.value">'+['Active','Inactive'].map(function(x){return '<option'+((f.status||'Active')===x?' selected':'')+'>'+x+'</option>';}).join('')+'</select>'));
   return '<div class="card"><h3>'+(f.editing?('Edit '+f.editing):'Add customer')+'</h3><div class="formgrid">'+parts.join('')+'</div><div style="margin-top:12px;display:flex;gap:8px"><button onclick="custSave()">Save customer</button><button class="ghost" onclick="custCancel()">Cancel</button></div></div>';
 }
 function screenDealers(){
@@ -3844,24 +3864,13 @@ function screenDealers(){
   var listHtml;
   if(custSeg==='VGreen'||custSeg==='COBO'){
     var outlets=cur.filter(function(c){return !c.isParent;});
-    listHtml='<div class="card"><h3>'+custSeg+' outlets <span class="hint">'+outlets.length+'</span>'+(edAdd?'<button class="sm" style="margin-left:auto" onclick="custStartAdd(\''+custSeg+'\')">+ Add outlet</button>':'')+'</h3>'+(outlets.length?('<div style="overflow:auto"><table><thead><tr><th>Code</th><th>Outlet</th><th>FED</th><th>KAM</th><th>Destination</th><th>Status</th><th></th></tr></thead><tbody>'+outlets.map(function(c){return '<tr><td><b>'+c.code+'</b></td><td>'+c.name+'</td><td>'+c.fed+'</td><td class="muted">'+(c.kam||'—')+'</td><td class="muted">'+(c.destination||'—')+'</td><td>'+pill(c.status||'Active','--green')+'</td><td>'+(ed?'<button class="sm ghost" onclick="custEdit(\''+c.code+'\')">Edit</button>':'')+'</td></tr>';}).join('')+'</tbody></table></div>'):'<div class="muted" style="padding:10px 2px">No outlets yet.</div>')+'</div>';
+    listHtml='<div class="card"><h3>'+custSeg+' outlets <span class="hint">'+outlets.length+'</span>'+(edAdd?'<button class="sm" style="margin-left:auto" onclick="custStartAdd(\''+custSeg+'\')">+ Add outlet</button>':'')+'</h3>'+(outlets.length?('<div style="overflow:auto"><table><thead><tr><th>Code</th><th>Outlet</th><th>FED</th><th>KAM</th><th>Destination</th><th>Status</th><th></th></tr></thead><tbody>'+outlets.map(function(c){return '<tr><td><b>'+c.code+'</b></td><td>'+c.name+'</td><td>'+c.fed+'</td><td class="muted">'+(c.kam||'—')+'</td><td class="muted">'+(c.destination||'—')+'</td><td>'+pill(c.status||'Active','--green')+'</td><td>'+(ed?('<button class="sm ghost" onclick="custEdit(\''+c.code+'\')">Edit</button> <button class="sm ghost" onclick="custToggleStatus(\''+c.code+'\')">'+((c.status||'Active')==='Active'?'Deactivate':'Reactivate')+'</button>'):'')+'</td></tr>';}).join('')+'</tbody></table></div>'):'<div class="muted" style="padding:10px 2px">No outlets yet.</div>')+'</div>';
   } else {
     var rows=cur.filter(function(c){return !c.isParent;});
-    listHtml='<div class="card"><h3>'+custSeg+' <span class="hint">'+rows.length+'</span>'+(edAdd?'<button class="sm" style="margin-left:auto" onclick="custStartAdd(\''+custSeg+'\')">+ Add '+custSeg+'</button>':'')+'</h3>'+(rows.length?('<div style="overflow:auto"><table><thead><tr><th>Code</th><th>Name</th><th>FED</th><th>KAM</th><th>Introduced by</th><th>Status</th><th></th></tr></thead><tbody>'+rows.map(function(c){return '<tr><td><b>'+c.code+'</b></td><td>'+c.name+(c.city?(' <span class="muted" style="font-size:11px">'+c.city+'</span>'):'')+'</td><td>'+c.fed+'</td><td class="muted">'+(c.kam||'—')+'</td><td class="muted">'+(c.introducedBy||'—')+'</td><td>'+pill(c.status||'Active','--green')+'</td><td>'+(ed?'<button class="sm ghost" onclick="custEdit(\''+c.code+'\')">Edit</button>':'')+'</td></tr>';}).join('')+'</tbody></table></div>'):'<div class="muted" style="padding:10px 2px">None yet.</div>')+'</div>';
+    listHtml='<div class="card"><h3>'+custSeg+' <span class="hint">'+rows.length+'</span>'+(edAdd?'<button class="sm" style="margin-left:auto" onclick="custStartAdd(\''+custSeg+'\')">+ Add '+custSeg+'</button>':'')+'</h3>'+(rows.length?('<div style="overflow:auto"><table><thead><tr><th>Code</th><th>Name</th><th>FED</th><th>KAM</th><th>Introduced by</th><th>Status</th><th></th></tr></thead><tbody>'+rows.map(function(c){return '<tr><td><b>'+c.code+'</b></td><td>'+c.name+(c.city?(' <span class="muted" style="font-size:11px">'+c.city+'</span>'):'')+'</td><td>'+c.fed+'</td><td class="muted">'+(c.kam||'—')+'</td><td class="muted">'+(c.introducedBy||'—')+'</td><td>'+pill(c.status||'Active','--green')+'</td><td>'+(ed?('<button class="sm ghost" onclick="custEdit(\''+c.code+'\')">Edit</button> <button class="sm ghost" onclick="custToggleStatus(\''+c.code+'\')">'+((c.status||'Active')==='Active'?'Deactivate':'Reactivate')+'</button>'):'')+'</td></tr>';}).join('')+'</tbody></table></div>'):'<div class="muted" style="padding:10px 2px">None yet.</div>')+'</div>';
   }
   $('view').innerHTML='<div class="paperui">'+(ed?'':viewOnly('KAM'))+'<div class="rb-top"><div><div class="rb-title">Customer Master</div><div class="rb-sub2">Add &amp; manage every customer · grouped by segment</div></div></div>'+tabs+(custForm?custFormHTML():'')+listHtml+'</div>';
 }
-function addDealer(){
-  if(!may('customer.create')){toast(whoMayRight('customer.create').join(' / ')+' only \u2014 Customer Master is held back until customer records carry ids');return;}
-  if(!dlrForm.name.trim()||!dlrForm.city.trim()){ toast('Name and city required'); return; }
-  const code=$('dlr_code').value.trim()||suggestCode();
-  if(state.dealers.some(d=>d.code===code)){ toast('Code already exists'); return; }
-  state.dealers.unshift({code, name:dlrForm.name.trim(), region:dlrForm.region, city:dlrForm.city,
-    contact:dlrForm.contact.trim(), phone:dlrForm.phone.trim(), creditDays:dlrForm.credit||0, status:'Confirmed'});
-  logAction(`Onboarded dealer ${code} — ${dlrForm.name.trim()} (${dlrForm.city}, ${dlrForm.region})`);
-  dlrForm={name:'',region:'Punjab',city:'',contact:'',phone:'',credit:0}; save(); toast('Dealer '+code+' added'); render();
-}
-
 /* ===================== 2. PO TRACKER ===================== */
 let trkFilter='all'; let trkStage=''; let trkChannel='all';
 /* ===================== PO TRACKER — control tower (UI redesign) ===================== */

@@ -385,7 +385,7 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
 /* ================= 7. the gates really were converted ================= */
 {
   const G = [['submitPO', 'order.create'], ['ackOrder', 'order.acknowledge'],
-             ['bulkPDMayAnswer', 'order.print_decision'], ['addDealer', 'customer.create']];
+             ['bulkPDMayAnswer', 'order.print_decision']];
   G.forEach(([fn, code]) => ok('GUARD: ' + fn + ' asks may(\'' + code + '\')',
      new RegExp("may\\('" + code.replace('.', '\\.') + "'\\)").test(H.grab(fn)), H.grab(fn).slice(0, 90)));
   /* custSave asks for a different right depending on whether it is an add or an
@@ -394,7 +394,7 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
      /may\(_rt\)/.test(H.grab('custSave')) && /'customer\.amend'/.test(H.grab('custSave'))
        && /'customer\.create'/.test(H.grab('custSave')), H.grab('custSave').slice(0, 140));
   ok('GUARD: no Commercial gate still calls hardRole([\'KAM\'])',
-     !/hardRole\(\['KAM'\]\)/.test(H.grab('custSave') + H.grab('addDealer')));
+     !/hardRole\(\['KAM'\]\)/.test(H.grab('custSave')));
   /* Named, not counted. A floor like ">= 40" goes stale on every conversion and
      then gets quoted as if it meant something; these are the actual gates that
      must never become rights. */

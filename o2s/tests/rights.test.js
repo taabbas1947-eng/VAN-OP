@@ -61,7 +61,7 @@ const ALL = (STATE.masters.roles || []).map(r => r.name).concat(['COO'])
      not live, so the lock is byte-for-byte the same lock. Checked by behaviour
      (who actually gets through) rather than by grepping for a role name, which
      would go green again the moment somebody wrote a different wrong thing. */
-  const dealerSrc = H.grab('custSave') + H.grab('addDealer');
+  const dealerSrc = H.grab('custSave');
   ok('Customer Master asks the rights model, not a role name',
      !/hardRole\(\['KAM'\]\)/.test(dealerSrc) && /may\(/.test(dealerSrc));
   ok('...and the refusal still says why', /held back until customer records carry ids/.test(dealerSrc));

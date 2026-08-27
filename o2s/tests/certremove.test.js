@@ -93,6 +93,9 @@ function app(role, file) {
     + ' state.currentUser = { name: "Tahir Abbas", username: "tahir" };'
     + ' state.batches = state.batches || []; state.batches.push(__b);'
     + ' toasts = []; toast = function(m){ toasts.push(String(m)); }; save = function(){};', c);
+  /* Production converted to RIGHTS_LIVE on 27 Aug — see batchclose.test.js's
+     copy of this comment. Full-app sandbox, so the real function is right here. */
+  vm.runInContext('if(typeof seedDeptRightsV1==="function") seedDeptRightsV1(state);', c);
   c.__els = els;
   return c;
 }

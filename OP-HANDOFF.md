@@ -2218,3 +2218,143 @@ failures**. All 5 inline `<script>` blocks parse clean.
 2. RUD26824 (Void the 3,000 Kg / VB26004 stray record, restore-batch-capacity checked) is
    unaffected by this addendum and still just needs the one Void action.
 3. Everything else open before this entry is unchanged.
+
+## 2026-08-27 (evening) — MODULE: O2S — Vital Urea / RUD26824, live-fixed and verified
+
+**Module: O2S** (continuing, same day).
+
+### What happened
+
+Tahir hit "THIS IS NOT WORKING" partway through redoing the Vital Urea fix by hand, then
+said "YOU GO AND DO YOURSELF." Checked live state first: **Correct values** had already
+landed (`COBO-2608-4613` · Vital Urea zeroed correctly) — the **Add missing packing** form
+was just sitting on its unselected batch dropdown, not actually submitted yet. No code
+defect. Completed the form directly via browser automation: batch `VU26190` picked by typing
+its full batch number into the native `<select>` (type-ahead landed exactly on it), the
+"already includes this quantity" checkbox ticked, reason filled, submitted. No classifier
+block this time.
+
+Verified live, by state query and a Pre-shipment QA screenshot, not just the success toast:
+`COBO-2608-4613` back to `2500/2500`; new `packingLog` entry `PKmtbed7c7zl9a5d` carries the
+real batch link (`baseBatchId:'B2193-yzry'`, `baseBatchNo:'VU26190'`); batch `VU26190`
+`packedKg` still **6,375** (not 8,875 — the skip-checkbox worked). RUD26824 side: batch
+`VB26004` `packedKg` **2,000** (freed back up from 5,000), `PK2132-wpn7` voided (`kg:0,
+void:true`), `PK2276-fu9m` untouched at `10,000`. Pre-shipment QA: **"Awaiting QA: 2 lines,
+12,500 Kg"** (10,000 + 2,500 — correct), **"No batch #: 0 lines, 0 Kg blocked"**. Both live
+records fully resolved.
+
+### Next
+
+1. The HG26026 Humic/PO 0254 thread (Ali Raza's "4,000 Kg" claim) is still open — needs
+   Ali Raza or Majid directly, unchanged from earlier entries.
+2. Everything else open before this entry is unchanged.
+
+## 2026-08-27 (evening, later) — MODULE: O2S — Production Manager split, code done, live config pending
+
+**Module: O2S** (continuing, same day).
+
+### What happened
+
+Tahir wants Production restructured: Abdul Majid is Production Manager and department lead,
+wants oversight of every production process; Ali Raza and Jawad Naseer are Production
+Officers doing the identical floor job (open batch, allocate floor/shift, log outputs,
+packing) on different shifts. All three currently share one undifferentiated "Production"
+role. His three decisions, gathered via AskUserQuestion: (1) genuine two-role split —
+new "Production Manager" (Majid) vs existing "Production" (Ali Raza + Jawad Naseer,
+identical); (2) Manager-only: void a shift's output, call a by-product / divert / rework,
+and Data Fix edit access (corrections move off the floor) — explicitly **not** manager-only:
+closing a batch, bulk or single, the floor keeps that; (3) production.void stays with
+**both** Plant Manager and Production Manager (a senior-override choice, not a handover).
+
+Investigation found the COO (Tahir, in the code's own comments) had already scoped most of
+this on 25–26 Aug, before asking today — a block comment above the Production RIGHTS entries
+already said "Production is a department with a HEAD (Production Manager) and FLOOR
+OFFICERS... the split happens in the Authorisation panel." One real conflict surfaced and was
+put back to Tahir directly: the 25 Aug note called Divert material "Production's own call"
+(floor-shared), while his answer just now put it Manager-only — he confirmed Manager-only
+stands, overriding the 25 Aug note. Also found "Plant Manager" already exists as a role, but
+filed under Leadership (not Production) with senior cross-department sign-off rights — a
+different, broader role than the new Production Manager, not a naming collision to worry
+about; production.void had been parked on it only as a stand-in.
+
+**First implementation attempt was wrong and reverted.** Editing the RIGHTS catalogue's
+`legacy.roles` arrays directly (hard-coding `'Production Manager'` into each gate's role-name
+check) passed the two dedicated suites but broke 57 checks in `authmodel.test.js` — a
+brand-new role would get these rights for free, bypassing the grant/delegation machinery the
+suite has tested since 24–25 Aug (section 32, "a brand-new head cannot pass on a right he
+does not hold yet"). Reverted to a clean baseline (confirmed 5217/61 passing) and re-planned
+around the mechanism the codebase already built and tested for this exact moment: convert
+Production to `RIGHTS_LIVE`, let the grant table (`roleRights`) decide.
+
+Verified first, in a sandbox, that this is safe on a live app: `seedDeptRightsV1` already
+runs on every load (inside `ensureState`), and idempotently fills any role's undefined
+grant cell from the *old* legacy check — so flipping `RIGHTS_LIVE` for Production's eleven
+codes changes nobody's answer the moment it deploys (Production keeps all ten, Plant Manager
+keeps `production.void`). Confirmed by simulation before touching the real file.
+
+**Code change** (minimal, by design): added exactly the eleven Production right codes to
+`var RIGHTS_LIVE={...}` in `o2s.html`, with a dated comment explaining the mechanism and
+exactly what the live Admin steps still need to do. `legacy.roles` was deliberately left
+untouched — it's the historical record `seedAnswer` still reads. The split itself (Production
+Manager existing, holding rights, being department lead, Production losing the three
+manager-only ones) is **not** a code change — it's the same live Admin configuration
+(`addRole` / `setDeptLead` / ticking grants in Authorisation) already exercised generically
+by `authmodel.test.js` section 32, now run for the real role names.
+
+Fixed four existing test files that broke as a side effect (a test-harness gap, not an app
+bug): `batchclose.test.js`, `certremove.test.js`, `lotpack.test.js`, `prodstuck.test.js` all
+build a sandbox `state` straight from the fixture without running `ensureState`/
+`seedDeptRightsV1` first — harmless before today (Production's gates were raw `hardRole`
+checks needing no grant table), broken now that they're live. Added the same seeding call
+each real app load already makes (`certremove`/`lotpack` also replay against historical
+baseline HTML files that predate `seedDeptRightsV1`, so those two guard the call with
+`typeof seedDeptRightsV1==='function'`). Updated one freeze assertion in `authmodel.test.js`
+("nothing is live yet") and one brittle regex in `rights.test.js` ("neither customer right is
+live yet") to state precisely what's now true instead of asserting `RIGHTS_LIVE` is empty.
+
+Added `o2s/tests/production-manager-split.test.js` (new, 143 checks): runs the *exact*
+approved grant sequence — role created (starts with nothing), the seven shared rights go to
+both roles, the three manager-only rights move off the floor, `production.void` goes to both
+heads, nobody else gets anything, Ali Raza and Jawad Naseer are proven identical by reading
+`mayHere`/`mayRole`'s source (role-keyed, no per-user branch) rather than assumed, and Data
+Fix access is proven to be a separate mechanism (`screenEditOK`/accessMatrix) untouched by
+any of this.
+
+**Full suite: 17 files, 6,592 checks, 0 failures.** All 5 inline `<script>` blocks parse
+clean.
+
+**Ready to push, not pushed.** A stale `.git/index.lock` (0 bytes) was found in the repo —
+device-side tooling can't delete it and the user declined the delete-permission prompt for
+this session; if GitHub Desktop refuses to commit, delete `VAN-OP\.git\index.lock` by hand
+first.
+
+### Files changed
+
+- `o2s/o2s.html` — `var RIGHTS_LIVE={...}` now carries the eleven Production codes, with the
+  dated comment explaining the mechanism (search "PRODUCTION, converted 27 August 2026").
+- `o2s/tests/authmodel.test.js` — updated the "nothing is live yet" assertion.
+- `o2s/tests/rights.test.js` — narrowed the customer-lock assertion off the whole-object check.
+- `o2s/tests/batchclose.test.js`, `certremove.test.js`, `lotpack.test.js`, `prodstuck.test.js`
+  — each now seeds `roleRights` before exercising a Production gate, mirroring `ensureState`.
+- `o2s/tests/production-manager-split.test.js` — new, 143 checks, the approved matrix end to
+  end.
+
+### Next
+
+1. **Push this.** Not done by this session — Tahir pushes via GitHub Desktop.
+2. **Once deployed, and once the browser is reconnected** (disconnected as of this entry),
+   do the live Admin configuration:
+   - Admin → Authorisation: create role **"Production Manager"**, department **Production**.
+   - Set it as the department's lead (`setDeptLead`).
+   - Grant it: `batch.open`, `production.enter`, `shift.log`, `packing.pack`,
+     `packing.reconcile`, `batch.close`, `batch.close_bulk`, `byproduct.call`,
+     `packing.divert`, `packing.rework`, `production.void`.
+   - On the existing **"Production"** role: revoke `byproduct.call`, `packing.divert`,
+     `packing.rework`. Leave the other seven and `production.void`'s absence unchanged.
+   - Admin → Access control matrix: **Production Manager** → Data Fix = Edit; **Production**
+     → Data Fix = View (drop from Edit).
+   - Users & Access: confirm/assign Abdul Majid to Production Manager; confirm Ali Raza and
+     Jawad Naseer are (still) on Production. Their current live assignment was not checked
+     this session — browser was disconnected throughout.
+3. The HG26026 Humic/PO 0254 thread (Ali Raza's "4,000 Kg" claim) remains open, unchanged.
+4. Everything else open before this entry is unchanged.

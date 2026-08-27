@@ -96,8 +96,21 @@ const asRole = r => { B.state.role = r; };
   /* The sign-offs are NOT in the catalogue and must never be. */
   ['dc.approve', 'dc.reject', 'shipment.release', 'batch.reopen', 'coa.approve']
     .forEach(c => ok('sign-off NOT converted: ' + c, !B.rightByCode(c)));
-  ok('and nothing is live yet — this is what makes the conversion safe',
-     Object.keys(B.RIGHTS_LIVE).length === 0, JSON.stringify(B.RIGHTS_LIVE));
+  /* UPDATED 27 Aug: Production is the first department actually switched live,
+     for the split described in section 31. Exactly its eleven codes, nothing
+     else — a fifth department going live by accident is the same class of bug
+     as one never going live at all. */
+  {
+    const PROD_LIVE = ['batch.open','production.enter','shift.log','packing.pack',
+      'packing.reconcile','byproduct.call','packing.divert','packing.rework',
+      'batch.close','batch.close_bulk','production.void'];
+    eq('exactly the eleven Production codes are live, nothing else',
+       Object.keys(B.RIGHTS_LIVE).sort().join(','), PROD_LIVE.slice().sort().join(','));
+    ok('...and every one of them is true, not merely present',
+       PROD_LIVE.every(c => B.RIGHTS_LIVE[c] === true), JSON.stringify(B.RIGHTS_LIVE));
+    ok('...and no Commercial or Supply Chain code went live by accident',
+       B.RIGHTS.filter(r => r.dept !== 'production').every(r => B.RIGHTS_LIVE[r.code] !== true));
+  }
 }
 
 /* ================= 2. NOTHING STOPPED WORKING ================= */

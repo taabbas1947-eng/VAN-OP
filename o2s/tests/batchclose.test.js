@@ -55,6 +55,12 @@ function ctx(role, st) {
     corrections: [], audit: [], actionLog: [],
     masters: JSON.parse(JSON.stringify(require(H.STATE).data.masters)) }, st);
   s.globalThis = s; vm.createContext(s); vm.runInContext(SRC, s);
+  /* Production converted to RIGHTS_LIVE on 27 Aug — roleRightsOf() must be
+     seeded from the fixture's masters before any may('batch.close'*) check,
+     exactly as ensureState() always does on a real load. Without this every
+     Production-role check in this file answers as if nobody had ever been
+     granted anything. */
+  s.seedDeptRightsV1(s.state);
   s._log = log; return s;
 }
 

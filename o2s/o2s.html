@@ -2544,8 +2544,39 @@ var SEPARATION=[
 
 /* NOTHING IS LIVE YET. Adding a code here is the moment a right starts being
    answered by the grant table instead of the old check. One at a time, each
-   behind its own review. */
-var RIGHTS_LIVE={};
+   behind its own review.
+
+   PRODUCTION, converted 27 August 2026. The COO asked for a genuine split: a
+   Production Manager (head, department lead, Abdul Majid) above floor officers
+   (Ali Raza, Jawad Naseer) who today share one undifferentiated Production
+   role. Ten of these were hardRole(['Production']); production.void was
+   hardRole(['Plant Manager']) as a stand-in until a Production Manager role
+   existed. Flipping them live changes nobody's answer today —
+   seedDeptRightsV1 already runs on every load (see ensureState) and seeds
+   every role's grant from the exact old legacy.roles check, so Production
+   keeps all ten and Plant Manager keeps production.void unchanged the moment
+   this deploys. legacy.roles is left untouched deliberately — it is the
+   historical record of what each gate used to check, and seedAnswer still
+   reads it for that.
+   The split itself is NOT a code change: once Production Manager exists (COO
+   creates it in Authorisation, in the production department), it starts with
+   nothing — seedAnswer('Production Manager', r) is false for all eleven,
+   because the role name is in none of their legacy.roles arrays — and the
+   COO ticks each right across by hand, one grant at a time, same as any other
+   converted department. batch.open, production.enter, shift.log, packing.pack,
+   packing.reconcile, batch.close and batch.close_bulk go to BOTH roles —
+   the COO was explicit that floor officers keep batch-closing. byproduct.call,
+   packing.divert and packing.rework go to Production Manager only — the
+   COO revisited the 25 Aug 'Production's own call' note on divert (see its
+   own note) and decided the day's decision changed. production.void goes to
+   Production Manager too, alongside Plant Manager — the COO's call was to
+   keep both, not move it across. */
+var RIGHTS_LIVE={
+  'batch.open':true, 'production.enter':true, 'shift.log':true,
+  'packing.pack':true, 'packing.reconcile':true,
+  'byproduct.call':true, 'packing.divert':true, 'packing.rework':true,
+  'batch.close':true, 'batch.close_bulk':true, 'production.void':true
+};
 
 function rightByCode(c){ for(var i=0;i<RIGHTS.length;i++){ if(RIGHTS[i].code===c) return RIGHTS[i]; } return null; }
 function rightsOfDept(d){ return RIGHTS.filter(function(r){ return r.dept===d; }); }

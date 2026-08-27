@@ -50,6 +50,9 @@ function app() {
   BLOCKS.forEach(b => vm.runInContext(b, c));
   c.__st = JSON.parse(JSON.stringify(STATE));
   vm.runInContext('state = __st; state.screen = "prod"; state.orders = []; state.batches = state.batches || [];', c);
+  /* Production converted to RIGHTS_LIVE on 27 Aug — see batchclose.test.js's
+     copy of this comment. Full-app sandbox, so the real function is right here. */
+  vm.runInContext('seedDeptRightsV1(state);', c);
   return c;
 }
 const run = (c, src) => vm.runInContext(src, c);

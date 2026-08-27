@@ -67,9 +67,13 @@ const ALL = (STATE.masters.roles || []).map(r => r.name).concat(['COO'])
   ok('...and the refusal still says why', /held back until customer records carry ids/.test(dealerSrc));
   {
     const ab = H.grabTopVar('RIGHTS', '[');
+    /* UPDATED 27 Aug: RIGHTS_LIVE is no longer empty — Production converted
+       (authmodel.test.js section 1 pins exactly which eleven codes). The
+       customer-lock guarantee is narrower than "nothing is live": these two
+       specific codes must never be in it, whatever else is. */
     ok('and neither customer right is live yet',
-       /var RIGHTS_LIVE=\{\s*\}/.test(H.grabTopVar('RIGHTS_LIVE', '{').replace(/\s+/g, ' ')
-                                       .replace('var RIGHTS_LIVE= {', 'var RIGHTS_LIVE={')),
+       H.grabTopVar('RIGHTS_LIVE', '{').indexOf("'customer.create'") === -1
+       && H.grabTopVar('RIGHTS_LIVE', '{').indexOf("'customer.amend'") === -1,
        H.grabTopVar('RIGHTS_LIVE', '{'));
     ok('their old rule is recorded as KAM only, so the lock is unchanged',
        /'customer\.create'[\s\S]{0,240}?legacy:\{kind:'hard', roles:\['KAM'\]\}/.test(ab)

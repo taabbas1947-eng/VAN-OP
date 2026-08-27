@@ -84,6 +84,9 @@ function app(file) {
   vm.runInContext('state = __st; state.screen="prod"; state.role="Production";'
     + ' state.batches = state.batches || []; state.batches.push(__b);'
     + ' toasts = []; var _t = toast; toast = function(m){ toasts.push(String(m)); };', c);
+  /* Production converted to RIGHTS_LIVE on 27 Aug — see batchclose.test.js's
+     copy of this comment. Full-app sandbox, so the real function is right here. */
+  vm.runInContext('if(typeof seedDeptRightsV1==="function") seedDeptRightsV1(state);', c);
   return c;
 }
 const run = (c, src) => vm.runInContext(src, c);

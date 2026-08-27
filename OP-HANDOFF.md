@@ -2557,3 +2557,75 @@ array confirming both roles now resolve to the same 10-screen nav: dash,
 approvals, tracker, prod, qc, qa, ship, reports, instructions, datafix.
 
 **Not pushed yet.** Same GitHub Desktop step as the other changes tonight.
+
+## 2026-08-27 (night, yet later still) — MODULE: O2S — full access audit + Ismaeel/Finance fix
+
+Tahir asked for a full department-by-department check: does everyone see what they
+need (Finance, Production, Plant included), and grant anything that's lacking.
+Also cleared up the "Ismaeel" confusion and asked for a general Finance role.
+
+**Full nav audit — every role compared against its explicit Access control
+grants.** Same bug pattern as Production Manager, found in seven more places
+(access was granted in the matrix but invisible in the sidebar):
+
+- **Plant Manager (Fahim)** — biggest gap. Added Sales & Budget, Customer Master,
+  New PO Entry, Production, Shipments, and Users & Access to his nav — all
+  already explicitly granted in the matrix, none of it reachable before.
+- **Supply Chain Officer (Zain)** — sidebar was completely empty (identical bug
+  to Majid's original one). Added Dashboard, My Actions, PO Tracker, Production
+  (view), Lab QC (edit), Shipments (edit), Reports (edit), Instructions.
+- **QA Inspector** — added Production (view-only — this is the correct,
+  already-fixed state per the loophole closed earlier; see authmodel test
+  section 24) and Reports.
+- **AQCM, QCM, Lab Rep** — all three added to Reports (each already had an
+  explicit Reports edit grant, invisible in nav).
+- **CFO (Yawar)** — added Customer Master (edit) and New PO Entry (view), both
+  already explicitly granted.
+
+**Ismaeel / Finance, sorted out.** The role at `id: finance, deptId: finance`
+had its display name accidentally set to a person's name ("Ismaeel") instead of
+a functional name. Tahir confirmed: Muhammad Ismail (username `ismaeel`) really
+is a Finance desk officer whose job is raising POs and confirming delivery when
+site sends back the paperwork — nothing to do with the broad Admin/Customer
+Master/Lab QC access that role happened to carry.
+
+- Renamed the role **"Ismaeel" → "Finance Desk Officer"**.
+- Rebuilt its access matrix from scratch to match his actual job only: **New PO
+  Entry** (edit — `order.create`) and **Shipments** (edit — `delivery.confirm`,
+  the "mark delivered" action, which is how he confirms receipt from site — NOT
+  the Plant-Manager-only DC *approval* gate, which stays untouched and hard-locked
+  as it's always been), plus PO Tracker (view) and the usual Dashboard/My
+  Actions/Instructions baseline. Stripped Admin edit, Customer Master edit, and
+  Lab QC view — none of that matched his job.
+- Reassigned Muhammad Ismail's live account from KAM → Finance Desk Officer.
+- There was also a second, orphaned "Finance" access-matrix entry (Reports edit,
+  My Actions + Sales & Budget view) that didn't match any role name — separate
+  from the Ismaeel mess, already reasonably configured. Created a real **"Finance"**
+  role against it (id `finance-2`, department Finance) so it's selectable and
+  usable — nobody assigned yet, ready for when Tahir adds more finance-team
+  people who just need to track budget/reports.
+
+**Verified, not just wired:**
+- Confirmed both of Ismaeel's rights actually resolve live: `may('order.create')`
+  and `may('delivery.confirm')` both return true for Finance Desk Officer, and
+  false for the Plant-Manager-only DC approval functions (`approveDC` etc. —
+  untouched, still `hardRole(['Plant Manager'])`, not in the rights catalogue at
+  all, exactly as the code's own guard rail requires).
+- Ran the app's own `screenLoopholes()` check (the thing that caught the QA
+  Inspector/Production loophole earlier) against every new grant this round —
+  **0 loopholes**, before and after. Nothing new can reach a right it wasn't
+  supposed to.
+- Full suite: still exactly 6,592/6,592 (17 files, 0 failures).
+
+**On "make sure nothing is seeded and every right is solely from the matrix":**
+checked what's still hardcoded outside the rights matrix (`hardRole(...)` calls).
+What's left is deliberate, not accidental: the Lab QC certification sign-off
+chain (Analyst → AQCM → QCM, plus Plant Manager deviation/rework), batch
+reopening, and the DC-approval/truck-release trio — all explicitly guarded by
+the test suite as controls that must NEVER become matrix-delegable (the DC one
+is tied to a documented 2026-07-30 incident). Did not touch any of these. Every
+role's day-to-day screen access now genuinely reads off Access control — the
+data-hygiene mistakes found and fixed this round were role naming (Ismaeel) and
+missing nav wiring (this + the Production Manager round), not hidden rights.
+
+**Not pushed yet.**

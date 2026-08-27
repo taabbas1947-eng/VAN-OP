@@ -125,6 +125,39 @@ function baseState() {
   ok('it says so', b.toasts.some(t => /batch # linked/.test(t)));
 }
 
+/* The exact live sequence that surfaced this: void the old unlinked backfill
+   (batch never touched, since it had no baseBatchId to restore), which leaves
+   the order line unbacked again - then redo "Add missing packing" with the
+   real batch. The batch's packedKg ALREADY includes this 2,500 Kg from the
+   original untraced pack (it was never removed at any point), so crediting it
+   again would silently push it to 8,875 - overstating consumption and wrongly
+   zeroing its remaining capacity, with no existing tool to correct a batch's
+   packedKg back down (CORRECT_ENTITY.batch has no such field). The checkbox
+   exists for exactly this redo case. */
+{
+  const st = baseState();
+  st.batches[0].packedKg = 6375; // already includes the 2,500 from the original untraced pack
+  const b = box(st, { oid: 'O43', lid: 'O43L0', qty: '2500', date: '2026-08-27',
+                       reason: 'redo after voiding the unlinked backfill; batch already reflects this qty',
+                       bid: 'B2193', skipBatchCredit: true });
+  b.dfSubmitPacking();
+  eq('checkbox on: batch packedKg is NOT re-credited (stays 6375, not 8875)', st.batches[0].packedKg, 6375);
+  eq('...but the order line still catches up', st.orders[0].lines[0].packed, 2500);
+  eq('...produced too', st.orders[0].lines[0].produced, 2500);
+  const p = st.packingLog[0];
+  eq('...and the record still carries the real batch link, so QA can verify it', p.baseBatchId, 'B2193');
+  ok('...the correction record shows the batch total was left alone',
+     st.corrections.some(c => (c.changes || []).some(ch => ch.field === 'batchPackedKg' && ch.before === '6375' && ch.after === '6375')),
+     JSON.stringify(st.corrections[0]));
+}
+{
+  const st = baseState();
+  const b = box(st, { oid: 'O43', lid: 'O43L0', qty: '2500', date: '2026-08-27', reason: 'default behaviour check',
+                       bid: 'B2193', skipBatchCredit: false });
+  b.dfSubmitPacking();
+  eq('checkbox off (default): batch IS credited, exactly as the earlier test expects', st.batches[0].packedKg, 3875 + 2500);
+}
+
 /* ============ 3. dfSubmitVoid: RUD26824-shaped case ============ */
 function voidState() {
   return {

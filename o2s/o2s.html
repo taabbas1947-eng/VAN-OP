@@ -3101,7 +3101,7 @@ function screenDataFix(){
 /* ===================== LOCK 5: Data Fix — Add-missing operations ===================== */
 let dfOp=null, dfForm={};
 function dfBack(){ dfOp=null; dfForm={}; render(); }
-function dfStart(op){ dfOp=op; dfForm={kind:'po',oid:'',lid:'',base:'',brand:'',qty:'',date:TODAY.toISOString().slice(0,10),date2:TODAY.toISOString().slice(0,10),reason:'',shift:(((state.masters&&state.masters.shifts)||['Morning'])[0]),incharge:'',po:'',client:'',channel:(((typeof SEED!=='undefined'&&SEED.channels)||['White Label'])[0]),priority:'Normal',received:TODAY.toISOString().slice(0,10),promised:new Date(TODAY.getTime()+7*864e5).toISOString().slice(0,10),ordered:'',bid:'',pid:'',restoreBatch:true}; render(); }
+function dfStart(op){ dfOp=op; dfForm={kind:'po',oid:'',lid:'',base:'',brand:'',qty:'',date:TODAY.toISOString().slice(0,10),date2:TODAY.toISOString().slice(0,10),reason:'',shift:(((state.masters&&state.masters.shifts)||['Morning'])[0]),incharge:'',po:'',client:'',channel:(((typeof SEED!=='undefined'&&SEED.channels)||['White Label'])[0]),priority:'Normal',received:TODAY.toISOString().slice(0,10),promised:new Date(TODAY.getTime()+7*864e5).toISOString().slice(0,10),ordered:'',bid:'',pid:'',restoreBatch:true,skipBatchCredit:false}; render(); }
 function dfReasonOk(){ return !!(dfForm.reason && String(dfForm.reason).trim()); }
 function dfPOSelect(){ return `<select onchange="dfForm.oid=this.value;dfForm.lid='';dfForm.bid='';dfForm.pid='';render()"><option value="">— pick PO —</option>${state.orders.map(o=>`<option value="${o.id}" ${dfForm.oid===o.id?'selected':''}>${o.po} · ${o.client}</option>`).join('')}</select>`; }
 function dfLineSelect(){ const o=state.orders.find(x=>x.id===dfForm.oid); const ls=o?o.lines:[]; return `<select onchange="dfForm.lid=this.value;dfForm.bid='';dfForm.pid='';render()" ${o?'':'disabled'}><option value="">${o?'— pick product —':'pick PO first'}</option>${ls.map(l=>`<option value="${l.id}" ${dfForm.lid===l.id?'selected':''}>${l.brand} (${fmt(l.produced||0)}/${fmt(l.ordered)})</option>`).join('')}</select>`; }
@@ -3153,12 +3153,22 @@ function dfFormHtml(op){
   }
   if(op==='packing'){
     const _pfo=state.orders.find(x=>x.id===dfForm.oid); const _pfl=_pfo&&_pfo.lines.find(x=>x.id===dfForm.lid);
+    const _pfb=dfForm.bid?(state.batches||[]).find(x=>x.id===dfForm.bid):null;
+    /* Covers the case a straight "add the qty to the batch" would get wrong: a
+       batch whose packedKg already secretly includes this quantity, because the
+       ORIGINAL pack (the one with no packingLog entry at all - the Vital Urea
+       bug) still updated the batch total at the time, even though it wrote no
+       record. Re-crediting it here would double it. No existing tool can correct
+       a batch's packedKg back down afterwards (CORRECT_ENTITY.batch has no such
+       field, by design - see its comment), so this has to be got right going in. */
+    const _skipNote=_pfb?`<label style="display:flex;gap:7px;align-items:flex-start;margin-top:8px;font-size:12px"><input type="checkbox" ${dfForm.skipBatchCredit?'checked':''} onchange="dfForm.skipBatchCredit=this.checked;render()" style="margin-top:2px">This batch's packed total (currently <b>${fmt(_pfb.packedKg||0)} Kg</b>) already includes this quantity from the original transaction — don't add it again. Check this when re-linking a batch to a record you're redoing (e.g. after voiding one that had no batch link), not for a genuinely new backfill.</label>`:'';
     return wrap('Add missing packing',`
       <div class="formgrid" style="grid-template-columns:1fr 1fr 1fr">
         <div class="fld"><label>Purchase Order</label>${dfPOSelect()}</div><div class="fld"><label>Product</label>${dfLineSelect()}</div>
         <div class="fld"><label>Quantity packed (Kg/L)</label><input type="number" value="${dfForm.qty||''}" oninput="dfForm.qty=this.value"></div>
       </div>
       <div class="formgrid" style="grid-template-columns:1fr;margin-top:10px"><div class="fld"><label>Batch # — links to a QC-approved batch</label>${dfBatchSelect(_pfl&&_pfl.base)}</div></div>
+      ${_skipNote}
       <div class="formgrid" style="grid-template-columns:1fr;max-width:220px;margin-top:10px"><div class="fld"><label>Date (actual)</label><input type="date" value="${dfForm.date}" onchange="dfForm.date=this.value"></div></div>${dfReasonField()}
       <div style="margin-top:12px"><button class="green" onclick="dfSubmitPacking()">Add packing record</button></div>`);
   }
@@ -3318,7 +3328,10 @@ function dfSubmitPacking(){
   const baseBatchNo=b.batchNo||''; const brandBatchNo=baseBatchNo;
   /* Same derivation doPack() uses — never typed, always derived. */
   const _dt=packDates(brandBatchNo, b.id, d, undefined);
-  b.packedKg=(+b.packedKg||0)+q;
+  const _wasBatchPacked=+b.packedKg||0;
+  /* skipBatchCredit: see the form's checkbox comment. Off by default, so every
+     existing case behaves exactly as before. */
+  if(!dfForm.skipBatchCredit) b.packedKg=_wasBatchPacked+q;
   (state.packingLog=state.packingLog||[]).unshift({id:_uid('PK'),date:d,base:l.base,brand:l.brand,kg:q,by:state.role,po:o.po,lid:l.id,baseBatchId:b.id,baseBatchNo,brandBatchNo,mfgDate:_dt.mfgDate,expDate:_dt.expDate,shelfMonths:_dt.shelfMonths,recon:true});
   /* type 'packingLot' on purpose — this lot is a registered record, so a
      backfilled packing run can afterwards be amended and reversed like any
@@ -3327,6 +3340,7 @@ function dfSubmitPacking(){
     [{field:'kg',label:'Packed (Kg/L)',before:'',after:fmt(q)},
      {field:'packed',label:'Line packed total',before:fmt(_wasPacked),after:fmt(+l.packed||0)},
      {field:'baseBatchNo',label:'Batch #',before:'',after:baseBatchNo},
+     {field:'batchPackedKg',label:'Batch '+baseBatchNo+' packed total',before:fmt(_wasBatchPacked),after:fmt(+b.packedKg||0)},
      {field:'date',label:'Date packed',before:'',after:d}],
     dfForm.reason, d);
   save(); toast('Packing backfilled — batch # linked, QA can verify it'); dfBack();

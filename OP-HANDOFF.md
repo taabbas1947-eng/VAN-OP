@@ -2154,3 +2154,67 @@ in this local build. Once pushed and deployed:
 3. The name-vs-code join-key issue (Customer Master, flagged 2026-08-27 morning), Admin/
    Master Data scope, and everything else already open before this session, remain
    untouched by this entry.
+
+## 2026-08-27 (later still) — MODULE: O2S — the redo trap: batch already counted the Kg once
+
+**Module: O2S** (continuing, same day).
+
+### What happened
+
+Tahir pushed and deployed the Batch #/Void fix, then used it live: voided the unlinked
+Vital Urea backfill (`PKmtbb747fj9fulv`) via the new **Void an entry**. Confirmed live: it
+correctly left "Awaiting QA" (kg zeroed, `void:true`), but reported "its still showing the
+packed" — the order line (`COBO-2608-4613 · Vital Urea`) still read `2500/2500`. Expected:
+`dfSubmitVoid()` deliberately never touches the order line (that's the whole point — it's
+what makes it safe to use after a line was already corrected separately, the RUD26824 case).
+So the line is now back to exactly the original symptom: numbers present, nothing backing
+them — step 1 of the intended 2-step redo (zero via Correct values, re-add via Add missing
+packing with the batch).
+
+Before telling Tahir to take step 2, checked what re-running **Add missing packing** would
+actually do to batch **VU26190**, live: `packedKg` is **6,375**, unchanged since before any of
+today's corrections. That number has *always* included this exact 2,500 Kg — the original
+untraced pack updated the batch total at the time, it just never wrote a `packingLog` record.
+Neither the original zero-out (Correct values, order-line only) nor today's void (no
+`baseBatchId` on the old unlinked entry, so nothing to restore) ever touched it. Re-running
+Add missing packing with `VU26190` picked would, by the code just shipped, add another 2,500
+on top — `packedKg` → 8,875, more than the batch's own 7,000 Kg produced/certified, silently
+zeroing its real ~625 Kg of remaining packable stock. Checked whether a batch's `packedKg`
+can be corrected back down afterwards if that happened: it can't — `CORRECT_ENTITY.batch`'s
+`fields` list is deliberately `batchNo` / `openedDate` / `plannedKg` / `producedKg` only, no
+`packedKg` (by design, per its own comment). So this had to be got right going in, not
+patched after — **told Tahir to hold off** rather than let him run into it.
+
+Fix: `dfSubmitPacking()` gets one more field, off by default — `dfForm.skipBatchCredit`. The
+Add missing packing form shows a checkbox once a batch is picked ("This batch's packed total
+(currently N Kg) already includes this quantity... don't add it again"), only relevant when
+redoing a record that was already reflected in the batch once. Unchecked (the normal case —
+a genuinely new backfill), behaviour is unchanged from the fix shipped earlier today.
+`recordBackfill`'s change log now always names the batch's before/after packed total, whether
+or not it moved, so a reviewer in Reports → Corrections can see which it was.
+
+Added 2 more checks to `o2s/tests/datafix-batchvoid.test.js` (now 43): checkbox on -> batch
+`packedKg` unchanged, order line still catches up, the record still carries the real batch
+link; checkbox off -> batch is credited exactly as before. Full suite: **16 files, 0
+failures**. All 5 inline `<script>` blocks parse clean.
+
+### Files changed
+
+- `o2s/o2s.html` — `dfStart` (`skipBatchCredit:false` default), `dfFormHtml`'s `packing`
+  branch (the checkbox), `dfSubmitPacking` (honors it; change log always names the batch
+  total).
+- `o2s/tests/datafix-batchvoid.test.js` — +2 checks (43 total).
+
+**Ready to push, not pushed.**
+
+### Next
+
+1. Once pushed: redo the Vital Urea fix — **Correct values** (zero `COBO-2608-4613` · Vital
+   Urea's Produced/Packed, currently unbacked at 2,500/2,500) → **Add missing packing**
+   (2,500 Kg, batch **VU26190**, **check** "already includes this quantity" since VU26190's
+   6,375 Kg packed already reflects this pack) → reason → submit. Confirm afterward: line
+   back to 2,500/2,500 with a real batch link, VU26190 still reads 6,375 (not 8,875 or 3,875),
+   Pre-shipment QA clears it (no more "No batch #").
+2. RUD26824 (Void the 3,000 Kg / VB26004 stray record, restore-batch-capacity checked) is
+   unaffected by this addendum and still just needs the one Void action.
+3. Everything else open before this entry is unchanged.

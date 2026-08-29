@@ -1,7 +1,9 @@
 /* DASHBOARD REBUILD — 29 Aug 2026.
    Tahir: "we should rebuild the whole dashboard" — Overview, Production, Quality,
-   Supply chain and Centers all now read a shared date-range control (dashRange /
-   dashOpsMetrics) instead of hardcoded "today" / "last 7 days". This loads the
+   Supply chain and Centers all now read the app's existing global "Reporting
+   period" control (state.period / periodWindow(), extended with Today / Yesterday /
+   This week / Custom) instead of hardcoded "today" / "last 7 days", and instead of
+   a second, separate picker this session tried first and then removed. This loads the
    whole app into a sandbox against the real state.json snapshot and actually
    calls the renderers, for every role and every tab, across five range modes —
    the same "render, don't just read source" approach as prodrender.test.js,
@@ -54,12 +56,12 @@ roles.forEach(role => {
     ok(role+': dashOpsMetrics returns JSON', typeof om === 'string' && om.length > 2);
     ok(role+': no "undefined" leaked into dashOpsMetrics JSON', !/undefined/.test(om), om.slice(0,300));
 
-    ['today','yesterday','7d','week','month'].forEach(mode => {
-      run(c, "dashRange.mode="+JSON.stringify(mode)+";");
+    ['Today','Yesterday','This week','Last 7 days','This month','Last month','Last quarter','FY to date','Custom'].forEach(mode => {
+      run(c, "state.period="+JSON.stringify(mode)+";");
       const om2 = run(c, 'dashOpsMetrics()');
       ok(role+'/'+mode+': from<=to', om2.from <= om2.to, om2.from+' '+om2.to);
     });
-    run(c, "dashRange.mode='today';");
+    run(c, "state.period='Last 7 days';");
 
     const M = run(c, 'execMetrics()');
     const htmlOut = run(c, 'dashExecHtml(execMetrics())');

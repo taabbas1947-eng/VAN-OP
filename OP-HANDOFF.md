@@ -2938,3 +2938,30 @@ look on his screen once live, since this is a full rebuild of the screen he
 actually opens every day, and the "who's logging on time" table will read empty
 at first (by design — it only counts entries made after this ships) until a
 few days of real entries accumulate.
+
+
+## 2026-08-29 (round 2) — MODULE: O2S — Dashboard: actually looked at the rendered page, found and fixed real defects the tests couldn't see
+
+Tahir's instruction after the first pass: stop trusting logic/test-only verification, go look at the rendered Dashboard, and honestly judge whether it looks like a real dashboard. This entry covers what that produced.
+
+**Method.** Built a disposable, credential-free live preview entirely in the cloud sandbox (never touched the real device data): staged a tarball of the repo (o2s, pd, data, server.js, package files, node_modules) into the cloud container, ran the real server there, opened it in headless Chromium via Playwright, and reached the authenticated app by injecting `state`/`state.currentUser` directly (matching the existing test-harness pattern) instead of touching any login field — then screenshotted Overview, Supply chain, a wide Custom date range, Production, Quality, Centers, and Financial, across the COO role, and actually read the images.
+
+**Found and fixed (round 1 of the visual pass):**
+1. Two competing date-range pickers — a new one built for this rebuild, and the pre-existing global "Reporting period" control in the topbar (`state.period` / `periodWindow()`) that already existed for the Production log export. Retired the new one entirely; extended the existing control instead (added Today/Yesterday/This week/Custom, two custom-date inputs, a `syncPeriodBar()` hook wired into `render()`). One control for the whole app now, and it visibly syncs.
+2. "44 POs behind" headline sitting next to a pre-existing "18 Overdue" figure on the same screen — a lines-vs-distinct-orders mismatch. Added `behindPOCount` (distinct POs) and used it in every headline/summary sentence, while the detail table stays line-level with an explicit "one row per product line" label.
+3. "Where orders are sitting" panel rendering twice on the Supply chain tab (dashSupplyHtml + dashShipHtml both ran it before the rebuild added more content around it, which made the duplication obvious). Dropped it from dashSupplyHtml's return; dashShipHtml's copy (rendered right after) is kept.
+4. Stale "Executive overview" page subtitle left over from before the Overview rewrite. Updated.
+
+**Found and fixed (round 2, after re-screenshotting the round-1 fixes):**
+5. In the Wastage section on Overview, a card labeled plain "Produced" (all-time total output) sat directly under the top KPI row's card also labeled "Produced" (period-scoped) — same label, different scope, easy to misread as the same number. Relabeled to "Produced (all-time)" with clearer context text. Re-ran the full test suite (17 files, 0 failures) and re-screenshotted to confirm.
+
+**Found, not fixed — flagging for a decision:**
+6. PKR figures still appear outside the Financial tab: "Value of loss · cost" / "Value of loss · invoice" in Overview's Wastage section, and "Revenue at risk" on Supply chain. These read as operational cost-of-failure numbers rather than budget/target tracking, so left in place rather than guessing — but noting it since Tahir was explicit that financial framing should stay confined to its own tab.
+7. Centers tab, "Turnaround by center": QC → delivery shows **-3d** (a negative stage duration) in this data snapshot. Pre-existing `execMetrics()` per-stage timestamp logic, not touched by this rebuild — needs its own look before trusting that number anywhere.
+8. Chart.js-based charts (reconcile breakdown, turnaround, dispatched/throughput trend) render blank in this cloud sandbox only, because its egress policy blocks cdnjs.cloudflare.com — confirmed by comparing against the hand-rolled SVG charts on the same screenshots, which render fine. Not a code defect; should not occur on the real Render deployment where the CDN is reachable, but flagging so it's not mistaken for a regression if seen again in a similar sandboxed context.
+
+**Verification:** synchk-style load, all 17 pre-existing `o2s/tests/*.test.js` files (0 failures), `dashboard.test.js` (168 passed, 0 failed), plus the visual pass above across Overview/Centers/Production/Quality/Supply/Financial.
+
+**Files changed:** `o2s/o2s.html` only (one label string this round; period-picker unification and behindPOCount/dedup/subtitle fixes were already in place from round 1 and are unchanged here).
+
+**Not pushed** — per CLAUDE.md, Tahir pushes via GitHub Desktop.

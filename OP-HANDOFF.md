@@ -2719,3 +2719,60 @@ live access-matrix data, verified surviving a reload.
    department when ready (Production was the template).
 5. The much older HG26026/PO 0254 Humic thread (Ali Raza's "4,000 Kg" claim) —
    still untouched, unrelated to tonight's work.
+
+## 2026-08-29 — MODULE: O2S — New PO Entry: field alignment/spacing pass, code done, not pushed
+
+Tahir flagged three UX problems on New PO Entry (`o2s/o2s.html`, `screenEntry()` /
+`renderEntryLines()` / `entryChecks()` / `validate()`) from a screenshot of the live
+form, and asked for questions before any change. Four questions asked and answered:
+
+1. "Pack" column header was ambiguous next to the "Packs" (count) column beside it.
+   → Renamed header to **"Pack Size"**. No other layout change to that column.
+2. "Which price goes on the pack" block (amber box, 3 buttons + a paragraph) was the
+   biggest space hog in Step 2.
+   → Kept the 3 buttons (list / PO price / no price) and the client-history + "not
+     answered" hints on one compact header line, but moved the 3-line definitions
+     of what each option means behind a small **(?) toggle** (`#e_pricehelp`,
+     hidden by default). Nothing about the underlying answer/validation logic
+     changed — same `entryPrintOn`/`entryPrintMode()` machinery.
+3. The "envision sending this to a dealer/distributor" framing — Tahir confirmed
+   this round is just about cleaning up the entry screen itself, not a new
+   customer-facing output. No PO Confirmation document was built. Parked for later
+   if/when he wants one (would need to hide KAM Name, FED override, invoice
+   PKR/Kg, etc. — noted for whenever this comes up again).
+4. Step 3 — Validation (a 16-row checklist, ✓/✗ against every rule, always visible)
+   → **Removed the standalone Step 3 card entirely.** Its `may('order.create')`
+     permission line moved to a small `#e_submit_note` slot next to the Submit
+     button (that's an access-rights notice, not a field validation, so it's kept
+     separate from field-level markers). Field-level failures now show as a red
+     border (`.inv` CSS class) directly on the offending input: Channel/Client/
+     Vgreen-Sub/KAM/PO-Received/Promised/PO# in the header, and per-line Pack Size/
+     Invoice price/Committed date/Print price in the line-items table. The
+     duplicate-PO-number case gets its own small red line under the PO# field
+     (`#e_po_msg`) since a bare red border wouldn't say *why*. Header-level markers
+     are gated on `entryChannel` being set, so a completely untouched form doesn't
+     light up red on load — only once the KAM is actually mid-flow. Submit button
+     disable logic (`ok` from `entryChecks()`) is untouched; nothing about what
+     counts as valid changed, only how it's surfaced.
+
+**Not done, deliberately:** no attachment feature (was already held back from the
+2026-08-26 redesign, per Tahir — untouched here), no new customer-facing document
+(per Q3 answer above).
+
+**Verification:** `node --check`-equivalent parse of all 6 inline `<script>` blocks
+in `o2s.html` — clean. Ran the full `o2s/tests/*.test.js` suite (18 files,
+`poentry.test.js` included) against the live source via the existing `harness.js`
+sandbox — **every file passes, 0 failures** (poentry.test.js: 24/24; full suite
+totals several thousand assertions across rights/auth/production/batches/etc.,
+all green). Did not get a live-browser screenshot this round — starting a local
+`node server.js` for a Chrome check didn't survive the device shell's per-call
+lifetime; relying on the test suite + careful source review instead. Worth a
+visual eyeball next time Tahir has the app open.
+
+**Files changed:** `o2s/o2s.html` only. Nothing in `server.js`, nothing in `pd/`.
+
+**Not pushed** — per standing rule, Tahir commits/pushes via GitHub Desktop.
+
+**What's next:** Tahir mentioned "pending task" to resume after settling these
+issues — not yet named in this session. Also worth a real-browser look at the new
+inline red markers and the (?) toggle before considering this fully done.

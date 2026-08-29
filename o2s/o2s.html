@@ -3668,6 +3668,8 @@ function screenEntry(){
     .po2 .fileinput{display:none}
     .po2 .badge-ok{background:#e7f3f1;color:#0f766e;border-radius:7px;padding:2px 8px;font-size:11px;font-weight:700}
     .po2 .badge-warn{background:#faf0da;color:#c77b0e;border-radius:7px;padding:2px 8px;font-size:11px;font-weight:700}
+    .po2 .inv{border-color:var(--red)!important;background:var(--red-50)!important}
+    .po2 .pricehelp-toggle{cursor:pointer;display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:50%;background:#e0d6c4;color:#6b6152;font-size:10px;font-weight:700;line-height:1;flex:none}
     @media(max-width:900px){.po2 .layout2{flex-direction:column}.po2 .po-side{position:static}}
    </style>
    ${ed?'':viewOnly('KAM','switch to KAM to submit')}
@@ -3704,7 +3706,8 @@ function screenEntry(){
      <div class="fld"><label>Delivery focal person</label><input type="text" id="e_focal" list="e_focal_list" value="${_av(entryFocal)}" oninput="entryFocal=this.value;validate()" placeholder="who receives it \u2014 optional"><datalist id="e_focal_list">${(((state.masters&&state.masters.focalPersons)||[])).map(p=>`<option>${p}</option>`).join('')}</datalist></div>
      <div class="fld"><label>Client PO # ${isManualPO()?'<span class="tag">manual</span>':'<span class="tag">auto on submit</span>'}</label>
        ${isManualPO()?`<input id="e_po" type="text" placeholder="type client's PO#" oninput="validate()">`
-         :`<input id="e_po" type="text" value="${entryChannel?genPO(TODAY.toISOString().slice(0,10)):''}" disabled>`}</div>
+         :`<input id="e_po" type="text" value="${entryChannel?genPO(TODAY.toISOString().slice(0,10)):''}" disabled>`}
+       <div id="e_po_msg" style="font-size:9.5px;color:var(--red);margin-top:2px"></div></div>
     </div>
     <div class="formgrid newrow">
      <div class="fld"><label>Delivery Contact Phone <span class="tag new">new</span></label><input type="tel" id="e_focalphone" value="${_av(entryFocalPhone)}" oninput="entryFocalPhone=this.value;validate()" placeholder="03xx-xxxxxxx — optional"></div>
@@ -3721,27 +3724,31 @@ function screenEntry(){
          An unticked box then read downstream as "this client wants no price", which put
          a wrong instruction in front of the QA inspector on 41 of 44 live POs.
          It is now a question with no default, and the PO cannot be submitted unanswered. */
-      return `<div style="margin-bottom:12px;padding:11px 13px;border:1px solid ${unanswered?'var(--amber)':'var(--line)'};background:${unanswered?'var(--amber-50)':'var(--panel2)'};border-radius:9px">
-        <div style="font-weight:700;font-size:12.5px">Which price goes on the pack? <span style="color:var(--red)">*</span></div>
-        <div class="muted" style="font-size:11px;margin:3px 0 8px">The retail/MRP figure printed on the bag. ${hist?'This client <b>has printed a price before</b>.':'No printed price has been recorded for this client before.'} Whoever packs and whoever inspects will be shown your answer &mdash; so it has to be an answer, not a blank.</div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">${btn('list','Current list price')}${btn('yes','A price set on this PO')}${btn('no','No price on the bag')}</div>
-        <div class="muted" style="font-size:10.5px;margin-top:7px;line-height:1.8">
-          <b>Current list price</b> — the bag carries VAN's standard MRP. QA checks it against the latest price list and writes down what they saw. Most of the range works this way.<br>
-          <b>A price set on this PO</b> — a figure negotiated for this customer. Enter it per line below; QA checks the bag against that exact number.<br>
-          <b>No price</b> — nothing printed. Any price on the bag is then a failure.</div>
-        ${unanswered?'<div style="font-size:11px;color:#8a5a00;font-weight:700;margin-top:8px">Not answered yet</div>':''}
+      return `<div style="margin-bottom:12px;padding:9px 13px;border:1px solid ${unanswered?'var(--amber)':'var(--line)'};background:${unanswered?'var(--amber-50)':'var(--panel2)'};border-radius:9px">
+        <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">
+          <span style="font-weight:700;font-size:12.5px">Which price goes on the pack? <span style="color:var(--red)">*</span></span>
+          <span class="pricehelp-toggle" onclick="var e=document.getElementById('e_pricehelp');if(e)e.style.display=(e.style.display==='none'?'block':'none');" title="What do these mean?">?</span>
+          ${hist?'<span class="muted" style="font-size:10.5px">&middot; printed before for this client</span>':'<span class="muted" style="font-size:10.5px">&middot; no price on file for this client</span>'}
+          ${unanswered?'<span style="font-size:10.5px;color:#8a5a00;font-weight:700;margin-left:auto">not answered</span>':''}
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">${btn('list','Current list price')}${btn('yes','A price set on this PO')}${btn('no','No price on the bag')}</div>
+        <div id="e_pricehelp" style="display:none;font-size:10.5px;margin-top:8px;line-height:1.7;color:var(--mut)">
+          <b>Current list price</b> &mdash; the bag carries VAN's standard MRP. QA checks it against the latest price list and writes down what they saw.<br>
+          <b>A price set on this PO</b> &mdash; a figure negotiated for this customer. Enter it per line below; QA checks the bag against that exact number.<br>
+          <b>No price</b> &mdash; nothing printed. Any price on the bag is then a failure.</div>
       </div>`;})():''}
     ${entryClient?'':'<div class="muted" style="font-size:12.5px">Pick a channel and client above to load brands.</div>'}
-    <table class="fixedtbl ${entryClient?'':'hide'}" style="font-size:12px"><thead><tr><th>Brand</th><th style="width:84px">Form</th><th style="width:66px">Pack</th><th style="width:80px">Qty</th><th style="width:72px">Packs</th><th style="width:172px">Invoice price · PKR/Kg + PKR/pack</th><th style="width:150px">Committed</th><th style="width:200px">Note</th><th style="width:26px"></th></tr></thead>
+    <table class="fixedtbl ${entryClient?'':'hide'}" style="font-size:12px"><thead><tr><th>Brand</th><th style="width:84px">Form</th><th style="width:66px">Pack Size</th><th style="width:80px">Qty</th><th style="width:72px">Packs</th><th style="width:172px">Invoice price · PKR/Kg + PKR/pack</th><th style="width:150px">Committed</th><th style="width:200px">Note</th><th style="width:26px"></th></tr></thead>
     <tbody id="e_lines"></tbody></table>
     <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:10px" class="${entryClient?'':'hide'}">
       <button class="ghost sm" onclick="entryLines.push({brand:'',qty:'',pack:'',note:'',committed:''});renderEntryLines()">+ Add line</button>
       <div id="e_total" class="muted" style="font-size:12px;text-align:right"></div>
     </div>
    </div>
-   <div class="card"><h3>Step 3 — Validation</h3><div id="e_checks"></div></div>
+   
    <div class="card"><h3>Step 4 — Submit</h3>
-    <button id="e_submit" ${ed?'':'disabled'} onclick="submitPO()">▶ Submit PO &amp; run RM check</button></div>
+    <button id="e_submit" ${ed?'':'disabled'} onclick="submitPO()">▶ Submit PO &amp; run RM check</button>
+    <div id="e_submit_note" style="margin-top:8px"></div></div>
    </div>
    <div class="po-side"><div class="summary"><h3>Order Summary <span class="hint">everything entered, at a glance</span></h3><div id="e_summary"></div></div></div>
    </div></div>`;
@@ -3780,16 +3787,20 @@ function renderEntryLines(){
     const committedVal=l.committed||autoCommit||(($('e_prom')&&$('e_prom').value)||'');
     const recalled=recallPrintPrice(l.brand);
     if(entryPrintMode()==='yes' && l.brand && l.printPrice==null && recalled>0) l.printPrice=recalled;  // recall pre-fill (only when never touched)
-    const printRow = (entryPrintMode()==='yes') ? `<tr><td colspan="9" style="border-top:none;padding-top:0;padding-bottom:8px"><div style="display:flex;align-items:center;gap:8px;font-size:11px"><span class="muted" style="min-width:118px">Print price (MRP on pack):</span><input type="number" value="${l.printPrice!=null?l.printPrice:''}" placeholder="PKR / pack" oninput="entryLines[${i}].printPrice=this.value;validate()" style="width:150px"><span class="muted">PKR per pack${+l.pack>0?(' of '+fmt(l.pack)):''}${recalled>0?` · <span style="cursor:pointer;color:var(--navy)" title="recall last used" onclick="entryLines[${i}].printPrice=${recalled};renderEntryLines()">use last ${fmt(recalled)}</span>`:' · no previous price on file'}</span></div></td></tr>` : '';
+    const real=!!(l.brand&&+l.qty>0);
+    const packBad=real&&!(+l.pack>0);
+    const invBad=real&&!entryFOC&&!(+l.inv>0);
+    const printBad=real&&!entryFOC&&entryPrintMode()==='yes'&&!(+l.printPrice>0);
+    const printRow = (entryPrintMode()==='yes') ? `<tr><td colspan="9" style="border-top:none;padding-top:0;padding-bottom:8px"><div style="display:flex;align-items:center;gap:8px;font-size:11px"><span class="muted" style="min-width:118px">Print price (MRP on pack):</span><input id="pp_${i}" type="number" class="${printBad?'inv':''}" value="${l.printPrice!=null?l.printPrice:''}" placeholder="PKR / pack" oninput="entryLines[${i}].printPrice=this.value;validate()" style="width:150px"><span class="muted">PKR per pack${+l.pack>0?(' of '+fmt(l.pack)):''}${recalled>0?` &middot; <span style="cursor:pointer;color:var(--navy)" title="recall last used" onclick="entryLines[${i}].printPrice=${recalled};renderEntryLines()">use last ${fmt(recalled)}</span>`:' &middot; no previous price on file'}</span></div></td></tr>` : '';
     return `<tr>
      <td><select onchange="entryLines[${i}].brand=this.value;entryLines[${i}].pack=(detailForBrand(this.value).pack||'');renderEntryLines()">
        <option value="">— pick brand —</option>${brs.map(b=>`<option ${b.brand===l.brand?'selected':''}>${b.brand}</option>`).join('')}</select></td>
      <td class="muted">${det.form||'—'}</td>
-     <td><input type="number" value="${l.pack}" placeholder="${det.pack||''}" oninput="onEntryPack(${i},this.value)"></td>
+     <td><input id="pks_${i}" type="number" class="${packBad?'inv':''}" value="${l.pack}" placeholder="${det.pack||''}" oninput="onEntryPack(${i},this.value)"></td>
      <td><input type="number" value="${l.qty}" placeholder="Kg/L" oninput="entryLines[${i}].qty=this.value;updatePacks(${i});updateCommitted(${i});validate()"></td>
      <td class="num"><b id="pk_${i}">${packs!==''?fmt(packs):'—'}</b></td>
-     <td><div style="display:flex;gap:5px"><input id="ikg_${i}" type="number" value="${l.inv||''}" placeholder="PKR/Kg" title="Per Kg/L — type here and per-pack fills automatically" oninput="setInvKg(${i},this.value)" style="width:74px"><input id="ipk_${i}" type="number" value="${l.invPack||''}" placeholder="PKR/pack" title="Per pack — type here and per-Kg fills automatically" oninput="setInvPack(${i},this.value)" style="width:86px"></div><div id="ipp_${i}" style="font-size:10px;margin-top:3px;color:var(--mut)">${invPerPackText(l)}</div></td>
-     <td><input type="date" id="cm_${i}" value="${committedVal}" onchange="entryLines[${i}].committed=this.value;updateCommitted(${i})"><div id="cmh_${i}" style="font-size:9px;color:var(--mut);margin-top:2px" title="Auto from the lead-time model — edit to override">${(!l.committed&&autoCommit)?('auto · '+leadDays(+l.qty,procD,l.brand)+'d lead'+(procD?' · incl '+procD+'d RM':'')):''}</div></td>
+     <td><div style="display:flex;gap:5px"><input id="ikg_${i}" type="number" class="${invBad?'inv':''}" value="${l.inv||''}" placeholder="PKR/Kg" title="Per Kg/L — type here and per-pack fills automatically" oninput="setInvKg(${i},this.value)" style="width:74px"><input id="ipk_${i}" type="number" value="${l.invPack||''}" placeholder="PKR/pack" title="Per pack — type here and per-Kg fills automatically" oninput="setInvPack(${i},this.value)" style="width:86px"></div><div id="ipp_${i}" style="font-size:10px;margin-top:3px;color:var(--mut)">${invPerPackText(l)}</div></td>
+     <td><input type="date" id="cm_${i}" value="${committedVal}" onchange="entryLines[${i}].committed=this.value;updateCommitted(${i});validate()"><div id="cmh_${i}" style="font-size:9px;color:var(--mut);margin-top:2px" title="Auto from the lead-time model — edit to override">${(!l.committed&&autoCommit)?('auto &middot; '+leadDays(+l.qty,procD,l.brand)+'d lead'+(procD?' &middot; incl '+procD+'d RM':'')):''}</div></td>
      <td><input type="text" value="${(l.note||'').replace(/"/g,'&quot;')}" placeholder="optional" oninput="entryLines[${i}].note=this.value" style="width:100%;font-size:11px"></td>
      <td>${entryLines.length>1?`<button class="ghost sm" onclick="entryLines.splice(${i},1);renderEntryLines()">✕</button>`:''}</td></tr>${printRow}`;
   }).join('');
@@ -3828,12 +3839,22 @@ function entryChecks(){
 }
 function validate(){
   const checks=entryChecks(); const ok=checks.every(c=>c[1]) && may('order.create');
-  if($('e_checks')) $('e_checks').innerHTML=checks.map(c=>{ const fail=!c[1], fid=c[2], clk=fail&&fid;
-    return `<div ${clk?`onclick="focusField('${fid}')" `:''}style="font-size:12px;padding:3px 0${clk?';cursor:pointer':''}">${c[1]?'<span style="color:var(--green2)">✓</span>':'<span style="color:var(--red)">✗</span>'} &nbsp;${c[0]}${clk?' <span class="muted" style="font-size:10px">→ fix</span>':''}</div>`; }).join('')
-    /* was "Switch role to KAM to enable submit" \u2014 demo-era copy that read as if
-       roles were self-service. They are not: state.role comes from the login
-       token. Name who actually may, off the matrix. */
-    + (may('order.create')?'':'<div style="font-size:12px;color:var(--amber);padding-top:4px">'+_pe(denyRight('order.create','Submitting a PO'))+'</div>');
+  var failIds={}; checks.forEach(function(c){ if(!c[1]) (failIds[c[2]]=failIds[c[2]]||[]).push(c[0]); });
+  var started=!!entryChannel;
+  ['e_chan','e_client','e_vsub','e_kam','e_recv','e_prom','e_po'].forEach(function(id){
+    var el=$(id); if(el) el.classList.toggle('inv', started && !!failIds[id]);
+  });
+  var poMsg=$('e_po_msg'); if(poMsg) poMsg.textContent=(started && failIds['e_po'] && failIds['e_po'].some(function(t){return /already used/i.test(t);}))?'A PO with this number already exists.':'';
+  var recv=($('e_recv')&&$('e_recv').value)||'';
+  entryLines.forEach(function(l,i){
+    var real=!!(l.brand&&+l.qty>0);
+    var pks=$('pks_'+i); if(pks) pks.classList.toggle('inv', real && !(+l.pack>0));
+    var ikg=$('ikg_'+i); if(ikg) ikg.classList.toggle('inv', real && !entryFOC && !(+l.inv>0));
+    var cm=$('cm_'+i); if(cm){ var cv=cm.value; cm.classList.toggle('inv', real && !!recv && !!cv && cv<recv); }
+    var pp=$('pp_'+i); if(pp) pp.classList.toggle('inv', real && !entryFOC && entryPrintMode()==='yes' && !(+l.printPrice>0));
+  });
+  var noteEl=$('e_submit_note');
+  if(noteEl) noteEl.innerHTML = may('order.create') ? '' : '<span style="color:var(--amber);font-size:11.5px">'+_pe(denyRight('order.create','Submitting a PO'))+'</span>';
   if($('e_submit')) $('e_submit').disabled=!ok;
   updateEntryTotal();
   updateEntrySummary();

@@ -5861,7 +5861,7 @@ function submitRework(){ if(!may('packing.rework')){toast(denyRight('packing.rew
 function openShiftLog(batchId){
   const b=(state.batches||[]).find(x=>x.id===batchId); if(!b){toast('Batch not found');return;}
   const sh=(state.masters&&state.masters.shifts)||['Morning','Evening','Night'];
-  shiftForm={batchId,date:TODAY.toISOString().slice(0,10),shift:sh[0]||'',incharge:'',qty:'',reason:'',note:'',beds:[],bedCat:'P',bedNum:''};
+  shiftForm={batchId,date:TODAY.toISOString().slice(0,10),shift:sh[0]||'',incharge:'',qty:'',reason:'',note:'',beds:[],bedCat:'P',bedNum:'',dateReason:''};
   renderShiftLog(); $('modalBg').classList.add('open');
 }
 function shiftBedAdd(){ var c=shiftForm.bedCat||'P'; var n=String(shiftForm.bedNum||'').trim(); if(!n){toast('Enter the bed number / sub-bed');return;} var id=c+'-'+n; shiftForm.beds=shiftForm.beds||[]; if(shiftForm.beds.indexOf(id)<0)shiftForm.beds.push(id); shiftForm.bedNum=''; renderShiftLog(); }
@@ -5875,10 +5875,10 @@ function renderShiftLog(){
   const name=b.kind==='po'?`${b.brand||''} · ${b.po||''}`:(b.kind==='multi'?`${b.base||''} · ${batchPOsLabel(b)}`:`${b.base||''} (bulk)`);
   $('modal').innerHTML=`<div class="mh"><h2>Log shift output</h2><div class="sub">Batch ${b.batchNo||'—'} · ${name} · planned ${fmt(plan)} · produced ${fmt(prod)} · remaining ${fmt(rem)} Kg/L</div></div>
    <div class="mb"><div class="formgrid" style="grid-template-columns:1fr 1fr 1fr">
-     <div class="fld"><label>Date</label><input type="date" value="${shiftForm.date}" onchange="shiftForm.date=this.value"></div>
      <div class="fld"><label>Shift</label><select onchange="shiftForm.shift=this.value">${shifts.map(s=>`<option ${s===shiftForm.shift?'selected':''}>${s}</option>`).join('')}</select></div>
      <div class="fld"><label>Shift incharge</label><select onchange="shiftForm.incharge=this.value"><option value="">— pick —</option>${incs.map(s=>`<option ${s===shiftForm.incharge?'selected':''}>${s}</option>`).join('')}</select></div>
    </div>
+   <div class="formgrid" style="grid-template-columns:1fr">${evDateField('shiftForm','date','shift','Date this was actually produced','renderShiftLog()')}</div>
    <div class="formgrid" style="grid-template-columns:1fr 2fr;margin-top:10px">
      <div class="fld"><label>Produced this shift (Kg/L)</label><input type="number" value="${shiftForm.qty}" oninput="shiftForm.qty=this.value" placeholder="0 if none"></div>
      <div class="fld"><label>Reason (required if no/short output)</label><select onchange="shiftForm.reason=this.value"><option value="">— none —</option>${reasons.map(r=>`<option ${r===shiftForm.reason?'selected':''}>${r}</option>`).join('')}</select></div>
@@ -5928,7 +5928,7 @@ function submitShiftLog(){
       +'. If this is a second, separate run, press Log output again to confirm it.');
     return; }
   state.shiftEntries=state.shiftEntries||[];
-  state.shiftEntries.unshift({id:nid('SE'),batchId:b.id,batchNo:b.batchNo||'',date:d,shift:shiftForm.shift,incharge:shiftForm.incharge,kg:q,reason:shiftForm.reason||'',note:shiftForm.note||'',beds:(shiftForm.beds||[]).slice(),by:state.role,ts:new Date().toISOString()});
+  state.shiftEntries.unshift(Object.assign({id:nid('SE'),batchId:b.id,batchNo:b.batchNo||'',date:d,shift:shiftForm.shift,incharge:shiftForm.incharge,kg:q,reason:shiftForm.reason||'',note:shiftForm.note||'',beds:(shiftForm.beds||[]).slice(),by:state.role,ts:new Date().toISOString()},evStamp(d,'shift',shiftForm.dateReason)));
   b.producedKg=(b.producedKg||0)+q;
   if(q>0){ b.lots=b.lots||[]; const ln=b.lots.length+1; b.lots.push({id:nid('LOT'), lotNo:(b.batchNo||'B')+'-L'+ln, qty:q, shift:shiftForm.shift, incharge:shiftForm.incharge, date:d, beds:(shiftForm.beds||[]).slice(), by:state.role, coa:null}); }
   if(b.kind==='po'){
@@ -10173,7 +10173,7 @@ function dcControlOn(dateStr){ return String(dateStr||TODAY.toISOString().slice(
 function nextDCNo(){ var mx=0; (state.shipments||[]).forEach(function(s){ if(!s||s.voided)return; var n=parseInt(String(s.dc||'').replace(/\D/g,''),10); if(!isNaN(n)&&n>mx)mx=n; }); return String(mx+1); }
 function _releaseShip(o,l,batches){ if(!o||!l)return; (lotsFor(o,l)||[]).forEach(function(p){ var b=(batches||[]).find(function(x){return x.batch===lotBaseNo(p)||x.brand===lotBrandNo(p);}); if(b){ p.shipKg=Math.max(0,(+p.shipKg||0)-(+b.kg||0)); } }); }
 function openDispatch(oid){ const o=(state.orders||[]).find(x=>x.id===oid); if(!o)return; const ls=readyLinesFor(o); if(!ls.length){toast('Nothing ready to ship on this PO');return;}
-  dispForm={oid,date:TODAY.toISOString().slice(0,10),dest:(clientTopDest(o.client)||''),inTransit:true,transportType:'',carrier:'',vehicle:'',dc:'',bilty:'',so:'',driver:'',driverContact:'',seal:'',remarks:'',lines:ls.map(x=>({lid:x.l.id,brand:x.l.brand,base:x.l.base||'',pack:(+x.l.pack||seedPackForBrand(x.l.brand)||0),rem:Math.round(x.rem),qty:Math.round(x.rem),on:true}))};
+  dispForm={oid,date:TODAY.toISOString().slice(0,10),dateReason:'',dest:(clientTopDest(o.client)||''),inTransit:true,transportType:'',carrier:'',vehicle:'',dc:'',bilty:'',so:'',driver:'',driverContact:'',seal:'',remarks:'',lines:ls.map(x=>({lid:x.l.id,brand:x.l.brand,base:x.l.base||'',pack:(+x.l.pack||seedPackForBrand(x.l.brand)||0),rem:Math.round(x.rem),qty:Math.round(x.rem),on:true}))};
   renderDispatchModal(); $('modalBg').classList.add('open'); }
 function dispTotal(){ return (dispForm&&dispForm.lines||[]).reduce((a,r)=>a+(r.on?(+r.qty||0):0),0); }
 function dispCount(){ return (dispForm&&dispForm.lines||[]).filter(r=>r.on&&(+r.qty||0)>0).length; }
@@ -10193,7 +10193,7 @@ function renderDispatchModal(){ const o=(state.orders||[]).find(x=>x.id===dispFo
      </div>
      <div class="dstep"><div class="dstep-h">2 · Truck &amp; destination</div>
        <div class="formgrid" style="grid-template-columns:repeat(3,minmax(0,1fr))">
-         <div class="fld"><label>Dispatch date</label><input type="date" value="${dispForm.date}" onchange="dispSet('date',this.value);renderDispatchModal()"></div>
+         <div class="fld fld-long">${evDateField('dispForm','date','ship','Dispatch date — the date the truck actually left','renderDispatchModal()')}</div>
          <div class="fld"><label>Destination <span class="muted" style="font-weight:400;font-size:10px">· usual location remembered</span></label><input type="text" list="dispDestList" value="${_av(dispForm.dest)}" oninput="dispSet('dest',this.value)" placeholder="where is this going?"><datalist id="dispDestList">${clientDestinations(o.client).map(d=>`<option value="${_av(d)}">`).join('')}</datalist></div>
          <div class="fld"><label>Transport type <span style="color:var(--red)">*</span></label><select onchange="dispSet('transportType',this.value);renderDispatchModal()"><option value="">— pick —</option><option value="Ex-factory" ${dispForm.transportType==='Ex-factory'?'selected':''}>Ex-factory (customer transport)</option><option value="VAN-delivered" ${dispForm.transportType==='VAN-delivered'?'selected':''}>VAN-delivered (arranged)</option></select></div>
          <div class="fld"><label>Vehicle # ${dispForm.transportType==='VAN-delivered'?'<span style="color:var(--red)">*</span>':'<span class="muted" style="font-weight:400;font-size:10px">· optional</span>'}</label><input type="text" value="${_av(dispForm.vehicle)}" oninput="dispSet('vehicle',this.value)" ${dispForm.transportType==='Ex-factory'?'placeholder="(via transporter)"':''}></div>
@@ -10239,7 +10239,7 @@ function saveDispatch(){ if(!may('shipment.plan')){toast(denyRight('shipment.pla
     lotsFor(o,l).forEach((p,i)=>{ const a=Math.min(+alloc[i]||0, lotClearedKg(p)); if(a>0.0001){ p.shipKg=(+p.shipKg||0)+a; batches.push({lotId:p.id,batch:lotBaseNo(p),brand:lotBrandNo(p),kg:Math.round(a)}); kg+=a; } });
     if(kg<=0)return;
     var _deliv=dispForm.inTransit?null:d;  /* default: delivered now (silent). In-transit option leaves delivered blank for a later markDelivered. */
-    state.shipments.unshift({id:_uid('SH'),dispId,po:o.po,brand:l.brand,lid:l.id,kg:Math.round(kg),batches,pack:r.pack,dispatch:d,destination:dispForm.dest,carrier:dispForm.carrier,vehicle:dispForm.vehicle,dc:dc,shipNo:shipNo,bilty:dispForm.bilty,so:dispForm.so,transportType:dispForm.transportType,driver:dispForm.driver,driverContact:dispForm.driverContact,seal:dispForm.seal,dcStatus:(_ctrlOn?'pending':'approved'),approvedBy:'',approvedDate:(_ctrlOn?'':d),dispCounted:!_ctrlOn,delivered:_deliv,remarks:dispForm.remarks,qa:{pass:true,closed:true},by:state.role});
+    state.shipments.unshift(Object.assign({id:_uid('SH'),dispId,po:o.po,client:o.client||'',brand:l.brand,lid:l.id,kg:Math.round(kg),batches,pack:r.pack,dispatch:d,destination:dispForm.dest,carrier:dispForm.carrier,vehicle:dispForm.vehicle,dc:dc,shipNo:shipNo,bilty:dispForm.bilty,so:dispForm.so,transportType:dispForm.transportType,driver:dispForm.driver,driverContact:dispForm.driverContact,seal:dispForm.seal,dcStatus:(_ctrlOn?'pending':'approved'),approvedBy:'',approvedDate:(_ctrlOn?'':d),dispCounted:!_ctrlOn,delivered:_deliv,remarks:dispForm.remarks,qa:{pass:true,closed:true},by:state.role},evStamp(d,'ship',dispForm.dateReason)));
     if(!_ctrlOn){ l.dispatched=(l.dispatched||0)+kg; l.dispatchDate=l.dispatchDate||d; if(_deliv){ l.delivered=(l.delivered||0)+kg; l.deliveredDate=d; } } n++; tot+=kg; });
   if(!n){toast('Nothing cleared to ship — inspect the packed material first');return;}
   logAction(`Shipment ${shipNo} (${dispId}) · PO ${o.po}: ${n} product(s), ${fmt(tot)} Kg/L · DC ${dc}${dispForm.vehicle?(' · '+dispForm.vehicle):''}`);
@@ -10573,20 +10573,33 @@ function execHeadline(M){
   return sales+'; '+deliv+bott+'.'+q;
 }
 function dashExecHtml(M){
-  const bvb=M.budget>0?Math.round(M.booked/M.budget*100):0, dvb=M.budget>0?Math.round(M.delivered/M.budget*100):0;
-  const mx=Math.max(M.budget,M.booked,M.delivered,1); const w=v=>Math.max(1,Math.round(v/mx*100));
-  const m=(l,v,d,c)=>`<div class="m"><div class="l">${l}</div><div class="v"${c?` style="color:${c}"`:''}>${v}</div><div class="d">${d||''}</div></div>`;
+  var OM=dashOpsMetrics(); var et=OM.entry;
+  var mx=Math.max(M.budget,M.booked,M.delivered,1);
+  var m=(l,v,d,c)=>`<div class="m"><div class="l">${l}</div><div class="v"${c?` style="color:${c}"`:''}>${v}</div><div class="d">${d||''}</div></div>`;
   const lossPct=M.producedKg>0?(M.lossKg/M.producedKg*100):0; const total=M.turn.find(t=>t.name==='Total');
   const hasStage=M.turn.some(t=>t.name!=='Total'&&t.days!=null);
+  var headline=dashOpsHeadline(OM);
+  var rng=OM.label+(OM.to!==OM.from?(' ('+OM.from+' → '+OM.to+')'):(' ('+OM.from+')'));
+  var prodRowsHtml=OM.producedByProduct.map(p=>`<tr><td>${p.name}</td><td class="num">${fmt(p.kg)} Kg/L</td></tr>`).join('');
+  var packRowsHtml=OM.packedByPO.map(p=>`<tr><td><b>${p.po}</b></td><td>${p.brand||'—'}</td><td class="num">${fmt(p.kg)} Kg/L</td></tr>`).join('');
+  var shipBrandHtml=OM.shippedByBrand.map(s=>`<tr><td>${s.name}</td><td class="num">${fmt(s.kg)} Kg/L</td></tr>`).join('');
+  var shipClientHtml=OM.shippedByClient.map(s=>`<tr><td>${s.name}</td><td class="num">${fmt(s.kg)} Kg/L</td></tr>`).join('');
+  var behindHtml=OM.behind.map(b=>`<tr><td><b>${b.po||'—'}</b></td><td>${b.client||'—'}</td><td>${b.product||'—'}</td><td class="num" style="color:var(--red)">${b.days}d</td><td>${b.reason?_tx(b.reason):'<span class="muted">not recorded</span>'}${b.dept?(' · '+_tx(b.dept)):''}</td></tr>`).join('');
+  var stuckHtml=OM.stuck.map(b=>`<tr><td><b>${b.batchNo}</b></td><td>${b.product||'—'}</td><td>${b.po||'—'}</td><td class="num">${b.age}d open</td><td class="num" style="color:var(--red)">${b.idle}d idle</td><td class="num">${fmt(b.producedKg)}/${fmt(b.plannedKg)} Kg/L</td></tr>`).join('');
+  var qcRejHtml=OM.qcRej.map(q=>`<tr><td>${q.date||'—'}</td><td><b>${q.batch||'—'}</b></td><td>${q.product||'—'}</td><td>${q.stage||'—'}</td><td>${q.why?_tx(q.why):'<span class="muted">not recorded</span>'}</td><td>${q.by||'—'}</td></tr>`).join('');
+  var wasteHtml=OM.wasteRows.map(w=>`<tr><td><b>${w.batch||'—'}</b></td><td>${w.product||'—'}</td><td class="num">${fmt(w.kg)} Kg/L</td><td>${w.reason?_tx(w.reason):'<span class="muted">not recorded</span>'}</td></tr>`).join('');
+  var lateHtml=et.rows.slice(0,25).map(r=>`<tr><td>${EV_KIND_LABEL[r.kind]||r.kind}</td><td>${r.who||'—'}</td><td>${_tx(r.ctx||'')}</td><td class="num" style="color:var(--amber)">${r.days}d</td><td>${r.reason?_tx(r.reason):'<span class="muted">no reason given</span>'}</td></tr>`).join('');
+  var byPersonHtml=Object.keys(et.byPerson).sort((a,b)=>et.byPerson[b]-et.byPerson[a]).map(p=>`<tr><td>${p}</td><td class="num">${et.byPerson[p]}</td></tr>`).join('');
   return `<style>
    .xd{color:#27313f;font-size:13px}
-   .xd .hd{display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+   .xd .hd{display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:8px;margin-bottom:6px}
    .xd .hd h2{font-size:19px;font-weight:700;margin:0;color:#1c2632}
    .xd .hd .sub{font-size:12.5px;color:#71808f}
    .xd .verdict{background:#eef4fb;border:1px solid #d8e6f5;border-radius:12px;padding:13px 16px;margin-bottom:16px}
    .xd .verdict .k{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#2f6db0;font-weight:600}
    .xd .verdict .t{font-size:14.5px;font-weight:600;color:#1f4e87;margin-top:3px;line-height:1.5}
    .xd .sec{font-size:12.5px;font-weight:600;color:#71808f;margin:22px 0 9px;border-bottom:0;padding-bottom:0;letter-spacing:0;font-family:inherit;text-transform:none}
+   .xd .sec .hint{font-weight:400;color:#9aa6b5;font-size:11px}
    .xd .mrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(125px,1fr));gap:11px}
    .xd .m{background:#f4f7fa;border-radius:11px;padding:12px 14px}
    .xd .m .l{font-size:12px;color:#71808f}
@@ -10594,63 +10607,71 @@ function dashExecHtml(M){
    .xd .m .d{font-size:11px;color:#9aa6b5;margin-top:2px}
    .xd .panel{background:#fff;border:1px solid #e7edf4;border-radius:13px;padding:15px 17px;margin-bottom:14px}
    .xd .ttl{font-size:14px;font-weight:600;margin:0 0 4px;color:#1c2632}
-   .xd .brow{display:grid;grid-template-columns:78px 1fr 190px;gap:11px 12px;align-items:center}
-   .xd .brow .bl{color:#71808f}
-   .xd .track{height:16px;background:#eef1f6;border-radius:5px;overflow:hidden}
-   .xd .track>span{display:block;height:100%;border-radius:5px}
-   .xd .rt{text-align:right}
    .xd .note{font-size:11.5px;color:#9aa6b5}
    .xd .lg{display:flex;gap:15px;font-size:11.5px;color:#71808f;margin:6px 0 8px;flex-wrap:wrap}
    .xd .lg i{width:10px;height:10px;border-radius:2px;display:inline-block;margin-right:5px;vertical-align:-1px}
    .xd .cw{position:relative;width:100%}
   </style>
   <div class="xd">
-   <div class="hd"><div><h2>Executive overview</h2><div class="sub">${dashGreet()} · ${TODAY.toISOString().slice(0,10)} · current month</div></div>
-     <button class="sm" onclick="gotoScreen('budget')">Sales &amp; Budget →</button></div>
-   <div class="verdict"><div class="k">Today's read · auto-generated</div><div class="t">${execHeadline(M)}</div></div>
+   <div class="hd"><div><h2>Operations overview</h2><div class="sub">${dashGreet()} · ${rng}</div></div>
+     <button class="sm" onclick="gotoScreen('budget')">Financial →</button></div>
+   ${dashRangeBar()}
+   <div class="verdict"><div class="k">Today's read · auto-generated</div><div class="t">${headline}</div></div>
    <div class="mrow">
-     ${m('Budget done',dvb+'%','delivered vs budget','#1d9e75')}
-     ${m('Booked vs budget',bvb+'%','pipeline value','#185fa5')}
-     ${m('On-time delivery',M.onPct!=null?M.onPct+'%':'—',M.onD?('vs committed ('+M.onD+')'):'no deliveries yet')}
-     ${m('Revenue at risk',pkrM(M.riskVal),'overdue value',M.riskVal>0?'#ba7517':'#1d9e75')}
-     ${m('QC pass (FIT)',M.fitPct!=null?M.fitPct+'%':'—','COAs approved','#1d9e75')}
+     ${m('Produced',fmt(OM.producedKg)+' Kg/L',OM.label,'#185fa5')}
+     ${m('Packed',fmt(OM.packedKg)+' Kg/L',OM.label,'#185fa5')}
+     ${m('Shipped',fmt(OM.shippedKg)+' Kg/L',OM.label,'#1d9e75')}
+     ${m('QC pass (FIT)',M.fitPct!=null?M.fitPct+'%':'—','all-time','#1d9e75')}
+     ${m('Entries on time',et.pct!=null?et.pct+'%':'—',et.total?(et.onTime+' of '+et.total+', '+OM.label.toLowerCase()):'no entries yet',(et.pct!=null&&et.pct<90)?'#ba7517':'#1d9e75')}
    </div>
-   <div class="sec">Money — budget vs booked vs delivered</div>
-   <div class="panel"><div class="brow">
-     <span class="bl">Budget</span><div class="track"><span style="width:${w(M.budget)}%;background:#8a8f98"></span></div><span class="rt"><b>${pkrM(M.budget)}</b></span>
-     <span class="bl">Booked</span><div class="track"><span style="width:${w(M.booked)}%;background:#185fa5"></span></div><span class="rt"><b>${pkrM(M.booked)}</b> <span style="color:#185fa5">${bvb}%</span></span>
-     <span class="bl">Delivered</span><div class="track"><span style="width:${w(M.delivered)}%;background:#1d9e75"></span></div><span class="rt"><b>${pkrM(M.delivered)}</b> <span style="color:#1d9e75">${dvb}%</span></span>
-   </div><div class="note" style="margin-top:9px">Gap to budget: ${pkrM(Math.max(0,M.budget-M.delivered))}.</div></div>
-   <div class="panel"><div class="ttl">By client — budget, booked, delivered</div>
-     <div class="lg"><span><i style="background:#94a3b8"></i>Budget</span><span><i style="background:#2563eb"></i>Booked</span><span><i style="background:#16a34a"></i>Delivered</span></div>
-     ${M.clients.length?`<div class="cw" style="height:${Math.max(220,M.clients.slice(0,8).length*48)}px"><canvas id="chExCust"></canvas></div>`:'<div class="note" style="padding:12px 0">No client data yet.</div>'}</div>
-   <div class="sec">Quality gate — FIT vs UNFIT</div>
-   <div class="mrow">
-     ${m('QC pass (FIT)',M.fitPct!=null?M.fitPct+'%':'—','COAs approved','#1d9e75')}
-     ${m('UNFIT lots',M.unfit,'failed COAs',M.unfit?'#a32d2d':'#1d9e75')}
-     ${m('Pre-shipment pass',M.psPct!=null?M.psPct+'%':'—','inspections cleared',M.psPct!=null?'#1d9e75':'')}
-     ${m('Lab-approved units',M.fit,'FIT batches/lots','#185fa5')}
+
+   <div class="sec">Production &amp; packing — ${OM.label}</div>
+   <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+     ${egrid('Produced by product',['Product','Kg/L'],prodRowsHtml)}
+     ${egrid('Packed by PO',['PO','Brand','Kg/L'],packRowsHtml)}
    </div>
-   <div class="sec">Variance &amp; loss</div>
+
+   <div class="sec">Shipped — ${OM.label}</div>
+   <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+     ${egrid('By brand',['Brand','Kg/L'],shipBrandHtml)}
+     ${egrid('By client',['Client','Kg/L'],shipClientHtml)}
+   </div>
+
+   <div class="sec">POs running behind <span class="hint">current status, not limited to the date range above</span></div>
+   ${egrid('Behind schedule',['PO','Client','Product','Days over','Reason'],behindHtml)}
+
+   <div class="sec">Batches not closed <span class="hint">open 7+ days with no shift logged in 3+ days — current status</span></div>
+   ${egrid('Stuck batches',['Batch #','Product','PO','Open','Idle','Produced / planned'],stuckHtml)}
+
+   <div class="sec">QC rejections — ${OM.label}</div>
+   ${egrid('Rejected COAs',['Date','Batch','Product','Stage','Why','By'],qcRejHtml)}
+
+   <div class="sec">Wastage — ${OM.label}</div>
    <div class="mrow" style="margin-bottom:12px">
-     ${m('Wastage / loss',fmt(M.lossKg)+' Kg/L',M.producedKg?(lossPct.toFixed(1)+'% of produced'):'—',M.lossKg?'#a32d2d':'#1d9e75')}
-     ${m('Value of loss · cost',pkrM(M.vlCost),'material cost of waste',M.vlCost?'#a32d2d':'')}
-     ${m('Value of loss · invoice',pkrM(M.vlInv),'revenue foregone',M.vlInv?'#ba7517':'')}
-     ${m('Produced',fmt(M.producedKg)+' Kg/L','total output','#185fa5')}
+     ${m('Wastage / loss',fmt(OM.wasteKg)+' Kg/L',OM.label,OM.wasteKg?'#a32d2d':'#1d9e75')}
+     ${m('Produced',fmt(M.producedKg)+' Kg/L','all-time total output','#185fa5')}
+     ${m('Value of loss · cost',pkrM(M.vlCost),'material cost, all-time',M.vlCost?'#a32d2d':'')}
+     ${m('Value of loss · invoice',pkrM(M.vlInv),'revenue foregone, all-time',M.vlInv?'#ba7517':'')}
    </div>
-   <div class="panel"><div class="ttl" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">Reconcile breakdown — Kg/L
+   ${egrid('Wastage by batch, with reason',['Batch','Product','Kg/L','Reason'],wasteHtml)}
+   <div class="panel"><div class="ttl" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">All-time reconcile breakdown — Kg/L
      <span style="display:inline-flex;border:1px solid #e0e7f0;border-radius:8px;overflow:hidden;font-weight:400">
        <button id="rcv_cat" onclick="setReconView('cat')" style="font-size:11px;padding:4px 11px;border:0;background:#eaf1fb;color:#1f4e87;font-weight:600;cursor:pointer">By type</button>
        <button id="rcv_prod" onclick="setReconView('prod')" style="font-size:11px;padding:4px 11px;border:0;border-left:1px solid #e0e7f0;background:#fff;color:#71808f;cursor:pointer">By product</button>
        <button id="rcv_client" onclick="setReconView('client')" style="font-size:11px;padding:4px 11px;border:0;border-left:1px solid #e0e7f0;background:#fff;color:#71808f;cursor:pointer">By client</button>
      </span></div>
      <div class="lg"><span><i style="background:#dc2626"></i>Loss</span><span><i style="background:#16a34a"></i>By-product</span><span><i style="background:#2563eb"></i>Divert</span><span><i style="background:#d97706"></i>Rework</span></div>
-     ${(M.lossKg+M.bpKg+M.dvKg+M.rwKg)>0.5?`<div class="cw" style="height:240px"><canvas id="chExRecon"></canvas></div>`:'<div class="note" style="padding:10px 0">Nothing reconciled yet — loss, by-product, divert and rework appear here (by type, product or client) as batches are reconciled.</div>'}</div>
-   <div class="sec">Turnaround — actual vs learned standard</div>
+     ${(M.lossKg+M.bpKg+M.dvKg+M.rwKg)>0.5?`<div class="cw" style="height:240px"><canvas id="chExRecon"></canvas></div>`:'<div class="note" style="padding:10px 0">Nothing reconciled yet.</div>'}</div>
+
+   <div class="sec">Who's logging on time — ${OM.label} <span class="hint">production, packing, QC and dispatch entries recorded after the fact</span></div>
+   ${egrid('Late entries',['Type','Person','Context','Days late','Reason given'],lateHtml)}
+   ${egrid('Late entries by person',['Person','Count'],byPersonHtml)}
+
+   <div class="sec">Turnaround — actual vs learned standard <span class="hint">all-time</span></div>
    <div class="panel">
      <div class="lg"><span><i style="background:#2563eb"></i>Actual (avg)</span><span><i style="background:#b4b2a9"></i>Standard (median)</span></div>
      ${hasStage?`<div class="cw" style="height:200px"><canvas id="chExTurn"></canvas></div>`:'<div class="note" style="padding:12px 0">Turnaround appears once orders carry stage dates.</div>'}
-     <div class="note" style="margin-top:8px">${total&&total.days!=null?('Total cycle ≈ <b style="color:#27313f">'+total.days+' days</b>. '):''}Standard is the learned median of completed runs; it refines as history builds, so with limited data it sits close to actual.</div></div>
+     <div class="note" style="margin-top:8px">${total&&total.days!=null?('Total cycle ≈ <b style="color:#27313f">'+total.days+' days</b>. '):''}Standard is the learned median of completed runs; it refines as history builds.</div></div>
   </div>`;
 }
 function drawDashExec(M){
@@ -10684,6 +10705,93 @@ function drawRecon(){ if(typeof Chart==='undefined'||!_xrec) return; const el=$(
 }
 function setReconView(v){ if(!_xrec)return; _xrec.view=v; ['cat','prod','client'].forEach(k=>{ const b=document.getElementById('rcv_'+k); if(b){ b.style.background=(k===v)?'#eaf1fb':'#fff'; b.style.color=(k===v)?'#1f4e87':'#71808f'; b.style.fontWeight=(k===v)?'600':'400'; } }); drawRecon(); }
 var dashTab='';
+/* ===== Ops range + stuck-batch + entry-timeliness — additive, feeds the rebuilt Dashboard ===== */
+var dashRange={mode:'today',df:'',dt:''};
+function dashRangeDates(){
+  var end=TODAY.toISOString().slice(0,10), start=end;
+  if(dashRange.mode==='today'){ start=end; }
+  else if(dashRange.mode==='yesterday'){ var y=new Date(TODAY); y.setDate(y.getDate()-1); start=end=y.toISOString().slice(0,10); }
+  else if(dashRange.mode==='7d'){ var s7=new Date(TODAY); s7.setDate(s7.getDate()-6); start=s7.toISOString().slice(0,10); }
+  else if(dashRange.mode==='week'){ var sw=new Date(TODAY); var dow=sw.getDay(); var diff=(dow===0?6:dow-1); sw.setDate(sw.getDate()-diff); start=sw.toISOString().slice(0,10); }
+  else if(dashRange.mode==='month'){ var sm=new Date(TODAY.getFullYear(),TODAY.getMonth(),1); start=sm.toISOString().slice(0,10); }
+  else if(dashRange.mode==='custom'){ start=dashRange.df||end; end=dashRange.dt||end; if(start>end){ var t=start; start=end; end=t; } }
+  var labels={today:'Today',yesterday:'Yesterday','7d':'Last 7 days',week:'This week',month:'This month',custom:'Custom range'};
+  return {from:start,to:end,label:labels[dashRange.mode]||'Today'};
+}
+function dashSetRange(mode){ dashRange.mode=mode; render(); }
+function dashSetRangeCustom(which,v){ dashRange[which]=v; dashRange.mode='custom'; render(); }
+function dashRangeBar(){
+  var opts=[['today','Today'],['yesterday','Yesterday'],['7d','Last 7 days'],['week','This week'],['month','This month'],['custom','Custom']];
+  var r=dashRangeDates();
+  return '<div class="dtabbar" style="margin:10px 0 4px;flex-wrap:wrap">'+opts.map(function(o){return '<button class="dtab'+(dashRange.mode===o[0]?' on':'')+'" onclick="dashSetRange(\''+o[0]+'\')">'+o[1]+'</button>';}).join('')
+    +(dashRange.mode==='custom'?('<input type="date" value="'+(dashRange.df||'')+'" onchange="dashSetRangeCustom(\'df\',this.value)" style="margin-left:8px;font-size:12px">'
+      +'<span class="muted" style="font-size:11px;margin:0 4px">to</span>'
+      +'<input type="date" value="'+(dashRange.dt||'')+'" onchange="dashSetRangeCustom(\'dt\',this.value)" style="font-size:12px">'):'')
+    +'<span class="muted" style="font-size:11px;margin-left:8px;align-self:center">'+r.from+(r.to!==r.from?(' → '+r.to):'')+'</span></div>';
+}
+/* Batch aging — same shape as isOverdue/isStalled for orders, applied to open batches.
+   "Stuck" = open 7+ days AND no shift logged against it in the last 3 days. openedDate and
+   shiftEntries already exist for every batch; nothing new is captured to compute this. */
+function batchAge(b){ if(!b||!b.openedDate) return null; var d=new Date(b.openedDate+'T00:00:00'); if(isNaN(d))return null; return Math.max(0,Math.round((TODAY-d)/86400000)); }
+function batchLastActivity(b){ var last=null; (state.shiftEntries||[]).forEach(function(e){ if(e&&e.batchId===b.id&&e.date&&(!last||e.date>last)) last=e.date; }); return last||b.openedDate||null; }
+function batchIdleDays(b){ var la=batchLastActivity(b); if(!la) return batchAge(b); var d=new Date(la+'T00:00:00'); if(isNaN(d)) return batchAge(b); return Math.max(0,Math.round((TODAY-d)/86400000)); }
+function isBatchStuck(b){ if(!b||b.voided||b.status!=='open') return false; var age=batchAge(b); if(age==null||age<7) return false; return batchIdleDays(b)>=3; }
+function stuckBatches(){ return (state.batches||[]).filter(isBatchStuck).map(function(b){
+    var name=b.kind==='po'?(b.brand||b.base||''):(b.base||'');
+    return {id:b.id,batchNo:b.batchNo||'—',product:name,po:b.po||batchPOsLabel(b)||'',openedDate:b.openedDate||'',age:batchAge(b),idle:batchIdleDays(b),plannedKg:+b.plannedKg||0,producedKg:+b.producedKg||0};
+  }).sort(function(a,b){return b.idle-a.idle;}); }
+/* Entry-timeliness rollup for the chosen range, from the evStamp records already kept per
+   event kind. Reads only — the same enteredLate/lateReason fields the pack/QC screens already write. */
+var EV_KIND_LABEL={shift:'Production entry',pack:'Packing entry',lotqa:'Lab QC inspection',packinsp:'Pack inspection',dispqa:'Dispatch QC',ship:'Shipment entry'};
+function dashEntryTimeliness(from,to){
+  var inR=function(iso){ if(!iso) return false; var d=String(iso).slice(0,10); return d>=from&&d<=to; };
+  var onTime=0, late=0, rows=[];
+  function score(rec,kind,ctx){ if(!rec||!rec.actualDate||!rec.recordedAt) return; if(!inR(rec.recordedAt)) return; if(rec.enteredLate){ late++; rows.push({kind:kind,who:rec.recordedBy||'',days:rec.enteredLate,reason:rec.lateReason||'',ctx:ctx||''}); } else onTime++; }
+  (state.shiftEntries||[]).forEach(function(e){ score(e,'shift','Batch '+(e.batchNo||'')); });
+  (state.packingLog||[]).forEach(function(p){ score(p,'pack',(p.brand||'')+' · '+(p.po||'')); if(p.qa) score(p.qa,'lotqa',p.brand||''); });
+  (state.inspections||[]).forEach(function(ins){ score(ins,'packinsp',ins.brand||''); });
+  (state.shipments||[]).forEach(function(s){ if(s.voided) return; score(s,'ship',s.po||''); if(s.qa) score(s.qa,'dispqa',s.po||''); });
+  var byPerson={}; rows.forEach(function(r){ var k=r.who||'(unattributed)'; byPerson[k]=(byPerson[k]||0)+1; });
+  var total=onTime+late;
+  return {onTime:onTime,late:late,total:total,pct:total>0?Math.round(onTime/total*100):null,rows:rows.sort(function(a,b){return b.days-a.days;}),byPerson:byPerson};
+}
+/* One aggregator for the Overview tab — everything Tahir asked for, for the chosen range.
+   POs behind and stuck batches are live status, not range-bound, and are labelled as such
+   in the UI so a narrow date range never hides them. */
+function dashOpsMetrics(){
+  var r=dashRangeDates(), from=r.from, to=r.to;
+  var inR=function(d){ d=String(d||'').slice(0,10); return d>=from&&d<=to; };
+  var prodRows=(state.productionLog||[]).filter(function(p){return p&&inR(p.date)&&!p.opening&&!/opening|reconcile/i.test((p.incharge||'')+(p.by||''));});
+  var producedKg=0, byProd={}; prodRows.forEach(function(p){ var kg=+p.kg||0; producedKg+=kg; var k=p.brand||p.base||'—'; byProd[k]=(byProd[k]||0)+kg; });
+  var producedByProduct=Object.keys(byProd).map(function(k){return {name:k,kg:byProd[k]};}).sort(function(a,b){return b.kg-a.kg;});
+  var packRows=(state.packingLog||[]).filter(function(p){return p&&inR(p.date);});
+  var packedKg=0, byPO={}; packRows.forEach(function(p){ var kg=+p.kg||0; packedKg+=kg; var k=p.po||'—'; byPO[k]=byPO[k]||{po:k,brand:p.brand||'',kg:0}; byPO[k].kg+=kg; });
+  var packedByPO=Object.values(byPO).sort(function(a,b){return b.kg-a.kg;});
+  var shipRows=(state.shipments||[]).filter(function(s){return s&&!s.voided&&inR(s.dispatch);});
+  var shippedKg=0, byBrand={}, byClient={}; shipRows.forEach(function(s){ var kg=+s.kg||0; shippedKg+=kg; var bd=s.brand||'—'; byBrand[bd]=(byBrand[bd]||0)+kg; var cl=s.client||(typeof shipClientFor==='function'?shipClientFor(s.po):'')||'—'; byClient[cl]=(byClient[cl]||0)+kg; });
+  var shippedByBrand=Object.keys(byBrand).map(function(k){return {name:k,kg:byBrand[k]};}).sort(function(a,b){return b.kg-a.kg;});
+  var shippedByClient=Object.keys(byClient).map(function(k){return {name:k,kg:byClient[k]};}).sort(function(a,b){return b.kg-a.kg;});
+  var behind=[]; (state.orders||[]).forEach(function(o){ (o.lines||[]).forEach(function(l){ if(typeof lineOverdue==='function'&&lineOverdue(o,l)){ behind.push({po:o.po||'',client:o.client||'',product:l.brand||'',days:(typeof daysOver==='function'?daysOver(o):0),reason:l.delayReason||'',dept:l.respDept||''}); } }); });
+  behind.sort(function(a,b){return b.days-a.days;});
+  var stuck=stuckBatches();
+  var qcRej=[]; (state.batches||[]).forEach(function(b){ var lots=(b.lots&&b.lots.length)?b.lots:[{coa:b.coa}]; lots.forEach(function(u){ var c=u&&u.coa; if(c&&c.rejected&&inR(c.rejected.date)){ qcRej.push({batch:b.batchNo||'',product:b.brand||b.base||'',stage:c.rejected.stage||'',by:c.rejected.by||'',why:c.rejected.why||'',date:c.rejected.date||''}); } }); });
+  var wasteKg=0,wasteCost=0,wasteInv=0,wasteRows=[];
+  (state.batches||[]).forEach(function(b){ var pr=b.packReconcile; if(!pr||!inR(pr.date)) return; var lk=+pr.loss||0; if(lk<=0) return; wasteKg+=lk;
+    wasteRows.push({batch:b.batchNo||'',product:b.brand||b.base||'',kg:lk,reason:pr.lossReason||'',date:pr.date||''}); });
+  var et=dashEntryTimeliness(from,to);
+  return {from:from,to:to,label:r.label,producedKg:producedKg,producedByProduct:producedByProduct,
+    packedKg:packedKg,packedByPO:packedByPO,shippedKg:shippedKg,shippedByBrand:shippedByBrand,shippedByClient:shippedByClient,
+    behind:behind,stuck:stuck,qcRej:qcRej,wasteKg:wasteKg,wasteRows:wasteRows.sort(function(a,b){return b.kg-a.kg;}),entry:et};
+}
+function dashOpsHeadline(OM){
+  var p=[]; p.push(OM.label+': produced '+fmt(OM.producedKg)+' Kg/L, packed '+fmt(OM.packedKg)+' Kg/L, shipped '+fmt(OM.shippedKg)+' Kg/L.');
+  p.push(OM.behind.length?(OM.behind.length+' PO'+(OM.behind.length===1?'':'s')+' running behind schedule.'):'No POs behind schedule.');
+  if(OM.stuck.length) p.push(OM.stuck.length+' batch'+(OM.stuck.length===1?'':'es')+' open with no recent activity.');
+  if(OM.qcRej.length) p.push(OM.qcRej.length+' QC rejection'+(OM.qcRej.length===1?'':'s')+' this period.');
+  if(OM.wasteKg>0.5) p.push(fmt(OM.wasteKg)+' Kg/L of wastage this period.');
+  if(OM.entry.total>0) p.push(OM.entry.pct+'% of entries logged on time ('+OM.entry.late+' late).');
+  return p.join(' ');
+}
 function dashDefaultTab(){ var r=state.role; if(r==='CFO')return 'sales'; if(r==='KAM')return 'overview'; if(r==='Plant Manager')return 'centers'; if(r==='Production')return 'production'; if(r==='Lab Rep'||r==='AQCM'||r==='QCM'||r==='QA Inspector')return 'quality'; if(r==='Supply Chain')return 'supply'; return 'overview'; }
 function dashTabBar(){ var tabs=[['overview','Overview'],['centers','Centers'],['production','Production'],['quality','Quality'],['supply','Supply chain']]; if(accessLevel(state.role,'budget')!=='none')tabs.push(['sales','Financial']); return '<div class="dtabbar">'+tabs.map(function(t){return '<button class="dtab'+(dashTab===t[0]?' on':'')+'" onclick="dashTab=\''+t[0]+'\';render()">'+t[1]+'</button>';}).join('')+'</div>'; }
 function _dk(l,v,d,c){return '<div class="kpi" style="border-top:3px solid var('+c+')"><div class="l">'+l+'</div><div class="v">'+v+'</div><div class="d">'+d+'</div></div>';}
@@ -10692,10 +10800,15 @@ function _dq(q,val,sub,tone,go){var c=tone==='bad'?'--red':tone==='warn'?'--ambe
 function dashStageBar(){ var counts={}; BUCKETS.forEach(function(b){counts[b]=0;}); (state.orders||[]).forEach(function(o){ var b=orderBucket(o); counts[b]=(counts[b]||0)+1; }); var max=Math.max.apply(null,BUCKETS.map(function(b){return counts[b];}).concat([1])); return '<div class="card"><h3>Where orders are sitting <span class="hint">'+(state.orders||[]).length+' orders · most-blocking stage</span></h3><div class="stagebars">'+BUCKETS.map(function(b){var n=counts[b];var col=(BUCKET_META[b]&&BUCKET_META[b].c)||'--navy';return '<div class="sbrow" onclick="setScreen(\'tracker\')" style="cursor:pointer"><div class="sb-l">'+b+'</div><div class="sb-bar"><i style="width:'+(n/max*100)+'%;background:var('+col+')"></i></div><div class="sb-n">'+n+' PO</div></div>';}).join('')+'</div></div>'; }
 function dashSalesHtml(){ if(accessLevel(state.role,'budget')==='none') return '<div class="card"><div class="muted" style="padding:16px 2px">Sales &amp; Budget is restricted for your role.</div></div>'; return budgetHtml(); }
 function dashProdHtml(){ var PC=window.ProductionCenter; var fk=PC?PC.floorKpis(state):{producing:{count:0,kg:0},qc:{count:0,kg:0},pack:{count:0,kg:0},recon:{count:0,kg:0}};
-  var todayStr=TODAY.toISOString().slice(0,10); var todayKg=(state.productionLog||[]).filter(function(x){return (x.date||'')===todayStr;}).reduce(function(a,x){return a+(x.kg||0);},0);
+  var OM=dashOpsMetrics();
   var kpis='<div class="kpis" style="grid-template-columns:repeat(4,1fr)">'+_dk('In production',fk.producing.count+'',fmt(fk.producing.kg)+' Kg to go','--navy')+_dk('Awaiting Lab QC',fk.qc.count+'',fmt(fk.qc.kg)+' Kg pending','--amber')+_dk('Ready to pack',fk.pack.count+'',fmt(fk.pack.kg)+' Kg cleared','--green2')+_dk('Reconcile',fk.recon.count+'',fmt(fk.recon.kg)+' Kg pooled','--red')+'</div>';
-  var cards='<div class="dqgrid">'+_dq('Cleared to pack?',fmt(fk.pack.kg)+' Kg',fk.pack.count+' batches QC-cleared & idle',(fk.pack.kg>0?'warn':'good'),"prodView='floor';prodFloorSub='lanes';setScreen('prod')")+_dq('Awaiting Lab QC?',fk.qc.count+'',fmt(fk.qc.kg)+' Kg produced, COA pending',(fk.qc.count>0?'warn':'good'),"qcGroup='status';setScreen('qc')")+_dq('Needs reconcile?',fk.recon.count+'','by-product / remainder pools',(fk.recon.count>0?'bad':'good'),"prodView='floor';prodFloorSub='lanes';setScreen('prod')")+_dq('Today’s output',fmt(todayKg)+' Kg','logged today',(todayKg>0?'good':'warn'),"prodView='output';setScreen('prod')")+'</div>';
-  return kpis+cards+_dbars('Output — last 7 days','Kg/L',_trail7(state.productionLog,function(p){return p.date;},function(p){return p.kg;}),' Kg')+dashStageBar(); }
+  var cards='<div class="dqgrid">'+_dq('Cleared to pack?',fmt(fk.pack.kg)+' Kg',fk.pack.count+' batches QC-cleared & idle',(fk.pack.kg>0?'warn':'good'),"prodView='floor';prodFloorSub='lanes';setScreen('prod')")+_dq('Awaiting Lab QC?',fk.qc.count+'',fmt(fk.qc.kg)+' Kg produced, COA pending',(fk.qc.count>0?'warn':'good'),"qcGroup='status';setScreen('qc')")+_dq('Needs reconcile?',fk.recon.count+'','by-product / remainder pools',(fk.recon.count>0?'bad':'good'),"prodView='floor';prodFloorSub='lanes';setScreen('prod')")+_dq('Output — '+OM.label,fmt(OM.producedKg)+' Kg',OM.label.toLowerCase(),(OM.producedKg>0?'good':'warn'),"prodView='output';setScreen('prod')")+'</div>';
+  var prodRowsHtml=OM.producedByProduct.map(function(p){return '<tr><td>'+p.name+'</td><td class="num">'+fmt(p.kg)+' Kg/L</td></tr>';}).join('');
+  var stuckHtml=OM.stuck.map(function(b){return '<tr><td><b>'+b.batchNo+'</b></td><td>'+(b.product||'—')+'</td><td>'+(b.po||'—')+'</td><td class="num">'+b.age+'d open</td><td class="num" style="color:var(--red)">'+b.idle+'d idle</td><td class="num">'+fmt(b.producedKg)+'/'+fmt(b.plannedKg)+' Kg/L</td></tr>';}).join('');
+  return dashRangeBar()+kpis+cards+_dbars('Output — last 7 days','Kg/L',_trail7(state.productionLog,function(p){return p.date;},function(p){return p.kg;}),' Kg')
+    +egrid('Produced by product — '+OM.label,['Product','Kg/L'],prodRowsHtml)
+    +egrid('Batches not closed — open 7+ days, idle 3+ days',['Batch #','Product','PO','Open','Idle','Produced / planned'],stuckHtml)
+    +dashStageBar(); }
 function dashQualHtml(){ var aw=0,rev=0,unf=0,appr=0; (state.batches||[]).forEach(function(b){ if((b.producedKg||0)<=0||b.disposition==='byproduct')return; var lots=(b.lots&&b.lots.length)?b.lots:[{coa:b.coa}]; lots.forEach(function(u){var st=u.coa&&u.coa.status; if(st==='approved')appr++; else if(st==='failed')unf++; else if(st==='analysed'||st==='reviewed')rev++; else aw++; }); });
   var fitPct=(appr+unf)>0?Math.round(appr/(appr+unf)*100):null;
   var toInspect=(typeof linesToInspect==='function')?linesToInspect():[]; var awKg=toInspect.reduce(function(a,x){return a+(x.batched||0);},0); var blk=toInspect.filter(function(x){return (x.unb||0)>0.5;}).length;
@@ -10703,14 +10816,27 @@ function dashQualHtml(){ var aw=0,rev=0,unf=0,appr=0; (state.batches||[]).forEac
   var qaFail=(state.packingLog||[]).filter(function(x){return x&&x.qa&&x.qa.fail;}).length;
   var kpis='<div class="kpis" style="grid-template-columns:repeat(4,1fr)">'+_dk('Awaiting COA entry',aw+'','Lab Rep to start','--amber')+_dk('In review chain',rev+'','AQCM / QCM','--navy')+_dk('UNFIT',unf+'','Plant Mgr review','--red')+_dk('FIT pass rate',(fitPct!=null?fitPct+'%':'—'),appr+' approved lots','--green2')+'</div>';
   var cards='<div class="dqgrid">'+_dq('Awaiting Lab QC?',aw+'','lots need COA entry',(aw>0?'warn':'good'),"qcGroup='status';setScreen('qc')")+_dq('UNFIT lots?',unf+'','need Plant Manager',(unf>0?'bad':'good'),"qcGroup='status';setScreen('qc')")+_dq('Cleared to ship?',fmt(clearedKg)+' Kg',clearedN+' lines inspected & cleared',(clearedKg>0?'good':'warn'),"qaGroup='status';setScreen('qa')")+_dq('Blocked (no batch #)?',blk+'','packed lots without a batch #',(blk>0?'bad':'good'),"qaGroup='status';setScreen('qa')")+_dq('QA failed?',qaFail+'','Supply Chain to correct',(qaFail>0?'bad':'good'),"qaGroup='status';setScreen('qa')")+_dq('Awaiting QA inspection?',fmt(awKg)+' Kg',toInspect.length+' lines',(awKg>0?'warn':'good'),"qaGroup='status';setScreen('qa')")+'</div>';
-  return kpis+cards+_dbars('COA outcomes',(appr+unf+rev+aw)+' lots',[{n:'FIT',v:appr,c:'--green2'},{n:'UNFIT',v:unf,c:'--red'},{n:'In review',v:rev,c:'--navy'},{n:'Awaiting entry',v:aw,c:'--amber'}],''); }
+  var OM=dashOpsMetrics();
+  var qcRejHtml=OM.qcRej.map(function(q){return '<tr><td>'+(q.date||'—')+'</td><td><b>'+(q.batch||'—')+'</b></td><td>'+(q.product||'—')+'</td><td>'+(q.stage||'—')+'</td><td>'+(q.why?_tx(q.why):'<span class=\"muted\">not recorded</span>')+'</td><td>'+(q.by||'—')+'</td></tr>';}).join('');
+  var et=OM.entry; var lateQC=et.rows.filter(function(r){return r.kind==='lotqa'||r.kind==='packinsp'||r.kind==='dispqa';});
+  var lateHtml=lateQC.map(function(r){return '<tr><td>'+(EV_KIND_LABEL[r.kind]||r.kind)+'</td><td>'+(r.who||'—')+'</td><td>'+_tx(r.ctx||'')+'</td><td class=\"num\" style=\"color:var(--amber)\">'+r.days+'d</td><td>'+(r.reason?_tx(r.reason):'<span class=\"muted\">no reason given</span>')+'</td></tr>';}).join('');
+  return dashRangeBar()+kpis+cards+_dbars('COA outcomes',(appr+unf+rev+aw)+' lots',[{n:'FIT',v:appr,c:'--green2'},{n:'UNFIT',v:unf,c:'--red'},{n:'In review',v:rev,c:'--navy'},{n:'Awaiting entry',v:aw,c:'--amber'}],'')
+    +egrid('QC rejections — '+OM.label,['Date','Batch','Product','Stage','Why','By'],qcRejHtml)
+    +egrid('Late QC/inspection entries — '+OM.label,['Type','Person','Context','Days late','Reason given'],lateHtml); }
 function dashShipHtml(){ var M=execMetrics(); var rp=(typeof readyPOs==='function')?readyPOs():[]; var readyKg=rp.reduce(function(a,po){return a+po.ls.reduce(function(b,x){return b+(x.rem||0);},0);},0);
   var groups=(typeof dispatchGroups==='function')?dispatchGroups():[]; var closed=groups.filter(function(g){return g.delivered;}); var closedKg=closed.reduce(function(a,g){return a+(g.kg||0);},0);
   var dcs=new Set((state.shipments||[]).filter(function(x){return x&&!x.voided&&x.dc;}).map(function(x){return String(x.dc).trim().toLowerCase();})).size;
   var overdue=(state.orders||[]).filter(function(o){return isOverdue(o);}).length;
   var kpis='<div class="kpis" style="grid-template-columns:repeat(4,1fr)">'+_dk('Ready to ship',rp.length+'',fmt(readyKg)+' Kg cleared','--green2')+_dk('Shipments closed',closed.length+'',fmt(closedKg)+' Kg delivered','--navy')+_dk('DCs used',dcs+'','unique DC #s','--navy2')+_dk('On-time delivery',(M.onPct!=null?M.onPct+'%':'—'),M.onD+' delivered lines',(M.onPct!=null&&M.onPct>=90?'--green2':'--amber'))+'</div>';
   var cards='<div class="dqgrid">'+_dq('Ready to ship?',rp.length+' POs',fmt(readyKg)+' Kg inspected & cleared',(rp.length>0?'warn':'good'),"setScreen('ship')")+_dq('Overdue deliveries?',overdue+'','POs past committed date',(overdue>0?'bad':'good'),"setScreen('tracker')")+_dq('Revenue at risk',pkr(M.riskVal),'on overdue lines',(M.riskVal>0?'bad':'good'),"setScreen('tracker')")+'</div>';
-  return kpis+cards+_dbars('Shipped — last 7 days','Kg/L',_trail7(state.shipments,function(s){return s.dispatch;},function(s){return s.kg;}),' Kg')+dashStageBar(); }
+  var OM=dashOpsMetrics();
+  var brandHtml=OM.shippedByBrand.map(function(s){return '<tr><td>'+s.name+'</td><td class="num">'+fmt(s.kg)+' Kg/L</td></tr>';}).join('');
+  var clientHtml=OM.shippedByClient.map(function(s){return '<tr><td>'+s.name+'</td><td class="num">'+fmt(s.kg)+' Kg/L</td></tr>';}).join('');
+  var behindHtml=OM.behind.map(function(b){return '<tr><td><b>'+(b.po||'—')+'</b></td><td>'+(b.client||'—')+'</td><td>'+(b.product||'—')+'</td><td class="num" style="color:var(--red)">'+b.days+'d</td><td>'+(b.reason?_tx(b.reason):'<span class="muted">not recorded</span>')+(b.dept?(' · '+_tx(b.dept)):'')+'</td></tr>';}).join('');
+  return kpis+cards+_dbars('Shipped — last 7 days','Kg/L',_trail7(state.shipments,function(s){return s.dispatch;},function(s){return s.kg;}),' Kg')
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">'+egrid('Shipped by brand — '+OM.label,['Brand','Kg/L'],brandHtml)+egrid('Shipped by client — '+OM.label,['Client','Kg/L'],clientHtml)+'</div>'
+    +egrid('POs running behind — current status',['PO','Client','Product','Days over','Reason'],behindHtml)
+    +dashStageBar(); }
 function _dbars(title,hint,rows,unit){ var max=Math.max.apply(null,rows.map(function(r){return r.v;}).concat([1])); return '<div class="card"><h3>'+title+(hint?' <span class="hint">'+hint+'</span>':'')+'</h3><div class="stagebars">'+rows.map(function(r){return '<div class="sbrow"><div class="sb-l">'+r.n+'</div><div class="sb-bar"><i style="width:'+(r.v/max*100)+'%;background:var('+(r.c||'--navy')+')"></i></div><div class="sb-n">'+fmt(r.v)+(unit||'')+'</div></div>';}).join('')+'</div></div>'; }
 function _trail7(arr,getDate,getVal){ var days=[]; for(var i=6;i>=0;i--){ var d=new Date(TODAY); d.setDate(d.getDate()-i); days.push(d.toISOString().slice(0,10)); } var by={}; days.forEach(function(d){by[d]=0;}); (arr||[]).forEach(function(x){ var dt=String(getDate(x)||'').slice(0,10); if(by[dt]!=null) by[dt]+=(getVal(x)||0); }); return days.map(function(d){return {n:d.slice(5),v:Math.round(by[d]),c:'--navy'};}); }
 function dashSupplyHtml(){ var prs=state.prs||[]; var openPrs=prs.filter(function(x){return x&&x.status!=='closed';}); var awaitCfo=openPrs.filter(function(x){return !x.cfoApproved;}).length; var receiving=openPrs.filter(function(x){return x.cfoApproved && (+x.qtyReceived||0)<(+x.qtyRequired||0);}).length; var closed=prs.filter(function(x){return x&&x.status==='closed';}).length;
@@ -10719,12 +10845,13 @@ function dashSupplyHtml(){ var prs=state.prs||[]; var openPrs=prs.filter(functio
   var kpis='<div class="kpis" style="grid-template-columns:repeat(4,1fr)">'+_dk('RM-blocked lines',rmBlocked+'','awaiting material','--red')+_dk('Open PRs',openPrs.length+'','purchase requests','--navy')+_dk('Awaiting CFO',awaitCfo+'','PRs not approved','--amber')+_dk('Ready to ship',rp.length+'',fmt(readyKg)+' Kg cleared','--green2')+'</div>';
   var cards='<div class="dqgrid">'+_dq('RM-blocked POs?',rmBlocked+'','lines waiting on material',(rmBlocked>0?'bad':'good'),"setScreen('approvals')")+_dq('PRs awaiting CFO?',awaitCfo+'','cannot receive until approved',(awaitCfo>0?'bad':'good'),"setScreen('approvals')")+_dq('GRN to receive?',receiving+'','approved PRs, partly received',(receiving>0?'warn':'good'),"setScreen('approvals')")+_dq('Ready to ship?',rp.length+' POs',fmt(readyKg)+' Kg inspected & cleared',(rp.length>0?'warn':'good'),"setScreen('ship')")+'</div>';
   var prChart=_dbars('Purchase requests',prs.length+' total',[{n:'Awaiting CFO',v:awaitCfo,c:'--red'},{n:'Approved · receiving',v:receiving,c:'--amber'},{n:'Closed',v:closed,c:'--green2'}],'');
-  return kpis+cards+prChart+dashStageBar(); }
+  return dashRangeBar()+kpis+cards+prChart+dashStageBar(); }
 function dashNarrative(M){
-  var dvb=M.budget>0?Math.round(M.delivered/M.budget*100):0;
-  var constraint = M.riskVal>0 ? (pkrM(M.riskVal)+' at risk is the constraint')
-                 : (M.fitPct!=null&&M.fitPct<95 ? ('quality at '+M.fitPct+'% FIT is the drag') : 'flow is clean');
-  return '<div class="tuned"><span class="tg">Tuned for '+state.role+'</span><span>Delivery <b>'+dvb+'%</b> of budget · on-time <b>'+(M.onPct!=null?M.onPct+'%':'—')+'</b> — '+constraint+'.</span></div>';
+  var OM=dashOpsMetrics(); var bits=[];
+  bits.push('Produced <b>'+fmt(OM.producedKg)+'</b> · Packed <b>'+fmt(OM.packedKg)+'</b> · Shipped <b>'+fmt(OM.shippedKg)+'</b> Kg/L ('+OM.label+')');
+  bits.push(OM.behind.length?(OM.behind.length+' PO'+(OM.behind.length===1?'':'s')+' behind'):'no POs behind');
+  if(OM.stuck.length) bits.push(OM.stuck.length+' batch'+(OM.stuck.length===1?'':'es')+' stuck');
+  return '<div class="tuned"><span class="tg">Tuned for '+state.role+'</span><span>'+bits.join(' · ')+'.</span></div>';
 }
 function dashCentersHtml(M){
   var orders=state.orders||[];
@@ -10749,7 +10876,10 @@ function dashCentersHtml(M){
   var lbars='<div class="card"><div class="sec" style="margin-top:0">Load by center <span class="hint">open orders per stage · click to open the Tracker</span></div><div class="funnel">'
     +BUCKETS.filter(function(s){return s!=='Delivered';}).map(function(s){var c=counts[s]||0; var col=(BUCKET_META[s]&&BUCKET_META[s].c)||'--mut'; return '<div class="frow" style="cursor:pointer" onclick="trkStage=\''+s+'\';setScreen(\'tracker\')"><div class="fl">'+s+'</div><div class="ftrack"><i style="width:'+Math.round(c/lmax*100)+'%;background:var('+col+')"></i></div><div class="fn">'+c+'</div></div>';}).join('')
     +'</div></div>';
-  return kpis+'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">'+tbars+lbars+'</div>';
+  var OM=dashOpsMetrics();
+  var prodRowsHtml=OM.producedByProduct.map(function(p){return '<tr><td>'+p.name+'</td><td class="num">'+fmt(p.kg)+' Kg/L</td></tr>';}).join('');
+  return dashRangeBar()+kpis+'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">'+tbars+lbars+'</div>'
+    +egrid('Produced by product — '+OM.label,['Product','Kg/L'],prodRowsHtml);
 }
 /* ===== DASHBOARD LENS (per-view slice toggles) + slim SVG line charts — additive, presentation-only ===== */
 function dashLens(view,val){ state.dashLens=state.dashLens||{}; state.dashLens[view]=val; render(); }

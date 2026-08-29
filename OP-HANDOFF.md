@@ -2838,3 +2838,103 @@ suite (18 files) against the patched source — **all still pass, 0 failures**
 **Not pushed** — Tahir commits/pushes via GitHub Desktop as usual. Once this
 one's live, worth a look on his actual laptop screen (not just the browser
 window size used here) to confirm it reads comfortably.
+
+## 2026-08-29 (later still) — MODULE: O2S — Dashboard rebuilt around the 12 questions Tahir actually asks, not pushed
+
+Tahir's framing this round: O2S was built to replace Excel because management had
+no visibility — now people use Excel *and* the system, and he still has no
+visibility. He'd opened the Dashboard; it wasn't wrong, it just wasn't answering
+what he asks people on the phone every day. He gave a precise list: today's
+production, what was produced, what was packed, which PO was packed, what shipped
+today (brand, client), which PO is running behind and why, why batches aren't
+closed, why QC rejected, wastage, who's logging on time and who isn't — all for a
+day, a week, or a date range he picks. Explicitly not interested in budget/target %
+("this system is not meant for it, its an add on"). Decision: rebuild the whole
+Dashboard, not a new tab; keep Financial as its own tab for CFO; build the two
+items that needed real new logic (stuck-batch detection, full entry-timeliness)
+now rather than defer them.
+
+**What was found before writing anything:** almost everything on the list already
+existed as real, dated, per-event data — `productionLog`, `packingLog` and
+`shipments` are all dated and filterable; `delayReason`/`respDept` per PO line
+already capture why a PO is behind; `coaReject()` already captures why QC
+rejected; `batch.packReconcile` already captures wastage with a reason
+(`lossReason`) and its cost/revenue impact. A full "Report Builder" already
+existed under Reports with 13 date-filterable datasets — real, wired to live
+data, just generic (pick a dataset, read a table) rather than answering the
+question directly. The two real gaps: a batch sitting open has no "why is this
+stuck" signal (only `openedDate`, no reason) — same shape as the `isOverdue`/
+`isStalled` pattern already used for orders, just never applied to batches. And a
+late-entry mechanism (`evStamp`/`evDateField`, capturing `recordedAt` vs the
+claimed date with a reason once late) already existed but only covered packing,
+lab QC and dispatch QC — not production shift logging or the shipment/dispatch
+form itself, the two most important ones for "who's logging on time."
+
+**What was built:**
+- A shared date-range control (`dashRange`/`dashRangeBar()`/`dashOpsMetrics()`) —
+  Today / Yesterday / Last 7 days / This week / This month / Custom — used across
+  every Dashboard tab instead of each tab hardcoding "today" or "last 7 days"
+  separately.
+- `stuckBatches()` / `isBatchStuck()` — a batch counts as stuck once it's been
+  open 7+ days with no shift logged against it in the last 3, mirroring the
+  existing order-level `isStalled()`. Surfaced with age, idle days, and
+  produced/planned on Overview and Production.
+- Entry-timeliness extended to production and shipment logging: `evStamp`/
+  `evDateField` (kinds `shift` and `ship` — thresholds already existed in
+  `EV_DEFAULT_THRESHOLD`, just unused) now wired into `submitShiftLog()` and
+  `saveDispatch()`. This is **soft/visibility-only, not a submission block** — a
+  hard `evDateGate()` was tried first (matching lotqa/packinsp/dispqa) but broke
+  9 real test cases and a full-suite crash (`certremove.test.js`) because
+  historical fixtures use fixed dates that read as "late" against today's real
+  clock; blocking on that would also block Tahir's own people backfilling
+  yesterday's shift the next morning, which is normal, not a violation. Kept the
+  warning + optional reason capture, dropped the hard block. Existing historical
+  entries have no `enteredLate`/`recordedAt` (that data starts now, going
+  forward) — the "who's on time" table will be empty until new entries accumulate,
+  and says so rather than showing a fake number.
+- **Overview tab, fully rebuilt**: dropped the budget/target-led framing (Money
+  section, by-client budget chart, "% of budget" verdict) — that content now
+  lives only on the Financial tab. Leads with produced/packed/shipped for the
+  chosen range, then: POs running behind (live status, not range-limited, with
+  reason + department), batches not closed (live, with age/idle days), QC
+  rejections for the range (with why), wastage for the range (with reason per
+  batch, plus the existing cost/revenue-impact figures), and who's logging late
+  (by person, with reason). Kept the reconcile-breakdown and turnaround charts,
+  clearly labelled all-time since they're cumulative, not range-scoped.
+- **Production, Quality, Supply chain, Centers tabs**: each gets the same range
+  control; Production adds the stuck-batch list and produced-by-product; Quality
+  adds QC rejections with reason and late QC/inspection entries; Supply chain
+  adds shipped-by-brand/by-client and the POs-behind table; Centers adds
+  produced-by-product for the range. Floor-status KPIs (in production, awaiting
+  QC, open load, etc.) stayed as live snapshots — a date range doesn't change
+  what's on the floor right now.
+- `dashNarrative()` (the one-line strip shown above every tab) no longer leads
+  with "% of budget" — it's produced/packed/shipped for the range, POs behind,
+  batches stuck.
+
+**Verification:** no local live-browser check this round — trying to run the app
+locally to preview against Chrome hung on `store.init()` (likely DB connectivity
+in this environment) and never bound a port, so that path was dropped rather than
+forced. Verified instead by: the syntax check across all inline `<script>`
+blocks (clean); the full existing `o2s/tests/*.test.js` suite, now 18 files,
+5219+ assertions, all still passing after fixing the two regressions the hard
+date-gate caused; and a new `o2s/tests/dashboard.test.js` that loads the whole
+app into the harness sandbox against the real `data/state.json` snapshot and
+actually calls `dashOpsMetrics()`, `dashExecHtml()`, `dashNarrative()` and
+`screenDash()` for every tab, across 7 roles and 5 date-range modes (140
+checks) — confirming no exceptions, no `undefined`/`NaN`/`[object Object]`
+leaking into rendered HTML, for combinations a single manual click-through would
+likely have missed. Spot-checked the real numbers against the live snapshot for
+a Jan–Aug 2026 range: 338,075 Kg/L produced, 501,860 packed, 370,807 shipped,
+44 POs behind schedule, 48 stuck batches, 7,467 Kg/L wastage — all plausible
+against real client/product names, not placeholder data.
+
+**Files changed:** `o2s/o2s.html` only (date-range engine, stuck-batch
+detection, entry-timeliness wiring, all five Dashboard tab render functions,
+`dashNarrative`). `o2s/tests/dashboard.test.js` added.
+
+**Not pushed** — Tahir commits/pushes via GitHub Desktop as usual. Worth a real
+look on his screen once live, since this is a full rebuild of the screen he
+actually opens every day, and the "who's logging on time" table will read empty
+at first (by design — it only counts entries made after this ships) until a
+few days of real entries accumulate.

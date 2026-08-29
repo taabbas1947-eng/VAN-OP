@@ -2776,3 +2776,65 @@ visual eyeball next time Tahir has the app open.
 **What's next:** Tahir mentioned "pending task" to resume after settling these
 issues — not yet named in this session. Also worth a real-browser look at the new
 inline red markers and the (?) toggle before considering this fully done.
+
+## 2026-08-29 (later) — MODULE: O2S — New PO Entry: real column-width bug found and fixed, not pushed
+
+Tahir had already pushed/deployed the earlier session's change (the redesigned
+"Which price goes on the pack?" box, the removed Step 3 card, inline red
+markers) — confirmed live on `van-control-tower.onrender.com/o2s`, logged in
+as COO. He then flagged: "field size and text is not fixed yet."
+
+**What was actually wrong (bigger than the label text):** the line-items table
+(`table.fixedtbl`, `table-layout:fixed`) has 9 columns; 8 of them carry an
+explicit pixel width (originally summing to 850px) and **Brand — the single
+most important field, the product picker — had no width at all.** With
+`table-layout:fixed`, a column with no specified width is only supposed to
+get a share of *leftover* space once the table has a definite width. But this
+table has no CSS width of its own, and its flex container (`.po-main`,
+`flex:1.6` in the two-column `layout2` row next to the sticky Order Summary
+sidebar) only gives it **~589–780px** at a normal laptop window — already
+less than the 850px the other 8 columns demanded. Brand collapsed to **0px**
+(confirmed with `getBoundingClientRect()` on the live page — literally
+`width: 0`), and the table silently overflowed its container rather than
+shrinking, so widening or renaming a header (like "Pack" → "Pack Size" last
+session) could overflow into the sidebar instead of just wrapping cleanly.
+That's the real shape of "field size and text is not fixed" — it's a layout
+bug, not a copy-editing one.
+
+**Verified the fix live before writing it to source** — injected candidate
+CSS widths directly into the running deployed page via the browser console
+and re-measured with `getBoundingClientRect()`/`scrollWidth` (see method
+below) rather than guessing:
+- Gave every column an explicit width, Brand included: Brand 150 · Form 78 ·
+  Pack Size 76 · Qty 74 · Packs 54 · Invoice price 188 · Committed 118 ·
+  Note 125 · (remove-line button) 26 — total 889px, vs. the old 850+0.
+- Shortened the Invoice-price header from "Invoice price · PKR/Kg + PKR/pack"
+  to **"Invoice price · Kg + pack"** (the PKR is already on both input
+  placeholders inside the cell) — freed enough room that the header stops
+  fighting for space at the old width.
+- **Wrapped the table in a `.linewrap{overflow-x:auto}` div.** This is the
+  part that actually makes it robust: instead of tuning pixel widths to one
+  window size and having it silently break again on a smaller screen (or the
+  next time a label gets longer), the table now scrolls horizontally inside
+  its own card on any window narrower than ~890px, and never again bleeds
+  into the sticky sidebar. Stress-tested against the longest real brand name
+  in the live catalog ("Naya NPK- Powder", Syngenta) — fits/clips sensibly,
+  no layout breakage.
+
+**Verification method, for next time this table needs touching:** don't
+trust `scrollWidth === clientWidth` on the header `<th>` alone near the
+margin (it can read as "no overflow" while still being a hair too tight and
+rendering an ellipsis) — measure the *natural* text width with an offscreen
+span using the header's real computed font/letter-spacing/text-transform and
+compare against the column's content-box width instead.
+
+**Files changed:** `o2s/o2s.html` only — the `.fixedtbl` CSS block (added
+`.po2 .linewrap`) and the Step 2 line-items `<table>` markup (column widths +
+the wrapper div). No JS logic touched. Re-ran the full `node --check`-style
+parse of all inline `<script>` blocks (clean) and the full `o2s/tests/*.test.js`
+suite (18 files) against the patched source — **all still pass, 0 failures**
+(poentry.test.js: 24/24).
+
+**Not pushed** — Tahir commits/pushes via GitHub Desktop as usual. Once this
+one's live, worth a look on his actual laptop screen (not just the browser
+window size used here) to confirm it reads comfortably.

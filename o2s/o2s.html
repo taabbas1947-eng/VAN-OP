@@ -3669,6 +3669,7 @@ function screenEntry(){
     .po2 .badge-ok{background:#e7f3f1;color:#0f766e;border-radius:7px;padding:2px 8px;font-size:11px;font-weight:700}
     .po2 .badge-warn{background:#faf0da;color:#c77b0e;border-radius:7px;padding:2px 8px;font-size:11px;font-weight:700}
     .po2 .inv{border-color:var(--red)!important;background:var(--red-50)!important}
+    .po2 .linewrap{overflow-x:auto}
     .po2 .pricehelp-toggle{cursor:pointer;display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:50%;background:#e0d6c4;color:#6b6152;font-size:10px;font-weight:700;line-height:1;flex:none}
     @media(max-width:900px){.po2 .layout2{flex-direction:column}.po2 .po-side{position:static}}
    </style>
@@ -3738,8 +3739,8 @@ function screenEntry(){
           <b>No price</b> &mdash; nothing printed. Any price on the bag is then a failure.</div>
       </div>`;})():''}
     ${entryClient?'':'<div class="muted" style="font-size:12.5px">Pick a channel and client above to load brands.</div>'}
-    <table class="fixedtbl ${entryClient?'':'hide'}" style="font-size:12px"><thead><tr><th>Brand</th><th style="width:84px">Form</th><th style="width:66px">Pack Size</th><th style="width:80px">Qty</th><th style="width:72px">Packs</th><th style="width:172px">Invoice price · PKR/Kg + PKR/pack</th><th style="width:150px">Committed</th><th style="width:200px">Note</th><th style="width:26px"></th></tr></thead>
-    <tbody id="e_lines"></tbody></table>
+    <div class="linewrap"><table class="fixedtbl ${entryClient?'':'hide'}" style="font-size:12px"><thead><tr><th style="width:150px">Brand</th><th style="width:78px">Form</th><th style="width:76px">Pack Size</th><th style="width:74px">Qty</th><th style="width:54px">Packs</th><th style="width:188px">Invoice price · Kg + pack</th><th style="width:118px">Committed</th><th style="width:125px">Note</th><th style="width:26px"></th></tr></thead>
+    <tbody id="e_lines"></tbody></table></div>
     <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:10px" class="${entryClient?'':'hide'}">
       <button class="ghost sm" onclick="entryLines.push({brand:'',qty:'',pack:'',note:'',committed:''});renderEntryLines()">+ Add line</button>
       <div id="e_total" class="muted" style="font-size:12px;text-align:right"></div>

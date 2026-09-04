@@ -3150,3 +3150,130 @@ actual mismatch (if that's what it is) can be pinpointed before writing a fix.
 
 **Not done:** BKK/V-Transfarm root cause not yet confirmed against live data;
 no fix written for it this session, pending Tahir's console-snippet output.
+
+_Same day, addendum:_ verified all four fixes live in production
+(van-control-tower.onrender.com/o2s) by reading the running app's own state
+after a hard reload — `SEED.brandMap['Fruitlish'].base`, the ARYSTA catalog
+entry, the DC template, the focal-person field, and the `acEscalation`
+Supply-Chain-only rule all match the pushed code. One rough edge hit along
+the way: right after the fix was already deployed, this same browser tab
+(left open from earlier in the session) still evaluated the *old* Fruitlish
+base until a manual reload — the app has no build-stamp / cache-bust check
+on load, so a tab open across a deploy can silently keep running stale
+logic. Not something this session touched; flagging it as a real (small)
+gap, not a one-off.
+
+---
+
+## 4 Sept 2026 (later) — stale-tab version check + a full reconciliation pass
+
+**MODULE: O2S** (`o2s/o2s.html` + its own test, `o2s/tests/prodrender.test.js`).
+`node --check` clean, full suite green (18/18 files, 0 failed;
+`authmodel.test.js` still 5219/5219). **Not pushed.**
+
+**Stale-tab detector.** The gap from earlier today (this session's own browser
+tab kept running the pre-Fruitlish-fix rules until a manual reload, right
+after the fix was already live) is now closed in-app, no server change:
+- `BUILD_ID` stamped as the very first inline `<script>` in `<head>` (currently
+  `'2026-09-04a'` — **bump this by hand on every future o2s.html edit**, there's
+  no build step to do it automatically).
+- `checkForNewBuild()` piggybacks on the existing `startSync()` 7s heartbeat
+  (reusing its hidden/typing/modal gating for free) but only actually fetches
+  at most once every 10 minutes. It re-fetches `/o2s` (already
+  `Cache-Control: no-store` server-side — no new route needed), reads only the
+  first ~4KB of the stream, and cancels — not the whole 1.5MB file.
+- On a mismatch: a dismissible amber banner ("A newer version of O2S is
+  available") — dismissing hides it but does **not** clear `_buildStale`.
+- `saveNow()` now refuses to save at all while `_buildStale` is true ("A newer
+  version is available — refresh to save"), rather than risk a write going
+  out under old rules. This was a deliberate choice — it blocks work rather
+  than silently letting a stale tab keep writing; flag it to Tahir if a
+  softer version is ever wanted.
+- `tests/prodrender.test.js`'s "five script blocks" sanity check updated to
+  six (the new BUILD_ID block is real, on purpose) — everything else about
+  that test (it loads and executes every block into a sandbox) was untouched
+  and still passes.
+
+**Reconciliation pass — same check that found PUR-ORD-2026-00592, run across
+every open order.** Read-only against live production data (no records
+touched). Of 175 order lines across 53 orders, **6 have packed > 0 with no
+matching `packingLog` row** (or less than fully matching):
+
+- **4 lines are all V-Mg Essential (base Mg Sulphate)** — Vgreen ×2, one
+  Farmer PO, one Dealer PO (DLR-PB-JHN-001) — all already fully delivered,
+  850 kg combined, zero packingLog trail on any of them. Same brand across
+  three unrelated channels — this reads as a pattern in how V-Mg Essential
+  gets packed, not a one-off.
+- **"Maxim Old POs"** (Max Sulfur, 2000 kg) — the PO id itself suggests a
+  pre-cutover import bucket, not a real order.
+- **PUR-ORD-2026-00592 / V-Transfarm** — now shows **packed 600 kg against an
+  order of 300**. The Data Fix backfill from earlier today correctly added
+  one linked packingLog row (300 kg), but the original untraced 300 was never
+  cleared first, so it landed on top instead of replacing it. Needs a
+  correction before anything ships against this line.
+
+Full detail (sortable/filterable) in the artifact sent to Tahir this session:
+"Packing Trail Audit". Nothing here was fixed — flagged only, per how this
+pass was scoped.
+
+**Not done / next:** correct the PUR-ORD-2026-00592 double-count; decide what
+(if anything) to do about the V-Mg Essential pattern and the Maxim Old POs
+bucket — both look retrospective, not blocking, but the V-Mg Essential one in
+particular is worth a real look given it spans three channels.
+
+---
+
+## 4 Sept 2026 (later still) — Reconciliation as a real screen, and a one-time changelog notice
+
+**MODULE: O2S.** All in `o2s/o2s.html` plus two new tests
+(`o2s/tests/recon.test.js`, `o2s/tests/whatsnew.test.js`). Full suite green:
+20/20 files, 0 failed. **Not pushed.**
+
+**Note on today's own process:** every syntax check this session up to this
+point only ever `node --check`'d the single *biggest* of the file's six
+`<script>` blocks — today's earlier edits (RIGHTS, acEscalation, printDC,
+dispatch/focal-person, Fruitlish) all happened to land in smaller blocks that
+were never actually checked. Nothing was wrong (the full test suite, which
+does exercise every block, stayed green throughout), but the practice itself
+was a gap. Fixed going forward — `checksyn.py` on this machine now checks
+all six blocks, not just the largest.
+
+**Reconciliation is now a real screen**, not just a one-off audit: "Setup &
+admin" → **Reconciliation** (next to Data Fix, per the placement discussion —
+it's diagnostic, not tied to one pipeline stage, and pairing it with Data Fix
+keeps "found it → fixed it" one click apart). It calls the app's own
+`lotsFor()` directly rather than a re-implementation, so it can never
+disagree with what QA/Shipments themselves would show. Live on every open —
+not a saved snapshot. Read-only; view access is COO/Production/Production
+Manager same as Data Fix, but (unlike Data Fix) not further nav-restricted,
+since there's nothing to break by looking. `tests/recon.test.js` covers the
+real fixture (no throw) plus five synthetic cases: the 0.5 tolerance
+boundary, a voided packingLog row correctly excluded, a wrong-PO row
+correctly excluded, the overpack flag, and the same-brand pattern grouping.
+
+**One-time "what's changed since you last logged in" notice.** Tahir asked
+for this mid-session as a second, separate ask — confirmed with him first
+since it forks on a real architecture question: tracked in the browser
+(`localStorage`, keyed by username) rather than the account itself, by his
+explicit choice, so **no server/auth change** — stays inside O2S. Trade-off
+he accepted: a different computer or a cleared browser sees it again.
+- `CHANGELOG` array sits right beside `BUILD_ID` in that same tiny first
+  `<script>` block — **update both by hand together** on every future
+  o2s.html change (bump `BUILD_ID`, push a new `{ver,date,title,items}`
+  entry). No build step does this automatically.
+- Fires once from `renderApp()`, right after the authenticated render.
+  First time a given username has ever hit this (no localStorage key yet),
+  they see the *entire* CHANGELOG so far — that's deliberate, it's how
+  everyone gets told about today's changes on the first rollout of this
+  feature. After that, only entries newer than the one they last dismissed.
+- `tests/whatsnew.test.js` (13 assertions): shows once, never re-shows for
+  the same version, stores the *latest* version on dismiss (not just "a"
+  version), only the new entries render when there's an older one on record,
+  and different usernames are tracked independently.
+- Today's actual CHANGELOG entry (`2026-09-04a`) covers: delivery
+  confirmation → Supply Chain permanently, DC/Gate Pass batch-number removal,
+  the focal-person field, and the new Reconciliation screen.
+
+**Not done / next:** nothing outstanding from this pass. Still open from the
+earlier entries today: the PUR-ORD-2026-00592 double-count correction, and a
+decision on the V-Mg Essential pattern / Maxim Old POs bucket.

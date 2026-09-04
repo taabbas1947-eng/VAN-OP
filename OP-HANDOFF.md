@@ -3088,3 +3088,65 @@ template to answer them in.
 
 
 _Same day, addendum:_ both templates (`PD-Material-Grade-Template-RETURNED-1Sep2026.xlsx` and `PD-Controlled-Vocabularies-Template.xlsx`) sent back to the team for the next pass. Nothing further from this side until they come back.
+
+
+---
+
+## 4 Sept 2026 — O2S: focal person, DC batch-number removal, delivery-confirm escalation, Fruitlish base fix
+
+**MODULE: O2S** (`o2s/o2s.html`). All changes below are made, `node --check`'d,
+and pass the full suite (`for t in tests/*.test.js; do node "$t"; done` — 18
+files, all 0 failed; `authmodel.test.js` 5219/5219). **Not pushed** — sitting as
+local changes for Tahir to push via GitHub Desktop.
+
+- **Customer focal person at dispatch.** Both truck-creation flows
+  (`openDispatch`/`renderDispatchModal`/`saveDispatch` for single-order dispatch,
+  and `mpStart`/`renderMPShip`/`mpCreate` for multi-PO truck loads) now carry an
+  editable "Customer focal person" field, pre-filled from the order's
+  `focalPerson` when set, persisted onto the shipment record either way. Prints
+  on the DC.
+- **Internal batch number off the DC / Gate Pass.** `printDC()` no longer emits
+  the "Internal batch" column — header and row templates both cut down by one
+  cell. Pack-time batch # (customer-facing) is unaffected.
+- **Delivery confirmation stays with Supply Chain, permanently.** Removed the
+  `alsoOn` escalation path to Plant Manager on `delivery.confirm`
+  (`RIGHTS['delivery.confirm']`). Per the COO's ruling (relayed by Tahir): this
+  never hands off to another role. Instead, `acEscalation()`'s
+  `'Confirm delivery'` entry re-flags to **Supply Chain itself** after 3 days —
+  same owner (Saad Jamal's existing Supply Chain login), same role, just a
+  louder ⚠ badge on his own row. `authmodel.test.js` §29 WANT fixture updated to
+  match (`alsoOn: 'approvals:Supply Chain'`); §30 self-derives from the live
+  `acEscalation` source so needed no manual edit.
+
+**Production-floor bug report, part 1 — Fruitlish's base corrected.** Fruitlish
+was registered against itself as a base (`SEED.brandMap['Fruitlish'].base ==
+"Fruitlish"`), so `brandsForBase()` never offered Fruitlish as a pack target for
+VL-Potash batches — blocking the pending Fruitlish order for ARYSTA LIFE
+SCIENCES (PVT) LTD, PO 7500003954, from being repacked out of already-produced
+VL-Potash stock. Fixed at the master-data level, both places the registration
+lives: `SEED.brandMap['Fruitlish'].base` and the ARYSTA `brandsByClient` catalog
+entry both now read `"base": "VL-Potash"`. Fruitlish is no longer a base in its
+own right. Verified this doesn't disturb `divTargets`/`submitDivert`'s
+same-base check (both key off `base`, not brand, so they pick the corrected
+value up automatically) and re-ran the full suite clean.
+
+**Production-floor bug report, part 2 — BKK / V-Transfarm, PO
+PUR-ORD-2026-00592 — diagnosis only, not fixed.** V-Transfarm's master
+registration is fine (`brandMap['V-Transfarm'].base == "Zinc 21%"`, matches the
+`brandsByClient` BKK catalog entry exactly) — unlike Fruitlish, this is **not**
+a master-data bug. Produced 300/300, Packed 300/300, QC "—" not done, invisible
+in both QA and Shipment for this PO. Traced the QA-visibility chain
+(`lotsFor→lotAvail/lotHasBatch→lineToInspectTotal→linesToInspect()→screenQA()`)
+and the Shipment-readiness chain (`lotClearedKg→lineCleared→readyLinesFor`) —
+both depend on `state.packingLog` rows matching the order by `po` (and `lid` if
+set, else `brand`). Given the documented precedent (Kashmir Sugar Mills / VL-Potash
+PO 06493, a same-brand two-line `lid` mismatch fixed as one-off data surgery),
+the leading hypothesis is a `packingLog[].po` string mismatch or missing/mismatched
+`lid` for this PO's V-Transfarm rows — not something visible without querying the
+live MySQL data, which isn't reachable from here. Left Tahir a one-off browser-console
+snippet to run on the live O2S page and paste back the output (dumps `state.orders`'s
+PUR-ORD-2026-00592 line + every `packingLog` row that does/doesn't match it), so the
+actual mismatch (if that's what it is) can be pinpointed before writing a fix.
+
+**Not done:** BKK/V-Transfarm root cause not yet confirmed against live data;
+no fix written for it this session, pending Tahir's console-snippet output.

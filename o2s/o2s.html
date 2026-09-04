@@ -2451,7 +2451,7 @@ var RIGHTS=[
   {code:'gatepass.issue',   dept:'supply-chain', name:'Issue a Gate Pass',
    note:'Needed before the Plant Manager can release the truck.',  legacy:{kind:'canEdit', owners:['Supply Chain'], scr:'ship', alsoOn:[{scr:'approvals',roles:['Plant Manager']}]}},
   {code:'delivery.confirm', dept:'supply-chain', name:'Confirm a delivery',
-   note:'Record that the customer received the load.',             legacy:{kind:'canEdit', owners:['Supply Chain'], scr:'ship', alsoOn:[{scr:'approvals',roles:['Plant Manager']}]}},
+   note:'Record that the customer received the load. Supply Chain only, permanently — 2026-09-04: the COO ruled it never hands off to the Plant Manager; a stale confirmation instead re-flags to the same Supply Chain owner after 3 days (see acEscalation).', legacy:{kind:'canEdit', owners:['Supply Chain'], scr:'ship', alsoOn:[{scr:'approvals',roles:['Supply Chain']}]}},
   {code:'rm.receive',       dept:'supply-chain', name:'Receive raw material against a PR',
    note:'Only after the CFO has approved the requisition.',        legacy:{kind:'canEdit', owners:['Supply Chain'], scr:'approvals', alsoOn:[{scr:'prod'}]}},
   {code:'pr.close',         dept:'supply-chain', name:'Close a purchase requisition',
@@ -8013,9 +8013,9 @@ function printDC(dispId){ var g=((typeof dispatchGroups==='function')?dispatchGr
     var prod=_pe(L.brand)+(multi&&L.po?('<div class="rpo">'+_pe(L.po)+'</div>'):'');
     return '<tr><td class="num">'+(i+1)+'</td><td>'+prod+'</td><td class="num">'+(L.pk>0?fmt(L.pk):'—')+'</td><td>Kg</td>'
       +'<td class="num">'+(packs!==''?fmt(packs):'—')+'</td><td class="num">'+fmt(+L.kg||0)+'</td>'
-      +'<td class="bpack">'+packCell+'</td><td class="bint">'+inTxt+'</td></tr>';
+      +'<td class="bpack">'+packCell+'</td></tr>';
   }).join('');
-  var blanks=''; for(var bi=_plines.length;bi<6;bi++){ blanks+='<tr><td class="num">'+(bi+1)+'</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>'; }
+  var blanks=''; for(var bi=_plines.length;bi<6;bi++){ blanks+='<tr><td class="num">'+(bi+1)+'</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>'; }
   var stamp=(g.qa==='pass')?'<div class="stamprow"><div class="stamp"><div class="b">QC PASSED</div><div class="s">CLEARED FOR DISPATCH</div></div></div>':'';
   var approved=(g.dcStatus==='approved');
   var issuedBy=(g.rows[0]&&g.rows[0].by)||'';
@@ -8059,7 +8059,7 @@ function printDC(dispId){ var g=((typeof dispatchGroups==='function')?dispatchGr
     +(pend?'<div class="draftbar">DRAFT — PENDING PLANT MANAGER APPROVAL</div>':'')
     +'<div class="parties"><div class="col">'+col1+'</div><div class="col">'+col2+'</div></div>'
     +'<h2 class="sec">Packing list</h2>'
-    +'<table><thead><tr><th style="width:30px">Sr</th><th>Product</th><th class="num" style="width:44px">SKU</th><th style="width:38px">UOM</th><th class="num" style="width:66px">Quantity</th><th class="num" style="width:78px">Weight (Kg)</th><th style="width:104px">Batch # <span class="thsub">on pack</span></th><th style="width:118px">Internal batch</th></tr></thead><tbody>'+rows+blanks+'</tbody></table>'
+    +'<table><thead><tr><th style="width:30px">Sr</th><th>Product</th><th class="num" style="width:44px">SKU</th><th style="width:38px">UOM</th><th class="num" style="width:66px">Quantity</th><th class="num" style="width:78px">Weight (Kg)</th><th style="width:130px">Batch #</th></tr></thead><tbody>'+rows+blanks+'</tbody></table>'
     +stamp
     +'<div class="signs"><div class="s"><div class="role">Issued by</div>'+(issuedBy?('<div class="nm">'+_pe(issuedBy)+'</div><div class="ok">&#10003; digital signature</div>'):'')+'</div>'
     +'<div class="s"><div class="role">Approved by</div>'+(approved?('<div class="nm">'+_pe(g.approvedBy)+'</div><div class="ts">'+_pe(g.approvedDate)+'</div><div class="ok">&#10003; digital signature</div>'):'<div class="pend">pending</div>')+'</div>'
@@ -9041,7 +9041,13 @@ function acEscalation(it){ if(!it)return null;
   var TH={'Acknowledge':[1,'Plant Manager'],'RM Check':[1,'CFO'],'Receive':[1,'CFO'],'Lab QC':[1,'Plant Manager'],'Review':[1,'Plant Manager'],'Approve':[1,'Plant Manager'],'Pack QC':[2,'Plant Manager'],'Inspect':[2,'Plant Manager'],'Ship':[2,'Plant Manager'],'Open Production':[4,'Plant Manager'],'Approve PR':[1,'COO'],
     /* 2026-08-21 — the truck pipeline. A loaded truck waiting on a release is the
        most expensive thing to leave sitting, so it escalates after one day. */
-    'Print price':[3,'COO'],'Load':[1,'Plant Manager'],'Gate Pass':[1,'Plant Manager'],'Release':[1,'COO'],'Approve DC':[1,'COO'],'Confirm delivery':[3,'Plant Manager']};
+    'Print price':[3,'COO'],'Load':[1,'Plant Manager'],'Gate Pass':[1,'Plant Manager'],'Release':[1,'COO'],'Approve DC':[1,'COO'],
+    /* 2026-09-04 — the COO's call: delivery confirmation is Supply Chain's job,
+       full stop, never Plant Manager's. But it should not go quiet either — Saad
+       (Supply Chain) still needs the nudge, so a stale "Confirm delivery" re-flags
+       to Supply Chain itself after 3 days: same owner, same role, just louder —
+       the ⚠ stalled badge on his own row, not a hand-off to anyone else. */
+    'Confirm delivery':[3,'Supply Chain']};
   var th=TH[it.label]; if(!th)return null;
   var days=(it.label==='Open Production')?acProduceStallDays(it):((actTiming(it)||{}).days);
   if(days==null||days<th[0])return null;
@@ -10189,7 +10195,7 @@ function dcControlOn(dateStr){ return String(dateStr||TODAY.toISOString().slice(
 function nextDCNo(){ var mx=0; (state.shipments||[]).forEach(function(s){ if(!s||s.voided)return; var n=parseInt(String(s.dc||'').replace(/\D/g,''),10); if(!isNaN(n)&&n>mx)mx=n; }); return String(mx+1); }
 function _releaseShip(o,l,batches){ if(!o||!l)return; (lotsFor(o,l)||[]).forEach(function(p){ var b=(batches||[]).find(function(x){return x.batch===lotBaseNo(p)||x.brand===lotBrandNo(p);}); if(b){ p.shipKg=Math.max(0,(+p.shipKg||0)-(+b.kg||0)); } }); }
 function openDispatch(oid){ const o=(state.orders||[]).find(x=>x.id===oid); if(!o)return; const ls=readyLinesFor(o); if(!ls.length){toast('Nothing ready to ship on this PO');return;}
-  dispForm={oid,date:TODAY.toISOString().slice(0,10),dateReason:'',dest:(clientTopDest(o.client)||''),inTransit:true,transportType:'',carrier:'',vehicle:'',dc:'',bilty:'',so:'',driver:'',driverContact:'',seal:'',remarks:'',lines:ls.map(x=>({lid:x.l.id,brand:x.l.brand,base:x.l.base||'',pack:(+x.l.pack||seedPackForBrand(x.l.brand)||0),rem:Math.round(x.rem),qty:Math.round(x.rem),on:true}))};
+  dispForm={oid,date:TODAY.toISOString().slice(0,10),dateReason:'',dest:(clientTopDest(o.client)||''),focal:(o.focalPerson||''),inTransit:true,transportType:'',carrier:'',vehicle:'',dc:'',bilty:'',so:'',driver:'',driverContact:'',seal:'',remarks:'',lines:ls.map(x=>({lid:x.l.id,brand:x.l.brand,base:x.l.base||'',pack:(+x.l.pack||seedPackForBrand(x.l.brand)||0),rem:Math.round(x.rem),qty:Math.round(x.rem),on:true}))};
   renderDispatchModal(); $('modalBg').classList.add('open'); }
 function dispTotal(){ return (dispForm&&dispForm.lines||[]).reduce((a,r)=>a+(r.on?(+r.qty||0):0),0); }
 function dispCount(){ return (dispForm&&dispForm.lines||[]).filter(r=>r.on&&(+r.qty||0)>0).length; }
@@ -10211,6 +10217,7 @@ function renderDispatchModal(){ const o=(state.orders||[]).find(x=>x.id===dispFo
        <div class="formgrid" style="grid-template-columns:repeat(3,minmax(0,1fr))">
          <div class="fld fld-long">${evDateField('dispForm','date','ship','Dispatch date — the date the truck actually left','renderDispatchModal()')}</div>
          <div class="fld"><label>Destination <span class="muted" style="font-weight:400;font-size:10px">· usual location remembered</span></label><input type="text" list="dispDestList" value="${_av(dispForm.dest)}" oninput="dispSet('dest',this.value)" placeholder="where is this going?"><datalist id="dispDestList">${clientDestinations(o.client).map(d=>`<option value="${_av(d)}">`).join('')}</datalist></div>
+         <div class="fld"><label>Customer focal person <span class="muted" style="font-weight:400;font-size:10px">· who receives it — prints on the DC</span></label><input type="text" list="dispFocalList" value="${_av(dispForm.focal)}" oninput="dispSet('focal',this.value)" placeholder="optional"><datalist id="dispFocalList">${(((state.masters&&state.masters.focalPersons)||[])).map(p=>`<option>${p}</option>`).join('')}</datalist></div>
          <div class="fld"><label>Transport type <span style="color:var(--red)">*</span></label><select onchange="dispSet('transportType',this.value);renderDispatchModal()"><option value="">— pick —</option><option value="Ex-factory" ${dispForm.transportType==='Ex-factory'?'selected':''}>Ex-factory (customer transport)</option><option value="VAN-delivered" ${dispForm.transportType==='VAN-delivered'?'selected':''}>VAN-delivered (arranged)</option></select></div>
          <div class="fld"><label>Vehicle # ${dispForm.transportType==='VAN-delivered'?'<span style="color:var(--red)">*</span>':'<span class="muted" style="font-weight:400;font-size:10px">· optional</span>'}</label><input type="text" value="${_av(dispForm.vehicle)}" oninput="dispSet('vehicle',this.value)" ${dispForm.transportType==='Ex-factory'?'placeholder="(via transporter)"':''}></div>
          <div class="fld"><label>Bilty # ${dispForm.transportType==='Ex-factory'?'<span style="color:var(--red)">*</span>':'<span class="muted" style="font-weight:400;font-size:10px">· optional</span>'}</label><input type="text" value="${_av(dispForm.bilty)}" oninput="dispSet('bilty',this.value)" ${dispForm.transportType==='VAN-delivered'?'placeholder="(own truck)"':''}></div>
@@ -10255,7 +10262,7 @@ function saveDispatch(){ if(!may('shipment.plan')){toast(denyRight('shipment.pla
     lotsFor(o,l).forEach((p,i)=>{ const a=Math.min(+alloc[i]||0, lotClearedKg(p)); if(a>0.0001){ p.shipKg=(+p.shipKg||0)+a; batches.push({lotId:p.id,batch:lotBaseNo(p),brand:lotBrandNo(p),kg:Math.round(a)}); kg+=a; } });
     if(kg<=0)return;
     var _deliv=dispForm.inTransit?null:d;  /* default: delivered now (silent). In-transit option leaves delivered blank for a later markDelivered. */
-    state.shipments.unshift(Object.assign({id:_uid('SH'),dispId,po:o.po,client:o.client||'',brand:l.brand,lid:l.id,kg:Math.round(kg),batches,pack:r.pack,dispatch:d,destination:dispForm.dest,carrier:dispForm.carrier,vehicle:dispForm.vehicle,dc:dc,shipNo:shipNo,bilty:dispForm.bilty,so:dispForm.so,transportType:dispForm.transportType,driver:dispForm.driver,driverContact:dispForm.driverContact,seal:dispForm.seal,dcStatus:(_ctrlOn?'pending':'approved'),approvedBy:'',approvedDate:(_ctrlOn?'':d),dispCounted:!_ctrlOn,delivered:_deliv,remarks:dispForm.remarks,qa:{pass:true,closed:true},by:state.role},evStamp(d,'ship',dispForm.dateReason)));
+    state.shipments.unshift(Object.assign({id:_uid('SH'),dispId,po:o.po,client:o.client||'',brand:l.brand,lid:l.id,kg:Math.round(kg),batches,pack:r.pack,dispatch:d,destination:dispForm.dest,focalPerson:(dispForm.focal||'').trim(),carrier:dispForm.carrier,vehicle:dispForm.vehicle,dc:dc,shipNo:shipNo,bilty:dispForm.bilty,so:dispForm.so,transportType:dispForm.transportType,driver:dispForm.driver,driverContact:dispForm.driverContact,seal:dispForm.seal,dcStatus:(_ctrlOn?'pending':'approved'),approvedBy:'',approvedDate:(_ctrlOn?'':d),dispCounted:!_ctrlOn,delivered:_deliv,remarks:dispForm.remarks,qa:{pass:true,closed:true},by:state.role},evStamp(d,'ship',dispForm.dateReason)));
     if(!_ctrlOn){ l.dispatched=(l.dispatched||0)+kg; l.dispatchDate=l.dispatchDate||d; if(_deliv){ l.delivered=(l.delivered||0)+kg; l.deliveredDate=d; } } n++; tot+=kg; });
   if(!n){toast('Nothing cleared to ship — inspect the packed material first');return;}
   logAction(`Shipment ${shipNo} (${dispId}) · PO ${o.po}: ${n} product(s), ${fmt(tot)} Kg/L · DC ${dc}${dispForm.vehicle?(' · '+dispForm.vehicle):''}`);
@@ -10328,7 +10335,7 @@ function readyPOsForClient(client){ return readyPOs().filter(function(g){return 
 var mpForm=null;
 function mpStart(client){ if(!may('shipment.plan')){toast(denyRight('shipment.plan','Planning a truck'));return;}
   var gs=readyPOsForClient(client); if(!gs.length){toast('Nothing QC-cleared and ready for this customer');return;}
-  mpForm={client:client,date:TODAY.toISOString().slice(0,10),dest:(clientTopDest(client)||''),transportType:'',truckSize:'',carrier:'',vehicle:'',bilty:'',driver:'',driverContact:'',seal:'',remarks:'',
+  mpForm={client:client,date:TODAY.toISOString().slice(0,10),dest:(clientTopDest(client)||''),focal:((gs.map(function(g){return g.o.focalPerson||'';}).filter(Boolean)[0])||''),transportType:'',truckSize:'',carrier:'',vehicle:'',bilty:'',driver:'',driverContact:'',seal:'',remarks:'',
     step:1,
     orders:gs.map(function(g){ return {oid:g.o.id,po:g.o.po,so:'',lines:g.ls.map(function(x){ return {lid:x.l.id,brand:x.l.brand,base:x.l.base||'',pack:(+x.l.pack||seedPackForBrand(x.l.brand)||0),rem:Math.round(x.rem),qty:Math.round(x.rem),on:true}; })}; })};
   renderMPShip(); $('modal').classList.add('shipdrawer'); $('modalBg').classList.add('open'); }
@@ -10368,6 +10375,7 @@ function renderMPShip(){ if(!mpForm){closeModal();return;} var f=mpForm; var ste
       +'<div class="dwbar"><div><b>'+shortClient(f.client)+'</b> <span style="color:var(--pmut)">· <span id="mp_sub">'+nOrd+' orders · '+nLine+' products</span> · <b id="mp_total" style="color:var(--ptxt)">'+fmt(selKg)+' Kg/L</b></span></div><div class="chips"><span class="dwchip ok">QC passed</span><span class="dwchip ok">Trace OK</span><span class="dwchip lock">1 customer locked</span></div></div>'
       +ordCards
       +'<div class="dwgrid" style="margin-top:9px"><div class="dwmini"><label>Destination</label><input type="text" list="mpDestList" value="'+_av(f.dest)+'" oninput="mpSet(\'dest\',this.value)" placeholder="where is this going?"><datalist id="mpDestList">'+clientDestinations(f.client).map(function(d){return '<option value="'+_av(d)+'">';}).join('')+'</datalist></div>'
+      +'<div class="dwmini"><label>Customer focal person <span class="muted">(optional)</span></label><input type="text" list="mpFocalList" value="'+_av(f.focal)+'" oninput="mpSet(\'focal\',this.value)" placeholder="who receives it — prints on the DC"><datalist id="mpFocalList">'+(((state.masters&&state.masters.focalPersons)||[])).map(function(p){return '<option>'+p+'</option>';}).join('')+'</datalist></div>'
       +'<div class="dwmini"><label>Dispatch date</label><input type="date" value="'+f.date+'" onchange="mpSet(\'date\',this.value)"></div></div></div>';
   } else if(step===2){
     var picks=TRUCK_SIZES.map(function(t){ var sel=(f.truckSize===t.k); return '<div class="dwpick '+(sel?'sel':'')+'" onclick="mpSet(\'truckSize\',\''+t.k+'\');renderMPShip()"><div><div class="pt">'+t.label+'</div><div class="ps">~'+fmt(t.cap)+' kg capacity</div></div><div class="dot"></div></div>'; }).join('');
@@ -10429,7 +10437,7 @@ function mpCreate(){ if(!may('shipment.plan')){toast(denyRight('shipment.plan','
     lotsFor(o,l).forEach(function(p,i){ var a=Math.min(+alloc[i]||0,lotClearedKg(p)); if(a>0.0001){ p.shipKg=(+p.shipKg||0)+a; batches.push({lotId:p.id,batch:lotBaseNo(p),brand:lotBrandNo(p),kg:Math.round(a)}); kg+=a; } });
     if(kg<=0)return;
     if(auto){ l.dispatched=(+l.dispatched||0)+Math.round(kg); l.dispatchDate=l.dispatchDate||d; if(exf){ l.delivered=(+l.delivered||0)+Math.round(kg); l.deliveredDate=d; } }
-    state.shipments.unshift({id:_uid('SH'),dispId:dispId,po:o.po,client:f.client,brand:l.brand,lid:l.id,kg:Math.round(kg),batches:batches,pack:x.r.pack,dispatch:d,destination:f.dest,carrier:f.carrier,vehicle:f.vehicle,dc:dc,shipNo:shipNo,bilty:f.bilty,so:x.o.so||'',transportType:f.transportType,truckSize:f.truckSize,driver:f.driver,driverContact:f.driverContact,seal:f.seal,stage:(auto?(exf?'delivered':'in_transit'):'truck_planned'),loadStarted:'',gatePass:'',dcStatus:(auto?'approved':'pending'),approvedBy:(auto?'Auto · pre go-live':''),approvedDate:(auto?d:''),dispCounted:!!auto,delivered:(auto&&exf?d:null),deliveredVia:(auto&&exf?'Collected at factory':''),remarks:f.remarks,qa:{pass:true,closed:true},by:state.role});
+    state.shipments.unshift({id:_uid('SH'),dispId:dispId,po:o.po,client:f.client,brand:l.brand,lid:l.id,kg:Math.round(kg),batches:batches,pack:x.r.pack,dispatch:d,destination:f.dest,focalPerson:(f.focal||'').trim(),carrier:f.carrier,vehicle:f.vehicle,dc:dc,shipNo:shipNo,bilty:f.bilty,so:x.o.so||'',transportType:f.transportType,truckSize:f.truckSize,driver:f.driver,driverContact:f.driverContact,seal:f.seal,stage:(auto?(exf?'delivered':'in_transit'):'truck_planned'),loadStarted:'',gatePass:'',dcStatus:(auto?'approved':'pending'),approvedBy:(auto?'Auto · pre go-live':''),approvedDate:(auto?d:''),dispCounted:!!auto,delivered:(auto&&exf?d:null),deliveredVia:(auto&&exf?'Collected at factory':''),remarks:f.remarks,qa:{pass:true,closed:true},by:state.role});
     n++; tot+=kg; });
   if(!n){toast('Nothing cleared to ship — inspect the packed material first');return;}
   logAction('Shipment '+shipNo+' ('+dispId+') created — '+shortClient(f.client)+' · '+incl.length+' order(s), '+n+' product(s), '+fmt(Math.round(tot))+' Kg/L · DC '+dc+(auto?' · auto-approved (pre go-live)':' · Truck Planned'));

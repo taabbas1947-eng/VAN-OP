@@ -1575,7 +1575,7 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
     'shipment.plan':        { kind: 'canEdit', scr: 'ship',      alsoOn: 'approvals:Plant Manager' },
     'shipment.load':        { kind: 'canEdit', scr: 'ship',      alsoOn: 'approvals:Plant Manager' },
     'gatepass.issue':       { kind: 'canEdit', scr: 'ship',      alsoOn: 'approvals:Plant Manager' },
-    'delivery.confirm':     { kind: 'canEdit', scr: 'ship',      alsoOn: 'approvals:Plant Manager' },
+    'delivery.confirm':     { kind: 'canEdit', scr: 'ship',      alsoOn: 'approvals:Supply Chain' },
     'rm.receive':           { kind: 'canEdit', scr: 'approvals', alsoOn: 'prod' },
     'pr.close':             { kind: 'canEdit', scr: 'approvals', alsoOn: 'prod' },
     /* closes a gap, 26 Aug — see CLOSED_GAP in section 2a. Same shape as

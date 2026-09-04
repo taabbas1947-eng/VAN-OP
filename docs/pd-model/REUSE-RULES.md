@@ -35,7 +35,7 @@ Tahir's explicit sign-off, one item at a time, recorded here.
 
 | # | What | Where | Why it survives |
 |---|---|---|---|
-| 1 | Candidate arithmetic engine | `pd/pd-lib.js:188–232` — `exworks = (rm + conversion)/(1 − loss)`; `cost_per_kg_p = exworks/(10p)` | Independently re-derived and correct to the paisa. A pure function with no dependency on the gate model. |
+| 1 | ~~Candidate arithmetic engine~~ — **REMOVED 1 Sept 2026** | ~~`pd/pd-lib.js:188–232`~~ | **Cost ruled OUT of PD** (`PENDING-DECISIONS.md` §D, 1 Sept 2026). This engine computes ex-works cost and ranks by rupees/kg P₂O₅ — it is a cost engine, so it does not carry into the rebuild. Not reused, not re-derived under a new name. |
 | 2 | Library file storage + auth-gated serve | `pd/pd-routes.js:1291` (`LIBRARY_DIR`, `PD_LIBRARY_DIR`), serve at `:1435–1440` | Files outside the web root, looked up by DB id, `basename`-guarded, auth-checked, `nosniff` + restrictive CSP. Four upload guards. 30 assertions. |
 | 3 | Drop box + similar-idea check | `pd/pd-routes.js:1658–1661` (`GET /api/pd/similar`), drop box endpoints in the same block | The public door with honeypot and per-IP rate limit, and the "have we seen this before?" search. The Combination Bank's duplicate checker **extends this — it does not build a second one.** |
 | 4 | `pd_materials` and the line-row shape | `pd/migrations/001_pd_foundation.sql:242` and `:331` | Already material_id + inclusion_pct, which is exactly what the Combination Bank needs. **There must never be a second material register.** |
@@ -46,7 +46,10 @@ Tahir's explicit sign-off, one item at a time, recorded here.
 
 For clarity about what that means: the gate machinery — `pd_gate_decisions`,
 `pd_product_gates`, `pd_route_screens`, `pd_dev_records` and the G1–G6 flow — is
-**not** on this list and is not preserved by default. See `PENDING-DECISIONS.md` #1.
+**not** on this list. **Settled 1 Sept 2026** (`PENDING-DECISIONS.md` §D, was §A1):
+Tahir ruled gates are reduced to the two hard rules in `MODEL.md` §0 — write the
+question before work starts, write the result before it closes. No gate/committee
+machinery is carried into the rebuild.
 
 ---
 
@@ -83,9 +86,9 @@ Bias is hard to see and easy to deny; a screen count is neither.
 The audit of 16 August 2026 measured the system being replaced. Those are the
 baselines. Measure the same things at every milestone.
 
-| Measure | Old system (16 Aug 2026) | Target | Rule |
-|---|---|---|---|
-| Screens a person uses | 7 (10 on the path My Work steers you down) | **2** (`MODEL.md` §5) | 3rd screen needs Tahir's sign-off |
+| Measure | Old system (16 Aug 2026) | Target | Actual (1 Sept 2026) | Rule |
+|---|---|---|---|---|
+| Screens a person uses | 7 (10 on the path My Work steers you down) | **2** (`MODEL.md` §5) | **4** — sign-off given twice, `PENDING-DECISIONS.md` §B8 (3rd) and §B19 (4th) | 3rd screen needs Tahir's sign-off — exercised, not skipped |
 | Human actions, idea → launched | 16 (22 on that path) | materially fewer | If it climbs, the rebuild has drifted |
 | Form fields across that journey | ~95 (~140) | materially fewer | Same |
 | Menu items shown to any one role | 19–21 | single figures | Same |

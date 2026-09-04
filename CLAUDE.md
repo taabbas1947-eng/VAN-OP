@@ -109,13 +109,12 @@ Rules for `server.js`:
 never push, ask before master-data changes, no false alerts, read-only by
 default, no invented rates.
 
-⚠️ **Scoping correction needed.** Ground-rule 0 says *"this system does NOT
-manage cost."* That rule was written for **O2S** and is correct there. **PD is
-different by design** — its candidate screen deliberately computes ex-works
-cost `(RM + conversion) / (1 − loss)` and ranks by **rupees per kg of P₂O₅**
-(see `pd/PORTING_STATUS.md`). Read ground-rule 0 as **O2S-scoped**. It does not
-forbid PD's costing arithmetic. Confirm with Tahir before extending cost
-features in *either* module.
+**Cost — settled 2026-09-01, Tahir ruled: cost is OUT of PD.** Ground-rule 0
+(*"this system does NOT manage cost"*) applies platform-wide — no PD exception.
+The old candidate-screen cost engine (ex-works `(RM + conversion)/(1 − loss)`,
+ranking by rupees per kg of P₂O₅ — `pd/pd-lib.js:188–232`) does **not** carry
+into the PD rebuild; it is removed from `docs/pd-model/REUSE-RULES.md` §2's
+whitelist. Record: `docs/pd-model/PENDING-DECISIONS.md` §D.
 
 **Never push.** Build and verify locally, then say "ready to push (not pushed)".
 Tahir pushes with GitHub Desktop.

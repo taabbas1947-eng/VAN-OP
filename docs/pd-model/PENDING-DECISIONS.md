@@ -7,12 +7,31 @@ that are not Claude's to make**, each with what it blocks and what would unblock
 **Rule: nothing marked BLOCKS SCHEMA gets coded past. Not "started carefully" —
 not coded past at all.** Building before these land means building twice.
 
+**STATUS — 1 Sept 2026: §A is now fully answered, including A4's mechanism**
+(all four moved to §D). Schema work may proceed **except** where a §B item (still
+open) bears directly on it — read §B before designing a screen or table, the same
+as always.
+
+**Same-day addendum:** a clickable, fake-data prototype now exists (not committed
+to this repo — a Cowork artifact) demonstrating all four screens (`MODEL.md` §5),
+the three doors with triage and reply, the Combination Engine as the front door to
+a Bet, and Related-from-Dossier surfacing. B5's pilot is started, not finished
+(see B5). B9–B12's vocabularies, and now B16's cross-product signal design, are
+drafted into `combination-bank/RULES.md`, not yet confirmed by Tahir. A first
+partial return on the real material list also landed same day (see B2/B3).
+**None of this is code against the real schema** — the
+prototype is throwaway HTML/JS, built to be clicked through, not extended.
+
 ---
 
 ## A. Blocks the schema — no code until these are answered
 
-### A1. Do the gates survive?
-**Question.** Keep Spec v2's G1–G6 (route-level, deliberate), reduce to the two hard
+### A1. ~~Do the gates survive?~~ — SETTLED 1 Sept 2026
+**Ruling (Tahir):** reduce to the two hard rules in `MODEL.md` §0. No G1–G6
+committee/gate machinery in the rebuild. `REUSE-RULES.md` §1 updated to record this
+as settled rather than a default exclusion. **Moved to §D.**
+
+**Question (for the record).** Keep Spec v2's G1–G6 (route-level, deliberate), reduce to the two hard
 rules in `MODEL.md` §0, or replace with obligations-and-deadlines?
 
 **Why it blocks everything.** Four tables (`pd_gate_decisions`, `pd_product_gates`,
@@ -29,7 +48,11 @@ as the frame. Leaning is not a ruling.
 
 ---
 
-### A2. Is a Combination a tenth object, or a register beneath Bet/Run?
+### A2. ~~Is a Combination a tenth object, or a register beneath Bet/Run?~~ — SETTLED 1 Sept 2026
+**Ruling (Tahir):** register beneath Bet/Run. The object model stays fixed at nine
+(`MODEL.md` §3) — no sign-off needed for a tenth, because there isn't one. **Moved to §D.**
+
+**Question (for the record).**
 **Question.** `MODEL.md` §3 fixes the model at **nine objects, no more without
 Tahir's sign-off**, and warns that a seeming tenth is usually one of the nine in a
 new coat. The Combination Bank is either a genuine tenth, or a register holding the
@@ -45,7 +68,12 @@ value, and it is also the strongest argument that they are not a Bet in a new co
 
 ---
 
-### A3. Cost in PD — settle the contradiction
+### A3. ~~Cost in PD — settle the contradiction~~ — SETTLED 1 Sept 2026
+**Ruling (Tahir):** cost is OUT of PD. Ground-rule 0 applies platform-wide, no PD
+exception — `CLAUDE.md` §2 corrected. `REUSE-RULES.md` §2 whitelist item #1 (the
+candidate cost engine) removed; it does not carry into the rebuild. **Moved to §D.**
+
+**Question (for the record).**
 **Question.** `MODELING-GROUND-RULES.md` §0 says the system does not manage cost.
 PD's schema and the candidate engine both compute it. `CLAUDE.md` §2 already reads
 ground-rule 0 as **O2S-scoped**, but that is a reading, not a signed amendment.
@@ -59,8 +87,24 @@ cost is out of PD, that item comes off the list and the ranking logic goes with 
 
 ---
 
-### A4. Must work start from a Problem, or may it start from a product concept?
-**NEW, 20 Aug 2026, from the worked case.**
+### A4. ~~Must work start from a Problem, or may it start from a product concept?~~ — SETTLED 1 Sept 2026, mechanism SETTLED same day
+**Ruling (Tahir):** the model was too strict — allow concept-first too. A stated
+product concept ("make NP 5-40", "100% nutrition with Fe and Mn") is a valid
+starting point in its own right; the system does not force a fabricated Problem on
+top of it. **Moved to §D.**
+
+**Mechanism (Tahir, same session):** broaden Problem itself rather than add a new
+object or a nullable parent. Problem carries a `kind` flag — `field_problem` |
+`product_concept` — and keeps its shape either way: few, long-lived, the single
+parent every Question/Bet/Run aimed at it hangs off. Registering a Problem of
+either kind is a direct action, not a fourth door (`MODEL.md` §3). Rejected: a
+lightweight concept object (adds a tenth object, needs sign-off it wasn't given)
+and a nullable Problem parent with an inline text field (loses the shared parent a
+concept needs once it spawns more than one Question — exactly what V Germinator Pro
+did over three formulations, `WORKED-CASE-V-GERMINATOR-PRO.md` §1). This item is
+now schema-ready.
+
+**Question (for the record), 20 Aug 2026, from the worked case.**
 
 `MODEL.md` §3 defines a Problem as *"a real field/market pain"*, and the app's own text
 insists a problem is stated in the field and in farmer economics, never in chemistry —
@@ -96,27 +140,56 @@ new requirements — B6, B7, B8 below — and one independent confirmation: **Ma
 asked for the Combination Bank without having seen it**, from real work last week.
 **Moved to §D.**
 
-### B2. The real material and grade list
-Tahir is sending additions. Until then the demo register holds VAN's real 51
-materials **plus ~40 grades Claude invented**, marked as such. Those must be
-confirmed or dropped before any of it becomes master data.
+### B2. The real material and grade list — first return received 1 Sept 2026
+Tahir's team returned `PD-Material-Grade-Template.xlsx` with a first pass: 21 new
+materials named (Magnesium Sulfate Heptahydrate, Sodium Borate, SPM/Sugar Press
+Mud, MKP, Boric Acid, Rock Phosphate, Nitric Acid, Zinc Ash, Fulvic Acid, PVA,
+Potassium Fulvate, EDTA-type Sodium Salt (name to confirm), Zinc Oxide, Calcium
+Carbonate, Magnesium Carbonate, a plant-growth-regulator entry (name to confirm),
+MEA/Monoethanolamine from supplier Perkin, Calcium Hydroxide, Urea, Poultry Waste
+(OM), Fly Ash) plus physical form for every row, both new and original. **Grade /
+spec for all 21 new rows, and for most of the original 24 candidates, is still
+open** — not yet touched in this pass. Archived as returned:
+`combination-bank/PD-Material-Grade-Template-RETURNED-1Sep2026.xlsx`.
 **Source:** `combination-bank/RULES.md` §10.
 
-### B3. The assay figures
-N · P₂O₅ · K₂O · S · Zn per grade. **They do not exist in any file.** Tahir is
-supplying them. Until then computed analysis is blank for most of the register —
-which is the designed behaviour, not a fault.
+### B3. The assay figures — partially confirmed 1 Sept 2026
+Real, confirmed lab figures now on file for: Sulfur S 80% · SOP K₂O 50% · KOH
+K₂O 70% · Potassium Carbonate K₂O 60% · Amino Acid (source) N 50% · Zinc Sulfate
+Monohydrate Zn 33% · Phosphoric Acid P₂O₅ 50/52/55% (60/65/75% grades
+respectively) · MOP K₂O 60% (both powder and granular) · Zinc Oxide Zn 80%.
+Confirmed by Tahir as final lab data, not placeholders. Everything else —
+including all 21 newly named materials except Zinc Oxide — still has no assay on
+file. Computed analysis stays blank for any combination using an un-assayed
+grade, per §4.3 of `combination-bank/RULES.md` — designed behaviour, not a fault.
 
-### B4. The controlled vocabularies
+
+### B4. The controlled vocabularies — fill-in template built 1 Sept 2026
 Crops, soils, problems, forms, routes — **all currently invented by Claude.** Real
-lists needed before entry is real.
+lists needed before entry is real. A fill-in-the-blank template
+(`combination-bank/PD-Controlled-Vocabularies-Template.xlsx`) now lays out every
+existing placeholder value from the demo file and `MODEL.md`, for Tahir to
+confirm, edit, drop or extend — same pattern as B2/B3's material template, sourced
+only from PD's own docs, nothing from the ERP. **One thing surfaced building it:
+Route exists as two different, only-partly-overlapping lists** — the Combination
+record's own 4-value Route field (`combination-bank/RULES.md` §4.1) and `MODEL.md`
+§3's 6-value delivery-context list that Constraints hang off — flagged in the
+template for a ruling, not resolved here.
 
-### B5. Pilot before software
+### B5. Pilot before software — STARTED 1 Sept 2026
 `MODEL.md` §7 #5: run ONE live question in the open first (humic mechanism, or
 NP 11-44 NUE — both ready) to prove the discipline changes behaviour before spending
 on the build. Tahir's own words on why: *"a perfect empty container is what VAN
 produces when structure exists but nobody owes an answer."*
-**Not yet started. This is arguably the cheapest next move of anything on this page.**
+
+**Started, not finished.** The Question, both hypotheses, and the kill criterion for
+the fermentation-source pilot are written down in
+`PILOT-001-fermentation-source.md`, transcribed from Himmayat's own words in
+`WORKED-CASE-V-GERMINATOR-PRO.md` §4.1 — nothing invented. What is still needed is
+not more design: it is Himmayat actually reading it, correcting anything wrong, and
+writing the next observation directly into that file — on paper, before any
+software exists. **This is still the cheapest, most overdue move on this page**;
+writing the pilot down is not the same as running it.
 
 **A candidate has appeared, and it is already running (20 Aug 2026):** the
 **fermentation-source question in V Germinator Pro** — what is fermenting, molasses or
@@ -153,17 +226,25 @@ exist without its kill criterion). This is about **what a person sees on the scr
 the question the trial answers, and the result that would kill it, on the trial —
 not one click away. Cheap now, expensive to retrofit.
 
-### B8. The problem dossier — NEW, from the review
+### B8. ~~The problem dossier~~ — SETTLED 1 Sept 2026 — its own screen, sign-off given
+**Ruling (Tahir):** its own screen, browsable across every Problem at once — not a
+section buried inside one Problem's record. **This is the explicit sign-off
+`REUSE-RULES.md` §5 requires for a 3rd screen** (target was 2; the tripwire says
+stop and show Tahir before continuing past it — this is that moment, done on
+purpose, not drift). Screen count is now 3, and about to become 4 — see the new
+reporting item below, same session.
+
 Maleeha asked for a view that shows *"what we have already learned about a problem
 **across every bet we have run against it**."* The Combination Bank is keyed to
 combinations; this is keyed to the **problem** — every Bet, Run, Claim and
-combination aimed at it, and what each taught.
+combination aimed at it, and what each taught. Not a new object: a read view across
+objects the model already has.
 
-Not a new object: a read view across objects the model already has. But `MODEL.md` §5
-says **two screens**. **Open question for Tahir: is the dossier a third screen, or a
-section of the Problem record?**
-
-### B9. Technique / architecture is missing — and it CORRECTS A WRITTEN RULE
+### B9. Technique / architecture is missing — and it CORRECTS A WRITTEN RULE — vocabulary drafted 1 Sept 2026
+**Drafted into `combination-bank/RULES.md` §4.1 and §7.1 (now six signals, not
+five), 1 Sept 2026** — the seven-value list below, and the corrected duplicate
+rule. **Not yet confirmed by Tahir.** Treat as drafted, not settled, same status
+as the crop/soil/problem vocabularies (B4).
 **From Maleeha's second answer, 19 Aug 2026.** She was looking for *"a dual-phase P
 source, a competing anion, or a fused/coated architecture."* None of those is a
 material, a grade or an inclusion %. **The Bank as designed could not have answered
@@ -180,7 +261,11 @@ block the second one.** Technique must become a sixth signal before any code is
 written, or the rule creates exactly the false blockage Tahir warned about with
 material grades.
 
-### B10. A material line needs a ROLE and a PHASE — NEW
+### B10. A material line needs a ROLE and a PHASE — NEW — vocabulary drafted 1 Sept 2026
+**Drafted into `combination-bank/RULES.md` §4.2, 1 Sept 2026** — role required,
+phase required only where technique is layered/coated/fused (defaults to
+`matrix` otherwise, so a plain blend is never forced into a false structure).
+**Not yet confirmed by Tahir.**
 Maleeha's anion is *"introduced between the two phases"* for a purpose. "ZnSO₄ 3%"
 records none of that. A line needs:
 - **role** — fast-release P source · slow-release P source · competing anion ·
@@ -190,7 +275,10 @@ records none of that. A line needs:
 Without this, architecture is invisible even when the technique is tagged, and the
 Bank cannot answer "have we ever put a competing anion between two phases?"
 
-### B11. Mechanism is the thing people search by — NEW
+### B11. Mechanism is the thing people search by — NEW — vocabulary drafted 1 Sept 2026
+**Drafted into `combination-bank/RULES.md` §9.1, 1 Sept 2026** — optional tag,
+five values, so an idea without a named mechanism yet is never forced to guess
+one. **Not yet confirmed by Tahir.**
 Her distinction: *"reducing fixation instead of just timing around it."* Two products
 can attack the same problem by different mechanisms, and **that difference is the
 whole idea**. Problem tags do not capture it.
@@ -199,7 +287,13 @@ Needs a **mechanism / intent** tag: compete for Ca binding sites · delay releas
 acidulate the micro-zone · chelate · protect from volatilisation. This is the axis a
 researcher actually thinks in.
 
-### B12. The search must answer in a sentence, not a result list — NEW
+### B12. The search must answer in a sentence, not a result list — NEW — spec drafted 1 Sept 2026
+**Drafted into `combination-bank/RULES.md` §9/§9.2, 1 Sept 2026** — search
+reframed as the Bank's primary job rather than a save-time duplicate check; the
+honest-negative rule and the ours-vs-the-world's distinction are now both written
+as load-bearing requirements, not just observations. This is a behaviour spec,
+not a vocabulary — nothing here needs Tahir's confirmation the way B9–B11's word
+lists do, but it is still unbuilt.
 She wrote the required output herself:
 
 > *"We tested [technique] on [ingredient/combination] and found [result]"* — or —
@@ -288,7 +382,7 @@ simply waiting until the end."* A Run needs a state the model does not have:
 The settling at week 4 was not a result to log and wait out; it was the moment the work
 changed direction.
 
-### B16. Cross-product signal by shared material — NEW, and it is large
+### B16. Cross-product signal by shared material — NEW, and it is large — design drafted 1 Sept 2026
 The fermentation risk did not come from this trial. It came from **a vendor complaint
 about Tornado bottle seals** — a different product — and reached V Germinator Pro
 **because both contain molasses.**
@@ -300,6 +394,13 @@ running that uses it?"* and push that signal to the people running those trials.
 search-by-technique; Himmayat needed search-by-material-across-products-and-complaints.
 **Two people, two uses, one index — the strongest argument yet that the Bank is
 infrastructure, not an extra.**
+
+**Drafted into `combination-bank/RULES.md` §9.3, 1 Sept 2026** — trigger events
+(a tagged Challenge/Observation/Claim, or an abnormal Run), what an auto-generated
+signal looks like (delivered as an Observation, reusing B18's mechanism, no tenth
+object), substance-level matching, and an active-work-only scope. **Not yet
+confirmed by Tahir** — same status as B4's and B9–B12's vocabularies. Three
+open questions listed at the end of that section, unresolved on purpose.
 
 ### B17. A falsified belief is a Claim, and must survive outside the trial — NEW
 *"Fermentation should not occur at such a low pH"* — believed, tested, **disproved.**
@@ -316,20 +417,48 @@ Observation as an intake **door** — something arriving from outside. Each of t
 generated **inside** a Run, and each became the reason for the next Bet. The model needs
 that second origin.
 
+### B19. A leadership/portfolio view — SETTLED 1 Sept 2026 — new requirement, needed now
+**Never discussed before this session.** Both existing screens (`MODEL.md` §5) are
+scoped to one person's own work — "what came in," "what I owe." Nothing anywhere
+addressed a company-wide view: how many Problems are open, which Questions are
+overdue across the whole team, how many Bets got killed vs. advanced this quarter.
+**Ruling (Tahir):** yes, needed, design it now rather than bolt it on later. This is
+the **4th screen** (see B8 — screen count is now consciously 4, not the target 2,
+with sign-off given both times).
+
+**Shape agreed this session (first draft, refine on use):** KPI tiles — open
+Problems (by `kind`: field problem vs. product concept), Questions overdue, Bets
+active / killed / advanced, Claims logged by grade, combinations generated vs.
+made vs. tested. Below that, two short feeds: things overdue across the whole
+team, and what closed recently with its result. **Guardrail, non-negotiable:**
+aggregate only, **never a per-person breakdown** — the same rule `RECLASSIFICATION-RULES.md`
+already sets for corrections ("No per-person error count. Not on a dashboard, not
+in a report, not derivable") applies here by the same logic. A leadership view
+that quietly becomes a scorecard undoes the no-blame culture the whole model
+depends on.
+
 ---
 
 ## C. Decisions that can wait, but must not be forgotten
 
-### C1. `Sulfur` vs `Sulphur` in the raw-material master
-Both spellings exist as separate entries — `Sulfur Fine (WDG)-A` against
-`Sulphur WDG` and `Sulphur Grinded- 200-250 Mesh`. The app will treat them as two
-different substances, so a recipe using one can never match a recipe using the
-other. **Not corrected by Claude: changing a master-data string is a data change and
-needs Tahir's word.**
+### C1. ~~`Sulfur` vs `Sulphur` in the raw-material master~~ — SETTLED 1 Sept 2026
+**Ruling (Tahir):** `Sulfur` is the correct spelling. Existing entries under
+`Sulphur` (`Sulphur WDG`, `Sulphur Grinded- 200-250 Mesh`) are the same substance
+under the wrong spelling — merge/rename to `Sulfur` as a master-data correction, not
+two materials. **Moved to §D.**
 
-### C2. `MAP` and `DAP` are listed with no grade at all
-Under `RULES.md` §7.2 nothing built on them can be hard-stopped as a repeat until a
-grade is named. Safe behaviour, but they are the first two worth grading.
+Both spellings exist as separate entries — `Sulfur Fine (WDG)-A` against
+`Sulphur WDG` and `Sulphur Grinded- 200-250 Mesh`. The app treated them as two
+different substances, so a recipe using one could never match a recipe using the
+other, until this correction lands.
+
+### C2. ~~`MAP` and `DAP` are listed with no grade at all~~ — SETTLED 1 Sept 2026
+**Ruling (Tahir):** MAP is graded as **four** distinct grades — 12-61, 10-61, 10-52,
+11-44 (N-P₂O₅). DAP is graded as **one** — 18-46. These are now real, distinct
+register entries, not one ungraded bucket each.
+
+Under `RULES.md` §7.2 nothing built on them could be hard-stopped as a repeat until
+a grade was named. **Moved to §D.**
 
 ### C3. Should the 46 existing O2S recipes ever be loaded into the bank?
 Currently **no** — decided 18 Aug, the bank starts empty. The cost of "no" is that
@@ -340,12 +469,22 @@ sells. Reversible later: it is a one-off load, not a redesign.
 `RULES.md` §7.5 — Claude's, untested against real data. They need tuning once real
 rows exist. **Nobody should treat them as tuned.**
 
-### C5. Evidence base — rebuild into PD, or link to `E:\NP`?
-`MODEL.md` §6 sets out what a knowledge store must preserve per claim (scope
-conditions, endpoint class, independence, correction history, do-not-quote,
-not-reported vs not-measured vs not-entered). The current `pd_library_items` /
-`pd_learnings` tables **cannot hold it without destroying it.** Rebuild is the
-bigger, righter job. **Source:** `MODEL.md` §6, §7 #3.
+### C5. ~~Evidence base — rebuild into PD, or link to `E:\NP`?~~ — SETTLED 1 Sept 2026
+**Ruling (Tahir):** light native + link. PD stores a real, lightweight Claim
+natively — what it says, owner, grade, one-line scope note — with a pointer
+underneath to the full source material (`E:\NP` or wherever it actually lives) for
+anyone who wants the depth. **Not** a full rebuild of `MODEL.md` §6's complete spec
+(scope conditions, endpoint class, independence, correction history, do-not-quote,
+not-reported/not-measured/not-entered as structured fields) — that stays in the
+source material itself, not duplicated into PD. Rationale discussed same session:
+avoids re-hosting research that's actively maintained elsewhere (e.g. the DAP
+Alternative Project), and keeps the Claim layer light per the engine-first
+principle above, while still giving PD something real and searchable of its own
+rather than a bare, breakable link.
+
+`MODEL.md` §6 sets out what a *full* knowledge store would preserve per claim —
+useful as the ceiling to know about, not the floor PD has to build to. **Source:**
+`MODEL.md` §6, §7 #3.
 
 ---
 
@@ -359,13 +498,30 @@ bigger, righter job. **Source:** `MODEL.md` §6, §7 #3.
 | 18 Aug 2026 | Combination Bank: one row per material · register at grade level · supplier not part of grade identity · moderators only add materials · analysis computed, never typed · hard stop only on clear evidence. Full set in `combination-bank/RULES.md`. |
 | 19 Aug 2026 | **Team review landed — approved, unanimous, no change to the spine.** Three new requirements (B6, B7, B8) and independent confirmation of the Combination Bank. Record: `TEAM-REVIEW-2026-08-19.md`. |
 | 19 Aug 2026 | Noted, not settled: the two people closest to the bench (Fahim, Abdullah) both said the same thing in different words — **the remaining gaps will surface in use, not in review.** That is the argument for B5, the paper pilot, over more design. |
+| 1 Sept 2026 | **A1 — Gates reduced to two hard rules.** No G1–G6 committee/gate machinery in the rebuild. Was already the default per `REUSE-RULES.md`; now a ruling, not a default. |
+| 1 Sept 2026 | **A2 — Combination Bank is a register beneath Bet/Run**, not a tenth object. Model stays fixed at nine. |
+| 1 Sept 2026 | **A3 — Cost is OUT of PD.** Ground-rule 0 applies platform-wide. The candidate cost engine does not carry into the rebuild; removed from `REUSE-RULES.md` §2 whitelist; `CLAUDE.md` §2 corrected. |
+| 1 Sept 2026 | **A4 — Concept-first is allowed, not just Problem-first.** A stated product concept is a valid starting point without a fabricated Problem. **Mechanism also settled same day:** Problem gets a `kind` flag (`field_problem` \| `product_concept`) rather than a new object or a nullable parent — no change to object count, registering either kind is a direct action, not a fourth door. |
+| 1 Sept 2026 | **C1 — `Sulfur` is the correct spelling.** `Sulphur` entries are the same substance under the wrong spelling; merge/rename as a master-data correction. |
+| 1 Sept 2026 | **C2 — MAP graded as 4 grades** (12-61, 10-61, 10-52, 11-44 N-P₂O₅), **DAP as 1 grade** (18-46). No longer ungraded buckets. |
+| 1 Sept 2026 | **Backfill principle agreed: retrospective-only, invited on reopen.** Applies only to a Problem someone actively reopens — not a blanket effort to log every dead project. A backfilled Bet/Run is flagged as recorded retrospectively (roughly when the work happened vs. when it was written down), content bar is low (what was tried + what happened/why it stopped, no forced precision, nothing fabricated to fill a field), owned and protected the same as any Claim/reclassification (no per-person error count, ever — B13's rule extends here), and it is never a gate on opening new Questions against the reopened Problem. Test case: the bio-boiler fly-ash MOP-recovery project (parked; PKR context: Pakistan imports ~80,000 t/yr MOP, VAN uses MOP as a raw material) — reopened with new Questions (silicon recovery, direct fly-ash use, liquid-only route, a new liquid-MOP product) while the original extraction/drying attempt gets backfilled as the closed first Question/Bet under the same (widened) Problem. |
+| 1 Sept 2026 | **B8 — Problem dossier is its own screen.** Browsable across every Problem at once. Screen count now 3 (sign-off given). |
+| 1 Sept 2026 | **B19 — Leadership/portfolio view, needed now.** 4th screen (sign-off given). Aggregate KPI tiles + overdue feed + recent-closes feed. Never a per-person breakdown. |
+| 1 Sept 2026 | **C5 — Evidence: light native + link.** A real lightweight Claim (owner, grade, one-line scope) lives in PD; the deep source material stays where it already lives, pointed to rather than duplicated. |
+| 1 Sept 2026 | **`combination-bank/RULES.md` §2 reconciled to A2** — register beneath Bet/Run, matching this file. Was still marked "OPEN" in that file; corrected so the two documents cannot be read as disagreeing. |
+| 1 Sept 2026 | **B9–B12 vocabularies and search spec drafted into `combination-bank/RULES.md`** (§4.1 technique, §4.2 role/phase, §9.1 mechanism, §9.2 sentence-answer search) — drafted directly from Maleeha's own session language, not invented from nothing, but **not yet confirmed by Tahir**, same status as the crop/soil/problem vocabularies (B4). |
+| 1 Sept 2026 | **B5 pilot started, not finished.** The fermentation-source Question, both hypotheses, and the kill criterion written down in `PILOT-001-fermentation-source.md`, transcribed from `WORKED-CASE-V-GERMINATOR-PRO.md` §4.1. Awaiting Himmayat's correction and the next real observation. |
+| 1 Sept 2026 | **B16 cross-product signal design drafted** into `combination-bank/RULES.md` §9.3 — trigger events, auto-generated Observation delivery (no tenth object), substance-level matching, active-work-only scope. **Not yet confirmed by Tahir.** |
+| 1 Sept 2026 | **First partial return on B2/B3** — 21 new materials named (3 identities clarified: SPM = Sugar Press Mud, Poltary = Poultry Waste/OM, MEA perkin = Monoethanolamine from supplier Perkin), 11 assay figures confirmed as real lab data on existing candidate rows. Grades for the new rows, and most of the original 24 candidates, still open. Archived: `combination-bank/PD-Material-Grade-Template-RETURNED-1Sep2026.xlsx`. |
+| 1 Sept 2026 | **Engine-first, Claims are memory — not a gatekeeper.** Ruled in discussion of AI-assisted research and the Combination Engine (`docs/pd-model/combination-bank/`). The **Combination Engine** — configure materials / design space / constraints → ranked candidates → make → test → write the result — is PD's daily-use core, and must stay frictionless: nothing academic required to run it. The **Claim/evidence layer** (grading, challenge, provenance — `MODEL.md` §6) is optional enrichment for institutional memory, so the next person doesn't repeat a dead end — it is **never a precondition** for making or testing a combination, and logging or grading a claim must never be required before someone can act. Only the two hard rules in `MODEL.md` §0 are required: write the question before work, write the result on close. **Why this matters:** without this guardrail, a claims-review discipline can quietly rebuild the gate/committee problem A1 just removed — a review board in a new costume, arguing over evidence instead of arguing over sign-off. Tahir's framing: don't let AI-driven research turn into an academic claims debate that displaces product development and the system's core focus. Also settled in the same discussion: a **deterministic combination/screening engine** (mass balance, stoichiometry, an explicit design space and constraints — the shape already proven outside PD by the DAP Alternative Project's Phase 1 screening tool, `E:\NP\DAP Alternative Project\02_Prediction_Engine`) is the right model for "AI-assisted research" inside PD; **language-model literature synthesis is not** — VAN's own dated finding on that project was that general literature search (Scite) returned unusable results for this niche chemistry, and formulation chemistry must trace to a written rule, never be invented by an LLM. Source: this session, 1 Sept 2026 (no separate write-up file yet). |
 
 ---
 
 ## E. How to use this file
 
 - **Before writing any PD code**, read section A. If anything there is unanswered,
-  the answer is not "start on the parts that don't depend on it."
+  the answer is not "start on the parts that don't depend on it." (As of 1 Sept
+  2026, §A is fully answered — this rule now matters for whatever lands in §A next.)
 - When a decision lands, **move it to section D with the date** — do not delete it.
   A settled decision with no record gets relitigated in three weeks.
 - When something new blocks the work, add it here rather than carrying it in a

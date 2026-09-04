@@ -1,5 +1,45 @@
 # VAN Order Control Tower — OP Handoff
 
+> **STATUS ADD — 2026-09-01 (cloud session, later same day): PD · §B RULINGS (B8/B19/C1/C2/C5), THE PROTOTYPE, AND B5/B9–B12 DRAFTS. STILL NO SCHEMA CODE. NOT PUSHED.**
+>
+> **Module worked in: PD.** Docs only — `pd/` untouched. Files changed this round: `docs/pd-model/PENDING-DECISIONS.md`, `docs/pd-model/MODEL.md` §5, `docs/pd-model/REUSE-RULES.md` §5, `docs/pd-model/combination-bank/RULES.md` (§2, §4.1, §4.2, §7.1, §9, §11), new file `docs/pd-model/PILOT-001-fermentation-source.md`. `OP-HANDOFF.md` (this entry).
+>
+> **Rulings this round (Tahir):**
+> - **B8** — Problem dossier is its own screen, browsable across every Problem. This is the explicit sign-off `REUSE-RULES.md` §5 requires for a 3rd screen.
+> - **B19** — a leadership/portfolio Report view, needed now, not deferred. 4th screen, sign-off given. Aggregate-only KPI tiles + needs-attention feed + recently-closed feed — **never a per-person breakdown**, same guardrail as `RECLASSIFICATION-RULES.md`.
+> - **C1** — `Sulfur` is the correct spelling; `Sulphur` entries are the same substance, merge.
+> - **C2** — MAP is 4 grades (12-61, 10-61, 10-52, 11-44); DAP is 1 grade (18-46).
+> - **C5** — evidence base is "light native + link": a real lightweight Claim lives in PD; deep source material (e.g. `E:\NP`) stays where it is, pointed to, not duplicated.
+> - **Engine-first, Claims are memory — not a gatekeeper**, and the **backfill principle** (retrospective-only, invited only on an actively reopened Problem) both recorded in `PENDING-DECISIONS.md` §D, tested against the bio-boiler fly-ash MOP-recovery case Tahir reopened this session.
+>
+> **A clickable prototype was built** (Cowork artifact, not committed to this repo — throwaway HTML/JS, not a schema). It went through real critique and rebuild, not just one pass: renamed "Leadership Report" to "Report"; added a Source/reference field on Bet and Claim so a document, folder or paper attaches as a pointer, matching C5; fixed the Combination Engine's candidate scoring, which had been showing a ₨/kg cost figure — a direct contradiction of the settled A3 ruling (cost is out of PD) — now scored on mass-balance/design-space fit only. Then, in response to "this app is still a data entry app": built the three doors (Challenge/Observation/Request) into "What came in" as real intake objects with owner, status and a triage action — previously the prototype only let people log Problems directly, which was the actual substance behind "no direction, no visibility, no clarity of who's asking, who's replying"; made the Combination Engine the front door for placing a Bet instead of a buried toggle; added a Related-from-Dossier panel that surfaces matching past Claims automatically on the Question screen.
+>
+> **B5, the paper pilot, is started, not finished.** `PILOT-001-fermentation-source.md` writes down the fermentation-source Question, both hypotheses (molasses / amino acids), and both kill criteria — transcribed from Himmayat's own words in `WORKED-CASE-V-GERMINATOR-PRO.md` §4.1, nothing invented. Waiting on Himmayat to correct it and write the next real observation directly into the file. **Still the cheapest, most overdue move on the whole page** — writing it down is not the same as running it.
+>
+> **B9–B12 vocabularies drafted into `combination-bank/RULES.md`**, not ruled on by Tahir: technique (§4.1, seven values, now a 6th duplicate-check signal at §7.1), material role + phase (§4.2), mechanism/intent (§9.1), and the sentence-answer search spec with the honest-negative and ours-vs-the-world's rules (§9.2). All drafted directly from Maleeha's own session language (recorded in `PENDING-DECISIONS.md` B9–B12), not invented from nothing — but explicitly flagged as unconfirmed, same status as the crop/soil/problem vocabularies (B4). Also caught and fixed in the same pass: `combination-bank/RULES.md` §2 still read the tenth-object question as open after A2 had already settled it — corrected so the two documents cannot be read as disagreeing.
+>
+> **Documentation debt closed this round:** `MODEL.md` §5 rewritten from "TWO screens" to the actual four, with both sign-offs cited; `REUSE-RULES.md` §5's drift table now shows the actual screen count (4) against the target (2) rather than silently going stale.
+>
+> **Not done:** no schema, no code against the real app, B2/B3/B4 (real material list, assays, controlled vocabularies) still entirely owed by Tahir, B9–B12 vocabularies still need his confirmation, B13's reclassification capability (fully designed, `RECLASSIFICATION-RULES.md`) has no representation anywhere in the prototype, B14/B16/B17/B18 (Run lineage, cross-product material signal, Claims writable directly against a Problem, Observations arising inside a Run) remain designed-but-unbuilt requirements from the worked case, not yet touched this session.
+
+
+> **STATUS ADD — 2026-09-01 (cloud session, latest): PD · THE FOUR SCHEMA-BLOCKING DECISIONS (§A) — ALL RULED. NO CODE. NOT PUSHED.**
+>
+> **Module worked in: PD.** Docs only — `pd/` untouched (no schema, no route, no migration). Files changed: `docs/pd-model/PENDING-DECISIONS.md` (A1–A4 moved to §D, dated), `docs/pd-model/MODEL.md` §3/§4/§7, `docs/pd-model/REUSE-RULES.md` §2 whitelist + §1, `CLAUDE.md` §2. `OP-HANDOFF.md` (this entry).
+>
+> **The four rulings (Tahir, 1 Sept 2026):**
+> 1. **Gates — reduced to the two hard rules** in `MODEL.md` §0 (write the question before work starts, write the result before it closes). No G1–G6 committee/gate machinery in the rebuild.
+> 2. **Combination Bank is a register beneath Bet/Run**, not a tenth object. The nine-object model is unchanged.
+> 3. **Cost is OUT of PD.** Ground-rule 0 applies platform-wide, no PD exception. The candidate cost engine (`pd/pd-lib.js:188–232`, ex-works cost, ranked by rupees/kg P₂O₅) does **not** carry into the rebuild — removed from the `REUSE-RULES.md` §2 whitelist (was item #1).
+> 4. **Concept-first is allowed, not just Problem-first.** A stated product concept ("100% nutrition with Fe and Mn") is a valid starting point without a fabricated Problem on top. **Not yet designed:** the concrete mechanism — a lightweight concept object, or a Bet/Question with a null Problem parent. Flagged as a new open item; do not schema `Question —belongs_to→ Problem` until it lands.
+>
+> **§A of `PENDING-DECISIONS.md` is now fully answered.** Schema work may proceed except where a §B item bears directly on it (read §B first, same rule as always) — and except A4's mechanism, which is real design work still outstanding despite the principle being settled.
+>
+> **Not done this session:** no schema written, no pilot run (§B5 — the paper pilot, e.g. the V Germinator Pro fermentation question — is still the flagged cheapest next move and is untouched), A4's mechanism undesigned.
+
+> **ADD — same session, later:** A4's mechanism also ruled. **Recommended and accepted:** broaden Problem itself with a `kind` flag (`field_problem` | `product_concept`) rather than add a tenth object or a nullable Problem parent with an inline text field. A concept keeps Problem's shape — few, long-lived, the single parent every Question/Bet/Run hangs off — which is what the V Germinator Pro case actually needed (one concept, three chained formulations, months of Runs, `WORKED-CASE-V-GERMINATOR-PRO.md` §1). Registering a Problem of either kind is a direct action, not a fourth door — the three doors (Challenge/Observation/Request) are unchanged. Object count stays at nine. `MODEL.md` §3/§4/§7 and `PENDING-DECISIONS.md` §A4/§D updated. **A4 is now fully schema-ready — the last open item in §A is closed.** Still open and still the flagged cheapest next move: §B5, the paper pilot.
+
+
 > **STATUS ADD — 2026-08-18 (cloud session, latest): PD · COMBINATION BANK — DESIGN AGREED AND WRITTEN DOWN. NO CODE. NOT PUSHED.**
 >
 > **Module worked in: PD.** Nothing under `pd/` was opened for edit. No schema, no route, no migration. `server.js`, `o2s/`, `launcher.html` untouched.
@@ -2965,3 +3005,86 @@ Tahir's instruction after the first pass: stop trusting logic/test-only verifica
 **Files changed:** `o2s/o2s.html` only (one label string this round; period-picker unification and behindPOCount/dedup/subtitle fixes were already in place from round 1 and are unchanged here).
 
 **Not pushed** — per CLAUDE.md, Tahir pushes via GitHub Desktop.
+
+
+---
+
+## 1 Sept 2026 (later same day) — prototype gaps closed: B13, B14, B17, B18
+
+While Tahir fills in `PD-Material-Grade-Template.xlsx`, kept building the fake-data
+clickable prototype (`pd-prototype.html`, published as a Cowork Artifact — link
+unchanged). Four gaps closed, all fake data, nothing from the ERP browsing session
+or the real material list touched:
+
+- **B13 — reclassification.** A Problem's type (Field problem / Product concept)
+  can now be refiled from its detail screen. No reason required — the "why" shown
+  to the person who filed it is auto-generated from the type's own definition, per
+  `RECLASSIFICATION-RULES.md`. Permanent history (from/to/when/mover/note) shown
+  on the Problem; content stays editable, history doesn't. A notification banner
+  uses the spec's preferred phrasing ("Your entry became a...") with an
+  "I meant something else" reply link. Scoped to converting a Problem's type only —
+  the full spec's merge/split/bulk/other-record-types are named in-app as not
+  demoed here, not silently skipped.
+- **B14 — Run lineage.** Logging a new Run can mark it as replacing an earlier one
+  (any Run, picked from a dropdown). Both Runs show the link — "replaces" and
+  "replaced by" — in either direction. Both stay on record; nothing is deleted.
+- **B17 — Claim directly against a Problem.** A Problem's detail screen now has
+  its own "Claims directly on this Problem" section and form — for something
+  already known (a literature fact, a pre-PD result) that doesn't need a Bet and
+  Run invented just to hold it. Counted in the Dossier and the Report alongside
+  Run-closed Claims.
+- **B18 — Observation from inside a Run.** A Run's detail screen can now spawn an
+  Observation door mid-run, not only from "What came in." Defaults to attaching to
+  the Run's own Problem; a checkbox leaves it untriaged if it looks like it belongs
+  elsewhere. Feeds the same triage queue as an intake-time Observation.
+
+**Not done:** no schema or code against the real 9-object model — this is still
+the fake-data prototype only. B2/B3/B4 (material list, assay figures, controlled
+vocabularies) still await Tahir's fill of the template. B16 (cross-product
+material signal) untouched. B9-B12 vocabularies still await Tahir's confirmation.
+
+
+---
+
+## 1 Sept 2026 (later still) — material list returned, B16 designed, B4 template built
+
+**Material list, first return.** Tahir's team sent back `PD-Material-Grade-Template.xlsx`
+partially filled: physical form added to every row, 11 assay figures confirmed as
+real lab data on existing candidates (Sulfur S 80%, SOP/KOH/K₂CO₃/MOP K₂O
+50/70/60/60%, Amino Acid N 50%, Zinc Sulfate Zn 33%, Phosphoric Acid P₂O₅
+50/52/55%, Zinc Oxide Zn 80%), and 21 new materials named. Asked clarifying
+questions rather than sending it back for another pass, per instruction — three
+ambiguous names resolved: SPM = Sugar Press Mud, Poltary = Poultry Waste (OM),
+MEA perkin = Monoethanolamine from a supplier called Perkin. Archived with those
+three annotated: `combination-bank/PD-Material-Grade-Template-RETURNED-1Sep2026.xlsx`.
+Grades for the 21 new rows, and for most of the original 24 candidates, are still
+open — not addressed in this pass. `PENDING-DECISIONS.md` B2/B3 updated to record
+this precisely.
+
+**B16 — cross-product signal by shared material — design drafted.** Added
+`combination-bank/RULES.md` §9.3: reuses the existing material-register index
+(no new index, no tenth object), delivered as an auto-generated Observation
+(reusing B18's mechanism) when a Challenge/Observation/Claim tagged with a
+material, or an abnormal Run, matches another active Bet/Run/Problem using the
+same substance. Matching is substance-level by default, scoped to active work
+only. Three open questions left deliberately unresolved at the end of that
+section. Not built, not confirmed — same status as B9–B12. Also fixed a stale
+cross-reference in `RULES.md` §12 (“five signals” → “six”, missed when §7.1 was
+corrected earlier the same day).
+
+**B4 — controlled vocabularies template built.** New file
+`combination-bank/PD-Controlled-Vocabularies-Template.xlsx` — Form, Route,
+Crop/Soil/Problem tags, every value traced to the repo's own demo file
+(`combination-bank-demo-v6.html`) or `MODEL.md`, nothing from the ERP. Surfaced a
+real inconsistency while building it: Route is two different, partly-overlapping
+lists in two different files (`RULES.md` §4.1's 4-value list vs. `MODEL.md` §3's
+6-value delivery-context list) — flagged in the template for Tahir to rule on,
+not resolved unilaterally.
+
+**Not done:** grades/assays for the new materials and most of the original 24;
+Route reconciliation; B16 trigger events, matching key and scope all still open
+questions; controlled vocabularies still need Tahir's actual answers, not just a
+template to answer them in.
+
+
+_Same day, addendum:_ both templates (`PD-Material-Grade-Template-RETURNED-1Sep2026.xlsx` and `PD-Controlled-Vocabularies-Template.xlsx`) sent back to the team for the next pass. Nothing further from this side until they come back.

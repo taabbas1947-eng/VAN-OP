@@ -117,5 +117,27 @@ const run = (c, src) => vm.runInContext(src, c);
   ok('renderApp() calls checkWhatsNew() after a logged-in render', /render\(\); checkWhatsNew\(\);/.test(html));
 }
 
+/* ================= 7. modal uses the app's real mh/mb/mf structure, not a bare <h3> =========
+   2026-09-05 fix: the original version skipped the .mh/.mb wrapper divs every other modal in
+   the app uses for padding, so the notice sat flush against the modal edges/footer -- reported
+   as "too small ... overlapping". Guards that the fix stays in place. */
+{
+  const c = app();
+  const out = run(c, "renderWhatsNewHtml(CHANGELOG)");
+  ok("uses the standard .mh header block", /class="mh"/.test(out));
+  ok("uses the standard .mb body block (gives it real padding)", /class="mb"/.test(out));
+  ok("uses the standard .mf footer block", /class="mf"/.test(out));
+  ok("does not fall back to a bare <h3> (the old, cramped layout)", !/<h3>/.test(out));
+  ok("tells the reader how many updates are in the notice", /update/i.test(out));
+}
+
+/* ================= 8. wired to the wider 'whatsnew' modal class ("use more space") ========= */
+{
+  ok("CSS gives .modal.whatsnew extra width", /\.modal\.whatsnew\{width:\d+px\}/.test(html));
+  ok("checkWhatsNew() tags the modal with the whatsnew class", /\$\('modal'\)\.classList\.add\('whatsnew'\)/.test(html));
+  ok("closeModal() cleans up the whatsnew class (no leak onto the next modal)",
+     /closeModal\(\)\{[^}]*classList\.remove\('whatsnew'\)/.test(html));
+}
+
 console.log(`\nWhat's-changed notice: ${pass} passed, ${fail} failed`);
 if (fail) { console.log('FAILURES:'); fails.forEach(f => console.log('  FAIL  ' + f)); process.exit(1); }

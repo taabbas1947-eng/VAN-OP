@@ -269,6 +269,7 @@ td.skufirst{padding-left:10px;box-shadow:inset 3px 0 0 var(--navy)}
 .modal-bg{position:fixed;inset:0;background:rgba(17,30,66,.5);display:none;z-index:320;backdrop-filter:blur(2px)}
 .modal-bg.open{display:flex;align-items:center;justify-content:center;animation:fade .18s ease}
 .modal{background:#fff;border-radius:16px;width:580px;max-width:95vw;max-height:90vh;overflow:auto;box-shadow:var(--sh-lg)}
+.modal.whatsnew{width:660px}
 .modal.coa{width:920px;max-width:97vw}
 .coasheet{border:1.5px solid #111;font-family:"Times New Roman",Georgia,serif;color:#111;font-size:12.5px;background:#fff}
 .coasheet .rh{display:flex;border-bottom:1.5px solid #111}
@@ -1980,17 +1981,21 @@ function checkWhatsNew(){
   const toShow = seenIdx>=0 ? CHANGELOG.slice(seenIdx+1) : CHANGELOG.slice();
   if(!toShow.length) return;
   _whatsNewShown=true;
+  $('modal').classList.add('whatsnew');
   $('modal').innerHTML=renderWhatsNewHtml(toShow);
   $('modalBg').classList.add('open');
 }
 function renderWhatsNewHtml(entries){
-  const body=entries.map(function(c){
-    const items=(c.items||[]).map(function(it){ return '<li style="margin-bottom:5px;font-size:12.5px;line-height:1.5">'+_av(it)+'</li>'; }).join('');
-    return `<div style="margin-bottom:16px"><div style="font-weight:700;font-size:14px">${_av(c.title||'')} <span class="muted" style="font-weight:400;font-size:11px">\u00b7 ${_av(c.date||'')}</span></div>
-      <ul style="margin:8px 0 0;padding-left:18px">${items}</ul></div>`;
+  const multi=entries.length>1;
+  const body=entries.map(function(c,idx){
+    const items=(c.items||[]).map(function(it){ return '<li style="margin-bottom:9px;font-size:13.5px;line-height:1.6">'+_av(it)+'</li>'; }).join('');
+    const divider = idx>0 ? '<div style="border-top:1px solid var(--line);margin:18px 0 16px"></div>' : '';
+    return `${divider}<div><div style="font-weight:700;font-size:15px;color:var(--navy)">${_av(c.title||'')}</div>
+      <div class="muted" style="font-size:11.5px;margin-top:3px">${_av(c.date||'')}</div>
+      <ul style="margin:12px 0 0;padding-left:20px">${items}</ul></div>`;
   }).join('');
-  return `<h3>What's changed since you last logged in</h3>
-    <div style="max-height:50vh;overflow:auto;margin-top:10px">${body}</div>
+  return `<div class="mh"><h2>What's changed since you last logged in</h2><div class="sub">${multi?entries.length+' updates since your last visit':'1 update since your last visit'}</div></div>
+    <div class="mb" style="max-height:56vh;overflow:auto">${body}</div>
     <div class="mf"><button class="green" onclick="dismissWhatsNew()">Got it</button></div>`;
 }
 function dismissWhatsNew(){
@@ -2931,6 +2936,7 @@ const NAV_ICONS={
   reports:'<line x1="3" y1="3" x2="3" y2="21"/><line x1="3" y1="21" x2="21" y2="21"/><rect x="7" y="12" width="3" height="6"/><rect x="12" y="8" width="3" height="10"/><rect x="17" y="14" width="3" height="4"/>',
   users:'<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
   datafix:'<path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18v3h3l6.3-6.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2-2 2.6-2.6z"/>',
+  recon:'<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/><rect x="3" y="3" width="6" height="6" rx="1"/>',
   approvals:'<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>'
 };
 function navIcon(id){ return NAV_ICONS[id]?`<svg viewBox="0 0 24 24">${NAV_ICONS[id]}</svg>`:''; }
@@ -4447,7 +4453,7 @@ function rmMakeKg(){ var o=state.orders.find(x=>x.id===rmForm.oid); var l=o&&o.l
 function openRMCheck(oid,lid){ if(!may('rm.check')){toast(denyRight('rm.check','RM Check'));return;} const o=state.orders.find(x=>x.id===oid); const l=o&&o.lines.find(x=>x.id===lid); if(!l)return;
   rmForm={oid,lid,status:(l.rmStatus&&l.rmStatus!=='pending'?l.rmStatus:'full'),canMake:(l.rmStatus==='partial'&&l.canMakeKg!=null?l.canMakeKg:''),unit:'kg'};
   renderRMModal(); $('modalBg').classList.add('open'); }
-function closeModal(){ $('modalBg').classList.remove('open'); try{$('modal').classList.remove('coa');$('modal').classList.remove('shipdrawer');}catch(e){} }
+function closeModal(){ $('modalBg').classList.remove('open'); try{$('modal').classList.remove('coa');$('modal').classList.remove('shipdrawer');$('modal').classList.remove('whatsnew');}catch(e){} }
 function rmSetStatus(s){ rmForm.status=s; renderRMModal(); }
 function renderRMModal(){ const o=state.orders.find(x=>x.id===rmForm.oid); const l=o.lines.find(x=>x.id===rmForm.lid); var ord=+l.ordered||0;
   const seg=`<div class="seg">
@@ -9337,10 +9343,10 @@ function screenInstructions(){
     body:'<b>Packing needs a PO and a Lab-approved batch (QCM-signed COA).</b> Pack the bulk base into the client <b>brand</b> for a specific PO (capped to what the PO still needs). Enter the <b>brand batch #</b> printed on the packaging (unique within the financial year; leave blank to keep the base batch number) and <b>verify the print price</b>. This creates the <b>base ▸ brand</b> batch link used for traceability. When a batch is done, the <b>Production Manager runs Finish &amp; reconcile</b>: any <b>unpacked remainder</b> is routed as <b>overfill/loss</b>, <b>by-product</b>, <b>divert</b>, or <b>rework</b> (by-product routing follows the rules in Master Data). Reconcile spawns a fresh stock batch where needed and closes the remainder so it no longer counts as packable.'},
    {n:'7',title:'Quality — two checks',who:'Lab Rep, then QA Inspector',when:'once packed',tab:'Lab QC + Pre-shipment QA',
     body:'<b>Lab QC is per production batch</b> on the official <b>COA form (QCL-FRM-12.03)</b> — it opens <b>auto-filled</b> with the batch details (item, batch #, quantity, dates); the analyst fills the sample fields (Q.C. #, sampled-by, time, temp, humidity — mandatory) and each test Result + Remark. Parameters &amp; ranges come from the product template; the lab can <b>add more on the report</b>. Sign-off is <b>3-step with auto-signatures + timestamps</b>: <b>Analyst → AQCM review → QCM final approval</b>. Only a QCM-approved batch can be <b>packed</b>. <b>UNFIT → Plant Manager</b> (deviation or rework). Approved COAs <b>print</b> as the official certificate.<br><br>Then <b>Pre-shipment QA</b> inspects the <b>packed material</b>, per <b>PO · product line</b> and <b>quantity-true</b>: inspect a quantity allocated across its <b>batch-numbered</b> lots, against the <b>8-point checklist</b> (inspector named). Material with <b>no batch #</b> is blocked until the number is set in Production. Only <b>inspected &amp; cleared</b> quantity reaches <b>Shipments</b>; a <b>fail</b> routes to Supply Chain to correct &amp; re-inspect.'},
-   {n:'8',title:'Ship (per shipment, many products per DC)',who:'Supply Chain',when:'each dispatch',tab:'Shipments',
-    body:'Only <b>inspected &amp; cleared</b> quantity (from Pre-shipment QA) appears under <b>Ready to ship</b>. The board is two columns — <b>Ready to ship</b> | <b>Shipped &amp; closed</b>. Press <b>Record shipment</b>, <b>tick the products</b> on the truck and enter the <b>DC # (required) + vehicle once</b> — one shipment can carry many products of a PO. The <b>DC generates the shipment number</b> live: <b>MMDDYY + 3-digit serial + DC</b>, and a <b>DC can be used only once</b>. <b>Recording sends &amp; closes the shipment — it counts as delivered.</b> Anything left un-ticked stays in Ready to ship for the next DC. Each PO stays open until everything is shipped.'},
-   {n:'9',title:'Monitor & report',who:'Everyone',when:'anytime',tab:'PO Tracker · Reports · Action Log',
-    body:'The <b>PO Tracker</b> is the view-only control tower — where every order sits and who acts next. <b>Reports</b> slice all data; <b>Batch Trace</b> shows base ▸ brand for every pack run; the <b>Action Log</b> records every action with who &amp; when.'},
+   {n:'8',title:'Ship, get the DC approved, confirm delivery',who:'Supply Chain, then Plant Manager, then Supply Chain again',when:'each dispatch',tab:'Shipments',
+    body:'Only <b>inspected &amp; cleared</b> quantity (from Pre-shipment QA) appears under <b>Ready to ship</b>. Press <b>Record shipment</b>: tick the products on the truck, pick a <b>transport type</b> (Ex-factory needs a <b>Bilty #</b>; VAN-delivered needs a <b>Vehicle #</b>), the <b>DC #</b> (auto-assigned) + <b>SO #</b>, driver &amp; seal if relevant, and the <b>customer focal person</b> — pre-filled from the PO when known, editable if not, and it prints on the DC. The <b>DC generates the shipment number</b> (MMDDYY + 3-digit serial + DC). Recording sends it for the <b>Plant Manager to approve the DC</b> — it isn&rsquo;t cleared for outward movement until then. A <b>multi-PO truck</b> instead goes through <b>Loading → Gate Pass → Release</b> (the Plant Manager releases it once the Gate Pass is issued). Most shipments are marked <b>delivered straight away</b>; one left <b>in transit</b> instead needs Supply Chain to <b>confirm delivery</b> later from the <b>Sent</b> tab (recording how it was verified — phone, email, text, or other) — that confirmation, not the recording, is what actually counts as delivered. Anything left un-ticked stays in Ready to ship for the next truck. Each PO stays open until everything on it is delivered.'},
+   {n:'9',title:'Monitor & report',who:'Everyone',when:'anytime',tab:'PO Tracker · Reconciliation · Reports · Action Log',
+    body:'The <b>PO Tracker</b> is the view-only control tower — where every order sits and who acts next. <b>Reconciliation</b> checks every packed order line against its packing trail, live, and flags anything it can&rsquo;t account for — open it any time; use <b>Data Fix</b> to correct what it finds. <b>Reports</b> slice all data; <b>Batch Trace</b> shows base ▸ brand for every pack run; the <b>Action Log</b> records every action with who &amp; when.'},
    {n:'10',title:'Fix / backfill data (setup only)',who:'COO',when:'go-live cutover only',tab:'Data Fix',
     body:'A guarded tool to make the system match your <b>actual records</b> — add missing or correct entries, all <b>back-dated</b> and logged as <b>RECONCILE</b>. The COO turns it <b>OFF</b> after cutover.'},
   ];
@@ -9353,8 +9359,9 @@ function screenInstructions(){
    ['Lab COA','Analyst submits → AQCM reviews → QCM approves (auto-signed, timestamped)','Batch can be packed into the brand','Stuck → COA awaiting review/approval; UNFIT → Plant Manager'],
    ['Packing','Base packed into the brand for the PO (brand batch # + price verify)','Packed lot goes to QA pre-shipment','Can&rsquo;t pack → batch COA not approved, or no PO'],
    ['QA Pre-shipment','Packed material passes the 8-point checklist — inspector named, quantity allocated across batch-numbered lots','Cleared quantity becomes available in Shipments (Ready to ship)','Blocked → the packed lot has no batch #; QA fail → Supply Chain corrects &amp; re-inspects'],
-   ['Shipment','Dispatch recorded (tick products, one DC/vehicle) — the DC generates the shipment # (MMDDYY+serial+DC)','Recording sends &amp; closes it — counts as delivered','Not in Ready to ship → the quantity is not inspected &amp; cleared yet (do Pre-shipment QA)'],
-   ['Delivered','Shipment recorded (delivered on record) — 100% of the qty shipped','Product &amp; PO close','Un-shipped products stay in Ready to ship'],
+   ['Shipment','Dispatch recorded (transport, DC, focal person) — DC generates the shipment # (MMDDYY+serial+DC)','Plant Manager can approve the DC; most shipments are marked delivered straight away','Not in Ready to ship → the quantity is not inspected &amp; cleared yet (do Pre-shipment QA)'],
+   ['DC approval','Plant Manager approves (or rejects) the DC','Cleared for outward movement','Stuck on &ldquo;Pending approval&rdquo; → waiting on the Plant Manager'],
+   ['Delivered','Delivered straight away, or Supply Chain confirms delivery later (for a shipment left in transit)','Product &amp; PO close once everything is delivered','Sitting &ldquo;in transit&rdquo; → delivery has not been confirmed yet — do that from the Sent tab'],
   ];
   const stuck=[
    ['Production isn&rsquo;t starting','RM Check is pending — or the PR isn&rsquo;t CFO-approved, or material has not been received','Supply Chain runs RM Check → CFO approves the PR → receive the GRN'],
@@ -9367,6 +9374,10 @@ function screenInstructions(){
    ['"Pack size not set" on a shipment','That brand has no pack size on the PO line','Set the pack size on the PO line in New PO Entry'],
    ['A finished PO is not in the Open-batch picker','That is expected — production is done; the PO is now in Shipments until delivered','Track it in Shipments / PO Tracker'],
    ['DC # is rejected on a shipment','That DC number is already used — each DC is single-use','Use a new DC number; it generates the shipment number'],
+   ['A DC is stuck on &ldquo;Pending approval&rdquo;','The Plant Manager has not approved it yet','Plant Manager approves (or rejects) it from My Actions / Shipments'],
+   ['A truck is stuck in &ldquo;Loading&rdquo;','The Gate Pass has not been issued, or it has but nobody has released the truck yet','Supply Chain issues the Gate Pass, then the Plant Manager releases it'],
+   ['A shipment sits &ldquo;in transit&rdquo; and the PO won&rsquo;t close','Delivery has not been confirmed yet','Confirm delivery from the Sent tab once the customer has actually received it'],
+   ['A wrongly-logged shift needs removing','Only the Production Manager or Plant Manager can void it — never the floor officer who logged it, and never once the lab has certified the lot','Ask your Production Manager / Plant Manager to remove it, with a reason'],
   ];
   const tabs=[
    ['My Actions','All (your queue)','Your personal to-do (group by Priority / Stage / Role): acknowledge, RM check, approve/close PR, receive, produce, QC, QA, ship, delay','feeds the tracker'],
@@ -9375,19 +9386,21 @@ function screenInstructions(){
    ['PO Tracker','All (view-only)','Control tower — Matrix (7-stage grid) / List / Board; click a PO for the line×stage drawer + Open-in-owner deep-link','consolidates all'],
    ['Production Center','Production','Floor / Output / Lifecycle views; + Open batch (PO or Bulk→stock); log shift output; pack base into brands','→ Lab QC'],
    ['Lab QC + Pre-shipment QA','Lab, AQCM, QCM + QA Inspector','Batch COA (3-step sign-off, gates packing) + quantity-true Pre-shipment QA on packed material (allocate across batch-# lots; only cleared qty ships)','gates Packing &amp; Shipments'],
-   ['Shipments','Supply Chain','Two-column board; Record shipment — tick products, DC # (generates the shipment #), one vehicle; recording sends &amp; closes (delivered)','← Pre-shipment QA · → PO Tracker'],
+   ['Shipments','Supply Chain, Plant Manager','Ready to ship / Sent tabs; Record shipment (transport, DC, focal person); Plant Manager approves the DC (or releases a truck after its Gate Pass); Supply Chain confirms delivery on anything left in transit','← Pre-shipment QA · → PO Tracker'],
    ['Reports / Batch Trace','All','Slice all data; <b>Trends</b> (Line/Bar/Table, overlays, range, CSV); <b>Sales &amp; Budget</b> (now a <b>Dashboard</b> tab) drill-down (per-line invoice, per-Kg cross-check); base ▸ brand batch trace','—'],
    ['Admin · Master Data','COO (+ Plant Manager: recipes; Lab/QC: COA templates)','Reference lists (dropdowns); Raw materials, <b>Product recipes</b>, Lab COA templates, <b>by-product routing rules</b>, sales targets, <b>Roles</b> (add/rename/archive) &amp; the <b>access-control matrix</b>','—'],
+   ['Reconciliation','All (view) · COO/Production/Production Manager (owners)','Read-only, on demand — for every packed order line, sums the matching packing trail and flags anything it can&rsquo;t account for','Data Fix corrects what it finds'],
    ['Data Fix','COO (setup only)','Back-fill / correct records to match reality','temporary'],
    ['Users &amp; Access','COO','Add people, assign a role (incl. custom roles) &amp; password','—'],
    ['Action Log','All','Timestamped audit trail','—'],
   ];
   const roleGuide=[
    {role:'KAM',works:'New PO Entry · Dealer Master',own:'Create customer / dealer / COBO / VGreen POs — brand, qty (Kg/L → packs), committed date, mandatory <b>print price</b>, and the <b>delivery focal person</b>. Onboard dealers (auto code).',trig:'A customer PO arrives',hands:'Supply Chain'},
-   {role:'Supply Chain',works:'My Actions · Shipments',own:'Acknowledge the PO, run <b>RM Check</b> (full / partial), <b>raise a PR</b> for any shortfall, <b>receive material by GRN</b>, and record each <b>dispatch</b>.',trig:'PO Created · CFO-approved PR',hands:'Production · Delivery'},
+   {role:'Supply Chain',works:'My Actions · Shipments',own:'Acknowledge the PO, run <b>RM Check</b> (full / partial), <b>raise a PR</b> for any shortfall, <b>receive material by GRN</b>, record each <b>dispatch</b> (transport, DC, the customer <b>focal person</b>), and <b>confirm delivery</b> once the customer has actually received it.',trig:'PO Created · CFO-approved PR',hands:'Plant Manager (DC approval) · Production'},
    {role:'CFO',works:'My Actions · Admin',own:'<b>Approve Purchase Requests</b> — material can&rsquo;t be received until you approve. Own <b>client annual sales targets</b> and <b>invoice pricing</b>.',trig:'A PR is raised',hands:'Supply Chain'},
    {role:'Production',works:'Production',own:'Open batches (PO or Bulk→stock via <b>+ Open batch</b>, batch # <b>unique per FY</b>), <b>log shift output</b> — <b>each shift = a lot</b>, then <b>pack</b> base into the client brand with a <b>brand batch #</b> + price verify. Every kg stays <b>base ▸ brand</b> traceable.',trig:'RM ready · QCM-approved COA (to pack)',hands:'Lab · QA'},
-   {role:'Plant Manager',works:'Production · Admin · Master Data',own:'Own <b>product recipes</b> — add / override the BOM (kg per kg); a new material auto-adds to the Raw-materials master. Handle <b>UNFIT</b> batches (deviation / rework) and set <b>delay reason + responsible dept</b> on late orders.',trig:'UNFIT COA · overdue order · recipe gap',hands:'Production · Lab'},
+   {role:'Production Manager',works:'Production',own:'Department head over the floor officers who log output day to day. Floor officers still open/close batches and log shift output themselves; the Production Manager (alongside the Plant Manager) is the only one who can <b>remove a wrongly-logged shift</b>, and owns the call on <b>by-product, divert &amp; rework</b> routing at Finish &amp; reconcile.',trig:'A shift needs correcting · a batch needs reconciling',hands:'Lab · QA'},
+   {role:'Plant Manager',works:'Production · Shipments · Admin · Master Data',own:'Own <b>product recipes</b> — add / override the BOM (kg per kg); a new material auto-adds to the Raw-materials master. Handle <b>UNFIT</b> batches (deviation / rework), set <b>delay reason + responsible dept</b> on late orders, and on the dispatch side: <b>approve or reject each DC</b> and <b>release the truck</b> once its Gate Pass is issued.',trig:'UNFIT COA · overdue order · recipe gap · a truck ready for release',hands:'Production · Lab · Supply Chain'},
    {role:'Lab Rep',works:'Lab QC',own:'Fill the <b>COA (QCL-FRM-12.03)</b> per production batch — sample fields + each test Result / Remark — then submit for review. <b>Auto-signed, timestamped.</b>',trig:'A batch has output',hands:'AQCM'},
    {role:'AQCM',works:'Lab QC',own:'<b>Review</b> the analyst&rsquo;s COA (auto-signed + timestamped).',trig:'Analyst submits COA',hands:'QCM'},
    {role:'QCM',works:'Lab QC',own:'<b>Final COA approval.</b> Only a QCM-approved batch can be packed; <b>UNFIT → Plant Manager</b>.',trig:'AQCM review done',hands:'Production (packing)'},
@@ -9438,7 +9451,8 @@ function screenInstructions(){
          • Production is <b>batch + shift</b>; <b>over-production is capped at 105%</b>; batch # is <b>unique per financial year (Jul–Jun)</b>.<br>
          • <b>Packing needs a PO</b>; the <b>brand batch #</b> and <b>print price</b> are set &amp; verified at packing; every pack is <b>base ▸ brand</b> traceable.<br>
          • <b>QC is quantity-true</b>: every batch needs a <b>QCM-approved COA</b> before packing; every packed lot needs <b>QA</b> before shipping.<br>
-         • A PO <b>closes</b> only when every product has shipped; <b>over-supply is flagged, not capped</b>.
+         • A shipment&rsquo;s <b>DC needs the Plant Manager&rsquo;s approval</b> before it&rsquo;s cleared to move; a multi-PO truck also needs a <b>Gate Pass</b> and <b>release</b>.<br>
+         • A PO <b>closes</b> only when every product is <b>delivered</b> — not just shipped; a shipment left <b>in transit</b> still needs delivery confirmed. <b>Over-supply is flagged, not capped</b>.
        </div></div>
    </div>
    <div class="card"><h3>Using the PO Tracker — your status board</h3>

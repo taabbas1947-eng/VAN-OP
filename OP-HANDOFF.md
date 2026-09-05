@@ -3277,3 +3277,95 @@ he accepted: a different computer or a cleared browser sees it again.
 **Not done / next:** nothing outstanding from this pass. Still open from the
 earlier entries today: the PUR-ORD-2026-00592 double-count correction, and a
 decision on the V-Mg Essential pattern / Maxim Old POs bucket.
+
+## 2026-09-05 — Reconciliation icon fix + What's-changed modal fix
+
+MODULE: O2S. Two small bug fixes reported by Tahir after the 09-04 session.
+
+**1. Reconciliation nav item had no sidebar icon.** Root cause: the sidebar
+icon comes from a separate `NAV_ICONS` object keyed by screen id, consumed
+by `navIcon(id)` — NOT the `ic:'🧾'` field set on the `SCREENS` registry
+entry (that emoji field is unused for sidebar rendering). `recon` was added
+to `SCREENS`/`NAV_GROUPS`/dispatcher on 09-04 but never got a `NAV_ICONS`
+entry. Fix: added a `recon:` entry to `NAV_ICONS` (checklist-style icon,
+same Feather-icons stroke aesthetic as its siblings), inserted right after
+`datafix`. `tests/recon.test.js` gained a wiring assertion for it (23
+assertions now, was 22).
+
+**2. "What's changed since you last logged in" modal was cramped/overlapping.**
+Root cause: `renderWhatsNewHtml()` skipped the app's standard `.mh`/`.mb`/`.mf`
+wrapper divs that give every other modal in the app its padding — it used a
+bare `<h3>` and unpadded content divs instead, so text sat flush against the
+modal edges and against the sticky footer. Fix:
+- Rebuilt `renderWhatsNewHtml()` to use the standard `.mh` (header + "N
+  updates since your last visit" sub-line) / `.mb` (body, real padding) /
+  `.mf` (footer) structure, plus dividers and more line-height between
+  changelog entries.
+- Added a `.modal.whatsnew{width:660px}` CSS rule (vs. the default 580px)
+  for more breathing room, following the same pattern as `.shipdrawer`/`.coa`
+  — `checkWhatsNew()` now tags `$('modal')` with the `whatsnew` class, and
+  `closeModal()` cleans it up (no leak onto the next modal opened).
+- `tests/whatsnew.test.js` gained 8 assertions covering the mh/mb/mf
+  structure and the whatsnew-class wiring (21 assertions now, was 13).
+
+Verified: all 6 non-empty `<script>` blocks pass `node --check`; full suite
+(20 files) green, 0 failures. Not pushed — sitting as local changes for
+Tahir to commit via GitHub Desktop as usual.
+
+**Not done / next:** the Instructions (in-app manual) screen is reported as
+outdated and needs a content refresh — not yet scoped, next up. Still open
+from earlier: the PUR-ORD-2026-00592 double-count correction, and a decision
+on the V-Mg Essential pattern / Maxim Old POs bucket.
+
+## 2026-09-05 — Instructions manual refresh
+
+MODULE: O2S. Tahir flagged the in-app Instructions/manual screen as "written
+very old." Read `screenInstructions()` in full and cross-checked it against
+the actual current code (not just against memory of what changed) — found
+three real gaps, all now fixed:
+
+1. **No Production Manager role anywhere in the manual.** The Production
+   department was split (27 Aug) into floor officers (still open/close
+   batches, log shift output) and a Production Manager head who alone —
+   alongside the Plant Manager — can void a wrongly-logged shift, and who
+   alone owns the by-product/divert/rework call at Finish & reconcile. The
+   manual's role table only ever had a 'Production' row. Added a
+   'Production Manager' row; updated Plant Manager's row too (it was missing
+   its DC-approval / truck-release duties, added below).
+
+2. **Reconciliation screen was undocumented** — added 09-04, never made it
+   into the manual. Added it to the tab reference table and to the "Monitor
+   & report" step.
+
+3. **The Shipments write-up described a pipeline that no longer exists.**
+   It said "Recording sends & closes the shipment — it counts as delivered."
+   Reality, confirmed by reading `saveDispatch()`/`approveDC()`/
+   `issueGatePass()`/`approveRelease()`/`confirmDelivery()` directly: a
+   dispatch now needs the **Plant Manager to approve the DC** before it's
+   cleared to move; a multi-PO truck goes through **Loading → Gate Pass →
+   Release**; and a shipment left "in transit" only becomes Delivered once
+   Supply Chain **confirms delivery** later (recording how — phone/email/
+   text/other) — that confirmation, not the recording, is what closes the
+   PO. Also folded in the 09-04 "Customer focal person" field at dispatch.
+   Rewrote step 8, added a "DC approval" row to the stage-flow table, added
+   4 rows to the troubleshooting table, updated the Shipments tab-reference
+   row and the Supply Chain/Plant Manager role rows, and fixed a Key Rules
+   bullet that said a PO closes on "shipped" — it's "delivered" now.
+
+New `tests/instructions.test.js` (12 assertions): renders without throwing
+across roles, and locks in each of the three fixes above so they can't
+silently regress. Full suite is now 21 files, all green; all 6 non-empty
+`<script>` blocks pass `node --check`.
+
+Deliberately left alone: steps 1–7 and 10, and the rest of the role/tab
+tables — read them against the current code and didn't find anything else
+stale enough to correct. Did not attempt to document the full escalation/
+stall-threshold matrix (Acknowledge/RM Check/Load/Gate Pass/etc. all have
+their own day-thresholds and escalation targets) — that's implementation
+detail for My Actions, not something a process manual needs to spell out.
+
+Not pushed — local changes only, for Tahir to commit via GitHub Desktop.
+
+**Not done / next:** the PUR-ORD-2026-00592 double-count correction, and a
+decision on the V-Mg Essential pattern / Maxim Old POs bucket, are still
+open from earlier.

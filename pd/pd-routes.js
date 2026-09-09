@@ -45,6 +45,10 @@ app.get('/api/pd/me', auth, pdAuth, (req, res) => {
   res.json({
     id: req.pdUser.id, username: req.pdUser.username, name: req.pdUser.name,
     pd_role: req.pdUser.pd_role, label: pd.PD_ROLES[req.pdUser.pd_role] || null,
+    // ADDED 9 Sept 2026: the front end builds its own navigation from this
+    // rather than second-guessing the role table. One source of truth for
+    // "what may this person open", shared by the router and the screen.
+    surfaces: pd.allowed_surfaces(req.pdUser.pd_role),
   });
 });
 
@@ -125,7 +129,7 @@ app.get('/api/pd/library', auth, pdAuth, pdSurface('library'), async (req, res) 
       kinds: pd.LIB_KINDS, evidence: pd.EVIDENCE, evidenceShort: pd.EVIDENCE_SHORT, libTypes: Object.keys(pd.LIB_TYPES), maxSizeH: pd.human_size(pd.LIB_MAX_BYTES),
       pins: await pinTargets(), mayUpload: libMayUpload(role), store, filters: { kind: kindf, ev: evf, q: search },
     });
-  } catch (e) { res.status(500).json({ error: String(e) }); }
+  } catch (e) { fail(res, e); }
 });
 app.post('/api/pd/library', auth, pdAuth, pdSurface('library'), async (req, res) => {
   try {
@@ -149,7 +153,7 @@ app.post('/api/pd/library', auth, pdAuth, pdSurface('library'), async (req, res)
     const m = String(b.pin || '').match(/^problem:(\d+)$/);
     if (m) await pdq('INSERT IGNORE INTO pd_library_pins (item_id, target_type, target_id, pinned_by) VALUES (?,?,?,?)', [newId, 'problem', Number(m[1]), req.pdUser.id]);
     res.json({ ok: true, l_label: pd.fmt_l(n) });
-  } catch (e) { res.status(500).json({ error: String(e) }); }
+  } catch (e) { fail(res, e); }
 });
 app.get('/api/pd/library/:id', auth, pdAuth, pdSurface('library'), async (req, res) => {
   try {
@@ -164,7 +168,7 @@ app.get('/api/pd/library/:id', auth, pdAuth, pdSurface('library'), async (req, r
       pins, comments: comments.map(c => ({ ...c, role_label: pd.PD_ROLES[c.pd_role] || c.pd_role })),
       targets: await pinTargets(), caps: { archive: pd.can_role(req.pdUser.pd_role, ['custodian']) },
     });
-  } catch (e) { res.status(500).json({ error: String(e) }); }
+  } catch (e) { fail(res, e); }
 });
 app.post('/api/pd/library/:id/pin', auth, pdAuth, pdSurface('library'), async (req, res) => {
   try { // FIX C3 — pinning is curation, not reading. Members and outside reviewers may read the library, not rearrange it.
@@ -172,13 +176,13 @@ app.post('/api/pd/library/:id/pin', auth, pdAuth, pdSurface('library'), async (r
     const m = String((req.body && req.body.pin) || '').match(/^problem:(\d+)$/);
     if (!m) return res.status(400).json({ error: 'Pick somewhere to pin it.' });
     await pdq('INSERT IGNORE INTO pd_library_pins (item_id, target_type, target_id, pinned_by) VALUES (?,?,?,?)', [req.params.id, 'problem', Number(m[1]), req.pdUser.id]);
-    res.json({ ok: true }); } catch (e) { res.status(500).json({ error: String(e) }); }
+    res.json({ ok: true }); } catch (e) { fail(res, e); }
 });
 app.post('/api/pd/library/:id/unpin', auth, pdAuth, pdSurface('library'), async (req, res) => {
   try { // FIX C3 — see /pin above.
     if (!pd.can_role(req.pdUser.pd_role, ['qc_head', 'rta', 'production', 'agronomy', 'custodian', 'lab_tech'])) return res.status(403).json({ error: 'Removing a pin is for the technical team.' });
     await pdq('DELETE FROM pd_library_pins WHERE id=? AND item_id=?', [Number((req.body && req.body.pin_id) || 0), req.params.id]); res.json({ ok: true }); }
-  catch (e) { res.status(500).json({ error: String(e) }); }
+  catch (e) { fail(res, e); }
 });
 app.post('/api/pd/library/:id/archive', auth, pdAuth, pdSurface('library'), async (req, res) => {
   try { if (!pd.can_role(req.pdUser.pd_role, ['custodian'])) return res.status(403).json({ error: 'Archiving a library item is the Data Custodian’s (or the COO’s).' });
@@ -186,12 +190,12 @@ app.post('/api/pd/library/:id/archive', auth, pdAuth, pdSurface('library'), asyn
     if (!reason) return res.status(400).json({ error: 'Archiving carries a reason, like everything else here.' });
     const [r] = await pdq('UPDATE pd_library_items SET archived=1, archived_reason=? WHERE id=?', [reason, req.params.id]);
     if (r.affectedRows === 0) return res.status(404).json({ error: 'Not found.' });
-    res.json({ ok: true }); } catch (e) { res.status(500).json({ error: String(e) }); }
+    res.json({ ok: true }); } catch (e) { fail(res, e); }
 });
 app.post('/api/pd/library/:id/restore', auth, pdAuth, pdSurface('library'), async (req, res) => {
   try { if (!pd.can_role(req.pdUser.pd_role, ['custodian'])) return res.status(403).json({ error: 'Restoring a library item is the Data Custodian’s (or the COO’s).' });
     await pdq('UPDATE pd_library_items SET archived=0, archived_reason=NULL WHERE id=?', [req.params.id]); res.json({ ok: true }); }
-  catch (e) { res.status(500).json({ error: String(e) }); }
+  catch (e) { fail(res, e); }
 });
 app.post('/api/pd/library/:id/comment', auth, pdAuth, pdSurface('library'), async (req, res) => {
   try { const body = String((req.body && req.body.body) || '').trim();
@@ -199,7 +203,7 @@ app.post('/api/pd/library/:id/comment', auth, pdAuth, pdSurface('library'), asyn
     const [[it]] = [(await pdq('SELECT id FROM pd_library_items WHERE id=?', [req.params.id]))[0]];
     if (!it) return res.status(404).json({ error: 'Not found.' });
     await pdq("INSERT INTO pd_comments (target_type, target_id, body, added_by) VALUES ('library',?,?,?)", [req.params.id, body, req.pdUser.id]);
-    res.json({ ok: true }); } catch (e) { res.status(500).json({ error: String(e) }); }
+    res.json({ ok: true }); } catch (e) { fail(res, e); }
 });
 // Serve a document — the ONLY way a file is read. Looked up by DB id, auth-checked, basename-guarded.
 app.get('/api/pd/library/:id/file', auth, pdAuth, pdSurface('library'), async (req, res) => {
@@ -216,7 +220,7 @@ app.get('/api/pd/library/:id/file', auth, pdAuth, pdSurface('library'), async (r
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Content-Security-Policy', "default-src 'none'; img-src 'self'; object-src 'none'");
     fs.createReadStream(fpath).pipe(res);
-  } catch (e) { res.status(500).json({ error: String(e) }); }
+  } catch (e) { fail(res, e); }
 });
 
 /* ---------- PD · The public Drop box + Registrar triage (faithful-in-spirit
@@ -242,13 +246,13 @@ app.post('/api/pd/dropbox', async (req, res) => {
     await pdq('INSERT INTO pd_dropbox (name, contact, source, text, ip) VALUES (?,?,?,?,?)', [name.slice(0, 100), contact.slice(0, 120) || null, src, text.slice(0, 5000), ip]);
     // NOTE: the PHP app emails the Custodian on a new entry; notifications are not yet ported.
     res.json({ ok: true });
-  } catch (e) { res.status(500).json({ error: String(e) }); }
+  } catch (e) { fail(res, e); }
 });
 
 // Triage (Registrar / COO): list, convert to a Challenge/Observation/Request, or dismiss.
 app.get('/api/pd/dropbox', auth, pdAuth, async (req, res) => {
   try {
-    if (!pd.can_role(req.pdUser.pd_role, ['custodian'])) return res.status(403).json({ error: 'Drop-box triage is the Data Custodian’s (or the COO’s).' });
+    if (!mayTriage(req.pdUser.pd_role)) return res.status(403).json({ error: 'Drop-box triage is the Data Custodian’s, the Registrar’s or the COO’s.' });
     const [rows] = await pdq(`SELECT d.*, u2.name handler,
         ch.challenge_number, ob.observation_number, rq.request_number
       FROM pd_dropbox d
@@ -266,16 +270,16 @@ app.get('/api/pd/dropbox', auth, pdAuth, async (req, res) => {
           : null,
       })),
     });
-  } catch (e) { res.status(500).json({ error: String(e) }); }
+  } catch (e) { fail(res, e); }
 });
 app.post('/api/pd/dropbox/:id/dismiss', auth, pdAuth, async (req, res) => {
   try {
-    if (!pd.can_role(req.pdUser.pd_role, ['custodian'])) return res.status(403).json({ error: 'Drop-box triage is the Data Custodian’s (or the COO’s).' });
+    if (!mayTriage(req.pdUser.pd_role)) return res.status(403).json({ error: 'Drop-box triage is the Data Custodian’s, the Registrar’s or the COO’s.' });
     const [[e]] = [(await pdq("SELECT id FROM pd_dropbox WHERE id=? AND status='new'", [req.params.id]))[0]];
     if (!e) return res.status(404).json({ error: 'Entry not found or already handled.' });
     await pdq("UPDATE pd_dropbox SET status='dismissed', handled_by=?, handled_at=NOW() WHERE id=?", [req.pdUser.id, req.params.id]);
     res.json({ ok: true });
-  } catch (e) { res.status(500).json({ error: String(e) }); }
+  } catch (e) { fail(res, e); }
 });
 // Convert a drop-box entry into one of the three doors. Each door has its own
 // required fields (MODEL.md §3), so the body shape depends on target_type —
@@ -283,7 +287,7 @@ app.post('/api/pd/dropbox/:id/dismiss', auth, pdAuth, async (req, res) => {
 // convert route used for an idea's title.
 app.post('/api/pd/dropbox/:id/convert', auth, pdAuth, async (req, res) => {
   try {
-    if (!pd.can_role(req.pdUser.pd_role, ['custodian'])) return res.status(403).json({ error: 'Drop-box triage is the Data Custodian’s (or the COO’s).' });
+    if (!mayTriage(req.pdUser.pd_role)) return res.status(403).json({ error: 'Drop-box triage is the Data Custodian’s, the Registrar’s or the COO’s.' });
     const b = req.body || {};
     const targetType = String(b.target_type || '');
     if (!['challenge', 'observation', 'request'].includes(targetType)) {
@@ -352,7 +356,1313 @@ app.post('/api/pd/dropbox/:id/convert', auth, pdAuth, async (req, res) => {
     // ordering was chosen to avoid.
     await pdq("UPDATE pd_dropbox SET converted_to_type=?, converted_to_id=? WHERE id=?", [targetType, newId, req.params.id]);
     res.json({ ok: true, label: numberLabel });
-  } catch (e) { res.status(500).json({ error: String(e) }); }
+  } catch (e) { fail(res, e); }
+});
+
+
+/* ============================================================================
+ * PD · THE SCREENS MILESTONE, PART 1 — intake (the three doors), the Problem
+ * register, and triage.  ADDED 9 Sept 2026.
+ *
+ * The rules these routes exist to satisfy, in the order they bind:
+ *   MODEL.md §3            — the three doors, and what each one is.
+ *   MODEL.md §5.1          — ONE intake screen; "no need to classify before it
+ *                            saves — triage classifies."
+ *   RECLASSIFICATION-RULES.md — the whole file. It is a rules file, not
+ *                            advice. In particular: §2 (no reason is ever
+ *                            required to refile), §3 (everything from the door
+ *                            is `unsorted`, and that is the normal front of
+ *                            the system, not a backlog of mistakes), §4 (what
+ *                            is kept permanently), §5 (authorship never
+ *                            transfers), §6 (the banned vocabulary), §7 (the
+ *                            author's one message), §8 (what must never
+ *                            exist), §10 (what a refiler can do).
+ *
+ * Three things a reader should not have to reverse-engineer:
+ *
+ * 1. WHY ONE ENDPOINT FOR THREE TABLES. The doors are three tables because
+ *    their content genuinely differs (a Request has a recipient and a
+ *    return-by date; a Challenge has the product being complained about). The
+ *    PERSON does not have to know that. POST /api/pd/intake takes an optional
+ *    `door`; when it is missing the entry is filed as an Observation with
+ *    door_chosen = 0, which is the honest default (MODEL.md §3: "a result or
+ *    material that arrived") and the only one of the three whose required
+ *    fields the plain form can always fill.
+ *
+ * 2. WHY A MOVE CREATES A NEW ROW RATHER THAN UPDATING ONE. The three doors
+ *    are separate tables, so "convert type" cannot be an UPDATE. The original
+ *    row is kept forever (nothing in PD is deleted), pointed forward by
+ *    converted_to_type/id, and every field it held is copied into
+ *    pd_field_history as a snapshot before the move. RECLASSIFICATION-RULES.md
+ *    §4's "the number never changes" is honoured the way §10's merge rule
+ *    already honours it: the old number still resolves, and points at what the
+ *    entry became. The new type issues its own number, exactly as §7's own
+ *    example message shows ("Your entry is now Bet B-014").
+ *
+ * 3. WHAT IS DELIBERATELY ABSENT. There is no approval queue in front of
+ *    intake, no accuracy score, no per-person grouping in any response, and no
+ *    endpoint that answers "who files things wrongly" (§8). The history table
+ *    names a person so a reader knows whom to ask — never so anyone can be
+ *    counted.
+ * ==========================================================================*/
+
+const DOOR_TABLES = {
+  challenge:   { table: 'pd_challenges',   numcol: 'challenge_number',   fmt: pd.fmt_ch,  textcol: 'complaint_text' },
+  observation: { table: 'pd_observations', numcol: 'observation_number', fmt: pd.fmt_o,   textcol: 'text' },
+  request:     { table: 'pd_requests',     numcol: 'request_number',     fmt: pd.fmt_req, textcol: 'purpose' },
+};
+const isDoor = t => Object.prototype.hasOwnProperty.call(DOOR_TABLES, t);
+
+/* What a person sees when something fails underneath. The driver's own words
+   were going straight to the screen — "Error: Data too long for column
+   'title'", "Data truncated for column 'grade'" — which is unreadable, and
+   puts three of RECLASSIFICATION-RULES.md §6's banned words (error, invalid,
+   incorrect) into the interface by a route nobody wrote. The real text goes to
+   the server log, where whoever is fixing it can read it. */
+function fail(res, e, what) {
+  try { console.error('PD ' + (what || 'route') + ' failed:', e && e.stack ? e.stack : String(e)); } catch (x) {}
+  res.status(500).json({ error: 'That did not go through. Nothing was changed. Tell the Data Custodian what you were doing — the details are in the server log.' });
+}
+const mayTriage = role => pd.TRIAGE_ROLES.includes(role) || role === 'coo';
+// Only a string (or a number) is text somebody typed. An object used to
+// stringify to "[object Object]" and clear a minimum-length check — review
+// found a `proven` claim whose whole content was that phrase.
+const clean = (v, max) => ((typeof v === 'string' || typeof v === 'number') ? String(v) : '').trim().slice(0, max || 5000);
+const dateOrNull = v => (/^\d{4}-\d{2}-\d{2}$/.test(String(v || '').trim()) ? String(v).trim() : null);
+
+/* The real column widths from 002. Every value written to one of these
+   columns is clamped to its own width, not to a generic 5000, so a long
+   paste is shortened at the door instead of being refused by the database
+   AFTER the change has already been written to the history table. Found by
+   review, 9 Sept 2026: a 200-character product name produced a permanent
+   history row describing a change that never happened. */
+const WIDTHS = {
+  product_ref: 120, buried_claim_text: 2000, complaint_text: 5000,
+  reported_by_name: 120, reported_by_contact: 120,
+  text: 5000, requester: 120, recipient: 120, purpose: 5000,
+  // the spine's own columns (002): everything else on these tables is TEXT
+  title: 200, approach: 5000, kill_criterion: 5000, expected: 5000, actual: 5000,
+};
+const fit = (f, v) => clean(v, WIDTHS[f] || 5000);
+
+/* One row of the intake feed, in the words the screen shows. */
+function doorRow(type, r) {
+  const d = DOOR_TABLES[type];
+  const label = d.fmt(r[d.numcol]);
+  const headline = type === 'challenge'
+    ? (r.product_ref ? r.product_ref + ' — ' + clean(r.complaint_text, 160) : clean(r.complaint_text, 160))
+    : type === 'request'
+      ? (r.requester + ' → ' + r.recipient)
+      : clean(r.text, 160);
+  return {
+    type, id: r.id, label, headline,
+    text: type === 'challenge' ? r.complaint_text : type === 'request' ? r.purpose : r.text,
+    status: r.status, created_at: r.created_at,
+    logged_by: r.logged_by, author: r.author_name || null,
+    reported_by_name: r.reported_by_name || null,
+    problem_id: r.problem_id, problem_label: r.problem_label || null,
+    owner_id: r.owner_id, owner_name: r.owner_name || null,
+    // `moved` rather than the pointer itself. RECLASSIFICATION-RULES.md §8.1
+    // bans a per-person count of refilings "derivable ... by any screen the
+    // system offers", and author + which-entries-were-moved, shipped together
+    // on every triage load, is one groupBy away from exactly that. The screen
+    // needs to know an entry has moved; it does not need to know whose it was
+    // once it has.
+    moved: !!r.converted_to_id,
+    converted_to_type: r.converted_to_type, converted_to_id: r.converted_to_id,
+    door_chosen: type === 'observation' ? !!r.door_chosen : true,
+    is_system_generated: type === 'observation' ? !!r.is_system_generated : false,
+    // What triage still needs from this item — shown as a plain sentence on the
+    // card. Never phrased as something the author left out (§6).
+    waiting_for: r.converted_to_id ? null
+      : (!r.problem_id && !r.owner_id) ? 'Not yet filed against a problem, and no owner yet'
+      : (!r.problem_id) ? 'Not yet filed against a problem'
+      : (!r.owner_id) ? 'No owner yet'
+      : null,
+  };
+}
+
+async function loadDoorRow(type, id) {
+  const d = DOOR_TABLES[type];
+  const [[r]] = [(await pdq(
+    `SELECT x.*, au.name author_name, ow.name owner_name,
+            CONCAT('P-', LPAD(p.p_number,2,'0'), ' — ', p.title) problem_label
+       FROM ${d.table} x
+       LEFT JOIN auth_users au ON au.id = x.logged_by
+       LEFT JOIN auth_users ow ON ow.id = x.owner_id
+       LEFT JOIN pd_problems p ON p.id = x.problem_id
+      WHERE x.id = ?`, [id]))[0]];
+  return r || null;
+}
+
+/* An item is 'triaged' once it has BOTH a Problem to sit under and an owner.
+   Either alone leaves it in the intake feed with a plain line saying what is
+   still open — RECLASSIFICATION-RULES.md §9's "if everything arrives unsorted
+   and stays there, triage has no owner" is a signal the feed has to be able to
+   show. pd_requests spells its live state 'open' rather than 'triaged'. */
+function settledStatus(type, problemId, ownerId) {
+  if (!problemId || !ownerId) return 'unsorted';
+  return type === 'request' ? 'open' : 'triaged';
+}
+
+/* ---------- The intake screen's data ---------- */
+app.get('/api/pd/intake', auth, pdAuth, pdSurface('intake'), async (req, res) => {
+  try {
+    const me = req.pdUser, triage = mayTriage(me.pd_role);
+    const out = { mine: [], feed: [], problems: [], people: [], notices: [] };
+
+    for (const type of Object.keys(DOOR_TABLES)) {
+      const d = DOOR_TABLES[type];
+      const [rows] = await pdq(
+        `SELECT x.*, au.name author_name, ow.name owner_name,
+                CONCAT('P-', LPAD(p.p_number,2,'0'), ' — ', p.title) problem_label
+           FROM ${d.table} x
+           LEFT JOIN auth_users au ON au.id = x.logged_by
+           LEFT JOIN auth_users ow ON ow.id = x.owner_id
+           LEFT JOIN pd_problems p ON p.id = x.problem_id
+          ORDER BY x.id DESC LIMIT 200`);
+      for (const r of rows) {
+        const row = doorRow(type, r);
+        if (r.logged_by === me.id) out.mine.push(row);   // their own record, in full
+        if (triage) {
+          // See the note on `moved` in doorRow(): the author stays on rows the
+          // moderator may still need to ask about, and comes off the ones that
+          // have already been refiled.
+          const feedRow = { ...row };
+          if (feedRow.moved) { feedRow.author = null; feedRow.logged_by = null; }
+          delete feedRow.converted_to_type; delete feedRow.converted_to_id;
+          out.feed.push(feedRow);
+        }
+      }
+    }
+    const byNewest = (a, b) => new Date(b.created_at) - new Date(a.created_at);
+    out.mine.sort(byNewest);
+    // Unsorted first — it is the front of the system, not a naughty list, so it
+    // is ordered by age and never grouped by who filed it (§8.4).
+    out.feed.sort((a, b) => (a.moved ? 1 : 0) - (b.moved ? 1 : 0)
+      || (a.status === 'unsorted' ? 0 : 1) - (b.status === 'unsorted' ? 0 : 1)
+      || byNewest(a, b));
+    out.feed = out.feed.slice(0, 120);
+
+    const [probs] = await pdq(
+      `SELECT p.id, p.p_number, p.title, p.kind, p.status, u.name author_name
+         FROM pd_problems p LEFT JOIN auth_users u ON u.id = p.added_by
+        ORDER BY p.p_number DESC`);
+    out.problems = probs.map(p => ({
+      id: p.id, label: pd.fmt_p(p.p_number) + ' — ' + p.title, title: p.title,
+      kind: p.kind, kind_label: pd.PROBLEM_KINDS[p.kind], status: p.status, author: p.author_name,
+    }));
+
+    if (triage) {
+      const [people] = await pdq("SELECT id, name, pd_role FROM auth_users WHERE pd_role IS NOT NULL AND active=1 ORDER BY name");
+      out.people = people.map(p => ({ id: p.id, name: p.name, role_label: pd.PD_ROLES[p.pd_role] || p.pd_role }));
+    }
+
+    // RECLASSIFICATION-RULES.md §7: "the author sees ONE message, ONCE", with
+    // three parts and ONE action ("I meant something else"). An acknowledge
+    // button would be a second action, so delivery itself is what marks it
+    // seen. Nothing is lost by that: the entry's own card carries where it
+    // went, permanently, and GET /api/pd/notices still returns the full list.
+    const [notices] = await pdq(
+      `SELECT n.*, u.name mover FROM pd_notices n JOIN auth_users u ON u.id = n.moved_by
+        WHERE n.recipient_id = ? AND n.seen_at IS NULL ORDER BY n.id`, [me.id]);
+    out.notices = notices;
+    if (notices.length) await pdq('UPDATE pd_notices SET seen_at=NOW() WHERE recipient_id=? AND seen_at IS NULL', [me.id]);
+
+    out.doors = pd.DOORS; out.sources = pd.SOURCES; out.problemKinds = pd.PROBLEM_KINDS;
+    out.caps = { triage };
+    out.me = { id: me.id, name: me.name, role_label: pd.PD_ROLES[me.pd_role] || me.pd_role };
+    res.json(out);
+  } catch (e) { fail(res, e); }
+});
+
+/* ---------- One entry, through whichever door — or none ---------- */
+app.post('/api/pd/intake', auth, pdAuth, pdSurface('intake'), async (req, res) => {
+  try {
+    const b = req.body || {}, me = req.pdUser;
+    const text = clean(b.text, 5000);
+    if (text.length < 15) {
+      return res.status(400).json({ error: 'Write a sentence or two about it — enough that someone reading this in a year knows what you meant.' });
+    }
+    const source = pd.SOURCES[b.source] ? b.source : 'team';
+    const reporter = clean(b.reported_by_name, 120) || me.name;
+    const contact = clean(b.reported_by_contact, 120);
+
+    // No door picked is a valid, ordinary answer, not a missing field.
+    const door = isDoor(b.door) ? b.door : '';
+
+    /* RECLASSIFICATION-RULES.md §3: classification is "never a gate on someone
+       writing something down." So a door whose own field is missing does NOT
+       refuse the entry — it saves as an Observation with door_chosen = 0, and
+       what the person said it was is carried into the text so triage picks it
+       up. Nothing a person writes is ever turned away for want of a field. */
+    const intent = [];
+    if (door === 'challenge' && !clean(b.product_ref, 120)) intent.push('They said this is a complaint about something we sell, without naming the product.');
+    if (door === 'request' && !clean(b.recipient, 120)) intent.push('They said someone wants a sample made, without naming who it goes to.');
+    const softDoor = intent.length ? '' : door;
+
+    if (softDoor === 'challenge') {
+      const productRef = fit('product_ref', b.product_ref);
+      let newId = 0;
+      const n = await pd.insert_numbered(pdq, 'pd_challenges', 'challenge_number', async (n) => {
+        const [ins] = await pdq(
+          `INSERT INTO pd_challenges (challenge_number, product_ref, complaint_text, buried_claim_text, reported_by_name, reported_by_contact, source, logged_by)
+           VALUES (?,?,?,?,?,?,?,?)`,
+          [n, productRef, text, fit('buried_claim_text', b.buried_claim_text) || null, reporter, contact || null, source, me.id]);
+        newId = ins.insertId;
+      });
+      return res.json({ ok: true, type: 'challenge', id: newId, label: pd.fmt_ch(n) });
+    }
+
+    if (softDoor === 'request') {
+      const requester = fit('requester', b.requester) || reporter;
+      const recipient = fit('recipient', b.recipient);
+      let newId = 0;
+      const n = await pd.insert_numbered(pdq, 'pd_requests', 'request_number', async (n) => {
+        const [ins] = await pdq(
+          `INSERT INTO pd_requests (request_number, requester, purpose, recipient, dispatch_date, return_by, status, logged_by)
+           VALUES (?,?,?,?,?,?,'unsorted',?)`,
+          [n, requester, text, recipient, dateOrNull(b.dispatch_date), dateOrNull(b.return_by), me.id]);
+        newId = ins.insertId;
+      });
+      return res.json({ ok: true, type: 'request', id: newId, label: pd.fmt_req(n) });
+    }
+
+    // Observation — chosen, the default when nobody classified, or the safe
+    // landing place for a door whose own field was not filled in (above).
+    const obsText = intent.length ? text + '\n\n[' + intent.join(' ') + ']' : text;
+    let newId = 0;
+    const n = await pd.insert_numbered(pdq, 'pd_observations', 'observation_number', async (n) => {
+      const [ins] = await pdq(
+        `INSERT INTO pd_observations (observation_number, text, origin, door_chosen, reported_by_name, logged_by)
+         VALUES (?,?,'door',?,?,?)`,
+        [n, obsText, door === 'observation' ? 1 : 0, reporter, me.id]);
+      newId = ins.insertId;
+    });
+    res.json({ ok: true, type: 'observation', id: newId, label: pd.fmt_o(n),
+      door_chosen: door === 'observation',
+      note: intent.length ? intent[0] : null });
+  } catch (e) { fail(res, e); }
+});
+
+/* ---------- One item, with everything that has happened to it ---------- */
+app.get('/api/pd/intake/:type/:id', auth, pdAuth, pdSurface('intake'), async (req, res) => {
+  try {
+    const type = req.params.type;
+    if (!isDoor(type)) return res.status(404).json({ error: 'Not found.' });
+    const r = await loadDoorRow(type, req.params.id);
+    if (!r) return res.status(404).json({ error: 'Not found.' });
+
+    const [hist] = await pdq(
+      `SELECT h.*, u.name who FROM pd_field_history h JOIN auth_users u ON u.id = h.changed_by
+        WHERE h.object_type = ? AND h.object_id = ? ORDER BY h.id`, [type, req.params.id]);
+    const [moves] = await pdq(
+      `SELECT m.*, mu.name mover, au.name original_author
+         FROM pd_reclassifications m
+         JOIN auth_users mu ON mu.id = m.moved_by
+         JOIN auth_users au ON au.id = m.original_author_id
+        WHERE (m.from_type = ? AND m.from_id = ?) OR (m.to_type = ? AND m.to_id = ?)
+        ORDER BY m.id`, [type, req.params.id, type, req.params.id]);
+
+    let becameLabel = null;
+    if (r.converted_to_type && r.converted_to_id && isDoor(r.converted_to_type)) {
+      const d = DOOR_TABLES[r.converted_to_type];
+      const [[t]] = [(await pdq(`SELECT ${d.numcol} n FROM ${d.table} WHERE id=?`, [r.converted_to_id]))[0]];
+      if (t) becameLabel = d.fmt(t.n);
+    }
+
+    res.json({
+      item: doorRow(type, r), raw: r,
+      became: becameLabel ? { type: r.converted_to_type, id: r.converted_to_id, label: becameLabel } : null,
+      history: hist, moves,
+      definition: pd.OBJECT_DEFINITIONS[type],
+      caps: {
+        triage: mayTriage(req.pdUser.pd_role),
+        edit: mayTriage(req.pdUser.pd_role) || r.logged_by === req.pdUser.id,
+      },
+    });
+  } catch (e) { fail(res, e); }
+});
+
+/* ---------- Editing the content of an entry ----------
+   §4: "Content is editable. The record of what it was is not." The author may
+   correct their own entry; the moderator group may edit any. Every changed
+   field lands in pd_field_history first, and the table itself refuses to let
+   that record be altered afterwards. */
+app.post('/api/pd/intake/:type/:id/edit', auth, pdAuth, pdSurface('intake'), async (req, res) => {
+  try {
+    const type = req.params.type, b = req.body || {}, me = req.pdUser;
+    if (!isDoor(type)) return res.status(404).json({ error: 'Not found.' });
+    const r = await loadDoorRow(type, req.params.id);
+    if (!r) return res.status(404).json({ error: 'Not found.' });
+    if (!(mayTriage(me.pd_role) || r.logged_by === me.id)) {
+      return res.status(403).json({ error: 'This entry is someone else’s to edit. The Data Custodian, the Registrar or the COO can also change it.' });
+    }
+    // An entry that has been recorded as something else has a live copy
+    // elsewhere; editing this row would leave the two saying different things.
+    if (r.converted_to_id) return res.status(409).json({ error: 'This entry is now recorded as something else — open what it became and edit it there.' });
+    const editable = {
+      challenge:   ['product_ref', 'complaint_text', 'buried_claim_text', 'reported_by_name', 'reported_by_contact'],
+      observation: ['text', 'reported_by_name'],
+      request:     ['requester', 'purpose', 'recipient', 'dispatch_date', 'return_by'],
+    }[type];
+    const after = {};
+    for (const f of editable) {
+      if (!(f in b)) continue;
+      const v = (f === 'dispatch_date' || f === 'return_by') ? dateOrNull(b[f]) : fit(f, b[f]);
+      after[f] = v === '' ? null : v;
+    }
+    const required = { challenge: ['product_ref', 'complaint_text'], observation: ['text'], request: ['requester', 'purpose', 'recipient'] }[type];
+    for (const f of required) if (f in after && !after[f]) return res.status(400).json({ error: `${f.replace(/_/g, ' ')} cannot be emptied — it is what the entry is.` });
+    if (!Object.keys(after).length) return res.json({ ok: true, changed: 0 });
+
+    const changed = await pd.record_changes(pdq, type, r.id, r, after, me.id, { note: clean(b.note, 2000) || null });
+    if (changed) {
+      const sets = Object.keys(after).map(f => `${f}=?`).join(', ');
+      try {
+        await pdq(`UPDATE ${DOOR_TABLES[type].table} SET ${sets} WHERE id=?`, [...Object.values(after), r.id]);
+      } catch (e) {
+        // The history was written first, on purpose, so that nothing can change
+        // without its history. If the change itself is refused, say so in the
+        // log rather than leaving a row claiming a change that never happened —
+        // pd_field_history cannot be edited or deleted, by design.
+        await pd.record_not_applied(pdq, type, r.id, after, me.id, 'The database refused this change, so the record still reads as it did.');
+        throw e;
+      }
+    }
+    res.json({ ok: true, changed });
+  } catch (e) { fail(res, e); }
+});
+
+/* ---------- Filing an entry: which Problem it sits under, and who owns it ----------
+   This is a filing act, not a judgement (§1), so it takes no reason and gives
+   no feedback to the author. */
+app.post('/api/pd/intake/:type/:id/file', auth, pdAuth, pdSurface('triage'), async (req, res) => {
+  try {
+    const type = req.params.type, b = req.body || {}, me = req.pdUser;
+    if (!isDoor(type)) return res.status(404).json({ error: 'Not found.' });
+    const r = await loadDoorRow(type, req.params.id);
+    if (!r) return res.status(404).json({ error: 'Not found.' });
+    if (r.converted_to_id) return res.status(409).json({ error: 'This entry has already been moved to another type — open what it became.' });
+
+    const after = {};
+    if ('problem_id' in b) {
+      const pid = Number(b.problem_id) || null;
+      if (pid) {
+        const [[p]] = [(await pdq('SELECT id FROM pd_problems WHERE id=?', [pid]))[0]];
+        if (!p) return res.status(400).json({ error: 'That problem does not exist.' });
+      }
+      after.problem_id = pid;
+    }
+    if ('owner_id' in b) {
+      const oid = Number(b.owner_id) || null;
+      if (oid) {
+        const [[u]] = [(await pdq('SELECT id FROM auth_users WHERE id=? AND pd_role IS NOT NULL', [oid]))[0]];
+        if (!u) return res.status(400).json({ error: 'That person has no PD role yet, so nothing can be owned by them.' });
+      }
+      after.owner_id = oid;
+    }
+    if (!Object.keys(after).length) return res.status(400).json({ error: 'Nothing to file — pick a problem, an owner, or both.' });
+
+    const problemId = 'problem_id' in after ? after.problem_id : r.problem_id;
+    const ownerId = 'owner_id' in after ? after.owner_id : r.owner_id;
+    after.status = settledStatus(type, problemId, ownerId);
+    after.triaged_by = me.id;
+
+    const changed = await pd.record_changes(pdq, type, r.id, r, after, me.id);
+    const sets = Object.keys(after).filter(f => f !== 'status').map(f => `${f}=?`).join(', ');
+    const settled = type === 'request' ? 'open' : 'triaged';
+    try {
+      // The status is computed from the row's OWN values inside the same
+      // statement, not from the copy this request read a moment ago. Two
+      // moderators filing the same entry at the same instant — one setting the
+      // problem, the other the owner — used to leave it fully filled in but
+      // still sitting in the queue, because each wrote a status derived from a
+      // row that no longer existed. Found by review, 9 Sept 2026.
+      await pdq(
+        `UPDATE ${DOOR_TABLES[type].table}
+            SET ${sets}, triaged_at=NOW(),
+                status = IF(problem_id IS NOT NULL AND owner_id IS NOT NULL, ?, 'unsorted')
+          WHERE id=?`,
+        [...Object.keys(after).filter(f => f !== 'status').map(f => after[f]), settled, r.id]);
+    } catch (e) {
+      await pd.record_not_applied(pdq, type, r.id, after, me.id, 'The database refused this change, so the record still reads as it did.');
+      throw e;
+    }
+    const [[now]] = [(await pdq(`SELECT status, problem_id FROM ${DOOR_TABLES[type].table} WHERE id=?`, [r.id]))[0]];
+
+    /* RECLASSIFICATION-RULES.md §6's own table gives the wording for this act —
+       "Refiled under Problem P-04" — and §7 says the author is told when their
+       entry is refiled, in the same three parts. Filing under a Problem is the
+       commonest refiling there is, so it is told the same way a type change is:
+       what it is now, what that means, who did it. Nothing else. */
+    if (after.problem_id && after.problem_id !== r.problem_id) {
+      const [[prob]] = [(await pdq('SELECT p_number, title FROM pd_problems WHERE id=?', [after.problem_id]))[0]];
+      if (prob && r.logged_by && r.logged_by !== me.id) {
+        await pdq(`INSERT INTO pd_notices (recipient_id, headline, definition_text, moved_by, link_type, link_id)
+                   VALUES (?,?,?,?,?,?)`,
+          [r.logged_by, `Your entry is now filed under ${pd.fmt_p(prob.p_number)} — ${prob.title}.`,
+           pd.OBJECT_DEFINITIONS.problem, me.id, type, r.id]);
+      }
+    }
+    res.json({ ok: true, changed, status: now ? now.status : after.status });
+  } catch (e) { fail(res, e); }
+});
+
+/* ---------- Moving an entry to a different door ----------
+   §2: no reason, justification or explanation is ever required. §4: what it
+   was is kept permanently. §5: authorship never transfers — logged_by is
+   carried across, and the mover is recorded as the mover. §7: the author is
+   told once, in three parts, with no advice attached. */
+app.post('/api/pd/intake/:type/:id/move', auth, pdAuth, pdSurface('triage'), async (req, res) => {
+  try {
+    const from = req.params.type, b = req.body || {}, me = req.pdUser;
+    const to = String(b.to_type || '');
+    if (!isDoor(from)) return res.status(404).json({ error: 'Not found.' });
+    if (!isDoor(to)) return res.status(400).json({ error: 'Move it to a Challenge, an Observation or a Request.' });
+    if (from === to) return res.status(400).json({ error: 'It is already recorded as that.' });
+    const r = await loadDoorRow(from, req.params.id);
+    if (!r) return res.status(404).json({ error: 'Not found.' });
+    if (r.converted_to_id) return res.status(409).json({ error: 'This entry has already been moved — open what it became.' });
+    // MODEL.md B16's system-authored Observation has no author to carry, and
+    // every door table requires one. Say so plainly rather than letting the
+    // database refuse it with its own words.
+    if (!r.logged_by) return res.status(400).json({ error: 'This one was raised by the system rather than written by a person, so there is no author to carry across. It cannot be recorded as something else yet.' });
+
+    const body = from === 'challenge' ? r.complaint_text : from === 'request' ? r.purpose : r.text;
+    const fromLabel = DOOR_TABLES[from].fmt(r[DOOR_TABLES[from].numcol]);
+    // §4: "Content that does not fit the new type is carried, not dropped."
+    // The wording is continuity, never repair (§6).
+    // Built from every field the destination has no column for, so a column
+    // added later cannot be silently dropped the way dispatch_date and
+    // reported_by_contact were until review caught them, 9 Sept 2026.
+    const KEEPS = {
+      challenge: ['product_ref', 'complaint_text', 'reported_by_name', 'reported_by_contact', 'source'],
+      observation: ['text', 'reported_by_name'],
+      request: ['requester', 'purpose', 'recipient', 'dispatch_date', 'return_by'],
+    };
+    const SAYS = {
+      product_ref: 'product named at the time', buried_claim_text: 'claim underneath it',
+      requester: 'asked for by', recipient: 'to go to', dispatch_date: 'was to be dispatched by',
+      return_by: 'an answer was wanted by', reported_by_name: 'reported by',
+      reported_by_contact: 'contact given', source: 'came in from',
+    };
+    const carried = [];
+    for (const f of Object.keys(SAYS)) {
+      if (KEEPS[to].includes(f)) continue;                 // it has a home in the new type
+      if (f === 'source' && r[f] === 'team') continue;     // the default, not something a person wrote
+      if (r[f] === null || r[f] === undefined || r[f] === '') continue;
+      carried.push(SAYS[f] + ': ' + r[f]);
+    }
+    const carriedNote = carried.length ? `\n\n[Carried over from ${fromLabel} — ${carried.join('; ')}.]` : '';
+    const text = body + carriedNote;
+
+    /* Work out, and check, everything the new type needs BEFORE the claim
+       below. Validating inside the branches meant a move that could not go
+       ahead — a Challenge with no product named — still left the entry claimed
+       and unmovable by anyone. Nothing is written until the move is known to
+       be possible. */
+    const wantProductRef = fit('product_ref', b.product_ref) || (from === 'challenge' ? r.product_ref : '');
+    const wantRequester = fit('requester', b.requester) || (from === 'request' ? r.requester : (r.reported_by_name || ''));
+    const wantRecipient = fit('recipient', b.recipient) || (from === 'request' ? r.recipient : '');
+    if (to === 'challenge' && !wantProductRef) return res.status(400).json({ error: 'A Challenge names the product it is about — add that and it will move.' });
+    if (to === 'request' && (!wantRequester || !wantRecipient)) return res.status(400).json({ error: 'A Request names who asked and who it goes to — add those and it will move.' });
+
+    /* Claim the row BEFORE creating anything. Two moderators moving the same
+       entry at the same instant used to each create their own permanently
+       numbered record, one of which nothing pointed at and neither of which
+       could be deleted — and the author got two notices about one entry.
+       A single UPDATE ... WHERE converted_to_id IS NULL is what makes only one
+       of them win; the drop-box convert route already worked this way.
+       Found by review, 9 Sept 2026. */
+    const [claim] = await pdq(
+      `UPDATE ${DOOR_TABLES[from].table} SET converted_to_type=? WHERE id=? AND converted_to_id IS NULL AND converted_to_type IS NULL`,
+      [to, r.id]);
+    if (claim.affectedRows === 0) return res.status(409).json({ error: 'Someone else is moving this entry right now — open it again to see where it went.' });
+
+    let newId = 0, newNum = 0;
+    try {
+    if (to === 'challenge') {
+      const productRef = wantProductRef;
+      newNum = await pd.insert_numbered(pdq, 'pd_challenges', 'challenge_number', async (n) => {
+        const [ins] = await pdq(
+          `INSERT INTO pd_challenges (challenge_number, product_ref, complaint_text, reported_by_name, reported_by_contact, source, status, problem_id, owner_id, logged_by, triaged_by, triaged_at)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,NOW())`,
+          [n, productRef, text, r.reported_by_name || null, r.reported_by_contact || null, r.source || 'team',
+           settledStatus('challenge', r.problem_id, r.owner_id), r.problem_id || null, r.owner_id || null, r.logged_by, me.id]);
+        newId = ins.insertId;
+      });
+    } else if (to === 'request') {
+      const requester = wantRequester, recipient = wantRecipient;
+      newNum = await pd.insert_numbered(pdq, 'pd_requests', 'request_number', async (n) => {
+        const [ins] = await pdq(
+          `INSERT INTO pd_requests (request_number, requester, purpose, recipient, dispatch_date, return_by, status, problem_id, owner_id, logged_by, triaged_by, triaged_at)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,NOW())`,
+          [n, requester, text, recipient, dateOrNull(b.dispatch_date), dateOrNull(b.return_by),
+           settledStatus('request', r.problem_id, r.owner_id), r.problem_id || null, r.owner_id || null, r.logged_by, me.id]);
+        newId = ins.insertId;
+      });
+    } else {
+      newNum = await pd.insert_numbered(pdq, 'pd_observations', 'observation_number', async (n) => {
+        const [ins] = await pdq(
+          `INSERT INTO pd_observations (observation_number, text, origin, door_chosen, reported_by_name, status, problem_id, owner_id, logged_by, triaged_by, triaged_at)
+           VALUES (?,?,'door',1,?,?,?,?,?,?,NOW())`,
+          [n, text, r.reported_by_name || (from === 'request' ? r.requester : null), settledStatus('observation', r.problem_id, r.owner_id),
+           r.problem_id || null, r.owner_id || null, r.logged_by, me.id]);
+        newId = ins.insertId;
+      });
+    }
+    } catch (e) {
+      // The claim above is the only thing written so far. Release it so the
+      // entry is not left pointing at a type it never became.
+      await pdq(`UPDATE ${DOOR_TABLES[from].table} SET converted_to_type=NULL WHERE id=? AND converted_to_id IS NULL`, [r.id]);
+      throw e;
+    }
+    const newLabel = DOOR_TABLES[to].fmt(newNum);
+
+    const [recl] = await pdq(
+      `INSERT INTO pd_reclassifications (from_type, from_id, original_author_id, original_filed_at, to_type, to_id, moved_by, definition_text, free_note)
+       VALUES (?,?,?,?,?,?,?,?,?)`,
+      [from, r.id, r.logged_by, r.created_at, to, newId, me.id, pd.OBJECT_DEFINITIONS[to], clean(b.note, 2000) || null]);
+    const reclId = recl.insertId;
+
+    // What it said at the moment it moved — kept, never overwritten (§4).
+    await pd.snapshot_on_move(pdq, from, r.id, r, me.id, reclId,
+      ['id', 'author_name', 'owner_name', 'problem_label', 'created_at', 'triaged_at']);
+    // The old row keeps its number and points at what it became. The type half
+    // was written by the claim above; this completes the pointer.
+    await pdq(`UPDATE ${DOOR_TABLES[from].table} SET converted_to_type=?, converted_to_id=? WHERE id=?`, [to, newId, r.id]);
+
+    await pd.notify_refiled(pdq, {
+      recipientId: r.logged_by, movedById: me.id, newType: to, newLabel,
+      linkType: to, linkId: newId, reclassificationId: reclId,
+    });
+
+    res.json({ ok: true, type: to, id: newId, label: newLabel, was: fromLabel });
+  } catch (e) { fail(res, e); }
+});
+
+/* ---------- Undo ----------
+   §10: "Any refiling is reversible. The undo is itself recorded, and needs no
+   reason either." Nothing is deleted: the row created by the move keeps its
+   number and now points back at the original, so both numbers still resolve. */
+app.post('/api/pd/reclassifications/:id/undo', auth, pdAuth, pdSurface('triage'), async (req, res) => {
+  try {
+    const me = req.pdUser;
+    const [[m]] = [(await pdq('SELECT * FROM pd_reclassifications WHERE id=? AND reversed=0', [req.params.id]))[0]];
+    if (!m) return res.status(404).json({ error: 'Nothing to undo here.' });
+    if (!isDoor(m.from_type) || !isDoor(m.to_type)) return res.status(400).json({ error: 'That move is not one this screen can undo.' });
+
+    // Only unpick the pointer if it still points at THIS move's result.
+    // Without the id in the WHERE clause, undoing a stale reclassification
+    // silently cut the live one loose — leaving two records saying the same
+    // thing and the original back in the queue. Found by review, 9 Sept 2026.
+    const [rel] = await pdq(
+      `UPDATE ${DOOR_TABLES[m.from_type].table} SET converted_to_type=NULL, converted_to_id=NULL WHERE id=? AND converted_to_id=?`,
+      [m.from_id, m.to_id]);
+    if (rel.affectedRows === 0) {
+      return res.status(409).json({ error: 'This entry has moved on since then, so this step cannot be taken back on its own. Open where it is now.' });
+    }
+    await pdq(`UPDATE ${DOOR_TABLES[m.to_type].table} SET converted_to_type=?, converted_to_id=? WHERE id=?`, [m.from_type, m.from_id, m.to_id]);
+    await pdq('UPDATE pd_reclassifications SET reversed=1, reversed_by=?, reversed_at=NOW() WHERE id=?', [me.id, m.id]);
+    await pd.record_changes(pdq, m.from_type, m.from_id, { converted_to_type: m.to_type }, { converted_to_type: null }, me.id, { kind: 'undo', reclassification_id: m.id });
+    // The author is told the same way they were told about the move: what it
+    // is now, what that means, and who did it. No mention of a mistake (§6).
+    const d = DOOR_TABLES[m.from_type];
+    const [[back]] = [(await pdq(`SELECT ${d.numcol} n FROM ${d.table} WHERE id=?`, [m.from_id]))[0]];
+    if (back) await pd.notify_refiled(pdq, {
+      recipientId: m.original_author_id, movedById: me.id, newType: m.from_type,
+      newLabel: d.fmt(back.n), linkType: m.from_type, linkId: m.from_id, reclassificationId: m.id,
+    });
+    res.json({ ok: true });
+  } catch (e) { fail(res, e); }
+});
+
+/* ---------- The Problem register ----------
+   MODEL.md §3: "Registering a Problem (either kind) is a direct action, not a
+   fourth door." Open to anyone with a PD role, exactly as the door is — §8.3
+   forbids an approval queue in front of someone writing something down. */
+app.get('/api/pd/problems', auth, pdAuth, pdSurface('intake'), async (req, res) => {
+  try {
+    const [rows] = await pdq(
+      `SELECT p.*, u.name author_name,
+              (SELECT COUNT(*) FROM pd_questions q WHERE q.problem_id = p.id) n_questions,
+              (SELECT COUNT(*) FROM pd_challenges c WHERE c.problem_id = p.id AND c.converted_to_id IS NULL) n_challenges,
+              (SELECT COUNT(*) FROM pd_observations o WHERE o.problem_id = p.id AND o.converted_to_id IS NULL) n_observations,
+              (SELECT COUNT(*) FROM pd_requests r WHERE r.problem_id = p.id AND r.converted_to_id IS NULL) n_requests
+         FROM pd_problems p LEFT JOIN auth_users u ON u.id = p.added_by
+        ORDER BY p.p_number DESC`);
+    res.json({
+      problems: rows.map(p => ({ ...p, label: pd.fmt_p(p.p_number), kind_label: pd.PROBLEM_KINDS[p.kind] })),
+      kinds: pd.PROBLEM_KINDS,
+      caps: { close: mayTriage(req.pdUser.pd_role) },
+    });
+  } catch (e) { fail(res, e); }
+});
+
+app.post('/api/pd/problems', auth, pdAuth, pdSurface('intake'), async (req, res) => {
+  try {
+    const b = req.body || {}, me = req.pdUser;
+    const title = clean(b.title, 200), statement = clean(b.statement, 5000);
+    const kind = pd.PROBLEM_KINDS[b.kind] ? b.kind : 'field_problem';
+    if (title.length < 4) return res.status(400).json({ error: 'Give it a short title someone will recognise a year from now.' });
+    if (statement.length < 15) return res.status(400).json({ error: kind === 'product_concept' ? 'Say what the product is meant to do, in a sentence or two.' : 'Say what the problem actually is, in a sentence or two.' });
+    let newId = 0;
+    const n = await pd.insert_numbered(pdq, 'pd_problems', 'p_number', async (n) => {
+      const [ins] = await pdq(
+        'INSERT INTO pd_problems (p_number, title, statement, context, kind, added_by) VALUES (?,?,?,?,?,?)',
+        [n, title, statement, clean(b.context, 5000) || null, kind, me.id]);
+      newId = ins.insertId;
+    });
+    res.json({ ok: true, id: newId, label: pd.fmt_p(n) });
+  } catch (e) { fail(res, e); }
+});
+
+app.post('/api/pd/problems/:id/close', auth, pdAuth, pdSurface('triage'), async (req, res) => {
+  try {
+    const b = req.body || {}, me = req.pdUser;
+    const status = ['open', 'addressed', 'retired'].includes(b.status) ? b.status : null;
+    if (!status) return res.status(400).json({ error: 'A problem is open, addressed, or retired.' });
+    const reason = clean(b.closed_reason, 5000);
+    if (status !== 'open' && !reason) return res.status(400).json({ error: 'Write what came of it. MODEL.md’s second hard rule: nothing gets closed until we have written the result.' });
+    const [[p]] = [(await pdq('SELECT * FROM pd_problems WHERE id=?', [req.params.id]))[0]];
+    if (!p) return res.status(404).json({ error: 'Not found.' });
+    const after = { status, closed_reason: status === 'open' ? null : reason };
+    await pd.record_changes(pdq, 'problem', p.id, p, after, me.id);
+    await pdq('UPDATE pd_problems SET status=?, closed_reason=? WHERE id=?', [after.status, after.closed_reason, p.id]);
+    res.json({ ok: true });
+  } catch (e) { fail(res, e); }
+});
+
+/* ---------- The author's notices (RECLASSIFICATION-RULES.md §7) ---------- */
+app.get('/api/pd/notices', auth, pdAuth, async (req, res) => {
+  try {
+    const [rows] = await pdq(
+      `SELECT n.*, u.name mover FROM pd_notices n JOIN auth_users u ON u.id = n.moved_by
+        WHERE n.recipient_id = ? ORDER BY n.id DESC LIMIT 50`, [req.pdUser.id]);
+    res.json({ notices: rows });
+  } catch (e) { fail(res, e); }
+});
+app.post('/api/pd/notices/:id/seen', auth, pdAuth, async (req, res) => {
+  try {
+    await pdq('UPDATE pd_notices SET seen_at=NOW() WHERE id=? AND recipient_id=? AND seen_at IS NULL', [req.params.id, req.pdUser.id]);
+    res.json({ ok: true });
+  } catch (e) { fail(res, e); }
+});
+/* "I meant something else" — returns to the mover as a question, not a
+   complaint. §7: correction that cannot be answered is authority, not
+   teaching. */
+app.post('/api/pd/notices/:id/reply', auth, pdAuth, async (req, res) => {
+  try {
+    const text = clean((req.body || {}).reply_text, 2000);
+    if (!text) return res.status(400).json({ error: 'Say what you meant — it goes back to the person who moved it.' });
+    const [r] = await pdq('UPDATE pd_notices SET reply_text=?, replied_at=NOW(), seen_at=COALESCE(seen_at,NOW()) WHERE id=? AND recipient_id=?', [text, req.params.id, req.pdUser.id]);
+    if (!r.affectedRows) return res.status(404).json({ error: 'Not found.' });
+    res.json({ ok: true });
+  } catch (e) { fail(res, e); }
+});
+/* What the mover sees back: replies on moves they made. Not a queue of
+   complaints and never counted — one list, oldest first, so a question does
+   not sit unanswered. */
+app.get('/api/pd/replies', auth, pdAuth, pdSurface('triage'), async (req, res) => {
+  try {
+    const [rows] = await pdq(
+      `SELECT n.id, n.headline, n.reply_text, n.replied_at, n.link_type, n.link_id, u.name author
+         FROM pd_notices n JOIN auth_users u ON u.id = n.recipient_id
+        WHERE n.moved_by = ? AND n.reply_text IS NOT NULL ORDER BY n.replied_at`, [req.pdUser.id]);
+    res.json({ replies: rows });
+  } catch (e) { fail(res, e); }
+});
+
+
+/* ============================================================================
+ * PD · THE SCREENS MILESTONE, PART 2 — the spine: Problem → Question → Bet →
+ * Run, with the Claims that close them.  ADDED 9 Sept 2026.
+ *
+ * MODEL.md §0 states the two rules this whole subsystem exists to enforce:
+ *
+ *   "Nothing gets made until we have written the question it answers.
+ *    Nothing gets closed until we have written the result — pass, fail, or
+ *    parked, and why."
+ *
+ * The FIRST is structural, and deliberately not a check in a route: a Run
+ * cannot exist without a Bet, a Bet cannot exist without a Question and a
+ * written kill_criterion, a Question cannot exist without a Problem. All four
+ * are NOT NULL foreign keys in 002, so there is no code path — here or in any
+ * route written later — that can make something before its question exists.
+ *
+ * The SECOND cannot be a foreign key: "status is not 'active' implies
+ * closing_claim_id IS NOT NULL" is a cross-table rule, and 002's own comment
+ * flags it as an application-layer job so it is not silently skipped. It lives
+ * in pd.close_refusal() and in the three close routes below, and the assertion
+ * suite pins it. Closing anything here WRITES A CLAIM — the result is not a
+ * free-text note on the thing being closed, it is a first-class, gradeable,
+ * challengeable Claim, because MODEL.md §3 makes the Claim the atom.
+ *
+ * Who may do what (Tahir's ruling, 9 Sept 2026 — "open to write, restricted to
+ * assign"): anyone with a PD role may OPEN a Question, a Bet or a Run and may
+ * record a reading or a Claim. Naming somebody else the owner, settling a
+ * Question, and closing a Bet or a Run are the technical leads' and the COO's
+ * — except that the owner may always close their own. Gating who may propose
+ * work is exactly what stops work being written down; gating who may commit
+ * somebody else's time is not.
+ * ==========================================================================*/
+
+const SPINE = {
+  question: { table: 'pd_questions', numcol: 'q_number', fmt: pd.fmt_q,
+              editable: ['title', 'text', 'nature', 'due_date'],
+              minimums: { title: 4, text: 10 },
+              closedCol: 'state', closedIs: 'settled',
+              closedSays: 'That question is settled. Its answer is a claim now — write a new claim, or revise the one that settled it. Changing the question underneath a settled answer leaves the two saying different things.' },
+  bet:      { table: 'pd_bets', numcol: 'bet_number', fmt: pd.fmt_b,
+              editable: ['approach', 'kill_criterion', 'delivery_context_id'],
+              minimums: { approach: 10, kill_criterion: 10 },
+              closedCol: 'status', closedIsNot: 'active',
+              closedSays: 'That bet is closed. What it came to is a claim now — write a new claim rather than changing the bet underneath it.' },
+  run:      { table: 'pd_runs', numcol: 'run_number', fmt: pd.fmt_run,
+              editable: ['expected', 'actual'],
+              minimums: { expected: 10, actual: 10 },
+              closedCol: 'status', closedIs: 'closed',
+              closedSays: 'That run is closed. What it showed is a claim now — write a new claim rather than changing what the run says it did.' },
+};
+const isSpine = t => Object.prototype.hasOwnProperty.call(SPINE, t);
+const spineClosed = (type, row) => {
+  const s2 = SPINE[type];
+  return s2.closedIs ? row[s2.closedCol] === s2.closedIs : row[s2.closedCol] !== s2.closedIsNot;
+};
+
+/* Write the Claim that closes something. MODEL.md §0's second rule, and §3's
+   "the atom": a result that cannot be graded and cannot be challenged is not a
+   result, it is a note. Returns the new claim's id. */
+async function writeClosingClaim(userId, { subjectType, subjectId, text, grade, sourceRef, runId }) {
+  let claimId = 0;
+  await pd.insert_numbered(pdq, 'pd_claims', 'claim_number', async (n) => {
+    const [ins] = await pdq(
+      `INSERT INTO pd_claims (claim_number, version, is_current, subject_type, subject_id, text, owner_id, grade, source_ref, run_id, created_by)
+       VALUES (?,1,1,?,?,?,?,?,?,?,?)`,
+      [n, subjectType, subjectId, text, userId, grade, sourceRef || null, runId || null, userId]);
+    claimId = ins.insertId;
+  });
+  return claimId;
+}
+
+/* The whole of one Problem, and everything ever aimed at it — MODEL.md §5.3,
+   Maleeha's question: "what have we already learned about a problem across
+   every bet we have run against it." One screen, assembled here rather than
+   left to the browser to stitch from six endpoints. */
+app.get('/api/pd/problem/:id', auth, pdAuth, pdSurface('intake'), async (req, res) => {
+  try {
+    const me = req.pdUser, id = Number(req.params.id);
+    const [[p]] = [(await pdq(
+      `SELECT p.*, u.name author_name FROM pd_problems p LEFT JOIN auth_users u ON u.id=p.added_by WHERE p.id=?`, [id]))[0]];
+    if (!p) return res.status(404).json({ error: 'Not found.' });
+
+    const [questions] = await pdq(
+      `SELECT q.*, o.name owner_name, c.name created_by_name
+         FROM pd_questions q
+         LEFT JOIN auth_users o ON o.id=q.owner_id
+         LEFT JOIN auth_users c ON c.id=q.created_by
+        WHERE q.problem_id=? ORDER BY q.q_number`, [id]);
+    const qIds = questions.map(q => q.id);
+
+    let bets = [], runs = [], readings = [], claims = [];
+    if (qIds.length) {
+      const qm = qIds.map(() => '?').join(',');
+      [bets] = await pdq(
+        `SELECT b.*, o.name owner_name, dc.name context_name,
+                cl.text closing_text, cl.grade closing_grade, cl.claim_number closing_number
+           FROM pd_bets b
+           LEFT JOIN auth_users o ON o.id=b.owner_id
+           LEFT JOIN pd_delivery_contexts dc ON dc.id=b.delivery_context_id
+           LEFT JOIN pd_claims cl ON cl.id=b.closing_claim_id
+          WHERE b.question_id IN (${qm}) ORDER BY b.bet_number`, qIds);
+      const bIds = bets.map(b => b.id);
+      if (bIds.length) {
+        const bm = bIds.map(() => '?').join(',');
+        [runs] = await pdq(
+          `SELECT r.*, o.name owner_name, cl.text closing_text, cl.grade closing_grade,
+                  pr.run_number replaced_number, cb.code combination_code
+             FROM pd_runs r
+             LEFT JOIN auth_users o ON o.id=r.owner_id
+             LEFT JOIN pd_claims cl ON cl.id=r.closing_claim_id
+             LEFT JOIN pd_runs pr ON pr.id=r.replaces_run_id
+             LEFT JOIN pd_combinations cb ON cb.id=r.combination_id
+            WHERE r.bet_id IN (${bm}) ORDER BY r.run_number`, bIds);
+        const rIds = runs.map(r => r.id);
+        if (rIds.length) {
+          const rm = rIds.map(() => '?').join(',');
+          [readings] = await pdq(
+            `SELECT rd.*, u.name who FROM pd_run_readings rd JOIN auth_users u ON u.id=rd.recorded_by
+              WHERE rd.run_id IN (${rm}) ORDER BY rd.reading_date, rd.id`, rIds);
+        }
+      }
+      [claims] = await pdq(
+        `SELECT c.*, o.name owner_name, w.name written_by_name, ch.claim_number challenges_number
+           FROM pd_claims c
+           LEFT JOIN auth_users o ON o.id=c.owner_id
+           LEFT JOIN auth_users w ON w.id=c.created_by
+           LEFT JOIN pd_claims ch ON ch.id=c.challenges_claim_id
+          WHERE (c.subject_type='question' AND c.subject_id IN (${qm}))
+             OR (c.subject_type='problem' AND c.subject_id=?)
+          ORDER BY c.claim_number, c.version`, [...qIds, id]);
+    } else {
+      [claims] = await pdq(
+        `SELECT c.*, o.name owner_name, w.name written_by_name, NULL challenges_number
+           FROM pd_claims c
+           LEFT JOIN auth_users o ON o.id=c.owner_id
+           LEFT JOIN auth_users w ON w.id=c.created_by
+          WHERE c.subject_type='problem' AND c.subject_id=? ORDER BY c.claim_number, c.version`, [id]);
+    }
+
+    /* What came in against this Problem — the intake side of the same story. */
+    const filed = [];
+    for (const type of Object.keys(DOOR_TABLES)) {
+      const d = DOOR_TABLES[type];
+      const [rows] = await pdq(
+        `SELECT x.*, au.name author_name FROM ${d.table} x LEFT JOIN auth_users au ON au.id=x.logged_by
+          WHERE x.problem_id=? AND x.converted_to_id IS NULL ORDER BY x.id DESC`, [id]);
+      for (const r of rows) filed.push(doorRow(type, r));
+    }
+
+    const [contexts] = await pdq('SELECT id, name FROM pd_delivery_contexts ORDER BY id');
+    const [constraints] = await pdq(
+      `SELECT c.*, dc.name context_name FROM pd_constraints c
+         JOIN pd_delivery_contexts dc ON dc.id=c.delivery_context_id
+        WHERE c.active=1 ORDER BY dc.id, c.id`);
+    const [people] = await pdq("SELECT id, name, pd_role FROM auth_users WHERE pd_role IS NOT NULL AND active=1 ORDER BY name");
+
+    const byRun = {};
+    for (const rd of readings) (byRun[rd.run_id] = byRun[rd.run_id] || []).push(rd);
+
+    res.json({
+      problem: { ...p, label: pd.fmt_p(p.p_number), kind_label: pd.PROBLEM_KINDS[p.kind] },
+      questions: questions.map(q => ({
+        ...q, label: pd.fmt_q(q.q_number), state_label: pd.QUESTION_STATES[q.state],
+        nature_label: pd.QUESTION_NATURES[q.nature],
+        overdue: q.state !== 'settled' && q.due_date && q.due_date < new Date().toISOString().slice(0, 10),
+        bets: bets.filter(b => b.question_id === q.id).map(b => ({
+          ...b, label: pd.fmt_b(b.bet_number), status_label: pd.BET_STATUSES[b.status],
+          // B7 — "the question the trial answers, and the result that would kill
+          // it, ON the trial, not one click away." Carried down onto every Run
+          // below for the same reason.
+          question_title: q.title, question_label: pd.fmt_q(q.q_number),
+          constraints: constraints.filter(c => c.delivery_context_id === b.delivery_context_id)
+            .map(c => ({ ...c, kind_label: pd.CONSTRAINT_KINDS[c.kind] })),
+          runs: runs.filter(r => r.bet_id === b.id).map(r => ({
+            ...r, label: pd.fmt_run(r.run_number), status_label: pd.RUN_STATUSES[r.status],
+            question_title: q.title, kill_criterion: b.kill_criterion,
+            readings: (byRun[r.id] || []).map(rd => ({ ...rd, verdict_label: pd.READING_VERDICTS[rd.verdict] })),
+            next_observation: (byRun[r.id] || []).slice(-1).map(rd => rd.next_observation_date)[0] || null,
+          })),
+        })),
+      })),
+      /* One entry per claim NUMBER, carrying its current text and every
+         version it has had. MODEL.md §6 — "versioned; never overwrite in
+         place" — is only true of a screen if the earlier versions can be read
+         from it. `written_by_name` is who typed THIS version, kept separate
+         from `owner_name`, whose claim it is: review found a revision showing
+         one person's words under another person's name. */
+      claims: claims.filter(c => c.is_current).map(c => ({
+        ...c, label: pd.fmt_cl(c.claim_number), grade_label: pd.CLAIM_GRADES[c.grade],
+        history: claims.filter(h => h.claim_number === c.claim_number && !h.is_current)
+          .map(h => ({ version: h.version, text: h.text, grade: h.grade, written_by_name: h.written_by_name, created_at: h.created_at })),
+      })),
+      filed,
+      vocab: {
+        natures: pd.QUESTION_NATURES, grades: pd.CLAIM_GRADES, verdicts: pd.READING_VERDICTS,
+        betStatuses: pd.BET_STATUSES, contexts,
+      },
+      people: people.map(x => ({ id: x.id, name: x.name, role_label: pd.PD_ROLES[x.pd_role] || x.pd_role })),
+      caps: { lead: pd.is_lead(me.pd_role), me: me.id },
+    });
+  } catch (e) { fail(res, e); }
+});
+
+/* ---------- Questions ---------- */
+app.post('/api/pd/questions', auth, pdAuth, pdSurface('intake'), async (req, res) => {
+  try {
+    const b = req.body || {}, me = req.pdUser;
+    const [[p]] = [(await pdq('SELECT id FROM pd_problems WHERE id=?', [Number(b.problem_id) || 0]))[0]];
+    if (!p) return res.status(400).json({ error: 'A Question belongs to a Problem — pick which one.' });
+    const title = fit('title', b.title), text = clean(b.text, 5000);
+    const nature = pd.has(pd.QUESTION_NATURES, b.nature) ? b.nature : '';
+    if (title.length < 4) return res.status(400).json({ error: 'Give the question a short title.' });
+    if (text.length < 10) return res.status(400).json({ error: 'Write the question out — what do we need to know?' });
+    if (!nature) return res.status(400).json({ error: 'Say what kind of question it is: agronomy, chemistry, production, commercial or regulatory.' });
+    // The person who writes it owns it until a lead moves it. Never nobody.
+    let newId = 0;
+    const n = await pd.insert_numbered(pdq, 'pd_questions', 'q_number', async (n) => {
+      const [ins] = await pdq(
+        `INSERT INTO pd_questions (q_number, problem_id, title, text, nature, owner_id, due_date, created_by)
+         VALUES (?,?,?,?,?,?,?,?)`,
+        [n, p.id, title, text, nature, me.id, dateOrNull(b.due_date), me.id]);
+      newId = ins.insertId;
+    });
+    res.json({ ok: true, id: newId, label: pd.fmt_q(n) });
+  } catch (e) { fail(res, e); }
+});
+
+app.post('/api/pd/questions/:id/settle', auth, pdAuth, pdSurface('intake'), async (req, res) => {
+  try {
+    const b = req.body || {}, me = req.pdUser;
+    const [[q]] = [(await pdq('SELECT * FROM pd_questions WHERE id=?', [req.params.id]))[0]];
+    if (!q) return res.status(404).json({ error: 'Not found.' });
+    if (!(pd.is_lead(me.pd_role) || q.owner_id === me.id)) {
+      return res.status(403).json({ error: 'Settling a question is its owner’s, or a technical lead’s.' });
+    }
+    if (q.state === 'settled') return res.status(409).json({ error: 'That question is already settled.' });
+    const text = clean(b.result_text, 5000);
+    const refusal = pd.close_refusal(text, b.grade);
+    if (refusal) return res.status(400).json({ error: refusal });
+    // The claim is written first, and it stands either way: somebody wrote a
+    // result and a result is a claim. Then the state change is made ONLY if
+    // the question is still open — four people settling at once used to all
+    // succeed, with three graded answers silently dropped from the row.
+    const claimId = await writeClosingClaim(me.id, { subjectType: 'question', subjectId: q.id, text, grade: b.grade, sourceRef: clean(b.source_ref, 500) });
+    const after = { state: 'settled', settled_reason: text };
+    const [w] = await pdq("UPDATE pd_questions SET state='settled', settled_reason=?, settled_at=NOW() WHERE id=? AND state<>'settled'", [text, q.id]);
+    if (w.affectedRows === 0) {
+      return res.status(409).json({ error: 'Someone settled this a moment before you did. What you wrote is on the record as a claim on the question — nothing is lost, and it can challenge theirs.' });
+    }
+    await pd.record_changes(pdq, 'question', q.id, q, after, me.id);
+    res.json({ ok: true, claim_id: claimId });
+  } catch (e) { fail(res, e); }
+});
+
+/* ---------- Bets ---------- */
+app.post('/api/pd/bets', auth, pdAuth, pdSurface('intake'), async (req, res) => {
+  try {
+    const b = req.body || {}, me = req.pdUser;
+    const [[q]] = [(await pdq('SELECT * FROM pd_questions WHERE id=?', [Number(b.question_id) || 0]))[0]];
+    if (!q) return res.status(400).json({ error: 'A Bet tests a Question — pick which one.' });
+    // The screen already hides the button on a settled question; the route has
+    // to say the same thing, or the rule holds only for people using the screen.
+    if (q.state === 'settled') return res.status(409).json({ error: 'That question is settled. If it turns out not to be, write a claim that challenges the answer — a new bet under a settled question reads as if nobody knew.' });
+    const approach = clean(b.approach, 5000), kill = clean(b.kill_criterion, 5000);
+    if (approach.length < 10) return res.status(400).json({ error: 'Say what the approach is.' });
+    // MODEL.md §3 — "carrying the one result that would kill it, written before
+    // any bench work." The column is NOT NULL; this is the sentence that says
+    // why, in words a person reads.
+    if (kill.length < 10) return res.status(400).json({ error: 'Write the one result that would kill this bet — before any bench work, not after. A bet without one cannot be lost, so it cannot be learned from.' });
+    let ctx = Number(b.delivery_context_id) || null;
+    if (ctx) {
+      const [[c]] = [(await pdq('SELECT id FROM pd_delivery_contexts WHERE id=?', [ctx]))[0]];
+      if (!c) ctx = null;
+    }
+    let newId = 0;
+    const n = await pd.insert_numbered(pdq, 'pd_bets', 'bet_number', async (n) => {
+      const [ins] = await pdq(
+        `INSERT INTO pd_bets (bet_number, question_id, delivery_context_id, approach, kill_criterion, owner_id, created_by)
+         VALUES (?,?,?,?,?,?,?)`,
+        [n, q.id, ctx, approach, kill, me.id, me.id]);
+      newId = ins.insertId;
+    });
+    res.json({ ok: true, id: newId, label: pd.fmt_b(n) });
+  } catch (e) { fail(res, e); }
+});
+
+app.post('/api/pd/bets/:id/close', auth, pdAuth, pdSurface('intake'), async (req, res) => {
+  try {
+    const b = req.body || {}, me = req.pdUser;
+    const [[bet]] = [(await pdq('SELECT * FROM pd_bets WHERE id=?', [req.params.id]))[0]];
+    if (!bet) return res.status(404).json({ error: 'Not found.' });
+    if (!(pd.is_lead(me.pd_role) || bet.owner_id === me.id)) {
+      return res.status(403).json({ error: 'Closing a bet is its owner’s, or a technical lead’s.' });
+    }
+    if (bet.status !== 'active') return res.status(409).json({ error: 'That bet is already closed.' });
+    const status = ['killed', 'advanced'].includes(b.status) ? b.status : '';
+    if (!status) return res.status(400).json({ error: 'A bet closes as killed or advanced.' });
+    const text = clean(b.result_text, 5000);
+    const refusal = pd.close_refusal(text, b.grade);
+    if (refusal) return res.status(400).json({ error: refusal });
+    // The claim first: if writing the result fails, the bet stays open. A bet
+    // closed with no result is the exact thing MODEL.md §0 exists to prevent.
+    const claimId = await writeClosingClaim(me.id, { subjectType: 'question', subjectId: bet.question_id, text, grade: b.grade, sourceRef: clean(b.source_ref, 500) });
+    const [w] = await pdq("UPDATE pd_bets SET status=?, closing_claim_id=?, closed_at=NOW() WHERE id=? AND status='active'", [status, claimId, bet.id]);
+    if (w.affectedRows === 0) {
+      return res.status(409).json({ error: 'Someone closed this bet a moment before you did. What you wrote is on the record as a claim on the question — nothing is lost.' });
+    }
+    await pd.record_changes(pdq, 'bet', bet.id, bet, { status, closing_claim_id: claimId }, me.id);
+    res.json({ ok: true, claim_id: claimId, status });
+  } catch (e) { fail(res, e); }
+});
+
+/* ---------- Runs ---------- */
+app.post('/api/pd/runs', auth, pdAuth, pdSurface('intake'), async (req, res) => {
+  try {
+    const b = req.body || {}, me = req.pdUser;
+    const [[bet]] = [(await pdq('SELECT * FROM pd_bets WHERE id=?', [Number(b.bet_id) || 0]))[0]];
+    if (!bet) return res.status(400).json({ error: 'A Run happens under a Bet — pick which one.' });
+    if (bet.status !== 'active') return res.status(409).json({ error: 'That bet is closed. A new line of work is a new bet, under the question it tests.' });
+    const expected = clean(b.expected, 5000);
+    if (expected.length < 10) return res.status(400).json({ error: 'Write what you expect to happen, before you make it. Expected against actual is the whole point of recording a run.' });
+    // B14 — "a Run must name the Run it replaced, and why." SOP → KOH →
+    // potassium carbonate is one line of investigation, not three unrelated
+    // trials, only if this link exists.
+    let replaces = Number(b.replaces_run_id) || null, replacesReason = clean(b.replaces_reason, 2000);
+    if (replaces) {
+      const [[prev]] = [(await pdq('SELECT id FROM pd_runs WHERE id=?', [replaces]))[0]];
+      if (!prev) return res.status(400).json({ error: 'That earlier run does not exist.' });
+      if (!replacesReason) return res.status(400).json({ error: 'Say why this run replaces the earlier one — otherwise they read as two unrelated trials a year from now.' });
+    } else { replacesReason = ''; }
+    let newId = 0;
+    const n = await pd.insert_numbered(pdq, 'pd_runs', 'run_number', async (n) => {
+      const [ins] = await pdq(
+        `INSERT INTO pd_runs (run_number, bet_id, expected, replaces_run_id, replaces_reason, owner_id, created_by)
+         VALUES (?,?,?,?,?,?,?)`,
+        [n, bet.id, expected, replaces, replacesReason || null, me.id, me.id]);
+      newId = ins.insertId;
+    });
+    res.json({ ok: true, id: newId, label: pd.fmt_run(n) });
+  } catch (e) { fail(res, e); }
+});
+
+/* A dated reading. B6 — a long trial is ACTIVE MONITORING, not a waiting
+   period: each reading sets its own next observation date, so the schedule is
+   a live owned commitment rather than a calendar fixed on day one. A blank
+   observation with the row present is a recorded "nothing seen", which is not
+   the same as no reading at all. */
+app.post('/api/pd/runs/:id/reading', auth, pdAuth, pdSurface('intake'), async (req, res) => {
+  try {
+    const b = req.body || {}, me = req.pdUser;
+    const [[run]] = [(await pdq('SELECT * FROM pd_runs WHERE id=?', [req.params.id]))[0]];
+    if (!run) return res.status(404).json({ error: 'Not found.' });
+    if (run.status === 'closed') return res.status(409).json({ error: 'That run is closed.' });
+    const verdict = ['normal', 'abnormal'].includes(b.verdict) ? b.verdict : '';
+    if (!verdict) return res.status(400).json({ error: 'Say whether what you saw was expected or abnormal.' });
+    const date = dateOrNull(b.reading_date) || new Date().toISOString().slice(0, 10);
+    await pdq(
+      `INSERT INTO pd_run_readings (run_id, reading_date, parameters_checked, physical_observation, analytical_result, verdict, next_observation_date, recorded_by)
+       VALUES (?,?,?,?,?,?,?,?)`,
+      [run.id, date, clean(b.parameters_checked, 2000) || null, clean(b.physical_observation, 2000) || null,
+       clean(b.analytical_result, 2000) || null, verdict, dateOrNull(b.next_observation_date), me.id]);
+    // B15 — "an abnormality opens an investigation mid-trial." Not passed, not
+    // failed, not still running: a state of its own, and the run moves into it
+    // by itself so nobody has to remember to.
+    let opened = false;
+    if (verdict === 'abnormal' && run.status === 'running') {
+      await pd.record_changes(pdq, 'run', run.id, run, { status: 'abnormal_investigation' }, me.id,
+        { note: 'A reading came back abnormal.' });
+      await pdq("UPDATE pd_runs SET status='abnormal_investigation' WHERE id=? AND status='running'", [run.id]);
+      opened = true;
+    }
+    res.json({ ok: true, investigation_opened: opened });
+  } catch (e) { fail(res, e); }
+});
+
+app.post('/api/pd/runs/:id/close', auth, pdAuth, pdSurface('intake'), async (req, res) => {
+  try {
+    const b = req.body || {}, me = req.pdUser;
+    const [[run]] = [(await pdq('SELECT * FROM pd_runs WHERE id=?', [req.params.id]))[0]];
+    if (!run) return res.status(404).json({ error: 'Not found.' });
+    if (!(pd.is_lead(me.pd_role) || run.owner_id === me.id)) {
+      return res.status(403).json({ error: 'Closing a run is its owner’s, or a technical lead’s.' });
+    }
+    if (run.status === 'closed') return res.status(409).json({ error: 'That run is already closed.' });
+    const actual = clean(b.actual, 5000);
+    if (actual.length < 10) return res.status(400).json({ error: 'Write what actually happened. A run records expected against actual — without the actual it records nothing.' });
+    const text = clean(b.result_text, 5000);
+    const refusal = pd.close_refusal(text, b.grade);
+    if (refusal) return res.status(400).json({ error: refusal });
+    const [[bet]] = [(await pdq('SELECT question_id FROM pd_bets WHERE id=?', [run.bet_id]))[0]];
+    const claimId = await writeClosingClaim(me.id, {
+      subjectType: 'question', subjectId: bet.question_id, text, grade: b.grade,
+      sourceRef: clean(b.source_ref, 500), runId: run.id,
+    });
+    const [w] = await pdq("UPDATE pd_runs SET actual=?, status='closed', closing_claim_id=?, closed_at=NOW() WHERE id=? AND status<>'closed'", [actual, claimId, run.id]);
+    if (w.affectedRows === 0) {
+      return res.status(409).json({ error: 'Someone closed this run a moment before you did. What you wrote is on the record as a claim on the question — nothing is lost.' });
+    }
+    await pd.record_changes(pdq, 'run', run.id, run, { actual, status: 'closed', closing_claim_id: claimId }, me.id);
+    res.json({ ok: true, claim_id: claimId });
+  } catch (e) { fail(res, e); }
+});
+
+/* B18 — "an Observation can arise INSIDE a Run": settling, ammonia, a seal
+   swelling. Generated by the run, not arriving from outside, so it is filed
+   with origin='arose_in_run' and carries the run it came from. It goes to the
+   same triage queue as anything else that came in. */
+app.post('/api/pd/runs/:id/observe', auth, pdAuth, pdSurface('intake'), async (req, res) => {
+  try {
+    const b = req.body || {}, me = req.pdUser;
+    const [[run]] = [(await pdq('SELECT r.*, b.question_id FROM pd_runs r JOIN pd_bets b ON b.id=r.bet_id WHERE r.id=?', [req.params.id]))[0]];
+    if (!run) return res.status(404).json({ error: 'Not found.' });
+    const text = clean(b.text, 5000);
+    if (text.length < 15) return res.status(400).json({ error: 'Write what you saw, in a sentence or two.' });
+    const [[q]] = [(await pdq('SELECT problem_id FROM pd_questions WHERE id=?', [run.question_id]))[0]];
+    let newId = 0;
+    const n = await pd.insert_numbered(pdq, 'pd_observations', 'observation_number', async (n) => {
+      const [ins] = await pdq(
+        `INSERT INTO pd_observations (observation_number, text, origin, door_chosen, run_id, reported_by_name, problem_id, logged_by)
+         VALUES (?,?,'arose_in_run',1,?,?,?,?)`,
+        [n, text + `\n\n[Arose inside ${pd.fmt_run(run.run_number)}.]`, run.id, me.name, q ? q.problem_id : null, me.id]);
+      newId = ins.insertId;
+    });
+    res.json({ ok: true, id: newId, label: pd.fmt_o(n) });
+  } catch (e) { fail(res, e); }
+});
+
+/* ---------- Claims ----------
+   MODEL.md §3, the atom: "an assertion with an owner and an honest grade.
+   ANYONE may challenge it. This is how tacit team knowledge and the evidence
+   base both enter." So creating one, and challenging one, are open to every PD
+   role — a claim nobody may contradict is not a claim.
+   B17: a Claim may sit directly against a Problem, for a falsified belief that
+   outlives one trial ("fermentation should not occur at such a low pH") rather
+   than being buried as a footnote on a Run. */
+app.post('/api/pd/claims', auth, pdAuth, pdSurface('intake'), async (req, res) => {
+  try {
+    const b = req.body || {}, me = req.pdUser;
+    const subjectType = ['question', 'problem'].includes(b.subject_type) ? b.subject_type : '';
+    if (!subjectType) return res.status(400).json({ error: 'A claim answers a question, or stands against a problem.' });
+    const subjectId = Number(b.subject_id) || 0;
+    const [[subj]] = [(await pdq(
+      subjectType === 'question' ? 'SELECT id FROM pd_questions WHERE id=?' : 'SELECT id FROM pd_problems WHERE id=?',
+      [subjectId]))[0]];
+    if (!subj) return res.status(400).json({ error: 'That is not something a claim can attach to.' });
+    const text = clean(b.text, 5000);
+    if (text.length < 10) return res.status(400).json({ error: 'Write the claim out.' });
+    if (!pd.has(pd.CLAIM_GRADES, b.grade)) return res.status(400).json({ error: 'Grade it honestly: proven, contested, or believed.' });
+    let challenges = Number(b.challenges_claim_id) || null;
+    if (challenges) {
+      const [[c]] = [(await pdq('SELECT id, subject_type, subject_id FROM pd_claims WHERE id=?', [challenges]))[0]];
+      if (!c) return res.status(400).json({ error: 'That claim does not exist.' });
+      // A challenge across two unrelated problems reads on the screen as
+      // "challenges C-001" pointing at something that is not on the page.
+      if (c.subject_type !== subjectType || c.subject_id !== subjectId) {
+        return res.status(400).json({ error: 'A claim challenges another claim about the same thing. Write it against what that claim is about, and it can challenge it there.' });
+      }
+    }
+    let newId = 0;
+    const n = await pd.insert_numbered(pdq, 'pd_claims', 'claim_number', async (n) => {
+      const [ins] = await pdq(
+        `INSERT INTO pd_claims (claim_number, version, is_current, subject_type, subject_id, text, owner_id, grade, challenges_claim_id, source_ref, created_by)
+         VALUES (?,1,1,?,?,?,?,?,?,?,?)`,
+        [n, subjectType, subjectId, text, me.id, b.grade, challenges, clean(b.source_ref, 500) || null, me.id]);
+      newId = ins.insertId;
+    });
+    // A challenged question is contested, and says so without anyone
+    // remembering to set it (QUESTION_STATES).
+    if (challenges && subjectType === 'question') {
+      await pdq("UPDATE pd_questions SET state='contested' WHERE id=? AND state='open'", [subjectId]);
+    }
+    res.json({ ok: true, id: newId, label: pd.fmt_cl(n) });
+  } catch (e) { fail(res, e); }
+});
+
+/* MODEL.md §6: "correction history (versioned; never overwrite in place)."
+   Revising a claim writes a NEW version and supersedes the old one, which
+   stays readable forever. The claim keeps its number across every version. */
+app.post('/api/pd/claims/:id/revise', auth, pdAuth, pdSurface('intake'), async (req, res) => {
+  try {
+    const b = req.body || {}, me = req.pdUser;
+    const [[c]] = [(await pdq('SELECT * FROM pd_claims WHERE id=? AND is_current=1', [req.params.id]))[0]];
+    if (!c) return res.status(404).json({ error: 'Not found, or it has already been superseded.' });
+    if (!(pd.is_lead(me.pd_role) || c.owner_id === me.id)) {
+      return res.status(403).json({ error: 'Revising a claim is its owner’s, or a technical lead’s.' });
+    }
+    const text = clean(b.text, 5000);
+    if (text.length < 10) return res.status(400).json({ error: 'Write the revised claim out.' });
+    const grade = pd.has(pd.CLAIM_GRADES, b.grade) ? b.grade : c.grade;
+    let ins;
+    try {
+      [ins] = await pdq(
+        `INSERT INTO pd_claims (claim_number, version, is_current, subject_type, subject_id, text, owner_id, grade, challenges_claim_id, source_ref, run_id, created_by)
+         VALUES (?,?,1,?,?,?,?,?,?,?,?,?)`,
+        [c.claim_number, c.version + 1, c.subject_type, c.subject_id, text, c.owner_id, grade,
+         c.challenges_claim_id, clean(b.source_ref, 500) || c.source_ref, c.run_id, me.id]);
+    } catch (e) {
+      // 005 makes (claim_number, version) unique, so two people revising the
+      // same claim at once collide here instead of forking it into three
+      // competing "version 2" rows, all flagged current.
+      if (e && e.errno === 1062) return res.status(409).json({ error: 'Someone revised this claim a moment before you did. Open it again and revise what it says now.' });
+      throw e;
+    }
+    await pdq('UPDATE pd_claims SET is_current=0, superseded_by_claim_id=? WHERE id=?', [ins.insertId, c.id]);
+    res.json({ ok: true, id: ins.insertId, version: c.version + 1 });
+  } catch (e) { fail(res, e); }
+});
+
+/* ---------- Assign, and edit ----------
+   Assigning is the restricted half of Tahir's ruling: anyone may open the
+   work, a lead decides whose it is. Editing follows the same rule the doors
+   already follow — content is editable, the record of what it was is not. */
+app.post('/api/pd/:type(question|bet|run)/:id/assign', auth, pdAuth, pdSurface('intake'), async (req, res) => {
+  try {
+    // Express matches route patterns case-insensitively, so /api/pd/QUESTION/1
+    // reaches this handler with a type the map does not hold. Confirmed by
+    // review as a 500 that leaked a stack-shaped string to the screen.
+    const type = String(req.params.type || '').toLowerCase(), me = req.pdUser;
+    if (!isSpine(type)) return res.status(404).json({ error: 'Not found.' });
+    const id = Number(req.params.id) || 0;
+    if (!pd.is_lead(me.pd_role)) return res.status(403).json({ error: 'Naming somebody the owner is a technical lead’s, or the COO’s. Anyone can open the work; deciding whose it is commits their time.' });
+    const s = SPINE[type];
+    const [[row]] = [(await pdq(`SELECT * FROM ${s.table} WHERE id=?`, [id]))[0]];
+    if (!row) return res.status(404).json({ error: 'Not found.' });
+    const ownerId = Number((req.body || {}).owner_id) || 0;
+    const [[u]] = [(await pdq('SELECT id FROM auth_users WHERE id=? AND pd_role IS NOT NULL AND active=1', [ownerId]))[0]];
+    if (!u) return res.status(400).json({ error: 'That person has no PD role yet, so nothing can be owned by them.' });
+    await pd.record_changes(pdq, type, row.id, row, { owner_id: ownerId }, me.id);
+    await pdq(`UPDATE ${s.table} SET owner_id=? WHERE id=?`, [ownerId, row.id]);
+    res.json({ ok: true });
+  } catch (e) { fail(res, e); }
+});
+
+app.post('/api/pd/:type(question|bet|run)/:id/edit', auth, pdAuth, pdSurface('intake'), async (req, res) => {
+  try {
+    const type = String(req.params.type || '').toLowerCase(), b = req.body || {}, me = req.pdUser;
+    if (!isSpine(type)) return res.status(404).json({ error: 'Not found.' });
+    const s = SPINE[type], id = Number(req.params.id) || 0;
+    const [[row]] = [(await pdq(`SELECT * FROM ${s.table} WHERE id=?`, [id]))[0]];
+    if (!row) return res.status(404).json({ error: 'Not found.' });
+    // Owner or lead — not "whoever created it". Review found a member who had
+    // been moved off a bet, and refused by the close route, still able to
+    // rewrite its kill criterion through here.
+    if (!(pd.is_lead(me.pd_role) || row.owner_id === me.id)) {
+      return res.status(403).json({ error: 'This is someone else’s to edit. Its owner, or a technical lead, can change it.' });
+    }
+    /* Once something is closed, editing it is how the record starts
+       contradicting itself. Review confirmed the sequence: close a run with a
+       graded claim, then rewrite its `actual` to say the opposite, and the run
+       flatly disagrees with the claim that closed it — with nothing on the
+       screen saying so. A finished record is corrected by writing a claim, or
+       by revising the one that closed it, both of which keep the history. */
+    if (spineClosed(type, row)) return res.status(409).json({ error: s.closedSays });
+
+    const after = {};
+    for (const f of s.editable) {
+      if (!(f in b)) continue;
+      if (f === 'due_date') { after[f] = dateOrNull(b[f]); continue; }
+      if (f === 'delivery_context_id') { after[f] = Number(b[f]) || null; continue; }
+      if (f === 'nature') { if (pd.has(pd.QUESTION_NATURES, b[f])) after[f] = b[f]; continue; }
+      const v = fit(f, b[f]);              // the column's real width, not a generic 5000
+      after[f] = v === '' ? null : v;
+    }
+    /* The same minimums the create routes ask for. Without them, a field that
+       had to be ten characters to exist could be edited down to one the moment
+       after — which is how a kill criterion became "x". */
+    for (const f of Object.keys(s.minimums || {})) {
+      if (!(f in after)) continue;
+      if (f === 'actual' && after[f] === null) continue;      // an unfinished run has none yet
+      if (!after[f] || String(after[f]).length < s.minimums[f]) {
+        return res.status(400).json({ error: f === 'kill_criterion'
+          ? 'A bet keeps a kill criterion someone can act on. You can change what it says; it cannot be reduced to nothing.'
+          : 'That needs to say enough to mean something to whoever reads it in a year.' });
+      }
+    }
+    if (!Object.keys(after).length) return res.json({ ok: true, changed: 0 });
+    const changed = await pd.record_changes(pdq, type, row.id, row, after, me.id, { note: clean(b.note, 2000) || null });
+    if (changed) {
+      const sets = Object.keys(after).map(f => `${f}=?`).join(', ');
+      try {
+        await pdq(`UPDATE ${s.table} SET ${sets} WHERE id=?`, [...Object.values(after), row.id]);
+      } catch (e) {
+        await pd.record_not_applied(pdq, type, row.id, after, me.id, 'The database refused this change, so the record still reads as it did.');
+        throw e;
+      }
+    }
+    res.json({ ok: true, changed });
+  } catch (e) { fail(res, e); }
 });
 
 };

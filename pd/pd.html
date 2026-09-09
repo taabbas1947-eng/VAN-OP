@@ -4,64 +4,1024 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>VAN · Product Development</title>
-<meta name="description" content="Vital Agri Nutrients — Product Development is being rebuilt.">
+<meta name="description" content="Vital Agri Nutrients — Product Development.">
 <link rel="icon" href="/assets/favicon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
 <style>
-  /* REBUILT 9 Sept 2026 — Tahir's decision that session: take the old gate-based
-     app down now rather than run it alongside the schema rebuild
-     (docs/pd-model/PENDING-DECISIONS.md). "PD holds no real data" (settled
-     18 Aug 2026) is what made this safe. This replaces roughly 1,900 lines of
-     the old ideas/gates/candidates SPA with a plain notice — there is nothing
-     left to show yet. "Schema first, then screens" is Tahir's own sequencing;
-     the new nine-object schema exists (pd/migrations/002_pd_core_rebuild.sql),
-     the screens are the next milestone, not this one. Same visual language as
-     before (Inter/Space Grotesk, PD's green accent) so it still reads as part
-     of the same platform. */
-  :root{
-    --serif:'Space Grotesk','Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
-    --sans:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
-    --ground:#f8f9fb; --surface:#ffffff; --line:#e5e8ee; --line-strong:#dce2ec;
-    --text:#161a20; --muted:#5a6675; --faint:#8a95a6;
-    --green:#16a34a; --green-deep:#15803d; --green-soft:#e7f7ee;
-    --shadow:0 3px 12px rgba(15,23,42,.10),0 1px 3px rgba(15,23,42,.06);
-    --radius:15px;
-  }
-  *{box-sizing:border-box}
-  html,body{height:100%}
-  body{margin:0;background:var(--ground);font-family:var(--sans);color:var(--text);font-size:14px;-webkit-font-smoothing:antialiased;letter-spacing:-.01em;
-    display:flex;align-items:center;justify-content:center;padding:24px}
-  a{color:var(--green-deep);text-decoration:none}
-  a:hover{text-decoration:underline}
-  .card{max-width:520px;width:100%;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:34px 32px}
-  .row{display:flex;align-items:center;gap:11px;margin-bottom:20px}
-  .brandlogo{height:32px;width:auto;display:block}
-  .platlbl{font-family:var(--serif);font-weight:600;font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);padding-left:12px;border-left:1px solid var(--line)}
-  .pill{display:inline-flex;align-items:center;gap:6px;background:var(--green-soft);color:var(--green-deep);font-family:var(--serif);font-weight:600;font-size:11px;letter-spacing:.04em;text-transform:uppercase;padding:5px 10px;border-radius:999px;margin-bottom:14px}
-  .pill svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
-  h1{font-family:var(--serif);font-size:20px;font-weight:700;letter-spacing:-.01em;margin:0 0 10px}
-  p{margin:0 0 12px;color:var(--muted);line-height:1.55}
-  p:last-of-type{margin-bottom:0}
-  .foot{margin-top:22px;padding-top:18px;border-top:1px solid var(--line)}
-  .foot a{font-weight:600;font-size:13px}
+/* ---------------------------------------------------------------------------
+   PD · the screens milestone, part 1 — intake (the three doors), the Problem
+   register, and triage.  Written 9 Sept 2026.
+
+   The shell deliberately mirrors o2s/o2s.html — same sidebar, same type, same
+   radii and shadows — so PD and O2S read as one platform behind one login,
+   which PORTING_STATUS.md flagged as the thing the old hand-built PD page got
+   wrong. The accent is PD's green rather than O2S's cyan: same building,
+   different room.
+
+   The wording on this page is governed by RECLASSIFICATION-RULES.md §6, which
+   bans a specific list of words anywhere a person can read them. Nothing here
+   says wrong, incorrect, invalid, mistake, misfiled, corrected, or should have
+   been. An entry is moved, refiled, or now recorded as something — never
+   fixed. If you are editing this file, that list is not a style preference.
+--------------------------------------------------------------------------- */
+:root{
+  --bg:#f8f9fb; --panel:#fff; --panel2:#f1f3f6; --line:#e5e8ee; --line2:#eef0f4;
+  --rail:#eceef1; --rail-line:#dee1e6;
+  --green:#16a34a; --green2:#15803d; --green-50:#e7f7ee; --green-100:#c4ebd5;
+  --amber:#c77b0e; --amber-50:#faf0da; --red:#c0392b; --red-50:#fbe7e4;
+  --blue:#2563eb; --violet:#7a6cc0; --violet-50:#efedf9;
+  --txt:#161a20; --txt2:#475063; --mut:#717a88; --faint:#98a1b0;
+  --head:'Space Grotesk','Inter',system-ui,sans-serif;
+  --radius:15px; --radius-sm:10px;
+  --sh-sm:0 1px 2px rgba(15,23,42,.07),0 1px 1px rgba(15,23,42,.04);
+  --sh:0 3px 12px rgba(15,23,42,.10),0 1px 3px rgba(15,23,42,.06);
+  --ring:0 0 0 3px rgba(22,163,74,.16);
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;font-family:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;background:var(--bg);color:var(--txt);font-size:14px;-webkit-font-smoothing:antialiased;letter-spacing:-.01em}
+h1,h2,h3{margin:0;letter-spacing:-.02em;font-family:var(--head)}
+a{color:var(--green2);text-decoration:none;cursor:pointer}
+a:hover{text-decoration:underline}
+button{font-family:inherit}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:#d6deea;border-radius:8px;border:2px solid var(--bg)}
+
+/* ---------- sign in ---------- */
+.signin{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+.signin .card{width:100%;max-width:380px;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--sh);padding:30px 28px}
+.signin h1{font-size:19px;margin-bottom:6px}
+.signin p{color:var(--mut);margin:0 0 20px;font-size:13px;line-height:1.5}
+
+/* ---------- app shell ---------- */
+.app{display:flex;min-height:100vh}
+.side{width:220px;background:var(--rail);border-right:1px solid var(--rail-line);padding:11px 9px;flex-shrink:0;position:sticky;top:0;height:100vh;overflow:auto;display:flex;flex-direction:column}
+.brand{display:flex;align-items:center;gap:9px;padding:3px 6px 10px;border-bottom:1px solid var(--line2);margin-bottom:8px}
+.brand img{height:28px;width:auto;display:block}
+.brand{gap:8px}
+.brand img{height:26px}
+/* The rail is 220px and the logo takes most of it, so this label has to be
+   allowed to wrap. It was clipping to "PRODUCT DEVELOPME" before — found by
+   looking at the rendered page, not by any test. */
+.brand .nm{font-size:9.5px;font-weight:700;color:var(--mut);letter-spacing:.7px;line-height:1.25;text-transform:uppercase;padding-left:8px;border-left:1px solid var(--rail-line);white-space:normal;min-width:0}
+.nav{display:flex;flex-direction:column;gap:1px;flex:1}
+.nav a{display:flex;align-items:center;gap:9px;padding:6px 9px;border-radius:8px;color:var(--txt2);cursor:pointer;font-size:12.5px;font-weight:600;transition:.13s;position:relative;text-decoration:none}
+.nav a:hover{background:var(--panel2);color:var(--txt);text-decoration:none}
+.nav a.active{background:var(--green-50);color:var(--green2);font-weight:700}
+.nav a.active::before{content:'';position:absolute;left:-12px;top:7px;bottom:7px;width:3px;border-radius:0 3px 3px 0;background:var(--green)}
+.nav a .ic svg{width:16px;height:16px;stroke:currentColor;stroke-width:1.9;fill:none;stroke-linecap:round;stroke-linejoin:round;display:block}
+.nav a .cnt{margin-left:auto;font-size:10px;font-weight:700;background:#fff;border:1px solid var(--line);border-radius:6px;padding:1px 6px;color:var(--mut)}
+.side .foot{padding-top:12px;border-top:1px solid var(--line2);margin-top:8px;font-size:11.5px;color:var(--mut);line-height:1.5}
+.side .foot b{display:block;color:var(--txt);font-size:12.5px;font-weight:700}
+.main{flex:1;min-width:0;padding:22px 26px 60px;max-width:1180px}
+.page-h{margin-bottom:16px}
+.page-h h1{font-size:21px}
+.page-h .sub{color:var(--mut);font-size:13px;margin-top:5px;line-height:1.55;max-width:62ch}
+
+/* ---------- pieces ---------- */
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--sh-sm);padding:18px 18px}
+.card + .card{margin-top:14px}
+.card h2{font-size:14.5px;margin-bottom:3px}
+.card .hint{color:var(--mut);font-size:12.5px;line-height:1.55;margin:0 0 14px}
+.cols{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:14px;align-items:start}
+@media(max-width:980px){.cols{grid-template-columns:1fr}.side{display:none}.main{padding:16px}}
+label{display:block;font-size:11.5px;font-weight:700;color:var(--txt2);margin:0 0 5px;letter-spacing:.01em}
+label .opt{font-weight:500;color:var(--faint);letter-spacing:0}
+input[type=text],input[type=date],textarea,select{width:100%;border:1px solid var(--line);border-radius:var(--radius-sm);padding:8px 10px;font-size:13.5px;font-family:inherit;color:var(--txt);background:#fff;outline:none;transition:.13s}
+input:focus,textarea:focus,select:focus{border-color:var(--green);box-shadow:var(--ring)}
+textarea{resize:vertical;min-height:88px;line-height:1.55}
+.field{margin-bottom:12px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.btn{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--green);background:var(--green);color:#fff;font-weight:700;font-size:13px;padding:8px 15px;border-radius:var(--radius-sm);cursor:pointer;transition:.13s}
+.btn:hover{background:var(--green2);border-color:var(--green2)}
+.btn:disabled{opacity:.55;cursor:default}
+.btn.ghost{background:#fff;color:var(--txt2);border-color:var(--line)}
+.btn.ghost:hover{background:var(--panel2);color:var(--txt)}
+.btn.sm{font-size:12px;padding:5px 11px}
+.doors{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
+.door{border:1px solid var(--line);background:#fff;border-radius:var(--radius-sm);padding:10px 11px;cursor:pointer;text-align:left;transition:.13s}
+.door:hover{border-color:var(--green-100);background:var(--green-50)}
+.door.on{border-color:var(--green);background:var(--green-50);box-shadow:var(--ring)}
+.door b{display:block;font-size:12.5px;font-weight:700;color:var(--txt);margin-bottom:2px}
+.door span{font-size:11.5px;color:var(--mut);line-height:1.45}
+.row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.pill{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;padding:3px 8px;border-radius:999px;background:var(--panel2);color:var(--mut);border:1px solid var(--line)}
+.pill.num{background:#fff;color:var(--txt2);font-family:var(--head);letter-spacing:.04em}
+.pill.unsorted{background:var(--amber-50);color:var(--amber);border-color:#f0dfb5}
+.pill.settled{background:var(--green-50);color:var(--green2);border-color:var(--green-100)}
+.pill.moved{background:var(--violet-50);color:var(--violet);border-color:#ddd8f0}
+.item{border:1px solid var(--line);border-radius:var(--radius-sm);padding:11px 12px;background:#fff;margin-bottom:8px}
+.item:hover{border-color:var(--line2);box-shadow:var(--sh-sm)}
+.item .top{display:flex;align-items:center;gap:7px;margin-bottom:6px;flex-wrap:wrap}
+.item .txt{font-size:13px;color:var(--txt);line-height:1.55;white-space:pre-wrap}
+.item .meta{font-size:11.5px;color:var(--mut);margin-top:7px}
+.item .waiting{font-size:11.5px;color:var(--amber);font-weight:600;margin-top:6px}
+.empty{color:var(--mut);font-size:12.5px;padding:14px 2px;line-height:1.6}
+.msg{border-radius:var(--radius-sm);padding:9px 12px;font-size:12.5px;margin-bottom:12px;line-height:1.5}
+.msg.ok{background:var(--green-50);color:var(--green2);border:1px solid var(--green-100)}
+.msg.bad{background:var(--red-50);color:var(--red);border:1px solid #f3ccc6}
+.kills{background:#fff;border:1px solid var(--line);border-left:3px solid var(--amber);border-radius:var(--radius-sm);padding:9px 12px;margin-top:8px;font-size:12.5px;line-height:1.5;color:var(--txt2)}
+.kills b{color:var(--txt)}
+.result{background:var(--green-50);border:1px solid var(--green-100);border-radius:var(--radius-sm);padding:9px 12px;margin-top:8px;font-size:12.5px;line-height:1.5;color:var(--txt)}
+.notice{background:#fff;border:1px solid var(--green-100);border-left:3px solid var(--green);border-radius:var(--radius-sm);padding:13px 15px;margin-bottom:12px}
+.notice b{font-size:13.5px;display:block;margin-bottom:4px}
+.notice .def{font-size:12.5px;color:var(--txt2);line-height:1.55}
+.notice .by{font-size:11.5px;color:var(--mut);margin-top:7px}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--faint);font-weight:700;padding:0 8px 7px 0;border-bottom:1px solid var(--line)}
+td{padding:9px 8px 9px 0;border-bottom:1px solid var(--line2);vertical-align:top;line-height:1.5}
+tr:last-child td{border-bottom:none}
+.hist{font-size:12px;color:var(--txt2);border-left:2px solid var(--line);padding:2px 0 2px 12px;margin-bottom:9px}
+.hist .f{font-weight:700;color:var(--txt);font-size:12px}
+.hist .was{color:var(--mut);text-decoration:line-through;text-decoration-color:#cfd6e0}
+.hist .who{color:var(--faint);font-size:11px;margin-top:3px}
+.back{font-size:12.5px;color:var(--mut);margin-bottom:10px;display:inline-block}
+.spin{color:var(--mut);font-size:12.5px;padding:20px 0}
 </style>
 </head>
 <body>
-<div class="card">
-  <div class="row">
-    <img class="brandlogo" src="/assets/van-logo.png" alt="VAN — Vital Agri Nutrients (Pvt) Ltd">
-    <span class="platlbl">Product Development</span>
-  </div>
-  <span class="pill"><svg viewBox="0 0 24 24"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>Being rebuilt</span>
-  <h1>Product Development is being rebuilt.</h1>
-  <p>The old idea/gate pipeline has been retired. It held no live data, so nothing is lost — the team confirmed that before this started.</p>
-  <p>The new model (nine objects: Problem, Question, Bet, Run, Claim, Challenge, Observation, Request, Constraint) is built at the database level. The screens to work with it are the next step, not yet live here.</p>
-  <p>If you were about to submit an idea, a field complaint, or a sample request, hold it for now — ask Tahir when the new intake screen is ready.</p>
-  <div class="foot">
-    <a href="/">&larr; Back to the platform</a>
-  </div>
-</div>
+<div id="root"><div class="spin" style="padding:40px">Loading…</div></div>
+
+<script>
+/* ===========================================================================
+   State. `me` is null until a session is proven — every render path and the
+   hash router check it. That is not defensive habit: signing out used to race
+   the router here (location.hash='' fires its handler AFTER the synchronous
+   sign-out code), and the previous session's page could repaint over the
+   login form. Found in a browser, invisible to API tests.
+   =========================================================================== */
+var me = null, D = null, view = null, msg = null;
+/* What the person has typed but not yet saved. paint() rebuilds the whole
+   screen from innerHTML, so without this a click on a door button — or any
+   message coming back from the server — emptied the box they had just written
+   in. On a screen whose own promise is "one minute is enough", losing the
+   minute is the worst bug it can have. Found by review, 9 Sept 2026. */
+var draft = {};
+function fields() { return document.querySelectorAll('#root input[id], #root textarea[id], #root select[id]'); }
+function keepDraft() {
+  Array.prototype.forEach.call(fields(), function (el) { draft[el.id] = el.value; });
+}
+function restoreDraft() {
+  Array.prototype.forEach.call(fields(), function (el) {
+    if (draft[el.id] !== undefined && draft[el.id] !== '') el.value = draft[el.id];
+  });
+}
+function clearDraft() { draft = {}; }
+var TOKEN_KEY = 'van_token';                 // the same token O2S uses — one login
+var $ = function (id) { return document.getElementById(id); };
+function esc(s) {
+  return String(s === null || s === undefined ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+function token() { try { return localStorage.getItem(TOKEN_KEY) || ''; } catch (e) { return ''; } }
+function setToken(t) { try { t ? localStorage.setItem(TOKEN_KEY, t) : localStorage.removeItem(TOKEN_KEY); } catch (e) {} }
+
+async function api(path, method, body) {
+  var res = await fetch(path, {
+    method: method || 'GET',
+    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token() },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  var j = null; try { j = await res.json(); } catch (e) {}
+  if (res.status === 401) { setToken(''); me = null; renderSignIn(); throw new Error('signed out'); }
+  if (!res.ok) throw new Error((j && j.error) || ('Something did not go through (' + res.status + ').'));
+  return j;
+}
+function when(ts) {
+  if (!ts) return '';
+  var d = new Date(String(ts).replace(' ', 'T'));
+  if (isNaN(d)) return String(ts).slice(0, 10);
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+/* ---------------------------------------------------------------------------
+   Sign in — the same POST /api/login and the same van_token as O2S.
+--------------------------------------------------------------------------- */
+function renderSignIn(err) {
+  $('root').innerHTML =
+    '<div class="signin"><div class="card">' +
+      '<div class="brand" style="border:none;margin:0 0 14px;padding:0">' +
+        '<img src="/assets/van-logo.png" alt="VAN"><span class="nm">Product Development</span></div>' +
+      '<h1>Sign in</h1><p>The same account you use for the Order Control Tower.</p>' +
+      (err ? '<div class="msg bad">' + esc(err) + '</div>' : '') +
+      '<div class="field"><label>Username</label><input type="text" id="u" autocomplete="username"></div>' +
+      '<div class="field"><label>Password</label><input type="password" id="p" autocomplete="current-password" style="width:100%;border:1px solid var(--line);border-radius:10px;padding:8px 10px;font-size:13.5px;font-family:inherit"></div>' +
+      '<button class="btn" id="go" style="width:100%;justify-content:center">Sign in</button>' +
+      '<div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--line2)"><a href="/">&larr; Back to the platform</a></div>' +
+    '</div></div>';
+  var go = async function () {
+    $('go').disabled = true;
+    try {
+      var r = await fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: $('u').value.trim(), password: $('p').value }) });
+      var j = await r.json();
+      if (!j.token) return renderSignIn(j.error || 'That did not sign in.');
+      setToken(j.token); start();
+    } catch (e) { renderSignIn('The server did not answer. Try again in a moment.'); }
+  };
+  $('go').onclick = go;
+  $('p').onkeydown = function (e) { if (e.key === 'Enter') go(); };
+  $('u').focus();
+}
+
+/* ---------------------------------------------------------------------------
+   Shell
+--------------------------------------------------------------------------- */
+/* TWO screens, and that is deliberate.
+   MODEL.md §5 signs off four: "What came in", "What I owe", the Problem
+   Dossier, and the Report. REUSE-RULES.md §5's tripwire says a screen beyond
+   that list stops the rebuild until Tahir signs it off. This build first grew
+   two more — a separate triage screen and a separate page per entry — and
+   Tahir's ruling, 9 Sept 2026, was to fold them back in rather than sign off
+   six. So:
+     · "What came in" carries the door, the person's own entries, the
+       moderator's filing list, and one entry opened in place.
+     · "Problems" is the Problem Dossier (§5.3) in its first form — the
+       register, and registering into it.
+   "What I owe" and the Report are the two still to build. If a third nav item
+   ever appears here, that is the tripwire, and it needs Tahir before it goes
+   any further. */
+var ICONS = {
+  intake: '<svg viewBox="0 0 24 24"><path d="M4 14h4l2 3h4l2-3h4"/><path d="M5.5 14 8 5h8l2.5 9"/><rect x="4" y="14" width="16" height="6" rx="2"/></svg>',
+  problems: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg>',
+};
+function may(s) { return me && me.surfaces && me.surfaces.indexOf(s) >= 0; }
+
+function shell(inner) {
+  var route = (location.hash || '#intake').slice(1).split('/')[0];
+  if (route === 'item') route = 'intake';        // an entry is a panel on that screen, not a screen
+  if (route === 'problem') route = 'problems';  // and one Problem is a panel on Problems
+  var nav = '';
+  nav += navLink('intake', 'What came in', route,
+    may('triage') && D && D.feed ? D.feed.filter(function (x) { return x.status === 'unsorted' && !x.moved; }).length : 0);
+  nav += navLink('problems', 'Problems', route);
+  return '<div class="app"><div class="side">' +
+    '<div class="brand"><img src="/assets/van-logo.png" alt="VAN"><span class="nm">Product<br>Development</span></div>' +
+    '<div class="nav">' + nav + '</div>' +
+    '<div class="foot"><b>' + esc(me.name) + '</b>' + esc(me.label || 'No PD role') +
+      '<div style="margin-top:8px"><a id="signout">Sign out</a> · <a href="/">Platform</a></div></div>' +
+    '</div><div class="main">' + inner + '</div></div>';
+}
+function navLink(id, label, active, count) {
+  return '<a href="#' + id + '" class="' + (active === id ? 'active' : '') + '"><span class="ic">' + ICONS[id] + '</span>' +
+    esc(label) + (count ? '<span class="cnt">' + count + '</span>' : '') + '</a>';
+}
+function afterRender() {
+  var so = $('signout');
+  if (so) so.onclick = function () {
+    // Order matters: clear `me` BEFORE touching the hash, or the router's own
+    // handler repaints the signed-in page over the login form.
+    setToken(''); me = null; D = null;
+    if (location.hash) location.hash = '';
+    renderSignIn();
+  };
+}
+function flash(kind, text) { msg = { kind: kind, text: text }; }
+function flashHtml() {
+  if (!msg) return '';
+  var h = '<div class="msg ' + msg.kind + '">' + esc(msg.text) + '</div>';
+  msg = null;
+  return h;
+}
+
+/* ---------------------------------------------------------------------------
+   Screen 1 · What came in
+   MODEL.md §5.1 — one door. A person writes what happened and saves. Choosing
+   which of the three it is comes AFTER the box, is optional, and its absence
+   is never treated as a missing field (RECLASSIFICATION-RULES.md §3).
+--------------------------------------------------------------------------- */
+var draftDoor = '';
+function renderIntake() {
+  var notices = (D.notices || []).map(noticeCard).join('');
+  var form =
+    '<div class="card">' +
+      '<h2>Write down what happened</h2>' +
+      '<p class="hint">One minute is enough. You do not have to know what kind of thing it is — write it down and it is in. Someone will file it against the right problem afterwards.</p>' +
+      '<div class="field"><label>What happened, or what arrived</label>' +
+        '<textarea id="text" placeholder="A dealer said… / A sample turned up from… / Someone wants…"></textarea></div>' +
+      '<label>If you already know which of these it is <span class="opt">— optional</span></label>' +
+      '<div class="doors">' +
+        door('', 'Not sure yet', 'Write it down anyway. This is the ordinary answer.') +
+        door('challenge', 'A complaint', 'Something we already sell is not doing what it should.') +
+        door('observation', 'Something arrived', 'A result, or a material. Not a complaint, not an idea.') +
+        door('request', 'Someone wants a sample', 'A sample or a product to be made, for a named person.') +
+      '</div>' +
+      doorFields() +
+      '<div class="field"><label>Who reported it <span class="opt">— optional, defaults to you</span></label>' +
+        '<input type="text" id="reported_by_name" placeholder="' + esc(me.name) + '"></div>' +
+      '<button class="btn" id="save">Save it</button>' +
+    '</div>';
+
+  var mine = '<div class="card"><h2>Your entries</h2>' +
+    '<p class="hint">Everything you have written down, and where it went.</p>' +
+    (D.mine.length ? D.mine.map(function (x) { return itemCard(x, true); }).join('') : '<div class="empty">Nothing yet. The box on the left is the whole of it.</div>') +
+    '</div>';
+
+  return '<div class="page-h"><h1>What came in</h1>' +
+    '<div class="sub">The single door into Product Development. Nothing gets made until we have written the question it answers — and nothing can become a question until somebody writes it down here first.</div></div>' +
+    flashHtml() + notices +
+    '<div class="cols"><div>' + form + '</div><div>' + mine + '</div></div>' +
+    toFileSection();
+}
+
+/* The moderator's filing list — a section of this screen, not a screen of its
+   own (see the note on ICONS above). §3: this is the normal front of the
+   system, not a backlog of mistakes, and §8.4: never a list of somebody's
+   outstanding homework, so it is ordered by age and nothing here is counted
+   per person. */
+function toFileSection() {
+  if (!may('triage') || !D.feed) return '';
+  var open = D.feed.filter(function (x) { return !x.moved && x.status === 'unsorted'; });
+  var done = D.feed.filter(function (x) { return x.moved || x.status !== 'unsorted'; });
+  return '<div class="card" style="margin-top:14px"><h2>Waiting to be filed <span class="pill" style="margin-left:6px">' + open.length + '</span></h2>' +
+      '<p class="hint">Everything that has come in, oldest first. Filing is putting a heading on somebody’s thought — it is not a judgement, and it needs no reason.</p>' +
+      (open.length ? open.map(fileRow).join('') : '<div class="empty">Nothing waiting. That is the system working, not an empty screen.</div>') + '</div>' +
+    '<div class="card"><h2>Already filed</h2>' +
+      (done.length ? done.map(itemCard).join('') : '<div class="empty">Nothing yet.</div>') + '</div>';
+}
+function door(v, title, sub) {
+  return '<button class="door ' + (draftDoor === v ? 'on' : '') + '" data-door="' + v + '"><b>' + esc(title) + '</b><span>' + esc(sub) + '</span></button>';
+}
+function doorFields() {
+  if (draftDoor === 'challenge') {
+    return '<div class="field"><label>Which product</label><input type="text" id="product_ref" placeholder="NP 11-44, Maxim, …"></div>' +
+      '<div class="field"><label>What is being claimed underneath it <span class="opt">— optional</span></label>' +
+        '<input type="text" id="buried_claim_text" placeholder="e.g. that the competitor gives more at the same bag rate"></div>';
+  }
+  if (draftDoor === 'request') {
+    return '<div class="two"><div class="field"><label>Who is asking</label><input type="text" id="requester" placeholder="' + esc(me.name) + '"></div>' +
+      '<div class="field"><label>Who it goes to</label><input type="text" id="recipient" placeholder="Name, place"></div></div>' +
+      '<div class="two"><div class="field"><label>Dispatch by <span class="opt">— optional</span></label><input type="date" id="dispatch_date"></div>' +
+      '<div class="field"><label>Answer needed by <span class="opt">— optional</span></label><input type="date" id="return_by"></div></div>';
+  }
+  return '';
+}
+function itemCard(x, forAuthor) {
+  var num = '<span class="pill num">' + esc(x.label) + '</span>';
+  var state = (x.moved || x.converted_to_type) ? '<span class="pill moved">moved</span>'
+    : x.status === 'unsorted'
+      ? (forAuthor ? '<span class="pill">waiting to be filed</span>'
+                   : '<span class="pill unsorted">not filed yet</span>')
+      : '<span class="pill settled">' + esc(x.status) + '</span>';
+  return '<div class="item"><div class="top">' + num + state +
+      (x.problem_label ? '<span class="pill">' + esc(x.problem_label) + '</span>' : '') +
+      (x.owner_name ? '<span class="pill">owner · ' + esc(x.owner_name) + '</span>' : '') +
+      '<a style="margin-left:auto;font-size:12px" href="#item/' + x.type + '/' + x.id + '">open</a></div>' +
+    '<div class="txt">' + esc(String(x.text || '').slice(0, 400)) + (String(x.text || '').length > 400 ? '…' : '') + '</div>' +
+    '<div class="meta">' + (x.author ? esc(x.author) + ' · ' : '') + when(x.created_at) +
+      (x.door_chosen === false ? ' · recorded as an Observation for now' : '') + '</div>' +
+    (x.waiting_for && !forAuthor ? '<div class="waiting">' + esc(x.waiting_for) + '</div>' : '') +
+    '</div>';
+}
+function fileRow(x) {
+  var probOpts = '<option value="">— pick a problem —</option>' + D.problems.map(function (p) {
+    return '<option value="' + p.id + '"' + (x.problem_id === p.id ? ' selected' : '') + '>' + esc(p.label) + '</option>';
+  }).join('');
+  var ownOpts = '<option value="">— pick an owner —</option>' + (D.people || []).map(function (p) {
+    return '<option value="' + p.id + '"' + (x.owner_id === p.id ? ' selected' : '') + '>' + esc(p.name) + ' · ' + esc(p.role_label) + '</option>';
+  }).join('');
+  return '<div class="item"><div class="top"><span class="pill num">' + esc(x.label) + '</span>' +
+      '<span class="pill">' + esc(x.type) + '</span>' +
+      (x.door_chosen === false ? '<span class="pill">no type was picked, so it is here</span>' : '') +
+      '<a style="margin-left:auto;font-size:12px" href="#item/' + x.type + '/' + x.id + '">open</a></div>' +
+    '<div class="txt">' + esc(String(x.text || '').slice(0, 300)) + (String(x.text || '').length > 300 ? '…' : '') + '</div>' +
+    '<div class="meta">' + (x.author ? esc(x.author) + ' · ' : '') + when(x.created_at) + '</div>' +
+    '<div class="row" style="margin-top:9px">' +
+      '<select data-p="' + x.type + ':' + x.id + '" style="max-width:230px">' + probOpts + '</select>' +
+      '<select data-o="' + x.type + ':' + x.id + '" style="max-width:210px">' + ownOpts + '</select>' +
+      '<button class="btn sm" data-file="' + x.type + ':' + x.id + '">File it</button>' +
+    '</div></div>';
+}
+function bindTriage() {
+  Array.prototype.forEach.call(document.querySelectorAll('[data-file]'), function (b) {
+    b.onclick = async function () {
+      var key = b.getAttribute('data-file'), parts = key.split(':');
+      var p = document.querySelector('[data-p="' + key + '"]').value;
+      var o = document.querySelector('[data-o="' + key + '"]').value;
+      if (!p && !o) { flash('bad', 'Pick a problem, an owner, or both.'); return paint(); }
+      b.disabled = true;
+      try {
+        var body = {}; if (p) body.problem_id = Number(p); if (o) body.owner_id = Number(o);
+        await api('/api/pd/intake/' + parts[0] + '/' + parts[1] + '/file', 'POST', body);
+        flash('ok', 'Filed.'); await load();
+      } catch (e) { flash('bad', e.message); b.disabled = false; paint(); }
+    };
+  });
+}
+
+/* RECLASSIFICATION-RULES.md §7 — three parts and nothing else. Do not add a
+   fourth. */
+function noticeCard(n) {
+  return '<div class="notice"><b>' + esc(n.headline) + '</b>' +
+    '<div class="def">' + esc(n.definition_text) + '</div>' +
+    '<div class="by">moved by ' + esc(n.mover) + ' · ' + when(n.created_at) +
+      ' · <a href="#item/' + esc(n.link_type) + '/' + n.link_id + '">open it</a>' +
+      ' · <a data-reply="' + n.id + '">I meant something else</a></div></div>';
+}
+
+function bindIntake() {
+  Array.prototype.forEach.call(document.querySelectorAll('[data-door]'), function (b) {
+    b.onclick = function () { draftDoor = b.getAttribute('data-door'); paint(); };
+  });
+  var save = $('save');
+  if (save) save.onclick = async function () {
+    var body = { text: ($('text').value || '').trim(), door: draftDoor,
+      reported_by_name: ($('reported_by_name').value || '').trim() };
+    ['product_ref', 'buried_claim_text', 'requester', 'recipient', 'dispatch_date', 'return_by'].forEach(function (f) {
+      if ($(f)) body[f] = $(f).value;
+    });
+    save.disabled = true;
+    try {
+      var r = await api('/api/pd/intake', 'POST', body);
+      draftDoor = ''; clearDraft();
+      flash('ok', 'Saved as ' + r.label + '.' +
+        (r.note ? ' ' + r.note + ' It is recorded as an Observation for now, and whoever files it will pick that up.'
+                : (r.door_chosen === false ? ' It is recorded as an Observation for now — whoever files it will say what kind it is.' : '')));
+      await load();
+    } catch (e) { flash('bad', e.message); save.disabled = false; paint(); }
+  };
+  Array.prototype.forEach.call(document.querySelectorAll('[data-reply]'), function (a) {
+    a.onclick = async function () {
+      var t = prompt('What did you mean? This goes back to the person who moved it, as a question.');
+      if (!t) return;
+      try { await api('/api/pd/notices/' + a.getAttribute('data-reply') + '/reply', 'POST', { reply_text: t });
+        flash('ok', 'Sent back to them.'); await load(); } catch (e) { flash('bad', e.message); paint(); }
+    };
+  });
+}
+
+/* ---------------------------------------------------------------------------
+   Screen 2 · Problems — MODEL.md §5.3's Problem Dossier, in its first form.
+   The list, and one Problem opened with everything ever aimed at it:
+   Questions → Bets → Runs, the Claims that closed them, and what came in
+   against it. Opening one is a panel on this screen, not a screen of its own
+   (see the note on ICONS).
+
+   Two things on this screen are load-bearing rather than decorative:
+   · B7 — the question a run answers, and the result that would kill its bet,
+     are printed ON the run. Not one click away. Himmayat asked for this and
+     the review said it is cheap now and expensive to retrofit.
+   · MODEL.md §0 — every close writes a graded Claim. The forms below ask for
+     the result and the grade in the same breath as the close, because there
+     is no close without them.
+--------------------------------------------------------------------------- */
+var probKind = 'field_problem';
+var dossier = null;      // the open Problem, or null on the list
+var openForm = '';       // which inline form is showing, e.g. 'bet:12'
+var claimSubject = '';   // what the claim form is currently aimed at
+
+function formOpen(key) { return openForm === key; }
+function toggle(key) { openForm = formOpen(key) ? '' : key; paint(); }
+
+function renderProblems() {
+  if (dossier) return renderDossier();
+  var list = (D.problems || []).map(function (p) {
+    return '<div class="item"><div class="top"><span class="pill num">' + esc(p.label.split(' — ')[0]) + '</span>' +
+      '<span class="pill">' + esc(p.kind === 'product_concept' ? 'product concept' : 'field problem') + '</span>' +
+      (p.status !== 'open' ? '<span class="pill settled">' + esc(p.status) + '</span>' : '') +
+      '<a style="margin-left:auto;font-size:12px" href="#problem/' + p.id + '">open</a></div>' +
+      '<div class="txt"><b>' + esc(p.title) + '</b></div>' +
+      '<div class="meta">registered by ' + esc(p.author || '') + '</div></div>';
+  }).join('');
+  return '<div class="page-h"><h1>Problems</h1>' +
+    '<div class="sub">Few, and long-lived. A problem in the field, or a product concept we have decided to build — both are the same shape here, because both are the parent that questions, bets and runs hang off.</div></div>' +
+    flashHtml() +
+    '<div class="cols"><div class="card"><h2>Register one</h2>' +
+      '<p class="hint">If you already know you have a problem or a concept, say so directly. It does not go through the door.</p>' +
+      '<div class="doors">' +
+        '<button class="door ' + (probKind === 'field_problem' ? 'on' : '') + '" data-kind="field_problem"><b>A problem in the field</b><span>Something is not working out there, or in the market.</span></button>' +
+        '<button class="door ' + (probKind === 'product_concept' ? 'on' : '') + '" data-kind="product_concept"><b>A product concept</b><span>Something we have decided to build.</span></button>' +
+      '</div>' +
+      '<div class="field"><label>Short title</label><input type="text" id="ptitle" placeholder="P fixation in our soils"></div>' +
+      '<div class="field"><label>' + (probKind === 'product_concept' ? 'What the product is meant to do' : 'What the problem actually is') + '</label><textarea id="pstatement"></textarea></div>' +
+      '<div class="field"><label>Anything else worth knowing <span class="opt">— optional</span></label><textarea id="pcontext" style="min-height:60px"></textarea></div>' +
+      '<button class="btn" id="psave">Register it</button></div>' +
+    '<div class="card"><h2>The register</h2><p class="hint">Everything work can be aimed at.</p>' +
+      (list || '<div class="empty">Nothing registered yet.</div>') + '</div></div>';
+}
+
+/* ---- one Problem, and everything aimed at it ---- */
+function renderDossier() {
+  var d = dossier, p = d.problem, lead = d.caps.lead;
+  var owners = (d.people || []).map(function (x) {
+    return '<option value="' + x.id + '">' + esc(x.name) + ' · ' + esc(x.role_label) + '</option>';
+  }).join('');
+
+  var questions = d.questions.map(function (q) { return questionCard(q, lead, owners); }).join('') ||
+    '<div class="empty">No questions yet. Nothing gets made until one is written — this is where that starts.</div>';
+
+  var claims = (d.claims || []).map(function (c) {
+    var older = (c.history || []).map(function (h) {
+      return '<div class="hist"><span class="f">version ' + h.version + '</span> <span class="was">' + esc(h.text) + '</span>' +
+        '<div class="who">' + esc(h.written_by_name || '') + ' · ' + when(h.created_at) + ' · ' + esc(h.grade) + '</div></div>';
+    }).join('');
+    return '<div class="item"><div class="top"><span class="pill num">' + esc(c.label) + '</span>' +
+      '<span class="pill ' + (c.grade === 'proven' ? 'settled' : c.grade === 'contested' ? 'unsorted' : '') + '">' + esc(c.grade) + '</span>' +
+      (c.version > 1 ? '<span class="pill">version ' + c.version + '</span>' : '') +
+      (c.challenges_number ? '<span class="pill moved">challenges C-' + String(c.challenges_number).padStart(3, '0') + '</span>' : '') +
+      '</div><div class="txt">' + esc(c.text) + '</div>' +
+      '<div class="meta">' + esc(c.owner_name || '') + '’s claim' +
+        (c.written_by_name && c.written_by_name !== c.owner_name ? ' · this version written by ' + esc(c.written_by_name) : '') +
+        (c.source_ref ? ' · ' + esc(c.source_ref) : '') + '</div>' +
+      (older ? '<div style="margin-top:8px">' + older + '</div>' : '') + '</div>';
+  }).join('') || '<div class="empty">Nothing claimed yet.</div>';
+
+  var filed = (d.filed || []).map(function (x) { return itemCard(x, true); }).join('') ||
+    '<div class="empty">Nothing has come in against this one.</div>';
+
+  return '<a class="back" href="#problems">&larr; back to problems</a>' + flashHtml() +
+    '<div class="page-h"><h1>' + esc(p.label) + ' · ' + esc(p.title) + '</h1>' +
+      '<div class="sub">' + esc(p.statement) + '</div></div>' +
+    '<div class="row" style="margin-bottom:14px">' +
+      '<span class="pill">' + esc(p.kind === 'product_concept' ? 'product concept' : 'field problem') + '</span>' +
+      (p.status !== 'open' ? '<span class="pill settled">' + esc(p.status) + '</span>' : '<span class="pill">open</span>') +
+      (p.closed_reason ? '<span class="pill">closed: ' + esc(String(p.closed_reason).slice(0, 60)) + '</span>' : '') +
+    '</div>' +
+    '<div class="card"><h2>Questions <span class="pill" style="margin-left:6px">' + d.questions.length + '</span></h2>' +
+      '<p class="hint">Something we must know in order to solve this. One owner, one due date, and a state that says where it stands.</p>' +
+      questions +
+      (formOpen('question') ? questionForm() :
+        '<button class="btn ghost sm" data-open="question">+ Write a question</button>') +
+    '</div>' +
+    '<div class="cols" style="margin-top:14px">' +
+      '<div class="card"><h2>Claims</h2>' +
+        '<p class="hint">An assertion with an owner and an honest grade. Anyone may challenge one — that is what makes it a claim rather than an opinion.</p>' +
+        claims +
+        (formOpen('claim') ? claimForm(d) : '<button class="btn ghost sm" data-open="claim">+ Write a claim</button>') +
+      '</div>' +
+      '<div class="card"><h2>What came in against this</h2>' +
+        '<p class="hint">Everything filed here from the door.</p>' + filed + '</div>' +
+    '</div>';
+}
+
+/* The restricted half of "open to write, restricted to assign" — offered on
+   all three, not only on Questions. */
+function assignControl(type, id) {
+  var owners = (dossier.people || []).map(function (x) {
+    return '<option value="' + x.id + '">' + esc(x.name) + ' · ' + esc(x.role_label) + '</option>';
+  }).join('');
+  return '<select id="assign_' + type.charAt(0) + '_' + id + '" style="max-width:190px">' +
+    '<option value="">— give it an owner —</option>' + owners + '</select>' +
+    '<button class="btn ghost sm" data-assign="' + type + ':' + id + '">Assign</button>';
+}
+
+function questionCard(q, lead, owners) {
+  var bets = (q.bets || []).map(function (b) { return betCard(b, q, lead); }).join('') ||
+    '<div class="empty" style="padding:6px 0">No bets on this question yet.</div>';
+  return '<div class="item" style="border-left:3px solid var(--green);padding-left:12px">' +
+    '<div class="top"><span class="pill num">' + esc(q.label) + '</span>' +
+      '<span class="pill">' + esc(q.nature_label || q.nature) + '</span>' +
+      '<span class="pill ' + (q.state === 'settled' ? 'settled' : q.state === 'contested' ? 'unsorted' : '') + '">' + esc(q.state) + '</span>' +
+      (q.owner_name ? '<span class="pill">owner · ' + esc(q.owner_name) + '</span>' : '') +
+      (q.due_date ? '<span class="pill ' + (q.overdue ? 'unsorted' : '') + '">due ' + when(q.due_date) + (q.overdue ? ' · late' : '') + '</span>' : '') +
+    '</div>' +
+    '<div class="txt"><b>' + esc(q.title) + '</b><br>' + esc(q.text) + '</div>' +
+    (q.settled_reason ? '<div class="result">Settled: ' + esc(q.settled_reason) + '</div>' : '') +
+    '<div style="margin:10px 0 0 8px;padding-left:10px;border-left:1px solid var(--line)">' + bets +
+      (formOpen('bet:' + q.id) ? betForm(q) :
+        (q.state === 'settled' ? '' : '<button class="btn ghost sm" data-open="bet:' + q.id + '">+ Take a bet on it</button>')) +
+    '</div>' +
+    '<div class="row" style="margin-top:9px">' +
+      (q.state !== 'settled' ? (formOpen('settle:' + q.id) ? '' : '<button class="btn ghost sm" data-open="settle:' + q.id + '">Settle it</button>') : '') +
+      (lead ? assignControl('question', q.id) : '') +
+    '</div>' +
+    (formOpen('settle:' + q.id) ? settleForm(q) : '') +
+    '</div>';
+}
+
+function betCard(b, q, lead) {
+  var runs = (b.runs || []).map(function (r) { return runCard(r, b); }).join('');
+  var constraints = (b.constraints || []).map(function (c) {
+    return '<div class="hist" style="margin:4px 0"><span class="f">' + esc(c.kind_label || c.kind) + '</span> ' + esc(c.rule_text) + '</div>';
+  }).join('');
+  return '<div class="item">' +
+    '<div class="top"><span class="pill num">' + esc(b.label) + '</span>' +
+      '<span class="pill ' + (b.status === 'killed' ? 'unsorted' : b.status === 'advanced' ? 'settled' : '') + '">' + esc(b.status_label || b.status) + '</span>' +
+      (b.context_name ? '<span class="pill">' + esc(b.context_name) + '</span>' : '') +
+      (b.owner_name ? '<span class="pill">owner · ' + esc(b.owner_name) + '</span>' : '') +
+    '</div>' +
+    '<div class="txt">' + esc(b.approach) + '</div>' +
+    '<div class="kills"><b>Kills it:</b> ' + esc(b.kill_criterion) + '</div>' +
+    (constraints ? '<div style="margin-top:8px"><div class="meta">Inherited from ' + esc(b.context_name) + ':</div>' + constraints + '</div>' : '') +
+    (b.closing_text ? '<div class="result"><b>' + esc(b.status) + ':</b> ' + esc(b.closing_text) + ' <span class="pill">' + esc(b.closing_grade) + '</span></div>' : '') +
+    (runs ? '<div style="margin:10px 0 0 8px;padding-left:10px;border-left:1px solid var(--line)">' + runs + '</div>' : '') +
+    '<div class="row" style="margin-top:9px">' +
+      (b.status === 'active' ? (formOpen('run:' + b.id) ? '' : '<button class="btn ghost sm" data-open="run:' + b.id + '">+ Make a run</button>') : '') +
+      (b.status === 'active' && !formOpen('closebet:' + b.id) ? '<button class="btn ghost sm" data-open="closebet:' + b.id + '">Close the bet</button>' : '') +
+      (dossier.caps.lead ? assignControl('bet', b.id) : '') +
+    '</div>' +
+    (formOpen('run:' + b.id) ? runForm(b) : '') +
+    (formOpen('closebet:' + b.id) ? closeBetForm(b) : '') +
+    '</div>';
+}
+
+function runCard(r, b) {
+  var readings = (r.readings || []).map(function (rd) {
+    return '<div class="hist"><span class="f">' + when(rd.reading_date) + '</span> ' +
+      esc([rd.parameters_checked, rd.physical_observation, rd.analytical_result].filter(Boolean).join(' · ') || 'nothing seen') +
+      ' <span class="pill ' + (rd.verdict === 'abnormal' ? 'unsorted' : '') + '">' + esc(rd.verdict_label || rd.verdict) + '</span>' +
+      '<div class="who">' + esc(rd.who) + (rd.next_observation_date ? ' · next look ' + when(rd.next_observation_date) : '') + '</div></div>';
+  }).join('');
+  return '<div class="item">' +
+    '<div class="top"><span class="pill num">' + esc(r.label) + '</span>' +
+      '<span class="pill ' + (r.status === 'abnormal_investigation' ? 'unsorted' : r.status === 'closed' ? 'settled' : '') + '">' + esc(r.status_label || r.status) + '</span>' +
+      (r.replaced_number ? '<span class="pill moved">replaces R-' + String(r.replaced_number).padStart(3, '0') + '</span>' : '') +
+      (r.combination_code ? '<span class="pill">' + esc(r.combination_code) + '</span>' : '<span class="pill">no recipe recorded yet</span>') +
+    '</div>' +
+    // B7 — on the run itself, never one click away.
+    '<div class="meta" style="margin:0 0 6px">Answers: ' + esc(r.question_title) + ' · <b>kills it:</b> ' + esc(r.kill_criterion) + '</div>' +
+    '<div class="txt"><b>Expected:</b> ' + esc(r.expected) + '</div>' +
+    (r.actual ? '<div class="txt" style="margin-top:5px"><b>Actual:</b> ' + esc(r.actual) + '</div>' : '') +
+    (r.replaces_reason ? '<div class="meta">Replaces the earlier run because: ' + esc(r.replaces_reason) + '</div>' : '') +
+    (readings ? '<div style="margin-top:8px">' + readings + '</div>' : '') +
+    (r.next_observation ? '<div class="waiting">Next look: ' + when(r.next_observation) + '</div>' : '') +
+    (r.closing_text ? '<div class="result"><b>Result:</b> ' + esc(r.closing_text) + ' <span class="pill">' + esc(r.closing_grade) + '</span></div>' : '') +
+    '<div class="row" style="margin-top:9px">' +
+      (r.status !== 'closed' ? '<button class="btn ghost sm" data-open="reading:' + r.id + '">+ Record a look</button>' : '') +
+      (r.status !== 'closed' ? '<button class="btn ghost sm" data-open="closerun:' + r.id + '">Close the run</button>' : '') +
+      '<button class="btn ghost sm" data-open="observe:' + r.id + '">Something turned up</button>' +
+      (dossier.caps.lead ? assignControl('run', r.id) : '') +
+    '</div>' +
+    (formOpen('reading:' + r.id) ? readingForm(r) : '') +
+    (formOpen('closerun:' + r.id) ? closeRunForm(r) : '') +
+    (formOpen('observe:' + r.id) ? observeForm(r) : '') +
+    '</div>';
+}
+
+/* ---- the inline forms ---- */
+function natureOptions() {
+  return Object.keys(dossier.vocab.natures).map(function (k) {
+    return '<option value="' + k + '">' + esc(dossier.vocab.natures[k]) + '</option>';
+  }).join('');
+}
+function gradeSelect(id) {
+  return '<div class="field"><label>How honestly can we hold this?</label><select id="' + id + '">' +
+    Object.keys(dossier.vocab.grades).map(function (k) {
+      return '<option value="' + k + '">' + esc(dossier.vocab.grades[k]) + '</option>';
+    }).join('') + '</select></div>';
+}
+function box(inner) { return '<div class="card" style="margin-top:10px;background:var(--panel2)">' + inner + '</div>'; }
+
+function questionForm() {
+  // Every id on this screen carries the Problem it belongs to. The draft a
+  // person leaves behind is keyed on the field's id, so a plain `q_title`
+  // followed them to the next Problem and saved a question there under the
+  // wrong parent — confirmed by review, 9 Sept 2026.
+  var P = dossier.problem.id;
+  return box('<h2>Write a question</h2>' +
+    '<p class="hint">Something we must know in order to solve this problem. You will own it until someone moves it.</p>' +
+    '<div class="field"><label>Short title</label><input type="text" id="q_title_' + P + '"></div>' +
+    '<div class="field"><label>What do we need to know?</label><textarea id="q_text_' + P + '"></textarea></div>' +
+    '<div class="two"><div class="field"><label>What kind of question</label><select id="q_nature_' + P + '">' + natureOptions() + '</select></div>' +
+    '<div class="field"><label>Due by <span class="opt">— optional</span></label><input type="date" id="q_due_' + P + '"></div></div>' +
+    '<div class="row"><button class="btn" id="q_save">Write it down</button>' +
+    '<button class="btn ghost" data-open="question">Cancel</button></div>');
+}
+function settleForm(q) {
+  return box('<h2>Settle ' + esc(q.label) + '</h2>' +
+    '<p class="hint">Nothing gets closed until we have written the result. What goes here becomes a claim anyone can challenge.</p>' +
+    '<div class="field"><label>What is the answer?</label><textarea id="s_text_' + q.id + '"></textarea></div>' +
+    gradeSelect('s_grade_' + q.id) +
+    '<div class="field"><label>Where it came from <span class="opt">— optional</span></label><input type="text" id="s_src_' + q.id + '" placeholder="a trial, a paper, a path under E:\\NP"></div>' +
+    '<div class="row"><button class="btn" data-settle="' + q.id + '">Settle it</button>' +
+    '<button class="btn ghost" data-open="settle:' + q.id + '">Cancel</button></div>');
+}
+function betForm(q) {
+  var ctx = '<option value="">— no context picked yet —</option>' + (dossier.vocab.contexts || []).map(function (c) {
+    return '<option value="' + c.id + '">' + esc(c.name) + '</option>';
+  }).join('');
+  return box('<h2>Take a bet on ' + esc(q.label) + '</h2>' +
+    '<p class="hint">A specific approach, taken because we believe something. The one result that would kill it is written now, before any bench work — not after.</p>' +
+    '<div class="field"><label>What is the approach?</label><textarea id="b_approach_' + q.id + '"></textarea></div>' +
+    '<div class="field"><label>What one result would kill it?</label><textarea id="b_kill_' + q.id + '" placeholder="If this happens, the bet is over."></textarea></div>' +
+    '<div class="field"><label>Aimed through <span class="opt">— optional; it inherits that context’s constraints</span></label><select id="b_ctx_' + q.id + '">' + ctx + '</select></div>' +
+    '<div class="row"><button class="btn" data-bet="' + q.id + '">Take the bet</button>' +
+    '<button class="btn ghost" data-open="bet:' + q.id + '">Cancel</button></div>');
+}
+function closeBetForm(b) {
+  return box('<h2>Close ' + esc(b.label) + '</h2>' +
+    '<p class="hint">Killed is as good an outcome as advanced, and costs nothing if it is written down. What goes here becomes a claim.</p>' +
+    '<div class="field"><label>How does it close?</label><select id="cb_status_' + b.id + '">' +
+      '<option value="killed">Killed — the kill criterion was met</option>' +
+      '<option value="advanced">Advanced — it earned the next step</option></select></div>' +
+    '<div class="field"><label>What was the result?</label><textarea id="cb_text_' + b.id + '"></textarea></div>' +
+    gradeSelect('cb_grade_' + b.id) +
+    '<div class="row"><button class="btn" data-closebet="' + b.id + '">Close it</button>' +
+    '<button class="btn ghost" data-open="closebet:' + b.id + '">Cancel</button></div>');
+}
+function runForm(b) {
+  var prev = (b.runs || []).map(function (r) { return '<option value="' + r.id + '">' + esc(r.label) + '</option>'; }).join('');
+  return box('<h2>Make a run under ' + esc(b.label) + '</h2>' +
+    '<p class="hint">One recipe, made and measured. Write what you expect before you make it — expected against actual is the whole point.</p>' +
+    '<div class="field"><label>What do you expect to happen?</label><textarea id="r_exp_' + b.id + '"></textarea></div>' +
+    (prev ? '<div class="two"><div class="field"><label>Does it replace an earlier run? <span class="opt">— optional</span></label>' +
+      '<select id="r_repl_' + b.id + '"><option value="">— no —</option>' + prev + '</select></div>' +
+      '<div class="field"><label>If so, why</label><input type="text" id="r_replwhy_' + b.id + '"></div></div>' : '') +
+    '<div class="row"><button class="btn" data-run="' + b.id + '">Start the run</button>' +
+    '<button class="btn ghost" data-open="run:' + b.id + '">Cancel</button></div>');
+}
+function readingForm(r) {
+  return box('<h2>Record a look at ' + esc(r.label) + '</h2>' +
+    '<p class="hint">A long trial is active monitoring, not a waiting period. Say when the next look is due — the schedule moves with what you find.</p>' +
+    '<div class="two"><div class="field"><label>When</label><input type="date" id="rd_date_' + r.id + '"></div>' +
+    '<div class="field"><label>What did it look like?</label><select id="rd_verdict_' + r.id + '">' +
+      '<option value="normal">Nothing unexpected</option><option value="abnormal">Something abnormal</option></select></div></div>' +
+    '<div class="field"><label>What you checked <span class="opt">— optional</span></label><input type="text" id="rd_params_' + r.id + '"></div>' +
+    '<div class="field"><label>What you saw <span class="opt">— optional; blank is a recorded "nothing seen"</span></label><textarea id="rd_obs_' + r.id + '" style="min-height:56px"></textarea></div>' +
+    '<div class="two"><div class="field"><label>Analysis <span class="opt">— optional</span></label><input type="text" id="rd_an_' + r.id + '"></div>' +
+    '<div class="field"><label>Next look due</label><input type="date" id="rd_next_' + r.id + '"></div></div>' +
+    '<div class="row"><button class="btn" data-reading="' + r.id + '">Record it</button>' +
+    '<button class="btn ghost" data-open="reading:' + r.id + '">Cancel</button></div>');
+}
+function closeRunForm(r) {
+  return box('<h2>Close ' + esc(r.label) + '</h2>' +
+    '<div class="field"><label>What actually happened?</label><textarea id="cr_actual_' + r.id + '"></textarea></div>' +
+    '<div class="field"><label>And what does that tell us?</label><textarea id="cr_text_' + r.id + '"></textarea></div>' +
+    gradeSelect('cr_grade_' + r.id) +
+    '<div class="row"><button class="btn" data-closerun="' + r.id + '">Close it</button>' +
+    '<button class="btn ghost" data-open="closerun:' + r.id + '">Cancel</button></div>');
+}
+function observeForm(r) {
+  return box('<h2>Something turned up in ' + esc(r.label) + '</h2>' +
+    '<p class="hint">Settling, a smell, a seal swelling — something the run produced that nobody was looking for. It goes to the same queue as anything else that came in.</p>' +
+    '<div class="field"><label>What did you see?</label><textarea id="ob_text_' + r.id + '"></textarea></div>' +
+    '<div class="row"><button class="btn" data-observe="' + r.id + '">Write it down</button>' +
+    '<button class="btn ghost" data-open="observe:' + r.id + '">Cancel</button></div>');
+}
+function claimForm(d) {
+  var P = d.problem.id;
+  var current = claimSubject || ('problem:' + d.problem.id);
+  var subj = '<option value="problem:' + d.problem.id + '"' + (current === 'problem:' + d.problem.id ? ' selected' : '') + '>Against the problem itself</option>' +
+    d.questions.map(function (q) {
+      return '<option value="question:' + q.id + '"' + (current === 'question:' + q.id ? ' selected' : '') + '>' + esc(q.label + ' — ' + q.title) + '</option>';
+    }).join('');
+  // A claim challenges another claim ABOUT THE SAME THING, so only those are
+  // offered. Before this, the list held every claim on the page and picking
+  // the mismatched one was refused by the server after the fact.
+  var parts = current.split(':');
+  var sameSubject = (d.claims || []).filter(function (c) { return c.subject_type === parts[0] && String(c.subject_id) === parts[1]; });
+  var against = '<option value="">— not challenging anything —</option>' + sameSubject.map(function (c) {
+    return '<option value="' + c.id + '">' + esc(c.label + ' — ' + String(c.text).slice(0, 60)) + '</option>';
+  }).join('');
+  return box('<h2>Write a claim</h2>' +
+    '<p class="hint">Lived experience counts, graded honestly. "Observed in our products, mechanism unknown" is a real claim; so is a paper.</p>' +
+    '<div class="field"><label>What is it about?</label><select id="c_subject_' + P + '">' + subj + '</select></div>' +
+    '<div class="field"><label>The claim</label><textarea id="c_text_' + P + '"></textarea></div>' +
+    gradeSelect('c_grade_' + P) +
+    '<div class="field"><label>Where it came from <span class="opt">— optional</span></label><input type="text" id="c_src_' + P + '"></div>' +
+    '<div class="field"><label>Does it challenge one already here? <span class="opt">— optional; only claims about the same thing</span></label><select id="c_against_' + P + '">' + against + '</select></div>' +
+    '<div class="row"><button class="btn" id="c_save">Write it down</button>' +
+    '<button class="btn ghost" data-open="claim">Cancel</button></div>');
+}
+
+/* ---- wiring ---- */
+function bindProblems() {
+  if (dossier) return bindDossier();
+  Array.prototype.forEach.call(document.querySelectorAll('[data-kind]'), function (b) {
+    b.onclick = function () { probKind = b.getAttribute('data-kind'); paint(); };
+  });
+  $('psave').onclick = async function () {
+    $('psave').disabled = true;
+    try {
+      var r = await api('/api/pd/problems', 'POST', { title: $('ptitle').value, statement: $('pstatement').value, context: $('pcontext').value, kind: probKind });
+      clearDraft();
+      flash('ok', 'Registered as ' + r.label + '.'); await load();
+    } catch (e) { flash('bad', e.message); $('psave').disabled = false; paint(); }
+  };
+}
+
+function on(sel, fn) {
+  Array.prototype.forEach.call(document.querySelectorAll(sel), function (el) {
+    el.onclick = async function () {
+      el.disabled = true;
+      try { await fn(el); } catch (e) { flash('bad', e.message); el.disabled = false; paint(); }
+    };
+  });
+}
+async function reloadDossier(message) {
+  openForm = ''; claimSubject = ''; clearDraft();
+  if (message) flash('ok', message);
+  await loadDossier(dossier.problem.id);
+  await load();          // keeps the "What came in" count in step after an
+                         // Observation raised from a run
+
+}
+
+function bindDossier() {
+  Array.prototype.forEach.call(document.querySelectorAll('[data-open]'), function (b) {
+    b.onclick = function () { toggle(b.getAttribute('data-open')); };
+  });
+  on('#q_save', async function () {
+    var P = dossier.problem.id;
+    var r = await api('/api/pd/questions', 'POST', { problem_id: P,
+      title: $('q_title_' + P).value, text: $('q_text_' + P).value,
+      nature: $('q_nature_' + P).value, due_date: $('q_due_' + P).value });
+    await reloadDossier('Written down as ' + r.label + '. It is yours until someone moves it.');
+  });
+  on('[data-settle]', async function (b) {
+    var id = b.getAttribute('data-settle');
+    await api('/api/pd/questions/' + id + '/settle', 'POST', { result_text: $('s_text_' + id).value, grade: $('s_grade_' + id).value, source_ref: $('s_src_' + id).value });
+    await reloadDossier('Settled, and the answer is on the record as a claim.');
+  });
+  on('[data-bet]', async function (b) {
+    var id = b.getAttribute('data-bet');
+    var r = await api('/api/pd/bets', 'POST', { question_id: id, approach: $('b_approach_' + id).value, kill_criterion: $('b_kill_' + id).value, delivery_context_id: $('b_ctx_' + id).value });
+    await reloadDossier('Bet ' + r.label + ' is on.');
+  });
+  on('[data-closebet]', async function (b) {
+    var id = b.getAttribute('data-closebet');
+    var r = await api('/api/pd/bets/' + id + '/close', 'POST', { status: $('cb_status_' + id).value, result_text: $('cb_text_' + id).value, grade: $('cb_grade_' + id).value });
+    await reloadDossier('Closed as ' + r.status + ', with the result written.');
+  });
+  on('[data-run]', async function (b) {
+    var id = b.getAttribute('data-run');
+    var body = { bet_id: id, expected: $('r_exp_' + id).value };
+    if ($('r_repl_' + id)) { body.replaces_run_id = $('r_repl_' + id).value; body.replaces_reason = $('r_replwhy_' + id).value; }
+    var r = await api('/api/pd/runs', 'POST', body);
+    await reloadDossier('Run ' + r.label + ' started.');
+  });
+  on('[data-reading]', async function (b) {
+    var id = b.getAttribute('data-reading');
+    var r = await api('/api/pd/runs/' + id + '/reading', 'POST', {
+      reading_date: $('rd_date_' + id).value, verdict: $('rd_verdict_' + id).value,
+      parameters_checked: $('rd_params_' + id).value, physical_observation: $('rd_obs_' + id).value,
+      analytical_result: $('rd_an_' + id).value, next_observation_date: $('rd_next_' + id).value });
+    await reloadDossier(r.investigation_opened ? 'Recorded. That was abnormal, so an investigation is open on the run.' : 'Recorded.');
+  });
+  on('[data-closerun]', async function (b) {
+    var id = b.getAttribute('data-closerun');
+    await api('/api/pd/runs/' + id + '/close', 'POST', { actual: $('cr_actual_' + id).value, result_text: $('cr_text_' + id).value, grade: $('cr_grade_' + id).value });
+    await reloadDossier('Closed, with the result written.');
+  });
+  on('[data-observe]', async function (b) {
+    var id = b.getAttribute('data-observe');
+    var r = await api('/api/pd/runs/' + id + '/observe', 'POST', { text: $('ob_text_' + id).value });
+    await reloadDossier('Written down as ' + r.label + '. It is in the queue with everything else that came in.');
+  });
+  var P = dossier.problem.id;
+  if ($('c_subject_' + P)) $('c_subject_' + P).onchange = function () { claimSubject = $('c_subject_' + P).value; paint(); };
+  on('#c_save', async function () {
+    var parts = $('c_subject_' + P).value.split(':');
+    var r = await api('/api/pd/claims', 'POST', { subject_type: parts[0], subject_id: parts[1],
+      text: $('c_text_' + P).value, grade: $('c_grade_' + P).value,
+      source_ref: $('c_src_' + P).value, challenges_claim_id: $('c_against_' + P).value });
+    await reloadDossier('Claim ' + r.label + ' is on the record.');
+  });
+  on('[data-assign]', async function (b) {
+    var parts = b.getAttribute('data-assign').split(':');
+    var sel = $('assign_' + parts[0].charAt(0) + '_' + parts[1]);
+    if (!sel || !sel.value) { flash('bad', 'Pick who owns it.'); return paint(); }
+    await api('/api/pd/' + parts[0] + '/' + parts[1] + '/assign', 'POST', { owner_id: Number(sel.value) });
+    await reloadDossier('Owner set.');
+  });
+}
+
+/* ---------------------------------------------------------------------------
+   One entry, opened in place on "What came in" — a panel, not a screen.
+--------------------------------------------------------------------------- */
+var item = null;
+async function loadDossier(id) { dossier = await api('/api/pd/problem/' + encodeURIComponent(id)); }
+async function loadItem(type, id) {
+  item = await api('/api/pd/intake/' + encodeURIComponent(type) + '/' + encodeURIComponent(id));
+}
+function renderItem() {
+  if (!item) return '<div class="spin">Loading…</div>';
+  var x = item.item;
+  var hist = (item.history || []).map(function (h) {
+    if (h.change_kind === 'not_applied') {
+      return '<div class="hist"><span class="f">' + esc(h.field.replace(/_/g, ' ')) + '</span> — this change did not go through, so the record still reads as it did.' +
+        '<div class="who">' + esc(h.who) + ' · ' + when(h.changed_at) + '</div></div>';
+    }
+    if (h.change_kind === 'snapshot_on_move') {
+      return '<div class="hist"><span class="f">' + esc(h.field.replace(/_/g, ' ')) + '</span> as it read when it was refiled: ' + esc(String(h.old_value).slice(0, 300)) +
+        '<div class="who">' + esc(h.who) + ' · ' + when(h.changed_at) + '</div></div>';
+    }
+    return '<div class="hist"><span class="f">' + esc(h.field.replace(/_/g, ' ')) + '</span> ' +
+      (h.old_value ? '<span class="was">' + esc(String(h.old_value).slice(0, 200)) + '</span> → ' : 'set to ') +
+      esc(String(h.new_value === null ? '(empty)' : h.new_value).slice(0, 200)) +
+      '<div class="who">' + esc(h.who) + ' · ' + when(h.changed_at) + '</div></div>';
+  }).join('');
+  var moves = (item.moves || []).map(function (m) {
+    return '<div class="hist"><span class="f">' + esc(m.from_type) + ' → ' + esc(m.to_type) + '</span>' +
+      (m.reversed ? ' <span class="pill">moved back since</span>' : '') +
+      '<div style="margin-top:4px">' + esc(m.definition_text) + '</div>' +
+      '<div class="who">written down by ' + esc(m.original_author) + ' on ' + when(m.original_filed_at) +
+      ' · moved by ' + esc(m.mover) + ' on ' + when(m.moved_at) +
+      (m.reversed ? '' : ' · <a data-undo="' + m.id + '">move it back</a>') + '</div></div>';
+  }).join('');
+
+  var moveBox = item.caps.triage && !item.became ? '<div class="card"><h2>Record it as something else</h2>' +
+    '<p class="hint">No reason is asked for, here or anywhere. The entry keeps its number, keeps its author, and keeps what it said.</p>' +
+    '<div class="field"><label>Record it as</label><select id="to_type">' +
+      ['challenge', 'observation', 'request'].filter(function (t) { return t !== x.type; })
+        .map(function (t) { return '<option value="' + t + '">' + ({ challenge: 'a Challenge — a complaint about something we sell', observation: 'an Observation — something that arrived or was seen', request: 'a Request — someone wants a sample made' })[t] + '</option>'; }).join('') +
+    '</select></div>' +
+    '<div class="two"><div class="field"><label>Product <span class="opt">— for a Challenge</span></label><input type="text" id="m_product_ref"></div>' +
+    '<div class="field"><label>Goes to <span class="opt">— for a Request</span></label><input type="text" id="m_recipient"></div></div>' +
+    '<div class="field"><label>Who is asking <span class="opt">— for a Request</span></label><input type="text" id="m_requester"></div>' +
+    // RECLASSIFICATION-RULES.md §2: "A free note is available and always
+    // optional. It is never demanded, never highlighted as missing, and its
+    // absence is never shown."
+    '<div class="field"><label>Anything you want to add <span class="opt">— optional</span></label><textarea id="m_note" style="min-height:56px"></textarea></div>' +
+    '<button class="btn ghost" id="domove">Move it</button></div>' : '';
+
+  return '<a class="back" href="#intake">&larr; back to what came in</a>' + flashHtml() +
+    '<div class="page-h"><h1>' + esc(x.label) + '</h1><div class="sub">' + esc(item.definition) + '</div></div>' +
+    '<div class="cols"><div>' +
+      '<div class="card"><div class="row" style="margin-bottom:10px">' +
+        (x.problem_label ? '<span class="pill">' + esc(x.problem_label) + '</span>' : '<span class="pill unsorted">not filed against a problem</span>') +
+        (x.owner_name ? '<span class="pill">owner · ' + esc(x.owner_name) + '</span>' : '<span class="pill unsorted">no owner</span>') +
+        (item.became ? '<span class="pill moved">now ' + esc(item.became.label) + '</span>' : '') + '</div>' +
+        (item.became ? '<div class="result">This entry is now <a href="#item/' + esc(item.became.type) + '/' + item.became.id + '">' + esc(item.became.label) + '</a>. Its number still points there.</div>' : '') +
+        '<div class="txt" style="white-space:pre-wrap;line-height:1.6">' + esc(x.text) + '</div>' +
+        '<div class="meta" style="margin-top:12px;color:var(--mut);font-size:11.5px">written down by ' + esc(x.author || '') + ' · ' + when(x.created_at) + '</div>' +
+      '</div>' + moveBox + '</div><div>' +
+      '<div class="card"><h2>What has happened to it</h2>' +
+        '<p class="hint">Content can be edited. The record of what it said cannot.</p>' +
+        (moves || '') + (hist || (moves ? '' : '<div class="empty">Nothing yet.</div>')) + '</div>' +
+    '</div></div>';
+}
+function bindItem() {
+  var mv = $('domove');
+  if (mv) mv.onclick = async function () {
+    mv.disabled = true;
+    try {
+      var r = await api('/api/pd/intake/' + item.item.type + '/' + item.item.id + '/move', 'POST',
+        { to_type: $('to_type').value, product_ref: $('m_product_ref').value,
+          recipient: $('m_recipient').value, requester: $('m_requester').value, note: $('m_note').value });
+      clearDraft();
+      flash('ok', r.was + ' is now ' + r.label + '.');
+      location.hash = 'item/' + r.type + '/' + r.id;
+    } catch (e) { flash('bad', e.message); mv.disabled = false; paint(); }
+  };
+  Array.prototype.forEach.call(document.querySelectorAll('[data-undo]'), function (a) {
+    a.onclick = async function () {
+      try { await api('/api/pd/reclassifications/' + a.getAttribute('data-undo') + '/undo', 'POST');
+        flash('ok', 'Moved back.'); await route(); } catch (e) { flash('bad', e.message); paint(); }
+    };
+  });
+}
+
+/* ---------------------------------------------------------------------------
+   Router + paint
+--------------------------------------------------------------------------- */
+function paint() {
+  if (!me) return;                              // see the note on `me` above
+  keepDraft();
+  var body;
+  if (view === 'problems') body = renderProblems();
+  else if (view === 'item') body = renderItem();
+  else body = renderIntake();
+  $('root').innerHTML = shell(body);
+  afterRender();
+  if (view === 'problems') bindProblems();
+  else if (view === 'item') bindItem();
+  else { bindIntake(); bindTriage(); }
+  restoreDraft();
+}
+async function load() {
+  D = await api('/api/pd/intake');
+  paint();
+}
+async function route() {
+  if (!me) return;                              // the sign-out race, again
+  var parts = (location.hash || '#intake').slice(1).split('/');
+  view = parts[0] || 'intake';
+  try {
+    if (view === 'item' && parts[1] && parts[2]) { dossier = null; await loadItem(parts[1], parts[2]); await load(); }
+    else if (view === 'problem' && parts[1]) {
+      item = null; view = 'problems';
+      if (!dossier || String(dossier.problem.id) !== String(parts[1])) { openForm = ''; claimSubject = ''; clearDraft(); }
+      await loadDossier(parts[1]); await load();
+    }
+    else { item = null; dossier = null; await load(); }
+  } catch (e) {
+    if (e.message === 'signed out') return;
+    $('root').innerHTML = shell('<div class="msg bad">' + esc(e.message) + '</div>');
+    afterRender();
+  }
+}
+async function start() {
+  try {
+    me = await api('/api/pd/me');
+  } catch (e) {
+    if (e.message === 'signed out') return;
+    me = null;
+    return renderSignIn(e.message);
+  }
+  if (!me.surfaces || !me.surfaces.length) {
+    $('root').innerHTML = '<div class="signin"><div class="card"><h1>No PD access yet</h1>' +
+      '<p>Your account signs in, but nobody has given it a Product Development role. The COO or the Data Custodian can do that in Manage access.</p>' +
+      '<a href="/">&larr; Back to the platform</a></div></div>';
+    return;
+  }
+  await route();
+}
+window.addEventListener('hashchange', function () { route(); });
+if (!token()) renderSignIn(); else start();
+</script>
 </body>
 </html>

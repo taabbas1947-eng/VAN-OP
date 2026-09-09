@@ -61,7 +61,7 @@
     try {
       var r = await fetch('/api/pd/dropbox', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
       var j = await r.json();
-      if (!r.ok) { msg.innerHTML = '<div class="msg err">' + esc(j.error || 'Something went wrong.') + '</div>'; return; }
+      if (!r.ok) { msg.innerHTML = '<div class="msg err">' + esc(j.error || 'That did not go through. Try again in a moment.') + '</div>'; return; }
       document.getElementById('form').innerHTML =
         '<div class="msg ok">Thank you — it is in. The Registrar checks this box every working day. If you left a way to reach you, you will be told what happens to it and why.</div>'
         + '<button class="btn ghost" onclick="location.reload()">Drop another</button>';

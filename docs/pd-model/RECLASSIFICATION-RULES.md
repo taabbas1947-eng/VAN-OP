@@ -89,9 +89,20 @@ never overwrites:
 
 Additional standing rules:
 
-- **The number never changes.** An item keeps its identity through any conversion,
-  merge or re-parenting — consistent with killed and parked things keeping their
-  number forever.
+- **The original number never stops resolving, and points at what the item
+  became.** An item keeps its identity through any conversion, merge or
+  re-parenting — consistent with killed and parked things keeping their number
+  forever.
+
+  **Amended 9 Sept 2026, ruled by Tahir.** This bullet used to read "the number
+  never changes," which §7 of this same file contradicts three sections later:
+  its example message is *"Your entry is now Bet B-014"* — a new number. The
+  three doors are three tables, so a conversion has to issue a number in the
+  new type's own series; what must never happen is the old number going dead.
+  It does not: the original row is kept forever, keeps its own number, and
+  points forward at what the entry became, exactly the way §10's merge rule
+  already keeps a merged-away number resolving to the survivor. The rule was
+  the intent; the wording was the accident.
 - **Never overwrite in place.** `MODEL.md` §6 already demands versioning for claims.
   Same rule for type and parentage.
 - **Content that does not fit the new type is carried, not dropped.** If a field has

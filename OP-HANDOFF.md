@@ -3369,3 +3369,110 @@ Not pushed — local changes only, for Tahir to commit via GitHub Desktop.
 **Not done / next:** the PUR-ORD-2026-00592 double-count correction, and a
 decision on the V-Mg Essential pattern / Maxim Old POs bucket, are still
 open from earlier.
+
+
+## 9 Sept 2026 — MODULE: PD — old gate-based app retired, new nine-object schema built, not run
+
+Tahir: "We are working on PD... Product Development, let's develop if nothing
+is developed yet. Ask me questions." Confirmed nothing of the new nine-object
+model existed in code yet. Four scoping decisions from him this session:
+schema first, then screens; take the old /pd app down now; include the
+drafted-but-unconfirmed B9/B10/B11/B16 Combination Bank fields now, as
+optional; build in the same live database O2S already uses.
+
+**Built, not run, not pushed:**
+
+- `pd/migrations/002_pd_core_rebuild.sql` (NEW, ~860 lines) — a pre-flight
+  safety check (counts rows across everything about to be dropped/narrowed,
+  aborts loudly if any database's "PD holds no real data" premise turns out
+  false for it), then drops every old gate/hypothesis table not on
+  REUSE-RULES.md §2's whitelist, creates the nine-object schema (Problem,
+  Question, Bet, Run + readings, Claim, Challenge, Observation, Request,
+  Constraint + delivery-context register), the Combination Bank register
+  beneath Bet/Run, and the pd_reclassifications audit trail. Every object
+  gets a permanent human-facing number (MODEL.md §4's "keep their number
+  forever" rule) — pd_problems keeps the old p_number name on purpose so the
+  Library's pin code needed no renaming. ALTERs pd_materials additively for
+  the real HA/Cu/Fe/Mn/B/Ca/Mg/Moisture/OM/pH assay data from this week's
+  material-grade return.
+  **Not run against any database — nobody but Tahir, by hand, ever.**
+- `pd/pd-lib.js`, `pd/pd-routes.js` — rewritten from ~2,040 combined lines to
+  ~460. Kept only REUSE-RULES.md §2's whitelist: the Library (file storage +
+  serve + comments + pins, adapted to pin only to a Problem) and the Drop
+  box + Registrar triage (adapted so a Registrar converts an entry into a
+  Challenge, Observation, or Request — the three doors — never directly into
+  a Problem, per Tahir's decision). The old fulltext "similar idea?" checker
+  is NOT ported — Tahir's decision: its code lives on only inside the
+  Combination Bank's duplicate detector, a separate later build step.
+  Everything else (idea intake, the G1-G6 gate machinery, candidates,
+  samples, trials, formulations, regulatory, learnings) is deleted, not
+  ported.
+- `pd/pd.html` — the ~1,900-line old SPA replaced with a small static "being
+  rebuilt" notice.
+- `pd/drop.html` — one line fixed: it promised a "sign in to track your
+  submission" flow that no longer exists on the new placeholder page.
+- `server.js` — one function changed: `runPdMigration()` used to re-apply
+  `001_pd_foundation.sql` on every boot (tolerating "already applied"
+  errors). Self-caught in review: that would have silently recreated every
+  table 002 just dropped on the very next restart, undoing the whole rebuild
+  with no error and no log line anyone would think to check. Retired that
+  call; kept the harmless PD-role bootstrap; dropped the old materials
+  cost-seed (cost is out of PD, so not seeding it is correct, not a loss).
+  The route-order mount at the bottom of the file (`/pd` before O2S's
+  catch-all) was not touched.
+
+**Independent review** (code reviewer + data-safety reviewer, per this
+repo's standing "no exceptions" review rule): both ran against the actual
+files on the device, not summaries. Real findings, all fixed and
+re-verified by a second review pass:
+  - `runPdMigration()` resurrecting the old schema on every boot (above) —
+    the most severe finding, fixed.
+  - The drop-box→Observation conversion had a misaligned INSERT (a literal
+    landed in the `text` column, the real text in `origin`) — fixed.
+  - The drop-box convert route could duplicate a record if two people
+    triaged the same entry at once (no atomic claim) — restructured to a
+    claim-first compare-and-swap.
+  - Two now-orphaned pd_library_pins.target_type values ('hypothesis',
+    'project') could make `resolvePin()` show the wrong Problem by id
+    coincidence — schema narrowed, code guarded.
+  - `pd_problems` had a `retired_reason` but no way to record why a Problem
+    closed as `addressed` — generalized to one `closed_reason`.
+  - Error text on four routes said triage was "the Registrar's" while the
+    actual permission check only ever admitted Custodian/COO — reworded so
+    the message never promises access the code doesn't grant (the new
+    `registrar` pd_role, added by this migration, isn't wired to anything
+    yet — that's a screens-milestone decision, on purpose).
+  - Self-introduced while trimming the Library's pin code: the regex lost
+    its second capture group but the insert still read the old two-group
+    indexing, so every pin attempt inserted `target_id=NaN` and 500'd —
+    fixed, both call sites.
+  - The pre-flight safety check's own abort mechanism had a bug (a 115-char
+    fake procedure name over MySQL's 64-char identifier limit) — it still
+    halted the migration correctly, just with a confusing error instead of
+    the intended one — shortened and re-verified.
+
+**Disclosed, not fixed — flagged for Tahir, not decided here:**
+  - No field-VALUE snapshot anywhere yet. `pd_reclassifications` records
+    that something was refiled and by whom, but not a copy of what it said
+    at the time — an ordinary edit later can still silently overwrite
+    history on any of the nine objects or a Combination. Needs Tahir's
+    decision on a mechanism before screens get built.
+  - The claim-then-create-then-point-back sequence in drop-box convert is
+    still two non-transactional statements, not one. A real failure between
+    them leaves an entry stuck at `status='converted'` pointing at nothing —
+    visible to a human, recoverable by hand, not currently by any route.
+  - 002 only ALTERs pd_materials/pd_comments/pd_library_pins/auth_users, so
+    it assumes 001 already ran once (true for production today). A brand
+    new database that never had 001 applied would need 001 run by hand
+    first, since 002 no longer runs it automatically.
+  - Library and drop-box triage exist as working routes but have no click
+    path yet — `pd.html` is a static notice, nothing calls them. Expected
+    per "schema first, then screens," not a bug, but worth saying plainly:
+    "kept" means the code survives, not that anyone can reach it today.
+
+**Not done / next:** run `pd/migrations/002_pd_core_rebuild.sql` by hand
+against `DATABASE_URL` (never Claude — this repo's own rule). After that's
+confirmed clean, the screens milestone: an intake screen for the three
+doors, a Problem/Question/Bet/Run working view, and the Combination Bank
+entry form are all still unbuilt. Not pushed — local changes only, for
+Tahir to review and commit via GitHub Desktop.

@@ -153,6 +153,57 @@ open** — not yet touched in this pass. Archived as returned:
 `combination-bank/PD-Material-Grade-Template-RETURNED-1Sep2026.xlsx`.
 **Source:** `combination-bank/RULES.md` §10.
 
+**Second return — 9 Sept 2026, worked through with Tahir in session (resolved, not
+just landed).** Archived as returned:
+`combination-bank/PD-Material-Grade-Template-RETURNED-9Sep2026.xlsx`.
+
+- **Sulfur — merged, not split.** The return carried "Elemental Sulfur" (200 Mesh
+  and 400 Mesh, both S 90%) and a separately-named "WDG Sulfur" (S 70%) as if they
+  were different materials. **Ruled: one material, "Sulfur," three grades** — 200
+  Mesh, 400 Mesh, WDG — consistent with C1 (Sulfur is the one correct identity).
+  The 200 Mesh row still carried the old placeholder's Status/Source text
+  ("Needs assay" / "Example — not a real template row... delete or overwrite it")
+  left over from editing the template example in place rather than replacing it.
+  **Ruled: it is real** — S 90% confirmed, not a leftover example.
+- **Identity clarifications restored, not shortened.** This return's file dropped
+  the fuller names the first return had settled — SPM, Poltary and MEA perkin came
+  back as bare short names with no clarifying note. **Ruled: the fuller identity
+  stands** — `SPM (Sugar Press Mud)`, `Poltary (Poultry Waste, OM)`, `MEA
+  (Monoethanolamine) — supplier Perkin` — the short forms were an artifact of
+  starting from a blank template copy, not a deliberate rename.
+- **Lignite high % (Grinded) — assay typo fixed.** Filed with grade label "55%"
+  but an HA assay of 44%. **Ruled: 44 was the typo; HA is 55%,** matching the
+  grade label.
+- **Iron and Manganese sources — named.** Both carried real assay figures
+  (Fe 20.08%, Mn 32.5%) but were still filed under the generic placeholder names
+  ("Iron (Fe) source", "Manganese (Mn) source") the template explicitly flagged as
+  needing a real material name. **Ruled: Fe source is Ferrous Sulfate
+  Heptahydrate (Fe 20.08%); Mn source is Manganese Sulfate Monohydrate (Mn
+  32.5%).** Rename both register rows; the assay figures stand as confirmed.
+- **Fly Ash is graded, not single-value.** Filed with one row at K₂O 15%.
+  **Ruled (Tahir): Fly Ash from the bio-boiler MOP-recovery project comes in
+  several K₂O grades — 17%, 15%, 14%, 13% — confirmed, all real.** Register as
+  four grade rows under Fly Ash, not one.
+- **New real data landed, nothing to resolve:** MgO · Sodium Borate (B 20%) ·
+  MKP (P₂O₅ 52% / K₂O 34%) · Boric Acid (B 17%) · Rock Phosphate (P₂O₅ 27%) ·
+  Nitric Acid (N 20%) · Zinc Ash (Zn 40%) · Potassium Fulvate (K₂O 12%) ·
+  Calcium Carbonate (Ca 40%) · Magnesium Carbonate (Mg 28.5%) · Calcium Hydroxide
+  (Ca 54%) · Urea (N 46%, moisture <0.5%) · Magnesium Sulfate Heptahydrate
+  (Mg 10% / S 20%) · Copper Sulfate renamed **Copper Sulfate pentahydrate**
+  (Cu 25%) · the "ETDA Sodium Salt" typo corrected to **EDTA Sodium Salt**.
+  Newly named this round: Citric Acid, Acetic Acid, Sulfuric Acid (S 32%), POP,
+  Starch, Talc, China Clay, Fumed Silica, and three dyes (Yellow/Blue/Red, pH
+  6.7 / 5.7 / 9.3).
+- **SOP, KOH, Potassium Carbonate, Molasses, Fulvate Liquid, Fulvic Acid, PVA and
+  Giberalic Acid — grade deliberately deferred, not missing.** Ruled (Tahir, 9
+  Sept 2026): no need to grade these for now. They still read "grade not yet
+  decided," but that is the intended state, not an open item to chase.
+- **Amino Acid (source) — 4 grades landed, name still deferred.** The single
+  N 50% figure from the first return is superseded: **amino-acid content, four
+  real grades — 10%, 40%, 60%, 70%.** Ruled (Tahir, 9 Sept 2026): keep the
+  placeholder name "Amino Acid (source)" for now rather than naming the real
+  material — the grades are confirmed, the identity is deliberately left open.
+
 ### B3. The assay figures — partially confirmed 1 Sept 2026
 Real, confirmed lab figures now on file for: Sulfur S 80% · SOP K₂O 50% · KOH
 K₂O 70% · Potassium Carbonate K₂O 60% · Amino Acid (source) N 50% · Zinc Sulfate
@@ -162,6 +213,24 @@ Confirmed by Tahir as final lab data, not placeholders. Everything else —
 including all 21 newly named materials except Zinc Oxide — still has no assay on
 file. Computed analysis stays blank for any combination using an un-assayed
 grade, per §4.3 of `combination-bank/RULES.md` — designed behaviour, not a fault.
+
+**9 Sept 2026 update.** Confirmed lab figures now also on file for: Sulfur 200
+Mesh S 90% · Sulfur 400 Mesh S 90% · Sulfur WDG S 70% (all three folded into one
+"Sulfur" material, see B2) · MgO Mg 60% · Sodium Borate B 20% · MKP P₂O₅ 52% /
+K₂O 34% · Boric Acid B 17% · Rock Phosphate P₂O₅ 27% · Nitric Acid N 20% · Zinc
+Ash Zn 40% · Potassium Fulvate K₂O 12% · Calcium Carbonate Ca 40% · Magnesium
+Carbonate Mg 28.5% · Calcium Hydroxide Ca 54% · Urea N 46% · Magnesium Sulfate
+Heptahydrate Mg 10% / S 20% · Copper Sulfate pentahydrate Cu 25% · Ferrous
+Sulfate Heptahydrate Fe 20.08% · Manganese Sulfate Monohydrate Mn 32.5% · Fly
+Ash (MOP-recovery project) K₂O 17% / 15% / 14% / 13%, four grades · Sulfuric
+Acid S 32% · **Amino Acid (source), amino-acid content, four grades — 10% /
+40% / 60% / 70%** (supersedes the earlier N 50% figure; material name stays
+the placeholder, deliberately, per B2). **Deliberately left ungraded/unassayed,
+not open items:** SOP, KOH, Potassium Carbonate, Molasses, Fulvate Liquid,
+Fulvic Acid, PVA, Giberalic Acid. Still genuinely no assay: Humic Acid Flakes
+(HA 40% / moisture 15% did land, grade itself still undecided), and the newly
+named Citric Acid / Acetic Acid / POP / Starch / Talc / China Clay / Fumed
+Silica / three dyes.
 
 
 ### B4. The controlled vocabularies — fill-in template built 1 Sept 2026
@@ -514,6 +583,8 @@ useful as the ceiling to know about, not the floor PD has to build to. **Source:
 | 1 Sept 2026 | **B16 cross-product signal design drafted** into `combination-bank/RULES.md` §9.3 — trigger events, auto-generated Observation delivery (no tenth object), substance-level matching, active-work-only scope. **Not yet confirmed by Tahir.** |
 | 1 Sept 2026 | **First partial return on B2/B3** — 21 new materials named (3 identities clarified: SPM = Sugar Press Mud, Poltary = Poultry Waste/OM, MEA perkin = Monoethanolamine from supplier Perkin), 11 assay figures confirmed as real lab data on existing candidate rows. Grades for the new rows, and most of the original 24 candidates, still open. Archived: `combination-bank/PD-Material-Grade-Template-RETURNED-1Sep2026.xlsx`. |
 | 1 Sept 2026 | **Engine-first, Claims are memory — not a gatekeeper.** Ruled in discussion of AI-assisted research and the Combination Engine (`docs/pd-model/combination-bank/`). The **Combination Engine** — configure materials / design space / constraints → ranked candidates → make → test → write the result — is PD's daily-use core, and must stay frictionless: nothing academic required to run it. The **Claim/evidence layer** (grading, challenge, provenance — `MODEL.md` §6) is optional enrichment for institutional memory, so the next person doesn't repeat a dead end — it is **never a precondition** for making or testing a combination, and logging or grading a claim must never be required before someone can act. Only the two hard rules in `MODEL.md` §0 are required: write the question before work, write the result on close. **Why this matters:** without this guardrail, a claims-review discipline can quietly rebuild the gate/committee problem A1 just removed — a review board in a new costume, arguing over evidence instead of arguing over sign-off. Tahir's framing: don't let AI-driven research turn into an academic claims debate that displaces product development and the system's core focus. Also settled in the same discussion: a **deterministic combination/screening engine** (mass balance, stoichiometry, an explicit design space and constraints — the shape already proven outside PD by the DAP Alternative Project's Phase 1 screening tool, `E:\NP\DAP Alternative Project\02_Prediction_Engine`) is the right model for "AI-assisted research" inside PD; **language-model literature synthesis is not** — VAN's own dated finding on that project was that general literature search (Scite) returned unusable results for this niche chemistry, and formulation chemistry must trace to a written rule, never be invented by an LLM. Source: this session, 1 Sept 2026 (no separate write-up file yet). |
+| 9 Sept 2026 | **Amino Acid (source) graded, SOP/KOH/K₂CO₃/Molasses/Fulvate Liquid/Fulvic Acid/PVA/Giberalic Acid deliberately left ungraded.** Amino Acid (source) gets four real grades by amino-acid content — 10%, 40%, 60%, 70% — superseding the earlier single N 50% figure; the material keeps its placeholder name for now, deliberately, not because the real name is unknown. Tahir ruled the other eight materials (SOP, KOH, Potassium Carbonate, Molasses, Fulvate Liquid, Fulvic Acid, PVA, Giberalic Acid) don't need a grade for now — "grade not yet decided" is their settled state, not a gap to chase. |
+| 9 Sept 2026 | **Second B2/B3 return, worked through and resolved with Tahir.** Sulfur consolidated into one material with three grades (200 Mesh, 400 Mesh, WDG — all confirmed S 90/90/70%), the 200 Mesh row confirmed real despite carrying leftover placeholder text. SPM/Poltary/MEA perkin's fuller identity notes (Sugar Press Mud / Poultry Waste (OM) / Monoethanolamine–Perkin) restored after the return file dropped them. Lignite high % (Grinded) HA assay typo corrected 44%→55%. Iron and Manganese sources named: Ferrous Sulfate Heptahydrate (Fe 20.08%) and Manganese Sulfate Monohydrate (Mn 32.5%). Fly Ash (bio-boiler MOP-recovery project) confirmed as four grades — K₂O 17/15/14/13% — not one. New confirmed assay data landed on 14 more materials plus 9 newly named ones (Citric Acid, Acetic Acid, Sulfuric Acid, POP, Starch, Talc, China Clay, Fumed Silica, three dyes). Full detail in B2/B3. Archived: `combination-bank/PD-Material-Grade-Template-RETURNED-9Sep2026.xlsx`. |
 
 ---
 

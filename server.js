@@ -205,36 +205,31 @@ if (DATABASE_URL) {
 }
 
 /* ---------- PD (Product Development) foundation migration ---------- */
-// Additive, idempotent: safe to run on every boot. Statements that have
-// already been applied (duplicate column, table already exists) are skipped
-// individually rather than aborting the whole file, since MySQL 5.7 (some
-// cPanel/HostGator hosts) doesn't support "ADD COLUMN IF NOT EXISTS".
+// RETIRED 9 Sept 2026 — this used to auto-apply pd/migrations/001_pd_foundation.sql
+// (the old gate/hypothesis schema) on every boot, tolerating "already applied"
+// errors so it was safe to re-run forever. That is now actively dangerous:
+// pd/migrations/002_pd_core_rebuild.sql DROPs those same tables (REUSE-RULES.md
+// §2 — everything not whitelisted is retired), and 001's CREATE TABLE IF NOT
+// EXISTS statements would silently recreate every one of them on the very next
+// restart after 002 is run, undoing the whole rebuild with no error and no log
+// line anyone would think to look for. Self-caught in the data-safety review
+// of the rebuild, 9 Sept 2026 — this file was never touched by that work, so
+// nobody would have thought to check it.
+//
+// 002 is NOT wired in here to replace 001: unlike 001, it contains one-time
+// DROP TABLE / ENUM-narrowing statements that must never run automatically on
+// a boot loop (see 002's own header — "Run ONCE... nobody but Tahir, by hand").
+// A boot-time idempotent "ensure the new tables exist" step, if ever needed,
+// is a decision for the screens milestone, not decided here.
 async function runPdMigration() {
   if (!pdq) { console.log('PD migration skipped — no DATABASE_URL (local-file mode has no relational SQL to migrate).'); return; }
-  const sqlPath = path.join(__dirname, 'pd', 'migrations', '001_pd_foundation.sql');
-  let sql;
-  try { sql = fs.readFileSync(sqlPath, 'utf8'); } catch (e) { console.log('PD migration file not found, skipping: ' + sqlPath); return; }
-  const sqlNoComments = sql.split('\n').filter(line => !line.trim().startsWith('--')).join('\n');
-  const statements = sqlNoComments
-    .split(/;\s*\n/)
-    .map(s => s.trim())
-    .filter(Boolean);
-  let applied = 0, skipped = 0;
-  for (const stmt of statements) {
-    try { await pdq(stmt); applied++; }
-    catch (e) {
-      // 1060 duplicate column, 1061 duplicate key name, 1050 table exists (CREATE TABLE already has IF NOT EXISTS so this is belt-and-braces)
-      if ([1060, 1061, 1050].includes(e.errno)) { skipped++; continue; }
-      console.error('PD migration statement failed:\n' + stmt.slice(0, 120) + '...\n', e.message);
-      throw e;
-    }
-  }
-  console.log(`PD migration: ${applied} statements applied, ${skipped} already in place.`);
   // Bootstrap: give the seeded 'admin' account (already the hardcoded O2S COO —
   // see DEFAULT_USERS above) the matching PD role too, but only if NOBODY has a
   // PD role yet. This makes a fresh install/local dev DB immediately usable
   // (sign in as admin, everything's unlocked) without a manual API call, while
-  // never overwriting a real deployment's own role assignments.
+  // never overwriting a real deployment's own role assignments. Kept — this
+  // does not depend on the retired schema, only on auth_users.pd_role, which
+  // 002 alters but does not remove.
   try {
     const [countRows] = await pdq("SELECT COUNT(*) AS n FROM auth_users WHERE pd_role IS NOT NULL");
     if (Number(countRows[0].n) === 0) {
@@ -242,18 +237,13 @@ async function runPdMigration() {
       console.log("PD bootstrap: no PD roles existed yet — granted 'admin' the coo PD role so a fresh install/local DB is immediately usable.");
     }
   } catch (e) { console.error('PD role bootstrap check failed (non-fatal):', e.message); }
-  // Seed the materials register (the candidate screen's arithmetic inputs) if it is empty — the
-  // faithful equivalent of the PHP setup.php reading inc/seed_materials.php. All prices are placeholders.
-  try {
-    const [[mc]] = [(await pdq('SELECT COUNT(*) AS n FROM pd_materials'))[0]];
-    if (Number(mc.n) === 0 && pd.MATERIALS_SEED && pd.MATERIALS_SEED.length) {
-      for (const m of pd.MATERIALS_SEED) {
-        await pdq('INSERT IGNORE INTO pd_materials (code, name, n_pct, p2o5_pct, s_pct, zn_pct, cost_per_tonne, assay_basis, cost_basis, spec_note, cost_updated) VALUES (?,?,?,?,?,?,?,?,?,?,CURRENT_DATE)',
-          [m[0], m[1], m[2], m[3], m[4], m[5], m[6], m[7], m[8], m[9]]);
-      }
-      console.log(`PD materials seeded: ${pd.MATERIALS_SEED.length} rows (all placeholder-priced).`);
-    }
-  } catch (e) { console.error('PD materials seed check failed (non-fatal):', e.message); }
+  // The old materials cost-register seed (pd.MATERIALS_SEED: code/name/N/P2O5/
+  // S/Zn/cost_per_tonne/...) is gone on purpose, not by accident — it seeded
+  // placeholder COST data, and cost is OUT of PD platform-wide, no exception
+  // (PENDING-DECISIONS.md §D, settled 1 Sept 2026; REUSE-RULES.md §2 item 1,
+  // "REMOVED 1 Sept 2026"). Re-seeding it would reintroduce exactly what was
+  // ruled out. pd_materials keeps its real, non-cost assay data via the
+  // Combination Bank's own material register — not this boot-time seed.
 }
 
 /* ---------- one-time migration: move existing users into hashed auth ---------- */

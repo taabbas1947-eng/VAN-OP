@@ -46,9 +46,9 @@ const ok = (c, what) => { if (c) pass++; else { fail++; console.log('  FAIL  ' +
   await page.click('#psave');
   await page.waitForSelector('.msg.ok', { timeout: 8000 });
   await page.click('a[href^="#problem/"]');
-  await waitForText(/Questions/);
+  await waitForText(/back to problems/);
   ok(/P fixation in our soils/.test(await main()), 'a problem opens into its own dossier');
-  ok(/Nothing gets made until one is written/.test(await main()), 'and says plainly that a question comes first');
+  ok(/Nothing gets made until a Question is written/.test(await main()), 'and says plainly that a Question comes first');
 
   /* ---- a question, and the draft surviving a re-render ---- */
   await page.click('[data-open="question"]');
@@ -78,7 +78,7 @@ const ok = (c, what) => { if (c) pass++; else { fail++; console.log('  FAIL  ' +
   await page.selectOption('#b_ctx_' + qid, { label: 'soil broadcast' });
   await page.click('[data-bet="' + qid + '"]');
   await waitForText(/B-001/);
-  ok(/Kills it: No difference in available P/.test(await main()), 'the kill criterion is printed on the bet, not hidden behind it');
+  ok(/Kill criterion — the one result that ends this Bet: No difference in available P/.test(await main()), 'the kill criterion is named and printed on the Bet, not hidden behind it');
   ok(/soil broadcast/.test(await main()), 'and the context it is aimed through');
 
   /* ---- a run, with the objective on it (B7) ---- */
@@ -89,9 +89,10 @@ const ok = (c, what) => { if (c) pass++; else { fail++; console.log('  FAIL  ' +
   await page.click('[data-run="' + bid + '"]');
   await waitForText(/R-001/);
   const runText = await main();
-  ok(/Answers: Does a humic coating slow P fixation\?/.test(runText), 'the run says which question it answers, on the run');
-  ok(/kills it:/.test(runText), 'and the result that would kill its bet — not one click away');
-  ok(/no recipe recorded yet/.test(runText), 'and says plainly that no recipe is recorded against it yet');
+  ok(/This Run answers: Does a humic coating slow P fixation\?/.test(runText), 'the Run says which Question it answers, on the Run');
+  ok(/This Bet ends if:/.test(runText), 'and the result that would end its Bet — not one click away');
+  ok(/Run R-001/.test(runText), 'and the Run says what kind of thing it is, in the word the model uses');
+  ok(/Bet B-001/.test(runText), 'as does the Bet above it');
 
   /* ---- a look, and the investigation that opens itself ---- */
   await page.click('[data-open^="reading:"]');
@@ -102,17 +103,24 @@ const ok = (c, what) => { if (c) pass++; else { fail++; console.log('  FAIL  ' +
   await page.fill('#rd_next_' + rid, '2026-10-02');
   await page.click('[data-reading="' + rid + '"]');
   await page.waitForSelector('.msg.ok', { timeout: 8000 });
-  ok(/investigation is open/i.test(await page.textContent('.msg.ok')), 'an abnormal look opens an investigation, and says so');
+  ok(/investigation is open/i.test(await page.textContent('.msg.ok')), 'an abnormal reading opens an investigation, and says so');
   ok(/Something abnormal — an investigation is open/.test(await main()), 'and the run carries that state');
-  ok(/Next look: 2 Oct 2026/.test(await main()), 'with the next look it set for itself');
+  ok(/Next reading due: 2 Oct 2026/.test(await main()), 'with the next reading it set for itself');
 
   /* ---- closing needs the result written ---- */
   await page.click('[data-open^="closerun:"]');
   await page.waitForSelector('[id^="cr_actual_"]');
+  /* A Run records what was expected against what happened. Both halves have to
+     be readable at the moment the second half is written, or "what actually
+     happened" is being written against a memory. Same for the kill criterion:
+     it was written before the bench work precisely so it could be read here. */
+  const closeBox = await main();
+  ok(/You expected:/.test(closeBox) && /available P/i.test(closeBox), 'the close form shows what was expected');
+  ok(/This Bet ends if:/.test(closeBox), 'and the kill criterion that was written before the work');
   await page.fill('#cr_actual_' + rid, 'It caked.');
   await page.click('[data-closerun="' + rid + '"]');
   await page.waitForSelector('.msg.bad', { timeout: 8000 });
-  ok(/without the actual it records nothing/.test(await page.textContent('.msg.bad')), 'a run will not close on an actual too thin to mean anything');
+  ok(/without the second half it records nothing/.test(await page.textContent('.msg.bad')), 'a Run will not close on an actual too thin to mean anything');
   await page.fill('#cr_actual_' + rid, 'Available P held 18% above the control, but the granules caked in storage.');
   await page.click('[data-closerun="' + rid + '"]');
   await page.waitForFunction(() => /Nothing gets closed/.test(document.querySelector('.msg.bad') ? document.querySelector('.msg.bad').textContent : ''), null, { timeout: 8000 }).catch(() => {});
@@ -150,7 +158,7 @@ const ok = (c, what) => { if (c) pass++; else { fail++; console.log('  FAIL  ' +
   await page.click('#c_save');
   await waitForText(/challenges C-/);
   ok(/challenges C-/.test(await main()), 'a claim can challenge another, and says which');
-  ok(/contested/.test(await main()), 'and the question it sits under reads as contested');
+  ok(/Contested — there are claims on both sides/.test(await main()), 'and the Question it sits under reads as contested, in words');
 
   /* ---- §6 banned words, across the dossier ---- */
   const BANNED = ['wrong', 'incorrect', 'invalid', 'error', 'mistake', 'misfiled',
@@ -160,7 +168,7 @@ const ok = (c, what) => { if (c) pass++; else { fail++; console.log('  FAIL  ' +
   ok(!hit, '§6: no banned word anywhere on the dossier (found "' + hit + '")');
 
   /* ---- the screen count did not grow ---- */
-  ok((await page.$$('.side .nav a')).length === 2, 'the nav still carries two screens — a Problem is a panel, not a screen');
+  ok((await page.$$('.side .nav a')).length === 4, 'the nav carries four screens — a Problem is a panel on one of them, not a fifth');
   ok(await page.isVisible('a[href="#problems"].active') || /Problems/.test(await page.textContent('.side')), 'and Problems is the one highlighted');
 
   /* ---- a team member can open work, not assign it ---- */
@@ -168,7 +176,7 @@ const ok = (c, what) => { if (c) pass++; else { fail++; console.log('  FAIL  ' +
   await page.goto(BASE + '/pd#problems', { waitUntil: 'domcontentloaded' });
   await page.waitForSelector('a[href^="#problem/"]', { timeout: 8000 });
   await page.click('a[href^="#problem/"]');
-  await waitForText(/Questions/);
+  await waitForText(/back to problems/);
   ok(await page.isVisible('[data-open="question"]'), 'a team member is offered the question form');
   ok(!(await page.isVisible('[data-assign]')), 'but not the control that names somebody else the owner');
 
@@ -181,14 +189,14 @@ const ok = (c, what) => { if (c) pass++; else { fail++; console.log('  FAIL  ' +
   await page.click('#psave'); await page.waitForSelector('.msg.ok', { timeout: 8000 });
   const links = await page.$$eval('a[href^="#problem/"]', as => as.map(a => a.getAttribute('href')));
   await page.goto(BASE + '/pd' + links[links.length - 1], { waitUntil: 'domcontentloaded' });
-  await waitForText(/Questions/);
+  await waitForText(/back to problems/);
   await page.click('[data-open="question"]');
   await page.waitForSelector('[id^="q_title_"]');
   const pidA = (await page.getAttribute('[id^="q_title_"]', 'id')).split('_').pop();
   await page.fill('#q_title_' + pidA, 'DRAFT MEANT FOR THE FIRST PROBLEM');
   await page.click('[data-open="question"]');            // cancel, leaving the draft behind
   await page.goto(BASE + '/pd' + links[0], { waitUntil: 'domcontentloaded' });
-  await waitForText(/Questions/);
+  await waitForText(/back to problems/);
   await page.click('[data-open="question"]');
   await page.waitForSelector('[id^="q_title_"]');
   const pidB = (await page.getAttribute('[id^="q_title_"]', 'id')).split('_').pop();

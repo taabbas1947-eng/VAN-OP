@@ -74,7 +74,7 @@ it does not quietly touch both and call it one task.
 | Module | Owns these paths | Live at |
 |---|---|---|
 | **O2S** (Order to Ship) | `index.html` · the O2S route/API block in `server.js` · `data/state.json` | `/o2s` |
-| **PD** (Product Development) | **everything under `pd/`** — `pd.html`, `pd-lib.js`, `drop.html`, `migrations/`, `PORTING_STATUS.md` · the `/api/pd/*` block in `server.js` | `/pd`, `/pd/drop` |
+| **PD** (Product Development) | **everything under `pd/`** — `pd.html`, `pd-lib.js`, `pd-routes.js`, `drop.html`, `migrations/`, `tests/` · the `/api/pd/*` block in `server.js` | `/pd`, `/pd/drop` |
 | **PLATFORM** (shared) | `launcher.html` · login / `van_token` / `GET /api/me` · `auth_users`, `user_module_roles` · `package.json`, `render.yaml`, `assets/`, `Logo/` | `/` |
 | **HRMS** | launcher card only — **no backend exists yet** (0 references in `server.js`) | card says LIVE, nothing behind it |
 | **QMS, CRMS** | not built | "Coming soon" cards |
@@ -176,6 +176,11 @@ and a live one, it ships the live one and writes the remainder down.
 - `_to_delete/` holds **stale duplicate copies** of `pd.html`, `pd-lib.js`,
   `migrations/`, `PORTING_STATUS.md`. It is gitignored. **Never open, edit, or
   read these as source** — they are the old versions and will mislead.
+- `pd/PORTING_STATUS.md` is **retired** (10 Sept 2026) and now contains only a
+  pointer. It described the July 2026 gate-based port, which the September
+  nine-object rebuild replaced. **`OP-HANDOFF.md` is the single status
+  document for PD** — its most recent dated entry is the current state. Do not
+  start a second one.
 
 ### 3.1 How changes reach the working tree — no patch files, ever
 

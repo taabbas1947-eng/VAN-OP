@@ -482,6 +482,56 @@ function doorRow(type, r) {
   };
 }
 
+/* Turn one history row into something a person can read.
+   "owner id set to 10" becomes "given an owner — Maleeha".
+   Fields the model cares about get a sentence; everything else gets its own
+   name in words. Nothing here changes what is stored — pd_field_history stays
+   exactly as written, because it cannot be rewritten (003's triggers) and
+   should not be. This is presentation, at the last possible moment. */
+const FIELD_WORDS = {
+  problem_id: 'the problem it sits under', owner_id: 'its owner', status: 'its state',
+  state: 'its state', triaged_by: 'who filed it', product_ref: 'the product it is about',
+  complaint_text: 'what the complaint says', text: 'what it says', purpose: 'what it is for',
+  requester: 'who asked', recipient: 'who it goes to', buried_claim_text: 'the claim underneath it',
+  reported_by_name: 'who reported it', reported_by_contact: 'their contact',
+  dispatch_date: 'the dispatch date', return_by: 'the date it is wanted by',
+  title: 'its title', nature: 'what kind of question it is', due_date: 'its due date',
+  approach: 'the approach', kill_criterion: 'the kill criterion', expected: 'what was expected',
+  actual: 'what actually happened', closing_claim_id: 'the result that closed it',
+  settled_reason: 'the answer', closed_reason: 'why it closed', converted_to_type: 'what it became',
+  delivery_context_id: 'the context it is aimed through',
+};
+async function nameOf(table, id, col) {
+  if (!id) return null;
+  try { const [[r]] = [(await pdq(`SELECT ${col} v FROM ${table} WHERE id=?`, [Number(id)]))[0]]; return r ? r.v : null; }
+  catch (e) { return null; }
+}
+async function readableValue(field, v) {
+  if (v === null || v === undefined || v === '') return null;
+  if (field === 'owner_id' || field === 'triaged_by') return await nameOf('auth_users', v, 'name');
+  if (field === 'problem_id') {
+    const [[r]] = [(await pdq('SELECT p_number, title FROM pd_problems WHERE id=?', [Number(v)]))[0]];
+    return r ? pd.fmt_p(r.p_number) + ' — ' + r.title : null;
+  }
+  if (field === 'delivery_context_id') return await nameOf('pd_delivery_contexts', v, 'name');
+  if (field === 'closing_claim_id') {
+    const [[r]] = [(await pdq('SELECT claim_number FROM pd_claims WHERE id=?', [Number(v)]))[0]];
+    return r ? pd.fmt_cl(r.claim_number) : null;
+  }
+  if (field === 'status' || field === 'state') {
+    return pd.RUN_STATUSES[v] || pd.BET_STATUSES[v] || pd.QUESTION_STATES[v] || String(v);
+  }
+  if (field === 'nature') return pd.QUESTION_NATURES[v] || String(v);
+  return String(v);
+}
+async function readableChange(h) {
+  return {
+    field_words: FIELD_WORDS[h.field] || h.field.replace(/_id$/, '').replace(/_/g, ' '),
+    old_words: await readableValue(h.field, h.old_value),
+    new_words: await readableValue(h.field, h.new_value),
+  };
+}
+
 async function loadDoorRow(type, id) {
   const d = DOOR_TABLES[type];
   const [[r]] = [(await pdq(
@@ -509,7 +559,9 @@ function settledStatus(type, problemId, ownerId) {
 app.get('/api/pd/intake', auth, pdAuth, pdSurface('intake'), async (req, res) => {
   try {
     const me = req.pdUser, triage = mayTriage(me.pd_role);
-    const out = { mine: [], feed: [], problems: [], people: [], notices: [] };
+    /* No `notices` key: this route must never carry one. See the note further
+       down — delivery is what marks a notice seen, and this screen shows none. */
+    const out = { mine: [], feed: [], problems: [], people: [] };
 
     for (const type of Object.keys(DOOR_TABLES)) {
       const d = DOOR_TABLES[type];
@@ -536,12 +588,22 @@ app.get('/api/pd/intake', auth, pdAuth, pdSurface('intake'), async (req, res) =>
       }
     }
     const byNewest = (a, b) => new Date(b.created_at) - new Date(a.created_at);
+    const byOldest = (a, b) => new Date(a.created_at) - new Date(b.created_at);
+    // "Your entries" is a personal log — the thing you just wrote belongs on top.
     out.mine.sort(byNewest);
-    // Unsorted first — it is the front of the system, not a naughty list, so it
-    // is ordered by age and never grouped by who filed it (§8.4).
+    /* The queue is the opposite: it is drained, not read, so the OLDEST entry
+       goes at the top — it is the one most likely to have gone stale, and it is
+       the one that sinks out of sight under a newest-first sort. Unsorted first
+       because it is the front of the system, not a naughty list, and never
+       grouped by who filed it (§8.4). The screen's own hint says "oldest first";
+       until 10 Sept 2026 the sort said otherwise. */
     out.feed.sort((a, b) => (a.moved ? 1 : 0) - (b.moved ? 1 : 0)
       || (a.status === 'unsorted' ? 0 : 1) - (b.status === 'unsorted' ? 0 : 1)
-      || byNewest(a, b));
+      /* Entries written in the same second must still have ONE order, or the
+         list reshuffles between loads. Falling back to the number within the
+         series keeps it stable and still reads oldest-first. */
+      || byOldest(a, b)
+      || (a.type === b.type ? a.id - b.id : String(a.type).localeCompare(String(b.type))));
     out.feed = out.feed.slice(0, 120);
 
     const [probs] = await pdq(
@@ -558,16 +620,14 @@ app.get('/api/pd/intake', auth, pdAuth, pdSurface('intake'), async (req, res) =>
       out.people = people.map(p => ({ id: p.id, name: p.name, role_label: pd.PD_ROLES[p.pd_role] || p.pd_role }));
     }
 
-    // RECLASSIFICATION-RULES.md §7: "the author sees ONE message, ONCE", with
-    // three parts and ONE action ("I meant something else"). An acknowledge
-    // button would be a second action, so delivery itself is what marks it
-    // seen. Nothing is lost by that: the entry's own card carries where it
-    // went, permanently, and GET /api/pd/notices still returns the full list.
-    const [notices] = await pdq(
-      `SELECT n.*, u.name mover FROM pd_notices n JOIN auth_users u ON u.id = n.moved_by
-        WHERE n.recipient_id = ? AND n.seen_at IS NULL ORDER BY n.id`, [me.id]);
-    out.notices = notices;
-    if (notices.length) await pdq('UPDATE pd_notices SET seen_at=NOW() WHERE recipient_id=? AND seen_at IS NULL', [me.id]);
+    /* Notices are delivered by ONE route and marked seen by that same route:
+       GET /api/pd/mywork, which is the only screen that renders them.
+       RECLASSIFICATION-RULES.md §7 says the author sees one message once, and
+       delivery is what marks it seen (an acknowledge button would be a second
+       action). That only holds if the route that marks it is the route that
+       shows it. This screen fetches on every route change and does not render
+       notices, so returning them here would consume a message the author never
+       saw. Fixed 10 Sept 2026 after a verification pass caught it. */
 
     out.doors = pd.DOORS; out.sources = pd.SOURCES; out.problemKinds = pd.PROBLEM_KINDS;
     out.caps = { triage };
@@ -582,7 +642,7 @@ app.post('/api/pd/intake', auth, pdAuth, pdSurface('intake'), async (req, res) =
     const b = req.body || {}, me = req.pdUser;
     const text = clean(b.text, 5000);
     if (text.length < 15) {
-      return res.status(400).json({ error: 'Write a sentence or two about it — enough that someone reading this in a year knows what you meant.' });
+      return res.status(400).json({ error: 'Write a sentence or two about it, so that whoever reads it later knows what you meant.' });
     }
     const source = pd.SOURCES[b.source] ? b.source : 'team';
     const reporter = clean(b.reported_by_name, 120) || me.name;
@@ -656,6 +716,7 @@ app.get('/api/pd/intake/:type/:id', auth, pdAuth, pdSurface('intake'), async (re
     const [hist] = await pdq(
       `SELECT h.*, u.name who FROM pd_field_history h JOIN auth_users u ON u.id = h.changed_by
         WHERE h.object_type = ? AND h.object_id = ? ORDER BY h.id`, [type, req.params.id]);
+    for (const h of hist) Object.assign(h, await readableChange(h));
     const [moves] = await pdq(
       `SELECT m.*, mu.name mover, au.name original_author
          FROM pd_reclassifications m
@@ -1005,7 +1066,7 @@ app.post('/api/pd/problems', auth, pdAuth, pdSurface('intake'), async (req, res)
     const b = req.body || {}, me = req.pdUser;
     const title = clean(b.title, 200), statement = clean(b.statement, 5000);
     const kind = pd.PROBLEM_KINDS[b.kind] ? b.kind : 'field_problem';
-    if (title.length < 4) return res.status(400).json({ error: 'Give it a short title someone will recognise a year from now.' });
+    if (title.length < 4) return res.status(400).json({ error: 'Give it a short title that will still be recognisable later.' });
     if (statement.length < 15) return res.status(400).json({ error: kind === 'product_concept' ? 'Say what the product is meant to do, in a sentence or two.' : 'Say what the problem actually is, in a sentence or two.' });
     let newId = 0;
     const n = await pd.insert_numbered(pdq, 'pd_problems', 'p_number', async (n) => {
@@ -1024,7 +1085,7 @@ app.post('/api/pd/problems/:id/close', auth, pdAuth, pdSurface('triage'), async 
     const status = ['open', 'addressed', 'retired'].includes(b.status) ? b.status : null;
     if (!status) return res.status(400).json({ error: 'A problem is open, addressed, or retired.' });
     const reason = clean(b.closed_reason, 5000);
-    if (status !== 'open' && !reason) return res.status(400).json({ error: 'Write what came of it. MODEL.md’s second hard rule: nothing gets closed until we have written the result.' });
+    if (status !== 'open' && !reason) return res.status(400).json({ error: 'Write what came of this Problem before closing it — pass, fail or parked, and why.' });
     const [[p]] = [(await pdq('SELECT * FROM pd_problems WHERE id=?', [req.params.id]))[0]];
     if (!p) return res.status(404).json({ error: 'Not found.' });
     const after = { status, closed_reason: status === 'open' ? null : reason };
@@ -1226,8 +1287,9 @@ app.get('/api/pd/problem/:id', auth, pdAuth, pdSurface('intake'), async (req, re
 
     const [contexts] = await pdq('SELECT id, name FROM pd_delivery_contexts ORDER BY id');
     const [constraints] = await pdq(
-      `SELECT c.*, dc.name context_name FROM pd_constraints c
+      `SELECT c.*, dc.name context_name, u.name added_by_name FROM pd_constraints c
          JOIN pd_delivery_contexts dc ON dc.id=c.delivery_context_id
+         LEFT JOIN auth_users u ON u.id=c.added_by
         WHERE c.active=1 ORDER BY dc.id, c.id`);
     const [people] = await pdq("SELECT id, name, pd_role FROM auth_users WHERE pd_role IS NOT NULL AND active=1 ORDER BY name");
 
@@ -1268,14 +1330,74 @@ app.get('/api/pd/problem/:id', auth, pdAuth, pdSurface('intake'), async (req, re
           .map(h => ({ version: h.version, text: h.text, grade: h.grade, written_by_name: h.written_by_name, created_at: h.created_at })),
       })),
       filed,
+      constraintRegister: constraints.map(c => ({
+        id: c.id, context_id: c.delivery_context_id, context_name: c.context_name,
+        kind: c.kind, kind_label: pd.CONSTRAINT_KINDS[c.kind] || c.kind,
+        rule_text: c.rule_text, added_by_name: c.added_by_name || null, created_at: c.created_at,
+      })),
       vocab: {
         natures: pd.QUESTION_NATURES, grades: pd.CLAIM_GRADES, verdicts: pd.READING_VERDICTS,
-        betStatuses: pd.BET_STATUSES, contexts,
+        betStatuses: pd.BET_STATUSES, contexts, constraintKinds: pd.CONSTRAINT_KINDS,
       },
       people: people.map(x => ({ id: x.id, name: x.name, role_label: pd.PD_ROLES[x.pd_role] || x.pd_role })),
       caps: { lead: pd.is_lead(me.pd_role), me: me.id },
     });
   } catch (e) { fail(res, e); }
+});
+
+/* ---------- Constraints ----------------------------------------------------
+ * MODEL.md §3's ninth object. Until 10 Sept 2026 it could be READ (a Bet shows
+ * what its delivery context imposes) but never WRITTEN — every constraint in
+ * the system arrived through a migration. Tahir's ruling that day: it is
+ * written from inside the Problem dossier, next to the Bets that inherit it,
+ * rather than from a fifth screen that would cross REUSE-RULES §5's tripwire.
+ *
+ * Leads only. This is the sharpest edge of "open to write, restricted to
+ * assign": a constraint does not describe one trial, it removes options from
+ * every product ever aimed through that delivery context. And it is retired
+ * with a written reason rather than deleted, because a rule that used to bind
+ * and no longer does is exactly the kind of thing people forget and re-argue.
+ * ------------------------------------------------------------------------- */
+app.post('/api/pd/constraints', auth, pdAuth, pdSurface('intake'), async (req, res) => {
+  try {
+    const b = req.body || {}, me = req.pdUser;
+    if (!pd.is_lead(me.pd_role)) {
+      return res.status(403).json({ error: 'A constraint binds every product aimed through that context, so writing one is a technical lead’s or the COO’s.' });
+    }
+    const ctxId = Number(b.delivery_context_id) || 0;
+    const [[ctx]] = [(await pdq('SELECT id, name FROM pd_delivery_contexts WHERE id=?', [ctxId]))[0]];
+    if (!ctx) return res.status(400).json({ error: 'Say which delivery context this binds: soil broadcast, side-dress band, fertigation, foliar, ULV drone or seed treatment.' });
+    const kind = pd.has(pd.CONSTRAINT_KINDS, b.kind) ? b.kind : '';
+    if (!kind) return res.status(400).json({ error: 'Say what kind of rule it is: blending, storage / CRH, logistics / freight, regulatory, or what the plant can do.' });
+    const rule = clean(b.rule_text, 5000);
+    if (rule.length < 10) {
+      return res.status(400).json({ error: 'Write the rule out. A constraint nobody can read is a constraint nobody will apply.' });
+    }
+    const [ins] = await pdq(
+      'INSERT INTO pd_constraints (delivery_context_id, kind, rule_text, added_by) VALUES (?,?,?,?)',
+      [ctx.id, kind, rule, me.id]);
+    res.json({ ok: true, id: ins.insertId, context_name: ctx.name });
+  } catch (e) { fail(res, e, 'writing a constraint'); }
+});
+
+app.post('/api/pd/constraints/:id/retire', auth, pdAuth, pdSurface('intake'), async (req, res) => {
+  try {
+    const b = req.body || {}, me = req.pdUser;
+    if (!pd.is_lead(me.pd_role)) {
+      return res.status(403).json({ error: 'Retiring a constraint is a technical lead’s or the COO’s.' });
+    }
+    const why = clean(b.retired_reason, 5000);
+    if (why.length < 10) {
+      return res.status(400).json({ error: 'Say why it no longer binds. A rule that quietly disappears gets re-argued next year.' });
+    }
+    /* Compare-and-swap on active=1: two people retiring the same constraint at
+       once must not both write a reason over each other. */
+    const [r] = await pdq(
+      'UPDATE pd_constraints SET active=0, retired_reason=? WHERE id=? AND active=1',
+      [why, req.params.id]);
+    if (!r.affectedRows) return res.status(409).json({ error: 'That constraint has already been retired.' });
+    res.json({ ok: true });
+  } catch (e) { fail(res, e, 'retiring a constraint'); }
 });
 
 /* ---------- Questions ---------- */
@@ -1310,7 +1432,13 @@ app.post('/api/pd/questions/:id/settle', auth, pdAuth, pdSurface('intake'), asyn
     if (!(pd.is_lead(me.pd_role) || q.owner_id === me.id)) {
       return res.status(403).json({ error: 'Settling a question is its owner’s, or a technical lead’s.' });
     }
-    if (q.state === 'settled') return res.status(409).json({ error: 'That question is already settled.' });
+    /* No early "already closed" guard here. It used to sit above the
+       validation, so whether a person who lost the race got their result kept
+       as a Claim or silently dropped depended on how many microseconds they
+       lost by — two different behaviours for one situation. The claim is
+       written first and the state change is a compare-and-swap below, so
+       every loser is treated the same way and told the same thing.
+       Found 10 Sept 2026 by a test that failed only when the box was slow. */
     const text = clean(b.result_text, 5000);
     const refusal = pd.close_refusal(text, b.grade);
     if (refusal) return res.status(400).json({ error: refusal });
@@ -1343,7 +1471,7 @@ app.post('/api/pd/bets', auth, pdAuth, pdSurface('intake'), async (req, res) => 
     // MODEL.md §3 — "carrying the one result that would kill it, written before
     // any bench work." The column is NOT NULL; this is the sentence that says
     // why, in words a person reads.
-    if (kill.length < 10) return res.status(400).json({ error: 'Write the one result that would kill this bet — before any bench work, not after. A bet without one cannot be lost, so it cannot be learned from.' });
+    if (kill.length < 10) return res.status(400).json({ error: 'Write the kill criterion — the one result that would end this Bet — before any bench work. A Bet without one cannot be lost, so nothing can be learned from it.' });
     let ctx = Number(b.delivery_context_id) || null;
     if (ctx) {
       const [[c]] = [(await pdq('SELECT id FROM pd_delivery_contexts WHERE id=?', [ctx]))[0]];
@@ -1369,7 +1497,13 @@ app.post('/api/pd/bets/:id/close', auth, pdAuth, pdSurface('intake'), async (req
     if (!(pd.is_lead(me.pd_role) || bet.owner_id === me.id)) {
       return res.status(403).json({ error: 'Closing a bet is its owner’s, or a technical lead’s.' });
     }
-    if (bet.status !== 'active') return res.status(409).json({ error: 'That bet is already closed.' });
+    /* No early "already closed" guard here. It used to sit above the
+       validation, so whether a person who lost the race got their result kept
+       as a Claim or silently dropped depended on how many microseconds they
+       lost by — two different behaviours for one situation. The claim is
+       written first and the state change is a compare-and-swap below, so
+       every loser is treated the same way and told the same thing.
+       Found 10 Sept 2026 by a test that failed only when the box was slow. */
     const status = ['killed', 'advanced'].includes(b.status) ? b.status : '';
     if (!status) return res.status(400).json({ error: 'A bet closes as killed or advanced.' });
     const text = clean(b.result_text, 5000);
@@ -1395,7 +1529,7 @@ app.post('/api/pd/runs', auth, pdAuth, pdSurface('intake'), async (req, res) => 
     if (!bet) return res.status(400).json({ error: 'A Run happens under a Bet — pick which one.' });
     if (bet.status !== 'active') return res.status(409).json({ error: 'That bet is closed. A new line of work is a new bet, under the question it tests.' });
     const expected = clean(b.expected, 5000);
-    if (expected.length < 10) return res.status(400).json({ error: 'Write what you expect to happen, before you make it. Expected against actual is the whole point of recording a run.' });
+    if (expected.length < 10) return res.status(400).json({ error: 'Write what you expect to happen, before you make it. A Run records what was expected against what happened.' });
     // B14 — "a Run must name the Run it replaced, and why." SOP → KOH →
     // potassium carbonate is one line of investigation, not three unrelated
     // trials, only if this link exists.
@@ -1403,7 +1537,7 @@ app.post('/api/pd/runs', auth, pdAuth, pdSurface('intake'), async (req, res) => 
     if (replaces) {
       const [[prev]] = [(await pdq('SELECT id FROM pd_runs WHERE id=?', [replaces]))[0]];
       if (!prev) return res.status(400).json({ error: 'That earlier run does not exist.' });
-      if (!replacesReason) return res.status(400).json({ error: 'Say why this run replaces the earlier one — otherwise they read as two unrelated trials a year from now.' });
+      if (!replacesReason) return res.status(400).json({ error: 'Say why this Run replaces the earlier one, so the two are read together later.' });
     } else { replacesReason = ''; }
     let newId = 0;
     const n = await pd.insert_numbered(pdq, 'pd_runs', 'run_number', async (n) => {
@@ -1429,7 +1563,7 @@ app.post('/api/pd/runs/:id/reading', auth, pdAuth, pdSurface('intake'), async (r
     if (!run) return res.status(404).json({ error: 'Not found.' });
     if (run.status === 'closed') return res.status(409).json({ error: 'That run is closed.' });
     const verdict = ['normal', 'abnormal'].includes(b.verdict) ? b.verdict : '';
-    if (!verdict) return res.status(400).json({ error: 'Say whether what you saw was expected or abnormal.' });
+    if (!verdict) return res.status(400).json({ error: 'Say whether what you saw was as expected, or abnormal.' });
     const date = dateOrNull(b.reading_date) || new Date().toISOString().slice(0, 10);
     await pdq(
       `INSERT INTO pd_run_readings (run_id, reading_date, parameters_checked, physical_observation, analytical_result, verdict, next_observation_date, recorded_by)
@@ -1458,9 +1592,15 @@ app.post('/api/pd/runs/:id/close', auth, pdAuth, pdSurface('intake'), async (req
     if (!(pd.is_lead(me.pd_role) || run.owner_id === me.id)) {
       return res.status(403).json({ error: 'Closing a run is its owner’s, or a technical lead’s.' });
     }
-    if (run.status === 'closed') return res.status(409).json({ error: 'That run is already closed.' });
+    /* No early "already closed" guard here. It used to sit above the
+       validation, so whether a person who lost the race got their result kept
+       as a Claim or silently dropped depended on how many microseconds they
+       lost by — two different behaviours for one situation. The claim is
+       written first and the state change is a compare-and-swap below, so
+       every loser is treated the same way and told the same thing.
+       Found 10 Sept 2026 by a test that failed only when the box was slow. */
     const actual = clean(b.actual, 5000);
-    if (actual.length < 10) return res.status(400).json({ error: 'Write what actually happened. A run records expected against actual — without the actual it records nothing.' });
+    if (actual.length < 10) return res.status(400).json({ error: 'Write what actually happened. A Run records what was expected against what happened — without the second half it records nothing.' });
     const text = clean(b.result_text, 5000);
     const refusal = pd.close_refusal(text, b.grade);
     if (refusal) return res.status(400).json({ error: refusal });
@@ -1663,6 +1803,267 @@ app.post('/api/pd/:type(question|bet|run)/:id/edit', auth, pdAuth, pdSurface('in
     }
     res.json({ ok: true, changed });
   } catch (e) { fail(res, e); }
+});
+
+
+/* ============================================================================
+ * PD · THE SCREENS MILESTONE, PART 3 — "What I owe" and "The Report".
+ * ADDED 9 Sept 2026 (night), out of the adoption audit.
+ *
+ * WHY THESE TWO, AND WHY NOW. The audit's verdict was one sentence: the system
+ * has to give something back before it asks for anything. A chemist wrote six
+ * real records — a Problem, a Question, a Bet, a Run, two readings — and his
+ * home screen then told him "Nothing yet. The box on the left is the whole of
+ * it." The R&D Manager who owns the entire V Germinator Pro chain saw the same
+ * empty box. Every person in the pilot was paying a tax and exactly one of
+ * them, reading someone else's dossier, was getting anything back.
+ *
+ * The cause was not subtle: MODEL.md §5 signs off FOUR screens and two were
+ * built. The two that were built are the two where people GIVE. The two that
+ * were cut are the two where people GET —
+ *   §5.2 "What I owe"  — my assigned questions, who waits on each, by when;
+ *                        late shows as late. "The only per-person scoreboard."
+ *   §5.4 "The Report"  — portfolio KPIs plus a needs-attention feed and a
+ *                        recently-closed feed. Aggregate only.
+ *
+ * THE ONE RULE THAT SHAPES BOTH. RECLASSIFICATION-RULES.md §8.1: "No
+ * per-person error count. Not on a dashboard, not in a report, not derivable
+ * from the audit log by any screen the system offers." So:
+ *   · "What I owe" is ONLY ever about the person asking. It takes no user
+ *     parameter and there is no route by which one person reads another's.
+ *     That is what §5.2 means by a per-person scoreboard — your own work, in
+ *     front of you — and it is the opposite of a league table.
+ *   · "The Report" carries no person at all. Not a name, not a count by
+ *     name, not a field a screen could group by. Every number below is a
+ *     count of THINGS. Whoever is asked to add "and who is behind?" should be
+ *     shown this comment and §8.1 first.
+ * ==========================================================================*/
+
+/* The next look a Run owes, and whether that date has gone by. B6 — a long
+   trial is active monitoring, so the thing that falls due is the next reading,
+   not the trial. */
+const NEXT_LOOK_SQL = `
+  (SELECT rd.next_observation_date FROM pd_run_readings rd
+    WHERE rd.run_id = r.id AND rd.next_observation_date IS NOT NULL
+    ORDER BY rd.reading_date DESC, rd.id DESC LIMIT 1)`;
+
+app.get('/api/pd/mywork', auth, pdAuth, pdSurface('intake'), async (req, res) => {
+  try {
+    const me = req.pdUser, today = new Date().toISOString().slice(0, 10);
+
+    const [questions] = await pdq(
+      `SELECT q.id, q.q_number, q.title, q.nature, q.state, q.due_date,
+              p.id problem_id, p.p_number, p.title problem_title,
+              (SELECT COUNT(*) FROM pd_bets b WHERE b.question_id=q.id AND b.status='active') open_bets
+         FROM pd_questions q JOIN pd_problems p ON p.id=q.problem_id
+        WHERE q.owner_id=? AND q.state<>'settled'
+        ORDER BY (q.due_date IS NULL), q.due_date, q.q_number`, [me.id]);
+
+    const [runs] = await pdq(
+      `SELECT r.id, r.run_number, r.status, r.expected, ${NEXT_LOOK_SQL} next_look,
+              b.id bet_id, b.bet_number, b.kill_criterion,
+              q.id question_id, q.q_number, q.title question_title,
+              p.id problem_id, p.p_number, p.title problem_title
+         FROM pd_runs r
+         JOIN pd_bets b ON b.id=r.bet_id
+         JOIN pd_questions q ON q.id=b.question_id
+         JOIN pd_problems p ON p.id=q.problem_id
+        WHERE r.owner_id=? AND r.status<>'closed'
+        ORDER BY r.status='abnormal_investigation' DESC, (${NEXT_LOOK_SQL} IS NULL), ${NEXT_LOOK_SQL}`,
+      [me.id]);
+
+    const [bets] = await pdq(
+      `SELECT b.id, b.bet_number, b.approach, b.kill_criterion,
+              q.q_number, q.title question_title, p.id problem_id, p.p_number,
+              (SELECT COUNT(*) FROM pd_runs r WHERE r.bet_id=b.id AND r.status<>'closed') open_runs,
+              (SELECT COUNT(*) FROM pd_runs r WHERE r.bet_id=b.id) all_runs
+         FROM pd_bets b JOIN pd_questions q ON q.id=b.question_id JOIN pd_problems p ON p.id=q.problem_id
+        WHERE b.owner_id=? AND b.status='active' ORDER BY b.bet_number`, [me.id]);
+
+    /* Requests are the one door that waits on a person by design — MODEL.md §3
+       gives a Request a recipient and a return-by, which is a promise to
+       somebody outside PD. §5.2 names them explicitly. */
+    const [requests] = await pdq(
+      `SELECT id, request_number, requester, recipient, purpose, dispatch_date, return_by, status
+         FROM pd_requests WHERE owner_id=? AND status='open' AND converted_to_id IS NULL
+        ORDER BY (return_by IS NULL), return_by`, [me.id]);
+
+    /* What this person wrote down, and what became of it. The audit found the
+       author's own entries were the one thing they could never see the fate
+       of without hunting. */
+    const mine = [];
+    for (const type of Object.keys(DOOR_TABLES)) {
+      const d = DOOR_TABLES[type];
+      const [rows] = await pdq(
+        `SELECT x.*, CONCAT('P-', LPAD(p.p_number,2,'0'), ' — ', p.title) problem_label, ow.name owner_name, au.name author_name
+           FROM ${d.table} x
+           LEFT JOIN pd_problems p ON p.id=x.problem_id
+           LEFT JOIN auth_users ow ON ow.id=x.owner_id
+           LEFT JOIN auth_users au ON au.id=x.logged_by
+          WHERE x.logged_by=? ORDER BY x.id DESC LIMIT 25`, [me.id]);
+      for (const r of rows) mine.push(doorRow(type, r));
+    }
+    mine.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+    let toFile = 0;
+    if (mayTriage(me.pd_role)) {
+      for (const type of Object.keys(DOOR_TABLES)) {
+        const d = DOOR_TABLES[type];
+        const [[c]] = [(await pdq(`SELECT COUNT(*) n FROM ${d.table} WHERE status='unsorted' AND converted_to_id IS NULL`))[0]];
+        toFile += Number(c.n);
+      }
+    }
+
+    /* RECLASSIFICATION-RULES.md §7: "the author sees ONE message, ONCE", three
+       parts and ONE action. An acknowledge button would be a second action, so
+       delivery marks it seen — and this is the only screen that delivers, so
+       nothing else can consume it first. Nothing is lost either way: the
+       entry's own card carries where it went, permanently. */
+    const [notices] = await pdq(
+      `SELECT n.*, u.name mover FROM pd_notices n JOIN auth_users u ON u.id=n.moved_by
+        WHERE n.recipient_id=? ORDER BY n.id DESC LIMIT 10`, [me.id]);
+    if (notices.some(n => !n.seen_at)) {
+      await pdq('UPDATE pd_notices SET seen_at=NOW() WHERE recipient_id=? AND seen_at IS NULL', [me.id]);
+    }
+    /* A question somebody asked back about a refiling this person made. §7:
+       "correction that cannot be answered is authority, not teaching" — so the
+       answer has to land somewhere they will see it. */
+    const [replies] = await pdq(
+      `SELECT n.id, n.headline, n.reply_text, n.replied_at, n.link_type, n.link_id, u.name author
+         FROM pd_notices n JOIN auth_users u ON u.id=n.recipient_id
+        WHERE n.moved_by=? AND n.reply_text IS NOT NULL ORDER BY n.replied_at DESC LIMIT 10`, [me.id]);
+
+    const late = d => !!d && d < today;
+    res.json({
+      me: { id: me.id, name: me.name, role_label: pd.PD_ROLES[me.pd_role] || me.pd_role },
+      questions: questions.map(q => ({ ...q, label: pd.fmt_q(q.q_number), problem_label: pd.fmt_p(q.p_number),
+        nature_label: pd.QUESTION_NATURES[q.nature], state_label: pd.QUESTION_STATES[q.state], late: late(q.due_date) })),
+      runs: runs.map(r => ({ ...r, label: pd.fmt_run(r.run_number), bet_label: pd.fmt_b(r.bet_number),
+        question_label: pd.fmt_q(r.q_number), problem_label: pd.fmt_p(r.p_number),
+        status_label: pd.RUN_STATUSES[r.status], late: late(r.next_look), abnormal: r.status === 'abnormal_investigation' })),
+      bets: bets.map(b => ({ ...b, label: pd.fmt_b(b.bet_number), question_label: pd.fmt_q(b.q_number), problem_label: pd.fmt_p(b.p_number) })),
+      requests: requests.map(r => ({ ...r, label: pd.fmt_req(r.request_number), late: late(r.return_by) })),
+      mine: mine.slice(0, 20),
+      toFile, notices, replies,
+      caps: { triage: mayTriage(me.pd_role) },
+    });
+  } catch (e) { fail(res, e, 'mywork'); }
+});
+
+/* ---------------------------------------------------------------------------
+   The Report — MODEL.md §5.4, signed off in PENDING-DECISIONS.md §B19.
+   Aggregate only. Read the §8.1 note at the top of this block before adding
+   anything to it.
+--------------------------------------------------------------------------- */
+app.get('/api/pd/report', auth, pdAuth, pdSurface('intake'), async (req, res) => {
+  try {
+    const one = async (sql, args) => { const [[r]] = [(await pdq(sql, args || []))[0]]; return Number(r.n); };
+    const today = new Date().toISOString().slice(0, 10);
+
+    const problems = {
+      field_problem: await one("SELECT COUNT(*) n FROM pd_problems WHERE status='open' AND kind='field_problem'"),
+      product_concept: await one("SELECT COUNT(*) n FROM pd_problems WHERE status='open' AND kind='product_concept'"),
+      closed: await one("SELECT COUNT(*) n FROM pd_problems WHERE status<>'open'"),
+    };
+    const questions = {
+      open: await one("SELECT COUNT(*) n FROM pd_questions WHERE state='open'"),
+      contested: await one("SELECT COUNT(*) n FROM pd_questions WHERE state='contested'"),
+      settled: await one("SELECT COUNT(*) n FROM pd_questions WHERE state='settled'"),
+      overdue: await one("SELECT COUNT(*) n FROM pd_questions WHERE state<>'settled' AND due_date IS NOT NULL AND due_date < ?", [today]),
+    };
+    const bets = {
+      active: await one("SELECT COUNT(*) n FROM pd_bets WHERE status='active'"),
+      killed: await one("SELECT COUNT(*) n FROM pd_bets WHERE status='killed'"),
+      advanced: await one("SELECT COUNT(*) n FROM pd_bets WHERE status='advanced'"),
+    };
+    const runs = {
+      running: await one("SELECT COUNT(*) n FROM pd_runs WHERE status='running'"),
+      investigating: await one("SELECT COUNT(*) n FROM pd_runs WHERE status='abnormal_investigation'"),
+      closed: await one("SELECT COUNT(*) n FROM pd_runs WHERE status='closed'"),
+    };
+    const claims = {
+      proven: await one("SELECT COUNT(*) n FROM pd_claims WHERE is_current=1 AND grade='proven'"),
+      contested: await one("SELECT COUNT(*) n FROM pd_claims WHERE is_current=1 AND grade='contested'"),
+      believed: await one("SELECT COUNT(*) n FROM pd_claims WHERE is_current=1 AND grade='believed'"),
+    };
+
+    /* The COO's own bar for the pilot, in his words: "things get written down
+       at all — entries arriving, questions written before samples are made,
+       results written when things close." These three rows are that bar, and
+       nothing else on this screen is. */
+    const since = d => `DATE_SUB(CURDATE(), INTERVAL ${d} DAY)`;
+    const written = async (days) => ({
+      days,
+      arrived: (await one(`SELECT COUNT(*) n FROM pd_challenges WHERE created_at >= ${since(days)}`))
+             + (await one(`SELECT COUNT(*) n FROM pd_observations WHERE created_at >= ${since(days)}`))
+             + (await one(`SELECT COUNT(*) n FROM pd_requests WHERE created_at >= ${since(days)}`)),
+      questions: await one(`SELECT COUNT(*) n FROM pd_questions WHERE created_at >= ${since(days)}`),
+      bets: await one(`SELECT COUNT(*) n FROM pd_bets WHERE created_at >= ${since(days)}`),
+      runs: await one(`SELECT COUNT(*) n FROM pd_runs WHERE created_at >= ${since(days)}`),
+      readings: await one(`SELECT COUNT(*) n FROM pd_run_readings WHERE created_at >= ${since(days)}`),
+      results: await one(`SELECT COUNT(*) n FROM pd_claims WHERE created_at >= ${since(days)}`),
+    });
+
+    /* Two things worth knowing that a count cannot say. Both are about the
+       DISCIPLINE holding, not about anybody's performance. */
+    const discipline = {
+      // A Bet that has never had a Run is a stated intention nobody has acted on.
+      bets_never_run: await one("SELECT COUNT(*) n FROM pd_bets b WHERE b.status='active' AND NOT EXISTS (SELECT 1 FROM pd_runs r WHERE r.bet_id=b.id)"),
+      // A Run with no reading in three weeks is a trial nobody is watching (B6).
+      runs_unwatched: await one(`SELECT COUNT(*) n FROM pd_runs r WHERE r.status<>'closed'
+        AND NOT EXISTS (SELECT 1 FROM pd_run_readings rd WHERE rd.run_id=r.id AND rd.created_at >= ${since(21)})`),
+      // Entries that came in and are still nobody's.
+      unfiled: await one("SELECT COUNT(*) n FROM pd_challenges WHERE status='unsorted' AND converted_to_id IS NULL")
+             + await one("SELECT COUNT(*) n FROM pd_observations WHERE status='unsorted' AND converted_to_id IS NULL")
+             + await one("SELECT COUNT(*) n FROM pd_requests WHERE status='unsorted' AND converted_to_id IS NULL"),
+      // How many Runs have no recipe recorded against them — the gap the
+      // Combination Bank is meant to close. A number, so it stops being a
+      // pill on every card and starts being a worklist.
+      runs_without_recipe: await one("SELECT COUNT(*) n FROM pd_runs WHERE combination_id IS NULL"),
+    };
+
+    /* Needs attention. Things, with the Problem they sit under — never a
+       person, and never ordered by whose they are. */
+    const [overdueQ] = await pdq(
+      `SELECT q.q_number, q.title, q.due_date, p.id problem_id, p.p_number
+         FROM pd_questions q JOIN pd_problems p ON p.id=q.problem_id
+        WHERE q.state<>'settled' AND q.due_date IS NOT NULL AND q.due_date < ?
+        ORDER BY q.due_date LIMIT 12`, [today]);
+    const [lateLooks] = await pdq(
+      `SELECT r.id, r.run_number, r.status, ${NEXT_LOOK_SQL} next_look,
+              q.title question_title, p.id problem_id, p.p_number
+         FROM pd_runs r JOIN pd_bets b ON b.id=r.bet_id JOIN pd_questions q ON q.id=b.question_id
+         JOIN pd_problems p ON p.id=q.problem_id
+        WHERE r.status<>'closed' HAVING next_look IS NOT NULL AND next_look < ? ORDER BY next_look LIMIT 12`, [today]);
+    const [investigations] = await pdq(
+      `SELECT r.id, r.run_number, q.title question_title, p.id problem_id, p.p_number
+         FROM pd_runs r JOIN pd_bets b ON b.id=r.bet_id JOIN pd_questions q ON q.id=b.question_id
+         JOIN pd_problems p ON p.id=q.problem_id
+        WHERE r.status='abnormal_investigation' ORDER BY r.run_number LIMIT 12`);
+
+    /* What closed recently, with its result. This is the feed that makes the
+       screen worth opening: it is the only place the company's answers appear
+       together. */
+    const [closed] = await pdq(
+      `SELECT c.claim_number, c.text, c.grade, c.created_at, c.subject_type, c.subject_id,
+              q.q_number, q.title question_title, p.id problem_id, p.p_number, p.title problem_title
+         FROM pd_claims c
+         LEFT JOIN pd_questions q ON c.subject_type='question' AND q.id=c.subject_id
+         LEFT JOIN pd_problems p ON p.id = COALESCE(q.problem_id, CASE WHEN c.subject_type='problem' THEN c.subject_id END)
+        WHERE c.is_current=1 ORDER BY c.created_at DESC, c.id DESC LIMIT 12`);
+
+    res.json({
+      problems, questions, bets, runs, claims, discipline,
+      written: { week: await written(7), month: await written(30) },
+      attention: {
+        overdueQuestions: overdueQ.map(q => ({ ...q, label: pd.fmt_q(q.q_number), problem_label: pd.fmt_p(q.p_number) })),
+        lateLooks: lateLooks.map(r => ({ ...r, label: pd.fmt_run(r.run_number), problem_label: pd.fmt_p(r.p_number) })),
+        investigations: investigations.map(r => ({ ...r, label: pd.fmt_run(r.run_number), problem_label: pd.fmt_p(r.p_number) })),
+      },
+      closed: closed.map(c => ({ ...c, label: pd.fmt_cl(c.claim_number), grade_label: pd.CLAIM_GRADES[c.grade],
+        question_label: c.q_number ? pd.fmt_q(c.q_number) : null, problem_label: c.p_number ? pd.fmt_p(c.p_number) : null })),
+    });
+  } catch (e) { fail(res, e, 'report'); }
 });
 
 };

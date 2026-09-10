@@ -3477,354 +3477,197 @@ doors, a Problem/Question/Bet/Run working view, and the Combination Bank
 entry form are all still unbuilt. Not pushed — local changes only, for
 Tahir to review and commit via GitHub Desktop.
 
-**UPDATE, same day:** Tahir ran the migration by hand via phpMyAdmin —
-"Import has been successfully finished, 96 queries executed," no abort
-error, meaning the pre-flight safety check found zero at-risk rows. Code
-was also pushed via GitHub Desktop. Verifying the live table set next
-before starting the screens milestone.
+---
 
+## 9–10 September 2026 — the screens milestone, plus training material
 
-**UPDATE 2, same day — live table set independently verified:** Tahir ran
-`SHOW TABLES LIKE 'pd_%';` on the live database and pasted back the full
-result. Checked it directly against the migration: all 31 expected `pd_`
-tables are present (pd_audit_log, pd_bets, pd_challenge_materials,
-pd_challenges, pd_claim_materials, pd_claims, pd_combination_crop_tags,
-pd_combination_lines, pd_combination_not_duplicates,
-pd_combination_problem_tags, pd_combination_soil_tags, pd_combinations,
-pd_comments, pd_constraints, pd_crop_tags, pd_delivery_contexts,
-pd_dropbox, pd_library_items, pd_library_pins, pd_material_requests,
-pd_materials, pd_observation_materials, pd_observations, pd_problem_tags,
-pd_problems, pd_questions, pd_reclassifications, pd_requests,
-pd_run_readings, pd_runs, pd_soil_tags), and all 17 old gate/hypothesis
-tables (pd_hypotheses, pd_products, pd_product_gates, pd_projects,
-pd_dev_records, pd_samples, pd_lab_tests, pd_field_trials, pd_field_obs,
-pd_gate_decisions, pd_material_conflicts, pd_route_screens, pd_candidates,
-pd_candidate_lines, pd_formulations, pd_learnings, pd_regulatory) are
-confirmed gone. This is not inferred from "no error message" — it's the
-actual resulting table list, seen directly. Milestone closed: schema
-rebuild done, reviewed, migrated, and verified.
+**What was built.** Four screens, which is exactly the number `MODEL.md §5`
+signs off and exactly the number `REUSE-RULES.md §5`'s tripwire allows:
 
-Two things carried forward on purpose, not forgotten: (1) the
-field-value-snapshot / edit-history mechanism flagged in
-002_pd_core_rebuild.sql's header — needs a decision from Tahir before any
-screen that edits these objects is built; (2) the drop-box convert
-route's claim-then-point-fill is two separate statements, not one
-transaction — a low-severity residual gap, documented, not fixed.
+  - **What I owe** — the landing page. Readings due, Questions past their
+    date, Runs where something abnormal was seen, and any notice that an
+    entry was refiled. It exists because the audit found the system was
+    changing state without ever telling the person who owned it.
+  - **What came in** — the three doors (Challenge / Observation / Request)
+    behind one box, plus the triage list. A door is optional and "not sure
+    yet" is listed first on purpose.
+  - **Problems** — the register and the dossier: Problem → Question → Bet →
+    Run, with Claims and the history.
+  - **The Report** — `MODEL.md §5.4`. Counts of things, never of people,
+    and there is no version of it that can be pointed at one person.
 
-Next milestone (not started, awaiting Tahir's go-ahead): the screens —
-an intake screen for the three doors (Challenge / Observation / Request),
-a working view of Problem -> Question -> Bet -> Run, and the Combination
-Bank entry form.
+**Migrations added — RUN THESE BY HAND, IN ORDER, BEFORE THE CODE:**
 
+    pd/migrations/003_pd_history_and_notices.sql
+    pd/migrations/004_material_grade_load.sql
+    pd/migrations/005_pd_claim_identity.sql
 
-## 9 Sept 2026 (later) — MODULE: PD — the screens milestone, part 1: intake, the Problem register, triage
+  - **003** — `pd_field_history`, an append-only field-value snapshot table
+    (Tahir's ruling, 9 Sept). Append-only is enforced by two triggers that
+    `SIGNAL SQLSTATE '45000'` on UPDATE and on DELETE, so it is the database
+    refusing, not the application. This closes the "no field-VALUE snapshot
+    anywhere" item disclosed in the previous entry. Also adds `pd_notices`
+    and `pd_observations.door_chosen` (backfilled to 0 for existing rows).
+  - **004** — the 58 real grades from the returned 9 Sept worksheet, and it
+    retires the ten placeholder seed materials. **Two things to look at:**
+    the sheet carries **20.08 in the Mn % column on an iron source**, which
+    is loaded with no assay and the raw cell kept in `spec_note`; and the
+    `Elemental Sulfur 200 Mesh` row is commented out because the sheet marks
+    it an example rather than a stocked grade.
+  - **005** — `UNIQUE KEY (claim_number, version)` on `pd_claims`, with a
+    pre-flight duplicate check that prints STOP rather than failing halfway.
 
-Tahir: "Resume PD app work. The next piece is the screens milestone: an
-intake screen for the three doors (Challenge / Observation / Request), a
-working view of Problem → Question → Bet → Run, and the Combination Bank
-entry form." Four scoping rulings from him at the start, and two more once
-the work surfaced questions only he could answer.
+**Also needed before anyone can sign in:** the eight pilot users need a PD
+role granted in Manage Access. Nobody outside that list can reach `/pd` at
+all, which is intended.
 
-### What he ruled
+**Tests.** 362 assertions, 0 failed, across five suites:
+`intake.test.js` (134) · `spine.test.js` (102) · `screens.test.js` (46) ·
+`intake.browser.js` (45) · `spine.browser.js` (35). The last two drive a
+real browser, because the previous PD build shipped a client-side defect the
+API suite could not see. Both browser suites assert the nav is exactly four
+items, so the screen-count tripwire cannot be crossed silently.
 
-1. **Edit history — append-only snapshot table.** This closes the gap 002's
-   own header disclosed ("no field-VALUE snapshot anywhere yet"). Chosen over
-   locking records after a state change, and over deferring edits entirely.
-2. **Sequencing — intake and triage first, verified, then the rest.** So the
-   Problem → Question → Bet → Run working view and the Combination Bank form
-   are NOT in this drop.
-3. **Combination Bank — the form AND the duplicate checker together**, when it
-   is built. Not form-only.
-4. **Materials — load the returned grade list first**, before the form is
-   built against it.
-5. **Screen count — fold the extra screens back in rather than sign off six**
-   (raised mid-build; see "the tripwire" below).
-6. **RECLASSIFICATION-RULES.md §4's numbering rule — amend the wording to
-   match what is built** (raised mid-build; see below).
+**Independent audit** (senior reviewers, per the standing rule — and this
+time one reviewing adoption rather than code: whether eight real people
+would use this, and why they would not). Its central verdict was that **the
+system had to give something back before it asked for anything**, which is
+what drove building `What I owe` and `The Report` in this pass rather than
+later. Every code finding was verified against the running system before
+being acted on.
 
-### Built, tested, NOT pushed
+**One audit claim was checked and found WRONG — do not act on it.** A
+reviewer reported that an abnormal reading leaves a Run in `RUNNING`. It does
+not: an abnormal reading flips the Run to `abnormal_investigation`, R-003 in
+the seeded case sits in that state, and `spine.browser.js` pins it. What was
+true underneath it — that nobody was ever *told* — is real and is what the
+new landing page fixes.
 
-- **`pd/migrations/004_material_grade_load.sql`** (NEW) — the real material
-  register, 58 grades, from his returned worksheet
-  (`PD-Material-Grade-Template-RETURNED-9Sep2026.xlsx`) and from nothing else.
-  A blank cell loads as NULL, never as 0 and never as a textbook value: three
-  columns had to change shape first (`n/p2o5/k2o/s/zn_pct` were NOT NULL
-  DEFAULT 0 from the retired cost engine, so "contains no nitrogen" and
-  "nobody has assayed it yet" were the same value — the exact collapse
-  MODEL.md §6 says the rebuild must not repeat). Adds `physical_form` and
-  `grade_source`; widens `spec_note`. Deactivates, never deletes, the ten
-  placeholder materials the old server.js seeded on every boot.
-  **Two things in it need his eye:** (a) the sheet carries **20.08 in the Mn %
-  column on a row whose substance is an iron source** — loaded with no assay
-  and the raw cell preserved as text rather than silently moved to Fe; (b) the
-  `Elemental Sulfur 200 Mesh` row is **commented out**, because the sheet's own
-  Notes column marks it "Example — not a real template row… delete or overwrite
-  it," and it is his call whether it is real.
-- **`pd/migrations/003_pd_history_and_notices.sql`** (NEW) — `pd_field_history`
-  (append-only, enforced by two triggers that make MySQL itself refuse an
-  UPDATE or DELETE, so "the record of what it was is not editable" is true of
-  the storage and not just of the routes); `pd_notices` (the author's one
-  message, RECLASSIFICATION-RULES.md §7); and `pd_observations.door_chosen`,
-  backfilled to 0 so entries that arrived before this migration are not
-  recorded as a type choice nobody made.
-- **`pd/pd-routes.js`** — intake (one endpoint, three doors, and no door at
-  all), the Problem register, triage (file / move / undo), and the notice and
-  reply routes. Drop-box triage now admits the `registrar` role that 002 added
-  and that three of its own error messages already promised.
-- **`pd/pd-lib.js`** — the number formatters, the door vocabulary, the model's
-  own glossary (`OBJECT_DEFINITIONS` — what gets written as the "why" on every
-  refiling, so it is never the mover's prose), the history helpers, and the
-  `intake` / `triage` surfaces.
-- **`pd/pd.html`** — a real app again, replacing the "being rebuilt" notice.
-  Same shell as `o2s/o2s.html` (sidebar, Inter/Space Grotesk, same radii) with
-  PD's green accent, which is the design pass `PORTING_STATUS.md` asked for.
-- **`pd/drop.html`** — one string reworded ("Something went wrong" is on
-  RECLASSIFICATION-RULES.md §6's banned list).
-- **`pd/tests/intake.test.js`** (NEW, 131 assertions) and
-  **`pd/tests/intake.browser.js`** (NEW, 40 assertions) — both green, run
-  against a real MariaDB with 001+002+003+004 applied, and a real headless
-  browser. **171 assertions.**
-- **`docs/pd-model/RECLASSIFICATION-RULES.md`** — §4's numbering bullet
-  amended, per his ruling (below).
+**Fixed in this pass** (wording and flow, which Tahir authorised):
+the close forms now show the kill criterion and what was expected, at the
+moment the result is written; raw MySQL driver text no longer reaches any PD
+screen (40 handlers, one replacement); typed drafts survive a re-render; a
+chosen door is no longer a gate; a notice fires on re-parenting and is no
+longer swallowed by a background fetch on another screen; and eleven
+concurrency and identity defects — a move race that created two records, an
+undo that did not verify the live pointer, claim-number collisions, revisions
+forking the version chain, and an `/edit` path that quietly undid both hard
+rules on a closed record.
 
-### The tripwire, and what was done about it
+**A verification pass over the training material found three more code
+defects.** Rather than trust that this session had described its own build
+correctly, every factual claim in the walkthrough and the Custodian briefing
+(about 120 of them) was checked against the running system:
 
-`REUSE-RULES.md` §5 says a screen beyond MODEL.md §5's signed-off list stops
-the rebuild until Tahir sees it. The build first grew **two** extra screens —
-a separate triage screen and a page per entry. That was put to him rather than
-signed off quietly, and **he ruled: fold them back in.** So "To file" is now a
-section of *What came in*, an entry opens in place on the same screen, and the
-nav carries two items. The comment above `ICONS` in `pd.html` says so, and the
-browser suite asserts the nav has two items — if a third ever appears, that is
-the tripwire again.
+  - The filing queue was sorted **newest-first while its own hint said
+    "oldest first"** — the oldest entry, the one most likely to have gone
+    stale, sank to the bottom of the Custodian's list. Now oldest-first with
+    a deterministic tiebreak so the list does not reshuffle between loads.
+  - **A refiling notice could be silently consumed.** `GET /api/pd/intake`
+    returned and marked notices seen, and `renderIntake()` never showed them.
+    Delivery is what marks a notice seen (§7 allows no acknowledge button),
+    so only the route that RENDERS a notice may return one — `/api/pd/mywork`.
+    A test now pins that What came in can never carry one. This had shipped
+    twice; that is why it is now a test rather than a comment.
+  - **A banned word survived on The Report** — "a form that is asking the
+    wrong thing." Not aimed at a person, but §6 is not conditional. The
+    browser suite's §6 sweep runs over rendered screens and this string was
+    added after the sweep last ran green on that screen.
+  - A Bet on What I owe did not name the Question it tests, though the
+    payload already carried it (B7). Added.
 
-### The contradiction inside the rules file
+Ten claims in the documents were corrected in the same pass — most usefully
+that filing an entry against a Problem with **no owner** does not take it out
+of the queue (it needs both), and that a per-person refiling count is not
+something the system fails to hold — it holds it and no screen may group by
+it, which is a materially different sentence to put in a Custodian's mouth.
 
-`RECLASSIFICATION-RULES.md` §4 said "the number never changes," while §7's own
-example message three sections later reads *"Your entry is now Bet B-014"* — a
-new number. The doors are three tables, so a conversion has to issue a number
-in the new type's series. **Tahir ruled: amend §4's wording**, which now reads
-"the original number never stops resolving, and points at what the item
-became," with the amendment and its date recorded in the file itself. The rule
-was the intent; the wording was the accident. No code changed.
+**Training material, built and published as private pages on claude.ai:**
 
-### Independent review — real findings, all fixed and re-verified
+  - *Before You Open PD* — the walkthrough, with real screenshots of the
+    real screens and the V Germinator Pro case as it actually happened.
+  - *The Custodian's Desk* — a separate briefing for the Data Custodian,
+    because her role is filing rather than chemistry and the no-blame rules
+    matter more to her than to anyone else.
+  - *Seven Calls on PD* — the structural findings, written as decisions for
+    Tahir rather than changes made unilaterally.
+  - `PD-introduction.pptx` — the same story as a deck.
 
-Per this repo's standing rule, two reviewers ran against the actual files, not
-summaries: a code reviewer and a rules-compliance reviewer reading
-RECLASSIFICATION-RULES.md line by line against the built screens. What they
-found, and what was done:
+**Not done / next.** Seven structural questions are waiting on Tahir's
+ruling (see *Seven Calls on PD*); two of them — **who moderates** and
+**whether a Run needs a recipe** — gate the Combination Bank build, which is
+the largest piece still unbuilt from the original screens request. Search
+across Problems, Questions, Bets, Runs and Claims does not exist at all and
+is, in this session's view, the biggest single gap in the system. Nothing is
+pushed — local changes only, for Tahir to review and commit via GitHub
+Desktop.
 
-- **Two people moving the same entry at once created two permanently numbered
-  records**, one of which nothing pointed at, and sent the author two notices
-  for one entry. Confirmed live by the reviewer. Fixed with a claim-first
-  compare-and-swap — the pattern the drop-box convert route already used.
-- **Undo did not check it was reversing the live move**, so undoing a stale
-  one silently cut the current one loose. Fixed; the pointer is now part of
-  the WHERE clause.
-- **A 200-character product name wrote a permanent history row for a change
-  the database then refused** — and `pd_field_history` cannot be edited or
-  deleted, by design. Fixed two ways: every field is clamped to its real
-  column width at the door, and if a write is still refused the route appends
-  a `not_applied` row rather than leaving the log claiming something untrue.
-- **Every re-render wiped what the person had typed** — clicking a door
-  button, or any message coming back from the server, emptied the box. On a
-  screen whose own promise is "one minute is enough," that is the worst bug it
-  could have. Fixed, and the browser suite now asserts it.
-- **A chosen door had become a gate**: a complaint with no product named was
-  refused, which RECLASSIFICATION-RULES.md §3 forbids ("never a gate on someone
-  writing something down"). It now saves as an Observation carrying what the
-  person said it was, and tells them so.
-- **"Something is going wrong out there"** on the Problems screen — a §6
-  banned word, live in the interface. Reworded, and the browser suite now
-  sweeps all eleven banned strings across every screen, not one screen with a
-  shortened list.
-- **The optional free note §2 guarantees was unreachable** (no field for it).
-  Added to the move box.
-- **"Got it" on the author's notice was a second action** where §7 allows
-  exactly one. Removed; delivery marks it seen.
-- **Filing under a Problem told the author nothing**, though §6's own table
-  gives the wording for it. It now sends the same three-part notice a type
-  change does.
-- Plus: two moderators filing the same entry from two directions left it fully
-  filled in but stuck in the queue (status now computed from the row's own
-  values in one statement); an entry that had moved was still editable and
-  diverged from its copy; dispatch dates and contacts were dropped rather than
-  carried on a move; a system-generated Observation hit a raw driver error.
+---
 
-### Flagged, NOT fixed — needs a decision or another module
+## 10 September 2026 — Tahir's rulings on the seven, and what they changed
 
-1. **The moderator group is not actually configurable.**
-   RECLASSIFICATION-RULES.md §10 asks for it "granted like any other PD
-   surface, not hard-coded to a role." What exists is centralised in one array
-   in `pd-lib.js`, which is not the same thing. Making it real needs a
-   per-user surface grant table and a change to how `server.js` loads a PD
-   user — **PLATFORM work, not PD's**, so it was not done. The comment in
-   `pd-lib.js` says so plainly rather than claiming the rule is met.
-2. **`pd/PORTING_STATUS.md` is now stale** — it still describes the retired
-   gate-based app as being at full parity. Left alone; it is history, but it
-   will mislead whoever opens it first.
-3. The drop-box convert route's claim-then-point-fill is still two statements,
-   not one transaction (carried forward from the last session).
+Five of the seven open questions were answered. **Search ordering (1) and the
+role labels (2) are still open** — 2 is waiting on Tahir's own words for the
+labels, since it is an org chart question, not a technical one.
 
-### Next
+**Ruled and now built:**
 
-- Run **`003`** then **`004`** by hand against `DATABASE_URL`, in that order,
-  after 001 and 002 (which are already applied in production). Never Claude.
-  004 is safe to re-run; on a second run it stops at a duplicate-column ALTER,
-  which is expected and harmless.
-- Then the rest of the screens milestone: the **Problem → Question → Bet → Run
-  working view**, and the **Combination Bank entry form with its duplicate
-  checker** (his ruling: together, not form-first).
-- Not pushed — local changes only, for Tahir to review and commit via GitHub
-  Desktop.
+  - **Constraints are written from inside the Problem dossier** (decision 3),
+    not from a fifth screen. `POST /api/pd/constraints` and
+    `POST /api/pd/constraints/:id/retire`, both leads-only, plus a Constraints
+    card on the dossier showing the whole register grouped by delivery
+    context. This closes MODEL.md §3's ninth object, which until today could
+    be read but never written. The nav is still four items, so REUSE-RULES §5's
+    tripwire is not crossed.
+    Retiring is not deleting: it takes a written reason and is a
+    compare-and-swap, so two people cannot write over each other's reason and a
+    rule that stopped binding does not quietly vanish and get re-argued.
+  - **The banned word in `server.js` only** (decision 6). Line 423's
+    `'invalid role "x" for module y'` is now `'The X module has no role called
+    "y".'` No behaviour change, no other `server.js` edits. The remaining 16
+    places where raw driver text can reach a screen stay for a separate piece
+    of work with its own O2S test pass — Tahir's ruling, and the right one:
+    mixing a platform refactor into a PD milestone is how a live module breaks
+    for a reason nobody can find.
+  - **`pd/PORTING_STATUS.md` is retired** (decision 7). The file now contains
+    only a pointer to this document and to `docs/pd-model/`. It was NOT
+    deleted from disk — the device bridge cannot delete — so **delete it in
+    GitHub Desktop if you want it gone**; leaving the stub is also fine and
+    keeps the git history reachable. `CLAUDE.md` updated in two places: the PD
+    file list now names `pd-routes.js` and `tests/` and drops the retired file,
+    and §3 says plainly that OP-HANDOFF.md is the single status document and a
+    second one should not be started.
 
+**Ruled, and waiting on the Combination Bank build:**
 
-## 9 Sept 2026 (later still) — MODULE: PD — the spine: Problem → Question → Bet → Run
+  - **The moderator group is hard-coded to Custodian + Registrar + COO for the
+    pilot** (decision 4), to be made configurable in Admin before anyone
+    outside the eight uses it. Nothing is built for it yet — it lands with the
+    bank's moderation queue.
+  - **A recipe is required to CLOSE a Run, never to start one** (decision 5).
+    Not yet enforced, and deliberately so: there is no way to record a recipe
+    until the Combination Bank exists, so switching the check on today would
+    make every Run uncloseable. It goes in with the bank, in the same change
+    as the entry form.
 
-Tahir: "Next, when you want it: the Problem → Question → Bet → Run working
-view, then the Combination Bank form with its duplicate checker." Two rulings
-from him before any code:
+**One more defect, found by a test that only failed when the box was slow.**
+`settle`, `close-bet` and `close-run` each had an early "already closed" guard
+sitting ABOVE the validation and above `writeClosingClaim()`. So whether a
+person who lost a close race had their written result kept as a Claim or
+silently dropped depended on how many microseconds they lost by — two
+behaviours for one situation, and the wide-margin one discarded their words
+while telling them nothing. The early guards are gone; the claim is written
+first and the state change is a compare-and-swap in all three routes, so every
+loser is treated identically and told "nothing is lost", truthfully. Pinned by
+a test that closes a run long after it was closed, not just concurrently.
 
-1. **"Open to write, restricted to assign."** Anyone with a PD role may OPEN a
-   Question, a Bet or a Run, and may record a reading or write a claim. Naming
-   somebody else the owner, settling a Question, and closing a Bet or Run are
-   the technical leads' and the COO's — with the owner always able to close
-   their own. His reasoning, and it is right: the structure is the discipline
-   (a Run cannot exist without a Bet, a Bet without a Question and a written
-   kill criterion), so gating who may *propose* work only stops work being
-   written down.
-2. **Keep this pass tight** — the spine only. "What I owe" (MODEL.md §5.2)
-   waits, and is a small build once this data exists.
+**Tests: 383 assertions, 0 failed** — `intake.test.js` (134) ·
+`spine.test.js` (123) · `screens.test.js` (46) · `intake.browser.js` (45) ·
+`spine.browser.js` (35).
 
-### What the two hard rules cost, in code
-
-`MODEL.md` §0 is the whole point of this subsystem:
-
-> Nothing gets made until we have written the question it answers.
-> Nothing gets closed until we have written the result — pass, fail, or
-> parked, and why.
-
-- **The first is structural, on purpose.** It is NOT a check in a route: the
-  four foreign keys and `kill_criterion NOT NULL` in 002 mean no code path,
-  here or written later, can make something before its question exists.
-- **The second could not be** — "status is not active implies
-  closing_claim_id IS NOT NULL" is a cross-table rule 002's own comment flags
-  as application work. It lives in `pd.close_refusal()` and the three close
-  routes. **Closing anything writes a Claim**: the result is not a note on the
-  thing being closed, it is a first-class, gradeable, challengeable Claim,
-  because MODEL.md §3 makes the Claim the atom.
-
-### Built, tested, NOT pushed
-
-- **`pd/pd-routes.js`** — the spine: Questions, Bets (kill criterion demanded
-  in the sentence a person reads, not just by the column), Runs (expected vs
-  actual, dated readings, run-replaces-run lineage), Claims (graded,
-  challengeable, versioned), settle/close/assign/edit. Plus `fail()`, which
-  replaced 40 handlers that were putting the MySQL driver's own words on the
-  screen (see the review section).
-- **`pd/pd-lib.js`** — `LEAD_ROLES`/`is_lead`, `close_refusal`, the label
-  vocabularies, and `has()` — an enum gate that cannot be walked through
-  `Object.prototype`.
-- **`pd/pd.html`** — the Problem Dossier (MODEL.md §5.3) in its first form: a
-  Problem opens in place on the Problems screen with its whole tree, the
-  claims, and what came in against it. **Still two nav items** — a Problem is
-  a panel, not a screen, and the browser suite asserts the count so the
-  REUSE-RULES §5 tripwire cannot be crossed quietly.
-- **`pd/migrations/005_pd_claim_identity.sql`** (NEW) — see finding 1 below.
-- **`pd/tests/spine.test.js`** (102 assertions) and
-  **`pd/tests/spine.browser.js`** (32) — new. With the intake suites,
-  **307 assertions across four suites, all green**, run against a real
-  MariaDB with 001–005 applied and a real headless browser.
-
-### Behaviour the design documents asked for, and where it landed
-
-- **B7** — the question a run answers and the result that would kill its bet
-  are printed ON the run, not one click away. Himmayat's ask; cheap now.
-- **B14** — a Run must name the Run it replaced, and why. Refused without it,
-  with a message saying what is lost: "otherwise they read as two unrelated
-  trials a year from now."
-- **B15** — an abnormal reading flips the Run to `abnormal_investigation` by
-  itself. Not passed, not failed, not still running.
-- **B6** — each reading sets its own next observation date, so a long trial is
-  active monitoring rather than a calendar fixed on day one. A blank
-  observation with the row present is a recorded "nothing seen".
-- **B17** — a Claim can stand directly against a Problem, for a falsified
-  belief that outlives one trial.
-- **B18** — an Observation can arise inside a Run, and goes to the same triage
-  queue as anything that came in through the door.
-
-### Independent review — every finding confirmed live, and fixed
-
-- **Claim numbers collided.** `pd_claims` was the only object without a UNIQUE
-  key on its number (deliberately — a claim keeps one number across versions),
-  which meant the numbering helper's duplicate-key retry could never fire.
-  Two people writing a claim at the same instant were **both told C-003**, four
-  times in twelve concurrent pairs. Fixed by 005: unique on
-  `(claim_number, version)`, which is the identity the model actually
-  describes, and which also fixes the next one.
-- **Revise forked a claim** into three rows all called version 2 and all
-  flagged current. Same unique key; the loser now gets a plain 409.
-- **Settle and both closes were last-writer-wins.** Four concurrent closes on
-  one bet all returned 200; three graded claims ended up referenced by
-  nothing, and which of "killed" and "advanced" won was a coin flip. All three
-  now write the state change only if the object is still open, and tell the
-  loser plainly: *"Someone closed this a moment before you did. What you wrote
-  is on the record as a claim on the question — nothing is lost."* Which is
-  true, and is the right outcome: a result is a claim either way.
-- **`/edit` undid both hard rules after the fact.** A member who had been
-  moved off a bet — and refused by the close route seconds earlier — could
-  still rewrite its kill criterion to `x`; and a *closed* run's `actual` could
-  be rewritten to contradict the graded claim that closed it. Now: owner or
-  lead only, the create-time minimums apply to edits too, values are clamped
-  to their real column widths, and **a closed or settled record refuses edits**
-  and points at the move that keeps the history (write a claim, or revise the
-  one that closed it).
-- **The driver's own words were reaching the screen** — "Error: Data too long
-  for column 'title'" — which is unreadable and puts three of §6's banned
-  words into the interface via a route nobody wrote. One `fail()` helper now
-  logs the real thing server-side and shows a sentence.
-- **Enum gates were walkable through `Object.prototype`**: `grade:
-  "constructor"` passed the check and reached the ENUM column. Now
-  `hasOwnProperty`, like the table maps already were.
-- **A form draft followed a person between Problems** and saved a question
-  under the wrong parent — confirmed end to end. The dossier's two
-  non-namespaced forms now carry the Problem id in every field id, and the
-  draft is cleared when a different Problem is opened.
-- **A revision showed one person's words under another person's name**, and
-  earlier versions were in the table but on no screen. The dossier now returns
-  every version, renders the older ones beneath the current text, and
-  distinguishes whose claim it is from who wrote this version.
-- Plus: a Bet could be opened on a settled Question (the screen hid the button;
-  the route did not); a claim could challenge a claim about something else
-  entirely, printing a pill pointing off the page; `/api/pd/QUESTION/1/assign`
-  crashed on Express's case-insensitive matching; ids were not parsed;
-  `result_text: {}` stringified to "[object Object]" and cleared the
-  15-character floor, producing a `proven` claim that said exactly that; and
-  leads had no way to reassign a Bet or a Run from the screen.
-
-Clean on review: SQL injection (table names come only from two frozen maps),
-empty `IN (...)` handling, placeholder/column counts, XSS across ten seeded
-fields, and the permission matrix — no escalation path found for member or
-Registrar against settle, close, assign or edit.
-
-### Flagged, still not fixed
-
-1. **The moderator group is still not configurable** (carried from the
-   previous entry) — RECLASSIFICATION-RULES §10 wants it granted as a surface;
-   that needs a per-user grant table and a change to how `server.js` loads a PD
-   user, which is PLATFORM work.
-2. **Constraint is the one object of the nine with no way in.** A Bet inherits
-   and displays its delivery context's constraints, but nothing on any screen
-   can add one, so `pd_constraints` stays empty. Small build, needs a home.
-3. **`pd/PORTING_STATUS.md` is still stale.**
-
-### Next
-
-- Run **003**, then **004**, then **005** by hand against `DATABASE_URL`, in
-  that order, after 001 and 002. Never Claude. 005 prints a `preflight` line
-  first: if it says STOP, do not run the rest of that file.
-- Then the **Combination Bank entry form with its duplicate checker** — his
-  ruling: together, not form-first.
-- Not pushed — local changes only, for Tahir to review and commit via GitHub
-  Desktop.
+**Still not done:** the Combination Bank — entry form, the six-signal duplicate
+checker, the four bands and the moderation queue — is the largest piece left
+from the original screens request, and it is now unblocked. Search across the
+nine objects (decision 1) is unbuilt and, in this session's view, the single
+biggest gap in PD. Nothing is pushed — local changes only, for Tahir to review
+and commit via GitHub Desktop.

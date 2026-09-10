@@ -133,10 +133,20 @@ table{width:100%;border-collapse:collapse;font-size:12.5px}
 th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--faint);font-weight:700;padding:0 8px 7px 0;border-bottom:1px solid var(--line)}
 td{padding:9px 8px 9px 0;border-bottom:1px solid var(--line2);vertical-align:top;line-height:1.5}
 tr:last-child td{border-bottom:none}
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(158px,1fr));gap:9px}
+.tile{border:1px solid var(--line);border-radius:var(--radius-sm);padding:11px 12px;background:#fff}
+.tile.flag{border-color:#f0dfb5;background:var(--amber-50)}
+.tile .n{font-family:var(--head);font-size:26px;font-weight:700;letter-spacing:-.02em;line-height:1.05}
+.tile.flag .n{color:var(--amber)}
+.tile .l{font-size:12px;color:var(--txt2);margin-top:3px;line-height:1.35}
+.tile .h{font-size:11px;color:var(--faint);margin-top:4px;line-height:1.35}
+.item.flag{border-color:#f0dfb5;background:#fffdf7}
 .hist{font-size:12px;color:var(--txt2);border-left:2px solid var(--line);padding:2px 0 2px 12px;margin-bottom:9px}
 .hist .f{font-weight:700;color:var(--txt);font-size:12px}
 .hist .was{color:var(--mut);text-decoration:line-through;text-decoration-color:#cfd6e0}
 .hist .who{color:var(--faint);font-size:11px;margin-top:3px}
+.quiet{font-size:11.5px;color:var(--faint);cursor:pointer}
+.quiet:hover{color:var(--green2);text-decoration:underline}
 .back{font-size:12.5px;color:var(--mut);margin-bottom:10px;display:inline-block}
 .spin{color:var(--mut);font-size:12.5px;padding:20px 0}
 </style>
@@ -152,7 +162,7 @@ tr:last-child td{border-bottom:none}
    sign-out code), and the previous session's page could repaint over the
    login form. Found in a browser, invisible to API tests.
    =========================================================================== */
-var me = null, D = null, view = null, msg = null;
+var me = null, D = null, D2 = null, D3 = null, view = null, msg = null;
 /* What the person has typed but not yet saved. paint() rebuilds the whole
    screen from innerHTML, so without this a click on a door button — or any
    message coming back from the server — emptied the box they had just written
@@ -187,7 +197,7 @@ async function api(path, method, body) {
   });
   var j = null; try { j = await res.json(); } catch (e) {}
   if (res.status === 401) { setToken(''); me = null; renderSignIn(); throw new Error('signed out'); }
-  if (!res.ok) throw new Error((j && j.error) || ('Something did not go through (' + res.status + ').'));
+  if (!res.ok) throw new Error(pdWords((j && j.error) || 'That did not go through. Try again in a moment.'));
   return j;
 }
 function when(ts) {
@@ -200,6 +210,19 @@ function when(ts) {
 /* ---------------------------------------------------------------------------
    Sign in — the same POST /api/login and the same van_token as O2S.
 --------------------------------------------------------------------------- */
+/* See the note in the sign-in handler: this module cannot edit the platform's
+   own messages, so it says them in its own words on its own screen. */
+function pdWords(msg) {
+  var m = String(msg || '');
+  if (/username or password/i.test(m)) return 'That username and password did not match. Check them and try again.';
+  if (/^Error:/i.test(m) || /ECONNREFUSED|ETIMEDOUT|ENOTFOUND/i.test(m)) {
+    return 'PD could not be reached just now. Try again in a moment, or tell the Data Custodian.';
+  }
+  if (/Not permitted: (\w+)/.test(m)) {
+    return 'That part of PD is not open to your role yet. Ask the COO or the Data Custodian.';
+  }
+  return m || 'That did not sign in.';
+}
 function renderSignIn(err) {
   $('root').innerHTML =
     '<div class="signin"><div class="card">' +
@@ -218,7 +241,7 @@ function renderSignIn(err) {
       var r = await fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: $('u').value.trim(), password: $('p').value }) });
       var j = await r.json();
-      if (!j.token) return renderSignIn(j.error || 'That did not sign in.');
+      if (!j.token) return renderSignIn(pdWords(j.error));
       setToken(j.token); start();
     } catch (e) { renderSignIn('The server did not answer. Try again in a moment.'); }
   };
@@ -241,23 +264,28 @@ function renderSignIn(err) {
        moderator's filing list, and one entry opened in place.
      · "Problems" is the Problem Dossier (§5.3) in its first form — the
        register, and registering into it.
-   "What I owe" and the Report are the two still to build. If a third nav item
-   ever appears here, that is the tripwire, and it needs Tahir before it goes
-   any further. */
+   All four are now built, and four is the whole list. A FIFTH nav item is the
+   tripwire — it needs Tahir before it goes any further. */
 var ICONS = {
+  owe: '<svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>',
+  report: '<svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg>',
   intake: '<svg viewBox="0 0 24 24"><path d="M4 14h4l2 3h4l2-3h4"/><path d="M5.5 14 8 5h8l2.5 9"/><rect x="4" y="14" width="16" height="6" rx="2"/></svg>',
   problems: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg>',
 };
 function may(s) { return me && me.surfaces && me.surfaces.indexOf(s) >= 0; }
 
 function shell(inner) {
-  var route = (location.hash || '#intake').slice(1).split('/')[0];
+  var route = (location.hash || '#owe').slice(1).split('/')[0];
   if (route === 'item') route = 'intake';        // an entry is a panel on that screen, not a screen
   if (route === 'problem') route = 'problems';  // and one Problem is a panel on Problems
+  var owed = D2 ? (D2.runs || []).filter(function (r) { return r.late || r.abnormal; }).length
+                + (D2.questions || []).filter(function (q) { return q.late; }).length : 0;
   var nav = '';
+  nav += navLink('owe', 'What I owe', route, owed);
   nav += navLink('intake', 'What came in', route,
     may('triage') && D && D.feed ? D.feed.filter(function (x) { return x.status === 'unsorted' && !x.moved; }).length : 0);
   nav += navLink('problems', 'Problems', route);
+  nav += navLink('report', 'The Report', route);
   return '<div class="app"><div class="side">' +
     '<div class="brand"><img src="/assets/van-logo.png" alt="VAN"><span class="nm">Product<br>Development</span></div>' +
     '<div class="nav">' + nav + '</div>' +
@@ -295,34 +323,34 @@ function flashHtml() {
 --------------------------------------------------------------------------- */
 var draftDoor = '';
 function renderIntake() {
-  var notices = (D.notices || []).map(noticeCard).join('');
+  // Notices live on What I owe — one screen delivers them, once (§7).
   var form =
     '<div class="card">' +
       '<h2>Write down what happened</h2>' +
-      '<p class="hint">One minute is enough. You do not have to know what kind of thing it is — write it down and it is in. Someone will file it against the right problem afterwards.</p>' +
+      '<p class="hint">One minute is enough. You do not have to know what kind of thing it is — write it down and it is in. Someone will file it against the right Problem afterwards.</p>' +
       '<div class="field"><label>What happened, or what arrived</label>' +
         '<textarea id="text" placeholder="A dealer said… / A sample turned up from… / Someone wants…"></textarea></div>' +
       '<label>If you already know which of these it is <span class="opt">— optional</span></label>' +
       '<div class="doors">' +
-        door('', 'Not sure yet', 'Write it down anyway. This is the ordinary answer.') +
-        door('challenge', 'A complaint', 'Something we already sell is not doing what it should.') +
-        door('observation', 'Something arrived', 'A result, or a material. Not a complaint, not an idea.') +
-        door('request', 'Someone wants a sample', 'A sample or a product to be made, for a named person.') +
+        door('', 'Not sure yet', 'Write it down anyway. This is the ordinary answer. It is held as an Observation until someone files it.') +
+        door('challenge', 'A complaint — a Challenge', 'Something we already sell is not doing what it should.') +
+        door('observation', 'Something arrived — an Observation', 'A result or a material that reached us. Not a complaint, and not an idea.') +
+        door('request', 'Someone wants a sample — a Request', 'Someone has asked for a sample or a product to be made. Name who asked and who it goes to.') +
       '</div>' +
       doorFields() +
-      '<div class="field"><label>Who reported it <span class="opt">— optional, defaults to you</span></label>' +
+      '<div class="field"><label>Who reported it <span class="opt">— optional. Leave blank if it was you.</span></label>' +
         '<input type="text" id="reported_by_name" placeholder="' + esc(me.name) + '"></div>' +
       '<button class="btn" id="save">Save it</button>' +
     '</div>';
 
   var mine = '<div class="card"><h2>Your entries</h2>' +
     '<p class="hint">Everything you have written down, and where it went.</p>' +
-    (D.mine.length ? D.mine.map(function (x) { return itemCard(x, true); }).join('') : '<div class="empty">Nothing yet. The box on the left is the whole of it.</div>') +
+    (D.mine.length ? D.mine.map(function (x) { return itemCard(x, true); }).join('') : '<div class="empty">You have not written anything down yet. Use the box above to add your first entry. A few sentences is enough.</div>') +
     '</div>';
 
   return '<div class="page-h"><h1>What came in</h1>' +
-    '<div class="sub">The single door into Product Development. Nothing gets made until we have written the question it answers — and nothing can become a question until somebody writes it down here first.</div></div>' +
-    flashHtml() + notices +
+    '<div class="sub">Everything enters Product Development here. Write down what happened, in your own words. Someone will file it against a Problem afterwards, and turn it into a Question if it needs one.</div></div>' +
+    flashHtml() +
     '<div class="cols"><div>' + form + '</div><div>' + mine + '</div></div>' +
     toFileSection();
 }
@@ -337,8 +365,8 @@ function toFileSection() {
   var open = D.feed.filter(function (x) { return !x.moved && x.status === 'unsorted'; });
   var done = D.feed.filter(function (x) { return x.moved || x.status !== 'unsorted'; });
   return '<div class="card" style="margin-top:14px"><h2>Waiting to be filed <span class="pill" style="margin-left:6px">' + open.length + '</span></h2>' +
-      '<p class="hint">Everything that has come in, oldest first. Filing is putting a heading on somebody’s thought — it is not a judgement, and it needs no reason.</p>' +
-      (open.length ? open.map(fileRow).join('') : '<div class="empty">Nothing waiting. That is the system working, not an empty screen.</div>') + '</div>' +
+      '<p class="hint">Everything that has come in, oldest first. Give each one a Problem, an owner, or both. No reason is needed, and filing is not a judgement on what somebody wrote.</p>' +
+      (open.length ? open.map(fileRow).join('') : '<div class="empty">Nothing is waiting to be filed right now.</div>') + '</div>' +
     '<div class="card"><h2>Already filed</h2>' +
       (done.length ? done.map(itemCard).join('') : '<div class="empty">Nothing yet.</div>') + '</div>';
 }
@@ -369,10 +397,10 @@ function itemCard(x, forAuthor) {
   return '<div class="item"><div class="top">' + num + state +
       (x.problem_label ? '<span class="pill">' + esc(x.problem_label) + '</span>' : '') +
       (x.owner_name ? '<span class="pill">owner · ' + esc(x.owner_name) + '</span>' : '') +
-      '<a style="margin-left:auto;font-size:12px" href="#item/' + x.type + '/' + x.id + '">open</a></div>' +
+      '<a style="margin-left:auto;font-size:12px" href="#item/' + x.type + '/' + x.id + '">open it</a></div>' +
     '<div class="txt">' + esc(String(x.text || '').slice(0, 400)) + (String(x.text || '').length > 400 ? '…' : '') + '</div>' +
     '<div class="meta">' + (x.author ? esc(x.author) + ' · ' : '') + when(x.created_at) +
-      (x.door_chosen === false ? ' · recorded as an Observation for now' : '') + '</div>' +
+      (x.door_chosen === false ? ' · held as an Observation for now' : '') + '</div>' +
     (x.waiting_for && !forAuthor ? '<div class="waiting">' + esc(x.waiting_for) + '</div>' : '') +
     '</div>';
 }
@@ -386,7 +414,7 @@ function fileRow(x) {
   return '<div class="item"><div class="top"><span class="pill num">' + esc(x.label) + '</span>' +
       '<span class="pill">' + esc(x.type) + '</span>' +
       (x.door_chosen === false ? '<span class="pill">no type was picked, so it is here</span>' : '') +
-      '<a style="margin-left:auto;font-size:12px" href="#item/' + x.type + '/' + x.id + '">open</a></div>' +
+      '<a style="margin-left:auto;font-size:12px" href="#item/' + x.type + '/' + x.id + '">open it</a></div>' +
     '<div class="txt">' + esc(String(x.text || '').slice(0, 300)) + (String(x.text || '').length > 300 ? '…' : '') + '</div>' +
     '<div class="meta">' + (x.author ? esc(x.author) + ' · ' : '') + when(x.created_at) + '</div>' +
     '<div class="row" style="margin-top:9px">' +
@@ -443,14 +471,211 @@ function bindIntake() {
       await load();
     } catch (e) { flash('bad', e.message); save.disabled = false; paint(); }
   };
+}
+
+/* ---------------------------------------------------------------------------
+   Screen · What I owe   (MODEL.md §5.2)
+   The landing page. The adoption audit's finding, in one line: a chemist wrote
+   six real records and the next morning his home screen said "Nothing yet."
+   Everything he owned was reachable only by remembering which Problem it lived
+   under. This is the screen where a person's own work is in front of them.
+
+   §5.2 calls it "the only per-person scoreboard", and it is per-person in the
+   one direction that helps: it is always about YOU. There is no route, and no
+   control anywhere, that shows one person another person's list —
+   RECLASSIFICATION-RULES.md §8.1 forbids that, and it is forbidden for a good
+   reason: the moment this can be pointed at somebody else it stops being a
+   worklist and becomes a league table, and people stop writing things down.
+--------------------------------------------------------------------------- */
+function renderOwe() {
+  var W = D2 || {};
+  var late = function (b) { return b ? ' <span class="pill unsorted">late</span>' : ''; };
+
+  var notices = (W.notices || []).filter(function (n) { return !n.seen_at; }).map(noticeCard).join('');
+
+  var runs = (W.runs || []).map(function (r) {
+    return '<div class="item ' + (r.abnormal ? 'flag' : '') + '">' +
+      '<div class="top"><span class="pill num">Run ' + esc(r.label) + '</span>' +
+        (r.abnormal ? '<span class="pill unsorted">something abnormal — look at this one</span>'
+                    : '<span class="pill">running</span>') +
+        (r.next_look ? '<span class="pill' + (r.late ? ' unsorted' : '') + '">next reading ' + when(r.next_look) + (r.late ? ' · past due' : '') + '</span>'
+                     : '<span class="pill unsorted">no next reading set</span>') +
+        '<a style="margin-left:auto;font-size:12px" href="#problem/' + r.problem_id + '">open it</a></div>' +
+      '<div class="meta" style="margin:0 0 5px">This Run answers: ' + esc(r.question_title) + '</div>' +
+      '<div class="txt"><b>Expected:</b> ' + esc(r.expected) + '</div>' +
+      '<div class="kills" style="margin-top:6px"><b>This Bet ends if:</b> ' + esc(r.kill_criterion) + '</div>' +
+      '</div>';
+  }).join('');
+
+  var questions = (W.questions || []).map(function (q) {
+    return '<div class="item"><div class="top"><span class="pill num">Question ' + esc(q.label) + '</span>' +
+      '<span class="pill">' + esc(q.nature_label || q.nature) + '</span>' +
+      '<span class="pill' + (q.state === 'contested' ? ' unsorted' : '') + '">' + esc(q.state_label || q.state) + '</span>' +
+      (q.due_date ? '<span class="pill' + (q.late ? ' unsorted' : '') + '">due ' + when(q.due_date) + '</span>' + late(q.late) : '') +
+      '<a style="margin-left:auto;font-size:12px" href="#problem/' + q.problem_id + '">open it</a></div>' +
+      '<div class="txt"><b>' + esc(q.title) + '</b></div>' +
+      '<div class="meta">' + esc(q.problem_label) + ' · ' + esc(q.problem_title) +
+        ' · ' + (q.open_bets ? q.open_bets + ' bet' + (q.open_bets === 1 ? '' : 's') + ' running' : 'no bets on it yet') + '</div></div>';
+  }).join('');
+
+  var bets = (W.bets || []).map(function (b) {
+    return '<div class="item"><div class="top"><span class="pill num">Bet ' + esc(b.label) + '</span>' +
+      '<span class="pill">' + (b.open_runs ? b.open_runs + ' run' + (b.open_runs === 1 ? '' : 's') + ' open' : b.all_runs ? 'all runs closed — is the bet decided?' : 'no runs yet') + '</span>' +
+      '<a style="margin-left:auto;font-size:12px" href="#problem/' + b.problem_id + '">open it</a></div>' +
+      // B7 — the Question a Bet tests belongs on the Bet, never one click away.
+      // The payload has carried question_title all along; this card dropped it.
+      '<div class="meta" style="margin:0 0 5px">This Bet tests: ' + esc(b.question_title) + '</div>' +
+      '<div class="txt">' + esc(b.approach) + '</div>' +
+      '<div class="kills"><b>This Bet ends if:</b> ' + esc(b.kill_criterion) + '</div></div>';
+  }).join('');
+
+  var requests = (W.requests || []).map(function (r) {
+    return '<div class="item"><div class="top"><span class="pill num">Request ' + esc(r.label) + '</span>' +
+      (r.return_by ? '<span class="pill' + (r.late ? ' unsorted' : '') + '">wanted by ' + when(r.return_by) + '</span>' : '') +
+      '</div><div class="txt">' + esc(r.requester) + ' → ' + esc(r.recipient) + '</div>' +
+      '<div class="meta">' + esc(String(r.purpose || '').slice(0, 160)) + '</div></div>';
+  }).join('');
+
+  var replies = (W.replies || []).map(function (r) {
+    return '<div class="item"><div class="top"><span class="pill">a question back</span></div>' +
+      '<div class="txt">' + esc(r.author) + ' says: ' + esc(r.reply_text) + '</div>' +
+      '<div class="meta">about ' + esc(r.headline) + ' · ' + when(r.replied_at) +
+      ' · <a href="#item/' + esc(r.link_type) + '/' + r.link_id + '">open it</a></div></div>';
+  }).join('');
+
+  var mine = (W.mine || []).map(function (x) { return itemCard(x, true); }).join('');
+
+  var nothing = !runs && !questions && !bets && !requests;
+  var triageCard = W.caps && W.caps.triage ?
+    '<div class="card"><h2>Waiting to be filed <span class="pill" style="margin-left:6px">' + (W.toFile || 0) + '</span></h2>' +
+      '<p class="hint">Entries that have come in and do not yet have a Problem and an owner. Filing one takes a few seconds.</p>' +
+      (W.toFile ? '<a class="btn ghost sm" href="#intake">Go and file them</a>'
+                : '<div class="empty">Nothing is waiting to be filed right now.</div>') + '</div>' : '';
+
+  return '<div class="page-h"><h1>What I owe</h1>' +
+      '<div class="sub">Everything that is yours: the Questions you own, the Runs waiting on a reading, the Bets that need deciding. Nobody else sees this page, and there is no version of it pointed at anyone else.</div></div>' +
+    flashHtml() + notices +
+    (nothing ?
+      '<div class="card"><h2>Nothing is waiting on you</h2>' +
+        '<p class="hint">When you write a Question, take a Bet or start a Run, it appears here with what it needs next. ' +
+        'If you have something to write down, <a href="#intake">start at What came in</a>.</p></div>' : '') +
+    (runs ? '<div class="card"><h2>Runs waiting on you <span class="pill" style="margin-left:6px">' + W.runs.length + '</span></h2>' +
+      '<p class="hint">A Run is one recipe made and measured. A long trial is active monitoring, so what falls due is the next reading — not the trial.</p>' + runs + '</div>' : '') +
+    (questions ? '<div class="card"><h2>Questions you own <span class="pill" style="margin-left:6px">' + W.questions.length + '</span></h2>' +
+      '<p class="hint">A Question is something we must know in order to solve a Problem. It is settled when you write the answer.</p>' + questions + '</div>' : '') +
+    (bets ? '<div class="card"><h2>Bets you own <span class="pill" style="margin-left:6px">' + W.bets.length + '</span></h2>' +
+      '<p class="hint">A Bet is one approach, with the result that would end it written down first. Closing one — killed or advanced — is a result either way.</p>' + bets + '</div>' : '') +
+    (requests ? '<div class="card"><h2>Sample requests waiting on you</h2>' +
+      '<p class="hint">Somebody outside PD is expecting these.</p>' + requests + '</div>' : '') +
+    (replies ? '<div class="card"><h2>Someone answered back</h2>' +
+      '<p class="hint">You filed something of theirs, and they have said what they meant.</p>' + replies + '</div>' : '') +
+    triageCard +
+    '<div class="card"><h2>What you have written down</h2>' +
+      '<p class="hint">Everything you put through the door, and where it went.</p>' +
+      (mine || '<div class="empty">You have not written anything down yet. <a href="#intake">Start here</a> — a few sentences is enough.</div>') +
+    '</div>';
+}
+function bindOwe() {
   Array.prototype.forEach.call(document.querySelectorAll('[data-reply]'), function (a) {
     a.onclick = async function () {
-      var t = prompt('What did you mean? This goes back to the person who moved it, as a question.');
+      var t = prompt('What did you mean? This goes back to the person who filed it, as a question.');
       if (!t) return;
       try { await api('/api/pd/notices/' + a.getAttribute('data-reply') + '/reply', 'POST', { reply_text: t });
         flash('ok', 'Sent back to them.'); await load(); } catch (e) { flash('bad', e.message); paint(); }
     };
   });
+}
+
+/* ---------------------------------------------------------------------------
+   Screen · The Report   (MODEL.md §5.4, signed off in PENDING-DECISIONS §B19)
+   Aggregate only. Never a person, never a count by person, never a field a
+   screen could group by — RECLASSIFICATION-RULES.md §8.1. If somebody asks for
+   "and who is behind?", the answer is in that section, not in this file.
+--------------------------------------------------------------------------- */
+function tile(n, label, hint, flag) {
+  return '<div class="tile' + (flag && n ? ' flag' : '') + '"><div class="n">' + n + '</div>' +
+    '<div class="l">' + esc(label) + '</div>' + (hint ? '<div class="h">' + esc(hint) + '</div>' : '') + '</div>';
+}
+function renderReport() {
+  var R = D3 || {};
+  if (!R.problems) return '<div class="spin">Loading…</div>';
+  var w = R.written.week, m = R.written.month;
+
+  var feed = function (rows, fn, empty) { return rows && rows.length ? rows.map(fn).join('') : '<div class="empty">' + empty + '</div>'; };
+
+  return '<div class="page-h"><h1>The Report</h1>' +
+      '<div class="sub">How much is being written down, what is waiting, and what has been answered. Counts of things — never of people, and there is no version of this page that names anybody.</div></div>' +
+    flashHtml() +
+
+    '<div class="card"><h2>Written down in the last seven days</h2>' +
+      '<p class="hint">The pilot is judged on whether things get written down at all: entries arriving, Questions written before samples are made, results written when things close. Last thirty days in brackets.</p>' +
+      '<div class="tiles">' +
+        tile(w.arrived, 'came in through the door', 'was ' + m.arrived + ' over thirty days') +
+        tile(w.questions, 'Questions written', m.questions + ' over thirty days') +
+        tile(w.bets, 'Bets taken', m.bets + ' over thirty days') +
+        tile(w.runs, 'Runs started', m.runs + ' over thirty days') +
+        tile(w.readings, 'readings recorded', m.readings + ' over thirty days') +
+        tile(w.results, 'results written', m.results + ' over thirty days') +
+      '</div></div>' +
+
+    '<div class="card"><h2>Where the work stands</h2>' +
+      '<div class="tiles">' +
+        tile(R.problems.field_problem, 'field problems open') +
+        tile(R.problems.product_concept, 'product concepts open') +
+        tile(R.questions.open, 'Questions open') +
+        tile(R.questions.contested, 'Questions contested', 'claims on both sides') +
+        tile(R.questions.settled, 'Questions settled', 'an answer we stand behind') +
+        tile(R.bets.active, 'Bets running') +
+        tile(R.bets.killed, 'Bets killed', 'a result, not a failure') +
+        tile(R.bets.advanced, 'Bets advanced') +
+        tile(R.runs.running, 'Runs under observation') +
+        tile(R.runs.investigating, 'Runs with something abnormal', 'an investigation is open', true) +
+        tile(R.claims.proven, 'Claims proven') +
+        tile(R.claims.believed, 'Claims believed', 'held on experience') +
+      '</div></div>' +
+
+    '<div class="card"><h2>Where the discipline is slipping</h2>' +
+      '<p class="hint">Four things a count can see. None of them is about a person — each one is a signal about the work itself, or about a form that is harder to fill in than it should be.</p>' +
+      '<div class="tiles">' +
+        tile(R.discipline.unfiled, 'entries not yet filed', 'came in, still nobody’s', true) +
+        tile(R.discipline.bets_never_run, 'Bets with no Run', 'stated, never acted on', true) +
+        tile(R.discipline.runs_unwatched, 'Runs with no reading in three weeks', 'a trial nobody is watching', true) +
+        tile(R.discipline.runs_without_recipe, 'Runs with no recipe recorded', 'the Combination Bank will close this') +
+      '</div></div>' +
+
+    '<div class="cols">' +
+      '<div class="card"><h2>Needs attention</h2>' +
+        '<p class="hint">Overdue Questions, readings past their date, and Runs where something abnormal was seen.</p>' +
+        feed(R.attention.investigations, function (r) {
+          return '<div class="item flag"><div class="top"><span class="pill num">Run ' + esc(r.label) + '</span>' +
+            '<span class="pill unsorted">something abnormal</span>' +
+            '<a style="margin-left:auto;font-size:12px" href="#problem/' + r.problem_id + '">open it</a></div>' +
+            '<div class="txt">' + esc(r.question_title) + '</div></div>';
+        }, 'No investigations open.') +
+        feed(R.attention.overdueQuestions, function (q) {
+          return '<div class="item"><div class="top"><span class="pill num">Question ' + esc(q.label) + '</span>' +
+            '<span class="pill unsorted">due ' + when(q.due_date) + '</span>' +
+            '<a style="margin-left:auto;font-size:12px" href="#problem/' + q.problem_id + '">open it</a></div>' +
+            '<div class="txt">' + esc(q.title) + '</div></div>';
+        }, 'No Questions are past their date.') +
+        feed(R.attention.lateLooks, function (r) {
+          return '<div class="item"><div class="top"><span class="pill num">Run ' + esc(r.label) + '</span>' +
+            '<span class="pill unsorted">reading was due ' + when(r.next_look) + '</span>' +
+            '<a style="margin-left:auto;font-size:12px" href="#problem/' + r.problem_id + '">open it</a></div>' +
+            '<div class="txt">' + esc(r.question_title) + '</div></div>';
+        }, 'Every Run is being read on time.') +
+      '</div>' +
+      '<div class="card"><h2>Answered recently</h2>' +
+        '<p class="hint">Every result written here becomes a Claim. This is the only place they appear together.</p>' +
+        feed(R.closed, function (c) {
+          return '<div class="item"><div class="top"><span class="pill num">Claim ' + esc(c.label) + '</span>' +
+            '<span class="pill ' + (c.grade === 'proven' ? 'settled' : c.grade === 'contested' ? 'unsorted' : '') + '">' + esc(c.grade) + '</span>' +
+            (c.problem_id ? '<a style="margin-left:auto;font-size:12px" href="#problem/' + c.problem_id + '">open it</a>' : '') + '</div>' +
+            '<div class="txt">' + esc(c.text) + '</div>' +
+            '<div class="meta">' + (c.question_title ? esc(c.question_label) + ' · ' + esc(c.question_title) + ' · ' : '') + when(c.created_at) + '</div></div>';
+        }, 'Nothing has been answered yet.') +
+      '</div>' +
+    '</div>';
 }
 
 /* ---------------------------------------------------------------------------
@@ -482,15 +707,15 @@ function renderProblems() {
     return '<div class="item"><div class="top"><span class="pill num">' + esc(p.label.split(' — ')[0]) + '</span>' +
       '<span class="pill">' + esc(p.kind === 'product_concept' ? 'product concept' : 'field problem') + '</span>' +
       (p.status !== 'open' ? '<span class="pill settled">' + esc(p.status) + '</span>' : '') +
-      '<a style="margin-left:auto;font-size:12px" href="#problem/' + p.id + '">open</a></div>' +
+      '<a style="margin-left:auto;font-size:12px" href="#problem/' + p.id + '">open it</a></div>' +
       '<div class="txt"><b>' + esc(p.title) + '</b></div>' +
       '<div class="meta">registered by ' + esc(p.author || '') + '</div></div>';
   }).join('');
   return '<div class="page-h"><h1>Problems</h1>' +
-    '<div class="sub">Few, and long-lived. A problem in the field, or a product concept we have decided to build — both are the same shape here, because both are the parent that questions, bets and runs hang off.</div></div>' +
+    '<div class="sub">A Problem is the parent of all work aimed at it. It can be a problem in the field, or a product we have decided to build — both work the same way: every Question, Bet and Run sits under one Problem. There should be few Problems, and they should last a long time.</div></div>' +
     flashHtml() +
     '<div class="cols"><div class="card"><h2>Register one</h2>' +
-      '<p class="hint">If you already know you have a problem or a concept, say so directly. It does not go through the door.</p>' +
+      '<p class="hint">If you already know you have a field problem or a product concept, register it here. You do not need to send it through What came in.</p>' +
       '<div class="doors">' +
         '<button class="door ' + (probKind === 'field_problem' ? 'on' : '') + '" data-kind="field_problem"><b>A problem in the field</b><span>Something is not working out there, or in the market.</span></button>' +
         '<button class="door ' + (probKind === 'product_concept' ? 'on' : '') + '" data-kind="product_concept"><b>A product concept</b><span>Something we have decided to build.</span></button>' +
@@ -499,8 +724,8 @@ function renderProblems() {
       '<div class="field"><label>' + (probKind === 'product_concept' ? 'What the product is meant to do' : 'What the problem actually is') + '</label><textarea id="pstatement"></textarea></div>' +
       '<div class="field"><label>Anything else worth knowing <span class="opt">— optional</span></label><textarea id="pcontext" style="min-height:60px"></textarea></div>' +
       '<button class="btn" id="psave">Register it</button></div>' +
-    '<div class="card"><h2>The register</h2><p class="hint">Everything work can be aimed at.</p>' +
-      (list || '<div class="empty">Nothing registered yet.</div>') + '</div></div>';
+    '<div class="card"><h2>All Problems</h2><p class="hint">Every Problem work can be aimed at. Open one to see its Questions, Bets, Runs and Claims.</p>' +
+      (list || '<div class="empty">No Problems registered yet. A Problem is a pain in the field, or a product we have decided to build. Every Question, Bet and Run sits under one.</div>') + '</div></div>';
 }
 
 /* ---- one Problem, and everything aimed at it ---- */
@@ -511,15 +736,15 @@ function renderDossier() {
   }).join('');
 
   var questions = d.questions.map(function (q) { return questionCard(q, lead, owners); }).join('') ||
-    '<div class="empty">No questions yet. Nothing gets made until one is written — this is where that starts.</div>';
+    '<div class="empty">No Questions on this Problem yet. A Question is something we must know in order to solve it — it has one owner and a due date. Nothing gets made until a Question is written. Write the first one here.</div>';
 
   var claims = (d.claims || []).map(function (c) {
     var older = (c.history || []).map(function (h) {
       return '<div class="hist"><span class="f">version ' + h.version + '</span> <span class="was">' + esc(h.text) + '</span>' +
         '<div class="who">' + esc(h.written_by_name || '') + ' · ' + when(h.created_at) + ' · ' + esc(h.grade) + '</div></div>';
     }).join('');
-    return '<div class="item"><div class="top"><span class="pill num">' + esc(c.label) + '</span>' +
-      '<span class="pill ' + (c.grade === 'proven' ? 'settled' : c.grade === 'contested' ? 'unsorted' : '') + '">' + esc(c.grade) + '</span>' +
+    return '<div class="item"><div class="top"><span class="pill num">Claim ' + esc(c.label) + '</span>' +
+      '<span class="pill ' + (c.grade === 'proven' ? 'settled' : c.grade === 'contested' ? 'unsorted' : '') + '">' + esc(c.grade_label || c.grade) + '</span>' +
       (c.version > 1 ? '<span class="pill">version ' + c.version + '</span>' : '') +
       (c.challenges_number ? '<span class="pill moved">challenges C-' + String(c.challenges_number).padStart(3, '0') + '</span>' : '') +
       '</div><div class="txt">' + esc(c.text) + '</div>' +
@@ -527,10 +752,10 @@ function renderDossier() {
         (c.written_by_name && c.written_by_name !== c.owner_name ? ' · this version written by ' + esc(c.written_by_name) : '') +
         (c.source_ref ? ' · ' + esc(c.source_ref) : '') + '</div>' +
       (older ? '<div style="margin-top:8px">' + older + '</div>' : '') + '</div>';
-  }).join('') || '<div class="empty">Nothing claimed yet.</div>';
+  }).join('') || '<div class="empty">No Claims yet. A Claim is something a person says is true about this Problem, with their name on it and a grade for the evidence. Anyone can write one, and anyone can write another that challenges it.</div>';
 
   var filed = (d.filed || []).map(function (x) { return itemCard(x, true); }).join('') ||
-    '<div class="empty">Nothing has come in against this one.</div>';
+    '<div class="empty">Nothing has been filed under this Problem yet.</div>';
 
   return '<a class="back" href="#problems">&larr; back to problems</a>' + flashHtml() +
     '<div class="page-h"><h1>' + esc(p.label) + ' · ' + esc(p.title) + '</h1>' +
@@ -541,40 +766,115 @@ function renderDossier() {
       (p.closed_reason ? '<span class="pill">closed: ' + esc(String(p.closed_reason).slice(0, 60)) + '</span>' : '') +
     '</div>' +
     '<div class="card"><h2>Questions <span class="pill" style="margin-left:6px">' + d.questions.length + '</span></h2>' +
-      '<p class="hint">Something we must know in order to solve this. One owner, one due date, and a state that says where it stands.</p>' +
+      '<p class="hint">A Question is something we must know in order to solve this Problem. It has one owner, one due date, and a state that says where it stands.</p>' +
       questions +
       (formOpen('question') ? questionForm() :
         '<button class="btn ghost sm" data-open="question">+ Write a question</button>') +
     '</div>' +
     '<div class="cols" style="margin-top:14px">' +
       '<div class="card"><h2>Claims</h2>' +
-        '<p class="hint">An assertion with an owner and an honest grade. Anyone may challenge one — that is what makes it a claim rather than an opinion.</p>' +
+        '<p class="hint">A Claim is something a person says is true, with their name on it and a grade for the evidence. Anyone can write a Claim, and anyone can write another Claim that challenges it.</p>' +
         claims +
         (formOpen('claim') ? claimForm(d) : '<button class="btn ghost sm" data-open="claim">+ Write a claim</button>') +
       '</div>' +
-      '<div class="card"><h2>What came in against this</h2>' +
-        '<p class="hint">Everything filed here from the door.</p>' + filed + '</div>' +
+      '<div class="card"><h2>What came in about this</h2>' +
+        '<p class="hint">Complaints, arrivals and sample requests filed under this Problem.</p>' + filed + '</div>' +
+    '</div>' +
+    constraintsCard();
+}
+
+/* MODEL.md §3's ninth object, written from here rather than from a fifth
+   screen (Tahir's ruling, 10 Sept 2026). It is shown on the dossier because
+   this is where the Bets that inherit it are — a rule you can only read on a
+   screen you never open is a rule nobody applies. The register is the same
+   list for the whole company, not this Problem's own: a constraint binds a
+   delivery context, and every product aimed through it. */
+function constraintsCard() {
+  var reg = dossier.constraintRegister || [];
+  var contexts = (dossier.vocab && dossier.vocab.contexts) || [];
+  var lead = dossier.caps.lead;
+  var body = contexts.map(function (ctx) {
+    var mine = reg.filter(function (c) { return c.context_id === ctx.id; });
+    if (!mine.length) return '';
+    return '<div class="item"><div class="top"><span class="pill num">' + esc(ctx.name) + '</span>' +
+      '<span class="pill">' + mine.length + ' rule' + (mine.length === 1 ? '' : 's') + '</span></div>' +
+      mine.map(function (c) {
+        return '<div class="kills" style="margin:6px 0 0"><b>' + esc(c.kind_label) + ':</b> ' + esc(c.rule_text) +
+          '<div class="who">written by ' + esc(c.added_by_name || 'the system') + ' · ' + when(c.created_at) +
+          (lead ? ' · <a class="quiet" data-open="retirec:' + c.id + '">it no longer binds</a>' : '') + '</div>' +
+          (formOpen('retirec:' + c.id) ? retireConstraintForm(c) : '') + '</div>';
+      }).join('') + '</div>';
+  }).join('');
+  if (!body) {
+    body = '<div class="empty">No constraints are recorded yet. A Constraint is a rule that kills options — what will not blend, what will cake in storage, what the plant cannot make, what the regulator will not allow. Every Bet aimed through that delivery context inherits it automatically.</div>';
+  }
+  return '<div class="card" style="margin-top:14px"><h2>Constraints <span class="pill" style="margin-left:6px">' + reg.length + '</span></h2>' +
+    '<p class="hint">Rules that remove options before anyone spends a bench day on them. They belong to a delivery context, not to this Problem — every Bet aimed through that context inherits them, here and everywhere else.</p>' +
+    body +
+    (lead
+      ? (formOpen('constraint') ? constraintForm() : '<button class="btn ghost sm" data-open="constraint">+ Write a constraint</button>')
+      : '<p class="hint" style="margin-top:10px">Writing one is a technical lead’s or the COO’s — a constraint binds every product aimed through that context, not just this Problem.</p>') +
     '</div>';
 }
 
-/* The restricted half of "open to write, restricted to assign" — offered on
-   all three, not only on Questions. */
-function assignControl(type, id) {
+function constraintForm() {
+  var contexts = ((dossier.vocab && dossier.vocab.contexts) || []).map(function (c) {
+    return '<option value="' + c.id + '">' + esc(c.name) + '</option>';
+  }).join('');
+  var kinds = dossier.vocab && dossier.vocab.constraintKinds ? dossier.vocab.constraintKinds : {};
+  var kindOpts = Object.keys(kinds).map(function (k) {
+    return '<option value="' + k + '">' + esc(kinds[k]) + '</option>';
+  }).join('');
+  return box('<h2>Write a constraint</h2>' +
+    '<p class="hint">A rule that kills options. Every Bet aimed through this delivery context will show it, from now on, without anyone having to remember.</p>' +
+    '<div class="two">' +
+      '<div class="field"><label>Which delivery context does it bind?</label>' +
+        '<select id="c_ctx"><option value="">— pick one —</option>' + contexts + '</select></div>' +
+      '<div class="field"><label>What kind of rule is it?</label>' +
+        '<select id="c_kind"><option value="">— pick one —</option>' + kindOpts + '</select></div>' +
+    '</div>' +
+    '<div class="field"><label>The rule, in full</label>' +
+      '<textarea id="c_rule" placeholder="Write it so somebody who was not in the room can apply it."></textarea></div>' +
+    '<div class="row"><button class="btn" data-constraint="1">Write it down</button>' +
+    '<button class="btn ghost" data-open="constraint">Cancel</button></div>');
+}
+
+function retireConstraintForm(c) {
+  return box('<h2>This rule no longer binds</h2>' +
+    '<p class="hint">It is not deleted — it stays on the record with your reason, so nobody re-argues it next year.</p>' +
+    '<div class="field"><label>Why does it no longer bind?</label>' +
+      '<textarea id="cr_why_' + c.id + '"></textarea></div>' +
+    '<div class="row"><button class="btn" data-retirec="' + c.id + '">Retire it</button>' +
+    '<button class="btn ghost" data-open="retirec:' + c.id + '">Cancel</button></div>');
+}
+
+/* The restricted half of "open to write, restricted to assign".
+   It used to render in full on every card — six owner dropdowns on one
+   Question, which is most of what a reader saw. Now it is a quiet link until
+   somebody actually wants to move the work, and it is not offered at all on
+   something already finished. */
+function assignControl(type, id, hasOwner, finished) {
+  if (finished) return '';
+  var key = 'assign:' + type + ':' + id;
+  if (!formOpen(key)) {
+    return '<a class="quiet" data-open="' + key + '">' + (hasOwner ? 'change owner' : 'give it an owner') + '</a>';
+  }
   var owners = (dossier.people || []).map(function (x) {
     return '<option value="' + x.id + '">' + esc(x.name) + ' · ' + esc(x.role_label) + '</option>';
   }).join('');
   return '<select id="assign_' + type.charAt(0) + '_' + id + '" style="max-width:190px">' +
-    '<option value="">— give it an owner —</option>' + owners + '</select>' +
-    '<button class="btn ghost sm" data-assign="' + type + ':' + id + '">Assign</button>';
+    '<option value="">— pick a person —</option>' + owners + '</select>' +
+    '<button class="btn ghost sm" data-assign="' + type + ':' + id + '">Assign</button>' +
+    '<a class="quiet" data-open="' + key + '">cancel</a>';
 }
 
 function questionCard(q, lead, owners) {
   var bets = (q.bets || []).map(function (b) { return betCard(b, q, lead); }).join('') ||
-    '<div class="empty" style="padding:6px 0">No bets on this question yet.</div>';
+    '<div class="empty" style="padding:6px 0">No Bets on this Question yet. A Bet is one approach we try, with the one result that would end it written down first.</div>';
   return '<div class="item" style="border-left:3px solid var(--green);padding-left:12px">' +
-    '<div class="top"><span class="pill num">' + esc(q.label) + '</span>' +
+    '<div class="top"><span class="pill num">Question ' + esc(q.label) + '</span>' +
       '<span class="pill">' + esc(q.nature_label || q.nature) + '</span>' +
-      '<span class="pill ' + (q.state === 'settled' ? 'settled' : q.state === 'contested' ? 'unsorted' : '') + '">' + esc(q.state) + '</span>' +
+      '<span class="pill ' + (q.state === 'settled' ? 'settled' : q.state === 'contested' ? 'unsorted' : '') + '">' + esc(q.state_label || q.state) + '</span>' +
       (q.owner_name ? '<span class="pill">owner · ' + esc(q.owner_name) + '</span>' : '') +
       (q.due_date ? '<span class="pill ' + (q.overdue ? 'unsorted' : '') + '">due ' + when(q.due_date) + (q.overdue ? ' · late' : '') + '</span>' : '') +
     '</div>' +
@@ -586,7 +886,7 @@ function questionCard(q, lead, owners) {
     '</div>' +
     '<div class="row" style="margin-top:9px">' +
       (q.state !== 'settled' ? (formOpen('settle:' + q.id) ? '' : '<button class="btn ghost sm" data-open="settle:' + q.id + '">Settle it</button>') : '') +
-      (lead ? assignControl('question', q.id) : '') +
+      (lead ? assignControl('question', q.id, !!q.owner_name, q.state === 'settled') : '') +
     '</div>' +
     (formOpen('settle:' + q.id) ? settleForm(q) : '') +
     '</div>';
@@ -598,20 +898,20 @@ function betCard(b, q, lead) {
     return '<div class="hist" style="margin:4px 0"><span class="f">' + esc(c.kind_label || c.kind) + '</span> ' + esc(c.rule_text) + '</div>';
   }).join('');
   return '<div class="item">' +
-    '<div class="top"><span class="pill num">' + esc(b.label) + '</span>' +
+    '<div class="top"><span class="pill num">Bet ' + esc(b.label) + '</span>' +
       '<span class="pill ' + (b.status === 'killed' ? 'unsorted' : b.status === 'advanced' ? 'settled' : '') + '">' + esc(b.status_label || b.status) + '</span>' +
       (b.context_name ? '<span class="pill">' + esc(b.context_name) + '</span>' : '') +
       (b.owner_name ? '<span class="pill">owner · ' + esc(b.owner_name) + '</span>' : '') +
     '</div>' +
     '<div class="txt">' + esc(b.approach) + '</div>' +
-    '<div class="kills"><b>Kills it:</b> ' + esc(b.kill_criterion) + '</div>' +
+    '<div class="kills"><b>Kill criterion — the one result that ends this Bet:</b> ' + esc(b.kill_criterion) + '</div>' +
     (constraints ? '<div style="margin-top:8px"><div class="meta">Inherited from ' + esc(b.context_name) + ':</div>' + constraints + '</div>' : '') +
-    (b.closing_text ? '<div class="result"><b>' + esc(b.status) + ':</b> ' + esc(b.closing_text) + ' <span class="pill">' + esc(b.closing_grade) + '</span></div>' : '') +
+    (b.closing_text ? '<div class="result"><b>' + esc(b.status === 'killed' ? 'Killed' : 'Advanced') + ':</b> ' + esc(b.closing_text) + ' <span class="pill">' + esc(b.closing_grade) + '</span></div>' : '') +
     (runs ? '<div style="margin:10px 0 0 8px;padding-left:10px;border-left:1px solid var(--line)">' + runs + '</div>' : '') +
     '<div class="row" style="margin-top:9px">' +
       (b.status === 'active' ? (formOpen('run:' + b.id) ? '' : '<button class="btn ghost sm" data-open="run:' + b.id + '">+ Make a run</button>') : '') +
       (b.status === 'active' && !formOpen('closebet:' + b.id) ? '<button class="btn ghost sm" data-open="closebet:' + b.id + '">Close the bet</button>' : '') +
-      (dossier.caps.lead ? assignControl('bet', b.id) : '') +
+      (dossier.caps.lead ? assignControl('bet', b.id, !!b.owner_name, b.status !== 'active') : '') +
     '</div>' +
     (formOpen('run:' + b.id) ? runForm(b) : '') +
     (formOpen('closebet:' + b.id) ? closeBetForm(b) : '') +
@@ -623,27 +923,28 @@ function runCard(r, b) {
     return '<div class="hist"><span class="f">' + when(rd.reading_date) + '</span> ' +
       esc([rd.parameters_checked, rd.physical_observation, rd.analytical_result].filter(Boolean).join(' · ') || 'nothing seen') +
       ' <span class="pill ' + (rd.verdict === 'abnormal' ? 'unsorted' : '') + '">' + esc(rd.verdict_label || rd.verdict) + '</span>' +
-      '<div class="who">' + esc(rd.who) + (rd.next_observation_date ? ' · next look ' + when(rd.next_observation_date) : '') + '</div></div>';
+      '<div class="who">' + esc(rd.who) + (rd.next_observation_date ? ' · next reading due ' + when(rd.next_observation_date) : '') + '</div></div>';
   }).join('');
   return '<div class="item">' +
-    '<div class="top"><span class="pill num">' + esc(r.label) + '</span>' +
+    '<div class="top"><span class="pill num">Run ' + esc(r.label) + '</span>' +
       '<span class="pill ' + (r.status === 'abnormal_investigation' ? 'unsorted' : r.status === 'closed' ? 'settled' : '') + '">' + esc(r.status_label || r.status) + '</span>' +
-      (r.replaced_number ? '<span class="pill moved">replaces R-' + String(r.replaced_number).padStart(3, '0') + '</span>' : '') +
-      (r.combination_code ? '<span class="pill">' + esc(r.combination_code) + '</span>' : '<span class="pill">no recipe recorded yet</span>') +
+      (r.replaced_number ? '<span class="pill moved">replaces Run R-' + String(r.replaced_number).padStart(3, '0') + '</span>' : '') +
+      (r.combination_code ? '<span class="pill">' + esc(r.combination_code) + '</span>' : '') +
     '</div>' +
     // B7 — on the run itself, never one click away.
-    '<div class="meta" style="margin:0 0 6px">Answers: ' + esc(r.question_title) + ' · <b>kills it:</b> ' + esc(r.kill_criterion) + '</div>' +
+    '<div class="meta" style="margin:0 0 6px">This Run answers: ' + esc(r.question_title) + '</div>' +
+    '<div class="kills" style="margin:0 0 8px"><b>This Bet ends if:</b> ' + esc(r.kill_criterion) + '</div>' +
     '<div class="txt"><b>Expected:</b> ' + esc(r.expected) + '</div>' +
     (r.actual ? '<div class="txt" style="margin-top:5px"><b>Actual:</b> ' + esc(r.actual) + '</div>' : '') +
     (r.replaces_reason ? '<div class="meta">Replaces the earlier run because: ' + esc(r.replaces_reason) + '</div>' : '') +
     (readings ? '<div style="margin-top:8px">' + readings + '</div>' : '') +
-    (r.next_observation ? '<div class="waiting">Next look: ' + when(r.next_observation) + '</div>' : '') +
+    (r.next_observation ? '<div class="waiting">Next reading due: ' + when(r.next_observation) + '</div>' : '') +
     (r.closing_text ? '<div class="result"><b>Result:</b> ' + esc(r.closing_text) + ' <span class="pill">' + esc(r.closing_grade) + '</span></div>' : '') +
     '<div class="row" style="margin-top:9px">' +
-      (r.status !== 'closed' ? '<button class="btn ghost sm" data-open="reading:' + r.id + '">+ Record a look</button>' : '') +
+      (r.status !== 'closed' ? '<button class="btn ghost sm" data-open="reading:' + r.id + '">+ Add a reading</button>' : '') +
       (r.status !== 'closed' ? '<button class="btn ghost sm" data-open="closerun:' + r.id + '">Close the run</button>' : '') +
-      '<button class="btn ghost sm" data-open="observe:' + r.id + '">Something turned up</button>' +
-      (dossier.caps.lead ? assignControl('run', r.id) : '') +
+      '<button class="btn ghost sm" data-open="observe:' + r.id + '">Something turned up — write an Observation</button>' +
+      (dossier.caps.lead ? assignControl('run', r.id, !!r.owner_name, r.status === 'closed') : '') +
     '</div>' +
     (formOpen('reading:' + r.id) ? readingForm(r) : '') +
     (formOpen('closerun:' + r.id) ? closeRunForm(r) : '') +
@@ -658,7 +959,7 @@ function natureOptions() {
   }).join('');
 }
 function gradeSelect(id) {
-  return '<div class="field"><label>How honestly can we hold this?</label><select id="' + id + '">' +
+  return '<div class="field"><label>Grade the evidence honestly</label><select id="' + id + '">' +
     Object.keys(dossier.vocab.grades).map(function (k) {
       return '<option value="' + k + '">' + esc(dossier.vocab.grades[k]) + '</option>';
     }).join('') + '</select></div>';
@@ -682,7 +983,7 @@ function questionForm() {
 }
 function settleForm(q) {
   return box('<h2>Settle ' + esc(q.label) + '</h2>' +
-    '<p class="hint">Nothing gets closed until we have written the result. What goes here becomes a claim anyone can challenge.</p>' +
+    '<p class="hint">Nothing is settled here without a written answer. What you write becomes a Claim that anyone can read and challenge.</p>' +
     '<div class="field"><label>What is the answer?</label><textarea id="s_text_' + q.id + '"></textarea></div>' +
     gradeSelect('s_grade_' + q.id) +
     '<div class="field"><label>Where it came from <span class="opt">— optional</span></label><input type="text" id="s_src_' + q.id + '" placeholder="a trial, a paper, a path under E:\\NP"></div>' +
@@ -694,7 +995,7 @@ function betForm(q) {
     return '<option value="' + c.id + '">' + esc(c.name) + '</option>';
   }).join('');
   return box('<h2>Take a bet on ' + esc(q.label) + '</h2>' +
-    '<p class="hint">A specific approach, taken because we believe something. The one result that would kill it is written now, before any bench work — not after.</p>' +
+    '<p class="hint">A Bet is one approach, taken because we believe something. Write the one result that would end it now, before any bench work.</p>' +
     '<div class="field"><label>What is the approach?</label><textarea id="b_approach_' + q.id + '"></textarea></div>' +
     '<div class="field"><label>What one result would kill it?</label><textarea id="b_kill_' + q.id + '" placeholder="If this happens, the bet is over."></textarea></div>' +
     '<div class="field"><label>Aimed through <span class="opt">— optional; it inherits that context’s constraints</span></label><select id="b_ctx_' + q.id + '">' + ctx + '</select></div>' +
@@ -703,7 +1004,11 @@ function betForm(q) {
 }
 function closeBetForm(b) {
   return box('<h2>Close ' + esc(b.label) + '</h2>' +
-    '<p class="hint">Killed is as good an outcome as advanced, and costs nothing if it is written down. What goes here becomes a claim.</p>' +
+    '<p class="hint">A Bet that is killed is a useful result. Write what happened — what you write becomes a Claim on the record.</p>' +
+    // The kill criterion was written before the bench work precisely so it
+    // could be read at this moment. Putting it anywhere but here makes the
+    // first dropdown option a guess.
+    '<div class="kills" style="margin:0 0 10px"><b>What was written before the work started:</b> ' + esc(b.kill_criterion) + '</div>' +
     '<div class="field"><label>How does it close?</label><select id="cb_status_' + b.id + '">' +
       '<option value="killed">Killed — the kill criterion was met</option>' +
       '<option value="advanced">Advanced — it earned the next step</option></select></div>' +
@@ -715,7 +1020,7 @@ function closeBetForm(b) {
 function runForm(b) {
   var prev = (b.runs || []).map(function (r) { return '<option value="' + r.id + '">' + esc(r.label) + '</option>'; }).join('');
   return box('<h2>Make a run under ' + esc(b.label) + '</h2>' +
-    '<p class="hint">One recipe, made and measured. Write what you expect before you make it — expected against actual is the whole point.</p>' +
+    '<p class="hint">A Run is one recipe made and measured. Write what you expect before you make it: a Run records what was expected against what happened.</p>' +
     '<div class="field"><label>What do you expect to happen?</label><textarea id="r_exp_' + b.id + '"></textarea></div>' +
     (prev ? '<div class="two"><div class="field"><label>Does it replace an earlier run? <span class="opt">— optional</span></label>' +
       '<select id="r_repl_' + b.id + '"><option value="">— no —</option>' + prev + '</select></div>' +
@@ -724,20 +1029,25 @@ function runForm(b) {
     '<button class="btn ghost" data-open="run:' + b.id + '">Cancel</button></div>');
 }
 function readingForm(r) {
-  return box('<h2>Record a look at ' + esc(r.label) + '</h2>' +
-    '<p class="hint">A long trial is active monitoring, not a waiting period. Say when the next look is due — the schedule moves with what you find.</p>' +
+  return box('<h2>Add a reading to Run ' + esc(r.label) + '</h2>' +
+    '<p class="hint">Check the Run on a date and write what you saw. Then set the date of the next reading. If you find something, bring that date forward.</p>' +
     '<div class="two"><div class="field"><label>When</label><input type="date" id="rd_date_' + r.id + '"></div>' +
     '<div class="field"><label>What did it look like?</label><select id="rd_verdict_' + r.id + '">' +
       '<option value="normal">Nothing unexpected</option><option value="abnormal">Something abnormal</option></select></div></div>' +
     '<div class="field"><label>What you checked <span class="opt">— optional</span></label><input type="text" id="rd_params_' + r.id + '"></div>' +
     '<div class="field"><label>What you saw <span class="opt">— optional; blank is a recorded "nothing seen"</span></label><textarea id="rd_obs_' + r.id + '" style="min-height:56px"></textarea></div>' +
     '<div class="two"><div class="field"><label>Analysis <span class="opt">— optional</span></label><input type="text" id="rd_an_' + r.id + '"></div>' +
-    '<div class="field"><label>Next look due</label><input type="date" id="rd_next_' + r.id + '"></div></div>' +
-    '<div class="row"><button class="btn" data-reading="' + r.id + '">Record it</button>' +
+    '<div class="field"><label>Next reading due</label><input type="date" id="rd_next_' + r.id + '"></div></div>' +
+    '<div class="row"><button class="btn" data-reading="' + r.id + '">Add the reading</button>' +
     '<button class="btn ghost" data-open="reading:' + r.id + '">Cancel</button></div>');
 }
 function closeRunForm(r) {
-  return box('<h2>Close ' + esc(r.label) + '</h2>' +
+  return box('<h2>Close Run ' + esc(r.label) + '</h2>' +
+    '<p class="hint">Write what actually happened, and what it tells us. What you write becomes a Claim other people can read and challenge.</p>' +
+    // A Run records what was expected against what happened. Both halves have
+    // to be on the screen at the moment the second half is written.
+    '<div class="kills" style="margin:0 0 6px"><b>You expected:</b> ' + esc(r.expected) + '</div>' +
+    '<div class="kills" style="margin:0 0 10px"><b>This Bet ends if:</b> ' + esc(r.kill_criterion) + '</div>' +
     '<div class="field"><label>What actually happened?</label><textarea id="cr_actual_' + r.id + '"></textarea></div>' +
     '<div class="field"><label>And what does that tell us?</label><textarea id="cr_text_' + r.id + '"></textarea></div>' +
     gradeSelect('cr_grade_' + r.id) +
@@ -746,7 +1056,7 @@ function closeRunForm(r) {
 }
 function observeForm(r) {
   return box('<h2>Something turned up in ' + esc(r.label) + '</h2>' +
-    '<p class="hint">Settling, a smell, a seal swelling — something the run produced that nobody was looking for. It goes to the same queue as anything else that came in.</p>' +
+    '<p class="hint">Settling, a smell, a seal swelling — something the Run produced that nobody was looking for. It is filed as an Observation and goes to the same queue as anything else that came in.</p>' +
     '<div class="field"><label>What did you see?</label><textarea id="ob_text_' + r.id + '"></textarea></div>' +
     '<div class="row"><button class="btn" data-observe="' + r.id + '">Write it down</button>' +
     '<button class="btn ghost" data-open="observe:' + r.id + '">Cancel</button></div>');
@@ -767,7 +1077,7 @@ function claimForm(d) {
     return '<option value="' + c.id + '">' + esc(c.label + ' — ' + String(c.text).slice(0, 60)) + '</option>';
   }).join('');
   return box('<h2>Write a claim</h2>' +
-    '<p class="hint">Lived experience counts, graded honestly. "Observed in our products, mechanism unknown" is a real claim; so is a paper.</p>' +
+    '<p class="hint">What you have seen in our own products is a Claim. So is a result from a published paper. Grade each one for what the evidence actually is.</p>' +
     '<div class="field"><label>What is it about?</label><select id="c_subject_' + P + '">' + subj + '</select></div>' +
     '<div class="field"><label>The claim</label><textarea id="c_text_' + P + '"></textarea></div>' +
     gradeSelect('c_grade_' + P) +
@@ -870,6 +1180,16 @@ function bindDossier() {
       source_ref: $('c_src_' + P).value, challenges_claim_id: $('c_against_' + P).value });
     await reloadDossier('Claim ' + r.label + ' is on the record.');
   });
+  on('[data-constraint]', async function () {
+    var r = await api('/api/pd/constraints', 'POST', {
+      delivery_context_id: $('c_ctx').value, kind: $('c_kind').value, rule_text: $('c_rule').value });
+    await reloadDossier('Written down. Every Bet aimed through ' + r.context_name + ' now shows it.');
+  });
+  on('[data-retirec]', async function (b) {
+    var id = b.getAttribute('data-retirec');
+    await api('/api/pd/constraints/' + id + '/retire', 'POST', { retired_reason: $('cr_why_' + id).value });
+    await reloadDossier('Retired, with your reason on the record.');
+  });
   on('[data-assign]', async function (b) {
     var parts = b.getAttribute('data-assign').split(':');
     var sel = $('assign_' + parts[0].charAt(0) + '_' + parts[1]);
@@ -892,16 +1212,18 @@ function renderItem() {
   var x = item.item;
   var hist = (item.history || []).map(function (h) {
     if (h.change_kind === 'not_applied') {
-      return '<div class="hist"><span class="f">' + esc(h.field.replace(/_/g, ' ')) + '</span> — this change did not go through, so the record still reads as it did.' +
+      return '<div class="hist"><span class="f">' + esc(h.field_words || h.field.replace(/_/g, ' ')) + '</span> — this change did not go through, so the record still reads as it did.' +
         '<div class="who">' + esc(h.who) + ' · ' + when(h.changed_at) + '</div></div>';
     }
     if (h.change_kind === 'snapshot_on_move') {
-      return '<div class="hist"><span class="f">' + esc(h.field.replace(/_/g, ' ')) + '</span> as it read when it was refiled: ' + esc(String(h.old_value).slice(0, 300)) +
+      return '<div class="hist"><span class="f">' + esc(h.field_words || h.field.replace(/_/g, ' ')) + '</span> as it read when it was refiled: ' + esc(String(h.old_words || h.old_value).slice(0, 300)) +
         '<div class="who">' + esc(h.who) + ' · ' + when(h.changed_at) + '</div></div>';
     }
-    return '<div class="hist"><span class="f">' + esc(h.field.replace(/_/g, ' ')) + '</span> ' +
-      (h.old_value ? '<span class="was">' + esc(String(h.old_value).slice(0, 200)) + '</span> → ' : 'set to ') +
-      esc(String(h.new_value === null ? '(empty)' : h.new_value).slice(0, 200)) +
+    var words = h.field_words || h.field.replace(/_/g, ' ');
+    var was = h.old_words, now = h.new_words;
+    return '<div class="hist"><span class="f">' + esc(words) + '</span> ' +
+      (was ? '<span class="was">' + esc(String(was).slice(0, 200)) + '</span> → ' : 'set to ') +
+      esc(String(now === null || now === undefined ? 'nothing' : now).slice(0, 200)) +
       '<div class="who">' + esc(h.who) + ' · ' + when(h.changed_at) + '</div></div>';
   }).join('');
   var moves = (item.moves || []).map(function (m) {
@@ -941,7 +1263,7 @@ function renderItem() {
       '</div>' + moveBox + '</div><div>' +
       '<div class="card"><h2>What has happened to it</h2>' +
         '<p class="hint">Content can be edited. The record of what it said cannot.</p>' +
-        (moves || '') + (hist || (moves ? '' : '<div class="empty">Nothing yet.</div>')) + '</div>' +
+        (moves || '') + (hist || (moves ? '' : '<div class="empty">Nothing has changed on this entry yet.</div>')) + '</div>' +
     '</div></div>';
 }
 function bindItem() {
@@ -974,22 +1296,31 @@ function paint() {
   var body;
   if (view === 'problems') body = renderProblems();
   else if (view === 'item') body = renderItem();
-  else body = renderIntake();
+  else if (view === 'report') body = renderReport();
+  else if (view === 'intake') body = renderIntake();
+  else body = renderOwe();
   $('root').innerHTML = shell(body);
   afterRender();
   if (view === 'problems') bindProblems();
   else if (view === 'item') bindItem();
-  else { bindIntake(); bindTriage(); }
+  else if (view === 'report') { /* nothing to bind — it is a read */ }
+  else if (view === 'intake') { bindIntake(); bindTriage(); }
+  else bindOwe();
   restoreDraft();
 }
 async function load() {
-  D = await api('/api/pd/intake');
+  // "What I owe" is the landing page and its counts sit in the nav, so it is
+  // fetched on every route. The other two are fetched when they are opened.
+  D2 = await api('/api/pd/mywork');
+  if (view === 'intake' || view === 'item' || view === 'problems') D = await api('/api/pd/intake');
+  else if (!D) { try { D = await api('/api/pd/intake'); } catch (e) { D = { problems: [], mine: [], feed: [] }; } }
+  if (view === 'report') D3 = await api('/api/pd/report');
   paint();
 }
 async function route() {
   if (!me) return;                              // the sign-out race, again
-  var parts = (location.hash || '#intake').slice(1).split('/');
-  view = parts[0] || 'intake';
+  var parts = (location.hash || '#owe').slice(1).split('/');
+  view = parts[0] || 'owe';
   try {
     if (view === 'item' && parts[1] && parts[2]) { dossier = null; await loadItem(parts[1], parts[2]); await load(); }
     else if (view === 'problem' && parts[1]) {

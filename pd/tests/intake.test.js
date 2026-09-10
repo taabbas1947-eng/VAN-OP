@@ -238,6 +238,18 @@ function noBannedWords(text, what) {
   eq(r.status, 409, 'an entry that has already moved cannot be moved twice from the old row');
 
   /* ---- 9. The author is told once, in three parts -------------------- */
+
+  /* Delivery marks a notice seen, so exactly ONE route may return an unseen
+     one: /api/pd/mywork, the only screen that renders it. What came in fetches
+     on every route change and shows nothing, so if it ever returns notices it
+     silently eats a message the author never read. That shipped twice; this
+     pins it. */
+  r = await api('lab', 'GET', '/api/pd/intake');
+  eq(r.status, 200, 'What came in still loads');
+  ok(r.body.notices === undefined, 'and What came in never carries a notice, so it can never consume one');
+  r = await api('lab', 'GET', '/api/pd/mywork');
+  ok((r.body.notices || []).some(n => !n.seen_at), 'the unseen notice is still there for What I owe');
+
   r = await api('lab', 'GET', '/api/pd/notices');
   const notice = r.body.notices.find(n => /Challenge/.test(n.headline));
   ok(notice, 'the author is told their entry became a Challenge');

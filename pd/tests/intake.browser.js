@@ -49,6 +49,12 @@ const ok = (c, what) => { if (c) pass++; else { fail++; console.log('  FAIL  ' +
     await page.click('#go');
     await page.waitForSelector('.side', { timeout: 8000 });
   }
+  // "What I owe" is the landing page; most of these checks are about the door.
+  async function signInAtDoor(user) {
+    await signIn(user);
+    await page.goto(BASE + '/pd#intake', { waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('#text', { timeout: 8000 });
+  }
 
   /* ---- the page actually renders ---- */
   await page.goto(BASE + '/pd', { waitUntil: 'domcontentloaded' });
@@ -58,11 +64,14 @@ const ok = (c, what) => { if (c) pass++; else { fail++; console.log('  FAIL  ' +
   await page.fill('#u', 'admin'); await page.fill('#p', 'not-the-password'); await page.click('#go');
   await page.waitForSelector('.msg.bad', { timeout: 8000 });
   ok(await page.isVisible('#u'), 'a refused sign-in leaves the form up');
+  const badLogin = await page.textContent('.msg.bad');
+  ok(/did not match/.test(badLogin), 'and says so in PD’s own words');
+  ok(!/incorrect/i.test(badLogin), 'without the platform’s banned word reaching a PD screen');
 
-  await signIn('supply');   // Custodian
+  await signInAtDoor('supply');   // Custodian
   ok((await page.textContent('.side .foot b')) === 'Supply Chain', 'the shell names who is signed in');
-  ok(!(await page.isVisible('a[href="#triage"]')), 'there is no separate triage screen — MODEL.md §5 signs off four, and this is not one of them');
-  ok((await page.$$('.side .nav a')).length === 2, 'the nav carries two screens, not four');
+  ok(!(await page.isVisible('a[href="#triage"]')), 'there is no separate triage screen — filing lives on What came in');
+  ok((await page.$$('.side .nav a')).length === 4, 'the nav carries the four screens MODEL.md §5 signs off, and no more');
 
   /* ---- writing something down, with no type chosen ---- */
   const text = 'Browser check ' + Date.now() + ' — a drum of the fulvate liquid arrived without paperwork.';
@@ -71,7 +80,7 @@ const ok = (c, what) => { if (c) pass++; else { fail++; console.log('  FAIL  ' +
   await page.waitForSelector('.msg.ok', { timeout: 8000 });
   const okmsg = await page.textContent('.msg.ok');
   ok(/Saved as O-\d+/.test(okmsg), 'it saves with no type chosen and says what number it got');
-  ok(/Observation for now/.test(okmsg), 'and says plainly it was filed as an Observation for now');
+  ok(/Observation/.test(okmsg), 'and says plainly it is held as an Observation for now');
   ok((await page.textContent('.main')).includes(text.slice(0, 40)), 'and it appears in "Your entries" straight away');
 
   /* ---- the door fields appear only for the door that needs them ---- */
@@ -150,7 +159,7 @@ const ok = (c, what) => { if (c) pass++; else { fail++; console.log('  FAIL  ' +
   /* ---- the author is told, once, in three parts ---- */
   await page.click('#signout');
   await page.waitForSelector('#u', { timeout: 8000 });
-  await signIn('supply');
+  await signInAtDoor('supply');
   await page.goto(BASE + '/pd#intake', { waitUntil: 'domcontentloaded' });
   await waitForText(/Write down what happened/);
   ok(!(await page.isVisible('.notice')), 'the person who moved it is not notified about their own filing act');
@@ -178,7 +187,7 @@ const ok = (c, what) => { if (c) pass++; else { fail++; console.log('  FAIL  ' +
   await page.evaluate(() => localStorage.removeItem('van_token'));
   await page.goto(BASE + '/pd', { waitUntil: 'domcontentloaded' });
   await page.waitForSelector('#u');
-  await signIn('kam');
+  await signInAtDoor('kam');
   await waitForText(/Write down what happened/);
   ok(!(await page.textContent('.main')).includes('Waiting to be filed'), 'a team member sees the door but not the filing list');
   ok(!(await page.textContent('.main')).includes('Already filed'), 'and none of the moderator sections at all');
@@ -199,7 +208,7 @@ const ok = (c, what) => { if (c) pass++; else { fail++; console.log('  FAIL  ' +
   await page.evaluate(() => localStorage.removeItem('van_token'));
   await page.goto(BASE + '/pd', { waitUntil: 'domcontentloaded' });
   await page.waitForSelector('#u'); await sweep('the sign-in screen');
-  await signIn('supply');
+  await signInAtDoor('supply');
   await waitForText(/Write down what happened/); await sweep('What came in');
   await page.goto(BASE + '/pd#problems', { waitUntil: 'domcontentloaded' });
   await waitForText(/Register one/); await sweep('Problems');
@@ -213,17 +222,25 @@ const ok = (c, what) => { if (c) pass++; else { fail++; console.log('  FAIL  ' +
      is an author to tell. */
   await page.goto(BASE + '/pd', { waitUntil: 'domcontentloaded' });
   await page.evaluate(() => localStorage.removeItem('van_token'));
-  await signIn('lab');
+  await signInAtDoor('lab');
   await waitForText(/Write down what happened/);
   await page.fill('#text', 'Browser check — an entry written by one person and filed by another, so there is somebody to tell.');
   await page.click('#save'); await page.waitForSelector('.msg.ok', { timeout: 8000 });
 
   await page.goto(BASE + '/pd', { waitUntil: 'domcontentloaded' });
   await page.evaluate(() => localStorage.removeItem('van_token'));
-  await signIn('supply');
+  await signInAtDoor('supply');
   await page.goto(BASE + '/pd#intake', { waitUntil: 'domcontentloaded' });
   await waitForText(/Waiting to be filed/);
-  const k2 = await (await page.$('[data-file]')).getAttribute('data-file');
+  /* Pick the row this test wrote, by its words — not the first row on screen.
+     The queue is drained oldest-first, so position is not identity. */
+  const k2 = await page.evaluate(() => {
+    const rows = Array.from(document.querySelectorAll('#root .item'));
+    const row = rows.find(r => /an entry written by one person and filed by another/.test(r.textContent));
+    const btn = row && row.querySelector('[data-file]');
+    return btn ? btn.getAttribute('data-file') : null;
+  });
+  ok(!!k2, 'the entry just written is in the filing queue');
   await page.selectOption('[data-p="' + k2 + '"]', { index: 1 });
   await page.selectOption('[data-o="' + k2 + '"]', { index: 1 });
   await page.click('[data-file="' + k2 + '"]');
@@ -231,8 +248,11 @@ const ok = (c, what) => { if (c) pass++; else { fail++; console.log('  FAIL  ' +
 
   await page.goto(BASE + '/pd', { waitUntil: 'domcontentloaded' });
   await page.evaluate(() => localStorage.removeItem('van_token'));
+  // The author's message is delivered on What I owe, and only there, and only
+  // once — so it is read on the first render after signing in, not by
+  // navigating back to the screen a second time.
   await signIn('lab');
-  await waitForText(/Write down what happened/);
+  await waitForText(/What I owe/);
   if (await page.isVisible('.notice')) {
     const n = await page.textContent('.notice');
     ok(!/got it/i.test(n), 'the notice offers no acknowledgement button');

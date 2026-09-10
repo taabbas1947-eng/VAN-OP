@@ -87,7 +87,7 @@ async function api(user, method, path, body) {
   /* ---- 4. A Bet carries the one result that would kill it -------------- */
   r = await api('kam', 'POST', '/api/pd/bets', { question_id: qId, approach: 'Coat MAP granules with humic acid flake at 3% and measure available P against an uncoated control.' });
   eq(r.status, 400, 'a Bet with no kill criterion is refused');
-  ok(/kill/i.test(r.body.error), 'and says so in those words');
+  ok(/kill criterion/i.test(r.body.error), 'and names the kill criterion, so the word is taught where it is needed');
   noBannedWords(r.body.error, 'the no-kill-criterion message');
 
   const ctx = dos.vocab.contexts.find(c => c.name === 'soil broadcast');
@@ -112,7 +112,7 @@ async function api(user, method, path, body) {
   // B14 — a run that replaces another must say why.
   r = await api('kam', 'POST', '/api/pd/runs', { bet_id: betId, expected: 'Same measurement, with the flake ground finer this time.', replaces_run_id: runId });
   eq(r.status, 400, 'a run that replaces an earlier one must say why');
-  ok(/unrelated/i.test(r.body.error), 'and the message says what is lost without it');
+  ok(/read together/i.test(r.body.error), 'and the message says what is lost without it');
   r = await api('kam', 'POST', '/api/pd/runs', { bet_id: betId, expected: 'Same measurement, with the flake ground finer this time.', replaces_run_id: runId, replaces_reason: 'The first flake was too coarse to disperse.' });
   eq(r.status, 200, 'with a reason, the lineage is recorded');
   const run2Id = r.body.id;
@@ -267,6 +267,18 @@ async function api(user, method, path, body) {
   eq(closes.filter(x => x.status === 200).length, 1, 'only one of two simultaneous closes takes');
   eq(closes.filter(x => x.status === 409).length, 1, 'the other is told someone got there first');
   ok(/nothing is lost/i.test(closes.find(x => x.status === 409).body.error), 'and told their result is still on the record as a claim');
+
+  /* The same, but losing by a mile rather than by microseconds. This used to
+     take a different path and drop the loser's words without saying so. */
+  const closedRun = closes.find(x => x.status === 200) ? raceRun : raceRun;
+  r = await api('lab', 'POST', `/api/pd/runs/${closedRun}/close`, { actual: 'I came to this hours later and did not know it was closed.', result_text: 'The binder is what caused the caking, and I would defend that.', grade: 'proven' });
+  eq(r.status, 409, 'closing a long-closed run is still refused');
+  ok(/nothing is lost/i.test(r.body.error), 'and the person is told their result was kept, not discarded');
+  // The claim lands on the QUESTION the run's bet tests — p2's question, not
+  // the first problem's. That is the point: a result is a claim wherever it
+  // was written, and it can be argued with.
+  const kept = (await api('kam', 'GET', `/api/pd/problem/${p2}`)).body;
+  ok(JSON.stringify(kept).indexOf('and I would defend that') >= 0, 'and it really is on the record as a claim on the question it answers');
   noBannedWords(closes.find(x => x.status === 409).body.error, 'the someone-closed-it-first message');
 
   /* ---- 13d. Two claims written at the same instant get their own numbers */
@@ -301,6 +313,52 @@ async function api(user, method, path, body) {
   eq((await api('lab', 'GET', `/api/pd/problem/${problemId}`)).body.caps.lead, true, 'while telling a lead they are');
   r = await api('qa', 'GET', `/api/pd/problem/${problemId}`);
   eq(r.status, 403, 'an account with no PD role sees none of it');
+
+  /* ---- 15. Constraints — the ninth object, now writable ---------------
+     MODEL.md §3's Constraint could be read but never written until 10 Sept
+     2026. It is written from the dossier, and it is a lead's act because it
+     removes options from every product aimed through a delivery context —
+     not from one trial. */
+  const ctxId = dos.vocab.contexts.find(c => c.name === 'fertigation').id;
+
+  r = await api('kam', 'POST', '/api/pd/constraints', { delivery_context_id: ctxId, kind: 'blending', rule_text: 'A team member should not be able to bind the whole company.' });
+  eq(r.status, 403, 'a team member cannot write a constraint');
+  noBannedWords(r.body.error, 'the refusal');
+
+  r = await api('lab', 'POST', '/api/pd/constraints', { kind: 'blending', rule_text: 'Calcium nitrate and any sulphate source must not share a tank.' });
+  eq(r.status, 400, 'a constraint without a delivery context does not save');
+  r = await api('lab', 'POST', '/api/pd/constraints', { delivery_context_id: ctxId, rule_text: 'Calcium nitrate and any sulphate source must not share a tank.' });
+  eq(r.status, 400, 'nor one without a kind');
+  r = await api('lab', 'POST', '/api/pd/constraints', { delivery_context_id: ctxId, kind: 'constructor', rule_text: 'Calcium nitrate and any sulphate source must not share a tank.' });
+  eq(r.status, 400, 'and "constructor" is not a kind, however truthy the lookup');
+  r = await api('lab', 'POST', '/api/pd/constraints', { delivery_context_id: ctxId, kind: 'blending', rule_text: 'no' });
+  eq(r.status, 400, 'nor one too short for anyone to apply');
+
+  r = await api('lab', 'POST', '/api/pd/constraints', { delivery_context_id: ctxId, kind: 'blending', rule_text: 'Calcium nitrate and any sulphate source must not share a fertigation tank — it precipitates gypsum and blocks the emitters.' });
+  eq(r.status, 200, 'a lead writes one');
+  const conId = r.body.id;
+
+  dos = (await api('kam', 'GET', `/api/pd/problem/${problemId}`)).body;
+  const written = (dos.constraintRegister || []).find(c => c.id === conId);
+  ok(written, 'and it is on the dossier for everyone, not only for the person who wrote it');
+  eq(written.context_name, 'fertigation', 'against the context it binds');
+  eq(written.kind_label, 'Blending', 'in the words the model uses, not the database key');
+  ok(/blocks the emitters/.test(written.rule_text), 'carrying the rule in full');
+  ok(!!written.added_by_name, 'and saying who wrote it, because a reader has to know who to ask');
+
+  /* Retiring is not deleting. A rule that quietly disappears gets re-argued. */
+  r = await api('kam', 'POST', `/api/pd/constraints/${conId}/retire`, { retired_reason: 'A team member should not be able to unbind it either.' });
+  eq(r.status, 403, 'a team member cannot retire one');
+  r = await api('lab', 'POST', `/api/pd/constraints/${conId}/retire`, { retired_reason: 'no' });
+  eq(r.status, 400, 'and a lead cannot retire one without saying why');
+  r = await api('lab', 'POST', `/api/pd/constraints/${conId}/retire`, { retired_reason: 'The acid-injection line separates the two streams now, so they never meet in the tank.' });
+  eq(r.status, 200, 'with a reason, it retires');
+  r = await api('lab', 'POST', `/api/pd/constraints/${conId}/retire`, { retired_reason: 'Retiring the same one twice must not overwrite the first reason.' });
+  eq(r.status, 409, 'and it cannot be retired twice, so two people cannot write over each other');
+
+  dos = (await api('kam', 'GET', `/api/pd/problem/${problemId}`)).body;
+  ok(!(dos.constraintRegister || []).some(c => c.id === conId), 'a retired constraint stops binding');
+  ok(JSON.stringify(dos).indexOf('emitters') < 0, 'and stops appearing on the Bets that inherited it');
 
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);

@@ -420,7 +420,12 @@ app.post('/api/platform/access', auth, accessAdmin, async (req, res) => {
     const module = String((req.body && req.body.module) || '').trim().toLowerCase();
     const role = String((req.body && req.body.role) || '').trim();
     if (!username || !module) return res.status(400).json({ error: 'username and module required' });
-    if (!validModuleRole(module, role)) return res.status(400).json({ error: 'invalid role "' + role + '" for module ' + module });
+    // 10 Sept 2026 — "invalid" is one of the eleven words PD bans from anything a
+    // person can read (pd/../docs/pd-model/RECLASSIFICATION-RULES.md §6). This is
+    // platform code, not PD code, but the message lands on a PD screen. Reworded;
+    // no behaviour change. Tahir's ruling: the word now, the rest of server.js as
+    // its own piece of work with its own test pass.
+    if (!validModuleRole(module, role)) return res.status(400).json({ error: 'The ' + module.toUpperCase() + ' module has no role called "' + role + '".' });
     const caps = req.adminCaps;
     if (!caps.isCOO) {                                                  // subsystem-admin guardrails
       if (caps.adminModules.indexOf(module) < 0) return res.status(403).json({ error: 'You administer only: ' + (caps.adminModules.join(', ') || '(none)') + '.' });

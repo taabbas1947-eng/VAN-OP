@@ -4043,3 +4043,102 @@ eight accounts, and the smoke test.** The schema is otherwise done.
 Both entries are kept in full and in the order the work happened. The remote
 entry notes that it had already been lost once "when the working-tree
 OP-HANDOFF was reset during the merge" — it has not been lost again.
+
+---
+
+## 11 September 2026 — MODULE: O2S — focal person's phone on the DC, driver's receipt on the Gate Pass
+
+Worked alongside a second session that was in PD the whole time. Nothing under
+`pd/` was opened and `server.js` was not touched. One file changed:
+**`o2s/o2s.html`**.
+
+**No shell on Tahir's machine.** A Windows update released 8 September stops the
+workspace mounting `E:\VAN-OP`, so `device_bash` failed on every call. The file
+was read by staging it, edited in the container, and written back with an mtime
+guard so a concurrent PD write could not be overwritten. `git status` was
+therefore never available this session.
+
+### What Tahir asked for
+
+Two fields, both optional to fill, both printed on the document:
+
+1. a phone number for the focal person on the Delivery Challan;
+2. the driver's name and a place for him to sign on the Gate Pass.
+
+He marked the second by hand on a printed GP-0109 — "Driver Recieving", under
+the left of the signature row.
+
+### The DC — two numbers, and they were being confused
+
+`printDC()` printed the focal person's name and then, on the same line, the
+**Customer Master** phone (`cust.phone`). Those are two different people. Tahir,
+asked which should win: *"focal person is for stock received, master number
+could be company focal person not the warehouse person, so both number can be
+true."*
+
+So neither wins. They print on their own lines:
+
+```
+FOCAL PERSON      Rashid Warehouse · 0301-8456712
+CUSTOMER CONTACT  042-35774100
+```
+
+The focal person's number is a new `focalPhone` on the shipment. It falls back
+to the PO's `focalPhone` (the "Delivery Contact Phone" already collected in New
+PO Entry but never used anywhere) exactly as the name already falls back to the
+PO's `focalPerson`. The Customer Master line prints only when that master holds
+a number, so no DC gains an empty row.
+
+### The Gate Pass — a fourth signature block
+
+`printGatePass()`'s signature row had three blocks: Supply Chain, Plant Manager,
+Gate/Security. A fourth was added at the far left — **ڈرائیور — وصولیِ مال /
+DRIVER — RECEIVED** — with the driver's name over a dotted signature line. When
+dispatch recorded a driver the name prints; when it did not, a blank `نام:` line
+prints so the gate can write it in rather than the block being useless.
+
+The small English caption under the Urdu was queried and kept: every label in the
+parties box above already carries one (CUSTOMER, DESTINATION, TRANSPORT, DRIVER),
+so the pattern is the document's own — it had simply never reached the signature
+row. The three existing blocks were left alone.
+
+The driver row in the parties box is unchanged, so the name now appears twice on
+the sheet. That is deliberate: a signature needs a name beside it.
+
+### The 14 edits, all in `o2s/o2s.html`
+
+`focalPhone` added to the three places a dispatch is recorded and to each of
+their save paths — `dispForm` init + field + `saveDispatch()`; `mpForm` init +
+field + the multi-PO save; `shipEditForm` init + field + `saveShipEdit()`. Then
+carried through `dispatchGroups()` so the print functions can see it. Then
+`printDC()` (phone resolution + the parties lines) and `printGatePass()` (the
+block + one CSS rule for `.signs .role .en`).
+
+### How it was verified — and how it was not
+
+All **6 non-empty `<script>` blocks pass `node --check`**. Then both print
+functions were **executed in node** against stubbed globals and GP-0109's own
+data (Arysta Life Sciences, Fruitlish 6,000 Kg, LRJ 1534, M Sadiq, DC 97), and
+the HTML they produced was rendered in Chromium and looked at. Both states were
+checked: driver recorded, and driver blank. Tahir saw both renders before the
+file was written.
+
+**The O2S test suite was NOT run.** It needs a live server and database, and
+there was no shell on the machine. No test file was written either — a test
+nobody has executed is worse than a missing one. What the missing assertions
+must pin, for whoever adds them:
+
+  - a shipment saved with a `focalPhone` prints it on the DC, and one saved
+    without it falls back to the PO's `focalPhone`;
+  - the Customer Master number never appears on the focal person's line again;
+  - the Gate Pass renders four signature blocks, and the driver block renders a
+    blank name line when `driver` is empty.
+
+### State
+
+`o2s/o2s.html` written into `E:\VAN-OP`. **Not pushed** — Tahir commits and
+pushes from GitHub Desktop. The working tree will also show the PD session's
+changes; check the paths before staging.
+
+**Still open in O2S from earlier:** the PUR-ORD-2026-00592 double-count
+correction, and the V-Mg Essential pattern / Maxim Old POs bucket decision.

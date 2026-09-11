@@ -8129,13 +8129,24 @@ function printDC(dispId){ var g=((typeof dispatchGroups==='function')?dispatchGr
   var cust=(state.customers||[]).find(function(c){return c.name===clientNm;});
   /* The truck's own focal person wins over the PO's — a customer can send a
      different person to receive a particular load. Falls back to the PO. */
-  var focal=String(g.focalPerson||'').trim()||(o&&o.focalPerson)||''; var focalC=(cust&&cust.phone)||'';
+  var focal=String(g.focalPerson||'').trim()||(o&&o.focalPerson)||'';
+  /* TWO DIFFERENT NUMBERS, BOTH LEGITIMATE — Tahir, 11 Sept 2026.
+     The focal person is whoever takes the stock in at the delivery point; the
+     Customer Master number is the company's own contact, who may never see the
+     truck. Before today the master number printed on the focal person's line,
+     so a warehouse name sat next to a head-office number and the reader had no
+     way to tell. They now print on their own lines and neither overwrites the
+     other. The focal person's number falls back to the PO's delivery contact
+     phone, the same way the name falls back to the PO's focal person. */
+  var focalPh=String(g.focalPhone||'').trim()||(o&&o.focalPhone)||'';
+  var custPh=(cust&&cust.phone)||'';
   var soSet={}; (g.rows||[]).forEach(function(r){ if(r.so) soSet[r.so]=1; }); var soList=Object.keys(soSet); var soTxt=soList.length?soList.join(', '):(g.so||'');
   var pend=(g.dcStatus==='pending');
   var meta='No.: <b>'+_pe(g.dc||'')+'</b><br>Date: <b>'+_pe(g.date||'')+'</b><br>SO #: <b>'+_pe(soTxt)+'</b>';
   var col1='<div><span class="lbl">'+(multi?'Orders':'PO #')+'</span>&nbsp; <b>'+_pe(multi?(g.pos||[]).join(', '):(po1||''))+'</b></div>'
     +'<div><span class="lbl">Customer</span>&nbsp; <b>'+_pe(clientNm)+'</b></div>'
-    +'<div><span class="lbl">Focal person</span>&nbsp; <b>'+_pe(focal)+'</b>'+(focalC?(' &middot; '+_pe(focalC)):'')+'</div>'
+    +'<div><span class="lbl">Focal person</span>&nbsp; <b>'+_pe(focal)+'</b>'+(focalPh?(' &middot; '+_pe(focalPh)):'')+'</div>'
+    +(custPh?('<div><span class="lbl">Customer contact</span>&nbsp; <b>'+_pe(custPh)+'</b></div>'):'')
     +'<div><span class="lbl">Delivery address</span>&nbsp; <b>'+_pe(g.destination||'')+'</b></div>';
   var _mv=[(g.vehicle?'<span class="lbl">Vehicle #</span>&nbsp; <b>'+_pe(g.vehicle)+'</b>':''),(g.bilty?'<span class="lbl">Bilty #</span>&nbsp; <b>'+_pe(g.bilty)+'</b>':'')].filter(Boolean).join('<br>');
   var col2='<div><span class="lbl">Transport type</span>&nbsp; <b>'+_pe(g.transportType||'—')+'</b></div>'
@@ -8284,7 +8295,14 @@ function printGatePass(dispId){ var g=((typeof dispatchGroups==='function')?disp
     +'<tr><td colspan="'+cspan+'" class="num">کل پیکٹس (تخمینی)</td><td class="num">'+L(fmt(totPk))+'</td></tr></tfoot></table>'
     +'<div class="signs"><div class="s"><div class="role">جاری کنندہ — سپلائی چین</div><div class="nm">'+_pe((g.rows[0]&&g.rows[0].by)||'')+'</div><div class="ok">&#10003; ڈیجیٹل دستخط</div></div>'
     +'<div class="s"><div class="role">اجازتِ روانگی — پلانٹ منیجر</div>'+relCell+'</div>'
-    +'<div class="s"><div class="role">گیٹ / سیکیورٹی</div><div class="fillrow"><span>وقتِ اخراج:</span><span class="fill"></span></div><div class="fillrow"><span>دستخط:</span><span class="fill"></span></div></div></div>'
+    +'<div class="s"><div class="role">گیٹ / سیکیورٹی</div><div class="fillrow"><span>وقتِ اخراج:</span><span class="fill"></span></div><div class="fillrow"><span>دستخط:</span><span class="fill"></span></div></div>'
+    /* Driver's own receipt — Tahir, 11 Sept 2026, marked by hand on GP-0109:
+       the driver signs for the goods before he leaves the gate. The name prints
+       when dispatch recorded one; when it did not, a blank line is printed so
+       the gate can write it in rather than the block being useless. */
+    +'<div class="s"><div class="role">ڈرائیور — وصولیِ مال<span class="en">Driver — received</span></div>'
+      +(g.driver?('<div class="nm">'+_pe(g.driver)+'</div>'):'<div class="fillrow"><span>نام:</span><span class="fill"></span></div>')
+      +'<div class="fillrow"><span>دستخط:</span><span class="fill"></span></div></div></div>'
     +'<div class="lf-accent"></div>'
     +'<div class="lf-wrap"><span>605، الحفیظ ہائٹس، گلبرگ III، لاہور</span><span dir="ltr">info@van.com.pk</span><span dir="ltr">www.van.com.pk</span></div>'
     +'<div class="lf-note">یہ دستاویز VAN O2S سسٹم سے خودکار طور پر جاری کی گئی ہے ۔ دستی دستخط کے بغیر قابلِ قبول۔</div></div>';
@@ -8307,7 +8325,8 @@ function printGatePass(dispId){ var g=((typeof dispatchGroups==='function')?disp
     +'.grid tfoot td{padding:7px 9px;font-weight:800;border-top:2px solid #13307a;background:#eef2f8;color:#13307a}'
     +'.signs{display:flex;margin-top:36px;border:1px solid #e6e9ef;border-radius:11px;overflow:hidden}'
     +'.signs .s{flex:1;text-align:center;padding:11px 9px 12px;border-left:1px solid #e6e9ef;min-height:84px}.signs .s:last-child{border-left:0}'
-    +'.signs .role{font-size:11px;color:#7a8696}.signs .nm{font-size:13px;font-weight:700;color:#13307a;margin-top:12px}'
+    +'.signs .role{font-size:11px;color:#7a8696}.signs .role .en{display:block;font-size:8px;font-family:"Segoe UI",Arial;text-transform:uppercase;letter-spacing:.3px;line-height:1.4}'
+    +'.signs .nm{font-size:13px;font-weight:700;color:#13307a;margin-top:12px}'
     +'.signs .ts{font-size:9.5px;color:#7a8696}.signs .ok{font-size:9.5px;color:#2e9e44;margin-top:2px;font-weight:700}.signs .pend{color:#b9760d;font-weight:700;margin-top:14px}'
     +'.fillrow{display:flex;align-items:center;gap:6px;margin-top:8px;font-size:10.5px;color:#7a8696}.fill{flex:1;border-bottom:1px dotted #9aa6b6;height:14px;display:inline-block;min-width:60px}'
     +'.lf-accent{height:3px;margin:28px -22px 0;background:linear-gradient(270deg,#13307a 0,#13307a 70%,#2e9e44 70%,#2e9e44 90%,#e23b3b 90%,#e23b3b 100%)}'
@@ -10382,7 +10401,7 @@ function dcControlOn(dateStr){ return String(dateStr||TODAY.toISOString().slice(
 function nextDCNo(){ var mx=0; (state.shipments||[]).forEach(function(s){ if(!s||s.voided)return; var n=parseInt(String(s.dc||'').replace(/\D/g,''),10); if(!isNaN(n)&&n>mx)mx=n; }); return String(mx+1); }
 function _releaseShip(o,l,batches){ if(!o||!l)return; (lotsFor(o,l)||[]).forEach(function(p){ var b=(batches||[]).find(function(x){return x.batch===lotBaseNo(p)||x.brand===lotBrandNo(p);}); if(b){ p.shipKg=Math.max(0,(+p.shipKg||0)-(+b.kg||0)); } }); }
 function openDispatch(oid){ const o=(state.orders||[]).find(x=>x.id===oid); if(!o)return; const ls=readyLinesFor(o); if(!ls.length){toast('Nothing ready to ship on this PO');return;}
-  dispForm={oid,date:TODAY.toISOString().slice(0,10),dateReason:'',dest:(clientTopDest(o.client)||''),focal:(o.focalPerson||''),inTransit:true,transportType:'',carrier:'',vehicle:'',dc:'',bilty:'',so:'',driver:'',driverContact:'',seal:'',remarks:'',lines:ls.map(x=>({lid:x.l.id,brand:x.l.brand,base:x.l.base||'',pack:(+x.l.pack||seedPackForBrand(x.l.brand)||0),rem:Math.round(x.rem),qty:Math.round(x.rem),on:true}))};
+  dispForm={oid,date:TODAY.toISOString().slice(0,10),dateReason:'',dest:(clientTopDest(o.client)||''),focal:(o.focalPerson||''),focalPhone:(o.focalPhone||''),inTransit:true,transportType:'',carrier:'',vehicle:'',dc:'',bilty:'',so:'',driver:'',driverContact:'',seal:'',remarks:'',lines:ls.map(x=>({lid:x.l.id,brand:x.l.brand,base:x.l.base||'',pack:(+x.l.pack||seedPackForBrand(x.l.brand)||0),rem:Math.round(x.rem),qty:Math.round(x.rem),on:true}))};
   renderDispatchModal(); $('modalBg').classList.add('open'); }
 function dispTotal(){ return (dispForm&&dispForm.lines||[]).reduce((a,r)=>a+(r.on?(+r.qty||0):0),0); }
 function dispCount(){ return (dispForm&&dispForm.lines||[]).filter(r=>r.on&&(+r.qty||0)>0).length; }
@@ -10405,6 +10424,7 @@ function renderDispatchModal(){ const o=(state.orders||[]).find(x=>x.id===dispFo
          <div class="fld fld-long">${evDateField('dispForm','date','ship','Dispatch date — the date the truck actually left','renderDispatchModal()')}</div>
          <div class="fld"><label>Destination <span class="muted" style="font-weight:400;font-size:10px">· usual location remembered</span></label><input type="text" list="dispDestList" value="${_av(dispForm.dest)}" oninput="dispSet('dest',this.value)" placeholder="where is this going?"><datalist id="dispDestList">${clientDestinations(o.client).map(d=>`<option value="${_av(d)}">`).join('')}</datalist></div>
          <div class="fld"><label>Customer focal person <span class="muted" style="font-weight:400;font-size:10px">· who receives it — prints on the DC</span></label><input type="text" list="dispFocalList" value="${_av(dispForm.focal)}" oninput="dispSet('focal',this.value)" placeholder="optional"><datalist id="dispFocalList">${(((state.masters&&state.masters.focalPersons)||[])).map(p=>`<option>${p}</option>`).join('')}</datalist></div>
+         <div class="fld"><label>Focal person phone <span class="muted" style="font-weight:400;font-size:10px">· optional — prints on the DC</span></label><input type="tel" value="${_av(dispForm.focalPhone)}" oninput="dispSet('focalPhone',this.value)" placeholder="03xx-xxxxxxx"></div>
          <div class="fld"><label>Transport type <span style="color:var(--red)">*</span></label><select onchange="dispSet('transportType',this.value);renderDispatchModal()"><option value="">— pick —</option><option value="Ex-factory" ${dispForm.transportType==='Ex-factory'?'selected':''}>Ex-factory (customer transport)</option><option value="VAN-delivered" ${dispForm.transportType==='VAN-delivered'?'selected':''}>VAN-delivered (arranged)</option></select></div>
          <div class="fld"><label>Vehicle # ${dispForm.transportType==='VAN-delivered'?'<span style="color:var(--red)">*</span>':'<span class="muted" style="font-weight:400;font-size:10px">· optional</span>'}</label><input type="text" value="${_av(dispForm.vehicle)}" oninput="dispSet('vehicle',this.value)" ${dispForm.transportType==='Ex-factory'?'placeholder="(via transporter)"':''}></div>
          <div class="fld"><label>Bilty # ${dispForm.transportType==='Ex-factory'?'<span style="color:var(--red)">*</span>':'<span class="muted" style="font-weight:400;font-size:10px">· optional</span>'}</label><input type="text" value="${_av(dispForm.bilty)}" oninput="dispSet('bilty',this.value)" ${dispForm.transportType==='VAN-delivered'?'placeholder="(own truck)"':''}></div>
@@ -10449,7 +10469,7 @@ function saveDispatch(){ if(!may('shipment.plan')){toast(denyRight('shipment.pla
     lotsFor(o,l).forEach((p,i)=>{ const a=Math.min(+alloc[i]||0, lotClearedKg(p)); if(a>0.0001){ p.shipKg=(+p.shipKg||0)+a; batches.push({lotId:p.id,batch:lotBaseNo(p),brand:lotBrandNo(p),kg:Math.round(a)}); kg+=a; } });
     if(kg<=0)return;
     var _deliv=dispForm.inTransit?null:d;  /* default: delivered now (silent). In-transit option leaves delivered blank for a later markDelivered. */
-    state.shipments.unshift(Object.assign({id:_uid('SH'),dispId,po:o.po,client:o.client||'',brand:l.brand,lid:l.id,kg:Math.round(kg),batches,pack:r.pack,dispatch:d,destination:dispForm.dest,focalPerson:(dispForm.focal||'').trim(),carrier:dispForm.carrier,vehicle:dispForm.vehicle,dc:dc,shipNo:shipNo,bilty:dispForm.bilty,so:dispForm.so,transportType:dispForm.transportType,driver:dispForm.driver,driverContact:dispForm.driverContact,seal:dispForm.seal,dcStatus:(_ctrlOn?'pending':'approved'),approvedBy:'',approvedDate:(_ctrlOn?'':d),dispCounted:!_ctrlOn,delivered:_deliv,remarks:dispForm.remarks,qa:{pass:true,closed:true},by:state.role},evStamp(d,'ship',dispForm.dateReason)));
+    state.shipments.unshift(Object.assign({id:_uid('SH'),dispId,po:o.po,client:o.client||'',brand:l.brand,lid:l.id,kg:Math.round(kg),batches,pack:r.pack,dispatch:d,destination:dispForm.dest,focalPerson:(dispForm.focal||'').trim(),focalPhone:(dispForm.focalPhone||'').trim(),carrier:dispForm.carrier,vehicle:dispForm.vehicle,dc:dc,shipNo:shipNo,bilty:dispForm.bilty,so:dispForm.so,transportType:dispForm.transportType,driver:dispForm.driver,driverContact:dispForm.driverContact,seal:dispForm.seal,dcStatus:(_ctrlOn?'pending':'approved'),approvedBy:'',approvedDate:(_ctrlOn?'':d),dispCounted:!_ctrlOn,delivered:_deliv,remarks:dispForm.remarks,qa:{pass:true,closed:true},by:state.role},evStamp(d,'ship',dispForm.dateReason)));
     if(!_ctrlOn){ l.dispatched=(l.dispatched||0)+kg; l.dispatchDate=l.dispatchDate||d; if(_deliv){ l.delivered=(l.delivered||0)+kg; l.deliveredDate=d; } } n++; tot+=kg; });
   if(!n){toast('Nothing cleared to ship — inspect the packed material first');return;}
   logAction(`Shipment ${shipNo} (${dispId}) · PO ${o.po}: ${n} product(s), ${fmt(tot)} Kg/L · DC ${dc}${dispForm.vehicle?(' · '+dispForm.vehicle):''}`);
@@ -10463,7 +10483,7 @@ function shipClientFor(po){ var o=(state.orders||[]).find(function(x){return x.p
    legacy/per-PO rows have no .stage, so we fall back to delivered/dcStatus. New multi-PO
    flow (from 1 Jul) sets .stage explicitly: truck_planned → loading → in_transit → delivered. */
 function shipStageOf(g){ if(g.delivered) return 'delivered'; if(g.stage) return g.stage; if((g.dcStatus||'approved')==='pending') return 'pending_approval'; return 'in_transit'; }
-function dispatchGroups(){ const g={}; (state.shipments||[]).forEach((s,i)=>{ if(s.voided)return; const k=s.dispId||('leg'+i); if(!g[k]) g[k]={dispId:s.dispId||null,po:s.po,pos:[],client:s.client||shipClientFor(s.po)||'',destination:s.destination,focalPerson:s.focalPerson||'',date:s.dispatch,vehicle:s.vehicle,carrier:s.carrier,dc:s.dc,shipNo:s.shipNo,bilty:s.bilty,so:s.so||'',transportType:s.transportType||'',driver:s.driver||'',driverContact:s.driverContact||'',seal:s.seal||'',gatePass:s.gatePass||'',loadStarted:s.loadStarted||'',stage:s.stage||'',dcStatus:(s.dcStatus||'approved'),approvedBy:s.approvedBy||'',approvedDate:s.approvedDate||'',rows:[],kg:0,delivered:true,qaPending:false,qaFail:false}; g[k].rows.push(s); g[k].kg+=(+s.kg||0); if(s.po&&g[k].pos.indexOf(s.po)<0) g[k].pos.push(s.po); if(!s.delivered) g[k].delivered=false; if(s.qa===null) g[k].qaPending=true; if(s.qa&&s.qa.fail) g[k].qaFail=true; if((s.dcStatus||'approved')==='pending') g[k].dcStatus='pending'; }); return Object.values(g).map(x=>{ x.qa=x.qaFail?'fail':(x.qaPending?'pending':'pass'); x.poLabel=(x.pos.length>1?(x.pos[0]+' + '+(x.pos.length-1)+' more'):(x.pos[0]||x.po||'')); x.stageNow=shipStageOf(x); return x; }).sort((a,b)=>String(b.date||'').localeCompare(String(a.date||''))); }
+function dispatchGroups(){ const g={}; (state.shipments||[]).forEach((s,i)=>{ if(s.voided)return; const k=s.dispId||('leg'+i); if(!g[k]) g[k]={dispId:s.dispId||null,po:s.po,pos:[],client:s.client||shipClientFor(s.po)||'',destination:s.destination,focalPerson:s.focalPerson||'',focalPhone:s.focalPhone||'',date:s.dispatch,vehicle:s.vehicle,carrier:s.carrier,dc:s.dc,shipNo:s.shipNo,bilty:s.bilty,so:s.so||'',transportType:s.transportType||'',driver:s.driver||'',driverContact:s.driverContact||'',seal:s.seal||'',gatePass:s.gatePass||'',loadStarted:s.loadStarted||'',stage:s.stage||'',dcStatus:(s.dcStatus||'approved'),approvedBy:s.approvedBy||'',approvedDate:s.approvedDate||'',rows:[],kg:0,delivered:true,qaPending:false,qaFail:false}; g[k].rows.push(s); g[k].kg+=(+s.kg||0); if(s.po&&g[k].pos.indexOf(s.po)<0) g[k].pos.push(s.po); if(!s.delivered) g[k].delivered=false; if(s.qa===null) g[k].qaPending=true; if(s.qa&&s.qa.fail) g[k].qaFail=true; if((s.dcStatus||'approved')==='pending') g[k].dcStatus='pending'; }); return Object.values(g).map(x=>{ x.qa=x.qaFail?'fail':(x.qaPending?'pending':'pass'); x.poLabel=(x.pos.length>1?(x.pos[0]+' + '+(x.pos.length-1)+' more'):(x.pos[0]||x.po||'')); x.stageNow=shipStageOf(x); return x; }).sort((a,b)=>String(b.date||'').localeCompare(String(a.date||''))); }
 let dispQAForm={dispId:null,marks:[],officer:'',remarks:''};
 function dispRowsFor(dispId){ return (state.shipments||[]).filter(s=>(s.dispId||'')===dispId); }
 function openDispatchQA(dispId){ if(!(canEdit(['QA Inspector'])||state.role==='COO')){toast('QA Inspector only');return;} const rows=dispRowsFor(dispId); if(!rows.length)return; const ex=rows[0].qa; dispQAForm={dispId,marks:QC_CHECKLIST.map((_,i)=>(ex&&ex.checklist&&ex.checklist[i]&&ex.checklist[i].result)||''),verify:QC_VERIFY.map((_,i)=>(ex&&ex.verify&&ex.verify[i]&&ex.verify[i].result)||''),officer:(ex&&ex.by)||((state.currentUser&&state.currentUser.name)||''),remarks:(ex&&ex.remarks)||'',date:(ex&&ex.actualDate)||evToday(),dateReason:''}; renderDispatchQA(); $('modalBg').classList.add('open'); }
@@ -10522,7 +10542,7 @@ function readyPOsForClient(client){ return readyPOs().filter(function(g){return 
 var mpForm=null;
 function mpStart(client){ if(!may('shipment.plan')){toast(denyRight('shipment.plan','Planning a truck'));return;}
   var gs=readyPOsForClient(client); if(!gs.length){toast('Nothing QC-cleared and ready for this customer');return;}
-  mpForm={client:client,date:TODAY.toISOString().slice(0,10),dest:(clientTopDest(client)||''),focal:((gs.map(function(g){return g.o.focalPerson||'';}).filter(Boolean)[0])||''),transportType:'',truckSize:'',carrier:'',vehicle:'',bilty:'',driver:'',driverContact:'',seal:'',remarks:'',
+  mpForm={client:client,date:TODAY.toISOString().slice(0,10),dest:(clientTopDest(client)||''),focal:((gs.map(function(g){return g.o.focalPerson||'';}).filter(Boolean)[0])||''),focalPhone:((gs.map(function(g){return g.o.focalPhone||'';}).filter(Boolean)[0])||''),transportType:'',truckSize:'',carrier:'',vehicle:'',bilty:'',driver:'',driverContact:'',seal:'',remarks:'',
     step:1,
     orders:gs.map(function(g){ return {oid:g.o.id,po:g.o.po,so:'',lines:g.ls.map(function(x){ return {lid:x.l.id,brand:x.l.brand,base:x.l.base||'',pack:(+x.l.pack||seedPackForBrand(x.l.brand)||0),rem:Math.round(x.rem),qty:Math.round(x.rem),on:true}; })}; })};
   renderMPShip(); $('modal').classList.add('shipdrawer'); $('modalBg').classList.add('open'); }
@@ -10563,6 +10583,7 @@ function renderMPShip(){ if(!mpForm){closeModal();return;} var f=mpForm; var ste
       +ordCards
       +'<div class="dwgrid" style="margin-top:9px"><div class="dwmini"><label>Destination</label><input type="text" list="mpDestList" value="'+_av(f.dest)+'" oninput="mpSet(\'dest\',this.value)" placeholder="where is this going?"><datalist id="mpDestList">'+clientDestinations(f.client).map(function(d){return '<option value="'+_av(d)+'">';}).join('')+'</datalist></div>'
       +'<div class="dwmini"><label>Customer focal person <span class="muted">(optional)</span></label><input type="text" list="mpFocalList" value="'+_av(f.focal)+'" oninput="mpSet(\'focal\',this.value)" placeholder="who receives it — prints on the DC"><datalist id="mpFocalList">'+(((state.masters&&state.masters.focalPersons)||[])).map(function(p){return '<option>'+p+'</option>';}).join('')+'</datalist></div>'
+      +'<div class="dwmini"><label>Focal person phone <span class="muted">(optional)</span></label><input type="tel" value="'+_av(f.focalPhone)+'" oninput="mpSet(\'focalPhone\',this.value)" placeholder="03xx-xxxxxxx — prints on the DC"></div>'
       +'<div class="dwmini"><label>Dispatch date</label><input type="date" value="'+f.date+'" onchange="mpSet(\'date\',this.value)"></div></div></div>';
   } else if(step===2){
     var picks=TRUCK_SIZES.map(function(t){ var sel=(f.truckSize===t.k); return '<div class="dwpick '+(sel?'sel':'')+'" onclick="mpSet(\'truckSize\',\''+t.k+'\');renderMPShip()"><div><div class="pt">'+t.label+'</div><div class="ps">~'+fmt(t.cap)+' kg capacity</div></div><div class="dot"></div></div>'; }).join('');
@@ -10624,7 +10645,7 @@ function mpCreate(){ if(!may('shipment.plan')){toast(denyRight('shipment.plan','
     lotsFor(o,l).forEach(function(p,i){ var a=Math.min(+alloc[i]||0,lotClearedKg(p)); if(a>0.0001){ p.shipKg=(+p.shipKg||0)+a; batches.push({lotId:p.id,batch:lotBaseNo(p),brand:lotBrandNo(p),kg:Math.round(a)}); kg+=a; } });
     if(kg<=0)return;
     if(auto){ l.dispatched=(+l.dispatched||0)+Math.round(kg); l.dispatchDate=l.dispatchDate||d; if(exf){ l.delivered=(+l.delivered||0)+Math.round(kg); l.deliveredDate=d; } }
-    state.shipments.unshift({id:_uid('SH'),dispId:dispId,po:o.po,client:f.client,brand:l.brand,lid:l.id,kg:Math.round(kg),batches:batches,pack:x.r.pack,dispatch:d,destination:f.dest,focalPerson:(f.focal||'').trim(),carrier:f.carrier,vehicle:f.vehicle,dc:dc,shipNo:shipNo,bilty:f.bilty,so:x.o.so||'',transportType:f.transportType,truckSize:f.truckSize,driver:f.driver,driverContact:f.driverContact,seal:f.seal,stage:(auto?(exf?'delivered':'in_transit'):'truck_planned'),loadStarted:'',gatePass:'',dcStatus:(auto?'approved':'pending'),approvedBy:(auto?'Auto · pre go-live':''),approvedDate:(auto?d:''),dispCounted:!!auto,delivered:(auto&&exf?d:null),deliveredVia:(auto&&exf?'Collected at factory':''),remarks:f.remarks,qa:{pass:true,closed:true},by:state.role});
+    state.shipments.unshift({id:_uid('SH'),dispId:dispId,po:o.po,client:f.client,brand:l.brand,lid:l.id,kg:Math.round(kg),batches:batches,pack:x.r.pack,dispatch:d,destination:f.dest,focalPerson:(f.focal||'').trim(),focalPhone:(f.focalPhone||'').trim(),carrier:f.carrier,vehicle:f.vehicle,dc:dc,shipNo:shipNo,bilty:f.bilty,so:x.o.so||'',transportType:f.transportType,truckSize:f.truckSize,driver:f.driver,driverContact:f.driverContact,seal:f.seal,stage:(auto?(exf?'delivered':'in_transit'):'truck_planned'),loadStarted:'',gatePass:'',dcStatus:(auto?'approved':'pending'),approvedBy:(auto?'Auto · pre go-live':''),approvedDate:(auto?d:''),dispCounted:!!auto,delivered:(auto&&exf?d:null),deliveredVia:(auto&&exf?'Collected at factory':''),remarks:f.remarks,qa:{pass:true,closed:true},by:state.role});
     n++; tot+=kg; });
   if(!n){toast('Nothing cleared to ship — inspect the packed material first');return;}
   logAction('Shipment '+shipNo+' ('+dispId+') created — '+shortClient(f.client)+' · '+incl.length+' order(s), '+n+' product(s), '+fmt(Math.round(tot))+' Kg/L · DC '+dc+(auto?' · auto-approved (pre go-live)':' · Truck Planned'));
@@ -10679,6 +10700,8 @@ function openShipEdit(key){ if(!may('shipment.plan')){toast(denyRight('shipment.
     /* pre-fills from the PO; whatever is set here wins on this truck's DC */
     focal:(g0.focalPerson!=null&&g0.focalPerson!=='')?g0.focalPerson
           :(((state.orders||[]).find(function(x){return x.po===g0.po;})||{}).focalPerson||''),
+    focalPhone:(g0.focalPhone!=null&&g0.focalPhone!=='')?g0.focalPhone
+          :(((state.orders||[]).find(function(x){return x.po===g0.po;})||{}).focalPhone||''),
     delivered:!!g0.delivered, deliveredDate:g0.delivered||TODAY.toISOString().slice(0,10) };
   renderShipEdit(); $('modalBg').classList.add('open'); }
 function renderShipEdit(){ const f=shipEditForm; if(!f){closeModal();return;} const g0=f.rows[0].s;
@@ -10694,6 +10717,7 @@ function renderShipEdit(){ const f=shipEditForm; if(!f){closeModal();return;} co
        <div class="fld"><label>DC number</label><input type="text" value="${_av(f.dc)}" oninput="shipEditForm.dc=this.value"></div>
        <div class="fld"><label>Bilty / reference</label><input type="text" value="${_av(f.bilty)}" oninput="shipEditForm.bilty=this.value"></div>
        <div class="fld"><label>Focal person <span class="muted" style="font-weight:400">· on the DC</span></label><input type="text" list="se_focal_list" value="${_av(f.focal)}" oninput="shipEditForm.focal=this.value" placeholder="who receives this load"><datalist id="se_focal_list">${(((state.masters&&state.masters.focalPersons)||[])).map(p=>`<option>${p}</option>`).join('')}</datalist></div>
+       <div class="fld"><label>Focal person phone <span class="muted" style="font-weight:400">· on the DC</span></label><input type="tel" value="${_av(f.focalPhone)}" oninput="shipEditForm.focalPhone=this.value" placeholder="03xx-xxxxxxx"></div>
        <div class="fld"><label>Status</label><select onchange="shipEditForm.delivered=(this.value==='delivered');renderShipEdit()"><option value="transit" ${f.delivered?'':'selected'}>In transit</option><option value="delivered" ${f.delivered?'selected':''}>Delivered</option></select></div>
        ${f.delivered?`<div class="fld"><label>Delivered date</label><input type="date" value="${_av(f.deliveredDate)}" onchange="shipEditForm.deliveredDate=this.value"></div>`:''}
      </div>
@@ -10706,7 +10730,7 @@ function saveShipEdit(){ if(!may('shipment.plan')){toast(denyRight('shipment.pla
   if(f.dc){ var _thisDisp=(f.rows[0]&&f.rows[0].s.dispId)||''; var _dupe=(state.shipments||[]).some(function(s){ return s && !s.voided && (s.dispId||'')!==_thisDisp && String(s.dc||'')===String(f.dc); }); if(_dupe && !(typeof confirm==='function'&&confirm('DC '+f.dc+' is already used by another shipment. Save with a duplicate DC anyway?'))) return; }
   f.rows.forEach(r=>{ const s=r.s, l=r.l, newKg=Math.max(0,+r.kg||0);
     if(l){ l.dispatched=Math.max(0,(l.dispatched||0)-(+s.kg||0)); if(s.delivered) l.delivered=Math.max(0,(l.delivered||0)-(+s.kg||0)); }
-    s.kg=newKg; s.dispatch=f.date; s.destination=f.dest; s.carrier=f.carrier; s.vehicle=f.vehicle; s.dc=f.dc; s.bilty=f.bilty; s.focalPerson=(f.focal||'').trim(); s.delivered=dd;
+    s.kg=newKg; s.dispatch=f.date; s.destination=f.dest; s.carrier=f.carrier; s.vehicle=f.vehicle; s.dc=f.dc; s.bilty=f.bilty; s.focalPerson=(f.focal||'').trim(); s.focalPhone=(f.focalPhone||'').trim(); s.delivered=dd;
     if(l){ l.dispatched=(l.dispatched||0)+newKg; l.dispatchDate=l.dispatchDate||f.date; if(dd){ l.delivered=(l.delivered||0)+newKg; l.deliveredDate=dd; } } });
   f.rows.forEach(function(r){ if(r.l){ var _o=(state.orders||[]).find(function(x){return x.po===r.s.po;}); if(_o) resyncLineShipKg(_o,r.l); } });
   logAction(`Edited shipment ${(f.rows[0].s.dispId)||''} (PO ${f.rows[0].s.po}) — ${f.rows.length} line(s), DC ${(f.dc||'-')}`);

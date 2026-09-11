@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<style>img{max-width:100%}[hidden]{display:none!important}html{color-scheme:light dark}body{margin:0}</style>
+<title>O2S Order Flow</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;450;500;600;700&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.9.1/mermaid.min.js"></script>
+<style>
+  :root{
+    --bg:#eef2f3; --surface:#ffffff; --surface-2:#f4f7f8; --surface-3:#e9eff0;
+    --border:#d6dfe1; --border-strong:#b7c6c9;
+    --ink:#0f1c20; --ink-soft:#46595e; --ink-faint:#728488;
+    --accent:#0e7490; --accent-bright:#0891b2;
+    --shadow:0 1px 2px rgba(15,28,32,.06),0 10px 30px -14px rgba(15,28,32,.2);
+    --corner:8px;
+  }
+  :root:not([data-theme="light"]){
+    @media (prefers-color-scheme: dark){
+      --bg:#0b1214; --surface:#131f22; --surface-2:#0f191b; --surface-3:#182629;
+      --border:#233337; --border-strong:#35494e;
+      --ink:#e8eff1; --ink-soft:#a6b7bb; --ink-faint:#7b8f95;
+      --accent:#2bb7d3; --accent-bright:#41cfe8;
+      --shadow:0 1px 2px rgba(0,0,0,.4),0 12px 34px -16px rgba(0,0,0,.65);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0b1214; --surface:#131f22; --surface-2:#0f191b; --surface-3:#182629;
+    --border:#233337; --border-strong:#35494e;
+    --ink:#e8eff1; --ink-soft:#a6b7bb; --ink-faint:#7b8f95;
+    --accent:#2bb7d3; --accent-bright:#41cfe8;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 12px 34px -16px rgba(0,0,0,.65);
+  }
+  *{box-sizing:border-box}
+  body{background:var(--bg); color:var(--ink); margin:0;
+    font-family:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif; font-weight:450; line-height:1.5; -webkit-font-smoothing:antialiased;}
+  .wrap{max-width:1080px; margin:0 auto; padding:clamp(20px,3.4vw,48px) clamp(14px,3vw,40px) 72px;}
+  .eyebrow{font-family:"IBM Plex Mono",monospace; font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--accent); font-weight:500; display:flex; align-items:center; gap:10px;}
+  .eyebrow::before{content:""; width:26px; height:2px; background:var(--accent); display:inline-block;}
+  h1{font-size:clamp(29px,4.6vw,46px); line-height:1.05; letter-spacing:-.02em; margin:16px 0 0; font-weight:700; text-wrap:balance;}
+  h1 .arrow{color:var(--accent-bright); font-weight:400;}
+  .lede{margin:14px 0 0; max-width:64ch; color:var(--ink-soft); font-size:clamp(15px,1.5vw,17px);}
+  .lede b{color:var(--ink); font-weight:600;}
+
+  .legend{display:flex; flex-wrap:wrap; gap:8px; margin:26px 0 6px;}
+  .legend .lbl{font-size:12.5px; color:var(--ink-faint); text-transform:uppercase; letter-spacing:.08em; align-self:center; margin-right:2px;}
+  .rchip{display:inline-flex; align-items:center; gap:7px; font-size:13px; font-weight:500; padding:5px 11px 5px 8px; border-radius:100px; border:1px solid var(--border-strong); background:var(--surface); color:var(--ink-soft);}
+  .rchip .sw{width:11px; height:11px; border-radius:3px; flex:none; border:1.5px solid var(--rk);}
+
+  .scroll{margin-top:16px; overflow:auto; border:1px solid var(--border); border-radius:var(--corner); background:var(--surface); box-shadow:var(--shadow); padding:12px;}
+  .mermaid{min-width:560px;}
+  .mermaid text{font-family:"IBM Plex Sans",sans-serif !important;}
+
+  .foot{margin:28px 2px 0; display:grid; gap:14px; grid-template-columns:repeat(auto-fit,minmax(250px,1fr));}
+  .note{background:var(--surface); border:1px solid var(--border); border-left:3px solid var(--accent); border-radius:var(--corner); padding:14px 16px; box-shadow:var(--shadow);}
+  .note h4{margin:0 0 6px; font-size:13px; text-transform:uppercase; letter-spacing:.06em; color:var(--accent); font-weight:600;}
+  .note p{margin:0; font-size:13.5px; color:var(--ink-soft); line-height:1.5;}
+  .note code{font-family:"IBM Plex Mono",monospace; font-size:12px; background:var(--surface-3); padding:1px 5px; border-radius:4px;}
+  .meta{margin:30px 2px 0; font-size:12.5px; color:var(--ink-faint); line-height:1.6; font-family:"IBM Plex Mono",monospace;}
+  .meta b{color:var(--ink-soft); font-weight:500;}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important;}}
+</style>
+</head>
+<body>
+
+
+<div class="wrap">
+  <div class="eyebrow">O2S · Order to Ship · order lifecycle</div>
+  <h1>New PO <span class="arrow">&rarr;</span> Delivery Challan</h1>
+  <p class="lede">The path an order travels through Order&#8209;to&#8209;Ship, from the moment a <b>PO is raised</b> to the <b>Delivery Challan</b> and dispatch. Each box is coloured by the <b>role that owns it</b>; the two diamonds are the real decision points — a materials shortfall and a lab result.</p>
+
+  <div class="legend">
+    <span class="lbl">Owner</span>
+    <span class="rchip"><span class="sw" style="--rk:#0891b2;background:#e6f6fb"></span>Supply Chain</span>
+    <span class="rchip"><span class="sw" style="--rk:#be123c;background:#fdeaef"></span>CFO</span>
+    <span class="rchip"><span class="sw" style="--rk:#2563eb;background:#e8effe"></span>Production</span>
+    <span class="rchip"><span class="sw" style="--rk:#7c3aed;background:#f1ebfd"></span>Lab Rep</span>
+    <span class="rchip"><span class="sw" style="--rk:#b45309;background:#fdf0dd"></span>QA Inspector</span>
+    <span class="rchip"><span class="sw" style="--rk:#4f46e5;background:#eceafe"></span>Plant Manager</span>
+  </div>
+
+  <div class="scroll">
+    <pre class="mermaid">
+flowchart TD
+    A["Raise a new PO<br/>New PO Entry"]:::sc
+    A --> B["Answer print-on-pack<br/>price on the bag?"]:::sc
+    B --> C["Acknowledge PO"]:::any
+    C --> D{"RM Check<br/>materials available?"}:::sc
+    D -->|Full| H["RM Ready"]:::sc
+    D -->|Partial / none| E["Raise Purchase Requisition"]:::sc
+    E --> F["Approve PR"]:::cfo
+    F --> G["Receive raw material"]:::sc
+    G --> H
+    H --> I["Open batch and produce<br/>enter qty, log shift"]:::prod
+    I --> J{"Lab QC<br/>review and approve"}:::lab
+    J -->|UNFIT| K["Accept deviation<br/>or send for rework"]:::pm
+    K --> I
+    J -->|FIT| L["Pack cleared stock"]:::prod
+    L --> M["QA pre-shipment check"]:::qa
+    M --> N["Plan shipment, raise DC"]:::dc
+    N --> O["Issue gate pass"]:::sc
+    O --> P["Approve DC and release truck"]:::pm
+    P --> Q["Confirm delivery"]:::sc
+    Q --> R["Delivered"]:::done
+
+    classDef sc   fill:#e6f6fb,stroke:#0891b2,stroke-width:1.5px,color:#0f1c20;
+    classDef cfo  fill:#fdeaef,stroke:#be123c,stroke-width:1.5px,color:#0f1c20;
+    classDef prod fill:#e8effe,stroke:#2563eb,stroke-width:1.5px,color:#0f1c20;
+    classDef lab  fill:#f1ebfd,stroke:#7c3aed,stroke-width:1.5px,color:#0f1c20;
+    classDef qa   fill:#fdf0dd,stroke:#b45309,stroke-width:1.5px,color:#0f1c20;
+    classDef pm   fill:#eceafe,stroke:#4f46e5,stroke-width:1.5px,color:#0f1c20;
+    classDef any  fill:#eef1f3,stroke:#64748b,stroke-width:1.5px,color:#0f1c20;
+    classDef done fill:#e4f5ea,stroke:#15803d,stroke-width:2px,color:#0f1c20;
+    classDef dc   fill:#cbeff7,stroke:#0e7490,stroke-width:3px,color:#0f1c20;
+    </pre>
+  </div>
+
+  <div class="foot">
+    <div class="note">
+      <h4>The DC point</h4>
+      <p>The <b>Delivery Challan</b> is raised at <code>shipment.plan</code> — "Plan a shipment / raise a DC" — by Supply Chain. The Plant Manager then <b>approves the DC and releases the truck</b> as a second signature.</p>
+    </div>
+    <div class="note">
+      <h4>Branch 1 — materials</h4>
+      <p>If RM Check comes back <b>partial or none</b>, a Purchase Requisition is raised and waits on <b>CFO approval</b> before material is received and the order can move to RM Ready.</p>
+    </div>
+    <div class="note">
+      <h4>Branch 2 — lab result</h4>
+      <p>An <b>UNFIT</b> lab result doesn't kill the order — the <b>Plant Manager</b> accepts a deviation or sends the pool back for rework. Only a <b>FIT</b> result lets Production pack the cleared stock.</p>
+    </div>
+    <div class="note">
+      <h4>Stale delivery</h4>
+      <p>Delivery confirmation stays with <b>Supply Chain</b> permanently — it never hands to the Plant Manager. If a confirmation goes stale it <b>re&#8209;flags to the same owner after 3 days</b>.</p>
+    </div>
+  </div>
+
+  <p class="meta"><b>Source:</b> o2s/o2s.html — BUCKETS pipeline &amp; the RIGHTS[] catalogue · <b>Companion:</b> docs/ACCESS-ROLES-O2S.md, docs/o2s-access-matrix.html · <b>Generated</b> 2026&#8209;09&#8209;07</p>
+</div>
+
+<script>
+  (function(){
+    var dark = (document.documentElement.getAttribute("data-theme")==="dark") ||
+      (!document.documentElement.getAttribute("data-theme") && window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches);
+    mermaid.initialize({
+      startOnLoad:true,
+      theme:"base",
+      themeVariables:{
+        fontFamily:"IBM Plex Sans, sans-serif",
+        fontSize:"14px",
+        lineColor: dark ? "#8aa0a6" : "#6b7f84",
+        edgeLabelBackground: dark ? "#f4f7f8" : "#ffffff",
+        tertiaryColor:"#ffffff"
+      },
+      flowchart:{ curve:"basis", nodeSpacing:44, rankSpacing:44, useMaxWidth:true, htmlLabels:true }
+    });
+  })();
+</script>
+
+</body>
+</html>

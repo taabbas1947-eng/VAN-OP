@@ -1,5 +1,6 @@
 node_modules/
 data/
+docs/Mockup/
 .DS_Store
 Thumbs.db
 desktop.ini

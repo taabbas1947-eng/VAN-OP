@@ -3751,6 +3751,73 @@ GitHub Desktop.
 
 ---
 
+## 2026-09-11 — PD 002 migration to PRODUCTION (done) + local verify · O2S docs
+
+**Re-recording this session's ops history — it was lost when the working-tree
+OP-HANDOFF was reset during the merge, and is not in HEAD.**
+
+**`002_pd_core_rebuild` applied to PRODUCTION** (`jodilkah_vanop_db`), by hand in
+HostGator phpMyAdmin, 2026-09-09 — after `ca934d4` confirmed live on Render (the
+migration-retired server.js, so no boot-loop recreate risk). Pre-flight guard
+first ABORTED on 2 stray pilot rows (killed test hypothesis "DAP replacement" +
+its G1 kill decision) — data-safety mechanism confirmed, tested on local first.
+Cleared the 2 rows, re-imported: **96 queries**. Verified read-only: **15/15 new
+core tables present, 17/17 old dropped**, `pd_materials`/`library`/`dropbox`
+kept. **O2S intact** — app_state rev 6737, **54 orders, 86 batches**, 15 users.
+Every prod write done by Tahir in phpMyAdmin; Claude read-only only.
+
+**Local `van_platform` migrated to `002`** the same way, 2026-09-11, then
+boot-tested locally (port 3001): clean boot, `/` `/o2s` `/pd` all 200,
+`/api/me` = `o2s:COO`+`pd:coo`, PD routes (`/api/pd/library`, `/api/pd/dropbox`)
+200 on the new schema, `/api/state` 54 orders. **All green.**
+
+**O2S docs added this session** (docs only, no app code): `docs/ACCESS-ROLES.md`,
+`docs/ACCESS-ROLES-O2S.md`, `docs/o2s-access-matrix.html`,
+`docs/o2s-order-flow.html`.
+
+**Migrations 003, 004, 005 applied to PRODUCTION 2026-09-11** (by Tahir, phpMyAdmin
+Import, in order), after read-only review confirmed all three are non-destructive
+(no DROP/DELETE/TRUNCATE; only touch `pd_*` tables + read-only FKs to `auth_users`;
+O2S untouched). Reviewed each first:
+- `003_pd_history_and_notices` — creates `pd_field_history` (append-only + 2
+  triggers) and `pd_notices`; adds `pd_observations.door_chosen`.
+- `004_material_grade_load` — widens `pd_materials` (assay cols nullable,
+  +`physical_form`/`grade_source`); soft-deactivates the 10 old placeholder seed
+  rows (kept, `active=0`); `INSERT IGNORE` the ~58 real grades from Tahir's
+  returned worksheet.
+- `005_pd_claim_identity` — adds UNIQUE `(claim_number, version)` on `pd_claims`
+  (fixes the duplicate claim-number race).
+
+**Verified applied by fingerprint** (no schema_migrations ledger — checked
+information_schema): has_003_history/notices/door_chosen = 1/1/1, has_004
+column+data = 1/1, has_005 index = 2. `pd_materials` = **68 total / 58 active**
+(10 placeholders deactivated + 58 new grades). Prod schema now matches the
+`f11162f` "PD Live" code. Every prod write done by Tahir; Claude read-only only.
+
+**Migration 006 (`006_pd_roles`) also applied to PRODUCTION 2026-09-11** — appended
+`field_agronomy` + `associate_agronomy` to the `auth_users.pd_role` ENUM. This is
+the one migration that touches the shared `auth_users` table — PD-scoped
+(`pd_role` column only), O2S untouched, no rows changed. Pre-checked the ENUM held
+exactly the expected 11 values before applying; confirmed both new values present
+after. Applied as a schema-qualified `ALTER jodilkah_vanop_db.auth_users …` because
+phpMyAdmin's SQL context was stuck on `information_schema` (the file's unqualified
+`auth_users` / `DATABASE()` fails unless the app DB is the selected one).
+
+**ROLE ASSIGNMENT DEFERRED — Tahir onboards via the front end.** The PD pilot
+people are not in `auth_users` yet (no `nadeem` / `erum` / `maleeha` / `himmayat`
+accounts; `abdul.majid` may be Majid but has `pd_role = NULL`). `006` added the
+role *options* only — you can't assign a role to an account that doesn't exist.
+As each person is onboarded in Manage Access, assign: Himmayat → `rta` (R&D
+Manager), Majid → `production`, Maleeha → `agronomy` (Lead), Nadeem →
+`field_agronomy`, Erum → `associate_agronomy`. No rush — the roles sit available
+until then; nothing is broken.
+
+**Local `van_platform` migrated 003 → 004 → 005 → 006 on 2026-09-11** — now level
+with prod. Both databases are on the full 002→006 set. Nothing outstanding on the
+schema.
+
+---
+
 ## 11 September 2026 — MODULE: PD — migration state, the 003 backfill bug, and Tahir's rulings A1 + B2
 
 **Session constraint, and it shaped everything below: `device_bash` would not
@@ -3946,3 +4013,33 @@ Run. Unblocked since 10 September and untouched.
 
 Nothing pushed — local changes only, for Tahir to review and commit via GitHub
 Desktop.
+
+### CORRECTION — added while merging these two entries, 11 September 2026
+
+The "Order of work when the pilot opens" list above was written without sight of
+the entry immediately before it, which was on the remote and not in this working
+tree at the time. That entry supersedes the list on three points:
+
+  - **002, 003, 004, 005 and 006 are already applied to PRODUCTION**
+    (`jodilkah_vanop_db`), verified there by fingerprint against
+    `information_schema`; `pd_materials` holds 68 rows, 58 active. The local
+    `van_platform` database is level with it. So steps 1 and 2 above are done,
+    and the only migration still outstanding anywhere is **007**.
+  - **003 therefore already ran once, in its original form**, before the backfill
+    fix recorded in this entry. That first run was correct — the fix protects a
+    SECOND run, which must now never happen. `STATE-CHECK.sql` will report 003
+    APPLIED. Do not run it again, and do not read the amended file as something
+    to apply.
+  - **Step 4, the roles, is blocked for a different reason than assumed.** The
+    pilot people have no `auth_users` accounts yet — 006 added the role OPTIONS,
+    and a role cannot be given to an account that does not exist. Each person
+    gets theirs as they are onboarded in Manage Access: Himmayat `rta`, Majid
+    `production`, Maleeha `agronomy`, Nadeem `field_agronomy`, Erum
+    `associate_agronomy`.
+
+**So what actually stands between here and eight people signing in: 007, the
+eight accounts, and the smoke test.** The schema is otherwise done.
+
+Both entries are kept in full and in the order the work happened. The remote
+entry notes that it had already been lost once "when the working-tree
+OP-HANDOFF was reset during the merge" — it has not been lost again.

@@ -1,0 +1,398 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<style>img{max-width:100%}[hidden]{display:none!important}html{color-scheme:light dark}body{margin:0}</style>
+<title>O2S Access Matrix</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;450;500;600;700&display=swap">
+<style>
+  :root{
+    --bg:#eef2f3; --surface:#ffffff; --surface-2:#f4f7f8; --surface-3:#e9eff0;
+    --border:#d6dfe1; --border-strong:#b7c6c9;
+    --ink:#0f1c20; --ink-soft:#46595e; --ink-faint:#728488;
+    --accent:#0e7490; --accent-bright:#0891b2; --accent-ink:#ffffff;
+    --k-matrix:#2563eb; --k-hard:#b45309; --k-all:#15803d;
+    --k-coo:#be123c; --k-signoff:#7c3aed; --k-pending:#64748b;
+    --shadow:0 1px 2px rgba(15,28,32,.06),0 8px 24px -12px rgba(15,28,32,.18);
+    --corner:8px;
+  }
+  :root:not([data-theme="light"]){
+    @media (prefers-color-scheme: dark){
+      --bg:#0b1214; --surface:#131f22; --surface-2:#0f191b; --surface-3:#182629;
+      --border:#233337; --border-strong:#35494e;
+      --ink:#e8eff1; --ink-soft:#a6b7bb; --ink-faint:#7b8f95;
+      --accent:#2bb7d3; --accent-bright:#41cfe8; --accent-ink:#03181d;
+      --k-matrix:#60a5fa; --k-hard:#f59e0b; --k-all:#4ade80;
+      --k-coo:#fb7185; --k-signoff:#a78bfa; --k-pending:#94a3b8;
+      --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px -14px rgba(0,0,0,.6);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0b1214; --surface:#131f22; --surface-2:#0f191b; --surface-3:#182629;
+    --border:#233337; --border-strong:#35494e;
+    --ink:#e8eff1; --ink-soft:#a6b7bb; --ink-faint:#7b8f95;
+    --accent:#2bb7d3; --accent-bright:#41cfe8; --accent-ink:#03181d;
+    --k-matrix:#60a5fa; --k-hard:#f59e0b; --k-all:#4ade80;
+    --k-coo:#fb7185; --k-signoff:#a78bfa; --k-pending:#94a3b8;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px -14px rgba(0,0,0,.6);
+  }
+
+  *{box-sizing:border-box}
+  body{
+    background:var(--bg); color:var(--ink);
+    font-family:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;
+    font-weight:450; line-height:1.5; -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1160px; margin:0 auto; padding:clamp(20px,3.4vw,48px) clamp(14px,3vw,40px) 72px;}
+
+  /* ---- header ---- */
+  .eyebrow{
+    font-family:"IBM Plex Mono",monospace; font-size:12px; letter-spacing:.14em;
+    text-transform:uppercase; color:var(--accent); font-weight:500;
+    display:flex; align-items:center; gap:10px;
+  }
+  .eyebrow::before{content:""; width:26px; height:2px; background:var(--accent); display:inline-block;}
+  h1{
+    font-size:clamp(29px,4.6vw,46px); line-height:1.04; letter-spacing:-.02em;
+    margin:16px 0 0; font-weight:700; text-wrap:balance; max-width:16ch;
+  }
+  .lede{
+    margin:14px 0 0; max-width:64ch; color:var(--ink-soft); font-size:clamp(15px,1.5vw,17px);
+  }
+  .lede b{color:var(--ink); font-weight:600;}
+
+  /* ---- gates strip ---- */
+  .gates{
+    display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px;
+    margin:28px 0 0;
+  }
+  .gate{
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--corner);
+    padding:15px 16px; box-shadow:var(--shadow); position:relative; overflow:hidden;
+  }
+  .gate .n{
+    font-family:"IBM Plex Mono",monospace; font-size:12px; color:var(--accent-bright);
+    font-weight:500; letter-spacing:.04em;
+  }
+  .gate h3{margin:8px 0 3px; font-size:16px; font-weight:600; letter-spacing:-.01em;}
+  .gate p{margin:0; font-size:13.5px; color:var(--ink-soft); line-height:1.45;}
+
+  /* ---- stats ---- */
+  .stats{display:flex; flex-wrap:wrap; gap:26px; margin:30px 0 8px; align-items:baseline;}
+  .stat .v{font-size:30px; font-weight:700; letter-spacing:-.02em; font-variant-numeric:tabular-nums;}
+  .stat .l{font-size:12.5px; color:var(--ink-faint); text-transform:uppercase; letter-spacing:.07em; margin-top:2px;}
+
+  /* ---- legend / filter ---- */
+  .legend{
+    display:flex; flex-wrap:wrap; gap:8px; margin:22px 0 14px; align-items:center;
+  }
+  .legend .lbl{font-size:12.5px; color:var(--ink-faint); text-transform:uppercase; letter-spacing:.08em; margin-right:2px;}
+  .chip{
+    display:inline-flex; align-items:center; gap:7px; cursor:pointer; user-select:none;
+    font-size:13px; font-weight:500; padding:6px 11px 6px 9px; border-radius:100px;
+    border:1px solid var(--border-strong); background:var(--surface); color:var(--ink-soft);
+    transition:border-color .15s, background .15s, color .15s, opacity .15s;
+  }
+  .chip .sw{width:11px; height:11px; border-radius:3px; background:var(--kc); flex:none;}
+  .chip:hover{border-color:var(--kc); color:var(--ink);}
+  .chip[aria-pressed="true"]{background:color-mix(in srgb,var(--kc) 14%,var(--surface)); border-color:var(--kc); color:var(--ink);}
+  .filtering .chip:not([aria-pressed="true"]){opacity:.5;}
+  .glyphkey{display:flex; flex-wrap:wrap; gap:16px; margin:2px 0 18px; font-size:13px; color:var(--ink-soft);}
+  .glyphkey span{display:inline-flex; align-items:center; gap:7px;}
+  .glyphkey b{font-family:"IBM Plex Mono",monospace; color:var(--ink); font-weight:500; font-size:14px;}
+
+  /* ---- matrix ---- */
+  .scroll{
+    overflow-x:auto; border:1px solid var(--border); border-radius:var(--corner);
+    background:var(--surface); box-shadow:var(--shadow); -webkit-overflow-scrolling:touch;
+  }
+  table{border-collapse:separate; border-spacing:0; width:100%; min-width:940px;}
+  thead th{
+    position:sticky; top:0; z-index:3; background:var(--surface-3);
+    font-family:"IBM Plex Sans Condensed","IBM Plex Sans",sans-serif;
+    font-weight:600; font-size:13px; color:var(--ink-soft);
+    padding:11px 4px; text-align:center; vertical-align:bottom; line-height:1.12;
+    border-bottom:1.5px solid var(--border-strong); white-space:normal;
+  }
+  thead th.roleh{width:66px;}
+  thead th.roleh .rk{display:block; font-family:"IBM Plex Mono",monospace; font-size:10px; color:var(--ink-faint); font-weight:400; letter-spacing:.02em; margin-top:3px;}
+  thead th.corner{
+    left:0; z-index:5; text-align:left; width:min(46vw,290px); min-width:220px;
+    padding-left:16px; font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-faint);
+  }
+  thead th.corner.stick, tbody td.act{position:sticky; left:0;}
+  thead th.roleh.coohl{background:color-mix(in srgb,var(--accent) 16%,var(--surface-3)); color:var(--ink);}
+
+  tbody td{border-bottom:1px solid var(--border); padding:0; text-align:center; height:44px;}
+  tbody td.act{
+    z-index:2; background:var(--surface); text-align:left; padding:8px 14px 8px 16px;
+    border-right:1px solid var(--border);
+  }
+  tbody tr:hover td{background:var(--surface-2);}
+  tbody tr:hover td.act{background:var(--surface-2);}
+  .act .code{font-family:"IBM Plex Mono",monospace; font-size:11.5px; color:var(--ink-faint); letter-spacing:-.01em;}
+  .act .nm{display:block; font-size:14px; font-weight:500; color:var(--ink); letter-spacing:-.005em; margin-top:1px;}
+  td.act{border-left:3px solid var(--kc);}
+
+  /* group band */
+  tr.band td{
+    background:var(--surface-2); border-bottom:1px solid var(--border-strong);
+    border-top:1px solid var(--border-strong);
+    position:sticky; left:0;
+  }
+  tr.band td .bandinner{
+    display:flex; align-items:center; gap:10px; padding:9px 16px;
+    font-family:"IBM Plex Sans Condensed",sans-serif; font-weight:700; font-size:13px;
+    text-transform:uppercase; letter-spacing:.07em; color:var(--ink);
+  }
+  tr.band td .tag{
+    font-family:"IBM Plex Mono",monospace; font-weight:400; font-size:11px; letter-spacing:0;
+    text-transform:none; color:var(--ink-faint); padding:2px 7px; border-radius:5px;
+    background:var(--surface-3); border:1px solid var(--border);
+  }
+
+  /* cells */
+  .cell{width:30px; height:30px; margin:0 auto; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:15px; line-height:1;}
+  .cell.owner{background:color-mix(in srgb,var(--kc) 20%,transparent); color:var(--kc); border:1.5px solid color-mix(in srgb,var(--kc) 55%,transparent); font-weight:700;}
+  .cell.esc{color:var(--kc); border:1.5px dashed color-mix(in srgb,var(--kc) 60%,transparent); background:transparent; font-weight:700;}
+  .cell.admin{background:color-mix(in srgb,var(--accent) 18%,transparent); color:var(--accent); border:1.5px solid color-mix(in srgb,var(--accent) 48%,transparent);}
+  td.chi{background:color-mix(in srgb,var(--accent) 6%,transparent);}
+  tr.dim{opacity:.24; filter:saturate(.5);}
+  tr{transition:opacity .18s;}
+
+  .foot{margin:30px 2px 0; display:grid; gap:16px; grid-template-columns:repeat(auto-fit,minmax(250px,1fr));}
+  .note{background:var(--surface); border:1px solid var(--border); border-left:3px solid var(--accent); border-radius:var(--corner); padding:14px 16px; box-shadow:var(--shadow);}
+  .note h4{margin:0 0 6px; font-size:13px; text-transform:uppercase; letter-spacing:.06em; color:var(--accent); font-weight:600;}
+  .note p{margin:0; font-size:13.5px; color:var(--ink-soft); line-height:1.5;}
+  .note p + p{margin-top:7px;}
+  .meta{margin:34px 2px 0; font-size:12.5px; color:var(--ink-faint); line-height:1.6; font-family:"IBM Plex Mono",monospace;}
+  .meta b{color:var(--ink-soft); font-weight:500;}
+  a.src{color:var(--accent-bright); text-decoration:none; border-bottom:1px solid color-mix(in srgb,var(--accent) 40%,transparent);}
+
+  @media (max-width:640px){
+    thead th.corner{min-width:180px; width:56vw;}
+    .stats{gap:18px;}
+    .stat .v{font-size:24px;}
+  }
+  @media (prefers-reduced-motion:reduce){*{transition:none!important;}}
+</style>
+</head>
+<body>
+
+
+<div class="wrap">
+  <div class="eyebrow">O2S · Order to Ship · access control</div>
+  <h1>O2S Access Matrix</h1>
+  <p class="lede">Who can do what inside Order&#8209;to&#8209;Ship. Every action clears <b>three gates</b> — the right role, ownership of the item, and how the right is enforced. The <b>COO</b> sits above all of it; the in&#8209;app Authorisation panel is the live word.</p>
+
+  <div class="gates">
+    <div class="gate"><div class="n">GATE 1</div><h3>Role</h3><p>You hold an O2S role that carries the right.</p></div>
+    <div class="gate"><div class="n">GATE 2</div><h3>Ownership</h3><p>You act on your own item — unless it was formally escalated to you. Holding the role is not enough.</p></div>
+    <div class="gate"><div class="n">GATE 3</div><h3>Enforcement</h3><p>How the check is made: panel&#8209;configurable, hard&#8209;coded, open, COO&#8209;only, or a permanent sign&#8209;off.</p></div>
+  </div>
+
+  <div class="stats" id="stats"></div>
+
+  <div class="legend" id="legend">
+    <span class="lbl">Enforcement — tap to filter</span>
+  </div>
+  <div class="glyphkey">
+    <span><span class="cell owner" style="--kc:var(--ink-soft);width:22px;height:22px;font-size:12px">&#9679;</span> <b>owns</b> the right</span>
+    <span><span class="cell esc" style="--kc:var(--ink-soft);width:22px;height:22px;font-size:12px">&#9675;</span> reachable via <b>escalation</b></span>
+    <span><span class="cell admin" style="width:22px;height:22px;font-size:12px">&#9670;</span> <b>COO</b> — admin, all rights</span>
+  </div>
+
+  <div class="scroll">
+    <table id="matrix">
+      <thead><tr id="head"></tr></thead>
+      <tbody id="body"></tbody>
+    </table>
+  </div>
+
+  <div class="foot">
+    <div class="note">
+      <h4>The ownership rule</h4>
+      <p>A role is necessary but not sufficient — O2S checks the <b>item's owner</b> too. A manager only sees another owner's live button when work is formally escalated to them. This is the 2026&#8209;07&#8209;30 rule: one person acting on another's work must stay impossible.</p>
+    </div>
+    <div class="note">
+      <h4>COO&#8209;only holds</h4>
+      <p>Customer create / amend are <b>held to the COO</b> (not the KAM) until customer rows carry ids — two people on that screen at once silently delete each other's work. The hold comes off when the ids land.</p>
+    </div>
+    <div class="note">
+      <h4>Second signatures</h4>
+      <p>Releasing a truck, approving a delivery challan, reopening a batch, and rework after an UNFIT lab result are the <b>Plant Manager's</b> sign&#8209;offs — a second person checking a first's work. They stay hard&#8209;coded and are never delegated.</p>
+    </div>
+    <div class="note">
+      <h4>Panel vs code</h4>
+      <p>Rights move into the Authorisation panel one department at a time. <b>Commercial, Supply Chain, Production</b> are converted (Aug 2026); <b>Quality</b> is still enforced in code. A right only appears in the panel once a real button asks for it.</p>
+    </div>
+  </div>
+
+  <p class="meta"><b>Source:</b> <a class="src" href="#">o2s/o2s.html</a> — the RIGHTS[] catalogue &amp; in&#8209;code gates · <b>Companion:</b> docs/ACCESS-ROLES-O2S.md · <b>Generated</b> 2026&#8209;09&#8209;07 · The in&#8209;app Authorisation panel is the live source of truth.</p>
+</div>
+
+<script>
+(function(){
+  var ROLES=[
+    {k:"COO",  n:"COO"},        {k:"CFO",  n:"CFO"},
+    {k:"KAM",  n:"KAM"},        {k:"SC",   n:"Supply Chain"},
+    {k:"PROD", n:"Production"},  {k:"PM",   n:"Plant Mgr"},
+    {k:"LAB",  n:"Lab Rep"},     {k:"AQCM", n:"AQCM"},
+    {k:"QCM",  n:"QCM"},         {k:"QAI",  n:"QA Insp."}
+  ];
+  var KINDS={
+    matrix:{label:"Panel-configurable", v:"--k-matrix"},
+    hard:  {label:"Hard-coded",         v:"--k-hard"},
+    all:   {label:"Anyone signed in",   v:"--k-all"},
+    coo:   {label:"COO only",           v:"--k-coo"},
+    signoff:{label:"Sign-off",          v:"--k-signoff"},
+    pending:{label:"Pending panel",     v:"--k-pending"}
+  };
+  // owners = holds the right; esc = reachable via escalation
+  var GROUPS=[
+    {band:"Commercial", tag:"in panel", rows:[
+      {code:"order.create",        nm:"Raise a new PO", kind:"matrix", owners:[], note:"Whoever has Edit on New PO Entry."},
+      {code:"order.print_decision",nm:"Answer print-on-pack", kind:"matrix", owners:[], note:"Decide if a price prints on the bag."},
+      {code:"order.acknowledge",   nm:"Acknowledge a PO", kind:"all", owners:["*"], note:"Any signed-in user."},
+      {code:"customer.create",     nm:"Add a customer / dealer", kind:"coo", owners:["COO"], note:"Held to the COO until customer rows carry ids."},
+      {code:"customer.amend",      nm:"Change a customer record", kind:"coo", owners:["COO"], note:"Held to the COO — same reason."}
+    ]},
+    {band:"Supply Chain", tag:"in panel", rows:[
+      {code:"rm.check",       nm:"RM Check — material availability", kind:"matrix", owners:["SC"], note:"Partial / none raises a PR for CFO approval."},
+      {code:"shipment.plan",  nm:"Plan a shipment / raise a DC", kind:"matrix", owners:["SC"], esc:["PM"], note:"Plant Manager can reach it from Approvals."},
+      {code:"shipment.load",  nm:"Start loading a truck", kind:"matrix", owners:["SC"], esc:["PM"], note:"Plant Manager can reach it from Approvals."},
+      {code:"gatepass.issue", nm:"Issue a Gate Pass", kind:"matrix", owners:["SC"], esc:["PM"], note:"Needed before the truck is released."},
+      {code:"delivery.confirm",nm:"Confirm a delivery", kind:"matrix", owners:["SC"], note:"Supply Chain only — COO ruled it never hands to the PM."},
+      {code:"rm.receive",     nm:"Receive RM against a PR", kind:"matrix", owners:["SC"], note:"Only after the CFO approves the PR."},
+      {code:"pr.close",       nm:"Close a purchase requisition", kind:"matrix", owners:["SC"], note:"Ends a PR that is finished or abandoned."}
+    ]},
+    {band:"Production", tag:"in panel", rows:[
+      {code:"batch.open",       nm:"Open a batch", kind:"hard", owners:["PROD"], note:"Start a new production batch."},
+      {code:"production.enter", nm:"Enter produced quantity", kind:"hard", owners:["PROD"], note:"Log output against a batch."},
+      {code:"shift.log",        nm:"Log a shift", kind:"hard", owners:["PROD"], note:"Record a shift's output."},
+      {code:"packing.pack",     nm:"Pack cleared stock", kind:"hard", owners:["PROD"], note:"Pack material the lab has cleared."},
+      {code:"packing.reconcile",nm:"Reconcile the remainder", kind:"hard", owners:["PROD"], note:"Account for what is left after packing."},
+      {code:"byproduct.call",   nm:"Call a by-product", kind:"hard", owners:["PROD"], note:"Bring a by-product pool back into production."},
+      {code:"packing.divert",   nm:"Divert material", kind:"hard", owners:["PROD"], note:"Production's own call."},
+      {code:"packing.rework",   nm:"Send a pool for rework", kind:"hard", owners:["PROD"], note:"Production-side rework of a pool."},
+      {code:"batch.close",      nm:"Close a batch", kind:"hard", owners:["PROD"], note:"Settle and close a batch."},
+      {code:"batch.close_bulk", nm:"Close settled batches in bulk", kind:"hard", owners:["PROD"], note:"Close several settled batches at once."},
+      {code:"production.void",  nm:"Remove a shift's output", kind:"hard", owners:["PM"], note:"Head-level — the Plant Manager's right."}
+    ]},
+    {band:"Quality", tag:"in code", rows:[
+      {code:"lab.qc",         nm:"Lab QC review & approve", kind:"hard", owners:["LAB","AQCM","QCM","QAI","PM"], note:"The quality gate — lab review and approval."},
+      {code:"qa.hold_correct",nm:"Clear a QA hold / correct a lot", kind:"pending", owners:["SC","QAI"], note:"Still a raw canEdit call — not yet in the panel."}
+    ]},
+    {band:"Finance", tag:"in code", rows:[
+      {code:"pr.approve", nm:"Approve a purchase requisition", kind:"hard", owners:["CFO"], note:"Raised when an RM check is partial / none."},
+      {code:"cost.view",  nm:"See cost / price", kind:"hard", owners:["COO","CFO"], note:"Cost visibility is COO + CFO only."}
+    ]},
+    {band:"Second signatures", tag:"sign-off · never delegated", rows:[
+      {code:"truck.release",  nm:"Release a loaded truck", kind:"signoff", owners:["PM"], note:"A second signature after the gate pass."},
+      {code:"dc.approve",     nm:"Approve / reject a delivery challan", kind:"signoff", owners:["PM"], note:"Sign-off on the challan."},
+      {code:"batch.reopen",   nm:"Reopen a closed batch", kind:"signoff", owners:["PM"], note:"Only the Plant Manager reopens."},
+      {code:"batch.deviation",nm:"Accept lab deviation / rework after UNFIT", kind:"signoff", owners:["PM"], note:"The lab-deviation decision stays with the PM."}
+    ]}
+  ];
+
+  var kv=function(kind){return getComputedStyle(document.documentElement).getPropertyValue(KINDS[kind].v);};
+
+  // header
+  var head=document.getElementById("head");
+  var corner=document.createElement("th"); corner.className="corner stick"; corner.textContent="Right"; head.appendChild(corner);
+  ROLES.forEach(function(r,i){
+    var th=document.createElement("th"); th.className="roleh"; th.dataset.c=i;
+    th.innerHTML=r.n.replace(" ","<br>")+'<span class="rk">'+r.k+'</span>';
+    if(r.k==="COO") th.classList.add("coohl");
+    head.appendChild(th);
+  });
+
+  // body
+  var body=document.getElementById("body");
+  var nRights=0;
+  GROUPS.forEach(function(g){
+    var tb=document.createElement("tr"); tb.className="band";
+    var td=document.createElement("td"); td.colSpan=ROLES.length+1;
+    td.innerHTML='<div class="bandinner">'+g.band+'<span class="tag">'+g.tag+'</span></div>';
+    tb.appendChild(td); body.appendChild(tb);
+
+    g.rows.forEach(function(row){
+      nRights++;
+      var tr=document.createElement("tr"); tr.dataset.kind=row.kind;
+      var act=document.createElement("td"); act.className="act"; act.style.setProperty("--kc","var("+KINDS[row.kind].v+")");
+      act.innerHTML='<span class="code">'+row.code+'</span><span class="nm">'+row.nm+'</span>';
+      tr.appendChild(act);
+
+      ROLES.forEach(function(r,i){
+        var td=document.createElement("td"); td.dataset.c=i;
+        var state=null;
+        if(row.owners.indexOf("*")>=0) state="owner";
+        else if(row.owners.indexOf(r.k)>=0) state="owner";
+        else if(row.esc && row.esc.indexOf(r.k)>=0) state="esc";
+        else if(r.k==="COO") state="admin";
+        if(r.k==="COO") td.classList.add("chi");
+        if(state){
+          var c=document.createElement("div");
+          c.className="cell "+state;
+          if(state==="admin"){ c.innerHTML="&#9670;"; c.title="COO — admin, holds every right"; }
+          else{
+            c.style.setProperty("--kc","var("+KINDS[row.kind].v+")");
+            c.innerHTML= state==="owner" ? "&#9679;" : "&#9675;";
+            c.title=r.n+" — "+(state==="owner"?"owns":"reachable via escalation")+" · "+row.nm+" ("+KINDS[row.kind].label+"). "+row.note;
+          }
+          td.appendChild(c);
+        }
+        tr.appendChild(td);
+      });
+      body.appendChild(tr);
+    });
+  });
+
+  // stats
+  var stats=document.getElementById("stats");
+  [[nRights,"rights mapped"],[ROLES.length,"O2S roles"],["3","depts in the panel"],["4","PM sign-offs"]].forEach(function(s){
+    var d=document.createElement("div"); d.className="stat";
+    d.innerHTML='<div class="v">'+s[0]+'</div><div class="l">'+s[1]+'</div>'; stats.appendChild(d);
+  });
+
+  // legend + filter
+  var legend=document.getElementById("legend");
+  var active=null;
+  Object.keys(KINDS).forEach(function(k){
+    var c=document.createElement("button"); c.className="chip"; c.type="button";
+    c.style.setProperty("--kc","var("+KINDS[k].v+")"); c.setAttribute("aria-pressed","false");
+    c.innerHTML='<span class="sw"></span>'+KINDS[k].label;
+    c.addEventListener("click",function(){
+      active = (active===k) ? null : k;
+      Object.keys(KINDS).forEach(function(){});
+      Array.prototype.forEach.call(legend.querySelectorAll(".chip"),function(ch){ch.setAttribute("aria-pressed","false");});
+      if(active){ c.setAttribute("aria-pressed","true"); document.body.classList.add("filtering"); }
+      else document.body.classList.remove("filtering");
+      Array.prototype.forEach.call(body.querySelectorAll("tr"),function(tr){
+        if(tr.classList.contains("band")){ tr.style.display=""; return; }
+        tr.classList.toggle("dim", active && tr.dataset.kind!==active);
+      });
+    });
+    legend.appendChild(c);
+  });
+
+  // column hover highlight
+  var tbl=document.getElementById("matrix");
+  tbl.addEventListener("mouseover",function(e){
+    var td=e.target.closest("[data-c]"); if(!td) return;
+    var c=td.dataset.c;
+    Array.prototype.forEach.call(tbl.querySelectorAll('[data-c="'+c+'"]'),function(el){
+      if(el.tagName==="TH"){} else el.style.background="var(--surface-2)";
+    });
+  });
+  tbl.addEventListener("mouseout",function(e){
+    var td=e.target.closest("td[data-c]"); if(!td) return;
+    Array.prototype.forEach.call(tbl.querySelectorAll('td[data-c]'),function(el){ el.style.background=""; });
+  });
+})();
+</script>
+
+</body>
+</html>

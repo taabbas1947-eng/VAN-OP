@@ -3812,6 +3812,6 @@ Manager), Majid → `production`, Maleeha → `agronomy` (Lead), Nadeem →
 `field_agronomy`, Erum → `associate_agronomy`. No rush — the roles sit available
 until then; nothing is broken.
 
-**NEXT — local `van_platform` still on `002` only;** apply 003 → 004 → 005 → 006
-there too when convenient (same files, same order). Nothing else outstanding on
-the schema.
+**Local `van_platform` migrated 003 → 004 → 005 → 006 on 2026-09-11** — now level
+with prod. Both databases are on the full 002→006 set. Nothing outstanding on the
+schema.

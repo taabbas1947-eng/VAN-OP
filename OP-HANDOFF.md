@@ -3748,3 +3748,70 @@ duplicate checker, the four bands, the moderation queue (Custodian + Registrar
 + COO, hard-coded for the pilot), and the close-time recipe check on a Run.
 Nothing is pushed — local changes only, for Tahir to review and commit via
 GitHub Desktop.
+
+---
+
+## 2026-09-11 — PD 002 migration to PRODUCTION (done) + local verify · O2S docs
+
+**Re-recording this session's ops history — it was lost when the working-tree
+OP-HANDOFF was reset during the merge, and is not in HEAD.**
+
+**`002_pd_core_rebuild` applied to PRODUCTION** (`jodilkah_vanop_db`), by hand in
+HostGator phpMyAdmin, 2026-09-09 — after `ca934d4` confirmed live on Render (the
+migration-retired server.js, so no boot-loop recreate risk). Pre-flight guard
+first ABORTED on 2 stray pilot rows (killed test hypothesis "DAP replacement" +
+its G1 kill decision) — data-safety mechanism confirmed, tested on local first.
+Cleared the 2 rows, re-imported: **96 queries**. Verified read-only: **15/15 new
+core tables present, 17/17 old dropped**, `pd_materials`/`library`/`dropbox`
+kept. **O2S intact** — app_state rev 6737, **54 orders, 86 batches**, 15 users.
+Every prod write done by Tahir in phpMyAdmin; Claude read-only only.
+
+**Local `van_platform` migrated to `002`** the same way, 2026-09-11, then
+boot-tested locally (port 3001): clean boot, `/` `/o2s` `/pd` all 200,
+`/api/me` = `o2s:COO`+`pd:coo`, PD routes (`/api/pd/library`, `/api/pd/dropbox`)
+200 on the new schema, `/api/state` 54 orders. **All green.**
+
+**O2S docs added this session** (docs only, no app code): `docs/ACCESS-ROLES.md`,
+`docs/ACCESS-ROLES-O2S.md`, `docs/o2s-access-matrix.html`,
+`docs/o2s-order-flow.html`.
+
+**Migrations 003, 004, 005 applied to PRODUCTION 2026-09-11** (by Tahir, phpMyAdmin
+Import, in order), after read-only review confirmed all three are non-destructive
+(no DROP/DELETE/TRUNCATE; only touch `pd_*` tables + read-only FKs to `auth_users`;
+O2S untouched). Reviewed each first:
+- `003_pd_history_and_notices` — creates `pd_field_history` (append-only + 2
+  triggers) and `pd_notices`; adds `pd_observations.door_chosen`.
+- `004_material_grade_load` — widens `pd_materials` (assay cols nullable,
+  +`physical_form`/`grade_source`); soft-deactivates the 10 old placeholder seed
+  rows (kept, `active=0`); `INSERT IGNORE` the ~58 real grades from Tahir's
+  returned worksheet.
+- `005_pd_claim_identity` — adds UNIQUE `(claim_number, version)` on `pd_claims`
+  (fixes the duplicate claim-number race).
+
+**Verified applied by fingerprint** (no schema_migrations ledger — checked
+information_schema): has_003_history/notices/door_chosen = 1/1/1, has_004
+column+data = 1/1, has_005 index = 2. `pd_materials` = **68 total / 58 active**
+(10 placeholders deactivated + 58 new grades). Prod schema now matches the
+`f11162f` "PD Live" code. Every prod write done by Tahir; Claude read-only only.
+
+**Migration 006 (`006_pd_roles`) also applied to PRODUCTION 2026-09-11** — appended
+`field_agronomy` + `associate_agronomy` to the `auth_users.pd_role` ENUM. This is
+the one migration that touches the shared `auth_users` table — PD-scoped
+(`pd_role` column only), O2S untouched, no rows changed. Pre-checked the ENUM held
+exactly the expected 11 values before applying; confirmed both new values present
+after. Applied as a schema-qualified `ALTER jodilkah_vanop_db.auth_users …` because
+phpMyAdmin's SQL context was stuck on `information_schema` (the file's unqualified
+`auth_users` / `DATABASE()` fails unless the app DB is the selected one).
+
+**ROLE ASSIGNMENT DEFERRED — Tahir onboards via the front end.** The PD pilot
+people are not in `auth_users` yet (no `nadeem` / `erum` / `maleeha` / `himmayat`
+accounts; `abdul.majid` may be Majid but has `pd_role = NULL`). `006` added the
+role *options* only — you can't assign a role to an account that doesn't exist.
+As each person is onboarded in Manage Access, assign: Himmayat → `rta` (R&D
+Manager), Majid → `production`, Maleeha → `agronomy` (Lead), Nadeem →
+`field_agronomy`, Erum → `associate_agronomy`. No rush — the roles sit available
+until then; nothing is broken.
+
+**NEXT — local `van_platform` still on `002` only;** apply 003 → 004 → 005 → 006
+there too when convenient (same files, same order). Nothing else outstanding on
+the schema.

@@ -12,9 +12,22 @@
 -- can still silently overwrite history on any of the nine objects." He chose
 -- the append-only snapshot table over locking records or deferring edits.
 --
--- RUN BY HAND, BY TAHIR, ONLY. Requires 001 and 002. Safe to re-run: the
--- CREATEs are IF NOT EXISTS, the ALTER fails only with MySQL 1060 (duplicate
--- column), the triggers are dropped before being created.
+-- RUN BY HAND, BY TAHIR, ONLY. Requires 001 and 002.
+--
+-- SAFE TO RE-RUN. The CREATEs are IF NOT EXISTS, the ADD COLUMN fails only
+-- with MySQL 1060 (duplicate column), the triggers are dropped before being
+-- created, and section (c) no longer contains an UPDATE at all.
+--
+-- AMENDED 11 September 2026 — section (c) only. The file previously claimed
+-- to be safe to re-run while ending on an unguarded UPDATE that set
+-- door_chosen = 0 on every row created before NOW(). On a second run that
+-- statement resets EVERY observation to 0, including the ones where a person
+-- really did choose a door — erasing the exact distinction the column was
+-- added to hold, with nothing anywhere to restore it from (a migration writes
+-- no pd_field_history rows). The backfill is now done by the column default
+-- instead, so it cannot happen twice. Behaviour on a fresh database is
+-- identical to the original; on a database where the original already ran,
+-- this file changes nothing.
 --
 -- ---------------------------------------------------------------------------
 -- WHY A TABLE AND NOT A COLUMN. Every one of the nine objects is editable
@@ -146,16 +159,31 @@ CREATE TABLE IF NOT EXISTS pd_notices (
 -- to say, so it was filed here" — otherwise the type-pair signal in
 -- RECLASSIFICATION-RULES.md §9 reads a default as a choice, and the intake
 -- form's own wording can never be judged from the data.
-ALTER TABLE pd_observations
-  ADD COLUMN door_chosen TINYINT(1) NOT NULL DEFAULT 1 AFTER origin;
+-- HOW THE BACKFILL IS DONE, AND WHY IT IS NOT AN UPDATE.
+-- Every Observation that existed BEFORE this migration came from drop-box
+-- triage (pd-routes.js, the convert route), where the person who wrote the
+-- entry never saw a type at all. Those rows must read 0: leaving them at 1
+-- would record a choice nobody made.
+--
+-- From here on an Observation row is normally one somebody chose, so the
+-- standing default is 1.
+--
+-- Both are true at once, so the column is added with DEFAULT 0 — which is
+-- what every existing row is given, by MySQL, in the ADD COLUMN itself — and
+-- the default is then moved to 1 for everything written afterwards. There is
+-- no UPDATE, so nothing here can be applied a second time to rows it has
+-- already touched. Re-running this file gives error 1060 on the first
+-- statement (harmless, phpMyAdmin reports it) and a no-op on the second.
+--
+-- The default is belt-and-braces in any case: all three INSERT sites in
+-- pd-routes.js (lines 697, 969, 1867) name door_chosen explicitly, so no PD
+-- route relies on it.
 
--- The DEFAULT is 1 because from here on an Observation row is normally one
--- somebody chose. Every Observation that existed BEFORE this migration came
--- from drop-box triage (pd-routes.js, the convert route), where the person who
--- wrote the entry never saw a type at all — so leaving them at the default
--- would record a choice nobody made, which is exactly the distinction the
--- column was added to preserve. Backfilled to 0, once.
-UPDATE pd_observations SET door_chosen = 0 WHERE created_at < NOW();
+ALTER TABLE pd_observations
+  ADD COLUMN door_chosen TINYINT(1) NOT NULL DEFAULT 0 AFTER origin;
+
+ALTER TABLE pd_observations
+  ALTER COLUMN door_chosen SET DEFAULT 1;
 
 -- ============================================================================
 -- End of 003_pd_history_and_notices.sql

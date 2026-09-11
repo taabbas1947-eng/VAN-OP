@@ -1061,6 +1061,60 @@ app.get('/api/pd/problems', auth, pdAuth, pdSurface('intake'), async (req, res) 
   } catch (e) { fail(res, e); }
 });
 
+/* ==========================================================================
+ * A1 — every open Question, so a discipline can find its own work
+ * (Tahir's ruling, 11 Sept 2026)
+ *
+ * WHY. "What I owe" is per-owner and RECLASSIFICATION-RULES.md §8.1 requires
+ * it to stay that way. The side-effect nobody had looked at: a person could
+ * not find work in their own discipline that somebody else happened to own.
+ * A chemistry Question opened by an agronomist stayed with the agronomist
+ * until a lead moved it, and the R&D Manager had no screen on which it
+ * appeared. `nature` was required on every Question and then did nothing — it
+ * was a label, not a way through.
+ *
+ * WHAT THIS IS NOT. It is not routing and it is not a default owner: a
+ * nature→role prefill was considered the same day and rejected, because an
+ * owner that is wrong but already filled in gets accepted by someone in a
+ * hurry, and work that LOOKS assigned is worse than work that is visibly not.
+ * The lead still assigns. This only makes the work findable.
+ *
+ * WHY IT READS NO PARAMETERS AT ALL. §8.1 again. The filtering is done on the
+ * screen, over rows already sent, so there is no query string here to point at
+ * a person — no author, no owner, nothing. A route that reads nothing cannot
+ * be talked into grouping by anybody. `owner_name` is returned because a
+ * reader needs to know who to ask, exactly as the dossier already shows it.
+ *
+ * It is not a fifth screen either: the list renders as a card on Problems.
+ * ========================================================================== */
+app.get('/api/pd/questions', auth, pdAuth, pdSurface('intake'), async (req, res) => {
+  try {
+    const [rows] = await pdq(
+      `SELECT q.id, q.q_number, q.title, q.nature, q.state, q.due_date,
+              p.id problem_id, p.p_number, p.title problem_title,
+              u.name owner_name,
+              (SELECT COUNT(*) FROM pd_bets b WHERE b.question_id=q.id AND b.status='active') open_bets
+         FROM pd_questions q
+         JOIN pd_problems p ON p.id = q.problem_id
+         LEFT JOIN auth_users u ON u.id = q.owner_id
+        WHERE q.state <> 'settled'
+        ORDER BY (q.due_date IS NULL), q.due_date, q.q_number`);
+    const today = new Date().toISOString().slice(0, 10);
+    res.json({
+      natures: pd.QUESTION_NATURES,
+      questions: rows.map(q => ({
+        id: q.id, label: pd.fmt_q(q.q_number), title: q.title,
+        nature: q.nature, nature_label: pd.QUESTION_NATURES[q.nature] || q.nature,
+        state_label: pd.QUESTION_STATES[q.state],
+        due_date: q.due_date, late: !!q.due_date && q.due_date < today,
+        open_bets: q.open_bets, owner_name: q.owner_name || null,
+        problem_id: q.problem_id, problem_label: pd.fmt_p(q.p_number),
+        problem_title: q.problem_title,
+      })),
+    });
+  } catch (e) { fail(res, e, 'the open questions'); }
+});
+
 app.post('/api/pd/problems', auth, pdAuth, pdSurface('intake'), async (req, res) => {
   try {
     const b = req.body || {}, me = req.pdUser;
@@ -1308,8 +1362,16 @@ app.get('/api/pd/problem/:id', auth, pdAuth, pdSurface('intake'), async (req, re
           // it, ON the trial, not one click away." Carried down onto every Run
           // below for the same reason.
           question_title: q.title, question_label: pd.fmt_q(q.q_number),
-          constraints: constraints.filter(c => c.delivery_context_id === b.delivery_context_id)
-            .map(c => ({ ...c, kind_label: pd.CONSTRAINT_KINDS[c.kind] })),
+          /* B2 (11 Sept 2026). A Bet inherits its own delivery context's
+             constraints AND every plant-wide one, because what the plant can
+             make binds a product however it is delivered. `plant_wide` is
+             carried so the screen can say which is which — "inherited from
+             fertigation" and "true of the plant whatever the context" are not
+             the same sentence and must not read as one. */
+          constraints: constraints.filter(c => c.delivery_context_id === b.delivery_context_id
+              || c.delivery_context_id === pd.PLANT_WIDE_CONTEXT_ID)
+            .map(c => ({ ...c, kind_label: pd.CONSTRAINT_KINDS[c.kind],
+              plant_wide: c.delivery_context_id === pd.PLANT_WIDE_CONTEXT_ID })),
           runs: runs.filter(r => r.bet_id === b.id).map(r => ({
             ...r, label: pd.fmt_run(r.run_number), status_label: pd.RUN_STATUSES[r.status],
             question_title: q.title, kill_criterion: b.kill_criterion,
@@ -1338,6 +1400,7 @@ app.get('/api/pd/problem/:id', auth, pdAuth, pdSurface('intake'), async (req, re
       vocab: {
         natures: pd.QUESTION_NATURES, grades: pd.CLAIM_GRADES, verdicts: pd.READING_VERDICTS,
         betStatuses: pd.BET_STATUSES, contexts, constraintKinds: pd.CONSTRAINT_KINDS,
+        plantWideId: pd.PLANT_WIDE_CONTEXT_ID,
       },
       people: people.map(x => ({ id: x.id, name: x.name, role_label: pd.PD_ROLES[x.pd_role] || x.pd_role })),
       caps: { lead: pd.is_lead(me.pd_role), me: me.id },
@@ -1423,6 +1486,11 @@ app.get('/api/pd/search', auth, pdAuth, pdSurface('intake'), async (req, res) =>
         }
         hits.push({
           kind, id: r.id, label: r.label, title: r.title || null,
+          /* A1 (11 Sept 2026). Questions, Bets and Runs carry the discipline of
+             the Question they sit under, so results can be narrowed to one.
+             Problems, Claims, entries and constraints have no discipline and
+             carry null — the screen says so rather than pretending. */
+          nature: r.nature || null, nature_label: r.nature_label || null,
           field, snippet: snippet(where, q),
           problem_id: r.problem_id || null, problem_label: r.problem_label || null,
           problem_title: r.problem_title || null,
@@ -1443,34 +1511,37 @@ app.get('/api/pd/search', auth, pdAuth, pdSurface('intake'), async (req, res) =>
       'problem', ['title', 'statement', 'context', 'closed_reason'], r => '#problem/' + r.id);
 
     const [questions] = await pdq(
-      `SELECT q.id, q.q_number, q.title, q.text, q.settled_reason, q.state, q.created_at,
+      `SELECT q.id, q.q_number, q.title, q.text, q.settled_reason, q.state, q.nature, q.created_at,
               p.id problem_id, p.p_number, p.title problem_title
          FROM pd_questions q JOIN pd_problems p ON p.id = q.problem_id
         WHERE q.title LIKE ? ESCAPE '\\\\' OR q.text LIKE ? ESCAPE '\\\\' OR q.settled_reason LIKE ? ESCAPE '\\\\'
         ORDER BY q.q_number DESC LIMIT 40`, [L, L, L]);
     add(questions.map(r => ({ ...r, label: pd.fmt_q(r.q_number), problem_label: pd.fmt_p(r.p_number),
+      nature_label: pd.QUESTION_NATURES[r.nature],
       status_label: pd.QUESTION_STATES[r.state] })),
       'question', ['title', 'text', 'settled_reason'], r => '#problem/' + r.problem_id);
 
     const [bets] = await pdq(
-      `SELECT b.id, b.bet_number, b.approach, b.kill_criterion, b.status, b.created_at,
+      `SELECT b.id, b.bet_number, b.approach, b.kill_criterion, b.status, b.created_at, q.nature,
               p.id problem_id, p.p_number, p.title problem_title
          FROM pd_bets b JOIN pd_questions q ON q.id = b.question_id
          JOIN pd_problems p ON p.id = q.problem_id
         WHERE b.approach LIKE ? ESCAPE '\\\\' OR b.kill_criterion LIKE ? ESCAPE '\\\\'
         ORDER BY b.bet_number DESC LIMIT 40`, [L, L]);
     add(bets.map(r => ({ ...r, label: pd.fmt_b(r.bet_number), problem_label: pd.fmt_p(r.p_number),
+      nature_label: pd.QUESTION_NATURES[r.nature],
       status_label: pd.BET_STATUSES[r.status] })),
       'bet', ['approach', 'kill_criterion'], r => '#problem/' + r.problem_id);
 
     const [runs] = await pdq(
-      `SELECT r.id, r.run_number, r.expected, r.actual, r.replaces_reason, r.status, r.created_at,
+      `SELECT r.id, r.run_number, r.expected, r.actual, r.replaces_reason, r.status, r.created_at, q.nature,
               p.id problem_id, p.p_number, p.title problem_title
          FROM pd_runs r JOIN pd_bets b ON b.id = r.bet_id
          JOIN pd_questions q ON q.id = b.question_id JOIN pd_problems p ON p.id = q.problem_id
         WHERE r.expected LIKE ? ESCAPE '\\\\' OR r.actual LIKE ? ESCAPE '\\\\' OR r.replaces_reason LIKE ? ESCAPE '\\\\'
         ORDER BY r.run_number DESC LIMIT 40`, [L, L, L]);
     add(runs.map(r => ({ ...r, label: pd.fmt_run(r.run_number), problem_label: pd.fmt_p(r.p_number),
+      nature_label: pd.QUESTION_NATURES[r.nature],
       status_label: pd.RUN_STATUSES[r.status] })),
       'run', ['expected', 'actual', 'replaces_reason'], r => '#problem/' + r.problem_id);
 
@@ -1597,7 +1668,7 @@ app.post('/api/pd/constraints', auth, pdAuth, pdSurface('intake'), async (req, r
     }
     const ctxId = Number(b.delivery_context_id) || 0;
     const [[ctx]] = [(await pdq('SELECT id, name FROM pd_delivery_contexts WHERE id=?', [ctxId]))[0]];
-    if (!ctx) return res.status(400).json({ error: 'Say which delivery context this binds: soil broadcast, side-dress band, fertigation, foliar, ULV drone or seed treatment.' });
+    if (!ctx) return res.status(400).json({ error: 'Say what this binds: soil broadcast, side-dress band, fertigation, foliar, ULV drone, seed treatment — or plant-wide, for a rule about what we can actually make, which every Bet inherits whatever the context.' });
     const kind = pd.has(pd.CONSTRAINT_KINDS, b.kind) ? b.kind : '';
     if (!kind) return res.status(400).json({ error: 'Say what kind of rule it is: blending, storage / CRH, logistics / freight, regulatory, or what the plant can do.' });
     const rule = clean(b.rule_text, 5000);
@@ -1704,6 +1775,14 @@ app.post('/api/pd/bets', auth, pdAuth, pdSurface('intake'), async (req, res) => 
     // why, in words a person reads.
     if (kill.length < 10) return res.status(400).json({ error: 'Write the kill criterion — the one result that would end this Bet — before any bench work. A Bet without one cannot be lost, so nothing can be learned from it.' });
     let ctx = Number(b.delivery_context_id) || null;
+    /* B2 (11 Sept 2026). Plant-wide is a place to write what the plant can
+       make, not a way of delivering anything. A Bet aimed through it would
+       inherit the plant rules twice and no delivery rules at all, so it is
+       refused here rather than quietly accepted — the screen also leaves it out
+       of the "Aimed through" list, and this is the guard behind that. */
+    if (ctx === pd.PLANT_WIDE_CONTEXT_ID) {
+      return res.status(400).json({ error: 'Plant-wide is not a way of delivering anything, so a Bet cannot be aimed through it. Pick the delivery context — every Bet inherits the plant-wide rules anyway.' });
+    }
     if (ctx) {
       const [[c]] = [(await pdq('SELECT id FROM pd_delivery_contexts WHERE id=?', [ctx]))[0]];
       if (!c) ctx = null;

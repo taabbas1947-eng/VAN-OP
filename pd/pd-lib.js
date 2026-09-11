@@ -335,6 +335,32 @@ const CONSTRAINT_KINDS = {
   regulatory: 'Regulatory', plant_capability: 'What the plant can do',
 };
 
+/* ---- The plant-wide context (Tahir's ruling, 11 Sept 2026 — "B2") ----
+   MODEL.md §3 lists `plant_capability` above — "what the plant can do" — as a
+   kind of Constraint. But every Constraint must name a delivery context, so a
+   rule about the PLANT ITSELF ("we cannot crystallise at scale", "the
+   granulator will not take material finer than X mesh") had nowhere to live:
+   filed under fertigation it is wrong there and invisible to the other five
+   contexts; filed six times it is exactly the duplication this register exists
+   to prevent. MODEL.md's own sentence gives it away — the register is "the
+   no-duplication mechanism on the DELIVERY side". There was no plant side.
+
+   The case that exposed it was the bio-boiler fly-ash potash recovery: the
+   bench recovers it, the plant cannot reproduce it, and that fact could not be
+   written down anywhere in PD.
+
+   Ruled: ONE more row in the same register, pinned to this id by
+   007_plant_wide_context.sql, inherited by EVERY Bet whatever context it is
+   aimed through. A second plant-side register was considered and dropped, so
+   this row is a permanent member of the vocabulary and not a stopgap — it is
+   the only place a plant-capability rule belongs.
+
+   Two things follow, both enforced in pd-routes.js:
+     · a Bet may NOT be "aimed through" it — it is not a way of delivering
+       anything, and a Bet aimed there would inherit it twice and nothing else;
+     · every Bet inherits it in addition to its own context's constraints. */
+const PLANT_WIDE_CONTEXT_ID = 90;
+
 /* An enum gate that cannot be walked through Object.prototype. `GRADES[x]`
    is truthy for 'constructor' and 'toString'; hasOwnProperty is not. The
    door and spine table maps already guard this way — the vocabulary lookups
@@ -360,6 +386,7 @@ module.exports = {
   record_changes, record_not_applied, snapshot_on_move, notify_refiled,
   LEAD_ROLES, is_lead, close_refusal, has,
   QUESTION_STATES, BET_STATUSES, RUN_STATUSES, CLAIM_GRADES, READING_VERDICTS, CONSTRAINT_KINDS,
+  PLANT_WIDE_CONTEXT_ID,
   allowed_surfaces, can_pd, can_role,
   next_number, insert_numbered,
   LIB_KINDS, EVIDENCE, EVIDENCE_SHORT, LIB_TYPES, LIB_MAX_BYTES, fmt_l, human_size, lib_clean_url,

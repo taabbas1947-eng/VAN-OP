@@ -9,6 +9,8 @@
 -- from the repo which of them reached the database. This file asks the
 -- database itself and answers in sentences.
 --
+-- AMENDED 11 September 2026 — 007 added to PART 1.
+--
 -- HOW TO USE IT. phpMyAdmin → the PD database → SQL tab → paste PART 1 →
 -- Go. Read the `verdict` column. Then run PART 2 only where PART 1 says a
 -- column or table exists; PART 2 reads columns that do not exist until their
@@ -88,7 +90,14 @@ SELECT '006', 'pd_role ENUM carries the two new roles',
        LEFT(MAX(COLUMN_TYPE), 200)
   FROM information_schema.COLUMNS
  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'auth_users'
-   AND COLUMN_NAME = 'pd_role';
+   AND COLUMN_NAME = 'pd_role'
+
+UNION ALL
+SELECT '007', 'the plant-wide context exists (id 90)',
+       IF(COUNT(*) > 0, 'APPLIED', 'NOT APPLIED'),
+       CONCAT(COUNT(*), ' row — without it a plant-capability rule has nowhere to live')
+  FROM pd_delivery_contexts
+ WHERE id = 90 AND name = 'plant-wide — what we can actually make';
 
 
 -- ===========================================================================

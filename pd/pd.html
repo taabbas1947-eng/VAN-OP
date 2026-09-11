@@ -336,6 +336,12 @@ function afterRender() {
       location.hash = v ? '#search/' + encodeURIComponent(v) : '#problems';
     };
   }
+  /* A1 — the discipline filter on search results. It lives here rather than in
+     a bind function because the search view has none: afterRender runs on every
+     paint, which is exactly when this control appears and disappears. */
+  var sn = $('snature');
+  if (sn) sn.onchange = function () { searchNature = this.value; paint(); };
+
   var so = $('signout');
   if (so) so.onclick = function () {
     // Order matters: clear `me` BEFORE touching the hash, or the router's own
@@ -732,6 +738,9 @@ function renderReport() {
      is no close without them.
 --------------------------------------------------------------------------- */
 var probKind = 'field_problem';
+var openQs = null;       // A1 — every open Question, whoever owns it
+var natureFilter = '';   // A1 — which discipline the Problems screen is showing
+var searchNature = '';   // A1 — which discipline the search results are narrowed to
 var dossier = null;      // the open Problem, or null on the list
 var openForm = '';       // which inline form is showing, e.g. 'bet:12'
 var claimSubject = '';   // what the claim form is currently aimed at
@@ -763,7 +772,42 @@ function renderProblems() {
       '<div class="field"><label>Anything else worth knowing <span class="opt">— optional</span></label><textarea id="pcontext" style="min-height:60px"></textarea></div>' +
       '<button class="btn" id="psave">Register it</button></div>' +
     '<div class="card"><h2>All Problems</h2><p class="hint">Every Problem work can be aimed at. Open one to see its Questions, Bets, Runs and Claims.</p>' +
-      (list || '<div class="empty">No Problems registered yet. A Problem is a pain in the field, or a product we have decided to build. Every Question, Bet and Run sits under one.</div>') + '</div></div>';
+      (list || '<div class="empty">No Problems registered yet. A Problem is a pain in the field, or a product we have decided to build. Every Question, Bet and Run sits under one.</div>') + '</div></div>' +
+    openQuestionsCard();
+}
+
+/* ---- A1 (11 Sept 2026) — open Questions across every Problem ----
+   "What I owe" is per-owner and has to stay that way, so before this card a
+   chemist could not find a chemistry Question that an agronomist happened to
+   own. The discipline filter is applied here, over rows already fetched: the
+   route takes no parameters, so there is no way to point this at a person. */
+function openQuestionsCard() {
+  if (!openQs) return '<div class="card" style="margin-top:14px"><h2>Open Questions</h2><div class="spin">Loading…</div></div>';
+  var natures = openQs.natures || {};
+  var opts = '<option value="">every discipline</option>' + Object.keys(natures).map(function (k) {
+    return '<option value="' + k + '"' + (natureFilter === k ? ' selected' : '') + '>' + esc(natures[k]) + '</option>';
+  }).join('');
+  var all = openQs.questions || [];
+  var shown = natureFilter ? all.filter(function (q) { return q.nature === natureFilter; }) : all;
+  var rows = shown.map(function (q) {
+    return '<a class="hit" href="#problem/' + q.problem_id + '">' +
+      '<div class="top"><span class="pill num">' + esc(q.label) + '</span>' +
+        '<span class="pill">' + esc(q.nature_label) + '</span>' +
+        (q.state_label ? '<span class="pill">' + esc(q.state_label) + '</span>' : '') +
+        (q.late ? '<span class="pill unsorted">late</span>' : '') +
+        '<span class="pill">' + esc(q.problem_label) + ' · ' + esc(String(q.problem_title || '').slice(0, 40)) + '</span>' +
+      '</div>' +
+      '<div class="txt"><b>' + esc(q.title) + '</b></div>' +
+      '<div class="meta">' + (q.owner_name ? 'owner · ' + esc(q.owner_name) : 'nobody owns it yet') +
+        (q.due_date ? ' · due ' + esc(String(q.due_date).slice(0, 10)) : '') +
+        ' · ' + q.open_bets + ' open bet' + (q.open_bets === 1 ? '' : 's') + '</div></a>';
+  }).join('');
+  return '<div class="card" style="margin-top:14px">' +
+    '<h2>Open Questions <span class="pill" style="margin-left:6px">' + shown.length + '</span></h2>' +
+    '<p class="hint">Every Question still open, under every Problem, whoever owns it. What I owe shows only your own — this is where you find work in your discipline that somebody else is holding. A Question carries one discipline and one owner; if it needs answering in two, it is two Questions.</p>' +
+    '<div class="field" style="max-width:300px"><label>Discipline</label><select id="qnature">' + opts + '</select></div>' +
+    (rows || '<div class="empty">Nothing open in that discipline. Either the work is all settled, or nobody has written the question down yet.</div>') +
+    '</div>';
 }
 
 /* ---- one Problem, and everything aimed at it ---- */
@@ -844,10 +888,10 @@ function constraintsCard() {
       }).join('') + '</div>';
   }).join('');
   if (!body) {
-    body = '<div class="empty">No constraints are recorded yet. A Constraint is a rule that kills options — what will not blend, what will cake in storage, what the plant cannot make, what the regulator will not allow. Every Bet aimed through that delivery context inherits it automatically.</div>';
+    body = '<div class="empty">No constraints are recorded yet. A Constraint is a rule that kills options — what will not blend, what will cake in storage, what the plant cannot make, what the regulator will not allow. A rule about a delivery context is inherited by every Bet aimed through it; a rule about the plant is inherited by every Bet there is.</div>';
   }
   return '<div class="card" style="margin-top:14px"><h2>Constraints <span class="pill" style="margin-left:6px">' + reg.length + '</span></h2>' +
-    '<p class="hint">Rules that remove options before anyone spends a bench day on them. They belong to a delivery context, not to this Problem — every Bet aimed through that context inherits them, here and everywhere else.</p>' +
+    '<p class="hint">Rules that remove options before anyone spends a bench day on them. They belong to a delivery context or to the plant, never to this Problem — every Bet aimed through that context inherits them, here and everywhere else, and every Bet inherits the plant-wide ones whatever it is aimed through.</p>' +
     body +
     (lead
       ? (formOpen('constraint') ? constraintForm() : '<button class="btn ghost sm" data-open="constraint">+ Write a constraint</button>')
@@ -864,9 +908,9 @@ function constraintForm() {
     return '<option value="' + k + '">' + esc(kinds[k]) + '</option>';
   }).join('');
   return box('<h2>Write a constraint</h2>' +
-    '<p class="hint">A rule that kills options. Every Bet aimed through this delivery context will show it, from now on, without anyone having to remember.</p>' +
+    '<p class="hint">A rule that kills options. Every Bet aimed through that delivery context will show it, from now on, without anyone having to remember. Pick plant-wide instead for a rule about what we can actually make — every Bet inherits those, whatever the context.</p>' +
     '<div class="two">' +
-      '<div class="field"><label>Which delivery context does it bind?</label>' +
+      '<div class="field"><label>What does it bind?</label>' +
         '<select id="c_ctx"><option value="">— pick one —</option>' + contexts + '</select></div>' +
       '<div class="field"><label>What kind of rule is it?</label>' +
         '<select id="c_kind"><option value="">— pick one —</option>' + kindOpts + '</select></div>' +
@@ -932,8 +976,12 @@ function questionCard(q, lead, owners) {
 
 function betCard(b, q, lead) {
   var runs = (b.runs || []).map(function (r) { return runCard(r, b); }).join('');
+  /* B2 — a Bet now inherits its own context's constraints AND every plant-wide
+     one. "Inherited from fertigation" and "true of the plant whatever the
+     context" are different sentences, so each row says which it is. */
   var constraints = (b.constraints || []).map(function (c) {
-    return '<div class="hist" style="margin:4px 0"><span class="f">' + esc(c.kind_label || c.kind) + '</span> ' + esc(c.rule_text) + '</div>';
+    return '<div class="hist" style="margin:4px 0"><span class="f">' + esc(c.kind_label || c.kind) + '</span> ' + esc(c.rule_text) +
+      '<div class="who">' + (c.plant_wide ? 'plant-wide — true whatever the context' : 'from ' + esc(b.context_name || 'this context')) + '</div></div>';
   }).join('');
   return '<div class="item">' +
     '<div class="top"><span class="pill num">Bet ' + esc(b.label) + '</span>' +
@@ -943,7 +991,7 @@ function betCard(b, q, lead) {
     '</div>' +
     '<div class="txt">' + esc(b.approach) + '</div>' +
     '<div class="kills"><b>Kill criterion — the one result that ends this Bet:</b> ' + esc(b.kill_criterion) + '</div>' +
-    (constraints ? '<div style="margin-top:8px"><div class="meta">Inherited from ' + esc(b.context_name) + ':</div>' + constraints + '</div>' : '') +
+    (constraints ? '<div style="margin-top:8px"><div class="meta">Inherited, and applies without anyone remembering it:</div>' + constraints + '</div>' : '') +
     (b.closing_text ? '<div class="result"><b>' + esc(b.status === 'killed' ? 'Killed' : 'Advanced') + ':</b> ' + esc(b.closing_text) + ' <span class="pill">' + esc(b.closing_grade) + '</span></div>' : '') +
     (runs ? '<div style="margin:10px 0 0 8px;padding-left:10px;border-left:1px solid var(--line)">' + runs + '</div>' : '') +
     '<div class="row" style="margin-top:9px">' +
@@ -1029,7 +1077,13 @@ function settleForm(q) {
     '<button class="btn ghost" data-open="settle:' + q.id + '">Cancel</button></div>');
 }
 function betForm(q) {
-  var ctx = '<option value="">— no context picked yet —</option>' + (dossier.vocab.contexts || []).map(function (c) {
+  /* B2 — plant-wide is left out on purpose. It is where a rule about what the
+     plant can make is written, not a way of delivering anything, and every Bet
+     inherits it regardless of what is picked here. The server refuses it too. */
+  var pw = dossier.vocab.plantWideId;
+  var ctx = '<option value="">— no context picked yet —</option>' + (dossier.vocab.contexts || []).filter(function (c) {
+    return c.id !== pw;
+  }).map(function (c) {
     return '<option value="' + c.id + '">' + esc(c.name) + '</option>';
   }).join('');
   return box('<h2>Take a bet on ' + esc(q.label) + '</h2>' +
@@ -1128,6 +1182,7 @@ function claimForm(d) {
 /* ---- wiring ---- */
 function bindProblems() {
   if (dossier) return bindDossier();
+  if ($('qnature')) $('qnature').onchange = function () { natureFilter = this.value; paint(); };
   Array.prototype.forEach.call(document.querySelectorAll('[data-kind]'), function (b) {
     b.onclick = function () { probKind = b.getAttribute('data-kind'); paint(); };
   });
@@ -1353,9 +1408,30 @@ function renderSearch() {
     return '<span class="pill">' + g.n + ' ' + esc(g.word) + (g.n === 1 ? '' : 's') + '</span>';
   }).join('');
 
-  var rows = (f.results || []).map(function (r) {
+  /* A1 — narrow the results to one discipline. Only Questions, Bets and Runs
+     carry one (a Bet and a Run inherit it from the Question they sit under);
+     Problems, Claims, entries and constraints do not, so choosing a discipline
+     hides them. The hint below says so rather than leaving it to be guessed.
+     The control only appears when the results actually span more than one. */
+  var natureSet = {};
+  (f.results || []).forEach(function (r) { if (r.nature && r.nature_label) natureSet[r.nature] = r.nature_label; });
+  var natureKeys = Object.keys(natureSet);
+  var natureBox = natureKeys.length > 1
+    ? '<div class="field" style="max-width:300px;margin-bottom:12px"><label>Narrow to one discipline</label>' +
+        '<select id="snature"><option value="">every kind of result</option>' +
+        natureKeys.map(function (k) {
+          return '<option value="' + k + '"' + (searchNature === k ? ' selected' : '') + '>' + esc(natureSet[k]) + '</option>';
+        }).join('') + '</select>' +
+        (searchNature ? '<p class="hint">Questions, Bets and Runs only — Problems, Claims and entries carry no discipline.</p>' : '') +
+      '</div>'
+    : '';
+
+  var rows = (f.results || []).filter(function (r) {
+    return !searchNature || r.nature === searchNature;
+  }).map(function (r) {
     return '<a class="hit" href="' + esc(r.link) + '">' +
       '<div class="top"><span class="pill num">' + esc(r.kind_word) + ' ' + esc(r.label) + '</span>' +
+        (r.nature_label ? '<span class="pill">' + esc(r.nature_label) + '</span>' : '') +
         (r.status ? '<span class="pill">' + esc(r.status) + '</span>' : '') +
         (r.problem_label ? '<span class="pill">' + esc(r.problem_label) + ' · ' + esc(String(r.problem_title || '').slice(0, 40)) + '</span>' : '') +
       '</div>' +
@@ -1367,8 +1443,9 @@ function renderSearch() {
   return '<div class="page-h"><h1>' + f.total + ' thing' + (f.total === 1 ? '' : 's') + ' for “' + esc(f.q) + '”</h1>' +
       '<div class="sub">Answers first, then the work that produced them.</div></div>' +
     '<div class="row" style="margin-bottom:12px">' + shape + '</div>' +
+    natureBox +
     (f.capped ? '<p class="hint">Showing the closest 60. Narrow it if what you want is not here.</p>' : '') +
-    '<div class="card">' + rows + '</div>';
+    '<div class="card">' + (rows || '<div class="empty">Nothing in that discipline matched. Clear the discipline to see the rest.</div>') + '</div>';
 }
 
 function paint() {
@@ -1395,6 +1472,11 @@ async function load() {
   // fetched on every route. The other two are fetched when they are opened.
   D2 = await api('/api/pd/mywork');
   if (view === 'intake' || view === 'item' || view === 'problems') D = await api('/api/pd/intake');
+  /* A1 — the open-Question list, only on the screen that shows it. */
+  if (view === 'problems' && !dossier) {
+    try { openQs = await api('/api/pd/questions'); }
+    catch (e) { openQs = { natures: {}, questions: [] }; }
+  }
   else if (!D) { try { D = await api('/api/pd/intake'); } catch (e) { D = { problems: [], mine: [], feed: [] }; } }
   if (view === 'report') D3 = await api('/api/pd/report');
   paint();
@@ -1407,6 +1489,10 @@ async function route() {
     if (view === 'search') {
       item = null; dossier = null;
       var term = decodeURIComponent(parts[1] || '');
+      /* A1 — every search starts unnarrowed. The discipline control is only
+         drawn when the results span more than one, so a filter carried over
+         from the last search could hide everything with no way to clear it. */
+      searchNature = '';
       found = term ? await api('/api/pd/search?q=' + encodeURIComponent(term)) : null;
       await load();
     }

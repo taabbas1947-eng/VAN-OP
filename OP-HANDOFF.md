@@ -3748,3 +3748,201 @@ duplicate checker, the four bands, the moderation queue (Custodian + Registrar
 + COO, hard-coded for the pilot), and the close-time recipe check on a Run.
 Nothing is pushed — local changes only, for Tahir to review and commit via
 GitHub Desktop.
+
+---
+
+## 11 September 2026 — MODULE: PD — migration state, the 003 backfill bug, and Tahir's rulings A1 + B2
+
+**Session constraint, and it shaped everything below: `device_bash` would not
+mount** (`no Plan9 drive shares mounted under /mnt/.virtiofs-root/shared`),
+tried twice, an hour apart. Files could be read and written through the device
+bridge; **no shell on Tahir's machine, so no `git status` and no test run.**
+A future session that has one should start by re-running the suites.
+
+### Where things actually stood
+
+Read from the git refs rather than guessed: local `main` and `origin/main` were
+both at `852798d` ("PD", 11 Sept 10:59 PKT), so the 10 September work was
+committed and pushed. Whether the working tree was clean could not be checked
+without a shell.
+
+**The migration question could not be answered from the repo at all** — 003–006
+are run by hand and there is no migrations table, so a week later nobody can say
+which reached the database. Written this session:
+
+  - **`pd/migrations/STATE-CHECK.sql`** — read-only, safe with people signed in.
+    PART 1 reads `information_schema` only, so nothing in it can error because a
+    table or column is missing: that absence IS the answer. One grid, one verdict
+    per migration — 003's table, its two append-only triggers, `pd_notices`,
+    `door_chosen`, 004's columns, 005's unique key, 006's ENUM, and 007's row.
+    PART 2 counts the 58 grades, checks the ten pre-rebuild seeds are
+    deactivated, runs 005's duplicate pre-flight, and lists who holds a
+    `pd_role`.
+
+### A real bug in 003, found by reading it
+
+`003_pd_history_and_notices.sql` claimed in its own header to be safe to re-run
+while ending on an unguarded
+
+    UPDATE pd_observations SET door_chosen = 0 WHERE created_at < NOW();
+
+On a second run that resets **every** Observation to 0, including the ones where
+a person really did choose a door — erasing the exact distinction the column
+exists to hold, with nothing to restore it from, since a migration writes no
+`pd_field_history` rows.
+
+**Fixed by removing the UPDATE**, not by guarding it. The column is now added
+with `DEFAULT 0` — which is what MySQL gives every existing row in the ADD COLUMN
+itself, so the backfill is the default — and a second `ALTER` then moves the
+standing default to 1 for everything written afterwards. Identical end state on a
+fresh database; on a database where the old file already ran, the new one changes
+nothing. Checked first that no route depends on the column default: all three
+`INSERT INTO pd_observations` sites in `pd-routes.js` name `door_chosen`
+explicitly. **The SQL was reviewed line by line, not executed** — no MySQL in the
+container and the proxy blocks `apt` and `npm`.
+
+### Housekeeping Tahir did
+
+`OP-HANDOFF-1.md`, `pd/pd-1.html` and `pd/pd-routes-1.js` were byte-identical
+duplicates (MD5-checked) carried into `852798d`, and nothing referenced them —
+`server.js` requires `./pd/pd-routes` and serves `pd/pd.html`. The device bridge
+cannot delete, so Tahir removed them in File Explorer and committed, along with
+`render.yaml.bak`. `OP-HANDOFF-1.md` was the one that mattered: a second status
+document is what CLAUDE.md §3 forbids, and it would have started lying the moment
+this file got its next entry.
+
+### The question that produced two structural calls
+
+Tahir asked how the flow works when a Question is not about agronomy — his
+example, recovering potash from bio-boiler fly ash, which is chemistry and
+production with no agronomy in it. The answer is that **the flow does not branch
+by discipline**: the ash is an Observation (MODEL.md §3 names that very sample),
+triaged under a Problem of `kind: product_concept`, with a `nature: chemistry`
+Question owned by the R&D Manager and a `nature: production` Question owned by
+the Production Manager. Agronomy enters only if somebody claims the recovered
+material performs on a crop, which is a separate Question with a separate owner
+and a separate kill criterion.
+
+Two things were wrong underneath that answer, both verified in the code before
+being raised, and both put to Tahir as calls rather than changed:
+
+**A — `nature` did no work.** Required on every Question (400 without it),
+stored, shown as a pill, editable — and it routed nothing. Since "What I owe" is
+per-owner and §8.1 requires it to stay that way, a chemist could not find a
+chemistry Question that an agronomist happened to own.
+
+**B — a plant-capability rule had nowhere to live.** MODEL.md §3 lists
+`plant_capability` as a kind of Constraint and 002 wrote it into the ENUM, but
+`delivery_context_id` is NOT NULL, the create route refuses a constraint with no
+context, and both read paths inner-join the context table. Filed under
+fertigation such a rule is wrong there and invisible to the other five contexts;
+filed six times it is the duplication the register exists to prevent. MODEL.md's
+own sentence gives it away — "the no-duplication mechanism on the **delivery**
+side". There was no plant side. The fly-ash case is exactly what exposes it: the
+bench recovers the potash, the plant cannot reproduce it, and that fact could not
+be written down.
+
+### Tahir's rulings, 11 September 2026
+
+  - **A1 — BUILD.** A discipline filter over open Questions, on the Problems
+    register and on search results.
+  - **A2 — REJECTED.** No nature→role default owner. An owner that is wrong but
+    already filled in gets accepted by someone in a hurry, and work that *looks*
+    assigned is worse than work that is visibly not. The lead still assigns.
+  - **B1 — DROPPED.** No second, plant-side constraint register.
+  - **B2 — BUILD.** One more row in the existing register instead. Because B1 was
+    dropped, **this row is permanent, not a stopgap** — it is the only place a
+    plant-capability rule belongs, and it is written up that way in `pd-lib.js`.
+  - **B3 — REJECTED.** No `process_validation` role mirroring the Field
+    Agronomist. A role nobody fills makes the org chart lie, and the QC Head
+    arguably already is that person. The human half is covered by the existing
+    mechanism: anyone who thinks a bench claim will not survive scale-up writes a
+    counter-Claim against it.
+
+### What was built
+
+**A1**
+
+  - `pd-routes.js` — new `GET /api/pd/questions`: every open Question under every
+    Problem, whoever owns it, with owner, Problem, due date and open-Bet count.
+    **It reads no query parameters at all.** The filtering happens on the screen
+    over rows already sent, so there is no query string here that could be
+    pointed at a person — §8.1 cannot be talked around a route that reads
+    nothing. `owner_name` is returned because a reader needs to know who to ask,
+    exactly as the dossier already shows it.
+  - `pd.html` — an **Open Questions** card at the foot of Problems with a
+    Discipline dropdown. Not a fifth screen; the nav is still four items.
+  - Search results carry the discipline: Questions their own, Bets and Runs
+    inherited from the Question they sit under. A "Narrow to one discipline"
+    control appears only when the results span more than one, and says plainly
+    that choosing one hides Problems, Claims and entries, which have none.
+
+**B2**
+
+  - `pd/migrations/007_plant_wide_context.sql` — one row,
+    `plant-wide — what we can actually make`, id pinned at **90** so
+    `pd-lib.js` can name it without matching a string somebody may later rewrite
+    (002 seeded the six real contexts without explicit ids, so they hold 1–6).
+    `INSERT IGNORE`, `name` is UNIQUE, safe to re-run, and it prints STOP if id
+    90 is ever something else.
+  - `pd-lib.js` — `PLANT_WIDE_CONTEXT_ID`, with the reasoning written down as a
+    ruling rather than as a workaround.
+  - `pd-routes.js` — **every Bet inherits the plant-wide constraints** on top of
+    its own context's; without that the row would have been inert. And **a Bet
+    may not be aimed through plant-wide** — it is not a way of delivering
+    anything — refused with a sentence rather than accepted quietly. The
+    constraint form's 400 now names plant-wide as an option.
+  - `pd.html` — plant-wide is left out of a Bet's "Aimed through" list, and each
+    inherited rule on a Bet says whether it came from the delivery context or is
+    true of the plant whatever the context. Those are different sentences and
+    must not read as one.
+
+**One defect found in this session's own work and fixed before delivery:** a
+discipline chosen on one search carried over to the next. Since the control is
+only drawn when results span more than one discipline, a following search
+returning a single discipline would have shown an empty list with no visible way
+to clear the filter. Every search now starts unnarrowed.
+
+### NOT DONE — read this before trusting the above
+
+**No tests were written and none were run.** The suites need a live server and
+database (`BASE=http://127.0.0.1:4310 node pd/tests/screens.test.js`), and this
+session had no shell on Tahir's machine and no MySQL in the container. What was
+done instead: `node --check` clean on `pd-lib.js`, `pd-routes.js` and
+`pd.html`'s single script block, plus a hand trace of the data path. Test code
+was deliberately NOT written, because a test nobody has executed costs more than
+a missing one when it fails for its own reasons.
+
+**What the missing assertions must pin**, for whoever adds them:
+
+  - `GET /api/pd/questions` returns byte-identical results with
+    `&author=&owner_id=&user=&created_by=&by=` appended, the same way the search
+    test does it;
+  - a constraint written against plant-wide appears on a Bet aimed through a
+    different context, carrying `plant_wide: true`;
+  - `POST /api/pd/bets` with `delivery_context_id = 90` is refused;
+  - both browser suites still see exactly four nav items.
+
+The last run of record remains **408 assertions, 0 failed** (10 Sept), which
+predates every change in this entry.
+
+### Order of work when the pilot opens
+
+1. `STATE-CHECK.sql` PART 1 in phpMyAdmin — it says which migrations are missing.
+2. Whichever of 003, 004, 005, 006 are outstanding, in that order. If STATE-CHECK
+   says 003 is already APPLIED, do not run it again; there is nothing to gain.
+3. **007 last.**
+4. A `pd_role` for each of the eight pilot users in Manage Access — Nadeem
+   `field_agronomy`, Erum `associate_agronomy`, both only after 006.
+5. Confirm Render built the pushed commit green.
+6. Open `/pd`: four nav items, the Open Questions card and its dropdown, a
+   plant-wide constraint showing on a Bet aimed through fertigation, and
+   plant-wide absent from that Bet's "Aimed through" list.
+
+**Still the largest unbuilt piece:** the Combination Bank — entry form, the
+six-signal duplicate checker, the four bands, the moderation queue (Custodian +
+Registrar + COO, hard-coded for the pilot) and the close-time recipe check on a
+Run. Unblocked since 10 September and untouched.
+
+Nothing pushed — local changes only, for Tahir to review and commit via GitHub
+Desktop.

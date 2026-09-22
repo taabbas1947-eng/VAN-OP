@@ -4142,3 +4142,486 @@ changes; check the paths before staging.
 
 **Still open in O2S from earlier:** the PUR-ORD-2026-00592 double-count
 correction, and the V-Mg Essential pattern / Maxim Old POs bucket decision.
+---
+
+## 2026-09-22 · O2S · quantity entry fix + pre-shipment inspection report
+
+**Module: O2S.** Files touched: `o2s/o2s.html`, `o2s/tests/psi.test.js` (new),
+`o2s/tests/README.md`. Nothing under `pd/`, nothing in the auth block.
+
+`device_bash` could not mount `E:\VAN-OP` this session (the Windows update of
+8 Sept blocks the workspace's Plan9 share), so the file was staged, edited and
+committed back through the file tools. `git status` was therefore not read —
+check the working tree before staging.
+
+### 1 · "it says add 1 every time" — Supply Chain
+
+Reported against **Confirm RM received**. Measured in Chromium, not guessed:
+the amount box rendered **26px wide** — the spinner arrows and no text area —
+while the Kg/L dropdown took **326px** of the 360px row.
+
+Cause: the input carried inline `flex:1`, i.e. flex-basis 0, while the sibling
+`<select>` kept `width:100%` from `.fld select,.fld input{width:100%}` (line
+207). The select claimed the whole row as its basis and the input collapsed to
+its 26px min-content. With no box to type into, the up-arrow was the only
+control on screen, and 30,000 Kg was 30,000 clicks.
+
+Second, compounding fault: `onchange` re-rendered the entire modal, which
+destroyed the input and dropped focus to `<body>` after **every single spinner
+click**. Measured: one click → value 1 → focus lost.
+
+Worse on the sibling **RM Check** modal. Clicking that 26px box and typing
+`22500` landed on the down-arrow and recorded **-1**, which `rmMakeKg()` then
+clamped to 0 — so a partial RM check silently became "nothing can be made" and
+raised a PR for the whole order. **Worth a look at recent partial RM checks that
+came out at 0.** No negative ever reached the data; the clamp held.
+
+Fixed in both modals: `.qtyrow / .qtynum / .qtyunit` added to the 2026-08-21
+FIELD-SIZING FIX PACK as **R10**, and the preview line now updates on its own
+(`rmMakePreview()`, `rmRcvPreview()`) instead of re-rendering the modal.
+After: input **220px**, select **132px**, `30000` typed in one go with focus
+held throughout, correctly clamped to the pending quantity, no overflow at
+390px.
+
+### 2 · Pre-shipment inspection report — `printPSI(dispId)`
+
+The inspection was already **captured** (`openDispatchQA` / `dispQASubmit`);
+what was missing was the client-facing sheet. New function, DC house style,
+reachable from the shipment record (loading / in-transit / delivered) and opened
+automatically when an inspection is submitted and passes. A failed load prints
+nothing — there is no certificate to send a customer for a truck that did not
+pass.
+
+Deliberately **not** `printInspect(po)`, which stays as-is: that one is the
+internal evidence file — every inspection ever recorded on a PO, withdrawn ones
+included, with recording-lag notes and the SPEC-01 "expected PKR x on the pack"
+lines. None of that goes to a customer.
+
+Sections: consignment inspected (product, SKU, packs, weight, pack batch,
+internal batch, mfg, expiry) · inspection result · laboratory analysis (approved
+COAs only) · three signature blocks, the third blank for the customer.
+
+**Three scoping bugs, each caught by rendering the sheet and looking at it —
+none was visible in the source.** The join key between a consignment and the
+inspections that cover it went:
+
+| key tried | what leaked onto a customer's certificate |
+|---|---|
+| PO + product | DSP1556 picked up batch RUOK26004 — 25,000 Kg that never left on that vehicle |
+| internal batch | DSP1469 picked up Enrich and V-Transfarm; one bulk batch (VT10396) is packed under several brands |
+| **pack batch** ✓ | one product's one packed lot — the number printed on the bag, which the customer can match to the table above |
+
+A fourth: a packing inspection can span several pack batches, only some on this
+truck. Keeping the record's whole batch list printed VAN6FU002 and VAN6EE001 on
+consignments that never carried them — **31 such lines across 49 reports**. The
+display now filters to the truck's own batches.
+
+**What it refuses to do.** Every shipment in `data/state.json` carries a legacy
+qa stub — `{pass:true, closed:…}`, no checklist, no inspector, no date. Printing
+the eight-item checklist against one of those would put eight ticks and a
+letterhead on a certificate for an inspection nobody recorded. So detail is
+taken from the truck-level check first, then from the packed-material
+inspections (`state.inspections`) covering the same pack batches, and where
+there is neither **no report is produced and no button is offered**. On the
+snapshot: 49 of 59 consignments print, 10 refuse.
+
+Two further honesty calls, both visible on the sheet:
+  - a packing inspection's quantity is that packing run's, not the truck's
+    (12,500 Kg packed vs 7,350 Kg shipped), so the block names the batch and
+    leaves quantity to the consignment table;
+  - a shipment records which **batch** it drew on, not which lot, so where a
+    batch was released in several analysed lots (MAXNK26007 → 3) the sheet says
+    so in a line rather than implying all three are in the consignment.
+
+Packers' internal remarks ("50%", "OKEY") stay inside the system. Inspection
+records with an identical result set are shown once naming every inspector and
+date; records that **differ** are never merged.
+
+### How it was verified
+
+- All 6 `<script>` blocks pass parse.
+- Both modals rendered in Chromium and driven by keystroke — before and after
+  measured side by side.
+- `printPSI` run across **all 59 consignments** in the snapshot with `window.open`
+  intercepted: 49 printed, 10 refused, **0 crashes, 0 leaks**. Truck-level pass,
+  truck-level fail and the refusal path each rendered and looked at.
+- **`o2s/tests/psi.test.js` — 35 checks, passing.** Reverting the join key to the
+  internal batch fails it with 34 leaks, so it is not decoration.
+- Full suite re-run before and after: **identical**, no test moved. (`authmodel`,
+  `rights`, `certremove`, `lotpack` fail in a sandbox that lacks the
+  `tests/_before-*.html` baselines — they fail the same way on the untouched
+  file, and were not checked on the real machine.)
+
+### State
+
+Written into `E:\VAN-OP`. **Not pushed.**
+
+**Open / worth a decision:**
+  - live MySQL was not readable from here — if live shipments carry richer `qa`
+    than the snapshot's stubs, more consignments will print than 49 of 59;
+  - the report prints no price anywhere, on purpose. If a customer copy should
+    carry the pack MRP, that is a call to make;
+  - still open from earlier: the PUR-ORD-2026-00592 double-count correction, and
+    the V-Mg Essential pattern / Maxim Old POs bucket decision.
+### 2026-09-22 (later the same session) · report review — three rulings
+
+**Tahir's review of the printed sheet.** All three applied to `printPSI` only;
+`printInspect` and `printCOA` untouched.
+
+1. **No price, anywhere — confirmed as the standing rule.** It already carried
+   none on the packing-fallback path, but the sweep that said so had only
+   exercised that path. On the **truck-level** path it did: the pack-price row
+   of `QC_VERIFY` does not record pass/fail, it records **the price the
+   inspector read off the bag**, and `mark()` printed that reading as-is. A
+   truck inspected through the new flow would have put `1450` on the customer's
+   copy. The check still appears and a failure still reads FAIL; the figure now
+   renders as `✓ VERIFIED` and the number stays in O2S.
+
+2. **Dispatch "Approved by" removed from the print.** The three-column
+   signature strip is gone. The approval still exists in O2S and still prints on
+   the Delivery Challan — it is only not on this report. Ruled "not required at
+   this time", so it is a print change, not a model change.
+
+3. **The sheet now ends by naming both documents and their signatories.** New
+   closing section, *"Certification — which document, and who signed it"*:
+     1. **PRE-SHIPMENT INSPECTION** — the physical check of the packed goods on
+        the vehicle, what it covers, and who inspected and signed it (one line
+        for a truck-level check; one line per product/batch for packing-recorded
+        ones).
+     2. **CERTIFICATE OF ANALYSIS** — the laboratory test of the material,
+        issued by the VAN QC Laboratory, with **analysed by / reviewed by /
+        approved by** and their dates, per lab batch.
+   The customer's receipt line (name / signature / date) follows as its own
+   block.
+
+**A divergence worth knowing about — `psiSig()` is not `sigName()`.** `sigName`
+answers an internal question (is there a person behind this signature, or a
+shared role login) by replacing the name with *"no individual name on file"*.
+**Every COA signatory in the system is a role** — 141 of 141 approver signatures
+are `QCM`, 139 analyst are `Lab Rep`, 138 reviewer are `AQCM` — so `sigName`
+printed that warning three times per certificate on a block whose whole purpose
+is to say who signed. `psiSig` prints the name as recorded and marks it
+`(position)` where it is an office rather than a person. Nothing is presented as
+an individual that is not.
+
+> **Separate finding, for Tahir, not acted on.** `printCOA` still uses
+> `sigName`, so **the COA VAN sends customers today prints "no individual name
+> on file — signed on the shared 'QCM' login" in all three signature boxes.**
+> Verified by rendering `printCOA` on VU26164-L1. That is a live customer-facing
+> document and a decision for him, not a bug to fix unasked.
+
+> **Also noticed, not acted on.** A compost COA on DSP1467 carries
+> `C/N Ratio, spec ≤20, result 113.95 : 1`, marked **FIT**. Either the
+> convention differs from the spec's or the remark is wrong — worth a glance
+> from the lab, since a customer could query it. Not changed: COA content is
+> the QC lab's, and the certificate is approved.
+
+### Verification for this pass
+
+- `printPSI` run across **all 59 consignments twice** — once on the snapshot's
+  own data and once with half of them given a truck-level check carrying a real
+  price reading. **53 reports, 0 with any price, 0 missing the closing block,
+  0 printing the dispatch approver, 0 missing the receipt line.**
+- **`o2s/tests/psi.test.js` is now 52 checks** (was 35). It renders the finished
+  sheet **as a string** and reads it, so these are checked against the output,
+  not the source — no browser, no dependencies, runs with the rest of the suite.
+  Restoring the raw price reading fails it with 2; reverting the join key fails
+  it with 34.
+- Full suite re-run: **identical to the untouched baseline, no test moved.**
+
+`o2s/o2s.html`, `o2s/tests/psi.test.js`, `o2s/tests/README.md` written into
+`E:\VAN-OP`. **Not pushed.**
+### 2026-09-22 (third pass) · one batch number on outgoing paper, and it is the one on the bag
+
+> **Note.** This entry and the fourth-pass one were each lost once: the append
+> was built from a copy of this file staged earlier in the session rather than
+> the current one, so older text was committed back over newer. The whole
+> 22 Sept tail is now rebuilt in one write from locally held pieces. See "On
+> writing to this repo from a cloud session" in the sixth-pass entry.
+
+
+**Tahir's ruling.** No internal production batch number on any document that
+leaves the building — DC, Gate Pass, inspection report, anything. One batch
+number only, the one printed on the bag. And drop the `(position)` marker from
+the signatories.
+
+**The two numbering systems, for whoever reads this next.** `b.brand` is the
+number on the bag (VAN6FU003, MAXH26003, VMG10412). `b.batch` is the internal
+production batch (VU26137, HG26015, MG10412). The customer's world is the bag.
+
+#### The audit — every outgoing document rendered and read
+
+Run across the **33 consignments whose internal number differs from the pack
+number**, with a gate pass forced onto each so that document actually rendered
+(a check that passes on an unrendered document is a check that passes on
+nothing).
+
+| Document | Internal numbers printed |
+|---|---|
+| Delivery Challan | **0** — already clean |
+| Gate Pass | **0** — already clean |
+| PO Confirmation | **0** — already clean |
+| **Pre-shipment inspection report** | **43** — all mine, all removed |
+| `printInspect` (internal) | 56 — see below, deliberately unchanged |
+
+So of the three documents he named, **two were already compliant**; the one that
+leaked was the report built earlier today. Removed from it: the "Internal batch"
+column on the consignment table, and the lab batch on every certificate header
+and closing line.
+
+**A fourth leak, found only by rendering.** After those removals one internal
+number survived — `VU26140` on DSP1364 — arriving through the **QC No** field.
+Two of the 142 certificates on file have the production batch typed into the
+lab-reference field instead of a `PQ`/`TP`/`SF`/`RT`/`RM` number, both on
+VU26140. Rather than drop QC No from all 142 certificates because two were keyed
+wrong, `psiSafeRef()` drops the value when it is an internal batch on that truck
+and prints it otherwise. **Worth the lab correcting those two records.**
+
+**Watch for false positives when re-checking this.** Pack batch `VMG10412`
+*contains* internal batch `MG10412`. A substring search calls that a leak; it is
+not one. The audit and the test both match on whole tokens.
+
+**One number, one name.** With the second number gone, "Pack batch" was
+qualifying a distinction that no longer appears on the sheet, so everything now
+reads **"Batch #"** — the same wording the Delivery Challan uses.
+
+**`(position)` removed.** The block already labels each line Analysed by /
+Reviewed by / Approved by, so the office is plain from context; saying it twice
+read as a defect.
+
+#### Deliberately not changed — two calls for Tahir
+
+- **`printInspect` still prints internal batches (56).** It is the internal
+  evidence file, not a customer document: it also prints withdrawn inspections,
+  recording-lag notes, and the SPEC-01 *"expected PKR x /pack"* lines. Stripping
+  its batch numbers would damage the traceability it exists for, and the price
+  lines mean it must never be sent out regardless. **Recommendation: leave the
+  content, and mark the sheet INTERNAL so it cannot be sent by mistake.** Say
+  the word and it is a one-line change.
+- **The COA's own `batchNo` is the internal batch** — `AM26003-L1`, `VU26145-L1`
+  — on 64 of the certificates checked. It is stripped from the inspection
+  report, but `printCOA` still carries it, and that certificate goes to
+  customers today. It is also the certificate's identity on an accredited form
+  (QCL-FRM-12.03, PNAC), so removing it is not a formatting change and was not
+  made unasked. **Needs a ruling.**
+
+#### Verification
+
+- Audit re-run after the fix: **DC 0 · Gate Pass 0 · PO Confirmation 0 ·
+  inspection report 0.**
+- **`o2s/tests/psi.test.js` is now 66 checks** (was 52). It renders the DC, Gate
+  Pass, PO Confirmation and the report for every affected consignment and fails
+  if any prints an internal batch; it also pins the QC No guard and the absence
+  of `(position)`. Reverting all three changes fails it with 3, including 56
+  leaks. An earlier version of these checks silently passed because `printPO`
+  never rendered in the sandbox — its missing dependency was being swallowed by
+  a `catch`; the runner now reports the error instead of counting a blank as a
+  pass.
+- Full suite: **identical to the untouched baseline, no test moved.**
+
+`o2s/o2s.html`, `o2s/tests/psi.test.js`, `o2s/tests/README.md` written into
+`E:\VAN-OP`. **Not pushed.**
+### 2026-09-22 (fourth pass) · printing, page breaks, and one horizontal signature strip
+
+**Tahir:** "if one is printing it or converting it to PDF, how would page break
+work? by default it should be A4." Then, on seeing it: "mention the approvers
+once, don't duplicate the same titles at the bottom, place them in horizontal
+order as it will save us one page" — and the reason it can be said once: "**the
+COA is signed by positions, so no matter who the person is it's always the same
+positions**."
+
+#### A4 — already true everywhere, now verified rather than assumed
+
+All five printed documents declare `@page{size:A4}`. Confirmed by generating
+real PDFs: every one measures **594.96 x 841.92 pts**, which is A4. Because the
+page size is declared in CSS, Chrome's own print dialog starts there — the
+operator gets A4 portrait and has to go out of their way to get anything else.
+
+| Document | Pages (worst case on file) |
+|---|---|
+| Delivery Challan | 1 — still 1 at a synthetic **18 lines**, nothing clipped |
+| Gate Pass | 1 |
+| PO Confirmation | 1 (11-line PO) |
+| `printInspect` (internal) | 3 |
+| **Inspection report** | **4 → 3** (DSP1469) |
+
+#### Where the paper divides
+
+The inspection report is the first document in O2S that runs past one page, so
+the breaks were read off a rendered PDF rather than reasoned about. As first
+written it:
+
+- put **"LABORATORY ANALYSIS" alone at the foot of page 1** and
+  **"CERTIFICATION…" alone at the foot of page 3**, content overleaf;
+- separated the *"released in N analysed lots"* note from the certificates it
+  explains;
+- lost column headings on any table crossing a break, and could cut a row in
+  half;
+- left **pages 2 and 3 carrying nothing that said what they belonged to** — a
+  four-page certificate one paperclip away from being unidentifiable.
+
+Fixed: headings and the lot note travel with their content; `thead` repeats on a
+split table; rows, certificate blocks, the parties box and the receipt block are
+never halved; and a **running footer repeats on every printed page** with the
+report number, DC, customer and vehicle. No page numbers — Chromium does not
+support `counter(page)` outside the `@page` margin boxes it has never
+implemented, and a faked "page 1 of 4" on a certificate is worse than none.
+Chrome's dialog adds real ones when "Headers and footers" stays ticked.
+
+The same break rules were added to the **Delivery Challan**, the **Gate Pass**
+and `_DOC_CSS` (which serves the PO Confirmation and `printInspect`). They change
+nothing today — those documents fit one page — and exist for the order that
+eventually runs over. **Presentation only: where the paper divides, never what
+is printed on it.**
+
+#### The signature strip — once, sideways
+
+He is right that the positions are invariant: **141 of 142 certificates on file
+are approved by QCM**, 139 analysed by Lab Rep, 138 reviewed by AQCM. The report
+was reprinting all three per certificate — seven times on DSP1469 — saying
+nothing new each time.
+
+Now one horizontal strip: **ANALYSED BY · Lab Rep | REVIEWED BY · AQCM |
+APPROVED BY · QCM**, stated once, with the per-batch detail left where it already
+is in Laboratory analysis. If a certificate on a consignment were signed by a
+different office the strip names every office that signed in that role — "always
+the same" is true of the data, not guaranteed by it.
+
+That plus tightened table rows took the worst consignment **from 4 pages to 3**.
+An interim state had page 4 holding nothing but the closing note; `.foot` now
+refuses to start a page alone.
+
+#### A mistake worth recording
+
+**I overwrote my own `tests/README.md` twice.** Each pass rebuilt it from the
+copy staged at the start of the session — the original — so the edits from the
+previous pass were not in the text being edited, the `.replace()` calls matched
+nothing, and the near-original was committed back over the good version. The
+`o2s.html` edits never had this problem because every one of them asserts
+`count(old)==1` first; the README edits used bare `.replace()`. It was found by
+noticing the file had shrunk to its original 2410 bytes. Rebuilt from the
+on-disk copy, with both edits asserted. **Re-stage before editing, and assert
+that the replacement happened.**
+
+#### Verification
+
+- Real PDFs generated and read for every document; page counts and A4 dimensions
+  above are measured, not claimed.
+- Running footer confirmed present on **every page** of the 3-page report.
+- 18-line stress Delivery Challan: all 18 rows present, nothing clipped, 1 page.
+- **`o2s/tests/psi.test.js` is now 94 checks** (was 66). Removing the repeating
+  table headers, the heading-break rule or the running footer fails it with 3.
+- Full suite: **identical to the untouched baseline, no test moved.**
+
+`o2s/o2s.html`, `o2s/tests/psi.test.js`, `o2s/tests/README.md` written into
+`E:\VAN-OP`. **Not pushed.** Still open: whether `printInspect` should be marked
+INTERNAL, and whether `printCOA` should keep the internal batch as its
+certificate identity.
+
+### 2026-09-22 (fifth pass) · one product vs five
+
+**Tahir:** "test if there is one product in one shipment and pre-shipment vs if
+there are 5 products. how report will manage."
+
+Both rendered as real A4 PDFs.
+
+| Products on the truck | Certificates | Test rows | Pages |
+|---|---|---|---|
+| 1 (DSP1556, Orbit-K) | 1 | 5 | **2** |
+| 4 (DSP1469, as shipped) | 7 | 33 | **3** |
+| 5 (DSP1469 + a grafted fifth line) | 8 | 38 | **3** |
+
+It scales sub-linearly because the fixed sections dominate: for a single-product
+consignment the sheet totals **387mm against 261mm usable per page**, of which
+the header is 18, the parties box 31, the 11-row checklist **76**, one
+certificate 55, and the closing certification block 56. **A one-product report
+cannot be made to fit one page without dropping content.** Two pages for one
+product is structural, not waste; the second page carries the certification and
+the customer's signature block.
+
+The signature strip stays three cells wide at every size, and a line with no
+packing record prints an em dash for mfg/expiry rather than a blank or an error.
+
+Measuring it did surface real duplication in the closing block, now cut: item 1
+was re-listing the eight checks sitting directly above it, and "analysed,
+reviewed and approved by three separate people" appeared immediately before the
+strip that shows exactly that.
+
+### 2026-09-22 (sixth pass) · which document is which, and what goes on the customer copy
+
+**Tahir:** "printInspect is both actually. It could be internal, and if internal
+it should only be the inspection report. If for customer, then it's going to
+stitch the COA and the other things, as we have just built." Then, on the
+title: "**the internal document titled PRE-SHIPMENT INSPECTION REPORT is
+fine**."
+
+So the line between the two is **content, not name**. Both are pre-shipment
+inspection reports:
+
+| | `printInspect(po)` | `printPSI(dispId)` |
+|---|---|---|
+| Scope | a whole PO | one consignment |
+| Contains | the inspection history, withdrawn records included | consignment + inspection + **certificates of analysis** + certification block + customer signature |
+| Internal batch numbers | yes — it is VAN's own trace | no |
+
+Each now states under the title which of the two it is. An interim version of
+this pass retitled the PO-level one "INSPECTION REPORT — INTERNAL" with a red
+not-for-customers banner; **he overruled that and it was reverted.**
+
+> **Still open.** `printInspect` also prints the SPEC-01 line *"expected PKR x
+> /pack"* — what the pack was required to carry, so the sheet is evidence of a
+> comparison rather than a bare tick. If that document is ever handed to a
+> customer, the price goes with it. Unchanged; flagged.
+
+#### What goes on the customer copy — settled
+
+Asked as four questions, answered:
+
+- **Full lab results stay** — test, specification, result, method, FIT. He chose
+  this over dropping the specification column or summarising to "Overall FIT",
+  knowing it publishes VAN's limits and how close each result sits to them.
+- **Every inspection check stays listed**, not summarised to one line.
+- **Mfg and expiry per line stay**; **vehicle, driver, seal and gate pass stay.**
+- **The inspector's free-text remarks come OFF.** They are written for the floor
+  and unreviewed — "pallet wrap replaced on two pallets before loading" reads
+  oddly on a certificate. Still recorded against the shipment and still printed
+  on the PO-level record.
+- **A failed consignment still prints**, stamped FAILED with the red banner. His
+  reasoning: useful if a customer disputes what happened to a load.
+- **A complaint line was added**, carrying the reference to quote and VAN's
+  contacts: `+92 42 35762215`, WhatsApp `+92 300 5003041`, `info@van.com.pk`,
+  `www.van.com.pk`. **Taken from van.com.pk on 22 Sept 2026, not invented** —
+  the site lists no separate complaints number, so the main ones are used.
+  Worth confirming these are the right numbers for a complaint.
+
+#### Verification
+
+- 114 checks in `o2s/tests/psi.test.js`, all passing. New ones pin the content
+  line between the two documents, the removal of the remarks, the presence of
+  the complaint line with all three contacts, and that a failed load still
+  prints and still cannot read as a clearance.
+- Page counts unchanged: 1 product → 2 pages, 4 and 5 products → 3 pages, A4.
+- Internal-batch audit still clean: DC 0, Gate Pass 0, PO Confirmation 0,
+  report 0. Price sweep across 53 rendered reports: 0.
+- Full suite identical to the untouched baseline.
+
+#### On writing to this repo from a cloud session
+
+Two files were damaged earlier in this session by the same mechanism, and the
+fix is a working rule, not a one-off:
+
+1. **`device_bash` could not mount `E:\VAN-OP`** all session (the Windows update
+   of 8 Sept), so every edit went stage → edit → commit.
+2. **The staged copy lags behind committed writes**, sometimes by a whole
+   commit. Reading a file back after writing it does not prove what is on disk.
+3. **Rebuilding a file from a stale staged copy silently loses the previous
+   edit** — the `.replace()` matches nothing and the older text is committed
+   back over the newer.
+
+The rule: **assert every replacement** (`count(old)==1`) so a stale base fails
+loudly instead of quietly, and for an append-only file like this one, rebuild
+the whole tail from locally held pieces rather than appending to whatever the
+stage returned.
+
+`o2s/o2s.html`, `o2s/tests/psi.test.js`, `o2s/tests/README.md` written into
+`E:\VAN-OP`. **Not pushed.**

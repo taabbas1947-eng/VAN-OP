@@ -59,9 +59,24 @@ eq('…and it prints as text too', row && row.result, '1250');
 eq('the three record checks are still there', saved.filter(r => r.key !== 'priceSeen').length, 3);
 const recNo = JSON.parse(JSON.stringify(S.qcVerifyRecord(M, {})));
 eq('no row added when nothing was read off the bag', recNo.length, 3);
-ok('the dossier prints a number instead of an em dash',
-  /v\.result\?_pe\(String\(v\.result\)\)/.test(
-    H.html));
+/* SUPERSEDED 22 Sept 2026 — Tahir: "expected PKR x /pack, we have to solve
+   this." The reading the inspector takes off the bag is a price, and this sheet
+   can end up in a customer's hands, so the FIGURE no longer prints.
+
+   The original intent of this check is kept and still enforced: a recorded
+   reading must not render as an em dash, because an em dash says nothing was
+   read. It now renders as "recorded" — the reading itself stays in the shipment
+   record and the audit trail, and the inspector still sees the figure on the
+   capture screen (renderPackInspect / renderDispatchQA both still call
+   qcExpect, which is unchanged).
+
+   The rendered behaviour is checked in psi.test.js, which builds the sheet and
+   reads it; this line only holds the source rule. */
+ok('a recorded price reading does not print as an em dash',
+  /v\.result\?'\u2611 recorded':'\u2014'/.test(H.html)
+    || /v\.result\?.{0,24}recorded/.test(H.html));
+ok('and the figure itself is no longer printed on the sheet',
+  !/v\.result\?_pe\(String\(v\.result\)\)/.test(H.html));
 
 /* ---- 7. packing ---- */
 eq('packing/list needs the number recorded',

@@ -7,12 +7,14 @@ nothing could be trusted the next morning.
 ## Run them
 
 ```
-node o2s/tests/spec06.test.js       #  52 - which price goes on the pack
+node o2s/tests/spec06.test.js       #  53 - which price goes on the pack
 node o2s/tests/backlog.test.js      #  33 - the print-decision backlog screen
 node o2s/tests/batchclose.test.js   # 182 - closing and reopening a batch
+node o2s/tests/psi.test.js         # 123 - the pre-shipment inspection report,
+                                   #       and what may go on a customer's copy
 ```
 
-**267 checks.** Exit code 0 means all passing. No dependencies, no build step,
+**391 checks.** Exit code 0 means all passing. No dependencies, no build step,
 Node only.
 
 ## How they work
@@ -21,9 +23,54 @@ Node only.
 runs it in a sandbox with minimal stubs. There is no second copy of the logic in
 here. If a check passes, it passed against the file that ships.
 
-`backlog.test.js` and `batchclose.test.js` also run against the real
-`data/state.json`, so the counts they print are the counts that snapshot actually
-produces.
+`backlog.test.js`, `batchclose.test.js` and `psi.test.js` also run against the
+real `data/state.json`, so the counts they print are the counts that snapshot
+actually produces.
+
+`psi.test.js` renders finished documents **as strings** and reads them, so it
+checks the output rather than the source. It covers three rulings, each of which
+cost a real defect to find:
+
+- **Scope.** A consignment certifies the material on that truck. The join key is
+  the batch number printed on the bag; matching on PO+product, or on the internal
+  batch, each put another consignment's material on a customer's certificate.
+  Reverting the key fails the suite with 34 leaks.
+- **What may appear on a customer's copy** (Tahir, 22 Sept 2026): no price in any
+  form — including the figure the inspector reads off the bag, which the pack-price
+  check records as a number — no internal production batch on the Delivery Challan,
+  Gate Pass, PO Confirmation or the report, and no dispatch approver.
+- **How the paper divides.** The report is the first document here that runs past
+  one page. A4, headings that travel with their content, column headings repeated
+  on a split table, rows never cut in half, and a running footer identifying every
+  sheet. Where the breaks land was settled by rendering a real PDF and looking at
+  it; the suite holds the rules that produced it.
+
+- **Which document is which.** Both `printInspect` and `printPSI` are titled
+  "PRE-SHIPMENT INSPECTION REPORT" and both are exactly that; they differ by
+  **content**. `printInspect` is the inspection history of a whole PO and
+  nothing else. `printPSI` is the per-consignment copy that stitches in the
+  certificates of analysis, the closing certification block and a customer
+  signature line. The suite fails if the PO-level record starts stitching, or
+  if the consignment copy stops.
+- **What goes on the customer copy** (Tahir's rulings, 22 Sept 2026): full lab
+  results including specifications; every inspection check listed rather than
+  summarised; mfg and expiry per line; vehicle and seal. **Not** the inspector's
+  free-text remarks — written for the floor, unreviewed — which stay on the
+  PO-level record. Plus a complaint line carrying the report reference and VAN's
+  published contacts.
+- **No rupee figure on any printed inspection sheet.** SPEC-01 rule 6 still puts
+  what the pack was *required* to carry on the PO-level sheet — that is what
+  makes it evidence of a comparison — but as a rule ("a price was required",
+  "no price should appear"), never as an amount, and the reading the inspector
+  took off the bag prints as "recorded". `qcExpect()` is unchanged: the two
+  capture screens still show the inspector the figure to check against.
+  **This supersedes the SPEC-06 check "the dossier prints a number instead of an
+  em dash"**, whose intent — a recorded reading must not look like nothing was
+  read — is kept and still enforced.
+
+Matching on batch numbers is **token-exact** on purpose: pack batch `VMG10412`
+*contains* internal batch `MG10412`, and a substring search calls that a leak
+when it is not.
 
 ## Three rules these were written under
 

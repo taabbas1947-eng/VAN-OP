@@ -4744,3 +4744,52 @@ here — the suite holds the arithmetic and the markup that produced those width
 
 `o2s/o2s.html`, `o2s/tests/rmqty.test.js`, `o2s/tests/README.md` written into
 `E:\VAN-OP`. **Not pushed.**
+
+### 2026-09-22 (ninth pass) · the team is told what changed — CHANGELOG entry added
+
+**Tahir asked:** should everyone who logs in get a clear notice of what has
+changed?
+
+**The mechanism already exists and does exactly that.** `checkWhatsNew()`, built
+4 Sept, opens a "What's changed since you last logged in" modal after a
+logged-in render, showing every CHANGELOG entry newer than the one that person
+last dismissed. Tracked in `localStorage` keyed by username — deliberately no
+server change, with the accepted trade-off that a different computer or a
+cleared browser shows it again.
+
+**But it had one entry, dated 4 September.** Today's push went out with no
+changelog entry, so the team would have been told nothing at all. Added
+`2026-09-22a`, six items, written for what a person notices rather than what
+changed in the code:
+
+- the quantity boxes take a full figure again, and why it looked broken;
+- the `% of 30,000 Kg ordered` relabel and what the percentage is taken from;
+- **a prompt to re-open any partial RM Check that came out as zero** — the
+  collapsed box could record nothing instead of the figure meant;
+- the new customer report: where it is, when it prints itself, what is on it;
+- that a shipment with no recorded inspection produces no report and no button;
+- that customer documents carry no price and no internal batch.
+
+Verified by driving `checkWhatsNew()` in a browser: a user who had dismissed the
+4 Sept notice sees **1 update, 6 items**; a brand-new user sees **2 updates, 10
+items**. `whatsnew.test.js` 21 checks still pass.
+
+> **A footnote on the 4 Sept entry**, which reads *"the internal batch number no
+> longer prints on the Delivery Challan or Gate Pass"* — independent
+> confirmation of the third-pass audit finding that those two documents were
+> already clean, and that the leak was only in the new report.
+
+#### The stale-copy trap caught itself
+
+Building this entry, the base file was rebuilt from the staged copy of
+`o2s.html` — which was a commit behind — and the relabel from the eighth pass
+silently vanished. **`rmqty.test.js` failed on exactly that line**, which is why
+it was noticed before anything was committed. Rebuilt from the known-good local
+copy with both markers asserted present before writing.
+
+That is the second time this session the staging lag has eaten an edit, and the
+first time a test caught it rather than a person. Worth keeping the habit:
+assert the preconditions, and prefer a locally held file over whatever the stage
+returns.
+
+`o2s/o2s.html` written into `E:\VAN-OP`. **Not pushed.**

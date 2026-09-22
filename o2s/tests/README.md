@@ -10,12 +10,13 @@ nothing could be trusted the next morning.
 node o2s/tests/spec06.test.js       #  53 - which price goes on the pack
 node o2s/tests/backlog.test.js      #  33 - the print-decision backlog screen
 node o2s/tests/batchclose.test.js   # 182 - closing and reopening a batch
+node o2s/tests/buildid.test.js     #  12 - BUILD_ID vs the changelog
 node o2s/tests/rmqty.test.js       #  22 - raw-material quantity entry
 node o2s/tests/psi.test.js         # 123 - the pre-shipment inspection report,
                                    #       and what may go on a customer's copy
 ```
 
-**413 checks.** Exit code 0 means all passing. No dependencies, no build step,
+**425 checks.** Exit code 0 means all passing. No dependencies, no build step,
 Node only.
 
 ## How they work
@@ -27,6 +28,15 @@ here. If a check passes, it passed against the file that ships.
 `backlog.test.js`, `batchclose.test.js` and `psi.test.js` also run against the
 real `data/state.json`, so the counts they print are the counts that snapshot
 actually produces.
+
+`buildid.test.js` exists because a whole day's work shipped with `BUILD_ID`
+still reading `2026-09-04a`. An open tab polls the served file and raises the
+"A newer version is available" banner only when that value differs from the one
+it loaded with — so an un-bumped BUILD_ID means a tab left open across a push
+keeps running the old code and nobody is told. Every behavioural change that day
+was pinned by a test; the one line deciding whether anyone found out was pinned
+by nothing. **Bump BUILD_ID with every deploy and keep it equal to the newest
+CHANGELOG `ver`** — this suite fails if they drift.
 
 `rmqty.test.js` covers the quantity boxes on RM Check and Confirm RM received —
 the "it says add 1 every time" complaint. The widths and the lost focus were

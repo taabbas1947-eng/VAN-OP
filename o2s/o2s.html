@@ -4,7 +4,14 @@
 <title>O2S System</title>
 <link rel="icon" href="/assets/favicon.png">
 <!-- VAN build: 2026-09-04 version-check added -->
-<script>var BUILD_ID='2026-09-04a';
+<script>/* BUMP THIS WITH EVERY DEPLOY, and keep it equal to the newest CHANGELOG ver.
+   An open tab compares the BUILD_ID it loaded with the one being served and
+   raises the "A newer version is available" banner when they differ. If this is
+   not bumped, the two match, the banner never fires, and a tab left open across
+   a push keeps running the old code with nothing telling anybody. It sat at
+   2026-09-04a through this whole day's work; rmqty/psi tests pinned the code,
+   nothing pinned this. buildid.test.js now does. */
+var BUILD_ID='2026-09-22a';
 var CHANGELOG=[
   {ver:'2026-09-04a', date:'2026-09-04', title:"Delivery, DC printing, and a new Reconciliation check", items:[
     "Delivery confirmation stays with Supply Chain \u2014 it no longer hands off to the Plant Manager. If one sits too long, it now re-flags the same Supply Chain owner every 3 days instead.",
@@ -1380,9 +1387,12 @@ textarea:focus{border-color:var(--navy);box-shadow:var(--ring)}
 .fld .qtyrow .qtynum{flex:1 1 auto;width:auto;min-width:120px;text-align:right;
   font-variant-numeric:tabular-nums}
 .fld .qtyrow .qtyunit{flex:0 0 132px;width:132px;min-width:132px}
+/* the top-up dialog names the basis in the option, which is wider than 132px */
+.fld .qtyrow .qtyunit.wide{flex:0 0 auto;width:auto;min-width:150px;max-width:220px}
 @media(max-width:480px){
   .qtyrow{max-width:none}
   .fld .qtyrow .qtyunit{flex:0 0 116px;width:116px;min-width:116px}
+  .fld .qtyrow .qtyunit.wide{flex:0 0 auto;width:auto;min-width:120px;max-width:60%}
 }
 
 /* === END FIELD-SIZING FIX PACK 2026-08-21 === */
@@ -4524,6 +4534,15 @@ function rmSubmit(){
   save(); closeModal(); render(); toast(mk>=ord?'Materials ready':'RM check saved — PR awaiting CFO'); }
 function approveRMPR(oid,lid){ if(!(canEdit(['CFO'])||state.role==='COO')){toast('CFO approves the requisition');return;} var o=state.orders.find(x=>x.id===oid); var l=o&&o.lines.find(x=>x.id===lid); if(!l||!l.rmPR||l.rmPR.closed)return; l.rmPR.cfoApproved=TODAY.toISOString().slice(0,10); logAction('PR approved (CFO) — '+o.po+'·'+l.brand+' '+fmt(l.rmPR.qty)+' Kg/L'); (state.audit=state.audit||[]).unshift({t:new Date().toISOString(),user:state.role,module:'RM PR',po:o.po,brand:l.brand,field:'CFO approved',old:'',val:fmt(l.rmPR.qty)+' Kg/L'}); save(); render(); toast('PR approved'); }
 let rmRcvForm=null;
+/* "% of order" means a percentage of the ORDERED quantity — never of what is
+   still pending, which is the number a person topping up is looking at.
+   On a 500 Kg order with 300 already cleared, "50%" is read as 250 and clamped
+   to the 200 outstanding: it cannot over-clear, but it gives a different figure
+   from the one that was meant. The clamp is deliberate and stays; what changed
+   (Tahir, 22 Sept 2026) is that the option on THIS dialog now names its basis —
+   "% of 500 Kg ordered" — so the arithmetic is stated where the choice is made.
+   RM Check keeps the plain "% of order": nothing is cleared yet there, so the
+   ordered quantity is the only basis it could mean. */
 function rmRcvKg(){ var o=state.orders.find(x=>x.id===rmRcvForm.oid); var l=o&&o.lines.find(x=>x.id===rmRcvForm.lid); var ord=(l&&+l.ordered)||0; var already=(l&&+l.canMakeKg)||0; var rem=Math.max(0,ord-already); var v=+rmRcvForm.qty||0; if(rmRcvForm.unit==='pct') v=ord*v/100; return Math.max(0,Math.min(rem,Math.round(v))); }
 function openRMReceive(oid,lid){ if(!may('rm.receive')){toast(denyRight('rm.receive','Receiving raw material'));return;} var o=state.orders.find(x=>x.id===oid); var l=o&&o.lines.find(x=>x.id===lid); if(!l||!l.rmPR||l.rmPR.closed)return; if(!l.rmPR.cfoApproved){toast('PR must be CFO-approved before receiving');return;} rmRcvForm={oid,lid,qty:'',unit:'kg'}; renderRMReceive(); $('modalBg').classList.add('open'); }
 function rmRcvPrevHTML(){ var o=state.orders.find(x=>x.id===rmRcvForm.oid); var l=o&&o.lines.find(x=>x.id===rmRcvForm.lid); var ord=(l&&+l.ordered)||0; var already=(l&&+l.canMakeKg)||0; var add=rmRcvKg();
@@ -4531,7 +4550,7 @@ function rmRcvPrevHTML(){ var o=state.orders.find(x=>x.id===rmRcvForm.oid); var 
 function rmRcvPreview(){ var el=$('rmRcvPrev'); if(el) el.innerHTML=rmRcvPrevHTML(); }
 function renderRMReceive(){ var o=state.orders.find(x=>x.id===rmRcvForm.oid); var l=o.lines.find(x=>x.id===rmRcvForm.lid); var ord=+l.ordered||0; var already=+l.canMakeKg||0; var rem=Math.max(0,ord-already); var add=rmRcvKg();
   $('modal').innerHTML=`<div class="mh"><h2>Confirm RM received — ${l.brand}</h2><div class="sub">${o.po} · ${shortClient(o.client)} · cleared ${fmt(already)}/${fmt(ord)} · ${fmt(rem)} Kg/L pending</div></div>
-   <div class="mb"><div class="fld"><label>How much more can be made now?</label><div class="qtyrow"><input type="number" inputmode="decimal" min="0" step="any" value="${rmRcvForm.qty}" oninput="rmRcvForm.qty=this.value;rmRcvPreview()" placeholder="amount" class="qtynum"><select class="qtyunit" onchange="rmRcvForm.unit=this.value;rmRcvPreview()"><option value="kg" ${rmRcvForm.unit==='kg'?'selected':''}>Kg/L</option><option value="pct" ${rmRcvForm.unit==='pct'?'selected':''}>% of order</option></select></div>
+   <div class="mb"><div class="fld"><label>How much more can be made now?</label><div class="qtyrow"><input type="number" inputmode="decimal" min="0" step="any" value="${rmRcvForm.qty}" oninput="rmRcvForm.qty=this.value;rmRcvPreview()" placeholder="amount" class="qtynum"><select class="qtyunit wide" onchange="rmRcvForm.unit=this.value;rmRcvPreview()"><option value="kg" ${rmRcvForm.unit==='kg'?'selected':''}>Kg/L</option><option value="pct" ${rmRcvForm.unit==='pct'?'selected':''}>% of ${fmt(ord)} Kg ordered</option></select></div>
    <div id="rmRcvPrev" class="muted" style="font-size:11px;margin-top:7px">${rmRcvPrevHTML()}</div></div></div>
    <div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" onclick="rmReceiveSubmit()">Confirm received</button></div>`;
 }

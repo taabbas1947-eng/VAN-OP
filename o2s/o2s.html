@@ -12,6 +12,14 @@ var CHANGELOG=[
     "Truck dispatch now has a \u2018Customer focal person\u2019 field \u2014 pre-filled from the PO when known, editable if not.",
     "New: Reconciliation, under Setup & admin. Checks every packed order line against its packing record and flags anything that can't be traced \u2014 open it any time to see current gaps; use Data Fix to correct what it finds."
   ]},
+  {ver:'2026-09-22a', date:'2026-09-22', title:"Raw-material quantities, and a new inspection report for customers", items:[
+    "\u201cHow much can be made now\u201d and \u201cHow much more can be made now\u201d: you can type the full figure again. The box had shrunk to the two little arrows, so the only way to enter 30,000 Kg was to click the up-arrow \u2014 and it lost your place after every click. Type the number straight in; the line underneath shows what it works out to as you type.",
+    "On \u201cConfirm RM received\u201d, the second box now says \u201c% of 30,000 Kg ordered\u201d instead of just \u201c% of order\u201d, so it is clear what the percentage is taken from. It is always a share of the whole order, never of what is still pending.",
+    "If you did a partial RM Check recently and it came out as zero, it is worth opening it again \u2014 typing into that shrunken box could record nothing instead of the quantity you meant.",
+    "New: Pre-shipment Inspection Report, for sending to the customer with the dispatch. It prints by itself when an inspection passes, and you can print it again any time from the shipment record (\u2018Inspection\u2019, next to DC and Gate Pass). It carries what went on the truck, the inspection result, the lab results for those batches, and a line for the customer to sign.",
+    "A shipment with no inspection recorded against it does not produce this report at all, and offers no button \u2014 rather than printing an empty checklist that looks like a passed inspection.",
+    "Customer documents carry no prices and no internal batch numbers \u2014 only the batch number printed on the bag. The inspection sheet you already use per PO is unchanged, except that it no longer shows the rupee figure either.",
+  ]},
 ];
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">

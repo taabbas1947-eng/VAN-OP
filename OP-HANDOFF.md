@@ -4693,3 +4693,54 @@ This is the only test in another suite that this session changed.
 and unrelated: `printCOA` still carries the internal batch as the certificate's
 identity on an accredited form (QCL-FRM-12.03, PNAC) — a decision for Tahir, not
 a defect.
+
+### 2026-09-22 (eighth pass) · "% of order" now names its basis on the top-up dialog
+
+**The question, from Tahir:** does Supply Chain enter Kg or a percentage?
+
+**Both** — the box takes a number and the dropdown beside it chooses the unit,
+Kg/L by default. But the percentage had a trap on **Confirm RM received**:
+
+`rmRcvKg()` computes `ord * v/100` — a percentage of the **ordered** quantity,
+never of what is still pending, which is the number a person topping up is
+actually looking at. On a 500 Kg order with 300 cleared and 200 outstanding,
+"50%" is read as 250 and clamped to 200. It cannot over-clear, but it gives a
+different figure from the one that was meant.
+
+Three options were put to him — leave it, change the meaning to "% of pending",
+or relabel — and he chose **relabel, on the top-up dialog only**. Changing the
+arithmetic would have made one phrase mean two different things on two screens.
+
+So that option now reads **"% of 30,000 Kg ordered"** (the real quantity, not a
+placeholder). RM Check keeps the plain "% of order": nothing is cleared there
+yet, so the ordered quantity is the only basis it could mean. The clamp is
+unchanged and deliberate. The unit box on this dialog sizes to its label
+(`.qtyunit.wide`) instead of the fixed 132px; measured at 1280px the row is
+201px unit + 151px box, and at 390px 198 + 124 with no page overflow.
+
+#### A suite the morning's fix never had — `o2s/tests/rmqty.test.js`, 22 checks
+
+The "add 1 every time" fix shipped with no test of its own. It has one now,
+covering both that and the relabel:
+
+- a typed 30,000 is 30,000, and 22,500 on RM Check is 22,500;
+- **a negative can never be stored** — the case the 26px box used to produce
+  when a click landed on the down-arrow and typing was swallowed;
+- an empty box and junk are nothing, not NaN;
+- `% of order` is a percentage of the ordered quantity, and on the 300-cleared
+  case 50% is 250 clamped to 200 — the exact case the relabel is about;
+- a top-up can never clear more than was ordered;
+- the inline `flex:1` that collapsed the box to 26px is gone, both rows use the
+  sized `.qtynum`/`.qtyunit` pair, and typing updates the preview rather than
+  re-rendering the modal out from under the caret.
+
+Reverting either the relabel or the width rule fails it with 2.
+
+Widths and focus are a browser's business and were measured there, not asserted
+here — the suite holds the arithmetic and the markup that produced those widths.
+
+**Totals now: 413 checks.** `psi.test.js` 123 · `rmqty.test.js` 22 ·
+`spec06.test.js` 53 · everything else identical to the untouched baseline.
+
+`o2s/o2s.html`, `o2s/tests/rmqty.test.js`, `o2s/tests/README.md` written into
+`E:\VAN-OP`. **Not pushed.**

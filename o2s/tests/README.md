@@ -10,11 +10,12 @@ nothing could be trusted the next morning.
 node o2s/tests/spec06.test.js       #  53 - which price goes on the pack
 node o2s/tests/backlog.test.js      #  33 - the print-decision backlog screen
 node o2s/tests/batchclose.test.js   # 182 - closing and reopening a batch
+node o2s/tests/rmqty.test.js       #  22 - raw-material quantity entry
 node o2s/tests/psi.test.js         # 123 - the pre-shipment inspection report,
                                    #       and what may go on a customer's copy
 ```
 
-**391 checks.** Exit code 0 means all passing. No dependencies, no build step,
+**413 checks.** Exit code 0 means all passing. No dependencies, no build step,
 Node only.
 
 ## How they work
@@ -26,6 +27,14 @@ here. If a check passes, it passed against the file that ships.
 `backlog.test.js`, `batchclose.test.js` and `psi.test.js` also run against the
 real `data/state.json`, so the counts they print are the counts that snapshot
 actually produces.
+
+`rmqty.test.js` covers the quantity boxes on RM Check and Confirm RM received —
+the "it says add 1 every time" complaint. The widths and the lost focus were
+measured in a browser, because that is where they live; what the suite holds is
+the arithmetic (a typed 30,000 is 30,000; a negative can never be stored; a
+top-up can never clear more than was ordered), that "% of order" is a percentage
+of the **ordered** quantity and that the top-up dialog now says so in the option
+itself, and that the markup which collapsed the box to 26px is gone.
 
 `psi.test.js` renders finished documents **as strings** and reads them, so it
 checks the output rather than the source. It covers three rulings, each of which

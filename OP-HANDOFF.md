@@ -4625,3 +4625,71 @@ stage returned.
 
 `o2s/o2s.html`, `o2s/tests/psi.test.js`, `o2s/tests/README.md` written into
 `E:\VAN-OP`. **Not pushed.**
+
+### 2026-09-22 (seventh pass) · the price comes off the printed inspection sheet
+
+**Tahir:** *"expected PKR x /pack — WE HAVE TO SOLVE THIS."*
+
+**The leak.** `printInspect` printed the requirement line
+*"Required on the pack — price: expected PKR 1,450 /pack · batch: … · mfg/exp: …"*,
+and the priceSeen verify row printed the figure the inspector read off the bag.
+Both on a sheet that can end up across a counter.
+
+**The fix, and what it keeps.** SPEC-01 rule 6 exists so the sheet is evidence
+of a *comparison* rather than a bare tick, and that stays. What is not needed on
+paper is the amount: the check the inspector performs is *"does this pack carry
+the price this PO authorises"*, and the answer is a **rule**, not a number.
+
+New `printInspectPriceRule(o,l)` states the rule from the policy mode alone:
+
+| mode | printed |
+|---|---|
+| `priced` | a price was required on this pack, per the PO |
+| `noprint` | **no price should appear on this pack** |
+| `list` | the current list price was required |
+| `missing` | this PO prints a price but none is set |
+| unrecorded | not recorded — check the client PO |
+
+The recorded reading now prints as **"☑ recorded"**. The figure itself stays in
+the shipment record and the audit trail.
+
+**`qcExpect()` is deliberately unchanged.** Three callers: `printInspect` (the
+printed sheet — fixed here) and `renderPackInspect` / `renderDispatchQA`, the two
+capture screens the inspector actually works from. Those must keep showing the
+figure to check against; they are screens inside O2S, not paper.
+
+#### A SPEC-06 check had to be superseded — recorded, not quietly edited
+
+`spec06.test.js` carried **"the dossier prints a number instead of an em dash"**,
+which asserted the exact behaviour now removed. It failed, and per this repo's
+own rule the real thing was looked at before the test was blamed.
+
+Its intent, from the code comment it guarded, was: *a recorded reading must not
+show as an em dash*, because an em dash says nothing was read. **That intent is
+kept** — "recorded" is not an em dash — and is still enforced, alongside a new
+check that the figure does not come back. Tahir's ruling supersedes the
+figure-on-paper part of SPEC-06; the rest of SPEC-06 is untouched and its other
+51 checks still pass.
+
+This is the only test in another suite that this session changed.
+
+#### Verification
+
+- Every PO with a recorded inspection re-rendered with **a price forced onto
+  every line** and **a numeric reading forced onto every inspection**:
+  15 sheets, **0 with a price in any form**.
+- All five policy modes driven through the rule function: none emits a figure.
+  Plus a structural check that the function never reads `pol.price` at all, so a
+  mode this snapshot never produces cannot leak either.
+- The requirement line is still on the sheet (*"Required on the pack"*, with the
+  batch and dates), so SPEC-01 rule 6 still holds.
+- `psi.test.js` **123 checks**, `spec06.test.js` **53**, full suite otherwise
+  identical to the untouched baseline.
+
+`o2s/o2s.html`, `o2s/tests/psi.test.js`, `o2s/tests/spec06.test.js`,
+`o2s/tests/README.md` written into `E:\VAN-OP`. **Not pushed.**
+
+**Nothing is now open on the report.** The remaining flagged item is unchanged
+and unrelated: `printCOA` still carries the internal batch as the certificate's
+identity on an accredited form (QCL-FRM-12.03, PNAC) — a decision for Tahir, not
+a defect.

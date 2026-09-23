@@ -101,6 +101,8 @@ const MARKERS = [
   ['function approveCustomer(',            1, 'a new customer is approved first (R9)'],
   /* 2026-09-23p */
   ['function fireLists(',                  1, 'the Firefighter dashboard (P6)'],
+  /* 2026-09-23q */
+  ['function backOfficeManualCard(',       1, 'the Back Office manual (R15)'],
 ];
 
 const [, , mode, freshPath, otherPath] = process.argv;

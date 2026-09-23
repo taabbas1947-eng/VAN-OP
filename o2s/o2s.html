@@ -11,7 +11,7 @@
    a push keeps running the old code with nothing telling anybody. It sat at
    2026-09-04a through this whole day's work; rmqty/psi tests pinned the code,
    nothing pinned this. buildid.test.js now does. */
-var BUILD_ID='2026-09-23p';
+var BUILD_ID='2026-09-23q';
 var CHANGELOG=[
   {ver:'2026-09-04a', date:'2026-09-04', title:"Delivery, DC printing, and a new Reconciliation check", items:[
     "Delivery confirmation stays with Supply Chain \u2014 it no longer hands off to the Plant Manager. If one sits too long, it now re-flags the same Supply Chain owner every 3 days instead.",
@@ -128,6 +128,10 @@ var CHANGELOG=[
   ]},
   {ver:'2026-09-23p', date:'2026-09-23', title:"The Dashboard opens on the Firefighter", items:[
     "The first tab of the Dashboard, and the one everyone lands on, is the Firefighter: delayed orders (worst first), material bottlenecks (what cannot be made until raw material arrives, and why), and shipping holds (every truck waiting on an inspection, a gate pass, a release, a DC approval or a delivery confirmation). Each has a traffic light and an Open button that goes straight to the fix. No money on it."
+  ]},
+  {ver:'2026-09-23q', date:'2026-09-23', title:"The Back Office manual", items:[
+    "Instructions now opens with the Back Office manual: the 3 places, products (brand \u2192 base \u2192 pack \u2192 who buys it), customers and their approval, the budget by channel, roles and access, and the day in one line. The full text is in the repo as docs/O2S Back Office Manual.md.",
+    "On Today, the COO\u2019s Needs me / Whole plant switch sits above the filter chips."
   ]},
 ];
 </script>
@@ -11088,13 +11092,13 @@ function screenToday(){
   h+='<div class="tdwho"><span class="tdav">'+_tdEsc(ini)+'</span><div><div class="n">'+_tdEsc(nm)+'</div><div class="r">'+_tdEsc(tt)+'</div></div></div>';
   if(!hintHidden('today')) h+='<div class="tdhow"><div class="tdhow-h">How this works</div><ol><li>You see only the things waiting on you — nothing else.</li><li>Tap one, do it, press the button. It leaves your list and appears on the next person\'s.</li><li>That is the whole system.</li></ol><button class="tdlink" onclick="dismissHint(\'today\')">Got it</button></div>';
   h+=tdStarts();
+  if(state.role==='COO') h+='<div class="tdscope"><button class="'+(tdScope!=='plant'?'on':'')+'" onclick="tdScope=\'mine\';render()">Needs me</button><button class="'+(tdScope==='plant'?'on':'')+'" onclick="tdScope=\'plant\';render()">Whole plant</button></div>';
   /* a filter by kind of job, only when there is more than one kind */
   var kinds={}; groupsAll.forEach(function(g){ var L=TD_LABEL[g.label]||{title:g.label}; var key=g.key.indexOf('prod:')===0?'Run':L.title; kinds[key]=(kinds[key]||0)+1; });
   var kk=Object.keys(kinds);
   if(kk.length>1){ if(tdFilter && !kinds[tdFilter]) tdFilter='';
     h+='<div class="tdchips"><button class="tdchip'+(tdFilter?'':' on')+'" onclick="tdFilter=\'\';render()">All <span class="k">'+groupsAll.length+'</span></button>'+kk.map(function(k){ return '<button class="tdchip'+(tdFilter===k?' on':'')+'" onclick="tdFilter=\''+_tdEsc(k).replace(/'/g,'')+'\';render()">'+_tdEsc(k)+' <span class="k">'+kinds[k]+'</span></button>'; }).join('')+'</div>'; }
   var groups=tdFilter?groupsAll.filter(function(g){ var L=TD_LABEL[g.label]||{title:g.label}; var key=g.key.indexOf('prod:')===0?'Run':L.title; return key===tdFilter; }):groupsAll;
-  if(state.role==='COO') h+='<div class="tdscope"><button class="'+(tdScope!=='plant'?'on':'')+'" onclick="tdScope=\'mine\';render()">Needs me</button><button class="'+(tdScope==='plant'?'on':'')+'" onclick="tdScope=\'plant\';render()">Whole plant</button></div>';
   if(groups.length){
     /* Your own work first. What was escalated to you because somebody else's
        job stalled comes after it, under its own heading - it is yours to chase,
@@ -11125,6 +11129,20 @@ function screenApprovals(){
     +acGroupSelect()+(isCOO?acRoleSelect():'')
     +'<select onchange="acSort2=this.value;render()"><option value="risk"'+(acSort2==='risk'?' selected':'')+'>Sort: Risk first</option><option value="oldest"'+(acSort2==='oldest'?' selected':'')+'>Sort: Oldest first</option><option value="newest"'+(acSort2==='newest'?' selected':'')+'>Sort: Newest first</option><option value="customer"'+(acSort2==='customer'?' selected':'')+'>Sort: Customer A–Z</option></select></div>';
   $('view').innerHTML='<div class="paperui">'+kpis+tabs+tools+'<div id="ac2list">'+acBodyHTML()+'</div>'+((state.role==='CFO'||isCOO)?financeFeed():'')+'</div>';
+}
+/* THE BACK OFFICE MANUAL - R15, the night of 23 September 2026. The full text is
+   docs/O2S Back Office Manual.md in the repo; this is the same thing, on the
+   screen everyone can open. Plain words. */
+function backOfficeManualCard(){
+  var sec=function(t,body){ return '<details style="border-top:1px solid var(--line2);padding:8px 0"><summary style="cursor:pointer;font-weight:700;font-size:14px">'+t+'</summary><div style="padding:8px 0 4px;font-size:13.5px;line-height:1.55">'+body+'</div></details>'; };
+  return '<div class="card"><h3>Back Office manual <span class="hint">23 September 2026 · COO, CFO, Plant Manager · the rules everyone works by</span></h3>'
+   + sec('1 · The 3 places', '<b>Today</b> \u2014 everyone. The jobs waiting on you, grouped the way the plant does them, one button each. Your own jobs first; what was escalated to you after.<br><b>Report Center</b> \u2014 everyone, read-only: Dashboard (opens on the Firefighter), PO Tracker, Reports. Anything with a money figure is for 4 roles only: COO, CFO, Plant Manager, KAM.<br><b>Back Office</b> \u2014 COO, CFO, Plant Manager: customers, products, budgets, roles & access, people, reconciliation.<br>Production, Lab QC, Pre-shipment QA, Shipments and New PO Entry still hold the forms \u2014 a job on Today opens the right one. The <b>+</b> buttons on Today start what the queue cannot raise by itself, for the people whose rights allow it.')
+   + sec('2 · Products: brand \u2192 base \u2192 pack \u2192 who buys it', '<b>One product master</b> (Admin \u00b7 Master Data \u2192 Business masters \u2192 Products). One row per product:<br>\u2022 <b>Brand</b> \u2014 the name on the bag; what the customer orders (<i>Max Sulfur</i>).<br>\u2022 <b>Base product</b> \u2014 what the plant manufactures in bulk (<i>Sulfur 70%</i>). Several brands share one base. Production runs the BASE; packing makes the BRAND. Recipes, lab templates and batches belong to the base.<br>\u2022 <b>Generic</b> \u2014 the chemistry, as it prints on the COA.<br>\u2022 <b>Pack sizes</b> \u2014 Kg or L per bag or drum; a customer can have its own.<br>\u2022 <b>Sold to</b> \u2014 who may order it. <b>A brand not in this list cannot be ordered.</b><br>Where the old lists disagreed about a base the row says <i>\u201ccatalogue said \u2026 \u2014 settle it\u201d</i>: pick the right base once. A base that is the brand\u2019s own name (\u201cown\u201d) means bulk is made for that brand alone \u2014 right for some, a mistake for others; settle those too. <b>Deactivate, don\u2019t delete</b>: old orders keep the product.')
+   + sec('3 · Customers', 'Finance adds a customer; it is born <b>Pending approval</b>. <b>The CFO approves it</b> (the COO can too) from a job on his Today. Until then it is not offered for an order. Codes follow the customer-code standard; the segment decides the channel. The KAM is a <b>reviewer</b>: sees his accounts and every order, raises nothing. Orders are raised by Finance, the CFO and the COO only.')
+   + sec('4 · Budget: channel, then customer', 'Business masters \u2192 <b>Channel budgets</b> (COO / CFO). Rs, financial year 1 Jul \u2013 30 Jun, monthly split under it.<br>A <b>channel total</b> (White Label, Cobo, Vgreen, Dealer, Distributor, Farmer), then <b>allocated to named clients</b> under it (Client annual / monthly targets), and what is left <b>unallocated</b>.<br><b>Dealer</b> = one segment total; a per-dealer allocation is allowed, not expected. <b>Farmer</b> = one segment total, never per farmer.<br>Sales & Budget (Dashboard \u2192 Financial) opens with the channel table: target, allocated, booked, delivered, %, traffic light.')
+   + sec('5 · Roles and access: roles only', '<b>Every person has one role. The role gives the rights. No per-person exceptions.</b> To change what one person can do, change their role or create a new one.<br>15 roles: COO \u00b7 Plant Manager \u00b7 KAM \u00b7 CFO \u00b7 Finance \u00b7 Finance Desk Officer \u00b7 Production Manager \u00b7 Production \u00b7 QCM \u00b7 AQCM \u00b7 Lab Rep \u00b7 QA Inspector \u00b7 Supply Chain \u00b7 Warehouse \u00b7 Supply Chain Officer.<br>Rights are granted per role in Access control \u2192 Authorisation; screens (view / edit) in the matrix on the same page. A job reaches the role it is addressed to, plus any role holding the live right behind it, plus whoever it was escalated to.<br><b>One login per person.</b> A shared login records every action as the role, not the person.')
+   + sec('6 · The day, in one line', 'Finance raises the order \u2192 Supply Chain acknowledges and checks raw material \u2192 the CFO approves a purchase request if short \u2192 material is received \u2192 Production runs the base and packs the brand \u2192 Lab drafts the COA, AQCM verifies, QCM approves \u2192 QA inspects the lot and the truck \u2192 Supply Chain plans the truck, the warehouse loads and issues the gate pass, Lead Supply Chain releases \u2192 delivery is confirmed.<br>Late? The Plant Manager gives <b>one reason per order</b>. Short? Production Manager or Lead Supply Chain asks to close short; the Plant Manager approves.')
+   + '<div class="muted" style="font-size:11.5px;margin-top:8px">The full manual, with the list of what was found wrong on 23 September and what was done about it: <span class="mono">docs/O2S Back Office Manual.md</span> in the repo.</div></div>';
 }
 function screenInstructions(){
   const steps=[
@@ -11217,6 +11235,7 @@ function screenInstructions(){
      <div style="overflow:auto"><table><thead><tr><th>Role</th><th>Works in</th><th>What it owns / does</th><th>Starts when</th><th>Hands to</th></tr></thead>
        <tbody>${roleGuide.map(r=>`<tr${r.role===state.role?' style="background:var(--navy-50)"':''}><td style="white-space:nowrap"><b>${r.role}</b>${r.role===state.role?' <span class="tag">you</span>':''}</td><td class="muted" style="font-size:11.5px;white-space:nowrap">${r.works}</td><td style="font-size:12.5px;line-height:1.55">${r.own}</td><td class="muted" style="font-size:11.5px">${r.trig}</td><td class="muted" style="font-size:11.5px;white-space:nowrap">${r.hands}</td></tr>`).join('')}</tbody></table></div></div>`;
   $('view').innerHTML=`
+   ${backOfficeManualCard()}
    <div class="banner info"><b>O2S System — how the whole system works.</b> This guide is for <b>everyone</b>, whatever your role or access. One customer order flows from entry to delivery; each role does its part from <b>My Actions</b>, and the <b>PO Tracker</b> shows the whole picture. Start with <b>your role at a glance</b> and the <b>responsibility matrix</b>, then read the steps in order.</div>
    ${youCard}
    ${roleMatrix}

@@ -89,6 +89,13 @@ button{font-family:inherit}
 .nav a .ic svg{width:16px;height:16px;stroke:currentColor;stroke-width:1.9;fill:none;stroke-linecap:round;stroke-linejoin:round;display:block}
 .nav a .cnt{margin-left:auto;font-size:10px;font-weight:700;background:#fff;border:1px solid var(--line);border-radius:6px;padding:1px 6px;color:var(--mut)}
 .side .foot{padding-top:12px;border-top:1px solid var(--line2);margin-top:8px;font-size:11.5px;color:var(--mut);line-height:1.5}
+.gloss{margin-top:10px;font-size:11.5px;color:var(--txt2)}
+.gloss summary{cursor:pointer;font-weight:600;color:var(--mut);padding:6px 9px;border-radius:8px;list-style:none}
+.gloss summary::-webkit-details-marker{display:none}
+.gloss summary::before{content:'? ';color:var(--mut)}
+.gloss[open] summary{color:var(--txt)}
+.gloss .g{padding:5px 9px;line-height:1.45}
+.gloss .g b{display:block;color:var(--txt);font-size:11.5px}
 .side .foot b{display:block;color:var(--txt);font-size:12.5px;font-weight:700}
 .main{flex:1;min-width:0;padding:22px 26px 60px;max-width:1180px}
 .page-h{margin-bottom:16px}
@@ -316,9 +323,25 @@ function shell(inner) {
     '<div class="brand"><img src="/assets/van-logo.png" alt="VAN"><span class="nm">Product<br>Development</span></div>' +
     searchBox +
     '<div class="nav">' + nav + '</div>' +
+    glossary() +
     '<div class="foot"><b>' + esc(me.name) + '</b>' + esc(me.label || 'No PD role') +
       '<div style="margin-top:8px"><a id="signout">Sign out</a> · <a href="/">Platform</a></div></div>' +
     '</div><div class="main">' + inner + '</div></div>';
+}
+/* What the words mean, one line each, always one click away. Tahir ruled the
+   team learns PD's vocabulary; until 23 Sept 2026 nothing on any screen said
+   what a Bet or a Claim was, so the walkthrough was the only place to look.
+   The text comes from the server, the same lines the refiling notices use. */
+function glossary() {
+  var defs = D && D.definitions;
+  if (!defs) return '';
+  var order = ['problem', 'question', 'bet', 'run', 'claim', 'challenge', 'observation', 'request', 'constraint'];
+  var names = { problem: 'Problem', question: 'Question', bet: 'Bet', run: 'Run', claim: 'Claim',
+                challenge: 'Challenge', observation: 'Observation', request: 'Request', constraint: 'Constraint' };
+  return '<details class="gloss"><summary>What the words mean</summary>' +
+    order.filter(function (k) { return defs[k]; }).map(function (k) {
+      return '<div class="g"><b>' + names[k] + '</b>' + esc(defs[k]) + '</div>';
+    }).join('') + '</details>';
 }
 function navLink(id, label, active, count) {
   return '<a href="#' + id + '" class="' + (active === id ? 'active' : '') + '"><span class="ic">' + ICONS[id] + '</span>' +
@@ -387,9 +410,11 @@ function renderIntake() {
       '<button class="btn" id="save">Save it</button>' +
     '</div>';
 
-  var mine = '<div class="card"><h2>Your entries</h2>' +
-    '<p class="hint">Everything you have written down, and where it went.</p>' +
-    (D.mine.length ? D.mine.map(function (x) { return itemCard(x, true); }).join('') : '<div class="empty">You have not written anything down yet. Use the box above to add your first entry. A few sentences is enough.</div>') +
+  /* Five most recent only. Everything a person wrote is on What I owe; this
+     screen used to print the same entry here and again in the filing list. */
+  var mine = '<div class="card"><h2>Your recent entries</h2>' +
+    '<p class="hint">The last five. <a href="#owe">Everything you have written</a> is on What I owe.</p>' +
+    (D.mine.length ? D.mine.slice(0, 5).map(function (x) { return itemCard(x, true); }).join('') : '<div class="empty">You have not written anything down yet. Use the box above to add your first entry. A few sentences is enough.</div>') +
     '</div>';
 
   return '<div class="page-h"><h1>What came in</h1>' +
@@ -411,8 +436,9 @@ function toFileSection() {
   return '<div class="card" style="margin-top:14px"><h2>Waiting to be filed <span class="pill" style="margin-left:6px">' + open.length + '</span></h2>' +
       '<p class="hint">Everything that has come in, oldest first. Give each one a Problem, an owner, or both. No reason is needed, and filing is not a judgement on what somebody wrote.</p>' +
       (open.length ? open.map(fileRow).join('') : '<div class="empty">Nothing is waiting to be filed right now.</div>') + '</div>' +
-    '<div class="card"><h2>Already filed</h2>' +
-      (done.length ? done.map(itemCard).join('') : '<div class="empty">Nothing yet.</div>') + '</div>';
+    '<div class="card"><h2>Filed recently</h2>' +
+      '<p class="hint">The last five. Each one is on its Problem now.</p>' +
+      (done.length ? done.slice(0, 5).map(itemCard).join('') : '<div class="empty">Nothing yet.</div>') + '</div>';
 }
 function door(v, title, sub) {
   return '<button class="door ' + (draftDoor === v ? 'on' : '') + '" data-door="' + v + '"><b>' + esc(title) + '</b><span>' + esc(sub) + '</span></button>';
@@ -444,7 +470,7 @@ function itemCard(x, forAuthor) {
       '<a style="margin-left:auto;font-size:12px" href="#item/' + x.type + '/' + x.id + '">open it</a></div>' +
     '<div class="txt">' + esc(String(x.text || '').slice(0, 400)) + (String(x.text || '').length > 400 ? '…' : '') + '</div>' +
     '<div class="meta">' + (x.author ? esc(x.author) + ' · ' : '') + when(x.created_at) +
-      (x.door_chosen === false ? ' · held as an Observation for now' : '') + '</div>' +
+      (x.door_chosen === false && x.status === 'unsorted' ? ' · held as an Observation for now' : '') + '</div>' +
     (x.waiting_for && !forAuthor ? '<div class="waiting">' + esc(x.waiting_for) + '</div>' : '') +
     '</div>';
 }
@@ -531,54 +557,95 @@ function bindIntake() {
    reason: the moment this can be pointed at somebody else it stops being a
    worklist and becomes a league table, and people stop writing things down.
 --------------------------------------------------------------------------- */
+/* ---------------------------------------------------------------------------
+   "What I owe" — one dated list of things to do (rebuilt 23 September 2026)
+
+   WHAT WAS WRONG. This page used to be five lists, one per object type: Runs
+   waiting on you, Questions you own, Bets you own, sample Requests, entries
+   you wrote. A single Question with one Bet and one Run under it filled all
+   three of the first lists, printed the kill criterion twice and the Question
+   title three times. That is one piece of work. Ten pieces made the landing
+   page unreadable, and this is the first screen all eleven people open.
+
+   WHAT IT IS NOW. One row per thing a person has to DO, in three time
+   buckets: what is late or abnormal, what is coming, and what carries no date.
+   The object type is a small tag on the row instead of a heading over it, and
+   the row leads with the action in plain words ("Record the next reading"),
+   not with the noun. Nobody thinks "I own three Bets". They think "today I
+   have to read R-001 and answer Q-001".
+
+   The writing box now sits at the top of this page. Before, the landing page
+   told a person nothing was waiting on them and then sent them to another
+   screen to begin, which on day one is a new user's entire experience of PD.
+
+   This reads the same payload as before. No route, no permission and no rule
+   changed. §8.1 still holds: this page is only ever about the person asking.
+--------------------------------------------------------------------------- */
+function oweActions(W) {
+  var a = [];
+  (W.runs || []).forEach(function (r) {
+    a.push({ kind: 'Run', label: r.label, link: '#problem/' + r.problem_id,
+      date: r.next_look || null, urgent: !!r.abnormal || !!r.late,
+      act: r.abnormal ? 'Look at this run. Something abnormal was seen.'
+         : r.next_look ? 'Record the next reading.'
+         : 'Say when this run is next read.',
+      about: r.question_title,
+      meta: 'Expected: ' + r.expected });
+  });
+  (W.questions || []).forEach(function (q) {
+    a.push({ kind: 'Question', label: q.label, link: '#problem/' + q.problem_id,
+      date: q.due_date || null, urgent: !!q.late,
+      act: q.state === 'contested' ? 'Two claims disagree. Settle it.' : 'Answer it, then settle it.',
+      about: q.title,
+      meta: q.problem_label + ' · ' + q.problem_title + ' · ' + (q.nature_label || q.nature) +
+            ' · ' + (q.open_bets ? q.open_bets + ' bet' + (q.open_bets === 1 ? '' : 's') + ' running' : 'no bets on it yet') });
+  });
+  (W.bets || []).forEach(function (b) {
+    a.push({ kind: 'Bet', label: b.label, link: '#problem/' + b.problem_id,
+      date: null, urgent: !!(b.all_runs && !b.open_runs),
+      act: (b.all_runs && !b.open_runs) ? 'Every run on it is closed. Decide it: killed or advanced.'
+         : b.open_runs ? 'Decide it once the readings are in.'
+         : 'Make a run on it, or close it.',
+      about: b.question_title,
+      meta: b.approach });
+  });
+  (W.requests || []).forEach(function (r) {
+    a.push({ kind: 'Sample request', label: r.label, link: '#owe',
+      date: r.return_by || null, urgent: !!r.late,
+      act: 'Send the sample.',
+      about: r.requester + ' \u2192 ' + r.recipient,
+      meta: String(r.purpose || '').slice(0, 160) });
+  });
+  a.sort(function (x, y) {
+    if (x.urgent !== y.urgent) return x.urgent ? -1 : 1;
+    if (!x.date && !y.date) return 0;
+    if (!x.date) return 1;
+    if (!y.date) return -1;
+    return String(x.date).localeCompare(String(y.date));
+  });
+  return a;
+}
+
+function actionRow(t) {
+  return '<a class="hit" href="' + esc(t.link) + '">' +
+    '<div class="top"><span class="pill num">' + esc(t.kind) + ' ' + esc(t.label) + '</span>' +
+      (t.date ? '<span class="pill' + (t.urgent ? ' unsorted' : '') + '">' + when(t.date) + '</span>' : '') +
+      (t.urgent && !t.date ? '<span class="pill unsorted">needs deciding</span>' : '') +
+    '</div>' +
+    '<div class="txt"><b>' + esc(t.act) + '</b></div>' +
+    (t.about ? '<div class="meta">' + esc(t.about) + '</div>' : '') +
+    (t.meta ? '<div class="meta">' + esc(String(t.meta).slice(0, 200)) + '</div>' : '') +
+    '</a>';
+}
+
 function renderOwe() {
   var W = D2 || {};
-  var late = function (b) { return b ? ' <span class="pill unsorted">late</span>' : ''; };
-
   var notices = (W.notices || []).filter(function (n) { return !n.seen_at; }).map(noticeCard).join('');
 
-  var runs = (W.runs || []).map(function (r) {
-    return '<div class="item ' + (r.abnormal ? 'flag' : '') + '">' +
-      '<div class="top"><span class="pill num">Run ' + esc(r.label) + '</span>' +
-        (r.abnormal ? '<span class="pill unsorted">something abnormal — look at this one</span>'
-                    : '<span class="pill">running</span>') +
-        (r.next_look ? '<span class="pill' + (r.late ? ' unsorted' : '') + '">next reading ' + when(r.next_look) + (r.late ? ' · past due' : '') + '</span>'
-                     : '<span class="pill unsorted">no next reading set</span>') +
-        '<a style="margin-left:auto;font-size:12px" href="#problem/' + r.problem_id + '">open it</a></div>' +
-      '<div class="meta" style="margin:0 0 5px">This Run answers: ' + esc(r.question_title) + '</div>' +
-      '<div class="txt"><b>Expected:</b> ' + esc(r.expected) + '</div>' +
-      '<div class="kills" style="margin-top:6px"><b>This Bet ends if:</b> ' + esc(r.kill_criterion) + '</div>' +
-      '</div>';
-  }).join('');
-
-  var questions = (W.questions || []).map(function (q) {
-    return '<div class="item"><div class="top"><span class="pill num">Question ' + esc(q.label) + '</span>' +
-      '<span class="pill">' + esc(q.nature_label || q.nature) + '</span>' +
-      '<span class="pill' + (q.state === 'contested' ? ' unsorted' : '') + '">' + esc(q.state_label || q.state) + '</span>' +
-      (q.due_date ? '<span class="pill' + (q.late ? ' unsorted' : '') + '">due ' + when(q.due_date) + '</span>' + late(q.late) : '') +
-      '<a style="margin-left:auto;font-size:12px" href="#problem/' + q.problem_id + '">open it</a></div>' +
-      '<div class="txt"><b>' + esc(q.title) + '</b></div>' +
-      '<div class="meta">' + esc(q.problem_label) + ' · ' + esc(q.problem_title) +
-        ' · ' + (q.open_bets ? q.open_bets + ' bet' + (q.open_bets === 1 ? '' : 's') + ' running' : 'no bets on it yet') + '</div></div>';
-  }).join('');
-
-  var bets = (W.bets || []).map(function (b) {
-    return '<div class="item"><div class="top"><span class="pill num">Bet ' + esc(b.label) + '</span>' +
-      '<span class="pill">' + (b.open_runs ? b.open_runs + ' run' + (b.open_runs === 1 ? '' : 's') + ' open' : b.all_runs ? 'all runs closed — is the bet decided?' : 'no runs yet') + '</span>' +
-      '<a style="margin-left:auto;font-size:12px" href="#problem/' + b.problem_id + '">open it</a></div>' +
-      // B7 — the Question a Bet tests belongs on the Bet, never one click away.
-      // The payload has carried question_title all along; this card dropped it.
-      '<div class="meta" style="margin:0 0 5px">This Bet tests: ' + esc(b.question_title) + '</div>' +
-      '<div class="txt">' + esc(b.approach) + '</div>' +
-      '<div class="kills"><b>This Bet ends if:</b> ' + esc(b.kill_criterion) + '</div></div>';
-  }).join('');
-
-  var requests = (W.requests || []).map(function (r) {
-    return '<div class="item"><div class="top"><span class="pill num">Request ' + esc(r.label) + '</span>' +
-      (r.return_by ? '<span class="pill' + (r.late ? ' unsorted' : '') + '">wanted by ' + when(r.return_by) + '</span>' : '') +
-      '</div><div class="txt">' + esc(r.requester) + ' → ' + esc(r.recipient) + '</div>' +
-      '<div class="meta">' + esc(String(r.purpose || '').slice(0, 160)) + '</div></div>';
-  }).join('');
+  var all = oweActions(W);
+  var now = all.filter(function (t) { return t.urgent; });
+  var soon = all.filter(function (t) { return !t.urgent && t.date; });
+  var undated = all.filter(function (t) { return !t.urgent && !t.date; });
 
   var replies = (W.replies || []).map(function (r) {
     return '<div class="item"><div class="top"><span class="pill">a question back</span></div>' +
@@ -589,37 +656,54 @@ function renderOwe() {
 
   var mine = (W.mine || []).map(function (x) { return itemCard(x, true); }).join('');
 
-  var nothing = !runs && !questions && !bets && !requests;
   var triageCard = W.caps && W.caps.triage ?
     '<div class="card"><h2>Waiting to be filed <span class="pill" style="margin-left:6px">' + (W.toFile || 0) + '</span></h2>' +
       '<p class="hint">Entries that have come in and do not yet have a Problem and an owner. Filing one takes a few seconds.</p>' +
       (W.toFile ? '<a class="btn ghost sm" href="#intake">Go and file them</a>'
                 : '<div class="empty">Nothing is waiting to be filed right now.</div>') + '</div>' : '';
 
+  /* The box that used to be on another screen. A person who opens PD with
+     something in their head can write it here without going anywhere. */
+  var writeCard = '<div class="card"><h2>Write something down</h2>' +
+    '<p class="hint">Anything that happened, arrived or was asked for. One minute is enough, and you do not have to know what kind of thing it is. ' +
+    'Someone files it afterwards. <a href="#intake">The full form</a> lets you say who reported it.</p>' +
+    '<div class="field"><textarea id="owe_write" style="min-height:74px" placeholder="A dealer said… / A sample turned up from… / Someone wants…"></textarea></div>' +
+    '<button class="btn" id="owe_save">Save it</button></div>';
+
   return '<div class="page-h"><h1>What I owe</h1>' +
-      '<div class="sub">Everything that is yours: the Questions you own, the Runs waiting on a reading, the Bets that need deciding. Nobody else sees this page, and there is no version of it pointed at anyone else.</div></div>' +
-    flashHtml() + notices +
-    (nothing ?
+      '<div class="sub">Everything that is yours, in the order it falls due. Nobody else sees this page, and there is no version of it pointed at anyone else.</div></div>' +
+    flashHtml() + notices + writeCard +
+    (now.length ? '<div class="card"><h2>Needs you now <span class="pill" style="margin-left:6px">' + now.length + '</span></h2>' +
+      '<p class="hint">Past its date, or something abnormal was seen.</p>' + now.map(actionRow).join('') + '</div>' : '') +
+    (soon.length ? '<div class="card"><h2>Coming up <span class="pill" style="margin-left:6px">' + soon.length + '</span></h2>' +
+      '<p class="hint">Soonest first.</p>' + soon.map(actionRow).join('') + '</div>' : '') +
+    (undated.length ? '<div class="card"><h2>No date on it <span class="pill" style="margin-left:6px">' + undated.length + '</span></h2>' +
+      '<p class="hint">Nothing is chasing these. They wait until you decide.</p>' + undated.map(actionRow).join('') + '</div>' : '') +
+    (all.length ? '' :
       '<div class="card"><h2>Nothing is waiting on you</h2>' +
-        '<p class="hint">When you write a Question, take a Bet or start a Run, it appears here with what it needs next. ' +
-        'If you have something to write down, <a href="#intake">start at What came in</a>.</p></div>' : '') +
-    (runs ? '<div class="card"><h2>Runs waiting on you <span class="pill" style="margin-left:6px">' + W.runs.length + '</span></h2>' +
-      '<p class="hint">A Run is one recipe made and measured. A long trial is active monitoring, so what falls due is the next reading — not the trial.</p>' + runs + '</div>' : '') +
-    (questions ? '<div class="card"><h2>Questions you own <span class="pill" style="margin-left:6px">' + W.questions.length + '</span></h2>' +
-      '<p class="hint">A Question is something we must know in order to solve a Problem. It is settled when you write the answer.</p>' + questions + '</div>' : '') +
-    (bets ? '<div class="card"><h2>Bets you own <span class="pill" style="margin-left:6px">' + W.bets.length + '</span></h2>' +
-      '<p class="hint">A Bet is one approach, with the result that would end it written down first. Closing one — killed or advanced — is a result either way.</p>' + bets + '</div>' : '') +
-    (requests ? '<div class="card"><h2>Sample requests waiting on you</h2>' +
-      '<p class="hint">Somebody outside PD is expecting these.</p>' + requests + '</div>' : '') +
+        '<p class="hint">When you write a Question, take a Bet or start a Run, it appears here with what it needs next, soonest first.</p></div>') +
+    triageCard +
     (replies ? '<div class="card"><h2>Someone answered back</h2>' +
       '<p class="hint">You filed something of theirs, and they have said what they meant.</p>' + replies + '</div>' : '') +
-    triageCard +
     '<div class="card"><h2>What you have written down</h2>' +
       '<p class="hint">Everything you put through the door, and where it went.</p>' +
-      (mine || '<div class="empty">You have not written anything down yet. <a href="#intake">Start here</a> — a few sentences is enough.</div>') +
+      (mine || '<div class="empty">You have not written anything down yet. The box at the top of this page is the place to start.</div>') +
     '</div>';
 }
 function bindOwe() {
+  /* The write box on the landing page. Same endpoint as What came in, with no
+     door picked — triage decides, exactly as it does for the full form. */
+  if ($('owe_save')) $('owe_save').onclick = async function () {
+    var t = ($('owe_write').value || '').trim();
+    if (t.length < 15) { flash('bad', 'Write a sentence or two, so the person who files it knows what happened.'); paint(); return; }
+    $('owe_save').disabled = true;
+    try {
+      var r = await api('/api/pd/intake', 'POST', { text: t, door: '', reported_by_name: '' });
+      clearDraft();
+      flash('ok', 'Saved as ' + r.label + '. Someone will file it against a Problem.');
+      await load();
+    } catch (e) { flash('bad', e.message); $('owe_save').disabled = false; paint(); }
+  };
   Array.prototype.forEach.call(document.querySelectorAll('[data-reply]'), function (a) {
     a.onclick = async function () {
       var t = prompt('What did you mean? This goes back to the person who filed it, as a question.');
@@ -1040,7 +1124,11 @@ function runCard(r, b) {
 
 /* ---- the inline forms ---- */
 function natureOptions() {
-  return Object.keys(dossier.vocab.natures).map(function (k) {
+  /* No discipline is pre-selected. This box used to open on "Agronomy", so
+     a Question saved in a hurry was labelled agronomy whatever it was — and
+     the discipline filter built in September then filled with wrong answers.
+     The server refuses a Question with no discipline; the screen now agrees. */
+  return '<option value="">— pick one —</option>' + Object.keys(dossier.vocab.natures).map(function (k) {
     return '<option value="' + k + '">' + esc(dossier.vocab.natures[k]) + '</option>';
   }).join('');
 }

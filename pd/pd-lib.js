@@ -31,7 +31,11 @@
  * ------------------------------------------------------------------------- */
 
 /* ---- Problem's permanent number (inc/db.php fmt_p, unchanged) ---- */
-const fmt_p = n => 'P-' + String(n).padStart(2, '0');
+/* Three digits, like every other permanent number. Until 23 Sept 2026 this
+   was P-01 against Q-001, B-001, R-001, O-001 — two formats for numbers that
+   people write on bags and lab sheets. A stored number is unchanged by this;
+   only its printed form is. */
+const fmt_p = n => 'P-' + String(n).padStart(3, '0');
 
 /* PD role vocabulary. Deliberately separate from O2S's own role vocabulary —
    a person's O2S role and PD role are two independent attributes of the same
@@ -315,7 +319,7 @@ const QUESTION_STATES = {
   settled: 'Settled — we have an answer we stand behind',
 };
 const BET_STATUSES = {
-  active: 'Running',
+  active: 'Open',  // was "Running" — a Bet read RUNNING before its first Run existed (23 Sept 2026)
   killed: 'Killed — the kill criterion was met',
   advanced: 'Advanced — it earned the next step',
 };

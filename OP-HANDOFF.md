@@ -5111,3 +5111,112 @@ Prerequisite for any of it: put the six missing codes into `RIGHTS` so the five
 separation rules can fire at all, and gate `coaSubmitAnalyst`.
 
 Nothing built this pass, by instruction.
+
+---
+
+## 23 September 2026 — MODULE: PD — 007 applied locally, the app used end to end, and the landing page rebuilt around actions
+
+### The rule that now governs migrations
+
+Tahir's ruling, recorded in `CLAUDE.md` §2 the same day: **every migration and
+every test runs against the LOCAL database first. Production is applied by
+hand, later, at his choosing.** A migration is finished when it is applied
+locally and the file is in the repo. Never press for the production run as
+the next step.
+
+Under that rule, **007 is done.** Applied to local `van_platform` through
+phpMyAdmin (Claude drove the browser; Tahir opened it). The row is named
+`plant-wide`, not the longer em-dash name written on 11 September: a non-ASCII
+character typed through a browser is one more thing that can arrive wrong, and
+nothing in the code reads the name (pd-lib.js matches on id 90). Both
+`007_plant_wide_context.sql` and `STATE-CHECK.sql` were changed to match.
+Local register now holds ids 1–6 and 90.
+
+Production has 002–006 (per the 11 Sept record) and not 007. That is correct
+under the rule and nothing is waiting on it.
+
+### The app, used rather than looked at
+
+Signed in as COO on `localhost:3000/pd`, the empty screens were walked, then
+one real case was written from the door to a recorded reading:
+
+    O-001 (ash arrived) → P-01 (product concept) → filed, owner QCM
+    → Q-001 chemistry, due 15 Oct → B-001 water leach, kill criterion
+    → R-001 → abnormal reading, K2O 1.8% → Run moved to investigation
+    → What I owe showed 1
+
+**No defect at any step.** The A1 discipline filter and the B2 plant-wide
+exclusion were both confirmed live. These records stay in the local database.
+
+### Nine findings, and the one that mattered
+
+Written up on a private page for Tahir ("PD Before Launch"). In short:
+
+  - **What I owe was five lists, one per object type.** One Question with one
+    Bet and one Run filled three of them, printed the kill criterion twice and
+    the Question title three times. That is one unit of work on the screen
+    every user opens first.
+  - The discipline box on the Question form opened on **Agronomy**, so a
+    Question saved in a hurry was labelled agronomy whatever it was — the same
+    objection Tahir accepted when he rejected a pre-filled owner (A2).
+  - `P-01` against `O-001`, `Q-001`, `B-001`, `R-001`.
+  - Nothing on any screen defined Problem, Question, Bet, Run or Claim.
+  - A Run has one field (expected). Nowhere to record what was mixed. The
+    Report already names this gap.
+  - The same entry printed twice on the intake screen for a triage user.
+  - "held as an Observation for now" still showed after the entry was filed.
+  - A Bet read RUNNING before its first Run existed.
+  - **One finding was WRONG and is withdrawn:** "Who reported it" is not
+    pre-filled with the user's name. It is a placeholder, shown grey. Misread
+    from the screenshot.
+
+### The Council
+
+Tahir asked for a five-reviewer acceptability review. Run as the Council
+(five adversarial lenses, one verdict). Where they agreed independently: the
+landing page gave nothing back and sent a person elsewhere to begin; PD has
+to sit inside a moment that already exists (the sample request) or it is extra
+typing; the vocabulary is a barrier on entry and an asset later, so teach it in
+place. The Outsider's catch: "Bet" reads as gambling to a plant chemist, and
+"What I owe" reads as a debt. Verdict: ship the small changes, open with
+three people before eleven.
+
+### Built, in `pd/pd.html`, `pd/pd-lib.js`, `pd/pd-routes.js`
+
+  - **What I owe rebuilt as one dated list of actions.** Three time buckets:
+    *Needs you now* (late or abnormal), *Coming up* (dated), *No date on it*.
+    Each row leads with the action in plain words ("Record the next reading",
+    "Decide it once the readings are in"), the object type is a tag, the
+    permanent number is on the row. Reads the same `/api/pd/mywork` payload.
+    No route, permission or rule changed. §8.1 holds.
+  - **A write box on the landing page.** Same `POST /api/pd/intake` as the
+    full form, no door picked, triage decides. Verified: an entry saved from
+    there became O-002 and appeared in the filing queue.
+  - **The discipline box opens on "— pick one —".** The server already
+    refused a Question with no discipline; the screen now agrees.
+  - **`fmt_p` pads to three digits.** P-001. Stored numbers unchanged.
+  - **A Bet's open status reads "Open"**, not "Running".
+  - **A glossary in the sidebar**, `<details>` under the nav, fed by
+    `definitions` now sent in the `/api/pd/intake` payload from
+    `OBJECT_DEFINITIONS`. One line per object, always one click away.
+  - "held as an Observation for now" shows only while the entry is unsorted.
+  - Intake screen: "Your entries" and "Already filed" capped at the five most
+    recent and retitled, since everything a person wrote is on What I owe.
+
+**Verified live on the running app:** the rebuilt landing page, the write box,
+the nature placeholder, the stale line. **Not yet visible: P-001, "Open", and
+the glossary** — they live in `pd-lib.js` and `pd-routes.js`, which Node loads
+at boot. They show after the local server is restarted.
+
+**Not run:** the five test suites. Still 408/0 from 10 September. The
+Council's Executor would say: three people on Monday finds more than the
+suites will.
+
+### What I could not check
+
+The non-lead view. Only COO can be signed in from here, since Claude does not
+enter passwords. Four of the twelve are not leads and they decide adoption.
+
+Nothing pushed. Local changes: `pd/pd.html`, `pd/pd-lib.js`,
+`pd/pd-routes.js`, `pd/migrations/007_plant_wide_context.sql`,
+`pd/migrations/STATE-CHECK.sql`, `CLAUDE.md`, this file.

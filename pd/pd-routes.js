@@ -561,7 +561,11 @@ app.get('/api/pd/intake', auth, pdAuth, pdSurface('intake'), async (req, res) =>
     const me = req.pdUser, triage = mayTriage(me.pd_role);
     /* No `notices` key: this route must never carry one. See the note further
        down — delivery is what marks a notice seen, and this screen shows none. */
-    const out = { mine: [], feed: [], problems: [], people: [] };
+    const out = { mine: [], feed: [], problems: [], people: [],
+      /* The nine one-line definitions, so the screen can show what its own
+         words mean where they are used (23 Sept 2026). Same text the refiling
+         notices use, from one place. */
+      definitions: pd.OBJECT_DEFINITIONS };
 
     for (const type of Object.keys(DOOR_TABLES)) {
       const d = DOOR_TABLES[type];

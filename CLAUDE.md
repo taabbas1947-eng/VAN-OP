@@ -117,6 +117,16 @@ into the PD rebuild; it is removed from `docs/pd-model/REUSE-RULES.md` §2's
 whitelist. Record: `docs/pd-model/PENDING-DECISIONS.md` §D.
 
 **Never push.** Build and verify locally, then say "ready to push (not pushed)".
+
+**Migrations: local database first, production by hand, later — Tahir's rule,
+23 September 2026.** Every migration and every test runs against the LOCAL
+database (`van_platform` on his XAMPP) until that work is finished and checked.
+Only then does Tahir apply the same migration to production by hand, at a
+moment of his choosing. So: never treat a migration as incomplete because
+production has not had it yet, never press for the production run as the next
+step, and never ask him to open cPanel mid-task. A migration written this
+session is "done" when it is applied locally and the file is in the repo.
+Production is a separate, later, human decision.
 Tahir pushes with GitHub Desktop.
 
 ---

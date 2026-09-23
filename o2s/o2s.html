@@ -11,7 +11,7 @@
    a push keeps running the old code with nothing telling anybody. It sat at
    2026-09-04a through this whole day's work; rmqty/psi tests pinned the code,
    nothing pinned this. buildid.test.js now does. */
-var BUILD_ID='2026-09-23e';
+var BUILD_ID='2026-09-23f';
 var CHANGELOG=[
   {ver:'2026-09-04a', date:'2026-09-04', title:"Delivery, DC printing, and a new Reconciliation check", items:[
     "Delivery confirmation stays with Supply Chain \u2014 it no longer hands off to the Plant Manager. If one sits too long, it now re-flags the same Supply Chain owner every 3 days instead.",
@@ -66,6 +66,14 @@ var CHANGELOG=[
     "The quantities are the ones frozen at the moment the close was approved, so a report run next year still shows the decision as it was made.",
     "A close that was later reopened still appears, marked Reopened, with a zero shortfall and its quantity in a separate column \u2014 so adding up the shortfall column is right without having to filter anything first.",
     "Reports is now open to every role.",
+  ]},
+  {ver:'2026-09-23f', date:'2026-09-23', title:"Job titles, on the signatures and in Users & Access", items:[
+    "People now have a job title as well as a role. The role decides which buttons you get; the title is what you are called \u2014 on screen and on a signature.",
+    "The COA signature block now prints the real titles: QC Analyst, Senior QC Analyst and Lead Quality Control, instead of \u201cAssistant Analyst/Analyst\u201d, \u201cAQCM\u201d and \u201cQCM\u201d. The verification signature is now visibly different from the four analysts', which is the point of it.",
+    "Users & Access has a new \u201cTitle (signs as)\u201d column. Where somebody has a title of their own rather than their role's, it says so.",
+    "Two people have their own title today: Ali Raza signs as Production Associate though he holds the same role as Jawad Naseer, and Muhammad Ali signs as Chief Commercial Officer though he holds KAM.",
+    "Admin \u2192 Roles now shows what each role signs as, underneath its name.",
+    "Nothing about access changed. Every permission is still decided on the role, exactly as before.",
   ]},
 ];
 </script>
@@ -2705,6 +2713,77 @@ var ROLE_DEPT={ 'kam':'commercial', 'supply-chain':'supply-chain',
   'lab-rep':'quality', 'aqcm':'quality', 'qcm':'quality', 'qa-inspector':'quality',
   'plant-manager':'leadership', 'cfo':'finance', 'finance':'finance', 'coo':'leadership' };
 
+/* ===================== JOB TITLES, SEPARATE FROM ROLE NAMES =====================
+   Tahir, 23 September 2026, asked as a direct question and answered: HR's titles
+   reach the app as a TITLE ON THE ROLE. The code's own role names do not change.
+
+   The number behind that ruling: the ten built-in role names are spelled out as
+   523 string literals in this file - SCREENS.owners, RIGHTS[].legacy,
+   FIELD_OWNER and 32 name-matched canEdit gates. A rename that misses one leaves
+   a person listed as having access while every button refuses him, silently,
+   with nothing logged. A title layer touches none of it.
+
+   He had already ruled this shape once without naming it: C11 says Masab Rasheed
+   signs a COA as "Senior QC Analyst" while his role stays AQCM.
+
+   THREE LAYERS, read in this order by personTitle():
+     masters.userTitles[username]  one person's own title
+     masters.roleTitles[role]      the COO's override of the default
+     ROLE_TITLE[role]              the default, below
+     the role's own name           so nothing is ever blank
+
+   The person layer is not decoration. HR gives Ali Raza "Production Associate"
+   and Jawad Naseer "Production Officer", and Tahir ruled they hold ONE role with
+   two titles; Muhammad Ali holds KAM like Irfan but is Chief Commercial Officer
+   on paper. A role-level title alone cannot say either of those things.
+
+   A TITLE IS NEVER A JOIN KEY. Access is decided on the role name, everywhere,
+   exactly as before. The day a title is compared to decide what somebody may do,
+   there are two authority tables and only one of them is tested. tests/
+   roletitles.test.js asserts that no gate consults a title and that these three
+   functions cannot grant anything. */
+var ROLE_TITLE={
+  'COO':'COO',                                  /* Tahir Abbas */
+  'CFO':'CFO',                                  /* Yawar Hussain */
+  'Plant Manager':'Plant Manager',              /* Muhammad Faheem Asghar */
+  'KAM':'KAM',                                  /* Muhammad Irfan - read-only reviewer, C9 */
+  'Production Manager':'Lead Planning & Production',  /* Abdul Majid */
+  'Production':'Production Officer',            /* Jawad Naseer; Ali Raza is titled per person */
+  'QCM':'Lead Quality Control',                 /* Himayat Hussain - C11 */
+  'AQCM':'Senior QC Analyst',                   /* Masab Rasheed - C11 */
+  'Lab Rep':'QC Analyst',                       /* Mursleen, Mubeen, Abdullah, Awais - C11 */
+  'QA Inspector':'QA Officer',                  /* Muhammad Ehtisham, Muhammad Asif - C10 */
+  'Supply Chain':'Lead Supply Chain',           /* Saad Jamal */
+  'Supply Chain Officer':'Warehouse Assistant', /* Zain Ghaffar */
+  'Finance':'Invoicing Officer',                /* Muhammad Ismaeel */
+  'Finance Desk Officer':'Procurement Accountant' /* Abdul Basit Khan */
+};
+/* HR's sheet is authoritative for the titles above. Where a title differs per
+   person rather than per role, it is seeded here by username - these two are the
+   only such cases today, and both were ruled on 23 September. */
+var USER_TITLE={ 'aliraza':'Production Associate', 'mali':'Chief Commercial Officer' };
+function roleTitle(role){ var r=String(role||'');
+  try{ var o=(state.masters&&state.masters.roleTitles)||{}; if(o[r]) return o[r]; }catch(e){}
+  return ROLE_TITLE[r]||r; }
+function personTitle(username,role){
+  try{ var u=(state.masters&&state.masters.userTitles)||{}; var k=String(username||'');
+       if(k&&u[k]) return u[k]; }catch(e){}
+  return roleTitle(role); }
+/* The title to print under a signature: the signer's own where the block was
+   signed, the function's where it was not, so an unsigned COA still says what
+   the missing signature is FOR. */
+function sigTitle(sig,role){ return personTitle((sig&&sig.user)||'', (sig&&sig.role)||role); }
+/* Fills the defaults once and never again. It re-runs for any role added to the
+   code later, so an install seeded in August picks up a role added in September,
+   but it never touches a title the COO has set. */
+function seedTitlesV1(s){
+  if(!s.masters) s.masters={};
+  var rt=s.masters.roleTitles=s.masters.roleTitles||{};
+  Object.keys(ROLE_TITLE).forEach(function(k){ if(rt[k]===undefined) rt[k]=ROLE_TITLE[k]; });
+  var ut=s.masters.userTitles=s.masters.userTitles||{};
+  Object.keys(USER_TITLE).forEach(function(k){ if(ut[k]===undefined) ut[k]=USER_TITLE[k]; });
+}
+
 /* THE CATALOGUE. Only rights that a real gate actually asks for appear here —
    a right nobody asks for is a promise the app does not keep, and it would show
    in the panel as if it meant something. Departments are converted one at a
@@ -3050,6 +3129,7 @@ function seedDeptRightsV1(s){
   if(!s.masters) s.masters={};
   if(!Array.isArray(s.masters.departments) || !s.masters.departments.length){
     s.masters.departments=DEPTS.map(function(d){ return {id:d.id,name:d.name,leadRoleId:d.lead,builtin:!!d.builtin,archived:false}; });
+    try{ seedTitlesV1(s); }catch(e){}
   }
   (s.masters.roles||[]).forEach(function(r){ if(r && !r.deptId && ROLE_DEPT[r.id]) r.deptId=ROLE_DEPT[r.id]; });
   s.masters.roleRights=s.masters.roleRights||{};
@@ -6959,7 +7039,7 @@ function renderCOAModal(){ const b=(state.batches||[]).find(x=>x.id===coaForm.bi
        ${coaForm.deviation?`<div style="margin-top:5px;color:#c0392b"><b>Deviation accepted by Plant Manager${coaForm.deviationBy?(' — '+coaEsc(coaForm.deviationBy.name)+', '+coaEsc(coaForm.deviationBy.date)):''}:</b> ${coaEsc(coaForm.deviationNote||'')}</div>`:''}
        ${coaForm.rejected?`<div style="margin-top:5px;color:#b8860b"><b>Last rejection:</b> ${coaEsc(coaForm.rejected.why||'')} (${coaEsc(coaForm.rejected.by||'')}, ${coaEsc(coaForm.rejected.date||'')})</div>`:''}
      </div>
-     <div class="signs">${sign('Analysed By','Assistant Analyst/Analyst',coaForm.analyst,!ro)}${sign('Reviewed By','AQCM',coaForm.reviewer,false)}${sign('Approved By','QCM',coaForm.approver,false)}</div>
+     <div class="signs">${sign('Analysed By',sigTitle(coaForm.analyst,'Lab Rep'),coaForm.analyst,!ro)}${sign('Reviewed By',sigTitle(coaForm.reviewer,'AQCM'),coaForm.reviewer,false)}${sign('Approved By',sigTitle(coaForm.approver,'QCM'),coaForm.approver,false)}</div>
      <div class="endrep">-------------------END OF REPORT-------------------</div>
    </div></div>`;
   el.classList.add('open'); }
@@ -8416,9 +8496,9 @@ function printCOA(bid,lid,histIdx){ const ctx=coaCtx(bid,lid); const b=ctx.b, h=
      <div>Sample Quantity: <b>${e(c.sampleQty)}</b></div><div>Date of Test: <b>${e(c.dateOfTest)}</b></div><div>Humidity %: <b>${e(c.humidity)}</b></div></div></div>
    <table><thead><tr><th>Test</th><th>Specs</th><th>Results</th><th>Methods</th><th>MU (%)</th><th>Remarks</th></tr></thead><tbody>${trows}</tbody></table>
    <div class="disc"><h4>Report Disclaimer</h4><ol>${disc.map(x=>`<li>${e(x)}</li>`).join('')}</ol><div class="r"><b>MU Stand for:</b> Measurement of Uncertainty.</div><div class="r"><b>Decision Rule:</b> If the sum of the result and uncertainty is more than the specified/claimed/permissible limit, the sample will be declared as OK and vice versa.</div>${c.deviation?`<div class="r" style="color:#c0392b"><b>Deviation accepted by Plant Manager:</b> ${e(c.deviationNote)}</div>`:''}</div>
-   <div class="signs"><div class="s"><div class="nm">${sigName(c.analyst)}</div><div class="role"><b>Analysed By</b><br>Assistant Analyst/Analyst</div><div class="dt">Date: ${e(c.analyst&&c.analyst.date)}</div></div>
-     <div class="s"><div class="nm">${sigName(c.reviewer)}</div><div class="role"><b>Reviewed By</b><br>AQCM</div><div class="dt">Date: ${e(c.reviewer&&c.reviewer.date)}</div></div>
-     <div class="s"><div class="nm">${sigName(c.approver)}</div><div class="role"><b>Approved By</b><br>QCM</div><div class="dt">Date: ${e(c.approver&&c.approver.date)}</div></div></div>
+   <div class="signs"><div class="s"><div class="nm">${sigName(c.analyst)}</div><div class="role"><b>Analysed By</b><br>${e(sigTitle(c.analyst,'Lab Rep'))}</div><div class="dt">Date: ${e(c.analyst&&c.analyst.date)}</div></div>
+     <div class="s"><div class="nm">${sigName(c.reviewer)}</div><div class="role"><b>Reviewed By</b><br>${e(sigTitle(c.reviewer,'AQCM'))}</div><div class="dt">Date: ${e(c.reviewer&&c.reviewer.date)}</div></div>
+     <div class="s"><div class="nm">${sigName(c.approver)}</div><div class="role"><b>Approved By</b><br>${e(sigTitle(c.approver,'QCM'))}</div><div class="dt">Date: ${e(c.approver&&c.approver.date)}</div></div></div>
    <div class="sysnote">This is a <b>system-generated report</b>. It is electronically prepared, reviewed and approved within the VAN QC system (Analyst &rarr; AQCM &rarr; QCM), <b>access-controlled and audit-logged</b>. It is <b>valid without manual verification or a physical signature</b>.</div>
    <div class="end">-------------------END OF REPORT-------------------<br>Overall: <b>${e(c.overall||'')}</b></div>
   </div></body></html>`;
@@ -10843,6 +10923,7 @@ function reconcileShipLotsV1(s){ if(!s||s._shipReconV1) return; var fixed=0;
    COO edits; touches only masters.byproductRules. */
 function seedRolesV1(s){
   if(!s.masters) s.masters={};
+  try{ seedTitlesV1(s); }catch(e){}   /* so titles exist wherever roles do */
   if(!Array.isArray(s.masters.roles) || !s.masters.roles.length){
     var src=(typeof SEED!=='undefined'&&SEED.roles)||[];
     s.masters.roles=src.map(function(name){ return {id:String(name).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,''), name:name, builtin:true, archived:false}; });
@@ -12478,7 +12559,9 @@ function _roleById(id){ return ((state.masters&&state.masters.roles)||[]).find(f
 function rolesCard(){ var isCOO=state.role==='COO'; var roles=(state.masters&&state.masters.roles)||[];
   var row=function(r){ var badge=r.builtin?'<span class="pill" style="background:var(--navy-50);color:var(--navy);font-size:9px">Built-in</span>':'<span class="pill" style="background:#e7f6ec;color:var(--green2);font-size:9px">Custom</span>'; var arch=r.archived?' <span class="pill" style="background:#f1f3f5;color:var(--mut);font-size:9px">Archived</span>':''; var acts='';
     if(isCOO){ if(r.builtin){ acts='<span class="muted" style="font-size:10.5px">wired in code — locked</span>'; } else if(r.archived){ acts='<button class="sm ghost" onclick="restoreRole(\''+r.id+'\')">Restore</button>'; } else { acts='<button class="sm ghost" onclick="renameRole(\''+r.id+'\')">Rename</button> <button class="sm ghost" style="color:var(--amber)" onclick="archiveRole(\''+r.id+'\')">Archive</button>'; } }
+    var _t=roleTitle(r.name);
     return '<tr><td style="padding:6px 4px"><b>'+_pe(r.name)+'</b> '
+      +(_t&&_t!==r.name?'<span class="muted" style="font-size:10.5px">signs as \u201c'+_pe(_t)+'\u201d</span> ':'')
       +'<span class="muted" style="font-size:10px">'+_pe((deptById(roleDeptId(r.name))||{}).name||'no department')+'</span> '+badge+arch+'</td><td style="text-align:right;padding:6px 4px">'+acts+'</td></tr>'; };
   return acard('rolesmaster','Roles','define who exists · '+roles.filter(function(r){return !r.archived;}).length+' active',
     '<div class="muted" style="font-size:12px;margin-bottom:10px">Add a custom role (e.g. Accounts Officer), then grant it access per screen in the <b>Access control matrix</b> below. New roles are <b>locked out of Admin / Users / Data Fix</b> by default and view-only elsewhere until you grant edit. <b>Built-in roles are wired into the workflow and can’t be renamed or archived. COO is permanent.</b></div>'+
@@ -13849,7 +13932,7 @@ function paintUsers(){
      <div class="fld"><label>Password</label><input type="password" value="${uForm.password}" oninput="uForm.password=this.value" placeholder="set a password"></div>
      <div class="fld"><label>Role</label><select onchange="uForm.role=this.value">${rolesList().map(r=>`<option ${r===uForm.role?'selected':''}>${r}</option>`).join('')}</select></div>
    </div><button class="green" style="margin-top:13px" onclick="addUser()">Add person</button></div>
-   <div class="card"><h3>People <span class="hint">${us.length} accounts</span></h3><div style="overflow:auto"><table><thead><tr><th>Name</th><th>Username</th><th>Role</th><th class="ctr">Actions</th></tr></thead><tbody>${us.map(u=>`<tr><td><b>${u.name}</b>${u.username===me?' <span class="pill" style="background:var(--navy-50);color:var(--navy)">you</span>':''}</td><td>${u.username}</td><td>${u.role}</td><td class="ctr"><button class="sm ghost" onclick="openEditUser('${u.username}')">Edit</button> <button class="sm ghost" onclick="delUser('${u.username}')">Delete</button></td></tr>`).join('')}</tbody></table></div></div>`;
+   <div class="card"><h3>People <span class="hint">${us.length} accounts</span></h3><div style="overflow:auto"><table><thead><tr><th>Name</th><th>Username</th><th>Title (signs as)</th><th>Role</th><th class="ctr">Actions</th></tr></thead><tbody>${us.map(u=>`<tr><td><b>${u.name}</b>${u.username===me?' <span class="pill" style="background:var(--navy-50);color:var(--navy)">you</span>':''}</td><td>${u.username}</td><td>${personTitle(u.username,u.role)}${personTitle(u.username,u.role)!==roleTitle(u.role)?' <span class="pill" style="background:var(--navy-50);color:var(--navy);font-size:9px">own title</span>':''}</td><td class="muted">${u.role}</td><td class="ctr"><button class="sm ghost" onclick="openEditUser('${u.username}')">Edit</button> <button class="sm ghost" onclick="delUser('${u.username}')">Delete</button></td></tr>`).join('')}</tbody></table></div></div>`;
 }
 async function addUser(){ if(!screenEditOK('users')){toast('You need Edit access to Users & Access');return;} const n=(uForm.name||'').trim(), u=(uForm.username||'').trim().toLowerCase(), p=uForm.password||'';
   if(!n||!u||!p){toast('Name, username and password are all required');return;}

@@ -28,11 +28,13 @@ node o2s/tests/closedshortbucket.test.js
                                    #       what "open" means once it exists
 node o2s/tests/shortclosereport.test.js
                                    #  68 - shortfall by reason and by month
+node o2s/tests/roletitles.test.js  #  52 - job titles, and that a title is never
+                                   #       allowed to become a join key
 ```
 
-**785 checks in the suites listed above.** Running every `*.test.js` in this
+**837 checks in the suites listed above.** Running every `*.test.js` in this
 folder together, with `data/state.json` and both `_before-*.html` fixtures in
-place, gives **7,646**. Exit code 0 means all passing. No dependencies, no build step,
+place, gives **7,698**. Exit code 0 means all passing. No dependencies, no build step,
 Node only.
 
 ## How they work
@@ -254,3 +256,17 @@ but its quantity sits in a separate `reopened` measure and its `shortfall` is
 zero. That way summing the shortfall column with no filter applied is correct.
 A report whose headline number is only right once you remember to exclude
 something is a report that will be quoted wrong.
+
+**Assert a literal's absence across the whole file, not a window.** The check
+that the COA had stopped printing `AQCM` read 1400 characters from the first
+`<div class="signs">`. There are **five** signature blocks in `o2s.html` and two
+of them render a COA — the printed document and the on-screen form. The window
+saw one, so the form kept the old literals and the suite went green on half the
+change. A string that should exist nowhere is asserted nowhere.
+
+**Test that the new thing cannot become an authority.** `roletitles.test.js`
+spends its last section proving a negative: no gate consults a title, and the
+title functions cannot grant anything. The layer's whole safety rests on titles
+being display-only, and that is not something the feature's own checks would ever
+notice going wrong — a title used as a join key would pass every functional test
+in the file while quietly creating a second authority table nobody tests.

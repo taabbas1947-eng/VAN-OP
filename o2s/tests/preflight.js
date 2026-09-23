@@ -58,6 +58,13 @@ const MARKERS = [
   ['function aggOpen(',                    1, 'fulfilment without closed lines'],
   ['DELIBERATELY not short-close aware',   1, 'cleared stock still ships'],
   ['  shortclose:{label:',                 1, 'the short-close report dataset'],
+  /* The title layer. Losing any of these puts internal role names back on a
+     customer's COA, and takes two people's own titles off their signatures. */
+  ['var ROLE_TITLE=',                      1, 'the default job titles'],
+  ['var USER_TITLE=',                      1, 'the two per-person titles'],
+  ['function personTitle(',                1, 'person title beats role title'],
+  ['function sigTitle(',                   1, 'the signature title'],
+  ['function seedTitlesV1(',               1, 'titles seeded idempotently'],
 ];
 
 const [, , mode, freshPath, otherPath] = process.argv;

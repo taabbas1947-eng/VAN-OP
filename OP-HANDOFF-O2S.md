@@ -5237,3 +5237,89 @@ was declined as PLATFORM's, not edited. Files changed: `o2s/o2s.html`,
 `o2s/tests/roletitles.test.js` (new), `o2s/tests/warehousesplit.test.js` (new),
 `o2s/tests/rolemodel.test.js`, `o2s/tests/README.md`, `o2s/tests/preflight.js`,
 this file.
+
+---
+
+## 2026-09-23 (night) · Pass twenty-three · MODULE: O2S · The new front door, built into the live app
+
+Tahir, after two prototypes on the live data: *"we should work on real live."* Then
+20 rulings before he slept (R1–R23, and principles P1–P6), recorded in the
+session's `RULINGS-2026-09-23-night.md` and carried below. Everything shipped as
+its own build with its own suite green, committed locally, never pushed by Claude.
+He pushed 23j → 23o himself during the night; 23p and 23q are committed and waiting.
+
+### The finding the whole night rests on
+
+Measured on the deployed build that afternoon: `actionItems()` raised **104
+obligations, one per order LINE**. 54 were "Open Production" and 9 of those were
+the same run of Sulfur 70%; 13 "Receive" rows were 3 trips to the same bay; the
+Plant Manager's 18 rows were 7 orders' worth of one question. And **11 of the 21
+people had nothing**, because `acBase()` matched an item to a person by role NAME
+only — a Warehouse Assistant holding every dispatch right the COO had granted
+opened an empty list. The app counted records; the plant does jobs.
+
+### What shipped, build by build
+
+| Build | Commit | What |
+|---|---|---|
+| 23j | 3164e42 | **Today** — the front door, everyone lands on it. Jobs grouped the way the plant does them (one run, one bay visit, one truck, one reason per order), one button each = the item's own `act`. Visibility = role, or a LIVE right granted to the role, or escalation. Sidebar = Today · Report Center · Back Office · Guide; ops screens reached from a job; My Actions off the sidebar (code stays one release). Seeds, once, flagged, logged: `seedAccessV2` (R1/R5/R7/R20 matrix cells), `seedCustomerRightsV1` (customer.* live → Finance + CFO; C3+C9 done), `seedWarehouseRoleV1` (R12), `migrateAccountsV1` (R22: ismaeel → Finance, role only, by the COO's session). |
+| 23k | 313d0a9 | R14 `openDelayReasonOrder` — one reason per late order, line override. R2 `seedPrintDecisionV1` — 44 old orders answered "no", brands with a printed-price history named in the log. Own jobs first, escalations after. |
+| 23l | 67880fc | Today takes the design the team chose (Tahir: *"not look like the artifacts at all"*): green accent, PO chip, client name, R/A/G badges, filter chips, count square on grouped cards, period selector hidden. |
+| 23m | 56a00fe | R17 **one product master** — `migrateProductsV1` / `applyProductsV1`. Verified on real state: rebuilt catalogue identical entry by entry, packs per client preserved; base disagreements flagged "catalogue said … — settle it". Deactivate, not delete. |
+| 23n | e56236b | R6 `MONEY_ROLES` (COO, CFO, Plant Manager, KAM); Finance dataset and the Orders dataset's money columns gated (S-05 closed); `seedAccessV3` opens Sales & Budget to those four. R8/R18 `channelTargets`, `budgetByChannel`, Channel budgets card, By-channel table with a traffic light. |
+| 23o | 9fe4601 | R9 a new customer is born Pending approval; `approveCustomer` (CFO/COO) from a job on the CFO's Today; not offered for an order until then. |
+| 23p | 0c24538 | P6 **Firefighter** — first Dashboard tab, default for all: delayed orders, material bottlenecks, shipping holds; R/A/G; Open → the fix. Reads only, no money. |
+| 23q | b9ed93f | R15 **Back Office manual** — `backOfficeManualCard()` on Instructions + `docs/O2S Back Office Manual.md` (with the table of what was found wrong and what was done). Scope switch above the chips. |
+
+### Tests
+
+New suites: `today` 157, `threeplaces` 72, `latereasons` 19, `printdecisionseed` 14,
+`productmaster` 28, `budget` 34, `customerapproval` 19, `firefighter` 21, `manual` 18.
+Updated to the rulings: `actioncenter`, `authmodel` (RULED_CODES gains the 2
+customer codes; `preR5()` restores the pre-ruling entry cells for the panel-
+machinery blocks), `dispatchgrants`, `recon`, `rights`, `rolemodel`, `warehousesplit`,
+`harness` (grabs the new constants; `authModelSrc` carries the 3 seeds).
+Baseline 36 suites / 8,081 → **45 suites / 8,699 passed, 0 failed, 0 crashed**, run
+on Tahir's machine after every write. `preflight` markers 37 → 52. Both new suites
+of each stage crash (= fail) against the file before the stage.
+
+### Verified on the live site after his push (build 23o, signed in as COO)
+
+Flags present: `_accessV2`, `_accessV3`, `_customerRightsV1`, `_productsV1` (91
+products), `_printDecisionV1` (44). Warehouse role exists. `_ismaeelRoleV1` absent —
+`migrateAccountsV1` runs at the COO's next **login**; his tab was already open.
+
+### For Tahir in the morning (accounts are his; the build never touches a password)
+
+1. Push 23p + 23q. Sign in as COO once (Ismaeel's role moves; toast confirms).
+2. Users & Access: one login per person (R21). Shoaib → Warehouse. Delete `ahmer`
+   (R23 — the build never deletes). Retire the shared logins once each person is live.
+3. Reference data: remove "On Time" from the delay-reason list (it was the first
+   option offered).
+4. Products: settle the rows marked *"catalogue said … — settle it"* and the *(own)*
+   bases that are not real bases (V-Borate 17%, Chelated Zinc Bulk …).
+5. Business masters → Channel budgets: enter the 6 channel totals for FY 2026-27.
+
+### Open, in order
+
+- Reconciliation → each flagged line a Back Office job with the fix one tap away
+  (R20). Data Fix is off the nav for everyone but the trio; its retirement follows.
+- P3: a place to edit an order at any stage, and to close a PO by hand.
+- P5: plain stage words on the floor (In queue / Producing / Packing / QA / Shipped).
+- Dealer per-dealer allocation under the Dealer total (R18, allowed, not expected).
+- `order.create` / `order.print_decision` / `customer.*` are still filed under the
+  Commercial department in `RIGHTS` while Finance holds them — modelling follow-up.
+- The six never-added right codes (inspection.perform, coa.*, shipment.release,
+  dc.approve): Today decides those labels by role until they exist.
+- Older items unchanged: readiness checks, `custCode()` fixes, employee codes.
+
+### Security register
+
+S-05 closed (Finance dataset gated; money columns stripped for non-money roles).
+No protection removed. `migrateAccountsV1` sends name/username/role only.
+
+### Constraints respected
+
+Nothing pushed by Claude. No `.patch` files. Module boundary held — the account
+move goes through the same `/api/users` PUT that Users & Access uses; no PLATFORM
+file touched. Folder and file names in plain words with spaces.

@@ -4881,3 +4881,103 @@ exactly the 81 new checks over the prior 7,423. preflight markers 13 → 16.
 Nothing pushed. No `.patch` files. No module boundary crossed. Files changed:
 `o2s/tests/rolemodel.test.js` (new), `o2s/tests/README.md`,
 `o2s/tests/preflight.js`, this file.
+
+---
+
+## 2026-09-23 · Pass twenty · MODULE: O2S · Reports for everyone, and the eighth stage
+
+Two rulings from Tahir, both asked as direct questions and both answered.
+
+### Ruling one — "everyone be able to report"
+
+`Finance Desk Officer` was wired for Dashboard, My Actions, New PO Entry, PO
+Tracker, Shipments and Instructions but **not** Reports, while the older
+`Finance` role was on it. So the role HR lists as taking PO entry over from
+Commercial could raise a PO, track it and see the shipment, and not open a single
+report.
+
+Added to the `reports` screen's owners — now all fourteen role names.
+
+Written into `rolemodel.test.js` as a **rule, not a list**: *every role in the
+system can open Reports* reads the owners out of `SCREENS` and compares against
+every name the authority tables know, so the next role added to O2S fails the
+suite until it is on Reports too. Proven to go red (adding an Invoicing Officer
+to Shipments alone fails it by name).
+
+`budget` (Sales & Budget) is pinned narrow in the same block — CFO, Plant
+Manager, Finance. Reports is read-only and built from data already captured; the
+money screen is separate and the ruling does not reach it.
+
+No BUILD_ID bump: nobody holds the Finance Desk Officer role yet, so nothing
+changed for anybody today.
+
+### Ruling two — "Closed short" gets its own stage — `BUILD_ID='2026-09-23d'`
+
+This was the `BUCKETS` question left open since pass eighteen. He was asked which
+of three, and chose **its own eighth stage**, counted as neither open nor
+delivered, with its own column on the tracker and the dashboard.
+
+**The bug it fixes.** `lineBucket()` had no short-close branch at all, so a closed
+line kept reporting the stage it physically reached — `Production`, say — and
+`orderBucket()` takes the **minimum** bucket across an order's lines. One closed
+line therefore held its whole order at that stage and kept it counted as open for
+ever. Open-order counts would have climbed month after month with work nobody
+would ever do.
+
+**The shape, deliberately copied from `STAGE_ORDER` rather than invented:**
+
+* `'Closed short'` goes **last** in `BUCKETS`, after `Delivered`. Because
+  `orderBucket` takes the minimum, an order reads `Closed short` only when
+  **every** line is closed. One closed line beside a live one leaves the order at
+  the live line's stage — correct, there is still work.
+* `lineBucket` tests it **first**, before the Delivered branch, for the same
+  reason `lineStage` does: a line closed after a partial delivery is not
+  delivered and must not read as though it were.
+* `PIPELINE_BUCKETS` — `BUCKETS` minus the close — keeps the progress bar, the
+  T2 matrix and the lane board at **seven** segments. A close is an exit from the
+  pipeline, not a step along it; an eighth segment would have been a visible
+  regression on every order in the system.
+* **"Open" now means one thing.** It was spelled `b!=='Delivered'` in twenty-odd
+  places; it is now `bucketOpen(b)` / `orderOpen(o)` — 9 and 9 call sites. Four
+  faults in this file have been the same shape (one rule applied in two places
+  and not a third) and twenty sites was not the place to try it again by hand.
+* Line-level lists of remaining work — production, packing, stock allocation,
+  materials — skip a closed line. The guard goes on the **line**, where
+  `shortCloseRefusal` sits, not the order.
+
+**Deliberately unchanged:** the cleared-stock list stays short-close blind,
+because a closed line's already-packed stock still ships. That is marked in the
+source and asserted in the test, so a later "fix" fails rather than silently
+stopping packed stock from shipping.
+
+**Fulfilment %** — his ruling was **no short close counts against us**: a closed
+line leaves the calculation entirely, both sides, so closing can neither help nor
+hurt the figure. `aggOpen()` does that; `agg()` is untouched and still tells the
+truth about what was ordered. The drawer says how much was left out.
+
+I put to him, in the question itself, that this flatters the number — an honest
+"we could not supply" disappears from the score, and that is the one case you
+most want to see. He ruled it anyway, and it is his number to define. The reason
+and the `ours` flag stay on the record, so the information is kept out of the
+score rather than lost. **If he ever wants it back, the change is to use the
+`ours` flag in `aggOpen` and nothing else.**
+
+### Still open on short-close
+
+The **report treatment** — shortfall by reason and by month. Now unblocked: the
+bucket answer exists and `SHORTCLOSE_REASONS` already carries `ours`. Not started.
+
+### Tests
+
+`closedshortbucket.test.js` — 71 checks. It **crashes** against the unmodified
+file (`not found: PIPELINE_BUCKETS`), which is the proof it discriminates.
+`rolemodel.test.js` 81 → 84. Full suite **7,578 passed, 0 failed, 0 crashed** —
+7,504 + 4 - 1 + 71, accounted for exactly. All six inline `<script>` blocks pass
+`node --check`. `preflight` markers 16 → 22, verified against the committed HEAD.
+
+### Constraints respected
+
+Nothing pushed. No `.patch` files. No module boundary crossed. Files changed:
+`o2s/o2s.html`, `o2s/tests/closedshortbucket.test.js` (new),
+`o2s/tests/rolemodel.test.js`, `o2s/tests/README.md`, `o2s/tests/preflight.js`,
+this file.

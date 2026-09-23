@@ -17,11 +17,12 @@ node o2s/tests/psi.test.js         # 123 - the pre-shipment inspection report,
                                    #       and what may go on a customer's copy
 node o2s/tests/qagate.test.js      #  16 - the pre-shipment inspection cut-over
 node o2s/tests/focprice.test.js    #  24 - FOC samples and price-on-pack
+node o2s/tests/gatepassqa.test.js  #  14 - a Gate Pass needs the inspection
 ```
 
-**465 checks in the suites listed above.** Running every `*.test.js` in this
+**479 checks in the suites listed above.** Running every `*.test.js` in this
 folder together, with `data/state.json` and both `_before-*.html` fixtures in
-place, gives **7,266**. Exit code 0 means all passing. No dependencies, no build step,
+place, gives **7,280**. Exit code 0 means all passing. No dependencies, no build step,
 Node only.
 
 ## How they work

@@ -11,7 +11,7 @@
    a push keeps running the old code with nothing telling anybody. It sat at
    2026-09-04a through this whole day's work; rmqty/psi tests pinned the code,
    nothing pinned this. buildid.test.js now does. */
-var BUILD_ID='2026-09-23a';
+var BUILD_ID='2026-09-23b';
 var CHANGELOG=[
   {ver:'2026-09-04a', date:'2026-09-04', title:"Delivery, DC printing, and a new Reconciliation check", items:[
     "Delivery confirmation stays with Supply Chain \u2014 it no longer hands off to the Plant Manager. If one sits too long, it now re-flags the same Supply Chain owner every 3 days instead.",
@@ -39,6 +39,11 @@ var CHANGELOG=[
     "Before this, the question appeared with a red star and \u201cnot answered\u201d on an FOC order, but the PO submitted anyway. That taught people the red star could be ignored \u2014 and on a commercial PO it cannot, because that answer is what tells the QA inspector what to check on the bag.",
     "Nothing changes on a commercial PO. The question is asked exactly as before, and the PO still cannot be submitted until it is answered.",
     "QA will be told \u2018no price should appear on this pack\u2019 for FOC loads, which is what was already printing on the report \u2014 the order record now agrees with it instead of carrying two different answers.",
+  ]},
+  {ver:'2026-09-23b', date:'2026-09-23', title:"A Gate Pass now needs the inspection too", items:[
+    "The Gate Pass can no longer be issued for a truck that has not passed its pre-shipment inspection. Release already refused one; the Gate Pass did not, so the paper the driver carries could be printed for a truck that was not allowed to leave.",
+    "If the inspection has not been done, the Gate Pass button says so. If the truck FAILED inspection, it says that instead \u2014 correct it and re-inspect.",
+    "Nothing changes for a truck that has passed. Trucks with a Gate Pass already issued are not affected.",
   ]},
 ];
 </script>
@@ -11416,7 +11421,23 @@ function mpCreate(){ if(!may('shipment.plan')){toast(denyRight('shipment.plan','
 function nextGatePassNo(){ var mx=0; (state.shipments||[]).forEach(function(s){ if(!s||s.voided)return; var n=parseInt(String(s.gatePass||'').replace(/\D/g,''),10); if(!isNaN(n)&&n>mx)mx=n; }); return 'GP-'+('0000'+(mx+1)).slice(-4); }
 function shipRowsOf(dispId){ return (state.shipments||[]).filter(function(s){return (s.dispId||'')===dispId && !s.voided;}); }
 function startLoading(dispId){ if(!may('shipment.load')){toast(denyRight('shipment.load','Starting loading'));return;} var rows=shipRowsOf(dispId); if(!rows.length)return; if(rows[0].stage!=='truck_planned'){toast('Loading can only start on a Truck Planned shipment');return;} var d=TODAY.toISOString().slice(0,10); rows.forEach(function(s){ s.stage='loading'; s.loadStarted=d; }); logAction('Loading started — DC '+(rows[0].dc||'')+' ('+dispId+')'); save(); render(); toast('Loading started'); }
-function issueGatePass(dispId){ if(!may('gatepass.issue')){toast(denyRight('gatepass.issue','Issuing a Gate Pass'));return;} var rows=shipRowsOf(dispId); if(!rows.length)return; if(rows[0].stage!=='loading'){toast('Start loading before issuing the Gate Pass');return;} if(rows[0].gatePass){toast('Gate Pass already issued: '+rows[0].gatePass);return;} var gp=nextGatePassNo(); rows.forEach(function(s){ s.gatePass=gp; }); logAction('Gate Pass '+gp+' issued — DC '+(rows[0].dc||'')+' ('+dispId+')'); save(); render(); toast('Gate Pass '+gp+' issued'); }
+function issueGatePass(dispId){ if(!may('gatepass.issue')){toast(denyRight('gatepass.issue','Issuing a Gate Pass'));return;} var rows=shipRowsOf(dispId); if(!rows.length)return; if(rows[0].stage!=='loading'){toast('Start loading before issuing the Gate Pass');return;} if(rows[0].gatePass){toast('Gate Pass already issued: '+rows[0].gatePass);return;}
+  /* FAULT 8, one step further along — 23 September 2026.
+     approveRelease refuses an uninspected truck, and markDelivered refuses one
+     too. issueGatePass checked the right and the stage and nothing else, so the
+     document the driver carries out through the gate could be printed for a
+     truck that release would then refuse. The paperwork said go and the system
+     said no. That is the same shape as fault 4 and fault 8 both: one rule
+     applied in two places and not a third.
+     The predicate below is deliberately the SAME expression approveRelease
+     uses. If the two ever drift apart, that is the bug. */
+  { var _un=rows.filter(function(s){ return !(s.qa && s.qa.pass); });
+    if(_un.length){
+      var _f=rows.filter(function(s){ return s.qa && s.qa.fail; }).length;
+      toast(_f ? 'This truck FAILED pre-shipment inspection — no Gate Pass. Correct it and re-inspect.'
+               : 'Pre-shipment inspection has not passed on this truck yet — QA must inspect it before a Gate Pass can be issued.');
+      return; } }
+  var gp=nextGatePassNo(); rows.forEach(function(s){ s.gatePass=gp; }); logAction('Gate Pass '+gp+' issued — DC '+(rows[0].dc||'')+' ('+dispId+')'); save(); render(); toast('Gate Pass '+gp+' issued'); }
 /* Plant Manager release = approval. Requires the Gate Pass to be issued (DC is already auto-generated).
    On release: stage → in_transit, DC approved, and the dispatched quantity is counted (deferred until now). */
 function approveRelease(dispId){ if(!hardRole(['Plant Manager'])){ toast('Plant Manager / COO releases the truck'); return; } var rows=shipRowsOf(dispId); if(!rows.length)return; if(rows[0].stage!=='loading'){ toast('Truck must be in Loading before release'); return; } if(!rows[0].gatePass && dcControlOn(rows[0].dispatch||TODAY.toISOString().slice(0,10))){ toast('Issue the Gate Pass before release'); return; }

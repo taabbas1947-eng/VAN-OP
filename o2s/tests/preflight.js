@@ -99,6 +99,8 @@ const MARKERS = [
   ['function budgetByChannel(',            1, 'the budget tree (R8)'],
   /* 2026-09-23o */
   ['function approveCustomer(',            1, 'a new customer is approved first (R9)'],
+  /* 2026-09-23p */
+  ['function fireLists(',                  1, 'the Firefighter dashboard (P6)'],
 ];
 
 const [, , mode, freshPath, otherPath] = process.argv;

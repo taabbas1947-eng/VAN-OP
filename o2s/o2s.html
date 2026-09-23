@@ -11,7 +11,7 @@
    a push keeps running the old code with nothing telling anybody. It sat at
    2026-09-04a through this whole day's work; rmqty/psi tests pinned the code,
    nothing pinned this. buildid.test.js now does. */
-var BUILD_ID='2026-09-23o';
+var BUILD_ID='2026-09-23p';
 var CHANGELOG=[
   {ver:'2026-09-04a', date:'2026-09-04', title:"Delivery, DC printing, and a new Reconciliation check", items:[
     "Delivery confirmation stays with Supply Chain \u2014 it no longer hands off to the Plant Manager. If one sits too long, it now re-flags the same Supply Chain owner every 3 days instead.",
@@ -125,6 +125,9 @@ var CHANGELOG=[
   ]},
   {ver:'2026-09-23o', date:'2026-09-23', title:"A new customer is approved before its first order", items:[
     "When Finance adds a customer, it waits for the CFO (or the COO) before an order can be raised for it. It shows as a job on the CFO\u2019s Today \u2014 one tap approves it, stamped with who and when. Customers that already existed are not affected."
+  ]},
+  {ver:'2026-09-23p', date:'2026-09-23', title:"The Dashboard opens on the Firefighter", items:[
+    "The first tab of the Dashboard, and the one everyone lands on, is the Firefighter: delayed orders (worst first), material bottlenecks (what cannot be made until raw material arrives, and why), and shipping holds (every truck waiting on an inspection, a gate pass, a release, a DC approval or a delivery confirmation). Each has a traffic light and an Open button that goes straight to the fix. No money on it."
   ]},
 ];
 </script>
@@ -12845,8 +12848,62 @@ function dashOpsHeadline(OM){
   if(OM.entry.total>0) p.push(OM.entry.pct+'% of entries logged on time ('+OM.entry.late+' late).');
   return p.join(' ');
 }
-function dashDefaultTab(){ var r=state.role; if(r==='CFO')return 'sales'; if(r==='KAM')return 'overview'; if(r==='Plant Manager')return 'centers'; if(r==='Production')return 'production'; if(r==='Lab Rep'||r==='AQCM'||r==='QCM'||r==='QA Inspector')return 'quality'; if(r==='Supply Chain')return 'supply'; return 'overview'; }
-function dashTabBar(){ var tabs=[['overview','Overview'],['centers','Centers'],['production','Production'],['quality','Quality'],['supply','Supply chain']]; if(accessLevel(state.role,'budget')!=='none')tabs.push(['sales','Financial']); return '<div class="dtabbar">'+tabs.map(function(t){return '<button class="dtab'+(dashTab===t[0]?' on':'')+'" onclick="dashTab=\''+t[0]+'\';render()">'+t[1]+'</button>';}).join('')+'</div>'; }
+/* THE FIREFIGHTER - P6, 23 September 2026. "A dedicated screen highlighting
+   delayed orders, material bottlenecks, or shipping holds so staff can react
+   instantly." First tab, default for everyone. Reads; never writes. */
+function fireLists(){
+  var _T=(typeof TODAY!=='undefined')?TODAY:new Date();
+  var delayed=[], material=[], holds=[];
+  (state.orders||[]).forEach(function(o){ (o.lines||[]).forEach(function(l){
+    if(!l||lineShortClosed(l)) return;
+    var due=l.committed||o.promised; var t=due?new Date(due):null; var days=(t&&!isNaN(t))?Math.round((_T-t)/86400000):0;
+    if(lineOverdue(o,l)) delayed.push({po:o.po,client:o.client||'',brand:l.brand,days:days,left:Math.max(0,(+l.ordered||0)-(+l.delivered||0)),stage:lineBucket(o,l),act:"trkFilter='all';trkSearch='"+String(o.po||'').replace(/'/g,'')+"';setScreen('tracker')"});
+    var rm=l.rmStatus||''; var pr=l.rmPR;
+    if((rm==='short'||rm==='partial'||(pr&&!pr.closed)) && (+l.produced||0)<(+l.ordered||0)){
+      var why=rm==='short'?'raw material short':rm==='partial'?'raw material partial':'waiting on raw material';
+      if(pr&&!pr.closed) why+=pr.cfoApproved?' \u00b7 PR approved, not received':' \u00b7 PR waiting for the CFO';
+      material.push({po:o.po,client:o.client||'',brand:l.brand,need:Math.max(0,(+l.ordered||0)-(+l.produced||0)),why:why,days:days,act:(pr&&!pr.closed&&!pr.cfoApproved)?("approveRMPR('"+o.id+"','"+l.id+"')"):("openRMCheck('"+o.id+"','"+l.id+"')")}); }
+  }); });
+  delayed.sort(function(a,b){ return b.days-a.days; });
+  material.sort(function(a,b){ return b.days-a.days; });
+  dispatchGroups().forEach(function(g){ if(!g.dispId||g.delivered) return;
+    var st=g.stage||'', why='', act='';
+    if(g.qa==='pending'){ why='waiting for pre-shipment inspection'; act="openDispatchQA('"+g.dispId+"')"; }
+    else if(g.qa==='fail'){ why='failed inspection \u2014 correct and resubmit'; act="setScreen('qa')"; }
+    else if(st==='loading'&&!g.gatePass){ why='loading, no gate pass yet'; act="issueGatePass('"+g.dispId+"')"; }
+    else if(st==='loading'&&g.gatePass){ why='loaded, waiting for release'; act="approveRelease('"+g.dispId+"')"; }
+    else if(g.dcStatus==='pending'){ why='DC '+(g.dc||'')+' waiting for approval'; act="approveDC('"+g.dispId+"')"; }
+    else if(st==='in_transit'){ why='in transit, delivery not confirmed'; act="openDeliveryConfirm('"+g.dispId+"')"; }
+    else if(st==='truck_planned'){ why='planned, loading not started'; act="startLoading('"+g.dispId+"')"; }
+    if(!why) return;
+    var t=g.date?new Date(g.date):null; var days=(t&&!isNaN(t))?Math.round((_T-t)/86400000):0;
+    holds.push({dispId:g.dispId,po:g.poLabel||g.po||'',client:g.client||'',why:why,kg:g.kg||0,n:(g.rows||[]).length,days:days,act:act});
+  });
+  holds.sort(function(a,b){ return b.days-a.days; });
+  return {delayed:delayed,material:material,holds:holds};
+}
+function fireLight(n,worst){ var tone=n===0?'good':(worst>=7?'bad':'warn'); var c=tone==='bad'?'#b3261e':tone==='warn'?'#8a5a00':'#1f6b3a'; var bg=tone==='bad'?'#fbe9e7':tone==='warn'?'#fff1d6':'#e3f0e7'; return '<span class="pill" style="background:'+bg+';color:'+c+';font-weight:700">'+(n===0?'clear':tone==='bad'?'act now':'watch')+'</span>'; }
+function dashFireHtml(){
+  var F=fireLists(); var esc=function(x){return String(x==null?'':x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');};
+  var cl=function(c){ if(!c) return ''; var i=c.indexOf('|'); return esc(i>-1?c.slice(i+1).trim():shortClient(c)); };
+  function block(title,sub,rows,worst,cols){
+    return '<div class="card" style="margin-bottom:12px"><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px"><h3 style="margin:0">'+title+'&nbsp;&nbsp;<span style="font-weight:800;color:'+(rows.length?'#17201b':'#7b857e')+'">'+rows.length+'</span></h3>'+fireLight(rows.length,worst)+'<span class="muted" style="font-size:12px">'+sub+'</span></div>'
+      +(rows.length?('<div style="overflow:auto;max-height:46vh"><table><thead><tr>'+cols.map(function(c){return '<th'+(c[2]?' class="num"':'')+'>'+c[0]+'</th>';}).join('')+'<th></th></tr></thead><tbody>'
+        +rows.slice(0,40).map(function(r){ return '<tr>'+cols.map(function(c){ return '<td'+(c[2]?' class="num"':'')+'>'+c[1](r)+'</td>'; }).join('')+'<td style="white-space:nowrap"><button class="sm" onclick="'+r.act+'">Open</button></td></tr>'; }).join('')
+        +'</tbody></table></div>'+(rows.length>40?'<div class="muted" style="font-size:11px;margin-top:6px">Showing the worst 40 of '+rows.length+'.</div>':'')):'<div class="muted" style="font-size:13px;padding:6px 0">Nothing burning here.</div>')+'</div>';
+  }
+  var dayPill=function(d){ return '<span class="pill" style="background:'+(d>=14?'#fbe9e7':d>=7?'#fff1d6':'#eceeea')+';color:'+(d>=14?'#b3261e':d>=7?'#8a5a00':'#4b564f')+';font-weight:700">'+d+' d</span>'; };
+  return '<div style="max-width:1100px">'
+    + block('Delayed orders','order lines past the date promised to the customer \u2014 worst first',F.delayed,F.delayed.length?F.delayed[0].days:0,
+        [['PO',function(r){return '<b>'+esc(r.po)+'</b><div class="muted" style="font-size:11px">'+cl(r.client)+'</div>';}],['Product',function(r){return esc(r.brand);}],['Stage',function(r){return esc(r.stage);}],['Still to deliver',function(r){return fmt(r.left)+' Kg/L';},true],['Late by',function(r){return dayPill(r.days);},true]])
+    + block('Material bottlenecks','lines that cannot be produced until raw material arrives',F.material,F.material.length?F.material[0].days:0,
+        [['PO',function(r){return '<b>'+esc(r.po)+'</b><div class="muted" style="font-size:11px">'+cl(r.client)+'</div>';}],['Product',function(r){return esc(r.brand);}],['Why',function(r){return esc(r.why);}],['Blocked',function(r){return fmt(r.need)+' Kg/L';},true],['Waiting',function(r){return dayPill(r.days);},true]])
+    + block('Shipping holds','trucks that are planned, loading, loaded or on the road and waiting on somebody',F.holds,F.holds.length?F.holds[0].days:0,
+        [['Truck',function(r){return '<b>'+esc(r.dispId)+'</b><div class="muted" style="font-size:11px">'+esc(r.po)+' \u00b7 '+cl(r.client)+'</div>';}],['Waiting on',function(r){return esc(r.why);}],['Load',function(r){return r.n+' product'+(r.n===1?'':'s')+' \u00b7 '+fmt(r.kg)+' Kg/L';}],['Since',function(r){return dayPill(r.days);},true]])
+    + '</div>';
+}
+function dashDefaultTab(){ return 'fire'; }
+function dashTabBar(){ var tabs=[['fire','Firefighter'],['overview','Overview'],['centers','Centers'],['production','Production'],['quality','Quality'],['supply','Supply chain']]; if(accessLevel(state.role,'budget')!=='none')tabs.push(['sales','Financial']); return '<div class="dtabbar">'+tabs.map(function(t){return '<button class="dtab'+(dashTab===t[0]?' on':'')+'" onclick="dashTab=\''+t[0]+'\';render()">'+t[1]+'</button>';}).join('')+'</div>'; }
 function _dk(l,v,d,c){return '<div class="kpi" style="border-top:3px solid var('+c+')"><div class="l">'+l+'</div><div class="v">'+v+'</div><div class="d">'+d+'</div></div>';}
 var _DQOWN={'Cleared to pack?':['Production'],'Awaiting Lab QC?':['Lab Rep','AQCM','QCM'],'Needs reconcile?':['Production','Plant Manager'],'Today’s output':['Production'],'UNFIT lots?':['Plant Manager'],'Cleared to ship?':['QA Inspector'],'Blocked (no batch #)?':['Production'],'QA failed?':['Supply Chain'],'Awaiting QA inspection?':['QA Inspector'],'Ready to ship?':['Supply Chain'],'Overdue deliveries?':['Supply Chain','KAM'],'Revenue at risk':['CFO','KAM'],'On-time delivery':['Supply Chain','KAM'],'RM-blocked POs?':['Supply Chain'],'PRs awaiting CFO?':['CFO'],'GRN to receive?':['Supply Chain']};
 function _dq(q,val,sub,tone,go){var c=tone==='bad'?'--red':tone==='warn'?'--amber':tone==='good'?'--green2':'--navy';var own=(typeof _DQOWN!=='undefined')?_DQOWN[q]:null;var mine=own&&state.role!=='COO'&&own.indexOf(state.role)>-1;return '<div class="dqcard'+(mine?' mine':'')+'"'+(go?(' onclick="'+go+'" style="cursor:pointer"'):'')+'>'+(mine?'<span class="dq-mine">Your action</span>':'')+'<div class="dq-q">'+q+'</div><div class="dq-v" style="color:var('+c+')">'+val+'</div><div class="dq-s">'+sub+'</div>'+(go?'<div class="dq-go">Open ▸</div>':'')+'</div>';}
@@ -12984,7 +13041,8 @@ function screenDash(){
     if(t==='supply')return lineCard('Dispatched, last 7 days',_trail7(state.shipments,function(s){return s.dispatch;},function(s){return s.kg;}).map(function(s){return s.v;}),'var(--navy)','Kg dispatched per day');
   }catch(e){} return ''; };
   if(dashTab==='overview'){ $('view').innerHTML=bar+banner+dashExecHtml(M)+_lens('overview'); try{drawDashExec(M);}catch(e){} return; }
-  var body = dashTab==='sales'?dashSalesHtml()
+  var body = dashTab==='fire'?dashFireHtml()
+    : dashTab==='sales'?dashSalesHtml()
     : dashTab==='centers'?dashCentersHtml(M)
     : dashTab==='production'?dashProdHtml()
     : dashTab==='quality'?dashQualHtml()

@@ -188,9 +188,9 @@ and a live one, it ships the live one and writes the remainder down.
   read these as source** — they are the old versions and will mislead.
 - `pd/PORTING_STATUS.md` is **retired** (10 Sept 2026) and now contains only a
   pointer. It described the July 2026 gate-based port, which the September
-  nine-object rebuild replaced. **`OP-HANDOFF.md` is the single status
+  nine-object rebuild replaced. **`OP-HANDOFF-PD.md` is the single status
   document for PD** — its most recent dated entry is the current state. Do not
-  start a second one.
+  start a second one. (It was `OP-HANDOFF.md` until 23 Sept 2026; see §4.)
 
 ### 3.1 How changes reach the working tree — no patch files, ever
 
@@ -211,6 +211,44 @@ If Claude ever finds itself about to write a `.patch` file, that is the bug.
 
 ## 4. Session-close rule
 
-End every working session by appending to `OP-HANDOFF.md`:
+End every working session by appending to **your module's handoff file**:
 module worked in · files changed · pushed or not-pushed · what's next.
 That file, not Claude's memory, is the continuity between sessions.
+
+### 4.1 One handoff file per module — and how to write to it
+
+| Module | File |
+|---|---|
+| O2S | `OP-HANDOFF-O2S.md` |
+| PD | `OP-HANDOFF-PD.md` |
+| Genuinely cross-module or platform | `OP-HANDOFF-SHARED.md` |
+
+`OP-HANDOFF.md` is now an **index only — never append session entries to it.**
+`OP-HANDOFF-ARCHIVE-2026-09-23.md` is the pre-split original, kept byte for byte
+so the split is reversible; never write to it either.
+
+**Why.** Until 23 Sept 2026 every module appended to one 400 KB file. That day
+the same entry was lost three times: a session read the file, worked for a
+while, then wrote back a whole-file rebuild from its now stale copy, silently
+deleting everything another session had appended in between. Both sessions
+believed they had written successfully. One file per module removes most of the
+collision; the rules below remove the rest.
+
+**Before every write to a handoff file:**
+
+1. **Re-read it from disk immediately before writing.** Not a copy read earlier
+   in the session, however few minutes ago.
+2. **Append only.** New entries go at the end. Never regenerate the file.
+3. **Assert your new text begins with the exact bytes you just read.** If it
+   does not, stop and re-read — something changed under you.
+4. **Read it back afterwards** and confirm the previous last heading and your
+   new heading are both present.
+
+A correction to an old entry is a single exact string replacement on freshly
+read content, with the target asserted to occur exactly once. **Never delete an
+entry** — corrections are appended and cross-referenced.
+
+If an entry you wrote earlier in the session has gone missing, do not simply
+re-append it. Re-read the file first and splice it back in without disturbing
+anything written since — otherwise you do to someone else exactly what was done
+to you. That happened on 23 Sept too, and cost a second recovery.

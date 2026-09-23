@@ -19,7 +19,8 @@ const vm = require('vm');
 const STATE = JSON.parse(fs.readFileSync(H.STATE, 'utf8')).data;
 
 const src = ['accessOv', '_ownerEdit', 'accessLevelOn', 'accessLevel', 'screenEditOK',
-             'mayWork', 'whoMayEdit', 'denyWork'].map(H.grab).join('\n\n')
+             'mayWork', 'whoMayEdit', 'denyWork', 'seedAccessV2'].map(H.grab).join('\n\n')
+          + '\n' + H.grabTopVar('ACCESS_RULED_V2', '{')
           + '\n' + (function () {
               const i = H.html.indexOf('const SCREENS=');
               if (i < 0) throw new Error('SCREENS not found');
@@ -35,6 +36,7 @@ const box = {
 box.globalThis = box;
 vm.createContext(box);
 vm.runInContext(src, box);
+box.seedAccessV2(box.state);   /* the ruled matrix of 23 Sep night, as the app applies it at load */
 const { mayWork, whoMayEdit, denyWork } = box;
 
 let pass = 0, fail = 0; const fails = [];
@@ -54,7 +56,8 @@ const ALL = (STATE.masters.roles || []).map(r => r.name).concat(['COO'])
   asRole('COO');
   /* Entry is converted. Plant Manager here is the COO's DELIBERATE choice of
      22 Aug ("entry yes, Customer Master no") — not an accident of the matrix. */
-  eq('New PO Entry — who may work it', can('entry').join(', '), 'KAM, Plant Manager, COO');
+  /* R5, 23 Sep night: "Ismaeel, CFO, COO see, no one else, not even Basit." */
+  eq('New PO Entry — who may work it', can('entry').join(', '), 'CFO, COO, Finance');
   /* Customer Master is HELD BACK until customer/dealer rows carry ids. Since
      24 Aug it says so through the rights model instead of a role name in code —
      customer.create / customer.amend carry the OLD rule as their legacy and are
@@ -71,9 +74,12 @@ const ALL = (STATE.masters.roles || []).map(r => r.name).concat(['COO'])
        (authmodel.test.js section 1 pins exactly which eleven codes). The
        customer-lock guarantee is narrower than "nothing is live": these two
        specific codes must never be in it, whatever else is. */
-    ok('and neither customer right is live yet',
-       H.grabTopVar('RIGHTS_LIVE', '{').indexOf("'customer.create'") === -1
-       && H.grabTopVar('RIGHTS_LIVE', '{').indexOf("'customer.amend'") === -1,
+    /* 23 Sep night (R5/R9): the two customer rights went live and moved to
+       Finance and the CFO. The lock the old assertion protected - "the KAM-only
+       hard check" - is now a frozen legacy record, checked on the next line. */
+    ok('both customer rights are live now, decided by the grant table',
+       H.grabTopVar('RIGHTS_LIVE', '{').indexOf("'customer.create'") > -1
+       && H.grabTopVar('RIGHTS_LIVE', '{').indexOf("'customer.amend'") > -1,
        H.grabTopVar('RIGHTS_LIVE', '{'));
     ok('their old rule is recorded as KAM only, so the lock is unchanged',
        /'customer\.create'[\s\S]{0,240}?legacy:\{kind:'hard', roles:\['KAM'\]\}/.test(ab)
@@ -84,13 +90,16 @@ const ALL = (STATE.masters.roles || []).map(r => r.name).concat(['COO'])
 /* THE POINT OF THE WHOLE CHANGE. The COO grants Finance PO entry in Users &
    Access; Finance can then enter a PO. No code change, no deploy. */
 {
+  /* Since 23 Sep night the ruled seed already grants Finance (R5), so the
+     before/after is shown on a role the seed leaves alone: Supply Chain. */
   const m = box.state.masters.accessMatrix;
-  asRole('Finance');
-  ok('BEFORE the grant: Finance cannot enter a PO', mayWork('entry') === false);
-  m['Finance'].entry = { v: true, e: true };
-  ok('AFTER the grant: Finance CAN enter a PO — this is the fault being fixed',
+  asRole('Supply Chain');
+  m['Supply Chain'] = m['Supply Chain'] || {}; m['Supply Chain'].entry = { v: false, e: false };
+  ok('BEFORE the grant: Supply Chain cannot enter a PO', mayWork('entry') === false);
+  m['Supply Chain'].entry = { v: true, e: true };
+  ok('AFTER the grant: Supply Chain CAN enter a PO — this is the fault being fixed',
      mayWork('entry') === true);
-  m['Finance'].entry = { v: false, e: false };
+  m['Supply Chain'].entry = { v: false, e: false };
   ok('and taking the grant away closes it again', mayWork('entry') === false);
 }
 
@@ -121,7 +130,7 @@ const ALL = (STATE.masters.roles || []).map(r => r.name).concat(['COO'])
   const msg = denyWork('entry', 'Submitting a PO');
   ok('refusal names what was refused', /Submitting a PO/.test(msg), msg);
   ok('refusal names the SCREEN whose access decides it', /New PO Entry/.test(msg), msg);
-  ok('refusal names who can, from the matrix', /KAM/.test(msg) && /Plant Manager/.test(msg), msg);
+  ok('refusal names who can, from the matrix', /Finance/.test(msg) && /CFO/.test(msg), msg);
   ok('refusal says where to go', /Users & Access/.test(msg), msg);
 }
 

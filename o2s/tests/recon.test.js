@@ -162,7 +162,8 @@ const run = (c, src) => vm.runInContext(src, c);
 /* ================= 5. wired into the nav / dispatcher, not orphaned ================= */
 {
   ok("'recon' is in the SCREENS registry", /\{id:'recon',/.test(html));
-  ok("'recon' is in the Setup & admin nav group", /'admin','datafix','recon','users'/.test(html));
+  /* 23 Sep night: the sidebar is 3 places; Reconciliation sits in Back Office. */
+  ok("'recon' is in the Back Office nav group", /label:'Back Office', ids:\[[^\]]*'recon'/.test(html));
   ok("'recon' is wired into the render() dispatcher", /datafix:screenDataFix,recon:screenRecon,users:screenUsers/.test(html));
   ok("NAV_ICONS has a 'recon' entry (sidebar icon, not just SCREENS[].ic)", /datafix:'<path[^']*',\s*recon:'<path/.test(html));
 }

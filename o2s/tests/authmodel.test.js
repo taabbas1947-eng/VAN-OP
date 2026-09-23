@@ -41,7 +41,9 @@ function mk(roleName, preFlip) {
   vm.runInContext(SCREENS_SRC + '\n'
     + ['scr', 'accessOv', '_ownerEdit', 'accessLevel', 'screenEditOK', 'hardRole'].map(H.grab).join('\n\n')
     + '\n' + H.authModelSrc(), b);
+  b.seedAccessV2(b.state);              /* the ruled matrix of 23 Sep night, then the grant seed - the app's order */
   b.seedDeptRightsV1(b.state);          /* the same seeding the app does at load */
+  b.seedCustomerRightsV1(b.state);
   if (preFlip) unflip(b);
   return b;
 }
@@ -67,6 +69,21 @@ function unflip(b) {
   b.seedDeptRightsV1(b.state);
   return b;
 }
+/* PRE-R5 CELLS. The night of 23 Sep took New PO Entry off the KAM and the Plant
+   Manager (R5). Several panel blocks below were written with those two holding
+   order.create and test the PANEL MACHINERY - drift warnings, out-of-department
+   columns, unticks - not the ruling. This restores the two matrix cells and
+   re-seeds the one code, so the machinery stays under test. The ruling itself
+   is pinned in rights.test.js, warehousesplit.test.js and threeplaces.test.js. */
+function preR5(b) {
+  const m = b.state.masters.accessMatrix = b.state.masters.accessMatrix || {};
+  ['KAM', 'Plant Manager'].forEach(r => { m[r] = m[r] || {}; m[r].entry = { v: true, e: true }; });
+  const rr = b.state.masters.roleRights || {};
+  /* both rights that hang off the entry screen, or the drift card fires on the other one */
+  Object.keys(rr).forEach(id => { delete rr[id]['order.create']; delete rr[id]['order.print_decision']; });
+  b.seedDeptRightsV1(b.state);
+  return b;
+}
 const B = mk('COO');
 const ROLES = (STATE.masters.roles || []).map(r => r.name);
 /* The codes whose answer was deliberately replaced on 23 September 2026, when
@@ -74,7 +91,9 @@ const ROLES = (STATE.masters.roles || []).map(r => r.name);
    file is true of every other right and false of these by design, so they are
    named once here and pinned properly in RULED_CHANGE below. */
 const RULED_CODES = ['shipment.plan','shipment.load','gatepass.issue','delivery.confirm',
-                     'rm.check','rm.receive','pr.close','order.acknowledge','po.shortclose_request'];
+                     'rm.check','rm.receive','pr.close','order.acknowledge','po.shortclose_request',
+                     /* the night of 23 Sep: customers move from the KAM to Finance (R5, R9) */
+                     'customer.create','customer.amend'];
 const asRole = r => { B.state.role = r; };
 
 /* ================= 0. the access rule has ONE implementation ================= */
@@ -143,16 +162,19 @@ const asRole = r => { B.state.role = r; };
        the other. */
     const SC_LIVE = ['shipment.plan','shipment.load','gatepass.issue','delivery.confirm',
       'rm.check','rm.receive','pr.close','order.acknowledge'];
-    eq('exactly the eleven Production codes and the eight Supply Chain ones are live',
-       Object.keys(B.RIGHTS_LIVE).sort().join(','), PROD_LIVE.concat(SC_LIVE).sort().join(','));
+    /* Customers went live the night of 23 Sep, ruled: they move from the KAM to
+       Finance and the CFO, and the undefined-only seed could not carry that. */
+    const CUST_LIVE = ['customer.create','customer.amend'];
+    eq('exactly the eleven Production codes, the eight Supply Chain ones and the two customer ones are live',
+       Object.keys(B.RIGHTS_LIVE).sort().join(','), PROD_LIVE.concat(SC_LIVE, CUST_LIVE).sort().join(','));
     ok('...and every one of them is true, not merely present',
-       PROD_LIVE.concat(SC_LIVE).every(c => B.RIGHTS_LIVE[c] === true), JSON.stringify(B.RIGHTS_LIVE));
+       PROD_LIVE.concat(SC_LIVE, CUST_LIVE).every(c => B.RIGHTS_LIVE[c] === true), JSON.stringify(B.RIGHTS_LIVE));
     /* order.acknowledge is filed under Commercial but is Supply Chain work -
        Saad acknowledges the order. It is the one Commercial-filed code that went
        live, and it went live on a ruling, not by accident. */
-    eq('...and the only Commercial-filed code that went live is the one that was ruled',
-       B.RIGHTS.filter(r => r.dept === 'commercial' && B.RIGHTS_LIVE[r.code] === true).map(r => r.code).join(','),
-       'order.acknowledge');
+    eq('...and the Commercial-filed codes that went live are exactly the ruled ones',
+       B.RIGHTS.filter(r => r.dept === 'commercial' && B.RIGHTS_LIVE[r.code] === true).map(r => r.code).sort().join(','),
+       'customer.amend,customer.create,order.acknowledge');
 
     /* THE THING THAT FELL OUT OF IT, and the reason this change was worth making
        beyond the split itself. Seven rights carried legacy:{kind:'canEdit'}, which
@@ -273,6 +295,10 @@ const asRole = r => { B.state.role = r; };
                           note: 'was legacy:{kind:"all"} - every role in the system could acknowledge a PO' },
     'po.shortclose_request': { by: 'Tahir, 23 Sep 2026', who: ['Production Manager','Supply Chain'],
                           note: 'named eight roles; narrowed to the two department managers' },
+    /* "Ismaeel, CFO, COO see [New PO Entry], no one else, not even Basit." The
+       KAM is a reviewer (C9); the customer rights leave him with the order. */
+    'customer.create':  { by: 'Tahir, 23 Sep 2026 (night, R5/R9)', who: ['Finance','CFO'], note: 'was hard KAM-only' },
+    'customer.amend':   { by: 'Tahir, 23 Sep 2026 (night, R5/R9)', who: ['Finance','CFO'], note: 'was hard KAM-only' },
   };
   {
     const before = fs.readFileSync(require('path').join(__dirname, '_before-lot.html'), 'utf8');
@@ -383,11 +409,15 @@ const asRole = r => { B.state.role = r; };
 /* 2c. Customer Master is still as locked as it was — the whole point of the
    hold-back survives the conversion. */
 {
-  const can = c => ROLES.filter(r => B.mayRole(r, c));
-  eq('adding a customer is still KAM and COO only', can('customer.create').join(', '), 'KAM, COO');
-  eq('changing one is too', can('customer.amend').join(', '), 'KAM, COO');
-  eq('and raising a PO is still the three the COO chose',
-     can('order.create').join(', '), 'KAM, Plant Manager, COO');
+  /* The night of 23 Sep (R5, R9): customers and orders belong to Finance now.
+     The KAM is a reviewer. The seed that carries the ruling runs in mk(). A
+     fresh box, because the block above empties and refills B.RIGHTS_LIVE. */
+  const B2c = mk('COO');
+  const can = c => ROLES.filter(r => B2c.mayRole(r, c));
+  eq('adding a customer is Finance, the CFO and the COO', can('customer.create').join(', '), 'CFO, COO, Finance');
+  eq('changing one is too', can('customer.amend').join(', '), 'CFO, COO, Finance');
+  eq('and raising a PO is Finance, the CFO and the COO (matrix, seeded by the ruling)',
+     can('order.create').join(', '), 'CFO, COO, Finance');
 }
 
 /* 2d. The COO can never be locked out. */
@@ -419,8 +449,11 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
      can tick for it — that is the 5-to-10-people case. */
   {
     B.state.masters.roles.push({ id: 'sales-officer', name: 'Sales Officer', deptId: 'commercial', builtin: false, archived: false });
-    eq('the lead MAY tick for another role in his own department',
-       refuse('KAM', 'Sales Officer', 'order.create'), '');
+    /* Since the night of 23 Sep the KAM no longer holds order.create himself, so
+       the Commercial lead cannot pass it on - the same rule as the CFO-only case
+       below. The "lead may tick" shape is proved with a right he does hold. */
+    ok('the lead may NOT hand out a right he no longer holds (order.create left the KAM)',
+       /do not hold/.test(refuse('KAM', 'Sales Officer', 'order.create')), refuse('KAM', 'Sales Officer', 'order.create'));
     /* The lead is the right person and the target is in his department — but he
        does not hold this one himself, so he cannot pass it on. A Commercial
        right whose old rule was "CFO only" gives exactly that shape. */
@@ -459,12 +492,13 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
      pair order.create + dc.approve — and give it to the KAM. */
   {
     B.RIGHTS.push({ code: 'dc.approve', dept: 'supply-chain', name: 'Approve a delivery challan', legacy: { kind: 'hard', roles: ['Plant Manager'] } });
-    ok('KAM already raises orders', B.mayRole('KAM', 'order.create') === true);
-    ok('so KAM cannot also be given DC approval',
-       /already has/.test(B.separationRefusal('KAM', 'dc.approve')),
-       B.separationRefusal('KAM', 'dc.approve'));
+    /* Since the night of 23 Sep it is Finance, not the KAM, that raises orders. */
+    ok('Finance already raises orders', B.mayRole('Finance', 'order.create') === true);
+    ok('so Finance cannot also be given DC approval',
+       /already has/.test(B.separationRefusal('Finance', 'dc.approve')),
+       B.separationRefusal('Finance', 'dc.approve'));
     ok('...and the reason is given, not just a no',
-       /approving its own delivery/.test(B.separationRefusal('KAM', 'dc.approve')));
+       /approving its own delivery/.test(B.separationRefusal('Finance', 'dc.approve')));
     ok('a role that does NOT raise orders is unaffected',
        B.separationRefusal('Lab Rep', 'dc.approve') === '');
     B.RIGHTS.pop();
@@ -475,16 +509,18 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
 {
   /* Renaming a role used to orphan its entire rights row silently — which is how
      "Supply Chain" and "Supply Chain Officer" became two rows for one job. */
+  /* Since 23 Sep night the KAM holds no editable right (C9), so the rename
+     check uses Supply Chain and a right it holds live: rm.receive. */
   const b2 = mk('COO');
-  const before = b2.mayRole('KAM', 'customer.create');
-  ok('the KAM has the customer right before the rename', before === true);
+  const before = b2.mayRole('Supply Chain', 'rm.receive');
+  ok('Supply Chain has rm.receive before the rename', before === true);
   b2.RIGHTS.forEach(rt => { b2.RIGHTS_LIVE[rt.code] = true; });
-  const r = b2.state.masters.roles.find(x => x.name === 'KAM');
-  r.name = 'Key Account Manager';
+  const r = b2.state.masters.roles.find(x => x.name === 'Supply Chain');
+  r.name = 'Lead Supply Chain';
   ok('after a rename the role KEEPS its rights',
-     b2.mayRole('Key Account Manager', 'customer.create') === true);
+     b2.mayRole('Lead Supply Chain', 'rm.receive') === true);
   ok('and the old name has nothing, because it no longer exists',
-     b2.mayRole('KAM', 'customer.create') === false);
+     b2.mayRole('Supply Chain', 'rm.receive') === false);
 }
 
 /* ================= 6. the refusal is worth reading ================= */
@@ -493,7 +529,7 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
   const msg = B.denyRight('order.create', 'Submitting a PO');
   ok('names what was refused', /Submitting a PO/.test(msg), msg);
   ok('names the right in plain words', /Raise a new PO/.test(msg), msg);
-  ok('names who can', /KAM/.test(msg), msg);
+  ok('names who can', /Finance/.test(msg), msg);
   ok('and says who to ask', /Authorisation/.test(msg), msg);
 }
 
@@ -608,9 +644,11 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
     const fresh = JSON.parse(JSON.stringify({ masters: STATE.masters }));
     delete fresh.masters.roleRights; delete fresh.masters.departments;
     b3.state = undefined;                       /* exactly the boot condition */
-    b3.seedDeptRightsV1(fresh);
-    eq('the KAM is seeded able to raise a PO even with no live state yet',
-       fresh.masters.roleRights['kam']['order.create'], true);
+    b3.seedAccessV2(fresh); b3.seedDeptRightsV1(fresh);
+    /* R5: Finance and the CFO raise orders now, not the KAM. The July state
+       file predates the Finance role, so the CFO carries the check here. */
+    eq('the CFO is seeded able to raise a PO even with no live state yet',
+       fresh.masters.roleRights['cfo']['order.create'], true);
     eq('...and Production is seeded unable to', fresh.masters.roleRights['production']['order.create'], false);
     ok('the screen-kind grants are not all false — which is what asking the live state would give',
        Object.keys(fresh.masters.roleRights).some(k => fresh.masters.roleRights[k]['order.create'] === true));
@@ -729,8 +767,8 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
        /HELD BACK/.test(b.grantRefusal('KAM', 'Sales Officer', c)));
     eq('but the COO still can', b.grantRefusal('COO', 'Sales Officer', c), '');
   });
-  eq('an ordinary Commercial right is still the lead’s to give',
-     b.grantRefusal('KAM', 'Sales Officer', 'order.create'), '');
+  ok('an ordinary Commercial right the lead no longer holds is not his to give (order.create moved to Finance)',
+     /do not hold/.test(b.grantRefusal('KAM', 'Sales Officer', 'order.create')), b.grantRefusal('KAM', 'Sales Officer', 'order.create'));
 }
 
 /* ================= 13. the panel itself ================= */
@@ -754,6 +792,11 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
                     .map(H.grab).join('\n\n'), b);
     b.state.masters.accessMatrix[role] = b.state.masters.accessMatrix[role] || {};
     if (role !== 'COO') b.state.masters.accessMatrix[role].admin = { v: true, e: false };
+    /* The lead-ticks machinery below is exercised with the KAM holding
+       order.create, as he did until the night of 23 Sep. The ruling that took
+       it off him (R5) is pinned in rights.test.js and warehousesplit.test.js;
+       here the matrix cell is restored so the MACHINERY stays under test. */
+    preR5(b);
     return b;
   }
 
@@ -862,7 +905,7 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
       const bs = panel('COO');
       bs.RIGHTS.push({ code: 'dc.approve', dept: 'commercial', name: 'Approve a delivery challan',
                        legacy: { kind: 'hard', roles: ['Plant Manager'] } });
-      bs.seedDeptRightsV1(bs.state);
+      bs.seedDeptRightsV1(bs.state); preR5(bs);
       ok('setting up: the KAM raises orders', bs.mayRole('KAM', 'order.create') === true);
       const row = bs.authCard();
       const dcRow = row.slice(row.indexOf('Approve a delivery challan')).split('</tr>')[0];
@@ -1000,6 +1043,7 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
     _pe: x => String(x == null ? '' : x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') });
   vm.runInContext(['_at', 'screenEditOK', 'accessLevel', 'authRepaint', 'rightTickById', 'rightTick', 'authPick', 'authDriftBanner', 'authLoopholeBanner', 'authCard']
                   .map(H.grab).join('\n\n'), b);
+  preR5(b);
   const html = b.authCard();
   ok('setting up: the Plant Manager really does hold order.create',
      b.mayRole('Plant Manager', 'order.create') === true);
@@ -1049,6 +1093,7 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
     b.seedDeptRightsV1(b.state);
     Object.assign(b, { toasts: [], toast: m => b.toasts.push(m), save: () => {}, render: () => {}, logAction: () => {} });
     vm.runInContext(['accessLevel', 'authRepaint', 'rightTickById', 'rightTick'].map(H.grab).join('\n\n'), b);
+    preR5(b);
     b.state.masters.accessMatrix['KAM'].admin = { v: false, e: false };
     b.rightTick('Sales Officer', 'order.create', true);
     ok('somebody who cannot open Admin at all cannot tick, even from the console',
@@ -1116,7 +1161,7 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
    even open the screen the panel lives on — so a CFO refused on New PO Entry
    was sent to a KAM who had no way to help, and lost a day. */
 {
-  const b = mk('CFO');
+  const b = mk('CFO'); preR5(b);
   const msg = b.denyRight('order.create', 'Submitting a PO');
   ok('it still says what was refused and who currently can', /Submitting a PO/.test(msg) && /KAM/.test(msg), msg);
   ok('it points at a real place, naming the screen it is actually on',
@@ -1129,7 +1174,7 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
   const c = mk('COO');
   c.state.masters.roles.push({ id: 'so9', name: 'Sales Officer', deptId: 'commercial', builtin: false, archived: false });
   c.state.masters.accessMatrix['KAM'].admin = { v: true, e: false };   /* the lead can now reach the panel */
-  c.seedDeptRightsV1(c.state);
+  c.seedDeptRightsV1(c.state); preR5(c);
   c.state.role = 'Sales Officer';
   const msg2 = c.denyRight('order.create', 'Submitting a PO');
   ok('a Sales Officer IS told to ask his own lead, because the lead really can',
@@ -1166,6 +1211,7 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
     const cells = row.split('<td');
     return cells[col] || '';
   };
+  preR5(b);
   ok('setting up: the Plant Manager holds order.create today', b.mayRole('Plant Manager', 'order.create') === true);
   const before = b.authCard();
   ok('and the grid shows it granted', /Granted/.test(cellOf(before, 'Raise a new PO', 1)) ||

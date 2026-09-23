@@ -20,8 +20,8 @@ const STATE = JSON.parse(fs.readFileSync(H.STATE, 'utf8')).data;
 
 /* Real source, pulled out of the shipping file. */
 const src = ['accessOv', '_ownerEdit', 'accessLevelOn', 'accessLevel', 'canView', 'screenEditOK',
-             'actOverdue', 'actTiming', 'actUrg', 'actSort', 'acRiskOf', 'acWaitTxt']
-            .map(H.grab).join('\n\n')
+             'actOverdue', 'actTiming', 'actUrg', 'actSort', 'acRiskOf', 'acWaitTxt', 'seedAccessV2']
+            .map(H.grab).join('\n\n') + '\n' + H.grabTopVar('ACCESS_RULED_V2', '{')
           + '\n' + (function(){
               /* SCREENS is declared `const`, which grabObj (var-only) will not find.
                  Pull it with the harness's bracket matcher instead of loosening
@@ -59,6 +59,7 @@ const box = {
 box.globalThis = box;
 vm.createContext(box);
 vm.runInContext(src, box);
+box.seedAccessV2(box.state);   /* the ruled matrix of 23 Sep night, as the app applies it at load */
 const { screenEditOK, accessLevel, actUrg, actTiming, actSort, acRiskOf, acWaitTxt } = box;
 
 let pass = 0, fail = 0; const fails = [];
@@ -73,8 +74,9 @@ function atEveryHour(label, fn){ [0,9,12,13,18,23].forEach(function(h){ TODAY=at
 
 /* ================= 1. who may answer print-on-pack ================= */
 
-/* The three the COO named: anyone who can create a PO. */
-['COO', 'KAM', 'Plant Manager'].forEach(r => {
+/* Anyone who can create a PO. Since the night of 23 Sep (R5) that is Finance,
+   the CFO and the COO - the box below runs the ruled matrix seed first. */
+['COO', 'Finance', 'CFO'].forEach(r => {
   asRole(r); ok('CAN answer print-on-pack: ' + r, screenEditOK('entry') === true,
                 'accessLevel=' + accessLevel(r, 'entry'));
 });
@@ -82,7 +84,7 @@ function atEveryHour(label, fn){ [0,9,12,13,18,23].forEach(function(h){ TODAY=at
 /* Everyone else is refused. These are the roles the access matrix explicitly
    denies the entry screen, plus the CFO who has view but not edit. */
 ['Supply Chain', 'Supply Chain Officer', 'Production', 'QA Inspector',
- 'QCM', 'AQCM', 'Lab Rep', 'CFO', 'Finance'].forEach(r => {
+ 'QCM', 'AQCM', 'Lab Rep', 'KAM', 'Plant Manager', 'Finance Desk Officer'].forEach(r => {
   asRole(r); ok('CANNOT answer print-on-pack: ' + r, screenEditOK('entry') === false,
                 'accessLevel=' + accessLevel(r, 'entry'));
 });

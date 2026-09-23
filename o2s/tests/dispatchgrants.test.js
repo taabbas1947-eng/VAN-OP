@@ -78,7 +78,8 @@ function makeBox() {
   const src = blockAt('const SCREENS=', '[').replace(/^const /, 'var ') + ';\n'
     + H.grabTopVar('DEPTS', '[') + H.grabTopVar('ROLE_DEPT', '{') + H.grabTopVar('RIGHTS', '[')
     + H.grabTopVar('RIGHTS_LIVE', '{') + H.grabTopVar('DISPATCH_LIVE', '[') + H.grabTopVar('DISPATCH_GRANT', '{')
-    + H.grabTopVar('PROCUREMENT_LIVE', '[') + H.grabTopVar('PROCUREMENT_GRANT', '{') + '\n'
+    + H.grabTopVar('PROCUREMENT_LIVE', '[') + H.grabTopVar('PROCUREMENT_GRANT', '{')
+    + H.grabTopVar('CUSTOMER_LIVE', '[') + H.grabTopVar('CUSTOMER_GRANT', '{') + '\n'
     + ['rightByCode', 'accessOv', '_ownerEdit', 'accessLevelOn', 'accessLevel', '_canEditOn',
        'mayLegacyRole', 'mayRole', 'rolesOfState', 'roleByName', 'roleIdOf', 'roleRightsOf',
        'seedAnswer', 'seedDeptRightsV1', 'seedTitlesV1', 'scr']

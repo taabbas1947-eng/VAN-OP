@@ -305,10 +305,14 @@ const union = new Set([...scrNames, ...rgtNames, ...fldNames]);
   const screensFor = n => (SCR_SRC.match(/\{id:'[^']+',[\s\S]*?owners:\[[^\]]*\]/g) || [])
     .filter(s => s.indexOf("'" + n + "'") > -1)
     .map(s => /\{id:'([^']+)'/.exec(s)[1]);
+  /* 23 Sep night: Today is everyone's; New PO Entry left the Finance Desk
+     Officer (R5). Data Fix stays in the owners list for the Production Manager
+     here because owners are the DEFAULT - the ruled matrix (seedAccessV2) is
+     what takes it away from him (R20), and threeplaces.test.js proves that. */
   eq('Production Manager is pre-wired for these screens', screensFor('Production Manager').join(','),
-     'dash,approvals,tracker,prod,qc,qa,ship,reports,instructions,datafix,recon');
+     'today,dash,approvals,tracker,prod,qc,qa,ship,reports,instructions,datafix,recon');
   eq('Finance Desk Officer is pre-wired for these screens', screensFor('Finance Desk Officer').join(','),
-     'dash,approvals,entry,tracker,ship,reports,instructions');
+     'today,dash,approvals,tracker,ship,reports,instructions');
 
   /* The only right naming any of the four is the short-close request, added
      23 September. It is legacy:{kind:'hard'} — an unknown name in that list is

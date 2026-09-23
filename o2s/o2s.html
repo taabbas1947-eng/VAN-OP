@@ -11,7 +11,7 @@
    a push keeps running the old code with nothing telling anybody. It sat at
    2026-09-04a through this whole day's work; rmqty/psi tests pinned the code,
    nothing pinned this. buildid.test.js now does. */
-var BUILD_ID='2026-09-23i';
+var BUILD_ID='2026-09-23j';
 var CHANGELOG=[
   {ver:'2026-09-04a', date:'2026-09-04', title:"Delivery, DC printing, and a new Reconciliation check", items:[
     "Delivery confirmation stays with Supply Chain \u2014 it no longer hands off to the Plant Manager. If one sits too long, it now re-flags the same Supply Chain owner every 3 days instead.",
@@ -96,6 +96,15 @@ var CHANGELOG=[
     "A dispatch step left sitting now nudges Lead Supply Chain instead of the Plant Manager. A release or a DC approval left sitting still goes to the COO \u2014 an escalation has to go above the person it is waiting on.",
     "Quality is unchanged: a stale Pack QC or inspection still escalates to the Plant Manager.",
     "One thing to know: the rule \u201cthe person who loads does not release\u201d now has nobody enforcing it between Lead Supply Chain\u2019s own two jobs. In practice the warehouse loads and Lead Supply Chain approves, which is the right shape \u2014 but the app does not stop the same person doing both.",
+  ]},
+  {ver:'2026-09-23j', date:'2026-09-23', title:"Today \u2014 a new front door, and 3 places instead of 17 tabs", items:[
+    "You now land on Today. It shows only the jobs waiting on you, grouped the way the plant does them \u2014 one production run covers every waiting line of that product, one trip to the bay covers every material on a PO, one reason covers every late line of an order \u2014 with one button each. The button is the same action as before; it just no longer hides behind a tab.",
+    "The sidebar is 3 places: Today, Report Center (Dashboard, PO Tracker, Reports \u2014 read-only for everyone) and Back Office (customers, master data, users, data fix, reconciliation \u2014 COO, CFO and Plant Manager). Production, Lab QC, Pre-shipment QA and Shipments are reached from a job, not a tab.",
+    "If you hold a right the COO has granted \u2014 dispatch for the warehouse, for example \u2014 the job now reaches you. Before, an item only reached the role it was addressed to by name, and 11 of 21 people opened an empty list.",
+    "New orders are raised by Finance (Ismaeel), the CFO and the COO only, from the + New order button on Today. The KAM is a reviewer and no longer raises orders or adds customers; that has moved to Finance.",
+    "If nothing is waiting on you, Today says so and shows what is moving in the plant instead of a blank screen. Under your list: what you did today, and for a department lead, what the team did.",
+    "The COO sees only what needs him, with a Whole plant switch.",
+    "My Actions is no longer in the sidebar. Its code stays for one release."
   ]},
 ];
 </script>
@@ -1623,6 +1632,56 @@ div:has(> table.t2mtx){overflow-x:auto;-webkit-overflow-scrolling:touch;max-widt
 /* === END MOBILE FIX PACK 2026-08-21 === */
 
 </style>
+<style id="td-css">
+/* ===== TODAY — the front door (2026-09-23j) ===== */
+.td{max-width:760px;margin:0 auto}
+.tdhow{background:var(--panel2,#eef4ef);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin:6px 0 14px}
+.tdhow-h{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);margin-bottom:6px}
+.tdhow ol{margin:0;padding-left:20px;font-size:14px;line-height:1.55}
+.tdlink{background:none;border:0;color:var(--navy,#1f5f3f);font-weight:700;font-size:13px;padding:8px 0 0;cursor:pointer;line-height:1.2}
+.tdscope button{line-height:1.2}
+.tdbtn{line-height:1.2}
+.tdstarts{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 14px}
+.tdstart{background:#fff;color:var(--ink,#15181c);border:1px solid var(--line);border-radius:999px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer;line-height:1.2}
+.tdscope{display:inline-flex;background:var(--panel2,#eef0ee);border-radius:999px;padding:3px;margin:0 0 10px}
+.tdscope button{border:0;background:transparent;border-radius:999px;padding:7px 14px;font-size:13px;font-weight:700;color:var(--mut);cursor:pointer}
+.tdscope button.on{background:#fff;color:var(--ink,#111);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.tdday{padding:8px 0 10px}
+.tdbig{font-size:26px;font-weight:700;letter-spacing:-.02em}
+.tdsm{font-size:14px;color:var(--mut);margin-top:3px}
+.tdlist{display:flex;flex-direction:column;gap:10px;padding-bottom:20px}
+.tdcard{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 15px}
+.tdcard.late{border-left:4px solid var(--red,#a8341f)}
+.tdcard details>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:10px}
+.tdcard details>summary::-webkit-details-marker{display:none}
+.tdhead{flex:1;min-width:0}
+.tdtitle{font-size:17px;font-weight:700}
+.tdsub{font-size:13.5px;color:var(--mut);margin-top:3px;word-break:break-word}
+.tdtags{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.tdtag{font-size:11.5px;padding:3px 8px;border-radius:999px;background:var(--panel2,#f3f4f2);border:1px solid var(--line);color:var(--mut);white-space:nowrap}
+.tdtag.late{background:#fbeae6;border-color:transparent;color:#a8341f;font-weight:700}
+.tdtag.warn{background:#fdf3e0;border-color:transparent;color:#8a5a00;font-weight:700}
+.tdopen{font-size:12px;font-weight:700;color:var(--navy,#1f5f3f);white-space:nowrap}
+.tdcard details[open] .tdopen{visibility:hidden}
+.tdbtn{display:block;width:100%;margin-top:12px;background:var(--navy,#1f5f3f);color:#fff;border:0;border-radius:11px;padding:13px;font-size:15px;font-weight:700;cursor:pointer}
+.tdbtn.sm{width:auto;margin:0;padding:8px 12px;font-size:13px;border-radius:9px;flex-shrink:0}
+.tdrows{margin-top:10px;border-top:1px solid var(--line)}
+.tdrow{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+.tdrow:last-child{border-bottom:0}
+.tdrow-t{flex:1;min-width:0;font-size:14px}
+.tdpulse{background:#fff;border:1px solid var(--line);border-radius:14px;padding:6px 16px;margin-bottom:16px}
+.tdpulse-r{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--line);font-size:14px}
+.tdpulse-r:first-child{border-top:0}
+.tdpulse-r span{flex:1}
+.tdpulse-r i{display:block;height:6px;border-radius:3px;background:var(--navy,#1f5f3f);opacity:.75}
+.tdpulse-r b{font-variant-numeric:tabular-nums;min-width:2ch;text-align:right}
+.tdmuted{color:var(--mut);font-size:14px;padding:10px 0}
+.tdsec{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);padding:18px 2px 6px}
+.tddone-r{display:flex;gap:10px;padding:8px 2px;border-top:1px solid var(--line);font-size:13.5px}
+.tddone-t{color:var(--mut);font-variant-numeric:tabular-nums;white-space:nowrap;min-width:5ch}
+.tddone-w{flex:1;min-width:0}
+@media (max-width:820px){ .tdbig{font-size:23px} }
+</style>
 </head><body>
 <div class="app" id="appShell" style="display:none">
   <div class="navbackdrop" onclick="closeMobileNav()"></div>
@@ -1750,7 +1809,7 @@ function ensureState(s){
   s.users=(s.users&&s.users.length)?s.users:deepClone(SEED.users||[]); if(s.currentUser===undefined)s.currentUser=null;
   s.rmRequests=s.rmRequests||[]; s.productionLog=s.productionLog||[]; s.packingLog=s.packingLog||[];
   s.actionLog=s.actionLog||[]; s.shipments=s.shipments||[]; s.inspections=s.inspections||[]; s.warehouses=s.warehouses||SEED.warehouses.slice();
-  s.rawStock=s.rawStock||{}; s.rmMovements=s.rmMovements||[]; s.audit=s.audit||[]; s.masters=s.masters||deepClone(SEED.masters||{}); s.batches=s.batches||[]; s.packedStock=s.packedStock||{}; s.packingLog=s.packingLog||[]; s.orders=s.orders||[]; if(s.seq==null)s.seq=1000; ensureRecordIds(s); if(s.dataFixEnabled==null)s.dataFixEnabled=true; if(!Array.isArray(s.prs))s.prs=[]; (s.batches||[]).forEach(function(b){ if((b.producedKg||0)>0 && (!Array.isArray(b.lots)||!b.lots.length)){ b.lots=[{id:'LOT'+(s.seq++), lotNo:(b.batchNo||'B')+'-L1', qty:b.producedKg, date:b.openedDate||'', by:b.by||'', coa:(b.coa||null), migrated:true}]; } }); ensureMasters(s); ensureProductionModel(s); dedupePackingLots(s); migrateLotTracking(s); migratePackingLotLidV1(s); fixRudolfDupV1(s); reconcileLotShipKgV1(s); dedupeShipmentsV1(s); healPRFlags(s); migrateBrandNames(s); loadBaseRecipesV2(s); loadBlendRecipesV1(s); loadBlendRecipesV2(s); purgeImportedProduction(s); purgeImportDuplicates(s); purgeImportedNoTwin(s); fixPhantomLotVU26134(s); fixVU26144ProdLogV1(s); fixVU26144ProdLogV2(s); healVU26144ProdLog(s); backfillDisposedV1(s); consolidateByproductV1(s); dedupeByproductV1(s); reconcileShipLotsV1(s); normalizeVZincBase(s); normalizeBoronBase(s); seedByproductRulesV1(s); seedRolesV1(s); seedDeptRightsV1(s); bumpSeqV1(s); healDupBatchIdsV1(s); fixVB26003LotRenameV1(s); fixRudolfTBPPOV1(s); linkShipBatchLotsV1(s); return s;
+  s.rawStock=s.rawStock||{}; s.rmMovements=s.rmMovements||[]; s.audit=s.audit||[]; s.masters=s.masters||deepClone(SEED.masters||{}); s.batches=s.batches||[]; s.packedStock=s.packedStock||{}; s.packingLog=s.packingLog||[]; s.orders=s.orders||[]; if(s.seq==null)s.seq=1000; ensureRecordIds(s); if(s.dataFixEnabled==null)s.dataFixEnabled=true; if(!Array.isArray(s.prs))s.prs=[]; (s.batches||[]).forEach(function(b){ if((b.producedKg||0)>0 && (!Array.isArray(b.lots)||!b.lots.length)){ b.lots=[{id:'LOT'+(s.seq++), lotNo:(b.batchNo||'B')+'-L1', qty:b.producedKg, date:b.openedDate||'', by:b.by||'', coa:(b.coa||null), migrated:true}]; } }); ensureMasters(s); ensureProductionModel(s); dedupePackingLots(s); migrateLotTracking(s); migratePackingLotLidV1(s); fixRudolfDupV1(s); reconcileLotShipKgV1(s); dedupeShipmentsV1(s); healPRFlags(s); migrateBrandNames(s); loadBaseRecipesV2(s); loadBlendRecipesV1(s); loadBlendRecipesV2(s); purgeImportedProduction(s); purgeImportDuplicates(s); purgeImportedNoTwin(s); fixPhantomLotVU26134(s); fixVU26144ProdLogV1(s); fixVU26144ProdLogV2(s); healVU26144ProdLog(s); backfillDisposedV1(s); consolidateByproductV1(s); dedupeByproductV1(s); reconcileShipLotsV1(s); normalizeVZincBase(s); normalizeBoronBase(s); seedByproductRulesV1(s); seedRolesV1(s); seedWarehouseRoleV1(s); seedAccessV2(s); seedDeptRightsV1(s); seedCustomerRightsV1(s); bumpSeqV1(s); healDupBatchIdsV1(s); fixVB26003LotRenameV1(s); fixRudolfTBPPOV1(s); linkShipBatchLotsV1(s); return s;
 }
 /* 2026-07-28 fix: seq can lag behind ids already in the data (stale tab saved over a
    newer state), so bump it above every numeric id suffix before anything generates ids. */
@@ -2669,15 +2728,24 @@ function denyWork(scrId,what){ var sc=(typeof scr==='function')?scr(scrId):null;
 function hardRole(roles){ return state.role==='COO' || roles.includes(state.role); }
 /* ===================== SCREENS REGISTRY ===================== */
 const SCREENS=[
+  /* TODAY — the front door. Everyone owns it; everyone lands on it. 2026-09-23j. */
+  {id:'today', name:'Today', ic:'\u2600\ufe0f', owners:['KAM','Supply Chain','Production','Production Manager','Lab Rep','AQCM','QCM','QA Inspector','Plant Manager','CFO','COO','Supply Chain Officer','Finance Desk Officer','Finance','Warehouse'], sub:'The jobs waiting on you',
+    obj:'<b>Your day.</b> Only the things waiting on you, grouped the way the plant does them \u2014 one run, one trip to the bay, one truck \u2014 with one button each. The button is the same action as always; it just no longer hides behind a tab.'},
   {id:'dash', name:'Dashboard', ic:'\ud83d\udcca', owners:['KAM','Supply Chain','Production','Production Manager','Lab Rep','AQCM','QCM','QA Inspector','Plant Manager','CFO','COO','Supply Chain Officer','Finance Desk Officer','Finance','Warehouse'], sub:'What happened, what\u2019s stuck, who\u2019s behind',
     obj:'<b>Executive overview \u00b7 CEO / COO.</b> On-time delivery, overdue &amp; at-risk volume, fulfilment, production output, attention list and top customers \u2014 read-only.'},
   {id:'approvals', name:'My Actions', ic:'✅', owners:['KAM','Supply Chain','Production','Production Manager','Lab Rep','AQCM','QCM','QA Inspector','Plant Manager','CFO','COO','Supply Chain Officer','Finance Desk Officer','Finance','Warehouse'], sub:'What needs your action',
     obj:'<b>Your live worklist.</b> Everything waiting on you across all orders — acknowledge, RM check, approve PR, close PR, produce, QC, QA, ship, delay reasons — each timestamped.'},
-  {id:'entry', name:'New PO Entry', ic:'\u2795', owners:['KAM','Plant Manager','CFO','Finance Desk Officer','Finance'], sub:'Add an order',
+  /* R5, 23 Sep night: "Ismaeel, CFO, COO see, no one else, not even Basit." The
+     KAM comes off here (the read-only ruling, C9) and the Plant Manager and the
+     Finance Desk Officer with him. Reached from the "+ New order" button on
+     Today, not from the sidebar. */
+  {id:'entry', name:'New PO Entry', ic:'\u2795', owners:['Finance','CFO','COO'], sub:'Add an order',
     obj:'<b>Step 1 \u00b7 KAM.</b> Create a customer PO: Channel \u2192 Client/Dealer \u2192 products (brand auto-maps to base product & pack size) with qty and a committed date. A simple RM-ready flag shows if materials are on hand.'},
-  {id:'dealers', name:'Customer Master', ic:'\ud83e\udd1d', owners:['KAM','Plant Manager','CFO'], sub:'Add &amp; manage customers',
+  /* C3 + C9 as one change, ruled 23 Sep night: customers move from the KAM to
+     Finance. The Plant Manager keeps a view because Back Office is his too (R7). */
+  {id:'dealers', name:'Customer Master', ic:'\ud83e\udd1d', owners:['Finance','CFO','COO','Plant Manager'], sub:'Add &amp; manage customers',
     obj:'<b>KAM.</b> Add a dealer before their first PO \u2014 Province \u2192 City; the code auto-generates as DLR-Region-City-NNN. Confirmed dealers then appear in New PO Entry.'},
-  {id:'tracker', name:'PO Tracker', ic:'\ud83d\udccb', owners:['KAM','Supply Chain','Production','Production Manager','Plant Manager','CFO','COO','Supply Chain Officer','Finance Desk Officer','Warehouse'], sub:'Track every order from PO to shipment',
+  {id:'tracker', name:'PO Tracker', ic:'\ud83d\udccb', owners:['KAM','Supply Chain','Production','Production Manager','Lab Rep','AQCM','QCM','QA Inspector','Plant Manager','CFO','COO','Supply Chain Officer','Finance Desk Officer','Finance','Warehouse'], sub:'Track every order from PO to shipment',
     obj:'This screen shows where each order is standing. Updates are entered from each role\u2019s own screen.'},
   {id:'prod', name:'Production', ic:'\ud83c\udfed', owners:['Production','Production Manager','Plant Manager','Supply Chain Officer','QA Inspector'], sub:'Log output & track vs orders',
     obj:'<b>Step 3 \u00b7 Production.</b> Log daily output, and press Produce then Pack against each PO product. See produced-vs-demand by product, customer and brand.'},
@@ -3054,7 +3122,9 @@ var RIGHTS_LIVE={
   'batch.close':true, 'batch.close_bulk':true, 'production.void':true,
   /* ---- Supply Chain, split in two - 23 September 2026 ---- */
   'shipment.plan':true, 'shipment.load':true, 'gatepass.issue':true, 'delivery.confirm':true,
-  'rm.check':true, 'rm.receive':true, 'pr.close':true, 'order.acknowledge':true
+  'rm.check':true, 'rm.receive':true, 'pr.close':true, 'order.acknowledge':true,
+  /* ---- Customers to Finance - the night of 23 September 2026 ---- */
+  'customer.create':true, 'customer.amend':true
 };
 /* SUPPLY CHAIN SPLITS IN TWO, AND WHY IT HAD TO BE A FLIP RATHER THAN A TICK.
 
@@ -3085,6 +3155,74 @@ var DISPATCH_LIVE=['shipment.plan','shipment.load','gatepass.issue','delivery.co
 var DISPATCH_GRANT={'Supply Chain':true,'Warehouse':true,'Supply Chain Officer':true};
 var PROCUREMENT_LIVE=['rm.check','rm.receive','pr.close','order.acknowledge'];
 var PROCUREMENT_GRANT={'Supply Chain':true};
+/* CUSTOMERS MOVE TO FINANCE - the night of 23 September 2026 (R5, R9).
+   "Ismaeel, CFO, COO see [New PO Entry], no one else, not even Basit." And the
+   KAM is a reviewer (C9), so the two customer rights leave him. They were the
+   KAM-only hard check; that record stays in their legacy blocks untouched.
+   Unlike the dispatch split, the live grant rows for these two codes had
+   already been answered (KAM yes, everyone else no), so the undefined-only
+   seed cannot carry the ruling. seedCustomerRightsV1 writes it once, flagged. */
+var CUSTOMER_LIVE=['customer.create','customer.amend'];
+var CUSTOMER_GRANT={'Finance':true,'CFO':true};
+function seedCustomerRightsV1(s){
+  if(!s.masters) s.masters={};
+  if(s.masters._customerRightsV1) return;
+  s.masters.roleRights=s.masters.roleRights||{};
+  (s.masters.roles||[]).forEach(function(ro){ if(!ro||ro.name==='COO') return;
+    var row=s.masters.roleRights[ro.id]||{};
+    CUSTOMER_LIVE.forEach(function(c){ row[c]=(CUSTOMER_GRANT[ro.name]===true); });
+    s.masters.roleRights[ro.id]=row; });
+  s.masters._customerRightsV1={at:new Date().toISOString(),by:'ruling of 23 Sep 2026 (R5, R9)'};
+  try{ if(typeof logAction==='function') logAction('Customer rights moved to Finance and the CFO (ruling of 23 Sep 2026). The KAM is a reviewer.'); }catch(e){}
+}
+/* THE WAREHOUSE ROLE - R12. "Create it in the build." Filed under Supply Chain;
+   its dispatch grants come from DISPATCH_GRANT through seedDeptRightsV1, which
+   fills a never-answered cell - so this MUST run before it on the same load.
+   Putting Shoaib on the role is Users & Access: the COO's, not the build's. */
+function seedWarehouseRoleV1(s){
+  if(!s.masters) s.masters={};
+  if(!Array.isArray(s.masters.roles) || !s.masters.roles.length) return;
+  if(s.masters.roles.some(function(r){ return r && String(r.name).toLowerCase()==='warehouse'; })) return;
+  s.masters.roles.push({id:'warehouse', name:'Warehouse', deptId:'supply-chain', builtin:false, archived:false, createdBy:'ruling of 23 Sep 2026 (R12)'});
+  try{ if(typeof logAction==='function') logAction('Role "Warehouse" created under Supply Chain (ruling of 23 Sep 2026). Assign Shoaib Sabir to it in Users & Access.'); }catch(e){}
+}
+/* THE ACCESS MATRIX FOR THREE PLACES - R1, R5, R7, R20. The live matrix carried
+   explicit answers that contradict the rulings (Finance could not even SEE New
+   PO Entry; the CFO could see it but not raise an order), and an explicit
+   answer beats the owners list. So the ruled cells are written once, flagged,
+   and the COO's later changes are never touched again. Only the cells named
+   here move; every other cell keeps whatever it held. */
+var ACCESS_RULED_V2={
+  /* '*' is the answer for every role not named; 'keep' leaves a cell as it is.
+     'read' opens a screen without touching an existing edit; 'view' sets
+     view-only and takes an edit away (the Plant Manager on customers). */
+  entry:   {'*':'none','Finance':'edit','CFO':'edit'},
+  dealers: {'*':'none','Finance':'edit','CFO':'edit','Plant Manager':'view'},
+  /* Back Office (R7): COO, CFO, Plant Manager. The QCM keeps Admin for the lab
+     test templates - that is lab configuration, not company administration. */
+  admin:   {'*':'none','CFO':'edit','Plant Manager':'edit','QCM':'keep'},
+  users:   {'*':'none','Plant Manager':'keep'},
+  datafix: {'*':'none','CFO':'edit','Plant Manager':'edit'},
+  recon:   {'*':'none','CFO':'edit','Plant Manager':'edit','Production Manager':'read'},
+  tracker: {'*':'read'}, dash: {'*':'read'}, reports: {'*':'read'}
+};
+function seedAccessV2(s){
+  if(!s.masters) s.masters={};
+  if(s.masters._accessV2) return;
+  var m=s.masters.accessMatrix=s.masters.accessMatrix||{};
+  var roles=(s.masters.roles||[]).map(function(r){return r&&r.name;}).filter(function(n){return n&&n!=='COO';});
+  Object.keys(ACCESS_RULED_V2).forEach(function(sc){ var rule=ACCESS_RULED_V2[sc];
+    roles.forEach(function(rn){
+      var lv=rule[rn]!==undefined?rule[rn]:rule['*']; if(lv===undefined||lv==='keep') return;
+      m[rn]=m[rn]||{}; var cur=m[rn][sc]||{};
+      if(lv==='edit') m[rn][sc]={v:true,e:true};
+      else if(lv==='none') m[rn][sc]={v:false,e:false};
+      else if(lv==='view') m[rn][sc]={v:true,e:false};
+      else if(lv==='read'){ if(cur.e===true) return; m[rn][sc]={v:true,e:false}; }
+    }); });
+  s.masters._accessV2={at:new Date().toISOString(),by:'rulings of 23 Sep 2026 (R1, R5, R7, R20)'};
+  try{ if(typeof logAction==='function') logAction('Access matrix set for the 3-place layout (rulings of 23 Sep 2026): orders and customers to Finance and the CFO; Report Center readable by all; Data Fix to COO, CFO and Plant Manager.'); }catch(e){}
+}
 /* THE PLANT MANAGER IS OUT OF BOTH LISTS - Tahir, 23 September 2026.
 
    "Plant Manager is no more a cover. Saad becomes the authority to approve
@@ -3254,6 +3392,7 @@ function seedDeptRightsV1(s){
        never overwritten. */
     DISPATCH_LIVE.forEach(function(c){ if(row[c]===undefined) row[c]=(DISPATCH_GRANT[ro.name]===true); });
     PROCUREMENT_LIVE.forEach(function(c){ if(row[c]===undefined) row[c]=(PROCUREMENT_GRANT[ro.name]===true); });
+    CUSTOMER_LIVE.forEach(function(c){ if(row[c]===undefined) row[c]=(CUSTOMER_GRANT[ro.name]===true); });
     RIGHTS.forEach(function(r){ if(row[r.code]===undefined) row[r.code]=seedAnswer(s,ro.name,r); });
     s.masters.roleRights[ro.id]=row; });
 }
@@ -3402,15 +3541,20 @@ const NAV_ICONS={
 };
 function navIcon(id){ return NAV_ICONS[id]?`<svg viewBox="0 0 24 24">${NAV_ICONS[id]}</svg>`:''; }
 const NAV_ORDER=['approvals','tracker','prod','qc','qa','ship','instructions','dash','budget','entry','dealers','reports','admin','datafix','users'];
+/* THREE PLACES — 2026-09-23j. Tahir, the night of 23 Sep: "redesign it, if it's
+   not required in the new, drop it ... we should make back office and report
+   center model". The operations screens (Production, Lab QC, Pre-shipment QA,
+   Shipments, New PO Entry) are not gone — they hold the forms — but nobody
+   reaches them by tab any more. A job on Today opens the right one. The old
+   Action Center ('approvals') leaves the sidebar; Today replaces it. */
 const NAV_GROUPS=[
-  {label:'Work', ids:['approvals','tracker']},
-  {label:'Operations', ids:['prod','qc','qa','ship']},
-  {label:'Insights', ids:['dash','budget','reports']},
-  {label:'Setup & admin', ids:['entry','dealers','admin','datafix','recon','users']},
+  {label:'Work', ids:['today']},
+  {label:'Report Center', ids:['dash','tracker','reports']},
+  {label:'Back Office', ids:['dealers','budget','admin','users','datafix','recon']},
   {label:'Guide', ids:['instructions']},
 ];
 function groupOf(id){ for(var i=0;i<NAV_GROUPS.length;i++){ if(NAV_GROUPS[i].ids.indexOf(id)>-1) return NAV_GROUPS[i].label; } return ''; }
-function navBadge(id){ if(id!=='approvals') return ''; try{ var items=actionItems(); var mine=state.role==='COO'?items:items.filter(function(x){return x.role===state.role;}); return mine.length?`<span class="navct">${mine.length}</span>`:''; }catch(e){ return ''; } }
+function navBadge(id){ if(id!=='approvals'&&id!=='today') return ''; try{ if(id==='today'){ var g=tdGroups(tdItems()); return g.length?`<span class="navct">${g.length}</span>`:''; } var items=actionItems(); var mine=state.role==='COO'?items:items.filter(function(x){return x.role===state.role;}); return mine.length?`<span class="navct">${mine.length}</span>`:''; }catch(e){ return ''; } }
 function renderNav(){
   const byId={}; SCREENS.forEach(s=>byId[s.id]=s);
   const vis=function(id){ return byId[id] && (id!=='datafix' || state.role==='COO') && id!=='budget' && canView(state.role,id); };
@@ -3516,8 +3660,8 @@ const HINTS={
 function dismissHint(id){ try{ if(window.localStorage) localStorage.setItem('van_hint_'+_tipUK()+'_'+id,'1'); }catch(e){} render(); }
 function showAllHints(){ try{ if(window.localStorage){ const uk=_tipUK(); Object.keys(HINTS).forEach(k=>localStorage.removeItem('van_hint_'+uk+'_'+k)); } }catch(e){} toast('Tips re-enabled'); render(); }
 function render(){
-  if(scr(state.screen)&&!canView(state.role,state.screen)) state.screen='dash';
-  if(!scr(state.screen)) state.screen='dash';
+  if(scr(state.screen)&&!canView(state.role,state.screen)) state.screen='today';
+  if(!scr(state.screen)) state.screen='today';
   renderNav();
   syncPeriodBar();
   const s=scr(state.screen);
@@ -3525,7 +3669,7 @@ function render(){
   { var _tb=$('scTabs'); if(_tb) _tb.innerHTML=(state.screen==='approvals'?acHeaderTabsHTML():''); }
   if($('helpbar')) $('helpbar').innerHTML='';  /* help bar removed (declutter) */
   /* role switcher is rendered into .foot by renderNav (declutter removed the tips button) */
-  ({dash:screenDash,approvals:screenApprovals,entry:screenEntry,tracker:screenTracker,prod:screenProd,qc:screenQC,qa:screenQA,ship:screenShip,reports:screenReports,budget:screenBudget,dealers:screenDealers,instructions:screenInstructions,admin:screenAdmin,datafix:screenDataFix,recon:screenRecon,users:screenUsers,}[state.screen])();
+  ({today:screenToday,dash:screenDash,approvals:screenApprovals,entry:screenEntry,tracker:screenTracker,prod:screenProd,qc:screenQC,qa:screenQA,ship:screenShip,reports:screenReports,budget:screenBudget,dealers:screenDealers,instructions:screenInstructions,admin:screenAdmin,datafix:screenDataFix,recon:screenRecon,users:screenUsers,}[state.screen])();
 }
 /* ===================== LOCK 4: DATA FIX (reconciliation console — safety frame) ===================== */
 function typeNameToConfirm(actionText){
@@ -10515,6 +10659,197 @@ function financeFeed(){
   var tbl='<div style="overflow:auto"><table><thead><tr><th>Dispatched</th><th>PO</th><th>Client</th><th>Product</th><th class="num">Kg/L</th><th>DC #</th><th>Delivered</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
   return '<div style="margin-top:14px">'+acard('fin_feed','Finance &middot; shipment &amp; delivery records','read-only &middot; '+sh.length+' record'+(sh.length===1?'':'s')+' &middot; for invoicing',tbl)+'</div>';
 }
+/* ===================== TODAY — THE FRONT DOOR (2026-09-23j) =====================
+   Tahir, 23 September 2026: "the old app design, structures and user interface,
+   tabs switching and easiness and adoption is failed. we are making a new effort."
+   Then, after two prototypes on the live data: "we should work on real live."
+
+   What the live data showed that afternoon (measured, not argued): actionItems()
+   was raising 104 obligations, one per order LINE. 54 were 'Open Production' and
+   9 of those were the same run of Sulfur 70%; 13 'Receive' rows were 3 trips to
+   the same bay; the Plant Manager's 18 rows were 7 orders' worth of one question.
+   And 11 of the 21 people had NOTHING, because acBase() matches an item to a
+   person by role NAME only — a Warehouse Assistant holding every dispatch right
+   the COO had granted still opened an empty list.
+
+   Today is one screen, and it is where everyone lands. It shows the jobs waiting
+   on the signed-in person, grouped the way the plant does them — one run, one
+   trip to the bay, one truck, one reason per late order — in plain words, with
+   one button each. That button is the app's OWN action for the item (it.act), so
+   pressing it opens the same form and saves exactly as it always has.
+
+   Today READS  actionItems()  acDeferActive()  acEscalation()  mayRole()
+               state.actionLog  (for "done today")
+   Today WRITES nothing. It raises no item of its own and changes no state. */
+var TD_LABEL={
+  'Acknowledge':     {title:'New order to acknowledge',            verb:'Acknowledge'},
+  'RM Check':        {title:'Check raw material for an order',      verb:'Check raw material'},
+  'Approve PR':      {title:'Purchase request to approve',          verb:'Approve'},
+  'Receive':         {title:'Raw material at the bay',              verb:'Confirm what arrived'},
+  'Open Production': {title:'Run',                                  verb:'Open production'},
+  'Pack QC':         {title:'Packed lot to inspect',                verb:'Inspect'},
+  'Add reason':      {title:'Say why this order is late',           verb:'Give the reason'},
+  'Ship':            {title:'Ready to ship',                        verb:'Plan the truck'},
+  'Load':            {title:'Truck to load',                        verb:'Start loading'},
+  'Gate Pass':       {title:'Gate pass to issue',                   verb:'Issue gate pass'},
+  'Release':         {title:'Loaded truck waiting for release',     verb:'Release the truck'},
+  'Approve DC':      {title:'Delivery challan to approve',          verb:'Approve DC'},
+  'Confirm delivery':{title:'Delivery to confirm',                  verb:'Confirm delivered'},
+  'Inspect':         {title:'Inspect the truck before it leaves',   verb:'Inspect'},
+  'Lab QC':          {title:'COA to test and draft',                verb:'Open the COA'},
+  'Review':          {title:'Needs your signature',                 verb:'Open'},
+  'Approve':         {title:'COA to approve',                       verb:'Approve COA'},
+  'Print price':     {title:'Print-on-pack answer needed',          verb:'Answer'},
+  'Correct':         {title:'QA failed a lot',                      verb:'Correct and resubmit'},
+  'Re-inspect':      {title:'Lot on hold',                          verb:'Re-inspect'},
+  'Close batch':     {title:'Batch to close',                       verb:'Close the batch'},
+  'Reopened — check first':{title:'Reopened batch',                 verb:'Check it'}
+};
+/* Which RIGHT an item is. A person sees an item when it is addressed to their
+   role, OR when the right behind it is grant-decided (RIGHTS_LIVE) and the COO
+   has granted it to their role. Only live rights extend visibility: a legacy
+   right still means "whoever owned the old screen", which is far too wide.
+   Labels two roles share by name ('Review' is a COA review AND a short-close
+   review) are left out on purpose — role decides those. */
+var TD_RIGHT={
+  'Acknowledge':'order.acknowledge','RM Check':'rm.check','Receive':'rm.receive',
+  'Open Production':'production.enter',
+  'Ship':'shipment.plan','Load':'shipment.load','Gate Pass':'gatepass.issue',
+  'Confirm delivery':'delivery.confirm','Print price':'order.print_decision'
+  /* Not here, on purpose: Pack QC, Inspect, Lab QC, Review, Approve, Release,
+     Approve DC. Their codes (inspection.perform, coa.*, shipment.release,
+     dc.approve) are the six that were never added to RIGHTS, so nothing can be
+     granted against them yet. Role decides those until the codes exist. */
+};
+function tdVisible(it,role){
+  if(role==='COO') return true;
+  if(it.role===role) return true;
+  if(it._escalated) return true;
+  var c=TD_RIGHT[it.label]; if(!c) return false;
+  if(typeof RIGHTS_LIVE!=='undefined' && RIGHTS_LIVE[c]!==true) return false;
+  return mayRole(role,c)===true;
+}
+/* R13: the COO's Today is only what needs him — his own items and the ones
+   escalated to him — unless he flips the switch to the whole plant. */
+var tdScope='mine';
+function tdItems(){
+  var all=actionItems(), role=state.role;
+  all.forEach(function(x){ x._escalated=false; if(x.role!==role){ var e=acEscalation(x); if(e&&e.to===role) x._escalated=true; } });
+  var out=all.filter(function(x){ return tdVisible(x,role) && !acDeferActive(x); });
+  if(role==='COO' && tdScope!=='plant') out=out.filter(function(x){ return x._escalated || x.role==='COO'; });
+  out.forEach(function(it,i){ it._id='T'+i; it._risk=acRiskOf(it); it._days=(actTiming(it)||{}).days||0; });
+  return out;
+}
+/* One job = the thing a person actually does. A production run covers every
+   waiting line of that product; a trip to the bay covers every material waiting
+   on one PO; one reason covers every late line of one order. Everything else is
+   already one job per item. */
+function tdGroups(items){
+  var _T=(typeof TODAY!=='undefined')?TODAY:new Date();
+  var map={}, order=[];
+  items.forEach(function(it){
+    var key;
+    if(it.label==='Open Production' && it.l) key='prod:'+(it.l.brand||'');
+    else if(it.label==='Receive' && it.o) key='rcv:'+it.o.id;
+    else if(it.label==='Add reason' && it.o) key='rsn:'+it.o.id;
+    else key='one:'+(it._id||order.length);
+    if(!map[key]){ map[key]={key:key,label:it.label,items:[],qty:0,late:0,days:0,pos:{}}; order.push(key); }
+    var g=map[key]; g.items.push(it);
+    if(it.label==='Open Production' && it.l) g.qty+=Math.max(0,(+it.l.ordered||0)-(+it.l.produced||0));
+    if(it.o){ g.pos[it.o.id]=1; if(it.o.promised){ var d=Math.round((_T-new Date(it.o.promised))/86400000); if(d>g.late) g.late=d; } }
+    if((it._days||0)>g.days) g.days=it._days;
+  });
+  return order.map(function(k){ return map[k]; }).sort(function(a,b){ return (b.late-a.late)||(b.days-a.days); });
+}
+function _tdEsc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
+function tdTags(g){
+  var t='';
+  if(g.late>0) t+='<span class="tdtag late">'+g.late+' days past promise</span>';
+  else if(g.days>0) t+='<span class="tdtag">waiting '+g.days+' day'+(g.days===1?'':'s')+'</span>';
+  if(g.items.some(function(x){return x._escalated;})) t+='<span class="tdtag late">escalated to you</span>';
+  if(state.role==='COO' && tdScope==='plant') t+='<span class="tdtag">'+_tdEsc(g.items[0].role)+'</span>';
+  if(g.items.some(function(x){ var e=acEscalation(x); return e&&e.stall; })) t+='<span class="tdtag warn">stalled</span>';
+  if(g.items.some(function(x){ return x.l && x.l.rmStatus && x.l.rmStatus!=='full' && x.l.rmStatus!=='received'; })) t+='<span class="tdtag warn">raw material '+_tdEsc((g.items.filter(function(x){return x.l&&x.l.rmStatus&&x.l.rmStatus!=='full';})[0]||{l:{}}).l.rmStatus)+'</span>';
+  return t;
+}
+function tdRowHTML(it,verb){
+  var sub=it.what||'';
+  return '<div class="tdrow"><div class="tdrow-t">'+sub+'</div><button class="tdbtn sm" onclick="'+it.act+'">'+_tdEsc(verb)+'</button></div>';
+}
+function tdCardHTML(g){
+  var L=TD_LABEL[g.label]||{title:g.label,verb:'Open'};
+  var one=g.items[0], n=g.items.length, k=Object.keys(g.pos).length;
+  var title, sub;
+  if(g.key.indexOf('prod:')===0){ title=_tdEsc(one.l.brand||''); sub=fmt(g.qty)+' Kg/L still to make · '+n+' line'+(n===1?'':'s')+' in '+k+' order'+(k===1?'':'s'); }
+  else if(g.key.indexOf('rcv:')===0){ title=L.title; sub=_tdEsc(one.o.po)+(one.o.client?' · '+_tdEsc(shortClient(one.o.client)):'')+' · '+n+' material'+(n===1?'':'s'); }
+  else if(g.key.indexOf('rsn:')===0){ title=L.title; sub=_tdEsc(one.o.po)+(one.o.client?' · '+_tdEsc(shortClient(one.o.client)):'')+' · '+n+' line'+(n===1?'':'s'); }
+  else { title=L.title; sub=one.what||''; }
+  var h='<div class="tdcard'+(g.late>0?' late':'')+'">';
+  if(n===1){
+    h+='<div class="tdhead"><div class="tdtitle">'+title+'</div><div class="tdsub">'+sub+'</div><div class="tdtags">'+tdTags(g)+'</div></div>';
+    h+='<button class="tdbtn" onclick="'+one.act+'">'+_tdEsc(L.verb)+'</button>';
+  } else {
+    h+='<details><summary><div class="tdhead"><div class="tdtitle">'+title+'</div><div class="tdsub">'+sub+'</div><div class="tdtags">'+tdTags(g)+'</div></div><span class="tdopen">open</span></summary>';
+    h+='<div class="tdrows">'+g.items.map(function(it){ return tdRowHTML(it,L.verb); }).join('')+'</div></details>';
+  }
+  return h+'</div>';
+}
+/* What is moving in the plant, for the person whose list is empty today. Counts
+   of open items by step, across every role — so "nothing for you" is never a
+   blank screen, and a lab analyst can see 48 lines are in production ahead of
+   the COAs that will reach him. No customer, no quantity, no money. */
+function tdPlantPulse(){
+  var all=actionItems(), by={};
+  all.forEach(function(it){ var L=TD_LABEL[it.label]||{title:it.label}; by[L.title]=(by[L.title]||0)+1; });
+  var keys=Object.keys(by).sort(function(a,b){ return by[b]-by[a]; }).slice(0,6);
+  if(!keys.length) return '<div class="tdmuted">Nothing is open anywhere in the plant.</div>';
+  var mx=by[keys[0]]||1;
+  return '<div class="tdpulse">'+keys.map(function(k){ return '<div class="tdpulse-r"><span>'+_tdEsc(k)+'</span><i style="width:'+Math.max(4,Math.round(90*by[k]/mx))+'px"></i><b>'+by[k]+'</b></div>'; }).join('')+'</div>';
+}
+/* Where a person starts something the queue cannot raise for them: a PO that
+   has just arrived, a bulk batch, a shift log, a shipment. Shown only to the
+   people whose rights allow it — nobody else sees the button at all. */
+function tdStarts(){
+  var b=[];
+  if(canView(state.role,'entry') && screenEditOK('entry')) b.push(['entry','+ New order']);
+  if(canView(state.role,'prod') && may('batch.open')) b.push(['prod','+ Open a batch']);
+  if(canView(state.role,'prod') && may('shift.log')) b.push(['prod','+ Log a shift']);
+  if(canView(state.role,'ship') && may('shipment.plan')) b.push(['ship','+ Record a shipment']);
+  if(canView(state.role,'qc') && (state.role==='Lab Rep'||state.role==='AQCM'||state.role==='QCM')) b.push(['qc','Lab QC']);
+  if(!b.length) return '';
+  return '<div class="tdstarts">'+b.map(function(x){ return '<button class="tdstart" onclick="setScreen(\''+x[0]+'\')">'+_tdEsc(x[1])+'</button>'; }).join('')+'</div>';
+}
+var TD_LEADS={'Production Manager':['production'],'QCM':['quality'],'Supply Chain':['supply-chain'],'CFO':['finance'],'Plant Manager':['leadership','quality']};
+function tdDoneToday(){
+  var me=(state.currentUser&&state.currentUser.name)||state.role, day=TODAY.toISOString().slice(0,10);
+  var log=(state.actionLog||[]).filter(function(e){ return e && String(e.t||'').slice(0,10)===day && e.what!=='Signed in' && e.what!=='Signed out'; });
+  var mine=log.filter(function(e){ return e.by===me; });
+  var depts=state.role==='COO'?null:(TD_LEADS[state.role]||[]);
+  var team=log.filter(function(e){ if(e.by===me) return false; if(!depts) return true; var d=roleDeptId(e.role||''); return d && depts.indexOf(d)>-1; });
+  var h='';
+  function row(e){ var t=String(e.t||''); var hm=t.length>=16?(new Date(t)):null; var tm=hm&&!isNaN(hm)?(('0'+hm.getHours()).slice(-2)+':'+('0'+hm.getMinutes()).slice(-2)):''; return '<div class="tddone-r"><span class="tddone-t">'+tm+'</span><span class="tddone-w">'+_tdEsc(e.by)+' — '+_tdEsc(e.what)+'</span></div>'; }
+  if(mine.length) h+='<div class="tdsec">Done by you today</div>'+mine.slice(0,10).map(row).join('');
+  if(team.length && (depts===null||depts.length)) h+='<div class="tdsec">Done by your team today</div>'+team.slice(0,12).map(row).join('');
+  return h;
+}
+function screenToday(){
+  var items=tdItems(), groups=tdGroups(items);
+  var late=groups.filter(function(g){return g.late>0;}).length;
+  var h='<div class="td">';
+  if(!hintHidden('today')) h+='<div class="tdhow"><div class="tdhow-h">How this works</div><ol><li>You see only the things waiting on you — nothing else.</li><li>Tap one, do it, press the button. It leaves your list and appears on the next person\'s.</li><li>That is the whole system.</li></ol><button class="tdlink" onclick="dismissHint(\'today\')">Got it</button></div>';
+  h+=tdStarts();
+  if(state.role==='COO') h+='<div class="tdscope"><button class="'+(tdScope!=='plant'?'on':'')+'" onclick="tdScope=\'mine\';render()">Needs me</button><button class="'+(tdScope==='plant'?'on':'')+'" onclick="tdScope=\'plant\';render()">Whole plant</button></div>';
+  if(groups.length){
+    h+='<div class="tdday"><div class="tdbig">'+groups.length+' job'+(groups.length===1?'':'s')+' today</div><div class="tdsm">'+(late?(late+' of them already past the date promised to the customer.'):'Nothing is past its promised date.')+'</div></div>';
+    h+='<div class="tdlist">'+groups.map(tdCardHTML).join('')+'</div>';
+  } else {
+    h+='<div class="tdday"><div class="tdbig">Nothing waiting on you</div><div class="tdsm">That is the honest answer. Here is what is moving in the plant.</div></div>'+tdPlantPulse();
+  }
+  h+=tdDoneToday();
+  h+='</div>';
+  $('view').innerHTML=h;
+}
+
 function screenApprovals(){
   var isCOO=state.role==='COO';
   var base=acBase();
@@ -14017,7 +14352,7 @@ async function doLogin(){
   try{ const sr=await fetch('/api/state',{cache:'no-store',headers:authHdr()}); if(sr.ok){ const sj=await sr.json(); _rev=sj.rev||0; if(sj.data&&sj.data.orders){ state=ensureState(sj.data); loaded=true; } else if((sj.rev||0)===0 && !sj.data){ state=buildFromSeed(); loaded=true; await saveNow(); } } }catch(e){}
   if(!loaded){ state=buildFromSeed(); }
   sessionInit(state); state.currentUser=j.user; state.role=j.user.role;
-  const al=allowedScreens(); state.screen=canView(state.role,'approvals')?'approvals':((al[0]&&al[0].id)||'dash');  /* land on Action Center (My Actions) for all users; fall back only if a role can't view it */
+  const al=allowedScreens(); state.screen=canView(state.role,'today')?'today':((al[0]&&al[0].id)||'dash');  /* 2026-09-23j: everyone lands on Today */
   /* 2026-08-22: pin the merge baseline here as well as in bootState(). Most
      sessions at the plant START at this screen (shift change, or after a token
      expires mid-shift), and without a baseline the first save that hits a 409
@@ -14027,6 +14362,32 @@ async function doLogin(){
   if(loaded) _snapBase();
   logAction('Signed in'); save();
   renderApp(); startSync();
+  try{ migrateAccountsV1(); }catch(e){}
+}
+/* ONE ACCOUNT MOVES ROLE - R22, the night of 23 September 2026.
+   Ismaeel's login held "Finance Desk Officer" (id finance - the role that is
+   Basit's, see ORG-LIST.md for the rename history). The ruling puts order
+   entry on the role "Finance". Tahir: "Let the build move it (role only, no
+   password)." Done once, by the COO's own session on the new build, through the
+   same PUT that Users & Access uses; flagged in state so it never repeats. No
+   password is read, sent or changed. Nothing is deleted - the second COO login
+   he asked removed (R23) is listed for him to delete himself. */
+async function migrateAccountsV1(){
+  if(!state || state.role!=='COO') return;
+  state.masters=state.masters||{};
+  if(state.masters._ismaeelRoleV1) return;
+  var r; try{ r=await fetch('/api/users',{headers:authHdr()}); }catch(e){ return; }
+  if(!r||!r.ok) return;
+  var list=await r.json(); var u=(list||[]).find(function(x){ return x && x.username==='ismaeel'; });
+  if(!u){ state.masters._ismaeelRoleV1={at:new Date().toISOString(),note:'no such login'}; save(); return; }
+  if(u.role==='Finance'){ state.masters._ismaeelRoleV1={at:new Date().toISOString(),note:'already Finance'}; save(); return; }
+  if(u.role!=='Finance Desk Officer'){ state.masters._ismaeelRoleV1={at:new Date().toISOString(),note:'left alone: role was '+u.role}; save(); return; }
+  var body={name:u.name,username:u.username,role:'Finance'};
+  var p; try{ p=await fetch('/api/users/'+encodeURIComponent(u.username),{method:'PUT',headers:Object.assign({'Content-Type':'application/json'},authHdr()),body:JSON.stringify(body)}); }catch(e){ return; }
+  if(!p||!p.ok) return;
+  state.masters._ismaeelRoleV1={at:new Date().toISOString(),by:'ruling of 23 Sep 2026 (R22)'};
+  logAction('Account ismaeel moved from role Finance Desk Officer to Finance (ruling of 23 Sep 2026). No password touched.');
+  save(); toast('Ismaeel\'s login now holds the role Finance (ruled 23 Sep)');
 }
 function logout(){ if(state.currentUser){ logAction('Signed out'); saveNow(); } setSession('',null); renderApp(); }
 

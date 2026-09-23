@@ -77,6 +77,14 @@ const MARKERS = [
   ["hardRole(['Supply Chain'])",            3, 'the three dispatch approval points'],
   ['THERE IS NO COVER',                     1, 'no cover named for Saad yet'],
   ["canEdit(['Supply Chain','Warehouse'])", 4, 'packed-stock custody'],
+  /* 2026-09-23j - Today, three places, the night's rulings */
+  ['function screenToday(',                1, 'Today - the front door (23j)'],
+  ['var TD_LABEL=',                        1, 'Today - plain words for every label'],
+  ["label:'Report Center'",                1, 'the three-place sidebar'],
+  ['function seedAccessV2(',               1, 'the ruled access matrix (R1, R5, R7, R20)'],
+  ['function seedCustomerRightsV1(',       1, 'customers to Finance (R5, R9)'],
+  ['function seedWarehouseRoleV1(',        1, 'the Warehouse role (R12)'],
+  ['async function migrateAccountsV1(',    1, 'Ismaeel to Finance (R22)'],
 ];
 
 const [, , mode, freshPath, otherPath] = process.argv;

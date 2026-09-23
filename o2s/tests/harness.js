@@ -136,7 +136,9 @@ function grabTopVar(name, open) {
 const AUTH_MODEL_FNS = ['rightByCode', 'rightsOfDept', 'deptById', 'rolesOfState',
   'roleByName', 'roleIdOf', 'roleDeptId', 'deptLeadRole', 'isDeptLead', 'rolesInDept',
   'roleRightsOf', 'mayLegacyRole', 'mayRole', 'may', 'whoMayRight', 'whoCanGrant', 'denyRight',
-  'rightsFreezeCheck', '_canEditOn', 'rolesUnfiled', 'rightAnswerToday', 'mayHere', 'screenLoopholes', 'seedAnswer', 'seedDeptRightsV1', 'resyncScreenRights', 'rightDecided', 'markRightDecided', 'accessLevelOn', 'grantRefusal', 'separationRefusal', 'rolesUnfiled'];
+  'rightsFreezeCheck', '_canEditOn', 'rolesUnfiled', 'rightAnswerToday', 'mayHere', 'screenLoopholes', 'seedAnswer', 'seedDeptRightsV1', 'resyncScreenRights', 'rightDecided', 'markRightDecided', 'accessLevelOn', 'grantRefusal', 'separationRefusal', 'rolesUnfiled',
+  /* the night of 23 Sep: the ruled matrix, the customer grants, the Warehouse role */
+  'seedAccessV2', 'seedCustomerRightsV1', 'seedWarehouseRoleV1'];
 function authModelSrc() {
   return ['DEPTS', 'ROLE_DEPT', 'RIGHTS', 'SEPARATION'].map(n => grabTopVar(n, n === 'ROLE_DEPT' ? '{' : '[')).join('\n')
        + grabTopVar('RIGHTS_LIVE', '{')
@@ -144,7 +146,10 @@ function authModelSrc() {
           sandbox that pulls that function needs them or it throws at load. Added
           here rather than making the app defensive about its own constants. */
        + grabTopVar('DISPATCH_LIVE', '[') + grabTopVar('DISPATCH_GRANT', '{')
-       + grabTopVar('PROCUREMENT_LIVE', '[') + grabTopVar('PROCUREMENT_GRANT', '{') + '\n'
+       + grabTopVar('PROCUREMENT_LIVE', '[') + grabTopVar('PROCUREMENT_GRANT', '{')
+       /* Customers to Finance, 23 Sep night: seedDeptRightsV1 reads these too. */
+       + grabTopVar('CUSTOMER_LIVE', '[') + grabTopVar('CUSTOMER_GRANT', '{')
+       + grabTopVar('ACCESS_RULED_V2', '{') + '\n'
        + AUTH_MODEL_FNS.map(grab).join('\n\n');
 }
 

@@ -149,24 +149,27 @@ ok('...and so does Lab QC', /isSC=canEdit\(\['Supply Chain','Warehouse'\]\)/.tes
      opposite and Tahir resolved it in favour of C9 on 23 September. Finance is
      on the screen now; KAM comes off when the Finance desk is logged in. */
   ok('Finance can now raise a PO', owners('entry').indexOf('Finance') > -1, owners('entry').join(','));
-  ok('Finance Desk Officer can too', owners('entry').indexOf('Finance Desk Officer') > -1);
-  ok('STEP 2 PENDING — KAM still has New PO Entry', owners('entry').indexOf('KAM') > -1);
+  /* STEP 2 DONE - the night of 23 Sep, R5: "Ismaeel, CFO, COO see, no one else,
+     not even Basit." The Finance Desk Officer and the KAM both come off. */
+  ok('STEP 2 DONE — the Finance Desk Officer no longer has New PO Entry', owners('entry').indexOf('Finance Desk Officer') < 0);
+  ok('STEP 2 DONE — the KAM no longer has New PO Entry', owners('entry').indexOf('KAM') < 0);
+  eq('New PO Entry is exactly Finance, CFO, COO', owners('entry').slice().sort().join(','), 'CFO,COO,Finance');
   /* THE EDIT: remove 'KAM' from the entry screen's owners, and move
      customer.create / customer.amend off legacy:{kind:'hard',roles:['KAM']}.
      Those two are ONE change (C3 + C9): a read-only KAM cannot hold
      customer.create, so doing either alone breaks Customer Master for whoever
      holds KAM. */
-  ok('STEP 2 PENDING — customer.create is still hard-wired to KAM',
+  /* The legacy blocks are frozen records and stay exactly as they were: the
+     KAM-only hard check is what the gate DID. The ruling moved the answer by
+     making the two codes live and seeding the grant to Finance and the CFO. */
+  ok('customer.create still RECORDS the old KAM-only rule in its legacy block',
      /roles:\['KAM'\]/.test(right('customer.create')));
-  ok('STEP 2 PENDING — so is customer.amend', /roles:\['KAM'\]/.test(right('customer.amend')));
-
-  /* And the reason the KAM half cannot simply be done now, stated as a fact about
-     the file rather than a note: these two are not live, so the legacy roles list
-     IS the answer, and it names KAM. */
+  ok('so does customer.amend', /roles:\['KAM'\]/.test(right('customer.amend')));
   ['customer.create', 'customer.amend'].forEach(c =>
-    ok(c + " is not in RIGHTS_LIVE, so its legacy roles still decide", liveNow.indexOf("'" + c + "'") < 0));
+    ok("STEP 2 DONE — " + c + " is in RIGHTS_LIVE, decided by the grant table", liveNow.indexOf("'" + c + "'") > -1));
+  ok('and the grant goes to Finance and the CFO', /var CUSTOMER_GRANT=\{'Finance':true,'CFO':true\}/.test(H.html));
 }
 
-console.log('\nSupply Chain splits three ways — dispatch done, the KAM half pending: ' + pass + ' passed, ' + fail + ' failed');
+console.log('\nSupply Chain splits three ways — dispatch done, the KAM half done too: ' + pass + ' passed, ' + fail + ' failed');
 fails.forEach(f => console.log('  FAIL  ' + f));
 process.exit(fail ? 1 : 0);

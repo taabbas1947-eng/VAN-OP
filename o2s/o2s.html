@@ -11,7 +11,7 @@
    a push keeps running the old code with nothing telling anybody. It sat at
    2026-09-04a through this whole day's work; rmqty/psi tests pinned the code,
    nothing pinned this. buildid.test.js now does. */
-var BUILD_ID='2026-09-22b';
+var BUILD_ID='2026-09-23a';
 var CHANGELOG=[
   {ver:'2026-09-04a', date:'2026-09-04', title:"Delivery, DC printing, and a new Reconciliation check", items:[
     "Delivery confirmation stays with Supply Chain \u2014 it no longer hands off to the Plant Manager. If one sits too long, it now re-flags the same Supply Chain owner every 3 days instead.",
@@ -33,6 +33,12 @@ var CHANGELOG=[
     "What changes for Supply Chain and the Plant Manager: \u2018Approve & release\u2019 will refuse a truck that has not been inspected, and the Delivery Challan will not carry the QC PASSED stamp until it has. Plan for the inspection before the vehicle is due to leave, not after.",
     "Trucks dispatched on or before 22 September are not affected and do not need to be re-inspected.",
     "If a truck is waiting and QA is not available, call the Plant Manager \u2014 do not dispatch and record it afterwards. The record is what the customer\u2019s report is built from.",
+  ]},
+  {ver:'2026-09-23a', date:'2026-09-23', title:"FOC samples no longer ask a price question they do not need", items:[
+    "On an FOC sample (no charge), New PO Entry no longer asks \u201cWhich price goes on the pack?\u201d. A sample goes out with no price printed on it, so the app now says that plainly instead of showing a question marked required.",
+    "Before this, the question appeared with a red star and \u201cnot answered\u201d on an FOC order, but the PO submitted anyway. That taught people the red star could be ignored \u2014 and on a commercial PO it cannot, because that answer is what tells the QA inspector what to check on the bag.",
+    "Nothing changes on a commercial PO. The question is asked exactly as before, and the PO still cannot be submitted until it is answered.",
+    "QA will be told \u2018no price should appear on this pack\u2019 for FOC loads, which is what was already printing on the report \u2014 the order record now agrees with it instead of carrying two different answers.",
   ]},
 ];
 </script>
@@ -3806,6 +3812,14 @@ function setPrintOn(v){
 function entryPrintMode(){ var v=entryPrintOn;
   if(v===true) return 'yes'; if(v===false) return 'no';
   return (v==='yes'||v==='list'||v==='no')?v:null; }
+/* FOC samples never carry a printed price — Tahir, 23 September 2026.
+   So the answer is DERIVED, never written on the user's behalf. That matters:
+   if O2S stored 'no' when the PO turned FOC, a PO that later stopped being FOC
+   would keep a silent 'no' nobody answered — a wrong instruction in front of the
+   QA inspector, which is Fault 11 exactly. Deriving it means there is nothing to
+   clear and nothing to leave behind, and the human's own answer survives a trip
+   through FOC untouched. */
+function entryPrintEffective(){ return entryFOC ? 'no' : entryPrintMode(); }
 function genPO(recv){
   const d=recv?new Date(recv):TODAY; const ym=String(d.getFullYear()).slice(2)+String(d.getMonth()+1).padStart(2,'0');
   const seq=String(Math.floor(Math.random()*9000+1000));
@@ -3854,8 +3868,8 @@ function updateEntrySummary(){
     var priceText=entryFOC?'FOC — no charge':(+l.inv>0?('PKR '+fmt(l.inv)+'/Kg'):'price not set');
     return '<div class="lineitem"><b>'+(l.brand||'')+'</b><div class="muted" style="font-size:11px;margin-top:2px">'+fmt(+l.qty||0)+' Kg/L'+(packs!=null?(' → '+packs+' packs'):'')+' · '+priceText+'</div></div>';
   }).join(''):'<div class="muted" style="font-size:12px;font-style:italic">No lines added yet.</div>';
-  var printAns=entryPrintMode();
-  var printText=printAns==='list'?'List price':printAns==='yes'?'PO price set':printAns==='no'?'No price':'not answered';
+  var printAns=entryPrintEffective();
+  var printText=entryFOC?'No price · FOC sample':(printAns==='list'?'List price':printAns==='yes'?'PO price set':printAns==='no'?'No price':'not answered');
   el.innerHTML=
     '<div class="srow"><span class="k">Channel</span><span class="v'+(entryChannel?'':' ph')+'">'+(entryChannel||'not selected yet')+'</span></div>'+
     '<div class="srow"><span class="k">Client</span><span class="v'+(entryClient?'':' ph')+'">'+(clientLabel||'not selected yet')+'</span></div>'+
@@ -3957,8 +3971,23 @@ function screenEntry(){
    <div class="card"><h3>Step 2 — Line Items <span class="hint">pack size auto-fills, override allowed</span></h3>
     ${entryClient?(function(){
       const hist=clientHasPrintHistory(entryClient);
-      const _pm=entryPrintMode();
+      const _pm=entryPrintEffective();
       const unanswered=(_pm===null);
+      /* An FOC sample never carries a printed price, so O2S answers this itself
+         and says so, rather than showing a required-looking question it does not
+         require. Before this, the panel rendered on entryClient alone: red
+         asterisk, amber border, "not answered" — while the check behind it
+         short-circuited on entryFOC and Submit went through anyway. Teaching
+         people that a red asterisk can be ignored is how a wrong instruction
+         reaches the QA inspector on a commercial PO. */
+      if(entryFOC) return `<div style="margin-bottom:12px;padding:9px 13px;border:1px solid var(--line);background:var(--panel2);border-radius:9px">
+        <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">
+          <span style="font-weight:700;font-size:12.5px">Price on the pack</span>
+          <span class="muted" style="font-size:10.5px">&middot; decided by the PO type</span>
+          <span style="font-size:10.5px;color:#1a8a3c;font-weight:700;margin-left:auto">no price on the bag</span>
+        </div>
+        <div class="muted" style="font-size:10.5px;margin-top:6px;line-height:1.6">This is an <b>FOC sample</b>, and a sample goes out with no price printed on it. QA will be told to check that the bag carries none. Change the PO type to Commercial if a price should be printed.</div>
+      </div>`;
       const btn=(val,txt)=>`<button type="button" class="sm ${_pm===val?'green':'ghost'}" style="min-width:150px" onclick="setPrintOn('${val}')">${_pm===val?'&#10003; ':''}${txt}</button>`;
       /* Fault 11: this used to be one checkbox that defaulted to the client's history.
          An unticked box then read downstream as "this client wants no price", which put
@@ -4073,7 +4102,7 @@ function entryChecks(){
     ['Each line committed date ≥ PO Received', lines.every(l=>!l.committed || !recv || l.committed>=recv), 'e_lines'],
     ['Invoice price set on every line (per-Kg or per-pack)', entryFOC || (lines.length>0 && lines.every(l=>+l.inv>0)), 'e_lines'],
     ['Per-Kg and per-pack price reconcile', entryFOC || lines.every(l=>{var pk=+l.pack||0;var calc=_r2((+l.inv||0)*pk);return !(+l.invPack>0)||pk<=0||Math.abs(calc-(+l.invPack))<=0.5;}), 'e_lines'],
-    ['Price-on-pack answered', entryFOC || entryPrintMode()!==null, 'e_lines'],
+    ['Price-on-pack answered', entryPrintEffective()!==null, 'e_lines'],
     ['Print price set on every line (when the PO carries the price)', entryFOC || entryPrintMode()!=='yes' || (lines.length>0 && lines.every(l=>+l.printPrice>0)), 'e_lines'],
   ];
 }
@@ -4128,7 +4157,7 @@ function submitPO(){
   const id='O'+(state.orders.length+1)+'_'+nid('');
   var _fedMode=entryFedMode();
   const ord={ id, po, client:entryClient, channel:entryChannel, vgreenSub:entryVsub||null, destinationPartner:(entryChannel==='Vgreen'?(entryDestPartner||''):''), foc:!!entryFOC, fedMode:_fedMode, focalPerson:($('e_focal')&&$('e_focal').value)||'', focalPhone:($('e_focalphone')&&$('e_focalphone').value)||'', source:($('e_source')&&$('e_source').value)||'', instructions:($('e_instructions')&&$('e_instructions').value.trim())||'', kam:$('e_kam').value.trim(),
-    priority:$('e_pri').value, promised:$('e_prom').value, received:recv, rmDecision:'pending', printOnPack:(entryPrintMode()!=='no'), printDecision:(entryPrintMode()||'no'), printDecisionBy:((state.currentUser&&state.currentUser.name)||state.role), printDecisionAt:new Date().toISOString(),
+    priority:$('e_pri').value, promised:$('e_prom').value, received:recv, rmDecision:'pending', printOnPack:(entryPrintEffective()!=='no'), printDecision:(entryPrintEffective()||'no'), printDecisionBy:((state.currentUser&&state.currentUser.name)||state.role), printDecisionAt:new Date().toISOString(),
     lines:lines.map((l,j)=>{const det=detailForBrand(l.brand);const procD=procureDaysFor(l.brand,det.base||l.brand,+l.qty);const autoCommit=computeCommitted(recv,+l.qty,procD,l.brand);return {id:id+'L'+j, brand:l.brand, base:det.base||l.brand, pack:+l.pack||det.pack||null, note:l.note||'', committed:l.committed||autoCommit||$('e_prom').value, ordered:+l.qty, printPrice:(entryFOC?0:(entryPrintMode()==='yes'?(+l.printPrice||0):0))/* SPEC-06: only the PO-price answer puts a number on the line. `entryPrintOn` is now a truthy STRING for all three answers, so the old test let a price typed under "yes" ride along after the user switched to list or no — where it is not wrong, just not true, and the "not a real price" anomaly reads it. */, invoicePrice:(entryFOC?0:(+l.inv||0)), invoicePack:(entryFOC?0:(+l.invPack||((+l.inv||0)*(+l.pack||0))||0)), produced:0,packed:0,dispatched:0,delivered:0};}) };
   ord.totalOrdered=ord.lines.reduce((a,l)=>a+l.ordered,0);
   var _ev=entryTotals(); ord.subtotal=_ev.sub; ord.fedAmount=_ev.fed; ord.grandTotal=_ev.total;

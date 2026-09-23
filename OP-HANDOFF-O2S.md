@@ -4561,3 +4561,115 @@ one change". Until then, every session must re-stage this file immediately
 before writing and append only, never rebuild it from a copy it has been
 holding.
 
+
+---
+
+## 2026-09-23 · Pass sixteen · MODULE: O2S · The org list, the code standard, and the FOC fix
+
+### What was decided, and where it lives
+
+Two new documents, both on disk:
+
+- **`o2s/ORG-LIST.md`** — every person, department and manager, from HR's
+  "O2S Roles — 1st Draft" sheet, plus twelve numbered rulings (C1–C12) and the
+  KAM book read off Customer Master. HR's sheet is authoritative for names and
+  titles; every place it differed from the session notes is listed with which
+  one won.
+- **`o2s/CUSTOMER-CODE-STANDARD.md`** — one code shape for all six segments,
+  with the safety analysis of which codes can and cannot be changed.
+
+### Built and shipped this pass
+
+**`BUILD_ID='2026-09-23a'` — FOC samples and the price-on-pack question.**
+
+An FOC sample never carries a printed price (Tahir's ruling). The question is now
+answered by O2S, derived rather than stored:
+
+```js
+function entryPrintEffective(){ return entryFOC ? 'no' : entryPrintMode(); }
+```
+
+Five call sites moved onto it: the readiness check, `printOnPack`,
+`printDecision`, the summary badge, and the panel itself, which now states the
+decision on FOC instead of asking for it.
+
+**Why derived and not stored.** Storing `'no'` when a PO turns FOC would leave a
+silent `'no'` behind if it later stopped being FOC — a wrong instruction in front
+of the QA inspector that nobody answered, which is Fault 11 exactly. Deriving it
+means there is nothing to clear. `entryPrintOn` is still assigned in exactly one
+place, `setPrintOn()`, and a test asserts that.
+
+### A claim I made and then had to withdraw
+
+I recorded, in `ORG-LIST.md` and to Tahir, that an unanswered FOC PO made the
+pre-shipment inspection report print a red **"not recorded — check the client
+PO"**. **That was wrong.** Reading the submit path before changing it:
+
+```js
+printDecision:(entryPrintMode()||'no')
+```
+
+The `|| 'no'` already defaulted it, and `printPolicyOL()` tests `dec==='no'`
+first. The printed document was always correct. No customer-facing document was
+ever wrong because of this. `ORG-LIST.md` carries the correction inline.
+
+What was real: every FOC order stored `printOnPack:true` alongside
+`printDecision:'no'` — two fields disagreeing, harmless only because
+`printDecision` is read first. And a question shown as required that was not
+required, which is what teaches people that required means nothing.
+
+### Verification
+
+| | |
+|---|---|
+| Baseline, unmodified file | **7,242 passed · 0 failed · 0 crashed** |
+| After the change | **7,266 passed · 0 failed · 0 crashed** |
+
+The delta is exactly the 24 new checks in `tests/focprice.test.js`. Nothing else
+moved. That suite **crashes** against the unmodified file, which is the proof it
+tests something real — a new test that passes before the change tests nothing.
+
+Two lessons went into `tests/README.md`:
+
+- **A crash is not a pass.** Reading the last line of each suite in a loop hid
+  six crashed files behind a total that looked healthy — 274 reported where the
+  truth was 7,242. Missing fixtures (`data/state.json`, `_before-auth.html`,
+  `_before-lot.html`), not real failures, but the tally was silent about it.
+- **`buildid.test.js` caught a real mistake**: the changelog is oldest-first, and
+  a new entry placed at the head broke date order. Moved to the end.
+
+### Verified about the live gate, not assumed
+
+`approveRelease()` does refuse an uninspected truck —
+`rows.filter(s => !(s.qa && s.qa.pass))` — so what the 22b changelog told the
+company on 23 Sept is true. `markDelivered()` refuses too. **One gap:**
+`issueGatePass()` checks the role and the stage but **not** QA, so the Gate Pass
+document can be printed for a truck that cannot actually be released. Not urgent,
+not closed.
+
+### Open, in the order I would take them
+
+1. **The role model.** Most roles HR named — Invoicing Officer, Procurement
+   Accountant, QA Officer, Lead Quality Control, Senior QC Analyst, Production
+   Associate — **do not exist in O2S**, and built-in roles cannot be created or
+   renamed from Admin. This blocks everything below it. Tahir's method, agreed:
+   **tests first, then the change, then verify.**
+2. **21 named accounts.** Nobody has a login. Blocked by (1).
+3. **KAM tag on the user, then customer scoping.** Blocked by (2). Tahir holds
+   25 of 32 customers, so scoping only does real work once the book is spread.
+4. Customer approval by COO/CFO as readiness check 17 (C6).
+5. The 16 readiness checks made visible.
+6. `custCode()` — the sequence is a row count, not a counter; the count includes
+   parent rows; `custBrandKeyFor('Distributor')` returns the literal `'BKK'`.
+7. Excel Chemical re-coded (safe — Distributor, matched by name, no order
+   references its code).
+8. The six missing right codes, so separation of duties can fire at all.
+9. `Confirmed` is a customer status no code knows about; the status toggle
+   destroys it on one click.
+10. Re-tag Shahzad Cheeema (FRM-SHA-26-100) away from Muhammad Imran.
+
+### Constraints respected
+
+Nothing pushed. No `.patch` files. No module boundary crossed. Files changed:
+`o2s/o2s.html`, `o2s/tests/focprice.test.js` (new), `o2s/tests/README.md`,
+`o2s/ORG-LIST.md`, `o2s/CUSTOMER-CODE-STANDARD.md` (new), this file.

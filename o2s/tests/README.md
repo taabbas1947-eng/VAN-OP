@@ -15,9 +15,13 @@ node o2s/tests/buildid.test.js     #  12 - BUILD_ID vs the changelog
 node o2s/tests/rmqty.test.js       #  22 - raw-material quantity entry
 node o2s/tests/psi.test.js         # 123 - the pre-shipment inspection report,
                                    #       and what may go on a customer's copy
+node o2s/tests/qagate.test.js      #  16 - the pre-shipment inspection cut-over
+node o2s/tests/focprice.test.js    #  24 - FOC samples and price-on-pack
 ```
 
-**441 checks.** Exit code 0 means all passing. No dependencies, no build step,
+**465 checks in the suites listed above.** Running every `*.test.js` in this
+folder together, with `data/state.json` and both `_before-*.html` fixtures in
+place, gives **7,266**. Exit code 0 means all passing. No dependencies, no build step,
 Node only.
 
 ## How they work
@@ -133,3 +137,15 @@ hundreds of lines from the cause. Prose in `o2s.html` is not code.
 **Searching the file for a button is not proof the button appears.** Three
 separate changes were built onto screens that do not render, and each time a
 check that grepped the source passed. Trace the route a person takes instead.
+
+**A crash is not a pass.** Running the suites in a loop and reading the last line
+of each hid six crashed files behind a total that looked healthy — missing
+fixtures, not real failures, but the tally reported 274 where the truth was
+7,242. Match on the `N passed, M failed` line wherever it appears, count anything
+without one as a crash, and report crashes separately. A suite that cannot run is
+not a suite that passed.
+
+**Run the new suite against the unmodified file first.** `focprice.test.js`
+crashes on the pre-change `o2s.html` because the function it tests does not exist
+yet. That is the proof the test discriminates. A new test that passes before the
+change tests nothing.

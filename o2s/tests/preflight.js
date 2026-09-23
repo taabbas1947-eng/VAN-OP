@@ -97,6 +97,8 @@ const MARKERS = [
   /* 2026-09-23n */
   ['var MONEY_ROLES=',                     1, 'who sees money (R6)'],
   ['function budgetByChannel(',            1, 'the budget tree (R8)'],
+  /* 2026-09-23o */
+  ['function approveCustomer(',            1, 'a new customer is approved first (R9)'],
 ];
 
 const [, , mode, freshPath, otherPath] = process.argv;

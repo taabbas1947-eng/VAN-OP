@@ -11,7 +11,7 @@
    a push keeps running the old code with nothing telling anybody. It sat at
    2026-09-04a through this whole day's work; rmqty/psi tests pinned the code,
    nothing pinned this. buildid.test.js now does. */
-var BUILD_ID='2026-09-23n';
+var BUILD_ID='2026-09-23o';
 var CHANGELOG=[
   {ver:'2026-09-04a', date:'2026-09-04', title:"Delivery, DC printing, and a new Reconciliation check", items:[
     "Delivery confirmation stays with Supply Chain \u2014 it no longer hands off to the Plant Manager. If one sits too long, it now re-flags the same Supply Chain owner every 3 days instead.",
@@ -122,6 +122,9 @@ var CHANGELOG=[
   {ver:'2026-09-23n', date:'2026-09-23', title:"Budget by channel, and who sees money", items:[
     "Sales & Budget now starts with the channel picture: a total per channel for the financial year (White Label, Cobo, Vgreen, Dealer, Distributor, Farmer), what has been allocated to named clients under it, what is booked, what is delivered, and a traffic light. Dealer and Farmer are segment totals \u2014 not allocated to a named dealer or farmer. Channel totals are set in Back Office \u2192 Business masters \u2192 Channel budgets (COO / CFO).",
     "Money is for 4 roles: COO, CFO, Plant Manager and the KAMs. Sales & Budget and the Finance dataset in the report builder are closed to everyone else. Report Center stays open to all for everything without a money figure."
+  ]},
+  {ver:'2026-09-23o', date:'2026-09-23', title:"A new customer is approved before its first order", items:[
+    "When Finance adds a customer, it waits for the CFO (or the COO) before an order can be raised for it. It shows as a job on the CFO\u2019s Today \u2014 one tap approves it, stamped with who and when. Customers that already existed are not affected."
   ]},
 ];
 </script>
@@ -4505,7 +4508,8 @@ function clientsForChannel(ch){
   try{ if(typeof custInit==='function')custInit(); }catch(e){}
   if(ch==='Vgreen') return [{id:'Vgreen',label:'Vgreen',brandKey:'Vgreen'}];
   if(ch==='Cobo') return [{id:'VITAL AGRI NUTRIENTS (PVT) LTD',label:'Vital Agri Nutrients — Cobo',brandKey:'VITAL AGRI NUTRIENTS (PVT) LTD'}];
-  var seg=_chanToSeg(ch); var cs=(state.customers||[]).filter(function(c){return c.segment===seg&&!c.isParent&&(c.status||'Active')!=='Inactive';});
+  /* R9: a customer waiting for the CFO's approval is not offered for an order */
+  var seg=_chanToSeg(ch); var cs=(state.customers||[]).filter(function(c){return c.segment===seg&&!c.isParent&&(c.status||'Active')==='Active';});
   if(ch==='Dealer') return cs.map(function(c){return {id:c.code+' | '+c.name,label:c.code+' | '+c.name,brandKey:'Dealers',cust:c};});
   if(ch==='Farmer') return cs.map(function(c){return {id:c.name,label:c.code+' · '+c.name,brandKey:c.brandKey||'Vgreen',cust:c};});
   if(ch==='White Label'&&!cs.length) return ((SEED.catalog&&SEED.catalog.clients)||[]).filter(function(c){return SEED.catalog.channelByClient[c]==='White Label';}).map(function(c){return {id:c,label:c,brandKey:c};});
@@ -4924,6 +4928,19 @@ function custInit(){
 function custStartAdd(seg){ custForm={editing:null,segment:seg||custSeg,name:'',parent:'',outlet:'',region:'Punjab',city:'',contact:'',phone:'',fed:'Exclusive',kam:'',introducedBy:'',destination:'',ntn:'',inducted:TODAY.getFullYear(),status:'Active'}; render(); }
 function custEdit(code){ var c=(state.customers||[]).filter(function(x){return x.code===code;})[0]; if(!c)return; custForm=Object.assign({editing:code},c); render(); }
 function custCancel(){ custForm=null; render(); }
+/* R9 - approve a new customer. CFO, or the COO. Stamped and logged. */
+function approveCustomer(code){
+  if(!(state.role==='CFO'||state.role==='COO')){ toast('A new customer is approved by the CFO (or the COO)'); return; }
+  var c=(state.customers||[]).filter(function(x){return x.code===code;})[0]; if(!c) return;
+  if((c.status||'Active')!=='Pending approval'){ toast(c.name+' is already '+(c.status||'Active').toLowerCase()); return; }
+  c.status='Active'; c.approvedBy=(state.currentUser&&state.currentUser.name)||state.role; c.approvedAt=new Date().toISOString();
+  logAction('Approved customer '+code+' — '+c.name+' (ready for its first order)');
+  save(); render();
+}
+function pendingCustomerItems(){
+  return (state.customers||[]).filter(function(c){ return c && c.status==='Pending approval'; }).map(function(c){
+    return {role:'CFO',cust:c,what:'Approve new customer — '+(c.name||'')+' ('+(c.segment||'')+' · '+(c.code||'')+')',act:"approveCustomer('"+String(c.code||'').replace(/'/g,'')+"')",label:'Approve customer'}; });
+}
 function custToggleStatus(code){
   if(!may('customer.amend')){toast(whoMayRight('customer.amend').join(' / ')+' only — Customer Master is held back until customer records carry ids');return;}
   var c=(state.customers||[]).filter(function(x){return x.code===code;})[0]; if(!c)return;
@@ -4954,9 +4971,9 @@ function custSave(){ var f=custForm; if(!f)return;
   var code=f.editing||custCode(f.segment,f.name,f.inducted,f.outlet,f.region,f.city);
   if(f.segment==='VGreen'&&!f.editing&&!String(f.outlet||'').trim()){toast('VGreen outlet code required (e.g. VC, FM, DP)');return;}
   if(!f.editing&&(state.customers||[]).some(function(c){return c.code===code;})){toast('Code '+code+' already exists');return;}
-  var rec={id:code,code:code,name:String(f.name).trim(),segment:f.segment,parent:isOutlet?(f.parent||f.segment):'',outlet:isOutlet?(f.outlet||''):'',isParent:false,brandKey:(f.segment==='White-label'?String(f.name).trim():custBrandKeyFor(f.segment)),region:f.region||'',city:f.city||'',contact:f.contact||'',phone:f.phone||'',creditDays:+f.creditDays||0,fed:f.fed||'Exclusive',kam:f.kam||'',introducedBy:f.introducedBy||'',destination:f.destination||'',ntn:f.ntn||'',inducted:f.inducted||TODAY.getFullYear(),status:f.status||'Active'};
+  var rec={id:code,code:code,name:String(f.name).trim(),segment:f.segment,parent:isOutlet?(f.parent||f.segment):'',outlet:isOutlet?(f.outlet||''):'',isParent:false,brandKey:(f.segment==='White-label'?String(f.name).trim():custBrandKeyFor(f.segment)),region:f.region||'',city:f.city||'',contact:f.contact||'',phone:f.phone||'',creditDays:+f.creditDays||0,fed:f.fed||'Exclusive',kam:f.kam||'',introducedBy:f.introducedBy||'',destination:f.destination||'',ntn:f.ntn||'',inducted:f.inducted||TODAY.getFullYear(),status:(state.role==='CFO'||state.role==='COO')?(f.status||'Active'):'Pending approval'};
   state.customers=state.customers||[];
-  if(f.editing){ var i=state.customers.findIndex(function(c){return c.code===f.editing;}); if(i>=0)state.customers[i]=rec; logAction('Edited customer '+code+' — '+rec.name); }
+  if(f.editing){ var i=state.customers.findIndex(function(c){return c.code===f.editing;}); if(i>=0){ rec.status=(state.customers[i].status||'Active'); /* an edit keeps its status: R9 is about NEW customers */ if(state.customers[i].approvedBy){ rec.approvedBy=state.customers[i].approvedBy; rec.approvedAt=state.customers[i].approvedAt; } state.customers[i]=rec; } logAction('Edited customer '+code+' — '+rec.name); }
   else { state.customers.push(rec); logAction('Added customer '+code+' — '+rec.name+' ('+rec.segment+')'); }
   /* state.dealers is retired as a write target (2026-08-27) — state.customers (segment==='Dealer') is the single source of truth. custInit()'s one-time seed below still reads the old array once, for historical installs. */
   custForm=null; save(); toast('Saved '+code); render();
@@ -10175,6 +10192,8 @@ function actionItems(){
     }
   });
   (state.prs||[]).filter(p=>p.status==='open'&&!p.cfoApproved).forEach(p=>items.push({role:'CFO',pr:p,what:'Approve PR — '+p.rm+' '+fmt(p.qtyRequired)+' Kg/L',act:"cfoApprovePR('"+p.id+"')",label:'Approve PR'}));
+  /* R9 - a new customer waits for the CFO before its first order */
+  try{ pendingCustomerItems().forEach(function(it){ items.push(it); }); }catch(e){}
   (state.batches||[]).filter(b=>(b.producedKg||0)>0 && b.disposition!=='byproduct').forEach(b=>{ const it=coaItemOf(b);  /* Stage 1: by-product accruals don't generate Lab-COA/QC actions until called for manufacturing (read-only; clears the 2 false QC triggers) */ const units=(b.lots||[]).length?(b.lots).map(l=>({id:l.id,no:(l.lotNo||b.batchNo||''),coa:l.coa})):[{id:'',no:(b.batchNo||''),coa:b.coa}];
     units.forEach(u=>{ const st=u.coa&&u.coa.status; if(u.coa&&st==='approved')return; const call="openBatchCOA('"+b.id+"','"+u.id+"')"; const tag=(u.no||'');
       /* A re-issued draft is named as one, with its reason, so the Lab Rep is not
@@ -10647,7 +10666,7 @@ var ACT_META={
  'Review':{c:'--purple',s:'Review'}, 'Approve':{c:'--navy',s:'Approve'},
  'Inspect':{c:'--amber',s:'QA Inspect'}, 'Correct':{c:'--red',s:'QA Fix'}, 'Pack QC':{c:'--amber',s:'Pack QC'}
 };
-var ACT_EMOJI={'Print price':'🏷','Load':'📦','Gate Pass':'🎫','Release':'🔓','Approve DC':'✅','Confirm delivery':'📍','Acknowledge':'📥','RM Check':'🧪','Receive':'📦','Open Production':'🏭','Lab QC':'🔬','Review':'🔎','Approve':'✅','Approve PR':'🧾','Inspect':'🔎','Pack QC':'🔎','Ship':'🚚','Add reason':'⏰','Correct':'🛠'};
+var ACT_EMOJI={'Approve customer':'🤝','Print price':'🏷','Load':'📦','Gate Pass':'🎫','Release':'🔓','Approve DC':'✅','Confirm delivery':'📍','Acknowledge':'📥','RM Check':'🧪','Receive':'📦','Open Production':'🏭','Lab QC':'🔬','Review':'🔎','Approve':'✅','Approve PR':'🧾','Inspect':'🔎','Pack QC':'🔎','Ship':'🚚','Add reason':'⏰','Correct':'🛠'};
 var actFilter='all';
 function _fmtShort(d){ if(!d)return''; var t=new Date(d); if(isNaN(t))return''; return t.toLocaleDateString('en-GB',{day:'numeric',month:'short'}); }
 function actOverdue(it){ return it.o?isOverdue(it.o):false; }
@@ -10673,6 +10692,7 @@ function actTiming(it){
   else if(it.batch){ c=it.batch.closedDate||it.batch.openedDate||it.batch.date||null; approx=(it.label!=='Lab QC'); }
   else if(it.lot){ c=(it.lot.qa&&it.lot.qa.date)||it.lot.date||null; }
   else if(it.disp){ c=it.disp.date||null; }
+  else if(it.cust){ c=it.cust.inducted||null; approx=true; }
   var days=null;
   if(c){ var t=new Date(c); if(!isNaN(t)){ days=Math.round((TODAY-t)/86400000); if(days<0)days=0; } else c=null; }
   if(!c) approx=true;
@@ -10906,6 +10926,7 @@ var TD_LABEL={
   'Correct':         {title:'QA failed a lot',                      verb:'Correct and resubmit'},
   'Re-inspect':      {title:'Lot on hold',                          verb:'Re-inspect'},
   'Close batch':     {title:'Batch to close',                       verb:'Close the batch'},
+  'Approve customer':{title:'New customer to approve',              verb:'Approve'},
   'Reopened — check first':{title:'Reopened batch',                 verb:'Check it'}
 };
 /* Which RIGHT an item is. A person sees an item when it is addressed to their

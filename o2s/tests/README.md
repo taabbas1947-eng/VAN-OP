@@ -21,11 +21,13 @@ node o2s/tests/gatepassqa.test.js  #  14 - a Gate Pass needs the inspection
 node o2s/tests/shortclose.test.js  #  39 - short-closing a PO line
 node o2s/tests/shortcloseactions.test.js
                                    #  44 - request, approve, reject, reopen, and the UI
+node o2s/tests/rolemodel.test.js   #  81 - role names as the join key, and the
+                                   #       built-in lock that keeps them stable
 ```
 
-**562 checks in the suites listed above.** Running every `*.test.js` in this
+**643 checks in the suites listed above.** Running every `*.test.js` in this
 folder together, with `data/state.json` and both `_before-*.html` fixtures in
-place, gives **7,423**. Exit code 0 means all passing. No dependencies, no build step,
+place, gives **7,504**. Exit code 0 means all passing. No dependencies, no build step,
 Node only.
 
 ## How they work
@@ -185,3 +187,25 @@ pull `actionItems`, `openShortClose`, `openShortCloseReview` and
 `renderShortClose` out by name and assert inside each one — that My Actions
 raises it to the Plant Manager, that a decided close raises nothing, and that the
 review modal hides Approve from the person who asked for it.
+
+**Confine a spelling check to the field that carries the name.** The first run of
+`rolemodel.test.js` read every quoted string inside `RIGHTS` and reported
+`dept:'production'` and `dept:'supply-chain'` as misspelled roles. They are
+department ids — a different namespace that squashes to the same letters. A check
+that cries wolf on correct code is switched off within a week, so it now reads
+only the values inside `roles:[…]`, `owners:[…]` and `FIELD_OWNER`.
+
+**Prove a new tripwire can go red.** `rolemodel.test.js` guards a failure with no
+symptom: a misspelled role name never matches, raises nothing, and shows up
+months later as a person saying "I can't see that screen". Three mutations were
+run against a scratch copy before it was trusted — misspelling a name in a
+screen's owners (4 failures), adding an unfiled role to live state (4), and
+removing the built-in rename lock (2). A tripwire nobody has seen fire is a
+guess.
+
+**Write down what a lock costs.** The ten built-in role names are spelled out as
+**523 string literals** in `o2s.html`, across `SCREENS.owners`,
+`RIGHTS[].legacy`, `FIELD_OWNER` and hundreds of inline gates. That number is why
+`renameRole` and `archiveRole` refuse a built-in, and why HR's job titles have to
+arrive as new roles rather than as renames of the old ones. The check is a floor,
+not an exact count, so unrelated edits do not make it lie.

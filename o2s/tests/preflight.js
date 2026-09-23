@@ -42,6 +42,13 @@ const MARKERS = [
   ['function reopenShortClose(',           1, 'short close: reopen'],
   ["code:'po.shortclose_request'",         1, 'short close: the rights'],
   ['function openShortCloseReview(',       1, 'short close: the approver modal'],
+  /* The role model. A role is joined by its NAME as a string; a name that goes
+     missing from these tables does not raise anything, it just stops matching.
+     rolemodel.test.js pins the whole set; these three are the load-bearing
+     lines that must survive any edit. */
+  ["if(r.builtin){toast('Built-in roles can",  2, 'the built-in role lock (rename + archive)'],
+  ['function seedRolesV1(',                1, 'the ten built-in roles'],
+  ["'Production Manager'",                14, 'Production Manager, pre-wired and inert'],
 ];
 
 const [, , mode, freshPath, otherPath] = process.argv;

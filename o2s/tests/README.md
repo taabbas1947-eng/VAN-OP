@@ -10,13 +10,14 @@ nothing could be trusted the next morning.
 node o2s/tests/spec06.test.js       #  53 - which price goes on the pack
 node o2s/tests/backlog.test.js      #  33 - the print-decision backlog screen
 node o2s/tests/batchclose.test.js   # 182 - closing and reopening a batch
+node o2s/tests/qagate.test.js      #  16 - the pre-shipment inspection gate
 node o2s/tests/buildid.test.js     #  12 - BUILD_ID vs the changelog
 node o2s/tests/rmqty.test.js       #  22 - raw-material quantity entry
 node o2s/tests/psi.test.js         # 123 - the pre-shipment inspection report,
                                    #       and what may go on a customer's copy
 ```
 
-**425 checks.** Exit code 0 means all passing. No dependencies, no build step,
+**441 checks.** Exit code 0 means all passing. No dependencies, no build step,
 Node only.
 
 ## How they work
@@ -28,6 +29,17 @@ here. If a check passes, it passed against the file that ships.
 `backlog.test.js`, `batchclose.test.js` and `psi.test.js` also run against the
 real `data/state.json`, so the counts they print are the counts that snapshot
 actually produces.
+
+`qagate.test.js` exists because the pre-shipment inspection had never once run.
+Measured on live data on 22 Sept 2026: **215 of 215 shipments carried
+`qa:{pass:true,closed:true}` and not one carried a real inspection** — both
+dispatch paths wrote that stub at creation, so QA was never asked (the task
+needs `qa === null`), and the release gate added on 21 Aug had never blocked a
+truck because the stub satisfied it. On the same data **80 of 108 trucks left
+before the material on them had been inspected at all**. From the 23 September
+cut-over a new shipment starts genuinely pending; anything dated earlier keeps
+its old status so nothing on the road is dragged back. This suite pins the
+cut-over date, both dispatch paths, and every gate keyed off `qa`.
 
 `buildid.test.js` exists because a whole day's work shipped with `BUILD_ID`
 still reading `2026-09-04a`. An open tab polls the served file and raises the

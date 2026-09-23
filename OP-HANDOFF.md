@@ -4793,3 +4793,321 @@ assert the preconditions, and prefer a locally held file over whatever the stage
 returns.
 
 `o2s/o2s.html` written into `E:\VAN-OP`. **Not pushed.**
+
+### 2026-09-22 (tenth pass) · nobody has to log out — but BUILD_ID had to be bumped
+
+**Tahir:** "so can we logout every time once we have an update, or any other way
+people can see new live updates?"
+
+**No logout needed. Both mechanisms already exist** — and one of them was
+silently dead.
+
+| | what it does | fires on |
+|---|---|---|
+| **Stale-tab banner** | "A newer version of O2S is available · Refresh now / Later" | an open tab, within ~10 min of a deploy |
+| **What's-changed notice** | "What's changed since you last logged in" | the next logged-in render after a refresh |
+
+The banner polls `/o2s` on the existing sync heartbeat (throttled to once per 10
+minutes, `cache:'no-store'`), reads `BUILD_ID` out of the first few KB of the
+served file and compares it with the `BUILD_ID` the tab loaded with. So the
+chain is: deploy → banner within ten minutes → the person clicks **Refresh now**
+→ on reload the what's-changed notice lists what changed. Nobody signs out.
+
+#### The defect
+
+**`BUILD_ID` still read `2026-09-04a`.** It was never bumped for any of this
+day's work. Since the banner only fires when served ≠ loaded, an un-bumped
+BUILD_ID means the two match, the banner never appears, and a tab left open
+across the push keeps running the old code with nothing telling anybody — the
+exact failure the 4 Sept stale-tab detector was built to prevent.
+
+Bumped to `2026-09-22a`, matching the new CHANGELOG `ver`.
+
+**Verified end to end**, not by reading the code: the file was served over HTTP
+with a *newer* BUILD_ID than the loaded page and `checkForNewBuild()` driven —
+the banner went to `display:flex` reading *"A newer version of O2S is available.
+Refresh now / Later"*. Served with the *same* BUILD_ID it stayed hidden.
+
+#### `o2s/tests/buildid.test.js` — 12 checks
+
+Every behavioural change today was pinned by a test. The one line that decides
+whether anyone **finds out** was pinned by nothing. Now:
+
+- `BUILD_ID` equals the newest CHANGELOG `ver` — leaving it un-bumped fails here;
+- CHANGELOG entries are in date order, each has ver/date/title/items, no
+  duplicate versions;
+- the banner exists, offers a refresh, can be deferred, runs on the heartbeat,
+  compares served against loaded, and is fetched uncached — a cached fetch would
+  compare a stale copy with itself and never fire.
+
+**Standing rule, now enforced: bump `BUILD_ID` with every deploy and keep it
+equal to the newest CHANGELOG `ver`.**
+
+**Totals: 425 checks.** psi 123 · spec06 53 · rmqty 22 · whatsnew 21 ·
+buildid 12 · everything else identical to the untouched baseline.
+
+`o2s/o2s.html`, `o2s/tests/buildid.test.js`, `o2s/tests/README.md` written into
+`E:\VAN-OP`. **Not pushed.**
+
+> **Two limits of the notice, unchanged and worth knowing.** It is keyed to the
+> browser (`localStorage` per username), so a different computer or a cleared
+> browser shows it again; and it is "since the version you last dismissed", not
+> "since the last hours" — someone back after a month sees the same thing as
+> someone back after an hour. Both were deliberate on 4 Sept to avoid a server
+> change.
+
+### 2026-09-22 (eleventh pass) · the pre-shipment inspection had never run — gate goes live 23 Sept
+
+Read the live system with Tahir's own browser session. **BUILD_ID on live read
+`2026-09-22a`, so the morning's push had deployed.**
+
+#### What the live data said
+
+| | |
+|---|---|
+| Live shipment rows | **215**, dispatched 1 Jul → 21 Sept |
+| Carrying a real truck-level inspection | **0** |
+| Carrying `qa:{pass:true,closed:true}` | **215** |
+| Trucks whose material was inspected before it left | **28 of 108** |
+| Trucks that left before their material was inspected | **80 of 108 (74%)** |
+| Trucks never inspected at all | 0 — it always happens, afterwards |
+| Records carrying an entry stamp at all | **294 of 1,268 (23%)** |
+| Truck QA / production log with a stamp | **0 and 0** |
+| Inspections signed by a named person | **0** — all 180 say "QA Inspector" |
+
+Worst single case: material dispatched **2 July**, inspected and keyed
+**22 September** — 82 days later. Concrete ones: DC 48/49/50 Naya S Urea left
+27 July, first inspected 29 July; DC 73 Tervalis Plus left 24 Aug, inspected
+27 Aug.
+
+#### The cause — not discipline
+
+Both dispatch paths created the shipment row with `qa:{pass:true,closed:true}`
+**already on it**. Three consequences, none visible:
+
+1. **QA was never asked.** The Action Center raises the task only when
+   `qa === null`; dispatch guaranteed it never was.
+2. **The release gate was inert.** `approveRelease` refuses unless
+   `qa && qa.pass` — the stub satisfies it. Added 21 Aug, never blocked a truck.
+3. **The evidence that justified that gate was circular.** *"135 shipments, all
+   135 carrying a passing inspection"* — dispatch had written all 135.
+
+So the pre-shipment inspection control has never operated. No amount of
+training or visibility would have changed that; nobody was ever asked.
+
+#### The fix — `QA_GO_LIVE = '2026-09-23'`
+
+Mirrors the existing `DC_GO_LIVE` pattern. A shipment dated on or after the
+cut-over is created with `qa:null` — genuinely pending. From then on QA gets
+the task, release is refused, delivery is refused, the DC prints no QC PASSED
+stamp and the customer report offers no button until it passes. Shipments dated
+earlier keep the stub, so nothing on the road is dragged back.
+
+**Blast radius checked on live data before committing — properly this time, not
+against the system's own stubs:** all 215 existing rows are dated before the
+cut-over, **0 rows fall on or after it**, so nothing becomes pending
+retroactively and the **3 trucks currently sitting in Loading can still be
+released**. Dispatch volume is ~1 truck every 2–3 days (15th, 18th, 21st Sept),
+so this adds roughly one inspection every other day — not a burden.
+
+`o2s/tests/qagate.test.js`, **16 checks**: the cut-over date, both dispatch
+paths, a 23 Sept shipment born pending, a 22 Sept one NOT dragged back, a real
+inspection passing, a failed one failing, and each of the five gates keyed off
+`qa`. Restoring the auto-pass fails it with 2.
+
+CHANGELOG `2026-09-22b` added and BUILD_ID bumped to match — written for QA,
+Supply Chain and the Plant Manager, and saying plainly: if a truck is waiting
+and QA is not available, call the Plant Manager, do not dispatch and record it
+afterwards.
+
+**Totals: 441 checks.** psi 123 · spec06 53 · rmqty 22 · whatsnew 21 ·
+qagate 16 · buildid 12 · rest identical to the untouched baseline.
+
+`o2s/o2s.html`, `o2s/tests/qagate.test.js`, `o2s/tests/README.md` written into
+`E:\VAN-OP`. **Not pushed.**
+
+#### Still open
+
+- The "how current are we" board — Tahir's call: names visible to everyone, flag
+  lateness loudly rather than block. Worth building on the back of this, with a
+  better headline number than median lag: *74% of trucks left before their
+  material was inspected.*
+- **No individual name on any quality record.** Every inspection is "QA
+  Inspector", every COA is Lab Rep / AQCM / QCM. Accountability cannot be
+  attributed to a person anywhere in the quality chain.
+- Only 23% of records carry an entry stamp; truck QA and the production log have
+  none, so neither can be measured until they do.
+
+### 2026-09-22 (twelfth pass) · read-only audit of the live system before building anything
+
+Tahir: *"be very careful, don't introduce a bug or new problem… go and read the
+database and live site, code and system once more to find such issues before we
+start building."*
+
+**On SQL access:** declined, deliberately. The whole live state is one JSON blob
+(`app_state.data`), and it is already readable through the app in Tahir's own
+browser session. A MySQL client would add credentials and a connection that
+*can* write, for data that is already available read-only. Nothing in this audit
+wrote anything.
+
+#### Verified clean
+
+- **Referential integrity** — 288 of 288 shipment batch references resolve to a
+  real batch; no shipment, packing row or inspection points at a missing PO or
+  order line.
+- **Numbering** — no duplicate PO, batch, or shipment id; and **no DC number,
+  shipment number or gate pass shared by two different trucks**. (An earlier
+  row-level check flagged "DC 13 x8" — that was a false positive of my own: one
+  DC covers a whole truck and every product row on it carries the number. The
+  truck-level check is the correct one and it is clean.)
+- **Quantities** — no negative or zero shipment rows, nothing dispatched beyond
+  what was ordered, no batch packed beyond what it produced.
+- **Dates** — nothing dated in the future, no expiry before manufacture.
+
+The transactional data is sound. The problems are all in **who**, not **what**.
+
+#### Findings — the authority model
+
+1. **Quality has no lead.** Its lead role is `qcm` and **no account holds it**.
+   The department that signs every certificate leaving the building has no
+   manager in the system.
+2. **Six roles nobody holds**: AQCM, QCM, Supply Chain Officer, Finance Desk
+   Officer, Production Manager, Finance.
+3. **Two roles have no department at all** — Finance Desk Officer and Production
+   Manager — because roles are admin-editable in state while `ROLE_DEPT` is a
+   code constant. They already sit outside every team. Any role Tahir adds
+   (Invoicing Officer, Procurement Accountant) lands in the same void.
+4. **The deepest one — separation of duties is void in practice.** Five rules
+   are declared and genuinely enforced (`separationRefusal`, at grant time, so
+   one role cannot be given both sides):
+   - nobody inspects their own output
+   - the analyst does not check his own certificate
+   - a certificate needs two signatures, not one
+   - the person who loads does not release
+   - not raising the order and approving its own delivery
+
+   They are enforced **between roles**. The roles are **eight shared passwords**.
+   One person who knows two of them satisfies both sides himself, the system
+   records two different roles, and nothing anywhere shows it. The two rules
+   most exposed are the two that matter most for a customer certificate.
+
+   This is the strongest argument for named accounts — stronger than signatures
+   on a report.
+
+#### Safety check on today's `qa:null` change — clean
+
+Every reader of a **shipment's** `qa` is null-safe:
+- `dispatchGroups` — `if(s.qa===null) qaPending=true` — the null path was
+  designed in from the start and simply never exercised;
+- `approveRelease` — `!(s.qa && s.qa.pass)`;
+- `openDispatchQA` — `const ex=rows[0].qa` then `ex&&ex.checklist&&…`, so null
+  produces an empty form, which is exactly right for a fresh inspection;
+- `psiDetailFor` — `rows[i]&&rows[i].qa`;
+- nothing reads `.qa` immediately after either dispatch creation.
+
+A scan flagged four apparently unguarded `.qa.` reads. All four are on
+**packing-lot** `qa` (`state.packingLog`), a different field the change does not
+touch, and each is guarded by its own filter (`lots.filter(p=>p.qa&&p.qa.fail)`,
+`!p.qa || …`). One of the four is inside `_printInspect_OLD`, dead code.
+
+**Conclusion: the cut-over change is safe to ship.**
+
+#### Nothing was built this pass
+
+By instruction. The build list stands: block a role being used as a name (using
+`_isRoleName`, which already exists and is used only for printing), make the
+department map follow the roles instead of trailing them, set each department's
+lead to a real manager role, cover-with-expiry, and one standing health panel.
+
+#### For the security register, not for Tahir
+
+`state.users` carries a `password` field in the client state blob. Recorded
+here; belongs in `docs/security-register/SECURITY-REGISTER.md` for the other
+department.
+
+### 2026-09-22 (thirteenth pass) · two agent reviews — and a correction to the twelfth
+
+Two read-only reviewers were run against the current build: one on usability and
+information architecture, one on the access model. Their load-bearing claims
+were re-verified by hand before being passed on. Nothing was built.
+
+#### CORRECTION — separation of duties is NOT enforced
+
+The twelfth-pass entry says the five `SEPARATION` rules are "declared and
+genuinely enforced". **That is wrong and is withdrawn.**
+
+`separationRefusal` (2956) opens with
+`if(!rightByCode(a)||!rightByCode(bC)) continue;` — and **6 of the 9 codes the
+five pairs name do not exist in the `RIGHTS` catalogue**: `inspection.perform`,
+`coa.draft`, `coa.review`, `coa.approve`, `shipment.release`, `dc.approve`.
+Only `production.enter`, `shipment.load` and `order.create` exist.
+
+Every one of the five pairs therefore contains at least one missing code and is
+skipped. **Not one separation rule can fire.** The function is wired into the
+grant path correctly; the catalogue entries it depends on were never written.
+The design is staged on purpose (2668: "starts biting as each department is
+converted") — but the effect today is that the rules are an intention, not a
+control.
+
+**This is the third inert control found in one day**, and the pattern is now the
+main finding of the whole session:
+
+| Control | Looked like | Actually |
+|---|---|---|
+| Pre-shipment inspection | required before release | auto-passed at dispatch, 215/215 |
+| Release gate (21 Aug) | "nothing leaves unless checked" | satisfied by the auto-pass stub |
+| Separation of duties (5 rules) | enforced at grant time | every pair skipped, none can fire |
+
+Plus two detectors that work and nobody reads: `sigName` (flagging every
+role-signed document for months) and `evStamp` (entry lag, never aggregated).
+
+#### Other verified findings
+
+- **`coaSubmitAnalyst` (6684) has no permission check at all.** The button is
+  drawn only for Lab Rep or COO, but the writer is ungated — the same
+  "permitted at the door, refused at the till" fault the file documents
+  elsewhere. Quality is also absent from the rights model entirely
+  (`rightsOfDept('quality')` is empty); the COA chain runs on raw `hardRole`.
+- **`coaApprove` (6698) is `hardRole(['QCM'])` and no account holds QCM**, so in
+  practice only the COO can approve a certificate — one signature where the
+  design wants two.
+- **`recon` is missing from `NAV_ORDER` (2987).** The access matrix builds its
+  rows from that list, so Reconciliation has no row, defaults to visible
+  (`v:true`, 2934) and **cannot be hidden from anyone**.
+- **Changing the client or channel on New PO Entry silently wipes every product
+  line already keyed** (3795, 3797) — no confirm, no undo — and takes the typed
+  client PO number with it (3948, unbound input).
+- **`entryChecks()` (4055) computes 16 plain-English readiness checks on every
+  keystroke and never displays them.** The Submit button is disabled at 4099
+  with no explanation shown.
+- **Toasts last 1,900 ms** (2332) and carry every validation error, including a
+  16-word over-production message (6167).
+- **Confirmation ceremony is inverted**: releasing a loaded truck (11393),
+  approving a DC (11202) and issuing a gate pass (11390) take one click with no
+  confirm; deleting one word from a dropdown demands you type your full name
+  (12678).
+- **Renaming a custom role silently revokes all its access** (12225) — the token
+  matches roles by name, so `roleIdOf` returns null and every right goes false.
+- Depth: 14 screens, ~20 tab bars; **Admin · Master Data is six levels deep** to
+  reach a grant cell, and holds 17 collapsed cards that reset closed every load.
+
+#### On the access-model rebuild Tahir asked for
+
+His instinct is right and the safe version is small: rebuild the **user form** to
+be name / job / *what this means in plain words*, generated from the role, with
+a before-and-after diff on edit. No engine change, no new authority path. The
+**screens matrix** (195 single-click cells, no confirm, no undo — the thing that
+grants by accident) becomes read-only. The **rights grid** stays the one
+deliberate place to grant, because that is where the refusal stack lives.
+
+**Per-user overrides should be refused for now.** Both `separationRefusal` and
+`grantRefusal` are role-keyed; per-person grants would bypass them entirely. So
+would a second role on one person — Production + QA Inspector on one login is
+precisely "nobody inspects their own output", with no grant action to refuse.
+The exception path is: **create a role**, which `addRole` already supports and
+which keeps the refusal stack valid.
+
+Prerequisite for any of it: put the six missing codes into `RIGHTS` so the five
+separation rules can fire at all, and gate `coaSubmitAnalyst`.
+
+Nothing built this pass, by instruction.

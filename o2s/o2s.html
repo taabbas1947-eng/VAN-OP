@@ -11,7 +11,7 @@
    a push keeps running the old code with nothing telling anybody. It sat at
    2026-09-04a through this whole day's work; rmqty/psi tests pinned the code,
    nothing pinned this. buildid.test.js now does. */
-var BUILD_ID='2026-09-22a';
+var BUILD_ID='2026-09-22b';
 var CHANGELOG=[
   {ver:'2026-09-04a', date:'2026-09-04', title:"Delivery, DC printing, and a new Reconciliation check", items:[
     "Delivery confirmation stays with Supply Chain \u2014 it no longer hands off to the Plant Manager. If one sits too long, it now re-flags the same Supply Chain owner every 3 days instead.",
@@ -26,6 +26,13 @@ var CHANGELOG=[
     "New: Pre-shipment Inspection Report, for sending to the customer with the dispatch. It prints by itself when an inspection passes, and you can print it again any time from the shipment record (\u2018Inspection\u2019, next to DC and Gate Pass). It carries what went on the truck, the inspection result, the lab results for those batches, and a line for the customer to sign.",
     "A shipment with no inspection recorded against it does not produce this report at all, and offers no button \u2014 rather than printing an empty checklist that looks like a passed inspection.",
     "Customer documents carry no prices and no internal batch numbers \u2014 only the batch number printed on the bag. The inspection sheet you already use per PO is unchanged, except that it no longer shows the rupee figure either.",
+  ]},
+  {ver:'2026-09-22b', date:'2026-09-22', title:"Pre-shipment inspection starts working on 23 September", items:[
+    "From Tuesday 23 September, a truck must actually pass the pre-shipment inspection before it can be released. Until now every shipment was created already marked as passed, so QA was never asked and the check never ran \u2014 215 shipments in a row went out that way.",
+    "What changes for QA: a new shipment appears in My Actions as \u2018Pre-shipment inspection\u2019. Open it, mark the checks, sign, submit. Nothing else releases until that is done.",
+    "What changes for Supply Chain and the Plant Manager: \u2018Approve & release\u2019 will refuse a truck that has not been inspected, and the Delivery Challan will not carry the QC PASSED stamp until it has. Plan for the inspection before the vehicle is due to leave, not after.",
+    "Trucks dispatched on or before 22 September are not affected and do not need to be re-inspected.",
+    "If a truck is waiting and QA is not available, call the Plant Manager \u2014 do not dispatch and record it afterwards. The record is what the customer\u2019s report is built from.",
   ]},
 ];
 </script>
@@ -11088,6 +11095,32 @@ let dispForm=null;
 /* DC approval control + FED segregation go live 1 Jul 2026. Gated by document date so deploying earlier changes nothing. */
 var DC_GO_LIVE='2026-07-01';
 function dcControlOn(dateStr){ return String(dateStr||TODAY.toISOString().slice(0,10))>=DC_GO_LIVE; }
+
+/* PRE-SHIPMENT INSPECTION GOES LIVE — Tahir, 22 Sept 2026, effective 23 Sept.
+
+   Until now both dispatch paths created the shipment row with
+   `qa:{pass:true,closed:true}` already on it. Measured on live data the same
+   day: 215 of 215 shipments carried that stub and NOT ONE carried a real
+   inspection — no checklist, no inspector, no date — on trucks dispatched up
+   to 21 September.
+
+   Three things followed from it, none of them visible:
+     - the QA Inspector was never asked. The Action Center raises the task only
+       when `qa === null`, and dispatch made sure it never was;
+     - the release gate added on 21 Aug — "nothing leaves the factory unless
+       somebody checked it" — tests `qa && qa.pass`, which the stub satisfies.
+       It has never blocked a truck;
+     - the blast-radius check that justified that gate, "135 shipments, all 135
+       carrying a passing inspection", was reading the stubs dispatch had just
+       written.
+
+   From 23 September a new shipment starts with `qa:null`, which is genuinely
+   pending: QA gets the task, release is refused until it passes, delivery is
+   refused, the DC prints no QC PASSED stamp, and the customer report offers no
+   button. Shipments dated before the cut-over keep the stub, so nothing already
+   on the road is dragged back into a pending state. */
+var QA_GO_LIVE='2026-09-23';
+function qaRequiredOn(dateStr){ return String(dateStr||TODAY.toISOString().slice(0,10))>=QA_GO_LIVE; }
 /* Auto DC # from 1 Jul: continue the running serial from the highest DC number already in the system (the last manual DC on 30 Jun sets continuity). */
 function nextDCNo(){ var mx=0; (state.shipments||[]).forEach(function(s){ if(!s||s.voided)return; var n=parseInt(String(s.dc||'').replace(/\D/g,''),10); if(!isNaN(n)&&n>mx)mx=n; }); return String(mx+1); }
 function _releaseShip(o,l,batches){ if(!o||!l)return; (lotsFor(o,l)||[]).forEach(function(p){ var b=(batches||[]).find(function(x){return x.batch===lotBaseNo(p)||x.brand===lotBrandNo(p);}); if(b){ p.shipKg=Math.max(0,(+p.shipKg||0)-(+b.kg||0)); } }); }
@@ -11160,7 +11193,7 @@ function saveDispatch(){ if(!may('shipment.plan')){toast(denyRight('shipment.pla
     lotsFor(o,l).forEach((p,i)=>{ const a=Math.min(+alloc[i]||0, lotClearedKg(p)); if(a>0.0001){ p.shipKg=(+p.shipKg||0)+a; batches.push({lotId:p.id,batch:lotBaseNo(p),brand:lotBrandNo(p),kg:Math.round(a)}); kg+=a; } });
     if(kg<=0)return;
     var _deliv=dispForm.inTransit?null:d;  /* default: delivered now (silent). In-transit option leaves delivered blank for a later markDelivered. */
-    state.shipments.unshift(Object.assign({id:_uid('SH'),dispId,po:o.po,client:o.client||'',brand:l.brand,lid:l.id,kg:Math.round(kg),batches,pack:r.pack,dispatch:d,destination:dispForm.dest,focalPerson:(dispForm.focal||'').trim(),focalPhone:(dispForm.focalPhone||'').trim(),carrier:dispForm.carrier,vehicle:dispForm.vehicle,dc:dc,shipNo:shipNo,bilty:dispForm.bilty,so:dispForm.so,transportType:dispForm.transportType,driver:dispForm.driver,driverContact:dispForm.driverContact,seal:dispForm.seal,dcStatus:(_ctrlOn?'pending':'approved'),approvedBy:'',approvedDate:(_ctrlOn?'':d),dispCounted:!_ctrlOn,delivered:_deliv,remarks:dispForm.remarks,qa:{pass:true,closed:true},by:state.role},evStamp(d,'ship',dispForm.dateReason)));
+    state.shipments.unshift(Object.assign({id:_uid('SH'),dispId,po:o.po,client:o.client||'',brand:l.brand,lid:l.id,kg:Math.round(kg),batches,pack:r.pack,dispatch:d,destination:dispForm.dest,focalPerson:(dispForm.focal||'').trim(),focalPhone:(dispForm.focalPhone||'').trim(),carrier:dispForm.carrier,vehicle:dispForm.vehicle,dc:dc,shipNo:shipNo,bilty:dispForm.bilty,so:dispForm.so,transportType:dispForm.transportType,driver:dispForm.driver,driverContact:dispForm.driverContact,seal:dispForm.seal,dcStatus:(_ctrlOn?'pending':'approved'),approvedBy:'',approvedDate:(_ctrlOn?'':d),dispCounted:!_ctrlOn,delivered:_deliv,remarks:dispForm.remarks,qa:(qaRequiredOn(d)?null:{pass:true,closed:true}),by:state.role},evStamp(d,'ship',dispForm.dateReason)));
     if(!_ctrlOn){ l.dispatched=(l.dispatched||0)+kg; l.dispatchDate=l.dispatchDate||d; if(_deliv){ l.delivered=(l.delivered||0)+kg; l.deliveredDate=d; } } n++; tot+=kg; });
   if(!n){toast('Nothing cleared to ship — inspect the packed material first');return;}
   logAction(`Shipment ${shipNo} (${dispId}) · PO ${o.po}: ${n} product(s), ${fmt(tot)} Kg/L · DC ${dc}${dispForm.vehicle?(' · '+dispForm.vehicle):''}`);
@@ -11342,7 +11375,7 @@ function mpCreate(){ if(!may('shipment.plan')){toast(denyRight('shipment.plan','
     lotsFor(o,l).forEach(function(p,i){ var a=Math.min(+alloc[i]||0,lotClearedKg(p)); if(a>0.0001){ p.shipKg=(+p.shipKg||0)+a; batches.push({lotId:p.id,batch:lotBaseNo(p),brand:lotBrandNo(p),kg:Math.round(a)}); kg+=a; } });
     if(kg<=0)return;
     if(auto){ l.dispatched=(+l.dispatched||0)+Math.round(kg); l.dispatchDate=l.dispatchDate||d; if(exf){ l.delivered=(+l.delivered||0)+Math.round(kg); l.deliveredDate=d; } }
-    state.shipments.unshift({id:_uid('SH'),dispId:dispId,po:o.po,client:f.client,brand:l.brand,lid:l.id,kg:Math.round(kg),batches:batches,pack:x.r.pack,dispatch:d,destination:f.dest,focalPerson:(f.focal||'').trim(),focalPhone:(f.focalPhone||'').trim(),carrier:f.carrier,vehicle:f.vehicle,dc:dc,shipNo:shipNo,bilty:f.bilty,so:x.o.so||'',transportType:f.transportType,truckSize:f.truckSize,driver:f.driver,driverContact:f.driverContact,seal:f.seal,stage:(auto?(exf?'delivered':'in_transit'):'truck_planned'),loadStarted:'',gatePass:'',dcStatus:(auto?'approved':'pending'),approvedBy:(auto?'Auto · pre go-live':''),approvedDate:(auto?d:''),dispCounted:!!auto,delivered:(auto&&exf?d:null),deliveredVia:(auto&&exf?'Collected at factory':''),remarks:f.remarks,qa:{pass:true,closed:true},by:state.role});
+    state.shipments.unshift({id:_uid('SH'),dispId:dispId,po:o.po,client:f.client,brand:l.brand,lid:l.id,kg:Math.round(kg),batches:batches,pack:x.r.pack,dispatch:d,destination:f.dest,focalPerson:(f.focal||'').trim(),focalPhone:(f.focalPhone||'').trim(),carrier:f.carrier,vehicle:f.vehicle,dc:dc,shipNo:shipNo,bilty:f.bilty,so:x.o.so||'',transportType:f.transportType,truckSize:f.truckSize,driver:f.driver,driverContact:f.driverContact,seal:f.seal,stage:(auto?(exf?'delivered':'in_transit'):'truck_planned'),loadStarted:'',gatePass:'',dcStatus:(auto?'approved':'pending'),approvedBy:(auto?'Auto · pre go-live':''),approvedDate:(auto?d:''),dispCounted:!!auto,delivered:(auto&&exf?d:null),deliveredVia:(auto&&exf?'Collected at factory':''),remarks:f.remarks,qa:(qaRequiredOn(d)?null:{pass:true,closed:true}),by:state.role});
     n++; tot+=kg; });
   if(!n){toast('Nothing cleared to ship — inspect the packed material first');return;}
   logAction('Shipment '+shipNo+' ('+dispId+') created — '+shortClient(f.client)+' · '+incl.length+' order(s), '+n+' product(s), '+fmt(Math.round(tot))+' Kg/L · DC '+dc+(auto?' · auto-approved (pre go-live)':' · Truck Planned'));

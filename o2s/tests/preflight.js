@@ -41,6 +41,7 @@ const MARKERS = [
   ['function approveShortClose(',          1, 'short close: approve'],
   ['function reopenShortClose(',           1, 'short close: reopen'],
   ["code:'po.shortclose_request'",         1, 'short close: the rights'],
+  ['function openShortCloseReview(',       1, 'short close: the approver modal'],
 ];
 
 const [, , mode, freshPath, otherPath] = process.argv;

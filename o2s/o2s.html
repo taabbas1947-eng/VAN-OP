@@ -11,7 +11,7 @@
    a push keeps running the old code with nothing telling anybody. It sat at
    2026-09-04a through this whole day's work; rmqty/psi tests pinned the code,
    nothing pinned this. buildid.test.js now does. */
-var BUILD_ID='2026-09-23b';
+var BUILD_ID='2026-09-23c';
 var CHANGELOG=[
   {ver:'2026-09-04a', date:'2026-09-04', title:"Delivery, DC printing, and a new Reconciliation check", items:[
     "Delivery confirmation stays with Supply Chain \u2014 it no longer hands off to the Plant Manager. If one sits too long, it now re-flags the same Supply Chain owner every 3 days instead.",
@@ -44,6 +44,13 @@ var CHANGELOG=[
     "The Gate Pass can no longer be issued for a truck that has not passed its pre-shipment inspection. Release already refused one; the Gate Pass did not, so the paper the driver carries could be printed for a truck that was not allowed to leave.",
     "If the inspection has not been done, the Gate Pass button says so. If the truck FAILED inspection, it says that instead \u2014 correct it and re-inspect.",
     "Nothing changes for a truck that has passed. Trucks with a Gate Pass already issued are not affected.",
+  ]},
+  {ver:'2026-09-23c', date:'2026-09-23', title:"A PO line can now be closed short", items:[
+    "If a customer will not take the rest of a line, it can now be closed instead of sitting overdue for ever. Production, Supply Chain and Finance can ask; the Plant Manager or the COO approves; only the COO can reopen it.",
+    "Closing stops further production and packing on that line. It does NOT touch anything already packed \u2014 that still ships, exactly as before.",
+    "The ordered quantity is never changed. Ordered, delivered and the shortfall all stay on the record, with the reason and who approved it.",
+    "The person who asks for a close cannot be the person who approves it.",
+    "It appears in My Actions for the Plant Manager while it is waiting, and nowhere else once it is decided.",
   ]},
 ];
 </script>
@@ -2165,6 +2172,54 @@ function shortCloseRefusal(o,l,what){
          ' was closed short on '+String(sc.approvedAt||'').slice(0,10)+
          ' by '+(sc.approvedBy||'someone')+(r?(' \u2014 '+r.label.toLowerCase()):'')+
          '. Stock already packed can still ship.';
+}
+var scForm=null;
+function openShortClose(oid,lid){
+  if(!may('po.shortclose_request')){toast(denyRight('po.shortclose_request','Asking to close a PO line short'));return;}
+  var f=_scLine(oid,lid), o=f.o, l=f.l; if(!l) return;
+  if(lineShortClosed(l)){toast('This line is already closed short.');return;}
+  if(lineShortRequested(l)){toast('A close is already waiting for approval.');return;}
+  scForm={oid:oid,lid:lid,reasonCode:'',reason:''};
+  renderShortClose(); $('modalBg').classList.add('open');
+}
+function renderShortClose(){
+  var f=_scLine(scForm.oid,scForm.lid), o=f.o, l=f.l;
+  var ord=+l.ordered||0, del=+l.delivered||0, pk=+l.packed||0, gap=Math.max(0,ord-del);
+  $('modal').innerHTML='<div class="mh"><h2>Close short \u2014 '+_pe(l.brand)+'</h2><div class="sub">'+_pe(o.po)+' \u00b7 '+_pe(shortClient(o.client))+' \u00b7 ordered '+fmt(ord)+' \u00b7 delivered '+fmt(del)+' Kg/L</div></div>'+
+   '<div class="mb">'+
+   '<div class="note" style="margin-bottom:10px">Closing this line stops further <b>production and packing</b>. It does not touch the '+fmt(pk)+' Kg/L already packed \u2014 that still ships. The shortfall of <b>'+fmt(gap)+' Kg/L</b> stays on the record; the ordered quantity is never rewritten.</div>'+
+   '<div class="fld"><label>Why is it being closed? <span style="color:var(--red)">*</span></label>'+
+   '<select onchange="scForm.reasonCode=this.value;renderShortClose()"><option value="">\u2014 pick a reason \u2014</option>'+
+     SHORTCLOSE_REASONS.map(function(r){return '<option value="'+r.code+'"'+(scForm.reasonCode===r.code?' selected':'')+'>'+_pe(r.label)+(r.ours?'':' \u00b7 not counted against us')+'</option>';}).join('')+
+   '</select></div>'+
+   '<div class="fld"><label>Anything else'+(scForm.reasonCode==='other'?' <span style="color:var(--red)">*</span>':' (optional)')+'</label>'+
+   '<input type="text" value="'+String(scForm.reason||'').replace(/"/g,'&quot;')+'" oninput="scForm.reason=this.value" placeholder="in your own words"></div>'+
+   (scForm.reasonCode?('<div class="muted" style="font-size:11.5px;margin-top:8px">'+(shortCloseAgainstUs({shortClose:{reasonCode:scForm.reasonCode}})?'This counts against our delivery performance.':'This does not count against our delivery performance \u2014 the customer withdrew it.')+'</div>'):'')+
+   '<div class="note" style="margin-top:10px">This is a <b>request</b>. It takes effect only when the Plant Manager or the COO approves it, and the person who asks cannot be the person who approves.</div>'+
+   '</div>'+
+   '<div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" onclick="requestShortClose(scForm.oid,scForm.lid,scForm.reasonCode,scForm.reason)">Ask to close short</button></div>';
+}
+function openShortCloseReview(oid,lid){
+  var f=_scLine(oid,lid), o=f.o, l=f.l; if(!l) return;
+  if(!lineShortRequested(l)){toast('Nothing is waiting for approval on this line.');return;}
+  var sc=l.shortClose, r=scReason(sc.reasonCode)||{label:sc.reasonCode||''};
+  var gap=Math.max(0,(+l.ordered||0)-(+l.delivered||0));
+  var mine=String(sc.requestedBy||'')===String(scWho());
+  $('modal').innerHTML='<div class="mh"><h2>Close short \u2014 '+_pe(l.brand)+'</h2><div class="sub">'+_pe(o.po)+' \u00b7 '+_pe(shortClient(o.client))+'</div></div>'+
+   '<div class="mb">'+
+   '<dl class="facts"><dt>Asked by</dt><dd>'+_pe(sc.requestedBy||'')+'</dd>'+
+   '<dt>Reason</dt><dd>'+_pe(r.label)+(sc.reason?(' \u2014 '+_pe(sc.reason)):'')+'</dd>'+
+   '<dt>Ordered</dt><dd>'+fmt(+sc.orderedAtClose||0)+' Kg/L</dd>'+
+   '<dt>Delivered</dt><dd>'+fmt(+sc.deliveredAtClose||0)+' Kg/L</dd>'+
+   '<dt>Closing short</dt><dd><b>'+fmt(gap)+' Kg/L</b></dd>'+
+   '<dt>Already packed</dt><dd>'+fmt(+sc.packedAtClose||0)+' Kg/L \u2014 still ships</dd></dl>'+
+   (mine?'<div class="note" style="margin-top:10px;border-color:var(--amber)">You asked for this close, so you cannot approve it. Somebody else must.</div>':'')+
+   '</div>'+
+   '<div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button>'+
+   '<button class="ghost" onclick="closeModal();rejectShortClose(\''+oid+'\',\''+lid+'\')">Reject</button>'+
+   (mine?'':'<button class="green" onclick="closeModal();approveShortClose(\''+oid+'\',\''+lid+'\')">Approve the close</button>')+
+   '</div>';
+  $('modalBg').classList.add('open');
 }
 function scWho(){ return (state.currentUser&&state.currentUser.name)||state.role; }
 /* Frozen at the moment of asking, so the shortfall still reads correctly a year
@@ -9488,6 +9543,19 @@ function actionItems(){
     o.lines.forEach(l=>{
       const lb=lineBucket(o,l);
       if(lb==='Delivered') return;
+      /* A line waiting for a short-close decision is the ONE thing still owed on
+         it, so it is raised before every other item and nothing else is. */
+      if(lineShortRequested(l)){
+        const _scr=scReason(l.shortClose.reasonCode)||{label:l.shortClose.reasonCode||''};
+        items.push({role:'Plant Manager',o,l,
+          what:'Approve closing short \u2014 '+o.po+' \u00b7 '+l.brand+' ('+fmt(Math.max(0,(+l.ordered||0)-(+l.delivered||0)))+' Kg/L, '+_scr.label.toLowerCase()+', asked by '+(l.shortClose.requestedBy||'')+')',
+          act:`openShortCloseReview('${o.id}','${l.id}')`, label:'Review'});
+        return;
+      }
+      /* Closed short: nothing more is owed on this line, so it raises no action.
+         Keyed off the line, not the bucket \u2014 BUCKETS drives dashboard counts
+         and that is a separate decision, still Tahir's. */
+      if(lineShortClosed(l)) return;
       if(o.acknowledged && (!l.rmStatus||l.rmStatus==='pending')) items.push({role:'Supply Chain',o,l,what:'RM Check \u2014 '+o.po+' \u00b7 '+l.brand,act:`openRMCheck('${o.id}','${l.id}')`,label:'RM Check'});
       if(l.rmPR && !l.rmPR.closed && !l.rmPR.cfoApproved) items.push({role:'CFO',o,l,what:'Approve RM requisition \u2014 '+o.po+' \u00b7 '+l.brand+' ('+fmt(l.rmPR.qty)+' Kg/L)',act:`approveRMPR('${o.id}','${l.id}')`,label:'Approve PR'});
       if(l.rmPR && !l.rmPR.closed && l.rmPR.cfoApproved) items.push({role:'Supply Chain',o,l,what:'Confirm RM received \u2014 '+o.po+' \u00b7 '+l.brand+' ('+fmt(l.rmPR.qty)+' Kg/L pending)',act:`openRMReceive('${o.id}','${l.id}')`,label:'Receive'});

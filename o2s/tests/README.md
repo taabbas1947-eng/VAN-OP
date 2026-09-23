@@ -20,12 +20,12 @@ node o2s/tests/focprice.test.js    #  24 - FOC samples and price-on-pack
 node o2s/tests/gatepassqa.test.js  #  14 - a Gate Pass needs the inspection
 node o2s/tests/shortclose.test.js  #  39 - short-closing a PO line
 node o2s/tests/shortcloseactions.test.js
-                                   #  28 - request, approve, reject, reopen
+                                   #  44 - request, approve, reject, reopen, and the UI
 ```
 
-**546 checks in the suites listed above.** Running every `*.test.js` in this
+**562 checks in the suites listed above.** Running every `*.test.js` in this
 folder together, with `data/state.json` and both `_before-*.html` fixtures in
-place, gives **7,407**. Exit code 0 means all passing. No dependencies, no build step,
+place, gives **7,423**. Exit code 0 means all passing. No dependencies, no build step,
 Node only.
 
 ## How they work
@@ -177,3 +177,11 @@ until the three short-close codes were registered in `NEW_RIGHTS` (with proof
 their handlers had no caller in `_before-lot.html`) and pinned in `WANT`. That is
 the freeze doing its job: a right cannot enter the catalogue without somebody
 writing down what it replaces, or stating that it replaces nothing.
+
+**Assert the route a person takes, not the presence of a string.** Three separate
+changes in `o2s.html` have been built onto a screen that does not render, and
+each time a check that grepped the whole file passed. The short-close UI checks
+pull `actionItems`, `openShortClose`, `openShortCloseReview` and
+`renderShortClose` out by name and assert inside each one — that My Actions
+raises it to the Plant Manager, that a decided close raises nothing, and that the
+review modal hides Approve from the person who asked for it.

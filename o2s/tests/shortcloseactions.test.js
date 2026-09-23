@@ -127,4 +127,44 @@ ok('reopening cannot be delegated either',
 ok('leadership approves',
    /code:'po\.shortclose_approve'[\s\S]{0,400}?roles:\['Plant Manager'\]/.test(html));
 
+/* ---- the UI wiring ----
+   Three separate changes in this file have been built onto a screen that does
+   not render, and each time a check that grepped the source passed. So these
+   assert the route a person actually takes: My Actions raises it, the modal
+   opens it, and the modal refuses to show Approve to the person who asked. */
+const ac = grab('actionItems');
+ok('My Actions raises a waiting close for the Plant Manager',
+   /lineShortRequested\(l\)/.test(ac) && /openShortCloseReview\('/.test(ac));
+/* the window is wide because the `what:` line carries the quantity, the reason
+   and who asked — all of which a person needs before opening it */
+ok('it is raised to leadership, not to whoever is looking',
+   /role:'Plant Manager'[\s\S]{0,500}?openShortCloseReview/.test(ac));
+ok('a waiting close suppresses every other item on that line',
+   /lineShortRequested\(l\)\)\{[\s\S]{0,600}?return;\s*\}/.test(ac));
+ok('a decided close raises nothing at all', /if\(lineShortClosed\(l\)\) return;/.test(ac));
+ok('the shortfall and the reason are in the wording someone reads',
+   /Approve closing short/.test(ac) && /asked by/.test(ac));
+
+const rq = grab('openShortClose');
+ok('the request modal asks for the right before opening',
+   /may\('po\.shortclose_request'\)/.test(rq));
+ok('it refuses to open on a line already closed',  /lineShortClosed\(l\)/.test(rq));
+ok('it refuses to open on a line already waiting', /lineShortRequested\(l\)/.test(rq));
+
+const rv = grab('openShortCloseReview');
+ok('the review modal works out whether the viewer is the requester',
+   /requestedBy\|\|''\)===String\(scWho\(\)\)/.test(rv));
+ok('it hides Approve from the person who asked',
+   /mine\?'':'<button[^']*approveShortClose/.test(rv));
+ok('it always offers Reject',  /rejectShortClose/.test(rv));
+ok('it shows what is being given up, not just a yes/no',
+   /Closing short/.test(rv) && /still ships/.test(rv));
+
+const rm = grab('renderShortClose');
+ok('the request form says packed stock still ships', /still ships/.test(rm));
+ok('it names the shortfall before you commit',       /shortfall/.test(rm));
+ok('it says whether the reason counts against us',
+   /delivery performance/.test(rm));
+ok('it says plainly that this is only a request',    /takes effect only when/.test(rm));
+
 report();

@@ -11,7 +11,7 @@
    a push keeps running the old code with nothing telling anybody. It sat at
    2026-09-04a through this whole day's work; rmqty/psi tests pinned the code,
    nothing pinned this. buildid.test.js now does. */
-var BUILD_ID='2026-09-23c';
+var BUILD_ID='2026-09-23d';
 var CHANGELOG=[
   {ver:'2026-09-04a', date:'2026-09-04', title:"Delivery, DC printing, and a new Reconciliation check", items:[
     "Delivery confirmation stays with Supply Chain \u2014 it no longer hands off to the Plant Manager. If one sits too long, it now re-flags the same Supply Chain owner every 3 days instead.",
@@ -51,6 +51,14 @@ var CHANGELOG=[
     "The ordered quantity is never changed. Ordered, delivered and the shortfall all stay on the record, with the reason and who approved it.",
     "The person who asks for a close cannot be the person who approves it.",
     "It appears in My Actions for the Plant Manager while it is waiting, and nowhere else once it is decided.",
+  ]},
+  {ver:'2026-09-23d', date:'2026-09-23', title:"Closed-short orders now have their own stage", items:[
+    "A PO line closed short now shows as \u201cClosed short\u201d - its own stage, after Delivered. It is counted as neither open nor delivered, and it has its own column on the PO Tracker and the dashboard.",
+    "Before this, a closed line kept showing the stage it had reached, so it stayed in the open-order count for ever and held its whole PO there with it. Open orders will drop by however many lines have been closed.",
+    "An order only reads \u201cClosed short\u201d when every one of its lines is closed. One closed line beside a line still in production leaves the PO where the real work is.",
+    "Closed lines no longer appear on the production, packing or stock-allocation to-do lists. Anything already packed on them still ships, exactly as before.",
+    "Fulfilment % on a PO now leaves closed lines out on both sides - the delivered quantity and the ordered quantity together - so closing a line can neither help nor hurt the figure. Where any quantity has been closed, the drawer says how much was left out.",
+    "The progress bar still shows the same seven steps. A close is an exit from the pipeline, not a step along it.",
   ]},
 ];
 </script>
@@ -2124,6 +2132,21 @@ const sum=(arr,f)=>arr.reduce((a,x)=>a+f(x),0);
 const STAGE_ORDER=['New','RM / Procurement','SO Created','PR Raised','RM Ready','In Production','Produced','QC Passed','Dispatched','Delivered','Closed short'];
 function agg(o){ return { ordered:sum(o.lines,l=>l.ordered), produced:sum(o.lines,l=>l.produced),
   packed:sum(o.lines,l=>l.packed), dispatched:sum(o.lines,l=>l.dispatched), delivered:sum(o.lines,l=>l.delivered) }; }
+/* THE SAME TOTALS, WITHOUT THE CLOSED LINES — fulfilment only.
+   Tahir, 23 September 2026: no short close counts against us. A closed line
+   leaves the calculation entirely, BOTH sides: its delivered kg go out with its
+   ordered kg, so closing a line can neither help nor hurt the percentage.
+
+   I put to him that this flatters the number, because an honest "we could not
+   supply" then disappears from the score. He ruled it anyway, and it is his
+   number to define. The reason and the `ours` flag are still on the record, so
+   the information is kept - it is only kept out of the score.
+
+   agg() is deliberately left alone. It still tells the truth about what was
+   ordered, and the shortfall has to survive somewhere. */
+function aggOpen(o){ var ls=(o.lines||[]).filter(function(l){ return !lineShortClosed(l); });
+  return { ordered:sum(ls,l=>l.ordered), produced:sum(ls,l=>l.produced),
+    packed:sum(ls,l=>l.packed), dispatched:sum(ls,l=>l.dispatched), delivered:sum(ls,l=>l.delivered) }; }
 /* ===================== SHORT-CLOSING A PO LINE =====================
    Tahir, 23 September 2026: "PO can only close half means no further packing is
    required... a packed product will leave... it's from unpacked or unproduced
@@ -2389,8 +2412,10 @@ function orderAging(o){
 }
 function isStalled(o){ var a=orderAging(o); return a.days!=null && a.days>=7 && !isOverdue(o); }
 var T2_SHORT=['PO','RM','Prod','Lab','QA','Ship','Done'];
-var NEXT_ACT={'PO Created':'Acknowledge & run RM check','RM Check':'Confirm materials → mark RM Ready','Production':'Start / complete production','Lab QC':'Run lab QC','QA Pre-shipment':'QA pre-shipment check','Shipment':'Book & dispatch','Delivered':'Delivered — no action'};
-function t2idx(o){ var b=orderBucket(o); return b==='Delivered'?BUCKETS.length:BUCKETS.indexOf(b); }
+var NEXT_ACT={'PO Created':'Acknowledge & run RM check','RM Check':'Confirm materials → mark RM Ready','Production':'Start / complete production','Lab QC':'Run lab QC','QA Pre-shipment':'QA pre-shipment check','Shipment':'Book & dispatch','Delivered':'Delivered — no action','Closed short':'Closed short — no action'};
+function t2idx(o){ var b=orderBucket(o); return bucketOpen(b)?PIPELINE_BUCKETS.indexOf(b):PIPELINE_BUCKETS.length; }
+/* A closed order has left the pipeline, so its bar reads complete - the same as
+   delivered. The bar draws the seven stages a PO travels; the eighth is an exit. */
 function t2sev(o){ var ag=orderAging(o); return isOverdue(o)?'bad':((ag.days!=null&&ag.days>=3)?'warn':''); }
 
 function t2ageText(o){
@@ -2412,11 +2437,11 @@ function t2matrix(list){
     var idx=t2idx(o);
     var mixed=new Set(o.lines.map(function(l){return lineBucket(o,l);})).size>1;
     var cells='';
-    BUCKETS.forEach(function(s,i){ var cls,inner;
+    PIPELINE_BUCKETS.forEach(function(s,i){ var cls,inner;
       if(i<idx){cls='done';inner='✓';}
       else if(i===idx){cls='cur';inner='●';}
       else{cls='pend';inner='·';}
-      cells+='<td class="midc'+(i===BUCKETS.length-1?' lastc':'')+'"><span class="t2cell '+cls+'">'+inner+'</span></td>';
+      cells+='<td class="midc'+(i===PIPELINE_BUCKETS.length-1?' lastc':'')+'"><span class="t2cell '+cls+'">'+inner+'</span></td>';
     });
     var r=_trkRisk(o);
     return '<tr onclick="openTkDrawer(\''+o.id+'\')" style="cursor:pointer"><td class="ordc"><div class="t2mclient" title="'+(o.client||'').replace(/"/g,'&quot;')+'">'+o.po+(mixed?'<span class="t2tag">mixed</span>':'')+'</div><div class="t2mpo">'+(o.client||'')+'</div></td>'+cells+'<td><span class="rchip '+r[1]+'">'+r[0]+'</span></td></tr>';
@@ -2428,7 +2453,7 @@ function closeTkDrawer(){ var h=document.getElementById('tkDrawerHost'); if(h)h.
 function openTkDrawer(id){ var o=(state.orders||[]).find(function(x){return x.id===id;}); if(!o)return;
   var b=orderBucket(o), bal=orderBal(o), owner=(BUCKET_META[b]||{}).owner||'—';
   var next=(b==='Delivered')?'Delivered':(((NEXT_ACT[b]||'')+' · '+owner));
-  var sid=(typeof BUCKET_SCREEN!=='undefined'&&BUCKET_SCREEN[b])||''; var ownerBtn=(b!=='Delivered'&&sid)?'<button class="green" onclick="closeTkDrawer();setScreen(\''+sid+'\')">Open in '+owner+' ▸</button>':'';
+  var sid=(typeof BUCKET_SCREEN!=='undefined'&&BUCKET_SCREEN[b])||''; var ownerBtn=(bucketOpen(b)&&sid)?'<button class="green" onclick="closeTkDrawer();setScreen(\''+sid+'\')">Open in '+owner+' ▸</button>':'';
   function pct(k){ var ord=0,v=0; (o.lines||[]).forEach(function(l){ord+=(+l.ordered||0); v+=(+l[k]||0);}); return ord>0?Math.round(v/ord*100):0; }
   function bar(lbl,p){ return '<div class="tkpb"><label><span>'+lbl+'</span><b>'+p+'%</b></label><div><i style="width:'+Math.max(2,p)+'%"></i></div></div>'; }
   var lines='<div style="padding:8px 10px;overflow:auto"><table class="tkdmx"><thead><tr><th class="lead">Product</th>'+T2_SHORT.map(function(ss){return '<th>'+ss+'</th>';}).join('')+'</tr></thead><tbody>'+((o.lines||[]).map(function(l){ var li=BUCKETS.indexOf(lineBucket(o,l)); if(li<0)li=BUCKETS.length; var cells=BUCKETS.map(function(s2,i){ var cls=i<li?'done':(i===li?'cur b':'pend'); var inner=i<li?'✓':(i===li?'●':'·'); return '<td><span class="t2cell '+cls+'">'+inner+'</span></td>'; }).join(''); return '<tr><td class="tkdmxname">'+l.brand+'</td>'+cells+'</tr>'; }).join('')||'<tr><td colspan="8" class="muted" style="padding:8px">No line data</td></tr>')+'</tbody></table></div>';
@@ -4485,7 +4510,32 @@ function screenDealers(){
 let trkFilter='all'; let trkStage=''; let trkChannel='all';
 /* ===================== PO TRACKER — control tower (UI redesign) ===================== */
 let trkSearch=''; let trkSort='risk_new'; let trkExpanded={};
-const BUCKETS=['PO Created','RM Check','Production','Lab QC','QA Pre-shipment','Shipment','Delivered'];
+const BUCKETS=['PO Created','RM Check','Production','Lab QC','QA Pre-shipment','Shipment','Delivered','Closed short'];
+/* THE EIGHTH STAGE — Tahir, 23 September 2026, asked as a direct question and
+   answered: a short-closed line gets its own stage, counted as neither open nor
+   delivered, shown as its own column.
+
+   It goes LAST, after Delivered, and that placement is the whole design.
+   orderBucket() takes the MINIMUM bucket across an order's lines, so an order
+   reads 'Closed short' only when EVERY line is closed short. One closed line
+   beside a live one leaves the order at the live line's stage, which is correct:
+   there is still work. STAGE_ORDER was given exactly this treatment earlier the
+   same day and this follows it rather than inventing a second pattern.
+
+   Before this, lineBucket() had no short-close branch, so a closed line kept
+   reporting the stage it physically reached and held its whole order there for
+   ever. Open-order counts would have climbed month after month with work nobody
+   would ever do. */
+const PIPELINE_BUCKETS=BUCKETS.filter(function(b){return b!=='Closed short';});
+/* The seven a PO actually travels. The progress bar and the lane board draw the
+   pipeline; a close is an EXIT from it, not a step along it. Adding an eighth
+   segment to every order's bar would have been a visible regression on every
+   order in the system. */
+function bucketOpen(b){ return b!=='Delivered' && b!=='Closed short'; }
+function orderOpen(o){ return bucketOpen(orderBucket(o)); }
+/* "Open" used to be spelled b!=='Delivered' in twenty-odd places. Four faults in
+   this file have been the same shape - one rule applied in two places and not a
+   third - and twenty sites is not a place to try that again by hand. */
 const BUCKET_META={
  'PO Created':{c:'--mut',owner:'Supply Chain',where:'My Actions — Acknowledge & RM Check'},
  'RM Check':{c:'--amber',owner:'Supply Chain',where:'Open PO → RM Check'},
@@ -4493,10 +4543,15 @@ const BUCKET_META={
  'Lab QC':{c:'--purple',owner:'Lab Rep',where:'Lab QC'},
  'QA Pre-shipment':{c:'--amber',owner:'QA Inspector',where:'Pre-shipment QA'},
  'Shipment':{c:'--green2',owner:'Supply Chain',where:'Shipments screen'},
- 'Delivered':{c:'--green',owner:'—',where:'—'}
+ 'Delivered':{c:'--green',owner:'—',where:'—'},
+ 'Closed short':{c:'--mut',owner:'—',where:'—'}
 };
-const BUCKET_SCREEN={'PO Created':'approvals','RM Check':'approvals','Production':'prod','Lab QC':'qc','QA Pre-shipment':'qa','Shipment':'ship','Delivered':''};
+const BUCKET_SCREEN={'PO Created':'approvals','RM Check':'approvals','Production':'prod','Lab QC':'qc','QA Pre-shipment':'qa','Shipment':'ship','Delivered':'','Closed short':''};
 function lineBucket(o,l){
+ /* First, for the same reason lineStage tests it first: a line closed short
+    after a partial delivery is NOT delivered and must not read as though it
+    were. */
+ if(lineShortClosed(l)) return 'Closed short';
  if(l.deliveredDate && (l.delivered||0)>=l.ordered-0.5) return 'Delivered';
  if((l.dispatched||0)>0||l.dispatchDate) return 'Shipment';
  if(lineCleared(o,l)>0.5) return 'Shipment';
@@ -4512,10 +4567,10 @@ function orderBucket(o){ if(!o.lines||!o.lines.length) return 'PO Created'; cons
 
 function trkMatch(o){ const b=orderBucket(o);
   switch(trkFilter){
-    case 'risk':return (isOverdue(o)||isStalled(o)||attentionOf(o).hot)&&b!=='Delivered';
-    case 'open':return b!=='Delivered';
+    case 'risk':return (isOverdue(o)||isStalled(o)||attentionOf(o).hot)&&bucketOpen(b);
+    case 'open':return bucketOpen(b);
     case 'delivered':return b==='Delivered';
-    case 'delayed':return isOverdue(o)&&b!=='Delivered';
+    case 'delayed':return isOverdue(o)&&bucketOpen(b);
     case 'stalled':return isStalled(o);
     case 'priority':return attentionOf(o).hot;
     case 'rmblock':return b==='RM Check';
@@ -4534,7 +4589,7 @@ function orderBal(o){ var ord=0,del=0; (o.lines||[]).forEach(function(l){ ord+=(
 function tkProg(pct){ return `<div class="tkprog"><span style="width:${pct}%"></span></div>`; }
 function tkBalCell(o){ var x=orderBal(o); return `<div class="tkbalnum">${fmt(x.rem)} <span class="tkbalu">left</span></div><div class="tkbalsub">${fmt(x.del)} / ${fmt(x.ord)} delivered</div>${tkProg(x.pct)}`; }
 function tkLineRow(o,l){ var ord=(+l.ordered||0), del=(+l.delivered||0), rem=Math.max(0,ord-del), pct=ord>0?Math.min(100,Math.round(del/ord*100)):0, done=rem<=0.5; return `<div class="tksubrow"><div class="tksubname">${l.brand}</div><div class="tksubbal">${done?'<b style="color:var(--green2)">✓ complete</b>':('<b>'+fmt(rem)+' left</b>')} <span class="muted">${fmt(del)} / ${fmt(ord)}</span></div>${tkProg(pct)}</div>`; }
-function t2bars(o,mixed){ var idx=t2idx(o), sev=t2sev(o), segs=''; BUCKETS.forEach(function(s,i){ var c=i<idx?'done':(i===idx?('cur '+sev):''); segs+='<div class="t2seg '+c+'"></div>'; }); return `<div class="t2step ${mixed?'mixed':''}">${segs}</div>`; }
+function t2bars(o,mixed){ var idx=t2idx(o), sev=t2sev(o), segs=''; PIPELINE_BUCKETS.forEach(function(s,i){ var c=i<idx?'done':(i===idx?('cur '+sev):''); segs+='<div class="t2seg '+c+'"></div>'; }); return `<div class="t2step ${mixed?'mixed':''}">${segs}</div>`; }
 function toggleTrkRow(id){ trkExpanded[id]=!trkExpanded[id]; _trkPaint(); }
 function orderCard(o){
   var b=orderBucket(o); var mixed=new Set(o.lines.map(function(l){return lineBucket(o,l);})).size>1;
@@ -4603,10 +4658,10 @@ function trkSaveView(){ trkSavedViews.push({name:'View '+(trkSavedViews.length+1
 function trkApplyView(i){ if(i===''||!trkSavedViews[+i])return; var s=trkSavedViews[+i].snap; trkView=s.view;trkStage=s.stage;trkFilter=s.filter;trkChannel=s.channel;trkSort=s.sort;trkSearch=s.q;trkGroup=s.group; render(); }
 function screenTracker(){
   var all=state.orders||[];
-  var openO=all.filter(function(o){return orderBucket(o)!=='Delivered';});
-  var atrisk=all.filter(function(o){return orderBucket(o)!=='Delivered'&&(isOverdue(o)||orderBucket(o)==='RM Check'||attentionOf(o).hot);}).length;
+  var openO=all.filter(function(o){return orderOpen(o);});
+  var atrisk=all.filter(function(o){return orderOpen(o)&&(isOverdue(o)||orderBucket(o)==='RM Check'||attentionOf(o).hot);}).length;
   var delivered=all.filter(function(o){return orderBucket(o)==='Delivered';}).length;
-  var priority=all.filter(function(o){return orderBucket(o)!=='Delivered'&&attentionOf(o).hot;}).length;
+  var priority=all.filter(function(o){return orderOpen(o)&&attentionOf(o).hot;}).length;
   var ordKg=all.reduce(function(a,o){return a+orderBal(o).ord;},0);
   var delKg=all.reduce(function(a,o){return a+orderBal(o).del;},0);
   var prodPct=ordKg?Math.round(delKg/ordKg*100):0;
@@ -4665,7 +4720,7 @@ const FIELD_LABEL={soNumber:'SO #',soCreated:'SO Created',prRaised:'PR Raised',c
 
 function openOrder(id){
   const o=state.orders.find(x=>x.id===id); if(!o)return;
-  const a=agg(o); const st=stageOf(o);
+  const a=agg(o); const ao=aggOpen(o); const st=stageOf(o);
   const dcell=(d,cur)=>d?`<span title="${d}" style="white-space:nowrap"><span style="color:var(--green2);font-weight:700">✓</span> <span class="muted" style="font-size:9.5px">${String(d).slice(5)}</span></span>`:(cur?`<span class="pill" style="background:var(--amber-50);color:var(--amber);font-size:8.5px;padding:1px 6px">now</span>`:'<span class="muted">—</span>');
   const qcell=(done,ord)=>{ const c=(done>=ord-0.5&&ord>0)?'var(--green2)':(done>0?'var(--amber)':'var(--mut)'); return `<b style="color:${c}">${fmt(done||0)}</b><span class="muted" style="font-size:9.5px">/${fmt(ord)}</span>`; };
   let nDeliv=0, nStuck=0;
@@ -4691,7 +4746,7 @@ function openOrder(id){
    <div class="db">
      <div class="row" style="gap:18px;margin-bottom:8px;flex-wrap:wrap">
        <div><div class="l muted" style="font-size:10px;text-transform:uppercase">Stage (rollup)</div>${pill(st,STAGE_COLOR[st]||'--mut')}</div>
-       <div><div class="l muted" style="font-size:10px;text-transform:uppercase">Fulfilment</div><b>${pct(a.delivered!=null?a.delivered:a.dispatched,a.ordered)}% delivered</b></div>
+       <div><div class="l muted" style="font-size:10px;text-transform:uppercase">Fulfilment</div><b>${ao.ordered>0?pct(ao.delivered!=null?ao.delivered:ao.dispatched,ao.ordered)+'% delivered':'—'}</b>${a.ordered!==ao.ordered?`<div class="muted" style="font-size:9.5px">excludes ${fmt(a.ordered-ao.ordered)} Kg/L closed short</div>`:''}</div>
        <div><div class="l muted" style="font-size:10px;text-transform:uppercase">Products</div><b>${o.lines.length}</b> <span class="muted" style="font-size:11px">(${nStuck} in progress · ${nDeliv} delivered)</span></div>
        <div><div class="l muted" style="font-size:10px;text-transform:uppercase">PO promised</div><b>${o.promised||'—'}</b></div>
        <div><div class="l muted" style="font-size:10px;text-transform:uppercase">PO received</div><b>${o.received||'—'}</b></div>
@@ -4799,7 +4854,7 @@ function rmReceiveSubmit(){
 let prodMode='po', prodPOsel='';
 const BULK_BASES=['Potassium Humate','Potassium Humate Liquid','Sulfur Coated Urea','Sulfur 70%','Amino Acid','Compost','Zinc 21%','NP 6.32','Nitro Sulfur','Liquid Phosphrous','Mg Sulphate','NPK 8.8.6','Boron 5%','Zinc 10%','VL-Micro Mix','VL-Potash'];
 function brandsForBase(base){ return Object.keys(SEED.brandMap||{}).filter(b=>SEED.brandMap[b].base===base).sort(); }
-function inProdLines(){ const r=[]; state.orders.forEach(o=>o.lines.forEach(l=>{ if(stageOf(o)!=='Delivered' && (l.packed||0)<l.ordered-0.5) r.push({o,l}); })); return r; }
+function inProdLines(){ const r=[]; state.orders.forEach(o=>o.lines.forEach(l=>{ if(!lineShortClosed(l) && stageOf(o)!=='Delivered' && (l.packed||0)<l.ordered-0.5) r.push({o,l}); })); return r; }
 var prodStage='';
 var prodView='lifecycle', prodOutSub='day', prodLifeSub='batch', prodFloorSub='lanes', prodBatchSel=null, prodBatchTab='lots', prodFilter='tomake', prodDrill=false, prodHome=false;
 var prodMakeSort={col:null,dir:1};
@@ -5091,7 +5146,7 @@ function prodKpiStrip(){
   jc.pack=packNow;
   var toProduceKg=jb.filter(function(b){return batchStage(b)==='producing';}).reduce(function(a,b){return a+Math.max(0,(+b.plannedKg||0)-(+b.producedKg||0));},0);
   var rmBlocked=(state.orders||[]).filter(function(o){return orderBucket(o)==='RM Check';}).length;
-  var openOrders=(state.orders||[]).filter(function(o){return orderBucket(o)!=='Delivered';}).length;
+  var openOrders=(state.orders||[]).filter(function(o){return orderOpen(o);}).length;
   var k=function(l,v,u,d){return '<div class="kpi"><div class="l">'+l+'</div><div class="v">'+fmt(v)+' <span style="font-size:12px;color:var(--mut);font-weight:600">'+u+'</span></div><div class="d">'+d+'</div></div>';};
   return '<div class="kpis" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">'+k('Open orders',openOrders,'orders','not yet delivered')+k('In production',jc.producing,'batches','producing now')+k('To produce',toProduceKg,'Kg/L','remaining to make')+k('RM blocked',rmBlocked,'orders','awaiting material')+k('Awaiting Lab QC',jc.qc,'lots','COA pending')+k('Ready to pack',jc.pack,'batches',fmt(readyKg)+' Kg/L cleared')+k('Reconcile',jc.recon,'batches','remainder to route')+'</div>';
 }
@@ -5128,7 +5183,7 @@ function prodWorkCounts(){
     if(batchPackNow(b))packNow++;
     readyKg+=Math.max(0,batchClearedKg(b)-(+b.packedKg||0));});
   jc.pack=packNow;
-  var toMakeN=0; (state.orders||[]).forEach(function(o){ if(stageOf(o)==='Delivered')return; (o.lines||[]).forEach(function(l){ if(((+l.ordered||0)-(+l.produced||0))>0.5)toMakeN++; }); });
+  var toMakeN=0; (state.orders||[]).forEach(function(o){ if(stageOf(o)==='Delivered')return; (o.lines||[]).forEach(function(l){ if(lineShortClosed(l))return; if(((+l.ordered||0)-(+l.produced||0))>0.5)toMakeN++; }); });
   var bpAll=(state.batches||[]).filter(function(b){return b.disposition==='byproduct'&&!b.voided;});var bpPools=bpAll.filter(function(b){return b.pool;});var bpKg=(bpPools.length?bpPools:bpAll).reduce(function(a,b){return a+(+b.plannedKg||0);},0);
   var callKg=bpKg+(state.batches||[]).filter(function(b){return (b.disposition==='divert'||b.disposition==='rework')&&b.pool&&!b.voided;}).reduce(function(a,b){return a+(+b.plannedKg||0);},0);
   var completed=(typeof prodCompletedLines==='function')?prodCompletedLines().length:0;  /* PO-level: lines fully packed (production done) — matches the Completed list exactly */
@@ -5314,8 +5369,8 @@ function prodViewBar(active){if(active==='floor')active='lifecycle';var V=[['lif
 function _pcSub(opts,cur,setter){return '<div class="pvsub">'+opts.map(function(o){return '<button onclick="'+setter+'=\''+o[0]+'\';render()" class="'+(cur===o[0]?'on':'')+'">'+o[1]+'</button>';}).join('')+'</div>';}
 /* Board sub-view = PO-stage kanban (order-level: PO Created \u2192 Shipment), distinct from Lanes (batch-flow). Read-only; click a card to open the order. */
 function renderProdFloorBoard(){
-  var orders=(state.orders||[]).filter(function(o){return orderBucket(o)!=='Delivered';});
-  var cols=BUCKETS.filter(function(s){return s!=='Delivered';}).map(function(s){
+  var orders=(state.orders||[]).filter(function(o){return orderOpen(o);});
+  var cols=BUCKETS.filter(bucketOpen).map(function(s){
     var list=orders.filter(function(o){return orderBucket(o)===s;});
     var c=(BUCKET_META[s]&&BUCKET_META[s].c)||'--mut';
     var cards=list.map(function(o){
@@ -5506,7 +5561,7 @@ function prodStageList(){
   var edAny=edLog||edOpen||edPack||edQty||edRecon||edClose;
   var f=prodFilter||'all';
   if(f==='tomake'){
-    var rows=[]; (state.orders||[]).forEach(function(o){ if(stageOf(o)==='Delivered')return; (o.lines||[]).forEach(function(l){ var rem=(+l.ordered||0)-(+l.produced||0); if(rem>0.5){
+    var rows=[]; (state.orders||[]).forEach(function(o){ if(stageOf(o)==='Delivered')return; (o.lines||[]).forEach(function(l){ if(lineShortClosed(l))return; var rem=(+l.ordered||0)-(+l.produced||0); if(rem>0.5){
       var direct=isPODirectLine(l);
       var prodBs=direct?(state.batches||[]).filter(function(b){return b.status==='open'&&!b.voided&&(+b.producedKg||0)<(+b.plannedKg||0)-0.5&&((b.kind==='po'&&b.po===o.po&&b.lineId===l.id)||(b.kind==='multi'&&(b.allocations||[]).some(function(a){return a.po===o.po&&a.lid===l.id;})));}):[];
       var hybrid=isHybridBulkLine(l);
@@ -5807,7 +5862,7 @@ function renderOpenBatch(){
          <div class="fld"><label>Batch #</label><input type="text" id="nb_batch" placeholder="e.g. AB12345" oninput="batchNoFx(this)"></div>
        </div><div class="muted" style="font-size:11px;margin-top:10px">Opens a batch for this PO line. <b>Plan a partial quantity</b> if you'll run it in parts (blank = full remaining); open more for the rest. Log shift output from the Floor.</div>`;
   } else if(prodMode==='multi'){
-    const mlines=[]; (state.orders||[]).forEach(function(o){ if(stageOf(o)==='Delivered')return; (o.lines||[]).forEach(function(l){ const rem=(l.ordered||0)-(l.produced||0); if(rem>0.5){ const bb=((typeof SEED!=='undefined'&&SEED.brandMap&&SEED.brandMap[l.brand]&&SEED.brandMap[l.brand].base)||l.base||l.brand); mlines.push({o:o,l:l,base:bb,rem:rem}); } }); });
+    const mlines=[]; (state.orders||[]).forEach(function(o){ if(stageOf(o)==='Delivered')return; (o.lines||[]).forEach(function(l){ if(lineShortClosed(l))return; const rem=(l.ordered||0)-(l.produced||0); if(rem>0.5){ const bb=((typeof SEED!=='undefined'&&SEED.brandMap&&SEED.brandMap[l.brand]&&SEED.brandMap[l.brand].base)||l.base||l.brand); mlines.push({o:o,l:l,base:bb,rem:rem}); } }); });
     const mbases=[...new Set(mlines.map(x=>x.base))].sort();
     const msel=mlines.filter(x=>x.base===mbForm.base);
     let mtot=0; msel.forEach(function(x){ const a=mbForm.alloc[x.o.id+'|'+x.l.id]; if(a&&a.on)mtot+=(+a.kg||0); });
@@ -5979,7 +6034,7 @@ function screenProd(){
   const work=inProdLines();
   const openStock=(state.batches||[]).filter(b=>b.type==='stock'&&!b.reconciled&&b.packedKg<b.producedKg-0.001);
   const psEntries=Object.entries(state.packedStock||{}).filter(([k,v])=>v>0.5).sort((a,b)=>b[1]-a[1]);
-  const allocs=[]; state.orders.forEach(o=>o.lines.forEach(l=>{ const av=(state.packedStock&&state.packedStock[l.brand])||0; if(av>0.5 && (l.packed||0)<l.ordered-0.5 && stageOf(o)!=='Delivered') allocs.push({o,l,av}); }));
+  const allocs=[]; state.orders.forEach(o=>o.lines.forEach(l=>{ const av=(state.packedStock&&state.packedStock[l.brand])||0; if(av>0.5 && !lineShortClosed(l) && (l.packed||0)<l.ordered-0.5 && stageOf(o)!=='Delivered') allocs.push({o,l,av}); }));
   const recent=state.productionLog.slice(0,15);
   const _plRows=(state.productionLog||[]).map((p,idx)=>({_i:idx,date:p.date||'',prod:((p.brand?p.brand+' ':'')+(p.base||'')+(p.po?(' · '+p.po):'')).trim(),base:p.base||'',brand:p.brand||'',po:p.po||'',kg:p.kg||0,shift:p.shift||'',incharge:p.incharge||'',by:p.by||''}));
   const _plOpt={placeholder:'Search product, PO, shift, incharge, by…',searchKeys:['prod','shift','incharge','by','po','base','brand'],dateKey:'date',pageSize:20};
@@ -6025,7 +6080,7 @@ function screenProd(){
   const _readyKg=_jb.reduce((a,b)=>a+_ready(b),0);
   const _toProduceKg=_jb.filter(function(b){return batchStage(b)==='producing';}).reduce(function(a,b){return a+Math.max(0,(+b.plannedKg||0)-(+b.producedKg||0));},0);
   const _rmBlocked=(state.orders||[]).filter(function(o){return orderBucket(o)==='RM Check';}).length;
-  const _openOrders=(state.orders||[]).filter(function(o){return orderBucket(o)!=='Delivered';}).length;
+  const _openOrders=(state.orders||[]).filter(function(o){return orderOpen(o);}).length;
   const _pkpi=(l,v,u,d,c)=>`<div class="kpi"><div class="l">${l}</div><div class="v">${fmt(v)} <span style="font-size:12px;color:var(--mut);font-weight:600">${u}</span></div><div class="d">${d}</div></div>`;
   const prodKpis=`<div class="kpis" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">${_pkpi('Open orders',_openOrders,'orders','not yet delivered','--navy')}${_pkpi('In production',_jc.producing,'batches','producing now','--navy')}${_pkpi('To produce',_toProduceKg,'Kg/L','remaining to make','--blue')}${_pkpi('RM blocked',_rmBlocked,'orders','awaiting material','--red')}${_pkpi('Awaiting Lab QC',_jc.qc,'lots','COA pending','--amber')}${_pkpi('Ready to pack',_jc.pack,'batches',fmt(_readyKg)+' Kg/L cleared','--green2')}${_pkpi('Reconcile',_jc.recon,'batches','remainder to route','--red')}</div>`;
   let _jl=_jb.slice().sort((a,b)=>PJORD.indexOf(batchStage(a))-PJORD.indexOf(batchStage(b)));
@@ -6562,7 +6617,7 @@ let packForm={bid:null,brand:'',kg:''};
 function openPack(bid){ const b=state.batches.find(x=>x.id===bid); packForm={bid,base:b.base,brand:'',oid:'',lid:'',kg:Math.round(batchPackableKg(b)),brandBatch:'',price:'',priceOk:false,noPrice:false,packDate:evToday(),packDateReason:'',shelfMonths:null};
   if(b&&b.kind==='multi'&&Array.isArray(b.allocations)&&b.allocations.length){ const _bs=[]; b.allocations.forEach(function(a){ if(a.brand&&_bs.indexOf(a.brand)<0)_bs.push(a.brand); }); if(_bs.length===1&&brandsForBase(b.base).indexOf(_bs[0])>-1) packForm.brand=_bs[0]; }
   renderPackModal(); $('modalBg').classList.add('open'); }
-function poLinesForBrand(brand){ const r=[]; state.orders.forEach(o=>o.lines.forEach(l=>{ if(l.brand===brand && (l.packed||0)<l.ordered-0.5 && stageOf(o)!=='Delivered') r.push({o,l}); })); return r; }
+function poLinesForBrand(brand){ const r=[]; state.orders.forEach(o=>o.lines.forEach(l=>{ if(l.brand===brand && !lineShortClosed(l) && (l.packed||0)<l.ordered-0.5 && stageOf(o)!=='Delivered') r.push({o,l}); })); return r; }
 function packPickPO(v){ packForm.oid=(v.split('|')[0]||''); packForm.lid=(v.split('|')[1]||''); const o=state.orders.find(x=>x.id===packForm.oid); const l=o&&o.lines.find(x=>x.id===packForm.lid); packForm.price=(l&&l.printPrice!=null&&l.printPrice!=='')?l.printPrice:''; packForm.priceOk=false; renderPackModal(); }
 function renderPackModal(){ const b=state.batches.find(x=>x.id===packForm.bid); const rem=batchPackableKg(b); const opts=brandsForBase(b.base);
   let poOpts=packForm.brand?poLinesForBrand(packForm.brand):[]; const _mpLink={};
@@ -9565,6 +9620,9 @@ function actionItems(){
       { const _pl=pmDelayLabel(o,l,lb); if(_pl) items.push({role:'Plant Manager',o,l,what:_pl+' \u2014 add delay reason ('+l.brand+')',act:`openDelayReason('${o.id}','${l.id}')`,label:'Add reason'}); }
     });
     { /* Ship: ONE row per PO. openDispatch is whole-PO (tick the products on the truck), so a per-line Ship just repeated the same button N times. Brand list kept in the description; aging spans all cleared lots. */
+      /* DELIBERATELY not short-close aware. A closed line's already-packed
+         stock still ships - that was the ruling - so cleared stock on a closed
+         line belongs on this list exactly as before. */
       const _clr=(o.lines||[]).filter(l=>lineBucket(o,l)!=='Delivered' && lineCleared(o,l)>0.5);
       if(_clr.length){ const _brs=_clr.map(l=>l.brand); const _desc=(_brs.length===1)?('Ship '+_brs[0]+' \u2014 '+o.po):('Ship '+_brs.length+' products \u2014 '+o.po+' ('+_brs.join(', ')+')');
         items.push({role:'Supply Chain',o,shipLines:_clr,what:_desc,act:`openDispatch('${o.id}')`,label:'Ship'}); }
@@ -10244,7 +10302,7 @@ function acRoleSelect(){ var all=actionItems(); var present=AC_ROLEORDER.filter(
 function acHeaderTabsHTML(){ var c=acCounts(); function t(k,l,n){return '<button class="'+(acTab===k?'on':'')+'" onclick="acTab=\''+k+'\';acRisk=\'all\';render()">'+l+(n!=null?' '+n:'')+'</button>';} return t('todo','To do',c.all)+t('deferred','Deferred',c.deferred)+t('all','All actions',null); }
 function acGroupedHTML(mode){ var rows=acFiltered(); var EMPTY='<div class="empty" style="padding:26px;text-align:center;color:var(--mut)">No actions in this view.</div>'; if(!rows.length)return EMPTY; var keys=mode==='stage'?AC_STAGES.slice():AC_ROLEORDER.slice(); if(mode==='role'){rows.forEach(function(x){if(keys.indexOf(x.role)<0)keys.push(x.role);});} var html=keys.map(function(k){var items=rows.filter(function(x){return mode==='stage'?acStageOf(x.label)===k:x.role===k;}); if(!items.length)return ''; var late=items.filter(function(x){return x._risk==='late';}).length; var head='<div class="ac2ghead"><span class="dot"></span><span class="nm">'+k+'</span><span class="cnt">'+items.length+'</span>'+(late?'<span class="ltb">'+late+' late</span>':'')+'<span class="ln"></span></div>'; return '<div class="ac2group">'+head+items.map(function(x){return acRowHTML(x,true);}).join('')+'</div>';}).join(''); return html||EMPTY; }
 function acBodyHTML(){ if(acView==='cards')return acCardsHTML(); if(acGroup==='stage')return acGroupedHTML('stage'); if(acGroup==='role')return acGroupedHTML('role'); return acListHTML(); }
-function acKpiHTML(c){ var pipe=0; try{ pipe=(state.orders||[]).filter(function(o){return orderBucket(o)!=='Delivered';}).length; }catch(e){ pipe=c.all; }
+function acKpiHTML(c){ var pipe=0; try{ pipe=(state.orders||[]).filter(function(o){return orderOpen(o);}).length; }catch(e){ pipe=c.all; }
   function k(lbl,val,meta,risk){ var on=(risk!=null&&acRisk===risk&&acTab==='todo'); return '<div class="kpi'+(on?' kpion':'')+'"'+(risk!=null?' style="cursor:pointer" onclick="acTab=\'todo\';acRisk=\''+risk+'\';render()"':'')+'><div class="l">'+lbl+'</div><div class="v">'+val+'</div><div class="d">'+meta+'</div></div>'; }
   return '<div class="kpis ac2kpis">'+k('In your queue',c.all,'tasks for <b>'+state.role+'</b>','all')+k('Urgent',c.late,c.late?'<b style="color:var(--red)">overdue</b> — first':'none overdue','late')+k('Touch today',Math.min(c.all,6),'recommended focus','today')+k('Pipeline open',pipe,'orders moving',null)+'</div>'; }
 /* Finance feed (read-only) — shipment & delivery records for Finance/CFO inside the Action Center. Pure read over state.shipments; not an action, no escalation, no writes. */
@@ -12054,12 +12112,12 @@ function dashNarrative(M){
 }
 function dashCentersHtml(M){
   var orders=state.orders||[];
-  var openLoad=orders.filter(function(o){return orderBucket(o)!=='Delivered';}).length;
+  var openLoad=orders.filter(function(o){return orderOpen(o);}).length;
   var total=M.turn.filter(function(t){return t.name==='Total';})[0];
   var avgTurn=total&&total.days!=null?(total.days+'d'):'—';
   var rmBlocked=orders.filter(function(o){return orderBucket(o)==='RM Check';}).length;
-  var counts={}; BUCKETS.forEach(function(s){counts[s]=0;}); orders.forEach(function(o){var b=orderBucket(o); if(b!=='Delivered') counts[b]=(counts[b]||0)+1;});
-  var busiest='—',bmax=-1; BUCKETS.forEach(function(s){ if(s!=='Delivered'&&(counts[s]||0)>bmax){bmax=counts[s]||0;busiest=s;} });
+  var counts={}; BUCKETS.forEach(function(s){counts[s]=0;}); orders.forEach(function(o){var b=orderBucket(o); if(bucketOpen(b)) counts[b]=(counts[b]||0)+1;});
+  var busiest='—',bmax=-1; BUCKETS.forEach(function(s){ if(bucketOpen(s)&&(counts[s]||0)>bmax){bmax=counts[s]||0;busiest=s;} });
   var kpis='<div class="kpis" style="grid-template-columns:repeat(4,1fr)">'
     +_dk('Open load',openLoad,'orders in pipeline','--navy')
     +_dk('Avg turnaround',avgTurn,'order to delivery','--amber')
@@ -12073,7 +12131,7 @@ function dashCentersHtml(M){
     +'</div><div class="ch-foot">Real, from per-stage timestamps. Lab QC / QA / Shipment are grouped within “QC → delivery” until split from the audit log.</div></div>';
   var lmax=Math.max.apply(null,BUCKETS.map(function(s){return counts[s]||0;}).concat([1]));
   var lbars='<div class="card"><div class="sec" style="margin-top:0">Load by center <span class="hint">open orders per stage · click to open the Tracker</span></div><div class="funnel">'
-    +BUCKETS.filter(function(s){return s!=='Delivered';}).map(function(s){var c=counts[s]||0; var col=(BUCKET_META[s]&&BUCKET_META[s].c)||'--mut'; return '<div class="frow" style="cursor:pointer" onclick="trkStage=\''+s+'\';setScreen(\'tracker\')"><div class="fl">'+s+'</div><div class="ftrack"><i style="width:'+Math.round(c/lmax*100)+'%;background:var('+col+')"></i></div><div class="fn">'+c+'</div></div>';}).join('')
+    +BUCKETS.filter(bucketOpen).map(function(s){var c=counts[s]||0; var col=(BUCKET_META[s]&&BUCKET_META[s].c)||'--mut'; return '<div class="frow" style="cursor:pointer" onclick="trkStage=\''+s+'\';setScreen(\'tracker\')"><div class="fl">'+s+'</div><div class="ftrack"><i style="width:'+Math.round(c/lmax*100)+'%;background:var('+col+')"></i></div><div class="fn">'+c+'</div></div>';}).join('')
     +'</div></div>';
   var OM=dashOpsMetrics();
   var prodRowsHtml=OM.producedByProduct.map(function(p){return '<tr><td>'+p.name+'</td><td class="num">'+fmt(p.kg)+' Kg/L</td></tr>';}).join('');

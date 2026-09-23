@@ -49,6 +49,14 @@ const MARKERS = [
   ["if(r.builtin){toast('Built-in roles can",  2, 'the built-in role lock (rename + archive)'],
   ['function seedRolesV1(',                1, 'the ten built-in roles'],
   ["'Production Manager'",                14, 'Production Manager, pre-wired and inert'],
+  /* The eighth stage. BUCKETS drives every dashboard count; losing any of these
+     four lines puts closed lines back into the open-order figures silently. */
+  ["'Closed short'];",                     2, 'Closed short: the 8th bucket and the last stage'],
+  ['const PIPELINE_BUCKETS=',              1, 'the seven-stage pipeline for bars'],
+  ['function bucketOpen(',                 1, 'the open predicate'],
+  ['function orderOpen(',                  1, 'the order-level open predicate'],
+  ['function aggOpen(',                    1, 'fulfilment without closed lines'],
+  ['DELIBERATELY not short-close aware',   1, 'cleared stock still ships'],
 ];
 
 const [, , mode, freshPath, otherPath] = process.argv;

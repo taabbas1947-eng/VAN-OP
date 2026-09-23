@@ -305,15 +305,7 @@ const union = new Set([...scrNames, ...rgtNames, ...fldNames]);
   eq('Production Manager is pre-wired for these screens', screensFor('Production Manager').join(','),
      'dash,approvals,tracker,prod,qc,qa,ship,reports,instructions,datafix,recon');
   eq('Finance Desk Officer is pre-wired for these screens', screensFor('Finance Desk Officer').join(','),
-     'dash,approvals,entry,tracker,ship,instructions');
-  /* NOT Reports — and the older 'Finance' role IS on Reports. So the role HR
-     lists as taking over PO entry from Commercial would be able to raise a PO,
-     track it and see the shipment, and not be able to open a single report.
-     Recorded, not corrected: who owns a screen is the COO's call, not mine.
-     Pinned here so the decision is made deliberately rather than discovered. */
-  ok("...and 'Finance' is on Reports while 'Finance Desk Officer' is not",
-     screensFor('Finance').indexOf('reports') > -1 &&
-     screensFor('Finance Desk Officer').indexOf('reports') < 0);
+     'dash,approvals,entry,tracker,ship,reports,instructions');
 
   /* The only right naming any of the four is the short-close request, added
      23 September. It is legacy:{kind:'hard'} — an unknown name in that list is
@@ -322,6 +314,36 @@ const union = new Set([...scrNames, ...rgtNames, ...fldNames]);
   ok('po.shortclose_request exists', !!sc);
   eq('...and names eight roles, four of them not yet real',
      (sc[0].match(/roles:\[([^\]]*)\]/)[1].match(/'[^']*'/g) || []).length, 8);
+}
+
+/* ================= 10a. REPORTS IS OPEN TO EVERYONE ================= */
+/* Tahir's ruling, 23 September 2026: "he should, everyone be able to report."
+   Finance Desk Officer was wired for PO entry, the tracker and shipments but not
+   Reports, while the older Finance role was on it. The ruling is not "add that
+   one name" — it is that Reports belongs to every role — so it is written here
+   as a rule rather than as a list, and the next role added to O2S fails this
+   check until it is on Reports too.
+
+   Reports is read-only and built from data already captured. The money screen is
+   separate: `budget` (Sales & Budget) stays with CFO, Plant Manager and Finance,
+   and this rule does not touch it. */
+{
+  const owners = id => {
+    const m = new RegExp("\\{id:'" + id + "',[\\s\\S]*?owners:\\[([^\\]]*)\\]").exec(SCR_SRC);
+    return (m[1].match(/'[^']*'/g) || []).map(q => q.slice(1, -1));
+  };
+  const rep = owners('reports');
+  const missing = [...union].filter(n => rep.indexOf(n) < 0).sort();
+  eq('every role in the system can open Reports', missing.join(', '), '');
+  eq('...which is all fourteen names', rep.length, 14);
+
+  /* The rule is about Reports, not about everything. Sales & Budget is the
+     money screen and stays narrow — if this ever goes green with everyone on it,
+     the ruling has been over-applied. */
+  const bud = owners('budget');
+  eq('Sales & Budget stays with Finance and the Plant Manager',
+     bud.slice().sort().join(', '), 'CFO, Finance, Plant Manager');
+  ok('...and is NOT open to everyone', bud.length < rep.length);
 }
 
 /* ================= 11. WHAT A RENAME WOULD COST ================= */

@@ -11,7 +11,7 @@
    a push keeps running the old code with nothing telling anybody. It sat at
    2026-09-04a through this whole day's work; rmqty/psi tests pinned the code,
    nothing pinned this. buildid.test.js now does. */
-var BUILD_ID='2026-09-23d';
+var BUILD_ID='2026-09-23e';
 var CHANGELOG=[
   {ver:'2026-09-04a', date:'2026-09-04', title:"Delivery, DC printing, and a new Reconciliation check", items:[
     "Delivery confirmation stays with Supply Chain \u2014 it no longer hands off to the Plant Manager. If one sits too long, it now re-flags the same Supply Chain owner every 3 days instead.",
@@ -59,6 +59,13 @@ var CHANGELOG=[
     "Closed lines no longer appear on the production, packing or stock-allocation to-do lists. Anything already packed on them still ships, exactly as before.",
     "Fulfilment % on a PO now leaves closed lines out on both sides - the delivered quantity and the ordered quantity together - so closing a line can neither help nor hurt the figure. Where any quantity has been closed, the drawer says how much was left out.",
     "The progress bar still shows the same seven steps. A close is an exit from the pipeline, not a step along it.",
+  ]},
+  {ver:'2026-09-23e', date:'2026-09-23', title:"A report on what gets closed short, and why", items:[
+    "Reports \u2192 Report Builder has a new dataset, \u201cShort closes \u00b7 shortfall by reason\u201d. Pick it, summarise, and group by Reason and by Month to see where the shortfall is going.",
+    "It can also be grouped or filtered by client, product, channel, who asked and who approved \u2014 and by \u201cCounts against\u201d, which separates closes that were the customer's from closes that were ours.",
+    "The quantities are the ones frozen at the moment the close was approved, so a report run next year still shows the decision as it was made.",
+    "A close that was later reopened still appears, marked Reopened, with a zero shortfall and its quantity in a separate column \u2014 so adding up the shortfall column is right without having to filter anything first.",
+    "Reports is now open to every role.",
   ]},
 ];
 </script>
@@ -13272,6 +13279,66 @@ var RB_DATASETS={
             {k:'changed',l:'Changed',t:'dim'},{k:'cascade',l:'Also moved',t:'dim'},
             {k:'fields',l:'Fields changed',t:'meas'}],
     filters:['op','type','by','role','reasonCode']},
+  shortclose:{label:'Short closes · shortfall by reason',dateKey:'date',
+    /* THE SHORT-CLOSE REPORT — 23 September 2026, the last piece of the feature.
+       A dataset rather than a screen: the builder already supplies grouping, the
+       period bar, summarise, chart and export, so "by reason and by month" is
+       two dimensions the user picks. A pair of hard-coded reports would go stale
+       the first time he wanted it by client instead.
+
+       Three decisions worth knowing, all pinned in tests/shortclosereport.test.js:
+
+       1. The figures are the FROZEN ones. orderedAtClose / deliveredAtClose are
+          written when the close is approved exactly so the shortfall still reads
+          correctly a year later if the line's own numbers move underneath it.
+          Reading l.ordered here would drift away from the decision being
+          reported on.
+
+       2. A reopened close is still a row, with a ZERO shortfall and its kg in a
+          separate `reopened` measure. It happened, so hiding it would make the
+          reopen invisible; counting its kg as shortfall would double-count work
+          that went back into production. This way, summing shortfall with no
+          filter applied is honest — which is the only way a default view can be
+          trusted.
+
+       3. 'Ours' follows shortCloseAgainstUs, not a second copy of the judgement,
+          so an unreasoned close counts against us here exactly as it does
+          everywhere else.
+
+       No price or value column. The shortfall question is a quantity question,
+       and putting money on a screen every role can now open would be a separate
+       decision for the COO, not a side effect of this one. */
+    rows:function(){ var out=[];
+      (state.orders||[]).forEach(function(o){ (o.lines||[]).forEach(function(l){
+        var sc=l&&l.shortClose; if(!sc||!sc.approvedAt) return;
+        var d=String(sc.approvedAt||'').slice(0,10);
+        var r=scReason(sc.reasonCode);
+        var ord=(+sc.orderedAtClose||+l.ordered||0), del=(+sc.deliveredAtClose||+l.delivered||0);
+        var gap=Math.max(0, Math.round((ord-del)*100)/100);
+        var live=!sc.reopenedAt;
+        out.push({ date:d, month:d.slice(0,7),
+          po:o.po||'', client:o.client||'', channel:o.channel||'',
+          product:l.brand||'', base:l.base||'',
+          reason:(r?r.label:'(no reason recorded)'),
+          side:(shortCloseAgainstUs(l)?'Ours':'Customer'),
+          status:(live?'Closed':'Reopened'),
+          requestedby:sc.requestedBy||'', approvedby:sc.approvedBy||'',
+          requestedon:String(sc.requestedAt||'').slice(0,10),
+          reopenedon:String(sc.reopenedAt||'').slice(0,10),
+          ordered:ord, delivered:del,
+          shortfall:(live?gap:0), reopened:(live?0:gap) });
+      }); });
+      return out; },
+    fields:[{k:'date',l:'Closed on',t:'dim'},{k:'month',l:'Month',t:'dim'},
+            {k:'reason',l:'Reason',t:'dim'},{k:'side',l:'Counts against',t:'dim'},
+            {k:'status',l:'Status',t:'dim'},{k:'po',l:'PO',t:'dim'},
+            {k:'client',l:'Client',t:'dim'},{k:'channel',l:'Channel',t:'dim'},
+            {k:'product',l:'Product',t:'dim'},{k:'base',l:'Base',t:'dim'},
+            {k:'requestedby',l:'Asked by',t:'dim'},{k:'approvedby',l:'Approved by',t:'dim'},
+            {k:'requestedon',l:'Asked on',t:'dim'},{k:'reopenedon',l:'Reopened on',t:'dim'},
+            {k:'ordered',l:'Ordered at close',t:'meas'},{k:'delivered',l:'Delivered at close',t:'meas'},
+            {k:'shortfall',l:'Shortfall',t:'meas'},{k:'reopened',l:'Reopened qty',t:'meas'}],
+    filters:['reason','side','status','client','product','channel','month']},
   anomalies:{label:'Anomalies · delays / holds / checks',dateKey:'date',
     rows:function(){ var out=[]; var today=TODAY.toISOString().slice(0,10);
       (state.orders||[]).forEach(function(o){ (o.lines||[]).forEach(function(l){

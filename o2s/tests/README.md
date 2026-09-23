@@ -26,11 +26,13 @@ node o2s/tests/rolemodel.test.js   #  84 - role names as the join key, and the
 node o2s/tests/closedshortbucket.test.js
                                    #  71 - Closed short as the eighth stage, and
                                    #       what "open" means once it exists
+node o2s/tests/shortclosereport.test.js
+                                   #  68 - shortfall by reason and by month
 ```
 
-**717 checks in the suites listed above.** Running every `*.test.js` in this
+**785 checks in the suites listed above.** Running every `*.test.js` in this
 folder together, with `data/state.json` and both `_before-*.html` fixtures in
-place, gives **7,578**. Exit code 0 means all passing. No dependencies, no build step,
+place, gives **7,646**. Exit code 0 means all passing. No dependencies, no build step,
 Node only.
 
 ## How they work
@@ -233,3 +235,22 @@ discriminates: it cannot pass against a file that has not had the change.
 fall through to `Production`. The fixture had 60 of 100 already dispatched, so the
 true answer was `Shipment`. The app was right both times. A failing expectation is
 a question, not a verdict.
+
+**`matchBlock` slices from the index it is GIVEN, not from the brace it finds.**
+`grabTopVar` depends on that — it is what keeps `var NAME =` in front of the
+block. Pulling one entry out of `RB_DATASETS` the same way therefore hands back
+`shortclose:{…}`, and the sandbox dies on the colon trying to evaluate a labelled
+statement. Slice from the first `{` when you want the value rather than the
+declaration.
+
+**A report belongs in the dataset registry, not in a new screen.** "Shortfall by
+reason and by month" looks like two reports and is actually two dimensions.
+`RB_DATASETS` already supplies grouping, the period bar, summarise, chart and
+export, so the whole feature is one entry of about sixty lines — and the day
+somebody wants it by client instead, there is nothing to write.
+
+**Make the default view the honest one.** A reopened short close is still a row,
+but its quantity sits in a separate `reopened` measure and its `shortfall` is
+zero. That way summing the shortfall column with no filter applied is correct.
+A report whose headline number is only right once you remember to exclude
+something is a report that will be quoted wrong.

@@ -88,6 +88,38 @@ If that list is empty, this is live.
 
 ---
 
+## S-05 · The money screen is gated; the money dataset is not · MODULE: O2S
+
+**Raised:** 23 September 2026, while wiring the Reports screen open to every role.
+
+**What it is.** `Sales & Budget` (screen `budget`) is deliberately narrow —
+`owners:['CFO','Plant Manager','Finance']` — so PKR figures are restricted. But
+the Report Builder on the **Reports** screen carries a dataset called
+`finance: 'Finance · sales & invoicing'` whose fields include
+`price` (PKR/Kg) and `value` (Sale value PKR), and `RB_DATASETS` has **no role
+gating at all**: `rbSetDS()` and `rbDef()` take whatever the dropdown offers.
+
+So any role that can open Reports can read invoice prices and sale values by
+picking one item from a list. The intent expressed by gating `budget` is not
+carried through.
+
+**Not introduced by the Reports ruling.** Thirteen of the fourteen roles —
+including QA Inspector, Lab Rep, AQCM, QCM and Production — were already owners
+of `reports` before 23 September. The ruling added `Finance Desk Officer`, a
+Finance role that would legitimately see prices anyway. The gap is older than
+the ruling; the ruling is only how it was found.
+
+**Not a customer-facing leak.** The standing rule that no price may appear on an
+outgoing document is untouched — this is an internal screen. It is a question of
+who inside the plant sees commercial terms.
+
+**The fix, when the COO wants it,** is one gate in the dataset list rather than a
+redesign: filter the dropdown in `rbRender()` by role, or give `RB_DATASETS`
+entries an optional `owners:[…]` the way `SCREENS` already has. Left for him to
+rule on — he may well be content that his managers see prices.
+
+---
+
 ## Closed items
 
 _None yet._
@@ -99,3 +131,4 @@ _None yet._
 | Date | Change |
 |---|---|
 | 2026-08-16 | Register created. S-01 to S-04 raised from the PD audit. |
+| 2026-09-23 | S-05 raised from O2S: the Report Builder's finance dataset is not role-gated. |

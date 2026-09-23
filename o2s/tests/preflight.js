@@ -57,6 +57,7 @@ const MARKERS = [
   ['function orderOpen(',                  1, 'the order-level open predicate'],
   ['function aggOpen(',                    1, 'fulfilment without closed lines'],
   ['DELIBERATELY not short-close aware',   1, 'cleared stock still ships'],
+  ['  shortclose:{label:',                 1, 'the short-close report dataset'],
 ];
 
 const [, , mode, freshPath, otherPath] = process.argv;

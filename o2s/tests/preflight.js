@@ -91,6 +91,9 @@ const MARKERS = [
   /* 2026-09-23l */
   ['body.td-on #periodSel',                1, 'Today hides the reporting period (design pass 23l)'],
   ['function _tdClient(',                  1, 'Today - the client name on a card'],
+  /* 2026-09-23m */
+  ['function migrateProductsV1(',          1, 'one product master (R17): the migration'],
+  ['function applyProductsV1(',            1, 'one product master (R17): the rebuild'],
 ];
 
 const [, , mode, freshPath, otherPath] = process.argv;

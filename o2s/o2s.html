@@ -11,7 +11,7 @@
    a push keeps running the old code with nothing telling anybody. It sat at
    2026-09-04a through this whole day's work; rmqty/psi tests pinned the code,
    nothing pinned this. buildid.test.js now does. */
-var BUILD_ID='2026-09-23l';
+var BUILD_ID='2026-09-23m';
 var CHANGELOG=[
   {ver:'2026-09-04a', date:'2026-09-04', title:"Delivery, DC printing, and a new Reconciliation check", items:[
     "Delivery confirmation stays with Supply Chain \u2014 it no longer hands off to the Plant Manager. If one sits too long, it now re-flags the same Supply Chain owner every 3 days instead.",
@@ -113,6 +113,11 @@ var CHANGELOG=[
   {ver:'2026-09-23l', date:'2026-09-23', title:"Today looks like the design the team chose", items:[
     "Today now carries the design the team picked: your name and title at the top, one card per job with the PO as a chip, green for go, red for late, amber for stalled, and a filter by kind of job when you have more than one kind.",
     "The reporting-period selector is hidden on Today \u2014 it belongs to the Report Center."
+  ]},
+  {ver:'2026-09-23m', date:'2026-09-23', title:"One product master", items:[
+    "Every product now lives in ONE list, in Back Office \u2192 Admin \u00b7 Master Data \u2192 Products: brand \u2192 base product \u2192 pack sizes \u2192 who buys it. It was built on first load from the catalogue that used to be fixed in the code, the brand map beside it, and the products added through Admin. Nothing anyone could order has changed \u2014 the same brands, bases and pack sizes per customer.",
+    "Where the two old lists disagreed about a brand\u2019s base, the list says so (\u201ccatalogue said \u2026 \u2014 settle it\u201d) so the COO, CFO or Plant Manager can decide once.",
+    "A product can be deactivated: it can no longer be ordered, but every existing order and batch keeps it. Products are kept by the COO, CFO and Plant Manager."
   ]},
 ];
 </script>
@@ -1869,9 +1874,83 @@ function healDupBatchIdsV1(s){ try{
    brandMap) on every state load. After injection they behave exactly like seeded products
    everywhere: PO entry, committed dates, production, QC, packing, shipping and reports.
    Idempotent full sweep: strip every previously-injected entry, then re-add from the list. */
+/* ===================== ONE PRODUCT MASTER - R17, 23 September 2026 =====================
+   Tahir: "Yes - one product master, migrated from the file on first load. After
+   this, no brand lives in code." Until tonight a brand lived in three places:
+   the catalogue hard-coded below under 11 client keys, the brand map beside it
+   (both patched at load by BRANDMAP_FIX / BRAND_ALIAS), and the custom list
+   added through Admin.
+
+   migrateProductsV1 snapshots the in-memory catalogue - AFTER the load-time
+   patches, which run at parse time - plus the custom list, into
+   state.masters.products, once, flagged. From then on applyProductsV1 REBUILDS
+   the two in-memory tables from the master on every load, so the twenty-odd
+   places that read SEED.catalog / SEED.brandMap keep working untouched, and an
+   edit in Back Office reaches every one of them. The record shape is the custom
+   product's, so the existing Admin form edits seeded products too.
+   A deactivated product leaves the catalogue (it can no longer be ordered) but
+   stays in the brand map, so every old order line still resolves its base. */
+function migrateProductsV1(s){
+  if(!s.masters) s.masters={};
+  if(s.masters._productsV1 && Array.isArray(s.masters.products)) return;
+  if(typeof SEED==='undefined'||!SEED.catalog) return;
+  var bbc=SEED.catalog.brandsByClient||{}, bm=SEED.brandMap||{}, by={}, order=[];
+  Object.keys(bbc).forEach(function(k){ (bbc[k]||[]).forEach(function(e){
+    if(!e||!e.brand||e._custom) return;
+    var r=by[e.brand];
+    if(!r){ r=by[e.brand]={brand:e.brand,base:e.base||e.brand,generic:e.generic||'',form:e.form||'Powder',owner:e.owner||'VAN',clients:[],packs:[],pack:null,packsBy:{},seeded:true,active:true}; order.push(e.brand); }
+    if(r.clients.indexOf(k)<0) r.clients.push(k);
+    /* packs are per client in the catalogue (LCI buys Cala Mag V in 1 L, Rudolf in
+       1000 L) - kept per client so nobody is offered a pack they never had */
+    var pks=((e.packs&&e.packs.length)?e.packs:[e.pack]).map(Number).filter(function(x){return x>0;});
+    r.packsBy[k]=pks.slice();
+    pks.forEach(function(pk){ if(r.packs.indexOf(pk)<0) r.packs.push(pk); });
+    if(r.pack==null&&+e.pack>0) r.pack=+e.pack;
+  }); });
+  Object.keys(bm).forEach(function(b){ var m=bm[b]; if(!m||m._custom) return;
+    if(!by[b]){ by[b]={brand:b,base:m.base||b,generic:'',form:'Powder',owner:m.owner||'VAN',clients:[],packs:[],pack:null,packsBy:{},seeded:true,active:true,mapOnly:true}; order.push(b); }
+    else if(m.base && m.base!==by[b].base){
+      /* The two files disagreed about this brand's base. The brand map is what
+         production and packing follow, so it becomes THE base; the catalogue's
+         word is kept as catBase so the committed-date engine at PO entry keeps
+         answering exactly as before, and the card shows the disagreement for
+         Back Office to settle. */
+      by[b].catBase=by[b].base; by[b].base=m.base; }
+    by[b].mapOwner=m.owner||''; by[b].wl=(m.owner==='White Label'); });
+  var g=(s.masters.groupOfBrand||{});
+  var list=order.map(function(b){ var r=by[b]; if(!r.packs.length) r.packs=[r.pack||1]; if(r.pack==null) r.pack=r.packs[0]; r.group=g[b]||null; return r; });
+  (s.masters.customProducts||[]).forEach(function(cp){ if(cp&&cp.brand&&!by[cp.brand]){ var r=Object.assign({},cp,{seeded:false,active:true}); by[cp.brand]=r; list.push(r); } });
+  s.masters.products=list;
+  s.masters._productsV1={at:new Date().toISOString(),count:list.length,by:'ruling of 23 Sep 2026 (R17)'};
+  try{ if(typeof logAction==='function') logAction('Product master created: '+list.length+' products migrated from the catalogue, the brand map and the custom list (ruling of 23 Sep 2026). Brands no longer live in code.'); }catch(e){}
+}
+function applyProductsV1(s){
+  if(typeof SEED==='undefined'||!SEED.catalog) return;
+  var list=(s&&s.masters&&Array.isArray(s.masters.products))?s.masters.products:[];
+  var bbc=SEED.catalog.brandsByClient={}; var bm=SEED.brandMap={};
+  list.forEach(function(p){
+    if(!p||!p.brand) return;
+    var packs=(Array.isArray(p.packs)&&p.packs.length)?p.packs.map(Number).filter(function(x){return x>0;}):[];
+    if(!packs.length) packs=[+p.pack>0?+p.pack:1];
+    var base=p.base||p.brand;
+    bm[p.brand]={base:base,owner:p.mapOwner||(p.wl?'White Label':(p.owner||'VAN'))};
+    if(p.seeded===false) bm[p.brand]._custom=true;
+    if(p.active===false) return;
+    var entry={brand:p.brand,base:p.catBase||base,generic:p.generic||'',form:p.form||'Powder',owner:p.owner||'VAN',pack:(+p.pack>0&&packs.indexOf(+p.pack)>-1)?+p.pack:packs[0],packs:packs};
+    if(p.seeded===false) entry._custom=true;
+    (Array.isArray(p.clients)?p.clients:[]).forEach(function(ck){ if(!ck) return; var arr=bbc[ck]=bbc[ck]||[];
+      var e2=Object.assign({},entry); var pb=(p.packsBy&&p.packsBy[ck]&&p.packsBy[ck].length)?p.packsBy[ck].map(Number).filter(function(x){return x>0;}):null;
+      if(pb){ e2.packs=pb; e2.pack=pb[0]; }
+      if(!arr.some(function(x){return x&&x.brand===p.brand;})) arr.push(e2); });
+    if(s&&s.masters){ s.masters.groupOfBrand=s.masters.groupOfBrand||{}; if(p.group&&s.masters.groupOfBrand[p.brand]==null) s.masters.groupOfBrand[p.brand]=p.group; }
+  });
+  /* the client-key list the Admin form offers must include every key the master uses */
+  try{ var keys=SEED.catalog.clients=SEED.catalog.clients||[]; Object.keys(bbc).forEach(function(k){ if(keys.indexOf(k)<0) keys.push(k); }); }catch(e){}
+}
 function applyCustomProducts(s){
   try{
     if(typeof SEED==='undefined'||!SEED.catalog) return;
+    if(s&&s.masters&&Array.isArray(s.masters.products)){ applyProductsV1(s); return; }   /* the master exists: it is the only source now */
     var list=(s&&s.masters&&Array.isArray(s.masters.customProducts))?s.masters.customProducts:[];
     var bbc=SEED.catalog.brandsByClient=SEED.catalog.brandsByClient||{};
     for(var k in bbc){ bbc[k]=(bbc[k]||[]).filter(function(x){return !(x&&x._custom);}); }
@@ -1913,8 +1992,9 @@ function ensureMasters(s){
   { var _pg=s.masters.productionGroups;
     [['Powder',5000],['Crystalline',5000],['Liquid',5000],['Granular',5000],['Humic',10000],['Sulfur Coated Urea',14000]]
       .forEach(function(p){ if(_pg[p[0]]==null) _pg[p[0]]=p[1]; }); }
-  /* Inject runtime-added products BEFORE brand→group defaults so they are treated like seeded ones. */
-  applyCustomProducts(s);
+  /* Inject runtime-added products BEFORE brand→group defaults so they are treated like seeded ones.
+     Since 23 Sep the product master is built first (once) and the tables are rebuilt from it. */
+  migrateProductsV1(s); applyCustomProducts(s);
   /* Brand → group assignment (mandatory). Pre-filled by product FORM, with Potassium Humate → Humic and
      Sulfur Coated Urea → SCU as special lines. Additive: only assigns brands not already set, so manual
      reassignments are never overwritten and new brands get a sensible default. */
@@ -13666,14 +13746,15 @@ function editMaster(k,idx){ if(!hardRole(['COO'])){toast('You need Edit access t
    group (committed dates & capacity), recipe for a new base (RM check, PRs, costing)
    and a Lab QC template placeholder. Seeded products stay fixed in code. */
 let prodMForm=null;
-function customProducts(){ state.masters.customProducts=state.masters.customProducts||[]; return state.masters.customProducts; }
+function customProducts(){ if(Array.isArray(state.masters.products)) return state.masters.products; state.masters.customProducts=state.masters.customProducts||[]; return state.masters.customProducts; }
 function pmBases(){ var s=new Set(); try{(typeof BULK_BASES!=='undefined'?BULK_BASES:[]).forEach(function(b){if(b)s.add(b);});}catch(e){} try{ Object.values(SEED.catalog.brandsByClient||{}).forEach(function(arr){(arr||[]).forEach(function(x){if(x&&x.base)s.add(x.base);});});}catch(e){} return Array.from(s).sort(); }
 function pmBrandKeys(){ var s=[]; try{ s=((SEED.catalog&&SEED.catalog.clients)||[]).slice(); }catch(e){} (state.customers||[]).forEach(function(c){ if(c&&c.segment==='White-label'&&c.brandKey&&s.indexOf(c.brandKey)<0) s.push(c.brandKey); }); return s; }
 function pmOwners(){ var s=new Set(['VAN']); try{ Object.values(SEED.catalog.brandsByClient||{}).forEach(function(arr){(arr||[]).forEach(function(x){if(x&&x.owner)s.add(x.owner);});});}catch(e){} return Array.from(s).sort(); }
 function pmFormGroup(f){ return ({'Powder':'Powder','Crystal':'Crystalline','Liquid':'Liquid','Granular':'Granular','Pellet':'Granular','Flakes':'Granular','Micro Granule':'Granular'})[f]||'Powder'; }
-function pmCanEdit(){ return hardRole(['COO']); }
-function pmStartAdd(){ if(!pmCanEdit()){toast('COO only');return;} prodMForm={editing:null,brand:'',base:'',ownBase:false,generic:'',form:'Powder',group:'Powder',groupTouched:false,clients:{},packs:'',owner:'VAN',recipe:[{rm:'',kg:''}]}; render(); }
-function pmEdit(i){ if(!pmCanEdit()){toast('COO only');return;} var p=customProducts()[i]; if(!p)return;
+/* Back Office (R7): the COO, the CFO and the Plant Manager keep the product master. */
+function pmCanEdit(){ return hardRole(['COO','CFO','Plant Manager']); }
+function pmStartAdd(){ if(!pmCanEdit()){toast('Back Office only — COO, CFO or Plant Manager');return;} prodMForm={editing:null,brand:'',base:'',ownBase:false,generic:'',form:'Powder',group:'Powder',groupTouched:false,clients:{},packs:'',owner:'VAN',recipe:[{rm:'',kg:''}]}; render(); }
+function pmEdit(i){ if(!pmCanEdit()){toast('Back Office only — COO, CFO or Plant Manager');return;} var p=customProducts()[i]; if(!p)return;
   var cl={}; (p.clients||[]).forEach(function(k){cl[k]=true;});
   var own=(p.base===p.brand);
   var rec=[]; try{ var r=(state.masters.recipes||{})[p.base]||{}; for(var m in r) rec.push({rm:m,kg:r[m]}); }catch(e){}
@@ -13688,13 +13769,13 @@ function pmClient(k,on){ if(!prodMForm)return; prodMForm.clients[k]=!!on; }
 function pmRecipeAdd(){ if(!prodMForm)return; prodMForm.recipe.push({rm:'',kg:''}); render(); }
 function pmRecipeDel(i){ if(!prodMForm)return; prodMForm.recipe.splice(i,1); if(!prodMForm.recipe.length)prodMForm.recipe.push({rm:'',kg:''}); render(); }
 function pmSave(){
-  if(!pmCanEdit()){toast('COO only');return;}
+  if(!pmCanEdit()){toast('Back Office only — COO, CFO or Plant Manager');return;}
   var f=prodMForm; if(!f)return;
   var brand=String(f.brand||'').trim(); if(!brand){toast('Enter the product / brand name');return;}
   var clients=Object.keys(f.clients||{}).filter(function(k){return f.clients[k];});
   if(!clients.length){toast('Tick at least one client / channel that can order it');return;}
   var clash=customProducts().some(function(p){return String(p.brand).toLowerCase()===brand.toLowerCase()&&p.brand!==f.editing;});
-  try{ if(!clash&&SEED.brandMap[brand]&&!(SEED.brandMap[brand]._custom&&f.editing===brand)) clash=true; }catch(e){}
+  try{ if(!clash&&SEED.brandMap[brand]&&f.editing!==brand&&!Array.isArray(state.masters.products)) clash=true; }catch(e){}
   if(clash){toast('A product named "'+brand+'" already exists');return;}
   var base=f.ownBase?brand:String(f.base||'').trim();
   if(!base){toast('Pick the base product (or tick "new base of its own")');return;}
@@ -13702,9 +13783,13 @@ function pmSave(){
   var packs=String(f.packs||'').split(/[,\s]+/).map(Number).filter(function(x){return x>0;});
   if(!packs.length){toast('Enter at least one pack size in Kg/L, e.g. 1, 20');return;}
   var wl=clients.some(function(k){ var ch; try{ ch=SEED.catalog.channelByClient[k]; }catch(e){} return (ch||'White Label')==='White Label'; });
-  var rec={brand:brand,base:base,generic:generic,form:f.form||'Powder',group:f.group||pmFormGroup(f.form),clients:clients,packs:packs,pack:packs[0],owner:String(f.owner||'').trim()||'VAN',wl:wl};
+  var rec={brand:brand,base:base,generic:generic,form:f.form||'Powder',group:f.group||pmFormGroup(f.form),clients:clients,packs:packs,pack:packs[0],owner:String(f.owner||'').trim()||'VAN',wl:wl,seeded:false,active:true};
   var arr=customProducts();
-  if(f.editing){ var i=arr.findIndex(function(p){return p.brand===f.editing;}); if(i>=0)arr[i]=rec; else arr.push(rec);
+  if(f.editing){ var i=arr.findIndex(function(p){return p.brand===f.editing;});
+    if(i>=0){ rec.seeded=arr[i].seeded!==false; rec.active=arr[i].active!==false; if(arr[i].mapOwner) rec.mapOwner=arr[i].mapOwner;
+      if(arr[i].packsBy){ rec.packsBy={}; Object.keys(arr[i].packsBy).forEach(function(ck){ if(clients.indexOf(ck)>-1){ var kept=arr[i].packsBy[ck].filter(function(x){return packs.indexOf(+x)>-1;}); if(kept.length) rec.packsBy[ck]=kept; } }); }
+      /* a base set by hand in Back Office settles the old disagreement */
+      arr[i]=rec; } else arr.push(rec);
     if(f.editing!==brand){ delete (state.masters.groupOfBrand||{})[f.editing]; } }
   else arr.push(rec);
   state.masters.groupOfBrand=state.masters.groupOfBrand||{}; state.masters.groupOfBrand[brand]=rec.group;
@@ -13716,7 +13801,7 @@ function pmSave(){
   prodMForm=null; save(); toast('Saved '+brand); render();
 }
 function pmDel(i){
-  if(!pmCanEdit()){toast('COO only');return;}
+  if(!pmCanEdit()){toast('Back Office only — COO, CFO or Plant Manager');return;}
   var p=customProducts()[i]; if(!p)return; var brand=p.brand;
   var used=(state.orders||[]).some(function(o){return (o.lines||[]).some(function(l){return l&&l.brand===brand;});})||
            (state.batches||[]).some(function(b){return b&&(b.brand===brand||(p.base===brand&&b.base===brand));});
@@ -13725,12 +13810,21 @@ function pmDel(i){
   customProducts().splice(i,1); delete (state.masters.groupOfBrand||{})[brand];
   applyCustomProducts(state); logAction('Deleted product '+brand); save(); toast('Deleted '+brand); render();
 }
+var pmQ='';
+function pmToggle(i){ if(!pmCanEdit()){toast('Back Office only — COO, CFO or Plant Manager');return;} var p=customProducts()[i]; if(!p)return;
+  p.active=(p.active===false); applyCustomProducts(state);
+  logAction((p.active?'Reactivated product ':'Deactivated product ')+p.brand+(p.active?'':' — it can no longer be ordered; existing orders and batches keep it')); save(); render(); }
 function productMasterCard(ed){
   var esc=function(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');};
-  var arr=customProducts(); var f=prodMForm;
-  var list=arr.length?`<div style="overflow:auto"><table><thead><tr><th>Product</th><th>Base</th><th>Form</th><th>Packs (Kg/L)</th><th>Group</th><th>Clients</th>${ed?'<th style="width:110px"></th>':''}</tr></thead><tbody>
-    ${arr.map(function(p,i){return `<tr><td><b>${esc(p.brand)}</b><div class="muted" style="font-size:10.5px">${esc(p.generic||'')}</div></td><td>${esc(p.base)}${p.base===p.brand?' <span class="muted" style="font-size:10px">(own)</span>':''}</td><td>${esc(p.form)}</td><td>${(p.packs||[]).join(', ')}</td><td>${esc(p.group||'')}</td><td class="muted" style="font-size:11px">${(p.clients||[]).length}</td>${ed?`<td style="white-space:nowrap"><button class="sm ghost" onclick="pmEdit(${i})">Edit</button> <button class="sm ghost" style="color:var(--red)" onclick="pmDel(${i})">✕</button></td>`:''}</tr>`;}).join('')}
-    </tbody></table></div>`:`<div class="muted" style="font-size:12px">No products added here yet. The seeded catalog is fixed in code — new products added below join it everywhere in the app.</div>`;
+  var arr=customProducts(); var f=prodMForm; var isMaster=Array.isArray(state.masters.products);
+  var q=String(pmQ||'').toLowerCase().trim();
+  var rows=arr.map(function(p,i){ return {p:p,i:i}; }).filter(function(x){ var p=x.p; if(!q) return true; return ((p.brand||'')+' '+(p.base||'')+' '+(p.generic||'')+' '+(p.clients||[]).join(' ')).toLowerCase().indexOf(q)>-1; });
+  var tools=isMaster?`<div class="row" style="gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px"><input type="search" placeholder="Find a product, base, generic or client…" value="${esc(pmQ)}" oninput="pmQ=this.value;var e=document.getElementById('pm_list');if(e)e.innerHTML=pmListHTML()" style="flex:1;min-width:220px"><span class="muted" style="font-size:12px">${arr.length} products · ${arr.filter(function(p){return p.active===false;}).length} inactive</span></div>`:'';
+  window.pmListHTML=function(){ var q2=String(pmQ||'').toLowerCase().trim(); var rs=arr.map(function(p,i){return {p:p,i:i};}).filter(function(x){ var p=x.p; if(!q2) return true; return ((p.brand||'')+' '+(p.base||'')+' '+(p.generic||'')+' '+(p.clients||[]).join(' ')).toLowerCase().indexOf(q2)>-1; });
+    return rs.length?`<div style="overflow:auto;max-height:60vh"><table><thead><tr><th>Product</th><th>Base</th><th>Form</th><th>Packs (Kg/L)</th><th>Group</th><th>Sold to</th>${ed?'<th style="width:150px"></th>':''}</tr></thead><tbody>
+    ${rs.map(function(x){ var p=x.p,i=x.i; var off=p.active===false; return `<tr style="${off?'opacity:.55':''}"><td><b>${esc(p.brand)}</b>${off?' <span class="pill" style="font-size:9px">inactive</span>':''}${p.seeded===false?' <span class="pill" style="font-size:9px;background:var(--amber-50);color:#8a5a00">added</span>':''}<div class="muted" style="font-size:10.5px">${esc(p.generic||'')}</div></td><td>${esc(p.base)}${p.base===p.brand?' <span class="muted" style="font-size:10px">(own)</span>':''}${p.catBase&&p.catBase!==p.base?`<div class="muted" style="font-size:10px;color:#8a5a00">catalogue said “${esc(p.catBase)}” — settle it</div>`:''}</td><td>${esc(p.form)}</td><td>${(p.packs||[]).join(', ')}</td><td>${esc(p.group||'')}</td><td class="muted" style="font-size:11px">${(p.clients||[]).length?esc((p.clients||[]).map(function(c){return c.length>18?c.slice(0,16)+'…':c;}).join(', ')):'—'}</td>${ed?`<td style="white-space:nowrap"><button class="sm ghost" onclick="pmEdit(${i})">Edit</button> <button class="sm ghost" onclick="pmToggle(${i})">${off?'Reactivate':'Deactivate'}</button></td>`:''}</tr>`;}).join('')}
+    </tbody></table></div>`:`<div class="muted" style="font-size:12px">${q2?'No product matches “'+esc(q2)+'”.':'No products yet.'}</div>`; };
+  var list=tools+'<div id="pm_list">'+pmListHTML()+'</div>';
   var form='';
   if(f&&ed){
     var bases=pmBases(); var keys=pmBrandKeys(); var groups=Object.keys((state.masters&&state.masters.productionGroups)||{});
@@ -13765,7 +13859,7 @@ function productMasterCard(ed){
       <div class="muted" style="font-size:10.5px;margin-top:8px">On save: it appears in the PO dropdown for the ticked clients (with pack auto-conversion), gets its production group for committed dates, its recipe feeds the RM check, and an empty Lab QC template is created for the Lab to fill (Lab templates card).</div>
     </div>`;
   }
-  return acard('prodmaster','Products',(arr.length?arr.length+' added here':'add new')+' · COO',
+  return acard('prodmaster','Products',(isMaster?(arr.length+' in the master · brand → base → packs → who buys it'):((arr.length?arr.length+' added here':'add new')))+' · COO / CFO / Plant Manager',
     `<div class="muted" style="font-size:12px;margin-bottom:10px">Add a <b>new sellable product</b> with everything the system needs: catalog entry per client, form, pack sizes, production group, recipe and Lab QC template. It flows through PO entry → production → QC → packing → shipping like any seeded product.</div>
      ${list}
      ${ed&&!f?`<div style="margin-top:11px"><button class="sm green" onclick="pmStartAdd()">+ Add product</button></div>`:''}

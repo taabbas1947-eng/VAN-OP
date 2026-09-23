@@ -103,6 +103,8 @@ const MARKERS = [
   ['function fireLists(',                  1, 'the Firefighter dashboard (P6)'],
   /* 2026-09-23q */
   ['function backOfficeManualCard(',       1, 'the Back Office manual (R15)'],
+  /* 2026-09-23r */
+  ['<style id="van-theme">',               1, 'the design, app-wide (23r)'],
 ];
 
 const [, , mode, freshPath, otherPath] = process.argv;

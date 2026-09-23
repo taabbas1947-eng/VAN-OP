@@ -5070,3 +5070,170 @@ Nothing pushed. No `.patch` files. No module boundary crossed. Files changed:
 `o2s/o2s.html`, `o2s/tests/shortclosereport.test.js` (new),
 `o2s/tests/README.md`, `o2s/tests/preflight.js`,
 `docs/security-register/SECURITY-REGISTER.md`, this file.
+
+---
+
+## 2026-09-23 · Pass twenty-two · MODULE: O2S · The role model, in two passes
+
+Five rulings taken from Tahir by direct question, then built. `BUILD_ID`
+`2026-09-23f` (pass A) and `2026-09-23g` (pass B).
+
+### The rulings
+
+| # | Question | Ruled |
+|---|---|---|
+| A | How do HR's titles reach the app? | **A title on the role.** Code names unchanged. |
+| B | What role does Muhammad Ali (CCO) hold? | **KAM**, like Irfan. |
+| C | Ali Raza vs Jawad Naseer — one role or two? | **One role, two titles.** |
+| D | Supply Chain — split the duties? | **Three roles: lead, warehouse, assistant.** |
+| E | C2 says the KAM keeps New PO Entry; C9 says read-only. Which? | **C9 wins.** KAM has no PO entry; every order comes through Finance, the Plant Manager, the CFO or the COO. |
+
+Ruling E resolves a contradiction between two rulings taken the same day. It
+mattered more once B put the Chief Commercial Officer on the KAM role: both
+commercial people are now read-only reviewers.
+
+---
+
+## Pass A — job titles, separate from role names
+
+The number that decided ruling A: the ten built-in role names are spelled out as
+**523 string literals** in `o2s.html`, across `SCREENS.owners`,
+`RIGHTS[].legacy`, `FIELD_OWNER` and 32 name-matched `canEdit` gates. A rename
+that misses one leaves a person listed as having access while every button
+refuses him — silently, nothing logged. A title layer touches none of it.
+
+He had already ruled this shape once without naming it: **C11** has Masab signing
+a COA as "Senior QC Analyst" while his role stays `AQCM`.
+
+**Three layers**, read in order by `personTitle()`:
+`masters.userTitles[username]` → `masters.roleTitles[role]` → `ROLE_TITLE[role]`
+→ the role's own name, so nothing is ever blank.
+
+The person layer is not decoration — it is the only way to express rulings B and
+C. `USER_TITLE` seeds the two real cases: `aliraza` → Production Associate,
+`mali` → Chief Commercial Officer.
+
+**Wired in:** both COA renderers (the printed document **and** the on-screen
+form) now print QC Analyst / Senior QC Analyst / Lead Quality Control per C11;
+Users & Access gained a "Title (signs as)" column flagging anyone with a title of
+their own; Admin → Roles shows what each role signs as.
+
+**A title is never a join key.** The test's last section proves the negative — no
+gate consults a title, and the title functions cannot grant anything. That is the
+one way this design fails, and it would pass every functional check while failing.
+
+---
+
+## Pass B — the Warehouse role, step one of two
+
+`Warehouse`, titled Senior Warehouse Officer (Shoaib Sabir), filed **inside**
+Supply Chain per C10. On Dashboard, My Actions, PO Tracker, Pre-shipment QA,
+Shipments, Reports and Instructions — deliberately **not** Production and **not**
+New PO Entry. Packed-stock custody: `clearQaHold`, `lotQACorrect` and the `isSC`
+flags on the QC and QA screens now ask `canEdit(['Supply Chain','Warehouse'])`.
+`Finance` added to New PO Entry.
+
+**ADDITIVE ONLY, AND THAT IS THE POINT.** The four dispatch rights
+(`shipment.plan`, `shipment.load`, `gatepass.issue`, `delivery.confirm`) are not
+in `RIGHTS_LIVE`, so their legacy answer still decides them. Nobody holds the
+Warehouse role and **nobody has a login at all**. Removing `Supply Chain` from
+anything today would stop trucks leaving the plant; removing `KAM` from New PO
+Entry would stop orders being raised.
+
+### A mistake the freeze caught, and the right mechanism
+
+The first attempt added `'Warehouse'` to `owners:['Supply Chain']` **inside the
+four dispatch rights' `legacy` blocks**. `authmodel.test.js` failed two checks
+and was right to: **a `legacy` block is a frozen RECORD of what a gate did before
+its right was converted.** Editing one makes the app claim the old rule was
+something it never was. Reverted.
+
+The supported path was already there and needs no code at all:
+
+```
+_canEditOn(s,role,scrId,owners){ if(role==='COO') return true;
+  var o=(m[role]&&m[role][scrId])||null;
+  if(o){ if(o.e===true) return true; if(o.e===false) return false; }   ← matrix FIRST
+  return (owners||[]).indexOf(role)>=0; }
+```
+
+**The COO ticking `Warehouse = edit` on Shipments in the Access control matrix
+grants dispatch outright.** The reason is written into the source above the
+`ship` screen so the same mistake is not made twice.
+
+### Step two — pinned as failing-when-done assertions
+
+`warehousesplit.test.js` has a `STEP 2 PENDING` section. Each assertion is true
+on purpose today and names the edit that finishes it, so the moment somebody
+makes that edit the check fails and points at itself.
+
+1. **Dispatch.** Put the four rights into `RIGHTS_LIVE` so the **grant table**
+   decides them (seeding today's answers unchanged — the mechanism the Production
+   split already used), then grant to Warehouse and remove from Supply Chain.
+   Only once Shoaib holds the role.
+2. **KAM read-only.** Remove `KAM` from the `entry` screen's owners **and** move
+   `customer.create` / `customer.amend` off `legacy:{kind:'hard',roles:['KAM']}`.
+   **These are one change** (C3 + C9): a read-only KAM cannot hold
+   `customer.create`, so either alone breaks Customer Master for whoever holds
+   KAM. Only once the Finance desk is logged in.
+
+---
+
+## The account question — asked by Tahir, answered
+
+He suggested terminating or suspending every account and forcing a logout until
+the new role structure is in place. **Advised against, and not done.**
+
+1. **It would stop the plant, not just data entry.** No PO raised, no production
+   logged, no pre-shipment inspection, no Gate Pass, no dispatch.
+2. **Nothing built today requires it.** Passes A and B are additive end to end.
+   No role lost anything; the app behaves exactly as it did this morning, plus
+   titles and a role nobody holds. The moment that needs care is **step two**,
+   which is precisely why it was not done.
+3. **Auth is not O2S's.** Login, sessions and `/api/users` belong to PLATFORM.
+   Account and password handling is the COO's, in Users & Access.
+
+**But the instinct points at a real problem.** There are eight *shared function
+logins* — `admin`, `kam`, `supply`, `production`, `lab`, `qa`, `plant`, `cfo` —
+on one password. That is why documents already print *"no individual name on
+file — signed on the shared 'qa' login"*. A COA or Gate Pass signed by "QA
+Inspector" cannot be traced to Ehtisham or Asif.
+
+**The fix is the opposite of suspending.** Create the named accounts first, move
+each function across, retire each shared login once its people are live. A
+migration with no outage, ending with every signature carrying a real name.
+
+**Recommended order:** (1) COO creates the named accounts; (2) COO adds
+`Warehouse` in Admin → Roles under Supply Chain and ticks it edit on Shipments;
+(3) step two above; (4) retire the shared logins.
+
+---
+
+## A process failure, and the rule that came out of it
+
+**Pass A was committed with a failing check.** The order was: wire the change,
+run the full suite (green), add the `BUILD_ID` and changelog entry, run only
+`buildid.test.js`, commit. But the changelog entry *quotes the string the change
+retired* — "Assistant Analyst/Analyst" — and `roletitles.test.js` asserted that
+string appeared nowhere in the file. Green when it ran, red when it was
+committed. Found in pass B.
+
+Fixed two ways: the check now allows the literal in exactly one place, inside
+`var CHANGELOG`; and the rule is written into `tests/README.md` — **the changelog
+is part of the change, so the whole suite runs after it, never before.**
+
+### Tests
+
+`roletitles.test.js` 54, `warehousesplit.test.js` 43, `rolemodel.test.js` 84 → 86.
+Full suite **7,745 passed, 0 failed, 0 crashed**. Delta from 7,698 is +47 = 43
+new, +2 roletitles (the changelog check split in two), +2 rolemodel (Warehouse
+joins the inert-roles loop) — accounted for exactly. Six inline `<script>` blocks
+pass `node --check`. `preflight` markers 23 → 31.
+
+### Constraints respected
+
+Nothing pushed by Claude. No `.patch` files. No module boundary crossed — auth
+was declined as PLATFORM's, not edited. Files changed: `o2s/o2s.html`,
+`o2s/tests/roletitles.test.js` (new), `o2s/tests/warehousesplit.test.js` (new),
+`o2s/tests/rolemodel.test.js`, `o2s/tests/README.md`, `o2s/tests/preflight.js`,
+this file.

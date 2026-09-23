@@ -4673,3 +4673,211 @@ not closed.
 Nothing pushed. No `.patch` files. No module boundary crossed. Files changed:
 `o2s/o2s.html`, `o2s/tests/focprice.test.js` (new), `o2s/tests/README.md`,
 `o2s/ORG-LIST.md`, `o2s/CUSTOMER-CODE-STANDARD.md` (new), this file.
+
+---
+
+## 2026-09-23 · Pass seventeen · MODULE: O2S · The Gate Pass gap closed, and a control put under the work
+
+Written up after the fact. Passes seventeen and eighteen shipped and were
+committed on 23 September but were never entered here, which is exactly the
+failure the per-module split was supposed to end. Recorded now from the
+committed file, not from memory.
+
+### What was wrong
+
+Pass sixteen ended with this, under "not closed": `issueGatePass()` checked the
+role and the stage but **not** QA, so the Gate Pass — the paper the driver
+carries out of the gate — could be printed for a truck that `approveRelease()`
+would have refused. The 22b changelog had already told the whole company that
+from 23 September a truck must pass inspection before it leaves. For the Gate
+Pass that was not true.
+
+### The fix — `BUILD_ID='2026-09-23b'`
+
+Inserted into `issueGatePass()` after the already-issued check, using the
+**identical predicate** to `approveRelease()` rather than a second one written
+to look the same:
+
+```js
+{ var _un=rows.filter(function(s){ return !(s.qa && s.qa.pass); });
+  if(_un.length){
+    var _f=rows.filter(function(s){ return s.qa && s.qa.fail; }).length;
+    toast(_f ? 'This truck FAILED pre-shipment inspection — no Gate Pass. Correct it and re-inspect.'
+             : 'Pre-shipment inspection has not passed on this truck yet — QA must inspect it before a Gate Pass can be issued.');
+    return; } }
+```
+
+Two messages, not one: "not inspected yet" and "inspected and failed" are
+different problems with different next steps, and a single message would have
+sent a failed truck back to QA to be inspected again rather than corrected.
+Trucks already carrying a Gate Pass are untouched.
+
+`gatepassqa.test.js` — 14 checks, including that the two predicates are the
+same expression and that `markDelivered()` still refuses independently.
+
+### The control — `o2s/tests/preflight.js`
+
+Tahir, in the middle of this pass: *"cant you use your intelligence and place
+control to test, verify and develop and run and make sure no such thing
+happens?"* He was right to ask. Every defect that day had one cause: work built
+on a copy of `o2s.html` staged earlier in the session while the file on disk had
+moved on. It cost the handoff entry twice, wiped the PD session's work once, and
+nearly wiped this Gate Pass fix — the short-close in pass eighteen *was* built on
+a stale copy, and `gatepassqa.test.js` failed 9 checks and caught it.
+
+`preflight.js` is the answer, and it is a gate, not a promise:
+
+* `node preflight.js base <fresh> <working>` — refuses unless the working copy
+  is byte-identical to the file just re-staged from disk. Run **after** staging,
+  **before** the first edit.
+* `node preflight.js verify <fresh> <candidate>` — refuses unless every marker
+  the base file carried is still present. Catches a rebuild that silently
+  dropped earlier work.
+
+MARKERS is a list of load-bearing strings and the count each must appear at.
+**One line is added for every change that ships.** That is what gives it teeth.
+It stood at 13 markers at the end of pass eighteen and 16 now.
+
+Tahir also saved the `van-safe-edit` skill off the back of this.
+
+---
+
+## 2026-09-23 · Pass eighteen · MODULE: O2S · Closing a PO line short
+
+Tahir: *"we need to add something where one can close a po… if a customer has a
+po and we need to close it half way for any reason, the system should allow to
+close."*
+
+### The shape of it — `BUILD_ID='2026-09-23c'`
+
+The ordered quantity is **never changed**. Ordered, delivered and the shortfall
+all stay on the record with the reason and the approver, because the shortfall
+is the thing worth knowing and editing the order down would erase it.
+
+Model, placed before `lineStage`:
+
+* `SHORTCLOSE_REASONS` — seven, each carrying `ours:true|false`. That flag is the
+  whole point: "customer cancelled the balance" and "we could not supply" are the
+  same event on the line and opposite events in a fulfilment figure.
+* `lineShortClosed(l)` — approved and not reopened. `lineShortRequested(l)` —
+  asked and not yet decided.
+* `shortCloseGap(l)` — ordered minus delivered, floored at zero.
+* `shortCloseAgainstUs(l)` — defaults to **true** when the reason is unknown, so
+  a missing reason counts against us rather than flattering the number.
+* `shortCloseRefusal(o,l,what)` — the guard's message, ending
+  `'. Stock already packed can still ship.'`
+
+`lineStage()` gained `if(lineShortClosed(l)) return 'Closed short';` **before**
+the Delivered test; `STAGE_ORDER` gained the stage; `lineOverdue()` returns false
+for a closed line — that is the point, it stops sitting overdue for ever.
+
+### Where the guard is, and where it deliberately is not
+
+Wired into the **five writers of new forward work**: `doPack`, `submitProdQty`,
+`submitDivert`, `allocateStock`, `openRMCheck`.
+
+Deliberately **not** in `submitShiftLog`, `dfSubmitProduction`,
+`dfSubmitPacking`, nor anything downstream (`issueGatePass`, `approveRelease`,
+`markDelivered`). Blocking an honest record of work that physically happened
+teaches people not to record it, and packed stock still ships. `shortclose.test.js`
+asserts both lists — which functions call the guard **and which must not**.
+
+### Rights and separation
+
+Three new codes, all `delegable:false`:
+
+| code | who, today |
+|---|---|
+| `po.shortclose_request` | Production, Supply Chain, Finance, Plant Manager (8 names, 4 not yet real roles) |
+| `po.shortclose_approve` | Plant Manager |
+| `po.reopen` | COO only (`roles:[]` + the COO override) |
+
+And the rule that matters: `if(String(l.shortClose.requestedBy)===String(scWho()))`
+→ *"You asked for this close. Somebody else must approve it."* The review modal
+hides Approve from the requester as well as refusing it.
+
+### UI
+
+`openShortClose` / `renderShortClose` — the request modal, showing the shortfall,
+whether the reason counts against delivery performance, and that packed stock
+still ships. `openShortCloseReview` — approve/reject. A My Actions branch raises
+it to the Plant Manager while it waits, and `if(lineShortClosed(l)) return;`
+takes it out of everyone's list once decided.
+
+Tests: `shortclose.test.js` 39, `shortcloseactions.test.js` 44.
+Document: `o2s/PO-SHORT-CLOSE.md`.
+
+### The one thing NOT done, and why
+
+**`BUCKETS` was not touched.** How a short-closed line counts in the dashboard —
+open orders, or delivered — is Tahir's ruling, not mine. A guess there would
+quietly corrupt the one number he uses to judge the plant. It blocks two things
+behind it: the report treatment (shortfall by reason and month) and excluding
+customer-side closes from fulfilment %. **Still open.**
+
+---
+
+## 2026-09-23 · Pass nineteen · MODULE: O2S · The role model pinned before it grows
+
+Tests only. `o2s.html` untouched — that is the point of a tests-first pass.
+
+The role model is the next big change (HR's O2S onboarding list has 21 named
+accounts against the 10 roles that exist) and Tahir's agreed method is **tests
+first, then the change, then verify**. This is the "tests first".
+
+### What the tests found out
+
+A role in O2S is joined by its **name, as a hand-written string**, in three
+separate code tables — `SCREENS[].owners`, `RIGHTS[].legacy.roles/owners`,
+`FIELD_OWNER` — and by its **id** in a fourth, `masters.roleRights`. Nothing
+anywhere checks the spelling. Write `'Supply Chain officer'` into a screen's
+owners and the app does not complain, does not log, does not warn: the string
+never matches, and the only symptom is a person saying months later "I can't see
+that screen". That failure scales with the number of roles, and we are about to
+more than double them.
+
+**Two categories of name:**
+
+* **Built-in (10)** — `KAM, Supply Chain, Production, Lab Rep, AQCM, QCM, QA
+  Inspector, Plant Manager, CFO, COO`. In `SEED.roles`, locked from Admin.
+* **Planned (4)** — named in the code tables but not in `SEED.roles`:
+  `Supply Chain Officer` and `Finance`, which the COO created for real through
+  Admin on 22 June 2026, and `Production Manager` and `Finance Desk Officer`,
+  which are **wired and inert** — every screen and right naming them does
+  nothing at all until somebody adds the role.
+
+### Two findings, recorded and not changed
+
+1. **`Finance Desk Officer` is wired for Dashboard, My Actions, New PO Entry, PO
+   Tracker, Shipments and Instructions — but NOT Reports**, while the older
+   `Finance` role IS on Reports. So the role HR lists as taking PO entry over
+   from Commercial would be able to raise a PO, track it and see the shipment,
+   and not open a single report. Who owns a screen is the COO's call, so it is
+   pinned rather than fixed.
+2. **The ten built-in names are spelled out as 523 string literals** in
+   `o2s.html`. That is what a rename would cost, and it is why `renameRole` and
+   `archiveRole` refuse a built-in — and why HR's job titles have to arrive as
+   **new roles**, never as renames of the old ones.
+
+### The invariant that will break
+
+`every live role is filed in a department`. A role with no department shows under
+"not filed yet" in the Authorisation panel — visible, but with no lead who can
+grant it anything. Live state has 12 roles and 0 unfiled today. `addRole` demands
+a department, so the only way to break it is to seed a role in code.
+
+### Proven to go red
+
+Three mutations against a scratch copy before the suite was trusted: misspelling
+a name in a screen's owners (4 failures), adding an unfiled role to live state
+(4), removing the built-in rename lock (2). A tripwire nobody has seen fire is a
+guess.
+
+`rolemodel.test.js` — 81 checks. Full suite **7,504 passed, 0 failed, 0 crashed**,
+exactly the 81 new checks over the prior 7,423. preflight markers 13 → 16.
+
+### Constraints respected
+
+Nothing pushed. No `.patch` files. No module boundary crossed. Files changed:
+`o2s/tests/rolemodel.test.js` (new), `o2s/tests/README.md`,
+`o2s/tests/preflight.js`, this file.

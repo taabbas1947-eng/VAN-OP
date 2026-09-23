@@ -11,7 +11,7 @@
    a push keeps running the old code with nothing telling anybody. It sat at
    2026-09-04a through this whole day's work; rmqty/psi tests pinned the code,
    nothing pinned this. buildid.test.js now does. */
-var BUILD_ID='2026-09-23j';
+var BUILD_ID='2026-09-23k';
 var CHANGELOG=[
   {ver:'2026-09-04a', date:'2026-09-04', title:"Delivery, DC printing, and a new Reconciliation check", items:[
     "Delivery confirmation stays with Supply Chain \u2014 it no longer hands off to the Plant Manager. If one sits too long, it now re-flags the same Supply Chain owner every 3 days instead.",
@@ -105,6 +105,10 @@ var CHANGELOG=[
     "If nothing is waiting on you, Today says so and shows what is moving in the plant instead of a blank screen. Under your list: what you did today, and for a department lead, what the team did.",
     "The COO sees only what needs him, with a Whole plant switch.",
     "My Actions is no longer in the sidebar. Its code stays for one release."
+  ]},
+  {ver:'2026-09-23k', date:'2026-09-23', title:"One reason per late order; the old print-on-pack backlog answered", items:[
+    "The Plant Manager answers why an ORDER is late once, for every late line on it, and can change a single line that is different. 18 questions became 7.",
+    "Orders raised before the print-on-pack question existed (44 of them) are now answered \u201cno print\u201d, by the COO\u2019s ruling of 23 September. The one-time bulk job is gone. Any brand among them that has carried a printed price before is named in the action log."
   ]},
 ];
 </script>
@@ -1809,7 +1813,7 @@ function ensureState(s){
   s.users=(s.users&&s.users.length)?s.users:deepClone(SEED.users||[]); if(s.currentUser===undefined)s.currentUser=null;
   s.rmRequests=s.rmRequests||[]; s.productionLog=s.productionLog||[]; s.packingLog=s.packingLog||[];
   s.actionLog=s.actionLog||[]; s.shipments=s.shipments||[]; s.inspections=s.inspections||[]; s.warehouses=s.warehouses||SEED.warehouses.slice();
-  s.rawStock=s.rawStock||{}; s.rmMovements=s.rmMovements||[]; s.audit=s.audit||[]; s.masters=s.masters||deepClone(SEED.masters||{}); s.batches=s.batches||[]; s.packedStock=s.packedStock||{}; s.packingLog=s.packingLog||[]; s.orders=s.orders||[]; if(s.seq==null)s.seq=1000; ensureRecordIds(s); if(s.dataFixEnabled==null)s.dataFixEnabled=true; if(!Array.isArray(s.prs))s.prs=[]; (s.batches||[]).forEach(function(b){ if((b.producedKg||0)>0 && (!Array.isArray(b.lots)||!b.lots.length)){ b.lots=[{id:'LOT'+(s.seq++), lotNo:(b.batchNo||'B')+'-L1', qty:b.producedKg, date:b.openedDate||'', by:b.by||'', coa:(b.coa||null), migrated:true}]; } }); ensureMasters(s); ensureProductionModel(s); dedupePackingLots(s); migrateLotTracking(s); migratePackingLotLidV1(s); fixRudolfDupV1(s); reconcileLotShipKgV1(s); dedupeShipmentsV1(s); healPRFlags(s); migrateBrandNames(s); loadBaseRecipesV2(s); loadBlendRecipesV1(s); loadBlendRecipesV2(s); purgeImportedProduction(s); purgeImportDuplicates(s); purgeImportedNoTwin(s); fixPhantomLotVU26134(s); fixVU26144ProdLogV1(s); fixVU26144ProdLogV2(s); healVU26144ProdLog(s); backfillDisposedV1(s); consolidateByproductV1(s); dedupeByproductV1(s); reconcileShipLotsV1(s); normalizeVZincBase(s); normalizeBoronBase(s); seedByproductRulesV1(s); seedRolesV1(s); seedWarehouseRoleV1(s); seedAccessV2(s); seedDeptRightsV1(s); seedCustomerRightsV1(s); bumpSeqV1(s); healDupBatchIdsV1(s); fixVB26003LotRenameV1(s); fixRudolfTBPPOV1(s); linkShipBatchLotsV1(s); return s;
+  s.rawStock=s.rawStock||{}; s.rmMovements=s.rmMovements||[]; s.audit=s.audit||[]; s.masters=s.masters||deepClone(SEED.masters||{}); s.batches=s.batches||[]; s.packedStock=s.packedStock||{}; s.packingLog=s.packingLog||[]; s.orders=s.orders||[]; if(s.seq==null)s.seq=1000; ensureRecordIds(s); if(s.dataFixEnabled==null)s.dataFixEnabled=true; if(!Array.isArray(s.prs))s.prs=[]; (s.batches||[]).forEach(function(b){ if((b.producedKg||0)>0 && (!Array.isArray(b.lots)||!b.lots.length)){ b.lots=[{id:'LOT'+(s.seq++), lotNo:(b.batchNo||'B')+'-L1', qty:b.producedKg, date:b.openedDate||'', by:b.by||'', coa:(b.coa||null), migrated:true}]; } }); ensureMasters(s); ensureProductionModel(s); dedupePackingLots(s); migrateLotTracking(s); migratePackingLotLidV1(s); fixRudolfDupV1(s); reconcileLotShipKgV1(s); dedupeShipmentsV1(s); healPRFlags(s); migrateBrandNames(s); loadBaseRecipesV2(s); loadBlendRecipesV1(s); loadBlendRecipesV2(s); purgeImportedProduction(s); purgeImportDuplicates(s); purgeImportedNoTwin(s); fixPhantomLotVU26134(s); fixVU26144ProdLogV1(s); fixVU26144ProdLogV2(s); healVU26144ProdLog(s); backfillDisposedV1(s); consolidateByproductV1(s); dedupeByproductV1(s); reconcileShipLotsV1(s); normalizeVZincBase(s); normalizeBoronBase(s); seedByproductRulesV1(s); seedRolesV1(s); seedWarehouseRoleV1(s); seedAccessV2(s); seedDeptRightsV1(s); seedCustomerRightsV1(s); seedPrintDecisionV1(s); bumpSeqV1(s); healDupBatchIdsV1(s); fixVB26003LotRenameV1(s); fixRudolfTBPPOV1(s); linkShipBatchLotsV1(s); return s;
 }
 /* 2026-07-28 fix: seq can lag behind ids already in the data (stale tab saved over a
    newer state), so bump it above every numeric id suffix before anything generates ids. */
@@ -3174,6 +3178,30 @@ function seedCustomerRightsV1(s){
     s.masters.roleRights[ro.id]=row; });
   s.masters._customerRightsV1={at:new Date().toISOString(),by:'ruling of 23 Sep 2026 (R5, R9)'};
   try{ if(typeof logAction==='function') logAction('Customer rights moved to Finance and the CFO (ruling of 23 Sep 2026). The KAM is a reviewer.'); }catch(e){}
+}
+/* PRINT-ON-PACK: THE OLD ORDERS - R2, the night of 23 September 2026.
+   44 orders were raised before the question existed. The Action Center held
+   them as one bulk job on the KAM, who is now a reviewer. Tahir: "mark them as
+   no print for all old orders where missing." Written exactly as the single-PO
+   path writes an answer; signed as the ruling; once; flagged. A "no" is the
+   answer that disarms the packing price check (saveBulkPrintDecision explains
+   why it asks a person to confirm), so the log names every brand among them
+   that has carried a printed price before - for the COO to read, not to stop
+   the ruling. A person's later "yes" is never overwritten. */
+function seedPrintDecisionV1(s){
+  if(!s.masters) s.masters={};
+  if(s.masters._printDecisionV1) return;
+  var at=new Date().toISOString(), n=0, hist={};
+  var everPrinted={}; (s.orders||[]).forEach(function(o){ (o.lines||[]).forEach(function(l){ if(l && +l.printPrice>0) everPrinted[l.brand]=1; }); });
+  (s.orders||[]).forEach(function(o){
+    if(!o || o.printDecision) return;
+    if(!(o.lines||[]).some(function(l){ return l && (+l.ordered||0)>0; })) return;
+    o.printDecision='no'; o.printOnPack=false; o.printDecisionBy='COO (ruling of 23 Sep 2026)'; o.printDecisionAt=at; n++;
+    (o.lines||[]).forEach(function(l){ if(l && everPrinted[l.brand]) hist[l.brand]=1; });
+  });
+  s.masters._printDecisionV1={at:at,by:'ruling of 23 Sep 2026 (R2)',count:n};
+  var hb=Object.keys(hist);
+  try{ if(typeof logAction==='function') logAction('Print-on-pack answered "no" for '+n+' order'+(n===1?'':'s')+' raised before the question existed (ruling of 23 Sep 2026)'+(hb.length?('. Brands among them that have carried a printed price before: '+hb.join(', ')):'.')); }catch(e){}
 }
 /* THE WAREHOUSE ROLE - R12. "Create it in the build." Filed under Supply Chain;
    its dispatch grants come from DISPATCH_GRANT through seedDeptRightsV1, which
@@ -9924,6 +9952,48 @@ function openDelayReason(oid,lid){ const o=state.orders.find(x=>x.id===oid); con
   $('modal').innerHTML=`<div class="mh"><h2>Delay reason</h2><div class="sub">${o.po} · ${l.brand}</div></div><div class="mb"><div class="formgrid" style="grid-template-columns:1fr 1fr"><div class="fld"><label>Delay reason</label><select onchange="delayForm.reason=this.value"><option value="">— pick —</option>${rs.map(r=>`<option ${r===delayForm.reason?'selected':''}>${r}</option>`).join('')}</select></div><div class="fld"><label>Responsible dept</label><select onchange="delayForm.dept=this.value"><option value="">— pick —</option>${ds.map(d=>`<option ${d===delayForm.dept?'selected':''}>${d}</option>`).join('')}</select></div></div></div><div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" onclick="submitDelayReason()">Save</button></div>`;
   $('modalBg').classList.add('open'); }
 function submitDelayReason(){ const o=state.orders.find(x=>x.id===delayForm.oid); const l=o&&o.lines.find(x=>x.id===delayForm.lid); if(!l)return; if(!delayForm.reason){toast('Pick a delay reason');return;} l.delayReason=delayForm.reason; l.respDept=delayForm.dept||l.respDept; logAction(`Delay reason set ${o.po} · ${l.brand}: ${delayForm.reason}${delayForm.dept?(' / '+delayForm.dept):''}`); save(); closeModal(); render(); }
+/* ONE REASON PER LATE ORDER - R14, the night of 23 September 2026.
+   "One reason per order, line override allowed. 18 rows become 7 questions."
+   Every late line of the order in one modal; the order's reason and department
+   apply to every line unless a line is given its own. Writes exactly what
+   submitDelayReason() writes, one log line per line. */
+let delayOrderForm={oid:null,reason:'',dept:'',lines:{}};
+function openDelayReasonOrder(oid){
+  const o=(state.orders||[]).find(x=>x.id===oid); if(!o) return;
+  /* the same lines the Action Center raises: not delivered, not closed short */
+  const late=(o.lines||[]).filter(l=>{ const lb=lineBucket(o,l); return lb!=='Delivered' && !lineShortClosed(l) && !lineShortRequested(l) && !!pmDelayLabel(o,l,lb); });
+  if(!late.length){ toast('No late line on this order needs a reason'); return; }
+  delayOrderForm={oid:oid,reason:'',dept:'',lines:{}};
+  late.forEach(l=>{ delayOrderForm.lines[l.id]={reason:'',dept:''}; });
+  const rs=(state.masters&&state.masters.delayReasons)||[]; const ds=(state.masters&&state.masters.respDepts)||[];
+  const opt=(arr,cur)=>'<option value="">\u2014 same as the order \u2014</option>'+arr.map(r=>`<option ${r===cur?'selected':''}>${_pe(r)}</option>`).join('');
+  $('modal').innerHTML=`<div class="mh"><h2>Why is this order late?</h2><div class="sub">${_pe(o.po)}${o.client?' \u00b7 '+_pe(shortClient(o.client)):''} \u00b7 ${late.length} late line${late.length===1?'':'s'}</div></div>
+  <div class="mb">
+    <div class="formgrid" style="grid-template-columns:1fr 1fr">
+      <div class="fld"><label>Reason for the order</label><select onchange="delayOrderForm.reason=this.value"><option value="">\u2014 pick \u2014</option>${rs.map(r=>`<option>${_pe(r)}</option>`).join('')}</select></div>
+      <div class="fld"><label>Responsible department</label><select onchange="delayOrderForm.dept=this.value"><option value="">\u2014 pick \u2014</option>${ds.map(d=>`<option>${_pe(d)}</option>`).join('')}</select></div>
+    </div>
+    <div class="muted" style="font-size:11.5px;margin:10px 0 6px">Applies to every line below. Change a line only if its reason is different.</div>
+    <table class="tbl" style="width:100%"><thead><tr><th>Line</th><th>Late by</th><th>Reason (if different)</th><th>Dept (if different)</th></tr></thead><tbody>
+    ${late.map(l=>`<tr><td><b>${_pe(l.brand)}</b></td><td>${_pe(pmDelayLabel(o,l,lineBucket(o,l)))}</td>
+      <td><select onchange="delayOrderForm.lines['${_pe(l.id)}'].reason=this.value">${opt(rs,'')}</select></td>
+      <td><select onchange="delayOrderForm.lines['${_pe(l.id)}'].dept=this.value">${opt(ds,'')}</select></td></tr>`).join('')}
+    </tbody></table>
+  </div>
+  <div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" onclick="submitDelayReasonOrder()">Save for all ${late.length}</button></div>`;
+  $('modalBg').classList.add('open');
+}
+function submitDelayReasonOrder(){
+  const f=delayOrderForm; const o=(state.orders||[]).find(x=>x.id===f.oid); if(!o) return;
+  const ids=Object.keys(f.lines||{});
+  const missing=ids.some(id=>!((f.lines[id]&&f.lines[id].reason)||f.reason));
+  if(missing){ toast('Pick a delay reason'); return; }
+  ids.forEach(id=>{ const l=(o.lines||[]).find(x=>x.id===id); if(!l) return;
+    const lf=f.lines[id]||{}; const reason=lf.reason||f.reason; const dept=lf.dept||f.dept;
+    l.delayReason=reason; l.respDept=dept||l.respDept;
+    logAction(`Delay reason set ${o.po} · ${l.brand}: ${reason}${dept?(' / '+dept):''}`); });
+  save(); closeModal(); render();
+}
 function pmDelayLabel(o,l,lb){
   if(l.delayReason) return null;
   const due=l.committed||o.promised; if(!due) return null;
@@ -10785,6 +10855,12 @@ function tdCardHTML(g){
   else if(g.key.indexOf('rsn:')===0){ title=L.title; sub=_tdEsc(one.o.po)+(one.o.client?' · '+_tdEsc(shortClient(one.o.client)):'')+' · '+n+' line'+(n===1?'':'s'); }
   else { title=L.title; sub=one.what||''; }
   var h='<div class="tdcard'+(g.late>0?' late':'')+'">';
+  if(g.key.indexOf('rsn:')===0){
+    /* R14: one question per late order, not one per line */
+    h+='<div class="tdhead"><div class="tdtitle">'+title+'</div><div class="tdsub">'+sub+'</div><div class="tdtags">'+tdTags(g)+'</div></div>';
+    h+='<button class="tdbtn" onclick="openDelayReasonOrder(\''+_tdEsc(one.o.id)+'\')">'+(n===1?'Give the reason':'Give one reason for all '+n)+'</button>';
+    return h+'</div>';
+  }
   if(n===1){
     h+='<div class="tdhead"><div class="tdtitle">'+title+'</div><div class="tdsub">'+sub+'</div><div class="tdtags">'+tdTags(g)+'</div></div>';
     h+='<button class="tdbtn" onclick="'+one.act+'">'+_tdEsc(L.verb)+'</button>';
@@ -10840,8 +10916,15 @@ function screenToday(){
   h+=tdStarts();
   if(state.role==='COO') h+='<div class="tdscope"><button class="'+(tdScope!=='plant'?'on':'')+'" onclick="tdScope=\'mine\';render()">Needs me</button><button class="'+(tdScope==='plant'?'on':'')+'" onclick="tdScope=\'plant\';render()">Whole plant</button></div>';
   if(groups.length){
-    h+='<div class="tdday"><div class="tdbig">'+groups.length+' job'+(groups.length===1?'':'s')+' today</div><div class="tdsm">'+(late?(late+' of them already past the date promised to the customer.'):'Nothing is past its promised date.')+'</div></div>';
-    h+='<div class="tdlist">'+groups.map(tdCardHTML).join('')+'</div>';
+    /* Your own work first. What was escalated to you because somebody else's
+       job stalled comes after it, under its own heading - it is yours to chase,
+       not yours to do, and it must not bury the 7 questions only you can answer. */
+    var own=groups.filter(function(g){ return !g.items.every(function(x){return x._escalated;}); });
+    var esc=groups.filter(function(g){ return g.items.every(function(x){return x._escalated;}); });
+    var lateOwn=own.filter(function(g){return g.late>0;}).length;
+    h+='<div class="tdday"><div class="tdbig">'+(own.length?(own.length+' job'+(own.length===1?'':'s')+' today'):'Nothing of your own today')+'</div><div class="tdsm">'+(own.length?(lateOwn?(lateOwn+' of them already past the date promised to the customer.'):'Nothing is past its promised date.'):'')+(esc.length?(' '+esc.length+' job'+(esc.length===1?' has':'s have')+' stalled on someone else and been escalated to you.'):'')+'</div></div>';
+    if(own.length) h+='<div class="tdlist">'+own.map(tdCardHTML).join('')+'</div>';
+    if(esc.length) h+='<div class="tdsec">Escalated to you \u00b7 '+esc.length+'</div><div class="tdlist">'+esc.map(tdCardHTML).join('')+'</div>';
   } else {
     h+='<div class="tdday"><div class="tdbig">Nothing waiting on you</div><div class="tdsm">That is the honest answer. Here is what is moving in the plant.</div></div>'+tdPlantPulse();
   }

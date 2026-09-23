@@ -161,7 +161,8 @@ ok('no price is ever rendered on Today', !/price/i.test(st + grab('tdCardHTML') 
 ok('Today has its own stylesheet', /<style id="td-css">/.test(html));
 
 /* ================= 8. IT SHIPS ================= */
-ok("BUILD_ID is 2026-09-23j", /BUILD_ID\s*=\s*'2026-09-23j'/.test(html));
+/* shipped in 23j; later builds move BUILD_ID on, the changelog entry stays */
+ok("BUILD_ID is 2026-09-23j or later", /BUILD_ID\s*=\s*'2026-09-23[j-z]'/.test(html));
 ok('the changelog tells people about Today', /ver:'2026-09-23j'[\s\S]{0,400}Today/.test(html));
 
 process.exitCode = report('Today — the new front door') ? 1 : 0;

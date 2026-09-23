@@ -85,6 +85,9 @@ const MARKERS = [
   ['function seedCustomerRightsV1(',       1, 'customers to Finance (R5, R9)'],
   ['function seedWarehouseRoleV1(',        1, 'the Warehouse role (R12)'],
   ['async function migrateAccountsV1(',    1, 'Ismaeel to Finance (R22)'],
+  /* 2026-09-23k */
+  ['function openDelayReasonOrder(',       1, 'one reason per late order (R14)'],
+  ['function seedPrintDecisionV1(',        1, 'the old print-on-pack backlog answered (R2)'],
 ];
 
 const [, , mode, freshPath, otherPath] = process.argv;

@@ -2166,6 +2166,64 @@ function shortCloseRefusal(o,l,what){
          ' by '+(sc.approvedBy||'someone')+(r?(' \u2014 '+r.label.toLowerCase()):'')+
          '. Stock already packed can still ship.';
 }
+function scWho(){ return (state.currentUser&&state.currentUser.name)||state.role; }
+/* Frozen at the moment of asking, so the shortfall still reads correctly a year
+   later even if the numbers underneath move. */
+function scFreeze(l){ return {orderedAtClose:(+l.ordered||0), deliveredAtClose:(+l.delivered||0), packedAtClose:(+l.packed||0)}; }
+function _scLine(oid,lid){ var o=(state.orders||[]).find(function(x){return x.id===oid;});
+  var l=o&&(o.lines||[]).find(function(x){return x.id===lid;}); return {o:o,l:l}; }
+
+function requestShortClose(oid,lid,reasonCode,reason){
+  if(!may('po.shortclose_request')){toast(denyRight('po.shortclose_request','Asking to close a PO line short'));return;}
+  var f=_scLine(oid,lid), o=f.o, l=f.l; if(!l) return;
+  if(lineShortClosed(l)){toast('This line is already closed short.');return;}
+  if(lineShortRequested(l)){toast('A close is already waiting for approval on this line.');return;}
+  if(!scReason(reasonCode)){toast('Pick a reason for closing it.');return;}
+  if(reasonCode==='other' && !String(reason||'').trim()){toast('Say why this line is being closed.');return;}
+  l.shortClose=Object.assign({requestedBy:scWho(), requestedAt:new Date().toISOString(),
+                              reasonCode:reasonCode, reason:String(reason||'').trim()}, scFreeze(l));
+  logAction('Short close requested \u2014 '+o.po+'\u00b7'+l.brand+': '+(scReason(reasonCode)||{}).label+' (waiting for approval)');
+  (state.audit=state.audit||[]).unshift({t:new Date().toISOString(),user:scWho(),module:'PO',po:o.po,brand:l.brand,field:'Short close requested',old:'',val:(scReason(reasonCode)||{}).label});
+  save(); if(typeof closeModal==='function')closeModal(); render(); toast('Asked to close '+l.brand+' short \u2014 waiting for approval');
+}
+
+function approveShortClose(oid,lid){
+  if(!may('po.shortclose_approve')){toast(denyRight('po.shortclose_approve','Approving a short close'));return;}
+  var f=_scLine(oid,lid), o=f.o, l=f.l; if(!l) return;
+  if(!lineShortRequested(l)){toast('Nothing is waiting for approval on this line.');return;}
+  /* SEPARATION OF DUTIES, and the first one in this app that can actually fire.
+     The five in SEPARATION are all skipped, because six of the nine codes they
+     name were never added to RIGHTS. Both codes here exist from the start. */
+  if(String(l.shortClose.requestedBy||'')===String(scWho())){
+    toast('You asked for this close. Somebody else must approve it.');return;}
+  l.shortClose.approvedBy=scWho(); l.shortClose.approvedAt=new Date().toISOString();
+  logAction('Short close APPROVED \u2014 '+o.po+'\u00b7'+l.brand+': '+fmt(shortCloseGap(l))+' Kg/L closed short, asked by '+(l.shortClose.requestedBy||''));
+  (state.audit=state.audit||[]).unshift({t:new Date().toISOString(),user:scWho(),module:'PO',po:o.po,brand:l.brand,field:'Short close approved',old:'',val:fmt(shortCloseGap(l))+' Kg/L'});
+  save(); render(); toast(l.brand+' closed short \u2014 '+fmt(shortCloseGap(l))+' Kg/L. Packed stock can still ship.');
+}
+
+function rejectShortClose(oid,lid){
+  if(!may('po.shortclose_approve')){toast(denyRight('po.shortclose_approve','Rejecting a short close'));return;}
+  var f=_scLine(oid,lid), o=f.o, l=f.l; if(!l) return;
+  if(!lineShortRequested(l)){toast('Nothing is waiting for approval on this line.');return;}
+  var was=l.shortClose; delete l.shortClose;
+  logAction('Short close REJECTED \u2014 '+o.po+'\u00b7'+l.brand+' (asked by '+(was.requestedBy||'')+')');
+  (state.audit=state.audit||[]).unshift({t:new Date().toISOString(),user:scWho(),module:'PO',po:o.po,brand:l.brand,field:'Short close rejected',old:(was.reasonCode||''),val:''});
+  save(); render(); toast('Rejected \u2014 '+l.brand+' stays open');
+}
+
+function reopenShortClose(oid,lid){
+  if(!may('po.reopen')){toast(denyRight('po.reopen','Reopening a closed PO line'));return;}
+  var f=_scLine(oid,lid), o=f.o, l=f.l; if(!l) return;
+  if(!lineShortClosed(l)){toast('This line is not closed short.');return;}
+  /* The close is kept, never deleted: it is the record of a decision that was
+     taken, and the reopening is a second decision on top of it. */
+  l.shortClose.reopenedBy=scWho(); l.shortClose.reopenedAt=new Date().toISOString();
+  logAction('Short close REOPENED \u2014 '+o.po+'\u00b7'+l.brand+' by '+scWho());
+  (state.audit=state.audit||[]).unshift({t:new Date().toISOString(),user:scWho(),module:'PO',po:o.po,brand:l.brand,field:'Short close reopened',old:'',val:''});
+  save(); render(); toast(l.brand+' is open again');
+}
+
 function lineStage(o,l){
   /* Before the Delivered test on purpose: a line closed short after a partial
      delivery is NOT delivered, and must not read as though it were. */
@@ -2724,7 +2782,23 @@ var RIGHTS=[
      Production role: the floor logs the output, somebody above them unwinds it. */
   {code:'production.void',   dept:'production', name:'Remove a shift\u2019s output',
    note:'Un-log a shift that should never have been recorded — a double submission, the wrong batch, a typo. Needs a reason and goes in the correction register. Refused once the lab has certified the lot: certified material exists, and it is disposed of, not un-made \u2014 unless the certificate itself was issued in error and the QCM / COO supersedes it first. The COO\u2019s decision, 26 Aug: Production Manager and above, never the floor officer who logged it.',
-                                                              legacy:{kind:'hard', roles:['Plant Manager']}}
+                                                              legacy:{kind:'hard', roles:['Plant Manager']}},
+
+  /* ---- Short-closing a PO line, 23 September 2026 ----
+     Tahir: anyone in Production, Supply Chain or Finance may ask; leadership
+     approves; only the COO reopens. All three are delegable:false — the roles
+     that may ask span three departments, so a department lead cannot be the one
+     who widens it. The role names below change when the role model lands; the
+     hard list is what answers today, since none of these are in RIGHTS_LIVE. */
+  {code:'po.shortclose_request', dept:'commercial', name:'Ask to close a PO line short', delegable:false,
+   note:'Ask for the unshipped balance of a PO line to be closed. Needs a reason. Does not take effect until leadership approves it.',
+   legacy:{kind:'hard', roles:['Production','Production Manager','Supply Chain','Supply Chain Officer','CFO','Finance','Finance Desk Officer','Plant Manager']}},
+  {code:'po.shortclose_approve', dept:'leadership', name:'Approve closing a PO line short', delegable:false,
+   note:'Approve a short close. The person who asked for it cannot be the person who approves it.',
+   legacy:{kind:'hard', roles:['Plant Manager']}},
+  {code:'po.reopen',             dept:'leadership', name:'Reopen a short-closed PO line', delegable:false,
+   note:'Put a closed line back into play. COO only. The close is kept as history, never deleted.',
+   legacy:{kind:'hard', roles:[]}}
 ];
 
 /* Pairs that must never sit on one role. Enforced only where BOTH codes are in

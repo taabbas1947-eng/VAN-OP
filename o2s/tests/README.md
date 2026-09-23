@@ -19,11 +19,13 @@ node o2s/tests/qagate.test.js      #  16 - the pre-shipment inspection cut-over
 node o2s/tests/focprice.test.js    #  24 - FOC samples and price-on-pack
 node o2s/tests/gatepassqa.test.js  #  14 - a Gate Pass needs the inspection
 node o2s/tests/shortclose.test.js  #  39 - short-closing a PO line
+node o2s/tests/shortcloseactions.test.js
+                                   #  28 - request, approve, reject, reopen
 ```
 
-**518 checks in the suites listed above.** Running every `*.test.js` in this
+**546 checks in the suites listed above.** Running every `*.test.js` in this
 folder together, with `data/state.json` and both `_before-*.html` fixtures in
-place, gives **7,319**. Exit code 0 means all passing. No dependencies, no build step,
+place, gives **7,407**. Exit code 0 means all passing. No dependencies, no build step,
 Node only.
 
 ## How they work
@@ -163,3 +165,15 @@ not a third. A guard with no reach test is the fifth waiting to happen.
 `shortCloseAgainstUs(closed(undefined))` fired the fixture's own default and
 tested `customer_cancelled` instead of the no-reason case it was named after. It
 passed, for the wrong reason. Build the awkward case by hand.
+
+**Account for the whole delta, not just your own suite.** Adding three rights
+moved the total by 88 while the new suite was only 28: `authmodel.test.js` loops
+every role against every right, so a new right adds checks there too
+(5,471 -> 5,531). That is explainable, and it was checked rather than assumed —
+an unexplained delta is the only signal that something else moved.
+
+**A new right has to be declared, not just added.** `authmodel.test.js` crashed
+until the three short-close codes were registered in `NEW_RIGHTS` (with proof
+their handlers had no caller in `_before-lot.html`) and pinned in `WANT`. That is
+the freeze doing its job: a right cannot enter the catalogue without somebody
+writing down what it replaces, or stating that it replaces nothing.

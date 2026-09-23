@@ -37,6 +37,10 @@ const MARKERS = [
   ['function qaRequiredOn(',               1, 'the QA cut-over'],
   ["var QA_GO_LIVE='2026-09-23'",          1, 'the QA go-live date'],
   ['function evStamp(',                    1, 'the entry stamp'],
+  ['function requestShortClose(',          1, 'short close: request'],
+  ['function approveShortClose(',          1, 'short close: approve'],
+  ['function reopenShortClose(',           1, 'short close: reopen'],
+  ["code:'po.shortclose_request'",         1, 'short close: the rights'],
 ];
 
 const [, , mode, freshPath, otherPath] = process.argv;

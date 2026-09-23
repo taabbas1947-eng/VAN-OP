@@ -89,9 +89,13 @@ const asRole = r => { B.state.role = r; };
      B.roleDeptId('Supply Chain') === 'supply-chain' && B.roleDeptId('Supply Chain Officer') === 'supply-chain');
   ok('every right belongs to a department that exists',
      B.RIGHTS.every(r => !!B.deptById(r.dept)));
-  ok('three departments are converted: Commercial, Supply Chain and Production',
-     B.RIGHTS.every(r => ['commercial', 'supply-chain', 'production'].indexOf(r.dept) >= 0)
-     && ['supply-chain', 'production'].every(d => B.RIGHTS.some(r => r.dept === d)),
+  /* Four departments now. Leadership joined on 23 Sept 2026 with the short-close
+     approval and the reopen, which belong to the Plant Manager and the COO and
+     to nobody else — so they are filed there rather than bent into one of the
+     three that happened to be converted first. */
+  ok('four departments are converted: Commercial, Supply Chain, Production and Leadership',
+     B.RIGHTS.every(r => ['commercial', 'supply-chain', 'production', 'leadership'].indexOf(r.dept) >= 0)
+     && ['supply-chain', 'production', 'leadership'].every(d => B.RIGHTS.some(r => r.dept === d)),
      JSON.stringify(B.RIGHTS.map(r => r.dept)));
   /* The sign-offs are NOT in the catalogue and must never be. */
   ['dc.approve', 'dc.reject', 'shipment.release', 'batch.reopen', 'coa.approve']
@@ -168,6 +172,18 @@ const asRole = r => { B.state.role = r; };
                          why: 'Removing a wrongly logged shift. Nothing could do it before: '
                             + 'the only unwind in the file sat below screenProd\'s unreachable '
                             + 'return and was COO-only besides.' },
+    /* Short-closing a PO line, 23 Sept 2026. Genuinely new: before this there
+       was no way to stop work on a line at all. A PO ran until it was delivered
+       in full or sat overdue for ever. */
+    'po.shortclose_request': { handler: 'requestShortClose', since: '23 Sep 2026',
+                         why: 'Asking for the unshipped balance of a line to be closed. '
+                            + 'Nothing could do it before — completion was derived from '
+                            + 'delivered >= ordered and there was no other way out.' },
+    'po.shortclose_approve': { handler: 'approveShortClose', since: '23 Sep 2026',
+                         why: 'Approving that close. Separate from asking for it on purpose: '
+                            + 'the requester may not approve his own request.' },
+    'po.reopen':             { handler: 'reopenShortClose', since: '23 Sep 2026',
+                         why: 'Putting a closed line back into play. COO only.' },
   };
   /* CLOSED GAPS — the third shape, neither of the two above. NOT a conversion:
      there is no old answer to freeze, because the old answer was "anyone, no
@@ -1595,6 +1611,11 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
     /* new 26 Aug. The only production right that is not the Production role:
        the floor logs the output, somebody above them unwinds it. */
     'production.void':      { kind: 'hard',    scr: undefined },
+    /* Short close, 23 Sept 2026 — all three hard-gated by role, none live in
+       the grant table yet, so the hard list is what answers today. */
+    'po.shortclose_request':{ kind: 'hard',    scr: undefined },
+    'po.shortclose_approve':{ kind: 'hard',    scr: undefined },
+    'po.reopen':            { kind: 'hard',    scr: undefined },
   };
   eq('every right in the catalogue is pinned here', B.RIGHTS.filter(r => !WANT[r.code]).length, 0);
   eq('and nothing pinned here has been dropped',

@@ -1,7 +1,25 @@
 # Short-closing a PO — specification
 
 *Ruled by Tahir Abbas, 23 September 2026. Written against `o2s.html` at
-`BUILD_ID='2026-09-23b'`. Not built yet.*
+`BUILD_ID='2026-09-23b'`.*
+
+## Build status
+
+| | |
+|---|---|
+| **Built, 23 Sept** | the model, the guard, the five gates, the tracker stage and the overdue rule — 39 checks in `tests/shortclose.test.js`, suite at 7,319 / 0 |
+| **Not built yet** | the request/approve/reopen actions, the three right codes, the UI, the My Actions item for the approver, and the report treatment |
+
+No `BUILD_ID` bump and no changelog entry for the engine: nothing a person can
+see has changed, because there is no way to create a `shortClose` yet. Both come
+with the UI, so the announcement matches what people can actually do.
+
+**One scope decision taken during the build, and worth knowing.** The spec said
+production refuses. In the code, `submitShiftLog()` records a shift that
+physically happened — so it is deliberately **not** guarded, along with Data Fix.
+Blocking an honest record of real work is exactly the behaviour this system is
+trying to end. What is guarded is new forward work: packing, diverting,
+allocating free stock onto the line, and raising more material.
 
 ---
 

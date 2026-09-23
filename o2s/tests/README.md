@@ -18,11 +18,12 @@ node o2s/tests/psi.test.js         # 123 - the pre-shipment inspection report,
 node o2s/tests/qagate.test.js      #  16 - the pre-shipment inspection cut-over
 node o2s/tests/focprice.test.js    #  24 - FOC samples and price-on-pack
 node o2s/tests/gatepassqa.test.js  #  14 - a Gate Pass needs the inspection
+node o2s/tests/shortclose.test.js  #  39 - short-closing a PO line
 ```
 
-**479 checks in the suites listed above.** Running every `*.test.js` in this
+**518 checks in the suites listed above.** Running every `*.test.js` in this
 folder together, with `data/state.json` and both `_before-*.html` fixtures in
-place, gives **7,280**. Exit code 0 means all passing. No dependencies, no build step,
+place, gives **7,319**. Exit code 0 means all passing. No dependencies, no build step,
 Node only.
 
 ## How they work
@@ -150,3 +151,15 @@ not a suite that passed.
 crashes on the pre-change `o2s.html` because the function it tests does not exist
 yet. That is the proof the test discriminates. A new test that passes before the
 change tests nothing.
+
+**Test the reach of a guard, not just its logic.** `shortclose.test.js` asserts
+which functions call `shortCloseRefusal()` **and which must not** — the shift log
+and Data Fix are named as deliberately unguarded, because blocking an honest
+record of work that physically happened teaches people not to record it. Four
+faults in `o2s.html` have been the same shape: one rule applied in two places and
+not a third. A guard with no reach test is the fifth waiting to happen.
+
+**Default parameters silently swallow an `undefined` case.** A check written as
+`shortCloseAgainstUs(closed(undefined))` fired the fixture's own default and
+tested `customer_cancelled` instead of the no-reason case it was named after. It
+passed, for the wrong reason. Build the awkward case by hand.

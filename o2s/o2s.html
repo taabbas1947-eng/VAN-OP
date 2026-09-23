@@ -2114,10 +2114,62 @@ function rmCheck(order, s){
 
 /* ===================== ENGINE B — stage/fulfilment ===================== */
 const sum=(arr,f)=>arr.reduce((a,x)=>a+f(x),0);
-const STAGE_ORDER=['New','RM / Procurement','SO Created','PR Raised','RM Ready','In Production','Produced','QC Passed','Dispatched','Delivered'];
+const STAGE_ORDER=['New','RM / Procurement','SO Created','PR Raised','RM Ready','In Production','Produced','QC Passed','Dispatched','Delivered','Closed short'];
 function agg(o){ return { ordered:sum(o.lines,l=>l.ordered), produced:sum(o.lines,l=>l.produced),
   packed:sum(o.lines,l=>l.packed), dispatched:sum(o.lines,l=>l.dispatched), delivered:sum(o.lines,l=>l.delivered) }; }
+/* ===================== SHORT-CLOSING A PO LINE =====================
+   Tahir, 23 September 2026: "PO can only close half means no further packing is
+   required... a packed product will leave... it's from unpacked or unproduced
+   product."
+
+   So a short close is a STOP instruction, not a reversal. It stops new forward
+   work on the line. It does not touch anything already packed, which still
+   ships, and it NEVER rewrites l.ordered.
+
+   Why that last point matters. Completion in this app is derived, not flagged:
+   `(l.delivered||0)>=l.ordered-0.5`. The tempting implementation is therefore to
+   set l.ordered=l.delivered and let every existing test follow. That would make
+   a 30,000 Kg order that shipped 18,000 read as 18,000 fully delivered — the
+   shortfall erased and the fulfilment number improved by hiding a customer who
+   asked for more than they got. The close is a new recorded fact instead. */
+var SHORTCLOSE_REASONS=[
+  {code:'customer_cancelled',   label:'Customer cancelled the balance', ours:false},
+  {code:'customer_reduced',     label:'Customer reduced the quantity',  ours:false},
+  {code:'customer_no_uptake',   label:'Ordered but never collected',    ours:false},
+  {code:'our_shortfall',        label:'We could not supply',            ours:true},
+  {code:'material_unavailable', label:'Raw material never arrived',     ours:true},
+  {code:'commercial',           label:'Price, credit or terms',         ours:true},
+  {code:'other',                label:'Other',                          ours:true}
+];
+function scReason(code){ for(var i=0;i<SHORTCLOSE_REASONS.length;i++){ if(SHORTCLOSE_REASONS[i].code===code) return SHORTCLOSE_REASONS[i]; } return null; }
+function lineShortClosed(l){ var sc=l&&l.shortClose; return !!(sc&&sc.approvedAt&&!sc.reopenedAt); }
+function lineShortRequested(l){ var sc=l&&l.shortClose; return !!(sc&&!sc.approvedAt&&!sc.reopenedAt); }
+/* Frozen at the close, so the shortfall still reads correctly a year later even
+   if other numbers move underneath it. */
+function shortCloseGap(l){ if(!lineShortClosed(l)) return 0;
+  var sc=l.shortClose; var ord=(+sc.orderedAtClose||+l.ordered||0), del=(+sc.deliveredAtClose||+l.delivered||0);
+  return Math.max(0, Math.round((ord-del)*100)/100); }
+/* An unreasoned close must never quietly improve the numbers, so anything not
+   explicitly the customer's counts against us. */
+function shortCloseAgainstUs(l){ var sc=l&&l.shortClose; if(!sc) return false;
+  var r=scReason(sc.reasonCode); return r?!!r.ours:true; }
+/* ONE guard, asked by every writer of new forward work.
+   Four faults in this file have been the same shape: a rule applied in two
+   places and not a third (fault 4, fault 8, the release gate, and the Gate Pass
+   on 23 Sept). tests/shortclose.test.js asserts which functions call this and,
+   just as importantly, which must not. */
+function shortCloseRefusal(o,l,what){
+  if(!lineShortClosed(l)) return '';
+  var sc=l.shortClose, r=scReason(sc.reasonCode);
+  return (what||'That')+' is closed \u2014 '+((o&&o.po)?o.po+' \u00b7 ':'')+((l&&l.brand)||'')+
+         ' was closed short on '+String(sc.approvedAt||'').slice(0,10)+
+         ' by '+(sc.approvedBy||'someone')+(r?(' \u2014 '+r.label.toLowerCase()):'')+
+         '. Stock already packed can still ship.';
+}
 function lineStage(o,l){
+  /* Before the Delivered test on purpose: a line closed short after a partial
+     delivery is NOT delivered, and must not read as though it were. */
+  if(lineShortClosed(l)) return 'Closed short';
   if(l.deliveredDate && (l.delivered||0)>=l.ordered-0.5) return 'Delivered';
   if(l.dispatchDate||(l.dispatched||0)>0) return 'Dispatched';
   if(l.qcPass) return 'QC Passed';
@@ -2130,7 +2182,8 @@ function lineStage(o,l){
 }
 function stageOf(o){ if(!o.lines||!o.lines.length) return 'New';
   const idx=o.lines.map(l=>STAGE_ORDER.indexOf(lineStage(o,l))); return STAGE_ORDER[Math.min.apply(null,idx)]; }
-function lineOverdue(o,l){ if(!l.committed || (l.delivered||0)>=l.ordered-0.5 || !(new Date(l.committed)<TODAY)) return false; if(o.received && new Date(l.committed)<new Date(o.received)) return false; /* committed before the order was received = bad/imported date — not overdue */ return true; }
+function lineOverdue(o,l){ /* a short-closed line is not chased: leaving it on the overdue list forever is how people learn to ignore the overdue list */ if(lineShortClosed(l)) return false;
+  if(!l.committed || (l.delivered||0)>=l.ordered-0.5 || !(new Date(l.committed)<TODAY)) return false; if(o.received && new Date(l.committed)<new Date(o.received)) return false; /* committed before the order was received = bad/imported date — not overdue */ return true; }
 function isOverdue(o){ return o.lines.some(l=>lineOverdue(o,l)); }
 function daysOver(o){ const ds=o.lines.filter(l=>lineOverdue(o,l)).map(l=>Math.round((TODAY-new Date(l.committed))/86400000));
   return ds.length?Math.max.apply(null,ds):(o.promised?Math.round((TODAY-new Date(o.promised))/86400000):0); }
@@ -4529,6 +4582,7 @@ let rmForm={oid:null,lid:null,status:'full',canMake:'',unit:'kg'};
 /* New RM model: confirmation only (no raw-material inventory). Makeable quantity is in PRODUCT Kg/L. */
 function rmMakeKg(){ var o=state.orders.find(x=>x.id===rmForm.oid); var l=o&&o.lines.find(x=>x.id===rmForm.lid); var ord=(l&&+l.ordered)||0; var v=+rmForm.canMake||0; if(rmForm.unit==='pct') v=ord*v/100; return Math.max(0,Math.min(ord,Math.round(v))); }
 function openRMCheck(oid,lid){ if(!may('rm.check')){toast(denyRight('rm.check','RM Check'));return;} const o=state.orders.find(x=>x.id===oid); const l=o&&o.lines.find(x=>x.id===lid); if(!l)return;
+  { var _sc=shortCloseRefusal(o,l,'An RM check'); if(_sc){toast(_sc);return;} }
   rmForm={oid,lid,status:(l.rmStatus&&l.rmStatus!=='pending'?l.rmStatus:'full'),canMake:(l.rmStatus==='partial'&&l.canMakeKg!=null?l.canMakeKg:''),unit:'kg'};
   renderRMModal(); $('modalBg').classList.add('open'); }
 function closeModal(){ $('modalBg').classList.remove('open'); try{$('modal').classList.remove('coa');$('modal').classList.remove('shipdrawer');$('modal').classList.remove('whatsnew');}catch(e){} }
@@ -6092,6 +6146,7 @@ function renderDivert(){ const p=(state.batches||[]).find(x=>x.id===divForm.pool
   }
   $('modal').innerHTML=`<div class="mh"><h2>Diverted material — ${p.base}</h2><div class="sub">${fmt(avail)} Kg available · QC-cleared</div></div><div class="mb">${tabs}${body}</div><div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" onclick="submitDivert()">${m==='recycle'?'Recycle':'Pack'}</button></div>`; }
 function submitDivert(){ if(!may('packing.divert')){toast(denyRight('packing.divert','Diverting material'));return;} const p=(state.batches||[]).find(x=>x.id===divForm.poolId); if(!p)return; const avail=+p.plannedKg||0; let qty=Math.round(+divForm.qty||0); const d=TODAY.toISOString().slice(0,10);
+  { var _o=state.orders.find(function(x){return x.id===divertForm.oid;}); var _l=_o&&(_o.lines||[]).find(function(x){return x.id===divertForm.lid;}); var _sc=shortCloseRefusal(_o,_l,'Diverting stock onto this line'); if(_sc){toast(_sc);return;} }
   if(!(qty>0)){toast('Enter a quantity');return;}
   if(qty>avail+0.5){toast('Quantity must be ≤ '+fmt(Math.round(avail))+' Kg available');return;}
   if(divForm.mode==='recycle'){ const tb=(state.batches||[]).find(x=>x.id===divForm.bid); if(!tb){toast('Pick a batch to recycle into');return;}
@@ -6364,6 +6419,7 @@ function renderProdQty(){ const o=state.orders.find(x=>x.id===pqForm.oid); const
    </div>
    <div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button>${bs.length?`<button class="green" onclick="submitProdQty()">Pack</button>`:''}</div>`; }
 function submitProdQty(){ if(!may('production.enter')){toast(denyRight('production.enter','Entering produced quantity'));return;} const o=state.orders.find(x=>x.id===pqForm.oid); const l=o.lines.find(x=>x.id===pqForm.lid); const b=(state.batches||[]).find(x=>x.id===pqForm.bid); if(!b){toast('Pick a production batch');return;} const max=pqMax(o,l); const q=Math.min(+pqForm.qty||0,max); const d=pqForm.date||TODAY.toISOString().slice(0,10);
+  { var _po=state.orders.find(function(x){return x.id===pqForm.oid;}); var _pl=_po&&(_po.lines||[]).find(function(x){return x.id===pqForm.lid;}); var _sc=shortCloseRefusal(_po,_pl,'Packing'); if(_sc){toast(_sc);return;} }
   if(q<=0){toast('Enter a quantity (max '+fmt(max)+' Kg/L)');return;}
   const _gate=packPriceGate(o,l,pqForm); if(_gate){toast(_gate);return;} const _prec=packPriceRecord(o,l,pqForm);
   b.packedKg=(b.packedKg||0)+q; l.packed=(l.packed||0)+q; l.produced=Math.max(l.produced||0,l.packed); l.prodStart=l.prodStart||d; if(l.packed>=l.ordered-0.5)l.prodComplete=l.prodComplete||d;
@@ -6399,6 +6455,7 @@ function doPack(){ if(!may('packing.pack')){toast(denyRight('packing.pack','Pack
   if(!brand||kg<=0){toast('Pick a brand and quantity');return;}
   if(packForm.oid && packForm.oid!=='STOCK' && packForm.lid){
     const o=state.orders.find(x=>x.id===packForm.oid); const l=o&&o.lines.find(x=>x.id===packForm.lid);
+    { var _sc=shortCloseRefusal(o,l,'Packing'); if(_sc){toast(_sc);return;} }
     if(!l){toast('Pick a PO');return;}
     const need=l.ordered-(l.packed||0); kg=Math.min(kg,need);
     if(kg<=0){toast('That PO is already fully packed');return;}
@@ -6427,7 +6484,7 @@ function doPack(){ if(!may('packing.pack')){toast(denyRight('packing.pack','Pack
     toast('Packing must be against a PO for this brand — select the PO above (no unassigned packing).'); return;
   }
   save(); closeModal(); render(); toast('Packed'); }
-function allocateStock(oid,lid){ const o=state.orders.find(x=>x.id===oid); const l=o.lines.find(x=>x.id===lid); const av=state.packedStock[l.brand]||0; const need=l.ordered-(l.packed||0); const kg=Math.min(av,need);
+function allocateStock(oid,lid){ const o=state.orders.find(x=>x.id===oid); const l=o.lines.find(x=>x.id===lid); { var _sc=shortCloseRefusal(o,l,'Allocating packed stock to this line'); if(_sc){toast(_sc);return;} } const av=state.packedStock[l.brand]||0; const need=l.ordered-(l.packed||0); const kg=Math.min(av,need);
   if(kg<=0){toast('No packed stock');return;}
   state.packedStock[l.brand]-=kg; l.packed=(l.packed||0)+kg; const d=TODAY.toISOString().slice(0,10); l.prodStart=l.prodStart||d; l.prodComplete=l.prodComplete||d;
   logAction(`Allocated ${fmt(kg)} Kg/L packed ${l.brand} from stock → ${o.po}`); save(); render(); }

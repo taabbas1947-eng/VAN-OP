@@ -4981,3 +4981,92 @@ Nothing pushed. No `.patch` files. No module boundary crossed. Files changed:
 `o2s/o2s.html`, `o2s/tests/closedshortbucket.test.js` (new),
 `o2s/tests/rolemodel.test.js`, `o2s/tests/README.md`, `o2s/tests/preflight.js`,
 this file.
+
+---
+
+## 2026-09-23 · Pass twenty-one · MODULE: O2S · The short-close report
+
+`BUILD_ID='2026-09-23e'`. The last open piece of the short-close feature,
+unblocked by the BUCKETS ruling in pass twenty.
+
+### It is a dataset, not a screen
+
+Reports already carries a Report Builder driven by `RB_DATASETS`. Each entry
+declares its `rows()`, its `fields` (dims and measures), a `dateKey` and its
+`filters`, and the builder supplies grouping, the period bar, summarise, chart
+and export. **"Shortfall by reason and by month" looks like two reports and is
+actually two dimensions.** Nine datasets already work this way; this is the
+tenth, about sixty lines, and the day he wants it by client instead there is
+nothing to write.
+
+`shortclose: 'Short closes · shortfall by reason'`, `dateKey:'date'` (the
+approval date). Dimensions: month, reason, counts-against, status, PO, client,
+channel, product, base, asked by, approved by, asked on, reopened on. Measures:
+ordered at close, delivered at close, shortfall, reopened qty.
+
+### Three decisions worth remembering
+
+1. **The figures are the FROZEN ones** — `shortClose.orderedAtClose` and
+   `deliveredAtClose`, written when the close is approved precisely so the
+   shortfall still reads correctly a year later if the line's own numbers move
+   underneath it. Reading `l.ordered` would have drifted away from the decision
+   being reported on.
+2. **A reopened close is still a row, with a zero shortfall.** It happened, so
+   hiding it would make the reopen invisible; counting its kg as shortfall would
+   double-count work that went back into production. It carries status
+   `Reopened`, `shortfall` 0, and its kg in a separate `reopened` measure. So
+   **summing the shortfall column with no filter applied is honest** — the only
+   way a default view can be trusted. A report whose headline number is only
+   right once you remember to exclude something gets quoted wrong.
+3. **"Counts against" follows `shortCloseAgainstUs`**, not a second copy of the
+   judgement, so an unreasoned close counts against us here exactly as it does
+   everywhere else.
+
+**No price or value column.** The shortfall question is a quantity question, and
+putting money on a screen every role can now open is a separate decision for the
+COO — see S-05 below.
+
+### S-05 raised in the security register
+
+Doing this turned up something worth his attention, recorded in
+`docs/security-register/SECURITY-REGISTER.md` and **not changed**:
+
+`Sales & Budget` (screen `budget`) is deliberately gated to CFO, Plant Manager
+and Finance. But `RB_DATASETS` has **no role gating at all** — `rbSetDS()` takes
+whatever the dropdown offers — and its `finance` dataset carries `price`
+(PKR/Kg) and `value` (sale value PKR). So any role that can open Reports can
+read invoice prices by picking one item from a list. The intent expressed by
+gating `budget` is not carried through to the builder.
+
+**It was not introduced by the Reports ruling.** Thirteen of the fourteen roles
+— QA Inspector, Lab Rep, AQCM, QCM, Production among them — already owned
+`reports` before 23 September; the ruling added Finance Desk Officer, a Finance
+role that would legitimately see prices anyway. The gap is older than the ruling
+and was only found by it. The customer-facing price rule is untouched: this is
+an internal screen.
+
+The fix, if he wants one, is one gate rather than a redesign: filter the dataset
+dropdown by role in `rbRender()`, or give `RB_DATASETS` entries an optional
+`owners:[…]` the way `SCREENS` already has.
+
+### Tests
+
+`shortclosereport.test.js` — 68 checks. It **fails against the unmodified file**
+(`not found: RB_DATASETS.shortclose`), which is the proof it discriminates. Full
+suite **7,646 passed, 0 failed, 0 crashed** — 7,578 + 68, exactly. All six
+inline `<script>` blocks pass `node --check`. `preflight` markers 22 → 23,
+verified against the committed HEAD.
+
+### Short-close: nothing open
+
+Engine, actions, UI, the eighth stage, fulfilment and the report are all done.
+The only thing that would reopen it is his own ruling on fulfilment — closes
+currently count against us not at all, and the one-line change to make our-side
+closes count again is inside `aggOpen`.
+
+### Constraints respected
+
+Nothing pushed. No `.patch` files. No module boundary crossed. Files changed:
+`o2s/o2s.html`, `o2s/tests/shortclosereport.test.js` (new),
+`o2s/tests/README.md`, `o2s/tests/preflight.js`,
+`docs/security-register/SECURITY-REGISTER.md`, this file.

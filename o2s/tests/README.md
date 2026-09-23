@@ -28,13 +28,16 @@ node o2s/tests/closedshortbucket.test.js
                                    #       what "open" means once it exists
 node o2s/tests/shortclosereport.test.js
                                    #  68 - shortfall by reason and by month
-node o2s/tests/roletitles.test.js  #  52 - job titles, and that a title is never
+node o2s/tests/roletitles.test.js  #  54 - job titles, and that a title is never
                                    #       allowed to become a join key
+node o2s/tests/warehousesplit.test.js
+                                   #  43 - Supply Chain splits three ways, and
+                                   #       what step two has still to remove
 ```
 
-**837 checks in the suites listed above.** Running every `*.test.js` in this
+**882 checks in the suites listed above.** Running every `*.test.js` in this
 folder together, with `data/state.json` and both `_before-*.html` fixtures in
-place, gives **7,698**. Exit code 0 means all passing. No dependencies, no build step,
+place, gives **7,745**. Exit code 0 means all passing. No dependencies, no build step,
 Node only.
 
 ## How they work
@@ -270,3 +273,32 @@ title functions cannot grant anything. The layer's whole safety rests on titles
 being display-only, and that is not something the feature's own checks would ever
 notice going wrong — a title used as a join key would pass every functional test
 in the file while quietly creating a second authority table nobody tests.
+
+**Run the whole suite AFTER the changelog, not before it.** Pass A was committed
+with a failing check. The order was: wire the change, run the suite (green), then
+add the BUILD_ID and changelog entry, then run only `buildid.test.js`. But the
+changelog entry quotes the string the change retired — "Assistant
+Analyst/Analyst" — and `roletitles.test.js` had asserted that string existed
+nowhere in the file. The suite was green when it ran and red by the time it was
+committed. The changelog is part of the change; the last thing before a commit is
+always the full suite.
+
+**"Must not exist" needs an exception for the note that says it was removed.**
+The check now asserts the literal survives in exactly one place and that the
+place is inside `var CHANGELOG`. A rule with no room for its own documentation
+either goes red for an honest reason or gets weakened until it means nothing.
+
+**Pin a deliberately half-done state, and name the edit that finishes it.**
+`warehousesplit.test.js` has a whole section of `STEP 2 PENDING` assertions:
+Supply Chain still owns the four dispatch rights, KAM still has New PO Entry.
+They are true today on purpose — nobody holds the Warehouse role and nobody in
+Finance has a login, so removing either would stop trucks leaving the plant or
+stop POs being raised. Each assertion carries the exact edit that finishes it, so
+when somebody makes that edit the check fails and points at itself. A half-done
+change that nobody wrote down is indistinguishable from a finished one six weeks
+later.
+
+**Splice at the bracket, not at the text.** Several `SCREENS` entries have byte
+-identical `owners` arrays. Adding a role by matching the array's text hits the
+wrong screen; the count assertion caught it on the first try. Find the entry by
+its `{id:'…'`, then find ITS closing bracket.

@@ -60,9 +60,10 @@ const { ROLE_TITLE, roleTitle, personTitle, sigTitle, seedTitlesV1 } = box;
     'Supply Chain Officer': 'Warehouse Assistant',
     'Finance': 'Invoicing Officer',
     'Finance Desk Officer': 'Procurement Accountant',
+    'Warehouse': 'Senior Warehouse Officer',
   };
   Object.keys(want).forEach(r => eq("'" + r + "' is titled", roleTitle(r), want[r]));
-  eq('every role name the app knows has a title', Object.keys(ROLE_TITLE).length, 14);
+  eq('every role name the app knows has a title', Object.keys(ROLE_TITLE).length, 15);
   /* Four of the fourteen are their own title. That is not an oversight - COO,
      CFO, Plant Manager and KAM are what HR calls them too. */
   eq('four roles are their own title',
@@ -125,7 +126,19 @@ const { ROLE_TITLE, roleTitle, personTitle, sigTitle, seedTitlesV1 } = box;
      should exist nowhere is asserted nowhere. */
   ok('the COA no longer prints the literal AQCM as a title', !/<br>AQCM</.test(H.html));
   ok('...nor the literal QCM', !/<br>QCM</.test(H.html));
-  ok('...nor "Assistant Analyst/Analyst" anywhere', H.html.indexOf('Assistant Analyst/Analyst') < 0);
+  /* "Nowhere" has to mean nowhere it is USED. The changelog entry announcing the
+     change quotes the old string, and rightly so - the note that says what
+     stopped being printed has to name it. The first version of this check said
+     the file must not contain it at all and went red the moment the changelog
+     was written, AFTER the suite had been run. Which is its own lesson: run the
+     whole suite again after the changelog, not before it. */
+  {
+    const hits = [...H.html.matchAll(/Assistant Analyst\/Analyst/g)].map(m => m.index);
+    eq('"Assistant Analyst/Analyst" survives in one place only', hits.length, 1);
+    const cl = H.html.indexOf('var CHANGELOG'), clEnd = H.html.indexOf('</script>', cl);
+    ok('...and that place is the changelog entry that retired it',
+       hits[0] > cl && hits[0] < clEnd);
+  }
   eq('...and both COA renderers ask sigTitle — three signatures each',
      (H.html.match(/(?<!function )sigTitle\(/g) || []).length, 6);
 }

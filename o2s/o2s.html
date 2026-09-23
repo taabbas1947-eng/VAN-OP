@@ -11,7 +11,7 @@
    a push keeps running the old code with nothing telling anybody. It sat at
    2026-09-04a through this whole day's work; rmqty/psi tests pinned the code,
    nothing pinned this. buildid.test.js now does. */
-var BUILD_ID='2026-09-23f';
+var BUILD_ID='2026-09-23g';
 var CHANGELOG=[
   {ver:'2026-09-04a', date:'2026-09-04', title:"Delivery, DC printing, and a new Reconciliation check", items:[
     "Delivery confirmation stays with Supply Chain \u2014 it no longer hands off to the Plant Manager. If one sits too long, it now re-flags the same Supply Chain owner every 3 days instead.",
@@ -74,6 +74,13 @@ var CHANGELOG=[
     "Two people have their own title today: Ali Raza signs as Production Associate though he holds the same role as Jawad Naseer, and Muhammad Ali signs as Chief Commercial Officer though he holds KAM.",
     "Admin \u2192 Roles now shows what each role signs as, underneath its name.",
     "Nothing about access changed. Every permission is still decided on the role, exactly as before.",
+  ]},
+  {ver:'2026-09-23g', date:'2026-09-23', title:"A warehouse role, and Finance can raise a PO", items:[
+    "Supply Chain becomes three jobs instead of one. Lead Supply Chain keeps procurement and the raw-material chain. A new Warehouse role gets loading, the Gate Pass, delivery confirmation and custody of packed stock. The Warehouse Assistant stays on data entry.",
+    "The point of the split: the person who buys the material is not the person who releases the truck. Warehouse is deliberately NOT given RM Check, RM Receive or Close PR.",
+    "Finance can now raise a PO from New PO Entry, alongside the KAM, the Plant Manager and the CFO.",
+    "Nothing has been taken away from anybody. Supply Chain still does everything it did today, and the KAM still raises POs \u2014 those come off only once the new people have logins and can do the work themselves.",
+    "The Warehouse role does not exist yet. The COO adds it in Admin \u2192 Roles, under Supply Chain, when he is ready.",
   ]},
 ];
 </script>
@@ -2647,27 +2654,34 @@ function denyWork(scrId,what){ var sc=(typeof scr==='function')?scr(scrId):null;
 function hardRole(roles){ return state.role==='COO' || roles.includes(state.role); }
 /* ===================== SCREENS REGISTRY ===================== */
 const SCREENS=[
-  {id:'dash', name:'Dashboard', ic:'\ud83d\udcca', owners:['KAM','Supply Chain','Production','Production Manager','Lab Rep','AQCM','QCM','QA Inspector','Plant Manager','CFO','COO','Supply Chain Officer','Finance Desk Officer','Finance'], sub:'What happened, what\u2019s stuck, who\u2019s behind',
+  {id:'dash', name:'Dashboard', ic:'\ud83d\udcca', owners:['KAM','Supply Chain','Production','Production Manager','Lab Rep','AQCM','QCM','QA Inspector','Plant Manager','CFO','COO','Supply Chain Officer','Finance Desk Officer','Finance','Warehouse'], sub:'What happened, what\u2019s stuck, who\u2019s behind',
     obj:'<b>Executive overview \u00b7 CEO / COO.</b> On-time delivery, overdue &amp; at-risk volume, fulfilment, production output, attention list and top customers \u2014 read-only.'},
-  {id:'approvals', name:'My Actions', ic:'✅', owners:['KAM','Supply Chain','Production','Production Manager','Lab Rep','AQCM','QCM','QA Inspector','Plant Manager','CFO','COO','Supply Chain Officer','Finance Desk Officer','Finance'], sub:'What needs your action',
+  {id:'approvals', name:'My Actions', ic:'✅', owners:['KAM','Supply Chain','Production','Production Manager','Lab Rep','AQCM','QCM','QA Inspector','Plant Manager','CFO','COO','Supply Chain Officer','Finance Desk Officer','Finance','Warehouse'], sub:'What needs your action',
     obj:'<b>Your live worklist.</b> Everything waiting on you across all orders — acknowledge, RM check, approve PR, close PR, produce, QC, QA, ship, delay reasons — each timestamped.'},
-  {id:'entry', name:'New PO Entry', ic:'\u2795', owners:['KAM','Plant Manager','CFO','Finance Desk Officer'], sub:'Add an order',
+  {id:'entry', name:'New PO Entry', ic:'\u2795', owners:['KAM','Plant Manager','CFO','Finance Desk Officer','Finance'], sub:'Add an order',
     obj:'<b>Step 1 \u00b7 KAM.</b> Create a customer PO: Channel \u2192 Client/Dealer \u2192 products (brand auto-maps to base product & pack size) with qty and a committed date. A simple RM-ready flag shows if materials are on hand.'},
   {id:'dealers', name:'Customer Master', ic:'\ud83e\udd1d', owners:['KAM','Plant Manager','CFO'], sub:'Add &amp; manage customers',
     obj:'<b>KAM.</b> Add a dealer before their first PO \u2014 Province \u2192 City; the code auto-generates as DLR-Region-City-NNN. Confirmed dealers then appear in New PO Entry.'},
-  {id:'tracker', name:'PO Tracker', ic:'\ud83d\udccb', owners:['KAM','Supply Chain','Production','Production Manager','Plant Manager','CFO','COO','Supply Chain Officer','Finance Desk Officer'], sub:'Track every order from PO to shipment',
+  {id:'tracker', name:'PO Tracker', ic:'\ud83d\udccb', owners:['KAM','Supply Chain','Production','Production Manager','Plant Manager','CFO','COO','Supply Chain Officer','Finance Desk Officer','Warehouse'], sub:'Track every order from PO to shipment',
     obj:'This screen shows where each order is standing. Updates are entered from each role\u2019s own screen.'},
   {id:'prod', name:'Production', ic:'\ud83c\udfed', owners:['Production','Production Manager','Plant Manager','Supply Chain Officer','QA Inspector'], sub:'Log output & track vs orders',
     obj:'<b>Step 3 \u00b7 Production.</b> Log daily output, and press Produce then Pack against each PO product. See produced-vs-demand by product, customer and brand.'},
   {id:'qc', name:'Lab QC', ic:'\ud83d\udd2c', owners:['Lab Rep','AQCM','QCM','Plant Manager','Production','Production Manager','COO','Supply Chain Officer'], sub:'COA certification',
     obj:'<b>Lab QC.</b> Lab certifies each production lot (a shift’s output) by COA — Analyst → AQCM → QCM — before it can be packed.'},
-  {id:'qa', name:'Pre-shipment QA', ic:'\ud83d\udd0e', owners:['QA Inspector','Supply Chain','Production','Production Manager','COO'], sub:'pre-shipment inspection',
+  {id:'qa', name:'Pre-shipment QA', ic:'\ud83d\udd0e', owners:['QA Inspector','Supply Chain','Production','Production Manager','COO','Warehouse'], sub:'pre-shipment inspection',
     obj:'<b>Pre-shipment QA.</b> QA inspects each packed lot before it can ship; only inspected &amp; cleared quantity becomes available in Shipments. Failures route to Supply Chain to correct.'},
-  {id:'ship', name:'Shipments', ic:'\ud83d\ude9a', owners:['Supply Chain','Production','Production Manager','Plant Manager','Supply Chain Officer','Finance Desk Officer'], sub:'Record & track shipments',
+  /* The Warehouse role reaches dispatch through THIS screen plus an Access
+     control matrix grant, not by editing the dispatch rights' `legacy` blocks.
+     A legacy block is a frozen RECORD of what a gate did before its right was
+     converted - authmodel.test.js refuses any edit to one, and it was right to:
+     changing it makes the app claim the old rule was something it never was.
+     _canEditOn() consults the matrix BEFORE the owners list, so the COO ticking
+     Warehouse = edit on Shipments is the supported path and needs no code. */
+  {id:'ship', name:'Shipments', ic:'\ud83d\ude9a', owners:['Supply Chain','Production','Production Manager','Plant Manager','Supply Chain Officer','Finance Desk Officer','Warehouse'], sub:'Record & track shipments',
     obj:'<b>Step 4 \u00b7 Supply Chain.</b> Record each dispatch leaving the plant. When shipped \u2265 ordered the product closes; when all products ship, the PO closes.'},
-  {id:'reports', name:'Reports', ic:'\ud83d\udcc8', owners:['KAM','Supply Chain','Production','Production Manager','Plant Manager','CFO','COO','AQCM','QCM','Lab Rep','QA Inspector','Supply Chain Officer','Finance','Finance Desk Officer'], sub:'Slice & view all data',
+  {id:'reports', name:'Reports', ic:'\ud83d\udcc8', owners:['KAM','Supply Chain','Production','Production Manager','Plant Manager','CFO','COO','AQCM','QCM','Lab Rep','QA Inspector','Supply Chain Officer','Finance','Finance Desk Officer','Warehouse'], sub:'Slice & view all data',
     obj:'<b>Reports \u00b7 read-only.</b> Built from data already captured. Use Explorer to slice by client, product, month or stage, or open a ready report. Filters apply to every view; print from the top-right.'},
-  {id:'instructions', name:'Instructions', ic:'\ud83d\udcd6', owners:['KAM','Supply Chain','Production','Production Manager','Lab Rep','AQCM','QCM','QA Inspector','Plant Manager','CFO','COO','Supply Chain Officer','Finance Desk Officer','Finance'], sub:'App manual',
+  {id:'instructions', name:'Instructions', ic:'\ud83d\udcd6', owners:['KAM','Supply Chain','Production','Production Manager','Lab Rep','AQCM','QCM','QA Inspector','Plant Manager','CFO','COO','Supply Chain Officer','Finance Desk Officer','Finance','Warehouse'], sub:'App manual',
     obj:'<b>Manual.</b> The whole process \u2014 where to add, when, and how information flows.'},
   {id:'admin', name:'Admin · Master Data', ic:'\u2699\ufe0f', owners:['Lab Rep','AQCM','QCM','Plant Manager','COO'], sub:'Manage dropdown lists',
     obj:'<b>COO / Admin.</b> Add or view dropdown values \u2014 delay reasons, responsible departments, KAM names, forms, statuses, downtime reasons. Changes flow to every dropdown.'},
@@ -2711,7 +2725,8 @@ var DEPTS=[
 var ROLE_DEPT={ 'kam':'commercial', 'supply-chain':'supply-chain',
   'supply-chain-officer':'supply-chain', 'production':'production',
   'lab-rep':'quality', 'aqcm':'quality', 'qcm':'quality', 'qa-inspector':'quality',
-  'plant-manager':'leadership', 'cfo':'finance', 'finance':'finance', 'coo':'leadership' };
+  'plant-manager':'leadership', 'cfo':'finance', 'finance':'finance', 'coo':'leadership',
+  'warehouse':'supply-chain' };   /* C10: warehouse sits INSIDE Supply Chain, not beside it */
 
 /* ===================== JOB TITLES, SEPARATE FROM ROLE NAMES =====================
    Tahir, 23 September 2026, asked as a direct question and answered: HR's titles
@@ -2755,6 +2770,7 @@ var ROLE_TITLE={
   'QA Inspector':'QA Officer',                  /* Muhammad Ehtisham, Muhammad Asif - C10 */
   'Supply Chain':'Lead Supply Chain',           /* Saad Jamal */
   'Supply Chain Officer':'Warehouse Assistant', /* Zain Ghaffar */
+  'Warehouse':'Senior Warehouse Officer',        /* Shoaib Sabir */
   'Finance':'Invoicing Officer',                /* Muhammad Ismaeel */
   'Finance Desk Officer':'Procurement Accountant' /* Abdul Basit Khan */
 };
@@ -8442,8 +8458,8 @@ function lotQASubmit(){ const p=lotById(lotQAForm.lotId); if(!p)return; if(lotQA
   (state.audit=state.audit||[]).unshift({t:new Date().toISOString(),user:state.role,module:'QA',po:p.po,brand:p.brand,field:anyFail?'QA FAILED':'QA passed',old:'',val:lotQAForm.remarks||''});
   logAction(`QA ${anyFail?'FAILED':'passed'} lot ${p.brandBatchNo||p.baseBatchNo||''} (${p.brand}, ${fmt(p.kg)} Kg/L) for ${p.po}`);
   save(); closeModal(); render(); }
-function clearQaHold(lotId){ if(!(canEdit(['QA Inspector'])||canEdit(['Supply Chain'])||state.role==='COO')){toast('QA Inspector / Supply Chain only');return;} var p=lotById(lotId); if(!p||!p.qaHold)return; var note=(typeof prompt==='function'?prompt('Correction note before re-inspection:'):'')||''; p.reinsp=(p.reinsp||0)+1; var was=p.qaHold; p.qaHold=null; (state.audit=state.audit||[]).unshift({t:new Date().toISOString(),user:state.role,module:'QA',po:p.po,brand:p.brand,field:'QA hold cleared — re-inspect',old:(was&&was.reason)||'',val:'re-inspect #'+p.reinsp+(note?(' — '+note):'')}); logAction('QA hold cleared on lot '+(p.brandBatchNo||p.baseBatchNo||'')+' ('+p.brand+') — back to inspection #'+p.reinsp+(note?(' — '+note):'')); save(); render(); }
-function lotQACorrect(lotId){ if(!(canEdit(['Supply Chain'])||state.role==='COO')){toast('Supply Chain only');return;} const p=lotById(lotId); if(!p||!(p.qa&&p.qa.fail))return; const note=(typeof prompt==='function'?prompt('Correction note before re-inspection:'):'')||''; p.reinsp=(p.reinsp||0)+1; p.qa=null; logAction(`Lot ${p.brandBatchNo||p.baseBatchNo||''} corrected & resubmitted for re-inspection #${p.reinsp} (${p.po})`+(note?(' — '+note):'')); save(); render(); }
+function clearQaHold(lotId){ if(!(canEdit(['QA Inspector'])||canEdit(['Supply Chain','Warehouse'])||state.role==='COO')){toast('QA Inspector / Supply Chain only');return;} var p=lotById(lotId); if(!p||!p.qaHold)return; var note=(typeof prompt==='function'?prompt('Correction note before re-inspection:'):'')||''; p.reinsp=(p.reinsp||0)+1; var was=p.qaHold; p.qaHold=null; (state.audit=state.audit||[]).unshift({t:new Date().toISOString(),user:state.role,module:'QA',po:p.po,brand:p.brand,field:'QA hold cleared — re-inspect',old:(was&&was.reason)||'',val:'re-inspect #'+p.reinsp+(note?(' — '+note):'')}); logAction('QA hold cleared on lot '+(p.brandBatchNo||p.baseBatchNo||'')+' ('+p.brand+') — back to inspection #'+p.reinsp+(note?(' — '+note):'')); save(); render(); }
+function lotQACorrect(lotId){ if(!(canEdit(['Supply Chain','Warehouse'])||state.role==='COO')){toast('Supply Chain only');return;} const p=lotById(lotId); if(!p||!(p.qa&&p.qa.fail))return; const note=(typeof prompt==='function'?prompt('Correction note before re-inspection:'):'')||''; p.reinsp=(p.reinsp||0)+1; p.qa=null; logAction(`Lot ${p.brandBatchNo||p.baseBatchNo||''} corrected & resubmitted for re-inspection #${p.reinsp} (${p.po})`+(note?(' — '+note):'')); save(); render(); }
 
 /* histIdx prints a SUPERSEDED revision from the archive instead of the current
    one. A replaced certificate has to stay printable — that is the difference
@@ -9486,7 +9502,7 @@ function qcGrpApproved(rows){ if(!rows.length) return '<div class="muted">None a
 var qcGroup='status';
 var qcTab='awaiting'; /* Lab QC primary tab: awaiting | review | unfit | approved */
 function screenQC(){
-  const isLab=hardRole(['Lab Rep']), isAQ=hardRole(['AQCM']), isQM=hardRole(['QCM']), isQA=hardRole(['QA Inspector']), isPM=hardRole(['Plant Manager']), isCOO=state.role==='COO', isSC=canEdit(['Supply Chain']);
+  const isLab=hardRole(['Lab Rep']), isAQ=hardRole(['AQCM']), isQM=hardRole(['QCM']), isQA=hardRole(['QA Inspector']), isPM=hardRole(['Plant Manager']), isCOO=state.role==='COO', isSC=canEdit(['Supply Chain','Warehouse']);
   const labB=(state.batches||[]).filter(b=>(b.producedKg||0)>0 && b.disposition!=='byproduct');  /* by-product accruals/pool never enter QC here — they get QC only AFTER grinding (call-for-manufacturing) */
   const lotUnits=[]; labB.forEach(b=>{ const lots=(b.lots||[]); if(lots.length){ lots.forEach(l=>lotUnits.push({b,id:l.id,no:(l.lotNo||b.batchNo),qty:(l.qty||0),coa:l.coa})); } else { lotUnits.push({b,id:'',no:b.batchNo,qty:(b.producedKg||0),coa:b.coa}); } });
   const labPending=lotUnits.filter(u=>!u.coa || u.coa.status!=='approved');
@@ -9542,7 +9558,7 @@ function screenQC(){
 var qaGroup='status';
 var qaTab='awaiting'; /* Pre-shipment QA primary tab: awaiting | cleared | issues */
 function screenQA(){
-  const isQA=canEdit(['QA Inspector']), isSC=canEdit(['Supply Chain']), isCOO=state.role==='COO';
+  const isQA=canEdit(['QA Inspector']), isSC=canEdit(['Supply Chain','Warehouse']), isCOO=state.role==='COO';
   const lots=(state.packingLog||[]).filter(p=>p&&p.brand&&(p.kg||0)>0);
   const lotFail=lots.filter(p=>p.qa&&p.qa.fail);
   const lotHold=lots.filter(p=>p&&p.qaHold);

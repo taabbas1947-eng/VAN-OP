@@ -65,6 +65,12 @@ const MARKERS = [
   ['function personTitle(',                1, 'person title beats role title'],
   ['function sigTitle(',                   1, 'the signature title'],
   ['function seedTitlesV1(',               1, 'titles seeded idempotently'],
+  /* The warehouse split, step one of two. Losing these puts dispatch back in one
+     pair of hands with procurement. */
+  ["'warehouse':'supply-chain'",           1, 'Warehouse filed inside Supply Chain'],
+  ["'Warehouse':'Senior Warehouse Officer'", 1, 'the warehouse title'],
+  ['not by editing the dispatch rights', 1, 'why dispatch goes through the matrix'],
+  ["canEdit(['Supply Chain','Warehouse'])", 4, 'packed-stock custody'],
 ];
 
 const [, , mode, freshPath, otherPath] = process.argv;

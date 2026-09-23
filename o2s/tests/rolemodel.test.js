@@ -49,11 +49,11 @@ function eq(n, g, w) { ok(n, g === w, 'got ' + JSON.stringify(g) + ' want ' + JS
 /* ---- the two name sets, pinned ---- */
 const BUILTIN = ['KAM', 'Supply Chain', 'Production', 'Lab Rep', 'AQCM', 'QCM',
                  'QA Inspector', 'Plant Manager', 'CFO', 'COO'];
-const PLANNED = ['Finance', 'Finance Desk Officer', 'Production Manager', 'Supply Chain Officer'];
+const PLANNED = ['Finance', 'Finance Desk Officer', 'Production Manager', 'Supply Chain Officer', 'Warehouse'];
 /* Of the planned four, these two exist for real in the live state today. */
 const PLANNED_LIVE = ['Finance', 'Supply Chain Officer'];
 /* ...and these two are wired in code and held by nobody. */
-const PLANNED_INERT = ['Production Manager', 'Finance Desk Officer'];
+const PLANNED_INERT = ['Production Manager', 'Finance Desk Officer', 'Warehouse'];
 
 /* ================= 1. THE TEN BUILT-INS ================= */
 {
@@ -98,9 +98,11 @@ const union = new Set([...scrNames, ...rgtNames, ...fldNames]);
      string never matches, no error is raised, and the only symptom is a person
      saying "I can't see that screen" months later. */
   eq('no role name in SCREENS / RIGHTS / FIELD_OWNER is unknown', strays.join(', '), '');
-  eq('...and the full set is the ten built-ins plus the four planned', union.size, 14);
+  eq('...and the full set is the ten built-ins plus the five planned', union.size, 15);
 
-  eq('SCREENS names 14 roles', scrNames.size, 14);
+  eq('SCREENS names 15 roles', scrNames.size, 15);
+  /* Still 9, not 10: Warehouse reaches dispatch through the access matrix, not
+     by being written into a right's frozen legacy block. */
   eq('RIGHTS legacy names 9', rgtNames.size, 9);
   eq('FIELD_OWNER names 4', fldNames.size, 4);
 
@@ -335,7 +337,7 @@ const union = new Set([...scrNames, ...rgtNames, ...fldNames]);
   const rep = owners('reports');
   const missing = [...union].filter(n => rep.indexOf(n) < 0).sort();
   eq('every role in the system can open Reports', missing.join(', '), '');
-  eq('...which is all fourteen names', rep.length, 14);
+  eq('...which is all fifteen names', rep.length, 15);
 
   /* The rule is about Reports, not about everything. Sales & Budget is the
      money screen and stays narrow — if this ever goes green with everyone on it,

@@ -80,7 +80,9 @@ const MARKERS = [
   /* 2026-09-23j - Today, three places, the night's rulings */
   ['function screenToday(',                1, 'Today - the front door (23j)'],
   ['var TD_LABEL=',                        1, 'Today - plain words for every label'],
-  ["label:'Report Center'",                1, 'the three-place sidebar'],
+  /* 23s: "Report Center" became the word "Plant" (Tahir, 23 Sep night, asked and
+     answered). The marker follows the ruling; the group itself is still there. */
+  ["label:'Plant', ids:['plant']",         1, 'the four-word header (was the three-place sidebar)'],
   ['function seedAccessV2(',               1, 'the ruled access matrix (R1, R5, R7, R20)'],
   ['function seedCustomerRightsV1(',       1, 'customers to Finance (R5, R9)'],
   ['function seedWarehouseRoleV1(',        1, 'the Warehouse role (R12)'],
@@ -105,6 +107,12 @@ const MARKERS = [
   ['function backOfficeManualCard(',       1, 'the Back Office manual (R15)'],
   /* 2026-09-23r */
   ['<style id="van-theme">',               1, 'the design, app-wide (23r)'],
+  /* 2026-09-23s */
+  ['<style id="qs-shell">',                1, 'the Queue Shell, live (23s)'],
+  ['function screenPlant(',                1, 'Plant: the 3 lights (23s)'],
+  ['function boJobs(',                     1, 'Back Office as jobs (23s)'],
+  ['function screenPeople(',               1, 'People, not a matrix (23s)'],
+  ['function rolesTitlesCard(',            1, 'the Guide opens on roles and titles (23s)'],
 ];
 
 const [, , mode, freshPath, otherPath] = process.argv;

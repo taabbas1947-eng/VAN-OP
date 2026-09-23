@@ -125,7 +125,8 @@ ok('ensureState runs the Warehouse role seed BEFORE the grant seed (a never-answ
 {
   const m = /\nconst NAV_GROUPS=\[/.exec(html);
   const nav = H.matchBlock(m.index + 1, 'NAV_GROUPS', '[');
-  ok('exactly the groups Work, Report Center, Back Office, Guide', /label:'Work'/.test(nav) && /label:'Report Center'/.test(nav) && /label:'Back Office'/.test(nav) && /label:'Guide'/.test(nav) && !/Operations/.test(nav) && !/Insights/.test(nav) && !/Setup & admin/.test(nav));
+  /* 23s: Today · Plant · Back Office · Guide. Report Center's screens (Orders, Reports) are links under Plant. */
+  ok('exactly the groups Today, Plant, Back Office, Guide', /label:'Today'/.test(nav) && /label:'Plant'/.test(nav) && /label:'Back Office'/.test(nav) && /label:'Guide'/.test(nav) && !/Report Center/.test(nav) && !/Operations/.test(nav) && !/Insights/.test(nav) && !/Setup & admin/.test(nav));
   ok("'approvals' (My Actions) is not in the sidebar any more", !/'approvals'/.test(nav));
   ['prod', 'qc', 'qa', 'ship', 'entry'].forEach(id => ok("'" + id + "' is reached from a job, not the sidebar", !new RegExp("'" + id + "'").test(nav)));
   ok('but the screens still exist for the forms', ['prod', 'qc', 'qa', 'ship', 'entry', 'approvals'].every(id => new RegExp("\\{id:'" + id + "'").test(html)));

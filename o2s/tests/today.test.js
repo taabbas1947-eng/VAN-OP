@@ -50,7 +50,7 @@ eq('Today is the FIRST screen in SCREENS', SCREENS && SCREENS[0] && SCREENS[0].i
 /* ================= 2. IT IS WHERE EVERYONE LANDS ================= */
 const nav = /\nconst NAV_GROUPS=\[/.exec(html);
 const navSrc = nav ? H.matchBlock(nav.index + 1, 'NAV_GROUPS', '[') : '';
-ok("NAV_GROUPS lists 'today' first in the Work group", /label:'Work',\s*ids:\['today'/.test(navSrc), navSrc.slice(0, 80));
+ok("NAV_GROUPS lists 'today' first, under the word Today (23s)", /label:'Today',\s*ids:\['today'/.test(navSrc), navSrc.slice(0, 80));
 /* doLogin is `async function`; grab() only knows plain `function name(`. */
 const login = (() => { const i = html.indexOf('\nasync function doLogin('); return i < 0 ? '' : H.matchBlock(i + 1, 'doLogin'); })();
 ok("doLogin lands on 'today'", /state\.screen=canView\(state\.role,'today'\)\?'today'/.test(login));
@@ -156,7 +156,7 @@ ok("screenToday explains itself once and can be dismissed", /dismissHint\(\\?'to
 ok('a job with several lines opens in place (details), not on another screen', /<details/.test(st + grab('tdCardHTML')));
 ok('the button on a job is the app\'s own action for the item', /onclick="'\+one\.act\+'"/.test(grab('tdCardHTML')) && /onclick="'\+it\.act\+'"/.test(grab('tdRowHTML')));
 ok('done today comes from the action log', /state\.actionLog/.test(grab('tdDoneToday')) && /tdDoneToday\(\)/.test(st));
-ok('an empty queue is not a blank screen', /Nothing waiting on you/.test(st) && /tdPlantPulse/.test(st));
+ok('an empty queue is not a blank screen', /Your list is clear/.test(st) && /tdPlantPulse/.test(st));
 ok('no price is ever rendered on Today', !/price/i.test(st + grab('tdCardHTML') + grab('tdRowHTML') + grab('tdPlantPulse') + grab('tdDoneToday')));
 ok('Today has its own stylesheet', /<style id="td-css">/.test(html));
 

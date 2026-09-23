@@ -8,7 +8,8 @@ const fs = require('fs'); const path = require('path');
 const { ok, report, grab, html } = H;
 const card = grab('backOfficeManualCard');
 ok('the manual card exists', card.length > 2000);
-ok('the Instructions screen opens with it', /\$\('view'\)\.innerHTML=`\s*\$\{backOfficeManualCard\(\)\}/.test(html));
+/* 23s: the Guide opens on Roles and titles; the manual is the card after it. */
+ok('the Instructions screen opens with it (after Roles and titles, 23s)', /\$\('view'\)\.innerHTML=`\s*\$\{rolesTitlesCard\(\)\}\s*\$\{backOfficeManualCard\(\)\}/.test(html));
 ['The 3 places', 'brand', 'base', 'who buys it', 'Customers', 'Pending approval', 'Budget', 'Channel budgets', 'Farmer', 'roles only', 'One login per person', 'one reason per order']
   .forEach(k => ok('it covers: ' + k, new RegExp(k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i').test(card)));
 ok('it says a brand not in the master cannot be ordered', /cannot be ordered/.test(card));

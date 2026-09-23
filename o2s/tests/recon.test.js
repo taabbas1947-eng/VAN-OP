@@ -163,7 +163,8 @@ const run = (c, src) => vm.runInContext(src, c);
 {
   ok("'recon' is in the SCREENS registry", /\{id:'recon',/.test(html));
   /* 23 Sep night: the sidebar is 3 places; Reconciliation sits in Back Office. */
-  ok("'recon' is in the Back Office nav group", /label:'Back Office', ids:\[[^\]]*'recon'/.test(html));
+  /* 23s: Back Office is one hub of jobs; 'recon' is the job 'Reconcile packing'. */
+  ok("'recon' is reached from the Back Office hub", /BACKOFFICE_SCREENS=\[[^\]]*'recon'/.test(html) && /boOpen\('recon'\)/.test(html) && /label:'Back Office', ids:\['backoffice'\]/.test(html));
   ok("'recon' is wired into the render() dispatcher", /datafix:screenDataFix,recon:screenRecon,users:screenUsers/.test(html));
   ok("NAV_ICONS has a 'recon' entry (sidebar icon, not just SCREENS[].ic)", /datafix:'<path[^']*',\s*recon:'<path/.test(html));
 }

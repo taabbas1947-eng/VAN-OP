@@ -11,7 +11,7 @@
    a push keeps running the old code with nothing telling anybody. It sat at
    2026-09-04a through this whole day's work; rmqty/psi tests pinned the code,
    nothing pinned this. buildid.test.js now does. */
-var BUILD_ID='2026-09-23s';
+var BUILD_ID='2026-09-23t';
 var CHANGELOG=[
   {ver:'2026-09-04a', date:'2026-09-04', title:"Delivery, DC printing, and a new Reconciliation check", items:[
     "Delivery confirmation stays with Supply Chain \u2014 it no longer hands off to the Plant Manager. If one sits too long, it now re-flags the same Supply Chain owner every 3 days instead.",
@@ -143,6 +143,10 @@ var CHANGELOG=[
     "Back Office is a list of jobs, not screens: approve a customer, add a customer, add a product, set the budget, give someone access, change what a role may do, reference lists, reconcile, correct a record. Each opens one thing.",
     "People, not a matrix: tap a person, move them to a role, and read what that role can do as sentences \u2014 before \u2192 after \u2014 before confirming. Reset a password from the same sheet (the COO types it; the app never does). Nothing here deletes.",
     "The Guide opens on Roles and titles: a role is not a job title. The role decides the buttons; the title is what you are called and how you sign. Roles are added, never renamed."
+  ]},
+  {ver:'2026-09-23t', date:'2026-09-24', title:"The door matches the house", items:[
+    "The sign-in page wears the same clothes as the rest: paper, a kraft rule, one blue button. No green.",
+    "Everyone lands on Today. A browser that remembered the old All actions or Dashboard screen is brought to Today on sign-in."
   ]},
 ];
 </script>
@@ -15317,25 +15321,26 @@ function allowedScreens(){ return SCREENS.filter(s=>s.owners.includes(state.role
 function renderApp(){
   const a=document.getElementById('authScreen'), sh=document.getElementById('appShell');
   if(!authed()){ if(sh)sh.style.display='none'; if(a){a.style.display='flex'; renderLogin();} }
-  else { if(a)a.style.display='none'; if(sh)sh.style.display='flex'; applyDensity(); applyRailCollapsed(); render(); checkWhatsNew(); }
+  else { if(a)a.style.display='none'; if(sh)sh.style.display='flex'; applyDensity(); applyRailCollapsed(); /* 23t: the two screens that left the header are not a landing place */ if(state.screen==='approvals'||state.screen==='dash') state.screen='today'; render(); checkWhatsNew(); }
 }
 function renderLogin(msg){
   const el=document.getElementById('authScreen'); if(!el) return;
-  el.innerHTML=`<div style="min-height:100vh;display:grid;place-items:center;position:relative;overflow:hidden;background:linear-gradient(135deg,#0b4f63 0%,#17552e 46%,#1f6b3a 100%)">
-    <div style="position:absolute;inset:0;background:radial-gradient(720px 420px at 78% 8%,rgba(31,107,58,.20),transparent 60%),radial-gradient(680px 460px at 12% 92%,rgba(34,211,238,.22),transparent 60%)"></div>
-    <div style="position:relative;z-index:1;width:100%;max-width:404px;padding:0 22px">
-      <div style="display:flex;justify-content:center;margin-bottom:22px"><div style="background:#fff;border-radius:14px;padding:16px 22px;box-shadow:0 18px 48px rgba(10,22,42,.32)"><img src="/assets/van-logo.png" alt="VAN — Vital Agri Nutrients (Pvt) Ltd" style="height:46px;display:block"></div></div>
-      <div style="text-align:center;margin-bottom:22px"><div class="mono" style="font-size:10px;letter-spacing:.22em;color:#9FE3D6;text-transform:uppercase">Order \u2192 Shipment Control Tower</div><h1 style="font-family:var(--font-display,'Bricolage Grotesque');font-weight:800;font-size:30px;letter-spacing:-.02em;color:#fff;margin:10px 0 0">O2S</h1></div>
-      <div style="background:rgba(255,255,255,.98);border-radius:14px;padding:22px;box-shadow:0 20px 56px rgba(10,22,42,.34)">
-        <label style="display:block;font-size:11px;font-weight:600;color:#586577;margin-bottom:5px">Username</label>
-        <input id="lg_user" autocomplete="username" onkeydown="if(event.key==='Enter')doLogin()" style="width:100%;border:1px solid #E5E9EF;border-radius:7px;padding:10px;font-size:14px;margin-bottom:14px;outline:none">
-        <label style="display:block;font-size:11px;font-weight:600;color:#586577;margin-bottom:5px">Password</label>
-        <input id="lg_pass" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()" style="width:100%;border:1px solid #E5E9EF;border-radius:7px;padding:10px;font-size:14px;margin-bottom:16px;outline:none">
-        ${msg?`<div style="color:#E03127;font-size:12px;margin-bottom:10px">${msg}</div>`:''}
-        <button onclick="doLogin()" style="width:100%;justify-content:center;display:flex;align-items:center;gap:6px;background:#2E4F7C;color:#fff;border:none;border-radius:7px;padding:11px;font-size:14px;font-weight:700;cursor:pointer">Sign in \u2192</button>
-        <div style="font-size:10.5px;color:#8A95A6;margin-top:14px;line-height:1.5;text-align:center">Internal access only. Contact the COO to add or reset an account.</div>
+  /* 23t: the door matches the house - the Queue Shell's paper, kraft rule and one blue button. The sign-in logic below is untouched. */
+  el.innerHTML=`<div style="min-height:100vh;display:grid;place-items:center;background:#E6E8E2;color:#1B1F1A;font-family:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif">
+    <div style="width:100%;max-width:420px;padding:0 16px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px"><img src="/assets/van-emblem.png" alt="VAN" style="height:28px;width:auto;display:block"><span style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-weight:500;font-size:20px;letter-spacing:.04em">O2S</span><span style="font-size:12px;color:#6D756C">Vital Agri Nutrients \u00b7 Order-to-Ship</span></div>
+      <div style="background:#F9F9F6;border:1px solid #C8CCC3;border-top:4px solid #8C6532;border-radius:3px;padding:18px 16px">
+        <div style="font-size:20px;font-weight:600;line-height:1.25;margin-bottom:2px">Sign in</div>
+        <div style="font-size:13px;color:#49514A;margin-bottom:14px">Your own login. What you see is what is waiting on you.</div>
+        <label style="display:block;font-size:12px;font-weight:600;color:#49514A;margin-bottom:5px">Username</label>
+        <input id="lg_user" autocomplete="username" onkeydown="if(event.key==='Enter')doLogin()" style="width:100%;min-height:44px;border:1px solid #98A094;border-radius:3px;padding:8px 10px;font-size:15px;margin-bottom:12px;background:#F9F9F6;color:#1B1F1A;font:inherit">
+        <label style="display:block;font-size:12px;font-weight:600;color:#49514A;margin-bottom:5px">Password</label>
+        <input id="lg_pass" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()" style="width:100%;min-height:44px;border:1px solid #98A094;border-radius:3px;padding:8px 10px;font-size:15px;margin-bottom:14px;background:#F9F9F6;color:#1B1F1A;font:inherit">
+        ${msg?`<div style="color:#A3302A;font-size:13px;font-weight:500;margin-bottom:10px;padding:8px 10px;background:#F4D9D5;border:1px solid #A3302A;border-radius:3px">${msg}</div>`:''}
+        <button onclick="doLogin()" style="width:100%;min-height:44px;display:flex;align-items:center;justify-content:center;gap:8px;background:#2E5F86;color:#fff;border:1px solid #2E5F86;border-radius:4px;padding:8px 14px;font-size:15px;font-weight:500;cursor:pointer;box-shadow:none;font-family:inherit">Sign in \u2192</button>
+        <div style="font-size:12px;color:#6D756C;margin-top:12px;line-height:1.5">Internal access only. The COO adds accounts and resets passwords in Back Office \u2192 People.</div>
       </div>
-      <div class="mono" style="text-align:center;font-size:10px;color:rgba(255,255,255,.6);margin-top:18px;letter-spacing:.04em">VITAL AGRI NUTRIENTS \u00b7 INTERNAL OPERATIONS</div>
+      <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11px;color:#6D756C;margin-top:14px;letter-spacing:.04em">${BUILD_ID}</div>
     </div></div>`;
   const u=document.getElementById('lg_user'); if(u&&u.focus)u.focus();
 }

@@ -98,7 +98,13 @@ ok('it says a role is not a job title, in the words Tahir asked for', /A role is
 ok('it lists every role under its department with the people who hold it', /roleDeptId\(r\.name\)===d\.id/.test(rt) && /u\.role===r\.name/.test(rt) && /signs as/.test(rt));
 
 /* ================= 7. BUILD ================= */
-ok("BUILD_ID is 2026-09-23s", /var BUILD_ID='2026-09-23s'/.test(html));
-ok('the changelog entry is last', /ver:'2026-09-23s'[\s\S]*\n\];\n<\/script>/.test(html) && !/ver:'2026-09-23s'[\s\S]*ver:'2026-09-23r'/.test(html));
+ok("BUILD_ID is 2026-09-23t or later", /var BUILD_ID='2026-09-23[t-z]'/.test(html));
+ok('the 23s changelog entry comes after 23r', /ver:'2026-09-23r'[\s\S]*ver:'2026-09-23s'/.test(html));
+/* 23t: the door matches the house; everyone lands on Today */
+const lg = grab('renderLogin');
+ok('the sign-in page is paper, kraft rule, one blue button - no green', /#E6E8E2/.test(lg) && /#8C6532/.test(lg) && /#2E5F86/.test(lg) && !/#1f6b3a|#17552e|#0b4f63|linear-gradient/.test(lg));
+ok('the sign-in page still calls doLogin and keeps the two inputs', /id="lg_user"/.test(lg) && /id="lg_pass"/.test(lg) && /onclick="doLogin\(\)"/.test(lg));
+ok('sign-in says where accounts and passwords are handled', /Back Office/.test(lg) && /People/.test(lg));
+ok('a browser that remembered All actions or the Dashboard lands on Today', /if\(state\.screen==='approvals'\|\|state\.screen==='dash'\) state\.screen='today'; render\(\);/.test(grab('renderApp')));
 
 report('The Queue Shell, live (23s)');

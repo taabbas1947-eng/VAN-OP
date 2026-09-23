@@ -101,9 +101,10 @@ const union = new Set([...scrNames, ...rgtNames, ...fldNames]);
   eq('...and the full set is the ten built-ins plus the five planned', union.size, 15);
 
   eq('SCREENS names 15 roles', scrNames.size, 15);
-  /* Still 9, not 10: Warehouse reaches dispatch through the access matrix, not
-     by being written into a right's frozen legacy block. */
-  eq('RIGHTS legacy names 9', rgtNames.size, 9);
+  /* Down from 9 to 5 on 23 September, when po.shortclose_request was narrowed
+     from eight roles to the two department managers. Warehouse is not among them:
+     it reaches dispatch through the grant table, never through a legacy block. */
+  eq('RIGHTS legacy names 5', rgtNames.size, 5);
   eq('FIELD_OWNER names 4', fldNames.size, 4);
 
   /* FIELD_OWNER is the narrow one — only roles that own a PO field. If a
@@ -314,8 +315,13 @@ const union = new Set([...scrNames, ...rgtNames, ...fldNames]);
      simply never matched, so the eight names are a superset on purpose. */
   const sc = /\{code:'po\.shortclose_request'[\s\S]*?\}\}/.exec(RGT_SRC);
   ok('po.shortclose_request exists', !!sc);
-  eq('...and names eight roles, four of them not yet real',
-     (sc[0].match(/roles:\[([^\]]*)\]/)[1].match(/'[^']*'/g) || []).length, 8);
+  /* Tahir, 23 September: "only 2 managers can ask for a short closure - Production
+     Manager, Supply Chain Manager." The first list named eight and let the
+     Warehouse Assistant ask while the Senior Warehouse Officer above him could
+     not; that asymmetry is how the narrowing came about. */
+  eq('...and names exactly the two department managers',
+     (sc[0].match(/roles:\[([^\]]*)\]/)[1].match(/'[^']*'/g) || []).join(','),
+     "'Production Manager','Supply Chain'");
 }
 
 /* ================= 10a. REPORTS IS OPEN TO EVERYONE ================= */

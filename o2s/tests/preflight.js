@@ -69,7 +69,11 @@ const MARKERS = [
      pair of hands with procurement. */
   ["'warehouse':'supply-chain'",           1, 'Warehouse filed inside Supply Chain'],
   ["'Warehouse':'Senior Warehouse Officer'", 1, 'the warehouse title'],
-  ['not by editing the dispatch rights', 1, 'why dispatch goes through the matrix'],
+  ['var DISPATCH_LIVE=',                   1, 'the four dispatch rights'],
+  ['var DISPATCH_GRANT=',                  1, 'who dispatches'],
+  ['var PROCUREMENT_GRANT=',               1, 'procurement is the lead\u2019s'],
+  ['if(RIGHTS_LIVE[r.code]===true) return;', 1, 'the drift card ignores live rights'],
+  ["roles:['Production Manager','Supply Chain']", 1, 'short close: the two managers'],
   ["canEdit(['Supply Chain','Warehouse'])", 4, 'packed-stock custody'],
 ];
 

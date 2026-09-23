@@ -139,7 +139,12 @@ const AUTH_MODEL_FNS = ['rightByCode', 'rightsOfDept', 'deptById', 'rolesOfState
   'rightsFreezeCheck', '_canEditOn', 'rolesUnfiled', 'rightAnswerToday', 'mayHere', 'screenLoopholes', 'seedAnswer', 'seedDeptRightsV1', 'resyncScreenRights', 'rightDecided', 'markRightDecided', 'accessLevelOn', 'grantRefusal', 'separationRefusal', 'rolesUnfiled'];
 function authModelSrc() {
   return ['DEPTS', 'ROLE_DEPT', 'RIGHTS', 'SEPARATION'].map(n => grabTopVar(n, n === 'ROLE_DEPT' ? '{' : '[')).join('\n')
-       + grabTopVar('RIGHTS_LIVE', '{') + '\n'
+       + grabTopVar('RIGHTS_LIVE', '{')
+       /* The two Supply Chain grant maps. seedDeptRightsV1 reads them, so every
+          sandbox that pulls that function needs them or it throws at load. Added
+          here rather than making the app defensive about its own constants. */
+       + grabTopVar('DISPATCH_LIVE', '[') + grabTopVar('DISPATCH_GRANT', '{')
+       + grabTopVar('PROCUREMENT_LIVE', '[') + grabTopVar('PROCUREMENT_GRANT', '{') + '\n'
        + AUTH_MODEL_FNS.map(grab).join('\n\n');
 }
 

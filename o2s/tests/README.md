@@ -33,11 +33,14 @@ node o2s/tests/roletitles.test.js  #  54 - job titles, and that a title is never
 node o2s/tests/warehousesplit.test.js
                                    #  43 - Supply Chain splits three ways, and
                                    #       what step two has still to remove
+node o2s/tests/dispatchgrants.test.js
+                                   # 124 - dispatch by grant, not by which screen
+                                   #       you happen to be standing on
 ```
 
-**882 checks in the suites listed above.** Running every `*.test.js` in this
+**1,006 checks in the suites listed above.** Running every `*.test.js` in this
 folder together, with `data/state.json` and both `_before-*.html` fixtures in
-place, gives **7,745**. Exit code 0 means all passing. No dependencies, no build step,
+place, gives **8,135**. Exit code 0 means all passing. No dependencies, no build step,
 Node only.
 
 ## How they work
@@ -302,3 +305,39 @@ later.
 -identical `owners` arrays. Adding a role by matching the array's text hits the
 wrong screen; the count assertion caught it on the first try. Find the entry by
 its `{id:'…'`, then find ITS closing bracket.
+
+**Measure the alternative before recommending it.** The plan for giving the new
+Warehouse role dispatch was one tick — `edit` on Shipments in the access matrix,
+which `_canEditOn` consults before the owners list. Running the real gate showed
+that tick also hands over `rm.check`, `rm.receive` and `pr.close`, because a
+`canEdit` right asks about the screen the person is **standing on**, not the
+screen the job belongs to. The recommendation was already given before it was
+measured. Measuring took one script; the advice was wrong for an hour.
+
+**A right leaves the freeze only by being pinned somewhere else.**
+`authmodel.test.js` compares every right, role and screen against a written-down
+record of the old rule. Eight codes deliberately no longer match it, so they are
+declared in `RULED_CHANGE` — with who ruled it and the exact new answer, asserted
+on every screen. Skipping a code without pinning its replacement turns the freeze
+into a list of things nobody checks any more.
+
+**When a defect class is cured, assert the cure, not just the fix.** All seven
+`canEdit` rights are now live, so not one of them is still answered by "which
+screen are you on". That is pinned as its own check — `none of them is still
+decided by it` — and so is the shipped Authorisation card having no loophole left
+to warn about. Both go red if somebody ever un-flips them.
+
+**Restore the precondition rather than deleting the test.** Twenty-five checks
+exercised machinery built to manage a right's transition to live, all written
+against Supply Chain's rights. Going live removed the condition they demonstrate.
+They now build their sandbox with `mk(role, true)`, which un-flips those eight
+codes and re-seeds — the old world, on purpose — while a separate check asserts
+the new one. Deleting them would have lost the proof that the machinery works at
+all, and the next department has still to go through it.
+
+**A warning that is always on is a warning nobody reads.** `rightsFreezeCheck()`
+compared grants against the legacy answer for every right, live ones included, so
+the moment `order.acknowledge` went live it listed nine roles as drifting from a
+rule that no longer decides anything — for ever. It now skips live rights and
+answers the question it was built for: what would change if you flipped the ones
+still waiting.

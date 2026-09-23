@@ -76,16 +76,22 @@ eq('Warehouse is not a role in live state yet',
    (STATE.masters.roles || []).filter(r => r.name === 'Warehouse').length, 0);
 
 /* ================= 2. HOW THE WAREHOUSE REACHES DISPATCH ================= */
-/* NOT by editing the dispatch rights. The first attempt at this change added
-   'Warehouse' to owners:['Supply Chain'] inside their `legacy` blocks, and
-   authmodel.test.js refused it - correctly. A legacy block is a FROZEN RECORD of
-   what the gate did before its right was converted; editing one makes the app
-   claim the old rule was something it never was, and the freeze exists to stop
-   exactly that. Two checks failed and the change was reverted.
+/* TWO WRONG ROUTES, BOTH RULED OUT BY MEASUREMENT, BEFORE THE RIGHT ONE.
 
-   The supported path was already there: _canEditOn() consults the access matrix
-   BEFORE the owners list, so the COO ticking Warehouse = edit on Shipments grants
-   dispatch with no code change at all. Screen ownership plus a matrix grant. */
+   FIRST: add 'Warehouse' to owners:['Supply Chain'] inside the dispatch rights'
+   `legacy` blocks. authmodel.test.js refused it, correctly - a legacy block is a
+   FROZEN RECORD of what the gate did before conversion, and editing one makes the
+   app claim the old rule was something it never was. Reverted.
+
+   SECOND: tick Warehouse = edit on Shipments in the access matrix, since
+   _canEditOn() consults the matrix before the owners list. Running the real gate
+   showed that tick hands Warehouse PROCUREMENT as well - rm.check, rm.receive,
+   pr.close - because a canEdit right asks about the screen the person is STANDING
+   ON, not the screen the job belongs to. It would have defeated the one thing the
+   split exists to do.
+
+   THE RIGHT ONE: make the rights live, so the grant table decides them and the
+   answer is the same on every screen. See dispatchgrants.test.js. */
 {
   const ce = H.grab('_canEditOn');
   /* Compared against where the owners list is USED, not where it is named: the
@@ -130,13 +136,14 @@ ok('...and so does Lab QC', /isSC=canEdit\(\['Supply Chain','Warehouse'\]\)/.tes
    points at itself - which is the only way a two-step change survives six weeks
    and a different pair of hands. */
 {
-  DISPATCH.forEach(c => ok("STEP 2 PENDING — " + c + " is still answered by its legacy owners", right(c).indexOf("'Supply Chain'") > -1));
-  /* THE EDIT, and it is not a legacy edit: put the four dispatch rights into
-     RIGHTS_LIVE so the GRANT TABLE decides them, seeding today's answers
-     unchanged, then grant them to Warehouse and take them off Supply Chain from
-     Admin. That is the mechanism the Production split already used and it needs
-     its own pass. Do it only once Shoaib Sabir holds the Warehouse role - until
-     then, taking dispatch off Supply Chain stops trucks leaving the plant. */
+  /* DONE, later the same day. The step described here as pending was carried out
+     once Tahir ruled on who dispatches: the four rights went into RIGHTS_LIVE and
+     the grant table decides them. dispatchgrants.test.js holds the detail. The
+     legacy blocks are untouched - they are a frozen record, and going live makes
+     them inert rather than wrong. */
+  const liveNow = H.grabTopVar('RIGHTS_LIVE', '{');
+  DISPATCH.forEach(c => ok("STEP 2 DONE — " + c + " is decided by the grant table", liveNow.indexOf("'" + c + "'") > -1));
+  DISPATCH.forEach(c => ok("...and its frozen legacy record is untouched", right(c).indexOf("'Supply Chain'") > -1));
 
   /* C9: KAM becomes a read-only reviewer, so it loses New PO Entry. C2 said the
      opposite and Tahir resolved it in favour of C9 on 23 September. Finance is
@@ -153,14 +160,13 @@ ok('...and so does Lab QC', /isSC=canEdit\(\['Supply Chain','Warehouse'\]\)/.tes
      /roles:\['KAM'\]/.test(right('customer.create')));
   ok('STEP 2 PENDING — so is customer.amend', /roles:\['KAM'\]/.test(right('customer.amend')));
 
-  /* And the reason step two cannot simply be done now, stated as a fact about
-     the file rather than a note: these rights are not live, so the legacy owners
-     ARE the answer. */
-  const live = H.grabTopVar('RIGHTS_LIVE', '{');
-  DISPATCH.concat(['customer.create', 'customer.amend']).forEach(c =>
-    ok(c + " is not in RIGHTS_LIVE, so its legacy owners still decide", live.indexOf("'" + c + "'") < 0));
+  /* And the reason the KAM half cannot simply be done now, stated as a fact about
+     the file rather than a note: these two are not live, so the legacy roles list
+     IS the answer, and it names KAM. */
+  ['customer.create', 'customer.amend'].forEach(c =>
+    ok(c + " is not in RIGHTS_LIVE, so its legacy roles still decide", liveNow.indexOf("'" + c + "'") < 0));
 }
 
-console.log('\nSupply Chain splits three ways — step one of two: ' + pass + ' passed, ' + fail + ' failed');
+console.log('\nSupply Chain splits three ways — dispatch done, the KAM half pending: ' + pass + ' passed, ' + fail + ' failed');
 fails.forEach(f => console.log('  FAIL  ' + f));
 process.exit(fail ? 1 : 0);

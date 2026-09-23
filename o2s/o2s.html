@@ -11,7 +11,7 @@
    a push keeps running the old code with nothing telling anybody. It sat at
    2026-09-04a through this whole day's work; rmqty/psi tests pinned the code,
    nothing pinned this. buildid.test.js now does. */
-var BUILD_ID='2026-09-23g';
+var BUILD_ID='2026-09-23h';
 var CHANGELOG=[
   {ver:'2026-09-04a', date:'2026-09-04', title:"Delivery, DC printing, and a new Reconciliation check", items:[
     "Delivery confirmation stays with Supply Chain \u2014 it no longer hands off to the Plant Manager. If one sits too long, it now re-flags the same Supply Chain owner every 3 days instead.",
@@ -81,6 +81,14 @@ var CHANGELOG=[
     "Finance can now raise a PO from New PO Entry, alongside the KAM, the Plant Manager and the CFO.",
     "Nothing has been taken away from anybody. Supply Chain still does everything it did today, and the KAM still raises POs \u2014 those come off only once the new people have logins and can do the work themselves.",
     "The Warehouse role does not exist yet. The COO adds it in Admin \u2192 Roles, under Supply Chain, when he is ready.",
+  ]},
+  {ver:'2026-09-23h', date:'2026-09-23', title:"Who dispatches, and who buys, are now two different lists", items:[
+    "Planning a shipment, loading a truck, issuing a Gate Pass and confirming a delivery are now decided by the Authorisation table instead of by which screen you happen to be on. They belong to Lead Supply Chain, the Senior Warehouse Officer, the Warehouse Assistant and the Plant Manager.",
+    "RM Check, receiving raw material, closing a PR and acknowledging a PO stay with Lead Supply Chain, with the Plant Manager as cover. The warehouse does the dispatch; it does not approve the buying.",
+    "Until today any role could reach these buttons from a screen it had edit on \u2014 a QC analyst could issue a Gate Pass from the Lab QC screen. That is now closed for every one of these.",
+    "Acknowledging a PO used to be open to everybody. If somebody who needs it finds they cannot, the COO can give it back with one tick in Authorisation; it needs no new version of the app.",
+    "Asking to close a PO line short is now the two department managers only \u2014 Lead Planning & Production and Lead Supply Chain. The Plant Manager still approves it.",
+    "The Authorisation card no longer warns about rights that have already gone live. It only tells you what would change if you switched on the ones still waiting.",
   ]},
 ];
 </script>
@@ -2974,7 +2982,15 @@ var RIGHTS=[
      hard list is what answers today, since none of these are in RIGHTS_LIVE. */
   {code:'po.shortclose_request', dept:'commercial', name:'Ask to close a PO line short', delegable:false,
    note:'Ask for the unshipped balance of a PO line to be closed. Needs a reason. Does not take effect until leadership approves it.',
-   legacy:{kind:'hard', roles:['Production','Production Manager','Supply Chain','Supply Chain Officer','CFO','Finance','Finance Desk Officer','Plant Manager']}},
+   /* NARROWED 23 September 2026, ruled by Tahir: "only 2 managers can ask for a
+      short closure - Production Manager, Supply Chain Manager." The first list
+      named eight roles and was written before the Supply Chain split existed; it
+      left the Warehouse Assistant able to ask while the Senior Warehouse Officer
+      above him could not, which is how the asymmetry was found. Asking to close a
+      line short is a management judgement about an order, not a floor action, so
+      it sits with the two department managers. The Plant Manager still approves
+      and the COO can always act. */
+   legacy:{kind:'hard', roles:['Production Manager','Supply Chain']}},
   {code:'po.shortclose_approve', dept:'leadership', name:'Approve closing a PO line short', delegable:false,
    note:'Approve a short close. The person who asked for it cannot be the person who approves it.',
    legacy:{kind:'hard', roles:['Plant Manager']}},
@@ -3028,8 +3044,40 @@ var RIGHTS_LIVE={
   'batch.open':true, 'production.enter':true, 'shift.log':true,
   'packing.pack':true, 'packing.reconcile':true,
   'byproduct.call':true, 'packing.divert':true, 'packing.rework':true,
-  'batch.close':true, 'batch.close_bulk':true, 'production.void':true
+  'batch.close':true, 'batch.close_bulk':true, 'production.void':true,
+  /* ---- Supply Chain, split in two - 23 September 2026 ---- */
+  'shipment.plan':true, 'shipment.load':true, 'gatepass.issue':true, 'delivery.confirm':true,
+  'rm.check':true, 'rm.receive':true, 'pr.close':true, 'order.acknowledge':true
 };
+/* SUPPLY CHAIN SPLITS IN TWO, AND WHY IT HAD TO BE A FLIP RATHER THAN A TICK.
+
+   Tahir, 23 September 2026: "Saad has the right to dispatch, Shoaib also should
+   have the right, but over time all dispatch-related documentation is the
+   responsibility of the Senior Warehouse Officer. Their assistant is common for
+   now and he can also do the dispatch and documentation, loading, truck etc. But
+   for procurement, PO acknowledge, raw material checking - it's Saad's role."
+
+   The obvious route was to give the new Warehouse role `edit` on Shipments in the
+   access matrix. Running the real gate showed that tick hands it procurement as
+   well: a canEdit right asks _canEditOn(state, role, STATE.SCREEN, owners) - the
+   screen the person happens to be standing on, not the screen the job belongs to.
+   Warehouse standing on Shipments came back able to run an RM check, receive raw
+   material and close a PR. That is the one thing the split exists to prevent.
+
+   Made live, mayRole() reads the grant table instead of asking a screen, so the
+   answer is the same everywhere in the app. Measured cost, before it was chosen:
+   Production, Lab Rep, AQCM, QCM, QA Inspector, CFO and Finance lose rights they
+   held only by standing somewhere - and the COO had already refused `ship` edit
+   to seven of them in the live matrix, so for those it only makes his own
+   decision stick.
+
+   order.acknowledge was legacy:{kind:'all'} - EVERY role could acknowledge a PO.
+   Narrowing it is the largest single change here. It is safe to make because
+   widening it again is one tick in Authorisation and no code change. */
+var DISPATCH_LIVE=['shipment.plan','shipment.load','gatepass.issue','delivery.confirm'];
+var DISPATCH_GRANT={'Supply Chain':true,'Warehouse':true,'Supply Chain Officer':true,'Plant Manager':true};
+var PROCUREMENT_LIVE=['rm.check','rm.receive','pr.close','order.acknowledge'];
+var PROCUREMENT_GRANT={'Supply Chain':true,'Plant Manager':true};
 
 function rightByCode(c){ for(var i=0;i<RIGHTS.length;i++){ if(RIGHTS[i].code===c) return RIGHTS[i]; } return null; }
 function rightsOfDept(d){ return RIGHTS.filter(function(r){ return r.dept===d; }); }
@@ -3130,6 +3178,15 @@ function denyRight(code,what){ var r=rightByCode(code); var d=r?deptById(r.dept)
 function rightsFreezeCheck(){ var bad=[];
   rolesOfState().forEach(function(ro){ if(!ro) return;
     RIGHTS.forEach(function(r){
+      /* A right that is ALREADY LIVE has nothing left to drift from. Its legacy
+         block stopped being an answer the day it went live and became a frozen
+         record of what the gate used to do; comparing a grant against it reports
+         history as a fault. Left in, the Supply Chain flip of 23 September made
+         this card list nine roles against order.acknowledge for ever - and a
+         warning that is always on is a warning nobody reads. The check answers
+         the question it was built for: what would change if you flipped the
+         rights that are still waiting. */
+      if(RIGHTS_LIVE[r.code]===true) return;
       var legacy=rightAnswerToday(ro.name,r.code);
       var granted=(ro.name==='COO')?true:(roleRightsOf(ro.name)[r.code]===true);
       if(ro.name!=='COO' && legacy!==granted) bad.push(ro.name+(ro.archived?' (archived)':'')+' / '+r.code+': was '+legacy+', grant says '+granted);
@@ -3158,6 +3215,14 @@ function seedDeptRightsV1(s){
      "no" (false) is never overwritten by it. */
   (s.masters.roles||[]).forEach(function(ro){ if(!ro||ro.name==='COO') return;
     var row=s.masters.roleRights[ro.id]||{};
+    /* The two Supply Chain groups are answered from the ruling, not from
+       seedAnswer. seedAnswer asks what the OLD screen rule said, and the old
+       screen rule is the thing being replaced: it would give Warehouse nothing
+       (it is not in the right's owners list) and hand procurement to anyone with
+       edit on some screen. Same undefined-only rule, so a COO decision is still
+       never overwritten. */
+    DISPATCH_LIVE.forEach(function(c){ if(row[c]===undefined) row[c]=(DISPATCH_GRANT[ro.name]===true); });
+    PROCUREMENT_LIVE.forEach(function(c){ if(row[c]===undefined) row[c]=(PROCUREMENT_GRANT[ro.name]===true); });
     RIGHTS.forEach(function(r){ if(row[r.code]===undefined) row[r.code]=seedAnswer(s,ro.name,r); });
     s.masters.roleRights[ro.id]=row; });
 }

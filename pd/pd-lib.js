@@ -161,9 +161,9 @@ const DOORS = {
    Changing a line here changes what FUTURE moves record. It never rewrites a
    notice already sent — pd_notices stores the sentence as it was sent. */
 const OBJECT_DEFINITIONS = {
-  problem:     'A Problem is a real field or market pain, or a stated product concept — the long-lived parent that every Question, Bet and Run aimed at it hangs off.',
+  problem:     'A Problem is a real field or market pain, or a stated product concept — the long-lived parent that every Question, Approach and Run aimed at it hangs off.',
   question:    'A Question is something we must know in order to solve a Problem. It has a nature, one owner, and a date it is due.',
-  bet:         'A Bet is a specific approach taken because we believe something, carrying the one result that would kill it, written before any bench work.',
+  bet:         'An Approach is one thing we try because we believe something, carrying the one result that would kill it, written before any bench work. Its number starts with B.',
   run:         'A Run is one recipe made and measured, recording what was expected against what actually happened.',
   claim:       'A Claim is an assertion with an owner and an honest grade, which anyone may challenge.',
   challenge:   'A Challenge is a complaint about a product we already sell — usually carrying a buried claim that has to be made measurable before it can be answered.',
@@ -318,8 +318,14 @@ const QUESTION_STATES = {
   contested: 'Contested — there are claims on both sides',
   settled: 'Settled — we have an answer we stand behind',
 };
+/* THE WORD ON SCREEN IS "APPROACH" (Tahir's ruling, 23 Sept 2026). The object
+   is still a Bet in MODEL.md, in every table and column, in every route, and
+   in its permanent number, which keeps the B- prefix: under
+   RECLASSIFICATION-RULES.md §4 a number never changes, and B-001 written on a
+   lab sheet on the 22nd must still resolve on the 24th. Only the label
+   changed, because to a plant chemist "Bet" reads as gambling. */
 const BET_STATUSES = {
-  active: 'Open',  // was "Running" — a Bet read RUNNING before its first Run existed (23 Sept 2026)
+  active: 'Open',  // was "Running" — an approach read RUNNING before its first Run existed (23 Sept 2026)
   killed: 'Killed — the kill criterion was met',
   advanced: 'Advanced — it earned the next step',
 };

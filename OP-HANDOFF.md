@@ -5220,3 +5220,192 @@ enter passwords. Four of the twelve are not leads and they decide adoption.
 Nothing pushed. Local changes: `pd/pd.html`, `pd/pd-lib.js`,
 `pd/pd-routes.js`, `pd/migrations/007_plant_wide_context.sql`,
 `pd/migrations/STATE-CHECK.sql`, `CLAUDE.md`, this file.
+
+
+---
+
+## 2026-09-23 · Pass fifteen · MODULE: O2S · Queue Shell extended for the whole company
+
+### Ruling taken this pass
+
+Tahir chose to extend the prototype rather than start building, and said it goes
+**to the whole company as the plan**. That second answer changed the first: a
+private prototype for one man and a plan shown to 14 people are different jobs.
+
+### What was added
+
+- **All 14 roles selectable**, grouped by department, 16 example accounts. Anyone
+  can find their own job and see their own screen. Operators get the queue;
+  the six leads and the Production Manager get the manager shape; COO gets the
+  admin shape; Plant Manager sees the admin surface read-only.
+- **The 16 readiness checks** (`entryChecks()`) made visible on the KAM's PO card,
+  each failing one clickable to the field it names. The live app computes all 16
+  and shows the user none of them. No price figure appears — checks 13, 14 and 16
+  show only whether they are answered.
+- **"How current are we"** — one board reachable by every role: real findings
+  first, then every department by name with % current, the manager responsible,
+  who is behind and by how much. Closes by saying it never blocks anyone.
+- **New role creation** with a live separation-of-duties warning.
+- **Departments and managers**, with Quality shown as having no lead — real — and
+  an offer to fix it. Change shows a before→after diff and is undoable.
+- **"What this means for you"** — plain English for someone reading it once.
+
+### Two design decisions taken because the audience changed
+
+1. **Real figures and invented figures are now visually separate.** Anything
+   carrying the REAL badge was verified against the live database this week
+   (215/215, 74%, 23%, 8 shared logins, Quality without a lead, 5 rules that
+   cannot fire). Everything else — every name, truck, batch, quantity and
+   per-person lateness figure — carries an "example" tag. A fixed strip states
+   this in every shape at every width.
+2. **A persistent "proposed design · not the live system" marker**, so nobody
+   goes looking for the queue on Monday.
+
+The reason for (1) is specific: a line reading "Ali Raza recorded this 1 d 20 h
+late" is invented, but VAN has real people, and an unlabelled version of that
+line reads as an accusation.
+
+### A factual error caught before it shipped
+
+The design pass invented the five separation-of-duties rules and named the wrong
+six missing codes. It had them as pairs like `order.create` + `order.acknowledge`
+with `SOD_MISSING = order.create, order.acknowledge, gatepass.issue,
+delivery.confirm, pr.close, rm.receive` — every one of which **is** in `RIGHTS`.
+
+Corrected against `var SEPARATION` in `o2s.html`. The five rules, verbatim,
+with the code's own reason text:
+
+| # | codes | reason, as written in the code |
+|---|---|---|
+| 1 | `production.enter` + `inspection.perform` | nobody inspects their own output |
+| 2 | `coa.draft` + `coa.review` | the analyst does not check his own certificate |
+| 3 | `coa.review` + `coa.approve` | a certificate needs two signatures, not one |
+| 4 | `shipment.load` + `shipment.release` | the person who loads does not release |
+| 5 | `order.create` + `dc.approve` | not raising the order and approving its own delivery |
+
+Nine distinct codes. Three are in `RIGHTS` — `production.enter`, `shipment.load`,
+`order.create`. **Six are not**: `inspection.perform`, `coa.draft`, `coa.review`,
+`coa.approve`, `shipment.release`, `dc.approve`. Every rule names at least one of
+the six, and `separationRefusal()` opens with
+`if(!rightByCode(a)||!rightByCode(bC)) continue;` — so all five are skipped.
+
+Two related display bugs fixed in the same pass: a code was being labelled "not in
+RIGHTS" when it was merely absent from `RIGHTS_LIVE` (the 11 answered from the
+grant table). All 23 are in `RIGHTS`; 12 still run their legacy check. The page
+now says so.
+
+### Verification
+
+Two independent harnesses, both run to zero.
+
+- **State walk** — every `data-action` across all 16 personas, 6 widths, light and
+  dark, plus a pass forcing wider fallback fonts. 966 probes, 738 clicks.
+- **Flow drive** — every persona, every top-level action, forms filled and
+  submitted, then one level past each submit. 1,492 checks at 320 / 390 / 768 /
+  1280 px, both themes, stress fonts.
+
+Measured on every element in every state: `scrollWidth` vs `clientWidth`, clipped
+overflow, bounding box past the viewport, text squeezed below 8 px, and whether
+the fixed strip leaves anything unreachable.
+
+One real defect found and fixed: the strip is 50 px on a desktop and 105 px on a
+phone where it wraps, and the space reserved for it was a guess (a fixed 120 px on
+the About overlay, and a `body` padding that did not reach the document's scroll
+height). Its height is now measured and published as a `--barh` token that the app
+column and the overlay both reserve in normal flow. Final state: zero layout
+defects, zero page errors, in every combination.
+
+The bar check was also rewritten mid-pass. Its first version flagged anything
+momentarily sitting in the bar's band, which is normal for a scrolling region; it
+now scrolls the element into view first and reports only what cannot be cleared.
+
+### Still open
+
+- The org list. Names in the prototype are invented and stay invented until it
+  arrives: per person full name, one role, username; per department, the manager.
+- Confirm Invoicing Officer, Procurement Accountant, Supply Chain Manager — and
+  whether Supply Chain Manager replaces or sits above Supply Chain Officer.
+- The design pass flagged one judgement call: the Production department's lead
+  role is `production` in `DEPTS`, which would put the Production Manager under a
+  Production operator on screen. The prototype makes Production Manager the
+  manager responsible instead. Tahir's call.
+- Nothing has been built into `o2s.html`. This remains a prototype.
+
+### Constraints respected
+
+Nothing pushed. No `.patch` files. No module boundary crossed — no application
+code was touched this pass.
+
+---
+
+## 23 September 2026 (later) — MODULE: PD — four structural changes built: My desk, Approach, the recipe box, the sample request as the front door
+
+Tahir's rulings the same day, after the Council review earlier in the entry
+above. All four are built and on disk. Nothing pushed.
+
+### 1. "What I owe" is now "My desk"
+
+Nav and page title only. The page, its buckets ("Needs you now / Coming up /
+No date on it") and the write box are as built earlier today. `MODEL.md` §5
+carries a one-line note; the meaning of the screen is unchanged.
+
+### 2. "Bet" is now "Approach" on every screen
+
+The word people read changed. Nothing underneath did: the object is still a
+Bet in `MODEL.md`, in `pd_bets`, in every route and in its permanent number,
+which keeps the B- prefix (RECLASSIFICATION-RULES §4: a number never changes).
+`pd-lib.js` carries the explanation next to `BET_STATUSES`; the glossary
+entry now reads "An Approach is one thing we try because we believe
+something ... Its number starts with B." Every pill, button, form heading,
+report tile and error message was checked: zero user-facing "Bet" left.
+
+### 3. The recipe box on the Run — migration 008
+
+`pd/migrations/008_run_recipe.sql`: one nullable TEXT column,
+`pd_runs.recipe_text`, after `combination_id`. STATE-CHECK.sql PART 1 now
+reports 008.
+
+What it does on screen:
+
+- The "Make a run" form has a second box, "What will you mix?", optional.
+- The Run card shows the recipe in its own block, or "No recipe written on
+  this Run yet" while the Run is open.
+- "+ Write the recipe" / "Change the recipe" on an open Run, through the
+  existing edit route, so the earlier wording is kept in the history like
+  every other edited field. Owner or lead, as for every edit.
+- Search reads `recipe_text`.
+- The report tile "Runs with no recipe written" now counts a Run as having a
+  recipe if EITHER the box or a Combination Bank code is on it.
+
+**008 is written and in the repo but NOT yet applied to the local database.**
+The phpMyAdmin tab stopped answering mid-session (both open tabs went quiet,
+so it looks like Chrome or the machine, not the SQL). Until 008 is applied,
+the restarted server will fail on any Run create, the dossier and the report,
+because the code reads a column that is not there. Apply 008 first, then
+restart. Production: not until Tahir applies it by hand, per the standing
+rule.
+
+### 4. The sample request is the front door
+
+On "What came in", the Request door is now second, directly after "Not sure
+yet" (which stays first: the 9 September ruling that nobody classifies
+before they can write). Its line now says it is the usual reason to be here.
+The placeholders on both write boxes lead with "Someone wants a sample of…".
+The My desk hint reads "Someone wants a sample? A dealer said something? A
+result came in?".
+
+### Housekeeping found on the way
+
+- `007_plant_wide_context.sql` and `STATE-CHECK.sql` on disk still carried
+  the em-dash name for row 90; the `plant-wide` versions written this
+  morning had not reached the repo. They have now.
+- `CLAUDE.md`: "Tahir pushes with GitHub Desktop." had landed at the end of
+  the migrations block instead of under "Never push". Moved back.
+- `docs/pd-model/MODEL.md` §3 and §5: the Approach label, the recipe box and
+  the My desk title, each as a note under the unchanged object.
+
+### Still Tahir's
+
+Apply 008 locally (phpMyAdmin, one paste), restart the local server, then
+open a Run and write a recipe on it. Commit and push from GitHub Desktop.
+The 11 accounts through Manage Access. Production 003–008 by hand, later.

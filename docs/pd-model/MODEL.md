@@ -71,8 +71,15 @@ The primary object is therefore **not a project and not a sample**. It is a
   **state** (open · contested · settled), and a due date.
 - **Bet** — a specific approach taken because we believe something, carrying the
   **one result that would kill it**, written before any bench work.
+  _Screen word since 23 Sept 2026 (Tahir's ruling, Council review): **"Approach"**.
+  The object, its tables and columns, its routes and its B- number are unchanged;
+  only the label people read changed, because to a plant chemist "Bet" reads as
+  gambling._
 - **Run** — one recipe made and measured. Fast, many per Bet. Records
-  **expected vs actual**.
+  **expected vs actual**, and since 23 Sept 2026 the **recipe itself**
+  (`recipe_text`, migration 008): what was mixed, in the chemist's own words, on
+  the Run rather than in a notebook. Optional at opening, editable later with
+  history kept.
 
 ### The atom (1) — how knowledge and team brains enter
 - **Claim** — an assertion with an **owner** and an honest **grade**
@@ -135,7 +142,8 @@ This is drift made **on purpose and on the record**, not drift that crept in.
    first: a Challenge, an Observation, a Request (the three doors, §3), or a
    Problem/concept stated directly. One screen, no need to classify before it
    saves — triage classifies.
-2. **"What I owe"** — my assigned questions, who waits on each, by when; late
+2. **"What I owe"** — screen title **"My desk"** since 23 Sept 2026 (Tahir's
+   ruling); the meaning is unchanged. My assigned questions, who waits on each, by when; late
    shows as late — including Requests waiting on my reply and intake items
    waiting on my triage. The only per-person scoreboard.
 3. **The Problem Dossier** (3rd screen, sign-off `PENDING-DECISIONS.md` §B8) —

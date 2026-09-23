@@ -496,7 +496,7 @@ const FIELD_WORDS = {
   reported_by_name: 'who reported it', reported_by_contact: 'their contact',
   dispatch_date: 'the dispatch date', return_by: 'the date it is wanted by',
   title: 'its title', nature: 'what kind of question it is', due_date: 'its due date',
-  approach: 'the approach', kill_criterion: 'the kill criterion', expected: 'what was expected',
+  approach: 'the approach', kill_criterion: 'the kill criterion', expected: 'what was expected', recipe_text: 'what was mixed',
   actual: 'what actually happened', closing_claim_id: 'the result that closed it',
   settled_reason: 'the answer', closed_reason: 'why it closed', converted_to_type: 'what it became',
   delivery_context_id: 'the context it is aimed through',
@@ -1239,7 +1239,7 @@ const SPINE = {
               closedCol: 'status', closedIsNot: 'active',
               closedSays: 'That bet is closed. What it came to is a claim now — write a new claim rather than changing the bet underneath it.' },
   run:      { table: 'pd_runs', numcol: 'run_number', fmt: pd.fmt_run,
-              editable: ['expected', 'actual'],
+              editable: ['expected', 'actual', 'recipe_text'],
               minimums: { expected: 10, actual: 10 },
               closedCol: 'status', closedIs: 'closed',
               closedSays: 'That run is closed. What it showed is a claim now — write a new claim rather than changing what the run says it did.' },
@@ -1538,16 +1538,16 @@ app.get('/api/pd/search', auth, pdAuth, pdSurface('intake'), async (req, res) =>
       'bet', ['approach', 'kill_criterion'], r => '#problem/' + r.problem_id);
 
     const [runs] = await pdq(
-      `SELECT r.id, r.run_number, r.expected, r.actual, r.replaces_reason, r.status, r.created_at, q.nature,
+      `SELECT r.id, r.run_number, r.expected, r.actual, r.recipe_text, r.replaces_reason, r.status, r.created_at, q.nature,
               p.id problem_id, p.p_number, p.title problem_title
          FROM pd_runs r JOIN pd_bets b ON b.id = r.bet_id
          JOIN pd_questions q ON q.id = b.question_id JOIN pd_problems p ON p.id = q.problem_id
-        WHERE r.expected LIKE ? ESCAPE '\\\\' OR r.actual LIKE ? ESCAPE '\\\\' OR r.replaces_reason LIKE ? ESCAPE '\\\\'
-        ORDER BY r.run_number DESC LIMIT 40`, [L, L, L]);
+        WHERE r.expected LIKE ? ESCAPE '\\\\' OR r.actual LIKE ? ESCAPE '\\\\' OR r.recipe_text LIKE ? ESCAPE '\\\\' OR r.replaces_reason LIKE ? ESCAPE '\\\\'
+        ORDER BY r.run_number DESC LIMIT 40`, [L, L, L, L]);
     add(runs.map(r => ({ ...r, label: pd.fmt_run(r.run_number), problem_label: pd.fmt_p(r.p_number),
       nature_label: pd.QUESTION_NATURES[r.nature],
       status_label: pd.RUN_STATUSES[r.status] })),
-      'run', ['expected', 'actual', 'replaces_reason'], r => '#problem/' + r.problem_id);
+      'run', ['expected', 'actual', 'recipe_text', 'replaces_reason'], r => '#problem/' + r.problem_id);
 
     /* Readings are where an abnormal observation is actually written down —
        "white material settled at the bottom of the bottle" lives here, not on
@@ -1629,7 +1629,7 @@ app.get('/api/pd/search', auth, pdAuth, pdSurface('intake'), async (req, res) =>
       || new Date(b.when || 0) - new Date(a.when || 0));
 
     const KIND_WORDS = {
-      problem: 'Problem', question: 'Question', bet: 'Bet', run: 'Run',
+      problem: 'Problem', question: 'Question', bet: 'Approach', run: 'Run',
       reading: 'Reading', claim: 'Claim', challenge: 'Challenge',
       observation: 'Observation', request: 'Request', constraint: 'Constraint',
     };
@@ -1672,7 +1672,7 @@ app.post('/api/pd/constraints', auth, pdAuth, pdSurface('intake'), async (req, r
     }
     const ctxId = Number(b.delivery_context_id) || 0;
     const [[ctx]] = [(await pdq('SELECT id, name FROM pd_delivery_contexts WHERE id=?', [ctxId]))[0]];
-    if (!ctx) return res.status(400).json({ error: 'Say what this binds: soil broadcast, side-dress band, fertigation, foliar, ULV drone, seed treatment — or plant-wide, for a rule about what we can actually make, which every Bet inherits whatever the context.' });
+    if (!ctx) return res.status(400).json({ error: 'Say what this binds: soil broadcast, side-dress band, fertigation, foliar, ULV drone, seed treatment — or plant-wide, for a rule about what we can actually make, which every approach inherits whatever the context.' });
     const kind = pd.has(pd.CONSTRAINT_KINDS, b.kind) ? b.kind : '';
     if (!kind) return res.status(400).json({ error: 'Say what kind of rule it is: blending, storage / CRH, logistics / freight, regulatory, or what the plant can do.' });
     const rule = clean(b.rule_text, 5000);
@@ -1768,7 +1768,7 @@ app.post('/api/pd/bets', auth, pdAuth, pdSurface('intake'), async (req, res) => 
   try {
     const b = req.body || {}, me = req.pdUser;
     const [[q]] = [(await pdq('SELECT * FROM pd_questions WHERE id=?', [Number(b.question_id) || 0]))[0]];
-    if (!q) return res.status(400).json({ error: 'A Bet tests a Question — pick which one.' });
+    if (!q) return res.status(400).json({ error: 'An approach tests a Question — pick which one.' });
     // The screen already hides the button on a settled question; the route has
     // to say the same thing, or the rule holds only for people using the screen.
     if (q.state === 'settled') return res.status(409).json({ error: 'That question is settled. If it turns out not to be, write a claim that challenges the answer — a new bet under a settled question reads as if nobody knew.' });
@@ -1777,7 +1777,7 @@ app.post('/api/pd/bets', auth, pdAuth, pdSurface('intake'), async (req, res) => 
     // MODEL.md §3 — "carrying the one result that would kill it, written before
     // any bench work." The column is NOT NULL; this is the sentence that says
     // why, in words a person reads.
-    if (kill.length < 10) return res.status(400).json({ error: 'Write the kill criterion — the one result that would end this Bet — before any bench work. A Bet without one cannot be lost, so nothing can be learned from it.' });
+    if (kill.length < 10) return res.status(400).json({ error: 'Write the kill criterion — the one result that would end this approach — before any bench work. An approach without one cannot be lost, so nothing can be learned from it.' });
     let ctx = Number(b.delivery_context_id) || null;
     /* B2 (11 Sept 2026). Plant-wide is a place to write what the plant can
        make, not a way of delivering anything. A Bet aimed through it would
@@ -1785,7 +1785,7 @@ app.post('/api/pd/bets', auth, pdAuth, pdSurface('intake'), async (req, res) => 
        refused here rather than quietly accepted — the screen also leaves it out
        of the "Aimed through" list, and this is the guard behind that. */
     if (ctx === pd.PLANT_WIDE_CONTEXT_ID) {
-      return res.status(400).json({ error: 'Plant-wide is not a way of delivering anything, so a Bet cannot be aimed through it. Pick the delivery context — every Bet inherits the plant-wide rules anyway.' });
+      return res.status(400).json({ error: 'Plant-wide is not a way of delivering anything, so an approach cannot be aimed through it. Pick the delivery context — every approach inherits the plant-wide rules anyway.' });
     }
     if (ctx) {
       const [[c]] = [(await pdq('SELECT id FROM pd_delivery_contexts WHERE id=?', [ctx]))[0]];
@@ -1809,7 +1809,7 @@ app.post('/api/pd/bets/:id/close', auth, pdAuth, pdSurface('intake'), async (req
     const [[bet]] = [(await pdq('SELECT * FROM pd_bets WHERE id=?', [req.params.id]))[0]];
     if (!bet) return res.status(404).json({ error: 'Not found.' });
     if (!(pd.is_lead(me.pd_role) || bet.owner_id === me.id)) {
-      return res.status(403).json({ error: 'Closing a bet is its owner’s, or a technical lead’s.' });
+      return res.status(403).json({ error: 'Closing an approach is its owner’s, or a technical lead’s.' });
     }
     /* No early "already closed" guard here. It used to sit above the
        validation, so whether a person who lost the race got their result kept
@@ -1819,7 +1819,7 @@ app.post('/api/pd/bets/:id/close', auth, pdAuth, pdSurface('intake'), async (req
        every loser is treated the same way and told the same thing.
        Found 10 Sept 2026 by a test that failed only when the box was slow. */
     const status = ['killed', 'advanced'].includes(b.status) ? b.status : '';
-    if (!status) return res.status(400).json({ error: 'A bet closes as killed or advanced.' });
+    if (!status) return res.status(400).json({ error: 'An approach closes as killed or advanced.' });
     const text = clean(b.result_text, 5000);
     const refusal = pd.close_refusal(text, b.grade);
     if (refusal) return res.status(400).json({ error: refusal });
@@ -1828,7 +1828,7 @@ app.post('/api/pd/bets/:id/close', auth, pdAuth, pdSurface('intake'), async (req
     const claimId = await writeClosingClaim(me.id, { subjectType: 'question', subjectId: bet.question_id, text, grade: b.grade, sourceRef: clean(b.source_ref, 500) });
     const [w] = await pdq("UPDATE pd_bets SET status=?, closing_claim_id=?, closed_at=NOW() WHERE id=? AND status='active'", [status, claimId, bet.id]);
     if (w.affectedRows === 0) {
-      return res.status(409).json({ error: 'Someone closed this bet a moment before you did. What you wrote is on the record as a claim on the question — nothing is lost.' });
+      return res.status(409).json({ error: 'Someone closed this approach a moment before you did. What you wrote is on the record as a claim on the question — nothing is lost.' });
     }
     await pd.record_changes(pdq, 'bet', bet.id, bet, { status, closing_claim_id: claimId }, me.id);
     res.json({ ok: true, claim_id: claimId, status });
@@ -1840,8 +1840,8 @@ app.post('/api/pd/runs', auth, pdAuth, pdSurface('intake'), async (req, res) => 
   try {
     const b = req.body || {}, me = req.pdUser;
     const [[bet]] = [(await pdq('SELECT * FROM pd_bets WHERE id=?', [Number(b.bet_id) || 0]))[0]];
-    if (!bet) return res.status(400).json({ error: 'A Run happens under a Bet — pick which one.' });
-    if (bet.status !== 'active') return res.status(409).json({ error: 'That bet is closed. A new line of work is a new bet, under the question it tests.' });
+    if (!bet) return res.status(400).json({ error: 'A Run happens under an approach — pick which one.' });
+    if (bet.status !== 'active') return res.status(409).json({ error: 'That approach is closed. A new line of work is a new approach, under the question it tests.' });
     const expected = clean(b.expected, 5000);
     if (expected.length < 10) return res.status(400).json({ error: 'Write what you expect to happen, before you make it. A Run records what was expected against what happened.' });
     // B14 — "a Run must name the Run it replaced, and why." SOP → KOH →
@@ -1853,12 +1853,16 @@ app.post('/api/pd/runs', auth, pdAuth, pdSurface('intake'), async (req, res) => 
       if (!prev) return res.status(400).json({ error: 'That earlier run does not exist.' });
       if (!replacesReason) return res.status(400).json({ error: 'Say why this Run replaces the earlier one, so the two are read together later.' });
     } else { replacesReason = ''; }
+    // 23 Sept 2026 (Council, finding 05) — the recipe box. What was mixed, in
+    // the chemist's own words, on the Run itself. Optional: a Run may be
+    // opened before the recipe is final. Migration 008 adds the column.
+    const recipe = clean(b.recipe_text, 5000);
     let newId = 0;
     const n = await pd.insert_numbered(pdq, 'pd_runs', 'run_number', async (n) => {
       const [ins] = await pdq(
-        `INSERT INTO pd_runs (run_number, bet_id, expected, replaces_run_id, replaces_reason, owner_id, created_by)
-         VALUES (?,?,?,?,?,?,?)`,
-        [n, bet.id, expected, replaces, replacesReason || null, me.id, me.id]);
+        `INSERT INTO pd_runs (run_number, bet_id, expected, recipe_text, replaces_run_id, replaces_reason, owner_id, created_by)
+         VALUES (?,?,?,?,?,?,?,?)`,
+        [n, bet.id, expected, recipe || null, replaces, replacesReason || null, me.id, me.id]);
       newId = ins.insertId;
     });
     res.json({ ok: true, id: newId, label: pd.fmt_run(n) });
@@ -2333,7 +2337,7 @@ app.get('/api/pd/report', auth, pdAuth, pdSurface('intake'), async (req, res) =>
       // How many Runs have no recipe recorded against them — the gap the
       // Combination Bank is meant to close. A number, so it stops being a
       // pill on every card and starts being a worklist.
-      runs_without_recipe: await one("SELECT COUNT(*) n FROM pd_runs WHERE combination_id IS NULL"),
+      runs_without_recipe: await one("SELECT COUNT(*) n FROM pd_runs WHERE combination_id IS NULL AND (recipe_text IS NULL OR recipe_text = '')"),
     };
 
     /* Needs attention. Things, with the Problem they sit under — never a

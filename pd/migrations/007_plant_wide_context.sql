@@ -40,6 +40,18 @@
 --     delivering anything. The screen leaves it out of the list and the route
 --     refuses it with a sentence.
 --
+-- NAME SIMPLIFIED 23 September 2026, when this was actually applied. The row
+-- was going to be called 'plant-wide — what we can actually make', with an em
+-- dash. It is now simply 'plant-wide'. The reason is practical: the row has to
+-- be typed into phpMyAdmin, and a non-ASCII character typed through a browser
+-- is one more thing that can silently arrive wrong — at which point the row
+-- looks right on screen while STATE-CHECK, which matches the name exactly,
+-- reports 007 NOT APPLIED. Nothing in the code reads the name: pd-lib.js
+-- matches on PLANT_WIDE_CONTEXT_ID (90), so the id is the identity and the
+-- name is only a label on a screen. Shorter is also better in the two places
+-- it shows: the constraint form's picker and the group heading on the
+-- Constraints card.
+--
 -- RUN BY HAND, BY TAHIR, ONLY. After 006. Safe to re-run: INSERT IGNORE, and
 -- `name` is UNIQUE, so a second run inserts nothing.
 -- ===========================================================================
@@ -57,13 +69,13 @@ SELECT id, name FROM pd_delivery_contexts ORDER BY id;
 SELECT IF(COUNT(*) = 0, 'ok',
   'STOP: id 90 already exists and is not the plant-wide row. Do not run the INSERT — tell Claude, and the id gets chosen again.') AS preflight
   FROM pd_delivery_contexts
- WHERE id = 90 AND name <> 'plant-wide — what we can actually make';
+ WHERE id = 90 AND name <> 'plant-wide';
 
 -- ---------------------------------------------------------------------------
 -- The change. One row.
 -- ---------------------------------------------------------------------------
 INSERT IGNORE INTO pd_delivery_contexts (id, name)
-VALUES (90, 'plant-wide — what we can actually make');
+VALUES (90, 'plant-wide');
 
 -- ---------------------------------------------------------------------------
 -- After. Seven rows: the six real delivery contexts, and the plant.

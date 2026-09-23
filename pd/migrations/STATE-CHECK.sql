@@ -10,6 +10,7 @@
 -- database itself and answers in sentences.
 --
 -- AMENDED 11 September 2026 — 007 added to PART 1.
+-- AMENDED 23 September 2026 — 008 added to PART 1.
 --
 -- HOW TO USE IT. phpMyAdmin → the PD database → SQL tab → paste PART 1 →
 -- Go. Read the `verdict` column. Then run PART 2 only where PART 1 says a
@@ -97,7 +98,15 @@ SELECT '007', 'the plant-wide context exists (id 90)',
        IF(COUNT(*) > 0, 'APPLIED', 'NOT APPLIED'),
        CONCAT(COUNT(*), ' row — without it a plant-capability rule has nowhere to live')
   FROM pd_delivery_contexts
- WHERE id = 90 AND name = 'plant-wide — what we can actually make';
+ WHERE id = 90 AND name = 'plant-wide'
+
+UNION ALL
+SELECT '008', 'pd_runs has the recipe box (recipe_text)',
+       IF(COUNT(*) > 0, 'APPLIED', 'NOT APPLIED'),
+       LEFT(MAX(COLUMN_TYPE), 200)
+  FROM information_schema.COLUMNS
+ WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'pd_runs'
+   AND COLUMN_NAME = 'recipe_text';
 
 
 -- ===========================================================================

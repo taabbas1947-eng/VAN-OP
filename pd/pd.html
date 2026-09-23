@@ -146,6 +146,8 @@ textarea{resize:vertical;min-height:88px;line-height:1.55}
 .msg.bad{background:var(--red-50);color:var(--red);border:1px solid #f3ccc6}
 .kills{background:#fff;border:1px solid var(--line);border-left:3px solid var(--amber);border-radius:var(--radius-sm);padding:9px 12px;margin-top:8px;font-size:12.5px;line-height:1.5;color:var(--txt2)}
 .kills b{color:var(--txt)}
+.recipe{background:#fff;border:1px solid var(--line);border-left:3px solid var(--green);border-radius:var(--radius-sm);padding:9px 12px;margin:0 0 8px;font-size:12.5px;line-height:1.55;color:var(--txt2);white-space:pre-wrap}
+.recipe b{color:var(--txt);white-space:normal}
 .result{background:var(--green-50);border:1px solid var(--green-100);border-radius:var(--radius-sm);padding:9px 12px;margin-top:8px;font-size:12.5px;line-height:1.5;color:var(--txt)}
 .notice{background:#fff;border:1px solid var(--green-100);border-left:3px solid var(--green);border-radius:var(--radius-sm);padding:13px 15px;margin-bottom:12px}
 .notice b{font-size:13.5px;display:block;margin-bottom:4px}
@@ -304,7 +306,7 @@ function shell(inner) {
   var owed = D2 ? (D2.runs || []).filter(function (r) { return r.late || r.abnormal; }).length
                 + (D2.questions || []).filter(function (q) { return q.late; }).length : 0;
   var nav = '';
-  nav += navLink('owe', 'What I owe', route, owed);
+  nav += navLink('owe', 'My desk', route, owed);
   nav += navLink('intake', 'What came in', route,
     may('triage') && D && D.feed ? D.feed.filter(function (x) { return x.status === 'unsorted' && !x.moved; }).length : 0);
   nav += navLink('problems', 'Problems', route);
@@ -336,7 +338,7 @@ function glossary() {
   var defs = D && D.definitions;
   if (!defs) return '';
   var order = ['problem', 'question', 'bet', 'run', 'claim', 'challenge', 'observation', 'request', 'constraint'];
-  var names = { problem: 'Problem', question: 'Question', bet: 'Bet', run: 'Run', claim: 'Claim',
+  var names = { problem: 'Problem', question: 'Question', bet: 'Approach', run: 'Run', claim: 'Claim',
                 challenge: 'Challenge', observation: 'Observation', request: 'Request', constraint: 'Constraint' };
   return '<details class="gloss"><summary>What the words mean</summary>' +
     order.filter(function (k) { return defs[k]; }).map(function (k) {
@@ -396,13 +398,16 @@ function renderIntake() {
       '<h2>Write down what happened</h2>' +
       '<p class="hint">One minute is enough. You do not have to know what kind of thing it is — write it down and it is in. Someone will file it against the right Problem afterwards.</p>' +
       '<div class="field"><label>What happened, or what arrived</label>' +
-        '<textarea id="text" placeholder="A dealer said… / A sample turned up from… / Someone wants…"></textarea></div>' +
+        '<textarea id="text" placeholder="Someone wants a sample of… / A dealer said… / A result turned up from…"></textarea></div>' +
       '<label>If you already know which of these it is <span class="opt">— optional</span></label>' +
       '<div class="doors">' +
+        // 23 Sept 2026 — the sample request is the front door: it is the
+        // thing most people walk in with. "Not sure yet" stays first (9 Sept
+        // ruling): nobody should have to classify before they can write.
         door('', 'Not sure yet', 'Write it down anyway. This is the ordinary answer. It is held as an Observation until someone files it.') +
+        door('request', 'Someone wants a sample — a Request', 'The usual reason to be here. Someone has asked for a sample or a product to be made. Name who asked and who it goes to.') +
         door('challenge', 'A complaint — a Challenge', 'Something we already sell is not doing what it should.') +
         door('observation', 'Something arrived — an Observation', 'A result or a material that reached us. Not a complaint, and not an idea.') +
-        door('request', 'Someone wants a sample — a Request', 'Someone has asked for a sample or a product to be made. Name who asked and who it goes to.') +
       '</div>' +
       doorFields() +
       '<div class="field"><label>Who reported it <span class="opt">— optional. Leave blank if it was you.</span></label>' +
@@ -413,7 +418,7 @@ function renderIntake() {
   /* Five most recent only. Everything a person wrote is on What I owe; this
      screen used to print the same entry here and again in the filing list. */
   var mine = '<div class="card"><h2>Your recent entries</h2>' +
-    '<p class="hint">The last five. <a href="#owe">Everything you have written</a> is on What I owe.</p>' +
+    '<p class="hint">The last five. <a href="#owe">Everything you have written</a> is on My desk.</p>' +
     (D.mine.length ? D.mine.slice(0, 5).map(function (x) { return itemCard(x, true); }).join('') : '<div class="empty">You have not written anything down yet. Use the box above to add your first entry. A few sentences is enough.</div>') +
     '</div>';
 
@@ -598,10 +603,10 @@ function oweActions(W) {
       act: q.state === 'contested' ? 'Two claims disagree. Settle it.' : 'Answer it, then settle it.',
       about: q.title,
       meta: q.problem_label + ' · ' + q.problem_title + ' · ' + (q.nature_label || q.nature) +
-            ' · ' + (q.open_bets ? q.open_bets + ' bet' + (q.open_bets === 1 ? '' : 's') + ' running' : 'no bets on it yet') });
+            ' · ' + (q.open_bets ? q.open_bets + ' approach' + (q.open_bets === 1 ? '' : 'es') + ' running' : 'no approaches on it yet') });
   });
   (W.bets || []).forEach(function (b) {
-    a.push({ kind: 'Bet', label: b.label, link: '#problem/' + b.problem_id,
+    a.push({ kind: 'Approach', label: b.label, link: '#problem/' + b.problem_id,
       date: null, urgent: !!(b.all_runs && !b.open_runs),
       act: (b.all_runs && !b.open_runs) ? 'Every run on it is closed. Decide it: killed or advanced.'
          : b.open_runs ? 'Decide it once the readings are in.'
@@ -665,12 +670,12 @@ function renderOwe() {
   /* The box that used to be on another screen. A person who opens PD with
      something in their head can write it here without going anywhere. */
   var writeCard = '<div class="card"><h2>Write something down</h2>' +
-    '<p class="hint">Anything that happened, arrived or was asked for. One minute is enough, and you do not have to know what kind of thing it is. ' +
-    'Someone files it afterwards. <a href="#intake">The full form</a> lets you say who reported it.</p>' +
-    '<div class="field"><textarea id="owe_write" style="min-height:74px" placeholder="A dealer said… / A sample turned up from… / Someone wants…"></textarea></div>' +
+    '<p class="hint">Someone wants a sample? A dealer said something? A result came in? One minute is enough, and you do not have to know what kind of thing it is. ' +
+    'Someone files it afterwards. <a href="#intake">The full form</a> lets you name who asked and who it goes to.</p>' +
+    '<div class="field"><textarea id="owe_write" style="min-height:74px" placeholder="Someone wants a sample of… / A dealer said… / A result turned up from…"></textarea></div>' +
     '<button class="btn" id="owe_save">Save it</button></div>';
 
-  return '<div class="page-h"><h1>What I owe</h1>' +
+  return '<div class="page-h"><h1>My desk</h1>' +
       '<div class="sub">Everything that is yours, in the order it falls due. Nobody else sees this page, and there is no version of it pointed at anyone else.</div></div>' +
     flashHtml() + notices + writeCard +
     (now.length ? '<div class="card"><h2>Needs you now <span class="pill" style="margin-left:6px">' + now.length + '</span></h2>' +
@@ -681,7 +686,7 @@ function renderOwe() {
       '<p class="hint">Nothing is chasing these. They wait until you decide.</p>' + undated.map(actionRow).join('') + '</div>' : '') +
     (all.length ? '' :
       '<div class="card"><h2>Nothing is waiting on you</h2>' +
-        '<p class="hint">When you write a Question, take a Bet or start a Run, it appears here with what it needs next, soonest first.</p></div>') +
+        '<p class="hint">When you write a Question, try an approach or start a Run, it appears here with what it needs next, soonest first.</p></div>') +
     triageCard +
     (replies ? '<div class="card"><h2>Someone answered back</h2>' +
       '<p class="hint">You filed something of theirs, and they have said what they meant.</p>' + replies + '</div>' : '') +
@@ -740,7 +745,7 @@ function renderReport() {
       '<div class="tiles">' +
         tile(w.arrived, 'came in through the door', 'was ' + m.arrived + ' over thirty days') +
         tile(w.questions, 'Questions written', m.questions + ' over thirty days') +
-        tile(w.bets, 'Bets taken', m.bets + ' over thirty days') +
+        tile(w.bets, 'Approaches tried', m.bets + ' over thirty days') +
         tile(w.runs, 'Runs started', m.runs + ' over thirty days') +
         tile(w.readings, 'readings recorded', m.readings + ' over thirty days') +
         tile(w.results, 'results written', m.results + ' over thirty days') +
@@ -753,9 +758,9 @@ function renderReport() {
         tile(R.questions.open, 'Questions open') +
         tile(R.questions.contested, 'Questions contested', 'claims on both sides') +
         tile(R.questions.settled, 'Questions settled', 'an answer we stand behind') +
-        tile(R.bets.active, 'Bets running') +
-        tile(R.bets.killed, 'Bets killed', 'a result, not a failure') +
-        tile(R.bets.advanced, 'Bets advanced') +
+        tile(R.bets.active, 'Approaches open') +
+        tile(R.bets.killed, 'Approaches killed', 'a result, not a failure') +
+        tile(R.bets.advanced, 'Approaches advanced') +
         tile(R.runs.running, 'Runs under observation') +
         tile(R.runs.investigating, 'Runs with something abnormal', 'an investigation is open', true) +
         tile(R.claims.proven, 'Claims proven') +
@@ -766,9 +771,9 @@ function renderReport() {
       '<p class="hint">Four things a count can see. None of them is about a person — each one is a signal about the work itself, or about a form that is harder to fill in than it should be.</p>' +
       '<div class="tiles">' +
         tile(R.discipline.unfiled, 'entries not yet filed', 'came in, still nobody’s', true) +
-        tile(R.discipline.bets_never_run, 'Bets with no Run', 'stated, never acted on', true) +
+        tile(R.discipline.bets_never_run, 'Approaches with no Run', 'stated, never acted on', true) +
         tile(R.discipline.runs_unwatched, 'Runs with no reading in three weeks', 'a trial nobody is watching', true) +
-        tile(R.discipline.runs_without_recipe, 'Runs with no recipe recorded', 'the Combination Bank will close this') +
+        tile(R.discipline.runs_without_recipe, 'Runs with no recipe written', 'open the Run and write what was mixed', true) +
       '</div></div>' +
 
     '<div class="cols">' +
@@ -843,7 +848,7 @@ function renderProblems() {
       '<div class="meta">registered by ' + esc(p.author || '') + '</div></div>';
   }).join('');
   return '<div class="page-h"><h1>Problems</h1>' +
-    '<div class="sub">A Problem is the parent of all work aimed at it. It can be a problem in the field, or a product we have decided to build — both work the same way: every Question, Bet and Run sits under one Problem. There should be few Problems, and they should last a long time.</div></div>' +
+    '<div class="sub">A Problem is the parent of all work aimed at it. It can be a problem in the field, or a product we have decided to build — both work the same way: every Question, Approach and Run sits under one Problem. There should be few Problems, and they should last a long time.</div></div>' +
     flashHtml() +
     '<div class="cols"><div class="card"><h2>Register one</h2>' +
       '<p class="hint">If you already know you have a field problem or a product concept, register it here. You do not need to send it through What came in.</p>' +
@@ -855,8 +860,8 @@ function renderProblems() {
       '<div class="field"><label>' + (probKind === 'product_concept' ? 'What the product is meant to do' : 'What the problem actually is') + '</label><textarea id="pstatement"></textarea></div>' +
       '<div class="field"><label>Anything else worth knowing <span class="opt">— optional</span></label><textarea id="pcontext" style="min-height:60px"></textarea></div>' +
       '<button class="btn" id="psave">Register it</button></div>' +
-    '<div class="card"><h2>All Problems</h2><p class="hint">Every Problem work can be aimed at. Open one to see its Questions, Bets, Runs and Claims.</p>' +
-      (list || '<div class="empty">No Problems registered yet. A Problem is a pain in the field, or a product we have decided to build. Every Question, Bet and Run sits under one.</div>') + '</div></div>' +
+    '<div class="card"><h2>All Problems</h2><p class="hint">Every Problem work can be aimed at. Open one to see its Questions, Approaches, Runs and Claims.</p>' +
+      (list || '<div class="empty">No Problems registered yet. A Problem is a pain in the field, or a product we have decided to build. Every Question, Approach and Run sits under one.</div>') + '</div></div>' +
     openQuestionsCard();
 }
 
@@ -884,11 +889,11 @@ function openQuestionsCard() {
       '<div class="txt"><b>' + esc(q.title) + '</b></div>' +
       '<div class="meta">' + (q.owner_name ? 'owner · ' + esc(q.owner_name) : 'nobody owns it yet') +
         (q.due_date ? ' · due ' + esc(String(q.due_date).slice(0, 10)) : '') +
-        ' · ' + q.open_bets + ' open bet' + (q.open_bets === 1 ? '' : 's') + '</div></a>';
+        ' · ' + q.open_bets + ' open approach' + (q.open_bets === 1 ? '' : 'es') + '</div></a>';
   }).join('');
   return '<div class="card" style="margin-top:14px">' +
     '<h2>Open Questions <span class="pill" style="margin-left:6px">' + shown.length + '</span></h2>' +
-    '<p class="hint">Every Question still open, under every Problem, whoever owns it. What I owe shows only your own — this is where you find work in your discipline that somebody else is holding. A Question carries one discipline and one owner; if it needs answering in two, it is two Questions.</p>' +
+    '<p class="hint">Every Question still open, under every Problem, whoever owns it. My desk shows only your own — this is where you find work in your discipline that somebody else is holding. A Question carries one discipline and one owner; if it needs answering in two, it is two Questions.</p>' +
     '<div class="field" style="max-width:300px"><label>Discipline</label><select id="qnature">' + opts + '</select></div>' +
     (rows || '<div class="empty">Nothing open in that discipline. Either the work is all settled, or nobody has written the question down yet.</div>') +
     '</div>';
@@ -972,10 +977,10 @@ function constraintsCard() {
       }).join('') + '</div>';
   }).join('');
   if (!body) {
-    body = '<div class="empty">No constraints are recorded yet. A Constraint is a rule that kills options — what will not blend, what will cake in storage, what the plant cannot make, what the regulator will not allow. A rule about a delivery context is inherited by every Bet aimed through it; a rule about the plant is inherited by every Bet there is.</div>';
+    body = '<div class="empty">No constraints are recorded yet. A Constraint is a rule that kills options — what will not blend, what will cake in storage, what the plant cannot make, what the regulator will not allow. A rule about a delivery context is inherited by every approach aimed through it; a rule about the plant is inherited by every approach there is.</div>';
   }
   return '<div class="card" style="margin-top:14px"><h2>Constraints <span class="pill" style="margin-left:6px">' + reg.length + '</span></h2>' +
-    '<p class="hint">Rules that remove options before anyone spends a bench day on them. They belong to a delivery context or to the plant, never to this Problem — every Bet aimed through that context inherits them, here and everywhere else, and every Bet inherits the plant-wide ones whatever it is aimed through.</p>' +
+    '<p class="hint">Rules that remove options before anyone spends a bench day on them. They belong to a delivery context or to the plant, never to this Problem — every approach aimed through that context inherits them, here and everywhere else, and every approach inherits the plant-wide ones whatever it is aimed through.</p>' +
     body +
     (lead
       ? (formOpen('constraint') ? constraintForm() : '<button class="btn ghost sm" data-open="constraint">+ Write a constraint</button>')
@@ -992,7 +997,7 @@ function constraintForm() {
     return '<option value="' + k + '">' + esc(kinds[k]) + '</option>';
   }).join('');
   return box('<h2>Write a constraint</h2>' +
-    '<p class="hint">A rule that kills options. Every Bet aimed through that delivery context will show it, from now on, without anyone having to remember. Pick plant-wide instead for a rule about what we can actually make — every Bet inherits those, whatever the context.</p>' +
+    '<p class="hint">A rule that kills options. Every approach aimed through that delivery context will show it, from now on, without anyone having to remember. Pick plant-wide instead for a rule about what we can actually make — every approach inherits those, whatever the context.</p>' +
     '<div class="two">' +
       '<div class="field"><label>What does it bind?</label>' +
         '<select id="c_ctx"><option value="">— pick one —</option>' + contexts + '</select></div>' +
@@ -1036,7 +1041,7 @@ function assignControl(type, id, hasOwner, finished) {
 
 function questionCard(q, lead, owners) {
   var bets = (q.bets || []).map(function (b) { return betCard(b, q, lead); }).join('') ||
-    '<div class="empty" style="padding:6px 0">No Bets on this Question yet. A Bet is one approach we try, with the one result that would end it written down first.</div>';
+    '<div class="empty" style="padding:6px 0">No approaches on this Question yet. An approach is one thing we try, with the one result that would end it written down first.</div>';
   return '<div class="item" style="border-left:3px solid var(--green);padding-left:12px">' +
     '<div class="top"><span class="pill num">Question ' + esc(q.label) + '</span>' +
       '<span class="pill">' + esc(q.nature_label || q.nature) + '</span>' +
@@ -1048,7 +1053,7 @@ function questionCard(q, lead, owners) {
     (q.settled_reason ? '<div class="result">Settled: ' + esc(q.settled_reason) + '</div>' : '') +
     '<div style="margin:10px 0 0 8px;padding-left:10px;border-left:1px solid var(--line)">' + bets +
       (formOpen('bet:' + q.id) ? betForm(q) :
-        (q.state === 'settled' ? '' : '<button class="btn ghost sm" data-open="bet:' + q.id + '">+ Take a bet on it</button>')) +
+        (q.state === 'settled' ? '' : '<button class="btn ghost sm" data-open="bet:' + q.id + '">+ Try an approach</button>')) +
     '</div>' +
     '<div class="row" style="margin-top:9px">' +
       (q.state !== 'settled' ? (formOpen('settle:' + q.id) ? '' : '<button class="btn ghost sm" data-open="settle:' + q.id + '">Settle it</button>') : '') +
@@ -1068,19 +1073,19 @@ function betCard(b, q, lead) {
       '<div class="who">' + (c.plant_wide ? 'plant-wide — true whatever the context' : 'from ' + esc(b.context_name || 'this context')) + '</div></div>';
   }).join('');
   return '<div class="item">' +
-    '<div class="top"><span class="pill num">Bet ' + esc(b.label) + '</span>' +
+    '<div class="top"><span class="pill num">Approach ' + esc(b.label) + '</span>' +
       '<span class="pill ' + (b.status === 'killed' ? 'unsorted' : b.status === 'advanced' ? 'settled' : '') + '">' + esc(b.status_label || b.status) + '</span>' +
       (b.context_name ? '<span class="pill">' + esc(b.context_name) + '</span>' : '') +
       (b.owner_name ? '<span class="pill">owner · ' + esc(b.owner_name) + '</span>' : '') +
     '</div>' +
     '<div class="txt">' + esc(b.approach) + '</div>' +
-    '<div class="kills"><b>Kill criterion — the one result that ends this Bet:</b> ' + esc(b.kill_criterion) + '</div>' +
+    '<div class="kills"><b>Kill criterion — the one result that ends this approach:</b> ' + esc(b.kill_criterion) + '</div>' +
     (constraints ? '<div style="margin-top:8px"><div class="meta">Inherited, and applies without anyone remembering it:</div>' + constraints + '</div>' : '') +
     (b.closing_text ? '<div class="result"><b>' + esc(b.status === 'killed' ? 'Killed' : 'Advanced') + ':</b> ' + esc(b.closing_text) + ' <span class="pill">' + esc(b.closing_grade) + '</span></div>' : '') +
     (runs ? '<div style="margin:10px 0 0 8px;padding-left:10px;border-left:1px solid var(--line)">' + runs + '</div>' : '') +
     '<div class="row" style="margin-top:9px">' +
       (b.status === 'active' ? (formOpen('run:' + b.id) ? '' : '<button class="btn ghost sm" data-open="run:' + b.id + '">+ Make a run</button>') : '') +
-      (b.status === 'active' && !formOpen('closebet:' + b.id) ? '<button class="btn ghost sm" data-open="closebet:' + b.id + '">Close the bet</button>' : '') +
+      (b.status === 'active' && !formOpen('closebet:' + b.id) ? '<button class="btn ghost sm" data-open="closebet:' + b.id + '">Close the approach</button>' : '') +
       (dossier.caps.lead ? assignControl('bet', b.id, !!b.owner_name, b.status !== 'active') : '') +
     '</div>' +
     (formOpen('run:' + b.id) ? runForm(b) : '') +
@@ -1103,9 +1108,13 @@ function runCard(r, b) {
     '</div>' +
     // B7 — on the run itself, never one click away.
     '<div class="meta" style="margin:0 0 6px">This Run answers: ' + esc(r.question_title) + '</div>' +
-    '<div class="kills" style="margin:0 0 8px"><b>This Bet ends if:</b> ' + esc(r.kill_criterion) + '</div>' +
+    '<div class="kills" style="margin:0 0 8px"><b>This approach ends if:</b> ' + esc(r.kill_criterion) + '</div>' +
     '<div class="txt"><b>Expected:</b> ' + esc(r.expected) + '</div>' +
     (r.actual ? '<div class="txt" style="margin-top:5px"><b>Actual:</b> ' + esc(r.actual) + '</div>' : '') +
+    // 23 Sept 2026 — the recipe box. What was mixed sits on the Run itself, so
+    // nobody has to find the lab notebook to read it a year later.
+    (r.recipe_text ? '<div class="recipe" style="margin-top:8px"><b>Recipe:</b>\n' + esc(r.recipe_text) + '</div>' :
+      (r.status !== 'closed' ? '<div class="meta" style="margin-top:6px">No recipe written on this Run yet.</div>' : '')) +
     (r.replaces_reason ? '<div class="meta">Replaces the earlier run because: ' + esc(r.replaces_reason) + '</div>' : '') +
     (readings ? '<div style="margin-top:8px">' + readings + '</div>' : '') +
     (r.next_observation ? '<div class="waiting">Next reading due: ' + when(r.next_observation) + '</div>' : '') +
@@ -1113,11 +1122,13 @@ function runCard(r, b) {
     '<div class="row" style="margin-top:9px">' +
       (r.status !== 'closed' ? '<button class="btn ghost sm" data-open="reading:' + r.id + '">+ Add a reading</button>' : '') +
       (r.status !== 'closed' ? '<button class="btn ghost sm" data-open="closerun:' + r.id + '">Close the run</button>' : '') +
+      (r.status !== 'closed' ? '<button class="btn ghost sm" data-open="recipe:' + r.id + '">' + (r.recipe_text ? 'Change the recipe' : '+ Write the recipe') + '</button>' : '') +
       '<button class="btn ghost sm" data-open="observe:' + r.id + '">Something turned up — write an Observation</button>' +
       (dossier.caps.lead ? assignControl('run', r.id, !!r.owner_name, r.status === 'closed') : '') +
     '</div>' +
     (formOpen('reading:' + r.id) ? readingForm(r) : '') +
     (formOpen('closerun:' + r.id) ? closeRunForm(r) : '') +
+    (formOpen('recipe:' + r.id) ? recipeForm(r) : '') +
     (formOpen('observe:' + r.id) ? observeForm(r) : '') +
     '</div>';
 }
@@ -1174,17 +1185,17 @@ function betForm(q) {
   }).map(function (c) {
     return '<option value="' + c.id + '">' + esc(c.name) + '</option>';
   }).join('');
-  return box('<h2>Take a bet on ' + esc(q.label) + '</h2>' +
-    '<p class="hint">A Bet is one approach, taken because we believe something. Write the one result that would end it now, before any bench work.</p>' +
+  return box('<h2>Try an approach on ' + esc(q.label) + '</h2>' +
+    '<p class="hint">An approach is one thing we try because we believe something. Write the one result that would end it now, before any bench work.</p>' +
     '<div class="field"><label>What is the approach?</label><textarea id="b_approach_' + q.id + '"></textarea></div>' +
-    '<div class="field"><label>What one result would kill it?</label><textarea id="b_kill_' + q.id + '" placeholder="If this happens, the bet is over."></textarea></div>' +
+    '<div class="field"><label>What one result would kill it?</label><textarea id="b_kill_' + q.id + '" placeholder="If this happens, the approach is over."></textarea></div>' +
     '<div class="field"><label>Aimed through <span class="opt">— optional; it inherits that context’s constraints</span></label><select id="b_ctx_' + q.id + '">' + ctx + '</select></div>' +
-    '<div class="row"><button class="btn" data-bet="' + q.id + '">Take the bet</button>' +
+    '<div class="row"><button class="btn" data-bet="' + q.id + '">Try it</button>' +
     '<button class="btn ghost" data-open="bet:' + q.id + '">Cancel</button></div>');
 }
 function closeBetForm(b) {
   return box('<h2>Close ' + esc(b.label) + '</h2>' +
-    '<p class="hint">A Bet that is killed is a useful result. Write what happened — what you write becomes a Claim on the record.</p>' +
+    '<p class="hint">An approach that is killed is a useful result. Write what happened — what you write becomes a Claim on the record.</p>' +
     // The kill criterion was written before the bench work precisely so it
     // could be read at this moment. Putting it anywhere but here makes the
     // first dropdown option a guess.
@@ -1202,11 +1213,20 @@ function runForm(b) {
   return box('<h2>Make a run under ' + esc(b.label) + '</h2>' +
     '<p class="hint">A Run is one recipe made and measured. Write what you expect before you make it: a Run records what was expected against what happened.</p>' +
     '<div class="field"><label>What do you expect to happen?</label><textarea id="r_exp_' + b.id + '"></textarea></div>' +
+    '<div class="field"><label>What will you mix? <span class="opt">— the recipe, optional for now</span></label>' +
+      '<textarea id="r_recipe_' + b.id + '" placeholder="Ingredients, amounts, order, temperature, time. Your own words — you can add or change it later."></textarea></div>' +
     (prev ? '<div class="two"><div class="field"><label>Does it replace an earlier run? <span class="opt">— optional</span></label>' +
       '<select id="r_repl_' + b.id + '"><option value="">— no —</option>' + prev + '</select></div>' +
       '<div class="field"><label>If so, why</label><input type="text" id="r_replwhy_' + b.id + '"></div></div>' : '') +
     '<div class="row"><button class="btn" data-run="' + b.id + '">Start the run</button>' +
     '<button class="btn ghost" data-open="run:' + b.id + '">Cancel</button></div>');
+}
+function recipeForm(r) {
+  return box('<h2>' + (r.recipe_text ? 'Change the recipe on Run ' : 'Write the recipe on Run ') + esc(r.label) + '</h2>' +
+    '<p class="hint">What was actually mixed: ingredients, amounts, order, temperature, time. Written on the Run so that whoever reads it later does not have to find the notebook.' + (r.recipe_text ? ' The earlier wording is kept in the history.' : '') + '</p>' +
+    '<div class="field"><label>The recipe</label><textarea id="rc_text_' + r.id + '" style="min-height:130px">' + esc(r.recipe_text || '') + '</textarea></div>' +
+    '<div class="row"><button class="btn" data-recipe="' + r.id + '">Save the recipe</button>' +
+    '<button class="btn ghost" data-open="recipe:' + r.id + '">Cancel</button></div>');
 }
 function readingForm(r) {
   return box('<h2>Add a reading to Run ' + esc(r.label) + '</h2>' +
@@ -1227,7 +1247,7 @@ function closeRunForm(r) {
     // A Run records what was expected against what happened. Both halves have
     // to be on the screen at the moment the second half is written.
     '<div class="kills" style="margin:0 0 6px"><b>You expected:</b> ' + esc(r.expected) + '</div>' +
-    '<div class="kills" style="margin:0 0 10px"><b>This Bet ends if:</b> ' + esc(r.kill_criterion) + '</div>' +
+    '<div class="kills" style="margin:0 0 10px"><b>This approach ends if:</b> ' + esc(r.kill_criterion) + '</div>' +
     '<div class="field"><label>What actually happened?</label><textarea id="cr_actual_' + r.id + '"></textarea></div>' +
     '<div class="field"><label>And what does that tell us?</label><textarea id="cr_text_' + r.id + '"></textarea></div>' +
     gradeSelect('cr_grade_' + r.id) +
@@ -1320,7 +1340,7 @@ function bindDossier() {
   on('[data-bet]', async function (b) {
     var id = b.getAttribute('data-bet');
     var r = await api('/api/pd/bets', 'POST', { question_id: id, approach: $('b_approach_' + id).value, kill_criterion: $('b_kill_' + id).value, delivery_context_id: $('b_ctx_' + id).value });
-    await reloadDossier('Bet ' + r.label + ' is on.');
+    await reloadDossier('Approach ' + r.label + ' is on.');
   });
   on('[data-closebet]', async function (b) {
     var id = b.getAttribute('data-closebet');
@@ -1329,10 +1349,15 @@ function bindDossier() {
   });
   on('[data-run]', async function (b) {
     var id = b.getAttribute('data-run');
-    var body = { bet_id: id, expected: $('r_exp_' + id).value };
+    var body = { bet_id: id, expected: $('r_exp_' + id).value, recipe_text: $('r_recipe_' + id).value };
     if ($('r_repl_' + id)) { body.replaces_run_id = $('r_repl_' + id).value; body.replaces_reason = $('r_replwhy_' + id).value; }
     var r = await api('/api/pd/runs', 'POST', body);
     await reloadDossier('Run ' + r.label + ' started.');
+  });
+  on('[data-recipe]', async function (b) {
+    var id = b.getAttribute('data-recipe');
+    await api('/api/pd/run/' + id + '/edit', 'POST', { recipe_text: $('rc_text_' + id).value });
+    await reloadDossier('Recipe saved on the Run.');
   });
   on('[data-reading]', async function (b) {
     var id = b.getAttribute('data-reading');
@@ -1364,7 +1389,7 @@ function bindDossier() {
   on('[data-constraint]', async function () {
     var r = await api('/api/pd/constraints', 'POST', {
       delivery_context_id: $('c_ctx').value, kind: $('c_kind').value, rule_text: $('c_rule').value });
-    await reloadDossier('Written down. Every Bet aimed through ' + r.context_name + ' now shows it.');
+    await reloadDossier('Written down. Every approach aimed through ' + r.context_name + ' now shows it.');
   });
   on('[data-retirec]', async function (b) {
     var id = b.getAttribute('data-retirec');
@@ -1481,7 +1506,7 @@ var found = null;
 function renderSearch() {
   var f = found;
   if (!f) return '<div class="page-h"><h1>Find anything</h1>' +
-    '<div class="sub">Type in the box on the left. It looks through every Problem, Question, Bet, Run, reading, Claim, entry and constraint at once.</div></div>';
+    '<div class="sub">Type in the box on the left. It looks through every Problem, Question, Approach, Run, reading, Claim, entry and constraint at once.</div></div>';
 
   if (f.hint) {
     return '<div class="page-h"><h1>Find anything</h1><div class="sub">' + esc(f.hint) + '</div></div>';
@@ -1489,7 +1514,7 @@ function renderSearch() {
   if (!f.total) {
     return '<div class="page-h"><h1>Nothing found for “' + esc(f.q) + '”</h1>' +
       '<div class="sub">Nothing in PD contains those characters. That is an answer too — if you expected something, it was never written down.</div></div>' +
-      '<div class="card"><p class="hint">It searches the words people actually wrote: a Problem\u2019s statement, a Question, a Bet\u2019s approach and its kill criterion, what a Run expected and what happened, every reading, every Claim, everything that came in through the door, and every constraint.</p></div>';
+      '<div class="card"><p class="hint">It searches the words people actually wrote: a Problem\u2019s statement, a Question, an approach and its kill criterion, what a Run expected and what happened, every reading, every Claim, everything that came in through the door, and every constraint.</p></div>';
   }
 
   var shape = (f.groups || []).map(function (g) {
@@ -1510,7 +1535,7 @@ function renderSearch() {
         natureKeys.map(function (k) {
           return '<option value="' + k + '"' + (searchNature === k ? ' selected' : '') + '>' + esc(natureSet[k]) + '</option>';
         }).join('') + '</select>' +
-        (searchNature ? '<p class="hint">Questions, Bets and Runs only — Problems, Claims and entries carry no discipline.</p>' : '') +
+        (searchNature ? '<p class="hint">Questions, Approaches and Runs only — Problems, Claims and entries carry no discipline.</p>' : '') +
       '</div>'
     : '';
 

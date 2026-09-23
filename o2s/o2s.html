@@ -11,7 +11,7 @@
    a push keeps running the old code with nothing telling anybody. It sat at
    2026-09-04a through this whole day's work; rmqty/psi tests pinned the code,
    nothing pinned this. buildid.test.js now does. */
-var BUILD_ID='2026-09-23m';
+var BUILD_ID='2026-09-23n';
 var CHANGELOG=[
   {ver:'2026-09-04a', date:'2026-09-04', title:"Delivery, DC printing, and a new Reconciliation check", items:[
     "Delivery confirmation stays with Supply Chain \u2014 it no longer hands off to the Plant Manager. If one sits too long, it now re-flags the same Supply Chain owner every 3 days instead.",
@@ -118,6 +118,10 @@ var CHANGELOG=[
     "Every product now lives in ONE list, in Back Office \u2192 Admin \u00b7 Master Data \u2192 Products: brand \u2192 base product \u2192 pack sizes \u2192 who buys it. It was built on first load from the catalogue that used to be fixed in the code, the brand map beside it, and the products added through Admin. Nothing anyone could order has changed \u2014 the same brands, bases and pack sizes per customer.",
     "Where the two old lists disagreed about a brand\u2019s base, the list says so (\u201ccatalogue said \u2026 \u2014 settle it\u201d) so the COO, CFO or Plant Manager can decide once.",
     "A product can be deactivated: it can no longer be ordered, but every existing order and batch keeps it. Products are kept by the COO, CFO and Plant Manager."
+  ]},
+  {ver:'2026-09-23n', date:'2026-09-23', title:"Budget by channel, and who sees money", items:[
+    "Sales & Budget now starts with the channel picture: a total per channel for the financial year (White Label, Cobo, Vgreen, Dealer, Distributor, Farmer), what has been allocated to named clients under it, what is booked, what is delivered, and a traffic light. Dealer and Farmer are segment totals \u2014 not allocated to a named dealer or farmer. Channel totals are set in Back Office \u2192 Business masters \u2192 Channel budgets (COO / CFO).",
+    "Money is for 4 roles: COO, CFO, Plant Manager and the KAMs. Sales & Budget and the Finance dataset in the report builder are closed to everyone else. Report Center stays open to all for everything without a money figure."
   ]},
 ];
 </script>
@@ -1846,7 +1850,7 @@ function ensureState(s){
   s.users=(s.users&&s.users.length)?s.users:deepClone(SEED.users||[]); if(s.currentUser===undefined)s.currentUser=null;
   s.rmRequests=s.rmRequests||[]; s.productionLog=s.productionLog||[]; s.packingLog=s.packingLog||[];
   s.actionLog=s.actionLog||[]; s.shipments=s.shipments||[]; s.inspections=s.inspections||[]; s.warehouses=s.warehouses||SEED.warehouses.slice();
-  s.rawStock=s.rawStock||{}; s.rmMovements=s.rmMovements||[]; s.audit=s.audit||[]; s.masters=s.masters||deepClone(SEED.masters||{}); s.batches=s.batches||[]; s.packedStock=s.packedStock||{}; s.packingLog=s.packingLog||[]; s.orders=s.orders||[]; if(s.seq==null)s.seq=1000; ensureRecordIds(s); if(s.dataFixEnabled==null)s.dataFixEnabled=true; if(!Array.isArray(s.prs))s.prs=[]; (s.batches||[]).forEach(function(b){ if((b.producedKg||0)>0 && (!Array.isArray(b.lots)||!b.lots.length)){ b.lots=[{id:'LOT'+(s.seq++), lotNo:(b.batchNo||'B')+'-L1', qty:b.producedKg, date:b.openedDate||'', by:b.by||'', coa:(b.coa||null), migrated:true}]; } }); ensureMasters(s); ensureProductionModel(s); dedupePackingLots(s); migrateLotTracking(s); migratePackingLotLidV1(s); fixRudolfDupV1(s); reconcileLotShipKgV1(s); dedupeShipmentsV1(s); healPRFlags(s); migrateBrandNames(s); loadBaseRecipesV2(s); loadBlendRecipesV1(s); loadBlendRecipesV2(s); purgeImportedProduction(s); purgeImportDuplicates(s); purgeImportedNoTwin(s); fixPhantomLotVU26134(s); fixVU26144ProdLogV1(s); fixVU26144ProdLogV2(s); healVU26144ProdLog(s); backfillDisposedV1(s); consolidateByproductV1(s); dedupeByproductV1(s); reconcileShipLotsV1(s); normalizeVZincBase(s); normalizeBoronBase(s); seedByproductRulesV1(s); seedRolesV1(s); seedWarehouseRoleV1(s); seedAccessV2(s); seedDeptRightsV1(s); seedCustomerRightsV1(s); seedPrintDecisionV1(s); bumpSeqV1(s); healDupBatchIdsV1(s); fixVB26003LotRenameV1(s); fixRudolfTBPPOV1(s); linkShipBatchLotsV1(s); return s;
+  s.rawStock=s.rawStock||{}; s.rmMovements=s.rmMovements||[]; s.audit=s.audit||[]; s.masters=s.masters||deepClone(SEED.masters||{}); s.batches=s.batches||[]; s.packedStock=s.packedStock||{}; s.packingLog=s.packingLog||[]; s.orders=s.orders||[]; if(s.seq==null)s.seq=1000; ensureRecordIds(s); if(s.dataFixEnabled==null)s.dataFixEnabled=true; if(!Array.isArray(s.prs))s.prs=[]; (s.batches||[]).forEach(function(b){ if((b.producedKg||0)>0 && (!Array.isArray(b.lots)||!b.lots.length)){ b.lots=[{id:'LOT'+(s.seq++), lotNo:(b.batchNo||'B')+'-L1', qty:b.producedKg, date:b.openedDate||'', by:b.by||'', coa:(b.coa||null), migrated:true}]; } }); ensureMasters(s); ensureProductionModel(s); dedupePackingLots(s); migrateLotTracking(s); migratePackingLotLidV1(s); fixRudolfDupV1(s); reconcileLotShipKgV1(s); dedupeShipmentsV1(s); healPRFlags(s); migrateBrandNames(s); loadBaseRecipesV2(s); loadBlendRecipesV1(s); loadBlendRecipesV2(s); purgeImportedProduction(s); purgeImportDuplicates(s); purgeImportedNoTwin(s); fixPhantomLotVU26134(s); fixVU26144ProdLogV1(s); fixVU26144ProdLogV2(s); healVU26144ProdLog(s); backfillDisposedV1(s); consolidateByproductV1(s); dedupeByproductV1(s); reconcileShipLotsV1(s); normalizeVZincBase(s); normalizeBoronBase(s); seedByproductRulesV1(s); seedRolesV1(s); seedWarehouseRoleV1(s); seedAccessV2(s); seedAccessV3(s); seedDeptRightsV1(s); seedCustomerRightsV1(s); seedPrintDecisionV1(s); bumpSeqV1(s); healDupBatchIdsV1(s); fixVB26003LotRenameV1(s); fixRudolfTBPPOV1(s); linkShipBatchLotsV1(s); return s;
 }
 /* 2026-07-28 fix: seq can lag behind ids already in the data (stale tab saved over a
    newer state), so bump it above every numeric id suffix before anything generates ids. */
@@ -2026,6 +2030,7 @@ function ensureMasters(s){
     };
     for(var _rk in _R){ if(!s.masters.recipes[_rk]) s.masters.recipes[_rk]=Object.assign({},_R[_rk]); } }
   if(!s.masters.salesTargets||typeof s.masters.salesTargets!=='object') s.masters.salesTargets={};
+  if(!s.masters.channelTargets||typeof s.masters.channelTargets!=='object') s.masters.channelTargets={};
   if(!s.masters.salesTargetsMonthly||typeof s.masters.salesTargetsMonthly!=='object') s.masters.salesTargetsMonthly={};
   if(!Array.isArray(s.masters.varianceReasons)||!s.masters.varianceReasons.length) s.masters.varianceReasons=['Wastage','Raw-material moisture loss','Raw-material availability / shortage','Process / handling loss','Recipe / assay adjustment','Other'];
   if(!Array.isArray(s.masters.rawMaterials)||!s.masters.rawMaterials.length) s.masters.rawMaterials=(((typeof SEED!=='undefined'&&SEED.rawMaterials)||[]).map(r=>({name:r.name,cost:+r.cost||0})));
@@ -2886,7 +2891,9 @@ const SCREENS=[
     obj:'<b>Read-only.</b> For every order line with packed quantity, sums the matching packingLog rows the same way the app itself does, and flags any line where packed exceeds what packingLog can account for. Recomputed live on open \u2014 use Data Fix to correct what it finds.'},
   {id:'users', name:'Users & Access', ic:'\ud83d\udc65', owners:['COO','Plant Manager'], sub:'People, roles & passwords',
     obj:'<b>COO only.</b> Add people, set each one\u2019s role and password. Everyone signs in and sees only their role\u2019s screens.'},
-   {id:'budget', name:'Sales & Budget (dashboard)', ic:'💰', owners:['CFO','Plant Manager','Finance'], sub:'Target vs delivered (PKR)', obj:'<b>Sales vs budget · COO / CFO only.</b> Client annual targets vs delivered invoice value (delivered Kg/L × invoice price). Consolidated and by product.'},
+   /* R6, 23 Sep night: money is COO, CFO, Plant Manager and the KAMs. Finance
+      raises orders (with prices) but does not read the budget. */
+   {id:'budget', name:'Sales & Budget (dashboard)', ic:'💰', owners:['COO','CFO','Plant Manager','KAM'], sub:'Target vs delivered (PKR)', obj:'<b>Sales vs budget · COO / CFO only.</b> Client annual targets vs delivered invoice value (delivered Kg/L × invoice price). Consolidated and by product.'},
 ];
 function scr(id){ return SCREENS.find(s=>s.id===id); }
 
@@ -3274,6 +3281,12 @@ var PROCUREMENT_GRANT={'Supply Chain':true};
    Unlike the dispatch split, the live grant rows for these two codes had
    already been answered (KAM yes, everyone else no), so the undefined-only
    seed cannot carry the ruling. seedCustomerRightsV1 writes it once, flagged. */
+/* MONEY - R6, the night of 23 September 2026. Report Center is open to everyone,
+   read-only; anything carrying a money figure inside it is for these four roles
+   only. Used by the Sales & Budget tab and by the report builder's Finance
+   dataset (S-05, now closed). Money never reaches Today or a document. */
+var MONEY_ROLES=['COO','CFO','Plant Manager','KAM'];
+function mayMoney(){ return MONEY_ROLES.indexOf(state.role)>-1; }
 var CUSTOMER_LIVE=['customer.create','customer.amend'];
 var CUSTOMER_GRANT={'Finance':true,'CFO':true};
 function seedCustomerRightsV1(s){
@@ -3342,6 +3355,18 @@ var ACCESS_RULED_V2={
   recon:   {'*':'none','CFO':'edit','Plant Manager':'edit','Production Manager':'read'},
   tracker: {'*':'read'}, dash: {'*':'read'}, reports: {'*':'read'}
 };
+var ACCESS_RULED_V3={ budget: {'*':'none','CFO':'view','Plant Manager':'view','KAM':'view'} };
+function seedAccessV3(s){
+  if(!s.masters) s.masters={};
+  if(s.masters._accessV3) return;
+  var m=s.masters.accessMatrix=s.masters.accessMatrix||{};
+  var roles=(s.masters.roles||[]).map(function(r){return r&&r.name;}).filter(function(n){return n&&n!=='COO';});
+  Object.keys(ACCESS_RULED_V3).forEach(function(sc){ var rule=ACCESS_RULED_V3[sc];
+    roles.forEach(function(rn){ var lv=rule[rn]!==undefined?rule[rn]:rule['*']; if(lv===undefined||lv==='keep') return;
+      m[rn]=m[rn]||{}; if(lv==='edit') m[rn][sc]={v:true,e:true}; else if(lv==='none') m[rn][sc]={v:false,e:false}; else m[rn][sc]={v:true,e:false}; }); });
+  s.masters._accessV3={at:new Date().toISOString(),by:'ruling of 23 Sep 2026 (R6)'};
+  try{ if(typeof logAction==='function') logAction('Sales & Budget opened to the CFO, the Plant Manager and the KAMs; closed to everyone else (ruling of 23 Sep 2026).'); }catch(e){}
+}
 function seedAccessV2(s){
   if(!s.masters) s.masters={};
   if(s.masters._accessV2) return;
@@ -13198,6 +13223,7 @@ function screenAdmin(){
    ${recipeMasterCard(canEdit(['Plant Manager'])||state.role==='COO')}
    ${byproductCard(canEdit(['Plant Manager','Production'])||state.role==='COO')}
    ${labTplCard(canEdit(['Lab Rep','AQCM','QCM']))}
+   ${(state.role==='COO'||state.role==='CFO')?channelBudgetCard():''}
    ${(state.role==='COO'||state.role==='CFO')?salesTargetCard():''}
    ${(state.role==='COO'||state.role==='CFO')?salesTargetMonthlyCard():''}`;
   const acSubBar=(function(){function t(k,l){return '<button class="ac2gtab'+(admAcTab===k?' on':'')+'" onclick="admAcTab=\''+k+'\';render()">'+l+'</button>';}
@@ -13614,6 +13640,49 @@ function pkr(n){ return 'PKR '+Math.round(+n||0).toLocaleString(); }
 function fyRange(fy){ const a=parseInt(String(fy).slice(0,4),10); if(isNaN(a))return fy; return 'FY '+fy+' (1 Jul '+a+' – 30 Jun '+(a+1)+')'; }
 function isDealerClient(o){ return (o&&(o.channel==='Dealer'))||/^DLR/i.test(String((o&&o.client)||'')); }
 function budgetKey(o){ return isDealerClient(o)?'Dealers':(o.client||'—'); }
+/* THE BUDGET TREE - R8 / R18, the night of 23 September 2026.
+   "A customer-wise budget: total budget by clients - we have a White Label
+   total and client-wise allocation; for Cobo there is a budget; for Dealer we
+   have a dealer segment budget, not allocated to each dealer; same for Farmer -
+   we want to sell to farmers X amount but cannot allocate it to an individual
+   farmer. So be smart." Rs, FY Jul-Jun.
+   channelTargets[channel][fy] is the total. salesTargets[client][fy] (which
+   already existed) is the allocation under it. A channel row shows target,
+   allocated, unallocated, booked, delivered, %. Dealer and Farmer are read as
+   segment totals; a per-dealer allocation is allowed but not expected. */
+var BUDGET_CHANNELS=['White Label','Cobo','Vgreen','Dealer','Distributor','Farmer'];
+var SEGMENT_CHANNEL={'White-label':'White Label','Dealer':'Dealer','Distributor':'Distributor','VGreen':'Vgreen','COBO':'Cobo','Direct Farmer':'Farmer'};
+function budgetChannelOf(client){
+  if(client==='Dealers') return 'Dealer';
+  var o=(state.orders||[]).find(function(x){ return x && budgetKey(x)===client && x.channel; });
+  if(o) return o.channel;
+  var c=(state.customers||[]).find(function(x){ return x && x.name===client; });
+  if(c&&SEGMENT_CHANNEL[c.segment]) return SEGMENT_CHANNEL[c.segment];
+  return '';
+}
+function budgetByChannel(fy){
+  var ct=(state.masters&&state.masters.channelTargets)||{}, st=(state.masters&&state.masters.salesTargets)||{};
+  var rows={}; BUDGET_CHANNELS.forEach(function(ch){ rows[ch]={channel:ch,target:(ct[ch]&&+ct[ch][fy])||0,allocated:0,booked:0,delivered:0}; });
+  Object.keys(st).forEach(function(c){ var a=(st[c]&&+st[c][fy])||0; if(!a) return; var ch=budgetChannelOf(c); if(rows[ch]) rows[ch].allocated+=a; });
+  (state.orders||[]).forEach(function(o){ var ch=o&&o.channel; if(!rows[ch]) return; (o.lines||[]).forEach(function(l){ var pr=+l.invoicePrice||0; rows[ch].booked+=(+l.ordered||0)*pr; rows[ch].delivered+=(+l.delivered||0)*pr; }); });
+  return BUDGET_CHANNELS.map(function(ch){ var r=rows[ch]; r.unallocated=Math.max(0,r.target-r.allocated); r.pct=r.target>0?Math.round(r.delivered/r.target*100):0; return r; });
+}
+function channelBudgetSet(ch,amt){
+  if(!(state.role==='COO'||state.role==='CFO')){ toast('COO / CFO only'); return; }
+  if(BUDGET_CHANNELS.indexOf(ch)<0) return;
+  var fy=fyKey(TODAY.toISOString().slice(0,10)); var a=+amt||0;
+  state.masters.channelTargets=state.masters.channelTargets||{}; state.masters.channelTargets[ch]=state.masters.channelTargets[ch]||{};
+  if(a>0) state.masters.channelTargets[ch][fy]=a; else delete state.masters.channelTargets[ch][fy];
+  logAction('Channel budget '+(a>0?('set '+pkr(a)):'cleared')+' for '+ch+' (FY '+fy+')');
+  save(); render();
+}
+function channelBudgetCard(){
+  var fy=fyKey(TODAY.toISOString().slice(0,10)); var rows=budgetByChannel(fy);
+  return acard('cbudget','Channel budgets',fyRange(fy)+' · COO/CFO',`<div class="muted" style="font-size:12px;margin-bottom:10px">The total for each channel for the financial year (PKR). Client targets below are the allocation under it. <b>Dealer</b> and <b>Farmer</b> are segment totals — they are not expected to be allocated to a named dealer or farmer.</div>
+    <div style="overflow:auto"><table><thead><tr><th>Channel</th><th class="num">Total (PKR)</th><th class="num">Allocated to clients</th><th class="num">Unallocated</th><th></th></tr></thead><tbody>
+    ${rows.map(function(r){ return `<tr><td><b>${r.channel}</b>${(r.channel==='Dealer'||r.channel==='Farmer')?' <span class="muted" style="font-size:10.5px">segment total</span>':''}</td><td class="num"><input type="number" min="0" step="1000" value="${r.target||''}" placeholder="0" style="width:150px;text-align:right" onchange="channelBudgetSet('${r.channel}',this.value)"></td><td class="num">${r.allocated?pkr(r.allocated):'<span class="muted">—</span>'}</td><td class="num">${r.target?pkr(r.unallocated):'<span class="muted">—</span>'}</td><td class="muted" style="font-size:10.5px">${r.target&&r.allocated>r.target?'<span style="color:var(--red)">allocated more than the total</span>':''}</td></tr>`; }).join('')}
+    </tbody></table></div>`);
+}
 function budgetClients(){ const set=new Set(); (state.orders||[]).forEach(o=>set.add(budgetKey(o))); try{ Object.keys((SEED&&SEED.catalog&&SEED.catalog.brandsByClient)||{}).forEach(k=>set.add(k==='Dealers'?'Dealers':k)); }catch(e){} Object.keys((state.masters&&state.masters.salesTargets)||{}).forEach(c=>set.add(c)); return [...set].filter(Boolean).sort(); }
 let stForm={client:'',amt:''};
 let bulkPrice={};
@@ -13937,7 +14006,14 @@ function budgetHtml(){
   // product mix by delivered value
   const pm={}; (state.orders||[]).forEach(o=>(o.lines||[]).forEach(l=>{ const v=(+l.delivered||0)*(+l.invoicePrice||0); if(v>0){ pm[l.brand]=(pm[l.brand]||0)+v; } }));
   const pmRows=Object.entries(pm).sort((a,b)=>b[1]-a[1]).slice(0,15);
+  const chRows=budgetByChannel(fy);
+  const light=(p,t)=>!t?'<span class="pill" style="background:var(--panel2);color:var(--mut)">no target</span>':(p>=100?'<span class="pill" style="background:#e3f0e7;color:#1f6b3a">on target</span>':p>=60?'<span class="pill" style="background:#fff1d6;color:#8a5a00">behind</span>':'<span class="pill" style="background:#fbe9e7;color:#b3261e">far behind</span>');
+  const byChannel=`<div class="card" style="margin-bottom:12px"><div style="font-weight:700;margin-bottom:6px">By channel <span class="muted" style="font-weight:400;font-size:11.5px">· ${fyRange(fy)} · Dealer and Farmer are segment totals</span></div>
+    <div style="overflow:auto"><table><thead><tr><th>Channel</th><th class="num">Target</th><th class="num">Allocated</th><th class="num">Booked</th><th class="num">Delivered</th><th class="num">% of target</th><th></th></tr></thead><tbody>
+    ${chRows.map(r=>`<tr><td><b>${r.channel}</b></td><td class="num">${r.target?pkr(r.target):'<span class="muted">—</span>'}</td><td class="num">${r.allocated?pkr(r.allocated):'<span class="muted">—</span>'}</td><td class="num">${pkr(r.booked)}</td><td class="num"><b>${pkr(r.delivered)}</b></td><td class="num">${r.target?r.pct+'%':'—'}</td><td>${light(r.pct,r.target)}</td></tr>`).join('')}
+    </tbody></table></div></div>`;
   return `
+   ${byChannel}
    ${(state.role==='COO'||state.role==='CFO')?`<div style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap"><button class="sm" onclick="openBulkPricing()">💲 Set invoice prices (bulk)</button>${(function(){const n=openPrintDecisionPOs().length;/* same definition as the Action Center and the screen itself */return n?`<button class="sm" onclick="openBulkPrintDecision()">🏷️ Answer print-on-pack for ${n} PO(s)</button>`:'';})()}</div>`:''}
    ${noPrice?'<div class="banner warn">Some PO lines have <b>no invoice price</b> yet — their value is counted as 0. Set invoice prices on New PO Entry (new POs) or via Data Fix (imported POs).</div>':''}
    <div class="kpis" style="grid-template-columns:repeat(4,1fr)">
@@ -14187,11 +14263,20 @@ var RB_DATASETS={
     fields:[{k:'code',l:'Code',t:'dim'},{k:'name',l:'Name',t:'dim'},{k:'segment',l:'Segment',t:'dim'},{k:'outlet',l:'Outlet',t:'dim'},{k:'fed',l:'FED mode',t:'dim'},{k:'kam',l:'KAM',t:'dim'},{k:'introducedBy',l:'Introduced by',t:'dim'},{k:'destination',l:'Destination',t:'dim'},{k:'region',l:'Region',t:'dim'},{k:'city',l:'City',t:'dim'},{k:'phone',l:'Phone',t:'dim'},{k:'status',l:'Status',t:'dim'},{k:'inducted',l:'Inducted',t:'dim'}],
     filters:['segment','fed','kam','status']}
 };
-function rbDef(){ return RB_DATASETS[rbDS]||RB_DATASETS.production; }
+/* R6: the money columns of the Orders dataset (price per Kg, per pack, delivered
+   value, FED amount) exist only for the money roles. Everyone else gets the same
+   dataset without them - the field list, the picked columns and the rows. */
+var RB_MONEY_FIELDS=['pricekg','pricepack','value','fed'];
+function rbDef(){ var d=RB_DATASETS[rbDS]||RB_DATASETS.production; if(mayMoney()||!(d.fields||[]).some(function(f){return RB_MONEY_FIELDS.indexOf(f.k)>-1;})) return d;
+  var d2=Object.assign({},d); d2.fields=d.fields.filter(function(f){return RB_MONEY_FIELDS.indexOf(f.k)<0;}); var rows0=d.rows;
+  d2.rows=function(){ return (rows0.apply(this,arguments)||[]).map(function(r){ var o=Object.assign({},r); RB_MONEY_FIELDS.forEach(function(k){ delete o[k]; }); return o; }); };
+  rbCols=(rbCols||[]).filter(function(k){return RB_MONEY_FIELDS.indexOf(k)<0;});
+  return d2; }
 function rbField(k){ var a=rbDef().fields.filter(function(f){return f.k===k;}); return a[0]; }
 function rbIsMeas(k){ if(k==='__count')return true; var f=rbField(k); return !!(f&&f.t==='meas'); }
 function rbColLabel(k){ if(k==='__count')return 'Rows'; var f=rbField(k); return f?f.l:k; }
-function rbSetDS(v){ rbDS=v; var d=rbDef(); rbCols=d.fields.slice(0,5).map(function(f){return f.k;}); rbFilters={}; rbGroup=[]; render(); }
+function rbDatasetKeys(){ return Object.keys(RB_DATASETS).filter(function(k){ return k!=='finance'||mayMoney(); }); }
+function rbSetDS(v){ if(v==='finance'&&!mayMoney()){ toast('Finance data is for the COO, CFO, Plant Manager and KAMs'); return; } rbDS=v; var d=rbDef(); rbCols=d.fields.slice(0,5).map(function(f){return f.k;}); rbFilters={}; rbGroup=[]; render(); }
 function rbToggleCol(k){ var i=rbCols.indexOf(k); if(i<0)rbCols.push(k); else rbCols.splice(i,1); render(); }
 function rbMoveCol(k,dir){ var i=rbCols.indexOf(k); if(i<0)return; var j=i+dir; if(j<0||j>=rbCols.length)return; var t=rbCols[i];rbCols[i]=rbCols[j];rbCols[j]=t; render(); }
 function rbDrop(j){ if(rbDragI==null)return; var i=rbDragI; rbDragI=null; if(i===j||i<0||i>=rbCols.length)return; var c=rbCols.splice(i,1)[0]; rbCols.splice(j,0,c); render(); }
@@ -14228,7 +14313,8 @@ function rbRender(){ var d=rbDef(); var res=rbResult();
   var cap=res.rows.slice(0,200);
   var body=cap.length?cap.map(function(r){return '<tr>'+res.cols.map(function(k){return '<td'+(rbIsMeas(k)?' class="num"':'')+'>'+rbCellFmt(k,r[k])+'</td>';}).join('')+'</tr>';}).join(''):'<tr><td class="muted" style="padding:16px" colspan="'+res.cols.length+'">No data — widen the date range or clear filters.</td></tr>';
   var preview='<div class="card" style="padding:0"><div class="rb-pvh"><span style="font-weight:500">Preview</span><span class="muted">'+res.rows.length+(res.summary?' groups':' rows')+' · '+res.count+' records</span></div><div style="overflow:auto;max-height:50vh"><table class="rbtbl"><thead>'+head+'</thead><tbody>'+body+'</tbody></table></div>'+(res.rows.length>cap.length?'<div class="muted" style="font-size:11px;padding:8px 14px">Showing first 200 of '+res.rows.length+' — Export to get them all.</div>':'')+'</div>';
-  var dsSel='<select onchange="rbSetDS(this.value)" style="font-weight:500">'+Object.keys(RB_DATASETS).map(function(k){return '<option value="'+k+'"'+(rbDS===k?' selected':'')+'>'+RB_DATASETS[k].label+'</option>';}).join('')+'</select>';
+  if(rbDS==='finance'&&!mayMoney()) rbDS='production';   /* R6: no money outside the money roles */
+  var dsSel='<select onchange="rbSetDS(this.value)" style="font-weight:500">'+rbDatasetKeys().map(function(k){return '<option value="'+k+'"'+(rbDS===k?' selected':'')+'>'+RB_DATASETS[k].label+'</option>';}).join('')+'</select>';
   return '<div class="rb-top"><div><div class="rb-title">Report Builder</div><div class="rb-sub2">Pick a dataset, tap fields, set a date range — then export. No Excel needed.</div></div><span style="flex:1"></span>'+dsSel+'<button class="sm ghost" onclick="rbExport(\'csv\')">Export CSV</button><button class="sm ghost" onclick="rbExport(\'xls\')">Export Excel</button><button class="sm" onclick="rbPrint()">Print / PDF</button></div><div class="rb-grid">'+palette+'<div class="rb-build">'+colZone+filterZone+groupZone+'</div></div>'+preview;
 }
 /* ---- Document Viewer (read-only): find & open every DC + Gate Pass ---- */

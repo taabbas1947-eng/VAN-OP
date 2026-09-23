@@ -353,8 +353,8 @@ const union = new Set([...scrNames, ...rgtNames, ...fldNames]);
      money screen and stays narrow — if this ever goes green with everyone on it,
      the ruling has been over-applied. */
   const bud = owners('budget');
-  eq('Sales & Budget stays with Finance and the Plant Manager',
-     bud.slice().sort().join(', '), 'CFO, Finance, Plant Manager');
+  eq('Sales & Budget is the money roles (R6, 23 Sep night)',
+     bud.slice().sort().join(', '), 'CFO, COO, KAM, Plant Manager');
   ok('...and is NOT open to everyone', bud.length < rep.length);
 }
 

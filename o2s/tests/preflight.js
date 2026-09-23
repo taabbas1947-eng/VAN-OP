@@ -94,6 +94,9 @@ const MARKERS = [
   /* 2026-09-23m */
   ['function migrateProductsV1(',          1, 'one product master (R17): the migration'],
   ['function applyProductsV1(',            1, 'one product master (R17): the rebuild'],
+  /* 2026-09-23n */
+  ['var MONEY_ROLES=',                     1, 'who sees money (R6)'],
+  ['function budgetByChannel(',            1, 'the budget tree (R8)'],
 ];
 
 const [, , mode, freshPath, otherPath] = process.argv;

@@ -39,7 +39,7 @@ function seedLikeTheApp(b) { b.seedWarehouseRoleV1(b.state); b.seedAccessV2(b.st
 /* ================= 1. the order inside ensureState ================= */
 const es = grab('ensureState');
 ok('ensureState runs the Warehouse role seed BEFORE the grant seed (a never-answered cell is how it gets dispatch)',
-   /seedWarehouseRoleV1\(s\); seedAccessV2\(s\); seedDeptRightsV1\(s\); seedCustomerRightsV1\(s\);/.test(es));
+   /seedWarehouseRoleV1\(s\); seedAccessV2\(s\);(?: seedAccessV3\(s\);)? seedDeptRightsV1\(s\); seedCustomerRightsV1\(s\);/.test(es));
 
 /* ================= 2. the Warehouse role — R12 ================= */
 {

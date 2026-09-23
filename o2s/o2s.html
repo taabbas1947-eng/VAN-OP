@@ -11,7 +11,7 @@
    a push keeps running the old code with nothing telling anybody. It sat at
    2026-09-04a through this whole day's work; rmqty/psi tests pinned the code,
    nothing pinned this. buildid.test.js now does. */
-var BUILD_ID='2026-09-23k';
+var BUILD_ID='2026-09-23l';
 var CHANGELOG=[
   {ver:'2026-09-04a', date:'2026-09-04', title:"Delivery, DC printing, and a new Reconciliation check", items:[
     "Delivery confirmation stays with Supply Chain \u2014 it no longer hands off to the Plant Manager. If one sits too long, it now re-flags the same Supply Chain owner every 3 days instead.",
@@ -109,6 +109,10 @@ var CHANGELOG=[
   {ver:'2026-09-23k', date:'2026-09-23', title:"One reason per late order; the old print-on-pack backlog answered", items:[
     "The Plant Manager answers why an ORDER is late once, for every late line on it, and can change a single line that is different. 18 questions became 7.",
     "Orders raised before the print-on-pack question existed (44 of them) are now answered \u201cno print\u201d, by the COO\u2019s ruling of 23 September. The one-time bulk job is gone. Any brand among them that has carried a printed price before is named in the action log."
+  ]},
+  {ver:'2026-09-23l', date:'2026-09-23', title:"Today looks like the design the team chose", items:[
+    "Today now carries the design the team picked: your name and title at the top, one card per job with the PO as a chip, green for go, red for late, amber for stalled, and a filter by kind of job when you have more than one kind.",
+    "The reporting-period selector is hidden on Today \u2014 it belongs to the Report Center."
   ]},
 ];
 </script>
@@ -1637,54 +1641,78 @@ div:has(> table.t2mtx){overflow-x:auto;-webkit-overflow-scrolling:touch;max-widt
 
 </style>
 <style id="td-css">
-/* ===== TODAY — the front door (2026-09-23j) ===== */
-.td{max-width:760px;margin:0 auto}
-.tdhow{background:var(--panel2,#eef4ef);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin:6px 0 14px}
-.tdhow-h{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);margin-bottom:6px}
-.tdhow ol{margin:0;padding-left:20px;font-size:14px;line-height:1.55}
-.tdlink{background:none;border:0;color:var(--navy,#1f5f3f);font-weight:700;font-size:13px;padding:8px 0 0;cursor:pointer;line-height:1.2}
-.tdscope button{line-height:1.2}
-.tdbtn{line-height:1.2}
-.tdstarts{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 14px}
-.tdstart{background:#fff;color:var(--ink,#15181c);border:1px solid var(--line);border-radius:999px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer;line-height:1.2}
-.tdscope{display:inline-flex;background:var(--panel2,#eef0ee);border-radius:999px;padding:3px;margin:0 0 10px}
-.tdscope button{border:0;background:transparent;border-radius:999px;padding:7px 14px;font-size:13px;font-weight:700;color:var(--mut);cursor:pointer}
-.tdscope button.on{background:#fff;color:var(--ink,#111);box-shadow:0 1px 2px rgba(0,0,0,.08)}
-.tdday{padding:8px 0 10px}
-.tdbig{font-size:26px;font-weight:700;letter-spacing:-.02em}
-.tdsm{font-size:14px;color:var(--mut);margin-top:3px}
-.tdlist{display:flex;flex-direction:column;gap:10px;padding-bottom:20px}
-.tdcard{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 15px}
-.tdcard.late{border-left:4px solid var(--red,#a8341f)}
-.tdcard details>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:10px}
+/* ===== TODAY — the front door (2026-09-23j, design pass 23l) =====
+   The language the team picked from the artifact: warm off-white page, green
+   accent, one card per job with a PO chip and a green square that means "go",
+   traffic-light badges, chips for the filter, a soft shadow. No teal. */
+.td{--td-bg:#f3f4f1;--td-card:#fff;--td-ink:#17201b;--td-ink2:#4b564f;--td-ink3:#7b857e;--td-line:#dfe3de;
+    --td-accent:#1f6b3a;--td-accent-ink:#fff;--td-soft:#e3f0e7;--td-late:#b3261e;--td-late-soft:#fbe9e7;
+    --td-warn:#8a5a00;--td-warn-soft:#fff1d6;--td-muted:#eceeea;--td-shadow:0 1px 2px rgba(0,0,0,.06),0 6px 20px rgba(0,0,0,.06);--td-r:14px;
+    max-width:760px;margin:0 auto;color:var(--td-ink);font-size:15px;line-height:1.45}
+body.td-on .wrap{background:#f3f4f1}
+body.td-on #periodSel,body.td-on #periodFromInp,body.td-on #periodToInp,body.td-on .livepill{display:none!important}
+.tdwho{display:flex;align-items:center;gap:12px;margin:8px 0 12px}
+.tdav{width:44px;height:44px;border-radius:999px;background:var(--td-accent);color:#fff;font-weight:800;display:grid;place-items:center;font-size:15px;flex:0 0 44px}
+.tdwho .n{font-weight:800;font-size:17px;line-height:1.15}
+.tdwho .r{font-size:12.5px;color:var(--td-ink3)}
+.tdhow{margin:6px 0 14px;padding:14px 16px;border-left:4px solid var(--td-accent);background:var(--td-card);border-radius:0 var(--td-r) var(--td-r) 0;box-shadow:var(--td-shadow)}
+.tdhow-h{font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--td-accent);margin-bottom:6px}
+.tdhow ol{margin:0;padding-left:20px;font-size:14.5px;line-height:1.55;color:var(--td-ink2)}
+.tdlink{background:none;border:0;color:var(--td-accent);font-weight:800;font-size:13.5px;padding:8px 0 0;cursor:pointer;line-height:1.2}
+.tdstarts{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}
+.tdstart{min-height:36px;padding:0 12px;border-radius:999px;border:1px solid var(--td-line);background:var(--td-card);color:var(--td-ink2);font-size:13.5px;font-weight:600;cursor:pointer;line-height:1.2;display:inline-flex;align-items:center}
+.tdscope{display:flex;gap:4px;margin:0 0 12px;background:var(--td-muted);padding:4px;border-radius:12px;max-width:340px}
+.tdscope button{flex:1;min-height:40px;border:0;background:transparent;border-radius:9px;font-weight:700;font-size:14px;color:var(--td-ink2);cursor:pointer;line-height:1.2}
+.tdscope button.on{background:var(--td-card);color:var(--td-ink);box-shadow:var(--td-shadow)}
+.tdday{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 14px;margin:10px 0 8px}
+.tdbig{font-size:22px;font-weight:800;line-height:1.2;letter-spacing:-.01em}
+.tdsm{font-size:14px;color:var(--td-ink3)}
+.tdchips{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 12px}
+.tdchip{min-height:36px;padding:0 12px;border-radius:999px;border:1px solid var(--td-line);background:var(--td-card);font-size:13.5px;font-weight:600;color:var(--td-ink2);display:inline-flex;align-items:center;gap:6px;cursor:pointer}
+.tdchip.on{background:var(--td-ink);color:var(--td-bg);border-color:var(--td-ink)}
+.tdchip .k{opacity:.7;font-weight:500}
+.tdlist{display:flex;flex-direction:column;gap:10px;padding-bottom:8px}
+.tdcard{background:var(--td-card);border:1px solid var(--td-line);border-radius:var(--td-r);padding:12px 12px 12px 14px;box-shadow:var(--td-shadow);position:relative}
+.tdcard.late{border-left:4px solid var(--td-late)}
+.tdgrid{display:grid;grid-template-columns:1fr auto;gap:4px 10px;align-items:center}
+.tdhead{min-width:0}
+.tdtitle{font-weight:800;font-size:16px;line-height:1.25;overflow-wrap:anywhere}
+.tdsub{color:var(--td-ink2);font-size:13.5px;line-height:1.35;margin-top:2px}
+.tdpo{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12.5px;color:var(--td-ink);background:var(--td-muted);padding:1px 6px;border-radius:6px}
+.tdtags{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.tdtag{display:inline-flex;align-items:center;padding:1px 8px;border-radius:999px;font-size:12px;font-weight:700;white-space:nowrap;background:var(--td-muted);color:var(--td-ink2)}
+.tdtag.late{background:var(--td-late-soft);color:var(--td-late)}
+.tdtag.warn{background:var(--td-warn-soft);color:var(--td-warn)}
+.tdtag.ok{background:var(--td-soft);color:var(--td-accent)}
+.tdgo{grid-column:2;grid-row:1/span 3;align-self:center;min-width:44px;min-height:44px;display:grid;place-items:center;border-radius:12px;background:var(--td-soft);color:var(--td-accent);font-weight:800;font-size:18px;border:0;cursor:pointer}
+.tdbtn{display:block;width:100%;margin-top:12px;min-height:48px;background:var(--td-accent);color:var(--td-accent-ink);border:0;border-radius:12px;font-size:15.5px;font-weight:800;cursor:pointer;line-height:1.2}
+.tdbtn.sm{width:auto;margin:0;min-height:36px;padding:0 12px;font-size:13px;border-radius:9px;flex-shrink:0}
+.tdcard details>summary{list-style:none;cursor:pointer}
 .tdcard details>summary::-webkit-details-marker{display:none}
-.tdhead{flex:1;min-width:0}
-.tdtitle{font-size:17px;font-weight:700}
-.tdsub{font-size:13.5px;color:var(--mut);margin-top:3px;word-break:break-word}
-.tdtags{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
-.tdtag{font-size:11.5px;padding:3px 8px;border-radius:999px;background:var(--panel2,#f3f4f2);border:1px solid var(--line);color:var(--mut);white-space:nowrap}
-.tdtag.late{background:#fbeae6;border-color:transparent;color:#a8341f;font-weight:700}
-.tdtag.warn{background:#fdf3e0;border-color:transparent;color:#8a5a00;font-weight:700}
-.tdopen{font-size:12px;font-weight:700;color:var(--navy,#1f5f3f);white-space:nowrap}
-.tdcard details[open] .tdopen{visibility:hidden}
-.tdbtn{display:block;width:100%;margin-top:12px;background:var(--navy,#1f5f3f);color:#fff;border:0;border-radius:11px;padding:13px;font-size:15px;font-weight:700;cursor:pointer}
-.tdbtn.sm{width:auto;margin:0;padding:8px 12px;font-size:13px;border-radius:9px;flex-shrink:0}
-.tdrows{margin-top:10px;border-top:1px solid var(--line)}
-.tdrow{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+.tdcard details[open] .tdgo{background:var(--td-muted);color:var(--td-ink3)}
+.tdrows{margin-top:10px;border-top:1px solid var(--td-line)}
+.tdrow{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--td-line)}
 .tdrow:last-child{border-bottom:0}
-.tdrow-t{flex:1;min-width:0;font-size:14px}
-.tdpulse{background:#fff;border:1px solid var(--line);border-radius:14px;padding:6px 16px;margin-bottom:16px}
-.tdpulse-r{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--line);font-size:14px}
+.tdrow-t{flex:1;min-width:0;font-size:14px;color:var(--td-ink2)}
+.tdempty{background:var(--td-card);border:1px dashed var(--td-line);border-radius:var(--td-r);padding:18px 16px;margin:6px 0 14px}
+.tdempty h3{margin:0 0 6px;font-size:18px}
+.tdempty p{margin:0 0 10px;color:var(--td-ink2);font-size:14.5px}
+.tdpulse{margin-top:6px}
+.tdpulse-r{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--td-line);font-size:14px}
 .tdpulse-r:first-child{border-top:0}
 .tdpulse-r span{flex:1}
-.tdpulse-r i{display:block;height:6px;border-radius:3px;background:var(--navy,#1f5f3f);opacity:.75}
+.tdpulse-r i{display:block;height:6px;border-radius:3px;background:var(--td-accent);opacity:.7}
 .tdpulse-r b{font-variant-numeric:tabular-nums;min-width:2ch;text-align:right}
-.tdmuted{color:var(--mut);font-size:14px;padding:10px 0}
-.tdsec{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);padding:18px 2px 6px}
-.tddone-r{display:flex;gap:10px;padding:8px 2px;border-top:1px solid var(--line);font-size:13.5px}
-.tddone-t{color:var(--mut);font-variant-numeric:tabular-nums;white-space:nowrap;min-width:5ch}
-.tddone-w{flex:1;min-width:0}
-@media (max-width:820px){ .tdbig{font-size:23px} }
+.tdmuted{color:var(--td-ink3);font-size:14px;padding:10px 0}
+.tdsec{font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--td-ink3);padding:18px 2px 6px}
+.tddone{background:var(--td-card);border:1px solid var(--td-line);border-radius:var(--td-r);box-shadow:var(--td-shadow);padding:4px 14px;margin-bottom:6px}
+.tddone-r{display:flex;gap:10px;padding:9px 0;border-top:1px solid var(--td-line);font-size:13.5px}
+.tddone-r:first-child{border-top:0}
+.tddone-t{color:var(--td-ink3);font-variant-numeric:tabular-nums;white-space:nowrap;min-width:5ch}
+.tddone-w{flex:1;min-width:0;color:var(--td-ink2)}
+.tddone-w b{color:var(--td-ink);font-weight:700}
+.tdfoot{color:var(--td-ink3);font-size:12.5px;padding:14px 2px 30px;line-height:1.5}
+@media (max-width:820px){ .tdbig{font-size:21px} .td{font-size:15px} }
 </style>
 </head><body>
 <div class="app" id="appShell" style="display:none">
@@ -3626,7 +3654,7 @@ function cmdkKey(e){ if(e.key==='Escape'){ closeCmdK(); return; } var res=$('cmd
 }
 function _tipUK(){ const u=state.currentUser; return String((u&&(u.id||u.name))||state.role||'anon').replace(/[^A-Za-z0-9]/g,'_'); }
 function hintHidden(id){ try{ return !!(window.localStorage&&localStorage.getItem('van_hint_'+_tipUK()+'_'+id)==='1'); }catch(e){ return false; } }
-function setScreen(id){ if(!canView(state.role,id)){toast('Access to this screen is disabled by the COO');return;} if(id!=='tracker') state.expanded={}; state.screen=id; closeMobileNav(); save(); render(); }
+function setScreen(id){ if(!canView(state.role,id)){toast('Access to this screen is disabled by the COO');return;} if(id!=='tracker') state.expanded={}; state.screen=id; try{ if(id!=='today') document.body.classList.remove('td-on'); }catch(e){} closeMobileNav(); save(); render(); }
 function isMobile(){ return window.matchMedia&&window.matchMedia('(max-width:820px)').matches; }
 function setPeriod(v){ try{ state.period=v; if(typeof save==='function') save(); if(typeof render==='function') render(); }catch(e){} }
 function setPeriodCustom(which,v){ try{ state[which]=v; state.period='Custom'; if(typeof save==='function') save(); if(typeof render==='function') render(); }catch(e){} }
@@ -10836,6 +10864,7 @@ function tdTags(g){
   var t='';
   if(g.late>0) t+='<span class="tdtag late">'+g.late+' days past promise</span>';
   else if(g.days>0) t+='<span class="tdtag">waiting '+g.days+' day'+(g.days===1?'':'s')+'</span>';
+  else t+='<span class="tdtag ok">on time</span>';
   if(g.items.some(function(x){return x._escalated;})) t+='<span class="tdtag late">escalated to you</span>';
   if(state.role==='COO' && tdScope==='plant') t+='<span class="tdtag">'+_tdEsc(g.items[0].role)+'</span>';
   if(g.items.some(function(x){ var e=acEscalation(x); return e&&e.stall; })) t+='<span class="tdtag warn">stalled</span>';
@@ -10843,29 +10872,39 @@ function tdTags(g){
   return t;
 }
 function tdRowHTML(it,verb){
-  var sub=it.what||'';
-  return '<div class="tdrow"><div class="tdrow-t">'+sub+'</div><button class="tdbtn sm" onclick="'+it.act+'">'+_tdEsc(verb)+'</button></div>';
+  return '<div class="tdrow"><div class="tdrow-t">'+_tdWhat(it)+'</div><button class="tdbtn sm" onclick="'+it.act+'">'+_tdEsc(verb)+'</button></div>';
+}
+function _tdPo(o){ return o&&o.po?('<span class="tdpo">'+_tdEsc(o.po)+'</span>'):''; }
+/* "DLR-PB-JHN-001 | Kissan Zarai Merkaz" -> Kissan Zarai Merkaz; otherwise the app's short name */
+function _tdClient(o){ var c=(o&&o.client)||''; if(!c) return ''; var i=c.indexOf('|'); if(i>-1) return _tdEsc(c.slice(i+1).trim()); return _tdEsc(shortClient(c)); }
+function _tdWhat(it){
+  /* "Ship Tervalis Plus — RUD26824" -> the product, with the PO as a chip */
+  var w=String(it.what||''); var m=/^(.*?) — (.*)$/.exec(w);
+  if(it.o && it.shipLines && it.shipLines.length) return _tdEsc(it.shipLines.map(function(l){return l.brand;}).join(', '))+' · '+_tdPo(it.o)+(it.o.client?' · '+_tdClient(it.o):'');
+  if(it.o && m) return _tdEsc(m[1])+' · '+_tdPo(it.o)+(it.o.client?' · '+_tdClient(it.o):'');
+  return _tdEsc(w);
 }
 function tdCardHTML(g){
   var L=TD_LABEL[g.label]||{title:g.label,verb:'Open'};
   var one=g.items[0], n=g.items.length, k=Object.keys(g.pos).length;
   var title, sub;
-  if(g.key.indexOf('prod:')===0){ title=_tdEsc(one.l.brand||''); sub=fmt(g.qty)+' Kg/L still to make · '+n+' line'+(n===1?'':'s')+' in '+k+' order'+(k===1?'':'s'); }
-  else if(g.key.indexOf('rcv:')===0){ title=L.title; sub=_tdEsc(one.o.po)+(one.o.client?' · '+_tdEsc(shortClient(one.o.client)):'')+' · '+n+' material'+(n===1?'':'s'); }
-  else if(g.key.indexOf('rsn:')===0){ title=L.title; sub=_tdEsc(one.o.po)+(one.o.client?' · '+_tdEsc(shortClient(one.o.client)):'')+' · '+n+' line'+(n===1?'':'s'); }
-  else { title=L.title; sub=one.what||''; }
+  if(g.key.indexOf('prod:')===0){ title=_tdEsc(one.l.brand||''); sub='<b>'+fmt(g.qty)+'</b> Kg/L to make · '+n+' line'+(n===1?'':'s')+' in '+k+' order'+(k===1?'':'s')+(n===1?' · '+_tdPo(one.o)+(one.o.client?' · '+_tdClient(one.o):''):''); }
+  else if(g.key.indexOf('rcv:')===0){ title=L.title; sub=_tdPo(one.o)+(one.o.client?' · '+_tdClient(one.o):'')+' · '+n+' material'+(n===1?'':'s'); }
+  else if(g.key.indexOf('rsn:')===0){ title=L.title; sub=_tdPo(one.o)+(one.o.client?' · '+_tdClient(one.o):'')+' · '+n+' late line'+(n===1?'':'s'); }
+  else { title=L.title; sub=_tdWhat(one); }
   var h='<div class="tdcard'+(g.late>0?' late':'')+'">';
+  var head='<div class="tdhead"><div class="tdtitle">'+title+'</div><div class="tdsub">'+sub+'</div><div class="tdtags">'+tdTags(g)+'</div></div>';
   if(g.key.indexOf('rsn:')===0){
     /* R14: one question per late order, not one per line */
-    h+='<div class="tdhead"><div class="tdtitle">'+title+'</div><div class="tdsub">'+sub+'</div><div class="tdtags">'+tdTags(g)+'</div></div>';
+    h+=head;
     h+='<button class="tdbtn" onclick="openDelayReasonOrder(\''+_tdEsc(one.o.id)+'\')">'+(n===1?'Give the reason':'Give one reason for all '+n)+'</button>';
     return h+'</div>';
   }
   if(n===1){
-    h+='<div class="tdhead"><div class="tdtitle">'+title+'</div><div class="tdsub">'+sub+'</div><div class="tdtags">'+tdTags(g)+'</div></div>';
+    h+=head;
     h+='<button class="tdbtn" onclick="'+one.act+'">'+_tdEsc(L.verb)+'</button>';
   } else {
-    h+='<details><summary><div class="tdhead"><div class="tdtitle">'+title+'</div><div class="tdsub">'+sub+'</div><div class="tdtags">'+tdTags(g)+'</div></div><span class="tdopen">open</span></summary>';
+    h+='<details><summary><div class="tdgrid">'+head+'<span class="tdgo">'+n+'</span></div></summary>';
     h+='<div class="tdrows">'+g.items.map(function(it){ return tdRowHTML(it,L.verb); }).join('')+'</div></details>';
   }
   return h+'</div>';
@@ -10875,8 +10914,10 @@ function tdCardHTML(g){
    blank screen, and a lab analyst can see 48 lines are in production ahead of
    the COAs that will reach him. No customer, no quantity, no money. */
 function tdPlantPulse(){
-  var all=actionItems(), by={};
-  all.forEach(function(it){ var L=TD_LABEL[it.label]||{title:it.label}; by[L.title]=(by[L.title]||0)+1; });
+  /* counted as JOBS, the way Today counts them - not as rows */
+  var all=actionItems(); all.forEach(function(it,i){ it._id='P'+i; });
+  var by={};
+  tdGroups(all).forEach(function(g){ var L=TD_LABEL[g.label]||{title:g.label}; var key=g.key.indexOf('prod:')===0?'Production runs':L.title; by[key]=(by[key]||0)+1; });
   var keys=Object.keys(by).sort(function(a,b){ return by[b]-by[a]; }).slice(0,6);
   if(!keys.length) return '<div class="tdmuted">Nothing is open anywhere in the plant.</div>';
   var mx=by[keys[0]]||1;
@@ -10903,17 +10944,27 @@ function tdDoneToday(){
   var depts=state.role==='COO'?null:(TD_LEADS[state.role]||[]);
   var team=log.filter(function(e){ if(e.by===me) return false; if(!depts) return true; var d=roleDeptId(e.role||''); return d && depts.indexOf(d)>-1; });
   var h='';
-  function row(e){ var t=String(e.t||''); var hm=t.length>=16?(new Date(t)):null; var tm=hm&&!isNaN(hm)?(('0'+hm.getHours()).slice(-2)+':'+('0'+hm.getMinutes()).slice(-2)):''; return '<div class="tddone-r"><span class="tddone-t">'+tm+'</span><span class="tddone-w">'+_tdEsc(e.by)+' — '+_tdEsc(e.what)+'</span></div>'; }
-  if(mine.length) h+='<div class="tdsec">Done by you today</div>'+mine.slice(0,10).map(row).join('');
-  if(team.length && (depts===null||depts.length)) h+='<div class="tdsec">Done by your team today</div>'+team.slice(0,12).map(row).join('');
+  function row(e,who){ var t=String(e.t||''); var hm=t.length>=16?(new Date(t)):null; var tm=hm&&!isNaN(hm)?(('0'+hm.getHours()).slice(-2)+':'+('0'+hm.getMinutes()).slice(-2)):''; return '<div class="tddone-r"><span class="tddone-t">'+tm+'</span><span class="tddone-w">'+(who?('<b>'+_tdEsc(e.by)+'</b> · '):'')+_tdEsc(e.what)+'</span></div>'; }
+  if(mine.length) h+='<div class="tdsec">Done by you today · '+mine.length+'</div><div class="tddone">'+mine.slice(0,8).map(function(e){return row(e,false);}).join('')+(mine.length>8?'<div class="tddone-r"><span class="tddone-t"></span><span class="tddone-w">and '+(mine.length-8)+' more in the action log</span></div>':'')+'</div>';
+  if(team.length && (depts===null||depts.length)) h+='<div class="tdsec">Done by your team today · '+team.length+'</div><div class="tddone">'+team.slice(0,8).map(function(e){return row(e,true);}).join('')+(team.length>8?'<div class="tddone-r"><span class="tddone-t"></span><span class="tddone-w">and '+(team.length-8)+' more in the action log</span></div>':'')+'</div>';
   return h;
 }
+var tdFilter='';
 function screenToday(){
-  var items=tdItems(), groups=tdGroups(items);
-  var late=groups.filter(function(g){return g.late>0;}).length;
+  try{ document.body.classList.add('td-on'); }catch(e){}
+  var items=tdItems(), groupsAll=tdGroups(items);
+  var me=state.currentUser||{}, nm=me.name||state.role, tt=(typeof personTitle==='function')?personTitle(me.username||'',state.role):state.role;
+  var ini=String(nm).split(' ').filter(Boolean).slice(-2).map(function(x){return x[0];}).join('').toUpperCase();
   var h='<div class="td">';
+  h+='<div class="tdwho"><span class="tdav">'+_tdEsc(ini)+'</span><div><div class="n">'+_tdEsc(nm)+'</div><div class="r">'+_tdEsc(tt)+'</div></div></div>';
   if(!hintHidden('today')) h+='<div class="tdhow"><div class="tdhow-h">How this works</div><ol><li>You see only the things waiting on you — nothing else.</li><li>Tap one, do it, press the button. It leaves your list and appears on the next person\'s.</li><li>That is the whole system.</li></ol><button class="tdlink" onclick="dismissHint(\'today\')">Got it</button></div>';
   h+=tdStarts();
+  /* a filter by kind of job, only when there is more than one kind */
+  var kinds={}; groupsAll.forEach(function(g){ var L=TD_LABEL[g.label]||{title:g.label}; var key=g.key.indexOf('prod:')===0?'Run':L.title; kinds[key]=(kinds[key]||0)+1; });
+  var kk=Object.keys(kinds);
+  if(kk.length>1){ if(tdFilter && !kinds[tdFilter]) tdFilter='';
+    h+='<div class="tdchips"><button class="tdchip'+(tdFilter?'':' on')+'" onclick="tdFilter=\'\';render()">All <span class="k">'+groupsAll.length+'</span></button>'+kk.map(function(k){ return '<button class="tdchip'+(tdFilter===k?' on':'')+'" onclick="tdFilter=\''+_tdEsc(k).replace(/'/g,'')+'\';render()">'+_tdEsc(k)+' <span class="k">'+kinds[k]+'</span></button>'; }).join('')+'</div>'; }
+  var groups=tdFilter?groupsAll.filter(function(g){ var L=TD_LABEL[g.label]||{title:g.label}; var key=g.key.indexOf('prod:')===0?'Run':L.title; return key===tdFilter; }):groupsAll;
   if(state.role==='COO') h+='<div class="tdscope"><button class="'+(tdScope!=='plant'?'on':'')+'" onclick="tdScope=\'mine\';render()">Needs me</button><button class="'+(tdScope==='plant'?'on':'')+'" onclick="tdScope=\'plant\';render()">Whole plant</button></div>';
   if(groups.length){
     /* Your own work first. What was escalated to you because somebody else's
@@ -10926,9 +10977,10 @@ function screenToday(){
     if(own.length) h+='<div class="tdlist">'+own.map(tdCardHTML).join('')+'</div>';
     if(esc.length) h+='<div class="tdsec">Escalated to you \u00b7 '+esc.length+'</div><div class="tdlist">'+esc.map(tdCardHTML).join('')+'</div>';
   } else {
-    h+='<div class="tdday"><div class="tdbig">Nothing waiting on you</div><div class="tdsm">That is the honest answer. Here is what is moving in the plant.</div></div>'+tdPlantPulse();
+    h+='<div class="tdday"><div class="tdbig">Nothing waiting on you</div></div><div class="tdempty"><h3>Your list is clear</h3><p>That is the honest answer. Here is what is moving in the plant right now.</p>'+tdPlantPulse()+'</div>';
   }
   h+=tdDoneToday();
+  h+='<div class="tdfoot">Live O2S. What you press here is saved exactly as before \u2014 the button is the same action, it just no longer hides behind a tab.</div>';
   h+='</div>';
   $('view').innerHTML=h;
 }

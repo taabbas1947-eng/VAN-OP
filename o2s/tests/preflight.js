@@ -88,6 +88,9 @@ const MARKERS = [
   /* 2026-09-23k */
   ['function openDelayReasonOrder(',       1, 'one reason per late order (R14)'],
   ['function seedPrintDecisionV1(',        1, 'the old print-on-pack backlog answered (R2)'],
+  /* 2026-09-23l */
+  ['body.td-on #periodSel',                1, 'Today hides the reporting period (design pass 23l)'],
+  ['function _tdClient(',                  1, 'Today - the client name on a card'],
 ];
 
 const [, , mode, freshPath, otherPath] = process.argv;

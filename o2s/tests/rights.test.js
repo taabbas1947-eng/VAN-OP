@@ -193,9 +193,15 @@ const ALL = (STATE.masters.roles || []).map(r => r.name).concat(['COO'])
   const mustStayHard = [
     ['coaReview',      'AQCM',          'lab certificate — second signature'],
     ['coaApprove',     'QCM',           'lab certificate — final signature'],
-    ['approveDC',      'Plant Manager', 'approving a delivery challan'],
-    ['approveRelease', 'Plant Manager', 'releasing a loaded truck'],
-    ['rejectDC',       'Plant Manager', 'rejecting a delivery challan'],
+    /* The three truck-pipeline sign-offs moved to Supply Chain on 23 September:
+       "Plant Manager is no more a cover. Saad becomes the authority to approve
+       dispatch, or wherever dispatch has an approval point." They are still
+       KIND B - a sign-off on somebody else's work - so they stay hardRole and
+       must never follow the access matrix. Only the name in the check changed,
+       which is exactly what this table exists to notice. */
+    ['approveDC',      'Supply Chain',  'approving a delivery challan'],
+    ['approveRelease', 'Supply Chain',  'releasing a loaded truck'],
+    ['rejectDC',       'Supply Chain',  'rejecting a delivery challan'],
     ['doReopenBatch',  'Plant Manager', 'undoing a batch close'],
     ['openReopenBatch','Plant Manager', 'opening the reopen dialog'],
     ['coaDeviation',   'Plant Manager', 'accepting a lab deviation'],

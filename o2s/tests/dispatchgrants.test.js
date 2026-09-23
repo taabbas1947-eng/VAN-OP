@@ -10,10 +10,14 @@
 
      DISPATCH     plan a shipment, load a truck, issue a Gate Pass, confirm a
                   delivery. Saad (Lead Supply Chain), Shoaib (Senior Warehouse
-                  Officer), Zain (Warehouse Assistant), and the Plant Manager as
-                  the documented escalation.
+                  Officer), Zain (Warehouse Assistant).
      PROCUREMENT  RM check, receive raw material, close a PR, acknowledge a PO.
-                  Saad only, with the Plant Manager as escalation.
+                  Saad alone.
+
+   The Plant Manager is in neither list. Later the same day: "Plant Manager is no
+   more a cover. Saad becomes the authority to approve dispatch." And: "this is
+   again a burden on Plant Manager, Saad should do, no one else - we will decide
+   who is to cover later." Until a cover is named, the COO is the only fallback.
 
    Zain keeps dispatch - the assistant is shared for now. What he must not have is
    procurement, and that is exactly what the old rule could not express.
@@ -62,10 +66,10 @@ const PROC = ['rm.check', 'rm.receive', 'pr.close', 'order.acknowledge'];
   const live = H.grabTopVar('RIGHTS_LIVE', '{');
   DISPATCH.concat(PROC).forEach(c => ok(c + ' is in RIGHTS_LIVE', live.indexOf("'" + c + "'") > -1));
   const flat = H.html.replace(/\s+/g, ' ');
-  ok('dispatch is granted to the three who do it, plus the escalation',
-     /var DISPATCH_GRANT=\{'Supply Chain':true,'Warehouse':true,'Supply Chain Officer':true,'Plant Manager':true\}/.test(flat));
-  ok('procurement is granted to Saad, plus the escalation',
-     /var PROCUREMENT_GRANT=\{'Supply Chain':true,'Plant Manager':true\}/.test(flat));
+  ok('dispatch is granted to the three who do it',
+     /var DISPATCH_GRANT=\{'Supply Chain':true,'Warehouse':true,'Supply Chain Officer':true\}/.test(flat));
+  ok('procurement is Saad alone',
+     /var PROCUREMENT_GRANT=\{'Supply Chain':true\}/.test(flat));
 }
 
 /* ================= 2. WHAT EACH ROLE CAN ACTUALLY DO ================= */
@@ -96,7 +100,7 @@ function makeBox() {
   const canOn = (role, scr) => { box.state.screen = scr; return R.filter(c => box.mayRole(role, c)); };
 
   /* Everyone who dispatches, dispatches. */
-  ['Supply Chain', 'Warehouse', 'Supply Chain Officer', 'Plant Manager'].forEach(r => {
+  ['Supply Chain', 'Warehouse', 'Supply Chain Officer'].forEach(r => {
     const c = canOn(r, 'ship');
     DISPATCH.forEach(d => ok(r + ' can ' + d, c.indexOf(d) > -1, c.join(' ')));
   });
@@ -115,7 +119,7 @@ function makeBox() {
   PROC.forEach(c => ok('Supply Chain keeps ' + c, sc.indexOf(c) > -1, sc.join(' ')));
 
   /* The roles that held these only by standing somewhere. */
-  ['Production', 'Lab Rep', 'AQCM', 'QCM', 'QA Inspector', 'CFO', 'Finance'].forEach(r => {
+  ['Production', 'Lab Rep', 'AQCM', 'QCM', 'QA Inspector', 'CFO', 'Finance', 'Plant Manager'].forEach(r => {
     const c = canOn(r, 'ship');
     DISPATCH.concat(PROC).forEach(d => ok(r + ' can no longer ' + d, c.indexOf(d) < 0, c.join(' ')));
   });

@@ -69,6 +69,12 @@ function unflip(b) {
 }
 const B = mk('COO');
 const ROLES = (STATE.masters.roles || []).map(r => r.name);
+/* The codes whose answer was deliberately replaced on 23 September 2026, when
+   Supply Chain split three ways. Every "going live changes nothing" claim in this
+   file is true of every other right and false of these by design, so they are
+   named once here and pinned properly in RULED_CHANGE below. */
+const RULED_CODES = ['shipment.plan','shipment.load','gatepass.issue','delivery.confirm',
+                     'rm.check','rm.receive','pr.close','order.acknowledge','po.shortclose_request'];
 const asRole = r => { B.state.role = r; };
 
 /* ================= 0. the access rule has ONE implementation ================= */
@@ -256,14 +262,14 @@ const asRole = r => { B.state.role = r; };
      what the new answer is. Skipping a code without pinning its replacement would
      turn the freeze into a list of things nobody checks any more. */
   const RULED_CHANGE = {
-    'shipment.plan':    { by: 'Tahir, 23 Sep 2026', who: ['Supply Chain','Warehouse','Supply Chain Officer','Plant Manager'] },
-    'shipment.load':    { by: 'Tahir, 23 Sep 2026', who: ['Supply Chain','Warehouse','Supply Chain Officer','Plant Manager'] },
-    'gatepass.issue':   { by: 'Tahir, 23 Sep 2026', who: ['Supply Chain','Warehouse','Supply Chain Officer','Plant Manager'] },
-    'delivery.confirm': { by: 'Tahir, 23 Sep 2026', who: ['Supply Chain','Warehouse','Supply Chain Officer','Plant Manager'] },
-    'rm.check':         { by: 'Tahir, 23 Sep 2026', who: ['Supply Chain','Plant Manager'] },
-    'rm.receive':       { by: 'Tahir, 23 Sep 2026', who: ['Supply Chain','Plant Manager'] },
-    'pr.close':         { by: 'Tahir, 23 Sep 2026', who: ['Supply Chain','Plant Manager'] },
-    'order.acknowledge':{ by: 'Tahir, 23 Sep 2026', who: ['Supply Chain','Plant Manager'],
+    'shipment.plan':    { by: 'Tahir, 23 Sep 2026', who: ['Supply Chain','Warehouse','Supply Chain Officer'] },
+    'shipment.load':    { by: 'Tahir, 23 Sep 2026', who: ['Supply Chain','Warehouse','Supply Chain Officer'] },
+    'gatepass.issue':   { by: 'Tahir, 23 Sep 2026', who: ['Supply Chain','Warehouse','Supply Chain Officer'] },
+    'delivery.confirm': { by: 'Tahir, 23 Sep 2026', who: ['Supply Chain','Warehouse','Supply Chain Officer'] },
+    'rm.check':         { by: 'Tahir, 23 Sep 2026', who: ['Supply Chain'] },
+    'rm.receive':       { by: 'Tahir, 23 Sep 2026', who: ['Supply Chain'] },
+    'pr.close':         { by: 'Tahir, 23 Sep 2026', who: ['Supply Chain'] },
+    'order.acknowledge':{ by: 'Tahir, 23 Sep 2026', who: ['Supply Chain'],
                           note: 'was legacy:{kind:"all"} - every role in the system could acknowledge a PO' },
     'po.shortclose_request': { by: 'Tahir, 23 Sep 2026', who: ['Production Manager','Supply Chain'],
                           note: 'named eight roles; narrowed to the two department managers' },
@@ -351,15 +357,17 @@ const asRole = r => { B.state.role = r; };
      standing on. Comparing a screen-dependent answer against a screen-independent
      one is comparing two different questions; the thing that must not change is
      what each role can do ON THE SCREEN WHERE THE JOB IS DONE.) */
-  const before = ROLES.map(r => B.RIGHTS.map(rt => B.mayHere(r, rt.code)).join(','));
+  const FREEZABLE = B.RIGHTS.filter(rt => RULED_CODES.indexOf(rt.code) < 0);
+  const before = ROLES.map(r => FREEZABLE.map(rt => B.mayHere(r, rt.code)).join(','));
   B.RIGHTS.forEach(rt => { B.RIGHTS_LIVE[rt.code] = true; });
-  const after = ROLES.map(r => B.RIGHTS.map(rt => B.mayHere(r, rt.code)).join(','));
+  const after = ROLES.map(r => FREEZABLE.map(rt => B.mayHere(r, rt.code)).join(','));
   ROLES.forEach((r, i) => eq('switching every right live changes nothing for ' + r, after[i], before[i]));
   B.RIGHTS.forEach(rt => { delete B.RIGHTS_LIVE[rt.code]; });
 
   /* And on the screen each job actually lives on, the real gate is unchanged too. */
   B.RIGHTS.forEach(rt => {
     const nat = (rt.legacy || {}).scr; if (!nat) return;
+    if (RULED_CODES.indexOf(rt.code) > -1) return;   /* replaced on a ruling, pinned in RULED_CHANGE */
     B.state.screen = nat;
     ROLES.forEach(r => {
       const live = B.mayRole(r, rt.code);
@@ -1307,7 +1315,10 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
   /* THE LINE THAT MUST NOT BE CROSSED. A delivery challan is approved by a second
      person, and a loaded truck is released by a second person. Those are the
      2026-07-30 incident. They stay on hardRole and out of the catalogue. */
-  [['approveDC', 'Plant Manager'], ['rejectDC', 'Plant Manager'], ['approveRelease', 'Plant Manager']]
+  /* Moved to Supply Chain on 23 September: "Plant Manager is no more a cover.
+     Saad becomes the authority to approve dispatch, or wherever dispatch has an
+     approval point." They stay hardRole - only the name in the check changed. */
+  [['approveDC', 'Supply Chain'], ['rejectDC', 'Supply Chain'], ['approveRelease', 'Supply Chain']]
     .forEach(([fn, role]) => {
       const body = H.grab(fn);
       ok('SIGN-OFF still hard-gated: ' + fn,
@@ -1321,10 +1332,12 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
      /gatePass/.test(H.grab('approveRelease')) && /Issue the Gate Pass before release/.test(H.grab('approveRelease')));
 
   /* The people who can actually do the job, read off the live matrix. */
+  /* The Plant Manager is out of both: dispatch and procurement are Saad's, with
+     no cover named yet - the COO is the only fallback until Tahir names one. */
   eq('who may plan a shipment', b.whoMayRight('shipment.plan').join(', '),
-     'Supply Chain, Plant Manager, COO, Supply Chain Officer');
+     'Supply Chain, COO, Supply Chain Officer');
   eq('who may receive raw material', b.whoMayRight('rm.receive').join(', '),
-     'Supply Chain, Plant Manager, COO');
+     'Supply Chain, COO');
   eq('who may RM Check — same shape as rm.receive, same owners',
      b.whoMayRight('rm.check').join(', '), b.whoMayRight('rm.receive').join(', '));
   ok('Zain\'s two role names are both in Supply Chain, so one lead covers both',
@@ -1556,7 +1569,11 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
      the card renders from Admin (he has Edit on Admin); take that away and only
      the screen-independent question still finds him. */
   {
-    const b = panelAt('supply-chain');
+    /* pre-flip: this demonstrates the cross-department column, which needs somebody
+       from ANOTHER department to hold a Supply Chain right. Since 23 September the
+       Plant Manager holds none - dispatch and procurement are Saad's, with no
+       cover named yet - so the mechanic has no live example to run on. */
+    const b = panelAt('supply-chain', true);
     b.state.masters.accessMatrix['Plant Manager'].admin = { v: true, e: false };
     const h = b.authCard();
     ok('a right-holder from another department is a column even when he cannot edit Admin',
@@ -1787,6 +1804,12 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
     const m = new RegExp("'" + label + "'\\s*:\\s*\\[\\s*\\d+\\s*,\\s*'([^']+)'\\]").exec(esc);
     LABEL_RIGHTS[label].forEach(code => {
       if (scrOf(code) === 'approvals') return;      /* its own screen — nothing to disclose */
+      /* A LIVE right's alsoOn is a frozen record of where its button used to be
+         reachable from, not a statement about today. Comparing it against the
+         current escalation setting asks history to agree with a decision taken
+         after it. The three dispatch steps now escalate to Supply Chain while
+         their legacy still records the Plant Manager, and both are correct. */
+      if (RULED_CODES.indexOf(code) > -1) return;
       const entry = alsoOnOf(code).filter(a => a.scr === 'approvals')[0];
       if (m) {
         ok('escalated to a manager, so alsoOn says so: ' + label + ' -> ' + code, !!entry,

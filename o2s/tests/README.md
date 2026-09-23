@@ -34,13 +34,16 @@ node o2s/tests/warehousesplit.test.js
                                    #  43 - Supply Chain splits three ways, and
                                    #       what step two has still to remove
 node o2s/tests/dispatchgrants.test.js
-                                   # 124 - dispatch by grant, not by which screen
+                                   # 128 - dispatch by grant, not by which screen
                                    #       you happen to be standing on
+node o2s/tests/dispatchauthority.test.js
+                                   #  32 - Saad approves dispatch; the Plant
+                                   #       Manager is no longer cover
 ```
 
-**1,006 checks in the suites listed above.** Running every `*.test.js` in this
+**1,042 checks in the suites listed above.** Running every `*.test.js` in this
 folder together, with `data/state.json` and both `_before-*.html` fixtures in
-place, gives **8,135**. Exit code 0 means all passing. No dependencies, no build step,
+place, gives **8,081**. Exit code 0 means all passing. No dependencies, no build step,
 Node only.
 
 ## How they work
@@ -341,3 +344,27 @@ the moment `order.acknowledge` went live it listed nine roles as drifting from a
 rule that no longer decides anything — for ever. It now skips live rights and
 answers the question it was built for: what would change if you flipped the ones
 still waiting.
+
+**A frozen record cannot be asked to agree with a later decision.** Two checks
+compared live settings against a right's `legacy` block: the drift card, and the
+one asserting that `acEscalation`'s manager matches the right's `alsoOn` roles.
+Once dispatch escalation moved to Supply Chain, `alsoOn` still recorded the Plant
+Manager — and both were correct, because `alsoOn` describes where the button used
+to be reachable from, not who covers it today. Live rights are now skipped in
+both. A record of the past that must keep matching the present is not a record.
+
+**Say what a change costs in the source, not only in the commit message.**
+Separation rule 4 reads "the person who loads does not release", and Saad now
+holds `shipment.load` and approves the release. In practice the warehouse loads
+and he approves, which is the shape the rule wants — but nothing stops the same
+person doing both, and the rule cannot fire because `shipment.release` was never
+added to `RIGHTS`. That tension is written into `o2s.html` beside the grant maps
+and asserted by `dispatchauthority.test.js`, so it reads as a known cost rather
+than something nobody noticed.
+
+**Moving a name in a sign-off is a table entry, not a rewrite.** `rights.test.js`
+keeps a list of the gates that must stay `hardRole` — sign-offs on somebody
+else's work, which must never follow the access matrix. Moving three of them from
+the Plant Manager to Supply Chain failed that list by name, which is the list
+doing its job: the check is that they stayed hard, and the name is the part that
+was allowed to change.

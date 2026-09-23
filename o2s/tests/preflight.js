@@ -74,6 +74,8 @@ const MARKERS = [
   ['var PROCUREMENT_GRANT=',               1, 'procurement is the lead\u2019s'],
   ['if(RIGHTS_LIVE[r.code]===true) return;', 1, 'the drift card ignores live rights'],
   ["roles:['Production Manager','Supply Chain']", 1, 'short close: the two managers'],
+  ["hardRole(['Supply Chain'])",            3, 'the three dispatch approval points'],
+  ['THERE IS NO COVER',                     1, 'no cover named for Saad yet'],
   ["canEdit(['Supply Chain','Warehouse'])", 4, 'packed-stock custody'],
 ];
 

@@ -11,7 +11,7 @@
    a push keeps running the old code with nothing telling anybody. It sat at
    2026-09-04a through this whole day's work; rmqty/psi tests pinned the code,
    nothing pinned this. buildid.test.js now does. */
-var BUILD_ID='2026-09-23h';
+var BUILD_ID='2026-09-23i';
 var CHANGELOG=[
   {ver:'2026-09-04a', date:'2026-09-04', title:"Delivery, DC printing, and a new Reconciliation check", items:[
     "Delivery confirmation stays with Supply Chain \u2014 it no longer hands off to the Plant Manager. If one sits too long, it now re-flags the same Supply Chain owner every 3 days instead.",
@@ -89,6 +89,13 @@ var CHANGELOG=[
     "Acknowledging a PO used to be open to everybody. If somebody who needs it finds they cannot, the COO can give it back with one tick in Authorisation; it needs no new version of the app.",
     "Asking to close a PO line short is now the two department managers only \u2014 Lead Planning & Production and Lead Supply Chain. The Plant Manager still approves it.",
     "The Authorisation card no longer warns about rights that have already gone live. It only tells you what would change if you switched on the ones still waiting.",
+  ]},
+  {ver:'2026-09-23i', date:'2026-09-23', title:"Supply Chain approves its own dispatch now", items:[
+    "Approving a Delivery Challan, rejecting one, and releasing a loaded truck have moved from the Plant Manager to Lead Supply Chain. Those are the three approval points on the truck pipeline.",
+    "The Plant Manager is no longer cover for dispatch or for procurement. Until a cover is named, the COO is the only fallback when Lead Supply Chain is away.",
+    "A dispatch step left sitting now nudges Lead Supply Chain instead of the Plant Manager. A release or a DC approval left sitting still goes to the COO \u2014 an escalation has to go above the person it is waiting on.",
+    "Quality is unchanged: a stale Pack QC or inspection still escalates to the Plant Manager.",
+    "One thing to know: the rule \u201cthe person who loads does not release\u201d now has nobody enforcing it between Lead Supply Chain\u2019s own two jobs. In practice the warehouse loads and Lead Supply Chain approves, which is the right shape \u2014 but the app does not stop the same person doing both.",
   ]},
 ];
 </script>
@@ -3075,9 +3082,33 @@ var RIGHTS_LIVE={
    Narrowing it is the largest single change here. It is safe to make because
    widening it again is one tick in Authorisation and no code change. */
 var DISPATCH_LIVE=['shipment.plan','shipment.load','gatepass.issue','delivery.confirm'];
-var DISPATCH_GRANT={'Supply Chain':true,'Warehouse':true,'Supply Chain Officer':true,'Plant Manager':true};
+var DISPATCH_GRANT={'Supply Chain':true,'Warehouse':true,'Supply Chain Officer':true};
 var PROCUREMENT_LIVE=['rm.check','rm.receive','pr.close','order.acknowledge'];
-var PROCUREMENT_GRANT={'Supply Chain':true,'Plant Manager':true};
+var PROCUREMENT_GRANT={'Supply Chain':true};
+/* THE PLANT MANAGER IS OUT OF BOTH LISTS - Tahir, 23 September 2026.
+
+   "Plant Manager is no more a cover. Saad becomes the authority to approve
+   dispatch, or wherever dispatch has an approval point." And on procurement:
+   "this is again a burden on Plant Manager, Saad should do, no one else - we
+   will decide who is to cover later."
+
+   So the three approval points on the truck pipeline - approveDC, rejectDC and
+   approveRelease - now ask hardRole(['Supply Chain']). They stay hardRole and do
+   NOT follow the access matrix: rights.test.js draws that line, because a screen
+   grant given for an ordinary reason must never buy the authority to sign off
+   somebody else's work. Only the name in the check changed.
+
+   THERE IS NO COVER. If Saad is away, the COO acts - that is the only fallback
+   until Tahir names one. Written down rather than quietly left to be discovered
+   on the first day Saad takes leave.
+
+   AND ONE TENSION, stated rather than buried. SEPARATION rule 4 reads "the person
+   who loads does not release", naming shipment.load + shipment.release. Saad now
+   holds shipment.load AND approves the release. In practice Shoaib and Zain load
+   and Saad approves, which is the shape the rule wants - but nothing in the app
+   stops Saad loading a truck himself and then releasing it. The rule cannot fire
+   either way, because shipment.release is one of the six codes never added to
+   RIGHTS. This is a note for the COO, not a control. */
 
 function rightByCode(c){ for(var i=0;i<RIGHTS.length;i++){ if(RIGHTS[i].code===c) return RIGHTS[i]; } return null; }
 function rightsOfDept(d){ return RIGHTS.filter(function(r){ return r.dept===d; }); }
@@ -10386,10 +10417,10 @@ function acProduceStallDays(it){ var o=it.o,l=it.l; if(!o||!l)return null;
   (state.productionLog||[]).forEach(function(p){ if(p&&p.batchNo&&p.date&&bs.some(function(b){return b.batchNo===p.batchNo;}))dates.push(p.date); });
   if(!dates.length)return null; dates.sort(); var last=new Date(dates[dates.length-1]); return isNaN(last)?null:Math.max(0,Math.round((TODAY-last)/86400000)); }
 function acEscalation(it){ if(!it)return null;
-  var TH={'Acknowledge':[1,'Plant Manager'],'RM Check':[1,'CFO'],'Receive':[1,'CFO'],'Lab QC':[1,'Plant Manager'],'Review':[1,'Plant Manager'],'Approve':[1,'Plant Manager'],'Pack QC':[2,'Plant Manager'],'Inspect':[2,'Plant Manager'],'Ship':[2,'Plant Manager'],'Open Production':[4,'Plant Manager'],'Approve PR':[1,'COO'],
+  var TH={'Acknowledge':[1,'Plant Manager'],'RM Check':[1,'CFO'],'Receive':[1,'CFO'],'Lab QC':[1,'Plant Manager'],'Review':[1,'Plant Manager'],'Approve':[1,'Plant Manager'],'Pack QC':[2,'Plant Manager'],'Inspect':[2,'Plant Manager'],'Ship':[2,'Supply Chain'],'Open Production':[4,'Plant Manager'],'Approve PR':[1,'COO'],
     /* 2026-08-21 — the truck pipeline. A loaded truck waiting on a release is the
        most expensive thing to leave sitting, so it escalates after one day. */
-    'Print price':[3,'COO'],'Load':[1,'Plant Manager'],'Gate Pass':[1,'Plant Manager'],'Release':[1,'COO'],'Approve DC':[1,'COO'],
+    'Print price':[3,'COO'],'Load':[1,'Supply Chain'],'Gate Pass':[1,'Supply Chain'],'Release':[1,'COO'],'Approve DC':[1,'COO'],
     /* 2026-09-04 — the COO's call: delivery confirmation is Supply Chain's job,
        full stop, never Plant Manager's. But it should not go quiet either — Saad
        (Supply Chain) still needs the nudge, so a stale "Confirm delivery" re-flags
@@ -11659,8 +11690,8 @@ function saveDispatch(){ if(!may('shipment.plan')){toast(denyRight('shipment.pla
   logAction(`Shipment ${shipNo} (${dispId}) · PO ${o.po}: ${n} product(s), ${fmt(tot)} Kg/L · DC ${dc}${dispForm.vehicle?(' · '+dispForm.vehicle):''}`);
   (state.audit=state.audit||[]).unshift({t:new Date().toISOString(),user:state.role,module:'Shipment',po:o.po,brand:n+' product(s)',field:'Shipped',old:'',val:fmt(tot)+' Kg/L · DC '+(dispForm.dc||'-')});
   dispForm=null; save(); closeModal(); render(); toast(`DC ${dc} recorded — pending Plant Manager approval`); }
-function approveDC(dispId){ if(!hardRole(['Plant Manager'])){ toast('Plant Manager / COO approves the DC'); return; } var rows=(state.shipments||[]).filter(function(s){return (s.dispId||'')===dispId&&!s.voided;}); if(!rows.length)return; var who=(state.currentUser&&state.currentUser.name)||state.role; var dt=TODAY.toISOString().slice(0,10); rows.forEach(function(s){ s.dcStatus='approved'; s.approvedBy=who; s.approvedDate=dt; if(!s.dispCounted){ var o=(state.orders||[]).find(function(x){return x.po===s.po;}); var l=o&&((o.lines||[]).find(function(x){return x.id===s.lid;})||(o.lines||[]).find(function(x){return x.brand===s.brand;})); if(l){ l.dispatched=(+l.dispatched||0)+(+s.kg||0); l.dispatchDate=l.dispatchDate||dt; } s.dispCounted=true; } }); var dc=rows[0].dc||''; logAction('DC '+dc+' approved by '+who+' — cleared for outward movement'); save(); render(); toast('DC '+dc+' approved — cleared to ship'); }
-function rejectDC(dispId){ if(!hardRole(['Plant Manager'])){ toast('Plant Manager / COO only'); return; } if(typeof confirm==='function'&&!confirm('Reject this DC? It will be voided and the material returns to Ready to ship.'))return; var rows=(state.shipments||[]).filter(function(s){return (s.dispId||'')===dispId&&!s.voided;}); rows.forEach(function(s){ s.voided=true; s.dcStatus='rejected'; var o=(state.orders||[]).find(function(x){return x.po===s.po;}); var l=o&&((o.lines||[]).find(function(x){return x.id===s.lid;})||(o.lines||[]).find(function(x){return x.brand===s.brand;})); _releaseShip(o,l,s.batches); if(s.dispCounted&&l){ l.dispatched=Math.max(0,(+l.dispatched||0)-(+s.kg||0)); s.dispCounted=false; } }); logAction('DC '+((rows[0]&&rows[0].dc)||'')+' rejected — material returned to Ready to ship'); save(); render(); toast('DC rejected'); }
+function approveDC(dispId){ if(!hardRole(['Supply Chain'])){ toast('Supply Chain / COO approves the DC'); return; } var rows=(state.shipments||[]).filter(function(s){return (s.dispId||'')===dispId&&!s.voided;}); if(!rows.length)return; var who=(state.currentUser&&state.currentUser.name)||state.role; var dt=TODAY.toISOString().slice(0,10); rows.forEach(function(s){ s.dcStatus='approved'; s.approvedBy=who; s.approvedDate=dt; if(!s.dispCounted){ var o=(state.orders||[]).find(function(x){return x.po===s.po;}); var l=o&&((o.lines||[]).find(function(x){return x.id===s.lid;})||(o.lines||[]).find(function(x){return x.brand===s.brand;})); if(l){ l.dispatched=(+l.dispatched||0)+(+s.kg||0); l.dispatchDate=l.dispatchDate||dt; } s.dispCounted=true; } }); var dc=rows[0].dc||''; logAction('DC '+dc+' approved by '+who+' — cleared for outward movement'); save(); render(); toast('DC '+dc+' approved — cleared to ship'); }
+function rejectDC(dispId){ if(!hardRole(['Supply Chain'])){ toast('Supply Chain / COO only'); return; } if(typeof confirm==='function'&&!confirm('Reject this DC? It will be voided and the material returns to Ready to ship.'))return; var rows=(state.shipments||[]).filter(function(s){return (s.dispId||'')===dispId&&!s.voided;}); rows.forEach(function(s){ s.voided=true; s.dcStatus='rejected'; var o=(state.orders||[]).find(function(x){return x.po===s.po;}); var l=o&&((o.lines||[]).find(function(x){return x.id===s.lid;})||(o.lines||[]).find(function(x){return x.brand===s.brand;})); _releaseShip(o,l,s.batches); if(s.dispCounted&&l){ l.dispatched=Math.max(0,(+l.dispatched||0)-(+s.kg||0)); s.dispCounted=false; } }); logAction('DC '+((rows[0]&&rows[0].dc)||'')+' rejected — material returned to Ready to ship'); save(); render(); toast('DC rejected'); }
 /* Client of a PO (used to enforce one-truck-one-client and to group multi-PO shipments). */
 function shipClientFor(po){ var o=(state.orders||[]).find(function(x){return x.po===po;}); return o?(o.client||''):''; }
 /* Derive the prototype lifecycle stage from a dispatch group. Backward-compatible:
@@ -11866,7 +11897,7 @@ function issueGatePass(dispId){ if(!may('gatepass.issue')){toast(denyRight('gate
   var gp=nextGatePassNo(); rows.forEach(function(s){ s.gatePass=gp; }); logAction('Gate Pass '+gp+' issued — DC '+(rows[0].dc||'')+' ('+dispId+')'); save(); render(); toast('Gate Pass '+gp+' issued'); }
 /* Plant Manager release = approval. Requires the Gate Pass to be issued (DC is already auto-generated).
    On release: stage → in_transit, DC approved, and the dispatched quantity is counted (deferred until now). */
-function approveRelease(dispId){ if(!hardRole(['Plant Manager'])){ toast('Plant Manager / COO releases the truck'); return; } var rows=shipRowsOf(dispId); if(!rows.length)return; if(rows[0].stage!=='loading'){ toast('Truck must be in Loading before release'); return; } if(!rows[0].gatePass && dcControlOn(rows[0].dispatch||TODAY.toISOString().slice(0,10))){ toast('Issue the Gate Pass before release'); return; }
+function approveRelease(dispId){ if(!hardRole(['Supply Chain'])){ toast('Supply Chain / COO releases the truck'); return; } var rows=shipRowsOf(dispId); if(!rows.length)return; if(rows[0].stage!=='loading'){ toast('Truck must be in Loading before release'); return; } if(!rows[0].gatePass && dcControlOn(rows[0].dispatch||TODAY.toISOString().slice(0,10))){ toast('Issue the Gate Pass before release'); return; }
   /* FAULT 8, closed 2026-08-21 on Tahir's decision.
 
      Release checked the role, the stage and the gate pass — but never whether the

@@ -5323,3 +5323,24 @@ No protection removed. `migrateAccountsV1` sends name/username/role only.
 Nothing pushed by Claude. No `.patch` files. Module boundary held — the account
 move goes through the same `/api/users` PUT that Users & Access uses; no PLATFORM
 file touched. Folder and file names in plain words with spaces.
+
+## Pass twenty-four — the Queue Shell, live (2026-09-23s, commit 7ecee20)
+
+Tahir, the night of 23 September, after seeing the Queue Shell artifact: "always choose the Queue Shell for queues", "Queue Shell everywhere", "a totally new kind of back office which is easy to move, assign a role, and clearly grant rights for each role at the time of assignment", and "reset password can be created?" (yes — the existing `/api/users` PUT already takes a password; the new People sheet uses it; the COO types it).
+
+Asked and answered: the look is the Queue Shell everywhere; the second word in the header is **Plant** (not "Report Center" — R3's word is superseded); the 3 lights are Late orders · Trucks waiting · Waiting on material (all computable today; "Stuck batches" waits for batches to carry a due time).
+
+What shipped in `o2s/o2s.html`:
+- `<style id="qs-shell">` — tokens, the header (`#qsTop`, `#qsNav`, `#qsMe`, `#qsClock`), Today/Plant/Back Office/People/Guide styles, and the rest of the app re-clothed. The old sidebar markup stays in the file and is hidden; `renderNav` guards `#nav`.
+- `renderTopNav()` fills the 4 words from `NAV_GROUPS` (`Today · Plant · Back Office · Guide`); `render()` stamps `data-screen` on `<body>`.
+- `screenPlant()` (+ `plDeptLines`, `plFloor`, `plClient`, `plCanAct`, `plSel`) from `fireLists()`. Late orders counted and listed per ORDER.
+- `screenBackOffice()` now renders `boJobs()` — jobs with counts; reconcile reads `reconCompute()`.
+- `screenPeople()` / `ppOpen` / `ppRender` / `ppSave` replace the Users & Access table (`screenUsers` calls it; `paintUsers` stays defined, unused). `roleSentences`, `roleScreens`, `roleDiffHTML` write rights as sentences and before → after. Nothing deletes; `delUser` is untouched but no longer reachable from the new screen.
+- `rolesTitlesCard()` opens the Guide. `ROLE_DEPT` gains `production-manager` and `finance-desk-officer`.
+- Screen names: New order, Customers, Orders, Lab, Truck inspection, Guide, Setup, People, All actions.
+
+Tests: `shell.test.js` (81; crashes against 23r). Updated: manual, recon, rights, rolemodel, threeplaces, today. Preflight: 5 new markers; the "Report Center" marker now reads `label:'Plant', ids:['plant']`. Whole suite on Tahir's machine: 46 suites, 9,310 passed, 0 failed, 0 crashed.
+
+Not pushed (2 commits ahead: f3b32e7 23r, 7ecee20 23s). Morning page: the "O2S Overnight Build" artifact, version 2.
+
+Open, in order: job-shaped forms as sheets; managers' "Your people" on Today (needs per-person stamps); 4th light when batches carry a due time; P3 edit-any-stage / close a PO; P5; R20 reconciliation outcome; the 6 never-added right codes; order/customer rights still filed under Commercial in RIGHTS.

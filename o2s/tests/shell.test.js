@@ -118,6 +118,19 @@ ok('it lists every role under its department with the people who hold it', /role
 
 /* ================= 7. BUILD ================= */
 ok("BUILD_ID is 2026-09-23t or later", /var BUILD_ID='2026-09-23[t-z]'/.test(html));
+/* 23v: roles you can edit, one at a time */
+const re = grab('roleEditorHTML');
+ok('People -> Roles carries an editor for the picked role (23v)', /roleEditorHTML\(ppRole\)/.test(pp) && /deptLeadsHTML\(\)/.test(pp) && /newRoleHTML\(\)/.test(pp));
+ok('every LIVE right is a sentence with a tick', /RIGHTS_LIVE\[r\.code\]===true/.test(re) && /type="checkbox"/.test(re) && /reRightTick\(/.test(re));
+ok('a tick goes through rightTick, so grantRefusal and separationRefusal still apply', /rightTick\(role,code,on\)/.test(grab('reRightTick')) && /grantRefusal\(state\.role,role,r\.code\)/.test(re));
+ok('every screen is None / Read / Edit through the matrix cell', /amxSet\(/.test(re) && /\['none','view','edit'\]/.test(re));
+ok('amxSet writes the same cell the matrix wrote, logs it and resyncs the screen rights', /m\[role\]\[id\]=\{v:\(level!=='none'\),e:\(level==='edit'\)\}/.test(grab('amxSet')) && /logAction\('Access set: '/.test(grab('amxSet')) && /resyncScreenRights\(role,id\)/.test(grab('amxSet')));
+ok('the COO is never editable and only the COO edits', /if\(role==='COO'\)\{ toast\('The COO always has full access'\); return; \}/.test(grab('amxSet')) && /state\.role!=='COO'/.test(grab('amxSet')));
+ok('Today, Plant, Back Office, All actions and the Dashboard are not in the screen list', /RE_SCREENS_SKIP=\{today:1,plant:1,backoffice:1,approvals:1,dash:1\}/.test(html));
+ok('department leads are set through setDeptLead', /setDeptLead\(/.test(grab('deptLeadsHTML')));
+ok('a new role goes through addRole with the same 2 inputs', /id="adm_newrole"/.test(grab('newRoleHTML')) && /id="adm_newroledept"/.test(grab('newRoleHTML')) && /onclick="addRole\(\)"/.test(grab('newRoleHTML')));
+ok('the Ismaeel migration also runs when the COO is already signed in', /checkWhatsNew\(\); try\{ if\(state\.role==='COO' && typeof migrateAccountsV1==='function'\) migrateAccountsV1\(\); \}catch\(e\)\{\}/.test(grab('renderApp')));
+ok('green save buttons are blue like everything else', /button\.green\{background:var\(--accent\)\}/.test(html));
 ok('the 23s changelog entry comes after 23r', /ver:'2026-09-23r'[\s\S]*ver:'2026-09-23s'/.test(html));
 /* 23t: the door matches the house; everyone lands on Today */
 const lg = grab('renderLogin');

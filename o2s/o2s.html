@@ -11,7 +11,7 @@
    a push keeps running the old code with nothing telling anybody. It sat at
    2026-09-04a through this whole day's work; rmqty/psi tests pinned the code,
    nothing pinned this. buildid.test.js now does. */
-var BUILD_ID='2026-09-23u';
+var BUILD_ID='2026-09-23v';
 var CHANGELOG=[
   {ver:'2026-09-04a', date:'2026-09-04', title:"Delivery, DC printing, and a new Reconciliation check", items:[
     "Delivery confirmation stays with Supply Chain \u2014 it no longer hands off to the Plant Manager. If one sits too long, it now re-flags the same Supply Chain owner every 3 days instead.",
@@ -156,6 +156,11 @@ var CHANGELOG=[
     "People: a move reads \u201cRole: A \u2192 B \u00b7 signs as: X \u2192 Y\u201d; no code slugs; the only COO cannot be moved out of COO.",
     "The Guide opens on Your day: what reaches you, your button, who gets it next. The old step-by-step is a reference at the bottom.",
     "Smaller: the COO\u2019s start buttons are New order only; late-reason cards are titled by the order; the phone no longer repeats your name under the header."
+  ]},
+  {ver:'2026-09-23v', date:'2026-09-24', title:"Roles you can edit, one at a time", items:[
+    "People \u2192 Roles: pick a role and set it. Every right as a sentence with a tick; every screen as None / Read / Edit; who leads each department; add a role. Saved at once and logged; the 2-person rules still apply.",
+    "The account migration for Ismaeel now also runs when the COO is already signed in, not only at sign-in.",
+    "Forms behind the jobs: the green save buttons are blue like everything else; wide tables scroll on a phone instead of breaking the page."
   ]},
 ];
 </script>
@@ -1956,6 +1961,20 @@ body.td-on .wrap{background:var(--paper)}
 .qs-ref>summary{cursor:pointer;font-weight:600;font-size:14px;color:var(--ink-2);padding:8px 0}
 .tdgo{border:1px solid var(--accent);border-radius:4px;padding:6px 10px}
 @media (max-width:820px){.tdwho{display:none}}
+/* the role editor */
+.re-list{display:grid;gap:6px}
+.re-row{display:grid;grid-template-columns:auto minmax(0,1fr);gap:10px;align-items:start;padding:8px 10px;background:var(--surface);border:1px solid var(--qline);border-radius:3px;font-size:14px;cursor:pointer}
+.re-row.scr{grid-template-columns:minmax(0,1fr) auto;cursor:default;align-items:center}
+.re-row.on{border-left:4px solid var(--ok)}
+.re-row input[type=checkbox]{width:22px;height:22px;margin-top:1px;accent-color:var(--accent);min-height:0}
+.re-row .d{display:block;font-size:12.5px;color:var(--ink-3);margin-top:2px}
+.re-segs{display:inline-flex;border:1px solid var(--qline-strong);border-radius:4px;overflow:hidden}
+.re-seg{min-height:34px;padding:4px 12px;border:0;background:var(--surface);color:var(--ink-2);font-size:13px;font-weight:500;cursor:pointer;box-shadow:none;border-radius:0}
+.re-seg.on{background:var(--ink);color:var(--paper)}
+.re-row select{min-height:38px;max-width:260px}
+/* forms behind the jobs, in the shell's clothes */
+button.green{background:var(--accent)}button.green:hover{background:var(--navy2)}
+@media (max-width:820px){.wrap .card table,.wrap .tscroll table{display:block;overflow-x:auto;max-width:100%}}
 /* ---------- BACK OFFICE: jobs, not screens ---------- */
 .bo-jobs{display:grid;gap:8px}
 .bo-job{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 12px;align-items:center;width:100%;text-align:left;background:var(--surface);border:1px solid var(--qline);border-left:5px solid var(--st,var(--qline-strong));border-radius:3px;padding:10px 12px;color:inherit;cursor:pointer;box-shadow:none;font-weight:400;font-family:inherit}
@@ -11638,8 +11657,10 @@ function screenPeople(){
     if(!ppRole||roles.indexOf(ppRole)<0) ppRole=roles[0]||'';
     h+='<div class="chips">'+roles.map(function(r){ return '<button class="qs-btn sm'+(r===ppRole?' on':'')+'" onclick="ppRole=\''+qsEsc(r)+'\';render()">'+qsEsc(roleTitle(r))+'</button>'; }).join('')+'</div>';
     if(ppRole){ var holders=us.filter(function(u){return u.role===ppRole;});
-      h+='<div class="panel"><h2 style="margin-top:0">'+qsEsc(roleTitle(ppRole))+' <span class="cnt">role · '+qsEsc(ppRole)+'</span></h2><div class="sub">'+(holders.length?holders.map(function(u){return '<b>'+qsEsc(u.name)+'</b>';}).join(', '):'nobody holds this role yet')+'</div>'+roleSentencesHTML(ppRole)
-        +'<div class="note" style="margin-top:12px">To change what this role may do: <button class="qs-btn sm" onclick="boOpen(\'admin\',\'access\',\'authpanel\')">Rights, by role →</button> Roles only — an exception for one person becomes a new role.</div></div>'; }
+      h+='<div class="panel"><h2 style="margin-top:0">'+qsEsc(roleTitle(ppRole))+' <span class="cnt">role · '+qsEsc(ppRole)+'</span></h2><div class="sub">'+(holders.length?holders.map(function(u){return '<b>'+qsEsc(u.name)+'</b>';}).join(', '):'nobody holds this role yet')+'</div>'
+        +roleEditorHTML(ppRole)
+        +'<div class="note" style="margin-top:14px">Roles only — an exception for one person becomes a new role.</div></div>';
+      h+='<div class="panel">'+deptLeadsHTML()+newRoleHTML()+'</div>'; }
   } else {
     h+='<div class="panel"><h2 style="margin-top:0">Add a person</h2><div class="form">'
       +'<div class="two"><div class="field"><label>Full name</label><input value="'+qsEsc(uForm.name)+'" oninput="uForm.name=this.value" placeholder="e.g. Muhammad Imran"></div><div class="field"><label>Login (username)</label><input value="'+qsEsc(uForm.username)+'" oninput="uForm.username=this.value" placeholder="e.g. imran"></div></div>'
@@ -11733,6 +11754,66 @@ function tdEscByRoleHTML(esc){
   return order.map(function(r){ var b=by[r]; var who=''; try{ who=(usersList||[]).filter(function(u){return u.role===r;}).map(function(u){return u.name;}).slice(0,2).join(', '); }catch(e){}
     var n=b.groups.length;
     return '<div class="tdcard late"><details><summary><div class="tdgrid"><div class="tdhead"><div class="tdstage">Escalated to you</div><div class="tdtitle">'+_tdEsc(roleTitle(r))+(who?' \u00b7 '+_tdEsc(who):'')+'</div><div class="tdsub">'+n+' job'+(n===1?'':'s')+' stalled \u00b7 oldest '+b.days+' d</div></div><span class="tdgo">See their list \u25be</span></div></summary><div class="tdrows" style="display:grid;gap:10px;padding-top:10px">'+b.groups.map(tdCardHTML).join('')+'</div></details></div>'; }).join('');
+}
+/* ===================== ROLE EDITOR - 23v =====================
+   Tahir, 24 Sep morning: "you keyed all app rights to roles in the seed and
+   left me no option to change roles in the app; give me an option to mark or
+   edit each access level for one role." One role at a time, on the People
+   screen: every live right as a sentence with a tick, every screen as
+   None / Read / Edit, the department leads, and a new role. Every write goes
+   through the same functions the old Authorisation panel and matrix used
+   (rightTick, the matrix cell, setDeptLead, addRole), so the grant rules
+   (grantRefusal, separationRefusal), the log and the drift check all still
+   apply. The COO edits; everyone else who can open People reads. */
+var RE_SCREENS_SKIP={today:1,plant:1,backoffice:1,approvals:1,dash:1};
+function amxSet(role,id,level){
+  if(state.role!=='COO'){ toast('COO only'); return; }
+  if(role==='COO'){ toast('The COO always has full access'); return; }
+  var cur=accessLevel(role,id); if(cur===level) return;
+  state.masters.accessMatrix=state.masters.accessMatrix||{}; var m=state.masters.accessMatrix; m[role]=m[role]||{}; m[role][id]={v:(level!=='none'),e:(level==='edit')};
+  logAction('Access set: '+role+' · '+id+' → '+level.toUpperCase());
+  try{ resyncScreenRights(role,id); }catch(e){}
+  save(); render(); toast(((scr(id)||{}).name||id)+' · '+roleTitle(role)+': '+(level==='none'?'no access':level==='view'?'read only':'can edit')+'. Applies on their next screen.');
+}
+function reRightTick(role,code,on){ rightTick(role,code,on); render(); }
+function roleEditorHTML(role){
+  var isCOO=state.role==='COO'; var ed=isCOO && role!=='COO';
+  var h='';
+  if(role==='COO') return '<div class="note" style="margin-top:12px">The COO can do everything, everywhere. Nothing to set.</div>';
+  /* 1. rights, as sentences with a tick */
+  var live=RIGHTS.filter(function(r){ return RIGHTS_LIVE[r.code]===true; });
+  var byDept={}; live.forEach(function(r){ (byDept[r.dept]=byDept[r.dept]||[]).push(r); });
+  h+='<h2 style="margin-top:18px">What '+qsEsc(roleTitle(role))+' may do <span class="cnt">'+live.filter(function(r){return mayRole(role,r.code);}).length+' of '+live.length+'</span></h2>';
+  if(ed) h+='<div class="sub" style="margin-bottom:8px">Tick to grant, untick to take away. Saved at once, logged, and the 2-person rules still apply (a lead cannot widen himself; nobody inspects their own output).</div>';
+  Object.keys(byDept).forEach(function(d){ h+='<div class="bo-grp">'+qsEsc((deptById(d)||{}).name||d)+'</div><div class="re-list">';
+    byDept[d].forEach(function(r){ var on=mayRole(role,r.code); var why=ed?grantRefusal(state.role,role,r.code):'';
+      h+='<label class="re-row'+(on?' on':'')+'"><input type="checkbox" '+(on?'checked':'')+(ed&&!why?'':' disabled')+' onchange="reRightTick(\''+qsEsc(role)+'\',\''+qsEsc(r.code)+'\',this.checked)"><span><b>'+qsEsc(r.name)+'</b>'+(r.note?'<span class="d">'+qsEsc(String(r.note).split(/ \u2014 |\. /)[0].replace(/\.$/,''))+'</span>':'')+(why&&ed?'<span class="d" style="color:var(--over)">'+qsEsc(why)+'</span>':'')+'</span></label>'; });
+    h+='</div>'; });
+  var dead=RIGHTS.filter(function(r){ return RIGHTS_LIVE[r.code]!==true; }).length;
+  if(dead) h+='<div class="rtnote" style="margin-top:6px">'+dead+' right'+(dead===1?'':'s')+' in the catalogue '+(dead===1?'is':'are')+' still decided by the old screen rule, not by a tick; they switch over one at a time.</div>';
+  /* 2. screens: none / read / edit */
+  h+='<h2 style="margin-top:22px">Which screens '+qsEsc(roleTitle(role))+' opens</h2>';
+  if(ed) h+='<div class="sub" style="margin-bottom:8px"><b>Read</b> opens the screen with nothing editable. <b>Edit</b> is the screen’s data entry and sign-offs. Today, Plant and the Guide are everyone’s.</div>';
+  h+='<div class="re-list">';
+  SCREENS.forEach(function(s){ if(RE_SCREENS_SKIP[s.id]) return; if(s.id==='datafix'&&role!=='COO'&&!ed) return; var lv=accessLevel(role,s.id);
+    var seg=['none','view','edit'].map(function(L){ var lab=L==='none'?'None':L==='view'?'Read':'Edit'; return ed?('<button class="re-seg'+(lv===L?' on':'')+'" onclick="amxSet(\''+qsEsc(role)+'\',\''+s.id+'\',\''+L+'\')">'+lab+'</button>'):('<span class="re-seg'+(lv===L?' on':'')+'">'+lab+'</span>'); }).join('');
+    h+='<div class="re-row scr"><span><b>'+qsEsc(s.name)+'</b><span class="d">'+qsEsc(String(s.sub||'').replace(/&amp;/g,'&'))+'</span></span><span class="re-segs">'+seg+'</span></div>'; });
+  h+='</div>';
+  return h;
+}
+function deptLeadsHTML(){
+  var isCOO=state.role==='COO'; var depts=((state.masters&&state.masters.departments)||[]).filter(function(x){return x&&!x.archived;}); if(!depts.length) return '';
+  var roles=(state.masters.roles||[]).filter(function(r){return r&&!r.archived&&r.name!=='COO';});
+  var h='<h2 style="margin-top:22px">Who leads each department <span class="cnt">'+depts.length+'</span></h2><div class="sub" style="margin-bottom:8px">The lead sees the department’s stalled jobs on Today and can hand out its rights.</div><div class="re-list">';
+  depts.forEach(function(d){ var lead=deptLeadRole(d.id); var mine=roles.filter(function(r){ return roleDeptId(r.name)===d.id; });
+    h+='<div class="re-row scr"><span><b>'+qsEsc(d.name)+'</b><span class="d">'+(lead?('led by '+qsEsc(roleTitle(lead))):'<span style="color:var(--over)">no lead named</span>')+'</span></span>'
+      +(isCOO?('<select onchange="setDeptLead(\''+qsEsc(d.id)+'\',this.value);render()"><option value="">— pick the lead —</option>'+mine.map(function(r){ return '<option value="'+qsEsc(r.id)+'"'+(r.name===lead?' selected':'')+'>'+qsEsc(roleTitle(r.name))+' · '+qsEsc(r.name)+'</option>'; }).join('')+'</select>'):'')+'</div>'; });
+  return h+'</div>';
+}
+function newRoleHTML(){
+  if(state.role!=='COO') return '';
+  var depts=((state.masters&&state.masters.departments)||DEPTS);
+  return '<h2 style="margin-top:22px">Add a role</h2><div class="sub" style="margin-bottom:8px">Roles are added, never renamed. A new role starts with nothing; tick its rights and screens above once it exists.</div><div class="two"><div class="field"><label>Role name</label><input id="adm_newrole" placeholder="e.g. Accounts Officer"></div><div class="field"><label>Department</label><select id="adm_newroledept">'+depts.map(function(d){ return '<option value="'+qsEsc(d.id)+'">'+qsEsc(d.name)+'</option>'; }).join('')+'</select></div></div><div class="actions"><button class="qs-btn pri" onclick="addRole()">Add the role</button></div>';
 }
 /* The Queue Shell's 3 tiles: waiting, past due, done today. */
 function tdDoneCount(){ try{ var me=(state.currentUser&&state.currentUser.name)||state.role, day=TODAY.toISOString().slice(0,10); return (state.actionLog||[]).filter(function(e){ return e && String(e.t||'').slice(0,10)===day && e.by===me && e.what!=='Signed in' && e.what!=='Signed out'; }).length; }catch(e){ return 0; } }
@@ -15397,7 +15478,7 @@ function allowedScreens(){ return SCREENS.filter(s=>s.owners.includes(state.role
 function renderApp(){
   const a=document.getElementById('authScreen'), sh=document.getElementById('appShell');
   if(!authed()){ if(sh)sh.style.display='none'; if(a){a.style.display='flex'; renderLogin();} }
-  else { if(a)a.style.display='none'; if(sh)sh.style.display='flex'; applyDensity(); applyRailCollapsed(); /* 23t: the two screens that left the header are not a landing place */ if(state.screen==='approvals'||state.screen==='dash') state.screen='today'; render(); checkWhatsNew(); }
+  else { if(a)a.style.display='none'; if(sh)sh.style.display='flex'; applyDensity(); applyRailCollapsed(); /* 23t: the two screens that left the header are not a landing place */ if(state.screen==='approvals'||state.screen==='dash') state.screen='today'; render(); checkWhatsNew(); try{ if(state.role==='COO' && typeof migrateAccountsV1==='function') migrateAccountsV1(); }catch(e){} }
 }
 function renderLogin(msg){
   const el=document.getElementById('authScreen'); if(!el) return;

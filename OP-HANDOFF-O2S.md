@@ -5453,3 +5453,8 @@ Open, from the review, not built: Reconcile as a list without the 4 stat tiles; 
 **Not built / open:** the live switch is OFF — Tahir or the COO turns it on after the QC manager has seen it. The QC manager should check the 31 times and the first assignments' test mapping ("S" is left for him: elemental or sulfate). Existing live draft certificates stay in the old flow.
 
 **Next:** push 791df3e; show the QC manager (Lab → Test times and analysts); switch on when he agrees.
+
+
+## Pass thirty-three — 24s: a door into the Lab (24 Sep, NOT pushed)
+
+Tahir asked where the Lab screen is from his login. Nothing led there for the COO: Today's start buttons give the Lab only to Lab Rep/AQCM/QCM, and the COO's Today starts orders only (23u); the old nav tab is gone. Built: Plant → Departments → Quality carries "Open the Lab ›" for anyone who may view the Lab. Test in labassign.test.js (106 checks); suite 9,722 passed, 0 failed. Next: push 791df3e, 2eaebc2 and this commit together.

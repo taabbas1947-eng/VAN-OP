@@ -132,6 +132,8 @@ const MARKERS = [
   /* 2026-09-24k */
   ['var RP_CATALOGUE=[',                   1, 'Reports as a catalogue (24k)'],
   ['function rpRmPosition(',               1, 'raw material position, all materials (24k)'],
+  /* 2026-09-24l */
+  ["var INVOICE_ROLES=['Finance']",        1, 'Finance sees money on the Invoicing sheet alone (24l)'],
 ];
 
 const [, , mode, freshPath, otherPath] = process.argv;

@@ -11,7 +11,7 @@
    a push keeps running the old code with nothing telling anybody. It sat at
    2026-09-04a through this whole day's work; rmqty/psi tests pinned the code,
    nothing pinned this. buildid.test.js now does. */
-var BUILD_ID='2026-09-24k';
+var BUILD_ID='2026-09-24l';
 var CHANGELOG=[
   {ver:'2026-09-04a', date:'2026-09-04', title:"Delivery, DC printing, and a new Reconciliation check", items:[
     "Delivery confirmation stays with Supply Chain \u2014 it no longer hands off to the Plant Manager. If one sits too long, it now re-flags the same Supply Chain owner every 3 days instead.",
@@ -231,6 +231,9 @@ var CHANGELOG=[
     "Raw material position lands on every material at once \u2014 on hand, needed by the open orders, short \u2014 with Trace for the detail.",
     "Money is shown only to the roles R6 names (COO, CFO, Plant Manager, the KAMs): the PO register\u2019s value column and its print, and the overview\u2019s value-of-loss tiles, were open to everyone.",
     "A product is no longer named twice (\u201cMax Potash Max Potash\u201d) when the brand is its own base."
+  ]},
+  {ver:'2026-09-24l', date:'2026-09-24', title:"Finance gets the Invoicing sheet", items:[
+    "The money roles stay the 4 of R6 (COO, CFO, Plant Manager, the KAMs). Finance \u2014 invoicing \u2014 sees prices on the Invoicing sheet alone: delivered quantity, price and value by delivery challan, exportable. Nowhere else in the app shows Finance a rupee."
   ]},
 ];
 </script>
@@ -3865,7 +3868,10 @@ var PROCUREMENT_GRANT={'Supply Chain':true};
    only. Used by the Sales & Budget tab and by the report builder's Finance
    dataset (S-05, now closed). Money never reaches Today or a document. */
 var MONEY_ROLES=['COO','CFO','Plant Manager','KAM'];
-function mayMoney(){ return MONEY_ROLES.indexOf(state.role)>-1; }
+/* 24l - Tahir: the money roles stay the 4 of R6; Finance (invoicing) needs the
+   Invoicing sheet. So Finance sees money on that one report and nowhere else. */
+var INVOICE_ROLES=['Finance'];
+function mayMoney(){ if(MONEY_ROLES.indexOf(state.role)>-1) return true; try{ return INVOICE_ROLES.indexOf(state.role)>-1 && state.screen==='reports' && rpCur==='invoicing'; }catch(e){ return false; } }
 var CUSTOMER_LIVE=['customer.create','customer.amend'];
 var CUSTOMER_GRANT={'Finance':true,'CFO':true};
 function seedCustomerRightsV1(s){
@@ -16189,7 +16195,7 @@ var RP_CATALOGUE=[
   {id:'docs', t:'Documents', q:'Find and reprint a purchase order, delivery challan or gate pass.', kind:'docs', roles:'all'},
   {id:'custom', t:'Custom report', q:'Any dataset, any columns, rows or a summary; CSV, Excel or PDF.', kind:'builder', roles:'all'}
 ];
-function rpMay(c){ if(!c) return false; if(c.money&&!mayMoney()) return false; if(state.role==='COO') return true; return c.roles==='all'||(c.roles||[]).indexOf(state.role)>-1; }
+function rpMay(c){ if(!c) return false; if(c.money&&!(mayMoney()||(INVOICE_ROLES.indexOf(state.role)>-1&&c.id==='invoicing'))) return false; if(state.role==='COO') return true; return c.roles==='all'||(c.roles||[]).indexOf(state.role)>-1; }
 function rpVisible(){ return RP_CATALOGUE.filter(rpMay); }
 function rpDef(id){ return RP_CATALOGUE.filter(function(c){return c.id===id;})[0]||null; }
 function rpApplyPeriod(p){ rpPeriod=p||'All'; if(rpPeriod==='All'){ rbFrom=''; rbTo=''; return; } var w=periodWindow(rpPeriod); rbFrom=w.from; rbTo=w.to; }

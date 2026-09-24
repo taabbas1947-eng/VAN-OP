@@ -441,9 +441,9 @@ ok('a browser that remembered All actions or the Dashboard lands on Today', /if\
   const cat = (() => { const m = /\nvar RP_CATALOGUE=\[/.exec(html); return m ? H.matchBlock(m.index + 1, 'RP_CATALOGUE', '[') : ''; })();
   ok('Reports opens on a catalogue of named reports, each with the question it answers', /rpView==='list'/.test(grab('screenReports')) && /rpListHTML\(\)/.test(grab('screenReports')) && (cat.match(/\{id:'/g) || []).length >= 12 && /q:'How much of what did we make, per shift\?'/.test(cat));
   ['prodshift', 'batches', 'late', 'trucks', 'coa', 'rm', 'shortclose', 'lateentries', 'corrections', 'sales', 'invoicing', 'docs', 'custom'].forEach(id => ok('report: ' + id, new RegExp("\\{id:'" + id + "'").test(cat)));
-  ok('every report names the roles that may open it; money reports need mayMoney() (R6)', /roles:\[/.test(cat) && /money:true/.test(cat) && /if\(c\.money&&!mayMoney\(\)\) return false/.test(grab('rpMay')) && /c\.roles==='all'\|\|\(c\.roles\|\|\[\]\)\.indexOf\(state\.role\)>-1/.test(grab('rpMay')));
+  ok('every report names the roles that may open it; money reports need mayMoney() (R6)', /roles:\[/.test(cat) && /money:true/.test(cat) && /if\(c\.money&&!\(mayMoney\(\)\|\|\(INVOICE_ROLES\.indexOf\(state\.role\)>-1&&c\.id==='invoicing'\)\)\) return false/.test(grab('rpMay')) && /c\.roles==='all'\|\|\(c\.roles\|\|\[\]\)\.indexOf\(state\.role\)>-1/.test(grab('rpMay')));
   {
-    const f = new Function('state', 'mayMoney', cat + ';\n' + grab('rpMay') + '\n' + grab('rpVisible') + '\nreturn rpVisible;');
+    const f = new Function('state', 'mayMoney', "var INVOICE_ROLES=['Finance'];\n" + cat + ';\n' + grab('rpMay') + '\n' + grab('rpVisible') + '\nreturn rpVisible;');
     const S = { role: 'Production' }; const v = f(S, () => false)().map(c => c.id);
     ok('a Production Officer sees production, batches, documents, custom — no money, no corrections', v.indexOf('prodshift') > -1 && v.indexOf('batches') > -1 && v.indexOf('docs') > -1 && v.indexOf('custom') > -1 && v.indexOf('invoicing') < 0 && v.indexOf('sales') < 0 && v.indexOf('corrections') < 0);
     const w = f({ role: 'Warehouse' }, () => false)().map(c => c.id);
@@ -452,6 +452,8 @@ ok('a browser that remembered All actions or the Dashboard lands on Today', /if\
     eq('the COO sees all 13', c.length, 13);
     const k = f({ role: 'KAM' }, () => true)().map(x => x.id);
     ok('a KAM with money sees sales and invoicing, not the corrections register', k.indexOf('sales') > -1 && k.indexOf('invoicing') > -1 && k.indexOf('corrections') < 0);
+    const fi = f({ role: 'Finance' }, () => false)().map(x => x.id);
+    ok('Finance sees the Invoicing sheet and not Sales against budget (24l)', fi.indexOf('invoicing') > -1 && fi.indexOf('sales') < 0);
   }
   ok('opening a report sets the builder: dataset, columns, mode, group, period, and a where-filter', /rbDS=c\.ds; rbCols=c\.cols\.slice\(\); rbMode=c\.mode\|\|'raw'; rbGroup=\(c\.group\|\|\[\]\)\.slice\(\); rbFilters=\{\}; rbWhere=c\.where\|\|null; rpApplyPeriod\(c\.period\|\|'This month'\)/.test(grab('rpOpen')));
   ok('rows come newest first, filtered by the report’s where', /if\(rbWhere\) rows=rows\.filter\(rbWhere\);/.test(grab('rbRows')) && /rows\.sort\(function\(a,b\)\{ return String\(b\[dk\]\|\|''\)\.localeCompare\(String\(a\[dk\]\|\|''\)\); \}\);/.test(grab('rbRows')));
@@ -469,6 +471,18 @@ ok('a browser that remembered All actions or the Dashboard lands on Today', /if\
   ok('a product is not named twice when brand equals base', /var prod=\(\(p\.brand&&p\.brand!==p\.base\?p\.brand\+' ':''\)\+\(p\.base\|\|''\)\)\.trim\(\)/.test(html));
   ok('changing the dataset in Custom drops the report’s where-filter', /rbWhere=null; rbDS=v;/.test(grab('rbSetDS')));
   ok('BUILD_ID is 2026-09-24k or later', /var BUILD_ID='2026-09-24[k-z]'/.test(html));
+}
+
+/* 24l: Finance sees money on the Invoicing sheet alone (Tahir, 24 Sep) */
+{
+  const mm = grab('mayMoney');
+  ok('the money roles stay the 4 of R6; Finance is a money role only on the Invoicing sheet', /MONEY_ROLES\.indexOf\(state\.role\)>-1/.test(mm) && /INVOICE_ROLES\.indexOf\(state\.role\)>-1 && state\.screen==='reports' && rpCur==='invoicing'/.test(mm) && /var INVOICE_ROLES=\['Finance'\]/.test(html));
+  const f = new Function('state', 'rpCur', "var MONEY_ROLES=['COO','CFO','Plant Manager','KAM']; var INVOICE_ROLES=['Finance'];\n" + mm + '\nreturn mayMoney;');
+  ok('Finance on the Invoicing sheet: money', f({ role: 'Finance', screen: 'reports' }, 'invoicing')() === true);
+  ok('Finance anywhere else: no money', f({ role: 'Finance', screen: 'reports' }, 'docs')() === false && f({ role: 'Finance', screen: 'dash' }, 'invoicing')() === false);
+  ok('a Production Officer never', f({ role: 'Production', screen: 'reports' }, 'invoicing')() === false);
+  ok('the CFO always', f({ role: 'CFO', screen: 'today' }, '')() === true);
+  ok('BUILD_ID is 2026-09-24l or later', /var BUILD_ID='2026-09-24[l-z]'/.test(html));
 }
 
 report('The Queue Shell, live (23s)');

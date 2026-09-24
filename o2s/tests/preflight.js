@@ -120,6 +120,9 @@ const MARKERS = [
   ['function channelBudgetSaveAll(',       1, 'the channel budget saves with a button (24g)'],
   ['function custPendingHTML(',            1, 'customers waiting for the CFO, on Customers (24g)'],
   ['function reTabsHTML(',                 1, 'the role editor in 3 tabs (24g)'],
+  /* 2026-09-24h */
+  ['function salesTargetSaveAll(',         1, 'client targets as a table, saved with a button (24h)'],
+  ['function boDangerHTML(',               1, 'backups and resets on the hub, COO only (24h)'],
 ];
 
 const [, , mode, freshPath, otherPath] = process.argv;

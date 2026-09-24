@@ -11,7 +11,7 @@
    a push keeps running the old code with nothing telling anybody. It sat at
    2026-09-04a through this whole day's work; rmqty/psi tests pinned the code,
    nothing pinned this. buildid.test.js now does. */
-var BUILD_ID='2026-09-24g';
+var BUILD_ID='2026-09-24h';
 var CHANGELOG=[
   {ver:'2026-09-04a', date:'2026-09-04', title:"Delivery, DC printing, and a new Reconciliation check", items:[
     "Delivery confirmation stays with Supply Chain \u2014 it no longer hands off to the Plant Manager. If one sits too long, it now re-flags the same Supply Chain owner every 3 days instead.",
@@ -209,6 +209,10 @@ var CHANGELOG=[
     "Customers waiting for the CFO are at the top of the Customers page with an Approve button; the page is called Customers.",
     "What a role may do is People \u2192 Roles only, in 3 short tabs (may do \u00b7 screens \u00b7 departments); the old Authorisation panel is retired from the Back Office path. A role can be filed under its department from its own panel.",
     "Setup is Lists, Data Fix is Correct a record, Reconciliation is Reconcile packing; every Back Office page has \u2039 Back Office at the top and speaks without code."
+  ]},
+  {ver:'2026-09-24h', date:'2026-09-24', title:"Client targets as one table; backups off the corrections page", items:[
+    "Client annual targets are one table: each channel with its total, what is allocated to named clients and what is left, and the clients under it \u2014 typed, then saved with Save the targets, with who saved it and when.",
+    "The snapshot, restore, import and new-year buttons left Correct a record and sit on the Back Office hub under Backups and resets, for the COO alone. Correct a record keeps the corrections switch and the jobs."
   ]},
 ];
 </script>
@@ -2056,6 +2060,8 @@ div.bo-need{cursor:default}
 .bo-desk .nums .st-late b{color:var(--late)}.bo-desk .nums .st-over b{color:var(--over)}.bo-desk .nums .st-ok b{color:var(--ok)}
 .bo-desk .acts{display:flex;flex-wrap:wrap;gap:6px;margin-top:auto}
 .bo-settle{margin-bottom:14px}
+.bo-desk.danger{border-top-color:var(--over)}
+.qs-btn.danger{border-color:var(--over);color:var(--over)}
 .bo-settle .tdsec{margin-top:0}
 @media (max-width:560px){.bo-need{grid-template-columns:auto minmax(0,1fr)}.bo-need .go,.bo-need .acts{grid-column:2}.bo-need .acts{justify-content:flex-start}}
 /* ---------- GUIDE: roles and titles ---------- */
@@ -4625,15 +4631,12 @@ function screenDataFix(){
     : `<div class="banner info">Data Fix is <b>OFF</b>. Turn it on to use reconciliation tools. (COO only.)</div>`;
   const ops = on ? (dfOp ? dfFormHtml(dfOp) : dfCardsHtml()) : '';
   $('view').innerHTML=`${banner}
-   <div class="card"><h3>Console control</h3>
+   <div class="card"><h3>Corrections switch</h3>
      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
        <div>Status: <b style="color:${on?'var(--green2)':'var(--mut)'}">${on?'ON — corrections enabled':'OFF'}</b></div>
        ${toggle}
-       <button class="sm" onclick="exportStateJSON()">⬇ Download data snapshot (JSON)</button>${isCOO?`<button class="sm" style="background:var(--navy);color:#fff;border-color:var(--navy)" onclick="importGoLivePOs()">⬆ Import opening POs (go-live)</button>`:``}${isCOO?`<button class="sm" style="background:#0e6e63;color:#fff;border-color:#0e6e63" onclick="importSnapshotStart()">↩ Import / restore snapshot</button>`:``}${isCOO?`<button class="sm" style="background:#b42318;color:#fff;border-color:#b42318" onclick="startNewYearClean()">🗓 Start new year (clean) — reset all numbers to zero</button>`:``}
      </div>
-     <div class="muted" style="font-size:11px;margin-top:10px">Always download a snapshot before a reconciliation session — it's your restore point. The snapshot is read-only and changes nothing.</div>
-     <div class="muted" style="font-size:11px;margin-top:6px"><b>Start new year (clean)</b> permanently zeroes every transaction number (orders, shipments, production, packing, batches, stock, logs, serials) and keeps all master data. It downloads a backup first and asks you to type <b>RESET TO ZERO</b> plus your name to confirm.</div>
-     <div class="muted" style="font-size:11px;margin-top:6px"><b>Import / restore snapshot</b> replaces ALL current data with a previously downloaded snapshot file — the safe rollback for a reset. It downloads a backup of the current data first, then asks you to type <b>RESTORE</b> plus your name.</div>
+     <div class="muted" style="font-size:11px;margin-top:10px">Snapshots, restores and the new-year reset are on the Back Office hub under <b>Backups and resets</b> (COO only). Download a snapshot there before a correction session.</div>
    </div>${ops}`;
 }
 
@@ -11849,7 +11852,7 @@ function screenBackOffice(){
   h+='<div class="tdsec" style="margin-top:22px">Desks</div><div class="bo-desks">';
   boDesks().forEach(function(d){
     h+='<div class="bo-desk" data-desk="'+d.k+'"><div class="t">'+qsEsc(d.t)+'</div><div class="nums">'+d.nums.map(function(n){ return '<span class="'+(n[2]||'')+'"><b>'+qsEsc(String(n[0]))+'</b> '+qsEsc(n[1])+'</span>'; }).join('')+'</div><div class="acts">'+d.acts.map(function(a){ return '<button class="qs-btn sm'+(a.pri?' pri':'')+'" onclick="'+a.go.replace(/"/g,'&quot;')+'">'+qsEsc(a.l)+'</button>'; }).join('')+'</div></div>'; });
-  h+='</div></div>';
+  h+='</div>'+boDangerHTML()+'</div>';
   $('view').innerHTML=h;
 }
 /* --- settle a base: the 2 old lists disagreed; the COO, CFO or Plant Manager says which is right, once --- */
@@ -15182,15 +15185,54 @@ function saveBulkPricing(){ if(!(state.role==='COO'||state.role==='CFO')){toast(
   }
   closeModal(); render(); toast(n+' invoice price(s) saved'); }
 function salesTargetSet(){ if(!(state.role==='COO'||state.role==='CFO')){toast('COO / CFO only');return;} const c=stForm.client; const a=+stForm.amt||0; if(!c){toast('Pick a client');return;} const fy=fyKey(TODAY.toISOString().slice(0,10)); state.masters.salesTargets=state.masters.salesTargets||{}; state.masters.salesTargets[c]=state.masters.salesTargets[c]||{}; if(a>0) state.masters.salesTargets[c][fy]=a; else delete state.masters.salesTargets[c][fy]; logAction(`Sales target ${a>0?('set '+pkr(a)):'cleared'} for ${c} (FY ${fy})`); stForm={client:'',amt:''}; save(); render(); }
-function salesTargetCard(){ const fy=fyKey(TODAY.toISOString().slice(0,10)); const t=(state.masters&&state.masters.salesTargets)||{}; const cls=budgetClients();
-  const have=cls.filter(c=>t[c]&&+t[c][fy]>0);
-  return acard('starget','Client annual sales targets',`${fyRange(fy)} · COO/CFO`,`<div class="muted" style="font-size:12px;margin-bottom:10px">Set each client's annual target (PKR) for the current financial year (Jul–Jun). Drives the <b>Sales & Budget</b> screen. Hidden from operational roles.</div>
-    <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:12px">
-      <div class="fld" style="min-width:240px"><label>Client</label><select onchange="stForm.client=this.value"><option value="">— pick client —</option>${cls.map(c=>`<option ${c===stForm.client?'selected':''}>${c}</option>`).join('')}</select></div>
-      <div class="fld" style="min-width:160px"><label>Annual target (PKR)</label><input type="number" value="${stForm.amt}" oninput="stForm.amt=this.value" placeholder="e.g. 50000000"></div>
-      <button class="sm" onclick="salesTargetSet()">Set target</button>
-    </div>
-    ${have.length?`<div style="overflow:auto"><table><thead><tr><th>Client</th><th class="num">Annual target</th><th></th></tr></thead><tbody>${have.map(c=>`<tr><td>${c}</td><td class="num"><b>${pkr(t[c][fy])}</b></td><td><button class="sm ghost" onclick="stForm={client:'${c.replace(/'/g,"\\'")}',amt:'${t[c][fy]}'};render()">Edit</button></td></tr>`).join('')}</tbody></table></div>`:'<div class="muted">No targets set yet.</div>'}`); }
+/* ===================== CLIENT TARGETS AS A TABLE - 24h =====================
+   The review of 24 Sep: "one row at a time, no view of the channel total or
+   the unallocated remainder that the channel page promised." Now one table:
+   each channel with its total, what is allocated to named clients and what is
+   left; the clients under it, typed then saved with one button that says so.
+   salesTargetSet() stays for whatever still calls it; the card no longer does. */
+var stDraft={};
+function stKey(c){ return String(c).replace(/\W/g,'_'); }
+function stTyped(c,v){ stDraft[c]=v; var el=document.getElementById('st_fmt_'+stKey(c)); if(el) el.textContent=(+v>0)?pkr(+v):'—'; var b=document.getElementById('st_save'); if(b) b.disabled=false; }
+function salesTargetSaveAll(){
+  if(!(state.role==='COO'||state.role==='CFO')){ toast('COO / CFO only'); return; }
+  var fy=fyKey(TODAY.toISOString().slice(0,10)); var n=0, lines=[];
+  state.masters.salesTargets=state.masters.salesTargets||{};
+  Object.keys(stDraft).forEach(function(c){ var a=+stDraft[c]||0; var t=state.masters.salesTargets[c]=state.masters.salesTargets[c]||{}; var before=+t[fy]||0; if(a===before) return; if(a>0) t[fy]=a; else delete t[fy]; n++; lines.push(c+' '+(a>0?pkr(a):'cleared')); });
+  stDraft={};
+  if(!n){ toast('Nothing changed.'); return; }
+  state.masters._salesTargetsSaved={at:new Date().toISOString(),by:(state.currentUser&&state.currentUser.name)||state.role,fy:fy};
+  logAction('Client targets saved for FY '+fy+': '+lines.join(' · '));
+  save(); render(); toast('Saved — '+n+' client'+(n===1?'':'s')+' for FY '+fy);
+}
+function stSavedLine(){ var s=state.masters._salesTargetsSaved; if(Object.keys(stDraft).length) return 'Not saved yet — press Save the targets.'; if(!s) return 'Type a target per client, then save.'; var d=new Date(s.at); return 'Saved '+d.toLocaleDateString('en-GB',{day:'numeric',month:'short'})+' '+d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})+' by '+qsEsc(s.by); }
+function salesTargetCard(){
+  var fy=fyKey(TODAY.toISOString().slice(0,10)); var t=(state.masters&&state.masters.salesTargets)||{}; var cls=budgetClients(); var rows=budgetByChannel(fy); var byCh={}; rows.forEach(function(r){ byCh[r.channel]=r; });
+  var grp={}; cls.forEach(function(c){ var ch=budgetChannelOf(c)||''; (grp[ch]=grp[ch]||[]).push(c); });
+  var esc=function(x){ return String(x==null?'':x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); };
+  var h='<div class="muted" style="font-size:12px;margin-bottom:10px">Each client’s target for the year, under its channel. The channel total is set on Channel budgets; what is not allocated to a named client stays with the channel.</div>';
+  h+='<div style="overflow:auto"><table><thead><tr><th>Channel · client</th><th class="num">Target (PKR)</th><th class="num">Allocated</th><th class="num">Unallocated</th></tr></thead><tbody>';
+  var order=BUDGET_CHANNELS.slice(); if(grp['']) order.push('');
+  order.forEach(function(ch){ var r=byCh[ch]; var list=grp[ch]||[]; var seg=(ch==='Dealer'||ch==='Farmer');
+    h+='<tr style="background:var(--surface-2)"><td><b>'+(ch||'Not in a channel yet')+'</b>'+(seg?' <span class="muted" style="font-size:10.5px">segment total — a named allocation is allowed, not expected</span>':'')+'</td><td class="num">'+(r?(r.target?'<b>'+pkr(r.target)+'</b>':'<span class="muted">no total set</span>'):'')+'</td><td class="num">'+(r&&r.allocated?pkr(r.allocated):'<span class="muted">—</span>')+'</td><td class="num">'+(r&&r.target?'<b'+(r.allocated>r.target?' style="color:var(--over)"':'')+'>'+pkr(r.unallocated)+'</b>'+(r.allocated>r.target?' <span style="color:var(--over);font-size:10.5px">allocated more than the total</span>':''):'<span class="muted">—</span>')+'</td></tr>';
+    if(!list.length){ h+='<tr><td colspan="4" class="muted" style="font-size:11.5px;padding-left:22px">no named client under '+(ch||'it')+'</td></tr>'; return; }
+    list.forEach(function(c){ var cur=(t[c]&&+t[c][fy])||0; var v=(stDraft[c]!=null)?stDraft[c]:(cur||''); h+='<tr><td style="padding-left:22px">'+esc(c)+'</td><td class="num"><input type="number" min="0" step="1000" value="'+esc(v)+'" placeholder="0" style="width:150px;text-align:right" oninput="stTyped(budgetClients()['+cls.indexOf(c)+'],this.value)"><div class="muted" id="st_fmt_'+stKey(c)+'" style="font-size:11px">'+((+v>0)?pkr(+v):'—')+'</div></td><td class="num"></td><td class="num"></td></tr>'; }); });
+  h+='</tbody></table></div>';
+  h+='<div class="row" style="gap:12px;align-items:center;margin-top:12px;flex-wrap:wrap"><button class="qs-btn pri" id="st_save" onclick="salesTargetSaveAll()"'+(Object.keys(stDraft).length?'':' disabled')+'>Save the targets</button><span class="muted" style="font-size:12px">'+stSavedLine()+'</span></div>';
+  return acard('starget','Client annual sales targets',fyRange(fy)+' · COO/CFO',h);
+}
+/* ===================== BACKUPS AND RESETS - 24h =====================
+   Off the Correct a record page, where they sat beside daily corrections in
+   red, and onto the Back Office hub for the COO alone. The functions and their
+   gates are unchanged; only the buttons moved. */
+function boDangerHTML(){
+  if(state.role!=='COO') return '';
+  return '<div class="tdsec" style="margin-top:22px">Backups and resets<span class="cnt">COO only</span></div>'
+    +'<div class="bo-desk danger"><div class="t">These touch every record — take care</div>'
+    +'<div class="nums" style="font-size:13px">Download a snapshot before any correction session; it is the restore point and changes nothing.</div>'
+    +'<div class="acts"><button class="qs-btn" onclick="exportStateJSON()">Download a snapshot</button><button class="qs-btn" onclick="importGoLivePOs()">Import opening POs</button><button class="qs-btn" onclick="importSnapshotStart()">Restore a snapshot</button><button class="qs-btn danger" onclick="startNewYearClean()">Start a new year — zero every number</button></div>'
+    +'<div class="nums" style="font-size:12px;color:var(--ink-3)">Restore replaces all current data with a snapshot file. Start a new year zeroes every order, shipment, batch, stock figure and log and keeps the masters. Both download a backup first and ask you to type a confirmation with your name.</div></div>';
+}
 /* ===== Monthly sales targets (additive: masters.salesTargetsMonthly[client][fy]={ 'YYYY-MM':amt }; annual salesTargets untouched) ===== */
 let stmForm={client:''};
 function fyMonthKeys(fy){ var y1=parseInt(String(fy).slice(0,4),10); if(isNaN(y1)){var t=new Date();y1=(t.getMonth()+1>=7)?t.getFullYear():t.getFullYear()-1;} var out=[],i; for(i=7;i<=12;i++)out.push(y1+'-'+('0'+i).slice(-2)); for(i=1;i<=6;i++)out.push((y1+1)+'-'+('0'+i).slice(-2)); return out; }

@@ -354,4 +354,27 @@ ok('a browser that remembered All actions or the Dashboard lands on Today', /if\
   ok('BUILD_ID is 2026-09-24g or later', /var BUILD_ID='2026-09-24[g-z]'/.test(html));
 }
 
+/* 24h: the client targets as a table under their channel; backups and resets off Correct a record */
+{
+  const st = grab('salesTargetCard');
+  ok('client targets are one table under their channel, typed then saved with a button', /budgetByChannel\(fy\)/.test(st) && /budgetChannelOf\(/.test(st) && /oninput="stTyped\(/.test(st) && /id="st_save"/.test(st) && /onclick="salesTargetSaveAll\(\)"/.test(st) && !/— pick client —/.test(st) && !/onclick="salesTargetSet\(\)"/.test(st));
+  ok('each channel row shows its total, what is allocated and what is left', /unallocated/.test(st) && /no total set/.test(st) && /stSavedLine\(\)/.test(st));
+  ok('Dealer and Farmer say they are segment totals', /segment total/.test(st));
+  {
+    const log = []; const S = { role: 'CFO', currentUser: { name: 'Yawar Hussain' }, masters: { salesTargets: { 'LCI PAKISTAN LIMITED': { '2026-27': 5 } } } };
+    const f = new Function('state', 'log', 'var saved=0, rendered=0; var TODAY=new Date("2026-09-24T09:00:00Z"); function fyKey(){ return "2026-27"; } function pkr(a){ return "PKR "+a; } function toast(m){ log.push("toast:"+m); } function logAction(m){ log.push(m); } function save(){ saved++; } function render(){ rendered++; }\n' + grab('salesTargetSaveAll') + '\nvar stDraft={};\nreturn {run:function(d){ stDraft=d; salesTargetSaveAll(); return stDraft; }, saved:function(){return saved;}};')(S, log);
+    const left = f.run({ 'BKK': '250', 'LCI PAKISTAN LIMITED': '5', 'Vgreen': '0' });
+    ok('one save for every changed client; unchanged is skipped; 0 clears', S.masters.salesTargets.BKK['2026-27'] === 250 && S.masters.salesTargets['LCI PAKISTAN LIMITED']['2026-27'] === 5 && !(S.masters.salesTargets.Vgreen && S.masters.salesTargets.Vgreen['2026-27']) && f.saved() === 1 && Object.keys(left).length === 0);
+    ok('it says who saved it and when', S.masters._salesTargetsSaved.by === 'Yawar Hussain' && /toast:Saved — 1 client/.test(log[log.length - 1]) && /Client targets saved for FY 2026-27: BKK PKR 250/.test(log.join(' ')));
+    S.role = 'KAM'; f.run({ BKK: '1' });
+    ok('the KAM cannot save a target', S.masters.salesTargets.BKK['2026-27'] === 250 && /COO \/ CFO only/.test(log[log.length - 1]));
+  }
+  const df = grab('screenDataFix');
+  ok('Correct a record keeps only the on/off switch; the snapshot, import and new-year buttons left it', !/exportStateJSON\(\)/.test(df) && !/importGoLivePOs\(\)/.test(df) && !/startNewYearClean\(\)/.test(df) && !/importSnapshotStart\(\)/.test(df) && /toggleDataFix\(\)/.test(df));
+  const dg = grab('boDangerHTML');
+  ok('they live on the Back Office hub, COO only, under Backups and resets', /if\(state\.role!=='COO'\) return ''/.test(dg) && /Backups and resets/.test(dg) && /exportStateJSON\(\)/.test(dg) && /importGoLivePOs\(\)/.test(dg) && /importSnapshotStart\(\)/.test(dg) && /startNewYearClean\(\)/.test(dg) && /boDangerHTML\(\)/.test(grab('screenBackOffice')));
+  ok('the reset is named for what it does', /zero every number/.test(dg));
+  ok('BUILD_ID is 2026-09-24h or later', /var BUILD_ID='2026-09-24[h-z]'/.test(html));
+}
+
 report('The Queue Shell, live (23s)');

@@ -123,6 +123,9 @@ const MARKERS = [
   /* 2026-09-24h */
   ['function salesTargetSaveAll(',         1, 'client targets as a table, saved with a button (24h)'],
   ['function boDangerHTML(',               1, 'backups and resets on the hub, COO only (24h)'],
+  /* 2026-09-24i */
+  ['function openOrderSheet(',             1, 'the order sheet (24i)'],
+  ['function boUndated(',                  1, 'delivered lines with no date, under Needs you (24i)'],
 ];
 
 const [, , mode, freshPath, otherPath] = process.argv;

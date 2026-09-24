@@ -11,7 +11,7 @@
    a push keeps running the old code with nothing telling anybody. It sat at
    2026-09-04a through this whole day's work; rmqty/psi tests pinned the code,
    nothing pinned this. buildid.test.js now does. */
-var BUILD_ID='2026-09-24h';
+var BUILD_ID='2026-09-24i';
 var CHANGELOG=[
   {ver:'2026-09-04a', date:'2026-09-04', title:"Delivery, DC printing, and a new Reconciliation check", items:[
     "Delivery confirmation stays with Supply Chain \u2014 it no longer hands off to the Plant Manager. If one sits too long, it now re-flags the same Supply Chain owner every 3 days instead.",
@@ -213,6 +213,13 @@ var CHANGELOG=[
   {ver:'2026-09-24h', date:'2026-09-24', title:"Client targets as one table; backups off the corrections page", items:[
     "Client annual targets are one table: each channel with its total, what is allocated to named clients and what is left, and the clients under it \u2014 typed, then saved with Save the targets, with who saved it and when.",
     "The snapshot, restore, import and new-year buttons left Correct a record and sit on the Back Office hub under Backups and resets, for the COO alone. Correct a record keeps the corrections switch and the jobs."
+  ]},
+  {ver:'2026-09-24i', date:'2026-09-24', title:"Orders: the card and the sheet; delivered means delivered", items:[
+    "An order card is one block: stage, PO and customer; the products with the delivered digits and a small bar on the same line; who acts next and the late tag. Journey and the COO\u2019s Close sit at the side. No empty band.",
+    "Journey opens a sheet in the shell\u2019s shape: the order\u2019s facts in one line, what is next, then one row per product with its 7 steps in words \u2014 done with its date, the current step marked. It replaces the old right-hand drawer and the bottom table.",
+    "A line delivered in full is Delivered whether or not the delivery date was stamped (Tahir: \u201cwhy is this PO open despite delivered 100%?\u201d). A delivery with no date is listed under Needs you so the date gets filled in.",
+    "Orders can be seen one by one, by customer or by product: every Max Sulfur order in one group with its totals, or every order of Maxim.",
+    "One product of a PO can be closed on its own: on the order sheet each product carries Close this line (the COO) or Ask to close this line (the Production Manager and Lead Supply Chain), through the same sheet and the same rules as closing a whole PO. The PO closes itself when its last open line closes."
   ]},
 ];
 </script>
@@ -2060,6 +2067,40 @@ div.bo-need{cursor:default}
 .bo-desk .nums .st-late b{color:var(--late)}.bo-desk .nums .st-over b{color:var(--over)}.bo-desk .nums .st-ok b{color:var(--ok)}
 .bo-desk .acts{display:flex;flex-wrap:wrap;gap:6px;margin-top:auto}
 .bo-settle{margin-bottom:14px}
+/* ---------- ORDERS: the card (24i) ---------- */
+.ord2{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px 14px;align-items:start;background:var(--surface);border:1px solid var(--qline);border-left:5px solid var(--st,var(--ok));border-radius:3px;padding:10px 12px}
+.ord2.st-over{--st:var(--over)}.ord2.st-ok{--st:var(--ok)}.ord2.st-done{--st:var(--qline-strong);background:var(--surface-2)}.ord2.st-na{--st:var(--qline-strong)}
+.ord2-main{min-width:0;cursor:pointer}
+.ord2-l1{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 8px}
+.ord2-l1 .tdstage{margin-right:2px}
+.ord2-cl{font-size:16px;font-weight:600}
+.ord2-l2{font-size:13px;color:var(--ink-2);margin-top:4px;display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px}
+.ord2-bar{flex:1 1 120px;min-width:80px;max-width:260px;height:6px;background:var(--surface-2);border:1px solid var(--qline);border-radius:2px;overflow:hidden;display:inline-block}
+.ord2-bar i{display:block;height:100%;background:var(--st,var(--ok))}
+.ord2-pct{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--ink-3)}
+.ord2-l3{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;margin-top:6px;font-size:13px;color:var(--ink-2)}
+.ord2-side{display:flex;flex-direction:column;gap:6px;align-items:stretch}
+.ord2-side .qs-btn{white-space:nowrap}
+.ord2-facts{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:13px;color:var(--ink-2);align-items:center}
+.ord2-facts b{font-family:'IBM Plex Mono',monospace;color:var(--ink);font-size:14px;margin-right:2px}
+.ord2-line{border-left-width:4px}
+.ord2-line.st-over{border-left-color:var(--over)}.ord2-line.st-done{border-left-color:var(--qline-strong);background:var(--surface-2)}.ord2-line.st-na{border-left-color:var(--qline-strong)}
+.ord2-steps{display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:4px;margin-top:8px}
+.ord2-step{display:flex;flex-direction:column;gap:1px;padding:5px 7px;border:1px solid var(--qline);border-radius:2px;background:var(--surface-2);font-size:11.5px;min-width:0}
+.ord2-step .k{font-size:10.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-3)}
+.ord2-step .v{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ord2-step.done{border-color:var(--ok);background:var(--ok-bg)}.ord2-step.done .k{color:var(--ok)}.ord2-step.done .v{color:var(--ink)}
+.ord2-step.cur{border-color:var(--accent);background:var(--accent-bg)}.ord2-step.cur .k{color:var(--accent)}.ord2-step.cur .v{color:var(--ink);font-weight:600}
+.ord2-nodate{color:var(--late);font-weight:600}
+.ord2-line .actions{display:flex;justify-content:flex-end;gap:6px}
+.ord2-grp{background:var(--surface);border:1px solid var(--qline);border-left:5px solid var(--ok);border-radius:3px;padding:10px 12px}
+.ord2-grp.st-over{border-left-color:var(--over)}
+.ord2-grp>summary{list-style:none;cursor:pointer;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 12px;align-items:center}
+.ord2-grp>summary::-webkit-details-marker{display:none}
+.ord2-gk{font-size:16px;font-weight:600}
+.ord2-gn{font-size:13px;color:var(--ink-2);grid-column:1;display:flex;flex-wrap:wrap;gap:4px 6px;align-items:center}
+.ord2-grp>summary .tdgo{grid-column:2;grid-row:1/span 2}
+@media (max-width:560px){.ord2{grid-template-columns:minmax(0,1fr)}.ord2-side{flex-direction:row;flex-wrap:wrap}}
 .bo-desk.danger{border-top-color:var(--over)}
 .qs-btn.danger{border-color:var(--over);color:var(--over)}
 .bo-settle .tdsec{margin-top:0}
@@ -2998,7 +3039,7 @@ function lineStage(o,l){
   /* Before the Delivered test on purpose: a line closed short after a partial
      delivery is NOT delivered, and must not read as though it were. */
   if(lineShortClosed(l)) return 'Closed short';
-  if(l.deliveredDate && (l.delivered||0)>=l.ordered-0.5) return 'Delivered';
+  if((+l.ordered||0)>0 && (l.delivered||0)>=l.ordered-0.5) return 'Delivered';
   if(l.dispatchDate||(l.dispatched||0)>0) return 'Dispatched';
   if(l.qcPass) return 'QC Passed';
   if(l.prodComplete) return 'Produced';
@@ -3142,7 +3183,7 @@ function t2matrix(list){
 }
 function tkRiskBadge(o){ var b=orderBucket(o); if(b==='Delivered')return '<span class="pill" style="background:var(--navy-50);color:var(--mut)">Delivered</span>'; if(isOverdue(o))return '<span class="pill" style="background:var(--red-50);color:var(--red)">Late</span>'; if(b==='RM Check')return '<span class="pill" style="background:var(--red-50);color:var(--red)">RM blocked</span>'; if(isStalled(o)||attentionOf(o).hot)return '<span class="pill" style="background:var(--amber-50);color:var(--amber)">Watch</span>'; return '<span class="pill" style="background:var(--navy-50);color:var(--navy)">On track</span>'; }
 function closeTkDrawer(){ var h=document.getElementById('tkDrawerHost'); if(h)h.classList.remove('on'); }
-function openTkDrawer(id){ var o=(state.orders||[]).find(function(x){return x.id===id;}); if(!o)return;
+function openTkDrawerOld(id){ var o=(state.orders||[]).find(function(x){return x.id===id;}); if(!o)return;
   var b=orderBucket(o), bal=orderBal(o), owner=(BUCKET_META[b]||{}).owner||'—';
   var next=(b==='Delivered')?'Delivered':(((NEXT_ACT[b]||'')+' · '+owner));
   var sid=(typeof BUCKET_SCREEN!=='undefined'&&BUCKET_SCREEN[b])||''; var ownerBtn=(bucketOpen(b)&&sid)?'<button class="green" onclick="closeTkDrawer();setScreen(\''+sid+'\')">Open in '+owner+' ▸</button>':'';
@@ -5620,7 +5661,8 @@ function lineBucket(o,l){
     after a partial delivery is NOT delivered and must not read as though it
     were. */
  if(lineShortClosed(l)) return 'Closed short';
- if(l.deliveredDate && (l.delivered||0)>=l.ordered-0.5) return 'Delivered';
+ /* 24i: the quantity is the fact, the date is the stamp (Tahir: "why is this PO open despite delivered 100%?") */
+ if((+l.ordered||0)>0 && (l.delivered||0)>=l.ordered-0.5) return 'Delivered';
  if((l.dispatched||0)>0||l.dispatchDate) return 'Shipment';
  if(lineCleared(o,l)>0.5) return 'Shipment';
  if(lineToInspect(o,l)>0.5) return 'QA Pre-shipment';
@@ -11813,6 +11855,7 @@ function boNeeds(){
     var depts=((state.masters&&state.masters.departments)||[]).filter(function(x){return x&&!x.archived;}); var noLead=depts.filter(function(d){ return !deptLeadRole(d.id); });
     if(noLead.length&&state.role==='COO') N.push({n:noLead.length,t:noLead.length+' department'+(noLead.length===1?' has':'s have')+' no lead named', d:noLead.map(function(d){return d.name;}).join(', '), go:"reTab='leads';boOpenRoles()", st:'st-late'});
   }
+  var ud=boUndated(); if(ud.length&&has('Correct a record')) N.push({n:ud.length,t:ud.length+' delivered line'+(ud.length===1?' has':'s have')+' no delivery date — the quantity is on record, the date is not', d:ud.slice(0,6).map(function(x){return x.o.po+' · '+x.l.brand;}).join(', ')+(ud.length>6?' …':''), go:"boOpen('datafix')", st:'st-late'});
   var reconN=0; try{ reconN=(reconCompute()||{rows:[]}).rows.length; }catch(e){}
   if(reconN&&has('Reconcile packing')) N.push({n:reconN,t:reconN+' packed line'+(reconN===1?' does':'s do')+' not match '+(reconN===1?'its':'their')+' packing record', d:'', go:"boOpen('recon')", st:'st-over'});
   return N;
@@ -12217,45 +12260,48 @@ function tdTakenTag(g){ var seen={}, out=''; g.items.forEach(function(it){ var t
    Nothing is deleted: a closed line keeps its ordered quantity and its history,
    packed stock still ships, and the COO can reopen a line as before. */
 var cpForm=null;
-function cpOpenLines(o){ return (o.lines||[]).filter(function(l){ return l && !lineShortClosed(l) && !(l.deliveredDate && (+l.delivered||0)>=(+l.ordered||0)-0.5); }); }
+function cpOpenLines(o,lid){ return (o.lines||[]).filter(function(l){ if(lid&&(!l||l.id!==lid)) return false; return l && !lineShortClosed(l) && !((+l.ordered||0)>0 && (+l.delivered||0)>=(+l.ordered||0)-0.5); }); }
 function cpMode(){ if(state.role==='COO'||may('po.close')) return 'close'; if(may('po.shortclose_request')) return 'ask'; return ''; }
-function openClosePO(oid){
+function openClosePO(oid,lid){
+  /* 24i: with a line id, the same sheet closes (or asks to close) that ONE product of the PO - Tahir: "what if we have to close a partial product in a PO, not all?" */
   var o=(state.orders||[]).find(function(x){return x.id===oid;}); if(!o){ toast('Order not found'); return; }
   var mode=cpMode(); if(!mode){ toast('Closing a PO is the COO’s; the Production Manager and Lead Supply Chain can ask for it.'); return; }
-  var open=cpOpenLines(o); if(!open.length){ toast('Nothing is open on '+o.po+'.'); return; }
-  cpForm={oid:oid,reasonCode:'',reason:'',mode:mode}; renderClosePO(); $('modalBg').classList.add('open');
+  var open=cpOpenLines(o,lid||''); if(!open.length){ toast('Nothing is open '+(lid?'on that line of ':'on ')+o.po+'.'); return; }
+  cpForm={oid:oid,lid:lid||'',reasonCode:'',reason:'',mode:mode}; renderClosePO(); $('modalBg').classList.add('open');
 }
 function renderClosePO(){
-  var o=(state.orders||[]).find(function(x){return x.id===cpForm.oid;}); if(!o) return; var open=cpOpenLines(o); var isClose=cpForm.mode==='close';
+  var o=(state.orders||[]).find(function(x){return x.id===cpForm.oid;}); if(!o) return; var open=cpOpenLines(o,cpForm.lid); var isClose=cpForm.mode==='close'; var one=!!cpForm.lid;
   var gap=0; open.forEach(function(l){ gap+=Math.max(0,(+l.ordered||0)-(+l.delivered||0)); });
-  var h='<div class="mh"><h2>'+(isClose?'Close this PO':'Ask to close this PO')+'</h2><div class="sub"><span class="tdpo">'+qsEsc(o.po)+'</span> · '+_tdClient(o)+' · '+open.length+' open line'+(open.length===1?'':'s')+' · '+fmt(gap)+' Kg/L not delivered</div></div><div class="mb">';
+  var h='<div class="mh"><h2>'+(one?(isClose?'Close this line':'Ask to close this line'):(isClose?'Close this PO':'Ask to close this PO'))+'</h2><div class="sub"><span class="tdpo">'+qsEsc(o.po)+'</span> · '+_tdClient(o)+' · '+open.length+' open line'+(open.length===1?'':'s')+' · '+fmt(gap)+' Kg/L not delivered</div></div><div class="mb">';
   h+='<div class="tdlist" style="margin-bottom:12px">'+open.map(function(l){ var g=Math.max(0,(+l.ordered||0)-(+l.delivered||0)); return '<div class="tdcard" style="border-left-color:var(--qline-strong)"><div class="tdtitle">'+qsEsc(l.brand)+'</div><div class="tdsub">ordered '+fmt(l.ordered||0)+' · delivered '+fmt(l.delivered||0)+' · packed '+fmt(l.packed||0)+' · <b>'+fmt(g)+' Kg/L will be closed short</b>'+(lineShortRequested(l)?' · a request is already waiting':'')+'</div></div>'; }).join('')+'</div>';
   h+='<div class="field"><label>Why is it being closed? <span class="req">*</span></label><select onchange="cpForm.reasonCode=this.value;renderClosePO()"><option value="">— pick a reason —</option>'+SHORTCLOSE_REASONS.map(function(r){ return '<option value="'+r.code+'"'+(cpForm.reasonCode===r.code?' selected':'')+'>'+qsEsc(r.label)+(r.ours?'':' · not counted against us')+'</option>'; }).join('')+'</select></div>';
   h+='<div class="field" style="margin-top:10px"><label>Anything else'+(cpForm.reasonCode==='other'?' <span class="req">*</span>':' (optional)')+'</label><input type="text" value="'+qsEsc(cpForm.reason)+'" oninput="cpForm.reason=this.value" placeholder="in your own words"></div>';
-  h+='<div class="note" style="margin-top:12px">'+(isClose?'Closing stops further production and packing on these lines. Stock already packed still ships. The ordered quantity is never rewritten; the close and your name stay on the record, and a line can be reopened later.':'This is a <b>request</b>, one per line. It takes effect when the Plant Manager or the COO approves it; the person who asks cannot be the one who approves.')+'</div>';
-  h+='</div><div class="mf"><button class="qs-btn" onclick="closeModal()">Cancel</button><button class="qs-btn pri" onclick="submitClosePO()">'+(isClose?'Close the PO':'Ask to close it')+'</button></div>';
+  h+='<div class="note" style="margin-top:12px">'+(isClose?(one?'Closing stops further production and packing on this product; the rest of the PO carries on.':'Closing stops further production and packing on these lines.')+'  Stock already packed still ships. The ordered quantity is never rewritten; the close and your name stay on the record, and a line can be reopened later.':'This is a <b>request</b>, one per line. It takes effect when the Plant Manager or the COO approves it; the person who asks cannot be the one who approves.')+'</div>';
+  h+='</div><div class="mf"><button class="qs-btn" onclick="closeModal()">Cancel</button><button class="qs-btn pri" onclick="submitClosePO()">'+(isClose?(one?'Close the line':'Close the PO'):'Ask to close it')+'</button></div>';
   $('modal').innerHTML=h;
 }
 function submitClosePO(){
   var f=cpForm; if(!f) return; var o=(state.orders||[]).find(function(x){return x.id===f.oid;}); if(!o) return;
   if(!scReason(f.reasonCode)){ toast('Pick a reason for closing it.'); return; }
   if(f.reasonCode==='other' && !String(f.reason||'').trim()){ toast('Say why this PO is being closed.'); return; }
-  var open=cpOpenLines(o); if(!open.length){ toast('Nothing is open on '+o.po+'.'); closeModal(); return; }
+  var open=cpOpenLines(o,f.lid); var one=!!f.lid; if(!open.length){ toast('Nothing is open on '+o.po+'.'); closeModal(); return; }
   if(f.mode==='ask'){
     if(!may('po.shortclose_request')){ toast(denyRight('po.shortclose_request','Asking to close a PO line short')); return; }
     var n=0; open.forEach(function(l){ if(lineShortRequested(l)) return; l.shortClose=Object.assign({requestedBy:scWho(),requestedAt:new Date().toISOString(),reasonCode:f.reasonCode,reason:String(f.reason||'').trim()},scFreeze(l)); n++; });
-    logAction('Short close requested for the whole PO '+o.po+' ('+n+' line'+(n===1?'':'s')+'): '+(scReason(f.reasonCode)||{}).label+' (waiting for approval)');
-    (state.audit=state.audit||[]).unshift({t:new Date().toISOString(),user:scWho(),module:'PO',po:o.po,brand:'(all open lines)',field:'Short close requested',old:'',val:(scReason(f.reasonCode)||{}).label});
+    logAction('Short close requested for '+(one?(open[0].brand+' on '):'the whole PO ')+o.po+' ('+n+' line'+(n===1?'':'s')+'): '+(scReason(f.reasonCode)||{}).label+' (waiting for approval)');
+    (state.audit=state.audit||[]).unshift({t:new Date().toISOString(),user:scWho(),module:'PO',po:o.po,brand:one?open[0].brand:'(all open lines)',field:'Short close requested',old:'',val:(scReason(f.reasonCode)||{}).label});
     cpForm=null; save(); closeModal(); render(); toast('Asked to close '+o.po+' — '+n+' line'+(n===1?'':'s')+' waiting for approval'); return;
   }
   if(!(state.role==='COO'||may('po.close'))){ toast('Closing a PO is the COO’s.'); return; }
   var now=new Date().toISOString(), who=scWho(), closedKg=0, n2=0;
   open.forEach(function(l){ var g=Math.max(0,(+l.ordered||0)-(+l.delivered||0)); l.shortClose=Object.assign({requestedBy:who,requestedAt:now,reasonCode:f.reasonCode,reason:String(f.reason||'').trim(),approvedBy:who,approvedAt:now,poClose:true},scFreeze(l)); closedKg+=g; n2++; });
-  o.closed={at:now,by:who,reasonCode:f.reasonCode,reason:String(f.reason||'').trim(),lines:n2,kg:closedKg};
-  logAction('PO CLOSED by the COO — '+o.po+' · '+n2+' line'+(n2===1?'':'s')+', '+fmt(closedKg)+' Kg/L closed short: '+(scReason(f.reasonCode)||{}).label+(f.reason?' — '+f.reason:''));
-  (state.audit=state.audit||[]).unshift({t:now,user:who,module:'PO',po:o.po,brand:'(all open lines)',field:'PO closed',old:'',val:fmt(closedKg)+' Kg/L · '+(scReason(f.reasonCode)||{}).label});
-  cpForm=null; save(); closeModal(); render(); toast(o.po+' closed — '+fmt(closedKg)+' Kg/L closed short. Packed stock can still ship.');
+  if(!cpOpenLines(o).length) o.closed={at:now,by:who,reasonCode:f.reasonCode,reason:String(f.reason||'').trim(),lines:n2,kg:closedKg};
+  if(one) logAction('Line closed by the COO — '+open[0].brand+' on '+o.po+', '+fmt(closedKg)+' Kg/L closed short: '+(scReason(f.reasonCode)||{}).label+(f.reason?' — '+f.reason:'')+(o.closed?' (the whole PO is now closed)':''));
+  else logAction('PO CLOSED by the COO — '+o.po+' · '+n2+' line'+(n2===1?'':'s')+', '+fmt(closedKg)+' Kg/L closed short: '+(scReason(f.reasonCode)||{}).label+(f.reason?' — '+f.reason:''));
+  (state.audit=state.audit||[]).unshift({t:now,user:who,module:'PO',po:o.po,brand:one?open[0].brand:'(all open lines)',field:one?'Line closed':'PO closed',old:'',val:fmt(closedKg)+' Kg/L · '+(scReason(f.reasonCode)||{}).label});
+  cpForm=null; save(); closeModal(); render(); toast((one?open[0].brand+' on '+o.po:o.po)+' closed — '+fmt(closedKg)+' Kg/L closed short. Packed stock can still ship.');
 }
+function closeLineButtonHTML(o,l){ var m=cpMode(); if(!m||!o||!l||!cpOpenLines(o,l.id).length) return ''; return '<button class="qs-btn sm'+(m==='close'?'':' ghost')+'" onclick="openClosePO(\''+qsEsc(o.id)+'\',\''+qsEsc(l.id)+'\')">'+(m==='close'?'Close this line':'Ask to close this line')+'</button>'; }
 function closePOButtonHTML(o){ var m=cpMode(); if(!m||!o||!cpOpenLines(o).length) return ''; return '<button class="qs-btn sm'+(m==='close'?'':' ghost')+'" onclick="openClosePO(\''+qsEsc(o.id)+'\')">'+(m==='close'?'Close this PO':'Ask to close')+'</button>'; }
 /* ===================== THE PRODUCT SHEET - 23y =====================
    Tahir, 24 Sep: "adding product interface is really poor again." The form was
@@ -12303,19 +12349,92 @@ function pmRenderSheet(){
    card for the journey (the same drawer as before). Read-only for everyone;
    the COO's Close this PO sits on the card. The old screen's functions stay
    in the file unused; nothing about an order changed. */
-var ordQ='', ordChip='open';
+var ordQ='', ordChip='open', ordGroup='none';
 function ordNextWho(b){ var m=(typeof BUCKET_META!=='undefined'&&BUCKET_META[b])||{}; var owner=m.owner||''; try{ if(owner&&typeof roleTitle==='function'&&rolesList().indexOf(owner)>-1) owner=roleTitle(owner); }catch(e){} return owner; }
+/* ===================== ORDERS, THE CARD AND THE SHEET - 24i =====================
+   Tahir, 24 Sep, with a screenshot of the Orders page and the old journey
+   table: "those view and presentation is so poor." And: "why is this PO open
+   despite it was delivered 100%?"
+   - The card is one compact block: stage · PO · customer on the first line;
+     products and the delivered digits on the second; who acts next and the
+     late tag on the third; the Journey button and, under it, the COO's Close
+     as a small link. No empty band, no button dangling under a bar.
+   - The journey is a sheet in the shell's shape (openOrderSheet): the order's
+     facts in one line, then one row per product with its 7 steps in words -
+     done with its date, the current step marked, the rest grey. It replaces
+     both old views (the right-hand drawer and the bottom table).
+   - A line delivered in full is Delivered whether or not the delivery date was
+     stamped: the quantity is the fact, the date is the stamp (lineBucket,
+     lineStage). A delivery with no date is listed under Needs you so the date
+     gets filled in. Nothing about an order is written here. */
+function ordLineBrief(o,l){ var b=lineBucket(o,l); var ord=+l.ordered||0, del=+l.delivered||0; return {b:b, ord:ord, del:del, late:lineOverdue(o,l)}; }
 function ordCardHTML(o){
   var b=orderBucket(o), bal=orderBal(o), late=isOverdue(o), days=late?daysOver(o):0, done=(b==='Delivered'), shut=(b==='Closed short')||!!o.closed;
   var brands=(o.lines||[]).map(function(l){return l.brand;}).filter(Boolean);
   var title=brands.length?(qsEsc(brands[0])+(brands.length>1?' <span class="dim">+'+(brands.length-1)+' more</span>':'')):'—';
-  var next=(done||shut)?'':((NEXT_ACT[b]||'')+(ordNextWho(b)?' · '+qsEsc(ordNextWho(b)):''));
+  var who=ordNextWho(b); var next=(done||shut)?'':((NEXT_ACT[b]||'')+(who?' · '+qsEsc(who):''));
   var tone=done?'st-done':(shut?'st-na':(late?'st-over':'st-ok'));
   var chip=done?'<span class="tdtag">delivered</span>':shut?'<span class="tdtag">closed short</span>':(late?'<span class="tdtag late">■ '+days+' d past promise</span>':(o.promised?'<span class="tdtag ok">● due '+qsEsc(o.promised)+'</span>':''));
   var pct=Math.max(0,Math.min(100,+bal.pct||0));
-  return '<div class="tdcard ord '+tone+'" style="border-left-color:var(--st)"><div class="tdgrid" onclick="openTkDrawer(\''+qsEsc(o.id)+'\')" style="cursor:pointer"><div class="tdhead"><div class="tdstage">'+qsEsc(b)+(o.priority&&o.priority!=='Normal'?' · '+qsEsc(o.priority):'')+'</div><div class="tdtitle"><span class="tdpo">'+qsEsc(o.po)+'</span> · '+_tdClient(o)+'</div><div class="tdsub">'+title+' · '+fmt(bal.del)+' of '+fmt(bal.ord)+' Kg/L delivered</div>'+(next?'<div class="tdsub">next: '+next+'</div>':'')+'<div class="tdtags">'+chip+'</div></div><span class="tdgo">Journey ›</span></div>'
-    +'<div class="bar" style="margin-top:8px"><i style="width:'+pct+'%"></i></div>'
-    +((typeof closePOButtonHTML==='function'&&!done&&!shut)?(function(){ var b=closePOButtonHTML(o); return b?'<div style="margin-top:8px;display:flex;justify-content:flex-end">'+b+'</div>':''; })():'')+'</div>';
+  var close=(typeof closePOButtonHTML==='function'&&!done&&!shut)?closePOButtonHTML(o):'';
+  return '<div class="ord2 '+tone+'"><div class="ord2-main" onclick="openOrderSheet(\''+qsEsc(o.id)+'\')">'
+    +'<div class="ord2-l1"><span class="tdstage">'+qsEsc(b)+(o.priority&&o.priority!=='Normal'?' · '+qsEsc(o.priority):'')+'</span><span class="tdpo">'+qsEsc(o.po)+'</span><span class="ord2-cl">'+_tdClient(o)+'</span></div>'
+    +'<div class="ord2-l2">'+title+' · <b>'+fmt(bal.del)+'</b> of '+fmt(bal.ord)+' Kg/L delivered<span class="ord2-bar"><i style="width:'+pct+'%"></i></span><span class="ord2-pct">'+pct+'%</span></div>'
+    +'<div class="ord2-l3">'+(next?'<span class="ord2-next">next: '+next+'</span>':'')+chip+'</div></div>'
+    +'<div class="ord2-side"><button class="qs-btn sm" onclick="openOrderSheet(\''+qsEsc(o.id)+'\')">Journey ›</button>'+(close?close.replace('class="qs-btn sm','class="qs-btn sm ghost'):'')+'</div></div>';
+}
+var ORD_STEPS=['PO Created','RM Check','Production','Lab QC','QA Pre-shipment','Shipment','Delivered'];
+var ORD_STEP_LABEL={'PO Created':'Received','RM Check':'Materials','Production':'Produced','Lab QC':'Lab','QA Pre-shipment':'Packed · QA','Shipment':'Shipped','Delivered':'Delivered'};
+function ordStepValue(o,l,step){
+  var ord=+l.ordered||0;
+  switch(step){
+    case 'PO Created': return o.received?_fmtShort(o.received):'';
+    case 'RM Check': return l.rmReady?('ready '+_fmtShort(l.rmReady)):(l.rmStatus==='partial'?'partial':(l.prRaised?'PR '+_fmtShort(l.prRaised):''));
+    case 'Production': return (+l.produced||0)>0?(fmt(l.produced)+' / '+fmt(ord)):(l.prodStart?'started '+_fmtShort(l.prodStart):'');
+    case 'Lab QC': return l.qcPass?_fmtShort(l.qcPass):'';
+    case 'QA Pre-shipment': return (+l.packed||0)>0?(fmt(l.packed)+' packed'):'';
+    case 'Shipment': return (+l.dispatched||0)>0?(fmt(l.dispatched)+' / '+fmt(ord)):'';
+    case 'Delivered': return (+l.delivered||0)>0?(fmt(l.delivered)+' / '+fmt(ord)+(l.deliveredDate?' · '+_fmtShort(l.deliveredDate):' · <span class="ord2-nodate">no date</span>')):'';
+  }
+  return '';
+}
+function ordLineStepsHTML(o,l){
+  var b=lineBucket(o,l); var cur=ORD_STEPS.indexOf(b); if(b==='Closed short') cur=-2;
+  return '<div class="ord2-steps">'+ORD_STEPS.map(function(s,i){ var cls=cur===-2?'pend':(i<cur?'done':(i===cur?'cur':'pend')); if(b==='Delivered') cls='done'; var v=ordStepValue(o,l,s); return '<span class="ord2-step '+cls+'"><span class="k">'+ORD_STEP_LABEL[s]+'</span><span class="v">'+(v||(cls==='cur'?'now':'—'))+'</span></span>'; }).join('')+'</div>';
+}
+function openOrderSheet(id){
+  var o=(state.orders||[]).find(function(x){return x.id===id;}); if(!o){ toast('Order not found'); return; }
+  var b=orderBucket(o), bal=orderBal(o), late=isOverdue(o), days=late?daysOver(o):0, done=(b==='Delivered'), shut=(b==='Closed short')||!!o.closed;
+  var who=ordNextWho(b); var next=done?'Delivered — nothing to do.':shut?'Closed short — nothing to do.':((NEXT_ACT[b]||'')+(who?' · '+qsEsc(who):''));
+  var sid=(typeof BUCKET_SCREEN!=='undefined'&&BUCKET_SCREEN[b])||''; var openBtn=(bucketOpen(b)&&sid&&canView(state.role,sid))?'<button class="qs-btn" onclick="closeModal();setScreen(\''+sid+'\')">Open in '+qsEsc((scr(sid)||{}).name||sid)+' →</button>':'';
+  var close=(typeof closePOButtonHTML==='function'&&!done&&!shut)?closePOButtonHTML(o).replace('class="qs-btn sm','class="qs-btn'):'';
+  var h='<div class="mh"><h2><span class="tdpo">'+qsEsc(o.po)+'</span> · '+_tdClient(o)+'</h2><div class="sub">'+qsEsc(o.client||'')+(o.channel?' · '+qsEsc(o.channel):'')+(o.kam?' · KAM '+qsEsc(o.kam):'')+(o.priority&&o.priority!=='Normal'?' · '+qsEsc(o.priority):'')+'</div></div><div class="mb">';
+  h+='<div class="ord2-facts"><span><b>'+qsEsc(b)+'</b> where it stands</span><span><b>'+fmt(bal.del)+'</b> of '+fmt(bal.ord)+' Kg/L delivered</span><span><b>'+(o.received?qsEsc(o.received):'—')+'</b> received</span><span><b>'+(o.promised?qsEsc(o.promised):'—')+'</b> promised</span>'+(late?'<span class="tdtag late">■ '+days+' d past promise</span>':'')+'</div>';
+  h+='<div class="note" style="margin:10px 0 14px"><b>Next:</b> '+next+'</div>';
+  h+='<div class="tdsec" style="margin-top:0">Products<span class="cnt">'+(o.lines||[]).length+'</span></div>';
+  h+='<div class="tdlist">'+(o.lines||[]).map(function(l){ var lb=ordLineBrief(o,l); var tone=lb.b==='Delivered'?'st-done':(lb.b==='Closed short'?'st-na':(lb.late?'st-over':'st-ok'));
+    return '<div class="tdcard ord2-line '+tone+'"><div class="row between" style="align-items:baseline;gap:8px;flex-wrap:wrap"><span class="tdtitle" style="margin-top:0">'+qsEsc(l.brand)+'</span><span class="tdsub">'+fmt(lb.ord)+' Kg/L ordered · <b>'+qsEsc(lb.b)+'</b>'+(lb.late?' · <span style="color:var(--over)">'+Math.round((TODAY-new Date(l.committed))/86400000)+' d past its date</span>':'')+'</span></div>'+ordLineStepsHTML(o,l)+(typeof closeLineButtonHTML==='function'?(function(){ var cb=closeLineButtonHTML(o,l); return cb?'<div class="actions" style="margin-top:8px">'+cb+'</div>':''; })():'')+'</div>'; }).join('')+'</div>';
+  h+='</div><div class="mf">'+openBtn+close+'<button class="qs-btn" onclick="closeModal()">Close</button></div>';
+  $('modal').innerHTML=h; $('modalBg').classList.add('open');
+}
+function openTkDrawer(id){ openOrderSheet(id); }
+/* delivered in full but never dated: a record gap, listed for the COO */
+function boUndated(){ var out=[]; (state.orders||[]).forEach(function(o){ (o.lines||[]).forEach(function(l){ if(l&&(+l.ordered||0)>0&&(+l.delivered||0)>=(+l.ordered||0)-0.5&&!l.deliveredDate&&!lineShortClosed(l)) out.push({o:o,l:l}); }); }); return out; }
+/* 24i: Tahir: "Maxim has multiple POs pending for Max Sulfur - can it be seen
+   in one place? All Sulfur POs, or all POs of a client?" One place: the same
+   list grouped by customer or by product, each group with its totals across
+   its orders, the orders under it. Nothing is written. */
+function ordGroupsHTML(list,by){
+  var G={};
+  list.forEach(function(o){ var keys={};
+    if(by==='client'){ keys[_tdClient(o)||'—']=null; }
+    else (o.lines||[]).forEach(function(l){ if(l&&l.brand) keys[l.brand]=l; });
+    Object.keys(keys).forEach(function(k){ var g=G[k]=G[k]||{k:k,orders:[],ord:0,del:0,late:0};
+      g.orders.push(o); if(isOverdue(o)) g.late++;
+      (o.lines||[]).forEach(function(l){ if(by==='product'&&l.brand!==k) return; g.ord+=(+l.ordered||0); g.del+=(+l.delivered||0); }); }); });
+  var gs=Object.keys(G).map(function(k){return G[k];}); gs.sort(function(a,b){ return (b.late-a.late)||(b.ord-a.ord)||a.k.localeCompare(b.k); });
+  return '<div class="tdlist">'+gs.map(function(g){ var pct=g.ord>0?Math.min(100,Math.round(g.del/g.ord*100)):0;
+    return '<details class="ord2-grp'+(g.late?' st-over':'')+'"><summary><span class="ord2-gk">'+g.k+'</span><span class="ord2-gn"><b>'+g.orders.length+'</b> order'+(g.orders.length===1?'':'s')+' · <b>'+fmt(g.del)+'</b> of '+fmt(g.ord)+' Kg/L delivered · '+pct+'%'+(g.late?' · <span class="tdtag late">■ '+g.late+' past promise</span>':'')+'</span><span class="tdgo">Open ›</span></summary><div class="tdlist" style="margin-top:8px">'+g.orders.map(ordCardHTML).join('')+'</div></details>'; }).join('')+'</div>';
 }
 function screenOrders(){
   if(trkSearch&&!ordQ){ ordQ=trkSearch; trkSearch=''; ordChip='all'; }
@@ -12328,8 +12447,11 @@ function screenOrders(){
   var h='<div class="qs wide"><h1>Orders</h1><div class="sub">Every order, where it stands, who acts next. The same for everyone; tap one for its journey.</div>';
   h+='<div class="qs-tally"><button class="qs-tile go st-na'+(ordChip==='open'?' sel':'')+'" onclick="ordChip=\'open\';render()"><span class="n">'+open.length+'</span><span class="l">open</span></button><button class="qs-tile go '+(late.length?'st-over':'st-ok')+(ordChip==='late'?' sel':'')+'" onclick="ordChip=\'late\';render()"><span class="n">'+late.length+'</span><span class="l">past promise</span></button><button class="qs-tile go st-done'+(ordChip==='done'?' sel':'')+'" onclick="ordChip=\'done\';render()"><span class="n">'+done.length+'</span><span class="l">delivered or closed</span></button></div>';
   h+='<div class="pl-find"><input id="ordFind" placeholder="Find an order — PO, customer or product" value="'+qsEsc(ordQ)+'" oninput="ordQ=this.value;ordChip=ordChip===\'open\'&&this.value?\'all\':ordChip;render();var e=document.getElementById(\'ordFind\');if(e){e.focus();e.setSelectionRange(e.value.length,e.value.length);}">'+(canView(state.role,'reports')?'<button class="qs-btn" onclick="setScreen(\'reports\')">Reports →</button>':'')+'</div>';
+  h+='<div class="subnav" style="margin-top:10px">'+[['none','One by one'],['client','By customer'],['product','By product']].map(function(g){ return '<button class="qs-btn sm'+(ordGroup===g[0]?' on':'')+'" onclick="ordGroup=\''+g[0]+'\';render()">'+g[1]+'</button>'; }).join('')+'</div>';
   h+='<h2>'+(ordChip==='late'?'Past promise':ordChip==='done'?'Delivered or closed':ordChip==='all'?'All orders':'Open orders')+' <span class="cnt">'+list.length+'</span></h2>';
-  h+=list.length?('<div class="tdlist">'+list.map(ordCardHTML).join('')+'</div>'):'<div class="note">'+(q?'No order matches “'+qsEsc(q)+'”.':'Nothing here.')+'</div>';
+  if(!list.length) h+='<div class="note">'+(q?'No order matches “'+qsEsc(q)+'”.':'Nothing here.')+'</div>';
+  else if(ordGroup==='none') h+='<div class="tdlist">'+list.map(ordCardHTML).join('')+'</div>';
+  else h+=ordGroupsHTML(list,ordGroup);
   h+='</div>';
   $('view').innerHTML=h;
 }

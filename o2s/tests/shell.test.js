@@ -204,7 +204,7 @@ ok("BUILD_ID is 2026-09-23t or later", /var BUILD_ID='2026-09-2(3[t-z]|4[a-z])'/
   ok('one search box, no matrix, no group-by, no saved views, no 8 stage chips', /id="ordFind"/.test(so) && !/trkViewSw|trkGroup|trkSavedViews|FILTER STAGE/.test(so));
   ok('a card says where it stands, who acts next, how late, how much delivered', /NEXT_ACT\[b\]/.test(oc) && /ordNextWho\(b\)/.test(oc) && /d past promise/.test(oc) && /Kg\/L delivered/.test(oc));
   ok('who acts next is written as the TITLE, not the role code', /roleTitle\(owner\)/.test(grab('ordNextWho')));
-  ok('tap a card for the journey - the same drawer as before', /openTkDrawer\(/.test(oc));
+  ok('tap a card for the journey (the sheet since 24i)', /openOrderSheet\(/.test(oc));
   ok('late orders first, then by days late', /var la=isOverdue\(a\)\?1:0, lb=isOverdue\(b\)\?1:0/.test(so) && /daysOver\(a\)/.test(so));
   ok('a search that arrives from elsewhere (trkSearch) is honoured', /if\(trkSearch&&!ordQ\)\{ ordQ=trkSearch;/.test(so));
   ok('the COO\'s Close this PO sits on the card; never on a delivered or closed one', /closePOButtonHTML\(o\)/.test(oc) && /!done&&!shut/.test(oc));
@@ -217,7 +217,7 @@ ok("BUILD_ID is 2026-09-23t or later", /var BUILD_ID='2026-09-2(3[t-z]|4[a-z])'/
   ok('the COO closes every open line in one act, approved in the same act', /approvedBy:who,approvedAt:now,poClose:true/.test(sub) && /o\.closed=\{at:now,by:who/.test(sub));
   ok('the 2 managers who may ask get the same sheet, and it files a REQUEST per line', /if\(f\.mode==='ask'\)/.test(sub) && /may\('po\.shortclose_request'\)/.test(sub) && /requestedBy:scWho\(\),requestedAt/.test(sub) && !/approvedAt/.test(sub.split("if(f.mode==='ask')")[1].split('return;')[0]));
   ok('a close needs a reason, and "other" needs words', /if\(!scReason\(f\.reasonCode\)\)/.test(sub) && /f\.reasonCode==='other' && !String\(f\.reason\|\|''\)\.trim\(\)/.test(sub));
-  ok('the ordered quantity is never rewritten; the close is logged and audited', /scFreeze\(l\)/.test(sub) && /logAction\('PO CLOSED by the COO/.test(sub) && /field:'PO closed'/.test(sub) && !/l\.ordered=/.test(sub));
+  ok('the ordered quantity is never rewritten; the close is logged and audited', /scFreeze\(l\)/.test(sub) && /logAction\('PO CLOSED by the COO/.test(sub) && /'PO closed'/.test(sub) && !/l\.ordered=/.test(sub));
   ok('who may close: COO or po.close; who may ask: po.shortclose_request; nobody else sees the button', /if\(state\.role==='COO'\|\|may\('po\.close'\)\) return 'close'; if\(may\('po\.shortclose_request'\)\) return 'ask'; return '';/.test(grab('cpMode')) && /if\(!m\|\|!o\|\|!cpOpenLines\(o\)\.length\) return ''/.test(grab('closePOButtonHTML')));
   ok('the button is on Plant\'s late orders and the floor, and on the run sheet', /closePOButtonHTML\(oo\)/.test(grab('screenPlant')) && /closePOButtonHTML\(o\)/.test(grab('screenPlant')) && /openClosePO\(/.test(grab('renderRun')));
   ok('the run sheet also lets a manager ask to close ONE line short', /openShortClose\(/.test(grab('renderRun')));
@@ -375,6 +375,43 @@ ok('a browser that remembered All actions or the Dashboard lands on Today', /if\
   ok('they live on the Back Office hub, COO only, under Backups and resets', /if\(state\.role!=='COO'\) return ''/.test(dg) && /Backups and resets/.test(dg) && /exportStateJSON\(\)/.test(dg) && /importGoLivePOs\(\)/.test(dg) && /importSnapshotStart\(\)/.test(dg) && /startNewYearClean\(\)/.test(dg) && /boDangerHTML\(\)/.test(grab('screenBackOffice')));
   ok('the reset is named for what it does', /zero every number/.test(dg));
   ok('BUILD_ID is 2026-09-24h or later', /var BUILD_ID='2026-09-24[h-z]'/.test(html));
+}
+
+/* 24i: the Orders card and the order sheet; delivered means delivered */
+{
+  const oc = grab('ordCardHTML');
+  ok('the card is one compact block: 3 lines and a side column, no bar under a gap', /class="ord2 /.test(oc) && /class="ord2-l1"/.test(oc) && /class="ord2-l2"/.test(oc) && /class="ord2-l3"/.test(oc) && /class="ord2-side"/.test(oc) && !/class="tdgrid"/.test(oc) && !/<div class="bar"/.test(oc));
+  ok('the delivered digits and the bar sit on the same line', /<b>'\+fmt\(bal\.del\)\+'<\/b> of '\+fmt\(bal\.ord\)\+' Kg\/L delivered<span class="ord2-bar">/.test(oc) && /class="ord2-pct"/.test(oc));
+  ok('the COO’s Close is a small link under Journey, on the side', /openOrderSheet\(/.test(oc) && /closePOButtonHTML\(o\)/.test(oc) && /qs-btn sm ghost/.test(oc));
+  const os = grab('openOrderSheet');
+  ok('the journey is a sheet: facts, next, then one row per product with its steps in words', /class="ord2-facts"/.test(os) && /<b>Next:<\/b>/.test(os) && /ordLineStepsHTML\(o,l\)/.test(os) && /\$\('modal'\)\.innerHTML=h; \$\('modalBg'\)\.classList\.add\('open'\);/.test(os));
+  ok('the sheet offers Open in <screen> only to someone who may open it, and Close this PO to the COO', /bucketOpen\(b\)&&sid&&canView\(state\.role,sid\)/.test(os) && /closePOButtonHTML\(o\)/.test(os));
+  ok('both old journey views route to the sheet', /^function openTkDrawer\(id\)\{ openOrderSheet\(id\); \}/m.test(html) && /function openTkDrawerOld\(/.test(html));
+  ok('the 7 steps are named for a manager, not the code', (() => { const m = /var ORD_STEP_LABEL=\{[^\n]*\}/.exec(html); const s = m ? m[0] : ''; return /'Received'/.test(s) && /'Materials'/.test(s) && /'Produced'/.test(s) && /'Packed · QA'/.test(s) && /'Delivered'/.test(s); })());
+  ok('a delivery with no date says so on its step', /no date/.test(grab('ordStepValue')));
+  /* delivered means delivered */
+  {
+    const src = [grab('lineShortClosed'), grab('lineBucket')].join('\n');
+    const f = new Function('lineCleared', 'lineToInspect', src + '\nreturn lineBucket;')(() => 0, () => 0);
+    eq('full quantity, no date: Delivered (the quantity is the fact)', f({}, { ordered: 30, delivered: 30, dispatched: 30, packed: 30, produced: 30 }), 'Delivered');
+    eq('full quantity with a date: still Delivered', f({}, { ordered: 30, delivered: 30, deliveredDate: '2026-07-07' }), 'Delivered');
+    eq('29.4 of 30: not delivered', f({}, { ordered: 30, delivered: 29.4, dispatched: 30 }), 'Shipment');
+    ok('nothing ordered is never Delivered', f({}, { ordered: 0, delivered: 0 }) !== 'Delivered');
+    /* one product of a PO, on its own */
+    const cp = grab('cpOpenLines');
+    ok('the close sheet takes one line: cpOpenLines(o,lid), openClosePO(oid,lid), Close this line on the order sheet', /function cpOpenLines\(o,lid\)/.test(cp) && /if\(lid&&\(!l\|\|l\.id!==lid\)\) return false;/.test(cp) && /function openClosePO\(oid,lid\)/.test(html) && /closeLineButtonHTML\(o,l\)/.test(grab('openOrderSheet')) && /Close this line/.test(grab('closeLineButtonHTML')) && /Ask to close this line/.test(grab('closeLineButtonHTML')));
+    const sub2 = (() => { const i = html.indexOf('\nfunction submitClosePO('); return H.matchBlock(i + 1, 'submitClosePO'); })();
+    ok('the PO closes itself only when its last open line closes', /if\(!cpOpenLines\(o\)\.length\) o\.closed=\{at:now,by:who/.test(sub2) && /Line closed by the COO/.test(sub2) && /field:one\?'Line closed':'PO closed'/.test(sub2));
+    ok('Orders groups by customer or by product, with totals per group', /ordGroupsHTML\(list,ordGroup\)/.test(grab('screenOrders')) && /By customer/.test(grab('screenOrders')) && /By product/.test(grab('screenOrders')) && /class="ord2-grp/.test(grab('ordGroupsHTML')) && /if\(by==='product'&&l\.brand!==k\) return;/.test(grab('ordGroupsHTML')));
+    const g = new Function('lineShortClosed', grab('lineStage') + '\nreturn lineStage;')(() => false);
+    eq('lineStage agrees', g({}, { ordered: 30, delivered: 30 }), 'Delivered');
+  }
+  {
+    const f = new Function('state', 'lineShortClosed', grab('boUndated') + '\nreturn boUndated;')({ orders: [{ po: 'A', lines: [{ ordered: 30, delivered: 30 }, { ordered: 10, delivered: 10, deliveredDate: '2026-07-07' }, { ordered: 5, delivered: 2 }] }] }, () => false);
+    eq('Needs you counts the delivered lines with no date', f().length, 1);
+    ok('and the hub lists them', /boUndated\(\)/.test(grab('boNeeds')) && /no delivery date/.test(grab('boNeeds')));
+  }
+  ok('BUILD_ID is 2026-09-24i or later', /var BUILD_ID='2026-09-24[i-z]'/.test(html));
 }
 
 report('The Queue Shell, live (23s)');

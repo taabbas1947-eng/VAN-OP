@@ -36,4 +36,14 @@ eq('day of release and next day: only the dispatcher', sb.deliveryJobs(g('2026-0
 eq('day 2: Saad too', sb.deliveryJobs(g('2026-09-24')).map(x => x.role).join(','), 'Supply Chain Officer,Supply Chain');
 eq('day 3: the Plant Manager too', sb.deliveryJobs(g('2026-09-23')).map(x => x.role).join(','), 'Supply Chain Officer,Supply Chain,Plant Manager');
 eq('an old truck with no gate-pass record falls back to who planned it', sb.truckDispatcher({ by: 'Muhammad Shoaib' }).user, 'shoaib');
+/* 25f: the Plant Manager is the approver only */
+{ const m = { console, state: {} }; vm.createContext(m); vm.runInContext(grab('seedPmApproverOnlyV1'), m);
+  const st = { masters: { roleRights: { 'plant-manager': { 'shipment.plan': true, 'shipment.load': true, 'gatepass.issue': true, 'delivery.confirm': true } } }, actionLog: [] };
+  m.seedPmApproverOnlyV1(st); const pm = st.masters.roleRights['plant-manager'];
+  eq('25f: plan, load and gate pass taken off the Plant Manager', [pm['shipment.plan'], pm['shipment.load'], pm['gatepass.issue']].join(','), 'false,false,false');
+  eq('...delivery confirmation kept (a delivery waiting 2 days reaches him)', pm['delivery.confirm'], true);
+  ok('...recorded as set, and logged', st.masters.roleRightsSet['plant-manager']['shipment.load'] === true && /taken off/.test(st.actionLog[0].what));
+  pm['shipment.load'] = true; m.seedPmApproverOnlyV1(st); ok('...runs once: a later tick by the COO stands', pm['shipment.load'] === true);
+  ok('...and it runs on load', /seedLoadRightV1\(s\); seedPmApproverOnlyV1\(s\);/.test(html));
+  ok('the catalogue no longer gives the Plant Manager these by default', !/shipment\.(plan|load)'[^\n]*\n[^\n]*roles:\['Plant Manager'\]/.test(html)); }
 process.exitCode = report('Who signs a truck out (25e)') ? 1 : 0;

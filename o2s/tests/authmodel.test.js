@@ -505,7 +505,7 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
      !B.sodConflicts().some(c => c.role === 'Supply Chain' && c.b === 'shipment.release'));
   ok('...and the other real one: the AQCM can draft a COA (Lab edit) and review it - the per-person check on the certificate is what stops that (24c)',
      B.sodConflicts().some(c => c.role === 'AQCM' && c.a === 'coa.draft' && c.b === 'coa.review'));
-  ok('25e: the Plant Manager now releases, and still holds the loading right - listed for the COO to take away', B.sodConflicts().some(c => c.role === 'Plant Manager' && c.a === 'shipment.load' && c.b === 'shipment.release'));
+  ok('25e: in a role model where the Plant Manager still holds loading (before seedPmApproverOnlyV1, 25f), it is listed for the COO', B.sodConflicts().some(c => c.role === 'Plant Manager' && c.a === 'shipment.load' && c.b === 'shipment.release'));
   eq('exactly those 2 rules are broken on the live role model today', B.sodConflicts().length, 2, JSON.stringify(B.sodConflicts()));
 
   /* And it DOES bite the moment the other half arrives. Add dc.approve — the
@@ -1499,8 +1499,9 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
     /* and the manager the table DOES name would be reported, if he were not
        already allowed on the job's own screen */
     c.state.masters.accessMatrix['Plant Manager'].ship = { v: true, e: false };
-    ok('the Plant Manager IS reported once he loses Shipments, because escalation still reaches him',
-       c.screenLoopholes().some(x => x.role === 'Plant Manager' && x.screens.indexOf('approvals') >= 0),
+    /* 25f: the Plant Manager no longer reaches the shipment buttons from My Actions (he approves; he does not load) */
+    ok('25f: the Plant Manager is not reported: the shipment buttons no longer reach him from My Actions',
+       !c.screenLoopholes().some(x => x.role === 'Plant Manager' && x.screens.indexOf('approvals') >= 0),
        JSON.stringify(c.screenLoopholes().filter(x => x.role === 'Plant Manager')));
   }
 
@@ -1769,9 +1770,9 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
     'order.acknowledge':    { kind: 'all',     scr: undefined },
     'customer.create':      { kind: 'hard',    scr: undefined },
     'customer.amend':       { kind: 'hard',    scr: undefined },
-    'shipment.plan':        { kind: 'canEdit', scr: 'ship',      alsoOn: 'approvals:Plant Manager' },
-    'shipment.load':        { kind: 'canEdit', scr: 'ship',      alsoOn: 'approvals:Plant Manager' },
-    'gatepass.issue':       { kind: 'canEdit', scr: 'ship',      alsoOn: 'approvals:Plant Manager' },
+    'shipment.plan':        { kind: 'canEdit', scr: 'ship',      alsoOn: '' }, // 25f: the Plant Manager is the approver, not a loader
+    'shipment.load':        { kind: 'canEdit', scr: 'ship',      alsoOn: '' }, // 25f: the Plant Manager is the approver, not a loader
+    'gatepass.issue':       { kind: 'canEdit', scr: 'ship',      alsoOn: '' }, // 25f: the Plant Manager is the approver, not a loader
     'delivery.confirm':     { kind: 'canEdit', scr: 'ship',      alsoOn: 'approvals:Supply Chain' },
     'rm.receive':           { kind: 'canEdit', scr: 'approvals', alsoOn: 'prod' },
     'pr.close':             { kind: 'canEdit', scr: 'approvals', alsoOn: 'prod' },

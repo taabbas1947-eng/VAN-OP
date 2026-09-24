@@ -139,4 +139,14 @@ ok('no money reaches Today', !/pkr\(|invoicePrice/.test(grab('screenToday') + gr
   sb2.sbPer = 'month'; vm.runInContext('sbPer="month"', sb2); D = sb2.sbData(); eq('25k this month: sold', D.sold, 10); eq('25k this month: target from the monthly split', D.mTarget, 50);
   vm.runInContext('sbPer="2026-08"', sb2); D = sb2.sbData(); eq('25k a chosen month: sold', D.sold, 20);
   eq('25k the channel rows carry their customers', D.ch[0].clients.Syn.sold, 20); }
+/* 25l: one customer, 2 channels, a target for each */
+{ const b3 = { console, SEGMENT_CHANNEL: { 'White-label': 'White Label', Distributor: 'Distributor' }, budgetKey: o => o.client,
+    state: { orders: [{ client: 'BKK', channel: 'Distributor' }, { client: 'BKK', channel: 'White Label' }, { client: 'SYN', channel: 'White Label' }], customers: [{ name: 'BKK', segment: 'Distributor' }, { name: 'BKK', segment: 'White-label' }] } };
+  vm.createContext(b3); vm.runInContext("var BUDGET_SEP=' @ ';\n" + ['budgetSplitKey', 'budgetChannelsOfName', 'budgetTargetOf', 'budgetChannelOf', 'budgetClients'].map(grab).join('\n') + '\nvar SEED={};', b3);
+  eq('25l: BKK is listed once per channel', b3.budgetClients().join(','), 'BKK @ Distributor,BKK @ White Label,SYN');
+  eq('25l: the key names its channel', b3.budgetChannelOf('BKK @ White Label'), 'White Label');
+  const ST = { 'BKK @ White Label': { '2026-27': 19 }, SYN: { '2026-27': 424 } };
+  eq('25l: BKK White Label target', b3.budgetTargetOf(ST, 'BKK', 'White Label', '2026-27'), 19);
+  eq('25l: BKK Distributor has none of it', b3.budgetTargetOf(ST, 'BKK', 'Distributor', '2026-27'), 0);
+  eq('25l: a one-channel customer keeps its plain key', b3.budgetTargetOf(ST, 'SYN', 'White Label', '2026-27'), 424); }
 process.exitCode = report('Money and the budget tree') ? 1 : 0;

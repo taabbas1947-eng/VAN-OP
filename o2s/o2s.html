@@ -11,7 +11,7 @@
    a push keeps running the old code with nothing telling anybody. It sat at
    2026-09-04a through this whole day's work; rmqty/psi tests pinned the code,
    nothing pinned this. buildid.test.js now does. */
-var BUILD_ID='2026-09-25k';
+var BUILD_ID='2026-09-25l';
 var CHANGELOG=[
   {ver:'2026-09-04a', date:'2026-09-04', title:"Delivery, DC printing, and a new Reconciliation check", items:[
     "Delivery confirmation stays with Supply Chain \u2014 it no longer hands off to the Plant Manager. If one sits too long, it now re-flags the same Supply Chain owner every 3 days instead.",
@@ -342,6 +342,9 @@ var CHANGELOG=[
     "The budget is the channel totals you set. The old page read the customer targets, which are empty, so it said PKR 0 and 0%.",
     "The page has its own period: financial year to date, this month, last month, or any month of the last year. Sold is for that period; open orders are what is still to leave.",
     "Channels first, with their customers under them (tap a channel). Then the products sold in the period. How are we doing reads the same budget."
+  ]},
+  {ver:'2026-09-25l', date:'2026-09-25', title:"A budget per channel for a customer in 2 channels", items:[
+    "A customer who buys through 2 channels (BKK: Distributor and White Label) now has a target for each, and each counts only its own channel's sales."
   ]},
 ];
 </script>
@@ -16253,7 +16256,16 @@ function budgetKey(o){ return isDealerClient(o)?'Dealers':(o.client||'—'); }
    segment totals; a per-dealer allocation is allowed but not expected. */
 var BUDGET_CHANNELS=['White Label','Cobo','Vgreen','Dealer','Distributor','Farmer'];
 var SEGMENT_CHANNEL={'White-label':'White Label','Dealer':'Dealer','Distributor':'Distributor','VGreen':'Vgreen','COBO':'Cobo','Direct Farmer':'Farmer'};
+/* 25l, Tahir 24 Sep: BKK is a Distributor AND a White Label customer, with a
+   White Label budget of its own. A customer who sells through 2 channels gets a
+   target per channel, keyed "NAME @ CHANNEL". A plain name still works for
+   everyone else. */
+var BUDGET_SEP=' @ ';
+function budgetSplitKey(k){ k=String(k||''); var i=k.lastIndexOf(BUDGET_SEP); return i>0?{name:k.slice(0,i),ch:k.slice(i+BUDGET_SEP.length)}:{name:k,ch:''}; }
+function budgetChannelsOfName(name){ var set={}; (state.orders||[]).forEach(function(o){ if(o&&budgetKey(o)===name&&o.channel) set[o.channel]=1; }); (state.customers||[]).forEach(function(c){ if(c&&c.name===name&&SEGMENT_CHANNEL[c.segment]) set[SEGMENT_CHANNEL[c.segment]]=1; }); return Object.keys(set); }
+function budgetTargetOf(ST,name,ch,fy){ var a=ST[name+BUDGET_SEP+ch]; if(a&&+a[fy]>0) return +a[fy]; if(budgetChannelsOfName(name).length>1) return 0; return +((ST[name]||{})[fy])||0; }
 function budgetChannelOf(client){
+  var _sk=(typeof budgetSplitKey==='function')?budgetSplitKey(client):{}; if(_sk.ch) return _sk.ch;
   if(client==='Dealers') return 'Dealer';
   var o=(state.orders||[]).find(function(x){ return x && budgetKey(x)===client && x.channel; });
   if(o) return o.channel;
@@ -16287,7 +16299,7 @@ function channelBudgetCard(){
     </tbody></table></div>
     <div class="row" style="gap:12px;align-items:center;margin-top:12px;flex-wrap:wrap"><button class="qs-btn pri" id="cb_save" onclick="channelBudgetSaveAll()"${Object.keys(cbDraft).length?'':' disabled'}>Save the budget</button><span class="muted" style="font-size:12px">${cbSavedLine()}</span></div>`);
 }
-function budgetClients(){ const set=new Set(); (state.orders||[]).forEach(o=>set.add(budgetKey(o))); try{ Object.keys((SEED&&SEED.catalog&&SEED.catalog.brandsByClient)||{}).forEach(k=>set.add(k==='Dealers'?'Dealers':k)); }catch(e){} Object.keys((state.masters&&state.masters.salesTargets)||{}).forEach(c=>set.add(c)); return [...set].filter(Boolean).sort(); }
+function budgetClients(){ const set=new Set(); (state.orders||[]).forEach(o=>set.add(budgetKey(o))); /* 25l: a name in 2 channels is listed once per channel */ if(typeof budgetChannelsOfName==='function') [...set].forEach(n=>{ const chs=budgetChannelsOfName(n); if(chs.length>1){ set.delete(n); chs.forEach(c=>set.add(n+BUDGET_SEP+c)); } }); if(typeof budgetChannelsOfName==='function') (state.customers||[]).forEach(c=>{ if(c&&c.name&&!set.has(c.name)&&budgetChannelsOfName(c.name).length>1) budgetChannelsOfName(c.name).forEach(ch=>set.add(c.name+BUDGET_SEP+ch)); }); try{ Object.keys((SEED&&SEED.catalog&&SEED.catalog.brandsByClient)||{}).forEach(k=>set.add(k==='Dealers'?'Dealers':k)); }catch(e){} Object.keys((state.masters&&state.masters.salesTargets)||{}).forEach(c=>set.add(c)); return [...set].filter(Boolean).sort(); }
 let stForm={client:'',amt:''};
 let bulkPrice={};
 function openBulkPricing(){ if(!(state.role==='COO'||state.role==='CFO')){toast('COO / CFO only');return;} bulkPrice={}; renderBulkPricing(); $('modalBg').classList.add('open'); }
@@ -16684,7 +16696,7 @@ function sbRange(){ var d=TODAY.toISOString().slice(0,10), fy=fyKey(d), fs=Strin
 function sbData(){ var R=sbRange(), fy=R.fy;
   var CT=(state.masters&&state.masters.channelTargets)||{}, ST=(state.masters&&state.masters.salesTargets)||{}, MT={}; try{ MT=monthlyTargetTotals(fy)||{}; }catch(e){}
   var ch={}; BUDGET_CHANNELS.forEach(function(c){ ch[c]={name:c,target:+((CT[c]||{})[fy])||0,sold:0,open:0,clients:{}}; });
-  var cl=function(c,k){ var C=ch[c]||(ch[c]={name:c,target:0,sold:0,open:0,clients:{}}); return C.clients[k]=C.clients[k]||{name:k,target:+((ST[k]||{})[fy])||0,sold:0,open:0}; };
+  var cl=function(c,k){ var C=ch[c]||(ch[c]={name:c,target:0,sold:0,open:0,clients:{}}); return C.clients[k]=C.clients[k]||{name:k,target:(typeof budgetTargetOf==='function'?budgetTargetOf(ST,k,c,fy):(+((ST[k]||{})[fy])||0)),sold:0,open:0}; };
   var prod={}, sold=0, fySold=0;
   saleRows().forEach(function(x){ if(x.fy===fy) fySold+=x.value; if(!x.date||x.date<R.from||x.date>R.to) return; sold+=x.value; var c=x.channel||budgetChannelOf(x.key); cl(c,x.key).sold+=x.value; ch[c].sold+=x.value; prod[x.brand]=(prod[x.brand]||0)+x.value; });
   var open=0; (state.orders||[]).forEach(function(o){ (o.lines||[]).forEach(function(l){ var v=saleOpenValue(o,l); if(!(v>0)) return; open+=v; var c=o.channel||budgetChannelOf(budgetKey(o)); cl(c,budgetKey(o)).open+=v; ch[c].open+=v; }); });

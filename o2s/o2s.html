@@ -11,7 +11,7 @@
    a push keeps running the old code with nothing telling anybody. It sat at
    2026-09-04a through this whole day's work; rmqty/psi tests pinned the code,
    nothing pinned this. buildid.test.js now does. */
-var BUILD_ID='2026-09-24w';
+var BUILD_ID='2026-09-24x';
 var CHANGELOG=[
   {ver:'2026-09-04a', date:'2026-09-04', title:"Delivery, DC printing, and a new Reconciliation check", items:[
     "Delivery confirmation stays with Supply Chain \u2014 it no longer hands off to the Plant Manager. If one sits too long, it now re-flags the same Supply Chain owner every 3 days instead.",
@@ -285,6 +285,11 @@ var CHANGELOG=[
     "What to make shows one card per product instead of one row per order line: how much to make (L for liquids, Kg for the rest), how many orders, the earliest due date, and the main button. The orders are inside the card.",
     "Products you can start now come first, then the blocked ones.",
     "The 4 tiles on top are the tabs: products to make, running, waiting for lab, ready to pack. Completed and the rest are just below."
+  ]},
+  {ver:'2026-09-24x', date:'2026-09-24', title:"Production: Running, Waiting for lab and Ready to pack as cards", items:[
+    "Running: one card per batch, made of planned and what is left, the last output, and Log output.",
+    "Waiting for lab: one card per lot, who has it next, and Follow QC.",
+    "Ready to pack: one card per batch, how much is ready to pack, and Pack. Tap a name for the batch passport."
   ]},
 ];
 </script>
@@ -6908,9 +6913,10 @@ function prodStageList(){
     var pr=af.filter(function(b){return batchStage(b)==='producing';});
     if(!pr.length)return '<div class="card"><div class="muted" style="padding:14px 2px">No batches producing right now.</div></div>';
     var pathPill=function(isBulk){return isBulk?'<span style="font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:999px;white-space:nowrap;background:var(--pb50,#e3f1ef);color:var(--pb,#0e6e63)">Bulk Base</span>':'<span style="font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:999px;white-space:nowrap;background:#f1f3f5;color:#5b6675">PO-direct</span>';};
-    var rowP=function(b){var prod=+b.producedKg||0,plan=+b.plannedKg||0;var isPo=(b.kind==='po'||(!!b.po&&b.kind!=='multi'));var nm=(isPo?(b.brand||b.base):b.base)||'';var lots=(b.lots||[]);var ls='',lk=0;if(lots.length){var ld=lots.slice().sort(function(a,c){return String(a.date||'').localeCompare(String(c.date||''));});var last=ld[ld.length-1];ls=last.date||'';lk=+last.kg||0;}var act=edLog?'<button class="sm green" onclick="event.stopPropagation();openShiftLog(\''+b.id+'\')">Log output</button>':'';return '<tr style="cursor:pointer" onclick="prodBatchSel=\''+b.id+'\';prodDrill=true;render()"><td><b>'+(b.batchNo||'—')+'</b></td><td>'+nm+(isPo&&b.po?' <span class="muted" style="font-size:11px">'+b.po+'</span>':'')+(b.kind==='multi'?' <span class="muted" style="font-size:11px">'+batchPOsLabel(b)+'</span>':'')+'</td><td>'+(b.kind==='multi'?'<span style="font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:999px;white-space:nowrap;background:#fdf3e0;color:#b9760d">Multi-PO</span>':pathPill(!isPo))+'</td><td class="num">'+fmt(plan)+'</td><td class="num">'+fmt(prod)+'</td><td class="num"><b>'+fmt(Math.max(0,plan-prod))+'</b></td><td>'+(ls?('<span class="muted">'+ls+(lk?' · '+fmt(lk)+' kg':'')+'</span>'):'<span style="font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:999px;background:#fbf0db;color:#b9760d">No output yet</span>')+'</td><td style="width:120px">'+act+'</td></tr>';};
+    var rowP=function(b){var prod=+b.producedKg||0,plan=+b.plannedKg||0;var isPo=(b.kind==='po'||(!!b.po&&b.kind!=='multi'));var nm=(isPo?(b.brand||b.base):b.base)||'';var lots=(b.lots||[]);var ls='',lk=0;if(lots.length){var ld=lots.slice().sort(function(a,c){return String(a.date||'').localeCompare(String(c.date||''));});var last=ld[ld.length-1];ls=last.date||'';lk=+last.kg||0;}var act=edLog?'<button class="sm green" onclick="event.stopPropagation();openShiftLog(\''+b.id+'\')">Log output</button>':'';/* 24x: a card, like What to make - the same act, built above under edLog */
+return '<div class="pcard" data-batch="'+_pe(b.batchNo||'')+'"><div class="pcard-h"><div><div class="pcard-t"><a style="cursor:pointer;color:inherit" onclick="prodBatchSel=\''+b.id+'\';prodDrill=true;render()">'+nm+'</a> <span class="wtm-base">'+(b.batchNo||'—')+'</span></div>'+'<div class="pcard-s"><b>'+fmt(prod)+'</b> of '+fmt(plan)+' '+unitOf(nm)+' made · <b>'+fmt(Math.max(0,plan-prod))+'</b> left'+(isPo&&b.po?' · '+b.po:'')+(b.kind==='multi'?' · '+batchPOsLabel(b):'')+'</div>'+'<div class="pcard-tags">'+(b.kind==='multi'?'<span class="pcard-tag">Multi-PO</span>':(isPo?'<span class="pcard-tag">PO-direct</span>':'<span class="pcard-tag">Bulk base</span>'))+(ls?('<span class="pcard-tag">last output '+ls+(lk?' · '+fmt(lk):'')+'</span>'):'<span class="pcard-tag late">no output yet</span>')+'</div></div>'+'<div class="pcard-go">'+act+'</div></div></div><!--/pcard-->';};
     var hd='<tr><th>Batch #</th><th>Product</th><th>Path</th><th class="num">Planned</th><th class="num">Produced</th><th class="num">Remaining</th><th>Last shift</th><th></th></tr>';
-    return '<div class="card"><h3>Running batches <span class="hint">'+pr.length+' open batch(es) · not fully produced</span></h3><div style="overflow:auto"><table><thead>'+hd+'</thead><tbody>'+pr.map(rowP).join('')+'</tbody></table></div></div>';
+    return PCARD_CSS+'<div class="card"><div class="muted" style="font-size:12.5px;margin:0 0 10px">'+pr.length+' batch'+(pr.length===1?'':'es')+' running · tap a name for its passport</div>'+pr.map(rowP).join('')+'</div>';
   }
   if(f==='qc'){
     var qunits=[];
@@ -6922,8 +6928,8 @@ function prodStageList(){
     var qcard='<div class="card"><h3>Waiting QC <span class="hint">'+qunits.length+' lot(s) · Lab / QCM owns approval — you have visibility</span></h3>';
     if(!qunits.length)return qcard+'<div class="muted" style="padding:14px 2px">Nothing waiting for QC right now — every produced lot is QC-cleared.</div></div>';
     var ageOf=function(d){if(!d)return '—';var t=new Date(d);if(isNaN(t))return '—';var n=Math.max(0,Math.round((TODAY-t)/86400000));return n===0?'today':(n+'d');};
-    var qbody=qunits.map(function(u){return '<tr><td><b>'+(u.no||'—')+'</b>'+(u.b.batchNo&&u.b.batchNo!==u.no?'<div class="muted" style="font-size:11px">'+u.b.batchNo+'</div>':'')+'</td><td>'+u.product+'</td><td class="num">'+fmt(u.qty)+'</td><td>'+(u.shift||'—')+'</td><td><span class="muted">'+ageOf(u.date)+'</span></td><td><span style="font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:999px;white-space:nowrap;background:var(--pb50,#e3f1ef);color:var(--pb,#0e6e63)">'+u.owner+'</span></td><td style="width:130px">'+(edAny?'<button class="sm ghost" onclick="openBatchCOA(\''+u.b.id+'\',\''+u.id+'\')">Follow QC</button>':'')+'</td></tr>';}).join('');
-    return qcard+'<div style="overflow:auto"><table><thead><tr><th>Lot / Batch</th><th>Product</th><th class="num">Output</th><th>Shift</th><th>Waiting</th><th>Next owner</th><th></th></tr></thead><tbody>'+qbody+'</tbody></table></div></div>';
+    var qbody=qunits.map(function(u){return '<div class="pcard" data-batch="'+_pe(u.no||'')+'"><div class="pcard-h"><div><div class="pcard-t">'+u.product+' <span class="wtm-base">'+(u.no||'—')+'</span></div>'+'<div class="pcard-s"><b>'+fmt(u.qty)+'</b> '+unitOf(u.product)+' made'+(u.shift?' · shift '+u.shift:'')+' · waiting '+ageOf(u.date)+'</div><div class="pcard-tags"><span class="pcard-tag">with the '+u.owner+'</span></div></div>'+'<div class="pcard-go">'+(edAny?'<button class="sm ghost" onclick="openBatchCOA(\''+u.b.id+'\',\''+u.id+'\')">Follow QC</button>':'')+'</div></div></div><!--/pcard-->';}).join('');
+    return PCARD_CSS+qcard+qbody+'</div>';
   }
   if(f==='attention'){
     var stuck=prodStuckItems(); var defsL=prodDeferredItems();
@@ -6978,6 +6984,10 @@ function prodStageList(){
     else if(pk>0.5){ if(b.kind==='bulk'||b.kind==='multi'){ if(edPack)act='<button class="sm" onclick="event.stopPropagation();openPack(\''+b.id+'\')">Pack</button>'; } else {var o=state.orders.find(function(x){return x.po===b.po;});var l=o&&o.lines.find(function(x){return x.id===b.lineId;});if(o&&l&&edQty)act='<button class="sm" onclick="event.stopPropagation();openProdQty(\''+o.id+'\',\''+l.id+'\')">Pack</button>';} }
     else if(rem>0.5){ if(edRecon)act='<button class="sm" style="background:var(--red);color:#fff" onclick="event.stopPropagation();openReconcile(\''+b.id+'\')">Reconcile</button>'; }
     else if(st==='done'){ if(edClose)act='<button class="sm" onclick="event.stopPropagation();closeBatch(\''+b.id+'\')">Close batch</button>'; }
+    /* 24x: Ready to pack as cards - the same act, built above under its own flag */
+    if(f==='pack') return '<div class="pcard" data-batch="'+_pe(b.batchNo||'')+'"><div class="pcard-h"><div><div class="pcard-t"><a style="cursor:pointer;color:inherit" onclick="prodBatchSel=\''+b.id+'\';prodDrill=true;render()">'+nm+'</a> <span class="wtm-base">'+(b.batchNo||'—')+'</span></div>'
+      +'<div class="pcard-s"><b>'+fmt(pk)+'</b> '+unitOf(nm)+' ready to pack · '+fmt(cl)+' approved, '+fmt(packed)+' packed</div><div class="pcard-tags"><span class="pcard-tag">'+(b.kind==='bulk'?'Bulk base · any open PO of '+_pe(b.base||''):('For '+_pe(b.po||sub)))+'</span></div></div>'
+      +'<div class="pcard-go">'+act+'</div></div></div><!--/pcard-->';
     var cols;
     if(f==='producing')cols='<td class="num">'+fmt(plan)+'</td><td class="num">'+fmt(prod)+'</td><td class="num"><b>'+fmt(Math.max(0,plan-prod))+'</b></td><td class="muted">'+(lastShift||'—')+'</td>';
     else if(f==='qc')cols='<td class="num">'+fmt(prod)+'</td><td class="num"><b style="color:var(--amber)">'+fmt(Math.max(0,prod-cl))+'</b></td><td class="muted">COA pending</td>';
@@ -6996,6 +7006,7 @@ function prodStageList(){
   else if(f==='completed')head='<tr><th>Batch #</th><th>Product</th><th class="num">Made / plan</th><th>Closed</th><th></th></tr>';
   else if(f==='toclose')head='<tr><th>Batch #</th><th>Product</th><th class="num">Made / plan</th><th class="num">Packed</th><th></th></tr>';
   else head='<tr><th>Batch #</th><th>Product</th><th>Stage</th><th class="num">Made / plan</th><th class="num">Ready</th><th></th></tr>';
+  if(f==='pack') return PCARD_CSS+'<div class="card"><div class="muted" style="font-size:12.5px;margin:0 0 10px">'+list.length+' batch'+(list.length===1?'':'es')+' with approved stock to pack · tap a name for its passport</div>'+list.map(row).join('')+'</div>';
   var title=({producing:'Running batches',qc:'Waiting QC',pack:'Ready to pack',toclose:'Ready to close',recon:'Remaining to account',completed:'Completed',attention:'Stuck / blocked',all:'All active'})[f]||'Batches';
   return '<div class="card"><h3>'+title+' <span class="hint">'+list.length+' batch(es) · tap a row for the full passport</span></h3><div style="overflow:auto"><table><thead>'+head+'</thead><tbody>'+list.map(row).join('')+'</tbody></table></div></div>';
 }

@@ -103,6 +103,37 @@ run(c, 'prodMakeFilter="all"; render();');
   const t = run(c, 'document.getElementById("view").innerHTML');
   ok(f + ' still renders in the shell', /qs-tally/.test(t) && t.length > 300);
 });
+/* 24x - Tahir: "go ahead": Running, Waiting for lab and Ready to pack as cards too */
+{
+  const d = app('COO', 'tahir', 'Tahir Abbas');
+  run(d, `state.batches.push(
+    { id:'X-RUN', batchNo:'XRUN1', base:'Card Base', brand:'Card Base', kind:'bulk', status:'open', plannedKg:2000, producedKg:500, packedKg:0, disposedKg:0, openedDate:'2026-09-20', lots:[] },
+    { id:'X-PACK', batchNo:'XPK1', base:'Card Base', brand:'Card Base', kind:'bulk', status:'open', plannedKg:1000, producedKg:1000, packedKg:0, disposedKg:0, openedDate:'2026-09-21',
+      lots:[{id:'XL1',lotNo:'XPK1-L1',qty:1000,date:'2026-09-21',shift:'A',incharge:'x',coa:{status:'approved',certifiedKg:1000}}] },
+    { id:'X-QC', batchNo:'XQC1', base:'Card Base', brand:'Card Base', kind:'bulk', status:'open', plannedKg:800, producedKg:800, packedKg:0, disposedKg:0, openedDate:'2026-09-22',
+      lots:[{id:'XL2',lotNo:'XQC1-L1',qty:800,date:'2026-09-22',shift:'B',incharge:'x',coa:{status:'analysed'}}] });`);
+  const tab = f => { run(d, 'prodHome=false; prodView="lifecycle"; prodDrill=false; prodFilter=' + JSON.stringify(f) + '; state.screen="prod"; render();'); return run(d, 'document.getElementById("view").innerHTML'); };
+  const card = (h, bn) => { const m = new RegExp('<div class="pcard[^"]*" data-batch="' + bn + '"[\\s\\S]*?<!--/pcard-->').exec(h); return m ? m[0] : ''; };
+  const body = h => (h.split('pdwrap')[1] || '');
+  const r = tab('producing');
+  const rc = card(r, 'XRUN1');
+  ok('Running: cards, not a table', !!rc && !/<table/.test(body(r)), body(r).slice(0, 300));
+  ok('...the running card says made of planned and what is left', /500<\/b> of 2,000/.test(rc) && /1,500/.test(rc), rc.slice(0, 400));
+  ok('...with Log output', /openShiftLog\('X-RUN'\)/.test(rc));
+  ok('...and opens the batch passport', /prodBatchSel='X-RUN';prodDrill=true;render\(\)/.test(rc));
+  const q = tab('qc');
+  const qc = card(q, 'XQC1-L1');
+  ok('Waiting for lab: cards', !!qc && !/<table/.test(body(q)), body(q).slice(0, 300));
+  ok('...naming who has it next (AQCM)', /AQCM/.test(qc));
+  ok('...with Follow QC', /openBatchCOA\('X-QC','XL2'\)/.test(qc));
+  const pk = tab('pack');
+  const pc = card(pk, 'XPK1');
+  ok('Ready to pack: cards', !!pc && !/<table/.test(body(pk)), body(pk).slice(0, 300));
+  ok('...saying how much is ready to pack', /1,000<\/b> (Kg|Kg\/L|L) ready to pack/.test(pc), pc.slice(0, 400));
+  ok('...with the Pack button', /openPack\('X-PACK'\)/.test(pc));
+}
+ok('BUILD_ID is 2026-09-24x or later', /BUILD_ID\s*=\s*'2026-09-(24[x-z]|2[5-9][a-z]|30[a-z])'/.test(html));
+ok('the changelog tells Production (24x)', /ver:'2026-09-24x'[\s\S]{0,600}card/i.test(html));
 ok('BUILD_ID is 2026-09-24w or later', /BUILD_ID\s*=\s*'2026-09-(24[w-z]|2[5-9][a-z]|30[a-z])'/.test(html));
 ok('the changelog tells Production', /ver:'2026-09-24w'[\s\S]{0,600}card/i.test(html));
 process.exitCode = report('Production in the new shell (24w)') ? 1 : 0;

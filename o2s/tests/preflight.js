@@ -160,6 +160,8 @@ const MARKERS = [
   ['onclick="openMyLeave()"',              1, "I'm going on leave, in the name menu (24v)"],
   ['function prodMakeCardsHTML(',          1, 'Production: one card per product (24w)'],
   ['function prodShellTiles(',             1, 'Production: tiles as the tabs (24w)'],
+  ["if(f==='pack') return PCARD_CSS+",      1, 'Ready to pack as cards (24x)'],
+  ["return PCARD_CSS+qcard+qbody",         1, 'Waiting for lab as cards (24x)'],
   ["function coaApprove(){ if(!(state.role==='QCM'||labCovers('QCM')))", 1, 'the COO does not sign certificates (24u)'],
 ];
 

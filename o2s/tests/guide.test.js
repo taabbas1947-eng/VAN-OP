@@ -83,6 +83,11 @@ as(c, 'COO', 'tahir', 'Tahir Abbas');
 ok('My job for the COO: he does not sign certificates', /do not sign/.test(run(c, 'guideMyJob()')));
 as(c, 'Finance', 'ismaeel', 'Muhammad Ismail');
 ok('My job for Finance: the print-on-pack answer is theirs', /Print-on-pack/.test(run(c, 'guideMyJob()')));
-ok('How the app works: a sale is counted when the truck is released, before taxes (25a)', /counts as a sale/.test(how) && /before FED and sales tax/.test(how));
+ok('How the app works: a sale is counted when the truck is released, before taxes (25a)', /counts as a sale/.test(how) && /net of FED/.test(how));
 ok('BUILD_ID is 2026-09-24z or later', /BUILD_ID\s*=\s*'2026-09-(24z|2[5-9][a-z]|30[a-z])'/.test(html));
+/* 25b */
+{ const rules = grab('guideRules'), how2 = grab('guideHow');
+  ok('The rules: a number moves only with its record, and where to fix it (25b)', /A number moves only with its record/.test(rules) && /History/.test(rules) && /Needs you/.test(rules));
+  ok('The rules: what a sale is, net of FED, FED-inclusive divided by 1.05 (25b)', /What a sale is/.test(rules) && /1\.05/.test(rules));
+  ok('How it works: one lot tested for the batch (25b)', /marks one lot to test for the batch/.test(how2)); }
 process.exitCode = report('The Guide keeps up (24z)') ? 1 : 0;

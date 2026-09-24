@@ -5506,3 +5506,40 @@ Tahir asked if the whole app is in the new design. Audit (every screen rendered 
 **Tahir on the Dashboard (24 Sep):** "the most poor form … non sense and a dump of data, no one needs such a dashboard in the presence of report centers" — to be reimagined TOGETHER, every part of it, after Shipments and the other important screens. Do not touch it before then.
 Built 24y: screenShip in the qs shell (4 tiles + Delivered/Need action), content inside `.pdsk paperui`, topbar hidden for ship. shipshell.test.js 17; shell.test.js regex relaxed; suite 9,841 passed, 0 failed.
 Next (Tahir's agreed order): New order → Production's frame and the pop-up forms → Customers, Lists, Correct a record, Reconcile, Budget → then the Dashboard, together.
+
+
+## Pass forty — 24z: the Guide catches up; CLAUDE.md makes the Guide part of every change (24 Sep, committed adf207a)
+
+Tahir: "keep updating the guides and rules, my jobs, how this app works WITH EVERY NEW CHANGE, ADDITION AND PUSH." CLAUDE.md now carries "The Guide moves with the app". guideHow/guideRules/guideMyJob cover the lab by test, the bench sheet, the leave cover and Production cards. guide.test.js.
+
+
+## Pass forty-one — 25a: one rule for a sale (24 Sep, committed 005f700)
+
+Ruled: a sale is recorded when the truck leaves (DC / gate pass released), valued net = qty x invoice price before FED. `saleLeft/saleLineOf/saleRows/saleOpenValue` before budgetHtml; Sales & Budget, By channel and the monthly pace all read saleRows for this FY; open orders = still to leave, closed-short lines excluded.
+
+
+## Pass forty-two — 25b: the audit of every money figure, data integrity, one lot for the batch (24 Sep, NOT pushed)
+
+**Tahir's rulings:** "FED is sale tax" (the only tax on the price). Overpacking is refused. For packed-with-no-record the sheet offers both fixes and the fixer chooses. Himayat's lot question: one lot is tested for the batch; each lot gets a copy of the certificate ("results from lot X").
+
+**Money audit (Tahir: "make sure the new rules don't leave the calculation incorrect ... audit, double check"). Found and fixed:**
+1. FED-inclusive orders: the typed invoice price holds the 5% FED (fedSplit divides by 1.05 on the PO), so 25a's qty x price was GROSS for those orders. New `lineNetPrice(o,l)` (FOC 0; Inclusive price/1.05; else as typed) used by saleRows and saleOpenValue.
+2. Sales & Budget client drill-down rows (bgtSubRows) still showed delivered x price (all years) and ordered x price under the Sold / Open orders columns. Now saleRows this FY by po|lid (saleRows carries lid) and saleOpenValue.
+3. execMetrics (old dashboard) and dashTargetsPanel: delivered x price, all years, against an FY budget. Now sold this FY; booked = sold this FY + open. Chart label "Sold".
+4. Report builder Finance: every shipment incl. planned trucks, dated by dispatch, priced by PO+brand. Now saleLeft only, dated approvedDate, net price of the line.
+5. Report builder Orders: FED split evenly across lines (fedAmount/nLines). Now each line's own FED on ordered qty; value net.
+6. PO register (rpPos) Value: grandTotal incl. FED when present, net otherwise, in one column. Now net, header "Value (net of FED)".
+Left as is on purpose: the PO confirmation print (a document of the prices as quoted) and the bulk-price "Line value (as quoted)" preview (relabelled, with a note).
+
+**Why the Needs-you items happened (the holes):** allocateStock raised packed with no record (now refuses); Correct a record → Correct values let packed/dispatched/delivered be typed (now read-only there and dropped from the apply loop); Correct a record's packing had no cap at ordered (now refused above what the line needs); the old "Add the packing record" route (reconFix → dfSubmitPacking) ADDED the gap to packed a second time (reconFix now opens the line sheet); lotsFor counted reversed lots (now skips reversed/void).
+
+**Built:** `lineFacts/lineIssues/lineFixRows/lineHistory/lineCause/lineFixOpen/lineFixRecord/lineFixCut/lineFixDate/lineFixList` before the THREE VERIFY ITEMS block. Needs you → lineFixList('packing'|'undated'); the order sheet has History (and fix) on every line. Record: writes the packing lot against a QC-approved batch of the same base, capped at min(gap, ordered-logged), line packed unchanged, the shipped part marked insKg/shipKg with qa.retro; optional batch credit. Cut: packed → min(logged, ordered), refused below what left the gate. Date: offers the last truck's delivery date. All COO (screenEditOK datafix), reason required, recordCorrection.
+One lot for the batch: `labMayRep/labRepOf/labRepApproved/labLotWaitsRep/labSetRep/_labCopyOne/labCopyRep/labLotLate/labExtendRep/labRepCell/labRepBtn`. b.repLot set by QCM/AQCM (or cover); other lots with no COA are not lab jobs until it is approved; coaApprove calls labCopyRep → each lot existing then gets an approved copy (own lot no, qty, dates; same results and signatures; repOf; remark). A later lot is its own job unless the QCM extends (labExtendRep). printCOA prints "Results from lot X, the lot tested for batch Y".
+Guide: new rules "A number moves only with its record" and "What a sale is"; Lab step explains the tested lot. What's new 25b.
+
+**Tests:** salenet.test.js 19, linefix.test.js 35, replot.test.js 23, guide.test.js +3, budget.test.js updated; preflight markers for 25b. Suite 55 files, 0 failed. Browser (local copy): Needs you links, the sheet, record/cut fixes, order History, Inclusive open value 300 x 105 → 30,000, Himayat marks the tested lot, lab screen shows "takes the result of lot"; 0 errors.
+
+**Open for Tahir:**
+- Correct values still lets the ORDERED quantity be typed, while the Guide says "the ordered quantity is never rewritten". Not changed without a ruling.
+- The live Needs-you lines still need fixing by the COO through the new sheet after the push (4 x V-Mg, PUR-ORD-2026-00592, Maxim Max Sulfur, FRM-2607-5207). Live data was not reachable (Chrome offline), so how many live orders are FED-inclusive is unknown; their sales figures drop by 1/21 after this push.
+Next: push; then PSI (rulings given) and New order (rulings given; price band % not yet ruled).

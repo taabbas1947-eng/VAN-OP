@@ -11,7 +11,7 @@
    a push keeps running the old code with nothing telling anybody. It sat at
    2026-09-04a through this whole day's work; rmqty/psi tests pinned the code,
    nothing pinned this. buildid.test.js now does. */
-var BUILD_ID='2026-09-25a';
+var BUILD_ID='2026-09-25b';
 var CHANGELOG=[
   {ver:'2026-09-04a', date:'2026-09-04', title:"Delivery, DC printing, and a new Reconciliation check", items:[
     "Delivery confirmation stays with Supply Chain \u2014 it no longer hands off to the Plant Manager. If one sits too long, it now re-flags the same Supply Chain owner every 3 days instead.",
@@ -299,8 +299,14 @@ var CHANGELOG=[
     "Guide \u2192 My job, How the app works and The rules now cover the lab by test, the bench sheet, the leave cover, and one card per product in Production."
   ]},
   {ver:'2026-09-25a', date:'2026-09-25', title:"One rule for a sale", items:[
-    "A sale is counted when the truck leaves the gate (the delivery challan is released), at the invoice price before FED and sales tax. Sales & Budget and its monthly pace now use this one rule, for this financial year only.",
+    "A sale is counted when the truck leaves the gate (the delivery challan is released), net of FED (FED is the sales tax; on an order quoted FED-inclusive the price is divided by 1.05). Sales & Budget and its monthly pace now use this one rule, for this financial year only.",
     "Open orders are what is still to leave; a line closed short no longer counts."
+  ]},
+  {ver:'2026-09-25b', date:'2026-09-25', title:"Every number traced to its record", items:[
+    "Money, checked everywhere: on an order quoted FED-inclusive, sales now count the price without the 5% FED. The client lines under Sales & Budget, the old dashboard, the report builder and the PO register all use the one rule.",
+    "Packed, dispatched and delivered can no longer be typed in Correct a record. They move only with a packing run, a truck or a delivery. Packing more than the line ordered is refused.",
+    "Every order line has History: its packing, its trucks and every correction, newest first. If something is wrong, the same sheet says what, what the records show as the cause, and fixes it there with a reason.",
+    "Lab: in a batch with several lots, the QC manager marks one lot to test for the batch. The other lots wait for it, and each gets its own certificate with that result, saying which lot was tested."
   ]},
 ];
 </script>
@@ -4779,8 +4785,10 @@ function screenRecon(){
 }
 
 /* R20 (24m): a flagged line's fix, one tap away - the missing packing record for that PO line, opened under Correct a record with the order, the line and the untraced quantity already filled in. */
-function reconFixBtn(r){ if(!screenEditOK('datafix')) return ''; return '<button class="qs-btn sm" onclick="reconFix(\''+qsEsc(String(r.po).split("'").join(''))+'\',\''+qsEsc(String(r.lid||'').split("'").join(''))+'\')">Add the packing record</button>'; }
-function reconFix(po,lid){
+function reconFixBtn(r){ if(!screenEditOK('datafix')) return ''; return '<button class="qs-btn sm" onclick="reconFix(\''+qsEsc(String(r.po).split("'").join(''))+'\',\''+qsEsc(String(r.lid||'').split("'").join(''))+'\')">Open the line and fix it</button>'; }
+/* 25b: the old route opened Correct a record's packing form, which ADDED the gap
+   to packed a second time (packed already held it). It now opens the line's sheet. */
+function reconFix(po,lid){ lfForm={}; lineFixOpen(po,lid); return;
   if(!screenEditOK('datafix')){ toast('Correct a record is the COO’s.'); return; }
   var o=(state.orders||[]).find(function(x){return x&&String(x.po)===String(po);}); var l=o&&(o.lines||[]).find(function(x){return x&&x.id===lid;}); if(!o||!l){ toast('Order line not found'); return; }
   if(!state.dataFixEnabled){ toast('Turn corrections on first (Correct a record → Corrections switch).'); }
@@ -4954,9 +4962,9 @@ if(op==='correct'){
        <div class="formgrid" style="grid-template-columns:repeat(6,1fr);margin-top:6px">
          <div class="fld"><label>Ordered</label><input id="cl_ordered_${l.id}" type="number" value="${l.ordered||0}"></div>
          <div class="fld"><label>Produced</label><input id="cl_produced_${l.id}" type="number" value="${l.produced||0}"></div>
-         <div class="fld"><label>Packed</label><input id="cl_packed_${l.id}" type="number" value="${l.packed||0}"></div>
-         <div class="fld"><label>Dispatched</label><input id="cl_dispatched_${l.id}" type="number" value="${l.dispatched||0}"></div>
-         <div class="fld"><label>Delivered</label><input id="cl_delivered_${l.id}" type="number" value="${l.delivered||0}"></div>${(state.role==='COO'||state.role==='CFO')?`<div class="fld"><label>Invoice price (PKR/Kg·L)</label><input id="cl_invoicePrice_${l.id}" type="number" value="${l.invoicePrice||''}"></div>`:''}
+         <div class="fld"><label>Packed · from its records</label><input id="cl_packed_${l.id}" type="number" value="${l.packed||0}" readonly disabled title="Moves only with its record — a packing run, a truck, a delivery. To fix it, open the line's history (Fix on Needs you)."></div>
+         <div class="fld"><label>Dispatched · from its records</label><input id="cl_dispatched_${l.id}" type="number" value="${l.dispatched||0}" readonly disabled title="Moves only with its record — a packing run, a truck, a delivery. To fix it, open the line's history (Fix on Needs you)."></div>
+         <div class="fld"><label>Delivered · from its records</label><input id="cl_delivered_${l.id}" type="number" value="${l.delivered||0}" readonly disabled title="Moves only with its record — a packing run, a truck, a delivery. To fix it, open the line's history (Fix on Needs you)."></div>${(state.role==='COO'||state.role==='CFO')?`<div class="fld"><label>Invoice price (PKR/Kg·L)</label><input id="cl_invoicePrice_${l.id}" type="number" value="${l.invoicePrice||''}"></div>`:''}
          <div class="fld"><label>Print price (PKR/pack)</label><input id="cl_printPrice_${l.id}" type="number" value="${l.printPrice||''}" placeholder="MRP on the bag"></div></div></div>`).join('');
     return wrap('Correct a PO — fields & quantities', picker+meta+lines
       +`<div class="formgrid" style="margin-top:10px;grid-template-columns:1fr">
@@ -5034,6 +5042,9 @@ function dfSubmitPacking(){
   const b=state.batches.find(x=>x.id===dfForm.bid);
   if(!b) return toast('Pick a batch — this is what prevents another "No batch #" block at QA');
   if(!batchLabApproved(b)) return toast('That batch is not QC-approved yet — it can only be linked once its COA is approved');
+  /* 25b (Tahir: refuse above ordered). Every other packing path caps at what the
+     line still needs; this one did not, and PUR-ORD-2026-00592 ended 600 packed on 300. */
+  { const _need=Math.max(0,(+l.ordered||0)-(+l.packed||0)); if(q>_need+0.5) return toast('That is more than the line still needs: '+fmt(l.ordered||0)+' ordered, '+fmt(l.packed||0)+' already packed, '+fmt(_need)+' left. Extra stock stays in the batch; it never goes onto an order.'); }
   const _wasPacked=+l.packed||0;
   l.packed=(l.packed||0)+q; l.produced=Math.max(l.produced||0,l.packed); l.prodStart=l.prodStart||d; if((l.packed||0)>=l.ordered-0.5) l.prodComplete=l.prodComplete||d;
   const baseBatchNo=b.batchNo||''; const brandBatchNo=baseBatchNo;
@@ -5172,8 +5183,12 @@ function dfSubmitCorrect(){
   let nLines=0;
   o.lines.forEach(l=>{
     const chg=[];
-    [['ordered','Ordered (Kg/L)'],['produced','Produced (Kg/L)'],['packed','Packed (Kg/L)'],
-     ['dispatched','Dispatched (Kg/L)'],['delivered','Delivered (Kg/L)'],
+    /* 25b, the invariant (Tahir approved 24 Sep 2026): packed, dispatched and
+       delivered move ONLY with their record - a packing run, a truck, a delivery.
+       Typing them here is how a line came to say 2,000 packed with no packing
+       behind it. They are shown read-only above; the fix is the line's history
+       sheet (lineFixOpen), which writes the record or brings the number back to it. */
+    [['ordered','Ordered (Kg/L)'],['produced','Produced (Kg/L)'],
      ['invoicePrice','Invoice price (PKR/Kg·L)'],['printPrice','Print price (PKR/pack)']]
     .forEach(([field,label])=>{
       const el=$('cl_'+field+'_'+l.id); if(!el) return;
@@ -6934,7 +6949,7 @@ return '<div class="pcard" data-batch="'+_pe(b.batchNo||'')+'"><div class="pcard
     (state.batches||[]).filter(function(b){return (+b.producedKg||0)>0&&b.disposition!=='byproduct'&&!b.voided;}).forEach(function(b){
       var lots=(b.lots||[]);
       var arr=lots.length?lots.map(function(l){return {id:l.id,no:l.lotNo||b.batchNo||'',coa:l.coa,qty:+l.qty||0,date:l.date||'',shift:l.shift||''};}):[{id:'',no:b.batchNo||'',coa:b.coa,qty:+b.producedKg||0,date:b.openedDate||'',shift:''}];
-      arr.forEach(function(u){var st=u.coa&&u.coa.status; if(u.coa&&(st==='approved'||st==='failed'))return; var owner=(!u.coa||st==='draft')?'Lab Rep':(st==='analysed'?'AQCM':(st==='reviewed'?'QCM':'Lab Rep')); qunits.push({b:b,id:u.id,no:u.no,product:coaItemOf(b),qty:u.qty,shift:u.shift,date:u.date,owner:owner});});
+      arr.forEach(function(u){var st=u.coa&&u.coa.status; if(u.coa&&(st==='approved'||st==='failed'))return; if(labLotWaitsRep(b,u)) return; var owner=(!u.coa||st==='draft')?'Lab Rep':(st==='analysed'?'AQCM':(st==='reviewed'?'QCM':'Lab Rep')); qunits.push({b:b,id:u.id,no:u.no,product:coaItemOf(b),qty:u.qty,shift:u.shift,date:u.date,owner:owner});});
     });
     var qcard='<div class="card"><h3>Waiting QC <span class="hint">'+qunits.length+' lot(s) · Lab / QCM owns approval — you have visibility</span></h3>';
     if(!qunits.length)return qcard+'<div class="muted" style="padding:14px 2px">Nothing waiting for QC right now — every produced lot is QC-cleared.</div></div>';
@@ -7952,7 +7967,11 @@ function doPack(){ if(!may('packing.pack')){toast(denyRight('packing.pack','Pack
     toast('Packing must be against a PO for this brand — select the PO above (no unassigned packing).'); return;
   }
   save(); closeModal(); render(); toast('Packed'); }
-function allocateStock(oid,lid){ const o=state.orders.find(x=>x.id===oid); const l=o.lines.find(x=>x.id===lid); { var _sc=shortCloseRefusal(o,l,'Allocating packed stock to this line'); if(_sc){toast(_sc);return;} } const av=state.packedStock[l.brand]||0; const need=l.ordered-(l.packed||0); const kg=Math.min(av,need);
+/* 25b: allocateStock raised l.packed with no packing record, no batch and no lot -
+   one of the 2 holes behind "packed with no packing log" on Needs you. Its button
+   sits in the retired Production screen; it now refuses so no path can do it again. */
+function allocateStock(oid,lid){ toast('Packed stock goes onto an order only as a packing run from a batch, so the lot, batch and COA follow it. Use Pack.'); return;
+  const o=state.orders.find(x=>x.id===oid); const l=o.lines.find(x=>x.id===lid); { var _sc=shortCloseRefusal(o,l,'Allocating packed stock to this line'); if(_sc){toast(_sc);return;} } const av=state.packedStock[l.brand]||0; const need=l.ordered-(l.packed||0); const kg=Math.min(av,need);
   if(kg<=0){toast('No packed stock');return;}
   state.packedStock[l.brand]-=kg; l.packed=(l.packed||0)+kg; const d=TODAY.toISOString().slice(0,10); l.prodStart=l.prodStart||d; l.prodComplete=l.prodComplete||d;
   logAction(`Allocated ${fmt(kg)} Kg/L packed ${l.brand} from stock → ${o.po}`); save(); render(); }
@@ -8262,7 +8281,7 @@ function coaReview(){ if(!(state.role==='AQCM'||labCovers('AQCM'))){toast('AQCM 
 function coaApprove(){ if(!(state.role==='QCM'||labCovers('QCM'))){toast('QCM only');return;} const ctx=coaCtx(); const b=ctx.b,h=ctx.h; if(!b||!h||!h.coa)return; const nm=(state.currentUser&&state.currentUser.name)||state.role;
   /* 24c: a certificate needs 2 signatures, not one - the reviewer and the approver are different people */
   if(coaSamePerson(h.coa.reviewer, (h.coa.reviewer||{}).name)){ toast('You reviewed this certificate. Somebody else must approve it.'); return; }
-  if(coaSamePerson(h.coa.draftedBy, (h.coa.analyst||{}).name)){ toast('You drafted this certificate. Somebody else must approve it.'); return; } if(labRanATest(h.coa)){ toast('You tested this sample. Somebody else must approve it.'); return; } h.coa.approver=Object.assign(sigStamp(),{name:nm,date:coaTS()}); var _obA=labOnBehalf('QCM'); if(_obA) h.coa.approver.onBehalf=_obA; /* 24u: a leave cover signs for the QCM */ h.coa.status='approved'; h.coa.approvedDate=evToday(); Object.assign(h.coa,evStamp(evToday(),'coa','')); /* a signature's date is the moment of signing, so there is no 'actual date' to enter — but recordedAt/By still belong on the record */ h.coa.certifiedKg=ctx.qkg; if(ctx.lot) ctx.lot.certifiedKg=ctx.qkg; qcAudit2(b,'QCM approved','cleared'); logAction(`COA APPROVED (QCM) for ${ctx.L} — cleared for packing`); save(); coaFSClose(); }
+  if(coaSamePerson(h.coa.draftedBy, (h.coa.analyst||{}).name)){ toast('You drafted this certificate. Somebody else must approve it.'); return; } if(labRanATest(h.coa)){ toast('You tested this sample. Somebody else must approve it.'); return; } h.coa.approver=Object.assign(sigStamp(),{name:nm,date:coaTS()}); var _obA=labOnBehalf('QCM'); if(_obA) h.coa.approver.onBehalf=_obA; /* 24u: a leave cover signs for the QCM */ h.coa.status='approved'; h.coa.approvedDate=evToday(); Object.assign(h.coa,evStamp(evToday(),'coa','')); /* a signature's date is the moment of signing, so there is no 'actual date' to enter — but recordedAt/By still belong on the record */ h.coa.certifiedKg=ctx.qkg; if(ctx.lot) ctx.lot.certifiedKg=ctx.qkg; qcAudit2(b,'QCM approved','cleared'); logAction(`COA APPROVED (QCM) for ${ctx.L} — cleared for packing`); try{ var _nc=labCopyRep(b,ctx.lot); if(_nc) toast('Batch result copied to '+_nc+' other lot'+(_nc===1?'':'s')); }catch(e){} /* 25b */ save(); coaFSClose(); }
 function coaReject(stage){ if(!canEdit(['AQCM','QCM'])){toast('AQCM / QCM only');return;} const ctx=coaCtx(); const b=ctx.b,h=ctx.h; if(!b||!h||!h.coa)return; const why=(typeof prompt==='function'?prompt('Reason for rejecting back to the analyst:'):'')||''; h.coa.status='draft'; if(labIsV2(h.coa)) (h.coa.tests||[]).forEach(function(t){ delete t.doneAt; delete t.doneBy; }); /* 24r: back to each analyst, results kept */ h.coa.rejected={by:state.role,stage,why:why||'',date:TODAY.toISOString().slice(0,10)}; qcAudit2(b,'COA rejected',why||''); logAction(`COA rejected at ${stage} for ${ctx.L} — back to analyst`); save(); coaFSClose(); }
 function coaDeviation(){ if(!hardRole(['Plant Manager'])){toast('Plant Manager only');return;} const ctx=coaCtx(); const b=ctx.b,h=ctx.h; if(!b||!h||!h.coa)return; const note=(typeof prompt==='function'?prompt('Deviation note (why accept this UNFIT lot):'):'')||''; h.coa.deviation=true; h.coa.deviationNote=note||''; h.coa.deviationBy=Object.assign(sigStamp(),{name:(state.currentUser&&state.currentUser.name)||state.role,date:coaTS()}); h.coa.status='analysed'; qcAudit2(b,'PM deviation accepted',note||''); logAction(`UNFIT ${ctx.L} accepted as DEVIATION by Plant Manager → AQCM review → QCM approval`); save(); coaFSClose(); }
 function coaRework(){ if(!hardRole(['Plant Manager'])){toast('Plant Manager only');return;} const ctx=coaCtx(); const b=ctx.b,h=ctx.h; if(!b||!h||!h.coa)return; h.coa.reworks=(h.coa.reworks||0)+1; const item=h.coa.item; h.coa=null; qcAudit2(b,'Sent to rework',''); logAction(`${ctx.L} (${item}) sent to rework after UNFIT`); save(); coaFSClose(); }
@@ -9503,6 +9522,181 @@ function openMyLeave(){ var e=function(x){return _pe(x);}; var me=(state.current
     +(rows?'<div style="overflow:auto;margin-top:14px"><table><thead><tr><th>Your leave</th><th>Cover</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>':'')+'</div>'
     +'<div class="mf"><button class="ghost" onclick="closeModal()">Close</button></div>';
   $('modalBg').classList.add('open'); }
+/* ===== FIX IT WHERE IT HAPPENED — 24 Sep 2026 (25b) =========================
+   Tahir, on the 2 Needs-you items: "Why did those even happen? ... If I have to
+   correct it, it never leads me to the origin rather than a page where it asks
+   me to go and find the thing and correct it. This is not a good system."
+   Ruled: overpacking is refused; for packed-with-no-record the sheet offers
+   both fixes and the fixer chooses, with a reason.
+   One sheet per order line (lineFixOpen): what the line says, what its records
+   say, what is wrong, the history of the line, what the records show as the
+   cause, and the fixes. The same sheet is the line's History from Orders. */
+function lineFacts(o,l){
+  var lots=lotsFor(o,l); var logged=lots.reduce(function(a,p){ return a+(+p.kg||0); },0);
+  var lotShip=lots.reduce(function(a,p){ return a+(+p.shipKg||0); },0);
+  var sh=(state.shipments||[]).filter(function(s){ return s&&!s.voided&&s.po===o.po&&(s.lid?s.lid===l.id:s.brand===l.brand); });
+  var outKg=sh.filter(saleLeft).reduce(function(a,s){ return a+(+s.kg||0); },0);
+  var packed=+l.packed||0, ordered=+l.ordered||0;
+  return {lots:lots,logged:logged,lotShip:lotShip,sh:sh,outKg:outKg,packed:packed,ordered:ordered,dispatched:+l.dispatched||0,delivered:+l.delivered||0,gap:packed-logged};
+}
+function lineIssues(o,l){ var F=lineFacts(o,l), I=[];
+  if(F.gap>0.5) I.push({k:'untraced',t:fmt(F.gap)+' '+unitOf(l.brand)+' packed with no packing record behind it'});
+  if(F.packed>F.ordered+0.5) I.push({k:'over',t:'Packed '+fmt(F.packed)+' against '+fmt(F.ordered)+' ordered'});
+  if(F.ordered>0&&F.delivered>=F.ordered-0.5&&!l.deliveredDate&&!lineShortClosed(l)) I.push({k:'undated',t:'Delivered in full with no delivery date'});
+  return I; }
+function lineFixRows(kind){ var out=[]; (state.orders||[]).forEach(function(o){ (o.lines||[]).forEach(function(l){ if(!l) return; var I=lineIssues(o,l).filter(function(i){ return !kind||(kind==='packing'?(i.k==='untraced'||i.k==='over'):i.k===kind); }); if(I.length) out.push({o:o,l:l,I:I}); }); }); return out; }
+/* everything the app holds about this line, newest first */
+function lineHistory(o,l){ var E=[], add=function(t,txt,tone){ E.push({t:String(t||''),txt:txt,tone:tone||''}); };
+  var lotIds={}; (state.packingLog||[]).forEach(function(p){ if(!p||p.po!==o.po||(p.lid?p.lid!==l.id:p.brand!==l.brand)) return; lotIds[p.id]=1;
+    var kg=(+p.kg||0)||(+p.voidedKg||0); add(p.recordedAt||p.date,'Packed '+fmt(kg)+' from batch '+(lotBaseNo(p)||'(none)')+' by '+(p.by||'—')+(p.date?' · dated '+p.date:'')+(p.fixOf?' · recorded afterwards from this sheet':'')+(p.reversed?' · <b>reversed</b>':'')+(p.void?' · <b>voided</b>':'')+(p.qa?(p.qa.pass?' · inspected, passed':(p.qa.fail?' · inspected, failed':'')):''),(p.reversed||p.void)?'na':'ok'); });
+  lineFacts(o,l).sh.forEach(function(s){ add(s.approvedDate||s.dispatch,'Truck '+(s.dc||s.dispId||'')+' · '+fmt(+s.kg||0)+' '+unitOf(l.brand)+' · '+(s.delivered?'delivered '+s.delivered:(saleLeft(s)?'left the gate':(s.stage||'planned')))+(s.approvedBy?' · released by '+s.approvedBy:''),saleLeft(s)?'ok':''); });
+  (state.corrections||[]).forEach(function(c){ if(!c) return; if(!((c.entityType==='orderLine'&&c.entityId===l.id)||lotIds[c.entityId])) return;
+    add(c.at,'Corrected by '+(c.by||'—')+': '+(c.changes||[]).map(function(x){ return x.label+' '+(x.before===''?'(blank)':x.before)+' → '+x.after; }).join('; ')+(c.reason?' — “'+c.reason+'”':''),'fix'); });
+  var re=new RegExp(String(o.po).replace(/[.*+?^${}()|[\]\\]/g,'\\$&'));
+  (state.actionLog||[]).forEach(function(a){ if(!a||!a.what||!re.test(a.what)) return; if(l.brand&&a.what.indexOf(l.brand)<0&&(o.lines||[]).length>1) return; if(/^(AMEND|ADD|VOID|REVERSE) · /.test(a.what)) return; add(a.t,qsEsc(a.what)+' · '+(a.by||a.role||''),''); });
+  (state.audit||[]).forEach(function(a){ if(!a||a.po!==o.po||(a.brand&&a.brand!==l.brand)||a.module==='Correction') return; add(a.t,qsEsc((a.field||'')+(a.old!=null&&a.old!==''?(' '+a.old+' →'):'')+' '+(a.val||''))+' · '+(a.user||''),''); });
+  E.sort(function(a,b){ return b.t.localeCompare(a.t); }); return E; }
+/* what the records say about how the packed number got ahead of its records - never a guess */
+function lineCause(o,l){ var up=null;
+  (state.corrections||[]).forEach(function(c){ if(up||!c||c.entityType!=='orderLine'||c.entityId!==l.id) return; (c.changes||[]).forEach(function(x){ if(!up&&x.field==='packed'&&(+String(x.after).replace(/,/g,'')||0)>(+String(x.before).replace(/,/g,'')||0)) up='Typed in Correct a record by '+(c.by||'—')+' on '+String(c.at).slice(0,10)+(c.reason?' — “'+c.reason+'”':'')+'. Packed can no longer be typed there (25b).'; }); });
+  if(up) return up;
+  var al=(state.actionLog||[]).find(function(a){ return a&&/^Allocated .* from stock → /.test(a.what||'')&&a.what.indexOf(o.po)>-1&&a.what.indexOf(l.brand)>-1; });
+  if(al) return 'Put onto the order from packed stock by '+(al.by||al.role||'—')+' on '+String(al.t).slice(0,10)+', a path that wrote no packing record. It is closed now (25b).';
+  return 'No record in O2S shows how. The number most likely came in with the imported orders or before the packing log existed; the records cannot say which, so choose the fix from what you know.'; }
+var lfForm={};
+function lineFixOpen(po,lid,mode){
+  var o=(state.orders||[]).find(function(x){ return x&&String(x.po)===String(po); }); var l=o&&(o.lines||[]).find(function(x){ return x&&x.id===lid; }); if(!o||!l){ toast('Order line not found'); return; }
+  var F=lineFacts(o,l), I=lineIssues(o,l), ed=screenEditOK('datafix'), u=unitOf(l.brand), e=qsEsc;
+  if(!lfForm||lfForm.lid!==lid) lfForm={po:o.po,lid:lid,mode:mode||'',bid:'',kg:'',take:true,date:evToday(),reason:'',ddate:''};
+  if(mode!=null) lfForm.mode=mode;
+  var h='<div class="mh"><h2>'+e(o.po)+' · '+e(l.brand)+'</h2><div class="sub">'+e(o.client||'')+' · what this line says, what its records say, and how it got here</div></div><div class="mb">';
+  h+='<div class="ord2-facts"><span><b>'+fmt(F.ordered)+'</b> ordered</span><span><b>'+fmt(F.packed)+'</b> packed · records <b>'+fmt(F.logged)+'</b></span><span><b>'+fmt(F.dispatched)+'</b> dispatched · trucks out <b>'+fmt(F.outKg)+'</b></span><span><b>'+fmt(F.delivered)+'</b> delivered'+(l.deliveredDate?' on '+e(l.deliveredDate):'')+'</span></div>';
+  if(I.length){ h+='<div class="tdsec">What is wrong</div><div class="note" style="border-left:3px solid var(--over)">'+I.map(function(i){ return '<div>■ '+e(i.t)+'</div>'; }).join('')+(I.some(function(i){return i.k==='untraced'||i.k==='over';})?'<div style="margin-top:6px"><b>What the records show:</b> '+e(lineCause(o,l))+'</div>':'')+'</div>'; }
+  else h+='<div class="note">Nothing is wrong with this line: every number matches its records.</div>';
+  if(ed&&I.length){
+    var canRec=Math.max(0,Math.min(F.gap,F.ordered-F.logged)); var canCut=F.gap>0.5||F.packed>F.ordered+0.5; var cutTo=Math.min(F.logged,F.ordered); var cutOk=F.dispatched<=cutTo+0.5;
+    var btn=function(k,t){ return '<button class="qs-btn sm'+(lfForm.mode===k?'':' ghost')+'" onclick="lineFixOpen(\''+e(o.po)+'\',\''+e(l.id)+'\',\''+k+'\')">'+t+'</button>'; };
+    h+='<div class="tdsec">Fix it</div><div class="row" style="gap:8px;flex-wrap:wrap">'+(canRec>0.5?btn('rec','Record the packing against a batch'):'')+(canCut?btn('cut','Bring packed back to its records'):'')+(I.some(function(i){return i.k==='undated';})?btn('date','Stamp the delivery date'):'')+'</div>';
+    var rsn='<div class="fld" style="margin-top:8px"><label>Reason (required, it goes on the record with your name)</label><input type="text" value="'+e(lfForm.reason)+'" oninput="lfForm.reason=this.value" placeholder="What you know about this line"></div>';
+    if(lfForm.mode==='rec'){ var bs=(state.batches||[]).filter(function(b){ return b&&b.base===l.base&&batchLabApproved(b); });
+      h+='<div class="note" style="margin-top:10px">Writes the missing packing record: batch, lot, dates. The line’s packed number does not change; it already says this. Up to <b>'+fmt(canRec)+' '+u+'</b>'+(F.packed>F.ordered+0.5?' (never past the '+fmt(F.ordered)+' ordered)':'')+'.'+(F.dispatched>F.lotShip+0.5?' '+fmt(Math.min(canRec,F.dispatched-F.lotShip))+' of it has already left on a truck, so that part is marked shipped, with its inspection noted as not on record.':'')+'</div>'
+        +'<div class="formgrid" style="grid-template-columns:1fr 1fr;margin-top:8px"><div class="fld"><label>Batch it came from (QC-approved '+e(l.base||'')+')</label><select onchange="lfForm.bid=this.value"><option value="">— batch —</option>'+bs.map(function(b){ return '<option value="'+e(b.id)+'"'+(b.id===lfForm.bid?' selected':'')+'>'+e(b.batchNo||b.id)+' · '+fmt(batchPackableKg(b))+' left</option>'; }).join('')+'</select></div>'
+        +'<div class="fld"><label>Quantity ('+u+')</label><input type="number" value="'+e(lfForm.kg||Math.round(canRec))+'" oninput="lfForm.kg=this.value"></div>'
+        +'<div class="fld"><label>Date it was packed</label><input type="date" value="'+e(lfForm.date)+'" onchange="lfForm.date=this.value"></div>'
+        +'<div class="fld"><label style="display:flex;gap:6px;align-items:center;text-transform:none"><input type="checkbox" style="width:auto;margin:0"'+(lfForm.take?' checked':'')+' onchange="lfForm.take=this.checked"> Take it from the batch’s remaining quantity</label><div class="muted" style="font-size:11px">Untick only if the batch record already counts this material as used.</div></div></div>'+rsn
+        +'<div style="margin-top:8px"><button class="green" onclick="lineFixRecord()">Write the packing record</button></div>'; }
+    if(lfForm.mode==='cut') h+=cutOk?('<div class="note" style="margin-top:10px">Sets packed from '+fmt(F.packed)+' to <b>'+fmt(cutTo)+' '+u+'</b>, what the packing records hold'+(F.logged>F.ordered+0.5?' up to the ordered quantity':'')+'. Use this when the number was wrong and nothing more was packed.</div>'+rsn+'<div style="margin-top:8px"><button class="green" onclick="lineFixCut()">Bring packed to '+fmt(cutTo)+'</button></div>')
+        :('<div class="note" style="margin-top:10px">Not possible: '+fmt(F.dispatched)+' '+u+' has already left the gate, more than the '+fmt(cutTo)+' the records hold. The material was real; record it against its batch instead.</div>');
+    if(lfForm.mode==='date'){ var dd=F.sh.map(function(s){ return String(s.delivered||'').slice(0,10); }).filter(Boolean).sort(); var sug=dd.length?dd[dd.length-1]:'';
+      if(!lfForm.ddate) lfForm.ddate=sug;
+      h+='<div class="note" style="margin-top:10px">'+(sug?'The last truck on this line was delivered on <b>'+e(sug)+'</b>; that is filled in.':'No truck on this line carries a delivery date. Enter the date from the signed delivery challan.')+'</div>'
+        +'<div class="fld" style="max-width:220px;margin-top:8px"><label>Delivery date</label><input type="date" value="'+e(lfForm.ddate)+'" onchange="lfForm.ddate=this.value"></div>'+rsn
+        +'<div style="margin-top:8px"><button class="green" onclick="lineFixDate()">Stamp the date</button></div>'; }
+  } else if(I.length) h+='<div class="note" style="margin-top:8px">The COO fixes this from here.</div>';
+  var H=lineHistory(o,l);
+  h+='<div class="tdsec">History <span class="cnt">'+H.length+'</span></div>'+(H.length?'<div style="font-size:12.5px;line-height:1.5">'+H.map(function(x){ return '<div style="padding:5px 0;border-bottom:1px solid var(--line2)"><span class="muted" style="font-size:11px;display:inline-block;min-width:92px">'+e(x.t.slice(0,10))+'</span> '+(x.tone==='fix'?'<b style="color:var(--amber)">✎</b> ':'')+x.txt+'</div>'; }).join('')+'</div>':'<div class="muted">Nothing is recorded against this line.</div>');
+  h+='</div><div class="mf"><button class="qs-btn" onclick="closeModal();render()">Close</button></div>';
+  $('modal').innerHTML=h; $('modalBg').classList.add('open'); }
+function _lfCtx(){ var o=(state.orders||[]).find(function(x){ return x&&String(x.po)===String(lfForm.po); }); var l=o&&(o.lines||[]).find(function(x){ return x&&x.id===lfForm.lid; }); return {o:o,l:l}; }
+function _lfGuard(){ if(!screenEditOK('datafix')){ toast('Fixing a record is the COO’s.'); return null; } var c=_lfCtx(); if(!c.l){ toast('Order line not found'); return null; } if(String(lfForm.reason||'').trim().length<5){ toast('Write the reason: it goes on the record with your name.'); return null; } return c; }
+function lineFixRecord(){ var c=_lfGuard(); if(!c) return; var o=c.o,l=c.l,F=lineFacts(o,l);
+  var cap=Math.max(0,Math.min(F.gap,F.ordered-F.logged)); var kg=Math.round((+lfForm.kg||cap)*1000)/1000;
+  if(!(kg>0)) return toast('Enter a quantity');
+  if(kg>cap+0.5) return toast('At most '+fmt(cap)+': the records can never pass what the line says packed, or the '+fmt(F.ordered)+' ordered.');
+  var b=(state.batches||[]).find(function(x){ return x.id===lfForm.bid; }); if(!b) return toast('Pick the batch it came from');
+  if(b.base!==l.base) return toast('That batch is '+(b.base||'another product')+'; this line is '+(l.base||l.brand)+'.');
+  if(!batchLabApproved(b)) return toast('That batch has no approved COA.');
+  if(lfForm.take&&batchPackableKg(b)<kg-0.5) return toast('Batch '+(b.batchNo||'')+' has only '+fmt(batchPackableKg(b))+' left. If the batch record already counts this material as used, untick “Take it from the batch”.');
+  var d=lfForm.date||evToday(); var no=b.batchNo||''; var dt=packDates(no,b.id,d,undefined);
+  var shipPart=Math.max(0,Math.min(kg,F.dispatched-F.lotShip));
+  var lot=Object.assign({id:nid('PK'),date:d,base:l.base,brand:l.brand,kg:kg,by:((state.currentUser&&state.currentUser.name)||state.role),po:o.po,lid:l.id,baseBatchId:b.id,baseBatchNo:no,brandBatchNo:no,mfgDate:dt.mfgDate,expDate:dt.expDate,shelfMonths:dt.shelfMonths,recon:true,fixOf:'untraced',fixReason:String(lfForm.reason).trim(),recordedAt:new Date().toISOString()},
+    shipPart>0?{insKg:shipPart,shipKg:shipPart,qa:{pass:true,retro:true,date:d,by:'',note:'Left on a truck before this lot was recorded; the lot inspection is not on record.'}}:{});
+  var bBefore=+b.packedKg||0; if(lfForm.take) b.packedKg=bBefore+kg;
+  (state.packingLog=state.packingLog||[]).unshift(lot); try{ syncPackBatchDates(no); }catch(e){}
+  recordCorrection('ADD','packingLot',lot.id,l.brand+' · '+fmt(kg)+' · '+o.po,[{field:'kg',label:'Packing record',before:'',after:fmt(kg)+' from batch '+no},{field:'batchPackedKg',label:'Batch '+no+' packed',before:fmt(bBefore),after:fmt(+b.packedKg||0)}],'backdate',lfForm.reason,['Line packed stays '+fmt(F.packed)+'; records now '+fmt(F.logged+kg)]);
+  save(); toast('Packing record written. The line and its records now agree on '+fmt(F.logged+kg)+'.'); lineFixOpen(o.po,l.id,''); }
+function lineFixCut(){ var c=_lfGuard(); if(!c) return; var o=c.o,l=c.l,F=lineFacts(o,l); var to=Math.min(F.logged,F.ordered);
+  if(F.dispatched>to+0.5) return toast('Not possible: '+fmt(F.dispatched)+' has already left the gate.');
+  if(Math.abs(F.packed-to)<0.5) return toast('Packed already matches its records.');
+  var was=F.packed; l.packed=to;
+  recordCorrection('AMEND','orderLine',l.id,o.po+' · '+l.brand,[{field:'packed',label:'Packed (Kg/L)',before:fmt(was),after:fmt(to)}],'keying',lfForm.reason,['Brought back to the packing records']);
+  save(); toast('Packed is now '+fmt(to)+', what the records hold.'); lineFixOpen(o.po,l.id,''); }
+function lineFixDate(){ var c=_lfGuard(); if(!c) return; var o=c.o,l=c.l; var d=String(lfForm.ddate||'').slice(0,10);
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(d)) return toast('Enter the delivery date');
+  if(d>evToday()) return toast('A delivery date cannot be in the future');
+  if(o.received&&d<String(o.received).slice(0,10)) return toast('That is before the order was received ('+o.received+')');
+  l.deliveredDate=d;
+  recordCorrection('AMEND','orderLine',l.id,o.po+' · '+l.brand,[{field:'deliveredDate',label:'Delivery date',before:'',after:d}],'backdate',lfForm.reason,[]);
+  save(); toast('Delivery date stamped: '+d); lineFixOpen(o.po,l.id,''); }
+/* the Needs-you list: every line with something wrong, each opening its own sheet */
+function lineFixList(kind){ var R=lineFixRows(kind), e=qsEsc;
+  var h='<div class="mh"><h2>'+(kind==='undated'?'Delivered lines with no date':'Packed lines that do not match their records')+'</h2><div class="sub">'+R.length+' line'+(R.length===1?'':'s')+' · tap one to see its history and fix it there</div></div><div class="mb"><div class="tdlist">'
+    +(R.length?R.map(function(r){ return '<div class="tdcard st-over clk" onclick="lfForm={};lineFixOpen(\''+e(r.o.po)+'\',\''+e(r.l.id)+'\')"><div class="row between"><span class="tdtitle" style="margin-top:0">'+e(r.o.po)+' · '+e(r.l.brand)+'</span><span class="tdsub">'+e(_tdClient(r.o)||r.o.client||'')+'</span></div><div class="tdsub">'+r.I.map(function(i){ return e(i.t); }).join(' · ')+'</div></div>'; }).join(''):'<div class="muted">Nothing to fix.</div>')
+    +'</div></div><div class="mf"><button class="qs-btn" onclick="closeModal();render()">Close</button></div>';
+  $('modal').innerHTML=h; $('modalBg').classList.add('open'); }
+
+/* ===== ONE LOT TESTED FOR THE BATCH — 24 Sep 2026 (25b) ======================
+   Himayat (QCM): "We divide a batch in lots. If we have 5 or 10 lots in a batch,
+   which lot is the representation of the batch and declared a batch report, and
+   how will we identify it?" Tahir ruled: one lot is tested for the batch, and
+   each lot gets a copy - its own certificate, its own lot number and quantity,
+   carrying the tested lot's results and saying "results from lot X".
+   - The QCM (or the AQCM, or their leave cover) marks the lot that is tested:
+     b.repLot = {lotId, lotNo, by, at}. Changeable until that lot's COA is approved.
+   - Until then the other lots are not lab jobs: they wait for that result.
+   - When the tested lot's COA is approved, every lot that exists at that moment
+     and has no certificate gets its copy (labCopyRep). A copy is approved with
+     the same results and signatures, marked repOf.
+   - A lot logged AFTER the approval was not in the sample. It is a lab job of its
+     own, unless the QCM extends the batch result to it (labExtendRep), recorded
+     in his name. */
+function labMayRep(){ return state.role==='QCM'||state.role==='AQCM'||labCovers('QCM')||labCovers('AQCM'); }
+function labRepOf(b){ var r=b&&b.repLot; if(!r) return null; var lot=(b.lots||[]).find(function(l){ return l.id===r.lotId; }); return lot||null; }
+function labRepApproved(b){ var r=labRepOf(b); return !!(r&&r.coa&&r.coa.status==='approved'); }
+function labLotWaitsRep(b,u){ var r=labRepOf(b); return !!(r&&u&&u.id&&u.id!==r.id&&!u.coa&&!labRepApproved(b)); }
+function labSetRep(bid,lotId){ if(!labMayRep()){ toast('The QC manager or the AQCM marks the lot that is tested.'); return false; }
+  var b=(state.batches||[]).find(function(x){ return x.id===bid; }); if(!b) return false; var lot=(b.lots||[]).find(function(l){ return l.id===lotId; }); if(!lot){ toast('Lot not found'); return false; }
+  if((b.lots||[]).length<2){ toast('This batch has one lot; its own test is the batch test.'); return false; }
+  if(labRepApproved(b)){ toast('The batch result is already approved from lot '+b.repLot.lotNo+'.'); return false; }
+  var cur=labRepOf(b); if(cur&&cur.id!==lot.id&&cur.coa&&cur.coa.status!=='draft'){ toast('Lot '+cur.lotNo+' is already past testing; it stays the tested lot.'); return false; }
+  var prev=b.repLot&&b.repLot.lotNo;
+  b.repLot={lotId:lot.id,lotNo:lot.lotNo||b.batchNo||'',by:(state.currentUser&&state.currentUser.name)||state.role,byRole:state.role,at:new Date().toISOString()};
+  qcAudit2(b,'Tested lot for the batch',(prev?prev+' → ':'')+b.repLot.lotNo);
+  logAction('Lot '+b.repLot.lotNo+' marked as the lot tested for batch '+(b.batchNo||'')+(prev?' (was '+prev+')':''));
+  save(); try{ render(); }catch(e){} toast('Lot '+b.repLot.lotNo+' is tested for batch '+(b.batchNo||'')+'. The other lots take its result.'); return true; }
+function _labCopyOne(b,rep,lot,how){ var c=JSON.parse(JSON.stringify(rep.coa)); delete c.coaHistory; delete c.rejected; delete c.supersedes;
+  var MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; var od=new Date(lot.date||b.openedDate||evToday());
+  c.batchNo=lot.lotNo||b.batchNo||''; c.quantity=fmt(Math.round(+lot.qty||0))+' Kg'; if(!isNaN(od)){ c.mfgDate=MON[od.getMonth()]+'-'+od.getFullYear(); c.expDate=MON[od.getMonth()]+'-'+(od.getFullYear()+2); }
+  c.certifiedKg=+lot.qty||0; lot.certifiedKg=+lot.qty||0;
+  c.repOf={lotId:rep.id,lotNo:rep.lotNo||'',batchNo:b.batchNo||'',how:how,by:(state.currentUser&&state.currentUser.name)||state.role,at:new Date().toISOString()};
+  c.remarks='Results from lot '+(rep.lotNo||'')+', tested for batch '+(b.batchNo||'')+'.'+(how==='extended'?' Extended to this lot by '+c.repOf.by+' on '+evToday()+'.':'')+(rep.coa.remarks?' '+rep.coa.remarks:'');
+  lot.coa=c; return c; }
+/* on approval of the tested lot: every lot that exists now and has no certificate gets its copy */
+function labCopyRep(b,approvedLot){ var rep=labRepOf(b); if(!rep||!approvedLot||rep.id!==approvedLot.id||!labRepApproved(b)) return 0; var n=0, nos=[];
+  (b.lots||[]).forEach(function(l){ if(l.id===rep.id||l.coa) return; _labCopyOne(b,rep,l,'batch'); n++; nos.push(l.lotNo); });
+  b.repLot.copiedAt=new Date().toISOString(); b.repLot.covered=(b.lots||[]).map(function(l){ return l.id; });
+  if(n){ qcAudit2(b,'Batch result copied to lots',nos.join(', ')+' from '+rep.lotNo); logAction('Batch '+(b.batchNo||'')+': result of lot '+rep.lotNo+' copied to '+n+' lot'+(n===1?'':'s')+' ('+nos.join(', ')+')'); }
+  return n; }
+/* a lot logged after the batch result: tested on its own, or the QCM extends the result to it */
+function labLotLate(b,u){ return !!(b&&b.repLot&&b.repLot.covered&&u&&u.id&&!u.coa&&b.repLot.covered.indexOf(u.id)<0&&labRepApproved(b)); }
+function labExtendRep(bid,lotId){ if(!(state.role==='QCM'||labCovers('QCM'))){ toast('Only the QC manager extends a batch result.'); return; }
+  var b=(state.batches||[]).find(function(x){ return x.id===bid; }); var lot=b&&(b.lots||[]).find(function(l){ return l.id===lotId; }); if(!lot||lot.coa){ toast('That lot already has a certificate.'); return; }
+  if(!labRepApproved(b)){ toast('The tested lot is not approved yet.'); return; }
+  if(typeof confirm==='function'&&!confirm('Lot '+lot.lotNo+' was logged after lot '+b.repLot.lotNo+' was tested. Certify it with that result, in your name?')) return;
+  _labCopyOne(b,labRepOf(b),lot,'extended'); b.repLot.covered.push(lot.id);
+  qcAudit2(b,'Batch result extended',lot.lotNo+' from '+b.repLot.lotNo); logAction('Batch result of lot '+b.repLot.lotNo+' extended to lot '+lot.lotNo+' by the QCM');
+  save(); try{ render(); }catch(e){} toast('Lot '+lot.lotNo+' now carries the batch result.'); }
+/* what the lab screen says on a lot row, before the ordinary buttons */
+function labRepCell(u){ var b=u.b; var r=labRepOf(b);
+  if(labLotWaitsRep(b,u)) return '<span class="muted" style="font-size:11px">takes the result of lot <b>'+qsEsc(r.lotNo)+'</b></span>';
+  if(labLotLate(b,u)) return '<span class="muted" style="font-size:11px">logged after lot '+qsEsc(r.lotNo)+' was tested</span>'+((state.role==='QCM'||labCovers('QCM'))?' <button class="sm ghost" onclick="labExtendRep(\''+qsEsc(b.id)+'\',\''+qsEsc(u.id)+'\')">Give it the batch result</button>':'');
+  return ''; }
+function labRepBtn(u){ var b=u.b; if(!u.id||(b.lots||[]).length<2||labRepApproved(b)||!labMayRep()) return ''; var r=labRepOf(b);
+  if(r&&r.id===u.id) return ' <span class="tdtag ok">tested for the batch</span>';
+  if(r&&r.coa&&r.coa.status!=='draft') return '';
+  if(u.coa&&u.coa.status!=='draft') return '';
+  return ' <button class="sm ghost" onclick="labSetRep(\''+qsEsc(b.id)+'\',\''+qsEsc(u.id)+'\')">'+(r?'Test this lot instead':'Test this lot for the batch')+'</button>'; }
+
 /* ===== THE THREE VERIFY ITEMS — SPEC-01 rule 3, built 2026-08-21
 
    The 8-point checklist asks "Batch & expiry printed" — printed, not CORRECT.
@@ -10000,6 +10194,7 @@ function printCOA(bid,lid,histIdx){ const ctx=coaCtx(bid,lid); const b=ctx.b, h=
      <div>Analysis Time: <b>${e(c.analysisTime)}</b></div><div>Temperature °C: <b>${e(c.temp)}</b></div></div>
      <div class="col"><div>Quantity: <b>${e(c.quantity)}${/kg|l\b/i.test(String(c.quantity))?'':' Kg'}</b></div><div>Exp. Date: <b>${e(c.expDate)}</b></div><div>Receiving Date: <b>${e(c.receivingDate)}</b></div>
      <div>Sample Quantity: <b>${e(c.sampleQty)}</b></div><div>Date of Test: <b>${e(c.dateOfTest)}</b></div><div>Humidity %: <b>${e(c.humidity)}</b></div></div></div>
+   ${c.repOf?`<div class="iss" style="font-weight:700">Results from lot ${e(c.repOf.lotNo)}, the lot tested for batch ${e(c.repOf.batchNo)}. This certificate covers lot ${e(c.batchNo)}${c.repOf.how==='extended'?', extended by the QC manager':''}.</div>`:''}
    <table><thead><tr><th>Test</th><th>Specs</th><th>Results</th><th>Methods</th><th>MU (%)</th><th>Remarks</th></tr></thead><tbody>${trows}</tbody></table>
    <div class="disc"><h4>Report Disclaimer</h4><ol>${disc.map(x=>`<li>${e(x)}</li>`).join('')}</ol><div class="r"><b>MU Stand for:</b> Measurement of Uncertainty.</div><div class="r"><b>Decision Rule:</b> If the sum of the result and uncertainty is more than the specified/claimed/permissible limit, the sample will be declared as OK and vice versa.</div>${c.deviation?`<div class="r" style="color:#c0392b"><b>Deviation accepted by Plant Manager:</b> ${e(c.deviationNote)}</div>`:''}</div>
    <div class="signs"><div class="s"><div class="nm">${sigName(c.analyst)}</div><div class="role"><b>Analysed By</b><br>${e(sigTitle(c.analyst,'Lab Rep'))}</div><div class="dt">Date: ${e(c.analyst&&c.analyst.date)}</div></div>
@@ -10998,7 +11193,8 @@ function screenQC(){
   const labPending=lotUnits.filter(u=>!u.coa || u.coa.status!=='approved');
   const labDone=lotUnits.filter(u=>u.coa&&u.coa.status==='approved');
   const itemOf=b=>coaItemOf(b);
-  const labAct=(u)=>{ const st=u.coa&&u.coa.status; const call=`openBatchCOA('${u.b.id}','${u.id}')`;
+  const labAct=(u)=>{ const _rc=labRepCell(u); if(_rc) return _rc; /* 25b */ return labAct0(u)+labRepBtn(u); };
+  const labAct0=(u)=>{ const st=u.coa&&u.coa.status; const call=`openBatchCOA('${u.b.id}','${u.id}')`;
     if(labNeedsAssign({coa:u.coa})) return (isQM||isCOO)?`<button class="sm green" onclick="openLabAssign('${u.b.id}','${u.id}')">Assign</button>`:'<span class="muted" style="font-size:11px">waiting for the QC manager to assign</span>';
     if(labIsV2(u.coa)&&st==='draft'){ const _d=(u.coa.tests||[]).filter(t=>t.doneAt).length; return `<span class="muted" style="font-size:11px">testing · ${_d} of ${(u.coa.tests||[]).length} done</span> <button class="sm ghost" onclick="openLabAssign('${u.b.id}','${u.id}')">Analysts</button>`; }
     if(!u.coa||st==='draft') return isLab?`<button class="sm green" onclick="${call}">${u.coa?'Resume COA':'Start COA'}</button>`:'<span class="muted" style="font-size:11px">waiting for Lab Rep</span>';
@@ -11265,7 +11461,7 @@ function actionItems(){
   /* 24v: a lab signature with nobody to give it - the Plant Manager names a cover */
   try{ labCoverNeeds().forEach(function(it){ items.push(it); }); }catch(e){}
   (state.batches||[]).filter(b=>(b.producedKg||0)>0 && b.disposition!=='byproduct').forEach(b=>{ const it=coaItemOf(b);  /* Stage 1: by-product accruals don't generate Lab-COA/QC actions until called for manufacturing (read-only; clears the 2 false QC triggers) */ const units=(b.lots||[]).length?(b.lots).map(l=>({id:l.id,no:(l.lotNo||b.batchNo||''),coa:l.coa})):[{id:'',no:(b.batchNo||''),coa:b.coa}];
-    units.forEach(u=>{ const st=u.coa&&u.coa.status; if(u.coa&&st==='approved')return; const call="openBatchCOA('"+b.id+"','"+u.id+"')"; const tag=(u.no||'');
+    units.forEach(u=>{ const st=u.coa&&u.coa.status; if(u.coa&&st==='approved')return; if(labLotWaitsRep(b,u)) return; /* 25b: waits for the lot tested for the batch */ const call="openBatchCOA('"+b.id+"','"+u.id+"')"; const tag=(u.no||'');
       /* 24r: a sample in the lab's own flow - assigned by parameter (labV2Items). Review onwards is the code below. */
       if(labIsV2(u.coa)||(!u.coa&&labFlowOn())){ if(!u.coa||!u.coa.assign||st==='draft'){ labV2Items(b,u,it,tag,call).forEach(function(x){ items.push(x); }); return; } }
       /* A re-issued draft is named as one, with its reason, so the Lab Rep is not
@@ -12364,9 +12560,9 @@ function boNeeds(){
     var depts=((state.masters&&state.masters.departments)||[]).filter(function(x){return x&&!x.archived;}); var noLead=depts.filter(function(d){ return !deptLeadRole(d.id); });
     if(noLead.length&&state.role==='COO') N.push({n:noLead.length,t:noLead.length+' department'+(noLead.length===1?' has':'s have')+' no lead named', d:noLead.map(function(d){return d.name;}).join(', '), go:"reTab='leads';boOpenRoles()", st:'st-late'});
   }
-  var ud=boUndated(); if(ud.length&&has('Correct a record')) N.push({n:ud.length,t:ud.length+' delivered line'+(ud.length===1?' has':'s have')+' no delivery date — the quantity is on record, the date is not', d:ud.slice(0,6).map(function(x){return x.o.po+' · '+x.l.brand;}).join(', ')+(ud.length>6?' …':''), go:"boOpen('datafix')", st:'st-late'});
-  var reconN=0; try{ reconN=(reconCompute()||{rows:[]}).rows.length; }catch(e){}
-  if(reconN&&has('Reconcile packing')) N.push({n:reconN,t:reconN+' packed line'+(reconN===1?' does':'s do')+' not match '+(reconN===1?'its':'their')+' packing record', d:'', go:"boOpen('recon')", st:'st-over'});
+  var ud=boUndated(); if(ud.length&&has('Correct a record')) N.push({n:ud.length,t:ud.length+' delivered line'+(ud.length===1?' has':'s have')+' no delivery date — the quantity is on record, the date is not', d:ud.slice(0,6).map(function(x){return x.o.po+' · '+x.l.brand;}).join(', ')+(ud.length>6?' …':''), go:"lineFixList('undated')", st:'st-late'});
+  var reconN=0; try{ reconN=lineFixRows('packing').length; }catch(e){}
+  if(reconN&&has('Reconcile packing')) N.push({n:reconN,t:reconN+' packed line'+(reconN===1?' does':'s do')+' not match '+(reconN===1?'its':'their')+' packing record or '+(reconN===1?'passes its':'pass their')+' ordered quantity', d:(function(){ try{ return lineFixRows('packing').slice(0,6).map(function(x){return x.o.po+' · '+x.l.brand;}).join(', '); }catch(e){ return ''; } })(), go:"lineFixList('packing')", st:'st-over'});
   return N;
 }
 function boDesks(){
@@ -12926,7 +13122,7 @@ function openOrderSheet(id){
   h+='<div class="note" style="margin:10px 0 14px"><b>Next:</b> '+next+'</div>';
   h+='<div class="tdsec" style="margin-top:0">Products<span class="cnt">'+(o.lines||[]).length+'</span></div>';
   h+='<div class="tdlist">'+(o.lines||[]).map(function(l){ var lb=ordLineBrief(o,l); var tone=lb.b==='Delivered'?'st-done':(lb.b==='Closed short'?'st-na':(lb.late?'st-over':'st-ok'));
-    return '<div class="tdcard ord2-line '+tone+'"><div class="row between" style="align-items:baseline;gap:8px;flex-wrap:wrap"><span class="tdtitle" style="margin-top:0">'+qsEsc(l.brand)+'</span><span class="tdsub">'+fmt(lb.ord)+' '+unitOf(l.brand)+' ordered · <b>'+qsEsc(lb.b)+'</b>'+(lb.late?' · <span style="color:var(--over)">'+Math.round((TODAY-new Date(l.committed))/86400000)+' d past its date</span>':'')+'</span></div>'+ordLineStepsHTML(o,l)+(typeof closeLineButtonHTML==='function'?(function(){ var cb=closeLineButtonHTML(o,l); return cb?'<div class="actions" style="margin-top:8px">'+cb+'</div>':''; })():'')+'</div>'; }).join('')+'</div>';
+    return '<div class="tdcard ord2-line '+tone+'"><div class="row between" style="align-items:baseline;gap:8px;flex-wrap:wrap"><span class="tdtitle" style="margin-top:0">'+qsEsc(l.brand)+'</span><span class="tdsub">'+fmt(lb.ord)+' '+unitOf(l.brand)+' ordered · <b>'+qsEsc(lb.b)+'</b>'+(lb.late?' · <span style="color:var(--over)">'+Math.round((TODAY-new Date(l.committed))/86400000)+' d past its date</span>':'')+'</span></div>'+ordLineStepsHTML(o,l)+(function(){ var _I=lineIssues(o,l); return '<div class="row" style="gap:8px;margin-top:6px;align-items:center">'+(_I.length?'<span class="tdtag late">■ '+qsEsc(_I[0].t)+'</span>':'')+'<button class="qs-btn sm ghost" onclick="lfForm={};lineFixOpen(\''+qsEsc(o.po)+'\',\''+qsEsc(l.id)+'\')">History'+(_I.length&&screenEditOK('datafix')?' and fix':'')+'</button></div>'; })()+(typeof closeLineButtonHTML==='function'?(function(){ var cb=closeLineButtonHTML(o,l); return cb?'<div class="actions" style="margin-top:8px">'+cb+'</div>':''; })():'')+'</div>'; }).join('')+'</div>';
   h+='</div><div class="mf">'+openBtn+close+'<button class="qs-btn" onclick="closeModal()">Close</button></div>';
   $('modal').innerHTML=h; $('modalBg').classList.add('open');
 }
@@ -13161,7 +13357,7 @@ function guideMyJob(){
   return h;
 }
 function guideHow(){
-  var steps=[['Received','An order is entered with each product, quantity and a committed date. Nothing moves until it exists here.'],['Materials','Supply Chain acknowledges it and checks raw material: in full, in part, or not yet. A shortfall raises a purchase request the CFO approves; what arrives is confirmed at the bay.'],['Produced','Production opens a batch, logs each shift’s output, closes the batch. The base is made in bulk; packing turns it into the brand. The Production screen shows one card per product to make, with the orders inside it.'],['Lab','The QC manager assigns each test of a sample to an analyst; each analyst runs his test for every waiting sample on one bench sheet, and his name and the time go on the result. When every test has a result the AQCM reviews and the QCM approves. (Until the COO switches this on, one analyst drafts the whole COA as before.)'],['Packed · QA','Each packed lot is inspected before it can ship. A failed lot is corrected and re-inspected.'],['Shipped','Supply Chain plans the truck, the warehouse loads it, the gate pass is issued, the truck is inspected and released. The person who loads does not release. The moment the truck is released it counts as a sale, at the invoice price before FED and sales tax.'],['Delivered','Delivery is confirmed and the order is Delivered. A line delivered in full is Delivered whether or not the date was stamped; the missing date is listed for the COO.']];
+  var steps=[['Received','An order is entered with each product, quantity and a committed date. Nothing moves until it exists here.'],['Materials','Supply Chain acknowledges it and checks raw material: in full, in part, or not yet. A shortfall raises a purchase request the CFO approves; what arrives is confirmed at the bay.'],['Produced','Production opens a batch, logs each shift’s output, closes the batch. The base is made in bulk; packing turns it into the brand. The Production screen shows one card per product to make, with the orders inside it.'],['Lab','The QC manager assigns each test of a sample to an analyst; each analyst runs his test for every waiting sample on one bench sheet, and his name and the time go on the result. When every test has a result the AQCM reviews and the QCM approves. (Until the COO switches this on, one analyst drafts the whole COA as before.) When a batch is split into lots, the QC manager marks one lot to test for the batch; the other lots wait for it, and each then gets its own certificate with that result, saying which lot was tested. A lot logged after that test is tested on its own, unless the QC manager gives it the batch result in his name.'],['Packed · QA','Each packed lot is inspected before it can ship. A failed lot is corrected and re-inspected.'],['Shipped','Supply Chain plans the truck, the warehouse loads it, the gate pass is issued, the truck is inspected and released. The person who loads does not release. The moment the truck is released it counts as a sale, net of FED (FED is the sales tax; on an order quoted FED-inclusive the price is divided by 1.05).'],['Delivered','Delivery is confirmed and the order is Delivered. A line delivered in full is Delivered whether or not the date was stamped; the missing date is listed for the COO.']];
   var h='<div class="gd-intro">One order goes through 7 steps. At each step one role acts; the moment it presses its button the job appears on the next role’s Today. Nobody chases anybody: the list does.</div>';
   h+='<div class="gd-steps">'+steps.map(function(s,i){ return '<div class="gd-step"><span class="n">'+(i+1)+'</span><div><b>'+s[0]+'</b><span>'+s[1]+'</span></div></div>'; }).join('')+'</div>';
   h+='<h2>What the marks mean</h2><div class="gd-rows"><div class="gd-row"><span class="k">● due</span><span>the committed date is ahead</span></div><div class="gd-row"><span class="k">■ 12 d past promise</span><span>the committed date has passed; the days are counted from it</span></div><div class="gd-row"><span class="k">is on it</span><span>a colleague with the same role has taken the card; it stays visible to both</span></div><div class="gd-row"><span class="k">Escalated to you</span><span>a card left too long on someone’s Today, shown to their lead with the role’s name</span></div><div class="gd-row"><span class="k">Done. Now waiting on …</span><span>the toast after every button: who the job went to, by name</span></div></div>';
@@ -13174,7 +13370,9 @@ function guideRules(){
   h+='<div class="gd-rule"><h3>Why there is no bulk entry</h3><p>A batch, a shift, a lot and a truck are each their own record with their own number, date and name. The COA cites the batch, the gate pass cites the lot, the delivery cites the truck. One line typed for a week hides which shift made what, who inspected which lot and when the truck actually left — and then nothing downstream can be traced back. Entering each record as it happens takes a minute; reconstructing a week later takes a day and is still a guess.</p></div>';
   h+='<div class="gd-rule"><h3>The 2-person rules</h3><p>The person who drafts a COA does not review it; the reviewer does not approve it. Nobody who ran a test on a sample reviews or approves its certificate. Management does not sign a certificate: only the lab signs. The person who loads a truck does not release it. Nobody inspects their own output. A department lead can hand out the department’s rights but cannot widen his own. Where the app finds 2 of these in one pair of hands it refuses the button and says why.</p></div>';
   h+='<div class="gd-rule"><h3>When the AQCM or the QCM is on leave</h3><p>Tap your name → <b>I’m going on leave</b> and give the days; the Plant Manager gets a job to name a cover. The cover is someone in the lab. He signs one line in his own name, and the certificate prints <b>for</b> the person on leave. A cover never signs both lines of one certificate. If nobody announced the leave and certificates wait a day for someone who has done nothing in the app that day, the Plant Manager is asked too.</p></div>';
-  h+='<div class="gd-rule"><h3>Nothing is deleted</h3><p>An order line is closed short with a reason, never removed; the ordered quantity is never rewritten. A product or customer is deactivated, not deleted. A wrong entry is corrected under Correct a record, with a reason, in your name, and the correction sits beside the original in the register. If a number changed, the record shows who changed it and why.</p></div>';
+  h+='<div class="gd-rule"><h3>Nothing is deleted</h3><p>An order line is closed short with a reason, never removed; the ordered quantity is never rewritten. A product or customer is deactivated, not deleted. A wrong entry is corrected under Correct a record, with a reason, in your name, and the correction sits beside the original in the register. If a number changed, the record shows who changed it and why.</p></div>'+
+  '<div class="gd-rule"><h3>A number moves only with its record</h3><p>Packed moves with a packing run from a batch, dispatched with a truck, delivered with a delivery. None of them can be typed, and nothing can be packed beyond what the line ordered. When a line and its records disagree, open the line (Orders → the order → <b>History</b>, or the item on Back Office <b>Needs you</b>): it shows what is wrong, the line’s whole history, what the records show as the cause, and the fix — record the missing packing against its batch, bring packed back to its records, or stamp a delivery date from the truck — each with a reason in your name.</p></div>'+
+  '<div class="gd-rule"><h3>What a sale is</h3><p>A sale is counted the day the truck leaves the gate, at quantity × invoice price, net of FED. FED is the sales tax: on an order quoted FED-inclusive the price is divided by 1.05. Every money figure in the app — Sales & Budget, the reports, the PO register — uses this one rule.</p></div>';
   h+='<div class="gd-rule"><h3>Roles, not people</h3><p>Rights belong to roles. 2 people can hold one role and sign differently. There are no exceptions for one person — an exception becomes a new role, so it can be seen and given to the next person in that seat.</p></div>';
   h+='<div class="gd-rule"><h3>What is never on a customer document</h3><p>No price on any document the customer sees. The COA carries composition, results and the 3 signatures; the delivery challan carries product, quantity and lot.</p></div>';
   return h;
@@ -13612,7 +13810,7 @@ function saveShip(){ if(!may('shipment.plan')){toast(denyRight('shipment.plan','
    the historical lot-tracking backfill already run for insKg/shipKg). Until that lands, avoid adding
    a second order line with the same brand to a PO that already has one — extend the existing line's
    ordered qty instead. */
-function lotsFor(o,l){ return (state.packingLog||[]).filter(function(p){ if(!p) return false; if((+p.kg||0)<=0.0001) return false; if(p.po!==o.po) return false; return p.lid ? (p.lid===l.id) : (p.brand===l.brand); }).sort(function(a,b){return String(a.date||a.mfgDate||'').localeCompare(String(b.date||b.mfgDate||''))||String(a.id||'').localeCompare(String(b.id||''));}); }
+function lotsFor(o,l){ return (state.packingLog||[]).filter(function(p){ if(!p||p.reversed||p.void) return false; /* 25b: a reversed lot kept its kg and came back as packing (and to inspect) */ if((+p.kg||0)<=0.0001) return false; if(p.po!==o.po) return false; return p.lid ? (p.lid===l.id) : (p.brand===l.brand); }).sort(function(a,b){return String(a.date||a.mfgDate||'').localeCompare(String(b.date||b.mfgDate||''))||String(a.id||'').localeCompare(String(b.id||''));}); }
 function lotHasBatch(p){ return !!lotBaseNo(p); }
 function lotAvail(p){ if(p&&p.qaHold) return 0; return Math.max(0,(+p.kg||0)-(+p.insKg||0)); }       // packed, not yet inspected (a QA-held lot drops out of the queue until corrected)
 function lotClearedKg(p){ return Math.max(0,(+p.insKg||0)-(+p.shipKg||0)); }                       // inspected, not yet shipped
@@ -14668,14 +14866,15 @@ function dashMyTodos(){ const all=actionItems(); const esc=t=>String(t==null?'':
   const mine=all.filter(i=>i.role===state.role); const top=mine.slice(0,9);
   const rows=top.map(i=>`<div class="clk" onclick="${i.act}" style="display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:8px;padding:8px 11px;margin-bottom:6px;background:#fff"><span class="rbadge" style="min-width:92px;text-align:center">${esc(i.role)}</span><div style="flex:1;min-width:0;font-size:12.5px">${esc(i.what)}</div><button class="sm green" style="white-space:nowrap">${esc(i.label)} \u2192</button></div>`).join('');
   return {count:mine.length, html: mine.length?(rows+(mine.length>top.length?`<div class="muted" style="font-size:11px;text-align:center;margin-top:4px">+${mine.length-top.length} more \u2014 open <b>My Actions</b></div>`:'')):'<div class="muted" style="padding:16px 0;text-align:center">Nothing waiting on you right now. \u2705</div>'}; }
-function dashTargetsPanel(){ const fy=fyKey(TODAY.toISOString().slice(0,10)); const targets=(state.masters&&state.masters.salesTargets)||{}; const rows={}; (state.orders||[]).forEach(o=>{ const c=budgetKey(o); rows[c]=rows[c]||{d:0}; (o.lines||[]).forEach(l=>{ rows[c].d+=(+l.delivered||0)*(+l.invoicePrice||0); }); }); let totT=0,totD=0; Object.keys(targets).forEach(c=>{ totT+=(+(targets[c]&&targets[c][fy])||0); }); Object.keys(rows).forEach(c=>{ totD+=rows[c].d; }); const pct=totT>0?Math.round(totD/totT*100):0;
+function dashTargetsPanel(){ const fy=fyKey(TODAY.toISOString().slice(0,10)); const targets=(state.masters&&state.masters.salesTargets)||{}; const rows={}; /* 25b: sold this FY, net, truck out - the Sales & Budget rule */ saleRows().forEach(x=>{ if(x.fy!==fy) return; rows[x.key]=rows[x.key]||{d:0}; rows[x.key].d+=x.value; }); let totT=0,totD=0; Object.keys(targets).forEach(c=>{ totT+=(+(targets[c]&&targets[c][fy])||0); }); Object.keys(rows).forEach(c=>{ totD+=rows[c].d; }); const pct=totT>0?Math.round(totD/totT*100):0;
   const gaps=Object.keys(targets).map(c=>{ const t=+(targets[c]&&targets[c][fy])||0; const d=(rows[c]&&rows[c].d)||0; return {c,t,d,gap:Math.max(0,t-d),p:t>0?Math.round(d/t*100):0}; }).filter(x=>x.t>0).sort((a,b)=>b.gap-a.gap).slice(0,5);
   const bar=p=>`<div style="background:#eef1f6;border-radius:6px;height:7px;overflow:hidden;min-width:70px;flex:1"><div style="height:7px;width:${Math.min(100,p)}%;background:${p>=100?'var(--green2)':p>=60?'var(--navy)':'var(--amber)'}"></div></div>`;
-  const body=totT>0?(`<div class="clk" onclick="gotoScreen('budget')"><div style="display:flex;align-items:center;gap:12px;margin-bottom:10px"><div style="text-align:center"><div style="font-size:24px;font-weight:800;color:${pct>=100?'var(--green2)':pct>=60?'var(--navy)':'var(--amber)'}">${pct}%</div><div class="muted" style="font-size:10px">of FY target</div></div><div style="flex:1"><div class="muted" style="font-size:11px;margin-bottom:4px">${pkr(totD)} delivered of ${pkr(totT)}</div>${bar(pct)}</div></div>`+(gaps.length?`<div class="muted" style="font-size:10.5px;margin:6px 0 3px">Biggest gaps to target</div><table style="width:100%"><tbody>${gaps.map(g=>`<tr><td style="font-size:11.5px"><b>${g.c}</b></td><td style="width:90px;padding:3px 6px">${bar(g.p)}</td><td class="num" style="font-size:11px;color:var(--amber)">${pkr(g.gap)}</td></tr>`).join('')}</tbody></table>`:'')+`</div>`):'<div class="muted" style="padding:14px 0">No sales targets set for this FY \u2014 set them in Admin \u00b7 Master Data.</div>';
-  return `<div class="card"><h3>Targets vs delivered <span class="hint">FY ${fy}</span></h3>${body}</div>`; }
+  const body=totT>0?(`<div class="clk" onclick="gotoScreen('budget')"><div style="display:flex;align-items:center;gap:12px;margin-bottom:10px"><div style="text-align:center"><div style="font-size:24px;font-weight:800;color:${pct>=100?'var(--green2)':pct>=60?'var(--navy)':'var(--amber)'}">${pct}%</div><div class="muted" style="font-size:10px">of FY target</div></div><div style="flex:1"><div class="muted" style="font-size:11px;margin-bottom:4px">${pkr(totD)} sold of ${pkr(totT)}</div>${bar(pct)}</div></div>`+(gaps.length?`<div class="muted" style="font-size:10.5px;margin:6px 0 3px">Biggest gaps to target</div><table style="width:100%"><tbody>${gaps.map(g=>`<tr><td style="font-size:11.5px"><b>${g.c}</b></td><td style="width:90px;padding:3px 6px">${bar(g.p)}</td><td class="num" style="font-size:11px;color:var(--amber)">${pkr(g.gap)}</td></tr>`).join('')}</tbody></table>`:'')+`</div>`):'<div class="muted" style="padding:14px 0">No sales targets set for this FY \u2014 set them in Admin \u00b7 Master Data.</div>';
+  return `<div class="card"><h3>Targets vs sold <span class="hint">FY ${fy}</span></h3>${body}</div>`; }
 /* ===================== EXECUTIVE DASHBOARD v2 (Phase 1) — read-only, computes only =====================
-   Money formulas match the Sales & Budget screen exactly: booked = Σ(ordered×invoicePrice),
-   delivered = Σ(delivered×invoicePrice), target = salesTargets[client][fy]. No state is mutated. */
+   Money formulas match the Sales & Budget screen exactly (25b): delivered = SOLD this FY
+   (trucks out of the gate, net of FED - saleRows), booked = sold this FY + open orders still
+   to leave (saleOpenValue), target = salesTargets[client][fy]. No state is mutated. */
 function pkrM(n){ n=+n||0; return 'PKR '+(Math.abs(n)>=1e6?(n/1e6).toFixed(2)+'M':Math.round(n).toLocaleString()); }
 function execMetrics(){
   const fy=fyKey(TODAY.toISOString().slice(0,10));
@@ -14684,12 +14883,12 @@ function execMetrics(){
   Object.keys(targets).forEach(c=>{ row(c).budget+=(+(targets[c]&&targets[c][fy])||0); });
   let booked=0,delivered=0,riskVal=0,onN=0,onD=0;
   (state.orders||[]).forEach(o=>{ const r=row(budgetKey(o));
-    (o.lines||[]).forEach(l=>{ const ip=+l.invoicePrice||0;
-      const bk=(+l.ordered||0)*ip; r.booked+=bk; booked+=bk;
-      const dv=(+l.delivered||0)*ip; r.delivered+=dv; delivered+=dv;
+    (o.lines||[]).forEach(l=>{ const ip=lineNetPrice(o,l);
+      const bk=saleOpenValue(o,l); r.booked+=bk; booked+=bk;
       if(lineOverdue(o,l)){ riskVal+=Math.max(0,(+l.ordered||0)-(+l.delivered||0))*ip; }
       if(l.deliveredDate){ onD++; if(!l.committed||new Date(l.deliveredDate)<=new Date(l.committed)) onN++; }
     }); });
+  saleRows().forEach(x=>{ if(x.fy!==fy) return; const r=row(x.key); r.delivered+=x.value; r.booked+=x.value; delivered+=x.value; booked+=x.value; });
   let budget=0; Object.values(byc).forEach(r=>budget+=r.budget);
   let fit=0,unfit=0; (state.batches||[]).forEach(b=>{ const units=(b.lots&&b.lots.length)?b.lots:[{coa:b.coa}]; units.forEach(u=>{ const st=u.coa&&u.coa.status; if(st==='approved')fit++; else if(st==='failed')unfit++; }); });
   const fitPct=(fit+unfit)>0?Math.round(fit/(fit+unfit)*100):null;
@@ -14697,7 +14896,7 @@ function execMetrics(){
   const psPct=(insP+insF)>0?Math.round(insP/(insP+insF)*100):null;
   const rmCost={}; ((state.masters&&state.masters.rawMaterials)||[]).forEach(r=>{ if(r&&r.name) rmCost[r.name]=+r.cost||0; });
   const baseCost=base=>{ const rec=(typeof recipeFor==='function'?recipeFor(base):{})||{}; let c=0; for(const rm in rec){ c+=(+rec[rm]||0)*(rmCost[rm]||0); } return c; };
-  const _bi={},_bn={}; (state.orders||[]).forEach(o=>(o.lines||[]).forEach(l=>{ const ip=+l.invoicePrice||0; if(ip>0){ const bs=l.base||l.brand; _bi[bs]=(_bi[bs]||0)+ip; _bn[bs]=(_bn[bs]||0)+1; } }));
+  const _bi={},_bn={}; (state.orders||[]).forEach(o=>(o.lines||[]).forEach(l=>{ const ip=lineNetPrice(o,l); if(ip>0){ const bs=l.base||l.brand; _bi[bs]=(_bi[bs]||0)+ip; _bn[bs]=(_bn[bs]||0)+1; } }));
   const invRate=base=>(_bn[base]?_bi[base]/_bn[base]:0);
   let lossKg=0,bpKg=0,dvKg=0,rwKg=0,vlCost=0,vlInv=0; const _rp={},_rcl={}; const _bk=(mp,k)=>{ mp[k]=mp[k]||{loss:0,bp:0,dv:0,rw:0}; return mp[k]; };
   (state.batches||[]).forEach(b=>{ const pr=b.packReconcile; const lk=+(b.lossKg||(pr&&pr.loss)||0); const hasIt=!!(pr&&pr.items&&pr.items.length); if(lk<=0&&!hasIt)return;
@@ -14719,7 +14918,7 @@ function execHeadline(M){
   const bvb=M.budget>0?Math.round(M.booked/M.budget*100):0, dvb=M.budget>0?Math.round(M.delivered/M.budget*100):0;
   let bn=null; M.turn.forEach(t=>{ if(t.name!=='Total'&&t.days!=null&&t.days>=1&&(!bn||t.days>bn.days))bn=t; });
   const sales=bvb>=100?('Pipeline is strong — '+bvb+'% of budget booked'):('Booking is behind at '+bvb+'% of budget');
-  const deliv=dvb>=100?('delivery is on target'):('delivery is the constraint at '+dvb+'% delivered');
+  const deliv=dvb>=100?('sales are on target'):('sales are at '+dvb+'% of budget (trucks out, net)');
   const bott=bn?(', and '+bn.name.toLowerCase()+' is the slowest stage ('+bn.days+'d)'):'';
   const q=M.fitPct!=null?(M.fitPct>=95?(' Quality is healthy at '+M.fitPct+'% FIT.'):(' Quality needs attention: '+M.fitPct+'% FIT, '+M.unfit+' UNFIT.')):'';
   return sales+'; '+deliv+bott+'.'+q;
@@ -14833,7 +15032,7 @@ function drawDashExec(M){
     charts.exCust=new Chart($('chExCust'),{type:'bar',data:{labels:cl.map(c=>c.client),datasets:[
       {label:'Budget',data:cl.map(c=>+(c.budget/1e6).toFixed(2)),backgroundColor:'#94a3b8',borderRadius:3,barThickness:8},
       {label:'Booked',data:cl.map(c=>+(c.booked/1e6).toFixed(2)),backgroundColor:'#2563eb',borderRadius:3,barThickness:8},
-      {label:'Delivered',data:cl.map(c=>+(c.delivered/1e6).toFixed(2)),backgroundColor:'#16a34a',borderRadius:3,barThickness:8}]},
+      {label:'Sold',data:cl.map(c=>+(c.delivered/1e6).toFixed(2)),backgroundColor:'#16a34a',borderRadius:3,barThickness:8}]},
       options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.dataset.label+': PKR '+c.parsed.x.toFixed(2)+'M'}}},scales:{x:{grid:{color:GRID},ticks:{callback:v=>v+'M'}},y:{grid:{display:false},ticks:{font:{size:10}}}}}}); }
   if($('chExTurn')){ const t=M.turn.filter(x=>x.name!=='Total'&&x.days!=null);
     charts.exTurn=new Chart($('chExTurn'),{type:'bar',data:{labels:t.map(x=>x.name),datasets:[
@@ -15876,8 +16075,8 @@ function renderBulkPricing(){
   const missing=rows.filter(r=>!(+r.l.invoicePrice>0)).length;
   const body=rows.map(({o,l})=>{ const cur=(bulkPrice[l.id]!==undefined)?bulkPrice[l.id]:(l.invoicePrice||''); const has=(+cur>0); return `<tr><td><b>${o.po}</b></td><td class="muted" style="font-size:11px">${o.client}</td><td>${l.brand}</td><td class="num">${fmt(l.ordered||0)}</td><td><input type="number" value="${cur}" oninput="bulkPrice['${l.id}']=this.value" style="width:120px${has?'':';background:#fff7ed'}" placeholder="PKR/Kg·L"></td><td class="num muted">${has?pkr((+l.ordered||0)*(+cur)):'—'}</td></tr>`; }).join('');
   $('modal').innerHTML=`<div class="mh"><h2>Set VAN invoice prices — all open PO lines</h2><div class="sub">${rows.length} line(s) · ${missing} without a price · price = PKR per Kg/L (drives Sales &amp; Budget)</div></div>
-   <div class="mb"><div class="muted" style="font-size:12px;margin-bottom:8px">Fill the invoice price (what's on the client PO) for each product line, then Save. Blanks are highlighted. Lines already priced are pre-filled — edit if needed.</div>
-     <div style="max-height:58vh;overflow:auto"><table><thead><tr><th>PO</th><th>Client</th><th>Product</th><th class="num">Ordered</th><th>Invoice price</th><th class="num">Line value</th></tr></thead><tbody>${body||'<tr><td colspan="6" class="muted">No open PO lines.</td></tr>'}</tbody></table></div>
+   <div class="mb"><div class="muted" style="font-size:12px;margin-bottom:8px">Fill the invoice price (what's on the client PO) for each product line, then Save. Blanks are highlighted. Lines already priced are pre-filled — edit if needed. Type the price as the customer is quoted: on an order whose FED is <b>Inclusive</b> Sales &amp; Budget counts it at price ÷ 1.05, net of FED.</div>
+     <div style="max-height:58vh;overflow:auto"><table><thead><tr><th>PO</th><th>Client</th><th>Product</th><th class="num">Ordered</th><th>Invoice price</th><th class="num">Line value (as quoted)</th></tr></thead><tbody>${body||'<tr><td colspan="6" class="muted">No open PO lines.</td></tr>'}</tbody></table></div>
    </div>
    <div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" onclick="saveBulkPricing()">Save all prices</button></div>`; }
 function saveBulkPricing(){ if(!(state.role==='COO'||state.role==='CFO')){toast('COO / CFO only');return;} let n=0;
@@ -16209,7 +16408,9 @@ function setLineInvoice(oid,lid,v){ if(!(state.role==='COO'||state.role==='CFO')
   logAction('Invoice price SET for '+o.po+' · '+l.brand+': '+fmt(nv)+' PKR/Kg·L (first price on this line)');
   save(); render(); toast('Invoice price set'); }
 function bgtSubRows(c){ if(bgtExpand!==c) return ''; const ed=(state.role==='COO'||state.role==='CFO'); const os=(state.orders||[]).filter(o=>budgetKey(o)===c);
-  let body=''; os.forEach(o=>{ (o.lines||[]).forEach(l=>{ if(!(+l.ordered>0))return; const ip=+l.invoicePrice||0; const bk=(+l.ordered||0)*ip; const dv=(+l.delivered||0)*ip; const perBag=(ip>0&&+l.pack>0)?(' <span class="muted" style="font-size:10px">= PKR '+fmt(ip*l.pack)+'/bag of '+fmt(l.pack)+'</span>'):'';
+  /* 25b: the line rows use the same rule as the client row above them - sold = trucks out this FY, open = still to leave, both net */
+  const _fy=fyKey(TODAY.toISOString().slice(0,10)); const _soldL={}; saleRows().forEach(x=>{ if(x.fy!==_fy) return; const k=x.po+'|'+x.lid; _soldL[k]=(_soldL[k]||0)+x.value; });
+  let body=''; os.forEach(o=>{ (o.lines||[]).forEach(l=>{ if(!(+l.ordered>0))return; const ip=+l.invoicePrice||0; const bk=saleOpenValue(o,l); const dv=_soldL[o.po+'|'+l.id]||0; const perBag=(ip>0&&+l.pack>0)?(' <span class="muted" style="font-size:10px">= PKR '+fmt(ip*l.pack)+'/bag of '+fmt(l.pack)+'</span>'):'';
     body+=`<tr style="background:var(--panel2)"><td style="padding-left:26px"><b style="font-size:12px">${l.brand}</b> <span class="muted" style="font-size:10.5px">${o.po}${(isDealerClient(o)&&o.client&&c==='Dealers')?(' · '+String(o.client).split('|').pop().trim()):''} · ${fmt(l.ordered)} Kg/L ordered</span><div style="margin-top:5px;display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span class="muted" style="font-size:10.5px">Invoice PKR/Kg·L</span>${ed?`<input type="number" value="${l.invoicePrice||''}" onchange="setLineInvoice('${o.id}','${l.id}',this.value)" style="width:100px;padding:4px 7px" placeholder="0">`:('<b>'+pkr(ip)+'</b>')}${perBag}</div></td><td class="num muted">—</td><td class="num">${dv>0?pkr(dv):'<span class="muted">—</span>'}</td><td class="num"><b>${ip>0?pkr(bk):'<span class="muted" style="font-weight:400">— set price</span>'}</b></td><td></td><td></td></tr>`;
   }); });
   if(!body) body=`<tr style="background:var(--panel2)"><td colspan="6" class="muted" style="padding-left:26px">No order lines with a quantity for this client.</td></tr>`;
@@ -16217,10 +16418,16 @@ function bgtSubRows(c){ if(bgtExpand!==c) return ''; const ed=(state.role==='COO
 function screenBudget(){ dashTab='sales'; state.screen='dash'; screenDash(); }
 /* ===== WHEN A SALE IS A SALE — 24 Sep 2026 (25a) ============================
    Tahir: a sale is recorded when the truck leaves (the DC / gate pass is
-   released), valued NET - quantity x invoice price, before FED and sales tax.
+   released), valued NET - quantity x invoice price, before FED (FED is the sales tax).
    Until today Sales & Budget used 2 rules that disagreed: the year totals took
    delivered quantity with no date at all, the monthly pace took the delivery
    date. Now both read the same rows: every truck that left the gate. */
+/* 25b: the invoice price is typed as the customer is quoted. FED is the only
+   tax on it (Tahir, 24 Sep 2026: "FED is sale tax"). On an order whose FED
+   mode is Inclusive the typed price already holds the 5% FED, so the net price
+   is price / 1.05 - the same split fedSplit() prints on the PO. Exclusive and
+   None: the typed price is already net. FOC: 0. Every money figure uses this. */
+function lineNetPrice(o,l){ if(!l||(o&&o.foc)) return 0; var p=+l.invoicePrice||0; if(o&&o.fedMode==='Inclusive') p=p/1.05; return p; }
 function saleLeft(s){ if(!s||s.voided) return false; if(s.dispCounted) return true;
   if(s.stage==='in_transit'||s.stage==='delivered'||s.delivered) return true;
   /* shipments recorded before the truck pipeline existed have no stage and no dispatch id */
@@ -16229,11 +16436,11 @@ function saleLeft(s){ if(!s||s.voided) return false; if(s.dispCounted) return tr
 function saleLineOf(s){ var o=(state.orders||[]).find(function(x){ return x&&x.po===s.po; }); if(!o) return {o:null,l:null};
   var l=(o.lines||[]).find(function(x){ return x.id===s.lid; })||(o.lines||[]).find(function(x){ return x.brand===s.brand; }); return {o:o,l:l||null}; }
 function saleRows(){ var out=[]; (state.shipments||[]).forEach(function(s){ if(!saleLeft(s)) return; var r=saleLineOf(s), o=r.o, l=r.l;
-    var price=(o&&o.foc)?0:(+(l&&l.invoicePrice)||0); var date=String(s.approvedDate||s.dispatch||s.delivered||'').slice(0,10);
-    out.push({date:date,fy:date?fyKey(date):'',month:date.slice(0,7),po:s.po||'',client:o?o.client:(s.client||''),channel:o?o.channel:'',key:o?budgetKey(o):(s.client||''),brand:s.brand||(l&&l.brand)||'',kg:+s.kg||0,price:price,value:(+s.kg||0)*price}); });
+    var price=lineNetPrice(o,l); var date=String(s.approvedDate||s.dispatch||s.delivered||'').slice(0,10);
+    out.push({date:date,fy:date?fyKey(date):'',month:date.slice(0,7),po:s.po||'',lid:(l&&l.id)||s.lid||'',client:o?o.client:(s.client||''),channel:o?o.channel:'',key:o?budgetKey(o):(s.client||''),brand:s.brand||(l&&l.brand)||'',kg:+s.kg||0,price:price,value:(+s.kg||0)*price}); });
   return out; }
 /* what an order line still has to sell: not closed short, not yet through the gate */
-function saleOpenValue(o,l){ if(!o||!l||o.foc||lineShortClosed(l)) return 0; return Math.max(0,(+l.ordered||0)-(+l.dispatched||0))*(+l.invoicePrice||0); }
+function saleOpenValue(o,l){ if(!o||!l||o.foc||lineShortClosed(l)) return 0; return Math.max(0,(+l.ordered||0)-(+l.dispatched||0))*lineNetPrice(o,l); }
 function budgetHtml(){
   const fy=fyKey(TODAY.toISOString().slice(0,10)); const targets=(state.masters&&state.masters.salesTargets)||{};
   const rows={};
@@ -16259,7 +16466,7 @@ function budgetHtml(){
     ${chRows.map(r=>`<tr><td><b>${r.channel}</b></td><td class="num">${r.target?pkr(r.target):'<span class="muted">—</span>'}</td><td class="num">${r.allocated?pkr(r.allocated):'<span class="muted">—</span>'}</td><td class="num">${pkr(r.booked)}</td><td class="num"><b>${pkr(r.sold)}</b></td><td class="num">${r.target?r.pct+'%':'—'}</td><td>${light(r.pct,r.target)}</td></tr>`).join('')}
     </tbody></table></div></div>`;
   return `
-   <div class="note" style="margin-bottom:10px">A sale is counted when the truck leaves the gate (the delivery challan is released), at the invoice price before FED and sales tax. Open orders are what is still to leave.</div>
+   <div class="note" style="margin-bottom:10px">A sale is counted when the truck leaves the gate (the delivery challan is released), net of FED (FED is the sales tax; on an order quoted FED-inclusive the price is divided by 1.05). Open orders are what is still to leave.</div>
    ${byChannel}
    ${(state.role==='COO'||state.role==='CFO')?`<div style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap"><button class="sm" onclick="openBulkPricing()">💲 Set invoice prices (bulk)</button>${(function(){const n=openPrintDecisionPOs().length;/* same definition as the Action Center and the screen itself */return n?`<button class="sm" onclick="openBulkPrintDecision()">🏷️ Answer print-on-pack for ${n} PO(s)</button>`:'';})()}</div>`:''}
    ${noPrice?'<div class="banner warn">Some PO lines have <b>no invoice price</b> yet — their value is counted as 0. Set invoice prices on New PO Entry (new POs) or via Data Fix (imported POs).</div>':''}
@@ -16323,12 +16530,12 @@ var RB_DATASETS={
     fields:[{k:'date',l:'Dispatched',t:'dim'},{k:'po',l:'PO',t:'dim'},{k:'so',l:'SO #',t:'dim'},{k:'client',l:'Client',t:'dim'},{k:'product',l:'Product',t:'dim'},{k:'dc',l:'DC #',t:'dim'},{k:'stage',l:'Stage',t:'dim'},{k:'dcstatus',l:'DC status',t:'dim'},{k:'gatepass',l:'Gate Pass',t:'dim'},{k:'approvedby',l:'Approved by',t:'dim'},{k:'transport',l:'Transport type',t:'dim'},{k:'trucksize',l:'Truck size',t:'dim'},{k:'vehicle',l:'Vehicle',t:'dim'},{k:'driver',l:'Driver',t:'dim'},{k:'carrier',l:'Carrier',t:'dim'},{k:'seal',l:'Seal #',t:'dim'},{k:'destination',l:'Destination',t:'dim'},{k:'bilty',l:'Bilty',t:'dim'},{k:'delivered',l:'Delivered',t:'dim'},{k:'shipno',l:'Shipment #',t:'dim'},{k:'kg',l:'Kg/L',t:'meas'}],
     filters:['client','product','destination','dc','stage','dcstatus']},
   orders:{label:'Orders / PO lines · sales',dateKey:'received',
-    rows:function(){ var out=[]; (state.orders||[]).forEach(function(o){ var nL=(o.lines||[]).length||1; (o.lines||[]).forEach(function(l){ out.push({po:o.po||'',client:o.client||'',channel:o.channel||'',segment:(typeof _chanToSeg==='function'?(_chanToSeg(o.channel)||o.channel||''):(o.channel||'')),type:(o.foc?'FOC sample':'Commercial'),product:l.brand||'',base:l.base||'',destpartner:o.destinationPartner||'',received:o.received||'',promised:o.promised||'',priority:o.priority||'Normal',stage:(typeof lineStage==='function'?lineStage(o,l):''),fedmode:o.fedMode||'',ordered:+l.ordered||0,produced:+l.produced||0,packed:+l.packed||0,dispatched:+l.dispatched||0,delivered:+l.delivered||0,pricekg:+l.invoicePrice||0,pricepack:+l.invoicePack||0,value:Math.round((+l.delivered||0)*(+l.invoicePrice||0)),fed:Math.round((+o.fedAmount||0)/nL)}); }); }); return out; },
-    fields:[{k:'po',l:'PO',t:'dim'},{k:'client',l:'Client',t:'dim'},{k:'channel',l:'Channel',t:'dim'},{k:'segment',l:'Segment',t:'dim'},{k:'type',l:'Type (Commercial/FOC)',t:'dim'},{k:'product',l:'Product',t:'dim'},{k:'base',l:'Base',t:'dim'},{k:'destpartner',l:'Destination Partner',t:'dim'},{k:'received',l:'Received',t:'dim'},{k:'promised',l:'Promised',t:'dim'},{k:'priority',l:'Priority',t:'dim'},{k:'stage',l:'Stage',t:'dim'},{k:'fedmode',l:'FED mode',t:'dim'},{k:'ordered',l:'Ordered',t:'meas'},{k:'produced',l:'Produced',t:'meas'},{k:'packed',l:'Packed',t:'meas'},{k:'dispatched',l:'Shipped',t:'meas'},{k:'delivered',l:'Delivered',t:'meas'},{k:'pricekg',l:'Price PKR/Kg',t:'meas'},{k:'pricepack',l:'Price PKR/pack',t:'meas'},{k:'value',l:'Delivered value',t:'meas'},{k:'fed',l:'FED amount',t:'meas'}],
+    rows:function(){ var out=[]; (state.orders||[]).forEach(function(o){ var nL=(o.lines||[]).length||1; (o.lines||[]).forEach(function(l){ out.push({po:o.po||'',client:o.client||'',channel:o.channel||'',segment:(typeof _chanToSeg==='function'?(_chanToSeg(o.channel)||o.channel||''):(o.channel||'')),type:(o.foc?'FOC sample':'Commercial'),product:l.brand||'',base:l.base||'',destpartner:o.destinationPartner||'',received:o.received||'',promised:o.promised||'',priority:o.priority||'Normal',stage:(typeof lineStage==='function'?lineStage(o,l):''),fedmode:o.fedMode||'',ordered:+l.ordered||0,produced:+l.produced||0,packed:+l.packed||0,dispatched:+l.dispatched||0,delivered:+l.delivered||0,pricekg:+l.invoicePrice||0,pricepack:+l.invoicePack||0,value:Math.round((+l.delivered||0)*lineNetPrice(o,l)),fed:(o.foc?0:Math.round(fedSplit((+l.ordered||0)*(+l.invoicePrice||0),o.fedMode||'None').fed))}); }); }); return out; },
+    fields:[{k:'po',l:'PO',t:'dim'},{k:'client',l:'Client',t:'dim'},{k:'channel',l:'Channel',t:'dim'},{k:'segment',l:'Segment',t:'dim'},{k:'type',l:'Type (Commercial/FOC)',t:'dim'},{k:'product',l:'Product',t:'dim'},{k:'base',l:'Base',t:'dim'},{k:'destpartner',l:'Destination Partner',t:'dim'},{k:'received',l:'Received',t:'dim'},{k:'promised',l:'Promised',t:'dim'},{k:'priority',l:'Priority',t:'dim'},{k:'stage',l:'Stage',t:'dim'},{k:'fedmode',l:'FED mode',t:'dim'},{k:'ordered',l:'Ordered',t:'meas'},{k:'produced',l:'Produced',t:'meas'},{k:'packed',l:'Packed',t:'meas'},{k:'dispatched',l:'Shipped',t:'meas'},{k:'delivered',l:'Delivered',t:'meas'},{k:'pricekg',l:'Price PKR/Kg',t:'meas'},{k:'pricepack',l:'Price PKR/pack',t:'meas'},{k:'value',l:'Delivered value (net of FED)',t:'meas'},{k:'fed',l:'FED on ordered qty',t:'meas'}],
     filters:['client','channel','segment','type','priority','stage','product','fedmode']},
   finance:{label:'Finance · sales & invoicing',dateKey:'date',
-    rows:function(){ var cm=_rbClientMap(); var pmap={}; (state.orders||[]).forEach(function(o){ (o.lines||[]).forEach(function(l){ pmap[(o.po||'')+'|'+(l.brand||'')]=+l.invoicePrice||0; }); }); return (state.shipments||[]).filter(function(s){return s&&!s.voided&&(+s.kg||0)>0;}).map(function(s){ var price=pmap[(s.po||'')+'|'+(s.brand||'')]||0; var kg=+s.kg||0; return {date:s.dispatch||'',dc:s.dc||'',po:s.po||'',client:cm[s.po]||'',product:s.brand||'',destination:s.destination||'',vehicle:s.vehicle||'',delivered:s.delivered||'',shipno:s.shipNo||'',kg:kg,price:price,value:Math.round(kg*price)}; }); },
-    fields:[{k:'date',l:'Date',t:'dim'},{k:'dc',l:'DC #',t:'dim'},{k:'po',l:'PO',t:'dim'},{k:'client',l:'Client',t:'dim'},{k:'product',l:'Product',t:'dim'},{k:'destination',l:'Destination',t:'dim'},{k:'vehicle',l:'Vehicle',t:'dim'},{k:'delivered',l:'Delivered',t:'dim'},{k:'shipno',l:'Shipment #',t:'dim'},{k:'kg',l:'Kg/L',t:'meas'},{k:'price',l:'Price PKR/Kg',t:'meas'},{k:'value',l:'Sale value PKR',t:'meas'}],
+    rows:function(){ var cm=_rbClientMap(); /* 25b: only trucks that left the gate are sales; net price per line (lid), dated the day it left */ return (state.shipments||[]).filter(function(s){return s&&(+s.kg||0)>0&&saleLeft(s);}).map(function(s){ var _r=saleLineOf(s); var price=lineNetPrice(_r.o,_r.l); var kg=+s.kg||0; return {date:String(s.approvedDate||s.dispatch||s.delivered||'').slice(0,10),dc:s.dc||'',po:s.po||'',client:cm[s.po]||'',product:s.brand||'',destination:s.destination||'',vehicle:s.vehicle||'',delivered:s.delivered||'',shipno:s.shipNo||'',kg:kg,price:price,value:Math.round(kg*price)}; }); },
+    fields:[{k:'date',l:'Date',t:'dim'},{k:'dc',l:'DC #',t:'dim'},{k:'po',l:'PO',t:'dim'},{k:'client',l:'Client',t:'dim'},{k:'product',l:'Product',t:'dim'},{k:'destination',l:'Destination',t:'dim'},{k:'vehicle',l:'Vehicle',t:'dim'},{k:'delivered',l:'Delivered',t:'dim'},{k:'shipno',l:'Shipment #',t:'dim'},{k:'kg',l:'Kg/L',t:'meas'},{k:'price',l:'Net price PKR/Kg',t:'meas'},{k:'value',l:'Sale value PKR (net of FED)',t:'meas'}],
     filters:['client','product','dc','destination']},
   packing:{label:'Packing & batch trace',dateKey:'date',
     rows:function(){ var cm=_rbClientMap(); var bb={}; (state.batches||[]).forEach(function(b){bb[b.id]=b.batchNo||'';}); return (state.packingLog||[]).filter(function(p){return p&&p.brand&&(+p.kg||0)>0;}).map(function(p){ var base=p.baseBatchNo||(p.baseBatchId?bb[p.baseBatchId]:'')||''; var qa=p.qa?(p.qa.pass?'Pass':(p.qa.fail?'Fail':'Pending')):'Pending'; return {date:p.date||'',po:p.po||'',client:cm[p.po]||'',product:p.brand||'',base:p.base||'',basebatch:base||'—',brandbatch:p.brandBatchNo||base||'—',qa:qa,kg:+p.kg||0}; }); },
@@ -16589,7 +16796,7 @@ function rpPos(){
   var rows=os.map(function(o){
     var lines=(o.lines||[]);
     var kg=lines.reduce(function(a,l){return a+(+l.ordered||0);},0);
-    var val=(+o.grandTotal||0)||lines.reduce(function(a,l){return a+((+l.ordered||0)*(+l.invoicePrice||0));},0);
+    var val=lines.reduce(function(a,l){return a+((+l.ordered||0)*lineNetPrice(o,l));},0); /* 25b: net of FED, one rule (was grandTotal incl. FED when set, net otherwise) */
     var stage=(typeof stageOf==='function')?stageOf(o):'';
     var key=[o.po,o.client,o.channel,o.kam,stage,o.received,lines.map(function(l){return l.brand;}).join(' ')].join(' ').toLowerCase().replace(/"/g,'');
     var pr=o.printedAt
@@ -16614,7 +16821,7 @@ function rpPos(){
     +'<input type="text" placeholder="Search PO#, client, channel, product, KAM…" oninput="rpDocSearch(this.value)" style="min-width:240px;padding:6px 10px">'
     +'</div></div>'
     +'<div class="card" style="padding:0"><div class="rb-pvh"><span style="font-weight:500">PO register</span><span class="muted" id="rpDocCount">'+os.length+' order'+(os.length===1?'':'s')+'</span></div>'
-    +'<div style="overflow:auto;max-height:60vh"><table class="rbtbl" id="rpDocTbl"><thead><tr><th>Received</th><th>PO #</th><th>Client</th><th class="num">Lines</th><th class="num">Kg/L</th><th class="num">Value</th><th>Stage</th><th>Printed</th><th style="text-align:right">Open</th></tr></thead><tbody>'+rows+'</tbody></table></div></div>';
+    +'<div style="overflow:auto;max-height:60vh"><table class="rbtbl" id="rpDocTbl"><thead><tr><th>Received</th><th>PO #</th><th>Client</th><th class="num">Lines</th><th class="num">Kg/L</th><th class="num">Value (net of FED)</th><th>Stage</th><th>Printed</th><th style="text-align:right">Open</th></tr></thead><tbody>'+rows+'</tbody></table></div></div>';
 }
 function rpDocSearch(q){
   q=(q||'').trim().toLowerCase();

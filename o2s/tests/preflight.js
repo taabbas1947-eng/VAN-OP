@@ -165,6 +165,11 @@ const MARKERS = [
   ['<div class="qs wide"><h1>Shipments</h1>', 1, 'Shipments in the shell (24y)'],
   ['<h3>When the AQCM or the QCM is on leave</h3>', 1, 'the Guide covers the leave cover (24z)'],
   ['function saleRows(',                   1, 'one rule for a sale: truck out, net (25a)'],
+  ['function lineNetPrice(',               1, 'every money figure net of FED (25b)'],
+  ['function lineFixOpen(',                1, 'fix it where it happened: the line sheet (25b)'],
+  ['function allocateStock(oid,lid){ toast(', 1, 'the stock-allocation hole is shut (25b)'],
+  ['function labSetRep(',                  1, 'one lot tested for the batch (25b)'],
+  ['<h3>A number moves only with its record</h3>', 1, 'the Guide states the invariant (25b)'],
   ["function coaApprove(){ if(!(state.role==='QCM'||labCovers('QCM')))", 1, 'the COO does not sign certificates (24u)'],
 ];
 

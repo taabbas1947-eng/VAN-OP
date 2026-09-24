@@ -48,7 +48,7 @@ ok('the ruled matrix opens Sales & Budget to the money roles once (V3, flagged)'
 /* ---- 2. the channel tree ---- */
 /* 25a, Tahir 24 Sep: a sale is counted when the truck leaves, net of taxes. The
    channel totals now read the shipments (saleRows), not the delivered quantity. */
-const src = ['budgetChannelOf', 'budgetByChannel', 'channelBudgetSet', 'saleLeft', 'saleLineOf', 'saleRows', 'saleOpenValue'].map(grab).join('\n\n');
+const src = ['budgetChannelOf', 'budgetByChannel', 'channelBudgetSet', 'lineNetPrice', 'saleLeft', 'saleLineOf', 'saleRows', 'saleOpenValue'].map(grab).join('\n\n');
 const b = { console, logged: [], toasts: [], saved: 0, rendered: 0,
   logAction: m => b.logged.push(m), toast: m => b.toasts.push(m), save: () => b.saved++, render: () => b.rendered++,
   TODAY: new Date('2026-09-23T09:00:00'), fyKey: ds => (String(ds || '2026-09') < '2026-07' ? '2025-26' : '2026-27'), lineShortClosed: l => !!(l && l.shortClose && l.shortClose.approvedAt), pkr: n => 'PKR ' + Math.round(n),
@@ -119,7 +119,7 @@ ok('no money reaches Today', !/pkr\(|invoicePrice/.test(grab('screenToday') + gr
                      { po: 'F', client: 'C', foc: true, lines: [ { id: 'F1', brand: 'X', ordered: 3, dispatched: 3, invoicePrice: 9 } ] } ],
              shipments: [ { po: 'P', lid: 'L1', brand: 'X', kg: 2, dispCounted: true, approvedDate: '2026-08-01' }, { po: 'P', lid: 'L2', brand: 'X', kg: 1, voided: true, dispCounted: true, approvedDate: '2026-08-02' },
                           { po: 'F', lid: 'F1', brand: 'X', kg: 3, dispCounted: true, approvedDate: '2026-08-03' }, { po: 'P', lid: 'L2', brand: 'X', kg: 4, stage: 'pending_approval', dcStatus: 'pending', dispId: 'D9' } ] } };
-  vm.createContext(sb); vm.runInContext(['saleLeft', 'saleLineOf', 'saleRows', 'saleOpenValue'].map(grab).join('\n'), sb);
+  vm.createContext(sb); vm.runInContext(['lineNetPrice', 'saleLeft', 'saleLineOf', 'saleRows', 'saleOpenValue'].map(grab).join('\n'), sb);
   const r = sb.saleRows();
   eq('a voided truck and one waiting for approval are not sales', r.length, 2);
   eq('the price comes from the line the truck carried (by line id)', r[0].value, 10);

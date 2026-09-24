@@ -118,6 +118,17 @@ ok('it lists every role under its department with the people who hold it', /role
 
 /* ================= 7. BUILD ================= */
 ok("BUILD_ID is 2026-09-23t or later", /var BUILD_ID='2026-09-23[t-z]'/.test(html));
+/* 23w: the first job-shaped sheet - the run */
+const run = grab('renderRun');
+ok('"Open production" on Today opens the run sheet, not the Production Center', /act:`openRun\('\$\{o\.id\}','\$\{l\.id\}'\)`,label:'Open Production'/.test(html));
+ok('the run sheet is for ONE order line: to make, made, to pack', /Kg\/L still to make/.test(run) && /made so far/.test(run) && /still to pack/.test(run));
+ok('the batches on the line carry Log output / Close the batch / Pack, each the app\'s own modal', /openShiftLog\(/.test(run) && /openCloseBatch\(/.test(run) && /openProdQty\(/.test(run));
+ok('a batch that made its plan offers Close first', /var done=\(\+b\.producedKg\|\|0\)>=\(\+b\.plannedKg\|\|0\)-0\.5/.test(run));
+ok('bulk of the same base that is cleared can be packed from the sheet', /runBulkFor\(l\)/.test(run) && /openPack\(/.test(run) && /batchPackableKg\(b\)>0\.5/.test(grab('runBulkFor')));
+ok('every button asks the same right the modal asks', /may\('shift\.log'\)/.test(run) && /may\('batch\.close'\)/.test(run) && /may\('production\.enter'\)/.test(run) && /may\('batch\.open'\)/.test(run));
+ok('opening a batch from the sheet arrives with PO and product picked', /prodPOsel=\\''\+qsEsc\(o\.id\)/.test(run) && /prodLineSel=\\''\+qsEsc\(l\.id\)/.test(run) && /l\.id===prodLineSel\)\?'selected'/.test(html));
+ok('the Production Center is a link at the bottom, not the landing', /gotoProduce\(/.test(run) && run.indexOf('gotoProduce(') > run.indexOf('openShiftLog('));
+ok('no price on the run sheet', !/price/i.test(run));
 /* 23v: roles you can edit, one at a time */
 const re = grab('roleEditorHTML');
 ok('People -> Roles carries an editor for the picked role (23v)', /roleEditorHTML\(ppRole\)/.test(pp) && /deptLeadsHTML\(\)/.test(pp) && /newRoleHTML\(\)/.test(pp));

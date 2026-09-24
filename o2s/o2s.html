@@ -11,7 +11,7 @@
    a push keeps running the old code with nothing telling anybody. It sat at
    2026-09-04a through this whole day's work; rmqty/psi tests pinned the code,
    nothing pinned this. buildid.test.js now does. */
-var BUILD_ID='2026-09-23v';
+var BUILD_ID='2026-09-23w';
 var CHANGELOG=[
   {ver:'2026-09-04a', date:'2026-09-04', title:"Delivery, DC printing, and a new Reconciliation check", items:[
     "Delivery confirmation stays with Supply Chain \u2014 it no longer hands off to the Plant Manager. If one sits too long, it now re-flags the same Supply Chain owner every 3 days instead.",
@@ -161,6 +161,10 @@ var CHANGELOG=[
     "People \u2192 Roles: pick a role and set it. Every right as a sentence with a tick; every screen as None / Read / Edit; who leads each department; add a role. Saved at once and logged; the 2-person rules still apply.",
     "The account migration for Ismaeel now also runs when the COO is already signed in, not only at sign-in.",
     "Forms behind the jobs: the green save buttons are blue like everything else; wide tables scroll on a phone instead of breaking the page."
+  ]},
+  {ver:'2026-09-23w', date:'2026-09-24', title:"The first job-shaped sheet: the run", items:[
+    "\u201cOpen production\u201d on Today now opens one sheet for that order line: what is still to make, made, to pack; the batches on the line with Log output / Close the batch / Pack; bulk of the same base that is cleared; and one button to open a batch for the line. The Production Center is a link at the bottom, not the landing.",
+    "Opening a batch from the sheet arrives with the PO and the product already picked."
   ]},
 ];
 </script>
@@ -2020,6 +2024,8 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);border-c
 .modal .mh h2{color:var(--ink);font-weight:600}
 .modal .mf{background:var(--surface);border-top:1px solid var(--qline)}
 .modal .mf button{min-height:44px;flex:1 1 160px}
+.modal .mf{flex-wrap:wrap}
+@media (max-width:480px){.modal .mf .qs-btn.ghost{flex:1 1 100%}}
 @media (max-width:820px){.qs-top-in{padding:8px 12px}.wrap{padding:12px}.qs-tally{gap:6px}.qs-tile .n{font-size:22px}.pl-d{grid-template-columns:repeat(3,minmax(0,1fr))}}
 /* ---------- PEOPLE ---------- */
 .subnav{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
@@ -6729,7 +6735,7 @@ function renderOpenBatch(){
   if(prodMode==='po'){
     body=`<div class="formgrid" style="grid-template-columns:1fr 1fr">
          <div class="fld" style="grid-column:1/-1"><label>Purchase Order</label><select id="pp_po" onchange="prodPOsel=this.value;renderOpenBatch()"><option value="">— pick PO —</option>${pos.map(o=>`<option value="${o.id}" ${o.id===prodPOsel?'selected':''}>${o.po} · ${o.client}</option>`).join('')}</select></div>
-         <div class="fld" style="grid-column:1/-1"><label>Product (as on the PO)</label><select id="pp_line" ${selO?'':'disabled'}><option value="">${selO?'— pick product —':'pick PO first'}</option>${selO?selO.lines.filter(l=>(l.produced||0)<(l.ordered||0)-0.5).map(l=>`<option value="${l.id}">${l.brand} (${fmt(l.produced||0)}/${fmt(l.ordered)} done)</option>`).join(''):''}</select></div>
+         <div class="fld" style="grid-column:1/-1"><label>Product (as on the PO)</label><select id="pp_line" ${selO?'':'disabled'}><option value="">${selO?'— pick product —':'pick PO first'}</option>${selO?selO.lines.filter(l=>(l.produced||0)<(l.ordered||0)-0.5).map(l=>`<option value="${l.id}" ${(typeof prodLineSel!=='undefined'&&l.id===prodLineSel)?'selected':''}>${l.brand} (${fmt(l.produced||0)}/${fmt(l.ordered)} done)</option>`).join(''):''}</select></div>
          <div class="fld"><label>Plan this batch (Kg/L)</label><input type="number" id="pp_planned" placeholder="remaining"></div>
          <div class="fld"><label>Batch #</label><input type="text" id="nb_batch" placeholder="e.g. AB12345" oninput="batchNoFx(this)"></div>
        </div><div class="muted" style="font-size:11px;margin-top:10px">Opens a batch for this PO line. <b>Plan a partial quantity</b> if you'll run it in parts (blank = full remaining); open more for the rest. Log shift output from the Floor.</div>`;
@@ -6934,7 +6940,7 @@ function screenProd(){
          <div class="fld" style="flex:1;min-width:230px"><label>Purchase Order</label>
            <select id="pp_po" onchange="prodPOsel=this.value;render()"><option value="">— pick PO —</option>${pos.map(o=>`<option value="${o.id}" ${o.id===prodPOsel?'selected':''}>${o.po} · ${o.client}</option>`).join('')}</select></div>
          <div class="fld" style="flex:1;min-width:210px"><label>Product (as on the PO)</label>
-           <select id="pp_line" ${selO?'':'disabled'}><option value="">${selO?'— pick product —':'pick PO first'}</option>${selO?selO.lines.filter(l=>(l.produced||0)<(l.ordered||0)-0.5).map(l=>`<option value="${l.id}">${l.brand} (${fmt(l.produced||0)}/${fmt(l.ordered)} done)</option>`).join(''):''}</select></div>
+           <select id="pp_line" ${selO?'':'disabled'}><option value="">${selO?'— pick product —':'pick PO first'}</option>${selO?selO.lines.filter(l=>(l.produced||0)<(l.ordered||0)-0.5).map(l=>`<option value="${l.id}" ${(typeof prodLineSel!=='undefined'&&l.id===prodLineSel)?'selected':''}>${l.brand} (${fmt(l.produced||0)}/${fmt(l.ordered)} done)</option>`).join(''):''}</select></div>
          <div class="fld" style="width:150px"><label>Plan this batch (Kg/L)</label><input type="number" id="pp_planned" placeholder="remaining"></div>
          <div class="fld" style="width:160px"><label>Batch #</label><input type="text" id="nb_batch" placeholder="e.g. AB12345" oninput="batchNoFx(this)"></div>
          <button class="green" ${ed?'':'disabled'} onclick="openBatch('po')">Open batch</button></div>
@@ -10529,7 +10535,7 @@ function actionItems(){
       if(l.rmPR && !l.rmPR.closed && !l.rmPR.cfoApproved) items.push({role:'CFO',o,l,what:'Approve RM requisition \u2014 '+o.po+' \u00b7 '+l.brand+' ('+fmt(l.rmPR.qty)+' Kg/L)',act:`approveRMPR('${o.id}','${l.id}')`,label:'Approve PR'});
       if(l.rmPR && !l.rmPR.closed && l.rmPR.cfoApproved) items.push({role:'Supply Chain',o,l,what:'Confirm RM received \u2014 '+o.po+' \u00b7 '+l.brand+' ('+fmt(l.rmPR.qty)+' Kg/L pending)',act:`openRMReceive('${o.id}','${l.id}')`,label:'Receive'});
       { var _prMats=((l.pr&&l.pr.lines)||[]).map(function(x){return x&&x.rm;}).filter(Boolean); var _openPR=(state.prs||[]).some(function(p){return p.status==='open' && _prMats.indexOf(p.rm)>-1;}); if(l.prRaised && !l.rmReady && l.rmStatus!=='received' && _openPR) items.push({role:'Supply Chain',o,l,what:'Receive raw materials (GRN, partial OK)',act:`openReceiveMaterials('${o.id}','${l.id}')`,label:'Receive'}); }  /* fix: Receive disappears once the line's PR(s) are closed (received OR cancelled) — no more dangling notification */
-      if(rmAllows(l)>0 && (l.produced||0) < Math.min(l.ordered, rmAllows(l))-0.5) items.push({role:'Production',o,l,what:'Produce '+l.brand+' \u2014 '+o.po,act:`gotoProduce('${o.id}')`,label:'Open Production'});
+      if(rmAllows(l)>0 && (l.produced||0) < Math.min(l.ordered, rmAllows(l))-0.5) items.push({role:'Production',o,l,what:'Produce '+l.brand+' \u2014 '+o.po,act:`openRun('${o.id}','${l.id}')`,label:'Open Production'});
       if(lineToInspect(o,l)>0.5) items.push({role:'QA Inspector',o,l,what:'Inspect packed '+l.brand+' \u2014 '+o.po,act:`openPackInspect('${o.id}','${l.id}')`,label:'Pack QC'});  // packed & batch-numbered, awaiting pre-ship inspection \u2014 was only on the QC screen
       { const _pl=pmDelayLabel(o,l,lb); if(_pl) items.push({role:'Plant Manager',o,l,what:_pl+' \u2014 add delay reason ('+l.brand+')',act:`openDelayReason('${o.id}','${l.id}')`,label:'Add reason'}); }
     });
@@ -11814,6 +11820,43 @@ function newRoleHTML(){
   if(state.role!=='COO') return '';
   var depts=((state.masters&&state.masters.departments)||DEPTS);
   return '<h2 style="margin-top:22px">Add a role</h2><div class="sub" style="margin-bottom:8px">Roles are added, never renamed. A new role starts with nothing; tick its rights and screens above once it exists.</div><div class="two"><div class="field"><label>Role name</label><input id="adm_newrole" placeholder="e.g. Accounts Officer"></div><div class="field"><label>Department</label><select id="adm_newroledept">'+depts.map(function(d){ return '<option value="'+qsEsc(d.id)+'">'+qsEsc(d.name)+'</option>'; }).join('')+'</select></div></div><div class="actions"><button class="qs-btn pri" onclick="addRole()">Add the role</button></div>';
+}
+/* ===================== THE RUN SHEET - 23w =====================
+   The first job-shaped sheet. Tahir, 24 Sep: "start from 1" - the UX review's
+   finding 2: "Open production" dropped a floor officer into the whole
+   Production Center (5 tabs, a More menu, 7 tiles). Now it opens ONE sheet for
+   ONE order line: what is to make, the batches on that line, and the 2 or 3
+   buttons that matter - log output, close the batch, pack. Each button is the
+   app's own modal, unchanged; this sheet only routes. */
+var runForm={oid:null,lid:null};
+var prodLineSel='';
+function openRun(oid,lid){ var o=(state.orders||[]).find(function(x){return x.id===oid;}); var l=o&&(o.lines||[]).find(function(x){return x.id===lid;}); if(!o||!l){ toast('Order line not found'); return; }
+  runForm={oid:oid,lid:lid}; renderRun(); $('modalBg').classList.add('open'); }
+function runBatchesFor(o,l){ return (state.batches||[]).filter(function(b){ return b && b.kind==='po' && b.po===o.po && b.lineId===l.id && !b.voided; }); }
+function runBulkFor(l){ return (state.batches||[]).filter(function(b){ return b && b.kind!=='po' && !b.voided && !b.pool && b.base===l.base && batchPackableKg(b)>0.5; }); }
+function renderRun(){
+  var o=(state.orders||[]).find(function(x){return x.id===runForm.oid;}); var l=o&&(o.lines||[]).find(function(x){return x.id===runForm.lid;}); if(!o||!l) return;
+  var toMake=Math.max(0,(+l.ordered||0)-(+l.produced||0)), toPack=Math.max(0,(+l.ordered||0)-(+l.packed||0));
+  var late=(typeof lineOverdue==='function')&&lineOverdue(o,l); var days=o.promised?Math.round((TODAY-new Date(o.promised))/86400000):0;
+  var pb=runBatchesFor(o,l), bulk=runBulkFor(l);
+  var canLog=may('shift.log'), canClose=may('batch.close'), canPack=may('production.enter'), canOpen=may('batch.open');
+  var h='<div class="mh"><h2>Run · '+qsEsc(l.brand)+'</h2><div class="sub"><span class="tdpo">'+qsEsc(o.po)+'</span> · '+_tdClient(o)+' · base '+qsEsc(l.base||l.brand)+'</div></div><div class="mb">';
+  h+='<div class="qs-tally" style="margin-top:0"><div class="qs-tile '+(toMake>0?'st-late':'st-ok')+'"><span class="n">'+fmt(toMake)+'</span><span class="l">Kg/L still to make</span></div><div class="qs-tile st-na"><span class="n">'+fmt(l.produced||0)+'</span><span class="l">made so far</span></div><div class="qs-tile '+(toPack>0?'st-na':'st-ok')+'"><span class="n">'+fmt(toPack)+'</span><span class="l">still to pack</span></div></div>';
+  if(o.promised) h+='<div class="tdtags" style="margin-top:8px">'+(late?'<span class="tdtag late">■ '+(days>0?days+' d past promise':'past promise')+'</span>':'<span class="tdtag ok">due '+qsEsc(o.promised)+'</span>')+(l.rmStatus&&l.rmStatus!=='full'&&l.rmStatus!=='received'?'<span class="tdtag warn">raw material '+qsEsc(l.rmStatus)+'</span>':'')+'</div>';
+  h+='<h2 style="font-size:15px;font-weight:600;margin:18px 0 8px">Batches on this line <span class="cnt" style="font-family:\'IBM Plex Mono\',monospace;font-weight:400;color:var(--ink-3);font-size:13px">'+pb.length+'</span></h2>';
+  if(!pb.length) h+='<div class="note">No batch open for this line yet. Open one below; then log each shift’s output against it.</div>';
+  else h+='<div class="tdlist">'+pb.map(function(b){ var packable=batchPackableKg(b); var open=b.status==='open';
+      var line=fmt(b.producedKg||0)+' of '+fmt(b.plannedKg||0)+' Kg/L made'+(b.packedKg?(' · '+fmt(b.packedKg)+' packed'):'')+(packable>0.5?(' · '+fmt(packable)+' cleared to pack'):(open?'':' · waiting on the lab'));
+      var btns='';
+      var done=(+b.producedKg||0)>=(+b.plannedKg||0)-0.5;   /* made what was planned: closing is the next honest step */
+      if(open&&canLog) btns+='<button class="qs-btn sm'+(done?'':' pri')+'" onclick="openShiftLog(\''+qsEsc(b.id)+'\')">Log output</button>';
+      if(open&&canClose) btns+='<button class="qs-btn sm'+(done?' pri':'')+'" onclick="openCloseBatch(\''+qsEsc(b.id)+'\')">Close the batch</button>';
+      if(packable>0.5&&canPack) btns+='<button class="qs-btn sm'+(open?'':' pri')+'" onclick="openProdQty(\''+qsEsc(o.id)+'\',\''+qsEsc(l.id)+'\')">Pack</button>';
+      return '<div class="tdcard '+(open?'warn':'late')+'" style="border-left-color:'+(open?'var(--accent)':'var(--ink-3)')+'"><div class="tdstage">'+(open?'Open batch':'Closed batch')+'</div><div class="tdtitle">'+qsEsc(b.batchNo||b.id)+'</div><div class="tdsub">'+line+'</div>'+(btns?'<div class="actions" style="margin-top:8px">'+btns+'</div>':'')+'</div>'; }).join('')+'</div>';
+  if(bulk.length){ h+='<h2 style="font-size:15px;font-weight:600;margin:18px 0 8px">Bulk of the same base, cleared <span class="cnt" style="font-family:\'IBM Plex Mono\',monospace;font-weight:400;color:var(--ink-3);font-size:13px">'+bulk.length+'</span></h2><div class="tdlist">'
+      +bulk.map(function(b){ return '<div class="tdcard" style="border-left-color:var(--ok)"><div class="tdstage">Bulk batch</div><div class="tdtitle">'+qsEsc(b.batchNo||b.id)+'</div><div class="tdsub">'+fmt(batchPackableKg(b))+' Kg/L cleared to pack</div>'+(canPack?'<div class="actions" style="margin-top:8px"><button class="qs-btn sm" onclick="openPack(\''+qsEsc(b.id)+'\')">Pack from this batch</button></div>':'')+'</div>'; }).join('')+'</div>'; }
+  h+='</div><div class="mf">'+(canOpen&&toMake>0?'<button class="qs-btn pri" onclick="prodMode=\'po\';prodPOsel=\''+qsEsc(o.id)+'\';prodLineSel=\''+qsEsc(l.id)+'\';openBatchModal()">Open a batch for this line</button>':'')+'<button class="qs-btn" onclick="closeModal()">Close</button><button class="qs-btn ghost" onclick="closeModal();gotoProduce(\''+qsEsc(o.id)+'\')">Production screen →</button></div>';
+  $('modal').innerHTML=h;
 }
 /* The Queue Shell's 3 tiles: waiting, past due, done today. */
 function tdDoneCount(){ try{ var me=(state.currentUser&&state.currentUser.name)||state.role, day=TODAY.toISOString().slice(0,10); return (state.actionLog||[]).filter(function(e){ return e && String(e.t||'').slice(0,10)===day && e.by===me && e.what!=='Signed in' && e.what!=='Signed out'; }).length; }catch(e){ return 0; } }

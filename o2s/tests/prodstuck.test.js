@@ -111,7 +111,8 @@ function fixtures(c) {
   run(c, 'state.role="Production"; prodFilter="attention";');
   const html = c.prodStageList();
   ok('Production sees a Resolve button for its own stalled item', />Resolve</.test(html), html.slice(0, 4000));
-  ok('...wired to the real navigation, not a stub', /gotoProduce\('STK-PROD'\)/.test(html), html.slice(0, 4000));
+  /* 23w: the Resolve button opens the run sheet for that line (openRun), not the Production Center */
+  ok('...wired to the real run sheet, not a stub', /openRun\('STK-PROD','L-PROD'\)/.test(html), html.slice(0, 4000));
   ok('...and a Defer button beside it', />Defer</.test(html), html.slice(0, 4000));
   ok('and still no button for the rm-category item next to it', !/openRMCheck\(/.test(html));
 }

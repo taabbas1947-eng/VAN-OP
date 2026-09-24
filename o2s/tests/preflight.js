@@ -140,6 +140,8 @@ const MARKERS = [
   /* 2026-09-24n */
   ['<div class="qs wide"><h1>Lab</h1>',    1, 'Lab in the shell (24n)'],
   ['<div class="qs wide"><h1>Truck inspection</h1>', 1, 'Truck inspection in the shell (24n)'],
+  /* 2026-09-24p */
+  ['function openMyPassword(',             1, 'change my own password (24p)'],
 ];
 
 const [, , mode, freshPath, otherPath] = process.argv;

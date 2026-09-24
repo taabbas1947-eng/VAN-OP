@@ -11,7 +11,7 @@
    a push keeps running the old code with nothing telling anybody. It sat at
    2026-09-04a through this whole day's work; rmqty/psi tests pinned the code,
    nothing pinned this. buildid.test.js now does. */
-var BUILD_ID='2026-09-24o';
+var BUILD_ID='2026-09-24p';
 var CHANGELOG=[
   {ver:'2026-09-04a', date:'2026-09-04', title:"Delivery, DC printing, and a new Reconciliation check", items:[
     "Delivery confirmation stays with Supply Chain \u2014 it no longer hands off to the Plant Manager. If one sits too long, it now re-flags the same Supply Chain owner every 3 days instead.",
@@ -247,6 +247,9 @@ var CHANGELOG=[
   ]},
   {ver:'2026-09-24o', date:'2026-09-24', title:"The sign-offs are jobs on the Guide", items:[
     "A QCM, AQCM, analyst, QA officer or Lead Supply Chain with nothing waiting today still sees their sign-off on My job \u2014 approve a COA, review a COA, inspect, release the truck \u2014 instead of \u201cno job is addressed to your role\u201d."
+  ]},
+  {ver:'2026-09-24p', date:'2026-09-24', title:"Change my password", items:[
+    "Tap your name at the top right \u2192 Change my password: current, new, new again. Only you can change your own; the COO still resets from People if you forget it."
   ]},
 ];
 </script>
@@ -11786,7 +11789,7 @@ function renderTopNav(){
   var me=document.getElementById('qsMe'); var u=state.currentUser;
   if(me){ if(u){ var nm=u.name||state.role; var tt=(typeof personTitle==='function')?personTitle(u.username||'',state.role):state.role;
       var ini=String(nm).split(' ').filter(Boolean).slice(-2).map(function(x){return x[0];}).join('').toUpperCase();
-      me.innerHTML='<details class="qs-me"><summary><span class="av">'+qsEsc(ini)+'</span><span><span class="nm" style="display:block">'+qsEsc(nm)+'</span><span class="tt" style="display:block">'+qsEsc(tt)+'</span></span></summary><div class="pop"><div class="r">Role <b>'+qsEsc(state.role)+'</b> · decides your buttons.<br>Title <b>'+qsEsc(tt)+'</b> · what you are called.</div><button class="qs-btn sm" onclick="logout()">Sign out</button></div></details>'; }
+      me.innerHTML='<details class="qs-me"><summary><span class="av">'+qsEsc(ini)+'</span><span><span class="nm" style="display:block">'+qsEsc(nm)+'</span><span class="tt" style="display:block">'+qsEsc(tt)+'</span></span></summary><div class="pop"><div class="r">Role <b>'+qsEsc(state.role)+'</b> · decides your buttons.<br>Title <b>'+qsEsc(tt)+'</b> · what you are called.</div><button class="qs-btn sm" onclick="openMyPassword()">Change my password</button><button class="qs-btn sm" onclick="logout()">Sign out</button></div></details>'; }
     else me.innerHTML=''; }
   qsTickClock();
   if(!window._qsClock){ window._qsClock=setInterval(qsTickClock,30000); }
@@ -12708,6 +12711,7 @@ function guideMyJob(){
   var role=state.role, me=state.currentUser||{}, tt=personTitle(me.username||'',role); var did=roleDeptId(role); var d=did?(deptById(did)||{}):null; var lead=did?deptLeadRole(did):'';
   var jobs=tdRoleJobs(role);
   var h='<div class="gd-intro">You are <b>'+qsEsc(me.name||role)+'</b>, <b>'+qsEsc(tt)+'</b>. Your role in the app is <b>'+qsEsc(role)+'</b>'+(d&&d.name?(', in <b>'+qsEsc(d.name)+'</b>'+(lead?(lead===role?' — you lead it':', led by the '+qsEsc(roleTitle(lead))):'')):'')+'. The role decides which buttons you get; the title is what you are called.</div>';
+  h+='<div class="note" style="margin-top:10px">Your password is yours: tap your name at the top right → <b>Change my password</b>. If you forget it, the COO resets it from People.</div>';
   h+='<div class="gd-3"><div class="gd-place"><b>Today</b><span>only the jobs waiting on you, oldest first. Do them here.</span></div><div class="gd-place"><b>Plant</b><span>the whole plant, the same for everyone. Read it; nothing is entered here.</span></div><div class="gd-place"><b>Back Office</b><span>customers, products, budgets, people — the COO, CFO and Plant Manager.</span></div></div>';
   if(role==='COO'){ h+='<h2>Your jobs</h2><div class="note">Every job in the plant can reach you, and every escalation ends with you. Your Today has a switch: <b>Needs me</b> (only your own) or <b>Whole plant</b>. Back Office is yours: settle what Needs you lists, approve customers, set budgets, move people, change what a role may do.</div>'; }
   else if(!jobs.length){ h+='<h2>Your jobs</h2><div class="note">No job is addressed to your role by name. You read Plant and the reports your role may open; if a job is escalated to you it appears on Today under “Escalated to you”.</div>'; }
@@ -16572,6 +16576,34 @@ async function migrateAccountsV1(){
   save(); toast('Ismaeel\'s login now holds the role Finance (ruled 23 Sep)');
 }
 function logout(){ if(state.currentUser){ logAction('Signed out'); saveNow(); } setSession('',null); renderApp(); }
+/* ===================== CHANGE MY PASSWORD - 24p =====================
+   Tahir, 24 Sep: "can users change their password on their own?" - yes.
+   The sheet posts the current and the new password to the platform's
+   POST /api/me/password (PLATFORM commit 7f0cbc6); the server verifies the
+   current one and rewrites the hash. Nothing here touches state, and the
+   COO's reset on People is as it was. */
+function openMyPassword(){
+  var me=state.currentUser||{};
+  $('modal').innerHTML='<div class="mh"><h2>Change my password</h2><div class="sub">'+qsEsc(me.name||'')+' · login <span class="mono">'+qsEsc(me.username||'')+'</span></div></div><div class="mb"><div class="form" style="margin-top:0">'
+    +'<div class="field"><label>Current password</label><input type="password" id="mp_cur" autocomplete="current-password"></div>'
+    +'<div class="field"><label>New password <span class="hint">at least 6 characters</span></label><input type="password" id="mp_new" autocomplete="new-password"></div>'
+    +'<div class="field"><label>New password, again</label><input type="password" id="mp_again" autocomplete="new-password"></div>'
+    +'<div class="note" style="margin-top:10px">Only you can change your own password. If you have forgotten it, the COO resets it from People.</div>'
+    +'</div></div><div class="mf"><button class="qs-btn" onclick="closeModal()">Cancel</button><button class="qs-btn pri" onclick="saveMyPassword()">Change it</button></div>';
+  $('modalBg').classList.add('open'); setTimeout(function(){ var e=$('mp_cur'); if(e) e.focus(); },50);
+}
+async function saveMyPassword(){
+  var cur=($('mp_cur')||{}).value||'', nw=($('mp_new')||{}).value||'', ag=($('mp_again')||{}).value||'';
+  if(!cur){ toast('Type your current password.'); return; }
+  if(nw.length<6){ toast('The new password must be at least 6 characters.'); return; }
+  if(nw!==ag){ toast('The 2 new passwords do not match.'); return; }
+  var b=document.querySelector('#modal .mf .pri'); if(b) b.disabled=true;
+  var r=null, j=null;
+  try{ r=await fetch('/api/me/password',{method:'POST',headers:Object.assign({'Content-Type':'application/json'},authHdr()),body:JSON.stringify({current:cur,password:nw})}); try{ j=await r.json(); }catch(e){} }catch(e){}
+  if(b) b.disabled=false;
+  if(!r||!r.ok){ toast((j&&j.error)||'Could not change the password.'); return; }
+  closeModal(); toast('Password changed. Use the new one from your next sign-in.');
+}
 
 /* ---- Users & Access (COO only) ---- */
 let uForm={name:'',username:'',password:'',role:'KAM'};

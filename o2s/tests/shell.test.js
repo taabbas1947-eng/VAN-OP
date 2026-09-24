@@ -521,4 +521,16 @@ ok('a browser that remembered All actions or the Dashboard lands on Today', /if\
   ok('a QCM with nothing waiting still has Approve; an AQCM Review; a QA officer Pack QC and Inspect', JSON.stringify(f('QCM')) === '["Approve"]' && JSON.stringify(f('AQCM')) === '["Review"]' && JSON.stringify(f('QA Inspector')) === '["Pack QC","Inspect"]' && f('Warehouse').length === 0);
   ok('BUILD_ID is 2026-09-24o or later', /var BUILD_ID='2026-09-24[o-z]'/.test(html));
 }
+/* 24p: a person changes their own password from the name menu (PLATFORM: POST /api/me/password) */
+{
+  ok('the name menu offers Change my password beside Sign out', /onclick="openMyPassword\(\)">Change my password<\/button><button class="qs-btn sm" onclick="logout\(\)">Sign out/.test(html));
+  const f = grab('openMyPassword'), sv = (() => { const i = html.indexOf('\nasync function saveMyPassword('); return i < 0 ? '' : H.matchBlock(i + 1, 'saveMyPassword'); })();
+  ok('the sheet asks current, new, new again', /id="mp_cur"/.test(f) && /id="mp_new"/.test(f) && /id="mp_again"/.test(f) && /type="password"/.test(f) && /onclick="saveMyPassword\(\)"/.test(f));
+  ok('it refuses a short or mismatched new password before calling the server', /nw\.length<6/.test(sv) && /nw!==ag/.test(sv));
+  ok('it posts current + new to /api/me/password with the session token, and never writes state', /fetch\('\/api\/me\/password'/.test(sv) && /authHdr\(\)/.test(sv) && /JSON\.stringify\(\{current:cur,password:nw\}\)/.test(sv) && !/save\(\)/.test(sv));
+  ok('the server’s reason is shown, the success is said plainly', /toast\(\(j&&j\.error\)\|\|'Could not change the password\.'\)/.test(sv) && /Password changed\./.test(sv));
+  ok('the Guide says so', /Change my password/.test(grab('guideMyJob')));
+  ok('BUILD_ID is 2026-09-24p or later', /var BUILD_ID='2026-09-24[p-z]'/.test(html));
+}
+
 report('The Queue Shell, live (23s)');

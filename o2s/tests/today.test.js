@@ -154,7 +154,8 @@ const st = grab('screenToday');
 ok('screenToday reads the live obligations', /tdItems\(\)/.test(st));
 ok("screenToday explains itself once and can be dismissed", /dismissHint\(\\?'today\\?'\)/.test(st) && /hintHidden\('today'\)/.test(st));
 ok('a job with several lines opens in place (details), not on another screen', /<details/.test(st + grab('tdCardHTML')));
-ok('the button on a job is the app\'s own action for the item', /onclick="'\+one\.act\+'"/.test(grab('tdCardHTML')) && /onclick="'\+it\.act\+'"/.test(grab('tdRowHTML')));
+/* 23x: the button first marks the job "taken by me", then runs the app's own action */
+ok('the button on a job is the app\'s own action for the item, after the taken-by mark', /tdTake\(.*?\);'\+one\.act\+'"/.test(grab('tdCardHTML')) && /tdTake\(.*?\);'\+it\.act\+'"/.test(grab('tdRowHTML')));
 ok('done today comes from the action log', /state\.actionLog/.test(grab('tdDoneToday')) && /tdDoneToday\(\)/.test(st));
 ok('an empty queue is not a blank screen', /Your list is clear/.test(st) && /tdPlantPulse/.test(st));
 ok('no price is ever rendered on Today', !/price/i.test(st + grab('tdCardHTML') + grab('tdRowHTML') + grab('tdPlantPulse') + grab('tdDoneToday')));

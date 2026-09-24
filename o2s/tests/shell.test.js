@@ -84,6 +84,9 @@ ok('Approve a customer and the budget are CFO/COO jobs (R7, R8, R9)', /isFin=\(s
 ok('Correct a record stays COO-only', /ok:state\.role==='COO'&&canView\(state\.role,'datafix'\)/.test(bj));
 ok('Add a customer opens the form itself', /custStartAdd\(\)/.test(bj));
 ok("boOpen sets the admin tab and opens the card", /admTab=tab/.test(grab('boOpen')) && /acOpen\[card\]=true/.test(grab('boOpen')));
+ok('a Back Office job opens its one card ALONE: tabs and other cards are not shown (23x)', /boFocus=card\|\|''/.test(grab('boOpen')) && /\.ac2gbar/.test(grab('boFocusApply')) && /details\.acard/.test(grab('boFocusApply')) && /else d\.style\.display='none'/.test(grab('boFocusApply')) && /boFocusApply\(\);\n\}/.test(html));
+ok('the page title becomes the job, under Back Office', /ss\.textContent='Back Office'/.test(grab('boFocusApply')));
+ok('leaving Setup by any other route clears the focus', /if\(id!=='admin'\) boFocus='';/.test(grab('setScreen')));
 ok('Back Office leaves the header when the person has no job there (23u)', /if\(id==='backoffice'\)\{ try\{ if\(!boJobs\(\)\.length\) return; \}catch\(e\)\{\} \}/.test(rtn));
 ok('Give someone access shows only to whoever can edit People (23u)', /ok:canView\(state\.role,'users'\)&&screenEditOK\('users'\)/.test(bj));
 
@@ -118,6 +121,51 @@ ok('it lists every role under its department with the people who hold it', /role
 
 /* ================= 7. BUILD ================= */
 ok("BUILD_ID is 2026-09-23t or later", /var BUILD_ID='2026-09-23[t-z]'/.test(html));
+/* 23y: close a PO, the product sheet, a new base reaches the floor */
+{
+  const sub = (() => { const i = html.indexOf('\nfunction submitClosePO('); return i < 0 ? '' : H.matchBlock(i + 1, 'submitClosePO'); })();
+  ok('po.close exists in the catalogue, COO only, not delegable', /\{code:'po\.close',\s+dept:'leadership', name:'Close a whole PO', delegable:false,/.test(html) && /code:'po\.close'[\s\S]{0,400}legacy:\{kind:'hard', roles:\[\]\}/.test(html));
+  ok('the COO closes every open line in one act, approved in the same act', /approvedBy:who,approvedAt:now,poClose:true/.test(sub) && /o\.closed=\{at:now,by:who/.test(sub));
+  ok('the 2 managers who may ask get the same sheet, and it files a REQUEST per line', /if\(f\.mode==='ask'\)/.test(sub) && /may\('po\.shortclose_request'\)/.test(sub) && /requestedBy:scWho\(\),requestedAt/.test(sub) && !/approvedAt/.test(sub.split("if(f.mode==='ask')")[1].split('return;')[0]));
+  ok('a close needs a reason, and "other" needs words', /if\(!scReason\(f\.reasonCode\)\)/.test(sub) && /f\.reasonCode==='other' && !String\(f\.reason\|\|''\)\.trim\(\)/.test(sub));
+  ok('the ordered quantity is never rewritten; the close is logged and audited', /scFreeze\(l\)/.test(sub) && /logAction\('PO CLOSED by the COO/.test(sub) && /field:'PO closed'/.test(sub) && !/l\.ordered=/.test(sub));
+  ok('who may close: COO or po.close; who may ask: po.shortclose_request; nobody else sees the button', /if\(state\.role==='COO'\|\|may\('po\.close'\)\) return 'close'; if\(may\('po\.shortclose_request'\)\) return 'ask'; return '';/.test(grab('cpMode')) && /if\(!m\|\|!o\|\|!cpOpenLines\(o\)\.length\) return ''/.test(grab('closePOButtonHTML')));
+  ok('the button is on Plant\'s late orders and the floor, and on the run sheet', /closePOButtonHTML\(oo\)/.test(grab('screenPlant')) && /closePOButtonHTML\(o\)/.test(grab('screenPlant')) && /openClosePO\(/.test(grab('renderRun')));
+  ok('the run sheet also lets a manager ask to close ONE line short', /openShortClose\(/.test(grab('renderRun')));
+  const ps = grab('pmRenderSheet');
+  ok('the product form is a sheet in 4 steps', /step\(1,'The product'/.test(ps) && /step\(2,'What the plant makes'/.test(ps) && /step\(3,'How it is packed'/.test(ps) && /step\(4,'Who can order it'/.test(ps));
+  ok('add and edit open the sheet; cancel and save close it', /pmSheetOpen\(\); \}/.test(grab('pmStartAdd')) && /pmSheetOpen\(\); \}/.test(grab('pmEdit')) && /closeModal\(\); render\(\); \}/.test(grab('pmCancel')) && /closeModal\(\); render\(\);\n\}/.test(grab('pmSave')));
+  ok('the old inline form is never drawn', /if\(f&&ed&&false\)\{/.test(grab('productMasterCard')));
+  ok('a product saved as its own base is marked bulk', /bulk:!!f\.ownBase/.test(grab('pmSave')));
+  const ap = grab('applyProductsV1');
+  ok('a bulk base reaches BULK_BASES (Liquid Bio Stimulant)', /BULK_BASES\.push\(b\)/.test(ap) && /p\.bulk===true\)\|\|\(p\.seeded===false&&\(p\.base\|\|p\.brand\)===p\.brand\)/.test(ap));
+  {
+    const f = new Function('SEED','BULK_BASES', ap + ';return applyProductsV1;')({catalog:{}}, ['Sulfur 70%']);
+    const BB = ['Sulfur 70%']; const g = new Function('SEED','BULK_BASES', ap + ';return applyProductsV1;');
+    const fn = g({catalog:{}}, BB);
+    fn({masters:{products:[{brand:'Liquid Bio Stimulant',base:'Liquid Bio Stimulant',seeded:false,active:true,clients:['Dealers'],packs:[1]},{brand:'Cal-Mag V',base:'Cal-Mag V',seeded:true,active:true,clients:['BKK'],packs:[1]},{brand:'Max Sulfur',base:'Sulfur 70%',seeded:true,active:true,clients:['MAXIM'],packs:[1]}]}});
+    ok('a hand-added own base is pushed; a migrated (own) row and a normal brand are not', BB.indexOf('Liquid Bio Stimulant') > -1 && BB.indexOf('Cal-Mag V') < 0 && BB.length === 2);
+  }
+}
+/* 23x: who is on it, and acknowledge is Supply Chain's */
+ok('opening a job marks it taken by me, in the shared state', /state\.taken\[key\]=\{by:me,at:new Date\(\)\.toISOString\(\)\}/.test(grab('tdTake')) && /save\(\)/.test(grab('tdTake')));
+ok('the mark shows to OTHERS only, and expires after 8 hours', /if\(t\.by===me\) return null/.test(grab('tdTakenBy')) && /age<8\*3600000/.test(grab('tdTakenBy')));
+ok('the card says who is on it', /is on it/.test(grab('tdTakenTag')) && /tdTakenTag\(g\)/.test(grab('tdTags')));
+ok('it never locks: the button still runs the action', /tdTake\(.*?\);'\+one\.act\+'"/.test(grab('tdCardHTML')));
+{
+  const src = grab('seedAckRightV1');
+  const f = new Function(src + ';return seedAckRightV1;')();
+  const st = { masters: { roles: [{id:'supply-chain',name:'Supply Chain'},{id:'lab-rep',name:'Lab Rep'},{id:'aqcm',name:'AQCM'},{id:'plant-manager',name:'Plant Manager'},{id:'production',name:'Production'}],
+    roleRights: { 'lab-rep': {'order.acknowledge': true}, 'aqcm': {'order.acknowledge': true}, 'supply-chain': {'order.acknowledge': true}, 'production': {'order.acknowledge': true, 'batch.open': true} } } };
+  f(st);
+  ok('acknowledge removed from Lab Rep and AQCM', st.masters.roleRights['lab-rep']['order.acknowledge'] === false && st.masters.roleRights['aqcm']['order.acknowledge'] === false);
+  ok('acknowledge removed from Production, its other rights untouched', st.masters.roleRights['production']['order.acknowledge'] === false && st.masters.roleRights['production']['batch.open'] === true);
+  ok('Supply Chain keeps it; the Plant Manager gets it (escalation)', st.masters.roleRights['supply-chain']['order.acknowledge'] === true && st.masters.roleRights['plant-manager']['order.acknowledge'] === true);
+  ok('it is logged, with the roles it left', /Acknowledge a PO removed from Lab Rep, AQCM, Production/.test((st.actionLog||[]).map(e=>e.what).join(' ')));
+  ok('it runs once', !!st.masters._ackRightV1 && (st.masters.roleRights['lab-rep']['order.acknowledge'] = true, f(st), st.masters.roleRights['lab-rep']['order.acknowledge'] === true));
+  ok('each answer is marked decided, so nothing derived overwrites it', st.masters.roleRightsSet['lab-rep']['order.acknowledge'] === true);
+}
+ok('the seed runs in ensureState after the customer rights', /seedCustomerRightsV1\(s\); seedPrintDecisionV1\(s\); seedAckRightV1\(s\);/.test(html));
 /* 23w: the first job-shaped sheet - the run */
 const run = grab('renderRun');
 ok('"Open production" on Today opens the run sheet, not the Production Center', /act:`openRun\('\$\{o\.id\}','\$\{l\.id\}'\)`,label:'Open Production'/.test(html));

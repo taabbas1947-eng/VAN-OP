@@ -256,6 +256,9 @@ const asRole = r => { B.state.role = r; };
                             + 'the requester may not approve his own request.' },
     'po.reopen':             { handler: 'reopenShortClose', since: '23 Sep 2026',
                          why: 'Putting a closed line back into play. COO only.' },
+    'po.close':              { handler: 'submitClosePO', since: '24 Sep 2026',
+                         why: 'Closing a whole PO in one act. Tahir, 24 Sep: "give the right to the COO '
+                            + 'for closing a PO." Nothing on any screen offered a close before.' },
   };
   /* CLOSED GAPS — the third shape, neither of the two above. NOT a conversion:
      there is no old answer to freeze, because the old answer was "anyone, no
@@ -1774,6 +1777,7 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
     'po.shortclose_request':{ kind: 'hard',    scr: undefined },
     'po.shortclose_approve':{ kind: 'hard',    scr: undefined },
     'po.reopen':            { kind: 'hard',    scr: undefined },
+    'po.close':             { kind: 'hard',    scr: undefined },
   };
   eq('every right in the catalogue is pinned here', B.RIGHTS.filter(r => !WANT[r.code]).length, 0);
   eq('and nothing pinned here has been dropped',

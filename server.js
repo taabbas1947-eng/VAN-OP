@@ -336,6 +336,24 @@ app.post('/api/login', async (req, res) => {
   } catch (e) { res.status(500).json({ error: String(e) }); }
 });
 
+/* PLATFORM, 24 Sep 2026 (Tahir: "can users change their password on their own?" - yes, please).
+   A signed-in person changes their OWN password: the current one must verify, the new one
+   is at least 6 characters, and the hash is rewritten in place. Nobody can change anyone
+   else's here; the COO's reset on People (PUT /api/users) is untouched. */
+app.post('/api/me/password', auth, async (req, res) => {
+  try {
+    const u = String(req.user.u || '').toLowerCase();
+    const cur = String((req.body && req.body.current) || '');
+    const nw = String((req.body && req.body.password) || '');
+    if (nw.length < 6) return res.status(400).json({ error: 'The new password must be at least 6 characters.' });
+    if (nw === cur) return res.status(400).json({ error: 'The new password is the same as the current one.' });
+    const usr = await store.getUser(u);
+    if (!usr || !verifyPw(cur, usr.pass_hash)) return res.status(401).json({ error: 'The current password is not right.' });
+    await store.putUser({ username: usr.username, name: usr.name, role: usr.role, pass_hash: hashPw(nw) });
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: String(e) }); }
+});
+
 // Platform identity: who you are + which modules you may enter. Drives the launcher's tiles and each module's access.
 // Reads the authoritative user_module_roles table (seeded from today's role/pd_role by runPlatformMigration).
 app.get('/api/me', auth, async (req, res) => {

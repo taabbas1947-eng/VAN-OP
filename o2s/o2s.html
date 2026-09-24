@@ -11,7 +11,7 @@
    a push keeps running the old code with nothing telling anybody. It sat at
    2026-09-04a through this whole day's work; rmqty/psi tests pinned the code,
    nothing pinned this. buildid.test.js now does. */
-var BUILD_ID='2026-09-25d';
+var BUILD_ID='2026-09-25e';
 var CHANGELOG=[
   {ver:'2026-09-04a', date:'2026-09-04', title:"Delivery, DC printing, and a new Reconciliation check", items:[
     "Delivery confirmation stays with Supply Chain \u2014 it no longer hands off to the Plant Manager. If one sits too long, it now re-flags the same Supply Chain owner every 3 days instead.",
@@ -316,6 +316,11 @@ var CHANGELOG=[
     "Reports: a new Pre-shipment inspections register, open to everyone: every inspected truck, its result and inspector, and Print.",
     "New order: each price shows this customer's last price for the product (or the last price to anyone, for a first order). More than 5% away needs a reason, which goes on the record.",
     "New order: payment terms (Advance, COD, 15, 30, 45 or 60 days) and the ERP SO # are asked for. The SO # fills in on the truck's DC."
+  ]},
+  {ver:'2026-09-25e', date:'2026-09-25', title:"Who signs a truck out, and who confirms it arrived", items:[
+    "The warehouse loads the truck and issues the gate pass. Saad reviews it. The Plant Manager gives the final approval of the DC and releases the truck, in one step.",
+    "If Saad has not reviewed within 2 hours, the Plant Manager may approve without it; the DC records that.",
+    "Delivery: whoever sent the truck confirms it arrived. After 1 day it also goes to Saad, after 1 more day to the Plant Manager."
   ]},
 ];
 </script>
@@ -4385,8 +4390,8 @@ function grantRefusal(granter,targetRole,code){
    look up one of its halves can never refuse anything. This map says which role
    holds each sign-off today, exactly as the gates hard-code it, so the rules can
    answer. It grants nothing. */
-var SIGNOFF_ROLES={'inspection.perform':['QA Inspector'],'coa.draft':['Lab Rep','AQCM','QCM'],'coa.review':['AQCM'],'coa.approve':['QCM'],'shipment.release':['Supply Chain'],'dc.approve':['Supply Chain']};
-var SIGNOFF_NAMES={'inspection.perform':'Inspect a lot or a truck','coa.draft':'Draft a COA','coa.review':'Review a COA','coa.approve':'Approve a COA','shipment.release':'Release a loaded truck','dc.approve':'Approve a delivery challan'};
+var SIGNOFF_ROLES={'inspection.perform':['QA Inspector'],'coa.draft':['Lab Rep','AQCM','QCM'],'coa.review':['AQCM'],'coa.approve':['QCM'],'shipment.release':['Plant Manager'],'dc.approve':['Plant Manager'],'shipment.review':['Supply Chain']};
+var SIGNOFF_NAMES={'inspection.perform':'Inspect a lot or a truck','coa.draft':'Draft a COA','coa.review':'Review a COA','coa.approve':'Approve a COA','shipment.release':'Release a loaded truck','dc.approve':'Approve a delivery challan','shipment.review':'Review a truck before release'};
 function holdsSignoff(role,code){ var r=SIGNOFF_ROLES[code]; return !!r && (role==='COO' || r.indexOf(role)>=0); }
 function holdsCode(role,code){ return rightByCode(code)?mayHere(role,code):holdsSignoff(role,code); }
 function codeKnown(code){ return !!rightByCode(code)||!!SIGNOFF_ROLES[code]; }
@@ -9793,6 +9798,40 @@ function entryPriceNote(i){ var l=entryLines[i]; var c=entryPriceCheck(l); if(!c
   return h; }
 function entryTermsDefault(){ var c=null; try{ c=curCustomer(); }catch(e){} if(!c) return ''; if(c.paymentTerms) return c.paymentTerms; var d=+c.creditDays||0; return d?((PAY_TERMS.indexOf(d+' days')>-1)?d+' days':''):''; }
 
+/* ===== WHO SIGNS A TRUCK OUT, AND WHO CONFIRMS IT ARRIVED — 24 Sep 2026 (25e) ==
+   Tahir, 24 Sep: loading is the warehouse (Shoaib, or Zain assisting); the
+   warehouse issues the gate pass; Saad reviews; Fahim gives the final approval
+   of the DC and releases the truck. If Saad has not reviewed within 2 hours,
+   it goes straight to Fahim and the DC records that it was approved without
+   the Supply Chain review (the loader never reviews his own truck).
+   Delivery: whoever dispatched the truck confirms it arrived; if not, after 1
+   day it escalates to Saad, and after 1 more day to the Plant Manager.
+   This replaces 23i ("Saad is the dispatch authority"), which had moved the
+   release and DC approval to Supply Chain in the code while Today still sent
+   both jobs to the Plant Manager, who was then refused: DC 120 and 121 sat. */
+var TRUCK_REVIEW_HOURS=2;
+function _uRole(){ return {by:(state.currentUser&&state.currentUser.name)||state.role, user:(state.currentUser&&state.currentUser.username)||'', role:state.role}; }
+function truckReviewSince(r){ var t=String(r.gatePassAt||''); var q=r.qa&&(r.qa.recordedAt||''); if(q&&q>t) t=q; return t; }
+function truckReviewLapsed(r){ var t=truckReviewSince(r); if(!t) return false; return (Date.now()-new Date(t).getTime())>=TRUCK_REVIEW_HOURS*3600000; }
+function truckReadyForReview(rows){ var r=rows[0]; return !!(r&&r.stage==='loading'&&r.gatePass&&rows.every(function(s){ return s.qa&&s.qa.pass; })); }
+function reviewTruck(dispId){ if(!hardRole(['Supply Chain'])){ toast('Supply Chain reviews the truck'); return; }
+  var rows=shipRowsOf(dispId); if(!rows.length) return; if(!truckReadyForReview(rows)){ toast('The truck needs its gate pass and a passed inspection first.'); return; }
+  if(rows[0].scReview){ toast('Already reviewed by '+rows[0].scReview.by); return; }
+  var me=_uRole(); if(rows.some(function(s){ return (s.loadedByUser&&s.loadedByUser===me.user)||(s.gatePassByUser&&s.gatePassByUser===me.user); })&&state.role!=='COO'){ toast('You loaded or passed this truck out; someone else reviews it.'); return; }
+  var at=new Date().toISOString(); rows.forEach(function(s){ s.scReview={by:me.by,user:me.user,role:me.role,at:at}; });
+  logAction('Truck reviewed — DC '+(rows[0].dc||'')+' ('+dispId+') by '+me.by+' → Plant Manager to approve'); save(); render(); toast('Reviewed. Now waiting on the Plant Manager to approve the DC and release the truck.'); }
+/* who dispatched: the one who issued the gate pass, else who loaded, else who planned */
+function truckDispatcher(r){ if(r.gatePassByUser) return {user:r.gatePassByUser,name:r.gatePassBy,role:r.gatePassByRole};
+  if(r.loadedByUser) return {user:r.loadedByUser,name:r.loadedBy,role:r.loadedByRole};
+  var u=(usersList||[]).find(function(x){ return x&&(x.name===r.by||x.username===r.by); }); return u?{user:u.username,name:u.name,role:u.role}:{user:'',name:'',role:'Warehouse'}; }
+function _calDays(from){ var a=new Date(String(from).slice(0,10)+'T00:00:00'), b=new Date(evToday()+'T00:00:00'); return isNaN(a)?0:Math.max(0,Math.round((b-a)/86400000)); }
+/* the delivery jobs for one truck in transit: dispatcher, then Saad after 1 day, then Fahim after 1 more */
+function deliveryJobs(g){ var r=(g.rows||[])[0]||{}; var d=truckDispatcher(r); var days=_calDays(g.approvedDate||g.date); var base='Confirm delivery — '+(g.poLabel||g.po||'')+(g.dc?' · DC '+g.dc:''); var act="openDeliveryConfirm('"+g.dispId+"')"; var out=[];
+  out.push({role:d.role||'Warehouse',who:d.user||undefined,disp:g,what:base+(d.name?' · you sent it':''),act:act,label:'Confirm delivery'});
+  if(days>=2) out.push({role:'Supply Chain',disp:g,what:base+' · not confirmed by '+(d.name||'the warehouse')+' for '+days+' days',act:act,label:'Confirm delivery'});
+  if(days>=3) out.push({role:'Plant Manager',disp:g,what:base+' · not confirmed for '+days+' days (Saad has had it since day 2)',act:act,label:'Confirm delivery'});
+  return out; }
+
 /* ===== THE THREE VERIFY ITEMS — SPEC-01 rule 3, built 2026-08-21
 
    The 8-point checklist asks "Batch & expiry printed" — printed, not CORRECT.
@@ -10485,7 +10524,7 @@ function printDC(dispId){ var g=((typeof dispatchGroups==='function')?dispatchGr
     +'<table><thead><tr><th style="width:30px">Sr</th><th>Product</th><th class="num" style="width:44px">SKU</th><th style="width:38px">UOM</th><th class="num" style="width:66px">Quantity</th><th class="num" style="width:78px">Weight (Kg)</th><th style="width:130px">Batch #</th></tr></thead><tbody>'+rows+blanks+'</tbody></table>'
     +psiNote+stamp
     +'<div class="signs"><div class="s"><div class="role">Issued by</div>'+(issuedBy?('<div class="nm">'+_pe(issuedBy)+'</div><div class="ok">&#10003; digital signature</div>'):'')+'</div>'
-    +'<div class="s"><div class="role">Approved by</div>'+(approved?('<div class="nm">'+_pe(g.approvedBy)+'</div><div class="ts">'+_pe(g.approvedDate)+'</div><div class="ok">&#10003; digital signature</div>'):'<div class="pend">pending</div>')+'</div>'
+    +'<div class="s"><div class="role">Approved by</div>'+(approved?('<div class="nm">'+_pe(g.approvedBy)+'</div><div class="ts">'+_pe(g.approvedDate)+'</div><div class="ok">&#10003; digital signature</div>'+((g.rows[0]&&g.rows[0].scReview)?'<div class="ts">reviewed by '+_pe(g.rows[0].scReview.by)+'</div>':((g.rows[0]&&g.rows[0].noScReview)?'<div class="ts">approved without Supply Chain review</div>':''))):'<div class="pend">pending</div>')+'</div>'
     +'<div class="s"><div class="role">Received by</div><div class="ts">signature &amp; date on delivery</div></div></div>'
     +'<div class="foot">This is a system-generated document produced by the VAN O2S system. It is access-controlled and audit-logged; accordingly, no manual signature is required.</div>'
     +'</div>';
@@ -11610,18 +11649,20 @@ function actionItems(){
        belongs in the drawer, not the headline. */
     var dcTag=g.dc?(' · DC '+g.dc):'';
     if(st==='truck_planned')
-      items.push({role:'Supply Chain',disp:g,what:'Start loading — '+(g.poLabel||g.po||'')+dcTag,act:"startLoading('"+g.dispId+"')",label:'Load'});
+      items.push({role:'Warehouse',disp:g,what:'Start loading — '+(g.poLabel||g.po||'')+dcTag,act:"startLoading('"+g.dispId+"')",label:'Load'});
     else if(st==='loading' && !g.gatePass)
-      items.push({role:'Supply Chain',disp:g,what:'Issue Gate Pass — '+(g.poLabel||g.po||'')+dcTag,act:"issueGatePass('"+g.dispId+"')",label:'Gate Pass'});
+      items.push({role:'Warehouse',disp:g,what:'Issue Gate Pass — '+(g.poLabel||g.po||'')+dcTag,act:"issueGatePass('"+g.dispId+"')",label:'Gate Pass'});
+    else if(st==='loading' && g.gatePass && g.qa!=='pending' && g.qa!=='fail' && !(g.rows[0]||{}).scReview && !truckReviewLapsed(g.rows[0]||{}))
+      items.push({role:'Supply Chain',disp:g,what:'Review truck — '+(g.poLabel||g.po||'')+' · Gate Pass '+g.gatePass+' · then the Plant Manager approves',act:"reviewTruck('"+g.dispId+"')",label:'Review truck'});
     else if(st==='loading' && g.gatePass && g.qa!=='pending' && g.qa!=='fail')
       /* The release is the Plant Manager's gate — the last approval before the
          truck moves. Held back while pre-shipment inspection is still pending so
          this never invites him to jump ahead of QA. */
-      items.push({role:'Plant Manager',disp:g,what:'Release truck — '+(g.poLabel||g.po||'')+' · Gate Pass '+g.gatePass,act:"approveRelease('"+g.dispId+"')",label:'Release'});
-    if(g.dcStatus==='pending')
+      items.push({role:'Plant Manager',disp:g,what:'Approve DC and release truck — '+(g.poLabel||g.po||'')+' · Gate Pass '+g.gatePass+((g.rows[0]||{}).scReview?' · reviewed by '+(g.rows[0].scReview.by):' · Saad has not reviewed it in '+TRUCK_REVIEW_HOURS+' hours'),act:"approveRelease('"+g.dispId+"')",label:'Release'});
+    if(g.dcStatus==='pending' && st!=='loading' && st!=='truck_planned')
       items.push({role:'Plant Manager',disp:g,what:'Approve DC '+(g.dc||'')+' — '+(g.poLabel||g.po||''),act:"approveDC('"+g.dispId+"')",label:'Approve DC'});
     if(st==='in_transit' && !g.delivered && g.qa!=='pending' && g.qa!=='fail')
-      items.push({role:'Supply Chain',disp:g,what:'Confirm delivery — '+(g.poLabel||g.po||'')+dcTag,act:"openDeliveryConfirm('"+g.dispId+"')",label:'Confirm delivery'});
+      deliveryJobs(g).forEach(function(x){ items.push(x); }); /* 25e */
   });
   dispatchGroups().filter(g=>g.dispId&&g.qa==='pending').forEach(g=>items.push({role:'QA Inspector',what:'Pre-shipment inspection — '+g.po+' ('+g.rows.length+' product(s), '+fmt(g.kg)+' Kg/L)',act:"openDispatchQA('"+g.dispId+"')",label:'Inspect',disp:g}));
   (state.packingLog||[]).filter(p=>p&&p.qa&&p.qa.fail).forEach(p=>items.push({role:'Supply Chain',lot:p,what:'QA failed lot — correct & resubmit ('+p.brand+')',act:"lotQACorrect('"+p.id+"')",label:'Correct'}));
@@ -12112,7 +12153,7 @@ var acView='list'; /* My Actions list/cards view toggle — default keeps existi
 var AC_ROLEORDER=['Supply Chain','CFO','Production','Lab Rep','AQCM','QCM','QA Inspector','Plant Manager'];
 var AC_STAGES=['PO Created','RM Check','Production','Lab QC','AQCM Review','Pack QC','Shipment'];
 function acTypeColor(lb){ if(lb==='Print price')return 'var(--amber)'; if(lb==='Release'||lb==='Approve DC')return 'var(--red)'; if(lb==='Load'||lb==='Gate Pass'||lb==='Confirm delivery')return '#0f766e'; if(lb==='Pack QC'||lb==='Inspect')return 'var(--navy)'; if(lb==='Open Production'||lb==='RM Check'||lb==='Acknowledge'||lb==='Receive')return 'var(--amber)'; if(lb==='Lab QC'||lb==='Review'||lb==='Approve'||lb==='Approve PR')return '#1d4ed8'; if(lb==='Add reason'||lb==='Correct')return 'var(--red)'; return 'var(--mut)'; }
-function acStageOf(lb){ if(lb==='Print price')return 'PO Created'; if(lb==='Load'||lb==='Gate Pass'||lb==='Release'||lb==='Approve DC'||lb==='Confirm delivery')return 'Shipment'; if(lb==='Acknowledge')return 'PO Created'; if(lb==='RM Check'||lb==='Receive'||lb==='Approve PR')return 'RM Check'; if(lb==='Open Production')return 'Production'; if(lb==='Lab QC')return 'Lab QC'; if(lb==='Review'||lb==='Approve')return 'AQCM Review'; if(lb==='Pack QC'||lb==='Inspect')return 'Pack QC'; if(lb==='Ship')return 'Shipment'; return 'Production'; }
+function acStageOf(lb){ if(lb==='Print price')return 'PO Created'; if(lb==='Load'||lb==='Gate Pass'||lb==='Review truck'||lb==='Release'||lb==='Approve DC'||lb==='Confirm delivery')return 'Shipment'; if(lb==='Acknowledge')return 'PO Created'; if(lb==='RM Check'||lb==='Receive'||lb==='Approve PR')return 'RM Check'; if(lb==='Open Production')return 'Production'; if(lb==='Lab QC')return 'Lab QC'; if(lb==='Review'||lb==='Approve')return 'AQCM Review'; if(lb==='Pack QC'||lb==='Inspect')return 'Pack QC'; if(lb==='Ship')return 'Shipment'; return 'Production'; }
 function acRiskOf(it){ if(actOverdue(it))return 'late'; var tm=actTiming(it); if(tm.dueIn!=null&&tm.dueIn<0)return 'late'; return actUrg(it)<=2?'today':'normal'; }
 /* What the chip says. A deadline item is described by its deadline — "due today"
    reads as something to act on; "0d waiting" reads as something that just
@@ -12160,13 +12201,14 @@ function acEscalation(it){ if(!it)return null;
   var TH={'Acknowledge':[1,'Plant Manager'],'RM Check':[1,'CFO'],'Receive':[1,'CFO'],'Lab QC':[1,'Plant Manager'],'Assign sample':[1,'Plant Manager'],'Review':[1,'Plant Manager'],'Approve':[1,'Plant Manager'],'Pack QC':[2,'Plant Manager'],'Inspect':[2,'Plant Manager'],'Ship':[2,'Supply Chain'],'Open Production':[4,'Plant Manager'],'Approve PR':[1,'COO'],
     /* 2026-08-21 — the truck pipeline. A loaded truck waiting on a release is the
        most expensive thing to leave sitting, so it escalates after one day. */
-    'Print price':[3,'COO'],'Load':[1,'Supply Chain'],'Gate Pass':[1,'Supply Chain'],'Release':[1,'COO'],'Approve DC':[1,'COO'],
+    'Print price':[3,'COO'],'Load':[1,'Supply Chain'],'Gate Pass':[1,'Supply Chain'],'Review truck':[1,'Plant Manager'],'Release':[1,'COO'],'Approve DC':[1,'COO'],
     /* 2026-09-04 — the COO's call: delivery confirmation is Supply Chain's job,
        full stop, never Plant Manager's. But it should not go quiet either — Saad
        (Supply Chain) still needs the nudge, so a stale "Confirm delivery" re-flags
        to Supply Chain itself after 3 days: same owner, same role, just louder —
        the ⚠ stalled badge on his own row, not a hand-off to anyone else. */
-    'Confirm delivery':[3,'Supply Chain']};
+    /* 25e: the delivery jobs escalate themselves - dispatcher, then Saad, then the Plant Manager (deliveryJobs) */
+    'Confirm delivery':[99,'Plant Manager']};
   var th=TH[it.label]; if(!th)return null;
   var days=(it.label==='Open Production')?acProduceStallDays(it):((actTiming(it)||{}).days);
   if(days==null||days<th[0])return null;
@@ -12288,8 +12330,9 @@ var TD_LABEL={
   'Ship':            {title:'Ready to ship',                        verb:'Plan the truck'},
   'Load':            {title:'Truck to load',                        verb:'Start loading'},
   'Gate Pass':       {title:'Gate pass to issue',                   verb:'Issue gate pass'},
-  'Release':         {title:'Loaded truck waiting for release',     verb:'Release the truck'},
+  'Release':         {title:'Truck waiting for your final approval', verb:'Approve DC and release'},
   'Approve DC':      {title:'Delivery challan to approve',          verb:'Approve DC'},
+  'Review truck':    {title:'Truck to review before release',       verb:'Review'},
   'Confirm delivery':{title:'Delivery to confirm',                  verb:'Confirm delivered'},
   'Inspect':         {title:'Inspect the truck before it leaves',   verb:'Inspect'},
   'Lab QC':          {title:'COA to test and draft',                verb:'Open the COA'},
@@ -12316,7 +12359,7 @@ var TD_RIGHT={
   'Acknowledge':'order.acknowledge','RM Check':'rm.check','Receive':'rm.receive',
   'Open Production':'production.enter',
   'Ship':'shipment.plan','Load':'shipment.load','Gate Pass':'gatepass.issue',
-  'Confirm delivery':'delivery.confirm','Print price':'order.print_decision'
+  'Print price':'order.print_decision' /* 25e: Confirm delivery is addressed by person (deliveryJobs), not to every holder of the right */
   /* Not here, on purpose: Pack QC, Inspect, Lab QC, Review, Approve, Release,
      Approve DC. Their codes (inspection.perform, coa.*, shipment.release,
      dc.approve) are the six that were never added to RIGHTS, so nothing can be
@@ -12891,7 +12934,7 @@ async function ppSave(){ if(!ppCan()){toast('Only the COO can change people');re
 var TD_NEXT={'Assign sample':'Lab test','Lab test':'Review',  /* 24z: the lab by test */
   'Acknowledge':'RM Check','RM Check':'Approve PR','Approve PR':'Receive','Receive':'Open Production','Print price':'Open Production',
   'Open Production':'Close batch','Close batch':'Lab QC','Reopened — check first':'Close batch','Lab QC':'Review','Review':'Approve','Approve':'Pack QC',
-  'Pack QC':'Ship','Correct':'Re-inspect','Re-inspect':'Ship','Ship':'Load','Load':'Gate Pass','Gate Pass':'Inspect','Inspect':'Release','Release':'Approve DC',
+  'Pack QC':'Ship','Correct':'Re-inspect','Re-inspect':'Ship','Ship':'Load','Load':'Inspect','Inspect':'Gate Pass','Gate Pass':'Review truck','Review truck':'Release','Release':'Confirm delivery',
   'Approve DC':'Confirm delivery','Confirm delivery':'','Add reason':'','Approve customer':''};
 function tdRoleJobs(role){
   /* the labels addressed to this role right now, plus every label whose live
@@ -12900,7 +12943,7 @@ function tdRoleJobs(role){
   try{ actionItems().forEach(function(it){ if(it.role===role && it.label && !seen[it.label]){ seen[it.label]=1; out.push(it.label); } }); }catch(e){}
   Object.keys(TD_RIGHT).forEach(function(l){ if(!seen[l] && mayRole(role,TD_RIGHT[l])){ seen[l]=1; out.push(l); } });
   /* 24o: the sign-offs are jobs too - a QCM with no COA waiting today still approves COAs */
-  var SIGN_JOBS={'Lab Rep':['Lab QC'],'AQCM':['Review'],'QCM':['Approve'],'QA Inspector':['Pack QC','Inspect'],'Supply Chain':['Release','Approve DC'],'Plant Manager':['Approve DC']};
+  var SIGN_JOBS={'Lab Rep':['Lab QC'],'AQCM':['Review'],'QCM':['Approve'],'QA Inspector':['Pack QC','Inspect'],'Supply Chain':['Review truck'],'Plant Manager':['Release','Approve DC']};
   (SIGN_JOBS[role]||[]).forEach(function(l){ if(!seen[l]){ seen[l]=1; out.push(l); } });
   return out;
 }
@@ -13458,7 +13501,7 @@ function guideMyJob(){
   return h;
 }
 function guideHow(){
-  var steps=[['Received','An order is entered with each product, quantity and a committed date. Nothing moves until it exists here.'],['Materials','Supply Chain acknowledges it and checks raw material: in full, in part, or not yet. A shortfall raises a purchase request the CFO approves; what arrives is confirmed at the bay.'],['Produced','Production opens a batch, logs each shift’s output, closes the batch. The base is made in bulk; packing turns it into the brand. The Production screen shows one card per product to make, with the orders inside it.'],['Lab','The QC manager assigns each test of a sample to an analyst; each analyst runs his test for every waiting sample on one bench sheet, and his name and the time go on the result. When every test has a result the AQCM reviews and the QCM approves. (Until the COO switches this on, one analyst drafts the whole COA as before.) When a batch is split into lots, the QC manager marks one lot to test for the batch; the other lots wait for it, and each then gets its own certificate with that result, saying which lot was tested. A lot logged after that test is tested on its own, unless the QC manager gives it the batch result in his name.'],['Packed · QA','Each packed lot is inspected before it can ship. A failed lot is corrected and re-inspected.'],['Shipped','Supply Chain plans the truck, the warehouse loads it, the gate pass is issued, the truck is inspected and released. The person who loads does not release. The moment the truck is released it counts as a sale, net of FED (FED is the sales tax; on an order quoted FED-inclusive the price is divided by 1.05).'],['Delivered','Delivery is confirmed and the order is Delivered. A line delivered in full is Delivered whether or not the date was stamped; the missing date is listed for the COO.']];
+  var steps=[['Received','An order is entered with each product, quantity and a committed date. Nothing moves until it exists here.'],['Materials','Supply Chain acknowledges it and checks raw material: in full, in part, or not yet. A shortfall raises a purchase request the CFO approves; what arrives is confirmed at the bay.'],['Produced','Production opens a batch, logs each shift’s output, closes the batch. The base is made in bulk; packing turns it into the brand. The Production screen shows one card per product to make, with the orders inside it.'],['Lab','The QC manager assigns each test of a sample to an analyst; each analyst runs his test for every waiting sample on one bench sheet, and his name and the time go on the result. When every test has a result the AQCM reviews and the QCM approves. (Until the COO switches this on, one analyst drafts the whole COA as before.) When a batch is split into lots, the QC manager marks one lot to test for the batch; the other lots wait for it, and each then gets its own certificate with that result, saying which lot was tested. A lot logged after that test is tested on its own, unless the QC manager gives it the batch result in his name.'],['Packed · QA','Each packed lot is inspected before it can ship. A failed lot is corrected and re-inspected.'],['Shipped','Supply Chain plans the truck. The warehouse loads it, QA inspects it, and the warehouse issues the gate pass. Saad (Supply Chain) reviews it; the Plant Manager gives the final approval of the DC and releases the truck. If the review has not happened within 2 hours, the Plant Manager may approve without it and the DC says so. Three different people: the one who loads never reviews or releases. Whoever sent the truck confirms it arrived; after 1 day it goes to Saad, after 1 more to the Plant Manager. The moment the truck is released it counts as a sale, net of FED (FED is the sales tax; on an order quoted FED-inclusive the price is divided by 1.05).'],['Delivered','Delivery is confirmed and the order is Delivered. A line delivered in full is Delivered whether or not the date was stamped; the missing date is listed for the COO.']];
   var h='<div class="gd-intro">One order goes through 7 steps. At each step one role acts; the moment it presses its button the job appears on the next role’s Today. Nobody chases anybody: the list does.</div>';
   h+='<div class="gd-steps">'+steps.map(function(s,i){ return '<div class="gd-step"><span class="n">'+(i+1)+'</span><div><b>'+s[0]+'</b><span>'+s[1]+'</span></div></div>'; }).join('')+'</div>';
   h+='<h2>What the marks mean</h2><div class="gd-rows"><div class="gd-row"><span class="k">● due</span><span>the committed date is ahead</span></div><div class="gd-row"><span class="k">■ 12 d past promise</span><span>the committed date has passed; the days are counted from it</span></div><div class="gd-row"><span class="k">is on it</span><span>a colleague with the same role has taken the card; it stays visible to both</span></div><div class="gd-row"><span class="k">Escalated to you</span><span>a card left too long on someone’s Today, shown to their lead with the role’s name</span></div><div class="gd-row"><span class="k">Done. Now waiting on …</span><span>the toast after every button: who the job went to, by name</span></div></div>';
@@ -14671,8 +14714,8 @@ function saveDispatch(){ if(!may('shipment.plan')){toast(denyRight('shipment.pla
   logAction(`Shipment ${shipNo} (${dispId}) · PO ${o.po}: ${n} product(s), ${fmt(tot)} Kg/L · DC ${dc}${dispForm.vehicle?(' · '+dispForm.vehicle):''}`);
   (state.audit=state.audit||[]).unshift({t:new Date().toISOString(),user:state.role,module:'Shipment',po:o.po,brand:n+' product(s)',field:'Shipped',old:'',val:fmt(tot)+' Kg/L · DC '+(dispForm.dc||'-')});
   dispForm=null; save(); closeModal(); render(); toast(`DC ${dc} recorded — pending Plant Manager approval`); }
-function approveDC(dispId){ if(!hardRole(['Supply Chain'])){ toast('Supply Chain / COO approves the DC'); return; } var rows=(state.shipments||[]).filter(function(s){return (s.dispId||'')===dispId&&!s.voided;}); if(!rows.length)return; var who=(state.currentUser&&state.currentUser.name)||state.role; var dt=TODAY.toISOString().slice(0,10); rows.forEach(function(s){ s.dcStatus='approved'; s.approvedBy=who; s.approvedDate=dt; if(!s.dispCounted){ var o=(state.orders||[]).find(function(x){return x.po===s.po;}); var l=o&&((o.lines||[]).find(function(x){return x.id===s.lid;})||(o.lines||[]).find(function(x){return x.brand===s.brand;})); if(l){ l.dispatched=(+l.dispatched||0)+(+s.kg||0); l.dispatchDate=l.dispatchDate||dt; } s.dispCounted=true; } }); var dc=rows[0].dc||''; logAction('DC '+dc+' approved by '+who+' — cleared for outward movement'); save(); render(); toast('DC '+dc+' approved — cleared to ship'); }
-function rejectDC(dispId){ if(!hardRole(['Supply Chain'])){ toast('Supply Chain / COO only'); return; } if(typeof confirm==='function'&&!confirm('Reject this DC? It will be voided and the material returns to Ready to ship.'))return; var rows=(state.shipments||[]).filter(function(s){return (s.dispId||'')===dispId&&!s.voided;}); rows.forEach(function(s){ s.voided=true; s.dcStatus='rejected'; var o=(state.orders||[]).find(function(x){return x.po===s.po;}); var l=o&&((o.lines||[]).find(function(x){return x.id===s.lid;})||(o.lines||[]).find(function(x){return x.brand===s.brand;})); _releaseShip(o,l,s.batches); if(s.dispCounted&&l){ l.dispatched=Math.max(0,(+l.dispatched||0)-(+s.kg||0)); s.dispCounted=false; } }); logAction('DC '+((rows[0]&&rows[0].dc)||'')+' rejected — material returned to Ready to ship'); save(); render(); toast('DC rejected'); }
+function approveDC(dispId){ if(!hardRole(['Plant Manager'])){ toast('The Plant Manager gives the final approval of the DC'); return; } var rows=(state.shipments||[]).filter(function(s){return (s.dispId||'')===dispId&&!s.voided;}); if(!rows.length)return; var who=(state.currentUser&&state.currentUser.name)||state.role; var dt=TODAY.toISOString().slice(0,10); rows.forEach(function(s){ s.dcStatus='approved'; s.approvedBy=who; s.approvedDate=dt; if(!s.dispCounted){ var o=(state.orders||[]).find(function(x){return x.po===s.po;}); var l=o&&((o.lines||[]).find(function(x){return x.id===s.lid;})||(o.lines||[]).find(function(x){return x.brand===s.brand;})); if(l){ l.dispatched=(+l.dispatched||0)+(+s.kg||0); l.dispatchDate=l.dispatchDate||dt; } s.dispCounted=true; } }); var dc=rows[0].dc||''; logAction('DC '+dc+' approved by '+who+' — cleared for outward movement'); save(); render(); toast('DC '+dc+' approved — cleared to ship'); }
+function rejectDC(dispId){ if(!hardRole(['Supply Chain','Plant Manager'])){ toast('Supply Chain / COO only'); return; } if(typeof confirm==='function'&&!confirm('Reject this DC? It will be voided and the material returns to Ready to ship.'))return; var rows=(state.shipments||[]).filter(function(s){return (s.dispId||'')===dispId&&!s.voided;}); rows.forEach(function(s){ s.voided=true; s.dcStatus='rejected'; var o=(state.orders||[]).find(function(x){return x.po===s.po;}); var l=o&&((o.lines||[]).find(function(x){return x.id===s.lid;})||(o.lines||[]).find(function(x){return x.brand===s.brand;})); _releaseShip(o,l,s.batches); if(s.dispCounted&&l){ l.dispatched=Math.max(0,(+l.dispatched||0)-(+s.kg||0)); s.dispCounted=false; } }); logAction('DC '+((rows[0]&&rows[0].dc)||'')+' rejected — material returned to Ready to ship'); save(); render(); toast('DC rejected'); }
 /* Client of a PO (used to enforce one-truck-one-client and to group multi-PO shipments). */
 function shipClientFor(po){ var o=(state.orders||[]).find(function(x){return x.po===po;}); return o?(o.client||''):''; }
 /* Derive the prototype lifecycle stage from a dispatch group. Backward-compatible:
@@ -14858,7 +14901,7 @@ function mpCreate(){ if(!may('shipment.plan')){toast(denyRight('shipment.plan','
 /* Gate Pass serial — continues its own running number, like the DC serial. */
 function nextGatePassNo(){ var mx=0; (state.shipments||[]).forEach(function(s){ if(!s||s.voided)return; var n=parseInt(String(s.gatePass||'').replace(/\D/g,''),10); if(!isNaN(n)&&n>mx)mx=n; }); return 'GP-'+('0000'+(mx+1)).slice(-4); }
 function shipRowsOf(dispId){ return (state.shipments||[]).filter(function(s){return (s.dispId||'')===dispId && !s.voided;}); }
-function startLoading(dispId){ if(!may('shipment.load')){toast(denyRight('shipment.load','Starting loading'));return;} var rows=shipRowsOf(dispId); if(!rows.length)return; if(rows[0].stage!=='truck_planned'){toast('Loading can only start on a Truck Planned shipment');return;} var d=TODAY.toISOString().slice(0,10); rows.forEach(function(s){ s.stage='loading'; s.loadStarted=d; }); logAction('Loading started — DC '+(rows[0].dc||'')+' ('+dispId+')'); save(); render(); toast('Loading started'); }
+function startLoading(dispId){ if(!may('shipment.load')){toast(denyRight('shipment.load','Starting loading'));return;} var rows=shipRowsOf(dispId); if(!rows.length)return; if(rows[0].stage!=='truck_planned'){toast('Loading can only start on a Truck Planned shipment');return;} var d=TODAY.toISOString().slice(0,10); var _me={by:(state.currentUser&&state.currentUser.name)||state.role,user:(state.currentUser&&state.currentUser.username)||'',role:state.role}; rows.forEach(function(s){ s.stage='loading'; s.loadStarted=d; s.loadedBy=_me.by; s.loadedByUser=_me.user; s.loadedByRole=_me.role; }); logAction('Loading started — DC '+(rows[0].dc||'')+' ('+dispId+')'); save(); render(); toast('Loading started'); }
 function issueGatePass(dispId){ if(!may('gatepass.issue')){toast(denyRight('gatepass.issue','Issuing a Gate Pass'));return;} var rows=shipRowsOf(dispId); if(!rows.length)return; if(rows[0].stage!=='loading'){toast('Start loading before issuing the Gate Pass');return;} if(rows[0].gatePass){toast('Gate Pass already issued: '+rows[0].gatePass);return;}
   /* FAULT 8, one step further along — 23 September 2026.
      approveRelease refuses an uninspected truck, and markDelivered refuses one
@@ -14875,10 +14918,10 @@ function issueGatePass(dispId){ if(!may('gatepass.issue')){toast(denyRight('gate
       toast(_f ? 'This truck FAILED pre-shipment inspection — no Gate Pass. Correct it and re-inspect.'
                : 'Pre-shipment inspection has not passed on this truck yet — QA must inspect it before a Gate Pass can be issued.');
       return; } }
-  var gp=nextGatePassNo(); rows.forEach(function(s){ s.gatePass=gp; }); logAction('Gate Pass '+gp+' issued — DC '+(rows[0].dc||'')+' ('+dispId+')'); save(); render(); toast('Gate Pass '+gp+' issued'); }
+  var gp=nextGatePassNo(); var _me={by:(state.currentUser&&state.currentUser.name)||state.role,user:(state.currentUser&&state.currentUser.username)||'',role:state.role}, _at=new Date().toISOString(); rows.forEach(function(s){ s.gatePass=gp; s.gatePassAt=_at; s.gatePassBy=_me.by; s.gatePassByUser=_me.user; s.gatePassByRole=_me.role; }); logAction('Gate Pass '+gp+' issued — DC '+(rows[0].dc||'')+' ('+dispId+')'); save(); render(); toast('Gate Pass '+gp+' issued'); }
 /* Plant Manager release = approval. Requires the Gate Pass to be issued (DC is already auto-generated).
    On release: stage → in_transit, DC approved, and the dispatched quantity is counted (deferred until now). */
-function approveRelease(dispId){ if(!hardRole(['Supply Chain'])){ toast('Supply Chain / COO releases the truck'); return; } var rows=shipRowsOf(dispId); if(!rows.length)return; if(rows[0].stage!=='loading'){ toast('Truck must be in Loading before release'); return; } if(!rows[0].gatePass && dcControlOn(rows[0].dispatch||TODAY.toISOString().slice(0,10))){ toast('Issue the Gate Pass before release'); return; }
+function approveRelease(dispId){ if(!hardRole(['Plant Manager'])){ toast('The Plant Manager gives the final approval and releases the truck'); return; } /* 25e */ { var _r0=shipRowsOf(dispId); if(_r0.length&&_r0[0].gatePass&&!_r0[0].scReview&&!truckReviewLapsed(_r0[0])&&state.role!=='COO'){ toast('Waiting for Saad’s review. If he has not reviewed within '+TRUCK_REVIEW_HOURS+' hours of the gate pass, you can approve without it.'); return; } } var rows=shipRowsOf(dispId); if(!rows.length)return; if(rows[0].stage!=='loading'){ toast('Truck must be in Loading before release'); return; } if(!rows[0].gatePass && dcControlOn(rows[0].dispatch||TODAY.toISOString().slice(0,10))){ toast('Issue the Gate Pass before release'); return; }
   /* FAULT 8, closed 2026-08-21 on Tahir's decision.
 
      Release checked the role, the stage and the gate pass — but never whether the
@@ -14902,7 +14945,7 @@ function approveRelease(dispId){ if(!hardRole(['Supply Chain'])){ toast('Supply 
                : 'Pre-shipment inspection has not passed on this truck yet — QA must inspect it before it can be released.');
       return; } } var who=(state.currentUser&&state.currentUser.name)||state.role; var dt=TODAY.toISOString().slice(0,10);
   var exf=(rows[0].transportType==='Ex-factory'); /* customer collects → closes at the gate, no in-transit */
-  rows.forEach(function(s){ s.dcStatus='approved'; s.approvedBy=who; s.approvedDate=dt; var o=(state.orders||[]).find(function(x){return x.po===s.po;}); var l=o&&((o.lines||[]).find(function(x){return x.id===s.lid;})||(o.lines||[]).find(function(x){return x.brand===s.brand;})); if(!s.dispCounted){ if(l){ l.dispatched=(+l.dispatched||0)+(+s.kg||0); l.dispatchDate=l.dispatchDate||dt; } s.dispCounted=true; } if(exf){ s.stage='delivered'; s.delivered=dt; s.deliveredVia='Collected at factory'; if(l){ l.delivered=(+l.delivered||0)+(+s.kg||0); l.deliveredDate=dt; } } else { s.stage='in_transit'; } });
+  rows.forEach(function(s){ s.dcStatus='approved'; s.approvedBy=who; s.approvedDate=dt; if(!s.scReview&&s.gatePass) s.noScReview=true; var o=(state.orders||[]).find(function(x){return x.po===s.po;}); var l=o&&((o.lines||[]).find(function(x){return x.id===s.lid;})||(o.lines||[]).find(function(x){return x.brand===s.brand;})); if(!s.dispCounted){ if(l){ l.dispatched=(+l.dispatched||0)+(+s.kg||0); l.dispatchDate=l.dispatchDate||dt; } s.dispCounted=true; } if(exf){ s.stage='delivered'; s.delivered=dt; s.deliveredVia='Collected at factory'; if(l){ l.delivered=(+l.delivered||0)+(+s.kg||0); l.deliveredDate=dt; } } else { s.stage='in_transit'; } });
   logAction('DC '+(rows[0].dc||'')+' released by '+who+(exf?' — collected at factory':' — truck dispatched (in transit)')); (state.audit=state.audit||[]).unshift({t:new Date().toISOString(),user:state.role,module:'Shipment',po:(rows[0].po||''),brand:rows.length+' line(s)',field:(exf?'Released · collected':'Released'),old:'loading',val:dt+' · '+who}); save(); render(); toast('DC '+(rows[0].dc||'')+(exf?' released — collected at factory':' released — in transit')); }
 /* Cancel a shipment before delivery (any pre-delivery stage): void rows, return material to Ready to ship. */
 function cancelShip(dispId){ if(!(canEdit(['Supply Chain','Plant Manager'])||state.role==='COO')){ toast('Supply Chain / Plant Manager only'); return; } if(typeof confirm==='function'&&!confirm('Cancel this shipment? The material returns to Ready to ship.'))return; var rows=shipRowsOf(dispId); if(rows.some(function(s){return s.delivered;})){ toast('This shipment is already delivered - set it back to In transit (Edit) before cancelling.'); return; } rows.forEach(function(s){ s.voided=true; s.stage='cancelled'; s.dcStatus='cancelled'; var o=(state.orders||[]).find(function(x){return x.po===s.po;}); var l=o&&((o.lines||[]).find(function(x){return x.id===s.lid;})||(o.lines||[]).find(function(x){return x.brand===s.brand;})); _releaseShip(o,l,s.batches); if(s.dispCounted&&l){ l.dispatched=Math.max(0,(+l.dispatched||0)-(+s.kg||0)); s.dispCounted=false; } }); logAction('Shipment cancelled — DC '+((rows[0]&&rows[0].dc)||'')+' — material returned to Ready to ship'); save(); render(); toast('Shipment cancelled'); }

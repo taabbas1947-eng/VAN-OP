@@ -493,17 +493,19 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
      B.SEPARATION.every(([a, b]) => !(B.rightByCode(a) && B.rightByCode(b))));
   ok('but every pair is known, because the sign-off half answers from SIGNOFF_ROLES',
      B.SEPARATION.every(([a, b]) => B.codeKnown(a) && B.codeKnown(b)));
-  const REFUSED = { 'Supply Chain · order.create': 1, 'Supply Chain · shipment.load': 1, 'QA Inspector · production.enter': 1 };
+  /* 25e: the Plant Manager gives the final DC approval and releases (Tahir, 24 Sep), so he is the one who may not also raise orders or load */
+  const REFUSED = { 'Plant Manager · order.create': 1, 'Plant Manager · shipment.load': 1, 'QA Inspector · production.enter': 1 };
   B.RIGHTS.forEach(rt => ROLES.forEach(r => {
     const k = r + ' · ' + rt.code, got = B.separationRefusal(r, rt.code);
     if (REFUSED[k]) ok('refused, with the reason: ' + k, /already has/.test(got) && /—/.test(got), got);
     else eq('nothing else is blocked by separation: ' + k, got, '');
   }));
   ok('the COO is never refused', ROLES.indexOf('COO') < 0 || B.RIGHTS.every(rt => B.separationRefusal('COO', rt.code) === ''));
-  ok('the rules already broken today are listed for the COO: Lead Supply Chain loads AND releases, and approves the DC for orders it may raise',
-     B.sodConflicts().some(c => c.role === 'Supply Chain' && c.a === 'shipment.load' && c.b === 'shipment.release'));
+  ok('25e: Supply Chain no longer releases, so it is no longer listed as loading AND releasing',
+     !B.sodConflicts().some(c => c.role === 'Supply Chain' && c.b === 'shipment.release'));
   ok('...and the other real one: the AQCM can draft a COA (Lab edit) and review it - the per-person check on the certificate is what stops that (24c)',
      B.sodConflicts().some(c => c.role === 'AQCM' && c.a === 'coa.draft' && c.b === 'coa.review'));
+  ok('25e: the Plant Manager now releases, and still holds the loading right - listed for the COO to take away', B.sodConflicts().some(c => c.role === 'Plant Manager' && c.a === 'shipment.load' && c.b === 'shipment.release'));
   eq('exactly those 2 rules are broken on the live role model today', B.sodConflicts().length, 2, JSON.stringify(B.sodConflicts()));
 
   /* And it DOES bite the moment the other half arrives. Add dc.approve — the
@@ -1240,8 +1242,8 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
   const after = b.authCard();
   const pmRow = after.slice(after.indexOf('Raise a new PO')).split('</tr>')[0];
   ok('THE GRID CHANGES — the decision is visible', /Not granted/.test(pmRow), pmRow.slice(0, 400));
-  ok('...and it says today\'s answer is still different', /today the app still says yes/.test(pmRow), pmRow.slice(0, 500));
-  ok('...and offers to put it BACK, not to remove it again', /order\.create',true\)/.test(pmRow), pmRow.slice(0, 400));
+  /* 25e: the Plant Manager now approves DCs, so putting order.create back is refused by separation, and the cell says why */
+  ok('...and putting it back is refused: he approves the DC, so he may not raise the order (25e)', /approving its own delivery/.test(pmRow), pmRow.slice(0, 500));
   ok('the card counts what is set but not yet in force', /tick.{0,30}marked/.test(after), after.slice(-700));
   /* and a COO-only right the COO does change also shows */
   b.rightTick('Sales Officer', 'customer.create', true);
@@ -1383,11 +1385,13 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
   /* Moved to Supply Chain on 23 September: "Plant Manager is no more a cover.
      Saad becomes the authority to approve dispatch, or wherever dispatch has an
      approval point." They stay hardRole - only the name in the check changed. */
-  [['approveDC', 'Supply Chain'], ['rejectDC', 'Supply Chain'], ['approveRelease', 'Supply Chain']]
+  /* 25e, Tahir 24 Sep: the Plant Manager gives the final approval of the DC and
+     releases; Saad reviews before him; either may reject a DC. */
+  [['approveDC', "'Plant Manager'"], ['rejectDC', "'Supply Chain','Plant Manager'"], ['approveRelease', "'Plant Manager'"]]
     .forEach(([fn, role]) => {
       const body = H.grab(fn);
       ok('SIGN-OFF still hard-gated: ' + fn,
-         new RegExp("hardRole\\(\\['" + role + "'\\]\\)").test(body), body.slice(0, 120));
+         body.indexOf("hardRole([" + role + "])") > -1, body.slice(0, 120));
       ok('SIGN-OFF not converted by mistake: ' + fn + ' asks for no right',
          !/(^|[^\w])may\(/.test(body), body.slice(0, 120));
     });

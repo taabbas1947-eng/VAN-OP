@@ -208,8 +208,8 @@ const ALL = (STATE.masters.roles || []).map(r => r.name).concat(['COO'])
        KIND B - a sign-off on somebody else's work - so they stay hardRole and
        must never follow the access matrix. Only the name in the check changed,
        which is exactly what this table exists to notice. */
-    ['approveDC',      'Supply Chain',  'approving a delivery challan'],
-    ['approveRelease', 'Supply Chain',  'releasing a loaded truck'],
+    ['approveDC',      'Plant Manager', 'approving a delivery challan'],
+    ['approveRelease', 'Plant Manager', 'releasing a loaded truck'],
     ['rejectDC',       'Supply Chain',  'rejecting a delivery challan'],
     ['doReopenBatch',  'Plant Manager', 'undoing a batch close'],
     ['openReopenBatch','Plant Manager', 'opening the reopen dialog'],

@@ -89,7 +89,9 @@ Object.keys(TD_RIGHT || {}).forEach(l => {
   ok("TD_RIGHT['" + l + "'] = " + TD_RIGHT[l] + ' is a real right code', codes.has(TD_RIGHT[l]));
   ok("TD_RIGHT['" + l + "'] is a label actionItems raises", labels.has(l));
 });
-[['Ship','shipment.plan'],['Load','shipment.load'],['Gate Pass','gatepass.issue'],['Confirm delivery','delivery.confirm'],
+/* 25e: Confirm delivery is addressed to the person who sent the truck, not to every holder of the right */
+ok('Confirm delivery is not offered to every holder of the right (25e)', !(TD_RIGHT && TD_RIGHT['Confirm delivery']));
+[['Ship','shipment.plan'],['Load','shipment.load'],['Gate Pass','gatepass.issue'],
  ['Receive','rm.receive'],['RM Check','rm.check'],['Acknowledge','order.acknowledge'],['Print price','order.print_decision'],
  ['Open Production','production.enter']]
  .forEach(([l, c]) => eq("TD_RIGHT['" + l + "']", TD_RIGHT && TD_RIGHT[l], c));

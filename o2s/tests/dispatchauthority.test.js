@@ -1,95 +1,39 @@
-/* SAAD IS THE DISPATCH AUTHORITY — 23 September 2026.
-
-   Tahir: "Plant Manager is no more a cover. Saad becomes the authority to approve
-   dispatch, or wherever dispatch has an approval point."
-
-   There are exactly three approval points on the truck pipeline, and all three
-   were bare hardRole(['Plant Manager']) checks rather than rights:
-
-     approveDC       approve the Delivery Challan
-     rejectDC        reject it, voiding the DC and returning the material
-     approveRelease  release the loaded truck through the gate
-
-   They stay hardRole - deliberately. rights.test.js draws the line this file sits
-   on: doing your own job follows the access matrix; SIGNING OFF SOMEBODY ELSE'S
-   work never does, because a screen grant given for an ordinary reason must not
-   buy the right to approve. What changes is whose name is in the check.
-
-   WHAT THIS COSTS, said plainly rather than discovered later. Separation rule 4
-   in the live code reads "The person who loads does not release", naming
-   shipment.load + shipment.release. Saad now holds shipment.load AND approves the
-   release. In practice Shoaib and Zain load and Saad approves, which is the shape
-   the rule wants; but nothing in the app stops Saad loading a truck himself and
-   then releasing it. The rule cannot fire either way - shipment.release is one of
-   the six codes that were never added to RIGHTS - so this is a note for the COO,
-   not a control. It is pinned here so it is not mistaken for an oversight.
-
+/* WHO SIGNS A TRUCK OUT — 24 September 2026 (25e). Replaces the 23i file
+   ("Saad is the dispatch authority"), whose ruling Tahir changed:
+   loading and the gate pass are the warehouse (Shoaib, Zain assisting); Saad
+   reviews; Fahim (Plant Manager) gives the final DC approval and releases the
+   truck. If Saad has not reviewed within 2 hours, Fahim may approve without it
+   and the DC says so. Delivery: whoever dispatched the truck confirms; after 1
+   day Saad; after 1 more the Plant Manager.
+   The bug it closes: 23i moved approveDC/approveRelease to Supply Chain, but
+   Today kept sending 'Approve DC' and 'Release' to the Plant Manager, who was
+   refused when he tapped. DC 120 and 121 sat from 23 Sep.
    Run: node dispatchauthority.test.js */
-const H = require('./harness.js');
-
-let pass = 0, fail = 0; const fails = [];
-function ok(n, c, x) { if (c) pass++; else { fail++; fails.push(n + (x ? '  [' + x + ']' : '')); } }
-function eq(n, g, w) { ok(n, g === w, 'got ' + JSON.stringify(g) + ' want ' + JSON.stringify(w)); }
-
-const POINTS = ['approveDC', 'rejectDC', 'approveRelease'];
-
-/* ================= 1. THE THREE APPROVAL POINTS ================= */
-POINTS.forEach(fn => {
-  const src = H.grab(fn);
-  ok(fn + " asks hardRole(['Supply Chain'])", /hardRole\(\['Supply Chain'\]\)/.test(src), src.slice(0, 120));
-  ok(fn + ' no longer asks the Plant Manager', !/hardRole\(\['Plant Manager'\]\)/.test(src), src.slice(0, 120));
-  /* A sign-off must never follow the access matrix - a screen grant given for an
-     ordinary reason would otherwise buy the authority to approve. */
-  ok(fn + ' does NOT follow the access matrix', !/canEdit\(/.test(src) && !/accessLevel\(/.test(src));
-  ok(fn + ' still lets the COO act', /hardRole\(/.test(src));
-  /* and the refusal has to name the right person, or it sends people to someone
-     who can no longer help */
-  ok(fn + ' names Supply Chain in its refusal', /Supply Chain/.test(src), (src.match(/toast\('[^']{0,70}/) || [''])[0]);
-  ok(fn + ' does not name the Plant Manager in its refusal', !/toast\('Plant Manager/.test(src));
-});
-
-/* ================= 2. THE GRANT TABLE ================= */
-{
-  const flat = H.html.replace(/\s+/g, ' ');
-  ok('dispatch is granted to the three who do it, and no longer to the Plant Manager',
-     /var DISPATCH_GRANT=\{'Supply Chain':true,'Warehouse':true,'Supply Chain Officer':true\}/.test(flat));
-  /* "This is again a burden on Plant Manager, Saad should do, no one else - we
-     will decide who is to cover later." So procurement is one name, and the only
-     fallback is the COO until Tahir names a cover. */
-  ok('procurement is Saad alone - no cover named yet',
-     /var PROCUREMENT_GRANT=\{'Supply Chain':true\}/.test(flat));
-  ok('...and the source says there is no cover, rather than leaving it to be found',
-     /THERE IS NO COVER/.test(H.html));
-}
-
-/* ================= 3. THE ESCALATION PATH ================= */
-/* A dispatch item that goes quiet must now nudge Saad, not the Plant Manager.
-   Release and Approve DC still escalate to the COO, because those are Saad's own
-   approvals - an escalation has to go ABOVE the person sitting on it. */
-{
-  const esc = H.grab('acEscalation');
-  [['Ship', 'Supply Chain'], ['Load', 'Supply Chain'], ['Gate Pass', 'Supply Chain'],
-   ['Confirm delivery', 'Supply Chain'], ['Release', 'COO'], ['Approve DC', 'COO']].forEach(([k, who]) => {
-    const m = new RegExp("'" + k + "':\\[\\d+,'" + who + "'\\]").test(esc);
-    ok("a stale '" + k + "' escalates to " + who, m, (esc.match(new RegExp("'" + k + "':\\[[^\\]]*\\]")) || [''])[0]);
-  });
-  ok('no dispatch step escalates to the Plant Manager any more',
-     !/'(Ship|Load|Gate Pass)':\[\d+,'Plant Manager'\]/.test(esc));
-  /* Quality still does - this ruling was about dispatch only. */
-  ok('Quality still escalates to the Plant Manager', /'Pack QC':\[\d+,'Plant Manager'\]/.test(esc));
-}
-
-/* ================= 4. THE SEPARATION NOTE ================= */
-{
-  const sep = H.grabTopVar('SEPARATION', '[');
-  ok('rule 4 still says the person who loads does not release',
-     /the person who loads does not release/.test(sep));
-  ok("...and shipment.release still isn't a real code, so it cannot fire",
-     H.grabTopVar('RIGHTS', '[').indexOf("code:'shipment.release'") < 0);
-  ok('the tension is written down in the source, not left to be found',
-     /Saad now\s+holds shipment\.load AND approves the release/.test(H.html));
-}
-
-console.log('\nSaad is the dispatch authority: ' + pass + ' passed, ' + fail + ' failed');
-fails.forEach(f => console.log('  FAIL  ' + f));
-process.exit(fail ? 1 : 0);
+const H = require('./harness.js'); const vm = require('vm'); const { ok, eq, report, grab, html } = H;
+ok('approveRelease: Plant Manager (and COO)', grab('approveRelease').indexOf("hardRole(['Plant Manager'])") > -1);
+ok('approveDC: Plant Manager (and COO)', grab('approveDC').indexOf("hardRole(['Plant Manager'])") > -1);
+ok('rejectDC: Saad or the Plant Manager', grab('rejectDC').indexOf("hardRole(['Supply Chain','Plant Manager'])") > -1);
+ok('reviewTruck: Supply Chain (Saad)', grab('reviewTruck').indexOf("hardRole(['Supply Chain'])") > -1);
+ok('release waits for the review, unless 2 hours have passed', /!_r0\[0\]\.scReview&&!truckReviewLapsed\(_r0\[0\]\)/.test(grab('approveRelease')));
+ok('an approval without the review is recorded on the DC', /s\.noScReview=true/.test(grab('approveRelease')) && /approved without Supply Chain review/.test(grab('printDC')) && /reviewed by /.test(grab('printDC')));
+ok('the loader or gate-pass issuer cannot review his own truck', /You loaded or passed this truck out/.test(grab('reviewTruck')));
+ok('loading and gate pass record who did them', /s\.loadedByUser=/.test(grab('startLoading')) && /s\.gatePassAt=_at; s\.gatePassBy=/.test(grab('issueGatePass')));
+const ai = grab('actionItems');
+ok("Today: Load and Gate Pass go to the Warehouse", /role:'Warehouse',disp:g,what:'Start loading/.test(ai) && /role:'Warehouse',disp:g,what:'Issue Gate Pass/.test(ai));
+ok("Today: Saad gets 'Review truck'", /role:'Supply Chain',disp:g,what:'Review truck/.test(ai));
+ok("Today: the Plant Manager gets the release, which is the one he can do", /role:'Plant Manager',disp:g,what:'Approve DC and release truck/.test(ai));
+ok("Today: no separate Approve DC job for a truck in the loading flow", /g\.dcStatus==='pending' && st!=='loading' && st!=='truck_planned'/.test(ai));
+ok('SIGNOFF_ROLES names the new holders', /'shipment\.release':\['Plant Manager'\],'dc\.approve':\['Plant Manager'\],'shipment\.review':\['Supply Chain'\]/.test(html));
+/* the 2-hour clock and the delivery ladder, run */
+const sb = { console, TRUCK_REVIEW_HOURS: 2, usersList: [{ username: 'shoaib', name: 'Muhammad Shoaib', role: 'Warehouse' }], evToday: () => '2026-09-26', state: {} };
+vm.createContext(sb); vm.runInContext(['truckReviewSince', 'truckReviewLapsed', 'truckDispatcher', '_calDays', 'deliveryJobs'].map(grab).join('\n'), sb);
+const now = Date.now();
+ok('1 hour after the gate pass: not lapsed', !sb.truckReviewLapsed({ gatePassAt: new Date(now - 3600e3).toISOString() }));
+ok('3 hours after: lapsed', sb.truckReviewLapsed({ gatePassAt: new Date(now - 3 * 3600e3).toISOString() }));
+ok('the clock starts at the later of gate pass and inspection', !sb.truckReviewLapsed({ gatePassAt: new Date(now - 5 * 3600e3).toISOString(), qa: { recordedAt: new Date(now - 1800e3).toISOString() } }));
+const g = d => ({ dispId: 'D1', dc: '118', po: 'P', approvedDate: d, rows: [{ gatePassByUser: 'zain', gatePassBy: 'Zain Ghaffar', gatePassByRole: 'Supply Chain Officer' }] });
+eq('day of release and next day: only the dispatcher', sb.deliveryJobs(g('2026-09-25')).map(x => x.role + ':' + (x.who || '')).join(','), 'Supply Chain Officer:zain');
+eq('day 2: Saad too', sb.deliveryJobs(g('2026-09-24')).map(x => x.role).join(','), 'Supply Chain Officer,Supply Chain');
+eq('day 3: the Plant Manager too', sb.deliveryJobs(g('2026-09-23')).map(x => x.role).join(','), 'Supply Chain Officer,Supply Chain,Plant Manager');
+eq('an old truck with no gate-pass record falls back to who planned it', sb.truckDispatcher({ by: 'Muhammad Shoaib' }).user, 'shoaib');
+process.exitCode = report('Who signs a truck out (25e)') ? 1 : 0;

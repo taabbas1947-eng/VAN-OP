@@ -74,7 +74,7 @@ const MARKERS = [
   ['var PROCUREMENT_GRANT=',               1, 'procurement is the lead\u2019s'],
   ['if(RIGHTS_LIVE[r.code]===true) return;', 1, 'the drift card ignores live rights'],
   ["roles:['Production Manager','Supply Chain']", 1, 'short close: the two managers'],
-  ["hardRole(['Supply Chain'])",            3, 'the three dispatch approval points'],
+  ["if(!hardRole(['Plant Manager'])){ toast('The Plant Manager gives the final approval", 2, 'the DC approval and truck release are the Plant Manager\'s (25e; was Supply Chain in 23i)'],
   ['THERE IS NO COVER',                     1, 'no cover named for Saad yet'],
   ["canEdit(['Supply Chain','Warehouse'])", 4, 'packed-stock custody'],
   /* 2026-09-23j - Today, three places, the night's rulings */
@@ -170,6 +170,8 @@ const MARKERS = [
   ['function allocateStock(oid,lid){ toast(', 1, 'the stock-allocation hole is shut (25b)'],
   ['function labSetRep(',                  1, 'one lot tested for the batch (25b)'],
   ['function psiRegisterHTML(',            1, 'pre-shipment inspections register (25d)'],
+  ['function reviewTruck(',                1, 'Saad reviews, the Plant Manager approves and releases (25e)'],
+  ['function deliveryJobs(',               1, 'delivery confirmation: dispatcher, then Saad, then Plant Manager (25e)'],
   ['function cssScope(',                   1, 'DC prints with the pre-shipment report attached (25d)'],
   ['function entryPriceCheck(',            1, 'New order: last price and the 5% band (25d)'],
   ["var PAY_TERMS=['Advance','COD'",       1, 'New order: payment terms (25d)'],

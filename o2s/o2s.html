@@ -11,7 +11,7 @@
    a push keeps running the old code with nothing telling anybody. It sat at
    2026-09-04a through this whole day's work; rmqty/psi tests pinned the code,
    nothing pinned this. buildid.test.js now does. */
-var BUILD_ID='2026-09-24l';
+var BUILD_ID='2026-09-24m';
 var CHANGELOG=[
   {ver:'2026-09-04a', date:'2026-09-04', title:"Delivery, DC printing, and a new Reconciliation check", items:[
     "Delivery confirmation stays with Supply Chain \u2014 it no longer hands off to the Plant Manager. If one sits too long, it now re-flags the same Supply Chain owner every 3 days instead.",
@@ -234,6 +234,12 @@ var CHANGELOG=[
   ]},
   {ver:'2026-09-24l', date:'2026-09-24', title:"Finance gets the Invoicing sheet", items:[
     "The money roles stay the 4 of R6 (COO, CFO, Plant Manager, the KAMs). Finance \u2014 invoicing \u2014 sees prices on the Invoicing sheet alone: delivered quantity, price and value by delivery challan, exportable. Nowhere else in the app shows Finance a rupee."
+  ]},
+  {ver:'2026-09-24m', date:'2026-09-24', title:"The last of the 2 reviews", items:[
+    "The Dashboard is off the navigation: it repeated Today and Plant. Sales against budget lives on in Reports.",
+    "Customers has one search across every segment \u2014 code, name, city, KAM \u2014 so nobody has to guess a customer\u2019s segment first.",
+    "Reconcile packing is a sentence and a list, and every flagged line carries its fix: Add the packing record opens Correct a record with the order, the product and the untraced quantity already filled in (R20).",
+    "A person on People carries one name for their role \u2014 the title; the role code appears only where it differs. Recipes and Lab templates are 2 tabs of one page."
   ]},
 ];
 </script>
@@ -4639,7 +4645,7 @@ function reconCompute(){
       const gap=packed-loggedKg;
       if(gap<=0.5) return;
       rows.push({
-        po:o.po||'', client:o.client||'', channel:o.channel||'',
+        po:o.po||'', lid:l.id, client:o.client||'', channel:o.channel||'',
         brand:l.brand||'', base:l.base||'',
         ordered:+l.ordered||0, produced:+l.produced||0, packed:packed,
         dispatched:+l.dispatched||0, delivered:+l.delivered||0,
@@ -4667,14 +4673,9 @@ function screenRecon(){
   const critCount=rows.filter(function(r){ return r.status==='crit'; }).length;
   const totalGap=rows.reduce(function(s,r){ return s+r.gap; },0);
   const banner=boBackHTML()+`<div class="banner info">Every packed order line is compared with its packing record. ${fmt(data.linesChecked)} line${data.linesChecked===1?'':'s'} checked, ${fmt(rows.length)} differ${rows.length===1?'s':''}. Nothing is changed by opening this page; what it finds is corrected under <b>Correct a record</b>.</div>`;
-  const tiles=`<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
-     <div class="card" style="flex:1;min-width:130px"><div class="muted" style="font-size:11px">Orders scanned</div><div style="font-size:22px;font-weight:700">${fmt(data.ordersScanned)}</div></div>
-     <div class="card" style="flex:1;min-width:130px"><div class="muted" style="font-size:11px">Lines checked</div><div style="font-size:22px;font-weight:700">${fmt(data.linesChecked)}</div></div>
-     <div class="card" style="flex:1;min-width:130px"><div class="muted" style="font-size:11px">Flagged</div><div style="font-size:22px;font-weight:700;color:${rows.length?'var(--red)':'var(--green2)'}">${fmt(rows.length)}</div></div>
-     <div class="card" style="flex:1;min-width:130px"><div class="muted" style="font-size:11px">Untraced total</div><div style="font-size:22px;font-weight:700;color:${totalGap>0.5?'var(--red)':'var(--green2)'}">${fmt(totalGap)} Kg/L</div></div>
-   </div>`;
+  /* 24m: the 4 tiles are gone; the sentence above says the numbers. Each flagged line carries its fix (R20). */
   if(!rows.length){
-    $('view').innerHTML=banner+tiles+`<div class="card" style="text-align:center;padding:36px 20px"><div style="font-size:15px;font-weight:600">Nothing flagged</div><div class="muted" style="margin-top:6px">Every packed line right now has a matching packing record.</div></div>`;
+    $('view').innerHTML=banner+`<div class="card" style="text-align:center;padding:36px 20px"><div style="font-size:15px;font-weight:600">Nothing flagged</div><div class="muted" style="margin-top:6px">Every packed line right now has a matching packing record.</div></div>`;
     return;
   }
   const patternHtml = pattern ? `<div class="banner warn"><b>Pattern, not a one-off:</b> ${pattern.length} flagged lines are all <b>${_av(pattern[0].brand)}</b>, across ${new Set(pattern.map(function(r){return r.channel;})).size} different channel(s) \u2014 worth a look at how that brand gets packed, not just at these specific orders.</div>` : '';
@@ -4692,7 +4693,7 @@ function screenRecon(){
     return String(av).localeCompare(String(bv))*reconSort.dir;
   });
   function th(label,key){ const active=reconSort.k===key; return `<th onclick="reconSetSort('${key}')" style="cursor:pointer;white-space:nowrap;text-align:${key==='po'||key==='brand'?'left':'right'}">${label}${active?(reconSort.dir===1?' \u25b4':' \u25be'):''}</th>`; }
-  const head=`<tr>${th('PO / Client','po')}${th('Brand \u00b7 Base','brand')}<th>Status</th>${th('Ordered','ordered')}${th('Packed','packed')}${th('Logged','loggedKg')}${th('Untraced','gap')}</tr>`;
+  const head=`<tr>${th('PO / Client','po')}${th('Brand \u00b7 Base','brand')}<th>Status</th>${th('Ordered','ordered')}${th('Packed','packed')}${th('Logged','loggedKg')}${th('Untraced','gap')}<th></th></tr>`;
   const body=filtered.map(function(r){
     const statusPill = r.status==='crit' ? pill('Not shipped \u2014 blocking','--red') : pill('Shipped, no trail','--amber');
     const overpackBadge = r.overpack ? ' <span class="pill" style="background:var(--red);color:#fff;font-size:9.5px">OVER ORDER</span>' : '';
@@ -4704,14 +4705,25 @@ function screenRecon(){
       <td style="padding:8px 10px;text-align:right;font-variant-numeric:tabular-nums">${fmt(r.packed)}</td>
       <td style="padding:8px 10px;text-align:right;font-variant-numeric:tabular-nums">${fmt(r.loggedKg)}</td>
       <td style="padding:8px 10px;text-align:right;font-variant-numeric:tabular-nums;font-weight:700;color:${r.status==='crit'?'var(--red)':'var(--amber)'}">${fmt(r.gap)}</td>
+      <td style="padding:8px 10px;white-space:nowrap">${reconFixBtn(r)}</td>
     </tr>`;
   }).join('');
-  $('view').innerHTML=banner+patternHtml+tiles+filterBar+`<div class="card" style="overflow-x:auto;padding:0">
+  $('view').innerHTML=banner+patternHtml+filterBar+`<div class="card" style="overflow-x:auto;padding:0">
      <table style="width:100%"><thead>${head}</thead><tbody>${body}</tbody></table>
    </div>
    <div class="muted" style="font-size:11px;margin-top:10px">Recomputed live from the current order book and packing log every time this screen opens \u2014 not a saved snapshot.</div>`;
 }
 
+/* R20 (24m): a flagged line's fix, one tap away - the missing packing record for that PO line, opened under Correct a record with the order, the line and the untraced quantity already filled in. */
+function reconFixBtn(r){ if(!screenEditOK('datafix')) return ''; return '<button class="qs-btn sm" onclick="reconFix(\''+qsEsc(String(r.po).split("'").join(''))+'\',\''+qsEsc(String(r.lid||'').split("'").join(''))+'\')">Add the packing record</button>'; }
+function reconFix(po,lid){
+  if(!screenEditOK('datafix')){ toast('Correct a record is the COO’s.'); return; }
+  var o=(state.orders||[]).find(function(x){return x&&String(x.po)===String(po);}); var l=o&&(o.lines||[]).find(function(x){return x&&x.id===lid;}); if(!o||!l){ toast('Order line not found'); return; }
+  if(!state.dataFixEnabled){ toast('Turn corrections on first (Correct a record → Corrections switch).'); }
+  var gap=0; try{ var r=(reconCompute().rows||[]).find(function(x){return x.po===o.po&&x.lid===lid;}); gap=r?r.gap:0; }catch(e){}
+  dfStart('packing'); dfForm.oid=o.id; dfForm.lid=l.id; if(gap>0) dfForm.qty=Math.round(gap); dfForm.reason='Reconcile: packed quantity has no packing record ('+fmt(gap)+' Kg/L untraced)';
+  setScreen('datafix');
+}
 function screenDataFix(){
   const isCOO=state.role==='COO'; const on=!!state.dataFixEnabled;
   if(!isCOO){ $('view').innerHTML=`<div class="banner warn">Data Fix is COO-only.</div>`; return; }
@@ -5535,6 +5547,9 @@ function cityAbbr(city){ return (city||'').replace(/[^A-Za-z]/g,'').slice(0,3).t
 var CUST_SEGMENTS=['White-label','Dealer','Distributor','VGreen','COBO','Direct Farmer'];
 var custSeg='White-label';
 var custForm=null;
+var custQ='';
+/* 24m: one search across every segment - a manager looking for KISAN should not have to guess its segment */
+function custMatch(c,q){ q=String(q||'').toLowerCase().trim(); if(!q) return true; return ((c.code||'')+' '+(c.name||'')+' '+(c.city||'')+' '+(c.kam||'')+' '+(c.segment||'')+' '+(c.outlet||'')+' '+(c.destination||'')).toLowerCase().indexOf(q)>-1; }
 function _custAbbr3(s){ return (String(s||'').replace(/[^A-Za-z]/g,'').slice(0,3).toUpperCase())||'XXX'; }
 function _custYY(y){ return String(y||TODAY.getFullYear()).slice(-2); }
 function custBrandKeyFor(seg){ if(seg==='White-label')return ''; if(seg==='COBO')return 'VITAL AGRI NUTRIENTS (PVT) LTD'; if(seg==='Distributor')return 'BKK'; return 'Vgreen'; /* Dealer/VGreen/Direct Farmer all use VAN brands */ }
@@ -5658,14 +5673,20 @@ function screenDealers(){
   var tabs='<div class="ac2gbar" role="tablist">'+CUST_SEGMENTS.map(segTab).join('')+'</div>';
   var cur=(state.customers||[]).filter(function(c){return c.segment===custSeg;});
   var listHtml;
-  if(custSeg==='VGreen'||custSeg==='COBO'){
+  var q=String(custQ||'').trim();
+  var find='<div class="pl-find" style="margin:0 0 10px"><input id="custFind" placeholder="Find a customer — code, name, city, KAM, in any segment" value="'+qsEsc(custQ)+'" oninput="custQ=this.value;render();var e=document.getElementById(\'custFind\');if(e){e.focus();e.setSelectionRange(e.value.length,e.value.length);}"></div>';
+  if(q){
+    var hits=(state.customers||[]).filter(function(c){return c&&!c.isParent&&custMatch(c,q);});
+    listHtml='<div class="card"><h3>Matching “'+qsEsc(q)+'” <span class="hint">'+hits.length+'</span></h3>'+(hits.length?('<div style="overflow:auto"><table><thead><tr><th>Code</th><th>Name</th><th>Segment</th><th>FED</th><th>KAM</th><th>Status</th><th></th></tr></thead><tbody>'+hits.map(function(c){return '<tr><td><b>'+c.code+'</b></td><td>'+c.name+(c.city?(' <span class="muted" style="font-size:11px">'+c.city+'</span>'):'')+'</td><td>'+c.segment+'</td><td>'+c.fed+'</td><td class="muted">'+(c.kam||'—')+'</td><td>'+pill(c.status||'Active','--green')+'</td><td>'+(ed?('<button class="sm ghost" onclick="custEdit(\''+c.code+'\')">Edit</button> <button class="sm ghost" onclick="custToggleStatus(\''+c.code+'\')">'+((c.status||'Active')==='Active'?'Deactivate':'Reactivate')+'</button>'):'')+'</td></tr>';}).join('')+'</tbody></table></div>'):'<div class="muted" style="padding:10px 2px">No customer matches.</div>')+'</div>';
+    tabs='';
+  } else if(custSeg==='VGreen'||custSeg==='COBO'){
     var outlets=cur.filter(function(c){return !c.isParent;});
     listHtml='<div class="card"><h3>'+custSeg+' outlets <span class="hint">'+outlets.length+'</span>'+(edAdd?'<button class="sm" style="margin-left:auto" onclick="custStartAdd(\''+custSeg+'\')">+ Add outlet</button>':'')+'</h3>'+(outlets.length?('<div style="overflow:auto"><table><thead><tr><th>Code</th><th>Outlet</th><th>FED</th><th>KAM</th><th>Destination</th><th>Status</th><th></th></tr></thead><tbody>'+outlets.map(function(c){return '<tr><td><b>'+c.code+'</b></td><td>'+c.name+'</td><td>'+c.fed+'</td><td class="muted">'+(c.kam||'—')+'</td><td class="muted">'+(c.destination||'—')+'</td><td>'+pill(c.status||'Active','--green')+'</td><td>'+(ed?('<button class="sm ghost" onclick="custEdit(\''+c.code+'\')">Edit</button> <button class="sm ghost" onclick="custToggleStatus(\''+c.code+'\')">'+((c.status||'Active')==='Active'?'Deactivate':'Reactivate')+'</button>'):'')+'</td></tr>';}).join('')+'</tbody></table></div>'):'<div class="muted" style="padding:10px 2px">No outlets yet.</div>')+'</div>';
   } else {
     var rows=cur.filter(function(c){return !c.isParent;});
     listHtml='<div class="card"><h3>'+custSeg+' <span class="hint">'+rows.length+'</span>'+(edAdd?'<button class="sm" style="margin-left:auto" onclick="custStartAdd(\''+custSeg+'\')">+ Add '+custSeg+'</button>':'')+'</h3>'+(rows.length?('<div style="overflow:auto"><table><thead><tr><th>Code</th><th>Name</th><th>FED</th><th>KAM</th><th>Introduced by</th><th>Status</th><th></th></tr></thead><tbody>'+rows.map(function(c){return '<tr><td><b>'+c.code+'</b></td><td>'+c.name+(c.city?(' <span class="muted" style="font-size:11px">'+c.city+'</span>'):'')+'</td><td>'+c.fed+'</td><td class="muted">'+(c.kam||'—')+'</td><td class="muted">'+(c.introducedBy||'—')+'</td><td>'+pill(c.status||'Active','--green')+'</td><td>'+(ed?('<button class="sm ghost" onclick="custEdit(\''+c.code+'\')">Edit</button> <button class="sm ghost" onclick="custToggleStatus(\''+c.code+'\')">'+((c.status||'Active')==='Active'?'Deactivate':'Reactivate')+'</button>'):'')+'</td></tr>';}).join('')+'</tbody></table></div>'):'<div class="muted" style="padding:10px 2px">None yet.</div>')+'</div>';
   }
-  $('view').innerHTML='<div class="paperui">'+boBackHTML()+(ed?'':viewOnly('KAM'))+'<div class="rb-top"><div><div class="rb-title">Customers</div><div class="rb-sub2">Every customer, grouped by segment. A new one waits for the CFO before its first order.</div></div></div>'+custPendingHTML()+tabs+(custForm?custFormHTML():'')+listHtml+'</div>';
+  $('view').innerHTML='<div class="paperui">'+boBackHTML()+(ed?'':viewOnly('KAM'))+'<div class="rb-top"><div><div class="rb-title">Customers</div><div class="rb-sub2">Every customer, grouped by segment. A new one waits for the CFO before its first order.</div></div></div>'+custPendingHTML()+find+tabs+(custForm?custFormHTML():'')+listHtml+'</div>';
 }
 /* ===================== 2. PO TRACKER ===================== */
 let trkFilter='all'; let trkStage=''; let trkChannel='all';
@@ -11846,7 +11867,7 @@ function screenPlant(){
   h+='<h2>On the floor <span class="cnt">'+fl.length+' open order'+(fl.length===1?'':'s')+'</span></h2>';
   if(!fl.length) h+='<div class="note">No open orders.</div>';
   else h+='<div class="pl-floor">'+fl.map(function(r){ var o=r.o; return '<div class="pl-o"><div class="t"><span class="tdpo">'+qsEsc(o.po)+'</span> · '+plClient(o.client||'')+'</div><div class="c">'+(r.late?('<span class="qs-chip st-over">'+(r.days>0?r.days+' d late':'late')+'</span>'):(o.promised?'due '+qsEsc(o.promised):''))+'</div><div class="stg">'+Object.keys(r.stages).map(function(k){ return '<span class="'+(r.late&&k!=='Shipment'?'late':'')+'">'+qsEsc(k)+' × '+r.stages[k]+'</span>'; }).join('')+(cpMode()?' '+closePOButtonHTML(o):'')+'</div></div>'; }).join('')+'</div>';
-  if(canView(state.role,'dash')&&(state.role==='COO'||state.role==='CFO'||state.role==='Plant Manager')) h+='<div class="pl-links"><button class="qs-btn ghost" onclick="setScreen(\'dash\')">Figures →</button></div>';
+  /* 24m: the Dashboard is off the nav - it duplicated Today and Plant (the reporting review); the money view lives on in Reports */
   h+='</div>';
   $('view').innerHTML=h;
 }
@@ -12071,7 +12092,7 @@ function screenPeople(){
     h+='<div class="pp-list">';
     order.forEach(function(did){ var list=byDept[did]; if(!list||!list.length) return; var d=deptById(did)||depts.filter(function(x){return x.id===did;})[0]; h+='<div class="bo-grp">'+qsEsc(d?d.name:'Not filed in a department')+'</div>';
       list.forEach(function(u){ var t=personTitle(u.username,u.role);
-        h+='<button class="pcard" onclick="ppOpen(\''+qsEsc(u.username)+'\')"><div class="row between"><span class="nm">'+qsEsc(u.name)+(u.username===me?' <span class="qs-chip st-na">you</span>':'')+'</span><span class="meta">'+qsEsc(t)+'</span></div><div class="meta">role <b>'+qsEsc(u.role)+'</b> · login <span class="mono">'+qsEsc(u.username)+'</span></div><span class="sent">'+qsEsc(ppOneLine(u.role))+'</span></button>'; }); });
+        h+='<button class="pcard" onclick="ppOpen(\''+qsEsc(u.username)+'\')"><div class="row between"><span class="nm">'+qsEsc(u.name)+(u.username===me?' <span class="qs-chip st-na">you</span>':'')+'</span><span class="meta">'+qsEsc(t)+'</span></div><div class="meta">'+(u.role!==t?'role <b>'+qsEsc(u.role)+'</b> · ':'')+'login <span class="mono">'+qsEsc(u.username)+'</span></div><span class="sent">'+qsEsc(ppOneLine(u.role))+'</span></button>'; }); });
     h+='</div>';
   } else if(ppView==='roles'){
     if(!ppRole||roles.indexOf(ppRole)<0) ppRole=roles[0]||'';
@@ -14894,7 +14915,9 @@ function boFocusApply(){
     v.querySelectorAll('.ac2gbar').forEach(function(el){ el.style.display='none'; });
     var mine=null;
     v.querySelectorAll('details.acard').forEach(function(d){ var m=/admRemember\('([^']+)'/.exec(d.getAttribute('ontoggle')||''); var k=m?m[1]:''; if(k===boFocus){ mine=d; d.open=true; } else d.style.display='none'; });
-    if(mine){ var t=(mine.querySelector('summary')||{}).textContent||''; var hint=mine.querySelector('summary .hint'); if(hint) t=t.replace(hint.textContent,''); var st=$('scTitle'), ss=$('scSub'); if(st) st.textContent=t.trim(); if(ss) ss.textContent='Back Office'; }
+    if(mine){ var t=(mine.querySelector('summary')||{}).textContent||''; var hint=mine.querySelector('summary .hint'); if(hint) t=t.replace(hint.textContent,''); var st=$('scTitle'), ss=$('scSub'); if(st) st.textContent=t.trim(); if(ss) ss.textContent='Back Office';
+      /* 24m: Recipes and Lab templates are 2 tabs of one page - both belong to the base */
+      if(boFocus==='recipe'||boFocus==='labtpl'){ var nav=document.createElement('div'); nav.className='subnav'; nav.style.margin='0 0 12px'; nav.innerHTML='<button class="qs-btn sm'+(boFocus==='recipe'?' on':'')+'" onclick="boOpen(\'admin\',\'biz\',\'recipe\')">Recipes</button><button class="qs-btn sm'+(boFocus==='labtpl'?' on':'')+'" onclick="boOpen(\'admin\',\'biz\',\'labtpl\')">Lab templates</button>'; mine.parentNode.insertBefore(nav,mine); } }
   }catch(e){}
 }
 function screenAdmin(){

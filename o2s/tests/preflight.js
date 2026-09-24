@@ -134,6 +134,9 @@ const MARKERS = [
   ['function rpRmPosition(',               1, 'raw material position, all materials (24k)'],
   /* 2026-09-24l */
   ["var INVOICE_ROLES=['Finance']",        1, 'Finance sees money on the Invoicing sheet alone (24l)'],
+  /* 2026-09-24m */
+  ['function reconFix(',                   1, 'Reconcile: the fix one tap away, R20 (24m)'],
+  ['function custMatch(',                  1, 'Customers: one search across segments (24m)'],
 ];
 
 const [, , mode, freshPath, otherPath] = process.argv;

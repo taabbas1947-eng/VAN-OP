@@ -485,4 +485,23 @@ ok('a browser that remembered All actions or the Dashboard lands on Today', /if\
   ok('BUILD_ID is 2026-09-24l or later', /var BUILD_ID='2026-09-24[l-z]'/.test(html));
 }
 
+/* 24m: the last of the 2 reviews - Dashboard off the nav, one customer search, Reconcile as a list with the fix one tap away (R20), one name per person, Lab templates beside Recipes */
+{
+  ok('the Dashboard is off Plant (no Figures link); Sales against budget survives through Reports', !/Figures →/.test(grab('screenPlant')) && /kind:'budget'/.test(html));
+  const sd = grab('screenDealers');
+  ok('Customers has one search across every segment', /id="custFind"/.test(sd) && /custQ/.test(sd) && /custMatch\(c,q\)/.test(sd) && /function custMatch\(c,q\)/.test(html));
+  {
+    const f = new Function(grab('custMatch') + '\nreturn custMatch;')();
+    ok('the search matches code, name, city, KAM, in any segment', f({ code: 'WL-KIS-26-101', name: 'KISAN FERTILISER', city: 'Lahore', kam: 'Tahir', segment: 'White-label' }, 'kisan') && f({ code: 'DLR-1', name: 'X', city: 'Multan', segment: 'Dealer' }, 'mult') && !f({ code: 'A', name: 'B', segment: 'Dealer' }, 'kisan'));
+  }
+  const rc = grab('screenRecon');
+  ok('Reconcile is a sentence and a list, without the 4 tiles', !/Orders scanned/.test(rc) && !/const tiles=/.test(rc) && /compared with its packing record/.test(rc));
+  ok('each flagged line carries its fix, one tap away (R20): add the missing packing record for that PO line', /reconFixBtn\(r\)/.test(rc) && /dfStart\('packing'\)/.test(grab('reconFix')) && /dfForm\.oid=o\.id; dfForm\.lid=l\.id;/.test(grab('reconFix')) && /lid:l\.id/.test(grab('reconCompute')));
+  ok('the fix is offered only to whoever may correct a record', /screenEditOK\('datafix'\)/.test(grab('reconFixBtn')));
+  const pp3 = grab('screenPeople');
+  ok('a person carries one name for their role: the title; the role code only when it differs', /\(u\.role!==t\?'role <b>'\+qsEsc\(u\.role\)\+'<\/b> · ':''\)/.test(pp3));
+  ok('Recipes and Lab templates are 2 tabs of one page', /boFocus==='recipe'\|\|boFocus==='labtpl'/.test(grab('boFocusApply')) && /Lab templates/.test(grab('boFocusApply')));
+  ok('BUILD_ID is 2026-09-24m or later', /var BUILD_ID='2026-09-24[m-z]'/.test(html));
+}
+
 report('The Queue Shell, live (23s)');

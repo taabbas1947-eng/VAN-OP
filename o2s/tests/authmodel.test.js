@@ -570,7 +570,8 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
   ['coaReview', 'coaApprove', 'coaDeviation', 'coaRework', 'approveDC', 'rejectDC',
    'approveRelease', 'doReopenBatch', 'openReopenBatch'].forEach(fn => {
     const body = H.grab(fn);
-    ok('SIGN-OFF still hard-gated: ' + fn, /hardRole\(\[/.test(body), body.slice(0, 110));
+    /* 24u: the COA signatures are gated on the role itself (no COO), plus the Plant Manager's leave cover */
+    ok('SIGN-OFF still hard-gated: ' + fn, /hardRole\(\[/.test(body) || /state\.role==='(AQCM|QCM)'\|\|labCovers\('(AQCM|QCM)'\)/.test(body), body.slice(0, 110));
     ok('SIGN-OFF asks for no right: ' + fn, !/(^|[^\w])may\(/.test(body), body.slice(0, 110));
   });
 }

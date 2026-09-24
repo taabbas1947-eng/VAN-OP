@@ -220,7 +220,10 @@ const ALL = (STATE.masters.roles || []).map(r => r.name).concat(['COO'])
     let body = '';
     try { body = H.grab(fn); } catch (e) { /* reported below */ }
     ok('KIND B still hard-gated: ' + fn + ' (' + what + ')',
-       !!body && new RegExp("hardRole\\(\\[[^\\]]*'" + role + "'").test(body),
+       /* 24u (Tahir: "remove the COO's ability to sign certificates, yes"): the 2
+          certificate signatures are gated on the role itself, stricter than hardRole
+          (which also lets the COO through), plus the Plant Manager's leave cover. */
+       !!body && (new RegExp("hardRole\\(\\[[^\\]]*'" + role + "'").test(body) || new RegExp("state\\.role==='" + role + "'\\|\\|labCovers\\('" + role + "'\\)").test(body)),
        body ? 'no hardRole([...' + role + '...]) found' : 'function ' + fn + ' not found');
     ok('KIND B not converted by mistake: ' + fn + ' does not call mayWork',
        !!body && !/mayWork\(/.test(body));

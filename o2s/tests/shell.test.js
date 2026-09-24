@@ -515,4 +515,10 @@ ok('a browser that remembered All actions or the Dashboard lands on Today', /if\
   ok('BUILD_ID is 2026-09-24n or later', /var BUILD_ID='2026-09-24[n-z]'/.test(html));
 }
 
+/* 24o: the sign-offs are jobs on the Guide */
+{
+  const f = new Function('actionItems', 'TD_RIGHT', 'mayRole', grab('tdRoleJobs') + '\nreturn tdRoleJobs;')(() => [], {}, () => false);
+  ok('a QCM with nothing waiting still has Approve; an AQCM Review; a QA officer Pack QC and Inspect', JSON.stringify(f('QCM')) === '["Approve"]' && JSON.stringify(f('AQCM')) === '["Review"]' && JSON.stringify(f('QA Inspector')) === '["Pack QC","Inspect"]' && f('Warehouse').length === 0);
+  ok('BUILD_ID is 2026-09-24o or later', /var BUILD_ID='2026-09-24[o-z]'/.test(html));
+}
 report('The Queue Shell, live (23s)');

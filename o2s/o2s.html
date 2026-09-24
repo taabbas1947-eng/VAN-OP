@@ -11,7 +11,7 @@
    a push keeps running the old code with nothing telling anybody. It sat at
    2026-09-04a through this whole day's work; rmqty/psi tests pinned the code,
    nothing pinned this. buildid.test.js now does. */
-var BUILD_ID='2026-09-24n';
+var BUILD_ID='2026-09-24o';
 var CHANGELOG=[
   {ver:'2026-09-04a', date:'2026-09-04', title:"Delivery, DC printing, and a new Reconciliation check", items:[
     "Delivery confirmation stays with Supply Chain \u2014 it no longer hands off to the Plant Manager. If one sits too long, it now re-flags the same Supply Chain owner every 3 days instead.",
@@ -244,6 +244,9 @@ var CHANGELOG=[
   {ver:'2026-09-24n', date:'2026-09-24', title:"Lab and Truck inspection wear the shell", items:[
     "Lab and Truck inspection are one page each in the shell\u2019s shape: the tiles are the tabs (awaiting entry \u00b7 in review \u00b7 unfit \u00b7 approved; awaiting \u00b7 cleared \u00b7 issues), no second tab bar, no Group select. The rows and their buttons are as they were.",
     "The bay sheet is named for the job: Raw material at the bay \u2014 confirm what arrived, in full or in part."
+  ]},
+  {ver:'2026-09-24o', date:'2026-09-24', title:"The sign-offs are jobs on the Guide", items:[
+    "A QCM, AQCM, analyst, QA officer or Lead Supply Chain with nothing waiting today still sees their sign-off on My job \u2014 approve a COA, review a COA, inspect, release the truck \u2014 instead of \u201cno job is addressed to your role\u201d."
   ]},
 ];
 </script>
@@ -12163,6 +12166,9 @@ function tdRoleJobs(role){
   var seen={}, out=[];
   try{ actionItems().forEach(function(it){ if(it.role===role && it.label && !seen[it.label]){ seen[it.label]=1; out.push(it.label); } }); }catch(e){}
   Object.keys(TD_RIGHT).forEach(function(l){ if(!seen[l] && mayRole(role,TD_RIGHT[l])){ seen[l]=1; out.push(l); } });
+  /* 24o: the sign-offs are jobs too - a QCM with no COA waiting today still approves COAs */
+  var SIGN_JOBS={'Lab Rep':['Lab QC'],'AQCM':['Review'],'QCM':['Approve'],'QA Inspector':['Pack QC','Inspect'],'Supply Chain':['Release','Approve DC'],'Plant Manager':['Approve DC']};
+  (SIGN_JOBS[role]||[]).forEach(function(l){ if(!seen[l]){ seen[l]=1; out.push(l); } });
   return out;
 }
 function tdWhoHolds(label){

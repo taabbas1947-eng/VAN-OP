@@ -5476,3 +5476,10 @@ Tahir sent a screenshot of the on-screen COA sheet with no logo, only "VITAL AGR
 **Note:** `labHolderOf(role)` takes the first account holding the role as the absent person; live has exactly one QCM and one AQCM. If a second ever exists, the cover screen needs a person picker.
 
 **Next:** push cbc2bae and this entry.
+
+
+## Pass thirty-six — 24v: how the Plant Manager finds out about a lab leave (24 Sep, NOT pushed)
+
+Tahir asked how the Plant Manager knows to name a cover, since O2S does not know about leave. Ruled: both of (1) announced leave and (2) a safety net; the HRMS link was offered and left for later.
+Built: `labNow`, `labLeaveList/labLeaveAnnounce/labLeaveCancel` (masters.labLeave; AQCM/QCM only; name menu "I'm going on leave" → `openMyLeave`), `labCoverSpans`, `labCoverNeeds` (pushed into actionItems after pendingCustomerItems): a 'Name a cover' job for the Plant Manager per announced leave not spanned by a cover, and a safety-net job per signer role when certificates have waited ≥1 calendar day and the holder has no actionLog entry today (only after 12:00, never Sunday; uses calendar days because actTiming rounds a same-day wait up to 1 d after noon). openLabCover(leaveId, roleHint) pre-fills role and dates, lists announced leave, and saves the cover for the announcing person (labSetCover 5th arg). TD_LABEL, acKey (lv:, cr:), actTiming (it.leave). Suite 9,792 passed, 0 failed. Browser: Masab announces 26–28 Sep, Fahim's Today shows the job, the cover screen opens pre-filled; 0 errors.
+Next: push.

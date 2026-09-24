@@ -15,7 +15,7 @@ const sb = { console, TODAY: new Date('2026-09-24T10:00:00'), fmt: n => String(n
       { brand: 'Z', ordered: 10, delivered: 0, dispatched: 0, committed: '2026-09-20' } ] }],
     batches: [{ lots: [{ coa: { status: 'approved', approvedDate: '2026-09-02' } }, { coa: { status: 'approved', approvedDate: '2026-09-03', rejected: { why: 'x' } } }, { coa: { status: 'approved', approvedDate: '2026-09-03', repOf: { lotNo: 'L1' } } }, { coa: { status: 'failed' } }] }] } };
 vm.createContext(sb);
-vm.runInContext(grabTopVar('HOW_ROLES', '[') + ['howMay', 'howPeriod', 'howIn', 'howSales', 'howOnTime', 'howStuck', 'howQuality'].map(grab).join('\n'), sb);
+vm.runInContext(grabTopVar('HOW_ROLES', '[') + ['evToday', 'localDateOf', 'calDays', 'howMay', 'howPeriod', 'howIn', 'howSales', 'howOnTime', 'howStuck', 'howQuality'].map(grab).join('\n'), sb);
 eq('who may see it: COO, CFO, Plant Manager, Production Manager, Supply Chain (25i)', sb.HOW_ROLES.join(','), 'COO,CFO,Plant Manager,Production Manager,Supply Chain');
 const S = sb.howSales();
 eq('sold this month (net, trucks out)', S.soldM, 100); eq('sold this FY', S.soldF, 400); eq('FY budget', S.tF, 1600); eq('% of budget', S.pctF, 25);
@@ -30,7 +30,7 @@ const Q = sb.howQuality();
 eq('first-time pass: copies of a tested lot are not counted; a rejected one is not first-time', Q.f.first + '/' + Q.f.n, '1/2');
 eq('unfit now', Q.failedNow, 1); eq('trucks failed inspection this month', Q.ins.m.fail + '/' + Q.ins.m.n, '1/1');
 ok('the old Dashboard is How are we doing', /function screenDash\(\)\{ screenHow\(\); \}/.test(html));
-ok('Sales & Budget is its own page now (25k)', /function screenBudget\(\)\{ \$\('view'\)\.innerHTML=budgetHtml\(\); \}/.test(html));
+ok('Sales & Budget is its own page now, for money roles only (25k, 25m)', /function screenBudget\(\)\{ if\(typeof mayMoney==='function'&&!mayMoney\(\)\)/.test(html) && /\$\('view'\)\.innerHTML=budgetHtml\(\); \}/.test(html));
 ok('the screen owners are the 3 leaders', /\{id:'dash', name:'How are we doing'[^}]*owners:\['Plant Manager','CFO','COO','Production Manager','Supply Chain'\]/.test(html));
 ok('anyone else is told where their work is', /This page is for the COO, the CFO, the Plant Manager, the Production Manager and Supply Chain/.test(grab('screenHow')));
 ok('each block opens the detail behind it', ["setScreen('budget')", "rpOpen('late')", "setScreen('plant')", "rpOpen('coa')"].every(x => grab('screenHow').indexOf(x) > -1));

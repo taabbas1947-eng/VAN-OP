@@ -32,9 +32,9 @@ ok('1 hour after the gate pass: not lapsed', !sb.truckReviewLapsed({ gatePassAt:
 ok('3 hours after: lapsed', sb.truckReviewLapsed({ gatePassAt: new Date(now - 3 * 3600e3).toISOString() }));
 ok('the clock starts at the later of gate pass and inspection', !sb.truckReviewLapsed({ gatePassAt: new Date(now - 5 * 3600e3).toISOString(), qa: { recordedAt: new Date(now - 1800e3).toISOString() } }));
 const g = d => ({ dispId: 'D1', dc: '118', po: 'P', approvedDate: d, rows: [{ gatePassByUser: 'zain', gatePassBy: 'Zain Ghaffar', gatePassByRole: 'Supply Chain Officer' }] });
-eq('day of release and next day: only the dispatcher', sb.deliveryJobs(g('2026-09-25')).map(x => x.role + ':' + (x.who || '')).join(','), 'Supply Chain Officer:zain');
-eq('day 2: Saad too', sb.deliveryJobs(g('2026-09-24')).map(x => x.role).join(','), 'Supply Chain Officer,Supply Chain');
-eq('day 3: the Plant Manager too', sb.deliveryJobs(g('2026-09-23')).map(x => x.role).join(','), 'Supply Chain Officer,Supply Chain,Plant Manager');
+eq('day of release: only the dispatcher', sb.deliveryJobs(g('2026-09-26')).map(x => x.role + ':' + (x.who || '')).join(','), 'Supply Chain Officer:zain');
+eq('day 1: Saad too (25m, as ruled)', sb.deliveryJobs(g('2026-09-25')).map(x => x.role).join(','), 'Supply Chain Officer,Supply Chain');
+eq('day 2: the Plant Manager too', sb.deliveryJobs(g('2026-09-24')).map(x => x.role).join(','), 'Supply Chain Officer,Supply Chain,Plant Manager');
 eq('an old truck with no gate-pass record falls back to who planned it', sb.truckDispatcher({ by: 'Muhammad Shoaib' }).user, 'shoaib');
 /* 25f: the Plant Manager is the approver only */
 { const m = { console, state: {} }; vm.createContext(m); vm.runInContext(grab('seedPmApproverOnlyV1'), m);

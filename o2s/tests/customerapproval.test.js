@@ -17,7 +17,7 @@ const { ok, eq, report, grab, html } = H;
 ok("custSave makes a new customer 'Pending approval' unless the CFO or COO adds it",
    /status:\(state\.role==='CFO'\|\|state\.role==='COO'\)\?\(f\.status\|\|'Active'\):'Pending approval'/.test(grab('custSave')));
 ok('an edited customer keeps its status', /if\(f\.editing\)\{[^\n]*rec\.status=\(state\.customers\[i\]\.status\|\|'Active'\)/.test(grab('custSave')) || /keeps its status/.test(grab('custSave')));
-ok("New PO Entry's client list leaves a pending customer out", /\(c\.status\|\|'Active'\)==='Active'/.test(grab('clientsForChannel')));
+ok("New PO Entry's client list leaves a pending customer out", /st!=='Pending approval'/.test(grab('clientsForChannel')) /* 25m: any status but pending or inactive */);
 ok('actionItems raises the pending customers (through pendingCustomerItems)', /pendingCustomerItems\(\)\.forEach/.test(grab('actionItems')));
 ok('...and those items are addressed to the CFO with the approval as the action', /role:'CFO'/.test(grab('pendingCustomerItems')) && /approveCustomer\(/.test(grab('pendingCustomerItems')));
 ok('Today has plain words for it', /'Approve customer':\s*\{title:/.test(html));

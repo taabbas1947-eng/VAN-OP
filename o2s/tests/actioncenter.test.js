@@ -20,7 +20,7 @@ const STATE = JSON.parse(fs.readFileSync(H.STATE, 'utf8')).data;
 
 /* Real source, pulled out of the shipping file. */
 const src = ['accessOv', '_ownerEdit', 'accessLevelOn', 'accessLevel', 'canView', 'screenEditOK',
-             'actOverdue', 'actTiming', 'actUrg', 'actSort', 'acRiskOf', 'acWaitTxt', 'seedAccessV2']
+             'evToday', 'localDateOf', 'calDays', 'actOverdue', 'actTiming', 'actUrg', 'actSort', 'acRiskOf', 'acWaitTxt', 'seedAccessV2']
             .map(H.grab).join('\n\n') + '\n' + H.grabTopVar('ACCESS_RULED_V2', '{')
           + '\n' + (function(){
               /* SCREENS is declared `const`, which grabObj (var-only) will not find.

@@ -5491,3 +5491,10 @@ Tahir sent a screenshot of Production → What to make (62 order-line rows, 7 KP
 Built: `PCARD_CSS`, `prodMakeCardsHTML(frows,htmls)`, `prodMakeProductsN`, `prodShellTiles` inserted before prodStageList. In prodStageList's tomake branch each row stores `x._act` (its own button string, built under its own flag) and the rows are grouped by brand into cards; the card's main button is a row's own act, so authmodel.test.js's per-button gating checks still hold. Row label "kg to make" → unitOf. Sort select removed (cards order themselves). screenProd: `prodDeskTabs()+prodPulse()` → `prodShellTiles()` (4 tiles + Completed + More). prodDeskTabs/prodPulse kept in the file, unused by screenProd.
 Tests: prodcards.test.js 20 checks; suite 9,812 passed, 0 failed. Browser: Production desktop + 390 px + COO, all tabs, 0 errors.
 Next: push; the Running / Waiting for lab / Ready to pack tabs are still tables inside the new frame — candidates for the same card treatment if Tahir wants.
+
+
+## Pass thirty-eight — 24x: Running, Waiting for lab and Ready to pack as cards (24 Sep, NOT pushed)
+
+Tahir: "go ahead" on carding the other Production tabs. In prodStageList: rowP (producing) returns a `.pcard` with data-batch; the qc branch builds cards per lot (Follow QC kept under edAny); `row()` returns a card when f==='pack' and the pack list returns cards without a table. Every act string is the one already built under its flag, so no new handler sites. Cards end with `<!--/pcard-->`. Bulk bases not in the product list show Kg/L (unitOf rule). prodcards.test.js 32 checks; suite 9,824 passed, 0 failed; browser 1280 + 390 px, 0 errors.
+Note: a stray untracked file "Claude outputs/Production new layout.png" appeared in the repo folder (the screenshot sent in chat); not committed — Tahir may delete or keep it.
+Next: push.

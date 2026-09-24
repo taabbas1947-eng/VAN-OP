@@ -5602,3 +5602,9 @@ Tests: how.test.js 24; shell, rolemodel, warehousesplit, firefighter updated. Su
 ## Pass forty-nine — 25i: How are we doing for 2 more roles (24 Sep, NOT pushed)
 
 Tahir: give the Production Manager and the Supply Chain manager access; ruled they see the PKR figures too. HOW_ROLES and the dash owners gain 'Production Manager' and 'Supply Chain'. The page itself does not gate money (it is a leadership page); mayMoney is unchanged elsewhere. `howGoOK` hides a block's button when the role cannot open what it leads to (Sales & Budget is not theirs; Lab certificates report is not Supply Chain's). Note: the live accessMatrix gives 'dash' view to every role, so howMay() is the real gate (header word and the page). Tests: how.test.js, rolemodel updated.
+
+
+## Pass fifty — 25j: the Guide catches up; the audit of what is still old (24 Sep, NOT pushed)
+
+Guide: guideMyJob adds the How are we doing place for howMay() roles; guideHow's Received step names price, payment terms, ERP SO # and the 5% reason. (Already in from earlier passes: Shipped step with review/approve/delivery ladder, rules "A number moves only with its record", "The price on a new order", "The pre-shipment report", "What a sale is", the tested lot.)
+Screen sweep as COO (25j, local copy). In the new design: Today, Plant, How are we doing, Back Office, Orders, Lab (frame; some cards inside still old), Truck inspection, Shipments, Reports, Guide, People. Still in the old design (old top bar, old cards): New order (body redesigned 25g, but the old top bar stays), Production (outer frame; cards inside are new), Customers, Lists, Correct a record, Reconcile packing, Sales & Budget, All actions (orphan: only the unreachable old dashboard linked to it), and the pop-up forms (pack, dispatch, delivery confirm, PR, COA form).

@@ -90,4 +90,7 @@ ok('BUILD_ID is 2026-09-24z or later', /BUILD_ID\s*=\s*'2026-09-(24z|2[5-9][a-z]
   ok('The rules: a number moves only with its record, and where to fix it (25b)', /A number moves only with its record/.test(rules) && /History/.test(rules) && /Needs you/.test(rules));
   ok('The rules: what a sale is, net of FED, FED-inclusive divided by 1.05 (25b)', /What a sale is/.test(rules) && /1\.05/.test(rules));
   ok('How it works: one lot tested for the batch (25b)', /marks one lot to test for the batch/.test(how2)); }
+/* 25j */
+ok('My job names How are we doing for the roles that have it (25j)', /How are we doing<\/b><span>4 answers/.test(grab('guideMyJob')) && /howMay\(\)/.test(grab('guideMyJob')));
+ok('How it works: an order carries terms, ERP SO and the 5% price reason (25j)', /payment terms and the ERP SO #/.test(grab('guideHow')) && /more than 5%/.test(grab('guideHow')));
 process.exitCode = report('The Guide keeps up (24z)') ? 1 : 0;

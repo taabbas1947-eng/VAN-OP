@@ -5354,3 +5354,20 @@ Open, in order: job-shaped forms as sheets; managers' "Your people" on Today (ne
 NOT applied, next: job-shaped sheets behind the buttons (review finding 2 — "Open production" still opens the old Production Center; overflow at 390px; green save button). Tahir's: Lab Rep and QA Inspector are held by nobody (finding 4); the Production department's stored lead reads Production Officer.
 
 Suite on Tahir's machine: 9,331 passed, 0 failed, 0 crashed. Not pushed by Claude.
+
+## Pass twenty-six — the morning list, 1 by 1 (23v … 24d, 24 Sep)
+
+Tahir: "start from 1 and go 1 by 1." Each its own build and commit, suite green on his machine after every write.
+- 23v roles editor (People → Roles: ticks, None/Read/Edit, leads, add a role); Ismaeel migration on load.
+- 23w the run sheet (openRun): the first job-shaped sheet.
+- 23x "is on it" marks (state.taken); a Back Office job opens one card alone (boFocus); seedAckRightV1 (acknowledge = Supply Chain + Plant Manager).
+- 23y Close a PO (po.close, COO; ask-mode for the 2 requesting managers); the product form as a sheet (pmRenderSheet); own-base products pushed into BULK_BASES.
+- 23z Orders (screenOrders) replaces the PO Tracker view.
+- 24a Your people on a lead's Today (tdYourPeople, evAllStamps).
+- 24b the 4th light, stuck batches (plStuckBatches).
+- 24c the 2-person rules can refuse: SIGNOFF_ROLES map (sign-offs stay OUT of RIGHTS), sodConflicts in the roles editor; per-person checks on the COA chain (draftedBy; coaSamePerson).
+- 24d "Done. Now waiting on <name>" toast (tdNoteTaken / tdAfterSave in save()).
+
+Live account audit against HR's 19: all present after Tahir's additions; `ahmer` (COO, not on the sheet) and 5 name spellings flagged to him. Titles untouched on his instruction.
+
+Next, by the reviewer's list: the remaining old-shaped forms behind jobs (Ship / plan the truck, Receive, COA on phone), the Lab and QA pages' inner tabs; R20 reconciliation outcome; Data Fix retirement.

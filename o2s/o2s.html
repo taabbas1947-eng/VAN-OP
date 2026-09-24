@@ -11,7 +11,7 @@
    a push keeps running the old code with nothing telling anybody. It sat at
    2026-09-04a through this whole day's work; rmqty/psi tests pinned the code,
    nothing pinned this. buildid.test.js now does. */
-var BUILD_ID='2026-09-24c';
+var BUILD_ID='2026-09-24d';
 var CHANGELOG=[
   {ver:'2026-09-04a', date:'2026-09-04', title:"Delivery, DC printing, and a new Reconciliation check", items:[
     "Delivery confirmation stays with Supply Chain \u2014 it no longer hands off to the Plant Manager. If one sits too long, it now re-flags the same Supply Chain owner every 3 days instead.",
@@ -189,6 +189,9 @@ var CHANGELOG=[
   {ver:'2026-09-24c', date:'2026-09-24', title:"The 2-person rules can now refuse", items:[
     "The 5 two-person rules (nobody inspects their own output; the analyst does not check his own certificate; a certificate needs 2 signatures; the loader does not release; the order-raiser does not approve its delivery) could never fire, because the sign-offs they name are decided by role, not by a tick. They now know which role holds each sign-off, so a tick that would break a rule is refused with the reason, and People \u2192 Roles shows a rule already broken today \u2014 Lead Supply Chain both loads and releases the truck.",
     "On the certificate itself the rule is now per person, not per role: whoever drafted a COA cannot review or approve it, and whoever reviewed it cannot approve it \u2014 checked on the login, with the typed analyst name as a fallback."
+  ]},
+  {ver:'2026-09-24d', date:'2026-09-24', title:"Done. Now waiting on Masab.", items:[
+    "After a job from Today is saved, the toast names the next person: the job that appeared on the same order or batch, and who holds it."
   ]},
 ];
 </script>
@@ -2594,7 +2597,7 @@ function merge3(base, local, srv){
   }
   return _eq(local, base) ? srv : local;   // leaf: we changed it → ours; else take theirs
 }
-function save(){ _savePending=true; if(_saveTimer)clearTimeout(_saveTimer); _saveTimer=setTimeout(saveNow,400); }  // _savePending set synchronously so the auto-refresh can't pull over an unsaved change
+function save(){ _savePending=true; if(_saveTimer)clearTimeout(_saveTimer); _saveTimer=setTimeout(saveNow,400); try{ if(typeof tdAfterSave==='function'&&tdLastTaken) tdAfterSave(); }catch(e){} }  // _savePending set synchronously so the auto-refresh can't pull over an unsaved change
 async function saveNow(){ if(!_token) return; if(_buildStale){ toast('A newer version is available \u2014 refresh to save'); return; } try{
     /* 2026-07-30 fix: capture the exact wire payload ONCE, synchronously, before the request
        goes out. Passing this same string (not a fresh live read) to _baseSnapshot on success
@@ -11985,6 +11988,7 @@ function renderRun(){
    in the shared state (state.taken), so it syncs like everything else, and it
    expires after 8 hours or as soon as the job is no longer in the queue. */
 function tdTake(key){
+  try{ tdNoteTaken(key); }catch(e){}
   try{ var me=(state.currentUser&&state.currentUser.name)||state.role; state.taken=state.taken||{}; state.taken[key]={by:me,at:new Date().toISOString()};
     /* keep the map small: drop marks older than a day */
     var cut=Date.now()-86400000; Object.keys(state.taken).forEach(function(k){ var t=Date.parse((state.taken[k]||{}).at||''); if(!(t>cut)) delete state.taken[k]; });
@@ -12184,6 +12188,25 @@ function plStuckBatches(){
     out.push({batchNo:b.batchNo||b.id,base:b.base||'',po:b.po||'',client:o?(o.client||''):'',why:why,days:days,made:made,kg:+b.producedKg||0,plan:+b.plannedKg||0,act:act}); });
   out.sort(function(a,b){ return b.days-a.days; });
   return out;
+}
+/* ===================== "NOW WAITING ON MASAB" - 24d =====================
+   Item 6 of the morning list. When a job opened from Today is done and saved,
+   the toast names the next person: the job that appeared on the same order or
+   batch, and who holds that role. Nothing is written; it only reads the queue
+   before and after. */
+var tdLastTaken=null;
+function tdSnapKeys(){ var m={}; try{ actionItems().forEach(function(it){ m[acKey(it)]=it; }); }catch(e){} return m; }
+function tdNoteTaken(key){ try{ var before=tdSnapKeys(); var it=before[key]||null; tdLastTaken={key:key,at:Date.now(),before:before,oid:it&&it.o?it.o.id:'',bid:it&&it.batch?it.batch.id:'',disp:it&&it.disp?it.disp.dispId:''}; }catch(e){ tdLastTaken=null; } }
+function tdHolderNames(role){ try{ var ps=(usersList||[]).filter(function(u){return u&&u.role===role;}).map(function(u){return String(u.name).split(' ').slice(0,2).join(' ');}); return ps.slice(0,2).join(' or '); }catch(e){ return ''; } }
+function tdAfterSave(){
+  var t=tdLastTaken; if(!t) return; if(Date.now()-t.at>15*60000){ tdLastTaken=null; return; }
+  var after=tdSnapKeys(); if(after[t.key]) return;   /* the job is still there - not done yet */
+  tdLastTaken=null;
+  var fresh=Object.keys(after).filter(function(k){ return !t.before[k]; }).map(function(k){ return after[k]; });
+  var same=fresh.filter(function(it){ return (t.oid&&it.o&&it.o.id===t.oid)||(t.bid&&it.batch&&it.batch.id===t.bid)||(t.disp&&it.disp&&it.disp.dispId===t.disp); });
+  var nx=same[0]||null; if(!nx){ setTimeout(function(){ toast('Done.'); },450); return; }
+  var who=tdHolderNames(nx.role); var L=TD_LABEL[nx.label]||{title:nx.label};
+  setTimeout(function(){ toast('Done. Now waiting on '+(who||roleTitle(nx.role))+' — '+String(L.title).toLowerCase()+'.'); },450);
 }
 /* The Queue Shell's 3 tiles: waiting, past due, done today. */
 function tdDoneCount(){ try{ var me=(state.currentUser&&state.currentUser.name)||state.role, day=TODAY.toISOString().slice(0,10); return (state.actionLog||[]).filter(function(e){ return e && String(e.t||'').slice(0,10)===day && e.by===me && e.what!=='Signed in' && e.what!=='Signed out'; }).length; }catch(e){ return 0; } }

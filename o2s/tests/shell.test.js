@@ -129,6 +129,23 @@ ok('it lists every role under its department with the people who hold it', /role
 
 /* ================= 7. BUILD ================= */
 ok("BUILD_ID is 2026-09-23t or later", /var BUILD_ID='2026-09-2(3[t-z]|4[a-z])'/.test(html));
+/* 24d: "Done. Now waiting on Masab." */
+{
+  ok('opening a job snapshots the queue; save() looks for what appeared', /tdNoteTaken\(key\)/.test(grab('tdTake')) && /if\(typeof tdAfterSave==='function'&&tdLastTaken\) tdAfterSave\(\)/.test(grab('save')));
+  const src = grab('tdSnapKeys') + grab('tdNoteTaken') + grab('tdHolderNames') + grab('tdAfterSave') + 'var tdLastTaken=null;';
+  ok('the helper does not shadow the Guide\'s tdWhoHolds', (html.match(/function tdWhoHolds\(/g) || []).length === 1 && /function tdHolderNames\(/.test(html));
+  let items = [{label:'Lab QC', role:'Lab Rep', o:{id:'O1'}}], toasts = [];
+  const env = { actionItems: () => items, acKey: it => it.label + '|o:' + it.o.id, usersList: [{name:'Masab Rasheed', role:'AQCM'}], TD_LABEL: {'Review':{title:'Needs your signature'}}, roleTitle: r => r, toast: m => toasts.push(m), setTimeout: (f) => f(), Date: Date };
+  const f = new Function(...Object.keys(env), 'items', src + ';tdNoteTaken("Lab QC|o:O1"); items.length=0; items.push({label:"Review", role:"AQCM", o:{id:"O1"}}); tdAfterSave(); return 1;');
+  f(...Object.values(env), items);
+  ok('after the job is gone and a new one appeared on the same order, the toast names the next person', toasts.length === 1 && /Now waiting on Masab Rasheed — needs your signature\./.test(toasts[0]), toasts.join(' | '));
+  toasts.length = 0; items = [{label:'Lab QC', role:'Lab Rep', o:{id:'O1'}}];
+  env.actionItems = () => items;
+  const g = new Function(...Object.keys(env), 'items', src + ';tdNoteTaken("Lab QC|o:O1"); tdAfterSave(); return 1;');
+  g(...Object.values(env), items);
+  ok('while the job is still there (a save that did not finish it), nothing is said', toasts.length === 0);
+  ok('nothing is written', !/save\(\)/.test(grab('tdAfterSave') + grab('tdNoteTaken')));
+}
 /* 24c: the 2-person rules can refuse */
 {
   ok('the sign-offs stay OUT of the catalogue', ['inspection.perform','coa.draft','coa.review','coa.approve','shipment.release','dc.approve'].every(c => !new RegExp("code:'" + c.replace('.', '\\.') + "'").test(html)));

@@ -11,7 +11,7 @@
    a push keeps running the old code with nothing telling anybody. It sat at
    2026-09-04a through this whole day's work; rmqty/psi tests pinned the code,
    nothing pinned this. buildid.test.js now does. */
-var BUILD_ID='2026-09-24x';
+var BUILD_ID='2026-09-24y';
 var CHANGELOG=[
   {ver:'2026-09-04a', date:'2026-09-04', title:"Delivery, DC printing, and a new Reconciliation check", items:[
     "Delivery confirmation stays with Supply Chain \u2014 it no longer hands off to the Plant Manager. If one sits too long, it now re-flags the same Supply Chain owner every 3 days instead.",
@@ -290,6 +290,10 @@ var CHANGELOG=[
     "Running: one card per batch, made of planned and what is left, the last output, and Log output.",
     "Waiting for lab: one card per lot, who has it next, and Follow QC.",
     "Ready to pack: one card per batch, how much is ready to pack, and Pack. Tap a name for the batch passport."
+  ]},
+  {ver:'2026-09-24y', date:'2026-09-24', title:"Shipments in the new design", items:[
+    "Shipments now looks like Lab and Truck inspection: 4 tiles on top are the tabs (orders ready to ship, trucks planned, loading, in transit), with Delivered and Need action beside them.",
+    "The truck cards and every button on them are the same as before."
   ]},
 ];
 </script>
@@ -1950,7 +1954,7 @@ body{color:var(--ink);font-size:15px;line-height:1.45}
 .topbar{background:var(--surface);border-bottom:1px solid var(--qline);position:static;padding:10px 16px;gap:10px}
 .topbar h2{font-size:18px;font-weight:600;letter-spacing:0;color:var(--ink)}
 .topbar .sub{color:var(--ink-3)}
-body[data-screen="today"] .topbar,body[data-screen="plant"] .topbar,body[data-screen="backoffice"] .topbar,body[data-screen="instructions"] .topbar,body[data-screen="users"] .topbar,body[data-screen="tracker"] .topbar,body[data-screen="reports"] .topbar,body[data-screen="qc"] .topbar,body[data-screen="qa"] .topbar{display:none}
+body[data-screen="today"] .topbar,body[data-screen="plant"] .topbar,body[data-screen="backoffice"] .topbar,body[data-screen="instructions"] .topbar,body[data-screen="users"] .topbar,body[data-screen="tracker"] .topbar,body[data-screen="reports"] .topbar,body[data-screen="qc"] .topbar,body[data-screen="qa"] .topbar,body[data-screen="ship"] .topbar{display:none}
 body:not([data-screen="reports"]):not([data-screen="dash"]):not([data-screen="budget"]) #periodSel,
 body:not([data-screen="reports"]):not([data-screen="dash"]):not([data-screen="budget"]) #periodFromInp,
 body:not([data-screen="reports"]):not([data-screen="dash"]):not([data-screen="budget"]) #periodToInp{display:none!important}
@@ -13480,12 +13484,21 @@ function screenShip(){
   else if(view==='delivered'){ content=renderShipDelivered(allGroups,ed); title='Delivered'; }
   else if(view==='needaction'){ content=renderNeedAction(allGroups,ed); title='Need action'; }
   else { content=renderShipToship(rpos,ed); title='Ready'; }
-  $('view').innerHTML=PROD_CSS+'<div class="pdsk"><div class="pdmain">'
-    +'<header class="pdtopbar"><div><h2>'+title+'</h2><div class="pdsub">Load trucks &amp; record deliveries</div></div></header>'
-    +(ed?'':viewOnly('Supply Chain'))
-    +shipTabs(view)
-    +shipPulse(rpos,allGroups)
-    +'<div class="pdwrap">'+content+'</div></div></div>';
+  /* 24y: the shell, like Lab and Truck inspection - the 4 tiles are the tabs. The cards,
+     their buttons and the rights behind them are unchanged; the content keeps its .pdsk
+     wrapper because its styles and the truck drawer read that frame's colours. */
+  var _pl=allGroups.filter(function(g){return g.dispId&&g.stageNow==='truck_planned';}).length;
+  var _ld=allGroups.filter(function(g){return g.dispId&&g.stageNow==='loading';}).length;
+  var _tr=allGroups.filter(function(g){return g.dispId&&g.stageNow==='in_transit'&&!g.delivered;}).length;
+  var _dl=allGroups.filter(function(g){return g.delivered;}).length;
+  var _na=shipNaCount();
+  var _t=function(k,n,l,tone){ return '<button class="qs-tile go '+tone+(view===k?' sel':'')+'" onclick="shipSetView(\''+k+'\')"><span class="n">'+n+'</span><span class="l">'+l+'</span></button>'; };
+  var _b=function(k,l,alert){ var on=view===k; return '<button class="qs-btn sm" style="'+(on?'background:#1b1f1a;color:#fff;border:1px solid #1b1f1a':(alert?'background:#fff;color:#a3302a;border:1px solid #a3302a':'background:#fff;color:#1b1f1a;border:1px solid #98a094'))+'" onclick="shipSetView(\''+k+'\')">'+l+'</button>'; };
+  var tiles='<div class="qs-tally four">'+_t('ready',rpos.length,'orders ready to ship',rpos.length?'st-late':'st-ok')+_t('planned',_pl,'trucks planned',_pl?'st-ink':'st-ok')+_t('loading',_ld,'loading',_ld?'st-late':'st-ok')+_t('transit',_tr,'in transit',_tr?'st-ink':'st-ok')+'</div>'
+    +'<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">'+_b('delivered','Delivered · '+_dl,false)+_b('needaction','Need action · '+_na,_na>0)+'</div>';
+  $('view').innerHTML=PROD_CSS+'<div class="qs wide"><h1>Shipments</h1><div class="sub">Plan the truck, load it, issue the gate pass, confirm the delivery. One truck carries one customer. Tap a tile.</div>'
+    +(ed?'':viewOnly('Supply Chain'))+tiles
+    +'<div class="pdsk paperui" style="margin-top:12px;padding:0"><div class="pdwrap">'+content+'</div></div></div>';
 }
 function screenShipOLD(){
   const ed=may('shipment.plan');   /* Supply Chain \u00b7 converted 25 Aug */

@@ -510,7 +510,7 @@ ok('a browser that remembered All actions or the Dashboard lands on Today', /if\
   ok('Lab: one page, 4 tiles that are the tabs, no second tab bar and no Group select on screen', /<div class="qs wide"><h1>Lab<\/h1>/.test(qc) && /class="qs-tally four"/.test(qc) && /qcTab=\\''\+k\+'\\';render\(\)/.test(qc) && !/\$\{qcTabBar\}/.test(qc) && !/\$\{qcGroupSel\}/.test(qc) && !/\$\{qcKpiStrip\}/.test(qc));
   ok('Truck inspection: the same, 3 tiles', /<div class="qs wide"><h1>Truck inspection<\/h1>/.test(qa) && /class="qs-tally"/.test(qa) && /qaTab=\\''\+k\+'\\';render\(\)/.test(qa) && !/\$\{qaTabBar\}/.test(qa) && !/\$\{qaGroupSel\}/.test(qa) && !/\$\{qaKpiStrip\}/.test(qa));
   ok('the rows and their buttons are untouched (the certificate tests still pass against them)', /_qcCard\(/.test(qc) && /_qaCard\(/.test(qa) && /openBatchCOA\(/.test(qc) && /openLotQA\(/.test(qc));
-  ok('the top bar hides on Lab and Truck inspection too', /body\[data-screen="qc"\] \.topbar,body\[data-screen="qa"\] \.topbar\{display:none\}/.test(html));
+  ok('the top bar hides on Lab and Truck inspection too', /body\[data-screen="qc"\] \.topbar,body\[data-screen="qa"\] \.topbar[,{]/.test(html) /* 24y: Shipments joined the list after qa */);
   ok('the bay sheet is named for the job', /<h2>Raw material at the bay<\/h2>/.test(grab('openReceiveMaterials')) && /confirm what arrived/.test(grab('openReceiveMaterials')));
   ok('BUILD_ID is 2026-09-24n or later', /var BUILD_ID='2026-09-24[n-z]'/.test(html));
 }

@@ -162,6 +162,7 @@ const MARKERS = [
   ['function prodShellTiles(',             1, 'Production: tiles as the tabs (24w)'],
   ["if(f==='pack') return PCARD_CSS+",      1, 'Ready to pack as cards (24x)'],
   ["return PCARD_CSS+qcard+qbody",         1, 'Waiting for lab as cards (24x)'],
+  ['<div class="qs wide"><h1>Shipments</h1>', 1, 'Shipments in the shell (24y)'],
   ["function coaApprove(){ if(!(state.role==='QCM'||labCovers('QCM')))", 1, 'the COO does not sign certificates (24u)'],
 ];
 

@@ -156,6 +156,8 @@ const MARKERS = [
   ['>Open the Lab ›</button>',             1, 'Plant → Quality opens the Lab (24s)'],
   ["const VANSVG='<img src=\"'+VAN_LOGO_REAL+'\"", 1, 'the certificate sheet shows the logo (24t)'],
   ['function labSetCover(',                1, 'leave cover for the lab sign-offs (24u)'],
+  ['function labCoverNeeds(',              1, 'the Plant Manager hears about a lab leave (24v)'],
+  ['onclick="openMyLeave()"',              1, "I'm going on leave, in the name menu (24v)"],
   ["function coaApprove(){ if(!(state.role==='QCM'||labCovers('QCM')))", 1, 'the COO does not sign certificates (24u)'],
 ];
 

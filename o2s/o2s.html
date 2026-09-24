@@ -11,7 +11,7 @@
    a push keeps running the old code with nothing telling anybody. It sat at
    2026-09-04a through this whole day's work; rmqty/psi tests pinned the code,
    nothing pinned this. buildid.test.js now does. */
-var BUILD_ID='2026-09-24u';
+var BUILD_ID='2026-09-24v';
 var CHANGELOG=[
   {ver:'2026-09-04a', date:'2026-09-04', title:"Delivery, DC printing, and a new Reconciliation check", items:[
     "Delivery confirmation stays with Supply Chain \u2014 it no longer hands off to the Plant Manager. If one sits too long, it now re-flags the same Supply Chain owner every 3 days instead.",
@@ -275,6 +275,11 @@ var CHANGELOG=[
     "The cover signs the review or the approval in their own name, and the certificate prints \u201cfor\u201d the person on leave.",
     "Every certificate still needs 2 different people: a cover cannot approve a certificate they reviewed, or sign for a sample they tested. Management does not sign.",
     "The COO no longer signs certificates (analysed, reviewed or approved). Only the lab signs, as ISO requires."
+  ]},
+  {ver:'2026-09-24v', date:'2026-09-24', title:"The Plant Manager hears about a lab leave", items:[
+    "QCM and AQCM: tap your name \u2192 I\u2019m going on leave, and give the days. The Plant Manager gets a job to name who signs for you. You can cancel it the same way.",
+    "If a certificate has waited a day or more for someone who has done nothing in O2S that day (after midday, not Sundays), the Plant Manager gets the same job, so a sudden leave is caught too.",
+    "The job stays until a cover spans the whole leave. Announcing a leave hands your signature to nobody; the Plant Manager decides."
   ]},
 ];
 </script>
@@ -9349,9 +9354,10 @@ function labCoverOf(role){ var me=(state.currentUser||{}).username||''; return l
 /* the stamp's "for" when the signer holds the line only as a cover */
 function labOnBehalf(role){ if(state.role===role) return null; var cv=labCoverOf(role); if(!cv) return null; return {name:cv.absentName||labNameOf(cv.absent),user:cv.absent,role:role,title:roleTitle(role)}; }
 function labHolderOf(role){ var u=(usersList||[]).find(function(x){ return x&&x.role===role; }); return u||null; }
-function labSetCover(role,cover,from,to){ if(state.role!=='Plant Manager'){ toast('The Plant Manager allows a leave cover'); return; }
+function labSetCover(role,cover,from,to,absentUser){ if(state.role!=='Plant Manager'){ toast('The Plant Manager allows a leave cover'); return; }
   if(!LAB_COVER_ROLES[role]){ toast('Cover is for the AQCM review or the QCM approval'); return; }
-  var holder=labHolderOf(role); var absent=holder?holder.username:''; if(!absent){ toast('Nobody holds the '+roleTitle(role)+' role'); return; }
+  /* 24v: the person who announced the leave, when there is one - not just the first holder of the role */
+  var holder=(absentUser&&(usersList||[]).find(function(x){ return x&&x.username===absentUser&&x.role===role; }))||labHolderOf(role); var absent=holder?holder.username:''; if(!absent){ toast('Nobody holds the '+roleTitle(role)+' role'); return; }
   var cu=(usersList||[]).find(function(x){ return x&&x.username===cover; });
   if(!cu||!(cu.role==='Lab Rep'||cu.role==='AQCM'||cu.role==='QCM')){ toast('The cover must be someone in the lab'); return; }
   if(cover===absent){ toast('Pick someone other than the person on leave'); return; }
@@ -9372,21 +9378,72 @@ function labCoverSees(it){ if(!it||!it.batch) return false; var role=(it.label==
   if(role==='QCM' && coaSamePerson(c.reviewer,(c.reviewer||{}).name)) return false;
   if(coaSamePerson(c.draftedBy,(c.analyst||{}).name)) return false;
   if(labRanATest(c)) return false; return true; }
-function openLabCover(){ var e=function(x){return _pe(x);}; var ed=state.role==='Plant Manager';
-  if(!(usersList||[]).length){ try{ loadUsers().then(function(){ openLabCover(); }); }catch(e2){} }
+function openLabCover(leaveId,roleHint){ var e=function(x){return _pe(x);}; var ed=state.role==='Plant Manager';
+  if(!(usersList||[]).length){ try{ loadUsers().then(function(){ openLabCover(leaveId,roleHint); }); }catch(e2){} }
+  var lv=leaveId?labLeaveList().find(function(l){ return l.id===leaveId; }):null; var pr=lv?lv.role:(LAB_COVER_ROLES[roleHint]?roleHint:'QCM');
   var lab=(usersList||[]).filter(function(u){ return u&&(u.role==='Lab Rep'||u.role==='AQCM'||u.role==='QCM'); });
   var d=evToday(); var list=labCoverList().filter(function(x){ return x&&!x.ended&&x.to>=d; });
   var rows=list.map(function(x){ return '<tr><td>'+e(x.coverName||x.cover)+'</td><td>'+e(LAB_COVER_ROLES[x.role])+' for '+e(x.absentName||x.absent)+' ('+e(roleTitle(x.role))+')</td><td>'+e(x.from)+' to '+e(x.to)+'</td><td>'+(ed?'<button class="sm ghost" onclick="labEndCover(\''+e(x.id)+'\')">End now</button>':'')+'</td></tr>'; }).join('');
-  var opt=function(r){ var h=labHolderOf(r); return '<option value="'+r+'">'+e(LAB_COVER_ROLES[r])+' — '+e(h?h.name:'nobody')+' ('+e(roleTitle(r))+') is on leave</option>'; };
+  var opt=function(r){ var h=(lv&&lv.role===r)?{name:lv.name||lv.user}:labHolderOf(r); return '<option value="'+r+'"'+(r===pr?' selected':'')+'>'+e(LAB_COVER_ROLES[r])+' — '+e(h?h.name:'nobody')+' ('+e(roleTitle(r))+') is on leave</option>'; };
   var form=ed?('<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px">'
     +'<div class="fld" style="grid-column:1/-1"><label>Whose signature</label><select id="cv_role">'+opt('QCM')+opt('AQCM')+'</select></div>'
     +'<div class="fld" style="grid-column:1/-1"><label>Who signs instead</label><select id="cv_cover"><option value="">— lab person —</option>'+lab.map(function(u){ return '<option value="'+e(u.username)+'">'+e(u.name)+' ('+e(roleTitle(u.role))+')</option>'; }).join('')+'</select></div>'
-    +'<div class="fld"><label>First day</label><input type="date" id="cv_from" value="'+e(d)+'"></div><div class="fld"><label>Last day</label><input type="date" id="cv_to" value="'+e(d)+'"></div></div>'
-    +'<div style="margin-top:10px"><button class="green" onclick="labSetCover(document.getElementById(\'cv_role\').value,document.getElementById(\'cv_cover\').value,document.getElementById(\'cv_from\').value,document.getElementById(\'cv_to\').value)">Save the cover</button></div>'):'';
+    +'<div class="fld"><label>First day</label><input type="date" id="cv_from" value="'+e(lv?(lv.from>d?lv.from:d):d)+'"></div><div class="fld"><label>Last day</label><input type="date" id="cv_to" value="'+e(lv?lv.to:d)+'"></div></div>'
+    +'<div style="margin-top:10px"><button class="green" onclick="labSetCover(document.getElementById(\'cv_role\').value,document.getElementById(\'cv_cover\').value,document.getElementById(\'cv_from\').value,document.getElementById(\'cv_to\').value'+(lv?',\''+e(lv.user)+'\'':'')+')">Save the cover</button></div>'):'';
   $('modal').innerHTML='<div class="mh"><h2>Lab — leave cover</h2><div class="sub">Who signs a certificate while the AQCM or the QCM is on leave.</div></div>'
     +'<div class="mb"><div class="muted" style="font-size:12.5px;line-height:1.55">Every certificate still needs 2 different people. A cover takes one signature and it prints as <b>for</b> the person on leave. <b>A cover cannot approve a certificate they reviewed, or review or approve a sample they tested.</b> So when the AQCM covers the QCM\'s approval, the certificates the AQCM reviews himself wait for the QCM\'s return, unless you also name someone else in the lab to cover the review for the same days. Management does not sign.</div>'
+    +(function(){ var ann=labLeaveList().filter(function(l){ return l&&!l.cancelled&&l.to>=d; }); if(!ann.length) return ''; return '<div style="margin-top:12px"><b style="font-size:12.5px">Leave announced</b><div style="font-size:12.5px;margin-top:4px">'+ann.map(function(l){ return e(l.name||l.user)+' ('+e(roleTitle(l.role))+') '+e(l.from)+' to '+e(l.to)+(l.note?' — '+e(l.note):'')+(labCoverSpans(l.role,l.from,l.to)?' · <span style="color:var(--green)">covered</span>':' · <b style="color:var(--red)">no cover yet</b>'); }).join('<br>')+'</div></div>'; })()
     +'<div style="overflow:auto;margin-top:12px"><table><thead><tr><th>Cover</th><th>Signs</th><th>Days</th><th></th></tr></thead><tbody>'+(rows||'<tr><td colspan="4" class="muted">No cover in place.</td></tr>')+'</tbody></table></div>'+form+'</div>'
     +'<div class="mf"><button class="ghost" onclick="closeModal();render()">Close</button></div>';
+  $('modalBg').classList.add('open'); }
+/* ===== HOW THE PLANT MANAGER FINDS OUT — 24 Sep 2026 (24v) ====================
+   Tahir: "how will the Plant Manager know he has to assign a cover? The system
+   doesn't know when Himayat is on leave." Ruled: both of these.
+   (1) The QCM or AQCM announces a leave (name menu). The Plant Manager gets a
+       "Name a cover" job until a cover spans the whole leave. The request grants
+       nothing - the Plant Manager still names the cover.
+   (2) A safety net: a certificate waiting 1 day or more for someone who has done
+       nothing in O2S today raises the same job. Only after midday and never on
+       a Sunday, so it does not cry wolf (ground rule: no false alerts). */
+function labNow(){ return new Date(); }
+function labLeaveList(){ return (state.masters&&Array.isArray(state.masters.labLeave))?state.masters.labLeave:[]; }
+function labLeaveAnnounce(from,to,note){ var role=state.role; if(!LAB_COVER_ROLES[role]){ toast('Only the AQCM and the QCM sign certificates, so only they announce a leave here'); return; }
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(String(from||''))||!/^\d{4}-\d{2}-\d{2}$/.test(String(to||''))){ toast('Pick the first and last day of your leave'); return; }
+  if(to<from){ toast('The last day is before the first'); return; } if(to<evToday()){ toast('That leave is already over'); return; }
+  var me=state.currentUser||{}; state.masters=state.masters||{}; var L=state.masters.labLeave=Array.isArray(state.masters.labLeave)?state.masters.labLeave:[];
+  L.push({id:'LV'+Date.now().toString(36)+'-'+(L.length+1),user:me.username||'',name:me.name||'',role:role,from:from,to:to,note:String(note||'').slice(0,200),at:new Date().toISOString()});
+  logAction('Leave announced: '+(me.name||role)+' ('+roleTitle(role)+') '+from+' to '+to+' — the Plant Manager names a cover'); save(); closeModal(); toast('Sent to the Plant Manager to name a cover'); try{ render(); }catch(e){} }
+function labLeaveCancel(id){ var me=(state.currentUser||{}).username||''; var x=labLeaveList().find(function(l){ return l.id===id; }); if(!x||x.cancelled) return;
+  if(x.user!==me && state.role!=='Plant Manager'){ toast('Only the person on leave or the Plant Manager cancels it'); return; }
+  x.cancelled={by:sigStamp(),at:new Date().toISOString()}; logAction('Leave cancelled: '+(x.name||x.user)+' '+x.from+' to '+x.to); save(); try{ if($('modalBg').classList.contains('open')) openMyLeave(); else render(); }catch(e){} }
+function labCoverSpans(role,from,to){ return labCoverList().some(function(c){ return c&&!c.ended&&c.role===role&&c.from<=from&&c.to>=to; }); }
+/* the "Name a cover" jobs for the Plant Manager (called from actionItems) */
+function labCoverNeeds(){ var out=[]; var d=evToday();
+  labLeaveList().forEach(function(l){ if(!l||l.cancelled||l.to<d) return; if(labCoverSpans(l.role,l.from,l.to)) return;
+    out.push({role:'Plant Manager',leave:l,what:'Name a cover: '+(l.name||l.user)+' ('+roleTitle(l.role)+') is on leave '+l.from+' to '+l.to,act:"openLabCover('"+l.id+"')",label:'Name a cover'}); });
+  try{ var now=labNow(); if(now.getDay()!==0 && now.getHours()>=12){ var day=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0');
+    Object.keys(LAB_COVER_ROLES).forEach(function(role){ var h=labHolderOf(role); if(!h) return;
+      if(labCoverSpans(role,day,day)) return;
+      if(labLeaveList().some(function(l){ return l&&!l.cancelled&&l.role===role&&l.from<=day&&day<=l.to; })) return;
+      var label=LAB_COVER_ROLES[role]; var waiting=0, oldest=0;
+      (state.batches||[]).forEach(function(b){ if(!((b.producedKg||0)>0)||b.disposition==='byproduct') return; var us=(b.lots||[]).length?b.lots:[b];
+        us.forEach(function(u){ var c=u.coa; if(!c) return; var st=c.status; if(!((label==='Review'&&st==='analysed')||(label==='Approve'&&st==='reviewed'))) return;
+          var cr=String((actTiming({batch:b,label:label})||{}).created||'').slice(0,10); var t=cr?Math.round((Date.parse(day)-Date.parse(cr))/86400000):0; /* whole calendar days: actTiming's days round a same-day wait up after noon */ if(t>=1){ waiting++; if(t>oldest) oldest=t; } }); });
+      if(!waiting) return;
+      var did=(state.actionLog||[]).some(function(e){ return e&&e.by===h.name&&String(e.t||'')&&(function(){ var x=new Date(e.t); return !isNaN(x)&&x.getFullYear()===now.getFullYear()&&x.getMonth()===now.getMonth()&&x.getDate()===now.getDate(); })(); });
+      if(did) return;
+      out.push({role:'Plant Manager',coverRole:role,what:waiting+' certificate'+(waiting===1?'':'s')+' waiting '+oldest+' d for '+h.name+' ('+roleTitle(role)+'), who has done nothing in O2S today — on leave? Name a cover',act:"openLabCover('','"+role+"')",label:'Name a cover'}); }); } }catch(e){}
+  return out; }
+function openMyLeave(){ var e=function(x){return _pe(x);}; var me=(state.currentUser||{}).username||''; var d=evToday();
+  var mine=labLeaveList().filter(function(l){ return l&&l.user===me&&!l.cancelled&&l.to>=d; });
+  var rows=mine.map(function(l){ var cv=labCoverList().filter(function(c){ return c&&!c.ended&&c.role===l.role&&c.to>=l.from&&c.from<=l.to; }).map(function(c){ return (c.coverName||c.cover)+' '+c.from+'–'+c.to; }).join(', ');
+    return '<tr><td>'+e(l.from)+' to '+e(l.to)+'</td><td>'+(cv?e(cv):'<span class="muted">waiting for the Plant Manager</span>')+'</td><td><button class="sm ghost" onclick="labLeaveCancel(\''+e(l.id)+'\')">Cancel</button></td></tr>'; }).join('');
+  $('modal').innerHTML='<div class="mh"><h2>I\'m going on leave</h2><div class="sub">The Plant Manager gets a job to name who signs for you while you are away.</div></div>'
+    +'<div class="mb"><div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px"><div class="fld"><label>First day</label><input type="date" id="lv_from" value="'+e(d)+'"></div><div class="fld"><label>Last day</label><input type="date" id="lv_to" value="'+e(d)+'"></div>'
+    +'<div class="fld" style="grid-column:1/-1"><label>Note (optional)</label><input id="lv_note" placeholder="e.g. family wedding"></div></div>'
+    +'<div style="margin-top:10px"><button class="green" onclick="labLeaveAnnounce(document.getElementById(\'lv_from\').value,document.getElementById(\'lv_to\').value,document.getElementById(\'lv_note\').value)">Send to the Plant Manager</button></div>'
+    +(rows?'<div style="overflow:auto;margin-top:14px"><table><thead><tr><th>Your leave</th><th>Cover</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>':'')+'</div>'
+    +'<div class="mf"><button class="ghost" onclick="closeModal()">Close</button></div>';
   $('modalBg').classList.add('open'); }
 /* ===== THE THREE VERIFY ITEMS — SPEC-01 rule 3, built 2026-08-21
 
@@ -11147,6 +11204,8 @@ function actionItems(){
   (state.prs||[]).filter(p=>p.status==='open'&&!p.cfoApproved).forEach(p=>items.push({role:'CFO',pr:p,what:'Approve PR — '+p.rm+' '+fmt(p.qtyRequired)+' Kg/L',act:"cfoApprovePR('"+p.id+"')",label:'Approve PR'}));
   /* R9 - a new customer waits for the CFO before its first order */
   try{ pendingCustomerItems().forEach(function(it){ items.push(it); }); }catch(e){}
+  /* 24v: a lab signature with nobody to give it - the Plant Manager names a cover */
+  try{ labCoverNeeds().forEach(function(it){ items.push(it); }); }catch(e){}
   (state.batches||[]).filter(b=>(b.producedKg||0)>0 && b.disposition!=='byproduct').forEach(b=>{ const it=coaItemOf(b);  /* Stage 1: by-product accruals don't generate Lab-COA/QC actions until called for manufacturing (read-only; clears the 2 false QC triggers) */ const units=(b.lots||[]).length?(b.lots).map(l=>({id:l.id,no:(l.lotNo||b.batchNo||''),coa:l.coa})):[{id:'',no:(b.batchNo||''),coa:b.coa}];
     units.forEach(u=>{ const st=u.coa&&u.coa.status; if(u.coa&&st==='approved')return; const call="openBatchCOA('"+b.id+"','"+u.id+"')"; const tag=(u.no||'');
       /* 24r: a sample in the lab's own flow - assigned by parameter (labV2Items). Review onwards is the code below. */
@@ -11644,6 +11703,7 @@ function actTiming(it){
       default: c=it.o.received; approx=true;
     }
   } else if(it.pr){ c=it.pr.date; }
+  else if(it.leave){ c=it.leave.at; }
   else if(it.labAt){ c=it.labAt; }
   else if(it.batch){ c=it.batch.closedDate||it.batch.openedDate||it.batch.date||null; approx=(it.label!=='Lab QC'); }
   else if(it.lot){ c=(it.lot.qa&&it.lot.qa.date)||it.lot.date||null; }
@@ -11717,7 +11777,7 @@ function acRoleScoped(b){ return acRoleF==='all'?b:b.filter(function(x){return x
 function acCounts(){ var r0=acRoleScoped(acBase()); var deferred=r0.filter(function(x){return !!acDeferActive(x);}).length; var r=r0.filter(function(x){return !acDeferActive(x);}); var late=0,today=0,normal=0,old=0; r.forEach(function(x){ if(x._risk==='late')late++; else if(x._risk==='today')today++; else normal++; if(x._days>old)old=x._days; }); return {all:r.length,late:late,today:today,normal:normal,oldest:old,deferred:deferred}; }
 /* Self-defer: owner snoozes an action 1–30 days with a locked reason; it leaves the active list until the return date, stays visible under the Deferred filter and to managers. Greenlit stored field: state.acDefer (keyed by a deterministic acKey). */
 var AC_DEFER_REASONS=['RM en route','Scheduled later','Awaiting approval','Capacity issues','Packing not available','Other'];
-function acKey(it){ var p=[it.label||'']; if(it.o)p.push('o:'+it.o.id); if(it.l)p.push('l:'+(it.l.id||it.l.brand||'')); if(it.pr)p.push('pr:'+it.pr.id); if(it.batch)p.push('b:'+it.batch.id); if(it.lid)p.push('u:'+it.lid); if(it.row!=null)p.push('r:'+it.row); if(it.lot)p.push('lot:'+it.lot.id); if(it.disp)p.push('d:'+(it.disp.dispId||'')); return p.join('|'); }
+function acKey(it){ var p=[it.label||'']; if(it.o)p.push('o:'+it.o.id); if(it.l)p.push('l:'+(it.l.id||it.l.brand||'')); if(it.pr)p.push('pr:'+it.pr.id); if(it.batch)p.push('b:'+it.batch.id); if(it.lid)p.push('u:'+it.lid); if(it.row!=null)p.push('r:'+it.row); if(it.leave)p.push('lv:'+it.leave.id); if(it.coverRole)p.push('cr:'+it.coverRole); if(it.lot)p.push('lot:'+it.lot.id); if(it.disp)p.push('d:'+(it.disp.dispId||'')); return p.join('|'); }
 function acDeferActive(it){ var m=state.acDefer||{}; var d=m[acKey(it)]; if(!d||!d.until)return null; return (String(d.until)>=TODAY.toISOString().slice(0,10))?d:null; }
 var acDeferForm=null;
 function acDefer(id){ var it=acBase().filter(function(x){return x._id===id;})[0]; if(!it)return; var t=new Date(TODAY); t.setDate(t.getDate()+7); acDeferForm={id:id,key:acKey(it),title:(it.what||it.label),reason:AC_DEFER_REASONS[0],until:t.toISOString().slice(0,10)}; renderAcDefer(); $('modalBg').classList.add('open'); }
@@ -11881,6 +11941,7 @@ var TD_LABEL={
   'Assign sample':   {title:'Sample to assign',                     verb:'Assign'},
   'Lab test':        {title:'Test to run',                          verb:'Open the bench sheet'},
   'Lab late':        {title:'Lab sample overdue',                   verb:'Open'},
+  'Name a cover':    {title:'Lab signature to cover',               verb:'Name a cover'},
   'Review':          {title:'Needs your signature',                 verb:'Open'},
   'Approve':         {title:'COA to approve',                       verb:'Approve COA'},
   'Print price':     {title:'Print-on-pack answer needed',          verb:'Answer'},
@@ -12100,7 +12161,7 @@ function renderTopNav(){
   var me=document.getElementById('qsMe'); var u=state.currentUser;
   if(me){ if(u){ var nm=u.name||state.role; var tt=(typeof personTitle==='function')?personTitle(u.username||'',state.role):state.role;
       var ini=String(nm).split(' ').filter(Boolean).slice(-2).map(function(x){return x[0];}).join('').toUpperCase();
-      me.innerHTML='<details class="qs-me"><summary><span class="av">'+qsEsc(ini)+'</span><span><span class="nm" style="display:block">'+qsEsc(nm)+'</span><span class="tt" style="display:block">'+qsEsc(tt)+'</span></span></summary><div class="pop"><div class="r">Role <b>'+qsEsc(state.role)+'</b> · decides your buttons.<br>Title <b>'+qsEsc(tt)+'</b> · what you are called.</div><button class="qs-btn sm" onclick="openMyPassword()">Change my password</button><button class="qs-btn sm" onclick="logout()">Sign out</button></div></details>'; }
+      me.innerHTML='<details class="qs-me"><summary><span class="av">'+qsEsc(ini)+'</span><span><span class="nm" style="display:block">'+qsEsc(nm)+'</span><span class="tt" style="display:block">'+qsEsc(tt)+'</span></span></summary><div class="pop"><div class="r">Role <b>'+qsEsc(state.role)+'</b> · decides your buttons.<br>Title <b>'+qsEsc(tt)+'</b> · what you are called.</div>'+((state.role==='AQCM'||state.role==='QCM')?'<button class="qs-btn sm" onclick="openMyLeave()">I\'m going on leave</button>':'')+'<button class="qs-btn sm" onclick="openMyPassword()">Change my password</button><button class="qs-btn sm" onclick="logout()">Sign out</button></div></details>'; }
     else me.innerHTML=''; }
   qsTickClock();
   if(!window._qsClock){ window._qsClock=setInterval(qsTickClock,30000); }

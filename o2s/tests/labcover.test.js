@@ -214,6 +214,98 @@ ok('the cover functions exist', ['labCovers', 'labSetCover', 'labEndCover', 'ope
   eq('the QCM still approves', B(c).coa.status, 'approved');
 }
 
-ok('BUILD_ID is 2026-09-24u or later', /BUILD_ID\s*=\s*'2026-09-(24[u-z]|2[5-9][a-z]|30[a-z])'/.test(html));
+/* ================= 24v: how the Plant Manager finds out =================
+   Tahir: "how will the Plant Manager know he has to assign a cover? The system
+   doesn't know when Himayat is on leave." Ruled: build both -
+   (1) the person going on leave says so in O2S; the Plant Manager gets a job
+   (2) a safety net: a certificate waiting a day or more for someone who has done
+       nothing in O2S today raises the same job, so sudden leave is caught.
+   The Plant Manager still grants the cover; the request grants nothing. */
+ok('the leave functions exist', ['openMyLeave', 'labLeaveAnnounce', 'labLeaveCancel', 'labCoverNeeds'].every(has));
+const pm = c => run(c, 'actionItems()').filter(it => it.label === 'Name a cover');
+{
+  const c = app('QCM', 'himayat', 'Himayat Hussain');
+  run(c, `labLeaveAnnounce("${day(1)}","${day(3)}","family")`);
+  eq('Himayat announces his leave', run(c, 'labLeaveList().filter(function(x){return !x.cancelled;}).length'), 1);
+  const it = pm(c);
+  eq('...the Plant Manager gets 1 job', it.length, 1);
+  eq('...addressed to the Plant Manager', it[0] && it[0].role, 'Plant Manager');
+  ok('...naming who and when', it[0] && /Himayat Hussain/.test(it[0].what) && it[0].what.indexOf(day(1)) > -1 || /Himayat Hussain/.test(it[0] && it[0].what), it[0] && it[0].what);
+  ok('...its button opens the cover screen for that leave', it[0] && /openLabCover\('LV/.test(it[0].act), it[0] && it[0].act);
+  ok('announcing grants nothing', run(c, 'labCoverActive().length') === 0 && run(c, 'labCoverList().length') === 0);
+  as(c, 'Plant Manager', 'fahim', 'Fahim Asghar');
+  ok("it is on Fahim's Today", run(c, 'tdItems()').some(x => x.label === 'Name a cover'));
+  run(c, 'openLabCover(' + JSON.stringify(it[0].leave.id) + ')');
+  const m = run(c, 'document.getElementById("modal").innerHTML');
+  ok('the cover screen opens with the leave dates filled in', m.indexOf('value="' + day(1) + '"') > -1 && m.indexOf('value="' + day(3) + '"') > -1);
+  ok('...and the QCM signature picked', /<option value="QCM" selected/.test(m));
+  run(c, `labSetCover("QCM","masab","${day(1)}","${day(3)}")`);
+  eq('a cover for the whole leave clears the job', pm(c).length, 0);
+}
+{
+  const c = app('QCM', 'himayat', 'Himayat Hussain');
+  run(c, `labLeaveAnnounce("${day(1)}","${day(5)}","")`);
+  as(c, 'Plant Manager', 'fahim', 'Fahim Asghar');
+  run(c, `labSetCover("QCM","masab","${day(1)}","${day(2)}")`);
+  eq('a cover for part of the leave leaves the job open', pm(c).length, 1);
+  as(c, 'QCM', 'himayat', 'Himayat Hussain');
+  const id = run(c, 'labLeaveList()[0].id');
+  run(c, 'labLeaveCancel(' + JSON.stringify(id) + ')');
+  eq('the person can cancel their own leave; the job goes', pm(c).length, 0);
+}
+{
+  const c = app('Lab Rep', 'awais', 'Awais Ali');
+  run(c, `labLeaveAnnounce("${day(1)}","${day(2)}","")`);
+  eq('a Lab Rep has no signature to cover: no request', run(c, 'labLeaveList().length'), 0);
+  as(c, 'QCM', 'himayat', 'Himayat Hussain');
+  run(c, `labLeaveAnnounce("${day(-5)}","${day(-3)}","")`);
+  eq('a leave already over cannot be announced', run(c, 'labLeaveList().length'), 0);
+  run(c, 'openMyLeave()');
+  ok('the leave form opens from the name menu', /labLeaveAnnounce\(/.test(run(c, 'document.getElementById("modal").innerHTML')));
+  ok('the name menu offers it to the QCM and AQCM only', /\(state\.role==='AQCM'\|\|state\.role==='QCM'\)\?'<button class="qs-btn sm" onclick="openMyLeave\(\)">/.test(html));
+}
+/* (2) the safety net */
+{
+  const c = app('Plant Manager', 'fahim', 'Fahim Asghar');
+  const old = day(-2);
+  withCert(c, 'reviewed', { reviewer: { name: 'Masab Khan', user: 'masab', role: 'AQCM', date: 'x' } });
+  run(c, 'state.batches=state.batches.filter(function(b){return b.id==="B-COV";});');  /* only this certificate, so the counts are this test's */
+  run(c, `state.batches.find(function(b){return b.id==="B-COV";}).closedDate="${old}"; state.actionLog=[];`);
+  run(c, 'labNow=function(){ var d=new Date(); d.setHours(14,0,0,0); return d; }');
+  let it = pm(c);
+  eq('a certificate 2 days waiting for Himayat, who has done nothing today: 1 job', it.length, 1);
+  ok('...saying so', it[0] && /Himayat Hussain/.test(it[0].what) && /nothing in O2S today/.test(it[0].what), it[0] && it[0].what);
+  ok('...and it opens the cover screen for the QCM signature', it[0] && /openLabCover\('','QCM'\)/.test(it[0].act));
+  run(c, 'state.actionLog.unshift({t:new Date().toISOString(),by:"Himayat Hussain",role:"QCM",what:"Signed in"});');
+  eq('once he has done anything today, no job', pm(c).length, 0);
+  run(c, 'state.actionLog=[]; labNow=function(){ var d=new Date(); d.setHours(9,0,0,0); return d; }');
+  eq('not before midday: nobody is late at 9 in the morning', pm(c).length, 0);
+  run(c, 'labNow=function(){ var d=new Date(); d.setHours(14,0,0,0); while(d.getDay()!==0) d.setDate(d.getDate()+1); return d; }');
+  eq('not on a Sunday', pm(c).length, 0);
+  run(c, 'labNow=function(){ var d=new Date(); d.setHours(14,0,0,0); return d; }');
+  run(c, `state.batches.find(function(b){return b.id==="B-COV";}).closedDate="${today()}";`);
+  eq('a certificate waiting less than a day: no job', pm(c).length, 0);
+  run(c, `state.batches.find(function(b){return b.id==="B-COV";}).closedDate="${old}";`);
+  run(c, `labSetCover("QCM","awais","${today()}","${today()}")`);
+  eq('a cover already in place: no job', pm(c).length, 0);
+}
+
+/* found in the browser walk-through: with 2 accounts in one role the cover
+   screen named the first one as absent, not the person who announced the leave */
+{
+  const c = app('AQCM', 'masab', 'Masab Khan');
+  run(c, 'usersList.unshift({username:"aq2",name:"Other AQCM",role:"AQCM"});');
+  run(c, `labLeaveAnnounce("${day(1)}","${day(2)}","")`);
+  as(c, 'Plant Manager', 'fahim', 'Fahim Asghar');
+  const id = run(c, 'labLeaveList()[0].id');
+  run(c, 'openLabCover(' + JSON.stringify(id) + ')');
+  ok('the cover screen names the person who announced the leave', /Masab Khan \(Senior|Masab Khan \(/.test(run(c, 'document.getElementById("modal").innerHTML').replace(/Leave announced[\s\S]*?<\/div><\/div>/, '')));
+  ok('...and carries them to the save', /,'masab'\)">Save the cover/.test(run(c, 'document.getElementById("modal").innerHTML')));
+  run(c, `labSetCover("AQCM","himayat","${day(1)}","${day(2)}","masab")`);
+  eq('...and the cover is recorded for that person', run(c, 'labCoverList()[0] && labCoverList()[0].absent'), 'masab');
+}
+
+ok('BUILD_ID is 2026-09-24v or later', /BUILD_ID\s*=\s*'2026-09-(24[v-z]|2[5-9][a-z]|30[a-z])'/.test(html));
+ok('the changelog tells the Plant Manager (24v)', /ver:'2026-09-24v'[\s\S]{0,900}leave/i.test(html));
 ok('the changelog tells the lab', /ver:'2026-09-24u'[\s\S]{0,900}cover/i.test(html));
 process.exitCode = report('Leave cover for the lab sign-offs (24u)') ? 1 : 0;

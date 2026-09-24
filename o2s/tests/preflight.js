@@ -158,6 +158,8 @@ const MARKERS = [
   ['function labSetCover(',                1, 'leave cover for the lab sign-offs (24u)'],
   ['function labCoverNeeds(',              1, 'the Plant Manager hears about a lab leave (24v)'],
   ['onclick="openMyLeave()"',              1, "I'm going on leave, in the name menu (24v)"],
+  ['function prodMakeCardsHTML(',          1, 'Production: one card per product (24w)'],
+  ['function prodShellTiles(',             1, 'Production: tiles as the tabs (24w)'],
   ["function coaApprove(){ if(!(state.role==='QCM'||labCovers('QCM')))", 1, 'the COO does not sign certificates (24u)'],
 ];
 

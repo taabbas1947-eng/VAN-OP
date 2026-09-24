@@ -11,7 +11,7 @@
    a push keeps running the old code with nothing telling anybody. It sat at
    2026-09-04a through this whole day's work; rmqty/psi tests pinned the code,
    nothing pinned this. buildid.test.js now does. */
-var BUILD_ID='2026-09-24v';
+var BUILD_ID='2026-09-24w';
 var CHANGELOG=[
   {ver:'2026-09-04a', date:'2026-09-04', title:"Delivery, DC printing, and a new Reconciliation check", items:[
     "Delivery confirmation stays with Supply Chain \u2014 it no longer hands off to the Plant Manager. If one sits too long, it now re-flags the same Supply Chain owner every 3 days instead.",
@@ -280,6 +280,11 @@ var CHANGELOG=[
     "QCM and AQCM: tap your name \u2192 I\u2019m going on leave, and give the days. The Plant Manager gets a job to name who signs for you. You can cancel it the same way.",
     "If a certificate has waited a day or more for someone who has done nothing in O2S that day (after midday, not Sundays), the Plant Manager gets the same job, so a sudden leave is caught too.",
     "The job stays until a cover spans the whole leave. Announcing a leave hands your signature to nobody; the Plant Manager decides."
+  ]},
+  {ver:'2026-09-24w', date:'2026-09-24', title:"Production: one card per product", items:[
+    "What to make shows one card per product instead of one row per order line: how much to make (L for liquids, Kg for the rest), how many orders, the earliest due date, and the main button. The orders are inside the card.",
+    "Products you can start now come first, then the blocked ones.",
+    "The 4 tiles on top are the tabs: products to make, running, waiting for lab, ready to pack. Completed and the rest are just below."
   ]},
 ];
 </script>
@@ -6764,6 +6769,35 @@ function closedBatchesCard(){
     +'<th class="num">Planned</th><th class="num">Produced</th><th>Closed</th><th></th>'
     +'</tr></thead><tbody>'+rows+'</tbody></table></div></div>';
 }
+/* ===== PRODUCTION IN THE NEW SHELL — 24 Sep 2026 (24w) =========================
+   Tahir, with a screenshot of What to make: "production is still like this?"
+   Ruled: one card per product, like Today, the orders inside; tiles as the tabs.
+   The cards reuse the rows' own buttons (built in prodStageList under their own
+   rights), so no button is drawn by new code. */
+var PCARD_CSS='<style id="pcard-css">.pcard{border:1px solid #d9ddd3;border-left:4px solid #c9a227;background:#fbfbf8;border-radius:3px;margin:0 0 10px;padding:10px 12px}.pcard.late{border-left-color:#a3302a}.pcard.blocked{border-left-color:#98a094;opacity:.92}.pcard-h{display:flex;gap:12px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap}.pcard-t{font-weight:600;font-size:15px}.pcard-s{font-size:12.5px;color:#49514a;margin-top:2px}.pcard-tags{margin-top:6px;display:flex;gap:6px;flex-wrap:wrap}.pcard-tag{font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;background:#eef0ea;color:#49514a}.pcard-tag.late{background:#f4d9d5;color:#a3302a}.pcard-tag.ok{background:#e2f3e8;color:#1d6b3a}.pcard-tag.bad{background:#fbeaea;color:#a3402f}.pcard-go{display:flex;gap:6px;flex-wrap:wrap;align-items:center}.pcard details{margin-top:8px}.pcard summary{cursor:pointer;font-size:12.5px;color:#2e5f86;font-weight:600}.pcard .wtmlist{margin-top:8px}</style>';
+function prodMakeCardsHTML(frows,htmls){
+  var by={}, order=[];
+  frows.forEach(function(x,i){ var k=x.brand||'—'; if(!by[k]){ by[k]={brand:k,base:x.base,rows:[],html:[],rem:0,pos:{},late:0,blocked:0,ready:0,due:''}; order.push(k); }
+    var g=by[k]; g.rows.push(x); g.html.push(htmls[i]); g.rem+=(+x.rem||0); g.pos[x.po]=1; if(x._late) g.late++; if(x._blocked) g.blocked++; else g.ready++;
+    if(x.due&&(!g.due||x.due<g.due)) g.due=x.due; });
+  var gs=order.map(function(k){ return by[k]; });
+  gs.forEach(function(g){ g.state=g.ready?'ready':'blocked';
+    /* the main button: the first row you can act on now - its own button, as built above */
+    var pick=g.rows.filter(function(x){ return !x._blocked&&x._act; })[0]||g.rows.filter(function(x){ return x._act; })[0]; g.act=pick?pick._act:''; });
+  gs.sort(function(a,b){ return ((a.state==='ready')?0:1)-((b.state==='ready')?0:1) || String(a.due||'9999').localeCompare(String(b.due||'9999')) || a.brand.localeCompare(b.brand); });
+  return PCARD_CSS+gs.map(function(g){ var n=Object.keys(g.pos).length; var u=unitOf(g.brand);
+    var tags=(g.ready?'<span class="pcard-tag ok">'+g.ready+' ready</span>':'')+(g.blocked?'<span class="pcard-tag bad">'+g.blocked+' blocked</span>':'')+(g.late?'<span class="pcard-tag late">'+g.late+' late</span>':'');
+    return '<div class="pcard'+(g.late?' late':'')+(g.state==='blocked'?' blocked':'')+'" data-brand="'+_pe(g.brand)+'" data-state="'+g.state+'"><div class="pcard-h"><div><div class="pcard-t">'+_pe(g.brand)+((g.base&&g.base!==g.brand)?' <span class="wtm-base">'+_pe(g.base)+'</span>':'')+'</div>'
+      +'<div class="pcard-s"><b>'+fmt(Math.round(g.rem))+'</b> '+u+' to make · '+n+' order'+(n===1?'':'s')+(g.due?' · earliest due '+_pe(g.due):'')+'</div><div class="pcard-tags">'+tags+'</div></div>'
+      +'<div class="pcard-go">'+g.act+'</div></div>'
+      +'<details'+(g.rows.length===1?'':'')+'><summary>'+(n===1?'See the order':'See the '+n+' orders')+' ▾</summary><div class="wtmlist">'+g.html.join('')+'</div></details></div>'; }).join(''); }
+function prodMakeProductsN(){ var s={}; (state.orders||[]).forEach(function(o){ if(stageOf(o)==='Delivered')return; (o.lines||[]).forEach(function(l){ if(lineShortClosed(l))return; if(((+l.ordered||0)-(+l.produced||0))>0.5) s[l.brand||'']=1; }); }); return Object.keys(s).length; }
+function prodShellTiles(){ var c=prodWorkCounts(); var on=function(k){ return !prodHome&&prodView!=='output'&&prodView!=='register'&&prodFilter===k; };
+  var t=function(k,n,l,tone){ return '<button class="qs-tile go '+tone+(on(k)?' sel':'')+'" onclick="prodOpenArea(\''+k+'\')"><span class="n">'+n+'</span><span class="l">'+l+'</span></button>'; };
+  var nm=prodMakeProductsN();
+  return '<div class="qs wide" style="max-width:none;padding:0;margin:0 0 12px"><div class="qs-tally four" style="margin-top:0">'
+    +t('tomake',nm,'products to make',nm?'st-late':'st-ok')+t('producing',c.producing,'running',c.producing?'st-ink':'st-ok')+t('qc',c.qc,'waiting for lab',c.qc?'st-late':'st-ok')+t('pack',c.pack,'ready to pack',c.pack?'st-done':'st-ok')
+    +'</div><div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap"><button class="qs-btn sm" style="'+(on('completed')?'background:#1b1f1a;color:#fff;border:1px solid #1b1f1a':'background:#fff;color:#1b1f1a;border:1px solid #98a094')+'" onclick="prodOpenArea(\'completed\')">Completed · '+c.completed+'</button>'+prodMoreSelect()+'</div></div>'; }
 function prodStageList(){
   /* Every right this list's own rows draw: Produce, Open batch, Log shift, Pack,
      Reconcile and Close batch. Missing the last two meant a Production Manager
@@ -6857,14 +6891,16 @@ function prodStageList(){
       }
       var rmChip=x.rmText==='ready'?'<span class="wtm-chip" style="background:#e7f3f1;color:#0b5c54">✓ ready</span>':x.rmText==='partial'?'<span class="wtm-chip" style="background:#fbf1e0;color:#9e6210">◐ partial</span>':'<span class="wtm-chip" style="background:#fbeaea;color:#a3402f">! check</span>';
       var dueInline=x._late?'<span style="color:#b3402f;font-weight:600">'+(x.due||'')+' · overdue</span>':'<span style="color:#8a8279">'+(x.due||'—')+'</span>';
-      return '<div class="wtmrow"><div class="wtm-main"><div class="wtm-t1">'+x.brand+((x.base&&x.base!==x.brand)?' <span class="wtm-base">'+x.base+'</span>':'')+'</div><div class="wtm-t2"><b>'+x.po+'</b>'+(x.o&&x.o.client?' · '+shortClient(x.o.client):'')+' · '+dueInline+' · '+why+'</div></div><div class="wtm-qty"><div class="wtm-qn">'+fmt(x.rem)+'</div><div class="wtm-ql">kg to make</div></div><span class="wtm-rm">'+rmChip+'</span><div class="wtm-act">'+act+'</div></div>';
-    }).join('');
+      x._act=act;  /* 24w: the product card reuses this row's own button */
+      return '<div class="wtmrow"><div class="wtm-main"><div class="wtm-t1">'+x.brand+((x.base&&x.base!==x.brand)?' <span class="wtm-base">'+x.base+'</span>':'')+'</div><div class="wtm-t2"><b>'+x.po+'</b>'+(x.o&&x.o.client?' · '+shortClient(x.o.client):'')+' · '+dueInline+' · '+why+'</div></div><div class="wtm-qty"><div class="wtm-qn">'+fmt(x.rem)+'</div><div class="wtm-ql">'+unitOf(x.brand)+' to make</div></div><span class="wtm-rm">'+rmChip+'</span><div class="wtm-act">'+act+'</div></div>';
+    });
+    var _rowsHtml=body; body=body.join('');
     var counts={all:rows.length,ready:rows.filter(function(r){return !r._blocked;}).length,blocked:rows.filter(function(r){return r._blocked;}).length,late:rows.filter(function(r){return r._late;}).length};
     var fbtn=function(k,l){return '<button onclick="prodMakeSetFilter(\''+k+'\')" style="font-size:11.5px;font-weight:600;padding:6px 12px;border-radius:8px;border:1px solid var(--pline);cursor:pointer;margin-left:6px;'+(mf===k?'background:var(--pb,#0e6e63);border-color:var(--pb,#0e6e63);color:#fff':'background:#fff;color:var(--ptxt,#11211f)')+'">'+l+'</button>';};
     var sortSel='<select class="pdmore" style="margin-left:8px" onchange="prodMakeSort={col:this.value,dir:1};render()" title="Sort"><option value="">Sort…</option><option value="due"'+(sc==='due'?' selected':'')+'>Due date</option><option value="rem"'+(sc==='rem'?' selected':'')+'>Quantity</option><option value="rm"'+(sc==='rm'?' selected':'')+'>RM status</option><option value="brand"'+(sc==='brand'?' selected':'')+'>Product</option></select>';
-    var fbar='<div style="display:flex;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:6px"><span class="muted" style="font-size:12px">Showing '+frows.length+' of '+rows.length+' line(s)</span><span style="margin-left:auto"></span>'+fbtn('all','All ('+counts.all+')')+fbtn('ready','Ready ('+counts.ready+')')+fbtn('blocked','Blocked ('+counts.blocked+')')+fbtn('late','Late ('+counts.late+')')+sortSel+'</div>';
-    var bodyHtml=frows.length?('<div class="wtmlist">'+body+'</div>'):'<div class="muted" style="padding:14px 2px">No lines match this filter.</div>';
-    return '<div class="card"><h3>What to make <span class="hint">'+rows.length+' product line(s) need production · tap a column to sort</span></h3>'+fbar+bodyHtml+'</div>';
+    var fbar='<div style="display:flex;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:6px"><span class="muted" style="font-size:12px">Showing '+frows.length+' of '+rows.length+' line(s)</span><span style="margin-left:auto"></span>'+fbtn('all','All ('+counts.all+')')+fbtn('ready','Ready ('+counts.ready+')')+fbtn('blocked','Blocked ('+counts.blocked+')')+fbtn('late','Late ('+counts.late+')')+'</div>';  /* 24w: no Sort - the cards order themselves: ready first, then by earliest due */
+    var bodyHtml=frows.length?prodMakeCardsHTML(frows,_rowsHtml):'<div class="muted" style="padding:14px 2px">No lines match this filter.</div>';
+    return '<div class="card"><div class="muted" style="font-size:12.5px;margin:0 0 10px">One card per product · '+rows.length+' order line(s) inside · the ones you can start come first.</div>'+fbar+bodyHtml+'</div>';
   }
   if(f==='call')return prodPoolsStrip()||'<div class="card"><div class="muted" style="padding:14px 2px">No by-product / divert / rework to call.</div></div>';
   var af=(typeof activeFloorBatches==='function')?activeFloorBatches():[];
@@ -7251,7 +7287,7 @@ function screenProd(){
     if(_pv==='output'){ wrap=renderProdOutput(); }
     else if(_pv==='register'){ wrap=renderProdRegister(); }
     else { /* NO prodFilterClamp here: every tab is on the top bar, so a clicked tab must open and show its own empty state — never silently reroute (the "Waiting QC jumps to main screen" bug). */ wrap=(prodDrill&&prodBatchSel?('<div style="margin:0 0 10px"><a onclick="prodDrill=false;render()" style="cursor:pointer;color:var(--pb,#0e6e63);font-size:12px">‹ Back to list</a></div>'+renderProdLifecycleBatch()):(prodStageList()+((prodFilter==='completed')?prodReconciledStrip():''))); }
-    $('view').innerHTML=PROD_CSS+'<div class="pdsk"><div class="pdmain"><header class="pdtopbar"><div><h2>'+title+'</h2><div class="pdsub">Plant production · live snapshot</div></div>'+ob+'</header>'+prodDeskTabs()+prodPulse()+'<div class="pdwrap">'+prodSettledStrip()+wrap+'</div></div></div>';
+    $('view').innerHTML=PROD_CSS+'<div class="pdsk"><div class="pdmain"><header class="pdtopbar"><div><h2>'+title+'</h2><div class="pdsub">Plant production · live snapshot</div></div>'+ob+'</header>'+prodShellTiles()+'<div class="pdwrap">'+prodSettledStrip()+wrap+'</div></div></div>';
     return;
   }  /* Production = teal desk: secondary rail + question-card home → work-area lists (audited content); actions open existing modals styled as right drawers. Legacy floor code below is unreachable. */
   const bases=BULK_BASES.slice();

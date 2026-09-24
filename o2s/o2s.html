@@ -11,7 +11,7 @@
    a push keeps running the old code with nothing telling anybody. It sat at
    2026-09-04a through this whole day's work; rmqty/psi tests pinned the code,
    nothing pinned this. buildid.test.js now does. */
-var BUILD_ID='2026-09-25g';
+var BUILD_ID='2026-09-25h';
 var CHANGELOG=[
   {ver:'2026-09-04a', date:'2026-09-04', title:"Delivery, DC printing, and a new Reconciliation check", items:[
     "Delivery confirmation stays with Supply Chain \u2014 it no longer hands off to the Plant Manager. If one sits too long, it now re-flags the same Supply Chain owner every 3 days instead.",
@@ -327,6 +327,10 @@ var CHANGELOG=[
   ]},  {ver:'2026-09-25g', date:'2026-09-25', title:"New order, redesigned", items:[
     "New order is 4 short sections: Customer, Terms and dates, Delivery, Products. Each product is its own card with quantity, pack, packs, committed date and price, in its own unit (Kg or L).",
     "The order summary and the Submit button stay beside the form, so what you are about to submit is always in view."
+  ]},  {ver:'2026-09-25h', date:'2026-09-25', title:"How are we doing", items:[
+    "The old Dashboard is replaced by one page for the COO, the CFO and the Plant Manager: How are we doing, in the header.",
+    "4 blocks, this month with the financial year beside it: are we selling to budget, are we delivering on time, where is the plant stuck, is quality holding. Each says the answer in a sentence and opens the report behind it.",
+    "Trucks for a customer who takes the pre-shipment report with the DC now say so on the truck card and on the loading, gate pass and review jobs."
   ]},
 ];
 </script>
@@ -1987,7 +1991,7 @@ body{color:var(--ink);font-size:15px;line-height:1.45}
 .topbar{background:var(--surface);border-bottom:1px solid var(--qline);position:static;padding:10px 16px;gap:10px}
 .topbar h2{font-size:18px;font-weight:600;letter-spacing:0;color:var(--ink)}
 .topbar .sub{color:var(--ink-3)}
-body[data-screen="today"] .topbar,body[data-screen="plant"] .topbar,body[data-screen="backoffice"] .topbar,body[data-screen="instructions"] .topbar,body[data-screen="users"] .topbar,body[data-screen="tracker"] .topbar,body[data-screen="reports"] .topbar,body[data-screen="qc"] .topbar,body[data-screen="qa"] .topbar,body[data-screen="ship"] .topbar{display:none}
+body[data-screen="today"] .topbar,body[data-screen="dash"] .topbar,body[data-screen="plant"] .topbar,body[data-screen="backoffice"] .topbar,body[data-screen="instructions"] .topbar,body[data-screen="users"] .topbar,body[data-screen="tracker"] .topbar,body[data-screen="reports"] .topbar,body[data-screen="qc"] .topbar,body[data-screen="qa"] .topbar,body[data-screen="ship"] .topbar{display:none}
 body:not([data-screen="reports"]):not([data-screen="dash"]):not([data-screen="budget"]) #periodSel,
 body:not([data-screen="reports"]):not([data-screen="dash"]):not([data-screen="budget"]) #periodFromInp,
 body:not([data-screen="reports"]):not([data-screen="dash"]):not([data-screen="budget"]) #periodToInp{display:none!important}
@@ -3521,7 +3525,7 @@ const SCREENS=[
      dashboard items". 3 lights, the departments, the floor. Read-only for all. */
   {id:'plant', name:'Plant', ic:'\ud83c\udfed', owners:['KAM','Supply Chain','Production','Production Manager','Lab Rep','AQCM','QCM','QA Inspector','Plant Manager','CFO','COO','Supply Chain Officer','Finance Desk Officer','Finance','Warehouse'], sub:'What is stuck, who is behind, where every order stands',
     obj:'<b>Plant.</b> 3 lights \u2014 late orders, trucks waiting, waiting on material \u2014 then every department on one line, then the floor. The same for everyone; nobody edits here.'},
-  {id:'dash', name:'Dashboard', ic:'\ud83d\udcca', owners:['KAM','Supply Chain','Production','Production Manager','Lab Rep','AQCM','QCM','QA Inspector','Plant Manager','CFO','COO','Supply Chain Officer','Finance Desk Officer','Finance','Warehouse'], sub:'What happened, what\u2019s stuck, who\u2019s behind',
+  {id:'dash', name:'How are we doing', ic:'\ud83d\udcca', owners:['Plant Manager','CFO','COO'], sub:'What happened, what\u2019s stuck, who\u2019s behind',
     obj:'<b>Executive overview \u00b7 CEO / COO.</b> On-time delivery, overdue &amp; at-risk volume, fulfilment, production output, attention list and top customers \u2014 read-only.'},
   {id:'approvals', name:'All actions', ic:'✅', owners:['KAM','Supply Chain','Production','Production Manager','Lab Rep','AQCM','QCM','QA Inspector','Plant Manager','CFO','COO','Supply Chain Officer','Finance Desk Officer','Finance','Warehouse'], sub:'What needs your action',
     obj:'<b>Your live worklist.</b> Everything waiting on you across all orders — acknowledge, RM check, approve PR, close PR, produce, QC, QA, ship, delay reasons — each timestamped.'},
@@ -4462,6 +4466,7 @@ const NAV_ORDER=['approvals','tracker','prod','qc','qa','ship','instructions','d
 const NAV_GROUPS=[
   {label:'Today', ids:['today']},
   {label:'Plant', ids:['plant']},
+  {label:'How are we doing', ids:['dash']},   /* 25h: COO, CFO, Plant Manager only (renderTopNav) */
   {label:'Back Office', ids:['backoffice']},
   {label:'Guide', ids:['instructions']},
 ];
@@ -9872,6 +9877,79 @@ function deliveryJobs(g){ var r=(g.rows||[])[0]||{}; var d=truckDispatcher(r); v
   if(days>=3) out.push({role:'Plant Manager',disp:g,what:base+' · not confirmed for '+days+' days (Saad has had it since day 2)',act:act,label:'Confirm delivery'});
   return out; }
 
+/* ===== HOW ARE WE DOING — 24 Sep 2026 (25h) ================================
+   Tahir, on the old Dashboard: "the most poor form … a dump of data, no one
+   needs such a dashboard in the presence of report centers"; "do we even need a
+   dashboard for everyone?"; "for leadership, a short 'How are we doing' page".
+   Ruled together: COO, CFO and Plant Manager only; 4 questions - are we selling
+   to budget, are we delivering on time, where is the plant stuck, is quality
+   holding; this month with the financial year beside it; one page, 4 blocks,
+   no tabs; each block one sentence, a few numbers, and a way into the detail.
+   Every number here comes from the same rule the rest of the app uses: a sale is
+   a truck through the gate, net of FED (saleRows); a late line is lineOverdue;
+   a wait is the Today job and its age (actionItems / actTiming). Nothing is
+   written. The old tabs stay behind Sales & Budget (screenDashOld). */
+var HOW_ROLES=['COO','CFO','Plant Manager'];
+function howMay(){ return HOW_ROLES.indexOf(state.role)>-1; }
+function howPeriod(){ var d=TODAY.toISOString().slice(0,10); return {today:d,month:d.slice(0,7),fy:fyKey(d),fyStart:String(fyKey(d)).slice(0,4)+'-07-01'}; }
+function howIn(date,P,which){ date=String(date||'').slice(0,10); if(!date) return false; return which==='month'?date.slice(0,7)===P.month:(date>=P.fyStart&&date<=P.today); }
+function howSales(){ var P=howPeriod(), rows=saleRows(); var soldM=0,soldF=0; rows.forEach(function(x){ if(x.month===P.month) soldM+=x.value; if(x.fy===P.fy) soldF+=x.value; });
+  var T=(state.masters&&state.masters.salesTargets)||{}; var tF=0; Object.keys(T).forEach(function(c){ tF+=(+(T[c]&&T[c][P.fy])||0); });
+  var tM=0; try{ tM=+(monthlyTargetTotals(P.fy)[P.month]||0); }catch(e){}
+  var open=0; (state.orders||[]).forEach(function(o){ (o.lines||[]).forEach(function(l){ open+=saleOpenValue(o,l); }); });
+  var a=new Date(P.fyStart+'T00:00:00'), n=new Date(P.today+'T00:00:00'); var gone=Math.max(0,Math.min(1,(n-a)/86400000/365));
+  var ch=[]; try{ ch=budgetByChannel(P.fy).filter(function(r){ return r.target>0||r.sold>0; }); }catch(e){}
+  return {P:P,soldM:soldM,soldF:soldF,tM:tM,tF:tF,open:open,gone:gone,pctF:tF>0?Math.round(soldF/tF*100):null,pctM:tM>0?Math.round(soldM/tM*100):null,channels:ch}; }
+function howOnTime(){ var P=howPeriod(); var m={n:0,ok:0}, f={n:0,ok:0}, late=[], lateVal=0, lateOrders={};
+  (state.orders||[]).forEach(function(o){ (o.lines||[]).forEach(function(l){ if(!l) return; var due=String(l.committed||o.promised||'').slice(0,10);
+    if(l.deliveredDate&&(+l.delivered||0)>=(+l.ordered||0)-0.5){ var ok=!due||String(l.deliveredDate).slice(0,10)<=due; if(howIn(l.deliveredDate,P,'month')){ m.n++; if(ok) m.ok++; } if(howIn(l.deliveredDate,P,'fy')){ f.n++; if(ok) f.ok++; } }
+    if(lineOverdue(o,l)&&!lineShortClosed(l)){ var d=Math.round((TODAY-new Date(due))/86400000); late.push({o:o,l:l,days:d}); lateVal+=saleOpenValue(o,l); lateOrders[o.po]=1; } }); });
+  late.sort(function(a,b){ return b.days-a.days; });
+  return {m:m,f:f,pm:m.n?Math.round(m.ok/m.n*100):null,pf:f.n?Math.round(f.ok/f.n*100):null,late:late,lateVal:lateVal,lateOrders:Object.keys(lateOrders).length}; }
+function howStuck(){ var items=[]; try{ items=actionItems(); }catch(e){} var st={}, all=[];
+  items.forEach(function(it){ var t=null; try{ t=actTiming(it); }catch(e){} var d=(t&&t.days)||0; var s=''; try{ s=acStageOf(it.label)||'Other'; }catch(e){ s='Other'; }
+    var g=st[s]=st[s]||{stage:s,n:0,oldest:0}; g.n++; if(d>g.oldest) g.oldest=d; all.push({it:it,days:d,stage:s}); });
+  all.sort(function(a,b){ return b.days-a.days; });
+  var names=function(role){ return (usersList||[]).filter(function(u){ return u&&u.role===role; }).map(function(u){ return u.name; }).join(', ')||role; };
+  return {total:items.length,over:all.filter(function(x){return x.days>=3;}).length,stages:Object.keys(st).map(function(k){return st[k];}).sort(function(a,b){return b.oldest-a.oldest;}),top:all.slice(0,5).map(function(x){ return {what:String(x.it.what||'').replace(/<[^>]+>/g,''),role:x.it.role,who:names(x.it.role),days:x.days,stage:x.stage}; })}; }
+function howQuality(){ var P=howPeriod(); var m={n:0,first:0}, f={n:0,first:0}, failedNow=0;
+  (state.batches||[]).forEach(function(b){ if(!b||b.voided||b.disposition==='byproduct') return; var us=(b.lots&&b.lots.length)?b.lots:[{coa:b.coa}];
+    us.forEach(function(u){ var c=u&&u.coa; if(!c) return; if(c.status==='failed') failedNow++;
+      if(c.status!=='approved'||c.repOf) return; var ft=!c.rejected&&!(+c.reworks>0)&&!c.deviation&&!c.supersedes;
+      if(howIn(c.approvedDate,P,'month')){ m.n++; if(ft) m.first++; } if(howIn(c.approvedDate,P,'fy')){ f.n++; if(ft) f.first++; } }); });
+  var ins={m:{n:0,fail:0},f:{n:0,fail:0}}; try{ psiRegisterRows().forEach(function(r){ if(howIn(r.date,P,'month')){ ins.m.n++; if(!r.pass) ins.m.fail++; } if(howIn(r.date,P,'fy')){ ins.f.n++; if(!r.pass) ins.f.fail++; } }); }catch(e){}
+  var lateTests=0; try{ actionItems().forEach(function(it){ if(it.label==='Lab test'&&labLateBy(it.due)>0) lateTests++; }); }catch(e){}
+  return {m:m,f:f,pm:m.n?Math.round(m.first/m.n*100):null,pf:f.n?Math.round(f.first/f.n*100):null,failedNow:failedNow,ins:ins,lateTests:lateTests}; }
+function howM(n){ n=+n||0; var a=Math.abs(n); return 'PKR '+(a>=1e7?(n/1e7).toFixed(2)+' Cr':(a>=1e5?(n/1e5).toFixed(1)+' Lac':fmt(Math.round(n)))); }
+function howTile(v,l,tone){ return '<div class="hw-t'+(tone?' '+tone:'')+'"><b>'+v+'</b><span>'+l+'</span></div>'; }
+function howBlock(n,title,sentence,tiles,more,go,goText){ return '<section class="hw-b"><div class="hw-h"><span class="nn">'+n+'</span><h2>'+title+'</h2></div><p class="hw-s">'+sentence+'</p><div class="hw-ts">'+tiles+'</div>'+(more||'')+(go?'<button class="qs-btn sm ghost" style="margin-top:10px" onclick="'+go+'">'+goText+' ›</button>':'')+'</section>'; }
+function screenHow(){
+  if(!howMay()){ $('view').innerHTML='<div class="qs"><h1>How are we doing</h1><div class="note">This page is for the COO, the CFO and the Plant Manager. Your work is on <b>Today</b>; the whole plant is on <b>Plant</b>.</div></div>'; return; }
+  var S=howSales(), O=howOnTime(), K=howStuck(), Q=howQuality(), P=S.P, e=qsEsc, ml=monthLabel(P.month);
+  var css='<style>.hw-g{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.hw-b{background:#fff;border:1px solid var(--line,#e3e0d8);border-radius:14px;padding:16px 18px}.hw-h{display:flex;gap:10px;align-items:center}.hw-h .nn{width:24px;height:24px;border-radius:50%;background:#1f3a5f;color:#fff;font-weight:700;font-size:12px;display:flex;align-items:center;justify-content:center;flex:none}.hw-h h2{margin:0;font-size:15.5px}.hw-s{font-size:13.5px;line-height:1.55;margin:10px 0 12px;color:#2a2925}.hw-ts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.hw-t{border:1px solid #ece8df;border-radius:10px;padding:9px 10px;background:#fbfaf7}.hw-t b{display:block;font-size:17px;font-variant-numeric:tabular-nums}.hw-t span{display:block;font-size:11px;color:#7d776b;margin-top:2px;line-height:1.35}.hw-t.bad b{color:#b3261e}.hw-t.ok b{color:#1f6b3a}.hw-l{font-size:12.5px;margin-top:10px}.hw-l div{display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-top:1px solid #f0ece4}.hw-l div span:last-child{white-space:nowrap;font-variant-numeric:tabular-nums}@media(max-width:800px){.hw-g{grid-template-columns:minmax(0,1fr)}.hw-ts{grid-template-columns:repeat(2,minmax(0,1fr))}}</style>';
+  var h=css+'<div class="qs wide"><h1>How are we doing</h1><div class="sub">'+e(ml)+', with the financial year '+e(P.fy)+' beside it. Every number is from the records, the same rule as everywhere else in O2S.</div><div class="hw-g">';
+  /* 1 sales */
+  var s1=(S.tF>0?('This year we have sold <b>'+howM(S.soldF)+'</b>, <b>'+S.pctF+'%</b> of the budget, with <b>'+Math.round(S.gone*100)+'%</b> of the year gone'+(S.pctF<Math.round(S.gone*100)?', so we are <b>behind pace</b>.':', so we are <b>on pace</b>.')):('This year we have sold <b>'+howM(S.soldF)+'</b>. No budget is set for '+e(P.fy)+', so there is nothing to measure it against.'))+' '+e(ml)+': <b>'+howM(S.soldM)+'</b>'+(S.tM>0?' of '+howM(S.tM)+' ('+S.pctM+'%)':'')+'.';
+  var t1=howTile(howM(S.soldM),'sold in '+e(ml)+(S.pctM!=null?' · '+S.pctM+'% of month':''),'')+howTile(howM(S.soldF),'sold this FY'+(S.pctF!=null?' · '+S.pctF+'% of budget':''),S.pctF!=null&&S.pctF<Math.round(S.gone*100)?'bad':'ok')+howTile(howM(S.open),'open orders still to leave','');
+  var l1=S.channels.length?'<div class="hw-l">'+S.channels.map(function(r){ return '<div><span>'+e(r.channel)+'</span><span>'+howM(r.sold)+(r.target?' of '+howM(r.target)+' · '+r.pct+'%':'')+'</span></div>'; }).join('')+'</div>':'';
+  h+=howBlock(1,'Are we selling to budget?',s1,t1,l1,"setScreen('budget')",'Sales & Budget');
+  /* 2 on time */
+  var s2=(O.pf!=null?('<b>'+O.pf+'%</b> of the order lines delivered this year arrived by their promised date'+(O.pm!=null?'; <b>'+O.pm+'%</b> in '+e(ml):'')+'. '):'No order line has been delivered in full this year yet. ')+(O.late.length?('<b>'+O.late.length+'</b> line'+(O.late.length===1?' is':'s are')+' past promise now, on <b>'+O.lateOrders+'</b> order'+(O.lateOrders===1?'':'s')+', worth <b>'+howM(O.lateVal)+'</b>.'):'Nothing is past its promised date.');
+  var t2=howTile(O.pm!=null?O.pm+'%':'—','on time in '+e(ml)+' ('+O.m.n+' lines)',O.pm!=null&&O.pm<80?'bad':'ok')+howTile(O.pf!=null?O.pf+'%':'—','on time this FY ('+O.f.n+' lines)',O.pf!=null&&O.pf<80?'bad':'ok')+howTile(O.late.length,'lines past promise now',O.late.length?'bad':'ok');
+  var l2=O.late.length?'<div class="hw-l">'+O.late.slice(0,5).map(function(x){ return '<div><span>'+e(x.o.po)+' · '+e(x.l.brand)+' · '+e(String(x.o.client||'').split('|').pop().trim())+'</span><span>'+x.days+' d late</span></div>'; }).join('')+'</div>':'';
+  h+=howBlock(2,'Are we delivering on time?',s2,t2,l2,"rpOpen('late')",'Orders behind promise');
+  /* 3 stuck */
+  var s3=K.total?('<b>'+K.total+'</b> jobs are waiting across the plant; <b>'+K.over+'</b> have waited 3 days or more.'+(K.top[0]?' The oldest: '+e(K.top[0].what)+', <b>'+K.top[0].days+' d</b>, with '+e(K.top[0].who)+'.':'')):'Nothing is waiting on anyone.';
+  var t3=K.stages.slice(0,3).map(function(g){ return howTile(g.n,e(g.stage)+' · oldest '+g.oldest+' d',g.oldest>=3?'bad':''); }).join('');
+  var l3=K.top.length?'<div class="hw-l">'+K.top.map(function(x){ return '<div><span>'+e(x.what)+' <span class="muted">· '+e(x.who)+'</span></span><span>'+x.days+' d</span></div>'; }).join('')+'</div>':'';
+  h+=howBlock(3,'Where is the plant stuck?',s3,t3||howTile(0,'jobs waiting','ok'),l3,"setScreen('plant')",'Plant');
+  /* 4 quality */
+  var s4=(Q.pf!=null?('<b>'+Q.pf+'%</b> of the certificates approved this year passed the first time (no rejection, rework or deviation)'+(Q.pm!=null?'; <b>'+Q.pm+'%</b> in '+e(ml):'')+'. '):'No certificate has been approved this year yet. ')+(Q.failedNow?'<b>'+Q.failedNow+'</b> lot'+(Q.failedNow===1?' is':'s are')+' unfit now. ':'')+(Q.ins.f.n?('<b>'+Q.ins.f.fail+'</b> of '+Q.ins.f.n+' trucks failed pre-shipment inspection this year.'):'')+(Q.lateTests?' <b>'+Q.lateTests+'</b> lab test'+(Q.lateTests===1?' is':'s are')+' past its time.':'');
+  var t4=howTile(Q.pf!=null?Q.pf+'%':'—','first-time pass this FY ('+Q.f.n+')',Q.pf!=null&&Q.pf<90?'bad':'ok')+howTile(Q.failedNow,'lots unfit now',Q.failedNow?'bad':'ok')+howTile(Q.ins.m.fail+' / '+Q.ins.m.n,'trucks failed inspection in '+e(ml),Q.ins.m.fail?'bad':'ok');
+  h+=howBlock(4,'Is quality holding?',s4,t4,'',"rpOpen('coa')",'Lab certificates');
+  h+='</div><div class="sub" style="margin-top:14px">Behind every block is a report or a list in O2S; nothing on this page is typed in.</div></div>';
+  $('view').innerHTML=h; }
+
 /* ===== THE THREE VERIFY ITEMS — SPEC-01 rule 3, built 2026-08-21
 
    The 8-point checklist asks "Batch & expiry printed" — printed, not CORRECT.
@@ -11687,7 +11765,7 @@ function actionItems(){
        these titles carried the client name AND the DC AND the quantity, and was
        measured clipping 474px of itself off the right edge at 1024px. The detail
        belongs in the drawer, not the headline. */
-    var dcTag=g.dc?(' · DC '+g.dc):'';
+    var dcTag=(g.dc?(' · DC '+g.dc):'')+((typeof psiWithDCFor==='function'&&psiWithDCFor(g))?' · pre-shipment report goes with the DC':''); /* 25h: Tahir - where does one see it? on the truck's job */
     if(st==='truck_planned')
       items.push({role:'Warehouse',disp:g,what:'Start loading — '+(g.poLabel||g.po||'')+dcTag,act:"startLoading('"+g.dispId+"')",label:'Load'});
     else if(st==='loading' && !g.gatePass)
@@ -12590,7 +12668,8 @@ function renderTopNav(){
   NAV_GROUPS.forEach(function(g){
     g.ids.forEach(function(id){
       var s=byId[id]; if(!s||!canView(state.role,id)) return;
-      if(id==='backoffice'){ try{ if(!boJobs().length) return; }catch(e){} }   /* 23u: no job there, no word in the header */
+      if(id==='backoffice'){ try{ if(!boJobs().length) return; }catch(e){} }
+      if(id==='dash'&&!howMay()) return;   /* 23u: no job there, no word in the header */
       var label=g.label;
       html+='<a class="'+(id===state.screen?'on':'')+'" onclick="setScreen(\''+id+'\')">'+qsEsc(label)+(id==='today'?navBadgeQS():'')+'</a>';
     });
@@ -13803,11 +13882,11 @@ function shipPsiBtn(g){ if(!g||!g.dispId) return '';
   if(typeof psiDetailFor!=='function'||!psiDetailFor(g)) return '';
   return '<button class="sm ghost" title="Pre-shipment inspection report — send with the dispatch" onclick="printPSI(\''+g.dispId+'\')">Inspection</button>'; }
 function shipGpBtn(g){return (g.gatePass&&typeof printGatePass==='function')?('<button class="sm ghost" onclick="printGatePass(\''+g.dispId+'\')">Gate Pass</button>'):'';}
-function shipCard(g,mode,ed,isPM){ var prods=g.rows.map(function(r){return r.brand;}).join(', ');
+function shipCard(g,mode,ed,isPM){ var prods=g.rows.map(function(r){return r.brand;}).join(', ')+((typeof psiWithDCFor==='function'&&psiWithDCFor(g))?' · pre-shipment report goes with the DC':''); /* 25h */
   var r0=g.rows.find(function(r){return r.deliveredVia;}); var collected=(r0&&r0.deliveredVia==='Collected at factory'); var via=(mode==='delivered'&&r0&&!collected)?(' · confirmed via '+r0.deliveredVia):'';
   var status,btn='';
   if(mode==='planned'){ status='<span class="pill" style="background:var(--navy-50,#eef1fb);color:var(--navy,#1f3a8a)">Truck planned</span>'; btn=(ed?'<button class="sm green" onclick="startLoading(\''+g.dispId+'\')">Start loading ▸</button>':'')+shipDcBtn(g)+(ed?'<button class="sm ghost" onclick="cancelShip(\''+g.dispId+'\')">Cancel</button>':''); }
-  else if(mode==='loading'){ status='<span class="pill" style="background:#fff4e5;color:#b9740a">Loading</span>'; var gp=g.gatePass?('<button class="sm green" onclick="approveRelease(\''+g.dispId+'\')">'+(isPM?'Approve &amp; release ▸':'Release (PM)')+'</button>'):(ed?'<button class="sm" onclick="issueGatePass(\''+g.dispId+'\')">Issue Gate Pass</button>':''); btn=gp+shipDcBtn(g)+shipGpBtn(g)+shipPsiBtn(g)+(ed?'<button class="sm ghost" onclick="cancelShip(\''+g.dispId+'\')">Cancel</button>':''); }
+  else if(mode==='loading'){ status='<span class="pill" style="background:#fff4e5;color:#b9740a">Loading</span>'; var _rv=(g.rows[0]||{}).scReview; var gp=g.gatePass?((!_rv&&state.role==='Supply Chain')?('<button class="sm green" onclick="reviewTruck(\''+g.dispId+'\')">Review ▸</button>'):(isPM?('<button class="sm green" onclick="approveRelease(\''+g.dispId+'\')">Approve DC &amp; release ▸</button>'):('<span class="muted" style="font-size:11px">'+(_rv?'reviewed by '+_rv.by+' · awaiting Plant Manager':'awaiting Saad’s review')+'</span>'))):(ed?'<button class="sm" onclick="issueGatePass(\''+g.dispId+'\')">Issue Gate Pass</button>':''); btn=gp+shipDcBtn(g)+shipGpBtn(g)+shipPsiBtn(g)+(ed?'<button class="sm ghost" onclick="cancelShip(\''+g.dispId+'\')">Cancel</button>':''); }
   else if(mode==='pending'){ status='<span class="pill" style="background:var(--amber-50);color:var(--amber)">Pending approval</span>'; btn=(isPM?('<button class="sm green" onclick="approveDC(\''+g.dispId+'\')">Approve</button><button class="sm ghost" onclick="rejectDC(\''+g.dispId+'\')">Reject</button>'):'<span class="muted" style="font-size:11px">awaiting Plant Manager</span>')+shipDcBtn(g); }
   else if(mode==='transit'){ status='<span class="pill" style="background:#eef1f5;color:#5b6675">In transit</span>'; btn=((ed)?'<button class="sm green" onclick="openDeliveryConfirm(\''+g.dispId+'\')">Delivered ▸</button>':'')+shipDcBtn(g)+shipGpBtn(g)+shipPsiBtn(g); }
   else { status='<span class="pill" style="background:#e2f3e8;color:#1d8a4e">Delivered</span>'; btn=shipDcBtn(g)+shipGpBtn(g)+shipPsiBtn(g); }
@@ -15488,13 +15567,15 @@ function lineCard(title,vals,color,sub,foot){ try{
   var endv=Math.round(vals[n-1]).toLocaleString();
   return '<div class="card chartc"><div class="ch-h"><h3>'+title+'</h3>'+(sub?'<p>'+sub+'</p>':'')+'</div><div class="plot"><div class="yax">'+yl+'</div><div class="pcol"><svg class="psvg" viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none" role="img" aria-label="'+title+'"><polygon points="'+ar+'" style="fill:'+color+';opacity:.12"/><polyline points="'+ln+'" style="fill:none;stroke:'+color+';stroke-width:2;vector-effect:non-scaling-stroke"/></svg><div class="xax">'+xl+'</div></div><span class="endv" style="color:'+color+'">'+endv+'</span></div>'+(foot?'<div class="ch-foot">'+foot+'</div>':'')+'</div>';
   }catch(e){ return ''; } }
-function screenDash(){
+/* 25h: the Dashboard is 'How are we doing' (screenHow); the old tabs remain only behind Sales & Budget */
+function screenDash(){ screenHow(); }
+function screenDashOld(){
   if(!dashTab) dashTab=dashDefaultTab();
   if(dashTab==='shipments') dashTab='supply';
   if(dashTab==='sales' && accessLevel(state.role,'budget')==='none') dashTab='overview';
-  var bar=dashTabBar();
+  var bar=(state.screen==='budget')?'':dashTabBar(); /* 25h: Sales & Budget shows no tabs */
   var M=execMetrics();
-  var banner=dashNarrative(M);
+  var banner=(state.screen==='budget')?'':dashNarrative(M); /* 25h */
   var _lens=function(t){ try{
     if(t==='overview')return dashLensGrid('Overview',['By channel','By stage','By risk'],['channel','stage','risk']);
     if(t==='production')return dashLensGrid('Production',['By product','By shift','By PO'],['product','shift','po']);
@@ -16601,7 +16682,7 @@ function bgtSubRows(c){ if(bgtExpand!==c) return ''; const ed=(state.role==='COO
   }); });
   if(!body) body=`<tr style="background:var(--panel2)"><td colspan="6" class="muted" style="padding-left:26px">No order lines with a quantity for this client.</td></tr>`;
   return body; }
-function screenBudget(){ dashTab='sales'; state.screen='dash'; screenDash(); }
+function screenBudget(){ dashTab='sales'; screenDashOld(); }
 /* ===== WHEN A SALE IS A SALE — 24 Sep 2026 (25a) ============================
    Tahir: a sale is recorded when the truck leaves (the DC / gate pass is
    released), valued NET - quantity x invoice price, before FED (FED is the sales tax).

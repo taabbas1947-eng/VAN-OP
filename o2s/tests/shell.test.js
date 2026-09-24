@@ -15,9 +15,9 @@ ok('IBM Plex is loaded', /fonts\.googleapis\.com\/css2\?family=IBM\+Plex\+Mono/.
 ok('the sidebar, the menu button and the search box never show', /\.side,\.navbackdrop,\.navtoggle,#densityBtn,\.livepill,\.helpbar,\.cmdk,#sidefoot,\.tbspace\{display:none!important\}/.test(html));
 ok('the header carries the 4 words and the person', /<header class="qs-top" id="qsTop">/.test(html) && /<nav class="qs-nav" id="qsNav"/.test(html) && /<div id="qsMe">/.test(html) && /id="qsClock"/.test(html));
 const nav = (() => { const m = /\nconst NAV_GROUPS=\[/.exec(html); return m ? H.matchBlock(m.index + 1, 'NAV_GROUPS', '[') : ''; })();
-eq('exactly 4 groups', (nav.match(/label:'/g) || []).length, 4);
+eq('25h: 5 groups - How are we doing joins the header, for leadership only', (nav.match(/label:'/g) || []).length, 5);
 ['Today', 'Plant', 'Back Office', 'Guide'].forEach(w => ok("the word '" + w + "' is in the header", new RegExp("label:'" + w + "'").test(nav)));
-ok('the Dashboard is not a word in the header', !/'dash'/.test(nav));
+ok('25h: How are we doing is in the header, and renderTopNav shows it only to COO / CFO / Plant Manager', /label:'How are we doing', ids:\['dash'\]/.test(nav) && /if\(id==='dash'&&!howMay\(\)\) return;/.test(html));
 ok('Report Center is gone from the header (its screens are links under Plant)', !/Report Center/.test(nav));
 const rtn = grab('renderTopNav');
 ok('renderTopNav fills the header from NAV_GROUPS', /NAV_GROUPS\.forEach/.test(rtn) && /canView\(state\.role,id\)/.test(rtn));
@@ -26,7 +26,7 @@ ok('the person pill has Sign out', /onclick="logout\(\)"/.test(rtn));
 const rnd = grab('render');
 ok('render() stamps the screen on <body> and fills the header', /setAttribute\('data-screen',state\.screen\)/.test(rnd) && /renderTopNav\(\)/.test(rnd));
 ok('the old sidebar render no longer assumes #nav exists', /if\(\$\('nav'\)\) \$\('nav'\)\.innerHTML=html;/.test(grab('renderNav')));
-ok('the top bar hides on the 4 main screens, People, Orders and Reports (24k)', /body\[data-screen="today"\] \.topbar,body\[data-screen="plant"\] \.topbar,body\[data-screen="backoffice"\] \.topbar,body\[data-screen="instructions"\] \.topbar,body\[data-screen="users"\] \.topbar,body\[data-screen="tracker"\] \.topbar,body\[data-screen="reports"\] \.topbar/.test(html));
+ok('the top bar hides on the 4 main screens, People, Orders and Reports (24k)', /body\[data-screen="today"\] \.topbar,body\[data-screen="dash"\] \.topbar,body\[data-screen="plant"\] \.topbar,body\[data-screen="backoffice"\] \.topbar,body\[data-screen="instructions"\] \.topbar,body\[data-screen="users"\] \.topbar,body\[data-screen="tracker"\] \.topbar,body\[data-screen="reports"\] \.topbar/.test(html));
 
 /* ================= 2. TODAY IN THE QUEUE SHELL'S SHAPE ================= */
 const st = grab('screenToday'), card = grab('tdCardHTML');

@@ -23,7 +23,8 @@ const { ok, eq, report, grab, html } = H;
 ok('dashFireHtml exists', grab('dashFireHtml').length > 400);
 ok('it is the first dashboard tab', /\[\['fire','Firefighter'\],\['overview','Overview'\]/.test(grab('dashTabBar')));
 ok('it is the default for everyone', /return 'fire'/.test(grab('dashDefaultTab')) && !/return 'overview'; \}$/.test(grab('dashDefaultTab').trim()));
-ok('screenDash renders it', /dashTab==='fire'\?dashFireHtml\(\)/.test(grab('screenDash')));
+/* 25h: the Dashboard became 'How are we doing'; the old tab code is kept in screenDashOld */
+ok('the old tab code still renders it (screenDashOld)', /dashTab==='fire'\?dashFireHtml\(\)/.test(grab('screenDashOld')));
 const fires = grab('fireLists');
 ok('the three fires are computed in one place', fires.length > 300);
 ok('delayed orders come from the overdue lines', /lineOverdue\(o,l\)/.test(fires));

@@ -123,7 +123,7 @@ ok('...and so does Lab QC', /isSC=canEdit\(\['Supply Chain','Warehouse'\]\)/.tes
 
 /* ================= 5. THE SCREENS ================= */
 {
-  const want = ['dash', 'approvals', 'tracker', 'qa', 'ship', 'reports', 'instructions'];
+  const want = [/* 25h: not 'dash' - leadership only */ 'approvals', 'tracker', 'qa', 'ship', 'reports', 'instructions'];
   want.forEach(id => ok('Warehouse can open ' + id, owners(id).indexOf('Warehouse') > -1, owners(id).join(',')));
   /* Not Production, not New PO Entry. A warehouse officer logs no output and
      raises no order. */

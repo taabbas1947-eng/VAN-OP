@@ -174,6 +174,7 @@ const MARKERS = [
   ['function deliveryJobs(',               1, 'delivery confirmation: dispatcher, then Saad, then Plant Manager (25e)'],
   ['seedLoadRightV1(s); seedPmApproverOnlyV1(s);', 1, 'the Plant Manager is the approver, not a loader (25f)'],
   ['<b>Terms and dates</b>',               1, 'New order in 4 sections, products as cards (25g)'],
+  ['function screenHow(',                  1, 'How are we doing: the Dashboard for COO, CFO, Plant Manager (25h)'],
   ['function cssScope(',                   1, 'DC prints with the pre-shipment report attached (25d)'],
   ['function entryPriceCheck(',            1, 'New order: last price and the 5% band (25d)'],
   ["var PAY_TERMS=['Advance','COD'",       1, 'New order: payment terms (25d)'],

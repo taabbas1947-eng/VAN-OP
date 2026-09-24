@@ -5399,3 +5399,10 @@ Open, from the review, not built: Reconcile as a list without the 4 stat tiles; 
 - 24n: `screenQC` / `screenQA` in the shell — `.qs wide` + `qs-tally` tiles as the tabs (qcTab / qaTab), no ac2gbar tab bar, no Group select; the `_qcCard`/`_qaCard` rows and buttons unchanged (certremove.test still renders them); topbar hidden on qc/qa; `openReceiveMaterials` header "Raw material at the bay".
 - Suite on Tahir's machine after 24n: 9,578 passed, 0 failed, 0 crashed.
 - Nothing is left open from the Back Office and Reports reviews. Not built, by design: the reviewer's proposal to narrow MONEY_ROLES (Tahir reaffirmed R6, 24 Sep); the Dashboard code stays in the file, unreachable from the nav.
+
+## Pass thirty — 24o · 24p and the platform password endpoint (24 Sep, commits d704896 · 7f0cbc6 · this one)
+
+- 24o `tdRoleJobs`: SIGN_JOBS adds the sign-off labels per role, so a QCM/AQCM/analyst/QA/Lead Supply Chain with nothing waiting still has a job on the Guide.
+- PLATFORM 7f0cbc6 (server.js): `POST /api/me/password` {current,password} — auth, verifyPw(current), ≥6 chars, not equal, putUser with the new hash; the COO's PUT /api/users unchanged. Smoke-tested on the file store (7 cases).
+- 24p: `openMyPassword` / `saveMyPassword` from the qs-me menu ("Change my password" beside Sign out); Guide → My job says where it is. Reviewed live with all 20 accounts before the 16:30 presentation: no errors, all screens render for every role.
+- Suite on Tahir's machine after 24p: 9,587 passed, 0 failed, 0 crashed.

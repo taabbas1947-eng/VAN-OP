@@ -5392,3 +5392,10 @@ Open, from the review, not built: Reconcile as a list without the 4 stat tiles; 
 - 24l `INVOICE_ROLES=['Finance']`: `mayMoney()` true for Finance only on screen reports with `rpCur==='invoicing'`; `rpMay` lets Finance open the Invoicing sheet. MONEY_ROLES unchanged (R6, reaffirmed by Tahir 24 Sep).
 - Reviews run this pass (subagents): Back Office (13 pages) → 24g/24h; Reports (28 renders, 4 roles) → 24k. Their remaining findings: Dashboard duplicates Today/Plant (fold or retire — Tahir's call); Customers one search across segments; Reconcile without the 4 tiles; People card shows title + role code; Lab templates as a tab; Receive / Lab / QA inner tabs; R20.
 - Suite on Tahir's machine after 24l: 9,563 passed, 0 failed, 0 crashed.
+
+## Pass twenty-nine — 24m · 24n: the last of the 2 reviews (24 Sep, commits 467aae3, this one)
+
+- 24m: Dashboard off the nav (Plant's "Figures →" removed; `screenDash` code kept; Sales against budget reachable only through Reports for money roles). Customers: `custQ` + `custMatch(c,q)`, one search across segments (`#custFind`). Reconcile: the 4 tiles gone; `reconCompute` rows carry `lid`; `reconFixBtn(r)` / `reconFix(po,lid)` open Correct a record → packing with oid/lid/qty/reason preset (R20). People: role code only when it differs from the title. `boFocusApply`: Recipes · Lab templates subnav when boFocus is recipe/labtpl.
+- 24n: `screenQC` / `screenQA` in the shell — `.qs wide` + `qs-tally` tiles as the tabs (qcTab / qaTab), no ac2gbar tab bar, no Group select; the `_qcCard`/`_qaCard` rows and buttons unchanged (certremove.test still renders them); topbar hidden on qc/qa; `openReceiveMaterials` header "Raw material at the bay".
+- Suite on Tahir's machine after 24n: 9,578 passed, 0 failed, 0 crashed.
+- Nothing is left open from the Back Office and Reports reviews. Not built, by design: the reviewer's proposal to narrow MONEY_ROLES (Tahir reaffirmed R6, 24 Sep); the Dashboard code stays in the file, unreachable from the nav.

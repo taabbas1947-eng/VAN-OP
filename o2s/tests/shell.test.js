@@ -129,6 +129,18 @@ ok('it lists every role under its department with the people who hold it', /role
 
 /* ================= 7. BUILD ================= */
 ok("BUILD_ID is 2026-09-23t or later", /var BUILD_ID='2026-09-2(3[t-z]|4[a-z])'/.test(html));
+/* 24e: the person who loads does not release */
+{
+  const f = new Function(grab('seedLoadRightV1') + ';return seedLoadRightV1;')();
+  const st = { masters: { roles: [{id:'supply-chain',name:'Supply Chain'},{id:'warehouse',name:'Warehouse'},{id:'supply-chain-officer',name:'Supply Chain Officer'},{id:'production',name:'Production'}],
+    roleRights: { 'supply-chain': {'shipment.load': true, 'shipment.plan': true}, 'warehouse': {'shipment.load': true}, 'supply-chain-officer': {}, 'production': {'batch.open': true} } } };
+  f(st);
+  ok('Lead Supply Chain loses loading, keeps the rest', st.masters.roleRights['supply-chain']['shipment.load'] === false && st.masters.roleRights['supply-chain']['shipment.plan'] === true);
+  ok('the Warehouse keeps it; the Warehouse Assistant gets it', st.masters.roleRights['warehouse']['shipment.load'] === true && st.masters.roleRights['supply-chain-officer']['shipment.load'] === true);
+  ok('nobody else is touched', st.masters.roleRights['production']['shipment.load'] === undefined);
+  ok('it is logged with the ruling, marked decided, and runs once', /the person who loads does not release/.test((st.actionLog||[]).map(e=>e.what).join(' ')) && st.masters.roleRightsSet['supply-chain']['shipment.load'] === true && (st.masters.roleRights['supply-chain']['shipment.load'] = true, f(st), st.masters.roleRights['supply-chain']['shipment.load'] === true));
+  ok('it runs in ensureState after the acknowledge seed', /seedAckRightV1\(s\); seedLoadRightV1\(s\);/.test(html));
+}
 /* 24d: "Done. Now waiting on Masab." */
 {
   ok('opening a job snapshots the queue; save() looks for what appeared', /tdNoteTaken\(key\)/.test(grab('tdTake')) && /if\(typeof tdAfterSave==='function'&&tdLastTaken\) tdAfterSave\(\)/.test(grab('save')));

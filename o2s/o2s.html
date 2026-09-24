@@ -11,7 +11,7 @@
    a push keeps running the old code with nothing telling anybody. It sat at
    2026-09-04a through this whole day's work; rmqty/psi tests pinned the code,
    nothing pinned this. buildid.test.js now does. */
-var BUILD_ID='2026-09-24d';
+var BUILD_ID='2026-09-24e';
 var CHANGELOG=[
   {ver:'2026-09-04a', date:'2026-09-04', title:"Delivery, DC printing, and a new Reconciliation check", items:[
     "Delivery confirmation stays with Supply Chain \u2014 it no longer hands off to the Plant Manager. If one sits too long, it now re-flags the same Supply Chain owner every 3 days instead.",
@@ -192,6 +192,9 @@ var CHANGELOG=[
   ]},
   {ver:'2026-09-24d', date:'2026-09-24', title:"Done. Now waiting on Masab.", items:[
     "After a job from Today is saved, the toast names the next person: the job that appeared on the same order or batch, and who holds it."
+  ]},
+  {ver:'2026-09-24e', date:'2026-09-24', title:"The person who loads does not release", items:[
+    "Start loading a truck is the Senior Warehouse Officer\u2019s and the Warehouse Assistant\u2019s. Lead Supply Chain keeps the release and no longer loads. Ruled by the COO on 24 Sep; done once, logged."
   ]},
 ];
 </script>
@@ -2257,7 +2260,7 @@ function ensureState(s){
   s.users=(s.users&&s.users.length)?s.users:deepClone(SEED.users||[]); if(s.currentUser===undefined)s.currentUser=null;
   s.rmRequests=s.rmRequests||[]; s.productionLog=s.productionLog||[]; s.packingLog=s.packingLog||[];
   s.actionLog=s.actionLog||[]; s.shipments=s.shipments||[]; s.inspections=s.inspections||[]; s.warehouses=s.warehouses||SEED.warehouses.slice();
-  s.rawStock=s.rawStock||{}; s.rmMovements=s.rmMovements||[]; s.audit=s.audit||[]; s.masters=s.masters||deepClone(SEED.masters||{}); s.batches=s.batches||[]; s.packedStock=s.packedStock||{}; s.packingLog=s.packingLog||[]; s.orders=s.orders||[]; if(s.seq==null)s.seq=1000; ensureRecordIds(s); if(s.dataFixEnabled==null)s.dataFixEnabled=true; if(!Array.isArray(s.prs))s.prs=[]; (s.batches||[]).forEach(function(b){ if((b.producedKg||0)>0 && (!Array.isArray(b.lots)||!b.lots.length)){ b.lots=[{id:'LOT'+(s.seq++), lotNo:(b.batchNo||'B')+'-L1', qty:b.producedKg, date:b.openedDate||'', by:b.by||'', coa:(b.coa||null), migrated:true}]; } }); ensureMasters(s); ensureProductionModel(s); dedupePackingLots(s); migrateLotTracking(s); migratePackingLotLidV1(s); fixRudolfDupV1(s); reconcileLotShipKgV1(s); dedupeShipmentsV1(s); healPRFlags(s); migrateBrandNames(s); loadBaseRecipesV2(s); loadBlendRecipesV1(s); loadBlendRecipesV2(s); purgeImportedProduction(s); purgeImportDuplicates(s); purgeImportedNoTwin(s); fixPhantomLotVU26134(s); fixVU26144ProdLogV1(s); fixVU26144ProdLogV2(s); healVU26144ProdLog(s); backfillDisposedV1(s); consolidateByproductV1(s); dedupeByproductV1(s); reconcileShipLotsV1(s); normalizeVZincBase(s); normalizeBoronBase(s); seedByproductRulesV1(s); seedRolesV1(s); seedWarehouseRoleV1(s); seedAccessV2(s); seedAccessV3(s); seedDeptRightsV1(s); seedCustomerRightsV1(s); seedPrintDecisionV1(s); seedAckRightV1(s); bumpSeqV1(s); healDupBatchIdsV1(s); fixVB26003LotRenameV1(s); fixRudolfTBPPOV1(s); linkShipBatchLotsV1(s); return s;
+  s.rawStock=s.rawStock||{}; s.rmMovements=s.rmMovements||[]; s.audit=s.audit||[]; s.masters=s.masters||deepClone(SEED.masters||{}); s.batches=s.batches||[]; s.packedStock=s.packedStock||{}; s.packingLog=s.packingLog||[]; s.orders=s.orders||[]; if(s.seq==null)s.seq=1000; ensureRecordIds(s); if(s.dataFixEnabled==null)s.dataFixEnabled=true; if(!Array.isArray(s.prs))s.prs=[]; (s.batches||[]).forEach(function(b){ if((b.producedKg||0)>0 && (!Array.isArray(b.lots)||!b.lots.length)){ b.lots=[{id:'LOT'+(s.seq++), lotNo:(b.batchNo||'B')+'-L1', qty:b.producedKg, date:b.openedDate||'', by:b.by||'', coa:(b.coa||null), migrated:true}]; } }); ensureMasters(s); ensureProductionModel(s); dedupePackingLots(s); migrateLotTracking(s); migratePackingLotLidV1(s); fixRudolfDupV1(s); reconcileLotShipKgV1(s); dedupeShipmentsV1(s); healPRFlags(s); migrateBrandNames(s); loadBaseRecipesV2(s); loadBlendRecipesV1(s); loadBlendRecipesV2(s); purgeImportedProduction(s); purgeImportDuplicates(s); purgeImportedNoTwin(s); fixPhantomLotVU26134(s); fixVU26144ProdLogV1(s); fixVU26144ProdLogV2(s); healVU26144ProdLog(s); backfillDisposedV1(s); consolidateByproductV1(s); dedupeByproductV1(s); reconcileShipLotsV1(s); normalizeVZincBase(s); normalizeBoronBase(s); seedByproductRulesV1(s); seedRolesV1(s); seedWarehouseRoleV1(s); seedAccessV2(s); seedAccessV3(s); seedDeptRightsV1(s); seedCustomerRightsV1(s); seedPrintDecisionV1(s); seedAckRightV1(s); seedLoadRightV1(s); bumpSeqV1(s); healDupBatchIdsV1(s); fixVB26003LotRenameV1(s); fixRudolfTBPPOV1(s); linkShipBatchLotsV1(s); return s;
 }
 /* 2026-07-28 fix: seq can lag behind ids already in the data (stale tab saved over a
    newer state), so bump it above every numeric id suffix before anything generates ids. */
@@ -3753,6 +3756,24 @@ function seedAckRightV1(s){
     rr[r.id]=row; var t=set[r.id]||{}; t['order.acknowledge']=true; set[r.id]=t; });
   s.masters._ackRightV1={at:new Date().toISOString(),removedFrom:removed};
   try{ if(removed.length) (s.actionLog=s.actionLog||[]).push({t:new Date().toISOString(),by:'system',role:'system',what:'Acknowledge a PO removed from '+removed.join(', ')+' (was granted to everyone by the old screen rule); kept for Supply Chain and Plant Manager'}); }catch(e){}
+}
+/* LOADING IS THE WAREHOUSE'S, NOT THE LEAD'S - 24e. Tahir, 24 Sep, on the
+   broken 2-person rule "the person who loads does not release": "give
+   shipment.load only to Shoaib and Zain. Agreed. Not to Saad." Lead Supply
+   Chain keeps the release and loses the loading; the Senior Warehouse Officer
+   and the Warehouse Assistant keep the loading. Once, logged, marked decided
+   so nothing derived puts it back; the editor is where it changes from now on. */
+function seedLoadRightV1(s){
+  if(!s.masters) s.masters={};
+  if(s.masters._loadRightV1) return;
+  var rr=s.masters.roleRights=s.masters.roleRights||{}; var set=s.masters.roleRightsSet=s.masters.roleRightsSet||{};
+  var give={'warehouse':1,'supply-chain-officer':1}, take={'supply-chain':1}; var changed=[];
+  (s.masters.roles||[]).forEach(function(r){ if(!r||!r.id) return; var row=rr[r.id]||{};
+    if(give[r.id] && row['shipment.load']!==true){ row['shipment.load']=true; changed.push(r.name+' +'); }
+    if(take[r.id] && row['shipment.load']===true){ row['shipment.load']=false; changed.push(r.name+' −'); }
+    rr[r.id]=row; if(give[r.id]||take[r.id]){ var t=set[r.id]||{}; t['shipment.load']=true; set[r.id]=t; } });
+  s.masters._loadRightV1={at:new Date().toISOString(),changed:changed};
+  try{ if(changed.length) (s.actionLog=s.actionLog||[]).push({t:new Date().toISOString(),by:'system',role:'system',what:'Start loading a truck: '+changed.join(', ')+' (the COO, 24 Sep: the person who loads does not release)'}); }catch(e){}
 }
 function seedPrintDecisionV1(s){
   if(!s.masters) s.masters={};

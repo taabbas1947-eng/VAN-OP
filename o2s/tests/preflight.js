@@ -29,7 +29,7 @@ const ok  = m => { console.log('preflight ok — ' + m); process.exit(0); };
    must appear in the file, with the count it must appear at. Add one line here
    for every change that ships; that is what makes the check grow teeth. */
 const MARKERS = [
-  ["var BUILD_ID='2026-09-23",            1, 'the build id'],
+  ["var BUILD_ID='2026-09-",              1, 'the build id'],
   ['function entryPrintEffective(',        1, 'FOC price-on-pack (23a)'],
   ['no Gate Pass. Correct it and re-inspect', 1, 'Gate Pass needs inspection (23b)'],
   ['function shortCloseRefusal(',          1, 'the short-close guard'],

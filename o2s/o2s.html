@@ -11,7 +11,7 @@
    a push keeps running the old code with nothing telling anybody. It sat at
    2026-09-04a through this whole day's work; rmqty/psi tests pinned the code,
    nothing pinned this. buildid.test.js now does. */
-var BUILD_ID='2026-09-23z';
+var BUILD_ID='2026-09-24a';
 var CHANGELOG=[
   {ver:'2026-09-04a', date:'2026-09-04', title:"Delivery, DC printing, and a new Reconciliation check", items:[
     "Delivery confirmation stays with Supply Chain \u2014 it no longer hands off to the Plant Manager. If one sits too long, it now re-flags the same Supply Chain owner every 3 days instead.",
@@ -179,6 +179,9 @@ var CHANGELOG=[
   ]},
   {ver:'2026-09-23z', date:'2026-09-24', title:"Orders you can read", items:[
     "Orders is 3 tiles (open \u00b7 past promise \u00b7 delivered or closed), one search box, and one card per order: where it stands, who acts next, how late, how much delivered. Tap a card for the journey. The 5 boxes, the matrix, group-by, saved views and 8 stage chips are gone."
+  ]},
+  {ver:'2026-09-24a', date:'2026-09-24', title:"Your people", items:[
+    "A department lead\u2019s Today now ends with Your people: each person by name \u2014 what is waiting on them, the oldest, done today \u2014 and how current their entries are, from the app\u2019s own entry stamps (recorded the day it happened, or later). One honest number for the department. Tap a person for their list."
   ]},
 ];
 </script>
@@ -2067,6 +2070,22 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);border-c
 .bar{height:8px;background:var(--surface-2);border:1px solid var(--qline);border-radius:2px;overflow:hidden}
 .bar i{display:block;height:100%;background:var(--st,var(--accent))}
 .tdcard.ord.st-done{background:var(--surface-2)}
+/* your people */
+.dept-num{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 14px;align-items:center;background:var(--surface);border:1px solid var(--qline);border-radius:3px;padding:12px 14px}
+.dept-num .big{font-family:'IBM Plex Mono',monospace;font-size:38px;font-weight:500;line-height:1;color:var(--st,var(--ink))}
+.dept-num .def{font-size:13px;color:var(--ink-2)}
+.dept-num .bar{grid-column:1/-1;margin-top:4px}
+.person{display:block;width:100%;text-align:left;background:var(--surface);border:1px solid var(--qline);border-radius:3px;padding:10px 12px;color:inherit;cursor:pointer;box-shadow:none;font-weight:400;font-family:inherit}
+.person:hover{border-color:var(--qline-strong);background:var(--surface)}
+.person .row{display:flex;justify-content:space-between;align-items:baseline;gap:8px;text-align:left}
+.person .nm{font-size:16px;font-weight:600}
+.person .rl{font-size:13px;color:var(--ink-2)}
+.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-top:8px}
+.stats>*{display:block;border-top:2px solid var(--st,var(--qline));padding-top:4px}
+.stats .n{display:block;font-family:'IBM Plex Mono',monospace;font-size:18px;font-weight:500;line-height:1.2;color:var(--st,var(--ink))}
+.stats .l{display:block;font-size:11px;color:var(--ink-3)}
+.cur{font-size:12px;color:var(--ink-2);margin-top:8px;display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center}
+.cur .bar{flex:1 1 60px;margin:0}
 .qs-tile.go{font:inherit;color:inherit}
 .actions .qs-btn{flex:1 1 160px}
 .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
@@ -12063,6 +12082,46 @@ function screenOrders(){
   h+='</div>';
   $('view').innerHTML=h;
 }
+/* ===================== YOUR PEOPLE - 24a =====================
+   Item 3 of the morning list, and the manager shape of the Queue Shell: a
+   lead sees the people of his department by name - what is waiting on their
+   role, done today, and how CURRENT their entries are (recorded the same day
+   as the event, by the app's own entry stamps: recordedBy / actualDate /
+   recordedAt / enteredLate). One honest number for the department. Names
+   first, no charts above names. Read from records; nothing is written. */
+function evAllStamps(){
+  var out=[], seen=0;
+  function walk(x,d){ if(!x||typeof x!=='object'||d>7||seen>200000) return; seen++;
+    if(Array.isArray(x)){ for(var i=0;i<x.length;i++) walk(x[i],d+1); return; }
+    if(x.recordedAt&&x.recordedBy&&x.actualDate){ out.push({by:String(x.recordedBy),at:String(x.recordedAt),actual:String(x.actualDate),late:(+x.enteredLate||0)>0}); }
+    for(var k in x){ if(k==='actionLog'||k==='audit'||k==='corrections'||k==='masters') continue; var v=x[k]; if(v&&typeof v==='object') walk(v,d+1); } }
+  try{ walk(state,0); }catch(e){}
+  return out;
+}
+function ppCurrent(stamps,days){ var cut=new Date(TODAY); cut.setDate(cut.getDate()-(days||7)); var c=cut.toISOString(); var s=stamps.filter(function(x){ return x.at>=c; }); var ok=s.filter(function(x){return !x.late;}).length; return {n:s.length,ok:ok,pct:s.length?Math.round(100*ok/s.length):null}; }
+function tdYourPeople(){
+  var depts=state.role==='COO'?null:(TD_LEADS[state.role]||[]); if(depts!==null&&!depts.length) return '';
+  var people=(usersList||[]).filter(function(u){ if(!u||u.role==='COO') return false; if(u.username===(state.currentUser||{}).username) return false; var d=roleDeptId(u.role); return d && (depts===null||depts.indexOf(d)>-1); });
+  if(!people.length) return '';
+  var all=actionItems().filter(function(it){ return !acDeferActive(it); }); all.forEach(function(it,i){ it._id='Y'+i; it._days=(actTiming(it)||{}).days||0; });
+  var byRole={}; all.forEach(function(it){ (byRole[it.role]=byRole[it.role]||[]).push(it); });
+  var day=TODAY.toISOString().slice(0,10); var log=(state.actionLog||[]).filter(function(e){ return e && String(e.t||'').slice(0,10)===day && e.what!=='Signed in' && e.what!=='Signed out'; });
+  var stamps=evAllStamps(); var deptCur=ppCurrent(stamps.filter(function(x){ return people.some(function(u){return u.name===x.by;}); }),7);
+  var h='<div class="tdsec">Your people<span class="cnt">'+people.length+'</span></div>';
+  h+='<div class="dept-num '+(deptCur.pct==null?'st-na':deptCur.pct>=90?'st-ok':deptCur.pct>=70?'st-late':'st-over')+'"><div class="big">'+(deptCur.pct==null?'—':deptCur.pct+'%')+'</div><div class="def"><b>current</b> · '+(deptCur.n?(deptCur.ok+' of '+deptCur.n+' entries in the last 7 days were recorded the day they happened. The rest were entered later.'):'no stamped entries in the last 7 days yet.')+' This is the department’s one number.</div>'+(deptCur.n?'<div class="bar"><i style="width:'+deptCur.pct+'%"></i></div>':'')+'</div>';
+  h+='<div class="tdlist" style="margin-top:10px">'+people.map(function(u){ var gs=tdGroups(byRole[u.role]||[]); var worst=0; gs.forEach(function(g){ if(g.days>worst) worst=g.days; }); var done=log.filter(function(e){return e.by===u.name;}).length; var cur=ppCurrent(stamps.filter(function(x){return x.by===u.name;}),7);
+      var tone=gs.length?(worst>=1?'st-over':'st-late'):'st-ok';
+      return '<button class="person" onclick="openPersonList(\''+qsEsc(u.role)+'\',\''+qsEsc(u.name)+'\')"><div class="row between"><span class="nm">'+qsEsc(u.name)+'</span><span class="rl">'+qsEsc(personTitle(u.username,u.role))+'</span></div>'
+        +'<div class="stats"><span class="st-na"><span class="n">'+gs.length+'</span><span class="l">waiting on '+qsEsc(String(u.name).split(' ')[0])+(gs.length&&(byRole[u.role]&&people.filter(function(p){return p.role===u.role;}).length>1)?' (shared)':'')+'</span></span><span class="'+tone+'"><span class="n">'+(gs.length?(worst?worst+' d':'today'):'none')+'</span><span class="l">oldest waiting</span></span><span class="st-done"><span class="n">'+done+'</span><span class="l">done today</span></span></div>'
+        +'<div class="cur"><span>'+(cur.pct==null?'no stamped entries':cur.pct+'% current')+'</span>'+(cur.n?'<span class="bar '+(cur.pct>=90?'st-ok':cur.pct>=70?'st-late':'st-over')+'"><i style="width:'+cur.pct+'%"></i></span><span>'+cur.ok+'/'+cur.n+' · 7 d</span>':'')+'</div></button>'; }).join('')+'</div>';
+  return h;
+}
+function openPersonList(role,name){
+  var all=actionItems().filter(function(it){ return it.role===role && !acDeferActive(it); }); all.forEach(function(it,i){ it._id='PL'+i; it._days=(actTiming(it)||{}).days||0; });
+  var gs=tdGroups(all);
+  $('modal').innerHTML='<div class="mh"><h2>'+qsEsc(name)+'</h2><div class="sub">'+qsEsc(roleTitle(role))+' · '+gs.length+' job'+(gs.length===1?'':'s')+' waiting on the role</div></div><div class="mb">'+(gs.length?'<div class="tdlist">'+gs.map(tdCardHTML).join('')+'</div>':'<div class="note">Nothing is waiting on '+qsEsc(name)+' right now.</div>')+'</div><div class="mf"><button class="qs-btn" onclick="closeModal()">Close</button></div>';
+  $('modalBg').classList.add('open');
+}
 /* The Queue Shell's 3 tiles: waiting, past due, done today. */
 function tdDoneCount(){ try{ var me=(state.currentUser&&state.currentUser.name)||state.role, day=TODAY.toISOString().slice(0,10); return (state.actionLog||[]).filter(function(e){ return e && String(e.t||'').slice(0,10)===day && e.by===me && e.what!=='Signed in' && e.what!=='Signed out'; }).length; }catch(e){ return 0; } }
 function tdTallyHTML(waiting,pastDue){ var done=tdDoneCount();
@@ -12099,6 +12158,8 @@ function screenToday(){
     h+=tdTallyHTML(0,0);
     h+='<div class="tdsec">Waiting on you<span class="cnt">0</span></div><div class="tdempty"><h3>Your list is clear</h3><p>Nothing is waiting on you. What is open in the plant right now:</p>'+tdPlantPulse()+'</div>';
   }
+  try{ if(!(usersList||[]).length && !window._tdUsersOnce){ window._tdUsersOnce=true; loadUsers().then(function(){ if(state.screen==='today') render(); }); } }catch(e){}
+  h+=tdYourPeople();
   h+=tdDoneToday();
   h+='<div class="tdfoot">Live O2S. What you press here is saved exactly as before \u2014 the button is the same action, it just no longer hides behind a tab.</div>';
   h+='</div>';

@@ -120,7 +120,24 @@ ok('it says a role is not a job title, in the words Tahir asked for', /A role is
 ok('it lists every role under its department with the people who hold it', /roleDeptId\(r\.name\)===d\.id/.test(rt) && /u\.role===r\.name/.test(rt) && /signs as/.test(rt));
 
 /* ================= 7. BUILD ================= */
-ok("BUILD_ID is 2026-09-23t or later", /var BUILD_ID='2026-09-23[t-z]'/.test(html));
+ok("BUILD_ID is 2026-09-23t or later", /var BUILD_ID='2026-09-2(3[t-z]|4[a-z])'/.test(html));
+/* 24a: your people */
+{
+  const yp = grab('tdYourPeople'), ev = grab('evAllStamps');
+  ok('a lead\'s Today ends with Your people, before done-today', /tdYourPeople\(\);\n  h\+=tdDoneToday\(\);/.test(grab('screenToday')));
+  ok('only the lead\'s own departments (TD_LEADS); the COO sees all', /TD_LEADS\[state\.role\]/.test(yp) && /state\.role==='COO'\?null/.test(yp));
+  ok('each person: waiting on their role, oldest, done today, current %', /waiting on /.test(yp) && /oldest waiting/.test(yp) && /done today/.test(yp) && /% current/.test(yp));
+  ok('current comes from the app\'s own entry stamps: recordedBy, actualDate, recordedAt, enteredLate', /x\.recordedAt&&x\.recordedBy&&x\.actualDate/.test(ev) && /enteredLate/.test(ev));
+  ok('the walk never reads the action log, audit, corrections or masters as stamps', /k==='actionLog'\|\|k==='audit'\|\|k==='corrections'\|\|k==='masters'/.test(ev));
+  ok('one honest number for the department, over 7 days', /deptCur=ppCurrent\(/.test(yp) && /7\)/.test(yp) && /one number/.test(yp));
+  ok('tap a person for their list', /openPersonList\(/.test(yp) && /tdGroups\(all\)/.test(grab('openPersonList')));
+  ok('nothing is written', !/save\(\)/.test(yp + ev + grab('openPersonList')));
+  const f = new Function(grab('ppCurrent') + ';return ppCurrent;')();
+  const TODAY = new Date();
+  const g = new Function('TODAY', grab('ppCurrent') + ';return ppCurrent;')(TODAY);
+  const r = g([{at:new Date(Date.now()-86400000).toISOString(),late:false},{at:new Date(Date.now()-2*86400000).toISOString(),late:true},{at:'2020-01-01T00:00:00Z',late:true}], 7);
+  ok('current = on-time stamps over stamps in the window; old ones ignored', r.n === 2 && r.ok === 1 && r.pct === 50);
+}
 /* 23z: Orders you can read */
 {
   const so = grab('screenOrders'), oc = grab('ordCardHTML');

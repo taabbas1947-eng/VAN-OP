@@ -26,7 +26,7 @@ ok('the person pill has Sign out', /onclick="logout\(\)"/.test(rtn));
 const rnd = grab('render');
 ok('render() stamps the screen on <body> and fills the header', /setAttribute\('data-screen',state\.screen\)/.test(rnd) && /renderTopNav\(\)/.test(rnd));
 ok('the old sidebar render no longer assumes #nav exists', /if\(\$\('nav'\)\) \$\('nav'\)\.innerHTML=html;/.test(grab('renderNav')));
-ok('the top bar hides on the 4 main screens and People', /body\[data-screen="today"\] \.topbar,body\[data-screen="plant"\] \.topbar,body\[data-screen="backoffice"\] \.topbar,body\[data-screen="instructions"\] \.topbar,body\[data-screen="users"\] \.topbar\{display:none\}/.test(html));
+ok('the top bar hides on the 4 main screens, People and Orders', /body\[data-screen="today"\] \.topbar,body\[data-screen="plant"\] \.topbar,body\[data-screen="backoffice"\] \.topbar,body\[data-screen="instructions"\] \.topbar,body\[data-screen="users"\] \.topbar,body\[data-screen="tracker"\] \.topbar\{display:none\}/.test(html));
 
 /* ================= 2. TODAY IN THE QUEUE SHELL'S SHAPE ================= */
 const st = grab('screenToday'), card = grab('tdCardHTML');
@@ -121,6 +121,20 @@ ok('it lists every role under its department with the people who hold it', /role
 
 /* ================= 7. BUILD ================= */
 ok("BUILD_ID is 2026-09-23t or later", /var BUILD_ID='2026-09-23[t-z]'/.test(html));
+/* 23z: Orders you can read */
+{
+  const so = grab('screenOrders'), oc = grab('ordCardHTML');
+  ok("the 'tracker' screen renders screenOrders now", /tracker:screenOrders,/.test(html));
+  ok('3 tiles: open, past promise, delivered or closed', /open<\/span>/.test(so) && /past promise/.test(so) && /delivered or closed/.test(so));
+  ok('one search box, no matrix, no group-by, no saved views, no 8 stage chips', /id="ordFind"/.test(so) && !/trkViewSw|trkGroup|trkSavedViews|FILTER STAGE/.test(so));
+  ok('a card says where it stands, who acts next, how late, how much delivered', /NEXT_ACT\[b\]/.test(oc) && /ordNextWho\(b\)/.test(oc) && /d past promise/.test(oc) && /Kg\/L delivered/.test(oc));
+  ok('who acts next is written as the TITLE, not the role code', /roleTitle\(owner\)/.test(grab('ordNextWho')));
+  ok('tap a card for the journey - the same drawer as before', /openTkDrawer\(/.test(oc));
+  ok('late orders first, then by days late', /var la=isOverdue\(a\)\?1:0, lb=isOverdue\(b\)\?1:0/.test(so) && /daysOver\(a\)/.test(so));
+  ok('a search that arrives from elsewhere (trkSearch) is honoured', /if\(trkSearch&&!ordQ\)\{ ordQ=trkSearch;/.test(so));
+  ok('the COO\'s Close this PO sits on the card; never on a delivered or closed one', /closePOButtonHTML\(o\)/.test(oc) && /!done&&!shut/.test(oc));
+  ok('no price on Orders', !/price|PKR|\bRs\b/i.test(so + oc));
+}
 /* 23y: close a PO, the product sheet, a new base reaches the floor */
 {
   const sub = (() => { const i = html.indexOf('\nfunction submitClosePO('); return i < 0 ? '' : H.matchBlock(i + 1, 'submitClosePO'); })();

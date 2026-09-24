@@ -11,7 +11,7 @@
    a push keeps running the old code with nothing telling anybody. It sat at
    2026-09-04a through this whole day's work; rmqty/psi tests pinned the code,
    nothing pinned this. buildid.test.js now does. */
-var BUILD_ID='2026-09-23y';
+var BUILD_ID='2026-09-23z';
 var CHANGELOG=[
   {ver:'2026-09-04a', date:'2026-09-04', title:"Delivery, DC printing, and a new Reconciliation check", items:[
     "Delivery confirmation stays with Supply Chain \u2014 it no longer hands off to the Plant Manager. If one sits too long, it now re-flags the same Supply Chain owner every 3 days instead.",
@@ -176,6 +176,9 @@ var CHANGELOG=[
     "Close a PO: the COO closes a whole order from Plant (late orders, the floor) or from the run sheet \u2014 every open line closed short with one reason, logged, reopenable. The Production Manager and Lead Supply Chain get the same sheet and it files a request for the Plant Manager, line by line. Until now nothing on any screen offered a close.",
     "The product form is one sheet in 4 steps: the product, what the plant makes, how it is packed, who can order it. Same checks, same save.",
     "A product added as a new base of its own now appears in the Production screen\u2019s base list at once (Liquid Bio Stimulant did not)."
+  ]},
+  {ver:'2026-09-23z', date:'2026-09-24', title:"Orders you can read", items:[
+    "Orders is 3 tiles (open \u00b7 past promise \u00b7 delivered or closed), one search box, and one card per order: where it stands, who acts next, how late, how much delivered. Tap a card for the journey. The 5 boxes, the matrix, group-by, saved views and 8 stage chips are gone."
   ]},
 ];
 </script>
@@ -1836,7 +1839,7 @@ body{color:var(--ink);font-size:15px;line-height:1.45}
 .topbar{background:var(--surface);border-bottom:1px solid var(--qline);position:static;padding:10px 16px;gap:10px}
 .topbar h2{font-size:18px;font-weight:600;letter-spacing:0;color:var(--ink)}
 .topbar .sub{color:var(--ink-3)}
-body[data-screen="today"] .topbar,body[data-screen="plant"] .topbar,body[data-screen="backoffice"] .topbar,body[data-screen="instructions"] .topbar,body[data-screen="users"] .topbar{display:none}
+body[data-screen="today"] .topbar,body[data-screen="plant"] .topbar,body[data-screen="backoffice"] .topbar,body[data-screen="instructions"] .topbar,body[data-screen="users"] .topbar,body[data-screen="tracker"] .topbar{display:none}
 body:not([data-screen="reports"]):not([data-screen="dash"]):not([data-screen="budget"]) #periodSel,
 body:not([data-screen="reports"]):not([data-screen="dash"]):not([data-screen="budget"]) #periodFromInp,
 body:not([data-screen="reports"]):not([data-screen="dash"]):not([data-screen="budget"]) #periodToInp{display:none!important}
@@ -2061,6 +2064,10 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);border-c
 .seg input{position:absolute;opacity:0;width:1px;height:1px;min-height:0}
 .qu{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,6em) auto;gap:6px}
 .qu input{min-height:40px}
+.bar{height:8px;background:var(--surface-2);border:1px solid var(--qline);border-radius:2px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--st,var(--accent))}
+.tdcard.ord.st-done{background:var(--surface-2)}
+.qs-tile.go{font:inherit;color:inherit}
 .actions .qs-btn{flex:1 1 160px}
 .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 .between{justify-content:space-between}
@@ -4238,7 +4245,7 @@ function render(){
   { var _tb=$('scTabs'); if(_tb) _tb.innerHTML=(state.screen==='approvals'?acHeaderTabsHTML():''); }
   if($('helpbar')) $('helpbar').innerHTML='';  /* help bar removed (declutter) */
   /* role switcher is rendered into .foot by renderNav (declutter removed the tips button) */
-  ({today:screenToday,backoffice:screenBackOffice,plant:screenPlant,dash:screenDash,approvals:screenApprovals,entry:screenEntry,tracker:screenTracker,prod:screenProd,qc:screenQC,qa:screenQA,ship:screenShip,reports:screenReports,budget:screenBudget,dealers:screenDealers,instructions:screenInstructions,admin:screenAdmin,datafix:screenDataFix,recon:screenRecon,users:screenUsers,}[state.screen])();
+  ({today:screenToday,backoffice:screenBackOffice,plant:screenPlant,dash:screenDash,approvals:screenApprovals,entry:screenEntry,tracker:screenOrders,prod:screenProd,qc:screenQC,qa:screenQA,ship:screenShip,reports:screenReports,budget:screenBudget,dealers:screenDealers,instructions:screenInstructions,admin:screenAdmin,datafix:screenDataFix,recon:screenRecon,users:screenUsers,}[state.screen])();
 }
 /* ===================== LOCK 4: DATA FIX (reconciliation console — safety frame) ===================== */
 function typeNameToConfirm(actionText){
@@ -12016,6 +12023,45 @@ function pmRenderSheet(){
   h+='<div class="seg">'+keys.map(function(k,ki){ return '<label><input type="checkbox" '+(f.clients[k]?'checked':'')+' onchange="pmClient(pmBrandKeys()['+ki+'],this.checked)"><span>'+qsEsc(k)+'</span></label>'; }).join('')+'</div>';
   h+='</div></div><div class="mf"><button class="qs-btn" onclick="pmCancel()">Cancel</button><button class="qs-btn pri" onclick="pmSave()">'+(f.editing?'Save the product':'Add the product')+'</button></div>';
   $('modal').innerHTML=h;
+}
+/* ===================== ORDERS, IN THE QUEUE SHELL'S SHAPE - 23z =====================
+   Tahir, 24 Sep, on the PO Tracker: "this needs a new view and structure as
+   well; this is too much for someone to read and understand exactly." 5 KPI
+   boxes, a matrix/table switch, group-by, saved views and 8 stage chips are
+   gone. Orders is now: 3 tiles, one search box, 3 chips, and one card per
+   order that says where it stands, who acts next, and how late it is. Tap a
+   card for the journey (the same drawer as before). Read-only for everyone;
+   the COO's Close this PO sits on the card. The old screen's functions stay
+   in the file unused; nothing about an order changed. */
+var ordQ='', ordChip='open';
+function ordNextWho(b){ var m=(typeof BUCKET_META!=='undefined'&&BUCKET_META[b])||{}; var owner=m.owner||''; try{ if(owner&&typeof roleTitle==='function'&&rolesList().indexOf(owner)>-1) owner=roleTitle(owner); }catch(e){} return owner; }
+function ordCardHTML(o){
+  var b=orderBucket(o), bal=orderBal(o), late=isOverdue(o), days=late?daysOver(o):0, done=(b==='Delivered'), shut=(b==='Closed short')||!!o.closed;
+  var brands=(o.lines||[]).map(function(l){return l.brand;}).filter(Boolean);
+  var title=brands.length?(qsEsc(brands[0])+(brands.length>1?' <span class="dim">+'+(brands.length-1)+' more</span>':'')):'—';
+  var next=(done||shut)?'':((NEXT_ACT[b]||'')+(ordNextWho(b)?' · '+qsEsc(ordNextWho(b)):''));
+  var tone=done?'st-done':(shut?'st-na':(late?'st-over':'st-ok'));
+  var chip=done?'<span class="tdtag">delivered</span>':shut?'<span class="tdtag">closed short</span>':(late?'<span class="tdtag late">■ '+days+' d past promise</span>':(o.promised?'<span class="tdtag ok">● due '+qsEsc(o.promised)+'</span>':''));
+  var pct=Math.max(0,Math.min(100,+bal.pct||0));
+  return '<div class="tdcard ord '+tone+'" style="border-left-color:var(--st)"><div class="tdgrid" onclick="openTkDrawer(\''+qsEsc(o.id)+'\')" style="cursor:pointer"><div class="tdhead"><div class="tdstage">'+qsEsc(b)+(o.priority&&o.priority!=='Normal'?' · '+qsEsc(o.priority):'')+'</div><div class="tdtitle"><span class="tdpo">'+qsEsc(o.po)+'</span> · '+_tdClient(o)+'</div><div class="tdsub">'+title+' · '+fmt(bal.del)+' of '+fmt(bal.ord)+' Kg/L delivered</div>'+(next?'<div class="tdsub">next: '+next+'</div>':'')+'<div class="tdtags">'+chip+'</div></div><span class="tdgo">Journey ›</span></div>'
+    +'<div class="bar" style="margin-top:8px"><i style="width:'+pct+'%"></i></div>'
+    +((typeof closePOButtonHTML==='function'&&!done&&!shut)?(function(){ var b=closePOButtonHTML(o); return b?'<div style="margin-top:8px;display:flex;justify-content:flex-end">'+b+'</div>':''; })():'')+'</div>';
+}
+function screenOrders(){
+  if(trkSearch&&!ordQ){ ordQ=trkSearch; trkSearch=''; ordChip='all'; }
+  var all=(state.orders||[]).filter(function(o){return o&&o.po;});
+  var isDone=function(o){ var b=orderBucket(o); return b==='Delivered'||b==='Closed short'||!!o.closed; };
+  var open=all.filter(function(o){return !isDone(o);}), late=open.filter(isOverdue), done=all.filter(isDone);
+  var q=String(ordQ||'').toLowerCase().trim();
+  var list=(ordChip==='late'?late:ordChip==='done'?done:ordChip==='all'?all:open).filter(function(o){ if(!q) return true; return ((o.po||'')+' '+(o.client||'')+' '+(o.lines||[]).map(function(l){return l.brand||'';}).join(' ')).toLowerCase().indexOf(q)>-1; });
+  list.sort(function(a,b){ var la=isOverdue(a)?1:0, lb=isOverdue(b)?1:0; if(la!==lb) return lb-la; var da=la?daysOver(a):0, db=lb?daysOver(b):0; if(da!==db) return db-da; return String(b.received||'').localeCompare(String(a.received||'')); });
+  var h='<div class="qs wide"><h1>Orders</h1><div class="sub">Every order, where it stands, who acts next. The same for everyone; tap one for its journey.</div>';
+  h+='<div class="qs-tally"><button class="qs-tile go st-na'+(ordChip==='open'?' sel':'')+'" onclick="ordChip=\'open\';render()"><span class="n">'+open.length+'</span><span class="l">open</span></button><button class="qs-tile go '+(late.length?'st-over':'st-ok')+(ordChip==='late'?' sel':'')+'" onclick="ordChip=\'late\';render()"><span class="n">'+late.length+'</span><span class="l">past promise</span></button><button class="qs-tile go st-done'+(ordChip==='done'?' sel':'')+'" onclick="ordChip=\'done\';render()"><span class="n">'+done.length+'</span><span class="l">delivered or closed</span></button></div>';
+  h+='<div class="pl-find"><input id="ordFind" placeholder="Find an order — PO, customer or product" value="'+qsEsc(ordQ)+'" oninput="ordQ=this.value;ordChip=ordChip===\'open\'&&this.value?\'all\':ordChip;render();var e=document.getElementById(\'ordFind\');if(e){e.focus();e.setSelectionRange(e.value.length,e.value.length);}">'+(canView(state.role,'reports')?'<button class="qs-btn" onclick="setScreen(\'reports\')">Reports →</button>':'')+'</div>';
+  h+='<h2>'+(ordChip==='late'?'Past promise':ordChip==='done'?'Delivered or closed':ordChip==='all'?'All orders':'Open orders')+' <span class="cnt">'+list.length+'</span></h2>';
+  h+=list.length?('<div class="tdlist">'+list.map(ordCardHTML).join('')+'</div>'):'<div class="note">'+(q?'No order matches “'+qsEsc(q)+'”.':'Nothing here.')+'</div>';
+  h+='</div>';
+  $('view').innerHTML=h;
 }
 /* The Queue Shell's 3 tiles: waiting, past due, done today. */
 function tdDoneCount(){ try{ var me=(state.currentUser&&state.currentUser.name)||state.role, day=TODAY.toISOString().slice(0,10); return (state.actionLog||[]).filter(function(e){ return e && String(e.t||'').slice(0,10)===day && e.by===me && e.what!=='Signed in' && e.what!=='Signed out'; }).length; }catch(e){ return 0; } }

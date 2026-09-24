@@ -11,7 +11,7 @@
    a push keeps running the old code with nothing telling anybody. It sat at
    2026-09-04a through this whole day's work; rmqty/psi tests pinned the code,
    nothing pinned this. buildid.test.js now does. */
-var BUILD_ID='2026-09-24z';
+var BUILD_ID='2026-09-25a';
 var CHANGELOG=[
   {ver:'2026-09-04a', date:'2026-09-04', title:"Delivery, DC printing, and a new Reconciliation check", items:[
     "Delivery confirmation stays with Supply Chain \u2014 it no longer hands off to the Plant Manager. If one sits too long, it now re-flags the same Supply Chain owner every 3 days instead.",
@@ -297,6 +297,10 @@ var CHANGELOG=[
   ]},
   {ver:'2026-09-24z', date:'2026-09-24', title:"The Guide is up to date", items:[
     "Guide \u2192 My job, How the app works and The rules now cover the lab by test, the bench sheet, the leave cover, and one card per product in Production."
+  ]},
+  {ver:'2026-09-25a', date:'2026-09-25', title:"One rule for a sale", items:[
+    "A sale is counted when the truck leaves the gate (the delivery challan is released), at the invoice price before FED and sales tax. Sales & Budget and its monthly pace now use this one rule, for this financial year only.",
+    "Open orders are what is still to leave; a line closed short no longer counts."
   ]},
 ];
 </script>
@@ -13157,7 +13161,7 @@ function guideMyJob(){
   return h;
 }
 function guideHow(){
-  var steps=[['Received','An order is entered with each product, quantity and a committed date. Nothing moves until it exists here.'],['Materials','Supply Chain acknowledges it and checks raw material: in full, in part, or not yet. A shortfall raises a purchase request the CFO approves; what arrives is confirmed at the bay.'],['Produced','Production opens a batch, logs each shift’s output, closes the batch. The base is made in bulk; packing turns it into the brand. The Production screen shows one card per product to make, with the orders inside it.'],['Lab','The QC manager assigns each test of a sample to an analyst; each analyst runs his test for every waiting sample on one bench sheet, and his name and the time go on the result. When every test has a result the AQCM reviews and the QCM approves. (Until the COO switches this on, one analyst drafts the whole COA as before.)'],['Packed · QA','Each packed lot is inspected before it can ship. A failed lot is corrected and re-inspected.'],['Shipped','Supply Chain plans the truck, the warehouse loads it, the gate pass is issued, the truck is inspected and released. The person who loads does not release.'],['Delivered','Delivery is confirmed and the order is Delivered. A line delivered in full is Delivered whether or not the date was stamped; the missing date is listed for the COO.']];
+  var steps=[['Received','An order is entered with each product, quantity and a committed date. Nothing moves until it exists here.'],['Materials','Supply Chain acknowledges it and checks raw material: in full, in part, or not yet. A shortfall raises a purchase request the CFO approves; what arrives is confirmed at the bay.'],['Produced','Production opens a batch, logs each shift’s output, closes the batch. The base is made in bulk; packing turns it into the brand. The Production screen shows one card per product to make, with the orders inside it.'],['Lab','The QC manager assigns each test of a sample to an analyst; each analyst runs his test for every waiting sample on one bench sheet, and his name and the time go on the result. When every test has a result the AQCM reviews and the QCM approves. (Until the COO switches this on, one analyst drafts the whole COA as before.)'],['Packed · QA','Each packed lot is inspected before it can ship. A failed lot is corrected and re-inspected.'],['Shipped','Supply Chain plans the truck, the warehouse loads it, the gate pass is issued, the truck is inspected and released. The person who loads does not release. The moment the truck is released it counts as a sale, at the invoice price before FED and sales tax.'],['Delivered','Delivery is confirmed and the order is Delivered. A line delivered in full is Delivered whether or not the date was stamped; the missing date is listed for the COO.']];
   var h='<div class="gd-intro">One order goes through 7 steps. At each step one role acts; the moment it presses its button the job appears on the next role’s Today. Nobody chases anybody: the list does.</div>';
   h+='<div class="gd-steps">'+steps.map(function(s,i){ return '<div class="gd-step"><span class="n">'+(i+1)+'</span><div><b>'+s[0]+'</b><span>'+s[1]+'</span></div></div>'; }).join('')+'</div>';
   h+='<h2>What the marks mean</h2><div class="gd-rows"><div class="gd-row"><span class="k">● due</span><span>the committed date is ahead</span></div><div class="gd-row"><span class="k">■ 12 d past promise</span><span>the committed date has passed; the days are counted from it</span></div><div class="gd-row"><span class="k">is on it</span><span>a colleague with the same role has taken the card; it stays visible to both</span></div><div class="gd-row"><span class="k">Escalated to you</span><span>a card left too long on someone’s Today, shown to their lead with the role’s name</span></div><div class="gd-row"><span class="k">Done. Now waiting on …</span><span>the toast after every button: who the job went to, by name</span></div></div>';
@@ -15839,10 +15843,12 @@ function budgetChannelOf(client){
 }
 function budgetByChannel(fy){
   var ct=(state.masters&&state.masters.channelTargets)||{}, st=(state.masters&&state.masters.salesTargets)||{};
-  var rows={}; BUDGET_CHANNELS.forEach(function(ch){ rows[ch]={channel:ch,target:(ct[ch]&&+ct[ch][fy])||0,allocated:0,booked:0,delivered:0}; });
+  var rows={}; BUDGET_CHANNELS.forEach(function(ch){ rows[ch]={channel:ch,target:(ct[ch]&&+ct[ch][fy])||0,allocated:0,booked:0,sold:0}; });
   Object.keys(st).forEach(function(c){ var a=(st[c]&&+st[c][fy])||0; if(!a) return; var ch=budgetChannelOf(c); if(rows[ch]) rows[ch].allocated+=a; });
-  (state.orders||[]).forEach(function(o){ var ch=o&&o.channel; if(!rows[ch]) return; (o.lines||[]).forEach(function(l){ var pr=+l.invoicePrice||0; rows[ch].booked+=(+l.ordered||0)*pr; rows[ch].delivered+=(+l.delivered||0)*pr; }); });
-  return BUDGET_CHANNELS.map(function(ch){ var r=rows[ch]; r.unallocated=Math.max(0,r.target-r.allocated); r.pct=r.target>0?Math.round(r.delivered/r.target*100):0; return r; });
+  /* 25a: open orders = still to leave; sold = trucks that left the gate this financial year */
+  (state.orders||[]).forEach(function(o){ var ch=o&&o.channel; if(!rows[ch]) return; (o.lines||[]).forEach(function(l){ rows[ch].booked+=saleOpenValue(o,l); }); });
+  saleRows().forEach(function(x){ if(x.fy!==fy) return; if(rows[x.channel]) rows[x.channel].sold+=x.value; });
+  return BUDGET_CHANNELS.map(function(ch){ var r=rows[ch]; r.unallocated=Math.max(0,r.target-r.allocated); r.pct=r.target>0?Math.round(r.sold/r.target*100):0; return r; });
 }
 function channelBudgetSet(ch,amt){
   if(!(state.role==='COO'||state.role==='CFO')){ toast('COO / CFO only'); return; }
@@ -15969,12 +15975,12 @@ function salesTargetMonthlyCard(){ var fy=fyKey(TODAY.toISOString().slice(0,10))
     +(have.length?('<div class="muted" style="font-size:11px;margin-top:12px">Clients with monthly targets set: '+have.map(function(c){return _pe(c);}).join(', ')+'</div>'):'')); }
 /* Read-only monthly pace (company-wide): delivered value per month vs monthly target sum. Pure compute. */
 function monthlyTargetTotals(fy){ var t=(state.masters&&state.masters.salesTargetsMonthly)||{}; var out={}; Object.keys(t).forEach(function(c){ var mm=t[c]&&t[c][fy]; if(mm) Object.keys(mm).forEach(function(m){ out[m]=(out[m]||0)+(+mm[m]||0); }); }); return out; }
-function monthlyDeliveredTotals(){ var priceOf={}; (state.orders||[]).forEach(function(o){ (o.lines||[]).forEach(function(l){ priceOf[(o.po||'')+'|'+(l.brand||'')]=+l.invoicePrice||0; }); }); var out={}; (state.shipments||[]).forEach(function(s){ if(!s||s.voided||!s.delivered)return; var m=String(s.delivered).slice(0,7); out[m]=(out[m]||0)+(+s.kg||0)*(priceOf[(s.po||'')+'|'+(s.brand||'')]||0); }); return out; }
+function monthlyDeliveredTotals(){ /* 25a: the name stays; it now returns SOLD by the month the truck left, priced by the line it carried */ var out={}; saleRows().forEach(function(x){ if(!x.month) return; out[x.month]=(out[x.month]||0)+x.value; }); return out; }
 function monthlyPaceCard(){ var fy=fyKey(TODAY.toISOString().slice(0,10)); var months=fyMonthKeys(fy); var T=monthlyTargetTotals(fy); var D=monthlyDeliveredTotals(); if(!months.some(function(m){return +T[m]>0;})) return '';
   var bar=function(p){return '<div style="background:#eef1f6;border-radius:5px;height:6px;overflow:hidden;min-width:54px"><div style="height:6px;width:'+Math.min(100,p)+'%;background:'+(p>=100?'var(--green2)':p>=60?'var(--navy)':'var(--amber)')+'"></div></div>';};
   var totT=0,totD=0; var body=months.map(function(m){ var t=+T[m]||0,d=+D[m]||0; totT+=t;totD+=d; var p=t>0?Math.round(d/t*100):0; return '<tr><td>'+monthLabel(m)+'</td><td class="num">'+(t>0?pkr(t):'<span class="muted">—</span>')+'</td><td class="num"><b>'+pkr(d)+'</b></td><td>'+(t>0?('<div style="display:flex;gap:6px;align-items:center">'+bar(p)+'<span style="font-size:10.5px;font-weight:700;color:'+(p>=100?'var(--green2)':p>=60?'var(--navy)':'var(--amber)')+'">'+p+'%</span></div>'):'<span class="muted" style="font-size:11px">no target</span>')+'</td></tr>'; }).join('');
   var pAll=totT>0?Math.round(totD/totT*100):0;
-  return '<div class="card"><h3>Monthly pace <span class="hint">'+fy+' · target vs delivered</span></h3><div style="overflow:auto"><table><thead><tr><th>Month</th><th class="num">Target</th><th class="num">Delivered</th><th>Attainment</th></tr></thead><tbody>'+body+'<tr style="border-top:2px solid var(--navy);background:var(--navy-50)"><td><b>FY total</b></td><td class="num"><b>'+pkr(totT)+'</b></td><td class="num"><b>'+pkr(totD)+'</b></td><td><b>'+pAll+'%</b></td></tr></tbody></table></div></div>'; }
+  return '<div class="card"><h3>Monthly pace <span class="hint">'+fy+' · target vs sold (trucks out)</span></h3><div style="overflow:auto"><table><thead><tr><th>Month</th><th class="num">Target</th><th class="num">Sold</th><th>Attainment</th></tr></thead><tbody>'+body+'<tr style="border-top:2px solid var(--navy);background:var(--navy-50)"><td><b>FY total</b></td><td class="num"><b>'+pkr(totT)+'</b></td><td class="num"><b>'+pkr(totD)+'</b></td><td><b>'+pAll+'%</b></td></tr></tbody></table></div></div>'; }
 function rmMaster(){ return (state.masters&&state.masters.rawMaterials)||[]; }
 function rmCanEdit(){ return canEdit(['Supply Chain']); }
 function rmMasterAdd(){ if(!rmCanEdit()){toast('COO / Supply Chain only');return;} const nm=(($('rm_new_name')&&$('rm_new_name').value)||'').trim(); const cost=+(($('rm_new_cost')&&$('rm_new_cost').value)||0)||0; if(!nm){toast('Enter a material name');return;} const arr=rmMaster(); if(arr.some(r=>(r.name||'').toLowerCase()===nm.toLowerCase())){toast('Already exists');return;} state.masters.rawMaterials=arr.concat([{name:nm,cost}]); logAction('Raw material added: '+nm+(cost?(' @ PKR '+cost+'/Kg'):'')); save(); render(); }
@@ -16209,10 +16215,31 @@ function bgtSubRows(c){ if(bgtExpand!==c) return ''; const ed=(state.role==='COO
   if(!body) body=`<tr style="background:var(--panel2)"><td colspan="6" class="muted" style="padding-left:26px">No order lines with a quantity for this client.</td></tr>`;
   return body; }
 function screenBudget(){ dashTab='sales'; state.screen='dash'; screenDash(); }
+/* ===== WHEN A SALE IS A SALE — 24 Sep 2026 (25a) ============================
+   Tahir: a sale is recorded when the truck leaves (the DC / gate pass is
+   released), valued NET - quantity x invoice price, before FED and sales tax.
+   Until today Sales & Budget used 2 rules that disagreed: the year totals took
+   delivered quantity with no date at all, the monthly pace took the delivery
+   date. Now both read the same rows: every truck that left the gate. */
+function saleLeft(s){ if(!s||s.voided) return false; if(s.dispCounted) return true;
+  if(s.stage==='in_transit'||s.stage==='delivered'||s.delivered) return true;
+  /* shipments recorded before the truck pipeline existed have no stage and no dispatch id */
+  if(!s.stage&&!s.dispId&&(s.dcStatus||'approved')==='approved') return true;
+  return false; }
+function saleLineOf(s){ var o=(state.orders||[]).find(function(x){ return x&&x.po===s.po; }); if(!o) return {o:null,l:null};
+  var l=(o.lines||[]).find(function(x){ return x.id===s.lid; })||(o.lines||[]).find(function(x){ return x.brand===s.brand; }); return {o:o,l:l||null}; }
+function saleRows(){ var out=[]; (state.shipments||[]).forEach(function(s){ if(!saleLeft(s)) return; var r=saleLineOf(s), o=r.o, l=r.l;
+    var price=(o&&o.foc)?0:(+(l&&l.invoicePrice)||0); var date=String(s.approvedDate||s.dispatch||s.delivered||'').slice(0,10);
+    out.push({date:date,fy:date?fyKey(date):'',month:date.slice(0,7),po:s.po||'',client:o?o.client:(s.client||''),channel:o?o.channel:'',key:o?budgetKey(o):(s.client||''),brand:s.brand||(l&&l.brand)||'',kg:+s.kg||0,price:price,value:(+s.kg||0)*price}); });
+  return out; }
+/* what an order line still has to sell: not closed short, not yet through the gate */
+function saleOpenValue(o,l){ if(!o||!l||o.foc||lineShortClosed(l)) return 0; return Math.max(0,(+l.ordered||0)-(+l.dispatched||0))*(+l.invoicePrice||0); }
 function budgetHtml(){
   const fy=fyKey(TODAY.toISOString().slice(0,10)); const targets=(state.masters&&state.masters.salesTargets)||{};
   const rows={};
-  const dealerKids=new Set(); (state.orders||[]).forEach(o=>{ const c=budgetKey(o); if(isDealerClient(o)&&o.client) dealerKids.add(o.client); rows[c]=rows[c]||{booked:0,delivered:0,delKg:0}; (o.lines||[]).forEach(l=>{ const pr=+l.invoicePrice||0; rows[c].booked+=(+l.ordered||0)*pr; rows[c].delivered+=(+l.delivered||0)*pr; rows[c].deliveredKg=(rows[c].deliveredKg||0)+(+l.delivered||0); }); });
+  /* 25a: booked = what is still to leave; delivered = SOLD this financial year (truck left the gate) */
+  const dealerKids=new Set(); (state.orders||[]).forEach(o=>{ const c=budgetKey(o); if(isDealerClient(o)&&o.client) dealerKids.add(o.client); rows[c]=rows[c]||{booked:0,delivered:0,delKg:0}; (o.lines||[]).forEach(l=>{ rows[c].booked+=saleOpenValue(o,l); }); });
+  const _sold=saleRows().filter(x=>x.fy===fy); _sold.forEach(x=>{ rows[x.key]=rows[x.key]||{booked:0,delivered:0,delKg:0}; rows[x.key].delivered+=x.value; rows[x.key].deliveredKg=(rows[x.key].deliveredKg||0)+x.kg; });
   Object.keys(targets).forEach(c=>{ if(!rows[c]) rows[c]={booked:0,delivered:0}; });
   const clients=Object.keys(rows).sort((a,b)=>rows[b].delivered-rows[a].delivered);
   let totT=0,totD=0,totB=0;
@@ -16223,29 +16250,30 @@ function budgetHtml(){
   const crow=(c)=>{ const t=(targets[c]&&+targets[c][fy])||0; const d=rows[c].delivered, b=rows[c].booked; const p=t>0?Math.round(d/t*100):0; const gap=Math.max(0,t-d); const open=bgtExpand===c;
     return `<tr class="clk" onclick="bgtToggle('${String(c).replace(/'/g,"\\'")}')"><td><span style="color:var(--navy);font-size:10px;margin-right:7px">${open?'▾':'▸'}</span><b>${c}</b>${c==='Dealers'?`<div class="muted" style="font-size:11px;padding-left:17px">${dealerKids.size} sub-dealer(s) rolled up</div>`:''}</td><td class="num">${t>0?pkr(t):'<span class="muted">—</span>'}</td><td class="num"><b>${pkr(d)}</b></td><td class="num"><b>${pkr(b)}</b></td><td>${t>0?`<div style="display:flex;gap:8px;align-items:center">${bar(p)}<span style="font-size:11px;font-weight:700;color:${p>=100?'var(--green2)':p>=60?'var(--navy)':'var(--amber)'}">${p}%</span></div>`:'<span class="muted" style="font-size:11px">no target</span>'}</td><td class="num">${t>0?pkr(gap):'—'}</td></tr>`; };
   // product mix by delivered value
-  const pm={}; (state.orders||[]).forEach(o=>(o.lines||[]).forEach(l=>{ const v=(+l.delivered||0)*(+l.invoicePrice||0); if(v>0){ pm[l.brand]=(pm[l.brand]||0)+v; } }));
+  const pm={}; _sold.forEach(x=>{ if(x.value>0) pm[x.brand]=(pm[x.brand]||0)+x.value; });
   const pmRows=Object.entries(pm).sort((a,b)=>b[1]-a[1]).slice(0,15);
   const chRows=budgetByChannel(fy);
   const light=(p,t)=>!t?'<span class="pill" style="background:var(--panel2);color:var(--mut)">no target</span>':(p>=100?'<span class="pill" style="background:#e3f0e7;color:#1f6b3a">on target</span>':p>=60?'<span class="pill" style="background:#fff1d6;color:#8a5a00">behind</span>':'<span class="pill" style="background:#fbe9e7;color:#b3261e">far behind</span>');
   const byChannel=`<div class="card" style="margin-bottom:12px"><div style="font-weight:700;margin-bottom:6px">By channel <span class="muted" style="font-weight:400;font-size:11.5px">· ${fyRange(fy)} · Dealer and Farmer are segment totals</span></div>
-    <div style="overflow:auto"><table><thead><tr><th>Channel</th><th class="num">Target</th><th class="num">Allocated</th><th class="num">Booked</th><th class="num">Delivered</th><th class="num">% of target</th><th></th></tr></thead><tbody>
-    ${chRows.map(r=>`<tr><td><b>${r.channel}</b></td><td class="num">${r.target?pkr(r.target):'<span class="muted">—</span>'}</td><td class="num">${r.allocated?pkr(r.allocated):'<span class="muted">—</span>'}</td><td class="num">${pkr(r.booked)}</td><td class="num"><b>${pkr(r.delivered)}</b></td><td class="num">${r.target?r.pct+'%':'—'}</td><td>${light(r.pct,r.target)}</td></tr>`).join('')}
+    <div style="overflow:auto"><table><thead><tr><th>Channel</th><th class="num">Target</th><th class="num">Allocated</th><th class="num">Open orders</th><th class="num">Sold</th><th class="num">% of target</th><th></th></tr></thead><tbody>
+    ${chRows.map(r=>`<tr><td><b>${r.channel}</b></td><td class="num">${r.target?pkr(r.target):'<span class="muted">—</span>'}</td><td class="num">${r.allocated?pkr(r.allocated):'<span class="muted">—</span>'}</td><td class="num">${pkr(r.booked)}</td><td class="num"><b>${pkr(r.sold)}</b></td><td class="num">${r.target?r.pct+'%':'—'}</td><td>${light(r.pct,r.target)}</td></tr>`).join('')}
     </tbody></table></div></div>`;
   return `
+   <div class="note" style="margin-bottom:10px">A sale is counted when the truck leaves the gate (the delivery challan is released), at the invoice price before FED and sales tax. Open orders are what is still to leave.</div>
    ${byChannel}
    ${(state.role==='COO'||state.role==='CFO')?`<div style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap"><button class="sm" onclick="openBulkPricing()">💲 Set invoice prices (bulk)</button>${(function(){const n=openPrintDecisionPOs().length;/* same definition as the Action Center and the screen itself */return n?`<button class="sm" onclick="openBulkPrintDecision()">🏷️ Answer print-on-pack for ${n} PO(s)</button>`:'';})()}</div>`:''}
    ${noPrice?'<div class="banner warn">Some PO lines have <b>no invoice price</b> yet — their value is counted as 0. Set invoice prices on New PO Entry (new POs) or via Data Fix (imported POs).</div>':''}
    <div class="kpis" style="grid-template-columns:repeat(4,1fr)">
      <div class="kpi"><div class="l">All clients — target</div><div class="v">${pkr(totT)}</div><div class="d">${fyRange(fy)}</div></div>
-     <div class="kpi"><div class="l">Delivered (achieved)</div><div class="v" style="color:var(--green2)">${pkr(totD)}</div><div class="d">${pctAll}% of target</div></div>
-     <div class="kpi"><div class="l">Booked (pipeline)</div><div class="v">${pkr(totB)}</div></div>
+     <div class="kpi"><div class="l">Sold this year</div><div class="v" style="color:var(--green2)">${pkr(totD)}</div><div class="d">${pctAll}% of target</div></div>
+     <div class="kpi"><div class="l">Open orders (not yet dispatched)</div><div class="v">${pkr(totB)}</div></div>
      <div class="kpi"><div class="l">Gap to target</div><div class="v" style="color:${totT-totD>0?'var(--amber)':'var(--green2)'}">${pkr(Math.max(0,totT-totD))}</div></div>
    </div>
    <div class="card"><h3>By client <span class="hint">${clients.length}</span></h3>
-     <div style="overflow:auto"><table><thead><tr><th>Client</th><th class="num">Target</th><th class="num">Delivered</th><th class="num">Booked</th><th>Attainment</th><th class="num">Gap</th></tr></thead>
+     <div style="overflow:auto"><table><thead><tr><th>Client</th><th class="num">Target</th><th class="num">Sold</th><th class="num">Open orders</th><th>Attainment</th><th class="num">Gap</th></tr></thead>
      <tbody>${clients.map(c=>crow(c)+bgtSubRows(c)).join('')}<tr style="border-top:2px solid var(--navy);background:var(--navy-50)"><td><b>TOTAL — all clients</b></td><td class="num"><b>${pkr(totT)}</b></td><td class="num"><b>${pkr(totD)}</b></td><td class="num">${pkr(totB)}</td><td><b>${pctAll}%</b></td><td class="num"><b>${pkr(Math.max(0,totT-totD))}</b></td></tr></tbody></table></div></div>
-   <div class="card"><h3>Top products by delivered value <span class="hint">FY to date</span></h3>
-     ${pmRows.length?`<div style="overflow:auto"><table><thead><tr><th>Product</th><th class="num">Delivered value</th></tr></thead><tbody>${pmRows.map(([b,v])=>`<tr><td>${b}</td><td class="num"><b>${pkr(v)}</b></td></tr>`).join('')}</tbody></table></div>`:'<div class="muted">No delivered value yet — appears once deliveries are recorded against priced lines.</div>'}</div>
+   <div class="card"><h3>Top products by sold value <span class="hint">FY to date</span></h3>
+     ${pmRows.length?`<div style="overflow:auto"><table><thead><tr><th>Product</th><th class="num">Sold value</th></tr></thead><tbody>${pmRows.map(([b,v])=>`<tr><td>${b}</td><td class="num"><b>${pkr(v)}</b></td></tr>`).join('')}</tbody></table></div>`:'<div class="muted">No sales yet this year — a sale appears when a truck with priced lines leaves the gate.</div>'}</div>
    ${(state.role==='COO'||state.role==='CFO')?monthlyPaceCard():''}`;
 }
 /* ===== Reusable searchable register (search · filter · date-range · sort · paging) ===== */
@@ -16663,7 +16691,7 @@ var RP_CATALOGUE=[
   {id:'shortclose', t:'Closed short', q:'What was closed short, why, asked by whom, approved by whom.', ds:'shortclose', cols:['date','po','client','product','reason','shortfall','requestedby','approvedby'], mode:'raw', period:'FY to date', roles:['Plant Manager','Production Manager','Supply Chain','COO','CFO','KAM']},
   {id:'lateentries', t:'Entries recorded late', q:'What was recorded after the day it happened, and how late.', ds:'anomalies', cols:['date','type','po','product','detail','value'], mode:'raw', period:'This month', where:function(r){ return /late|recorded/i.test(String(r.type||'')); }, roles:['Plant Manager','COO','CFO','QCM','Production Manager','Supply Chain']},
   {id:'corrections', t:'Corrections register', q:'Who changed what, and why.', ds:'corrections', cols:['when','type','record','by','reasonCode','reason','fields'], mode:'raw', period:'This month', roles:['COO','CFO','Plant Manager']},
-  {id:'sales', t:'Sales against budget', q:'Delivered value against the budget, by channel and customer.', kind:'budget', money:true, roles:['COO','CFO','Plant Manager','KAM']},
+  {id:'sales', t:'Sales against budget', q:'Sold value (trucks out, before taxes) against the budget, by channel and customer.', kind:'budget', money:true, roles:['COO','CFO','Plant Manager','KAM']},
   {id:'invoicing', t:'Invoicing sheet', q:'What was delivered, at what price, by delivery challan.', ds:'finance', cols:['date','dc','po','client','product','kg','price','value'], mode:'raw', period:'Last month', money:true, roles:['COO','CFO','Plant Manager','KAM','Finance']},
   {id:'docs', t:'Documents', q:'Find and reprint a purchase order, delivery challan or gate pass.', kind:'docs', roles:'all'},
   {id:'custom', t:'Custom report', q:'Any dataset, any columns, rows or a summary; CSV, Excel or PDF.', kind:'builder', roles:'all'}

@@ -128,7 +128,7 @@ ok('it says a role is not a job title, in the words Tahir asked for', /A role is
 ok('it lists every role under its department with the people who hold it', /roleDeptId\(r\.name\)===d\.id/.test(rt) && /u\.role===r\.name/.test(rt) && /signs as/.test(rt));
 
 /* ================= 7. BUILD ================= */
-ok("BUILD_ID is 2026-09-23t or later", /var BUILD_ID='2026-09-2(3[t-z]|4[a-z])'/.test(html));
+ok("BUILD_ID is 2026-09-23t or later", /var BUILD_ID='2026-09-(2(3[t-z]|4[a-z])|2[5-9][a-z]|3[0-1][a-z])'/.test(html));
 /* 24f: one verb from the card to the save; the certificate on a phone */
 {
   ok('the truck sheet is called Plan the truck and saves with Plan the truck', /<h2>Plan the truck — \$\{o\.po\}<\/h2>/.test(html) && /onclick="saveDispatch\(\)">Plan the truck</.test(html) && !/Load a truck — /.test(html) && !/onclick="saveDispatch\(\)">Record shipment</.test(html));
@@ -351,7 +351,7 @@ ok('a browser that remembered All actions or the Dashboard lands on Today', /if\
   ok('Setup is Lists, Data Fix is Correct a record, Reconciliation is Reconcile packing', /id:'admin', name:'Lists'/.test(html) && /id:'datafix', name:'Correct a record'/.test(html) && /id:'recon', name:'Reconcile packing'/.test(html));
   ok('Reconcile speaks plainly, without code', !/<code>lotsFor\(\)<\/code>/.test(grab('screenRecon')) && /compared with its packing record/.test(grab('screenRecon')));
   ok('Correct a record is not called a temporary implementation tool', !/Implementation tool — temporary/.test(grab('screenDataFix')) && /corrections register/.test(grab('screenDataFix')));
-  ok('BUILD_ID is 2026-09-24g or later', /var BUILD_ID='2026-09-24[g-z]'/.test(html));
+  ok('BUILD_ID is 2026-09-24g or later', /var BUILD_ID='2026-(09-(24[g-z]|2[5-9][a-z]|3[0-1][a-z])|1[0-2]-[0-3][0-9][a-z])'/.test(html));
 }
 
 /* 24h: the client targets as a table under their channel; backups and resets off Correct a record */
@@ -374,7 +374,7 @@ ok('a browser that remembered All actions or the Dashboard lands on Today', /if\
   const dg = grab('boDangerHTML');
   ok('they live on the Back Office hub, COO only, under Backups and resets', /if\(state\.role!=='COO'\) return ''/.test(dg) && /Backups and resets/.test(dg) && /exportStateJSON\(\)/.test(dg) && /importGoLivePOs\(\)/.test(dg) && /importSnapshotStart\(\)/.test(dg) && /startNewYearClean\(\)/.test(dg) && /boDangerHTML\(\)/.test(grab('screenBackOffice')));
   ok('the reset is named for what it does', /zero every number/.test(dg));
-  ok('BUILD_ID is 2026-09-24h or later', /var BUILD_ID='2026-09-24[h-z]'/.test(html));
+  ok('BUILD_ID is 2026-09-24h or later', /var BUILD_ID='2026-(09-(24[h-z]|2[5-9][a-z]|3[0-1][a-z])|1[0-2]-[0-3][0-9][a-z])'/.test(html));
 }
 
 /* 24i: the Orders card and the order sheet; delivered means delivered */
@@ -411,7 +411,7 @@ ok('a browser that remembered All actions or the Dashboard lands on Today', /if\
     eq('Needs you counts the delivered lines with no date', f().length, 1);
     ok('and the hub lists them', /boUndated\(\)/.test(grab('boNeeds')) && /no delivery date/.test(grab('boNeeds')));
   }
-  ok('BUILD_ID is 2026-09-24i or later', /var BUILD_ID='2026-09-24[i-z]'/.test(html));
+  ok('BUILD_ID is 2026-09-24i or later', /var BUILD_ID='2026-(09-(24[i-z]|2[5-9][a-z]|3[0-1][a-z])|1[0-2]-[0-3][0-9][a-z])'/.test(html));
 }
 
 /* 24j: the Guide as training - role-aware, in 5 tabs, no yellow headings */
@@ -433,7 +433,7 @@ ok('a browser that remembered All actions or the Dashboard lands on Today', /if\
   ok('The rules: why no back-dating, with the live allowances; why no bulk entry; the 2-person rules; nothing deleted; roles not people; no price', /Why you cannot back-date/.test(gr) && /evThreshold\(k\)/.test(gr) && /entered late/.test(gr) && /Why there is no bulk entry/.test(gr) && /The 2-person rules/.test(gr) && /Nothing is deleted/.test(gr) && /Roles, not people/.test(gr) && /No price on any document the customer sees/.test(gr));
   ok('no yellow headings: the rule box is plain surface with an accent edge', /\.qs \.rule\{font-size:13px;background:var\(--surface\);border:1px solid var\(--qline\);border-left:4px solid var\(--accent\)/.test(html) && !/\.qs \.rule\{[^}]*kraft-bg/.test(html));
   ok('numbers as digits on the Guide', !/\b(one|two|three|four|five|six|seven|eight|nine|ten) (days?|steps|tabs|names|dates|people)\b/i.test((gr + gh + mj).replace(/one role|one person|one line|one order|one pair|one minute|one day|one seat/gi, '')));
-  ok('BUILD_ID is 2026-09-24j or later', /var BUILD_ID='2026-09-24[j-z]'/.test(html));
+  ok('BUILD_ID is 2026-09-24j or later', /var BUILD_ID='2026-(09-(24[j-z]|2[5-9][a-z]|3[0-1][a-z])|1[0-2]-[0-3][0-9][a-z])'/.test(html));
 }
 
 /* 24k: Reports as a catalogue; money only where R6 allows */
@@ -470,7 +470,7 @@ ok('a browser that remembered All actions or the Dashboard lands on Today', /if\
   ok('the overview’s value-of-loss tiles and Financial button are money-gated', /\$\{mayMoney\(\)\?m\('Value of loss · cost'/.test(html) && /\$\{mayMoney\(\)\?`<button class="sm" onclick="gotoScreen\('budget'\)">Financial →<\/button>`:''\}/.test(html));
   ok('a product is not named twice when brand equals base', /var prod=\(\(p\.brand&&p\.brand!==p\.base\?p\.brand\+' ':''\)\+\(p\.base\|\|''\)\)\.trim\(\)/.test(html));
   ok('changing the dataset in Custom drops the report’s where-filter', /rbWhere=null; rbDS=v;/.test(grab('rbSetDS')));
-  ok('BUILD_ID is 2026-09-24k or later', /var BUILD_ID='2026-09-24[k-z]'/.test(html));
+  ok('BUILD_ID is 2026-09-24k or later', /var BUILD_ID='2026-(09-(24[k-z]|2[5-9][a-z]|3[0-1][a-z])|1[0-2]-[0-3][0-9][a-z])'/.test(html));
 }
 
 /* 24l: Finance sees money on the Invoicing sheet alone (Tahir, 24 Sep) */
@@ -482,7 +482,7 @@ ok('a browser that remembered All actions or the Dashboard lands on Today', /if\
   ok('Finance anywhere else: no money', f({ role: 'Finance', screen: 'reports' }, 'docs')() === false && f({ role: 'Finance', screen: 'dash' }, 'invoicing')() === false);
   ok('a Production Officer never', f({ role: 'Production', screen: 'reports' }, 'invoicing')() === false);
   ok('the CFO always', f({ role: 'CFO', screen: 'today' }, '')() === true);
-  ok('BUILD_ID is 2026-09-24l or later', /var BUILD_ID='2026-09-24[l-z]'/.test(html));
+  ok('BUILD_ID is 2026-09-24l or later', /var BUILD_ID='2026-(09-(24[l-z]|2[5-9][a-z]|3[0-1][a-z])|1[0-2]-[0-3][0-9][a-z])'/.test(html));
 }
 
 /* 24m: the last of the 2 reviews - Dashboard off the nav, one customer search, Reconcile as a list with the fix one tap away (R20), one name per person, Lab templates beside Recipes */
@@ -501,7 +501,7 @@ ok('a browser that remembered All actions or the Dashboard lands on Today', /if\
   const pp3 = grab('screenPeople');
   ok('a person carries one name for their role: the title; the role code only when it differs', /\(u\.role!==t\?'role <b>'\+qsEsc\(u\.role\)\+'<\/b> · ':''\)/.test(pp3));
   ok('Recipes and Lab templates are 2 tabs of one page', /boFocus==='recipe'\|\|boFocus==='labtpl'/.test(grab('boFocusApply')) && /Lab templates/.test(grab('boFocusApply')));
-  ok('BUILD_ID is 2026-09-24m or later', /var BUILD_ID='2026-09-24[m-z]'/.test(html));
+  ok('BUILD_ID is 2026-09-24m or later', /var BUILD_ID='2026-(09-(24[m-z]|2[5-9][a-z]|3[0-1][a-z])|1[0-2]-[0-3][0-9][a-z])'/.test(html));
 }
 
 /* 24n: Lab and Truck inspection wear the shell - tiles are the tabs, no inner tab bar, no Group select; the bay sheet is named for the job */
@@ -512,14 +512,14 @@ ok('a browser that remembered All actions or the Dashboard lands on Today', /if\
   ok('the rows and their buttons are untouched (the certificate tests still pass against them)', /_qcCard\(/.test(qc) && /_qaCard\(/.test(qa) && /openBatchCOA\(/.test(qc) && /openLotQA\(/.test(qc));
   ok('the top bar hides on Lab and Truck inspection too', /body\[data-screen="qc"\] \.topbar,body\[data-screen="qa"\] \.topbar[,{]/.test(html) /* 24y: Shipments joined the list after qa */);
   ok('the bay sheet is named for the job', /<h2>Raw material at the bay<\/h2>/.test(grab('openReceiveMaterials')) && /confirm what arrived/.test(grab('openReceiveMaterials')));
-  ok('BUILD_ID is 2026-09-24n or later', /var BUILD_ID='2026-09-24[n-z]'/.test(html));
+  ok('BUILD_ID is 2026-09-24n or later', /var BUILD_ID='2026-(09-(24[n-z]|2[5-9][a-z]|3[0-1][a-z])|1[0-2]-[0-3][0-9][a-z])'/.test(html));
 }
 
 /* 24o: the sign-offs are jobs on the Guide */
 {
   const f = new Function('actionItems', 'TD_RIGHT', 'mayRole', grab('tdRoleJobs') + '\nreturn tdRoleJobs;')(() => [], {}, () => false);
   ok('a QCM with nothing waiting still has Approve; an AQCM Review; a QA officer Pack QC and Inspect', JSON.stringify(f('QCM')) === '["Approve"]' && JSON.stringify(f('AQCM')) === '["Review"]' && JSON.stringify(f('QA Inspector')) === '["Pack QC","Inspect"]' && f('Warehouse').length === 0);
-  ok('BUILD_ID is 2026-09-24o or later', /var BUILD_ID='2026-09-24[o-z]'/.test(html));
+  ok('BUILD_ID is 2026-09-24o or later', /var BUILD_ID='2026-(09-(24[o-z]|2[5-9][a-z]|3[0-1][a-z])|1[0-2]-[0-3][0-9][a-z])'/.test(html));
 }
 /* 24p: a person changes their own password from the name menu (PLATFORM: POST /api/me/password) */
 {
@@ -530,7 +530,7 @@ ok('a browser that remembered All actions or the Dashboard lands on Today', /if\
   ok('it posts current + new to /api/me/password with the session token, and never writes state', /fetch\('\/api\/me\/password'/.test(sv) && /authHdr\(\)/.test(sv) && /JSON\.stringify\(\{current:cur,password:nw\}\)/.test(sv) && !/save\(\)/.test(sv));
   ok('the server’s reason is shown, the success is said plainly', /toast\(\(j&&j\.error\)\|\|'Could not change the password\.'\)/.test(sv) && /Password changed\./.test(sv));
   ok('the Guide says so', /Change my password/.test(grab('guideMyJob')));
-  ok('BUILD_ID is 2026-09-24p or later', /var BUILD_ID='2026-09-24[p-z]'/.test(html));
+  ok('BUILD_ID is 2026-09-24p or later', /var BUILD_ID='2026-(09-(24[p-z]|2[5-9][a-z]|3[0-1][a-z])|1[0-2]-[0-3][0-9][a-z])'/.test(html));
 }
 
 report('The Queue Shell, live (23s)');

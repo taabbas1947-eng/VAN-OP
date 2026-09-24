@@ -83,5 +83,6 @@ as(c, 'COO', 'tahir', 'Tahir Abbas');
 ok('My job for the COO: he does not sign certificates', /do not sign/.test(run(c, 'guideMyJob()')));
 as(c, 'Finance', 'ismaeel', 'Muhammad Ismail');
 ok('My job for Finance: the print-on-pack answer is theirs', /Print-on-pack/.test(run(c, 'guideMyJob()')));
+ok('How the app works: a sale is counted when the truck is released, before taxes (25a)', /counts as a sale/.test(how) && /before FED and sales tax/.test(how));
 ok('BUILD_ID is 2026-09-24z or later', /BUILD_ID\s*=\s*'2026-09-(24z|2[5-9][a-z]|30[a-z])'/.test(html));
 process.exitCode = report('The Guide keeps up (24z)') ? 1 : 0;

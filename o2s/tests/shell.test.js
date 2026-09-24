@@ -129,6 +129,19 @@ ok('it lists every role under its department with the people who hold it', /role
 
 /* ================= 7. BUILD ================= */
 ok("BUILD_ID is 2026-09-23t or later", /var BUILD_ID='2026-09-2(3[t-z]|4[a-z])'/.test(html));
+/* 24c: the 2-person rules can refuse */
+{
+  ok('the sign-offs stay OUT of the catalogue', ['inspection.perform','coa.draft','coa.review','coa.approve','shipment.release','dc.approve'].every(c => !new RegExp("code:'" + c.replace('.', '\\.') + "'").test(html)));
+  ok('but each one names the role that holds it today', /var SIGNOFF_ROLES=\{'inspection\.perform':\['QA Inspector'\],'coa\.draft':\['Lab Rep','AQCM','QCM'\],'coa\.review':\['AQCM'\],'coa\.approve':\['QCM'\],'shipment\.release':\['Supply Chain'\],'dc\.approve':\['Supply Chain'\]\}/.test(html));
+  ok('separationRefusal reads a sign-off half from that map and never grants it', /holdsCode\(targetRole,other\)/.test(grab('separationRefusal')) && /rightByCode\(code\)\?mayHere\(role,code\):holdsSignoff\(role,code\)/.test(grab('holdsCode')));
+  ok('the Roles editor shows a rule already broken', /sodConflicts\(role\)/.test(grab('roleEditorHTML')) && /A 2-person rule is broken/.test(grab('roleEditorHTML')));
+  ok('on the certificate the rule is per person: drafter cannot review or approve, reviewer cannot approve', /h\.coa\.draftedBy=sigStamp\(\)/.test(html) && /coaSamePerson\(h\.coa\.draftedBy/.test(grab('coaReview')) && /coaSamePerson\(h\.coa\.reviewer/.test(grab('coaApprove')) && /coaSamePerson\(h\.coa\.draftedBy/.test(grab('coaApprove')));
+  const f = new Function('state', grab('coaSamePerson') + ';return coaSamePerson;');
+  const me = { currentUser: { name: 'Masab Rasheed', username: 'masab' } };
+  ok('same login = same person', f(me)({ user: 'masab', name: 'X' }, '') === true);
+  ok('same typed name = same person', f(me)(null, ' masab rasheed ') === true);
+  ok('another person is not', f(me)({ user: 'himayat', name: 'Himayat Hussain' }, 'Mubeen Ahmad') === false);
+}
 /* 24a: your people */
 {
   const yp = grab('tdYourPeople'), ev = grab('evAllStamps');

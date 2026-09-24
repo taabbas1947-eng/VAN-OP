@@ -11,7 +11,7 @@
    a push keeps running the old code with nothing telling anybody. It sat at
    2026-09-04a through this whole day's work; rmqty/psi tests pinned the code,
    nothing pinned this. buildid.test.js now does. */
-var BUILD_ID='2026-09-24b';
+var BUILD_ID='2026-09-24c';
 var CHANGELOG=[
   {ver:'2026-09-04a', date:'2026-09-04', title:"Delivery, DC printing, and a new Reconciliation check", items:[
     "Delivery confirmation stays with Supply Chain \u2014 it no longer hands off to the Plant Manager. If one sits too long, it now re-flags the same Supply Chain owner every 3 days instead.",
@@ -185,6 +185,10 @@ var CHANGELOG=[
   ]},
   {ver:'2026-09-24b', date:'2026-09-24', title:"The 4th light: stuck batches", items:[
     "Plant has a 4th light: batches that have stopped moving \u2014 no output for 3 days, or the plan made and the batch still open after 2 days. Tap it for the list; each row opens the run sheet, the close, or the shift log."
+  ]},
+  {ver:'2026-09-24c', date:'2026-09-24', title:"The 2-person rules can now refuse", items:[
+    "The 5 two-person rules (nobody inspects their own output; the analyst does not check his own certificate; a certificate needs 2 signatures; the loader does not release; the order-raiser does not approve its delivery) could never fire, because the sign-offs they name are decided by role, not by a tick. They now know which role holds each sign-off, so a tick that would break a rule is refused with the reason, and People \u2192 Roles shows a rule already broken today \u2014 Lead Supply Chain both loads and releases the truck.",
+    "On the certificate itself the rule is now per person, not per role: whoever drafted a COA cannot review or approve it, and whoever reviewed it cannot approve it \u2014 checked on the login, with the typed analyst name as a fallback."
   ]},
 ];
 </script>
@@ -2066,6 +2070,9 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);border-c
 @media (min-width:480px){.two{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
 .actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
 .field .req{color:var(--over);font-weight:400}
+.warn{display:flex;gap:10px;align-items:flex-start;padding:12px;border:1px solid var(--over);background:var(--over-bg);border-radius:3px;font-size:14px}
+.warn .glyph{color:var(--over);font-size:14px;margin-top:3px}
+.warn>div{flex:1 1 auto;display:grid;gap:6px}
 .seg{display:flex;flex-wrap:wrap;gap:6px}
 .seg label{flex:1 1 140px;display:flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:6px 10px;border:1px solid var(--qline-strong);border-radius:3px;background:var(--surface);cursor:pointer;text-align:center;font-size:14px;margin:0}
 .seg label:has(input:checked){background:var(--accent-bg);border-color:var(--accent);color:var(--ink);font-weight:600}
@@ -4105,12 +4112,30 @@ function grantRefusal(granter,targetRole,code){
   return ''; }
 /* Separation of duty: two rights that must not land on one role. Checked only
    where both codes exist in the catalogue today. */
+/* THE SIGN-OFFS, 24c. They are NOT in the catalogue and never will be (a second
+   signature is decided by the role name, not by a tick - see the note above the
+   Production rights). But the 2-person rules name them, and a rule that cannot
+   look up one of its halves can never refuse anything. This map says which role
+   holds each sign-off today, exactly as the gates hard-code it, so the rules can
+   answer. It grants nothing. */
+var SIGNOFF_ROLES={'inspection.perform':['QA Inspector'],'coa.draft':['Lab Rep','AQCM','QCM'],'coa.review':['AQCM'],'coa.approve':['QCM'],'shipment.release':['Supply Chain'],'dc.approve':['Supply Chain']};
+var SIGNOFF_NAMES={'inspection.perform':'Inspect a lot or a truck','coa.draft':'Draft a COA','coa.review':'Review a COA','coa.approve':'Approve a COA','shipment.release':'Release a loaded truck','dc.approve':'Approve a delivery challan'};
+function holdsSignoff(role,code){ var r=SIGNOFF_ROLES[code]; return !!r && (role==='COO' || r.indexOf(role)>=0); }
+function holdsCode(role,code){ return rightByCode(code)?mayHere(role,code):holdsSignoff(role,code); }
+function codeKnown(code){ return !!rightByCode(code)||!!SIGNOFF_ROLES[code]; }
+function codeName(code){ var r=rightByCode(code); return (r&&r.name)||SIGNOFF_NAMES[code]||code; }
 function separationRefusal(targetRole,code){
+  if(targetRole==='COO') return '';
   for(var i=0;i<SEPARATION.length;i++){ var a=SEPARATION[i][0],bC=SEPARATION[i][1],why=SEPARATION[i][2];
-    if(!rightByCode(a)||!rightByCode(bC)) continue;
+    if(!codeKnown(a)||!codeKnown(bC)) continue;
     var other=(code===a)?bC:((code===bC)?a:null); if(!other) continue;
-    if(mayHere(targetRole,other)) return (targetRole||'That role')+' already has "'+((rightByCode(other)||{}).name||other)+'" — '+why+'.'; }
+    if(holdsCode(targetRole,other)) return (targetRole||'That role')+' already has "'+codeName(other)+'" — '+why+'.'; }
   return ''; }
+/* The rules already broken today, for the COO to see: a role that holds both halves. */
+function sodConflicts(role){
+  var out=[]; var roles=role?[role]:rolesList().filter(function(r){return r!=='COO';});
+  roles.forEach(function(r){ SEPARATION.forEach(function(p){ if(codeKnown(p[0])&&codeKnown(p[1])&&holdsCode(r,p[0])&&holdsCode(r,p[1])) out.push({role:r,a:p[0],b:p[1],why:p[2]}); }); });
+  return out; }
 
 </script>
 <script>
@@ -7923,11 +7948,17 @@ function coaSubmitAnalyst(){ const ctx=coaCtx(); const b=ctx.b, h=ctx.h; if(!b||
   coaForm.overall=ov; coaForm.analyst={name:coaForm.analyst.name.trim(),date:coaTS()};
   coaForm.status = (ov==='FIT') ? 'analysed' : 'failed'; if(ov==='UNFIT') coaForm.failReason='UNFIT on '+coaForm.tests.filter(r=>/unfit|not ok/i.test(r.remark||'')).map(r=>r.test).join(', '); else if(ov!=='FIT') coaForm.failReason='No result on '+coaForm.tests.filter(r=>!String(r.remark||'').trim()||/no result/i.test(r.remark||'')).map(r=>r.test).join(', ');
   h.coa=JSON.parse(JSON.stringify(coaForm)); delete h.coa.bid; delete h.coa.lid;
+  h.coa.draftedBy=sigStamp();   /* 24c: who keyed the draft, by login - the review and approval refuse the same person */
   state.masters.labTemplates=state.masters.labTemplates||{}; if(coaForm.item) state.masters.labTemplates[coaForm.item]=coaForm.tests.map(r=>({g:r.g,test:r.test,spec:r.spec,method:r.method,mu:r.mu}));
   qcAudit2(b,'Lab analysed',ov); logAction(`Lab COA submitted for ${L} (${coaForm.item}) — ${ov}`+(ov!=='FIT'?' → Plant Manager':' → AQCM'));
   save(); coaFSClose(); }
-function coaReview(){ if(!hardRole(['AQCM'])){toast('AQCM only');return;} const ctx=coaCtx(); const b=ctx.b,h=ctx.h; if(!b||!h||!h.coa)return; const nm=(state.currentUser&&state.currentUser.name)||state.role; h.coa.reviewer=Object.assign(sigStamp(),{name:nm,date:coaTS()}); h.coa.status='reviewed'; qcAudit2(b,'AQCM reviewed',''); logAction(`COA reviewed (AQCM) for ${ctx.L} → QCM`); save(); coaFSClose(); }
-function coaApprove(){ if(!hardRole(['QCM'])){toast('QCM only');return;} const ctx=coaCtx(); const b=ctx.b,h=ctx.h; if(!b||!h||!h.coa)return; const nm=(state.currentUser&&state.currentUser.name)||state.role; h.coa.approver=Object.assign(sigStamp(),{name:nm,date:coaTS()}); h.coa.status='approved'; h.coa.approvedDate=evToday(); Object.assign(h.coa,evStamp(evToday(),'coa','')); /* a signature's date is the moment of signing, so there is no 'actual date' to enter — but recordedAt/By still belong on the record */ h.coa.certifiedKg=ctx.qkg; if(ctx.lot) ctx.lot.certifiedKg=ctx.qkg; qcAudit2(b,'QCM approved','cleared'); logAction(`COA APPROVED (QCM) for ${ctx.L} — cleared for packing`); save(); coaFSClose(); }
+function coaReview(){ if(!hardRole(['AQCM'])){toast('AQCM only');return;} const ctx=coaCtx(); const b=ctx.b,h=ctx.h; if(!b||!h||!h.coa)return; const nm=(state.currentUser&&state.currentUser.name)||state.role;
+  /* 24c: the analyst does not check his own certificate - by login, and by the typed analyst name as a fallback */
+  if(coaSamePerson(h.coa.draftedBy, (h.coa.analyst||{}).name)){ toast('You drafted this certificate. Somebody else must review it.'); return; } h.coa.reviewer=Object.assign(sigStamp(),{name:nm,date:coaTS()}); h.coa.status='reviewed'; qcAudit2(b,'AQCM reviewed',''); logAction(`COA reviewed (AQCM) for ${ctx.L} → QCM`); save(); coaFSClose(); }
+function coaApprove(){ if(!hardRole(['QCM'])){toast('QCM only');return;} const ctx=coaCtx(); const b=ctx.b,h=ctx.h; if(!b||!h||!h.coa)return; const nm=(state.currentUser&&state.currentUser.name)||state.role;
+  /* 24c: a certificate needs 2 signatures, not one - the reviewer and the approver are different people */
+  if(coaSamePerson(h.coa.reviewer, (h.coa.reviewer||{}).name)){ toast('You reviewed this certificate. Somebody else must approve it.'); return; }
+  if(coaSamePerson(h.coa.draftedBy, (h.coa.analyst||{}).name)){ toast('You drafted this certificate. Somebody else must approve it.'); return; } h.coa.approver=Object.assign(sigStamp(),{name:nm,date:coaTS()}); h.coa.status='approved'; h.coa.approvedDate=evToday(); Object.assign(h.coa,evStamp(evToday(),'coa','')); /* a signature's date is the moment of signing, so there is no 'actual date' to enter — but recordedAt/By still belong on the record */ h.coa.certifiedKg=ctx.qkg; if(ctx.lot) ctx.lot.certifiedKg=ctx.qkg; qcAudit2(b,'QCM approved','cleared'); logAction(`COA APPROVED (QCM) for ${ctx.L} — cleared for packing`); save(); coaFSClose(); }
 function coaReject(stage){ if(!canEdit(['AQCM','QCM'])){toast('AQCM / QCM only');return;} const ctx=coaCtx(); const b=ctx.b,h=ctx.h; if(!b||!h||!h.coa)return; const why=(typeof prompt==='function'?prompt('Reason for rejecting back to the analyst:'):'')||''; h.coa.status='draft'; h.coa.rejected={by:state.role,stage,why:why||'',date:TODAY.toISOString().slice(0,10)}; qcAudit2(b,'COA rejected',why||''); logAction(`COA rejected at ${stage} for ${ctx.L} — back to analyst`); save(); coaFSClose(); }
 function coaDeviation(){ if(!hardRole(['Plant Manager'])){toast('Plant Manager only');return;} const ctx=coaCtx(); const b=ctx.b,h=ctx.h; if(!b||!h||!h.coa)return; const note=(typeof prompt==='function'?prompt('Deviation note (why accept this UNFIT lot):'):'')||''; h.coa.deviation=true; h.coa.deviationNote=note||''; h.coa.deviationBy=Object.assign(sigStamp(),{name:(state.currentUser&&state.currentUser.name)||state.role,date:coaTS()}); h.coa.status='analysed'; qcAudit2(b,'PM deviation accepted',note||''); logAction(`UNFIT ${ctx.L} accepted as DEVIATION by Plant Manager → AQCM review → QCM approval`); save(); coaFSClose(); }
 function coaRework(){ if(!hardRole(['Plant Manager'])){toast('Plant Manager only');return;} const ctx=coaCtx(); const b=ctx.b,h=ctx.h; if(!b||!h||!h.coa)return; h.coa.reworks=(h.coa.reworks||0)+1; const item=h.coa.item; h.coa=null; qcAudit2(b,'Sent to rework',''); logAction(`${ctx.L} (${item}) sent to rework after UNFIT`); save(); coaFSClose(); }
@@ -8867,6 +8898,10 @@ function sigStamp(){
   var u=state.currentUser||{};
   return { name:(u.name||state.role||''), user:(u.username||''), role:state.role||'' };
 }
+/* 24c: is the signed-in person the one in this stamp? By login when the stamp has
+   one, else by name (the analyst line is typed, not signed). The COO is not exempt:
+   a certificate with one person's name on 2 lines is the thing the rule forbids. */
+function coaSamePerson(stamp,typedName){ var u=state.currentUser||{}; var me=String(u.name||'').trim().toLowerCase(); if(stamp&&stamp.user&&u.username&&String(stamp.user)===String(u.username)) return true; if(stamp&&stamp.name&&me&&String(stamp.name).trim().toLowerCase()===me) return true; if(typedName&&me&&String(typedName).trim().toLowerCase()===me) return true; return false; }
 /* ===== THE THREE VERIFY ITEMS — SPEC-01 rule 3, built 2026-08-21
 
    The 8-point checklist asks "Batch & expiry printed" — printed, not CORRECT.
@@ -11869,6 +11904,7 @@ function roleEditorHTML(role){
   var isCOO=state.role==='COO'; var ed=isCOO && role!=='COO';
   var h='';
   if(role==='COO') return '<div class="note" style="margin-top:12px">The COO can do everything, everywhere. Nothing to set.</div>';
+  var sod=sodConflicts(role); if(sod.length) h+='<div class="warn" style="margin-top:12px"><span class="glyph">\u25a0</span><div>'+sod.map(function(c){ return '<div><strong>A 2-person rule is broken:</strong> '+qsEsc(roleTitle(role))+' both \u201c'+qsEsc(codeName(c.a)).toLowerCase()+'\u201d and \u201c'+qsEsc(codeName(c.b)).toLowerCase()+'\u201d \u2014 '+qsEsc(c.why)+'. Untick one, or move the sign-off to another role.</div>'; }).join('')+'</div></div>';
   /* 1. rights, as sentences with a tick */
   var live=RIGHTS.filter(function(r){ return RIGHTS_LIVE[r.code]===true; });
   var byDept={}; live.forEach(function(r){ (byDept[r.dept]=byDept[r.dept]||[]).push(r); });

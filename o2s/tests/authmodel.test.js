@@ -485,11 +485,26 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
   /* None of the pairs can bite yet — both halves have to be in the catalogue,
      and only Commercial is converted. That is correct, and it must be TRUE
      rather than assumed, so it is checked. */
-  ok('no separation rule fires today, because no pair is fully converted yet',
+  /* 24c: the sign-offs are still NOT in the catalogue (see above) - but the rules
+     now know which role holds each one (SIGNOFF_ROLES), so a tick that would put
+     both halves on one role is refused. Exactly 3 ticks are refused today, and
+     every one names a rule that is genuinely broken on the live role model. */
+  ok('no pair has BOTH halves in the catalogue (the sign-offs stay out)',
      B.SEPARATION.every(([a, b]) => !(B.rightByCode(a) && B.rightByCode(b))));
-  B.RIGHTS.forEach(rt => ROLES.forEach(r =>
-    eq('nothing is blocked by separation today: ' + r + ' · ' + rt.code,
-       B.separationRefusal(r, rt.code), '')));
+  ok('but every pair is known, because the sign-off half answers from SIGNOFF_ROLES',
+     B.SEPARATION.every(([a, b]) => B.codeKnown(a) && B.codeKnown(b)));
+  const REFUSED = { 'Supply Chain · order.create': 1, 'Supply Chain · shipment.load': 1, 'QA Inspector · production.enter': 1 };
+  B.RIGHTS.forEach(rt => ROLES.forEach(r => {
+    const k = r + ' · ' + rt.code, got = B.separationRefusal(r, rt.code);
+    if (REFUSED[k]) ok('refused, with the reason: ' + k, /already has/.test(got) && /—/.test(got), got);
+    else eq('nothing else is blocked by separation: ' + k, got, '');
+  }));
+  ok('the COO is never refused', ROLES.indexOf('COO') < 0 || B.RIGHTS.every(rt => B.separationRefusal('COO', rt.code) === ''));
+  ok('the rules already broken today are listed for the COO: Lead Supply Chain loads AND releases, and approves the DC for orders it may raise',
+     B.sodConflicts().some(c => c.role === 'Supply Chain' && c.a === 'shipment.load' && c.b === 'shipment.release'));
+  ok('...and the other real one: the AQCM can draft a COA (Lab edit) and review it - the per-person check on the certificate is what stops that (24c)',
+     B.sodConflicts().some(c => c.role === 'AQCM' && c.a === 'coa.draft' && c.b === 'coa.review'));
+  eq('exactly those 2 rules are broken on the live role model today', B.sodConflicts().length, 2, JSON.stringify(B.sodConflicts()));
 
   /* And it DOES bite the moment the other half arrives. Add dc.approve — the
      pair order.create + dc.approve — and give it to the KAM. */

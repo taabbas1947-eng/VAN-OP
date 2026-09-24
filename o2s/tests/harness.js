@@ -138,7 +138,9 @@ const AUTH_MODEL_FNS = ['rightByCode', 'rightsOfDept', 'deptById', 'rolesOfState
   'roleRightsOf', 'mayLegacyRole', 'mayRole', 'may', 'whoMayRight', 'whoCanGrant', 'denyRight',
   'rightsFreezeCheck', '_canEditOn', 'rolesUnfiled', 'rightAnswerToday', 'mayHere', 'screenLoopholes', 'seedAnswer', 'seedDeptRightsV1', 'resyncScreenRights', 'rightDecided', 'markRightDecided', 'accessLevelOn', 'grantRefusal', 'separationRefusal', 'rolesUnfiled',
   /* the night of 23 Sep: the ruled matrix, the customer grants, the Warehouse role */
-  'seedAccessV2', 'seedCustomerRightsV1', 'seedWarehouseRoleV1'];
+  'seedAccessV2', 'seedCustomerRightsV1', 'seedWarehouseRoleV1',
+  /* 24c: the sign-offs the 2-person rules name, and the helpers that read them */
+  'holdsSignoff', 'holdsCode', 'codeKnown', 'codeName', 'sodConflicts', 'rolesList'];
 function authModelSrc() {
   return ['DEPTS', 'ROLE_DEPT', 'RIGHTS', 'SEPARATION'].map(n => grabTopVar(n, n === 'ROLE_DEPT' ? '{' : '[')).join('\n')
        + grabTopVar('RIGHTS_LIVE', '{')
@@ -150,6 +152,7 @@ function authModelSrc() {
        /* Customers to Finance, 23 Sep night: seedDeptRightsV1 reads these too. */
        + grabTopVar('CUSTOMER_LIVE', '[') + grabTopVar('CUSTOMER_GRANT', '{')
        + grabTopVar('ACCESS_RULED_V2', '{') + '\n'
+       + grabTopVar('SIGNOFF_ROLES', '{') + grabTopVar('SIGNOFF_NAMES', '{') + '\n'
        + AUTH_MODEL_FNS.map(grab).join('\n\n');
 }
 

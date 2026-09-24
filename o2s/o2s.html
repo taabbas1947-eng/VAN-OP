@@ -11,7 +11,7 @@
    a push keeps running the old code with nothing telling anybody. It sat at
    2026-09-04a through this whole day's work; rmqty/psi tests pinned the code,
    nothing pinned this. buildid.test.js now does. */
-var BUILD_ID='2026-09-24p';
+var BUILD_ID='2026-09-24q';
 var CHANGELOG=[
   {ver:'2026-09-04a', date:'2026-09-04', title:"Delivery, DC printing, and a new Reconciliation check", items:[
     "Delivery confirmation stays with Supply Chain \u2014 it no longer hands off to the Plant Manager. If one sits too long, it now re-flags the same Supply Chain owner every 3 days instead.",
@@ -250,6 +250,13 @@ var CHANGELOG=[
   ]},
   {ver:'2026-09-24p', date:'2026-09-24', title:"Change my password", items:[
     "Tap your name at the top right \u2192 Change my password: current, new, new again. Only you can change your own; the COO still resets from People if you forget it."
+  ]},
+  {ver:'2026-09-24q', date:'2026-09-24', title:"Units, jobs on hold, and print-on-pack to Finance", items:[
+    "A production run on Today and a line on the order sheet now say L for a liquid product and Kg for everything else, instead of Kg/L.",
+    "When your list is clear, the count of what is open in the plant leaves out jobs the Plant Manager has put on hold, and says how many are on hold.",
+    "An order with no print-on-pack answer now goes to Finance. It still reaches the COO if it waits too long.",
+    "The note at the bottom of Today is gone.",
+    "This notice now shows the newest changes first, 5 at a time."
   ]},
 ];
 </script>
@@ -2855,13 +2862,16 @@ function checkWhatsNew(){
 }
 function renderWhatsNewHtml(entries){
   const multi=entries.length>1;
-  const body=entries.map(function(c,idx){
+  /* 24q: newest first, the 5 newest, one line for the rest. A first login met
+     "46 updates" starting with 4 September. */
+  const all=entries.slice().reverse(), shown=all.slice(0,5), rest=all.length-shown.length;
+  const body=shown.map(function(c,idx){
     const items=(c.items||[]).map(function(it){ return '<li style="margin-bottom:9px;font-size:13.5px;line-height:1.6">'+_av(it)+'</li>'; }).join('');
     const divider = idx>0 ? '<div style="border-top:1px solid var(--line);margin:18px 0 16px"></div>' : '';
     return `${divider}<div><div style="font-weight:700;font-size:15px;color:var(--navy)">${_av(c.title||'')}</div>
       <div class="muted" style="font-size:11.5px;margin-top:3px">${_av(c.date||'')}</div>
       <ul style="margin:12px 0 0;padding-left:20px">${items}</ul></div>`;
-  }).join('');
+  }).join('')+(rest>0?'<div class="muted" style="margin-top:14px;font-size:12.5px">'+rest+' earlier update'+(rest===1?'':'s')+' not shown.</div>':'');
   return `<div class="mh"><h2>What's changed since you last logged in</h2><div class="sub">${multi?entries.length+' updates since your last visit':'1 update since your last visit'}</div></div>
     <div class="mb" style="max-height:56vh;overflow:auto">${body}</div>
     <div class="mf"><button class="green" onclick="dismissWhatsNew()">Got it</button></div>`;
@@ -3573,7 +3583,7 @@ var ROLE_TITLE={
 /* HR's sheet is authoritative for the titles above. Where a title differs per
    person rather than per role, it is seeded here by username - these two are the
    only such cases today, and both were ruled on 23 September. */
-var USER_TITLE={ 'aliraza':'Production Associate', 'mali':'Chief Commercial Officer' };
+var USER_TITLE={ 'aliraza':'Production Associate', 'mali':'Chief Commercial Officer', 'ahmer':'System Administrator' };
 function roleTitle(role){ var r=String(role||'');
   try{ var o=(state.masters&&state.masters.roleTitles)||{}; if(o[r]) return o[r]; }catch(e){}
   return ROLE_TITLE[r]||r; }
@@ -10889,7 +10899,7 @@ function actionItems(){
      the KAM knows the client's instruction; escalates to the COO, who can also
      answer. Disappears for good once every PO carries an answer. */
   { var _noDec=openPrintDecisionPOs();
-    if(_noDec.length) items.push({role:'KAM',
+    if(_noDec.length) items.push({role:'Finance',  /* 24q, Tahir: nobody holds KAM - route it, do not nominate a KAM */
       what:'Answer print-on-pack for '+_noDec.length+' PO'+(_noDec.length===1?'':'s')+' created before the question existed',
       act:"openBulkPrintDecision()", label:'Print price', disp:{date:(_noDec[0].received||'')}}); }
   /* ===== THE TRUCK PIPELINE — 2026-08-21 (Fahim: "Gate pass approval is assigned
@@ -11692,11 +11702,21 @@ function _tdWhat(it){
   if(it.o && m) return _tdEsc(m[1])+' · '+_tdPo(it.o)+(it.o.client?' · '+_tdClient(it.o):'');
   return _tdEsc(w);
 }
+/* 24q, Tahir: "Liquid = L, rest = Kg". Reads the product's form from the product
+   list. A product it cannot find, or one with no form, keeps Kg/L rather than guess. */
+function unitOf(brand){
+  try{ var b=String(brand==null?'':brand).trim().toLowerCase(); if(!b) return 'Kg/L';
+    var list=customProducts()||[], p=null;
+    for(var i=0;i<list.length;i++){ if(list[i]&&String(list[i].brand==null?'':list[i].brand).trim().toLowerCase()===b){ p=list[i]; break; } }
+    if(!p||!p.form) return 'Kg/L';
+    return String(p.form).trim().toLowerCase()==='liquid'?'L':'Kg';
+  }catch(e){ return 'Kg/L'; }
+}
 function tdCardHTML(g){
   var L=TD_LABEL[g.label]||{title:g.label,verb:'Open'};
   var one=g.items[0], n=g.items.length, k=Object.keys(g.pos).length;
   var title, sub;
-  if(g.key.indexOf('prod:')===0){ title=_tdEsc(one.l.brand||''); sub='<b>'+fmt(g.qty)+'</b> Kg/L to make · '+n+' line'+(n===1?'':'s')+' in '+k+' order'+(k===1?'':'s')+(n===1?' · '+_tdPo(one.o)+(one.o.client?' · '+_tdClient(one.o):''):''); }
+  if(g.key.indexOf('prod:')===0){ title=_tdEsc(one.l.brand||''); sub='<b>'+fmt(g.qty)+'</b> '+unitOf(one.l.brand)+' to make · '+n+' line'+(n===1?'':'s')+' in '+k+' order'+(k===1?'':'s')+(n===1?' · '+_tdPo(one.o)+(one.o.client?' · '+_tdClient(one.o):''):''); }
   else if(g.key.indexOf('rcv:')===0){ title=L.title; sub=_tdPo(one.o)+(one.o.client?' · '+_tdClient(one.o):'')+' · '+n+' material'+(n===1?'':'s'); }
   else if(g.key.indexOf('rsn:')===0){ title=L.title; sub=_tdPo(one.o)+(one.o.client?' · '+_tdClient(one.o):'')+' · '+n+' late line'+(n===1?'':'s'); }
   else { title=L.title; sub=_tdWhat(one); }
@@ -11726,13 +11746,20 @@ function tdCardHTML(g){
    the COAs that will reach him. No customer, no quantity, no money. */
 function tdPlantPulse(){
   /* counted as JOBS, the way Today counts them - not as rows */
-  var all=actionItems(); all.forEach(function(it,i){ it._id='P'+i; });
+  /* 24q: a job the Plant Manager put on hold is not open today - the person's own
+     list already leaves it out, so the pulse must too, or the two disagree
+     (32 runs here against 29 on the Production team's list). Named on its own line. */
+  var raw=actionItems(), all=[], held=[];
+  raw.forEach(function(it){ var d=null; try{ d=(typeof acDeferActive==='function')?acDeferActive(it):null; }catch(e){ d=null; } (d?held:all).push(it); });
+  all.forEach(function(it,i){ it._id='P'+i; }); held.forEach(function(it,i){ it._id='H'+i; });
+  var nHeld=held.length?tdGroups(held).length:0;
+  var holdLine=nHeld?'<div class="tdmuted" style="margin-top:6px">'+nHeld+' job'+(nHeld===1?' is':'s are')+' on hold until a later date and not counted here.</div>':'';
   var by={};
   tdGroups(all).forEach(function(g){ var L=TD_LABEL[g.label]||{title:g.label}; var key=g.key.indexOf('prod:')===0?'Production runs':L.title; by[key]=(by[key]||0)+1; });
   var keys=Object.keys(by).sort(function(a,b){ return by[b]-by[a]; }).slice(0,6);
-  if(!keys.length) return '<div class="tdmuted">Nothing is open anywhere in the plant.</div>';
+  if(!keys.length) return '<div class="tdmuted">Nothing is open anywhere in the plant.</div>'+holdLine;
   var mx=by[keys[0]]||1;
-  return '<div class="tdpulse">'+keys.map(function(k){ return '<div class="tdpulse-r"><span>'+_tdEsc(k)+'</span><i style="width:'+Math.max(4,Math.round(90*by[k]/mx))+'px"></i><b>'+by[k]+'</b></div>'; }).join('')+'</div>';
+  return '<div class="tdpulse">'+keys.map(function(k){ return '<div class="tdpulse-r"><span>'+_tdEsc(k)+'</span><i style="width:'+Math.max(4,Math.round(90*by[k]/mx))+'px"></i><b>'+by[k]+'</b></div>'; }).join('')+'</div>'+holdLine;
 }
 /* Where a person starts something the queue cannot raise for them: a PO that
    has just arrived, a bulk batch, a shift log, a shipment. Shown only to the
@@ -12493,7 +12520,7 @@ function openOrderSheet(id){
   h+='<div class="note" style="margin:10px 0 14px"><b>Next:</b> '+next+'</div>';
   h+='<div class="tdsec" style="margin-top:0">Products<span class="cnt">'+(o.lines||[]).length+'</span></div>';
   h+='<div class="tdlist">'+(o.lines||[]).map(function(l){ var lb=ordLineBrief(o,l); var tone=lb.b==='Delivered'?'st-done':(lb.b==='Closed short'?'st-na':(lb.late?'st-over':'st-ok'));
-    return '<div class="tdcard ord2-line '+tone+'"><div class="row between" style="align-items:baseline;gap:8px;flex-wrap:wrap"><span class="tdtitle" style="margin-top:0">'+qsEsc(l.brand)+'</span><span class="tdsub">'+fmt(lb.ord)+' Kg/L ordered · <b>'+qsEsc(lb.b)+'</b>'+(lb.late?' · <span style="color:var(--over)">'+Math.round((TODAY-new Date(l.committed))/86400000)+' d past its date</span>':'')+'</span></div>'+ordLineStepsHTML(o,l)+(typeof closeLineButtonHTML==='function'?(function(){ var cb=closeLineButtonHTML(o,l); return cb?'<div class="actions" style="margin-top:8px">'+cb+'</div>':''; })():'')+'</div>'; }).join('')+'</div>';
+    return '<div class="tdcard ord2-line '+tone+'"><div class="row between" style="align-items:baseline;gap:8px;flex-wrap:wrap"><span class="tdtitle" style="margin-top:0">'+qsEsc(l.brand)+'</span><span class="tdsub">'+fmt(lb.ord)+' '+unitOf(l.brand)+' ordered · <b>'+qsEsc(lb.b)+'</b>'+(lb.late?' · <span style="color:var(--over)">'+Math.round((TODAY-new Date(l.committed))/86400000)+' d past its date</span>':'')+'</span></div>'+ordLineStepsHTML(o,l)+(typeof closeLineButtonHTML==='function'?(function(){ var cb=closeLineButtonHTML(o,l); return cb?'<div class="actions" style="margin-top:8px">'+cb+'</div>':''; })():'')+'</div>'; }).join('')+'</div>';
   h+='</div><div class="mf">'+openBtn+close+'<button class="qs-btn" onclick="closeModal()">Close</button></div>';
   $('modal').innerHTML=h; $('modalBg').classList.add('open');
 }
@@ -12653,7 +12680,6 @@ function screenToday(){
   try{ if(!(usersList||[]).length && !window._tdUsersOnce){ window._tdUsersOnce=true; loadUsers().then(function(){ if(state.screen==='today') render(); }); } }catch(e){}
   h+=tdYourPeople();
   h+=tdDoneToday();
-  h+='<div class="tdfoot">Live O2S. What you press here is saved exactly as before \u2014 the button is the same action, it just no longer hides behind a tab.</div>';
   h+='</div>';
   $('view').innerHTML=h;
 }

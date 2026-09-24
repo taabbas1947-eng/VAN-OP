@@ -142,6 +142,11 @@ const MARKERS = [
   ['<div class="qs wide"><h1>Truck inspection</h1>', 1, 'Truck inspection in the shell (24n)'],
   /* 2026-09-24p */
   ['function openMyPassword(',             1, 'change my own password (24p)'],
+  /* 2026-09-24q */
+  ['function unitOf(',                     1, 'L for liquid, Kg for the rest (24q)'],
+  ["items.push({role:'Finance',  /* 24q",  1, 'print-on-pack routed to Finance (24q)'],
+  ['not counted here.',                    1, 'jobs on hold left out of the pulse (24q)'],
+  ['earlier update',                       1, "What's changed: newest first, 5 shown (24q)"],
 ];
 
 const [, , mode, freshPath, otherPath] = process.argv;

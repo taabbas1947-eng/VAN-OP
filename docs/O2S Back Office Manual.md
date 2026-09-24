@@ -77,6 +77,6 @@ Sales & Budget (Report Center → Dashboard → Financial) opens with the channe
 | Money visible to everyone in the report builder | 4 money roles; Finance dataset and money columns gated |
 | 44 orders with no print-on-pack answer, addressed to a read-only KAM | answered "no" by ruling, logged |
 | Shared logins: lab, qa, aqcm, qcm, fahim, saad, yawar, tahir | one login per person (COO, Users & Access) |
-| A second COO login not on the org list (ahmer) | to be deleted by the COO |
+| ahmer (Ahmer Shehzad) — the system administrator: COO rights, title "System Administrator" (Tahir, 24 Sep 2026) | kept on purpose; not on HR's sheet because he is not plant staff |
 | "On Time" as a delay reason in the master list | to be removed in Reference data |
 | Reconciliation is a report with no action | next: flagged lines become Back Office jobs |

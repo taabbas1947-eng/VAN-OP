@@ -5458,3 +5458,8 @@ Open, from the review, not built: Reconcile as a list without the 4 stat tiles; 
 ## Pass thirty-three — 24s: a door into the Lab (24 Sep, NOT pushed)
 
 Tahir asked where the Lab screen is from his login. Nothing led there for the COO: Today's start buttons give the Lab only to Lab Rep/AQCM/QCM, and the COO's Today starts orders only (23u); the old nav tab is gone. Built: Plant → Departments → Quality carries "Open the Lab ›" for anyone who may view the Lab. Test in labassign.test.js (106 checks); suite 9,722 passed, 0 failed. Next: push 791df3e, 2eaebc2 and this commit together.
+
+
+## Pass thirty-four — 24t: the logo on the certificate sheet (24 Sep, NOT pushed)
+
+Tahir sent a screenshot of the on-screen COA sheet with no logo, only "VITAL AGRI NUTRIENTS". Cause: `VANSVG` in renderCOAModal embedded a PNG whose zlib data fails its checksum (broken since first pasted, commit b54d2ea). The unused `var VAN_LOGO` PNG is broken the same way (left alone, nothing reads it). Printed documents were never affected: they use `VAN_LOGO_REAL` (SVG). Fix: VANSVG uses VAN_LOGO_REAL. Verified in the browser (image 300x84, complete). Suite 9,724 passed, 0 failed. Also answered: how the QC manager is told about a new sample (Today "Sample to assign", Lab screen Assign button) — only once the flow is switched ON.

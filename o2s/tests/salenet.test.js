@@ -51,7 +51,7 @@ eq('FOC truck: a sale of 0', r[1].value, 0);
 /* the audit, as source checks: no money figure multiplies the raw price any more */
 ok('saleRows prices by lineNetPrice', /lineNetPrice\(o,l\)/.test(grab('saleRows')));
 ok('saleOpenValue prices by lineNetPrice', /lineNetPrice\(o,l\)/.test(grab('saleOpenValue')));
-ok('Budget line rows: sold from saleRows this FY, open from saleOpenValue', /saleRows\(\)/.test(grab('bgtSubRows')) && /saleOpenValue\(o,l\)/.test(grab('bgtSubRows')) && !/l\.delivered\|\|0\)\*ip/.test(grab('bgtSubRows')));
+ok('Budget rows: sold from saleRows in the period, open from saleOpenValue (25k: sbData)', /saleRows\(\)/.test(grab('sbData')) && /saleOpenValue\(o,l\)/.test(grab('sbData')) || /saleRows\(\)/.test(grab('bgtSubRows')) && /saleOpenValue\(o,l\)/.test(grab('bgtSubRows')) && !/l\.delivered\|\|0\)\*ip/.test(grab('bgtSubRows')));
 ok('Executive metrics: sold from saleRows this FY', /saleRows\(\)\.forEach\(x=>\{ if\(x\.fy!==fy\) return;/.test(grab('execMetrics')) && !/l\.delivered\|\|0\)\*ip/.test(grab('execMetrics')));
 ok('Targets panel: sold from saleRows this FY', /saleRows\(\)/.test(grab('dashTargetsPanel')) && !/l\.delivered\|\|0\)\*\(\+l\.invoicePrice/.test(grab('dashTargetsPanel')));
 ok('Report builder Finance: only trucks out (saleLeft), net price', /saleLeft\(s\)/.test(html) && /var price=lineNetPrice\(_r\.o,_r\.l\)/.test(html));

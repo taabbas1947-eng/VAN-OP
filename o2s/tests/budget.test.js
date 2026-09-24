@@ -101,18 +101,19 @@ b.channelBudgetSet('Cobo', 0);
 ok('0 clears it', !b.state.masters.channelTargets.Cobo['2026-27']);
 
 /* ---- 3. the screen ---- */
-ok('Sales & Budget opens with the By channel block', /By channel/.test(grab('budgetHtml')) && /budgetByChannel\(fy\)/.test(grab('budgetHtml')));
-ok('it says what Dealer and Farmer totals mean', /segment total/.test(grab('budgetHtml')));
+/* 25k: Sales & Budget rebuilt - channels first, customers under them, one budget (the channel totals) */
+ok('Sales & Budget is channels first, customers under them', /Channel · customer/.test(grab('budgetHtml')) && /sbData\(\)/.test(grab('budgetHtml')));
+ok('the budget is the channel totals (client targets only when no channel total is set)', /if\(!\(budget>0\)\) budget=cliT;/.test(grab('sbData')));
 ok('the channel card exists in Business masters for COO / CFO', /function channelBudgetCard\(/.test(html) && /channelBudgetCard\(\)/.test(html));
 ok('no money reaches Today', !/pkr\(|invoicePrice/.test(grab('screenToday') + grab('tdCardHTML') + grab('tdRowHTML')));
 
 /* ---- 25a: one rule for a sale, everywhere ---- */
 {
-  const bh = grab('budgetHtml'), md = grab('monthlyDeliveredTotals');
+  const bh = grab('budgetHtml') + grab('sbData'), md = grab('monthlyDeliveredTotals');
   ok('Sales & Budget reads sales from saleRows (truck left the gate)', /saleRows\(\)/.test(bh) && /saleRows\(\)/.test(md));
-  ok('...for this financial year only', /x\.fy===fy/.test(bh));
+  ok('...for the chosen period (FY to date by default)', /x\.date<R\.from\|\|x\.date>R\.to/.test(bh) && /var sbPer='fy'/.test(html));
   ok('...and open orders from saleOpenValue', /saleOpenValue\(o,l\)/.test(bh));
-  ok('the screen says what a sale is', /A sale is counted when the truck leaves the gate/.test(bh));
+  ok('the screen says what a sale is', /Sold = trucks out of the gate in the period, net of FED/.test(bh));
   ok('the words are Sold, not Delivered', /Sold/.test(bh) && !/Delivered \(achieved\)/.test(bh));
   const sb = { console, fyKey: ds => '2026-27', budgetKey: o => o.client, lineShortClosed: l => !!(l.shortClose && l.shortClose.approvedAt),
     state: { orders: [ { po: 'P', client: 'C', foc: false, lines: [ { id: 'L1', brand: 'X', ordered: 10, dispatched: 2, invoicePrice: 5, shortClose: { approvedAt: 'x' } }, { id: 'L2', brand: 'X', ordered: 6, dispatched: 0, invoicePrice: 7 } ] },
@@ -127,4 +128,15 @@ ok('no money reaches Today', !/pkr\(|invoicePrice/.test(grab('screenToday') + gr
   eq('a line closed short has no open value', sb.saleOpenValue(sb.state.orders[0], sb.state.orders[0].lines[0]), 0);
   eq('open value is what has not left yet', sb.saleOpenValue(sb.state.orders[0], sb.state.orders[0].lines[1]), 42);
 }
+/* 25k: the period chooser and the numbers, run */
+{ const sb2 = { console, TODAY: new Date('2026-09-24T10:00:00'), fmt: n => String(n), qsEsc: x => String(x), budgetKey: o => o.client, budgetChannelOf: () => 'White Label',
+    monthLabel: m => m, fyKey: d => (String(d) < '2026-07' ? '2025-26' : '2026-27'), monthlyTargetTotals: () => ({ '2026-09': 50 }),
+    saleRows: () => [{ date: '2026-09-10', fy: '2026-27', value: 10, channel: 'Cobo', key: 'VAN', brand: 'A' }, { date: '2026-08-10', fy: '2026-27', value: 20, channel: 'White Label', key: 'Syn', brand: 'B' }, { date: '2026-05-10', fy: '2025-26', value: 99, channel: 'Cobo', key: 'VAN', brand: 'A' }],
+    saleOpenValue: (o, l) => l.v, BUDGET_CHANNELS: ['White Label', 'Cobo'],
+    state: { masters: { channelTargets: { 'White Label': { '2026-27': 300 }, Cobo: { '2026-27': 100 } }, salesTargets: {} }, orders: [{ client: 'Syn', channel: 'White Label', lines: [{ v: 7 }] }] } };
+  vm.createContext(sb2); vm.runInContext('var sbPer="fy";\n' + ['sbRange', 'sbData'].map(grab).join('\n'), sb2);
+  let D = sb2.sbData(); eq('25k FY: budget = channel totals', D.budget, 400); eq('25k FY: sold', D.sold, 30); eq('25k FY: open', D.open, 7);
+  sb2.sbPer = 'month'; vm.runInContext('sbPer="month"', sb2); D = sb2.sbData(); eq('25k this month: sold', D.sold, 10); eq('25k this month: target from the monthly split', D.mTarget, 50);
+  vm.runInContext('sbPer="2026-08"', sb2); D = sb2.sbData(); eq('25k a chosen month: sold', D.sold, 20);
+  eq('25k the channel rows carry their customers', D.ch[0].clients.Syn.sold, 20); }
 process.exitCode = report('Money and the budget tree') ? 1 : 0;

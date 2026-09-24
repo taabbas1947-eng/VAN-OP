@@ -11,7 +11,7 @@
    a push keeps running the old code with nothing telling anybody. It sat at
    2026-09-04a through this whole day's work; rmqty/psi tests pinned the code,
    nothing pinned this. buildid.test.js now does. */
-var BUILD_ID='2026-09-25j';
+var BUILD_ID='2026-09-25k';
 var CHANGELOG=[
   {ver:'2026-09-04a', date:'2026-09-04', title:"Delivery, DC printing, and a new Reconciliation check", items:[
     "Delivery confirmation stays with Supply Chain \u2014 it no longer hands off to the Plant Manager. If one sits too long, it now re-flags the same Supply Chain owner every 3 days instead.",
@@ -335,6 +335,13 @@ var CHANGELOG=[
     "The Production Manager and Supply Chain now see How are we doing too, with the PKR figures on it."
   ]},  {ver:'2026-09-25j', date:'2026-09-25', title:"The Guide catches up", items:[
     "Guide → My job names How are we doing for the roles that have it; How the app works says what a new order must carry (price, payment terms, ERP SO #, and a reason when a price moves more than 5%)."
+  ]},  {ver:'2026-09-25k', date:'2026-09-25', title:"Sales & Budget rebuilt; old screens retired", items:[
+    "All actions is retired: Today is the one list of jobs. An old link to it opens Today.",
+    "The Firefighter and Centers views of the old dashboard are retired. Their traffic lights live on in Plant, and How are we doing answers where the plant is stuck.",
+
+    "The budget is the channel totals you set. The old page read the customer targets, which are empty, so it said PKR 0 and 0%.",
+    "The page has its own period: financial year to date, this month, last month, or any month of the last year. Sold is for that period; open orders are what is still to leave.",
+    "Channels first, with their customers under them (tap a channel). Then the products sold in the period. How are we doing reads the same budget."
   ]},
 ];
 </script>
@@ -1995,7 +2002,7 @@ body{color:var(--ink);font-size:15px;line-height:1.45}
 .topbar{background:var(--surface);border-bottom:1px solid var(--qline);position:static;padding:10px 16px;gap:10px}
 .topbar h2{font-size:18px;font-weight:600;letter-spacing:0;color:var(--ink)}
 .topbar .sub{color:var(--ink-3)}
-body[data-screen="today"] .topbar,body[data-screen="dash"] .topbar,body[data-screen="plant"] .topbar,body[data-screen="backoffice"] .topbar,body[data-screen="instructions"] .topbar,body[data-screen="users"] .topbar,body[data-screen="tracker"] .topbar,body[data-screen="reports"] .topbar,body[data-screen="qc"] .topbar,body[data-screen="qa"] .topbar,body[data-screen="ship"] .topbar{display:none}
+body[data-screen="today"] .topbar,body[data-screen="dash"] .topbar,body[data-screen="budget"] .topbar,body[data-screen="plant"] .topbar,body[data-screen="backoffice"] .topbar,body[data-screen="instructions"] .topbar,body[data-screen="users"] .topbar,body[data-screen="tracker"] .topbar,body[data-screen="reports"] .topbar,body[data-screen="qc"] .topbar,body[data-screen="qa"] .topbar,body[data-screen="ship"] .topbar{display:none}
 body:not([data-screen="reports"]):not([data-screen="dash"]):not([data-screen="budget"]) #periodSel,
 body:not([data-screen="reports"]):not([data-screen="dash"]):not([data-screen="budget"]) #periodFromInp,
 body:not([data-screen="reports"]):not([data-screen="dash"]):not([data-screen="budget"]) #periodToInp{display:none!important}
@@ -4498,7 +4505,7 @@ function renderNav(){
 function openCmdK(){ var el=$('cmdk'); if(!el)return; el.classList.add('open'); var i=$('cmdkInput'); if(i){ i.value=''; cmdkRender(); setTimeout(function(){ try{i.focus();}catch(e){} },30); } }
 function closeCmdK(){ var el=$('cmdk'); if(el) el.classList.remove('open'); }
 function cmdkItems(q){ q=(q||'').toLowerCase().trim(); var out=[];
-  SCREENS.forEach(function(s){ if(!canView(state.role,s.id))return; if(!q||s.name.toLowerCase().indexOf(q)>-1) out.push({t:s.name,k:'Screen',act:"setScreen('"+s.id+"');closeCmdK()"}); });
+  SCREENS.forEach(function(s){ if(s.id==='approvals'||!canView(state.role,s.id))return; if(!q||s.name.toLowerCase().indexOf(q)>-1) out.push({t:s.name,k:'Screen',act:"setScreen('"+s.id+"');closeCmdK()"}); });
   if(q){
     (state.orders||[]).forEach(function(o){ var hay=((o.po||'')+' '+(o.client||'')+' '+((o.lines||[]).map(function(l){return l.brand||'';}).join(' '))).toLowerCase(); if(hay.indexOf(q)>-1) out.push({t:(o.po||'')+' · '+(o.client||''),k:'PO',act:"trkFilter='all';trkSearch='"+(o.po||'').replace(/'/g,'')+"';setScreen('tracker');closeCmdK()"}); });
     var seenB={},nb=0;
@@ -4521,7 +4528,7 @@ function cmdkKey(e){ if(e.key==='Escape'){ closeCmdK(); return; } var res=$('cmd
 }
 function _tipUK(){ const u=state.currentUser; return String((u&&(u.id||u.name))||state.role||'anon').replace(/[^A-Za-z0-9]/g,'_'); }
 function hintHidden(id){ try{ return !!(window.localStorage&&localStorage.getItem('van_hint_'+_tipUK()+'_'+id)==='1'); }catch(e){ return false; } }
-function setScreen(id){ if(!canView(state.role,id)){toast('Access to this screen is disabled by the COO');return;} if(id!=='admin') boFocus=''; if(id!=='tracker') state.expanded={}; state.screen=id; try{ if(id!=='today') document.body.classList.remove('td-on'); }catch(e){} closeMobileNav(); save(); render(); }
+function setScreen(id){ if(id==='approvals') id='today'; /* 25k */ if(!canView(state.role,id)){toast('Access to this screen is disabled by the COO');return;} if(id!=='admin') boFocus=''; if(id!=='tracker') state.expanded={}; state.screen=id; try{ if(id!=='today') document.body.classList.remove('td-on'); }catch(e){} closeMobileNav(); save(); render(); }
 function isMobile(){ return window.matchMedia&&window.matchMedia('(max-width:820px)').matches; }
 function setPeriod(v){ try{ state.period=v; if(typeof save==='function') save(); if(typeof render==='function') render(); }catch(e){} }
 function setPeriodCustom(which,v){ try{ state[which]=v; state.period='Custom'; if(typeof save==='function') save(); if(typeof render==='function') render(); }catch(e){} }
@@ -4594,7 +4601,7 @@ function render(){
   { var _tb=$('scTabs'); if(_tb) _tb.innerHTML=(state.screen==='approvals'?acHeaderTabsHTML():''); }
   if($('helpbar')) $('helpbar').innerHTML='';  /* help bar removed (declutter) */
   /* role switcher is rendered into .foot by renderNav (declutter removed the tips button) */
-  ({today:screenToday,backoffice:screenBackOffice,plant:screenPlant,dash:screenDash,approvals:screenApprovals,entry:screenEntry,tracker:screenOrders,prod:screenProd,qc:screenQC,qa:screenQA,ship:screenShip,reports:screenReports,budget:screenBudget,dealers:screenDealers,instructions:screenInstructions,admin:screenAdmin,datafix:screenDataFix,recon:screenRecon,users:screenUsers,}[state.screen])();
+  ({today:screenToday,backoffice:screenBackOffice,plant:screenPlant,dash:screenDash,approvals:screenToday, /* 25k: All actions retired - Today is the one list */entry:screenEntry,tracker:screenOrders,prod:screenProd,qc:screenQC,qa:screenQA,ship:screenShip,reports:screenReports,budget:screenBudget,dealers:screenDealers,instructions:screenInstructions,admin:screenAdmin,datafix:screenDataFix,recon:screenRecon,users:screenUsers,}[state.screen])();
 }
 /* ===================== LOCK 4: DATA FIX (reconciliation console — safety frame) ===================== */
 function typeNameToConfirm(actionText){
@@ -9898,7 +9905,11 @@ function howMay(){ return HOW_ROLES.indexOf(state.role)>-1; }
 function howPeriod(){ var d=TODAY.toISOString().slice(0,10); return {today:d,month:d.slice(0,7),fy:fyKey(d),fyStart:String(fyKey(d)).slice(0,4)+'-07-01'}; }
 function howIn(date,P,which){ date=String(date||'').slice(0,10); if(!date) return false; return which==='month'?date.slice(0,7)===P.month:(date>=P.fyStart&&date<=P.today); }
 function howSales(){ var P=howPeriod(), rows=saleRows(); var soldM=0,soldF=0; rows.forEach(function(x){ if(x.month===P.month) soldM+=x.value; if(x.fy===P.fy) soldF+=x.value; });
-  var T=(state.masters&&state.masters.salesTargets)||{}; var tF=0; Object.keys(T).forEach(function(c){ tF+=(+(T[c]&&T[c][P.fy])||0); });
+  /* 25k fix (Tahir: "why does it say no budget?"): the budget is set by CHANNEL (R8);
+     the client split under it may be empty. The channel totals are the budget;
+     the client targets are used only when no channel total is set. */
+  var CT=(state.masters&&state.masters.channelTargets)||{}; var tF=0; Object.keys(CT).forEach(function(c){ tF+=(+(CT[c]&&CT[c][P.fy])||0); });
+  if(!(tF>0)){ var T=(state.masters&&state.masters.salesTargets)||{}; Object.keys(T).forEach(function(c){ tF+=(+(T[c]&&T[c][P.fy])||0); }); }
   var tM=0; try{ tM=+(monthlyTargetTotals(P.fy)[P.month]||0); }catch(e){}
   var open=0; (state.orders||[]).forEach(function(o){ (o.lines||[]).forEach(function(l){ open+=saleOpenValue(o,l); }); });
   var a=new Date(P.fyStart+'T00:00:00'), n=new Date(P.today+'T00:00:00'); var gone=Math.max(0,Math.min(1,(n-a)/86400000/365));
@@ -13554,21 +13565,7 @@ function screenToday(){
   $('view').innerHTML=h;
 }
 
-function screenApprovals(){
-  var isCOO=state.role==='COO';
-  var base=acBase();
-  if(!base.length){ var _fin=(state.role==='CFO'||isCOO)?financeFeed():''; $('view').innerHTML=_fin||'<div class="card"><div class="empty"><div class="ei">✓</div>Nothing waiting on you right now.</div></div>'; return; }
-  var c=acCounts();
-  var kpis=acKpiHTML(c);
-  var tabs='<div class="actabs-m">'+acTabsHTML(c)+'</div>';
-  var tools='<div class="ac2tools"><input id="ac2search" placeholder="Search PO / customer / product" value="'+(acQ||'').replace(/"/g,'&quot;')+'" oninput="acQ=this.value;var e=document.getElementById(\'ac2list\');if(e)e.innerHTML=acBodyHTML();">'
-    +acGroupSelect()+(isCOO?acRoleSelect():'')
-    +'<select onchange="acSort2=this.value;render()"><option value="risk"'+(acSort2==='risk'?' selected':'')+'>Sort: Risk first</option><option value="oldest"'+(acSort2==='oldest'?' selected':'')+'>Sort: Oldest first</option><option value="newest"'+(acSort2==='newest'?' selected':'')+'>Sort: Newest first</option><option value="customer"'+(acSort2==='customer'?' selected':'')+'>Sort: Customer A–Z</option></select></div>';
-  $('view').innerHTML='<div class="paperui">'+kpis+tabs+tools+'<div id="ac2list">'+acBodyHTML()+'</div>'+((state.role==='CFO'||isCOO)?financeFeed():'')+'</div>';
-}
-/* THE BACK OFFICE MANUAL - R15, the night of 23 September 2026. The full text is
-   docs/O2S Back Office Manual.md in the repo; this is the same thing, on the
-   screen everyone can open. Plain words. */
+/* 25k: screenApprovals retired (Tahir, 24 Sep) */
 function backOfficeManualCard(){
   var sec=function(t,body){ return '<details style="border-top:1px solid var(--line2);padding:8px 0"><summary style="cursor:pointer;font-weight:700;font-size:14px">'+t+'</summary><div style="padding:8px 0 4px;font-size:13.5px;line-height:1.55">'+body+'</div></details>'; };
   return '<div class="card"><h3>Back Office manual <span class="hint">23 September 2026 · COO, CFO, Plant Manager · the rules everyone works by</span></h3>'
@@ -15432,28 +15429,10 @@ function fireLists(){
   holds.sort(function(a,b){ return b.days-a.days; });
   return {delayed:delayed,material:material,holds:holds};
 }
-function fireLight(n,worst){ var tone=n===0?'good':(worst>=7?'bad':'warn'); var c=tone==='bad'?'#b3261e':tone==='warn'?'#8a5a00':'#1f6b3a'; var bg=tone==='bad'?'#fbe9e7':tone==='warn'?'#fff1d6':'#e3f0e7'; return '<span class="pill" style="background:'+bg+';color:'+c+';font-weight:700">'+(n===0?'clear':tone==='bad'?'act now':'watch')+'</span>'; }
-function dashFireHtml(){
-  var F=fireLists(); var esc=function(x){return String(x==null?'':x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');};
-  var cl=function(c){ if(!c) return ''; var i=c.indexOf('|'); return esc(i>-1?c.slice(i+1).trim():shortClient(c)); };
-  function block(title,sub,rows,worst,cols){
-    return '<div class="card" style="margin-bottom:12px"><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px"><h3 style="margin:0">'+title+'&nbsp;&nbsp;<span style="font-weight:800;color:'+(rows.length?'#17201b':'#7b857e')+'">'+rows.length+'</span></h3>'+fireLight(rows.length,worst)+'<span class="muted" style="font-size:12px">'+sub+'</span></div>'
-      +(rows.length?('<div style="overflow:auto;max-height:46vh"><table><thead><tr>'+cols.map(function(c){return '<th'+(c[2]?' class="num"':'')+'>'+c[0]+'</th>';}).join('')+'<th></th></tr></thead><tbody>'
-        +rows.slice(0,40).map(function(r){ return '<tr>'+cols.map(function(c){ return '<td'+(c[2]?' class="num"':'')+'>'+c[1](r)+'</td>'; }).join('')+'<td style="white-space:nowrap"><button class="sm" onclick="'+r.act+'">Open</button></td></tr>'; }).join('')
-        +'</tbody></table></div>'+(rows.length>40?'<div class="muted" style="font-size:11px;margin-top:6px">Showing the worst 40 of '+rows.length+'.</div>':'')):'<div class="muted" style="font-size:13px;padding:6px 0">Nothing burning here.</div>')+'</div>';
-  }
-  var dayPill=function(d){ return '<span class="pill" style="background:'+(d>=14?'#fbe9e7':d>=7?'#fff1d6':'#eceeea')+';color:'+(d>=14?'#b3261e':d>=7?'#8a5a00':'#4b564f')+';font-weight:700">'+d+' d</span>'; };
-  return '<div style="max-width:1100px">'
-    + block('Delayed orders','order lines past the date promised to the customer \u2014 worst first',F.delayed,F.delayed.length?F.delayed[0].days:0,
-        [['PO',function(r){return '<b>'+esc(r.po)+'</b><div class="muted" style="font-size:11px">'+cl(r.client)+'</div>';}],['Product',function(r){return esc(r.brand);}],['Stage',function(r){return esc(r.stage);}],['Still to deliver',function(r){return fmt(r.left)+' Kg/L';},true],['Late by',function(r){return dayPill(r.days);},true]])
-    + block('Material bottlenecks','lines that cannot be produced until raw material arrives',F.material,F.material.length?F.material[0].days:0,
-        [['PO',function(r){return '<b>'+esc(r.po)+'</b><div class="muted" style="font-size:11px">'+cl(r.client)+'</div>';}],['Product',function(r){return esc(r.brand);}],['Why',function(r){return esc(r.why);}],['Blocked',function(r){return fmt(r.need)+' Kg/L';},true],['Waiting',function(r){return dayPill(r.days);},true]])
-    + block('Shipping holds','trucks that are planned, loading, loaded or on the road and waiting on somebody',F.holds,F.holds.length?F.holds[0].days:0,
-        [['Truck',function(r){return '<b>'+esc(r.dispId)+'</b><div class="muted" style="font-size:11px">'+esc(r.po)+' \u00b7 '+cl(r.client)+'</div>';}],['Waiting on',function(r){return esc(r.why);}],['Load',function(r){return r.n+' product'+(r.n===1?'':'s')+' \u00b7 '+fmt(r.kg)+' Kg/L';}],['Since',function(r){return dayPill(r.days);},true]])
-    + '</div>';
-}
-function dashDefaultTab(){ return 'fire'; }
-function dashTabBar(){ var tabs=[['fire','Firefighter'],['overview','Overview'],['centers','Centers'],['production','Production'],['quality','Quality'],['supply','Supply chain']]; if(accessLevel(state.role,'budget')!=='none')tabs.push(['sales','Financial']); return '<div class="dtabbar">'+tabs.map(function(t){return '<button class="dtab'+(dashTab===t[0]?' on':'')+'" onclick="dashTab=\''+t[0]+'\';render()">'+t[1]+'</button>';}).join('')+'</div>'; }
+/* 25k: fireLight retired (Tahir, 24 Sep) */
+/* 25k: dashFireHtml retired (Tahir, 24 Sep) */
+function dashDefaultTab(){ return 'sales'; } /* 25k: Firefighter and Centers retired */
+function dashTabBar(){ var tabs=[['overview','Overview'],['production','Production'],['quality','Quality'],['supply','Supply chain']]; if(accessLevel(state.role,'budget')!=='none')tabs.push(['sales','Financial']); return '<div class="dtabbar">'+tabs.map(function(t){return '<button class="dtab'+(dashTab===t[0]?' on':'')+'" onclick="dashTab=\''+t[0]+'\';render()">'+t[1]+'</button>';}).join('')+'</div>'; }
 function _dk(l,v,d,c){return '<div class="kpi" style="border-top:3px solid var('+c+')"><div class="l">'+l+'</div><div class="v">'+v+'</div><div class="d">'+d+'</div></div>';}
 var _DQOWN={'Cleared to pack?':['Production'],'Awaiting Lab QC?':['Lab Rep','AQCM','QCM'],'Needs reconcile?':['Production','Plant Manager'],'Today’s output':['Production'],'UNFIT lots?':['Plant Manager'],'Cleared to ship?':['QA Inspector'],'Blocked (no batch #)?':['Production'],'QA failed?':['Supply Chain'],'Awaiting QA inspection?':['QA Inspector'],'Ready to ship?':['Supply Chain'],'Overdue deliveries?':['Supply Chain','KAM'],'Revenue at risk':['CFO','KAM'],'On-time delivery':['Supply Chain','KAM'],'RM-blocked POs?':['Supply Chain'],'PRs awaiting CFO?':['CFO'],'GRN to receive?':['Supply Chain']};
 function _dq(q,val,sub,tone,go){var c=tone==='bad'?'--red':tone==='warn'?'--amber':tone==='good'?'--green2':'--navy';var own=(typeof _DQOWN!=='undefined')?_DQOWN[q]:null;var mine=own&&state.role!=='COO'&&own.indexOf(state.role)>-1;return '<div class="dqcard'+(mine?' mine':'')+'"'+(go?(' onclick="'+go+'" style="cursor:pointer"'):'')+'>'+(mine?'<span class="dq-mine">Your action</span>':'')+'<div class="dq-q">'+q+'</div><div class="dq-v" style="color:var('+c+')">'+val+'</div><div class="dq-s">'+sub+'</div>'+(go?'<div class="dq-go">Open ▸</div>':'')+'</div>';}
@@ -15513,34 +15492,7 @@ function dashNarrative(M){
   if(OM.stuck.length) bits.push(OM.stuck.length+' batch'+(OM.stuck.length===1?'':'es')+' stuck');
   return '<div class="tuned"><span class="tg">Tuned for '+state.role+'</span><span>'+bits.join(' · ')+'.</span></div>';
 }
-function dashCentersHtml(M){
-  var orders=state.orders||[];
-  var openLoad=orders.filter(function(o){return orderOpen(o);}).length;
-  var total=M.turn.filter(function(t){return t.name==='Total';})[0];
-  var avgTurn=total&&total.days!=null?(total.days+'d'):'—';
-  var rmBlocked=orders.filter(function(o){return orderBucket(o)==='RM Check';}).length;
-  var counts={}; BUCKETS.forEach(function(s){counts[s]=0;}); orders.forEach(function(o){var b=orderBucket(o); if(bucketOpen(b)) counts[b]=(counts[b]||0)+1;});
-  var busiest='—',bmax=-1; BUCKETS.forEach(function(s){ if(bucketOpen(s)&&(counts[s]||0)>bmax){bmax=counts[s]||0;busiest=s;} });
-  var kpis='<div class="kpis" style="grid-template-columns:repeat(4,1fr)">'
-    +_dk('Open load',openLoad,'orders in pipeline','--navy')
-    +_dk('Avg turnaround',avgTurn,'order to delivery','--amber')
-    +_dk('Busiest center',busiest,bmax>=0?(bmax+' orders'):'—','--green2')
-    +_dk('RM-blocked',rmBlocked,'awaiting materials','--red')
-    +'</div>';
-  var tstages=M.turn.filter(function(t){return t.name!=='Total';});
-  var tmax=Math.max.apply(null,tstages.map(function(t){return t.days||0;}).concat([1]));
-  var tbars='<div class="card"><div class="sec" style="margin-top:0">Turnaround by center <span class="hint">avg days per stage</span></div><div class="funnel">'
-    +tstages.map(function(t){var d=t.days!=null?t.days:0; return '<div class="frow"><div class="fl">'+t.name+'</div><div class="ftrack"><i style="width:'+Math.round(d/tmax*100)+'%"></i></div><div class="fn">'+(t.days!=null?t.days+'d':'—')+'</div></div>';}).join('')
-    +'</div><div class="ch-foot">Real, from per-stage timestamps. Lab QC / QA / Shipment are grouped within “QC → delivery” until split from the audit log.</div></div>';
-  var lmax=Math.max.apply(null,BUCKETS.map(function(s){return counts[s]||0;}).concat([1]));
-  var lbars='<div class="card"><div class="sec" style="margin-top:0">Load by center <span class="hint">open orders per stage · click to open the Tracker</span></div><div class="funnel">'
-    +BUCKETS.filter(bucketOpen).map(function(s){var c=counts[s]||0; var col=(BUCKET_META[s]&&BUCKET_META[s].c)||'--mut'; return '<div class="frow" style="cursor:pointer" onclick="trkStage=\''+s+'\';setScreen(\'tracker\')"><div class="fl">'+s+'</div><div class="ftrack"><i style="width:'+Math.round(c/lmax*100)+'%;background:var('+col+')"></i></div><div class="fn">'+c+'</div></div>';}).join('')
-    +'</div></div>';
-  var OM=dashOpsMetrics();
-  var prodRowsHtml=OM.producedByProduct.map(function(p){return '<tr><td>'+p.name+'</td><td class="num">'+fmt(p.kg)+' Kg/L</td></tr>';}).join('');
-  return kpis+'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">'+tbars+lbars+'</div>'
-    +egrid('Produced by product — '+OM.label,['Product','Kg/L'],prodRowsHtml);
-}
+/* 25k: dashCentersHtml retired (Tahir, 24 Sep) */
 /* ===== DASHBOARD LENS (per-view slice toggles) + slim SVG line charts — additive, presentation-only ===== */
 function dashLens(view,val){ state.dashLens=state.dashLens||{}; state.dashLens[view]=val; render(); }
 function dashLensCur(view,opts){ var d=state.dashLens||{}; return (d[view]!=null&&opts.indexOf(d[view])>-1)?d[view]:opts[0]; }
@@ -15586,16 +15538,13 @@ function screenDashOld(){
     if(t==='production')return dashLensGrid('Production',['By product','By shift','By PO'],['product','shift','po']);
     if(t==='quality')return dashLensGrid('Quality',['By product','By stage'],['product','stage']);
     if(t==='supply')return dashLensGrid('Supply chain',['By channel','By client','By stage'],['channel','client','stage']);
-    if(t==='centers')return dashLensGrid('Centers',['By stage','By channel'],['stage','channel']);
   }catch(e){} return ''; };
   var _slim=function(t){ try{
     if(t==='production')return lineCard('Throughput, last 7 days',_trail7(state.productionLog,function(p){return p.date;},function(p){return p.kg;}).map(function(p){return p.v;}),'var(--navy)','Kg produced per day');
     if(t==='supply')return lineCard('Dispatched, last 7 days',_trail7(state.shipments,function(s){return s.dispatch;},function(s){return s.kg;}).map(function(s){return s.v;}),'var(--navy)','Kg dispatched per day');
   }catch(e){} return ''; };
   if(dashTab==='overview'){ $('view').innerHTML=bar+banner+dashExecHtml(M)+_lens('overview'); try{drawDashExec(M);}catch(e){} return; }
-  var body = dashTab==='fire'?dashFireHtml()
-    : dashTab==='sales'?dashSalesHtml()
-    : dashTab==='centers'?dashCentersHtml(M)
+  var body = dashTab==='sales'?dashSalesHtml()
     : dashTab==='production'?dashProdHtml()
     : dashTab==='quality'?dashQualHtml()
     : dashTab==='supply'?(dashSupplyHtml()+dashShipHtml())
@@ -16687,7 +16636,7 @@ function bgtSubRows(c){ if(bgtExpand!==c) return ''; const ed=(state.role==='COO
   }); });
   if(!body) body=`<tr style="background:var(--panel2)"><td colspan="6" class="muted" style="padding-left:26px">No order lines with a quantity for this client.</td></tr>`;
   return body; }
-function screenBudget(){ dashTab='sales'; screenDashOld(); }
+function screenBudget(){ $('view').innerHTML=budgetHtml(); } /* 25k: its own page, its own period */
 /* ===== WHEN A SALE IS A SALE — 24 Sep 2026 (25a) ============================
    Tahir: a sale is recorded when the truck leaves (the DC / gate pass is
    released), valued NET - quantity x invoice price, before FED (FED is the sales tax).
@@ -16713,50 +16662,66 @@ function saleRows(){ var out=[]; (state.shipments||[]).forEach(function(s){ if(!
   return out; }
 /* what an order line still has to sell: not closed short, not yet through the gate */
 function saleOpenValue(o,l){ if(!o||!l||o.foc||lineShortClosed(l)) return 0; return Math.max(0,(+l.ordered||0)-(+l.dispatched||0))*lineNetPrice(o,l); }
-function budgetHtml(){
-  const fy=fyKey(TODAY.toISOString().slice(0,10)); const targets=(state.masters&&state.masters.salesTargets)||{};
-  const rows={};
-  /* 25a: booked = what is still to leave; delivered = SOLD this financial year (truck left the gate) */
-  const dealerKids=new Set(); (state.orders||[]).forEach(o=>{ const c=budgetKey(o); if(isDealerClient(o)&&o.client) dealerKids.add(o.client); rows[c]=rows[c]||{booked:0,delivered:0,delKg:0}; (o.lines||[]).forEach(l=>{ rows[c].booked+=saleOpenValue(o,l); }); });
-  const _sold=saleRows().filter(x=>x.fy===fy); _sold.forEach(x=>{ rows[x.key]=rows[x.key]||{booked:0,delivered:0,delKg:0}; rows[x.key].delivered+=x.value; rows[x.key].deliveredKg=(rows[x.key].deliveredKg||0)+x.kg; });
-  Object.keys(targets).forEach(c=>{ if(!rows[c]) rows[c]={booked:0,delivered:0}; });
-  const clients=Object.keys(rows).sort((a,b)=>rows[b].delivered-rows[a].delivered);
-  let totT=0,totD=0,totB=0;
-  clients.forEach(c=>{ totT+=(targets[c]&&+targets[c][fy])||0; totD+=rows[c].delivered; totB+=rows[c].booked; });
-  const pctAll=totT>0?Math.round(totD/totT*100):0;
-  const noPrice=(state.orders||[]).some(o=>(o.lines||[]).some(l=>!(+l.invoicePrice>0)&&(+l.ordered>0)));
-  const bar=(p)=>`<div style="background:#eef1f6;border-radius:6px;height:8px;overflow:hidden;min-width:90px"><div style="height:8px;width:${Math.min(100,p)}%;background:${p>=100?'var(--green2)':p>=60?'var(--navy)':'var(--amber)'}"></div></div>`;
-  const crow=(c)=>{ const t=(targets[c]&&+targets[c][fy])||0; const d=rows[c].delivered, b=rows[c].booked; const p=t>0?Math.round(d/t*100):0; const gap=Math.max(0,t-d); const open=bgtExpand===c;
-    return `<tr class="clk" onclick="bgtToggle('${String(c).replace(/'/g,"\\'")}')"><td><span style="color:var(--navy);font-size:10px;margin-right:7px">${open?'▾':'▸'}</span><b>${c}</b>${c==='Dealers'?`<div class="muted" style="font-size:11px;padding-left:17px">${dealerKids.size} sub-dealer(s) rolled up</div>`:''}</td><td class="num">${t>0?pkr(t):'<span class="muted">—</span>'}</td><td class="num"><b>${pkr(d)}</b></td><td class="num"><b>${pkr(b)}</b></td><td>${t>0?`<div style="display:flex;gap:8px;align-items:center">${bar(p)}<span style="font-size:11px;font-weight:700;color:${p>=100?'var(--green2)':p>=60?'var(--navy)':'var(--amber)'}">${p}%</span></div>`:'<span class="muted" style="font-size:11px">no target</span>'}</td><td class="num">${t>0?pkr(gap):'—'}</td></tr>`; };
-  // product mix by delivered value
-  const pm={}; _sold.forEach(x=>{ if(x.value>0) pm[x.brand]=(pm[x.brand]||0)+x.value; });
-  const pmRows=Object.entries(pm).sort((a,b)=>b[1]-a[1]).slice(0,15);
-  const chRows=budgetByChannel(fy);
-  const light=(p,t)=>!t?'<span class="pill" style="background:var(--panel2);color:var(--mut)">no target</span>':(p>=100?'<span class="pill" style="background:#e3f0e7;color:#1f6b3a">on target</span>':p>=60?'<span class="pill" style="background:#fff1d6;color:#8a5a00">behind</span>':'<span class="pill" style="background:#fbe9e7;color:#b3261e">far behind</span>');
-  const byChannel=`<div class="card" style="margin-bottom:12px"><div style="font-weight:700;margin-bottom:6px">By channel <span class="muted" style="font-weight:400;font-size:11.5px">· ${fyRange(fy)} · Dealer and Farmer are segment totals</span></div>
-    <div style="overflow:auto"><table><thead><tr><th>Channel</th><th class="num">Target</th><th class="num">Allocated</th><th class="num">Open orders</th><th class="num">Sold</th><th class="num">% of target</th><th></th></tr></thead><tbody>
-    ${chRows.map(r=>`<tr><td><b>${r.channel}</b></td><td class="num">${r.target?pkr(r.target):'<span class="muted">—</span>'}</td><td class="num">${r.allocated?pkr(r.allocated):'<span class="muted">—</span>'}</td><td class="num">${pkr(r.booked)}</td><td class="num"><b>${pkr(r.sold)}</b></td><td class="num">${r.target?r.pct+'%':'—'}</td><td>${light(r.pct,r.target)}</td></tr>`).join('')}
-    </tbody></table></div></div>`;
-  return `
-   <div class="note" style="margin-bottom:10px">A sale is counted when the truck leaves the gate (the delivery challan is released), net of FED (FED is the sales tax; on an order quoted FED-inclusive the price is divided by 1.05). Open orders are what is still to leave.</div>
-   ${byChannel}
-   ${(state.role==='COO'||state.role==='CFO')?`<div style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap"><button class="sm" onclick="openBulkPricing()">💲 Set invoice prices (bulk)</button>${(function(){const n=openPrintDecisionPOs().length;/* same definition as the Action Center and the screen itself */return n?`<button class="sm" onclick="openBulkPrintDecision()">🏷️ Answer print-on-pack for ${n} PO(s)</button>`:'';})()}</div>`:''}
-   ${noPrice?'<div class="banner warn">Some PO lines have <b>no invoice price</b> yet — their value is counted as 0. Set invoice prices on New PO Entry (new POs) or via Data Fix (imported POs).</div>':''}
-   <div class="kpis" style="grid-template-columns:repeat(4,1fr)">
-     <div class="kpi"><div class="l">All clients — target</div><div class="v">${pkr(totT)}</div><div class="d">${fyRange(fy)}</div></div>
-     <div class="kpi"><div class="l">Sold this year</div><div class="v" style="color:var(--green2)">${pkr(totD)}</div><div class="d">${pctAll}% of target</div></div>
-     <div class="kpi"><div class="l">Open orders (not yet dispatched)</div><div class="v">${pkr(totB)}</div></div>
-     <div class="kpi"><div class="l">Gap to target</div><div class="v" style="color:${totT-totD>0?'var(--amber)':'var(--green2)'}">${pkr(Math.max(0,totT-totD))}</div></div>
-   </div>
-   <div class="card"><h3>By client <span class="hint">${clients.length}</span></h3>
-     <div style="overflow:auto"><table><thead><tr><th>Client</th><th class="num">Target</th><th class="num">Sold</th><th class="num">Open orders</th><th>Attainment</th><th class="num">Gap</th></tr></thead>
-     <tbody>${clients.map(c=>crow(c)+bgtSubRows(c)).join('')}<tr style="border-top:2px solid var(--navy);background:var(--navy-50)"><td><b>TOTAL — all clients</b></td><td class="num"><b>${pkr(totT)}</b></td><td class="num"><b>${pkr(totD)}</b></td><td class="num">${pkr(totB)}</td><td><b>${pctAll}%</b></td><td class="num"><b>${pkr(Math.max(0,totT-totD))}</b></td></tr></tbody></table></div></div>
-   <div class="card"><h3>Top products by sold value <span class="hint">FY to date</span></h3>
-     ${pmRows.length?`<div style="overflow:auto"><table><thead><tr><th>Product</th><th class="num">Sold value</th></tr></thead><tbody>${pmRows.map(([b,v])=>`<tr><td>${b}</td><td class="num"><b>${pkr(v)}</b></td></tr>`).join('')}</tbody></table></div>`:'<div class="muted">No sales yet this year — a sale appears when a truck with priced lines leaves the gate.</div>'}</div>
-   ${(state.role==='COO'||state.role==='CFO')?monthlyPaceCard():''}`;
-}
-/* ===== Reusable searchable register (search · filter · date-range · sort · paging) ===== */
-let REG={};
+/* 25k: the old budgetHtml is replaced below */
+/* ===== SALES & BUDGET, REBUILT — 24 Sep 2026 (25k) ===========================
+   Tahir, on the old screen: "I have told you this is very badly designed"; "why
+   does it say no budget for this year?"; "the date selector doesn't work".
+   What was wrong: the budget is set by CHANNEL (R8) but the headline read the
+   client targets, which are empty, so it said PKR 0 target, 0%, gap 0; 20
+   client rows all said "no target"; the period box was the old top bar's and
+   the screen never read it.
+   Now: one budget (the channel totals), a period chooser that this page owns,
+   channels first with their customers under them, and the products. Sold =
+   trucks out in the period, net of FED (saleRows). Open orders = still to
+   leave, whatever the period. Nothing is written. */
+var sbPer='fy', sbOpen={};
+function sbRange(){ var d=TODAY.toISOString().slice(0,10), fy=fyKey(d), fs=String(fy).slice(0,4)+'-07-01';
+  var m=d.slice(0,7), lm=new Date(TODAY.getFullYear(),TODAY.getMonth()-1,15).toISOString().slice(0,7);
+  if(sbPer==='month') return {from:m+'-01',to:d,label:monthLabel(m),month:m,fy:fy};
+  if(sbPer==='last') return {from:lm+'-01',to:lm+'-31',label:monthLabel(lm),month:lm,fy:fyKey(lm+'-15')};
+  if(/^\d{4}-\d{2}$/.test(sbPer)) return {from:sbPer+'-01',to:sbPer+'-31',label:monthLabel(sbPer),month:sbPer,fy:fyKey(sbPer+'-15')};
+  return {from:fs,to:d,label:'FY '+fy+' to date',month:'',fy:fy}; }
+function sbData(){ var R=sbRange(), fy=R.fy;
+  var CT=(state.masters&&state.masters.channelTargets)||{}, ST=(state.masters&&state.masters.salesTargets)||{}, MT={}; try{ MT=monthlyTargetTotals(fy)||{}; }catch(e){}
+  var ch={}; BUDGET_CHANNELS.forEach(function(c){ ch[c]={name:c,target:+((CT[c]||{})[fy])||0,sold:0,open:0,clients:{}}; });
+  var cl=function(c,k){ var C=ch[c]||(ch[c]={name:c,target:0,sold:0,open:0,clients:{}}); return C.clients[k]=C.clients[k]||{name:k,target:+((ST[k]||{})[fy])||0,sold:0,open:0}; };
+  var prod={}, sold=0, fySold=0;
+  saleRows().forEach(function(x){ if(x.fy===fy) fySold+=x.value; if(!x.date||x.date<R.from||x.date>R.to) return; sold+=x.value; var c=x.channel||budgetChannelOf(x.key); cl(c,x.key).sold+=x.value; ch[c].sold+=x.value; prod[x.brand]=(prod[x.brand]||0)+x.value; });
+  var open=0; (state.orders||[]).forEach(function(o){ (o.lines||[]).forEach(function(l){ var v=saleOpenValue(o,l); if(!(v>0)) return; open+=v; var c=o.channel||budgetChannelOf(budgetKey(o)); cl(c,budgetKey(o)).open+=v; ch[c].open+=v; }); });
+  var budget=Object.keys(ch).reduce(function(a,k){ return a+ch[k].target; },0), cliT=Object.keys(ST).reduce(function(a,k){ return a+(+((ST[k]||{})[fy])||0); },0);
+  if(!(budget>0)) budget=cliT;
+  var fs=new Date(String(fy).slice(0,4)+'-07-01T00:00:00'), gone=Math.max(0,Math.min(1,(new Date(R.to+'T00:00:00')-fs)/86400000/365));
+  var mTarget=R.month?(+MT[R.month]||0):0;
+  return {R:R,ch:BUDGET_CHANNELS.map(function(c){ return ch[c]; }).concat(Object.keys(ch).filter(function(k){ return BUDGET_CHANNELS.indexOf(k)<0; }).map(function(k){ return ch[k]; })),
+    budget:budget,sold:sold,fySold:fySold,open:open,gone:gone,mTarget:mTarget,cliT:cliT,prod:Object.keys(prod).map(function(k){return {b:k,v:prod[k]};}).sort(function(a,b){return b.v-a.v;}).slice(0,12)}; }
+function sbToggle(c){ sbOpen[c]=!sbOpen[c]; render(); }
+function budgetHtml(){ var D=sbData(), R=D.R, e=qsEsc, P=function(n){ return 'PKR '+fmt(Math.round(n)); };
+  var isFY=!R.month, ed=(state.role==='COO'||state.role==='CFO');
+  var monthsBack=[]; for(var i=2;i<12;i++){ var dd=new Date(TODAY.getFullYear(),TODAY.getMonth()-i,15); monthsBack.push(dd.toISOString().slice(0,7)); }
+  var chip=function(k,t){ return '<button class="qs-btn sm'+(sbPer===k?' on':' ghost')+'" onclick="sbPer=\''+k+'\';render()">'+t+'</button>'; };
+  var h='<style>.sb-k{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:12px 0}.sb-k div{background:#fff;border:1px solid #e7e2d8;border-radius:12px;padding:12px 14px}.sb-k b{display:block;font-size:19px;font-variant-numeric:tabular-nums}.sb-k span{font-size:11.5px;color:#7d776b}.sb-t{width:100%;border-collapse:collapse;font-size:13px}.sb-t th{text-align:left;font-size:11px;color:#7d776b;font-weight:600;padding:8px;border-bottom:1px solid #e7e2d8}.sb-t td{padding:9px 8px;border-bottom:1px solid #f0ece4;font-variant-numeric:tabular-nums}.sb-t .n{text-align:right}.sb-t tr.ch td{font-weight:600;cursor:pointer}.sb-t tr.cl td{background:#fbfaf7;font-size:12.5px}.sb-t tr.cl td:first-child{padding-left:28px}.sb-bar{height:6px;background:#eef1f6;border-radius:4px;overflow:hidden;min-width:70px}.sb-bar i{display:block;height:6px}@media(max-width:800px){.sb-k{grid-template-columns:repeat(2,minmax(0,1fr))}.sb-hide{display:none}}</style>';
+  h+='<div class="qs wide"><h1>Sales &amp; Budget</h1><div class="sub">Sold = trucks out of the gate in the period, net of FED. Open orders = still to leave, whatever the period. The budget is the channel totals set in Back Office.</div>';
+  h+='<div class="row" style="gap:6px;flex-wrap:wrap;margin-top:10px;align-items:center">'+chip('fy','Financial year to date')+chip('month','This month')+chip('last','Last month')+'<select onchange="sbPer=this.value||\'fy\';render()" style="max-width:170px"><option value="">Another month…</option>'+monthsBack.map(function(m){ return '<option value="'+m+'"'+(sbPer===m?' selected':'')+'>'+monthLabel(m)+'</option>'; }).join('')+'</select></div>';
+  var pace=D.budget>0?Math.round(D.gone*100):null, pct=D.budget>0?Math.round(D.fySold/D.budget*100):null;
+  var k1=isFY?('<div><span>Budget FY '+e(R.fy)+'</span><b>'+(D.budget?P(D.budget):'not set')+'</b><span>'+(D.budget&&D.cliT?'split to customers: '+P(D.cliT):'set by channel')+'</span></div>')
+             :('<div><span>Target for '+e(R.label)+'</span><b>'+(D.mTarget?P(D.mTarget):'no monthly split')+'</b><span>FY budget '+(D.budget?P(D.budget):'not set')+'</span></div>');
+  h+='<div class="sb-k">'+k1
+    +'<div><span>Sold · '+e(R.label)+'</span><b style="color:#1f6b3a">'+P(D.sold)+'</b><span>'+(isFY&&pct!=null?pct+'% of the budget, '+pace+'% of the year gone':(D.mTarget?Math.round(D.sold/D.mTarget*100)+'% of the month':''))+'</span></div>'
+    +'<div><span>Still to reach the FY budget</span><b'+(D.budget&&D.fySold<D.budget?' style="color:#b3261e"':'')+'>'+(D.budget?P(Math.max(0,D.budget-D.fySold)):'—')+'</b><span>'+(pct!=null?(pct<pace?'behind pace':'on pace'):'')+'</span></div>'
+    +'<div><span>Open orders still to leave</span><b>'+P(D.open)+'</b><span>'+(D.budget?'covers '+Math.round(D.open/Math.max(1,D.budget-D.fySold)*100)+'% of what is still to sell':'')+'</span></div></div>';
+  if(ed) h+='<div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:10px"><button class="qs-btn sm ghost" onclick="boOpen(\'admin\',\'biz\',\'cbudget\')">Set the budget</button><button class="qs-btn sm ghost" onclick="openBulkPricing()">Set invoice prices</button>'+(function(){ var n=0; try{ n=openPrintDecisionPOs().length; }catch(e){} return n?'<button class="qs-btn sm ghost" onclick="openBulkPrintDecision()">Answer print-on-pack for '+n+' orders</button>':''; })()+'</div>';
+  var noPrice=(state.orders||[]).some(function(o){ return (o.lines||[]).some(function(l){ return !(+l.invoicePrice>0)&&(+l.ordered>0)&&!o.foc&&!lineShortClosed(l); }); });
+  if(noPrice) h+='<div class="note" style="margin-bottom:10px">Some order lines have no invoice price, so they count as 0 here. '+(ed?'Set them with Set invoice prices.':'The COO or CFO sets them.')+'</div>';
+  var bar=function(p){ var c=p>=100?'#1f6b3a':(p>=60?'#1f3a5f':'#b9760d'); return '<div class="sb-bar"><i style="width:'+Math.min(100,p)+'%;background:'+c+'"></i></div>'; };
+  h+='<div class="card" style="padding:6px 10px"><table class="sb-t"><thead><tr><th>Channel · customer</th>'+(isFY?'<th class="n">Budget</th>':'')+'<th class="n">Sold · '+e(R.label)+'</th>'+(isFY?'<th class="sb-hide">% of budget</th>':'')+'<th class="n sb-hide">Open orders</th></tr></thead><tbody>';
+  D.ch.forEach(function(c){ if(!c.target&&!c.sold&&!c.open) return; var p=c.target?Math.round(c.sold/c.target*100):null; var cls=Object.keys(c.clients).map(function(k){ return c.clients[k]; }).sort(function(a,b){ return (b.sold-a.sold)||(b.open-a.open); });
+    h+='<tr class="ch" onclick="sbToggle(\''+e(c.name).replace(/'/g,'')+'\')"><td>'+(sbOpen[c.name]?'▾ ':'▸ ')+e(c.name)+' <span class="muted" style="font-weight:400;font-size:11px">'+cls.length+' customer'+(cls.length===1?'':'s')+'</span></td>'+(isFY?'<td class="n">'+(c.target?P(c.target):'—')+'</td>':'')+'<td class="n">'+P(c.sold)+'</td>'+(isFY?'<td class="sb-hide">'+(p!=null?'<div style="display:flex;gap:8px;align-items:center">'+bar(p)+'<span>'+p+'%</span></div>':'<span class="muted">no budget</span>')+'</td>':'')+'<td class="n sb-hide">'+P(c.open)+'</td></tr>';
+    if(sbOpen[c.name]) cls.forEach(function(x){ h+='<tr class="cl"><td>'+e(String(x.name).split('|').pop().trim())+(x.target&&isFY?' <span class="muted" style="font-size:11px">· target '+P(x.target)+'</span>':'')+'</td>'+(isFY?'<td></td>':'')+'<td class="n">'+P(x.sold)+'</td>'+(isFY?'<td class="sb-hide">'+(x.target?Math.round(x.sold/x.target*100)+'% of its target':'')+'</td>':'')+'<td class="n sb-hide">'+P(x.open)+'</td></tr>'; }); });
+  h+='<tr style="border-top:2px solid #1f3a5f"><td><b>All channels</b></td>'+(isFY?'<td class="n"><b>'+(D.budget?P(D.budget):'—')+'</b></td>':'')+'<td class="n"><b>'+P(D.sold)+'</b></td>'+(isFY?'<td class="sb-hide"><b>'+(pct!=null?pct+'%':'')+'</b></td>':'')+'<td class="n sb-hide"><b>'+P(D.open)+'</b></td></tr></tbody></table></div>';
+  h+='<div class="card" style="padding:6px 10px;margin-top:12px"><table class="sb-t"><thead><tr><th>Products sold · '+e(R.label)+'</th><th class="n">Sold</th></tr></thead><tbody>'+(D.prod.length?D.prod.map(function(x){ return '<tr><td>'+e(x.b)+'</td><td class="n">'+P(x.v)+'</td></tr>'; }).join(''):'<tr><td colspan="2" class="muted">Nothing left the gate in this period.</td></tr>')+'</tbody></table></div>';
+  try{ var mp=monthlyPaceCard(); if(mp&&isFY) h+='<div style="margin-top:12px">'+mp+'</div>'; }catch(e){}
+  return h+'</div>'; }
+
 function regSt(id){ REG[id]=REG[id]||{q:'',f:{},df:'',dt:'',page:0,sort:null,dir:-1}; return REG[id]; }
 function regSetQ(id,v){ const s=regSt(id); s.q=v; s.page=0; render(); }
 function regSetF(id,k,v){ const s=regSt(id); s.f[k]=v; s.page=0; render(); }

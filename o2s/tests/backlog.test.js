@@ -42,7 +42,7 @@ const real = ctx(JSON.parse(JSON.stringify(data.orders)));
 const live = real.openPrintDecisionPOs().length;
 ok('the backlog is non-empty in this snapshot', live > 0, 'got ' + live);
 ok('Reports button uses openPrintDecisionPOs()',
-  /const n=openPrintDecisionPOs\(\)\.length;/.test(html));
+  /n=openPrintDecisionPOs\(\)\.length;/.test(html) /* 25k: Sales & Budget rebuilt */);
 ok('Action Center uses openPrintDecisionPOs()',
   /var _noDec=openPrintDecisionPOs\(\);/.test(html));
 ok('the screen itself uses openPrintDecisionPOs()',

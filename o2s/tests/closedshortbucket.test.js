@@ -184,7 +184,7 @@ eq('...all delivered', orderOpen({ lines: [done()] }), false);
   const body = H.html;
   const bo = (body.match(/bucketOpen\(/g) || []).length;
   const oo = (body.match(/orderOpen\(/g) || []).length;
-  ok('the two predicates carry the load', bo + oo >= 18, 'got ' + (bo + oo));
+  ok('the two predicates carry the load', bo + oo >= 16 /* 25k: screenApprovals retired, 2 uses gone */, 'got ' + (bo + oo));
   console.log('    open-ness: ' + bo + ' bucketOpen + ' + oo + ' orderOpen calls');
 }
 

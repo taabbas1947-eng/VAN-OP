@@ -30,11 +30,14 @@ const Q = sb.howQuality();
 eq('first-time pass: copies of a tested lot are not counted; a rejected one is not first-time', Q.f.first + '/' + Q.f.n, '1/2');
 eq('unfit now', Q.failedNow, 1); eq('trucks failed inspection this month', Q.ins.m.fail + '/' + Q.ins.m.n, '1/1');
 ok('the old Dashboard is How are we doing', /function screenDash\(\)\{ screenHow\(\); \}/.test(html));
-ok('Sales & Budget still opens, without the old tabs', /function screenBudget\(\)\{ dashTab='sales'; screenDashOld\(\); \}/.test(html) && /state\.screen==='budget'\)\?'':dashTabBar\(\)/.test(html));
+ok('Sales & Budget is its own page now (25k)', /function screenBudget\(\)\{ \$\('view'\)\.innerHTML=budgetHtml\(\); \}/.test(html));
 ok('the screen owners are the 3 leaders', /\{id:'dash', name:'How are we doing'[^}]*owners:\['Plant Manager','CFO','COO','Production Manager','Supply Chain'\]/.test(html));
 ok('anyone else is told where their work is', /This page is for the COO, the CFO, the Plant Manager, the Production Manager and Supply Chain/.test(grab('screenHow')));
 ok('each block opens the detail behind it', ["setScreen('budget')", "rpOpen('late')", "setScreen('plant')", "rpOpen('coa')"].every(x => grab('screenHow').indexOf(x) > -1));
 ok('a truck for a PSI-with-DC customer says so on its jobs and card', /pre-shipment report goes with the DC/.test(grab('actionItems')) && /pre-shipment report goes with the DC/.test(grab('shipCard')));
 ok('Saad reviews from the truck card; the Plant Manager approves there', /reviewTruck\(/.test(grab('shipCard')) && /Approve DC &amp; release/.test(grab('shipCard')));
 ok('25i: a block\'s button is hidden when the role cannot open what it leads to', /if\(go&&!howGoOK\(go\)\) go='';/.test(html));
+/* 25k: the budget is the channel totals */
+sb.state.masters.channelTargets = { 'White Label': { '2026-27': 3000 }, Cobo: { '2026-27': 1000 } };
+eq('25k: the FY budget is the sum of the channel totals when they are set', sb.howSales().tF, 4000);
 process.exitCode = report('How are we doing (25h)') ? 1 : 0;

@@ -26,7 +26,7 @@ ok('the person pill has Sign out', /onclick="logout\(\)"/.test(rtn));
 const rnd = grab('render');
 ok('render() stamps the screen on <body> and fills the header', /setAttribute\('data-screen',state\.screen\)/.test(rnd) && /renderTopNav\(\)/.test(rnd));
 ok('the old sidebar render no longer assumes #nav exists', /if\(\$\('nav'\)\) \$\('nav'\)\.innerHTML=html;/.test(grab('renderNav')));
-ok('the top bar hides on the 4 main screens, People, Orders and Reports (24k)', /body\[data-screen="today"\] \.topbar,body\[data-screen="dash"\] \.topbar,body\[data-screen="plant"\] \.topbar,body\[data-screen="backoffice"\] \.topbar,body\[data-screen="instructions"\] \.topbar,body\[data-screen="users"\] \.topbar,body\[data-screen="tracker"\] \.topbar,body\[data-screen="reports"\] \.topbar/.test(html));
+ok('the top bar hides on the 4 main screens, People, Orders and Reports (24k)', /body\[data-screen="today"\] \.topbar,body\[data-screen="dash"\] \.topbar,body\[data-screen="budget"\] \.topbar,body\[data-screen="plant"\] \.topbar,body\[data-screen="backoffice"\] \.topbar,body\[data-screen="instructions"\] \.topbar,body\[data-screen="users"\] \.topbar,body\[data-screen="tracker"\] \.topbar,body\[data-screen="reports"\] \.topbar/.test(html));
 
 /* ================= 2. TODAY IN THE QUEUE SHELL'S SHAPE ================= */
 const st = grab('screenToday'), card = grab('tdCardHTML');

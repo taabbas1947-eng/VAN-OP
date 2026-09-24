@@ -20,11 +20,11 @@ const H = require('./harness.js');
 const vm = require('vm');
 const { ok, eq, report, grab, html } = H;
 
-ok('dashFireHtml exists', grab('dashFireHtml').length > 400);
-ok('it is the first dashboard tab', /\[\['fire','Firefighter'\],\['overview','Overview'\]/.test(grab('dashTabBar')));
-ok('it is the default for everyone', /return 'fire'/.test(grab('dashDefaultTab')) && !/return 'overview'; \}$/.test(grab('dashDefaultTab').trim()));
-/* 25h: the Dashboard became 'How are we doing'; the old tab code is kept in screenDashOld */
-ok('the old tab code still renders it (screenDashOld)', /dashTab==='fire'\?dashFireHtml\(\)/.test(grab('screenDashOld')));
+/* 25k, Tahir 24 Sep: "retire them". The Firefighter screen is retired; its
+   engine, fireLists(), lives on as the lights on Plant. */
+ok('25k: the Firefighter screen is retired', !/function dashFireHtml\(/.test(html) && !/\['fire','Firefighter'\]/.test(html) && !/dashTab==='fire'/.test(html));
+ok('25k: the Centers tab is retired', !/function dashCentersHtml\(/.test(html) && !/\['centers','Centers'\]/.test(html));
+ok('25k: All actions is retired; Today is the one list', !/function screenApprovals\(/.test(html) && /approvals:screenToday/.test(html) && /if\(id==='approvals'\) id='today';/.test(html));
 const fires = grab('fireLists');
 ok('the three fires are computed in one place', fires.length > 300);
 ok('delayed orders come from the overdue lines', /lineOverdue\(o,l\)/.test(fires));
@@ -32,8 +32,7 @@ ok('material bottlenecks come from RM status and open PRs', /rmStatus/.test(fire
 ok('shipping holds come from the dispatch pipeline', /dispatchGroups\(\)/.test(fires) && /qa==='pending'/.test(fires) && /gatePass/.test(fires));
 ok('every row carries the action that puts the fire out', /act:/.test(fires));
 ok('rows are sorted worst first', /sort\(/.test(fires));
-ok('the screen shows a traffic light per fire', /fireLight\(/.test(grab('dashFireHtml')) && /function fireLight\(/.test(html));
-ok('no money on the Firefighter', !/pkr\(|invoicePrice/.test(grab('dashFireHtml') + fires));
+ok('no money in the fires', !/pkr\(|invoicePrice/.test(fires));
 
 /* run fireLists on a small state */
 {

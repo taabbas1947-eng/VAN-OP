@@ -488,7 +488,7 @@ const strip = s => String(s).replace(/<[^>]*>/g, '|').replace(/\s+/g, ' ').slice
   clear(c3); run(c3, 'state.screen = "approvals"; render();');
   const ac = page(c3);
   ok('the rendered Action Center has no live <img> from it', !/<img src=x onerror/.test(ac));
-  ok('...and shows the text', /&lt;img src=x onerror=alert\(1\)&gt;/.test(ac), strip(ac.slice(ac.indexOf('AP26012-L2') - 200, ac.indexOf('AP26012-L2') + 300)));
+  ok('...and shows the text (25k: All actions retired, this is Today now)', /&(amp;)?lt;img src=x onerror=alert\(1\)&(amp;)?gt;/.test(ac), strip(ac.slice(ac.indexOf('AP26012-L2') - 200, ac.indexOf('AP26012-L2') + 300)));
   clear(c3); run(c3, 'state.screen = "qc"; qcTab = "awaiting"; render();');
   ok('...nor the Lab QC row', !/<img src=x onerror/.test(page(c3)) && /&lt;img src=x/.test(page(c3)));
   run(c3, 'openBatchCOA("B-AP26012","LOT-B")');

@@ -129,6 +129,14 @@ ok('it lists every role under its department with the people who hold it', /role
 
 /* ================= 7. BUILD ================= */
 ok("BUILD_ID is 2026-09-23t or later", /var BUILD_ID='2026-09-2(3[t-z]|4[a-z])'/.test(html));
+/* 24f: one verb from the card to the save; the certificate on a phone */
+{
+  ok('the truck sheet is called Plan the truck and saves with Plan the truck', /<h2>Plan the truck — \$\{o\.po\}<\/h2>/.test(html) && /onclick="saveDispatch\(\)">Plan the truck</.test(html) && !/Load a truck — /.test(html) && !/onclick="saveDispatch\(\)">Record shipment</.test(html));
+  ok('its products are a list on a phone', /<table class="dl-tbl">/.test(html) && /\.dl-tbl thead\{display:none\}/.test(html));
+  ok('a job on one product line is named by the product', /if\(it\.o && it\.l && it\.l\.brand\) return _tdEsc\(it\.l\.brand\)/.test(grab('_tdWhat')));
+  ok('the certificate pans on a phone instead of breaking', /#coaFS \.sheet-wrap\{overflow-x:auto/.test(html) && /#coaFS \.sheet\{min-width:760px\}/.test(html));
+  ok('the certificate bar wears the shell', /#coaFS \.cofbar\{background:var\(--surface\);color:var\(--ink\);border-bottom:2px solid var\(--kraft\)/.test(html));
+}
 /* 24e: the person who loads does not release */
 {
   const f = new Function(grab('seedLoadRightV1') + ';return seedLoadRightV1;')();

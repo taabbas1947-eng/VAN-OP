@@ -11,7 +11,7 @@
    a push keeps running the old code with nothing telling anybody. It sat at
    2026-09-04a through this whole day's work; rmqty/psi tests pinned the code,
    nothing pinned this. buildid.test.js now does. */
-var BUILD_ID='2026-09-24e';
+var BUILD_ID='2026-09-24f';
 var CHANGELOG=[
   {ver:'2026-09-04a', date:'2026-09-04', title:"Delivery, DC printing, and a new Reconciliation check", items:[
     "Delivery confirmation stays with Supply Chain \u2014 it no longer hands off to the Plant Manager. If one sits too long, it now re-flags the same Supply Chain owner every 3 days instead.",
@@ -195,6 +195,11 @@ var CHANGELOG=[
   ]},
   {ver:'2026-09-24e', date:'2026-09-24', title:"The person who loads does not release", items:[
     "Start loading a truck is the Senior Warehouse Officer\u2019s and the Warehouse Assistant\u2019s. Lead Supply Chain keeps the release and no longer loads. Ruled by the COO on 24 Sep; done once, logged."
+  ]},
+  {ver:'2026-09-24f', date:'2026-09-24', title:"The truck sheet and the certificate, on a phone", items:[
+    "\u201cPlan the truck\u201d now opens a sheet called Plan the truck and saves with a button called Plan the truck \u2014 one verb from the card to the save. On a phone the products are a list, not a table cut off at the quantity.",
+    "A card for a job on one product now names the product (\u201cOrbit-K \u00b7 1821412156 \u00b7 Rudolf\u201d), not the job (\u201cRM Check \u00b7 \u2026\u201d).",
+    "The COA is a certificate; on a phone it now pans sideways as one sheet instead of breaking its columns, and its bar wears the shell\u2019s colours."
   ]},
 ];
 </script>
@@ -2085,6 +2090,28 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);border-c
 .seg input{position:absolute;opacity:0;width:1px;height:1px;min-height:0}
 .qu{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,6em) auto;gap:6px}
 .qu input{min-height:40px}
+/* the truck sheet's products, as a list on a phone (24f) */
+@media (max-width:600px){
+  .dl-tbl thead{display:none}
+  .dl-tbl,.dl-tbl tbody{display:block;width:100%}
+  .dl-tbl tr{display:grid;grid-template-columns:34px minmax(0,1fr) minmax(0,1fr);gap:4px 8px;padding:8px 0;border-top:1px solid var(--qline);align-items:center}
+  .dl-tbl td{display:block;padding:0;border:0}
+  .dl-tbl td:nth-child(1){grid-row:1/span 2}
+  .dl-tbl td:nth-child(2){grid-column:2/span 2}
+  .dl-tbl td:nth-child(3)::before{content:"ready ";color:var(--ink-3);font-size:11px}
+  .dl-tbl td:nth-child(4)::before{content:"to ship";display:block;color:var(--ink-3);font-size:11px}
+  .dl-tbl td:nth-child(4) input{width:100%}
+  .dl-tbl td:nth-child(5){grid-column:2/span 2}
+  .modal .mb table:not(.dl-tbl){display:block;overflow-x:auto;max-width:100%}
+}
+/* the certificate is a document: pan it on a phone, do not break it (24f) */
+#coaFS{background:var(--paper)}
+#coaFS .cofbar{background:var(--surface);color:var(--ink);border-bottom:2px solid var(--kraft);box-shadow:none;flex-wrap:wrap}
+#coaFS .cofbar .ttl{font-weight:600;font-size:15px}
+#coaFS .cofbar button{border-radius:4px;font-weight:500;min-height:38px}
+#coaFS .cofbar .b-green{background:var(--accent);color:#fff}
+#coaFS .cofbar .b-ghost{background:var(--surface);color:var(--ink);border:1px solid var(--qline-strong)}
+@media (max-width:860px){#coaFS .sheet-wrap{overflow-x:auto;padding:12px 8px 60px;justify-content:flex-start}#coaFS .sheet{min-width:760px}}
 .bar{height:8px;background:var(--surface-2);border:1px solid var(--qline);border-radius:2px;overflow:hidden}
 .bar i{display:block;height:100%;background:var(--st,var(--accent))}
 .tdcard.ord.st-done{background:var(--surface-2)}
@@ -11506,6 +11533,8 @@ function _tdWhat(it){
   /* "Ship Tervalis Plus — RUD26824" -> the product, with the PO as a chip */
   var w=String(it.what||''); var m=/^(.*?) — (.*)$/.exec(w);
   if(it.o && it.shipLines && it.shipLines.length) return _tdEsc(it.shipLines.map(function(l){return l.brand;}).join(', '))+' · '+_tdPo(it.o)+(it.o.client?' · '+_tdClient(it.o):'');
+  /* 24f: a job on one product line is named by the product, not by the job */
+  if(it.o && it.l && it.l.brand) return _tdEsc(it.l.brand)+' · '+_tdPo(it.o)+(it.o.client?' · '+_tdClient(it.o):'');
   if(it.o && m) return _tdEsc(m[1])+' · '+_tdPo(it.o)+(it.o.client?' · '+_tdClient(it.o):'');
   return _tdEsc(w);
 }
@@ -12636,7 +12665,7 @@ function screenShipOLD(){
         var body=ls.map(function(x){ var l=x.l, rem=x.rem; var pk=(+l.pack||seedPackForBrand(l.brand)); return '<tr><td><b>'+l.brand+'</b> <span class="muted" style="font-size:11px">'+(l.base||'')+'</span></td><td class="num">'+fmt(l.packed||0)+'</td><td class="num">'+fmt(l.dispatched||0)+'</td><td class="num"><b style="color:var(--green2)">'+fmt(rem)+'</b></td><td class="num muted">'+(packsCount(pk,rem)!=null?fmt(packsCount(pk,rem)):'—')+'</td></tr>'; }).join('');
         return '<div class="card" style="margin-bottom:10px"><h3>'+o.po+' <span class="hint">'+ls.length+' product(s) ready · '+fmt(tot)+' Kg/L</span></h3>'
           +'<div class="tscroll"><table><thead><tr><th>Product</th><th class="num">Packed</th><th class="num">Shipped</th><th class="num">Ready now</th><th class="num">≈ packs</th></tr></thead><tbody>'+body+'</tbody></table></div>'
-          +(ed?'<div style="margin-top:11px"><button class="green" onclick="openDispatch(\''+o.id+'\')">Load a truck — '+ls.length+' product(s)</button></div>':'')+'</div>';
+          +(ed?'<div style="margin-top:11px"><button class="green" onclick="openDispatch(\''+o.id+'\')">Plan the truck — '+ls.length+' product(s)</button></div>':'')+'</div>';
       }).join('');
       return '<div style="margin-bottom:16px"><div style="font-weight:700;font-size:13px;padding:8px 12px;background:var(--navy-50);border-radius:9px;margin-bottom:9px">'+c+' <span class="muted" style="font-weight:500;font-size:11.5px">· '+grps.length+' PO(s) · '+cProd+' product(s) · <b style="color:var(--green2)">'+fmt(cKg)+'</b> Kg/L ready</span></div>'+cards+'</div>';
     }).join('');
@@ -13405,10 +13434,10 @@ function dispLineQty(i,v){ if(dispForm&&dispForm.lines[i]){ dispForm.lines[i].qt
 function renderDispatchModal(){ const o=(state.orders||[]).find(x=>x.id===dispForm.oid); if(!o){closeModal();return;}
   if(typeof dcControlOn==='function'&&dcControlOn(dispForm.date)){ dispForm.dc=nextDCNo(); }
   const rows=dispForm.lines.map((r,i)=>`<tr style="${r.on?'':'opacity:.5'}"><td style="text-align:center"><input type="checkbox" ${r.on?'checked':''} onclick="dispLineToggle(${i})"></td><td><b>${r.brand}</b> <span class="muted" style="font-size:11px">${r.base}</span><div style="margin-top:2px">${mrpTagFor(o.po,r.brand,r.lid)}</div></td><td class="num muted">${fmt(r.rem)}</td><td><input type="number" class="num" value="${r.qty}" oninput="dispLineQty(${i},this.value)" ${r.on?'':'disabled'} style="width:110px"></td><td class="muted" id="disp_pk_${i}" style="font-size:11px">${r.pack>0?('≈ '+fmt(Math.ceil((+r.qty||0)/r.pack))+' pk'):''}</td></tr>`).join('');
-  $('modal').innerHTML=`<div class="mh"><h2>Load a truck — ${o.po}</h2><div class="sub">${shortClient(o.client)} · tick products, enter vehicle &amp; DC once</div></div>
+  $('modal').innerHTML=`<div class="mh"><h2>Plan the truck — ${o.po}</h2><div class="sub">${shortClient(o.client)} · tick what goes, the vehicle and the DC, once</div></div>
    <div class="mb">
      <div class="dstep"><div class="dstep-h">1 · Products on this truck</div>
-       <div style="overflow:auto;max-height:30vh"><table><thead><tr><th style="width:34px"></th><th>Product</th><th class="num">Ready</th><th class="num">Qty to ship</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
+       <div style="overflow:auto;max-height:30vh"><table class="dl-tbl"><thead><tr><th style="width:34px"></th><th>Product</th><th class="num">Ready</th><th class="num">Qty to ship</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
        <div class="muted" style="font-size:12px;margin-top:8px">Dispatching <b id="disp_total">${fmt(dispTotal())} Kg/L · ${dispCount()} product(s)</b></div>
      </div>
      <div class="dstep"><div class="dstep-h">2 · Truck &amp; destination</div>
@@ -13434,7 +13463,7 @@ function renderDispatchModal(){ const o=(state.orders||[]).find(x=>x.id===dispFo
        <div class="muted" style="font-size:11px;margin-top:10px">Only <b>inspected &amp; cleared</b> quantity can be shipped. The load records as <b>in transit</b> — confirm delivery later from the <b>Sent</b> tab. Anything left un-ticked stays in <b>Ready to ship</b> for the next truck.</div>
      </div>
    </div>
-   <div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" onclick="saveDispatch()">Record shipment</button></div>`; }
+   <div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" onclick="saveDispatch()">Plan the truck</button></div>`; }
 function saveDispatch(){ if(!may('shipment.plan')){toast(denyRight('shipment.plan','Saving a dispatch'));return;} const o=(state.orders||[]).find(x=>x.id===dispForm.oid); if(!o)return;
   const sel=dispForm.lines.filter(r=>r.on&&(+r.qty||0)>0); if(!sel.length){toast('Tick at least one product with a quantity');return;}
   var _ctrlOn=dcControlOn(dispForm.date);

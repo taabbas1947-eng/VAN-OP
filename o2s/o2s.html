@@ -11,7 +11,7 @@
    a push keeps running the old code with nothing telling anybody. It sat at
    2026-09-04a through this whole day's work; rmqty/psi tests pinned the code,
    nothing pinned this. buildid.test.js now does. */
-var BUILD_ID='2026-09-25f';
+var BUILD_ID='2026-09-25g';
 var CHANGELOG=[
   {ver:'2026-09-04a', date:'2026-09-04', title:"Delivery, DC printing, and a new Reconciliation check", items:[
     "Delivery confirmation stays with Supply Chain \u2014 it no longer hands off to the Plant Manager. If one sits too long, it now re-flags the same Supply Chain owner every 3 days instead.",
@@ -324,6 +324,9 @@ var CHANGELOG=[
   ]},
   {ver:'2026-09-25f', date:'2026-09-25', title:"The Plant Manager approves; he does not load", items:[
     "The Plant Manager no longer plans, loads or issues gate passes for trucks. He gives the final approval and releases. He can still confirm a delivery that has waited 2 days, because it lands on his Today."
+  ]},  {ver:'2026-09-25g', date:'2026-09-25', title:"New order, redesigned", items:[
+    "New order is 4 short sections: Customer, Terms and dates, Delivery, Products. Each product is its own card with quantity, pack, packs, committed date and price, in its own unit (Kg or L).",
+    "The order summary and the Submit button stay beside the form, so what you are about to submit is always in view."
   ]},
 ];
 </script>
@@ -5325,10 +5328,10 @@ function entryStepDots(){
   var allOk=headerOk&&linesOk&&priceOk;
   function c(done,started){ return done?'#0f766e':(started?'#c77b0e':'#d8cfc0'); }
   return [
-    {label:'Header',color:c(headerOk,!!entryChannel)},
-    {label:'Line items',color:c(linesOk,lines.length>0)},
-    {label:'Pricing',color:c(priceOk,entryPrintMode()!==null||lines.some(function(l){return +l.inv>0;}))},
-    {label:'Submit',color:c(allOk,false)}
+    {label:'Customer',color:c(headerOk,!!entryChannel)},
+    {label:'Products',color:c(linesOk,lines.length>0)},
+    {label:'Prices',color:c(priceOk,entryPrintMode()!==null||lines.some(function(l){return +l.inv>0;}))},
+    {label:'Ready to submit',color:c(allOk,false)}
   ];
 }
 function entryStepsHtml(){ return entryStepDots().map(function(s){return '<div class="step"><span class="dot" style="background:'+s.color+'"></span><span class="lbl">'+s.label+'</span></div>';}).join(''); }
@@ -5365,7 +5368,7 @@ function updateEntrySummary(){
     '<div class="srow"><span class="k">ERP SO #</span><span class="v'+(entryErpSo?'':' ph')+'">'+qsEsc(entryErpSo||'not set')+'</span></div>'+
     '<div class="srow"><span class="k">Order source</span><span class="v'+(src?'':' ph')+'">'+(src||'not set')+'</span></div>'+
     (instr?('<div class="srow" style="display:block"><span class="k">Instructions</span><div class="v" style="text-align:left;font-weight:500;margin-top:3px">'+instr+'</div></div>'):'')+
-    '<hr><div class="muted" style="font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;font-weight:700;margin-bottom:7px">Line items — '+lines.length+'</div>'+
+    '<hr><div class="muted" style="font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;font-weight:700;margin-bottom:7px">Products — '+lines.length+'</div>'+
     linesHtml+
     '<hr>'+
     '<div class="srow"><span class="k">Total quantity</span><span class="v">'+fmt(lines.reduce(function(a,l){return a+(+l.qty||0);},0))+' Kg/L</span></div>'+
@@ -5411,12 +5414,25 @@ function screenEntry(){
     .po2 .linewrap{overflow-x:auto}
     .po2 .pricehelp-toggle{cursor:pointer;display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:50%;background:#e0d6c4;color:#6b6152;font-size:10px;font-weight:700;line-height:1;flex:none}
     @media(max-width:900px){.po2 .layout2{flex-direction:column}.po2 .po-side{position:static}}
+    .po2 .nsec{background:#fff;border:1px solid #ece3d3;border-radius:14px;padding:16px 18px;margin-bottom:14px}
+    .po2 .nsh{display:flex;gap:11px;align-items:flex-start;margin-bottom:12px}
+    .po2 .nsh .nn{flex:none;width:26px;height:26px;border-radius:50%;background:#1f3a5f;color:#fff;font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center}
+    .po2 .nsh b{display:block;font-size:14.5px;color:#1c1b18}.po2 .nsh span.s{display:block;font-size:11.5px;color:#8a8279;margin-top:1px}
+    .po2 .nlines{display:flex;flex-direction:column;gap:10px}
+    .po2 .nl{border:1px solid #ece3d3;border-radius:12px;padding:12px 14px;background:#fdfcfa}
+    .po2 .nl-top{display:flex;gap:10px;align-items:center}
+    .po2 .nl-top select{flex:1;min-width:0;font-weight:600}
+    .po2 .nl-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:10px}
+    .po2 .nl-price{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:10px;padding-top:10px;border-top:1px dashed #e7dfd0}
+    .po2 .nl-v{font-size:15px;font-weight:700;padding:7px 0}
+    .po2 .nl-x{border:none;background:none;color:#9a9082;font-size:18px;cursor:pointer;padding:2px 6px}
+    @media(max-width:700px){.po2 .nl-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.po2 .nl-price{grid-template-columns:1fr}.po2 .formgrid{grid-template-columns:minmax(0,1fr)!important}.po2 .nsec{padding:14px 12px}.po2 .po-main,.po2 .po-side{min-width:0;width:100%}.po2 .steps{flex-wrap:wrap}.po2 .step{flex:1 1 40%}}
    </style>
    ${ed?'':viewOnly('KAM','switch to KAM to submit')}
-   <div class="sub" style="margin:0 0 12px;font-size:12.5px;color:var(--mut)">Customer, terms and ERP SO, then each product with its price. Each price is checked against the last one; more than 5% away needs a reason.</div>
+   <div class="sub" style="margin:0 0 12px;font-size:12.5px;color:var(--mut)">4 short sections. Each price is checked against the last one; more than 5% away needs a reason. Nothing is saved until you submit.</div>
    <div class="steps" id="e_steps">${entryStepsHtml()}</div>
    <div class="layout2"><div class="po-main">
-   <div class="card"><h3>Step 1 — PO Header</h3>
+   <section class="nsec"><div class="nsh"><span class="nn">1</span><div><b>Customer</b><span class="s">Who the order is for, and who raised it</span></div></div>
     <div class="formgrid">
      <div class="fld"><label>Channel</label>
        <select id="e_chan" onchange="onChannelChange(this.value)">
@@ -5432,31 +5448,32 @@ function screenEntry(){
          <option value="FM" ${entryVsub==='FM'?'selected':''}>FM — Farm Management</option></select></div>
        <div class="fld"><label>Destination Partner</label><input id="e_dpartner" type="text" value="${(entryDestPartner||'').replace(/"/g,'&quot;')}" oninput="entryDestPartner=this.value" placeholder="VGreen destination partner"></div>`:''}
      <div class="fld"><label>PO type</label><select id="e_potype" onchange="entryFOC=(this.value==='FOC');renderEntryLines();updateEntryTotal();validate()"><option value="Commercial" ${!entryFOC?'selected':''}>Commercial</option><option value="FOC" ${entryFOC?'selected':''}>FOC sample (no charge)</option></select></div>
-     <div class="fld"><label>FED ${(state.role==='COO'||state.role==='CFO')?'<span class="tag">override</span>':'<span class="tag">auto</span>'}</label>${(state.role==='COO'||state.role==='CFO')?`<select onchange="entryFEDover=this.value;updateEntryTotal()"><option value="" ${!entryFEDover?'selected':''}>Auto · ${entryFedMode()}</option><option value="None" ${entryFEDover==='None'?'selected':''}>None</option><option value="Exclusive" ${entryFEDover==='Exclusive'?'selected':''}>Exclusive +5%</option><option value="Inclusive" ${entryFEDover==='Inclusive'?'selected':''}>Inclusive (extract 5%)</option></select>`:`<input type="text" value="${entryFedMode()}" disabled>`}</div>
-     <div class="fld"><label>KAM Name</label><select id="e_kam" onchange="validate()"><option value="">— pick KAM —</option>${((state.masters&&state.masters.kamNames)||[]).map(k=>`<option ${k===state._lastKam?'selected':''}>${k}</option>`).join('')}</select></div>
+     <div class="fld"><label>KAM</label><select id="e_kam" onchange="validate()"><option value="">— pick KAM —</option>${((state.masters&&state.masters.kamNames)||[]).map(k=>`<option ${k===state._lastKam?'selected':''}>${k}</option>`).join('')}</select></div>
      <div class="fld"><label>Priority</label><select id="e_pri" onchange="validate()"><option>Normal</option><option>High</option><option>Critical</option><option>Low</option></select></div>
-     <div class="fld"><label>PO Received</label><input id="e_recv" type="date" value="${TODAY.toISOString().slice(0,10)}" oninput="validate()"></div>
-     <div class="fld"><label>Promised Delivery</label><input id="e_prom" type="date" value="${new Date(TODAY.getTime()+7*864e5).toISOString().slice(0,10)}" oninput="validate()"></div>
+     <div class="fld"><label>Order source</label><select id="e_source" onchange="entrySource=this.value;validate()"><option value="">— how did it arrive —</option>${['Phone call','WhatsApp','Email','Portal','In-person visit'].map(s=>`<option ${s===entrySource?'selected':''}>${s}</option>`).join('')}</select></div>
+    </div>
+   </section>
+   <section class="nsec"><div class="nsh"><span class="nn">2</span><div><b>Terms and dates</b><span class="s">What the customer agreed: payment, the ERP sales order, the PO and when</span></div></div>
+    <div class="formgrid">
      <div class="fld"><label>Payment terms</label><select id="e_terms" onchange="entryTerms=this.value;validate()"><option value="">— pick —</option>${PAY_TERMS.map(x=>`<option ${x===(entryTerms||entryTermsDefault())?'selected':''}>${x}</option>`).join('')}</select></div>
      <div class="fld"><label>ERP SO #</label><input id="e_erpso" type="text" value="${_av(entryErpSo)}" oninput="entryErpSo=this.value;validate()" placeholder="sales order no. in the ERP"></div>
-     ${/* Every channel, 2026-08-21. This was offered only for Cobo / VGreen /
-          Dealer, so 36 of 44 live POs carry no focal person and the Delivery
-          Challan prints an empty FOCAL PERSON line \u2014 including every Syngenta
-          order, which is White Label. Free text as well as the master list:
-          a one-off contact on a White Label load is not worth a master record.
-          Supply Chain can still override it per truck at dispatch. */''}
-     <div class="fld"><label>Delivery focal person</label><input type="text" id="e_focal" list="e_focal_list" value="${_av(entryFocal)}" oninput="entryFocal=this.value;validate()" placeholder="who receives it \u2014 optional"><datalist id="e_focal_list">${(((state.masters&&state.masters.focalPersons)||[])).map(p=>`<option>${p}</option>`).join('')}</datalist></div>
      <div class="fld"><label>Client PO # ${isManualPO()?'<span class="tag">manual</span>':'<span class="tag">auto on submit</span>'}</label>
        ${isManualPO()?`<input id="e_po" type="text" placeholder="type client's PO#" oninput="validate()">`
          :`<input id="e_po" type="text" value="${entryChannel?genPO(TODAY.toISOString().slice(0,10)):''}" disabled>`}
        <div id="e_po_msg" style="font-size:9.5px;color:var(--red);margin-top:2px"></div></div>
+     <div class="fld"><label>FED ${(state.role==='COO'||state.role==='CFO')?'<span class="tag">override</span>':'<span class="tag">auto</span>'}</label>${(state.role==='COO'||state.role==='CFO')?`<select onchange="entryFEDover=this.value;updateEntryTotal()"><option value="" ${!entryFEDover?'selected':''}>Auto · ${entryFedMode()}</option><option value="None" ${entryFEDover==='None'?'selected':''}>None</option><option value="Exclusive" ${entryFEDover==='Exclusive'?'selected':''}>Exclusive +5%</option><option value="Inclusive" ${entryFEDover==='Inclusive'?'selected':''}>Inclusive (extract 5%)</option></select>`:`<input type="text" value="${entryFedMode()}" disabled>`}</div>
+     <div class="fld"><label>PO received</label><input id="e_recv" type="date" value="${TODAY.toISOString().slice(0,10)}" oninput="validate()"></div>
+     <div class="fld"><label>Promised delivery</label><input id="e_prom" type="date" value="${new Date(TODAY.getTime()+7*864e5).toISOString().slice(0,10)}" oninput="validate()"></div>
     </div>
-    <div class="formgrid newrow">
-     <div class="fld"><label>Delivery Contact Phone <span class="tag new">new</span></label><input type="tel" id="e_focalphone" value="${_av(entryFocalPhone)}" oninput="entryFocalPhone=this.value;validate()" placeholder="03xx-xxxxxxx — optional"></div>
-     <div class="fld"><label>Order Source <span class="tag new">new</span></label><select id="e_source" onchange="entrySource=this.value;validate()"><option value="">— how did it arrive —</option>${['Phone call','WhatsApp','Email','Portal','In-person visit'].map(s=>`<option ${s===entrySource?'selected':''}>${s}</option>`).join('')}</select></div>
-     <div class="fld wide"><label>General Instructions / Delivery Notes <span class="tag new">new</span> <span class="tag opt">optional</span></label><textarea id="e_instructions" oninput="entryInstructions=this.value;validate()" placeholder="e.g. deliver only Mon-Fri before 2pm, call before dispatch, handle with care...">${_av(entryInstructions)}</textarea></div>
-    </div></div>
-   <div class="card"><h3>Step 2 — Line Items <span class="hint">pack size auto-fills, override allowed</span></h3>
+   </section>
+   <section class="nsec"><div class="nsh"><span class="nn">3</span><div><b>Delivery</b><span class="s">Who receives it, and anything the truck must know</span></div></div>
+    <div class="formgrid">
+     <div class="fld"><label>Delivery focal person</label><input type="text" id="e_focal" list="e_focal_list" value="${_av(entryFocal)}" oninput="entryFocal=this.value;validate()" placeholder="who receives it \u2014 optional"><datalist id="e_focal_list">${(((state.masters&&state.masters.focalPersons)||[])).map(p=>`<option>${p}</option>`).join('')}</datalist></div>
+     <div class="fld"><label>Delivery contact phone</label><input type="tel" id="e_focalphone" value="${_av(entryFocalPhone)}" oninput="entryFocalPhone=this.value;validate()" placeholder="03xx-xxxxxxx — optional"></div>
+     <div class="fld wide"><label>Instructions for delivery (optional)</label><textarea id="e_instructions" oninput="entryInstructions=this.value;validate()" placeholder="e.g. deliver only Mon-Fri before 2pm, call before dispatch, handle with care...">${_av(entryInstructions)}</textarea></div>
+    </div>
+   </section>
+   <section class="nsec"><div class="nsh"><span class="nn">4</span><div><b>Products</b><span class="s">One card per product: quantity, pack, price. Pack size fills in; you can change it.</span></div></div>
     ${entryClient?(function(){
       const hist=clientHasPrintHistory(entryClient);
       const _pm=entryPrintEffective();
@@ -5494,20 +5511,18 @@ function screenEntry(){
           <b>A price set on this PO</b> &mdash; a figure negotiated for this customer. Enter it per line below; QA checks the bag against that exact number.<br>
           <b>No price</b> &mdash; nothing printed. Any price on the bag is then a failure.</div>
       </div>`;})():''}
-    ${entryClient?'':'<div class="muted" style="font-size:12.5px">Pick a channel and client above to load brands.</div>'}
-    <div class="linewrap"><table class="fixedtbl ${entryClient?'':'hide'}" style="font-size:12px"><thead><tr><th style="width:150px">Brand</th><th style="width:78px">Form</th><th style="width:76px">Pack Size</th><th style="width:74px">Qty</th><th style="width:54px">Packs</th><th style="width:188px">Invoice price · Kg + pack</th><th style="width:118px">Committed</th><th style="width:125px">Note</th><th style="width:26px"></th></tr></thead>
-    <tbody id="e_lines"></tbody></table></div>
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:10px" class="${entryClient?'':'hide'}">
-      <button class="ghost sm" onclick="entryLines.push({brand:'',qty:'',pack:'',note:'',committed:''});renderEntryLines()">+ Add line</button>
+    ${entryClient?'':'<div class="muted" style="font-size:12.5px">Pick the channel and customer in section 1 first.</div>'}
+    <div id="e_lines" class="nlines ${entryClient?'':'hide'}"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px" class="${entryClient?'':'hide'}">
+      <button class="qs-btn sm ghost" onclick="entryLines.push({brand:'',qty:'',pack:'',note:'',committed:''});renderEntryLines()">+ Add a product</button>
       <div id="e_total" class="muted" style="font-size:12px;text-align:right"></div>
     </div>
+   </section>
    </div>
-   
-   <div class="card"><h3>Step 4 — Submit</h3>
-    <button id="e_submit" ${ed?'':'disabled'} onclick="submitPO()">▶ Submit PO &amp; run RM check</button>
-    <div id="e_submit_note" style="margin-top:8px"></div></div>
-   </div>
-   <div class="po-side"><div class="summary"><h3>Order Summary <span class="hint">everything entered, at a glance</span></h3><div id="e_summary"></div></div></div>
+   <div class="po-side"><div class="summary"><h3>Order summary</h3><div id="e_summary"></div>
+     <button id="e_submit" class="green" style="width:100%;margin-top:14px;padding:11px" ${ed?'':'disabled'} onclick="submitPO()">Submit order</button>
+     <div id="e_submit_note" style="margin-top:8px"></div>
+     <div class="muted" style="font-size:10.5px;margin-top:8px">Submitting sends the order to Supply Chain for the raw-material check.</div></div></div>
    </div></div>`;
   if(entryClient) renderEntryLines(); else validate();
 }
@@ -5548,18 +5563,27 @@ function renderEntryLines(){
     const packBad=real&&!(+l.pack>0);
     const invBad=real&&!entryFOC&&!(+l.inv>0);
     const printBad=real&&!entryFOC&&entryPrintMode()==='yes'&&!(+l.printPrice>0);
-    const printRow = (entryPrintMode()==='yes') ? `<tr><td colspan="9" style="border-top:none;padding-top:0;padding-bottom:8px"><div style="display:flex;align-items:center;gap:8px;font-size:11px"><span class="muted" style="min-width:118px">Print price (MRP on pack):</span><input id="pp_${i}" type="number" class="${printBad?'inv':''}" value="${l.printPrice!=null?l.printPrice:''}" placeholder="PKR / pack" oninput="entryLines[${i}].printPrice=this.value;validate()" style="width:150px"><span class="muted">PKR per pack${+l.pack>0?(' of '+fmt(l.pack)):''}${recalled>0?` &middot; <span style="cursor:pointer;color:var(--navy)" title="recall last used" onclick="entryLines[${i}].printPrice=${recalled};renderEntryLines()">use last ${fmt(recalled)}</span>`:' &middot; no previous price on file'}</span></div></td></tr>` : '';
-    return `<tr>
-     <td><select onchange="entryLines[${i}].brand=this.value;entryLines[${i}].pack=(detailForBrand(this.value).pack||'');renderEntryLines()">
-       <option value="">— pick brand —</option>${brs.map(b=>`<option ${b.brand===l.brand?'selected':''}>${b.brand}</option>`).join('')}</select></td>
-     <td class="muted">${det.form||'—'}</td>
-     <td><input id="pks_${i}" type="number" class="${packBad?'inv':''}" value="${l.pack}" placeholder="${det.pack||''}" oninput="onEntryPack(${i},this.value)"></td>
-     <td><input type="number" value="${l.qty}" placeholder="${l.brand?unitOf(l.brand):'Kg/L'}" oninput="entryLines[${i}].qty=this.value;updatePacks(${i});updateCommitted(${i});validate()"></td>
-     <td class="num"><b id="pk_${i}">${packs!==''?fmt(packs):'—'}</b></td>
-     <td><div style="display:flex;gap:5px"><input id="ikg_${i}" type="number" class="${invBad?'inv':''}" value="${l.inv||''}" placeholder="PKR/Kg" title="Per Kg/L — type here and per-pack fills automatically" oninput="setInvKg(${i},this.value)" style="width:74px"><input id="ipk_${i}" type="number" value="${l.invPack||''}" placeholder="PKR/pack" title="Per pack — type here and per-Kg fills automatically" oninput="setInvPack(${i},this.value)" style="width:86px"></div><div id="ipp_${i}" style="font-size:10px;margin-top:3px;color:var(--mut)">${invPerPackText(l)}</div><div id="lpc_${i}">${entryPriceNote(i)}</div></td>
-     <td><input type="date" id="cm_${i}" value="${committedVal}" onchange="entryLines[${i}].committed=this.value;updateCommitted(${i});validate()"><div id="cmh_${i}" style="font-size:9px;color:var(--mut);margin-top:2px" title="Auto from the lead-time model — edit to override">${(!l.committed&&autoCommit)?('auto &middot; '+leadDays(+l.qty,procD,l.brand)+'d lead'+(procD?' &middot; incl '+procD+'d RM':'')):''}</div></td>
-     <td><input type="text" value="${(l.note||'').replace(/"/g,'&quot;')}" placeholder="optional" oninput="entryLines[${i}].note=this.value" style="width:100%;font-size:11px"></td>
-     <td>${entryLines.length>1?`<button class="ghost sm" onclick="entryLines.splice(${i},1);renderEntryLines()">✕</button>`:''}</td></tr>${printRow}`;
+    const u=l.brand?unitOf(l.brand):'Kg';
+    const printRow = (entryPrintMode()==='yes') ? `<div class="fld" style="margin-top:10px"><label>Price printed on the pack (PKR per pack${+l.pack>0?(' of '+fmt(l.pack)+' '+u):''})</label><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><input id="pp_${i}" type="number" class="${printBad?'inv':''}" value="${l.printPrice!=null?l.printPrice:''}" placeholder="PKR / pack" oninput="entryLines[${i}].printPrice=this.value;validate()" style="max-width:170px"><span class="muted" style="font-size:11px">${recalled>0?`<span style="cursor:pointer;color:var(--navy)" title="recall last used" onclick="entryLines[${i}].printPrice=${recalled};renderEntryLines()">use last ${fmt(recalled)}</span>`:'no previous price on file'}</span></div></div>` : '';
+    return `<div class="nl">
+     <div class="nl-top"><select onchange="entryLines[${i}].brand=this.value;entryLines[${i}].pack=(detailForBrand(this.value).pack||'');renderEntryLines()">
+       <option value="">— pick a product —</option>${brs.map(b=>`<option ${b.brand===l.brand?'selected':''}>${b.brand}</option>`).join('')}</select>
+       <span class="muted" style="font-size:11px;white-space:nowrap">${det.form||''}${l.brand?' · '+u:''}</span>
+       ${entryLines.length>1?`<button class="nl-x" title="Remove this product" onclick="entryLines.splice(${i},1);renderEntryLines()">✕</button>`:''}</div>
+     <div class="nl-grid">
+       <div class="fld"><label>Quantity (${u})</label><input type="number" value="${l.qty}" placeholder="${u}" oninput="entryLines[${i}].qty=this.value;updatePacks(${i});updateCommitted(${i});validate()"></div>
+       <div class="fld"><label>Pack size (${u})</label><input id="pks_${i}" type="number" class="${packBad?'inv':''}" value="${l.pack}" placeholder="${det.pack||''}" oninput="onEntryPack(${i},this.value)"></div>
+       <div class="fld"><label>Packs</label><div class="nl-v" id="pk_${i}">${packs!==''?fmt(packs):'—'}</div></div>
+       <div class="fld"><label>Committed date</label><input type="date" id="cm_${i}" value="${committedVal}" onchange="entryLines[${i}].committed=this.value;updateCommitted(${i});validate()"><div id="cmh_${i}" style="font-size:9.5px;color:var(--mut);margin-top:2px" title="Auto from the lead-time model — edit to override">${(!l.committed&&autoCommit)?('auto &middot; '+leadDays(+l.qty,procD,l.brand)+'d lead'+(procD?' &middot; incl '+procD+'d RM':'')):''}</div></div>
+     </div>
+     ${entryFOC?'<div class="muted" style="font-size:11.5px;margin-top:10px">FOC sample: no price.</div>':`<div class="nl-price">
+       <div class="fld"><label>Invoice price, PKR per ${u}</label><input id="ikg_${i}" type="number" class="${invBad?'inv':''}" value="${l.inv||''}" placeholder="PKR / ${u}" oninput="setInvKg(${i},this.value)"></div>
+       <div class="fld"><label>or PKR per pack</label><input id="ipk_${i}" type="number" value="${l.invPack||''}" placeholder="PKR / pack" oninput="setInvPack(${i},this.value)"></div>
+       <div style="grid-column:1/-1"><div id="ipp_${i}" style="font-size:10.5px;color:var(--mut)">${invPerPackText(l)}</div><div id="lpc_${i}">${entryPriceNote(i)}</div></div>
+     </div>`}
+     ${printRow}
+     <div class="fld" style="margin-top:10px"><label>Note (optional)</label><input type="text" value="${(l.note||'').replace(/"/g,'&quot;')}" placeholder="anything about this product" oninput="entryLines[${i}].note=this.value"></div>
+    </div>`;
   }).join('');
   validate();
 }

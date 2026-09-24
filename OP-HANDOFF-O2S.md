@@ -5581,3 +5581,10 @@ Next: push; the Dashboard with Tahir; the old screens.
 Tahir: "Fahim shouldn't have this, he is just an approver, correct it." Live grant table had plant-manager: shipment.plan, shipment.load, gatepass.issue, delivery.confirm all true.
 Built: `seedPmApproverOnlyV1` (runs after seedLoadRightV1, once, flag masters._pmApproverOnlyV1, logged): shipment.plan / shipment.load / gatepass.issue → false for plant-manager, marked set. delivery.confirm KEPT on purpose: under 25e an unconfirmed delivery reaches his Today on day 3 and must be actionable — say so to Tahir; remove on his word. RIGHTS catalogue: the 3 rights no longer carry alsoOn approvals:Plant Manager. A later tick by the COO stands (migration runs once). What's new 25f.
 Tests: dispatchauthority +6, authmodel updated. Suite 0 failed.
+
+
+## Pass forty-seven — 25g: New order redesigned (24 Sep, NOT pushed)
+
+Tahir: "back to New order redesign". screenEntry rebuilt from its own field markup (every id, handler and check kept, moved not retyped): 4 numbered sections — 1 Customer (channel, customer, VGreen sub/partner, PO type, KAM, priority, order source), 2 Terms and dates (payment terms, ERP SO #, client PO #, FED, received, promised), 3 Delivery (focal, phone, instructions), 4 Products (print-on-pack question, product cards, + Add a product, running total). Submit moved under the sticky order summary. renderEntryLines: one card per product (product + form + unit, quantity/pack/packs/committed, price per unit or per pack with the last-price note and reason, print price when the PO carries it, note); FOC shows no price inputs. Step dots renamed Customer / Products / Prices / Ready to submit. Phone: one column, no sideways scroll at 390 px. Browser: an order submitted end to end with terms, ERP SO, and 2 price reasons saved; 0 errors.
+Tests: entrydesign.test.js 40. Suite 0 failed.
+Next: the Dashboard with Tahir; then Production's frame, Customers, Lists, Correct a record, Reconcile, Budget.

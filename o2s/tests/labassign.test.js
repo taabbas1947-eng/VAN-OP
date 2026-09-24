@@ -359,6 +359,16 @@ run(c, 'labAsg.rows[2].to="mubeen"; toasts=[]; labAssignConfirm()');
   ok('the bench names the certificate test on each row', />Moisture</.test(m) && /Oven/.test(m), m.slice(0, 600));
 }
 
+/* 3p. Tahir, 24 Sep: "where is lab screen? how i can see it from my login?"
+   The COO's Today starts orders only (23u) and the Lab left the nav with the
+   old tabs, so the COO had no way in. The Plant's Quality department opens it. */
+{
+  const d = app('COO', 'tahir', 'Tahir Abbas'); withBatch(d);
+  run(d, 'state.screen="plant"; render();');
+  const v = run(d, 'document.getElementById("view").innerHTML');
+  ok("the COO reaches the Lab from Plant → Quality", /setScreen\(\\?'qc\\?'\)[^>]*>Open the Lab/.test(v), (v.match(/.{0,120}Open the Lab.{0,20}/) || [''])[0]);
+}
+
 /* ================= 4. it ships ================= */
 ok('BUILD_ID is 2026-09-24r or later', /BUILD_ID\s*=\s*'2026-09-(24[r-z]|2[5-9][a-z]|30[a-z])'/.test(html));
 ok('the changelog tells the lab', /ver:'2026-09-24r'[\s\S]{0,1200}(bench|parameter|test)/i.test(html));

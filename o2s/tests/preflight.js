@@ -153,6 +153,7 @@ const MARKERS = [
   ['function benchSave(',                  1, 'the bench sheet, one test for every sample (24r)'],
   ['function labRanATest(',                1, 'no analyst reviews or approves their own sample (24r)'],
   ["key='test:'+(it.param||'')",           1, 'Today groups lab tests by parameter (24r)'],
+  ['>Open the Lab ›</button>',             1, 'Plant → Quality opens the Lab (24s)'],
 ];
 
 const [, , mode, freshPath, otherPath] = process.argv;

@@ -11,7 +11,7 @@
    a push keeps running the old code with nothing telling anybody. It sat at
    2026-09-04a through this whole day's work; rmqty/psi tests pinned the code,
    nothing pinned this. buildid.test.js now does. */
-var BUILD_ID='2026-09-24r';
+var BUILD_ID='2026-09-24s';
 var CHANGELOG=[
   {ver:'2026-09-04a', date:'2026-09-04', title:"Delivery, DC printing, and a new Reconciliation check", items:[
     "Delivery confirmation stays with Supply Chain \u2014 it no longer hands off to the Plant Manager. If one sits too long, it now re-flags the same Supply Chain owner every 3 days instead.",
@@ -263,6 +263,9 @@ var CHANGELOG=[
     "Analysts see their own tests on Today, grouped by test: one bench sheet takes pH for every sample waiting, so you stay at one instrument. Your name and the time are recorded with each result.",
     "Each test is due its own time from the QC manager\u2019s test-time list; a sample is due when its longest test is due. A late test goes to the QC manager; a sample a day past due goes to the Plant Manager.",
     "When every test has a result, the certificate goes to the AQCM and QCM as before. Nobody who ran a test on a sample may review or approve it. The assignment form QCL-FRM-19.01 prints from the sample."
+  ]},
+  {ver:'2026-09-24s', date:'2026-09-24', title:"A way into the Lab from Plant", items:[
+    "Plant \u2192 Departments \u2192 Quality now has an Open the Lab button, for everyone allowed to see the Lab."
   ]},
 ];
 </script>
@@ -12111,7 +12114,9 @@ function screenPlant(){
     return '<div class="pl-d"><div class="nm">'+qsEsc(d.name)+'</div><div class="ld">'+(d.leadRole?(qsEsc(d.leadTitle)+(d.who?' · '+qsEsc(d.who):'')):'<span style="color:var(--over);font-weight:600">no lead named</span>')+'</div>'
       +'<span class="st st-ink"><span class="n">'+d.n+'</span><span class="l">jobs waiting</span></span>'
       +'<span class="st '+tn+'"><span class="n">'+(d.n?plDays(d.worst):'none')+'</span><span class="l">oldest job</span></span>'
-      +'<span class="st '+(d.late?'st-over':'st-ok')+'"><span class="n">'+d.late+'</span><span class="l">on late orders</span></span></div>'; }).join('')+'</div>';
+      +'<span class="st '+(d.late?'st-over':'st-ok')+'"><span class="n">'+d.late+'</span><span class="l">on late orders</span></span>'
+      /* 24s: the Lab had no door for the COO (Tahir: "where is lab screen?") - Quality opens it */
+      +((d.id==='quality'&&canView(state.role,'qc'))?'<button class="qs-btn sm" style="margin-top:8px" onclick="setScreen(\'qc\')">Open the Lab ›</button>':'')+'</div>'; }).join('')+'</div>';
   var fl=plFloor();
   h+='<h2>On the floor <span class="cnt">'+fl.length+' open order'+(fl.length===1?'':'s')+'</span></h2>';
   if(!fl.length) h+='<div class="note">No open orders.</div>';

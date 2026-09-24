@@ -163,6 +163,7 @@ const MARKERS = [
   ["if(f==='pack') return PCARD_CSS+",      1, 'Ready to pack as cards (24x)'],
   ["return PCARD_CSS+qcard+qbody",         1, 'Waiting for lab as cards (24x)'],
   ['<div class="qs wide"><h1>Shipments</h1>', 1, 'Shipments in the shell (24y)'],
+  ['<h3>When the AQCM or the QCM is on leave</h3>', 1, 'the Guide covers the leave cover (24z)'],
   ["function coaApprove(){ if(!(state.role==='QCM'||labCovers('QCM')))", 1, 'the COO does not sign certificates (24u)'],
 ];
 

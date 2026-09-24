@@ -131,6 +131,15 @@ Production is a separate, later, human decision.
 
 ---
 
+**The Guide moves with the app — Tahir's rule, 24 September 2026.** "Keep updating
+the guides and rules, my jobs, how this app works WITH EVERY NEW CHANGE, ADDITION
+AND PUSH." Every O2S change that alters a flow, a job, a rule or who does what also
+updates the in-app Guide in the same change: `guideMyJob` (My job), `guideHow`
+(How the app works), `guideRules` (The rules), `TD_LABEL` / `TD_NEXT` (the job
+cards), and the changelog entry. `o2s/tests/guide.test.js` pins what the Guide must
+say; add lines to it with each change. A change whose Guide is not updated is not
+finished.
+
 ## 2A. Security and access control are NOT Tahir's job
 
 **Ownership.** Security, authentication, passwords, access control and

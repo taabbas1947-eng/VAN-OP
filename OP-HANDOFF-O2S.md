@@ -5418,3 +5418,23 @@ Open, from the review, not built: Reconcile as a list without the 4 stat tiles; 
 **Tahir's instruction for the next session:** "start with fresh eyes for the audit and a few observations, and if anything is missing from the system, we will build it." So: do not resume a list — audit the live app as each role (offline renders with `scratchpad/live/qsshot.mjs` / the sweep in `sweep.mjs`, and the live site through Chrome when it is reachable), take his observations from the team briefing, and build what is missing.
 
 **Known, not built, for the audit to weigh:** the reviewer's proposal to narrow MONEY_ROLES (Tahir reaffirmed R6); Dashboard code still in the file; Needs you on the live site shows 1 delivered line without a date and 6 packed lines that do not reconcile (his to fix with the buttons now on those rows); `ahmer` is a COO not on HR's sheet; 5 account names Tahir may still want to respell.
+
+
+## Pass thirty-one — 24q: the fresh-eyes audit (24 Sep evening, commit 7aae844, NOT pushed)
+
+**How the audit ran.** Live: signed in as Tahir (COO) in Chrome, with a read-only guard in the audit tab (save/saveNow stubbed, every non-GET fetch blocked; 0 writes attempted), then every screen rendered for each of the 20 live accounts on live data, rev 9009. Offline: server.js on the file store in the cloud scratchpad with 1 test login per role (15), every allowed screen at 1366 px, 8 roles at 390 px. Result: 0 errors, 0 undefined/NaN/null on screen, 0 phone overflow.
+
+**Tahir's rulings this pass:** `ahmer` is the admin, not a stray COO: COO rights stay, title "System Administrator". Do not name a KAM; route the KAM job to someone else, and that is Finance. Liquid = L, every other form = Kg.
+
+**Built (24q, o2s/o2s.html):** `unitOf(brand)` (Liquid → L, other form → Kg, unknown/no form/failure → Kg/L), used on the Today production card and the order-sheet line (mixed totals stay Kg/L; all 56 brands on live orders resolve, 17 liquid). `tdPlantPulse` leaves out `acDeferActive` jobs and adds "N jobs are on hold …" (live: 32 runs vs 29 on Production's list, because the Plant Manager put Max Sulfur/Max Compost/Max Amino/Cal-Mag V on hold until 15 Oct). Print-on-pack job `role:'Finance'` (live: Muhammad Ismail had answered 12 of 61; escalation 'Print price':[3,'COO'] unchanged; new POs answer it at entry, so it only fires for legacy POs). Today's `tdfoot` developer line removed. `renderWhatsNewHtml`: newest first, 5 shown, "N earlier updates not shown" (a first login showed 46, oldest first). `USER_TITLE.ahmer='System Administrator'` (seedTitlesV1 fills it once). Changelog 24q. Preflight markers ×4. Back Office manual line about deleting ahmer corrected.
+
+**Tests:** new `o2s/tests/freshaudit.test.js` (29 checks; 11 failed against the unmodified file before the build). Suite on Tahir's machine: **9,616 passed, 0 failed, 0 crashed.**
+
+**Found on live, Tahir's to fix with the buttons (not built, data):**
+- Reconcile, 6 lines: 4 × V-Mg Essential (VG-VC-2607-7630 50, VG-VC-2607-1345 150, FRM-2607-6790 150, DLR-PB-JHN-001-2608-7682 500) packed and dispatched with NO packing-log entry; PUR-ORD-2026-00592 V-Transfarm packed 600 against 300 ordered and 300 logged; "Maxim Old POs" Max Sulfur 2,000 packed, no log, not dispatched (critical).
+- FRM-2607-5207 VL-NPK delivered with no date.
+- AP26012-L2 COA re-issue ("extra duplicated report") sits as a Rev 1 draft on all 4 Lab Reps' Today for 34 days: reject the draft, then Remove the lot (the route certremove.test.js pins).
+
+**Noticed, for Tahir to weigh (not built):** Production's Today holds 29 runs, 24 past promise, oldest 58 d; Plant shows 24 late orders (oldest 78 d), 15 trucks waiting (58 d), 50 stuck batches (59 d). Mostly old work not recorded rather than work not done, which is the adoption problem again. Finance, Finance Desk Officer and AQCM have empty Todays (by design). Plant → Departments shows "Commercial · KAM" with no person. About 245 other "Kg/L" labels remain on totals and older screens.
+
+**Next:** push 7aae844 from GitHub Desktop; after the deploy, check on live that Today shows L on a liquid run and that the pulse's on-hold line appears for a person with a clear list.

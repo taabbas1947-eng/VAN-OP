@@ -31,10 +31,19 @@ ok('the top bar hides on the 4 main screens and People', /body\[data-screen="tod
 /* ================= 2. TODAY IN THE QUEUE SHELL'S SHAPE ================= */
 const st = grab('screenToday'), card = grab('tdCardHTML');
 ok('3 tiles: waiting, past due, done today', /tdTallyHTML\(own\.length,lateOwn\)/.test(st) && /waiting<\/span>/.test(grab('tdTallyHTML')) && /past due/.test(grab('tdTallyHTML')) && /done today/.test(grab('tdTallyHTML')));
-ok('"Waiting on you" with the count, like the artifact', /Waiting on you<span class="cnt">'\+own\.length\+'<\/span>/.test(st));
+ok('"Waiting on you" with the count, like the artifact; "Open in the plant" for the COO\'s whole-plant view (23u)', /'Open in the plant':'Waiting on you'\)\+'<span class="cnt">'\+own\.length\+'<\/span>/.test(st));
 ok('a card is STAGE / title / line / chips', /<div class="tdstage">'\+stage\+'<\/div><div class="tdtitle">'\+ttl\+'<\/div>/.test(card));
 ok('a production run says so on the card', /'Production run'/.test(card));
-ok('the card colour follows lateness: late, warn, or on time', /' late':\(warn\?' warn':''\)/.test(card));
+ok('the card colour is the JOB clock: red after a day, amber today (23u)', /g\.days>0\?' late':' warn'/.test(card));
+/* 23u: what the outside UX review changed */
+const tags = grab('tdTags');
+ok('the main chip is the job\'s own age, not the customer\'s promise', /waiting '\+g\.days\+' d/.test(tags) && /new today/.test(tags) && /d past promise/.test(tags) && !/days past promise/.test(tags));
+ok('the list is oldest JOB first', /\(b\.days-a\.days\)\|\|\(b\.late-a\.late\)/.test(grab('tdGroups')));
+ok('escalations are one card per role, with their list inside', /tdEscByRoleHTML\(esc\)/.test(st) && /See their list/.test(grab('tdEscByRoleHTML')) && /roleTitle\(r\)/.test(grab('tdEscByRoleHTML')));
+ok('the COO starts orders only', /state\.role==='COO'\) b=b\.filter\(function\(x\)\{ return x\[0\]==='entry'; \}\)/.test(grab('tdStarts')));
+ok('a late-reason card is titled by the order, not by its own label', /var ttl=\(g\.key\.indexOf\('prod:'\)===0\)\?title:sub/.test(card));
+ok('the empty state does not lecture', !/honest answer/.test(st));
+ok('the phone does not repeat the name under the header', /@media \(max-width:820px\)\{\.tdwho\{display:none\}\}/.test(html));
 ok('done today is counted from the action log, per person', /e\.by===me/.test(grab('tdDoneCount')));
 
 /* ================= 3. PLANT: 3 lights ================= */
@@ -52,7 +61,10 @@ ok('the KAM reads, never acts (C9)', /state\.role!=='KAM'/.test(grab('plCanAct')
 ok('every department on one line: lead, jobs waiting, oldest, on late orders', /plDeptLines\(\)/.test(pl) && /jobs waiting/.test(pl) && /oldest job/.test(pl) && /on late orders/.test(pl));
 ok('a department with no lead says so, in red', /no lead named/.test(pl));
 ok('the floor is stage words per open order', /plFloor\(\)/.test(pl) && /lineBucket\(o,l\)/.test(grab('plFloor')));
-ok('All orders and Reports are 2 links under Plant', /setScreen\(\\'tracker\\'\)/.test(pl) && /setScreen\(\\'reports\\'\)/.test(pl));
+ok('Find an order sits at the top of Plant, with All orders and Reports beside it (23u)', /id="plFind"/.test(pl) && /plFilterFloor\(\)/.test(pl) && /setScreen\(\\'tracker\\'\)/.test(pl) && /setScreen\(\\'reports\\'\)/.test(pl) && pl.indexOf('pl-find') < pl.indexOf('qs-tally'));
+ok('Trucks waiting includes orders ready with no truck yet (23u)', /F\.holds\.concat\(plReadyNoTruck\(\)\)/.test(pl) && /it\.label!=='Ship'/.test(grab('plReadyNoTruck')));
+ok('department counts are the jobs Today counts (23u)', /tdGroups\(byDept\[d\]\)/.test(grab('plDeptLines')));
+ok('Plant no longer calls itself read-only while every row has a button', !/read-only/.test(pl));
 ok('no money on Plant', !/price|PKR|fmtRs|\bRs\b|invoice|budget/i.test(pl + grab('plDeptLines') + grab('plFloor')));
 ok('the customer name on Plant is the short one, never the code', /plClient\(/.test(pl) && /_tdClient/.test(grab('plClient')));
 eq('plDays: today', (() => { const f = new Function(grab('plDays') + ';return plDays;')(); return f(0); })(), 'today');
@@ -72,6 +84,8 @@ ok('Approve a customer and the budget are CFO/COO jobs (R7, R8, R9)', /isFin=\(s
 ok('Correct a record stays COO-only', /ok:state\.role==='COO'&&canView\(state\.role,'datafix'\)/.test(bj));
 ok('Add a customer opens the form itself', /custStartAdd\(\)/.test(bj));
 ok("boOpen sets the admin tab and opens the card", /admTab=tab/.test(grab('boOpen')) && /acOpen\[card\]=true/.test(grab('boOpen')));
+ok('Back Office leaves the header when the person has no job there (23u)', /if\(id==='backoffice'\)\{ try\{ if\(!boJobs\(\)\.length\) return; \}catch\(e\)\{\} \}/.test(rtn));
+ok('Give someone access shows only to whoever can edit People (23u)', /ok:canView\(state\.role,'users'\)&&screenEditOK\('users'\)/.test(bj));
 
 /* ================= 5. PEOPLE, NOT A MATRIX ================= */
 const pp = grab('screenPeople'), pr = grab('ppRender'), ps = (() => { const i = html.indexOf('\nasync function ppSave('); return i < 0 ? '' : H.matchBlock(i + 1, 'ppSave'); })();
@@ -88,12 +102,17 @@ ok('the password is sent only when the COO typed one, and only by that sheet', /
 ok('only a person with Edit on People can change people', /screenEditOK\('users'\)/.test(grab('ppCan')) && /if\(!ppCan\(\)\)/.test(ps));
 ok('a password reset is logged without the password', /logAction\('Password reset for '\+un\)/.test(ps) && !/logAction\([^)]*password\)/i.test(ps.replace("logAction('Password reset for '+un)", '')));
 ok('the Roles view says: roles only, an exception becomes a new role', /an exception for one person becomes a new role/.test(pp));
+ok('a move reads Role: A -> B, signs as: X -> Y (23u)', /Role: <b>'\+qsEsc\(ppEdit\.from\)/.test(pr) && /signs as: <b>'\+qsEsc\(personTitle\(ppEdit\.username,ppEdit\.from\)\)/.test(pr));
+ok('no code slugs in the sentences (23u)', !/qsEsc\(s\.code\)/.test(grab('roleSentencesHTML')));
+ok('the only COO cannot be moved out of COO (23u)', /ppEdit\.from==='COO'&&ppEdit\.role!=='COO'/.test(ps) && /coos<=1/.test(ps));
 ok('Add a person shows what the chosen role can do before the person exists', /roleSentencesHTML\(uForm\.role\)/.test(pp));
 ok('Production Manager and Finance Desk Officer file into a department by id', /'production-manager':'production', 'finance-desk-officer':'finance'/.test(html));
 
 /* ================= 6. GUIDE: roles and titles ================= */
 const rt = grab('rolesTitlesCard');
-ok('the Guide opens on Roles and titles', /\$\('view'\)\.innerHTML=`\s*\$\{rolesTitlesCard\(\)\}/.test(html));
+ok('the Guide opens on Your day, then Roles and titles (23u)', /\$\('view'\)\.innerHTML=`\s*\$\{yourDayCard\(\)\}\s*\$\{rolesTitlesCard\(\)\}/.test(html));
+ok('Your day lists what reaches the role, the button, and who gets it next', /tdRoleJobs\(role\)/.test(grab('yourDayCard')) && /your button: /.test(grab('yourDayCard')) && /TD_NEXT\[l\]/.test(grab('yourDayCard')));
+ok('the old step-by-step is a reference at the bottom, the manual is for COO/CFO/PM', /<details class="qs-ref">/.test(html) && /\(state\.role==='COO'\|\|state\.role==='CFO'\|\|state\.role==='Plant Manager'\)\?backOfficeManualCard\(\):''/.test(html));
 ok('it says a role is not a job title, in the words Tahir asked for', /A role is not a job title\./.test(rt) && /roles are added and never renamed/.test(rt) && /Two people can hold one role and sign differently/.test(rt));
 ok('it lists every role under its department with the people who hold it', /roleDeptId\(r\.name\)===d\.id/.test(rt) && /u\.role===r\.name/.test(rt) && /signs as/.test(rt));
 

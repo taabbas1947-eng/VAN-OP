@@ -5344,3 +5344,13 @@ Tests: `shell.test.js` (81; crashes against 23r). Updated: manual, recon, rights
 Not pushed (2 commits ahead: f3b32e7 23r, 7ecee20 23s). Morning page: the "O2S Overnight Build" artifact, version 2.
 
 Open, in order: job-shaped forms as sheets; managers' "Your people" on Today (needs per-person stamps); 4th light when batches carry a due time; P3 edit-any-stage / close a PO; P5; R20 reconciliation outcome; the 6 never-added right codes; order/customer rights still filed under Commercial in RIGHTS.
+
+## Pass twenty-five — 23t and 23u: the door, and what an outside UX review changed (commits 08fc296, this one)
+
+23t (after the 23s push, seen live): the sign-in page in the shell's clothes; a remembered 'approvals' or 'dash' screen becomes Today on sign-in.
+
+23u: an independent UX/adoption reviewer (a subagent, no stake in the design) walked every role's desk on the real data at 00:30 on 24 Sep and ranked 8 substantial issues. Applied the same night: the job clock (`tdTags`: red = waiting N d, amber = new today; the promise in grey; `tdGroups` sorts by job age); escalations one card per role (`tdEscByRoleHTML`); Plant "Find an order" (`plQ`, `plFilterFloor`) with the links beside it; Trucks waiting includes ready-no-truck (`plReadyNoTruck`); department counts via `tdGroups`; Back Office hidden from the header when `boJobs()` is empty; People job only with Edit on `users`; the move sheet reads "Role: A → B · signs as: X → Y", no code slugs, the only COO cannot be moved; the Guide opens on `yourDayCard()` (`TD_NEXT`, `tdRoleJobs`, `tdWhoHolds`), the manual for COO/CFO/PM, the old step-by-step in `<details class="qs-ref">`; COO start buttons = New order; `.tdwho` hidden on phone.
+
+NOT applied, next: job-shaped sheets behind the buttons (review finding 2 — "Open production" still opens the old Production Center; overflow at 390px; green save button). Tahir's: Lab Rep and QA Inspector are held by nobody (finding 4); the Production department's stored lead reads Production Officer.
+
+Suite on Tahir's machine: 9,331 passed, 0 failed, 0 crashed. Not pushed by Claude.

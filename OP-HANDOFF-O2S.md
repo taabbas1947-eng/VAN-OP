@@ -5483,3 +5483,11 @@ Tahir sent a screenshot of the on-screen COA sheet with no logo, only "VITAL AGR
 Tahir asked how the Plant Manager knows to name a cover, since O2S does not know about leave. Ruled: both of (1) announced leave and (2) a safety net; the HRMS link was offered and left for later.
 Built: `labNow`, `labLeaveList/labLeaveAnnounce/labLeaveCancel` (masters.labLeave; AQCM/QCM only; name menu "I'm going on leave" → `openMyLeave`), `labCoverSpans`, `labCoverNeeds` (pushed into actionItems after pendingCustomerItems): a 'Name a cover' job for the Plant Manager per announced leave not spanned by a cover, and a safety-net job per signer role when certificates have waited ≥1 calendar day and the holder has no actionLog entry today (only after 12:00, never Sunday; uses calendar days because actTiming rounds a same-day wait up to 1 d after noon). openLabCover(leaveId, roleHint) pre-fills role and dates, lists announced leave, and saves the cover for the announcing person (labSetCover 5th arg). TD_LABEL, acKey (lv:, cr:), actTiming (it.leave). Suite 9,792 passed, 0 failed. Browser: Masab announces 26–28 Sep, Fahim's Today shows the job, the cover screen opens pre-filled; 0 errors.
 Next: push.
+
+
+## Pass thirty-seven — 24w: Production in the new shell (24 Sep, NOT pushed)
+
+Tahir sent a screenshot of Production → What to make (62 order-line rows, 7 KPI tiles, 6 tabs + More) asking "production is still like this?". Ruled: one card per product.
+Built: `PCARD_CSS`, `prodMakeCardsHTML(frows,htmls)`, `prodMakeProductsN`, `prodShellTiles` inserted before prodStageList. In prodStageList's tomake branch each row stores `x._act` (its own button string, built under its own flag) and the rows are grouped by brand into cards; the card's main button is a row's own act, so authmodel.test.js's per-button gating checks still hold. Row label "kg to make" → unitOf. Sort select removed (cards order themselves). screenProd: `prodDeskTabs()+prodPulse()` → `prodShellTiles()` (4 tiles + Completed + More). prodDeskTabs/prodPulse kept in the file, unused by screenProd.
+Tests: prodcards.test.js 20 checks; suite 9,812 passed, 0 failed. Browser: Production desktop + 390 px + COO, all tabs, 0 errors.
+Next: push; the Running / Waiting for lab / Ready to pack tabs are still tables inside the new frame — candidates for the same card treatment if Tahir wants.

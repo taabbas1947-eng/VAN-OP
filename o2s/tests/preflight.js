@@ -137,6 +137,9 @@ const MARKERS = [
   /* 2026-09-24m */
   ['function reconFix(',                   1, 'Reconcile: the fix one tap away, R20 (24m)'],
   ['function custMatch(',                  1, 'Customers: one search across segments (24m)'],
+  /* 2026-09-24n */
+  ['<div class="qs wide"><h1>Lab</h1>',    1, 'Lab in the shell (24n)'],
+  ['<div class="qs wide"><h1>Truck inspection</h1>', 1, 'Truck inspection in the shell (24n)'],
 ];
 
 const [, , mode, freshPath, otherPath] = process.argv;

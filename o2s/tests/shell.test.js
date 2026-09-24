@@ -26,7 +26,7 @@ ok('the person pill has Sign out', /onclick="logout\(\)"/.test(rtn));
 const rnd = grab('render');
 ok('render() stamps the screen on <body> and fills the header', /setAttribute\('data-screen',state\.screen\)/.test(rnd) && /renderTopNav\(\)/.test(rnd));
 ok('the old sidebar render no longer assumes #nav exists', /if\(\$\('nav'\)\) \$\('nav'\)\.innerHTML=html;/.test(grab('renderNav')));
-ok('the top bar hides on the 4 main screens, People, Orders and Reports (24k)', /body\[data-screen="today"\] \.topbar,body\[data-screen="plant"\] \.topbar,body\[data-screen="backoffice"\] \.topbar,body\[data-screen="instructions"\] \.topbar,body\[data-screen="users"\] \.topbar,body\[data-screen="tracker"\] \.topbar,body\[data-screen="reports"\] \.topbar\{display:none\}/.test(html));
+ok('the top bar hides on the 4 main screens, People, Orders and Reports (24k)', /body\[data-screen="today"\] \.topbar,body\[data-screen="plant"\] \.topbar,body\[data-screen="backoffice"\] \.topbar,body\[data-screen="instructions"\] \.topbar,body\[data-screen="users"\] \.topbar,body\[data-screen="tracker"\] \.topbar,body\[data-screen="reports"\] \.topbar/.test(html));
 
 /* ================= 2. TODAY IN THE QUEUE SHELL'S SHAPE ================= */
 const st = grab('screenToday'), card = grab('tdCardHTML');
@@ -502,6 +502,17 @@ ok('a browser that remembered All actions or the Dashboard lands on Today', /if\
   ok('a person carries one name for their role: the title; the role code only when it differs', /\(u\.role!==t\?'role <b>'\+qsEsc\(u\.role\)\+'<\/b> · ':''\)/.test(pp3));
   ok('Recipes and Lab templates are 2 tabs of one page', /boFocus==='recipe'\|\|boFocus==='labtpl'/.test(grab('boFocusApply')) && /Lab templates/.test(grab('boFocusApply')));
   ok('BUILD_ID is 2026-09-24m or later', /var BUILD_ID='2026-09-24[m-z]'/.test(html));
+}
+
+/* 24n: Lab and Truck inspection wear the shell - tiles are the tabs, no inner tab bar, no Group select; the bay sheet is named for the job */
+{
+  const qc = grab('screenQC'), qa = grab('screenQA');
+  ok('Lab: one page, 4 tiles that are the tabs, no second tab bar and no Group select on screen', /<div class="qs wide"><h1>Lab<\/h1>/.test(qc) && /class="qs-tally four"/.test(qc) && /qcTab=\\''\+k\+'\\';render\(\)/.test(qc) && !/\$\{qcTabBar\}/.test(qc) && !/\$\{qcGroupSel\}/.test(qc) && !/\$\{qcKpiStrip\}/.test(qc));
+  ok('Truck inspection: the same, 3 tiles', /<div class="qs wide"><h1>Truck inspection<\/h1>/.test(qa) && /class="qs-tally"/.test(qa) && /qaTab=\\''\+k\+'\\';render\(\)/.test(qa) && !/\$\{qaTabBar\}/.test(qa) && !/\$\{qaGroupSel\}/.test(qa) && !/\$\{qaKpiStrip\}/.test(qa));
+  ok('the rows and their buttons are untouched (the certificate tests still pass against them)', /_qcCard\(/.test(qc) && /_qaCard\(/.test(qa) && /openBatchCOA\(/.test(qc) && /openLotQA\(/.test(qc));
+  ok('the top bar hides on Lab and Truck inspection too', /body\[data-screen="qc"\] \.topbar,body\[data-screen="qa"\] \.topbar\{display:none\}/.test(html));
+  ok('the bay sheet is named for the job', /<h2>Raw material at the bay<\/h2>/.test(grab('openReceiveMaterials')) && /confirm what arrived/.test(grab('openReceiveMaterials')));
+  ok('BUILD_ID is 2026-09-24n or later', /var BUILD_ID='2026-09-24[n-z]'/.test(html));
 }
 
 report('The Queue Shell, live (23s)');

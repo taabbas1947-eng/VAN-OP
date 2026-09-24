@@ -11,7 +11,7 @@
    a push keeps running the old code with nothing telling anybody. It sat at
    2026-09-04a through this whole day's work; rmqty/psi tests pinned the code,
    nothing pinned this. buildid.test.js now does. */
-var BUILD_ID='2026-09-24m';
+var BUILD_ID='2026-09-24n';
 var CHANGELOG=[
   {ver:'2026-09-04a', date:'2026-09-04', title:"Delivery, DC printing, and a new Reconciliation check", items:[
     "Delivery confirmation stays with Supply Chain \u2014 it no longer hands off to the Plant Manager. If one sits too long, it now re-flags the same Supply Chain owner every 3 days instead.",
@@ -240,6 +240,10 @@ var CHANGELOG=[
     "Customers has one search across every segment \u2014 code, name, city, KAM \u2014 so nobody has to guess a customer\u2019s segment first.",
     "Reconcile packing is a sentence and a list, and every flagged line carries its fix: Add the packing record opens Correct a record with the order, the product and the untraced quantity already filled in (R20).",
     "A person on People carries one name for their role \u2014 the title; the role code appears only where it differs. Recipes and Lab templates are 2 tabs of one page."
+  ]},
+  {ver:'2026-09-24n', date:'2026-09-24', title:"Lab and Truck inspection wear the shell", items:[
+    "Lab and Truck inspection are one page each in the shell\u2019s shape: the tiles are the tabs (awaiting entry \u00b7 in review \u00b7 unfit \u00b7 approved; awaiting \u00b7 cleared \u00b7 issues), no second tab bar, no Group select. The rows and their buttons are as they were.",
+    "The bay sheet is named for the job: Raw material at the bay \u2014 confirm what arrived, in full or in part."
   ]},
 ];
 </script>
@@ -1900,7 +1904,7 @@ body{color:var(--ink);font-size:15px;line-height:1.45}
 .topbar{background:var(--surface);border-bottom:1px solid var(--qline);position:static;padding:10px 16px;gap:10px}
 .topbar h2{font-size:18px;font-weight:600;letter-spacing:0;color:var(--ink)}
 .topbar .sub{color:var(--ink-3)}
-body[data-screen="today"] .topbar,body[data-screen="plant"] .topbar,body[data-screen="backoffice"] .topbar,body[data-screen="instructions"] .topbar,body[data-screen="users"] .topbar,body[data-screen="tracker"] .topbar,body[data-screen="reports"] .topbar{display:none}
+body[data-screen="today"] .topbar,body[data-screen="plant"] .topbar,body[data-screen="backoffice"] .topbar,body[data-screen="instructions"] .topbar,body[data-screen="users"] .topbar,body[data-screen="tracker"] .topbar,body[data-screen="reports"] .topbar,body[data-screen="qc"] .topbar,body[data-screen="qa"] .topbar{display:none}
 body:not([data-screen="reports"]):not([data-screen="dash"]):not([data-screen="budget"]) #periodSel,
 body:not([data-screen="reports"]):not([data-screen="dash"]):not([data-screen="budget"]) #periodFromInp,
 body:not([data-screen="reports"]):not([data-screen="dash"]):not([data-screen="budget"]) #periodToInp{display:none!important}
@@ -10638,12 +10642,9 @@ function screenQC(){
   if(!qcBody)qcBody='<div class="card"><div class="muted" style="padding:14px 2px">Nothing in '+qcLabels[qcTab]+'.</div></div>';
   var qcTabBar='<div class="ac2gbar" role="tablist">'+['awaiting','review','unfit','approved'].map(function(k){return '<button class="ac2gtab'+(qcTab===k?' on':'')+'" onclick="qcTab=\''+k+'\';render()">'+qcLabels[k]+' <b>'+(qcSets[k].length)+'</b></button>';}).join('')+'</div>';
   var qcGroupSel='<div class="ac2tools" style="margin-bottom:12px"><div style="flex:1"></div><select onchange="qcGroup=this.value;render()"><option value="status"'+(qcGroup!=='product'?' selected':'')+'>Group: None</option><option value="product"'+(qcGroup==='product'?' selected':'')+'>Group: By product</option></select></div>';
-  $('view').innerHTML=`
-   <div class="paperui">${(isLab||isAQ||isQM||isPM||isCOO)?'':viewOnly('Lab, AQCM, QCM &amp; Plant Manager')}
-   ${qcKpiStrip}
-   ${qcTabBar}
-   ${qcGroupSel}
-   ${qcBody}</div>`;
+  /* 24n: the shell - the tiles are the tabs; no second tab bar, no Group select (the reviewer's "inner tabs") */
+  var qcTiles='<div class="qs-tally four">'+['awaiting','review','unfit','approved'].map(function(k){ var n=qcSets[k].length; var tone=k==='unfit'?(n?'st-over':'st-ok'):k==='approved'?'st-done':(n?'st-late':'st-ok'); return '<button class="qs-tile go '+tone+(qcTab===k?' sel':'')+'" onclick="qcTab=\''+k+'\';render()"><span class="n">'+n+'</span><span class="l">'+qcLabels[k].toLowerCase()+'</span></button>'; }).join('')+'</div>';
+  $('view').innerHTML='<div class="qs wide"><h1>Lab</h1><div class="sub">Every batch and lot on its way to a certificate: the analyst drafts, a second person reviews, the QCM approves. Tap a tile.</div>'+((isLab||isAQ||isQM||isPM||isCOO)?'':viewOnly('Lab, AQCM, QCM &amp; Plant Manager'))+qcTiles+'<div class="paperui" style="margin-top:12px;padding:0">'+qcBody+'</div></div>';
 }
 var qaGroup='status';
 var qaTab='awaiting'; /* Pre-shipment QA primary tab: awaiting | cleared | issues */
@@ -10708,12 +10709,9 @@ function screenQA(){
   if(qaTab==='cleared') qaBody+=qaInsCard;
   var qaTabBar='<div class="ac2gbar" role="tablist">'+['awaiting','cleared','issues'].map(function(k){return '<button class="ac2gtab'+(qaTab===k?' on':'')+'" onclick="qaTab=\''+k+'\';render()">'+qaLabels[k]+' <b>'+qaCounts[k]+'</b></button>';}).join('')+'</div>';
   var qaGroupSel=(qaTab==='issues')?'':'<div class="ac2tools" style="margin-bottom:12px"><div style="flex:1"></div><select onchange="qaGroup=this.value;render()"><option value="status"'+(qaGroup!=='po'&&qaGroup!=='product'?' selected':'')+'>Group: None</option><option value="po"'+(qaGroup==='po'?' selected':'')+'>Group: By PO</option><option value="product"'+(qaGroup==='product'?' selected':'')+'>Group: By product</option></select></div>';
-  $('view').innerHTML=`
-   <div class="paperui">${(isQA||isSC||isCOO)?'':viewOnly('QA Inspector &amp; Supply Chain')}
-   ${qaKpiStrip}
-   ${qaTabBar}
-   ${qaGroupSel}
-   ${qaBody}</div>`;
+  /* 24n: the shell - the tiles are the tabs */
+  var qaTiles='<div class="qs-tally">'+['awaiting','cleared','issues'].map(function(k){ var n=qaCounts[k]; var tone=k==='issues'?(n?'st-over':'st-ok'):k==='cleared'?'st-done':(n?'st-late':'st-ok'); return '<button class="qs-tile go '+tone+(qaTab===k?' sel':'')+'" onclick="qaTab=\''+k+'\';render()"><span class="n">'+n+'</span><span class="l">'+qaLabels[k].toLowerCase()+'</span></button>'; }).join('')+'</div>';
+  $('view').innerHTML='<div class="qs wide"><h1>Truck inspection</h1><div class="sub">Packed material is inspected by batch before it ships; a failed lot is corrected and inspected again. Tap a tile.</div>'+((isQA||isSC||isCOO)?'':viewOnly('QA Inspector &amp; Supply Chain'))+qaTiles+'<div class="paperui" style="margin-top:12px;padding:0">'+qaBody+'</div></div>';
 }
 const QC_CHECKLIST=['Packaging intact & correct','Label / artwork correct','Net weight / count verified','Seal & closure OK','Cleanliness — no contamination','Batch & expiry printed','No leakage / damage','Pallet / loading condition'];
 
@@ -10751,7 +10749,7 @@ function openReceiveMaterials(oid,lid){
   const other = mats ? open.filter(p=>!mats.has(p.rm)) : [];
   const body = (rel.length?rel.map(recvPRCard).join(''):('<div class="muted" style="padding:6px 0">'+(noMat?('Nothing requisitioned for '+pbrand+' yet — run RM Check and raise a PR first.'):(mats?'No open PR for these materials right now.':'No open PRs.'))+'</div>'))
     + (other.length?`<details style="margin-top:6px"><summary style="cursor:pointer;font-size:12px;color:var(--mut)">Other open PRs (${other.length}) — not for this product</summary><div style="margin-top:8px">${other.map(recvPRCard).join('')}</div></details>`:'');
-  $('modal').innerHTML=`<div class="mh"><h2>Receive raw materials (GRN)</h2><div class="sub">${rel.length} open PR(s)${label} · partial receipts allowed</div></div><div class="mb">${body}</div><div class="mf"><button class="ghost" onclick="closeModal()">Close</button></div>`;
+  $('modal').innerHTML=`<div class="mh"><h2>Raw material at the bay</h2><div class="sub">${rel.length} open purchase request${rel.length===1?'':'s'}${label} · confirm what arrived, in full or in part; the GRN number and date go on each receipt</div></div><div class="mb">${body}</div><div class="mf"><button class="qs-btn" onclick="closeModal()">Close</button></div>`;
   $('modalBg').classList.add('open'); }
 function receivePR(prId){ if(!may('rm.receive')){toast(denyRight('rm.receive','Receiving raw material'));return;} const p=(state.prs||[]).find(x=>x.id===prId); if(!p)return; if(!p.cfoApproved){toast('This PR must be approved by CFO before raw material can be received.');return;} const qty=+(($('rcv_'+prId)&&$('rcv_'+prId).value))||0; const grn=((($('grn_'+prId)&&$('grn_'+prId).value))||'').trim(); const d=(($('rdt_'+prId)&&$('rdt_'+prId).value))||TODAY.toISOString().slice(0,10);
   if(!(qty>0)){toast('Enter received qty');return;} if(!grn){toast('Enter GRN #');return;}

@@ -129,6 +129,9 @@ const MARKERS = [
   /* 2026-09-24j */
   ['function guidePage(',                  1, 'the Guide as training (24j)'],
   ['function guideRules(',                 1, 'the rules, with why (24j)'],
+  /* 2026-09-24k */
+  ['var RP_CATALOGUE=[',                   1, 'Reports as a catalogue (24k)'],
+  ['function rpRmPosition(',               1, 'raw material position, all materials (24k)'],
 ];
 
 const [, , mode, freshPath, otherPath] = process.argv;

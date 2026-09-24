@@ -26,7 +26,7 @@ ok('the person pill has Sign out', /onclick="logout\(\)"/.test(rtn));
 const rnd = grab('render');
 ok('render() stamps the screen on <body> and fills the header', /setAttribute\('data-screen',state\.screen\)/.test(rnd) && /renderTopNav\(\)/.test(rnd));
 ok('the old sidebar render no longer assumes #nav exists', /if\(\$\('nav'\)\) \$\('nav'\)\.innerHTML=html;/.test(grab('renderNav')));
-ok('the top bar hides on the 4 main screens, People and Orders', /body\[data-screen="today"\] \.topbar,body\[data-screen="plant"\] \.topbar,body\[data-screen="backoffice"\] \.topbar,body\[data-screen="instructions"\] \.topbar,body\[data-screen="users"\] \.topbar,body\[data-screen="tracker"\] \.topbar\{display:none\}/.test(html));
+ok('the top bar hides on the 4 main screens, People, Orders and Reports (24k)', /body\[data-screen="today"\] \.topbar,body\[data-screen="plant"\] \.topbar,body\[data-screen="backoffice"\] \.topbar,body\[data-screen="instructions"\] \.topbar,body\[data-screen="users"\] \.topbar,body\[data-screen="tracker"\] \.topbar,body\[data-screen="reports"\] \.topbar\{display:none\}/.test(html));
 
 /* ================= 2. TODAY IN THE QUEUE SHELL'S SHAPE ================= */
 const st = grab('screenToday'), card = grab('tdCardHTML');
@@ -434,6 +434,41 @@ ok('a browser that remembered All actions or the Dashboard lands on Today', /if\
   ok('no yellow headings: the rule box is plain surface with an accent edge', /\.qs \.rule\{font-size:13px;background:var\(--surface\);border:1px solid var\(--qline\);border-left:4px solid var\(--accent\)/.test(html) && !/\.qs \.rule\{[^}]*kraft-bg/.test(html));
   ok('numbers as digits on the Guide', !/\b(one|two|three|four|five|six|seven|eight|nine|ten) (days?|steps|tabs|names|dates|people)\b/i.test((gr + gh + mj).replace(/one role|one person|one line|one order|one pair|one minute|one day|one seat/gi, '')));
   ok('BUILD_ID is 2026-09-24j or later', /var BUILD_ID='2026-09-24[j-z]'/.test(html));
+}
+
+/* 24k: Reports as a catalogue; money only where R6 allows */
+{
+  const cat = (() => { const m = /\nvar RP_CATALOGUE=\[/.exec(html); return m ? H.matchBlock(m.index + 1, 'RP_CATALOGUE', '[') : ''; })();
+  ok('Reports opens on a catalogue of named reports, each with the question it answers', /rpView==='list'/.test(grab('screenReports')) && /rpListHTML\(\)/.test(grab('screenReports')) && (cat.match(/\{id:'/g) || []).length >= 12 && /q:'How much of what did we make, per shift\?'/.test(cat));
+  ['prodshift', 'batches', 'late', 'trucks', 'coa', 'rm', 'shortclose', 'lateentries', 'corrections', 'sales', 'invoicing', 'docs', 'custom'].forEach(id => ok('report: ' + id, new RegExp("\\{id:'" + id + "'").test(cat)));
+  ok('every report names the roles that may open it; money reports need mayMoney() (R6)', /roles:\[/.test(cat) && /money:true/.test(cat) && /if\(c\.money&&!mayMoney\(\)\) return false/.test(grab('rpMay')) && /c\.roles==='all'\|\|\(c\.roles\|\|\[\]\)\.indexOf\(state\.role\)>-1/.test(grab('rpMay')));
+  {
+    const f = new Function('state', 'mayMoney', cat + ';\n' + grab('rpMay') + '\n' + grab('rpVisible') + '\nreturn rpVisible;');
+    const S = { role: 'Production' }; const v = f(S, () => false)().map(c => c.id);
+    ok('a Production Officer sees production, batches, documents, custom — no money, no corrections', v.indexOf('prodshift') > -1 && v.indexOf('batches') > -1 && v.indexOf('docs') > -1 && v.indexOf('custom') > -1 && v.indexOf('invoicing') < 0 && v.indexOf('sales') < 0 && v.indexOf('corrections') < 0);
+    const w = f({ role: 'Warehouse' }, () => false)().map(c => c.id);
+    ok('the Warehouse sees trucks and production, not the lab', w.indexOf('trucks') > -1 && w.indexOf('prodshift') > -1 && w.indexOf('coa') < 0);
+    const c = f({ role: 'COO' }, () => true)().map(x => x.id);
+    eq('the COO sees all 13', c.length, 13);
+    const k = f({ role: 'KAM' }, () => true)().map(x => x.id);
+    ok('a KAM with money sees sales and invoicing, not the corrections register', k.indexOf('sales') > -1 && k.indexOf('invoicing') > -1 && k.indexOf('corrections') < 0);
+  }
+  ok('opening a report sets the builder: dataset, columns, mode, group, period, and a where-filter', /rbDS=c\.ds; rbCols=c\.cols\.slice\(\); rbMode=c\.mode\|\|'raw'; rbGroup=\(c\.group\|\|\[\]\)\.slice\(\); rbFilters=\{\}; rbWhere=c\.where\|\|null; rpApplyPeriod\(c\.period\|\|'This month'\)/.test(grab('rpOpen')));
+  ok('rows come newest first, filtered by the report’s where', /if\(rbWhere\) rows=rows\.filter\(rbWhere\);/.test(grab('rbRows')) && /rows\.sort\(function\(a,b\)\{ return String\(b\[dk\]\|\|''\)\.localeCompare\(String\(a\[dk\]\|\|''\)\); \}\);/.test(grab('rbRows')));
+  ok('the table carries a totals line and a one-line summary', /class="rp-tot"/.test(grab('rpTableHTML')) && /rpSentence\(c,res\)/.test(grab('rpReportHTML')) && /Print \/ PDF/.test(grab('rpReportHTML')) && /rbExport\(\\'csv\\'\)/.test(grab('rpReportHTML')));
+  ok('the period is 4 chips on the report, from periodWindow', /'This month','Last month','FY to date','All'/.test(grab('rpPeriodChips')) && /periodWindow\(rpPeriod\)/.test(grab('rpApplyPeriod')));
+  ok('Raw material position lands on ALL materials: on hand, needed, short — then Trace', /rmChainList\(\)/.test(grab('rpRmPosition')) && /short:Math\.max\(0,need-d\.stock\)/.test(grab('rpRmPosition')) && /Trace ›/.test(grab('rpRmPosition')));
+  {
+    const f = new Function('rmChainList', 'rmChainData', 'fmt', 'qsEsc', grab('rpRmPosition') + '\nreturn rpRmPosition;')(() => ['Urea', 'Boron'], rm => rm === 'Urea' ? { stock: 100, bases: [{ totalNeed: 250, lines: [1, 2] }] } : { stock: 50, bases: [{ totalNeed: 10, lines: [1] }] }, n => String(n), s => s);
+    const h = f();
+    ok('a short material is marked and sorted first', /<b>1<\/b> short/.test(h) && h.indexOf('Urea') < h.indexOf('Boron') && /class="rp-short"/.test(h));
+  }
+  /* money leaks, closed */
+  ok('the PO register shows the value and the print button only to money roles (R6)', /mayMoney\(\)\?\(val>0\?pkr\(val\)/.test(grab('rpPos')) && /mayMoney\(\)\?'<button class="sm ghost" onclick="printPO/.test(grab('rpPos')));
+  ok('the overview’s value-of-loss tiles and Financial button are money-gated', /\$\{mayMoney\(\)\?m\('Value of loss · cost'/.test(html) && /\$\{mayMoney\(\)\?`<button class="sm" onclick="gotoScreen\('budget'\)">Financial →<\/button>`:''\}/.test(html));
+  ok('a product is not named twice when brand equals base', /var prod=\(\(p\.brand&&p\.brand!==p\.base\?p\.brand\+' ':''\)\+\(p\.base\|\|''\)\)\.trim\(\)/.test(html));
+  ok('changing the dataset in Custom drops the report’s where-filter', /rbWhere=null; rbDS=v;/.test(grab('rbSetDS')));
+  ok('BUILD_ID is 2026-09-24k or later', /var BUILD_ID='2026-09-24[k-z]'/.test(html));
 }
 
 report('The Queue Shell, live (23s)');

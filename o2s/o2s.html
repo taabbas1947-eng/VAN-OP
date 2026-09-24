@@ -11,7 +11,7 @@
    a push keeps running the old code with nothing telling anybody. It sat at
    2026-09-04a through this whole day's work; rmqty/psi tests pinned the code,
    nothing pinned this. buildid.test.js now does. */
-var BUILD_ID='2026-09-24j';
+var BUILD_ID='2026-09-24k';
 var CHANGELOG=[
   {ver:'2026-09-04a', date:'2026-09-04', title:"Delivery, DC printing, and a new Reconciliation check", items:[
     "Delivery confirmation stays with Supply Chain \u2014 it no longer hands off to the Plant Manager. If one sits too long, it now re-flags the same Supply Chain owner every 3 days instead.",
@@ -225,6 +225,12 @@ var CHANGELOG=[
     "The Guide now opens on My job: who you are, your role and department, and every kind of job that reaches you as a card \u2014 how to do it, what it becomes and for whom, and what happens if you don\u2019t (the days before it is escalated, and to whom \u2014 read from the same table the app escalates by). Your sign-offs and the 2-person rules that touch you; the screens you may open.",
     "How the app works: the 7 steps of an order in words and what every mark means. The rules: why you cannot back-date (the 2 dates and the allowances), why there is no bulk entry, the 2-person rules, nothing is deleted, roles not people, no price on a customer document.",
     "Everyone\u2019s roles, the Back Office manual (COO, CFO, Plant Manager) and the old step-by-step are tabs of their own. No more yellow boxes."
+  ]},
+  {ver:'2026-09-24k', date:'2026-09-24', title:"Reports: a catalogue of questions", items:[
+    "Reports opens on a list of named reports, each answering one question a manager asks \u2014 Production by shift, Batches and wastage, Orders behind promise, Shipments and trucks, Lab certificates, Raw material position, Closed short, Entries recorded late, Corrections register, Sales against budget, Invoicing sheet, Documents, Custom. Tap one: it opens with this month set, newest first, with a totals line, Print / PDF and CSV. Each report names the roles that may open it; a role that may not does not see it.",
+    "Raw material position lands on every material at once \u2014 on hand, needed by the open orders, short \u2014 with Trace for the detail.",
+    "Money is shown only to the roles R6 names (COO, CFO, Plant Manager, the KAMs): the PO register\u2019s value column and its print, and the overview\u2019s value-of-loss tiles, were open to everyone.",
+    "A product is no longer named twice (\u201cMax Potash Max Potash\u201d) when the brand is its own base."
   ]},
 ];
 </script>
@@ -1885,7 +1891,7 @@ body{color:var(--ink);font-size:15px;line-height:1.45}
 .topbar{background:var(--surface);border-bottom:1px solid var(--qline);position:static;padding:10px 16px;gap:10px}
 .topbar h2{font-size:18px;font-weight:600;letter-spacing:0;color:var(--ink)}
 .topbar .sub{color:var(--ink-3)}
-body[data-screen="today"] .topbar,body[data-screen="plant"] .topbar,body[data-screen="backoffice"] .topbar,body[data-screen="instructions"] .topbar,body[data-screen="users"] .topbar,body[data-screen="tracker"] .topbar{display:none}
+body[data-screen="today"] .topbar,body[data-screen="plant"] .topbar,body[data-screen="backoffice"] .topbar,body[data-screen="instructions"] .topbar,body[data-screen="users"] .topbar,body[data-screen="tracker"] .topbar,body[data-screen="reports"] .topbar{display:none}
 body:not([data-screen="reports"]):not([data-screen="dash"]):not([data-screen="budget"]) #periodSel,
 body:not([data-screen="reports"]):not([data-screen="dash"]):not([data-screen="budget"]) #periodFromInp,
 body:not([data-screen="reports"]):not([data-screen="dash"]):not([data-screen="budget"]) #periodToInp{display:none!important}
@@ -2094,6 +2100,19 @@ div.bo-need{cursor:default}
 .bo-desk .nums .st-late b{color:var(--late)}.bo-desk .nums .st-over b{color:var(--over)}.bo-desk .nums .st-ok b{color:var(--ok)}
 .bo-desk .acts{display:flex;flex-wrap:wrap;gap:6px;margin-top:auto}
 .bo-settle{margin-bottom:14px}
+/* ---------- REPORTS as a catalogue (24k) ---------- */
+button.rp-card{text-align:left;font:inherit;color:inherit;cursor:pointer}
+button.rp-card:hover{border-color:var(--qline-strong)}
+.rp-card .acts{justify-content:flex-end}
+.rp-sum{font-size:14px;color:var(--ink-2);margin:12px 0 8px}
+.rp-sum b{font-family:'IBM Plex Mono',monospace;color:var(--ink)}
+.rp-tbl{width:100%;border-collapse:collapse;background:var(--surface);border:1px solid var(--qline);font-size:13px}
+.rp-tbl th{font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-3);text-align:left;padding:8px 10px;border-bottom:1px solid var(--qline);background:var(--surface-2)}
+.rp-tbl td{padding:7px 10px;border-bottom:1px solid var(--qline);vertical-align:top}
+.rp-tbl .num{text-align:right;font-family:'IBM Plex Mono',monospace}
+.rp-tbl tr.rp-tot td{font-weight:600;background:var(--surface-2);border-top:2px solid var(--qline-strong)}
+.rp-tbl tr.rp-short td{background:var(--late-bg)}
+.qs .chips{display:flex;flex-wrap:wrap;gap:6px}
 /* ---------- ORDERS: the card (24i) ---------- */
 .ord2{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px 14px;align-items:start;background:var(--surface);border:1px solid var(--qline);border-left:5px solid var(--st,var(--ok));border-radius:3px;padding:10px 12px}
 .ord2.st-over{--st:var(--over)}.ord2.st-ok{--st:var(--ok)}.ord2.st-done{--st:var(--qline-strong);background:var(--surface-2)}.ord2.st-na{--st:var(--qline-strong)}
@@ -3434,7 +3453,7 @@ const SCREENS=[
      Warehouse = edit on Shipments is the supported path and needs no code. */
   {id:'ship', name:'Shipments', ic:'\ud83d\ude9a', owners:['Supply Chain','Production','Production Manager','Plant Manager','Supply Chain Officer','Finance Desk Officer','Warehouse'], sub:'Record & track shipments',
     obj:'<b>Step 4 \u00b7 Supply Chain.</b> Record each dispatch leaving the plant. When shipped \u2265 ordered the product closes; when all products ship, the PO closes.'},
-  {id:'reports', name:'Reports', ic:'\ud83d\udcc8', owners:['KAM','Supply Chain','Production','Production Manager','Plant Manager','CFO','COO','AQCM','QCM','Lab Rep','QA Inspector','Supply Chain Officer','Finance','Finance Desk Officer','Warehouse'], sub:'Slice & view all data',
+  {id:'reports', name:'Reports', ic:'\ud83d\udcc8', owners:['KAM','Supply Chain','Production','Production Manager','Plant Manager','CFO','COO','AQCM','QCM','Lab Rep','QA Inspector','Supply Chain Officer','Finance','Finance Desk Officer','Warehouse'], sub:'Each report answers one question',
     obj:'<b>Reports \u00b7 read-only.</b> Built from data already captured. Use Explorer to slice by client, product, month or stage, or open a ready report. Filters apply to every view; print from the top-right.'},
   {id:'instructions', name:'Guide', ic:'\ud83d\udcd6', owners:['KAM','Supply Chain','Production','Production Manager','Lab Rep','AQCM','QCM','QA Inspector','Plant Manager','CFO','COO','Supply Chain Officer','Finance Desk Officer','Finance','Warehouse'], sub:'App manual',
     obj:'<b>Manual.</b> The whole process \u2014 where to add, when, and how information flows.'},
@@ -6525,7 +6544,7 @@ var prodLogFilter={product:'',shift:'',incharge:'',batch:'',client:''};
 function prodLogSetF(k,v){ prodLogFilter[k]=v; render(); }
 function prodLogClearF(){ prodLogFilter={product:'',shift:'',incharge:'',batch:'',client:''}; render(); }
 /* period-windowed shift-output rows with derived product + client — single source for the Output log view AND its CSV/Excel export, so what you see is what you export. */
-function prodLogBase(){ var pw=periodWindow(state.period); var cmap={}; (state.orders||[]).forEach(function(o){ cmap[o.po]=o.client||''; }); return (state.productionLog||[]).filter(function(p){return p&&!p.opening&&!/opening|reconcile/i.test((p.incharge||'')+(p.by||''))&&p.date>=pw.from&&p.date<=pw.to&&(+p.kg||0)>0;}).map(function(p){ var prod=((p.brand?p.brand+' ':'')+(p.base||'')).trim(); return {date:p.date,shift:p.shift||'',incharge:p.incharge||'',product:prod||'—',kg:+p.kg||0,batchNo:p.batchNo||'',beds:(p.beds||[]),po:p.po||'',client:cmap[p.po]||''}; }); }
+function prodLogBase(){ var pw=periodWindow(state.period); var cmap={}; (state.orders||[]).forEach(function(o){ cmap[o.po]=o.client||''; }); return (state.productionLog||[]).filter(function(p){return p&&!p.opening&&!/opening|reconcile/i.test((p.incharge||'')+(p.by||''))&&p.date>=pw.from&&p.date<=pw.to&&(+p.kg||0)>0;}).map(function(p){ var prod=((p.brand&&p.brand!==p.base?p.brand+' ':'')+(p.base||'')).trim(); return {date:p.date,shift:p.shift||'',incharge:p.incharge||'',product:prod||'—',kg:+p.kg||0,batchNo:p.batchNo||'',beds:(p.beds||[]),po:p.po||'',client:cmap[p.po]||''}; }); }
 function prodLogRows(){ var f=prodLogFilter||{}; return prodLogBase().filter(function(r){ return (!f.product||r.product===f.product)&&(!f.shift||r.shift===f.shift)&&(!f.incharge||r.incharge===f.incharge)&&(!f.batch||r.batchNo===f.batch)&&(!f.client||r.client===f.client); }); }
 function _download(name,mime,content){ try{ var blob=new Blob([content],{type:mime}); var url=URL.createObjectURL(blob); var a=document.createElement('a'); a.href=url; a.download=name; document.body.appendChild(a); a.click(); setTimeout(function(){URL.revokeObjectURL(url);a.remove();},600); }catch(e){ if(typeof toast==='function')toast('Export failed'); } }
 function prodLogExport(kind){ var rows=prodLogRows(); var head=['Date','Shift','Incharge','Product','Kg','Batch','Beds','PO','Client']; var data=rows.map(function(r){return [r.date,r.shift,r.incharge,r.product,Math.round(r.kg),r.batchNo,(r.beds||[]).join(' '),r.po,r.client];}); var fn='production-log-'+String(state.period||'period').replace(/\s+/g,'-').toLowerCase()+'-'+TODAY.toISOString().slice(0,10); if(kind==='xls'){ var esc=function(c){return String(c==null?'':c).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}; var html='<table border="1"><tr>'+head.map(function(h){return '<th>'+esc(h)+'</th>';}).join('')+'</tr>'+data.map(function(r){return '<tr>'+r.map(function(c){return '<td>'+esc(c)+'</td>';}).join('')+'</tr>';}).join('')+'</table>'; _download(fn+'.xls','application/vnd.ms-excel','<html><head><meta charset="utf-8"></head><body>'+html+'</body></html>'); } else { var escc=function(c){c=String(c==null?'':c);return /[",\n\r]/.test(c)?'"'+c.replace(/"/g,'""')+'"':c;}; var csv=[head.join(',')].concat(data.map(function(r){return r.map(escc).join(',');})).join('\r\n'); _download(fn+'.csv','text/csv;charset=utf-8','﻿'+csv); } }
@@ -6556,7 +6575,7 @@ function prodOutWin(){var t=TODAY.toISOString().slice(0,10);
   return {from:t,to:t,label:'today'};}
 function prodOutQc(bn){if(!bn)return '';var b=(state.batches||[]).find(function(x){return (x.batchNo||'')===bn;});if(!b)return '';var prod=+b.producedKg||0;if(!(prod>0))return '';return (batchClearedKg(b)>=prod-0.5)?'Approved':'Waiting QC';}
 function prodOutRows(){var w=prodOutWin();var cmap={};(state.orders||[]).forEach(function(o){cmap[o.po]=o.client||'';});
-  return (state.productionLog||[]).filter(function(p){return p&&!p.opening&&!/opening|reconcile/i.test((p.incharge||'')+(p.by||''))&&(+p.kg||0)>0&&String(p.date)>=w.from&&String(p.date)<=w.to;}).map(function(p){var prod=((p.brand?p.brand+' ':'')+(p.base||'')).trim();return {date:p.date,shift:p.shift||'',batch:p.batchNo||'',product:prod||'—',po:p.po||'',client:cmap[p.po]||'',incharge:p.incharge||'',kg:+p.kg||0,lot:p.lotNo||'',qc:prodOutQc(p.batchNo||'')};}).sort(function(a,b){return String(b.date).localeCompare(String(a.date))||String(a.shift).localeCompare(String(b.shift));});}
+  return (state.productionLog||[]).filter(function(p){return p&&!p.opening&&!/opening|reconcile/i.test((p.incharge||'')+(p.by||''))&&(+p.kg||0)>0&&String(p.date)>=w.from&&String(p.date)<=w.to;}).map(function(p){var prod=((p.brand&&p.brand!==p.base?p.brand+' ':'')+(p.base||'')).trim();return {date:p.date,shift:p.shift||'',batch:p.batchNo||'',product:prod||'—',po:p.po||'',client:cmap[p.po]||'',incharge:p.incharge||'',kg:+p.kg||0,lot:p.lotNo||'',qc:prodOutQc(p.batchNo||'')};}).sort(function(a,b){return String(b.date).localeCompare(String(a.date))||String(a.shift).localeCompare(String(b.shift));});}
 function prodOutExport(kind){var rows=prodOutRows();var head=['Date','Shift','Batch','Product','PO','Client','Incharge','Output','Lot','QC'];var data=rows.map(function(r){return [r.date,r.shift,r.batch,r.product,r.po,r.client,r.incharge,Math.round(r.kg),r.lot,r.qc];});var fn='shift-output-'+prodOutPeriod+'-'+TODAY.toISOString().slice(0,10);if(kind==='xls'){var esc=function(c){return String(c==null?'':c).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');};var html='<table border="1"><tr>'+head.map(function(h){return '<th>'+esc(h)+'</th>';}).join('')+'</tr>'+data.map(function(r){return '<tr>'+r.map(function(c){return '<td>'+esc(c)+'</td>';}).join('')+'</tr>';}).join('')+'</table>';_download(fn+'.xls','application/vnd.ms-excel','<html><head><meta charset="utf-8"></head><body>'+html+'</body></html>');}else{var escc=function(c){c=String(c==null?'':c);return /[",\n\r]/.test(c)?'"'+c.replace(/"/g,'""')+'"':c;};var csv=[head.join(',')].concat(data.map(function(r){return r.map(escc).join(',');})).join('\r\n');_download(fn+'.csv','text/csv;charset=utf-8','﻿'+csv);}}
 /* Shift output — ported to the prototype layout: 6 tiles · Today/This week/This month selector · filter tabs · flat log table (Date/Shift/Batch/Product/PO·Client/Incharge/Output/Lot/QC). Real data; QC derived from each batch COA. */
 function renderProdOutput(){
@@ -14266,7 +14285,7 @@ function dashExecHtml(M){
   </style>
   <div class="xd">
    <div class="hd"><div><h2>Operations overview</h2><div class="sub">${dashGreet()} · ${rng}</div></div>
-     <button class="sm" onclick="gotoScreen('budget')">Financial →</button></div>
+     ${mayMoney()?`<button class="sm" onclick="gotoScreen('budget')">Financial →</button>`:''}</div>
       <div class="verdict"><div class="k">Today's read · auto-generated</div><div class="t">${headline}</div></div>
    <div class="mrow">
      ${m('Produced',fmt(OM.producedKg)+' Kg/L',OM.label,'#185fa5')}
@@ -14301,8 +14320,8 @@ function dashExecHtml(M){
    <div class="mrow" style="margin-bottom:12px">
      ${m('Wastage / loss',fmt(OM.wasteKg)+' Kg/L',OM.label,OM.wasteKg?'#a32d2d':'#1d9e75')}
      ${m('Produced (all-time)',fmt(M.producedKg)+' Kg/L','total output, for context','#185fa5')}
-     ${m('Value of loss · cost',pkrM(M.vlCost),'material cost, all-time',M.vlCost?'#a32d2d':'')}
-     ${m('Value of loss · invoice',pkrM(M.vlInv),'revenue foregone, all-time',M.vlInv?'#ba7517':'')}
+     ${mayMoney()?m('Value of loss · cost',pkrM(M.vlCost),'material cost, all-time',M.vlCost?'#a32d2d':''):''}
+     ${mayMoney()?m('Value of loss · invoice',pkrM(M.vlInv),'revenue foregone, all-time',M.vlInv?'#ba7517':''):''}
    </div>
    ${egrid('Wastage by batch, with reason',['Batch','Product','Kg/L','Reason'],wasteHtml)}
    <div class="panel"><div class="ttl" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">All-time reconcile breakdown — Kg/L
@@ -15785,7 +15804,7 @@ function rpQCReports(){
 function _rbClientMap(){ var m={}; (state.orders||[]).forEach(function(o){m[o.po]=o.client||'';}); return m; }
 var RB_DATASETS={
   production:{label:'Production output',dateKey:'date',
-    rows:function(){ var cm=_rbClientMap(); return (state.productionLog||[]).filter(function(p){return p&&!p.opening&&!/opening|reconcile/i.test((p.incharge||'')+(p.by||''))&&(+p.kg||0)>0;}).map(function(p){ var prod=((p.brand?p.brand+' ':'')+(p.base||'')).trim(); return {date:p.date||'',shift:p.shift||'',incharge:p.incharge||'',product:prod||'—',brand:p.brand||'',base:p.base||'',bed:(p.beds||[]).join(', ')||'—',batch:p.batchNo||'',po:p.po||'',client:cm[p.po]||'',output:+p.kg||0}; }); },
+    rows:function(){ var cm=_rbClientMap(); return (state.productionLog||[]).filter(function(p){return p&&!p.opening&&!/opening|reconcile/i.test((p.incharge||'')+(p.by||''))&&(+p.kg||0)>0;}).map(function(p){ var prod=((p.brand&&p.brand!==p.base?p.brand+' ':'')+(p.base||'')).trim(); return {date:p.date||'',shift:p.shift||'',incharge:p.incharge||'',product:prod||'—',brand:p.brand||'',base:p.base||'',bed:(p.beds||[]).join(', ')||'—',batch:p.batchNo||'',po:p.po||'',client:cm[p.po]||'',output:+p.kg||0}; }); },
     fields:[{k:'date',l:'Date',t:'dim'},{k:'shift',l:'Shift',t:'dim'},{k:'bed',l:'Bed',t:'dim'},{k:'batch',l:'Batch',t:'dim'},{k:'product',l:'Product',t:'dim'},{k:'brand',l:'Brand',t:'dim'},{k:'base',l:'Base',t:'dim'},{k:'po',l:'PO',t:'dim'},{k:'client',l:'Client',t:'dim'},{k:'incharge',l:'Incharge',t:'dim'},{k:'output',l:'Output kg',t:'meas'}],
     filters:['shift','product','client','batch','incharge']},
   batches:{label:'Batches · wastage / loss / by-product',dateKey:'opened',
@@ -15997,7 +16016,7 @@ function rbField(k){ var a=rbDef().fields.filter(function(f){return f.k===k;}); 
 function rbIsMeas(k){ if(k==='__count')return true; var f=rbField(k); return !!(f&&f.t==='meas'); }
 function rbColLabel(k){ if(k==='__count')return 'Rows'; var f=rbField(k); return f?f.l:k; }
 function rbDatasetKeys(){ return Object.keys(RB_DATASETS).filter(function(k){ return k!=='finance'||mayMoney(); }); }
-function rbSetDS(v){ if(v==='finance'&&!mayMoney()){ toast('Finance data is for the COO, CFO, Plant Manager and KAMs'); return; } rbDS=v; var d=rbDef(); rbCols=d.fields.slice(0,5).map(function(f){return f.k;}); rbFilters={}; rbGroup=[]; render(); }
+function rbSetDS(v){ if(v==='finance'&&!mayMoney()){ toast('Finance data is for the COO, CFO, Plant Manager and KAMs'); return; } rbWhere=null; rbDS=v; var d=rbDef(); rbCols=d.fields.slice(0,5).map(function(f){return f.k;}); rbFilters={}; rbGroup=[]; render(); }
 function rbToggleCol(k){ var i=rbCols.indexOf(k); if(i<0)rbCols.push(k); else rbCols.splice(i,1); render(); }
 function rbMoveCol(k,dir){ var i=rbCols.indexOf(k); if(i<0)return; var j=i+dir; if(j<0||j>=rbCols.length)return; var t=rbCols[i];rbCols[i]=rbCols[j];rbCols[j]=t; render(); }
 function rbDrop(j){ if(rbDragI==null)return; var i=rbDragI; rbDragI=null; if(i===j||i<0||i>=rbCols.length)return; var c=rbCols.splice(i,1)[0]; rbCols.splice(j,0,c); render(); }
@@ -16009,6 +16028,8 @@ function rbRows(){ var d=rbDef(); var rows=d.rows(); var dk=d.dateKey;
   if(rbFrom)rows=rows.filter(function(r){return String(r[dk]||'')>=rbFrom;});
   if(rbTo)rows=rows.filter(function(r){return String(r[dk]||'')<=rbTo;});
   Object.keys(rbFilters).forEach(function(k){ var v=rbFilters[k]; rows=rows.filter(function(r){return String(r[k]==null?'':r[k])===v;}); });
+  if(rbWhere) rows=rows.filter(rbWhere);
+  if(dk) rows.sort(function(a,b){ return String(b[dk]||'').localeCompare(String(a[dk]||'')); });
   return rows; }
 function rbResult(){ var rows=rbRows(); var cols=rbCols.length?rbCols.slice():rbDef().fields.slice(0,5).map(function(f){return f.k;});
   if(rbMode==='summary'){ var dims=rbGroup.length?rbGroup.slice():[cols.filter(function(k){return rbField(k)&&rbField(k).t==='dim';})[0]].filter(Boolean); var meas=cols.filter(function(k){return rbField(k)&&rbField(k).t==='meas';}); if(!meas.length){ var mm=rbDef().fields.filter(function(f){return f.t==='meas';})[0]; if(mm)meas=[mm.k]; }
@@ -16073,10 +16094,10 @@ function rpPos(){
       +'<td>'+_pe(shortClient(o.client)||'—')+'</td>'
       +'<td class="num">'+lines.length+'</td>'
       +'<td class="num">'+fmt(kg)+'</td>'
-      +'<td class="num">'+(val>0?pkr(val):'<span class="muted">—</span>')+'</td>'
+      +'<td class="num">'+(mayMoney()?(val>0?pkr(val):'<span class="muted">—</span>'):'<span class="muted">—</span>')+'</td>'
       +'<td>'+_pe(stage||'—')+'</td>'
       +'<td>'+pr+'</td>'
-      +'<td style="white-space:nowrap;text-align:right"><button class="sm ghost" onclick="printPO(\''+_pe(o.po)+'\');screenReports()">Open / print</button></td>'
+      +'<td style="white-space:nowrap;text-align:right">'+(mayMoney()?'<button class="sm ghost" onclick="printPO(\''+_pe(o.po)+'\');screenReports()">Open / print</button>':'<span class="muted" style="font-size:10.5px">carries prices</span>')+'</td>'
       +'</tr>';
   }).join('');
   return '<div class="card" style="padding:12px 16px;margin-bottom:12px"><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">'
@@ -16140,7 +16161,98 @@ function rpRmChain(){
   var useCard='<div class="card" style="padding:0;margin-top:12px"><div class="rb-pvh"><span style="font-weight:500">Consumed by · open orders needing '+_pe(rm)+'</span><span class="muted">recipe demand → each product line + its live RM-check status</span></div><div style="overflow:auto"><table class="rbtbl"><thead><tr><th>Base product</th><th>Product (brand)</th><th>PO</th><th class="num">Remaining (Kg/L)</th><th class="num">Est. RM need</th><th>RM status</th></tr></thead><tbody>'+body+'</tbody></table></div></div>';
   return '<div class="card" style="padding:12px 16px;margin-bottom:12px"><div style="display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap"><div style="font-weight:600">RM chain</div><span class="muted" style="font-size:12px">Trace a raw material: stock on hand → the products & open POs that consume it (recipe demand) → each line’s live RM-check readiness. Requisition detail is in Report Builder → “RM requisitions”.</span><span style="flex:1"></span>'+picker+'</div></div>'+stockCard+useCard;
 }
+/* ===================== REPORTS, AS A CATALOGUE - 24k =====================
+   Tahir, 24 Sep: "reports need a look: its structure, design, reportability
+   and access to each team member." An independent reporting review found 2
+   report areas that overlap, a builder that needs 6 clicks and typed dates
+   for "Max Sulfur in August by shift", unsorted rows with no total, and money
+   shown to roles R6 excludes (the PO register's value column, the overview's
+   value-of-loss tiles, the PO print).
+   Now: ONE list of named reports, each answering one question a manager
+   actually asks, opened in one tap with its period set, sorted newest first,
+   with a totals line, Print / CSV, and "Adjust" into the builder for the rest.
+   Each report names the roles that may open it; money reports need mayMoney()
+   (R6: COO, CFO, Plant Manager, the KAMs). Nothing is written by any report. */
+var rpView='list', rpCur='', rpPeriod='', rbWhere=null;
+var RP_CATALOGUE=[
+  {id:'prodshift', t:'Production by shift', q:'How much of what did we make, per shift?', ds:'production', cols:['date','shift','product','output'], mode:'summary', group:['date','shift','product'], period:'This month', roles:['Production','Production Manager','Plant Manager','COO','CFO','Warehouse','Supply Chain']},
+  {id:'batches', t:'Batches and wastage', q:'Planned against produced, and what was lost, per batch.', ds:'batches', cols:['opened','batch','product','po','status','planned','produced','packed','disposed'], mode:'raw', period:'This month', roles:['Production','Production Manager','Plant Manager','QCM','AQCM','COO','CFO']},
+  {id:'late', t:'Orders behind promise', q:'Which orders are past their promised date, by customer, and where they stand.', ds:'orders', cols:['po','client','product','promised','stage','ordered','delivered'], mode:'raw', period:'All', where:function(r){ return r.promised && String(r.promised)<TODAY.toISOString().slice(0,10) && !/Delivered|Closed/i.test(String(r.stage||'')); }, roles:['KAM','Supply Chain','Supply Chain Officer','Plant Manager','Production Manager','COO','CFO','Finance']},
+  {id:'trucks', t:'Shipments and trucks', q:'What left the gate, when, in which truck, to whom.', ds:'shipments', cols:['date','dc','client','product','kg','vehicle','destination','stage'], mode:'raw', period:'This month', roles:['Supply Chain','Supply Chain Officer','Warehouse','Plant Manager','COO','CFO','Finance','KAM']},
+  {id:'coa', t:'Lab certificates', q:'Every certificate: batch, result, who signed, when.', ds:'qc', cols:['date','product','batch','po','result','status','by','qty'], mode:'raw', period:'This month', roles:['Lab Rep','AQCM','QCM','QA Inspector','Plant Manager','COO','CFO']},
+  {id:'rm', t:'Raw material position', q:'Which materials are short against the open orders.', kind:'rmpos', roles:['Supply Chain','Supply Chain Officer','Production Manager','Plant Manager','CFO','COO']},
+  {id:'shortclose', t:'Closed short', q:'What was closed short, why, asked by whom, approved by whom.', ds:'shortclose', cols:['date','po','client','product','reason','shortfall','requestedby','approvedby'], mode:'raw', period:'FY to date', roles:['Plant Manager','Production Manager','Supply Chain','COO','CFO','KAM']},
+  {id:'lateentries', t:'Entries recorded late', q:'What was recorded after the day it happened, and how late.', ds:'anomalies', cols:['date','type','po','product','detail','value'], mode:'raw', period:'This month', where:function(r){ return /late|recorded/i.test(String(r.type||'')); }, roles:['Plant Manager','COO','CFO','QCM','Production Manager','Supply Chain']},
+  {id:'corrections', t:'Corrections register', q:'Who changed what, and why.', ds:'corrections', cols:['when','type','record','by','reasonCode','reason','fields'], mode:'raw', period:'This month', roles:['COO','CFO','Plant Manager']},
+  {id:'sales', t:'Sales against budget', q:'Delivered value against the budget, by channel and customer.', kind:'budget', money:true, roles:['COO','CFO','Plant Manager','KAM']},
+  {id:'invoicing', t:'Invoicing sheet', q:'What was delivered, at what price, by delivery challan.', ds:'finance', cols:['date','dc','po','client','product','kg','price','value'], mode:'raw', period:'Last month', money:true, roles:['COO','CFO','Plant Manager','KAM','Finance']},
+  {id:'docs', t:'Documents', q:'Find and reprint a purchase order, delivery challan or gate pass.', kind:'docs', roles:'all'},
+  {id:'custom', t:'Custom report', q:'Any dataset, any columns, rows or a summary; CSV, Excel or PDF.', kind:'builder', roles:'all'}
+];
+function rpMay(c){ if(!c) return false; if(c.money&&!mayMoney()) return false; if(state.role==='COO') return true; return c.roles==='all'||(c.roles||[]).indexOf(state.role)>-1; }
+function rpVisible(){ return RP_CATALOGUE.filter(rpMay); }
+function rpDef(id){ return RP_CATALOGUE.filter(function(c){return c.id===id;})[0]||null; }
+function rpApplyPeriod(p){ rpPeriod=p||'All'; if(rpPeriod==='All'){ rbFrom=''; rbTo=''; return; } var w=periodWindow(rpPeriod); rbFrom=w.from; rbTo=w.to; }
+function rpOpen(id){
+  var c=rpDef(id); if(!c||!rpMay(c)){ toast('That report is not for your role.'); return; }
+  rpCur=id; rpView='report'; rbWhere=null;
+  if(c.kind==='budget'){ rpView='list'; setScreen('budget'); return; }
+  if(c.kind==='docs'){ rpTab='docs'; }
+  else if(c.kind==='builder'){ rpTab='builder'; }
+  else if(c.kind==='rmpos'){ rpTab='rmchain'; rpRmSel=''; }
+  else { rpTab='builder'; rbDS=c.ds; rbCols=c.cols.slice(); rbMode=c.mode||'raw'; rbGroup=(c.group||[]).slice(); rbFilters={}; rbWhere=c.where||null; rpApplyPeriod(c.period||'This month'); }
+  setScreen('reports');
+}
+function rpBack(){ rpView='list'; rpCur=''; rbWhere=null; render(); }
+function rpListHTML(){
+  var list=rpVisible();
+  var h='<div class="qs wide"><h1>Reports</h1><div class="sub">Each report answers one question. Tap it; it opens with this month set, newest first, with a total. Print or export from the page.</div>';
+  h+='<div class="bo-desks rp-list">'+list.map(function(c){ return '<button class="bo-desk rp-card" onclick="rpOpen(\''+c.id+'\')"><div class="t">'+qsEsc(c.t)+(c.money?' <span class="tdtag">PKR</span>':'')+'</div><div class="nums" style="font-size:13px">'+qsEsc(c.q)+'</div><div class="acts"><span class="tdgo">Open ›</span></div></button>'; }).join('')+'</div>';
+  if(!list.length) h+='<div class="note">No report is open to your role yet. Ask the COO.</div>';
+  return h+'</div>';
+}
+function rpPeriodChips(){ return '<div class="chips">'+['This month','Last month','FY to date','All'].map(function(p){ return '<button class="qs-btn sm'+(rpPeriod===p?' on':'')+'" onclick="rpApplyPeriod(\''+p+'\');render()">'+p+'</button>'; }).join('')+'</div>'; }
+function rpTableHTML(res){
+  var cols=res.cols; var meas=cols.filter(rbIsMeas);
+  var tot={}; meas.forEach(function(k){ tot[k]=res.rows.reduce(function(a,r){ return a+(+r[k]||0); },0); });
+  if(!res.rows.length) return '<div class="note">Nothing in this period.</div>';
+  var h='<div class="sheet-wrap" style="overflow-x:auto"><table class="rbtbl rp-tbl"><thead><tr>'+cols.map(function(k){ return '<th'+(rbIsMeas(k)?' class="num"':'')+'>'+qsEsc(rbColLabel(k))+'</th>'; }).join('')+'</tr></thead><tbody>';
+  h+=res.rows.slice(0,500).map(function(r){ return '<tr>'+cols.map(function(k){ return '<td'+(rbIsMeas(k)?' class="num"':'')+'>'+qsEsc(rbCellFmt(k,r[k]))+'</td>'; }).join('')+'</tr>'; }).join('');
+  if(meas.length) h+='<tr class="rp-tot">'+cols.map(function(k,i){ return '<td'+(rbIsMeas(k)?' class="num"':'')+'>'+(rbIsMeas(k)?fmt(Math.round(tot[k])):(i===0?'Total':''))+'</td>'; }).join('')+'</tr>';
+  h+='</tbody></table></div>'+(res.rows.length>500?'<div class="sub">Showing the first 500 of '+res.rows.length+' rows; export for the rest.</div>':'');
+  return h;
+}
+function rpSentence(c,res){
+  var n=res.rows.length; var meas=res.cols.filter(rbIsMeas).filter(function(k){return k!=='__count';})[0];
+  var tot=meas?res.rows.reduce(function(a,r){return a+(+r[meas]||0);},0):null;
+  var when=rpPeriod==='All'?'':(' · '+rpPeriod.toLowerCase());
+  return '<div class="rp-sum"><b>'+n+'</b> '+(res.summary?'group'+(n===1?'':'s'):'row'+(n===1?'':'s'))+when+(meas?(' · '+qsEsc(rbColLabel(meas))+' <b>'+fmt(Math.round(tot))+'</b>'):'')+'</div>';
+}
+function rpRmPosition(){
+  var rms=rmChainList(); if(!rms.length) return '<div class="note">No raw materials yet.</div>';
+  var rows=rms.map(function(rm){ var d=rmChainData(rm); var need=d.bases.reduce(function(a,x){return a+x.totalNeed;},0); var n=d.bases.reduce(function(a,x){return a+x.lines.length;},0); return {rm:rm,stock:d.stock,need:need,lines:n,short:Math.max(0,need-d.stock)}; });
+  rows.sort(function(a,b){ return (b.short-a.short)||(b.need-a.need)||a.rm.localeCompare(b.rm); });
+  var shortN=rows.filter(function(r){return r.short>0.5;}).length;
+  var h='<div class="rp-sum"><b>'+rms.length+'</b> materials · <b>'+shortN+'</b> short against the open orders</div>';
+  h+='<div class="sheet-wrap" style="overflow-x:auto"><table class="rbtbl rp-tbl"><thead><tr><th>Raw material</th><th class="num">On hand</th><th class="num">Needed · open orders</th><th class="num">Short</th><th class="num">Order lines</th><th></th></tr></thead><tbody>';
+  h+=rows.map(function(r){ return '<tr'+(r.short>0.5?' class="rp-short"':'')+'><td><b>'+qsEsc(r.rm)+'</b></td><td class="num">'+fmt(Math.round(r.stock))+'</td><td class="num">'+fmt(Math.round(r.need))+'</td><td class="num">'+(r.short>0.5?'<b>'+fmt(Math.round(r.short))+'</b>':'—')+'</td><td class="num">'+r.lines+'</td><td><button class="qs-btn sm ghost" onclick="rpRmSel=\''+qsEsc(String(r.rm).split("'").join(''))+'\';rpView=\'rmdetail\';render()">Trace ›</button></td></tr>'; }).join('');
+  return h+'</tbody></table></div>';
+}
+function rpReportHTML(){
+  var c=rpDef(rpCur); if(!c) return rpListHTML();
+  var h='<div class="qs wide"><div class="bo-back"><button class="qs-btn sm ghost" onclick="rpBack()">‹ Reports</button></div><h1>'+qsEsc(c.t)+'</h1><div class="sub">'+qsEsc(c.q)+'</div>';
+  if(c.kind==='rmpos'){ if(rpView==='rmdetail') return h+'<div class="bo-back" style="margin-top:8px"><button class="qs-btn sm ghost" onclick="rpView=\'report\';render()">‹ All materials</button></div><div class="paperui">'+rpRmChain()+'</div></div>'; return h+rpRmPosition()+'</div>'; }
+  if(c.kind==='docs') return h+'<div class="paperui">'+((rpDocKind==='dc')?rpDocs():rpPos())+'</div><div class="chips" style="margin-top:10px"><button class="qs-btn sm'+(rpDocKind==='po'?' on':'')+'" onclick="rpDocKind=\'po\';render()">Purchase orders</button><button class="qs-btn sm'+(rpDocKind==='dc'?' on':'')+'" onclick="rpDocKind=\'dc\';render()">Delivery challans and gate passes</button></div></div>';
+  if(c.kind==='builder') return h+'<div class="paperui">'+rbRender()+'</div></div>';
+  var res=rbResult();
+  h+='<div class="row between" style="gap:10px;flex-wrap:wrap;align-items:center;margin-top:10px">'+rpPeriodChips()+'<span class="row" style="gap:6px"><button class="qs-btn sm" onclick="rbPrint()">Print / PDF</button><button class="qs-btn sm" onclick="rbExport(\'csv\')">CSV</button><button class="qs-btn sm ghost" onclick="rpTab=\'builder\';rpCur=\'custom\';render()">Adjust</button></span></div>';
+  h+=rpSentence(c,res)+rpTableHTML(res);
+  return h+'</div>';
+}
 function screenReports(){
+  /* 24k: the catalogue first; a named report; the old 3-tab page only behind Custom */
+  if(rpView==='list'||!rpCur){ $('view').innerHTML=rpListHTML(); return; }
+  if(rpView==='report'||rpView==='rmdetail'){ $('view').innerHTML=rpReportHTML(); return; }
   /* Report Builder (datasets) + Document Viewer (DC/Gate Pass) + RM Chain (raw-material trace). */
   var tab=(rpTab==='docs')?'docs':(rpTab==='rmchain')?'rmchain':'builder';
   var opt=function(id,label){ return '<div class="opt '+(tab===id?'on full':'')+'" style="flex:0 0 auto;padding:8px 14px;font-size:12.5px" onclick="rpTab=\''+id+'\';screenReports()">'+label+'</div>'; };

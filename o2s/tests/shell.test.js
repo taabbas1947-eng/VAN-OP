@@ -83,7 +83,7 @@ eq('plTone: less than a week is late', (() => { const f = new Function(grab('plT
 
 /* ================= 4. BACK OFFICE: jobs ================= */
 const bo = grab('screenBackOffice'), bj = grab('boJobs');
-ok('Back Office renders jobs, not tiles', /boJobs\(\)/.test(bo) && /class="bo-job/.test(bo) && !/bo-tile/.test(bo));
+ok('Back Office renders from boJobs, not tiles (the list itself became desks in 24g)', /boJobs\(\)/.test(bo) && !/bo-tile/.test(bo));
 ['Approve a customer', 'Add a customer', 'attach a base to a brand', 'Set the budget for FY', 'Allocate to clients', 'Give someone access', 'Change what a role may do', 'Reference lists', 'Reconcile packing', 'Correct a record', 'Recipes and lab templates']
   .forEach(j => ok("job: " + j, bj.indexOf(j) > -1));
 ok('a job carries its count', /pend\+' waiting'/.test(bj) && /chSet\+' of '\+BUDGET_CHANNELS\.length/.test(bj) && /unsettled\+' base to settle'/.test(bj));
@@ -271,7 +271,7 @@ const re = grab('roleEditorHTML');
 ok('People -> Roles carries an editor for the picked role (23v)', /roleEditorHTML\(ppRole\)/.test(pp) && /deptLeadsHTML\(\)/.test(pp) && /newRoleHTML\(\)/.test(pp));
 ok('every LIVE right is a sentence with a tick', /RIGHTS_LIVE\[r\.code\]===true/.test(re) && /type="checkbox"/.test(re) && /reRightTick\(/.test(re));
 ok('a tick goes through rightTick, so grantRefusal and separationRefusal still apply', /rightTick\(role,code,on\)/.test(grab('reRightTick')) && /grantRefusal\(state\.role,role,r\.code\)/.test(re));
-ok('every screen is None / Read / Edit through the matrix cell', /amxSet\(/.test(re) && /\['none','view','edit'\]/.test(re));
+ok('every screen is None / Read / Edit through the matrix cell (its own tab since 24g)', /amxSet\(/.test(grab('reScreensHTML')) && /\['none','view','edit'\]/.test(grab('reScreensHTML')) && /reScreensHTML\(role,ed\)/.test(re));
 ok('amxSet writes the same cell the matrix wrote, logs it and resyncs the screen rights', /m\[role\]\[id\]=\{v:\(level!=='none'\),e:\(level==='edit'\)\}/.test(grab('amxSet')) && /logAction\('Access set: '/.test(grab('amxSet')) && /resyncScreenRights\(role,id\)/.test(grab('amxSet')));
 ok('the COO is never editable and only the COO edits', /if\(role==='COO'\)\{ toast\('The COO always has full access'\); return; \}/.test(grab('amxSet')) && /state\.role!=='COO'/.test(grab('amxSet')));
 ok('Today, Plant, Back Office, All actions and the Dashboard are not in the screen list', /RE_SCREENS_SKIP=\{today:1,plant:1,backoffice:1,approvals:1,dash:1\}/.test(html));
@@ -286,5 +286,72 @@ ok('the sign-in page is paper, kraft rule, one blue button - no green', /#E6E8E2
 ok('the sign-in page still calls doLogin and keeps the two inputs', /id="lg_user"/.test(lg) && /id="lg_pass"/.test(lg) && /onclick="doLogin\(\)"/.test(lg));
 ok('sign-in says where accounts and passwords are handled', /Back Office/.test(lg) && /People/.test(lg));
 ok('a browser that remembered All actions or the Dashboard lands on Today', /if\(state\.screen==='approvals'\|\|state\.screen==='dash'\) state\.screen='today'; render\(\);/.test(grab('renderApp')));
+
+/* 24g: the Back Office as an office - the exceptions first, then the desks */
+{
+  const bo2 = grab('screenBackOffice'), bj2 = grab('boJobs');
+  ok('the hub opens with Needs you and then the desks, not a long list', /boNeeds\(\)/.test(bo2) && /boDesks\(\)/.test(bo2) && /class="bo-need /.test(bo2) && /class="bo-desk"/.test(bo2) && !/class="bo-job /.test(bo2) && !/bo-tile/.test(bo2));
+  ok('when nothing is wrong it says so in one green line', /Nothing needs you\./.test(bo2) && /class="bo-clear"/.test(bo2));
+  ok('the hub keeps who-sees-what: every desk and every row comes from boJobs()', /var J=boJobs\(\)/.test(grab('boNeeds')) && /var J=boJobs\(\)/.test(grab('boDesks')) && /if\(!J\.length\)/.test(bo2));
+  ok('Needs you lists the anomalies by name: bases, budgets, customers, shared logins, unfiled roles, leads, packing', (() => { const n = grab('boNeeds'); return /boUnsettled\(\)/.test(n) && /channels have no budget/.test(n) && /waiting for the CFO/.test(n) && /boSharedLogins\(\)/.test(n) && /boUnfiled\(\)/.test(n) && /no lead named/.test(n) && /packing record/.test(n); })());
+  ok('the desks are the 6 the review asked for', (() => { const d = grab('boDesks'); return ['customers', 'products', 'budget', 'people', 'lists', 'checks'].every(k => new RegExp("k:'" + k + "'").test(d)); })());
+  ok('the hidden cards are reachable from the Products and Budget desks (lab templates, raw materials, lead times, monthly split)', (() => { const d = grab('boDesks'); return /'labtpl'/.test(d) && /'rm'/.test(d) && /'leadtime'/.test(d) && /'stargetM'/.test(d); })());
+  ok('Change what a role may do opens People → Roles, not the old Authorisation panel', /go:"boOpenRoles\(\)"/.test(bj2) && !/authpanel/.test(bj2) && /ppView='roles'/.test(grab('boOpenRoles')));
+  ok('the Access control tab is gone from Setup (the old panel is retired from the Back Office path)', !/t\('access','Access control'\)/.test(grab('screenAdmin')) && /if\(admTab==='access'\) admTab='ref';/.test(grab('screenAdmin')));
+  ok('Reconcile on the hub reads the rows reconCompute returns, not a filter on the object', /reconCompute\(\)\|\|\{rows:\[\]\}\)\.rows\.length/.test(bj2));
+  ok('every Back Office page has a way back', (() => { const b = grab('boBackHTML'); return /setScreen\(\\'backoffice\\'\)/.test(b) && /boBackHTML\(\)/.test(grab('screenDealers')) && /boBackHTML\(\)/.test(grab('screenPeople')) && /boBackHTML\(\)/.test(grab('screenRecon')) && /boBackHTML\(\)/.test(grab('screenDataFix')); })());
+
+  /* the 5 bases: an anomaly list with a decision on each row, not 10 px text in a table */
+  ok('the Products card opens with the settle list', /pmSettleHTML\(\)/.test(grab('productMasterCard')) && /Keep · from /.test(grab('pmSettleHTML')) && /Its own base/.test(grab('pmSettleHTML')));
+  {
+    const log = []; const S = { role: 'COO', currentUser: { name: 'Tahir Abbas' }, masters: { products: [
+      { brand: 'V-Zinc', base: 'Zinc 10%', catBase: 'V-Zinc' }, { brand: 'Ferti Huma', base: 'Potassium Humate', catBase: 'Ferti Huma' }, { brand: 'Other', base: 'X', catBase: 'Y' }, { brand: 'Clean', base: 'Z' } ] } };
+    const f = new Function('state', 'log', 'var saved=0; function pmCanEdit(){ return state.role==="COO"; } function toast(m){ log.push("toast:"+m); } function logAction(m){ log.push(m); } function save(){ saved++; } function render(){} function applyCustomProducts(){}\n' + grab('pmSettle') + '\n' + grab('boUnsettled') + '\nreturn {pmSettle:pmSettle, boUnsettled:boUnsettled, saved:function(){return saved;}};')(S, log);
+    eq('3 products wait to be settled', f.boUnsettled().length, 3);
+    f.pmSettle('V-Zinc', 'keep');
+    ok('Keep: the brand map wins, the catalogue word is dropped, stamped and logged', S.masters.products[0].base === 'Zinc 10%' && !('catBase' in S.masters.products[0]) && S.masters.products[0].settled.by === 'Tahir Abbas' && /Settled the base of V-Zinc/.test(log.join(' ')) && f.saved() === 1);
+    f.pmSettle('Ferti Huma', 'cat');
+    ok('Its own base: the product becomes a bulk base with an empty lab template', S.masters.products[1].base === 'Ferti Huma' && S.masters.products[1].bulk === true && Array.isArray(S.masters.labTemplates['Ferti Huma']) && !('catBase' in S.masters.products[1]));
+    f.pmSettle('Other', 'cat');
+    ok('From the catalogue base: base moves to what the catalogue said', S.masters.products[2].base === 'Y' && S.masters.products[2].bulk !== true);
+    eq('nothing left to settle', f.boUnsettled().length, 0);
+    S.role = 'Production'; S.masters.products[3].catBase = 'Q'; f.pmSettle('Clean', 'keep');
+    ok('Production cannot settle a base', S.masters.products[3].catBase === 'Q' && /Back Office only/.test(log[log.length - 1]));
+  }
+
+  /* the channel budget saves with a button that says so */
+  {
+    const cb = grab('channelBudgetCard');
+    ok('the budget is typed, then saved with one button', /oninput="cbTyped\(/.test(cb) && !/onchange="channelBudgetSet\(/.test(cb) && /id="cb_save"/.test(cb) && /onclick="channelBudgetSaveAll\(\)"/.test(cb) && /cbSavedLine\(\)/.test(cb));
+    ok('each amount is echoed in words beside the box as it is typed', /id="cb_fmt_/.test(cb) && /pkr\(\+v\)/.test(grab('cbTyped')));
+    const log = []; const S = { role: 'CFO', currentUser: { name: 'Yawar Hussain' }, masters: { channelTargets: { Cobo: { '2026-27': 100 }, Vgreen: { '2026-27': 5 } } } };
+    const f = new Function('state', 'log', 'var saved=0, rendered=0; var BUDGET_CHANNELS=["White Label","Cobo","Vgreen","Dealer","Distributor","Farmer"]; var TODAY=new Date("2026-09-24T09:00:00Z"); function fyKey(){ return "2026-27"; } function pkr(a){ return "PKR "+a; } function toast(m){ log.push("toast:"+m); } function logAction(m){ log.push(m); } function save(){ saved++; } function render(){ rendered++; }\n' + grab('channelBudgetSaveAll') + '\nvar cbDraft={};\nreturn {run:function(d){ cbDraft=d; channelBudgetSaveAll(); return cbDraft; }, saved:function(){return saved;}, rendered:function(){return rendered;}};')(S, log);
+    const left = f.run({ 'White Label': '250', Cobo: '100', Vgreen: '0', Nonsense: '9' });
+    ok('one save for every changed channel; unchanged and unknown channels are skipped; 0 clears', S.masters.channelTargets['White Label']['2026-27'] === 250 && S.masters.channelTargets.Cobo['2026-27'] === 100 && !('2026-27' in S.masters.channelTargets.Vgreen) && !S.masters.channelTargets.Nonsense && f.saved() === 1 && f.rendered() === 1);
+    ok('it says who saved it and when, and the draft is emptied', S.masters._channelBudgetSaved.by === 'Yawar Hussain' && S.masters._channelBudgetSaved.fy === '2026-27' && Object.keys(left).length === 0 && /toast:Saved — 2 channels/.test(log[log.length - 1]) && /Channel budget saved for FY 2026-27: White Label PKR 250 · Vgreen cleared/.test(log.join(' ')));
+    f.run({ Cobo: '100' });
+    ok('nothing changed says so and does not save again', /toast:Nothing changed\./.test(log[log.length - 1]) && f.saved() === 1);
+    S.role = 'Production'; f.run({ Cobo: '1' });
+    ok('Production cannot save a budget', S.masters.channelTargets.Cobo['2026-27'] === 100 && /COO \/ CFO only/.test(log[log.length - 1]));
+  }
+
+  /* customers waiting for the CFO are on the Customers page itself */
+  ok('the Customers page opens with the waiting list and an Approve button', /custPendingHTML\(\)/.test(grab('screenDealers')) && /approveCustomer\(/.test(grab('custPendingHTML')) && /Waiting for approval/.test(grab('custPendingHTML')));
+  ok('the Customers page wears the shell name and no HTML entity', /<div class="rb-title">Customers<\/div>/.test(grab('screenDealers')) && !/Add &amp;amp; manage/.test(html) && /sub:'Add and manage customers'/.test(html));
+
+  /* the role editor: 3 short tabs, no developer notes, and a department for the role */
+  {
+    const re = grab('roleEditorHTML'), pp2 = grab('screenPeople');
+    ok('the role editor is 3 tabs: may do · screens · departments', /reTabsHTML\(role\)/.test(re) && /t\('do',/.test(grab('reTabsHTML')) && /t\('screens',/.test(grab('reTabsHTML')) && /t\('leads',/.test(grab('reTabsHTML')) && /reTab==='screens'/.test(re) && /reTab==='leads'/.test(pp2) && /deptLeadsHTML\(\)/.test(pp2) && /newRoleHTML\(\)/.test(pp2));
+    ok('the developer notes are gone from the COO’s screen', !/old screen rule/.test(re) && !/switch over one at a time/.test(re));
+    ok('a role can be filed under a department from its own panel', /roleDeptHTML\(role\)/.test(re) && /setRoleDept\(/.test(grab('roleDeptHTML')) && /no department yet/.test(grab('roleDeptHTML')));
+  }
+
+  /* titles a manager understands */
+  ok('Setup is Lists, Data Fix is Correct a record, Reconciliation is Reconcile packing', /id:'admin', name:'Lists'/.test(html) && /id:'datafix', name:'Correct a record'/.test(html) && /id:'recon', name:'Reconcile packing'/.test(html));
+  ok('Reconcile speaks plainly, without code', !/<code>lotsFor\(\)<\/code>/.test(grab('screenRecon')) && /compared with its packing record/.test(grab('screenRecon')));
+  ok('Correct a record is not called a temporary implementation tool', !/Implementation tool — temporary/.test(grab('screenDataFix')) && /corrections register/.test(grab('screenDataFix')));
+  ok('BUILD_ID is 2026-09-24g or later', /var BUILD_ID='2026-09-24[g-z]'/.test(html));
+}
 
 report('The Queue Shell, live (23s)');

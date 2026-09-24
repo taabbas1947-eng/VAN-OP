@@ -113,6 +113,13 @@ const MARKERS = [
   ['function boJobs(',                     1, 'Back Office as jobs (23s)'],
   ['function screenPeople(',               1, 'People, not a matrix (23s)'],
   ['function rolesTitlesCard(',            1, 'the Guide opens on roles and titles (23s)'],
+  /* 2026-09-24g */
+  ['function boNeeds(',                    1, 'Back Office: Needs you (24g)'],
+  ['function boDesks(',                    1, 'Back Office: the 6 desks (24g)'],
+  ['function pmSettle(',                   1, 'settle a base from the anomaly list (24g)'],
+  ['function channelBudgetSaveAll(',       1, 'the channel budget saves with a button (24g)'],
+  ['function custPendingHTML(',            1, 'customers waiting for the CFO, on Customers (24g)'],
+  ['function reTabsHTML(',                 1, 'the role editor in 3 tabs (24g)'],
 ];
 
 const [, , mode, freshPath, otherPath] = process.argv;

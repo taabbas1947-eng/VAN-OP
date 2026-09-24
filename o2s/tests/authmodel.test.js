@@ -782,7 +782,7 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
        /only be changed by the COO/.test(b.grantRefusal('KAM', 'Sales Officer', c)),
        b.grantRefusal('KAM', 'Sales Officer', c));
     ok('...and the refusal says why it is held back',
-       /HELD BACK/.test(b.grantRefusal('KAM', 'Sales Officer', c)));
+       /held back/i.test(b.grantRefusal('KAM', 'Sales Officer', c)));
     eq('but the COO still can', b.grantRefusal('COO', 'Sales Officer', c), '');
   });
   ok('an ordinary Commercial right the lead no longer holds is not his to give (order.create moved to Finance)',

@@ -11,7 +11,7 @@
    a push keeps running the old code with nothing telling anybody. It sat at
    2026-09-04a through this whole day's work; rmqty/psi tests pinned the code,
    nothing pinned this. buildid.test.js now does. */
-var BUILD_ID='2026-09-24f';
+var BUILD_ID='2026-09-24g';
 var CHANGELOG=[
   {ver:'2026-09-04a', date:'2026-09-04', title:"Delivery, DC printing, and a new Reconciliation check", items:[
     "Delivery confirmation stays with Supply Chain \u2014 it no longer hands off to the Plant Manager. If one sits too long, it now re-flags the same Supply Chain owner every 3 days instead.",
@@ -200,6 +200,15 @@ var CHANGELOG=[
     "\u201cPlan the truck\u201d now opens a sheet called Plan the truck and saves with a button called Plan the truck \u2014 one verb from the card to the save. On a phone the products are a list, not a table cut off at the quantity.",
     "A card for a job on one product now names the product (\u201cOrbit-K \u00b7 1821412156 \u00b7 Rudolf\u201d), not the job (\u201cRM Check \u00b7 \u2026\u201d).",
     "The COA is a certificate; on a phone it now pans sideways as one sheet instead of breaking its columns, and its bar wears the shell\u2019s colours."
+  ]},
+  {ver:'2026-09-24g', date:'2026-09-24', title:"The Back Office is an office", items:[
+    "Back Office opens with \u201cNeeds you\u201d \u2014 only what is wrong right now, one row each, and a button that opens the exact thing: products whose 2 old lists disagree about the base, channels with no budget, a customer waiting for the CFO, shared logins, a role filed under no department, a department with no lead, a packed line that does not reconcile. When nothing is wrong, one green line says so.",
+    "Under it, 6 desks \u2014 Customers, Products, Budget, People, Lists, Checks \u2014 each with its numbers as digits and 2 or 3 verbs. Lab templates, raw materials, lead times and the monthly split are reachable again.",
+    "The 5 products to settle are a list at the top of Products with a decision on each row (keep the brand map, or take the catalogue\u2019s word), not a line of small print inside 82 rows.",
+    "The channel budget is typed, then saved with a button that says Save the budget, echoes each amount in words as you type, and shows who saved it and when. (Tahir: \u201cwhere is the save button?\u201d)",
+    "Customers waiting for the CFO are at the top of the Customers page with an Approve button; the page is called Customers.",
+    "What a role may do is People \u2192 Roles only, in 3 short tabs (may do \u00b7 screens \u00b7 departments); the old Authorisation panel is retired from the Back Office path. A role can be filed under its department from its own panel.",
+    "Setup is Lists, Data Fix is Correct a record, Reconciliation is Reconcile packing; every Back Office page has \u2039 Back Office at the top and speaks without code."
   ]},
 ];
 </script>
@@ -2026,6 +2035,29 @@ button.green{background:var(--accent)}button.green:hover{background:var(--navy2)
 .bo-job .d{font-size:13px;color:var(--ink-2);grid-column:1}
 .bo-job .go{grid-column:2;grid-row:1/span 3;color:var(--accent);font-weight:600;font-size:14px;white-space:nowrap}
 .bo-grp{font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--kraft);margin:18px 0 6px}
+/* ---------- BACK OFFICE as an office (24g) ---------- */
+.bo-back{margin:0 0 10px}
+.bo-needs{display:grid;gap:8px}
+.bo-need{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:4px 12px;align-items:center;width:100%;text-align:left;background:var(--surface);border:1px solid var(--qline);border-left:5px solid var(--st,var(--qline-strong));border-radius:3px;padding:10px 12px;font:inherit;color:inherit;cursor:pointer}
+.bo-need.st-late{--st:var(--late)}.bo-need.st-over{--st:var(--over)}.bo-need.st-ok{--st:var(--ok)}
+button.bo-need:hover{border-color:var(--qline-strong)}
+div.bo-need{cursor:default}
+.bo-need .n{font-family:'IBM Plex Mono',monospace;font-size:22px;font-weight:600;color:var(--st);min-width:34px;text-align:center}
+.bo-need .t{font-size:15px;font-weight:600;line-height:1.3}
+.bo-need .t .d{display:block;font-size:12.5px;font-weight:400;color:var(--ink-2);margin-top:2px}
+.bo-need .go{color:var(--accent);font-weight:600;font-size:14px;white-space:nowrap}
+.bo-need .acts{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.bo-clear{background:var(--surface);border:1px solid var(--qline);border-left:5px solid var(--ok);border-radius:3px;padding:12px 14px;color:var(--ok);font-weight:600}
+.bo-desks{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:12px}
+.bo-desk{background:var(--surface);border:1px solid var(--qline);border-top:4px solid var(--kraft);border-radius:3px;padding:14px 16px 12px;display:flex;flex-direction:column;gap:10px}
+.bo-desk .t{font-size:17px;font-weight:600}
+.bo-desk .nums{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:13px;color:var(--ink-2)}
+.bo-desk .nums b{font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:600;color:var(--ink);margin-right:3px}
+.bo-desk .nums .st-late b{color:var(--late)}.bo-desk .nums .st-over b{color:var(--over)}.bo-desk .nums .st-ok b{color:var(--ok)}
+.bo-desk .acts{display:flex;flex-wrap:wrap;gap:6px;margin-top:auto}
+.bo-settle{margin-bottom:14px}
+.bo-settle .tdsec{margin-top:0}
+@media (max-width:560px){.bo-need{grid-template-columns:auto minmax(0,1fr)}.bo-need .go,.bo-need .acts{grid-column:2}.bo-need .acts{justify-content:flex-start}}
 /* ---------- GUIDE: roles and titles ---------- */
 .rt{display:grid;gap:14px;margin-top:14px}
 .rtdept{border:1px solid var(--qline);border-radius:3px;background:var(--surface);overflow:hidden}
@@ -3309,7 +3341,7 @@ const SCREENS=[
     obj:'<b>Step 1 \u00b7 KAM.</b> Create a customer PO: Channel \u2192 Client/Dealer \u2192 products (brand auto-maps to base product & pack size) with qty and a committed date. A simple RM-ready flag shows if materials are on hand.'},
   /* C3 + C9 as one change, ruled 23 Sep night: customers move from the KAM to
      Finance. The Plant Manager keeps a view because Back Office is his too (R7). */
-  {id:'dealers', name:'Customers', ic:'\ud83e\udd1d', owners:['Finance','CFO','COO','Plant Manager'], sub:'Add &amp; manage customers',
+  {id:'dealers', name:'Customers', ic:'\ud83e\udd1d', owners:['Finance','CFO','COO','Plant Manager'], sub:'Add and manage customers',
     obj:'<b>KAM.</b> Add a dealer before their first PO \u2014 Province \u2192 City; the code auto-generates as DLR-Region-City-NNN. Confirmed dealers then appear in New PO Entry.'},
   {id:'tracker', name:'Orders', ic:'\ud83d\udccb', owners:['KAM','Supply Chain','Production','Production Manager','Lab Rep','AQCM','QCM','QA Inspector','Plant Manager','CFO','COO','Supply Chain Officer','Finance Desk Officer','Finance','Warehouse'], sub:'Track every order from PO to shipment',
     obj:'This screen shows where each order is standing. Updates are entered from each role\u2019s own screen.'},
@@ -3332,11 +3364,11 @@ const SCREENS=[
     obj:'<b>Reports \u00b7 read-only.</b> Built from data already captured. Use Explorer to slice by client, product, month or stage, or open a ready report. Filters apply to every view; print from the top-right.'},
   {id:'instructions', name:'Guide', ic:'\ud83d\udcd6', owners:['KAM','Supply Chain','Production','Production Manager','Lab Rep','AQCM','QCM','QA Inspector','Plant Manager','CFO','COO','Supply Chain Officer','Finance Desk Officer','Finance','Warehouse'], sub:'App manual',
     obj:'<b>Manual.</b> The whole process \u2014 where to add, when, and how information flows.'},
-  {id:'admin', name:'Setup', ic:'\u2699\ufe0f', owners:['Lab Rep','AQCM','QCM','Plant Manager','COO'], sub:'Manage dropdown lists',
+  {id:'admin', name:'Lists', ic:'\u2699\ufe0f', owners:['Lab Rep','AQCM','QCM','Plant Manager','COO'], sub:'The dropdown lists the forms use, and the business masters',
     obj:'<b>COO / Admin.</b> Add or view dropdown values \u2014 delay reasons, responsible departments, KAM names, forms, statuses, downtime reasons. Changes flow to every dropdown.'},
-  {id:'datafix', name:'Data Fix', ic:'🔧', owners:['COO','Production','Production Manager'], sub:'Implementation backfill & corrections',
+  {id:'datafix', name:'Correct a record', ic:'🔧', owners:['COO','Production','Production Manager'], sub:'Back-fill or correct; every change is logged',
     obj:'<b>Implementation tool (temporary).</b> Correct live records to match actual paper/manual data, back-dated. Every change is logged as RECONCILE. COO can turn it off after cutover.'},
-  {id:'recon', name:'Reconciliation', ic:'🧾', owners:['COO','Production','Production Manager'], sub:'Packed vs. packing trail, live',
+  {id:'recon', name:'Reconcile packing', ic:'🧾', owners:['COO','Production','Production Manager'], sub:'Every packed order line against its packing record',
     obj:'<b>Read-only.</b> For every order line with packed quantity, sums the matching packingLog rows the same way the app itself does, and flags any line where packed exceeds what packingLog can account for. Recomputed live on open \u2014 use Data Fix to correct what it finds.'},
   {id:'users', name:'People', ic:'\ud83d\udc65', owners:['COO','Plant Manager'], sub:'People, roles & passwords',
     obj:'<b>COO only.</b> Add people, set each one\u2019s role and password. Everyone signs in and sees only their role\u2019s screens.'},
@@ -3474,9 +3506,9 @@ var RIGHTS=[
      took a reviewed code change to widen. It must not become a tick the KAM can
      hand to his own team. When the ids land, this flag comes off. */
   {code:'customer.create',     dept:'commercial', name:'Add a customer or dealer', delegable:false,
-   note:'HELD BACK until customer rows carry ids — COO only, not the lead.',   legacy:{kind:'hard', roles:['KAM']}},
+   note:'Held back — only the COO can grant this for now.',   legacy:{kind:'hard', roles:['KAM']}},
   {code:'customer.amend',      dept:'commercial', name:'Change a customer record', delegable:false,
-   note:'HELD BACK until customer rows carry ids — COO only, not the lead.',   legacy:{kind:'hard', roles:['KAM']}},
+   note:'Held back — only the COO can grant this for now.',   legacy:{kind:'hard', roles:['KAM']}},
 
   /* ---- Supply Chain, converted 25 August 2026 ----
      These gates were canEdit(['Supply Chain']), which asks the access matrix about
@@ -4535,7 +4567,7 @@ function screenRecon(){
   const pattern=reconTopPattern(rows);
   const critCount=rows.filter(function(r){ return r.status==='crit'; }).length;
   const totalGap=rows.reduce(function(s,r){ return s+r.gap; },0);
-  const banner=`<div class="banner info"><b>Read-only.</b> For every order line with packed&gt;0, this sums the matching <code>packingLog</code> rows the same way <code>lotsFor()</code> does (PO, then lid if the line has one, else brand) and flags anything packed exceeds by more than 0.5\u00a0Kg/L. Nothing here is changed by opening it \u2014 use <b>Data Fix</b> to correct what it finds.</div>`;
+  const banner=boBackHTML()+`<div class="banner info">Every packed order line is compared with its packing record. ${fmt(data.linesChecked)} line${data.linesChecked===1?'':'s'} checked, ${fmt(rows.length)} differ${rows.length===1?'s':''}. Nothing is changed by opening this page; what it finds is corrected under <b>Correct a record</b>.</div>`;
   const tiles=`<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
      <div class="card" style="flex:1;min-width:130px"><div class="muted" style="font-size:11px">Orders scanned</div><div style="font-size:22px;font-weight:700">${fmt(data.ordersScanned)}</div></div>
      <div class="card" style="flex:1;min-width:130px"><div class="muted" style="font-size:11px">Lines checked</div><div style="font-size:22px;font-weight:700">${fmt(data.linesChecked)}</div></div>
@@ -4589,7 +4621,7 @@ function screenDataFix(){
     ? `<button class="${on?'ghost':'green'} sm" onclick="toggleDataFix()">${on?'Turn OFF (after cutover)':'Turn ON'}</button>`
     : `<span class="pill" style="background:var(--green-50);color:var(--green2)">Active</span>`;
   const banner = on
-    ? `<div class="banner warn"><b>Implementation tool — temporary.</b> Correct live records to match your actual paper/manual data, all back-dated. Every change is logged as <b>RECONCILE</b>.${isCOO?' Turn this OFF once cutover is complete.':''}</div>`
+    ? boBackHTML()+`<div class="banner warn"><b>Corrections.</b> Back-fill or correct a live record to match the paper. Every change goes to the corrections register, back-dated and in your name.${isCOO?' The COO can switch corrections off once the books are straight.':''}</div>`
     : `<div class="banner info">Data Fix is <b>OFF</b>. Turn it on to use reconciliation tools. (COO only.)</div>`;
   const ops = on ? (dfOp ? dfFormHtml(dfOp) : dfCardsHtml()) : '';
   $('view').innerHTML=`${banner}
@@ -5537,7 +5569,7 @@ function screenDealers(){
     var rows=cur.filter(function(c){return !c.isParent;});
     listHtml='<div class="card"><h3>'+custSeg+' <span class="hint">'+rows.length+'</span>'+(edAdd?'<button class="sm" style="margin-left:auto" onclick="custStartAdd(\''+custSeg+'\')">+ Add '+custSeg+'</button>':'')+'</h3>'+(rows.length?('<div style="overflow:auto"><table><thead><tr><th>Code</th><th>Name</th><th>FED</th><th>KAM</th><th>Introduced by</th><th>Status</th><th></th></tr></thead><tbody>'+rows.map(function(c){return '<tr><td><b>'+c.code+'</b></td><td>'+c.name+(c.city?(' <span class="muted" style="font-size:11px">'+c.city+'</span>'):'')+'</td><td>'+c.fed+'</td><td class="muted">'+(c.kam||'—')+'</td><td class="muted">'+(c.introducedBy||'—')+'</td><td>'+pill(c.status||'Active','--green')+'</td><td>'+(ed?('<button class="sm ghost" onclick="custEdit(\''+c.code+'\')">Edit</button> <button class="sm ghost" onclick="custToggleStatus(\''+c.code+'\')">'+((c.status||'Active')==='Active'?'Deactivate':'Reactivate')+'</button>'):'')+'</td></tr>';}).join('')+'</tbody></table></div>'):'<div class="muted" style="padding:10px 2px">None yet.</div>')+'</div>';
   }
-  $('view').innerHTML='<div class="paperui">'+(ed?'':viewOnly('KAM'))+'<div class="rb-top"><div><div class="rb-title">Customer Master</div><div class="rb-sub2">Add &amp; manage every customer · grouped by segment</div></div></div>'+tabs+(custForm?custFormHTML():'')+listHtml+'</div>';
+  $('view').innerHTML='<div class="paperui">'+boBackHTML()+(ed?'':viewOnly('KAM'))+'<div class="rb-top"><div><div class="rb-title">Customers</div><div class="rb-sub2">Every customer, grouped by segment. A new one waits for the CFO before its first order.</div></div></div>'+custPendingHTML()+tabs+(custForm?custFormHTML():'')+listHtml+'</div>';
 }
 /* ===================== 2. PO TRACKER ===================== */
 let trkFilter='all'; let trkStage=''; let trkChannel='all';
@@ -11729,7 +11761,7 @@ function boJobs(){
   var fy=fyKey(TODAY.toISOString().slice(0,10)); var ct=(state.masters.channelTargets||{}); var chSet=BUDGET_CHANNELS.filter(function(k){return ct[k]&&+ct[k][fy]>0;}).length;
   var roles=(state.masters.roles||[]).filter(function(r){return r&&!r.archived;}).length;
   var people=(usersList||[]).length; var shared=0; try{ shared=(usersList||[]).filter(function(u){ return u&&/^(kam|coo|cfo|qcm|aqcm|lab|prod|qa|sc|pm|finance)\d*$/i.test(u.username||''); }).length; }catch(e){}
-  var reconN=0; try{ reconN=(reconCompute()||[]).filter(function(r){return r&&(r.flag||r.gap||r.diff);}).length; }catch(e){}
+  var reconN=0; try{ reconN=(reconCompute()||{rows:[]}).rows.length; }catch(e){}
   var isFin=(state.role==='COO'||state.role==='CFO');
   var J=[
     {g:'Customers', t:'Approve a customer', n:pend?(pend+' waiting'):'none waiting', d:'The CFO approves; until then the customer is not offered for an order.', go:"boOpen('dealers')", st:pend?'st-late':'st-ok', ok:canView(state.role,'dealers')&&isFin},
@@ -11739,23 +11771,136 @@ function boJobs(){
     {g:'Budget', t:'Set the budget for FY '+fy, n:chSet+' of '+BUDGET_CHANNELS.length+' channels set', d:'Rs, Jul–Jun. A total per channel, then the clients under it.', go:"boOpen('admin','biz','cbudget')", st:chSet<BUDGET_CHANNELS.length?'st-late':'st-ok', ok:canView(state.role,'admin')&&isFin},
     {g:'Budget', t:'Allocate to clients', n:'annual and monthly', d:'The allocation under each channel total. Dealer and Farmer are one total each.', go:"boOpen('admin','biz','starget')", st:'st-na', ok:canView(state.role,'admin')&&isFin},
     {g:'People', t:'Give someone access', n:(people?people+' logins':'logins')+' · '+roles+' roles'+(shared?' · '+shared+' shared login'+(shared===1?'':'s')+' to retire':''), d:'One login per person, one role each. The role gives the rights; the title is what they are called.', go:"boOpen('users')", st:shared?'st-late':'st-na', ok:canView(state.role,'users')&&screenEditOK('users')},
-    {g:'People', t:'Change what a role may do', n:roles+' roles · '+RIGHTS.length+' rights', d:'Roles only. No exceptions per person: an exception becomes a new role.', go:"boOpen('admin','access','authpanel')", st:'st-na', ok:canView(state.role,'admin')},
+    {g:'People', t:'Change what a role may do', n:roles+' roles · '+RIGHTS.length+' rights', d:'Roles only. No exceptions per person: an exception becomes a new role.', go:"boOpenRoles()", st:'st-na', ok:canView(state.role,'users')},
     {g:'Lists', t:'Reference lists', n:'shifts, delay reasons, departments, priorities', d:'The dropdown lists the forms use.', go:"boOpen('admin','ref')", st:'st-na', ok:canView(state.role,'admin')},
     {g:'Checks', t:'Reconcile packing', n:reconN?(reconN+' to look at'):'nothing open', d:'Every packed order line against its packing record.', go:"boOpen('recon')", st:reconN?'st-late':'st-ok', ok:canView(state.role,'recon')},
     {g:'Checks', t:'Correct a record', n:'logged', d:'Back-fill or correct. Every change goes to the corrections register.', go:"boOpen('datafix')", st:'st-na', ok:state.role==='COO'&&canView(state.role,'datafix')}
   ];
   return J.filter(function(x){return x.ok;});
 }
+/* ===================== THE BACK OFFICE, AS AN OFFICE - 24g =====================
+   Tahir, 24 Sep: "Back Office does not look like a back office, it's a long
+   list." An independent UX review of every Back Office page agreed and gave the
+   shape: the exceptions first, then the desks.
+   - NEEDS YOU: only what is wrong right now, one row each, each row a button
+     that opens the exact thing (the 5 products whose two old lists disagreed
+     about the base, the channels with no budget, the shared logins, a customer
+     waiting for the CFO, a person whose role is filed under no department, a
+     department with no lead, a packed line that does not reconcile). When there
+     is nothing, one green line says so.
+   - DESKS: Customers · Products · Budget · People · Lists · Checks. A desk
+     shows its numbers as digits and 2 or 3 verbs. The long sentences moved to
+     the pages themselves. Every job still comes from boJobs(), so who sees what
+     is unchanged. Nothing is deleted anywhere. */
+function boBackHTML(){ var n=0; try{ n=boJobs().length; }catch(e){} if(!n) return ''; return '<div class="bo-back"><button class="qs-btn sm ghost" onclick="setScreen(\'backoffice\')">‹ Back Office</button></div>'; }
+function boOpenRoles(role){ ppView='roles'; if(role) ppRole=role; boOpen('users'); }
+function boUnsettled(){ return (state.masters.products||[]).filter(function(p){return p&&p.catBase&&p.base&&p.catBase!==p.base&&p.active!==false;}); }
+function boSharedLogins(){ try{ return (usersList||[]).filter(function(u){ return u&&/^(kam|coo|cfo|qcm|aqcm|lab|prod|qa|sc|pm|finance)\d*$/i.test(u.username||''); }); }catch(e){ return []; } }
+function boUnfiled(){ return (usersList||[]).filter(function(u){ return u&&u.role!=='COO'&&!roleDeptId(u.role); }); }
+function boNeeds(){
+  var J=boJobs(); var has=function(t){ return J.some(function(j){ return j.t.indexOf(t)===0; }); };
+  var N=[];
+  var un=boUnsettled(); if(un.length&&has('Add a product')) N.push({n:un.length,t:un.length+' product'+(un.length===1?'':'s')+' where the 2 old lists disagree about the base — settle '+(un.length===1?'it':'them'), d:un.map(function(p){return p.brand;}).join(', '), go:"boOpen('admin','biz','prodmaster')", st:'st-late'});
+  var fy=fyKey(TODAY.toISOString().slice(0,10)); var ct=(state.masters.channelTargets||{}); var unset=BUDGET_CHANNELS.filter(function(k){return !(ct[k]&&+ct[k][fy]>0);});
+  if(unset.length&&has('Set the budget')) N.push({n:unset.length,t:unset.length+' of '+BUDGET_CHANNELS.length+' channels have no budget for FY '+fy, d:unset.join(', '), go:"boOpen('admin','biz','cbudget')", st:'st-late'});
+  var pend=(state.customers||[]).filter(function(c){return c&&c.status==='Pending approval';}); if(pend.length&&has('Approve a customer')) N.push({n:pend.length,t:pend.length+' customer'+(pend.length===1?'':'s')+' waiting for the CFO’s approval', d:pend.map(function(c){return c.name;}).join(', '), go:"boOpen('dealers')", st:'st-late'});
+  if(has('Give someone access')){
+    var sh=boSharedLogins(); if(sh.length) N.push({n:sh.length,t:sh.length+' shared login'+(sh.length===1?'':'s')+' to retire — one login per person', d:sh.map(function(u){return u.username;}).join(', '), go:"boOpen('users')", st:'st-late'});
+    var uf=boUnfiled(); if(uf.length) N.push({n:uf.length,t:uf.length+' person'+(uf.length===1?'’s role is':'s’ roles are')+' filed under no department', d:uf.map(function(u){return u.name+' · '+u.role;}).join(', '), go:"boOpenRoles('"+qsEsc(uf[0].role)+"')", st:'st-over'});
+    var depts=((state.masters&&state.masters.departments)||[]).filter(function(x){return x&&!x.archived;}); var noLead=depts.filter(function(d){ return !deptLeadRole(d.id); });
+    if(noLead.length&&state.role==='COO') N.push({n:noLead.length,t:noLead.length+' department'+(noLead.length===1?' has':'s have')+' no lead named', d:noLead.map(function(d){return d.name;}).join(', '), go:"reTab='leads';boOpenRoles()", st:'st-late'});
+  }
+  var reconN=0; try{ reconN=(reconCompute()||{rows:[]}).rows.length; }catch(e){}
+  if(reconN&&has('Reconcile packing')) N.push({n:reconN,t:reconN+' packed line'+(reconN===1?' does':'s do')+' not match '+(reconN===1?'its':'their')+' packing record', d:'', go:"boOpen('recon')", st:'st-over'});
+  return N;
+}
+function boDesks(){
+  var J=boJobs(); var job=function(t){ return J.filter(function(j){ return j.t.indexOf(t)===0; })[0]; };
+  var fy=fyKey(TODAY.toISOString().slice(0,10)); var ct=(state.masters.channelTargets||{}); var chSet=BUDGET_CHANNELS.filter(function(k){return ct[k]&&+ct[k][fy]>0;}).length;
+  var custs=(state.customers||[]).filter(function(c){return c&&!c.isParent;}); var pend=custs.filter(function(c){return c.status==='Pending approval';}).length;
+  var prods=(state.masters.products||[]).filter(function(p){return p&&p.active!==false;}); var bases={}; prods.forEach(function(p){ bases[p.base||p.brand]=1; }); var un=boUnsettled().length;
+  var roles=rolesList(); var people=(usersList||[]).length; var shared=boSharedLogins().length;
+  var lists=0; try{ lists=['shifts','incharges','delayReasons','respDepts','priorities','kamNames','varianceReasons','downtimeReasons','focalPersons'].reduce(function(a,k){ return a+(((state.masters||{})[k]||[]).length); },0); }catch(e){}
+  var rc=null; try{ rc=reconCompute(); }catch(e){}
+  var D=[];
+  var jc=job('Add a customer'), ja=job('Approve a customer');
+  if(jc||ja) D.push({k:'customers',t:'Customers',nums:[[custs.length,'customers'],[pend,'waiting approval',pend?'st-late':''],[CUST_SEGMENTS.length,'segments']],acts:[jc?{l:'Add a customer',go:jc.go}:null,ja&&pend?{l:'Approve the '+pend+' waiting',go:ja.go,pri:true}:null,{l:'Open the list',go:"boOpen('dealers')"}]});
+  var jp=job('Add a product'), jr=job('Recipes');
+  if(jp) D.push({k:'products',t:'Products',nums:[[prods.length,'products'],[Object.keys(bases).length,'bases'],[un,'to settle',un?'st-late':'']],acts:[{l:'Add a product',go:"boOpen('admin','biz','prodmaster');setTimeout(function(){try{pmStartAdd();}catch(e){}},0)"},un?{l:'Settle the '+un,go:jp.go,pri:true}:{l:'Open the list',go:jp.go},jr?{l:'Recipes',go:jr.go}:null,{l:'Lab templates',go:"boOpen('admin','biz','labtpl')"},{l:'Raw materials',go:"boOpen('admin','biz','rm')"},{l:'Lead times',go:"boOpen('admin','biz','leadtime')"}]});
+  var jb=job('Set the budget'), jl=job('Allocate to clients');
+  if(jb) D.push({k:'budget',t:'Budget FY '+fy,nums:[[chSet+' of '+BUDGET_CHANNELS.length,'channels set',chSet<BUDGET_CHANNELS.length?'st-late':'st-ok']],acts:[{l:'Set channel totals',go:jb.go,pri:chSet<BUDGET_CHANNELS.length},jl?{l:'Allocate to clients',go:jl.go}:null,{l:'Monthly split',go:"boOpen('admin','biz','stargetM')"}]});
+  var jg=job('Give someone access'), jro=job('Change what a role');
+  if(jg||jro) D.push({k:'people',t:'People',nums:[[people,'logins'],[roles.length,'roles'],[shared,'shared login'+(shared===1?'':'s'),shared?'st-late':'']],acts:[jg?{l:'Add a person',go:"ppView='add';boOpen('users')"}:null,jg?{l:'Move someone',go:"ppView='people';boOpen('users')"}:null,jro?{l:'Change what a role may do',go:jro.go}:null]});
+  var jls=job('Reference lists');
+  if(jls) D.push({k:'lists',t:'Lists',nums:[[9,'lists'],[lists,'values']],acts:[{l:'Shifts',go:"boOpen('admin','ref','ref_shifts')"},{l:'Delay reasons',go:"boOpen('admin','ref','ref_delayReasons')"},{l:'All lists',go:jls.go}]});
+  var jrec=job('Reconcile packing'), jfix=job('Correct a record');
+  if(jrec||jfix) D.push({k:'checks',t:'Checks',nums:[[rc?rc.linesChecked:0,'lines checked'],[rc?rc.rows.length:0,'differ',rc&&rc.rows.length?'st-over':'st-ok']],acts:[jrec?{l:'Reconcile packing',go:jrec.go}:null,jfix?{l:'Correct a record',go:jfix.go}:null]});
+  D.forEach(function(d){ d.acts=d.acts.filter(Boolean); });
+  return D;
+}
 function screenBackOffice(){
   var J=boJobs();
-  var h='<div class="qs"><h1>Back Office</h1><div class="sub">Everything the company is configured with, as jobs. Tap one; it opens that job and nothing else.</div>';
-  var grp=''; h+='<div class="bo-jobs">';
-  J.forEach(function(x){ if(x.g!==grp){ grp=x.g; h+='<div class="bo-grp">'+qsEsc(grp)+'</div>'; }
-    h+='<button class="bo-job '+x.st+'" onclick="'+x.go.replace(/"/g,'&quot;')+'"><span class="t">'+qsEsc(x.t)+'</span><span class="n">'+x.n+'</span><span class="d">'+qsEsc(x.d)+'</span><span class="go">Open →</span></button>'; });
-  h+='</div>';
-  if(!J.length) h+='<div class="note">Back Office is for the COO, the CFO and the Plant Manager.</div>';
-  h+='</div>';
+  var h='<div class="qs wide"><h1>Back Office</h1><div class="sub">What the company is set up with. The exceptions first; then each desk.</div>';
+  if(!J.length){ h+='<div class="note">Back Office is for the COO, the CFO and the Plant Manager.</div></div>'; $('view').innerHTML=h; return; }
+  var N=boNeeds();
+  h+='<div class="tdsec">Needs you'+(N.length?'<span class="cnt">'+N.length+'</span>':'')+'</div>';
+  if(N.length){ h+='<div class="bo-needs">'+N.map(function(x){ return '<button class="bo-need '+x.st+'" onclick="'+x.go.replace(/"/g,'&quot;')+'"><span class="n">'+x.n+'</span><span class="t">'+qsEsc(x.t)+(x.d?'<span class="d">'+qsEsc(x.d)+'</span>':'')+'</span><span class="go">Open →</span></button>'; }).join('')+'</div>'; }
+  else h+='<div class="bo-clear">Nothing needs you. Everything below is as it was set.</div>';
+  h+='<div class="tdsec" style="margin-top:22px">Desks</div><div class="bo-desks">';
+  boDesks().forEach(function(d){
+    h+='<div class="bo-desk" data-desk="'+d.k+'"><div class="t">'+qsEsc(d.t)+'</div><div class="nums">'+d.nums.map(function(n){ return '<span class="'+(n[2]||'')+'"><b>'+qsEsc(String(n[0]))+'</b> '+qsEsc(n[1])+'</span>'; }).join('')+'</div><div class="acts">'+d.acts.map(function(a){ return '<button class="qs-btn sm'+(a.pri?' pri':'')+'" onclick="'+a.go.replace(/"/g,'&quot;')+'">'+qsEsc(a.l)+'</button>'; }).join('')+'</div></div>'; });
+  h+='</div></div>';
   $('view').innerHTML=h;
+}
+/* --- settle a base: the 2 old lists disagreed; the COO, CFO or Plant Manager says which is right, once --- */
+function pmSettle(brand,choice){
+  if(!pmCanEdit()){ toast('Back Office only — COO, CFO or Plant Manager'); return; }
+  var p=(state.masters.products||[]).filter(function(x){return x&&x.brand===brand;})[0]; if(!p||!p.catBase){ toast('Nothing to settle for '+brand); return; }
+  var was=p.base, said=p.catBase;
+  var own=(choice==='cat'&&said===brand);
+  if(choice==='cat'){ p.base=said; if(own){ p.bulk=true; state.masters.labTemplates=state.masters.labTemplates||{}; if(!state.masters.labTemplates[brand]) state.masters.labTemplates[brand]=[]; } }
+  delete p.catBase; p.settled={at:new Date().toISOString(),by:(state.currentUser&&state.currentUser.name)||state.role,kept:choice==='cat'?said:was};
+  try{ applyCustomProducts(state); }catch(e){}
+  logAction('Settled the base of '+brand+': '+(choice==='cat'?((own?'its own base':'made from '+said)+' (the catalogue said so); production was following '+was):('made from '+was+'; the catalogue’s “'+said+'” is dropped')));
+  save(); render(); toast(brand+' settled — '+(own?'its own base':'made from '+p.base));
+}
+function pmSettleHTML(){
+  var un=boUnsettled(); if(!un.length) return '';
+  var ed=pmCanEdit();
+  return '<div class="bo-settle"><div class="tdsec">Needs you<span class="cnt">'+un.length+'</span></div><div class="sub" style="margin-bottom:8px">The 2 old product lists disagreed about what these are made of. Production is following the brand map. Say which is right, once; the row then leaves this list.</div><div class="bo-needs">'
+    +un.map(function(p){ var b=String(p.brand).replace(/'/g,''); return '<div class="bo-need st-late"><span class="t"><b>'+qsEsc(p.brand)+'</b><span class="d">brand map: made from <b>'+qsEsc(p.base)+'</b> · catalogue: '+(p.catBase===p.brand?'a base of its own':'made from <b>'+qsEsc(p.catBase)+'</b>')+'</span></span>'+(ed?'<span class="acts"><button class="qs-btn sm pri" onclick="pmSettle(\''+qsEsc(b)+'\',\'keep\')">Keep · from '+qsEsc(p.base)+'</button><button class="qs-btn sm" onclick="pmSettle(\''+qsEsc(b)+'\',\'cat\')">'+(p.catBase===p.brand?'Its own base':'From '+qsEsc(p.catBase))+'</button></span>':'')+'</div>'; }).join('')+'</div></div>';
+}
+/* --- the channel budget: typed, then SAVED with a button that says so --- */
+var cbDraft={};
+function cbTyped(ch,v){ cbDraft[ch]=v; var el=document.getElementById('cb_fmt_'+ch.replace(/\W/g,'_')); if(el) el.textContent=(+v>0)?pkr(+v):'—'; var b=document.getElementById('cb_save'); if(b){ b.disabled=false; b.textContent='Save the budget'; } }
+function channelBudgetSaveAll(){
+  if(!(state.role==='COO'||state.role==='CFO')){ toast('COO / CFO only'); return; }
+  var fy=fyKey(TODAY.toISOString().slice(0,10)); var n=0, lines=[];
+  state.masters.channelTargets=state.masters.channelTargets||{};
+  Object.keys(cbDraft).forEach(function(ch){ if(BUDGET_CHANNELS.indexOf(ch)<0) return; var a=+cbDraft[ch]||0; var t=state.masters.channelTargets[ch]=state.masters.channelTargets[ch]||{}; var before=+t[fy]||0; if(a===before) return; if(a>0) t[fy]=a; else delete t[fy]; n++; lines.push(ch+' '+(a>0?pkr(a):'cleared')); });
+  cbDraft={};
+  if(!n){ toast('Nothing changed.'); return; }
+  state.masters._channelBudgetSaved={at:new Date().toISOString(),by:(state.currentUser&&state.currentUser.name)||state.role,fy:fy};
+  logAction('Channel budget saved for FY '+fy+': '+lines.join(' · '));
+  save(); render(); toast('Saved — '+n+' channel'+(n===1?'':'s')+' for FY '+fy);
+}
+function cbSavedLine(){ var s=state.masters._channelBudgetSaved; if(Object.keys(cbDraft).length) return 'Not saved yet — press Save the budget.'; if(!s){ var fy=fyKey(TODAY.toISOString().slice(0,10)); var ct=state.masters.channelTargets||{}; var any=BUDGET_CHANNELS.some(function(k){return ct[k]&&+ct[k][fy]>0;}); return any?'The totals on record are saved.':'Type a total per channel, then save.'; } var d=new Date(s.at); return 'Saved '+d.toLocaleDateString('en-GB',{day:'numeric',month:'short'})+' '+d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})+' by '+qsEsc(s.by); }
+/* --- customers waiting for the CFO, on the Customers page itself --- */
+function custPendingHTML(){
+  var pend=(state.customers||[]).filter(function(c){return c&&c.status==='Pending approval';}); if(!pend.length) return '';
+  var can=(state.role==='CFO'||state.role==='COO');
+  return '<div class="bo-settle"><div class="tdsec">Waiting for approval<span class="cnt">'+pend.length+'</span></div><div class="sub" style="margin-bottom:8px">A new customer is not offered on the order form until the CFO (or the COO) approves it.</div><div class="bo-needs">'
+    +pend.map(function(c){ return '<div class="bo-need st-late"><span class="t"><b>'+qsEsc(c.name)+'</b><span class="d">'+qsEsc(c.segment||'')+' · '+qsEsc(c.code||'')+(c.city?' · '+qsEsc(c.city):'')+(c.introducedBy?' · introduced by '+qsEsc(c.introducedBy):'')+'</span></span>'+(can?'<span class="acts"><button class="qs-btn sm pri" onclick="approveCustomer(\''+qsEsc(String(c.code||'').replace(/'/g,''))+'\')">Approve</button></span>':'<span class="hint">the CFO approves</span>')+'</div>'; }).join('')+'</div></div>';
+}
+/* --- the role editor in 3 short tabs instead of one 2,600 px scroll --- */
+var reTab='do';
+function reTabsHTML(role){ var t=function(k,l){ return '<button class="qs-btn sm'+(reTab===k?' on':'')+'" onclick="reTab=\''+k+'\';render()">'+l+'</button>'; }; return '<div class="subnav" style="margin-top:12px">'+t('do','What '+qsEsc(roleTitle(role))+' may do')+t('screens','Which screens')+(state.role==='COO'?t('leads','Departments, leads and new roles'):'')+'</div>'; }
+function roleDeptHTML(role){
+  if(state.role!=='COO'||role==='COO') return '';
+  var r=roleByName(role); var depts=((state.masters&&state.masters.departments)||[]).filter(function(x){return x&&!x.archived;}); if(!depts.length) depts=DEPTS;
+  var cur=roleDeptId(role);
+  if(!r) return '<div class="note" style="margin-top:10px;border-left-color:var(--over)">This role is not in the roles list, so it has no department and no lead. Add it below with the same name.</div>';
+  return '<div class="field" style="margin-top:10px"><label>Filed under'+(cur?'':' <span class="req">*</span> <span class="hint">no department yet — its lead cannot see this role’s work</span>')+'</label><select onchange="setRoleDept(\''+qsEsc(r.id)+'\',this.value);render()"><option value="">— pick the department —</option>'+depts.map(function(d){ return '<option value="'+qsEsc(d.id)+'"'+(d.id===cur?' selected':'')+'>'+qsEsc(d.name)+'</option>'; }).join('')+'</select></div>';
 }
 
 /* ===================== GUIDE - roles and titles ===================== */
@@ -11819,7 +11964,7 @@ function screenPeople(){
   var us=(usersList||[]).slice().sort(function(a,b){ return String(a.name||'').localeCompare(String(b.name||'')); });
   var me=state.currentUser&&state.currentUser.username;
   var roles=rolesList();
-  var h='<div class="qs wide"><h1>People</h1><div class="sub">One login per person, one role each. The role gives the rights; the title is what they are called. Tap a person to move them.</div>';
+  var h='<div class="qs wide">'+boBackHTML()+'<h1>People</h1><div class="sub">One login per person, one role each. The role gives the rights; the title is what they are called. Tap a person to change their role or password.</div>';
   h+='<div class="subnav"><button class="qs-btn sm'+(ppView==='people'?' on':'')+'" onclick="ppView=\'people\';render()">People <span class="cnt">'+us.length+'</span></button><button class="qs-btn sm'+(ppView==='roles'?' on':'')+'" onclick="ppView=\'roles\';render()">Roles <span class="cnt">'+roles.length+'</span></button><button class="qs-btn sm'+(ppView==='add'?' on':'')+'" onclick="ppView=\'add\';render()">+ Add a person</button></div>';
   if(ppView==='people'){
     var byDept={}; us.forEach(function(u){ var d=roleDeptId(u.role)||'other'; (byDept[d]=byDept[d]||[]).push(u); });
@@ -11836,8 +11981,8 @@ function screenPeople(){
     if(ppRole){ var holders=us.filter(function(u){return u.role===ppRole;});
       h+='<div class="panel"><h2 style="margin-top:0">'+qsEsc(roleTitle(ppRole))+' <span class="cnt">role · '+qsEsc(ppRole)+'</span></h2><div class="sub">'+(holders.length?holders.map(function(u){return '<b>'+qsEsc(u.name)+'</b>';}).join(', '):'nobody holds this role yet')+'</div>'
         +roleEditorHTML(ppRole)
-        +'<div class="note" style="margin-top:14px">Roles only — an exception for one person becomes a new role.</div></div>';
-      h+='<div class="panel">'+deptLeadsHTML()+newRoleHTML()+'</div>'; }
+        +(reTab==='leads'?'':'<div class="note" style="margin-top:14px">Roles only — an exception for one person becomes a new role.</div>')+'</div>';
+      if(reTab==='leads'&&state.role==='COO') h+='<div class="panel">'+deptLeadsHTML()+newRoleHTML()+'</div>'; }
   } else {
     h+='<div class="panel"><h2 style="margin-top:0">Add a person</h2><div class="form">'
       +'<div class="two"><div class="field"><label>Full name</label><input value="'+qsEsc(uForm.name)+'" oninput="uForm.name=this.value" placeholder="e.g. Muhammad Imran"></div><div class="field"><label>Login (username)</label><input value="'+qsEsc(uForm.username)+'" oninput="uForm.username=this.value" placeholder="e.g. imran"></div></div>'
@@ -11958,6 +12103,10 @@ function roleEditorHTML(role){
   var h='';
   if(role==='COO') return '<div class="note" style="margin-top:12px">The COO can do everything, everywhere. Nothing to set.</div>';
   var sod=sodConflicts(role); if(sod.length) h+='<div class="warn" style="margin-top:12px"><span class="glyph">\u25a0</span><div>'+sod.map(function(c){ return '<div><strong>A 2-person rule is broken:</strong> '+qsEsc(roleTitle(role))+' both \u201c'+qsEsc(codeName(c.a)).toLowerCase()+'\u201d and \u201c'+qsEsc(codeName(c.b)).toLowerCase()+'\u201d \u2014 '+qsEsc(c.why)+'. Untick one, or move the sign-off to another role.</div>'; }).join('')+'</div></div>';
+  /* 24g: 3 short tabs instead of one long scroll; the role's department on its own panel */
+  h+=reTabsHTML(role)+roleDeptHTML(role);
+  if(reTab==='leads') return h;
+  if(reTab==='screens'){ h+=reScreensHTML(role,ed); return h; }
   /* 1. rights, as sentences with a tick */
   var live=RIGHTS.filter(function(r){ return RIGHTS_LIVE[r.code]===true; });
   var byDept={}; live.forEach(function(r){ (byDept[r.dept]=byDept[r.dept]||[]).push(r); });
@@ -11967,8 +12116,10 @@ function roleEditorHTML(role){
     byDept[d].forEach(function(r){ var on=mayRole(role,r.code); var why=ed?grantRefusal(state.role,role,r.code):'';
       h+='<label class="re-row'+(on?' on':'')+'"><input type="checkbox" '+(on?'checked':'')+(ed&&!why?'':' disabled')+' onchange="reRightTick(\''+qsEsc(role)+'\',\''+qsEsc(r.code)+'\',this.checked)"><span><b>'+qsEsc(r.name)+'</b>'+(r.note?'<span class="d">'+qsEsc(String(r.note).split(/ \u2014 |\. /)[0].replace(/\.$/,''))+'</span>':'')+(why&&ed?'<span class="d" style="color:var(--over)">'+qsEsc(why)+'</span>':'')+'</span></label>'; });
     h+='</div>'; });
-  var dead=RIGHTS.filter(function(r){ return RIGHTS_LIVE[r.code]!==true; }).length;
-  if(dead) h+='<div class="rtnote" style="margin-top:6px">'+dead+' right'+(dead===1?'':'s')+' in the catalogue '+(dead===1?'is':'are')+' still decided by the old screen rule, not by a tick; they switch over one at a time.</div>';
+  return h;
+}
+function reScreensHTML(role,ed){
+  var h='';
   /* 2. screens: none / read / edit */
   h+='<h2 style="margin-top:22px">Which screens '+qsEsc(roleTitle(role))+' opens</h2>';
   if(ed) h+='<div class="sub" style="margin-bottom:8px"><b>Read</b> opens the screen with nothing editable. <b>Edit</b> is the screen’s data entry and sign-offs. Today, Plant and the Guide are everyone’s.</div>';
@@ -14536,7 +14687,9 @@ function screenAdmin(){
    ${admAcTab==='roles'?rolesCard():''}
    ${admAcTab==='screens'?accessMatrixCard():''}`;
   const admTabs=(function(){function t(k,l){return '<button class="ac2gtab'+(admTab===k?' on':'')+'" onclick="admTab=\''+k+'\';render()">'+l+'</button>';}
-    return '<div class="ac2gbar" role="tablist" style="margin-bottom:16px">'+t('ref','Reference data')+t('biz','Business masters')+t('access','Access control')+'</div>';})();
+    return '<div class="ac2gbar" role="tablist" style="margin-bottom:16px">'+t('ref','Reference data')+t('biz','Business masters')+'</div>';})();
+  /* 24g: the Access control tab is retired from the Back Office path; what a role may do is People → Roles */
+  if(admTab==='access') admTab='ref';
   $('view').innerHTML=`
    ${ed?'':viewOnly('COO / Admin')}
    <div style="margin-bottom:10px"><button class="ghost sm" onclick="setScreen('backoffice')">\u2039 Back Office</button></div>
@@ -14983,8 +15136,9 @@ function channelBudgetCard(){
   var fy=fyKey(TODAY.toISOString().slice(0,10)); var rows=budgetByChannel(fy);
   return acard('cbudget','Channel budgets',fyRange(fy)+' · COO/CFO',`<div class="muted" style="font-size:12px;margin-bottom:10px">The total for each channel for the financial year (PKR). Client targets below are the allocation under it. <b>Dealer</b> and <b>Farmer</b> are segment totals — they are not expected to be allocated to a named dealer or farmer.</div>
     <div style="overflow:auto"><table><thead><tr><th>Channel</th><th class="num">Total (PKR)</th><th class="num">Allocated to clients</th><th class="num">Unallocated</th><th></th></tr></thead><tbody>
-    ${rows.map(function(r){ return `<tr><td><b>${r.channel}</b>${(r.channel==='Dealer'||r.channel==='Farmer')?' <span class="muted" style="font-size:10.5px">segment total</span>':''}</td><td class="num"><input type="number" min="0" step="1000" value="${r.target||''}" placeholder="0" style="width:150px;text-align:right" onchange="channelBudgetSet('${r.channel}',this.value)"></td><td class="num">${r.allocated?pkr(r.allocated):'<span class="muted">—</span>'}</td><td class="num">${r.target?pkr(r.unallocated):'<span class="muted">—</span>'}</td><td class="muted" style="font-size:10.5px">${r.target&&r.allocated>r.target?'<span style="color:var(--red)">allocated more than the total</span>':''}</td></tr>`; }).join('')}
-    </tbody></table></div>`);
+    ${rows.map(function(r){ return `<tr><td><b>${r.channel}</b>${(r.channel==='Dealer'||r.channel==='Farmer')?' <span class="muted" style="font-size:10.5px">segment total</span>':''}</td><td class="num"><input type="number" min="0" step="1000" value="${cbDraft[r.channel]!=null?cbDraft[r.channel]:(r.target||'')}" placeholder="0" style="width:150px;text-align:right" oninput="cbTyped('${r.channel}',this.value)"><div class="muted" id="cb_fmt_${r.channel.replace(/\W/g,'_')}" style="font-size:11px">${(+(cbDraft[r.channel]!=null?cbDraft[r.channel]:r.target)>0)?pkr(+(cbDraft[r.channel]!=null?cbDraft[r.channel]:r.target)):'—'}</div></td><td class="num">${r.allocated?pkr(r.allocated):'<span class="muted">—</span>'}</td><td class="num">${r.target?pkr(r.unallocated):'<span class="muted">—</span>'}</td><td class="muted" style="font-size:10.5px">${r.target&&r.allocated>r.target?'<span style="color:var(--red)">allocated more than the total</span>':''}</td></tr>`; }).join('')}
+    </tbody></table></div>
+    <div class="row" style="gap:12px;align-items:center;margin-top:12px;flex-wrap:wrap"><button class="qs-btn pri" id="cb_save" onclick="channelBudgetSaveAll()"${Object.keys(cbDraft).length?'':' disabled'}>Save the budget</button><span class="muted" style="font-size:12px">${cbSavedLine()}</span></div>`);
 }
 function budgetClients(){ const set=new Set(); (state.orders||[]).forEach(o=>set.add(budgetKey(o))); try{ Object.keys((SEED&&SEED.catalog&&SEED.catalog.brandsByClient)||{}).forEach(k=>set.add(k==='Dealers'?'Dealers':k)); }catch(e){} Object.keys((state.masters&&state.masters.salesTargets)||{}).forEach(c=>set.add(c)); return [...set].filter(Boolean).sort(); }
 let stForm={client:'',amt:''};
@@ -15232,10 +15386,11 @@ function productMasterCard(ed){
       <div class="muted" style="font-size:10.5px;margin-top:8px">On save: it appears in the PO dropdown for the ticked clients (with pack auto-conversion), gets its production group for committed dates, its recipe feeds the RM check, and an empty Lab QC template is created for the Lab to fill (Lab templates card).</div>
     </div>`;
   }
-  return acard('prodmaster','Products',(isMaster?(arr.length+' in the master · brand → base → packs → who buys it'):((arr.length?arr.length+' added here':'add new')))+' · COO / CFO / Plant Manager',
-    `<div class="muted" style="font-size:12px;margin-bottom:10px">Add a <b>new sellable product</b> with everything the system needs: catalog entry per client, form, pack sizes, production group, recipe and Lab QC template. It flows through PO entry → production → QC → packing → shipping like any seeded product.</div>
+  return acard('prodmaster','Products',(isMaster?(arr.length+' products'):((arr.length?arr.length+' added here':'add new'))),
+    `<div class="muted" style="font-size:12px;margin-bottom:10px">Brand → base → pack sizes → who buys it. A brand not here cannot be ordered.</div>
+     ${pmSettleHTML()}
+     ${ed&&!f?`<div style="margin-bottom:11px"><button class="qs-btn pri" onclick="pmStartAdd()">+ Add a product</button></div>`:''}
      ${list}
-     ${ed&&!f?`<div style="margin-top:11px"><button class="sm green" onclick="pmStartAdd()">+ Add product</button></div>`:''}
      ${form}`);
 }
 

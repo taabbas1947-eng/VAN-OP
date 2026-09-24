@@ -5463,3 +5463,16 @@ Tahir asked where the Lab screen is from his login. Nothing led there for the CO
 ## Pass thirty-four — 24t: the logo on the certificate sheet (24 Sep, NOT pushed)
 
 Tahir sent a screenshot of the on-screen COA sheet with no logo, only "VITAL AGRI NUTRIENTS". Cause: `VANSVG` in renderCOAModal embedded a PNG whose zlib data fails its checksum (broken since first pasted, commit b54d2ea). The unused `var VAN_LOGO` PNG is broken the same way (left alone, nothing reads it). Printed documents were never affected: they use `VAN_LOGO_REAL` (SVG). Fix: VANSVG uses VAN_LOGO_REAL. Verified in the browser (image 300x84, complete). Suite 9,724 passed, 0 failed. Also answered: how the QC manager is told about a new sample (Today "Sample to assign", Lab screen Assign button) — only once the flow is switched ON.
+
+
+## Pass thirty-five — 24u: leave cover for the lab sign-offs; the COO no longer signs certificates (24 Sep, commit cbc2bae, NOT pushed)
+
+**Tahir's rulings:** when the QCM (Himayat) or the AQCM (Masab) is on leave, the other signs on their behalf; "as per ISO no management can sign, no cover will sign both"; the Plant Manager allows the cover; lab sign-offs only; the print says "for" the absent person; then "remove the COO's ability to sign certificates, yes".
+
+**Built:** block after the lab block: `LAB_COVER_ROLES`, `labCoverList/labCoverActive/labCovers/labCoverOf/labOnBehalf/labHolderOf`, `labSetCover/labEndCover` (Plant Manager only; cover must be Lab Rep/AQCM/QCM and not the absent person; dates checked), `labCoverSees` (Today shows a covered Review/Approve only when the cover may give it), `openLabCover` (Lab screen button for Plant Manager, read-only for COO). coaReview/coaApprove gate on `state.role==='AQCM'|'QCM' || labCovers(role)`; stamps carry `onBehalf{name,user,role,title}`; renderCOAModal sign() and printCOA show "for …". COO removed from every certificate signature: isLab/isAQ/isQM strict in renderCOAModal and screenQC, coaSubmitAnalyst refuses non-Lab Rep, benchSave/openBench drop COO. Kept for the COO: assign, analysts, reject, supersede, setup. Cover id made unique (tests caught 2 covers in one ms sharing an id). rights.test.js and authmodel.test.js now accept the stricter role gate for the 2 COA signatures.
+
+**Tests:** new `labcover.test.js` 39 checks. Suite **9,763 passed, 0 failed.** Browser: Plant Manager saves a cover, COO review refused, Masab covering QCM reviews as himself and is then refused the approval, Today does not offer it; 0 errors.
+
+**Note:** `labHolderOf(role)` takes the first account holding the role as the absent person; live has exactly one QCM and one AQCM. If a second ever exists, the cover screen needs a person picker.
+
+**Next:** push cbc2bae and this entry.

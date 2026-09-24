@@ -170,6 +170,7 @@ const MARKERS = [
   ['function allocateStock(oid,lid){ toast(', 1, 'the stock-allocation hole is shut (25b)'],
   ['function labSetRep(',                  1, 'one lot tested for the batch (25b)'],
   ['<h3>A number moves only with its record</h3>', 1, 'the Guide states the invariant (25b)'],
+  ['id="cl_ordered_${l.id}" type="number" value="${l.ordered||0}" readonly disabled', 1, 'ordered is locked in Correct a record (25c)'],
   ["function coaApprove(){ if(!(state.role==='QCM'||labCovers('QCM')))", 1, 'the COO does not sign certificates (24u)'],
 ];
 

@@ -15,7 +15,8 @@ const { ok, eq, report, grab, html } = H;
 ok('allocateStock refuses before touching packed', /function allocateStock\(oid,lid\)\{ toast\([^)]*\); return;/.test(html));
 ok('Correct a record: packing refused above what the line still needs', /if\(q>_need\+0\.5\) return toast\('That is more than the line still needs/.test(grab('dfSubmitPacking')));
 { const src = html.slice(html.indexOf("/* 25b, the invariant"), html.indexOf("/* 25b, the invariant") + 900);
-  ok('Correct values no longer writes packed, dispatched or delivered', !/\['packed',/.test(src) && !/\['dispatched',/.test(src) && !/\['delivered',/.test(src) && /\['ordered','Ordered/.test(src)); }
+  ok('Correct values no longer writes packed, dispatched or delivered', !/\['packed',/.test(src) && !/\['dispatched',/.test(src) && !/\['delivered',/.test(src) && !/\['ordered',/.test(src) && /\['produced','Produced/.test(src)); }
+ok('ordered is locked too (25c)', /id="cl_ordered_\$\{l\.id\}"[^>]*readonly disabled/.test(html));
 ok('...and shows them read-only', /id="cl_packed_\$\{l\.id\}"[^>]*readonly disabled/.test(html) && /id="cl_delivered_\$\{l\.id\}"[^>]*readonly disabled/.test(html));
 ok('the old reconcile route now opens the line sheet (it used to double the gap)', /function reconFix\(po,lid\)\{ lfForm=\{\}; lineFixOpen\(po,lid\); return;/.test(html));
 ok('lotsFor skips reversed and voided lots', /if\(!p\|\|p\.reversed\|\|p\.void\) return false;/.test(grab('lotsFor')));
@@ -92,4 +93,13 @@ sb.state.actionLog.push({ t: '2026-07-05T00:00:00Z', by: 'Ops', what: 'Allocated
 ok('...or the stock allocation', /from packed stock by Ops/.test(sb.lineCause(O('P-VMG'), L('P-VMG'))));
 ok('...and says so when nothing records it', /No record in O2S shows how/.test(sb.lineCause(O('P-UND'), L('P-UND'))));
 ok('the history lists the packing, the truck and the corrections', (() => { const h = sb.lineHistory(O('P-VMG'), L('P-VMG')).map(x => x.txt).join('\n'); return /Packed 150 from batch VMG26001/.test(h) && /Truck/.test(h) && /Allocated/.test(h); })());
+/* 25c: the causes found in the live records */
+{ const o = O('P-OVER'), l = L('P-OVER');
+  sb.state.corrections.push({ entityType: 'packingLot', entityId: 'PK0', at: '2026-09-04T10:00:00Z', by: 'COO', changes: [{ field: 'packed', label: 'Line packed total', before: '300', after: '600' }] });
+  ok('the backfill that counted packing twice is named (PUR-ORD-2026-00592)', /counted twice/.test(sb.lineCause(o, l)));
+  sb.state.audit.push({ t: '2026-07-31T09:01:00Z', user: 'COO', po: 'P-UND', field: 'Split "P-UND" bucket into 4 real orders', val: '21301(2000)' });
+  ok('the order split that left packed behind is named (Maxim Old POs)', /split this order/.test(sb.lineCause(O('P-UND'), L('P-UND'))));
+  sb.state.audit.push({ t: '2026-07-31T09:00:00Z', user: 'COO', po: 'P-MAX', field: 'Phantom packing lot PK1624 neutralized', val: '' });
+  sb.state.corrections = sb.state.corrections.filter(c => c.entityId !== 'L3');
+  ok('a phantom lot zeroed without the line is named (VG-VC-2607-1345)', /zeroed as a phantom/.test(sb.lineCause(O('P-MAX'), L('P-MAX')))); }
 process.exitCode = report('Fix it where it happened (25b)') ? 1 : 0;

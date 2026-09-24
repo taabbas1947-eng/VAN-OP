@@ -11,7 +11,7 @@
    a push keeps running the old code with nothing telling anybody. It sat at
    2026-09-04a through this whole day's work; rmqty/psi tests pinned the code,
    nothing pinned this. buildid.test.js now does. */
-var BUILD_ID='2026-09-25b';
+var BUILD_ID='2026-09-25c';
 var CHANGELOG=[
   {ver:'2026-09-04a', date:'2026-09-04', title:"Delivery, DC printing, and a new Reconciliation check", items:[
     "Delivery confirmation stays with Supply Chain \u2014 it no longer hands off to the Plant Manager. If one sits too long, it now re-flags the same Supply Chain owner every 3 days instead.",
@@ -307,6 +307,9 @@ var CHANGELOG=[
     "Packed, dispatched and delivered can no longer be typed in Correct a record. They move only with a packing run, a truck or a delivery. Packing more than the line ordered is refused.",
     "Every order line has History: its packing, its trucks and every correction, newest first. If something is wrong, the same sheet says what, what the records show as the cause, and fixes it there with a reason.",
     "Lab: in a batch with several lots, the QC manager marks one lot to test for the batch. The other lots wait for it, and each gets its own certificate with that result, saying which lot was tested."
+  ]},
+  {ver:'2026-09-25c', date:'2026-09-25', title:"The ordered quantity is locked", items:[
+    "Correct a record no longer lets anyone type the ordered quantity. Less than ordered: close the line short with a reason. More: a new order."
   ]},
 ];
 </script>
@@ -4960,7 +4963,7 @@ if(op==='correct'){
        </div>`;})()}`;
     const lines=o.lines.map(l=>`<div style="border:1px solid var(--line);border-radius:9px;padding:9px 11px;margin-top:8px"><b style="font-size:12px">${l.brand}</b> <span class="muted" style="font-size:10.5px">${l.base}</span>
        <div class="formgrid" style="grid-template-columns:repeat(6,1fr);margin-top:6px">
-         <div class="fld"><label>Ordered</label><input id="cl_ordered_${l.id}" type="number" value="${l.ordered||0}"></div>
+         <div class="fld"><label>Ordered · locked</label><input id="cl_ordered_${l.id}" type="number" value="${l.ordered||0}" readonly disabled title="The ordered quantity is never rewritten. Less: close the line short with a reason. More: a new order."></div>
          <div class="fld"><label>Produced</label><input id="cl_produced_${l.id}" type="number" value="${l.produced||0}"></div>
          <div class="fld"><label>Packed · from its records</label><input id="cl_packed_${l.id}" type="number" value="${l.packed||0}" readonly disabled title="Moves only with its record — a packing run, a truck, a delivery. To fix it, open the line's history (Fix on Needs you)."></div>
          <div class="fld"><label>Dispatched · from its records</label><input id="cl_dispatched_${l.id}" type="number" value="${l.dispatched||0}" readonly disabled title="Moves only with its record — a packing run, a truck, a delivery. To fix it, open the line's history (Fix on Needs you)."></div>
@@ -5187,8 +5190,10 @@ function dfSubmitCorrect(){
        delivered move ONLY with their record - a packing run, a truck, a delivery.
        Typing them here is how a line came to say 2,000 packed with no packing
        behind it. They are shown read-only above; the fix is the line's history
-       sheet (lineFixOpen), which writes the record or brings the number back to it. */
-    [['ordered','Ordered (Kg/L)'],['produced','Produced (Kg/L)'],
+       sheet (lineFixOpen), which writes the record or brings the number back to it.
+       25c (Tahir, 24 Sep 2026): ordered is locked the same way - the Guide already
+       says the ordered quantity is never rewritten. Less = close short; more = a new order. */
+    [['produced','Produced (Kg/L)'],
      ['invoicePrice','Invoice price (PKR/Kg·L)'],['printPrice','Print price (PKR/pack)']]
     .forEach(([field,label])=>{
       const el=$('cl_'+field+'_'+l.id); if(!el) return;
@@ -9560,6 +9565,15 @@ function lineHistory(o,l){ var E=[], add=function(t,txt,tone){ E.push({t:String(
 function lineCause(o,l){ var up=null;
   (state.corrections||[]).forEach(function(c){ if(up||!c||c.entityType!=='orderLine'||c.entityId!==l.id) return; (c.changes||[]).forEach(function(x){ if(!up&&x.field==='packed'&&(+String(x.after).replace(/,/g,'')||0)>(+String(x.before).replace(/,/g,'')||0)) up='Typed in Correct a record by '+(c.by||'—')+' on '+String(c.at).slice(0,10)+(c.reason?' — “'+c.reason+'”':'')+'. Packed can no longer be typed there (25b).'; }); });
   if(up) return up;
+  /* 25c: causes found in the live records, 24 Sep 2026 */
+  var _lots={}; (state.packingLog||[]).forEach(function(p){ if(p&&p.po===o.po&&(p.lid?p.lid===l.id:p.brand===l.brand)) _lots[p.id]=1; });
+  (state.corrections||[]).forEach(function(c){ if(up||!c||!_lots[c.entityId]) return; (c.changes||[]).forEach(function(x){ var b0=+String(x.before).replace(/,/g,'')||0, a0=+String(x.after).replace(/,/g,'')||0; if(!up&&x.field==='packed'&&a0>b0&&b0>0.5) up='A packing run was added in Correct a record by '+(c.by||'—')+' on '+String(c.at).slice(0,10)+' to a line that already said '+fmt(b0)+' packed, so the line went to '+fmt(a0)+': the same packing counted twice. That form now refuses more than the line still needs (25b).'; }); });
+  if(up) return up;
+  var _au=(state.audit||[]).filter(function(a){ return a&&a.po===o.po; }), _v=function(a){ return String(a.field||'')+' '+String(a.val||''); };
+  var sp=_au.find(function(a){ return /Split .*bucket/i.test(_v(a)); });
+  if(sp) return 'On '+String(sp.t).slice(0,10)+' '+(sp.user||'—')+' split this order into new orders ('+qsEsc(String(sp.val||'').slice(0,120))+'). The packing moved with the new order; this line kept its packed number. Bring packed back to its records.';
+  var ph=_au.find(function(a){ return /phantom/i.test(_v(a)); });
+  if(ph) return 'On '+String(ph.t).slice(0,10)+' a packing lot on this order was zeroed as a phantom (“'+qsEsc(String(ph.field||'').slice(0,140))+'”), but the line’s packed number was not brought down with it.';
   var al=(state.actionLog||[]).find(function(a){ return a&&/^Allocated .* from stock → /.test(a.what||'')&&a.what.indexOf(o.po)>-1&&a.what.indexOf(l.brand)>-1; });
   if(al) return 'Put onto the order from packed stock by '+(al.by||al.role||'—')+' on '+String(al.t).slice(0,10)+', a path that wrote no packing record. It is closed now (25b).';
   return 'No record in O2S shows how. The number most likely came in with the imported orders or before the packing log existed; the records cannot say which, so choose the fix from what you know.'; }
@@ -13370,7 +13384,7 @@ function guideRules(){
   h+='<div class="gd-rule"><h3>Why there is no bulk entry</h3><p>A batch, a shift, a lot and a truck are each their own record with their own number, date and name. The COA cites the batch, the gate pass cites the lot, the delivery cites the truck. One line typed for a week hides which shift made what, who inspected which lot and when the truck actually left — and then nothing downstream can be traced back. Entering each record as it happens takes a minute; reconstructing a week later takes a day and is still a guess.</p></div>';
   h+='<div class="gd-rule"><h3>The 2-person rules</h3><p>The person who drafts a COA does not review it; the reviewer does not approve it. Nobody who ran a test on a sample reviews or approves its certificate. Management does not sign a certificate: only the lab signs. The person who loads a truck does not release it. Nobody inspects their own output. A department lead can hand out the department’s rights but cannot widen his own. Where the app finds 2 of these in one pair of hands it refuses the button and says why.</p></div>';
   h+='<div class="gd-rule"><h3>When the AQCM or the QCM is on leave</h3><p>Tap your name → <b>I’m going on leave</b> and give the days; the Plant Manager gets a job to name a cover. The cover is someone in the lab. He signs one line in his own name, and the certificate prints <b>for</b> the person on leave. A cover never signs both lines of one certificate. If nobody announced the leave and certificates wait a day for someone who has done nothing in the app that day, the Plant Manager is asked too.</p></div>';
-  h+='<div class="gd-rule"><h3>Nothing is deleted</h3><p>An order line is closed short with a reason, never removed; the ordered quantity is never rewritten. A product or customer is deactivated, not deleted. A wrong entry is corrected under Correct a record, with a reason, in your name, and the correction sits beside the original in the register. If a number changed, the record shows who changed it and why.</p></div>'+
+  h+='<div class="gd-rule"><h3>Nothing is deleted</h3><p>An order line is closed short with a reason, never removed; the ordered quantity is never rewritten and cannot be typed anywhere: less is a close-short, more is a new order. A product or customer is deactivated, not deleted. A wrong entry is corrected under Correct a record, with a reason, in your name, and the correction sits beside the original in the register. If a number changed, the record shows who changed it and why.</p></div>'+
   '<div class="gd-rule"><h3>A number moves only with its record</h3><p>Packed moves with a packing run from a batch, dispatched with a truck, delivered with a delivery. None of them can be typed, and nothing can be packed beyond what the line ordered. When a line and its records disagree, open the line (Orders → the order → <b>History</b>, or the item on Back Office <b>Needs you</b>): it shows what is wrong, the line’s whole history, what the records show as the cause, and the fix — record the missing packing against its batch, bring packed back to its records, or stamp a delivery date from the truck — each with a reason in your name.</p></div>'+
   '<div class="gd-rule"><h3>What a sale is</h3><p>A sale is counted the day the truck leaves the gate, at quantity × invoice price, net of FED. FED is the sales tax: on an order quoted FED-inclusive the price is divided by 1.05. Every money figure in the app — Sales & Budget, the reports, the PO register — uses this one rule.</p></div>';
   h+='<div class="gd-rule"><h3>Roles, not people</h3><p>Rights belong to roles. 2 people can hold one role and sign differently. There are no exceptions for one person — an exception becomes a new role, so it can be seen and given to the next person in that seat.</p></div>';

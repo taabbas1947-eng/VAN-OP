@@ -5543,3 +5543,16 @@ Guide: new rules "A number moves only with its record" and "What a sale is"; Lab
 - Correct values still lets the ORDERED quantity be typed, while the Guide says "the ordered quantity is never rewritten". Not changed without a ruling.
 - The live Needs-you lines still need fixing by the COO through the new sheet after the push (4 x V-Mg, PUR-ORD-2026-00592, Maxim Max Sulfur, FRM-2607-5207). Live data was not reachable (Chrome offline), so how many live orders are FED-inclusive is unknown; their sales figures drop by 1/21 after this push.
 Next: push; then PSI (rulings given) and New order (rulings given; price band % not yet ruled).
+
+
+## Pass forty-three — 25c: ordered locked; the live causes found (24 Sep, NOT pushed)
+
+Tahir: "ordered should be locked like the others". Correct values: Ordered is read-only and dropped from the apply loop (less = close short, more = a new order); the Guide says so; What's new 25c.
+Live check (25b was already live): 9 of 61 orders are FED-inclusive; this FY's sold figure is PKR 152,766,223 net, which would have been 154,308,864 gross (FED of 1,542,641 removed, largest PO 6595010522 Syngenta 985,992).
+The 7 lines on the fix list and what the live records show (lineCause now says these):
+- PUR-ORD-2026-00592 V-Transfarm 600 on 300: on 4 Sep a backfill packing run of 300 was added to a line that already said 300 — the double count the old reconcile route caused. Fix: bring packed back to 300 (300 dispatched).
+- Maxim Old POs Max Sulfur 2,000: on 31 Jul the COO split the bucket into 22033, 22032, 21630, 21301; the 2,000 packing (lot PK1689, MAXS10449) moved to 21301, the bucket line kept packed 2,000. Fix: bring packed back to 0.
+- VG-VC-2607-1345 V-Mg: a phantom lot PK1624 was zeroed on 31 Jul; the line was not brought down. The other 3 V-Mg lines (VG-VC-2607-7630, FRM-2607-6790, DLR-PB-JHN-001-2608-7682): no record shows how; all shipped and delivered, so only "record against a batch" applies.
+- FRM-2607-5207 VL-NPK: undated delivery.
+**Open for Tahir:** the "Maxim Old POs" bucket was never closed after the split. It still carries 7 open lines worth PKR 7,359,650 (Max Sulfur 2,000 + 5,500 + 2,000 + 10,000, Grain Set 36, Max Amino 300, Max Compost 2,500), while the 4 split orders carry 18,500 of Max Sulfur. Sales & Budget's open orders likely count part of it twice. Not changed: which bucket lines the split replaced is Tahir's to say.
+Tests: linefix.test.js 39. Suite 9,955 passed, 0 failed.

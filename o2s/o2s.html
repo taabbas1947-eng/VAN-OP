@@ -11,7 +11,7 @@
    a push keeps running the old code with nothing telling anybody. It sat at
    2026-09-04a through this whole day's work; rmqty/psi tests pinned the code,
    nothing pinned this. buildid.test.js now does. */
-var BUILD_ID='2026-09-24a';
+var BUILD_ID='2026-09-24b';
 var CHANGELOG=[
   {ver:'2026-09-04a', date:'2026-09-04', title:"Delivery, DC printing, and a new Reconciliation check", items:[
     "Delivery confirmation stays with Supply Chain \u2014 it no longer hands off to the Plant Manager. If one sits too long, it now re-flags the same Supply Chain owner every 3 days instead.",
@@ -182,6 +182,9 @@ var CHANGELOG=[
   ]},
   {ver:'2026-09-24a', date:'2026-09-24', title:"Your people", items:[
     "A department lead\u2019s Today now ends with Your people: each person by name \u2014 what is waiting on them, the oldest, done today \u2014 and how current their entries are, from the app\u2019s own entry stamps (recorded the day it happened, or later). One honest number for the department. Tap a person for their list."
+  ]},
+  {ver:'2026-09-24b', date:'2026-09-24', title:"The 4th light: stuck batches", items:[
+    "Plant has a 4th light: batches that have stopped moving \u2014 no output for 3 days, or the plan made and the batch still open after 2 days. Tap it for the list; each row opens the run sheet, the close, or the shift log."
   ]},
 ];
 </script>
@@ -1890,6 +1893,8 @@ body.td-on .wrap{background:var(--paper)}
 .qs-btn.ghost{border-color:transparent;background:transparent;color:var(--accent);padding:0 8px}
 .qs-btn.sm{min-height:34px;padding:4px 10px;font-size:13px}
 .qs-tally{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:14px}
+.qs-tally.four{grid-template-columns:repeat(4,minmax(0,1fr))}
+@media (max-width:600px){.qs-tally.four{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .qs-tile{background:var(--surface);border:1px solid var(--qline);border-top:3px solid var(--st,var(--qline-strong));padding:8px 10px;border-radius:0 0 3px 3px;text-align:left;cursor:default;color:inherit}
 .qs-tile.go{cursor:pointer}
 .qs-tile.go:hover{border-color:var(--qline-strong);border-top-color:var(--st)}
@@ -11588,12 +11593,13 @@ function screenPlant(){
   var lights=[
     {k:'delayed',t:'Late orders',w:'past the date promised',list:F.delayed,n:(function(){ var m={}; F.delayed.forEach(function(r){ m[r.po]=1; }); return Object.keys(m).length; })()},
     {k:'holds',t:'Trucks waiting',w:'ready, planned, loading or on the road',list:F.holds.concat(plReadyNoTruck())},
-    {k:'material',t:'Waiting on material',w:'RM short, or a PR open',list:F.material}
+    {k:'material',t:'Waiting on material',w:'RM short, or a PR open',list:F.material},
+    {k:'stuck',t:'Stuck batches',w:'no output 3 d, or made and not closed',list:plStuckBatches()}
   ];
   if(plSel && !lights.some(function(x){return x.k===plSel && x.list.length;})) plSel='';
   var h='<div class="qs wide"><h1>Plant</h1><div class="sub">What is stuck, who is behind, where every order stands. The same for everyone. Tap a light.</div>';
   h+='<div class="pl-find"><input id="plFind" placeholder="Find an order \u2014 PO or customer" value="'+qsEsc(plQ)+'" oninput="plQ=this.value;plFilterFloor()">'+(canView(state.role,'tracker')?'<button class="qs-btn" onclick="setScreen(\'tracker\')">All orders \u2192</button>':'')+(canView(state.role,'reports')?'<button class="qs-btn" onclick="setScreen(\'reports\')">Reports \u2192</button>':'')+'</div>';
-  h+='<div class="qs-tally">'+lights.map(function(L){ var worst=plWorst(L.list); var tone=plTone(L.list,worst);
+  h+='<div class="qs-tally four">'+lights.map(function(L){ var worst=plWorst(L.list); var tone=plTone(L.list,worst);
     return '<button class="qs-tile go '+tone+(plSel===L.k?' sel':'')+'" onclick="plSel=plSel===\''+L.k+'\'?\'\':\''+L.k+'\';render()"><span class="n">'+(L.n!=null?L.n:L.list.length)+'</span><span class="l">'+qsEsc(L.t)+'</span><span class="w">'+(L.list.length?('oldest '+plDays(worst)):qsEsc(L.w))+'</span></button>'; }).join('')+'</div>';
   var sel=lights.filter(function(x){return x.k===plSel;})[0];
   if(sel && sel.k==='delayed'){
@@ -11609,6 +11615,7 @@ function screenPlant(){
     sel.list.forEach(function(r){ var tone=(+r.days||0)>=7?'st-over':((+r.days||0)>0?'st-late':'st-ok'); var act=plCanAct()&&r.act?('<button class="qs-btn sm" onclick="'+r.act.replace(/"/g,'&quot;')+'">Open →</button>'):'';
       if(sel.k==='delayed') h+='<div class="pl-row '+tone+'"><div class="t">'+qsEsc(r.brand)+' · <span class="tdpo">'+qsEsc(r.po)+'</span></div><div class="s">'+plClient(r.client)+' · '+fmt(r.left)+' Kg/L still to deliver · '+qsEsc(r.stage)+'</div><div class="why">'+(r.days>0?(r.days+' d past promise'):'due today')+'</div>'+act+'</div>';
       else if(sel.k==='holds') h+='<div class="pl-row '+tone+'"><div class="t">'+qsEsc(r.dispId||'Shipment')+' · <span class="tdpo">'+qsEsc(r.po)+'</span></div><div class="s">'+plClient(r.client)+' · '+fmt(r.kg)+' Kg/L · '+r.n+' line'+(r.n===1?'':'s')+'</div><div class="why">'+qsEsc(r.why)+(r.days>0?(' · '+r.days+' d'):'')+'</div>'+act+'</div>';
+      else if(sel.k==='stuck') h+='<div class="pl-row '+tone+'"><div class="t">'+qsEsc(r.batchNo)+' · '+qsEsc(r.base)+(r.po?' · <span class="tdpo">'+qsEsc(r.po)+'</span>':'')+'</div><div class="s">'+(r.client?plClient(r.client)+' · ':'')+fmt(r.kg)+' of '+fmt(r.plan)+' Kg/L made</div><div class="why">'+qsEsc(r.why)+(r.made?' · '+r.days+' d':'')+'</div>'+(act?'<span class="pl-acts">'+act+'</span>':'')+'</div>';
       else h+='<div class="pl-row '+tone+'"><div class="t">'+qsEsc(r.brand)+' · <span class="tdpo">'+qsEsc(r.po)+'</span></div><div class="s">'+plClient(r.client)+' · '+fmt(r.need)+' Kg/L still to make</div><div class="why">'+qsEsc(r.why)+'</div>'+(act?'<span class="pl-acts">'+act+'</span>':'')+'</div>'; });
     h+='</div>';
   }
@@ -12121,6 +12128,26 @@ function openPersonList(role,name){
   var gs=tdGroups(all);
   $('modal').innerHTML='<div class="mh"><h2>'+qsEsc(name)+'</h2><div class="sub">'+qsEsc(roleTitle(role))+' · '+gs.length+' job'+(gs.length===1?'':'s')+' waiting on the role</div></div><div class="mb">'+(gs.length?'<div class="tdlist">'+gs.map(tdCardHTML).join('')+'</div>':'<div class="note">Nothing is waiting on '+qsEsc(name)+' right now.</div>')+'</div><div class="mf"><button class="qs-btn" onclick="closeModal()">Close</button></div>';
   $('modalBg').classList.add('open');
+}
+/* ===================== STUCK BATCHES - the 4th light (24b) =====================
+   Item 4 of the morning list. A batch has no due time in the system, so the
+   honest rule is time since it last moved: an open batch with no shift output
+   for 3 days, or one that has made its plan and sat open for 2 days. Read
+   from state.batches and state.shiftEntries; nothing is written. */
+var PL_STUCK_NO_OUTPUT_DAYS=3, PL_STUCK_MADE_OPEN_DAYS=2;
+function plBatchLastMove(b){ var last=b.openedDate||b.date||''; (state.shiftEntries||[]).forEach(function(e){ if(e&&e.batchId===b.id&&e.date&&String(e.date)>String(last)) last=String(e.date); }); return last; }
+function plStuckBatches(){
+  var out=[];
+  (state.batches||[]).forEach(function(b){ if(!b||b.voided||b.pool||b.status!=='open'||b.disposition==='byproduct') return;
+    var last=plBatchLastMove(b); var t=last?new Date(last+'T00:00:00'):null; var days=(t&&!isNaN(t))?Math.round((TODAY-t)/86400000):0;
+    var made=(+b.producedKg||0)>=(+b.plannedKg||0)-0.5 && (+b.plannedKg||0)>0;
+    var why=''; if(made&&days>=PL_STUCK_MADE_OPEN_DAYS) why='made its plan, still open'; else if(!made&&days>=PL_STUCK_NO_OUTPUT_DAYS) why='no output for '+days+' d';
+    if(!why) return;
+    var o=b.po?(state.orders||[]).find(function(x){return x.po===b.po;}):null; var l=o&&b.lineId?(o.lines||[]).find(function(x){return x.id===b.lineId;}):null;
+    var act=(o&&l)?("openRun('"+o.id+"','"+l.id+"')"):(made?("openCloseBatch('"+b.id+"')"):("openShiftLog('"+b.id+"')"));
+    out.push({batchNo:b.batchNo||b.id,base:b.base||'',po:b.po||'',client:o?(o.client||''):'',why:why,days:days,made:made,kg:+b.producedKg||0,plan:+b.plannedKg||0,act:act}); });
+  out.sort(function(a,b){ return b.days-a.days; });
+  return out;
 }
 /* The Queue Shell's 3 tiles: waiting, past due, done today. */
 function tdDoneCount(){ try{ var me=(state.currentUser&&state.currentUser.name)||state.role, day=TODAY.toISOString().slice(0,10); return (state.actionLog||[]).filter(function(e){ return e && String(e.t||'').slice(0,10)===day && e.by===me && e.what!=='Signed in' && e.what!=='Signed out'; }).length; }catch(e){ return 0; } }

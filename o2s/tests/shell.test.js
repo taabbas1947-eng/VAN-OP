@@ -51,7 +51,15 @@ const SCREENS = H.grabTopVar ? null : null;
 ok("SCREENS has a screen with id 'plant', owned by every role", /\{id:'plant', name:'Plant'[^\n]*owners:\['KAM','Supply Chain','Production','Production Manager','Lab Rep','AQCM','QCM','QA Inspector','Plant Manager','CFO','COO','Supply Chain Officer','Finance Desk Officer','Finance','Warehouse'\]/.test(html));
 ok('render() knows it', /plant:screenPlant/.test(rnd));
 const pl = grab('screenPlant');
-ok('exactly 3 lights, from the Firefighter lists', /k:'delayed',t:'Late orders'/.test(pl) && /k:'holds',t:'Trucks waiting'/.test(pl) && /k:'material',t:'Waiting on material'/.test(pl) && (pl.match(/\{k:'/g) || []).length === 3);
+ok('exactly 4 lights: 3 from the Firefighter lists, the 4th stuck batches (24b)', /k:'delayed',t:'Late orders'/.test(pl) && /k:'holds',t:'Trucks waiting'/.test(pl) && /k:'material',t:'Waiting on material'/.test(pl) && /k:'stuck',t:'Stuck batches'/.test(pl) && (pl.match(/\{k:'/g) || []).length === 4);
+{
+  const sb = grab('plStuckBatches');
+  ok('a stuck batch is open with no output for 3 days, or made its plan and sat open 2 days', /PL_STUCK_NO_OUTPUT_DAYS=3, PL_STUCK_MADE_OPEN_DAYS=2/.test(html) && /no output for /.test(sb) && /made its plan, still open/.test(sb));
+  ok('last move = the latest shift entry on the batch, else the day it opened', /state\.shiftEntries/.test(grab('plBatchLastMove')) && /b\.openedDate\|\|b\.date/.test(grab('plBatchLastMove')));
+  ok('a row opens the run sheet for a PO batch, else the close or the shift log', /openRun\('/.test(sb) && /openCloseBatch\('/.test(sb) && /openShiftLog\('/.test(sb));
+  ok('pools, by-products and closed batches are never stuck', /b\.voided\|\|b\.pool\|\|b\.status!=='open'\|\|b\.disposition==='byproduct'/.test(sb));
+  ok('nothing is written', !/save\(\)/.test(sb));
+}
 ok('the lights come from fireLists(), the same numbers the Firefighter had', /var F=fireLists\(\)/.test(pl));
 ok('a light counts ORDERS, not lines', /m\[r\.po\]=1/.test(pl) && /Object\.keys\(m\)\.length/.test(pl));
 ok('tap a light, get only that list', /plSel=plSel===/.test(pl) && /if\(sel && sel\.k==='delayed'\)/.test(pl));

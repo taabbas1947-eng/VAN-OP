@@ -154,6 +154,7 @@ const MARKERS = [
   ['function labRanATest(',                1, 'no analyst reviews or approves their own sample (24r)'],
   ["key='test:'+(it.param||'')",           1, 'Today groups lab tests by parameter (24r)'],
   ['>Open the Lab ›</button>',             1, 'Plant → Quality opens the Lab (24s)'],
+  ["const VANSVG='<img src=\"'+VAN_LOGO_REAL+'\"", 1, 'the certificate sheet shows the logo (24t)'],
 ];
 
 const [, , mode, freshPath, otherPath] = process.argv;

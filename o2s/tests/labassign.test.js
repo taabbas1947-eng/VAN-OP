@@ -369,6 +369,17 @@ run(c, 'labAsg.rows[2].to="mubeen"; toasts=[]; labAssignConfirm()');
   ok("the COO reaches the Lab from Plant → Quality", /setScreen\(\\?'qc\\?'\)[^>]*>Open the Lab/.test(v), (v.match(/.{0,120}Open the Lab.{0,20}/) || [''])[0]);
 }
 
+/* 3q. Tahir's screenshot, 24 Sep: the certificate sheet shows no logo - only
+   the words VITAL AGRI NUTRIENTS. The sheet's logo was an embedded PNG whose
+   compressed data fails its own check (zlib: "incorrect data check"), so the
+   browser draws nothing. Broken since the day it was pasted in. The printed
+   COA was never affected: it uses VAN_LOGO_REAL. The sheet now uses it too. */
+{
+  const r = grab('renderCOAModal');
+  ok('the certificate sheet no longer carries the broken PNG', !/data:image\/png;base64/.test(r));
+  ok('...it shows the same logo the printed COA uses', /<img src="'\+VAN_LOGO_REAL\+'"/.test(r));
+}
+
 /* ================= 4. it ships ================= */
 ok('BUILD_ID is 2026-09-24r or later', /BUILD_ID\s*=\s*'2026-09-(24[r-z]|2[5-9][a-z]|30[a-z])'/.test(html));
 ok('the changelog tells the lab', /ver:'2026-09-24r'[\s\S]{0,1200}(bench|parameter|test)/i.test(html));

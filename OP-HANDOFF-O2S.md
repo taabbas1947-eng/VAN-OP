@@ -5498,3 +5498,11 @@ Next: push; the Running / Waiting for lab / Ready to pack tabs are still tables 
 Tahir: "go ahead" on carding the other Production tabs. In prodStageList: rowP (producing) returns a `.pcard` with data-batch; the qc branch builds cards per lot (Follow QC kept under edAny); `row()` returns a card when f==='pack' and the pack list returns cards without a table. Every act string is the one already built under its flag, so no new handler sites. Cards end with `<!--/pcard-->`. Bulk bases not in the product list show Kg/L (unitOf rule). prodcards.test.js 32 checks; suite 9,824 passed, 0 failed; browser 1280 + 390 px, 0 errors.
 Note: a stray untracked file "Claude outputs/Production new layout.png" appeared in the repo folder (the screenshot sent in chat); not committed — Tahir may delete or keep it.
 Next: push.
+
+
+## Pass thirty-nine — 24y: Shipments in the new shell; the order of the rest (24 Sep, NOT pushed)
+
+Tahir asked if the whole app is in the new design. Audit (every screen rendered as COO): in the shell — Today, Plant, Back Office front, Guide, Orders, Reports, Lab, Truck inspection, People, Production cards. Still old — Shipments (done this pass), New order, Production's outer frame, Customers, Lists (the Back Office desks), Correct a record, Reconcile packing, Sales & Budget, and the pop-up forms (open batch, shift log, pack, truck plan, COA sheet). All actions and Dashboard are old and off the nav.
+**Tahir on the Dashboard (24 Sep):** "the most poor form … non sense and a dump of data, no one needs such a dashboard in the presence of report centers" — to be reimagined TOGETHER, every part of it, after Shipments and the other important screens. Do not touch it before then.
+Built 24y: screenShip in the qs shell (4 tiles + Delivered/Need action), content inside `.pdsk paperui`, topbar hidden for ship. shipshell.test.js 17; shell.test.js regex relaxed; suite 9,841 passed, 0 failed.
+Next (Tahir's agreed order): New order → Production's frame and the pop-up forms → Customers, Lists, Correct a record, Reconcile, Budget → then the Dashboard, together.

@@ -16,7 +16,7 @@ const sb = { console, TODAY: new Date('2026-09-24T10:00:00'), fmt: n => String(n
     batches: [{ lots: [{ coa: { status: 'approved', approvedDate: '2026-09-02' } }, { coa: { status: 'approved', approvedDate: '2026-09-03', rejected: { why: 'x' } } }, { coa: { status: 'approved', approvedDate: '2026-09-03', repOf: { lotNo: 'L1' } } }, { coa: { status: 'failed' } }] }] } };
 vm.createContext(sb);
 vm.runInContext(grabTopVar('HOW_ROLES', '[') + ['howMay', 'howPeriod', 'howIn', 'howSales', 'howOnTime', 'howStuck', 'howQuality'].map(grab).join('\n'), sb);
-eq('who may see it: COO, CFO, Plant Manager', sb.HOW_ROLES.join(','), 'COO,CFO,Plant Manager');
+eq('who may see it: COO, CFO, Plant Manager, Production Manager, Supply Chain (25i)', sb.HOW_ROLES.join(','), 'COO,CFO,Plant Manager,Production Manager,Supply Chain');
 const S = sb.howSales();
 eq('sold this month (net, trucks out)', S.soldM, 100); eq('sold this FY', S.soldF, 400); eq('FY budget', S.tF, 1600); eq('% of budget', S.pctF, 25);
 eq('month target and %', S.tM + ' ' + S.pctM, '200 50'); eq('open orders still to leave', S.open, 100);
@@ -31,9 +31,10 @@ eq('first-time pass: copies of a tested lot are not counted; a rejected one is n
 eq('unfit now', Q.failedNow, 1); eq('trucks failed inspection this month', Q.ins.m.fail + '/' + Q.ins.m.n, '1/1');
 ok('the old Dashboard is How are we doing', /function screenDash\(\)\{ screenHow\(\); \}/.test(html));
 ok('Sales & Budget still opens, without the old tabs', /function screenBudget\(\)\{ dashTab='sales'; screenDashOld\(\); \}/.test(html) && /state\.screen==='budget'\)\?'':dashTabBar\(\)/.test(html));
-ok('the screen owners are the 3 leaders', /\{id:'dash', name:'How are we doing'[^}]*owners:\['Plant Manager','CFO','COO'\]/.test(html));
-ok('anyone else is told where their work is', /This page is for the COO, the CFO and the Plant Manager/.test(grab('screenHow')));
+ok('the screen owners are the 3 leaders', /\{id:'dash', name:'How are we doing'[^}]*owners:\['Plant Manager','CFO','COO','Production Manager','Supply Chain'\]/.test(html));
+ok('anyone else is told where their work is', /This page is for the COO, the CFO, the Plant Manager, the Production Manager and Supply Chain/.test(grab('screenHow')));
 ok('each block opens the detail behind it', ["setScreen('budget')", "rpOpen('late')", "setScreen('plant')", "rpOpen('coa')"].every(x => grab('screenHow').indexOf(x) > -1));
 ok('a truck for a PSI-with-DC customer says so on its jobs and card', /pre-shipment report goes with the DC/.test(grab('actionItems')) && /pre-shipment report goes with the DC/.test(grab('shipCard')));
 ok('Saad reviews from the truck card; the Plant Manager approves there', /reviewTruck\(/.test(grab('shipCard')) && /Approve DC &amp; release/.test(grab('shipCard')));
+ok('25i: a block\'s button is hidden when the role cannot open what it leads to', /if\(go&&!howGoOK\(go\)\) go='';/.test(html));
 process.exitCode = report('How are we doing (25h)') ? 1 : 0;

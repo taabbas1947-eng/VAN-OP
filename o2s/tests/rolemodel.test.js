@@ -310,7 +310,7 @@ const union = new Set([...scrNames, ...rgtNames, ...fldNames]);
      here because owners are the DEFAULT - the ruled matrix (seedAccessV2) is
      what takes it away from him (R20), and threeplaces.test.js proves that. */
   eq('Production Manager is pre-wired for these screens', screensFor('Production Manager').join(','),
-     'today,plant,approvals,tracker,prod,qc,qa,ship,reports,instructions,datafix,recon'); /* 25h: 'How are we doing' is COO, CFO, Plant Manager */
+     'today,plant,dash,approvals,tracker,prod,qc,qa,ship,reports,instructions,datafix,recon'); /* 25i: How are we doing includes the Production Manager */
   eq('Finance Desk Officer is pre-wired for these screens', screensFor('Finance Desk Officer').join(','),
      'today,plant,approvals,tracker,ship,reports,instructions');
 

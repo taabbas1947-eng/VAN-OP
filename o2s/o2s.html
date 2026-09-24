@@ -11,7 +11,7 @@
    a push keeps running the old code with nothing telling anybody. It sat at
    2026-09-04a through this whole day's work; rmqty/psi tests pinned the code,
    nothing pinned this. buildid.test.js now does. */
-var BUILD_ID='2026-09-25h';
+var BUILD_ID='2026-09-25i';
 var CHANGELOG=[
   {ver:'2026-09-04a', date:'2026-09-04', title:"Delivery, DC printing, and a new Reconciliation check", items:[
     "Delivery confirmation stays with Supply Chain \u2014 it no longer hands off to the Plant Manager. If one sits too long, it now re-flags the same Supply Chain owner every 3 days instead.",
@@ -331,6 +331,8 @@ var CHANGELOG=[
     "The old Dashboard is replaced by one page for the COO, the CFO and the Plant Manager: How are we doing, in the header.",
     "4 blocks, this month with the financial year beside it: are we selling to budget, are we delivering on time, where is the plant stuck, is quality holding. Each says the answer in a sentence and opens the report behind it.",
     "Trucks for a customer who takes the pre-shipment report with the DC now say so on the truck card and on the loading, gate pass and review jobs."
+  ]},  {ver:'2026-09-25i', date:'2026-09-25', title:"How are we doing: 2 more roles", items:[
+    "The Production Manager and Supply Chain now see How are we doing too, with the PKR figures on it."
   ]},
 ];
 </script>
@@ -3525,7 +3527,7 @@ const SCREENS=[
      dashboard items". 3 lights, the departments, the floor. Read-only for all. */
   {id:'plant', name:'Plant', ic:'\ud83c\udfed', owners:['KAM','Supply Chain','Production','Production Manager','Lab Rep','AQCM','QCM','QA Inspector','Plant Manager','CFO','COO','Supply Chain Officer','Finance Desk Officer','Finance','Warehouse'], sub:'What is stuck, who is behind, where every order stands',
     obj:'<b>Plant.</b> 3 lights \u2014 late orders, trucks waiting, waiting on material \u2014 then every department on one line, then the floor. The same for everyone; nobody edits here.'},
-  {id:'dash', name:'How are we doing', ic:'\ud83d\udcca', owners:['Plant Manager','CFO','COO'], sub:'What happened, what\u2019s stuck, who\u2019s behind',
+  {id:'dash', name:'How are we doing', ic:'\ud83d\udcca', owners:['Plant Manager','CFO','COO','Production Manager','Supply Chain'], sub:'What happened, what\u2019s stuck, who\u2019s behind',
     obj:'<b>Executive overview \u00b7 CEO / COO.</b> On-time delivery, overdue &amp; at-risk volume, fulfilment, production output, attention list and top customers \u2014 read-only.'},
   {id:'approvals', name:'All actions', ic:'✅', owners:['KAM','Supply Chain','Production','Production Manager','Lab Rep','AQCM','QCM','QA Inspector','Plant Manager','CFO','COO','Supply Chain Officer','Finance Desk Officer','Finance','Warehouse'], sub:'What needs your action',
     obj:'<b>Your live worklist.</b> Everything waiting on you across all orders — acknowledge, RM check, approve PR, close PR, produce, QC, QA, ship, delay reasons — each timestamped.'},
@@ -9889,7 +9891,7 @@ function deliveryJobs(g){ var r=(g.rows||[])[0]||{}; var d=truckDispatcher(r); v
    a truck through the gate, net of FED (saleRows); a late line is lineOverdue;
    a wait is the Today job and its age (actionItems / actTiming). Nothing is
    written. The old tabs stay behind Sales & Budget (screenDashOld). */
-var HOW_ROLES=['COO','CFO','Plant Manager'];
+var HOW_ROLES=['COO','CFO','Plant Manager','Production Manager','Supply Chain']; /* 25i, Tahir 24 Sep: + Production Manager and Supply Chain, PKR included on this page */
 function howMay(){ return HOW_ROLES.indexOf(state.role)>-1; }
 function howPeriod(){ var d=TODAY.toISOString().slice(0,10); return {today:d,month:d.slice(0,7),fy:fyKey(d),fyStart:String(fyKey(d)).slice(0,4)+'-07-01'}; }
 function howIn(date,P,which){ date=String(date||'').slice(0,10); if(!date) return false; return which==='month'?date.slice(0,7)===P.month:(date>=P.fyStart&&date<=P.today); }
@@ -9922,9 +9924,10 @@ function howQuality(){ var P=howPeriod(); var m={n:0,first:0}, f={n:0,first:0}, 
   return {m:m,f:f,pm:m.n?Math.round(m.first/m.n*100):null,pf:f.n?Math.round(f.first/f.n*100):null,failedNow:failedNow,ins:ins,lateTests:lateTests}; }
 function howM(n){ n=+n||0; var a=Math.abs(n); return 'PKR '+(a>=1e7?(n/1e7).toFixed(2)+' Cr':(a>=1e5?(n/1e5).toFixed(1)+' Lac':fmt(Math.round(n)))); }
 function howTile(v,l,tone){ return '<div class="hw-t'+(tone?' '+tone:'')+'"><b>'+v+'</b><span>'+l+'</span></div>'; }
-function howBlock(n,title,sentence,tiles,more,go,goText){ return '<section class="hw-b"><div class="hw-h"><span class="nn">'+n+'</span><h2>'+title+'</h2></div><p class="hw-s">'+sentence+'</p><div class="hw-ts">'+tiles+'</div>'+(more||'')+(go?'<button class="qs-btn sm ghost" style="margin-top:10px" onclick="'+go+'">'+goText+' ›</button>':'')+'</section>'; }
+function howGoOK(go){ try{ var m=/rpOpen\('([a-z]+)'\)/.exec(go||''); if(m) return rpMay(rpDef(m[1])); var s=/setScreen\('([a-z]+)'\)/.exec(go||''); if(s) return accessLevel(state.role,s[1])!=='none'; }catch(e){} return true; }
+function howBlock(n,title,sentence,tiles,more,go,goText){ if(go&&!howGoOK(go)) go=''; /* 25i: no button into a place the role cannot open */ return '<section class="hw-b"><div class="hw-h"><span class="nn">'+n+'</span><h2>'+title+'</h2></div><p class="hw-s">'+sentence+'</p><div class="hw-ts">'+tiles+'</div>'+(more||'')+(go?'<button class="qs-btn sm ghost" style="margin-top:10px" onclick="'+go+'">'+goText+' ›</button>':'')+'</section>'; }
 function screenHow(){
-  if(!howMay()){ $('view').innerHTML='<div class="qs"><h1>How are we doing</h1><div class="note">This page is for the COO, the CFO and the Plant Manager. Your work is on <b>Today</b>; the whole plant is on <b>Plant</b>.</div></div>'; return; }
+  if(!howMay()){ $('view').innerHTML='<div class="qs"><h1>How are we doing</h1><div class="note">This page is for the COO, the CFO, the Plant Manager, the Production Manager and Supply Chain. Your work is on <b>Today</b>; the whole plant is on <b>Plant</b>.</div></div>'; return; }
   var S=howSales(), O=howOnTime(), K=howStuck(), Q=howQuality(), P=S.P, e=qsEsc, ml=monthLabel(P.month);
   var css='<style>.hw-g{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.hw-b{background:#fff;border:1px solid var(--line,#e3e0d8);border-radius:14px;padding:16px 18px}.hw-h{display:flex;gap:10px;align-items:center}.hw-h .nn{width:24px;height:24px;border-radius:50%;background:#1f3a5f;color:#fff;font-weight:700;font-size:12px;display:flex;align-items:center;justify-content:center;flex:none}.hw-h h2{margin:0;font-size:15.5px}.hw-s{font-size:13.5px;line-height:1.55;margin:10px 0 12px;color:#2a2925}.hw-ts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.hw-t{border:1px solid #ece8df;border-radius:10px;padding:9px 10px;background:#fbfaf7}.hw-t b{display:block;font-size:17px;font-variant-numeric:tabular-nums}.hw-t span{display:block;font-size:11px;color:#7d776b;margin-top:2px;line-height:1.35}.hw-t.bad b{color:#b3261e}.hw-t.ok b{color:#1f6b3a}.hw-l{font-size:12.5px;margin-top:10px}.hw-l div{display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-top:1px solid #f0ece4}.hw-l div span:last-child{white-space:nowrap;font-variant-numeric:tabular-nums}@media(max-width:800px){.hw-g{grid-template-columns:minmax(0,1fr)}.hw-ts{grid-template-columns:repeat(2,minmax(0,1fr))}}</style>';
   var h=css+'<div class="qs wide"><h1>How are we doing</h1><div class="sub">'+e(ml)+', with the financial year '+e(P.fy)+' beside it. Every number is from the records, the same rule as everywhere else in O2S.</div><div class="hw-g">';

@@ -147,6 +147,12 @@ const MARKERS = [
   ["items.push({role:'Finance',  /* 24q",  1, 'print-on-pack routed to Finance (24q)'],
   ['not counted here.',                    1, 'jobs on hold left out of the pulse (24q)'],
   ['earlier update',                       1, "What's changed: newest first, 5 shown (24q)"],
+  /* 2026-09-24r */
+  ['var LAB_TEST_TIMES=[',                 1, "the QCM's 31 test times (24r)"],
+  ['function labAssignConfirm(',           1, 'the sample assignment, QCL-FRM-19.01 (24r)'],
+  ['function benchSave(',                  1, 'the bench sheet, one test for every sample (24r)'],
+  ['function labRanATest(',                1, 'no analyst reviews or approves their own sample (24r)'],
+  ["key='test:'+(it.param||'')",           1, 'Today groups lab tests by parameter (24r)'],
 ];
 
 const [, , mode, freshPath, otherPath] = process.argv;

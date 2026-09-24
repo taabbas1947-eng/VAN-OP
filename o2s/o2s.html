@@ -11,7 +11,7 @@
    a push keeps running the old code with nothing telling anybody. It sat at
    2026-09-04a through this whole day's work; rmqty/psi tests pinned the code,
    nothing pinned this. buildid.test.js now does. */
-var BUILD_ID='2026-09-24q';
+var BUILD_ID='2026-09-24r';
 var CHANGELOG=[
   {ver:'2026-09-04a', date:'2026-09-04', title:"Delivery, DC printing, and a new Reconciliation check", items:[
     "Delivery confirmation stays with Supply Chain \u2014 it no longer hands off to the Plant Manager. If one sits too long, it now re-flags the same Supply Chain owner every 3 days instead.",
@@ -257,6 +257,12 @@ var CHANGELOG=[
     "An order with no print-on-pack answer now goes to Finance. It still reaches the COO if it waits too long.",
     "The note at the bottom of Today is gone.",
     "This notice now shows the newest changes first, 5 at a time."
+  ]},
+  {ver:'2026-09-24r', date:'2026-09-24', title:"The lab works by test, not by sample", items:[
+    "When the COO switches it on (Lab \u2192 Test times and analysts), a new sample goes to the QC manager to assign. Each test goes to its usual analyst; he confirms or changes it.",
+    "Analysts see their own tests on Today, grouped by test: one bench sheet takes pH for every sample waiting, so you stay at one instrument. Your name and the time are recorded with each result.",
+    "Each test is due its own time from the QC manager\u2019s test-time list; a sample is due when its longest test is due. A late test goes to the QC manager; a sample a day past due goes to the Plant Manager.",
+    "When every test has a result, the certificate goes to the AQCM and QCM as before. Nobody who ran a test on a sample may review or approve it. The assignment form QCL-FRM-19.01 prints from the sample."
   ]},
 ];
 </script>
@@ -8067,7 +8073,7 @@ function autoTemplateFor(b){ const item=coaItemOf(b); const hit=coaGenericOf(ite
   if(!any) rows.push({g:'Chemical',test:'Assay',spec:'-',method:'Lab Method',mu:'-'});
   return rows; }
 function coaCtx(bid,lid){ bid=(bid!=null?bid:coaForm.bid); lid=(lid!=null?lid:coaForm.lid); const b=(state.batches||[]).find(x=>x.id===bid)||null; if(!b) return {b:null,lot:null,h:null,L:'',qkg:0}; let lot=null; if(lid) lot=(b.lots||[]).find(x=>x.id===lid)||null; const h=lot||b; const L=(lot?(lot.lotNo||b.batchNo):(b.batchNo))||''; const qkg=lot?(lot.qty||0):(b.producedKg||0); return {b,lot,h,L,qkg}; }
-function openBatchCOA(bid,lid){ const ctx=coaCtx(bid,lid); const b=ctx.b, h=ctx.h; if(!b||!h)return; const tpl=coaTemplate(b); const today=TODAY.toISOString().slice(0,10);
+function openBatchCOA(bid,lid){ const ctx=coaCtx(bid,lid); const b=ctx.b, h=ctx.h; if(!b||!h)return; if(labNeedsAssign(h)){ openLabAssign(bid,lid); return; } const tpl=coaTemplate(b); const today=TODAY.toISOString().slice(0,10);
   if(h.coa){ coaForm=JSON.parse(JSON.stringify(h.coa)); coaForm.bid=bid; coaForm.lid=lid||''; }
   else { const MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; const od=new Date((ctx.lot&&ctx.lot.date)||b.openedDate||today); const mfg=MON[od.getMonth()]+'-'+od.getFullYear(); const exp=MON[od.getMonth()]+'-'+(od.getFullYear()+2); coaForm={ bid, lid:lid||'', status:'draft', type:'Batch', issueDate:today, issueStatus:'A', item:coaItemOf(b), source:'Vital Agri Nutrients (Pvt) Ltd', batchNo:ctx.L, quantity:fmt(Math.round(ctx.qkg))+' Kg', mfgDate:mfg, expDate:exp, qcNo:qcCodeOf(b), receivingDate:today, sampledBy:'', sampleQty:'0.5 kg', analysisTime:(new Date()).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}), dateOfTest:today, temp:'', humidity:'', tests: tpl.map(r=>({g:r.g,test:r.test,spec:r.spec,method:r.method,mu:r.mu,result:'',remark:''})), analyst:{name:(state.currentUser&&state.currentUser.name)||'',date:''}, reviewer:{name:'',date:''}, approver:{name:'',date:''}, remarks:'' }; }
   if(!coaForm.tests||!coaForm.tests.length){ coaForm.tests=tpl.map(r=>({g:r.g,test:r.test,spec:r.spec,method:r.method,mu:r.mu,result:'',remark:''})); }
@@ -8086,7 +8092,7 @@ function coaDelRow(i){ if(coaForm.tests) coaForm.tests.splice(i,1); coaPersistDr
 function coaEsc(x){ return String(x==null?'':x).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
 function coaFSClose(){ const el=$('coaFS'); if(el){ el.classList.remove('open'); el.innerHTML=''; } render(); }
 function renderCOAModal(){ const b=(state.batches||[]).find(x=>x.id===coaForm.bid); if(!b){coaFSClose();return;}
-  const st=coaForm.status||'draft'; const ro=(st!=='draft');
+  const st=coaForm.status||'draft'; const ro=(st!=='draft')||labIsV2(coaForm);
   const isLab=hardRole(['Lab Rep']), isAQ=hardRole(['AQCM']), isQM=hardRole(['QCM']), isCOO=state.role==='COO', isPM=hardRole(['Plant Manager']);
   const dis=ro?'disabled':'';
   const uf=(f,extra)=>`<input class="ufld" ${dis} value="${coaEsc(coaForm[f])}" onchange="coaSet('${f}',this.value)" ${extra||''}>`;
@@ -8098,10 +8104,12 @@ function renderCOAModal(){ const b=(state.batches||[]).find(x=>x.id===coaForm.bi
     return pre+`<tr><td class="test-name">${tc('test')}</td><td>${tc('spec')}</td><td>${tc('result')}</td><td>${tc('method')}</td><td>${tc('mu')}</td><td>${ro?`<div style="text-align:center">${badge}</div>`:`<div style="display:flex;gap:4px;align-items:center;justify-content:center">${badge}${rsel}</div>`}</td>${ro?``:`<td style="text-align:center"><button class="mini" title="remove row" onclick="coaDelRow(${i})">×</button></td>`}</tr>`; }).join('');
   const ov=coaOverall(coaForm.tests);
   let acts='';
-  if(st==='draft'&&(isLab||isCOO)) acts=`<button class="b-green" onclick="coaSubmitAnalyst()">Submit for review →</button>`;
+  if(st==='draft'&&labIsV2(coaForm)) acts=`<span style="font-size:12px;opacity:.9">Results come from the bench sheets</span>`+((isQM||isCOO)?`<button class="b-ghost" onclick="coaFSClose();openLabAssign('${coaForm.bid}','${coaForm.lid||''}')">Analysts</button>`:'');
+  else if(st==='draft'&&(isLab||isCOO)) acts=`<button class="b-green" onclick="coaSubmitAnalyst()">Submit for review →</button>`;
   else if(st==='analysed'&&(isAQ||isCOO)) acts=`<button class="b-ghost" onclick="coaReject('analysed')">Reject</button><button class="b-green" onclick="coaReview()">Review &amp; forward to QCM →</button>`;
   else if(st==='reviewed'&&(isQM||isCOO)) acts=`<button class="b-ghost" onclick="coaReject('reviewed')">Reject</button><button class="b-green" onclick="coaApprove()">Approve (final) ✓</button>`;
   else if(st==='failed'&&(isPM||isCOO)) acts=`<button class="b-ghost" onclick="coaRework()">Send to rework</button><button class="b-green" onclick="coaDeviation()">Approve as deviation</button>`;
+  if(labIsV2(coaForm)&&coaForm.assign) acts+=`<button class="b-ghost" onclick="printLabAssign('${coaForm.bid}','${coaForm.lid||''}')">🖨 19.01</button>`;
   if(st==='approved') acts+=`<button class="b-ghost" onclick="printCOA('${coaForm.bid}','${coaForm.lid||''}')">🖨 Print / Save PDF</button>`;
   /* SPEC-03: an approved certificate is never edited and never deleted. The one
      correction it has is a numbered revision that names what it replaces. */
@@ -8175,12 +8183,12 @@ function coaSubmitAnalyst(){ const ctx=coaCtx(); const b=ctx.b, h=ctx.h; if(!b||
   save(); coaFSClose(); }
 function coaReview(){ if(!hardRole(['AQCM'])){toast('AQCM only');return;} const ctx=coaCtx(); const b=ctx.b,h=ctx.h; if(!b||!h||!h.coa)return; const nm=(state.currentUser&&state.currentUser.name)||state.role;
   /* 24c: the analyst does not check his own certificate - by login, and by the typed analyst name as a fallback */
-  if(coaSamePerson(h.coa.draftedBy, (h.coa.analyst||{}).name)){ toast('You drafted this certificate. Somebody else must review it.'); return; } h.coa.reviewer=Object.assign(sigStamp(),{name:nm,date:coaTS()}); h.coa.status='reviewed'; qcAudit2(b,'AQCM reviewed',''); logAction(`COA reviewed (AQCM) for ${ctx.L} → QCM`); save(); coaFSClose(); }
+  if(coaSamePerson(h.coa.draftedBy, (h.coa.analyst||{}).name)){ toast('You drafted this certificate. Somebody else must review it.'); return; } if(labRanATest(h.coa)){ toast('You tested this sample. Somebody else must review it.'); return; } h.coa.reviewer=Object.assign(sigStamp(),{name:nm,date:coaTS()}); h.coa.status='reviewed'; qcAudit2(b,'AQCM reviewed',''); logAction(`COA reviewed (AQCM) for ${ctx.L} → QCM`); save(); coaFSClose(); }
 function coaApprove(){ if(!hardRole(['QCM'])){toast('QCM only');return;} const ctx=coaCtx(); const b=ctx.b,h=ctx.h; if(!b||!h||!h.coa)return; const nm=(state.currentUser&&state.currentUser.name)||state.role;
   /* 24c: a certificate needs 2 signatures, not one - the reviewer and the approver are different people */
   if(coaSamePerson(h.coa.reviewer, (h.coa.reviewer||{}).name)){ toast('You reviewed this certificate. Somebody else must approve it.'); return; }
-  if(coaSamePerson(h.coa.draftedBy, (h.coa.analyst||{}).name)){ toast('You drafted this certificate. Somebody else must approve it.'); return; } h.coa.approver=Object.assign(sigStamp(),{name:nm,date:coaTS()}); h.coa.status='approved'; h.coa.approvedDate=evToday(); Object.assign(h.coa,evStamp(evToday(),'coa','')); /* a signature's date is the moment of signing, so there is no 'actual date' to enter — but recordedAt/By still belong on the record */ h.coa.certifiedKg=ctx.qkg; if(ctx.lot) ctx.lot.certifiedKg=ctx.qkg; qcAudit2(b,'QCM approved','cleared'); logAction(`COA APPROVED (QCM) for ${ctx.L} — cleared for packing`); save(); coaFSClose(); }
-function coaReject(stage){ if(!canEdit(['AQCM','QCM'])){toast('AQCM / QCM only');return;} const ctx=coaCtx(); const b=ctx.b,h=ctx.h; if(!b||!h||!h.coa)return; const why=(typeof prompt==='function'?prompt('Reason for rejecting back to the analyst:'):'')||''; h.coa.status='draft'; h.coa.rejected={by:state.role,stage,why:why||'',date:TODAY.toISOString().slice(0,10)}; qcAudit2(b,'COA rejected',why||''); logAction(`COA rejected at ${stage} for ${ctx.L} — back to analyst`); save(); coaFSClose(); }
+  if(coaSamePerson(h.coa.draftedBy, (h.coa.analyst||{}).name)){ toast('You drafted this certificate. Somebody else must approve it.'); return; } if(labRanATest(h.coa)){ toast('You tested this sample. Somebody else must approve it.'); return; } h.coa.approver=Object.assign(sigStamp(),{name:nm,date:coaTS()}); h.coa.status='approved'; h.coa.approvedDate=evToday(); Object.assign(h.coa,evStamp(evToday(),'coa','')); /* a signature's date is the moment of signing, so there is no 'actual date' to enter — but recordedAt/By still belong on the record */ h.coa.certifiedKg=ctx.qkg; if(ctx.lot) ctx.lot.certifiedKg=ctx.qkg; qcAudit2(b,'QCM approved','cleared'); logAction(`COA APPROVED (QCM) for ${ctx.L} — cleared for packing`); save(); coaFSClose(); }
+function coaReject(stage){ if(!canEdit(['AQCM','QCM'])){toast('AQCM / QCM only');return;} const ctx=coaCtx(); const b=ctx.b,h=ctx.h; if(!b||!h||!h.coa)return; const why=(typeof prompt==='function'?prompt('Reason for rejecting back to the analyst:'):'')||''; h.coa.status='draft'; if(labIsV2(h.coa)) (h.coa.tests||[]).forEach(function(t){ delete t.doneAt; delete t.doneBy; }); /* 24r: back to each analyst, results kept */ h.coa.rejected={by:state.role,stage,why:why||'',date:TODAY.toISOString().slice(0,10)}; qcAudit2(b,'COA rejected',why||''); logAction(`COA rejected at ${stage} for ${ctx.L} — back to analyst`); save(); coaFSClose(); }
 function coaDeviation(){ if(!hardRole(['Plant Manager'])){toast('Plant Manager only');return;} const ctx=coaCtx(); const b=ctx.b,h=ctx.h; if(!b||!h||!h.coa)return; const note=(typeof prompt==='function'?prompt('Deviation note (why accept this UNFIT lot):'):'')||''; h.coa.deviation=true; h.coa.deviationNote=note||''; h.coa.deviationBy=Object.assign(sigStamp(),{name:(state.currentUser&&state.currentUser.name)||state.role,date:coaTS()}); h.coa.status='analysed'; qcAudit2(b,'PM deviation accepted',note||''); logAction(`UNFIT ${ctx.L} accepted as DEVIATION by Plant Manager → AQCM review → QCM approval`); save(); coaFSClose(); }
 function coaRework(){ if(!hardRole(['Plant Manager'])){toast('Plant Manager only');return;} const ctx=coaCtx(); const b=ctx.b,h=ctx.h; if(!b||!h||!h.coa)return; h.coa.reworks=(h.coa.reworks||0)+1; const item=h.coa.item; h.coa=null; qcAudit2(b,'Sent to rework',''); logAction(`${ctx.L} (${item}) sent to rework after UNFIT`); save(); coaFSClose(); }
 function qcAudit2(b,field,val){ (state.audit=state.audit||[]).unshift({t:new Date().toISOString(),user:state.role,module:'Lab QC',po:b.po||'',brand:coaItemOf(b),field,old:'',val,batchNo:b.batchNo||''}); }
@@ -8730,6 +8738,8 @@ var CORRECT_ENTITY={
       next.reviewer={name:'',date:''}; next.approver={name:'',date:''};
       ['approvedDate','supersededAt','supersededBy','supersededRole','supersededReason','deviation','deviationNote','deviationBy','rejected','recordedAt','recordedBy','actualDate']
         .forEach(function(k){ delete next[k]; });
+      /* 24r: a re-issue in the lab's flow goes back to the QCM to assign; the values stay */
+      if(next.flow==='v2'){ delete next.assign; delete next.dueAt; (next.tests||[]).forEach(function(t){ delete t.to; delete t.toName; delete t.due; delete t.doneAt; delete t.doneBy; }); }
       h.coa=next;
       if(ctx.lot) ctx.lot.certifiedKg=null;
     }
@@ -9123,6 +9133,195 @@ function sigStamp(){
    one, else by name (the analyst line is typed, not signed). The COO is not exempt:
    a certificate with one person's name on 2 lines is the thing the rule forbids. */
 function coaSamePerson(stamp,typedName){ var u=state.currentUser||{}; var me=String(u.name||'').trim().toLowerCase(); if(stamp&&stamp.user&&u.username&&String(stamp.user)===String(u.username)) return true; if(stamp&&stamp.name&&me&&String(stamp.name).trim().toLowerCase()===me) return true; if(typedName&&me&&String(typedName).trim().toLowerCase()===me) return true; return false; }
+/* ===== THE LAB, AS THE LAB WORKS — 24 Sep 2026 (24r) ==========================
+   The QC manager at the briefing: the lab allocates by PARAMETER, not by sample.
+   One analyst does pH on every sample, another potash; an analyst stays at one
+   instrument. His form QCL-FRM-19.01 (Assignment, Summary & Review, Rev 02) and
+   his "Estimated Time For Test Report" are the source of what follows.
+   Tahir's rulings: pre-filled usual analyst, the QCM confirms; clock hours; a test
+   past due goes to the QCM, a sample still not done a day after it was due goes
+   to the Plant Manager; one release.
+   Safety: OFF until the COO switches it on. A sample in the new flow carries
+   coa.flow='v2'; review, approval, UNFIT, deviation, print and supersede are the
+   old code. A certificate already started stays in the old flow for good. */
+/* total minutes = 30 min sampling + test time + 30 min reporting (the document) */
+var LAB_TEST_TIMES=[
+  {name:'Nitrogen',mins:420},{name:'Potash',mins:120},{name:'Phosphate (Normal)',mins:1620},{name:'Phosphate (Urgent)',mins:240},
+  {name:'Elemental Sulfur',mins:300},{name:'Sulfate Sulfur',mins:1500},{name:'Humic Acid Liquid',mins:1740},{name:'Humic Acid Solid',mins:1140},
+  {name:'Moisture (Drying)',mins:300},{name:'Moisture (Karl Fischer)',mins:150},{name:'Organic Matter',mins:720},{name:'CEC',mins:1080},
+  {name:'C/N Ratio',mins:420},{name:'Amino Acid',mins:540},{name:'Boron',mins:420},{name:'Zinc',mins:300},
+  {name:'Magnesium',mins:210},{name:'Copper (Cu)',mins:210},{name:'Iron (Fe)',mins:210},{name:'Manganese',mins:210},
+  {name:'Fluoride',mins:210},{name:'Biuret',mins:210},{name:'Sodium (Na)',mins:210},{name:'Density',mins:90},
+  {name:'Particle Size',mins:105},{name:'pH',mins:90},{name:'TDS/Conductivity',mins:90},{name:'Fulvic Acid',mins:300},
+  {name:'Physical',mins:90},{name:'Calcium',mins:180},{name:'Hardness',mins:240}
+];
+function labParamsList(){ var m=state.masters&&state.masters.labParams; return (Array.isArray(m)&&m.length)?m:LAB_TEST_TIMES; }
+function labParamMins(name){ var p=labParamsList().find(function(x){return x.name===name;}); return p?(+p.mins||0):0; }
+function labFlowOn(){ var f=state.masters&&state.masters.labFlow; return !!(f&&f.on===true); }
+function labSetFlow(on){ if(state.role!=='COO'){ toast('Only the COO switches the lab flow'); return; }
+  state.masters=state.masters||{}; state.masters.labFlow={on:!!on,at:new Date().toISOString(),by:sigStamp()};
+  logAction('Lab: assignment by parameter switched '+(on?'ON':'OFF')); save(); try{ if($('modalBg').classList.contains('open')) openLabSetup(); else render(); }catch(e){} }
+/* a template test name -> one of the 31 parameters. '' = ask the QCM. */
+function labSuggestParam(test,form){ var t=String(test||'').trim().toLowerCase().replace(/\s+/g,' '); if(!t) return '';
+  var liquid=/liquid/i.test(String(form||''));
+  var R=[[/^(n|nitrogen|total n|total nitrogen)\b/,'Nitrogen'],[/^(k2o|potash|potassium)/,'Potash'],[/^(p2o5|phosphate|phosphorus)/,'Phosphate (Normal)'],
+    [/^ph\b/,'pH'],[/^moisture/,'Moisture (Drying)'],[/^(physical|colou?r|appearance)/,'Physical'],[/^density|^specific gravity/,'Density'],
+    [/^(om|organic matter|organic carbon)\b/,'Organic Matter'],[/^cec\b/,'CEC'],[/^c\s*\/\s*n/,'C/N Ratio'],[/^amino/,'Amino Acid'],[/^(b|boron)\b/,'Boron'],
+    [/^(zn|zinc)\b/,'Zinc'],[/^(mg|mgo|magnesium)\b/,'Magnesium'],[/^(cu|copper)\b/,'Copper (Cu)'],[/^(fe|iron|ferrous)\b/,'Iron (Fe)'],[/^(mn|manganese)\b/,'Manganese'],
+    [/^(fluoride|flouride)/,'Fluoride'],[/^biuret/,'Biuret'],[/^(na|sodium)\b/,'Sodium (Na)'],[/^particle size/,'Particle Size'],[/^(tds|conductivity|ec)\b/,'TDS/Conductivity'],
+    [/^fulvic/,'Fulvic Acid'],[/^(ca|calcium)\b/,'Calcium'],[/^hardness/,'Hardness'],[/^elemental s/,'Elemental Sulfur'],[/^sulfate|^sulphate/,'Sulfate Sulfur']];
+  if(/^(ha|humic)/.test(t)) return liquid?'Humic Acid Liquid':'Humic Acid Solid';
+  for(var i=0;i<R.length;i++){ if(R[i][0].test(t)) return R[i][1]; }
+  return ''; }
+function labParamFor(item,test,form,method){ var m=(state.masters&&state.masters.labParamOf)||{}; var k=String(test||'').trim().toLowerCase();
+  var hit=m[String(item||'')+'|'+k]||m[k]; if(hit) return hit;
+  var s=labSuggestParam(test,form);
+  /* the template's method decides between the 2 moisture tests */
+  if(s==='Moisture (Drying)' && /karl|fischer|\bkf\b/i.test(String(method||''))) s='Moisture (Karl Fischer)';
+  return s; }
+function labIsV2(c){ return !!(c&&c.flow==='v2'); }
+function labNeedsAssign(h){ return !!h && ((!h.coa && labFlowOn()) || (labIsV2(h.coa) && !h.coa.assign)); }
+function labAnalysts(){ return (usersList||[]).filter(function(u){ return u&&(u.role==='Lab Rep'||u.role==='AQCM'||u.role==='QCM'); }); }
+function labNameOf(user){ var u=(usersList||[]).find(function(x){return x.username===user;}); return u?u.name:String(user||''); }
+function labFmt(iso){ var d=new Date(iso); if(isNaN(d)) return ''; var D=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'], M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var p=function(n){return String(n).padStart(2,'0');}; return D[d.getDay()]+' '+d.getDate()+' '+M[d.getMonth()]+' '+p(d.getHours())+':'+p(d.getMinutes()); }
+function labLateBy(iso){ var t=Date.parse(iso||''); if(!(t>0)) return 0; var ms=Date.now()-t; return ms>0?ms:0; }
+function labDurTxt(ms){ var h=Math.floor(ms/3600000), m=Math.round((ms%3600000)/60000); return h?(h+' h'+(m?' '+m+' min':'')):(m+' min'); }
+function labProductForm(item){ try{ var p=(customProducts()||[]).find(function(x){return x&&String(x.brand||'').trim().toLowerCase()===String(item||'').trim().toLowerCase();}); return p?p.form:''; }catch(e){ return ''; } }
+/* the action items of ONE sample in the new flow (called from actionItems) */
+function labV2Items(b,u,it,tag,call){ var out=[]; var c=u.coa;
+  if(!c||!c.assign){ out.push({role:'QCM',batch:b,lid:u.id,what:'Assign sample — '+it+' '+tag,act:"openLabAssign('"+b.id+"','"+u.id+"')",label:'Assign sample'}); return out; }
+  if(c.status!=='draft') return out;
+  (c.tests||[]).forEach(function(r,i){ if(r.doneAt) return;
+    out.push({role:'Lab Rep',who:r.to||'',whoName:r.toName||'',batch:b,lid:u.id,row:i,param:r.param||r.test||'',due:r.due||'',labAt:c.assign.at,
+      what:(r.param||r.test||'Test')+' — '+it+' '+tag,act:"openBench('"+String(r.param||r.test||'').replace(/'/g,'')+"')",label:'Lab test'}); });
+  var open=(c.tests||[]).some(function(r){return !r.doneAt;});
+  if(open && c.dueAt && labLateBy(c.dueAt)>86400000) out.push({role:'Plant Manager',batch:b,lid:u.id,labAt:c.dueAt,what:'Lab sample overdue — '+it+' '+tag+' (due '+labFmt(c.dueAt)+')',act:call,label:'Lab late'});
+  return out; }
+/* ---- the assignment (QCL-FRM-19.01) ---- */
+var labAsg=null;
+function labNewCoa(ctx,b){ var MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; var today=TODAY.toISOString().slice(0,10);
+  var od=new Date((ctx.lot&&ctx.lot.date)||b.openedDate||today);
+  return { status:'draft', flow:'v2', type:'Batch', issueDate:today, issueStatus:'A', item:coaItemOf(b), source:'Vital Agri Nutrients (Pvt) Ltd', batchNo:ctx.L,
+    quantity:fmt(Math.round(ctx.qkg))+' Kg', mfgDate:MON[od.getMonth()]+'-'+od.getFullYear(), expDate:MON[od.getMonth()]+'-'+(od.getFullYear()+2), qcNo:qcCodeOf(b),
+    receivingDate:today, sampledBy:'', sampleQty:'0.5 kg', analysisTime:'', dateOfTest:today, temp:'', humidity:'',
+    tests:coaTemplate(b).map(function(r){ return {g:r.g,test:r.test,spec:r.spec,method:r.method,mu:r.mu,result:'',remark:''}; }),
+    analyst:{name:'',date:''}, reviewer:{name:'',date:''}, approver:{name:'',date:''}, remarks:'' }; }
+function openLabAssign(bid,lid){ var ctx=coaCtx(bid,lid); var b=ctx.b, h=ctx.h; if(!b||!h) return;
+  if(!(usersList||[]).length){ try{ loadUsers().then(function(){ if(labAsg&&labAsg.bid===bid) labRenderAssign(); }); }catch(e){} }
+  var edit=(state.role==='COO'||state.role==='QCM');
+  if(h.coa && !labIsV2(h.coa)){ openBatchCOA(bid,lid); return; }
+  var c=h.coa||labNewCoa(ctx,b); var form=labProductForm(c.item);
+  var U=(state.masters&&state.masters.labUsual)||{};
+  labAsg={bid:bid,lid:lid||'',edit:edit,assigned:!!(c.assign),item:c.item,L:ctx.L,
+    sampledBy:c.sampledBy||((state.currentUser&&state.currentUser.name)||''),sampleQty:c.sampleQty||'0.5 kg',temp:c.temp||'',humidity:c.humidity||'',
+    container:(c.assign&&c.assign.container)||'',nature:(c.assign&&c.assign.nature)||'',
+    rows:(c.tests||[]).map(function(r){ var p=r.param||labParamFor(c.item,r.test,form,r.method); return {test:r.test,g:r.g,spec:r.spec,method:r.method,mu:r.mu,param:p,to:r.to||(p&&U[p])||'',done:!!r.doneAt,due:r.due||''}; })};
+  if(!edit){ toast(labAsg.assigned?'Assigned by the QC manager':'Waiting for the QC manager to assign this sample'); if(!labAsg.assigned){ return; } }
+  labRenderAssign(); }
+function labRenderAssign(){ var a=labAsg; if(!a) return; var ed=a.edit; var P=labParamsList(); var A=labAnalysts();
+  var e=function(x){ return _pe(x); };
+  var inp=function(f,ph){ return '<input value="'+e(a[f])+'" placeholder="'+e(ph||'')+'" '+(ed&&!a.assigned?'':'disabled')+' onchange="labAsg[\''+f+'\']=this.value">'; };
+  var rows=a.rows.map(function(r,i){
+    var pSel='<select '+(ed&&!a.assigned?'':'disabled')+' onchange="labAsg.rows['+i+'].param=this.value;labRenderAssign()"><option value="">— pick the test —</option>'+P.map(function(p){ return '<option'+(p.name===r.param?' selected':'')+'>'+e(p.name)+'</option>'; }).join('')+'</select>';
+    var aSel='<select '+(ed&&!r.done?'':'disabled')+' onchange="labAsg.rows['+i+'].to=this.value"><option value="">— analyst —</option>'+A.map(function(u){ return '<option value="'+e(u.username)+'"'+(u.username===r.to?' selected':'')+'>'+e(u.name)+'</option>'; }).join('')+(r.to&&!A.some(function(u){return u.username===r.to;})?'<option value="'+e(r.to)+'" selected>'+e(labNameOf(r.to))+'</option>':'')+'</select>';
+    var mins=labParamMins(r.param); var due=r.due?labFmt(r.due):(mins?labDurTxt(mins*60000)+' after assigning':'—');
+    return '<tr><td><b>'+e(r.test)+'</b><div class="muted" style="font-size:11px">'+e(r.spec||'')+'</div></td><td>'+pSel+'</td><td>'+aSel+'</td><td class="muted" style="font-size:12px">'+(r.done?'done':e(due))+'</td></tr>'; }).join('');
+  var addRow=(ed&&!a.assigned)?'<div style="margin-top:8px"><button class="sm ghost" onclick="labAsgAddRow()">+ Add a test</button></div>':'';
+  var btn=ed?(a.assigned?'<button class="green" onclick="labAssignConfirm()">Save the analysts</button>':'<button class="green" onclick="labAssignConfirm()">Assign</button>'):'';
+  $('modal').innerHTML='<div class="mh"><h2>'+(a.assigned?'Sample assignment':'Assign this sample')+'</h2><div class="sub">'+e(a.item)+' · '+e(a.L)+' · QCL-FRM-19.01</div></div>'
+    +'<div class="mb"><div class="grid2" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px">'
+    +'<div class="fld"><label>Sample received by</label>'+inp('sampledBy')+'</div><div class="fld"><label>Sample quantity</label>'+inp('sampleQty')+'</div>'
+    +'<div class="fld"><label>Container type</label>'+inp('container','e.g. bottle, pouch')+'</div><div class="fld"><label>Nature of sample</label>'+inp('nature','e.g. liquid, granular')+'</div>'
+    +'<div class="fld"><label>Temperature °C</label>'+inp('temp')+'</div><div class="fld"><label>Humidity %</label>'+inp('humidity')+'</div></div>'
+    +'<div style="overflow:auto;margin-top:12px"><table><thead><tr><th>Test on the certificate</th><th>Test (for its time)</th><th>Analyst</th><th>Due</th></tr></thead><tbody>'+(rows||'<tr><td colspan="4" class="muted">No tests on this product\'s template yet. Add them below.</td></tr>')+'</tbody></table></div>'+addRow
+    +'<div class="muted" style="font-size:12px;margin-top:10px">Each test is due its own time after you press Assign (clock hours). The sample is due when its longest test is due. The analyst you pick becomes the usual one for that test next time.</div></div>'
+    +'<div class="mf">'+(a.assigned?'<button class="ghost" onclick="printLabAssign(\''+e(a.bid)+'\',\''+e(a.lid)+'\')">Print 19.01</button>':'')+'<button class="ghost" onclick="closeModal()">Close</button>'+btn+'</div>';
+  $('modalBg').classList.add('open'); }
+function labAsgAddRow(){ if(!labAsg||!labAsg.edit||labAsg.assigned) return; var n=(typeof prompt==='function'?prompt('Name of the test as it prints on the certificate:'):'')||''; n=String(n).trim(); if(!n) return;
+  labAsg.rows.push({test:n,g:'Chemical',spec:'',method:'',mu:'-',param:labSuggestParam(n,labProductForm(labAsg.item)),to:'',done:false,due:''}); labRenderAssign(); }
+function labAssignConfirm(){ var a=labAsg; if(!a) return; if(!(state.role==='COO'||state.role==='QCM')){ toast('The QC manager assigns samples'); return; }
+  var ctx=coaCtx(a.bid,a.lid); var b=ctx.b, h=ctx.h; if(!b||!h) return;
+  if(h.coa && !labIsV2(h.coa)){ toast('This certificate was started in the old flow. Finish it there.'); return; }
+  if(!a.rows.length){ toast('Add at least one test'); return; }
+  for(var i=0;i<a.rows.length;i++){ var r=a.rows[i]; if(!r.done&&!r.to){ toast('Pick an analyst for '+(r.test||'every test')); return; } if(!a.assigned&&!labParamMins(r.param)){ toast('Pick which test '+(r.test||'this row')+' is, so it has a time'); return; } }
+  var U=state.masters.labUsual=state.masters.labUsual||{}; var PO=state.masters.labParamOf=state.masters.labParamOf||{};
+  if(a.assigned){ var c0=h.coa; a.rows.forEach(function(r,i){ var t=c0.tests[i]; if(!t||t.doneAt) return; if(t.to!==r.to){ t.to=r.to; t.toName=labNameOf(r.to); U[t.param]=r.to; } });
+    qcAudit2(b,'Lab reassigned',''); logAction('Lab: analysts changed for '+ctx.L); save(); closeModal(); toast('Saved'); render(); return; }
+  if(!String(a.temp||'').trim()||!String(a.humidity||'').trim()||!String(a.sampledBy||'').trim()||!String(a.sampleQty||'').trim()){ toast('Received by, sample quantity, temperature and humidity go on the certificate. Fill them in.'); return; }
+  var c=h.coa||labNewCoa(ctx,b); var now=new Date(); var at=now.toISOString(); var p2=function(n){return String(n).padStart(2,'0');};
+  c.flow='v2'; c.sampledBy=a.sampledBy; c.sampleQty=a.sampleQty; c.temp=a.temp; c.humidity=a.humidity; c.analysisTime=p2(now.getHours())+':'+p2(now.getMinutes());
+  c.assign={by:sigStamp(),at:at,container:a.container||'',nature:a.nature||''};
+  var byTest={}; (c.tests||[]).forEach(function(t){ byTest[t.test]=t; });
+  c.tests=a.rows.map(function(r){ var t=byTest[r.test]||{g:r.g||'Chemical',test:r.test,spec:r.spec||'',method:r.method||'',mu:r.mu||'-',result:'',remark:''};
+    t.param=r.param; t.to=r.to; t.toName=labNameOf(r.to); t.due=new Date(now.getTime()+labParamMins(r.param)*60000).toISOString(); delete t.doneAt; delete t.doneBy;
+    U[r.param]=r.to; PO[String(c.item||'')+'|'+String(r.test||'').trim().toLowerCase()]=r.param; return t; });
+  c.dueAt=c.tests.reduce(function(m,t){ return (!m||t.due>m)?t.due:m; },'');
+  c.status='draft'; h.coa=c;
+  qcAudit2(b,'Lab assigned',c.tests.map(function(t){return t.param+' → '+t.toName;}).join('; '));
+  logAction('Lab: sample '+ctx.L+' assigned — due '+labFmt(c.dueAt)); save(); closeModal(); toast('Assigned. Due '+labFmt(c.dueAt)); render(); }
+/* ---- the bench sheet: one test, every sample waiting for it ---- */
+var benchParam='';
+function labPendingRows(param){ var out=[]; (state.batches||[]).forEach(function(b){ if(!((b.producedKg||0)>0)||b.disposition==='byproduct') return;
+  var units=(b.lots||[]).length?b.lots.map(function(l){return {id:l.id,no:(l.lotNo||b.batchNo||''),coa:l.coa};}):[{id:'',no:(b.batchNo||''),coa:b.coa}];
+  units.forEach(function(u){ var c=u.coa; if(!labIsV2(c)||!c.assign||c.status!=='draft') return; (c.tests||[]).forEach(function(r,i){ if(r.doneAt) return; if((r.param||r.test)!==param) return; out.push({b:b,u:u,c:c,r:r,i:i}); }); }); });
+  var me=(state.currentUser||{}).username||''; out.sort(function(x,y){ return ((x.r.to===me)?0:1)-((y.r.to===me)?0:1) || String(x.r.due).localeCompare(String(y.r.due)); }); return out; }
+function openBench(param){ benchParam=param; var rows=labPendingRows(param); var e=function(x){return _pe(x);};
+  var ed=(state.role==='COO'||state.role==='Lab Rep'||state.role==='AQCM'||state.role==='QCM');
+  var body=rows.map(function(x){ var late=labLateBy(x.r.due); var k=x.b.id+'_'+x.u.id+'_'+x.i;
+    return '<tr><td><b>'+e(coaItemOf(x.b))+'</b><div class="muted" style="font-size:11px">'+e(x.u.no)+'</div><div style="font-size:12px"><b>'+e(x.r.test||'')+'</b>'+(x.r.method?' · '+e(x.r.method):'')+' · spec '+e(x.r.spec||'—')+'</div></td><td>'+e(x.r.toName||labNameOf(x.r.to))+'</td><td style="'+(late?'color:var(--red);font-weight:600':'')+'">'+(late?(labDurTxt(late)+' late'):e(labFmt(x.r.due)))+'</td>'
+      +'<td><input id="bres_'+e(k)+'" value="'+e(x.r.result||'')+'" style="width:90px" '+(ed?'':'disabled')+'></td>'
+      +'<td><select id="brem_'+e(k)+'" '+(ed?'':'disabled')+'><option value="">auto</option><option>FIT</option><option>UNFIT</option><option>No Result</option></select></td>'
+      +'<td>'+(ed?'<button class="sm green" onclick="benchSave(\''+e(x.b.id)+'\',\''+e(x.u.id)+'\','+x.i+',document.getElementById(\'bres_'+e(k)+'\').value,document.getElementById(\'brem_'+e(k)+'\').value)">Save</button>':'')+'</td></tr>'; }).join('');
+  $('modal').innerHTML='<div class="mh"><h2>'+e(param)+' — bench sheet</h2><div class="sub">'+rows.length+' sample'+(rows.length===1?'':'s')+' waiting for this test. Yours first.</div></div>'
+    +'<div class="mb"><div style="overflow:auto"><table><thead><tr><th>Sample</th><th>Assigned to</th><th>Due</th><th>Result</th><th>Remark</th><th></th></tr></thead><tbody>'+(body||'<tr><td colspan="6" class="muted">Nothing waiting for '+e(param)+'.</td></tr>')+'</tbody></table></div>'
+    +'<div class="muted" style="font-size:12px;margin-top:8px">Save records your name and the time. When every test on a sample has a result, its certificate goes to the AQCM.</div></div>'
+    +'<div class="mf"><button class="ghost" onclick="closeModal();render()">Close</button></div>';
+  $('modalBg').classList.add('open'); }
+function benchSave(bid,lid,i,result,remark){ if(!(state.role==='COO'||state.role==='Lab Rep'||state.role==='AQCM'||state.role==='QCM')){ toast('Lab only'); return; }
+  var ctx=coaCtx(bid,lid); var b=ctx.b, h=ctx.h; if(!b||!h||!labIsV2(h.coa)||h.coa.status!=='draft') return; var c=h.coa; var r=c.tests[i]; if(!r) return;
+  if(r.doneAt){ toast('Already recorded'); return; }
+  var v=String(result==null?'':result).trim(); var rk=String(remark||'').trim();
+  if(!v && !/^no result$/i.test(rk)){ toast('Enter the result (or mark it No Result)'); return; }
+  r.result=v; if(!rk){ var ar=coaAutoRemark(r.spec,v,r.test); rk=ar||''; } if(!rk){ toast('Set FIT or UNFIT for this result'); return; }
+  r.remark=rk; r.doneBy=sigStamp(); r.doneAt=new Date().toISOString();
+  qcAudit2(b,'Lab result',(r.param||r.test)+' = '+v+' ('+rk+')'); logAction('Lab: '+(r.param||r.test)+' on '+ctx.L+' = '+v+' ('+rk+')');
+  if(c.tests.every(function(t){return !!t.doneAt;})){ var ov=coaOverall(c.tests); c.overall=ov;
+    var names=[]; c.tests.forEach(function(t){ var n=(t.doneBy&&t.doneBy.name)||''; if(n&&names.indexOf(n)<0) names.push(n); });
+    c.analyst={name:names.join(', '),date:coaTS()}; c.draftedBy=sigStamp();
+    c.status=(ov==='FIT')?'analysed':'failed';
+    if(ov==='UNFIT') c.failReason='UNFIT on '+c.tests.filter(function(t){return /unfit|not ok/i.test(t.remark||'');}).map(function(t){return t.test;}).join(', ');
+    else if(ov!=='FIT') c.failReason='No result on '+c.tests.filter(function(t){return /no result/i.test(t.remark||'');}).map(function(t){return t.test;}).join(', ');
+    qcAudit2(b,'Lab analysed',ov); logAction('Lab COA complete for '+ctx.L+' ('+c.item+') — '+ov+(ov!=='FIT'?' → Plant Manager':' → AQCM')); }
+  save(); if(benchParam && $('modalBg').classList.contains('open')) openBench(benchParam); }
+/* 2 people on every certificate: in the new flow every analyst counts */
+function labRanATest(c){ if(!labIsV2(c)) return false; return (c.tests||[]).some(function(t){ return t.doneBy && coaSamePerson(t.doneBy,''); }); }
+/* ---- the 19.01 form ---- */
+function printLabAssign(bid,lid){ var ctx=coaCtx(bid,lid); var h=ctx.h; if(!h||!labIsV2(h.coa)||!h.coa.assign){ toast('This sample has not been assigned'); return; } var c=h.coa, a=c.assign; var e=function(x){return _pe(x);};
+  var rows=(c.tests||[]).map(function(t,i){ return '<tr><td>'+(i+1)+'</td><td>'+e(t.toName||labNameOf(t.to))+'</td><td>'+e(t.param||t.test)+'<div style="font-size:10px;color:#555">'+e(t.test)+'</div></td><td>'+e(t.doneBy?((t.doneBy.name||'')+' · '+labFmt(t.doneAt)):'')+'</td><td>'+e(t.result||'')+'</td><td>'+e(t.doneAt?labFmt(t.doneAt):'')+'</td><td>'+e(t.remark||'')+'</td></tr>'; }).join('');
+  var inner='<div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:1.5px solid #111;padding-bottom:6px;margin-bottom:10px"><div><b style="font-size:15px">ASSIGNMENT, SUMMARY &amp; REVIEW FORM</b><div style="font-size:11px">Vital Agri Nutrients Quality Control Laboratory</div></div><div style="font-size:11px;text-align:right">Doc. No. <b>QCL-FRM-19.01</b><br>Issue Date 15/02/2025 · Rev # 02</div></div>'
+    +'<div style="font-size:12px;margin-bottom:6px"><b>Sample Details</b> · Assigned by: '+e(a.by&&a.by.name)+'</div>'
+    +'<table style="width:100%;border-collapse:collapse;font-size:12px" border="1" cellpadding="4"><tr><td>Product Name: <b>'+e(c.item)+'</b></td><td>Batch/Lot#: <b>'+e(c.batchNo)+'</b></td><td>QC#: <b>'+e(c.qcNo)+'</b></td></tr>'
+    +'<tr><td>Assigned: '+e(labFmt(a.at))+'</td><td>Due: '+e(labFmt(c.dueAt))+'</td><td>Container type: '+e(a.container)+'</td></tr><tr><td colspan="2">Received by: '+e(c.sampledBy)+' · Quantity: '+e(c.sampleQty)+'</td><td>Nature of Sample: '+e(a.nature)+'</td></tr></table>'
+    +'<div style="font-size:12px;margin:10px 0 6px"><b>Testing Detail</b></div>'
+    +'<table style="width:100%;border-collapse:collapse;font-size:12px" border="1" cellpadding="4"><thead><tr><th>Sr. No.</th><th>Assigned To</th><th>Parameter</th><th>Initials/Date</th><th>Results</th><th>Results Date</th><th>Remarks</th></tr></thead><tbody>'+rows+'</tbody></table>'
+    +'<div style="display:flex;justify-content:space-between;margin-top:28px;font-size:12px"><div>Reviewed by: <b>'+e(c.reviewer&&c.reviewer.name||'')+'</b> '+e(c.reviewer&&c.reviewer.date||'')+'</div><div>Verified by: <b>'+e(c.approver&&c.approver.name||'')+'</b> '+e(c.approver&&c.approver.date||'')+'</div></div>';
+  printDoc('QCL-FRM-19.01 '+(c.batchNo||''),inner); }
+/* ---- setup: the switch, the times, the usual analysts ---- */
+function openLabSetup(){ var e=function(x){return _pe(x);}; var ed=(state.role==='COO'||state.role==='QCM'); var U=(state.masters&&state.masters.labUsual)||{};
+  var rows=labParamsList().map(function(p){ return '<tr><td>'+e(p.name)+'</td><td><input type="number" step="0.25" min="0.25" style="width:80px" value="'+(Math.round(p.mins/60*100)/100)+'" '+(ed?'':'disabled')+' onchange="labTimeSet(\''+e(p.name).replace(/'/g,'')+'\',this.value)"> h</td><td class="muted">'+e(U[p.name]?labNameOf(U[p.name]):'—')+'</td></tr>'; }).join('');
+  var on=labFlowOn(); var f=(state.masters&&state.masters.labFlow)||{};
+  var sw=state.role==='COO'?('<button class="'+(on?'ghost':'green')+'" onclick="labSetFlow('+(on?'false':'true')+')">'+(on?'Switch off':'Switch on')+'</button>'):'';
+  $('modal').innerHTML='<div class="mh"><h2>Lab — test times and analysts</h2><div class="sub">Assignment by parameter is <b>'+(on?'ON':'OFF')+'</b>'+(f.at?(' since '+e(labFmt(f.at))+(f.by&&f.by.name?' ('+e(f.by.name)+')':'')):'')+'.</div></div>'
+    +'<div class="mb"><div class="muted" style="font-size:12px;margin-bottom:8px">From the QC manager\'s Estimated Time For Test Report: 30 min sampling + the test + 30 min reporting. When it is ON, a new sample goes to the QC manager to assign; each test goes to its analyst and is due its own time later. A certificate the lab had already started stays in the old flow.</div>'
+    +'<div style="overflow:auto;max-height:52vh"><table><thead><tr><th>Test</th><th>Total time</th><th>Usual analyst</th></tr></thead><tbody>'+rows+'</tbody></table></div></div>'
+    +'<div class="mf"><button class="ghost" onclick="closeModal();render()">Close</button>'+sw+'</div>';
+  $('modalBg').classList.add('open'); }
+function labTimeSet(name,hours){ if(!(state.role==='COO'||state.role==='QCM')){ toast('The QC manager sets the test times'); return; }
+  var h=parseFloat(hours); if(!(h>0)){ toast('Enter the hours as a number'); return; }
+  state.masters=state.masters||{}; var L=labParamsList().map(function(p){ return {name:p.name,mins:p.mins}; });
+  var p=L.find(function(x){return x.name===name;}); if(!p) return; var old=p.mins; p.mins=Math.round(h*60); state.masters.labParams=L;
+  logAction('Lab: time for '+name+' '+labDurTxt(old*60000)+' → '+labDurTxt(p.mins*60000)); save(); }
 /* ===== THE THREE VERIFY ITEMS — SPEC-01 rule 3, built 2026-08-21
 
    The 8-point checklist asks "Batch & expiry printed" — printed, not CORRECT.
@@ -10619,6 +10818,8 @@ function screenQC(){
   const labDone=lotUnits.filter(u=>u.coa&&u.coa.status==='approved');
   const itemOf=b=>coaItemOf(b);
   const labAct=(u)=>{ const st=u.coa&&u.coa.status; const call=`openBatchCOA('${u.b.id}','${u.id}')`;
+    if(labNeedsAssign({coa:u.coa})) return (isQM||isCOO)?`<button class="sm green" onclick="openLabAssign('${u.b.id}','${u.id}')">Assign</button>`:'<span class="muted" style="font-size:11px">waiting for the QC manager to assign</span>';
+    if(labIsV2(u.coa)&&st==='draft'){ const _d=(u.coa.tests||[]).filter(t=>t.doneAt).length; return `<span class="muted" style="font-size:11px">testing · ${_d} of ${(u.coa.tests||[]).length} done</span> <button class="sm ghost" onclick="openLabAssign('${u.b.id}','${u.id}')">Analysts</button>`; }
     if(!u.coa||st==='draft') return (isLab||isCOO)?`<button class="sm green" onclick="${call}">${u.coa?'Resume COA':'Start COA'}</button>`:'<span class="muted" style="font-size:11px">waiting for Lab Rep</span>';
     if(st==='analysed') return (isAQ||isCOO)?`<button class="sm green" onclick="${call}">Review (AQCM)</button>`:'<span class="muted" style="font-size:11px">waiting for AQCM</span>';
     if(st==='reviewed') return (isQM||isCOO)?`<button class="sm green" onclick="${call}">Approve (QCM)</button>`:'<span class="muted" style="font-size:11px">waiting for QCM</span>';
@@ -10660,7 +10861,7 @@ function screenQC(){
   var qcGroupSel='<div class="ac2tools" style="margin-bottom:12px"><div style="flex:1"></div><select onchange="qcGroup=this.value;render()"><option value="status"'+(qcGroup!=='product'?' selected':'')+'>Group: None</option><option value="product"'+(qcGroup==='product'?' selected':'')+'>Group: By product</option></select></div>';
   /* 24n: the shell - the tiles are the tabs; no second tab bar, no Group select (the reviewer's "inner tabs") */
   var qcTiles='<div class="qs-tally four">'+['awaiting','review','unfit','approved'].map(function(k){ var n=qcSets[k].length; var tone=k==='unfit'?(n?'st-over':'st-ok'):k==='approved'?'st-done':(n?'st-late':'st-ok'); return '<button class="qs-tile go '+tone+(qcTab===k?' sel':'')+'" onclick="qcTab=\''+k+'\';render()"><span class="n">'+n+'</span><span class="l">'+qcLabels[k].toLowerCase()+'</span></button>'; }).join('')+'</div>';
-  $('view').innerHTML='<div class="qs wide"><h1>Lab</h1><div class="sub">Every batch and lot on its way to a certificate: the analyst drafts, a second person reviews, the QCM approves. Tap a tile.</div>'+((isLab||isAQ||isQM||isPM||isCOO)?'':viewOnly('Lab, AQCM, QCM &amp; Plant Manager'))+qcTiles+'<div class="paperui" style="margin-top:12px;padding:0">'+qcBody+'</div></div>';
+  $('view').innerHTML='<div class="qs wide"><h1>Lab</h1><div class="sub">Every batch and lot on its way to a certificate: the analyst drafts, a second person reviews, the QCM approves. Tap a tile.</div>'+((isQM||isCOO)?'<div style="margin:8px 0"><button class="qs-btn sm" onclick="openLabSetup()">Test times and analysts'+(labFlowOn()?' · assignment ON':'')+'</button></div>':'')+((isLab||isAQ||isQM||isPM||isCOO)?'':viewOnly('Lab, AQCM, QCM &amp; Plant Manager'))+qcTiles+'<div class="paperui" style="margin-top:12px;padding:0">'+qcBody+'</div></div>';
 }
 var qaGroup='status';
 var qaTab='awaiting'; /* Pre-shipment QA primary tab: awaiting | cleared | issues */
@@ -10882,6 +11083,8 @@ function actionItems(){
   try{ pendingCustomerItems().forEach(function(it){ items.push(it); }); }catch(e){}
   (state.batches||[]).filter(b=>(b.producedKg||0)>0 && b.disposition!=='byproduct').forEach(b=>{ const it=coaItemOf(b);  /* Stage 1: by-product accruals don't generate Lab-COA/QC actions until called for manufacturing (read-only; clears the 2 false QC triggers) */ const units=(b.lots||[]).length?(b.lots).map(l=>({id:l.id,no:(l.lotNo||b.batchNo||''),coa:l.coa})):[{id:'',no:(b.batchNo||''),coa:b.coa}];
     units.forEach(u=>{ const st=u.coa&&u.coa.status; if(u.coa&&st==='approved')return; const call="openBatchCOA('"+b.id+"','"+u.id+"')"; const tag=(u.no||'');
+      /* 24r: a sample in the lab's own flow - assigned by parameter (labV2Items). Review onwards is the code below. */
+      if(labIsV2(u.coa)||(!u.coa&&labFlowOn())){ if(!u.coa||!u.coa.assign||st==='draft'){ labV2Items(b,u,it,tag,call).forEach(function(x){ items.push(x); }); return; } }
       /* A re-issued draft is named as one, with its reason, so the Lab Rep is not
          handed "Lab COA — AP26012-L2" as ordinary work when the certificate was
          withdrawn because the lot was never made. */
@@ -11375,6 +11578,7 @@ function actTiming(it){
       default: c=it.o.received; approx=true;
     }
   } else if(it.pr){ c=it.pr.date; }
+  else if(it.labAt){ c=it.labAt; }
   else if(it.batch){ c=it.batch.closedDate||it.batch.openedDate||it.batch.date||null; approx=(it.label!=='Lab QC'); }
   else if(it.lot){ c=(it.lot.qa&&it.lot.qa.date)||it.lot.date||null; }
   else if(it.disp){ c=it.disp.date||null; }
@@ -11447,7 +11651,7 @@ function acRoleScoped(b){ return acRoleF==='all'?b:b.filter(function(x){return x
 function acCounts(){ var r0=acRoleScoped(acBase()); var deferred=r0.filter(function(x){return !!acDeferActive(x);}).length; var r=r0.filter(function(x){return !acDeferActive(x);}); var late=0,today=0,normal=0,old=0; r.forEach(function(x){ if(x._risk==='late')late++; else if(x._risk==='today')today++; else normal++; if(x._days>old)old=x._days; }); return {all:r.length,late:late,today:today,normal:normal,oldest:old,deferred:deferred}; }
 /* Self-defer: owner snoozes an action 1–30 days with a locked reason; it leaves the active list until the return date, stays visible under the Deferred filter and to managers. Greenlit stored field: state.acDefer (keyed by a deterministic acKey). */
 var AC_DEFER_REASONS=['RM en route','Scheduled later','Awaiting approval','Capacity issues','Packing not available','Other'];
-function acKey(it){ var p=[it.label||'']; if(it.o)p.push('o:'+it.o.id); if(it.l)p.push('l:'+(it.l.id||it.l.brand||'')); if(it.pr)p.push('pr:'+it.pr.id); if(it.batch)p.push('b:'+it.batch.id); if(it.lot)p.push('lot:'+it.lot.id); if(it.disp)p.push('d:'+(it.disp.dispId||'')); return p.join('|'); }
+function acKey(it){ var p=[it.label||'']; if(it.o)p.push('o:'+it.o.id); if(it.l)p.push('l:'+(it.l.id||it.l.brand||'')); if(it.pr)p.push('pr:'+it.pr.id); if(it.batch)p.push('b:'+it.batch.id); if(it.lid)p.push('u:'+it.lid); if(it.row!=null)p.push('r:'+it.row); if(it.lot)p.push('lot:'+it.lot.id); if(it.disp)p.push('d:'+(it.disp.dispId||'')); return p.join('|'); }
 function acDeferActive(it){ var m=state.acDefer||{}; var d=m[acKey(it)]; if(!d||!d.until)return null; return (String(d.until)>=TODAY.toISOString().slice(0,10))?d:null; }
 var acDeferForm=null;
 function acDefer(id){ var it=acBase().filter(function(x){return x._id===id;})[0]; if(!it)return; var t=new Date(TODAY); t.setDate(t.getDate()+7); acDeferForm={id:id,key:acKey(it),title:(it.what||it.label),reason:AC_DEFER_REASONS[0],until:t.toISOString().slice(0,10)}; renderAcDefer(); $('modalBg').classList.add('open'); }
@@ -11470,7 +11674,9 @@ function acProduceStallDays(it){ var o=it.o,l=it.l; if(!o||!l)return null;
   (state.productionLog||[]).forEach(function(p){ if(p&&p.batchNo&&p.date&&bs.some(function(b){return b.batchNo===p.batchNo;}))dates.push(p.date); });
   if(!dates.length)return null; dates.sort(); var last=new Date(dates[dates.length-1]); return isNaN(last)?null:Math.max(0,Math.round((TODAY-last)/86400000)); }
 function acEscalation(it){ if(!it)return null;
-  var TH={'Acknowledge':[1,'Plant Manager'],'RM Check':[1,'CFO'],'Receive':[1,'CFO'],'Lab QC':[1,'Plant Manager'],'Review':[1,'Plant Manager'],'Approve':[1,'Plant Manager'],'Pack QC':[2,'Plant Manager'],'Inspect':[2,'Plant Manager'],'Ship':[2,'Supply Chain'],'Open Production':[4,'Plant Manager'],'Approve PR':[1,'COO'],
+  /* 24r: a test is late by the clock, against its own due time; the QCM hears first (Tahir). The Plant Manager's 'Lab late' is its own item. */
+  if(it.label==='Lab test'){ var _lm=labLateBy(it.due); return _lm>0?{days:Math.floor(_lm/86400000),to:'QCM',stall:false}:null; } if(it.label==='Lab late') return null;
+  var TH={'Acknowledge':[1,'Plant Manager'],'RM Check':[1,'CFO'],'Receive':[1,'CFO'],'Lab QC':[1,'Plant Manager'],'Assign sample':[1,'Plant Manager'],'Review':[1,'Plant Manager'],'Approve':[1,'Plant Manager'],'Pack QC':[2,'Plant Manager'],'Inspect':[2,'Plant Manager'],'Ship':[2,'Supply Chain'],'Open Production':[4,'Plant Manager'],'Approve PR':[1,'COO'],
     /* 2026-08-21 — the truck pipeline. A loaded truck waiting on a release is the
        most expensive thing to leave sitting, so it escalates after one day. */
     'Print price':[3,'COO'],'Load':[1,'Supply Chain'],'Gate Pass':[1,'Supply Chain'],'Release':[1,'COO'],'Approve DC':[1,'COO'],
@@ -11606,6 +11812,9 @@ var TD_LABEL={
   'Confirm delivery':{title:'Delivery to confirm',                  verb:'Confirm delivered'},
   'Inspect':         {title:'Inspect the truck before it leaves',   verb:'Inspect'},
   'Lab QC':          {title:'COA to test and draft',                verb:'Open the COA'},
+  'Assign sample':   {title:'Sample to assign',                     verb:'Assign'},
+  'Lab test':        {title:'Test to run',                          verb:'Open the bench sheet'},
+  'Lab late':        {title:'Lab sample overdue',                   verb:'Open'},
   'Review':          {title:'Needs your signature',                 verb:'Open'},
   'Approve':         {title:'COA to approve',                       verb:'Approve COA'},
   'Print price':     {title:'Print-on-pack answer needed',          verb:'Answer'},
@@ -11646,6 +11855,8 @@ function tdItems(){
   var all=actionItems(), role=state.role;
   all.forEach(function(x){ x._escalated=false; if(x.role!==role){ var e=acEscalation(x); if(e&&e.to===role) x._escalated=true; } });
   var out=all.filter(function(x){ return tdVisible(x,role) && !acDeferActive(x); });
+  /* 24r: a test assigned to one analyst is on that analyst's list, not every Lab Rep's */
+  var _me=(state.currentUser||{}).username||''; out=out.filter(function(x){ return !x.who || role==='COO' || x._escalated || x.who===_me; });
   if(role==='COO' && tdScope!=='plant') out=out.filter(function(x){ return x._escalated || x.role==='COO'; });
   out.forEach(function(it,i){ it._id='T'+i; it._risk=acRiskOf(it); it._days=(actTiming(it)||{}).days||0; });
   return out;
@@ -11662,6 +11873,7 @@ function tdGroups(items){
     if(it.label==='Open Production' && it.l) key='prod:'+(it.l.brand||'');
     else if(it.label==='Receive' && it.o) key='rcv:'+it.o.id;
     else if(it.label==='Add reason' && it.o) key='rsn:'+it.o.id;
+    else if(it.label==='Lab test') key='test:'+(it.param||'');
     else key='one:'+(it._id||order.length);
     if(!map[key]){ map[key]={key:key,label:it.label,items:[],qty:0,late:0,days:0,pos:{}}; order.push(key); }
     var g=map[key]; g.items.push(it);
@@ -11729,6 +11941,12 @@ function tdCardHTML(g){
     /* R14: one question per late order, not one per line */
     h+=head;
     h+='<button class="tdbtn" onclick="openDelayReasonOrder(\''+_tdEsc(one.o.id)+'\')">'+(n===1?'Give the reason':'Give one reason for all '+n)+'</button>';
+    return h+'</div>';
+  }
+  /* 24r: one bench - every sample waiting for this test, one button */
+  if(g.key.indexOf('test:')===0){ var _lt=g.items.filter(function(x){return labLateBy(x.due)>0;}).length; var _nx=g.items.map(function(x){return x.due;}).filter(Boolean).sort()[0];
+    h='<div class="tdcard'+(_lt?' late':' warn')+'"><div class="tdhead"><div class="tdstage">Test to run</div><div class="tdtitle">'+_tdEsc(one.param)+'</div><div class="tdsub">'+n+' sample'+(n===1?'':'s')+(_nx?' · next due '+_tdEsc(labFmt(_nx)):'')+'</div><div class="tdtags">'+(_lt?'<span class="tdtag late">'+_lt+' late</span>':'')+'</div></div>';
+    h+='<button class="tdbtn" onclick="openBench(\''+_tdEsc(one.param).replace(/'/g,'')+'\')">Open the bench sheet</button>';
     return h+'</div>';
   }
   if(n===1){
@@ -12589,7 +12807,7 @@ function tdYourPeople(){
   var stamps=evAllStamps(); var deptCur=ppCurrent(stamps.filter(function(x){ return people.some(function(u){return u.name===x.by;}); }),7);
   var h='<div class="tdsec">Your people<span class="cnt">'+people.length+'</span></div>';
   h+='<div class="dept-num '+(deptCur.pct==null?'st-na':deptCur.pct>=90?'st-ok':deptCur.pct>=70?'st-late':'st-over')+'"><div class="big">'+(deptCur.pct==null?'—':deptCur.pct+'%')+'</div><div class="def"><b>current</b> · '+(deptCur.n?(deptCur.ok+' of '+deptCur.n+' entries in the last 7 days were recorded the day they happened. The rest were entered later.'):'no stamped entries in the last 7 days yet.')+' This is the department’s one number.</div>'+(deptCur.n?'<div class="bar"><i style="width:'+deptCur.pct+'%"></i></div>':'')+'</div>';
-  h+='<div class="tdlist" style="margin-top:10px">'+people.map(function(u){ var gs=tdGroups(byRole[u.role]||[]); var worst=0; gs.forEach(function(g){ if(g.days>worst) worst=g.days; }); var done=log.filter(function(e){return e.by===u.name;}).length; var cur=ppCurrent(stamps.filter(function(x){return x.by===u.name;}),7);
+  h+='<div class="tdlist" style="margin-top:10px">'+people.map(function(u){ var gs=tdGroups((byRole[u.role]||[]).filter(function(it){ return !it.who||it.who===u.username; })); var worst=0; gs.forEach(function(g){ if(g.days>worst) worst=g.days; }); var done=log.filter(function(e){return e.by===u.name;}).length; var cur=ppCurrent(stamps.filter(function(x){return x.by===u.name;}),7);
       var tone=gs.length?(worst>=1?'st-over':'st-late'):'st-ok';
       return '<button class="person" onclick="openPersonList(\''+qsEsc(u.role)+'\',\''+qsEsc(u.name)+'\')"><div class="row between"><span class="nm">'+qsEsc(u.name)+'</span><span class="rl">'+qsEsc(personTitle(u.username,u.role))+'</span></div>'
         +'<div class="stats"><span class="st-na"><span class="n">'+gs.length+'</span><span class="l">waiting on '+qsEsc(String(u.name).split(' ')[0])+(gs.length&&(byRole[u.role]&&people.filter(function(p){return p.role===u.role;}).length>1)?' (shared)':'')+'</span></span><span class="'+tone+'"><span class="n">'+(gs.length?(worst?worst+' d':'today'):'none')+'</span><span class="l">oldest waiting</span></span><span class="st-done"><span class="n">'+done+'</span><span class="l">done today</span></span></div>'

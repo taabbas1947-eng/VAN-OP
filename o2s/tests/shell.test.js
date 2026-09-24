@@ -449,7 +449,7 @@ ok('a browser that remembered All actions or the Dashboard lands on Today', /if\
     const w = f({ role: 'Warehouse' }, () => false)().map(c => c.id);
     ok('the Warehouse sees trucks and production, not the lab', w.indexOf('trucks') > -1 && w.indexOf('prodshift') > -1 && w.indexOf('coa') < 0);
     const c = f({ role: 'COO' }, () => true)().map(x => x.id);
-    eq('the COO sees all 13', c.length, 13);
+    eq('the COO sees all 14 (25d: + Pre-shipment inspections)', c.length, 14);
     const k = f({ role: 'KAM' }, () => true)().map(x => x.id);
     ok('a KAM with money sees sales and invoicing, not the corrections register', k.indexOf('sales') > -1 && k.indexOf('invoicing') > -1 && k.indexOf('corrections') < 0);
     const fi = f({ role: 'Finance' }, () => false)().map(x => x.id);

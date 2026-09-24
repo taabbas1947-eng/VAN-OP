@@ -11,7 +11,7 @@
    a push keeps running the old code with nothing telling anybody. It sat at
    2026-09-04a through this whole day's work; rmqty/psi tests pinned the code,
    nothing pinned this. buildid.test.js now does. */
-var BUILD_ID='2026-09-25c';
+var BUILD_ID='2026-09-25d';
 var CHANGELOG=[
   {ver:'2026-09-04a', date:'2026-09-04', title:"Delivery, DC printing, and a new Reconciliation check", items:[
     "Delivery confirmation stays with Supply Chain \u2014 it no longer hands off to the Plant Manager. If one sits too long, it now re-flags the same Supply Chain owner every 3 days instead.",
@@ -310,6 +310,12 @@ var CHANGELOG=[
   ]},
   {ver:'2026-09-25c', date:'2026-09-25', title:"The ordered quantity is locked", items:[
     "Correct a record no longer lets anyone type the ordered quantity. Less than ordered: close the line short with a reason. More: a new order."
+  ]},
+  {ver:'2026-09-25d', date:'2026-09-25', title:"Pre-shipment report with the DC, and a safer New order", items:[
+    "Customers: a new tick, Send the pre-shipment report with the DC. For those customers the delivery challan prints with the inspection report attached and says so.",
+    "Reports: a new Pre-shipment inspections register, open to everyone: every inspected truck, its result and inspector, and Print.",
+    "New order: each price shows this customer's last price for the product (or the last price to anyone, for a first order). More than 5% away needs a reason, which goes on the record.",
+    "New order: payment terms (Advance, COD, 15, 30, 45 or 60 days) and the ERP SO # are asked for. The SO # fills in on the truck's DC."
   ]},
 ];
 </script>
@@ -5256,7 +5262,7 @@ function brandPool(){ const co=curClientObj(); return co?(SEED.catalog.brandsByC
 function detailForBrand(b){ return brandPool().find(x=>x.brand===b)||{}; }
 function onChannelChange(v){ entryChannel=v; entryClient=''; entryVsub=''; entryFocal=''; entryFocalPhone=''; entrySource=''; entryInstructions=''; entryPrintOn=null; entryFOC=false; entryFEDover=''; entryDestPartner=''; entryLines=[{brand:'',qty:'',pack:'',note:'',committed:''}]; screenEntry(); }
 /* The client's history is now a HINT beside the question, not a silent answer to it. */
-function onClientChange(v){ entryClient=v; entryPrintOn=null; entryLines=[{brand:'',qty:'',pack:'',note:'',committed:''}]; screenEntry(); }
+function onClientChange(v){ entryClient=v; entryTerms=''; entryPrintOn=null; entryLines=[{brand:'',qty:'',pack:'',note:'',committed:''}]; screenEntry(); }
 /* THREE answers now, not two. `entryPrintOn` carries 'yes' | 'list' | 'no'
    (booleans still accepted so nothing older breaks). */
 function setPrintOn(v){
@@ -5322,7 +5328,8 @@ function updateEntrySummary(){
   var linesHtml=lines.length?lines.map(function(l){
     var packs=(+l.pack>0&&+l.qty>0)?Math.ceil(+l.qty/+l.pack):null;
     var priceText=entryFOC?'FOC — no charge':(+l.inv>0?('PKR '+fmt(l.inv)+'/Kg'):'price not set');
-    return '<div class="lineitem"><b>'+(l.brand||'')+'</b><div class="muted" style="font-size:11px;margin-top:2px">'+fmt(+l.qty||0)+' Kg/L'+(packs!=null?(' → '+packs+' packs'):'')+' · '+priceText+'</div></div>';
+    var _pc=entryPriceCheck(l);
+    return '<div class="lineitem"><b>'+(l.brand||'')+'</b>'+(_pc&&_pc.off?' <span class="badge-warn">'+(_pc.diff>0?'+':'')+Math.round(_pc.diff*1000)/10+'% vs last</span>':'')+'<div class="muted" style="font-size:11px;margin-top:2px">'+fmt(+l.qty||0)+' '+unitOf(l.brand)+(packs!=null?(' → '+packs+' packs'):'')+' · '+priceText+'</div></div>';
   }).join(''):'<div class="muted" style="font-size:12px;font-style:italic">No lines added yet.</div>';
   var printAns=entryPrintEffective();
   var printText=entryFOC?'No price · FOC sample':(printAns==='list'?'List price':printAns==='yes'?'PO price set':printAns==='no'?'No price':'not answered');
@@ -5333,6 +5340,8 @@ function updateEntrySummary(){
     '<div class="srow"><span class="k">Priority</span><span class="v"><span class="chip '+priCls+'">'+priVal+'</span></span></div>'+
     '<div class="srow"><span class="k">Received → Promised</span><span class="v">'+(recv||'—')+' → '+(prom||'—')+'</span></div>'+
     '<div class="srow"><span class="k">Focal / phone</span><span class="v'+((focal||phone)?'':' ph')+'">'+([focal,phone].filter(Boolean).join(' · ')||'not set')+'</span></div>'+
+    '<div class="srow"><span class="k">Payment terms</span><span class="v'+((entryTerms||entryTermsDefault())?'':' ph')+'">'+qsEsc(entryTerms||entryTermsDefault()||'not set')+'</span></div>'+
+    '<div class="srow"><span class="k">ERP SO #</span><span class="v'+(entryErpSo?'':' ph')+'">'+qsEsc(entryErpSo||'not set')+'</span></div>'+
     '<div class="srow"><span class="k">Order source</span><span class="v'+(src?'':' ph')+'">'+(src||'not set')+'</span></div>'+
     (instr?('<div class="srow" style="display:block"><span class="k">Instructions</span><div class="v" style="text-align:left;font-weight:500;margin-top:3px">'+instr+'</div></div>'):'')+
     '<hr><div class="muted" style="font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;font-weight:700;margin-bottom:7px">Line items — '+lines.length+'</div>'+
@@ -5383,7 +5392,7 @@ function screenEntry(){
     @media(max-width:900px){.po2 .layout2{flex-direction:column}.po2 .po-side{position:static}}
    </style>
    ${ed?'':viewOnly('KAM','switch to KAM to submit')}
-   <div class="rb-top"><div><div class="rb-title">New PO Entry</div><div class="rb-sub2">Create a customer order · price, tax and documents stay consistent</div></div></div>
+   <div class="sub" style="margin:0 0 12px;font-size:12.5px;color:var(--mut)">Customer, terms and ERP SO, then each product with its price. Each price is checked against the last one; more than 5% away needs a reason.</div>
    <div class="steps" id="e_steps">${entryStepsHtml()}</div>
    <div class="layout2"><div class="po-main">
    <div class="card"><h3>Step 1 — PO Header</h3>
@@ -5407,6 +5416,8 @@ function screenEntry(){
      <div class="fld"><label>Priority</label><select id="e_pri" onchange="validate()"><option>Normal</option><option>High</option><option>Critical</option><option>Low</option></select></div>
      <div class="fld"><label>PO Received</label><input id="e_recv" type="date" value="${TODAY.toISOString().slice(0,10)}" oninput="validate()"></div>
      <div class="fld"><label>Promised Delivery</label><input id="e_prom" type="date" value="${new Date(TODAY.getTime()+7*864e5).toISOString().slice(0,10)}" oninput="validate()"></div>
+     <div class="fld"><label>Payment terms</label><select id="e_terms" onchange="entryTerms=this.value;validate()"><option value="">— pick —</option>${PAY_TERMS.map(x=>`<option ${x===(entryTerms||entryTermsDefault())?'selected':''}>${x}</option>`).join('')}</select></div>
+     <div class="fld"><label>ERP SO #</label><input id="e_erpso" type="text" value="${_av(entryErpSo)}" oninput="entryErpSo=this.value;validate()" placeholder="sales order no. in the ERP"></div>
      ${/* Every channel, 2026-08-21. This was offered only for Cobo / VGreen /
           Dealer, so 36 of 44 live POs carry no focal person and the Delivery
           Challan prints an empty FOCAL PERSON line \u2014 including every Syngenta
@@ -5522,9 +5533,9 @@ function renderEntryLines(){
        <option value="">— pick brand —</option>${brs.map(b=>`<option ${b.brand===l.brand?'selected':''}>${b.brand}</option>`).join('')}</select></td>
      <td class="muted">${det.form||'—'}</td>
      <td><input id="pks_${i}" type="number" class="${packBad?'inv':''}" value="${l.pack}" placeholder="${det.pack||''}" oninput="onEntryPack(${i},this.value)"></td>
-     <td><input type="number" value="${l.qty}" placeholder="Kg/L" oninput="entryLines[${i}].qty=this.value;updatePacks(${i});updateCommitted(${i});validate()"></td>
+     <td><input type="number" value="${l.qty}" placeholder="${l.brand?unitOf(l.brand):'Kg/L'}" oninput="entryLines[${i}].qty=this.value;updatePacks(${i});updateCommitted(${i});validate()"></td>
      <td class="num"><b id="pk_${i}">${packs!==''?fmt(packs):'—'}</b></td>
-     <td><div style="display:flex;gap:5px"><input id="ikg_${i}" type="number" class="${invBad?'inv':''}" value="${l.inv||''}" placeholder="PKR/Kg" title="Per Kg/L — type here and per-pack fills automatically" oninput="setInvKg(${i},this.value)" style="width:74px"><input id="ipk_${i}" type="number" value="${l.invPack||''}" placeholder="PKR/pack" title="Per pack — type here and per-Kg fills automatically" oninput="setInvPack(${i},this.value)" style="width:86px"></div><div id="ipp_${i}" style="font-size:10px;margin-top:3px;color:var(--mut)">${invPerPackText(l)}</div></td>
+     <td><div style="display:flex;gap:5px"><input id="ikg_${i}" type="number" class="${invBad?'inv':''}" value="${l.inv||''}" placeholder="PKR/Kg" title="Per Kg/L — type here and per-pack fills automatically" oninput="setInvKg(${i},this.value)" style="width:74px"><input id="ipk_${i}" type="number" value="${l.invPack||''}" placeholder="PKR/pack" title="Per pack — type here and per-Kg fills automatically" oninput="setInvPack(${i},this.value)" style="width:86px"></div><div id="ipp_${i}" style="font-size:10px;margin-top:3px;color:var(--mut)">${invPerPackText(l)}</div><div id="lpc_${i}">${entryPriceNote(i)}</div></td>
      <td><input type="date" id="cm_${i}" value="${committedVal}" onchange="entryLines[${i}].committed=this.value;updateCommitted(${i});validate()"><div id="cmh_${i}" style="font-size:9px;color:var(--mut);margin-top:2px" title="Auto from the lead-time model — edit to override">${(!l.committed&&autoCommit)?('auto &middot; '+leadDays(+l.qty,procD,l.brand)+'d lead'+(procD?' &middot; incl '+procD+'d RM':'')):''}</div></td>
      <td><input type="text" value="${(l.note||'').replace(/"/g,'&quot;')}" placeholder="optional" oninput="entryLines[${i}].note=this.value" style="width:100%;font-size:11px"></td>
      <td>${entryLines.length>1?`<button class="ghost sm" onclick="entryLines.splice(${i},1);renderEntryLines()">✕</button>`:''}</td></tr>${printRow}`;
@@ -5560,13 +5571,17 @@ function entryChecks(){
     ['Per-Kg and per-pack price reconcile', entryFOC || lines.every(l=>{var pk=+l.pack||0;var calc=_r2((+l.inv||0)*pk);return !(+l.invPack>0)||pk<=0||Math.abs(calc-(+l.invPack))<=0.5;}), 'e_lines'],
     ['Price-on-pack answered', entryPrintEffective()!==null, 'e_lines'],
     ['Print price set on every line (when the PO carries the price)', entryFOC || entryPrintMode()!=='yes' || (lines.length>0 && lines.every(l=>+l.printPrice>0)), 'e_lines'],
+    ['Payment terms', !!(entryTerms||(($('e_terms')&&$('e_terms').value)||'')), 'e_terms'],
+    ['ERP SO #', !!String(entryErpSo||'').trim(), 'e_erpso'],
+    ['A reason on every price more than 5% from the last one', lines.every(l=>{ var c=entryPriceCheck(l); return !c||!c.off||String(l.priceReason||'').trim().length>=5; }), 'e_lines'],
   ];
 }
 function validate(){
   const checks=entryChecks(); const ok=checks.every(c=>c[1]) && may('order.create');
   var failIds={}; checks.forEach(function(c){ if(!c[1]) (failIds[c[2]]=failIds[c[2]]||[]).push(c[0]); });
   var started=!!entryChannel;
-  ['e_chan','e_client','e_vsub','e_kam','e_recv','e_prom','e_po'].forEach(function(id){
+  entryLines.forEach(function(l,i){ var n=$('lpc_'+i); if(n&&document.activeElement&&document.activeElement.id!=='prs_'+i) n.innerHTML=entryPriceNote(i); });
+  ['e_chan','e_client','e_vsub','e_kam','e_recv','e_prom','e_po','e_terms','e_erpso'].forEach(function(id){
     var el=$(id); if(el) el.classList.toggle('inv', started && !!failIds[id]);
   });
   var poMsg=$('e_po_msg'); if(poMsg) poMsg.textContent=(started && failIds['e_po'] && failIds['e_po'].some(function(t){return /already used/i.test(t);}))?'A PO with this number already exists.':'';
@@ -5598,6 +5613,9 @@ function submitPO(){
   const _recv=$('e_recv').value, _prom=$('e_prom').value;
   if(_recv&&_prom&&_prom<_recv){ toast('Promised Delivery cannot be before PO Received.'); return; }
   if(!entryFOC && entryPrintMode()===null){ toast('Answer which price goes on the pack — packing and QA are both shown your answer.'); return; }
+  if(!(entryTerms||(($('e_terms')&&$('e_terms').value)||''))){ toast('Pick the payment terms.'); return; }
+  if(!String(entryErpSo||'').trim()){ toast('Enter the ERP SO #.'); return; }
+  if(lines.some(l=>{ var c=entryPriceCheck(l); return c&&c.off&&String(l.priceReason||'').trim().length<5; })){ toast('A price is more than 5% from the last one: write the reason under it.'); return; }
   if(!entryFOC && entryPrintMode()==='yes' && lines.some(l=>!(+l.printPrice>0))){ toast('This PO carries its own price — enter the print price (PKR/pack) for every line.'); return; }
   /* SPEC-06: `entryPrintOn` now carries the STRING 'no', never boolean false,
      so `===false` silently stopped matching and this safety confirm — the one
@@ -5614,12 +5632,14 @@ function submitPO(){
   var _fedMode=entryFedMode();
   const ord={ id, po, client:entryClient, channel:entryChannel, vgreenSub:entryVsub||null, destinationPartner:(entryChannel==='Vgreen'?(entryDestPartner||''):''), foc:!!entryFOC, fedMode:_fedMode, focalPerson:($('e_focal')&&$('e_focal').value)||'', focalPhone:($('e_focalphone')&&$('e_focalphone').value)||'', source:($('e_source')&&$('e_source').value)||'', instructions:($('e_instructions')&&$('e_instructions').value.trim())||'', kam:$('e_kam').value.trim(),
     priority:$('e_pri').value, promised:$('e_prom').value, received:recv, rmDecision:'pending', printOnPack:(entryPrintEffective()!=='no'), printDecision:(entryPrintEffective()||'no'), printDecisionBy:((state.currentUser&&state.currentUser.name)||state.role), printDecisionAt:new Date().toISOString(),
-    lines:lines.map((l,j)=>{const det=detailForBrand(l.brand);const procD=procureDaysFor(l.brand,det.base||l.brand,+l.qty);const autoCommit=computeCommitted(recv,+l.qty,procD,l.brand);return {id:id+'L'+j, brand:l.brand, base:det.base||l.brand, pack:+l.pack||det.pack||null, note:l.note||'', committed:l.committed||autoCommit||$('e_prom').value, ordered:+l.qty, printPrice:(entryFOC?0:(entryPrintMode()==='yes'?(+l.printPrice||0):0))/* SPEC-06: only the PO-price answer puts a number on the line. `entryPrintOn` is now a truthy STRING for all three answers, so the old test let a price typed under "yes" ride along after the user switched to list or no — where it is not wrong, just not true, and the "not a real price" anomaly reads it. */, invoicePrice:(entryFOC?0:(+l.inv||0)), invoicePack:(entryFOC?0:(+l.invPack||((+l.inv||0)*(+l.pack||0))||0)), produced:0,packed:0,dispatched:0,delivered:0};}) };
+    lines:lines.map((l,j)=>{const det=detailForBrand(l.brand);const procD=procureDaysFor(l.brand,det.base||l.brand,+l.qty);const autoCommit=computeCommitted(recv,+l.qty,procD,l.brand);return {id:id+'L'+j, brand:l.brand, base:det.base||l.brand, pack:+l.pack||det.pack||null, note:l.note||'', committed:l.committed||autoCommit||$('e_prom').value, ordered:+l.qty, printPrice:(entryFOC?0:(entryPrintMode()==='yes'?(+l.printPrice||0):0))/* SPEC-06: only the PO-price answer puts a number on the line. `entryPrintOn` is now a truthy STRING for all three answers, so the old test let a price typed under "yes" ride along after the user switched to list or no — where it is not wrong, just not true, and the "not a real price" anomaly reads it. */, invoicePrice:(entryFOC?0:(+l.inv||0)), priceCheck:(function(){ var c=entryPriceCheck(l); return c?{lastNet:Math.round(c.last.price*100)/100,lastPo:c.last.po,lastDate:c.last.date,own:c.last.own,diffPct:Math.round(c.diff*1000)/10,reason:c.off?String(l.priceReason||'').trim():''}:null; })(), invoicePack:(entryFOC?0:(+l.invPack||((+l.inv||0)*(+l.pack||0))||0)), produced:0,packed:0,dispatched:0,delivered:0};}) };
+  ord.paymentTerms=entryTerms||(($('e_terms')&&$('e_terms').value)||''); ord.erpSo=String(entryErpSo||'').trim(); ord.so=ord.erpSo; /* 25d: the DC's SO # comes from here */
   ord.totalOrdered=ord.lines.reduce((a,l)=>a+l.ordered,0);
   var _ev=entryTotals(); ord.subtotal=_ev.sub; ord.fedAmount=_ev.fed; ord.grandTotal=_ev.total;
   ord.rmDecision='pending';
   state.orders.unshift(ord);
-  logAction(`Created PO ${po} (${entryClient}, ${entryChannel}, ${fmt(ord.totalOrdered)} Kg/L)`);
+  logAction(`Created PO ${po} (${entryClient}, ${entryChannel}, ${fmt(ord.totalOrdered)} Kg/L)`+' · '+ord.paymentTerms+' · ERP SO '+ord.erpSo+ord.lines.filter(l=>l.priceCheck&&l.priceCheck.reason).map(l=>' · '+l.brand+' price '+(l.priceCheck.diffPct>0?'+':'')+l.priceCheck.diffPct+'% vs '+l.priceCheck.lastPo+': '+l.priceCheck.reason).join(''));
+  entryTerms='';entryErpSo='';
   entryChannel='';entryClient='';entryVsub='';entryPrintOn=null;entryFOC=false;entryFEDover='';entryDestPartner='';entryLines=[{brand:'',qty:'',pack:'',note:'',committed:''}]; save();
   toast('PO '+po+' created'); state.screen='tracker'; render();
 }
@@ -5710,7 +5730,7 @@ function custSave(){ var f=custForm; if(!f)return;
   var code=f.editing||custCode(f.segment,f.name,f.inducted,f.outlet,f.region,f.city);
   if(f.segment==='VGreen'&&!f.editing&&!String(f.outlet||'').trim()){toast('VGreen outlet code required (e.g. VC, FM, DP)');return;}
   if(!f.editing&&(state.customers||[]).some(function(c){return c.code===code;})){toast('Code '+code+' already exists');return;}
-  var rec={id:code,code:code,name:String(f.name).trim(),segment:f.segment,parent:isOutlet?(f.parent||f.segment):'',outlet:isOutlet?(f.outlet||''):'',isParent:false,brandKey:(f.segment==='White-label'?String(f.name).trim():custBrandKeyFor(f.segment)),region:f.region||'',city:f.city||'',contact:f.contact||'',phone:f.phone||'',creditDays:+f.creditDays||0,fed:f.fed||'Exclusive',kam:f.kam||'',introducedBy:f.introducedBy||'',destination:f.destination||'',ntn:f.ntn||'',inducted:f.inducted||TODAY.getFullYear(),status:(state.role==='CFO'||state.role==='COO')?(f.status||'Active'):'Pending approval'};
+  var rec={id:code,code:code,name:String(f.name).trim(),segment:f.segment,parent:isOutlet?(f.parent||f.segment):'',outlet:isOutlet?(f.outlet||''):'',isParent:false,brandKey:(f.segment==='White-label'?String(f.name).trim():custBrandKeyFor(f.segment)),region:f.region||'',city:f.city||'',contact:f.contact||'',phone:f.phone||'',creditDays:+f.creditDays||0,fed:f.fed||'Exclusive',kam:f.kam||'',introducedBy:f.introducedBy||'',destination:f.destination||'',ntn:f.ntn||'',psiWithDC:!!f.psiWithDC,paymentTerms:f.paymentTerms||'',inducted:f.inducted||TODAY.getFullYear(),status:(state.role==='CFO'||state.role==='COO')?(f.status||'Active'):'Pending approval'};
   state.customers=state.customers||[];
   if(f.editing){ var i=state.customers.findIndex(function(c){return c.code===f.editing;}); if(i>=0){ rec.status=(state.customers[i].status||'Active'); /* an edit keeps its status: R9 is about NEW customers */ if(state.customers[i].approvedBy){ rec.approvedBy=state.customers[i].approvedBy; rec.approvedAt=state.customers[i].approvedAt; } state.customers[i]=rec; } logAction('Edited customer '+code+' — '+rec.name); }
   else { state.customers.push(rec); logAction('Added customer '+code+' — '+rec.name+' ('+rec.segment+')'); }
@@ -5738,6 +5758,8 @@ function custFormHTML(){ var f=custForm; var kam=((state.masters&&state.masters.
   parts.push(fld('FED treatment','<select onchange="custForm.fed=this.value">'+['None','Exclusive','Inclusive'].map(function(x){return '<option'+(f.fed===x?' selected':'')+'>'+x+'</option>';}).join('')+'</select>'));
   parts.push(fld('Assigned KAM','<select onchange="custForm.kam=this.value"><option value="">— KAM —</option>'+kam.map(function(k){return '<option'+(f.kam===k?' selected':'')+'>'+k+'</option>';}).join('')+'</select>'));
   parts.push(fld('Introduced by','<input type="text" value="'+esc(f.introducedBy)+'" oninput="custForm.introducedBy=this.value" placeholder="who introduced / referrer">'));
+  parts.push(fld('Pre-shipment report','<label style="display:flex;gap:8px;align-items:center;text-transform:none;font-weight:400"><input type="checkbox" style="width:auto;margin:0"'+(f.psiWithDC?' checked':'')+' onchange="custForm.psiWithDC=this.checked"> Send the pre-shipment report with the DC</label>'));
+  parts.push(fld('Default payment terms','<select onchange="custForm.paymentTerms=this.value"><option value="">— none —</option>'+PAY_TERMS.map(function(x){return '<option'+(f.paymentTerms===x?' selected':'')+'>'+x+'</option>';}).join('')+'</select>'));
   parts.push(fld('Default destination','<input type="text" value="'+esc(f.destination)+'" oninput="custForm.destination=this.value">'));
   parts.push(fld('Contact','<input type="text" value="'+esc(f.contact)+'" oninput="custForm.contact=this.value">'));
   parts.push(fld('Phone','<input type="text" value="'+esc(f.phone)+'" oninput="custForm.phone=this.value">'));
@@ -9711,6 +9733,66 @@ function labRepBtn(u){ var b=u.b; if(!u.id||(b.lots||[]).length<2||labRepApprove
   if(u.coa&&u.coa.status!=='draft') return '';
   return ' <button class="sm ghost" onclick="labSetRep(\''+qsEsc(b.id)+'\',\''+qsEsc(u.id)+'\')">'+(r?'Test this lot instead':'Test this lot for the batch')+'</button>'; }
 
+/* ===== THE PRE-SHIPMENT REPORT TRAVELS WITH THE DC — 24 Sep 2026 (25d) ======
+   Tahir: some customers want the pre-shipment report with the DC / gate pass;
+   "make sure no vehicle leaves without a pre-shipment report"; "is it visible
+   to everyone?"; "a separate clear menu in the Report Center, like the COA".
+   Ruled: a customer tick "Send the pre-shipment report with the DC"; printing
+   that customer's DC appends the report and the DC says so; an inspection
+   register in the Report Center, open to everyone.
+   No truck is released without a passed inspection already (approveRelease).
+   cssScope() lets 2 self-contained documents share one print window: each keeps
+   its own styles, scoped under its own wrapper, so neither restyles the other. */
+function cssScope(css,pre){ var out='', i=0, s=String(css||'');
+  while(i<s.length){ var ob=s.indexOf('{',i); if(ob<0) break; var sel=s.slice(i,ob).trim();
+    if(/^@media/i.test(sel)){ var d=1,j=ob+1; while(j<s.length&&d>0){ if(s[j]==='{')d++; else if(s[j]==='}')d--; j++; } out+=sel+'{'+cssScope(s.slice(ob+1,j-1),pre)+'}'; i=j; continue; }
+    var cb=s.indexOf('}',ob); if(cb<0) break; var body=s.slice(ob+1,cb);
+    if(/^@/.test(sel)){ out+=sel+'{'+body+'}'; i=cb+1; continue; }
+    out+=sel.split(',').map(function(x){ x=x.trim(); if(x==='html'||x==='body') return pre; if(x==='*') return pre+','+pre+' *'; return pre+' '+x; }).join(',')+'{'+body+'}'; i=cb+1; }
+  return out; }
+function psiWithDCFor(g){ var po1=(g&&g.pos&&g.pos[0])||(g&&g.po); var o=(state.orders||[]).find(function(x){return x.po===po1;}); var nm=(g&&g.client)||(o&&o.client)||''; var c=(state.customers||[]).find(function(x){ return x.name===nm; }); return !!(c&&c.psiWithDC); }
+function psiRepNo(g){ return 'PSI-'+String(g.dc||g.shipNo||g.dispId||'').replace(/[^A-Za-z0-9\-]/g,''); }
+/* the register: every truck with an inspection, newest first */
+function psiRegisterRows(){ var gs=(typeof dispatchGroups==='function')?dispatchGroups():[]; var out=[];
+  gs.forEach(function(g){ if(!g.dispId||g.qa==='pending') return; var det=null; try{ det=psiDetailFor(g); }catch(e){} if(!det) return;
+    out.push({g:g,no:psiRepNo(g),date:String(det.date||g.date||'').slice(0,10),client:g.client||'',dc:g.dc||'',vehicle:g.vehicle||'',products:(g.rows||[]).map(function(r){return r.brand;}).filter(function(v,i,a){return v&&a.indexOf(v)===i;}).join(', '),kg:g.kg||0,pass:(g.qa!=='fail'&&det.pass!==false),by:det.by||'',withDC:psiWithDCFor(g)}); });
+  out.sort(function(a,b){ return String(b.date).localeCompare(String(a.date)); }); return out; }
+var psiRegQ='';
+function psiRegisterHTML(){ var R=psiRegisterRows(), q=String(psiRegQ||'').toLowerCase(), e=qsEsc;
+  var F=q?R.filter(function(r){ return [r.no,r.client,r.dc,r.vehicle,r.products,r.by].join(' ').toLowerCase().indexOf(q)>-1; }):R;
+  var fail=R.filter(function(r){return !r.pass;}).length;
+  var h='<div class="rp-sum"><b>'+R.length+'</b> inspected trucks · <b>'+(R.length-fail)+'</b> passed · <b>'+fail+'</b> failed</div>'
+    +'<input type="search" placeholder="Search report no., customer, DC, vehicle, product, inspector" value="'+e(psiRegQ)+'" oninput="psiRegQ=this.value;render()" style="width:100%;max-width:520px;margin:8px 0 10px">';
+  if(!F.length) return h+'<div class="note">'+(R.length?'Nothing matches.':'No truck has been inspected yet.')+'</div>';
+  h+='<div class="sheet-wrap" style="overflow-x:auto"><table class="rbtbl rp-tbl"><thead><tr><th>Report</th><th>Date</th><th>Customer</th><th>DC</th><th>Vehicle</th><th>Products</th><th class="num">Kg/L</th><th>Result</th><th>Inspector</th><th></th></tr></thead><tbody>';
+  h+=F.slice(0,500).map(function(r){ return '<tr><td><b>'+e(r.no)+'</b>'+(r.withDC?'<div class="muted" style="font-size:10.5px">goes with the DC</div>':'')+'</td><td>'+e(r.date)+'</td><td>'+e(r.client)+'</td><td>'+e(r.dc)+'</td><td>'+e(r.vehicle)+'</td><td>'+e(r.products)+'</td><td class="num">'+fmt(Math.round(r.kg))+'</td><td>'+(r.pass?'<span class="tdtag ok">passed</span>':'<span class="tdtag late">failed</span>')+'</td><td>'+e(r.by)+'</td><td style="white-space:nowrap"><button class="qs-btn sm" onclick="printPSI(\''+e(r.g.dispId)+'\')">Print</button>'+(r.g.dc&&r.withDC?' <button class="qs-btn sm ghost" onclick="printDC(\''+e(r.g.dispId)+'\')">DC + report</button>':'')+'</td></tr>'; }).join('');
+  return h+'</tbody></table></div>'+(F.length>500?'<div class="sub">Showing the latest 500.</div>':''); }
+
+/* ===== NEW ORDER: PRICE, TERMS, ERP SO — 24 Sep 2026 (25d) ===================
+   Tahir: "prices here are the one who is driving sales, so make sure this is
+   clear and easy and error free PO entry." Ruled: show this customer's last
+   price for the product; more than 5% away needs a reason (first order for
+   the customer: compare with the last price to anyone); capture payment terms
+   (Advance, COD, 15/30/45/60 days) and the ERP SO #. Prices are compared NET
+   of FED (lineNetPrice), so an Inclusive quote is not read as 5% dearer. */
+var PAY_TERMS=['Advance','COD','15 days','30 days','45 days','60 days'];
+var PRICE_BAND=0.05;
+var entryTerms='', entryErpSo='';
+function entryLastPrice(client,brand,exceptPo){ if(!brand) return null; var best=null, any=null;
+  (state.orders||[]).forEach(function(o){ if(!o||o.foc||o.po===exceptPo) return; (o.lines||[]).forEach(function(l){ if(!l||l.brand!==brand||!(+l.invoicePrice>0)) return;
+    var r={price:lineNetPrice(o,l),quoted:+l.invoicePrice,po:o.po,date:String(o.received||'').slice(0,10),client:o.client,own:o.client===client};
+    if(r.own&&(!best||r.date>best.date)) best=r; if(!any||r.date>any.date) any=r; }); });
+  return best||(any?Object.assign({},any,{own:false}):null); }
+function entryNetTyped(l){ var p=+l.inv||0; if(entryFedMode()==='Inclusive') p=p/1.05; return p; }
+function entryPriceCheck(l){ if(entryFOC||!l||!l.brand||!(+l.inv>0)) return null; var lp=entryLastPrice(entryClient,l.brand); if(!lp||!(lp.price>0)) return null;
+  var d=(entryNetTyped(l)-lp.price)/lp.price; return {last:lp,diff:d,off:Math.abs(d)>PRICE_BAND+1e-9}; }
+function entryPriceNote(i){ var l=entryLines[i]; var c=entryPriceCheck(l); if(!c) return (l&&l.brand&&!entryFOC&&!entryLastPrice(entryClient,l.brand))?'<div style="font-size:10px;color:var(--mut);margin-top:3px">No earlier price for this product.</div>':'';
+  var lp=c.last, pct=Math.round(c.diff*1000)/10;
+  var h='<div style="font-size:10px;margin-top:3px;color:'+(c.off?'var(--red)':'var(--mut)')+'">'+(lp.own?'Last price to this customer':'No earlier order from this customer; last price to anyone')+': <b>PKR '+fmt(Math.round(lp.price*100)/100)+'/Kg</b> net ('+qsEsc(lp.po)+', '+qsEsc(lp.date)+(lp.own?'':', '+qsEsc(String(lp.client||'').split('|').pop().trim())+'')+') · '+(pct>0?'+':'')+pct+'%</div>';
+  if(c.off) h+='<input type="text" id="prs_'+i+'" value="'+qsEsc(l.priceReason||'')+'" placeholder="Why is this price more than 5% from the last one?" oninput="entryLines['+i+'].priceReason=this.value;validate()" style="width:100%;margin-top:3px;font-size:11px" class="'+(String(l.priceReason||'').trim().length<5?'inv':'')+'">';
+  return h; }
+function entryTermsDefault(){ var c=null; try{ c=curCustomer(); }catch(e){} if(!c) return ''; if(c.paymentTerms) return c.paymentTerms; var d=+c.creditDays||0; return d?((PAY_TERMS.indexOf(d+' days')>-1)?d+' days':''):''; }
+
 /* ===== THE THREE VERIFY ITEMS — SPEC-01 rule 3, built 2026-08-21
 
    The 8-point checklist asks "Batch & expiry printed" — printed, not CORRECT.
@@ -10251,7 +10333,7 @@ function printPO(po){ var o=(state.orders||[]).find(function(x){return String(x.
   var seg=(typeof _chanToSeg==='function'?(_chanToSeg(o.channel)||o.channel):o.channel)||'';
   var meta='PO #: <b>'+_pe(o.po)+'</b><br>Date: <b>'+_pe(o.received||'')+'</b><br>KAM: <b>'+_pe(o.kam||'')+'</b>';
   var custLine='Customer: <b>'+_pe(o.client)+'</b>'+(o.vgreenSub?(' ('+_pe(o.vgreenSub)+')'):'')+'<br>Segment: <b>'+_pe(seg)+'</b>'+(o.destinationPartner?(' &middot; Destination Partner: <b>'+_pe(o.destinationPartner)+'</b>'):'');
-  var rt='Promised: <b>'+_pe(o.promised||'')+'</b> &middot; Priority: <b>'+_pe(o.priority||'')+'</b><br>Type: <b>'+(o.foc?'FOC sample':'Commercial')+'</b> &middot; FED: <b>'+_pe(o.fedMode||'None')+'</b>';
+  var rt='Promised: <b>'+_pe(o.promised||'')+'</b> &middot; Priority: <b>'+_pe(o.priority||'')+'</b><br>Type: <b>'+(o.foc?'FOC sample':'Commercial')+'</b> &middot; FED: <b>'+_pe(o.fedMode||'None')+'</b>'+(o.paymentTerms?'<br>Payment terms: <b>'+_pe(o.paymentTerms)+'</b>':'')+(o.erpSo?' &middot; SO #: <b>'+_pe(o.erpSo)+'</b>':'');
   var _mrpCell=function(l){ var pol=printPolicyOL(o,l);
     if(pol.mode==='priced')  return fmt(pol.price);
     if(pol.mode==='noprint') return '<span style="font-size:9px">none</span>';
@@ -10353,6 +10435,9 @@ function printDC(dispId){ var g=((typeof dispatchGroups==='function')?dispatchGr
   var stamp=(g.qa==='pass')?'<div class="stamprow"><div class="stamp"><div class="b">QC PASSED</div><div class="s">CLEARED FOR DISPATCH</div></div></div>':'';
   var approved=(g.dcStatus==='approved');
   var issuedBy=(g.rows[0]&&g.rows[0].by)||'';
+  /* 25d: this customer takes the pre-shipment report with the DC */
+  var _psiOn=(typeof psiWithDCFor==='function')&&psiWithDCFor(g), _psi=_psiOn?printPSI(dispId,{parts:true}):null;
+  var psiNote=_psiOn?('<div style="margin-top:12px;border:1px solid #cfd8e3;border-radius:8px;padding:8px 14px;font-size:12px;background:#f5f8fc"><b>Pre-shipment inspection report '+(_psi?('attached: '+_pe(_psi.repNo)):'to be attached')+'</b>'+(_psi?' &middot; the pages after this challan':' &middot; this truck has not been inspected yet; it cannot be released until it is')+'</div>'):'';
   var css='*{box-sizing:border-box}html,body{margin:0;background:#eceef1}'
     +'body{font-family:"Segoe UI",Arial,Helvetica,sans-serif;color:#1c2430;padding:16px}'
     +'.sheet{width:210mm;min-height:297mm;margin:0 auto 18px;background:#fff;padding:16mm 14mm;position:relative;box-shadow:0 2px 14px rgba(0,0,0,.12)}'
@@ -10398,14 +10483,15 @@ function printDC(dispId){ var g=((typeof dispatchGroups==='function')?dispatchGr
     +'<div class="parties"><div class="col">'+col1+'</div><div class="col">'+col2+'</div></div>'
     +'<h2 class="sec">Packing list</h2>'
     +'<table><thead><tr><th style="width:30px">Sr</th><th>Product</th><th class="num" style="width:44px">SKU</th><th style="width:38px">UOM</th><th class="num" style="width:66px">Quantity</th><th class="num" style="width:78px">Weight (Kg)</th><th style="width:130px">Batch #</th></tr></thead><tbody>'+rows+blanks+'</tbody></table>'
-    +stamp
+    +psiNote+stamp
     +'<div class="signs"><div class="s"><div class="role">Issued by</div>'+(issuedBy?('<div class="nm">'+_pe(issuedBy)+'</div><div class="ok">&#10003; digital signature</div>'):'')+'</div>'
     +'<div class="s"><div class="role">Approved by</div>'+(approved?('<div class="nm">'+_pe(g.approvedBy)+'</div><div class="ts">'+_pe(g.approvedDate)+'</div><div class="ok">&#10003; digital signature</div>'):'<div class="pend">pending</div>')+'</div>'
     +'<div class="s"><div class="role">Received by</div><div class="ts">signature &amp; date on delivery</div></div></div>'
     +'<div class="foot">This is a system-generated document produced by the VAN O2S system. It is access-controlled and audit-logged; accordingly, no manual signature is required.</div>'
     +'</div>';
   var onload=pend?'':' onload="setTimeout(function(){try{window.print();}catch(e){}},250)"';
-  var html='<!doctype html><html><head><meta charset="utf-8"><title>'+_pe('DC '+(g.dc||po1))+'</title><style>'+css+'</style></head><body'+onload+'>'+inner+'</body></html>';
+  if(_psi){ css='body{margin:0;background:#eceef1}'+cssScope(css,'.dcw')+cssScope(_psi.css,'.psiw')+'.psiw{page-break-before:always;break-before:page}.psiw .runfoot{display:none!important}'; inner='<div class="dcw">'+inner+'</div><div class="psiw">'+_psi.inner+'</div>'; }
+  var html='<!doctype html><html><head><meta charset="utf-8"><title>'+_pe('DC '+(g.dc||po1))+(_psi?' + '+_pe(_psi.repNo):'')+'</title><style>'+css+'</style></head><body'+onload+'>'+inner+'</body></html>';
   var w=window.open('','_blank'); if(!w){toast('Allow pop-ups to print / save the document');return;} w.document.write(html); w.document.close(); w.focus();
   if(pend){ toast('Draft DC — the official signed PDF is available after Plant Manager approval'); } }
 /* Gate Pass — short authorization the truck carries at the gate. Issued during Loading, before release. */
@@ -10698,15 +10784,15 @@ function psiCOAsFor(g){
    Delivery Challan uses. "Pack batch" only earned its name while a second,
    internal number sat beside it; with that gone the qualifier just invites the
    question of what the other kind was. */
-function printPSI(dispId){
+function printPSI(dispId,opts){ var _parts=!!(opts&&opts.parts); /* 25d: parts = give the DC the pieces, open nothing */
   var g=((typeof dispatchGroups==='function')?dispatchGroups():[]).filter(function(x){return x.dispId===dispId;})[0];
-  if(!g){toast('Shipment not found');return;}
+  if(!g){ if(!_parts) toast('Shipment not found');return;}
   var det=psiDetailFor(g);
   if(!det){
-    toast('No inspection detail recorded for this shipment — nothing to certify');
+    if(!_parts) toast('No inspection detail recorded for this shipment — nothing to certify');
     return;
   }
-  if(g.qa==='pending'){ toast('This shipment has not been inspected yet'); return; }
+  if(g.qa==='pending'){ if(!_parts) toast('This shipment has not been inspected yet'); return; }
 
   var po1=(g.pos&&g.pos[0])||g.po;
   var o=(state.orders||[]).find(function(x){return x.po===po1;});
@@ -11059,6 +11145,7 @@ function printPSI(dispId){
     +(g.dc?(' &middot; DC <b>'+_pe(g.dc)+'</b>'):'')+'</span>'
     +'<span>'+_pe(clientNm)+(g.vehicle?(' &middot; '+_pe(g.vehicle)):'')+'</span></div>';
 
+  if(_parts) return {css:css,inner:inner,repNo:repNo,pass:!failed};
   var html='<!doctype html><html><head><meta charset="utf-8"><title>'+_pe(repNo)+'</title><style>'+css+'</style></head>'
     +'<body onload="setTimeout(function(){try{window.print();}catch(e){}},250)">'+inner+runfoot+'</body></html>';
   var w=window.open('','_blank');
@@ -13386,6 +13473,8 @@ function guideRules(){
   h+='<div class="gd-rule"><h3>When the AQCM or the QCM is on leave</h3><p>Tap your name → <b>I’m going on leave</b> and give the days; the Plant Manager gets a job to name a cover. The cover is someone in the lab. He signs one line in his own name, and the certificate prints <b>for</b> the person on leave. A cover never signs both lines of one certificate. If nobody announced the leave and certificates wait a day for someone who has done nothing in the app that day, the Plant Manager is asked too.</p></div>';
   h+='<div class="gd-rule"><h3>Nothing is deleted</h3><p>An order line is closed short with a reason, never removed; the ordered quantity is never rewritten and cannot be typed anywhere: less is a close-short, more is a new order. A product or customer is deactivated, not deleted. A wrong entry is corrected under Correct a record, with a reason, in your name, and the correction sits beside the original in the register. If a number changed, the record shows who changed it and why.</p></div>'+
   '<div class="gd-rule"><h3>A number moves only with its record</h3><p>Packed moves with a packing run from a batch, dispatched with a truck, delivered with a delivery. None of them can be typed, and nothing can be packed beyond what the line ordered. When a line and its records disagree, open the line (Orders → the order → <b>History</b>, or the item on Back Office <b>Needs you</b>): it shows what is wrong, the line’s whole history, what the records show as the cause, and the fix — record the missing packing against its batch, bring packed back to its records, or stamp a delivery date from the truck — each with a reason in your name.</p></div>'+
+  '<div class="gd-rule"><h3>The price on a new order</h3><p>Every price is checked against the last price this customer paid for the product, net of FED; for a first order, against the last price to anyone. More than 5% away needs a reason, written under the price, and it is kept on the order line with the last price it was compared with. Payment terms and the ERP SO # are part of every order; the SO # prints on the DC.</p></div>'+
+  '<div class="gd-rule"><h3>The pre-shipment report</h3><p>No truck is released without a passed inspection. Every report is in Reports → Pre-shipment inspections, for everyone to find and print. A customer marked “Send the pre-shipment report with the DC” gets it attached to the challan.</p></div>'+
   '<div class="gd-rule"><h3>What a sale is</h3><p>A sale is counted the day the truck leaves the gate, at quantity × invoice price, net of FED. FED is the sales tax: on an order quoted FED-inclusive the price is divided by 1.05. Every money figure in the app — Sales & Budget, the reports, the PO register — uses this one rule.</p></div>';
   h+='<div class="gd-rule"><h3>Roles, not people</h3><p>Rights belong to roles. 2 people can hold one role and sign differently. There are no exceptions for one person — an exception becomes a new role, so it can be seen and given to the next person in that seat.</p></div>';
   h+='<div class="gd-rule"><h3>What is never on a customer document</h3><p>No price on any document the customer sees. The COA carries composition, results and the 3 signatures; the delivery challan carries product, quantity and lot.</p></div>';
@@ -14508,7 +14597,7 @@ function qaRequiredOn(dateStr){ return String(dateStr||TODAY.toISOString().slice
 function nextDCNo(){ var mx=0; (state.shipments||[]).forEach(function(s){ if(!s||s.voided)return; var n=parseInt(String(s.dc||'').replace(/\D/g,''),10); if(!isNaN(n)&&n>mx)mx=n; }); return String(mx+1); }
 function _releaseShip(o,l,batches){ if(!o||!l)return; (lotsFor(o,l)||[]).forEach(function(p){ var b=(batches||[]).find(function(x){return x.batch===lotBaseNo(p)||x.brand===lotBrandNo(p);}); if(b){ p.shipKg=Math.max(0,(+p.shipKg||0)-(+b.kg||0)); } }); }
 function openDispatch(oid){ const o=(state.orders||[]).find(x=>x.id===oid); if(!o)return; const ls=readyLinesFor(o); if(!ls.length){toast('Nothing ready to ship on this PO');return;}
-  dispForm={oid,date:TODAY.toISOString().slice(0,10),dateReason:'',dest:(clientTopDest(o.client)||''),focal:(o.focalPerson||''),focalPhone:(o.focalPhone||''),inTransit:true,transportType:'',carrier:'',vehicle:'',dc:'',bilty:'',so:'',driver:'',driverContact:'',seal:'',remarks:'',lines:ls.map(x=>({lid:x.l.id,brand:x.l.brand,base:x.l.base||'',pack:(+x.l.pack||seedPackForBrand(x.l.brand)||0),rem:Math.round(x.rem),qty:Math.round(x.rem),on:true}))};
+  dispForm={oid,date:TODAY.toISOString().slice(0,10),dateReason:'',dest:(clientTopDest(o.client)||''),focal:(o.focalPerson||''),focalPhone:(o.focalPhone||''),inTransit:true,transportType:'',carrier:'',vehicle:'',dc:'',bilty:'',so:(o.so||''),driver:'',driverContact:'',seal:'',remarks:'',lines:ls.map(x=>({lid:x.l.id,brand:x.l.brand,base:x.l.base||'',pack:(+x.l.pack||seedPackForBrand(x.l.brand)||0),rem:Math.round(x.rem),qty:Math.round(x.rem),on:true}))};
   renderDispatchModal(); $('modalBg').classList.add('open'); }
 function dispTotal(){ return (dispForm&&dispForm.lines||[]).reduce((a,r)=>a+(r.on?(+r.qty||0):0),0); }
 function dispCount(){ return (dispForm&&dispForm.lines||[]).filter(r=>r.on&&(+r.qty||0)>0).length; }
@@ -14657,7 +14746,7 @@ function mpStart(client){ if(!may('shipment.plan')){toast(denyRight('shipment.pl
   var gs=readyPOsForClient(client); if(!gs.length){toast('Nothing QC-cleared and ready for this customer');return;}
   mpForm={client:client,date:TODAY.toISOString().slice(0,10),dest:(clientTopDest(client)||''),focal:((gs.map(function(g){return g.o.focalPerson||'';}).filter(Boolean)[0])||''),focalPhone:((gs.map(function(g){return g.o.focalPhone||'';}).filter(Boolean)[0])||''),transportType:'',truckSize:'',carrier:'',vehicle:'',bilty:'',driver:'',driverContact:'',seal:'',remarks:'',
     step:1,
-    orders:gs.map(function(g){ return {oid:g.o.id,po:g.o.po,so:'',lines:g.ls.map(function(x){ return {lid:x.l.id,brand:x.l.brand,base:x.l.base||'',pack:(+x.l.pack||seedPackForBrand(x.l.brand)||0),rem:Math.round(x.rem),qty:Math.round(x.rem),on:true}; })}; })};
+    orders:gs.map(function(g){ return {oid:g.o.id,po:g.o.po,so:(g.o.so||g.o.erpSo||''),lines:g.ls.map(function(x){ return {lid:x.l.id,brand:x.l.brand,base:x.l.base||'',pack:(+x.l.pack||seedPackForBrand(x.l.brand)||0),rem:Math.round(x.rem),qty:Math.round(x.rem),on:true}; })}; })};
   renderMPShip(); $('modal').classList.add('shipdrawer'); $('modalBg').classList.add('open'); }
 function mpGo(n){ if(!mpForm)return; n=Math.max(1,Math.min(4,n));
   var f=mpForm;
@@ -16907,6 +16996,7 @@ var RP_CATALOGUE=[
   {id:'batches', t:'Batches and wastage', q:'Planned against produced, and what was lost, per batch.', ds:'batches', cols:['opened','batch','product','po','status','planned','produced','packed','disposed'], mode:'raw', period:'This month', roles:['Production','Production Manager','Plant Manager','QCM','AQCM','COO','CFO']},
   {id:'late', t:'Orders behind promise', q:'Which orders are past their promised date, by customer, and where they stand.', ds:'orders', cols:['po','client','product','promised','stage','ordered','delivered'], mode:'raw', period:'All', where:function(r){ return r.promised && String(r.promised)<TODAY.toISOString().slice(0,10) && !/Delivered|Closed/i.test(String(r.stage||'')); }, roles:['KAM','Supply Chain','Supply Chain Officer','Plant Manager','Production Manager','COO','CFO','Finance']},
   {id:'trucks', t:'Shipments and trucks', q:'What left the gate, when, in which truck, to whom.', ds:'shipments', cols:['date','dc','client','product','kg','vehicle','destination','stage'], mode:'raw', period:'This month', roles:['Supply Chain','Supply Chain Officer','Warehouse','Plant Manager','COO','CFO','Finance','KAM']},
+  {id:'psi', t:'Pre-shipment inspections', q:'Every truck inspected before it left: report, result, inspector; print any report.', kind:'psireg', roles:'all'},
   {id:'coa', t:'Lab certificates', q:'Every certificate: batch, result, who signed, when.', ds:'qc', cols:['date','product','batch','po','result','status','by','qty'], mode:'raw', period:'This month', roles:['Lab Rep','AQCM','QCM','QA Inspector','Plant Manager','COO','CFO']},
   {id:'rm', t:'Raw material position', q:'Which materials are short against the open orders.', kind:'rmpos', roles:['Supply Chain','Supply Chain Officer','Production Manager','Plant Manager','CFO','COO']},
   {id:'shortclose', t:'Closed short', q:'What was closed short, why, asked by whom, approved by whom.', ds:'shortclose', cols:['date','po','client','product','reason','shortfall','requestedby','approvedby'], mode:'raw', period:'FY to date', roles:['Plant Manager','Production Manager','Supply Chain','COO','CFO','KAM']},
@@ -16928,6 +17018,7 @@ function rpOpen(id){
   if(c.kind==='docs'){ rpTab='docs'; }
   else if(c.kind==='builder'){ rpTab='builder'; }
   else if(c.kind==='rmpos'){ rpTab='rmchain'; rpRmSel=''; }
+  else if(c.kind==='psireg'){ psiRegQ=''; }
   else { rpTab='builder'; rbDS=c.ds; rbCols=c.cols.slice(); rbMode=c.mode||'raw'; rbGroup=(c.group||[]).slice(); rbFilters={}; rbWhere=c.where||null; rpApplyPeriod(c.period||'This month'); }
   setScreen('reports');
 }
@@ -16972,6 +17063,7 @@ function rpReportHTML(){
   if(c.kind==='rmpos'){ if(rpView==='rmdetail') return h+'<div class="bo-back" style="margin-top:8px"><button class="qs-btn sm ghost" onclick="rpView=\'report\';render()">‹ All materials</button></div><div class="paperui">'+rpRmChain()+'</div></div>'; return h+rpRmPosition()+'</div>'; }
   if(c.kind==='docs') return h+'<div class="paperui">'+((rpDocKind==='dc')?rpDocs():rpPos())+'</div><div class="chips" style="margin-top:10px"><button class="qs-btn sm'+(rpDocKind==='po'?' on':'')+'" onclick="rpDocKind=\'po\';render()">Purchase orders</button><button class="qs-btn sm'+(rpDocKind==='dc'?' on':'')+'" onclick="rpDocKind=\'dc\';render()">Delivery challans and gate passes</button></div></div>';
   if(c.kind==='builder') return h+'<div class="paperui">'+rbRender()+'</div></div>';
+  if(c.kind==='psireg') return h+psiRegisterHTML()+'</div>';
   var res=rbResult();
   h+='<div class="row between" style="gap:10px;flex-wrap:wrap;align-items:center;margin-top:10px">'+rpPeriodChips()+'<span class="row" style="gap:6px"><button class="qs-btn sm" onclick="rbPrint()">Print / PDF</button><button class="qs-btn sm" onclick="rbExport(\'csv\')">CSV</button><button class="qs-btn sm ghost" onclick="rpTab=\'builder\';rpCur=\'custom\';render()">Adjust</button></span></div>';
   h+=rpSentence(c,res)+rpTableHTML(res);

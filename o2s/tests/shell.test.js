@@ -121,7 +121,7 @@ ok('Production Manager and Finance Desk Officer file into a department by id', /
 
 /* ================= 6. GUIDE: roles and titles ================= */
 const rt = grab('rolesTitlesCard');
-ok('the Guide opens on Your day, then Roles and titles (23u)', /\$\('view'\)\.innerHTML=`\s*\$\{yourDayCard\(\)\}\s*\$\{rolesTitlesCard\(\)\}/.test(html));
+ok('the Guide opens on My job (24j); Roles and titles is the Everyone tab', /guideTab==='everyone'\) h\+=rolesTitlesCard\(\)/.test(grab('guidePage')) && /var guideTab='job'/.test(html));
 ok('Your day lists what reaches the role, the button, and who gets it next', /tdRoleJobs\(role\)/.test(grab('yourDayCard')) && /your button: /.test(grab('yourDayCard')) && /TD_NEXT\[l\]/.test(grab('yourDayCard')));
 ok('the old step-by-step is a reference at the bottom, the manual is for COO/CFO/PM', /<details class="qs-ref">/.test(html) && /\(state\.role==='COO'\|\|state\.role==='CFO'\|\|state\.role==='Plant Manager'\)\?backOfficeManualCard\(\):''/.test(html));
 ok('it says a role is not a job title, in the words Tahir asked for', /A role is not a job title\./.test(rt) && /roles are added and never renamed/.test(rt) && /Two people can hold one role and sign differently/.test(rt));
@@ -412,6 +412,28 @@ ok('a browser that remembered All actions or the Dashboard lands on Today', /if\
     ok('and the hub lists them', /boUndated\(\)/.test(grab('boNeeds')) && /no delivery date/.test(grab('boNeeds')));
   }
   ok('BUILD_ID is 2026-09-24i or later', /var BUILD_ID='2026-09-24[i-z]'/.test(html));
+}
+
+/* 24j: the Guide as training - role-aware, in 5 tabs, no yellow headings */
+{
+  const gp = grab('guidePage'), mj = grab('guideMyJob'), jc = grab('guideJobCard'), gr = grab('guideRules'), gh = grab('guideHow');
+  ok('the Guide renders guidePage with the old steps as the Reference tab', /\$\('view'\)\.innerHTML=guidePage\(`/.test(html) && /guideTab==='ref'|else h\+=refHTML/.test(gp) && /<details class="qs-ref">/.test(html));
+  ok('5 tabs: My job · How the app works · The rules · Everyone · Reference (+ Back Office for COO/CFO/PM)', (() => { const t = grab('guideTabsHTML'); return /'My job'/.test(t) && /'How the app works'/.test(t) && /'The rules'/.test(t) && /Everyone’s roles/.test(t) && /'Reference'/.test(t) && /if\(isBO\) tabs\.push\(\['backoffice','Back Office'\]\)/.test(t); })());
+  ok('My job says who you are, your role, your department and its lead', /personTitle\(me\.username\|\|'',role\)/.test(mj) && /roleDeptId\(role\)/.test(mj) && /deptLeadRole\(did\)/.test(mj) && /The role decides which buttons you get; the title is what you are called/.test(mj));
+  ok('every kind of job the role gets is a card: how, then, if you don’t', /tdRoleJobs\(role\)/.test(mj) && /guideJobCard\(l,role\)/.test(mj) && /<span class="k">How<\/span>/.test(jc) && /<span class="k">Then<\/span>/.test(jc) && /<span class="k">If you don’t<\/span>/.test(jc));
+  ok('“if you don’t” reads the escalation threshold from acEscalation’s own table, not a copy', /String\(acEscalation\)/.test(grab('guideEsc')) && /guideEsc\(label\)/.test(jc) && /escalated to the <b>/.test(jc));
+  {
+    const f = new Function('acEscalation', grab('guideEsc') + '\nreturn guideEsc;')(function () { var TH = { 'Acknowledge': [1, 'Plant Manager'], 'Open Production': [4, 'Plant Manager'], 'Ship': [2, 'Supply Chain'] }; return TH; });
+    eq('guideEsc reads days and who', JSON.stringify(f('Ship')), JSON.stringify({ days: 2, to: 'Supply Chain' }));
+    eq('an unknown label has no rule', f('Nothing'), null);
+  }
+  ok('the sign-offs and the 2-person rules that touch the role are on My job', /SIGNOFF_ROLES/.test(mj) && /holdsSignoff\(role,c\)/.test(mj) && /You cannot review or approve a COA you drafted yourself/.test(mj) && /You cannot release a truck you loaded/.test(mj));
+  ok('the screens the role may open, read or enter', /accessLevel\(role,s\.id\)/.test(mj) && /enter/.test(mj) && /read/.test(mj));
+  ok('How the app works: the 7 steps in words and what the marks mean', /Received/.test(gh) && /Delivered/.test(gh) && /gd-step/.test(gh) && /is on it/.test(gh) && /Escalated to you/.test(gh) && /Done\. Now waiting on/.test(gh));
+  ok('The rules: why no back-dating, with the live allowances; why no bulk entry; the 2-person rules; nothing deleted; roles not people; no price', /Why you cannot back-date/.test(gr) && /evThreshold\(k\)/.test(gr) && /entered late/.test(gr) && /Why there is no bulk entry/.test(gr) && /The 2-person rules/.test(gr) && /Nothing is deleted/.test(gr) && /Roles, not people/.test(gr) && /No price on any document the customer sees/.test(gr));
+  ok('no yellow headings: the rule box is plain surface with an accent edge', /\.qs \.rule\{font-size:13px;background:var\(--surface\);border:1px solid var\(--qline\);border-left:4px solid var\(--accent\)/.test(html) && !/\.qs \.rule\{[^}]*kraft-bg/.test(html));
+  ok('numbers as digits on the Guide', !/\b(one|two|three|four|five|six|seven|eight|nine|ten) (days?|steps|tabs|names|dates|people)\b/i.test((gr + gh + mj).replace(/one role|one person|one line|one order|one pair|one minute|one day|one seat/gi, '')));
+  ok('BUILD_ID is 2026-09-24j or later', /var BUILD_ID='2026-09-24[j-z]'/.test(html));
 }
 
 report('The Queue Shell, live (23s)');

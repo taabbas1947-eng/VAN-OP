@@ -126,6 +126,9 @@ const MARKERS = [
   /* 2026-09-24i */
   ['function openOrderSheet(',             1, 'the order sheet (24i)'],
   ['function boUndated(',                  1, 'delivered lines with no date, under Needs you (24i)'],
+  /* 2026-09-24j */
+  ['function guidePage(',                  1, 'the Guide as training (24j)'],
+  ['function guideRules(',                 1, 'the rules, with why (24j)'],
 ];
 
 const [, , mode, freshPath, otherPath] = process.argv;

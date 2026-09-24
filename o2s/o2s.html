@@ -11,7 +11,7 @@
    a push keeps running the old code with nothing telling anybody. It sat at
    2026-09-04a through this whole day's work; rmqty/psi tests pinned the code,
    nothing pinned this. buildid.test.js now does. */
-var BUILD_ID='2026-09-24i';
+var BUILD_ID='2026-09-24j';
 var CHANGELOG=[
   {ver:'2026-09-04a', date:'2026-09-04', title:"Delivery, DC printing, and a new Reconciliation check", items:[
     "Delivery confirmation stays with Supply Chain \u2014 it no longer hands off to the Plant Manager. If one sits too long, it now re-flags the same Supply Chain owner every 3 days instead.",
@@ -220,6 +220,11 @@ var CHANGELOG=[
     "A line delivered in full is Delivered whether or not the delivery date was stamped (Tahir: \u201cwhy is this PO open despite delivered 100%?\u201d). A delivery with no date is listed under Needs you so the date gets filled in.",
     "Orders can be seen one by one, by customer or by product: every Max Sulfur order in one group with its totals, or every order of Maxim.",
     "One product of a PO can be closed on its own: on the order sheet each product carries Close this line (the COO) or Ask to close this line (the Production Manager and Lead Supply Chain), through the same sheet and the same rules as closing a whole PO. The PO closes itself when its last open line closes."
+  ]},
+  {ver:'2026-09-24j', date:'2026-09-24', title:"The Guide is a training page", items:[
+    "The Guide now opens on My job: who you are, your role and department, and every kind of job that reaches you as a card \u2014 how to do it, what it becomes and for whom, and what happens if you don\u2019t (the days before it is escalated, and to whom \u2014 read from the same table the app escalates by). Your sign-offs and the 2-person rules that touch you; the screens you may open.",
+    "How the app works: the 7 steps of an order in words and what every mark means. The rules: why you cannot back-date (the 2 dates and the allowances), why there is no bulk entry, the 2-person rules, nothing is deleted, roles not people, no price on a customer document.",
+    "Everyone\u2019s roles, the Back Office manual (COO, CFO, Plant Manager) and the old step-by-step are tabs of their own. No more yellow boxes."
   ]},
 ];
 </script>
@@ -1920,7 +1925,29 @@ body.td-on .wrap{background:var(--paper)}
 .qs h2{font-size:15px;font-weight:600;letter-spacing:.02em;margin:22px 0 8px;display:flex;flex-wrap:wrap;gap:6px 10px;align-items:baseline}
 .qs h2 .cnt{font-family:'IBM Plex Mono',monospace;font-weight:400;color:var(--ink-3);font-size:13px}
 .qs .note{font-size:13px;color:var(--ink-2);background:var(--surface-2);border-left:3px solid var(--qline-strong);padding:10px 12px;border-radius:0 3px 3px 0}
-.qs .rule{font-size:13px;background:var(--kraft-bg);border:1px solid var(--kraft);color:var(--ink);padding:10px 12px;border-radius:3px}
+.qs .rule{font-size:13px;background:var(--surface);border:1px solid var(--qline);border-left:4px solid var(--accent);color:var(--ink);padding:10px 12px;border-radius:3px}
+/* ---------- GUIDE as training (24j) ---------- */
+.gd-intro{font-size:15px;line-height:1.5;margin-top:14px}
+.gd-3{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-top:14px}
+.gd-place{background:var(--surface);border:1px solid var(--qline);border-top:3px solid var(--kraft);border-radius:3px;padding:10px 12px;font-size:13px;color:var(--ink-2);display:flex;flex-direction:column;gap:3px}
+.gd-place b{font-size:15px;color:var(--ink)}
+.gd-jobs{display:grid;gap:10px}
+.gd-job{background:var(--surface);border:1px solid var(--qline);border-left:5px solid var(--accent);border-radius:3px;padding:10px 12px}
+.gd-job .gd-t{font-size:16px;font-weight:600;margin-bottom:6px}
+.gd-rows{display:grid;gap:6px}
+.gd-row{display:grid;grid-template-columns:110px minmax(0,1fr);gap:8px;font-size:13.5px;line-height:1.45;color:var(--ink-2);padding:3px 0}
+.gd-row .k{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--kraft);font-weight:600;padding-top:2px}
+.gd-scr{display:flex;flex-wrap:wrap;gap:6px}
+.gd-steps{display:grid;gap:8px;margin-top:12px}
+.gd-step{display:grid;grid-template-columns:36px minmax(0,1fr);gap:10px;align-items:start;background:var(--surface);border:1px solid var(--qline);border-radius:3px;padding:10px 12px}
+.gd-step .n{font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:600;color:var(--kraft);line-height:1.2}
+.gd-step b{display:block;font-size:15px}
+.gd-step span:not(.n){font-size:13.5px;color:var(--ink-2);line-height:1.45}
+.gd-rule{background:var(--surface);border:1px solid var(--qline);border-left:5px solid var(--kraft);border-radius:3px;padding:12px 14px;margin-top:10px}
+.gd-rule h3{margin:0 0 6px;font-size:16px;font-weight:600}
+.gd-rule p{margin:0;font-size:14px;line-height:1.55;color:var(--ink-2)}
+.gd .qs-ref{margin-top:0;border-top:0;padding-top:0}
+@media (max-width:560px){.gd-row{grid-template-columns:minmax(0,1fr)}.gd-row .k{padding-top:6px}}
 .qs .rule b{color:var(--kraft)}
 .qs-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:8px 14px;border-radius:4px;border:1px solid var(--qline-strong);background:var(--surface);color:var(--ink);font-weight:500;cursor:pointer;text-align:center;line-height:1.25;box-shadow:none;font-size:14px}
 .qs-btn:hover{background:var(--surface-2)}
@@ -12604,6 +12631,80 @@ function backOfficeManualCard(){
    + sec('6 · The day, in one line', 'Finance raises the order \u2192 Supply Chain acknowledges and checks raw material \u2192 the CFO approves a purchase request if short \u2192 material is received \u2192 Production runs the base and packs the brand \u2192 Lab drafts the COA, AQCM verifies, QCM approves \u2192 QA inspects the lot and the truck \u2192 Supply Chain plans the truck, the warehouse loads and issues the gate pass, Lead Supply Chain releases \u2192 delivery is confirmed.<br>Late? The Plant Manager gives <b>one reason per order</b>. Short? Production Manager or Lead Supply Chain asks to close short; the Plant Manager approves.')
    + '<div class="muted" style="font-size:11.5px;margin-top:8px">The full manual, with the list of what was found wrong on 23 September and what was done about it: <span class="mono">docs/O2S Back Office Manual.md</span> in the repo.</div></div>';
 }
+/* ===================== THE GUIDE, AS TRAINING - 24j =====================
+   Tahir, 24 Sep: "the guide page is very poor. Define it so it guides every
+   person role-aware: show his job, how to proceed, what if he will not do it,
+   why he can't back-date or bulk enter - a guide page as well as a training
+   page. Don't write headings in yellow."
+   The page reads the same tables the app runs on (TD_LABEL, TD_NEXT, TD_RIGHT,
+   acEscalation's thresholds, SIGNOFF_ROLES, the access matrix, evThreshold),
+   so it cannot drift from what the buttons do. 5 tabs: My job · How the app
+   works · The rules · Everyone · Back Office (COO/CFO/PM) + the old reference. */
+var guideTab='job';
+function guideEsc(label){
+  /* the escalation threshold, read from the one table the app escalates by */
+  try{ var src=String(acEscalation); var m=new RegExp("'"+label.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+"'\\s*:\\s*\\[\\s*(\\d+)\\s*,\\s*'([^']+)'\\s*\\]").exec(src); if(m) return {days:+m[1],to:m[2]}; }catch(e){}
+  return null;
+}
+function guideJobCard(label,role){
+  var L=TD_LABEL[label]||{title:label,verb:'Open'}; var nx=TD_NEXT[label]; var N=nx?(TD_LABEL[nx]||{title:nx}):null; var who=nx?tdWhoHolds(nx):''; var esc=guideEsc(label);
+  var h='<div class="gd-job"><div class="gd-t">'+qsEsc(L.title)+'</div>';
+  h+='<div class="gd-row"><span class="k">How</span><span>It appears on your <b>Today</b> as a card. Tap it, do the work on the sheet that opens, press <b>'+qsEsc(L.verb)+'</b>. The card leaves your list.</span></div>';
+  h+='<div class="gd-row"><span class="k">Then</span><span>'+(N?('It becomes <b>'+qsEsc(N.title)+'</b>'+(who?' on '+qsEsc(who)+'’s Today':'')+'. You see “Done. Now waiting on …” with their name.'):'That closes it; nothing further waits on anyone.')+'</span></div>';
+  h+='<div class="gd-row"><span class="k">If you don’t</span><span>'+(esc?('The card turns amber, then red, and after <b>'+esc.days+' day'+(esc.days===1?'':'s')+'</b> '+(esc.to===role?'it is marked <b>stalled</b> on your own Today — louder, same owner — and the order counts as waiting on you on Plant.':'it is escalated to the <b>'+qsEsc(roleTitle(esc.to))+'</b> — it shows on their Today under “Escalated to you” with your role’s name, and the order counts as waiting on you on Plant.')):'The card stays on your Today, oldest first, and the order shows as waiting on you on Plant.')+'</span></div>';
+  return h+'</div>';
+}
+function guideMyJob(){
+  var role=state.role, me=state.currentUser||{}, tt=personTitle(me.username||'',role); var did=roleDeptId(role); var d=did?(deptById(did)||{}):null; var lead=did?deptLeadRole(did):'';
+  var jobs=tdRoleJobs(role);
+  var h='<div class="gd-intro">You are <b>'+qsEsc(me.name||role)+'</b>, <b>'+qsEsc(tt)+'</b>. Your role in the app is <b>'+qsEsc(role)+'</b>'+(d&&d.name?(', in <b>'+qsEsc(d.name)+'</b>'+(lead?(lead===role?' — you lead it':', led by the '+qsEsc(roleTitle(lead))):'')):'')+'. The role decides which buttons you get; the title is what you are called.</div>';
+  h+='<div class="gd-3"><div class="gd-place"><b>Today</b><span>only the jobs waiting on you, oldest first. Do them here.</span></div><div class="gd-place"><b>Plant</b><span>the whole plant, the same for everyone. Read it; nothing is entered here.</span></div><div class="gd-place"><b>Back Office</b><span>customers, products, budgets, people — the COO, CFO and Plant Manager.</span></div></div>';
+  if(role==='COO'){ h+='<h2>Your jobs</h2><div class="note">Every job in the plant can reach you, and every escalation ends with you. Your Today has a switch: <b>Needs me</b> (only your own) or <b>Whole plant</b>. Back Office is yours: settle what Needs you lists, approve customers, set budgets, move people, change what a role may do.</div>'; }
+  else if(!jobs.length){ h+='<h2>Your jobs</h2><div class="note">No job is addressed to your role by name. You read Plant and the reports your role may open; if a job is escalated to you it appears on Today under “Escalated to you”.</div>'; }
+  else { h+='<h2>Your jobs <span class="cnt">'+jobs.length+' kind'+(jobs.length===1?'':'s')+'</span></h2><div class="gd-jobs">'+jobs.map(function(l){ return guideJobCard(l,role); }).join('')+'</div>'; }
+  /* sign-offs and the 2-person rules that touch this role */
+  var signs=[]; try{ Object.keys(SIGNOFF_ROLES).forEach(function(c){ if(holdsSignoff(role,c)) signs.push(c); }); }catch(e){}
+  if(signs.length){ h+='<h2>What you sign</h2><div class="note">'+signs.map(function(c){ return '<b>'+qsEsc(codeName(c))+'</b>'; }).join(' · ')+'. A signature is your name on the record, in your own words at the time. '+(signs.indexOf('coa.review')>-1||signs.indexOf('coa.approve')>-1?'You cannot review or approve a COA you drafted yourself. ':'')+(signs.indexOf('shipment.release')>-1?'You cannot release a truck you loaded. ':'')+(signs.indexOf('inspection.perform')>-1?'You do not inspect your own output. ':'')+'</div>'; }
+  /* screens */
+  var scrs=[]; try{ SCREENS.forEach(function(s){ if(RE_SCREENS_SKIP[s.id]) return; var lv=accessLevel(role,s.id); if(lv&&lv!=='none') scrs.push({n:s.name,lv:lv}); }); }catch(e){}
+  if(scrs.length) h+='<h2>Your screens</h2><div class="gd-scr">'+scrs.map(function(x){ return '<span class="tdtag'+(x.lv==='edit'?' ok':'')+'">'+qsEsc(x.n)+' · '+(x.lv==='edit'?'enter':'read')+'</span>'; }).join('')+'</div><div class="sub">“Enter” means the screen’s data entry and sign-offs are yours; “read” opens it with nothing editable. Today, Plant and this Guide are everyone’s.</div>';
+  return h;
+}
+function guideHow(){
+  var steps=[['Received','An order is entered with each product, quantity and a committed date. Nothing moves until it exists here.'],['Materials','Supply Chain acknowledges it and checks raw material: in full, in part, or not yet. A shortfall raises a purchase request the CFO approves; what arrives is confirmed at the bay.'],['Produced','Production opens a batch, logs each shift’s output, closes the batch. The base is made in bulk; packing turns it into the brand.'],['Lab','The analyst tests and drafts the COA, a second person reviews, the QCM approves. The certificate carries their 3 names.'],['Packed · QA','Each packed lot is inspected before it can ship. A failed lot is corrected and re-inspected.'],['Shipped','Supply Chain plans the truck, the warehouse loads it, the gate pass is issued, the truck is inspected and released. The person who loads does not release.'],['Delivered','Delivery is confirmed and the order is Delivered. A line delivered in full is Delivered whether or not the date was stamped; the missing date is listed for the COO.']];
+  var h='<div class="gd-intro">One order goes through 7 steps. At each step one role acts; the moment it presses its button the job appears on the next role’s Today. Nobody chases anybody: the list does.</div>';
+  h+='<div class="gd-steps">'+steps.map(function(s,i){ return '<div class="gd-step"><span class="n">'+(i+1)+'</span><div><b>'+s[0]+'</b><span>'+s[1]+'</span></div></div>'; }).join('')+'</div>';
+  h+='<h2>What the marks mean</h2><div class="gd-rows"><div class="gd-row"><span class="k">● due</span><span>the committed date is ahead</span></div><div class="gd-row"><span class="k">■ 12 d past promise</span><span>the committed date has passed; the days are counted from it</span></div><div class="gd-row"><span class="k">is on it</span><span>a colleague with the same role has taken the card; it stays visible to both</span></div><div class="gd-row"><span class="k">Escalated to you</span><span>a card left too long on someone’s Today, shown to their lead with the role’s name</span></div><div class="gd-row"><span class="k">Done. Now waiting on …</span><span>the toast after every button: who the job went to, by name</span></div></div>';
+  return h;
+}
+function guideRules(){
+  var th=function(k){ try{ return evThreshold(k); }catch(e){ return 1; } };
+  var h='<div class="gd-intro">The app writes down who did what and when. These rules exist so that record is true, and so the certificate, the gate pass and the customer’s delivery can be trusted.</div>';
+  h+='<div class="gd-rule"><h3>Why you cannot back-date</h3><p>Every entry carries 2 dates: the day the thing happened, which you type, and the day it was recorded, which the app stamps itself. You can enter yesterday’s shift today. But when the gap is longer than the allowance — packing '+th('pack')+' day, a COA '+th('coa')+' day, a shift '+th('shift')+' day, a delivery '+th('deliver')+' days, a lot inspection the same day — the entry is marked <b>entered late</b>, you must give a reason, and it counts against your department’s <b>current</b> number, which your lead sees on his Today by name. The date of the event is never rewritten; the lateness is simply visible.</p></div>';
+  h+='<div class="gd-rule"><h3>Why there is no bulk entry</h3><p>A batch, a shift, a lot and a truck are each their own record with their own number, date and name. The COA cites the batch, the gate pass cites the lot, the delivery cites the truck. One line typed for a week hides which shift made what, who inspected which lot and when the truck actually left — and then nothing downstream can be traced back. Entering each record as it happens takes a minute; reconstructing a week later takes a day and is still a guess.</p></div>';
+  h+='<div class="gd-rule"><h3>The 2-person rules</h3><p>The person who drafts a COA does not review it; the reviewer does not approve it. The person who loads a truck does not release it. Nobody inspects their own output. A department lead can hand out the department’s rights but cannot widen his own. Where the app finds 2 of these in one pair of hands it refuses the button and says why.</p></div>';
+  h+='<div class="gd-rule"><h3>Nothing is deleted</h3><p>An order line is closed short with a reason, never removed; the ordered quantity is never rewritten. A product or customer is deactivated, not deleted. A wrong entry is corrected under Correct a record, with a reason, in your name, and the correction sits beside the original in the register. If a number changed, the record shows who changed it and why.</p></div>';
+  h+='<div class="gd-rule"><h3>Roles, not people</h3><p>Rights belong to roles. 2 people can hold one role and sign differently. There are no exceptions for one person — an exception becomes a new role, so it can be seen and given to the next person in that seat.</p></div>';
+  h+='<div class="gd-rule"><h3>What is never on a customer document</h3><p>No price on any document the customer sees. The COA carries composition, results and the 3 signatures; the delivery challan carries product, quantity and lot.</p></div>';
+  return h;
+}
+function guideTabsHTML(){
+  var isBO=(state.role==='COO'||state.role==='CFO'||state.role==='Plant Manager');
+  var tabs=[['job','My job'],['how','How the app works'],['rules','The rules'],['everyone','Everyone’s roles']]; if(isBO) tabs.push(['backoffice','Back Office']); tabs.push(['ref','Reference']);
+  return '<div class="subnav">'+tabs.map(function(t){ return '<button class="qs-btn sm'+(guideTab===t[0]?' on':'')+'" onclick="guideTab=\''+t[0]+'\';render()">'+t[1]+'</button>'; }).join('')+'</div>';
+}
+function guidePage(refHTML){
+  var me=state.currentUser||{}; var tt=personTitle(me.username||'',state.role);
+  var isBO=(state.role==='COO'||state.role==='CFO'||state.role==='Plant Manager'); if(guideTab==='backoffice'&&!isBO) guideTab='job';
+  var h='<div class="qs wide gd"><h1>Guide</h1><div class="sub">'+qsEsc(me.name||state.role)+' · '+qsEsc(tt)+' · what your job is, how to do it, and why the rules are what they are.</div>'+guideTabsHTML();
+  if(guideTab==='job') h+=guideMyJob();
+  else if(guideTab==='how') h+=guideHow();
+  else if(guideTab==='rules') h+=guideRules();
+  else if(guideTab==='everyone') h+=rolesTitlesCard();
+  else if(guideTab==='backoffice') h+=(state.role==='COO'||state.role==='CFO'||state.role==='Plant Manager')?backOfficeManualCard():'';
+  else h+=refHTML;
+  return h+'</div>';
+}
 function screenInstructions(){
   const steps=[
    {n:'1',title:'Sign in & find your to-do list',who:'Everyone',when:'before anything',tab:'Login → My Actions',
@@ -12695,10 +12796,7 @@ function screenInstructions(){
      <div style="overflow:auto"><table><thead><tr><th>Role</th><th>Works in</th><th>What it owns / does</th><th>Starts when</th><th>Hands to</th></tr></thead>
        <tbody>${roleGuide.map(r=>`<tr${r.role===state.role?' style="background:var(--navy-50)"':''}><td style="white-space:nowrap"><b>${r.role}</b>${r.role===state.role?' <span class="tag">you</span>':''}</td><td class="muted" style="font-size:11.5px;white-space:nowrap">${r.works}</td><td style="font-size:12.5px;line-height:1.55">${r.own}</td><td class="muted" style="font-size:11.5px">${r.trig}</td><td class="muted" style="font-size:11.5px;white-space:nowrap">${r.hands}</td></tr>`).join('')}</tbody></table></div></div>`;
   if(!(usersList||[]).length && !window._guideUsersOnce){ window._guideUsersOnce=true; try{ loadUsers().then(function(){ if(state.screen==='instructions') render(); }); }catch(e){} }
-  $('view').innerHTML=`
-   ${yourDayCard()}
-   ${rolesTitlesCard()}
-   ${(state.role==='COO'||state.role==='CFO'||state.role==='Plant Manager')?backOfficeManualCard():''}
+  $('view').innerHTML=guidePage(`
    <details class="qs-ref"><summary>The full process, step by step — reference (some screen names here are the old ones)</summary>
    <div class="banner info"><b>O2S System — how the whole system works.</b> This guide is for <b>everyone</b>, whatever your role or access. One customer order flows from entry to delivery; each role does its part from <b>My Actions</b>, and the <b>PO Tracker</b> shows the whole picture. Start with <b>your role at a glance</b> and the <b>responsibility matrix</b>, then read the steps in order.</div>
    ${youCard}
@@ -12758,7 +12856,7 @@ function screenInstructions(){
        <tr><td>Lab COA (batch) · QA (lot)</td><td><span class="pill" style="background:var(--navy-50);color:var(--navy)">Analyst → AQCM → QCM · QA Inspector</span></td></tr>
        <tr><td>Dispatch · Delivered · packs</td><td><span class="pill" style="background:#eef1f6;color:#6b778c">Auto — Shipments</span></td></tr>
        <tr><td>Delay reason · Responsible dept</td><td><span class="pill" style="background:#ffefdc;color:#8a5712">Plant Manager</span></td></tr>
-     </tbody></table></div></details>`;
+     </tbody></table></div></details>`);
 }
 
 /* ===================== 5. SHIPMENTS (full dispatch form, QC-gated) ===================== */

@@ -11,7 +11,7 @@
    a push keeps running the old code with nothing telling anybody. It sat at
    2026-09-04a through this whole day's work; rmqty/psi tests pinned the code,
    nothing pinned this. buildid.test.js now does. */
-var BUILD_ID='2026-09-25n';
+var BUILD_ID='2026-09-25o';
 var CHANGELOG=[
   {ver:'2026-09-04a', date:'2026-09-04', title:"Delivery, DC printing, and a new Reconciliation check", items:[
     "Delivery confirmation stays with Supply Chain \u2014 it no longer hands off to the Plant Manager. If one sits too long, it now re-flags the same Supply Chain owner every 3 days instead.",
@@ -364,6 +364,13 @@ var CHANGELOG=[
     "Sales: 2 old June trucks (Orbit-K, 20,000 Kg) that had left the gate were counted nowhere; they now count in FY 2025-26. A customer with a target per channel is no longer allocated twice.",
     "The app's date is Pakistan time on any computer, and moves on at midnight on a page left open.",
     "How are we doing: the stuck tiles add up to the total. Sales & Budget: on a phone the Sold column stays visible; the open-orders cover stops once the budget is reached."
+  ]},
+  {ver:'2026-09-25o', date:'2026-09-25', title:"Free samples have their own path", items:[
+    "New: Samples. Whoever sends a free sample (Irfan, Muhammad Ali or anyone else) asks for it there, or from + Ask for a free sample on Today. Finance or the CFO can ask on someone's behalf; both names are kept.",
+    "Every request says who is giving it, to which client (or a new prospect), why, and what. The COO approves every sample before anything moves.",
+    "Then: the warehouse issues it from stock and names the lot it came from; QA checks the pack, label and batch; the warehouse prints the sample DC and gives a gate pass from the same gate pass book as the trucks. The person confirms it arrived and records what the client said, and whether an order came from it.",
+    "The Samples page shows who gave which sample, to whom, why, and what the client said, with this year's totals by person and by client.",
+    "A sample is never an order: New order no longer offers FOC. A sample makes no production work, counts as no sale and moves no order, lot or truck. Orders already entered as FOC carry on as before."
   ]},
 ];
 </script>
@@ -2024,7 +2031,7 @@ body{color:var(--ink);font-size:15px;line-height:1.45}
 .topbar{background:var(--surface);border-bottom:1px solid var(--qline);position:static;padding:10px 16px;gap:10px}
 .topbar h2{font-size:18px;font-weight:600;letter-spacing:0;color:var(--ink)}
 .topbar .sub{color:var(--ink-3)}
-body[data-screen="today"] .topbar,body[data-screen="dash"] .topbar,body[data-screen="budget"] .topbar,body[data-screen="plant"] .topbar,body[data-screen="backoffice"] .topbar,body[data-screen="instructions"] .topbar,body[data-screen="users"] .topbar,body[data-screen="tracker"] .topbar,body[data-screen="reports"] .topbar,body[data-screen="qc"] .topbar,body[data-screen="qa"] .topbar,body[data-screen="ship"] .topbar{display:none}
+body[data-screen="today"] .topbar,body[data-screen="dash"] .topbar,body[data-screen="budget"] .topbar,body[data-screen="plant"] .topbar,body[data-screen="backoffice"] .topbar,body[data-screen="instructions"] .topbar,body[data-screen="users"] .topbar,body[data-screen="tracker"] .topbar,body[data-screen="reports"] .topbar,body[data-screen="qc"] .topbar,body[data-screen="qa"] .topbar,body[data-screen="ship"] .topbar,body[data-screen="samples"] .topbar{display:none}
 body:not([data-screen="reports"]):not([data-screen="dash"]):not([data-screen="budget"]) #periodSel,
 body:not([data-screen="reports"]):not([data-screen="dash"]):not([data-screen="budget"]) #periodFromInp,
 body:not([data-screen="reports"]):not([data-screen="dash"]):not([data-screen="budget"]) #periodToInp{display:none!important}
@@ -3607,7 +3614,10 @@ const SCREENS=[
     obj:'<b>COO only.</b> Add people, set each one\u2019s role and password. Everyone signs in and sees only their role\u2019s screens.'},
    /* R6, 23 Sep night: money is COO, CFO, Plant Manager and the KAMs. Finance
       raises orders (with prices) but does not read the budget. */
-   {id:'budget', name:'Sales & Budget (dashboard)', ic:'💰', owners:['COO','CFO','Plant Manager','KAM'], sub:'Target vs delivered (PKR)', obj:'<b>Sales vs budget · COO / CFO only.</b> Client annual targets vs delivered invoice value (delivered Kg/L × invoice price). Consolidated and by product.'},
+   /* 25o: free samples - their own path, not an order. */
+  {id:'samples', name:'Free samples', ic:'\ud83c\udf81', owners:['COO','KAM','Finance','CFO'], sub:'Ask, approve, send, feedback',
+    obj:'<b>Free samples.</b> Who gave which sample, to whom, why, and what the client said. The COO approves every one.'},
+  {id:'budget', name:'Sales & Budget (dashboard)', ic:'💰', owners:['COO','CFO','Plant Manager','KAM'], sub:'Target vs delivered (PKR)', obj:'<b>Sales vs budget · COO / CFO only.</b> Client annual targets vs delivered invoice value (delivered Kg/L × invoice price). Consolidated and by product.'},
 ];
 function scr(id){ return SCREENS.find(s=>s.id===id); }
 
@@ -3909,7 +3919,21 @@ var RIGHTS=[
   /* 23y - Tahir, 24 Sep: "give the right to the COO for closing a PO" */
   {code:'po.close',              dept:'leadership', name:'Close a whole PO', delegable:false,
    note:'Close every open line of an order short in one act, with one reason. COO only; the close is approved in the same act, kept as history, and any line can be reopened.',
-   legacy:{kind:'hard', roles:[]}}
+   legacy:{kind:'hard', roles:[]}},
+  /* 25o - free samples (FOC). Tahir, 25 Sep: "they can ask sample directly in system or one of finance
+     person can do this on their behalf ... it requires COO approval before any sample can go out". */
+  {code:'sample.request', dept:'commercial', name:'Ask for a free sample', delegable:false,
+   note:'For oneself (the KAM), or on someone else\u2019s behalf (Finance, the CFO). Nothing leaves until the COO approves it.',
+   legacy:{kind:'hard', roles:['KAM','Finance','Finance Desk Officer','CFO']}},
+  {code:'sample.approve', dept:'leadership', name:'Approve a free sample', delegable:false,
+   note:'COO only. No free sample leaves the plant without it.',
+   legacy:{kind:'hard', roles:[]}},
+  {code:'sample.issue', dept:'supply-chain', name:'Issue a free sample and its gate pass', delegable:false,
+   note:'The warehouse takes it from stock and names the lot; after QA has checked it, gives the sample DC and gate pass.',
+   legacy:{kind:'hard', roles:['Warehouse','Supply Chain Officer']}},
+  {code:'sample.check', dept:'quality', name:'Check a free sample before it leaves', delegable:false,
+   note:'QA checks the pack, the label and the batch. The person who issued it does not check it.',
+   legacy:{kind:'hard', roles:['QA Inspector']}}
 ];
 
 /* Pairs that must never sit on one role. Enforced only where BOTH codes are in
@@ -4503,7 +4527,8 @@ const NAV_ORDER=['approvals','tracker','prod','qc','qa','ship','instructions','d
 const NAV_GROUPS=[
   {label:'Today', ids:['today']},
   {label:'Plant', ids:['plant']},
-  {label:'How are we doing', ids:['dash']},   /* 25h: COO, CFO, Plant Manager only (renderTopNav) */
+  {label:'How are we doing', ids:['dash']},
+  {label:'Samples', ids:['samples']},   /* 25o: only to the people in the sample chain (renderTopNav) */   /* 25h: COO, CFO, Plant Manager only (renderTopNav) */
   {label:'Back Office', ids:['backoffice']},
   {label:'Guide', ids:['instructions']},
 ];
@@ -4628,7 +4653,7 @@ function render(){
   { var _tb=$('scTabs'); if(_tb) _tb.innerHTML=(state.screen==='approvals'?acHeaderTabsHTML():''); }
   if($('helpbar')) $('helpbar').innerHTML='';  /* help bar removed (declutter) */
   /* role switcher is rendered into .foot by renderNav (declutter removed the tips button) */
-  ({today:screenToday,backoffice:screenBackOffice,plant:screenPlant,dash:screenDash,approvals:screenToday, /* 25k: All actions retired - Today is the one list */entry:screenEntry,tracker:screenOrders,prod:screenProd,qc:screenQC,qa:screenQA,ship:screenShip,reports:screenReports,budget:screenBudget,dealers:screenDealers,instructions:screenInstructions,admin:screenAdmin,datafix:screenDataFix,recon:screenRecon,users:screenUsers,}[state.screen])();
+  ({today:screenToday,backoffice:screenBackOffice,plant:screenPlant,dash:screenDash,approvals:screenToday, /* 25k: All actions retired - Today is the one list */entry:screenEntry,samples:screenSamples,tracker:screenOrders,prod:screenProd,qc:screenQC,qa:screenQA,ship:screenShip,reports:screenReports,budget:screenBudget,dealers:screenDealers,instructions:screenInstructions,admin:screenAdmin,datafix:screenDataFix,recon:screenRecon,users:screenUsers,}[state.screen])();
 }
 /* ===================== LOCK 4: DATA FIX (reconciliation console — safety frame) ===================== */
 function typeNameToConfirm(actionText){
@@ -5500,7 +5525,7 @@ function screenEntry(){
          <option value="VC" ${entryVsub==='VC'?'selected':''}>VC — Value Chain</option>
          <option value="FM" ${entryVsub==='FM'?'selected':''}>FM — Farm Management</option></select></div>
        <div class="fld"><label>Destination Partner</label><input id="e_dpartner" type="text" value="${(entryDestPartner||'').replace(/"/g,'&quot;')}" oninput="entryDestPartner=this.value" placeholder="VGreen destination partner"></div>`:''}
-     <div class="fld"><label>PO type</label><select id="e_potype" onchange="entryFOC=(this.value==='FOC');renderEntryLines();updateEntryTotal();validate()"><option value="Commercial" ${!entryFOC?'selected':''}>Commercial</option><option value="FOC" ${entryFOC?'selected':''}>FOC sample (no charge)</option></select></div>
+     <div class="fld"><label>PO type</label><input type="text" id="e_potype" value="Commercial" disabled><div class="muted" style="font-size:10.5px;margin-top:3px">A free sample is not an order: <a href="javascript:void(0)" onclick="setScreen('samples')">ask for it under Samples</a>.</div></div>
      <div class="fld"><label>KAM</label><select id="e_kam" onchange="validate()"><option value="">— pick KAM —</option>${((state.masters&&state.masters.kamNames)||[]).map(k=>`<option ${k===state._lastKam?'selected':''}>${k}</option>`).join('')}</select></div>
      <div class="fld"><label>Priority</label><select id="e_pri" onchange="validate()"><option>Normal</option><option>High</option><option>Critical</option><option>Low</option></select></div>
      <div class="fld"><label>Order source</label><select id="e_source" onchange="entrySource=this.value;validate()"><option value="">— how did it arrive —</option>${['Phone call','WhatsApp','Email','Portal','In-person visit'].map(s=>`<option ${s===entrySource?'selected':''}>${s}</option>`).join('')}</select></div>
@@ -11908,6 +11933,7 @@ function actionItems(){
                 :(age!=null?(' · open '+age+' day'+(age===1?'':'s')):'')),
       act:"openCloseBatch('"+b.id+"')", label:(_re?'Reopened — check first':'Close batch') });
   });
+  try{ smpJobs().forEach(function(j){ items.push(j); }); }catch(e){} /* 25o: free samples */
   return items;
 }
 /* Batches that are finished and have nothing left to explain: produced at or
@@ -12287,6 +12313,7 @@ function actTiming(it){
   else if(it.batch){ c=it.batch.closedDate||it.batch.openedDate||it.batch.date||null; approx=(it.label!=='Lab QC'); }
   else if(it.lot){ c=(it.lot.qa&&it.lot.qa.date)||it.lot.date||null; }
   else if(it.disp){ c=it.disp.date||null; }
+  else if(it.smp){ c=it.smpSince||null; }
   else if(it.cust){ c=it.cust.inducted||null; approx=true; }
   var days=null;
   if(c){ var t=new Date(c); if(!isNaN(t)){ days=calDays(c, evToday()); if(days<0)days=0; } else c=null; } /* 25m: calendar days */
@@ -12530,7 +12557,13 @@ var TD_LABEL={
   'Re-inspect':      {title:'Lot on hold',                          verb:'Re-inspect'},
   'Close batch':     {title:'Batch to close',                       verb:'Close the batch'},
   'Approve customer':{title:'New customer to approve',              verb:'Approve'},
-  'Reopened — check first':{title:'Reopened batch',                 verb:'Check it'}
+  'Reopened — check first':{title:'Reopened batch',                 verb:'Check it'},
+  'Approve sample':  {title:'Free sample to approve',               verb:'Approve'},
+  'Issue sample':    {title:'Free sample to issue from stock',      verb:'Issue'},
+  'Check sample':    {title:'Free sample to check before it leaves',verb:'Check'},
+  'Sample gate pass':{title:'Free sample: DC and gate pass',        verb:'Issue gate pass'},
+  'Sample arrived':  {title:'Did your sample arrive?',              verb:'It arrived'},
+  'Sample feedback': {title:'What the client said about a sample',  verb:'Record feedback'}
 };
 /* Which RIGHT an item is. A person sees an item when it is addressed to their
    role, OR when the right behind it is grant-decided (RIGHTS_LIVE) and the COO
@@ -12698,6 +12731,7 @@ function tdStarts(){
   if(canView(state.role,'ship') && may('shipment.plan')) b.push(['ship','+ Record a shipment']);
   if(canView(state.role,'qc') && (state.role==='Lab Rep'||state.role==='AQCM'||state.role==='QCM')) b.push(['qc','Lab QC']);
   if(state.role==='COO') b=b.filter(function(x){ return x[0]==='entry'; });   /* 23u: the COO starts orders, not batches */
+  if(state.role!=='COO' && may('sample.request')) b.push(['@smpNew()','+ Ask for a free sample']); /* 25o */
   if(!b.length) return '';
   return '<div class="tdstarts">'+b.map(function(x){ return '<button class="tdstart" onclick="'+(x[0].charAt(0)==='@'?x[0].slice(1):'setScreen(\''+x[0]+'\')')+'">'+_tdEsc(x[1])+'</button>'; }).join('')+'</div>';
 }
@@ -12734,7 +12768,8 @@ function renderTopNav(){
     g.ids.forEach(function(id){
       var s=byId[id]; if(!s||!canView(state.role,id)) return;
       if(id==='backoffice'){ try{ if(!boJobs().length) return; }catch(e){} }
-      if(id==='dash'&&!howMay()) return;   /* 23u: no job there, no word in the header */
+      if(id==='dash'&&!howMay()) return;
+      if(id==='samples'&&!smpMayView()) return;   /* 23u: no job there, no word in the header */
       var label=g.label;
       html+='<a class="'+(id===state.screen?'on':'')+'" onclick="setScreen(\''+id+'\')">'+qsEsc(label)+(id==='today'?navBadgeQS():'')+'</a>';
     });
@@ -13119,7 +13154,8 @@ var TD_NEXT={'Assign sample':'Lab test','Lab test':'Review',  /* 24z: the lab by
   'Acknowledge':'RM Check','RM Check':'Approve PR','Approve PR':'Receive','Receive':'Open Production','Print price':'Open Production',
   'Open Production':'Close batch','Close batch':'Lab QC','Reopened — check first':'Close batch','Lab QC':'Review','Review':'Approve','Approve':'Pack QC',
   'Pack QC':'Ship','Correct':'Re-inspect','Re-inspect':'Ship','Ship':'Load','Load':'Inspect','Inspect':'Gate Pass','Gate Pass':'Review truck','Review truck':'Release','Release':'Confirm delivery',
-  'Approve DC':'Confirm delivery','Confirm delivery':'','Add reason':'','Approve customer':''};
+  'Approve DC':'Confirm delivery','Confirm delivery':'','Add reason':'','Approve customer':'',
+  'Approve sample':'Issue sample','Issue sample':'Check sample','Check sample':'Sample gate pass','Sample gate pass':'Sample arrived','Sample arrived':'Sample feedback','Sample feedback':''};
 function tdRoleJobs(role){
   /* the labels addressed to this role right now, plus every label whose live
      right the role holds - so a quiet day still lists the job kinds */
@@ -13127,7 +13163,7 @@ function tdRoleJobs(role){
   try{ actionItems().forEach(function(it){ if(it.role===role && it.label && !seen[it.label]){ seen[it.label]=1; out.push(it.label); } }); }catch(e){}
   Object.keys(TD_RIGHT).forEach(function(l){ if(!seen[l] && mayRole(role,TD_RIGHT[l])){ seen[l]=1; out.push(l); } });
   /* 24o: the sign-offs are jobs too - a QCM with no COA waiting today still approves COAs */
-  var SIGN_JOBS={'Lab Rep':['Lab QC'],'AQCM':['Review'],'QCM':['Approve'],'QA Inspector':['Pack QC','Inspect'],'Supply Chain':['Review truck'],'Plant Manager':['Release','Approve DC']};
+  var SIGN_JOBS={'Lab Rep':['Lab QC'],'AQCM':['Review'],'QCM':['Approve'],'QA Inspector':['Pack QC','Inspect','Check sample'],'Supply Chain':['Review truck'],'Plant Manager':['Release','Approve DC'],'KAM':['Sample arrived','Sample feedback'],'Warehouse':['Issue sample','Sample gate pass']};
   (SIGN_JOBS[role]||[]).forEach(function(l){ if(!seen[l]){ seen[l]=1; out.push(l); } });
   return out;
 }
@@ -13683,6 +13719,7 @@ function guideRules(){
   h+='<div class="gd-rule"><h3>Why you cannot back-date</h3><p>Every entry carries 2 dates: the day the thing happened, which you type, and the day it was recorded, which the app stamps itself. You can enter yesterday’s shift today. But when the gap is longer than the allowance — packing '+th('pack')+' day, a COA '+th('coa')+' day, a shift '+th('shift')+' day, a delivery '+th('deliver')+' days, a lot inspection the same day — the entry is marked <b>entered late</b>, you must give a reason, and it counts against your department’s <b>current</b> number, which your lead sees on his Today by name. The date of the event is never rewritten; the lateness is simply visible.</p></div>';
   h+='<div class="gd-rule"><h3>Why there is no bulk entry</h3><p>A batch, a shift, a lot and a truck are each their own record with their own number, date and name. The COA cites the batch, the gate pass cites the lot, the delivery cites the truck. One line typed for a week hides which shift made what, who inspected which lot and when the truck actually left — and then nothing downstream can be traced back. Entering each record as it happens takes a minute; reconstructing a week later takes a day and is still a guess.</p></div>';
   h+='<div class="gd-rule"><h3>The 2-person rules</h3><p>The person who drafts a COA does not review it; the reviewer does not approve it. Nobody who ran a test on a sample reviews or approves its certificate. Management does not sign a certificate: only the lab signs. The person who loads a truck does not release it. Nobody inspects their own output. A department lead can hand out the department’s rights but cannot widen his own. Where the app finds 2 of these in one pair of hands it refuses the button and says why.</p></div>';
+  h+='<div class="gd-rule"><h3>Free samples</h3><p>A free sample is not an order and is never made to order. Whoever sends it (Irfan, Muhammad Ali or anyone else) asks under <b>Samples</b>, or Finance asks for them; the request says who, to whom, why and what. <b>The COO approves every sample</b> before anything moves. The warehouse issues it from stock and names the lot it came from; QA checks the pack, the label and the batch; the warehouse gives it its own sample DC and a gate pass from the same book as the trucks. The person who asked confirms it arrived and, within '+SMP_FEEDBACK_DAYS+' days, records what the client said. A sample never counts as a sale and never appears as work for production.</p></div>';
   h+='<div class="gd-rule"><h3>When the AQCM or the QCM is on leave</h3><p>Tap your name → <b>I’m going on leave</b> and give the days; the Plant Manager gets a job to name a cover. The cover is someone in the lab. He signs one line in his own name, and the certificate prints <b>for</b> the person on leave. A cover never signs both lines of one certificate. If nobody announced the leave and certificates wait a day for someone who has done nothing in the app that day, the Plant Manager is asked too.</p></div>';
   h+='<div class="gd-rule"><h3>Nothing is deleted</h3><p>An order line is closed short with a reason, never removed; the ordered quantity is never rewritten and cannot be typed anywhere: less is a close-short, more is a new order. A product or customer is deactivated, not deleted. A wrong entry is corrected under Correct a record, with a reason, in your name, and the correction sits beside the original in the register. If a number changed, the record shows who changed it and why.</p></div>'+
   '<div class="gd-rule"><h3>A number moves only with its record</h3><p>Packed moves with a packing run from a batch, dispatched with a truck, delivered with a delivery. None of them can be typed, and nothing can be packed beyond what the line ordered. When a line and its records disagree, open the line (Orders → the order → <b>History</b>, or the item on Back Office <b>Needs you</b>): it shows what is wrong, the line’s whole history, what the records show as the cause, and the fix — record the missing packing against its batch, bring packed back to its records, or stamp a delivery date from the truck — each with a reason in your name.</p></div>'+
@@ -15075,7 +15112,7 @@ function mpCreate(){ if(!may('shipment.plan')){toast(denyRight('shipment.plan','
 
 /* ===== Stage pipeline: Truck Planned → Loading → (Gate Pass) → Plant Manager release → In transit ===== */
 /* Gate Pass serial — continues its own running number, like the DC serial. */
-function nextGatePassNo(){ var mx=0; (state.shipments||[]).forEach(function(s){ if(!s)return; var n=parseInt(String(s.gatePass||'').replace(/\D/g,''),10); if(!isNaN(n)&&n>mx)mx=n; }); return 'GP-'+('0000'+(mx+1)).slice(-4); }
+function nextGatePassNo(){ var mx=0; (state.shipments||[]).forEach(function(s){ if(!s)return; var n=parseInt(String(s.gatePass||'').replace(/\D/g,''),10); if(!isNaN(n)&&n>mx)mx=n; }); /* 25o: a free sample leaves on the same gate pass book */ (state.samples||[]).forEach(function(x){ var n=parseInt(String((x&&x.dispatch&&x.dispatch.gatePass)||'').replace(/\D/g,''),10); if(!isNaN(n)&&n>mx)mx=n; }); return 'GP-'+('0000'+(mx+1)).slice(-4); }
 function shipRowsOf(dispId){ return (state.shipments||[]).filter(function(s){return (s.dispId||'')===dispId && !s.voided;}); }
 function startLoading(dispId){ if(!may('shipment.load')){toast(denyRight('shipment.load','Starting loading'));return;} var rows=shipRowsOf(dispId); if(!rows.length)return; if(rows[0].stage!=='truck_planned'){toast('Loading can only start on a Truck Planned shipment');return;} var d=TODAY.toISOString().slice(0,10); var _me={by:(state.currentUser&&state.currentUser.name)||state.role,user:(state.currentUser&&state.currentUser.username)||'',role:state.role}; rows.forEach(function(s){ s.stage='loading'; s.loadStarted=d; s.loadedBy=_me.by; s.loadedByUser=_me.user; s.loadedByRole=_me.role; }); logAction('Loading started — DC '+(rows[0].dc||'')+' ('+dispId+')'); save(); render(); toast('Loading started'); }
 function issueGatePass(dispId){ if(!may('gatepass.issue')){toast(denyRight('gatepass.issue','Issuing a Gate Pass'));return;} var rows=shipRowsOf(dispId); if(!rows.length)return; if(rows[0].stage!=='loading'){toast('Start loading before issuing the Gate Pass');return;} if(rows[0].gatePass){toast('Gate Pass already issued: '+rows[0].gatePass);return;}
@@ -16797,6 +16834,216 @@ function budgetHtml(){ var D=sbData(), R=D.R, e=qsEsc, P=function(n){ return 'PK
   h+='<div class="card" style="padding:6px 10px;margin-top:12px"><table class="sb-t"><thead><tr><th>Products sold · '+e(R.label)+'</th><th class="n">Sold</th></tr></thead><tbody>'+(D.prod.length?D.prod.map(function(x){ return '<tr><td>'+e(x.b)+'</td><td class="n">'+P(x.v)+'</td></tr>'; }).join(''):'<tr><td colspan="2" class="muted">Nothing left the gate in this period.</td></tr>')+'</tbody></table></div>';
   try{ var mp=monthlyPaceCard(); if(mp&&isFY) h+='<div style="margin-top:12px">'+mp+'</div>'; }catch(e){}
   return h+'</div>'; }
+
+/* ===== FREE SAMPLES (FOC) — 25 Sep 2026 (25o) ================================
+   Tahir, 25 Sep: "a system for Irfan and Muhammad Ali, and people who want to
+   send FOC samples to various clients ... they can ask for a sample directly in
+   the system, or a finance person can do it on their behalf ... it should be
+   approved and go through the whole process of documentation except production
+   ... it requires COO approval before any sample can go out ... we want to see
+   who gave which sample in the organisation, why, and whether a sample has had
+   feedback ... remove FOC from New PO entry and create a dedicated path and a
+   chain for it."
+   The chain: ask (the person, or Finance / the CFO for them) -> the COO approves
+   -> the warehouse issues it from stock and names the lot -> QA checks the pack
+   -> the warehouse gives the sample DC and the gate pass -> the person confirms
+   it arrived -> the person records what the client said.
+   No order, no production, no truck, no sale. Nothing here changes an order
+   line, a batch, a lot, a shipment or a sales figure. The lot is recorded for
+   traceability only: taking the kg off stock waits on Tahir's ruling on where
+   samples physically come from. */
+var SMP_PURPOSES=['Product trial','Registration or testing','New customer introduction','Replacement or complaint','Exhibition or demo','Other'];
+var SMP_HOW=['Courier','Our staff carries it','Our vehicle','Client collects'];
+var SMP_FEEDBACK=['Positive, an order is coming','Positive, no order yet','Neutral','Negative','No response'];
+var SMP_QA=['Right product and pack size','Label shows the batch no., manufacturing and expiry dates','Marked free sample, not for sale; no price on the pack','Seal intact, no leak or damage','Certificate (COA) available for the batch'];
+var SMP_STATUS={requested:'Waiting on the COO',approved:'Approved, warehouse to issue',rejected:'Not approved',issued:'Issued, QA to check',checked:'Checked, gate pass to issue',dispatched:'On the way',delivered:'Delivered',cancelled:'Cancelled'};
+var SMP_FEEDBACK_DAYS=14;
+var smpForm=null, smpAct=null, smpFilter={st:'',who:'',q:''};
+function smpList(){ state.samples=Array.isArray(state.samples)?state.samples:[]; return state.samples; }
+function smpById(id){ return smpList().find(function(x){ return x&&x.id===id; }); }
+function smpMayView(){ return ['COO','CFO','KAM','Finance','Finance Desk Officer','Warehouse','Supply Chain Officer','Supply Chain','QA Inspector','Plant Manager'].indexOf(state.role)>-1; }
+function smpKg(x){ return (x&&x.lines||[]).reduce(function(a,l){ return a+(+l.kg||0); },0); }
+function smpNextNo(field,pfx){ var mx=0; smpList().forEach(function(x){ var n=parseInt(String((x&&x[field])||'').replace(/\D/g,''),10); if(!isNaN(n)&&n>mx) mx=n; }); return pfx+('0000'+(mx+1)).slice(-4); }
+function smpStamp(){ var m=_uRole(); return {by:m.by,user:m.user,role:m.role,at:new Date().toISOString(),date:evToday()}; }
+function smpMine(x){ var u=(state.currentUser&&state.currentUser.username)||''; return !!(x&&u&&((x.requester&&x.requester.user===u)||(x.entered&&x.entered.user===u))); }
+function smpOwner(x){ /* the person the follow-up jobs go to: who gave it, else who entered it */ if(x&&x.requester&&x.requester.user) return {role:x.requester.role,user:x.requester.user,name:x.requester.name}; var e=(x&&x.entered)||{}; return {role:e.role,user:e.user,name:e.by}; }
+function smpSince(x){ var h=(x&&x.history)||[]; var t=h.length?h[h.length-1].at:((x&&x.entered&&x.entered.at)||''); return String(t||'').slice(0,10); }
+function smpFeedbackDue(x){ return !!(x&&x.status==='delivered'&&!(x.feedback||[]).length&&x.delivered&&calDays(x.delivered.date,evToday())>=SMP_FEEDBACK_DAYS); }
+function smpLog(x,what,note){ (x.history=x.history||[]).push(Object.assign(smpStamp(),{what:what,note:note||''})); logAction('Free sample '+x.no+' ('+x.client+'): '+what+(note?' — '+note:'')); }
+function smpUnit(brand){ var p=((state.masters&&state.masters.products)||[]).find(function(x){ return x&&x.brand===brand; }); return (p&&/liquid/i.test(p.form||''))?'L':'Kg'; }
+function smpProducts(){ return ((state.masters&&state.masters.products)||[]).filter(function(p){ return p&&p.brand&&p.active!==false; }).sort(function(a,b){ return String(a.brand).localeCompare(String(b.brand)); }); }
+function smpCustomers(){ var s={}; (state.customers||[]).forEach(function(c){ if(c&&c.name&&!c.isParent&&!/inactive|reject/i.test(c.status||'')) s[c.name]=1; }); return Object.keys(s).sort(); }
+function smpPeople(){ return (usersList||[]).filter(function(u){ return u&&u.username&&u.active!==false&&!u.disabled; }).sort(function(a,b){ return String(a.name||a.username).localeCompare(String(b.name||b.username)); }); }
+/* the Today jobs; addressed by role, the follow-ups to the person */
+function smpJobs(){ var out=[]; smpList().forEach(function(x){ if(!x) return; var tag=x.no+' · '+x.client+' · '+fmt(smpKg(x))+' Kg/L'; var act="smpOpen('"+x.id+"')"; var since=smpSince(x); var ow=smpOwner(x);
+    if(x.status==='requested') out.push({role:'COO',smp:x,smpSince:since,what:'Approve free sample — '+tag+' · for '+((x.requester&&x.requester.name)||''),act:act,label:'Approve sample'});
+    else if(x.status==='approved') out.push({role:'Warehouse',smp:x,smpSince:since,what:'Issue free sample — '+tag,act:act,label:'Issue sample'});
+    else if(x.status==='issued') out.push({role:'QA Inspector',smp:x,smpSince:since,what:'Check free sample — '+tag,act:act,label:'Check sample'});
+    else if(x.status==='checked') out.push({role:'Warehouse',smp:x,smpSince:since,what:'Sample DC and gate pass — '+tag,act:act,label:'Sample gate pass'});
+    else if(x.status==='dispatched') out.push({role:ow.role||'KAM',who:ow.user||undefined,smp:x,smpSince:since,what:'Did the sample arrive? — '+tag,act:act,label:'Sample arrived'});
+    else if(smpFeedbackDue(x)) out.push({role:ow.role||'KAM',who:ow.user||undefined,smp:x,smpSince:since,what:'What did the client say about the sample? — '+tag,act:act,label:'Sample feedback'});
+  }); return out; }
+function smpTip(t){ return '<div class="muted" style="font-size:11px;margin-top:3px">'+t+'</div>'; }
+/* ---- ask for a sample ---- */
+function smpNew(){ if(!may('sample.request')){ toast(denyRight('sample.request','Asking for a free sample')); return; }
+  var me=_uRole(); var self=(state.role==='KAM');
+  smpForm={reqUser:self?me.user:'',reqName:self?me.by:'',reqOther:'',client:'',prospect:'',city:'',purpose:'',why:'',neededBy:'',how:'',toPerson:'',toPhone:'',toAddress:'',lines:[{brand:'',pack:'',packs:''}]};
+  if(!(usersList||[]).length){ try{ loadUsers().then(function(){ if(smpForm&&$('modalBg').classList.contains('open')) smpRenderForm(); }); }catch(e){} }
+  smpRenderForm(); $('modalBg').classList.add('open'); }
+function smpSet(k,v,rr){ if(!smpForm) return; smpForm[k]=v; if(rr) smpRenderForm(); }
+function smpLine(i,k,v,rr){ if(!smpForm||!smpForm.lines[i]) return; smpForm.lines[i][k]=v; if(k==='brand'){ var p=smpProducts().find(function(x){ return x.brand===v; }); smpForm.lines[i].pack=p?String(p.pack||((p.packs||[])[0])||''):''; } if(rr) smpRenderForm(); else { var el=$('smp_kg_'+i); if(el){ var L=smpForm.lines[i]; el.textContent=((+L.pack||0)*(+L.packs||0))>0?fmt((+L.pack||0)*(+L.packs||0))+' '+smpUnit(L.brand):''; } } }
+function smpLineAdd(){ if(smpForm){ smpForm.lines.push({brand:'',pack:'',packs:''}); smpRenderForm(); } }
+function smpLineDel(i){ if(smpForm&&smpForm.lines.length>1){ smpForm.lines.splice(i,1); smpRenderForm(); } }
+function smpRenderForm(){ var f=smpForm; if(!f) return; var e=qsEsc, self=(state.role==='KAM');
+  var sel=function(k,list,ph,rr){ return '<select onchange="smpSet(\''+k+'\',this.value'+(rr?',1':'')+')"><option value="">'+ph+'</option>'+list.map(function(o){ var v=Array.isArray(o)?o[0]:o, t=Array.isArray(o)?o[1]:o; return '<option value="'+_av(v)+'"'+(String(f[k])===String(v)?' selected':'')+'>'+e(t)+'</option>'; }).join('')+'</select>'; };
+  var inp=function(k,ph,type){ return '<input type="'+(type||'text')+'" value="'+_av(f[k])+'" oninput="smpSet(\''+k+'\',this.value)" placeholder="'+_av(ph||'')+'">'; };
+  var who=self?('<div class="fld"><label>Given by</label><input type="text" value="'+_av(f.reqName)+'" disabled>'+smpTip('You. Finance or the CFO can also ask on someone\'s behalf.')+'</div>')
+    :('<div class="fld"><label>Given by (the person sending it) <span style="color:var(--red)">*</span></label>'+sel('reqUser',smpPeople().map(function(u){ return [u.username,(u.name||u.username)+' · '+personTitle(u.username,u.role)]; }).concat([['__other','Someone not in O2S']]),'— pick the person —',1)
+      +(f.reqUser==='__other'?'<input type="text" style="margin-top:6px" value="'+_av(f.reqOther)+'" oninput="smpSet(\'reqOther\',this.value)" placeholder="their name">':'')+smpTip('You are entering it for them; both names are kept.')+'</div>');
+  var cust='<div class="fld"><label>Client <span style="color:var(--red)">*</span></label>'+sel('client',smpCustomers().concat([['__new','A new prospect, not a customer yet']]),'— pick the client —',1)
+    +(f.client==='__new'?'<div class="row" style="gap:6px;margin-top:6px"><input type="text" value="'+_av(f.prospect)+'" oninput="smpSet(\'prospect\',this.value)" placeholder="company or farmer name"><input type="text" value="'+_av(f.city)+'" oninput="smpSet(\'city\',this.value)" placeholder="city"></div>':'')+'</div>';
+  var prods=smpProducts();
+  var lines=f.lines.map(function(L,i){ var p=prods.find(function(x){ return x.brand===L.brand; }); var packs=p?((p.packs&&p.packs.length)?p.packs:[p.pack||1]):[]; var kg=(+L.pack||0)*(+L.packs||0);
+    return '<div style="border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:8px"><div class="row" style="gap:8px;flex-wrap:wrap;align-items:flex-end">'
+      +'<div class="fld" style="flex:2;min-width:170px;margin:0"><label>Product</label><select onchange="smpLine('+i+',\'brand\',this.value,1)"><option value="">— product —</option>'+prods.map(function(x){ return '<option'+(x.brand===L.brand?' selected':'')+'>'+e(x.brand)+'</option>'; }).join('')+'</select></div>'
+      +'<div class="fld" style="flex:1;min-width:90px;margin:0"><label>Pack ('+smpUnit(L.brand)+')</label><select onchange="smpLine('+i+',\'pack\',this.value,1)">'+(packs.length?packs.map(function(pk){ return '<option'+(String(pk)===String(L.pack)?' selected':'')+'>'+pk+'</option>'; }).join(''):'<option value="">—</option>')+'</select></div>'
+      +'<div class="fld" style="flex:1;min-width:80px;margin:0"><label>Packs</label><input type="number" min="1" step="1" value="'+_av(L.packs)+'" oninput="smpLine('+i+',\'packs\',this.value)"></div>'
+      +'<div style="flex:1;min-width:70px;padding-bottom:9px"><b id="smp_kg_'+i+'">'+(kg>0?fmt(kg)+' '+smpUnit(L.brand):'')+'</b></div>'
+      +(f.lines.length>1?'<button class="ghost sm" onclick="smpLineDel('+i+')">Remove</button>':'')+'</div></div>'; }).join('');
+  $('modal').innerHTML='<div class="mh"><h2>Ask for a free sample</h2><div class="sub">No charge, no production. The COO approves it before anything leaves the plant.</div></div><div class="mb">'
+    +'<div class="gd-sec" style="font-weight:700;margin:2px 0 8px">1 · Who and to whom</div>'+who+cust
+    +'<div class="gd-sec" style="font-weight:700;margin:14px 0 8px">2 · Why</div>'
+    +'<div class="fld"><label>Purpose <span style="color:var(--red)">*</span></label>'+sel('purpose',SMP_PURPOSES,'— pick one —')+'</div>'
+    +'<div class="fld fld-long"><label>Why this client, why now <span style="color:var(--red)">*</span></label><textarea rows="3" oninput="smpSet(\'why\',this.value)" placeholder="e.g. trial on 5 acres of citrus before their spring order; they asked for it after our field day">'+_tx(f.why)+'</textarea></div>'
+    +'<div class="gd-sec" style="font-weight:700;margin:14px 0 8px">3 · What</div>'+lines+'<button class="ghost sm" onclick="smpLineAdd()">+ Another product</button>'
+    +'<div class="gd-sec" style="font-weight:700;margin:14px 0 8px">4 · When and how it goes</div>'
+    +'<div class="row" style="gap:8px;flex-wrap:wrap"><div class="fld" style="flex:1;min-width:150px"><label>Needed by <span style="color:var(--red)">*</span></label>'+inp('neededBy','','date')+'</div><div class="fld" style="flex:1;min-width:150px"><label>How it goes <span style="color:var(--red)">*</span></label>'+sel('how',SMP_HOW,'— pick —')+'</div></div>'
+    +'<div class="row" style="gap:8px;flex-wrap:wrap"><div class="fld" style="flex:1;min-width:150px"><label>Deliver to (person)</label>'+inp('toPerson','who receives it')+'</div><div class="fld" style="flex:1;min-width:150px"><label>Phone</label>'+inp('toPhone','03xx-xxxxxxx','tel')+'</div></div>'
+    +'<div class="fld fld-long"><label>Address</label>'+inp('toAddress','where it goes')+'</div>'
+    +'</div><div class="mf"><button class="ghost" onclick="smpForm=null;closeModal()">Cancel</button><button class="green" onclick="smpSubmit()">Send to the COO</button></div>'; }
+function smpSubmit(){ if(!may('sample.request')){ toast(denyRight('sample.request','Asking for a free sample')); return; } var f=smpForm; if(!f) return;
+  var me=_uRole(), self=(state.role==='KAM'), req;
+  if(self) req={user:me.user,name:me.by,role:state.role};
+  else if(f.reqUser==='__other'){ if(String(f.reqOther||'').trim().length<3) return toast('Type the name of the person sending it'); req={user:'',name:String(f.reqOther).trim(),role:''}; }
+  else { var u=smpPeople().find(function(x){ return x.username===f.reqUser; }); if(!u) return toast('Pick who is sending the sample'); req={user:u.username,name:u.name||u.username,role:u.role}; }
+  var client=f.client==='__new'?String(f.prospect||'').trim():f.client; if(!client) return toast(f.client==='__new'?'Type the prospect\'s name':'Pick the client');
+  if(!f.purpose) return toast('Pick the purpose'); if(String(f.why||'').trim().length<10) return toast('Say why, in a sentence (at least 10 letters)');
+  var lines=f.lines.filter(function(L){ return L.brand; }).map(function(L){ var p=smpProducts().find(function(x){ return x.brand===L.brand; })||{}; return {brand:L.brand,base:p.base||L.brand,pack:+L.pack||0,packs:+L.packs||0,kg:(+L.pack||0)*(+L.packs||0),unit:smpUnit(L.brand)}; });
+  if(!lines.length) return toast('Add at least one product'); if(lines.some(function(L){ return !(L.kg>0); })) return toast('Set the pack and the number of packs on every product');
+  if(!f.neededBy) return toast('Set the date it is needed by'); if(f.neededBy<evToday()) return toast('The needed-by date is in the past');
+  if(!f.how) return toast('Pick how it goes');
+  var x={id:_uid('SMP'),no:smpNextNo('no','SMP-'),status:'requested',requester:req,entered:smpStamp(),onBehalf:!self&&req.user!==me.user,client:client,prospect:f.client==='__new',city:String(f.city||'').trim(),purpose:f.purpose,why:String(f.why).trim(),neededBy:f.neededBy,how:f.how,deliverTo:{person:String(f.toPerson||'').trim(),phone:String(f.toPhone||'').trim(),address:String(f.toAddress||'').trim()},lines:lines,history:[],feedback:[]};
+  smpList().unshift(x); smpLog(x,'Asked'+(x.onBehalf?' by '+me.by+' for '+req.name:''),x.purpose);
+  smpForm=null; save(); closeModal(); render(); toast('Sent to the COO for approval — '+x.no); }
+/* ---- one sample: its record and the one step waiting on you ---- */
+function smpOpen(id){ var x=smpById(id); if(!x){ toast('Sample not found'); return; } smpAct={id:id,note:'',marks:SMP_QA.map(function(){ return ''; }),lots:(x.lines||[]).map(function(L){ return {lot:'',batch:'',kg:String(L.kg||'')}; }),carrier:'',tracking:'',vehicle:'',date:evToday(),via:'',result:'',po:''}; smpRenderOpen(); $('modalBg').classList.add('open'); }
+function smpA(k,v,rr){ if(!smpAct) return; smpAct[k]=v; if(rr) smpRenderOpen(); }
+function smpLot(i,k,v,rr){ if(!smpAct||!smpAct.lots[i]) return; smpAct.lots[i][k]=v; if(rr) smpRenderOpen(); }
+function smpMark(i,v){ if(!smpAct) return; smpAct.marks[i]=v; smpRenderOpen(); }
+function smpLotsFor(brand){ return (state.packingLog||[]).filter(function(p){ return p&&!p.voided&&p.brand===brand&&+p.kg>0; }).sort(function(a,b){ return String(b.date||'').localeCompare(String(a.date||'')); }).slice(0,25); }
+function smpCoaOf(p){ var b=p&&(state.batches||[]).find(function(x){ return x&&x.id===p.baseBatchId; }); if(!b) return null; var c=(b.lots||[]).map(function(l){ return l&&l.coa; }).find(function(c){ return c&&c.status==='approved'; })||((b.coa&&b.coa.status==='approved')?b.coa:null); return c; }
+function smpHistoryFor(x){ var fy=fyKey(evToday()); var L=smpList().filter(function(y){ return y&&y!==x&&y.status!=='cancelled'&&y.status!=='rejected'; });
+  var cl=L.filter(function(y){ return y.client===x.client; }), rq=L.filter(function(y){ return y.requester&&x.requester&&y.requester.name===x.requester.name&&fyKey(String(y.entered&&y.entered.date||evToday()))===fy; });
+  var fb=cl.filter(function(y){ return (y.feedback||[]).length; }).map(function(y){ return y.feedback[y.feedback.length-1].result; });
+  return '<div class="note" style="margin:10px 0">'+(cl.length?('<b>'+cl.length+'</b> earlier sample'+(cl.length===1?'':'s')+' to this client ('+fmt(cl.reduce(function(a,y){ return a+smpKg(y); },0))+' Kg/L)'+(fb.length?'; what they said: '+fb.map(qsEsc).join(', '):'; no feedback recorded yet')+'.'):'The first sample to this client.')+' '+qsEsc(x.requester&&x.requester.name||'')+' has sent <b>'+rq.length+'</b> other sample'+(rq.length===1?'':'s')+' this financial year.</div>'; }
+function smpRenderOpen(){ var x=smpById(smpAct&&smpAct.id); if(!x){ closeModal(); return; } var e=qsEsc, a=smpAct, st=x.status;
+  var row=function(k,v){ return '<div class="srow"><span class="k">'+k+'</span><span class="v">'+v+'</span></div>'; };
+  var h='<div class="mh"><h2>Free sample '+e(x.no)+'</h2><div class="sub">'+e(SMP_STATUS[st]||st)+' · '+e(x.client)+(x.prospect?' (prospect'+(x.city?', '+e(x.city):'')+')':'')+'</div></div><div class="mb">';
+  h+='<div class="summary" style="margin-bottom:10px">'+row('Given by',e(x.requester&&x.requester.name||'')+(x.onBehalf?' <span class="muted">· entered by '+e(x.entered.by)+'</span>':''))+row('Why',e(x.purpose)+' — '+e(x.why))
+    +row('What',(x.lines||[]).map(function(L){ return e(L.brand)+' · '+fmt(L.packs)+' × '+fmt(L.pack)+' '+L.unit+' = <b>'+fmt(L.kg)+' '+L.unit+'</b>'; }).join('<br>'))
+    +row('Needed by',e(x.neededBy||'')+' · '+e(x.how||''))+(x.deliverTo&&(x.deliverTo.person||x.deliverTo.address)?row('Deliver to',e([x.deliverTo.person,x.deliverTo.phone,x.deliverTo.address].filter(Boolean).join(' · '))):'')
+    +(x.dispatch?row('Sent',e(x.dispatch.dc)+' · gate pass '+e(x.dispatch.gatePass)+' · '+e(x.dispatch.date)+(x.dispatch.carrier?' · '+e(x.dispatch.carrier):'')+(x.dispatch.tracking?' · '+e(x.dispatch.tracking):'')):'')
+    +(x.delivered?row('Arrived',e(x.delivered.date)+' · '+e(x.delivered.via||'')):'')
+    +((x.feedback||[]).length?row('Feedback',x.feedback.map(function(f){ return '<b>'+e(f.result)+'</b>'+(f.note?' — '+e(f.note):'')+(f.po?' · PO '+e(f.po):'')+' <span class="muted">('+e(f.by)+', '+e(f.date)+')</span>'; }).join('<br>')):'')+'</div>';
+  var act='', btn='';
+  if(st==='requested'&&may('sample.approve')){ h+=smpHistoryFor(x); act='<div class="fld fld-long"><label>Note (needed if you do not approve)</label><textarea rows="2" oninput="smpA(\'note\',this.value)">'+_tx(a.note)+'</textarea></div>'; btn='<button class="ghost" onclick="smpDecide(false)">Do not approve</button><button class="green" onclick="smpDecide(true)">Approve</button>'; }
+  else if(st==='approved'&&may('sample.issue')){ act='<div class="gd-sec" style="font-weight:700;margin:6px 0">Issue it from stock: name where each product came from</div>'+(x.lines||[]).map(function(L,i){ var lots=smpLotsFor(L.brand), s=a.lots[i]||{};
+      return '<div style="border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:8px"><b>'+e(L.brand)+'</b> · asked '+fmt(L.kg)+' '+L.unit
+        +'<div class="fld" style="margin-top:6px"><label>Taken from</label><select onchange="smpLot('+i+',\'lot\',this.value,1)"><option value="">— the lot it came from —</option>'+lots.map(function(p){ var c=smpCoaOf(p); return '<option value="'+_av(p.id)+'"'+(s.lot===p.id?' selected':'')+'>'+e((p.brandBatchNo||p.baseBatchNo||p.id)+' · packed '+(p.date||'')+(p.expDate?' · exp '+p.expDate:'')+(c?' · COA '+(c.qcNo||'approved'):' · no approved COA'))+'</option>'; }).join('')+'<option value="__other"'+(s.lot==='__other'?' selected':'')+'>Somewhere else (retained or lab stock): type the batch no.</option></select>'
+        +(s.lot==='__other'?'<input type="text" style="margin-top:6px" value="'+_av(s.batch)+'" oninput="smpLot('+i+',\'batch\',this.value)" placeholder="batch no. on the pack">':'')+'</div>'
+        +'<div class="fld"><label>Issued ('+L.unit+')</label><input type="number" min="0" step="any" value="'+_av(s.kg)+'" oninput="smpLot('+i+',\'kg\',this.value)"></div></div>'; }).join('')
+      +smpTip('This records where the sample came from so it can be traced. It does not take the kg off any order or lot.'); btn='<button class="green" onclick="smpIssue()">Issued, send to QA</button>'; }
+  else if(st==='issued'&&(state.role==='QA Inspector'||state.role==='COO')&&may('sample.check')){ act='<div class="gd-sec" style="font-weight:700;margin:6px 0">Check the pack before it leaves</div>'+(x.issue&&x.issue.lines||[]).map(function(I){ return '<div class="muted" style="font-size:12px">'+e(I.brand)+' · batch '+e(I.batch||'—')+(I.exp?' · exp '+e(I.exp):'')+(I.coa?' · COA '+e(I.coa):' · <b style="color:var(--red)">no approved COA found</b>')+' · '+fmt(I.kg)+' '+e(I.unit||'')+'</div>'; }).join('')
+      +SMP_QA.map(function(q,i){ var m=a.marks[i]; return '<div class="row" style="justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--line2)"><span style="font-size:13px">'+e(q)+'</span><span><button class="sm'+(m==='pass'?' green':' ghost')+'" onclick="smpMark('+i+',\'pass\')">Pass</button> <button class="sm'+(m==='fail'?' red':' ghost')+'" onclick="smpMark('+i+',\'fail\')">Fail</button></span></div>'; }).join('')
+      +'<div class="fld fld-long" style="margin-top:8px"><label>Remarks</label><textarea rows="2" oninput="smpA(\'note\',this.value)">'+_tx(a.note)+'</textarea></div>'; btn='<button class="ghost" onclick="smpMarkAll()">All pass</button><button class="green" onclick="smpCheck()">Save the check</button>'; }
+  else if(st==='checked'&&may('sample.issue')){ act='<div class="gd-sec" style="font-weight:700;margin:6px 0">Sample DC and gate pass</div><div class="muted" style="font-size:12px;margin-bottom:6px">Goes by: <b>'+e(x.how||'')+'</b></div>'
+      +'<div class="row" style="gap:8px;flex-wrap:wrap"><div class="fld" style="flex:1;min-width:150px"><label>'+(x.how==='Courier'?'Courier company':'Carried by (name)')+' <span style="color:var(--red)">*</span></label><input type="text" value="'+_av(a.carrier)+'" oninput="smpA(\'carrier\',this.value)"></div>'
+      +'<div class="fld" style="flex:1;min-width:150px"><label>'+(x.how==='Courier'?'Tracking no.':'Vehicle no. (if any)')+'</label><input type="text" value="'+_av(a.tracking)+'" oninput="smpA(\'tracking\',this.value)"></div>'
+      +'<div class="fld" style="flex:1;min-width:130px"><label>Date</label><input type="date" value="'+_av(a.date)+'" onchange="smpA(\'date\',this.value)"></div></div>'; btn='<button class="green" onclick="smpDispatch()">Issue DC and gate pass</button>'; }
+  else if(st==='dispatched'&&(smpMine(x)||state.role==='COO')){ act='<div class="row" style="gap:8px;flex-wrap:wrap"><div class="fld" style="flex:1;min-width:140px"><label>Arrived on</label><input type="date" value="'+_av(a.date)+'" onchange="smpA(\'date\',this.value)"></div><div class="fld" style="flex:1;min-width:160px"><label>How do you know <span style="color:var(--red)">*</span></label><select onchange="smpA(\'via\',this.value)"><option value="">— pick —</option>'+['Client told me','Courier delivery record','I handed it over','Other'].map(function(v){ return '<option'+(a.via===v?' selected':'')+'>'+v+'</option>'; }).join('')+'</select></div></div>'; btn='<button class="green" onclick="smpArrived()">It arrived</button>'; }
+  if((st==='delivered')&&(smpMine(x)||state.role==='COO'||may('sample.request'))){ act+='<div class="gd-sec" style="font-weight:700;margin:6px 0">What did the client say?</div><div class="fld"><label>Result <span style="color:var(--red)">*</span></label><select onchange="smpA(\'result\',this.value)"><option value="">— pick —</option>'+SMP_FEEDBACK.map(function(v){ return '<option'+(a.result===v?' selected':'')+'>'+e(v)+'</option>'; }).join('')+'</select></div>'
+      +'<div class="fld fld-long"><label>What they said</label><textarea rows="2" oninput="smpA(\'note\',this.value)">'+_tx(a.note)+'</textarea></div><div class="fld"><label>Order that came from it (PO no., if any)</label><input type="text" value="'+_av(a.po)+'" oninput="smpA(\'po\',this.value)"></div>'; btn='<button class="green" onclick="smpFeedback()">Save the feedback</button>'; }
+  if(!act&&!btn){ var w={requested:'the COO',approved:'the warehouse',issued:'QA',checked:'the warehouse',dispatched:(smpOwner(x).name||'the person who asked')}[st]; if(w) h+='<div class="note">Waiting on <b>'+e(w)+'</b>.</div>'; }
+  h+=act+'<details style="margin-top:12px"><summary style="cursor:pointer;font-weight:600">History</summary>'+(x.history||[]).map(function(t){ return '<div style="font-size:12px;padding:3px 0"><span class="muted">'+e(String(t.at||'').slice(0,16).replace('T',' '))+'</span> · <b>'+e(t.by)+'</b> · '+e(t.what)+(t.note?' — '+e(t.note):'')+'</div>'; }).join('')+'</details></div>';
+  var canCancel=(st==='requested'||st==='approved')&&(smpMine(x)||state.role==='COO');
+  h+='<div class="mf"><button class="ghost" onclick="smpAct=null;closeModal()">Close</button>'+(canCancel?'<button class="ghost" onclick="smpCancel()">Cancel the request</button>':'')+(x.dispatch?'<button class="ghost" onclick="smpPrint(\''+x.id+'\')">Print DC and gate pass</button>':'')+btn+'</div>';
+  $('modal').innerHTML=h; }
+function smpDecide(yes){ if(!may('sample.approve')){ toast('Only the COO approves a free sample'); return; } var x=smpById(smpAct&&smpAct.id); if(!x||x.status!=='requested') return toast('This sample is no longer waiting for approval');
+  var n=String(smpAct.note||'').trim(); if(!yes&&n.length<5) return toast('Say why it is not approved');
+  x.approval=Object.assign(smpStamp(),{yes:!!yes,note:n}); x.status=yes?'approved':'rejected'; smpLog(x,yes?'Approved by the COO':'Not approved by the COO',n); save(); closeModal(); render(); toast(yes?'Approved. Now waiting on the warehouse to issue it.':'Not approved. '+((x.requester&&x.requester.name)||'The person')+' can see why.'); }
+function smpIssue(){ if(!may('sample.issue')){ toast(denyRight('sample.issue','Issuing a free sample')); return; } var x=smpById(smpAct&&smpAct.id); if(!x||x.status!=='approved') return toast('This sample is not waiting to be issued');
+  var out=[]; for(var i=0;i<(x.lines||[]).length;i++){ var L=x.lines[i], s=smpAct.lots[i]||{}; var kg=+s.kg||0; if(!(kg>0)) return toast('Enter what was issued for '+L.brand); if(kg>L.kg*1.05+0.001) return toast(L.brand+': more than was approved ('+fmt(L.kg)+')');
+    if(!s.lot) return toast('Say which lot '+L.brand+' came from'); var r={brand:L.brand,kg:kg,unit:L.unit};
+    if(s.lot==='__other'){ if(String(s.batch||'').trim().length<2) return toast('Type the batch no. for '+L.brand); r.batch=String(s.batch).trim(); r.source='other'; }
+    else { var p=(state.packingLog||[]).find(function(q){ return q&&q.id===s.lot; }); if(!p) return toast('That lot was not found'); var c=smpCoaOf(p); r.lotId=p.id; r.batch=p.brandBatchNo||p.baseBatchNo||''; r.baseBatchNo=p.baseBatchNo||''; r.mfg=p.mfgDate||''; r.exp=p.expDate||''; r.coa=c?(c.qcNo||'approved'):''; r.fromPo=p.po||''; r.source='lot'; }
+    out.push(r); }
+  x.issue=Object.assign(smpStamp(),{lines:out}); x.status='issued'; smpLog(x,'Issued from stock',out.map(function(r){ return r.brand+' '+fmt(r.kg)+' from '+(r.batch||'?'); }).join('; ')); save(); closeModal(); render(); toast('Issued. Now waiting on QA to check it.'); }
+function smpMarkAll(){ if(!smpAct) return; smpAct.marks=SMP_QA.map(function(){ return 'pass'; }); smpRenderOpen(); }
+function smpCheck(){ if(!may('sample.check')||!(state.role==='QA Inspector'||state.role==='COO')){ toast('QA checks a sample before it leaves'); return; } var x=smpById(smpAct&&smpAct.id); if(!x||x.status!=='issued') return toast('This sample is not waiting for a check');
+  if(smpAct.marks.some(function(m){ return !m; })) return toast('Mark every line Pass or Fail'); var fail=smpAct.marks.some(function(m){ return m==='fail'; }); var n=String(smpAct.note||'').trim(); if(fail&&n.length<5) return toast('Say what is wrong');
+  var me=_uRole(); if(x.issue&&x.issue.user&&x.issue.user===me.user&&state.role!=='COO') return toast('You issued this sample; someone else checks it.');
+  x.qa=Object.assign(smpStamp(),{pass:!fail,checklist:SMP_QA.map(function(q,i){ return {item:q,result:smpAct.marks[i]}; }),remarks:n}); x.status=fail?'approved':'checked';
+  smpLog(x,fail?'QA check failed: back to the warehouse to issue again':'QA check passed',n); save(); closeModal(); render(); toast(fail?'Failed. The warehouse issues it again.':'Passed. Now waiting on the warehouse for the DC and gate pass.'); }
+function smpDispatch(){ if(!may('sample.issue')){ toast(denyRight('sample.issue','Issuing a sample gate pass')); return; } var x=smpById(smpAct&&smpAct.id); if(!x||x.status!=='checked') return toast('QA has to check this sample first');
+  if(String(smpAct.carrier||'').trim().length<2) return toast(x.how==='Courier'?'Type the courier company':'Type who carries it'); var d=smpAct.date||evToday(); if(d>evToday()) return toast('The date cannot be in the future');
+  x.dispatch=Object.assign(smpStamp(),{date:d,how:x.how,carrier:String(smpAct.carrier).trim(),tracking:String(smpAct.tracking||'').trim(),dc:smpNextNo('dcNo','SDC-'),gatePass:nextGatePassNo()}); x.dcNo=x.dispatch.dc; x.status='dispatched';
+  smpLog(x,'DC '+x.dispatch.dc+' and gate pass '+x.dispatch.gatePass+' issued',x.dispatch.carrier+(x.dispatch.tracking?' '+x.dispatch.tracking:'')); save(); closeModal(); render(); toast('Sent. '+(smpOwner(x).name||'The person who asked')+' confirms it arrived.'); try{ smpPrint(x.id); }catch(e){} }
+function smpArrived(){ var x=smpById(smpAct&&smpAct.id); if(!x||x.status!=='dispatched') return toast('This sample is not on the way'); if(!(smpMine(x)||state.role==='COO')) return toast('The person who asked for it confirms it arrived');
+  if(!smpAct.via) return toast('Say how you know it arrived'); var d=smpAct.date||evToday(); if(d>evToday()) return toast('The date cannot be in the future'); if(x.dispatch&&d<x.dispatch.date) return toast('It cannot arrive before it left ('+x.dispatch.date+')');
+  x.delivered=Object.assign(smpStamp(),{date:d,via:smpAct.via}); x.status='delivered'; smpLog(x,'Arrived on '+d,smpAct.via); save(); closeModal(); render(); toast('Recorded. Add what the client says when you hear it.'); }
+function smpFeedback(){ var x=smpById(smpAct&&smpAct.id); if(!x||x.status!=='delivered') return toast('Feedback is recorded once the sample has arrived'); if(!(smpMine(x)||state.role==='COO'||may('sample.request'))) return toast('The person who gave the sample records the feedback');
+  if(!smpAct.result) return toast('Pick what the client said'); (x.feedback=x.feedback||[]).push(Object.assign(smpStamp(),{result:smpAct.result,note:String(smpAct.note||'').trim(),po:String(smpAct.po||'').trim()}));
+  smpLog(x,'Feedback: '+smpAct.result,smpAct.note); save(); closeModal(); render(); toast('Feedback saved'); }
+function smpCancel(){ var x=smpById(smpAct&&smpAct.id); if(!x||!(x.status==='requested'||x.status==='approved')) return toast('Only a sample not yet issued can be cancelled'); if(!(smpMine(x)||state.role==='COO')) return toast('The person who asked, or the COO, cancels it');
+  if(typeof confirm==='function'&&!confirm('Cancel free sample '+x.no+'?')) return; x.status='cancelled'; smpLog(x,'Cancelled'); save(); closeModal(); render(); toast('Cancelled'); }
+/* ---- the sample DC and gate pass, printed ---- */
+function smpPrint(id){ var x=smpById(id); if(!x||!x.dispatch){ toast('The DC is printed once the gate pass is issued'); return; } var e=qsEsc, D=x.dispatch, I=(x.issue&&x.issue.lines)||[];
+  var rows=(x.lines||[]).map(function(L,i){ var r=I[i]||{}; return '<tr><td>'+(i+1)+'</td><td>'+e(L.brand)+'</td><td>'+fmt(L.packs)+' × '+fmt(L.pack)+' '+e(L.unit)+'</td><td>'+fmt(r.kg||L.kg)+' '+e(L.unit)+'</td><td>'+e(r.batch||'')+'</td><td>'+e(r.mfg||'')+'</td><td>'+e(r.exp||'')+'</td><td>'+e(r.coa||'')+'</td></tr>'; }).join('');
+  var sig=function(t,n){ return '<div class="sg"><div class="ln"></div>'+t+'<br><span>'+e(n||'')+'</span></div>'; };
+  var page=function(copy){ return '<div class="pg"><div class="top"><div><b>VITAL AGRI NUTRIENTS</b><br>Delivery challan and gate pass: <b>FREE SAMPLE</b></div><div class="nos">DC <b>'+e(D.dc)+'</b><br>Gate pass <b>'+e(D.gatePass)+'</b><br>'+e(D.date)+'<br><i>'+copy+'</i></div></div>'
+    +'<div class="ban">FREE SAMPLE: NO CHARGE, NOT FOR SALE, NO COMMERCIAL VALUE</div>'
+    +'<table class="kv"><tr><td>To</td><td><b>'+e(x.client)+'</b>'+(x.city?', '+e(x.city):'')+(x.deliverTo&&x.deliverTo.person?' · '+e(x.deliverTo.person):'')+(x.deliverTo&&x.deliverTo.phone?' · '+e(x.deliverTo.phone):'')+(x.deliverTo&&x.deliverTo.address?'<br>'+e(x.deliverTo.address):'')+'</td></tr>'
+    +'<tr><td>Sample</td><td>'+e(x.no)+' · '+e(x.purpose)+'</td></tr><tr><td>Given by</td><td>'+e(x.requester&&x.requester.name||'')+'</td></tr><tr><td>Goes by</td><td>'+e(D.how||'')+' · '+e(D.carrier||'')+(D.tracking?' · '+e(D.tracking):'')+'</td></tr></table>'
+    +'<table class="it"><thead><tr><th>#</th><th>Product</th><th>Packs</th><th>Quantity</th><th>Batch</th><th>Mfg</th><th>Expiry</th><th>COA</th></tr></thead><tbody>'+rows+'</tbody></table>'
+    +'<div class="sgs">'+sig('Approved (COO)',x.approval&&x.approval.by)+sig('Issued (warehouse)',x.issue&&x.issue.by)+sig('Checked (QA)',x.qa&&x.qa.by)+sig('Gate pass',D.by)+sig('Received by','')+'</div></div>'; };
+  var css='<style>body{font-family:Arial,sans-serif;font-size:12px;color:#111;margin:0}.pg{padding:18px 22px;page-break-after:always}.top{display:flex;justify-content:space-between;border-bottom:2px solid #111;padding-bottom:8px}.nos{text-align:right}.ban{margin:10px 0;padding:6px;border:2px solid #111;text-align:center;font-weight:700;letter-spacing:.5px}table{width:100%;border-collapse:collapse;margin-top:8px}.kv td{padding:4px 6px;border:1px solid #bbb}.kv td:first-child{width:90px;color:#555}.it th,.it td{border:1px solid #bbb;padding:5px;text-align:left}.it th{background:#eee}.sgs{display:flex;gap:10px;margin-top:40px}.sg{flex:1;text-align:center;font-size:11px}.sg .ln{border-top:1px solid #111;margin-bottom:4px;height:1px}.sg span{color:#555}</style>';
+  var w=window.open('','_blank'); if(!w){ toast('Allow pop-ups to print the DC'); return; } w.document.write('<html><head><title>'+e(D.dc)+' '+e(x.client)+'</title>'+css+'</head><body>'+page('Client copy')+page('Gate copy')+page('Office copy')+'</body></html>'); w.document.close(); w.focus(); }
+/* ---- the Samples page: the register ---- */
+function smpTodayBar(){ return ''; }
+function screenSamples(){ var e=qsEsc;
+  if(!smpMayView()){ $('view').innerHTML='<div class="qs"><h1>Free samples</h1><div class="note">This page is for the people who ask for, approve, issue and check free samples. Your work is on <b>Today</b>.</div></div>'; return; }
+  var all=smpList().slice().sort(function(a,b){ return String((b.entered&&b.entered.at)||'').localeCompare(String((a.entered&&a.entered.at)||'')); });
+  var fy=fyKey(evToday()), live=function(x){ return x.status!=='cancelled'&&x.status!=='rejected'; };
+  var yr=all.filter(function(x){ return live(x)&&fyKey(String((x.entered&&x.entered.date)||evToday()))===fy; });
+  var sent=yr.filter(function(x){ return x.status==='dispatched'||x.status==='delivered'; }), fbk=yr.filter(function(x){ return (x.feedback||[]).length; }), del=yr.filter(function(x){ return x.status==='delivered'; });
+  var n=function(s){ return all.filter(function(x){ return s.indexOf(x.status)>-1; }).length; };
+  var h='<style>.smp-k{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin:12px 0}.smp-k div{background:#fff;border:1px solid #e7e2d8;border-radius:12px;padding:11px 13px}.smp-k b{display:block;font-size:19px}.smp-k span{font-size:11.5px;color:#7d776b}.smp-t{width:100%;border-collapse:collapse;font-size:12.5px}.smp-t th{text-align:left;font-size:11px;color:#7d776b;padding:7px;border-bottom:1px solid #e7e2d8}.smp-t td{padding:8px 7px;border-bottom:1px solid #f0ece4;vertical-align:top}.smp-t tr.r{cursor:pointer}.smp-t tr.r:hover td{background:#fbfaf7}@media(max-width:800px){.smp-k{grid-template-columns:repeat(2,minmax(0,1fr))}.smp-h{display:none}}</style>';
+  h+='<div class="qs wide"><h1>Free samples</h1><div class="sub">Who gave which sample, to whom, why, and what the client said. Every sample is approved by the COO, issued from stock, checked by QA and leaves on its own DC and gate pass. No order and no production.</div>';
+  if(may('sample.request')) h+='<div style="margin:10px 0"><button class="green" onclick="smpNew()">+ Ask for a free sample</button></div>';
+  h+='<div class="smp-k"><div><span>Waiting on the COO</span><b>'+n(['requested'])+'</b></div><div><span>Being prepared</span><b>'+n(['approved','issued','checked'])+'</b></div><div><span>On the way</span><b>'+n(['dispatched'])+'</b></div><div><span>Feedback overdue ('+SMP_FEEDBACK_DAYS+' days)</span><b'+(all.filter(smpFeedbackDue).length?' style="color:#b3261e"':'')+'>'+all.filter(smpFeedbackDue).length+'</b></div><div><span>Sent this FY '+e(fy)+'</span><b>'+sent.length+'</b><span>'+fmt(sent.reduce(function(a,x){ return a+smpKg(x); },0))+' Kg/L · feedback on '+fbk.length+' of '+del.length+' delivered</span></div></div>';
+  var people={}; all.forEach(function(x){ var p=x.requester&&x.requester.name; if(p) people[p]=1; });
+  h+='<div class="row" style="gap:6px;flex-wrap:wrap;margin-bottom:8px"><select onchange="smpFilter.st=this.value;render()"><option value="">Any status</option>'+Object.keys(SMP_STATUS).map(function(k){ return '<option value="'+k+'"'+(smpFilter.st===k?' selected':'')+'>'+e(SMP_STATUS[k])+'</option>'; }).join('')+'<option value="fb"'+(smpFilter.st==='fb'?' selected':'')+'>Feedback overdue</option></select>'
+    +'<select onchange="smpFilter.who=this.value;render()"><option value="">Anyone</option>'+Object.keys(people).sort().map(function(p){ return '<option'+(smpFilter.who===p?' selected':'')+'>'+e(p)+'</option>'; }).join('')+'</select>'
+    +'<input type="text" placeholder="Find a client, product or SMP no." value="'+_av(smpFilter.q)+'" onchange="smpFilter.q=this.value;render()" style="min-width:220px"></div>';
+  var q=String(smpFilter.q||'').toLowerCase();
+  var rows=all.filter(function(x){ if(smpFilter.st==='fb'){ if(!smpFeedbackDue(x)) return false; } else if(smpFilter.st&&x.status!==smpFilter.st) return false; if(smpFilter.who&&(!x.requester||x.requester.name!==smpFilter.who)) return false; if(q&&[x.no,x.client,x.purpose,x.why].concat((x.lines||[]).map(function(L){ return L.brand; })).join(' ').toLowerCase().indexOf(q)<0) return false; return true; });
+  h+='<div class="card" style="padding:6px 10px;overflow:auto"><table class="smp-t"><thead><tr><th>Sample</th><th>Given by</th><th>To</th><th>What</th><th class="smp-h">Why</th><th>Where it is</th><th class="smp-h">Client said</th></tr></thead><tbody>'
+    +(rows.length?rows.map(function(x){ var f=(x.feedback||[]).length?x.feedback[x.feedback.length-1]:null; return '<tr class="r" onclick="smpOpen(\''+x.id+'\')"><td><b>'+e(x.no)+'</b><br><span class="muted">'+e((x.entered&&x.entered.date)||'')+'</span></td><td>'+e((x.requester&&x.requester.name)||'')+(x.onBehalf?'<br><span class="muted">entered by '+e(x.entered.by)+'</span>':'')+'</td><td>'+e(x.client)+(x.prospect?' <span class="muted">(prospect)</span>':'')+'</td><td>'+(x.lines||[]).map(function(L){ return e(L.brand)+' '+fmt(L.kg)+' '+L.unit; }).join('<br>')+'</td><td class="smp-h">'+e(x.purpose)+'<br><span class="muted">'+e(String(x.why||'').slice(0,80))+'</span></td><td>'+e(SMP_STATUS[x.status]||x.status)+(smpFeedbackDue(x)?'<br><b style="color:#b3261e">feedback overdue</b>':'')+'</td><td class="smp-h">'+(f?e(f.result)+(f.po?'<br>PO '+e(f.po):''):'<span class="muted">—</span>')+'</td></tr>'; }).join(''):'<tr><td colspan="7" class="muted">'+(all.length?'No sample matches.':'No free samples yet. Ask for one with the button above.')+'</td></tr>')+'</tbody></table></div>';
+  /* this year, by person and by client */
+  var by=function(key){ var m={}; yr.forEach(function(x){ var k=key(x); if(!k) return; var r=m[k]=m[k]||{k:k,n:0,kg:0,fb:0,pos:0}; r.n++; r.kg+=smpKg(x); if((x.feedback||[]).length){ r.fb++; if(/^Positive/.test(x.feedback[x.feedback.length-1].result)) r.pos++; } }); return Object.keys(m).map(function(k){ return m[k]; }).sort(function(a,b){ return b.n-a.n; }); };
+  var tbl=function(t,list){ return '<div class="card" style="padding:6px 10px;flex:1;min-width:280px"><table class="smp-t"><thead><tr><th>'+t+'</th><th>Samples</th><th>Kg/L</th><th>With feedback</th><th>Positive</th></tr></thead><tbody>'+(list.length?list.map(function(r){ return '<tr><td>'+e(r.k)+'</td><td>'+r.n+'</td><td>'+fmt(r.kg)+'</td><td>'+r.fb+'</td><td>'+r.pos+'</td></tr>'; }).join(''):'<tr><td colspan="5" class="muted">None this year.</td></tr>')+'</tbody></table></div>'; };
+  h+='<h2 style="margin-top:16px;font-size:15px">This financial year</h2><div class="row" style="gap:12px;flex-wrap:wrap;align-items:flex-start">'+tbl('Given by',by(function(x){ return x.requester&&x.requester.name; }))+tbl('Client',by(function(x){ return x.client; }))+'</div></div>';
+  $('view').innerHTML=h; }
 
 var REG={}; /* 25m: was never declared - the searchable shipment log and QC reports crashed */
 function regSt(id){ REG[id]=REG[id]||{q:'',f:{},df:'',dt:'',page:0,sort:null,dir:-1}; return REG[id]; }

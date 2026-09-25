@@ -112,7 +112,8 @@ function makeBox() {
     PROC.forEach(x => ok(r + ' can NOT ' + x + ' - not even standing on Shipments', c.indexOf(x) < 0, c.join(' ')));
     /* Nothing beyond dispatch, apart from one asymmetry recorded below. */
     eq(r + ' holds exactly the dispatch four and nothing else',
-       c.slice().sort().join(' '), DISPATCH.slice().sort().join(' '));
+       c.filter(x => x !== 'sample.issue').slice().sort().join(' '), DISPATCH.slice().sort().join(' '));
+    ok(r + ' also issues free samples (25o, ruled 25 Sep)', c.indexOf('sample.issue') > -1);
   });
 
   /* Saad keeps both halves - he is the department. */

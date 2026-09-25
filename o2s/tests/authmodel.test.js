@@ -141,8 +141,9 @@ const asRole = r => { B.state.role = r; };
      approval and the reopen, which belong to the Plant Manager and the COO and
      to nobody else — so they are filed there rather than bent into one of the
      three that happened to be converted first. */
-  ok('four departments are converted: Commercial, Supply Chain, Production and Leadership',
-     B.RIGHTS.every(r => ['commercial', 'supply-chain', 'production', 'leadership'].indexOf(r.dept) >= 0)
+  /* 25o: the free-sample chain adds sample.check, filed under Quality - the first Quality right. */
+  ok('five departments are converted: Commercial, Supply Chain, Production, Leadership and (for sample.check) Quality',
+     B.RIGHTS.every(r => ['commercial', 'supply-chain', 'production', 'leadership'].indexOf(r.dept) >= 0 || (r.code === 'sample.check' && r.dept === 'quality'))
      && ['supply-chain', 'production', 'leadership'].every(d => B.RIGHTS.some(r => r.dept === d)),
      JSON.stringify(B.RIGHTS.map(r => r.dept)));
   /* The sign-offs are NOT in the catalogue and must never be. */
@@ -259,6 +260,12 @@ const asRole = r => { B.state.role = r; };
     'po.close':              { handler: 'submitClosePO', since: '24 Sep 2026',
                          why: 'Closing a whole PO in one act. Tahir, 24 Sep: "give the right to the COO '
                             + 'for closing a PO." Nothing on any screen offered a close before.' },
+    /* 25o - free samples, their own path. Tahir, 25 Sep. Nothing existed before: a
+       sample was an FOC order in New order and went through production. */
+    'sample.request': { handler: 'smpSubmit', since: '25 Sep 2026', why: 'Asking for a free sample, for oneself or on someone\'s behalf.' },
+    'sample.approve': { handler: 'smpDecide', since: '25 Sep 2026', why: '"COO approval before any sample can go out."' },
+    'sample.issue':   { handler: 'smpIssue',  since: '25 Sep 2026', why: 'The warehouse issues the sample from stock and names the lot.' },
+    'sample.check':   { handler: 'smpCheck',  since: '25 Sep 2026', why: 'QA checks the pack before it leaves.' },
   };
   /* CLOSED GAPS — the third shape, neither of the two above. NOT a conversion:
      there is no old answer to freeze, because the old answer was "anyone, no
@@ -1359,7 +1366,7 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
 /* ================= 23. Supply Chain: converted, and the sign-offs are not ================= */
 {
   const b = mk('COO');
-  const SCR = b.RIGHTS.filter(r => r.dept === 'supply-chain');
+  const SCR = b.RIGHTS.filter(r => r.dept === 'supply-chain' && r.code.indexOf('sample.') !== 0); /* 25o: sample.issue is a new capability, not a conversion */
   const SC = SCR.map(r => r.code);
   eq('seven Supply Chain rights', SC.length, 7);
   ok('all seven carry the canEdit rule, with the screen the job lives on — six frozen '
@@ -1799,6 +1806,10 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
     'po.shortclose_approve':{ kind: 'hard',    scr: undefined },
     'po.reopen':            { kind: 'hard',    scr: undefined },
     'po.close':             { kind: 'hard',    scr: undefined },
+    'sample.request':       { kind: 'hard',    scr: undefined },
+    'sample.approve':       { kind: 'hard',    scr: undefined },
+    'sample.issue':         { kind: 'hard',    scr: undefined },
+    'sample.check':         { kind: 'hard',    scr: undefined },
   };
   eq('every right in the catalogue is pinned here', B.RIGHTS.filter(r => !WANT[r.code]).length, 0);
   eq('and nothing pinned here has been dropped',

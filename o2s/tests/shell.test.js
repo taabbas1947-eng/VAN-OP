@@ -15,7 +15,7 @@ ok('IBM Plex is loaded', /fonts\.googleapis\.com\/css2\?family=IBM\+Plex\+Mono/.
 ok('the sidebar, the menu button and the search box never show', /\.side,\.navbackdrop,\.navtoggle,#densityBtn,\.livepill,\.helpbar,\.cmdk,#sidefoot,\.tbspace\{display:none!important\}/.test(html));
 ok('the header carries the 4 words and the person', /<header class="qs-top" id="qsTop">/.test(html) && /<nav class="qs-nav" id="qsNav"/.test(html) && /<div id="qsMe">/.test(html) && /id="qsClock"/.test(html));
 const nav = (() => { const m = /\nconst NAV_GROUPS=\[/.exec(html); return m ? H.matchBlock(m.index + 1, 'NAV_GROUPS', '[') : ''; })();
-eq('25h: 5 groups - How are we doing joins the header, for leadership only', (nav.match(/label:'/g) || []).length, 5);
+eq('25h/25o: 6 groups - How are we doing and Samples join the header, each for its own people', (nav.match(/label:'/g) || []).length, 6);
 ['Today', 'Plant', 'Back Office', 'Guide'].forEach(w => ok("the word '" + w + "' is in the header", new RegExp("label:'" + w + "'").test(nav)));
 ok('25h: How are we doing is in the header, and renderTopNav shows it only to COO / CFO / Plant Manager', /label:'How are we doing', ids:\['dash'\]/.test(nav) && /if\(id==='dash'&&!howMay\(\)\) return;/.test(html));
 ok('Report Center is gone from the header (its screens are links under Plant)', !/Report Center/.test(nav));
@@ -518,7 +518,7 @@ ok('a browser that remembered All actions or the Dashboard lands on Today', /if\
 /* 24o: the sign-offs are jobs on the Guide */
 {
   const f = new Function('actionItems', 'TD_RIGHT', 'mayRole', grab('tdRoleJobs') + '\nreturn tdRoleJobs;')(() => [], {}, () => false);
-  ok('a QCM with nothing waiting still has Approve; an AQCM Review; a QA officer Pack QC and Inspect', JSON.stringify(f('QCM')) === '["Approve"]' && JSON.stringify(f('AQCM')) === '["Review"]' && JSON.stringify(f('QA Inspector')) === '["Pack QC","Inspect"]' && f('Warehouse').length === 0);
+  ok('a QCM with nothing waiting still has Approve; an AQCM Review; a QA officer Pack QC and Inspect', JSON.stringify(f('QCM')) === '["Approve"]' && JSON.stringify(f('AQCM')) === '["Review"]' && JSON.stringify(f('QA Inspector')) === '["Pack QC","Inspect","Check sample"]' && JSON.stringify(f('Warehouse')) === '["Issue sample","Sample gate pass"]');
   ok('BUILD_ID is 2026-09-24o or later', /var BUILD_ID='2026-(09-(24[o-z]|2[5-9][a-z]|3[0-1][a-z])|1[0-2]-[0-3][0-9][a-z])'/.test(html));
 }
 /* 24p: a person changes their own password from the name menu (PLATFORM: POST /api/me/password) */

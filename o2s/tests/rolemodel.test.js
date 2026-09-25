@@ -104,7 +104,9 @@ const union = new Set([...scrNames, ...rgtNames, ...fldNames]);
   /* Down from 9 to 5 on 23 September, when po.shortclose_request was narrowed
      from eight roles to the two department managers. Warehouse is not among them:
      it reaches dispatch through the grant table, never through a legacy block. */
-  eq('RIGHTS legacy names 5', rgtNames.size, 5);
+  /* 11 from 25 Sep (25o): the free-sample rights name KAM, Finance, Finance Desk
+     Officer, CFO, Warehouse, Supply Chain Officer and QA Inspector by role (hard). */
+  eq('RIGHTS legacy names 11', rgtNames.size, 11);
   eq('FIELD_OWNER names 4', fldNames.size, 4);
 
   /* FIELD_OWNER is the narrow one — only roles that own a PO field. If a

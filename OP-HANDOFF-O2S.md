@@ -5688,3 +5688,31 @@ Tests: samples.test.js 41. Suite 10,490 passed, 0 failed. Browser re-run of the 
 Rulings (25 Sep): (1) "The idea is to track samples, not stock or production … the sample will never become part of production, stock or anything. Assume there is a separate pool in production for sampling, which is over-production or extra material." (2) Saad's review and Fahim's release: "yes, my approval is for sample granting, not the process bypass approval." (3) Feedback "30 days after sample dispatched." (4) "KAM can open the FOC order page, not the main New order entry" (already so: New order stays Finance/CFO/COO).
 Built: statuses gatepass → reviewed → dispatched (SMP_STATUS). smpDispatch now issues the DC and gate pass only (status 'gatepass'); `smpReview` (role exactly Supply Chain, not the gate pass issuer); `smpRelease` (role exactly Plant Manager; before review only after 2 hours, `smpReviewLapsed` on TRUCK_REVIEW_HOURS); the COO cannot review or release. DC prints at release; the print carries Reviewed and Released signatures. Jobs 'Review sample' (Supply Chain) / 'Release sample' (Plant Manager); TD_LABEL, TD_NEXT, SIGN_JOBS, acStageOf. Batches, not packed lots: `smpLotsFor` lists batches of the product's base (batch no., made date, expiry from its lots, COA); `smpExpOf`. SMP_FEEDBACK_DAYS 30 from `smpSentDate` (release date), feedback allowed once sent; arrival not before release. Page and nav renamed "FOC samples". Guide rule rewritten. What's new 25p.
 Tests: samples.test.js 48. Suite 10,497 passed, 0 failed. Browser: full chain incl. COO refused on review/release, Saad reviews, Plant Manager releases and the DC prints with both signatures; orders/lots/shipments/sales unchanged; 0 errors.
+
+
+## RESUME HERE — state at 25 Sep 2026, end of session
+
+**Git:** HEAD d9f40bb (BUILD_ID 2026-09-25p), clean tree. NOT pushed. Tahir pushes via GitHub Desktop: everything from 25e to 25p (live is still 25j). Commits authored Tahir Abbas <tahir.pak1985@gmail.com> with the Co-Authored-By / Claude-Session trailer. Never push.
+**Tests:** `node o2s/tests/<file>.test.js`; full suite 10,497 passed, 0 failed. Syntax: extract the script blocks, then `node --check`. Harness `grab` now handles `async function`.
+**Live data written this session:** the White Label budget, 873m (9 clients; channel 873m; rev 9240). Nothing else was written to live.
+
+**Done this session (details in passes 52 to 55 above):** 25k to 25m Sales & Budget rebuilt, review fixes. 25n second review fixes. 25o FOC samples path plus adversarial fixes. 25p Tahir's sample rulings (sampling pool, never stock; Saad reviews and Fahim releases; feedback 30 days after sending; KAM uses FOC samples, not New order).
+
+**Tell Tahir after he pushes:**
+- Old trucks still "in transit" without a stage (e.g. June trucks) now raise delivery jobs that escalate to Fahim. Confirm or clean them.
+- PO 21775 Max Amino has a duplicate counted truck (DC 5068 and 5069 on a 300 kg line). Clean up.
+- Sales & Budget and the date chips appear only after the push.
+
+**Open, needing a ruling or a next pass:**
+1. Server-side numbering for gate passes and DCs: 2 people at once can still clash on truck gate passes. Needs a server.js counter endpoint.
+2. Server-side rights: the server accepts any logged-in user's full save. This is structural.
+3. The COO can run a whole truck alone (reviewTruck and approveRelease let the COO through). Samples no longer allow it; ask whether trucks should match.
+4. One-tap truck sign-offs (load, gate pass, review, release) show nothing before signing. They need a summary sheet with Confirm.
+5. Production Manager's Today is empty while production jobs wait. Escalations go to the PM.
+6. Bench sheet on a phone (Save is off screen). Shift logging still on the old screen ("+ Log a shift" should open the form).
+7. Late reason is not on the order journey. There is no filter or list of customers who get the pre-shipment report with the DC.
+8. Old screens not yet in the new skin: Customers, Lists, Correct a record, Reconcile, Production frame, pop-up forms.
+9. Board write-up of the independent reviews (benefit today and in 2 years, roadmap) was offered, not yet made. Ask Tahir.
+10. Earlier items: the Maxim Old POs bucket lines to close; the clean-up list rows (Claude outputs/O2S clean-up list 25 Sep 2026.xlsx).
+
+**Standing rules:** keep the Guide, the rules, My job and How the app works updated with every change. Check every logic, formula or computation change against the numbers and double check. Ask Tahir where clarity is needed. Digits, not words, for numbers.

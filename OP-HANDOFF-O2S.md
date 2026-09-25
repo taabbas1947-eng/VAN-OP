@@ -5681,3 +5681,10 @@ Tests: samples.test.js 32; authmodel (NEW_RIGHTS, WANT, Quality dept, SC filter)
 - `smpIssue` refuses a lot of another product; a KAM with no username cannot ask; `smpOpen` needs smpMayView; record rows laid out; product row full width on phones.
 - Harness: `grab` handles `async function`.
 Tests: samples.test.js 41. Suite 10,490 passed, 0 failed. Browser re-run of the whole chain: 0 errors, orders/lots/shipments/sales unchanged.
+
+
+## Pass fifty-five — 25p: Tahir's sample rulings (25 Sep, NOT pushed)
+
+Rulings (25 Sep): (1) "The idea is to track samples, not stock or production … the sample will never become part of production, stock or anything. Assume there is a separate pool in production for sampling, which is over-production or extra material." (2) Saad's review and Fahim's release: "yes, my approval is for sample granting, not the process bypass approval." (3) Feedback "30 days after sample dispatched." (4) "KAM can open the FOC order page, not the main New order entry" (already so: New order stays Finance/CFO/COO).
+Built: statuses gatepass → reviewed → dispatched (SMP_STATUS). smpDispatch now issues the DC and gate pass only (status 'gatepass'); `smpReview` (role exactly Supply Chain, not the gate pass issuer); `smpRelease` (role exactly Plant Manager; before review only after 2 hours, `smpReviewLapsed` on TRUCK_REVIEW_HOURS); the COO cannot review or release. DC prints at release; the print carries Reviewed and Released signatures. Jobs 'Review sample' (Supply Chain) / 'Release sample' (Plant Manager); TD_LABEL, TD_NEXT, SIGN_JOBS, acStageOf. Batches, not packed lots: `smpLotsFor` lists batches of the product's base (batch no., made date, expiry from its lots, COA); `smpExpOf`. SMP_FEEDBACK_DAYS 30 from `smpSentDate` (release date), feedback allowed once sent; arrival not before release. Page and nav renamed "FOC samples". Guide rule rewritten. What's new 25p.
+Tests: samples.test.js 48. Suite 10,497 passed, 0 failed. Browser: full chain incl. COO refused on review/release, Saad reviews, Plant Manager releases and the DC prints with both signatures; orders/lots/shipments/sales unchanged; 0 errors.

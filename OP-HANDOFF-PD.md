@@ -931,3 +931,32 @@ Apply 008 locally (phpMyAdmin, one paste), restart the local server, then
 open a Run and write a recipe on it. Commit and push from GitHub Desktop.
 The 11 accounts through Manage Access. Production 003–008 by hand, later.
 
+
+---
+
+## 25 September 2026 — MODULE: PD — 008 applied locally and the recipe path verified live
+
+Correction to the entry above ("23 September 2026 (later)"), which said 008
+was written but not yet applied. It is applied now.
+
+- Tahir pasted `008_run_recipe.sql` into phpMyAdmin against local
+  `van_platform`. Claude confirmed from the table structure: `pd_runs`
+  column 5 is `recipe_text`, type text, nullable, after `combination_id`.
+  The "after" SELECT in the migration returns 0 rows if phpMyAdmin has
+  `information_schema` selected instead of `van_platform`, because
+  `DATABASE()` then points at the wrong place. Select `van_platform` first.
+- Local server restarted. Walked live: recipe written on R-001 through
+  "+ Write the recipe"; changed once through "Change the recipe"; both edits
+  are rows 6 and 7 in `pd_field_history`; R-002 started with a recipe from
+  the run form; search for a word in the recipe finds R-001 and names the
+  field; the report tile "Runs with no recipe written" reads 0.
+- Doors on "What came in" confirmed in the order Not sure yet, Request,
+  Challenge, Observation. "My desk" title and "Approach" confirmed on screen.
+- Test rows R-002 and the two recipe edits exist in local `van_platform`
+  only.
+
+Files changed this session: none beyond the "pd" commit 8b06ae3 already on
+disk, plus this entry. Pushed: Tahir, from GitHub Desktop.
+
+Next: the 11 accounts through Manage Access; production 003–008 by hand,
+later, when Tahir chooses; open the pilot to 3 people for 2 weeks.

@@ -960,3 +960,20 @@ disk, plus this entry. Pushed: Tahir, from GitHub Desktop.
 
 Next: the 11 accounts through Manage Access; production 003–008 by hand,
 later, when Tahir chooses; open the pilot to 3 people for 2 weeks.
+
+---
+
+## 25 September 2026 (later) — MODULE: PD — the role catalogue, and the live database checked
+
+- `pd/pd-lib.js` gained `PD_ROLE_INFO` (department and lead per role) so the
+  platform's Manage access shows PD roles grouped like O2S's. Same 13 keys,
+  same gates. Details in `OP-HANDOFF-SHARED.md`, entry of the same date.
+- Production `jodilkah_vanop_db` checked with STATE-CHECK: 003 to 006
+  APPLIED, 007 and 008 NOT APPLIED. Both must go in before the first PD
+  account is granted there; schema-qualified statements were given to Tahir.
+- Nothing else in `pd/` changed. Pushed by Tahir.
+
+**RESUME HERE (PD side):** the next session starts from the "RESUME HERE"
+block at the end of `OP-HANDOFF-SHARED.md`: Fahim's PD role, platform-level
+roles, and PD's access level per role to be ruled before go-live and
+handover. The per-role table of what PD allows today is written there.

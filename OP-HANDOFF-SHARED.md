@@ -140,3 +140,131 @@ schema.
 
 ---
 
+
+## 25 September 2026 — PLATFORM — the access model: one writer for roles, the catalogue, the platform administrator
+
+Tahir's rulings the same day, taken on the "VAN Systems Access Model" page
+(claude.ai). Built on local, pushed by Tahir in commits 364cb02 and b92d5bc.
+Full write-up: `docs/platform/ACCESS-MODEL.md`.
+
+### The rule
+
+The platform owns identity and who holds which role. Each module owns what
+its roles are and what they may do. Rulings: the platform is the only writer
+of roles, on 3 conditions (no glitch or access issue in O2S, nothing changes
+for an O2S user, no update goes to O2S); the platform administrator is a
+grant of its own, seeded from the COO; a person's HR title moves to the
+platform later (step 6, not needed for PD); no shared function logins exist
+(dummy accounts only); a role belongs to its module, so a PD-only role such
+as agronomy is neither removed nor flagged on the platform. Claude only
+identifies roles that look like the same role under 2 names.
+
+### Built
+
+- `server.js`: `setModuleRole()` / `clearModuleRole()` are the only code that
+  writes `user_module_roles` and the mirror columns. `/api/platform/access`
+  and the `/api/users` routes O2S's Users & Access already calls both use
+  them; a rename carries the person's rows with them (and `renameUser` is now
+  an UPDATE, so `auth_users.id`, which PD's owner_id points at, no longer
+  changes); a delete removes the rows. `GET /api/platform/catalogue` returns
+  every module's roles in its own words (O2S from its store with departments;
+  PD from pd-lib; QMS and ComPha not live; Platform). The platform
+  administrator is `user_module_roles (module 'platform', role 'admin')`,
+  seeded at boot from the O2S COO rows; the `admin` gate and Manage access
+  read it, and the COO role still works during the changeover.
+- `launcher.html`: Manage access draws 1 column per module from the
+  catalogue, grouped by each module's departments; QMS and ComPha show "not
+  live"; a Platform column for the administrator.
+- `pd/pd-lib.js`: `PD_ROLE_INFO` (department and lead per role). Keys and
+  gates unchanged; lead flags checked against `LEAD_ROLES`.
+- `docs/platform/RECONCILE-2026-09-25.sql`: read-only report of where the 2
+  stores disagree, plus the 2 corrections ruled (ismaeel is Finance Desk
+  Officer; the `ali` and `majid` rows had no account behind them). Applied
+  on local by Tahir. Verified live on local: catalogue, grouped dropdowns,
+  platform-admin rows for tahir and ahmer, and the O2S write path landing in
+  both stores.
+- `o2s.html`: not touched. 0 lines.
+
+### Findings on the way
+
+- O2S's store has both "Finance Desk Officer" (id `finance`) and "Finance"
+  (id `finance-2`): a rename history. Tahir: both are real roles under
+  Finance (Invoicing Officer, Procurement Accountant). Nothing to change.
+- HostGator's phpMyAdmin SQL tab stays on `information_schema` and `USE`
+  does not move it (seen 11 Sept and again today). Every production
+  statement must write `jodilkah_vanop_db.<table>`.
+  `pd/migrations/STATE-CHECK-PRODUCTION.sql` is the schema-qualified copy of
+  the check; regenerate it from STATE-CHECK.sql, do not edit by hand.
+
+### Production, checked today
+
+STATE-CHECK on `jodilkah_vanop_db`: 003 to 006 APPLIED, 007 and 008 NOT
+APPLIED. The pushed code reads both, so PD in production fails on any Run,
+the dossier and the Report until 007 and 008 go in. Nobody uses PD there
+yet. Schema-qualified versions of both were given to Tahir to paste when he
+chooses. The access model needs no migration on production; the platform
+rows seed at boot. After the deploy, run RECONCILE PART 1 there.
+
+### Next
+
+Tahir creates `mali` (Muhammad Ali) and `irfan` (Muhammad Irfan) in Manage
+access (a password is typed, so his); then O2S KAM for both, PD Team member
+for Muhammad Ali, Irfan's PD role still to be ruled. Then the PD roster. For
+QMS and ComPha: publish a catalogue and read `/api/me`; nothing else.
+
+## RESUME HERE — access management and roles, state at 25 Sep 2026, end of session
+
+**Git:** commits 364cb02 (access model) and b92d5bc (STATE-CHECK-PRODUCTION)
+are on origin/main. The 2 handoff files above are the only uncommitted change.
+**Local:** server restarted, RECONCILE PART 2 applied, Manage access verified
+live. **Production:** 003 to 006 applied, 007 and 008 not yet; the access
+model needs no production migration.
+
+**Tahir's 3 open confusions, to work through next, in this order. Nothing is
+to be built until each is ruled; each is a ruling, not a bug.**
+
+1. **"I cannot see Fahim's role in PD."** Fahim is Plant Manager in O2S and
+   holds no PD role, so PD shows nothing for him. PD has no role called Plant
+   Manager. PD's `production` role is labelled "Production Manager", is a
+   lead, and the 11 Sept plan put Abdul Majid on it. Question for Tahir: does
+   Fahim get PD at all; if yes, as `production` beside Majid (2 people may
+   hold the same role), or does PD get a role of its own for the Plant
+   Manager? PD_ROLE_INFO and the pd_role ENUM (migration) would both change
+   for a new role.
+
+2. **"I cannot see a System Administrator role; Ahmer is still COO."** There
+   is no such role anywhere. In O2S, "System Administrator" is Ahmer's
+   per-person TITLE (`USER_TITLE`), his role is COO (Tahir, 24 Sept: keeps
+   COO rights, shown with that title). On the platform he now holds the
+   `platform` / `admin` grant, shown as "Platform administrator". The
+   platform catalogue has exactly 1 role today. Tahir wants to talk about
+   adding platform-level roles: what they are, what each may do on the
+   launcher and in Manage access, and whether "System Administrator" should
+   be a platform role, an O2S role, or stay a title. Note that any O2S change
+   is the O2S session's.
+
+3. **PD's access level per role, before go-live and handover.** As coded
+   today, from pd-lib.js and pd-routes.js:
+   - No PD role: no PD at all.
+   - Every PD role: read the library; write through the door; open a
+     Question, Approach or Run; record readings and Claims; own what they
+     opened and close their own; search; dossier; My desk; the Report.
+   - Triage (file and move entries, undo a reclassification, close a
+     Problem, replies): custodian, registrar, coo.
+   - Lead (name someone else the owner, settle a Question, close another's
+     Approach, Run or Claim, edit another's, write or retire a Constraint):
+     qc_head, rta, production, agronomy, field_agronomy, associate_agronomy,
+     custodian, coo.
+   - Pin library reading to a Problem: qc_head, rta, production, agronomy,
+     custodian, lab_tech, coo. Archive or restore a library item: custodian,
+     coo.
+   - Combination Bank moderation (10 Sept ruling): custodian, registrar, coo.
+   - member, ceo, consultant, registrar, lab_tech otherwise: the "every PD
+     role" line only.
+   Tahir wants to go through this per role and rule before handover. Put it
+   in front of him as a table, role by role, and take the rulings.
+
+**Also pending:** create `mali` and `irfan` in Manage access (Tahir types
+the password); O2S KAM for both; PD Team member for Muhammad Ali; Irfan's PD
+role to be ruled. Then the PD roster. Then 007 and 008 on production, then
+RECONCILE PART 1 there, both schema-qualified.

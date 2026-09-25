@@ -106,6 +106,8 @@
     .admtog{display:inline-flex;align-items:center;gap:4px;margin-left:8px;font-size:11px;font-weight:600;color:var(--mut);cursor:pointer;user-select:none}
     .admtog input{cursor:pointer;accent-color:var(--cyan)}
     .muted{color:var(--mut)}
+    .notlive{color:var(--mut);font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;border:1px dashed var(--line);border-radius:999px;padding:3px 9px;white-space:nowrap}
+    .acctable th.dim,.acctable td.dim{opacity:.55}
 
     .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:#161a20;color:#fff;font-size:.9rem;padding:10px 16px;border-radius:10px;opacity:0;transition:opacity .3s;pointer-events:none;z-index:100}
     @media (prefers-reduced-motion:reduce){.tile{transition:none}}
@@ -294,7 +296,7 @@
       }
 
       function renderApp(me) {
-        _isCOO = (me.o2sRole === 'COO');
+        _isCOO = !!me.platformAdmin || (me.o2sRole === 'COO');   // platform administrator (25 Sept 2026, R2)
         _adminModules = me.adminModules || [];
         var list = me.modules || [];
         var mods = {}; list.forEach(function (m) {mods[m.module] = m.role;});
@@ -315,8 +317,9 @@
         var nm = me.name || me.username || '';
         var first = String(nm).trim().split(/\s+/)[0] || 'there';
         $('hello').textContent = 'Welcome back, ' + first;
-        var roleline = _isCOO ? 'COO · all modules'
-          : (Object.keys(mods).length ? Object.keys(mods).map(function (k) {return k.toUpperCase() + ' · ' + mods[k];}).join('   ') : 'No modules yet');
+        var shown = Object.keys(mods).filter(function (k) {return k !== 'platform';});
+        var roleline = _isCOO ? 'Platform administrator · all modules'
+          : (shown.length ? shown.map(function (k) {return k.toUpperCase() + ' · ' + mods[k];}).join('   ') : 'No modules yet');
         $('userchip').innerHTML =
           '<div class="user"><div class="av">' + esc(initials(nm)) + '</div>'
           + '<div><div class="un">' + esc(nm) + '</div><div class="ur">' + esc(roleline) + '</div></div></div>'
@@ -356,10 +359,34 @@
       window.__manage = function () {if (!_isCOO && !_adminModules.length) return; view('admin'); loadAdmin();};
       window.__backLauncher = function () {view('app');};
 
-      function roleSelect(username, module, options, current) {
-        // FIX D10 — show the human label ("Plant Manager (RTA)"), not the database key ("rta").
-        var L = (window.__pdRoleLabels || {});
-        var opts = '<option value="">— none —</option>' + options.map(function (o) {return '<option value="' + esc(o) + '"' + (o === current ? ' selected' : '') + '>' + esc(module === 'pd' ? (L[o] || o) : o) + '</option>';}).join('');
+      /* Manage access, 25 Sept 2026 (the access model Tahir ruled on). One column per
+         module, drawn from GET /api/platform/catalogue: each module's roles in that
+         module's own words, grouped by its own departments, with a title beside the
+         name where the module gives one. O2S's list comes from O2S's store; PD's from
+         pd-lib; QMS and ComPha show as "not live" until they publish a catalogue. A
+         role somebody still holds that no longer appears in a catalogue stays
+         selectable and is never flagged (R5): a role belongs to its module. */
+      var _catalogue = [];
+      function roleLabel(r) { return r.name + (r.title && r.title !== r.name ? ' · ' + r.title : ''); }
+      function roleSelect(username, module, roles, current) {
+        var groups = {}, order = [];
+        roles.forEach(function (r) {
+          if (r.archived && r.key !== current) return;          // archived: hidden unless this person still holds it
+          var d = r.department || 'Other';
+          if (!groups[d]) { groups[d] = []; order.push(d); }
+          groups[d].push(r);
+        });
+        if (current && !roles.some(function (r) { return r.key === current; })) {   // held, not listed: keep it visible
+          groups['Held'] = [{ key: current, name: current }]; order.push('Held');
+        }
+        var opts = '<option value="">— none —</option>';
+        if (order.length === 1) {
+          opts += groups[order[0]].map(function (r) { return '<option value="' + esc(r.key) + '"' + (r.key === current ? ' selected' : '') + '>' + esc(roleLabel(r)) + '</option>'; }).join('');
+        } else {
+          order.forEach(function (d) {
+            opts += '<optgroup label="' + esc(d) + '">' + groups[d].map(function (r) { return '<option value="' + esc(r.key) + '"' + (r.key === current ? ' selected' : '') + '>' + esc(roleLabel(r)) + '</option>'; }).join('') + '</optgroup>';
+          });
+        }
         return '<select class="pdsel" onchange="__setmod(\'' + esc(username) + '\',\'' + module + '\',this.value)">' + opts + '</select>';
       }
       function adminToggle(username, module, on) {
@@ -369,32 +396,45 @@
         var head = $('adminHead'), body = $('adminBody');
         body.innerHTML = '<tr><td class="muted" style="padding:16px">Loading…</td></tr>';
         try {
-          var r = await fetch('/api/platform/users', {headers: auth()});
-          if (!r.ok) {body.innerHTML = '<tr><td class="muted" style="padding:16px">Could not load users (' + r.status + ').</td></tr>'; return;}
-          var data = await r.json();
-          var users = data.users || [], o2sRoles = data.o2sRoles || [], pdRoles = data.pdRoles || PD_ROLES;
-          window.__pdRoleLabels = data.pdRoleLabels || {}; // FIX D10 — the labels the server now sends
+          var rs = await Promise.all([fetch('/api/platform/users', {headers: auth()}), fetch('/api/platform/catalogue', {headers: auth()})]);
+          if (!rs[0].ok) {body.innerHTML = '<tr><td class="muted" style="padding:16px">Could not load users (' + rs[0].status + ').</td></tr>'; return;}
+          var data = await rs[0].json();
+          var cat = rs[1].ok ? (await rs[1].json()).modules || [] : [];
+          _catalogue = cat;
+          var users = data.users || [];
           _adminCaps = data.caps || {isCOO: false, adminModules: []};
           var isCOO = !!_adminCaps.isCOO;
-          // Columns: the COO manages every module; a subsystem admin only the modules they administer.
-          var order = ['o2s', 'pd'];
-          var showMods = isCOO ? order : order.filter(function (m) {return (_adminCaps.adminModules || []).indexOf(m) >= 0;});
-          var cols = showMods.map(function (m) {
-            var roles = (m === 'pd') ? pdRoles : o2sRoles;
-            if (!isCOO && m === 'o2s') roles = roles.filter(function (x) {return x !== 'COO';});   // only the COO can grant COO
-            return {key: m, label: m.toUpperCase(), roles: roles};
+          // Fallback when the catalogue could not be read: the flat lists the users call already carries.
+          if (!cat.length) {
+            cat = [
+              {key: 'o2s', name: 'O2S', live: true, roles: (data.o2sRoles || []).map(function (o) {return {key: o, name: o};})},
+              {key: 'pd', name: 'PD', live: true, roles: (data.pdRoles || []).map(function (o) {return {key: o, name: (data.pdRoleLabels || {})[o] || o};})}
+            ];
+          }
+          // Columns: the platform administrator sees every module; a subsystem admin only the modules they administer.
+          var cols = cat.filter(function (m) {
+            if (m.key === 'platform') return isCOO;
+            if (!m.live) return isCOO;                                   // the not-live columns are shown to the administrator only
+            return isCOO || (_adminCaps.adminModules || []).indexOf(m.key) >= 0;
+          }).map(function (m) {
+            var roles = m.roles || [];
+            if (!isCOO && m.key === 'o2s') roles = roles.filter(function (x) {return x.key !== 'COO';});   // only the COO can grant COO
+            return {key: m.key, label: m.name, live: m.live, roles: roles};
           });
-          head.innerHTML = '<tr><th>User</th>' + cols.map(function (c) {return '<th>' + esc(c.label) + ' role</th>';}).join('') + '</tr>';
+          head.innerHTML = '<tr><th>Person</th>' + cols.map(function (c) {
+            return '<th' + (c.live ? '' : ' class="dim"') + '>' + esc(c.label) + (c.key === 'platform' ? '' : ' role') + '</th>';
+          }).join('') + '</tr>';
           var ncol = 1 + cols.length;
           if ($('addUserCard')) $('addUserCard').style.display = isCOO ? 'flex' : 'none';
           if ($('adminLead')) $('adminLead').textContent = isCOO
-            ? 'Create a user (identity only), then grant a role per module. Tick “admin” to let someone manage access for that subsystem. Changes apply immediately.'
+            ? 'Create a person once (identity only), then set 1 role per module, in that module’s own words. Tick “admin” to let someone manage access for that subsystem. Changes apply immediately, and the modules see them at once.'
             : 'You administer: ' + (_adminCaps.adminModules || []).map(function (m) {return m.toUpperCase();}).join(', ') + '. Set each person’s role in your subsystem below.';
           body.innerHTML = users.map(function (u) {
             var mods = u.modules || {}, adminOf = u.adminOf || [];
             var cells = cols.map(function (c) {
+              if (!c.live) return '<td class="dim"><span class="notlive">not live</span></td>';
               var cur = mods[c.key] || '';
-              var tog = (isCOO && cur) ? adminToggle(u.username, c.key, adminOf.indexOf(c.key) >= 0) : '';
+              var tog = (isCOO && cur && c.key !== 'platform') ? adminToggle(u.username, c.key, adminOf.indexOf(c.key) >= 0) : '';
               return '<td>' + roleSelect(u.username, c.key, c.roles, cur) + tog + '</td>';
             }).join('');
             return '<tr><td><b>' + esc(u.name || u.username) + '</b><span class="umuser">' + esc(u.username) + '</span></td>' + cells + '</tr>';

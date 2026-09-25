@@ -311,6 +311,28 @@ const LEAD_ROLES = ['qc_head', 'rta', 'production', 'agronomy',
   'custodian', 'coo'];
 const is_lead = pd_role => LEAD_ROLES.includes(pd_role) || pd_role === 'coo';
 
+/* PD's role catalogue for the platform (25 Sept 2026, the access model Tahir ruled
+   on). The platform's Manage access shows every module's roles in that module's
+   own words, grouped by department; O2S publishes its own, and this is PD's. The
+   keys, labels and gates above are unchanged - this only says which department
+   each role sits in and whether it is a lead (LEAD_ROLES decides that; this
+   mirrors it for display). */
+const PD_ROLE_INFO = {
+  coo:                { department: 'Leadership', lead: true },
+  ceo:                { department: 'Leadership', lead: false },
+  qc_head:            { department: 'Quality',    lead: true },
+  lab_tech:           { department: 'Quality',    lead: false },
+  rta:                { department: 'R&D',        lead: true },
+  production:         { department: 'Production', lead: true },
+  agronomy:           { department: 'Agronomy',   lead: true },
+  field_agronomy:     { department: 'Agronomy',   lead: true },
+  associate_agronomy: { department: 'Agronomy',   lead: true },
+  custodian:          { department: 'Data',       lead: true },
+  registrar:          { department: 'Data',       lead: false },
+  member:             { department: 'Team',       lead: false },
+  consultant:         { department: 'Outside',    lead: false },
+};
+
 /* Labels — the words the screen uses. The stored values are the ENUMs in
    002_pd_core_rebuild.sql; these are never stored, only shown. */
 const QUESTION_STATES = {
@@ -394,7 +416,7 @@ module.exports = {
   fmt_p, fmt_q, fmt_b, fmt_run, fmt_cl, fmt_ch, fmt_o, fmt_req,
   PD_ROLES, SOURCES, DOORS, OBJECT_DEFINITIONS, PROBLEM_KINDS, QUESTION_NATURES, TRIAGE_ROLES,
   record_changes, record_not_applied, snapshot_on_move, notify_refiled,
-  LEAD_ROLES, is_lead, close_refusal, has,
+  LEAD_ROLES, is_lead, close_refusal, has, PD_ROLE_INFO,
   QUESTION_STATES, BET_STATUSES, RUN_STATUSES, CLAIM_GRADES, READING_VERDICTS, CONSTRAINT_KINDS,
   PLANT_WIDE_CONTEXT_ID,
   allowed_surfaces, can_pd, can_role,

@@ -175,8 +175,9 @@ if (DATABASE_URL) {
     },
 
     async renameUser(oldU, u) {
-      await q('DELETE FROM auth_users WHERE username=?', [oldU]);
-      await this.putUser(u);
+      // PLATFORM, 25 Sept 2026: an UPDATE, not delete-and-insert. The old way gave the
+      // person a new auth_users.id, and PD's owner_id and created_by point at that id.
+      await q('UPDATE auth_users SET username=?, name=?, role=?, pass_hash=? WHERE username=?', [u.username, u.name, u.role, u.pass_hash, oldU]);
     },
 
     async delUser(u) {
@@ -260,7 +261,18 @@ async function migrateAuth() {
 
 /* ---------- auth middleware ---------- */
 function auth(req, res, next) { const p = readToken((req.headers.authorization || '').replace(/^Bearer /, '')); if (!p) return res.status(401).json({ error: 'unauthorized' }); req.user = p; next(); }
-function admin(req, res, next) { if (!req.user || req.user.r !== 'COO') return res.status(403).json({ error: 'admin only' }); next(); }
+/* PLATFORM, 25 Sept 2026 (Tahir's ruling R2): the platform administrator is a grant of
+   its own - user_module_roles (module 'platform', role 'admin') - seeded from the O2S
+   COO rows by runPlatformMigration. The COO role in the token keeps working during the
+   changeover, so nobody is locked out while the row is being seeded. */
+async function admin(req, res, next) {
+  try {
+    if (!req.user) return res.status(403).json({ error: 'admin only' });
+    if (req.user.r === 'COO') return next();
+    if (pdq && await isPlatformAdmin(req.user.u)) return next();
+    return res.status(403).json({ error: 'admin only' });
+  } catch (e) { res.status(500).json({ error: String(e) }); }
+}
 const stripUsers = (d) => { if (d && typeof d === 'object') { const o = { ...d }; delete o.users; return o; } return d; };
 
 /* ---------- PD auth: same token as O2S (auth() above), plus the PD role loaded fresh from
@@ -354,6 +366,65 @@ app.post('/api/me/password', auth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: String(e) }); }
 });
 
+/* ---------- PLATFORM, 25 Sept 2026: ONE WRITER FOR ROLES (Tahir's ruling R1) ----------
+   The platform is the only writer of who holds which role. Every route that sets or
+   clears a person's role in a module - Manage access on the launcher AND the /api/users
+   routes O2S's Users & Access has always called - goes through these two functions, so
+   user_module_roles and the module's own column can no longer disagree. Nothing in
+   o2s.html changes; an O2S user sees nothing. Each module still owns WHAT its roles are
+   (its catalogue) and what they may do; the platform owns WHO holds them. */
+const LEGACY_COL = { o2s: 'role', pd: 'pd_role' };   // the columns the modules read today
+async function setModuleRole(username, module, role) {
+  if (!pdq) return;
+  await pdq('INSERT INTO user_module_roles (username, module, role) VALUES (?,?,?) ON DUPLICATE KEY UPDATE role=VALUES(role)', [username, module, role]);
+  if (LEGACY_COL[module]) await pdq(`UPDATE auth_users SET ${LEGACY_COL[module]}=? WHERE username=?`, [role, username]);
+}
+async function clearModuleRole(username, module) {
+  if (!pdq) return;
+  await pdq('DELETE FROM user_module_roles WHERE username=? AND module=?', [username, module]);
+  if (LEGACY_COL[module]) await pdq(`UPDATE auth_users SET ${LEGACY_COL[module]}=NULL WHERE username=?`, [username]);
+}
+// Platform administrator (R2): the 'platform'/'admin' grant, with the O2S COO role accepted during the changeover.
+async function isPlatformAdmin(username) {
+  if (!pdq) return false;
+  const [rows] = await pdq("SELECT 1 FROM user_module_roles WHERE username=? AND ((module='platform' AND role='admin') OR (module='o2s' AND role='COO')) LIMIT 1", [username]);
+  return rows.length > 0;
+}
+
+/* The role catalogue: every module's roles, in that module's own words, read from
+   where that module keeps them. O2S: its own store (masters.roles carries name,
+   deptId, builtin, archived; masters.roleTitles a title if O2S ever writes one).
+   PD: pd-lib. QMS and ComPha: not live yet, so an empty list with live:false - the
+   day one publishes a catalogue, Manage access grows a column with no launcher edit.
+   A role somebody still holds that a module no longer lists stays selectable and is
+   NOT flagged (R5): a role belongs to its module, and the platform never judges it. */
+const MODULE_LIST = [
+  { key: 'o2s', name: 'O2S', live: true }, { key: 'pd', name: 'PD', live: true },
+  { key: 'qms', name: 'QMS', live: false }, { key: 'compha', name: 'ComPha', live: false },
+];
+const O2S_DEPT_NAMES = { commercial: 'Commercial', production: 'Production', quality: 'Quality', 'supply-chain': 'Supply Chain', finance: 'Finance', leadership: 'Leadership' };
+async function roleCatalogue() {
+  const [held] = await pdq('SELECT DISTINCT module, role FROM user_module_roles');
+  const heldIn = (mod, list) => held.filter(h => h.module === mod && !list.some(r => r.key === h.role))
+    .forEach(h => list.push({ key: h.role, name: h.role, title: null, department: 'Not filed', archived: false, builtin: false }));
+  let o2s = [];
+  try {
+    const st = await store.getState(); const m = (st && st.data && st.data.masters) || {}; const titles = m.roleTitles || {};
+    o2s = (Array.isArray(m.roles) ? m.roles : []).filter(r => r && r.name).map(r => ({
+      key: r.name, name: r.name, title: r.title || titles[r.name] || null,
+      department: r.deptId ? (O2S_DEPT_NAMES[r.deptId] || String(r.deptId)) : 'Not filed',
+      archived: !!r.archived, builtin: !!r.builtin }));
+  } catch (e) {}
+  heldIn('o2s', o2s);
+  const info = (pd && pd.PD_ROLE_INFO) || {};
+  const pdRoles = PD_ROLE_KEYS.map(k => ({ key: k, name: pd.PD_ROLES[k], title: null, department: (info[k] || {}).department || 'Team', lead: !!(info[k] || {}).lead, archived: false, builtin: true }));
+  heldIn('pd', pdRoles);
+  const byKey = { o2s, pd: pdRoles };
+  const modules = MODULE_LIST.map(m => ({ key: m.key, name: m.name, live: m.live, roles: byKey[m.key] || [] }));
+  modules.push({ key: 'platform', name: 'Platform', live: true, roles: [{ key: 'admin', name: 'Platform administrator', title: null, department: 'Platform', archived: false, builtin: true }] });
+  return modules;
+}
+
 // Platform identity: who you are + which modules you may enter. Drives the launcher's tiles and each module's access.
 // Reads the authoritative user_module_roles table (seeded from today's role/pd_role by runPlatformMigration).
 app.get('/api/me', auth, async (req, res) => {
@@ -367,10 +438,11 @@ app.get('/api/me', auth, async (req, res) => {
       modules = [{ module: 'o2s', role: req.user.r, admin: req.user.r === 'COO' }]; // file-store fallback (no relational table)
     }
     const o2s = modules.find(m => m.module === 'o2s');
-    const isCOO = !!(o2s && o2s.role === 'COO');
-    // Which modules this person may ADMINISTER: the COO administers all; others only their is_admin grants.
+    // Platform administrator: the 'platform'/'admin' grant, or the O2S COO role during the changeover (R2).
+    const isCOO = modules.some(m => m.module === 'platform' && m.role === 'admin') || !!(o2s && o2s.role === 'COO');
+    // Which modules this person may ADMINISTER: the platform admin administers all; others only their is_admin grants.
     const adminModules = isCOO ? REAL_MODULES.slice() : modules.filter(m => m.admin).map(m => m.module);
-    res.json({ username: req.user.u, name: req.user.n, o2sRole: o2s ? o2s.role : null, modules, adminModules });
+    res.json({ username: req.user.u, name: req.user.n, o2sRole: o2s ? o2s.role : null, platformAdmin: isCOO, modules, adminModules });
   } catch (e) { res.status(500).json({ error: String(e) }); }
 });
 
@@ -380,22 +452,20 @@ const PD_ROLE_KEYS = Object.keys((pd && pd.PD_ROLES) || {});
 function validModuleRole(module, role) {
   if (!role) return false;
   if (module === 'pd') return PD_ROLE_KEYS.indexOf(role) >= 0;
-  if (module === 'o2s') return true; // O2S roles are free-form (managed in O2S master data)
+  if (module === 'o2s') return true; // O2S owns its catalogue (Admin -> Roles); a role created there is grantable at once
+  if (module === 'platform') return role === 'admin';
   return false; // qms/compha not built yet
 }
 const REAL_MODULES = ['o2s', 'pd'];
 // Load a caller's platform-admin capabilities fresh from the DB (roles/admin can change between logins).
 async function loadAdminCaps(username) {
   const [rows] = await pdq('SELECT module, role, is_admin FROM user_module_roles WHERE username=?', [username]);
-  const o2s = rows.find(r => r.module === 'o2s');
-  const isCOO = !!(o2s && o2s.role === 'COO');                          // COO = platform admin
+  // isCOO keeps its name for the launcher: it now means "platform administrator" (R2).
+  const isCOO = rows.some(r => (r.module === 'platform' && r.role === 'admin') || (r.module === 'o2s' && r.role === 'COO'));
   const adminModules = isCOO ? REAL_MODULES.slice() : rows.filter(r => r.is_admin).map(r => r.module);
   return { isCOO, adminModules };
 }
-async function isUserCOO(username) {
-  const [rows] = await pdq("SELECT role FROM user_module_roles WHERE username=? AND module='o2s'", [username]);
-  return !!(rows[0] && rows[0].role === 'COO');
-}
+async function isUserCOO(username) { return isPlatformAdmin(username); }
 // Gate for access administration: the COO (platform admin) OR any subsystem admin. Caps land on req.adminCaps.
 async function accessAdmin(req, res, next) {
   if (!pdq) return res.status(503).json({ error: 'Platform access admin needs DATABASE_URL (relational store).' });
@@ -406,6 +476,10 @@ async function accessAdmin(req, res, next) {
     next();
   } catch (e) { res.status(500).json({ error: String(e) }); }
 }
+// Every module's roles in its own words (see roleCatalogue). Manage access draws its columns from this.
+app.get('/api/platform/catalogue', auth, accessAdmin, async (req, res) => {
+  try { res.json({ modules: await roleCatalogue(), caps: req.adminCaps }); } catch (e) { res.status(500).json({ error: String(e) }); }
+});
 // The admin grid: every user + their module roles (+ which modules each person administers).
 app.get('/api/platform/users', auth, accessAdmin, async (req, res) => {
   try {
@@ -445,6 +519,7 @@ app.post('/api/platform/access', auth, accessAdmin, async (req, res) => {
     // its own piece of work with its own test pass.
     if (!validModuleRole(module, role)) return res.status(400).json({ error: 'The ' + module.toUpperCase() + ' module has no role called "' + role + '".' });
     const caps = req.adminCaps;
+    if (module === 'platform' && !caps.isCOO) return res.status(403).json({ error: 'Only a platform administrator can appoint another.' });
     if (!caps.isCOO) {                                                  // subsystem-admin guardrails
       if (caps.adminModules.indexOf(module) < 0) return res.status(403).json({ error: 'You administer only: ' + (caps.adminModules.join(', ') || '(none)') + '.' });
       if (module === 'o2s' && role === 'COO') return res.status(403).json({ error: 'Only the COO can assign the COO role.' });
@@ -452,9 +527,7 @@ app.post('/api/platform/access', auth, accessAdmin, async (req, res) => {
     }
     const [ex] = await pdq('SELECT username FROM auth_users WHERE username=?', [username]);
     if (!ex[0]) return res.status(404).json({ error: 'no such user' });
-    await pdq('INSERT INTO user_module_roles (username, module, role) VALUES (?,?,?) ON DUPLICATE KEY UPDATE role=VALUES(role)', [username, module, role]);
-    if (module === 'o2s') await pdq('UPDATE auth_users SET role=? WHERE username=?', [role, username]);
-    else if (module === 'pd') await pdq('UPDATE auth_users SET pd_role=? WHERE username=?', [role, username]);
+    await setModuleRole(username, module, role);
     res.json({ ok: true, username, module, role });
   } catch (e) { res.status(500).json({ error: String(e) }); }
 });
@@ -465,14 +538,15 @@ app.delete('/api/platform/access', auth, accessAdmin, async (req, res) => {
     const module = String((req.body && req.body.module) || '').trim().toLowerCase();
     if (!username || !module) return res.status(400).json({ error: 'username and module required' });
     const caps = req.adminCaps;
+    if (module === 'platform') {
+      if (!caps.isCOO) return res.status(403).json({ error: 'Only a platform administrator can remove one.' });
+      if (username === String(req.user.u).toLowerCase()) return res.status(400).json({ error: 'You cannot remove your own platform administration. Ask another administrator.' });
+    }
     if (!caps.isCOO) {                                                  // subsystem-admin guardrails
       if (caps.adminModules.indexOf(module) < 0) return res.status(403).json({ error: 'You administer only: ' + (caps.adminModules.join(', ') || '(none)') + '.' });
       if (await isUserCOO(username)) return res.status(403).json({ error: "You can't change the COO's access." });
     }
-    await pdq('DELETE FROM user_module_roles WHERE username=? AND module=?', [username, module]);
-    // mirror the removal to the module's legacy column
-    if (module === 'o2s') await pdq('UPDATE auth_users SET role=NULL WHERE username=?', [username]);
-    else if (module === 'pd') await pdq('UPDATE auth_users SET pd_role=NULL WHERE username=?', [username]);
+    await clearModuleRole(username, module);
     res.json({ ok: true, username, module, revoked: true });
   } catch (e) { res.status(500).json({ error: String(e) }); }
 });
@@ -530,7 +604,9 @@ app.post('/api/users', auth, admin, async (req, res) => {
     const b = req.body || {}; const username = String(b.username || '').trim().toLowerCase();
     if (!b.name || !username || !b.password) return res.status(400).json({ error: 'name, username, password required' });
     if (await store.getUser(username)) return res.status(409).json({ error: 'username exists' });
-    await store.putUser({ username, name: b.name, role: b.role || 'KAM', pass_hash: hashPw(b.password) });
+    const role = b.role || 'KAM';
+    await store.putUser({ username, name: b.name, role, pass_hash: hashPw(b.password) });
+    await setModuleRole(username, 'o2s', role);   // PLATFORM 25 Sept: the one writer (R1)
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: String(e) }); }
 });
@@ -542,6 +618,14 @@ app.put('/api/users/:username', auth, admin, async (req, res) => {
     if (ex.role === 'COO' && (b.role && b.role !== 'COO')) { const all = await store.listUsers(); if (all.filter(x => x.role === 'COO').length <= 1) return res.status(400).json({ error: 'need at least one COO' }); }
     const rec = { username: newU, name: b.name || ex.name, role: b.role || ex.role, pass_hash: b.password ? hashPw(b.password) : ex.pass_hash };
     if (newU !== oldU) await store.renameUser(oldU, rec); else await store.putUser(rec);
+    // PLATFORM 25 Sept (R1): a rename carries the person's platform rows with them; a role
+    // change goes through the one writer. Rows an old username left behind are removed
+    // first, so the primary key (username, module) cannot collide.
+    if (pdq && newU !== oldU) {
+      await pdq('DELETE FROM user_module_roles WHERE username=?', [newU]);
+      await pdq('UPDATE user_module_roles SET username=? WHERE username=?', [newU, oldU]);
+    }
+    if (rec.role) await setModuleRole(newU, 'o2s', rec.role);
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: String(e) }); }
 });
@@ -550,7 +634,9 @@ app.delete('/api/users/:username', auth, admin, async (req, res) => {
     const u = String(req.params.username || '').toLowerCase(); const ex = await store.getUser(u); if (!ex) return res.status(404).json({ error: 'not found' });
     if (req.user.u === u) return res.status(400).json({ error: 'cannot delete yourself' });
     if (ex.role === 'COO') { const all = await store.listUsers(); if (all.filter(x => x.role === 'COO').length <= 1) return res.status(400).json({ error: 'cannot delete last COO' }); }
-    await store.delUser(u); res.json({ ok: true });
+    await store.delUser(u);
+    if (pdq) await pdq('DELETE FROM user_module_roles WHERE username=?', [u]);   // PLATFORM 25 Sept: no rows left behind
+    res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: String(e) }); }
 });
 
@@ -613,6 +699,8 @@ async function runPlatformMigration() {
   // is_admin: marks a grant as a SUBSYSTEM ADMIN of that module (can manage roles within it).
   // Additive + idempotent — error 1060 (duplicate column) on re-run is expected and ignored.
   try { await pdq("ALTER TABLE user_module_roles ADD COLUMN is_admin TINYINT(1) NOT NULL DEFAULT 0"); } catch (e) { if (e && e.errno !== 1060) console.log('is_admin column add skipped: ' + e.message); }
+  // PLATFORM 25 Sept 2026 (R2): the platform administrator as a grant of its own, seeded once from the O2S COO rows.
+  try { await pdq("INSERT IGNORE INTO user_module_roles (username, module, role) SELECT username, 'platform', 'admin' FROM user_module_roles WHERE module='o2s' AND role='COO'"); } catch (e) { console.log('platform admin seed skipped: ' + e.message); }
   try { const [c] = await pdq('SELECT COUNT(*) AS n FROM user_module_roles'); console.log('Platform migration: user_module_roles ready (' + (c[0] ? c[0].n : '?') + ' rows).'); } catch (e) {}
 }
 

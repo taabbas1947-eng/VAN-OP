@@ -104,6 +104,8 @@ const sandbox = {
   _av: v => (v == null ? '' : String(v)),
   recallPrintPrice: () => 0,
   screenEntry: () => {},
+  entrySnap: () => ({}),
+  entryRestore: () => {},
   Date,
 };
 sandbox.globalThis = sandbox;

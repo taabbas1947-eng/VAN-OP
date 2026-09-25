@@ -5636,3 +5636,25 @@ Open: Tahir's White Label client budget (PKR m): Syngenta 424, Rudolf 135, Maxim
 - Wording: My Actions / All actions pointers → Today; Release title neutral.
 Tests: review25m.test.js 25; actioncenter, customerapproval, dispatchauthority, how updated. Suite 0 failed. Browser (fresh copy, port 3920): Today's Plan the truck makes a staged truck; after re-login its material is not ready again; approveDC on it refused; This month = 1 Sep; today 0 days late; searchable log renders; 0 errors.
 **Not fixed yet (for Tahir's ruling or next passes):** server-side rights (the server accepts any logged-in user's full save) — structural; the COO can run a whole truck alone (reviewTruck/approveRelease let the COO through); the orders dataset values by delivered qty (labelled so); one-tap sign-offs show nothing before signing; counts that disagree across Today/Plant/How; late reason not on the order journey; bench sheet on phones; shift logging on the old screen; no list of PSI-with-DC customers; the old screens.
+
+
+## Pass fifty-three — 25n: the second independent review and its fixes (25 Sep, NOT pushed)
+
+Budget written live before this pass (Tahir's tab, the app's own functions, logged under his name): salesTargets 2026-27 = 9 White Label clients summing to PKR 873,000,000 (UPL under ARYSTA LIFE SCIENCES (PVT) LTD; "BKK @ White Label" 19m), channelTargets White Label 2026-27 = 873,000,000; server rev 9240 verified. Tahir's screenshots ("no budget", the "This week" date box) are live 25j; the rebuilt page is 25k-25m.
+Round 2 (3 agents on 25m): data-model map for the FOC sample path; bugs (13 new: 2 high, 8 medium, 3 low); UX (per-role readiness COO/CFO 3.5, PM 2.5, Prod Mgr 2, SC 3, Warehouse 2.5, Finance 2.5, KAM 1, Lab 3, QA 4).
+Fixed in 25n:
+- `lineOnTruckKg`; dfSubmitShipment room subtracts kg on trucks not yet out; the backfilled row carries lid.
+- `deliveryMayConfirm`: the delivery ladder holder (dispatcher, Saad day 1, PM day 2) can confirm; openDeliveryConfirm/confirmDelivery use it.
+- dispQASubmit: ignores voided rows; refuses a second result, a delivered or counted truck.
+- saveShipEdit: also refuses old-style pending DCs, uninspected (qa null), failed or voided rows; the correction records the before value.
+- rejectDC: only a DC still pending. cancelShip: not the Plant Manager; a counted truck only by the COO.
+- `budgetKeyLive`: a plain-name target for a name with targets per channel is ignored in budgetByChannel, sbData cliT, howSales fallback.
+- saleLeft: an old truck with no stage but approved counts whether or not it has a dispatch id (DSP1477/1478 Orbit-K 20,000 kg, Jun = FY 2025-26; FY 2026-27 unchanged). Local data check: every line's sold kg = dispatched except PO 21775 Max Amino (2 counted 300 kg trucks, DC 5068 and 5069, on a 300 kg line) — a duplicate truck for the clean-up list.
+- nextDCNo / nextGatePassNo count voided trucks (numbers never reissued).
+- actionItems: gate pass job only after QA passes; old-style Approve DC only after QA; delivery jobs use stageNow (old trucks in transit get them — expect old undelivered trucks to appear on Today, escalated).
+- TODAY = Date.now()+5h (Pakistan time on any browser), refreshed every minute; TODAY getters are UTC getters.
+- New order: `ENTRY_KEEP/entrySnap/entryRestore` keep KAM, priority, client PO #, dates across the price-on-pack redraw and client/channel change; `#e_missing` lists what is still needed.
+- How are we doing: stuck tiles add up (2 stages + "N other stages"); repeated jobs listed once. Sales & Budget: phone keeps Sold (sb-hide2), cover % says "budget already reached" once met, "customers with sales or orders".
+- Guide: job cards no longer promise a form on every job; 'Approve DC' titled "Older DC to approve (a truck from before the loading steps)".
+Tests: review25n.test.js 28; authmodel, budget, how, harness updated. Suite 10,102 passed, 0 failed. Browser (port 3940): KAM/priority/PO#/date kept after the tap; missing list shown; PM confirms a delivery escalated to him; PM cancel refused; no gate pass job before QA; 0 errors.
+Still open from round 2 (next passes / rulings): one-tap sign-offs need a summary sheet; KAM cannot open New order (by the ruled matrix — Finance enters orders; confirm with Tahir); bench sheet on phone; shift logging on the old screen; late reason on the journey; PSI-with-DC customer filter; Production Manager's Today empty while production waits; the COO can run a truck alone; server-side rights; broken logo image on the local copy.

@@ -1377,7 +1377,7 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
    ['markDelivered', 'delivery.confirm'], ['receivePR', 'rm.receive'],
    ['rmReceiveSubmit', 'rm.receive'], ['closePR', 'pr.close']].forEach(([fn, code]) =>
     ok('GUARD: ' + fn + ' asks may(\'' + code + '\')',
-       new RegExp("may\\('" + code.replace('.', '\\.') + "'\\)").test(H.grab(fn)), H.grab(fn).slice(0, 100)));
+       new RegExp("may\\('" + code.replace('.', '\\.') + "'\\)").test(H.grab(fn) + (/deliveryMayConfirm\(/.test(H.grab(fn)) ? H.grab('deliveryMayConfirm') : '')), H.grab(fn).slice(0, 100)));
 
   /* THE LINE THAT MUST NOT BE CROSSED. A delivery challan is approved by a second
      person, and a loaded truck is released by a second person. Those are the
@@ -1700,13 +1700,13 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
    ['openRMReceive', 'rm.receive'], ['openDeliveryConfirm', 'delivery.confirm'],
    ['openRMCheck', 'rm.check'], ['rmSubmit', 'rm.check']].forEach(([fn, code]) =>
     ok('GUARD: ' + fn + ' asks may(\'' + code + '\')',
-       new RegExp("may\\('" + code.replace('.', '\\.') + "'\\)").test(H.grab(fn)), H.grab(fn).slice(0, 110)));
+       new RegExp("may\\('" + code.replace('.', '\\.') + "'\\)").test(H.grab(fn) + (/deliveryMayConfirm\(/.test(H.grab(fn)) ? H.grab('deliveryMayConfirm') : '')), H.grab(fn).slice(0, 110)));
   /* An opener and its writer must ask for the SAME right, or somebody fills a
      form and loses it at the Save — the print-on-pack fault of 22 August. */
   [['openDeliveryConfirm', 'confirmDelivery'], ['openShipEdit', 'saveShipEdit'],
    ['mpStart', 'mpCreate'], ['openRMReceive', 'rmReceiveSubmit'],
    ['openRMCheck', 'rmSubmit']].forEach(([o, w]) => {
-    const codeOf = src => (src.match(/may\('([^']+)'\)/) || [])[1];
+    const codeOf = src => (src.match(/may\('([^']+)'\)/) || (/deliveryMayConfirm\(/.test(src) && ['', 'delivery.confirm']) || [])[1];
     eq('opener and writer agree: ' + o + ' / ' + w, codeOf(H.grab(o)), codeOf(H.grab(w)));
   });
   /* The Shipments screen's edit flag follows the same right its buttons do —
@@ -1965,14 +1965,14 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
       stayed green while a KAM deleted a lot. */
    ['openRemoveLot', 'production.void'], ['doRemoveLot', 'production.void']].forEach(([fn, code]) =>
     ok('GUARD: ' + fn + ' asks may(\'' + code + '\')',
-       new RegExp("may\\('" + code.replace('.', '\\.') + "'\\)").test(H.grab(fn)), H.grab(fn).slice(0, 110)));
+       new RegExp("may\\('" + code.replace('.', '\\.') + "'\\)").test(H.grab(fn) + (/deliveryMayConfirm\(/.test(H.grab(fn)) ? H.grab('deliveryMayConfirm') : '')), H.grab(fn).slice(0, 110)));
   /* opener and writer must agree, or somebody fills a form and loses it */
   [['openBatchModal', 'submitMultiBatch'], ['openCloseBatch', 'doCloseBatch'],
    ['openReconcile', 'saveReconcile'], ['openCallBp', 'submitCallBp'],
    ['openDivert', 'submitDivert'], ['openRework', 'submitRework'],
    ['openSettledClose', 'closeSettledBatches'],
    ['openRemoveLot', 'doRemoveLot']].forEach(([o, w]) => {
-    const codeOf = src => (src.match(/may\('([^']+)'\)/) || [])[1];
+    const codeOf = src => (src.match(/may\('([^']+)'\)/) || (/deliveryMayConfirm\(/.test(src) && ['', 'delivery.confirm']) || [])[1];
     eq('opener and writer agree: ' + o + ' / ' + w, codeOf(H.grab(o)), codeOf(H.grab(w)));
   });
   /* The re-check the comment advertises: the lab can certify a lot while the

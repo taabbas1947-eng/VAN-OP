@@ -48,7 +48,7 @@ ok('the ruled matrix opens Sales & Budget to the money roles once (V3, flagged)'
 /* ---- 2. the channel tree ---- */
 /* 25a, Tahir 24 Sep: a sale is counted when the truck leaves, net of taxes. The
    channel totals now read the shipments (saleRows), not the delivered quantity. */
-const src = ['budgetChannelOf', 'budgetByChannel', 'channelBudgetSet', 'lineNetPrice', 'saleLeft', 'saleLineOf', 'saleRows', 'saleOpenValue'].map(grab).join('\n\n');
+const src = ['budgetKeyLive', 'budgetChannelOf', 'budgetByChannel', 'channelBudgetSet', 'lineNetPrice', 'saleLeft', 'saleLineOf', 'saleRows', 'saleOpenValue'].map(grab).join('\n\n');
 const b = { console, logged: [], toasts: [], saved: 0, rendered: 0,
   logAction: m => b.logged.push(m), toast: m => b.toasts.push(m), save: () => b.saved++, render: () => b.rendered++,
   TODAY: new Date('2026-09-23T09:00:00'), fyKey: ds => (String(ds || '2026-09') < '2026-07' ? '2025-26' : '2026-27'), lineShortClosed: l => !!(l && l.shortClose && l.shortClose.approvedAt), pkr: n => 'PKR ' + Math.round(n),
@@ -134,7 +134,7 @@ ok('no money reaches Today', !/pkr\(|invoicePrice/.test(grab('screenToday') + gr
     saleRows: () => [{ date: '2026-09-10', fy: '2026-27', value: 10, channel: 'Cobo', key: 'VAN', brand: 'A' }, { date: '2026-08-10', fy: '2026-27', value: 20, channel: 'White Label', key: 'Syn', brand: 'B' }, { date: '2026-05-10', fy: '2025-26', value: 99, channel: 'Cobo', key: 'VAN', brand: 'A' }],
     saleOpenValue: (o, l) => l.v, BUDGET_CHANNELS: ['White Label', 'Cobo'],
     state: { masters: { channelTargets: { 'White Label': { '2026-27': 300 }, Cobo: { '2026-27': 100 } }, salesTargets: {} }, orders: [{ client: 'Syn', channel: 'White Label', lines: [{ v: 7 }] }] } };
-  vm.createContext(sb2); vm.runInContext('var sbPer="fy";\n' + ['sbRange', 'sbData'].map(grab).join('\n'), sb2);
+  vm.createContext(sb2); vm.runInContext('var sbPer="fy";\n' + ['budgetKeyLive', 'sbRange', 'sbData'].map(grab).join('\n'), sb2);
   let D = sb2.sbData(); eq('25k FY: budget = channel totals', D.budget, 400); eq('25k FY: sold', D.sold, 30); eq('25k FY: open', D.open, 7);
   sb2.sbPer = 'month'; vm.runInContext('sbPer="month"', sb2); D = sb2.sbData(); eq('25k this month: sold', D.sold, 10); eq('25k this month: target from the monthly split', D.mTarget, 50);
   vm.runInContext('sbPer="2026-08"', sb2); D = sb2.sbData(); eq('25k a chosen month: sold', D.sold, 20);

@@ -15,7 +15,7 @@ const sb = { console, TODAY: new Date('2026-09-24T10:00:00'), fmt: n => String(n
       { brand: 'Z', ordered: 10, delivered: 0, dispatched: 0, committed: '2026-09-20' } ] }],
     batches: [{ lots: [{ coa: { status: 'approved', approvedDate: '2026-09-02' } }, { coa: { status: 'approved', approvedDate: '2026-09-03', rejected: { why: 'x' } } }, { coa: { status: 'approved', approvedDate: '2026-09-03', repOf: { lotNo: 'L1' } } }, { coa: { status: 'failed' } }] }] } };
 vm.createContext(sb);
-vm.runInContext(grabTopVar('HOW_ROLES', '[') + ['evToday', 'localDateOf', 'calDays', 'howMay', 'howPeriod', 'howIn', 'howSales', 'howOnTime', 'howStuck', 'howQuality'].map(grab).join('\n'), sb);
+vm.runInContext(grabTopVar('HOW_ROLES', '[') + ['evToday', 'localDateOf', 'calDays', 'howMay', 'howPeriod', 'howIn', 'budgetKeyLive', 'howSales', 'howOnTime', 'howStuck', 'howQuality'].map(grab).join('\n'), sb);
 eq('who may see it: COO, CFO, Plant Manager, Production Manager, Supply Chain (25i)', sb.HOW_ROLES.join(','), 'COO,CFO,Plant Manager,Production Manager,Supply Chain');
 const S = sb.howSales();
 eq('sold this month (net, trucks out)', S.soldM, 100); eq('sold this FY', S.soldF, 400); eq('FY budget', S.tF, 1600); eq('% of budget', S.pctF, 25);

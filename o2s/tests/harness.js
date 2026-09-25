@@ -43,10 +43,11 @@ function matchBlock(from, what, open) {
 
 
 function grab(name) {
-  const re = new RegExp('(^|\\n)(function\\s+' + name + '\\s*\\()');
+  const re = new RegExp('(^|\\n)((?:async\\s+)?function\\s+' + name + '\\s*\\()');
   const m = re.exec(html);
   if (!m) throw new Error('not found: ' + name);
-  const start = html.indexOf('function ' + name, m.index);
+  /* 25o: an async function is grabbed whole, with its async */
+  const start = html.indexOf(m[2], m.index);
   let body;
   try { body = matchBlock(start, name); } catch (e) { body = null; }
   /* SANITY. matchBlock counts braces with a scanner that does not understand

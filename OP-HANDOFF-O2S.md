@@ -5786,3 +5786,85 @@ Tests: fixes26c 54. Suite 10,729 passed, 0 failed; node --check clean. Browser (
 Not done (not asked / left by Tahir): sample send back (left as is); coaDeviation note may be empty (prompt); Rejected COAs report reads coa.rejected (always 0 since send-back); RM Check re-run overwrites l.rmPR history; direct PO close overwrites a waiting request without archiving; lot QA fail needs no reason.
 Pass 61 continued (26d, Tahir's 4 follow-ups): (1) Rejected COAs report (dashOpsMetrics qcRej) now reads coa.returns (deduped by id), UNFIT reworks from coaHistory (reworkAt/By/Why) and legacy coa.rejected, newest first — live today: 0 returns yet (send back went live in 26a). (2) RM Check: rmPRBlocks(l) stops openRMCheck and rmSubmit while a line PR is open (waiting / approved / refused) with the sheet to use; rmPRArchive(l) keeps a closed PR in l.rmPRHistory before the new check; Plant screen material rows open openPRRefused / openRMReceive / openPRSheet / openRMCheck by state — live: 7 open approved line PRs were exposed to the overwrite. (3) submitClosePO keeps a waiting request: into shortCloseHistory with outcome 'Closed directly by …', and on the close as shortClose.request {by,user,role,at,reasonCode,reason}; logged. (4) lotQASubmit: QA Inspector/COO only; Remarks ≥ 5 on a fail, checked before saving; the Supply Chain 'Correct' job shows the remarks.
 Tests: fixes26c 72. Suite 10,747 passed, 0 failed; node --check clean. Browser (disposable copy): report lists a send-back and an UNFIT rework; RM Check on an approved PR blocked, PR unchanged; lot fail blocked without Remarks; direct close kept Fahim's request; 0 page errors.
+
+
+## RESUME HERE — state at 26 Sep 2026, end of session (supersedes the 25 Sep block above)
+
+### 1. Where things stand
+- **Git:** HEAD f8b1302, clean tree, **pushed** (origin/main = f8b1302). Tahir pushes via GitHub Desktop; Claude never pushes. Commits authored `Tahir Abbas <tahir.pak1985@gmail.com>` (the VM has no git identity: use `git -c user.name=... -c user.email=...`) with the Co-Authored-By / Claude-Session trailer. Always `git --no-optional-locks` (a stray .git/index.lock blocked GitHub Desktop once today).
+- **Live:** https://van-control-tower.onrender.com/o2s serves **BUILD_ID 2026-09-26d** (checked 26 Sep evening, server rev 9944). Everything from 25e to 26d is live.
+- **Tests:** full suite **10,747 passed, 0 failed** (`bash $HOME/runsuite.sh`, or `node o2s/tests/<file>.test.js`). Today's tests: `fixes26a.test.js` (122) and `fixes26c.test.js` (72). Syntax: extract the `<script>` blocks to $HOME/work/js and `node --check` each.
+- **Browser checks:** disposable copy in the cloud at /tmp/claude-0/prev (`env -u DATABASE_URL PORT=3999 node server.js`, admin / prevtest1; scripts check5–check8.js; shots/). Its data has test edits from today; recopy from the repo before trusting it.
+- **Scratch:** `o2s/tests/.old26b.html.tmp` (old build, for the before/after check) is listed in .git/info/exclude. Delete when convenient (needs Tahir's delete permission).
+
+### 2. The big one found today: actions "coming back" (fixed in 26c)
+- **Symptom:** "Batch AP26012 KEPT COMING BACK AFTER CLOSURE BY PM". Live fingerprint: status 'open' while closedDate / closedBy / varianceKg stayed, and the "closed" log row was gone.
+- **Cause:** saveNow's 409 path and startSync's auto-refresh re-took the merge baseline with `_snapBase()` AFTER merging, i.e. from local state still holding the unsent change. A second conflict then read local == base and took the server's older value. New keys survived (server had none); objects and log rows were dropped as "removed by them" (the 26a removal rule made that part worse; the status revert predates 26a). Two conflicts in a row were enough, so any action at a busy moment could be undone.
+- **Fix:** `_srvCopy(j.data)`, taken before the merge, is the baseline in both paths. After 5 straight conflicts the save retries in 3 s instead of stopping with the change unsent.
+- **Proof:** fixes26c drives the real saveNow against a fake server (old code fails 2); two-tab browser test on the real server: 26b → "open" with closedBy kept (the live fingerprint), 26c → "closed" with the log row.
+- **Live damage, NOT yet repaired:** 27 batches are still open with today's close date — AP26012 and 26 Sulfur Coated Urea batches VU26163–VU26190 (their reconcile to the Nitro Sulfur pool DID save). **Tahir's ruling: Abdul Majid re-closes them himself** (not Claude), from a refreshed tab. AP26012 will also run its order true-up then. Check next session: `state.batches.filter(b=>b.status==='open'&&b.closedDate)` should be empty.
+- **Structural note for Tahir (said in chat):** the whole app is one JSON document merged in each browser. It is fragile with 10+ people saving. Lasting fix = server-side actions (the server records each approval/close under a lock). Undecided; a bigger project whichever tool is used. Tahir asked whether to switch to Claude Code — answered: same model, practical advantages (direct git push, faster files); the design is the real issue.
+
+### 3. Everything built on 26 Sep (26a → 26d), by area
+**Orders / short close (26a)**
+- Close sheet with tick boxes (none ticked by default): "Close products…" (COO) / "Ask to close products…" (others). New reason "Supplied from stock outside O2S" (ours:false) for 2–4 bag orders filled from stock O2S does not track.
+- Refusal needs a reason, is never deleted, goes back to the asker's Today ('Refused' → Ask again / Leave it open). History in shortCloseHistory.
+- 26d: the COO's direct close keeps a waiting request (history with outcome "Closed directly by …", and `shortClose.request {by,user,role,at,reasonCode,reason}`).
+**See it before you sign it; every no has a way back (26a, 26c)**
+- Truck sheet (openTruckSign) for gate pass / review / release / approve DC; Send back to whoever issued the gate pass; Truck fixed → review again.
+- Acknowledge PO → Send back to whoever entered it; Approve PR → Refuse with reason → Supply Chain (Ask again / Drop); Approve customer → Send back to whoever entered it; Reject DC needs a reason → Supply Chain 'DC rejected'; sample not approved reaches the asker.
+- 26c: the Plant screen's "Open →" buttons open the same sheets (they used to sign in one tap). 26d: the material rows open the right sheet per PR state.
+- 26d: a 'Pending approval' customer can no longer be made Active via Reactivate (R9).
+**Lab (26a, 26d)**
+- QCM sends a reviewed report back to the AQCM, AQCM to the analyst (note ≥ 10), 'Correct COA' / 'Review COA again' jobs; approved = re-issue, never sent back.
+- 26d: UNFIT → rework asks why; the failed COA stays in `coaHistory`; count on the lot (`h.reworks`); Production gets 'Rework lot'; no lab job until 'Rework done' (note ≥ 5).
+- 26d: the Rejected COAs report reads send-backs (coa.returns, deduped), UNFIT reworks and old rejections. Live shows 0 until the lab sends something back.
+- Lab cover / leave / lot tested for the batch were live since 25p; parameter-wise testing (labFlow) stays OFF by ruling.
+**Production (26a, 26b, 26d)**
+- Close batch on the Running card, list row and Ready to pack (Production Manager too via TD_RIGHT batch.close). Multi-batch true-up only when closed AND fully placed.
+- Packing finished · reconcile / move (packing.reconcile) on Ready to pack and the passport: loss (material, weight, moisture, packing loss and others), by-product, divert, rework, keep as bulk stock; cumulative. Sulfur Coated Urea → Nitro Sulfur pool; the pool is called into a new Nitro Sulfur OR Sulfur Coated Urea batch.
+- Leftover duplicate lots removable as records only (produced unchanged). Cleared on live: AP26012-L2, VMG10419-L2.
+- Production Manager forms (log shift, close batch, reconcile) in the new look.
+- 26d: 'Yield short' — a batch closed short shows on the Plant Manager's Today; he marks it Seen (no send back, Tahir's ruling). Live: HG26025, HG26027, then AP26012 once re-closed.
+**QA / shipping (26d)**
+- A truck failing pre-shipment inspection needs Remarks; Supply Chain gets 'Truck failed' with the reason (same record list as DC rejected, kind 'qa').
+- A packed lot failing QA needs Remarks; only the QA Inspector / COO submits; the 'Correct' job shows the reason.
+- A lot on QA hold goes to the Production Manager ('Re-inspect'), who says what was fixed.
+- Confirm delivery: Condition on arrival (all received / refused / short / damaged) + Kg/L + note — record only (Tahir), shown on the delivered shipment; quantities unchanged.
+**Purchase requests (26d)**
+- RM Check is blocked while a line PR is waiting, approved or refused (message names the sheet); a closed PR is kept in `l.rmPRHistory` first. 7 approved line PRs on live were exposed to the old overwrite.
+**Guide (every build)**
+- CHANGELOG entries 2026-09-26a/b/c/d; BUILD_ID moves with them (buildid.test.js). Rules "See it before you sign it; every no has a way back" lists every return path. My job "New on 26 Sep" notes for Production Manager, Production, Plant Manager, Supply Chain, Warehouse, Supply Chain Officer, CFO, Finance, Finance Desk Officer, QCM, AQCM, Lab Rep, QA Inspector.
+
+### 4. Tahir's rulings today (do not re-ask)
+- Short close: reason required, back to the asker; close only what is ticked; outside-O2S stock = close short with the new reason.
+- Plant Manager / Saad must see the document before signing; every refusal needs a reason and a way back.
+- Lab send back: QCM → AQCM → analyst; one analyst submits the full report (parameter-wise OFF); approved = re-issue Rev n.
+- Provisional batch report for a customer before all lots are tested: **do not build anything** ("leave it").
+- SCU leftovers → Nitro Sulfur pool → callable into NS or SCU; every batch reconciles with loss reasons; the Production Manager owns reconcile.
+- The 27 reverted batches: Abdul Majid re-closes them himself.
+- Yield short: read and mark seen only. Truck fails inspection: Supply Chain re-plans. Delivery problems: record only. Free sample send back: leave as is. UNFIT rework: keep results, tell Production. QA hold: the Production Manager.
+- "Don't invent anything beyond existing logic; ask with multiple-choice questions when process clarity is needed."
+
+### 5. Waiting on people
+- **Abdul Majid:** re-close the 27 batches (section 2); fill `Claude outputs/Batch leftovers to account 26 Sep 2026.xlsx` (57 rows, 147,374 Kg; SCU 11,025) and enter them via Packing finished.
+- **Everyone:** refresh open tabs — an old-build tab can still lose its own changes; the stale-tab check blocks saving within 10 minutes of a new deploy.
+- (Fahim's refusals of Grain Set, Max Amino, RUD2682401 are recorded on live — done.)
+
+### 6. Open — needs Tahir's ruling or a next pass
+1. **Server-side actions** (section 2): the real cure for sync losses. Needs a decision and a plan.
+2. Server-side numbering for gate passes and DCs (2 people can still clash). Needs a server.js counter.
+3. Server-side rights: the server accepts any logged-in user's full save.
+4. The COO can run a whole truck alone (samples no longer can). Ask whether trucks should match.
+5. coaDeviation note can be empty (prompt). Rework / hold / correct still use browser prompt() boxes, not sheets.
+6. Free samples: review / release cannot send back (left as is by ruling — revisit only if asked).
+7. Bench sheet on a phone (Save off screen); "+ Log a shift" old path; late reason not on the order journey; customers who get the pre-shipment report with the DC have no list.
+8. Old screens not in the new skin: Customers, Lists, Correct a record, Reconcile, Production frame, pop-up forms.
+9. Board write-up of the independent reviews — offered, not made.
+10. From 25 Sep: old June trucks "in transit" raise delivery jobs; PO 21775 Max Amino duplicate counted truck (DC 5068/5069); Maxim Old POs bucket; the clean-up list xlsx.
+
+### 7. How to work (standing)
+- Work on E:\VAN-OP via device_bash; stage only for browser checks. Edit with python read-modify-write + assert count==1; never retype files.
+- Every change: tests (new checks in a fixesXX file), full suite, node --check, a browser check on the disposable copy, the Guide (changelog + BUILD_ID + rules / My job / How / Reference as relevant), a handoff pass here (append only).
+- Read live only through Tahir's signed-in browser pane (tab "seed"); write to live only on his explicit instruction.
+- Digits, not words, for numbers. Ask multiple-choice questions for process decisions. Own mistakes plainly (today: the wrong "Today → Close batch" claim; the 26a merge rule that made log rows vanish).

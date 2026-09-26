@@ -105,6 +105,7 @@ ok('How it works: an order carries terms, ERP SO and the 5% price reason (25j)',
   ok('How it works: a report is sent back one step at a time with a note (26a)', /sent back one step at a time, always with a note/.test(how3) && /the QCM sends it back to the AQCM, the AQCM to the analyst who drafted it/.test(how3));
   ok('The rules: a leftover duplicate lot is removed as a record only (26a)', /leftover duplicate/.test(rules) && /produced does not change/.test(rules));
   ok('The rules: see it before you sign it; every no has a way back, and to whom (26a)', /See it before you sign it; every no has a way back/.test(rules) && /the PO goes back to whoever entered it, the purchase request to Supply Chain/.test(rules) && /nothing waits without an owner/.test(rules));
+  ok('How it works: Packing finished and the ways to account for a leftover (26a)', /presses <b>Packing finished<\/b>/.test(how3) && /Sulfur Coated Urea goes to the Nitro Sulfur pool/.test(how3) && /keep as bulk stock/.test(how3));
   const TL = grabTopVar('TD_LABEL', '{');
   ok('Today labels the new jobs (26a)', /'Correct COA':\s*\{title:'COA sent back to you to correct'/.test(TL) && /'Refused':\s*\{title:'Your close request was refused'/.test(TL) && /'Sent back':\s*\{title:'Truck sent back to you'/.test(TL)); }
 process.exitCode = report('The Guide keeps up (24z)') ? 1 : 0;

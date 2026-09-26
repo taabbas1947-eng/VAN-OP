@@ -258,4 +258,43 @@ ok('Pack QA: the correction note is required, both ways', /note\.length<5/.test(
   ok('Today: Acknowledge, Approve PR open their sheets', /openAckSheet\(/.test(ai) && /openPRSheet\('line'/.test(ai) && /openPRSheet\('pr'/.test(ai));
   ok('Today: PO sent back and PR refused go back to the person', /label:'PO sent back'/.test(ai) && /label:'PR refused'/.test(ai) && /dcRejectJobs\(\)/.test(ai)); }
 
+/* ---------- batch leftovers: loss, by-product, divert, rework, stock (Tahir, 26 Sep) ---------- */
+function rcWorld() {
+  const b = { toasts: [], logged: [], html: '',
+    state: { role: 'Production Manager', currentUser: { name: 'Abdul Majid', username: 'majid' }, audit: [], orders: [], packingLog: [],
+      masters: { byproductRules: [{ from: 'Sulfur Coated Urea', to: 'Nitro Sulfur' }], varianceReasons: ['Wastage'] },
+      batches: [{ id: 'B1', batchNo: 'VU26185', base: 'Sulfur Coated Urea', kind: 'bulk', status: 'closed', plannedKg: 7000, producedKg: 7000, packedKg: 6450, disposedKg: 0, lots: [] }] },
+    TODAY: new Date('2026-09-26T00:00:00Z'), save() {}, render() {}, closeModal() {}, logAction(m) { b.logged.push(m); }, fmt: n => String(n), coaItemOf: x => x.base, multiTrueUpIfPlaced() {},
+    may: c => ['packing.reconcile', 'byproduct.call'].indexOf(c) > -1, denyRight: (c, w) => 'no ' + w, fyKey: () => '2026-27', batchOwnerInFY: () => false, validateBatchNo: () => true, SEED: {} };
+  b.toast = m => b.toasts.push(String(m)); b.$ = () => ({ set innerHTML(v) { b.html = v; }, classList: { add() {} } });
+  vm.createContext(b);
+  vm.runInContext("var recForm=null, callBpForm=null, _seq=100; function nid(p){ return p+(++_seq); }\n" + ['prodSkin','prodTiles','batchRemainderKg','recAllocated','recItem','recSetKg','allBasesForRecon','openReconcile','renderReconcile','saveReconcile','consumeDivertSources','openCallBp','renderCallBp','submitCallBp'].map(grab).join('\n'), b);
+  b.B = () => b.state.batches.find(x => x.id === 'B1');
+  return b; }
+{ const w = rcWorld();
+  w.openReconcile('B1');
+  const it = vm.runInContext('recForm.items', w)[0];
+  ok('Sulfur Coated Urea: the whole 550 Kg leftover is suggested as by-product to Nitro Sulfur', it.type === 'byproduct' && it.base === 'Nitro Sulfur' && +it.kg === 550);
+  ok('...the sheet offers Keep as bulk stock', /Keep as bulk stock/.test(w.html));
+  vm.runInContext("recSetKg('byproduct','400'); recForm.loss='100'; recForm.lossReason='Wastage'; recSetKg('stock','50');", w);
+  w.saveReconcile();
+  const b = w.B(); const pool = w.state.batches.find(x => x.pool && x.disposition === 'byproduct');
+  ok('400 Kg goes to the Nitro Sulfur pool, traced to VU26185', pool && pool.base === 'Nitro Sulfur' && +pool.plannedKg === 400 && pool.sources[0].batchNo === 'VU26185');
+  eq('100 Kg loss is written off with its reason', b.lossKg + '/' + b.lossReason, '100/Wastage');
+  eq('50 Kg kept as bulk stock is NOT disposed: disposed 500, leftover 50', b.disposedKg + '/' + w.batchRemainderKg(b), '500/50');
+  ok('...and it is named as stock on the batch', b.stockKept && b.stockKept.kg === 50);
+  /* the stock is later written off: the loss ADDS */
+  w.openReconcile('B1'); vm.runInContext("recForm.items=[]; recForm.loss='50'; recForm.lossReason='Wastage';", w); w.saveReconcile();
+  eq('a second reconcile ADDS to the loss (it used to overwrite it): 150', w.B().lossKg, 150);
+  eq('...the cumulative record the wastage reports read says 150 too', w.B().packReconcile.loss, 150);
+  eq('...both reconciles kept in the history', w.B().reconHistory.length, 2);
+  eq('...nothing left unaccounted', w.batchRemainderKg(w.B()), 0);
+  /* calling the by-product into manufacturing keeps the trace */
+  w.openCallBp(pool.id); vm.runInContext("callBpForm.qty='300'; callBpForm.batchNo='NS26006';", w); w.submitCallBp();
+  const ns = w.state.batches.find(x => x.batchNo === 'NS26006');
+  ok('calling 300 Kg creates Nitro Sulfur batch NS26006 that names VU26185 as its source', ns && ns.fromSources && ns.fromSources[0].sourceBatchNo === 'VU26185' && ns.fromSources[0].kg === 300);
+  ok('...and the pool keeps 100 Kg, its source list drawn down to match', +pool.plannedKg === 100 && pool.sources[0].kg === 100); }
+ok('Ready to pack: Packing finished for the Production Manager (packing.reconcile)', /edRecon&&rem>0\.5&&st!=='producing'&&st!=='qc'/.test(grab('prodStageList')) && /Packing finished · reconcile \/ move<\/button>/.test(grab('prodStageList')) && /edClose&&b\.status==='open'&&st==='pack'/.test(grab('prodStageList')));
+ok('the batch passport offers it too, closed batches included', /Packing finished — account for/.test(grab('_pcLifeAction')) && /Packing finished — account for the rest/.test(grab('_pcLifeAction')));
+
 process.exitCode = report('26a fixes') ? 1 : 0;

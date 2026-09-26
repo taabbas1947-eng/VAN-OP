@@ -627,7 +627,7 @@ ok('and ticking saves and restores it', /settledForm\.scroll=sc\?sc\.scrollTop:0
 /* ---- the close modal shows what there is to check ---- */
 {
   const vm2 = require('vm');
-  const src = [H.grab('renderCloseBatch'), H.grab('coaItemOf')].join('\n');
+  const src = [H.grab('renderCloseBatch'), H.grab('coaItemOf'), H.grab('prodSkin'), H.grab('prodTiles')].join('\n');
   let out = '';
   const modal = { className: '', set innerHTML(v) { out = v; }, get innerHTML() { return out; } };
   const box = { console, Date, fmt: n => String(n), _pe: v => String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;'),

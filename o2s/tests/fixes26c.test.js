@@ -57,6 +57,47 @@ function world() {
   ok('Plant screen: a waiting PR opens the PR sheet', blk.includes(`openPRSheet('line','"+o.id+"','"+l.id+"')`));
   ok('Plant screen: no one-tap sign is left', !/act="(approveRelease|approveDC|issueGatePass)\('/.test(blk) && !blk.includes(`("approveRMPR('`)); }
 
+/* ---------- a batch closed short reaches the Plant Manager (Tahir: read and mark seen) ---------- */
+function ysWorld(role) {
+  const b = { console, JSON, Object, String, Math, Date, toasts: [], logged: [], html: '',
+    state: { role, currentUser: { name: role === 'COO' ? 'Tahir Abbas' : 'Plant Head', username: 'x' }, batches: [
+      { id: 'B1', batchNo: 'AP26012', base: 'V-Ammonium Phosphate', plannedKg: 2710, producedKg: 1010, status: 'closed', varianceKg: 1700, varianceReason: 'Raw-material availability / shortage', closedBy: 'Abdul Majid', closedDate: '2026-09-26' },
+      { id: 'B2', batchNo: 'HG26027', plannedKg: 1000, producedKg: 900, status: 'closed', varianceKg: 100, varianceNotify: { to: 'Plant Manager', ack: false } },
+      { id: 'B3', batchNo: 'VU26163', plannedKg: 7000, producedKg: 7000, status: 'closed', varianceKg: 0 },
+      { id: 'B4', batchNo: 'OPEN1', plannedKg: 7000, producedKg: 100, status: 'open', varianceKg: 6900 } ] },
+    fmt: n => String(n), _pe: v => String(v), save() {}, render() {}, closeModal() {}, logAction(m) { b.logged.push(m); } };
+  b.toast = m => b.toasts.push(String(m));
+  b.$ = () => ({ set innerHTML(v) { b.html = v; }, classList: { add() {} } });
+  vm.createContext(b);
+  vm.runInContext([grab('_uRole'), grab('bpEsc'), grab('bpId'), grab('yieldShortJobs'), grab('openYieldShort'), grab('yieldShortSeen'),
+    grab('dcRejectNote'), grab('dcRejectJobs'), grab('openDcRejected'), grab('dcRejectSeen')].join('\n'), b);
+  return b;
+}
+{ const w = ysWorld('Plant Manager'); const j = w.yieldShortJobs();
+  eq('closed-short batches are on the Plant Manager\'s Today (AP26012 and HG26027; not on-plan, not open)', j.map(x => x.batch.batchNo).sort().join(','), 'AP26012,HG26027');
+  ok('...addressed to the Plant Manager, label Yield short', j.every(x => x.role === 'Plant Manager' && x.label === 'Yield short'));
+  ok('...a close whose note was lost in the sync bug still shows (AP26012 has no varianceNotify)', j.some(x => x.batch.id === 'B1'));
+  w.openYieldShort('B1'); ok('the sheet shows planned, produced, short by and the reason', /2710/.test(w.html) && /1010/.test(w.html) && /1700/.test(w.html) && /Raw-material availability/.test(w.html) && /Seen/.test(w.html));
+  w.yieldShortSeen('B1'); ok('Seen clears it, with who and when', w.state.batches[0].varianceNotify.ack === true && w.state.batches[0].varianceNotify.ackBy === 'Plant Head');
+  eq('...one job left', w.yieldShortJobs().length, 1); ok('...and it is logged', w.logged.some(m => /Yield short seen — AP26012/.test(m))); }
+{ const w = ysWorld('Production Manager'); w.yieldShortSeen('B1');
+  ok('only the Plant Manager (or COO) marks it seen', !(w.state.batches[0].varianceNotify && w.state.batches[0].varianceNotify.ack)); }
+ok('Today includes the yield-short jobs', /yieldShortJobs\(\)\.forEach/.test(grab('actionItems')));
+
+/* ---------- a truck that fails inspection: reason required, Supply Chain told (Tahir: Supply Chain re-plans) ---------- */
+{ const q = grab('dispQASubmit');
+  ok('a failed inspection needs Remarks (at least 5 characters)', /if\(anyFail && String\(dispQAForm\.remarks\|\|''\)\.trim\(\)\.length<5\)/.test(q));
+  ok('...the reason check comes before anything is changed', q.indexOf('trim().length<5') < q.indexOf('s.voided=true'));
+  ok('...and the failure is noted for Supply Chain', /dcRejectNote\(rows,String\(dispQAForm\.remarks\|\|''\)\.trim\(\),'qa'\)/.test(q)); }
+{ const w = ysWorld('QA Inspector');
+  w.dcRejectNote([{ dispId: 'D9', dc: 'DC-0101', po: 'PO-1', client: 'Green Farms', by: 'Saad Jamal' }], 'Bags torn, labels wrong batch', 'qa');
+  const j = w.dcRejectJobs();
+  ok('Supply Chain gets "Truck failed" with the reason', j.length === 1 && j[0].role === 'Supply Chain' && j[0].label === 'Truck failed' && /Bags torn/.test(j[0].what));
+  w.openDcRejected(j[0].dcr.id); ok('...the sheet says the truck failed inspection', /Truck failed inspection/.test(w.html));
+  w.dcRejectSeen(j[0].dcr.id); eq('...until read', w.dcRejectJobs().length, 0);
+  w.dcRejectNote([{ dispId: 'D8', dc: 'DC-0102', po: 'PO-2' }], 'Wrong customer');
+  eq('a rejected DC still reads "DC rejected"', w.dcRejectJobs()[0].label, 'DC rejected'); }
+
 (async () => {
   /* the AP26012 sequence: two conflicts in a row */
   { const w = world(), s = w.ctx.state, b = s.batches[0];

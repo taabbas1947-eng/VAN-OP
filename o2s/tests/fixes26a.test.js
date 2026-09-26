@@ -192,4 +192,70 @@ ok('the AQCM\'s review answers any return still open', /coaCloseReturn\(h\.coa,'
 ok('the report buttons say Send back, one step down the chain', /Send back to the analyst…/.test(html) && /Send back to the AQCM…/.test(html) && !/onclick="coaReject\(/.test(html));
 ok('a return nobody answers reaches the QCM after a day', /'Correct COA':\[1,'QCM'\]/.test(html));
 
+/* ---------- back paths (Tahir, 26 Sep: "check clearly that acceptance, rejection, approval have a back path") ---------- */
+function bpWorld(role, user) {
+  const b = { toasts: [], logged: [], html: '',
+    state: { role, currentUser: { name: user, username: user.toLowerCase() }, audit: [],
+      orders: [{ id: 'O1', po: 'PO-1', client: 'Arysta', received: '2026-09-20', acknowledged: false, enteredBy: { name: 'Ismaeel', user: 'ismaeel', role: 'Finance Desk Officer' },
+        lines: [{ id: 'L1', brand: 'Fruitlish', ordered: 4000, committed: '2026-10-01', rmPR: { qty: 500, by: 'Supply Chain', date: '2026-09-21', cfoApproved: '', closed: false } }] }],
+      prs: [{ id: 'P1', rm: 'MOP', qtyRequired: 2000, qtyReceived: 0, status: 'open', cfoApproved: null, date: '2026-09-21', by: 'Supply Chain', byRole: 'Supply Chain', byName: 'Saad Jamal' }],
+      customers: [{ code: 'C1', name: 'Green Farms', segment: 'Dealer', status: 'Pending approval', createdBy: { name: 'Ismaeel', user: 'ismaeel', role: 'Finance Desk Officer' } }],
+      shipments: [{ dispId: 'D1', dc: '130', po: 'PO-1', client: 'Arysta', kg: 400, dcStatus: 'pending', lid: 'L1', brand: 'Fruitlish' }] },
+    usersList: [], save() {}, render() {}, closeModal() {}, logAction(m) { b.logged.push(m); }, fmt: n => String(n), unitOf: () => 'Kg', lineShortClosed: () => false,
+    mayMoney: () => false, correctCanAmend: () => false, _releaseShip() {}, shipClientFor: () => '', smpLog() {}, TODAY: new Date('2026-09-26T00:00:00Z') };
+  b.toast = m => b.toasts.push(String(m)); b.$ = () => ({ set innerHTML(v) { b.html = v; }, classList: { add() {} } });
+  b.may = c => ({ 'order.acknowledge': ['Supply Chain'], 'customer.amend': ['Finance', 'Finance Desk Officer'] }[c] || []).indexOf(b.state.role) > -1;
+  b.canEdit = r => r.indexOf(b.state.role) > -1; b.hardRole = r => b.state.role === 'COO' || r.indexOf(b.state.role) > -1;
+  b.denyRight = (c, w) => 'no ' + w; b._pe = x => String(x == null ? '' : x);
+  b._uRole = () => ({ by: b.state.currentUser.name, user: b.state.currentUser.username, role: b.state.role });
+  b.as = (r, u) => { b.state.role = r; b.state.currentUser = { name: u, username: u.toLowerCase() }; };
+  vm.createContext(b);
+  vm.runInContext('var bpForm=null;\n' + ['bpEsc','bpId','bpReasonHTML','bpFacts','bpHistory','bpOwnerFromName','poReturnOpen','poOwner','poLinesHTML','poFactsHTML','openAckSheet','renderAckSheet','sendBackPO','openPoReturn','poReturnFixed','ackOrder',
+    'prRec','prArgs','prFactsHTML','openPRSheet','renderPRSheet','refusePR','openPRRefused','prAskAgain','prDrop','cfoApprovePR',
+    'custReturnOpen','custFindByCode','custFactsHTML','openCustSheet','renderCustSheet','sendBackCustomer','openCustReturn','custReturnFixed','approveCustomer',
+    'shipRowsOf','rejectDC','dcRejectNote','dcRejectJobs','dcRejectSeen'].map(grab).join('\n'), b);
+  return b; }
+{ const w = bpWorld('Supply Chain', 'Saad Jamal'); const o = w.state.orders[0];
+  w.openAckSheet('O1');
+  ok('Acknowledge opens the PO first: the customer and the lines', /Acknowledge PO PO-1/.test(w.html) && /Fruitlish/.test(w.html) && /4000 Kg/.test(w.html) && /Send back…/.test(w.html));
+  w.sendBackPO('O1', 'no'); ok('sending a PO back needs a reason', !o.ackReturn);
+  w.sendBackPO('O1', 'Quantity does not match the client PO (3,000 not 4,000)');
+  ok('...sent back to whoever entered it, by name', w.poReturnOpen(o) && o.ackReturn.toUser === 'ismaeel' && o.ackReturn.toRole === 'Finance Desk Officer');
+  w.ackOrder('O1'); ok('...and it cannot be acknowledged while it is back with Finance', !o.acknowledged);
+  w.as('Finance Desk Officer', 'Ismaeel'); w.poReturnFixed('O1', 'quantity corrected by the CFO');
+  ok('Finance marks it fixed: back to Supply Chain, the return kept in the history', !w.poReturnOpen(o) && o.ackReturns.length === 1 && o.ackReturns[0].fixedBy === 'Ismaeel');
+  w.as('Supply Chain', 'Saad Jamal'); w.ackOrder('O1'); ok('...then it can be acknowledged', o.acknowledged === true); }
+{ const w = bpWorld('CFO', 'Ali'); const p = w.state.prs[0];
+  w.openPRSheet('pr', 'P1'); ok('Approve PR opens the request first', /Purchase request — MOP/.test(w.html) && /2000 Kg\/L/.test(w.html) && /Saad Jamal/.test(w.html) && /Refuse…/.test(w.html));
+  w.refusePR('pr', 'P1', 'x'); ok('refusing needs a reason', !p.refused);
+  w.refusePR('pr', 'P1', 'Stock on hand covers it until 5 Oct');
+  ok('the CFO refuses with a reason; the PR is not approved', !!p.refused && !p.cfoApproved && /Stock on hand/.test(p.refused.why));
+  w.cfoApprovePR('P1'); ok('...a refused PR cannot then be approved by accident', !p.cfoApproved);
+  w.as('Supply Chain', 'Saad Jamal'); vm.runInContext("bpForm={note:'Arysta order doubled; stock no longer covers it'}", w); w.prAskAgain('pr', 'P1');
+  ok('Supply Chain asks again with what changed: back with the CFO, refusal kept', !p.refused && p.refusals.length === 1);
+  w.as('CFO', 'Ali'); w.refusePR('pr', 'P1', 'Still not needed this month'); w.as('Supply Chain', 'Saad Jamal'); w.prDrop('pr', 'P1');
+  ok('...or drops it: the PR closes with the reason', p.status === 'closed' && /Still not needed/.test(p.closedWhy));
+  const l = w.state.orders[0].lines[0]; w.as('CFO', 'Ali'); w.refusePR('line', 'O1', 'L1', 'Use the MOP already received');
+  ok('a line PR is refused the same way', !!l.rmPR.refused && !l.rmPR.cfoApproved); }
+{ const w = bpWorld('CFO', 'Ali'); const c = w.state.customers[0];
+  w.openCustSheet('C1'); ok('Approve customer opens the record first', /New customer — Green Farms/.test(w.html) && /Send back…/.test(w.html));
+  w.sendBackCustomer('C1', 'Credit days should be 30, not 60');
+  ok('the CFO sends it back to whoever entered it', w.custReturnOpen(c) && c.sentBack.toUser === 'ismaeel' && c.status === 'Pending approval');
+  w.approveCustomer('C1'); ok('...it cannot be approved while it is back with Finance', c.status === 'Pending approval');
+  w.as('Finance Desk Officer', 'Ismaeel'); w.custReturnFixed('C1', 'credit days 30');
+  w.as('CFO', 'Ali'); w.approveCustomer('C1'); ok('fixed, then approved; the send-back stays in the history', c.status === 'Active' && c.sentBacks.length === 1); }
+ok('an edit of the customer keeps who entered it and the send-back', /\['createdBy','sentBack','sentBacks'\]/.test(grab('custSave')));
+{ const w = bpWorld('Supply Chain', 'Saad Jamal');
+  w.rejectDC('D1', ''); ok('rejecting a DC needs a reason', !w.state.shipments[0].voided);
+  w.rejectDC('D1', 'Wrong customer on the DC');
+  ok('...with a reason it is voided and the reason is kept', w.state.shipments[0].voided && w.state.shipments[0].rejectWhy === 'Wrong customer on the DC');
+  const j = w.dcRejectJobs(); ok('...and Supply Chain gets it on Today', j.length === 1 && j[0].role === 'Supply Chain' && j[0].label === 'DC rejected');
+  w.dcRejectSeen(j[0].dcr.id); eq('...until read', w.dcRejectJobs().length, 0); }
+ok('the Reject DC button opens the reason sheet', /openRejectDC\(/.test(grab('shipCard')) && !/onclick="rejectDC\(/.test(html));
+ok('a sample not approved goes on the asker\'s Today until read', /x\.status==='rejected'&&!x\.rejectSeenAt/.test(grab('smpJobs')) && /smpRejectSeen\(/.test(grab('smpRenderOpen')));
+ok('Pack QA: the correction note is required, both ways', /note\.length<5/.test(grab('lotQACorrect')) && /note\.length<5/.test(grab('clearQaHold')));
+{ const ai = grab('actionItems');
+  ok('Today: Acknowledge, Approve PR open their sheets', /openAckSheet\(/.test(ai) && /openPRSheet\('line'/.test(ai) && /openPRSheet\('pr'/.test(ai));
+  ok('Today: PO sent back and PR refused go back to the person', /label:'PO sent back'/.test(ai) && /label:'PR refused'/.test(ai) && /dcRejectJobs\(\)/.test(ai)); }
+
 process.exitCode = report('26a fixes') ? 1 : 0;

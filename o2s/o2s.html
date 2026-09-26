@@ -388,6 +388,8 @@ var CHANGELOG=[
     "Lab: Reject is now Send back, one step at a time and always with a note. The QCM sends a report back to the AQCM; the AQCM sends it to the analyst who drafted it. The note is on the report and on that person's Today; the corrected report is reviewed and approved again. An approved certificate is re-issued, not sent back.",
     "A lot that is an exact copy of another one, left over from a double entry, is marked leftover duplicate. The Production Manager removes only its record; produced and the orders do not change, and the lab stops being asked for its report.",
     "A removal (a refused request, a removed lot, a withdrawn mark) no longer comes back when someone else's open page saves.",
+    "Acknowledge PO, Approve PR and Approve customer open the record first. Supply Chain can send a PO back to whoever entered it; the CFO can refuse a purchase request (it goes back to Supply Chain to ask again or drop) and send a new customer back to whoever entered it.",
+    "Rejecting a DC needs a reason, and Supply Chain gets it on Today. A sample not approved goes on the asker's Today until read. Pack QA corrections need a note.",
     "A batch made for several orders now shows on each order's run sheet. Once it is closed and all of it is packed or accounted for, each order's made-so-far comes down to what was actually packed for it, so What to make shows the true remainder."
   ]},
 ];
@@ -5861,6 +5863,7 @@ function submitPO(){
   ord.totalOrdered=ord.lines.reduce((a,l)=>a+l.ordered,0);
   var _ev=entryTotals(); ord.subtotal=_ev.sub; ord.fedAmount=_ev.fed; ord.grandTotal=_ev.total;
   ord.rmDecision='pending';
+  ord.enteredBy=sigStamp(); /* 26a: a PO sent back goes to whoever entered it */
   state.orders.unshift(ord);
   logAction(`Created PO ${po} (${entryClient}, ${entryChannel}, ${fmt(ord.totalOrdered)} Kg/L)`+' · '+ord.paymentTerms+' · ERP SO '+ord.erpSo+ord.lines.filter(l=>l.priceCheck&&l.priceCheck.reason).map(l=>' · '+l.brand+' price '+(l.priceCheck.diffPct>0?'+':'')+l.priceCheck.diffPct+'% vs '+l.priceCheck.lastPo+': '+l.priceCheck.reason).join(''));
   entryTerms='';entryErpSo='';
@@ -5916,13 +5919,16 @@ function approveCustomer(code){
   if(!(state.role==='CFO'||state.role==='COO')){ toast('A new customer is approved by the CFO (or the COO)'); return; }
   var c=(state.customers||[]).filter(function(x){return x.code===code;})[0]; if(!c) return;
   if((c.status||'Active')!=='Pending approval'){ toast(c.name+' is already '+(c.status||'Active').toLowerCase()); return; }
+  if(custReturnOpen(c)){ toast('Sent back to '+(c.sentBack.toName||'Finance')+' — waiting for the fix.'); return; }
   c.status='Active'; c.approvedBy=(state.currentUser&&state.currentUser.name)||state.role; c.approvedAt=new Date().toISOString();
   logAction('Approved customer '+code+' — '+c.name+' (ready for its first order)');
   save(); render();
 }
 function pendingCustomerItems(){
   return (state.customers||[]).filter(function(c){ return c && c.status==='Pending approval'; }).map(function(c){
-    return {role:'CFO',cust:c,what:'Approve new customer — '+(c.name||'')+' ('+(c.segment||'')+' · '+(c.code||'')+')',act:"approveCustomer('"+String(c.code||'').replace(/'/g,'')+"')",label:'Approve customer'}; });
+    var _k=String(c.code||'').replace(/'/g,'');
+    if(custReturnOpen(c)) return {role:(c.sentBack.toRole||'Finance'),who:c.sentBack.toUser||undefined,cust:c,labAt:c.sentBack.at,what:'Customer sent back — '+(c.name||'')+' · by '+(c.sentBack.by||'')+': \u201c'+String(c.sentBack.why||'')+'\u201d',act:"openCustReturn('"+_k+"')",label:'Customer sent back'}; /* 26a */
+    return {role:'CFO',cust:c,what:'Approve new customer — '+(c.name||'')+' ('+(c.segment||'')+' · '+(c.code||'')+')'+(c.sentBack&&c.sentBack.fixedAt?' · fixed by '+(c.sentBack.fixedBy||''):''),act:"openCustSheet('"+_k+"')",label:'Approve customer'}; });
 }
 function custToggleStatus(code){
   if(!may('customer.amend')){toast(whoMayRight('customer.amend').join(' / ')+' only — Customer Master is held back until customer records carry ids');return;}
@@ -5956,8 +5962,8 @@ function custSave(){ var f=custForm; if(!f)return;
   if(!f.editing&&(state.customers||[]).some(function(c){return c.code===code;})){toast('Code '+code+' already exists');return;}
   var rec={id:code,code:code,name:String(f.name).trim(),segment:f.segment,parent:isOutlet?(f.parent||f.segment):'',outlet:isOutlet?(f.outlet||''):'',isParent:false,brandKey:(f.segment==='White-label'?String(f.name).trim():custBrandKeyFor(f.segment)),region:f.region||'',city:f.city||'',contact:f.contact||'',phone:f.phone||'',creditDays:+f.creditDays||0,fed:f.fed||'Exclusive',kam:f.kam||'',introducedBy:f.introducedBy||'',destination:f.destination||'',ntn:f.ntn||'',psiWithDC:!!f.psiWithDC,paymentTerms:f.paymentTerms||'',inducted:f.inducted||TODAY.getUTCFullYear(),status:(state.role==='CFO'||state.role==='COO')?(f.status||'Active'):'Pending approval'};
   state.customers=state.customers||[];
-  if(f.editing){ var i=state.customers.findIndex(function(c){return c.code===f.editing;}); if(i>=0){ rec.status=(state.customers[i].status||'Active'); /* an edit keeps its status: R9 is about NEW customers */ if(state.customers[i].approvedBy){ rec.approvedBy=state.customers[i].approvedBy; rec.approvedAt=state.customers[i].approvedAt; } state.customers[i]=rec; } logAction('Edited customer '+code+' — '+rec.name); }
-  else { state.customers.push(rec); logAction('Added customer '+code+' — '+rec.name+' ('+rec.segment+')'); }
+  if(f.editing){ var i=state.customers.findIndex(function(c){return c.code===f.editing;}); if(i>=0){ rec.status=(state.customers[i].status||'Active'); /* an edit keeps its status: R9 is about NEW customers */ ['createdBy','sentBack','sentBacks'].forEach(function(k){ if(state.customers[i][k]!=null) rec[k]=state.customers[i][k]; }); /* 26a: an edit keeps who entered it and any send-back */ if(state.customers[i].approvedBy){ rec.approvedBy=state.customers[i].approvedBy; rec.approvedAt=state.customers[i].approvedAt; } state.customers[i]=rec; } logAction('Edited customer '+code+' — '+rec.name); }
+  else { rec.createdBy=sigStamp(); state.customers.push(rec); logAction('Added customer '+code+' — '+rec.name+' ('+rec.segment+')'); }
   /* state.dealers is retired as a write target (2026-08-27) — state.customers (segment==='Dealer') is the single source of truth. custInit()'s one-time seed below still reads the old array once, for historical installs. */
   custForm=null; save(); toast('Saved '+code); render();
 }
@@ -10183,6 +10189,139 @@ function deliveryJobs(g){ var r=(g.rows||[])[0]||{}; var d=truckDispatcher(r); v
   if(days>=2) out.push({role:'Plant Manager',disp:g,what:base+' · not confirmed for '+days+' day'+(days===1?'':'s')+' (Saad has had it since day 1)',act:act,label:'Confirm delivery'});
   return out; }
 
+/* ===================== BACK PATHS - 26a =====================
+   Tahir, 26 Sep: "check this problem across other functions as well, and check
+   clearly that acceptance, rejection and approval have a back path wired
+   correctly." The audit found 4 more places: Acknowledge PO, Approve PR and
+   Approve customer signed on one tap with nothing shown and had no way back; Reject
+   DC voided with no reason and told nobody; a sample not approved put nothing on
+   the asker's Today; Pack QA notes could be left blank. Same pattern as the truck:
+   see the record, then confirm, or send it back with a reason that lands on the
+   other person's Today. Nothing is erased: every return stays in the history. */
+function bpEsc(x){ try{ return _pe(String(x==null?'':x)); }catch(e){ return String(x==null?'':x).replace(/[<>&"]/g,''); } }
+function bpId(p){ return p+Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
+var bpForm=null;
+function bpReasonHTML(ph){ return '<div class="fld" style="margin-top:12px"><label>Why? <span style="color:var(--red)">*</span> <span class="muted">they read this on Today</span></label><input type="text" value="'+bpEsc(bpForm&&bpForm.why||'')+'" oninput="bpForm.why=this.value" placeholder="'+bpEsc(ph||'')+'"></div>'; }
+function bpFacts(rows){ return '<dl class="facts">'+rows.filter(function(r){ return r&&r[1]!==''&&r[1]!=null; }).map(function(r){ return '<dt>'+bpEsc(r[0])+'</dt><dd>'+(r[2]?r[1]:bpEsc(r[1]))+'</dd>'; }).join('')+'</dl>'; }
+function bpHistory(list){ list=(list||[]).filter(Boolean); if(!list.length) return ''; return '<div class="sub" style="margin-top:10px">Sent back before: '+list.map(function(r){ return bpEsc(String(r.at||'').slice(0,10))+' by '+bpEsc(r.by||'')+': \u201c'+bpEsc(r.why||'')+'\u201d'+(r.fixedAt?' · fixed by '+bpEsc(r.fixedBy||'')+(r.fixNote?' ('+bpEsc(r.fixNote)+')':''):''); }).join(' · ')+'</div>'; }
+function bpOwnerFromName(name,role){ var u=null; try{ u=(usersList||[]).find(function(x){ return x&&name&&x.name===name; }); }catch(e){} return {user:(u&&u.username)||'', role:(u&&u.role)||role||'Finance', name:name||''}; }
+
+/* ---- A. acknowledging a PO ---- */
+function poReturnOpen(o){ return !!(o&&o.ackReturn&&!o.ackReturn.fixedAt); }
+function poOwner(o){ var e=o&&o.enteredBy; if(e&&e.user) return {user:e.user,role:e.role||'Finance',name:e.name||''}; return bpOwnerFromName(o&&o.printDecisionBy,'Finance'); }
+function poLinesHTML(o){ var money=(typeof mayMoney==='function')&&mayMoney();
+  return '<table class="tbl" style="margin-top:10px;width:100%"><tr><th>Product</th><th class="num">Ordered</th><th class="num">Pack</th><th>Committed</th>'+(money?'<th class="num">Price</th>':'')+'</tr>'+(o.lines||[]).map(function(l){ return '<tr><td>'+bpEsc(l.brand)+'</td><td class="num">'+fmt(+l.ordered||0)+' '+unitOf(l.brand)+'</td><td class="num">'+(l.pack?fmt(l.pack):'—')+'</td><td>'+bpEsc(l.committed||'')+'</td>'+(money?'<td class="num">'+(l.inv!=null?fmt(l.inv):(l.price!=null?fmt(l.price):'—'))+'</td>':'')+'</tr>'; }).join('')+'</table>'; }
+function poFactsHTML(o){ return bpFacts([['Customer',o.client],['Channel',o.channel],['Received',o.received],['Promised',o.promised],['Payment terms',o.paymentTerms],['ERP SO',o.erpSo||o.so],['KAM',o.kam],['Priority',o.priority],['Focal person',[o.focalPerson,o.focalPhone].filter(Boolean).join(' · ')],['Instructions',o.instructions],['Entered by',(o.enteredBy&&o.enteredBy.name)||o.printDecisionBy]]); }
+function openAckSheet(oid){ var o=(state.orders||[]).find(function(x){return x.id===oid;}); if(!o){ toast('Order not found'); return; }
+  bpForm={kind:'po',id:oid,why:'',back:false}; renderAckSheet(); $('modalBg').classList.add('open'); }
+function renderAckSheet(){ var o=(state.orders||[]).find(function(x){return x.id===bpForm.id;}); if(!o){ closeModal(); return; }
+  var h='<div class="mh"><h2>Acknowledge PO '+bpEsc(o.po)+'</h2><div class="sub">Read the order before you acknowledge it.</div></div><div class="mb">'+poFactsHTML(o)+poLinesHTML(o)+bpHistory(o.ackReturns);
+  if(bpForm.back) h+=bpReasonHTML('e.g. quantity on line 2 does not match the client PO');
+  h+='</div><div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button>'+(bpForm.back?'<button class="ghost" onclick="bpForm.back=false;renderAckSheet()">Back</button><button class="green" onclick="sendBackPO(bpForm.id,bpForm.why)">Send back to '+bpEsc(poOwner(o).name||'Finance')+'</button>':'<button class="ghost" onclick="bpForm.back=true;renderAckSheet()">Send back…</button><button class="green" onclick="closeModal();ackOrder(\''+bpEsc(o.id)+'\')">Acknowledge</button>')+'</div>';
+  $('modal').innerHTML=h; }
+function sendBackPO(oid,why){ if(!may('order.acknowledge')){ toast(denyRight('order.acknowledge','Sending a PO back')); return; }
+  var o=(state.orders||[]).find(function(x){return x.id===oid;}); if(!o) return; if(o.acknowledged){ toast('This PO is already acknowledged.'); return; }
+  why=String(why||'').trim(); if(why.length<5){ toast('Say what is wrong with the PO.'); return; }
+  var me=_uRole(), ow=poOwner(o), r={id:bpId('POR'),by:me.by,user:me.user,role:me.role,at:new Date().toISOString(),why:why,toUser:ow.user,toRole:ow.role,toName:ow.name};
+  o.ackReturns=(o.ackReturns||[]).concat([r]); o.ackReturn=r;
+  logAction('PO '+o.po+' sent back to '+(ow.name||ow.role)+' by '+me.by+': '+why);
+  (state.audit=state.audit||[]).unshift({t:r.at,user:me.by,module:'PO',po:o.po,brand:'',field:'PO sent back',old:'',val:why});
+  bpForm=null; save(); closeModal(); render(); toast('Sent back to '+(ow.name||ow.role)+'.'); }
+function openPoReturn(oid){ var o=(state.orders||[]).find(function(x){return x.id===oid;}); if(!o||!o.ackReturn){ toast('Nothing is waiting on this PO.'); return; }
+  var r=o.ackReturn; bpForm={kind:'pofix',id:oid,note:''};
+  var canFix=(typeof correctCanAmend==='function')&&correctCanAmend('order');
+  $('modal').innerHTML='<div class="mh"><h2>PO '+bpEsc(o.po)+' sent back</h2><div class="sub">by '+bpEsc(r.by)+' · '+bpEsc(String(r.at||'').slice(0,10))+'</div></div><div class="mb"><div class="note" style="border-color:var(--amber)"><b>'+bpEsc(r.why)+'</b></div>'+poFactsHTML(o)+poLinesHTML(o)
+    +'<div class="note" style="margin-top:10px">Correct the order'+(canFix?' (Correct the order below)':' (Correct a record is the KAM’s, the CFO’s or the COO’s — ask them)')+', then send it to Supply Chain again.</div>'
+    +'<div class="fld" style="margin-top:10px"><label>What did you fix? (optional)</label><input type="text" oninput="bpForm.note=this.value"></div></div>'
+    +'<div class="mf"><button class="ghost" onclick="closeModal()">Later</button>'+(canFix?'<button class="ghost" onclick="closeModal();openCorrect(\'order\',\''+bpEsc(o.id)+'\')">Correct the order</button>':'')+'<button class="green" onclick="poReturnFixed(bpForm.id,bpForm.note)">Fixed — send to Supply Chain</button></div>';
+  $('modalBg').classList.add('open'); }
+function poReturnFixed(oid,note){ var o=(state.orders||[]).find(function(x){return x.id===oid;}); if(!poReturnOpen(o)) return; var me=_uRole(), at=new Date().toISOString(); note=String(note||'').trim();
+  o.ackReturn.fixedAt=at; o.ackReturn.fixedBy=me.by; o.ackReturn.fixNote=note;
+  (o.ackReturns||[]).forEach(function(x){ if(x&&x.id===o.ackReturn.id){ x.fixedAt=at; x.fixedBy=me.by; x.fixNote=note; } });
+  logAction('PO '+o.po+' fixed by '+me.by+(note?': '+note:'')+' → Supply Chain to acknowledge'); bpForm=null; save(); closeModal(); render(); toast('Sent to Supply Chain to acknowledge.'); }
+
+/* ---- B. purchase requests ---- */
+function prRec(kind,a,b){ if(kind==='pr'){ var p=(state.prs||[]).find(function(x){return x.id===a;}); return p?{rec:p,title:p.rm,qty:+p.qtyRequired||0,raisedBy:p.byName||p.by,date:p.date,o:null,l:null}:null; }
+  var o=(state.orders||[]).find(function(x){return x.id===a;}); var l=o&&(o.lines||[]).find(function(x){return x.id===b;}); return (l&&l.rmPR)?{rec:l.rmPR,title:l.brand+' · '+o.po,qty:+l.rmPR.qty||0,raisedBy:l.rmPR.byName||l.rmPR.by,date:l.rmPR.date,o:o,l:l}:null; }
+function prArgs(kind,a,b){ return "'"+kind+"','"+bpEsc(a)+"'"+(b!=null?",'"+bpEsc(b)+"'":''); }
+function prFactsHTML(kind,a,b){ var R=prRec(kind,a,b); if(!R) return ''; var needs='';
+  if(kind==='pr'){ var ls=[]; (state.orders||[]).forEach(function(o){ (o.lines||[]).forEach(function(l){ var ms=((l.pr&&l.pr.lines)||[]).map(function(x){return x&&x.rm;}); if(ms.indexOf(R.rec.rm)>-1&&!lineShortClosed(l)) ls.push(o.po+' · '+l.brand); }); }); needs=ls.join(', '); }
+  else needs=R.o.po+' · '+R.l.brand+' ('+(R.o.client||'')+')';
+  return bpFacts([['Material',R.title],['Quantity',fmt(R.qty)+' Kg/L'],['Raised by',R.raisedBy],['Raised on',R.date],['Needed for',needs],['Received so far',kind==='pr'?(fmt(+R.rec.qtyReceived||0)+' Kg/L'):'']]); }
+function openPRSheet(kind,a,b){ if(!prRec(kind,a,b)){ toast('Request not found'); return; } bpForm={kind:kind,a:a,b:b,why:'',back:false}; renderPRSheet(); $('modalBg').classList.add('open'); }
+function renderPRSheet(){ var f=bpForm, R=prRec(f.kind,f.a,f.b); if(!R){ closeModal(); return; }
+  var h='<div class="mh"><h2>Purchase request — '+bpEsc(R.title)+'</h2><div class="sub">Read the request before you approve it.</div></div><div class="mb">'+prFactsHTML(f.kind,f.a,f.b)+bpHistory(R.rec.refusals);
+  if(f.back) h+=bpReasonHTML('e.g. stock on hand covers it; buy after the 5 Oct delivery');
+  h+='</div><div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button>'+(f.back?'<button class="ghost" onclick="bpForm.back=false;renderPRSheet()">Back</button><button class="green" onclick="refusePR('+prArgs(f.kind,f.a,f.b)+',bpForm.why)">Refuse</button>'
+    :'<button class="ghost" onclick="bpForm.back=true;renderPRSheet()">Refuse…</button><button class="green" onclick="closeModal();'+(f.kind==='pr'?'cfoApprovePR(\''+bpEsc(f.a)+'\')':'approveRMPR(\''+bpEsc(f.a)+'\',\''+bpEsc(f.b)+'\')')+'">Approve</button>')+'</div>';
+  $('modal').innerHTML=h; }
+function refusePR(kind,a,b,why){ if(!(canEdit(['CFO'])||state.role==='COO')){ toast('The CFO decides a purchase request.'); return; }
+  if(kind==='pr'){ why=b; b=null; } /* the 'pr' call has no line id, so its reason arrives in the 3rd place */
+  var R=prRec(kind,a,b); if(!R) return; if(R.rec.cfoApproved){ toast('Already approved.'); return; }
+  why=String(why||'').trim(); if(why.length<5){ toast('Say why it is refused — Supply Chain reads it.'); return; }
+  var me=_uRole(); R.rec.refused={id:bpId('PRR'),by:me.by,user:me.user,at:new Date().toISOString(),why:why};
+  logAction('PR refused — '+R.title+' '+fmt(R.qty)+' Kg/L by '+me.by+': '+why);
+  (state.audit=state.audit||[]).unshift({t:R.rec.refused.at,user:me.by,module:'RM PR',po:(R.o&&R.o.po)||'',brand:R.title,field:'PR refused',old:'',val:why});
+  bpForm=null; save(); closeModal(); render(); toast('Refused. It goes back to Supply Chain with your reason.'); }
+function openPRRefused(kind,a,b){ var R=prRec(kind,a,b); if(!R||!R.rec.refused){ toast('Nothing refused here.'); return; }
+  bpForm={kind:kind,a:a,b:b,note:''}; var r=R.rec.refused;
+  $('modal').innerHTML='<div class="mh"><h2>Purchase request refused</h2><div class="sub">'+bpEsc(R.title)+' · by '+bpEsc(r.by)+' · '+bpEsc(String(r.at||'').slice(0,10))+'</div></div><div class="mb"><div class="note" style="border-color:var(--amber)"><b>'+bpEsc(r.why)+'</b></div>'+prFactsHTML(kind,a,b)
+    +'<div class="fld" style="margin-top:10px"><label>If you ask again, say what changed</label><input type="text" oninput="bpForm.note=this.value"></div></div>'
+    +'<div class="mf"><button class="ghost" onclick="closeModal()">Later</button><button class="ghost" onclick="prDrop('+prArgs(kind,a,kind==='pr'?null:b)+')">Drop the request</button><button class="green" onclick="prAskAgain('+prArgs(kind,a,kind==='pr'?null:b)+')">Ask the CFO again</button></div>';
+  $('modalBg').classList.add('open'); }
+function prAskAgain(kind,a,b){ var R=prRec(kind,a,b); if(!R||!R.rec.refused) return; var note=String((bpForm&&bpForm.note)||'').trim(); if(note.length<5){ toast('Say what changed before asking again.'); return; }
+  var me=_uRole(); R.rec.refusals=(R.rec.refusals||[]).concat([Object.assign({},R.rec.refused,{fixedAt:new Date().toISOString(),fixedBy:me.by,fixNote:note})]); R.rec.refused=null;
+  logAction('PR asked again — '+R.title+' by '+me.by+': '+note); bpForm=null; save(); closeModal(); render(); toast('Back with the CFO.'); }
+function prDrop(kind,a,b){ var R=prRec(kind,a,b); if(!R||!R.rec.refused) return; var me=_uRole();
+  if(kind==='pr'){ R.rec.status='closed'; R.rec.closedWhy='Refused by '+R.rec.refused.by+': '+R.rec.refused.why; R.rec.closedBy=me.by; }
+  else { R.rec.closed=true; R.rec.closedWhy='Refused by '+R.rec.refused.by+': '+R.rec.refused.why; R.rec.closedBy=me.by; }
+  logAction('PR dropped after refusal — '+R.title+' by '+me.by); bpForm=null; save(); closeModal(); render(); toast('Dropped.'); }
+
+/* ---- C. a new customer ---- */
+function custReturnOpen(c){ return !!(c&&c.sentBack&&!c.sentBack.fixedAt); }
+function custFindByCode(code){ return (state.customers||[]).filter(function(x){return x.code===code;})[0]; }
+function custFactsHTML(c){ return bpFacts([['Name',c.name],['Code',c.code],['Segment',c.segment],['Parent',c.parent],['Region',c.region],['City',c.city],['Contact',[c.contact,c.phone].filter(Boolean).join(' · ')],['Credit days',c.creditDays!=null?String(c.creditDays):''],['FED',c.fed],['KAM',c.kam],['Entered by',c.createdBy&&c.createdBy.name]]); }
+function openCustSheet(code){ var c=custFindByCode(code); if(!c){ toast('Customer not found'); return; } bpForm={kind:'cust',id:code,why:'',back:false}; renderCustSheet(); $('modalBg').classList.add('open'); }
+function renderCustSheet(){ var c=custFindByCode(bpForm.id); if(!c){ closeModal(); return; }
+  var h='<div class="mh"><h2>New customer — '+bpEsc(c.name)+'</h2><div class="sub">Read the record before you approve it.</div></div><div class="mb">'+custFactsHTML(c)+bpHistory(c.sentBacks);
+  if(bpForm.back) h+=bpReasonHTML('e.g. credit days should be 30, not 60; phone missing');
+  h+='</div><div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button>'+(bpForm.back?'<button class="ghost" onclick="bpForm.back=false;renderCustSheet()">Back</button><button class="green" onclick="sendBackCustomer(bpForm.id,bpForm.why)">Send back</button>'
+    :'<button class="ghost" onclick="bpForm.back=true;renderCustSheet()">Send back…</button><button class="green" onclick="closeModal();approveCustomer(\''+bpEsc(c.code)+'\')">Approve</button>')+'</div>';
+  $('modal').innerHTML=h; }
+function sendBackCustomer(code,why){ if(!(state.role==='CFO'||state.role==='COO')){ toast('The CFO (or the COO) decides a new customer.'); return; }
+  var c=custFindByCode(code); if(!c||(c.status||'')!=='Pending approval'){ toast('Only a customer waiting for approval can be sent back.'); return; }
+  why=String(why||'').trim(); if(why.length<5){ toast('Say what to correct.'); return; }
+  var me=_uRole(), cb=c.createdBy||{}, ow=cb.user?{user:cb.user,role:cb.role||'Finance',name:cb.name||''}:{user:'',role:'Finance',name:''};
+  var r={id:bpId('CUR'),by:me.by,user:me.user,at:new Date().toISOString(),why:why,toUser:ow.user,toRole:ow.role,toName:ow.name};
+  c.sentBacks=(c.sentBacks||[]).concat([r]); c.sentBack=r;
+  logAction('Customer '+code+' ('+c.name+') sent back by '+me.by+': '+why); bpForm=null; save(); closeModal(); render(); toast('Sent back to '+(ow.name||ow.role)+'.'); }
+function openCustReturn(code){ var c=custFindByCode(code); if(!c||!c.sentBack){ toast('Nothing is waiting on this customer.'); return; } var r=c.sentBack; bpForm={kind:'custfix',id:code,note:''};
+  var canEdit_=may('customer.amend');
+  $('modal').innerHTML='<div class="mh"><h2>'+bpEsc(c.name)+' sent back</h2><div class="sub">by '+bpEsc(r.by)+' · '+bpEsc(String(r.at||'').slice(0,10))+'</div></div><div class="mb"><div class="note" style="border-color:var(--amber)"><b>'+bpEsc(r.why)+'</b></div>'+custFactsHTML(c)
+    +'<div class="fld" style="margin-top:10px"><label>What did you fix? (optional)</label><input type="text" oninput="bpForm.note=this.value"></div></div>'
+    +'<div class="mf"><button class="ghost" onclick="closeModal()">Later</button>'+(canEdit_?'<button class="ghost" onclick="closeModal();state.screen=\'dealers\';custEdit(\''+bpEsc(code)+'\')">Edit the customer</button>':'')+'<button class="green" onclick="custReturnFixed(bpForm.id,bpForm.note)">Fixed — send for approval</button></div>';
+  $('modalBg').classList.add('open'); }
+function custReturnFixed(code,note){ var c=custFindByCode(code); if(!custReturnOpen(c)) return; var me=_uRole(), at=new Date().toISOString(); note=String(note||'').trim();
+  c.sentBack.fixedAt=at; c.sentBack.fixedBy=me.by; c.sentBack.fixNote=note; (c.sentBacks||[]).forEach(function(x){ if(x&&x.id===c.sentBack.id){ x.fixedAt=at; x.fixedBy=me.by; x.fixNote=note; } });
+  logAction('Customer '+code+' fixed by '+me.by+(note?': '+note:'')+' → CFO to approve'); bpForm=null; save(); closeModal(); render(); toast('Back with the CFO for approval.'); }
+
+/* ---- D. rejecting a DC ---- */
+function openRejectDC(dispId){ bpForm={kind:'dc',id:dispId,why:'',back:true};
+  var rows=shipRowsOf(dispId); if(!rows.length){ toast('Shipment not found'); return; }
+  $('modal').innerHTML='<div class="mh"><h2>Reject DC '+bpEsc(rows[0].dc||'')+'</h2><div class="sub">The DC is voided and the material returns to Ready to ship. Supply Chain gets your reason on Today.</div></div><div class="mb">'+(typeof tsSheetHTML==='function'?tsSheetHTML(dispId):'')+bpReasonHTML('e.g. wrong customer on the DC; plan it again')+'</div>'
+    +'<div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" onclick="closeModal();rejectDC(bpForm.id,bpForm.why)">Reject the DC</button></div>';
+  $('modalBg').classList.add('open'); }
+function dcRejectNote(rows,why){ var me=_uRole(); (state.dcRejects=state.dcRejects||[]).unshift({id:bpId('DCR'),dispId:rows[0].dispId,dc:rows[0].dc||'',po:rows[0].po||'',client:rows[0].client||'',by:me.by,at:new Date().toISOString(),why:why,planner:rows[0].by||''}); }
+function dcRejectJobs(){ return (state.dcRejects||[]).filter(function(r){ return r&&!r.seenAt; }).map(function(r){ return {role:'Supply Chain',dcr:r,labAt:r.at,what:'DC '+(r.dc||'')+' rejected — '+(r.po||'')+' · by '+(r.by||'')+': \u201c'+String(r.why||'')+'\u201d',act:"openDcRejected('"+r.id+"')",label:'DC rejected'}; }); }
+function openDcRejected(id){ var r=(state.dcRejects||[]).find(function(x){ return x&&x.id===id; }); if(!r) return;
+  $('modal').innerHTML='<div class="mh"><h2>DC '+bpEsc(r.dc)+' rejected</h2><div class="sub">'+bpEsc(r.po)+' · '+bpEsc(r.client)+' · by '+bpEsc(r.by)+' · '+bpEsc(String(r.at||'').slice(0,10))+'</div></div><div class="mb"><div class="note" style="border-color:var(--amber)"><b>'+bpEsc(r.why)+'</b></div><div class="note" style="margin-top:8px">The material is back under Shipments → Ready to ship. Plan the truck again with this corrected.</div></div>'
+    +'<div class="mf"><button class="ghost" onclick="closeModal()">Later</button><button class="green" onclick="dcRejectSeen(\''+bpEsc(id)+'\')">Read — plan it again</button></div>';
+  $('modalBg').classList.add('open'); }
+function dcRejectSeen(id){ var r=(state.dcRejects||[]).find(function(x){ return x&&x.id===id; }); if(!r) return; r.seenAt=new Date().toISOString(); r.seenBy=_uRole().by; save(); closeModal(); render(); }
+
+/* ---- E. a sample not approved ---- */
+function smpRejectSeen(id){ var x=smpById(id); if(!x||x.status!=='rejected') return; x.rejectSeenAt=new Date().toISOString(); smpLog(x,'Read the reason it was not approved',''); save(); closeModal(); render(); }
+
 /* ===================== SEE BEFORE YOU SIGN - 26a =====================
    Tahir, 26 Sep: "when the Plant Manager receives a notification for approval
    for the DC or gate pass he can't open the document or see it before approval."
@@ -10789,8 +10928,8 @@ function lotQASubmit(){ const p=lotById(lotQAForm.lotId); if(!p)return; if(lotQA
   (state.audit=state.audit||[]).unshift({t:new Date().toISOString(),user:state.role,module:'QA',po:p.po,brand:p.brand,field:anyFail?'QA FAILED':'QA passed',old:'',val:lotQAForm.remarks||''});
   logAction(`QA ${anyFail?'FAILED':'passed'} lot ${p.brandBatchNo||p.baseBatchNo||''} (${p.brand}, ${fmt(p.kg)} Kg/L) for ${p.po}`);
   save(); closeModal(); render(); }
-function clearQaHold(lotId){ if(!(canEdit(['QA Inspector'])||canEdit(['Supply Chain','Warehouse'])||state.role==='COO')){toast('QA Inspector / Supply Chain only');return;} var p=lotById(lotId); if(!p||!p.qaHold)return; var note=(typeof prompt==='function'?prompt('Correction note before re-inspection:'):'')||''; p.reinsp=(p.reinsp||0)+1; var was=p.qaHold; p.qaHold=null; (state.audit=state.audit||[]).unshift({t:new Date().toISOString(),user:state.role,module:'QA',po:p.po,brand:p.brand,field:'QA hold cleared — re-inspect',old:(was&&was.reason)||'',val:'re-inspect #'+p.reinsp+(note?(' — '+note):'')}); logAction('QA hold cleared on lot '+(p.brandBatchNo||p.baseBatchNo||'')+' ('+p.brand+') — back to inspection #'+p.reinsp+(note?(' — '+note):'')); save(); render(); }
-function lotQACorrect(lotId){ if(!(canEdit(['Supply Chain','Warehouse'])||state.role==='COO')){toast('Supply Chain only');return;} const p=lotById(lotId); if(!p||!(p.qa&&p.qa.fail))return; const note=(typeof prompt==='function'?prompt('Correction note before re-inspection:'):'')||''; p.reinsp=(p.reinsp||0)+1; p.qa=null; logAction(`Lot ${p.brandBatchNo||p.baseBatchNo||''} corrected & resubmitted for re-inspection #${p.reinsp} (${p.po})`+(note?(' — '+note):'')); save(); render(); }
+function clearQaHold(lotId){ if(!(canEdit(['QA Inspector'])||canEdit(['Supply Chain','Warehouse'])||state.role==='COO')){toast('QA Inspector / Supply Chain only');return;} var p=lotById(lotId); if(!p||!p.qaHold)return; var note=String((typeof prompt==='function'?prompt('What was corrected before re-inspection?'):'')||'').trim(); if(note.length<5){ toast('Say what was corrected \u2014 QA reads it before re-inspecting.'); return; } p.reinsp=(p.reinsp||0)+1; var was=p.qaHold; p.qaHold=null; (state.audit=state.audit||[]).unshift({t:new Date().toISOString(),user:state.role,module:'QA',po:p.po,brand:p.brand,field:'QA hold cleared — re-inspect',old:(was&&was.reason)||'',val:'re-inspect #'+p.reinsp+(note?(' — '+note):'')}); logAction('QA hold cleared on lot '+(p.brandBatchNo||p.baseBatchNo||'')+' ('+p.brand+') — back to inspection #'+p.reinsp+(note?(' — '+note):'')); save(); render(); }
+function lotQACorrect(lotId){ if(!(canEdit(['Supply Chain','Warehouse'])||state.role==='COO')){toast('Supply Chain only');return;} const p=lotById(lotId); if(!p||!(p.qa&&p.qa.fail))return; const note=String((typeof prompt==='function'?prompt('What was corrected before re-inspection?'):'')||'').trim(); if(note.length<5){ toast('Say what was corrected \u2014 QA reads it before re-inspecting.'); return; } p.reinsp=(p.reinsp||0)+1; p.qa=null; p.correctNote=note; /* 26a: the note is required */ logAction(`Lot ${p.brandBatchNo||p.baseBatchNo||''} corrected & resubmitted for re-inspection #${p.reinsp} (${p.po})`+(note?(' — '+note):'')); save(); render(); }
 
 /* histIdx prints a SUPERSEDED revision from the archive instead of the current
    one. A replaced certificate has to stay printable — that is the difference
@@ -11974,18 +12113,18 @@ function ackOrder(oid){
      customer's PO. Its right is seeded 'everyone', so nothing changes today;
      narrowing it is a decision for the Authorisation panel, not a code edit. */
   if(!may('order.acknowledge')){toast(denyRight('order.acknowledge','Acknowledging a PO'));return;}
-  const o=state.orders.find(x=>x.id===oid); if(!o)return; o.acknowledged=true; o.ackDate=TODAY.toISOString().slice(0,10); o.ackBy=state.role; logAction(`PO ${o.po} acknowledged by ${state.role}`); save(); toast('Acknowledged'); render(); }
+  const o=state.orders.find(x=>x.id===oid); if(!o)return; if(poReturnOpen(o)){ toast('Sent back to '+(o.ackReturn.toName||'Finance')+': '+o.ackReturn.why+' — waiting for the fix.'); return; } o.acknowledged=true; o.ackDate=TODAY.toISOString().slice(0,10); o.ackBy=state.role; logAction(`PO ${o.po} acknowledged by ${state.role}`); save(); toast('Acknowledged'); render(); }
 function gotoScreen(sc){ state.screen=sc; render(); }
 function gotoProduce(oid){ prodMode='po'; prodPOsel=oid||''; state.screen='prod'; render(); }  // deep-link: focus this PO in Production (user then picks the brand) — display/nav only
-function cfoApprovePR(prId){ if(!canEdit(['CFO'])){toast('Not allowed — needs CFO or a matrix Edit grant');return;} const p=(state.prs||[]).find(x=>x.id===prId); if(!p)return; p.cfoApproved=TODAY.toISOString().slice(0,10); logAction(`CFO approved PR ${p.id} — ${p.rm} ${fmt(p.qtyRequired)} Kg/L`); save(); toast('PR approved'); render(); }
-function raisePR(rm, qty){ if(!rm||!(qty>0))return; state.prs=state.prs||[]; const open=state.prs.find(p=>p.rm===rm&&p.status==='open');
+function cfoApprovePR(prId){ if(!canEdit(['CFO'])){toast('Not allowed — needs CFO or a matrix Edit grant');return;} const p=(state.prs||[]).find(x=>x.id===prId); if(!p)return; if(p.refused){toast('This PR was refused. It is back with Supply Chain.');return;} p.cfoApproved=TODAY.toISOString().slice(0,10); logAction(`CFO approved PR ${p.id} — ${p.rm} ${fmt(p.qtyRequired)} Kg/L`); save(); toast('PR approved'); render(); }
+function raisePR(rm, qty){ if(!rm||!(qty>0))return; state.prs=state.prs||[]; const open=state.prs.find(p=>p.rm===rm&&p.status==='open'&&!p.refused); /* 26a: a refused PR does not absorb a new one */
   if(open){ open.qtyRequired+=qty; logAction(`PR (open) for ${rm}: +${fmt(qty)} Kg/L attached — required now ${fmt(open.qtyRequired)}`); }
-  else { state.prs.unshift({id:nid('PR'),rm,qtyRequired:qty,qtyReceived:0,receipts:[],status:'open',cfoApproved:null,date:TODAY.toISOString().slice(0,10),by:state.role}); logAction(`PR raised for ${rm}: ${fmt(qty)} Kg/L`); } }
+  else { state.prs.unshift({id:nid('PR'),rm,qtyRequired:qty,qtyReceived:0,receipts:[],status:'open',cfoApproved:null,date:TODAY.toISOString().slice(0,10),by:state.role,byRole:state.role,byName:(state.currentUser&&state.currentUser.name)||''}); logAction(`PR raised for ${rm}: ${fmt(qty)} Kg/L`); } }
 let recvScope=null;
 function recvPRCard(p){ const rem=Math.max(0,p.qtyRequired-(p.qtyReceived||0)); return `<div style="border:1px solid var(--line);border-radius:9px;padding:9px 11px;margin-bottom:8px"><div style="font-weight:600">${p.rm}</div><div class="muted" style="font-size:11px;margin-bottom:6px">required ${fmt(p.qtyRequired)} · received ${fmt(p.qtyReceived||0)} · remaining ${fmt(rem)} Kg/L${(p.receipts&&p.receipts.length)?(' · '+p.receipts.length+' receipt(s)'):''}${p.cfoApproved?' · <span style="color:var(--green2)">CFO approved</span>':' · <span style="color:var(--amber)">awaiting CFO approval</span>'}</div><div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap"><div class="fld" style="width:120px"><label>Receive qty</label><input type="number" id="rcv_${p.id}" placeholder="max ${fmt(rem)}"></div><div class="fld" style="width:140px"><label>GRN #</label><input type="text" id="grn_${p.id}"></div><div class="fld" style="width:140px"><label>Date</label><input type="date" id="rdt_${p.id}" value="${TODAY.toISOString().slice(0,10)}"></div><button class="sm green" onclick="receivePR('${p.id}')">Receive</button><button class="sm ghost" style="color:var(--red)" onclick="closePR('${p.id}')">Close PR</button></div></div>`; }
 function openReceiveMaterials(oid,lid){
   if(oid&&lid) recvScope={oid,lid}; else if(oid===null) recvScope=null;
-  const open=(state.prs||[]).filter(p=>p.status==='open');
+  const open=(state.prs||[]).filter(p=>p.status==='open'&&!p.refused); /* 26a */
   let mats=null, label='', noMat=false, pbrand='';
   if(recvScope){ const o=state.orders.find(x=>x.id===recvScope.oid); const l=o&&o.lines.find(x=>x.id===recvScope.lid);
     if(l){ const rec=recipeFor(l.base); const ks=Object.keys(rec).filter(k=>!k.startsWith('('));
@@ -12073,7 +12212,7 @@ function actionItems(){
   const items=[];
   (state.orders||[]).forEach(o=>{
     const bk=orderBucket(o); const od=isOverdue(o);
-    if(!o.acknowledged && (bk==='PO Created'||bk==='RM Check')) items.push({role:'Supply Chain',o,what:'Acknowledge PO '+o.po,act:`ackOrder('${o.id}')`,label:'Acknowledge'});  // ONCE per PO (acknowledging is order-level), not per line
+    if(!o.acknowledged && (bk==='PO Created'||bk==='RM Check')){ if(poReturnOpen(o)){ const _pr=o.ackReturn; items.push({role:_pr.toRole||'Finance',who:_pr.toUser||undefined,o,labAt:_pr.at,what:'PO sent back — '+o.po+' · by '+(_pr.by||'')+': \u201c'+String(_pr.why||'')+'\u201d',act:`openPoReturn('${o.id}')`,label:'PO sent back'}); } else items.push({role:'Supply Chain',o,what:'Acknowledge PO '+o.po+(o.ackReturn&&o.ackReturn.fixedAt?' · fixed by '+(o.ackReturn.fixedBy||''):''),act:`openAckSheet('${o.id}')`,label:'Acknowledge'}); }  /* 26a: see the PO, then acknowledge or send it back */  // ONCE per PO (acknowledging is order-level), not per line
     o.lines.forEach(l=>{
       const lb=lineBucket(o,l);
       if(lb==='Delivered') return;
@@ -12095,9 +12234,10 @@ function actionItems(){
           what:'Close refused \u2014 '+o.po+' \u00b7 '+l.brand+' \u00b7 by '+(l.shortClose.refusedBy||'')+': \u201c'+String(l.shortClose.refusedWhy||'')+'\u201d',
           act:`openRefusal('${o.id}','${l.id}')`, label:'Refused'}); }
       if(o.acknowledged && (!l.rmStatus||l.rmStatus==='pending')) items.push({role:'Supply Chain',o,l,what:'RM Check \u2014 '+o.po+' \u00b7 '+l.brand,act:`openRMCheck('${o.id}','${l.id}')`,label:'RM Check'});
-      if(l.rmPR && !l.rmPR.closed && !l.rmPR.cfoApproved) items.push({role:'CFO',o,l,what:'Approve RM requisition \u2014 '+o.po+' \u00b7 '+l.brand+' ('+fmt(l.rmPR.qty)+' Kg/L)',act:`approveRMPR('${o.id}','${l.id}')`,label:'Approve PR'});
+      if(l.rmPR && !l.rmPR.closed && l.rmPR.refused) items.push({role:l.rmPR.byRole||l.rmPR.by||'Supply Chain',o,l,labAt:l.rmPR.refused.at,what:'PR refused — '+o.po+' \u00b7 '+l.brand+' \u00b7 by '+(l.rmPR.refused.by||'')+': \u201c'+String(l.rmPR.refused.why||'')+'\u201d',act:`openPRRefused('line','${o.id}','${l.id}')`,label:'PR refused'}); /* 26a */
+      if(l.rmPR && !l.rmPR.closed && !l.rmPR.cfoApproved && !l.rmPR.refused) items.push({role:'CFO',o,l,what:'Approve RM requisition \u2014 '+o.po+' \u00b7 '+l.brand+' ('+fmt(l.rmPR.qty)+' Kg/L)',act:`openPRSheet('line','${o.id}','${l.id}')`,label:'Approve PR'});
       if(l.rmPR && !l.rmPR.closed && l.rmPR.cfoApproved) items.push({role:'Supply Chain',o,l,what:'Confirm RM received \u2014 '+o.po+' \u00b7 '+l.brand+' ('+fmt(l.rmPR.qty)+' Kg/L pending)',act:`openRMReceive('${o.id}','${l.id}')`,label:'Receive'});
-      { var _prMats=((l.pr&&l.pr.lines)||[]).map(function(x){return x&&x.rm;}).filter(Boolean); var _openPR=(state.prs||[]).some(function(p){return p.status==='open' && _prMats.indexOf(p.rm)>-1;}); if(l.prRaised && !l.rmReady && l.rmStatus!=='received' && _openPR) items.push({role:'Supply Chain',o,l,what:'Receive raw materials (GRN, partial OK)',act:`openReceiveMaterials('${o.id}','${l.id}')`,label:'Receive'}); }  /* fix: Receive disappears once the line's PR(s) are closed (received OR cancelled) — no more dangling notification */
+      { var _prMats=((l.pr&&l.pr.lines)||[]).map(function(x){return x&&x.rm;}).filter(Boolean); var _openPR=(state.prs||[]).some(function(p){return p.status==='open' && !p.refused && _prMats.indexOf(p.rm)>-1;}); if(l.prRaised && !l.rmReady && l.rmStatus!=='received' && _openPR) items.push({role:'Supply Chain',o,l,what:'Receive raw materials (GRN, partial OK)',act:`openReceiveMaterials('${o.id}','${l.id}')`,label:'Receive'}); }  /* fix: Receive disappears once the line's PR(s) are closed (received OR cancelled) — no more dangling notification */
       if(rmAllows(l)>0 && (l.produced||0) < Math.min(l.ordered, rmAllows(l))-0.5) items.push({role:'Production',o,l,what:'Produce '+l.brand+' \u2014 '+o.po,act:`openRun('${o.id}','${l.id}')`,label:'Open Production'});
       if(lineToInspect(o,l)>0.5) items.push({role:'QA Inspector',o,l,what:'Inspect packed '+l.brand+' \u2014 '+o.po,act:`openPackInspect('${o.id}','${l.id}')`,label:'Pack QC'});  // packed & batch-numbered, awaiting pre-ship inspection \u2014 was only on the QC screen
       { const _pl=pmDelayLabel(o,l,lb); if(_pl) items.push({role:'Plant Manager',o,l,what:_pl+' \u2014 add delay reason ('+l.brand+')',act:`openDelayReason('${o.id}','${l.id}')`,label:'Add reason'}); }
@@ -12111,7 +12251,8 @@ function actionItems(){
         items.push({role:'Supply Chain',o,shipLines:_clr,what:_desc,act:`openDispatch('${o.id}')`,label:'Ship'}); }
     }
   });
-  (state.prs||[]).filter(p=>p.status==='open'&&!p.cfoApproved).forEach(p=>items.push({role:'CFO',pr:p,what:'Approve PR — '+p.rm+' '+fmt(p.qtyRequired)+' Kg/L',act:"cfoApprovePR('"+p.id+"')",label:'Approve PR'}));
+  (state.prs||[]).filter(p=>p.status==='open'&&!p.cfoApproved&&!p.refused).forEach(p=>items.push({role:'CFO',pr:p,what:'Approve PR — '+p.rm+' '+fmt(p.qtyRequired)+' Kg/L',act:"openPRSheet('pr','"+p.id+"')",label:'Approve PR'}));
+  (state.prs||[]).filter(p=>p.status==='open'&&p.refused).forEach(p=>items.push({role:p.byRole||p.by||'Supply Chain',pr:p,what:'PR refused — '+p.rm+' '+fmt(p.qtyRequired)+' Kg/L · by '+(p.refused.by||'')+': \u201c'+String(p.refused.why||'')+'\u201d',act:"openPRRefused('pr','"+p.id+"')",label:'PR refused'})); /* 26a */
   /* R9 - a new customer waits for the CFO before its first order */
   try{ pendingCustomerItems().forEach(function(it){ items.push(it); }); }catch(e){}
   /* 24v: a lab signature with nobody to give it - the Plant Manager names a cover */
@@ -12247,6 +12388,7 @@ function actionItems(){
       act:"openCloseBatch('"+b.id+"')", label:(_re?'Reopened — check first':'Close batch') });
   });
   try{ smpJobs().forEach(function(j){ items.push(j); }); }catch(e){} /* 25o: free samples */
+  try{ dcRejectJobs().forEach(function(j){ items.push(j); }); }catch(e){} /* 26a: a rejected DC is told to Supply Chain */
   return items;
 }
 /* Batches that are finished and have nothing left to explain: produced at or
@@ -12618,10 +12760,11 @@ function actTiming(it){
       case 'Ship': { var _ls=it.shipLines||(it.l?[it.l]:[]); var _ds=_ls.map(function(x){return shipReadySince(it.o,x);}).filter(Boolean); if(_ds.length){ _ds.sort(); c=_ds[0]; approx=false; } else { c=(it.l&&it.l.qcPass)||it.o.received; approx=!(it.l&&it.l.qcPass); } break; }
       case 'Pack QC': { var _pd=lotsFor(it.o,l).filter(function(p){return lotAvail(p)>0.5;}).map(function(p){return p.date||p.mfgDate;}).filter(Boolean).sort(); if(_pd.length){ c=_pd[_pd.length-1]; approx=false; } else { c=it.o.received; approx=true; } break; }
       case 'Add reason': c=l.committed||it.o.promised||it.o.received; approx=true; break;
+      case 'PO sent back': case 'PR refused': c=it.labAt||it.o.received; approx=!it.labAt; break;
       case 'Refused': c=(l.shortClose&&l.shortClose.refusedAt)||it.o.received; approx=!(l.shortClose&&l.shortClose.refusedAt); break;
       default: c=it.o.received; approx=true;
     }
-  } else if(it.pr){ c=it.pr.date; }
+  } else if(it.pr){ c=it.labAt||it.pr.date; }
   else if(it.leave){ c=it.leave.at; }
   else if(it.labAt){ c=it.labAt; }
   else if(it.batch){ c=it.batch.closedDate||it.batch.openedDate||it.batch.date||null; approx=(it.label!=='Lab QC'); }
@@ -12677,7 +12820,7 @@ var acView='list'; /* My Actions list/cards view toggle — default keeps existi
 var AC_ROLEORDER=['Supply Chain','CFO','Production','Lab Rep','AQCM','QCM','QA Inspector','Plant Manager'];
 var AC_STAGES=['PO Created','RM Check','Production','Lab QC','AQCM Review','Pack QC','Shipment'];
 function acTypeColor(lb){ if(lb==='Print price')return 'var(--amber)'; if(lb==='Release'||lb==='Approve DC')return 'var(--red)'; if(lb==='Load'||lb==='Gate Pass'||lb==='Confirm delivery')return '#0f766e'; if(lb==='Pack QC'||lb==='Inspect')return 'var(--navy)'; if(lb==='Open Production'||lb==='RM Check'||lb==='Acknowledge'||lb==='Receive')return 'var(--amber)'; if(lb==='Lab QC'||lb==='Review'||lb==='Approve'||lb==='Approve PR')return '#1d4ed8'; if(lb==='Add reason'||lb==='Correct')return 'var(--red)'; return 'var(--mut)'; }
-function acStageOf(lb){ if(/^(Approve sample|Issue sample|Check sample|Sample gate pass|Review sample|Release sample|Sample arrived|Sample feedback)$/.test(lb||'')) return 'Free samples'; /* 25o: never Production */ if(lb==='Print price'||lb==='Refused')return 'PO Created'; if(lb==='Load'||lb==='Gate Pass'||lb==='Review truck'||lb==='Release'||lb==='Approve DC'||lb==='Confirm delivery'||lb==='Sent back')return 'Shipment'; if(lb==='Acknowledge')return 'PO Created'; if(lb==='RM Check'||lb==='Receive'||lb==='Approve PR')return 'RM Check'; if(lb==='Open Production')return 'Production'; if(lb==='Lab QC'||lb==='Correct COA')return 'Lab QC'; if(lb==='Review'||lb==='Approve')return 'AQCM Review'; if(lb==='Pack QC'||lb==='Inspect')return 'Pack QC'; if(lb==='Ship')return 'Shipment'; return 'Production'; }
+function acStageOf(lb){ if(/^(Approve sample|Issue sample|Check sample|Sample gate pass|Review sample|Release sample|Sample arrived|Sample feedback|Sample not approved)$/.test(lb||'')) return 'Free samples'; /* 25o: never Production */ if(lb==='Print price'||lb==='Refused'||lb==='PO sent back')return 'PO Created'; if(lb==='PR refused')return 'RM Check'; if(lb==='DC rejected')return 'Shipment'; if(lb==='Load'||lb==='Gate Pass'||lb==='Review truck'||lb==='Release'||lb==='Approve DC'||lb==='Confirm delivery'||lb==='Sent back')return 'Shipment'; if(lb==='Acknowledge')return 'PO Created'; if(lb==='RM Check'||lb==='Receive'||lb==='Approve PR')return 'RM Check'; if(lb==='Open Production')return 'Production'; if(lb==='Lab QC'||lb==='Correct COA')return 'Lab QC'; if(lb==='Review'||lb==='Approve')return 'AQCM Review'; if(lb==='Pack QC'||lb==='Inspect')return 'Pack QC'; if(lb==='Ship')return 'Shipment'; return 'Production'; }
 function acRiskOf(it){ if(actOverdue(it))return 'late'; var tm=actTiming(it); if(tm.dueIn!=null&&tm.dueIn<0)return 'late'; return actUrg(it)<=2?'today':'normal'; }
 /* What the chip says. A deadline item is described by its deadline — "due today"
    reads as something to act on; "0d waiting" reads as something that just
@@ -12872,6 +13015,11 @@ var TD_LABEL={
   'Close batch':     {title:'Batch to close',                       verb:'Close the batch'},
   'Refused':         {title:'Your close request was refused',       verb:'Read why'},
   'Correct COA':     {title:'COA sent back to you to correct',      verb:'Correct and submit'},
+  'PO sent back':    {title:'PO sent back to you',                  verb:'Fix it'},
+  'PR refused':      {title:'Your purchase request was refused',    verb:'Read why'},
+  'Customer sent back':{title:'New customer sent back to you',      verb:'Fix it'},
+  'DC rejected':     {title:'A DC was rejected',                    verb:'Read why'},
+  'Sample not approved':{title:'Your free sample was not approved', verb:'Read why'},
   'Sent back':       {title:'Truck sent back to you',               verb:'Fix it'},
   'Approve customer':{title:'New customer to approve',              verb:'Approve'},
   'Reopened — check first':{title:'Reopened batch',                 verb:'Check it'},
@@ -13474,7 +13622,7 @@ var TD_NEXT={'Assign sample':'Lab test','Lab test':'Review',  /* 24z: the lab by
   'Acknowledge':'RM Check','RM Check':'Approve PR','Approve PR':'Receive','Receive':'Open Production','Print price':'Open Production',
   'Open Production':'Close batch','Close batch':'Lab QC','Reopened — check first':'Close batch','Lab QC':'Review','Review':'Approve','Approve':'Pack QC',
   'Pack QC':'Ship','Correct':'Re-inspect','Re-inspect':'Ship','Ship':'Load','Load':'Inspect','Inspect':'Gate Pass','Gate Pass':'Review truck','Review truck':'Release','Release':'Confirm delivery',
-  'Approve DC':'Confirm delivery','Confirm delivery':'','Refused':'','Sent back':'Review truck','Correct COA':'Review','Add reason':'','Approve customer':'',
+  'Approve DC':'Confirm delivery','Confirm delivery':'','Refused':'','Sent back':'Review truck','Correct COA':'Review','PO sent back':'Acknowledge','PR refused':'Approve PR','Customer sent back':'Approve customer','DC rejected':'Ship','Sample not approved':'','Add reason':'','Approve customer':'',
   'Approve sample':'Issue sample','Issue sample':'Check sample','Check sample':'Sample gate pass','Sample gate pass':'Review sample','Review sample':'Release sample','Release sample':'Sample arrived','Sample arrived':'Sample feedback','Sample feedback':''};
 function tdRoleJobs(role){
   /* the labels addressed to this role right now, plus every label whose live
@@ -14058,6 +14206,7 @@ function guideRules(){
   h+='<div class="gd-rule"><h3>Nothing is deleted</h3><p>An order line is closed short with a reason, never removed; the ordered quantity is never rewritten and cannot be typed anywhere: less is a close-short, more is a new order. To close, open the order and tick only the products to close; nothing is ticked for you. A few bags filled from finished stock or another product’s batch, which O2S does not track, are closed short as <b>Supplied from stock outside O2S</b> (not counted against us, and not a sale in O2S). A refused close needs a reason; it stays on the record and goes back to the person who asked, who asks again or leaves the line open. A lot that is an exact copy of another one, and that the batch total already leaves out, is a <b>leftover duplicate</b>: the Production Manager removes only the record, and produced does not change. A product or customer is deactivated, not deleted. A wrong entry is corrected under Correct a record, with a reason, in your name, and the correction sits beside the original in the register. If a number changed, the record shows who changed it and why.</p></div>'+
   '<div class="gd-rule"><h3>A number moves only with its record</h3><p>Packed moves with a packing run from a batch, dispatched with a truck, delivered with a delivery. None of them can be typed, and nothing can be packed beyond what the line ordered. When a line and its records disagree, open the line (Orders → the order → <b>History</b>, or the item on Back Office <b>Needs you</b>): it shows what is wrong, the line’s whole history, what the records show as the cause, and the fix — record the missing packing against its batch, bring packed back to its records, or stamp a delivery date from the truck — each with a reason in your name.</p></div>'+
   '<div class="gd-rule"><h3>The price on a new order</h3><p>Every price is checked against the last price this customer paid for the product, net of FED; for a first order, against the last price to anyone. More than 5% away needs a reason, written under the price, and it is kept on the order line with the last price it was compared with. Payment terms and the ERP SO # are part of every order; the SO # prints on the DC.</p></div>'+
+  '<div class="gd-rule"><h3>See it before you sign it; every no has a way back</h3><p>Every approval opens the record first: the PO before it is acknowledged, the purchase request before the CFO approves it, the new customer before the CFO approves it, the truck with its DC and gate pass before it is reviewed or released, the report before it is reviewed or approved. Every refusal or send-back needs a reason, stays on the record, and lands on the Today of the person who must act: the PO goes back to whoever entered it, the purchase request to Supply Chain, the customer to whoever entered it, the truck to whoever issued the gate pass, the report one step down the chain, a refused close to whoever asked, a rejected DC to Supply Chain, a sample not approved to whoever asked. They fix it and send it on, or drop it; nothing waits without an owner.</p></div>'+
   '<div class="gd-rule"><h3>The pre-shipment report</h3><p>No truck is released without a passed inspection. Every report is in Reports → Pre-shipment inspections, for everyone to find and print. A customer marked “Send the pre-shipment report with the DC” gets it attached to the challan.</p></div>'+
   '<div class="gd-rule"><h3>What a sale is</h3><p>A sale is counted the day the truck leaves the gate, at quantity × invoice price, net of FED. FED is the sales tax: on an order quoted FED-inclusive the price is divided by 1.05. Every money figure in the app — Sales & Budget, the reports, the PO register — uses this one rule.</p></div>';
   h+='<div class="gd-rule"><h3>Roles, not people</h3><p>Rights belong to roles. 2 people can hold one role and sign differently. There are no exceptions for one person — an exception becomes a new role, so it can be seen and given to the next person in that seat.</p></div>';
@@ -14311,7 +14460,7 @@ function shipCard(g,mode,ed,isPM){ var prods=g.rows.map(function(r){return r.bra
   var status,btn='';
   if(mode==='planned'){ status='<span class="pill" style="background:var(--navy-50,#eef1fb);color:var(--navy,#1f3a8a)">Truck planned</span>'; btn=(ed?'<button class="sm green" onclick="startLoading(\''+g.dispId+'\')">Start loading ▸</button>':'')+shipDcBtn(g)+(ed?'<button class="sm ghost" onclick="cancelShip(\''+g.dispId+'\')">Cancel</button>':''); }
   else if(mode==='loading'){ status='<span class="pill" style="background:#fff4e5;color:#b9740a">Loading</span>'; var _rv=(g.rows[0]||{}).scReview; var gp=(g.gatePass&&truckSentBack(g.rows[0]||{}))?('<button class="sm" style="background:var(--amber-50);color:var(--amber)" onclick="openTruckSentBack(\''+g.dispId+'\')">Sent back ▸</button>'):g.gatePass?((!_rv&&state.role==='Supply Chain')?('<button class="sm green" onclick="openTruckSign(\''+g.dispId+'\',\'review\')">Review ▸</button>'):(isPM?('<button class="sm green" onclick="openTruckSign(\''+g.dispId+'\',\'release\')">Approve DC &amp; release ▸</button>'):('<span class="muted" style="font-size:11px">'+(_rv?'reviewed by '+_rv.by+' · awaiting Plant Manager':'awaiting Saad’s review')+'</span>'))):(ed?'<button class="sm" onclick="openTruckSign(\''+g.dispId+'\',\'gatepass\')">Issue Gate Pass</button>':''); btn=gp+shipDcBtn(g)+shipGpBtn(g)+shipPsiBtn(g)+(ed?'<button class="sm ghost" onclick="cancelShip(\''+g.dispId+'\')">Cancel</button>':''); }
-  else if(mode==='pending'){ status='<span class="pill" style="background:var(--amber-50);color:var(--amber)">Pending approval</span>'; btn=(isPM?('<button class="sm green" onclick="openTruckSign(\''+g.dispId+'\',\'approvedc\')">Approve</button><button class="sm ghost" onclick="rejectDC(\''+g.dispId+'\')">Reject</button>'):'<span class="muted" style="font-size:11px">awaiting Plant Manager</span>')+shipDcBtn(g); }
+  else if(mode==='pending'){ status='<span class="pill" style="background:var(--amber-50);color:var(--amber)">Pending approval</span>'; btn=(isPM?('<button class="sm green" onclick="openTruckSign(\''+g.dispId+'\',\'approvedc\')">Approve</button><button class="sm ghost" onclick="openRejectDC(\''+g.dispId+'\')">Reject</button>'):'<span class="muted" style="font-size:11px">awaiting Plant Manager</span>')+shipDcBtn(g); }
   else if(mode==='transit'){ status='<span class="pill" style="background:#eef1f5;color:#5b6675">In transit</span>'; btn=((ed)?'<button class="sm green" onclick="openDeliveryConfirm(\''+g.dispId+'\')">Delivered ▸</button>':'')+shipDcBtn(g)+shipGpBtn(g)+shipPsiBtn(g); }
   else { status='<span class="pill" style="background:#e2f3e8;color:#1d8a4e">Delivered</span>'; btn=shipDcBtn(g)+shipGpBtn(g)+shipPsiBtn(g); }
   var meta=[];
@@ -15262,7 +15411,7 @@ function saveDispatch(){ if(!may('shipment.plan')){toast(denyRight('shipment.pla
   (state.audit=state.audit||[]).unshift({t:new Date().toISOString(),user:state.role,module:'Shipment',po:o.po,brand:n+' product(s)',field:'Shipped',old:'',val:fmt(tot)+' Kg/L · DC '+(dispForm.dc||'-')});
   dispForm=null; save(); closeModal(); render(); toast(`DC ${dc} recorded — pending Plant Manager approval`); }
 function approveDC(dispId){ if(!hardRole(['Plant Manager'])){ toast('The Plant Manager gives the final approval of the DC'); return; } var rows=(state.shipments||[]).filter(function(s){return (s.dispId||'')===dispId&&!s.voided;}); if(!rows.length)return; /* 25m (review, critical): the DC is approved only with the release, after load, inspection, gate pass and review */ if(rows.some(function(s){ return s.stage; })){ if(rows[0].stage==='loading'){ approveRelease(dispId); return; } toast('This truck is still '+String(rows[0].stage).replace('_',' ')+'. The DC is approved with the release, after loading, the inspection, the gate pass and the review.'); return; } if(!rows.every(function(s){ return s.qa&&s.qa.pass; })){ toast('This truck has no passed pre-shipment inspection. It cannot be approved.'); return; } var who=(state.currentUser&&state.currentUser.name)||state.role; var dt=TODAY.toISOString().slice(0,10); rows.forEach(function(s){ s.dcStatus='approved'; s.approvedBy=who; s.approvedDate=dt; if(!s.dispCounted){ var o=(state.orders||[]).find(function(x){return x.po===s.po;}); var l=o&&((o.lines||[]).find(function(x){return x.id===s.lid;})||(o.lines||[]).find(function(x){return x.brand===s.brand;})); if(l){ l.dispatched=(+l.dispatched||0)+(+s.kg||0); l.dispatchDate=l.dispatchDate||dt; } s.dispCounted=true; } }); var dc=rows[0].dc||''; logAction('DC '+dc+' approved by '+who+' — cleared for outward movement'); save(); render(); toast('DC '+dc+' approved — cleared to ship'); }
-function rejectDC(dispId){ if(!hardRole(['Supply Chain','Plant Manager'])){ toast('Supply Chain / COO only'); return; } /* 25n: only a DC still waiting - a truck out of the gate is not rejected */ if((state.shipments||[]).some(function(s){ return (s.dispId||'')===dispId&&!s.voided&&(s.dispCounted||s.delivered||s.stage==='in_transit'||s.stage==='delivered'||(s.dcStatus||'approved')!=='pending'); })){ toast('Only a DC still waiting for approval can be rejected. This truck has already left the gate.'); return; } if(typeof confirm==='function'&&!confirm('Reject this DC? It will be voided and the material returns to Ready to ship.'))return; var rows=(state.shipments||[]).filter(function(s){return (s.dispId||'')===dispId&&!s.voided;}); rows.forEach(function(s){ s.voided=true; s.dcStatus='rejected'; var o=(state.orders||[]).find(function(x){return x.po===s.po;}); var l=o&&((o.lines||[]).find(function(x){return x.id===s.lid;})||(o.lines||[]).find(function(x){return x.brand===s.brand;})); _releaseShip(o,l,s.batches); if(s.dispCounted&&l){ l.dispatched=Math.max(0,(+l.dispatched||0)-(+s.kg||0)); s.dispCounted=false; } }); logAction('DC '+((rows[0]&&rows[0].dc)||'')+' rejected — material returned to Ready to ship'); save(); render(); toast('DC rejected'); }
+function rejectDC(dispId,why){ if(!hardRole(['Supply Chain','Plant Manager'])){ toast('Supply Chain / COO only'); return; } /* 25n: only a DC still waiting - a truck out of the gate is not rejected */ if((state.shipments||[]).some(function(s){ return (s.dispId||'')===dispId&&!s.voided&&(s.dispCounted||s.delivered||s.stage==='in_transit'||s.stage==='delivered'||(s.dcStatus||'approved')!=='pending'); })){ toast('Only a DC still waiting for approval can be rejected. This truck has already left the gate.'); return; } why=String(why||'').trim(); if(why.length<5){ toast('Say why the DC is rejected \u2014 Supply Chain reads it when they plan the truck again.'); return; } /* 26a: was a bare confirm, no reason, nobody told */ var rows=(state.shipments||[]).filter(function(s){return (s.dispId||'')===dispId&&!s.voided;}); rows.forEach(function(s){ s.voided=true; s.dcStatus='rejected'; var o=(state.orders||[]).find(function(x){return x.po===s.po;}); var l=o&&((o.lines||[]).find(function(x){return x.id===s.lid;})||(o.lines||[]).find(function(x){return x.brand===s.brand;})); _releaseShip(o,l,s.batches); if(s.dispCounted&&l){ l.dispatched=Math.max(0,(+l.dispatched||0)-(+s.kg||0)); s.dispCounted=false; } }); if(rows.length){ rows.forEach(function(s){ s.rejectWhy=why; s.rejectBy=_uRole().by; s.rejectAt=new Date().toISOString(); }); dcRejectNote(rows,why); } logAction('DC '+((rows[0]&&rows[0].dc)||'')+' rejected — material returned to Ready to ship: '+why); save(); render(); toast('DC rejected. Supply Chain gets your reason.'); }
 /* Client of a PO (used to enforce one-truck-one-client and to group multi-PO shipments). */
 function shipClientFor(po){ var o=(state.orders||[]).find(function(x){return x.po===po;}); return o?(o.client||''):''; }
 /* Derive the prototype lifecycle stage from a dispatch group. Backward-compatible:
@@ -17222,6 +17371,7 @@ function smpJobs(){ var out=[]; smpList().forEach(function(x){ if(!x) return; va
     else if(x.status==='gatepass'&&!smpReviewLapsed(x)) out.push({role:'Supply Chain',smp:x,smpSince:since,what:'Review free sample — '+tag+' · gate pass '+((x.dispatch&&x.dispatch.gatePass)||'')+' · then the Plant Manager releases',act:act,label:'Review sample'});
     else if(x.status==='reviewed'||x.status==='gatepass') out.push({role:'Plant Manager',smp:x,smpSince:since,what:'Release free sample — '+tag+(x.review?' · reviewed by '+x.review.by:' · Saad has not reviewed it in 2 hours'),act:act,label:'Release sample'});
     if(x.status==='dispatched') out.push({role:ow.role||'KAM',who:ow.user||undefined,smp:x,smpSince:since,what:'Did the sample arrive? — '+tag,act:act,label:'Sample arrived'});
+    if(x.status==='rejected'&&!x.rejectSeenAt) out.push({role:ow.role||'KAM',who:ow.user||undefined,smp:x,smpSince:since,what:'Sample not approved — '+tag+(x.approval&&x.approval.note?': \u201c'+x.approval.note+'\u201d':''),act:act,label:'Sample not approved'}); /* 26a */
     if(smpFeedbackDue(x)) out.push({role:ow.role||'KAM',who:ow.user||undefined,smp:x,smpSince:since,what:'What did the client say about the sample? — '+tag,act:act,label:'Sample feedback'});
   }); return out; }
 function smpTip(t){ return '<div class="muted" style="font-size:11px;margin-top:3px">'+t+'</div>'; }
@@ -17320,6 +17470,7 @@ function smpRenderOpen(){ var x=smpById(smpAct&&smpAct.id); if(!x){ closeModal()
   else if(st==='dispatched'&&(smpMine(x)||state.role==='COO')){ act='<div class="row" style="gap:8px;flex-wrap:wrap"><div class="fld" style="flex:1;min-width:140px"><label>Arrived on</label><input type="date" value="'+_av(a.date)+'" onchange="smpA(\'date\',this.value)"></div><div class="fld" style="flex:1;min-width:160px"><label>How do you know <span style="color:var(--red)">*</span></label><select onchange="smpA(\'via\',this.value)"><option value="">— pick —</option>'+['Client told me','Courier delivery record','I handed it over','Other'].map(function(v){ return '<option'+(a.via===v?' selected':'')+'>'+v+'</option>'; }).join('')+'</select></div></div>'; btn='<button class="green" onclick="smpArrived()">It arrived</button>'; }
   if((st==='delivered'||(st==='dispatched'&&smpFeedbackDue(x)))&&(smpMine(x)||state.role==='COO')){ act+='<div class="gd-sec" style="font-weight:700;margin:6px 0">What did the client say?</div><div class="fld"><label>Result <span style="color:var(--red)">*</span></label><select onchange="smpA(\'result\',this.value)"><option value="">— pick —</option>'+SMP_FEEDBACK.map(function(v){ return '<option'+(a.result===v?' selected':'')+'>'+e(v)+'</option>'; }).join('')+'</select></div>'
       +'<div class="fld fld-long"><label>What they said</label><textarea rows="2" oninput="smpA(\'note\',this.value)">'+_tx(a.note)+'</textarea></div><div class="fld"><label>Order that came from it (PO no., if any)</label><input type="text" value="'+_av(a.po)+'" oninput="smpA(\'po\',this.value)"></div>'; btn+='<button class="green" onclick="smpFeedback()">Save the feedback</button>'; }
+  if(st==='rejected'){ h+='<div class="note" style="border-color:var(--amber)">Not approved by '+e((x.approval&&x.approval.by)||'the COO')+': <b>'+e((x.approval&&x.approval.note)||'')+'</b></div>'; if(!x.rejectSeenAt&&(smpMine(x)||state.role==='COO')) btn+='<button class="green" onclick="smpRejectSeen(\''+x.id+'\')">Read — close it</button>'; } /* 26a */
   if(!act&&!btn){ var w={requested:'the COO',approved:'the warehouse',issued:'QA',checked:'the warehouse',gatepass:(smpReviewLapsed(x)?'the Plant Manager':'Saad (Supply Chain), then the Plant Manager'),reviewed:'the Plant Manager',dispatched:(smpOwner(x).name||'the person who asked')}[st]; if(w) h+='<div class="note">Waiting on <b>'+e(w)+'</b>.</div>'; }
   h+=act+'<details style="margin-top:12px"><summary style="cursor:pointer;font-weight:600">History</summary>'+(x.history||[]).map(function(t){ return '<div style="font-size:12px;padding:3px 0"><span class="muted">'+e(String(t.at||'').slice(0,16).replace('T',' '))+'</span> · <b>'+e(t.by)+'</b> · '+e(t.what)+(t.note?' — '+e(t.note):'')+'</div>'; }).join('')+'</details></div>';
   var canCancel=(st==='requested'||st==='approved')&&(smpMine(x)||state.role==='COO');

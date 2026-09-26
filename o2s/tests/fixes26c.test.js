@@ -5,7 +5,7 @@
    A second conflict then read the close as "not ours" and took the server's older value.
    This test drives the real saveNow / startSync against a fake server.
    Run: node fixes26c.test.js */
-const H = require('./harness.js'); const vm = require('vm'); const { ok, eq, report, grab, html } = H;
+const H = require('./harness.js'); const vm = require('vm'); const { ok, eq, report, grab, grabTopVar, html } = H;
 const src = html;
 
 ok('the baseline after a conflict is the server copy, not our merged state',
@@ -97,6 +97,52 @@ ok('Today includes the yield-short jobs', /yieldShortJobs\(\)\.forEach/.test(gra
   w.dcRejectSeen(j[0].dcr.id); eq('...until read', w.dcRejectJobs().length, 0);
   w.dcRejectNote([{ dispId: 'D8', dc: 'DC-0102', po: 'PO-2' }], 'Wrong customer');
   eq('a rejected DC still reads "DC rejected"', w.dcRejectJobs()[0].label, 'DC rejected'); }
+
+/* ---------- UNFIT rework keeps the results and tells Production (Tahir, 26 Sep) ---------- */
+function rwWorld(role, answer) {
+  const lot = { id: 'L1', lotNo: 'AP26012-L1', qty: 1010, coa: { status: 'failed', item: 'V-Ammonium Phosphate', remarks: 'P2O5 low', results: [{ p: 'P2O5', v: 40 }] } };
+  const b = { console, JSON, Object, String, Math, Date, toasts: [], logged: [], html: '', answers: [].concat(answer),
+    state: { role, currentUser: { name: role + ' user', username: 'u' }, audit: [], batches: [{ id: 'B1', batchNo: 'AP26012', base: 'V-Ammonium Phosphate', lots: [lot] }] },
+    coaForm: { bid: 'B1', lid: 'L1' }, hardRole: r => r.indexOf(role) > -1, may: c => role === 'Production Manager' && c === 'production.enter',
+    denyRight: (c, w) => 'denied: ' + w, coaItemOf: () => 'V-Ammonium Phosphate', _pe: v => String(v), fmt: n => String(n),
+    save() {}, render() {}, closeModal() {}, coaFSClose() {}, logAction(m) { b.logged.push(m); } };
+  b.prompt = () => b.answers.shift();
+  b.toast = m => b.toasts.push(String(m));
+  b.$ = () => ({ set innerHTML(v) { b.html = v; }, classList: { add() {} } });
+  vm.createContext(b);
+  vm.runInContext([grab('coaCtx'), grab('qcAudit2'), grab('coaRework'), grab('reworkOpen'), grab('openReworkLot'), grab('reworkDone')].join('\n'), b);
+  return b;
+}
+{ const w = rwWorld('Plant Manager', ''); w.coaRework();
+  ok('rework needs a reason', !!w.state.batches[0].lots[0].coa && /why it goes to rework/.test(w.toasts[0])); }
+{ const w = rwWorld('Plant Manager', 'P2O5 below spec, re-blend with fresh MAP'); w.coaRework(); const l = w.state.batches[0].lots[0];
+  ok('the failed report is kept in the lot history with the reason', l.coa === null && l.coaHistory.length === 1 && l.coaHistory[0].remarks === 'P2O5 low' && l.coaHistory[0].reworkWhy === 'P2O5 below spec, re-blend with fresh MAP');
+  ok('the rework count lives on the lot, not on the wiped report', l.reworks === 1 && l.rework.n === 1);
+  ok('the rework is open until Production says it is done', w.reworkOpen(l));
+  ok('...and it is logged and audited with the reason', w.logged.some(m => /sent to rework after UNFIT \(#1\) — P2O5 below spec/.test(m)) && w.state.audit[0].val === 'P2O5 below spec, re-blend with fresh MAP');
+  w.state.role = 'Production Manager'; w.state.currentUser = { name: 'Production Manager user' }; w.may = c => c === 'production.enter';
+  w.openReworkLot('B1', 'L1'); ok('Production sees the reason and the lab remarks', /re-blend with fresh MAP/.test(w.html) && /P2O5 low/.test(w.html) && /Rework done/.test(w.html));
+  w.answers = ['']; w.reworkDone('B1', 'L1'); ok('Rework done needs a note', w.reworkOpen(l));
+  w.answers = ['Re-blended 1,010 Kg with fresh MAP']; w.reworkDone('B1', 'L1');
+  ok('...with a note it goes back to the lab', !w.reworkOpen(l) && l.rework.doneNote === 'Re-blended 1,010 Kg with fresh MAP' && l.rework.doneBy === 'Production Manager user'); }
+{ const ai = grab('actionItems');
+  ok('Today: a lot in rework goes to Production and not to the lab until done', /if\(!u\.coa && u\.rework && !u\.rework\.doneAt\)\{ items\.push\(\{role:'Production'[\s\S]{0,300}label:'Rework lot'\}\); return; \}/.test(ai));
+  ok('...the lot unit carries its rework', /coa:l\.coa,rework:l\.rework/.test(ai));
+  ok('Today: a QA-held lot goes to the Production Manager with the reason', /filter\(p=>p&&p\.qaHold\)\.forEach\(p=>items\.push\(\{role:'Production Manager'/.test(ai) && /p\.qaHold\.reason/.test(ai)); }
+ok('the Production Manager can clear a hold after fixing it', /state\.role==='Production Manager'/.test(grab('clearQaHold')) && /note\.length<5/.test(grab('clearQaHold')));
+
+/* ---------- delivery: refused / short / damaged recorded (Tahir: record only) ---------- */
+{ const c = grab('confirmDelivery'), r = grab('renderDeliveryConfirm');
+  ok('the delivery sheet asks the condition on arrival', /DELIV_COND\.map/.test(r) && /Kg\/L affected/.test(r));
+  ok('anything but "all received" needs Kg and a note', /if\(!\(\+delivForm\.condKg>0\)\)/.test(c) && /String\(delivForm\.note\|\|''\)\.trim\(\)\.length<5/.test(c));
+  ok('it is recorded on the shipment and in the log', /s\.deliveryIssue=\{type:_cond\.k/.test(c) && /_cond\.t\+': '\+fmt\(\+delivForm\.condKg\)/.test(c));
+  ok('record only: delivered quantities are computed as before', (c.match(/l\.delivered=/g) || []).length === (grab('confirmDelivery').match(/l\.delivered=/g) || []).length && !/condKg[^;]*l\.delivered/.test(c));
+  const D = new Function(grabTopVar('DELIV_COND', '[') + '\nreturn DELIV_COND;')();
+  ok('four conditions: all received, refused, short, damaged', D.map(x => x.k).join() === 'ok,refused,short,damaged'); }
+
+/* ---------- a pending customer cannot be made Active without the CFO (R9) ---------- */
+{ const c = grab('custToggleStatus');
+  ok('"Reactivate" refuses a customer waiting for the CFO', c.indexOf("if(c.status==='Pending approval'){") > -1 && c.indexOf("if(c.status==='Pending approval'){") < c.indexOf("c.status=((c.status||'Active')==='Active')")); }
 
 (async () => {
   /* the AP26012 sequence: two conflicts in a row */

@@ -268,3 +268,157 @@ to be built until each is ruled; each is a ruling, not a bug.**
 the password); O2S KAM for both; PD Team member for Muhammad Ali; Irfan's PD
 role to be ruled. Then the PD roster. Then 007 and 008 on production, then
 RECONCILE PART 1 there, both schema-qualified.
+
+---
+
+## 26 September 2026 — PLATFORM (opened as PD) — the access model explained, and 6 rulings
+
+Opened as PD; Tahir asked first to understand the access model ("who gets
+access from where"), before any PD work. **Nothing was edited in code.** This
+entry only records what was found and ruled. The build is PLATFORM work and
+waits for a `platform` declaration.
+
+### What the code does today (read 26 Sept, server.js / launcher.html / o2s.html / pd-lib.js)
+
+- 3 questions, 3 layers: who the person is (`auth_users`), which app and role
+  (`user_module_roles`, written only by `setModuleRole()`), what the role may
+  do (inside each app).
+- Each app answers the third question differently. O2S: roles are data in its
+  own store (`masters.roles`), permissions from the screen access matrix, the
+  rights table (`roleRights`), and at least 167 `state.role==='…'` checks in
+  code. PD: 13 roles fixed in `pd-lib.js` plus the `pd_role` ENUM, gates fixed
+  in code. Platform: 1 role, `admin`, fixed in code. Titles (`USER_TITLE` in
+  O2S) are per-person labels, not roles.
+- People are managed in 2 places. Launcher Manage access: create (no role),
+  grant or remove a role in any app, app admin. It cannot rename, reset a
+  password or delete. O2S Users & Access: create (with an O2S role, KAM if
+  none), rename, reset password, delete, O2S role only. Its list is every
+  `auth_users` row, so PD-only people show there with a blank role.
+- Deleting a person in O2S deletes their login and every app's rows. PD
+  tables hold foreign keys to `auth_users(id)`, so deleting someone who owns
+  PD records should fail with a database error (not tested).
+- `auth_users.active` exists and PD checks it, but `/api/login` does not, and
+  `getUser()` does not read it. Setting `active=0` today does NOT stop a
+  person signing in.
+- O2S takes the role from the login token, so a role changed in Manage access
+  only reaches O2S after that person signs out and in again.
+- Renaming a custom O2S role changes only O2S's store; holders keep the old
+  name in `auth_users.role` and `user_module_roles`.
+
+### Tahir's rulings, 26 Sept 2026
+
+1. **People are managed on the launcher only.** Create, rename, reset
+   password, deactivate, and every app's role. O2S Users & Access becomes a
+   view of O2S people and their O2S role (O2S role can still be changed
+   there); it stops creating, renaming and deleting people.
+2. **Leavers are deactivated, never deleted.** They cannot sign in and drop
+   out of pick lists; their name stays on every record in O2S and PD.
+3. **A role renamed in O2S carries through** to everyone who holds it on the
+   platform.
+4. **Titles move to the platform, per person** — a label, not a role, grants
+   nothing (this is the step 6 already ruled on 25 Sept).
+5. **The new app already signs in with the platform login.** It joins by the
+   2-point contract in `docs/platform/ACCESS-MODEL.md`: publish a role
+   catalogue, read `/api/me`.
+6. The standing rule is confirmed: the platform holds people and
+   person → app → role; each app holds its own role list and what each role
+   may do.
+
+### Build plan (not started)
+
+- **Step 1, PLATFORM:** login and `getUser()` honour `active`; launcher gains
+  rename, reset password, deactivate/reactivate and title per person;
+  deactivated people drop out of the catalogue's holders and of `/api/me`;
+  a server route that renames an O2S role for its holders through
+  `setModuleRole()`; update `docs/platform/ACCESS-MODEL.md`.
+- **Step 2, O2S (its own session):** Users & Access loses create, rename and
+  delete, and points to the launcher; `renameRole()` calls the Step 1 route;
+  titles read from the platform instead of `USER_TITLE`; Guide and
+  `guide.test.js` updated in the same change.
+- Open, not yet ruled: whether O2S admins keep password reset (Tahir chose
+  "launcher only", so no, unless he says otherwise); whether a role change
+  should take effect without signing in again.
+
+Files changed: this entry only. Pushed: no.
+
+**Next:** Tahir declares `platform` to start Step 1. PD's own open items
+(Fahim's PD role, PD access per role) are unchanged and follow after.
+
+### Standing condition for this build — Tahir, 26 Sept 2026
+
+"Don't build anything which leaves any of the O2S accounts stopped working."
+Every step above must keep every existing O2S account signing in and doing
+exactly what it does today. How Step 1 keeps to it:
+
+- Before login checks `active`, a read-only query on local (and on
+  production, before that deploy) must show every account with an O2S role
+  at `active=1`. If any shows 0, stop and ask; do not ship. (The 11 Sept
+  dump `van_platform.sql` shows all 15 accounts at 1, and the column is
+  `NOT NULL DEFAULT 1`, but that dump is old.)
+- Only an explicit Deactivate on the launcher ever sets `active=0`. It
+  refuses the last platform admin, the last O2S COO, and yourself.
+- Tokens already issued keep working; nobody is signed out by the release.
+- Step 2 (O2S) removes buttons only. It changes no account, no role and no
+  right.
+- The O2S role rename carry-through moves holders to the new name in the
+  same request, and is tested on local with a throwaway role first.
+- After Step 1 on local: check every O2S account against the new login gate
+  with a script, and Tahir signs in as himself, one O2S user and one PD user.
+
+Also this session: a `git status` run from the Cowork shell left a stale
+`.git/index.lock` (the shell may not delete files). It was moved to
+`_to_delete/index.lock.stale-2026-09-26` so GitHub Desktop is not blocked.
+Do not run git commands that write the index from that shell.
+
+### Later the same session — Nigehbaan's 3 questions, ruled
+
+Nigehbaan (the new app) asked 3 questions before designing. Checked in code:
+`user_module_roles` has PRIMARY KEY (username, module), so 1 role per person
+per app is enforced by the database; `auth_users` holds no phone or email;
+`/api/platform/users` sits behind `accessAdmin` (platform admin or an app
+admin only).
+
+Tahir's rulings: 1 role per person per app stays, extra duties are the app's
+own data; WhatsApp and email live on the platform per person beside the
+title; "who holds role X" is answered to the app's server only, for its own
+roles; Nigehbaan joins inside the VAN-OP server as a module. Written into
+`docs/platform/ACCESS-MODEL.md`, section "Rulings of 26 September 2026".
+
+Step 1 (PLATFORM) grows by 2 items: contact fields (WhatsApp, email) on the
+person, edited on the launcher; and a server-side holders function
+`(module, role) -> active holders with name, title, WhatsApp, email`. Both
+are additive columns and a new function; neither touches how O2S signs in.
+
+Files changed: `docs/platform/ACCESS-MODEL.md` (section appended), this
+entry. Pushed: no.
+
+### 27 September 2026 — Nigehbaan's 4 follow-up questions (answers and what is open)
+
+Nigehbaan asked 4 more (their HANDOFF.md §6f). Checked in code and answered:
+
+- **Table:** Nigehbaan uses `user_module_roles` only (role is VARCHAR(64)
+  text). `auth_users.role` and `pd_role` are mirrors for O2S and PD only
+  (`LEGACY_COL`). A new Nigehbaan role needs no database change. Joining
+  does need platform code: `validModuleRole()` refuses any module but o2s,
+  pd and platform; `REAL_MODULES` and `MODULE_LIST` must list it.
+- **Publishing today:** `roleCatalogue()` asks each module live; nothing is
+  copied. PD: fixed keys in code, names free to change. O2S: admin screen,
+  name is the key. A held role that leaves a list stays held, shown
+  "Not filed", not flagged.
+- **Default access today:** none. A new person holds no role; the launcher
+  shows a tile locked unless the person holds a role in that module.
+- **Empty roles:** noted. The holders function returns an empty list for a
+  vacant role, never an error, and excludes deactivated people.
+
+Tahir, 27 Sept: **Speak up must be open to everyone, even without an
+account — like a hotline**, possibly a form separate from the app.
+Precedent in the repo: PD's drop box `/pd/drop` is public, no login,
+honeypot plus 5 per hour per IP, and it stores the sender's IP.
+
+**Open, Tahir to ask Nigehbaan, then rule:** how roles are published (code
+or admin screen), what happens when a held role is removed, whether
+Policies is also public or sign-in only, how Speak up protects anonymity,
+and whether Committee Chair is a platform role or a Nigehbaan seat (Tahir:
+"we have to discuss this"). Question list given to Tahir in chat.
+
+Files changed: this entry. Pushed: no.

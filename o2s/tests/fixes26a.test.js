@@ -268,7 +268,7 @@ function rcWorld() {
     may: c => ['packing.reconcile', 'byproduct.call'].indexOf(c) > -1, denyRight: (c, w) => 'no ' + w, fyKey: () => '2026-27', batchOwnerInFY: () => false, validateBatchNo: () => true, SEED: {} };
   b.toast = m => b.toasts.push(String(m)); b.$ = () => ({ set innerHTML(v) { b.html = v; }, classList: { add() {} } });
   vm.createContext(b);
-  vm.runInContext("var recForm=null, callBpForm=null, _seq=100; function nid(p){ return p+(++_seq); }\n" + ['prodSkin','prodTiles','batchRemainderKg','recAllocated','recItem','recSetKg','allBasesForRecon','openReconcile','renderReconcile','saveReconcile','consumeDivertSources','openCallBp','renderCallBp','submitCallBp'].map(grab).join('\n'), b);
+  vm.runInContext("var recForm=null, callBpForm=null, _seq=100; function nid(p){ return p+(++_seq); }\n" + ['prodSkin','prodTiles','batchRemainderKg','recAllocated','recItem','recSetKg','allBasesForRecon','openReconcile','renderReconcile','saveReconcile','consumeDivertSources','callBpTargets','openCallBp','renderCallBp','submitCallBp'].map(grab).join('\n'), b);
   b.B = () => b.state.batches.find(x => x.id === 'B1');
   return b; }
 { const w = rcWorld();
@@ -293,7 +293,15 @@ function rcWorld() {
   w.openCallBp(pool.id); vm.runInContext("callBpForm.qty='300'; callBpForm.batchNo='NS26006';", w); w.submitCallBp();
   const ns = w.state.batches.find(x => x.batchNo === 'NS26006');
   ok('calling 300 Kg creates Nitro Sulfur batch NS26006 that names VU26185 as its source', ns && ns.fromSources && ns.fromSources[0].sourceBatchNo === 'VU26185' && ns.fromSources[0].kg === 300);
-  ok('...and the pool keeps 100 Kg, its source list drawn down to match', +pool.plannedKg === 100 && pool.sources[0].kg === 100); }
+  ok('...and the pool keeps 100 Kg, its source list drawn down to match', +pool.plannedKg === 100 && pool.sources[0].kg === 100);
+  /* Tahir: the Nitro Sulfur pool can be called into a new Sulfur Coated Urea batch too */
+  eq('the pool can be called into Nitro Sulfur or Sulfur Coated Urea', JSON.stringify(w.callBpTargets(pool)), '["Nitro Sulfur","Sulfur Coated Urea"]');
+  w.openCallBp(pool.id); ok('...the call sheet asks which', /Call it into a new batch of/.test(w.html) && /Sulfur Coated Urea/.test(w.html));
+  vm.runInContext("callBpForm.qty='100'; callBpForm.batchNo='VU26191'; callBpForm.target='Sulfur Coated Urea';", w); w.submitCallBp();
+  const vu = w.state.batches.find(x => x.batchNo === 'VU26191');
+  ok('...a new Sulfur Coated Urea batch VU26191 from the pool, traced to VU26185', vu && vu.base === 'Sulfur Coated Urea' && vu.sourcePoolBase === 'Nitro Sulfur' && vu.fromSources[0].sourceBatchNo === 'VU26185');
+  eq('...the pool is empty', +pool.plannedKg, 0); }
+ok('the loss reasons include material, weight, moisture and packing loss', /\['Material loss','Weight loss','Moisture loss','Packing loss'\]/.test(grab('renderReconcile')));
 ok('Ready to pack: Packing finished for the Production Manager (packing.reconcile)', /edRecon&&rem>0\.5&&st!=='producing'&&st!=='qc'/.test(grab('prodStageList')) && /Packing finished · reconcile \/ move<\/button>/.test(grab('prodStageList')) && /edClose&&b\.status==='open'&&st==='pack'/.test(grab('prodStageList')));
 ok('the batch passport offers it too, closed batches included', /Packing finished — account for/.test(grab('_pcLifeAction')) && /Packing finished — account for the rest/.test(grab('_pcLifeAction')));
 

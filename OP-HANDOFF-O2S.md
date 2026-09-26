@@ -5751,3 +5751,10 @@ Built: Ready to pack cards and the passport (closed batches included) offer "Pac
 File for Abdul Majid: Claude outputs/Batch leftovers to account 26 Sep 2026.xlsx (57 rows, totals checked 147,374 / 11,025 SCU / 6 closed 24,412; yellow columns Decision, Kg, Loss reason, Note).
 Tests: fixes26a 117; batchclose updated. Suite 10,660 passed, 0 failed. Browser (disposable copy): Ready to pack shows both buttons, the reconcile and shift forms render; 0 errors.
 Open for Tahir: the SCU pre-fill puts the WHOLE leftover as by-product — on a batch pressed before packing ends it would pre-fill thousands of Kg. Asked whether to keep.
+
+
+## Pass fifty-nine — 26b: pool called into either product; loss reasons; live clean-up of the 2 duplicate lots (26 Sep)
+
+Live: Tahir pushed 26a (live BUILD_ID 2026-09-26a confirmed). On his instruction Claude cleared AP26012-L2 and VMG10419-L2 on live with the leftover-duplicate Remove (COO session, reason "duplicate", register entries written): AP26012 lots 2 → 1, produced 1,010 unchanged, shift entries 2 → 1, production-log rows 8 → 4; VMG10419 lots 2 → 1, produced 145 unchanged, shift entries 2 → 1, log rows 2 → 1. Server copy re-read: saved (rev 9913); the 2 lab jobs are gone. Re-check later in case an old open page puts one back.
+Rulings (26 Sep): the Nitro Sulfur pool is an accumulation that can be called into a new Nitro Sulfur OR a new Sulfur Coated Urea batch; every batch needs a reconciliation for material, weight, moisture and packing loss so it can be closed without packing every Kg.
+Built: callBpTargets (pool's product + every product whose rule feeds it), a "Call it into a new batch of" choice, new batch records sourcePoolBase and fromSources; reconcile loss reasons add Material / Weight / Moisture / Packing loss beside the Lists reasons. BUILD_ID 2026-09-26b with its own changelog entry (the leftover items moved there from 26a, which is already live). Tests fixes26a 122; suite 10,665 passed, 0 failed. NOT pushed.

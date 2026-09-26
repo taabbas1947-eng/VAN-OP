@@ -106,6 +106,13 @@ ok('How it works: an order carries terms, ERP SO and the 5% price reason (25j)',
   ok('The rules: a leftover duplicate lot is removed as a record only (26a)', /leftover duplicate/.test(rules) && /produced does not change/.test(rules));
   ok('The rules: see it before you sign it; every no has a way back, and to whom (26a)', /See it before you sign it; every no has a way back/.test(rules) && /the PO goes back to whoever entered it, the purchase request to Supply Chain/.test(rules) && /nothing waits without an owner/.test(rules));
   ok('How it works: Packing finished and the ways to account for a leftover (26a)', /presses <b>Packing finished<\/b>/.test(how3) && /Sulfur Coated Urea goes to the Nitro Sulfur pool/.test(how3) && /keep as bulk stock/.test(how3));
+  ok('How it works: PR refuse and PO send back (26a)', /refuses with a reason that goes back to Supply Chain/.test(how3) && /send a wrong PO back to whoever entered it/.test(how3));
+  const jb = grab('guideMyJob');
+  ok('My job: a New on 26 Sep note for every role touched (26a)', ['Production Manager','Production','Plant Manager','Supply Chain','Warehouse','Supply Chain Officer','CFO','Finance','Finance Desk Officer','QCM','AQCM','Lab Rep'].every(r => jb.indexOf("'" + r + "':") > -1) && /New on 26 Sep/.test(jb));
+  const ref = grab('screenInstructions');
+  ok('Reference steps: acknowledge / send back, PR refuse, close batch short, Packing finished, lab send back, truck sheet (26a)', /Send back<\/b> with a reason to whoever entered it/.test(ref) && /<b>refuses<\/b> it with a reason/.test(ref) && /closing a batch never closes the order/.test(ref) && /Packing finished · reconcile \/ move/.test(ref) && /sent back one step at a time, always with a note/.test(ref) && /View DC<\/b>/.test(ref));
+  ok('Reference roles: Production Manager, Plant Manager, CFO, QCM, AQCM, Lab Rep, Supply Chain updated (26a)', /calls the <b>Nitro Sulfur pool<\/b>/.test(ref) && /refuse it with a reason|refuse<\/b> a close request|<b>refuse<\/b> it with a reason/.test(ref) && /send it back to the AQCM<\/b>/.test(ref) && /send it back to the analyst<\/b>/.test(ref) && /comes to you by name, with the note/.test(ref) && /ask to close only the products you tick/.test(ref));
+  ok('Back Office: the CFO can send a new customer back (26a)', /<b>sends it back<\/b> with a reason to whoever entered it/.test(grab('backOfficeManualCard')));
   const TL = grabTopVar('TD_LABEL', '{');
   ok('Today labels the new jobs (26a)', /'Correct COA':\s*\{title:'COA sent back to you to correct'/.test(TL) && /'Refused':\s*\{title:'Your close request was refused'/.test(TL) && /'Sent back':\s*\{title:'Truck sent back to you'/.test(TL)); }
 process.exitCode = report('The Guide keeps up (24z)') ? 1 : 0;

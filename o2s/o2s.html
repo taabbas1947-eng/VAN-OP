@@ -409,7 +409,11 @@ var CHANGELOG=[
     "UNFIT lot sent to rework: the Plant Manager gives the reason; the failed report is kept on the lot; Production gets Rework lot on Today and presses Rework done with what was done; only then does the lab test the lot again.",
     "A packed lot on QA hold goes to the Production Manager's Today with the reason: fix it, say what was fixed, and QA re-inspects.",
     "Confirm delivery asks the condition on arrival: all received, some refused, arrived short, or some damaged, with the Kg/L and a note. It is recorded on the delivery and shown on the shipment; delivered quantities are not changed.",
-    "A customer waiting for the CFO can no longer be made Active with Reactivate; only the CFO's approval makes it Active."
+    "A customer waiting for the CFO can no longer be made Active with Reactivate; only the CFO's approval makes it Active.",
+    "The Rejected COAs report lists every report sent back down the lab chain (who, to whom, the note) and every UNFIT lot sent to rework, with the reason. It showed 0 since send-back replaced reject.",
+    "RM Check can no longer replace a purchase request that is waiting, approved or refused: it says which sheet to use instead. A closed request is kept in the line's history before a new check. The Plant screen opens the right sheet for each.",
+    "When the COO closes a product that someone had asked to close, their request is kept: in the line's history and on the close, with who asked and why.",
+    "A packed lot that fails QA needs the inspector's reason in Remarks; the Supply Chain job shows it."
   ]}
 ];
 </script>
@@ -6321,6 +6325,7 @@ let rmForm={oid:null,lid:null,status:'full',canMake:'',unit:'kg'};
 function rmMakeKg(){ var o=state.orders.find(x=>x.id===rmForm.oid); var l=o&&o.lines.find(x=>x.id===rmForm.lid); var ord=(l&&+l.ordered)||0; var v=+rmForm.canMake||0; if(rmForm.unit==='pct') v=ord*v/100; return Math.max(0,Math.min(ord,Math.round(v))); }
 function openRMCheck(oid,lid){ if(!may('rm.check')){toast(denyRight('rm.check','RM Check'));return;} const o=state.orders.find(x=>x.id===oid); const l=o&&o.lines.find(x=>x.id===lid); if(!l)return;
   { var _sc=shortCloseRefusal(o,l,'An RM check'); if(_sc){toast(_sc);return;} }
+  { var _pb=rmPRBlocks(l); if(_pb){ toast(_pb); return; } }
   rmForm={oid,lid,status:(l.rmStatus&&l.rmStatus!=='pending'?l.rmStatus:'full'),canMake:(l.rmStatus==='partial'&&l.canMakeKg!=null?l.canMakeKg:''),unit:'kg'};
   renderRMModal(); $('modalBg').classList.add('open'); }
 function closeModal(){ $('modalBg').classList.remove('open'); try{$('modal').classList.remove('coa');$('modal').classList.remove('shipdrawer');$('modal').classList.remove('whatsnew');}catch(e){} }
@@ -6349,6 +6354,16 @@ function renderRMModal(){ const o=state.orders.find(x=>x.id===rmForm.oid); const
    <div class="mb">${seg}${body}<div class="muted" style="font-size:11px;margin-top:14px">Confirmation only — raw-material stock lives in the ERP, not here. Partial / none raises a product-quantity PR for CFO approval; top it up with “Confirm received” on Today as RM arrives.</div></div>
    <div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" onclick="rmSubmit()">${rmForm.status==='full'?'Confirm — materials ready':'Confirm RM check'}</button></div>`;
 }
+/* 26c - RM CHECK NO LONGER WIPES A PURCHASE REQUEST. Running RM Check again replaced
+   l.rmPR outright: a CFO approval, a refusal and its reason, and what had been received
+   against it were gone. Now an OPEN request (waiting, approved or refused) blocks a new
+   RM Check and names the sheet that handles it; a closed one is kept in l.rmPRHistory
+   before the new check replaces it. */
+function rmPRBlocks(l){ var pr=l&&l.rmPR; if(!pr||pr.closed) return null;
+  if(pr.refused) return 'The purchase request on this line was refused. Open it (PR refused) to ask again or drop it \u2014 RM Check cannot replace it.';
+  if(pr.cfoApproved) return 'The purchase request on this line is approved and waiting for material. Use Confirm RM received \u2014 RM Check cannot replace it.';
+  return 'A purchase request on this line is waiting for the CFO. RM Check cannot replace it while it waits.'; }
+function rmPRArchive(l){ if(!l||!l.rmPR) return; l.rmPRHistory=(l.rmPRHistory||[]).concat([Object.assign({id:'RPH'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),replacedAt:new Date().toISOString(),replacedBy:(state.currentUser&&state.currentUser.name)||state.role},JSON.parse(JSON.stringify(l.rmPR)))]); }
 function rmSubmit(){
   /* Opener and writer both ask rm.check — the same shape as rm.receive's fix on
      25 Aug. Before this, rmSubmit checked nothing at all: openRMCheck was the
@@ -6356,6 +6371,8 @@ function rmSubmit(){
      print-on-pack Save went unguarded in August. */
   if(!may('rm.check')){toast(denyRight('rm.check','RM Check'));return;}
   const o=state.orders.find(x=>x.id===rmForm.oid); const l=o.lines.find(x=>x.id===rmForm.lid); const today=TODAY.toISOString().slice(0,10); var ord=+l.ordered||0;
+  { var _pb=rmPRBlocks(l); if(_pb){ toast(_pb); return; } }
+  rmPRArchive(l);
   l.rmCheck=today; l.rmModel='confirm';
   var mk=(rmForm.status==='full')?ord:((rmForm.status==='partial')?rmMakeKg():0);
   if(mk>=ord){ l.rmStatus='full'; l.rmReady=today; l.canMakeKg=null; l.rmPR=null; l.prRaised='';
@@ -11025,10 +11042,11 @@ function renderLotQA(){ const p=lotById(lotQAForm.lotId); if(!p){closeModal();re
      <table><thead><tr><th>Checklist item</th><th style="width:180px">Result</th></tr></thead><tbody>${rows}</tbody></table>
      <div class="fld" style="margin-top:10px"><label>Inspector name (shared QA login)</label><input type="text" value="${(lotQAForm.officer||'').replace(/"/g,'&quot;')}" oninput="lotQAForm.officer=this.value"></div>
      ${evDateField('lotQAForm','date','lotqa','Date this lot was actually inspected','renderLotQA()')}
-     <div class="fld fld-long" style="margin-top:8px"><label>Remarks</label><textarea rows="3" oninput="lotQAForm.remarks=this.value" placeholder="what did you see? note anything the checklist does not cover.">${_tx(lotQAForm.remarks||'')}</textarea></div>
+     <div class="fld fld-long" style="margin-top:8px"><label>Remarks (needed if anything fails)</label><textarea rows="3" oninput="lotQAForm.remarks=this.value" placeholder="what did you see? note anything the checklist does not cover.">${_tx(lotQAForm.remarks||'')}</textarea></div>
    </div>
    <div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" onclick="lotQASubmit()">Save inspection</button></div>`; }
-function lotQASubmit(){ const p=lotById(lotQAForm.lotId); if(!p)return; if(lotQAForm.marks.some(m=>!m)){toast('Mark every item Pass or Fail');return;} if(!(lotQAForm.officer||'').trim()){toast('Enter inspector name');return;}
+function lotQASubmit(){ if(!(canEdit(['QA Inspector'])||state.role==='COO')){toast('QA Inspector only');return;} const p=lotById(lotQAForm.lotId); if(!p)return; if(lotQAForm.marks.some(m=>!m)){toast('Mark every item Pass or Fail');return;}
+  if(lotQAForm.marks.some(m=>m==='fail') && String(lotQAForm.remarks||'').trim().length<5){toast('The lot fails: write in Remarks what failed (at least 5 characters). Whoever corrects it reads this.');return;} /* 26c */ if(!(lotQAForm.officer||'').trim()){toast('Enter inspector name');return;}
   const _dg=evDateGate(lotQAForm,'date','lotqa'); if(_dg){toast(_dg);return;}
   const anyFail=lotQAForm.marks.some(m=>m==='fail'); const d=lotQAForm.date||evToday();
   p.qa=Object.assign(evStamp(d,'lotqa',lotQAForm.dateReason),{pass:!anyFail, fail:anyFail, by:lotQAForm.officer.trim(), date:d, checklist:QC_CHECKLIST.map((it,i)=>({item:it,result:lotQAForm.marks[i]})), remarks:lotQAForm.remarks||''});
@@ -12438,7 +12456,7 @@ function actionItems(){
       deliveryJobs(g).forEach(function(x){ items.push(x); }); /* 25e */
   });
   dispatchGroups().filter(g=>g.dispId&&g.qa==='pending').forEach(g=>items.push({role:'QA Inspector',what:'Pre-shipment inspection — '+g.po+' ('+g.rows.length+' product(s), '+fmt(g.kg)+' Kg/L)',act:"openDispatchQA('"+g.dispId+"')",label:'Inspect',disp:g}));
-  (state.packingLog||[]).filter(p=>p&&p.qa&&p.qa.fail).forEach(p=>items.push({role:'Supply Chain',lot:p,what:'QA failed lot — correct & resubmit ('+p.brand+')',act:"lotQACorrect('"+p.id+"')",label:'Correct'}));
+  (state.packingLog||[]).filter(p=>p&&p.qa&&p.qa.fail).forEach(p=>items.push({role:'Supply Chain',lot:p,what:'QA failed lot — correct & resubmit ('+_pe(p.brand||'')+(p.qa.remarks?(': \u201c'+_pe(String(p.qa.remarks).slice(0,90))+'\u201d'):'')+')',act:"lotQACorrect('"+p.id+"')",label:'Correct'}));
   (state.packingLog||[]).filter(p=>p&&p.qaHold).forEach(p=>items.push({role:'Production Manager',lot:p,what:'QA held lot — fix it, then send for re-inspection ('+_pe(p.brand||'')+(p.brandBatchNo?(' · '+_pe(p.brandBatchNo)):'')+(p.qaHold&&p.qaHold.reason?(': \u201c'+_pe(String(p.qaHold.reason).slice(0,90))+'\u201d'):'')+')',act:"clearQaHold('"+p.id+"')",label:'Re-inspect'})); /* 26c: Tahir - the Production Manager fixes a held lot */
   /* CLOSE A FINISHED BATCH — added 2026-08-21.
      NOT ONE batch has ever been closed: 0 of 69. The button exists, on the
@@ -13964,11 +13982,20 @@ function submitClosePO(){
   }
   if(!(state.role==='COO'||may('po.close'))){ toast('Closing a PO is the COO’s.'); return; }
   var now=new Date().toISOString(), who=scWho(), closedKg=0, n2=0;
-  open.forEach(function(l){ var g=Math.max(0,(+l.ordered||0)-(+l.delivered||0)); scArchive(l); l.shortClose=Object.assign({requestedBy:who,requestedAt:now,reasonCode:f.reasonCode,reason:String(f.reason||'').trim(),approvedBy:who,approvedAt:now,poClose:true},scFreeze(l)); closedKg+=g; n2++; });
+  /* 26c: a request someone was waiting on is kept - in the line history and on the close
+     itself - instead of being written over by the direct close. */
+  var _granted=[];
+  open.forEach(function(l){ var g=Math.max(0,(+l.ordered||0)-(+l.delivered||0));
+    var _w=lineShortRequested(l)?JSON.parse(JSON.stringify(l.shortClose)):null;
+    if(_w){ l.shortCloseHistory=(l.shortCloseHistory||[]).concat([Object.assign({id:'SCH'+Date.now().toString(36)+Math.random().toString(36).slice(2,6)},_w,{outcome:'Closed directly by '+who,outcomeAt:now})]); _granted.push(l.brand+' (asked by '+(_w.requestedBy||'')+')'); }
+    else scArchive(l);
+    l.shortClose=Object.assign({requestedBy:who,requestedAt:now,reasonCode:f.reasonCode,reason:String(f.reason||'').trim(),approvedBy:who,approvedAt:now,poClose:true},
+      _w?{request:{by:_w.requestedBy||'',user:_w.requestedUser||'',role:_w.requestedRole||'',at:_w.requestedAt||'',reasonCode:_w.reasonCode||'',reason:_w.reason||''}}:{}, scFreeze(l)); closedKg+=g; n2++; });
   if(!cpOpenLines(o).length) o.closed={at:now,by:who,reasonCode:f.reasonCode,reason:String(f.reason||'').trim(),lines:n2,kg:closedKg};
   if(one) logAction('Line closed by the COO — '+open[0].brand+' on '+o.po+', '+fmt(closedKg)+' Kg/L closed short: '+(scReason(f.reasonCode)||{}).label+(f.reason?' — '+f.reason:'')+(o.closed?' (the whole PO is now closed)':''));
   else logAction((o.closed?'PO CLOSED by the COO — ':'Lines closed by the COO — ')+o.po+' · '+n2+' line'+(n2===1?'':'s')+', '+fmt(closedKg)+' Kg/L closed short: '+(scReason(f.reasonCode)||{}).label+(f.reason?' — '+f.reason:''));
   (state.audit=state.audit||[]).unshift({t:now,user:who,module:'PO',po:o.po,brand:one?open[0].brand:open.map(function(l){return l.brand;}).join(', '),field:o.closed&&!one?'PO closed':'Line closed',old:'',val:fmt(closedKg)+' Kg/L · '+(scReason(f.reasonCode)||{}).label});
+  if(_granted.length) logAction('Waiting close request'+(_granted.length===1?'':'s')+' on '+o.po+' closed by the direct close and kept in the line history: '+_granted.join(', '));
   cpForm=null; save(); closeModal(); render(); toast((one?open[0].brand+' on '+o.po:(n2+' products on '+o.po))+' closed — '+fmt(closedKg)+' Kg/L closed short. Packed stock can still ship.');
 }
 function closeLineButtonHTML(o,l){ var m=cpMode(); if(!m||!o||!l||!cpOpenLines(o,l.id).length) return ''; return '<button class="qs-btn sm'+(m==='close'?'':' ghost')+'" onclick="openClosePO(\''+qsEsc(o.id)+'\',\''+qsEsc(l.id)+'\')">'+(m==='close'?'Close this line':'Ask to close this line')+'</button>'; }
@@ -14301,7 +14328,7 @@ function guideMyJob(){
   var _n26={'Production Manager':'A packed lot on <b>QA hold</b> comes to you with the inspector’s reason: fix it, say what was fixed, and QA re-inspects. An UNFIT lot sent to rework comes as <b>Rework lot</b>. <b>Packing finished · reconcile / move</b> is yours on every batch with a leftover (Ready to pack or the batch passport): loss with its reason, by-product (Sulfur Coated Urea goes to the Nitro Sulfur pool), divert, rework, or keep as bulk stock. You call the Nitro Sulfur pool into a new Nitro Sulfur or Sulfur Coated Urea batch, and close batches from their card or your Today. A lot marked <b>leftover duplicate</b> is removed as a record only; produced does not change.',
     'Production':'An UNFIT lot the Plant Manager sends to rework comes to you as <b>Rework lot</b> with the reason: rework it, then press Rework done and say what was done; the lab tests it again after that. <b>Close batch</b> sits beside Log output once a batch has output, so a batch that stops short of its plan can be closed with the reason.',
     'Plant Manager':'Release, Approve DC and the close requests open the record first, from Today and from the Plant screen. A batch closed short of plan comes to you as <b>Yield short</b> with the reason: read it and mark it Seen. Sending an UNFIT lot to rework now asks why; the failed report is kept and Production is told. <b>Send back</b> a truck with a reason to whoever issued its gate pass; <b>refuse</b> a close request with a reason that goes back to the person who asked; a DC rejection needs a reason.',
-    'Supply Chain':'Confirm delivery asks the condition on arrival — refused, short or damaged are recorded with the Kg/L and a note. A truck that fails inspection comes to you as <b>Truck failed</b> with the inspector’s reason: plan it again when the material is fixed. Acknowledge opens the PO first; <b>send it back</b> with a reason to whoever entered it. Review truck opens the truck, its DC and gate pass; send it back to the warehouse if something is wrong. Ask to close only the products you tick. A refused PR or close comes back to you with the reason: ask again or leave it.',
+    'Supply Chain':'RM Check will not replace a purchase request that is waiting, approved or refused — use Receive, or ask again / drop from PR refused. Confirm delivery asks the condition on arrival — refused, short or damaged are recorded with the Kg/L and a note. A truck that fails inspection comes to you as <b>Truck failed</b> with the inspector’s reason: plan it again when the material is fixed. Acknowledge opens the PO first; <b>send it back</b> with a reason to whoever entered it. Review truck opens the truck, its DC and gate pass; send it back to the warehouse if something is wrong. Ask to close only the products you tick. A refused PR or close comes back to you with the reason: ask again or leave it.',
     'Warehouse':'Issuing a gate pass shows the truck first. A truck sent back by Saad or the Plant Manager comes to you with the reason: fix it (Edit the shipment) and send it for review again.',
     'Supply Chain Officer':'Issuing a gate pass shows the truck first. A truck sent back by Saad or the Plant Manager comes to you with the reason: fix it (Edit the shipment) and send it for review again.',
     'CFO':'Approve PR and Approve customer open the record first. <b>Refuse</b> a purchase request with a reason (it goes back to Supply Chain); <b>send back</b> a new customer to whoever entered it.',
@@ -14309,7 +14336,7 @@ function guideMyJob(){
     'Finance Desk Officer':'A PO or a new customer sent back to you shows the reason on your Today: correct it and send it on again.',
     'QCM':'Before approving you can <b>send a report back to the AQCM</b> with a note; the corrected report is reviewed and approved again. An approved certificate is re-issued, not sent back.',
     'AQCM':'Before reviewing you can <b>send a report back to the analyst</b> who drafted it, with a note. A report the QCM sends back to you says why: review it again or send it on to the analyst.',
-    'QA Inspector':'When a truck fails pre-shipment inspection, write what failed in Remarks — it is required, and Supply Chain reads it to plan the truck again.',
+    'QA Inspector':'When a truck or a packed lot fails inspection, write what failed in Remarks — it is required, and the person who fixes it reads it.',
     'Lab Rep':'A report sent back to you shows the note on your Today and on the report: correct it and submit again.'}[role];
   if(_n26) h+='<div class="note" style="margin-top:10px"><b>New on 26 Sep.</b> '+_n26+'</div>';
   if(role==='COO') h+='<div class="note" style="margin-top:10px">You do not sign certificates (ISO: management does not sign). You switch the lab’s test assignment on, and you can assign, reject or re-issue — never sign.</div>';
@@ -16097,7 +16124,16 @@ function dashOpsMetrics(){
   behind.sort(function(a,b){return b.days-a.days;});
   var behindPOCount=Object.keys(behindPOs).length;
   var stuck=stuckBatches();
-  var qcRej=[]; (state.batches||[]).forEach(function(b){ var lots=(b.lots&&b.lots.length)?b.lots:[{coa:b.coa}]; lots.forEach(function(u){ var c=u&&u.coa; if(c&&c.rejected&&inR(c.rejected.date)){ qcRej.push({batch:b.batchNo||'',product:b.brand||b.base||'',stage:c.rejected.stage||'',by:c.rejected.by||'',why:c.rejected.why||'',date:c.rejected.date||''}); } }); });
+  /* 26c: since 26a a report is SENT BACK (coa.returns), not "rejected" (coa.rejected, which
+     nothing writes any more), so this list read 0. It now reads all three: send-backs down
+     the lab chain, UNFIT lots sent to rework (kept in coaHistory), and any old rejection. */
+  var qcRej=[]; (state.batches||[]).forEach(function(b){ var lots=(b.lots&&b.lots.length)?b.lots:[b]; lots.forEach(function(u){ if(!u) return; var bn=(u.lotNo||b.batchNo||''), pr=b.brand||b.base||'';
+    var cs=[u.coa].concat(u.coaHistory||[]).filter(Boolean), _seenR={};
+    cs.forEach(function(c){
+      if(c.rejected&&inR(c.rejected.date)) qcRej.push({batch:bn,product:pr,stage:c.rejected.stage||'',by:c.rejected.by||'',why:c.rejected.why||'',date:c.rejected.date||''});
+      (c.returns||[]).forEach(function(r){ if(!r||(r.id&&_seenR[r.id])) return; if(r.id) _seenR[r.id]=1; var dt=String(r.at||'').slice(0,10); if(inR(dt)) qcRej.push({batch:bn,product:pr,stage:'Sent back by '+(r.from||'')+' to '+(r.to==='analyst'?'the analyst':(r.to||'')),by:r.by||'',why:r.note||'',date:dt}); });
+      if(c.reworkAt){ var rd=String(c.reworkAt).slice(0,10); if(inR(rd)) qcRej.push({batch:bn,product:pr,stage:'UNFIT \u2014 sent to rework',by:c.reworkBy||'',why:c.reworkWhy||'',date:rd}); } }); }); });
+  qcRej.sort(function(a,b){ return a.date<b.date?1:(a.date>b.date?-1:0); });
   var wasteKg=0,wasteCost=0,wasteInv=0,wasteRows=[];
   (state.batches||[]).forEach(function(b){ var pr=b.packReconcile; if(!pr||!inR(pr.date)) return; var lk=+pr.loss||0; if(lk<=0) return; wasteKg+=lk;
     wasteRows.push({batch:b.batchNo||'',product:b.brand||b.base||'',kg:lk,reason:pr.lossReason||'',date:pr.date||''}); });
@@ -16129,7 +16165,7 @@ function fireLists(){
     if((rm==='short'||rm==='partial'||(pr&&!pr.closed)) && (+l.produced||0)<(+l.ordered||0)){
       var why=rm==='short'?'raw material short':rm==='partial'?'raw material partial':'waiting on raw material';
       if(pr&&!pr.closed) why+=pr.cfoApproved?' \u00b7 PR approved, not received':' \u00b7 PR waiting for the CFO';
-      material.push({po:o.po,client:o.client||'',brand:l.brand,need:Math.max(0,(+l.ordered||0)-(+l.produced||0)),why:why,days:days,act:(pr&&!pr.closed&&!pr.cfoApproved&&!pr.refused)?("openPRSheet('line','"+o.id+"','"+l.id+"')"):("openRMCheck('"+o.id+"','"+l.id+"')")}); }
+      material.push({po:o.po,client:o.client||'',brand:l.brand,need:Math.max(0,(+l.ordered||0)-(+l.produced||0)),why:why,days:days,act:(pr&&!pr.closed&&pr.refused)?("openPRRefused('line','"+o.id+"','"+l.id+"')"):(pr&&!pr.closed&&pr.cfoApproved)?("openRMReceive('"+o.id+"','"+l.id+"')"):(pr&&!pr.closed)?("openPRSheet('line','"+o.id+"','"+l.id+"')"):("openRMCheck('"+o.id+"','"+l.id+"')")}); } /* 26c: each state opens its own sheet */
   }); });
   delayed.sort(function(a,b){ return b.days-a.days; });
   material.sort(function(a,b){ return b.days-a.days; });

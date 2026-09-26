@@ -144,6 +144,48 @@ ok('the Production Manager can clear a hold after fixing it', /state\.role==='Pr
 { const c = grab('custToggleStatus');
   ok('"Reactivate" refuses a customer waiting for the CFO', c.indexOf("if(c.status==='Pending approval'){") > -1 && c.indexOf("if(c.status==='Pending approval'){") < c.indexOf("c.status=((c.status||'Active')==='Active')")); }
 
+/* ---------- the Rejected COAs report reads send-backs and UNFIT reworks ---------- */
+{ const i = src.indexOf('  var qcRej=[]; (state.batches||[]).forEach(function(b){ var lots=(b.lots&&b.lots.length)?b.lots:[b];');
+  const j = src.indexOf('qcRej.sort(', i); const body = src.slice(i, src.indexOf(';', src.indexOf('});', j)) + 1);
+  const state = { batches: [
+    { id: 'B1', batchNo: 'AP26012', base: 'V-Ammonium Phosphate', lots: [
+      { lotNo: 'AP26012-L1', coa: { status: 'analysed', returns: [{ id: 'R1', from: 'QCM', to: 'AQCM', by: 'Himayat', at: '2026-09-26T10:00:00Z', note: 'Moisture result missing' }] },
+        coaHistory: [{ status: 'failed', reworkAt: '2026-09-25T09:00:00Z', reworkBy: 'Plant Head', reworkWhy: 'P2O5 below spec', returns: [{ id: 'R1', from: 'QCM', to: 'AQCM', by: 'Himayat', at: '2026-09-26T10:00:00Z', note: 'dup' }] }] } ] },
+    { id: 'B2', batchNo: 'HG26001', base: 'Humate', coa: { rejected: { date: '2026-09-20', stage: 'review', by: 'Old', why: 'old style' } } },
+    { id: 'B3', batchNo: 'X', base: 'Y', coa: { returns: [{ id: 'R9', from: 'AQCM', to: 'analyst', by: 'A', at: '2025-01-01T00:00:00Z', note: 'out of range' }] } } ] };
+  const inR = d => { d = String(d || '').slice(0, 10); return d >= '2026-09-01' && d <= '2026-09-30'; };
+  const qcRej = new Function('state', 'inR', body + '\nreturn qcRej;')(state, inR);
+  eq('the report counts a send-back, an UNFIT rework and an old rejection (in the period, no duplicates)', qcRej.length, 3);
+  ok('...the send-back says who sent it to whom, with the note', qcRej.some(r => r.stage === 'Sent back by QCM to AQCM' && r.why === 'Moisture result missing' && r.batch === 'AP26012-L1'));
+  ok('...the UNFIT rework shows its reason', qcRej.some(r => /UNFIT/.test(r.stage) && r.why === 'P2O5 below spec' && r.by === 'Plant Head'));
+  ok('...newest first', qcRej[0].date >= qcRej[qcRej.length - 1].date); }
+
+/* ---------- RM Check cannot wipe a purchase request ---------- */
+{ const ctx = { state: { currentUser: { name: 'Saad Jamal' }, role: 'Supply Chain' }, JSON, Object, Date, Math, String };
+  vm.createContext(ctx); vm.runInContext(grab('rmPRBlocks') + '\n' + grab('rmPRArchive'), ctx);
+  ok('an RM Check is blocked while a PR waits for the CFO', /waiting for the CFO/.test(ctx.rmPRBlocks({ rmPR: { qty: 500, closed: false } })));
+  ok('...or is approved (use Confirm RM received)', /Confirm RM received/.test(ctx.rmPRBlocks({ rmPR: { qty: 500, cfoApproved: '2026-09-20' } })));
+  ok('...or is refused (ask again or drop it)', /ask again or drop/.test(ctx.rmPRBlocks({ rmPR: { qty: 500, refused: { by: 'CFO', why: 'x' } } })));
+  ok('...but not when there is no PR, or it is closed', ctx.rmPRBlocks({}) === null && ctx.rmPRBlocks({ rmPR: { closed: true } }) === null);
+  const l = { rmPR: { qty: 500, closed: true, closedWhy: 'Refused by CFO: price', refused: { by: 'CFO', why: 'price' } } }; ctx.rmPRArchive(l);
+  ok('a closed PR is kept in the line history before a new check replaces it', l.rmPRHistory.length === 1 && l.rmPRHistory[0].closedWhy === 'Refused by CFO: price' && l.rmPRHistory[0].replacedBy === 'Saad Jamal');
+  const rs = grab('rmSubmit');
+  ok('rmSubmit checks the block and archives BEFORE it writes', rs.indexOf('rmPRBlocks(l)') > -1 && rs.indexOf('rmPRArchive(l)') > -1 && rs.indexOf('rmPRArchive(l)') < rs.indexOf('l.rmPR=null') && rs.indexOf('rmPRArchive(l)') < rs.indexOf('l.rmPR={qty'));
+  ok('openRMCheck refuses up front too', /rmPRBlocks\(l\)/.test(grab('openRMCheck')));
+  ok('the Plant screen opens the right sheet for each PR state', src.includes(`(pr&&!pr.closed&&pr.refused)?("openPRRefused('line'`) && src.includes(`(pr&&!pr.closed&&pr.cfoApproved)?("openRMReceive(`)); }
+
+/* ---------- a direct close keeps the request someone was waiting on ---------- */
+{ const c = grab('submitClosePO');
+  ok('a waiting request goes into the line history with the outcome', /var _w=lineShortRequested\(l\)\?JSON\.parse\(JSON\.stringify\(l\.shortClose\)\):null;/.test(c) && /outcome:'Closed directly by '\+who/.test(c));
+  ok('...and the close itself names who asked and why', /request:\{by:_w\.requestedBy/.test(c) && /reason:_w\.reason/.test(c));
+  ok('...and it is logged', /Waiting close request/.test(c)); }
+
+/* ---------- a lot failing QA needs a reason; only QA inspects ---------- */
+{ const q = grab('lotQASubmit');
+  ok('only the QA Inspector (or COO) submits a lot inspection', /^function lotQASubmit\(\)\{ if\(!\(canEdit\(\['QA Inspector'\]\)\|\|state\.role==='COO'\)\)/.test(q));
+  ok('a failed lot needs Remarks (at least 5 characters), checked before anything is saved', /m==='fail'\) && String\(lotQAForm\.remarks\|\|''\)\.trim\(\)\.length<5/.test(q) && q.indexOf('.length<5') < q.indexOf('p.qa=Object.assign'));
+  ok('the "QA failed lot" job carries the reason', /p\.qa\.remarks\?\(': \\u201c'/.test(grab('actionItems'))); }
+
 (async () => {
   /* the AP26012 sequence: two conflicts in a row */
   { const w = world(), s = w.ctx.state, b = s.batches[0];

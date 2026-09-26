@@ -11,7 +11,7 @@
    a push keeps running the old code with nothing telling anybody. It sat at
    2026-09-04a through this whole day's work; rmqty/psi tests pinned the code,
    nothing pinned this. buildid.test.js now does. */
-var BUILD_ID='2026-09-26b';
+var BUILD_ID='2026-09-26c';
 var CHANGELOG=[
   {ver:'2026-09-04a', date:'2026-09-04', title:"Delivery, DC printing, and a new Reconciliation check", items:[
     "Delivery confirmation stays with Supply Chain \u2014 it no longer hands off to the Plant Manager. If one sits too long, it now re-flags the same Supply Chain owner every 3 days instead.",
@@ -398,6 +398,10 @@ var CHANGELOG=[
     "Sulfur Coated Urea leftover goes to the Nitro Sulfur pool. The pool is called into a new Nitro Sulfur or a new Sulfur Coated Urea batch, which names the batches it came from.",
     "Log shift output, Close batch and the reconcile sheet have the new look, with the batch's numbers on top.",
     "Guide: My job has a New on 26 Sep note for every role that changed; How the app works, The rules, Reference and Back Office cover every change of the day."
+  ]},
+  {ver:'2026-09-26c', date:'2026-09-26', title:"A closed batch stays closed", items:[
+    "Fixed: a batch closed while others were saving could come back open, with its close date still on it and the close missing from the log. AP26012 and the Sulfur Coated Urea batches closed today were hit. Any change made at a busy moment could be undone the same way; it no longer can.",
+    "The Plant screen's Open buttons now open the same sheet as Today: the truck, its DC and gate pass, or the purchase request, before you sign or send it back. They used to sign in one tap."
   ]}
 ];
 </script>
@@ -2901,6 +2905,17 @@ async function bootState(){
 
 /* 3-way merge so concurrent saves keep BOTH sides' edits (not just additions). */
 let _baseSnapshot=null, _saveRetries=0;
+/* 26c - THE BASELINE IS WHAT THE SERVER HAS, NEVER OUR UNSENT WORK. Found 26 Sep 2026
+   on AP26012: Abdul Majid closed it and it came back open, with closedDate, closedBy and
+   the 1,700 Kg variance still on it and the "closed" log row gone. Cause: after a save
+   conflict (409) or an auto-refresh, the baseline was re-taken from the MERGED local state
+   - which still held our not-yet-saved close. The next conflict then saw local == base
+   for "status" and took the server's older 'open'; new fields (closedDate...) survived
+   because the server had no such key, and the log row looked "removed by them". Any
+   action taken while others were saving could be undone the same way: two conflicts in a
+   row were enough. The baseline is now a copy of the server's own data at that rev, so our
+   unsent changes always count as ours. */
+function _srvCopy(d){ try{ return JSON.parse(JSON.stringify(dataOnly(d))); }catch(e){ return null; } }
 function _snapBase(){ try{ _baseSnapshot=JSON.parse(JSON.stringify(dataOnly(state))); }catch(e){ _baseSnapshot=null; } }
 function _arrId(a){ return Array.isArray(a)&&a.length>0&&a.every(x=>x&&typeof x==='object'&&!Array.isArray(x)&&x.id!=null); }
 function _eq(a,b){ try{ return JSON.stringify(a)===JSON.stringify(b); }catch(e){ return a===b; } }
@@ -2960,13 +2975,14 @@ async function saveNow(){ if(!_token) return; if(_buildStale){ toast('A newer ve
       const j=await r.json().catch(()=>null);
       if(j && j.data && j.data.orders){
         const base=_baseSnapshot||dataOnly(state);
+        const _srvBase=_srvCopy(j.data);   /* 26c: taken BEFORE the merge - ensureState may touch j.data's objects */
         const merged=ensureState(merge3(base, dataOnly(state), j.data));
         const cu=state.currentUser, sc=state.screen, ro=state.role, ex=state.expanded;
-        state=merged; state.currentUser=cu; state.role=ro; state.screen=sc; state.expanded=ex||{}; _rev=j.rev; _snapBase();
+        state=merged; state.currentUser=cu; state.role=ro; state.screen=sc; state.expanded=ex||{}; _rev=j.rev; _baseSnapshot=_srvBase;
         const ae=document.activeElement, busy=(ae&&/^(INPUT|SELECT|TEXTAREA)$/.test(ae.tagName))||($('modalBg')&&$('modalBg').classList.contains('open'));
         if(authed() && !busy) render();
         if(_saveRetries<5){ _saveRetries++; save(); }                 // re-save the merge against the latest rev
-        else { _saveRetries=0; toast('Synced with the team’s latest changes.'); }
+        else { _saveRetries=0; setTimeout(save,3000); }   /* 26c: never stop with our change unsent - try again shortly */
         return;
       }
       toast('Refreshed — please re-check your last change.');
@@ -3081,8 +3097,9 @@ function startSync(){ if(_syncOn)return; _syncOn=true; setInterval(async ()=>{
       // MERGE the server's changes into local (3-way, same as the save-conflict path) rather than a blind
       // replace — so a not-yet-saved local order/edit can never be clobbered by the background refresh.
       const base=_baseSnapshot||dataOnly(state);
+      const _srvBase=_srvCopy(j.data);
       state=ensureState(merge3(base, dataOnly(state), j.data)); state.currentUser=cu; state.role=ro; state.screen=sc; state.expanded=ex||{};
-      _rev=j.rev; _snapBase(); if(authed()) render();
+      _rev=j.rev; _baseSnapshot=_srvBase; if(authed()) render();
     }
   }catch(e){}
 }, 7000); }
@@ -14219,7 +14236,7 @@ function guideMyJob(){
   /* 26a: what changed in each role's job on 26 Sep */
   var _n26={'Production Manager':'<b>Packing finished · reconcile / move</b> is yours on every batch with a leftover (Ready to pack or the batch passport): loss with its reason, by-product (Sulfur Coated Urea goes to the Nitro Sulfur pool), divert, rework, or keep as bulk stock. You call the Nitro Sulfur pool into a new Nitro Sulfur or Sulfur Coated Urea batch, and close batches from their card or your Today. A lot marked <b>leftover duplicate</b> is removed as a record only; produced does not change.',
     'Production':'<b>Close batch</b> sits beside Log output once a batch has output, so a batch that stops short of its plan can be closed with the reason.',
-    'Plant Manager':'Release, Approve DC and the close requests open the record first. <b>Send back</b> a truck with a reason to whoever issued its gate pass; <b>refuse</b> a close request with a reason that goes back to the person who asked; a DC rejection needs a reason.',
+    'Plant Manager':'Release, Approve DC and the close requests open the record first, from Today and from the Plant screen. <b>Send back</b> a truck with a reason to whoever issued its gate pass; <b>refuse</b> a close request with a reason that goes back to the person who asked; a DC rejection needs a reason.',
     'Supply Chain':'Acknowledge opens the PO first; <b>send it back</b> with a reason to whoever entered it. Review truck opens the truck, its DC and gate pass; send it back to the warehouse if something is wrong. Ask to close only the products you tick. A refused PR or close comes back to you with the reason: ask again or leave it.',
     'Warehouse':'Issuing a gate pass shows the truck first. A truck sent back by Saad or the Plant Manager comes to you with the reason: fix it (Edit the shipment) and send it for review again.',
     'Supply Chain Officer':'Issuing a gate pass shows the truck first. A truck sent back by Saad or the Plant Manager comes to you with the reason: fix it (Edit the shipment) and send it for review again.',
@@ -14254,7 +14271,7 @@ function guideRules(){
   h+='<div class="gd-rule"><h3>Nothing is deleted</h3><p>An order line is closed short with a reason, never removed; the ordered quantity is never rewritten and cannot be typed anywhere: less is a close-short, more is a new order. To close, open the order and tick only the products to close; nothing is ticked for you. A few bags filled from finished stock or another product’s batch, which O2S does not track, are closed short as <b>Supplied from stock outside O2S</b> (not counted against us, and not a sale in O2S). A refused close needs a reason; it stays on the record and goes back to the person who asked, who asks again or leaves the line open. A lot that is an exact copy of another one, and that the batch total already leaves out, is a <b>leftover duplicate</b>: the Production Manager removes only the record, and produced does not change. A product or customer is deactivated, not deleted. A wrong entry is corrected under Correct a record, with a reason, in your name, and the correction sits beside the original in the register. If a number changed, the record shows who changed it and why.</p></div>'+
   '<div class="gd-rule"><h3>A number moves only with its record</h3><p>Packed moves with a packing run from a batch, dispatched with a truck, delivered with a delivery. None of them can be typed, and nothing can be packed beyond what the line ordered. When a line and its records disagree, open the line (Orders → the order → <b>History</b>, or the item on Back Office <b>Needs you</b>): it shows what is wrong, the line’s whole history, what the records show as the cause, and the fix — record the missing packing against its batch, bring packed back to its records, or stamp a delivery date from the truck — each with a reason in your name.</p></div>'+
   '<div class="gd-rule"><h3>The price on a new order</h3><p>Every price is checked against the last price this customer paid for the product, net of FED; for a first order, against the last price to anyone. More than 5% away needs a reason, written under the price, and it is kept on the order line with the last price it was compared with. Payment terms and the ERP SO # are part of every order; the SO # prints on the DC.</p></div>'+
-  '<div class="gd-rule"><h3>See it before you sign it; every no has a way back</h3><p>Every approval opens the record first: the PO before it is acknowledged, the purchase request before the CFO approves it, the new customer before the CFO approves it, the truck with its DC and gate pass before it is reviewed or released, the report before it is reviewed or approved. Every refusal or send-back needs a reason, stays on the record, and lands on the Today of the person who must act: the PO goes back to whoever entered it, the purchase request to Supply Chain, the customer to whoever entered it, the truck to whoever issued the gate pass, the report one step down the chain, a refused close to whoever asked, a rejected DC to Supply Chain, a sample not approved to whoever asked. They fix it and send it on, or drop it; nothing waits without an owner.</p></div>'+
+  '<div class="gd-rule"><h3>See it before you sign it; every no has a way back</h3><p>Every approval opens the record first: the PO before it is acknowledged, the purchase request before the CFO approves it, the new customer before the CFO approves it, the truck with its DC and gate pass before it is reviewed or released, the report before it is reviewed or approved. The Open buttons on the Plant screen open the same sheet. Every refusal or send-back needs a reason, stays on the record, and lands on the Today of the person who must act: the PO goes back to whoever entered it, the purchase request to Supply Chain, the customer to whoever entered it, the truck to whoever issued the gate pass, the report one step down the chain, a refused close to whoever asked, a rejected DC to Supply Chain, a sample not approved to whoever asked. They fix it and send it on, or drop it; nothing waits without an owner.</p></div>'+
   '<div class="gd-rule"><h3>The pre-shipment report</h3><p>No truck is released without a passed inspection. Every report is in Reports → Pre-shipment inspections, for everyone to find and print. A customer marked “Send the pre-shipment report with the DC” gets it attached to the challan.</p></div>'+
   '<div class="gd-rule"><h3>What a sale is</h3><p>A sale is counted the day the truck leaves the gate, at quantity × invoice price, net of FED. FED is the sales tax: on an order quoted FED-inclusive the price is divided by 1.05. Every money figure in the app — Sales & Budget, the reports, the PO register — uses this one rule.</p></div>';
   h+='<div class="gd-rule"><h3>Roles, not people</h3><p>Rights belong to roles. 2 people can hold one role and sign differently. There are no exceptions for one person — an exception becomes a new role, so it can be seen and given to the next person in that seat.</p></div>';
@@ -16039,17 +16056,20 @@ function fireLists(){
     if((rm==='short'||rm==='partial'||(pr&&!pr.closed)) && (+l.produced||0)<(+l.ordered||0)){
       var why=rm==='short'?'raw material short':rm==='partial'?'raw material partial':'waiting on raw material';
       if(pr&&!pr.closed) why+=pr.cfoApproved?' \u00b7 PR approved, not received':' \u00b7 PR waiting for the CFO';
-      material.push({po:o.po,client:o.client||'',brand:l.brand,need:Math.max(0,(+l.ordered||0)-(+l.produced||0)),why:why,days:days,act:(pr&&!pr.closed&&!pr.cfoApproved)?("approveRMPR('"+o.id+"','"+l.id+"')"):("openRMCheck('"+o.id+"','"+l.id+"')")}); }
+      material.push({po:o.po,client:o.client||'',brand:l.brand,need:Math.max(0,(+l.ordered||0)-(+l.produced||0)),why:why,days:days,act:(pr&&!pr.closed&&!pr.cfoApproved&&!pr.refused)?("openPRSheet('line','"+o.id+"','"+l.id+"')"):("openRMCheck('"+o.id+"','"+l.id+"')")}); }
   }); });
   delayed.sort(function(a,b){ return b.days-a.days; });
   material.sort(function(a,b){ return b.days-a.days; });
+  /* 26c: every button here opens the same sheet as Today - the document first, then
+     sign or send back. They used to sign in one tap (approveRelease, approveDC,
+     issueGatePass, approveRMPR), which skipped the 26a "see it before you sign it" fix. */
   dispatchGroups().forEach(function(g){ if(!g.dispId||g.delivered) return;
     var st=g.stage||'', why='', act='';
     if(g.qa==='pending'){ why='waiting for pre-shipment inspection'; act="openDispatchQA('"+g.dispId+"')"; }
     else if(g.qa==='fail'){ why='failed inspection \u2014 correct and resubmit'; act="setScreen('qa')"; }
-    else if(st==='loading'&&!g.gatePass){ why='loading, no gate pass yet'; act="issueGatePass('"+g.dispId+"')"; }
-    else if(st==='loading'&&g.gatePass){ why='loaded, waiting for release'; act="approveRelease('"+g.dispId+"')"; }
-    else if(g.dcStatus==='pending'){ why='DC '+(g.dc||'')+' waiting for approval'; act="approveDC('"+g.dispId+"')"; }
+    else if(st==='loading'&&!g.gatePass){ why='loading, no gate pass yet'; act="openTruckSign('"+g.dispId+"','gatepass')"; }
+    else if(st==='loading'&&g.gatePass){ why='loaded, waiting for release'; act="openTruckSign('"+g.dispId+"','release')"; }
+    else if(g.dcStatus==='pending'){ why='DC '+(g.dc||'')+' waiting for approval'; act="openTruckSign('"+g.dispId+"','approvedc')"; }
     else if(st==='in_transit'){ why='in transit, delivery not confirmed'; act="openDeliveryConfirm('"+g.dispId+"')"; }
     else if(st==='truck_planned'){ why='planned, loading not started'; act="startLoading('"+g.dispId+"')"; }
     if(!why) return;

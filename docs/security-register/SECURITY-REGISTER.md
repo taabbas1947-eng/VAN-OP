@@ -118,6 +118,25 @@ redesign: filter the dropdown in `rbRender()` by role, or give `RB_DATASETS`
 entries an optional `owners:[…]` the way `SCREENS` already has. Left for him to
 rule on — he may well be content that his managers see prices.
 
+### S-06 · A full database backup, with every password hash, is committed to the repository
+**Severity: high · Confirmed from the repository · Raised 2026-09-27**
+
+`van_platform.sql` in the repository root is a phpMyAdmin export of the local
+database dated 11 Sept 2026. It is tracked by Git (last touched in commit
+`216d95c`), so it is in the GitHub history. It holds every row of every table,
+including `auth_users.pass_hash` for all accounts and the O2S business data.
+
+**How it was confirmed.** `git ls-files van_platform.sql` lists it; the file
+contains the `INSERT INTO auth_users` rows with the hashes.
+
+**What it lets an attacker do.** Anyone who can read the repository (now or
+from its history) gets the password hashes to attack offline, plus customer,
+order and batch data. Removing the file today does not remove it from history.
+
+**Suggested handling (for the security department).** Stop tracking the file
+and ignore `*.sql` exports in the root; decide whether the history needs
+rewriting and whether the affected passwords should be changed.
+
 ---
 
 ## Closed items
@@ -132,3 +151,4 @@ _None yet._
 |---|---|
 | 2026-08-16 | Register created. S-01 to S-04 raised from the PD audit. |
 | 2026-09-23 | S-05 raised from O2S: the Report Builder's finance dataset is not role-gated. |
+| 2026-09-27 | S-06 raised from PLATFORM: a full database backup with password hashes is committed (`van_platform.sql`). |

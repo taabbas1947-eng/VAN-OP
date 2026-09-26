@@ -75,7 +75,7 @@ it does not quietly touch both and call it one task.
 |---|---|---|
 | **O2S** (Order to Ship) | `index.html` · the O2S route/API block in `server.js` · `data/state.json` | `/o2s` |
 | **PD** (Product Development) | **everything under `pd/`** — `pd.html`, `pd-lib.js`, `pd-routes.js`, `drop.html`, `migrations/`, `tests/` · the `/api/pd/*` block in `server.js` | `/pd`, `/pd/drop` |
-| **PLATFORM** (shared) | `launcher.html` · login / `van_token` / `GET /api/me` · `auth_users`, `user_module_roles` · `package.json`, `render.yaml`, `assets/`, `Logo/` | `/` |
+| **PLATFORM** (shared) | `launcher.html` · login / `van_token` / `GET /api/me` · `/api/platform/*` · `auth_users`, `user_module_roles`, `platform_people`, `platform_access_log` · `platform/` (migrations) · `tests/platform/` · `docs/platform/` · `package.json`, `render.yaml`, `assets/`, `Logo/` | `/` |
 | **HRMS** | launcher card only — **no backend exists yet** (0 references in `server.js`) | card says LIVE, nothing behind it |
 | **QMS, CRMS** | not built | "Coming soon" cards |
 
@@ -174,7 +174,7 @@ and a live one, it ships the live one and writes the remainder down.
 
 ## 3. Verified state (checked 2026-08-16)
 
-- Folder: `E:\VAN-OP` — **correct folder**, this is the live repo.
+- Folder: `E:\VAN Systems` — **correct folder**, this is the live repo. (Renamed from `E:\VAN-OP` on 27 Sept 2026; the GitHub repository is still called VAN-OP.)
 - Remote: `https://github.com/taabbas1947-eng/VAN-OP.git`
 - Branch: `main` @ `bad0680` *"real pd major chnages"* — working tree clean,
   in sync with `origin/main`.
@@ -208,7 +208,7 @@ Four commits in a row committed `.patch` **files** instead of applying them:
 committing a patch and applying one look identical. That was a **method**
 failure, not a carelessness failure, so the method changed:
 
-- **Claude writes finished files directly into `E:\VAN-OP`.** No `.patch` files
+- **Claude writes finished files directly into `E:\VAN Systems`.** No `.patch` files
   are produced, handed over, or stored. Ever.
 - **Tahir's whole job is: commit and push what GitHub Desktop shows.** No apply
   step. No merge step. No branch step.

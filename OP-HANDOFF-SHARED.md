@@ -422,3 +422,158 @@ and whether Committee Chair is a platform role or a Nigehbaan seat (Tahir:
 "we have to discuss this"). Question list given to Tahir in chat.
 
 Files changed: this entry. Pushed: no.
+
+---
+
+## 27 September 2026 — PLATFORM — People and access, phase 1 built and through gate 1
+
+**Module:** PLATFORM (declared by Tahir). O2S and PD code not touched. The
+VAN Compliance System folder was read only; nothing written there.
+
+**Tahir's rulings today:** build the access panel and backend so they carry
+future apps, even an ERP; no haste; test before deploy. A person is separate
+from a login; an access log from day 1; company recorded for information,
+grants company-wide for now; 3 test gates. Full design:
+`docs/platform/PLATFORM-DESIGN.md`. What was built:
+`docs/platform/ACCESS-MODEL.md`, section "People and access, phase 1".
+
+**Files changed:** `server.js` (platform parts only: `auth()`, `/api/login`,
+`/api/me`, `setModuleRole`/`clearModuleRole`, `/api/platform/*`, boot chain),
+`launcher.html` (People and access page), `CLAUDE.md` (PLATFORM row of the
+module map). **New:** `platform/migrations/P001_people_and_access_log.sql`,
+its `.PRODUCTION.sql` copy, `P001-CHECK.sql`,
+`tests/platform/people-access.test.js`, `docs/platform/PLATFORM-DESIGN.md`.
+**Pushed:** no.
+
+**Gate 1 (done, in the cloud workspace, on a throwaway MariaDB built from
+`van_platform.sql` of 11 Sept plus PD 007 and 008):**
+- Every one of the 15 accounts was recorded before the change (sign-in,
+  `/api/me`, `/api/state`, PD library, and the platform and O2S admin reads,
+  plus every row of `auth_users` and `user_module_roles`) and again after,
+  with the new code both **without** P001 and **with** P001. All identical
+  apart from the new fields added on purpose.
+- P001 ran twice cleanly; the production copy ran with `information_schema`
+  selected; both triggers refuse edits and deletes; deleting a login through
+  O2S still works and leaves the person with no login.
+- `people-access.test.js`: 19 of 19 passed (switch off and on, open session
+  stops, restart keeps it, other accounts unaffected, own-login and last-COO
+  guards, password reset, details checks, logging with before and after,
+  O2S Users & Access still works and is logged, who holds what, grants
+  unchanged at the end).
+- `holdersOf` and `contactsFor` run against the copy: vacant role returns
+  [], a switched-off holder drops out and returns when switched back on.
+- The page driven in Chromium as `tahir` and as `saad`: list, search,
+  Details, save, switch off and back on, history, who holds what, locked
+  tile for a non-admin, no horizontal scroll at phone width, no console
+  errors.
+- Files in `E:\VAN-OP` are byte-identical (sha256) to the tested ones.
+
+**Not tested:** a live XAMPP or HostGator database (gates 2 and 3); the
+last-platform-administrator guard (unreachable in practice, because the
+person switching someone off is themselves an administrator and cannot
+switch themselves off).
+
+**Gate 2, Tahir's (local XAMPP):**
+1. In phpMyAdmin select `van_platform`, run `platform/migrations/P001-CHECK.sql`
+   and keep the result. Every `active` must be 1.
+2. Paste `P001_people_and_access_log.sql`. The last result must show
+   logins = people_with_login, logins_without_person = 0, switched_off = 0.
+3. Restart the local server (`npm start`). The boot log should say
+   "Platform: 0 switched-off login(s)."
+4. Run P001-CHECK again and compare: same roles, every `has_person` = 1.
+5. Sign in as yourself, 1 O2S user and 1 PD user. Open People and access,
+   add your title, look at Who holds what.
+
+**Gate 3:** production only when Tahir chooses: P001-CHECK (schema-qualified)
+first, then `P001_people_and_access_log.PRODUCTION.sql`, then push, then the
+check again.
+
+**Next after the gates:** the O2S piece (Users & Access becomes a view;
+username rename moves to the platform; `renameRole()` carries holders
+through), then Nigehbaan's open rulings (open-to-all flag for Policies,
+Chairman and Board accounts, the harassment seal versus the COO's admin
+rights, how Nigehbaan reads payroll now that HRMS is separate). PD's own
+open items (Fahim's PD role, PD access per role) are unchanged.
+
+### 27 September 2026 (later) — the repo folder renamed to `E:\VAN Systems`
+
+Tahir renamed `E:\VAN-OP` to `E:\VAN Systems`. Checked afterwards: HEAD still
+`e4e0100`; every change from the entry above is present, and `server.js` and
+`launcher.html` are byte-identical (sha256) to the tested files. `CLAUDE.md`
+§3 and §3.1 now name the new folder. GitHub Desktop must be pointed at the new
+folder (Locate). The GitHub repository keeps its name, VAN-OP.
+
+**Not from this session:** `VAN Ops Design System.zip` changed at 20:20 UTC
+the same evening (233,008 → 229,609 bytes). The only difference is that
+`redesign/VAN Ops - Control Tower (Redesign).html` is missing from the zip.
+Tahir to decide whether that was meant; if not, discard that change in
+GitHub Desktop before committing.
+
+---
+
+## RESUME HERE — PLATFORM — state at 27 Sep 2026, end of session
+
+**Module:** PLATFORM. Next session opens with `platform`.
+
+### What this session did (26–27 Sept 2026)
+
+1. **Explained the access model** as the code has it: 3 layers (person, which
+   app and role, what the role may do); O2S roles are data, PD roles are code,
+   the platform has 1 role; titles are labels, not roles.
+2. **Rulings taken** (all written in `docs/platform/ACCESS-MODEL.md` and
+   `PLATFORM-DESIGN.md`): people are managed on the launcher only; leavers are
+   switched off, never deleted; an O2S role rename carries through to holders;
+   title, WhatsApp and email live on the platform per person; 1 role per
+   person per app, extra duties are the app's own data; "who holds role X" is
+   answered to an app's server only; Nigehbaan joins inside this server; a
+   person is separate from a login; an access log from day 1; company is
+   information only for now; 3 test gates before anything is live.
+   Standing condition: nothing may leave any O2S account unable to work.
+3. **Nigehbaan (VAN Compliance System)** read, never written. Its questions
+   answered and its answers checked against the platform (see the Nigehbaan
+   entries above).
+4. **Built People and access, phase 1** (`server.js` platform parts,
+   `launcher.html`, `platform/migrations/P001*`, `tests/platform/`).
+5. **Gate 1 passed** on a throwaway copy of the 11 Sept backup: every
+   account identical before and after, with and without P001; 19 of 19 tests.
+6. **Security register:** S-06 added (the backup `van_platform.sql` with
+   password hashes is committed to GitHub).
+7. **Folder renamed** by Tahir to `E:\VAN Systems`; checked intact.
+
+### Where things stand
+
+- Git: HEAD `e4e0100`. All of the above uncommitted, not pushed.
+- `VAN Ops Design System.zip` shows as changed but not by this session (1
+  file missing inside it). Discard unless Tahir meant it.
+- Local database: P001 not applied. Production: P001 not applied.
+- **Code without P001 behaves exactly as today**, except for 1 thing: sign-in
+  now refuses any login whose `auth_users.active` is 0. O2S ignored that
+  column until now (only PD read it). So before this code goes live, the
+  target database must have no O2S login at `active = 0`.
+
+### Tahir's asks, in order
+
+1. **Before pushing:** run this read-only query on production (HostGator
+   phpMyAdmin, SQL tab) and expect **0 rows**:
+   `SELECT username, name, role, active FROM jodilkah_vanop_db.auth_users WHERE active = 0;`
+   If it returns anyone, stop and bring the names here; do not push.
+2. **Push** (GitHub Desktop, repo at `E:\VAN Systems`): commit everything
+   listed as changed except the zip (discard it unless intended).
+3. **After the deploy:** the Render log should say
+   "Platform: 0 switched-off login(s)." Sign in as yourself and 1 O2S user.
+   People and access opens with the note that the migration is waiting.
+4. **Real-data test (gate 1 again):** export production and local
+   (phpMyAdmin → Export → Quick → SQL) into `E:\VAN DB Exports` (outside
+   the repo) and connect that folder here.
+5. **Gate 2 (local):** P001-CHECK, then P001, restart, P001-CHECK again,
+   3 sign-ins. **Gate 3 (production):** the same, with the `.PRODUCTION.sql`
+   copy, when Tahir chooses.
+
+### Next, after the gates
+
+The O2S piece (Users & Access becomes a view; username rename moves to the
+platform; `renameRole()` carries holders), in its own O2S session. Then
+Nigehbaan's open rulings: the open-to-every-active-person flag for Policies,
+Chairman and Board accounts, the harassment seal versus the COO's admin
+rights, how Nigehbaan gets payroll now that HRMS is separate. PD's own open
+items (Fahim's PD role, PD access per role) are unchanged.

@@ -109,6 +109,44 @@
     .notlive{color:var(--mut);font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;border:1px dashed var(--line);border-radius:999px;padding:3px 9px;white-space:nowrap}
     .acctable th.dim,.acctable td.dim{opacity:.55}
 
+    /* ---- People and access, 27 Sept 2026 ---- */
+    .tabs{display:flex;gap:6px;margin:18px 0 4px;flex-wrap:wrap}
+    .tabb{font:inherit;font-weight:600;font-size:13px;color:var(--txt2);background:#fff;border:1px solid var(--line);border-radius:999px;padding:7px 15px;cursor:pointer}
+    .tabb.on{background:var(--txt);border-color:var(--txt);color:#fff}
+    .toolbar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:12px 0 4px}
+    .waitnote{background:#fff8e6;border:1px solid #f1dfb0;color:#6b4a0a;border-radius:10px;padding:10px 14px;font-size:13px;margin:12px 0 0}
+    .pmeta{display:block;font-size:12px;color:var(--mut);margin-top:3px}
+    .pillx{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:2px 8px;border-radius:999px;margin-left:8px;vertical-align:1px}
+    .pillx.off{color:#8a2b1f;background:#fbe7e3}
+    .pillx.vac{color:#854f0b;background:#faf0da}
+    .pillx.arc{color:#4a5567;background:#eef0f4}
+    .pillx.nf{color:#0c447c;background:#e6f1fb}
+    .acctable tr.off td{background:#fbfbfc}
+    .acctable tr.off td > *:not(.keep){opacity:.55}
+    .contact{font-size:12.5px;line-height:1.5;color:var(--txt2);white-space:nowrap}
+    .linkbtn{font:inherit;font-weight:600;font-size:12px;color:var(--cyan);background:none;border:1px solid var(--line);border-radius:7px;padding:4px 10px;cursor:pointer;margin-top:6px}
+    .linkbtn:hover{border-color:var(--cyan)}
+    .dlgbg{position:fixed;inset:0;background:rgba(15,23,42,.38);display:none;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto;z-index:50}
+    .dlg{background:var(--panel);border-radius:16px;box-shadow:var(--sh2);width:100%;max-width:560px;padding:22px 24px}
+    .dlg h3{font-family:var(--head);font-size:1.2rem;margin:0}
+    .dlgsec{border-top:1px solid var(--line2);margin-top:16px;padding-top:14px}
+    .dlgsec h4{font-family:var(--head);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--mut);margin:0 0 10px}
+    .fgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .fgrid label{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:600;color:var(--txt2)}
+    .fgrid .inp{font-size:.9rem;padding:8px 10px}
+    .dlgrow{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px}
+    .btnw{font:inherit;font-weight:700;font-size:.88rem;background:#fff;color:var(--txt);border:1px solid var(--line);border-radius:9px;padding:8px 14px;cursor:pointer}
+    .btnw:hover{border-color:var(--cyan)}
+    .btnr{font:inherit;font-weight:700;font-size:.88rem;background:#b42318;color:#fff;border:none;border-radius:9px;padding:8px 14px;cursor:pointer}
+    .hist{font-size:12.5px;color:var(--txt2);max-height:220px;overflow:auto;margin:0;padding:0;list-style:none}
+    .hist li{padding:6px 0;border-bottom:1px solid var(--line2)}
+    .hist b{color:var(--txt);font-weight:600}
+    .hcard{background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:var(--sh);margin-top:14px;overflow:auto}
+    .hcard .hhead{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:14px 16px;border-bottom:1px solid var(--line)}
+    .hcard .hhead b{font-family:var(--head);font-size:1.05rem}
+    .dept td{background:var(--bg);font-family:var(--head);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);padding:8px 16px}
+    @media (max-width:560px){.fgrid{grid-template-columns:1fr}}
+
     .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:#161a20;color:#fff;font-size:.9rem;padding:10px 16px;border-radius:10px;opacity:0;transition:opacity .3s;pointer-events:none;z-index:100}
     @media (prefers-reduced-motion:reduce){.tile{transition:none}}
   </style>
@@ -213,8 +251,8 @@
           </div>
           <div class="row1"><span class="code">Access</span><span class="pill coo">COO</span></div>
           <p class="nm">People &amp; Access</p>
-          <p class="tag">Add people, grant modules and set each person's role.</p>
-          <span class="open" style="color:#334155">Manage access →</span>
+          <p class="tag">Every person, their details, and their role in each system.</p>
+          <span class="open" style="color:#334155">Open People and access →</span>
           <span class="lockcta">🔒 COO only</span>
         </a>
 
@@ -228,14 +266,20 @@
     <header class="top">
       <div class="brand">
         <img class="logo" src="/assets/van-logo.png" alt="VAN — Vital Agri Nutrients (Pvt) Ltd">
-        <span class="platlbl">Manage access</span>
+        <span class="platlbl">People and access</span>
       </div>
       <button class="back" type="button" onclick="__backLauncher()">← Back to launcher</button>
     </header>
     <div class="wrap">
-      <p class="eyebrow">Platform · access control</p>
-      <p class="h2">Who can enter which systems</p>
+      <p class="eyebrow">Platform · people and access</p>
+      <p class="h2">People and access</p>
       <p class="lead" id="adminLead">Create a user (identity only), then grant them a role per module below. Changes apply immediately.</p>
+      <div class="tabs" role="tablist">
+        <button id="tabPeople" class="tabb on" type="button" role="tab" onclick="__atab('people')">People</button>
+        <button id="tabHolders" class="tabb" type="button" role="tab" onclick="__atab('holders')">Who holds what</button>
+      </div>
+      <div id="migWait" class="waitnote" style="display:none">Title, department, company, WhatsApp, email and the access history appear once the platform migration P001 is applied to this database. Everything else works now.</div>
+      <div id="panePeople">
       <div class="addcard" id="addUserCard">
         <span class="addlabel">Add user</span>
         <input id="au_user" class="inp au" placeholder="username" autocomplete="off">
@@ -243,6 +287,10 @@
         <input id="au_pass" class="inp au" type="password" placeholder="initial password" autocomplete="new-password">
         <button class="btnp" type="button" onclick="__adduser()">Create</button>
         <span id="au_err" class="auerr" role="alert"></span>
+      </div>
+      <div class="toolbar">
+        <input id="pp_q" class="inp au" style="min-width:240px" placeholder="Search name, username or title" autocomplete="off" oninput="__afilter()">
+        <label class="admtog" style="margin-left:0"><input type="checkbox" id="pp_off" onchange="__afilter()"> show switched-off people <span id="pp_offn"></span></label>
       </div>
       <div class="tablecard">
         <table class="acctable">
@@ -252,7 +300,14 @@
           </tbody>
         </table>
       </div>
+      </div>
+      <div id="paneHolders" style="display:none"></div>
     </div>
+  </div>
+
+  <!-- One person: details, password, switch off or on, history (platform administrator only) -->
+  <div id="pdlg" class="dlgbg" onclick="if(event.target===this)__pclose()">
+    <div class="dlg" role="dialog" aria-modal="true" aria-labelledby="pdlg_t" id="pdlg_body"></div>
   </div>
 
   <div id="toast" class="toast" role="status"></div>
@@ -368,7 +423,7 @@
          selectable and is never flagged (R5): a role belongs to its module. */
       var _catalogue = [];
       function roleLabel(r) { return r.name + (r.title && r.title !== r.name ? ' · ' + r.title : ''); }
-      function roleSelect(username, module, roles, current) {
+      function roleSelect(username, module, roles, current, disabled) {
         var groups = {}, order = [];
         roles.forEach(function (r) {
           if (r.archived && r.key !== current) return;          // archived: hidden unless this person still holds it
@@ -387,7 +442,7 @@
             opts += '<optgroup label="' + esc(d) + '">' + groups[d].map(function (r) { return '<option value="' + esc(r.key) + '"' + (r.key === current ? ' selected' : '') + '>' + esc(roleLabel(r)) + '</option>'; }).join('') + '</optgroup>';
           });
         }
-        return '<select class="pdsel" onchange="__setmod(\'' + esc(username) + '\',\'' + module + '\',this.value)">' + opts + '</select>';
+        return '<select class="pdsel"' + (disabled ? ' disabled title="Switched off: switch back on to change roles"' : '') + ' onchange="__setmod(\'' + esc(username) + '\',\'' + module + '\',this.value)">' + opts + '</select>';
       }
       function adminToggle(username, module, on) {
         return '<label class="admtog" title="Can manage access for ' + esc(module.toUpperCase()) + '"><input type="checkbox"' + (on ? ' checked' : '') + ' onchange="__setadmin(\'' + esc(username) + '\',\'' + module + '\',this.checked)"> admin</label>';
@@ -421,25 +476,178 @@
             if (!isCOO && m.key === 'o2s') roles = roles.filter(function (x) {return x.key !== 'COO';});   // only the COO can grant COO
             return {key: m.key, label: m.name, live: m.live, roles: roles};
           });
-          head.innerHTML = '<tr><th>Person</th>' + cols.map(function (c) {
-            return '<th' + (c.live ? '' : ' class="dim"') + '>' + esc(c.label) + (c.key === 'platform' ? '' : ' role') + '</th>';
-          }).join('') + '</tr>';
-          var ncol = 1 + cols.length;
+          _adm = {users: users, cols: cols, isCOO: isCOO, platform: data.platform || {people: false, log: false, switchOff: false}};
           if ($('addUserCard')) $('addUserCard').style.display = isCOO ? 'flex' : 'none';
+          if ($('migWait')) $('migWait').style.display = (isCOO && !_adm.platform.people) ? 'block' : 'none';
           if ($('adminLead')) $('adminLead').textContent = isCOO
-            ? 'Create a person once (identity only), then set 1 role per module, in that module’s own words. Tick “admin” to let someone manage access for that subsystem. Changes apply immediately, and the modules see them at once.'
-            : 'You administer: ' + (_adminCaps.adminModules || []).map(function (m) {return m.toUpperCase();}).join(', ') + '. Set each person’s role in your subsystem below.';
-          body.innerHTML = users.map(function (u) {
-            var mods = u.modules || {}, adminOf = u.adminOf || [];
-            var cells = cols.map(function (c) {
-              if (!c.live) return '<td class="dim"><span class="notlive">not live</span></td>';
-              var cur = mods[c.key] || '';
-              var tog = (isCOO && cur && c.key !== 'platform') ? adminToggle(u.username, c.key, adminOf.indexOf(c.key) >= 0) : '';
-              return '<td>' + roleSelect(u.username, c.key, c.roles, cur) + tog + '</td>';
-            }).join('');
-            return '<tr><td><b>' + esc(u.name || u.username) + '</b><span class="umuser">' + esc(u.username) + '</span></td>' + cells + '</tr>';
-          }).join('') || '<tr><td colspan="' + ncol + '" class="muted" style="padding:16px">No users.</td></tr>';
+            ? 'Every person in one list, and 1 role per system, in that system’s own words. Create a person once, then set their roles. Open Details to edit a person, set a new password or switch a leaver off. Tick “admin” to let someone manage access for that system. Every change is recorded.'
+            : 'You administer: ' + (_adminCaps.adminModules || []).map(function (m) {return m.toUpperCase();}).join(', ') + '. Set each person’s role in your system below.';
+          renderPeople();
+          if (_atab === 'holders') loadHolders();
         } catch (e) {body.innerHTML = '<tr><td class="muted" style="padding:16px">Error loading users.</td></tr>';}
+      }
+
+      /* ---- People and access, 27 Sept 2026 (Tahir's rulings of 26 and 27 Sept) ----
+         People are managed here only. A person's details, a new password and switching a
+         leaver off live in the Details dialog (platform administrator only). Switched-off
+         people keep their roles, so switching back on restores them; they are hidden from
+         the list unless "show switched-off people" is ticked. */
+      var _adm = null, _atab = 'people';
+      function personMeta(u) {
+        var bits = [u.title, u.department, u.company].filter(Boolean);
+        return bits.length ? '<span class="pmeta">' + esc(bits.join(' · ')) + '</span>' : '';
+      }
+      function renderPeople() {
+        if (!_adm) return;
+        var head = $('adminHead'), body = $('adminBody');
+        var isCOO = _adm.isCOO, cols = _adm.cols, showContacts = isCOO && _adm.platform.people;
+        head.innerHTML = '<tr><th>Person</th>' + (showContacts ? '<th>Contact</th>' : '') + cols.map(function (c) {
+          return '<th' + (c.live ? '' : ' class="dim"') + '>' + esc(c.label) + (c.key === 'platform' ? '' : ' role') + '</th>';
+        }).join('') + '</tr>';
+        var q = String(($('pp_q') && $('pp_q').value) || '').trim().toLowerCase();
+        var showOff = !!($('pp_off') && $('pp_off').checked);
+        var nOff = _adm.users.filter(function (u) { return u.active === false; }).length;
+        if ($('pp_offn')) $('pp_offn').textContent = nOff ? '(' + nOff + ')' : '';
+        var list = _adm.users.filter(function (u) {
+          if (u.active === false && !showOff) return false;
+          if (!q) return true;
+          return [u.name, u.username, u.title, u.department, u.company].some(function (x) { return x && String(x).toLowerCase().indexOf(q) >= 0; });
+        });
+        var ncol = 1 + (showContacts ? 1 : 0) + cols.length;
+        body.innerHTML = list.map(function (u) {
+          var off = u.active === false;
+          var mods = u.modules || {}, adminOf = u.adminOf || [];
+          var cells = cols.map(function (c) {
+            if (!c.live) return '<td class="dim"><span class="notlive">not live</span></td>';
+            var cur = mods[c.key] || '';
+            var tog = (isCOO && cur && c.key !== 'platform' && !off) ? adminToggle(u.username, c.key, adminOf.indexOf(c.key) >= 0) : '';
+            return '<td>' + roleSelect(u.username, c.key, c.roles, cur, off) + tog + '</td>';
+          }).join('');
+          var contact = showContacts ? '<td><div class="contact">' + (u.whatsapp ? esc(u.whatsapp) : '<span class="muted">no WhatsApp</span>') + '<br>' + (u.email ? esc(u.email) : '<span class="muted">no email</span>') + '</div></td>' : '';
+          var details = isCOO ? '<br><button class="linkbtn keep" type="button" onclick="__popen(\'' + esc(u.username) + '\')">Details</button>' : '';
+          return '<tr' + (off ? ' class="off"' : '') + '><td><b>' + esc(u.name || u.username) + '</b><span class="umuser">' + esc(u.username) + '</span>'
+            + (off ? '<span class="pillx off keep">Switched off</span>' : '') + personMeta(u) + details + '</td>' + contact + cells + '</tr>';
+        }).join('') || '<tr><td colspan="' + ncol + '" class="muted" style="padding:16px">' + (q ? 'Nobody matches “' + esc(q) + '”.' : 'No people.') + '</td></tr>';
+      }
+      window.__afilter = function () { renderPeople(); };
+      window.__atab = function (t) {
+        _atab = t;
+        $('tabPeople').classList.toggle('on', t === 'people'); $('tabHolders').classList.toggle('on', t === 'holders');
+        $('panePeople').style.display = t === 'people' ? 'block' : 'none';
+        $('paneHolders').style.display = t === 'holders' ? 'block' : 'none';
+        if (t === 'holders') loadHolders();
+      };
+
+      /* Who holds what: each system's roles, grouped by its own departments, with the people
+         holding each. A role nobody (switched on) holds shows as Vacant; an archived role still
+         held, and a held role the system no longer lists ("Not filed"), are marked too. */
+      async function loadHolders() {
+        var pane = $('paneHolders');
+        pane.innerHTML = '<p class="muted" style="margin-top:14px">Loading…</p>';
+        try {
+          var r = await fetch('/api/platform/holders', {headers: auth()});
+          if (!r.ok) { pane.innerHTML = '<p class="muted" style="margin-top:14px">Could not load (' + r.status + ').</p>'; return; }
+          var mods = (await r.json()).modules || [];
+          pane.innerHTML = mods.map(function (m) {
+            var nVac = m.roles.filter(function (x) { return x.vacant && !x.archived; }).length;
+            var depts = {}, order = [];
+            m.roles.forEach(function (x) { var d = x.department || 'Other'; if (!depts[d]) { depts[d] = []; order.push(d); } depts[d].push(x); });
+            var rows = order.map(function (d) {
+              return (order.length > 1 ? '<tr class="dept"><td colspan="3">' + esc(d) + '</td></tr>' : '') + depts[d].map(function (x) {
+                var who = x.holders.length ? x.holders.map(function (h) { return esc(h.name || h.username) + (h.active ? '' : ' <span class="muted">(switched off)</span>'); }).join(', ') : '<span class="muted">nobody</span>';
+                var st = x.notFiled ? '<span class="pillx nf">Not filed</span>' : x.archived ? '<span class="pillx arc">Archived, still held</span>' : x.vacant ? '<span class="pillx vac">Vacant</span>' : '';
+                return '<tr><td><b>' + esc(x.name) + '</b></td><td>' + who + '</td><td>' + st + '</td></tr>';
+              }).join('');
+            }).join('');
+            return '<div class="hcard"><div class="hhead"><b>' + esc(m.name) + '</b><span class="muted">' + m.roles.length + (m.roles.length === 1 ? ' role' : ' roles') + ' · ' + nVac + ' vacant</span></div>'
+              + '<table class="acctable"><thead><tr><th>Role</th><th>Held by</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>';
+          }).join('') || '<p class="muted" style="margin-top:14px">No systems to show.</p>';
+        } catch (e) { pane.innerHTML = '<p class="muted" style="margin-top:14px">Error loading.</p>'; }
+      }
+
+      /* The Details dialog. */
+      var _pu = null, _confirmOff = false;
+      var ACTION_TEXT = {'account.create': 'Login created', 'person.update': 'Details changed', 'account.password_reset': 'New password set',
+        'account.switch_off': 'Switched off', 'account.switch_on': 'Switched back on', 'role.grant': 'Role given', 'role.change': 'Role changed',
+        'role.revoke': 'Role removed', 'admin.grant': 'Made system admin', 'admin.revoke': 'No longer system admin'};
+      var FIELD_TEXT = {full_name: 'name', title: 'title', department: 'department', company: 'company', whatsapp: 'WhatsApp', email: 'email'};
+      function fmtVal(v) { if (v == null || v === '') return ''; try { var o = JSON.parse(v); if (o && typeof o === 'object') return Object.keys(o).map(function (k) { return (FIELD_TEXT[k] || k) + ': ' + (o[k] == null ? '—' : o[k]); }).join(', '); } catch (e) { } return String(v); }
+      window.__popen = function (username) {
+        _pu = (_adm && _adm.users || []).filter(function (u) { return u.username === username; })[0];
+        if (!_pu) return;
+        _confirmOff = false; renderDialog(); $('pdlg').style.display = 'flex'; loadHistory();
+      };
+      window.__pclose = function () { $('pdlg').style.display = 'none'; _pu = null; };
+      function renderDialog() {
+        var u = _pu, p = _adm.platform, off = u.active === false;
+        var f = function (id, label, val, ph) { return '<label>' + label + '<input id="pd_' + id + '" class="inp" value="' + esc(val || '') + '" placeholder="' + esc(ph || '') + '" autocomplete="off"></label>'; };
+        var h = '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px"><div><h3 id="pdlg_t">' + esc(u.name || u.username) + '</h3><span class="umuser" style="margin-left:0">' + esc(u.username) + '</span>'
+          + (off ? '<span class="pillx off">Switched off</span>' : '') + '</div><button class="back" type="button" onclick="__pclose()">Close</button></div>';
+        h += '<div class="dlgsec"><h4>Details</h4>';
+        if (p.people) {
+          h += '<div class="fgrid">' + f('name', 'Name', u.name) + f('title', 'Title', u.title, 'e.g. Plant Manager') + f('department', 'Department', u.department) + f('company', 'Company', u.company, 'e.g. VAN')
+            + f('whatsapp', 'WhatsApp', u.whatsapp, 'e.g. 03001234567') + f('email', 'Email', u.email) + '</div>'
+            + '<div class="dlgrow"><button class="btnp" type="button" onclick="__psave()">Save details</button><span id="pd_err" class="auerr" role="alert"></span></div>';
+        } else {
+          h += '<p class="muted" style="margin:0;font-size:13px">Details need the platform migration P001 applied first.</p>';
+        }
+        h += '</div><div class="dlgsec"><h4>Password</h4><div class="dlgrow" style="margin-top:0"><input id="pd_pw" class="inp au" type="password" placeholder="new password, 6 or more" autocomplete="new-password">'
+          + '<button class="btnw" type="button" onclick="__ppw()">Set new password</button><span id="pd_pwerr" class="auerr" role="alert"></span></div></div>';
+        if (p.switchOff) {
+          h += '<div class="dlgsec"><h4>Login</h4>';
+          if (off) {
+            h += '<p style="margin:0 0 8px;font-size:13px;color:var(--txt2)">This login is switched off. Switching it back on restores the roles it had.</p><button class="btnp" type="button" onclick="__pactive(true)">Switch back on</button>';
+          } else {
+            h += '<p style="margin:0 0 8px;font-size:13px;color:var(--txt2)">Switching off stops this login at once, in every system. Nothing is deleted: the name stays on every record and the roles are kept, so switching back on restores them.</p>'
+              + (_confirmOff ? '<button class="btnr" type="button" onclick="__pactive(false)">Yes, switch off ' + esc(u.name || u.username) + '</button> <button class="btnw" type="button" onclick="__pcancelOff()">Cancel</button>'
+                : '<button class="btnw" type="button" onclick="__poff()">Switch off…</button>');
+          }
+          h += '<div id="pd_acterr" class="auerr" role="alert"></div></div>';
+        }
+        if (p.log) h += '<div class="dlgsec"><h4>History</h4><ul id="pd_hist" class="hist"><li class="muted">Loading…</li></ul></div>';
+        $('pdlg_body').innerHTML = h;
+      }
+      async function loadHistory() {
+        if (!_pu || !_adm.platform.log) return;
+        try {
+          var r = await fetch('/api/platform/people/' + encodeURIComponent(_pu.username) + '/history', {headers: auth()});
+          var j = r.ok ? await r.json() : {rows: []};
+          var el = $('pd_hist'); if (!el) return;
+          el.innerHTML = (j.rows || []).map(function (x) {
+            var what = ACTION_TEXT[x.action] || x.action;
+            var detail = /^account\./.test(x.action) ? '' : [x.module ? x.module.toUpperCase() : '', fmtVal(x.before_val) ? 'from ' + fmtVal(x.before_val) : '', fmtVal(x.after_val) ? 'to ' + fmtVal(x.after_val) : ''].filter(Boolean).join(' ');
+            return '<li><b>' + esc(what) + '</b>' + (detail ? ' · ' + esc(detail) : '') + '<br><span class="muted">' + esc(String(x.at).slice(0, 16)) + ' · by ' + esc(x.actor) + (x.via === 'o2s-users' ? ' in O2S' : '') + '</span></li>';
+          }).join('') || '<li class="muted">Nothing recorded yet.</li>';
+        } catch (e) { }
+      }
+      async function send(method, url, body) {
+        var r = await fetch(url, {method: method, headers: Object.assign({'Content-Type': 'application/json'}, auth()), body: JSON.stringify(body || {})});
+        var j = {}; try { j = await r.json(); } catch (e) { }
+        return {ok: r.ok, status: r.status, j: j};
+      }
+      window.__psave = async function () {
+        var body = {}; ['name', 'title', 'department', 'company', 'whatsapp', 'email'].forEach(function (k) { var el = $('pd_' + k); if (el) body[k] = el.value; });
+        var res = await send('PATCH', '/api/platform/people/' + encodeURIComponent(_pu.username), body);
+        if (!res.ok) { $('pd_err').textContent = res.j.error || ('Could not save (' + res.status + ')'); return; }
+        toast(res.j.changed ? 'Details saved' : 'Nothing had changed'); await reloadKeep();
+      };
+      window.__ppw = async function () {
+        var pw = $('pd_pw').value || '';
+        var res = await send('POST', '/api/platform/people/' + encodeURIComponent(_pu.username) + '/password', {password: pw});
+        if (!res.ok) { $('pd_pwerr').textContent = res.j.error || ('Could not set (' + res.status + ')'); return; }
+        $('pd_pw').value = ''; $('pd_pwerr').textContent = ''; toast('New password set for ' + _pu.username); loadHistory();
+      };
+      window.__poff = function () { _confirmOff = true; renderDialog(); loadHistory(); };
+      window.__pcancelOff = function () { _confirmOff = false; renderDialog(); loadHistory(); };
+      window.__pactive = async function (on) {
+        var res = await send('POST', '/api/platform/people/' + encodeURIComponent(_pu.username) + '/active', {active: on});
+        if (!res.ok) { var e = $('pd_acterr'); if (e) e.textContent = res.j.error || ('Could not change (' + res.status + ')'); return; }
+        toast(_pu.username + (on ? ' switched back on' : ' switched off')); _confirmOff = false; await reloadKeep();
+      };
+      // Reload the list and keep the dialog open on the same person, with fresh values.
+      async function reloadKeep() {
+        var u = _pu && _pu.username; await loadAdmin();
+        if (u) { _pu = (_adm.users || []).filter(function (x) { return x.username === u; })[0]; if (_pu) { renderDialog(); loadHistory(); } }
       }
 
       window.__setmod = async function (username, module, role) {

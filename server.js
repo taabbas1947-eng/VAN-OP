@@ -2,6 +2,9 @@ const express = require('express');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
+const { AsyncLocalStorage } = require('async_hooks');
+// PLATFORM, 27 Sept 2026: who is making this request, for the access log (set in auth()).
+const reqCtx = new AsyncLocalStorage();
 const pd = require('./pd/pd-lib'); // everything Product Development lives under ./pd — kept apart from the O2S files in this root on purpose
 
 // Local-dev convenience: load a gitignored .env if present, WITHOUT overriding real env vars.
@@ -260,7 +263,20 @@ async function migrateAuth() {
 }
 
 /* ---------- auth middleware ---------- */
-function auth(req, res, next) { const p = readToken((req.headers.authorization || '').replace(/^Bearer /, '')); if (!p) return res.status(401).json({ error: 'unauthorized' }); req.user = p; next(); }
+/* PLATFORM, 27 Sept 2026 (Tahir: leavers are switched off, never deleted). The usernames
+   whose login is switched off (auth_users.active = 0), held in memory so this check costs
+   nothing on each request. Loaded at boot and kept current by the switch-off route. Only
+   an explicit switch-off ever puts a name here; every other account passes exactly as
+   before. A token already issued to a switched-off person stops working at once. */
+const switchedOff = new Set();
+const SWITCHED_OFF_MSG = 'This account has been switched off. Ask your platform administrator.';
+function auth(req, res, next) {
+  const p = readToken((req.headers.authorization || '').replace(/^Bearer /, ''));
+  if (!p) return res.status(401).json({ error: 'unauthorized' });
+  if (switchedOff.has(String(p.u || '').toLowerCase())) return res.status(401).json({ error: SWITCHED_OFF_MSG });
+  req.user = p;
+  reqCtx.run({ actor: p.u, path: req.originalUrl || req.url || '' }, next);
+}
 /* PLATFORM, 25 Sept 2026 (Tahir's ruling R2): the platform administrator is a grant of
    its own - user_module_roles (module 'platform', role 'admin') - seeded from the O2S
    COO rows by runPlatformMigration. The COO role in the token keeps working during the
@@ -343,6 +359,8 @@ app.post('/api/login', async (req, res) => {
     if (mins) return res.status(429).json({ error: 'Too many failed sign-ins for this account. Try again in about ' + mins + ' minute' + (mins === 1 ? '' : 's') + ', or ask the COO to reset the password.' });
     const usr = await store.getUser(u);
     if (!usr || !verifyPw(p, usr.pass_hash)) { noteLoginFail(u); return res.status(401).json({ error: 'Incorrect username or password' }); }
+    // PLATFORM 27 Sept: only a login switched off on People and access is refused here.
+    if (switchedOff.has(u)) return res.status(403).json({ error: SWITCHED_OFF_MSG });
     loginFails.delete(u);
     res.json({ token: makeToken(usr), user: { name: usr.name, username: usr.username, role: usr.role } });
   } catch (e) { res.status(500).json({ error: String(e) }); }
@@ -374,15 +392,24 @@ app.post('/api/me/password', auth, async (req, res) => {
    o2s.html changes; an O2S user sees nothing. Each module still owns WHAT its roles are
    (its catalogue) and what they may do; the platform owns WHO holds them. */
 const LEGACY_COL = { o2s: 'role', pd: 'pd_role' };   // the columns the modules read today
+async function heldRole(username, module) {
+  const [r] = await pdq('SELECT role FROM user_module_roles WHERE username=? AND module=?', [username, module]);
+  return r[0] ? r[0].role : null;
+}
 async function setModuleRole(username, module, role) {
   if (!pdq) return;
+  const before = await heldRole(username, module);
   await pdq('INSERT INTO user_module_roles (username, module, role) VALUES (?,?,?) ON DUPLICATE KEY UPDATE role=VALUES(role)', [username, module, role]);
   if (LEGACY_COL[module]) await pdq(`UPDATE auth_users SET ${LEGACY_COL[module]}=? WHERE username=?`, [role, username]);
+  // PLATFORM 27 Sept: every change of role is written to the access log (no entry when nothing changed).
+  if (before !== role) await logAccess({ action: before ? 'role.change' : 'role.grant', subject: username, module, before: before, after: role });
 }
 async function clearModuleRole(username, module) {
   if (!pdq) return;
+  const before = await heldRole(username, module);
   await pdq('DELETE FROM user_module_roles WHERE username=? AND module=?', [username, module]);
   if (LEGACY_COL[module]) await pdq(`UPDATE auth_users SET ${LEGACY_COL[module]}=NULL WHERE username=?`, [username]);
+  if (before) await logAccess({ action: 'role.revoke', subject: username, module, before: before, after: null });
 }
 // Platform administrator (R2): the 'platform'/'admin' grant, with the O2S COO role accepted during the changeover.
 async function isPlatformAdmin(username) {
@@ -390,6 +417,95 @@ async function isPlatformAdmin(username) {
   const [rows] = await pdq("SELECT 1 FROM user_module_roles WHERE username=? AND ((module='platform' AND role='admin') OR (module='o2s' AND role='COO')) LIMIT 1", [username]);
   return rows.length > 0;
 }
+
+/* ---------- PLATFORM, 27 Sept 2026: people, switch-off and the access log ----------
+   Tahir's rulings (docs/platform/PLATFORM-DESIGN.md): a person is separate from a login
+   (platform_people holds the human, auth_users stays the login and is never restructured);
+   an access log from day 1 (platform_access_log, append-only by trigger); leavers are
+   switched off, never deleted. Migration P001 creates both tables. Until it is applied,
+   everything here quietly does nothing: sign-in, O2S and PD work exactly as before, and
+   People and access says the migration is waiting. The checks are cached for 30 seconds,
+   so applying the migration on a running server takes effect without a restart. */
+let _platTables = null, _platTablesAt = 0;
+async function platformTables() {
+  if (!pdq) return { people: false, log: false, active: false };
+  if (_platTables && Date.now() - _platTablesAt < 30000) return _platTables;
+  try {
+    const [t] = await pdq("SELECT TABLE_NAME AS t FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN ('platform_people','platform_access_log')");
+    const [c] = await pdq("SELECT COUNT(*) AS n FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'auth_users' AND COLUMN_NAME IN ('active','id')");
+    const names = t.map(r => r.t);
+    _platTables = { people: names.includes('platform_people'), log: names.includes('platform_access_log'), active: Number(c[0].n) === 2 };
+    _platTablesAt = Date.now();
+  } catch (e) { _platTables = { people: false, log: false, active: false }; _platTablesAt = Date.now(); }
+  return _platTables;
+}
+// Where a change came from, for the log: the launcher's People and access, or O2S's Users & Access.
+function changeVia(path) {
+  path = String(path || '');
+  if (path.indexOf('/api/users') === 0) return 'o2s-users';
+  if (path.indexOf('/api/platform') === 0) return 'launcher';
+  return 'server';
+}
+/* Write 1 row to the access log. Best effort by design: if the log cannot be written
+   (migration not applied, database hiccup) the change itself still stands and the reason
+   is printed to the server log, so a logging fault can never stop O2S working. */
+async function logAccess(e) {
+  try {
+    if (!pdq || !(await platformTables()).log) return;
+    const ctx = reqCtx.getStore() || {};
+    const str = v => (v === undefined || v === null) ? null : (typeof v === 'string' ? v : JSON.stringify(v)).slice(0, 4000);
+    await pdq('INSERT INTO platform_access_log (actor, action, subject, module, before_val, after_val, via) VALUES (?,?,?,?,?,?,?)',
+      [String(e.actor || ctx.actor || 'unknown').slice(0, 191), e.action, String(e.subject).slice(0, 191), e.module || null, str(e.before), str(e.after), e.via || changeVia(ctx.path)]);
+  } catch (err) { console.error('access log write failed (the change itself stands):', err.message); }
+}
+// Every login gets a person. Accounts created by O2S's Users & Access get theirs here too.
+async function ensurePeople() {
+  if (!pdq || !(await platformTables()).people) return;
+  await pdq("INSERT INTO platform_people (account_id, full_name) SELECT a.id, LEFT(COALESCE(NULLIF(TRIM(a.name), ''), a.username), 150) FROM auth_users a WHERE NOT EXISTS (SELECT 1 FROM platform_people p WHERE p.account_id = a.id)");
+}
+async function loadSwitchedOff() {
+  if (!pdq || !(await platformTables()).active) return;
+  const [rows] = await pdq('SELECT username FROM auth_users WHERE active = 0');
+  switchedOff.clear();
+  rows.forEach(r => switchedOff.add(String(r.username).toLowerCase()));
+  console.log('Platform: ' + switchedOff.size + ' switched-off login(s)' + (switchedOff.size ? ': ' + Array.from(switchedOff).join(', ') : '') + '.');
+}
+const PERSON_TEXT = { full_name: 150, title: 120, department: 80, company: 80 };
+function cleanWhatsapp(v) {
+  const s = String(v || '').replace(/[\s\-().]/g, '');
+  if (!s) return { ok: true, v: null };
+  return /^\+?\d{10,15}$/.test(s) ? { ok: true, v: s } : { ok: false, error: 'WhatsApp number: digits only, 10 to 15 of them, with an optional + at the start.' };
+}
+function cleanEmail(v) {
+  const s = String(v || '').trim();
+  if (!s) return { ok: true, v: null };
+  return (s.length <= 191 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s)) ? { ok: true, v: s } : { ok: false, error: 'That email address does not look right.' };
+}
+/* Services for the apps, server side only. Nigehbaan (and any app mounted in this server)
+   calls these for nudges, cover and summaries; contacts never go to a browser from here.
+   holdersOf: the switched-on holders of 1 role in 1 app. contactsFor: the same details for
+   a list of usernames (for seats an app keeps itself). An empty list is an answer, not an
+   error: a vacant role returns []. */
+function activeSql(alias, tables) { return tables.active ? `COALESCE(${alias}.active, 1) <> 0` : '1=1'; }
+async function holdersOf(module, role) {
+  if (!pdq) return [];
+  const t = await platformTables();
+  const [rows] = await pdq(`SELECT a.username, a.name${t.people ? ', pp.title, pp.whatsapp, pp.email' : ''}
+    FROM user_module_roles r JOIN auth_users a ON a.username = r.username
+    ${t.people ? 'LEFT JOIN platform_people pp ON pp.account_id = a.id' : ''}
+    WHERE r.module = ? AND r.role = ? AND ${activeSql('a', t)} ORDER BY a.name`, [module, role]);
+  return rows.map(r => ({ username: r.username, name: r.name, title: r.title || null, whatsapp: r.whatsapp || null, email: r.email || null }));
+}
+async function contactsFor(usernames) {
+  const list = (Array.isArray(usernames) ? usernames : []).map(u => String(u).toLowerCase()).filter(Boolean).slice(0, 500);
+  if (!pdq || !list.length) return [];
+  const t = await platformTables();
+  const [rows] = await pdq(`SELECT a.username, a.name${t.people ? ', pp.title, pp.whatsapp, pp.email' : ''}
+    FROM auth_users a ${t.people ? 'LEFT JOIN platform_people pp ON pp.account_id = a.id' : ''}
+    WHERE a.username IN (${list.map(() => '?').join(',')}) AND ${activeSql('a', t)} ORDER BY a.name`, list);
+  return rows.map(r => ({ username: r.username, name: r.name, title: r.title || null, whatsapp: r.whatsapp || null, email: r.email || null }));
+}
+const platformServices = { holdersOf, contactsFor };   // handed to each app module when it is mounted (see ACCESS-MODEL.md)
 
 /* The role catalogue: every module's roles, in that module's own words, read from
    where that module keeps them. O2S: its own store (masters.roles carries name,
@@ -442,7 +558,10 @@ app.get('/api/me', auth, async (req, res) => {
     const isCOO = modules.some(m => m.module === 'platform' && m.role === 'admin') || !!(o2s && o2s.role === 'COO');
     // Which modules this person may ADMINISTER: the platform admin administers all; others only their is_admin grants.
     const adminModules = isCOO ? REAL_MODULES.slice() : modules.filter(m => m.admin).map(m => m.module);
-    res.json({ username: req.user.u, name: req.user.n, o2sRole: o2s ? o2s.role : null, platformAdmin: isCOO, modules, adminModules });
+    // PLATFORM 27 Sept: the person's title, when People and access has one (additive; null otherwise).
+    let title = null;
+    try { if ((await platformTables()).people) { const [t] = await pdq('SELECT pp.title FROM platform_people pp JOIN auth_users a ON a.id = pp.account_id WHERE a.username = ?', [req.user.u]); title = t[0] ? t[0].title || null : null; } } catch (e) {}
+    res.json({ username: req.user.u, name: req.user.n, title, o2sRole: o2s ? o2s.role : null, platformAdmin: isCOO, modules, adminModules });
   } catch (e) { res.status(500).json({ error: String(e) }); }
 });
 
@@ -483,7 +602,13 @@ app.get('/api/platform/catalogue', auth, accessAdmin, async (req, res) => {
 // The admin grid: every user + their module roles (+ which modules each person administers).
 app.get('/api/platform/users', auth, accessAdmin, async (req, res) => {
   try {
-    const [users] = await pdq('SELECT username, name FROM auth_users ORDER BY username');
+    // PLATFORM 27 Sept: each row also carries the person (title, department, company) and whether the
+    // login is switched on. WhatsApp and email go to the platform administrator only.
+    const t = await platformTables();
+    try { await ensurePeople(); } catch (e) { console.error('ensurePeople:', e.message); }
+    const [users] = await pdq(`SELECT a.username, a.name${t.active ? ', a.active' : ''}${t.people ? ', pp.person_id, pp.title, pp.department, pp.company, pp.whatsapp, pp.email' : ''}
+      FROM auth_users a ${t.people ? 'LEFT JOIN platform_people pp ON pp.account_id = a.id' : ''} ORDER BY a.username`);
+    const seeContacts = !!req.adminCaps.isCOO;
     const [roles] = await pdq('SELECT username, module, role, is_admin FROM user_module_roles');
     const byUser = {}, adminBy = {};
     roles.forEach(r => {
@@ -497,7 +622,11 @@ app.get('/api/platform/users', auth, accessAdmin, async (req, res) => {
     const [o2sRoleRows] = await pdq("SELECT DISTINCT role FROM auth_users WHERE role IS NOT NULL AND role <> ''");
     const o2sRoles = Array.from(new Set(masterRoles.concat(o2sRoleRows.map(r => r.role)))).filter(Boolean).sort();
     res.json({
-      users: users.map(u => ({ username: u.username, name: u.name, modules: byUser[u.username] || {}, adminOf: adminBy[u.username] || [] })),
+      users: users.map(u => Object.assign({ username: u.username, name: u.name, modules: byUser[u.username] || {}, adminOf: adminBy[u.username] || [] },
+        { active: t.active ? Number(u.active) !== 0 : true },
+        t.people ? { personId: u.person_id || null, title: u.title || null, department: u.department || null, company: u.company || null } : {},
+        (t.people && seeContacts) ? { whatsapp: u.whatsapp || null, email: u.email || null } : {})),
+      platform: { people: t.people, log: t.log, switchOff: t.active },
       o2sRoles: o2sRoles,
       pdRoles: PD_ROLE_KEYS,
       pdRoleLabels: (pd && pd.PD_ROLES) || {}, // FIX D10: the Access screen showed raw keys (rta, qc_head, ...)
@@ -564,6 +693,9 @@ app.post('/api/platform/users', auth, admin, async (req, res) => {
     if (ex[0]) return res.status(409).json({ error: 'that username already exists' });
     // role and pd_role stay NULL — the account exists but has no module access until granted in Manage access.
     await pdq('INSERT INTO auth_users (username, name, pass_hash, active) VALUES (?,?,?,1)', [username, name, hashPw(password)]);
+    // PLATFORM 27 Sept: the person behind the login, and the log entry.
+    try { await ensurePeople(); } catch (e) { console.error('ensurePeople:', e.message); }
+    await logAccess({ action: 'account.create', subject: username, after: { name } });
     res.json({ ok: true, username, name });
   } catch (e) { res.status(500).json({ error: String(e) }); }
 });
@@ -578,8 +710,125 @@ app.post('/api/platform/admin', auth, admin, async (req, res) => {
     if (!username || REAL_MODULES.indexOf(module) < 0) return res.status(400).json({ error: 'valid username and module (o2s|pd) required' });
     const [ex] = await pdq('SELECT role FROM user_module_roles WHERE username=? AND module=?', [username, module]);
     if (!ex[0]) return res.status(400).json({ error: 'Grant ' + username + ' a role in ' + module.toUpperCase() + ' first, then make them its admin.' });
+    const [was] = await pdq('SELECT is_admin FROM user_module_roles WHERE username=? AND module=?', [username, module]);
     await pdq('UPDATE user_module_roles SET is_admin=? WHERE username=? AND module=?', [isAdmin ? 1 : 0, username, module]);
+    if (!!(was[0] && was[0].is_admin) !== isAdmin) await logAccess({ action: isAdmin ? 'admin.grant' : 'admin.revoke', subject: username, module });
     res.json({ ok: true, username, module, is_admin: isAdmin });
+  } catch (e) { res.status(500).json({ error: String(e) }); }
+});
+
+/* ---------- PLATFORM, 27 Sept 2026: People and access — the person, the login, the history ----------
+   Platform administrator only (the admin gate). Each change writes 1 row to the access log.
+   Renaming a USERNAME is deliberately not here yet: O2S's own records point at usernames,
+   so it stays with O2S's Users & Access until the O2S session moves it (ruling of 26 Sept). */
+async function accountRow(username) {
+  const [r] = await pdq('SELECT * FROM auth_users WHERE username=?', [username]);
+  return r[0] || null;
+}
+// Edit a person's details: name, title, department, company, WhatsApp, email.
+app.patch('/api/platform/people/:username', auth, admin, async (req, res) => {
+  try {
+    if (!pdq) return res.status(503).json({ error: 'People and access needs the database.' });
+    const t = await platformTables();
+    if (!t.people) return res.status(409).json({ error: 'Person details need the platform migration P001 applied to this database first.' });
+    const username = String(req.params.username || '').trim().toLowerCase();
+    const acc = await accountRow(username);
+    if (!acc) return res.status(404).json({ error: 'No login called ' + username + '.' });
+    await ensurePeople();
+    const [pr] = await pdq('SELECT * FROM platform_people WHERE account_id=?', [acc.id]);
+    const person = pr[0];
+    if (!person) return res.status(500).json({ error: 'The person for this login could not be found.' });
+    const b = req.body || {}, sets = [], vals = [], before = {}, after = {};
+    const put = (col, v) => { if ((person[col] || null) !== v) { sets.push(col + '=?'); vals.push(v); before[col] = person[col] || null; after[col] = v; } };
+    if (b.name !== undefined) {
+      const n = String(b.name || '').trim();
+      if (!n) return res.status(400).json({ error: 'A name is needed.' });
+      if (n.length > PERSON_TEXT.full_name) return res.status(400).json({ error: 'The name is too long.' });
+      put('full_name', n);
+    }
+    for (const f of ['title', 'department', 'company']) {
+      if (b[f] === undefined) continue;
+      const v = String(b[f] || '').trim();
+      if (v.length > PERSON_TEXT[f]) return res.status(400).json({ error: 'The ' + f + ' is too long.' });
+      put(f, v || null);
+    }
+    if (b.whatsapp !== undefined) { const w = cleanWhatsapp(b.whatsapp); if (!w.ok) return res.status(400).json({ error: w.error }); put('whatsapp', w.v); }
+    if (b.email !== undefined) { const m = cleanEmail(b.email); if (!m.ok) return res.status(400).json({ error: m.error }); put('email', m.v); }
+    if (!sets.length) return res.json({ ok: true, changed: false });
+    await pdq('UPDATE platform_people SET ' + sets.join(', ') + ' WHERE person_id=?', vals.concat([person.person_id]));
+    // The login's name is the copy O2S and PD read; kept in step with the person's name.
+    if (after.full_name !== undefined) await pdq('UPDATE auth_users SET name=? WHERE id=?', [after.full_name, acc.id]);
+    await logAccess({ action: 'person.update', subject: username, before, after });
+    res.json({ ok: true, changed: true });
+  } catch (e) { res.status(500).json({ error: String(e) }); }
+});
+// Set a new password for someone else (the person can change their own at /api/me/password).
+app.post('/api/platform/people/:username/password', auth, admin, async (req, res) => {
+  try {
+    if (!pdq) return res.status(503).json({ error: 'People and access needs the database.' });
+    const username = String(req.params.username || '').trim().toLowerCase();
+    const pw = String((req.body && req.body.password) || '');
+    if (pw.length < 6) return res.status(400).json({ error: 'The new password must be at least 6 characters.' });
+    if (!(await accountRow(username))) return res.status(404).json({ error: 'No login called ' + username + '.' });
+    await pdq('UPDATE auth_users SET pass_hash=? WHERE username=?', [hashPw(pw), username]);
+    loginFails.delete(username);
+    await logAccess({ action: 'account.password_reset', subject: username });   // never the password itself
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: String(e) }); }
+});
+// Switch a login off (a leaver) or back on. Roles are kept, so switching back on restores them.
+app.post('/api/platform/people/:username/active', auth, admin, async (req, res) => {
+  try {
+    if (!pdq) return res.status(503).json({ error: 'People and access needs the database.' });
+    const t = await platformTables();
+    if (!t.active) return res.status(409).json({ error: 'This database has no switch-off column on logins.' });
+    const username = String(req.params.username || '').trim().toLowerCase();
+    const on = !!(req.body && req.body.active);
+    const acc = await accountRow(username);
+    if (!acc) return res.status(404).json({ error: 'No login called ' + username + '.' });
+    const wasOn = Number(acc.active) !== 0;
+    if (wasOn === on) return res.json({ ok: true, changed: false, active: on });
+    if (!on) {
+      if (username === String(req.user.u).toLowerCase()) return res.status(400).json({ error: 'You cannot switch off your own login.' });
+      const others = async (sql) => { const [r] = await pdq(sql, [username]); return Number(r[0].n); };
+      const isAdm = await isPlatformAdmin(username);
+      if (isAdm && await others("SELECT COUNT(DISTINCT r.username) AS n FROM user_module_roles r JOIN auth_users a ON a.username = r.username WHERE ((r.module='platform' AND r.role='admin') OR (r.module='o2s' AND r.role='COO')) AND COALESCE(a.active,1) <> 0 AND r.username <> ?") === 0)
+        return res.status(400).json({ error: 'This is the last platform administrator. Appoint another before switching this login off.' });
+      if ((await heldRole(username, 'o2s')) === 'COO' && await others("SELECT COUNT(*) AS n FROM user_module_roles r JOIN auth_users a ON a.username = r.username WHERE r.module='o2s' AND r.role='COO' AND COALESCE(a.active,1) <> 0 AND r.username <> ?") === 0)
+        return res.status(400).json({ error: 'This is the last O2S COO. Give another person the COO role first.' });
+    }
+    await pdq('UPDATE auth_users SET active=? WHERE username=?', [on ? 1 : 0, username]);
+    if (on) switchedOff.delete(username); else switchedOff.add(username);
+    await logAccess({ action: on ? 'account.switch_on' : 'account.switch_off', subject: username, before: { active: wasOn }, after: { active: on } });
+    res.json({ ok: true, changed: true, active: on });
+  } catch (e) { res.status(500).json({ error: String(e) }); }
+});
+// A person's history: the last 50 log rows about them.
+app.get('/api/platform/people/:username/history', auth, admin, async (req, res) => {
+  try {
+    if (!pdq || !(await platformTables()).log) return res.json({ rows: [], log: false });
+    const username = String(req.params.username || '').trim().toLowerCase();
+    const [rows] = await pdq('SELECT at, actor, action, module, before_val, after_val, via FROM platform_access_log WHERE subject=? ORDER BY log_id DESC LIMIT 50', [username]);
+    res.json({ rows, log: true });
+  } catch (e) { res.status(500).json({ error: String(e) }); }
+});
+/* Who holds what: every app's roles with the people holding each, so a vacant role shows.
+   Names only; contacts are not part of this view. The platform administrator sees every
+   app; an app admin sees only the apps they administer. */
+app.get('/api/platform/holders', auth, accessAdmin, async (req, res) => {
+  try {
+    const t = await platformTables();
+    const cat = await roleCatalogue();
+    const [grants] = await pdq(`SELECT r.module, r.role, a.username, a.name${t.active ? ', a.active' : ''} FROM user_module_roles r JOIN auth_users a ON a.username = r.username ORDER BY a.name`);
+    const caps = req.adminCaps;
+    const modules = cat.filter(m => m.live && (caps.isCOO || (m.key !== 'platform' && caps.adminModules.indexOf(m.key) >= 0))).map(m => ({
+      key: m.key, name: m.name,
+      roles: (m.roles || []).map(r => {
+        const holders = grants.filter(g => g.module === m.key && g.role === r.key).map(g => ({ username: g.username, name: g.name, active: t.active ? Number(g.active) !== 0 : true }));
+        return { key: r.key, name: r.name, department: r.department || null, archived: !!r.archived, notFiled: r.department === 'Not filed', holders, vacant: !holders.some(h => h.active) };
+      }).filter(r => !(r.archived && !r.holders.length))
+    }));
+    res.json({ modules });
   } catch (e) { res.status(500).json({ error: String(e) }); }
 });
 
@@ -704,4 +953,7 @@ async function runPlatformMigration() {
   try { const [c] = await pdq('SELECT COUNT(*) AS n FROM user_module_roles'); console.log('Platform migration: user_module_roles ready (' + (c[0] ? c[0].n : '?') + ' rows).'); } catch (e) {}
 }
 
-store.init().then(migrateAuth).then(runPdMigration).then(runPlatformMigration).then(() => app.listen(PORT, () => console.log('VAN Order Control Tower on port ' + PORT)));
+// PLATFORM 27 Sept: load the switched-off logins before the first request. Non-fatal: if it
+// fails, nobody is switched off in memory, which is exactly today's behaviour.
+const loadSwitchedOffSafe = () => loadSwitchedOff().catch(e => console.error('Platform: switched-off list not loaded:', e.message));
+store.init().then(migrateAuth).then(runPdMigration).then(runPlatformMigration).then(loadSwitchedOffSafe).then(() => app.listen(PORT, () => console.log('VAN Order Control Tower on port ' + PORT)));

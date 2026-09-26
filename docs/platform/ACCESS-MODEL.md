@@ -94,3 +94,55 @@ built may leave any O2S account unable to work.
   platform's holders function for its own roles (to be built in Step 1).
 - Module rules from `CLAUDE.md`: its own folder and route block, registered
   before O2S's catch-all; never writes `user_module_roles`.
+
+## People and access, phase 1 (built 27 September 2026, not pushed)
+
+Design and rulings: `docs/platform/PLATFORM-DESIGN.md`. In short:
+
+| Table | Holds | Written by |
+|---|---|---|
+| `platform_people` | The human: name, title, department, company, WhatsApp, email. `account_id` links to at most 1 login (`auth_users.id`); NULL = a person with no login | People and access only |
+| `auth_users` | The login, unchanged. `name` is kept in step with the person's name because O2S and PD read it. `active = 0` means switched off | People and access (switch off, password); O2S Users & Access until the O2S session |
+| `platform_access_log` | 1 row per change: actor, action, subject, app, before, after, via. Triggers refuse UPDATE and DELETE | the platform only, through `logAccess()` |
+
+Created by `platform/migrations/P001_people_and_access_log.sql` (local) and
+its `.PRODUCTION.sql` copy. Until P001 is applied, the server behaves exactly
+as before and the page says the migration is waiting.
+
+**Switched off.** Only an explicit switch-off on People and access sets
+`active = 0`. From then on the login is refused and any open session stops
+(checked in `auth()` from a set held in memory, loaded at boot). Roles are
+kept, so switching back on restores them. Guards: not yourself, not the last
+platform administrator, not the last O2S COO.
+
+**Logged actions:** `account.create`, `person.update`,
+`account.password_reset` (never the password), `account.switch_off`,
+`account.switch_on`, `role.grant`, `role.change`, `role.revoke` (from
+`setModuleRole()` / `clearModuleRole()`, so O2S's Users & Access is logged
+too, marked `via = o2s-users`), `admin.grant`, `admin.revoke`. Logging is
+best effort: if the log cannot be written, the change still stands and the
+server log says why.
+
+**Services for apps** (server side, `platformServices`): `holdersOf(app,
+role)` and `contactsFor(usernames)` return switched-on people with name,
+title, WhatsApp and email. A vacant role returns an empty list. Hand
+`platformServices` to an app's routes when it is mounted; contacts never go
+to a browser except the platform administrator's.
+
+**Routes (platform administrator):** `PATCH /api/platform/people/:username`,
+`POST /api/platform/people/:username/password`,
+`POST /api/platform/people/:username/active`,
+`GET /api/platform/people/:username/history`. **Access administrators:**
+`GET /api/platform/holders` (who holds what, vacant roles marked).
+`/api/platform/users` rows gain `active`, `personId`, `title`, `department`,
+`company`, and for the platform administrator `whatsapp` and `email`.
+`/api/me` gains `title`.
+
+**Not in phase 1:** renaming a username (O2S's records point at usernames;
+stays in O2S's Users & Access until the O2S session), any O2S screen change,
+Nigehbaan joining, the "open to every active person" flag, companies as a
+scope on grants, the org chart.
+
+**Tests:** `tests/platform/people-access.test.js` (19 checks) runs only
+against a throwaway copy (`PLATFORM_TEST_DB=throwaway`; it refuses
+`van_platform` and production by name).

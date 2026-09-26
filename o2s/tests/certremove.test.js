@@ -167,7 +167,7 @@ const strip = s => String(s).replace(/<[^>]*>/g, '|').replace(/\s+/g, ' ').slice
   ['analysed', 'reviewed'].forEach(st => {
     const m = c.lotRemoveBlockedBy(withStatus(st), withStatus(st).lots[1]) || '';
     ok(st + ': still "in hand"', /in hand/.test(m), m);
-    ok(st + ': says Reject, the button\'s real name', /Reject/.test(m), m);
+    ok(st + ': says Send back, the button\'s real name (26a)', /Send back/.test(m), m);
     ok(st + ': no longer says "withdraw", which is not a button', !/withdraw/.test(m), m);
     ok(st + ': names the AQCM / QCM', /AQCM \/ QCM/.test(m), m);
   });
@@ -319,7 +319,7 @@ const strip = s => String(s).replace(/<[^>]*>/g, '|').replace(/\s+/g, ' ').slice
   run(c2, 'state.batches[state.batches.length-1].lots[1].coa.status = "reviewed";');
   run(c2, 'openCorrect("coa","B-AP26012|LOT-B"); correctForm.op = "SUPERSEDE";');
   const m2 = run(c2, 'renderCorrect(); document.getElementById("modal").innerHTML');
-  ok('a reviewed certificate: the dialogue says reject it back instead', /reject it back to the analyst/.test(m2), strip(m2));
+  ok('a reviewed certificate: the dialogue says send it back down the chain instead (26a)', /send it back down the chain/.test(m2), strip(m2));
   ok('...and offers no action button', !/applyCorrect\(\)/.test(m2));
 
   /* removing a lot that never had a certificate: the register line reads as before */
@@ -376,7 +376,7 @@ const strip = s => String(s).replace(/<[^>]*>/g, '|').replace(/\s+/g, ' ').slice
   run(c, 'state.batches[state.batches.length-1].lots[1].coa.status = "reviewed";');
   const lots = lotsTab(c);
   const l2 = lots.slice(lots.indexOf('AP26012-L2'), lots.indexOf('AP26012-L2') + 1200).replace(/title="[^"]*"/g, '');
-  ok('a reviewed lot: the FULL reason under it, in amber, saying Reject', /color:var\(--amber[^>]*>Cannot be removed: The lab has lot AP26012-L2 in hand \(COA reviewed\)/.test(l2) && /press Reject/.test(l2), strip(l2));
+  ok('a reviewed lot: the FULL reason under it, in amber, saying Reject', /color:var\(--amber[^>]*>Cannot be removed: The lab has lot AP26012-L2 in hand \(COA reviewed\)/.test(l2) && /press Send back/.test(l2), strip(l2));
   /* the message no longer promises removal unconditionally */
   const msg = c.lotRemoveBlockedBy(B(c), lot(c, 'LOT-A')) || '';
   ok('the certified refusal says the other checks still apply', /the other checks still apply/.test(msg), msg);
@@ -410,28 +410,36 @@ const strip = s => String(s).replace(/<[^>]*>/g, '|').replace(/\s+/g, ' ').slice
   run(c, '__srv = JSON.parse(JSON.stringify(__base)); __srv.batches[0].note = "touched by another tab";');
   run(c, '__merged = ensureState(merge3(__base, dataOnly(state), __srv));');
   const mb = run(c, '__merged.batches.find(function(b){ return b.id === "B-AP26012"; })');
-  eq('MEASURED: after the merge the removed lot is back', mb.lots.length, 2);
-  eq('...while produced keeps the lowered figure', mb.producedKg, 1010);
-  eq('...the lots total 2,020', mb.lots.reduce((a, l) => a + (+l.qty || 0), 0), 2020);
+  /* 26a: merge3 now honours a removal (Tahir approved, 26 Sep) */
+  eq('FIXED (26a): after the merge the removed lot STAYS removed', mb.lots.length, 1);
+  eq('...produced keeps the lowered figure', mb.producedKg, 1010);
+  eq('...the lots total 1,010, matching produced', mb.lots.reduce((a, l) => a + (+l.qty || 0), 0), 1010);
   ok('...and the register entry for the removal survived the merge', run(c, '__merged.corrections.some(function(x){ return x.op === "Removed shift output"; })'));
-  /* now the app is looking at that merged state */
-  run(c, 'var _cu = state.currentUser; state = __merged; state.currentUser = _cu; state.role = "COO";');
+  /* The data already on live from before 26a: the lot came back, produced did not.
+     Rebuilt here by putting the removed lot back, as the old merge did. */
+  run(c, '__legacy = JSON.parse(JSON.stringify(__merged)); (function(){ var bb=__legacy.batches.find(function(b){return b.id==="B-AP26012";}); var bl=__base.batches.find(function(b){return b.id==="B-AP26012";}); bb.lots.push(JSON.parse(JSON.stringify(bl.lots.find(function(l){return l.id==="LOT-B";})))); })();');
+  run(c, 'var _cu = state.currentUser; state = ensureState(__legacy); state.currentUser = _cu; state.role = "COO";');
+  eq('legacy: 2 lots of 1,010 with produced 1,010 (as AP26012 and VMG10419 are on live)', B(c).lots.length + '/' + B(c).producedKg, '2/1010');
   const l2 = B(c).lots.find(l => l.id === 'LOT-B');
-  const why = c.lotRemoveBlockedBy(B(c), l2) || '';
-  ok('the certified floor refuses a second Remove', /below the 1,010 Kg the lab has certified/.test(why), why);
-  ok('...says produced would go to 0', /take produced to 0 Kg/.test(why), why);
-  ok('...and tells the person to reload and tell the COO, not remove again', /reload the page first and tell the COO/.test(why) && /do not remove again/.test(why), why);
+  ok('26a: L2 is recognised as a leftover duplicate', c.lotLeftoverDup(B(c), l2) === true);
+  eq('26a: so Remove is no longer refused on it', c.lotRemoveBlockedBy(B(c), l2), null);
+  ok('26a: L1, the certified one, is never a leftover duplicate', c.lotLeftoverDup(B(c), B(c).lots.find(l => l.id !== 'LOT-B')) === false);
   const lots2 = lotsTab(c);
   ok('the Lots tab states the two figures', /lots on this batch total <b>2,020 Kg<\/b> but produced reads <b>1,010 Kg<\/b>/.test(lots2), strip(lots2.slice(0, 600)));
   ok('...and says reload before acting', /Reload the page before acting/.test(lots2));
-  ok('...and names the three things NOT to do', /do not remove again, do not correct produced upward and do not log a shift/.test(lots2));
+  ok('...and names what NOT to do', /do not correct produced upward and do not log a shift/.test(lots2));
+  ok('...and points at the leftover duplicate and what Remove does to it (26a)', /marked <b>leftover duplicate<\/b> below/.test(lots2) && /produced stays as it is/.test(lots2));
   ok('...as one block, not a flex row of words', /<div class="qbanner" style="display:block;/.test(lots2));
-  ok('...with the greyed Remove and the floor\'s reason under L2', /Cannot be removed: Removing 1,010 Kg would take produced to 0 Kg/.test(lots2), strip(lots2.slice(lots2.indexOf('AP26012-L2'), lots2.indexOf('AP26012-L2') + 900)));
-  /* and pressing it anyway is refused, nothing changes */
+  ok('...L2 carries the leftover duplicate tag', />leftover duplicate<\/span>/.test(lots2));
+  const shiftsBefore = run(c, 'state.shiftEntries.filter(function(e){return e.batchId==="B-AP26012";}).length');
   run(c, 'openRemoveLot("B-AP26012","LOT-B")');
-  ok('openRemoveLot refuses on the floor', /below the 1,010 Kg the lab has certified/.test(run(c, 'toasts[toasts.length-1]') || ''));
-  eq('...lots untouched', B(c).lots.length, 2);
-  eq('...produced untouched', B(c).producedKg, 1010);
+  ok('the Remove sheet says produced stays and no order changes', /leftover duplicate/.test(c.__els.modal.innerHTML) && /stays 1,010 Kg/.test(c.__els.modal.innerHTML));
+  run(c, 'rmLotForm.reasonCode = "duplicate"; rmLotForm.reason = "Leftover duplicate record put back by an old tab; one lot was made.";');
+  click(c, c.__els.modal.innerHTML, /^doRemoveLot\(\)$/);
+  eq('26a: the leftover lot record is gone', B(c).lots.length, 1);
+  eq('26a: produced stays 1,010 - it is not taken down a second time', B(c).producedKg, 1010);
+  const shiftsAfter = run(c, 'state.shiftEntries.filter(function(e){return e.batchId==="B-AP26012";}).length');
+  ok('26a: never the real shift entry (only a duplicate one, if there are 2)', shiftsAfter === (shiftsBefore >= 2 ? shiftsBefore - 1 : shiftsBefore), shiftsBefore + '→' + shiftsAfter);
 
   /* the note is a statement of fact, not an alarm: the snapshot trips it nowhere */
   const c2 = app('COO');

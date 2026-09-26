@@ -93,4 +93,17 @@ ok('BUILD_ID is 2026-09-24z or later', /BUILD_ID\s*=\s*'2026-09-(24z|2[5-9][a-z]
 /* 25j */
 ok('My job names How are we doing for the roles that have it (25j)', /How are we doing<\/b><span>4 answers/.test(grab('guideMyJob')) && /howMay\(\)/.test(grab('guideMyJob')));
 ok('How it works: an order carries terms, ERP SO and the 5% price reason (25j)', /payment terms and the ERP SO #/.test(grab('guideHow')) && /more than 5%/.test(grab('guideHow')));
+/* 26a */
+{ const rules = grab('guideRules'), how3 = grab('guideHow');
+  ok('How it works: Close batch beside Log output; a batch close is not an order close (26a)', /Close batch, beside Log output/.test(how3) && /Closing a batch does not close the order/.test(how3));
+  ok('How it works: made-so-far on a multi-order batch comes to what was packed (26a)', /made-so-far is brought to what was actually packed/.test(how3));
+  ok('How it works: every truck sign-off opens a sheet; send back to whoever issued the gate pass (26a)', /opens a sheet first/.test(how3) && /send it back with a reason to whoever issued the gate pass/.test(how3));
+  ok('The rules: tick only the products to close; nothing is ticked for you (26a)', /tick only the products to close; nothing is ticked for you/.test(rules));
+  ok('The rules: Supplied from stock outside O2S (26a)', /Supplied from stock outside O2S/.test(rules) && /not counted against us/.test(rules));
+  ok('The rules: a refusal needs a reason and goes back to the asker (26a)', /A refused close needs a reason/.test(rules) && /goes back to the person who asked/.test(rules));
+  ok('Job cards: a truck sign-off opens a sheet to read before confirming (26a)', /a truck sign-off opens a sheet/.test(grab('guideJobCard')));
+  ok('How it works: a report is sent back one step at a time with a note (26a)', /sent back one step at a time, always with a note/.test(how3) && /the QCM sends it back to the AQCM, the AQCM to the analyst who drafted it/.test(how3));
+  ok('The rules: a leftover duplicate lot is removed as a record only (26a)', /leftover duplicate/.test(rules) && /produced does not change/.test(rules));
+  const TL = grabTopVar('TD_LABEL', '{');
+  ok('Today labels the new jobs (26a)', /'Correct COA':\s*\{title:'COA sent back to you to correct'/.test(TL) && /'Refused':\s*\{title:'Your close request was refused'/.test(TL) && /'Sent back':\s*\{title:'Truck sent back to you'/.test(TL)); }
 process.exitCode = report('The Guide keeps up (24z)') ? 1 : 0;

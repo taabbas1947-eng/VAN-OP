@@ -217,7 +217,7 @@ ok("BUILD_ID is 2026-09-23t or later", /var BUILD_ID='2026-09-(2(3[t-z]|4[a-z])|
   ok('the COO closes every open line in one act, approved in the same act', /approvedBy:who,approvedAt:now,poClose:true/.test(sub) && /o\.closed=\{at:now,by:who/.test(sub));
   ok('the 2 managers who may ask get the same sheet, and it files a REQUEST per line', /if\(f\.mode==='ask'\)/.test(sub) && /may\('po\.shortclose_request'\)/.test(sub) && /requestedBy:scWho\(\),requestedAt/.test(sub) && !/approvedAt/.test(sub.split("if(f.mode==='ask')")[1].split('return;')[0]));
   ok('a close needs a reason, and "other" needs words', /if\(!scReason\(f\.reasonCode\)\)/.test(sub) && /f\.reasonCode==='other' && !String\(f\.reason\|\|''\)\.trim\(\)/.test(sub));
-  ok('the ordered quantity is never rewritten; the close is logged and audited', /scFreeze\(l\)/.test(sub) && /logAction\('PO CLOSED by the COO/.test(sub) && /'PO closed'/.test(sub) && !/l\.ordered=/.test(sub));
+  ok('the ordered quantity is never rewritten; the close is logged and audited', /scFreeze\(l\)/.test(sub) && /PO CLOSED by the COO/.test(sub) && /'PO closed'/.test(sub) && !/l\.ordered=/.test(sub));
   ok('who may close: COO or po.close; who may ask: po.shortclose_request; nobody else sees the button', /if\(state\.role==='COO'\|\|may\('po\.close'\)\) return 'close'; if\(may\('po\.shortclose_request'\)\) return 'ask'; return '';/.test(grab('cpMode')) && /if\(!m\|\|!o\|\|!cpOpenLines\(o\)\.length\) return ''/.test(grab('closePOButtonHTML')));
   ok('the button is on Plant\'s late orders and the floor, and on the run sheet', /closePOButtonHTML\(oo\)/.test(grab('screenPlant')) && /closePOButtonHTML\(o\)/.test(grab('screenPlant')) && /openClosePO\(/.test(grab('renderRun')));
   ok('the run sheet also lets a manager ask to close ONE line short', /openShortClose\(/.test(grab('renderRun')));
@@ -401,7 +401,7 @@ ok('a browser that remembered All actions or the Dashboard lands on Today', /if\
     const cp = grab('cpOpenLines');
     ok('the close sheet takes one line: cpOpenLines(o,lid), openClosePO(oid,lid), Close this line on the order sheet', /function cpOpenLines\(o,lid\)/.test(cp) && /if\(lid&&\(!l\|\|l\.id!==lid\)\) return false;/.test(cp) && /function openClosePO\(oid,lid\)/.test(html) && /closeLineButtonHTML\(o,l\)/.test(grab('openOrderSheet')) && /Close this line/.test(grab('closeLineButtonHTML')) && /Ask to close this line/.test(grab('closeLineButtonHTML')));
     const sub2 = (() => { const i = html.indexOf('\nfunction submitClosePO('); return H.matchBlock(i + 1, 'submitClosePO'); })();
-    ok('the PO closes itself only when its last open line closes', /if\(!cpOpenLines\(o\)\.length\) o\.closed=\{at:now,by:who/.test(sub2) && /Line closed by the COO/.test(sub2) && /field:one\?'Line closed':'PO closed'/.test(sub2));
+    ok('the PO closes itself only when its last open line closes', /if\(!cpOpenLines\(o\)\.length\) o\.closed=\{at:now,by:who/.test(sub2) && /Line closed by the COO/.test(sub2) && /field:o\.closed&&!one\?'PO closed':'Line closed'/.test(sub2));
     ok('Orders groups by customer or by product, with totals per group', /ordGroupsHTML\(list,ordGroup\)/.test(grab('screenOrders')) && /By customer/.test(grab('screenOrders')) && /By product/.test(grab('screenOrders')) && /class="ord2-grp/.test(grab('ordGroupsHTML')) && /if\(by==='product'&&l\.brand!==k\) return;/.test(grab('ordGroupsHTML')));
     const g = new Function('lineShortClosed', grab('lineStage') + '\nreturn lineStage;')(() => false);
     eq('lineStage agrees', g({}, { ordered: 30, delivered: 30 }), 'Delivered');

@@ -13,7 +13,7 @@ const H = require('./harness.js');
 const vm = require('vm');
 const { ok, eq, report, grab, html } = H;
 
-const src = ['lineShortClosed','lineShortRequested','scReason','scWho','scFreeze','_scLine',
+const src = ['lineShortClosed','lineShortRequested','lineShortRefused','lineRefusalOpen','scArchive','scReason','scWho','scFreeze','_scLine',
              'shortCloseGap','shortCloseAgainstUs','shortCloseRefusal',
              'requestShortClose','approveShortClose','rejectShortClose','reopenShortClose']
   .map(n => { try { return grab(n); } catch (e) { return ''; } }).join('\n\n');
@@ -96,8 +96,30 @@ b = world({ user:'A' });
 b.requestShortClose('O1','L1','our_shortfall','');
 b.state.currentUser = { name:'B' };
 b.rejectShortClose('O1','L1');
-ok('a rejected request leaves the line completely open',
-   !b.l.shortClose && b.lineShortRequested(b.l) === false && b.lineShortClosed(b.l) === false);
+ok('26a: a refusal with no reason is refused', b.lineShortRequested(b.l) === true && /why it is refused/.test(last(b)));
+b.rejectShortClose('O1','L1','customer still wants it');
+ok('a refused request leaves the line completely open',
+   b.lineShortRequested(b.l) === false && b.lineShortClosed(b.l) === false);
+/* 26a: the refusal is a recorded fact, never an erase. An erased field is put
+   back by the 3-way sync merge from the other person's copy - Fahim refused the
+   same Grain Set request 10 times on 26 Sep. */
+ok('26a: the request is kept, with who refused it and why',
+   !!b.l.shortClose && b.l.shortClose.refusedBy === 'B' && b.l.shortClose.refusedWhy === 'customer still wants it' && !!b.l.shortClose.refusedAt);
+ok('26a: it is a refusal the asker has not read yet', b.lineShortRefused(b.l) === true && b.lineRefusalOpen(b.l) === true);
+ok('26a: rejectShortClose never deletes the request', !/delete l\.shortClose/.test(grab('rejectShortClose')));
+{ /* the sync merge cannot bring the request back: merge3 against the server copy still holding the waiting request */
+  const m3 = new Function(grab('_eq') + '\n' + grab('_arrId') + '\n' + grab('merge3') + '\nreturn merge3;')();
+  const base = { shortClose: { requestedBy:'A', reasonCode:'our_shortfall' } };
+  const local = JSON.parse(JSON.stringify(b.l));
+  const srv = { shortClose: { requestedBy:'A', reasonCode:'our_shortfall' } };
+  const out = m3(base, local, srv);
+  ok('26a: after a sync merge with a copy that never saw the refusal, the refusal stands', !!(out.shortClose && out.shortClose.refusedAt) && b.lineShortRequested(out) === false);
+}
+/* asking again archives the refusal and opens a new request */
+b.state.currentUser = { name:'A' };
+b.requestShortClose('O1','L1','customer_reduced','customer confirmed on 26 Sep');
+ok('26a: asking again opens a new request', b.lineShortRequested(b.l) === true && !b.l.shortClose.refusedAt);
+ok('26a: the refusal moves to the line history, not lost', (b.l.shortCloseHistory||[]).length === 1 && b.l.shortCloseHistory[0].refusedWhy === 'customer still wants it' && !!b.l.shortCloseHistory[0].id);
 
 /* ---- reopening ---- */
 b = world({ user:'A' });
@@ -156,7 +178,10 @@ ok('the review modal works out whether the viewer is the requester',
    /requestedBy\|\|''\)===String\(scWho\(\)\)/.test(rv));
 ok('it hides Approve from the person who asked',
    /mine\?'':'<button[^']*approveShortClose/.test(rv));
-ok('it always offers Reject',  /rejectShortClose/.test(rv));
+ok('it always offers Refuse, which asks for the reason first (26a)',  /openShortCloseRefuse\(/.test(rv) && !/rejectShortClose\(/.test(rv));
+ok('26a: the refuse form needs the reason', /rejectShortClose\(scRefuseForm\.oid,scRefuseForm\.lid,scRefuseForm\.why\)/.test(grab('openShortCloseRefuse')));
+ok('26a: a refusal goes back to the asker on Today', /lineRefusalOpen\(l\)/.test(ac) && /openRefusal\(/.test(ac) && /label:'Refused'/.test(ac) && /who:_as\.user/.test(ac));
+ok('26a: the asker can ask again or leave it open', /openShortClose\(/.test(grab('openRefusal')) && /refusalSeen\(/.test(grab('openRefusal')));
 ok('it shows what is being given up, not just a yes/no',
    /Closing short/.test(rv) && /still ships/.test(rv));
 

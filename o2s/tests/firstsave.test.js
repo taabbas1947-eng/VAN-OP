@@ -100,8 +100,15 @@ function eq(n, got, want) { ok(n, JSON.stringify(got) === JSON.stringify(want),
   const server = { slip: { id: 'S1', signedBy: 'Asma' } };
   const local  = { slip: { id: 'S1' } };          // signedBy removed, not nulled
   const out = merge3(base, local, server);
-  eq('BUG 5: a withdrawn signature comes back, because undefined means absent',
-     out.slip.signedBy, 'Asma');
+  /* 26a: FIXED in merge3 itself - a field removed on one side and unchanged on the other stays removed */
+  eq('BUG 5 FIXED (26a): a withdrawn signature stays withdrawn, even by delete',
+     out.slip.signedBy, undefined);
+  /* and the guard: with no real baseline (base IS local) nothing counts as removed */
+  const out3 = merge3(local, local, server);
+  eq('26a guard: base === local (no baseline) removes nothing the server has', out3.slip.signedBy, 'Asma');
+  /* the other side changed what we removed: a conflict keeps the data */
+  const out4 = merge3(base, local, { slip: { id: 'S1', signedBy: 'Imran' } });
+  eq('26a: removed here but changed there - kept (conflict keeps data)', out4.slip.signedBy, 'Imran');
   const local2 = { slip: { id: 'S1', signedBy: null } };
   const out2 = merge3(base, local2, server);
   eq('BUG 5 fixed: clearing to null actually clears', out2.slip.signedBy, null);

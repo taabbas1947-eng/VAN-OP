@@ -11,7 +11,7 @@
    a push keeps running the old code with nothing telling anybody. It sat at
    2026-09-04a through this whole day's work; rmqty/psi tests pinned the code,
    nothing pinned this. buildid.test.js now does. */
-var BUILD_ID='2026-09-26c';
+var BUILD_ID='2026-09-26d';
 var CHANGELOG=[
   {ver:'2026-09-04a', date:'2026-09-04', title:"Delivery, DC printing, and a new Reconciliation check", items:[
     "Delivery confirmation stays with Supply Chain \u2014 it no longer hands off to the Plant Manager. If one sits too long, it now re-flags the same Supply Chain owner every 3 days instead.",
@@ -401,7 +401,9 @@ var CHANGELOG=[
   ]},
   {ver:'2026-09-26c', date:'2026-09-26', title:"A closed batch stays closed", items:[
     "Fixed: a batch closed while others were saving could come back open, with its close date still on it and the close missing from the log. AP26012 and the Sulfur Coated Urea batches closed today were hit. Any change made at a busy moment could be undone the same way; it no longer can.",
-    "The Plant screen's Open buttons now open the same sheet as Today: the truck, its DC and gate pass, or the purchase request, before you sign or send it back. They used to sign in one tap.",
+    "The Plant screen's Open buttons now open the same sheet as Today: the truck, its DC and gate pass, or the purchase request, before you sign or send it back. They used to sign in one tap."
+  ]},
+  {ver:'2026-09-26d', date:'2026-09-26', title:"Closed short and failed trucks reach the right person", items:[
     "A batch closed short of its plan now reaches the Plant Manager's Today as Yield short: planned, produced, short by, and the reason. He reads it and marks it Seen.",
     "A truck that fails pre-shipment inspection needs the inspector's reason in Remarks, and Supply Chain gets Truck failed on Today with that reason, to plan it again."
   ]}

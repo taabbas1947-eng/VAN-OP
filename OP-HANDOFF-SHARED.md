@@ -577,3 +577,8 @@ Nigehbaan's open rulings: the open-to-every-active-person flag for Policies,
 Chairman and Board accounts, the harassment seal versus the COO's admin
 rights, how Nigehbaan gets payroll now that HRMS is separate. PD's own open
 items (Fahim's PD role, PD access per role) are unchanged.
+
+**28 Sept 2026 — pre-push check done.** Tahir ran the read-only query on
+production (`SELECT … FROM jodilkah_vanop_db.auth_users WHERE active = 0`):
+**0 rows.** No O2S login is switched off, so the new sign-in check affects
+nobody on deploy. Cleared to push; P001 stays for later.

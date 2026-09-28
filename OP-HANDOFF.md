@@ -2,6 +2,15 @@
 
 **This file is an index. Do not append session entries here.**
 
+## Start here (updated 28 Sept 2026)
+
+| If you are working on | Read, in this order |
+|---|---|
+| Anything | `CLAUDE.md` (§0 to §3.0), then `README.md` |
+| **O2S** | `OP-HANDOFF-O2S.md` → the last "RESUME HERE" block (26 Sept) |
+| **PD** | `OP-HANDOFF-PD.md` → the entry "28 September 2026 — PD: where it stands" |
+| **PLATFORM** (launcher, sign-in, People and access, roles, Nigehbaan joining) | `OP-HANDOFF-SHARED.md` → the entry "28 September 2026 — PLATFORM: where it stands", then `docs/platform/PLATFORM-DESIGN.md` and `ACCESS-MODEL.md` |
+
 The handoff log was one 400 KB file that every module appended to. On
 23 September 2026 the same entry was lost three times in one day: a session read
 the file, worked for a while, then wrote back a whole-file rebuild from its now

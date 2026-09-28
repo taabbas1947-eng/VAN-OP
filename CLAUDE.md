@@ -2,6 +2,10 @@
 
 _Read this first, every session, before touching any file._
 
+**New to this repo?** Read in this order: this file (§0, §1, §2, §2A, §3.0),
+then `README.md`, then the last "RESUME HERE" entry of the handoff file for
+the module you are working in (§4.1). `OP-HANDOFF.md` is the index.
+
 This repo holds **one platform with several modules**, not one project. The
 single most common way to cause damage here is to edit the wrong module's
 files because the session never established which module it was in.
@@ -73,22 +77,24 @@ it does not quietly touch both and call it one task.
 
 | Module | Owns these paths | Live at |
 |---|---|---|
-| **O2S** (Order to Ship) | `index.html` · the O2S route/API block in `server.js` · `data/state.json` | `/o2s` |
-| **PD** (Product Development) | **everything under `pd/`** — `pd.html`, `pd-lib.js`, `pd-routes.js`, `drop.html`, `migrations/`, `tests/` · the `/api/pd/*` block in `server.js` | `/pd`, `/pd/drop` |
+| **O2S** (Order to Ship) | **everything under `o2s/`** — `o2s.html` (the app, ~18,900 lines), `tests/` · the O2S routes in `server.js` (`/api/state`, `/api/rev`, `/api/users`) · `data/state.json` (local-file mode only) | `/o2s` (and any path not claimed by another app) |
+| **PD** (Product Development) | **everything under `pd/`** — `pd.html`, `pd-lib.js`, `pd-routes.js` (every `/api/pd/*` route, mounted from `server.js` by 1 `require`), `drop.html`, `migrations/`, `tests/` | `/pd`, `/pd/drop` |
 | **PLATFORM** (shared) | `launcher.html` · login / `van_token` / `GET /api/me` · `/api/platform/*` · `auth_users`, `user_module_roles`, `platform_people`, `platform_access_log` · `platform/` (migrations) · `tests/platform/` · `docs/platform/` · `package.json`, `render.yaml`, `assets/`, `Logo/` | `/` |
-| **HRMS** | launcher card only — **no backend exists yet** (0 references in `server.js`) | card says LIVE, nothing behind it |
+| **HRMS** | **not in this repo.** A separate Django app with its own login at `van-hrms-31hl.onrender.com`; the launcher card only links to it | its own address |
 | **QMS, CRMS** | not built | "Coming soon" cards |
 
 ### The one genuinely shared file: `server.js`
 
-`server.js` (~2,030 lines) serves **both** apps — this is deliberate ("one
+`server.js` (~960 lines, 28 Sept 2026) serves **every** app — this is deliberate ("one
 codebase, one login, one deploy" — see `VAN-Systems-Platform-Design.md` §1).
-It is the only place the modules physically touch.
+It is the only place the modules physically touch. It holds the PLATFORM code
+(sign-in, `/api/me`, `/api/platform/*`, People and access) and O2S's few routes;
+PD's routes live in `pd/pd-routes.js`.
 
 Rules for `server.js`:
 
-- PD work may only edit inside the **`/api/pd/*` handlers** (81 of them) and
-  `require('./pd/pd-lib')`.
+- PD work edits `pd/pd-routes.js`, not `server.js` (only the `require` lines
+  mount PD).
 - O2S work may only edit **outside** those handlers.
 - Neither module edits the auth block, `/api/login`, or `/api/me` — that is
   PLATFORM work and needs an explicit `MODULE: PLATFORM` declaration.
@@ -172,7 +178,41 @@ and a live one, it ships the live one and writes the remainder down.
 
 ---
 
-## 3. Verified state (checked 2026-08-16)
+## 3.0 Where things stand (checked 28 Sept 2026) — read this before §3
+
+§3 below is the 16 August snapshot, kept as history. This is the current one.
+
+- **Folder:** `E:\VAN Systems` (renamed from `E:\VAN-OP` on 27 Sept). The
+  GitHub repository is still `taabbas1947-eng/VAN-OP`. Branch `main`, pushed
+  to `9bb3877` on 28 Sept; Render deploys from it.
+- **Live on Render:** `van-control-tower.onrender.com` → launcher `/`, O2S
+  `/o2s`, PD `/pd`. Data in MySQL on HostGator (`jodilkah_vanop_db`). Local
+  development runs against XAMPP (`van_platform`) via `.env`.
+- **O2S** is live and in daily use. Its state and next steps:
+  `OP-HANDOFF-O2S.md`, last "RESUME HERE" block.
+- **PD** is built (the nine-object model, 4 screens) and not yet opened to
+  users. Local database has migrations 001–008; production has 003–006 and
+  **not 007 or 008**, so PD in production fails on Runs, the dossier and the
+  Report until Tahir applies them. State and next steps: `OP-HANDOFF-PD.md`,
+  entry of 28 Sept.
+- **PLATFORM:** People and access, phase 1 is pushed (commit `b807e01`). It
+  runs without its migration `platform/migrations/P001…` and says so on the
+  page; P001 is applied to **neither** database yet. Design:
+  `docs/platform/PLATFORM-DESIGN.md`. What exists: `docs/platform/ACCESS-MODEL.md`.
+  State and next steps: `OP-HANDOFF-SHARED.md`, entry of 28 Sept.
+- **Nigehbaan** (compliance app, separate folder `E:\VAN Compliance System`,
+  read-only to this repo's sessions) will join as a module inside this
+  server. Its open questions are in `OP-HANDOFF-SHARED.md`.
+- **Tests:** O2S `o2s/tests/` (Guide pinned by `guide.test.js`), PD
+  `pd/tests/` (408 passing at the last run, 10 Sept), PLATFORM
+  `tests/platform/people-access.test.js` (19 of 19 on 27 Sept; runs only on a
+  throwaway database copy).
+- **Security findings** go to `docs/security-register/SECURITY-REGISTER.md`
+  (S-01 to S-06), per §2A.
+
+---
+
+## 3. Verified state (checked 2026-08-16) — history; §3.0 is current
 
 - Folder: `E:\VAN Systems` — **correct folder**, this is the live repo. (Renamed from `E:\VAN-OP` on 27 Sept 2026; the GitHub repository is still called VAN-OP.)
 - Remote: `https://github.com/taabbas1947-eng/VAN-OP.git`

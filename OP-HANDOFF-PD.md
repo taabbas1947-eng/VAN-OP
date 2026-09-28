@@ -977,3 +977,85 @@ later, when Tahir chooses; open the pilot to 3 people for 2 weeks.
 block at the end of `OP-HANDOFF-SHARED.md`: Fahim's PD role, platform-level
 roles, and PD's access level per role to be ruled before go-live and
 handover. The per-role table of what PD allows today is written there.
+
+---
+
+## 28 September 2026 — PD: where it stands (written for a new coder)
+
+No PD code changed since 25 Sept. This entry gathers the state in one place,
+including what the PLATFORM work of 26–28 Sept changed for PD. Written from
+this file, `docs/pd-model/`, the code and `OP-HANDOFF-SHARED.md`.
+
+### What PD is
+
+Product Development's working system: every problem, question, attempt and
+reading written down so the team stops repeating dead ends. The model is
+`docs/pd-model/MODEL.md` (nine objects: Problem, Question, Bet, Run, Claim,
+Challenge, Observation, Request, Constraint). On screen a Bet is called an
+**Approach** (the B- number and every table and route keep "Bet").
+
+**4 screens, and 4 is the whole list** (MODEL.md §5): **My desk** (the landing
+page: one dated list of actions, a write box), **What came in** (the single
+door; the sample request is the front door; triage files entries),
+**Problems** (the register and the Problem dossier), **The Report**. Search is
+a box, not a fifth screen. Public drop box at `/pd/drop` (no login).
+
+### Code
+
+`pd/pd.html` (the app), `pd/pd-routes.js` (every `/api/pd/*` route, mounted by
+`server.js`), `pd/pd-lib.js` (roles, gates, labels, rules), `pd/drop.html`,
+`pd/migrations/`, `pd/tests/`. Tests: 408 passing at the last full run
+(10 Sept); not re-run since the 23 Sept changes.
+
+### Database
+
+| Migration | Local `van_platform` | Production `jodilkah_vanop_db` |
+|---|---|---|
+| 002 core rebuild | applied | applied (9 Sept) |
+| 003–006 | applied | applied (11 Sept) |
+| 007 plant-wide context | applied (23 Sept) | **not applied** |
+| 008 recipe box | applied (25 Sept) | **not applied** |
+
+Production PD fails on any Run, the dossier and the Report until 007 and 008
+are applied. Nobody uses PD in production yet, so nothing is broken for
+users. Schema-qualified copies: see the 25 Sept entries and
+`pd/migrations/STATE-CHECK-PRODUCTION.sql`. By hand, when Tahir chooses.
+
+### Roles and access (what changed on 26–28 Sept)
+
+- **Roles are granted on the launcher's People and access page only**
+  (PLATFORM ruling of 26 Sept). PD owns what its 13 roles are and what each
+  may do (`PD_ROLES`, `PD_ROLE_INFO`, `TRIAGE_ROLES`, `LEAD_ROLES` in
+  `pd-lib.js`); the platform owns who holds them.
+- PD still reads the person's role from `auth_users.pd_role`, which the
+  platform keeps in step with `user_module_roles`. Nothing in PD changed.
+- A login switched off on People and access is refused at sign-in and on
+  every request; PD's own `active` check (`pdAuth`) already agreed.
+- "Who holds what" on People and access shows PD's vacant roles. On the
+  11 Sept test copy 10 of PD's 13 roles had nobody.
+
+### Pilot
+
+Not opened yet. Ruled 23 Sept: open with 3 people (Yasmeen, Himmayat, one
+chemist) for 2 weeks; success is simply that things get written down.
+Training: a clickable walkthrough with real screenshots first, then a deck.
+
+### Open, waiting on Tahir (nothing to build until ruled)
+
+1. **Fahim's PD role.** He is Plant Manager in O2S and holds no PD role. PD
+   has no Plant Manager role; `production` ("Production Manager", a lead) was
+   planned for Abdul Majid. Options: no PD for Fahim; `production` beside
+   Majid; or a new PD role (needs `PD_ROLE_INFO` plus a migration on the
+   `pd_role` ENUM).
+2. **PD access per role, before handover.** The table of what each of the 13
+   roles may do today is in `OP-HANDOFF-SHARED.md` ("RESUME HERE — access
+   management and roles, 25 Sep"). Tahir wants to go through it role by role.
+3. **PD accounts:** the pilot people need logins and PD roles, created on
+   People and access (Tahir types the passwords). Muhammad Ali: PD Team
+   member (ruled). Muhammad Irfan: PD role not yet ruled.
+4. **Production 007 and 008**, then open the pilot.
+
+### Next for PD
+
+After the rulings above: create the pilot accounts, apply 007 and 008 to
+production, re-run `pd/tests/`, open to the 3 pilot users.

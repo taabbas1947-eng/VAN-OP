@@ -582,3 +582,110 @@ items (Fahim's PD role, PD access per role) are unchanged.
 production (`SELECT … FROM jodilkah_vanop_db.auth_users WHERE active = 0`):
 **0 rows.** No O2S login is switched off, so the new sign-in check affects
 nobody on deploy. Cleared to push; P001 stays for later.
+
+---
+
+## 28 September 2026 — PLATFORM: where it stands (written for a new coder)
+
+This entry supersedes the two "RESUME HERE" blocks above (25 Sept access
+management, 27 Sept platform) as the place to start. Nothing above is
+deleted; the detail and the reasons stay there.
+
+### The platform in 1 paragraph
+
+1 Node/Express server (`server.js`) serves the launcher (`/`), O2S (`/o2s`)
+and PD (`/pd`) with 1 sign-in (token in `localStorage` as `van_token`). The
+platform owns **people, logins, and who holds which role in each app**; each
+app owns **its role list and what each role may do**. Rules and tables:
+`docs/platform/ACCESS-MODEL.md`. The long-term design (built to grow into an
+ERP): `docs/platform/PLATFORM-DESIGN.md`.
+
+| Layer | Table | Written by |
+|---|---|---|
+| Person | `platform_people` (P001) | People and access |
+| Login | `auth_users` (unchanged; `active = 0` means switched off) | People and access; O2S Users & Access until the O2S piece |
+| Role per app | `user_module_roles` (1 row per person per app) + mirror columns `auth_users.role` (O2S) and `pd_role` (PD) | only `setModuleRole()` / `clearModuleRole()` |
+| History | `platform_access_log` (P001, append-only by trigger) | only `logAccess()` |
+
+### Rulings in force (26–27 Sept, Tahir)
+
+People are managed on the launcher only. Leavers are switched off, never
+deleted. A role renamed in O2S carries through to its holders. Title,
+WhatsApp and email live on the platform per person (a title grants nothing).
+1 role per person per app; extra duties are the app's own data. "Who holds
+role X" is answered to an app's server only (`platformServices.holdersOf`,
+`contactsFor`). A person is separate from a login. An access log from day 1.
+Company is recorded for information only. 3 test gates before anything is
+live. **Standing condition: nothing built may leave any O2S account unable to
+work.**
+
+### What is live, and what is not
+
+- **Pushed 28 Sept** (`b807e01`, then `9bb3877`): People and access, phase 1.
+  Render deploys on push. **Not yet confirmed here:** the Render log line
+  "Platform: 0 switched-off login(s)." and a sign-in by Tahir after deploy.
+- Before pushing, production was checked: 0 logins at `active = 0`, so the
+  new sign-in check affects nobody.
+- **P001 is applied to neither database.** Until it is, the server works
+  exactly as before and People and access shows "the migration is waiting";
+  details, contacts and history appear after P001. Role changes and "Who
+  holds what" already work.
+- Gate 1 passed on a throwaway copy of the **11 Sept** backup (every account
+  identical before and after; 19 of 19 tests). **Gate 1 on the real data is
+  still to run** (Tahir, 27 Sept: the real copy is production, with more
+  accounts and platform-only roles such as the Agronomy roles).
+
+### Next, in order
+
+1. Tahir confirms the deploy (Render log line; sign in as himself and 1 O2S
+   user; open People and access).
+2. Tahir exports production and local (phpMyAdmin → Export → Quick → SQL)
+   into `E:\VAN DB Exports`, outside the repo, and connects the folder. Claude
+   re-runs gate 1 on both in a throwaway database, then deletes the copies.
+3. Gate 2, local: `platform/migrations/P001-CHECK.sql`, then
+   `P001_people_and_access_log.sql`, restart, P001-CHECK again, 3 sign-ins.
+4. Gate 3, production, when Tahir chooses: the same with the
+   `.PRODUCTION.sql` copy.
+5. **The O2S piece**, in an O2S session: Users & Access becomes a view (no
+   create, rename or delete of people); username rename moves to the
+   platform; `renameRole()` in O2S calls a platform route so holders follow;
+   the Guide updated in the same change.
+6. **Nigehbaan joining** (compliance app, `E:\VAN Compliance System`, read
+   only from this repo). Its answers are in its own
+   `PLATFORM-ANSWERS-2026-09-27.md`. Still to rule: an "open to every active
+   person" flag so everyone can read Policies; whether the Chairman and Board
+   get accounts; the harassment committee's seal versus the COO being
+   administrator of every app; how Nigehbaan gets payroll now that HRMS is a
+   separate app with its own login. Then: Nigehbaan in `MODULE_LIST`,
+   `validModuleRole()` and `REAL_MODULES`; `platformServices` handed to its
+   routes.
+
+### The 25 Sept open items, now
+
+- Fahim's PD role: **open** (PD; see `OP-HANDOFF-PD.md`, 28 Sept).
+- "System Administrator": **ruled 26 Sept** — a title per person on the
+  platform, not a role. Stored in `platform_people.title` once P001 is in.
+- PD access per role: **open** (PD).
+- Accounts for Muhammad Ali (`mali`) and Muhammad Irfan (`irfan`): not
+  confirmed as created. Create them on People and access.
+
+### Things a new coder will trip on
+
+- `/api/users` (O2S's Users & Access) still creates, renames and deletes
+  logins; it writes roles through `setModuleRole()`, so the log records them
+  as `via = o2s-users`. It closes in the O2S piece.
+- Renaming a **username** is not on People and access on purpose: O2S's
+  records point at usernames.
+- Production SQL must name the database on every table
+  (`jodilkah_vanop_db.<table>`): HostGator's SQL tab stays on
+  `information_schema`.
+- Never run `git status` or other index-writing git commands from the Cowork
+  shell: it cannot delete the lock file it leaves. Use
+  `git --no-optional-locks status`.
+- `tests/platform/people-access.test.js` resets passwords; it refuses any
+  database not marked as a throwaway copy.
+
+Files changed in this entry's session: `CLAUDE.md` (§1 module map
+corrected, "New to this repo" line, §3.0 current state), `README.md`
+(rewritten for the platform), `OP-HANDOFF.md` (a "Start here" table),
+`OP-HANDOFF-PD.md` (28 Sept entry), this entry. Pushed: no.

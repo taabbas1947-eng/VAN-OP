@@ -5,7 +5,7 @@ const crypto = require('crypto');
 const { AsyncLocalStorage } = require('async_hooks');
 // PLATFORM, 27 Sept 2026: who is making this request, for the access log (set in auth()).
 const reqCtx = new AsyncLocalStorage();
-const pd = require('./pd/pd-lib'); // everything Product Development lives under ./pd — kept apart from the O2S files in this root on purpose
+const pd = require('./apps/pd/pd-lib'); // everything Product Development lives under ./apps/pd — each app in its own folder; the repo root is the platform
 
 // Local-dev convenience: load a gitignored .env if present, WITHOUT overriding real env vars.
 // This keeps `npm start` working locally (DATABASE_URL / SESSION_SECRET) without exporting them by
@@ -209,10 +209,10 @@ if (DATABASE_URL) {
 }
 
 /* ---------- PD (Product Development) foundation migration ---------- */
-// RETIRED 9 Sept 2026 — this used to auto-apply pd/migrations/001_pd_foundation.sql
+// RETIRED 9 Sept 2026 — this used to auto-apply apps/pd/migrations/001_pd_foundation.sql
 // (the old gate/hypothesis schema) on every boot, tolerating "already applied"
 // errors so it was safe to re-run forever. That is now actively dangerous:
-// pd/migrations/002_pd_core_rebuild.sql DROPs those same tables (REUSE-RULES.md
+// apps/pd/migrations/002_pd_core_rebuild.sql DROPs those same tables (REUSE-RULES.md
 // §2 — everything not whitelisted is retired), and 001's CREATE TABLE IF NOT
 // EXISTS statements would silently recreate every one of them on the very next
 // restart after 002 is run, undoing the whole rebuild with no error and no log
@@ -419,7 +419,7 @@ async function isPlatformAdmin(username) {
 }
 
 /* ---------- PLATFORM, 27 Sept 2026: people, switch-off and the access log ----------
-   Tahir's rulings (docs/platform/PLATFORM-DESIGN.md): a person is separate from a login
+   Tahir's rulings (docs/PLATFORM-DESIGN.md): a person is separate from a login
    (platform_people holds the human, auth_users stays the login and is never restructured);
    an access log from day 1 (platform_access_log, append-only by trigger); leavers are
    switched off, never deleted. Migration P001 creates both tables. Until it is applied,
@@ -642,7 +642,7 @@ app.post('/api/platform/access', auth, accessAdmin, async (req, res) => {
     const role = String((req.body && req.body.role) || '').trim();
     if (!username || !module) return res.status(400).json({ error: 'username and module required' });
     // 10 Sept 2026 — "invalid" is one of the eleven words PD bans from anything a
-    // person can read (pd/../docs/pd-model/RECLASSIFICATION-RULES.md §6). This is
+    // person can read (apps/pd/docs/model/RECLASSIFICATION-RULES.md §6). This is
     // platform code, not PD code, but the message lands on a PD screen. Reworded;
     // no behaviour change. Tahir's ruling: the word now, the rest of server.js as
     // its own piece of work with its own test pass.
@@ -889,10 +889,10 @@ app.delete('/api/users/:username', auth, admin, async (req, res) => {
   } catch (e) { res.status(500).json({ error: String(e) }); }
 });
 
-/* PD (Product Development) routes live in pd/pd-routes.js — mounted here so the
+/* PD (Product Development) routes live in apps/pd/pd-routes.js — mounted here so the
    /api/pd/* handlers register at the same point they used to (before the static
-   and catch-all routes below). PD work happens in pd/, never in this file. */
-require('./pd/pd-routes')(app, { pdq, auth, admin, pdAuth, pdSurface, pd, path, fs, crypto });
+   and catch-all routes below). PD work happens in apps/pd/, never in this file. */
+require('./apps/pd/pd-routes')(app, { pdq, auth, admin, pdAuth, pdSurface, pd, path, fs, crypto });
 
 const _NOCACHE = 'no-store, no-cache, must-revalidate';
 // Shared brand assets (VAN logo + horse-emblem trademark), used by the launcher and every module top bar.
@@ -922,11 +922,11 @@ app.use('/assets', express.static(path.join(__dirname, 'assets'), { maxAge: '7d'
 // Front door: the platform launcher.
 app.get(['/', '/launcher', '/launcher.html'], (req, res) => { res.set('Cache-Control', _NOCACHE); res.sendFile(path.join(__dirname, 'launcher.html')); });
 // Public drop box (no login) — must come before the /pd/* SPA route below.
-app.get(['/drop', '/pd/drop'], (req, res) => { res.set('Cache-Control', _NOCACHE); res.sendFile(path.join(__dirname, 'pd', 'drop.html')); });
+app.get(['/drop', '/pd/drop'], (req, res) => { res.set('Cache-Control', _NOCACHE); res.sendFile(path.join(__dirname, 'apps', 'pd', 'drop.html')); });
 // PD app: /pd (must come before the O2S catch-all below, or it silently serves O2S instead — this bit us once already).
-app.get(['/pd', '/pd/*'], (req, res) => { res.set('Cache-Control', _NOCACHE); res.sendFile(path.join(__dirname, 'pd', 'pd.html')); });
+app.get(['/pd', '/pd/*'], (req, res) => { res.set('Cache-Control', _NOCACHE); res.sendFile(path.join(__dirname, 'apps', 'pd', 'pd.html')); });
 // O2S app: any other non-API path falls through to it.
-app.get('*', (req, res) => { res.set('Cache-Control', _NOCACHE); res.sendFile(path.join(__dirname, 'o2s', 'o2s.html')); });
+app.get('*', (req, res) => { res.set('Cache-Control', _NOCACHE); res.sendFile(path.join(__dirname, 'apps', 'o2s', 'o2s.html')); });
 
 // migrateAuth runs BEFORE runPdMigration: the PD bootstrap step (inside runPdMigration)
 // grants the seeded 'admin' row a PD role, which only works if that row already exists.

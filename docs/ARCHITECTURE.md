@@ -28,38 +28,43 @@ and unlocks the ones the signed-in person is allowed to enter.
 
 ## 2. Repository structure
 
-The intent: anyone opening the repo should immediately see **one main app** with
-**O2S and PD as subsystems inside it**.
+**The repo is the platform** (Tahir, 1 October 2026). Everything at the repo
+root belongs to the platform; each app lives in its own folder under `apps/`.
+Updated to the layout built on 1 October 2026; `RESTRUCTURE-PLAN.md` §8 has
+the full detail.
 
 ```
-VAN-OP/
-├─ server.js              The "main app": auth, sessions, platform access,
-│                         the shared data store, and the mount points for each subsystem
+VAN-OP/                   THE PLATFORM
+├─ server.js              Sign-in, sessions, /api/me, /api/platform/*, the shared
+│                         data store, and the mount points for each app
 ├─ launcher.html          Front door (the platform launcher)
-├─ assets/                Shared brand assets (logo, emblem, favicon)
-│   ├─ van-logo.png
-│   ├─ van-emblem.png
-│   └─ favicon.png
-├─ o2s/                   Order to Ship subsystem
-│   └─ o2s.html           O2S single-page app (was index.html at repo root)
-├─ pd/                    Product Development subsystem
-│   ├─ pd.html            PD single-page app
-│   ├─ pd-lib.js          PD business logic (roles, surfaces, gate/screen engine)
-│   ├─ pd-routes.js       All /api/pd/* routes (mounted by server.js)
-│   ├─ drop.html          Public "drop box" page (no login)
-│   └─ migrations/        PD schema (001_pd_foundation.sql)
-├─ docs/
-│   └─ ARCHITECTURE.md    This file
-└─ Logo/                  Source brand PDFs
+├─ migrations/            Platform tables (P001, the 25 Sept role reconcile)
+├─ tests/                 Platform tests (throwaway database only)
+├─ docs/                  Platform documents, incl. this file and the security register
+├─ assets/                Shared brand assets (van-logo.png, van-emblem.png, favicon.png)
+├─ OP-HANDOFF.md          Index of the session logs; OP-HANDOFF-PLATFORM.md is the platform's
+└─ apps/
+    ├─ o2s/               Order to Ship
+    │   ├─ o2s.html       O2S single-page app
+    │   ├─ tests/  docs/  OP-HANDOFF-O2S.md
+    └─ pd/                Product Development
+        ├─ pd.html        PD single-page app
+        ├─ pd-lib.js      PD business logic (roles, surfaces)
+        ├─ pd-routes.js   All /api/pd/* routes (mounted by server.js)
+        ├─ drop.html      Public "drop box" page (no login)
+        ├─ migrations/    PD schema
+        └─ tests/  docs/  OP-HANDOFF-PD.md
 ```
 
-> **Done 2026-08-05:** O2S moved from root `index.html` → `o2s/o2s.html`, and PD's
+> **Done 2026-08-05:** O2S moved from root `index.html` to `o2s/o2s.html`, and PD's
 > ~1,530 lines of `/api/pd/*` routes moved out of `server.js` into `pd/pd-routes.js`
-> (mounted via `require('./pd/pd-routes')(app, {…deps})`). `server.js` dropped from
+> (mounted via `require('./pd/pd-routes')(app, {…deps})`). **On 1 Oct 2026** both
+> folders moved under `apps/` (`apps/o2s/`, `apps/pd/`). `server.js` dropped from
 > ~2,088 to ~557 lines — platform + a thin O2S sync layer. Both were pure moves
 > (behaviour-neutral); O2S's few server routes (`/api/state`, `/api/users`) still
 > live in `server.js` (the deferred, optional O2S-routes split — see
-> [`PROPOSAL-o2s-split.md`](PROPOSAL-o2s-split.md)).
+> `PROPOSAL-o2s-split.md`, removed from the repo 1 Oct 2026, still in Git history;
+> `docs/RESTRUCTURE-PLAN.md` replaces it).
 
 ### How a subsystem plugs in (the repeatable pattern)
 
@@ -81,9 +86,9 @@ A subsystem = **a front-end page + an API namespace + its own tables + a role se
 |-------|--------|
 | `/assets/*` | Shared brand assets (static, cacheable) |
 | `/`, `/launcher` | `launcher.html` (front door) |
-| `/drop`, `/pd/drop` | `pd/drop.html` (public, no login) |
-| `/pd`, `/pd/*` | `pd/pd.html` (PD app) |
-| `*` (any other path) | O2S (`index.html` → planned `o2s/o2s.html`) |
+| `/drop`, `/pd/drop` | `apps/pd/drop.html` (public, no login) |
+| `/pd`, `/pd/*` | `apps/pd/pd.html` (PD app) |
+| `*` (any other path) | `apps/o2s/o2s.html` (O2S app) |
 
 APIs live under `/api/…` (`/api/login`, `/api/me`, `/api/platform/*`, `/api/pd/*`).
 
@@ -224,7 +229,7 @@ independently:
 
 ## 8. Build roadmap for the access work
 
-1. **Repo restructure** — move O2S into `o2s/o2s.html` *(deferred; coordinate with contributor)*.
+1. **Repo restructure** — move O2S into `apps/o2s/o2s.html` *(deferred; coordinate with contributor)*.
 2. ✅ **Migration** — `user_module_roles.is_admin` added.
 3. ✅ **Enforcement** — `accessAdmin` gate; scoped `/api/platform/access`;
    COO-only `/api/platform/admin` appoint/revoke; `adminModules[]` in `/api/me`.

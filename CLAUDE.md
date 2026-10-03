@@ -6,9 +6,13 @@ _Read this first, every session, before touching any file._
 then `README.md`, then the last "RESUME HERE" entry of the handoff file for
 the module you are working in (§4.1). `OP-HANDOFF.md` is the index.
 
-This repo holds **one platform with several modules**, not one project. The
-single most common way to cause damage here is to edit the wrong module's
-files because the session never established which module it was in.
+**This repo is the platform** (Tahir, 1 Oct 2026). The platform is the base:
+sign-in, the launcher, people and access, roles, the server and the deploy.
+O2S, PD and every future app (QMS, CRMS, Nigehbaan, …) are **apps that run on
+it**. The platform is not one of the apps: everything at the repo root belongs
+to the platform; each app lives in its own folder. The single most common way
+to cause damage here is to edit the wrong app's files because the session never
+established which part it was in.
 
 ---
 
@@ -77,23 +81,23 @@ it does not quietly touch both and call it one task.
 
 | Module | Owns these paths | Live at |
 |---|---|---|
-| **O2S** (Order to Ship) | **everything under `o2s/`** — `o2s.html` (the app, ~18,900 lines), `tests/` · the O2S routes in `server.js` (`/api/state`, `/api/rev`, `/api/users`) · `data/state.json` (local-file mode only) | `/o2s` (and any path not claimed by another app) |
-| **PD** (Product Development) | **everything under `pd/`** — `pd.html`, `pd-lib.js`, `pd-routes.js` (every `/api/pd/*` route, mounted from `server.js` by 1 `require`), `drop.html`, `migrations/`, `tests/` | `/pd`, `/pd/drop` |
-| **PLATFORM** (shared) | `launcher.html` · login / `van_token` / `GET /api/me` · `/api/platform/*` · `auth_users`, `user_module_roles`, `platform_people`, `platform_access_log` · `platform/` (migrations) · `tests/platform/` · `docs/platform/` · `package.json`, `render.yaml`, `assets/`, `Logo/` | `/` |
+| **O2S** (Order to Ship) | **everything under `apps/o2s/`** — `o2s.html` (the app, ~18,900 lines), `tests/` · the O2S routes in `server.js` (`/api/state`, `/api/rev`, `/api/users`) · `data/state.json` (local-file mode only) | `/o2s` (and any path not claimed by another app) |
+| **PD** (Product Development) | **everything under `apps/pd/`** — `pd.html`, `pd-lib.js`, `pd-routes.js` (every `/api/pd/*` route, mounted from `server.js` by 1 `require`), `drop.html`, `migrations/`, `tests/` | `/pd`, `/pd/drop` |
+| **PLATFORM** (the repo itself — the base every app runs on) | **everything at the repo root that is not inside an app's folder**: `server.js` (sign-in, `/api/login`, `/api/me`, `/api/platform/*`, mounting the apps) · `launcher.html` · `migrations/` (P001, RECONCILE) · `docs/` (design, access model, architecture, restructure plan, the security register) · `tests/` · `OP-HANDOFF.md`, `OP-HANDOFF-PLATFORM.md` · `package.json`, `render.yaml`, `assets/`, `.claude/` · tables `auth_users`, `user_module_roles`, `platform_people`, `platform_access_log` | `/` |
 | **HRMS** | **not in this repo.** A separate Django app with its own login at `van-hrms-31hl.onrender.com`; the launcher card only links to it | its own address |
 | **QMS, CRMS** | not built | "Coming soon" cards |
 
 ### The one genuinely shared file: `server.js`
 
 `server.js` (~960 lines, 28 Sept 2026) serves **every** app — this is deliberate ("one
-codebase, one login, one deploy" — see `VAN-Systems-Platform-Design.md` §1).
+codebase, one login, one deploy" — see `docs/VAN-Systems-Platform-Design.md` §1).
 It is the only place the modules physically touch. It holds the PLATFORM code
 (sign-in, `/api/me`, `/api/platform/*`, People and access) and O2S's few routes;
-PD's routes live in `pd/pd-routes.js`.
+PD's routes live in `apps/pd/pd-routes.js`.
 
 Rules for `server.js`:
 
-- PD work edits `pd/pd-routes.js`, not `server.js` (only the `require` lines
+- PD work edits `apps/pd/pd-routes.js`, not `server.js` (only the `require` lines
   mount PD).
 - O2S work may only edit **outside** those handlers.
 - Neither module edits the auth block, `/api/login`, or `/api/me` — that is
@@ -118,9 +122,9 @@ default, no invented rates.
 **Cost — settled 2026-09-01, Tahir ruled: cost is OUT of PD.** Ground-rule 0
 (*"this system does NOT manage cost"*) applies platform-wide — no PD exception.
 The old candidate-screen cost engine (ex-works `(RM + conversion)/(1 − loss)`,
-ranking by rupees per kg of P₂O₅ — `pd/pd-lib.js:188–232`) does **not** carry
-into the PD rebuild; it is removed from `docs/pd-model/REUSE-RULES.md` §2's
-whitelist. Record: `docs/pd-model/PENDING-DECISIONS.md` §D.
+ranking by rupees per kg of P₂O₅ — `apps/pd/pd-lib.js:188–232`) does **not** carry
+into the PD rebuild; it is removed from `apps/pd/docs/model/REUSE-RULES.md` §2's
+whitelist. Record: `apps/pd/docs/model/PENDING-DECISIONS.md` §D.
 
 **Never push.** Build and verify locally, then say "ready to push (not pushed)".
 Tahir pushes with GitHub Desktop.
@@ -142,7 +146,7 @@ the guides and rules, my jobs, how this app works WITH EVERY NEW CHANGE, ADDITIO
 AND PUSH." Every O2S change that alters a flow, a job, a rule or who does what also
 updates the in-app Guide in the same change: `guideMyJob` (My job), `guideHow`
 (How the app works), `guideRules` (The rules), `TD_LABEL` / `TD_NEXT` (the job
-cards), and the changelog entry. `o2s/tests/guide.test.js` pins what the Guide must
+cards), and the changelog entry. `apps/o2s/tests/guide.test.js` pins what the Guide must
 say; add lines to it with each change. A change whose Guide is not updated is not
 finished.
 
@@ -158,7 +162,7 @@ Tahir's work and they are not a gate on Tahir's work. Tahir's job is the
 1. When Claude finds a security defect, it **records it and moves on.** It does
    not stop the session, does not put it at the top of the reply, and does not
    ask Tahir to fix it.
-2. Every finding goes into **`docs/security-register/SECURITY-REGISTER.md`** —
+2. Every finding goes into **`docs/SECURITY-REGISTER.md`** —
    one row, dated, with what it is, how it was confirmed, and what it lets an
    attacker do. That file is the standing letter to the other department.
 3. Claude mentions security **once, briefly, at the end of a session** — a
@@ -182,32 +186,37 @@ and a live one, it ships the live one and writes the remainder down.
 
 §3 below is the 16 August snapshot, kept as history. This is the current one.
 
-- **Folder:** `E:\VAN Systems` (renamed from `E:\VAN-OP` on 27 Sept). The
+- **Folder:** `E:\VAN\VAN Systems\VAN Platform\VAN-OP` (since 1 Oct 2026;
+  earlier `E:\VAN-OP`, then `E:\VAN Systems`). The website repo `VAN-Website`
+  sits beside it in `VAN Platform\` and is separate. The
   GitHub repository is still `taabbas1947-eng/VAN-OP`. Branch `main`, pushed
-  to `9bb3877` on 28 Sept; Render deploys from it.
+  to `9bb3877` on 28 Sept; Render deploys from it. **To update after the
+  restructure push:** the commit named here is out of date (GitHub was at
+  `adec803` on 2 Oct 2026). Once Tahir pushes the 1 Oct restructure, replace it
+  with that push's commit and date.
 - **Live on Render:** `van-control-tower.onrender.com` → launcher `/`, O2S
   `/o2s`, PD `/pd`. Data in MySQL on HostGator (`jodilkah_vanop_db`). Local
   development runs against XAMPP (`van_platform`) via `.env`.
 - **O2S** is live and in daily use. Its state and next steps:
-  `OP-HANDOFF-O2S.md`, last "RESUME HERE" block.
+  `apps/o2s/OP-HANDOFF-O2S.md`, last "RESUME HERE" block.
 - **PD** is built (the nine-object model, 4 screens) and not yet opened to
   users. Local database has migrations 001–008; production has 003–006 and
   **not 007 or 008**, so PD in production fails on Runs, the dossier and the
-  Report until Tahir applies them. State and next steps: `OP-HANDOFF-PD.md`,
+  Report until Tahir applies them. State and next steps: `apps/pd/OP-HANDOFF-PD.md`,
   entry of 28 Sept.
 - **PLATFORM:** People and access, phase 1 is pushed (commit `b807e01`). It
-  runs without its migration `platform/migrations/P001…` and says so on the
+  runs without its migration `migrations/P001…` and says so on the
   page; P001 is applied to **neither** database yet. Design:
-  `docs/platform/PLATFORM-DESIGN.md`. What exists: `docs/platform/ACCESS-MODEL.md`.
-  State and next steps: `OP-HANDOFF-SHARED.md`, entry of 28 Sept.
+  `docs/PLATFORM-DESIGN.md`. What exists: `docs/ACCESS-MODEL.md`.
+  State and next steps: `OP-HANDOFF-PLATFORM.md`, entry of 28 Sept.
 - **Nigehbaan** (compliance app, separate folder `E:\VAN Compliance System`,
   read-only to this repo's sessions) will join as a module inside this
-  server. Its open questions are in `OP-HANDOFF-SHARED.md`.
-- **Tests:** O2S `o2s/tests/` (Guide pinned by `guide.test.js`), PD
-  `pd/tests/` (408 passing at the last run, 10 Sept), PLATFORM
-  `tests/platform/people-access.test.js` (19 of 19 on 27 Sept; runs only on a
+  server. Its open questions are in `OP-HANDOFF-PLATFORM.md`.
+- **Tests:** O2S `apps/o2s/tests/` (Guide pinned by `guide.test.js`), PD
+  `apps/pd/tests/` (408 passing at the last run, 10 Sept), PLATFORM
+  `tests/people-access.test.js` (19 of 19 on 27 Sept; runs only on a
   throwaway database copy).
-- **Security findings** go to `docs/security-register/SECURITY-REGISTER.md`
+- **Security findings** go to `docs/SECURITY-REGISTER.md`
   (S-01 to S-06), per §2A.
 
 ---
@@ -222,7 +231,7 @@ and a live one, it ships the live one and writes the remainder down.
   statement count in the Render log: the migration file gained exactly one
   statement (the A6 `ALTER`), and the log moved `25 statements applied` →
   `26 statements applied` in step. No failed-statement line, no aborted boot.
-- Structure changed on 2026-08-15: PD routes now live in **`pd/pd-routes.js`**
+- Structure changed on 2026-08-15: PD routes now live in **`apps/pd/pd-routes.js`**
   (~1,550 lines), O2S under **`o2s/`**. `server.js` is down to ~556 lines and is
   now genuinely PLATFORM-only — auth, login, `/api/me`, mounting the two
   modules. **Section 1's "one shared file" note is now much narrower than it
@@ -235,9 +244,9 @@ and a live one, it ships the live one and writes the remainder down.
 - `_to_delete/` holds **stale duplicate copies** of `pd.html`, `pd-lib.js`,
   `migrations/`, `PORTING_STATUS.md`. It is gitignored. **Never open, edit, or
   read these as source** — they are the old versions and will mislead.
-- `pd/PORTING_STATUS.md` is **retired** (10 Sept 2026) and now contains only a
+- `apps/pd/PORTING_STATUS.md` is **retired** (10 Sept 2026) and now contains only a
   pointer. It described the July 2026 gate-based port, which the September
-  nine-object rebuild replaced. **`OP-HANDOFF-PD.md` is the single status
+  nine-object rebuild replaced. **`apps/pd/OP-HANDOFF-PD.md` is the single status
   document for PD** — its most recent dated entry is the current state. Do not
   start a second one. (It was `OP-HANDOFF.md` until 23 Sept 2026; see §4.)
 
@@ -248,7 +257,7 @@ Four commits in a row committed `.patch` **files** instead of applying them:
 committing a patch and applying one look identical. That was a **method**
 failure, not a carelessness failure, so the method changed:
 
-- **Claude writes finished files directly into `E:\VAN Systems`.** No `.patch` files
+- **Claude writes finished files directly into the repo folder (§3.0).** No `.patch` files
   are produced, handed over, or stored. Ever.
 - **Tahir's whole job is: commit and push what GitHub Desktop shows.** No apply
   step. No merge step. No branch step.
@@ -268,12 +277,19 @@ That file, not Claude's memory, is the continuity between sessions.
 
 | Module | File |
 |---|---|
-| O2S | `OP-HANDOFF-O2S.md` |
-| PD | `OP-HANDOFF-PD.md` |
-| Genuinely cross-module or platform | `OP-HANDOFF-SHARED.md` |
+| O2S | `apps/o2s/OP-HANDOFF-O2S.md` |
+| PD | `apps/pd/OP-HANDOFF-PD.md` |
+| PLATFORM, or genuinely cross-app | `OP-HANDOFF-PLATFORM.md` (repo root) |
+
+1 Oct 2026: each app's log moved into its app folder (names unchanged); the
+platform's log stays at the root, because the root is the platform, and was
+renamed from `OP-HANDOFF-SHARED.md` to `OP-HANDOFF-PLATFORM.md`. If you find an
+`OP-HANDOFF-O2S.md` or `OP-HANDOFF-PD.md` at the repo root, or any
+`OP-HANDOFF-SHARED.md`, a session wrote to an old address: stop, and splice its
+entries into the right file by hand rather than letting the log split.
 
 `OP-HANDOFF.md` is now an **index only — never append session entries to it.**
-`OP-HANDOFF-ARCHIVE-2026-09-23.md` is the pre-split original, kept byte for byte
+`docs/OP-HANDOFF-ARCHIVE-2026-09-23.md` is the pre-split original, kept byte for byte
 so the split is reversible; never write to it either.
 
 **Why.** Until 23 Sept 2026 every module appended to one 400 KB file. That day

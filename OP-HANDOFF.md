@@ -7,9 +7,15 @@
 | If you are working on | Read, in this order |
 |---|---|
 | Anything | `CLAUDE.md` (§0 to §3.0), then `README.md` |
-| **O2S** | `OP-HANDOFF-O2S.md` → the last "RESUME HERE" block (26 Sept) |
-| **PD** | `OP-HANDOFF-PD.md` → the entry "28 September 2026 — PD: where it stands" |
-| **PLATFORM** (launcher, sign-in, People and access, roles, Nigehbaan joining) | `OP-HANDOFF-SHARED.md` → the entry "28 September 2026 — PLATFORM: where it stands", then `docs/platform/PLATFORM-DESIGN.md` and `ACCESS-MODEL.md` |
+| **O2S** | `apps/o2s/OP-HANDOFF-O2S.md` → the last "RESUME HERE" block (26 Sept) |
+| **PD** | `apps/pd/OP-HANDOFF-PD.md` → the entry "28 September 2026 — PD: where it stands" |
+| **PLATFORM** (launcher, sign-in, People and access, roles, Nigehbaan joining) | `OP-HANDOFF-PLATFORM.md` → the entry "28 September 2026 — PLATFORM: where it stands", then `docs/PLATFORM-DESIGN.md` and `ACCESS-MODEL.md` |
+
+**1 Oct 2026:** the repo is the platform. Each app's log now lives in that
+app's folder (names unchanged); the platform's log stays at the root and was
+renamed from `OP-HANDOFF-SHARED.md` to `OP-HANDOFF-PLATFORM.md`. A session that
+still has an old path in mind must use the paths above. Never recreate
+`OP-HANDOFF-O2S.md` or `OP-HANDOFF-PD.md` at the root, or any `-SHARED.md`.
 
 The handoff log was one 400 KB file that every module appended to. On
 23 September 2026 the same entry was lost three times in one day: a session read
@@ -19,11 +25,11 @@ between. It was split per module the same day.
 
 | Module | File | What belongs in it |
 |---|---|---|
-| **O2S** | `OP-HANDOFF-O2S.md` | Order-to-Ship — `o2s/` |
-| **PD** | `OP-HANDOFF-PD.md` | Product Development — `pd/` |
-| **Shared** | `OP-HANDOFF-SHARED.md` | Genuinely cross-module or platform work only |
+| **O2S** | `apps/o2s/OP-HANDOFF-O2S.md` | Order-to-Ship — `apps/o2s/` |
+| **PD** | `apps/pd/OP-HANDOFF-PD.md` | Product Development — `apps/pd/` |
+| **Platform** | `OP-HANDOFF-PLATFORM.md` | The platform itself (the repo root), and genuinely cross-app work |
 
-`OP-HANDOFF-ARCHIVE-2026-09-23.md` is the original file, byte for byte, kept so
+`docs/OP-HANDOFF-ARCHIVE-2026-09-23.md` is the original file, byte for byte, kept so
 the split is reversible. Nothing in it was edited, reworded or dropped; every one
 of its 74 entries and 12 preamble notes landed in exactly one of the three files
 above, in its original order. The archive can be deleted once Tahir is satisfied.

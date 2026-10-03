@@ -1,7 +1,7 @@
 # VAN Systems — Access & Roles: who can do what
 
 _Source of truth for the platform's access model. Written 2026-09-07 from the
-live code (`server.js` platform access, `pd/pd-lib.js` PD roles, `o2s/o2s.html`
+live code (`server.js` platform access, `apps/pd/pd-lib.js` PD roles, `apps/o2s/o2s.html`
 capability catalogue). Where the app has an in-app panel that can change rights
 (O2S Authorisation matrix, PLATFORM Manage-access), **that panel is the live
 truth** and this doc describes the standing design._

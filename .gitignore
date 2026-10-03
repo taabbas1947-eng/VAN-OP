@@ -1,12 +1,13 @@
 node_modules/
-data/
-docs/Mockup/
 .DS_Store
 Thumbs.db
 desktop.ini
 *.log
 .env
-_to_delete/
+
+# Local file store. The server writes logins and O2S state here if started
+# without DATABASE_URL. Never commit it: it can hold password hashes.
+data/
 
 # Word/Excel lock files
 ~$*

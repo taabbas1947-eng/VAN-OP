@@ -115,4 +115,5 @@ ok('How it works: an order carries terms, ERP SO and the 5% price reason (25j)',
   ok('Back Office: the CFO can send a new customer back (26a)', /<b>sends it back<\/b> with a reason to whoever entered it/.test(grab('backOfficeManualCard')));
   const TL = grabTopVar('TD_LABEL', '{');
   ok('Today labels the new jobs (26a)', /'Correct COA':\s*\{title:'COA sent back to you to correct'/.test(TL) && /'Refused':\s*\{title:'Your close request was refused'/.test(TL) && /'Sent back':\s*\{title:'Truck sent back to you'/.test(TL)); }
+ok('The Rules say each list-price product on a truck gets its own price (6 Oct)', /on a truck with 2 or more such products, the price for each product/.test(html));
 process.exitCode = report('The Guide keeps up (24z)') ? 1 : 0;

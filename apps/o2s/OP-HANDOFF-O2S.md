@@ -5899,3 +5899,12 @@ BUILD_ID 2026-10-05b, changelog entry. New test refusenothing.test.js (fails 4 o
 Live data on 5 Oct: Fruitlish, V-Transfarm, Maxim and the 4 V-Mg lines fixed from the line sheet with Tahir's approval (see the correction register). Nitro Sulfur VG-VC-2609-5466 is still open, waiting on Production's answer about NS26004.
 
 - 5 Oct 2026, later: 2026-10-05b pushed and live. Nitro Sulfur VG-VC-2609-5466 (VGreen for Zephyr Farm): Tahir says the 250 Kg went to Zephyr outside O2S; recorded 250 from NS26004 (PK4433, Take unticked); NS26004 3,125 = records. Needs you is empty. Open: the truck to Zephyr is not in O2S. The 250 still needs QA's packed-lot pass before a dispatch can be entered; the 10 Kg VL-NPK has already passed. Waiting on the DC # and date from Supply Chain.
+
+
+## 6 Oct 2026 — A price for every product on the truck (MODULE: O2S) — NOT PUSHED
+
+The QA Inspector reported that DLR-SN-TAN-008-2608-3355 (DC 133, 4 list-price products) asked for 1 "price printed on the bag". Tahir approved the fix.
+- qcVerifyTable / qcVerifyGate take askSeen as a list of products when 2 or more carry the list price (new qcSeenBrands, qcAskSeen): 1 box each, all required, the refusal names the missing ones. qcVerifyRecord saves 1 priceSeen row per product, with `brand`. The 1-product case is unchanged (spec06 still passes).
+- Only the pre-shipment inspection (dispQA) uses the list. The packed-lot inspection is 1 line, so it stays as it was.
+- The Guide's pre-shipment rule now says so (pinned in guide.test). BUILD_ID 2026-10-06a, changelog entry. New test psiprices.test.js (10/10).
+- Known, not caused by this change: labcover.test.js fails 3 date checks between about 19:00 and 24:00 UTC (the test's "today" is UTC, the app's is Pakistan time). It fails the same on the pushed 2026-10-05b. Not fixed.

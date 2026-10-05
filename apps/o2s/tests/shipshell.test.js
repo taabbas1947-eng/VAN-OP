@@ -79,6 +79,6 @@ ok('Supply Chain still starts a shipment from a card', /mpStart\(/.test(r));
 const k = app('KAM', 'k', 'Kam');
 run(k, 'state.screen="ship"; shipView="ready"; render();');
 ok('a role without shipment.plan is not offered Start shipment', !/mpStart\(/.test(run(k, 'document.getElementById("view").innerHTML')));
-ok('BUILD_ID is 2026-09-24y or later', /BUILD_ID\s*=\s*'2026-09-(24[y-z]|2[5-9][a-z]|30[a-z])'/.test(html));
+ok('BUILD_ID is 2026-09-24y or later', /BUILD_ID\s*=\s*'(?:2026-1[0-2]-\d\d[a-z]|2026-09-(24[y-z]|2[5-9][a-z]|30[a-z]))'/.test(html));
 ok('the changelog tells Supply Chain', /ver:'2026-09-24y'[\s\S]{0,600}Shipments/.test(html));
 process.exitCode = report('Shipments in the new shell (24y)') ? 1 : 0;

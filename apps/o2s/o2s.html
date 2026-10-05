@@ -11,7 +11,7 @@
    a push keeps running the old code with nothing telling anybody. It sat at
    2026-09-04a through this whole day's work; rmqty/psi tests pinned the code,
    nothing pinned this. buildid.test.js now does. */
-var BUILD_ID='2026-09-26d';
+var BUILD_ID='2026-10-05a';
 var CHANGELOG=[
   {ver:'2026-09-04a', date:'2026-09-04', title:"Delivery, DC printing, and a new Reconciliation check", items:[
     "Delivery confirmation stays with Supply Chain \u2014 it no longer hands off to the Plant Manager. If one sits too long, it now re-flags the same Supply Chain owner every 3 days instead.",
@@ -414,6 +414,11 @@ var CHANGELOG=[
     "RM Check can no longer replace a purchase request that is waiting, approved or refused: it says which sheet to use instead. A closed request is kept in the line's history before a new check. The Plant screen opens the right sheet for each.",
     "When the COO closes a product that someone had asked to close, their request is kept: in the line's history and on the close, with who asked and why.",
     "A packed lot that fails QA needs the inspector's reason in Remarks; the Supply Chain job shows it."
+  ]},
+  {ver:'2026-10-05a', date:'2026-10-05', title:"Fix it: the batch list finds the right batches", items:[
+    "Fixed: on a line made from another product's batches (Fruitlish from VL-Potash, Ferti Huma from Potassium Humate), Record the packing against a batch showed no batch to pick. It now lists the batches of the product the line is made from."
+,
+    "Fixed: when Pack refused a brand batch # or a shelf life, the quantity had already been added to the PO line and the batch, with no packing record. Pack now checks first and adds nothing when it refuses."
   ]}
 ];
 </script>
@@ -8345,7 +8350,6 @@ function doPack(){ if(!may('packing.pack')){toast(denyRight('packing.pack','Pack
     const _pgO=o,_pgL=l; const _gate=packPriceGate(_pgO,_pgL,packForm);
     if(_gate){toast(_gate);return;}
     const _prec=packPriceRecord(_pgO,_pgL,packForm);
-    b.packedKg+=kg; l.packed=(l.packed||0)+kg; l.produced=Math.max(l.produced||0,l.packed); l.prodStart=l.prodStart||d; if(l.packed>=l.ordered-0.5)l.prodComplete=l.prodComplete||d;
     const baseBatchNo=b.batchNo||''; const brandBatchNo=(packForm.brandBatch||'').trim()||baseBatchNo;
     /* derived, never typed — see packDates() */
     const _dt=packDates(brandBatchNo, b.id, d, packForm.shelfMonths);
@@ -8359,6 +8363,10 @@ function doPack(){ if(!may('packing.pack')){toast(denyRight('packing.pack','Pack
       if(baseClash){ toast('Brand batch # "'+brandBatchNo+'" is a base batch number this year \u2014 choose a different brand batch #.'); return; }
       if(otherBrandClash){ toast('Brand batch # "'+brandBatchNo+'" is already used by a DIFFERENT brand this year \u2014 use a unique number.'); return; }
     }
+    /* 5 Oct 2026: added only after every check above has passed. It used to be added first, so a refused
+       brand batch # or shelf life left the line and the batch counting packing that has no record
+       (NS26004 +250 on VG-VC-2609-5466). */
+    b.packedKg+=kg; l.packed=(l.packed||0)+kg; l.produced=Math.max(l.produced||0,l.packed); l.prodStart=l.prodStart||d; if(l.packed>=l.ordered-0.5)l.prodComplete=l.prodComplete||d;
     /* NO write-back to l.printPrice — packing records, it does not author. See packPriceRecord(). */
     (state.packingLog=state.packingLog||[]).unshift(Object.assign({date:d,base:b.base,brand,kg,by:((state.currentUser&&state.currentUser.name)||state.role),po:o.po,id:nid('PK'),lid:l.id,baseBatchId:b.id,baseBatchNo,brandBatchNo,mfgDate:mfgD,expDate:expD,shelfMonths:_dt.shelfMonths},_evP,_prec));
     syncPackBatchDates(brandBatchNo);
@@ -10065,6 +10073,11 @@ function lineCause(o,l){ var up=null;
   var al=(state.actionLog||[]).find(function(a){ return a&&/^Allocated .* from stock → /.test(a.what||'')&&a.what.indexOf(o.po)>-1&&a.what.indexOf(l.brand)>-1; });
   if(al) return 'Put onto the order from packed stock by '+(al.by||al.role||'—')+' on '+String(al.t).slice(0,10)+', a path that wrote no packing record. It is closed now (25b).';
   return 'No record in O2S shows how. The number most likely came in with the imported orders or before the packing log existed; the records cannot say which, so choose the fix from what you know.'; }
+/* 5 Oct 2026 (Fruitlish, 7500003954): a PO-direct line saves its base as the brand
+   (Fruitlish) but is packed from its base's bulk batches (VL-Potash), so the batch
+   list here was empty. Same lookup as To-make and Divert: the line's base, then the
+   Product Master's base for the brand. */
+function lineFixBases(l){ var m=(typeof SEED!=='undefined'&&SEED.brandMap&&SEED.brandMap[l.brand]&&SEED.brandMap[l.brand].base)||''; var a=[]; [l.base,m].forEach(function(x){ if(x&&a.indexOf(x)<0) a.push(x); }); return a; }
 var lfForm={};
 function lineFixOpen(po,lid,mode){
   var o=(state.orders||[]).find(function(x){ return x&&String(x.po)===String(po); }); var l=o&&(o.lines||[]).find(function(x){ return x&&x.id===lid; }); if(!o||!l){ toast('Order line not found'); return; }
@@ -10080,9 +10093,9 @@ function lineFixOpen(po,lid,mode){
     var btn=function(k,t){ return '<button class="qs-btn sm'+(lfForm.mode===k?'':' ghost')+'" onclick="lineFixOpen(\''+e(o.po)+'\',\''+e(l.id)+'\',\''+k+'\')">'+t+'</button>'; };
     h+='<div class="tdsec">Fix it</div><div class="row" style="gap:8px;flex-wrap:wrap">'+(canRec>0.5?btn('rec','Record the packing against a batch'):'')+(canCut?btn('cut','Bring packed back to its records'):'')+(I.some(function(i){return i.k==='undated';})?btn('date','Stamp the delivery date'):'')+'</div>';
     var rsn='<div class="fld" style="margin-top:8px"><label>Reason (required, it goes on the record with your name)</label><input type="text" value="'+e(lfForm.reason)+'" oninput="lfForm.reason=this.value" placeholder="What you know about this line"></div>';
-    if(lfForm.mode==='rec'){ var bs=(state.batches||[]).filter(function(b){ return b&&b.base===l.base&&batchLabApproved(b); });
+    if(lfForm.mode==='rec'){ var _lb=lineFixBases(l); var bs=(state.batches||[]).filter(function(b){ return b&&_lb.indexOf(b.base)>=0&&batchLabApproved(b); });
       h+='<div class="note" style="margin-top:10px">Writes the missing packing record: batch, lot, dates. The line’s packed number does not change; it already says this. Up to <b>'+fmt(canRec)+' '+u+'</b>'+(F.packed>F.ordered+0.5?' (never past the '+fmt(F.ordered)+' ordered)':'')+'.'+(F.dispatched>F.lotShip+0.5?' '+fmt(Math.min(canRec,F.dispatched-F.lotShip))+' of it has already left on a truck, so that part is marked shipped, with its inspection noted as not on record.':'')+'</div>'
-        +'<div class="formgrid" style="grid-template-columns:1fr 1fr;margin-top:8px"><div class="fld"><label>Batch it came from (QC-approved '+e(l.base||'')+')</label><select onchange="lfForm.bid=this.value"><option value="">— batch —</option>'+bs.map(function(b){ return '<option value="'+e(b.id)+'"'+(b.id===lfForm.bid?' selected':'')+'>'+e(b.batchNo||b.id)+' · '+fmt(batchPackableKg(b))+' left</option>'; }).join('')+'</select></div>'
+        +'<div class="formgrid" style="grid-template-columns:1fr 1fr;margin-top:8px"><div class="fld"><label>Batch it came from (QC-approved '+e(_lb.join(' or '))+')</label><select onchange="lfForm.bid=this.value"><option value="">— batch —</option>'+bs.map(function(b){ return '<option value="'+e(b.id)+'"'+(b.id===lfForm.bid?' selected':'')+'>'+e(b.batchNo||b.id)+' · '+fmt(batchPackableKg(b))+' left</option>'; }).join('')+'</select></div>'
         +'<div class="fld"><label>Quantity ('+u+')</label><input type="number" value="'+e(lfForm.kg||Math.round(canRec))+'" oninput="lfForm.kg=this.value"></div>'
         +'<div class="fld"><label>Date it was packed</label><input type="date" value="'+e(lfForm.date)+'" onchange="lfForm.date=this.value"></div>'
         +'<div class="fld"><label style="display:flex;gap:6px;align-items:center;text-transform:none"><input type="checkbox" style="width:auto;margin:0"'+(lfForm.take?' checked':'')+' onchange="lfForm.take=this.checked"> Take it from the batch’s remaining quantity</label><div class="muted" style="font-size:11px">Untick only if the batch record already counts this material as used.</div></div></div>'+rsn
@@ -10106,12 +10119,12 @@ function lineFixRecord(){ var c=_lfGuard(); if(!c) return; var o=c.o,l=c.l,F=lin
   if(!(kg>0)) return toast('Enter a quantity');
   if(kg>cap+0.5) return toast('At most '+fmt(cap)+': the records can never pass what the line says packed, or the '+fmt(F.ordered)+' ordered.');
   var b=(state.batches||[]).find(function(x){ return x.id===lfForm.bid; }); if(!b) return toast('Pick the batch it came from');
-  if(b.base!==l.base) return toast('That batch is '+(b.base||'another product')+'; this line is '+(l.base||l.brand)+'.');
+  if(lineFixBases(l).indexOf(b.base)<0) return toast('That batch is '+(b.base||'another product')+'; this line is '+(lineFixBases(l).join(' or ')||l.brand)+'.');
   if(!batchLabApproved(b)) return toast('That batch has no approved COA.');
   if(lfForm.take&&batchPackableKg(b)<kg-0.5) return toast('Batch '+(b.batchNo||'')+' has only '+fmt(batchPackableKg(b))+' left. If the batch record already counts this material as used, untick “Take it from the batch”.');
   var d=lfForm.date||evToday(); var no=b.batchNo||''; var dt=packDates(no,b.id,d,undefined);
   var shipPart=Math.max(0,Math.min(kg,F.dispatched-F.lotShip));
-  var lot=Object.assign({id:nid('PK'),date:d,base:l.base,brand:l.brand,kg:kg,by:((state.currentUser&&state.currentUser.name)||state.role),po:o.po,lid:l.id,baseBatchId:b.id,baseBatchNo:no,brandBatchNo:no,mfgDate:dt.mfgDate,expDate:dt.expDate,shelfMonths:dt.shelfMonths,recon:true,fixOf:'untraced',fixReason:String(lfForm.reason).trim(),recordedAt:new Date().toISOString()},
+  var lot=Object.assign({id:nid('PK'),date:d,base:b.base,brand:l.brand,kg:kg,by:((state.currentUser&&state.currentUser.name)||state.role),po:o.po,lid:l.id,baseBatchId:b.id,baseBatchNo:no,brandBatchNo:no,mfgDate:dt.mfgDate,expDate:dt.expDate,shelfMonths:dt.shelfMonths,recon:true,fixOf:'untraced',fixReason:String(lfForm.reason).trim(),recordedAt:new Date().toISOString()},
     shipPart>0?{insKg:shipPart,shipKg:shipPart,qa:{pass:true,retro:true,date:d,by:'',note:'Left on a truck before this lot was recorded; the lot inspection is not on record.'}}:{});
   var bBefore=+b.packedKg||0; if(lfForm.take) b.packedKg=bBefore+kg;
   (state.packingLog=state.packingLog||[]).unshift(lot); try{ syncPackBatchDates(no); }catch(e){}

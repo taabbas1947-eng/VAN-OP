@@ -84,7 +84,7 @@ ok('My job for the COO: he does not sign certificates', /do not sign/.test(run(c
 as(c, 'Finance', 'ismaeel', 'Muhammad Ismail');
 ok('My job for Finance: the print-on-pack answer is theirs', /Print-on-pack/.test(run(c, 'guideMyJob()')));
 ok('How the app works: a sale is counted when the truck is released, before taxes (25a)', /counts as a sale/.test(how) && /net of FED/.test(how));
-ok('BUILD_ID is 2026-09-24z or later', /BUILD_ID\s*=\s*'2026-09-(24z|2[5-9][a-z]|30[a-z])'/.test(html));
+ok('BUILD_ID is 2026-09-24z or later', /BUILD_ID\s*=\s*'(?:2026-1[0-2]-\d\d[a-z]|2026-09-(24z|2[5-9][a-z]|30[a-z]))'/.test(html));
 /* 25b */
 { const rules = grab('guideRules'), how2 = grab('guideHow');
   ok('The rules: a number moves only with its record, and where to fix it (25b)', /A number moves only with its record/.test(rules) && /History/.test(rules) && /Needs you/.test(rules));

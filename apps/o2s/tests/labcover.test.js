@@ -305,7 +305,7 @@ const pm = c => run(c, 'actionItems()').filter(it => it.label === 'Name a cover'
   eq('...and the cover is recorded for that person', run(c, 'labCoverList()[0] && labCoverList()[0].absent'), 'masab');
 }
 
-ok('BUILD_ID is 2026-09-24v or later', /BUILD_ID\s*=\s*'2026-09-(24[v-z]|2[5-9][a-z]|30[a-z])'/.test(html));
+ok('BUILD_ID is 2026-09-24v or later', /BUILD_ID\s*=\s*'(?:2026-1[0-2]-\d\d[a-z]|2026-09-(24[v-z]|2[5-9][a-z]|30[a-z]))'/.test(html));
 ok('the changelog tells the Plant Manager (24v)', /ver:'2026-09-24v'[\s\S]{0,900}leave/i.test(html));
 ok('the changelog tells the lab', /ver:'2026-09-24u'[\s\S]{0,900}cover/i.test(html));
 process.exitCode = report('Leave cover for the lab sign-offs (24u)') ? 1 : 0;

@@ -128,7 +128,7 @@ ok('it says a role is not a job title, in the words Tahir asked for', /A role is
 ok('it lists every role under its department with the people who hold it', /roleDeptId\(r\.name\)===d\.id/.test(rt) && /u\.role===r\.name/.test(rt) && /signs as/.test(rt));
 
 /* ================= 7. BUILD ================= */
-ok("BUILD_ID is 2026-09-23t or later", /var BUILD_ID='2026-09-(2(3[t-z]|4[a-z])|2[5-9][a-z]|3[0-1][a-z])'/.test(html));
+ok("BUILD_ID is 2026-09-23t or later", /var BUILD_ID='2026-(09-(2(3[t-z]|4[a-z])|2[5-9][a-z]|3[0-1][a-z])|1[0-2]-[0-3][0-9][a-z])'/.test(html));
 /* 24f: one verb from the card to the save; the certificate on a phone */
 {
   ok('the truck sheet is called Plan the truck and saves with Plan the truck', /<h2>Plan the truck — \$\{o\.po\}<\/h2>/.test(html) && /onclick="saveDispatch\(\)">Plan the truck</.test(html) && !/Load a truck — /.test(html) && !/onclick="saveDispatch\(\)">Record shipment</.test(html));

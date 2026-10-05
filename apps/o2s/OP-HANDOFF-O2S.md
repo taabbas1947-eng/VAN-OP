@@ -5868,3 +5868,19 @@ Tests: fixes26c 72. Suite 10,747 passed, 0 failed; node --check clean. Browser (
 - Every change: tests (new checks in a fixesXX file), full suite, node --check, a browser check on the disposable copy, the Guide (changelog + BUILD_ID + rules / My job / How / Reference as relevant), a handoff pass here (append only).
 - Read live only through Tahir's signed-in browser pane (tab "seed"); write to live only on his explicit instruction.
 - Digits, not words, for numbers. Ask multiple-choice questions for process decisions. Own mistakes plainly (today: the wrong "Today → Close batch" claim; the 26a merge rule that made log rows vanish).
+
+
+## 5 Oct 2026 — Packing lines that do not match their records (MODULE: O2S) — NOT PUSHED
+
+Files: apps/o2s/o2s.html; tests linefix, packrefuse (new); the BUILD_ID "or later" checks in freshaudit, guide, labassign, labcover, prodcards, shell, shipshell, today (their patterns only took September dates and failed on any October BUILD_ID). BUILD_ID 2026-10-05a, changelog entry added. All O2S tests pass.
+
+1. Fix it sheet, "Record the packing against a batch": the batch list filtered on the line's base only. A PO-direct line saves base = brand (Fruitlish), but it is packed from the brand's base bulk (VL-Potash), so the list was empty. New lineFixBases(l) = line base + SEED.brandMap base (same lookup as To-make and Divert). The lot written takes b.base, as doPack does.
+2. doPack bug: it added kg to b.packedKg and l.packed BEFORE the shelf-life and brand-batch-# checks, so a refusal left both counted with no packing record. Reproduced (NS26004 2,875 → 3,125). The add now comes after every check. packrefuse.test.js fails on the old code and passes on the new.
+
+Live data read on 5 Oct (read only, nothing changed). The 8 lines and the batch gaps (batch packedKg minus its lots):
+- 7500003954 Fruitlish: 683 L; UKL226006 shows 683 packed with no lot. Record against UKL226006, Take unticked.
+- VG-VC-2609-5466 Nitro Sulfur: 250; NS26004 gap 250. Closed short 29 Sep, "supplied outside O2S".
+- 4 V-Mg Essential lines (VG-VC-2607-7630 50, VG-VC-2607-1345 150, FRM-2607-6790 150, DLR-PB-JHN-001-2608-7682 500): 850 in total, and MG10419 gap is 850.
+- PUR-ORD-2026-00592 V-Transfarm: packed 600 on 300 ordered, the 4 Sep double count. Bring packed back to 300.
+- Maxim Old POs Max Sulfur: 2,000, no batch gap anywhere, nothing dispatched.
+Next: Tahir pushes; then the COO works the 8 lines from Needs you.

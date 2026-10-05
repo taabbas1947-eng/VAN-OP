@@ -50,7 +50,7 @@ const sb = { console, toasts: [], saved: 0, corr: [],
     shipments: [{ po: 'P-VMG', lid: 'L1', brand: 'V-Mg', kg: 150, dispCounted: true, stage: 'delivered', delivered: '2026-08-02' },
                 { po: 'P-UND', lid: 'L4', brand: 'NPK', kg: 50, dispCounted: true, stage: 'delivered', delivered: '2026-07-20' }] } };
 vm.createContext(sb);
-vm.runInContext(['lotsFor', 'saleLeft', 'lineFacts', 'lineIssues', 'lineFixRows', 'lineHistory', 'lineCause', 'lineFixOpen', '_lfCtx', '_lfGuard', 'lineFixRecord', 'lineFixCut', 'lineFixDate', 'lineFixList'].map(grab).join('\n') + '\nvar lfForm={};', sb);
+vm.runInContext(['lineFixBases', 'lotsFor', 'saleLeft', 'lineFacts', 'lineIssues', 'lineFixRows', 'lineHistory', 'lineCause', 'lineFixOpen', '_lfCtx', '_lfGuard', 'lineFixRecord', 'lineFixCut', 'lineFixDate', 'lineFixList'].map(grab).join('\n') + '\nvar lfForm={};', sb);
 const O = po => sb.state.orders.find(o => o.po === po), L = po => O(po).lines[0];
 eq('a reversed lot is not counted as packing', sb.lineFacts(O('P-OVER'), L('P-OVER')).logged, 300);
 eq('the list finds the 3 packing lines', sb.lineFixRows('packing').map(r => r.o.po).join(','), 'P-VMG,P-OVER,P-MAX');
@@ -102,4 +102,23 @@ ok('the history lists the packing, the truck and the corrections', (() => { cons
   sb.state.audit.push({ t: '2026-07-31T09:00:00Z', user: 'COO', po: 'P-MAX', field: 'Phantom packing lot PK1624 neutralized', val: '' });
   sb.state.corrections = sb.state.corrections.filter(c => c.entityId !== 'L3');
   ok('a phantom lot zeroed without the line is named (VG-VC-2607-1345)', /zeroed as a phantom/.test(sb.lineCause(O('P-MAX'), L('P-MAX')))); }
+/* 5 Oct 2026: Fruitlish on 7500003954 saved its base as Fruitlish but was packed from VL-Potash bulk; the batch list was empty */
+{ sb.canFix = true; sb.SEED = { brandMap: { Fruitlish: { base: 'VL-Potash' } } };
+  sb.state.batches.push({ id: 'BVL', batchNo: 'UKL226006', base: 'VL-Potash', ok: true, producedKg: 21000, packedKg: 21000 });
+  sb.state.orders.push({ po: '7500003954', client: 'ARYSTA', lines: [{ id: 'LF', brand: 'Fruitlish', base: 'Fruitlish', ordered: 24000, packed: 24000, dispatched: 19440, delivered: 19440 }] });
+  sb.state.packingLog.push({ id: 'PKF', po: '7500003954', lid: 'LF', brand: 'Fruitlish', base: 'VL-Potash', kg: 23317, shipKg: 19440, insKg: 23317, date: '2026-09-17', baseBatchNo: 'UKL226006' });
+  const o = O('7500003954'), l = L('7500003954');
+  eq('the line is made from the brand\'s base as well as its own', sb.lineFixBases(l).join(','), 'Fruitlish,VL-Potash');
+  sb.lfForm = {}; sb.lineFixOpen('7500003954', 'LF', 'rec');
+  sb.lfForm.bid = 'BVL'; sb.lfForm.kg = 683; sb.lfForm.reason = 'Counted on hand 5 Oct; 683 never logged'; sb.lineFixRecord();
+  ok('the VL-Potash batch is accepted; with Take ticked it is refused for having 0 left', /has only 0 left/.test(sb.toasts.pop()));
+  sb.lfForm.take = false; sb.lineFixRecord();
+  const f = sb.state.packingLog[0];
+  eq('untick Take: the record is written against UKL226006, as VL-Potash', [f.lid, f.baseBatchNo, f.base, f.kg].join('|'), 'LF|UKL226006|VL-Potash|683');
+  eq('the batch is not counted twice', sb.state.batches.find(b => b.id === 'BVL').packedKg, 21000);
+  eq('nothing of it is marked shipped (all trucks are covered)', f.shipKg, undefined);
+  eq('the line is no longer flagged', sb.lineIssues(o, l).length, 0);
+  sb.state.orders.push({ po: 'P-MG2', client: 'X', lines: [{ id: 'LM', brand: 'V-Mg', base: 'Mg', ordered: 10, packed: 10, dispatched: 0, delivered: 0 }] });
+  sb.lfForm = {}; sb.lineFixOpen('P-MG2', 'LM', 'rec'); sb.lfForm.bid = 'BVL'; sb.lfForm.kg = 1; sb.lfForm.take = false; sb.lfForm.reason = 'wrong product'; sb.lineFixRecord();
+  ok('a batch of another product is still refused', /this line is Mg/.test(sb.toasts.pop())); }
 process.exitCode = report('Fix it where it happened (25b)') ? 1 : 0;

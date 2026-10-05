@@ -132,8 +132,8 @@ run(c, 'prodMakeFilter="all"; render();');
   ok('...saying how much is ready to pack', /1,000<\/b> (Kg|Kg\/L|L) ready to pack/.test(pc), pc.slice(0, 400));
   ok('...with the Pack button', /openPack\('X-PACK'\)/.test(pc));
 }
-ok('BUILD_ID is 2026-09-24x or later', /BUILD_ID\s*=\s*'2026-09-(24[x-z]|2[5-9][a-z]|30[a-z])'/.test(html));
+ok('BUILD_ID is 2026-09-24x or later', /BUILD_ID\s*=\s*'(?:2026-1[0-2]-\d\d[a-z]|2026-09-(24[x-z]|2[5-9][a-z]|30[a-z]))'/.test(html));
 ok('the changelog tells Production (24x)', /ver:'2026-09-24x'[\s\S]{0,600}card/i.test(html));
-ok('BUILD_ID is 2026-09-24w or later', /BUILD_ID\s*=\s*'2026-09-(24[w-z]|2[5-9][a-z]|30[a-z])'/.test(html));
+ok('BUILD_ID is 2026-09-24w or later', /BUILD_ID\s*=\s*'(?:2026-1[0-2]-\d\d[a-z]|2026-09-(24[w-z]|2[5-9][a-z]|30[a-z]))'/.test(html));
 ok('the changelog tells Production', /ver:'2026-09-24w'[\s\S]{0,600}card/i.test(html));
 process.exitCode = report('Production in the new shell (24w)') ? 1 : 0;

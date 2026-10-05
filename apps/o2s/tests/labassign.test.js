@@ -381,7 +381,7 @@ run(c, 'labAsg.rows[2].to="mubeen"; toasts=[]; labAssignConfirm()');
 }
 
 /* ================= 4. it ships ================= */
-ok('BUILD_ID is 2026-09-24r or later', /BUILD_ID\s*=\s*'2026-09-(24[r-z]|2[5-9][a-z]|30[a-z])'/.test(html));
+ok('BUILD_ID is 2026-09-24r or later', /BUILD_ID\s*=\s*'(?:2026-1[0-2]-\d\d[a-z]|2026-09-(24[r-z]|2[5-9][a-z]|30[a-z]))'/.test(html));
 ok('the changelog tells the lab', /ver:'2026-09-24r'[\s\S]{0,1200}(bench|parameter|test)/i.test(html));
 
 process.exitCode = report('The lab, as the lab works (24r)') ? 1 : 0;

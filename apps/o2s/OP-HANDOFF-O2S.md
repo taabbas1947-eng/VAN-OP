@@ -5897,3 +5897,5 @@ After the Pack bug, scanned all of o2s.html (acorn parse) for a change made befo
 DC numbers were never at risk (nextDCNo is worked out from the last DC used).
 BUILD_ID 2026-10-05b, changelog entry. New test refusenothing.test.js (fails 4 of 8 on the old code). All O2S tests pass.
 Live data on 5 Oct: Fruitlish, V-Transfarm, Maxim and the 4 V-Mg lines fixed from the line sheet with Tahir's approval (see the correction register). Nitro Sulfur VG-VC-2609-5466 is still open, waiting on Production's answer about NS26004.
+
+- 5 Oct 2026, later: 2026-10-05b pushed and live. Nitro Sulfur VG-VC-2609-5466 (VGreen for Zephyr Farm): Tahir says the 250 Kg went to Zephyr outside O2S; recorded 250 from NS26004 (PK4433, Take unticked); NS26004 3,125 = records. Needs you is empty. Open: the truck to Zephyr is not in O2S. The 250 still needs QA's packed-lot pass before a dispatch can be entered; the 10 Kg VL-NPK has already passed. Waiting on the DC # and date from Supply Chain.

@@ -5884,3 +5884,5 @@ Live data read on 5 Oct (read only, nothing changed). The 8 lines and the batch 
 - PUR-ORD-2026-00592 V-Transfarm: packed 600 on 300 ordered, the 4 Sep double count. Bring packed back to 300.
 - Maxim Old POs Max Sulfur: 2,000, no batch gap anywhere, nothing dispatched.
 Next: Tahir pushes; then the COO works the 8 lines from Needs you.
+
+- 5 Oct 2026, later: PUSHED. Live BUILD_ID 2026-10-05a checked on Render; the Fruitlish batch list now shows 6 VL-Potash batches. The 8 lines are still open, waiting for the COO.

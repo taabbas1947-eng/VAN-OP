@@ -11,7 +11,7 @@
    a push keeps running the old code with nothing telling anybody. It sat at
    2026-09-04a through this whole day's work; rmqty/psi tests pinned the code,
    nothing pinned this. buildid.test.js now does. */
-var BUILD_ID='2026-10-05a';
+var BUILD_ID='2026-10-05b';
 var CHANGELOG=[
   {ver:'2026-09-04a', date:'2026-09-04', title:"Delivery, DC printing, and a new Reconciliation check", items:[
     "Delivery confirmation stays with Supply Chain \u2014 it no longer hands off to the Plant Manager. If one sits too long, it now re-flags the same Supply Chain owner every 3 days instead.",
@@ -419,6 +419,11 @@ var CHANGELOG=[
     "Fixed: on a line made from another product's batches (Fruitlish from VL-Potash, Ferti Huma from Potassium Humate), Record the packing against a batch showed no batch to pick. It now lists the batches of the product the line is made from."
 ,
     "Fixed: when Pack refused a brand batch # or a shelf life, the quantity had already been added to the PO line and the batch, with no packing record. Pack now checks first and adds nothing when it refuses."
+  ]},
+  {ver:'2026-10-05b', date:'2026-10-05', title:"A refusal leaves nothing behind", items:[
+    "Fixed: on the lab bench, a result refused for having no FIT or UNFIT stayed on the test, half-entered. It is now written only with its FIT or UNFIT.",
+    "Fixed: Dispatch and Plan a truck used up a shipment number even when they refused with Nothing cleared to ship, so a number was skipped. The number is now taken only when the truck is saved.",
+    "Fixed: Lead time settings saved the good values even when one value was refused. Now all are checked first, and nothing changes when one is wrong."
   ]}
 ];
 </script>
@@ -9878,7 +9883,9 @@ function benchSave(bid,lid,i,result,remark){ if(!(state.role==='Lab Rep'||state.
   if(r.doneAt){ toast('Already recorded'); return; }
   var v=String(result==null?'':result).trim(); var rk=String(remark||'').trim();
   if(!v && !/^no result$/i.test(rk)){ toast('Enter the result (or mark it No Result)'); return; }
-  r.result=v; if(!rk){ var ar=coaAutoRemark(r.spec,v,r.test); rk=ar||''; } if(!rk){ toast('Set FIT or UNFIT for this result'); return; }
+  /* 5 Oct 2026: the result is written only after FIT/UNFIT is settled - a refusal used to leave it on the test, half-entered */
+  if(!rk){ var ar=coaAutoRemark(r.spec,v,r.test); rk=ar||''; } if(!rk){ toast('Set FIT or UNFIT for this result'); return; }
+  r.result=v;
   r.remark=rk; r.doneBy=sigStamp(); r.doneAt=new Date().toISOString();
   qcAudit2(b,'Lab result',(r.param||r.test)+' = '+v+' ('+rk+')'); logAction('Lab: '+(r.param||r.test)+' on '+ctx.L+' = '+v+' ('+rk+')');
   if(c.tests.every(function(t){return !!t.doneAt;})){ var ov=coaOverall(c.tests); c.overall=ov;
@@ -15571,7 +15578,8 @@ function saveDispatch(){ if(!may('shipment.plan')){toast(denyRight('shipment.pla
   }
   const dispId='DSP'+(state.seq=(state.seq||1)+1); const d=dispForm.date||TODAY.toISOString().slice(0,10);
   const _p=String(d).split('-'); const _mmddyy=(_p[1]||'')+(_p[2]||'')+((_p[0]||'').slice(-2));
-  state.shipSerial=(state.shipSerial||0)+1; const _ser=('00'+state.shipSerial).slice(-3);
+  /* 5 Oct 2026: the serial is taken only when a truck is actually saved - a refusal used to skip a shipment number */
+  const _serN=(state.shipSerial||0)+1; const _ser=('00'+_serN).slice(-3);
   const shipNo=_mmddyy+_ser+dc;
   let n=0,tot=0;
   sel.forEach(r=>{ const l=o.lines.find(x=>x.id===r.lid)||o.lines.find(x=>x.brand===r.brand); if(!l)return; const rem=Math.max(0,lineCleared(o,l)); const want=Math.min(+r.qty||0,rem); if(want<=0)return;
@@ -15582,6 +15590,7 @@ function saveDispatch(){ if(!may('shipment.plan')){toast(denyRight('shipment.pla
     state.shipments.unshift(Object.assign({id:_uid('SH'),dispId,po:o.po,client:o.client||'',brand:l.brand,lid:l.id,kg:Math.round(kg),batches,pack:r.pack,dispatch:d,destination:dispForm.dest,focalPerson:(dispForm.focal||'').trim(),focalPhone:(dispForm.focalPhone||'').trim(),carrier:dispForm.carrier,vehicle:dispForm.vehicle,dc:dc,shipNo:shipNo,bilty:dispForm.bilty,so:dispForm.so,transportType:dispForm.transportType,driver:dispForm.driver,driverContact:dispForm.driverContact,seal:dispForm.seal,dcStatus:(_ctrlOn?'pending':'approved'),stage:(_ctrlOn?'truck_planned':''),/* 25m: a truck planned here enters the same flow: load, inspect, gate pass, review, release */approvedBy:'',approvedDate:(_ctrlOn?'':d),dispCounted:!_ctrlOn,delivered:_deliv,remarks:dispForm.remarks,qa:(qaRequiredOn(d)?null:{pass:true,closed:true}),by:state.role},evStamp(d,'ship',dispForm.dateReason)));
     if(!_ctrlOn){ l.dispatched=(l.dispatched||0)+kg; l.dispatchDate=l.dispatchDate||d; if(_deliv){ l.delivered=(l.delivered||0)+kg; l.deliveredDate=d; } } n++; tot+=kg; });
   if(!n){toast('Nothing cleared to ship — inspect the packed material first');return;}
+  state.shipSerial=_serN;
   logAction(`Shipment ${shipNo} (${dispId}) · PO ${o.po}: ${n} product(s), ${fmt(tot)} Kg/L · DC ${dc}${dispForm.vehicle?(' · '+dispForm.vehicle):''}`);
   (state.audit=state.audit||[]).unshift({t:new Date().toISOString(),user:state.role,module:'Shipment',po:o.po,brand:n+' product(s)',field:'Shipped',old:'',val:fmt(tot)+' Kg/L · DC '+(dispForm.dc||'-')});
   dispForm=null; save(); closeModal(); render(); toast(`DC ${dc} recorded — pending Plant Manager approval`); }
@@ -15756,7 +15765,8 @@ function mpCreate(){ if(!may('shipment.plan')){toast(denyRight('shipment.plan','
      Ex-factory). From 1 Jul the full staged flow (Truck planned → Loading → Gate Pass → approval) runs. */
   var auto=(typeof dcControlOn==='function' && !dcControlOn(d)); var exf=(f.transportType==='Ex-factory');
   var _p=String(d).split('-'); var _mmddyy=(_p[1]||'')+(_p[2]||'')+((_p[0]||'').slice(-2));
-  state.shipSerial=(state.shipSerial||0)+1; var _ser=('00'+state.shipSerial).slice(-3); var shipNo=_mmddyy+_ser+dc;
+  /* 5 Oct 2026: the serial is taken only when the truck is created (see saveDispatch) */
+  var _serN=(state.shipSerial||0)+1; var _ser=('00'+_serN).slice(-3); var shipNo=_mmddyy+_ser+dc;
   var dispId='DSP'+(state.seq=(state.seq||1)+1); var n=0,tot=0;
   sel.forEach(function(x){ var o=(state.orders||[]).find(function(y){return y.id===x.o.oid;}); if(!o)return; var l=o.lines.find(function(y){return y.id===x.r.lid;})||o.lines.find(function(y){return y.brand===x.r.brand;}); if(!l)return;
     var rem=Math.max(0,lineCleared(o,l)); var want=Math.min(+x.r.qty||0,rem); if(want<=0)return;
@@ -15767,6 +15777,7 @@ function mpCreate(){ if(!may('shipment.plan')){toast(denyRight('shipment.plan','
     state.shipments.unshift({id:_uid('SH'),dispId:dispId,po:o.po,client:f.client,brand:l.brand,lid:l.id,kg:Math.round(kg),batches:batches,pack:x.r.pack,dispatch:d,destination:f.dest,focalPerson:(f.focal||'').trim(),focalPhone:(f.focalPhone||'').trim(),carrier:f.carrier,vehicle:f.vehicle,dc:dc,shipNo:shipNo,bilty:f.bilty,so:x.o.so||'',transportType:f.transportType,truckSize:f.truckSize,driver:f.driver,driverContact:f.driverContact,seal:f.seal,stage:(auto?(exf?'delivered':'in_transit'):'truck_planned'),loadStarted:'',gatePass:'',dcStatus:(auto?'approved':'pending'),approvedBy:(auto?'Auto · pre go-live':''),approvedDate:(auto?d:''),dispCounted:!!auto,delivered:(auto&&exf?d:null),deliveredVia:(auto&&exf?'Collected at factory':''),remarks:f.remarks,qa:(qaRequiredOn(d)?null:{pass:true,closed:true}),by:state.role});
     n++; tot+=kg; });
   if(!n){toast('Nothing cleared to ship — inspect the packed material first');return;}
+  state.shipSerial=_serN;
   logAction('Shipment '+shipNo+' ('+dispId+') created — '+shortClient(f.client)+' · '+incl.length+' order(s), '+n+' product(s), '+fmt(Math.round(tot))+' Kg/L · DC '+dc+(auto?' · auto-approved (pre go-live)':' · Truck Planned'));
   (state.audit=state.audit||[]).unshift({t:new Date().toISOString(),user:state.role,module:'Shipment',po:incl.join(', '),brand:n+' product(s)',field:(auto?'Auto-approved':'Truck planned'),old:'',val:fmt(Math.round(tot))+' Kg/L · DC '+dc});
   mpForm=null; save(); closeModal(); render(); toast(auto?('DC '+dc+' recorded — '+(exf?'collected at factory':'in transit')+' (auto-approved)'):('DC '+dc+' created — Truck Planned. Start loading next.')); }
@@ -16492,9 +16503,11 @@ function leadTimeCard(ed){ const lt=(state.masters&&state.masters.leadTime)||{};
 function saveLeadTime(){ if(!canEdit(['COO'])){toast('COO only');return;}
   const lt=state.masters.leadTime=state.masters.leadTime||{};
   const keys=['rateKgPerDay','qcDays','dispatchDays','rmProcureDays','minDays'];
-  let bad=false; keys.forEach(k=>{ const el=document.getElementById('lt_'+k); if(!el)return; const v=+el.value;
-    if(isNaN(v)||v<0||(k==='rateKgPerDay'&&v<=0)){ bad=true; return; } lt[k]=v; });
+  /* 5 Oct 2026: every value is checked before any is written - a bad one used to leave the ones before it changed */
+  let bad=false; const _ltNew={}; keys.forEach(k=>{ const el=document.getElementById('lt_'+k); if(!el)return; const v=+el.value;
+    if(isNaN(v)||v<0||(k==='rateKgPerDay'&&v<=0)){ bad=true; return; } _ltNew[k]=v; });
   if(bad){ toast('Enter valid non-negative numbers (rate must be > 0).'); return; }
+  Object.assign(lt,_ltNew);
   const pg=state.masters.productionGroups=state.masters.productionGroups||{};
   document.querySelectorAll('[data-pg]').forEach(el=>{ const g=el.getAttribute('data-pg'); const v=+el.value; if(g && v>0) pg[g]=v; });
   const gob=state.masters.groupOfBrand=state.masters.groupOfBrand||{};

@@ -5886,3 +5886,14 @@ Live data read on 5 Oct (read only, nothing changed). The 8 lines and the batch 
 Next: Tahir pushes; then the COO works the 8 lines from Needs you.
 
 - 5 Oct 2026, later: PUSHED. Live BUILD_ID 2026-10-05a checked on Render; the Fruitlish batch list now shows 6 VL-Potash batches. The 8 lines are still open, waiting for the COO.
+
+
+## 5 Oct 2026 (2) — A refusal leaves nothing behind (MODULE: O2S) — NOT PUSHED
+
+After the Pack bug, scanned all of o2s.html (acorn parse) for a change made before a check that can still refuse: 21 flagged, 18 false (separate branches or temporary values), 3 real, all fixed:
+- benchSave: the lab result was written before the FIT/UNFIT check; now written after it.
+- saveDispatch and mpCreate: state.shipSerial was taken before "Nothing cleared to ship"; now taken only when a truck is saved (state.seq is left as is; nid() draws from it, and its gaps are invisible).
+- saveLeadTime: values were written while being checked; now all are checked, then written.
+DC numbers were never at risk (nextDCNo is worked out from the last DC used).
+BUILD_ID 2026-10-05b, changelog entry. New test refusenothing.test.js (fails 4 of 8 on the old code). All O2S tests pass.
+Live data on 5 Oct: Fruitlish, V-Transfarm, Maxim and the 4 V-Mg lines fixed from the line sheet with Tahir's approval (see the correction register). Nitro Sulfur VG-VC-2609-5466 is still open, waiting on Production's answer about NS26004.

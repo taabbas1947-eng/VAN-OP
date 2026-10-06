@@ -11,7 +11,7 @@
    a push keeps running the old code with nothing telling anybody. It sat at
    2026-09-04a through this whole day's work; rmqty/psi tests pinned the code,
    nothing pinned this. buildid.test.js now does. */
-var BUILD_ID='2026-10-06b';
+var BUILD_ID='2026-10-06c';
 var CHANGELOG=[
   {ver:'2026-09-04a', date:'2026-09-04', title:"Delivery, DC printing, and a new Reconciliation check", items:[
     "Delivery confirmation stays with Supply Chain \u2014 it no longer hands off to the Plant Manager. If one sits too long, it now re-flags the same Supply Chain owner every 3 days instead.",
@@ -430,6 +430,13 @@ var CHANGELOG=[
   ]},
   {ver:'2026-10-06b', date:'2026-10-06', title:"A close reason has to fit the stock", items:[
     "A product already packed in full can no longer be closed short as “We could not supply” or “Raw material never arrived”. The close screen says which products are packed and asks for the reason that fits, such as “Customer cancelled the balance”. A request already waiting with such a reason cannot be approved; the Plant Manager refuses it so it is asked again with the right reason."
+  ]},
+  {ver:'2026-10-06c', date:'2026-10-06', title:"Every paper easier to find", items:[
+    "An order's sheet now ends with Papers: the PO, each truck's DC, gate pass and inspection report, each lab certificate and the packed-lot inspection log. Each shows only to the roles that could already print it.",
+    "Reports → Documents: the switch between Purchase orders and Delivery challans now sits above the list, and names the inspection reports too. The customer's full name is shown.",
+    "Reports → Lab certificates: the date and who signed are now filled in, and each approved certificate has a COA button to print it.",
+    "The Guide's rules have a new section, Where to find a copy.",
+    "The samples page is called FOC samples everywhere, as in the header."
   ]}
 ];
 </script>
@@ -3778,7 +3785,7 @@ const SCREENS=[
    /* R6, 23 Sep night: money is COO, CFO, Plant Manager and the KAMs. Finance
       raises orders (with prices) but does not read the budget. */
    /* 25o: free samples - their own path, not an order. */
-  {id:'samples', name:'Free samples', ic:'\ud83c\udf81', owners:['COO','KAM','Finance','CFO'], sub:'Ask, approve, send, feedback',
+  {id:'samples', name:'FOC samples', ic:'\ud83c\udf81', owners:['COO','KAM','Finance','CFO'], sub:'Ask, approve, send, feedback',
     obj:'<b>Free samples.</b> Who gave which sample, to whom, why, and what the client said. The COO approves every one.'},
   {id:'budget', name:'Sales & Budget (dashboard)', ic:'💰', owners:['COO','CFO','Plant Manager','KAM'], sub:'Target vs delivered (PKR)', obj:'<b>Sales vs budget · COO / CFO only.</b> Client annual targets vs delivered invoice value (delivered Kg/L × invoice price). Consolidated and by product.'},
 ];
@@ -14174,8 +14181,38 @@ function openOrderSheet(id){
   h+='<div class="tdsec" style="margin-top:0">Products<span class="cnt">'+(o.lines||[]).length+'</span></div>';
   h+='<div class="tdlist">'+(o.lines||[]).map(function(l){ var lb=ordLineBrief(o,l); var tone=lb.b==='Delivered'?'st-done':(lb.b==='Closed short'?'st-na':(lb.late?'st-over':'st-ok'));
     return '<div class="tdcard ord2-line '+tone+'"><div class="row between" style="align-items:baseline;gap:8px;flex-wrap:wrap"><span class="tdtitle" style="margin-top:0">'+qsEsc(l.brand)+'</span><span class="tdsub">'+fmt(lb.ord)+' '+unitOf(l.brand)+' ordered · <b>'+qsEsc(lb.b)+'</b>'+(lb.late?' · <span style="color:var(--over)">'+calDays(l.committed)+' d past its date</span>':'')+'</span></div>'+ordLineStepsHTML(o,l)+(function(){ var _I=lineIssues(o,l); return '<div class="row" style="gap:8px;margin-top:6px;align-items:center">'+(_I.length?'<span class="tdtag late">■ '+qsEsc(_I[0].t)+'</span>':'')+'<button class="qs-btn sm ghost" onclick="lfForm={};lineFixOpen(\''+qsEsc(o.po)+'\',\''+qsEsc(l.id)+'\')">History'+(_I.length&&screenEditOK('datafix')?' and fix':'')+'</button></div>'; })()+(typeof closeLineButtonHTML==='function'?(function(){ var cb=closeLineButtonHTML(o,l); return cb?'<div class="actions" style="margin-top:8px">'+cb+'</div>':''; })():'')+'</div>'; }).join('')+'</div>';
+  h+=ordDocsHTML(o);
   h+='</div><div class="mf">'+openBtn+close+'<button class="qs-btn" onclick="closeModal()">Close</button></div>';
   $('modal').innerHTML=h; $('modalBg').classList.add('open');
+}
+/* ===== THE ORDER'S PAPERS - 2026-10-06c =====
+   Tahir, 6 Oct: "does he know where he finds what? like an old record, a copy of
+   inspection report or copy of DC or COA?" The papers of one order were spread
+   over 4 screens. The order sheet now lists them, each with the print button
+   it already has elsewhere, under the SAME rule as there:
+   - PO: printPO, money roles only (it carries prices);
+   - DC, Gate Pass, Inspection: the Documents report's buttons, open to all;
+   - COA: only to the roles the Lab certificates report is open to;
+   - Inspection log: only to the roles that can open QA.
+   Nothing new is shown to anyone, and nothing is written except what the print
+   buttons already write (the PO's printed stamp). */
+function ordDocBatches(o){ return (state.batches||[]).filter(function(b){ if(!b||b.voided) return false; if(b.po===o.po) return true; return b.kind==='multi'&&Array.isArray(b.allocations)&&b.allocations.some(function(a){ return a&&a.po===o.po; }); }); }
+function ordDocsHTML(o){
+  var rows=[];
+  if(typeof mayMoney==='function'&&mayMoney()) rows.push('<div class="row" style="gap:8px;align-items:center;flex-wrap:wrap"><span class="tdsub" style="min-width:150px">Purchase order</span><button class="qs-btn sm ghost" onclick="printPO(\''+qsEsc(o.po)+'\')">PO</button></div>');
+  var gs=(typeof dispatchGroups==='function'?dispatchGroups():[]).filter(function(g){ return g.dispId&&((g.pos||[]).indexOf(o.po)>-1||g.po===o.po); });
+  gs.forEach(function(g){ rows.push('<div class="row" style="gap:8px;align-items:center;flex-wrap:wrap"><span class="tdsub" style="min-width:150px">Truck '+qsEsc(g.date||'')+(g.dc?' · DC '+qsEsc(g.dc):'')+(g.vehicle?' · '+qsEsc(g.vehicle):'')+'</span>'+shipDcBtn(g)+shipGpBtn(g)+shipPsiBtn(g)+'</div>'); });
+  var coaDef=(typeof rpDef==='function')?rpDef('coa'):null;
+  if(coaDef&&rpMay(coaDef)){
+    ordDocBatches(o).forEach(function(b){
+      var ls=(b.lots||[]).filter(function(l){ return l&&l.coa; });
+      var certs=ls.length?ls.map(function(l){ return {lid:l.id||'',no:l.lotNo||b.batchNo||'',c:l.coa}; }):(b.coa?[{lid:'',no:b.batchNo||'',c:b.coa}]:[]);
+      certs.forEach(function(x){ if(x.c.status!=='approved') return; rows.push('<div class="row" style="gap:8px;align-items:center;flex-wrap:wrap"><span class="tdsub" style="min-width:150px">Lab certificate · '+qsEsc(b.brand||b.base||'')+' '+qsEsc(x.no)+'</span><button class="qs-btn sm ghost" onclick="printCOA(\''+qsEsc(b.id)+'\',\''+qsEsc(x.lid)+'\')">COA</button></div>'); });
+    });
+  }
+  if(canView(state.role,'qa')&&(state.inspections||[]).some(function(x){ return x&&x.po===o.po; })) rows.push('<div class="row" style="gap:8px;align-items:center;flex-wrap:wrap"><span class="tdsub" style="min-width:150px">Packed-lot QA</span><button class="qs-btn sm ghost" onclick="printInspect(\''+qsEsc(o.po)+'\')">Inspection log</button></div>');
+  if(!rows.length) return '';
+  return '<div class="tdsec">Papers<span class="cnt">'+rows.length+'</span></div><div class="tdlist" style="gap:6px">'+rows.join('')+'</div>';
 }
 function openTkDrawer(id){ openOrderSheet(id); }
 /* delivered in full but never dated: a record gap, listed for the COO */
@@ -14431,6 +14468,8 @@ function guideRules(){
   '<div class="gd-rule"><h3>What a sale is</h3><p>A sale is counted the day the truck leaves the gate, at quantity × invoice price, net of FED. FED is the sales tax: on an order quoted FED-inclusive the price is divided by 1.05. Every money figure in the app — Sales & Budget, the reports, the PO register — uses this one rule.</p></div>';
   h+='<div class="gd-rule"><h3>Roles, not people</h3><p>Rights belong to roles. 2 people can hold one role and sign differently. There are no exceptions for one person — an exception becomes a new role, so it can be seen and given to the next person in that seat.</p></div>';
   h+='<div class="gd-rule"><h3>What is never on a customer document</h3><p>No price on any document the customer sees. The COA carries composition, results and the 3 signatures; the delivery challan carries product, quantity and lot.</p></div>';
+  /* 06c: where each paper lives. Every place named here is an existing screen or button. */
+  h+='<div class="gd-rule"><h3>Where to find a copy</h3><p><b>An old order:</b> Plant → <b>All orders</b>, type the PO or customer, tap the order. Its sheet ends with <b>Papers</b>: every paper of that order you are allowed to print, in one place.</p><p><b>Purchase order:</b> Reports → <b>Documents</b> → Purchase orders. It carries prices, so only the roles that see money can print it.</p><p><b>Delivery challan, gate pass, pre-shipment inspection report:</b> Reports → <b>Documents</b> → Delivery challans, gate passes and inspection reports. Search by DC, gate pass, PO, customer or vehicle. Every inspected truck is also under Reports → <b>Pre-shipment inspections</b>.</p><p><b>Lab certificate (COA):</b> Reports → <b>Lab certificates</b>, then <b>COA</b> on the row. For the lab, QA, the Plant Manager, the CFO and the COO.</p><p><b>Packed-lot QA:</b> the order’s Papers → <b>Inspection log</b>, for the roles that open QA.</p><p><b>Who changed a record:</b> Reports → <b>Corrections register</b>, for the COO, the CFO and the Plant Manager.</p></div>';
   return h;
 }
 function guideTabsHTML(){
@@ -17786,7 +17825,7 @@ function smpPrint(id){ var x=smpById(id); if(!x||!x.dispatch||!x.release){ toast
 /* ---- the Samples page: the register ---- */
 function smpTodayBar(){ return ''; }
 function screenSamples(){ var e=qsEsc;
-  if(!smpMayView()){ $('view').innerHTML='<div class="qs"><h1>Free samples</h1><div class="note">This page is for the people who ask for, approve, issue and check free samples. Your work is on <b>Today</b>.</div></div>'; return; }
+  if(!smpMayView()){ $('view').innerHTML='<div class="qs"><h1>FOC samples</h1><div class="note">This page is for the people who ask for, approve, issue and check free samples. Your work is on <b>Today</b>.</div></div>'; return; }
   var all=smpList().slice().sort(function(a,b){ return String((b.entered&&b.entered.at)||'').localeCompare(String((a.entered&&a.entered.at)||'')); });
   var fy=fyKey(evToday()), live=function(x){ return x.status!=='cancelled'&&x.status!=='rejected'; };
   var yr=all.filter(function(x){ return live(x)&&fyKey(String((x.entered&&x.entered.date)||evToday()))===fy; });
@@ -17868,7 +17907,9 @@ var RB_DATASETS={
     fields:[{k:'date',l:'Date',t:'dim'},{k:'po',l:'PO',t:'dim'},{k:'client',l:'Client',t:'dim'},{k:'product',l:'Brand',t:'dim'},{k:'base',l:'Base product',t:'dim'},{k:'basebatch',l:'Base batch',t:'dim'},{k:'brandbatch',l:'Brand batch',t:'dim'},{k:'qa',l:'QA status',t:'dim'},{k:'kg',l:'Packed kg',t:'meas'}],
     filters:['client','product','qa']},
   qc:{label:'Lab QC · COA',dateKey:'date',
-    rows:function(){ var cm=_rbClientMap(); var out=[]; (state.batches||[]).filter(function(b){return b&&!b.voided&&(+b.producedKg||0)>0;}).forEach(function(b){ var lots=(b.lots&&b.lots.length)?b.lots:[{lotNo:b.batchNo,qty:b.producedKg,coa:b.coa}]; lots.forEach(function(l){ var c=l.coa||b.coa||{}; out.push({product:b.brand||b.base||'',batch:l.lotNo||b.batchNo||'',po:b.po||'',client:cm[b.po]||'',qcno:c.qcNo||'',status:c.status||'—',result:c.overall||(c.deviation?'Deviation':'—'),by:c.by||'',date:c.date||'',qty:+l.qty||+b.producedKg||0}); }); }); return out; },
+    rows:function(){ var cm=_rbClientMap(); var out=[]; (state.batches||[]).filter(function(b){return b&&!b.voided&&(+b.producedKg||0)>0;}).forEach(function(b){ var lots=(b.lots&&b.lots.length)?b.lots:[{lotNo:b.batchNo,qty:b.producedKg,coa:b.coa}]; lots.forEach(function(l){ var c=l.coa||b.coa||{}; /* 06c: who signed and when come from the certificate's own signatures, by the
+         rule the lab's register uses (rpQCReports). c.by / c.date are never
+         written, so both columns were blank. _bid/_lid let a row print it. */ var _own=!!(l.coa&&l.id); out.push({product:b.brand||b.base||'',batch:l.lotNo||b.batchNo||'',po:b.po||'',client:cm[b.po]||'',qcno:c.qcNo||'',status:c.status||'—',result:c.overall||(c.status==='approved'?'FIT':(c.status==='failed'?'UNFIT':(c.deviation?'Deviation':'—'))),by:(c.approver&&c.approver.name)||(c.reviewer&&c.reviewer.name)||(c.analyst&&c.analyst.name)||c.by||'',date:c.approvedDate||c.dateOfTest||c.issueDate||c.date||'',qty:+l.qty||+b.producedKg||0,_bid:b.id,_lid:_own?l.id:'',_ok:(c.status==='approved'&&(_own||(!!b.coa&&c===b.coa)))}); }); }); return out; },
     fields:[{k:'product',l:'Product',t:'dim'},{k:'batch',l:'Batch',t:'dim'},{k:'po',l:'PO',t:'dim'},{k:'client',l:'Client',t:'dim'},{k:'qcno',l:'QC #',t:'dim'},{k:'status',l:'Status',t:'dim'},{k:'result',l:'Result',t:'dim'},{k:'by',l:'Signed by',t:'dim'},{k:'date',l:'Date',t:'dim'},{k:'qty',l:'Qty',t:'meas'}],
     filters:['status','result','client','product']},
   deferred:{label:'Deferred actions',dateKey:'until',
@@ -18131,7 +18172,7 @@ function rpPos(){
     return '<tr data-k="'+_pe(key)+'">'
       +'<td>'+_pe(o.received||'—')+'</td>'
       +'<td><b>'+_pe(o.po||'—')+'</b><div class="muted" style="font-size:10.5px">'+_pe(o.channel||'')+'</div></td>'
-      +'<td>'+_pe(shortClient(o.client)||'—')+'</td>'
+      +'<td>'+_pe(o.client||'—')+'</td>'
       +'<td class="num">'+lines.length+'</td>'
       +'<td class="num">'+fmt(kg)+'</td>'
       +'<td class="num">'+(mayMoney()?(val>0?pkr(val):'<span class="muted">—</span>'):'<span class="muted">—</span>')+'</td>'
@@ -18167,7 +18208,7 @@ function rpDocs(){
       +'<td><b>'+_pe(g.dc||'—')+'</b></td>'
       +'<td>'+_pe(g.gatePass||'—')+'</td>'
       +'<td>'+_pe(g.poLabel||g.po||'—')+'</td>'
-      +'<td>'+_pe(shortClient(g.client)||'—')+'</td>'
+      +'<td>'+_pe(g.client||'—')+'</td>'
       +'<td>'+_pe(g.vehicle||'—')+'</td>'
       +'<td>'+_pe(g.stageNow||'—')+'</td>'
       +'<td style="white-space:nowrap;text-align:right"><button class="sm ghost" onclick="printDC(\''+g.dispId+'\')">DC</button> '+gp+' '+shipPsiBtn(g)+'</td>'
@@ -18227,7 +18268,7 @@ var RP_CATALOGUE=[
   {id:'corrections', t:'Corrections register', q:'Who changed what, and why.', ds:'corrections', cols:['when','type','record','by','reasonCode','reason','fields'], mode:'raw', period:'This month', roles:['COO','CFO','Plant Manager']},
   {id:'sales', t:'Sales against budget', q:'Sold value (trucks out, before taxes) against the budget, by channel and customer.', kind:'budget', money:true, roles:['COO','CFO','Plant Manager','KAM']},
   {id:'invoicing', t:'Invoicing sheet', q:'What was delivered, at what price, by delivery challan.', ds:'finance', cols:['date','dc','po','client','product','kg','price','value'], mode:'raw', period:'Last month', money:true, roles:['COO','CFO','Plant Manager','KAM','Finance']},
-  {id:'docs', t:'Documents', q:'Find and reprint a purchase order, delivery challan or gate pass.', kind:'docs', roles:'all'},
+  {id:'docs', t:'Documents', q:'Find and reprint a purchase order, delivery challan, gate pass or pre-shipment inspection report.', kind:'docs', roles:'all'},
   {id:'custom', t:'Custom report', q:'Any dataset, any columns, rows or a summary; CSV, Excel or PDF.', kind:'builder', roles:'all'}
 ];
 function rpMay(c){ if(!c) return false; if(c.money&&!(mayMoney()||(INVOICE_ROLES.indexOf(state.role)>-1&&c.id==='invoicing'))) return false; if(state.role==='COO') return true; return c.roles==='all'||(c.roles||[]).indexOf(state.role)>-1; }
@@ -18254,13 +18295,13 @@ function rpListHTML(){
   return h+'</div>';
 }
 function rpPeriodChips(){ return '<div class="chips">'+['This month','Last month','FY to date','All'].map(function(p){ return '<button class="qs-btn sm'+(rpPeriod===p?' on':'')+'" onclick="rpApplyPeriod(\''+p+'\');render()">'+p+'</button>'; }).join('')+'</div>'; }
-function rpTableHTML(res){
+function rpTableHTML(res,act){
   var cols=res.cols; var meas=cols.filter(rbIsMeas);
   var tot={}; meas.forEach(function(k){ tot[k]=res.rows.reduce(function(a,r){ return a+(+r[k]||0); },0); });
   if(!res.rows.length) return '<div class="note">Nothing in this period.</div>';
-  var h='<div class="sheet-wrap" style="overflow-x:auto"><table class="rbtbl rp-tbl"><thead><tr>'+cols.map(function(k){ return '<th'+(rbIsMeas(k)?' class="num"':'')+'>'+qsEsc(rbColLabel(k))+'</th>'; }).join('')+'</tr></thead><tbody>';
-  h+=res.rows.slice(0,500).map(function(r){ return '<tr>'+cols.map(function(k){ return '<td'+(rbIsMeas(k)?' class="num"':'')+'>'+qsEsc(rbCellFmt(k,r[k]))+'</td>'; }).join('')+'</tr>'; }).join('');
-  if(meas.length) h+='<tr class="rp-tot">'+cols.map(function(k,i){ return '<td'+(rbIsMeas(k)?' class="num"':'')+'>'+(rbIsMeas(k)?fmt(Math.round(tot[k])):(i===0?'Total':''))+'</td>'; }).join('')+'</tr>';
+  var h='<div class="sheet-wrap" style="overflow-x:auto"><table class="rbtbl rp-tbl"><thead><tr>'+cols.map(function(k){ return '<th'+(rbIsMeas(k)?' class="num"':'')+'>'+qsEsc(rbColLabel(k))+'</th>'; }).join('')+(act?'<th></th>':'')+'</tr></thead><tbody>';
+  h+=res.rows.slice(0,500).map(function(r){ return '<tr>'+cols.map(function(k){ return '<td'+(rbIsMeas(k)?' class="num"':'')+'>'+qsEsc(rbCellFmt(k,r[k]))+'</td>'; }).join('')+(act?'<td style="text-align:right;white-space:nowrap">'+act(r)+'</td>':'')+'</tr>'; }).join('');
+  if(meas.length) h+='<tr class="rp-tot">'+cols.map(function(k,i){ return '<td'+(rbIsMeas(k)?' class="num"':'')+'>'+(rbIsMeas(k)?fmt(Math.round(tot[k])):(i===0?'Total':''))+'</td>'; }).join('')+(act?'<td></td>':'')+'</tr>';
   h+='</tbody></table></div>'+(res.rows.length>500?'<div class="sub">Showing the first 500 of '+res.rows.length+' rows; export for the rest.</div>':'');
   return h;
 }
@@ -18284,12 +18325,16 @@ function rpReportHTML(){
   var c=rpDef(rpCur); if(!c) return rpListHTML();
   var h='<div class="qs wide"><div class="bo-back"><button class="qs-btn sm ghost" onclick="rpBack()">‹ Reports</button></div><h1>'+qsEsc(c.t)+'</h1><div class="sub">'+qsEsc(c.q)+'</div>';
   if(c.kind==='rmpos'){ if(rpView==='rmdetail') return h+'<div class="bo-back" style="margin-top:8px"><button class="qs-btn sm ghost" onclick="rpView=\'report\';render()">‹ All materials</button></div><div class="paperui">'+rpRmChain()+'</div></div>'; return h+rpRmPosition()+'</div>'; }
-  if(c.kind==='docs') return h+'<div class="paperui">'+((rpDocKind==='dc')?rpDocs():rpPos())+'</div><div class="chips" style="margin-top:10px"><button class="qs-btn sm'+(rpDocKind==='po'?' on':'')+'" onclick="rpDocKind=\'po\';render()">Purchase orders</button><button class="qs-btn sm'+(rpDocKind==='dc'?' on':'')+'" onclick="rpDocKind=\'dc\';render()">Delivery challans and gate passes</button></div></div>';
+  /* 06c: the switch sits ABOVE the list. Below a 60vh table nobody saw it, so the
+     DC and gate pass looked missing from Documents. */
+  if(c.kind==='docs') return h+'<div class="chips" style="margin:10px 0"><button class="qs-btn sm'+(rpDocKind==='po'?' on':'')+'" onclick="rpDocKind=\'po\';render()">Purchase orders</button><button class="qs-btn sm'+(rpDocKind==='dc'?' on':'')+'" onclick="rpDocKind=\'dc\';render()">Delivery challans, gate passes and inspection reports</button></div><div class="paperui">'+((rpDocKind==='dc')?rpDocs():rpPos())+'</div></div>';
   if(c.kind==='builder') return h+'<div class="paperui">'+rbRender()+'</div></div>';
   if(c.kind==='psireg') return h+psiRegisterHTML()+'</div>';
   var res=rbResult();
   h+='<div class="row between" style="gap:10px;flex-wrap:wrap;align-items:center;margin-top:10px">'+rpPeriodChips()+'<span class="row" style="gap:6px"><button class="qs-btn sm" onclick="rbPrint()">Print / PDF</button><button class="qs-btn sm" onclick="rbExport(\'csv\')">CSV</button><button class="qs-btn sm ghost" onclick="rpTab=\'builder\';rpCur=\'custom\';render()">Adjust</button></span></div>';
-  h+=rpSentence(c,res)+rpTableHTML(res);
+  /* 06c: a lab certificate prints from its own row (summary rows have no certificate) */
+  var _act=(c.id==='coa'&&!res.summary)?function(r){ return r._ok?'<button class="qs-btn sm ghost" onclick="printCOA(\''+qsEsc(r._bid)+'\',\''+qsEsc(r._lid||'')+'\')">COA</button>':''; }:null;
+  h+=rpSentence(c,res)+rpTableHTML(res,_act);
   return h+'</div>';
 }
 function screenReports(){

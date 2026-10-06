@@ -6201,3 +6201,15 @@ Cause: Saad asked to close 6 products on Arain Traders (DLR-SN-TAN-008-2608-3355
 - Guide "Nothing is deleted" rule extended (pinned in guide.test). BUILD_ID 2026-10-06b, changelog entry. New test closereason.test.js (12/12); fixes26a and shortcloseactions grab the 2 new helpers.
 - Not mine: publicbatch.test.js (Ahmer's commit abfd300) needs `npm install` (pdfkit) on this machine before it runs.
 - Live effect once pushed: the 4 packed Arain requests cannot be approved as they stand. Fahim refuses them, and Saad asks again with the right reason if the customer cancelled. Cal-Mag V and Green Sulfur (0 packed) can be approved.
+
+
+## 6 Oct 2026 (3) — Every paper easier to find (MODULE: O2S) — NOT PUSHED
+
+Cause: Tahir asked whether every role knows where to find an old record or a copy of a DC, COA or inspection report. He then said to fix "everything which is safe to fix now". Only screens and print buttons changed. No stored data and no rights changed.
+- Order sheet (openOrderSheet) ends with **Papers** (new ordDocsHTML / ordDocBatches). Each paper uses its existing button and existing rule: PO only for mayMoney (printPO); each truck of this PO gets DC, Gate Pass and Inspection (shipDcBtn/GpBtn/PsiBtn, as in Documents); approved COAs only for roles allowed rpMay(rpDef('coa')); the packed-lot Inspection log only for canView('qa').
+- Reports → Documents: the PO / DC switch now sits above the list (it was under a 60vh table), and its label names the inspection reports. The PO and DC registers show the customer's full name instead of shortClient.
+- Reports → Lab certificates: RB_DATASETS.qc took `by` and `date` from c.by and c.date, which are never written, so both columns were blank. They now follow rpQCReports: approver, then reviewer, then analyst; approvedDate, then dateOfTest, then issueDate. Result reads FIT/UNFIT from status. Each approved row has a COA button (rpTableHTML takes an optional action column). It prints only the exact certificate on the row (lot's own, or the batch's when that row is the batch's).
+- "Free samples" → "FOC samples" for the SCREENS name and the no-access page title. Tahir named the page FOC samples in 25p, and the header already said so. Job titles ("Free sample to approve") and the Guide heading are unchanged (samples.test pins them).
+- Guide rules: new "Where to find a copy" (pinned in guide.test). BUILD_ID 2026-10-06c, changelog entry. New test findcopy.test.js (25/25). All O2S tests pass except publicbatch (pdfkit not installed; not mine).
+- Not done, on purpose: adding Orders/Reports to the header and making search open records. On 23 Sep Tahir ruled the header has its words only (shell.test / threeplaces.test), and the search box is hidden. Orders and Reports are already buttons on Plant for every role that can view them.
+- Open for Tahir: whether KAM, Finance and Finance Desk Officer should see lab certificates. That is a rights change, so it is not made.

@@ -894,6 +894,10 @@ app.delete('/api/users/:username', auth, admin, async (req, res) => {
    and catch-all routes below). PD work happens in apps/pd/, never in this file. */
 require('./apps/pd/pd-routes')(app, { pdq, auth, admin, pdAuth, pdSurface, pd, path, fs, crypto });
 
+/* O2S public batch check for van.com.pk (no sign-in, read-only): apps/o2s/public-routes.js.
+   Mounted before the /api catch-all below so /api/public/* is answered. */
+require('./apps/o2s/public-routes')(app, { store });
+
 const _NOCACHE = 'no-store, no-cache, must-revalidate';
 // Shared brand assets (VAN logo + horse-emblem trademark), used by the launcher and every module top bar.
 // Cacheable — these are stable files; bump the filename if a logo ever changes.

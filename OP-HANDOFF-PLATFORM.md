@@ -875,3 +875,109 @@ still describes PD as "gates G3 to G6", the pre-rebuild model.
 Files changed today: `CLAUDE.md`, `.gitignore`, `docs/RESTRUCTURE-PLAN.md`,
 `docs/ARCHITECTURE.md`, `docs/VAN-Systems-Platform-Design.md` (moved), the 4
 O2S test files (BOM removed), this entry. Pushed: **no**.
+
+---
+
+## 3 October 2026 — PLATFORM: restructure pushed and live (03e5b02) — RESUME HERE
+
+**Pushed:** commit `03e5b02` "Restructure: the repo is the platform; apps under
+apps/", 3 Oct 2026 11:50, one commit for the whole restructure of 1 and 2 Oct.
+GitHub had no other new commits. Render deployed it. **Live check from here:**
+`/api/health`, `/`, `/o2s`, `/pd`, `/pd/drop` on van-control-tower.onrender.com
+all 200 with the right page.
+
+**Before the push, 2 Oct and 3 Oct:**
+- Every pending change was classified: 138 files moved with bytes unchanged,
+  about 40 moved with path-only edits, 7 edited in place, 2 new
+  (`docs/RESTRUCTURE-PLAN.md`, `OP-HANDOFF-PLATFORM.md`), deletions as planned.
+  No `.env`, no dump, no `data/`.
+- **P001 rehearsed on production data**, locally, on throwaway databases built
+  from the 28 Sept production export (both dropped; `van_platform` and the real
+  production database untouched). The exact `.PRODUCTION.sql` file, run from
+  `information_schema` as phpMyAdmin does: no error; 22 logins = 22 people;
+  0 logins without a person; 1 log row; roles (49 rows) and switch-offs (0)
+  unchanged; a 2nd run changes nothing; editing or deleting a log row is
+  refused; the server starts on the migrated copy. Platform test suite: 16 of
+  19; the 3 failures are the test's own 11 Sept assumptions (it resets login
+  `lab`, which production no longer has, and expects `fahim` to hold no PD
+  role; on production he holds `coo`). Fixing the test to make its own test
+  account is a small change, not done (not asked).
+- P001 file headers corrected: local applied 28 Sept; production not applied
+  (Tahir checked 2 Oct: 0 rows).
+
+**Migration state, as known on 3 Oct:**
+
+| Migration | Local | Production |
+|---|---|---|
+| PD 001 to 006 | applied | applied |
+| PD 007, 008 | applied | not applied on 28 Sept (not re-checked since) |
+| Platform P001 | applied | not applied (checked 2 Oct) |
+| RECONCILE-2026-09-25 | n/a | **do not run**: out of date |
+
+**The 25 Sept reconcile no longer fits production** (seen in the 28 Sept
+copy): its 2 fixes are moot, and there are new mismatches it does not cover:
+8 platform role rows for usernames with no login (`abdul.majid`, `aqcm` x2,
+`imran`, `lab`, `qa`, `qcm` x2) and `majid` (login says Production Manager,
+platform says Production). A new reconcile is needed when Tahir decides;
+nothing changed.
+
+**After this entry:** `CLAUDE.md` §3.0 now names `03e5b02`. That edit and this
+entry are uncommitted docs changes (a push of them redeploys, as there is no
+Render build filter yet).
+
+**Next, when Tahir chooses:**
+1. Root `.md` compression (proposal made 2 Oct, on hold): remove the repeats
+   across `CLAUDE.md`, `README.md`, `OP-HANDOFF.md`, `MODELING-GROUND-RULES.md`.
+2. Whether and when to run P001 on production.
+3. A new role reconcile written against today's production.
+4. Open items in `docs/RESTRUCTURE-PLAN.md` §9; then phase 0 and phase 2.
+
+Pushed: this entry and the CLAUDE.md line, **no**.
+
+---
+
+## 3 October 2026 (later) — PLATFORM: PDF library and the mount line for the O2S public batch check
+
+Piece 1 of 2 (piece 2, the routes, is O2S: see `apps/o2s/OP-HANDOFF-O2S.md`, 3 Oct entry).
+- `package.json` / `package-lock.json`: `pdfkit` ^0.15.2 added (server-made QC report PDF).
+  `npm install` reports the same 4 moderate advisories as before this change.
+- `server.js`: 1 `require` line mounting `apps/o2s/public-routes.js`, after PD's routes and before
+  the `/api` catch-all. Sign-in, `/api/me` and every other route untouched.
+- The routes answer with no sign-in, by design (spec of 10 Sept: the number on the bag is the key).
+  Only van.com.pk may call them from a browser; rate limit 60 per visitor per 10 minutes.
+
+**Website contact forms (task 1, VAN-Website repo):** no change made. Which form emails which inbox
+is set in `VAN-Website/api/enquiry.php` line 29: dealer and partner to partner@, lab-test and
+farmer-plan to kisan@, report-bag to info@. Mail works only after the 4 setup steps in that file
+(cPanel Email Routing to Remote for Zoho, website@ on Zoho, ping.php, a test per form).
+
+Pushed: **no**.
+
+---
+
+## 6 October 2026 — PLATFORM: VAN-OP brought up to date and prepared for push — RESUME HERE
+
+**Correction to the entry above:** the inboxes were later changed by Tahir (VAN-Website `31e7ed5`,
+pushed): dealer, partner and lab-test to partner@; farmer-plan and report-bag to info@.
+
+**Packages added for the lab report (piece 1, PLATFORM):** `pdfkit` ^0.15.2, and the fonts
+`@fontsource/tinos` and `@fontsource/arimo` ^5.3.0 (SIL OFL 1.1; the report's letters are drawn from
+their outlines). `npm install` still reports the same 4 moderate advisories as before.
+**New setting:** `PUBLIC_EXTRA_ORIGINS` (comma list, empty on Render) lets a local test copy of the
+website call `/api/public/*`. Production unchanged.
+
+**Brought in 6 commits from GitHub before pushing** (taabbas1947-eng, 5 and 6 Oct: "test", "o2s fixed",
+"fixed", "inspection fix", 2 log updates): `apps/o2s/o2s.html`, O2S tests, 3 new O2S tests, and 2 files
+under the OLD path `o2s/tests/_to_delete/` (a 2,400-line debug test and verify_seed.js). Done by: backup
+of the 9 pending files to the scratchpad, stash, fast-forward pull, stash pop. Only
+`apps/o2s/OP-HANDOFF-O2S.md` clashed: resolved as their file byte for byte + our 8 entries after it.
+All other files back identical to the backup.
+
+**Checked on the combined code:** syntax ok; lab report tests 62/62; O2S suite 41 pass (27 need
+`data/state.json`, absent here, as before); server boots on local MySQL, 7 pages 200; public routes:
+EX-HG26027 200 with CORS for van.com.pk, encrypted PDF, unknown 404.
+
+**For the collaborator:** `o2s/tests/_to_delete/` recreates the old root `o2s/` folder; apps live under
+`apps/` since 1 Oct. Left as they pushed it; their call to delete it.
+
+Pushed: **no** (ready).

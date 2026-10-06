@@ -5908,3 +5908,286 @@ The QA Inspector reported that DLR-SN-TAN-008-2608-3355 (DC 133, 4 list-price pr
 - Only the pre-shipment inspection (dispQA) uses the list. The packed-lot inspection is 1 line, so it stays as it was.
 - The Guide's pre-shipment rule now says so (pinned in guide.test). BUILD_ID 2026-10-06a, changelog entry. New test psiprices.test.js (10/10).
 - Known, not caused by this change: labcover.test.js fails 3 date checks between about 19:00 and 24:00 UTC (the test's "today" is UTC, the app's is Pakistan time). It fails the same on the pushed 2026-10-05b. Not fixed.
+
+---
+
+## 3 October 2026 — O2S: public batch check for van.com.pk (server side built, not pushed)
+
+**Module:** O2S (new files only); the `package.json` and mount line are PLATFORM, logged in
+`OP-HANDOFF-PLATFORM.md`. `o2s.html` **not touched**, O2S data **not written**: the routes only read.
+
+**What it is.** The 10 Sept spec (`apps/o2s/docs/O2S endpoints for van.com.pk …md`): a farmer types
+the batch number printed on his bag on van.com.pk and sees whether it is a genuine, released VAN
+batch, with a 1-page QC report PDF.
+
+**Tahir's rulings, 3 Oct 2026:**
+1. The number searched is the one **printed on the bag** (`packingLog.brandBatchNo`). The internal
+   production number (`batches[].batchNo`) is never accepted or shown.
+2. **VAN's own brands only** (`masters.products` owner `VAN`, 35 products). A client-brand number,
+   or a number shared with a client brand, answers 404 like an unknown number. "Vital Agri" is a
+   separate private-label owner, not VAN.
+3. A number used in 2 financial years (July to June) answers with the **newest** year.
+4. An accepted deviation is **not mentioned**: the batch reads released; the report shows each test's
+   real result with no FIT/UNFIT column, no notes, no names.
+5. The QC report is **1 summary page** across all lots behind the number (a range where they differ).
+6. The farmer does not pick a product, so `product_slug` is not sent.
+
+**Files:** `apps/o2s/public-routes.js` (new), `apps/o2s/tests/publicbatch.test.js` (new, 40 checks).
+- `GET /api/public/batch/{no}`: `batch, product_name, analysis, pack, made_on, released_on, status,
+  certificate_url`. Status: released = every lot behind it has an approved COA and every live
+  packing row is QA-cleared with no hold; withdrawn = only void/reversed rows; otherwise held.
+- `GET /api/public/batch/{no}/certificate.pdf`: released only, else 404. Footer on every page:
+  "VAN Lab · Batch X · downloaded <date> · van.com.pk · LAB 336" (spec §2).
+- Only `https://van.com.pk` and `https://www.van.com.pk` may call it from a browser. 60 lookups per
+  visitor per 10 minutes. Input limited to letters, digits and hyphen. Index cached until O2S's rev changes.
+- Pack unit: litres when the product's form is Liquid, else kg (O2S stores a bare number; **Tahir to confirm**).
+
+**Checked on the local production copy (28 Sept):** 52 VAN batch numbers answer, all released today;
+0 leaks across 203 customer/PO/people strings; client, internal, unknown and hostile numbers 404;
+CORS correct; rate limit 429 after 60; the PDF viewed (Humi Grow EX-KH26002, 14 lots).
+
+**Not done / open:**
+- The website side: `src/lib/o2s.ts` must get `enabled: true` and `base` =
+  `https://van-control-tower.onrender.com/api/public`, and its product-match step must go (ruling 6).
+  **The site's source is not on this PC** (searched C:, D:, E:); `VAN-Website` holds only the built site.
+  Likely with Ahmer.
+- The sample tracker (`/sample/{ref}`, spec §3) is not built (batch only, Tahir 3 Oct).
+- Guide not changed: no O2S screen, flow or job changed.
+
+Pushed: **no**.
+
+---
+
+## 3 October 2026 (later) — O2S: public check reworked to "the approved lab report, nothing else" — RESUME HERE
+
+**This entry replaces the rules of the entry above** (kept as written). Tahir re-explained the task the
+same day: a person enters the batch number from the bag and gets **only the approved lab report** of
+that batch. No product name, pack size, client, dates or status answer; no deviation.
+
+**Rulings (3 Oct, later):**
+1. The report is the **lab report (COA)**, not the pre-shipment inspection.
+2. **Every batch in O2S** can be checked, VAN's and clients' (replaces "VAN's own only"). No client
+   detail appears anywhere.
+3. On the report: **batch number, approval date, test results** (test, spec, method, result). Nothing else.
+4. A report exists only when **every** lot behind the printed number has an approved COA (assumption,
+   stated to Tahir; his "approved report of that batch").
+5. Several lots behind 1 number: **under discussion**. Both layouts are built; Render setting
+   `REPORT_LAYOUT` = `summary` (default, 1 table, ranges) or `per-lot` (1 table per lot with its
+   approval date). Comparison page for the decision: https://claude.ai/artifact/R1QCn3gU62Pjvro57v28U1
+   (private until Tahir shares it).
+6. Unchanged: printed number only (internal number never accepted); newest financial year answers.
+
+**Files:** `apps/o2s/public-routes.js` and `apps/o2s/tests/publicbatch.test.js` rewritten (41 checks pass).
+- `GET /api/public/batch/{no}` → `{batch, approved_on, report_url}` or 404 (lets the site say "found"
+  before opening the PDF).
+- `GET /api/public/batch/{no}/report.pdf` → the report, or 404. (Was `certificate.pdf`.)
+- Summary layout lists **every** spec and method used across the lots, not only the first lot's.
+
+**Checked on the local production copy:** 98 of 99 printed numbers have a report (1 has a lot not yet
+approved); 68 numbers have 1 lot, 31 have 2 to 24. Leak scan over 530 customer/product/PO/people/
+internal strings: no leaks (2 hits explained: a lab test named "Amino Acid", and the printed number
+EX-HG26027 itself contains the internal number). Pages: 5 lots = 1 page summary / 2 pages per lot;
+24 lots = 1 / 7. Both PDFs viewed.
+
+**Data found:** EX-HG26027 lot 5 was tested for moisture by Karl Fischer and HA by "Lab Method" (lots
+1 to 4: Loss on drying, Gravimetric). Lot 1's method is typed "Loss on dryting"; the public report
+shows the lab's own text.
+
+**Open:** the multi-lot decision; the website side (source not on this PC, needs the `o2s.ts` change:
+enabled, base URL, and now a simple "enter number → open report" flow); push of VAN-OP.
+
+Pushed: **no**.
+
+---
+
+## 3 October 2026 (end) — O2S: lab report check PAUSED until the website source is in Git — RESUME HERE
+
+**Why paused (Tahir, 3 Oct):** the VAN-Website repo holds only the built site (85 HTML pages, 1 bundle
+`demo.2985b9cb.js`); no `src/`, no `package.json`, in none of its 42 commits. The source
+(`src/lib/o2s.ts` etc.) is in the collaborator's Claude Cowork workspace only; the commits there are
+signed "Claude". In the built bundle the lookup was compiled to "always offline", so the check cannot
+be switched on without rebuilding from source. Tahir is asking the collaborator to commit the source.
+
+**The note to the collaborator** (written this session, names left out at Tahir's request): (1) put
+the full source in Git, in `source/` inside VAN-Website or a private `VAN-Website-Source` repo, with a
+README of the build steps and a fresh-clone build check; (2) keep commit `31e7ed5` (form inboxes in
+`api/enquiry.php`) in their next build; (3) the lab report change: `o2s.ts` enabled with base
+`https://van-control-tower.onrender.com/api/public`, the new contract `{batch, approved_on,
+report_url}` / 404 / 429, remove the product pick, the 3 examples and the old fields; (4) reply with
+where the source lives and the commit codes.
+
+**The 3 places the site checks a batch (read 3 Oct):**
+- Home page "Verify a bag" box: WhatsApp/email only (+92 300 5003041, info@van.com.pk), link to verify.
+- verify.html option 1 ("Simple view"): the same WhatsApp/email box.
+- verify.html option 2: batch + "Which product" list (24 VAN products) + "Check it", 3 example answers,
+  a 4-step "What you get". The only one meant to call the server; switched off.
+- Text that no longer fits the rulings: "4 questions" intro; product pick; step 3 promises particle
+  size and pH (a real report shows only the tests run, e.g. EX-HG26027 has neither); step 4 "while
+  the live check is being connected"; the 3 examples.
+- **Decisions still to take when resuming:** what the home box becomes (WhatsApp only, or the live
+  check); whether verify.html keeps 2 options or only the live check. Plus the multi-lot layout.
+
+**VAN-OP (server side) state:** built and tested locally, **not pushed**: `apps/o2s/public-routes.js`,
+`apps/o2s/tests/publicbatch.test.js` (41 pass), `server.js` mount line, `pdfkit` in `package.json`.
+Pushing it is safe before the website change (the site stays switched off). For the collaborator's
+local testing, the server will also need to accept `http://localhost` origins (1 line, not done).
+
+Pushed: **no**.
+
+---
+
+## 3 October 2026 (last) — O2S: the farmer's report now uses O2S's own QC report design — RESUME HERE
+
+**Tahir's ruling:** the report the farmer gets must match the QC report O2S already issues (form
+QCL-FRM-12.03 "Quality Analysis Report", `o2s.html` `printCOA` ~line 11064). Rebuilt with pdfkit in
+`apps/o2s/public-routes.js`; the logo is O2S's own vector logo, copied to `apps/o2s/qc-report-logo.svg`.
+
+**On the farmer's copy (Tahir chose):** the head (logo, title, DOC # QCL-FRM-12.03, REV 03, PNAC
+LAB 336 badge), report type, Issue date / status / revision, Batch No. = the PRINTED number, Mfg. and
+Exp. date, date of test, analysis time, temperature, humidity, sample quantity, receiving date, the
+table with **all 6 columns incl. Remarks (FIT/UNFIT)** and **Overall**, the disclaimer, MU note and
+decision rule, the 3 signature boxes with **roles and dates, no names**, the system-generated note,
+END OF REPORT, and the download stamp under each page.
+**Left out:** item name, source, Q.C. No. (built from the customer's name), quantity, who received the
+sample, every person's name, the "Deviation accepted by Plant Manager" line, the internal lot numbers
+(a representative-lot COA says "Results from a representative lot of this batch" without numbers).
+Consequence, told to Tahir: the 10 deviation lots show UNFIT where the lab recorded it.
+
+**Several lots: both kept, decision open** (`REPORT_LAYOUT`): `per-lot` = 1 QC report per lot, a page
+each, "Batch No. X (lot i of n)"; `summary` (default) = 1 QC report with a "Summary of the n production
+lots" line, ranges for results, every spec/method/MU listed, Remarks/Overall "UNFIT in k of n lots"
+when any lot was UNFIT, signature dates as "first to last".
+
+**Checked:** 52 tests pass (incl. both PDFs build; 1 page summary, 1 page per lot). Leak scan of all 98
+reports against 609 private strings: none (3 hits explained: the key `approved_on`, a test named
+"Amino Acid", the printed number EX-HG26027). Both PDFs of EX-HG26027 viewed and saved to
+`VAN Platform\Deliverables\Claude outputs\O2S\`.
+
+**Out of date:** the comparison page https://claude.ai/artifact/R1QCn3gU62Pjvro57v28U1 still shows
+the earlier plain layout (not updated; not asked).
+
+Pushed: **no**.
+
+---
+
+## 3 October 2026 (approver name) — O2S: the Approved By box carries the approver's name — RESUME HERE
+
+**Tahir's ruling:** add the approver's name to the farmer's report. Only the approver: the analyst's and
+reviewer's names stay off. When O2S holds only a role word (o2s.html `_isRoleName`: e.g. "QCM", from the
+shared login), the box shows the role only (Tahir chose this over "no individual name on file").
+
+**Data:** of 173 approved lab reports, only 15 carry a person's name as approver (2 spellings of 1
+person: "Himayat Hussain" and "Himmayat Hussain"); 158 carry only the role. So 5 of the 98 public
+reports show a name today (MAXB26002, MAXNK26008, MAXKL26005, RUHAL26006, MAXK26008). The 2 spellings
+appear as typed; correcting them is the lab's call in O2S.
+
+**Code:** `publicCoa` adds `signed.approvedBy` (name or ''); summary lists each approver once;
+the box prints the name in bold above "Approved By". 53 tests pass. Leak scan: no analyst, reviewer
+or other name leaves; the approver's name is the only name on the report.
+
+**Printed for Tahir (summary layout, as a farmer gets them):** the 5 printed batch numbers with a
+deviation accepted by the Plant Manager: FK26002 (K2O 48.93%, spec >=50%), MAXNP26007 and MAXNP26008
+(moisture 3.55%, spec <1.5%), NS26005 (S 17.16%, spec >=18%), RUHAL26006 (K2O 4.24%, spec >=4.5%).
+Each reads UNFIT on that test and Overall UNFIT. 3 of the 5 are client brands (Maxim, Rudolf). Saved in
+`VAN Platform\Deliverables\Claude outputs\O2S\Deviation reports\`.
+
+Pushed: **no**.
+
+---
+
+## 3 October 2026 (protection) — O2S: summary = first FIT lot; name placement; PDF protected — RESUME HERE
+
+**Rulings (Tahir, 3 Oct, later):**
+1. The approver's name prints BELOW "Approved By" (rows in every box: label · name · role · date).
+2. The summary layout shows **the first FIT lot's own report** in production order (the first lot if
+   none is FIT), with the line "Results of production lot i of n of this batch". No ranges any more
+   (the range code was removed). On today's data all 30 multi-lot numbers show lot 1; MAXNP26007 and
+   MAXNP26008 have no FIT lot and show lot 1, UNFIT.
+3. **Protection:** watermark on every page, behind the report, 2 lines "VAN LAB · {batch}" and
+   "Verified copy from van.com.pk"; AES-256 (V5, AESV3, R5); opens and prints (high resolution) with
+   no password; copying, editing, comments, forms, page assembly and text extraction refused; owner
+   password random per download, never stored. Told to Tahir: readers honour these flags, special
+   tools can ignore them (this session's own PDF reader still extracted the text), which is why the
+   watermark and download stamp matter.
+
+**Open, asked of Tahir:** the website's `approved_on` is the LAST lot's approval date; the summary now
+shows the chosen lot (EX-HG26027: website 2026-09-01, report lot 1 2026-08-21). Follow the shown lot,
+or keep the batch date?
+
+**Approver names, decided "confirm, then correct", deferred by Tahir ("later"):** 71 approvals 28 Jul
+to 20 Aug (no login stored, "QCM"), 87 from 21 Aug to 22 Sep (shared login `qcm`, "QCM"), 3 on 24 Sep
+(`qcm` with "Himmayat Hussain"). Since 25 Sep approvals come from the personal login `himayat` and
+carry the name. Plan: QC Manager confirms in writing who approved over which dates; an O2S session
+records it as a logged correction beside the original signature (snapshot first, Tahir's go-ahead);
+the public report then reads that field. Not started.
+
+**Tests:** 59 pass (incl. first-FIT-lot cases and the encryption/permission flags).
+
+Pushed: **no**.
+
+---
+
+## 3 October 2026 (shape text) — O2S: report text drawn as shapes; Word conversion defeated — RESUME HERE
+
+**Why:** Tahir converted the protected PDF to Word: converters ignore the permission flags. He chose
+option B (of A image-only pages, B text as shapes, C QR code to the genuine report).
+
+**What changed:** every letter is drawn as its outline, so the PDF holds no text (no BT/Tj/TJ): a
+converter gets drawings, not editable words; text extraction returns nothing (checked). How: pdfkit
+still lays out every line (font, size, kerning, alignment, wrapping); `drawTextAsShapes(doc)` in
+`apps/o2s/public-routes.js` replaces pdfkit's internal `_fragment` writer for that document and draws
+each glyph path with fontkit. Fonts with outlines are needed: **Tinos** (Times New Roman widths) and
+**Arimo** (Arial widths), npm `@fontsource/tinos` and `@fontsource/arimo` 5.3.0, SIL OFL 1.1, added to
+`package.json`; the `.woff` latin files are read at runtime. Windows' Times New Roman was not used: its
+licence does not allow copying it onto the server. Watermark, encryption and permissions unchanged.
+
+**Size:** EX-HG26027 summary 102 KB (was 22 KB); each-lot (5 pages) 490 KB. **Look:** unchanged except
+the dashes around "END OF REPORT" join into solid lines.
+
+**Tests:** 62 pass, incl. a check on an unencrypted, uncompressed page that there are no text
+operators and the words are nowhere in the file. Samples saved to Deliverables (both layouts).
+
+**Still open:** the website's `approved_on` (last lot vs shown lot); approver names (deferred); the
+multi-lot layout decision; the website side (source not here). Nothing pushed.
+
+Pushed: **no**.
+
+---
+
+## 6 October 2026 — O2S: website side is built; end-to-end test passed on this PC — RESUME HERE
+
+**The collaborator delivered (VAN-Website repo, pushed):** `d9e5a61` the website source in `source/`
+(README with build steps; build needs Node 22 and a Linux/WSL shell + Chromium); `744e7f1` v61.15
+"Verify a bag, number in, lab report out": `src/lib/o2s.ts` enabled, base
+`https://van-control-tower.onrender.com/api/public`, uses only batch/approved_on/report_url (https
+only); product picker, comparison screens and the 3 examples removed; found / not found / too many /
+offline screens; page text updated; inboxes of `31e7ed5` kept. Their tests used a mock endpoint.
+
+**End-to-end test on this PC (6 Oct):** a temporary copy of the built site (bundle `demo.eebc20ad.js`
+pointed at http://localhost:3993 and allowed an http report link; nothing in either repo changed) +
+VAN-OP on :3993 with the local production copy, in the browser pane:
+1. `ex-hg 26027` -> "Lab report for batch EX-HG26027, approved on 1 Sep 2026" + Open the report + the
+   protected report shown in the page. PASS
+2. `ZZ99999` -> "not in VAN's records, or its lab report is not approved yet", report-a-bag kept. PASS
+3. `MAXB26002` (client brand) -> its report, "approved on 26 Sep 2026". PASS
+4. 62 quick lookups -> 429 after 60; the page shows "Too many checks. Please try again in 10 minutes." PASS
+5. VAN-OP stopped -> "The live check is not connected yet". PASS
+
+**VAN-OP change for the test:** `PUBLIC_EXTRA_ORIGINS` (comma list, empty on Render) adds a test
+origin to the CORS allowlist. Production behaviour unchanged. 62 tests pass.
+
+**For the collaborator (website text):** step 3 of "What you get" still promises "physical status,
+moisture, particle size, pH and the chemical assays"; a real report shows only the tests the lab ran
+(EX-HG26027 has no particle size or pH).
+**For Tahir:** the page's "approved on" is the LAST lot's date (EX-HG26027: 1 Sep) while the summary
+report shows the first FIT lot (21 Aug). Decide which date the page shows.
+
+**Next:** Tahir pushes VAN-OP (quiet hour; it deploys). Then check the live site with a real batch.
+Whether HostGator already serves v61.15 is not confirmed here.
+
+Pushed: **no**.
+
+**6 Oct, before the push:** the collaborator's 3 entries of 5 and 6 Oct (inspection and O2S fixes) sit
+ABOVE the 8 lab-report entries of 3 to 6 Oct, because their copy reached GitHub first and ours were
+appended after it (merge recorded in `OP-HANDOFF-PLATFORM.md`, 6 Oct). Read both: their entries for the
+O2S app, these for the public lab report. CLAUDE.md §1 now lists `public-routes.js` under O2S.

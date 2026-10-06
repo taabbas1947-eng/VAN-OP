@@ -81,7 +81,7 @@ it does not quietly touch both and call it one task.
 
 | Module | Owns these paths | Live at |
 |---|---|---|
-| **O2S** (Order to Ship) | **everything under `apps/o2s/`** — `o2s.html` (the app, ~18,900 lines), `tests/` · the O2S routes in `server.js` (`/api/state`, `/api/rev`, `/api/users`) · `data/state.json` (local-file mode only) | `/o2s` (and any path not claimed by another app) |
+| **O2S** (Order to Ship) | **everything under `apps/o2s/`** — `o2s.html` (the app, ~18,900 lines), `tests/` · the O2S routes in `server.js` (`/api/state`, `/api/rev`, `/api/users`) · the public lab report check for van.com.pk, `public-routes.js` (no sign-in, read-only; mounted by 1 line in `server.js`) · `data/state.json` (local-file mode only) | `/o2s` (and any path not claimed by another app); `/api/public/batch/*` |
 | **PD** (Product Development) | **everything under `apps/pd/`** — `pd.html`, `pd-lib.js`, `pd-routes.js` (every `/api/pd/*` route, mounted from `server.js` by 1 `require`), `drop.html`, `migrations/`, `tests/` | `/pd`, `/pd/drop` |
 | **PLATFORM** (the repo itself — the base every app runs on) | **everything at the repo root that is not inside an app's folder**: `server.js` (sign-in, `/api/login`, `/api/me`, `/api/platform/*`, mounting the apps) · `launcher.html` · `migrations/` (P001, RECONCILE) · `docs/` (design, access model, architecture, restructure plan, the security register) · `tests/` · `OP-HANDOFF.md`, `OP-HANDOFF-PLATFORM.md` · `package.json`, `render.yaml`, `assets/`, `.claude/` · tables `auth_users`, `user_module_roles`, `platform_people`, `platform_access_log` | `/` |
 | **HRMS** | **not in this repo.** A separate Django app with its own login at `van-hrms-31hl.onrender.com`; the launcher card only links to it | its own address |
@@ -190,10 +190,9 @@ and a live one, it ships the live one and writes the remainder down.
   earlier `E:\VAN-OP`, then `E:\VAN Systems`). The website repo `VAN-Website`
   sits beside it in `VAN Platform\` and is separate. The
   GitHub repository is still `taabbas1947-eng/VAN-OP`. Branch `main`, pushed
-  to `9bb3877` on 28 Sept; Render deploys from it. **To update after the
-  restructure push:** the commit named here is out of date (GitHub was at
-  `adec803` on 2 Oct 2026). Once Tahir pushes the 1 Oct restructure, replace it
-  with that push's commit and date.
+  to `03e5b02` on 3 Oct 2026 (the restructure: the repo is the platform, apps
+  under `apps/`); Render deploys from it. Live check after that deploy: `/`,
+  `/o2s`, `/pd`, `/pd/drop` and `/api/health` all answer 200.
 - **Live on Render:** `van-control-tower.onrender.com` → launcher `/`, O2S
   `/o2s`, PD `/pd`. Data in MySQL on HostGator (`jodilkah_vanop_db`). Local
   development runs against XAMPP (`van_platform`) via `.env`.

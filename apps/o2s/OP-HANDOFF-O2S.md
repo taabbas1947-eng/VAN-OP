@@ -6191,3 +6191,13 @@ Pushed: **no**.
 ABOVE the 8 lab-report entries of 3 to 6 Oct, because their copy reached GitHub first and ours were
 appended after it (merge recorded in `OP-HANDOFF-PLATFORM.md`, 6 Oct). Read both: their entries for the
 O2S app, these for the public lab report. CLAUDE.md §1 now lists `public-routes.js` under O2S.
+
+
+## 6 Oct 2026 (2) — A close reason has to fit the stock (MODULE: O2S) — NOT PUSHED
+
+Cause: Saad asked to close 6 products on Arain Traders (DLR-SN-TAN-008-2608-3355) as "We could not supply", and 4 of them were packed in full (V-Zinc 1,000, Vibrant 640, V-Borate 17% 100, VL-Potash 50). The screen ticks nothing for you and shows the packed quantity on each row, so this was not the screen choosing for him. But nothing stopped a reason that the stock contradicts. Tahir: "correct it".
+- New scPackedConflict / scPackedConflictMsg: "our_shortfall" and "material_unavailable" are refused on a line whose whole open quantity (ordered − delivered) is packed. A partly packed line is allowed.
+- Checked in requestShortClose, submitClosePO (ask and close) and approveShortClose. A request made before this release with that reason cannot be approved; the toast tells the Plant Manager to refuse it so it is asked again. A red note shows on the close sheet as soon as the reason and the ticks clash.
+- Guide "Nothing is deleted" rule extended (pinned in guide.test). BUILD_ID 2026-10-06b, changelog entry. New test closereason.test.js (12/12); fixes26a and shortcloseactions grab the 2 new helpers.
+- Not mine: publicbatch.test.js (Ahmer's commit abfd300) needs `npm install` (pdfkit) on this machine before it runs.
+- Live effect once pushed: the 4 packed Arain requests cannot be approved as they stand. Fahim refuses them, and Saad asks again with the right reason if the customer cancelled. Cal-Mag V and Green Sulfur (0 packed) can be approved.

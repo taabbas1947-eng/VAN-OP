@@ -15,7 +15,7 @@ const { ok, eq, report, grab, html } = H;
 
 const src = ['lineShortClosed','lineShortRequested','lineShortRefused','lineRefusalOpen','scArchive','scReason','scWho','scFreeze','_scLine',
              'shortCloseGap','shortCloseAgainstUs','shortCloseRefusal',
-             'requestShortClose','approveShortClose','rejectShortClose','reopenShortClose']
+             'scPackedConflict','scPackedConflictMsg','requestShortClose','approveShortClose','rejectShortClose','reopenShortClose']
   .map(n => { try { return grab(n); } catch (e) { return ''; } }).join('\n\n');
 
 function world(opts) {

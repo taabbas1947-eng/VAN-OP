@@ -30,7 +30,7 @@ function cpWorld(role, rights) {
   b.$ = () => ({ set innerHTML(v) { b.html = v; }, classList: { add() {} } });
   vm.createContext(b);
   vm.runInContext(grabTopVar('SHORTCLOSE_REASONS', '[') + '\nvar cpForm=null;\n' +
-    ['lineShortClosed','lineShortRequested','lineShortRefused','scArchive','scReason','scWho','scFreeze','cpOpenLines','cpMode','openClosePO','cpPicked','cpTick','cpTickAll','renderClosePO','submitClosePO'].map(grab).join('\n'), b);
+    ['scPackedConflict','scPackedConflictMsg','lineShortClosed','lineShortRequested','lineShortRefused','scArchive','scReason','scWho','scFreeze','cpOpenLines','cpMode','openClosePO','cpPicked','cpTick','cpTickAll','renderClosePO','submitClosePO'].map(grab).join('\n'), b);
   return b; }
 { const b = cpWorld('Production Manager', ['po.shortclose_request']);
   b.openClosePO('O1');

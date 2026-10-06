@@ -11,7 +11,7 @@
    a push keeps running the old code with nothing telling anybody. It sat at
    2026-09-04a through this whole day's work; rmqty/psi tests pinned the code,
    nothing pinned this. buildid.test.js now does. */
-var BUILD_ID='2026-10-06a';
+var BUILD_ID='2026-10-06b';
 var CHANGELOG=[
   {ver:'2026-09-04a', date:'2026-09-04', title:"Delivery, DC printing, and a new Reconciliation check", items:[
     "Delivery confirmation stays with Supply Chain \u2014 it no longer hands off to the Plant Manager. If one sits too long, it now re-flags the same Supply Chain owner every 3 days instead.",
@@ -427,6 +427,9 @@ var CHANGELOG=[
   ]},
   {ver:'2026-10-06a', date:'2026-10-06', title:"A price for every product on the truck", items:[
     "Pre-shipment inspection: a truck carrying 2 or more products on the list price now asks the price printed on the bag for each product, not 1 price for the whole truck. Each price is kept against its product."
+  ]},
+  {ver:'2026-10-06b', date:'2026-10-06', title:"A close reason has to fit the stock", items:[
+    "A product already packed in full can no longer be closed short as “We could not supply” or “Raw material never arrived”. The close screen says which products are packed and asks for the reason that fits, such as “Customer cancelled the balance”. A request already waiting with such a reason cannot be approved; the Plant Manager refuses it so it is asked again with the right reason."
   ]}
 ];
 </script>
@@ -3191,6 +3194,15 @@ var SHORTCLOSE_REASONS=[
   {code:'other',                label:'Other',                          ours:true}
 ];
 function scReason(code){ for(var i=0;i<SHORTCLOSE_REASONS.length;i++){ if(SHORTCLOSE_REASONS[i].code===code) return SHORTCLOSE_REASONS[i]; } return null; }
+/* 6 Oct 2026 (Arain Traders, DLR-SN-TAN-008-2608-3355): 4 products already packed in full were asked
+   to be closed as "We could not supply". A reason that says we could not make it cannot stand on a
+   product whose whole open quantity is packed. Returns the packed Kg/L that contradicts it, else 0. */
+function scPackedConflict(l,code){ if(!l||(code!=='our_shortfall'&&code!=='material_unavailable')) return 0;
+  var open=Math.max(0,(+l.ordered||0)-(+l.delivered||0)), packedOpen=Math.max(0,(+l.packed||0)-(+l.delivered||0));
+  return (open>0.5 && packedOpen>=open-0.5) ? packedOpen : 0; }
+function scPackedConflictMsg(lines,code){ var bad=(lines||[]).filter(function(l){ return scPackedConflict(l,code)>0; });
+  if(!bad.length) return null;
+  return bad.map(function(l){ return l.brand+' ('+fmt(scPackedConflict(l,code))+' Kg/L packed)'; }).join(', ')+(bad.length===1?' is':' are')+' already packed in full, so “'+(scReason(code)||{}).label+'” does not fit. Untick '+(bad.length===1?'it':'them')+', or pick the reason that does, such as “Customer cancelled the balance”.'; }
 function lineShortClosed(l){ var sc=l&&l.shortClose; return !!(sc&&sc.approvedAt&&!sc.reopenedAt); }
 function lineShortRequested(l){ var sc=l&&l.shortClose; return !!(sc&&!sc.approvedAt&&!sc.reopenedAt&&!sc.refusedAt); }
 /* 26a - Tahir, 26 Sep: "he rejects a close request and it has no path, it landed
@@ -3293,6 +3305,7 @@ function requestShortClose(oid,lid,reasonCode,reason){
   if(lineShortRequested(l)){toast('A close is already waiting for approval on this line.');return;}
   if(!scReason(reasonCode)){toast('Pick a reason for closing it.');return;}
   if(reasonCode==='other' && !String(reason||'').trim()){toast('Say why this line is being closed.');return;}
+  { var _pc=scPackedConflictMsg([l],reasonCode); if(_pc){toast(_pc);return;} }
   scArchive(l);
   l.shortClose=Object.assign({requestedBy:scWho(), requestedAt:new Date().toISOString(),
                               requestedUser:(state.currentUser&&state.currentUser.username)||'', requestedRole:state.role||'',
@@ -3311,6 +3324,7 @@ function approveShortClose(oid,lid){
      name were never added to RIGHTS. Both codes here exist from the start. */
   if(String(l.shortClose.requestedBy||'')===String(scWho())){
     toast('You asked for this close. Somebody else must approve it.');return;}
+  { var _pc=scPackedConflictMsg([l],l.shortClose.reasonCode); if(_pc){toast(_pc.replace(/ Untick (it|them), or pick[^.]*\./,' Refuse this request with that reason, so it is asked again with the right one.'));return;} }
   l.shortClose.approvedBy=scWho(); l.shortClose.approvedAt=new Date().toISOString();
   logAction('Short close APPROVED \u2014 '+o.po+'\u00b7'+l.brand+': '+fmt(shortCloseGap(l))+' Kg/L closed short, asked by '+(l.shortClose.requestedBy||''));
   (state.audit=state.audit||[]).unshift({t:new Date().toISOString(),user:scWho(),module:'PO',po:o.po,brand:l.brand,field:'Short close approved',old:'',val:fmt(shortCloseGap(l))+' Kg/L'});
@@ -14008,6 +14022,7 @@ function renderClosePO(){
   h+='<div class="tdlist" style="margin-bottom:12px">'+open.map(function(l){ var g=Math.max(0,(+l.ordered||0)-(+l.delivered||0)); var waiting=lineShortRequested(l); var dis=(!isClose&&waiting); var on=!!(cpForm.pick&&cpForm.pick[l.id]);
       return '<label class="tdcard" style="display:flex;gap:10px;align-items:flex-start;cursor:'+(dis?'default':'pointer')+';border-left-color:'+(on?'var(--accent)':'var(--qline-strong)')+'"><input type="checkbox" style="margin-top:3px"'+(on?' checked':'')+(dis?' disabled':'')+' onchange="cpTick(\''+qsEsc(l.id)+'\',this.checked)"><span><span class="tdtitle">'+qsEsc(l.brand)+'</span><span class="tdsub" style="display:block">ordered '+fmt(l.ordered||0)+' · delivered '+fmt(l.delivered||0)+' · packed '+fmt(l.packed||0)+' · <b>'+fmt(g)+' Kg/L not delivered</b>'+(waiting?' · a request is already waiting':'')+(lineShortRefused(l)?' · refused before: '+qsEsc(l.shortClose.refusedWhy||''):'')+'</span></span></label>'; }).join('')+'</div>';
   h+='<div class="field"><label>Why is it being closed? <span class="req">*</span></label><select onchange="cpForm.reasonCode=this.value;renderClosePO()"><option value="">— pick a reason —</option>'+SHORTCLOSE_REASONS.map(function(r){ return '<option value="'+r.code+'"'+(cpForm.reasonCode===r.code?' selected':'')+'>'+qsEsc(r.label)+(r.ours?'':' · not counted against us')+'</option>'; }).join('')+'</select></div>';
+  { var _pcm=scPackedConflictMsg(picked,cpForm.reasonCode); if(_pcm) h+='<div class="note" style="margin-top:8px;border-left:3px solid var(--red);color:var(--red)">'+qsEsc(_pcm)+'</div>'; }
   h+='<div class="field" style="margin-top:10px"><label>Anything else'+(cpForm.reasonCode==='other'?' <span class="req">*</span>':' (optional)')+'</label><input type="text" value="'+qsEsc(cpForm.reason)+'" oninput="cpForm.reason=this.value" placeholder="in your own words"></div>';
   h+='<div class="note" style="margin-top:12px">'+(isClose?'Closing stops further production and packing on the ticked products; the rest of the PO carries on. Stock already packed still ships. The ordered quantity is never rewritten; the close and your name stay on the record, and a line can be reopened later.':'This is a <b>request</b>, one per ticked product. It takes effect when the Plant Manager or the COO approves it; the person who asks cannot be the one who approves.')+'</div>';
   h+='</div><div class="mf"><button class="qs-btn" onclick="closeModal()">Cancel</button><button class="qs-btn pri"'+(picked.length?'':' disabled')+' onclick="submitClosePO()">'+(picked.length?((isClose?'Close ':'Ask to close ')+picked.length+' product'+(picked.length===1?'':'s')+' · '+fmt(gap)+' Kg/L'):'Tick a product first')+'</button></div>';
@@ -14018,6 +14033,7 @@ function submitClosePO(){
   var open=cpOpenLines(o).filter(function(l){ return !!(f.pick&&f.pick[l.id]); }); if(!open.length){ toast('Tick at least one product to close.'); return; }
   if(!scReason(f.reasonCode)){ toast('Pick a reason for closing it.'); return; }
   if(f.reasonCode==='other' && !String(f.reason||'').trim()){ toast('Say why this PO is being closed.'); return; }
+  { var _pc=scPackedConflictMsg(open,f.reasonCode); if(_pc){ toast(_pc); return; } }
   var one=open.length===1;
   if(f.mode==='ask'){
     if(!may('po.shortclose_request')){ toast(denyRight('po.shortclose_request','Asking to close a PO line short')); return; }
@@ -14407,7 +14423,7 @@ function guideRules(){
   h+='<div class="gd-rule"><h3>The 2-person rules</h3><p>The person who drafts a COA does not review it; the reviewer does not approve it. Nobody who ran a test on a sample reviews or approves its certificate. Management does not sign a certificate: only the lab signs. The person who loads a truck does not release it. Nobody inspects their own output. A department lead can hand out the department’s rights but cannot widen his own. Where the app finds 2 of these in one pair of hands it refuses the button and says why.</p></div>';
   h+='<div class="gd-rule"><h3>Free samples</h3><p>A free sample is never an order and never touches production or stock: it is taken from the sampling pool (over-production and extra material). Whoever sends it (Irfan, Muhammad Ali or anyone else) asks under <b>FOC samples</b>, or Finance asks for them; the request says who, to whom, why and what. <b>The COO grants every sample</b>; granting does not skip the process. QA checks the pack, the label and the batch; the warehouse gives it its own sample DC and a gate pass from the same book as the trucks; <b>Saad reviews</b> it (after 2 hours without a review it goes straight to the Plant Manager) and <b>the Plant Manager releases</b> it. The person who asked confirms it arrived, and '+SMP_FEEDBACK_DAYS+' days after it was sent is asked what the client said. A sample never counts as a sale and never appears as work for production.</p></div>';
   h+='<div class="gd-rule"><h3>When the AQCM or the QCM is on leave</h3><p>Tap your name → <b>I’m going on leave</b> and give the days; the Plant Manager gets a job to name a cover. The cover is someone in the lab. He signs one line in his own name, and the certificate prints <b>for</b> the person on leave. A cover never signs both lines of one certificate. If nobody announced the leave and certificates wait a day for someone who has done nothing in the app that day, the Plant Manager is asked too.</p></div>';
-  h+='<div class="gd-rule"><h3>Nothing is deleted</h3><p>An order line is closed short with a reason, never removed; the ordered quantity is never rewritten and cannot be typed anywhere: less is a close-short, more is a new order. To close, open the order and tick only the products to close; nothing is ticked for you. A few bags filled from finished stock or another product’s batch, which O2S does not track, are closed short as <b>Supplied from stock outside O2S</b> (not counted against us, and not a sale in O2S). A refused close needs a reason; it stays on the record and goes back to the person who asked, who asks again or leaves the line open. A lot that is an exact copy of another one, and that the batch total already leaves out, is a <b>leftover duplicate</b>: the Production Manager removes only the record, and produced does not change. A product or customer is deactivated, not deleted. A wrong entry is corrected under Correct a record, with a reason, in your name, and the correction sits beside the original in the register. If a number changed, the record shows who changed it and why.</p></div>'+
+  h+='<div class="gd-rule"><h3>Nothing is deleted</h3><p>An order line is closed short with a reason, never removed; the ordered quantity is never rewritten and cannot be typed anywhere: less is a close-short, more is a new order. To close, open the order and tick only the products to close; nothing is ticked for you. A few bags filled from finished stock or another product’s batch, which O2S does not track, are closed short as <b>Supplied from stock outside O2S</b> (not counted against us, and not a sale in O2S). A product already packed in full cannot be closed as <b>We could not supply</b> or <b>Raw material never arrived</b>: the stock was made, so the reason must say why it is not going, such as <b>Customer cancelled the balance</b>. A refused close needs a reason; it stays on the record and goes back to the person who asked, who asks again or leaves the line open. A lot that is an exact copy of another one, and that the batch total already leaves out, is a <b>leftover duplicate</b>: the Production Manager removes only the record, and produced does not change. A product or customer is deactivated, not deleted. A wrong entry is corrected under Correct a record, with a reason, in your name, and the correction sits beside the original in the register. If a number changed, the record shows who changed it and why.</p></div>'+
   '<div class="gd-rule"><h3>A number moves only with its record</h3><p>Packed moves with a packing run from a batch, dispatched with a truck, delivered with a delivery. None of them can be typed, and nothing can be packed beyond what the line ordered. When a line and its records disagree, open the line (Orders → the order → <b>History</b>, or the item on Back Office <b>Needs you</b>): it shows what is wrong, the line’s whole history, what the records show as the cause, and the fix — record the missing packing against its batch, bring packed back to its records, or stamp a delivery date from the truck — each with a reason in your name.</p></div>'+
   '<div class="gd-rule"><h3>The price on a new order</h3><p>Every price is checked against the last price this customer paid for the product, net of FED; for a first order, against the last price to anyone. More than 5% away needs a reason, written under the price, and it is kept on the order line with the last price it was compared with. Payment terms and the ERP SO # are part of every order; the SO # prints on the DC.</p></div>'+
   '<div class="gd-rule"><h3>See it before you sign it; every no has a way back</h3><p>Every approval opens the record first: the PO before it is acknowledged, the purchase request before the CFO approves it, the new customer before the CFO approves it, the truck with its DC and gate pass before it is reviewed or released, the report before it is reviewed or approved. The Open buttons on the Plant screen open the same sheet. Every refusal or send-back needs a reason, stays on the record, and lands on the Today of the person who must act: the PO goes back to whoever entered it, the purchase request to Supply Chain, the customer to whoever entered it, the truck to whoever issued the gate pass, the report one step down the chain, a refused close to whoever asked, a rejected DC or a truck that fails inspection to Supply Chain, a sample not approved to whoever asked, an UNFIT lot sent to rework to Production, a lot on QA hold to the Production Manager. They fix it and send it on, or drop it; nothing waits without an owner.</p></div>'+

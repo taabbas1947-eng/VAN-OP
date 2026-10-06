@@ -6213,3 +6213,11 @@ Cause: Tahir asked whether every role knows where to find an old record or a cop
 - Guide rules: new "Where to find a copy" (pinned in guide.test). BUILD_ID 2026-10-06c, changelog entry. New test findcopy.test.js (25/25). All O2S tests pass except publicbatch (pdfkit not installed; not mine).
 - Not done, on purpose: adding Orders/Reports to the header and making search open records. On 23 Sep Tahir ruled the header has its words only (shell.test / threeplaces.test), and the search box is hidden. Orders and Reports are already buttons on Plant for every role that can view them.
 - Open for Tahir: whether KAM, Finance and Finance Desk Officer should see lab certificates. That is a rights change, so it is not made.
+
+
+## 6 Oct 2026 (4) — Inspection reports open from their number (MODULE: O2S) — NOT PUSHED
+
+Cause: Tahir's screenshot of Reports → Pre-shipment inspections. Result, Inspector and Print were off the right edge, because `.rbtbl td` is nowrap and trucks with 5 or 6 products made the row too wide. Tahir: do not move Print to the left; wrap, and make the report number a printable link.
+- psiRegisterHTML: Customer and Products cells wrap (white-space:normal, 140 to 300px), in this register only. The report number is a link (`a.psi-link`) that calls the same printPSI(dispId) as the Print button. The Print and "DC + report" buttons are unchanged.
+- printPSI opens the print-ready report in a new window. "Save as PDF" is the browser's print dialog, as before; no PDF file is generated.
+- Guide "Where to find a copy": tap the report number. BUILD_ID 2026-10-06d, changelog entry. findcopy.test.js 29/29. All O2S tests pass except publicbatch (pdfkit).

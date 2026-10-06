@@ -11,7 +11,7 @@
    a push keeps running the old code with nothing telling anybody. It sat at
    2026-09-04a through this whole day's work; rmqty/psi tests pinned the code,
    nothing pinned this. buildid.test.js now does. */
-var BUILD_ID='2026-10-06c';
+var BUILD_ID='2026-10-06d';
 var CHANGELOG=[
   {ver:'2026-09-04a', date:'2026-09-04', title:"Delivery, DC printing, and a new Reconciliation check", items:[
     "Delivery confirmation stays with Supply Chain \u2014 it no longer hands off to the Plant Manager. If one sits too long, it now re-flags the same Supply Chain owner every 3 days instead.",
@@ -437,6 +437,9 @@ var CHANGELOG=[
     "Reports → Lab certificates: the date and who signed are now filled in, and each approved certificate has a COA button to print it.",
     "The Guide's rules have a new section, Where to find a copy.",
     "The samples page is called FOC samples everywhere, as in the header."
+  ]},
+  {ver:'2026-10-06d', date:'2026-10-06', title:"Inspection reports open from their number", items:[
+    "Reports → Pre-shipment inspections: tap the report number (PSI-…) to open the report ready to print or save as PDF. Customer and product names now wrap, so Result, Inspector and Print stay on the screen."
   ]}
 ];
 </script>
@@ -10275,7 +10278,12 @@ function psiRegisterHTML(){ var R=psiRegisterRows(), q=String(psiRegQ||'').toLow
     +'<input type="search" placeholder="Search report no., customer, DC, vehicle, product, inspector" value="'+e(psiRegQ)+'" oninput="psiRegQ=this.value;render()" style="width:100%;max-width:520px;margin:8px 0 10px">';
   if(!F.length) return h+'<div class="note">'+(R.length?'Nothing matches.':'No truck has been inspected yet.')+'</div>';
   h+='<div class="sheet-wrap" style="overflow-x:auto"><table class="rbtbl rp-tbl"><thead><tr><th>Report</th><th>Date</th><th>Customer</th><th>DC</th><th>Vehicle</th><th>Products</th><th class="num">Kg/L</th><th>Result</th><th>Inspector</th><th></th></tr></thead><tbody>';
-  h+=F.slice(0,500).map(function(r){ return '<tr><td><b>'+e(r.no)+'</b>'+(r.withDC?'<div class="muted" style="font-size:10.5px">goes with the DC</div>':'')+'</td><td>'+e(r.date)+'</td><td>'+e(r.client)+'</td><td>'+e(r.dc)+'</td><td>'+e(r.vehicle)+'</td><td>'+e(r.products)+'</td><td class="num">'+fmt(Math.round(r.kg))+'</td><td>'+(r.pass?'<span class="tdtag ok">passed</span>':'<span class="tdtag late">failed</span>')+'</td><td>'+e(r.by)+'</td><td style="white-space:nowrap"><button class="qs-btn sm" onclick="printPSI(\''+e(r.g.dispId)+'\')">Print</button>'+(r.g.dc&&r.withDC?' <button class="qs-btn sm ghost" onclick="printDC(\''+e(r.g.dispId)+'\')">DC + report</button>':'')+'</td></tr>'; }).join('');
+  /* 06d, Tahir: "wrap up and make the report number a printable link". Report
+     tables never wrap (.rbtbl td is nowrap), so a truck with 6 products pushed
+     Result, Inspector and Print off the screen. Here Customer and Products wrap,
+     and the report number itself opens the print-ready report (same printPSI). */
+  var _wr=' style="white-space:normal;min-width:140px;max-width:300px"';
+  h+=F.slice(0,500).map(function(r){ return '<tr><td><a class="psi-link" title="Open the report, ready to print or save as PDF" onclick="printPSI(\''+e(r.g.dispId)+'\')" style="cursor:pointer;font-weight:700;color:var(--navy);text-decoration:underline">'+e(r.no)+'</a>'+(r.withDC?'<div class="muted" style="font-size:10.5px">goes with the DC</div>':'')+'</td><td>'+e(r.date)+'</td><td'+_wr+'>'+e(r.client)+'</td><td>'+e(r.dc)+'</td><td>'+e(r.vehicle)+'</td><td'+_wr+'>'+e(r.products)+'</td><td class="num">'+fmt(Math.round(r.kg))+'</td><td>'+(r.pass?'<span class="tdtag ok">passed</span>':'<span class="tdtag late">failed</span>')+'</td><td>'+e(r.by)+'</td><td style="white-space:nowrap"><button class="qs-btn sm" onclick="printPSI(\''+e(r.g.dispId)+'\')">Print</button>'+(r.g.dc&&r.withDC?' <button class="qs-btn sm ghost" onclick="printDC(\''+e(r.g.dispId)+'\')">DC + report</button>':'')+'</td></tr>'; }).join('');
   return h+'</tbody></table></div>'+(F.length>500?'<div class="sub">Showing the latest 500.</div>':''); }
 
 /* ===== NEW ORDER: PRICE, TERMS, ERP SO — 24 Sep 2026 (25d) ===================
@@ -14469,7 +14477,7 @@ function guideRules(){
   h+='<div class="gd-rule"><h3>Roles, not people</h3><p>Rights belong to roles. 2 people can hold one role and sign differently. There are no exceptions for one person — an exception becomes a new role, so it can be seen and given to the next person in that seat.</p></div>';
   h+='<div class="gd-rule"><h3>What is never on a customer document</h3><p>No price on any document the customer sees. The COA carries composition, results and the 3 signatures; the delivery challan carries product, quantity and lot.</p></div>';
   /* 06c: where each paper lives. Every place named here is an existing screen or button. */
-  h+='<div class="gd-rule"><h3>Where to find a copy</h3><p><b>An old order:</b> Plant → <b>All orders</b>, type the PO or customer, tap the order. Its sheet ends with <b>Papers</b>: every paper of that order you are allowed to print, in one place.</p><p><b>Purchase order:</b> Reports → <b>Documents</b> → Purchase orders. It carries prices, so only the roles that see money can print it.</p><p><b>Delivery challan, gate pass, pre-shipment inspection report:</b> Reports → <b>Documents</b> → Delivery challans, gate passes and inspection reports. Search by DC, gate pass, PO, customer or vehicle. Every inspected truck is also under Reports → <b>Pre-shipment inspections</b>.</p><p><b>Lab certificate (COA):</b> Reports → <b>Lab certificates</b>, then <b>COA</b> on the row. For the lab, QA, the Plant Manager, the CFO and the COO.</p><p><b>Packed-lot QA:</b> the order’s Papers → <b>Inspection log</b>, for the roles that open QA.</p><p><b>Who changed a record:</b> Reports → <b>Corrections register</b>, for the COO, the CFO and the Plant Manager.</p></div>';
+  h+='<div class="gd-rule"><h3>Where to find a copy</h3><p><b>An old order:</b> Plant → <b>All orders</b>, type the PO or customer, tap the order. Its sheet ends with <b>Papers</b>: every paper of that order you are allowed to print, in one place.</p><p><b>Purchase order:</b> Reports → <b>Documents</b> → Purchase orders. It carries prices, so only the roles that see money can print it.</p><p><b>Delivery challan, gate pass, pre-shipment inspection report:</b> Reports → <b>Documents</b> → Delivery challans, gate passes and inspection reports. Search by DC, gate pass, PO, customer or vehicle. Every inspected truck is also under Reports → <b>Pre-shipment inspections</b>: tap the report number to open it, ready to print or save as PDF.</p><p><b>Lab certificate (COA):</b> Reports → <b>Lab certificates</b>, then <b>COA</b> on the row. For the lab, QA, the Plant Manager, the CFO and the COO.</p><p><b>Packed-lot QA:</b> the order’s Papers → <b>Inspection log</b>, for the roles that open QA.</p><p><b>Who changed a record:</b> Reports → <b>Corrections register</b>, for the COO, the CFO and the Plant Manager.</p></div>';
   return h;
 }
 function guideTabsHTML(){

@@ -70,4 +70,10 @@ ok('the samples page is FOC samples, as in the header (25p)', /\{id:'samples', n
 const rules = grab('guideRules');
 ok('The rules: Where to find a copy', /<h3>Where to find a copy<\/h3>/.test(rules) && /Reports → <b>Lab certificates<\/b>/.test(rules) && /<b>Papers<\/b>/.test(rules) && /Delivery challans, gate passes and inspection reports/.test(rules));
 
+/* 5. 06d: the inspection register wraps and its report number prints */
+const reg = grab('psiRegisterHTML');
+ok('the report number is a link that opens printPSI', /<a class="psi-link"[^>]*onclick="printPSI\(/.test(reg));
+ok('the Print button stays as well', /\)">Print<\/button>/.test(reg));
+ok('customer and products wrap', (reg.match(/<td'\+_wr\+'>/g) || []).length === 2 && /white-space:normal/.test(reg));
+ok('the Guide says to tap the report number', /tap the report number to open it, ready to print or save as PDF/.test(grab('guideRules')));
 process.exitCode = report('Every paper easier to find (06c)') ? 1 : 0;

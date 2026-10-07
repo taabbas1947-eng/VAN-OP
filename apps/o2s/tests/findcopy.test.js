@@ -76,4 +76,17 @@ ok('the report number is a link that opens printPSI', /<a class="psi-link"[^>]*o
 ok('the Print button stays as well', /\)">Print<\/button>/.test(reg));
 ok('customer and products wrap', (reg.match(/<td'\+_wr\+'>/g) || []).length === 2 && /white-space:normal/.test(reg));
 ok('the Guide says to tap the report number', /tap the report number to open it, ready to print or save as PDF/.test(grab('guideRules')));
+/* 6. 07a: late means a later calendar day; reports fit the screen */
+{ const sl = { console, TODAY: new Date('2026-10-07T06:00:00Z') };
+  vm.createContext(sl);
+  vm.runInContext(['evToday', 'localDateOf', 'calDays', 'evLag'].map(grab).join('\n'), sl);
+  eq('keyed the same day at 6 pm is not late', sl.evLag({ actualDate: '2026-10-06', recordedAt: '2026-10-06T13:00:00Z' }), 0);
+  eq('keyed the next day is 1 day', sl.evLag({ actualDate: '2026-10-03', recordedAt: '2026-10-04T10:00:00Z' }), 1);
+  eq('keyed 7 days later is 7', sl.evLag({ actualDate: '2026-08-15', recordedAt: '2026-08-22T09:00:00Z' }), 7);
+  eq('no recorded time, no answer', sl.evLag({ actualDate: '2026-08-15' }), null); }
+ok('late entries: the quantity is labelled Kg/L, not Value', /\{k:'value',l:'Kg\/L',t:'meas'\}\],\s*\/\* 07a/.test(html));
+ok('shipments report: a PO column after the DC', /id:'trucks'[^\n]*cols:\['date','dc','po','client'/.test(html) && /_disp:s\.dispId\|\|''/.test(html));
+ok('a DC number opens the DC', /k==='dc'&&r\._disp/.test(grab('rpCellHTML')) && /printDC\(/.test(grab('rpCellHTML')));
+ok('long text wraps in named reports, detail gets room', /'detail'/.test(html.match(/var RP_WRAP_COLS=[^\n]*/)[0]) && /td\.rpwrap\.wide\{min-width:260px/.test(html));
+ok('an open report uses the screen width', /\.qs\.wide\.rp\{max-width:min\(1400px,100%\)\}/.test(html) && /<div class="qs wide rp"><div class="bo-back">/.test(grab('rpReportHTML')));
 process.exitCode = report('Every paper easier to find (06c)') ? 1 : 0;

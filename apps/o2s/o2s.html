@@ -11,7 +11,7 @@
    a push keeps running the old code with nothing telling anybody. It sat at
    2026-09-04a through this whole day's work; rmqty/psi tests pinned the code,
    nothing pinned this. buildid.test.js now does. */
-var BUILD_ID='2026-10-06d';
+var BUILD_ID='2026-10-07a';
 var CHANGELOG=[
   {ver:'2026-09-04a', date:'2026-09-04', title:"Delivery, DC printing, and a new Reconciliation check", items:[
     "Delivery confirmation stays with Supply Chain \u2014 it no longer hands off to the Plant Manager. If one sits too long, it now re-flags the same Supply Chain owner every 3 days instead.",
@@ -440,6 +440,12 @@ var CHANGELOG=[
   ]},
   {ver:'2026-10-06d', date:'2026-10-06', title:"Inspection reports open from their number", items:[
     "Reports → Pre-shipment inspections: tap the report number (PSI-…) to open the report ready to print or save as PDF. Customer and product names now wrap, so Result, Inspector and Print stay on the screen."
+  ]},
+  {ver:'2026-10-07a', date:'2026-10-07', title:"Late means a later day, and reports fit the screen", items:[
+    "Fixed: an entry made the same day after 12 noon was counted as 1 day late, and a next-day entry as 2 days. Lateness now counts calendar days. On live data 101 entries were flagged late; 6 really were. Every 'recorded late' tag in the app follows the same fix.",
+    "Reports → Entries recorded late: the quantity column is called Kg/L (it was 'Value'), and the detail with the person's name and reason wraps instead of running off the screen.",
+    "Reports → Shipments and trucks: a PO column, and the DC number opens the delivery challan ready to print.",
+    "An open report now uses the full width of the screen, and long text (customer, product, detail, reason) wraps. 7 of 14 reports had columns or Print and Open buttons past the right edge of a laptop screen."
   ]}
 ];
 </script>
@@ -2140,6 +2146,11 @@ body.td-on .wrap{background:var(--paper)}
 /* ---------- page shells ---------- */
 .qs{max-width:680px;margin:0 auto;padding-bottom:40px}
 .qs.wide{max-width:860px}
+/* 07a: an open report uses the screen. At 860px, 7 of 14 reports pushed columns
+   and their Print / Open buttons past the right edge of a 1262px laptop window. */
+.qs.wide.rp{max-width:min(1400px,100%)}
+.rbtbl td.rpwrap{white-space:normal;min-width:110px;max-width:340px}
+.rbtbl td.rpwrap.wide{min-width:260px;max-width:440px}
 .qs h1{font-size:20px;font-weight:600;line-height:1.25;margin:8px 0 0}
 .qs .sub{color:var(--ink-2);font-size:13px;margin-top:2px}
 .qs h2{font-size:15px;font-weight:600;letter-spacing:.02em;margin:22px 0 8px;display:flex;flex-wrap:wrap;gap:6px 10px;align-items:baseline}
@@ -8928,7 +8939,11 @@ function evLag(rec){
   if(!rec||!rec.actualDate||!rec.recordedAt) return null;
   var a=new Date(rec.actualDate+'T00:00:00'), r=new Date(rec.recordedAt);
   if(isNaN(a)||isNaN(r)) return null;
-  return Math.max(0, Math.round((r-a)/86400000));
+  /* 07a: CALENDAR days, not hours. Hours from midnight rounded to days made an
+     entry keyed the same afternoon "1 day late" and a next-day entry "2 days",
+     so all 17 rows of "Entries recorded late" on 6 Oct were on time. Same rule
+     as evDaysLate (calDays, 25m). */
+  return Math.max(0, calDays(rec.actualDate, rec.recordedAt));
 }
 /* One badge, used everywhere a record is shown. Silent when entry was prompt —
    a badge on every well-behaved row is noise, and noise is what people learn
@@ -17899,7 +17914,7 @@ var RB_DATASETS={
     fields:[{k:'batch',l:'Batch',t:'dim'},{k:'kind',l:'Kind',t:'dim'},{k:'po',l:'PO',t:'dim'},{k:'client',l:'Client',t:'dim'},{k:'product',l:'Product',t:'dim'},{k:'base',l:'Base',t:'dim'},{k:'disposition',l:'Disposition',t:'dim'},{k:'status',l:'Status',t:'dim'},{k:'opened',l:'Opened',t:'dim'},{k:'closed',l:'Closed',t:'dim'},{k:'planned',l:'Planned kg',t:'meas'},{k:'produced',l:'Produced kg',t:'meas'},{k:'packed',l:'Packed kg',t:'meas'},{k:'disposed',l:'Disposed kg',t:'meas'}],
     filters:['kind','disposition','status','client','product']},
   shipments:{label:'Shipments',dateKey:'date',
-    rows:function(){ var cm=_rbClientMap(); return (state.shipments||[]).filter(function(s){return s&&!s.voided;}).map(function(s){ return {date:s.dispatch||'',po:s.po||'',client:cm[s.po]||'',product:s.brand||'',dc:s.dc||'',so:s.so||'',dcstatus:(s.dcStatus||'approved'),approvedby:s.approvedBy||'',transport:s.transportType||'',vehicle:s.vehicle||'',carrier:s.carrier||'',driver:s.driver||'',seal:s.seal||'',destination:s.destination||'',bilty:s.bilty||'',delivered:s.delivered||'',shipno:s.shipNo||'',stage:(s.delivered?'delivered':(s.stage||((s.dcStatus||'approved')==='pending'?'pending_approval':'in_transit'))),gatepass:s.gatePass||'',trucksize:s.truckSize||'',kg:+s.kg||0}; }); },
+    rows:function(){ var cm=_rbClientMap(); return (state.shipments||[]).filter(function(s){return s&&!s.voided;}).map(function(s){ return {date:s.dispatch||'',po:s.po||'',client:cm[s.po]||'',product:s.brand||'',dc:s.dc||'',so:s.so||'',dcstatus:(s.dcStatus||'approved'),approvedby:s.approvedBy||'',transport:s.transportType||'',vehicle:s.vehicle||'',carrier:s.carrier||'',driver:s.driver||'',seal:s.seal||'',destination:s.destination||'',bilty:s.bilty||'',delivered:s.delivered||'',shipno:s.shipNo||'',stage:(s.delivered?'delivered':(s.stage||((s.dcStatus||'approved')==='pending'?'pending_approval':'in_transit'))),gatepass:s.gatePass||'',trucksize:s.truckSize||'',kg:+s.kg||0,_disp:s.dispId||''}; }); },
     fields:[{k:'date',l:'Dispatched',t:'dim'},{k:'po',l:'PO',t:'dim'},{k:'so',l:'SO #',t:'dim'},{k:'client',l:'Client',t:'dim'},{k:'product',l:'Product',t:'dim'},{k:'dc',l:'DC #',t:'dim'},{k:'stage',l:'Stage',t:'dim'},{k:'dcstatus',l:'DC status',t:'dim'},{k:'gatepass',l:'Gate Pass',t:'dim'},{k:'approvedby',l:'Approved by',t:'dim'},{k:'transport',l:'Transport type',t:'dim'},{k:'trucksize',l:'Truck size',t:'dim'},{k:'vehicle',l:'Vehicle',t:'dim'},{k:'driver',l:'Driver',t:'dim'},{k:'carrier',l:'Carrier',t:'dim'},{k:'seal',l:'Seal #',t:'dim'},{k:'destination',l:'Destination',t:'dim'},{k:'bilty',l:'Bilty',t:'dim'},{k:'delivered',l:'Delivered',t:'dim'},{k:'shipno',l:'Shipment #',t:'dim'},{k:'kg',l:'Kg/L',t:'meas'}],
     filters:['client','product','destination','dc','stage','dcstatus']},
   orders:{label:'Orders / PO lines · sales',dateKey:'received',
@@ -18077,7 +18092,7 @@ var RB_DATASETS={
         });
       })();
       return out; },
-    fields:[{k:'type',l:'Type',t:'dim'},{k:'po',l:'PO',t:'dim'},{k:'client',l:'Client',t:'dim'},{k:'product',l:'Product',t:'dim'},{k:'detail',l:'Detail',t:'dim'},{k:'date',l:'Date',t:'dim'},{k:'value',l:'Value',t:'meas'}],
+    fields:[{k:'type',l:'Type',t:'dim'},{k:'po',l:'PO',t:'dim'},{k:'client',l:'Client',t:'dim'},{k:'product',l:'Product',t:'dim'},{k:'detail',l:'Detail',t:'dim'},{k:'date',l:'Date',t:'dim'},{k:'value',l:'Kg/L',t:'meas'}],   /* 07a: every row's value is a quantity in Kg/L, never money */
     filters:['type','client']},
   activity:{label:'Activity log',dateKey:'date',
     rows:function(){ return (state.audit||[]).map(function(x){ return {when:(x.t||'').replace('T',' ').slice(0,16),date:(x.t||'').slice(0,10),user:x.user||'',module:x.module||'',po:x.po||'',product:x.brand||'',field:x.field||'',value:(x.val!=null?String(x.val):'')}; }); },
@@ -18180,7 +18195,7 @@ function rpPos(){
     return '<tr data-k="'+_pe(key)+'">'
       +'<td>'+_pe(o.received||'—')+'</td>'
       +'<td><b>'+_pe(o.po||'—')+'</b><div class="muted" style="font-size:10.5px">'+_pe(o.channel||'')+'</div></td>'
-      +'<td>'+_pe(o.client||'—')+'</td>'
+      +'<td class="rpwrap">'+_pe(o.client||'—')+'</td>'
       +'<td class="num">'+lines.length+'</td>'
       +'<td class="num">'+fmt(kg)+'</td>'
       +'<td class="num">'+(mayMoney()?(val>0?pkr(val):'<span class="muted">—</span>'):'<span class="muted">—</span>')+'</td>'
@@ -18216,7 +18231,7 @@ function rpDocs(){
       +'<td><b>'+_pe(g.dc||'—')+'</b></td>'
       +'<td>'+_pe(g.gatePass||'—')+'</td>'
       +'<td>'+_pe(g.poLabel||g.po||'—')+'</td>'
-      +'<td>'+_pe(g.client||'—')+'</td>'
+      +'<td class="rpwrap">'+_pe(g.client||'—')+'</td>'
       +'<td>'+_pe(g.vehicle||'—')+'</td>'
       +'<td>'+_pe(g.stageNow||'—')+'</td>'
       +'<td style="white-space:nowrap;text-align:right"><button class="sm ghost" onclick="printDC(\''+g.dispId+'\')">DC</button> '+gp+' '+shipPsiBtn(g)+'</td>'
@@ -18267,7 +18282,7 @@ var RP_CATALOGUE=[
   {id:'prodshift', t:'Production by shift', q:'How much of what did we make, per shift?', ds:'production', cols:['date','shift','product','output'], mode:'summary', group:['date','shift','product'], period:'This month', roles:['Production','Production Manager','Plant Manager','COO','CFO','Warehouse','Supply Chain']},
   {id:'batches', t:'Batches and wastage', q:'Planned against produced, and what was lost, per batch.', ds:'batches', cols:['opened','batch','product','po','status','planned','produced','packed','disposed'], mode:'raw', period:'This month', roles:['Production','Production Manager','Plant Manager','QCM','AQCM','COO','CFO']},
   {id:'late', t:'Orders behind promise', q:'Which orders are past their promised date, by customer, and where they stand.', ds:'orders', cols:['po','client','product','promised','stage','ordered','delivered'], mode:'raw', period:'All', where:function(r){ return r.promised && String(r.promised)<TODAY.toISOString().slice(0,10) && !/Delivered|Closed/i.test(String(r.stage||'')); }, roles:['KAM','Supply Chain','Supply Chain Officer','Plant Manager','Production Manager','COO','CFO','Finance']},
-  {id:'trucks', t:'Shipments and trucks', q:'What left the gate, when, in which truck, to whom.', ds:'shipments', cols:['date','dc','client','product','kg','vehicle','destination','stage'], mode:'raw', period:'This month', roles:['Supply Chain','Supply Chain Officer','Warehouse','Plant Manager','COO','CFO','Finance','KAM']},
+  {id:'trucks', t:'Shipments and trucks', q:'What left the gate, when, in which truck, to whom.', ds:'shipments', cols:['date','dc','po','client','product','kg','vehicle','destination','stage'], mode:'raw', period:'This month', roles:['Supply Chain','Supply Chain Officer','Warehouse','Plant Manager','COO','CFO','Finance','KAM']},
   {id:'psi', t:'Pre-shipment inspections', q:'Every truck inspected before it left: report, result, inspector; print any report.', kind:'psireg', roles:'all'},
   {id:'coa', t:'Lab certificates', q:'Every certificate: batch, result, who signed, when.', ds:'qc', cols:['date','product','batch','po','result','status','by','qty'], mode:'raw', period:'This month', roles:['Lab Rep','AQCM','QCM','QA Inspector','Plant Manager','COO','CFO']},
   {id:'rm', t:'Raw material position', q:'Which materials are short against the open orders.', kind:'rmpos', roles:['Supply Chain','Supply Chain Officer','Production Manager','Plant Manager','CFO','COO']},
@@ -18303,12 +18318,21 @@ function rpListHTML(){
   return h+'</div>';
 }
 function rpPeriodChips(){ return '<div class="chips">'+['This month','Last month','FY to date','All'].map(function(p){ return '<button class="qs-btn sm'+(rpPeriod===p?' on':'')+'" onclick="rpApplyPeriod(\''+p+'\');render()">'+p+'</button>'; }).join('')+'</div>'; }
+/* 07a: long text wraps in a named report (report tables were all nowrap, so a
+   detail or a product list pushed columns and buttons off the screen), and a DC
+   number opens the DC, as a PSI number opens its report. */
+var RP_WRAP_COLS=['type','detail','client','product','destination','reason','reasonCode','changed','cascade','record','products','action'];
+function rpCellHTML(k,r){ var v=qsEsc(rbCellFmt(k,r[k]));
+  if(k==='dc'&&r._disp&&r[k]) return '<a class="psi-link" title="Open the delivery challan, ready to print" onclick="printDC(\''+qsEsc(r._disp)+'\')" style="cursor:pointer;font-weight:700;color:var(--navy);text-decoration:underline">'+v+'</a>';
+  return v; }
+var RP_WIDE_COLS=['detail','reason','changed','cascade'];
+function rpTdCls(k){ return rbIsMeas(k)?' class="num"':(RP_WRAP_COLS.indexOf(k)>-1?(' class="rpwrap'+(RP_WIDE_COLS.indexOf(k)>-1?' wide':'')+'"'):''); }
 function rpTableHTML(res,act){
   var cols=res.cols; var meas=cols.filter(rbIsMeas);
   var tot={}; meas.forEach(function(k){ tot[k]=res.rows.reduce(function(a,r){ return a+(+r[k]||0); },0); });
   if(!res.rows.length) return '<div class="note">Nothing in this period.</div>';
   var h='<div class="sheet-wrap" style="overflow-x:auto"><table class="rbtbl rp-tbl"><thead><tr>'+cols.map(function(k){ return '<th'+(rbIsMeas(k)?' class="num"':'')+'>'+qsEsc(rbColLabel(k))+'</th>'; }).join('')+(act?'<th></th>':'')+'</tr></thead><tbody>';
-  h+=res.rows.slice(0,500).map(function(r){ return '<tr>'+cols.map(function(k){ return '<td'+(rbIsMeas(k)?' class="num"':'')+'>'+qsEsc(rbCellFmt(k,r[k]))+'</td>'; }).join('')+(act?'<td style="text-align:right;white-space:nowrap">'+act(r)+'</td>':'')+'</tr>'; }).join('');
+  h+=res.rows.slice(0,500).map(function(r){ return '<tr>'+cols.map(function(k){ return '<td'+rpTdCls(k)+'>'+(res.summary?qsEsc(rbCellFmt(k,r[k])):rpCellHTML(k,r))+'</td>'; }).join('')+(act?'<td style="text-align:right;white-space:nowrap">'+act(r)+'</td>':'')+'</tr>'; }).join('');
   if(meas.length) h+='<tr class="rp-tot">'+cols.map(function(k,i){ return '<td'+(rbIsMeas(k)?' class="num"':'')+'>'+(rbIsMeas(k)?fmt(Math.round(tot[k])):(i===0?'Total':''))+'</td>'; }).join('')+(act?'<td></td>':'')+'</tr>';
   h+='</tbody></table></div>'+(res.rows.length>500?'<div class="sub">Showing the first 500 of '+res.rows.length+' rows; export for the rest.</div>':'');
   return h;
@@ -18331,7 +18355,7 @@ function rpRmPosition(){
 }
 function rpReportHTML(){
   var c=rpDef(rpCur); if(!c) return rpListHTML();
-  var h='<div class="qs wide"><div class="bo-back"><button class="qs-btn sm ghost" onclick="rpBack()">‹ Reports</button></div><h1>'+qsEsc(c.t)+'</h1><div class="sub">'+qsEsc(c.q)+'</div>';
+  var h='<div class="qs wide rp"><div class="bo-back"><button class="qs-btn sm ghost" onclick="rpBack()">‹ Reports</button></div><h1>'+qsEsc(c.t)+'</h1><div class="sub">'+qsEsc(c.q)+'</div>';
   if(c.kind==='rmpos'){ if(rpView==='rmdetail') return h+'<div class="bo-back" style="margin-top:8px"><button class="qs-btn sm ghost" onclick="rpView=\'report\';render()">‹ All materials</button></div><div class="paperui">'+rpRmChain()+'</div></div>'; return h+rpRmPosition()+'</div>'; }
   /* 06c: the switch sits ABOVE the list. Below a 60vh table nobody saw it, so the
      DC and gate pass looked missing from Documents. */

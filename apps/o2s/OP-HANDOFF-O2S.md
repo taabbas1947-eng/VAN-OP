@@ -6221,3 +6221,14 @@ Cause: Tahir's screenshot of Reports → Pre-shipment inspections. Result, Inspe
 - psiRegisterHTML: Customer and Products cells wrap (white-space:normal, 140 to 300px), in this register only. The report number is a link (`a.psi-link`) that calls the same printPSI(dispId) as the Print button. The Print and "DC + report" buttons are unchanged.
 - printPSI opens the print-ready report in a new window. "Save as PDF" is the browser's print dialog, as before; no PDF file is generated.
 - Guide "Where to find a copy": tap the report number. BUILD_ID 2026-10-06d, changelog entry. findcopy.test.js 29/29. All O2S tests pass except publicbatch (pdfkit).
+
+
+## 7 Oct 2026 — Late means a later day; reports fit the screen (MODULE: O2S) — NOT PUSHED
+
+Cause: Tahir's screenshots of "Entries recorded late" and "Shipments and trucks". Every late row said "Inspected 2026-10-06, keyed 2026-10-06 … recorded 1d after". He approved: (a) fix the lateness count, (b) Kg/L + wrapped detail, (c) DC link + PO column, plus "text and tabs outside the view" on report screens and a Report Center review.
+- evLag counted hours from local midnight and rounded, so anything keyed after 12 noon the same day was "1d" and a next-day entry "2d". It now uses calDays (calendar days, as evDaysLate since 25m). Checked on the live data in Chrome (in-page only, nothing saved): all-time "Entries recorded late" goes from 101 rows to 6; this month from 17 to 0. evLag also drives the "recorded late" tags (evLagTag), the PSI print and the QA log, which all follow the fix.
+- anomalies dataset: the `value` field label is now 'Kg/L'. Every row puts a quantity there, never money.
+- shipments dataset rows carry `_disp` (dispId). The "Shipments and trucks" report adds a PO column; rpCellHTML makes the DC number a link to printDC.
+- Width: an open report used `.qs.wide` = 860px while the screen gave 1180px. Measured on live at a 1262px window: psi 128px, shortclose 174, lateentries 224, corrections 733, invoicing 168, docs PO 307, docs DC 133, custom 161px past the edge, hiding Print/Open/Gate Pass/Inspection buttons and columns. Now `.qs.wide.rp` is max min(1400px,100%) (open reports only; the catalogue and other screens are unchanged). Long text columns wrap (`td.rpwrap`, detail/reason `wide`). Simulated on live: 0px overflow in all 14. Note: the class could not be `.wrap`, which is the app's main container class.
+- BUILD_ID 2026-10-07a, changelog. findcopy.test.js 38/38. All O2S tests pass except publicbatch (pdfkit).
+- Not checked: phone width.

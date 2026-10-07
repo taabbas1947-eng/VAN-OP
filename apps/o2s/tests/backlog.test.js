@@ -95,7 +95,7 @@ eq('stamped with the person', s2.state.orders.find(o => o.id === 'A').printDecis
        the screen was only ever a stand-in for the right. */
     ok('and says why to ' + r, /Answer print-on-pack/.test(c.lastToast || ''), c.lastToast);
     ok('...naming who can, and where to ask, for ' + r,
-       /KAM/.test(c.lastToast || '') && /Authorisation/.test(c.lastToast || ''), c.lastToast);
+       /KAM/.test(c.lastToast || '') && /People → Roles/.test(c.lastToast || ''), c.lastToast);
   });
 }
 

@@ -116,12 +116,11 @@ function eq(n, got, want) { ok(n, JSON.stringify(got) === JSON.stringify(want),
 
 /* ---- 5. two people, one running total ---- */
 {
-  const base   = { line: { id: 'L1', dispatched: 0 } };
-  const server = { line: { id: 'L1', dispatched: 3000 } };   // truck approved
-  const local  = { line: { id: 'L1', dispatched: 500 } };    // correction booked
+  const base   = { line: { id: 'L1', packed: 0, dispatched: 0 } };
+  const server = { line: { id: 'L1', packed: 3000, dispatched: 3000 } };   // a pack, a truck approved
+  const local  = { line: { id: 'L1', packed: 500, dispatched: 500 } };    // another pack, a correction booked
   const out = merge3(base, local, server);
-  eq('BUG 6: two people move one running total, one of them vanishes',
-     out.line.dispatched, 500);
+  eq('BUG 6 (known, by design since 07e): a running total keeps one side; a lost pack is flagged on Needs you instead', out.line.packed, 500);
 }
 
 /* ---- 6. after the 22-Aug fix: audit rows carry ids, so both sides survive ---- */

@@ -131,7 +131,7 @@ const ALL = (STATE.masters.roles || []).map(r => r.name).concat(['COO'])
   ok('refusal names what was refused', /Submitting a PO/.test(msg), msg);
   ok('refusal names the SCREEN whose access decides it', /New order/.test(msg), msg);   /* 'New PO Entry' became 'New order' in 23s */
   ok('refusal names who can, from the matrix', /Finance/.test(msg) && /CFO/.test(msg), msg);
-  ok('refusal says where to go', /Users & Access/.test(msg), msg);
+  ok('refusal says where to go', /Back Office → People/.test(msg), msg);
 }
 
 /* whoMayEdit must not fall over when the roles list is missing or malformed —

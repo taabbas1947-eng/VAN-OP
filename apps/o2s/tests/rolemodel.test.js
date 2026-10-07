@@ -152,7 +152,7 @@ const union = new Set([...scrNames, ...rgtNames, ...fldNames]);
 {
   const rn = H.grab('renameRole'), ar = H.grab('archiveRole'), rs = H.grab('restoreRole');
   ok('renameRole refuses a built-in', /if\(r\.builtin\)\{toast\(/.test(rn));
-  ok('...and says why — they are wired in code', /wired in code/.test(rn));
+  ok('...and says why — the buttons are matched on the name (07h: no code talk)', /buttons are matched on the role’s name/.test(rn));
   ok('archiveRole refuses a built-in', /if\(r\.builtin\)\{toast\(/.test(ar));
   /* restoreRole does NOT check builtin, and does not need to: a built-in can
      never reach archived:true, so there is nothing to restore. Pinned so that

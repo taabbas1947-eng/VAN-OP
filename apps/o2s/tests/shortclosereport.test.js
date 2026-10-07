@@ -54,7 +54,7 @@ box.globalThis = box;
 vm.createContext(box);
 vm.runInContext(
   H.grabTopVar('SHORTCLOSE_REASONS', '[') + '\n' +
-  ['scReason', 'lineShortClosed', 'shortCloseGap', 'shortCloseAgainstUs'].map(H.grab).join('\n') +
+  ['scReason', 'lineShortClosed', 'shortCloseGap', 'shortCloseAgainstUs', 'localDateOf'].map(H.grab).join('\n') +
   '\nvar state={orders:[]};\n' + dsSrc, box);
 const DS = box.DS;
 

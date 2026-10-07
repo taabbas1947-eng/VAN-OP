@@ -102,11 +102,11 @@ const run = (c, src) => vm.runInContext(src, c);
   const c = app();
   const dots = run(c, 'entryStepDots()');
   eq('entryStepDots returns exactly 4 steps (Header, Line items, Pricing, Submit)', dots.length, 4);
-  eq('with nothing entered, Header is not-started grey', dots[0].color, '#d8cfc0');
+  eq('with nothing entered, Header is not-started grey', dots[0].color, '#98A094');   /* 07h: shell colours */
 
   run(c, `entryChannel='Modern Trade'; entryClient='c1';`);
   const dots2 = run(c, 'entryStepDots()');
-  eq('once channel + client are set, Header turns done-teal', dots2[0].color, '#0f766e');
+  eq('once channel + client are set, Header turns done (shell accent, 07h)', dots2[0].color, '#2E5F86');
 }
 
 /* ================= 5. updateEntrySummary -- mirrors the new fields back, with placeholders

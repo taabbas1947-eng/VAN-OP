@@ -29,7 +29,7 @@ ok('mayMoney() exists and asks MONEY_ROLES', /MONEY_ROLES\.indexOf\(state\.role\
 }
 ok('the report builder offers the Finance dataset only to money roles', /function rbDatasetKeys\(\)/.test(html) && /k!=='finance'\|\|mayMoney\(\)/.test(grab('rbDatasetKeys')));
 ok('the dataset picker uses rbDatasetKeys, not every key', /rbDatasetKeys\(\)\.map/.test(html) && !/Object\.keys\(RB_DATASETS\)\.map\(function\(k\)\{return '<option/.test(html));
-ok('a non-money role standing on finance is moved off it', /if\(rbDS==='finance'&&!mayMoney\(\)\) rbDS='production'/.test(html));
+ok('a non-money role standing on finance is moved off it', /if\(rbDS==='finance'&&!mayMoney\(\)\)\{ rbDS='production';/.test(html));
 {
   /* the Orders dataset carries price columns; they exist only for money roles */
   const b2 = { console, state: { role: 'Production' }, rbDS: 'orders', rbCols: ['po', 'value', 'pricekg'],

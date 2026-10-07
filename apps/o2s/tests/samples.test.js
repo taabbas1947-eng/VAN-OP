@@ -57,10 +57,10 @@ ok('feedback kept with who and the order it led to', x.feedback.length === 1 && 
 eq('...and the job goes', b.smpJobs().filter(j => j.smp === x).length, 0);
 ok('no order, lot, shipment or sale was touched', S.orders.length === 1 && S.shipments.length === 1 && S.packingLog[0].kg === 500 && S.orders[0].lines[0].ordered === 10);
 ok('New order no longer offers FOC', !/FOC sample \(no charge\)<\/option>/.test(html) && /ask for it under Samples/.test(html) && !/<option value="FOC"/.test(html));
-ok('the chain is on Today and the Guide', /smpJobs\(\)/.test(grab('actionItems')) && /'Approve sample':'Issue sample'/.test(html) && /<h3>Free samples<\/h3>/.test(grab('guideRules')) && /smpNew\(\)/.test(grab('tdStarts')));
+ok('the chain is on Today and the Guide', /smpJobs\(\)/.test(grab('actionItems')) && /'Approve sample':'Issue sample'/.test(html) && /<h3>FOC samples<\/h3>/.test(grab('guideRules')) && /smpNew\(\)/.test(grab('tdStarts')));
 ok('the four rights exist, the approval is the COO’s alone', /code:'sample\.approve'[\s\S]{0,200}legacy:\{kind:'hard', roles:\[\]\}/.test(html));
 ok('Samples is in the header only for the people in the chain', /if\(id==='samples'&&!smpMayView\(\)\) return;/.test(grab('renderTopNav')));
-ok('sample jobs are never counted as Production', b.acStageOf('Issue sample') === 'Free samples' && b.acStageOf('Sample feedback') === 'Free samples');
+ok('sample jobs are never counted as Production', b.acStageOf('Issue sample') === 'FOC samples' && b.acStageOf('Sample feedback') === 'FOC samples');
 { const c = mk('COO', 'tahir'); const T = c.state; vm.runInContext("smpForm={reqUser:'__other',reqOther:'Tahir Abbas',client:'SYN',purpose:'Other',why:'client visit, handed over',lines:[{brand:'Max Potash',pack:'25',packs:'1'}],neededBy:'2026-10-02',how:'Our staff carries it'}", c); c.smpSubmit();
   const z = T.samples[0]; vm.runInContext(`smpAct={id:'${z.id}',note:''}`, c); c.smpDecide(true); eq('the COO approving what he entered himself must write a note', z.status, 'requested');
   vm.runInContext(`smpAct={id:'${z.id}',note:'visit to Syngenta'}`, c); c.smpDecide(true); ok('...then it goes, marked as his own', z.status === 'approved' && z.approval.self === true);

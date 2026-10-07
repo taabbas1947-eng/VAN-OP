@@ -57,31 +57,21 @@ for (const role of ['COO', 'Production Manager', 'Supply Chain']) {
   ok(`screenInstructions() renders for ${role} without throwing`, res === 'ok', res);
 }
 
-/* ================= 2. Production Manager is a documented role, not just Production ========= */
+/* ================= 2. Production Manager (07h: in the Reference's stuck list) ========= */
 {
-  ok("roleGuide includes a 'Production Manager' row", /role:'Production Manager'/.test(html));
-  ok("Production Manager's write-up covers the shift-void / by-product-divert-rework calls",
-     /Production Manager.{0,400}(by-product|wrongly-logged)/s.test(html));
+  ok("the Production Manager or the Plant Manager removes a wrongly logged shift",
+     /\['A shift was logged wrongly','Only the Production Manager or the Plant Manager can remove it, and not once the lab has the lot or it is packed\./.test(html));
 }
 
-/* ================= 3. Reconciliation is documented, not orphaned in the manual ============= */
+/* ================= 3-4. 07h: the Reference is rebuilt from the app's own tables ===== */
 {
-  ok("tab reference lists 'Reconciliation'", /\['Reconciliation',/.test(html));
-  ok("the monitor-and-report step mentions Reconciliation", /Reconciliation.{0,200}packing trail/s.test(html));
-}
-
-/* ================= 4. Shipments write-up matches the real DC-approval / delivery pipeline === */
-{
-  ok("step 8 mentions the Plant Manager approving the DC",
-     /Plant Manager to approve the DC/.test(html));
-  ok("step 8 mentions confirming delivery separately from recording the shipment",
-     /confirm.{0,20}delivery.{0,200}Sent.{0,10}tab/is.test(html));
-  ok("step 8 no longer claims recording a shipment always counts as delivered",
-     !/Recording sends &amp; closes the shipment — it counts as delivered/.test(html));
-  ok("the flow table has a DC-approval stage between Shipment and Delivered",
-     /\['DC approval',/.test(html));
-  ok("key rules no longer say a PO closes on 'shipped' alone",
-     !/A PO <b>closes<\/b> only when every product has shipped/.test(html));
+  const c = app();
+  const ref = run(c, "(function(){ state.role='COO'; return guideReference(); })()");
+  ok('Reconcile packing is listed under Where things are', /Reconcile packing/.test(ref));
+  ok('the truck steps are in order: load, inspect, gate pass, review, release, confirm delivery',
+     /Truck to load[\s\S]*Inspect the truck before it leaves[\s\S]*Gate pass to issue[\s\S]*Truck to review before release[\s\S]*Truck to approve and release[\s\S]*Delivery to confirm/.test(ref));
+  ok('no old screen names (My Actions, PO Tracker, New PO Entry, Data Fix, Sent tab)', !/My Actions|PO Tracker|New PO Entry|Data Fix|Sent tab/.test(ref));
+  ok('a delivery left unconfirmed says who gets it and when', /for Supply Chain from day 1, for the Plant Manager from day 2/.test(ref));
 }
 
 console.log(`\nInstructions manual: ${pass} passed, ${fail} failed`);

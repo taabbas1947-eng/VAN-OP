@@ -561,7 +561,7 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
   ok('names what was refused', /Submitting a PO/.test(msg), msg);
   ok('names the right in plain words', /Raise a new PO/.test(msg), msg);
   ok('names who can', /Finance/.test(msg), msg);
-  ok('and says who to ask', /Authorisation/.test(msg), msg);
+  ok('and says who to ask', /People → Roles/.test(msg), msg);   /* 07h: the place is named as it is now */
 }
 
 /* ================= 7. the gates really were converted ================= */
@@ -1130,7 +1130,7 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
     b.rightTick('Sales Officer', 'order.create', true);
     ok('somebody who cannot open Admin at all cannot tick, even from the console',
        b.state.masters.roleRights['so3']['order.create'] !== true, 'it wrote anyway');
-    ok('...and is told why', b.toasts.some(t => /Admin/.test(t)), JSON.stringify(b.toasts));
+    ok('...and is told why', b.toasts.some(t => /Back Office → Lists/.test(t)), JSON.stringify(b.toasts));
     b.state.masters.accessMatrix['KAM'].admin = { v: true, e: false };
     b.rightTick('Sales Officer', 'order.create', true);
     eq('but VIEW is enough — Edit on Admin must not be what buys this',
@@ -1197,7 +1197,7 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
   const msg = b.denyRight('order.create', 'Submitting a PO');
   ok('it still says what was refused and who currently can', /Submitting a PO/.test(msg) && /KAM/.test(msg), msg);
   ok('it points at a real place, naming the screen it is actually on',
-     /Admin.*Master Data.*Authorisation/.test(msg), msg);
+     /Back Office → People → Roles/.test(msg), msg);   /* 07h: Admin · Master Data → Authorisation was retired */
   ok('it does NOT tell a CFO to ask the Commercial lead, who cannot grant it',
      !/Ask KAM/.test(msg), msg);
   ok('it names the COO, who can', /COO to grant it|COO to grant/.test(msg) || /Ask COO/.test(msg), msg);

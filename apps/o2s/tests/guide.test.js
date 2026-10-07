@@ -109,9 +109,9 @@ ok('How it works: an order carries terms, ERP SO and the 5% price reason (25j)',
   ok('How it works: PR refuse and PO send back (26a)', /refuses with a reason that goes back to Supply Chain/.test(how3) && /send a wrong PO back to whoever entered it/.test(how3));
   const jb = grab('guideMyJob');
   ok('My job: a New on 26 Sep note for every role touched (26a)', ['Production Manager','Production','Plant Manager','Supply Chain','Warehouse','Supply Chain Officer','CFO','Finance','Finance Desk Officer','QCM','AQCM','Lab Rep'].every(r => jb.indexOf("'" + r + "':") > -1) && /New on 26 Sep/.test(jb));
-  const ref = grab('screenInstructions');
-  ok('Reference steps: acknowledge / send back, PR refuse, close batch short, Packing finished, lab send back, truck sheet (26a)', /Send back<\/b> with a reason to whoever entered it/.test(ref) && /<b>refuses<\/b> it with a reason/.test(ref) && /closing a batch never closes the order/.test(ref) && /Packing finished · reconcile \/ move/.test(ref) && /sent back one step at a time, always with a note/.test(ref) && /View DC<\/b>/.test(ref));
-  ok('Reference roles: Production Manager, Plant Manager, CFO, QCM, AQCM, Lab Rep, Supply Chain updated (26a)', /calls the <b>Nitro Sulfur pool<\/b>/.test(ref) && /refuse it with a reason|refuse<\/b> a close request|<b>refuse<\/b> it with a reason/.test(ref) && /send it back to the AQCM<\/b>/.test(ref) && /send it back to the analyst<\/b>/.test(ref) && /comes to you by name, with the note/.test(ref) && /ask to close only the products you tick/.test(ref));
+  const ref = grab('guideReference');
+  ok('Reference (07h): the order end to end is read from TD_NEXT, with who and when it escalates', /gdChain\(\)/.test(ref) && /TD_NEXT\[l\]/.test(grab('gdChain')) && /gdEscTxt\(l\)/.test(ref) && /gdWho\(M,l\)/.test(ref));
+  ok('Reference (07h): every screen by its current name and who can open it; no old names', /SCREENS\.filter/.test(ref) && /canView\(r,s\.id\)/.test(ref) && !/My Actions|PO Tracker|New PO Entry|Data Fix|Sent tab/.test(ref));
   ok('Back Office: the CFO can send a new customer back (26a)', /<b>sends it back<\/b> with a reason to whoever entered it/.test(grab('backOfficeManualCard')));
   const TL = grabTopVar('TD_LABEL', '{');
   ok('Today labels the new jobs (26a)', /'Correct COA':\s*\{title:'COA sent back to you to correct'/.test(TL) && /'Refused':\s*\{title:'Your close request was refused'/.test(TL) && /'Sent back':\s*\{title:'Truck sent back to you'/.test(TL)); }
@@ -119,4 +119,9 @@ ok('The Rules say each list-price product on a truck gets its own price (6 Oct)'
 ok('The Rules say a packed product cannot be closed as We could not supply (6 Oct)', /A product already packed in full cannot be closed as <b>We could not supply<\/b>/.test(html));
 ok('The Rules say where to find a copy of each paper (6 Oct, 06c)', /<h3>Where to find a copy<\/h3>/.test(html) && /Its sheet ends with <b>Papers<\/b>/.test(html));
 ok('The Rules: moving packed stock to another PO, who asks, who approves, what moves (7 Oct, 07c)', /<h3>Moving packed stock to another PO<\/h3>/.test(html) && /<b>Supply Chain asks<\/b>/.test(html) && /<b>Plant Manager approves<\/b>/.test(html));
+ok('Guide search: a box at the top, every tab searched, each hit names its tab and opens it (07d)', /id="gdFind"/.test(grab('guidePage')) && /guideSearchHTML\(guideQ\)/.test(grab('guidePage')) && ['guideMyJob','guideHow','guideRules','rolesTitlesCard','backOfficeManualCard','_gdRef'].every(f => grab('guideSearchBlocks').indexOf(f) > -1) && /Open this tab/.test(grab('guideSearchHTML')));
+ok('Guide search marks words in the text, never inside a tag', /split\(\/\(<\[\^>\]\+>\)\/\)/.test(grab('guideMark')));
+ok('a tab button clears the search', /guideQ=\\'\\';guideTab=/.test(grab('guideTabsHTML')));
+{ const j = grab('guideMyJob'); ok('My job: a New on 7 Oct note for every role touched (07d)', ['Supply Chain','Plant Manager','Production Manager','Production','QA Inspector','Warehouse','Supply Chain Officer','QCM','AQCM','Lab Rep','CFO','KAM','Finance','Finance Desk Officer'].every(r => j.indexOf("'" + r + "':") > -1) && /New on 7 Oct\./.test(j) && /Move packed stock to another PO/.test(j)); }
+ok('The rules: lateness counts calendar days; same day is never late (07d)', /counted in <b>calendar days<\/b>, not hours: anything entered on the same day it happened is never late/.test(grab('guideRules')));
 process.exitCode = report('The Guide keeps up (24z)') ? 1 : 0;

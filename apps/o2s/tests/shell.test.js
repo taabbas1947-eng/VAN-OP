@@ -34,7 +34,7 @@ ok('3 tiles: waiting, past due, done today', /tdTallyHTML\(own\.length,lateOwn\)
 ok('"Waiting on you" with the count, like the artifact; "Open in the plant" for the COO\'s whole-plant view (23u)', /'Open in the plant':'Waiting on you'\)\+'<span class="cnt">'\+own\.length\+'<\/span>/.test(st));
 ok('a card is STAGE / title / line / chips', /<div class="tdstage">'\+stage\+'<\/div><div class="tdtitle">'\+ttl\+'<\/div>/.test(card));
 ok('a production run says so on the card', /'Production run'/.test(card));
-ok('the card colour is the JOB clock: red after a day, amber today (23u)', /g\.days>0\?' late':' warn'/.test(card));
+ok('the card colour is the JOB clock: amber 1 to 6 days, red from 7 (07h, as on Plant)', /g\.days>=7\?' late':\(g\.days>0\?' warn':''\)/.test(card));
 /* 23u: what the outside UX review changed */
 const tags = grab('tdTags');
 ok('the main chip is the job\'s own age, not the customer\'s promise', /waiting '\+g\.days\+' d/.test(tags) && /new today/.test(tags) && /d past promise/.test(tags) && !/days past promise/.test(tags));
@@ -123,7 +123,7 @@ ok('Production Manager and Finance Desk Officer file into a department by id', /
 const rt = grab('rolesTitlesCard');
 ok('the Guide opens on My job (24j); Roles and titles is the Everyone tab', /guideTab==='everyone'\) h\+=rolesTitlesCard\(\)/.test(grab('guidePage')) && /var guideTab='job'/.test(html));
 ok('Your day lists what reaches the role, the button, and who gets it next', /tdRoleJobs\(role\)/.test(grab('yourDayCard')) && /your button: /.test(grab('yourDayCard')) && /TD_NEXT\[l\]/.test(grab('yourDayCard')));
-ok('the old step-by-step is a reference at the bottom, the manual is for COO/CFO/PM', /<details class="qs-ref">/.test(html) && /\(state\.role==='COO'\|\|state\.role==='CFO'\|\|state\.role==='Plant Manager'\)\?backOfficeManualCard\(\):''/.test(html));
+ok('the Reference is built from the app tables (07h), the manual is for COO/CFO/PM', /function guideReference\(\)/.test(html) && /\(state\.role==='COO'\|\|state\.role==='CFO'\|\|state\.role==='Plant Manager'\)\?backOfficeManualCard\(\):''/.test(html));
 ok('it says a role is not a job title, in the words Tahir asked for', /A role is not a job title\./.test(rt) && /roles are added and never renamed/.test(rt) && /Two people can hold one role and sign differently/.test(rt));
 ok('it lists every role under its department with the people who hold it', /roleDeptId\(r\.name\)===d\.id/.test(rt) && /u\.role===r\.name/.test(rt) && /signs as/.test(rt));
 
@@ -417,7 +417,7 @@ ok('a browser that remembered All actions or the Dashboard lands on Today', /if\
 /* 24j: the Guide as training - role-aware, in 5 tabs, no yellow headings */
 {
   const gp = grab('guidePage'), mj = grab('guideMyJob'), jc = grab('guideJobCard'), gr = grab('guideRules'), gh = grab('guideHow');
-  ok('the Guide renders guidePage with the old steps as the Reference tab', /\$\('view'\)\.innerHTML=guidePage\(`/.test(html) && /guideTab==='ref'|else h\+=refHTML/.test(gp) && /<details class="qs-ref">/.test(html));
+  ok('the Guide renders guidePage with the Reference tab (07h: built by guideReference)', /\$\('view'\)\.innerHTML=guidePage\(ref\)/.test(html) && /guideTab==='ref'|else h\+=refHTML/.test(gp) && /ref=guideReference\(\)/.test(html));
   ok('5 tabs: My job · How the app works · The rules · Everyone · Reference (+ Back Office for COO/CFO/PM)', (() => { const t = grab('guideTabsHTML'); return /'My job'/.test(t) && /'How the app works'/.test(t) && /'The rules'/.test(t) && /Everyone’s roles/.test(t) && /'Reference'/.test(t) && /if\(isBO\) tabs\.push\(\['backoffice','Back Office'\]\)/.test(t); })());
   ok('My job says who you are, your role, your department and its lead', /personTitle\(me\.username\|\|'',role\)/.test(mj) && /roleDeptId\(role\)/.test(mj) && /deptLeadRole\(did\)/.test(mj) && /The role decides which buttons you get; the title is what you are called/.test(mj));
   ok('every kind of job the role gets is a card: how, then, if you don’t', /tdRoleJobs\(role\)/.test(mj) && /guideJobCard\(l,role\)/.test(mj) && /<span class="k">How<\/span>/.test(jc) && /<span class="k">Then<\/span>/.test(jc) && /<span class="k">If you don’t<\/span>/.test(jc));
@@ -449,7 +449,7 @@ ok('a browser that remembered All actions or the Dashboard lands on Today', /if\
     const w = f({ role: 'Warehouse' }, () => false)().map(c => c.id);
     ok('the Warehouse sees trucks and production, not the lab', w.indexOf('trucks') > -1 && w.indexOf('prodshift') > -1 && w.indexOf('coa') < 0);
     const c = f({ role: 'COO' }, () => true)().map(x => x.id);
-    eq('the COO sees all 19 (25d: + Pre-shipment inspections; 07b: + open orders, one customer, packing QA, waiting to ship, lab turnaround)', c.length, 19);
+    eq('the COO sees all 20 (25d: + Pre-shipment inspections; 07b: + open orders, one customer, packing QA, waiting to ship, lab turnaround; 07c: + stock moves)', c.length, 20);
     const k = f({ role: 'KAM' }, () => true)().map(x => x.id);
     ok('a KAM with money sees sales and invoicing, not the corrections register', k.indexOf('sales') > -1 && k.indexOf('invoicing') > -1 && k.indexOf('corrections') < 0);
     const fi = f({ role: 'Finance' }, () => false)().map(x => x.id);
@@ -508,7 +508,7 @@ ok('a browser that remembered All actions or the Dashboard lands on Today', /if\
 {
   const qc = grab('screenQC'), qa = grab('screenQA');
   ok('Lab: one page, 4 tiles that are the tabs, no second tab bar and no Group select on screen', /<div class="qs wide"><h1>Lab<\/h1>/.test(qc) && /class="qs-tally four"/.test(qc) && /qcTab=\\''\+k\+'\\';render\(\)/.test(qc) && !/\$\{qcTabBar\}/.test(qc) && !/\$\{qcGroupSel\}/.test(qc) && !/\$\{qcKpiStrip\}/.test(qc));
-  ok('Truck inspection: the same, 3 tiles', /<div class="qs wide"><h1>Truck inspection<\/h1>/.test(qa) && /class="qs-tally"/.test(qa) && /qaTab=\\''\+k\+'\\';render\(\)/.test(qa) && !/\$\{qaTabBar\}/.test(qa) && !/\$\{qaGroupSel\}/.test(qa) && !/\$\{qaKpiStrip\}/.test(qa));
+  ok('Truck inspection: the same, 3 tiles', /<div class="qs wide"><h1>QA inspection<\/h1>/.test(qa) && /class="qs-tally"/.test(qa) && /qaTab=\\''\+k\+'\\';render\(\)/.test(qa) && !/\$\{qaTabBar\}/.test(qa) && !/\$\{qaGroupSel\}/.test(qa) && !/\$\{qaKpiStrip\}/.test(qa));
   ok('the rows and their buttons are untouched (the certificate tests still pass against them)', /_qcCard\(/.test(qc) && /_qaCard\(/.test(qa) && /openBatchCOA\(/.test(qc) && /openLotQA\(/.test(qc));
   ok('the top bar hides on Lab and Truck inspection too', /body\[data-screen="qc"\] \.topbar,body\[data-screen="qa"\] \.topbar[,{]/.test(html) /* 24y: Shipments joined the list after qa */);
   ok('the bay sheet is named for the job', /<h2>Raw material at the bay<\/h2>/.test(grab('openReceiveMaterials')) && /confirm what arrived/.test(grab('openReceiveMaterials')));
@@ -517,7 +517,7 @@ ok('a browser that remembered All actions or the Dashboard lands on Today', /if\
 
 /* 24o: the sign-offs are jobs on the Guide */
 {
-  const f = new Function('actionItems', 'TD_RIGHT', 'mayRole', grab('tdRoleJobs') + '\nreturn tdRoleJobs;')(() => [], {}, () => false);
+  const f = new Function('actionItems', 'TD_RIGHT', 'mayRole', H.grabTopVar('TD_SIGN_JOBS', '{') + '\n' + grab('tdRoleJobs') + '\nreturn tdRoleJobs;')(() => [], {}, () => false);   /* 07h: the sign-offs table is top level */
   ok('a QCM with nothing waiting still has Approve; an AQCM Review; a QA officer Pack QC and Inspect', JSON.stringify(f('QCM')) === '["Approve"]' && JSON.stringify(f('AQCM')) === '["Review"]' && JSON.stringify(f('QA Inspector')) === '["Pack QC","Inspect","Check sample"]' && JSON.stringify(f('Warehouse')) === '["Issue sample","Sample gate pass"]');
   ok('BUILD_ID is 2026-09-24o or later', /var BUILD_ID='2026-(09-(24[o-z]|2[5-9][a-z]|3[0-1][a-z])|1[0-2]-[0-3][0-9][a-z])'/.test(html));
 }

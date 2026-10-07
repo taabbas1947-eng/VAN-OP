@@ -137,7 +137,7 @@ const B = c => run(c, 'state.batches[state.batches.length-1]');
   const b = B(c);
   const PC = run(c, 'window.ProductionCenter');
   const act = run(c, '_pcLifeAction')(b, PC.derive(b));
-  ok('the batch now offers Pack', /Pack 1,010 Kg cleared/.test(act), act.replace(/<[^>]*>/g, '|'));
+  ok('the batch now offers Pack', /Pack 1,010 Kg\/L cleared/.test(act), act.replace(/<[^>]*>/g, '|'));
   ok('...and STILL offers Log shift output — the batch is both at once',
      /Log shift output/.test(act), act.replace(/<[^>]*>/g, '|'));
   ok('...and still offers Close batch', /Close batch/.test(act));

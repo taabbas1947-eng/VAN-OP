@@ -257,7 +257,7 @@ const strip = s => String(s).replace(/<[^>]*>/g, '|').replace(/\s+/g, ' ').slice
   eq('produced 1,010', B(c).producedKg, 1010);
   eq('cleared 1,010', c.batchClearedKg(B(c)), 1010);
   eq('packable 1,010', c.batchPackableKg(B(c)), 1010);
-  ok('the batch offers Pack 1,010 Kg cleared', /Pack 1,010 Kg cleared/.test(run(c, '_pcLifeAction')(B(c), run(c, 'window.ProductionCenter').derive(B(c)))));
+  ok('the batch offers Pack 1,010 Kg/L cleared', /Pack 1,010 Kg\/L cleared/.test(run(c, '_pcLifeAction')(B(c), run(c, 'window.ProductionCenter').derive(B(c)))));
   const last = run(c, 'toasts[toasts.length-1]');
   ok('the toast reports the cascade', /2,020 → 1,010/.test(last) && /Ready to pack is now 1,010/.test(last), last);
 
@@ -425,7 +425,7 @@ const strip = s => String(s).replace(/<[^>]*>/g, '|').replace(/\s+/g, ' ').slice
   eq('26a: so Remove is no longer refused on it', c.lotRemoveBlockedBy(B(c), l2), null);
   ok('26a: L1, the certified one, is never a leftover duplicate', c.lotLeftoverDup(B(c), B(c).lots.find(l => l.id !== 'LOT-B')) === false);
   const lots2 = lotsTab(c);
-  ok('the Lots tab states the two figures', /lots on this batch total <b>2,020 Kg<\/b> but produced reads <b>1,010 Kg<\/b>/.test(lots2), strip(lots2.slice(0, 600)));
+  ok('the Lots tab states the two figures', /lots on this batch total <b>2,020 Kg\/L<\/b> but produced reads <b>1,010 Kg\/L<\/b>/.test(lots2), strip(lots2.slice(0, 600)));
   ok('...and says reload before acting', /Reload the page before acting/.test(lots2));
   ok('...and names what NOT to do', /do not correct produced upward and do not log a shift/.test(lots2));
   ok('...and points at the leftover duplicate and what Remove does to it (26a)', /marked <b>leftover duplicate<\/b> below/.test(lots2) && /produced stays as it is/.test(lots2));

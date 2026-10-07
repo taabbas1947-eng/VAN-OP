@@ -26,7 +26,7 @@ Object.assign(sb, { toast: m => sb.toasts.push(m), save: () => sb.saved++, rende
 vm.createContext(sb);
 vm.runInContext(['nid', 'evToday', 'lotBaseNo', 'lotBrandNo', 'lotsFor', 'lotAvail', 'lotClearedKg', 'linePassedInsp', 'lineFacts', 'saleLeft',
   'pmvWho', 'pmvSame', 'pmvLine', 'pmvLotFree', 'pmvLotCleared', 'pmvOpenOn', 'pmvRoom', 'pmvWhyNot', 'pmvTargets', 'pmvCanStart', 'moveStockButtonHTML',
-  'openMoveStock', 'renderMoveStock', 'submitMoveStock', 'pmvById', 'pmvProblems', 'openMoveApprove', 'renderMoveApprove', 'approveMove', 'pmvApply', 'refuseMove', 'cancelMove', 'noteMoveRefusal', 'pmvActionItems', 'lotMoveLock', 'lotFamily'].map(grab).join('\n')
+  'openMoveStock', 'renderMoveStock', 'submitMoveStock', 'pmvById', 'pmvProblems', 'openMoveApprove', 'renderMoveApprove', 'approveMove', 'pmvApply', 'refuseMove', 'cancelMove', 'noteMoveRefusal', 'pmvActionItems', 'lotMoveLock', 'lotFamily', 'qcFull'].map(grab).join('\n')
   + '\nvar pmvForm=null, pmvRefuseWhy="";\nfunction may(c){ return c==="stock.move_request"?this.state.role==="Supply Chain"||this.state.role==="COO":c==="stock.move_approve"?this.state.role==="Plant Manager"||this.state.role==="COO":false; }'
   + '\nvar CORRECT_ENTITY=' + grabTopVar('CORRECT_ENTITY', '{').replace(/^\s*var\s+CORRECT_ENTITY\s*=\s*/, '') + ';', sb);
 const S = () => sb.state, L = (po) => S().orders.find(o => o.po === po).lines[0], O = (po) => S().orders.find(o => o.po === po);
@@ -45,7 +45,7 @@ as('Supply Chain', 'Saad Jamal', 'saad');
 
 /* the request */
 const ask = (kg, reason, to) => { sb.openMoveStock('22868', 'b'); vm.runInContext('pmvForm.to=' + JSON.stringify(to || '22867|a') + ';pmvForm.kg=' + JSON.stringify(kg) + ';pmvForm.reason=' + JSON.stringify(reason == null ? 'Punjab due first' : reason), sb); sb.submitMoveStock(); return sb.toasts[sb.toasts.length - 1]; };
-ok('shipped stock cannot move (P1 left on DC 123)', /only 0 Kg not shipped/.test(ask({ P1: 100 })));
+ok('shipped stock cannot move (P1 left on DC 123)', /only 0 Kg\/L not shipped/.test(ask({ P1: 100 })));
 ok('a reason is required', /Write why/.test(ask({ P2: 3640 }, '')));
 ok('another customer\'s PO cannot be chosen', /different customer|different price/.test(ask({ P2: 100 }, 'x', '30001|c')));
 eq('nothing asked yet', S().poMoves.length, 0);
@@ -109,5 +109,5 @@ ask({ P2: 500 }); const c = S().poMoves[0]; sb.cancelMove(c.id); ok('the asker c
 
 /* stock on a planned truck */
 S().packingLog.find(p => p.id === 'P2').shipKg = 3000;
-ok('stock on a planned or loaded truck is not offered', /only 640 Kg not shipped/.test(ask({ P2: 3640 })));
+ok('stock on a planned or loaded truck is not offered', /only 640 Kg\/L not shipped/.test(ask({ P2: 3640 })));
 process.exitCode = report('Move packed stock to another PO (07c)') ? 1 : 0;

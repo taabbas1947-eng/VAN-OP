@@ -20,7 +20,7 @@ ok('the loader or gate-pass issuer cannot review his own truck', /You loaded or 
 ok('loading and gate pass record who did them', /s\.loadedByUser=/.test(grab('startLoading')) && /s\.gatePassAt=_at; s\.gatePassBy=/.test(grab('issueGatePass')));
 const ai = grab('actionItems');
 ok("Today: Load and Gate Pass go to the Warehouse", /role:'Warehouse',disp:g,what:'Start loading/.test(ai) && /role:'Warehouse',disp:g,what:'Issue Gate Pass/.test(ai));
-ok("Today: Saad gets 'Review truck'", /role:'Supply Chain',disp:g,what:'Review truck/.test(ai));
+ok("Today: Saad gets 'Review truck' (07g: not for a truck he loaded or passed out)", /role:'Supply Chain',disp:g,notWho:[\s\S]{0,200}?what:'Review truck/.test(ai));
 ok("Today: the Plant Manager gets the release, which is the one he can do", /role:'Plant Manager',disp:g,what:'Approve DC and release truck/.test(ai));
 ok("Today: no separate Approve DC job for a truck in the loading flow", /g\.dcStatus==='pending' && st!=='loading' && st!=='truck_planned'/.test(ai));
 ok('SIGNOFF_ROLES names the new holders', /'shipment\.release':\['Plant Manager'\],'dc\.approve':\['Plant Manager'\],'shipment\.review':\['Supply Chain'\]/.test(html));

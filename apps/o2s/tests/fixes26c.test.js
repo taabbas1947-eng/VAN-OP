@@ -40,6 +40,7 @@ function world() {
   vm.createContext(ctx);
   vm.runInContext(['var state, _token="t", _buildStale=false, _rev=10, _savePending=false, _saveTimer=null;',
     'let _baseSnapshot=null, _saveRetries=0;',
+    grab('mergeDupNumbers'), 'function logAction(){}',
     grab('dataOnly'), grab('_srvCopy'), grab('_snapBase'), grab('_arrId'), grab('_eq'), grab('merge3'),
     grab('save'), grab('saveNow')].join('\n'), ctx);
   ctx.state = C(server.data); ctx.state.currentUser = { name: 'Abdul Majid' }; ctx.state.role = 'Production Manager';

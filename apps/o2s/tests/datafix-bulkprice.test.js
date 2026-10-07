@@ -85,7 +85,7 @@ const SCREENS_SRC = (function () {
     const b = box(r);
     try { b.dfSubmitCorrect(); } catch (e) { /* refusal happens before any work */ }
     ok('Data Fix correct refuses ' + r, wrote(b) === undefined, 'wrote ' + wrote(b));
-    ok('...and says why to ' + r, b.toasts.some(t => /Edit access to Data Fix/.test(t)),
+    ok('...and says why to ' + r, b.toasts.some(t => /Edit access to Correct a record/.test(t)),
        JSON.stringify(b.toasts));
   });
 

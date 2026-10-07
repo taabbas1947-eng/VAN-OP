@@ -6268,3 +6268,58 @@ Tahir chose all 5 suggested reports and ruled: "not each report needs to be at t
 - Logged: logAction at ask/approve/refuse/cancel; state.poMoves is the register (ids, merge-safe); Reports → Checks and corrections → "Stock moved between POs" (dataset `moves`). No audit row is written (audit rows have no ids; see the warning by logAction).
 - Not done on purpose: no automatic RM or PR change. A moves raw-material demand from target to source by the moved Kg through ordered − produced, which is right, but a PR already raised for the target is not reduced; Supply Chain adjusts it.
 - Tests: stockmove.test.js (42), guide pin. BUILD_ID 2026-10-07c. All O2S tests pass except publicbatch (pdfkit).
+
+
+## 7 Oct 2026 (4) — Search the Guide; My job and the lateness rule caught up (MODULE: O2S) — NOT PUSHED
+
+Tahir: "Add a search box at the top of the Guide", and close the 2 gaps found (no My job note after 26 Sep; the back-dating rule did not say lateness counts calendar days).
+- guidePage: a search box (#gdFind) above the tabs; the page body is wrapped in #gdBody. Typing calls guideSearchRun, which replaces only #gdBody (the input keeps focus); clearing it re-renders the tab. guideSearchBlocks renders all 6 tabs (My job, How, Rules, Everyone's roles, Back Office for COO/CFO/PM, Reference via _gdRef saved from screenInstructions) into a detached div and takes the outermost blocks (.gd-rule, .gd-job, .gd-step, .gd-place, .note, .gd-row, card rows/paragraphs). A hit needs every word typed (2+ letters). guideMark highlights in text only, never inside tags. A tab button clears the search and no tab shows as selected while searching. Nothing is saved.
+- guideMyJob: "New on 7 Oct" note for 14 roles (Reports by function and Papers for all; the move, the close reason, the new reports, PSI number print, judged by the last inspection before the truck, price per product, calendar-day lateness, by role).
+- guideRules "Why you cannot back-date": the gap is counted in calendar days; same day is never late.
+- BUILD_ID 2026-10-07d, changelog. guide.test.js +5 pins (48). All O2S tests pass except publicbatch (pdfkit).
+- Seen while rendering, not fixed: with a longer Today count and a role title like "Lead Supply Chain", the header words wrap and "Guide" drops to a 2nd line at 1262px.
+
+
+## 7 Oct 2026 (5) — List A: stock and numbers (MODULE: O2S) — NOT PUSHED
+
+From the full read-through (4 parallel reviews). Tahir: "A to D, first A, carefully coding, testing, reviewing, auditing". Each fix then went through an independent audit; the audit changed 2 of them.
+- A1 — 2 people changing one counter at once keep only one change (merge3 leaf "mine wins"). TRIED and WITHDRAWN after 2 audits: adding both deltas (MERGE_COUNTERS) plus a one-save-at-a-time queue double-counted through (a) a lost reply whose 409 carries our own change, (b) the auto-refresh race (startSync checks _savePending before 2 awaits), (c) 5xx after the backend saved, (d) fields also set as whole values (produced=max(...), insKg, qtyRequired by closePR), (e) totals whose detail lists have no ids (pool sources, PR receipts); the queue also lost the logout save. merge3 and saveNow are back to exactly what they were. Instead: lineIssues kind 'lost' (packing records > packed) → Needs you (packing), and the line fix "Bring packed back to its records" now also raises packed (with a "check for a copied record first" warning) and keeps produced ≥ packed. Live: 1 line (COBO-2608-4613 V-Transfarm, 300 vs 600 in records).
+- A2 _releaseShip frees by lotId; rows without one (or whose lot is gone) fall back to the batch number, each row once.
+- A3 saveShipEdit no longer calls resyncLineShipKg (Kg cannot change there).
+- A4 dfSubmitShipment takes the back-filled Kg off lots oldest first (shipKg, insKg ≥ shipKg). Audit: no lot links stored on the row (guessed links would print on the PSI as fact).
+- A5 dfSubmitPacking caps at batchPackableKg unless skipBatchCredit; dfSubmitProduction (PO) caps at ordered − produced.
+- A6 dispId and inspection id are _uid() (were per-tab state.seq). mergeDupNumbers after a 409: a DC or gate pass number we gave that another truck also carries → toast + logAction, "do not print, tell the Plant Manager, cancel one and plan it again" (a truck before the gate cannot be edited). The hold list and action log show DC / ship number instead of the id.
+- A7 batchPackableKg: reconciled + stockKept is packable; poBatchesForLine and the bulk stock list show it.
+- Note for later (pre-existing, not changed): reconcileLotShipKgV1 rebuilds every lot's shipKg FIFO from line dispatched + on-truck Kg on every ensureState, ignoring truck lotIds; so lot shipKg self-heals but a truck's lotIds and the lots' shipKg can disagree.
+- Tests: fixesA.test.js (19). firstsave BUG 6 kept as known-by-design; fixes26c sandbox gets mergeDupNumbers. BUILD_ID 2026-10-07e. All O2S tests pass except publicbatch (pdfkit).
+
+
+## 7 Oct 2026 (6) — List B: approvals (MODULE: O2S) — NOT PUSHED
+
+- B8 (approved PR grows without the CFO) — WITHDRAWN after the audit: raisePR has no callers anywhere, so an approved state.prs PR cannot grow in this build. The change was taken out again; no B8 code remains.
+- B9 coaDeviation: only a 'failed' certificate, and a reason of 5+ characters (Cancel / blank accepted the UNFIT lot before).
+- B10 coaSubmitAnalyst: refused unless the certificate is missing or 'draft' (a stale tab overwrote reviewed/approved certificates). Audit: every path that hands a certificate to the analyst sets 'draft'.
+- B11 approveRMPR: refused when l.rmPR.refused.
+- B12 doCloseBatch: refused when the batch is already closed (doReopenBatch sets 'open').
+- B13 reopenShortClose: o.closed moves into o.closedHistory and is set to null (readers treat it as true/false).
+- Tests: fixesB.test.js (9). BUILD_ID 2026-10-07f. All O2S tests pass except publicbatch (pdfkit).
+
+## 2026-10-07g — List C: jobs that stalled or misled (ready to push, not pushed)
+- C14 actionItems: 'Pack' job for Production per batch where batchPackNow && packJobWanted (kind 'po' with its line still short of packed and not closed short, or kind 'multi'; bulk stock is not a standing job). labAt = _batchApprovedDate(b). TD_LABEL/TD_NEXT('Pack QC')/TD_RIGHT('packing.pack'), escalation [1,'Production Manager'].
+- C15 prDrop: a dropped refused line PR sets rmStatus 'pending' (unless full/received).
+- C16 'Review truck' carries notWho (loadedByUser, gatePassByUser); tdItems filters notWho (not for the COO).
+- C17 tdCanAct/tdChaseHTML: an escalated job shows its button only if the viewer holds TD_RIGHT[label] (the COO always does); otherwise "Chase <role>".
+- C18 acKey adds smp.id, cust.code, dcr.id, mv. NOTE: defers saved under the old keys for those jobs no longer match, so they show again once.
+- C19 moves: items carry mv; escalation 'Approve move'/'Approve close short' [1,'COO']; Plant Manager SIGN_JOBS; renderMoveApprove notes an open PR on the target. Audit: pmvApply does NOT reset the source line's RM Check (an open PR would refuse RM Check; part-made lines would be checked on the whole order) - the sheet asks Supply Chain to confirm raw material instead.
+- C20 deliveryJobs: the day-1 Supply Chain row stays, with notWho [dispatcher] when the dispatcher is Supply Chain. Short close label 'Approve close short', aged from shortClose.requestedAt. smpJobs shows the QA failure remarks.
+- Tests: fixesC.test.js (24); shell.test COO report count 19 -> 20 (07c moves). BUILD_ID 2026-10-07g. All O2S tests pass except publicbatch (pdfkit).
+
+## 2026-10-07h — List D: screens, wording, design, consistency (ready to push, not pushed)
+- D1 rbRender rewritten in the shell look (.rb2 steps: Limited to / Data / Period / Columns / Filter / Show; rpSentence + rpTableHTML; Print, CSV, Excel). rpReportHTML no longer wraps it in .paperui. rpSentence shows own dates. Audit: Adjust sets rbWhereName and the builder shows "Limited to … · Show all rows"; a non-money role pushed off finance also loses rbCols/rbFilters/rbGroup/rbWhere.
+- D2 Guide Reference rebuilt: guideReference (gdChain from TD_NEXT - lab flow aware, Close batch not in the chain; gdJobRoles/gdWho from actionItems + TD_RIGHT + TD_SIGN_JOBS + GD_JOB_OWNER; gdEscTxt from guideEsc; screens from SCREENS + canView; hand-written "Why is it stuck?"). Built only on the Reference tab; the search calls it. TD_SIGN_JOBS is now top level (tdRoleJobs reads it). TD_NEXT 'Approve':'Pack'. Back Office manual names updated (Back Office → Products/Budget/People → Roles; truck flow load → inspect → gate pass → review → release).
+- D3 names: toasts/banners Data Fix → Correct a record, Users & Access → People, Master Data → Lists/Back Office, New PO Entry → New order, PO Tracker → Orders, My Actions → Today. FOC sample job titles; acStageOf 'FOC samples'. SCREENS qa = 'QA inspection' (h1 too). Kg → Kg/L: report field labels and 74 `+' Kg'` display strings (logs, audit values, correction narratives and certificates left as Kg).
+- D4 wait colour: Today tag/card and Your people amber 1-6 d, red 7+ (as Plant); "new today" green. Top bar one line from 900px (nowrap, subtitle from 1300px, title under name hidden 900-1299, clock hidden 900-1060). .paperui / body .pdsk / .po2 / rb-* palette remapped to the shell tokens (teal/beige → #2E5F86/#C8CCC3/#98A094/#F9F9F6, square corners).
+- D5 builder notes removed from screens/toasts; 3 min-widths → min(…,100%); Reports customer picker width:100%;max-width:420px.
+- D6 localDateOf/localWhenOf are fixed PKT (+5h, like TODAY): tdDoneCount, Your people, the 13760 log, datasets corrections (date+when), shortclose, moves, activity, and the "keyed" details.
+- D7 qcFull(passed,l): passed>0 and within min(0.5, 1% of ordered); used in all 6 qcPass decisions (was 0.001).
+- Tests: fixesD.test.js (30). Updated pins: guide, instructions, shell (Reference, TD_SIGN_JOBS, card colour, QA inspection), preflight (QA inspection h1), samples (FOC), authmodel/backlog/rights (People → Roles), batchqty/certremove/lotpack/stockmove (Kg/L, qcFull), datafix-bulkprice (Correct a record), rolemodel (rename reason), poentry (colours), shortclosereport (localDateOf), budget (finance guard), fixesC (TD_SIGN_JOBS). BUILD_ID 2026-10-07h. All O2S tests pass except publicbatch (pdfkit).

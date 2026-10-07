@@ -135,7 +135,7 @@ const HG = () => ({
     b.correctForm = form({ producedKg: 10000 });
     b.applyCorrect();
     eq('it cannot go below what is already packed', b.state.batches[0].producedKg, 35400);
-    ok('...naming the quantity that has gone', b.toasts.some(t => /20000 Kg packed/.test(t)),
+    ok('...naming the quantity that has gone', b.toasts.some(t => /20000 Kg\/L packed/.test(t)),
        JSON.stringify(b.toasts));
     /* Down to exactly what is packed is allowed — but only where the lab has not
        certified more than that. On a certified batch the certified floor bites
@@ -179,7 +179,7 @@ const HG = () => ({
     b.correctForm = form({ producedKg: 12000 });
     b.applyCorrect();
     eq('packed plus disposed is the floor', b.state.batches[0].producedKg, 35400);
-    ok('...and both are named', b.toasts.some(t => /10000 Kg packed/.test(t) && /5000 Kg disposed/.test(t)),
+    ok('...and both are named', b.toasts.some(t => /10000 Kg\/L packed/.test(t) && /5000 Kg\/L disposed/.test(t)),
        JSON.stringify(b.toasts));
   }
   /* The other batch fields still behave. Note the batch record's own rule:

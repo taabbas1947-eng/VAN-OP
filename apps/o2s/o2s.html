@@ -11,7 +11,7 @@
    a push keeps running the old code with nothing telling anybody. It sat at
    2026-09-04a through this whole day's work; rmqty/psi tests pinned the code,
    nothing pinned this. buildid.test.js now does. */
-var BUILD_ID='2026-10-07b';
+var BUILD_ID='2026-10-07c';
 var CHANGELOG=[
   {ver:'2026-09-04a', date:'2026-09-04', title:"Delivery, DC printing, and a new Reconciliation check", items:[
     "Delivery confirmation stays with Supply Chain \u2014 it no longer hands off to the Plant Manager. If one sits too long, it now re-flags the same Supply Chain owner every 3 days instead.",
@@ -454,6 +454,10 @@ var CHANGELOG=[
     "New: Packing and lot QA. Every inspection of packed material, with batch, quantity, result and inspector.",
     "New: Packed, waiting to ship. Packed and not yet shipped, split into cleared and ready, and still waiting for QA.",
     "New: Lab turnaround. Days from the sample reaching the lab to the approved certificate, with the average, and how long open ones have waited. Counts certificates from the current lab flow only (from the QC manager's hand-over). Open to the lab, QA, the Plant and Production Managers, the CFO and the COO."
+  ]},
+  {ver:'2026-10-07c', date:'2026-10-07', title:"Move packed stock between POs; old inspection reports judged fairly", items:[
+    "New: Supply Chain can ask to move packed stock from one PO to another PO of the same customer, same product, same price and same price on the bag (for example Maxim 22868 Sindh to 22867 Punjab). The Plant Manager approves or refuses on Today. The stock keeps its batch, dates, COA and QA result. Reports → Checks and corrections → Stock moved between POs lists every request.",
+    "Fixed: 12 pre-shipment reports from 1 to 17 Sep printed FAILED although every check passed. A batch's earlier failed date check, re-inspected and passed before the truck left, was still counted, and so were inspections made after the truck had gone. Now the last inspection of each batch before the truck left decides, and the report prints the date and batch checks as well as the physical ones."
   ]}
 ];
 </script>
@@ -4118,6 +4122,15 @@ var RIGHTS=[
   {code:'po.close',              dept:'leadership', name:'Close a whole PO', delegable:false,
    note:'Close every open line of an order short in one act, with one reason. COO only; the close is approved in the same act, kept as history, and any line can be reopened.',
    legacy:{kind:'hard', roles:[]}},
+  /* 07c - Tahir, 7 Oct: "Supply Chain asks, the Plant Manager approves". The asker
+     can never approve their own move. delegable:false like the short close: moving
+     stock between customers' orders is a management decision, not a floor action. */
+  {code:'stock.move_request', dept:'commercial', name:'Ask to move packed stock to another PO', delegable:false,
+   note:'Only between POs of the same customer, product and price, with the same price on the bag. Nothing moves until the Plant Manager approves.',
+   legacy:{kind:'hard', roles:['Supply Chain']}},
+  {code:'stock.move_approve', dept:'leadership', name:'Approve moving packed stock to another PO', delegable:false,
+   note:'Approve or refuse a stock move. The person who asked cannot approve it.',
+   legacy:{kind:'hard', roles:['Plant Manager']}},
   /* 25o - free samples (FOC). Tahir, 25 Sep: "they can ask sample directly in system or one of finance
      person can do this on their behalf ... it requires COO approval before any sample can go out". */
   {code:'sample.request', dept:'commercial', name:'Ask for a free sample', delegable:false,
@@ -5377,6 +5390,7 @@ function dfSubmitVoid(){
   if(!entry) return toast('Pick the record to void');
   if(entry.reversed||entry.void) return toast('That record has already been voided/reversed');
   if((+entry.insKg||0)>0.5) return toast('Already QA-inspected — withdraw the inspection first, then void it');
+  if(lotMoveLock(entry)) return toast(lotMoveLock(entry));   /* 07c */
   const kg=+entry.kg||0;
   const batch=entry.baseBatchId?(state.batches||[]).find(x=>x.id===entry.baseBatchId):null;
   const changes=[{field:'kg',label:'Packed (Kg/L)',before:fmt(kg),after:'0 (voided)'}];
@@ -9413,9 +9427,10 @@ var CORRECT_ENTITY={
       (x.batches||[]).forEach(function(bt){
         var p=(state.packingLog||[]).find(function(q){return q&&q.id===bt.lotId;});
         if(!p) return;
-        var after=Math.max(0,(+p.insKg||0)-(+bt.kg||0));
-        if(after < (+p.shipKg||0)-0.5)
-          out.push('Batch '+(bt.batch||bt.lotId||'')+': '+fmt(+p.shipKg||0)+' Kg has already left on this clearance. Material that has shipped cannot be un-cleared.');
+        /* 07c: the lot and every part of it moved to another PO, together */
+        var fam=lotFamily(p), clr=fam.reduce(function(a,q){ return a+pmvLotCleared(q); },0), shp=fam.reduce(function(a,q){ return a+(+q.shipKg||0); },0);
+        if(clr < (+bt.kg||0)-0.5)
+          out.push('Batch '+(bt.batch||bt.lotId||'')+': '+fmt(shp)+' Kg has already left on this clearance'+(fam.length>1?' (here or on the PO it was moved to)':'')+'. Material that has shipped cannot be un-cleared.');
       });
       return out; },
     supEffect:function(x){
@@ -9431,8 +9446,13 @@ var CORRECT_ENTITY={
       (x.batches||[]).forEach(function(bt){
         var p=(state.packingLog||[]).find(function(q){return q&&q.id===bt.lotId;});
         /* never below what has already shipped — supBlocks refuses that case,
-           this is the belt as well as the braces */
-        if(p) p.insKg=Math.max(+p.shipKg||0, (+p.insKg||0)-(+bt.kg||0));
+           this is the belt as well as the braces.
+           07c: a lot partly moved to another PO by a stock move took its share of
+           this clearance with it; withdrawing the inspection un-clears it THERE
+           too, or that PO would keep cleared stock on a withdrawn inspection. */
+        if(!p) return; var rem=(+bt.kg||0);
+        lotFamily(p).forEach(function(q){ if(rem<=0.0001) return; var t=Math.min(rem,pmvLotCleared(q)); q.insKg=Math.max(+q.shipKg||0,(+q.insKg||0)-t); rem-=t;
+          if(q!==p){ var oo=(state.orders||[]).find(function(y){ return y.po===q.po; }); var ll=oo&&(oo.lines||[]).find(function(y){ return y.id===q.lid; }); if(oo&&ll&&linePassedInsp(oo,ll)<(+ll.ordered||0)-0.001) ll.qcPass=''; } });
       });
       var o=(state.orders||[]).find(function(y){return y.po===x.po;});
       var l=o&&((o.lines||[]).find(function(y){return y.id===x.lid;})||(o.lines||[]).find(function(y){return y.brand===x.brand;}));
@@ -9440,6 +9460,11 @@ var CORRECT_ENTITY={
     }
   }
 };
+/* 07c: a packing run that took part in a stock move is locked against corrections
+   (both halves): every field, and the reversal. See lotMoveLock. */
+(function(){ var d=CORRECT_ENTITY.packingLot; if(!d) return;
+  (d.fields||[]).forEach(function(x){ var f0=x.lockedIf; x.lockedIf=function(p){ var m=lotMoveLock(p); return m||(f0?f0(p):null); }; });
+  var b0=d.blocks; d.blocks=function(p){ var out=b0?b0(p):[]; var m=lotMoveLock(p); if(m) out.push(m); return out; }; })();
 
 /* ---- the ledger: one writer, append-only ---- */
 function recordCorrection(op, type, id, label, changes, reasonCode, reason, cascade){
@@ -11604,17 +11629,40 @@ function psiDetailFor(g){
   var want={}; rows.forEach(function(r){ (r.batches||[]).forEach(function(b){
     var k=psiPackNo(b); if(k) want[k]=1; }); });
   if(!Object.keys(want).length) return null;
-  var recs=(state.inspections||[]).filter(function(x){
+  var all=(state.inspections||[]).filter(function(x){
     if(!x || x.superseded) return false;
     return (x.batches||[]).some(function(b){ return want[psiPackNo(b)]; });
-  }).sort(function(a,b){ return String(a.date||'').localeCompare(String(b.date||'')); });
+  });
+  if(!all.length) return null;
+  /* 07c - Tahir, 7 Oct: "what if a customer 6 months later asks for the report
+     and it shows unfit, and no one remembers it was a system issue, not the stock."
+     12 trucks of 1-17 Sep printed FAILED with every check passed. Each pack batch
+     had one inspection that failed the date check (28 Aug), was re-inspected and
+     passed the next day, and the truck left later - but every inspection of the
+     batch EVER was counted, including ones made after the truck had gone.
+     The truck is cleared by what was known when it left: for each pack batch on
+     it, the LATEST inspection on or before the dispatch date decides. If the
+     batch had none by then, its first later inspection is shown and marked as
+     made after dispatch. The full history stays on the PO's inspection log. */
+  var left=String((g&&g.date)||'').slice(0,10);
+  var dOf=function(x){ return String(x.actualDate||x.date||'').slice(0,10); };
+  var ord=function(a,b){ return (dOf(a)+'|'+String(a.recordedAt||'')).localeCompare(dOf(b)+'|'+String(b.recordedAt||'')); };
+  var pick=[];
+  Object.keys(want).forEach(function(k){
+    var rs=all.filter(function(x){ return (x.batches||[]).some(function(b){ return psiPackNo(b)===k; }); }).sort(ord);
+    if(!rs.length) return;
+    var before=left?rs.filter(function(x){ return dOf(x)<=left; }):rs;
+    var ch=before.length?before[before.length-1]:rs[0];
+    if(pick.indexOf(ch)<0) pick.push(ch); });
+  var recs=pick.sort(ord);
   if(!recs.length) return null;
   /* `want` travels with the records: one packing inspection can cover several
      pack batches, only some of which are on this truck, and the block must
      name only those. Keeping the whole record's batch list printed VAN6FU002
      and VAN6EE001 on consignments that never carried them — 31 such lines
      across the 49 reports this snapshot produces. */
-  return {src:'packed', recs:recs, want:want,
+  return {src:'packed', recs:recs, want:want, left:left,
+          after:recs.some(function(x){ return left&&dOf(x)>left; }),
           pass:recs.every(function(x){return !!x.pass;})};
 }
 
@@ -11797,13 +11845,16 @@ function printPSI(dispId,opts){ var _parts=!!(opts&&opts.parts); /* 25d: parts =
       (x.batches||[]).forEach(function(b){ var k=psiPackNo(b);
         if(k && det.want[k] && !_s[k]){_s[k]=1;bn.push(k);} });
       var key=[(x.brand||''), bn.join(','),
-               (x.checklist||[]).map(function(c){return (c.item||'')+'='+(c.result||'');}).join('|')].join('~');
+               (x.checklist||[]).map(function(c){return (c.item||'')+'='+(c.result||'');}).join('|'),
+               (x.verify||[]).map(function(v){return (v.item||v.label||v.key||'')+'='+(v.result||'');}).join('|'),   /* 07c: a verification fail is a different result */
+               (x.pass?'P':'F')].join('~');
       if(_ix[key]!=null){ var t=_mg[_ix[key]];
         if(x.by && t.by.indexOf(x.by)<0) t.by.push(x.by);
         if(x.date && t.date.indexOf(x.date)<0) t.date.push(x.date);
         return; }
       _ix[key]=_mg.length;
-      _mg.push({brand:x.brand||'', bn:bn, checklist:x.checklist||[],
+      _mg.push({brand:x.brand||'', bn:bn, checklist:x.checklist||[], verify:x.verify||[], pass:!!x.pass,
+                after:!!(det.left&&String(x.actualDate||x.date||'').slice(0,10)>det.left),
                 by:(x.by?[x.by]:[]), date:(x.date?[x.date]:[])});
     });
     _mg.forEach(function(x){ x.date.sort();
@@ -11811,6 +11862,8 @@ function printPSI(dispId,opts){ var _parts=!!(opts&&opts.parts); /* 25d: parts =
         +' &mdash; inspected and signed by <b>'+_pe(x.by.join(', ')||'—')+'</b>'
         +(x.date.length?(' on <b>'+_pe(x.date.join(', '))+'</b>'):'')); });
     insBody=_mg.map(function(x){
+      var vr=(x.verify||[]).map(function(v){
+        return '<tr><td>'+_pe(v.item||v.label||v.key||'')+'</td><td class="num">'+mark(v.result)+'</td></tr>'; }).join('');
       var cr=(x.checklist||[]).map(function(c){
         return '<tr><td>'+_pe(c.item||'')+'</td><td class="num">'+mark(c.result)+'</td></tr>'; }).join('');
       x.date.sort();
@@ -11818,7 +11871,8 @@ function printPSI(dispId,opts){ var _parts=!!(opts&&opts.parts); /* 25d: parts =
         +(x.bn.length?(' &middot; <span class="lbl">Batch</span> <b>'+_pe(x.bn.join(', '))+'</b>'):'')
         +' &middot; inspected by <b>'+_pe(x.by.join(', ')||'—')+'</b>'
         +(x.date.length?(' on <b>'+_pe(x.date.join(', '))+'</b>'):'')+'</div>'
-        +'<table><thead><tr><th>Check</th><th class="num" style="width:110px">Result</th></tr></thead><tbody>'+cr+'</tbody></table>'
+        +(x.after?'<div class="srcnote">This inspection was made after the truck left.</div>':'')
+        +'<table><thead><tr><th>Check</th><th class="num" style="width:110px">Result</th></tr></thead><tbody>'+vr+cr+'</tbody></table>'
         +'</div>';
     }).join('');
   }
@@ -11859,7 +11913,7 @@ function printPSI(dispId,opts){ var _parts=!!(opts&&opts.parts); /* 25d: parts =
     : '<div class="stamprow"><div class="stamp"><div class="b">PASSED</div><div class="s">CLEARED FOR DISPATCH</div></div></div>';
 
   var srcNote=(det.src==='packed')
-    ? '<div class="srcnote">Checks recorded at packing, on the batches that make up this consignment.</div>' : '';
+    ? '<div class="srcnote">Checks recorded at packing, on the batches that make up this consignment: for each batch, the last inspection made before the truck left.</div>' : '';
 
   var css='*{box-sizing:border-box}html,body{margin:0;background:#eceef1}'
     +'body{font-family:"Segoe UI",Arial,Helvetica,sans-serif;color:#1c2430;padding:16px}'
@@ -12440,6 +12494,155 @@ function pmDelayLabel(o,l,lb){
   if(past>0) return 'Overdue '+past+'d';  // delay-reason prompt fires ONLY when genuinely overdue (not 'due in N days')
   return null;
 }
+/* ===== MOVE PACKED STOCK TO ANOTHER PO - 07c =====
+   Tahir, 7 Oct 2026. Maxim sent 2 POs for the same products, 22867 (Punjab) and
+   22868 (Sindh). Enroot was made and packed against 22868; Punjab needs it. The
+   bags are the same: same customer, same product, same price, no price printed.
+   Ruled: "Move packed stock to another PO, only between POs of the same customer,
+   product and price, with no printed-price difference. Supply Chain asks, the
+   Plant Manager approves, the QA result moves with the lot, and everything is
+   logged."
+
+   What a move is: a packed lot (or part of it) that has not left on a truck is
+   re-assigned from one PO line to another. Nothing is made, packed, inspected or
+   shipped by it. The lot is split: the moving part becomes its own packing record
+   on the other PO, with the SAME pack batch, mfg and expiry (it is the same bag),
+   its share of the QA clearance, and a link back (movedFrom); the source record
+   keeps a link forward (movedOut). The 2 lines' produced and packed move by the
+   same Kg, so packed always equals the packing records and nothing new appears to
+   pack. Stock already on a planned or loaded truck cannot move (shipKg).
+   Every check runs again at approval, on the data as it is then. */
+function pmvWho(){ var u=state.currentUser||{}; return {name:u.name||state.role, user:u.username||'', role:state.role}; }
+function pmvSame(a,b){ if(!a||!b) return false; if(a.user&&b.user) return a.user===b.user; return String(a.name||'')===String(b.name||''); }
+function pmvLine(po,lid){ var o=(state.orders||[]).find(function(x){ return x&&x.po===po; }); var l=o&&(o.lines||[]).find(function(x){ return x&&x.id===lid; }); return {o:o||null,l:l||null}; }
+function pmvLotFree(p){ if(!p||p.reversed||p.void||p.qaHold) return 0; return Math.max(0,(+p.kg||0)-(+p.shipKg||0)); }
+function pmvLotCleared(p){ return Math.max(0,(+p.insKg||0)-(+p.shipKg||0)); }
+function pmvOpenOn(po,lid){ return (state.poMoves||[]).filter(function(m){ return m&&m.status==='asked'&&((m.fromPo===po&&m.fromLid===lid)||(m.toPo===po&&m.toLid===lid)); }); }
+function pmvRoom(l){ return Math.max(0,(+l.ordered||0)-(+l.packed||0)); }
+/* Why stock may NOT move from line A to line B. Empty = it may. */
+function pmvWhyNot(oA,lA,oB,lB){ var w=[];
+  if(!oA||!lA||!oB||!lB){ w.push('The order line is no longer there.'); return w; }
+  if(oA.po===oB.po) w.push('It is the same PO.');
+  if(String(oA.client||'')!==String(oB.client||'')) w.push('A different customer.');
+  if(String(lA.brand||'')!==String(lB.brand||'')) w.push('A different product.');
+  if(!!oA.foc!==!!oB.foc) w.push('One is a free order and the other is not.');
+  if(Math.abs((+lA.invoicePrice||0)-(+lB.invoicePrice||0))>0.005 || Math.abs(lineNetPrice(oA,lA)-lineNetPrice(oB,lB))>0.005 || String(oA.fedMode||'')!==String(oB.fedMode||'')) w.push('A different price (PKR '+(+lA.invoicePrice||0)+' against '+(+lB.invoicePrice||0)+').');
+  var pa=printPolicyOL(oA,lA), pb=printPolicyOL(oB,lB);
+  if(pa.mode!==pb.mode || (+pa.price||0)!==(+pb.price||0)) w.push('The price printed on the bag is not the same on both POs.');
+  if((+lA.pack||0)!==(+lB.pack||0)) w.push('A different pack size.');
+  if(oA.closed||oB.closed) w.push('One of the POs is closed.');
+  if(lA.shortClose&&!lA.shortClose.refusedAt&&!lA.shortClose.reopenedAt) w.push(oA.po+' · '+lA.brand+' is closed short or has a close request open.');
+  if(lB.shortClose&&!lB.shortClose.refusedAt&&!lB.shortClose.reopenedAt) w.push(oB.po+' · '+lB.brand+' is closed short or has a close request open.');
+  if(!oB.acknowledged) w.push(oB.po+' has not been acknowledged yet.');
+  if(pmvRoom(lB)<=0.5) w.push(oB.po+' · '+lB.brand+' is already packed in full.');
+  return w; }
+function pmvTargets(oA,lA){ var out=[]; (state.orders||[]).forEach(function(o){ if(!o||o.po===oA.po||String(o.client||'')!==String(oA.client||'')) return;
+    (o.lines||[]).forEach(function(l){ if(l&&l.brand===lA.brand) out.push({o:o,l:l,why:pmvWhyNot(oA,lA,o,l)}); }); }); return out; }
+function pmvCanStart(o,l){ if(!o||!l||!may('stock.move_request')) return false; if(!lotsFor(o,l).some(function(p){ return pmvLotFree(p)>0.5; })) return false; return pmvTargets(o,l).length>0; }
+function moveStockButtonHTML(o,l){ return pmvCanStart(o,l)?'<button class="qs-btn sm ghost" onclick="openMoveStock(\''+qsEsc(o.po)+'\',\''+qsEsc(l.id)+'\')">Move packed stock to another PO</button>':''; }
+
+/* ---- the request (Supply Chain) ---- */
+var pmvForm=null;
+function openMoveStock(po,lid){ if(!may('stock.move_request')){ toast(denyRight('stock.move_request','Asking to move packed stock')); return; }
+  var a=pmvLine(po,lid); if(!a.l){ toast('Order line not found'); return; }
+  pmvForm={fromPo:po,fromLid:lid,to:'',kg:{},reason:''}; renderMoveStock(); $('modalBg').classList.add('open'); }
+function renderMoveStock(){ var f=pmvForm; if(!f) return; var a=pmvLine(f.fromPo,f.fromLid), oA=a.o, lA=a.l; if(!lA){ closeModal(); return; }
+  var tg=pmvTargets(oA,lA); var t=tg.filter(function(x){ return x.o.po+'|'+x.l.id===f.to; })[0]||null;
+  var lots=lotsFor(oA,lA).filter(function(p){ return pmvLotFree(p)>0.5; });
+  var tot=0; Object.keys(f.kg).forEach(function(k){ tot+=(+f.kg[k]||0); });
+  var h='<div class="mh"><h2>Move packed stock to another PO</h2><div class="sub">'+qsEsc(oA.client||'')+' · '+qsEsc(lA.brand)+' · from <b>'+qsEsc(oA.po)+'</b></div></div><div class="mb">';
+  h+='<div class="note" style="margin-bottom:10px">Only to another PO of the same customer, for the same product, at the same price, with the same price on the bag. The QA result moves with the stock. Nothing moves until the Plant Manager approves.</div>';
+  h+='<div class="fld"><label>Move to</label><select onchange="pmvForm.to=this.value;renderMoveStock()"><option value="">Pick the PO…</option>'+tg.map(function(x){ var k=x.o.po+'|'+x.l.id; return '<option value="'+qsEsc(k)+'"'+(k===f.to?' selected':'')+(x.why.length?' disabled':'')+'>'+qsEsc(x.o.po)+' · ordered '+fmt(+x.l.ordered||0)+', packed '+fmt(+x.l.packed||0)+', room '+fmt(pmvRoom(x.l))+(x.why.length?' — not allowed: '+qsEsc(x.why[0]):'')+'</option>'; }).join('')+'</select></div>';
+  h+='<table style="margin-top:10px"><thead><tr><th>Pack batch</th><th>Packed on</th><th class="num">Not shipped</th><th class="num">Cleared by QA</th><th class="num" style="width:130px">Move Kg</th></tr></thead><tbody>'+lots.map(function(p){ return '<tr><td><b>'+qsEsc(lotBrandNo(p)||'—')+'</b></td><td>'+qsEsc(p.actualDate||p.date||'')+'</td><td class="num">'+fmt(pmvLotFree(p))+'</td><td class="num">'+fmt(pmvLotCleared(p))+'</td><td class="num"><input type="number" min="0" step="1" style="width:110px;text-align:right" value="'+(f.kg[p.id]||'')+'" oninput="pmvForm.kg[\''+qsEsc(p.id)+'\']=this.value"></td></tr>'; }).join('')+'</tbody></table>';
+  h+='<div class="muted" style="font-size:12px;margin-top:6px">'+(t?('Room on '+qsEsc(t.o.po)+': <b>'+fmt(pmvRoom(t.l))+'</b> Kg/L. '):'')+'Stock on a planned or loaded truck is not offered.</div>';
+  h+='<div class="fld fld-long" style="margin-top:10px"><label>Why (the Plant Manager reads this)</label><textarea rows="2" oninput="pmvForm.reason=this.value" placeholder="e.g. Punjab delivery due first; Sindh will be made next week">'+_tx(f.reason||'')+'</textarea></div>';
+  h+='</div><div class="mf"><button class="qs-btn ghost" onclick="closeModal()">Cancel</button><button class="qs-btn" onclick="submitMoveStock()">Ask the Plant Manager</button></div>';
+  $('modal').innerHTML=h; }
+function submitMoveStock(){ var f=pmvForm; if(!f) return; if(!may('stock.move_request')){ toast(denyRight('stock.move_request','Asking to move packed stock')); return; }
+  var a=pmvLine(f.fromPo,f.fromLid), oA=a.o, lA=a.l; if(!lA){ toast('Order line not found'); return; }
+  if(!f.to){ toast('Pick the PO to move to'); return; }
+  var tp=f.to.split('|'), b=pmvLine(tp[0],tp[1]); var why=pmvWhyNot(oA,lA,b.o,b.l); if(why.length){ toast(why[0]); return; }
+  if(pmvOpenOn(oA.po,lA.id).length||pmvOpenOn(b.o.po,b.l.id).length){ toast('A move on one of these lines is already waiting for the Plant Manager.'); return; }
+  var lots=[], tot=0, bad='';
+  Object.keys(f.kg).forEach(function(id){ var q=Math.round(+f.kg[id]||0); if(q<=0) return; var p=(state.packingLog||[]).find(function(x){ return x&&x.id===id; });
+    if(!p||p.po!==oA.po){ bad='A lot is no longer on this PO.'; return; } if(q>pmvLotFree(p)+0.5){ bad='Batch '+(lotBrandNo(p)||'')+' has only '+fmt(pmvLotFree(p))+' Kg not shipped.'; return; }
+    lots.push({lotId:id,kg:q,batch:lotBrandNo(p)||''}); tot+=q; });
+  if(bad){ toast(bad); return; } if(tot<=0){ toast('Enter how many Kg to move from a batch'); return; }
+  if(tot>pmvRoom(b.l)+0.5){ toast(b.o.po+' has room for only '+fmt(pmvRoom(b.l))+' Kg/L of '+b.l.brand+'.'); return; }
+  if(!String(f.reason||'').trim()){ toast('Write why, for the Plant Manager'); return; }
+  var m={id:nid('MV'),status:'asked',at:new Date().toISOString(),by:pmvWho(),fromPo:oA.po,fromLid:lA.id,toPo:b.o.po,toLid:b.l.id,client:oA.client||'',brand:lA.brand,lots:lots,kg:tot,reason:String(f.reason).trim()};
+  (state.poMoves=state.poMoves||[]).unshift(m);
+  logAction('Stock move ASKED — '+fmt(tot)+' Kg '+lA.brand+' from '+oA.po+' to '+b.o.po+' ('+lots.map(function(x){ return x.batch+' '+fmt(x.kg); }).join(', ')+'): '+m.reason);
+  save(); closeModal(); toast('Sent to the Plant Manager'); render(); }
+
+/* ---- the decision (Plant Manager) ---- */
+function pmvById(id){ return (state.poMoves||[]).find(function(m){ return m&&m.id===id; })||null; }
+/* every check again, on the data as it is NOW */
+function pmvProblems(m){ var out=[]; var a=pmvLine(m.fromPo,m.fromLid), b=pmvLine(m.toPo,m.toLid);
+  out=out.concat(pmvWhyNot(a.o,a.l,b.o,b.l)); if(!a.l||!b.l) return out;
+  m.lots.forEach(function(x){ var p=(state.packingLog||[]).find(function(y){ return y&&y.id===x.lotId; });
+    if(!p||p.po!==m.fromPo) out.push('Batch '+x.batch+' is no longer on '+m.fromPo+'.');
+    else if(x.kg>pmvLotFree(p)+0.5) out.push('Batch '+x.batch+' now has only '+fmt(pmvLotFree(p))+' Kg not shipped (asked '+fmt(x.kg)+').'); });
+  if(m.kg>pmvRoom(b.l)+0.5) out.push(m.toPo+' now has room for only '+fmt(pmvRoom(b.l))+' Kg/L.');
+  return out; }
+function openMoveApprove(id){ var m=pmvById(id); if(!m){ toast('Move not found'); return; } renderMoveApprove(id); $('modalBg').classList.add('open'); }
+var pmvRefuseWhy='';
+function renderMoveApprove(id){ var m=pmvById(id); if(!m) return; var pr=(m.status==='asked')?pmvProblems(m):[]; var me=pmvWho();
+  var canA=m.status==='asked'&&may('stock.move_approve')&&!pmvSame(me,m.by); var mine=pmvSame(me,m.by)||state.role==='COO';
+  var h='<div class="mh"><h2>Move packed stock: '+qsEsc(m.fromPo)+' → '+qsEsc(m.toPo)+'</h2><div class="sub">'+qsEsc(m.client)+' · '+qsEsc(m.brand)+' · <b>'+fmt(m.kg)+' Kg/L</b> · asked by '+qsEsc(m.by.name)+' on '+qsEsc(String(m.at).slice(0,10))+'</div></div><div class="mb">';
+  h+='<div class="note"><b>Why:</b> '+qsEsc(m.reason)+'</div>';
+  h+='<table style="margin-top:10px"><thead><tr><th>Pack batch</th><th class="num">Kg/L</th></tr></thead><tbody>'+m.lots.map(function(x){ return '<tr><td><b>'+qsEsc(x.batch||'—')+'</b></td><td class="num">'+fmt(x.kg)+'</td></tr>'; }).join('')+'</tbody></table>';
+  h+='<div class="muted" style="font-size:12px;margin-top:8px">On approval the bags stay where they are. The record moves: '+qsEsc(m.fromPo)+' packed goes down and '+qsEsc(m.toPo)+' packed goes up by '+fmt(m.kg)+' Kg/L, with the same batch, dates and QA result. '+qsEsc(m.fromPo)+' will need this quantity made again.</div>';
+  if(m.status!=='asked') h+='<div class="note" style="margin-top:10px">'+(m.status==='done'?('Approved by '+qsEsc((m.approvedBy||{}).name||'')+' on '+qsEsc(String(m.approvedAt||'').slice(0,10))+'.'):m.status==='refused'?('Refused by '+qsEsc((m.refusedBy||{}).name||'')+': “'+qsEsc(m.refusedWhy||'')+'”'):'Cancelled.')+'</div>';
+  if(pr.length) h+='<div class="banner warn" style="margin-top:10px"><b>This move cannot be approved as it stands:</b><br>'+pr.map(qsEsc).join('<br>')+'</div>';
+  if(canA) h+='<div class="fld fld-long" style="margin-top:10px"><label>If you refuse: why (goes back to '+qsEsc(m.by.name)+')</label><textarea rows="2" oninput="pmvRefuseWhy=this.value">'+_tx(pmvRefuseWhy||'')+'</textarea></div>';
+  else if(m.status==='asked'&&pmvSame(me,m.by)) h+='<div class="muted" style="font-size:12px;margin-top:8px">You asked for this move, so somebody else approves it.</div>';
+  h+='</div><div class="mf"><button class="qs-btn ghost" onclick="closeModal()">Close</button>'
+    +(m.status==='asked'&&mine?'<button class="qs-btn ghost" onclick="cancelMove(\''+qsEsc(m.id)+'\')">Cancel the request</button>':'')
+    +(m.status==='refused'&&pmvSame(me,m.by)&&!m.refusalSeenAt?'<button class="qs-btn" onclick="noteMoveRefusal(\''+qsEsc(m.id)+'\')">Noted</button>':'')
+    +(canA?'<button class="qs-btn ghost" onclick="refuseMove(\''+qsEsc(m.id)+'\')">Refuse</button>'+(pr.length?'':'<button class="qs-btn" onclick="approveMove(\''+qsEsc(m.id)+'\')">Approve the move</button>'):'')+'</div>';
+  $('modal').innerHTML=h; }
+function approveMove(id){ var m=pmvById(id); if(!m||m.status!=='asked'){ toast('This move is no longer waiting'); return; }
+  if(!may('stock.move_approve')){ toast(denyRight('stock.move_approve','Approving a stock move')); return; }
+  if(pmvSame(pmvWho(),m.by)){ toast('You asked for this move. Somebody else must approve it.'); return; }
+  var pr=pmvProblems(m); if(pr.length){ toast(pr[0]); renderMoveApprove(id); return; }
+  pmvApply(m); m.status='done'; m.approvedBy=pmvWho(); m.approvedAt=new Date().toISOString();
+  logAction('Stock move APPROVED — '+fmt(m.kg)+' Kg '+m.brand+' from '+m.fromPo+' to '+m.toPo+' (asked by '+m.by.name+')');
+  save(); closeModal(); toast('Moved: '+fmt(m.kg)+' Kg/L to '+m.toPo); render(); }
+function pmvApply(m){ var a=pmvLine(m.fromPo,m.fromLid), b=pmvLine(m.toPo,m.toLid), oA=a.o, lA=a.l, oB=b.o, lB=b.l; var at=new Date().toISOString(), d=evToday();
+  m.before={from:{packed:+lA.packed||0,produced:+lA.produced||0,prodComplete:lA.prodComplete||'',qcPass:lA.qcPass||''},to:{packed:+lB.packed||0,produced:+lB.produced||0,prodComplete:lB.prodComplete||'',qcPass:lB.qcPass||'',prodStart:lB.prodStart||''}};
+  var tot=0; m.applied=[];
+  m.lots.forEach(function(x){ var p=(state.packingLog||[]).find(function(y){ return y&&y.id===x.lotId; }); var q=x.kg; var qi=Math.min(q,pmvLotCleared(p));
+    var n=JSON.parse(JSON.stringify(p)); delete n.movedOut; n.id=nid('PK'); n.po=oB.po; n.lid=lB.id; n.kg=q; n.insKg=qi; n.shipKg=0;
+    n.movedFrom={moveId:m.id,po:oA.po,lid:lA.id,lotId:p.id,at:at};
+    p.kg=Math.max(0,(+p.kg||0)-q); p.insKg=Math.max(+p.shipKg||0,(+p.insKg||0)-qi);
+    p.movedOut=(p.movedOut||[]).concat([{moveId:m.id,kg:q,insKg:qi,toPo:oB.po,toLid:lB.id,lotId:n.id,at:at}]);
+    state.packingLog.unshift(n); m.applied.push({fromLot:p.id,toLot:n.id,kg:q,insKg:qi,batch:x.batch}); tot+=q; });
+  lA.packed=Math.max(0,(+lA.packed||0)-tot); lA.produced=Math.max(lA.packed,(+lA.produced||0)-tot);
+  lB.packed=(+lB.packed||0)+tot; lB.produced=Math.max(lB.packed,(+lB.produced||0)+tot);
+  if(lA.packed<(+lA.ordered||0)-0.5) lA.prodComplete='';
+  if(linePassedInsp(oA,lA)<(+lA.ordered||0)-0.001) lA.qcPass='';
+  if(!lB.prodStart) lB.prodStart=d;
+  if(lB.packed>=(+lB.ordered||0)-0.5&&!lB.prodComplete) lB.prodComplete=d;
+  if(linePassedInsp(oB,lB)>=(+lB.ordered||0)-0.001&&!lB.qcPass) lB.qcPass=d; }
+function refuseMove(id){ var m=pmvById(id); if(!m||m.status!=='asked') return; if(!may('stock.move_approve')){ toast(denyRight('stock.move_approve','Refusing a stock move')); return; }
+  var w=String(pmvRefuseWhy||'').trim(); if(!w){ toast('Write why, for '+m.by.name); return; }
+  m.status='refused'; m.refusedBy=pmvWho(); m.refusedAt=new Date().toISOString(); m.refusedWhy=w; pmvRefuseWhy='';
+  logAction('Stock move REFUSED — '+m.brand+' '+m.fromPo+' → '+m.toPo+': '+w); save(); closeModal(); toast('Sent back to '+m.by.name); render(); }
+function cancelMove(id){ var m=pmvById(id); if(!m||m.status!=='asked') return; if(!(pmvSame(pmvWho(),m.by)||state.role==='COO')){ toast('Only the person who asked can cancel it'); return; }
+  m.status='cancelled'; m.cancelledAt=new Date().toISOString(); logAction('Stock move CANCELLED — '+m.brand+' '+m.fromPo+' → '+m.toPo); save(); closeModal(); render(); }
+function noteMoveRefusal(id){ var m=pmvById(id); if(!m) return; m.refusalSeenAt=new Date().toISOString(); save(); closeModal(); render(); }
+function pmvActionItems(){ var out=[]; (state.poMoves||[]).forEach(function(m){ if(!m) return; var a=pmvLine(m.fromPo,m.fromLid);
+    if(m.status==='asked') out.push({role:'Plant Manager',o:a.o||undefined,l:a.l||undefined,labAt:m.at,what:'Approve moving '+fmt(m.kg)+' Kg/L '+m.brand+' from '+m.fromPo+' to '+m.toPo+' (asked by '+m.by.name+')',act:"openMoveApprove('"+m.id+"')",label:'Approve move'});
+    if(m.status==='refused'&&!m.refusalSeenAt) out.push({role:m.by.role||'Supply Chain',who:m.by.user||undefined,o:a.o||undefined,l:a.l||undefined,labAt:m.refusedAt,what:'Move refused — '+m.brand+' '+m.fromPo+' → '+m.toPo+' · by '+((m.refusedBy||{}).name||'')+': “'+String(m.refusedWhy||'')+'”',act:"openMoveApprove('"+m.id+"')",label:'Move refused'}); });
+  return out; }
+/* A packing record that took part in a move is linked to its other half. Changing
+   one half on its own (its Kg, batch or dates) would make the 2 POs disagree about
+   the same bags, so corrections to either half are refused. */
+function lotMoveLock(p){ if(!p) return null; if((p.movedOut||[]).length) return 'This packing run was partly moved to '+p.movedOut.map(function(x){ return x.toPo; }).join(', ')+' (stock move). It cannot be corrected on its own; the 2 POs would no longer agree about the same bags.';
+  if(p.movedFrom) return 'This packing run came from '+p.movedFrom.po+' by a stock move. It cannot be corrected on its own; the 2 POs would no longer agree about the same bags.'; return null; }
+/* the original lot and every part of it that was moved, however many times */
+function lotFamily(p){ var out=[], seen={}; (function walk(q){ if(!q||seen[q.id]) return; seen[q.id]=1; out.push(q); (q.movedOut||[]).forEach(function(mo){ walk((state.packingLog||[]).find(function(y){ return y&&y.id===mo.lotId; })); }); })(p); return out; }
 function actionItems(){
   const items=[];
   (state.orders||[]).forEach(o=>{
@@ -12487,6 +12690,7 @@ function actionItems(){
   (state.prs||[]).filter(p=>p.status==='open'&&p.refused).forEach(p=>items.push({role:p.byRole||p.by||'Supply Chain',pr:p,what:'PR refused — '+p.rm+' '+fmt(p.qtyRequired)+' Kg/L · by '+(p.refused.by||'')+': \u201c'+String(p.refused.why||'')+'\u201d',act:"openPRRefused('pr','"+p.id+"')",label:'PR refused'})); /* 26a */
   /* R9 - a new customer waits for the CFO before its first order */
   try{ pendingCustomerItems().forEach(function(it){ items.push(it); }); }catch(e){}
+  try{ pmvActionItems().forEach(function(it){ items.push(it); }); }catch(e){}   /* 07c: stock moves between POs */
   /* 24v: a lab signature with nobody to give it - the Plant Manager names a cover */
   try{ labCoverNeeds().forEach(function(it){ items.push(it); }); }catch(e){}
   (state.batches||[]).filter(b=>(b.producedKg||0)>0 && b.disposition!=='byproduct').forEach(b=>{ const it=coaItemOf(b);  /* Stage 1: by-product accruals don't generate Lab-COA/QC actions until called for manufacturing (read-only; clears the 2 false QC triggers) */ const units=(b.lots||[]).length?(b.lots).map(l=>({id:l.id,no:(l.lotNo||b.batchNo||''),coa:l.coa,rework:l.rework})):[{id:'',no:(b.batchNo||''),coa:b.coa,rework:b.rework}];
@@ -12995,7 +13199,7 @@ function actTiming(it){
       case 'Ship': { var _ls=it.shipLines||(it.l?[it.l]:[]); var _ds=_ls.map(function(x){return shipReadySince(it.o,x);}).filter(Boolean); if(_ds.length){ _ds.sort(); c=_ds[0]; approx=false; } else { c=(it.l&&it.l.qcPass)||it.o.received; approx=!(it.l&&it.l.qcPass); } break; }
       case 'Pack QC': { var _pd=lotsFor(it.o,l).filter(function(p){return lotAvail(p)>0.5;}).map(function(p){return p.date||p.mfgDate;}).filter(Boolean).sort(); if(_pd.length){ c=_pd[_pd.length-1]; approx=false; } else { c=it.o.received; approx=true; } break; }
       case 'Add reason': c=l.committed||it.o.promised||it.o.received; approx=true; break;
-      case 'PO sent back': case 'PR refused': c=it.labAt||it.o.received; approx=!it.labAt; break;
+      case 'PO sent back': case 'PR refused': case 'Approve move': case 'Move refused': c=it.labAt||it.o.received; approx=!it.labAt; break;
       case 'Refused': c=(l.shortClose&&l.shortClose.refusedAt)||it.o.received; approx=!(l.shortClose&&l.shortClose.refusedAt); break;
       default: c=it.o.received; approx=true;
     }
@@ -13250,6 +13454,8 @@ var TD_LABEL={
   'Rework lot':      {title:'Lot sent to rework',                   verb:'Rework it'},
   'Close batch':     {title:'Batch to close',                       verb:'Close the batch'},
   'Refused':         {title:'Your close request was refused',       verb:'Read why'},
+  'Approve move':    {title:'Packed stock to move to another PO',   verb:'Approve or refuse'},
+  'Move refused':    {title:'Your stock move was refused',          verb:'Read why'},
   'Correct COA':     {title:'COA sent back to you to correct',      verb:'Correct and submit'},
   'PO sent back':    {title:'PO sent back to you',                  verb:'Fix it'},
   'PR refused':      {title:'Your purchase request was refused',    verb:'Read why'},
@@ -13860,7 +14066,7 @@ var TD_NEXT={'Assign sample':'Lab test','Lab test':'Review',  /* 24z: the lab by
   'Acknowledge':'RM Check','RM Check':'Approve PR','Approve PR':'Receive','Receive':'Open Production','Print price':'Open Production',
   'Open Production':'Close batch','Close batch':'Lab QC','Reopened — check first':'Close batch','Lab QC':'Review','Review':'Approve','Approve':'Pack QC',
   'Pack QC':'Ship','Correct':'Re-inspect','Re-inspect':'Ship','Ship':'Load','Load':'Inspect','Inspect':'Gate Pass','Gate Pass':'Review truck','Review truck':'Release','Release':'Confirm delivery',
-  'Approve DC':'Confirm delivery','Confirm delivery':'','Refused':'','Sent back':'Review truck','Correct COA':'Review','PO sent back':'Acknowledge','PR refused':'Approve PR','Customer sent back':'Approve customer','DC rejected':'Ship','Truck failed':'Ship','Yield short':'','Sample not approved':'','Add reason':'','Approve customer':'',
+  'Approve DC':'Confirm delivery','Confirm delivery':'','Refused':'','Approve move':'Ship','Move refused':'','Sent back':'Review truck','Correct COA':'Review','PO sent back':'Acknowledge','PR refused':'Approve PR','Customer sent back':'Approve customer','DC rejected':'Ship','Truck failed':'Ship','Yield short':'','Sample not approved':'','Add reason':'','Approve customer':'',
   'Approve sample':'Issue sample','Issue sample':'Check sample','Check sample':'Sample gate pass','Sample gate pass':'Review sample','Review sample':'Release sample','Release sample':'Sample arrived','Sample arrived':'Sample feedback','Sample feedback':''};
 function tdRoleJobs(role){
   /* the labels addressed to this role right now, plus every label whose live
@@ -14217,7 +14423,7 @@ function openOrderSheet(id){
   h+='<div class="note" style="margin:10px 0 14px"><b>Next:</b> '+next+'</div>';
   h+='<div class="tdsec" style="margin-top:0">Products<span class="cnt">'+(o.lines||[]).length+'</span></div>';
   h+='<div class="tdlist">'+(o.lines||[]).map(function(l){ var lb=ordLineBrief(o,l); var tone=lb.b==='Delivered'?'st-done':(lb.b==='Closed short'?'st-na':(lb.late?'st-over':'st-ok'));
-    return '<div class="tdcard ord2-line '+tone+'"><div class="row between" style="align-items:baseline;gap:8px;flex-wrap:wrap"><span class="tdtitle" style="margin-top:0">'+qsEsc(l.brand)+'</span><span class="tdsub">'+fmt(lb.ord)+' '+unitOf(l.brand)+' ordered · <b>'+qsEsc(lb.b)+'</b>'+(lb.late?' · <span style="color:var(--over)">'+calDays(l.committed)+' d past its date</span>':'')+'</span></div>'+ordLineStepsHTML(o,l)+(function(){ var _I=lineIssues(o,l); return '<div class="row" style="gap:8px;margin-top:6px;align-items:center">'+(_I.length?'<span class="tdtag late">■ '+qsEsc(_I[0].t)+'</span>':'')+'<button class="qs-btn sm ghost" onclick="lfForm={};lineFixOpen(\''+qsEsc(o.po)+'\',\''+qsEsc(l.id)+'\')">History'+(_I.length&&screenEditOK('datafix')?' and fix':'')+'</button></div>'; })()+(typeof closeLineButtonHTML==='function'?(function(){ var cb=closeLineButtonHTML(o,l); return cb?'<div class="actions" style="margin-top:8px">'+cb+'</div>':''; })():'')+'</div>'; }).join('')+'</div>';
+    return '<div class="tdcard ord2-line '+tone+'"><div class="row between" style="align-items:baseline;gap:8px;flex-wrap:wrap"><span class="tdtitle" style="margin-top:0">'+qsEsc(l.brand)+'</span><span class="tdsub">'+fmt(lb.ord)+' '+unitOf(l.brand)+' ordered · <b>'+qsEsc(lb.b)+'</b>'+(lb.late?' · <span style="color:var(--over)">'+calDays(l.committed)+' d past its date</span>':'')+'</span></div>'+ordLineStepsHTML(o,l)+(function(){ var _I=lineIssues(o,l); return '<div class="row" style="gap:8px;margin-top:6px;align-items:center">'+(_I.length?'<span class="tdtag late">■ '+qsEsc(_I[0].t)+'</span>':'')+'<button class="qs-btn sm ghost" onclick="lfForm={};lineFixOpen(\''+qsEsc(o.po)+'\',\''+qsEsc(l.id)+'\')">History'+(_I.length&&screenEditOK('datafix')?' and fix':'')+'</button></div>'; })()+(typeof closeLineButtonHTML==='function'?(function(){ var cb=closeLineButtonHTML(o,l)+moveStockButtonHTML(o,l); return cb?'<div class="actions" style="margin-top:8px">'+cb+'</div>':''; })():'')+'</div>'; }).join('')+'</div>';
   h+=ordDocsHTML(o);
   h+='</div><div class="mf">'+openBtn+close+'<button class="qs-btn" onclick="closeModal()">Close</button></div>';
   $('modal').innerHTML=h; $('modalBg').classList.add('open');
@@ -14497,6 +14703,8 @@ function guideRules(){
   h+='<div class="gd-rule"><h3>The 2-person rules</h3><p>The person who drafts a COA does not review it; the reviewer does not approve it. Nobody who ran a test on a sample reviews or approves its certificate. Management does not sign a certificate: only the lab signs. The person who loads a truck does not release it. Nobody inspects their own output. A department lead can hand out the department’s rights but cannot widen his own. Where the app finds 2 of these in one pair of hands it refuses the button and says why.</p></div>';
   h+='<div class="gd-rule"><h3>Free samples</h3><p>A free sample is never an order and never touches production or stock: it is taken from the sampling pool (over-production and extra material). Whoever sends it (Irfan, Muhammad Ali or anyone else) asks under <b>FOC samples</b>, or Finance asks for them; the request says who, to whom, why and what. <b>The COO grants every sample</b>; granting does not skip the process. QA checks the pack, the label and the batch; the warehouse gives it its own sample DC and a gate pass from the same book as the trucks; <b>Saad reviews</b> it (after 2 hours without a review it goes straight to the Plant Manager) and <b>the Plant Manager releases</b> it. The person who asked confirms it arrived, and '+SMP_FEEDBACK_DAYS+' days after it was sent is asked what the client said. A sample never counts as a sale and never appears as work for production.</p></div>';
   h+='<div class="gd-rule"><h3>When the AQCM or the QCM is on leave</h3><p>Tap your name → <b>I’m going on leave</b> and give the days; the Plant Manager gets a job to name a cover. The cover is someone in the lab. He signs one line in his own name, and the certificate prints <b>for</b> the person on leave. A cover never signs both lines of one certificate. If nobody announced the leave and certificates wait a day for someone who has done nothing in the app that day, the Plant Manager is asked too.</p></div>';
+  /* 07c */
+  h+='<div class="gd-rule"><h3>Moving packed stock to another PO</h3><p>When a customer sends 2 POs for the same product (say one for Punjab, one for Sindh) and the stock was packed on the wrong one, it can be moved. Only to a PO of the <b>same customer</b>, for the <b>same product</b>, at the <b>same price</b>, with the <b>same price on the bag</b>, and only stock that is not on a truck. <b>Supply Chain asks</b> from the order (Move packed stock to another PO) and writes why; the <b>Plant Manager approves</b> or refuses; the person who asked cannot approve. The bags do not move: the record does. They keep their batch, dates, COA and QA result. The first PO then needs that quantity made again. Every move is in Reports → Checks and corrections → <b>Stock moved between POs</b>. A packing run that was moved cannot be corrected on its own, and withdrawing its inspection un-clears it on both POs.</p></div>';
   h+='<div class="gd-rule"><h3>Nothing is deleted</h3><p>An order line is closed short with a reason, never removed; the ordered quantity is never rewritten and cannot be typed anywhere: less is a close-short, more is a new order. To close, open the order and tick only the products to close; nothing is ticked for you. A few bags filled from finished stock or another product’s batch, which O2S does not track, are closed short as <b>Supplied from stock outside O2S</b> (not counted against us, and not a sale in O2S). A product already packed in full cannot be closed as <b>We could not supply</b> or <b>Raw material never arrived</b>: the stock was made, so the reason must say why it is not going, such as <b>Customer cancelled the balance</b>. A refused close needs a reason; it stays on the record and goes back to the person who asked, who asks again or leaves the line open. A lot that is an exact copy of another one, and that the batch total already leaves out, is a <b>leftover duplicate</b>: the Production Manager removes only the record, and produced does not change. A product or customer is deactivated, not deleted. A wrong entry is corrected under Correct a record, with a reason, in your name, and the correction sits beside the original in the register. If a number changed, the record shows who changed it and why.</p></div>'+
   '<div class="gd-rule"><h3>A number moves only with its record</h3><p>Packed moves with a packing run from a batch, dispatched with a truck, delivered with a delivery. None of them can be typed, and nothing can be packed beyond what the line ordered. When a line and its records disagree, open the line (Orders → the order → <b>History</b>, or the item on Back Office <b>Needs you</b>): it shows what is wrong, the line’s whole history, what the records show as the cause, and the fix — record the missing packing against its batch, bring packed back to its records, or stamp a delivery date from the truck — each with a reason in your name.</p></div>'+
   '<div class="gd-rule"><h3>The price on a new order</h3><p>Every price is checked against the last price this customer paid for the product, net of FED; for a first order, against the last price to anyone. More than 5% away needs a reason, written under the price, and it is kept on the order line with the last price it was compared with. Payment terms and the ERP SO # are part of every order; the SO # prints on the DC.</p></div>'+
@@ -17980,6 +18188,10 @@ var RB_DATASETS={
       return out; },
     fields:[{k:'received',l:'Sample in',t:'dim'},{k:'product',l:'Product',t:'dim'},{k:'batch',l:'Batch',t:'dim'},{k:'po',l:'PO',t:'dim'},{k:'approved',l:'Approved',t:'dim'},{k:'status',l:'Status',t:'dim'},{k:'by',l:'Approved by',t:'dim'},{k:'days',l:'Days',t:'meas'}],
     filters:['status','product']},
+  moves:{label:'Stock moved between POs',dateKey:'date',
+    rows:function(){ return (state.poMoves||[]).filter(Boolean).map(function(m){ return {date:String(m.at||'').slice(0,10),from:m.fromPo||'',to:m.toPo||'',client:m.client||'',product:m.brand||'',batches:(m.lots||[]).map(function(x){ return x.batch; }).join(', '),status:({asked:'Waiting for the Plant Manager',done:'Moved',refused:'Refused',cancelled:'Cancelled'})[m.status]||m.status,by:(m.by||{}).name||'',decidedby:((m.approvedBy||m.refusedBy)||{}).name||'',reason:m.reason||'',kg:+m.kg||0}; }); },
+    fields:[{k:'date',l:'Asked',t:'dim'},{k:'from',l:'From PO',t:'dim'},{k:'to',l:'To PO',t:'dim'},{k:'client',l:'Client',t:'dim'},{k:'product',l:'Product',t:'dim'},{k:'batches',l:'Batches',t:'dim'},{k:'status',l:'Status',t:'dim'},{k:'by',l:'Asked by',t:'dim'},{k:'decidedby',l:'Decided by',t:'dim'},{k:'reason',l:'Why',t:'dim'},{k:'kg',l:'Kg/L',t:'meas'}],
+    filters:['status','client','product']},
   deferred:{label:'Deferred actions',dateKey:'until',
     rows:function(){ var m=state.acDefer||{}; var out=[]; var items=(typeof actionItems==='function')?actionItems():[]; items.forEach(function(it){ var k=(typeof acKey==='function')?acKey(it):''; var d=m[k]; if(d&&d.until){ out.push({action:it.label||'',po:(it.o&&it.o.po)||'',client:(it.o&&it.o.client)||'',product:(it.l&&it.l.brand)||'',role:it.role||'',reason:d.reason||'',until:d.until||'',by:d.by||'',at:d.at||''}); } }); return out; },
     fields:[{k:'action',l:'Action',t:'dim'},{k:'po',l:'PO',t:'dim'},{k:'client',l:'Client',t:'dim'},{k:'product',l:'Product',t:'dim'},{k:'role',l:'Role',t:'dim'},{k:'reason',l:'Reason',t:'dim'},{k:'until',l:'Returns on',t:'dim'},{k:'by',l:'Deferred by',t:'dim'},{k:'at',l:'Deferred on',t:'dim'}],
@@ -18342,6 +18554,7 @@ var RP_CATALOGUE=[
   {id:'packqa', t:'Packing and lot QA', q:'Every inspection of packed material: batch, quantity, result, inspector.', ds:'packqa', cols:['date','po','client','product','batch','kg','result','by'], mode:'raw', period:'This month', roles:['QA Inspector','Production','Production Manager','Plant Manager','QCM','AQCM','Warehouse','Supply Chain','Supply Chain Officer','COO','CFO']},
   {id:'waiting', t:'Packed, waiting to ship', q:'Packed and not yet shipped: how much is cleared by QA and ready, how much still waits for QA.', ds:'waiting', cols:['po','client','product','lastpacked','packed','dispatched','waiting','ready','awaitqa'], mode:'raw', period:'All', sumKey:'waiting', views:[{t:'Each order line'},{t:'By customer',mode:'summary',group:['client'],cols:['client','waiting','ready','awaitqa']},{t:'By product',mode:'summary',group:['product'],cols:['product','waiting','ready','awaitqa']}], roles:['Supply Chain','Supply Chain Officer','Warehouse','Production Manager','Plant Manager','QA Inspector','KAM','COO','CFO']},
   {id:'labtat', t:'Lab turnaround', q:'Days from the QC manager handing the sample to the lab to the approved certificate, and how long the open ones have waited. Certificates from the current lab flow only.', ds:'labtat', cols:['received','product','batch','po','approved','status','by','days'], mode:'raw', period:'This month', avgKey:'days', roles:['Lab Rep','AQCM','QCM','QA Inspector','Plant Manager','Production Manager','COO','CFO']}   /* 07b: Tahir - the Plant and Production Managers see it too */,
+  {id:'moves', t:'Stock moved between POs', q:'Every request to move packed stock to another PO of the same customer: what, why, who asked, who decided.', ds:'moves', cols:['date','from','to','client','product','batches','kg','status','by','decidedby','reason'], mode:'raw', period:'FY to date', roles:['Plant Manager','Production Manager','Supply Chain','Supply Chain Officer','Warehouse','QA Inspector','COO','CFO']},
   {id:'docs', t:'Documents', q:'Find and reprint a purchase order, delivery challan, gate pass or pre-shipment inspection report.', kind:'docs', roles:'all'},
   {id:'custom', t:'Custom report', q:'Any dataset, any columns, rows or a summary; CSV, Excel or PDF.', kind:'builder', roles:'all'}
 ];
@@ -18375,7 +18588,7 @@ var RP_GROUPS=[
   {id:'quality', t:'Lab and QA', q:'Certificates, how long the lab takes, every inspection of packed material and of each truck.', ids:['coa','labtat','packqa','psi']},
   {id:'shipping', t:'Stock and shipping', q:'What is packed and waiting, what left the gate, and every document to reprint.', ids:['waiting','trucks','docs']},
   {id:'money', t:'Sales and invoicing', q:'Sold value against the budget, and what to invoice by delivery challan.', ids:['sales','invoicing']},
-  {id:'control', t:'Checks and corrections', q:'What was recorded late, and who changed what and why.', ids:['lateentries','corrections']}
+  {id:'control', t:'Checks and corrections', q:'What was recorded late, who changed what and why, and stock moved between POs.', ids:['lateentries','corrections','moves']}
 ];
 function rpGroupOf(id){ for(var i=0;i<RP_GROUPS.length;i++){ if(RP_GROUPS[i].ids.indexOf(id)>-1) return RP_GROUPS[i]; } return null; }
 function rpGroupVisible(g){ return g.ids.map(rpDef).filter(function(c){ return c&&rpMay(c); }); }
@@ -18397,7 +18610,7 @@ function rpPeriodChips(){ return '<div class="chips">'+['This month','Last month
 /* 07a: long text wraps in a named report (report tables were all nowrap, so a
    detail or a product list pushed columns and buttons off the screen), and a DC
    number opens the DC, as a PSI number opens its report. */
-var RP_WRAP_COLS=['type','detail','client','product','destination','reason','reasonCode','changed','cascade','record','products','action'];
+var RP_WRAP_COLS=['batches','type','detail','client','product','destination','reason','reasonCode','changed','cascade','record','products','action'];
 function rpCellHTML(k,r){ var v=qsEsc(rbCellFmt(k,r[k]));
   if(k==='dc'&&r._disp&&r[k]) return '<a class="psi-link" title="Open the delivery challan, ready to print" onclick="printDC(\''+qsEsc(r._disp)+'\')" style="cursor:pointer;font-weight:700;color:var(--navy);text-decoration:underline">'+v+'</a>';
   return v; }

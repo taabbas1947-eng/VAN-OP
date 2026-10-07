@@ -118,4 +118,5 @@ ok('How it works: an order carries terms, ERP SO and the 5% price reason (25j)',
 ok('The Rules say each list-price product on a truck gets its own price (6 Oct)', /on a truck with 2 or more such products, the price for each product/.test(html));
 ok('The Rules say a packed product cannot be closed as We could not supply (6 Oct)', /A product already packed in full cannot be closed as <b>We could not supply<\/b>/.test(html));
 ok('The Rules say where to find a copy of each paper (6 Oct, 06c)', /<h3>Where to find a copy<\/h3>/.test(html) && /Its sheet ends with <b>Papers<\/b>/.test(html));
+ok('The Rules: moving packed stock to another PO, who asks, who approves, what moves (7 Oct, 07c)', /<h3>Moving packed stock to another PO<\/h3>/.test(html) && /<b>Supply Chain asks<\/b>/.test(html) && /<b>Plant Manager approves<\/b>/.test(html));
 process.exitCode = report('The Guide keeps up (24z)') ? 1 : 0;

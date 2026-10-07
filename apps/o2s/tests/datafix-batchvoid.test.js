@@ -45,7 +45,7 @@ function eq(n, g, w) { ok(n, g === w, 'got ' + JSON.stringify(g) + ' want ' + JS
 });
 
 /* ============ 1. the sandbox: real writers + their real dependencies ============ */
-const FNS = ['dfSubmitPacking', 'dfSubmitVoid', 'dfBatchSelect', 'dfVoidEntrySelect',
+const FNS = ['lotMoveLock', 'dfSubmitPacking', 'dfSubmitVoid', 'dfBatchSelect', 'dfVoidEntrySelect',
              '_batchApprovedDate', 'batchLabApproved', 'batchPackableKg',
              'packDates', 'packMfgFor', 'batchProdDate', 'addMonthsISO',
              'recordBackfill', 'recordCorrection', 'correctTypeLabel', 'correctReasonText'];

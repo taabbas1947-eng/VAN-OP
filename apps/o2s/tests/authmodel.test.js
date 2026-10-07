@@ -266,6 +266,10 @@ const asRole = r => { B.state.role = r; };
     'sample.approve': { handler: 'smpDecide', since: '25 Sep 2026', why: '"COO approval before any sample can go out."' },
     'sample.issue':   { handler: 'smpIssue',  since: '25 Sep 2026', why: 'The warehouse issues the sample from stock and names the lot.' },
     'sample.check':   { handler: 'smpCheck',  since: '25 Sep 2026', why: 'QA checks the pack before it leaves.' },
+    /* 07c - moving packed stock between 2 POs of the same customer. Tahir, 7 Oct:
+       "Supply Chain asks, the Plant Manager approves". Nothing could do it before. */
+    'stock.move_request': { handler: 'submitMoveStock', since: '7 Oct 2026', why: 'Asking to move packed stock to another PO of the same customer, product and price.' },
+    'stock.move_approve': { handler: 'approveMove',     since: '7 Oct 2026', why: 'Approving that move; the asker may not approve his own request.' },
   };
   /* CLOSED GAPS — the third shape, neither of the two above. NOT a conversion:
      there is no old answer to freeze, because the old answer was "anyone, no
@@ -1810,6 +1814,8 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
     'sample.approve':       { kind: 'hard',    scr: undefined },
     'sample.issue':         { kind: 'hard',    scr: undefined },
     'sample.check':         { kind: 'hard',    scr: undefined },
+    'stock.move_request':   { kind: 'hard',    scr: undefined },
+    'stock.move_approve':   { kind: 'hard',    scr: undefined },
   };
   eq('every right in the catalogue is pinned here', B.RIGHTS.filter(r => !WANT[r.code]).length, 0);
   eq('and nothing pinned here has been dropped',

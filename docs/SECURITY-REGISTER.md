@@ -137,6 +137,24 @@ order and batch data. Removing the file today does not remove it from history.
 and ignore `*.sql` exports in the root; decide whether the history needs
 rewriting and whether the affected passwords should be changed.
 
+### S-07 · The VAN-OP repository on GitHub is public
+**Severity: high · Confirmed from GitHub · Raised 2026-10-07**
+
+`github.com/taabbas1947-eng/VAN-OP` is readable by anyone, without signing in.
+
+**How it was confirmed.** `https://api.github.com/repos/taabbas1947-eng/VAN-OP`
+answers 200 to a request with no credentials. GitHub answers 404 there for a
+private repository.
+
+**What it lets an attacker do.** Everything in the repository and its history is
+public: the code, the handoff logs (staff names, customers, decisions), and the
+database backup of S-06 with every password hash. Anything committed later, such
+as app demos with seed data, is public the moment it is pushed.
+
+**Suggested handling (for the security department).** Make the repository
+private (GitHub → Settings → Danger zone → Change visibility), then handle S-06,
+because a copy taken while it was public cannot be recalled.
+
 ---
 
 ## Closed items
@@ -152,3 +170,4 @@ _None yet._
 | 2026-08-16 | Register created. S-01 to S-04 raised from the PD audit. |
 | 2026-09-23 | S-05 raised from O2S: the Report Builder's finance dataset is not role-gated. |
 | 2026-09-27 | S-06 raised from PLATFORM: a full database backup with password hashes is committed (`van_platform.sql`). |
+| 2026-10-07 | S-07 raised while starting Nigehbaan: the VAN-OP repository on GitHub is public. |

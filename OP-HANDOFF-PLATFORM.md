@@ -981,3 +981,22 @@ EX-HG26027 200 with CORS for van.com.pk, encrypted PDF, unknown 404.
 `apps/` since 1 Oct. Left as they pushed it; their call to delete it.
 
 Pushed: **no** (ready).
+
+## 7 Oct 2026 — Nigehbaan tile on the launcher, opens the demo (MODULE: PLATFORM) — NOT PUSHED
+
+Tahir: name a tile "Nigehbaan نگہبان", "VAN's compliance & risk guardian". He ruled the CRMS
+"Compliance & Risk" tile (earlier ComPha) is Nigehbaan, so it is replaced, and the tile opens the demo.
+
+- `launcher.html`: the CRMS tile is now "Nigehbaan نگہبان" with a "Demo" label; opens `/nigehbaan`
+  in a new tab; open to everyone (no `data-module`, like HRMS), because the demo has no sign-in and keeps
+  its data in the browser. Bottom note and meta description say Nigehbaan instead of CRMS.
+- `server.js`: route `/nigehbaan` and `/nigehbaan/*`, before the O2S catch-all, serves
+  `apps/nigehbaan/nigehbaan-demo.html`. That file is kept out of git while the repository is public
+  (S-07), so on Render it is missing and the address answers 503 with a short "not available on this
+  server yet" page instead of falling into O2S.
+- Checked on a second local server (port 3001): `/nigehbaan` 200 with the demo; with the file moved away
+  503 and the message; `/o2s` and `/pd` unchanged; launcher shows the tile and no "CRMS" anywhere.
+- Not done: `MODULE_LIST` still says `compha`/ComPha (P1 in `apps/nigehbaan/docs/NIGEHBAAN-PLAN.md`); no
+  role, catalogue or sign-in change. The launcher's Manage-access comment still names ComPha.
+
+Pushed: **no** (ready).

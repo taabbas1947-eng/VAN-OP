@@ -929,6 +929,14 @@ app.get(['/', '/launcher', '/launcher.html'], (req, res) => { res.set('Cache-Con
 app.get(['/drop', '/pd/drop'], (req, res) => { res.set('Cache-Control', _NOCACHE); res.sendFile(path.join(__dirname, 'apps', 'pd', 'drop.html')); });
 // PD app: /pd (must come before the O2S catch-all below, or it silently serves O2S instead — this bit us once already).
 app.get(['/pd', '/pd/*'], (req, res) => { res.set('Cache-Control', _NOCACHE); res.sendFile(path.join(__dirname, 'apps', 'pd', 'pd.html')); });
+// Nigehbaan, demo for now (7 Oct 2026; must come before the O2S catch-all). The demo file is kept out of git while
+// the repository is public, so where it is missing (Render) the address says so instead of falling into O2S.
+app.get(['/nigehbaan', '/nigehbaan/*'], (req, res) => {
+  res.set('Cache-Control', _NOCACHE);
+  const demo = path.join(__dirname, 'apps', 'nigehbaan', 'nigehbaan-demo.html');
+  if (fs.existsSync(demo)) return res.sendFile(demo);
+  res.status(503).type('html').send('<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Nigehbaan</title><body style="font-family:system-ui,sans-serif;max-width:560px;margin:15vh auto;padding:0 16px;color:#1f2937"><h1 style="font-size:1.4rem">Nigehbaan <span lang="ur" dir="rtl">نگہبان</span></h1><p>The demo is not available on this server yet. Nigehbaan is being built.</p><p><a href="/">Back to the launcher</a></p></body>');
+});
 // O2S app: any other non-API path falls through to it.
 app.get('*', (req, res) => { res.set('Cache-Control', _NOCACHE); res.sendFile(path.join(__dirname, 'apps', 'o2s', 'o2s.html')); });
 

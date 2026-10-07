@@ -68,7 +68,7 @@ ok('the DC register shows the full customer name', /_pe\(g\.client\|\|'—'\)/.t
 /* 4. One name, and the Guide */
 ok('the samples page is FOC samples, as in the header (25p)', /\{id:'samples', name:'FOC samples'/.test(html) && /label:'FOC samples'/.test(html) && !/<h1>Free samples<\/h1>/.test(html));
 const rules = grab('guideRules');
-ok('The rules: Where to find a copy', /<h3>Where to find a copy<\/h3>/.test(rules) && /Reports → <b>Lab certificates<\/b>/.test(rules) && /<b>Papers<\/b>/.test(rules) && /Delivery challans, gate passes and inspection reports/.test(rules));
+ok('The rules: Where to find a copy', /<h3>Where to find a copy<\/h3>/.test(rules) && /Lab and QA → <b>Lab certificates<\/b>/.test(rules) && /<b>One customer<\/b>/.test(rules) && /<b>Papers<\/b>/.test(rules) && /Delivery challans, gate passes and inspection reports/.test(rules));
 
 /* 5. 06d: the inspection register wraps and its report number prints */
 const reg = grab('psiRegisterHTML');
@@ -89,4 +89,47 @@ ok('shipments report: a PO column after the DC', /id:'trucks'[^\n]*cols:\['date'
 ok('a DC number opens the DC', /k==='dc'&&r\._disp/.test(grab('rpCellHTML')) && /printDC\(/.test(grab('rpCellHTML')));
 ok('long text wraps in named reports, detail gets room', /'detail'/.test(html.match(/var RP_WRAP_COLS=[^\n]*/)[0]) && /td\.rpwrap\.wide\{min-width:260px/.test(html));
 ok('an open report uses the screen width', /\.qs\.wide\.rp\{max-width:min\(1400px,100%\)\}/.test(html) && /<div class="qs wide rp"><div class="bo-back">/.test(grab('rpReportHTML')));
+/* 7. 07b: reports by function, and 5 new reports */
+{ const cat = (() => { const m = /\nvar RP_CATALOGUE=\[/.exec(html); return H.matchBlock(m.index + 1, 'RP_CATALOGUE', '['); })();
+  const grp = (() => { const m = /\nvar RP_GROUPS=\[/.exec(html); return H.matchBlock(m.index + 1, 'RP_GROUPS', '['); })();
+  ['openorders', 'customer', 'packqa', 'waiting', 'labtat'].forEach(id => ok('new report: ' + id, new RegExp("\\{id:'" + id + "'").test(cat)));
+  const ids = (cat.match(/\{id:'([a-z]+)'/g) || []).map(x => x.slice(5, -1)).filter(x => x !== 'custom');
+  const inG = (grp.match(/'[a-z]+'/g) || []).map(x => x.slice(1, -1));
+  ok('every report except Custom sits in exactly one function group', ids.every(id => inG.filter(x => x === id).length === 1));
+  const f = new Function('state', 'mayMoney', "var INVOICE_ROLES=['Finance'];\n" + cat + ';\n' + grp + ';\n' + ['rpDef', 'rpMay', 'rpGroupVisible'].map(grab).join('\n') + '\nreturn {G:RP_GROUPS,v:rpGroupVisible};');
+  const qa = f({ role: 'QA Inspector' }, () => false);
+  const qg = qa.G.map(g => g.id + ':' + qa.v(g).map(c => c.id).join(','));
+  ok('QA Inspector: Lab and QA holds certificates, turnaround, packing QA and truck inspections; no money group', qg.indexOf('quality:coa,labtat,packqa,psi') > -1 && qg.indexOf('money:') > -1);
+  const pm = f({ role: 'Production Manager' }, () => false);
+  ok('Lab turnaround is open to the Production Manager and the Plant Manager (Tahir, 7 Oct)', pm.v(pm.G.find(g => g.id === 'quality')).some(c => c.id === 'labtat') && (() => { const x = f({ role: 'Plant Manager' }, () => false); return x.v(x.G.find(g => g.id === 'quality')).some(c => c.id === 'labtat'); })());
+  const pr = f({ role: 'Production' }, () => false);
+  ok('a group a role has no report in shows no card (rpListHTML skips an empty group)', /if\(!rs\.length\) return '';/.test(grab('rpListHTML')) && pr.v(pr.G.find(g => g.id === 'control')).length === 0);
+  ok('inside a function: its reports are tabs', /class="subnav rp-tabs"/.test(grab('rpReportHTML')) && /rpGroupVisible\(g\)/.test(grab('rpReportHTML')));
+  ok('rights unchanged: a tab is a report rpMay allows', /rpMay\(c\)/.test(grab('rpGroupVisible')));
+}
+{ /* the 3 new datasets, on a small plant */
+  const sd = { console, TODAY: new Date('2026-10-07T06:00:00Z'), state: {
+    orders: [{ po: 'P1', client: 'Arain', lines: [{ id: 'a', brand: 'V-Zinc', ordered: 1000, packed: 800, dispatched: 300, delivered: 300 }, { id: 'b', brand: 'Vibrant', ordered: 500, packed: 500, dispatched: 500, delivered: 500 }] }],
+    packingLog: [{ po: 'P1', brand: 'V-Zinc', kg: 800, date: '2026-10-04', brandBatchNo: 'VZ-1', qa: { pass: true, by: 'Ehtisham', actualDate: '2026-10-05' } }],
+    inspections: [{ po: 'P1', brand: 'V-Zinc', kg: 500, by: 'Asif', actualDate: '2026-10-06', pass: false, batches: [{ batch: 'VZ-1' }] }],
+    batches: [{ id: 'B1', po: 'P1', brand: 'V-Zinc', batchNo: 'B-1', coa: { status: 'approved', assign: { at: '2026-10-01T05:00:00Z' }, approvedDate: '2026-10-04', approver: { name: 'QCM' } } },
+              { id: 'B3', po: 'P1', brand: 'Old', batchNo: 'B-3', coa: { status: 'approved', receivingDate: '2026-10-03', approvedDate: '2026-10-04' } },
+              { id: 'B2', po: 'P1', brand: 'Vibrant', batchNo: 'B-2', coa: { status: 'review', assign: { at: '2026-10-05T05:00:00Z' } } }] } };
+  vm.createContext(sd);
+  vm.runInContext(['evToday', 'localDateOf', 'calDays', '_rbClientMap', 'lotBaseNo', 'lotBrandNo', 'batchPOsLabel', 'lineShortClosed'].map(grab).join('\n') + '\nfunction lineCleared(o,l){ return l.brand==="V-Zinc"?200:0; }\nfunction lineNetPrice(){ return 0; }\nfunction fedSplit(){ return {fed:0}; }\nvar RB_DATASETS=' + grabTopVar('RB_DATASETS', '{').replace(/^\s*var\s+RB_DATASETS\s*=\s*/, '') + ';\nthis.D=RB_DATASETS;', sd);
+  const w = sd.D.waiting.rows();
+  eq('waiting to ship: one line has packed stock not shipped', w.length, 1);
+  ok('...500 waiting, 200 cleared and ready, 300 waiting for QA, last packed 4 Oct', w[0].waiting === 500 && w[0].ready === 200 && w[0].awaitqa === 300 && w[0].lastpacked === '2026-10-04');
+  const q = sd.D.packqa.rows();
+  ok('packing QA: the packed-material inspection and the older lot check, each with result and inspector', q.length === 2 && q.some(r => r.result === 'Fail' && r.by === 'Asif' && r.batch === 'VZ-1') && q.some(r => r.result === 'Pass' && r.kind === 'Packed lot' && r.batch === 'VZ-1'));
+  const t = sd.D.labtat.rows();
+  ok('lab turnaround: approved = sample in to approval (3 days)', t.some(r => r.batch === 'B-1' && r.days === 3 && r.status === 'Approved'));
+  ok('an old-flow certificate (no hand-over to the lab) is left out (Tahir, 7 Oct)', !t.some(r => r.batch === 'B-3'));
+  ok('an open certificate counts the days so far, from the hand-over to the lab', t.some(r => r.batch === 'B-2' && r.days === 2 && /^Open/.test(r.status)));
+  const o = sd.D.orders.rows();
+  ok('open orders: what is left per line (700, and 0 for the delivered one)', o.find(r => r.product === 'V-Zinc').balance === 700 && o.find(r => r.product === 'Vibrant').balance === 0);
+}
+ok('opening One customer does not fall into the builder branch', /c\.kind==='customer'/.test(grab('rpOpen')));
+ok('one customer: orders open their sheet, the DC number prints the DC, no prices', /openOrderSheet\(/.test(grab('rpCustomerHTML')) && /printDC\(/.test(grab('rpCustomerHTML')) && !/price|pkr\(/i.test(grab('rpCustomerHTML')));
+ok('lab turnaround shows an average, not a sum of days', /avgKey/.test(grab('rpSentence')) && /'avg '/.test(grab('rpTableHTML')));
 process.exitCode = report('Every paper easier to find (06c)') ? 1 : 0;

@@ -6232,3 +6232,21 @@ Cause: Tahir's screenshots of "Entries recorded late" and "Shipments and trucks"
 - Width: an open report used `.qs.wide` = 860px while the screen gave 1180px. Measured on live at a 1262px window: psi 128px, shortclose 174, lateentries 224, corrections 733, invoicing 168, docs PO 307, docs DC 133, custom 161px past the edge, hiding Print/Open/Gate Pass/Inspection buttons and columns. Now `.qs.wide.rp` is max min(1400px,100%) (open reports only; the catalogue and other screens are unchanged). Long text columns wrap (`td.rpwrap`, detail/reason `wide`). Simulated on live: 0px overflow in all 14. Note: the class could not be `.wrap`, which is the app's main container class.
 - BUILD_ID 2026-10-07a, changelog. findcopy.test.js 38/38. All O2S tests pass except publicbatch (pdfkit).
 - Not checked: phone width.
+
+
+## 7 Oct 2026 (2) — Reports by function, and 5 new reports (MODULE: O2S) — NOT PUSHED
+
+Tahir chose all 5 suggested reports and ruled: "not each report needs to be at the face of report center; sub reports of a function go in an inside view with that function's reports as tabs; a clean design."
+- RP_GROUPS (6): orders [openorders, late, customer, shortclose] · production [prodshift, batches, rm] · quality [coa, labtat, packqa, psi] · shipping [waiting, trucks, docs] · money [sales, invoicing] · control [lateentries, corrections]. Custom report stays a separate card. rpListHTML shows one card per group with ≥1 report rpMay allows (empty groups hidden). rpReportHTML shows the group name, a tab row (`.subnav.rp-tabs`, compact), then the report. Rights unchanged: rpMay decides every tab. Deep links rpOpen(id) still work (How are we doing → late / coa).
+- New reports and datasets (read-only):
+  - openorders on `orders` (new field `balance` = ordered − delivered, 0 when the line or PO is closed short). Views: each line / by customer / by product (`views`, rpSetView). Summary rows are sorted by balance; the sentence totals `sumKey`.
+  - customer (kind 'customer', rpCustomerHTML): a select of clients; orders (PO opens openOrderSheet → Papers) and trucks (DC → printDC, Gate Pass, Inspection). No prices. Roles 'all', like Orders and Documents.
+  - packqa (dataset `packqa`): state.inspections (main path) + legacy packingLog qa, the same sources as printInspect. A Log button (printInspect) only for canView('qa').
+  - waiting (dataset `waiting`): per line packed − dispatched > 0.5; ready = min(lineCleared, waiting); awaitqa = the rest; last packed from packingLog.
+  - labtat (dataset `labtat`): start = coa.assign.at (the QCM's hand-over, v2 flow), else receivingDate/dateOfTest; end = approvedDate; open ones count to today; failed ones skipped. Sentence and totals row show the AVERAGE (avgKey), not a sum. **Caveat for Tahir:** for old-flow certificates receivingDate was filled with the day the draft was opened, so their turnaround reads short.
+  - Roles I set (Tahir may change): openorders, customer → all; packqa → QA Inspector, Production, Production Manager, Plant Manager, QCM, AQCM, Warehouse, Supply Chain, SCO, COO, CFO; waiting → Supply Chain, SCO, Warehouse, Production Manager, Plant Manager, QA Inspector, KAM, COO, CFO; labtat → as Lab certificates.
+- Bug found by rendering: rpOpen('customer') fell into the builder branch (c.cols undefined) and threw. Fixed with its own branch; pinned.
+- Rendered in headless Chromium with the seed data (/api mocked): 1262px no overflow on any report; at 390px the page never scrolls sideways (wide tables scroll inside their box).
+- Guide "Where to find a copy" now names the function (e.g. Reports → Lab and QA → Lab certificates) and adds One customer and Packing and lot QA. BUILD_ID 2026-10-07b, changelog. shell.test: COO sees 19 (was 14). findcopy.test.js 57/57. All O2S tests pass except publicbatch (pdfkit).
+- Later the same day, Tahir: Lab turnaround also for the Production Manager (the Plant Manager already had it). Added to its roles; pinned in findcopy.test.js.
+- Tahir, 7 Oct: Lab turnaround counts newer certificates only. labtat now skips any certificate without coa.assign.at (no receivingDate fallback); the report's question says "current lab flow only". Pinned (an old-flow certificate is left out).

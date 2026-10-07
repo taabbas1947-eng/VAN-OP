@@ -11,7 +11,7 @@
    a push keeps running the old code with nothing telling anybody. It sat at
    2026-09-04a through this whole day's work; rmqty/psi tests pinned the code,
    nothing pinned this. buildid.test.js now does. */
-var BUILD_ID='2026-10-07a';
+var BUILD_ID='2026-10-07b';
 var CHANGELOG=[
   {ver:'2026-09-04a', date:'2026-09-04', title:"Delivery, DC printing, and a new Reconciliation check", items:[
     "Delivery confirmation stays with Supply Chain \u2014 it no longer hands off to the Plant Manager. If one sits too long, it now re-flags the same Supply Chain owner every 3 days instead.",
@@ -446,6 +446,14 @@ var CHANGELOG=[
     "Reports → Entries recorded late: the quantity column is called Kg/L (it was 'Value'), and the detail with the person's name and reason wraps instead of running off the screen.",
     "Reports → Shipments and trucks: a PO column, and the DC number opens the delivery challan ready to print.",
     "An open report now uses the full width of the screen, and long text (customer, product, detail, reason) wraps. 7 of 14 reports had columns or Print and Open buttons past the right edge of a laptop screen."
+  ]},
+  {ver:'2026-10-07b', date:'2026-10-07', title:"Reports by function, and 5 new reports", items:[
+    "Reports now opens on 6 functions: Orders and customers, Production, Lab and QA, Stock and shipping, Sales and invoicing, Checks and corrections. Each opens its reports as tabs. You see only the reports your role could already open.",
+    "New: Open orders. Every order not yet delivered in full and what is left, by order line, by customer or by product.",
+    "New: One customer. Pick a customer to see every order with what is left, and every truck with its DC, gate pass and inspection report.",
+    "New: Packing and lot QA. Every inspection of packed material, with batch, quantity, result and inspector.",
+    "New: Packed, waiting to ship. Packed and not yet shipped, split into cleared and ready, and still waiting for QA.",
+    "New: Lab turnaround. Days from the sample reaching the lab to the approved certificate, with the average, and how long open ones have waited. Counts certificates from the current lab flow only (from the QC manager's hand-over). Open to the lab, QA, the Plant and Production Managers, the CFO and the COO."
   ]}
 ];
 </script>
@@ -2149,6 +2157,12 @@ body.td-on .wrap{background:var(--paper)}
 /* 07a: an open report uses the screen. At 860px, 7 of 14 reports pushed columns
    and their Print / Open buttons past the right edge of a 1262px laptop window. */
 .qs.wide.rp{max-width:min(1400px,100%)}
+.rp-tabs{margin:6px 0 14px;flex-wrap:wrap;gap:6px;justify-content:flex-start}
+.subnav.rp-tabs .qs-btn{flex:0 0 auto;width:auto;min-height:34px;padding:0 14px}
+.rp-sep{width:1px;align-self:stretch;background:var(--qline);margin:0 4px}
+.rp-h2{font-size:17px;font-weight:600;margin:4px 0 2px}
+.rp-h3{font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-3);margin:18px 0 6px}
+.rp-card .rp-names{font-size:12px;color:var(--ink-3);margin-top:8px;line-height:1.5}
 .rbtbl td.rpwrap{white-space:normal;min-width:110px;max-width:340px}
 .rbtbl td.rpwrap.wide{min-width:260px;max-width:440px}
 .qs h1{font-size:20px;font-weight:600;line-height:1.25;margin:8px 0 0}
@@ -14492,7 +14506,7 @@ function guideRules(){
   h+='<div class="gd-rule"><h3>Roles, not people</h3><p>Rights belong to roles. 2 people can hold one role and sign differently. There are no exceptions for one person — an exception becomes a new role, so it can be seen and given to the next person in that seat.</p></div>';
   h+='<div class="gd-rule"><h3>What is never on a customer document</h3><p>No price on any document the customer sees. The COA carries composition, results and the 3 signatures; the delivery challan carries product, quantity and lot.</p></div>';
   /* 06c: where each paper lives. Every place named here is an existing screen or button. */
-  h+='<div class="gd-rule"><h3>Where to find a copy</h3><p><b>An old order:</b> Plant → <b>All orders</b>, type the PO or customer, tap the order. Its sheet ends with <b>Papers</b>: every paper of that order you are allowed to print, in one place.</p><p><b>Purchase order:</b> Reports → <b>Documents</b> → Purchase orders. It carries prices, so only the roles that see money can print it.</p><p><b>Delivery challan, gate pass, pre-shipment inspection report:</b> Reports → <b>Documents</b> → Delivery challans, gate passes and inspection reports. Search by DC, gate pass, PO, customer or vehicle. Every inspected truck is also under Reports → <b>Pre-shipment inspections</b>: tap the report number to open it, ready to print or save as PDF.</p><p><b>Lab certificate (COA):</b> Reports → <b>Lab certificates</b>, then <b>COA</b> on the row. For the lab, QA, the Plant Manager, the CFO and the COO.</p><p><b>Packed-lot QA:</b> the order’s Papers → <b>Inspection log</b>, for the roles that open QA.</p><p><b>Who changed a record:</b> Reports → <b>Corrections register</b>, for the COO, the CFO and the Plant Manager.</p></div>';
+  h+='<div class="gd-rule"><h3>Where to find a copy</h3><p><b>An old order:</b> Plant → <b>All orders</b>, type the PO or customer, tap the order. Its sheet ends with <b>Papers</b>: every paper of that order you are allowed to print, in one place.</p><p>Reports opens on 6 functions; each holds its reports as tabs.</p><p><b>Purchase order:</b> Reports → Stock and shipping → <b>Documents</b> → Purchase orders. It carries prices, so only the roles that see money can print it.</p><p><b>Delivery challan, gate pass, pre-shipment inspection report:</b> Reports → Stock and shipping → <b>Documents</b> → Delivery challans, gate passes and inspection reports. Search by DC, gate pass, PO, customer or vehicle. Every inspected truck is also under Reports → Lab and QA → <b>Pre-shipment inspections</b>: tap the report number to open it, ready to print or save as PDF.</p><p><b>Lab certificate (COA):</b> Reports → Lab and QA → <b>Lab certificates</b>, then <b>COA</b> on the row. For the lab, QA, the Plant Manager, the CFO and the COO.</p><p><b>Packed-lot QA:</b> Reports → Lab and QA → <b>Packing and lot QA</b>, or the order’s Papers → <b>Inspection log</b>.</p><p><b>Everything about one customer:</b> Reports → Orders and customers → <b>One customer</b>.</p><p><b>Who changed a record:</b> Reports → Checks and corrections → <b>Corrections register</b>, for the COO, the CFO and the Plant Manager.</p></div>';
   return h;
 }
 function guideTabsHTML(){
@@ -17918,8 +17932,8 @@ var RB_DATASETS={
     fields:[{k:'date',l:'Dispatched',t:'dim'},{k:'po',l:'PO',t:'dim'},{k:'so',l:'SO #',t:'dim'},{k:'client',l:'Client',t:'dim'},{k:'product',l:'Product',t:'dim'},{k:'dc',l:'DC #',t:'dim'},{k:'stage',l:'Stage',t:'dim'},{k:'dcstatus',l:'DC status',t:'dim'},{k:'gatepass',l:'Gate Pass',t:'dim'},{k:'approvedby',l:'Approved by',t:'dim'},{k:'transport',l:'Transport type',t:'dim'},{k:'trucksize',l:'Truck size',t:'dim'},{k:'vehicle',l:'Vehicle',t:'dim'},{k:'driver',l:'Driver',t:'dim'},{k:'carrier',l:'Carrier',t:'dim'},{k:'seal',l:'Seal #',t:'dim'},{k:'destination',l:'Destination',t:'dim'},{k:'bilty',l:'Bilty',t:'dim'},{k:'delivered',l:'Delivered',t:'dim'},{k:'shipno',l:'Shipment #',t:'dim'},{k:'kg',l:'Kg/L',t:'meas'}],
     filters:['client','product','destination','dc','stage','dcstatus']},
   orders:{label:'Orders / PO lines · sales',dateKey:'received',
-    rows:function(){ var out=[]; (state.orders||[]).forEach(function(o){ var nL=(o.lines||[]).length||1; (o.lines||[]).forEach(function(l){ out.push({po:o.po||'',client:o.client||'',channel:o.channel||'',segment:(typeof _chanToSeg==='function'?(_chanToSeg(o.channel)||o.channel||''):(o.channel||'')),type:(o.foc?'FOC sample':'Commercial'),product:l.brand||'',base:l.base||'',destpartner:o.destinationPartner||'',received:o.received||'',promised:o.promised||'',priority:o.priority||'Normal',stage:(typeof lineStage==='function'?lineStage(o,l):''),fedmode:o.fedMode||'',ordered:+l.ordered||0,produced:+l.produced||0,packed:+l.packed||0,dispatched:+l.dispatched||0,delivered:+l.delivered||0,pricekg:+l.invoicePrice||0,pricepack:+l.invoicePack||0,value:Math.round((+l.delivered||0)*lineNetPrice(o,l)),fed:(o.foc?0:Math.round(fedSplit((+l.ordered||0)*(+l.invoicePrice||0),o.fedMode||'None').fed))}); }); }); return out; },
-    fields:[{k:'po',l:'PO',t:'dim'},{k:'client',l:'Client',t:'dim'},{k:'channel',l:'Channel',t:'dim'},{k:'segment',l:'Segment',t:'dim'},{k:'type',l:'Type (Commercial/FOC)',t:'dim'},{k:'product',l:'Product',t:'dim'},{k:'base',l:'Base',t:'dim'},{k:'destpartner',l:'Destination Partner',t:'dim'},{k:'received',l:'Received',t:'dim'},{k:'promised',l:'Promised',t:'dim'},{k:'priority',l:'Priority',t:'dim'},{k:'stage',l:'Stage',t:'dim'},{k:'fedmode',l:'FED mode',t:'dim'},{k:'ordered',l:'Ordered',t:'meas'},{k:'produced',l:'Produced',t:'meas'},{k:'packed',l:'Packed',t:'meas'},{k:'dispatched',l:'Shipped',t:'meas'},{k:'delivered',l:'Delivered',t:'meas'},{k:'pricekg',l:'Price PKR/Kg',t:'meas'},{k:'pricepack',l:'Price PKR/pack',t:'meas'},{k:'value',l:'Delivered value (net of FED)',t:'meas'},{k:'fed',l:'FED on ordered qty',t:'meas'}],
+    rows:function(){ var out=[]; (state.orders||[]).forEach(function(o){ var nL=(o.lines||[]).length||1; (o.lines||[]).forEach(function(l){ out.push({po:o.po||'',client:o.client||'',channel:o.channel||'',segment:(typeof _chanToSeg==='function'?(_chanToSeg(o.channel)||o.channel||''):(o.channel||'')),type:(o.foc?'FOC sample':'Commercial'),product:l.brand||'',base:l.base||'',destpartner:o.destinationPartner||'',received:o.received||'',promised:o.promised||'',priority:o.priority||'Normal',stage:(typeof lineStage==='function'?lineStage(o,l):''),fedmode:o.fedMode||'',ordered:+l.ordered||0,produced:+l.produced||0,packed:+l.packed||0,dispatched:+l.dispatched||0,delivered:+l.delivered||0,balance:((lineShortClosed(l)||o.closed)?0:Math.max(0,(+l.ordered||0)-(+l.delivered||0))),pricekg:+l.invoicePrice||0,pricepack:+l.invoicePack||0,value:Math.round((+l.delivered||0)*lineNetPrice(o,l)),fed:(o.foc?0:Math.round(fedSplit((+l.ordered||0)*(+l.invoicePrice||0),o.fedMode||'None').fed))}); }); }); return out; },
+    fields:[{k:'po',l:'PO',t:'dim'},{k:'client',l:'Client',t:'dim'},{k:'channel',l:'Channel',t:'dim'},{k:'segment',l:'Segment',t:'dim'},{k:'type',l:'Type (Commercial/FOC)',t:'dim'},{k:'product',l:'Product',t:'dim'},{k:'base',l:'Base',t:'dim'},{k:'destpartner',l:'Destination Partner',t:'dim'},{k:'received',l:'Received',t:'dim'},{k:'promised',l:'Promised',t:'dim'},{k:'priority',l:'Priority',t:'dim'},{k:'stage',l:'Stage',t:'dim'},{k:'fedmode',l:'FED mode',t:'dim'},{k:'ordered',l:'Ordered',t:'meas'},{k:'produced',l:'Produced',t:'meas'},{k:'packed',l:'Packed',t:'meas'},{k:'dispatched',l:'Shipped',t:'meas'},{k:'delivered',l:'Delivered',t:'meas'},{k:'balance',l:'Left to deliver',t:'meas'},{k:'pricekg',l:'Price PKR/Kg',t:'meas'},{k:'pricepack',l:'Price PKR/pack',t:'meas'},{k:'value',l:'Delivered value (net of FED)',t:'meas'},{k:'fed',l:'FED on ordered qty',t:'meas'}],
     filters:['client','channel','segment','type','priority','stage','product','fedmode']},
   finance:{label:'Finance · sales & invoicing',dateKey:'date',
     rows:function(){ var cm=_rbClientMap(); /* 25b: only trucks that left the gate are sales; net price per line (lid), dated the day it left */ return (state.shipments||[]).filter(function(s){return s&&(+s.kg||0)>0&&saleLeft(s);}).map(function(s){ var _r=saleLineOf(s); var price=lineNetPrice(_r.o,_r.l); var kg=+s.kg||0; return {date:String(s.approvedDate||s.dispatch||s.delivered||'').slice(0,10),dc:s.dc||'',po:s.po||'',client:cm[s.po]||'',product:s.brand||'',destination:s.destination||'',vehicle:s.vehicle||'',delivered:s.delivered||'',shipno:s.shipNo||'',kg:kg,price:price,value:Math.round(kg*price)}; }); },
@@ -17935,6 +17949,37 @@ var RB_DATASETS={
          written, so both columns were blank. _bid/_lid let a row print it. */ var _own=!!(l.coa&&l.id); out.push({product:b.brand||b.base||'',batch:l.lotNo||b.batchNo||'',po:b.po||'',client:cm[b.po]||'',qcno:c.qcNo||'',status:c.status||'—',result:c.overall||(c.status==='approved'?'FIT':(c.status==='failed'?'UNFIT':(c.deviation?'Deviation':'—'))),by:(c.approver&&c.approver.name)||(c.reviewer&&c.reviewer.name)||(c.analyst&&c.analyst.name)||c.by||'',date:c.approvedDate||c.dateOfTest||c.issueDate||c.date||'',qty:+l.qty||+b.producedKg||0,_bid:b.id,_lid:_own?l.id:'',_ok:(c.status==='approved'&&(_own||(!!b.coa&&c===b.coa)))}); }); }); return out; },
     fields:[{k:'product',l:'Product',t:'dim'},{k:'batch',l:'Batch',t:'dim'},{k:'po',l:'PO',t:'dim'},{k:'client',l:'Client',t:'dim'},{k:'qcno',l:'QC #',t:'dim'},{k:'status',l:'Status',t:'dim'},{k:'result',l:'Result',t:'dim'},{k:'by',l:'Signed by',t:'dim'},{k:'date',l:'Date',t:'dim'},{k:'qty',l:'Qty',t:'meas'}],
     filters:['status','result','client','product']},
+  /* ===== 07b: 3 datasets behind the new named reports. Read-only, from the records. ===== */
+  packqa:{label:'Packing and lot QA',dateKey:'date',
+    /* the same 2 sources as printInspect: the packed-material inspection (main path) and the older per-lot check */
+    rows:function(){ var cm=_rbClientMap(); var out=[];
+      (state.inspections||[]).forEach(function(x){ if(!x) return; out.push({date:x.actualDate||x.date||'',po:x.po||'',client:cm[x.po]||'',product:x.brand||'',batch:(x.batches||[]).map(function(b){ return b.batch||b.brand||''; }).filter(Boolean).join(', ')||'—',kg:+x.kg||0,result:x.superseded?'Withdrawn':(x.pass?'Pass':'Fail'),by:x.by||'',kind:'Packed material'}); });
+      (state.packingLog||[]).forEach(function(pl){ if(!pl||!pl.qa) return; var q=pl.qa; out.push({date:q.actualDate||q.date||'',po:pl.po||'',client:cm[pl.po]||'',product:pl.brand||'',batch:lotBrandNo(pl)||'—',kg:+pl.kg||0,result:q.fail?'Fail':(q.pass?'Pass':'—'),by:q.by||'',kind:'Packed lot'}); });
+      return out; },
+    fields:[{k:'date',l:'Inspected',t:'dim'},{k:'po',l:'PO',t:'dim'},{k:'client',l:'Client',t:'dim'},{k:'product',l:'Product',t:'dim'},{k:'batch',l:'Batch',t:'dim'},{k:'result',l:'Result',t:'dim'},{k:'by',l:'Inspector',t:'dim'},{k:'kind',l:'Kind',t:'dim'},{k:'kg',l:'Kg/L',t:'meas'}],
+    filters:['result','client','product','by']},
+  waiting:{label:'Packed, waiting to ship',dateKey:'lastpacked',
+    rows:function(){ var out=[]; var last={}; (state.packingLog||[]).forEach(function(p){ if(!p||!(+p.kg>0)) return; var k=p.po+'|'+p.brand; var d=String(p.actualDate||p.date||''); if(!last[k]||d>last[k]) last[k]=d; });
+      (state.orders||[]).forEach(function(o){ (o.lines||[]).forEach(function(l){ if(!l) return; var pk=+l.packed||0, dp=+l.dispatched||0, w=Math.max(0,pk-dp); if(w<=0.5) return;
+        var rd=0; try{ rd=Math.max(0,Math.min(lineCleared(o,l)||0,w)); }catch(e){}
+        out.push({po:o.po||'',client:o.client||'',product:l.brand||'',lastpacked:last[o.po+'|'+l.brand]||'',packed:pk,dispatched:dp,waiting:w,ready:rd,awaitqa:Math.max(0,w-rd)}); }); });
+      return out; },
+    fields:[{k:'po',l:'PO',t:'dim'},{k:'client',l:'Client',t:'dim'},{k:'product',l:'Product',t:'dim'},{k:'lastpacked',l:'Last packed',t:'dim'},{k:'packed',l:'Packed',t:'meas'},{k:'dispatched',l:'Shipped',t:'meas'},{k:'waiting',l:'Waiting',t:'meas'},{k:'ready',l:'Cleared, ready',t:'meas'},{k:'awaitqa',l:'Waiting for QA',t:'meas'}],
+    filters:['client','product']},
+  labtat:{label:'Lab turnaround',dateKey:'received',
+    /* start = the QC manager handing the sample to the lab (assign.at). End = QCM
+       approval; an open one counts the days so far. Tahir, 7 Oct: newer certificates
+       ONLY. An old-flow certificate has no hand-over time (its receiving date was the
+       day the draft was opened), so it is left out rather than shown short. */
+    rows:function(){ var out=[]; (state.batches||[]).forEach(function(b){ if(!b||b.voided) return;
+        var ls=(b.lots||[]).filter(function(l){ return l&&l.coa; });
+        var certs=ls.length?ls.map(function(l){ return {no:l.lotNo||b.batchNo||'',c:l.coa}; }):(b.coa?[{no:b.batchNo||'',c:b.coa}]:[]);
+        certs.forEach(function(x){ var c=x.c; if(!(c.assign&&c.assign.at)) return; var st=localDateOf(c.assign.at); if(!/^\d{4}-\d\d-\d\d$/.test(st)) return;
+          var ap=(c.status==='approved')?String(c.approvedDate||'').slice(0,10):''; var end=ap||((c.status==='failed')?'':evToday()); if(!end) return;
+          out.push({received:st,product:b.brand||b.base||'',batch:x.no,po:batchPOsLabel(b)||'',approved:ap||'—',days:Math.max(0,calDays(st,end)),status:(c.status==='approved'?'Approved':'Open · '+String(c.status||'draft')),by:(c.approver&&c.approver.name)||''}); }); });
+      return out; },
+    fields:[{k:'received',l:'Sample in',t:'dim'},{k:'product',l:'Product',t:'dim'},{k:'batch',l:'Batch',t:'dim'},{k:'po',l:'PO',t:'dim'},{k:'approved',l:'Approved',t:'dim'},{k:'status',l:'Status',t:'dim'},{k:'by',l:'Approved by',t:'dim'},{k:'days',l:'Days',t:'meas'}],
+    filters:['status','product']},
   deferred:{label:'Deferred actions',dateKey:'until',
     rows:function(){ var m=state.acDefer||{}; var out=[]; var items=(typeof actionItems==='function')?actionItems():[]; items.forEach(function(it){ var k=(typeof acKey==='function')?acKey(it):''; var d=m[k]; if(d&&d.until){ out.push({action:it.label||'',po:(it.o&&it.o.po)||'',client:(it.o&&it.o.client)||'',product:(it.l&&it.l.brand)||'',role:it.role||'',reason:d.reason||'',until:d.until||'',by:d.by||'',at:d.at||''}); } }); return out; },
     fields:[{k:'action',l:'Action',t:'dim'},{k:'po',l:'PO',t:'dim'},{k:'client',l:'Client',t:'dim'},{k:'product',l:'Product',t:'dim'},{k:'role',l:'Role',t:'dim'},{k:'reason',l:'Reason',t:'dim'},{k:'until',l:'Returns on',t:'dim'},{k:'by',l:'Deferred by',t:'dim'},{k:'at',l:'Deferred on',t:'dim'}],
@@ -18291,6 +18336,12 @@ var RP_CATALOGUE=[
   {id:'corrections', t:'Corrections register', q:'Who changed what, and why.', ds:'corrections', cols:['when','type','record','by','reasonCode','reason','fields'], mode:'raw', period:'This month', roles:['COO','CFO','Plant Manager']},
   {id:'sales', t:'Sales against budget', q:'Sold value (trucks out, before taxes) against the budget, by channel and customer.', kind:'budget', money:true, roles:['COO','CFO','Plant Manager','KAM']},
   {id:'invoicing', t:'Invoicing sheet', q:'What was delivered, at what price, by delivery challan.', ds:'finance', cols:['date','dc','po','client','product','kg','price','value'], mode:'raw', period:'Last month', money:true, roles:['COO','CFO','Plant Manager','KAM','Finance']},
+  /* 07b: 5 more, asked for by Tahir on 7 Oct. Each sits in a function group (RP_GROUPS). */
+  {id:'openorders', t:'Open orders', q:'Every order not yet delivered in full, and what is left: by order line, by customer or by product.', ds:'orders', cols:['received','po','client','product','promised','stage','ordered','delivered','balance'], mode:'raw', period:'All', where:function(r){ return (+r.balance||0)>0.5; }, sumKey:'balance', views:[{t:'Each order line'},{t:'By customer',mode:'summary',group:['client'],cols:['client','ordered','delivered','balance']},{t:'By product',mode:'summary',group:['product'],cols:['product','ordered','delivered','balance']}], roles:'all'},
+  {id:'customer', t:'One customer', q:'Pick a customer: every order and what is left, every truck and its papers.', kind:'customer', roles:'all'},
+  {id:'packqa', t:'Packing and lot QA', q:'Every inspection of packed material: batch, quantity, result, inspector.', ds:'packqa', cols:['date','po','client','product','batch','kg','result','by'], mode:'raw', period:'This month', roles:['QA Inspector','Production','Production Manager','Plant Manager','QCM','AQCM','Warehouse','Supply Chain','Supply Chain Officer','COO','CFO']},
+  {id:'waiting', t:'Packed, waiting to ship', q:'Packed and not yet shipped: how much is cleared by QA and ready, how much still waits for QA.', ds:'waiting', cols:['po','client','product','lastpacked','packed','dispatched','waiting','ready','awaitqa'], mode:'raw', period:'All', sumKey:'waiting', views:[{t:'Each order line'},{t:'By customer',mode:'summary',group:['client'],cols:['client','waiting','ready','awaitqa']},{t:'By product',mode:'summary',group:['product'],cols:['product','waiting','ready','awaitqa']}], roles:['Supply Chain','Supply Chain Officer','Warehouse','Production Manager','Plant Manager','QA Inspector','KAM','COO','CFO']},
+  {id:'labtat', t:'Lab turnaround', q:'Days from the QC manager handing the sample to the lab to the approved certificate, and how long the open ones have waited. Certificates from the current lab flow only.', ds:'labtat', cols:['received','product','batch','po','approved','status','by','days'], mode:'raw', period:'This month', avgKey:'days', roles:['Lab Rep','AQCM','QCM','QA Inspector','Plant Manager','Production Manager','COO','CFO']}   /* 07b: Tahir - the Plant and Production Managers see it too */,
   {id:'docs', t:'Documents', q:'Find and reprint a purchase order, delivery challan, gate pass or pre-shipment inspection report.', kind:'docs', roles:'all'},
   {id:'custom', t:'Custom report', q:'Any dataset, any columns, rows or a summary; CSV, Excel or PDF.', kind:'builder', roles:'all'}
 ];
@@ -18300,23 +18351,48 @@ function rpDef(id){ return RP_CATALOGUE.filter(function(c){return c.id===id;})[0
 function rpApplyPeriod(p){ rpPeriod=p||'All'; if(rpPeriod==='All'){ rbFrom=''; rbTo=''; return; } var w=periodWindow(rpPeriod); rbFrom=w.from; rbTo=w.to; }
 function rpOpen(id){
   var c=rpDef(id); if(!c||!rpMay(c)){ toast('That report is not for your role.'); return; }
-  rpCur=id; rpView='report'; rbWhere=null;
+  rpCur=id; rpView='report'; rbWhere=null; rpViewIdx=0;
   if(c.kind==='budget'){ rpView='list'; setScreen('budget'); return; }
   if(c.kind==='docs'){ rpTab='docs'; }
   else if(c.kind==='builder'){ rpTab='builder'; }
   else if(c.kind==='rmpos'){ rpTab='rmchain'; rpRmSel=''; }
   else if(c.kind==='psireg'){ psiRegQ=''; }
+  else if(c.kind==='customer'){ /* 07b: its own view, no builder */ }
   else { rpTab='builder'; rbDS=c.ds; rbCols=c.cols.slice(); rbMode=c.mode||'raw'; rbGroup=(c.group||[]).slice(); rbFilters={}; rbWhere=c.where||null; rpApplyPeriod(c.period||'This month'); }
   setScreen('reports');
 }
 function rpBack(){ rpView='list'; rpCur=''; rbWhere=null; render(); }
+/* ===== REPORTS BY FUNCTION - 07b =====
+   Tahir, 7 Oct: "not each report needs to be at the face of the report center; if
+   some reports are sub reports of the function, create an inside view where one
+   can see the reports tab for that function, but a clean design."
+   The front shows one card per function, holding only the reports this role may
+   open; a card opens its first report, and the function's other reports are tabs
+   along the top. Rights are unchanged: rpMay still decides every report. */
+var RP_GROUPS=[
+  {id:'orders', t:'Orders and customers', q:'What is open, what is late, one customer at a time, what was closed short.', ids:['openorders','late','customer','shortclose']},
+  {id:'production', t:'Production', q:'What we made, per shift and per batch, and the raw material against the open orders.', ids:['prodshift','batches','rm']},
+  {id:'quality', t:'Lab and QA', q:'Certificates, how long the lab takes, every inspection of packed material and of each truck.', ids:['coa','labtat','packqa','psi']},
+  {id:'shipping', t:'Stock and shipping', q:'What is packed and waiting, what left the gate, and every document to reprint.', ids:['waiting','trucks','docs']},
+  {id:'money', t:'Sales and invoicing', q:'Sold value against the budget, and what to invoice by delivery challan.', ids:['sales','invoicing']},
+  {id:'control', t:'Checks and corrections', q:'What was recorded late, and who changed what and why.', ids:['lateentries','corrections']}
+];
+function rpGroupOf(id){ for(var i=0;i<RP_GROUPS.length;i++){ if(RP_GROUPS[i].ids.indexOf(id)>-1) return RP_GROUPS[i]; } return null; }
+function rpGroupVisible(g){ return g.ids.map(rpDef).filter(function(c){ return c&&rpMay(c); }); }
 function rpListHTML(){
   var list=rpVisible();
-  var h='<div class="qs wide"><h1>Reports</h1><div class="sub">Each report answers one question. Tap it; it opens with this month set, newest first, with a total. Print or export from the page.</div>';
-  h+='<div class="bo-desks rp-list">'+list.map(function(c){ return '<button class="bo-desk rp-card" onclick="rpOpen(\''+c.id+'\')"><div class="t">'+qsEsc(c.t)+(c.money?' <span class="tdtag">PKR</span>':'')+'</div><div class="nums" style="font-size:13px">'+qsEsc(c.q)+'</div><div class="acts"><span class="tdgo">Open ›</span></div></button>'; }).join('')+'</div>';
+  var h='<div class="qs wide"><h1>Reports</h1><div class="sub">Pick a function. Its reports open as tabs; each answers one question, with a total, Print and CSV.</div>';
+  var cards=RP_GROUPS.map(function(g){ var rs=rpGroupVisible(g); if(!rs.length) return '';
+    return '<button class="bo-desk rp-card" onclick="rpOpen(\''+rs[0].id+'\')"><div class="t">'+qsEsc(g.t)+'</div><div class="nums" style="font-size:13px">'+qsEsc(g.q)+'</div><div class="rp-names">'+rs.map(function(c){ return qsEsc(c.t)+(c.money?' <span class="tdtag">PKR</span>':''); }).join(' · ')+'</div><div class="acts"><span class="tdgo">'+rs.length+' report'+(rs.length===1?'':'s')+' ›</span></div></button>'; }).join('');
+  var cu=rpDef('custom'); if(cu&&rpMay(cu)) cards+='<button class="bo-desk rp-card rp-custom" onclick="rpOpen(\'custom\')"><div class="t">Custom report</div><div class="nums" style="font-size:13px">'+qsEsc(cu.q)+'</div><div class="acts"><span class="tdgo">Build ›</span></div></button>';
+  h+='<div class="bo-desks rp-list">'+cards+'</div>';
   if(!list.length) h+='<div class="note">No report is open to your role yet. Ask the COO.</div>';
   return h+'</div>';
 }
+/* a report's other views (each line / by customer / by product), on the same data */
+var rpViewIdx=0;
+function rpSetView(i){ var c=rpDef(rpCur); if(!c||!c.views||!c.views[i]) return; var v=c.views[i]; rpViewIdx=i; rbMode=v.mode||c.mode||'raw'; rbGroup=(v.group||c.group||[]).slice(); rbCols=(v.cols||c.cols).slice(); render(); }
+function rpViewChips(c){ if(!c.views) return ''; return '<div class="chips">'+c.views.map(function(v,i){ return '<button class="qs-btn sm'+(rpViewIdx===i?' on':'')+'" onclick="rpSetView('+i+')">'+qsEsc(v.t)+'</button>'; }).join('')+'</div>'; }
 function rpPeriodChips(){ return '<div class="chips">'+['This month','Last month','FY to date','All'].map(function(p){ return '<button class="qs-btn sm'+(rpPeriod===p?' on':'')+'" onclick="rpApplyPeriod(\''+p+'\');render()">'+p+'</button>'; }).join('')+'</div>'; }
 /* 07a: long text wraps in a named report (report tables were all nowrap, so a
    detail or a product list pushed columns and buttons off the screen), and a DC
@@ -18327,20 +18403,23 @@ function rpCellHTML(k,r){ var v=qsEsc(rbCellFmt(k,r[k]));
   return v; }
 var RP_WIDE_COLS=['detail','reason','changed','cascade'];
 function rpTdCls(k){ return rbIsMeas(k)?' class="num"':(RP_WRAP_COLS.indexOf(k)>-1?(' class="rpwrap'+(RP_WIDE_COLS.indexOf(k)>-1?' wide':'')+'"'):''); }
-function rpTableHTML(res,act){
+function rpTableHTML(res,act,avgKey){
   var cols=res.cols; var meas=cols.filter(rbIsMeas);
   var tot={}; meas.forEach(function(k){ tot[k]=res.rows.reduce(function(a,r){ return a+(+r[k]||0); },0); });
   if(!res.rows.length) return '<div class="note">Nothing in this period.</div>';
   var h='<div class="sheet-wrap" style="overflow-x:auto"><table class="rbtbl rp-tbl"><thead><tr>'+cols.map(function(k){ return '<th'+(rbIsMeas(k)?' class="num"':'')+'>'+qsEsc(rbColLabel(k))+'</th>'; }).join('')+(act?'<th></th>':'')+'</tr></thead><tbody>';
   h+=res.rows.slice(0,500).map(function(r){ return '<tr>'+cols.map(function(k){ return '<td'+rpTdCls(k)+'>'+(res.summary?qsEsc(rbCellFmt(k,r[k])):rpCellHTML(k,r))+'</td>'; }).join('')+(act?'<td style="text-align:right;white-space:nowrap">'+act(r)+'</td>':'')+'</tr>'; }).join('');
-  if(meas.length) h+='<tr class="rp-tot">'+cols.map(function(k,i){ return '<td'+(rbIsMeas(k)?' class="num"':'')+'>'+(rbIsMeas(k)?fmt(Math.round(tot[k])):(i===0?'Total':''))+'</td>'; }).join('')+(act?'<td></td>':'')+'</tr>';
+  if(meas.length) h+='<tr class="rp-tot">'+cols.map(function(k,i){ return '<td'+(rbIsMeas(k)?' class="num"':'')+'>'+(rbIsMeas(k)?((k===avgKey&&res.rows.length)?('avg '+(tot[k]/res.rows.length).toFixed(1)):fmt(Math.round(tot[k]))):(i===0?'Total':''))+'</td>'; }).join('')+(act?'<td></td>':'')+'</tr>';
   h+='</tbody></table></div>'+(res.rows.length>500?'<div class="sub">Showing the first 500 of '+res.rows.length+' rows; export for the rest.</div>':'');
   return h;
 }
 function rpSentence(c,res){
   var n=res.rows.length; var meas=res.cols.filter(rbIsMeas).filter(function(k){return k!=='__count';})[0];
+  if(c&&c.sumKey&&res.cols.indexOf(c.sumKey)>-1) meas=c.sumKey;   /* 07b: the number the report is about */
   var tot=meas?res.rows.reduce(function(a,r){return a+(+r[meas]||0);},0):null;
   var when=rpPeriod==='All'?'':(' · '+rpPeriod.toLowerCase());
+  if(c&&c.avgKey&&!res.summary&&res.cols.indexOf(c.avgKey)>-1){ var av=n?(res.rows.reduce(function(a,r){return a+(+r[c.avgKey]||0);},0)/n):0;
+    return '<div class="rp-sum"><b>'+n+'</b> row'+(n===1?'':'s')+when+' · average <b>'+av.toFixed(1)+'</b> '+qsEsc(rbColLabel(c.avgKey)).toLowerCase()+'</div>'; }
   return '<div class="rp-sum"><b>'+n+'</b> '+(res.summary?'group'+(n===1?'':'s'):'row'+(n===1?'':'s'))+when+(meas?(' · '+qsEsc(rbColLabel(meas))+' <b>'+fmt(Math.round(tot))+'</b>'):'')+'</div>';
 }
 function rpRmPosition(){
@@ -18355,7 +18434,12 @@ function rpRmPosition(){
 }
 function rpReportHTML(){
   var c=rpDef(rpCur); if(!c) return rpListHTML();
-  var h='<div class="qs wide rp"><div class="bo-back"><button class="qs-btn sm ghost" onclick="rpBack()">‹ Reports</button></div><h1>'+qsEsc(c.t)+'</h1><div class="sub">'+qsEsc(c.q)+'</div>';
+  /* 07b: inside a function: its name, its reports as tabs, then the open report's question */
+  var g=rpGroupOf(c.id), sib=g?rpGroupVisible(g):[];
+  var h='<div class="qs wide rp"><div class="bo-back"><button class="qs-btn sm ghost" onclick="rpBack()">‹ Reports</button></div><h1>'+qsEsc(g?g.t:c.t)+'</h1>'
+    +(sib.length>1?'<div class="subnav rp-tabs">'+sib.map(function(x){ return '<button class="qs-btn sm'+(x.id===c.id?' on':'')+'" onclick="rpOpen(\''+x.id+'\')">'+qsEsc(x.t)+'</button>'; }).join('')+'</div>':'')
+    +(g?'<h2 class="rp-h2">'+qsEsc(c.t)+'</h2>':'')+'<div class="sub">'+qsEsc(c.q)+'</div>';
+  if(c.kind==='customer') return h+rpCustomerHTML()+'</div>';
   if(c.kind==='rmpos'){ if(rpView==='rmdetail') return h+'<div class="bo-back" style="margin-top:8px"><button class="qs-btn sm ghost" onclick="rpView=\'report\';render()">‹ All materials</button></div><div class="paperui">'+rpRmChain()+'</div></div>'; return h+rpRmPosition()+'</div>'; }
   /* 06c: the switch sits ABOVE the list. Below a 60vh table nobody saw it, so the
      DC and gate pass looked missing from Documents. */
@@ -18363,11 +18447,38 @@ function rpReportHTML(){
   if(c.kind==='builder') return h+'<div class="paperui">'+rbRender()+'</div></div>';
   if(c.kind==='psireg') return h+psiRegisterHTML()+'</div>';
   var res=rbResult();
-  h+='<div class="row between" style="gap:10px;flex-wrap:wrap;align-items:center;margin-top:10px">'+rpPeriodChips()+'<span class="row" style="gap:6px"><button class="qs-btn sm" onclick="rbPrint()">Print / PDF</button><button class="qs-btn sm" onclick="rbExport(\'csv\')">CSV</button><button class="qs-btn sm ghost" onclick="rpTab=\'builder\';rpCur=\'custom\';render()">Adjust</button></span></div>';
+  h+='<div class="row between" style="gap:10px;flex-wrap:wrap;align-items:center;margin-top:10px"><span class="row" style="gap:10px;flex-wrap:wrap">'+rpViewChips(c)+(c.views?'<span class="rp-sep"></span>':'')+rpPeriodChips()+'</span><span class="row" style="gap:6px"><button class="qs-btn sm" onclick="rbPrint()">Print / PDF</button><button class="qs-btn sm" onclick="rbExport(\'csv\')">CSV</button><button class="qs-btn sm ghost" onclick="rpTab=\'builder\';rpCur=\'custom\';render()">Adjust</button></span></div>';
   /* 06c: a lab certificate prints from its own row (summary rows have no certificate) */
   var _act=(c.id==='coa'&&!res.summary)?function(r){ return r._ok?'<button class="qs-btn sm ghost" onclick="printCOA(\''+qsEsc(r._bid)+'\',\''+qsEsc(r._lid||'')+'\')">COA</button>':''; }:null;
-  h+=rpSentence(c,res)+rpTableHTML(res,_act);
+  /* 07b: a packed-material inspection opens the PO's inspection log, for the roles that open QA (as on the order's Papers) */
+  if(c.id==='packqa'&&!res.summary&&canView(state.role,'qa')) _act=function(r){ return r.po?'<button class="qs-btn sm ghost" onclick="printInspect(\''+qsEsc(r.po)+'\')">Log</button>':''; };
+  if(res.summary&&c.sumKey) res.rows.sort(function(a,b){ return (+b[c.sumKey]||0)-(+a[c.sumKey]||0); });
+  h+=rpSentence(c,res)+rpTableHTML(res,_act,c.avgKey);
   return h+'</div>';
+}
+/* ===== ONE CUSTOMER - 07b =====
+   Every order of one customer with what is left, and every truck with its
+   papers. The order opens its own sheet (and its Papers); the DC number prints
+   the DC. No prices: the same for every role, like the Orders screen. */
+var rpCust='';
+function rpCustomerHTML(){
+  var names={}; (state.orders||[]).forEach(function(o){ if(o&&o.client) names[o.client]=1; });
+  var list=Object.keys(names).sort(function(a,b){ return a.localeCompare(b); });
+  if(!list.length) return '<div class="note">No customers yet.</div>';
+  var cl=(rpCust&&names[rpCust])?rpCust:'';
+  var h='<div style="margin:12px 0"><select onchange="rpCust=this.value;render()" style="min-width:320px;max-width:100%"><option value="">Pick a customer…</option>'+list.map(function(n){ return '<option'+(n===cl?' selected':'')+'>'+qsEsc(n)+'</option>'; }).join('')+'</select></div>';
+  if(!cl) return h+'<div class="note">Pick a customer to see their orders, what is left and every truck.</div>';
+  var os=(state.orders||[]).filter(function(o){ return o&&o.client===cl; }).sort(function(a,b){ return String(b.received||'').localeCompare(String(a.received||'')); });
+  var pos={}; os.forEach(function(o){ pos[o.po]=1; });
+  var left=0, ordT=0, delT=0;
+  var orow=os.map(function(o){ var ord=0,del=0,lf=0; (o.lines||[]).forEach(function(l){ ord+=(+l.ordered||0); del+=(+l.delivered||0); if(!(lineShortClosed(l)||o.closed)) lf+=Math.max(0,(+l.ordered||0)-(+l.delivered||0)); }); left+=lf; ordT+=ord; delT+=del;
+    return '<tr><td>'+qsEsc(o.received||'—')+'</td><td><a class="psi-link" style="cursor:pointer;font-weight:700;color:var(--navy);text-decoration:underline" title="Open the order and its papers" onclick="openOrderSheet(\''+qsEsc(o.id)+'\')">'+qsEsc(o.po)+'</a></td><td class="rpwrap">'+qsEsc((o.lines||[]).map(function(l){return l.brand;}).join(', '))+'</td><td class="num">'+fmt(ord)+'</td><td class="num">'+fmt(del)+'</td><td class="num">'+(lf>0.5?'<b>'+fmt(lf)+'</b>':'—')+'</td><td>'+qsEsc(orderBucket(o))+'</td></tr>'; }).join('');
+  var gs=(typeof dispatchGroups==='function'?dispatchGroups():[]).filter(function(g){ return g.dispId&&(g.client===cl||(g.pos||[]).some(function(p){ return pos[p]; })); });
+  var trow=gs.map(function(g){ return '<tr><td>'+qsEsc(g.date||'—')+'</td><td>'+(g.dc?'<a class="psi-link" style="cursor:pointer;font-weight:700;color:var(--navy);text-decoration:underline" title="Open the delivery challan, ready to print" onclick="printDC(\''+qsEsc(g.dispId)+'\')">'+qsEsc(g.dc)+'</a>':'—')+'</td><td>'+qsEsc(g.poLabel||'')+'</td><td class="rpwrap">'+qsEsc(g.rows.map(function(r){return r.brand;}).join(', '))+'</td><td class="num">'+fmt(g.kg)+'</td><td>'+qsEsc(g.vehicle||'—')+'</td><td>'+qsEsc(g.stageNow||'')+'</td><td style="text-align:right;white-space:nowrap">'+shipGpBtn(g)+' '+shipPsiBtn(g)+'</td></tr>'; }).join('');
+  h+='<div class="rp-sum"><b>'+os.length+'</b> order'+(os.length===1?'':'s')+' · ordered <b>'+fmt(ordT)+'</b> · delivered <b>'+fmt(delT)+'</b> · left <b>'+fmt(left)+'</b> Kg/L · <b>'+gs.length+'</b> truck'+(gs.length===1?'':'s')+'</div>';
+  h+='<h3 class="rp-h3">Orders</h3><div class="sheet-wrap" style="overflow-x:auto"><table class="rbtbl rp-tbl"><thead><tr><th>Received</th><th>PO</th><th>Products</th><th class="num">Ordered</th><th class="num">Delivered</th><th class="num">Left</th><th>Stage</th></tr></thead><tbody>'+(orow||'<tr><td colspan="7" class="muted">No orders.</td></tr>')+'</tbody></table></div>';
+  h+='<h3 class="rp-h3">Trucks</h3><div class="sheet-wrap" style="overflow-x:auto"><table class="rbtbl rp-tbl"><thead><tr><th>Date</th><th>DC</th><th>PO</th><th>Products</th><th class="num">Kg/L</th><th>Vehicle</th><th>Stage</th><th></th></tr></thead><tbody>'+(trow||'<tr><td colspan="8" class="muted">No trucks yet.</td></tr>')+'</tbody></table></div>';
+  return h;
 }
 function screenReports(){
   /* 24k: the catalogue first; a named report; the old 3-tab page only behind Custom */

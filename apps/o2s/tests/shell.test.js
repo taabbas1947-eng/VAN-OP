@@ -455,7 +455,7 @@ ok('a browser that remembered All actions or the Dashboard lands on Today', /if\
     const fi = f({ role: 'Finance' }, () => false)().map(x => x.id);
     ok('Finance sees the Invoicing sheet and not Sales against budget (24l)', fi.indexOf('invoicing') > -1 && fi.indexOf('sales') < 0);
   }
-  ok('opening a report sets the builder: dataset, columns, mode, group, period, and a where-filter', /rbDS=c\.ds; rbCols=c\.cols\.slice\(\); rbMode=c\.mode\|\|'raw'; rbGroup=\(c\.group\|\|\[\]\)\.slice\(\); rbFilters=\{\}; rbWhere=c\.where\|\|null; rpApplyPeriod\(c\.period\|\|'This month'\)/.test(grab('rpOpen')));
+  ok('opening a report sets the builder: dataset, columns, mode, group, period, and a where-filter', /rbDS=c\.ds; rbCols=c\.cols\.slice\(\); rbMode=c\.mode\|\|'raw'; rbGroup=\(c\.group\|\|\[\]\)\.slice\(\); rbFilters=\{\}; rbWhere=c\.where\|\|null; rpApplyPeriod\(c\.now\?'All':\(c\.period\|\|'This month'\)\)/.test(grab('rpOpen')));
   ok('rows come newest first, filtered by the report’s where', /if\(rbWhere\) rows=rows\.filter\(rbWhere\);/.test(grab('rbRows')) && /rows\.sort\(function\(a,b\)\{ return String\(b\[dk\]\|\|''\)\.localeCompare\(String\(a\[dk\]\|\|''\)\); \}\);/.test(grab('rbRows')));
   ok('the table carries a totals line and a one-line summary', /class="rp-tot"/.test(grab('rpTableHTML')) && /rpSentence\(c,res\)/.test(grab('rpReportHTML')) && /Print \/ PDF/.test(grab('rpReportHTML')) && /rbExport\(\\'csv\\'\)/.test(grab('rpReportHTML')));
   ok('the period is 4 chips on the report, from periodWindow', /'This month','Last month','FY to date','All'/.test(grab('rpPeriodChips')) && /periodWindow\(rpPeriod\)/.test(grab('rpApplyPeriod')));

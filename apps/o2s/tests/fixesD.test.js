@@ -9,7 +9,7 @@ ok('D1: no paper card around it', /if\(c\.kind==='builder'\) return h\+rbRender\
 ok('D1: own dates show in the sentence', /rbFrom\|\|'start'/.test(grab('rpSentence')));
 /* D2 Reference */
 const ref = grab('guideReference');
-ok('D2: the Reference is built from TD_NEXT, TD_LABEL, SCREENS and canView', /gdChain\(\)/.test(ref) && /TD_LABEL/.test(ref) && /SCREENS\.filter/.test(ref) && /canView\(r,s\.id\)/.test(ref));
+ok('D2: the Reference is built from TD_NEXT, TD_LABEL, SCREENS and canView', /gdChain\(\)/.test(ref) && /TD_LABEL/.test(ref) && /SCREENS\.filter/.test(ref) && /gdScreenOpen\(r,s\.id\)/.test(ref));
 ok('D2: no old names in the Reference or the Back Office manual', !/My Actions|PO Tracker|New PO Entry|Data Fix|Sent tab|Master Data|Authorisation/.test(ref + grab('backOfficeManualCard')));
 ok('D2: the search reads the live Reference', /tabs\.push\(\['ref','Reference',function\(\)\{ try\{ return guideReference\(\);/.test(grab('guideSearchBlocks')));
 ok('D2: QCM approval leads to the Pack job', /'Approve':'Pack',/.test(html));
@@ -43,5 +43,5 @@ ok('audit: a non-money role on the finance data loses its columns too', /rbDS='p
 ok('audit: the plant clock is fixed PKT', /t\+5\*3600000/.test(grab('localDateOf')) && /t\+5\*3600000/.test(grab('localWhenOf')));
 ok('audit: the Reference chain follows the lab flow and skips Close batch', /labFlowOn\(\)/.test(grab('gdChain')) && /'Open Production'\) return lab\?'Assign sample':'Lab QC'/.test(grab('gdChain')));
 ok('audit: the Guide marks match the chips', /■ waiting 3 d/.test(grab('guideHow')) && !/● due</.test(grab('guideHow')));
-ok('BUILD_ID is 07h', /var BUILD_ID='2026-10-07h'/.test(html));
+ok('BUILD_ID is 07h or later', /var BUILD_ID='2026-10-07[h-z]'/.test(html));
 process.exitCode = report('List D: screens, wording, design (07h)') ? 1 : 0;

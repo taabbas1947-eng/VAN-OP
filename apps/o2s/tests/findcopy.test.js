@@ -125,7 +125,7 @@ ok('an open report uses the screen width', /\.qs\.wide\.rp\{max-width:min\(1400p
   const t = sd.D.labtat.rows();
   ok('lab turnaround: approved = sample in to approval (3 days)', t.some(r => r.batch === 'B-1' && r.days === 3 && r.status === 'Approved'));
   ok('an old-flow certificate (no hand-over to the lab) is left out (Tahir, 7 Oct)', !t.some(r => r.batch === 'B-3'));
-  ok('an open certificate counts the days so far, from the hand-over to the lab', t.some(r => r.batch === 'B-2' && r.days === 2 && /^Open/.test(r.status)));
+  ok('an open certificate counts the days so far, from the hand-over to the lab (07i: shown, not averaged)', t.some(r => r.batch === 'B-2' && r.days === null && r.sofar === '2 days so far' && /^Open/.test(r.status)));
   const o = sd.D.orders.rows();
   ok('open orders: what is left per line (700, and 0 for the delivered one)', o.find(r => r.product === 'V-Zinc').balance === 700 && o.find(r => r.product === 'Vibrant').balance === 0);
 }

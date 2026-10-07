@@ -12,10 +12,10 @@ vm.runInContext(['_uid', 'nid', '_arrId', '_eq', 'merge3', 'lotBaseNo', 'lotBran
 /* A1 - after 2 audits: no adding in the merge (it double-counted); a lost pack is caught */
 ok('A1: the merge is back to "mine wins" (no counter adding, no save queue)', !/MERGE_COUNTERS|_mergeCounter|_saveInFlight/.test(H.html.replace(/\/\*[\s\S]*?\*\//g, '')));
 { const sx = { console, fmt: n => String(Math.round(n)), unitOf: () => 'Kg/L', saleLeft: () => true, state: { packingLog: [{ id: 'P1', po: 'X', lid: 'a', kg: 300 }, { id: 'P2', po: 'X', lid: 'a', kg: 300 }], shipments: [] } };
-  vm.createContext(sx); vm.runInContext(['lotsFor', 'lineFacts', 'lineIssues', 'lineShortClosed'].map(grab).join('\n'), sx);
+  vm.createContext(sx); vm.runInContext(['lotsFor', 'lineFacts', 'lineLostKg', '_movedInMapBuild', '_movedInMap', 'lineOverUsed', 'lineIssues', 'lineShortClosed'].map(grab).join('\n'), sx);
   const I = sx.lineIssues({ po: 'X' }, { id: 'a', brand: 'B', ordered: 1000, packed: 300 });
   ok('A1: a line whose packing records (600) exceed its packed (300) is flagged', I.some(i => i.k === 'lost' && /300 Kg\/L in packing records not counted/.test(i.t)));
-  ok('A1: it goes on the packing list of Needs you, with a fix that raises packed to its records', /i\.k==='lost'/.test(grab('lineFixRows')) && /F\.gap<-0\.5;/.test(grab('lineFixOpen')) && /if a record is a copy of another|if one is a copy of another/.test(grab('lineFixOpen')) && /if\(to>was\) l\.produced=Math\.max/.test(grab('lineFixCut'))); }
+  ok('A1: it goes on the packing list of Needs you, with a fix that raises packed to its records', /i\.k==='lost'/.test(grab('lineFixRows')) && /lineLostKg\(o,l,F\)>0\.5;/.test(grab('lineFixOpen')) && /if a record is a copy of another|if one is a copy of another/.test(grab('lineFixOpen')) && /if\(to>was\) l\.produced=Math\.max/.test(grab('lineFixCut'))); }
 
 /* A2 */
 sb.state = { packingLog: [{ id: 'P1', po: 'X', lid: 'a', brand: 'B', kg: 500, insKg: 500, shipKg: 500, baseBatchNo: 'VB26001' }, { id: 'P2', po: 'X', lid: 'a', brand: 'B', kg: 500, insKg: 500, shipKg: 500, baseBatchNo: 'VB26001' }] };

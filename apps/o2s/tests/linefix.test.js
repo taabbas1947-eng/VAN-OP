@@ -50,7 +50,7 @@ const sb = { console, toasts: [], saved: 0, corr: [],
     shipments: [{ po: 'P-VMG', lid: 'L1', brand: 'V-Mg', kg: 150, dispCounted: true, stage: 'delivered', delivered: '2026-08-02' },
                 { po: 'P-UND', lid: 'L4', brand: 'NPK', kg: 50, dispCounted: true, stage: 'delivered', delivered: '2026-07-20' }] } };
 vm.createContext(sb);
-vm.runInContext(['lineFixBases', 'lotsFor', 'saleLeft', 'lineFacts', 'lineIssues', 'lineFixRows', 'lineHistory', 'lineCause', 'lineFixOpen', '_lfCtx', '_lfGuard', 'lineFixRecord', 'lineFixCut', 'lineFixDate', 'lineFixList'].map(grab).join('\n') + '\nvar lfForm={};', sb);
+vm.runInContext(['lineFixBases', 'lotsFor', 'saleLeft', 'lineFacts', 'lineLostKg', '_movedInMapBuild', '_movedInMap', 'lineOverUsed', 'lineIssues', 'lineFixRows', 'lineHistory', 'lineCause', 'lineFixOpen', '_lfCtx', '_lfGuard', 'lineFixRecord', 'lineFixCut', 'lineFixDate', 'lineFixList'].map(grab).join('\n') + '\nvar lfForm={};', sb);
 const O = po => sb.state.orders.find(o => o.po === po), L = po => O(po).lines[0];
 eq('a reversed lot is not counted as packing', sb.lineFacts(O('P-OVER'), L('P-OVER')).logged, 300);
 eq('the list finds the 3 packing lines', sb.lineFixRows('packing').map(r => r.o.po).join(','), 'P-VMG,P-OVER,P-MAX');

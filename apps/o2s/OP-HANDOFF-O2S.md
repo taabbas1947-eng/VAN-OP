@@ -6323,3 +6323,63 @@ From the full read-through (4 parallel reviews). Tahir: "A to D, first A, carefu
 - D6 localDateOf/localWhenOf are fixed PKT (+5h, like TODAY): tdDoneCount, Your people, the 13760 log, datasets corrections (date+when), shortclose, moves, activity, and the "keyed" details.
 - D7 qcFull(passed,l): passed>0 and within min(0.5, 1% of ordered); used in all 6 qcPass decisions (was 0.001).
 - Tests: fixesD.test.js (30). Updated pins: guide, instructions, shell (Reference, TD_SIGN_JOBS, card colour, QA inspection), preflight (QA inspection h1), samples (FOC), authmodel/backlog/rights (People → Roles), batchqty/certremove/lotpack/stockmove (Kg/L, qcFull), datafix-bulkprice (Correct a record), rolemodel (rename reason), poentry (colours), shortclosereport (localDateOf), budget (finance guard), fixesC (TD_SIGN_JOBS). BUILD_ID 2026-10-07h. All O2S tests pass except publicbatch (pdfkit).
+
+## 2026-10-07i — the 4 reviewers' findings on 07h, fixed (ready to push, not pushed)
+Reviewed in 4 rounds by independent code, data-safety, design and workflow reviewers, then a final review ("Push, but know this").
+- Stock move twice: new lots take ids 'PK'+moveId+'-'+i, so 2 approvals merge to one; pmvApply returns false if already applied (checked before writing). approveMove/refuseMove/cancelMove are async: _pmvBusy guard, srvUpToDate(pmvSig) re-reads the server (waits up to 4 s for our own save, 8 s timeout, merges only a NEWER rev, proceeds when nothing the decision rests on changed), _pmvSheetOpen so a late answer never closes another sheet. pmvSettleV1 (ensureState): a move whose lots exist is 'done'; a late refusal/cancel is kept as m.clash.
+- saveNow: an older success reply no longer rewinds _rev/_baseSnapshot.
+- coaSubmitAnalyst (B10) is async with the same server check and a busy guard.
+- 'Check after move' job for Supply Chain (m.scCheck; doneMoveCheck; escalates to the Plant Manager after 2 days; aged from approvedAt). CFO: pmvMovedInNote on the request card and in renderPRSheet.
+- 'Same DC or gate pass number twice' job (dupNumbers, live, only while one record has not left; TD_RIGHT gatepass.issue; openDupNumber: new gate pass number for a truck or sample with a server re-read, DC clash → cancel the truck and plan again). mergeDupNumbers toast said once per session.
+- Pack job: packJobWanted (PO line still short, or a multi batch with a PO still short), aged from the first approval, floor PACK_JOB_SINCE '2026-10-08'; openPackFor prefills a single-PO batch only.
+- prDrop: a 'short'/empty line → pending; a part-ready line keeps its clearance and, once the cleared part is made, gets 'RM Check for the rest' (text says to enter the TOTAL incl. what is made); rmRecheckAt ages it.
+- lineLostKg (measured against the order; skipped for no-lid records on a PO with 2 lines of the brand); lineFixCut raises batch packedKg by no more than the line rose and never past produced − disposed.
+- lineOverUsed: 2 moves of one run approved at the very same moment → flagged on Needs you on the source PO and every PO it went to (not repaired; _movedInMap cached 1.5 s).
+- dfSubmitShipment skips failed/held lots and records lotTake{lotId,kg,insBump}; CORRECT_ENTITY.shipment blocks/cascade/doReverse (no UI opens a shipment correction yet). _releaseShip: no batch-number fallback for a row that names its lot.
+- Reports: moves (Asked vs Moved, sumKey kg), labtat (days null for open, sofar, keepOpen, _avgN), rbPrint (report name, period, total, screen order), now:true on openorders/waiting, rbExport blanks. Guide: gdScreenOpen (real access), Delivery owner, lab flow in other jobs, search aliases + word-start match. Chase tag in words. Move sheet fits a phone.
+- TAKEN OUT after 4 rounds (option a): auto-repair of 2 simultaneous moves; 'Raw material is not there'; Pack prefill for 2-PO batches; RM Check 'already made' change.
+- Known limits (need server.js, out of scope): 2 people saving the same stock at the same moment (e.g. a truck planned on a form left open while a move is approved; lineFixCut while someone packs from the same batch) can still miscount without a flag. Old cleared batches' Pack jobs all escalate on 9 Oct.
+- Tests: fixesE.test.js (23); stockmove awaits the async calls; updated fixesA/C/D, findcopy, guide, linefix, shell. BUILD_ID 2026-10-07i. All O2S tests pass except publicbatch (pdfkit).
+
+## 2026-10-07 — END OF SESSION: what is solved, what is not, what the next chat needs
+
+### Where things stand
+- Live on GitHub (pushed by Tahir, commit 55cd1d0 "mAJOR CHNAGES AND BUGS REMOVAL"): builds 07c to 07h.
+- On Tahir's computer, NOT committed, NOT pushed: build 07i (o2s.html, OP-HANDOFF-O2S.md, tests fixesA/C/D, findcopy, guide, linefix, shell, stockmove changed; tests/fixesE.test.js new). Local main = origin/main (nothing to pull on 7 Oct evening). To release: pull (nothing expected), commit, push.
+- 07i final independent review verdict: "Push, but know this" (nothing loses saved data or blocks normal work for one person).
+- Tests: every O2S suite passes except publicbatch.test.js (needs the pdfkit library, not installed). Run: cd apps/o2s/tests; node <name>.test.js. Syntax check: new Function() over each <script> block of o2s.html.
+- Standing rules for O2S work: only apps/o2s/o2s.html, apps/o2s/tests/*, apps/o2s/OP-HANDOFF-O2S.md may change; server.js, launcher.html, apps/pd/* are forbidden. Never push (Tahir pushes). This file is append-only. Bump BUILD_ID and add a CHANGELOG entry per release. Use git --no-optional-locks. Before calling anything ready, run the review-before-push skill (code, data-safety, design, workflow reviewers; data-safety always).
+
+### SOLVED (7 Oct, builds 07d to 07i)
+- Guide: search box over all tabs (old screen names found, whole-word start match); "New on 7 Oct" notes in My job; lateness counted in calendar days; Reference tab rebuilt from the app's own tables (order end to end, every other job, every screen and who can really open it, Why is it stuck?).
+- List A (stock and numbers): lost-packing detection ("lost") with a fix that also brings the batch figure back (capped); truck cancel frees the right lot; back-filled trucks take Kg off lots; Correct a record caps for packing and production; unique DC/inspection ids; duplicate DC/gate pass numbers said and made a Today job; kept stock packable.
+- List B (approvals): COA deviation needs a failed status and a note; a non-draft COA cannot be re-submitted (now checked against the server too); a refused PR cannot be approved; a closed batch cannot be closed again; reopening a short-closed line reopens the PO.
+- List C (Today jobs): Pack job (only while a PO still needs packing; single-PO batch opens on its PO); dropped refused PR sends the line back to RM Check, or for a part-ready line raises "RM Check for the rest" once the cleared part is made; no Review truck for the person who loaded or passed the truck; "Not yours to do · chase …" on escalated jobs you cannot do; COO keeps all buttons; per-record defer keys; move and close-short jobs escalate to the COO after 1 day; delivery reminder rows.
+- List D (screens and wording): Custom report in the shell look; old screen names removed from messages; FOC samples everywhere; QA screen renamed "QA inspection"; Kg/L on screens; one colour rule for waiting (amber 1–6 days, red 7+); top bar on one line from 900px; New order / Production / Customers / Shipments in the shell colours; builder notes removed; phone widths; plant-clock (PKT) dates; qcPass tolerance (qcFull).
+- 07i: stock move can no longer be made twice (fixed lot ids, server re-check, busy guard, late refusal kept as a clash); "Check after move" job for Supply Chain + CFO note on the request; "Same DC or gate pass number twice" job with renumber; an older save reply no longer rewinds the save point; reports fixed (Stock moved counts only what moved; Lab turnaround averages finished ones and always shows open ones; now-reports have no period; Print names report, period, total).
+
+### NOT SOLVED (known, open)
+1. 2 people on the same stock at the very same moment can still miscount it without a flag, because the server accepts whichever save arrives last (merge "mine wins" on running totals). Examples measured by reviewers: a truck planned on a form left open while a stock move is approved (bags counted on 2 POs); "Bring packed back to its records" while someone packs from the same batch (batch reads free stock that is not there). Real fix needs server.js (Ahmer): see "Server change proposal" below.
+2. 2 stock moves from the same packing run approved at the very same moment: only FLAGGED on Needs you (source PO and every PO it went to) for the COO; no tool in the app to settle it (moved records are locked against correction).
+3. The 4 parts taken out in 07i (option a) are not built: automatic repair of 2 simultaneous moves; a "Raw material is not there" answer on Check after move (now: tell the Plant Manager); Pack job prefill for a batch made for 2 POs (packer picks the PO); RM Check showing "already made" and counting it.
+4. RM Check for a part-made line works on the WHOLE order: Supply Chain must enter the total that can be made including what is made, or the PR is wrong (the job text says so; the sheet does not).
+5. Pack jobs for old cleared batches all escalate to the Production Manager on 9 Oct (PACK_JOB_SINCE '2026-10-08').
+6. Shipment reverse in Correct a record exists in code (back-filled trucks only) but no button opens a shipment correction. Back-fills made before 07i carry no lot links, so a reverse would not restore their "inspected" figures.
+7. A save that fails once leaves _savePending set for the session: background refresh stops and each approval waits about 4 seconds (reload fixes it).
+8. Gate pass renumber still closes whatever sheet is open after its check (up to 8 s); 2 people renumbering the same clash at the same moment can take the same new number (the job comes back).
+9. Needs you headline text for the "moved out twice" flag still reads like a packing mismatch; when 2 moves from different runs of one line clash, the source line can show "untraced" (fix there is "Bring packed back to its records").
+10. Some deferred jobs (samples, customers, rejected DCs, close-short) came back once on Today after 07g's new keys.
+11. Guide "My job" does not yet describe the new jobs (Check after move, Same DC or gate pass number twice, RM Check for the rest) for Supply Chain, Warehouse and the CFO.
+12. Maxim 22867 / 22868 (Enroot, 2 locations): discussed only; the stock move feature (07c) is the route; no data was changed.
+
+### Server change proposal (for Ahmer, server.js — not done, needs Tahir's OK)
+- The state is saved as one whole document; a conflicting save is merged in the browser. Running totals (line packed/produced/dispatched, lot kg/shipKg/insKg, batch packedKg) are merged "mine wins", so 2 simultaneous changes to one total keep only one.
+- Option 1 (smallest): server-side lock per stock move / truck plan — the client asks the server to "take" N Kg from lot X; the server checks free stock on its latest copy and refuses if not free.
+- Option 2: server re-runs the stock checks (lot kg − shipKg − moved ≥ 0, batch packed ≤ produced − disposed) on every save and rejects a save that breaks them, telling the client to reload.
+- Also: setStateGuarded runs UPDATE then a separate SELECT rev, which can return another person's later rev (a reviewer flagged it as able to turn a conflict into a silent overwrite).
+
+### Next chat: start here
+1. Ask Tahir whether 07i has been pushed; if not, check git status and that BUILD_ID is 2026-10-07i.
+2. Decide with Tahir (multiple choice): server change with Ahmer (option 1 or 2) / build the "settle 2 moves" tool for the COO / Guide My job notes for the new jobs / RM Check "total" wording on the sheet itself.
+3. Review scripts from 7 Oct (scratch, may be gone): earlier reviewers' simulations used the real merge3 on the 22867/22868/22999 fixture in tests/stockmove.test.js and tests/fixesE.test.js — reuse those fixtures.
+4. Email/Outlook work started and stopped on 7 Oct at Tahir's request (no connector to be used); not O2S.

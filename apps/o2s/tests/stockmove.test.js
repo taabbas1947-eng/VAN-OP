@@ -26,14 +26,15 @@ Object.assign(sb, { toast: m => sb.toasts.push(m), save: () => sb.saved++, rende
 vm.createContext(sb);
 vm.runInContext(['nid', 'evToday', 'lotBaseNo', 'lotBrandNo', 'lotsFor', 'lotAvail', 'lotClearedKg', 'linePassedInsp', 'lineFacts', 'saleLeft',
   'pmvWho', 'pmvSame', 'pmvLine', 'pmvLotFree', 'pmvLotCleared', 'pmvOpenOn', 'pmvRoom', 'pmvWhyNot', 'pmvTargets', 'pmvCanStart', 'moveStockButtonHTML',
-  'openMoveStock', 'renderMoveStock', 'submitMoveStock', 'pmvById', 'pmvProblems', 'openMoveApprove', 'renderMoveApprove', 'approveMove', 'pmvApply', 'refuseMove', 'cancelMove', 'noteMoveRefusal', 'pmvActionItems', 'lotMoveLock', 'lotFamily', 'qcFull'].map(grab).join('\n')
-  + '\nvar pmvForm=null, pmvRefuseWhy="";\nfunction may(c){ return c==="stock.move_request"?this.state.role==="Supply Chain"||this.state.role==="COO":c==="stock.move_approve"?this.state.role==="Plant Manager"||this.state.role==="COO":false; }'
+  'openMoveStock', 'renderMoveStock', 'submitMoveStock', 'pmvById', 'pmvProblems', 'openMoveApprove', 'renderMoveApprove', 'approveMove', 'pmvApply', 'refuseMove', 'cancelMove', 'noteMoveRefusal', 'pmvActionItems', 'lotMoveLock', 'lotFamily', 'qcFull', 'srvUpToDate', 'pmvSig', 'pmvMovedInNote', '_pmvSheetOpen'].map(grab).join('\n')
+  + '\nvar pmvForm=null, pmvRefuseWhy="", _pmvBusy={};\nfunction may(c){ return c==="stock.move_request"?this.state.role==="Supply Chain"||this.state.role==="COO":c==="stock.move_approve"?this.state.role==="Plant Manager"||this.state.role==="COO":false; }'
   + '\nvar CORRECT_ENTITY=' + grabTopVar('CORRECT_ENTITY', '{').replace(/^\s*var\s+CORRECT_ENTITY\s*=\s*/, '') + ';', sb);
 const S = () => sb.state, L = (po) => S().orders.find(o => o.po === po).lines[0], O = (po) => S().orders.find(o => o.po === po);
 const as = (role, name, user) => { S().role = role; S().currentUser = { name, username: user }; };
 sb.state = mk(); as('Supply Chain', 'Saad Jamal', 'saad');
 vm.runInContext('state=this.state', sb);
 
+(async () => {   /* 07i: approveMove / refuseMove check the server first, so they are async */
 /* who may start, and where */
 ok('Supply Chain sees the button on 22868 Enroot (packed stock not on a truck, a PO to move to)', /Move packed stock to another PO/.test(sb.moveStockButtonHTML(O('22868'), L('22868'))));
 const tg = sb.pmvTargets(O('22868'), L('22868'));
@@ -57,13 +58,13 @@ ok('the Plant Manager gets it on Today', sb.pmvActionItems().some(i => i.role ==
 ok('a second request on the same lines waits', /already waiting/.test(ask({ P3: 10 })));
 
 /* the decision */
-as('Supply Chain', 'Saad Jamal', 'saad'); sb.approveMove(m.id);
+as('Supply Chain', 'Saad Jamal', 'saad'); await sb.approveMove(m.id);
 ok('the asker cannot approve', m.status === 'asked');
 as('Plant Manager', 'Fahim Asghar', 'fahim');
-L('22867').ordered = 10000; sb.approveMove(m.id);
+L('22867').ordered = 10000; await sb.approveMove(m.id);
 ok('every check runs again at approval: no room on 22867 any more, refused', m.status === 'asked' && /room for only/.test(sb.toasts[sb.toasts.length - 1]));
 L('22867').ordered = 35000;
-sb.approveMove(m.id);
+await sb.approveMove(m.id);
 eq('approved', m.status, 'done');
 const facts = po => sb.lineFacts(O(po), L(po));
 ok('22868: packed 19,950 → 9,240, produced too; packed still equals its packing records', L('22868').packed === 9240 && L('22868').produced === 9240 && facts('22868').gap === 0);
@@ -100,14 +101,15 @@ ok('lotFamily follows the move', sb.lotFamily(S().packingLog.find(p => p.id === 
 /* refusal and cancel */
 sb.state = mk(); vm.runInContext('state=this.state', sb); as('Supply Chain', 'Saad Jamal', 'saad'); ask({ P2: 1000 });
 const r = S().poMoves[0]; as('Plant Manager', 'Fahim Asghar', 'fahim');
-sb.refuseMove(r.id); ok('a refusal needs a reason', r.status === 'asked');
-vm.runInContext('pmvRefuseWhy="Sindh truck goes tomorrow"', sb); sb.refuseMove(r.id);
+await sb.refuseMove(r.id); ok('a refusal needs a reason', r.status === 'asked');
+vm.runInContext('pmvRefuseWhy="Sindh truck goes tomorrow"', sb); await sb.refuseMove(r.id);
 ok('refused with a reason, nothing moved', r.status === 'refused' && L('22868').packed === 19950 && L('22867').packed === 4165);
 ok('the asker sees why on Today, and only the asker', sb.pmvActionItems().some(i => i.label === 'Move refused' && i.who === 'saad'));
 as('Supply Chain', 'Saad Jamal', 'saad'); sb.noteMoveRefusal(r.id); ok('Noted clears it', !sb.pmvActionItems().length);
-ask({ P2: 500 }); const c = S().poMoves[0]; sb.cancelMove(c.id); ok('the asker can cancel before approval', c.status === 'cancelled');
+ask({ P2: 500 }); const c = S().poMoves[0]; await sb.cancelMove(c.id); ok('the asker can cancel before approval', c.status === 'cancelled');
 
 /* stock on a planned truck */
 S().packingLog.find(p => p.id === 'P2').shipKg = 3000;
 ok('stock on a planned or loaded truck is not offered', /only 640 Kg\/L not shipped/.test(ask({ P2: 3640 })));
 process.exitCode = report('Move packed stock to another PO (07c)') ? 1 : 0;
+})();

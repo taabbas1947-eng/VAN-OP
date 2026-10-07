@@ -111,7 +111,7 @@ ok('How it works: an order carries terms, ERP SO and the 5% price reason (25j)',
   ok('My job: a New on 26 Sep note for every role touched (26a)', ['Production Manager','Production','Plant Manager','Supply Chain','Warehouse','Supply Chain Officer','CFO','Finance','Finance Desk Officer','QCM','AQCM','Lab Rep'].every(r => jb.indexOf("'" + r + "':") > -1) && /New on 26 Sep/.test(jb));
   const ref = grab('guideReference');
   ok('Reference (07h): the order end to end is read from TD_NEXT, with who and when it escalates', /gdChain\(\)/.test(ref) && /TD_NEXT\[l\]/.test(grab('gdChain')) && /gdEscTxt\(l\)/.test(ref) && /gdWho\(M,l\)/.test(ref));
-  ok('Reference (07h): every screen by its current name and who can open it; no old names', /SCREENS\.filter/.test(ref) && /canView\(r,s\.id\)/.test(ref) && !/My Actions|PO Tracker|New PO Entry|Data Fix|Sent tab/.test(ref));
+  ok('Reference (07h): every screen by its current name and who can open it; no old names', /SCREENS\.filter/.test(ref) && /gdScreenOpen\(r,s\.id\)/.test(ref) && !/My Actions|PO Tracker|New PO Entry|Data Fix|Sent tab/.test(ref));
   ok('Back Office: the CFO can send a new customer back (26a)', /<b>sends it back<\/b> with a reason to whoever entered it/.test(grab('backOfficeManualCard')));
   const TL = grabTopVar('TD_LABEL', '{');
   ok('Today labels the new jobs (26a)', /'Correct COA':\s*\{title:'COA sent back to you to correct'/.test(TL) && /'Refused':\s*\{title:'Your close request was refused'/.test(TL) && /'Sent back':\s*\{title:'Truck sent back to you'/.test(TL)); }

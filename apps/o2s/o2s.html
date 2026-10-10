@@ -11,7 +11,7 @@
    a push keeps running the old code with nothing telling anybody. It sat at
    2026-09-04a through this whole day's work; rmqty/psi tests pinned the code,
    nothing pinned this. buildid.test.js now does. */
-var BUILD_ID='2026-10-10g';
+var BUILD_ID='2026-10-10h';
 var CHANGELOG=[
   {ver:'2026-09-04a', date:'2026-09-04', title:"Delivery, DC printing, and a new Reconciliation check", items:[
     "Delivery confirmation stays with Supply Chain \u2014 it no longer hands off to the Plant Manager. If one sits too long, it now re-flags the same Supply Chain owner every 3 days instead.",
@@ -550,6 +550,11 @@ var CHANGELOG=[
     "QA now sees every batch line of the DC (product, batch number, Kg/L, mfg and expiry) and marks each one Same or Different against the batch printed on the pallet. One Different fails the truck: it goes back to Ready to ship and Supply Chain is told, as for any failed truck. Remarks must say what the pallet carried.",
     "The batch the inspection screen showed before was the first packing run found for the PO and product, not the batch on the DC. It now shows the DC's own batches and dates.",
     "The pallet checks are saved with the inspection and print on the pre-shipment report as Pallet lines."
+  ]},
+  {ver:'2026-10-10h', date:'2026-10-10', title:"The planner chooses the batch for the truck; reprint jobs after a correction; a clearer batch trace", items:[
+    "Planning a truck (one PO or several): under each product you now see the batches that can go (batch on the bag, packed on, mfg, ready Kg). Oldest first is filled in, so nothing changes if you do not touch it. Change the Kg to match what is on the pallets. The DC prints the batches you chose. A lot on QA hold, or with no batch number, cannot go on a truck. If a chosen lot has less Kg than you asked for, the truck is refused with the figure, and nothing is saved.",
+    "After the COO approves a batch number correction, Supply Chain gets a job for each DC and QA a job for each inspection report that carries the old number. The job stays until someone presses Reprinted, or Not needed with a reason. Opening the print window does not close it. A truck that already left says the customer holds the old paper. The batch number inside the truck inspection's pallet check follows the correction.",
+    "Batch trace: an open batch shows Still to be packed (not a red Not accounted for). A disposal with no type recorded is amber, not a failed check. Packing runs where the packing record says one shipped Kg and the trucks linked to the run carry another are listed with both numbers; nothing is changed."
   ]}
 ];
 </script>
@@ -13162,6 +13167,7 @@ function actionItems(){
   });
   try{ smpJobs().forEach(function(j){ items.push(j); }); }catch(e){} /* 25o: free samples */
   try{ bfxJobs().forEach(function(j){ items.push(j); }); }catch(e){} /* 10c: a batch number correction waits for the COO */
+  try{ bfxFollowJobs().forEach(function(j){ items.push(j); }); }catch(e){} /* 10h: after the fix, the papers already printed are reprinted */
   try{ dcRejectJobs().forEach(function(j){ items.push(j); }); }catch(e){} /* 26a: a rejected DC is told to Supply Chain */
   try{ yieldShortJobs().forEach(function(j){ items.push(j); }); }catch(e){} /* 26c: a batch closed short reaches the Plant Manager */
   return items;
@@ -13522,7 +13528,7 @@ function actOverdue(it){ return it.o?isOverdue(it.o):false; }
 /* "waiting to ship since" = the OLDEST QC-cleared, not-yet-shipped lot for this line (po + brand).
    That's the truest age of what's actually still waiting, not the most recent packing. Read-only;
    returns null if nothing is cleared-and-unshipped (caller then keeps the existing fallback). */
-function shipReadySince(o,l){ var ds=lotsFor(o,l).filter(function(p){ return lotClearedKg(p)>0.5; }).map(function(p){ return p.date||p.mfgDate; }).filter(Boolean); if(!ds.length) return null; ds.sort(); return ds[0]; }
+function shipReadySince(o,l){ var ds=lotsFor(o,l).filter(function(p){ return lotShipKg(p)>0.5; }).map(function(p){ return p.date||p.mfgDate; }).filter(Boolean); if(!ds.length) return null; ds.sort(); return ds[0]; }
 /* created = when the action became actionable, from existing dates; null -> approx */
 function actTiming(it){
   var c=null, approx=false;
@@ -13616,7 +13622,7 @@ function acRoleScoped(b){ return acRoleF==='all'?b:b.filter(function(x){return x
 function acCounts(){ var r0=acRoleScoped(acBase()); var deferred=r0.filter(function(x){return !!acDeferActive(x);}).length; var r=r0.filter(function(x){return !acDeferActive(x);}); var late=0,today=0,normal=0,old=0; r.forEach(function(x){ if(x._risk==='late')late++; else if(x._risk==='today')today++; else normal++; if(x._days>old)old=x._days; }); return {all:r.length,late:late,today:today,normal:normal,oldest:old,deferred:deferred}; }
 /* Self-defer: owner snoozes an action 1–30 days with a locked reason; it leaves the active list until the return date, stays visible under the Deferred filter and to managers. Greenlit stored field: state.acDefer (keyed by a deterministic acKey). */
 var AC_DEFER_REASONS=['RM en route','Scheduled later','Awaiting approval','Capacity issues','Packing not available','Other'];
-function acKey(it){ var p=[it.label||'']; if(it.o)p.push('o:'+it.o.id); if(it.l)p.push('l:'+(it.l.id||it.l.brand||'')); if(it.pr)p.push('pr:'+it.pr.id); if(it.batch)p.push('b:'+it.batch.id); if(it.lid)p.push('u:'+it.lid); if(it.row!=null)p.push('r:'+it.row); if(it.leave)p.push('lv:'+it.leave.id); if(it.coverRole)p.push('cr:'+it.coverRole); if(it.lot)p.push('lot:'+it.lot.id); if(it.disp)p.push('d:'+(it.disp.dispId||'')); if(it.smp)p.push('s:'+(it.smp.id||'')); if(it.cust)p.push('c:'+(it.cust.code||'')); if(it.dcr)p.push('x:'+(it.dcr.id||'')); if(it.bfx)p.push('f:'+it.bfx); if(it.mv)p.push('m:'+it.mv); if(it.dup)p.push('n:'+it.dup); return p.join('|'); }   /* 07g (C18): one sample/customer/rejection/move each, not all of them at once */
+function acKey(it){ var p=[it.label||'']; if(it.o)p.push('o:'+it.o.id); if(it.l)p.push('l:'+(it.l.id||it.l.brand||'')); if(it.pr)p.push('pr:'+it.pr.id); if(it.batch)p.push('b:'+it.batch.id); if(it.lid)p.push('u:'+it.lid); if(it.row!=null)p.push('r:'+it.row); if(it.leave)p.push('lv:'+it.leave.id); if(it.coverRole)p.push('cr:'+it.coverRole); if(it.lot)p.push('lot:'+it.lot.id); if(it.disp)p.push('d:'+(it.disp.dispId||'')); if(it.smp)p.push('s:'+(it.smp.id||'')); if(it.cust)p.push('c:'+(it.cust.code||'')); if(it.dcr)p.push('x:'+(it.dcr.id||'')); if(it.bfx)p.push('f:'+it.bfx); if(it.fu)p.push('fu:'+it.fu); if(it.mv)p.push('m:'+it.mv); if(it.dup)p.push('n:'+it.dup); return p.join('|'); }   /* 07g (C18): one sample/customer/rejection/move each, not all of them at once */
 function acDeferActive(it){ var m=state.acDefer||{}; var d=m[acKey(it)]; if(!d||!d.until)return null; return (String(d.until)>=TODAY.toISOString().slice(0,10))?d:null; }
 var acDeferForm=null;
 function acDefer(id){ var it=acBase().filter(function(x){return x._id===id;})[0]; if(!it)return; var t=new Date(TODAY); t.setDate(t.getDate()+7); acDeferForm={id:id,key:acKey(it),title:(it.what||it.label),reason:AC_DEFER_REASONS[0],until:t.toISOString().slice(0,10)}; renderAcDefer(); $('modalBg').classList.add('open'); }
@@ -15130,7 +15136,8 @@ function guideRules(){
   '<div class="gd-rule"><h3>A number moves only with its record</h3><p>Packed moves with a packing run from a batch, dispatched with a truck, delivered with a delivery. None of them can be typed, and nothing can be packed beyond what the line ordered. When a line and its records disagree, open the line (Orders → the order → <b>History</b>, or the item on Back Office <b>Needs you</b>): it shows what is wrong, the line’s whole history, what the records show as the cause, and the fix — record the missing packing against its batch, bring packed back to its records, or stamp a delivery date from the truck — each with a reason in your name.</p></div>'+
   '<div class="gd-rule"><h3>The price on a new order</h3><p>Every price is checked against the last price this customer paid for the product, net of FED; for a first order, against the last price to anyone. More than 5% away needs a reason, written under the price, and it is kept on the order line with the last price it was compared with. Payment terms and the ERP SO # are part of every order; the SO # prints on the DC.</p></div>'+
   '<div class="gd-rule"><h3>See it before you sign it; every no has a way back</h3><p>Every approval opens the record first: the PO before it is acknowledged, the purchase request before the CFO approves it, the new customer before the CFO approves it, the truck with its DC and gate pass before it is reviewed or released, the report before it is reviewed or approved. The Open buttons on the Plant screen open the same sheet. Every refusal or send-back needs a reason, stays on the record, and lands on the Today of the person who must act: the PO goes back to whoever entered it, the purchase request to Supply Chain, the customer to whoever entered it, the truck to whoever issued the gate pass, the report one step down the chain, a refused close to whoever asked, a rejected DC or a truck that fails inspection to Supply Chain, a sample not approved to whoever asked, an UNFIT lot sent to rework to Production, a lot on QA hold to the Production Manager. They fix it and send it on, or drop it; nothing waits without an owner.</p></div>'+
-  '<div class="gd-rule"><h3>A wrong batch number</h3><p>A batch number is printed on the bag, so it cannot be edited once the run is inspected or shipped. If the <b>bags are right</b> and the record has a typing mistake, open Reports → Production → <b>Batch trace</b>, tap the brand batch row, and use <b>Ask for a correction</b> under the table: pick the packing run, enter the correct number, say what is printed on the bags, and give the reason. The COO approves it from his action list, and the DC and inspection lines of that run follow. If the <b>bags are wrong</b>, do not correct the record: quarantine and re-label the bags. When you <b>pack</b>, a brand batch # that is 1 character different from one already used for the same brand this year (JW001 when JE001 exists) is flagged, and Pack asks once more. At the <b>truck inspection</b>, QA checks the batch printed on the pallet against each batch line of the DC. One <b>Different</b> fails the truck and sends it back to Ready to ship.</p></div>'+
+  '<div class="gd-rule"><h3>A wrong batch number</h3><p>A batch number is printed on the bag, so it cannot be edited once the run is inspected or shipped. If the <b>bags are right</b> and the record has a typing mistake, open Reports → Production → <b>Batch trace</b>, tap the brand batch row, and use <b>Ask for a correction</b> under the table: pick the packing run, enter the correct number, say what is printed on the bags, and give the reason. The COO approves it from his action list, and the DC and inspection lines of that run follow. Supply Chain then gets a job to reprint each DC, and QA one for each inspection report, that carries the old number; the job stays until it is marked Reprinted, or Not needed with a reason. If the <b>bags are wrong</b>, do not correct the record: quarantine and re-label the bags. When you <b>pack</b>, a brand batch # that is 1 character different from one already used for the same brand this year (JW001 when JE001 exists) is flagged, and Pack asks once more. At the <b>truck inspection</b>, QA checks the batch printed on the pallet against each batch line of the DC. One <b>Different</b> fails the truck and sends it back to Ready to ship.</p></div>'+
+  '<div class="gd-rule"><h3>Which batch goes on the truck</h3><p>When you plan a truck, each product shows the batches that can go: the batch on the bag, when it was packed, the mfg date and the Kg ready. Oldest first is filled in. Match it to what is on the pallets in the warehouse and change the Kg if it is different; the DC prints what you chose. A lot on QA hold, or with no batch number, is not offered. Typing the quantity again goes back to oldest first. If two products on one truck are offered the same packing run, plan them on separate trucks when you choose batches. In the Batch trace, an open batch shows <b>Still to be packed</b>, and packing runs whose shipped Kg does not agree with the trucks linked to them are listed, so the gap can be found.</p></div>'+
   '<div class="gd-rule"><h3>N/A on an inspection</h3><p>When an item on the inspection form does not apply, QA marks <b>N/A</b>. It counts as a pass. It is offered only on <b>Pallet / loading condition</b> and <b>Price on the pack</b>, and it needs a reason in Remarks. Batch, expiry, seal, cleanliness, weight and the other checks are Pass or Fail only.</p></div>'+
   '<div class="gd-rule"><h3>The pre-shipment report</h3><p>No truck is released without a passed inspection. Where the bags carry the list price, the inspector writes the price read off the bag, and on a truck with 2 or more such products, the price for each product. Every report is in Reports → Pre-shipment inspections, for everyone to find and print. A customer marked “Send the pre-shipment report with the DC” gets it attached to the challan.</p></div>'+
   '<div class="gd-rule"><h3>What a sale is</h3><p>A sale is counted the day the truck leaves the gate, at quantity × invoice price, net of FED. FED is the sales tax: on an order quoted FED-inclusive the price is divided by 1.05. Every money figure in the app — Sales & Budget, the reports, the PO register — uses this one rule.</p></div>';
@@ -15504,14 +15511,16 @@ function saveShip(){ if(!may('shipment.plan')){toast(denyRight('shipment.plan','
 function lotsFor(o,l){ return (state.packingLog||[]).filter(function(p){ if(!p||p.reversed||p.void) return false; /* 25b: a reversed lot kept its kg and came back as packing (and to inspect) */ if((+p.kg||0)<=0.0001) return false; if(p.po!==o.po) return false; return p.lid ? (p.lid===l.id) : (p.brand===l.brand); }).sort(function(a,b){return String(a.date||a.mfgDate||'').localeCompare(String(b.date||b.mfgDate||''))||String(a.id||'').localeCompare(String(b.id||''));}); }
 function lotHasBatch(p){ return !!lotBaseNo(p); }
 function lotAvail(p){ if(p&&p.qaHold) return 0; return Math.max(0,(+p.kg||0)-(+p.insKg||0)); }       // packed, not yet inspected (a QA-held lot drops out of the queue until corrected)
-function lotClearedKg(p){ return Math.max(0,(+p.insKg||0)-(+p.shipKg||0)); }                       // inspected, not yet shipped
+function lotClearedKg(p){ return Math.max(0,(+p.insKg||0)-(+p.shipKg||0)); }
+/* 10h: what a truck may take from this packing run. A run on QA hold, or with no batch number, cannot go on a truck even if an earlier part of it was cleared. */
+function lotShipKg(p){ if(!p||p.qaHold||!lotHasBatch(p)) return 0; return lotClearedKg(p); }                       // inspected, not yet shipped
 function linePassedInsp(o,l){ let s=0; lotsFor(o,l).forEach(p=>s+=(+p.insKg||0)); return s; }
 function lineToInspect(o,l){ let s=0; lotsFor(o,l).forEach(p=>{ if(lotHasBatch(p)) s+=lotAvail(p); }); return s; }   // inspectable (has batch #)
 function lineUnbatched(o,l){ let s=0; lotsFor(o,l).forEach(p=>{ if(!lotHasBatch(p)) s+=lotAvail(p); }); return s; }  // blocked — no batch #
 function lineToInspectTotal(o,l){ let s=0; lotsFor(o,l).forEach(p=>s+=lotAvail(p)); return s; }
-function lineCleared(o,l){ let s=0; lotsFor(o,l).forEach(p=>s+=lotClearedKg(p)); return s; }        // ready to ship
+function lineCleared(o,l){ let s=0; lotsFor(o,l).forEach(p=>s+=lotShipKg(p)); return s; }        // ready to ship
 function linesToInspect(){ const out=[]; (state.orders||[]).forEach(o=>(o.lines||[]).forEach(l=>{ const r=lineToInspectTotal(o,l); if(r>0.5) out.push({o,l,rem:r,batched:lineToInspect(o,l),unb:lineUnbatched(o,l)}); })); return out; }
-function fifoAlloc(o,l,qty,mode){ const lots=lotsFor(o,l); let rem=Math.max(0,+qty||0); const out={}; lots.forEach((p,i)=>{ if(rem<=0.0001)return; if(mode==='ins'&&!lotHasBatch(p))return; const cap=mode==='ins'?lotAvail(p):lotClearedKg(p); if(cap<=0.0001)return; const take=Math.min(rem,cap); if(take<=0.0001)return; out[i]=Math.round(take); rem-=take; }); return out; }
+function fifoAlloc(o,l,qty,mode){ const lots=lotsFor(o,l); let rem=Math.max(0,+qty||0); const out={}; lots.forEach((p,i)=>{ if(rem<=0.0001)return; if(mode==='ins'&&!lotHasBatch(p))return; const cap=mode==='ins'?lotAvail(p):lotShipKg(p); if(cap<=0.0001)return; const take=Math.min(rem,cap); if(take<=0.0001)return; out[i]=Math.round(take); rem-=take; }); return out; }
 /* One-time retroactive backfill: allocate already-inspected/shipped quantities to packing lots by FIFO,
    as if batch tracking existed since launch. Writes only insKg/shipKg on lots and batch breakdown on
    completed shipments — never Master Data, never order status. Idempotent via the _lotMig flag. */
@@ -16200,6 +16209,34 @@ function nextDCNo(){ /* 25n: a voided truck's number was printed; it is never is
 function _releaseShip(o,l,batches){ if(!o||!l)return; var lots=lotsFor(o,l)||[], used={};
   (batches||[]).forEach(function(x,i){ if(!x||!x.lotId) return; var p=lots.find(function(q){ return q.id===x.lotId; }); if(p){ p.shipKg=Math.max(0,(+p.shipKg||0)-(+x.kg||0)); used[i]=1; } });
   lots.forEach(function(p){ var i=(batches||[]).findIndex(function(x,j){ return x&&!used[j]&&!x.lotId&&(x.batch===lotBaseNo(p)||x.brand===lotBrandNo(p)); });   /* 07i audit: a row that names its lot is never matched to another lot by batch number */ if(i>-1){ used[i]=1; p.shipKg=Math.max(0,(+p.shipKg||0)-(+batches[i].kg||0)); } }); }
+/* ===== WHICH BATCH GOES ON THE TRUCK (Zain, Tahir 10 Oct 2026, 10h) =====
+   Until now the DC took its quantity from the packing runs oldest first and the person planning the truck never saw
+   the batch until the DC was printed. Now the planner sees the batches that can go (batch on the bag, packed on,
+   mfg, ready Kg), oldest first is filled in, and he can change it to match the pallets in the warehouse.
+   Untouched, the result is exactly what it was. Taken by lot id, never by position. Nothing is silently clamped. */
+function dcLots(o,l){ return lotsFor(o,l).filter(function(p){ return lotShipKg(p)>0.5; }); }
+function dcDefaultTake(o,l,qty){ var a=fifoAlloc(o,l,qty,'ship'), out={}; lotsFor(o,l).forEach(function(p,i){ if((+a[i]||0)>0.0001) out[p.id]=a[i]; }); return out; }
+function dcTakeSum(t){ var s=0; Object.keys(t||{}).forEach(function(k){ s+=(+t[k]||0); }); return s; }
+function dcManualAlloc(o,l,take){ var out={}; lotsFor(o,l).forEach(function(p,i){ var a=+(take||{})[p.id]||0; if(a>0.0001) out[i]=a; }); return out; }
+function dcManualCheck(o,l,r){
+  var by={}; lotsFor(o,l).forEach(function(p){ by[p.id]=p; }); var sum=0, ks=Object.keys(r.take||{});
+  for(var i=0;i<ks.length;i++){ var a=+r.take[ks[i]]||0; if(a<0) return 'A quantity cannot be negative ('+l.brand+')'; if(a<=0.0001) continue;
+    var p=by[ks[i]]; if(!p) return 'A batch you chose is no longer on '+l.brand+'. Open the planner again.';
+    if(a>lotShipKg(p)+0.5) return 'Batch '+lotBrandNo(p)+' ('+p.id+') has only '+fmt(Math.floor(lotShipKg(p)))+' Kg ready now and you asked for '+fmt(a)+'. Someone may have shipped or held it. Open the planner again.';
+    sum+=a; }
+  if(sum<=0.0001) return 'Choose a quantity from at least one batch for '+l.brand;
+  return ''; }
+/* one packing run offered under 2 products of the same truck (a run with no line id is keyed by brand): refuse a chosen split, it cannot be checked line by line */
+function dcSharedLot(pairs){ if(!pairs.some(function(x){ return x.r.manual; })) return ''; var seen={}, dup='';
+  pairs.forEach(function(x){ lotsFor(x.o,x.l).forEach(function(p){ if(lotShipKg(p)<=0.5) return; if(seen[p.id]&&seen[p.id]!==x.l.id&&!dup) dup=p.id; if(!seen[p.id]) seen[p.id]=x.l.id; }); });
+  return dup?('Packing run '+dup+' is offered under 2 products on this truck. When you choose batches, plan these products on separate trucks.'):''; }
+function dcPickerBox(o,r,takeFn,resetJs){
+  var l=(o.lines||[]).find(function(x){ return x.id===r.lid; })||(o.lines||[]).find(function(x){ return x.brand===r.brand; }); if(!l) return '';
+  var lots=dcLots(o,l); if(!lots.length) return '';
+  var manual=!!r.manual, take=manual?(r.take||{}):dcDefaultTake(o,l,Math.round(+r.qty||0)), sum=dcTakeSum(take);
+  var rows=lots.map(function(p){ var t=+take[p.id]||0, no=lotBrandNo(p);
+    return '<tr><td><b>'+bpEsc(no)+'</b>'+(no!==lotBaseNo(p)?'<div class="muted" style="font-size:10.5px">batch '+bpEsc(lotBaseNo(p))+'</div>':'')+'</td><td>'+bpEsc(p.date||'—')+'</td><td>'+bpEsc(p.mfgDate||'—')+'</td><td class="num">'+fmt(Math.floor(lotShipKg(p)))+'</td><td><input type="number" min="0" step="1" class="num" style="width:96px" value="'+Math.round(t)+'" onchange="'+takeFn(p.id)+'"></td></tr>'; }).join('');
+  return '<div style="margin:4px 0 8px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--panel2)"><div style="font-size:12px;font-weight:700;margin-bottom:3px">Which batch goes on this truck: '+bpEsc(l.brand)+'</div><div class="muted" style="font-size:11px;margin-bottom:6px">'+(manual?'You chose these batches.':'Oldest first is filled in.')+' Match it to what is on the pallets in the warehouse. The batch printed on the DC comes from this. Typing the quantity above goes back to oldest first.</div><div style="overflow:auto"><table class="rbtbl rp-tbl"><thead><tr><th>Batch on the bag</th><th>Packed on</th><th>Mfg</th><th class="num">Ready Kg</th><th>Put on this truck</th></tr></thead><tbody>'+rows+'</tbody></table></div><div class="muted" style="font-size:11px;margin-top:4px">Total '+fmt(Math.round(sum))+' Kg'+(manual?' · <a href="#" onclick="'+resetJs+';return false">back to oldest first</a>':'')+'</div></div>'; }
 function openDispatch(oid){ const o=(state.orders||[]).find(x=>x.id===oid); if(!o)return; const ls=readyLinesFor(o); if(!ls.length){toast('Nothing ready to ship on this PO');return;}
   dispForm={oid,date:TODAY.toISOString().slice(0,10),dateReason:'',dest:(clientTopDest(o.client)||''),focal:(o.focalPerson||''),focalPhone:(o.focalPhone||''),inTransit:true,transportType:'',carrier:'',vehicle:'',dc:'',bilty:'',so:(o.so||''),driver:'',driverContact:'',seal:'',remarks:'',lines:ls.map(x=>({lid:x.l.id,brand:x.l.brand,base:x.l.base||'',pack:(+x.l.pack||seedPackForBrand(x.l.brand)||0),rem:Math.round(x.rem),qty:Math.round(x.rem),on:true}))};
   renderDispatchModal(); $('modalBg').classList.add('open'); }
@@ -16209,10 +16246,14 @@ function dispLineToggle(i){ if(dispForm.lines[i]) dispForm.lines[i].on=!dispForm
 function dispSet(k,v){ if(dispForm) dispForm[k]=v; }
 function dispShipNoHtml(){ var dc=(dispForm&&dispForm.dc||'').trim(); if(!dc) return '<span class="muted">Enter DC # to generate the shipment number.</span>'; var d=(dispForm&&dispForm.date)||TODAY.toISOString().slice(0,10); var pp=String(d).split('-'); var mmddyy=(pp[1]||'')+(pp[2]||'')+((pp[0]||'').slice(-2)); var ser=('00'+((state.shipSerial||0)+1)).slice(-3); var no=mmddyy+ser+dc; var dup=(state.shipments||[]).some(function(x){return x&&!x.voided&&String(x.dc||'').trim().toLowerCase()===dc.toLowerCase();}); if(dup) return '<span style="color:var(--red);font-weight:700">DC '+dc+' already used — pick another.</span>'; return 'Shipment #: <b style="color:var(--navy)">'+no+'</b> <span class="muted" style="font-weight:400">(serial assigned on save)</span>'; }
 function dispDcInput(v){ dispSet('dc',v); var e=document.getElementById('disp_shipno'); if(e) e.innerHTML=dispShipNoHtml(); }
+function dispOrderLine(r){ var o=(state.orders||[]).find(function(x){ return x.id===dispForm.oid; }); return {o:o,l:o&&((o.lines||[]).find(function(x){ return x.id===r.lid; })||(o.lines||[]).find(function(x){ return x.brand===r.brand; }))}; }
+function dispLotTake(i,lotId,v){ var r=dispForm&&dispForm.lines[i]; if(!r) return; var x=dispOrderLine(r); if(!x.o||!x.l) return; if(!r.manual){ r.take=dcDefaultTake(x.o,x.l,Math.round(+r.qty||0)); r.manual=true; } r.take[lotId]=Math.max(0,Math.round(+v||0)); r.qty=Math.round(dcTakeSum(r.take)); renderDispatchModal(); }
+function dispLotReset(i){ var r=dispForm&&dispForm.lines[i]; if(!r) return; r.manual=false; r.take=null; renderDispatchModal(); }
+function dispQtyDone(i){ var r=dispForm&&dispForm.lines[i]; if(!r) return; r.manual=false; r.take=null; renderDispatchModal(); }
 function dispLineQty(i,v){ if(dispForm&&dispForm.lines[i]){ dispForm.lines[i].qty=v; const t=document.getElementById('disp_total'); if(t) t.textContent=fmt(dispTotal())+' Kg/L · '+dispCount()+' product(s)'; const pk=document.getElementById('disp_pk_'+i); if(pk){ const ps=+dispForm.lines[i].pack||0; pk.textContent=ps>0?('≈ '+fmt(Math.ceil((+v||0)/ps))+' pk'):''; } } }
 function renderDispatchModal(){ const o=(state.orders||[]).find(x=>x.id===dispForm.oid); if(!o){closeModal();return;}
   if(typeof dcControlOn==='function'&&dcControlOn(dispForm.date)){ dispForm.dc=nextDCNo(); }
-  const rows=dispForm.lines.map((r,i)=>`<tr style="${r.on?'':'opacity:.5'}"><td style="text-align:center"><input type="checkbox" ${r.on?'checked':''} onclick="dispLineToggle(${i})"></td><td><b>${r.brand}</b> <span class="muted" style="font-size:11px">${r.base}</span><div style="margin-top:2px">${mrpTagFor(o.po,r.brand,r.lid)}</div></td><td class="num muted">${fmt(r.rem)}</td><td><input type="number" class="num" value="${r.qty}" oninput="dispLineQty(${i},this.value)" ${r.on?'':'disabled'} style="width:110px"></td><td class="muted" id="disp_pk_${i}" style="font-size:11px">${r.pack>0?('≈ '+fmt(Math.ceil((+r.qty||0)/r.pack))+' pk'):''}</td></tr>`).join('');
+  const rows=dispForm.lines.map((r,i)=>`<tr style="${r.on?'':'opacity:.5'}"><td style="text-align:center"><input type="checkbox" ${r.on?'checked':''} onclick="dispLineToggle(${i})"></td><td><b>${r.brand}</b> <span class="muted" style="font-size:11px">${r.base}</span><div style="margin-top:2px">${mrpTagFor(o.po,r.brand,r.lid)}</div></td><td class="num muted">${fmt(r.rem)}</td><td><input type="number" class="num" value="${r.qty}" oninput="dispLineQty(${i},this.value)" onchange="dispQtyDone(${i})" ${r.on?'':'disabled'} style="width:110px"></td><td class="muted" id="disp_pk_${i}" style="font-size:11px">${r.pack>0?('≈ '+fmt(Math.ceil((+r.qty||0)/r.pack))+' pk'):''}</td></tr>${r.on?`<tr><td></td><td colspan="4">${dcPickerBox(o,r,function(id){ return "dispLotTake("+i+",'"+id+"',this.value)"; },"dispLotReset("+i+")")}</td></tr>`:''}`).join('');
   $('modal').innerHTML=`<div class="mh"><h2>Plan the truck — ${o.po}</h2><div class="sub">${shortClient(o.client)} · tick what goes, the vehicle and the DC, once</div></div>
    <div class="mb">
      <div class="dstep"><div class="dstep-h">1 · Products on this truck</div>
@@ -16245,6 +16286,7 @@ function renderDispatchModal(){ const o=(state.orders||[]).find(x=>x.id===dispFo
    <div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" onclick="saveDispatch()">Plan the truck</button></div>`; }
 function saveDispatch(){ if(!may('shipment.plan')){toast(denyRight('shipment.plan','Saving a dispatch'));return;} const o=(state.orders||[]).find(x=>x.id===dispForm.oid); if(!o)return;
   const sel=dispForm.lines.filter(r=>r.on&&(+r.qty||0)>0); if(!sel.length){toast('Tick at least one product with a quantity');return;}
+  { const _pe=sel.filter(r=>r.manual).map(r=>{ const l=o.lines.find(x=>x.id===r.lid)||o.lines.find(x=>x.brand===r.brand); return l?dcManualCheck(o,l,r):'A product is no longer on this PO'; }).find(Boolean)||(sel.some(r=>r.manual)&&dcSharedLot(sel.map(r=>({o:o,l:o.lines.find(x=>x.id===r.lid)||o.lines.find(x=>x.brand===r.brand)||{},r:r}))))||''; if(_pe){ toast(_pe); return; } }   /* 10h: a chosen batch is checked against the live stock before anything is changed; nothing is clamped silently */
   var _ctrlOn=dcControlOn(dispForm.date);
   const dc=_ctrlOn?nextDCNo():(dispForm.dc||'').trim();
   if(!_ctrlOn){
@@ -16266,11 +16308,11 @@ function saveDispatch(){ if(!may('shipment.plan')){toast(denyRight('shipment.pla
   const shipNo=_mmddyy+_ser+dc;
   let n=0,tot=0;
   sel.forEach(r=>{ const l=o.lines.find(x=>x.id===r.lid)||o.lines.find(x=>x.brand===r.brand); if(!l)return; const rem=Math.max(0,lineCleared(o,l)); const want=Math.min(+r.qty||0,rem); if(want<=0)return;
-    const alloc=fifoAlloc(o,l,want,'ship'); const batches=[]; let kg=0;
-    lotsFor(o,l).forEach((p,i)=>{ const a=Math.min(+alloc[i]||0, lotClearedKg(p)); if(a>0.0001){ p.shipKg=(+p.shipKg||0)+a; batches.push({lotId:p.id,batch:lotBaseNo(p),brand:lotBrandNo(p),kg:Math.round(a)}); kg+=a; } });
+    const alloc=r.manual?dcManualAlloc(o,l,r.take):fifoAlloc(o,l,want,'ship'); const batches=[]; let kg=0;
+    lotsFor(o,l).forEach((p,i)=>{ const a=Math.min(+alloc[i]||0, lotShipKg(p)); if(a>0.0001){ p.shipKg=(+p.shipKg||0)+a; batches.push({lotId:p.id,batch:lotBaseNo(p),brand:lotBrandNo(p),kg:Math.round(a)}); kg+=a; } });
     if(kg<=0)return;
     var _deliv=dispForm.inTransit?null:d;  /* default: delivered now (silent). In-transit option leaves delivered blank for a later markDelivered. */
-    state.shipments.unshift(Object.assign({id:_uid('SH'),dispId,po:o.po,client:o.client||'',brand:l.brand,lid:l.id,kg:Math.round(kg),batches,pack:r.pack,dispatch:d,destination:dispForm.dest,focalPerson:(dispForm.focal||'').trim(),focalPhone:(dispForm.focalPhone||'').trim(),carrier:dispForm.carrier,vehicle:dispForm.vehicle,dc:dc,shipNo:shipNo,bilty:dispForm.bilty,so:dispForm.so,transportType:dispForm.transportType,driver:dispForm.driver,driverContact:dispForm.driverContact,seal:dispForm.seal,dcStatus:(_ctrlOn?'pending':'approved'),stage:(_ctrlOn?'truck_planned':''),/* 25m: a truck planned here enters the same flow: load, inspect, gate pass, review, release */approvedBy:'',approvedDate:(_ctrlOn?'':d),dispCounted:!_ctrlOn,delivered:_deliv,remarks:dispForm.remarks,qa:(qaRequiredOn(d)?null:{pass:true,closed:true}),by:state.role},evStamp(d,'ship',dispForm.dateReason)));
+    state.shipments.unshift(Object.assign({id:_uid('SH'),dispId,po:o.po,client:o.client||'',brand:l.brand,lid:l.id,kg:Math.round(kg),batches,lotChosen:!!r.manual,pack:r.pack,dispatch:d,destination:dispForm.dest,focalPerson:(dispForm.focal||'').trim(),focalPhone:(dispForm.focalPhone||'').trim(),carrier:dispForm.carrier,vehicle:dispForm.vehicle,dc:dc,shipNo:shipNo,bilty:dispForm.bilty,so:dispForm.so,transportType:dispForm.transportType,driver:dispForm.driver,driverContact:dispForm.driverContact,seal:dispForm.seal,dcStatus:(_ctrlOn?'pending':'approved'),stage:(_ctrlOn?'truck_planned':''),/* 25m: a truck planned here enters the same flow: load, inspect, gate pass, review, release */approvedBy:'',approvedDate:(_ctrlOn?'':d),dispCounted:!_ctrlOn,delivered:_deliv,remarks:dispForm.remarks,qa:(qaRequiredOn(d)?null:{pass:true,closed:true}),by:state.role},evStamp(d,'ship',dispForm.dateReason)));
     if(!_ctrlOn){ l.dispatched=(l.dispatched||0)+kg; l.dispatchDate=l.dispatchDate||d; if(_deliv){ l.delivered=(l.delivered||0)+kg; l.deliveredDate=d; } } n++; tot+=kg; });
   if(!n){toast('Nothing cleared to ship — inspect the packed material first');return;}
   state.shipSerial=_serN;
@@ -16397,6 +16439,10 @@ function mpGo(n){ if(!mpForm)return; n=Math.max(1,Math.min(4,n));
 function mpSet(k,v){ if(mpForm) mpForm[k]=v; }
 function mpOrderSet(oi,k,v){ if(mpForm&&mpForm.orders[oi]) mpForm.orders[oi][k]=v; }
 function mpLineToggle(oi,li){ var o=mpForm&&mpForm.orders[oi]; if(o&&o.lines[li]){ o.lines[li].on=!o.lines[li].on; renderMPShip(); } }
+function mpLotLine(oi,li){ var ord=mpForm&&mpForm.orders[oi], r=ord&&ord.lines[li]; var o=ord&&(state.orders||[]).find(function(x){ return x.id===ord.oid; }); var l=o&&r&&((o.lines||[]).find(function(x){ return x.id===r.lid; })||(o.lines||[]).find(function(x){ return x.brand===r.brand; })); return {o:o,l:l,r:r}; }
+function mpLotTake(oi,li,lotId,v){ var x=mpLotLine(oi,li); if(!x.o||!x.l||!x.r) return; if(!x.r.manual){ x.r.take=dcDefaultTake(x.o,x.l,Math.round(+x.r.qty||0)); x.r.manual=true; } x.r.take[lotId]=Math.max(0,Math.round(+v||0)); x.r.qty=Math.round(dcTakeSum(x.r.take)); renderMPShip(); }
+function mpLotReset(oi,li){ var x=mpLotLine(oi,li); if(!x.r) return; x.r.manual=false; x.r.take=null; renderMPShip(); }
+function mpQtyDone(oi,li){ var x=mpLotLine(oi,li); if(!x.r) return; x.r.manual=false; x.r.take=null; renderMPShip(); }
 function mpLineQty(oi,li,v){ var o=mpForm&&mpForm.orders[oi]; if(o&&o.lines[li]){ o.lines[li].qty=v; mpRefreshTotal(); } }
 function mpSelLines(){ var out=[]; (mpForm&&mpForm.orders||[]).forEach(function(o,oi){ o.lines.forEach(function(r,li){ if(r.on&&(+r.qty||0)>0) out.push({oi:oi,li:li,o:o,r:r}); }); }); return out; }
 function mpTotal(){ return mpSelLines().reduce(function(a,x){return a+(+x.r.qty||0);},0); }
@@ -16413,7 +16459,7 @@ function renderMPShip(){ if(!mpForm){closeModal();return;} var f=mpForm; var ste
   var body='';
   if(step===1){
     var ordCards=f.orders.map(function(o,oi){
-      var lns=o.lines.map(function(r,li){ return '<div class="dwpl" style="'+(r.on?'':'opacity:.5')+'"><input type="checkbox" '+(r.on?'checked':'')+' onclick="mpLineToggle('+oi+','+li+')"><span style="font-size:12.5px"><b>'+r.brand+'</b>'+(r.base&&r.base!==r.brand?' <span class="muted" style="font-size:10px">'+r.base+'</span>':'')+'</span><span class="rd">ready '+fmt(r.rem)+'</span><input type="number" value="'+r.qty+'" oninput="mpLineQty('+oi+','+li+',this.value)" '+(r.on?'':'disabled')+'></div>'; }).join('');
+      var lns=o.lines.map(function(r,li){ return '<div class="dwpl" style="'+(r.on?'':'opacity:.5')+'"><input type="checkbox" '+(r.on?'checked':'')+' onclick="mpLineToggle('+oi+','+li+')"><span style="font-size:12.5px"><b>'+r.brand+'</b>'+(r.base&&r.base!==r.brand?' <span class="muted" style="font-size:10px">'+r.base+'</span>':'')+'</span><span class="rd">ready '+fmt(r.rem)+'</span><input type="number" value="'+r.qty+'" oninput="mpLineQty('+oi+','+li+',this.value)" onchange="mpQtyDone('+oi+','+li+')" '+(r.on?'':'disabled')+'></div>'+(r.on?dcPickerBox((state.orders||[]).find(function(x){ return x.id===o.oid; })||{lines:[]},r,function(id){ return "mpLotTake("+oi+","+li+",'"+id+"',this.value)"; },"mpLotReset("+oi+","+li+")"):''); }).join('');
       return '<div class="dwoc"><div class="dwoh"><b style="font-size:13px">'+o.po+'</b><span class="muted" style="font-size:11px">'+o.lines.length+' product'+(o.lines.length>1?'s':'')+'</span><span class="so"><label>SO # *</label><input type="text" value="'+_av(o.so)+'" oninput="mpOrderSet('+oi+',\'so\',this.value)" placeholder="SAL-ORD-2026-00176"></span></div>'+lns+'</div>';
     }).join('');
     body='<div class="dwcard"><div class="dwh"><div><h3>Check orders</h3><p>Confirm the customer and tick the orders going on this truck.</p></div><span class="pill" style="background:var(--pb50);color:var(--pb);font-weight:700">One customer per truck</span></div>'
@@ -16463,6 +16509,7 @@ function renderMPShip(){ if(!mpForm){closeModal();return;} var f=mpForm; var ste
    +'<div class="mf" style="justify-content:stretch">'+foot+'</div>'; }
 function mpCreate(){ if(!may('shipment.plan')){toast(denyRight('shipment.plan','Creating a truck plan'));return;} var f=mpForm; if(!f)return;
   var sel=mpSelLines(); if(!sel.length){toast('Tick at least one product with a quantity');return;}
+  { var _pe=sel.filter(function(x){ return x.r.manual; }).map(function(x){ var o=(state.orders||[]).find(function(y){return y.id===x.o.oid;}); var l=o&&(o.lines.find(function(y){return y.id===x.r.lid;})||o.lines.find(function(y){return y.brand===x.r.brand;})); return l?dcManualCheck(o,l,x.r):'A product is no longer on this PO'; }).find(Boolean)||(sel.some(function(x){ return x.r.manual; })&&dcSharedLot(sel.map(function(x){ var o=(state.orders||[]).find(function(y){return y.id===x.o.oid;})||{lines:[]}; return {o:o,l:(o.lines.find(function(y){return y.id===x.r.lid;})||o.lines.find(function(y){return y.brand===x.r.brand;})||{}),r:x.r}; })))||''; if(_pe){ toast(_pe); return; } }   /* 10h: see saveDispatch */
   if(!String(f.transportType||'').trim()){toast('Select a Transport type (Ex-factory / VAN-delivered)');return;}
   if(!String(f.truckSize||'').trim()){toast('Pick a truck size');return;}
   if(f.transportType==='Ex-factory' && !String(f.vehicle||'').trim()){toast('Vehicle # is required for Ex-factory (the customer’s truck collects it)');return;}
@@ -16480,11 +16527,11 @@ function mpCreate(){ if(!may('shipment.plan')){toast(denyRight('shipment.plan','
   var dispId=_uid('DSP'); var n=0,tot=0;   /* 07e (A6) */
   sel.forEach(function(x){ var o=(state.orders||[]).find(function(y){return y.id===x.o.oid;}); if(!o)return; var l=o.lines.find(function(y){return y.id===x.r.lid;})||o.lines.find(function(y){return y.brand===x.r.brand;}); if(!l)return;
     var rem=Math.max(0,lineCleared(o,l)); var want=Math.min(+x.r.qty||0,rem); if(want<=0)return;
-    var alloc=fifoAlloc(o,l,want,'ship'); var batches=[]; var kg=0;
-    lotsFor(o,l).forEach(function(p,i){ var a=Math.min(+alloc[i]||0,lotClearedKg(p)); if(a>0.0001){ p.shipKg=(+p.shipKg||0)+a; batches.push({lotId:p.id,batch:lotBaseNo(p),brand:lotBrandNo(p),kg:Math.round(a)}); kg+=a; } });
+    var alloc=x.r.manual?dcManualAlloc(o,l,x.r.take):fifoAlloc(o,l,want,'ship'); var batches=[]; var kg=0;
+    lotsFor(o,l).forEach(function(p,i){ var a=Math.min(+alloc[i]||0,lotShipKg(p)); if(a>0.0001){ p.shipKg=(+p.shipKg||0)+a; batches.push({lotId:p.id,batch:lotBaseNo(p),brand:lotBrandNo(p),kg:Math.round(a)}); kg+=a; } });
     if(kg<=0)return;
     if(auto){ l.dispatched=(+l.dispatched||0)+Math.round(kg); l.dispatchDate=l.dispatchDate||d; if(exf){ l.delivered=(+l.delivered||0)+Math.round(kg); l.deliveredDate=d; } }
-    state.shipments.unshift({id:_uid('SH'),dispId:dispId,po:o.po,client:f.client,brand:l.brand,lid:l.id,kg:Math.round(kg),batches:batches,pack:x.r.pack,dispatch:d,destination:f.dest,focalPerson:(f.focal||'').trim(),focalPhone:(f.focalPhone||'').trim(),carrier:f.carrier,vehicle:f.vehicle,dc:dc,shipNo:shipNo,bilty:f.bilty,so:x.o.so||'',transportType:f.transportType,truckSize:f.truckSize,driver:f.driver,driverContact:f.driverContact,seal:f.seal,stage:(auto?(exf?'delivered':'in_transit'):'truck_planned'),loadStarted:'',gatePass:'',dcStatus:(auto?'approved':'pending'),approvedBy:(auto?'Auto · pre go-live':''),approvedDate:(auto?d:''),dispCounted:!!auto,delivered:(auto&&exf?d:null),deliveredVia:(auto&&exf?'Collected at factory':''),remarks:f.remarks,qa:(qaRequiredOn(d)?null:{pass:true,closed:true}),by:state.role});
+    state.shipments.unshift({id:_uid('SH'),dispId:dispId,po:o.po,client:f.client,brand:l.brand,lid:l.id,kg:Math.round(kg),batches:batches,lotChosen:!!x.r.manual,pack:x.r.pack,dispatch:d,destination:f.dest,focalPerson:(f.focal||'').trim(),focalPhone:(f.focalPhone||'').trim(),carrier:f.carrier,vehicle:f.vehicle,dc:dc,shipNo:shipNo,bilty:f.bilty,so:x.o.so||'',transportType:f.transportType,truckSize:f.truckSize,driver:f.driver,driverContact:f.driverContact,seal:f.seal,stage:(auto?(exf?'delivered':'in_transit'):'truck_planned'),loadStarted:'',gatePass:'',dcStatus:(auto?'approved':'pending'),approvedBy:(auto?'Auto · pre go-live':''),approvedDate:(auto?d:''),dispCounted:!!auto,delivered:(auto&&exf?d:null),deliveredVia:(auto&&exf?'Collected at factory':''),remarks:f.remarks,qa:(qaRequiredOn(d)?null:{pass:true,closed:true}),by:state.role});
     n++; tot+=kg; });
   if(!n){toast('Nothing cleared to ship — inspect the packed material first');return;}
   state.shipSerial=_serN;
@@ -19112,10 +19159,10 @@ function batchTrace(b){
   var rows=Object.keys(gp).map(function(k){ return gp[k]; }).sort(function(a,c){ return c.kg-a.kg; });
   rows.forEach(function(g){ g.lots.sort(function(a,c){ return String(a.date).localeCompare(String(c.date))||String(a.id).localeCompare(String(c.id)); }); });
   var dcAll={}; (state.shipments||[]).forEach(function(s){ if(s&&!s.voided&&s.dispId) dcAll[s.dispId]=(dcAll[s.dispId]||0)+(+s.kg||0); });
-  var tg={}, dcKg=0, byNo=0;
-  (state.shipments||[]).forEach(function(s){ if(!s||s.voided) return; (s.batches||[]).forEach(function(e){
+  var tg={}, dcKg=0, byNo=0, byNoKg=0, lt={}, lk={};
+  (state.shipments||[]).forEach(function(s){ if(!s||s.voided) return; (s.lotTake||[]).forEach(function(tk){ if(tk&&ids[tk.lotId]) lk[tk.lotId]=(lk[tk.lotId]||0)+(+tk.kg||0); }); (s.batches||[]).forEach(function(e){
       var lot=null, hit=false; if(e.lotId){ lot=ids[e.lotId]; hit=!!lot; } else if(s.po && e.batch===b.batchNo && lots.some(function(p){ return p.po===s.po; })){ hit=true; byNo++; }
-      if(!hit) return; var kg=+e.kg||0; dcKg+=kg; var bn=e.brand||(lot?lotBrandNo(lot):'')||'—'; var k=(s.dispId||s.dc||'')+'|'+bn;
+      if(!hit) return; var kg=+e.kg||0; dcKg+=kg; if(lot) lt[lot.id]=(lt[lot.id]||0)+kg; else byNoKg+=kg; var bn=e.brand||(lot?lotBrandNo(lot):'')||'—'; var k=(s.dispId||s.dc||'')+'|'+bn;
       var t=tg[k]||(tg[k]={dispId:s.dispId||'',dc:s.dc||'',date:s.dispatch||'',po:s.po||'',client:cm[s.po||'']||'',brandNo:bn,vehicle:s.vehicle||'',kg:0,dcAll:dcAll[s.dispId]||0,parts:[]});
       t.kg+=kg; t.parts.push({lotId:e.lotId||'',kg:kg,date:lot?(lot.date||''):'',mfg:lot?(lot.mfgDate||''):''}); }); });
   var trucks=Object.keys(tg).map(function(k){ return tg[k]; }).sort(function(a,c){ return String(c.date).localeCompare(String(a.date))||String(a.dc).localeCompare(String(c.dc))||String(a.brandNo).localeCompare(String(c.brandNo)); });
@@ -19123,7 +19170,11 @@ function batchTrace(b){
   var loss=+(b.lossKg!=null?b.lossKg:pr.loss)||0, kept=(b.stockKept&&+b.stockKept.kg)||0, disp=+b.disposedKg||0;
   var produced=+b.producedKg||0;
   var unacc=r2(produced-packed-disp-kept);
-  return {b:b,rows:rows,trucks:trucks,planned:+b.plannedKg||0,produced:produced,packed:r2(packed),shipped:r2(lotShip),inStock:r2(packed-lotShip),dcKg:r2(dcKg),byNo:byNo,loss:r2(loss),bp:r2(bp),dv:r2(dv),rw:r2(rw),kept:r2(kept),disp:r2(disp),unacc:unacc};
+  /* an open batch has material still to pack; that is not a gap. Only a closed batch, or one that packed more than it made, is. */
+  var isOpen=(b.status!=='closed'), still=(isOpen&&unacc>=-0.5)?Math.max(0,unacc):0;
+  /* packing run says shipped X, the trucks linked to that run carry Y (older records do not always agree) */
+  var gaps=lots.filter(function(p){ return Math.abs((+p.shipKg||0)-(lt[p.id]||0)-(lk[p.id]||0))>0.5; }).map(function(p){ var tr=(lt[p.id]||0)+(lk[p.id]||0); return {id:p.id,brandNo:lotBrandNo(p)||'—',date:p.date||'',packRec:r2(+p.shipKg||0),trucks:r2(tr),maybe:((+p.shipKg||0)>tr&&byNoKg>0.5)}; });
+  return {b:b,isOpen:isOpen,still:r2(still),gaps:gaps,byNoKg:r2(byNoKg),typed:r2(loss+bp+dv+rw),rows:rows,trucks:trucks,planned:+b.plannedKg||0,produced:produced,packed:r2(packed),shipped:r2(lotShip),inStock:r2(packed-lotShip),dcKg:r2(dcKg),byNo:byNo,loss:r2(loss),bp:r2(bp),dv:r2(dv),rw:r2(rw),kept:r2(kept),disp:r2(disp),unacc:unacc};
 }
 function btShow(h){ $('modal').innerHTML=h; $('modal').classList.add('coa'); $('modalBg').classList.add('open'); }
 function btSheet(title,sub,body){ return '<div class="mh"><h2>'+qsEsc(title)+'</h2><div class="sub">'+sub+'</div></div><div class="mb">'+body+'</div><div class="mf"><button class="qs-btn" onclick="closeModal()">Close</button></div>'; }
@@ -19167,9 +19218,59 @@ function bfxChecks(p,nn){
 function bfxApply(p,newNo){
   var old=lotBrandNo(p), touched=[];
   p.brandBatchNo=newNo;
-  (state.shipments||[]).forEach(function(sx){ if(!sx||sx.voided) return; (sx.batches||[]).forEach(function(b){ if(bfxRowHit(b,p,old,sx.po)){ b.brand=newNo; touched.push('DC '+(sx.dc||sx.id||'')+' batch line'); } }); });
+  var hitDc={};
+  (state.shipments||[]).forEach(function(sx){ if(!sx||sx.voided) return; (sx.batches||[]).forEach(function(b){ if(bfxRowHit(b,p,old,sx.po)){ b.brand=newNo; hitDc[sx.dispId||sx.id]=1; touched.push('DC '+(sx.dc||sx.id||'')+' batch line'); } }); });
+  /* the truck inspection stored the number as TEXT in its pallet check, and copied it onto every row of the DC; follow it on all of them, unless some line of this DC still carries the old number */
+  Object.keys(hitDc).forEach(function(k){ var rows=(state.shipments||[]).filter(function(x){ return x&&!x.voided&&(x.dispId||x.id)===k; });
+    if(rows.some(function(x){ return (x.batches||[]).some(function(b){ return String(b.brand||'')===String(old); }); })) return;
+    rows.forEach(function(x){ if(x.qa&&Array.isArray(x.qa.verify)) x.qa.verify.forEach(function(v){ if(v && v.key==='pallet' && typeof v.item==='string' && v.item.indexOf(' '+old+' (')>-1){ v.item=v.item.replace(' '+old+' (',' '+newNo+' ('); touched.push('DC '+(x.dc||x.id||'')+' pallet check text'); } }); }); });
   (state.inspections||[]).forEach(function(x){ if(!x) return; (x.batches||[]).forEach(function(b){ if(bfxRowHit(b,p,old,x.po)){ b.brand=newNo; touched.push('Inspection '+(x.actualDate||x.date||x.id)+' batch line'); } }); });
   return touched; }
+/* ===== WHAT MUST BE REPRINTED AFTER A CORRECTION (Tahir, 10 Oct 2026, 10h) =====
+   A DC and an inspection report already printed still carry the old number. Built BEFORE the numbers change (it
+   matches on the old number) and kept on the request, so Supply Chain and QA each get a job that stays until
+   someone says "reprinted" or "not needed" with a reason. Opening the print window does not clear it. */
+function bfxFollowBuild(p){
+  var old=lotBrandNo(p), out=[], seen={};
+  var add=function(f){ if(seen[f.k]) return; seen[f.k]=1; out.push(f); };
+  (state.shipments||[]).forEach(function(sx){ if(!sx||sx.voided) return; var hit=(sx.batches||[]).some(function(b){ return bfxRowHit(b,p,old,sx.po); }); if(!hit) return;
+    var left=!!(sx.dispCounted||sx.delivered||sx.stage==='in_transit'||sx.stage==='delivered');
+    add({k:'dc:'+(sx.dispId||sx.id),kind:'dc',dispId:sx.dispId||'',dc:sx.dc||'',po:sx.po||'',left:left});
+    /* the truck's own pre-shipment report (printPSI), only when a real inspection was recorded; a shipment from before QA was required has {pass:true,closed:true} and no report */
+    if(sx.qa && (Array.isArray(sx.qa.verify)||Array.isArray(sx.qa.checklist))) add({k:'psi:'+(sx.dispId||sx.id),kind:'psi',dispId:sx.dispId||'',po:sx.po||'',dc:sx.dc||'',left:left}); });
+  (state.inspections||[]).forEach(function(x){ if(!x) return; if((x.batches||[]).some(function(b){ return bfxRowHit(b,p,old,x.po); })) add({k:'in:'+(x.po||''),kind:'insp',po:x.po||'',dc:'',left:false}); });
+  return out; }
+function bfxFollowText(r,f){
+  return f.kind==='dc'
+    ? 'Reprint DC '+(f.dc||f.dispId)+' · PO '+(f.po||'')+': batch '+r.oldNo+' is now '+r.newNo+(f.left?' · the truck has already left, so the customer holds the old paper: send the corrected DC':'')
+    : f.kind==='psi'
+    ? 'Reprint the truck inspection report of DC '+(f.dc||f.dispId)+' · PO '+(f.po||'')+': batch '+r.oldNo+' is now '+r.newNo+(f.left?' · the truck has already left, so the customer holds the old paper: send the corrected report':'')
+    : 'Reprint the inspection report of PO '+(f.po||'')+': batch '+r.oldNo+' is now '+r.newNo; }
+function bfxJs(x){ return _av(String(x==null?'':x).replace(/\\/g,'\\\\').replace(/'/g,"\\'")); }
+function bfxFollowMay(f){ return f.kind==='dc' ? hardRole(['Supply Chain','Plant Manager']) : hardRole(['QA Inspector','QCM','AQCM','Plant Manager']); }
+function bfxFollowJobs(){ var out=[]; (state.batchFixReqs||[]).forEach(function(r){ if(!r||r.status!=='approved') return; (r.follow||[]).forEach(function(f,i){ if(!f||f.done) return;
+    out.push({role:f.kind==='dc'?'Supply Chain':'QA Inspector',fu:r.id+'|'+f.k,labAt:r.decidedAt||r.at,what:bfxFollowText(r,f),act:"bfxFollowOpen('"+r.id+"',"+i+")",label:f.kind==='dc'?'Reprint DC':'Reprint report'}); }); }); return out; }
+var bfxFNote='';
+function bfxFollowOpen(id,i){
+  var r=(state.batchFixReqs||[]).find(function(x){ return x&&x.id===id; }); var f=r&&(r.follow||[])[i]; if(!f) return;
+  bfxFNote=''; var may=bfxFollowMay(f)&&!f.done;
+  var open=f.kind==='dc'?(f.dispId?'<button class="sm ghost" onclick="printDC(\''+bfxJs(f.dispId)+'\')">Open the DC to print</button>':''):f.kind==='psi'?(f.dispId?'<button class="sm ghost" onclick="printPSI(\''+bfxJs(f.dispId)+'\')">Open the truck inspection report to print</button>':''):'<button class="sm ghost" onclick="printInspect(\''+bfxJs(f.po)+'\')">Open the inspection report to print</button>';
+  $('modal').classList.remove('coa');
+  $('modal').innerHTML='<div class="mh"><h2>'+(f.kind==='dc'?'Reprint the DC':'Reprint the inspection report')+'</h2><div class="sub">'+bpEsc(r.brand)+' · '+bpEsc(r.oldNo)+' → '+bpEsc(r.newNo)+'</div></div><div class="mb">'
+    +'<div class="note" style="border-color:var(--amber)"><b>'+bpEsc(bfxFollowText(r,f))+'</b></div>'
+    +'<div class="note" style="margin-top:8px">The record now shows <b>'+bpEsc(r.newNo)+'</b>. A paper printed before the correction still shows <b>'+bpEsc(r.oldNo)+'</b>. Opening the print window does not close this job: press <b>Reprinted</b> once the new paper is printed'+(f.left?' and sent':'')+'.</div>'
+    +(f.done?'<div class="note" style="margin-top:8px"><b>'+(f.done.how==='reprinted'?'Reprinted':'Not needed')+'</b> by '+bpEsc(f.done.by||'')+' on '+bpEsc(String(f.done.at||'').slice(0,10))+(f.done.note?': '+bpEsc(f.done.note):'')+'</div>'
+      :(may?'<div style="margin-top:10px">'+open+'</div><div class="fld fld-long" style="margin-top:10px"><label>Only if no reprint is needed: say why (at least 5 characters)</label><textarea rows="2" oninput="bfxFNote=this.value"></textarea></div>':'<div class="note" style="margin-top:8px">'+(f.kind==='dc'?'Supply Chain':'QA')+' closes this job.</div>'))
+    +'</div><div class="mf"><button class="ghost" onclick="closeModal()">Close</button>'
+    +(may?'<button class="ghost" onclick="bfxFollowDone(\''+_av(id)+'\','+i+',false)">Not needed</button><button class="green" onclick="bfxFollowDone(\''+_av(id)+'\','+i+',true)">Reprinted</button>':'')+'</div>';
+  $('modalBg').classList.add('open'); }
+function bfxFollowDone(id,i,printed){
+  var r=(state.batchFixReqs||[]).find(function(x){ return x&&x.id===id; }); var f=r&&(r.follow||[])[i]; if(!f||f.done) return;
+  if(!bfxFollowMay(f)){ toast(f.kind==='dc'?'Supply Chain closes this':'QA closes this'); return; }
+  var note=String(bfxFNote||'').trim(); if(!printed && note.length<5){ toast('Say why no reprint is needed (at least 5 characters)'); return; }
+  var me=_uRole(); f.done={how:printed?'reprinted':'notneeded',by:me.by,at:new Date().toISOString(),note:printed?'':note};
+  logAction('Batch fix '+r.oldNo+' → '+r.newNo+': '+(f.kind==='dc'?'DC '+(f.dc||f.dispId):f.kind==='psi'?'truck inspection report of DC '+(f.dc||f.dispId):'inspection report PO '+f.po)+' '+(printed?'reprinted':'no reprint needed — '+note));
+  save(); closeModal(); render(); toast(printed?'Marked as reprinted':'Marked as not needed'); }
 var bfxForm=null;
 function bfxOpen(lotId){
   if(!bfxMayRequest()){ toast('Production Manager, Production or Plant Manager only'); return; }
@@ -19225,6 +19326,7 @@ function bfxReview(id){
       +' The old number is kept in the corrections register. DC papers already printed still show the old number: reprint them.</div>':'<div class="note" style="margin-top:8px;color:var(--red)">The packing run is no longer in the records.</div>')
     +(p&&!done?(function(){ var c=bfxChecks(p,r.newNo); return c.block.map(function(m){ return '<div class="note" style="margin-top:8px;border-color:var(--red);color:var(--red)"><b>Cannot be approved:</b> '+bpEsc(m)+'</div>'; }).join('')+c.warn.map(function(m){ return '<div class="note" style="margin-top:8px;border-color:var(--amber)">'+bpEsc(m)+'</div>'; }).join(''); })():'')
     +(done?'<div class="note" style="margin-top:8px"><b>'+(r.status==='approved'?'Approved':'Refused')+'</b> by '+bpEsc(r.decidedBy||'')+' on '+bpEsc(String(r.decidedAt||'').slice(0,10))+(r.decisionNote?': '+bpEsc(r.decisionNote):'')+'</div>'
+       +((r.follow||[]).length?'<div class="note" style="margin-top:8px"><b>Papers to reprint</b>'+(r.follow||[]).map(function(f){ return '<div style="margin-top:4px">'+(f.done?'&#10003; ':'&#9675; ')+bpEsc(bfxFollowText(r,f))+(f.done?' <span class="muted">('+(f.done.how==='reprinted'?'reprinted':'not needed')+' · '+bpEsc(f.done.by||'')+')</span>':'')+'</div>'; }).join('')+'</div>':'')
        :(canDecide?'<div class="fld fld-long" style="margin-top:10px"><label>Note (needed to refuse)</label><textarea rows="2" oninput="bfxNote=this.value"></textarea></div>':'<div class="note" style="margin-top:8px">Waiting for the COO.</div>'))
     +'</div><div class="mf"><button class="ghost" onclick="closeModal()">Close</button>'
     +(canDecide?'<button class="ghost" onclick="bfxDecide(\''+_av(id)+'\',false)">Refuse</button>'+(p?'<button class="green" onclick="bfxDecide(\''+_av(id)+'\',true)">Approve</button>':''):'')+'</div>';
@@ -19240,11 +19342,12 @@ function bfxDecide(id,yes){
   if(lotBrandNo(p)!==r.oldNo){ toast('The number on this run is no longer '+r.oldNo+'. Refuse this one and ask again.'); return; }
   { var _ck=bfxChecks(p,r.newNo); if(_ck.block.length){ toast(_ck.block[0]); return; } }
   var label=p.brand+' · '+r.oldNo+' · '+fmt(+p.kg||0)+' Kg · '+p.po;
+  var follow=bfxFollowBuild(p);
   var touched=bfxApply(p,r.newNo);
   recordCorrection('AMEND','packingLot',p.id,label,[{field:'brandBatchNo',label:'Brand batch # (on the pack)',before:r.oldNo,after:r.newNo}],'keying',
     'Bags carry '+r.newNo+'; typing mistake. Asked by '+r.by+': '+r.reason+(note?(' · COO: '+note):''),touched);
-  r.status='approved'; r.decidedBy=me.by; r.decidedAt=new Date().toISOString(); r.decisionNote=note;
-  save(); closeModal(); render(); toast('Corrected to '+r.newNo+(touched.length?(' · '+touched.length+' linked line(s) followed'):'')+'. Reprint any DC already issued.'); }
+  r.status='approved'; r.decidedBy=me.by; r.decidedAt=new Date().toISOString(); r.decisionNote=note; r.follow=follow;
+  save(); closeModal(); render(); toast('Corrected to '+r.newNo+(touched.length?(' · '+touched.length+' linked line(s) followed'):'')+(follow.length?('. '+follow.length+' reprint job'+(follow.length===1?'':'s')+' sent to Supply Chain and QA.'):'. No DC or inspection report carries the old number.')); }
 function bfxCell(lotId){
   var pend=bfxPending(lotId), last=bfxFor(lotId).find(function(r){ return r.status!=='pending'; });
   if(pend) return '<a href="#" onclick="bfxReview(\''+_av(pend.id)+'\');return false">Fix to '+bpEsc(pend.newNo)+' waits for the COO</a>';
@@ -19273,7 +19376,7 @@ function btOpenTruck(i){
   var h='<div class="sheet-wrap" style="overflow-x:auto"><table class="rbtbl rp-tbl"><thead><tr><th>Packing run</th><th>Packed on</th><th>Mfg</th><th class="num">Kg/L taken on this DC</th></tr></thead><tbody>'
     +x.parts.map(function(p){ return '<tr><td>'+qsEsc(p.lotId||'older record, no lot link')+'</td><td>'+qsEsc(p.date||'—')+'</td><td>'+qsEsc(p.mfg||'—')+'</td><td class="num">'+f(p.kg)+'</td></tr>'; }).join('')
     +'<tr style="font-weight:700"><td colspan="3">Brand batch '+qsEsc(x.brandNo)+' on DC '+qsEsc(x.dc)+'</td><td class="num">'+f(x.kg)+'</td></tr></tbody></table></div>'
-    +'<div class="note" style="margin-top:10px">When a truck is planned, its quantity is taken from packing runs, oldest first. Each line above is how much one packing run gave this truck.'
+    +'<div class="note" style="margin-top:10px">When a truck is planned, the planner sees the batches and takes the quantity from the packing runs he chooses (oldest first is filled in). Each line above is how much one packing run gave this truck.'
     +(others.length?' This truck also took '+others.map(function(y){ return f(y.kg)+' of '+qsEsc(y.brandNo); }).join(' and ')+' from this batch.':'')
     +(x.dcAll&&x.dcAll>x.kg+0.5?' The whole truck carried '+f(x.dcAll)+' Kg/L, with products and batches other than this row.':'')+'</div>';
   btShow(btSheet('DC '+x.dc+' · '+(x.vehicle||''),qsEsc(x.date||'')+' · PO '+qsEsc(x.po||'—')+' · '+qsEsc(x.client||''),h));
@@ -19295,7 +19398,10 @@ function batchTraceHTML(t){
     +(t.dv>0?step('Diverted',t.dv,'same product, packed or recycled'):'')
     +(t.rw>0?step('Rework',t.rw,'back into production'):'')
     +(t.kept>0?step('Kept as bulk stock',t.kept,'stays on this batch, packable later'):'')
-    +'<tr style="font-weight:700"><td>Not accounted for</td><td class="num" style="color:'+(Math.abs(t.unacc)<=0.5?'var(--green2)':'var(--red)')+'">'+f(t.unacc)+'</td><td class="muted">produced − packed − loss and leftovers</td></tr></tbody></table></div>';
+    +(t.isOpen&&t.still>0.5
+      ?'<tr style="font-weight:700"><td>Still to be packed</td><td class="num">'+f(t.still)+'</td><td class="muted">the batch is open; produced − packed − loss and leftovers</td></tr>'
+      :'<tr style="font-weight:700"><td>Not accounted for</td><td class="num" style="color:'+(Math.abs(t.unacc)<=0.5?'var(--green2)':'var(--red)')+'">'+f(t.unacc)+'</td><td class="muted">produced − packed − loss and leftovers</td></tr>')
+    +'</tbody></table></div>';
   h+='<h3 class="rp-h3">Packed into <span class="muted" style="font-weight:400;font-size:12px">· one row per brand batch; tap a row to see the packing runs that make its total</span></h3><div class="sheet-wrap" style="overflow-x:auto"><table class="rbtbl rp-tbl"><thead><tr><th>Brand</th><th>Brand batch (on the bag)</th><th>PO</th><th>Customer</th><th>Packed</th><th class="num">Packing runs</th><th class="num">Packed Kg/L</th><th class="num">Shipped</th><th class="num">In stock</th></tr></thead><tbody>'
     +(t.rows.length?t.rows.map(function(g,i){ return '<tr style="'+click+'" title="Show the packing runs" onclick="btOpenPack('+i+')"><td class="rpwrap">'+qsEsc(g.brand)+'</td><td><b style="text-decoration:underline">'+qsEsc(g.brandNo)+'</b></td><td>'+qsEsc(g.po||'—')+'</td><td class="rpwrap">'+qsEsc(g.client||'—')+'</td><td>'+qsEsc(g.first===g.last||!g.last?(g.first||'—'):(g.first+' to '+g.last))+'</td><td class="num">'+g.n+'</td><td class="num">'+f(g.kg)+'</td><td class="num">'+f(g.shipped)+'</td><td class="num">'+f(g.kg-g.shipped)+'</td></tr>'; }).join('')
       +'<tr style="font-weight:700"><td colspan="6">Total</td><td class="num">'+f(t.packed)+'</td><td class="num">'+f(t.shipped)+'</td><td class="num">'+f(t.inStock)+'</td></tr>'
@@ -19305,11 +19411,16 @@ function batchTraceHTML(t){
       +'<tr style="font-weight:700"><td colspan="7">Total on trucks</td><td class="num">'+f(t.dcKg)+'</td></tr>'
       :'<tr><td colspan="8" class="muted">No truck has carried this batch yet.</td></tr>')+'</tbody></table></div>';
   h+='<h3 class="rp-h3">Checks</h3><div style="font-size:13px">'
-    +ok(Math.abs(t.unacc)<=0.5,'Produced '+f(t.produced)+' = packed '+f(t.packed)+' + loss and leftovers '+f(t.disp+t.kept)+(Math.abs(t.unacc)<=0.5?'':' — '+f(Math.abs(t.unacc))+' Kg/L '+(t.unacc>0?'not accounted for':'more than produced')))
+    +((t.isOpen&&t.still>0.5)
+       ?'<div style="margin:3px 0;color:var(--muted)">&#8226; This batch is still open. Produced '+f(t.produced)+'; packed '+f(t.packed)+'; '+f(t.still)+' Kg/L still to be packed.</div>'
+       :ok(Math.abs(t.unacc)<=0.5,'Produced '+f(t.produced)+' = packed '+f(t.packed)+' + loss and leftovers '+f(t.disp+t.kept)+(Math.abs(t.unacc)<=0.5?'':' — '+f(Math.abs(t.unacc))+' Kg/L '+(t.unacc>0?'not accounted for':'more than produced'))))
     +ok(Math.abs(t.packed-(+b.packedKg||0))<=0.5,'Packing records add to '+f(t.packed)+'; the batch itself says packed '+f(+b.packedKg||0))
     +ok(Math.abs(t.dcKg-t.shipped)<=0.5,'Trucks carry '+f(t.dcKg)+'; the packing records say shipped '+f(t.shipped))
-    +ok(Math.abs(t.disp-(t.loss+t.bp+t.dv+t.rw))<=0.5,'Reconciliation: loss '+f(t.loss)+' + by-product, diverted and rework '+f(t.bp+t.dv+t.rw)+'; the batch says disposed '+f(t.disp))
-    +'</div>'+(t.byNo?'<div class="note" style="margin-top:8px">'+t.byNo+' truck line'+(t.byNo===1?'':'s')+' older than lot links; matched by PO and batch number.</div>':'');
+    +((t.disp>0.5&&t.typed<=0.5)
+       ?'<div style="margin:3px 0;color:var(--amber)">&#9888; '+f(t.disp)+' Kg/L is recorded as disposed, but no type (loss, by-product, diverted, rework) was recorded with it.</div>'
+       :ok(Math.abs(t.disp-(t.loss+t.bp+t.dv+t.rw))<=0.5,'Reconciliation: loss '+f(t.loss)+' + by-product, diverted and rework '+f(t.bp+t.dv+t.rw)+'; the batch says disposed '+f(t.disp)))
+    +'</div>'
+    +(t.gaps.length?'<h3 class="rp-h3">Shipping records that do not agree</h3><div class="note" style="margin-bottom:6px">For these packing runs the packing record says one Kg shipped and the trucks linked to the run carry another. Nothing was changed; check the DCs of the PO.'+(t.byNoKg>0.5?' '+f(t.byNoKg)+' Kg/L on trucks has no link to a packing run and is matched by PO and batch number only.':'')+'</div><div class="sheet-wrap" style="overflow-x:auto"><table class="rbtbl rp-tbl"><thead><tr><th>Packing run</th><th>Brand batch</th><th>Date</th><th class="num">Packing record says shipped</th><th class="num">Trucks linked to the run carry</th><th class="num">Difference</th><th></th></tr></thead><tbody>'+t.gaps.map(function(g){ return '<tr><td>'+qsEsc(g.id)+'</td><td>'+qsEsc(g.brandNo)+'</td><td>'+qsEsc(g.date||'—')+'</td><td class="num">'+f(g.packRec)+'</td><td class="num">'+f(g.trucks)+'</td><td class="num">'+f(g.packRec-g.trucks)+'</td><td class="muted">'+(g.maybe?'may be on a truck line with no link':'')+'</td></tr>'; }).join('')+'</tbody></table></div>':'')+(t.byNo?'<div class="note" style="margin-top:8px">'+t.byNo+' truck line'+(t.byNo===1?'':'s')+' older than lot links; matched by PO and batch number.</div>':'');
   return h;
 }
 function rpBatchTraceHTML(){

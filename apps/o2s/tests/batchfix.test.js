@@ -9,7 +9,7 @@ const sb = { console, $: id => id === 'modal' ? modal : { classList: { add() {},
   fmt: x => String(Math.round(x)).replace(/\B(?=(\d{3})+(?!\d))/g, ','), toast: m => toasts.push(m), save: () => saves++, closeModal() {}, render() {},
   nid: p => p + Math.random().toString(36).slice(2, 6), correctTypeLabel: t => t, correctReasonText: k => k, _pe: x => String(x), hardRole: r => sb.state.role === 'COO' || r.includes(sb.state.role), state: {} };
 vm.createContext(sb);
-vm.runInContext(['lotBaseNo', 'lotBrandNo', 'lotById', 'recordCorrection', 'logAction', 'bpEsc', 'bpId', '_av', '_uRole', 'bfxMayRequest', 'bfxMayDecide', 'bfxFor', 'bfxPending', 'bfxRowHit', 'bfxImpact', 'bfxApply', 'bfxOpen', 'bfxRender', 'bfxSubmit', 'bfxJobs', 'bfxReview', 'bfxDecide', 'bfxCell', 'bfxChecks', 'fyKey', 'validateBatchNo'].map(grab).join('\n') + '\nvar bfxForm=null, bfxNote="";', sb);
+vm.runInContext(['lotBaseNo', 'lotBrandNo', 'lotById', 'recordCorrection', 'logAction', 'bpEsc', 'bpId', '_av', '_uRole', 'bfxMayRequest', 'bfxMayDecide', 'bfxFor', 'bfxPending', 'bfxRowHit', 'bfxImpact', 'bfxApply', 'bfxOpen', 'bfxRender', 'bfxSubmit', 'bfxJobs', 'bfxReview', 'bfxDecide', 'bfxCell', 'bfxChecks', 'bfxFollowBuild', 'bfxFollowText', 'bfxFollowMay', 'bfxFollowJobs', 'bfxFollowOpen', 'bfxFollowDone', 'bfxJs', 'fyKey', 'validateBatchNo'].map(grab).join('\n') + '\nvar bfxForm=null, bfxNote="", bfxFNote="";', sb);
 const fresh = () => { toasts = []; sb.state = { role: 'Production Manager', currentUser: { name: 'Majid', username: 'majid' },
   batches: [{ id: 'B1', batchNo: 'HG26036', openedDate: '2026-09-25' }],
   packingLog: [
@@ -83,4 +83,48 @@ ok('approval re-checks and refuses', sb.state.packingLog[0].brandBatchNo === 'VA
 fresh(); ck = run('bfxChecks(lotById("PK4331-6n85"),"VAN6JE001")'); ok('a real VAN number gives no pattern warning', ck.block.length === 0 && ck.warn.length === 0);
 fresh(); sb.state.packingLog[1].mfgDate = '2026-09-10'; sb.state.packingLog[2].mfgDate = '2026-09-10'; toasts = []; ask('VAN6JE001', 'new', 'Majid checked the pallets: bags print VAN6JE001'); ok('the request itself is refused on a date clash', !(sb.state.batchFixReqs || []).length && toasts.some(m => /one date/.test(m)));
 ok('no button on every run: one picker under the table', !/>Wrong number<\/button>/.test(html) && /function bfxPicker/.test(html) && /\+bfxPicker\(g\)/.test(html));
+/* 10h: after the fix, the papers already printed are reprinted. Supply Chain and QA each get a job that stays until it is closed. */
+const approveFix = () => { fresh(); sb.state.shipments[0].dispCounted = true; sb.state.shipments[0].stage = 'in_transit';
+  sb.state.shipments[1].qa = { pass: true, verify: [{ key: 'pallet', item: 'Pallet: Max Potash VAN6JW001 (832 Kg/L) is the batch on the DC', result: 'pass' }, { key: 'pallet', item: 'Pallet: Max Potash VAN6JE001 (8,320 Kg/L) is the batch on the DC', result: 'pass' }, { key: 'price', item: 'Price on the pack', result: 'pass' }] };
+  ask('VAN6JE001', 'new', 'Majid checked the pallets: bags print VAN6JE001'); sb.state.role = 'COO'; run('bfxDecide("' + sb.state.batchFixReqs[0].id + '",true)'); return sb.state.batchFixReqs[0]; };
+let fr = approveFix();
+eq(fr.follow.map(f => f.k), ['dc:D1', 'dc:D2', 'psi:D2', 'in:P-1'], 'a job for each live DC, the truck report of the DC that was inspected, and the PO packed-material report; the voided DC is left out');
+eq(fr.follow.find(f => f.k === 'dc:D1').left, true, 'DC 5224 left the gate'); eq(fr.follow.find(f => f.k === 'dc:D2').left, false, 'DC 5229 has not');
+eq(sb.state.shipments[1].qa.verify[0].item, 'Pallet: Max Potash VAN6JE001 (832 Kg/L) is the batch on the DC', 'the pallet check text follows the new number');
+eq(sb.state.shipments[1].qa.verify[1].item, 'Pallet: Max Potash VAN6JE001 (8,320 Kg/L) is the batch on the DC', 'a line that already said JE001 is untouched');
+let jobs = run('bfxFollowJobs()');
+eq(jobs.map(j => j.role), ['Supply Chain', 'Supply Chain', 'QA Inspector', 'QA Inspector'], 'Supply Chain gets the 2 DCs, QA the 2 reports');
+ok('every job has its own key part', new Set(jobs.map(j => j.fu)).size === 4);
+ok('the truck that left says the customer holds the old paper', /already left/.test(jobs[0].what) && !/already left/.test(jobs[1].what));
+ok('acKey has the new field so jobs do not collapse', /if\(it\.fu\)p\.push\('fu:'\+it\.fu\)/.test(html) && /bfxFollowJobs\(\)\.forEach/.test(html));
+/* opening does not close it */
+sb.state.role = 'Supply Chain'; sb.printDC = () => {}; run('bfxFollowOpen("' + fr.id + '",0)'); ok('opening the job shows the print button and Reprinted', /Open the DC to print/.test(modal.innerHTML) && />Reprinted</.test(modal.innerHTML));
+eq(run('bfxFollowJobs()').length, 4, 'opening and printing leave the job open');
+/* who may close */
+sb.state.role = 'QA Inspector'; toasts = []; run('bfxFollowDone("' + fr.id + '",0,true)'); ok('QA cannot close a DC job', toasts.some(t => /Supply Chain closes/.test(t)) && !fr.follow[0].done);
+sb.state.role = 'Supply Chain'; run('bfxFollowDone("' + fr.id + '",0,true)'); eq(fr.follow[0].done.how, 'reprinted', 'Supply Chain closes the DC job with Reprinted'); eq(run('bfxFollowJobs()').length, 3, 'it leaves the list');
+toasts = []; sb.bfxFNote = 'no'; run('bfxFollowDone("' + fr.id + '",1,false)'); ok('"not needed" needs a reason', toasts.some(t => /at least 5/.test(t)) && !fr.follow[1].done);
+sb.bfxFNote = 'Customer collects from the factory again'; run('bfxFollowDone("' + fr.id + '",1,false)'); eq(fr.follow[1].done.how, 'notneeded', 'not needed with a reason is accepted'); eq(fr.follow[1].done.note, 'Customer collects from the factory again', 'the reason is kept');
+sb.state.role = 'Supply Chain'; toasts = []; run('bfxFollowDone("' + fr.id + '",2,true)'); ok('Supply Chain cannot close the QA report job', toasts.some(t => /QA closes/.test(t)) && !fr.follow[2].done);
+sb.state.role = 'QA Inspector'; run('bfxFollowDone("' + fr.id + '",2,true)'); run('bfxFollowDone("' + fr.id + '",3,true)'); eq(run('bfxFollowJobs()').length, 0, 'QA closes both report jobs: none left');
+sb.state.role = 'COO'; run('bfxReview("' + fr.id + '")'); ok('the review screen lists the papers and who closed them', /Papers to reprint/.test(modal.innerHTML) && /reprinted/.test(modal.innerHTML) && /not needed/.test(modal.innerHTML));
+/* the truck report is printed by printPSI, the packed-material report by printInspect */
+fr = approveFix(); sb.state.role = 'QA Inspector'; run('bfxFollowOpen("' + fr.id + '",2)'); ok('the truck report job opens the truck report, not the packed-material one', /printPSI\('D2'\)/.test(modal.innerHTML) && !/printInspect/.test(modal.innerHTML));
+run('bfxFollowOpen("' + fr.id + '",3)'); ok('the packed-material job opens printInspect with the PO', /printInspect\('P-1'\)/.test(modal.innerHTML));
+ok('a PO with an apostrophe cannot break the button', run('bfxJs("P\'1")') === "P\\'1");
+/* a shipment from before QA was required has no report to reprint */
+fresh(); sb.state.shipments[1].qa = { pass: true, closed: true }; ask('VAN6JE001', 'new', 'Majid checked the pallets: bags print VAN6JE001'); sb.state.role = 'COO'; run('bfxDecide("' + sb.state.batchFixReqs[0].id + '",true)');
+eq(sb.state.batchFixReqs[0].follow.map(f => f.k), ['dc:D1', 'dc:D2', 'in:P-1'], 'no truck report job for a truck that was never inspected');
+/* the pallet text is copied onto every row of the DC: follow it on all of them */
+fresh(); const palTxt = 'Pallet: Max Potash VAN6JW001 (832 Kg/L) is the batch on the DC';
+sb.state.shipments[1].batches.push({ lotId: 'PK2', brand: 'VAN6JE001', kg: 100 });
+sb.state.shipments.push({ dispId: 'D2', dc: '5229', po: 'P-1', brand: 'Other', batches: [{ lotId: 'PK2', brand: 'VAN6JE001', kg: 50 }] });
+sb.state.shipments[1].qa = { pass: true, verify: [{ key: 'pallet', item: palTxt, result: 'pass' }] }; sb.state.shipments[3].qa = JSON.parse(JSON.stringify(sb.state.shipments[1].qa));
+ask('VAN6JE001', 'new', 'Majid checked the pallets: bags print VAN6JE001'); sb.state.role = 'COO'; run('bfxDecide("' + sb.state.batchFixReqs[0].id + '",true)');
+eq([sb.state.shipments[1], sb.state.shipments[3]].map(x => x.qa.verify[0].item), ['Pallet: Max Potash VAN6JE001 (832 Kg/L) is the batch on the DC', 'Pallet: Max Potash VAN6JE001 (832 Kg/L) is the batch on the DC'], 'both rows of the DC show the new number in the pallet text');
+/* a correction that touches nothing printed */
+fresh(); sb.state.shipments = []; sb.state.inspections = []; ask('VAN6JE001', 'new', 'Majid checked the pallets: bags print VAN6JE001'); sb.state.role = 'COO'; toasts = []; run('bfxDecide("' + sb.state.batchFixReqs[0].id + '",true)');
+eq(sb.state.batchFixReqs[0].follow, [], 'no DC or report: no job'); ok('and the toast says so', toasts.some(t => /No DC or inspection report/.test(t)));
+/* a refused request makes no jobs */
+fresh(); ask('VAN6JE001', 'new', 'Majid checked the pallets: bags print VAN6JE001'); sb.state.role = 'COO'; sb.bfxNote = 'Look at the pallets again'; run('bfxDecide("' + sb.state.batchFixReqs[0].id + '",false)'); eq(run('bfxFollowJobs()').length, 0, 'refused: no reprint job');
 report();

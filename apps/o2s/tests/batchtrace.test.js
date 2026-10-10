@@ -76,4 +76,56 @@ const cat = html.match(/\{id:'batchtrace'[^\n]*/)[0];
 ok('in the catalogue with the roles of Batches and wastage, read-only view', /kind:'batchtrace'/.test(cat) && /roles:\['Production','Production Manager','Plant Manager','QCM','AQCM','COO','CFO'\]/.test(cat));
 ok('sits in the Production group', /ids:\['prodshift','batches','batchtrace','rm'\]/.test(html));
 ok('opens without the report builder, and renders its own view', /c\.kind==='customer'\|\|c\.kind==='batchtrace'/.test(html) && /if\(c\.kind==='batchtrace'\) return h\+rpBatchTraceHTML/.test(html));
+/* 10 Oct 2026 (10h) — the trace: an open batch is not "unaccounted"; a disposal with no type is amber; runs whose shipping records disagree are named */
+{
+  const mk = (extra, lots, ships) => { sb.state = { orders: [{ po: 'P-1', client: 'Kisan' }], batches: [Object.assign({ id: 'X1', batchNo: 'VU9', brand: 'Urea', status: 'open', plannedKg: 100, producedKg: 100, packedKg: 60 }, extra)], packingLog: lots, shipments: ships || [] }; return sb.batchTrace(sb.state.batches[0]); };
+  const lot = (id, kg, ship, o) => Object.assign({ id, baseBatchId: 'X1', brand: 'Urea', brandBatchNo: 'VAN9', po: 'P-1', lid: 'L1', kg, shipKg: ship, date: '2026-09-01' }, o || {});
+  /* open, 40 still to pack */
+  let t = mk({}, [lot('A', 60, 0)]);
+  eq('open batch: 40 still to be packed', t.still + '/' + t.isOpen, '40/true');
+  let o = sb.batchTraceHTML(t);
+  ok('open batch: says still to be packed, no red cross, no "not accounted for"', /Still to be packed/.test(o) && !/&#10007;/.test(o) && !/Not accounted for/.test(o));
+  /* open but packed MORE than made: still an error */
+  t = mk({ producedKg: 50, packedKg: 60 }, [lot('A', 60, 0)]);
+  eq('open and over-packed: not treated as still to pack', t.still, 0);
+  o = sb.batchTraceHTML(t);
+  ok('open and over-packed: red', /&#10007;/.test(o) && /more than produced/.test(o));
+  /* closed with 40 unaccounted: red */
+  t = mk({ status: 'closed' }, [lot('A', 60, 0)]);
+  o = sb.batchTraceHTML(t);
+  ok('closed with 40 missing: red and says not accounted for', /Not accounted for/.test(o) && /40 Kg\/L not accounted for/.test(o) && /&#10007;/.test(o));
+  /* closed, 40 disposed with no type: amber, not red on that line */
+  t = mk({ status: 'closed', disposedKg: 40 }, [lot('A', 60, 0)]);
+  o = sb.batchTraceHTML(t);
+  ok('disposed with no type: amber line', /recorded as disposed, but no type/.test(o) && !/Reconciliation:/.test(o));
+  ok('disposed with no type: no red cross', !/&#10007;/.test(o));
+  /* disposed with a type that does not match is still red */
+  t = mk({ status: 'closed', disposedKg: 40, lossKg: 10, packReconcile: { loss: 10, items: [] } }, [lot('A', 60, 0)]);
+  o = sb.batchTraceHTML(t);
+  ok('typed 10 but disposed 40: red', /Reconciliation:/.test(o) && /&#10007;/.test(o));
+  /* shipping records that disagree */
+  t = mk({ status: 'closed', disposedKg: 40, lossKg: 40, packReconcile: { loss: 40, items: [] } },
+    [lot('A', 30, 30), lot('B', 30, 30)],
+    [{ dispId: 'D1', dc: '1', po: 'P-1', batches: [{ lotId: 'A', brand: 'VAN9', kg: 30 }, { lotId: 'A', brand: 'VAN9', kg: 30 }] }]);
+  eq('two runs disagree: A carries 60 on trucks (30 said), B carries 0 (30 said)', t.gaps.map(g => g.id + ':' + g.packRec + '/' + g.trucks).join(','), 'A:30/60,B:30/0');
+  o = sb.batchTraceHTML(t);
+  ok('the disagreement table is shown with both numbers', /Shipping records that do not agree/.test(o) && /Packing record says shipped/.test(o));
+  /* agreeing records: no table */
+  t = mk({ status: 'closed', disposedKg: 40, lossKg: 40, packReconcile: { loss: 40, items: [] } }, [lot('A', 60, 60)], [{ dispId: 'D1', dc: '1', po: 'P-1', batches: [{ lotId: 'A', brand: 'VAN9', kg: 60 }] }]);
+  eq('records agree: no gaps', t.gaps.length, 0);
+  ok('records agree: no table and no red', !/do not agree/.test(sb.batchTraceHTML(t)) && !/&#10007;/.test(sb.batchTraceHTML(t)));
+  /* a truck line with no lot link is counted apart */
+  t = mk({ status: 'closed', disposedKg: 40, lossKg: 40, packReconcile: { loss: 40, items: [] } }, [lot('A', 60, 60)], [{ dispId: 'D9', dc: '9', po: 'P-1', batches: [{ batch: 'VU9', brand: 'VAN9', kg: 60 }] }]);
+  eq('an unlinked truck line is counted in byNoKg, and the run shows a gap of 60', t.byNoKg + '/' + t.gaps.length, '60/1');
+  ok('the unlinked Kg is explained on the page', /no link to a packing run/.test(sb.batchTraceHTML(t)));
+  /* a back-filled truck (lotTake, no batch lines) explains a lot's shipped Kg: no false disagreement */
+  t = mk({ status: 'closed', disposedKg: 40, lossKg: 40, packReconcile: { loss: 40, items: [] } }, [lot('A', 60, 60)], [{ id: 'SH1', po: 'P-1', recon: true, lotTake: [{ lotId: 'A', kg: 60 }] }]);
+  eq('a back-filled truck that took the lot: no gap', t.gaps.length, 0);
+  /* an unlinked truck line may explain it: the row says so */
+  t = mk({ status: 'closed', disposedKg: 40, lossKg: 40, packReconcile: { loss: 40, items: [] } }, [lot('A', 60, 60)], [{ dispId: 'D9', dc: '9', po: 'P-1', batches: [{ batch: 'VU9', brand: 'VAN9', kg: 60 }] }]);
+  ok('the gap row says it may be on a truck line with no link', t.gaps[0].maybe === true && /may be on a truck line with no link/.test(sb.batchTraceHTML(t)));
+  /* an open batch with everything packed keeps its normal green line */
+  t = mk({ producedKg: 60, packedKg: 60 }, [lot('A', 60, 0)]);
+  o = sb.batchTraceHTML(t); ok('open and fully packed: the green produced = packed line, no "still open" note', /Produced 60 = packed 60/.test(o) && !/still open/.test(o) && !/Still to be packed/.test(o));
+}
 report();

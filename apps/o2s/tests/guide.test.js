@@ -117,7 +117,7 @@ ok('How it works: an order carries terms, ERP SO and the 5% price reason (25j)',
   ok('Today labels the new jobs (26a)', /'Correct COA':\s*\{title:'COA sent back to you to correct'/.test(TL) && /'Refused':\s*\{title:'Your close request was refused'/.test(TL) && /'Sent back':\s*\{title:'Truck sent back to you'/.test(TL)); }
 ok('The Rules say each list-price product on a truck gets its own price (6 Oct)', /on a truck with 2 or more such products, the price for each product/.test(html));
 ok('The Rules say a packed product cannot be closed as We could not supply (6 Oct)', /A product already packed in full cannot be closed as <b>We could not supply<\/b>/.test(html));
-ok('The Rules say how to correct a wrong batch number (10 Oct, 10d)', /<h3>A wrong batch number<\/h3>/.test(html) && /Ask for a correction<\/b>/.test(html));
+ok('The Rules say how to correct a wrong batch number (10 Oct, 10d)', /<h3>A wrong batch number<\/h3>/.test(html) && /Ask for a correction<\/b>/.test(html) && /1 character different from one already used/.test(html) && /checks the batch printed on the pallet against each batch line/.test(html));
 ok('The Rules say what N/A is on an inspection (10 Oct, 10c)', /<h3>N\/A on an inspection<\/h3>/.test(html) && /Pallet \/ loading condition<\/b> and <b>Price on the pack/.test(html));
 ok('The Rules say where to find a batch (10 Oct)', /<b>Batch trace<\/b>/.test(html) && /Where a batch went/.test(html) && /Tap a brand batch row to see the packing runs/.test(html));
 ok('The Rules say where to find a copy of each paper (6 Oct, 06c)', /<h3>Where to find a copy<\/h3>/.test(html) && /Its sheet ends with <b>Papers<\/b>/.test(html));

@@ -1,0 +1,21 @@
+/* 10 Oct 2026 — look-alike brand batch numbers at packing. Run: node similarno.test.js */
+const H = require('./harness.js'); const vm = require('vm'); const { ok, report, grab, html } = H;
+const eq = (g, w, n) => ok(n, JSON.stringify(g) === JSON.stringify(w));
+const sb = { console, bpEsc: x => String(x), TODAY: new Date('2026-10-10'), state: {}, packForm: {} }; vm.createContext(sb);
+vm.runInContext(['fyKey', 'lotBaseNo', 'lotBrandNo', 'bnoLookAlike', 'packSimilarNos', 'packSimilarNote'].map(grab).join('\n'), sb);
+const L = (a, b) => vm.runInContext('bnoLookAlike', sb)(a, b);
+ok('JW001 looks like JE001 (the real mistake)', L('VAN6JW001', 'VAN6JE001'));
+ok('serials 001 and 002 are normal', !L('VAN6JE002', 'VAN6JE001'));
+ok('IE002 and JE001 are 2 apart: not flagged', !L('VAN6IE002', 'VAN6JE001'));
+ok('same number is not a look-alike', !L('VAN6JE001', 'VAN6JE001'));
+ok('different length is not flagged', !L('VAN6JE0011', 'VAN6JE001'));
+ok('swapped letters are flagged', L('VAN6EJ001', 'VAN6JE001'));
+ok('case does not matter', L('van6jw001', 'VAN6JE001'));
+ok('short numbers are ignored', !L('AB1', 'AC1'));
+sb.state = { packingLog: [{ id: 'P1', brand: 'Enrich', brandBatchNo: 'VAN6JE001', date: '2026-10-06' }, { id: 'P2', brand: 'Enrich', brandBatchNo: 'VAN6JE001', date: '2026-10-07' }, { id: 'P3', brand: 'Other', brandBatchNo: 'VAN6JW001', date: '2026-10-07' }, { id: 'P4', brand: 'Enrich', brandBatchNo: 'VAN5JW001', date: '2025-03-01' }] };
+eq(vm.runInContext('packSimilarNos', sb)('Enrich', 'VAN6JW001', '2026-10-10'), ['VAN6JE001'], 'finds the existing number once, same brand and year only');
+eq(vm.runInContext('packSimilarNos', sb)('Enrich', 'VAN6JE001', '2026-10-10'), [], 'the right number gives no warning');
+sb.packForm = { brand: 'Enrich', brandBatch: 'VAN6JW001', packDate: '2026-10-10' }; ok('the form shows the warning', /1 character different from <b>VAN6JE001/.test(vm.runInContext('packSimilarNote', sb)({})));
+ok('doPack asks once then lets it through', /packForm\.simAck!==brandBatchNo/.test(html) && /tap Pack again/.test(html));
+ok('the field refreshes the warning', /onchange="renderPackModal\(\)"/.test(html));
+report();

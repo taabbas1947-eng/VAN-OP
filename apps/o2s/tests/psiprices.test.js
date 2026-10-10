@@ -7,7 +7,7 @@ const vm = require('vm');
 const { ok, eq, report, grab, html } = H;
 const sb = { console, _pe: x => String(x), _av: x => String(x), printPolicyOL: (o, l) => ({ mode: l.mode }) };
 vm.createContext(sb);
-vm.runInContext(['qcVerifyRows', 'qcVerifyTable', 'qcVerifyGate', 'qcSeenBrands', 'qcAskSeen', 'qcNeedsSeenPrice', 'qcVerifyRecord'].map(grab).join('\n') + '\nvar QC_VERIFY=[{k:"price",label:"p"},{k:"batch",label:"b"},{k:"dates",label:"d"}];', sb);
+vm.runInContext(['qcVerifyRows', 'qcVerifyTable', 'qcVerifyGate', 'qcSeenBrands', 'qcAskSeen', 'qcNeedsSeenPrice', 'qcVerifyRecord'].map(grab).join('\n') + '\nvar QC_NA_VERIFY=[0];\nvar QC_VERIFY=[{k:"price",label:"p"},{k:"batch",label:"b"},{k:"dates",label:"d"}];', sb);
 const P = (brand, mode) => ({ o: {}, l: { brand, mode } });
 const truck = [P('V-Borate 17%', 'list'), P('VL-Potash', 'list'), P('V-Zinc', 'list'), P('Vibrant', 'list'), P('V-Zinc', 'list'), P('Max S', 'priced')];
 eq('the list-price products, once each', sb.qcSeenBrands(truck).join('|'), 'V-Borate 17%|VL-Potash|V-Zinc|Vibrant');

@@ -9,13 +9,13 @@ const sb = { console, $: id => id === 'modal' ? modal : { classList: { add() {},
   fmt: x => String(Math.round(x)).replace(/\B(?=(\d{3})+(?!\d))/g, ','), toast: m => toasts.push(m), save: () => saves++, closeModal() {}, render() {},
   nid: p => p + Math.random().toString(36).slice(2, 6), correctTypeLabel: t => t, correctReasonText: k => k, _pe: x => String(x), hardRole: r => sb.state.role === 'COO' || r.includes(sb.state.role), state: {} };
 vm.createContext(sb);
-vm.runInContext(['lotBaseNo', 'lotBrandNo', 'lotById', 'recordCorrection', 'logAction', 'bpEsc', 'bpId', '_av', '_uRole', 'bfxMayRequest', 'bfxMayDecide', 'bfxFor', 'bfxPending', 'bfxRowHit', 'bfxImpact', 'bfxApply', 'bfxOpen', 'bfxRender', 'bfxSubmit', 'bfxJobs', 'bfxReview', 'bfxDecide', 'bfxCell'].map(grab).join('\n') + '\nvar bfxForm=null, bfxNote="";', sb);
+vm.runInContext(['lotBaseNo', 'lotBrandNo', 'lotById', 'recordCorrection', 'logAction', 'bpEsc', 'bpId', '_av', '_uRole', 'bfxMayRequest', 'bfxMayDecide', 'bfxFor', 'bfxPending', 'bfxRowHit', 'bfxImpact', 'bfxApply', 'bfxOpen', 'bfxRender', 'bfxSubmit', 'bfxJobs', 'bfxReview', 'bfxDecide', 'bfxCell', 'bfxChecks', 'fyKey', 'validateBatchNo'].map(grab).join('\n') + '\nvar bfxForm=null, bfxNote="";', sb);
 const fresh = () => { toasts = []; sb.state = { role: 'Production Manager', currentUser: { name: 'Majid', username: 'majid' },
-  batches: [{ id: 'B1', batchNo: 'HG26036' }],
+  batches: [{ id: 'B1', batchNo: 'HG26036', openedDate: '2026-09-25' }],
   packingLog: [
-    { id: 'PK4331-6n85', baseBatchId: 'B1', brand: 'Max Potash', brandBatchNo: 'VAN6JW001', po: 'P-1', lid: 'L1', kg: 1632, shipKg: 1632, insKg: 1632 },
-    { id: 'PK1', baseBatchId: 'B1', brand: 'Max Potash', brandBatchNo: 'VAN6JE001', po: 'P-1', lid: 'L1', kg: 8320, shipKg: 8320, insKg: 8320 },
-    { id: 'PK2', baseBatchId: 'B1', brand: 'Max Potash', brandBatchNo: 'VAN6JE001', po: 'P-1', lid: 'L1', kg: 8672, shipKg: 8672, insKg: 8672 }],
+    { id: 'PK4331-6n85', date: '2026-10-04', mfgDate: '2026-09-25', baseBatchId: 'B1', brand: 'Max Potash', brandBatchNo: 'VAN6JW001', po: 'P-1', lid: 'L1', kg: 1632, shipKg: 1632, insKg: 1632 },
+    { id: 'PK1', date: '2026-10-06', mfgDate: '2026-09-25', baseBatchId: 'B1', brand: 'Max Potash', brandBatchNo: 'VAN6JE001', po: 'P-1', lid: 'L1', kg: 8320, shipKg: 8320, insKg: 8320 },
+    { id: 'PK2', date: '2026-10-07', mfgDate: '2026-09-25', baseBatchId: 'B1', brand: 'Max Potash', brandBatchNo: 'VAN6JE001', po: 'P-1', lid: 'L1', kg: 8672, shipKg: 8672, insKg: 8672 }],
   shipments: [
     { dispId: 'D1', dc: '5224', po: 'P-1', batches: [{ lotId: 'PK4331-6n85', batch: 'HG26036', brand: 'VAN6JW001', kg: 800 }] },
     { dispId: 'D2', dc: '5229', po: 'P-1', batches: [{ lotId: 'PK4331-6n85', batch: 'HG26036', brand: 'VAN6JW001', kg: 832 }, { lotId: 'PK1', brand: 'VAN6JE001', kg: 8320 }] },
@@ -72,5 +72,15 @@ ok('stale request is not applied', toasts.some(t => /no longer/.test(t)) && sb.s
 /* wiring */
 ok('the action list carries the job and a distinct key', /bfxJobs\(\)\.forEach/.test(html) && /if\(it\.bfx\)p\.push/.test(html));
 ok('the Batch trace drawer has the fix button', /bfxCell\(l\.id\)/.test(html));
+
+/* the same safeguards as the pack screen */
+fresh(); let ck = run('bfxChecks(lotById("PK4331-6n85"),"VAN6JE001")'); eq(ck.block, [], 'JE001 passes: same brand, same mfg date');
+fresh(); sb.state.batches.push({ id: 'B9', batchNo: 'VAN6JE001', openedDate: '2026-09-30' }); ck = run('bfxChecks(lotById("PK4331-6n85"),"VAN6JE001")'); ok('a base batch number cannot be used', ck.block.length === 1 && /base batch/.test(ck.block[0]));
+fresh(); sb.state.packingLog.push({ id: 'PKX', date: '2026-10-05', brand: 'Other Brand', brandBatchNo: 'VAN6JE001', baseBatchId: 'B1', po: 'P-2', kg: 5, mfgDate: '2026-09-25' }); ck = run('bfxChecks(lotById("PK4331-6n85"),"VAN6JE001")'); ok('a number used by a different brand is refused', ck.block.some(m => /different brand/.test(m)));
+fresh(); sb.state.packingLog[1].mfgDate = '2026-09-10'; sb.state.packingLog[2].mfgDate = '2026-09-10'; ck = run('bfxChecks(lotById("PK4331-6n85"),"VAN6JE001")'); ok('a different mfg date is refused', ck.block.some(m => /one date/.test(m)));
+fresh(); ask('VAN6JE001', 'new', 'x'.repeat(12)); sb.state.packingLog[1].mfgDate = '2026-09-10'; sb.state.packingLog[2].mfgDate = '2026-09-10'; sb.state.role = 'COO'; run('bfxDecide("' + sb.state.batchFixReqs[0].id + '",true)');
+ok('approval re-checks and refuses', sb.state.packingLog[0].brandBatchNo === 'VAN6JW001' && sb.state.batchFixReqs[0].status === 'pending');
+fresh(); ck = run('bfxChecks(lotById("PK4331-6n85"),"VAN6JE001")'); ok('a real VAN number gives no pattern warning', ck.block.length === 0 && ck.warn.length === 0);
+fresh(); sb.state.packingLog[1].mfgDate = '2026-09-10'; sb.state.packingLog[2].mfgDate = '2026-09-10'; toasts = []; ask('VAN6JE001', 'new', 'Majid checked the pallets: bags print VAN6JE001'); ok('the request itself is refused on a date clash', !(sb.state.batchFixReqs || []).length && toasts.some(m => /one date/.test(m)));
 ok('no button on every run: one picker under the table', !/>Wrong number<\/button>/.test(html) && /function bfxPicker/.test(html) && /\+bfxPicker\(g\)/.test(html));
 report();

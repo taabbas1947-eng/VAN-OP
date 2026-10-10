@@ -11,7 +11,7 @@
    a push keeps running the old code with nothing telling anybody. It sat at
    2026-09-04a through this whole day's work; rmqty/psi tests pinned the code,
    nothing pinned this. buildid.test.js now does. */
-var BUILD_ID='2026-10-10e';
+var BUILD_ID='2026-10-10g';
 var CHANGELOG=[
   {ver:'2026-09-04a', date:'2026-09-04', title:"Delivery, DC printing, and a new Reconciliation check", items:[
     "Delivery confirmation stays with Supply Chain \u2014 it no longer hands off to the Plant Manager. If one sits too long, it now re-flags the same Supply Chain owner every 3 days instead.",
@@ -541,6 +541,15 @@ var CHANGELOG=[
   ]},
   {ver:'2026-10-10e', date:'2026-10-10', title:"Batch trace: one correction control, not a button on every run", items:[
     "The Wrong number button was repeated on every packing run, which read as if every run was wrong. It is now one control under the packing runs table: pick the run, then Ask for a correction. A run with a request waiting shows that against the run."
+  ]},
+  {ver:'2026-10-10f', date:'2026-10-10', title:"Packing asks before it makes a look-alike brand batch number", items:[
+    "Packing: when the brand batch # you type is 1 character different from a number already used for the same brand this year (for example VAN6JW001 when VAN6JE001 exists), the screen shows a warning and Pack asks once more. If it is the same batch, type the number that exists. Numbers that differ only in the last digits (VAN6JE001, VAN6JE002) are normal and are not flagged.",
+    "A batch number correction request now checks the same rules as packing: the new number cannot be a base batch number this year, cannot belong to a different brand, and must carry the same mfg date as the batch it joins. The COO sees the result before approving."
+  ]},
+  {ver:'2026-10-10g', date:'2026-10-10', title:"Pre-shipment inspection: the batch on the pallet is checked against each DC line", items:[
+    "QA now sees every batch line of the DC (product, batch number, Kg/L, mfg and expiry) and marks each one Same or Different against the batch printed on the pallet. One Different fails the truck: it goes back to Ready to ship and Supply Chain is told, as for any failed truck. Remarks must say what the pallet carried.",
+    "The batch the inspection screen showed before was the first packing run found for the PO and product, not the batch on the DC. It now shows the DC's own batches and dates.",
+    "The pallet checks are saved with the inspection and print on the pre-shipment report as Pallet lines."
   ]}
 ];
 </script>
@@ -8531,6 +8540,28 @@ function openPack(bid){ const b=state.batches.find(x=>x.id===bid); packForm={bid
   renderPackModal(); $('modalBg').classList.add('open'); }
 function poLinesForBrand(brand){ const r=[]; state.orders.forEach(o=>o.lines.forEach(l=>{ if(l.brand===brand && !lineShortClosed(l) && (l.packed||0)<l.ordered-0.5 && stageOf(o)!=='Delivered') r.push({o,l}); })); return r; }
 function packPickPO(v){ packForm.oid=(v.split('|')[0]||''); packForm.lid=(v.split('|')[1]||''); const o=state.orders.find(x=>x.id===packForm.oid); const l=o&&o.lines.find(x=>x.id===packForm.lid); packForm.price=(l&&l.printPrice!=null&&l.printPrice!=='')?l.printPrice:''; packForm.priceOk=false; renderPackModal(); }
+/* ===== LOOK-ALIKE BRAND BATCH NUMBERS (Tahir, 10 Oct 2026) =====
+   VAN6JW001 was typed for VAN6JE001 (E and W sit next to each other on the keyboard) and 3 brand batches appeared
+   where there are 2. A new number that differs by ONE character from a number already used for this brand this
+   year is almost always a typing mistake, so packing asks once before it makes a third batch.
+   Sequential numbers (VAN6JE001, VAN6JE002) differ only in the trailing digits and are NOT flagged. */
+function bnoLookAlike(a,b){
+  a=String(a||'').trim().toUpperCase(); b=String(b||'').trim().toUpperCase();
+  if(!a||!b||a===b||a.length<6||a.length!==b.length) return false;
+  var tail=a.match(/\d+$/); var firstTail=tail?a.length-tail[0].length:a.length;
+  var diff=[]; for(var i=0;i<a.length;i++){ if(a[i]!==b[i]) diff.push(i); }
+  if(diff.length===1) return diff[0]<firstTail;
+  if(diff.length===2 && diff[1]===diff[0]+1 && a[diff[0]]===b[diff[1]] && a[diff[1]]===b[diff[0]]) return diff[0]<firstTail;
+  return false; }
+function packSimilarNos(brand,no,date){
+  var fy=fyKey(date||''), seen={}, out=[];
+  (state.packingLog||[]).forEach(function(p){ if(!p||p.reversed||p.void||p.brand!==brand||fyKey(p.date||'')!==fy) return;
+    var n=lotBrandNo(p); if(!n||seen[n]) return; if(bnoLookAlike(no,n)){ seen[n]=1; out.push(n); } });
+  return out; }
+function packSimilarNote(b){
+  var no=String(packForm.brandBatch||'').trim(); if(!no) return '';
+  var sim=packSimilarNos(packForm.brand,no,packForm.packDate||TODAY.toISOString().slice(0,10)); if(!sim.length) return '';
+  return '<div class="note" style="margin-top:6px;border-color:var(--amber)">'+bpEsc(no)+' is 1 character different from <b>'+sim.map(bpEsc).join(', ')+'</b>, already used for '+bpEsc(packForm.brand)+' this year. If it is the same batch, type '+bpEsc(sim[0])+'. If '+bpEsc(no)+' is really what is printed on the bag, tap Pack again.</div>'; }
 function renderPackModal(){ const b=state.batches.find(x=>x.id===packForm.bid); const rem=batchPackableKg(b); const opts=brandsForBase(b.base);
   let poOpts=packForm.brand?poLinesForBrand(packForm.brand):[]; const _mpLink={};
   if(b.kind==='multi'&&Array.isArray(b.allocations)){ b.allocations.forEach(function(a){ _mpLink[a.oid+'|'+a.lid]=1; }); poOpts=poOpts.slice().sort(function(x,y){ return ((_mpLink[y.o.id+'|'+y.l.id]||0)-(_mpLink[x.o.id+'|'+x.l.id]||0)); }); }
@@ -8542,7 +8573,7 @@ function renderPackModal(){ const b=state.batches.find(x=>x.id===packForm.bid); 
      <div class="fld"><label>1 · Pack into brand</label><select onchange="packForm.brand=this.value;packForm.oid='';packForm.lid='';renderPackModal()"><option value="">— pick brand —</option>${opts.map(x=>`<option ${x===packForm.brand?'selected':''}>${x}</option>`).join('')}</select></div>
      <div class="fld"><label>2 · For which PO</label><select ${packForm.brand?'':'disabled'} onchange="packPickPO(this.value)"><option value="">${packForm.brand?(poOpts.length?'— pick PO —':'no open PO'):'pick brand first'}</option>${poOpts.map(x=>`<option value="${x.o.id}|${x.l.id}" ${packForm.oid===x.o.id&&packForm.lid===x.l.id?'selected':''}>${x.o.po} · ${x.o.client} (needs ${fmt(x.l.ordered-(x.l.packed||0))})${_mpLink[x.o.id+'|'+x.l.id]?' · linked':''}</option>`).join('')}</select></div>
      <div class="fld"><label>3 · Qty (Kg/L)</label><input type="number" value="${packForm.kg}" oninput="packForm.kg=this.value" placeholder="max ${fmt(rem)}"></div>
-     <div class="fld"><label>4 · Brand batch # (on pack — reuse the same # to merge several base batches)</label><input type="text" value="${packForm.brandBatch||''}" oninput="packForm.brandBatch=this.value" placeholder="blank = same as base (${b.batchNo||'—'})"></div>
+     <div class="fld"><label>4 · Brand batch # (on pack — reuse the same # to merge several base batches)</label><input type="text" value="${packForm.brandBatch||''}" oninput="packForm.brandBatch=this.value" onchange="renderPackModal()" placeholder="blank = same as base (${b.batchNo||'—'})">${packSimilarNote(b)}</div>
      ${evDateField('packForm','packDate','pack','Date this was actually packed','renderPackModal()')}
      ${packDatesBlock((packForm.brandBatch||'').trim()||(b.batchNo||''), b.id, packForm.packDate||TODAY.toISOString().slice(0,10), packForm, 'packForm', 'renderPackModal()')}</div>
      ${priceBlk}<div class="muted" style="font-size:11px;margin-top:11px">Moves bulk base into the chosen brand. Pick a PO to fill that order (capped to what it still needs), or leave unassigned.</div></div>
@@ -8570,6 +8601,11 @@ function doPack(){ if(!may('packing.pack')){toast(denyRight('packing.pack','Pack
       const otherBrandClash=(state.packingLog||[]).some(p=>(p.brandBatchNo||'').trim()===brandBatchNo && fyKey(p.date||'')===_fy && p.brand!==brand);
       if(baseClash){ toast('Brand batch # "'+brandBatchNo+'" is a base batch number this year \u2014 choose a different brand batch #.'); return; }
       if(otherBrandClash){ toast('Brand batch # "'+brandBatchNo+'" is already used by a DIFFERENT brand this year \u2014 use a unique number.'); return; }
+    }
+    if(brandBatchNo!==baseBatchNo){
+      const _sim=packSimilarNos(brand,brandBatchNo,d);
+      if(_sim.length && packForm.simAck!==brandBatchNo){ packForm.simAck=brandBatchNo; renderPackModal();
+        toast(brandBatchNo+' is 1 character different from '+_sim[0]+' (already used for '+brand+' this year). If it is the same batch, type '+_sim[0]+'. If '+brandBatchNo+' is what is on the bag, tap Pack again.'); return; }
     }
     /* 5 Oct 2026: added only after every check above has passed. It used to be added first, so a refused
        brand batch # or shelf life left the line and the batch counting packing that has no record
@@ -15094,7 +15130,7 @@ function guideRules(){
   '<div class="gd-rule"><h3>A number moves only with its record</h3><p>Packed moves with a packing run from a batch, dispatched with a truck, delivered with a delivery. None of them can be typed, and nothing can be packed beyond what the line ordered. When a line and its records disagree, open the line (Orders → the order → <b>History</b>, or the item on Back Office <b>Needs you</b>): it shows what is wrong, the line’s whole history, what the records show as the cause, and the fix — record the missing packing against its batch, bring packed back to its records, or stamp a delivery date from the truck — each with a reason in your name.</p></div>'+
   '<div class="gd-rule"><h3>The price on a new order</h3><p>Every price is checked against the last price this customer paid for the product, net of FED; for a first order, against the last price to anyone. More than 5% away needs a reason, written under the price, and it is kept on the order line with the last price it was compared with. Payment terms and the ERP SO # are part of every order; the SO # prints on the DC.</p></div>'+
   '<div class="gd-rule"><h3>See it before you sign it; every no has a way back</h3><p>Every approval opens the record first: the PO before it is acknowledged, the purchase request before the CFO approves it, the new customer before the CFO approves it, the truck with its DC and gate pass before it is reviewed or released, the report before it is reviewed or approved. The Open buttons on the Plant screen open the same sheet. Every refusal or send-back needs a reason, stays on the record, and lands on the Today of the person who must act: the PO goes back to whoever entered it, the purchase request to Supply Chain, the customer to whoever entered it, the truck to whoever issued the gate pass, the report one step down the chain, a refused close to whoever asked, a rejected DC or a truck that fails inspection to Supply Chain, a sample not approved to whoever asked, an UNFIT lot sent to rework to Production, a lot on QA hold to the Production Manager. They fix it and send it on, or drop it; nothing waits without an owner.</p></div>'+
-  '<div class="gd-rule"><h3>A wrong batch number</h3><p>A batch number is printed on the bag, so it cannot be edited once the run is inspected or shipped. If the <b>bags are right</b> and the record has a typing mistake, open Reports → Production → <b>Batch trace</b>, tap the brand batch row, and use <b>Ask for a correction</b> under the table: pick the packing run, enter the correct number, say what is printed on the bags, and give the reason. The COO approves it from his action list, and the DC and inspection lines of that run follow. If the <b>bags are wrong</b>, do not correct the record: quarantine and re-label the bags.</p></div>'+
+  '<div class="gd-rule"><h3>A wrong batch number</h3><p>A batch number is printed on the bag, so it cannot be edited once the run is inspected or shipped. If the <b>bags are right</b> and the record has a typing mistake, open Reports → Production → <b>Batch trace</b>, tap the brand batch row, and use <b>Ask for a correction</b> under the table: pick the packing run, enter the correct number, say what is printed on the bags, and give the reason. The COO approves it from his action list, and the DC and inspection lines of that run follow. If the <b>bags are wrong</b>, do not correct the record: quarantine and re-label the bags. When you <b>pack</b>, a brand batch # that is 1 character different from one already used for the same brand this year (JW001 when JE001 exists) is flagged, and Pack asks once more. At the <b>truck inspection</b>, QA checks the batch printed on the pallet against each batch line of the DC. One <b>Different</b> fails the truck and sends it back to Ready to ship.</p></div>'+
   '<div class="gd-rule"><h3>N/A on an inspection</h3><p>When an item on the inspection form does not apply, QA marks <b>N/A</b>. It counts as a pass. It is offered only on <b>Pallet / loading condition</b> and <b>Price on the pack</b>, and it needs a reason in Remarks. Batch, expiry, seal, cleanliness, weight and the other checks are Pass or Fail only.</p></div>'+
   '<div class="gd-rule"><h3>The pre-shipment report</h3><p>No truck is released without a passed inspection. Where the bags carry the list price, the inspector writes the price read off the bag, and on a truck with 2 or more such products, the price for each product. Every report is in Reports → Pre-shipment inspections, for everyone to find and print. A customer marked “Send the pre-shipment report with the DC” gets it attached to the challan.</p></div>'+
   '<div class="gd-rule"><h3>What a sale is</h3><p>A sale is counted the day the truck leaves the gate, at quantity × invoice price, net of FED. FED is the sales tax: on an order quoted FED-inclusive the price is divided by 1.05. Every money figure in the app — Sales & Budget, the reports, the PO register — uses this one rule.</p></div>';
@@ -16252,8 +16288,33 @@ function shipStageOf(g){ if(g.delivered) return 'delivered'; if(g.stage) return 
 function dispatchGroups(){ const g={}; (state.shipments||[]).forEach((s,i)=>{ if(s.voided)return; const k=s.dispId||('leg'+i); if(!g[k]) g[k]={dispId:s.dispId||null,po:s.po,pos:[],client:s.client||shipClientFor(s.po)||'',destination:s.destination,focalPerson:s.focalPerson||'',focalPhone:s.focalPhone||'',date:s.dispatch,vehicle:s.vehicle,carrier:s.carrier,dc:s.dc,shipNo:s.shipNo,bilty:s.bilty,so:s.so||'',transportType:s.transportType||'',driver:s.driver||'',driverContact:s.driverContact||'',seal:s.seal||'',gatePass:s.gatePass||'',loadStarted:s.loadStarted||'',stage:s.stage||'',dcStatus:(s.dcStatus||'approved'),approvedBy:s.approvedBy||'',approvedDate:s.approvedDate||'',rows:[],kg:0,delivered:true,qaPending:false,qaFail:false}; g[k].rows.push(s); g[k].kg+=(+s.kg||0); if(s.po&&g[k].pos.indexOf(s.po)<0) g[k].pos.push(s.po); if(!s.delivered) g[k].delivered=false; if(s.qa===null) g[k].qaPending=true; if(s.qa&&s.qa.fail) g[k].qaFail=true; if((s.dcStatus||'approved')==='pending') g[k].dcStatus='pending'; }); return Object.values(g).map(x=>{ x.qa=x.qaFail?'fail':(x.qaPending?'pending':'pass'); x.poLabel=(x.pos.length>1?(x.pos[0]+' + '+(x.pos.length-1)+' more'):(x.pos[0]||x.po||'')); x.stageNow=shipStageOf(x); return x; }).sort((a,b)=>String(b.date||'').localeCompare(String(a.date||''))); }
 let dispQAForm={dispId:null,marks:[],officer:'',remarks:''};
 function dispRowsFor(dispId){ return (state.shipments||[]).filter(s=>(s.dispId||'')===dispId); }
-function openDispatchQA(dispId){ if(!(canEdit(['QA Inspector'])||state.role==='COO')){toast('QA Inspector only');return;} const rows=dispRowsFor(dispId); if(!rows.length)return; const ex=rows[0].qa; dispQAForm={dispId,marks:QC_CHECKLIST.map((_,i)=>(ex&&ex.checklist&&ex.checklist[i]&&ex.checklist[i].result)||''),verify:QC_VERIFY.map((_,i)=>(ex&&ex.verify&&ex.verify[i]&&ex.verify[i].result)||''),officer:(ex&&ex.by)||((state.currentUser&&state.currentUser.name)||''),remarks:(ex&&ex.remarks)||'',date:(ex&&ex.actualDate)||evToday(),dateReason:''}; renderDispatchQA(); $('modalBg').classList.add('open'); }
+function openDispatchQA(dispId){ if(!(canEdit(['QA Inspector'])||state.role==='COO')){toast('QA Inspector only');return;} const rows=dispRowsFor(dispId); if(!rows.length)return; const ex=rows[0].qa; dispQAForm={dispId,marks:QC_CHECKLIST.map((_,i)=>(ex&&ex.checklist&&ex.checklist[i]&&ex.checklist[i].result)||''),verify:QC_VERIFY.map((_,i)=>(ex&&ex.verify&&ex.verify[i]&&ex.verify[i].result)||''),officer:(ex&&ex.by)||((state.currentUser&&state.currentUser.name)||''),remarks:(ex&&ex.remarks)||'',date:(ex&&ex.actualDate)||evToday(),dateReason:'',pallet:{}}; renderDispatchQA(); $('modalBg').classList.add('open'); }
 function dispQASet(i,v){ dispQAForm.marks[i]=v; renderDispatchQA(); }
+/* ===== BATCH ON THE PALLET vs THE DC (Zain's case, Tahir 10 Oct 2026) =====
+   The DC takes its quantity from packing runs oldest first, so the person who plans the truck does not choose the
+   batch, and the floor can load a different batch of the same product. QA, at the pre-shipment inspection, now
+   checks the batch number printed on the pallet against EACH batch line of the DC. One line that does not match
+   fails the truck: it goes back to Ready to ship and Supply Chain is told, as with any failed truck.
+   The batch the screen used to show was the first packing run found for the PO and product, not the batch on the DC. */
+function dcBatchLines(rows){
+  var out=[]; (rows||[]).forEach(function(r){ (r.batches||[]).forEach(function(b,j){ if(!b) return; var p=b.lotId?lotById(b.lotId):null;
+    out.push({k:(r.dispId||'')+'|'+(r.brand||'')+'|'+j+'|'+(b.lotId||''),product:r.brand||'',no:String(b.brand||b.batch||''),kg:+b.kg||0,lotId:b.lotId||'',mfg:(p&&p.mfgDate)||'',exp:(p&&p.expDate)||''}); }); });
+  return out; }
+function dispQAPallet(k,v){ dispQAForm.pallet=dispQAForm.pallet||{}; dispQAForm.pallet[k]=v;
+  var ls=dcBatchLines(dispRowsFor(dispQAForm.dispId).filter(function(s){ return s&&!s.voided; })); var vals=ls.map(function(l){ return dispQAForm.pallet[l.k]||''; });
+  dispQAForm.verify=dispQAForm.verify||[]; if(vals.indexOf('diff')>-1) dispQAForm.verify[1]='fail'; else if(vals.every(function(x){ return x==='ok'; })) dispQAForm.verify[1]='pass'; else dispQAForm.verify[1]='';
+  renderDispatchQA(); }
+function dispPalletBlock(rows){
+  var ls=dcBatchLines(rows); if(!ls.length) return '';
+  var pal=dispQAForm.pallet||{};
+  return '<div style="border:1px solid var(--navy);border-radius:8px;padding:10px 12px;margin-bottom:12px"><div style="font-weight:700;font-size:12px">Batch on the pallet: check each line of this DC against the bags <span style="color:var(--red)">*</span></div>'
+   +'<div class="muted" style="font-size:11px;margin:3px 0 8px">Read the batch number printed on the pallet. If it is not the number below, tap Different: the truck fails and goes back to Ready to ship.</div>'
+   +'<table><thead><tr><th>Product</th><th>Batch on the DC</th><th class="num">Kg/L</th><th>Mfg / Expiry</th><th style="width:210px">The pallet shows</th></tr></thead><tbody>'
+   +ls.map(function(l){ var m=pal[l.k]||''; var kk=_av(l.k);
+      return '<tr><td>'+_pe(l.product)+'</td><td><b style="font-size:15px">'+_pe(l.no)+'</b></td><td class="num">'+fmt(l.kg)+'</td><td>'+_pe(l.mfg||'—')+' / '+_pe(l.exp||'—')+'</td><td style="white-space:nowrap">'
+        +'<label style="margin-right:10px"><input type="radio" name="pal'+kk+'" '+(m==='ok'?'checked':'')+' onclick="dispQAPallet(\''+kk+'\',\'ok\')"> Same</label>'
+        +'<label><input type="radio" name="pal'+kk+'" '+(m==='diff'?'checked':'')+' onclick="dispQAPallet(\''+kk+'\',\'diff\')"> Different</label></td></tr>'; }).join('')
+   +'</tbody></table></div>'; }
 function renderDispatchQA(){ const rows=dispRowsFor(dispQAForm.dispId); if(!rows.length){closeModal();return;} const tot=rows.reduce((a,r)=>a+(+r.kg||0),0); const g0=rows[0];
   const cl=QC_CHECKLIST.map((it,i)=>`<tr><td>${it}</td><td style="white-space:nowrap"><label style="margin-right:12px"><input type="radio" name="dqa${i}" ${dispQAForm.marks[i]==='pass'?'checked':''} onclick="dispQASet(${i},'pass')"> Pass</label><label><input type="radio" name="dqa${i}" ${dispQAForm.marks[i]==='fail'?'checked':''} onclick="dispQASet(${i},'fail')"> Fail</label>${QC_NA_CHECK.indexOf(i)>-1?qcNaRadio('dqa'+i,dispQAForm.marks[i],'dispQASet('+i+',\'na\')'):''}</td></tr>`).join('');
   $('modal').innerHTML=`<div class="mh"><h2>Pre-shipment inspection</h2><div class="sub">${g0.po} · ${rows.length} product(s) · <b>${fmt(tot)} Kg/L on this shipment</b>${g0.dc?(' · DC '+g0.dc):''}${g0.vehicle?(' · '+g0.vehicle):''}</div></div>
@@ -16263,10 +16324,11 @@ function renderDispatchQA(){ const rows=dispRowsFor(dispQAForm.dispId); if(!rows
        <div class="muted" style="font-size:10.5px;margin-top:6px">Do not pass this truck if a pack carries a price the PO does not authorise &mdash; including a price on a PO that should carry none.</div>
      </div>
      <div class="muted" style="font-size:12px;margin-bottom:8px">Inspect only the quantity going out on this shipment: ${rows.map(r=>r.brand+' '+fmt(r.kg)).join(' · ')}</div>
+     ${dispPalletBlock(rows.filter(function(s){ return s&&!s.voided; }))}
      ${(function(){
         /* One truck carries several products, so each check lists what to expect
            per product and the inspector marks it once for the load. */
-        const per = k => rows.map(r=>{ const o=(state.orders||[]).find(x=>x.po===r.po);
+        const per = k => rows.map(r=>{ const _ln=dcBatchLines([r]); if(_ln.length&&(k==='batch'||k==='dates')) return '<div><b>'+r.brand+'</b> — '+(k==='batch'?('batch '+_ln.map(x=>'<b>'+_pe(x.no)+'</b> '+fmt(x.kg)).join(' · ')+' (set by the line-by-line check above)'):('mfg '+Array.from(new Set(_ln.map(x=>x.mfg||'—'))).join(', ')+' · exp '+Array.from(new Set(_ln.map(x=>x.exp||'—'))).join(', ')))+'</div>'; const o=(state.orders||[]).find(x=>x.po===r.po);
           const l=o&&((o.lines||[]).find(x=>x.id===r.lid)||(o.lines||[]).find(x=>x.brand===r.brand));
           const lot=(state.packingLog||[]).find(p=>p&&p.po===r.po&&p.brand===r.brand);
           if(!o||!l) return `<div><b>${r.brand}</b> — no PO line found</div>`;
@@ -16284,17 +16346,18 @@ function renderDispatchQA(){ const rows=dispRowsFor(dispQAForm.dispId); if(!rows
 function dispQASubmit(){ if(!(canEdit(['QA Inspector'])||state.role==='COO')){toast('QA Inspector only');return;} const rows=dispRowsFor(dispQAForm.dispId).filter(function(s){ return s&&!s.voided; }); if(!rows.length){toast('This truck was cancelled or failed inspection. Plan a new truck.');return;} /* 25n: a second result on the same truck gave its lots back twice */ if(rows.some(function(s){ return s.delivered||s.dispCounted||(s.qa&&(s.qa.pass||s.qa.fail)); })){toast('This truck has already been inspected, or has left the gate.');return;} if(dispQAForm.marks.some(m=>!m)){toast('Mark every item Pass or Fail');return;} { var _pr=rows.map(function(r){ var o=(state.orders||[]).find(function(x){return x.po===r.po;});
       var l=o&&((o.lines||[]).find(function(x){return x.id===r.lid;})||(o.lines||[]).find(function(x){return x.brand===r.brand;}));
       return (o&&l)?{o:o,l:l}:null; }).filter(Boolean);
-      const _vg=qcVerifyGate(dispQAForm.verify, dispQAForm, qcAskSeen(_pr)); if(_vg){toast(_vg);return;} } { const _ng=qcNaGate(dispQAForm.marks,dispQAForm.verify,dispQAForm.remarks); if(_ng){toast(_ng);return;} } if(!(dispQAForm.officer||'').trim()){toast('Enter inspector name');return;}
+      const _vg=qcVerifyGate(dispQAForm.verify, dispQAForm, qcAskSeen(_pr)); if(_vg){toast(_vg);return;} } { const _ng=qcNaGate(dispQAForm.marks,dispQAForm.verify,dispQAForm.remarks); if(_ng){toast(_ng);return;} } { const _pl=dcBatchLines(rows); if(_pl.some(function(l){ return !(dispQAForm.pallet||{})[l.k]; })){ toast('Check the batch on the pallet against every batch line of this DC (Same or Different).'); return; } } if(!(dispQAForm.officer||'').trim()){toast('Enter inspector name');return;}
   const _dg=evDateGate(dispQAForm,'date','dispqa'); if(_dg){toast(_dg);return;}
-  const anyFail=dispQAForm.marks.some(m=>m==='fail') || qcVerifyFailed(dispQAForm.verify);
+  const _palRows=dcBatchLines(rows).map(function(l){ return {key:'pallet',item:'Pallet: '+l.product+' '+l.no+' ('+fmt(l.kg)+' Kg/L) is the batch on the DC',result:((dispQAForm.pallet||{})[l.k]==='ok')?'pass':'fail'}; });
+  const anyFail=dispQAForm.marks.some(m=>m==='fail') || qcVerifyFailed(dispQAForm.verify) || _palRows.some(function(x){ return x.result==='fail'; });
   /* 26c: a failed truck needs a reason, and Supply Chain is told (Tahir, 26 Sep: Supply Chain re-plans) */
   if(anyFail && String(dispQAForm.remarks||'').trim().length<5){toast('The truck fails: write in Remarks what failed (at least 5 characters). Supply Chain reads it to plan again.');return;}
-  const d=dispQAForm.date||evToday(); const qa=Object.assign(evStamp(d,'dispqa',dispQAForm.dateReason),{pass:!anyFail,fail:anyFail,by:dispQAForm.officer.trim(),date:d,checklist:QC_CHECKLIST.map((it,i)=>({item:it,result:dispQAForm.marks[i]})),verify:qcVerifyRecord(dispQAForm.verify,dispQAForm),remarks:dispQAForm.remarks||''});
+  const d=dispQAForm.date||evToday(); const qa=Object.assign(evStamp(d,'dispqa',dispQAForm.dateReason),{pass:!anyFail,fail:anyFail,by:dispQAForm.officer.trim(),date:d,checklist:QC_CHECKLIST.map((it,i)=>({item:it,result:dispQAForm.marks[i]})),verify:qcVerifyRecord(dispQAForm.verify,dispQAForm).concat(_palRows),remarks:dispQAForm.remarks||''});
   rows.forEach(s=>{ s.qa=JSON.parse(JSON.stringify(qa)); });
   if(anyFail){ rows.forEach(s=>{ s.voided=true; const o=(state.orders||[]).find(x=>x.po===s.po); const l=o&&(o.lines.find(x=>x.id===s.lid)||o.lines.find(x=>x.brand===s.brand)); /* 25m: take off dispatched only what was counted, and give the lots back (as rejectDC / cancelShip do) */ if(l&&s.dispCounted){ l.dispatched=Math.max(0,(l.dispatched||0)-(+s.kg||0)); s.dispCounted=false; } try{ _releaseShip(o,l,s.batches||[]); }catch(e){} }); logAction(`Pre-shipment inspection FAILED — ${dispQAForm.dispId} (${rows[0].po}) — material returned to Ready to ship`); try{ dcRejectNote(rows,String(dispQAForm.remarks||'').trim(),'qa'); }catch(e){} }
   else logAction(`Pre-shipment inspection PASSED — ${dispQAForm.dispId} (${rows[0].po}, ${fmt(rows.reduce((a,r)=>a+(+r.kg||0),0))} Kg/L) by ${qa.by}`);
   var _psiId=dispQAForm.dispId;
-  dispQAForm={dispId:null,marks:[],verify:[],officer:'',remarks:'',date:evToday(),dateReason:''}; save(); closeModal(); render(); toast(anyFail?'Inspection failed — returned to ready':'Inspection passed');
+  dispQAForm={dispId:null,marks:[],verify:[],pallet:{},officer:'',remarks:'',date:evToday(),dateReason:''}; save(); closeModal(); render(); toast(anyFail?'Inspection failed — returned to ready':'Inspection passed');
   /* The report goes out WITH the dispatch, so it is offered at the moment the
      inspection is signed rather than only from the shipment record later.
      A failed load prints nothing: there is no certificate to send a customer
@@ -19088,6 +19151,19 @@ function bfxImpact(p,newNo){
     if(q.baseBatchId===p.baseBatchId && q.po===p.po){ if(newNo && lotBrandNo(q)===newNo){ same+=(+q.kg||0); n++; } if(lotBrandNo(q)===old) out.sameOld.push(q.id); } });
   if(n) out.joins={kg:same,runs:n};
   return out; }
+/* Checks the pack screen already makes when a brand batch number is first used (unique per brand and per year, one
+   number carries one mfg date), made again here so a correction cannot break them. `block` stops the request or the
+   approval; `warn` is kept for later. VAN's real numbers (VAN6JE001) do not follow validateBatchNo's pattern, so no pattern warning. */
+function bfxChecks(p,nn){
+  var out={block:[],warn:[]}; nn=String(nn||'').trim(); if(!nn) return out;
+  var fy=fyKey(p.date||'');
+  (state.batches||[]).forEach(function(b){ if(b&&String(b.batchNo||'').trim()===nn && fyKey(b.openedDate||b.date||'')===fy) out.block.push(nn+' is the number of base batch '+nn+' this year. A brand batch number cannot be the same.'); });
+  var dates={}, otherBrand=false;
+  (state.packingLog||[]).forEach(function(q){ if(!q||q.reversed||q.void||q.id===p.id) return; if(lotBrandNo(q)!==nn) return;
+    if(q.brand!==p.brand && fyKey(q.date||'')===fy) otherBrand=true; if(q.brand===p.brand&&q.mfgDate) dates[q.mfgDate]=1; });
+  if(otherBrand) out.block.push(nn+' is already used by a different brand this year. Use a unique number.');
+  var ds=Object.keys(dates); if(ds.length&&p.mfgDate&&ds.indexOf(p.mfgDate)<0) out.block.push('The existing '+nn+' carries mfg '+ds.join(', ')+'; this run carries mfg '+p.mfgDate+'. One batch number must carry one date, and these bags are already printed.');
+  return out; }
 function bfxApply(p,newNo){
   var old=lotBrandNo(p), touched=[];
   p.brandBatchNo=newNo;
@@ -19116,7 +19192,8 @@ function bfxRender(){
     +'<div class="fld fld-long"><label>Reason (who checked the bags, and what was seen)</label><textarea rows="3" oninput="bfxForm.reason=this.value" placeholder="At least 10 characters">'+bpEsc(f.reason)+'</textarea></div>'
     +'<div class="note" style="margin-top:10px"><b>What will follow if approved:</b> '+(im.dcs.length?bpEsc(im.dcs.join(', ')):'no DC line')+(im.insp?'; '+im.insp+' inspection line'+(im.insp===1?'':'s'):'')+'. '
     +(im.joins?'The run joins the existing '+bpEsc(String(f.newNo).trim().toUpperCase())+' ('+im.joins.runs+' run'+(im.joins.runs===1?'':'s')+', '+fmt(im.joins.kg)+' Kg).':(String(f.newNo||'').trim()?'<span style="color:var(--amber)">This number is not used on any other run of this batch and PO. Check the spelling.</span>':''))
-    +(im.sameOld.length?' Other runs also carry '+bpEsc(old)+' ('+bpEsc(im.sameOld.join(', '))+') and stay as they are.':'')+'</div></div>'
+    +(im.sameOld.length?' Other runs also carry '+bpEsc(old)+' ('+bpEsc(im.sameOld.join(', '))+') and stay as they are.':'')+'</div>'
+    +(function(){ var c=bfxChecks(p,String(f.newNo||'').trim().toUpperCase()); return c.block.map(function(m){ return '<div class="note" style="margin-top:8px;border-color:var(--red);color:var(--red)">'+bpEsc(m)+'</div>'; }).join('')+c.warn.map(function(m){ return '<div class="note" style="margin-top:8px;border-color:var(--amber)">'+bpEsc(m)+'</div>'; }).join(''); })()+'</div>'
     +'<div class="mf"><button class="ghost" onclick="bfxForm=null;closeModal()">Cancel</button><button class="green" onclick="bfxSubmit()">Send to the COO</button></div>'; }
 function bfxSubmit(){
   var f=bfxForm; if(!f) return; if(!bfxMayRequest()){ toast('Production Manager, Production or Plant Manager only'); return; }
@@ -19128,6 +19205,7 @@ function bfxSubmit(){
   if(f.bags==='old'){ toast('If the bags carry the number in the record, the record is right. Do not correct it. Quarantine and re-label the bags.'); return; }
   if(f.bags!=='new'){ toast('Say what is printed on the bags'); return; }
   if(String(f.reason||'').trim().length<10){ toast('Write the reason (at least 10 characters)'); return; }
+  { var _ck=bfxChecks(p,nn); if(_ck.block.length){ toast(_ck.block[0]); return; } }
   var me=_uRole(), r={id:bpId('BFX'),lotId:p.id,po:p.po,brand:p.brand,kg:+p.kg||0,baseBatchNo:lotBaseNo(p),oldNo:old,newNo:nn,bags:'new',reason:String(f.reason).trim(),by:me.by,byRole:me.role,at:new Date().toISOString(),status:'pending'};
   (state.batchFixReqs=state.batchFixReqs||[]).unshift(r);
   logAction('Batch number correction asked: '+old+' → '+nn+' on '+p.id+' ('+p.brand+', PO '+p.po+') — '+r.reason);
@@ -19145,6 +19223,7 @@ function bfxReview(id){
     +(p?'<div class="note" style="margin-top:8px"><b>If approved, these follow:</b> the packing run '+bpEsc(r.lotId)+'; '+(im.dcs.length?bpEsc(im.dcs.join(', ')):'no DC line')+(im.insp?'; '+im.insp+' inspection line'+(im.insp===1?'':'s'):'')+'. '
       +(im.joins?'It then joins the existing '+bpEsc(r.newNo)+' ('+im.joins.runs+' run'+(im.joins.runs===1?'':'s')+', '+fmt(im.joins.kg)+' Kg).':'<span style="color:var(--amber)">No other run of this batch and PO carries '+bpEsc(r.newNo)+'.</span>')
       +' The old number is kept in the corrections register. DC papers already printed still show the old number: reprint them.</div>':'<div class="note" style="margin-top:8px;color:var(--red)">The packing run is no longer in the records.</div>')
+    +(p&&!done?(function(){ var c=bfxChecks(p,r.newNo); return c.block.map(function(m){ return '<div class="note" style="margin-top:8px;border-color:var(--red);color:var(--red)"><b>Cannot be approved:</b> '+bpEsc(m)+'</div>'; }).join('')+c.warn.map(function(m){ return '<div class="note" style="margin-top:8px;border-color:var(--amber)">'+bpEsc(m)+'</div>'; }).join(''); })():'')
     +(done?'<div class="note" style="margin-top:8px"><b>'+(r.status==='approved'?'Approved':'Refused')+'</b> by '+bpEsc(r.decidedBy||'')+' on '+bpEsc(String(r.decidedAt||'').slice(0,10))+(r.decisionNote?': '+bpEsc(r.decisionNote):'')+'</div>'
        :(canDecide?'<div class="fld fld-long" style="margin-top:10px"><label>Note (needed to refuse)</label><textarea rows="2" oninput="bfxNote=this.value"></textarea></div>':'<div class="note" style="margin-top:8px">Waiting for the COO.</div>'))
     +'</div><div class="mf"><button class="ghost" onclick="closeModal()">Close</button>'
@@ -19159,6 +19238,7 @@ function bfxDecide(id,yes){
     logAction('Batch number correction REFUSED: '+r.oldNo+' → '+r.newNo+' on '+r.lotId+' — '+note); save(); closeModal(); render(); toast('Refused. The record is unchanged.'); return; }
   var p=lotById(r.lotId); if(!p){ toast('The packing run is no longer in the records'); return; }
   if(lotBrandNo(p)!==r.oldNo){ toast('The number on this run is no longer '+r.oldNo+'. Refuse this one and ask again.'); return; }
+  { var _ck=bfxChecks(p,r.newNo); if(_ck.block.length){ toast(_ck.block[0]); return; } }
   var label=p.brand+' · '+r.oldNo+' · '+fmt(+p.kg||0)+' Kg · '+p.po;
   var touched=bfxApply(p,r.newNo);
   recordCorrection('AMEND','packingLot',p.id,label,[{field:'brandBatchNo',label:'Brand batch # (on the pack)',before:r.oldNo,after:r.newNo}],'keying',

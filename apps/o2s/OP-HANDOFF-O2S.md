@@ -6394,3 +6394,30 @@ Cause: the Production Manager said reporting is weak and no single chain exists 
 - Not built, on purpose: brand batch back to base batches, PO back to batches, Print/CSV, and how a by-product pool is later called into a new batch.
 - Guide: Rules "Where a batch went"; Production Manager My job note. BUILD_ID 2026-10-10a, changelog. New test batchtrace.test.js (23, on a fixture of the HG26036 shape). shell.test COO count 21; fixesD/fixesE BUILD_ID pins now "or later". All O2S tests pass except publicbatch (pdfkit).
 - NOT checked: the page on the live data in a browser (no live data on this PC); rendering was tested through the real functions only. First thing to do after the push: open HG26036 and compare with the Production Manager's expectation.
+
+## 10 Oct 2026 — Batch trace, Majid's feedback (MODULE: O2S) — NOT PUSHED
+Files: apps/o2s/o2s.html, tests/batchtrace.test.js, tests/guide.test.js, this file. Build 2026-10-10b.
+- Brand batch rows in "Packed into" are tappable: drawer lists the packing runs that make the total (packed on, by, mfg, expiry, packed, shipped, in stock, DCs that took from it). btOpenPack.
+- Trucks table is now one row per DC and brand batch (was one row per packing run). Tap a row (btOpenTruck) to see which packing runs it drew from; note explains quantity is drawn from packing runs oldest first. The DC link still opens the challan.
+- Guide rule "Where a batch went" updated. batchtrace.test.js 29 pass; guide 49, shell 333, findcopy 59, fixesD 30, fixesE 23, buildid 12.
+- Checked: rendered in headless Chromium on a fixture shaped like live HG26036. NOT checked on live data.
+- OPEN, not built: VAN6JW001 should be VAN6JE001 (typing mistake, packing run PK4331-6n85, 1,632 Kg, fully shipped on DC 5224 and 5229, 1 inspection). The app refuses this edit by design (SPEC-05 identity rule). Waiting for COO decision on what is printed on the bags. No live data changed.
+
+## 10 Oct 2026 — QA inspection: N/A option (MODULE: O2S) — NOT PUSHED
+Files: apps/o2s/o2s.html, tests/qana.test.js (new, 16), tests/guide.test.js, this file. Build 2026-10-10c.
+- Asked by QA Inspector (paper form crosses out items that do not apply; app only had Pass/Fail so the whole inspection failed and documents sat in Pending). Tahir chose the items by multiple choice: Pallet / loading condition (QC_CHECKLIST index 7) and Price on the pack (QC_VERIFY index 0). Constants QC_NA_CHECK, QC_NA_VERIFY.
+- N/A counts as a pass (only 'fail' ever failed an inspection). Needs Remarks of at least 5 characters (qcNaGate). Refused on every other item, including batch matches record and mfg/expiry match, because the batch check is what would catch a wrong number like VAN6JW001.
+- Price N/A: the price-read-off-the-bag box is not required and no priceSeen row is stored.
+- Wired into the lot inspection, packed-stock inspection and truck inspection; printed reports show "N/A". Guide rule "N/A on an inspection". Changelog 2026-10-10c.
+- Tests: qana 16, guide 50, shell 333, batchtrace 29, findcopy 59, fixesD 30, fixesE 23, buildid 12. Script syntax checked. NOT checked in a browser on live data.
+- OPEN, decided by Tahir, to build next in this order: similar-number warning at packing; controlled batch-number correction flow (COO approval, one step across packing run, inspection and DC lines, old number kept); QA per lot versus combined (Tahir wants to see which is more efficient for QA and the system; not decided). Zain's problem is DC printed for batch X but batch Y loaded on the truck: needs a loading-time batch confirmation, not yet designed.
+
+## 10 Oct 2026 — Batch number correction: ask, then COO approves (MODULE: O2S) — NOT PUSHED
+Files: apps/o2s/o2s.html, tests/batchfix.test.js (new, 35), tests/batchtrace.test.js (loads the new helpers), tests/guide.test.js, this file. Build 2026-10-10d. tests/_dbg.js is an empty stray file I could not delete (no delete right): Tahir to remove it.
+- Case: VAN6JW001 on packing run PK4331-6n85 (1,632 Kg, shipped on DC 5224 and 5229, 1 inspection) is a typing mistake; bags say VAN6JE001 (Tahir confirmed). The SPEC-05 lock on editing brandBatchNo after ship/inspection is UNCHANGED.
+- New controlled path (state.batchFixReqs[]): Batch trace > tap brand batch row > "Wrong number" under the packing run. Allowed to ask: Production Manager, Production, Plant Manager (and COO). Needs the new number, "bags say the new number" (if the bags say the old number it refuses and says quarantine and re-label), and a reason of 10+ characters. Nothing changes on asking.
+- COO gets an action-list job "Approve batch fix" (bfxJobs, key it.bfx). He sees what follows (DC lines, inspection lines, whether it joins an existing brand batch) and approves or refuses (note needed to refuse). Only the COO decides.
+- On approval: the number changes on that packing run, its DC batch lines and its inspection batch lines only (own apply, not the old onAmend, which matches legacy lines without a PO check). Voided DCs untouched. Written to the corrections register as AMEND packingLot brandBatchNo, reason code keying, old number kept. Refuses if the run's number changed since the request.
+- NOT done: reprinting DCs already issued (the screen says to reprint); the inspection report PDF already issued is not changed. I assumed Majid = Production Manager: not verified in the app's user list.
+- Checked: tests above; rendered in headless Chromium on a fixture shaped like live HG26036: after approval 2 brand batches (JE001 26,672 Kg), all 4 checks green. NOT checked on live data. To fix the live record: push, sign in as Majid, ask; sign in as COO, approve.
+- Correction to the line above: o2s.html names Abdul Majid as the Production Manager (comment at the role list), so Majid can ask. Verified in code, not in the live user list.

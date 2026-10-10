@@ -11,7 +11,7 @@
    a push keeps running the old code with nothing telling anybody. It sat at
    2026-09-04a through this whole day's work; rmqty/psi tests pinned the code,
    nothing pinned this. buildid.test.js now does. */
-var BUILD_ID='2026-10-10a';
+var BUILD_ID='2026-10-10d';
 var CHANGELOG=[
   {ver:'2026-09-04a', date:'2026-09-04', title:"Delivery, DC printing, and a new Reconciliation check", items:[
     "Delivery confirmation stays with Supply Chain \u2014 it no longer hands off to the Plant Manager. If one sits too long, it now re-flags the same Supply Chain owner every 3 days instead.",
@@ -523,6 +523,21 @@ var CHANGELOG=[
     "New: Reports → Production → Batch trace. Type a batch number such as HG26036. It shows planned and produced, then every brand, brand batch number (the one on the bag), PO and customer the batch was packed into, how much of each has shipped, and the trucks (DC numbers open the challan). Loss, by-product, diverted, rework and bulk stock kept are listed, and the page says how much is not accounted for.",
     "Four checks under it turn red when the records disagree: produced against packed plus leftovers, packing records against the batch's own packed figure, trucks against shipped, and the reconciliation against the disposed figure.",
     "Nothing is saved or changed by this report. For the Production, Production Manager, Plant Manager, QCM, AQCM, COO and CFO roles, the same as Batches and wastage."
+  ]},
+  {ver:'2026-10-10b', date:'2026-10-10', title:"Batch trace: tap a row to see what makes its total", items:[
+    "Batch trace: tap a brand batch row (for example VAN6JE001, 25,040 Kg) to open the packing runs that add up to it: each run with its date, who packed it, mfg and expiry dates, Kg packed, shipped and in stock, and which DC took it.",
+    "Batch trace trucks: one row per DC and brand batch, instead of one row per packing run. The Kg/L is what that truck took from this batch. Tap a row to see which packing runs it took from, and how much each gave; the drawer also says when the truck carried other products or batches."
+  ]},
+  {ver:'2026-10-10c', date:'2026-10-10', title:"QA inspection: N/A for items that do not apply", items:[
+    "QA can now mark N/A, besides Pass and Fail, on 2 items: Pallet / loading condition, and Price on the pack. N/A counts as a pass, so the inspection no longer fails and the papers no longer go to Pending because of an item that did not apply. It is on the lot inspection, the packed-stock inspection and the pre-shipment truck inspection.",
+    "N/A needs a reason in Remarks (at least 5 characters). It is not offered on the other items: packaging, label, net weight, seal, cleanliness, batch and expiry printed, leakage, batch number matches, mfg and expiry match. When the price is N/A, no price needs to be written down.",
+    "The printed inspection reports show N/A against the item."
+  ]},
+  {ver:'2026-10-10d', date:'2026-10-10', title:"A wrong batch number: ask, then the COO approves", items:[
+    "Batch trace: each packing run in the brand batch drawer now has a Wrong number button under the packing run. Production Manager, Production and Plant Manager see a Wrong number button. They enter the correct number, say what is printed on the bags, and give a reason. Nothing changes yet.",
+    "The request waits in the COO's action list (Approve batch fix). He sees what will follow: the DC lines and inspection lines of that run, and whether it joins an existing brand batch. He approves or refuses with a note.",
+    "On approval the number changes on the packing run, on the DC batch lines and on the inspection batch lines of that run only, and the old number is kept in the Corrections register. DC papers already printed still show the old number and need a reprint.",
+    "If the bags carry the number now in the record, the request is refused: the record is right, so quarantine and re-label the bags. The rule that blocks editing a batch number after shipment is unchanged."
   ]}
 ];
 </script>
@@ -10894,6 +10909,20 @@ function screenHow(){
    Stored SEPARATELY under `qa.verify`, NOT appended to QC_CHECKLIST. Existing
    inspections store their checklist by array index (`QC_CHECKLIST.map((it,i)=>…)`),
    so touching that array would silently re-label every inspection ever saved. ===== */
+/* ===== N/A on an inspection item (QA request, 10 Oct 2026; Tahir chose the items) =====
+   QA crosses an item out on the paper form when it does not apply and the inspection still passes.
+   N/A counts as a pass, needs a written reason in Remarks, and is allowed ONLY on the items below.
+   Batch, expiry, seal, cleanliness and weight can never be N/A. */
+var QC_NA_CHECK=[7];   /* Pallet / loading condition (index in QC_CHECKLIST) */
+var QC_NA_VERIFY=[0];  /* Price on the pack (index in QC_VERIFY) */
+function qcNaRadio(name,cur,call){ return '<label style="margin-left:12px"><input type="radio" name="'+name+'" '+(cur==='na'?'checked':'')+' onclick="'+call+'"> N/A</label>'; }
+function qcNaGate(marks,verify,remarks){
+  var bad=false, used=false;
+  (marks||[]).forEach(function(m,i){ if(m==='na'){ used=true; if(QC_NA_CHECK.indexOf(i)<0) bad=true; } });
+  (verify||[]).forEach(function(m,i){ if(m==='na'){ used=true; if(QC_NA_VERIFY.indexOf(i)<0) bad=true; } });
+  if(bad) return 'N/A is not allowed on that item. Mark it Pass or Fail.';
+  if(used && String(remarks||'').trim().length<5) return 'You marked something N/A: write in Remarks why it does not apply (at least 5 characters).';
+  return null; }
 var QC_VERIFY=[
   {k:'price', label:'Price on the pack is correct'},
   {k:'batch', label:'Batch # on the pack matches the record'},
@@ -10921,7 +10950,7 @@ function qcVerifyRows(exp,marks,fname,reRender){
     var m=(marks&&marks[i])||'';
     var r=function(v,t){ return '<label style="margin-right:12px"><input type="radio" name="vf'+i+'" '+(m===v?'checked':'')+' onclick="'+fname+'.verify['+i+']=\''+v+'\';'+reRender+'"> '+t+'</label>'; };
     return '<tr><td>'+it.label+'<div class="muted" style="font-size:11px;margin-top:2px">'+(exp[it.k]||'—')+'</div></td>'
-      +'<td style="white-space:nowrap">'+r('pass','Pass')+r('fail','Fail')+'</td></tr>';
+      +'<td style="white-space:nowrap">'+r('pass','Pass')+r('fail','Fail')+(QC_NA_VERIFY.indexOf(i)>-1?r('na','N/A'):'')+'</td></tr>';
   }).join('');
 }
 /* `seen` is the price the inspector actually read off the bag. It is only asked
@@ -10958,6 +10987,7 @@ function qcVerifyTable(exp,marks,fname,reRender,form,askSeen){
 function qcVerifyGate(marks,form,askSeen){
   if(!marks || marks.length<QC_VERIFY.length || marks.some(function(m){return !m;}))
     return 'Mark each of the three record checks Pass or Fail.';
+  if(marks[0]==='na') return null;   /* price N/A: no price to write down */
   if(Array.isArray(askSeen)&&askSeen.length>1){
     var by=(form||{}).priceSeenBy||{}; var miss=askSeen.filter(function(b){ return !(+by[b]>0); });
     if(miss.length) return 'Enter the price printed on the bag for '+miss.join(', ')+' — these carry the list price, so the numbers have to come from you.';
@@ -10986,6 +11016,7 @@ function qcNeedsSeenPrice(pairs){
    A row survives, needs no reader changes, and prints in the dossier. */
 function qcVerifyRecord(marks,form){
   var out=QC_VERIFY.map(function(it,i){ return {key:it.k,item:it.label,result:(marks&&marks[i])||''}; });
+  if(marks&&marks[0]==='na') return out;
   var _by=(form&&form.priceSeenBy)||null;
   if(_by && Object.keys(_by).some(function(b){ return +_by[b]>0; })){
     Object.keys(_by).forEach(function(b){ if(+_by[b]>0) out.push({key:'priceSeen', brand:b, item:'Price printed on the bag, '+b+' (read off the bag, checked against the current price list)', result:String(+_by[b]), priceSeen:+_by[b]}); });
@@ -11326,7 +11357,7 @@ let lotQAForm={lotId:null,marks:[],officer:'',remarks:''};
 function openLotQA(lotId){ const p=lotById(lotId); if(!p)return; lotQAForm={lotId, marks:QC_CHECKLIST.map((_,i)=> (p.qa&&p.qa.checklist&&p.qa.checklist[i]&&p.qa.checklist[i].result)||''), officer:(p.qa&&p.qa.by)||'', remarks:(p.qa&&p.qa.remarks)||'', date:(p.qa&&p.qa.actualDate)||evToday(), dateReason:''}; renderLotQA(); $('modalBg').classList.add('open'); }
 function lotQASet(i,v){ lotQAForm.marks[i]=v; renderLotQA(); }
 function renderLotQA(){ const p=lotById(lotQAForm.lotId); if(!p){closeModal();return;}
-  const rows=QC_CHECKLIST.map((it,i)=>`<tr><td>${it}</td><td style="white-space:nowrap"><label style="margin-right:12px"><input type="radio" name="qa${i}" ${lotQAForm.marks[i]==='pass'?'checked':''} onclick="lotQASet(${i},'pass')"> Pass</label><label><input type="radio" name="qa${i}" ${lotQAForm.marks[i]==='fail'?'checked':''} onclick="lotQASet(${i},'fail')"> Fail</label></td></tr>`).join('');
+  const rows=QC_CHECKLIST.map((it,i)=>`<tr><td>${it}</td><td style="white-space:nowrap"><label style="margin-right:12px"><input type="radio" name="qa${i}" ${lotQAForm.marks[i]==='pass'?'checked':''} onclick="lotQASet(${i},'pass')"> Pass</label><label><input type="radio" name="qa${i}" ${lotQAForm.marks[i]==='fail'?'checked':''} onclick="lotQASet(${i},'fail')"> Fail</label>${QC_NA_CHECK.indexOf(i)>-1?qcNaRadio('qa'+i,lotQAForm.marks[i],'lotQASet('+i+',\'na\')'):''}</td></tr>`).join('');
   const _poMrp=printPolicy(p.po,p.brand,p.lid);
   $('modal').innerHTML=`<div class="mh"><h2>QA pre-shipment inspection</h2><div class="sub">${p.po} · ${p.brand} · ${fmt(p.kg)} Kg/L · batch ${lotBaseNo(p)||'—'} ▸ ${lotBrandNo(p)||'—'} · mfg ${p.mfgDate||'—'} · exp ${p.expDate||'—'} · inspector ${state.role}</div></div>
    <div class="mb"><div style="background:var(--amber-50);border:1px solid var(--amber);border-radius:8px;padding:10px 12px;margin-bottom:11px">
@@ -11338,10 +11369,11 @@ function renderLotQA(){ const p=lotById(lotQAForm.lotId); if(!p){closeModal();re
      <table><thead><tr><th>Checklist item</th><th style="width:180px">Result</th></tr></thead><tbody>${rows}</tbody></table>
      <div class="fld" style="margin-top:10px"><label>Inspector name (shared QA login)</label><input type="text" value="${(lotQAForm.officer||'').replace(/"/g,'&quot;')}" oninput="lotQAForm.officer=this.value"></div>
      ${evDateField('lotQAForm','date','lotqa','Date this lot was actually inspected','renderLotQA()')}
-     <div class="fld fld-long" style="margin-top:8px"><label>Remarks (needed if anything fails)</label><textarea rows="3" oninput="lotQAForm.remarks=this.value" placeholder="what did you see? note anything the checklist does not cover.">${_tx(lotQAForm.remarks||'')}</textarea></div>
+     <div class="fld fld-long" style="margin-top:8px"><label>Remarks (needed if anything fails or is N/A)</label><textarea rows="3" oninput="lotQAForm.remarks=this.value" placeholder="what did you see? note anything the checklist does not cover.">${_tx(lotQAForm.remarks||'')}</textarea></div>
    </div>
    <div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" onclick="lotQASubmit()">Save inspection</button></div>`; }
 function lotQASubmit(){ if(!(canEdit(['QA Inspector'])||state.role==='COO')){toast('QA Inspector only');return;} const p=lotById(lotQAForm.lotId); if(!p)return; if(lotQAForm.marks.some(m=>!m)){toast('Mark every item Pass or Fail');return;}
+  { const _ng=qcNaGate(lotQAForm.marks,null,lotQAForm.remarks); if(_ng){toast(_ng);return;} }
   if(lotQAForm.marks.some(m=>m==='fail') && String(lotQAForm.remarks||'').trim().length<5){toast('The lot fails: write in Remarks what failed (at least 5 characters). Whoever corrects it reads this.');return;} /* 26c */ if(!(lotQAForm.officer||'').trim()){toast('Enter inspector name');return;}
   const _dg=evDateGate(lotQAForm,'date','lotqa'); if(_dg){toast(_dg);return;}
   const anyFail=lotQAForm.marks.some(m=>m==='fail'); const d=lotQAForm.date||evToday();
@@ -11975,6 +12007,7 @@ function printPSI(dispId,opts){ var _parts=!!(opts&&opts.parts); /* 25d: parts =
      a failure still reads FAIL; only the figure stays inside O2S. */
   var mark=function(v){ return v==='fail' ? '<span class="bad">&#10007; FAIL</span>'
                       : v==='pass' ? '<span class="good">&#10003; PASS</span>'
+                      : v==='na' ? '<span class="muted">N/A</span>'
                       : (v ? '<span class="good">&#10003; VERIFIED</span>' : '<span class="dash">—</span>'); };
   var insBody='', insSigs=[];
   if(det.src==='truck'){
@@ -12366,8 +12399,8 @@ function printInspect(po){
        number. It used to print as it stands, which put the figure on the sheet
        by the other door. The reading is kept in the shipment record and the
        audit trail; here it shows that the check was made. */
-    var vrows=(r.verify||[]).map(function(v){ return '<tr><td>'+_pe(v.item||v.key||'')+'</td><td class="num">'+(v.result==='fail'?'✗ FAIL':(v.result==='pass'?'☑ OK':(v.result?'☑ recorded':'—')))+'</td></tr>'; }).join('');
-    var crows=(r.checklist||[]).map(function(c){ return '<tr><td>'+_pe(c.item)+'</td><td class="num">'+(c.result==='fail'?'✗ FAIL':(c.result==='pass'?'☑ OK':'—'))+'</td></tr>'; }).join('');
+    var vrows=(r.verify||[]).map(function(v){ return '<tr><td>'+_pe(v.item||v.key||'')+'</td><td class="num">'+(v.result==='fail'?'✗ FAIL':(v.result==='pass'?'☑ OK':(v.result==='na'?'N/A':(v.result?'☑ recorded':'—'))))+'</td></tr>'; }).join('');
+    var crows=(r.checklist||[]).map(function(c){ return '<tr><td>'+_pe(c.item)+'</td><td class="num">'+(c.result==='fail'?'✗ FAIL':(c.result==='pass'?'☑ OK':(c.result==='na'?'N/A':'—')))+'</td></tr>'; }).join('');
     var lag=(r.recordedAt&&r.date)?evLag({actualDate:r.date,recordedAt:r.recordedAt}):null;
     var lateTxt=(lag!=null&&lag>0)?('<div class="col l" style="font-size:10px;color:#8a5a00">Inspected '+_pe(r.date)+', recorded '+String(r.recordedAt).slice(0,10)+' &mdash; '+lag+' day'+(lag===1?'':'s')+' later'+(r.lateReason?(': '+_pe(r.lateReason)):'')+'</div>'):'';
     return '<div class="meta"><div class="col l">'+_pe(r.kind)+': <b>'+_pe(r.brand||'')+'</b> &middot; Qty: <b>'+fmt(r.kg)+' Kg/L</b>'
@@ -12416,7 +12449,7 @@ function printInspect(po){
 /* Dead since the September rewrite — no caller anywhere in this file. */
 function _printInspect_OLD(po){ var lots=(state.packingLog||[]).filter(function(p){return p&&p.po===po&&p.qa;}); if(!lots.length){toast('No pre-shipment inspection recorded for this PO yet');return;}
   var meta='PO #: <b>'+_pe(po)+'</b><br>Date: <b>'+_pe((lots[0].qa&&lots[0].qa.date)||TODAY.toISOString().slice(0,10))+'</b>';
-  var body=lots.map(function(p){ var cl=(p.qa.checklist||[]); var rows=cl.map(function(c){return '<tr><td>'+_pe(c.item)+'</td><td class="num">'+(c.result==='fail'?'✗ FAIL':'☑ OK')+'</td></tr>';}).join(''); var bn=(typeof lotBrandNo==='function'?lotBrandNo(p):'')||''; var res=p.qa.fail?'FAILED':'CLEARED — ready to ship'; return '<div class="meta"><div class="col l">Product: <b>'+_pe(p.brand)+'</b> &middot; Batch: <b>'+_pe(bn)+'</b> &middot; Qty: <b>'+fmt(+p.kg||0)+' Kg/L</b> &middot; Inspector: <b>'+_pe(p.qa.by||'')+'</b></div></div>'+(rows?('<table><tbody>'+rows+'</tbody></table>'):'')+'<div class="banner" style="color:'+(p.qa.fail?'#c0392b':'#1a8a3c')+'">Result: '+res+'</div>'; }).join('');
+  var body=lots.map(function(p){ var cl=(p.qa.checklist||[]); var rows=cl.map(function(c){return '<tr><td>'+_pe(c.item)+'</td><td class="num">'+(c.result==='fail'?'✗ FAIL':(c.result==='na'?'N/A':'☑ OK'))+'</td></tr>';}).join(''); var bn=(typeof lotBrandNo==='function'?lotBrandNo(p):'')||''; var res=p.qa.fail?'FAILED':'CLEARED — ready to ship'; return '<div class="meta"><div class="col l">Product: <b>'+_pe(p.brand)+'</b> &middot; Batch: <b>'+_pe(bn)+'</b> &middot; Qty: <b>'+fmt(+p.kg||0)+' Kg/L</b> &middot; Inspector: <b>'+_pe(p.qa.by||'')+'</b></div></div>'+(rows?('<table><tbody>'+rows+'</tbody></table>'):'')+'<div class="banner" style="color:'+(p.qa.fail?'#c0392b':'#1a8a3c')+'">Result: '+res+'</div>'; }).join('');
   printDoc('Pre-shipment inspection '+po,_docHead('PRE-SHIPMENT INSPECTION REPORT',meta)+body); }
 function rbPrint(){ if(typeof rbResult!=='function'){return;} var res=rbResult(); try{ var _c0=(rpCur&&rpCur!=='custom')?rpDef(rpCur):null; if(res.summary&&_c0&&_c0.sumKey) res.rows.sort(function(a,b){ return (+b[_c0.sumKey]||0)-(+a[_c0.sumKey]||0); }); }catch(e){}   /* 07i review: the same order as the screen */ var head='<tr>'+res.cols.map(function(k){return '<th>'+rbColLabel(k)+'</th>';}).join('')+'</tr>'; var body=res.rows.slice(0,2000).map(function(r){return '<tr>'+res.cols.map(function(k){return '<td'+(rbIsMeas(k)?' class="num"':'')+'>'+_pe(rbCellFmt(k,r[k]))+'</td>';}).join('')+'</tr>';}).join(''); var _c=(typeof rpDef==='function'&&rpCur&&rpCur!=='custom')?rpDef(rpCur):null; var _t=_c?_c.t:('Custom report · '+rbDef().label);   /* 07i audit: the print names the report, its period and any limit, and carries the total */
   var _per=(_c&&_c.now)?'As it stands now':((rpPeriod&&rpPeriod!=='All')?rpPeriod:((rbFrom||rbTo)?((rbFrom||'start')+' to '+(rbTo||'today')):'All dates'));
@@ -13089,6 +13122,7 @@ function actionItems(){
       act:"openCloseBatch('"+b.id+"')", label:(_re?'Reopened — check first':'Close batch') });
   });
   try{ smpJobs().forEach(function(j){ items.push(j); }); }catch(e){} /* 25o: free samples */
+  try{ bfxJobs().forEach(function(j){ items.push(j); }); }catch(e){} /* 10c: a batch number correction waits for the COO */
   try{ dcRejectJobs().forEach(function(j){ items.push(j); }); }catch(e){} /* 26a: a rejected DC is told to Supply Chain */
   try{ yieldShortJobs().forEach(function(j){ items.push(j); }); }catch(e){} /* 26c: a batch closed short reaches the Plant Manager */
   return items;
@@ -13543,7 +13577,7 @@ function acRoleScoped(b){ return acRoleF==='all'?b:b.filter(function(x){return x
 function acCounts(){ var r0=acRoleScoped(acBase()); var deferred=r0.filter(function(x){return !!acDeferActive(x);}).length; var r=r0.filter(function(x){return !acDeferActive(x);}); var late=0,today=0,normal=0,old=0; r.forEach(function(x){ if(x._risk==='late')late++; else if(x._risk==='today')today++; else normal++; if(x._days>old)old=x._days; }); return {all:r.length,late:late,today:today,normal:normal,oldest:old,deferred:deferred}; }
 /* Self-defer: owner snoozes an action 1–30 days with a locked reason; it leaves the active list until the return date, stays visible under the Deferred filter and to managers. Greenlit stored field: state.acDefer (keyed by a deterministic acKey). */
 var AC_DEFER_REASONS=['RM en route','Scheduled later','Awaiting approval','Capacity issues','Packing not available','Other'];
-function acKey(it){ var p=[it.label||'']; if(it.o)p.push('o:'+it.o.id); if(it.l)p.push('l:'+(it.l.id||it.l.brand||'')); if(it.pr)p.push('pr:'+it.pr.id); if(it.batch)p.push('b:'+it.batch.id); if(it.lid)p.push('u:'+it.lid); if(it.row!=null)p.push('r:'+it.row); if(it.leave)p.push('lv:'+it.leave.id); if(it.coverRole)p.push('cr:'+it.coverRole); if(it.lot)p.push('lot:'+it.lot.id); if(it.disp)p.push('d:'+(it.disp.dispId||'')); if(it.smp)p.push('s:'+(it.smp.id||'')); if(it.cust)p.push('c:'+(it.cust.code||'')); if(it.dcr)p.push('x:'+(it.dcr.id||'')); if(it.mv)p.push('m:'+it.mv); if(it.dup)p.push('n:'+it.dup); return p.join('|'); }   /* 07g (C18): one sample/customer/rejection/move each, not all of them at once */
+function acKey(it){ var p=[it.label||'']; if(it.o)p.push('o:'+it.o.id); if(it.l)p.push('l:'+(it.l.id||it.l.brand||'')); if(it.pr)p.push('pr:'+it.pr.id); if(it.batch)p.push('b:'+it.batch.id); if(it.lid)p.push('u:'+it.lid); if(it.row!=null)p.push('r:'+it.row); if(it.leave)p.push('lv:'+it.leave.id); if(it.coverRole)p.push('cr:'+it.coverRole); if(it.lot)p.push('lot:'+it.lot.id); if(it.disp)p.push('d:'+(it.disp.dispId||'')); if(it.smp)p.push('s:'+(it.smp.id||'')); if(it.cust)p.push('c:'+(it.cust.code||'')); if(it.dcr)p.push('x:'+(it.dcr.id||'')); if(it.bfx)p.push('f:'+it.bfx); if(it.mv)p.push('m:'+it.mv); if(it.dup)p.push('n:'+it.dup); return p.join('|'); }   /* 07g (C18): one sample/customer/rejection/move each, not all of them at once */
 function acDeferActive(it){ var m=state.acDefer||{}; var d=m[acKey(it)]; if(!d||!d.until)return null; return (String(d.until)>=TODAY.toISOString().slice(0,10))?d:null; }
 var acDeferForm=null;
 function acDefer(id){ var it=acBase().filter(function(x){return x._id===id;})[0]; if(!it)return; var t=new Date(TODAY); t.setDate(t.getDate()+7); acDeferForm={id:id,key:acKey(it),title:(it.what||it.label),reason:AC_DEFER_REASONS[0],until:t.toISOString().slice(0,10)}; renderAcDefer(); $('modalBg').classList.add('open'); }
@@ -15057,12 +15091,14 @@ function guideRules(){
   '<div class="gd-rule"><h3>A number moves only with its record</h3><p>Packed moves with a packing run from a batch, dispatched with a truck, delivered with a delivery. None of them can be typed, and nothing can be packed beyond what the line ordered. When a line and its records disagree, open the line (Orders → the order → <b>History</b>, or the item on Back Office <b>Needs you</b>): it shows what is wrong, the line’s whole history, what the records show as the cause, and the fix — record the missing packing against its batch, bring packed back to its records, or stamp a delivery date from the truck — each with a reason in your name.</p></div>'+
   '<div class="gd-rule"><h3>The price on a new order</h3><p>Every price is checked against the last price this customer paid for the product, net of FED; for a first order, against the last price to anyone. More than 5% away needs a reason, written under the price, and it is kept on the order line with the last price it was compared with. Payment terms and the ERP SO # are part of every order; the SO # prints on the DC.</p></div>'+
   '<div class="gd-rule"><h3>See it before you sign it; every no has a way back</h3><p>Every approval opens the record first: the PO before it is acknowledged, the purchase request before the CFO approves it, the new customer before the CFO approves it, the truck with its DC and gate pass before it is reviewed or released, the report before it is reviewed or approved. The Open buttons on the Plant screen open the same sheet. Every refusal or send-back needs a reason, stays on the record, and lands on the Today of the person who must act: the PO goes back to whoever entered it, the purchase request to Supply Chain, the customer to whoever entered it, the truck to whoever issued the gate pass, the report one step down the chain, a refused close to whoever asked, a rejected DC or a truck that fails inspection to Supply Chain, a sample not approved to whoever asked, an UNFIT lot sent to rework to Production, a lot on QA hold to the Production Manager. They fix it and send it on, or drop it; nothing waits without an owner.</p></div>'+
+  '<div class="gd-rule"><h3>A wrong batch number</h3><p>A batch number is printed on the bag, so it cannot be edited once the run is inspected or shipped. If the <b>bags are right</b> and the record has a typing mistake, open Reports → Production → <b>Batch trace</b>, tap the brand batch row, and tap <b>Wrong number</b> on the packing run. Enter the correct number, say what is printed on the bags, and give the reason. The COO approves it from his action list, and the DC and inspection lines of that run follow. If the <b>bags are wrong</b>, do not correct the record: quarantine and re-label the bags.</p></div>'+
+  '<div class="gd-rule"><h3>N/A on an inspection</h3><p>When an item on the inspection form does not apply, QA marks <b>N/A</b>. It counts as a pass. It is offered only on <b>Pallet / loading condition</b> and <b>Price on the pack</b>, and it needs a reason in Remarks. Batch, expiry, seal, cleanliness, weight and the other checks are Pass or Fail only.</p></div>'+
   '<div class="gd-rule"><h3>The pre-shipment report</h3><p>No truck is released without a passed inspection. Where the bags carry the list price, the inspector writes the price read off the bag, and on a truck with 2 or more such products, the price for each product. Every report is in Reports → Pre-shipment inspections, for everyone to find and print. A customer marked “Send the pre-shipment report with the DC” gets it attached to the challan.</p></div>'+
   '<div class="gd-rule"><h3>What a sale is</h3><p>A sale is counted the day the truck leaves the gate, at quantity × invoice price, net of FED. FED is the sales tax: on an order quoted FED-inclusive the price is divided by 1.05. Every money figure in the app — Sales & Budget, the reports, the PO register — uses this one rule.</p></div>';
   h+='<div class="gd-rule"><h3>Roles, not people</h3><p>Rights belong to roles. 2 people can hold one role and sign differently. There are no exceptions for one person — an exception becomes a new role, so it can be seen and given to the next person in that seat.</p></div>';
   h+='<div class="gd-rule"><h3>What is never on a customer document</h3><p>No price on any document the customer sees. The COA carries composition, results and the 3 signatures; the delivery challan carries product, quantity and lot.</p></div>';
   /* 06c: where each paper lives. Every place named here is an existing screen or button. */
-  h+='<div class="gd-rule"><h3>Where to find a copy</h3><p><b>An old order:</b> Plant → <b>All orders</b>, type the PO or customer, tap the order. Its sheet ends with <b>Papers</b>: every paper of that order you are allowed to print, in one place.</p><p>Reports opens on the functions your role has reports in; each holds its reports as tabs.</p><p><b>Purchase order:</b> Reports → Stock and shipping → <b>Documents</b> → Purchase orders. It carries prices, so only the roles that see money can print it.</p><p><b>Delivery challan, gate pass, pre-shipment inspection report:</b> Reports → Stock and shipping → <b>Documents</b> → Delivery challans, gate passes and inspection reports. Search by DC, gate pass, PO, customer or vehicle. Every inspected truck is also under Reports → Lab and QA → <b>Pre-shipment inspections</b>: tap the report number to open it, ready to print or save as PDF.</p><p><b>Lab certificate (COA):</b> Reports → Lab and QA → <b>Lab certificates</b>, then <b>COA</b> on the row. For the lab, QA, the Plant Manager, the CFO and the COO.</p><p><b>Packed-lot QA:</b> Reports → Lab and QA → <b>Packing and lot QA</b>, or the order’s Papers → <b>Inspection log</b>.</p><p><b>Everything about one customer:</b> Reports → Orders and customers → <b>One customer</b>.</p><p><b>Where a batch went:</b> Reports → Production → <b>Batch trace</b>. Type the batch number (for example HG26036) to see the brands, brand batch numbers, POs and trucks it was packed and shipped into, what was lost or kept, and whether the figures agree.</p><p><b>Who changed a record:</b> Reports → Checks and corrections → <b>Corrections register</b>, for the COO, the CFO and the Plant Manager.</p></div>';
+  h+='<div class="gd-rule"><h3>Where to find a copy</h3><p><b>An old order:</b> Plant → <b>All orders</b>, type the PO or customer, tap the order. Its sheet ends with <b>Papers</b>: every paper of that order you are allowed to print, in one place.</p><p>Reports opens on the functions your role has reports in; each holds its reports as tabs.</p><p><b>Purchase order:</b> Reports → Stock and shipping → <b>Documents</b> → Purchase orders. It carries prices, so only the roles that see money can print it.</p><p><b>Delivery challan, gate pass, pre-shipment inspection report:</b> Reports → Stock and shipping → <b>Documents</b> → Delivery challans, gate passes and inspection reports. Search by DC, gate pass, PO, customer or vehicle. Every inspected truck is also under Reports → Lab and QA → <b>Pre-shipment inspections</b>: tap the report number to open it, ready to print or save as PDF.</p><p><b>Lab certificate (COA):</b> Reports → Lab and QA → <b>Lab certificates</b>, then <b>COA</b> on the row. For the lab, QA, the Plant Manager, the CFO and the COO.</p><p><b>Packed-lot QA:</b> Reports → Lab and QA → <b>Packing and lot QA</b>, or the order’s Papers → <b>Inspection log</b>.</p><p><b>Everything about one customer:</b> Reports → Orders and customers → <b>One customer</b>.</p><p><b>Where a batch went:</b> Reports → Production → <b>Batch trace</b>. Type the batch number (for example HG26036) to see the brands, brand batch numbers, POs and trucks it was packed and shipped into, what was lost or kept, and whether the figures agree. Tap a brand batch row to see the packing runs that make its total, and a truck row to see which packing runs it took from.</p><p><b>Who changed a record:</b> Reports → Checks and corrections → <b>Corrections register</b>, for the COO, the CFO and the Plant Manager.</p></div>';
   return h;
 }
 function guideTabsHTML(){
@@ -16014,7 +16050,7 @@ function renderPackInspect(){ const f=packInspForm; if(!f){closeModal();return;}
   const l=(o.lines||[]).find(x=>x.id===f.lid)||(o.lines||[]).find(x=>x.brand===f.lid); if(!l){closeModal();return;}
   const lotRows=lotsFor(o,l).map((p,i)=>{ const av=lotAvail(p); if(av<=0.0001) return ''; const has=lotHasBatch(p); const bn=has?(lotBaseNo(p)+(lotBrandNo(p)!==lotBaseNo(p)?(' ▸ '+lotBrandNo(p)):'')):'(no batch #)';
     return `<tr${has?'':' style="opacity:.65"'}><td><b style="font-size:11.5px">${bn}</b>${has?'':'<div style="color:var(--red);font-size:10px">set batch # in Production first</div>'}</td><td class="num muted">${fmt(av)}</td><td>${has?`<input type="number" class="num" value="${Math.round(f.alloc[i]||0)}" oninput="packInspLot(${i},this.value)" max="${Math.round(av)}" style="width:100px">`:'<span class="muted" style="font-size:11px;color:var(--red)">blocked</span>'}</td></tr>`; }).join('');
-  const cl=QC_CHECKLIST.map((it,i)=>`<tr><td>${it}</td><td style="white-space:nowrap"><label style="margin-right:12px"><input type="radio" name="pq${i}" ${f.marks[i]==='pass'?'checked':''} onclick="packInspSet(${i},'pass')"> Pass</label><label><input type="radio" name="pq${i}" ${f.marks[i]==='fail'?'checked':''} onclick="packInspSet(${i},'fail')"> Fail</label></td></tr>`).join('');
+  const cl=QC_CHECKLIST.map((it,i)=>`<tr><td>${it}</td><td style="white-space:nowrap"><label style="margin-right:12px"><input type="radio" name="pq${i}" ${f.marks[i]==='pass'?'checked':''} onclick="packInspSet(${i},'pass')"> Pass</label><label><input type="radio" name="pq${i}" ${f.marks[i]==='fail'?'checked':''} onclick="packInspSet(${i},'fail')"> Fail</label>${QC_NA_CHECK.indexOf(i)>-1?qcNaRadio('pq'+i,f.marks[i],'packInspSet('+i+',\'na\')'):''}</td></tr>`).join('');
   $('modal').innerHTML=`<div class="mh"><h2>Pre-shipment inspection</h2><div class="sub">${o.po} · <b>${l.brand}</b> <span class="muted">${l.base||''}</span></div></div>
    <div class="mb">
      <div style="background:var(--amber-50);border:1px solid var(--amber);border-radius:8px;padding:10px 12px;margin-bottom:11px">
@@ -16050,7 +16086,7 @@ function renderPackInspect(){ const f=packInspForm; if(!f){closeModal();return;}
      <div style="overflow:auto"><table><thead><tr><th>Check</th><th style="width:170px">Result</th></tr></thead><tbody>${cl}</tbody></table></div>
      <div class="fld" style="margin-top:10px;max-width:280px"><label>Inspector name</label><input type="text" value="${_av(f.officer)}" oninput="packInspForm.officer=this.value"></div>
      ${evDateField('packInspForm','date','packinsp','Date this material was actually inspected','renderPackInspect()')}
-     <div class="fld fld-long" style="margin-top:8px"><label>Remarks (optional)</label><textarea rows="3" oninput="packInspForm.remarks=this.value" placeholder="what did you see? note anything the checklist does not cover.">${_tx(f.remarks)}</textarea></div>
+     <div class="fld fld-long" style="margin-top:8px"><label>Remarks (needed if anything fails or is N/A)</label><textarea rows="3" oninput="packInspForm.remarks=this.value" placeholder="what did you see? note anything the checklist does not cover.">${_tx(f.remarks)}</textarea></div>
    </div>
    <div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" onclick="savePackInspect()">Submit inspection</button></div>`; }
 function savePackInspect(){ if(!(canEdit(['QA Inspector'])||state.role==='COO')){toast('QA Inspector only');return;}
@@ -16059,6 +16095,7 @@ function savePackInspect(){ if(!(canEdit(['QA Inspector'])||state.role==='COO'))
   if(kg<=0){toast('Allocate a quantity to at least one batch with a batch number');return;}
   if(f.marks.some(m=>!m)){toast('Mark every item Pass or Fail');return;}
   { const _vg=qcVerifyGate(f.verify, f, qcNeedsSeenPrice([{o:o,l:l}])); if(_vg){toast(_vg);return;} }
+  { const _ng=qcNaGate(f.marks,f.verify,f.remarks); if(_ng){toast(_ng);return;} }
   { const _pl=aqlPlan(lotPacks(o,l,kg));
     if(f.bagsChecked===''||f.bagsChecked==null){toast('Enter how many bags you actually opened and checked.');return;}
     if(f.defects===''||f.defects==null){toast('Enter how many defective bags you found (0 if none).');return;}
@@ -16215,7 +16252,7 @@ function dispRowsFor(dispId){ return (state.shipments||[]).filter(s=>(s.dispId||
 function openDispatchQA(dispId){ if(!(canEdit(['QA Inspector'])||state.role==='COO')){toast('QA Inspector only');return;} const rows=dispRowsFor(dispId); if(!rows.length)return; const ex=rows[0].qa; dispQAForm={dispId,marks:QC_CHECKLIST.map((_,i)=>(ex&&ex.checklist&&ex.checklist[i]&&ex.checklist[i].result)||''),verify:QC_VERIFY.map((_,i)=>(ex&&ex.verify&&ex.verify[i]&&ex.verify[i].result)||''),officer:(ex&&ex.by)||((state.currentUser&&state.currentUser.name)||''),remarks:(ex&&ex.remarks)||'',date:(ex&&ex.actualDate)||evToday(),dateReason:''}; renderDispatchQA(); $('modalBg').classList.add('open'); }
 function dispQASet(i,v){ dispQAForm.marks[i]=v; renderDispatchQA(); }
 function renderDispatchQA(){ const rows=dispRowsFor(dispQAForm.dispId); if(!rows.length){closeModal();return;} const tot=rows.reduce((a,r)=>a+(+r.kg||0),0); const g0=rows[0];
-  const cl=QC_CHECKLIST.map((it,i)=>`<tr><td>${it}</td><td style="white-space:nowrap"><label style="margin-right:12px"><input type="radio" name="dqa${i}" ${dispQAForm.marks[i]==='pass'?'checked':''} onclick="dispQASet(${i},'pass')"> Pass</label><label><input type="radio" name="dqa${i}" ${dispQAForm.marks[i]==='fail'?'checked':''} onclick="dispQASet(${i},'fail')"> Fail</label></td></tr>`).join('');
+  const cl=QC_CHECKLIST.map((it,i)=>`<tr><td>${it}</td><td style="white-space:nowrap"><label style="margin-right:12px"><input type="radio" name="dqa${i}" ${dispQAForm.marks[i]==='pass'?'checked':''} onclick="dispQASet(${i},'pass')"> Pass</label><label><input type="radio" name="dqa${i}" ${dispQAForm.marks[i]==='fail'?'checked':''} onclick="dispQASet(${i},'fail')"> Fail</label>${QC_NA_CHECK.indexOf(i)>-1?qcNaRadio('dqa'+i,dispQAForm.marks[i],'dispQASet('+i+',\'na\')'):''}</td></tr>`).join('');
   $('modal').innerHTML=`<div class="mh"><h2>Pre-shipment inspection</h2><div class="sub">${g0.po} · ${rows.length} product(s) · <b>${fmt(tot)} Kg/L on this shipment</b>${g0.dc?(' · DC '+g0.dc):''}${g0.vehicle?(' · '+g0.vehicle):''}</div></div>
    <div class="mb"><div style="background:var(--amber-50);border:1px solid var(--amber);border-radius:8px;padding:10px 12px;margin-bottom:10px">
        <div style="font-weight:700;font-size:11.5px;margin-bottom:6px">Price on the pack — what each PO says</div>
@@ -16238,13 +16275,13 @@ function renderDispatchQA(){ const rows=dispRowsFor(dispQAForm.dispId); if(!rows
      <div style="overflow:auto"><table><thead><tr><th>Check</th><th style="width:170px">Result</th></tr></thead><tbody>${cl}</tbody></table></div>
      <div class="fld" style="margin-top:10px;max-width:280px"><label>Inspector name</label><input type="text" value="${(dispQAForm.officer||'').replace(/"/g,'&quot;')}" oninput="dispQAForm.officer=this.value"></div>
      ${evDateField('dispQAForm','date','dispqa','Date this truck was actually inspected','renderDispatchQA()')}
-     <div class="fld fld-long" style="margin-top:8px"><label>Remarks (needed if anything fails — Supply Chain reads them)</label><textarea rows="3" oninput="dispQAForm.remarks=this.value" placeholder="what did you see? note anything the checklist does not cover.">${_tx(dispQAForm.remarks||'')}</textarea></div>
+     <div class="fld fld-long" style="margin-top:8px"><label>Remarks (needed if anything fails or is N/A — Supply Chain reads them)</label><textarea rows="3" oninput="dispQAForm.remarks=this.value" placeholder="what did you see? note anything the checklist does not cover.">${_tx(dispQAForm.remarks||'')}</textarea></div>
    </div>
    <div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" onclick="dispQASubmit()">Submit inspection</button></div>`; }
 function dispQASubmit(){ if(!(canEdit(['QA Inspector'])||state.role==='COO')){toast('QA Inspector only');return;} const rows=dispRowsFor(dispQAForm.dispId).filter(function(s){ return s&&!s.voided; }); if(!rows.length){toast('This truck was cancelled or failed inspection. Plan a new truck.');return;} /* 25n: a second result on the same truck gave its lots back twice */ if(rows.some(function(s){ return s.delivered||s.dispCounted||(s.qa&&(s.qa.pass||s.qa.fail)); })){toast('This truck has already been inspected, or has left the gate.');return;} if(dispQAForm.marks.some(m=>!m)){toast('Mark every item Pass or Fail');return;} { var _pr=rows.map(function(r){ var o=(state.orders||[]).find(function(x){return x.po===r.po;});
       var l=o&&((o.lines||[]).find(function(x){return x.id===r.lid;})||(o.lines||[]).find(function(x){return x.brand===r.brand;}));
       return (o&&l)?{o:o,l:l}:null; }).filter(Boolean);
-      const _vg=qcVerifyGate(dispQAForm.verify, dispQAForm, qcAskSeen(_pr)); if(_vg){toast(_vg);return;} } if(!(dispQAForm.officer||'').trim()){toast('Enter inspector name');return;}
+      const _vg=qcVerifyGate(dispQAForm.verify, dispQAForm, qcAskSeen(_pr)); if(_vg){toast(_vg);return;} } { const _ng=qcNaGate(dispQAForm.marks,dispQAForm.verify,dispQAForm.remarks); if(_ng){toast(_ng);return;} } if(!(dispQAForm.officer||'').trim()){toast('Enter inspector name');return;}
   const _dg=evDateGate(dispQAForm,'date','dispqa'); if(_dg){toast(_dg);return;}
   const anyFail=dispQAForm.marks.some(m=>m==='fail') || qcVerifyFailed(dispQAForm.verify);
   /* 26c: a failed truck needs a reason, and Supply Chain is told (Tahir, 26 Sep: Supply Chain re-plans) */
@@ -18992,8 +19029,10 @@ function rpCustomerHTML(){
    reconcile. His example: potassium humate HG26036, 40,000 Kg planned, produced,
    packed and closed - "in which brands was it packed?". Every link already
    exists (packing lot -> baseBatchId, shipment batch -> lotId); nothing joined
-   them. Read-only: nothing here writes a record. */
-var rpBt='';
+   them. 10 Oct, Majid: a brand batch row opens the packing runs that make its
+   total; a truck row is one DC and brand batch, and opens the packing runs it
+   took from. Read-only: nothing here writes a record. */
+var rpBt='', _btLast=[];
 function btBatches(){ return (state.batches||[]).filter(function(b){ return b&&!b.voided&&!b.pool&&String(b.batchNo||'').trim(); }).sort(function(a,b){ return String(b.openedDate||'').localeCompare(String(a.openedDate||''))||String(b.batchNo).localeCompare(String(a.batchNo)); }); }
 function batchTrace(b){
   var r2=function(x){ return Math.round((+x||0)*100)/100; };
@@ -19001,24 +19040,158 @@ function batchTrace(b){
   var lots=(state.packingLog||[]).filter(function(p){ return p&&!p.void&&!p.reversed&&(+p.kg||0)>0.0001&&(p.baseBatchId===b.id||(!p.baseBatchId&&lotBaseNo(p)===b.batchNo)); });
   var ids={}; lots.forEach(function(p){ ids[p.id]=p; });
   var gp={}, packed=0, lotShip=0;
-  lots.forEach(function(p){ var k=[p.brand||'',lotBrandNo(p),p.po||'',p.lid||''].join('|'); var g=gp[k]||(gp[k]={brand:p.brand||p.base||'—',brandNo:lotBrandNo(p)||'—',po:p.po||'',client:cm[p.po||'']||'',kg:0,shipped:0,first:'',last:'',n:0});
-    g.kg+=(+p.kg||0); g.shipped+=(+p.shipKg||0); g.n++; var d=String(p.date||p.mfgDate||''); if(d&&(!g.first||d<g.first)) g.first=d; if(d&&d>g.last) g.last=d; packed+=(+p.kg||0); lotShip+=(+p.shipKg||0); });
+  lots.forEach(function(p){ var k=[p.brand||'',lotBrandNo(p),p.po||'',p.lid||''].join('|'); var g=gp[k]||(gp[k]={brand:p.brand||p.base||'—',brandNo:lotBrandNo(p)||'—',po:p.po||'',client:cm[p.po||'']||'',kg:0,shipped:0,first:'',last:'',n:0,lots:[]});
+    g.kg+=(+p.kg||0); g.shipped+=(+p.shipKg||0); g.n++; var d=String(p.date||p.mfgDate||''); if(d&&(!g.first||d<g.first)) g.first=d; if(d&&d>g.last) g.last=d; packed+=(+p.kg||0); lotShip+=(+p.shipKg||0);
+    g.lots.push({id:p.id,date:p.date||'',mfg:p.mfgDate||'',exp:p.expDate||'',by:p.by||'',kg:+p.kg||0,shipped:+p.shipKg||0,cleared:+p.insKg||0}); });
   var rows=Object.keys(gp).map(function(k){ return gp[k]; }).sort(function(a,c){ return c.kg-a.kg; });
-  var trucks=[], dcKg=0, byNo=0;
+  rows.forEach(function(g){ g.lots.sort(function(a,c){ return String(a.date).localeCompare(String(c.date))||String(a.id).localeCompare(String(c.id)); }); });
+  var dcAll={}; (state.shipments||[]).forEach(function(s){ if(s&&!s.voided&&s.dispId) dcAll[s.dispId]=(dcAll[s.dispId]||0)+(+s.kg||0); });
+  var tg={}, dcKg=0, byNo=0;
   (state.shipments||[]).forEach(function(s){ if(!s||s.voided) return; (s.batches||[]).forEach(function(e){
-      var hit=false; if(e.lotId){ hit=!!ids[e.lotId]; } else if(s.po && e.batch===b.batchNo && lots.some(function(p){ return p.po===s.po; })){ hit=true; byNo++; }
-      if(!hit) return; var kg=+e.kg||0; dcKg+=kg; trucks.push({dispId:s.dispId||'',dc:s.dc||'',date:s.dispatch||'',po:s.po||'',client:cm[s.po||'']||'',brandNo:e.brand||'',vehicle:s.vehicle||'',kg:kg,out:!!s.delivered}); }); });
-  trucks.sort(function(a,c){ return String(c.date).localeCompare(String(a.date)); });
+      var lot=null, hit=false; if(e.lotId){ lot=ids[e.lotId]; hit=!!lot; } else if(s.po && e.batch===b.batchNo && lots.some(function(p){ return p.po===s.po; })){ hit=true; byNo++; }
+      if(!hit) return; var kg=+e.kg||0; dcKg+=kg; var bn=e.brand||(lot?lotBrandNo(lot):'')||'—'; var k=(s.dispId||s.dc||'')+'|'+bn;
+      var t=tg[k]||(tg[k]={dispId:s.dispId||'',dc:s.dc||'',date:s.dispatch||'',po:s.po||'',client:cm[s.po||'']||'',brandNo:bn,vehicle:s.vehicle||'',kg:0,dcAll:dcAll[s.dispId]||0,parts:[]});
+      t.kg+=kg; t.parts.push({lotId:e.lotId||'',kg:kg,date:lot?(lot.date||''):'',mfg:lot?(lot.mfgDate||''):''}); }); });
+  var trucks=Object.keys(tg).map(function(k){ return tg[k]; }).sort(function(a,c){ return String(c.date).localeCompare(String(a.date))||String(a.dc).localeCompare(String(c.dc))||String(a.brandNo).localeCompare(String(c.brandNo)); });
   var pr=b.packReconcile||{}, bp=0, dv=0, rw=0; (pr.items||[]).forEach(function(it){ var k=+it.kg||0; if(it.type==='byproduct')bp+=k; else if(it.type==='divert')dv+=k; else if(it.type==='rework')rw+=k; });
   var loss=+(b.lossKg!=null?b.lossKg:pr.loss)||0, kept=(b.stockKept&&+b.stockKept.kg)||0, disp=+b.disposedKg||0;
   var produced=+b.producedKg||0;
   var unacc=r2(produced-packed-disp-kept);
   return {b:b,rows:rows,trucks:trucks,planned:+b.plannedKg||0,produced:produced,packed:r2(packed),shipped:r2(lotShip),inStock:r2(packed-lotShip),dcKg:r2(dcKg),byNo:byNo,loss:r2(loss),bp:r2(bp),dv:r2(dv),rw:r2(rw),kept:r2(kept),disp:r2(disp),unacc:unacc};
 }
+function btShow(h){ $('modal').innerHTML=h; $('modal').classList.add('coa'); $('modalBg').classList.add('open'); }
+function btSheet(title,sub,body){ return '<div class="mh"><h2>'+qsEsc(title)+'</h2><div class="sub">'+sub+'</div></div><div class="mb">'+body+'</div><div class="mf"><button class="qs-btn" onclick="closeModal()">Close</button></div>'; }
+/* ===== BATCH NUMBER CORRECTION: ASK, THEN THE COO APPROVES (Tahir, 10 Oct 2026) =====
+   A brand batch number is printed on the bag, so the app will not let anyone edit it once the run has been
+   inspected or shipped (SPEC-05, 21 Aug 2026). That rule stays. This is the one controlled way through it
+   when the BAGS are right and only the RECORD has a typing mistake (VAN6JW001 typed, VAN6JE001 on the bags).
+   1. Production Manager (or Production, Plant Manager) asks: new number, "the bags say the new number",
+      and a reason. Nothing changes yet.
+   2. The COO sees it in his action list, with what will follow, and approves or refuses with a note.
+   3. On approval the number changes on the packing run, on the DC batch lines and on the inspection batch
+      lines of that run, and the change is written to the corrections register. The old number is kept there.
+   If the bags carry the OLD number the record is right and this path is refused: quarantine and re-label. */
+function bfxMayRequest(){ return hardRole(['Production Manager','Production','Plant Manager']); }
+function bfxMayDecide(){ return state.role==='COO'; }
+function bfxFor(lotId){ return (state.batchFixReqs||[]).filter(function(r){ return r&&r.lotId===lotId; }); }
+function bfxPending(lotId){ return bfxFor(lotId).find(function(r){ return r.status==='pending'; }); }
+function bfxRowHit(b,p,old,po){ return b && ((b.lotId&&b.lotId===p.id) || (!b.lotId && String(b.brand||'')===String(old) && po===p.po)); }
+/* what will follow; the same rule the apply step uses */
+function bfxImpact(p,newNo){
+  var old=lotBrandNo(p), out={old:old,dcs:[],insp:0,joins:null,sameOld:[]};
+  (state.shipments||[]).forEach(function(sx){ if(!sx||sx.voided) return; (sx.batches||[]).forEach(function(b){ if(bfxRowHit(b,p,old,sx.po)) out.dcs.push('DC '+(sx.dc||sx.id||'')+' ('+fmt(+b.kg||0)+' Kg)'); }); });
+  (state.inspections||[]).forEach(function(x){ if(!x) return; (x.batches||[]).forEach(function(b){ if(bfxRowHit(b,p,old,x.po)) out.insp++; }); });
+  var same=0, n=0; (state.packingLog||[]).forEach(function(q){ if(!q||q.reversed||q.void||q.id===p.id) return;
+    if(q.baseBatchId===p.baseBatchId && q.po===p.po){ if(newNo && lotBrandNo(q)===newNo){ same+=(+q.kg||0); n++; } if(lotBrandNo(q)===old) out.sameOld.push(q.id); } });
+  if(n) out.joins={kg:same,runs:n};
+  return out; }
+function bfxApply(p,newNo){
+  var old=lotBrandNo(p), touched=[];
+  p.brandBatchNo=newNo;
+  (state.shipments||[]).forEach(function(sx){ if(!sx||sx.voided) return; (sx.batches||[]).forEach(function(b){ if(bfxRowHit(b,p,old,sx.po)){ b.brand=newNo; touched.push('DC '+(sx.dc||sx.id||'')+' batch line'); } }); });
+  (state.inspections||[]).forEach(function(x){ if(!x) return; (x.batches||[]).forEach(function(b){ if(bfxRowHit(b,p,old,x.po)){ b.brand=newNo; touched.push('Inspection '+(x.actualDate||x.date||x.id)+' batch line'); } }); });
+  return touched; }
+var bfxForm=null;
+function bfxOpen(lotId){
+  if(!bfxMayRequest()){ toast('Production Manager, Production or Plant Manager only'); return; }
+  var p=lotById(lotId); if(!p) return;
+  if(bfxPending(lotId)){ toast('A correction for this packing run is already waiting for the COO'); return; }
+  bfxForm={lotId:lotId,newNo:'',bags:'',reason:''};
+  bfxRender(); $('modalBg').classList.add('open'); }
+function bfxRender(){
+  var f=bfxForm; if(!f){ closeModal(); return; } var p=lotById(f.lotId); if(!p){ closeModal(); return; }
+  var old=lotBrandNo(p), im=bfxImpact(p,String(f.newNo||'').trim().toUpperCase()), used={};
+  (state.packingLog||[]).forEach(function(q){ if(q&&!q.reversed&&!q.void&&q.baseBatchId===p.baseBatchId&&q.po===p.po){ var n=lotBrandNo(q); if(n&&n!==old) used[n]=1; } });
+  $('modal').classList.remove('coa');
+  $('modal').innerHTML='<div class="mh"><h2>Ask for a batch number correction</h2><div class="sub">'+bpEsc(p.brand)+' · '+bpEsc(p.id)+' · '+fmt(+p.kg||0)+' Kg · PO '+bpEsc(p.po)+'</div></div><div class="mb">'
+    +'<div class="note">Use this only when the number printed on the bags is the right one and the record has a <b>typing mistake</b>. The COO approves it. Nothing changes until he does.</div>'
+    +'<div class="fld" style="margin-top:10px"><label>Number in the record now</label><input value="'+_av(old)+'" disabled></div>'
+    +'<div class="fld"><label>Correct number (the one on the bags)</label><input list="bfxL" value="'+_av(f.newNo)+'" oninput="bfxForm.newNo=this.value" onchange="bfxForm.newNo=this.value;bfxRender()" placeholder="e.g. VAN6JE001" autocomplete="off"><datalist id="bfxL">'+Object.keys(used).map(function(n){ return '<option value="'+_av(n)+'">'; }).join('')+'</datalist></div>'
+    +'<div class="fld"><label>What is printed on the bags of this packing run?</label>'
+    +'<div style="margin:6px 0"><label style="display:flex;gap:8px;align-items:center;text-transform:none;letter-spacing:0;font-size:14px;font-weight:400;cursor:pointer"><input type="radio" name="bfxb" style="width:auto;margin:0" '+(f.bags==='new'?'checked':'')+' onclick="bfxForm.bags=\'new\'"> The correct number above. The record has a typing mistake.</label></div>'
+    +'<div style="margin:6px 0"><label style="display:flex;gap:8px;align-items:center;text-transform:none;letter-spacing:0;font-size:14px;font-weight:400;cursor:pointer"><input type="radio" name="bfxb" style="width:auto;margin:0" '+(f.bags==='old'?'checked':'')+' onclick="bfxForm.bags=\'old\'"> The number now in the record. The bags are wrong.</label></div></div>'
+    +'<div class="fld fld-long"><label>Reason (who checked the bags, and what was seen)</label><textarea rows="3" oninput="bfxForm.reason=this.value" placeholder="At least 10 characters">'+bpEsc(f.reason)+'</textarea></div>'
+    +'<div class="note" style="margin-top:10px"><b>What will follow if approved:</b> '+(im.dcs.length?bpEsc(im.dcs.join(', ')):'no DC line')+(im.insp?'; '+im.insp+' inspection line'+(im.insp===1?'':'s'):'')+'. '
+    +(im.joins?'The run joins the existing '+bpEsc(String(f.newNo).trim().toUpperCase())+' ('+im.joins.runs+' run'+(im.joins.runs===1?'':'s')+', '+fmt(im.joins.kg)+' Kg).':(String(f.newNo||'').trim()?'<span style="color:var(--amber)">This number is not used on any other run of this batch and PO. Check the spelling.</span>':''))
+    +(im.sameOld.length?' Other runs also carry '+bpEsc(old)+' ('+bpEsc(im.sameOld.join(', '))+') and stay as they are.':'')+'</div></div>'
+    +'<div class="mf"><button class="ghost" onclick="bfxForm=null;closeModal()">Cancel</button><button class="green" onclick="bfxSubmit()">Send to the COO</button></div>'; }
+function bfxSubmit(){
+  var f=bfxForm; if(!f) return; if(!bfxMayRequest()){ toast('Production Manager, Production or Plant Manager only'); return; }
+  var p=lotById(f.lotId); if(!p) return; var old=lotBrandNo(p), nn=String(f.newNo||'').trim().toUpperCase();
+  if(bfxPending(f.lotId)){ toast('Already waiting for the COO'); return; }
+  if(!nn){ toast('Enter the correct number'); return; }
+  if(!/^[A-Z0-9][A-Z0-9\-\/]{2,29}$/.test(nn)){ toast('A batch number is letters and digits only, 3 to 30 characters'); return; }
+  if(nn===old){ toast('That is the number already in the record'); return; }
+  if(f.bags==='old'){ toast('If the bags carry the number in the record, the record is right. Do not correct it. Quarantine and re-label the bags.'); return; }
+  if(f.bags!=='new'){ toast('Say what is printed on the bags'); return; }
+  if(String(f.reason||'').trim().length<10){ toast('Write the reason (at least 10 characters)'); return; }
+  var me=_uRole(), r={id:bpId('BFX'),lotId:p.id,po:p.po,brand:p.brand,kg:+p.kg||0,baseBatchNo:lotBaseNo(p),oldNo:old,newNo:nn,bags:'new',reason:String(f.reason).trim(),by:me.by,byRole:me.role,at:new Date().toISOString(),status:'pending'};
+  (state.batchFixReqs=state.batchFixReqs||[]).unshift(r);
+  logAction('Batch number correction asked: '+old+' → '+nn+' on '+p.id+' ('+p.brand+', PO '+p.po+') — '+r.reason);
+  bfxForm=null; save(); closeModal(); render(); toast('Sent to the COO. The record changes only after he approves.'); }
+function bfxJobs(){ return (state.batchFixReqs||[]).filter(function(r){ return r&&r.status==='pending'; }).map(function(r){
+  return {role:'COO',bfx:r.id,labAt:r.at,what:'Batch number correction — '+r.oldNo+' → '+r.newNo+' · '+r.brand+' · '+fmt(r.kg)+' Kg · PO '+r.po+' · asked by '+(r.by||'')+': “'+String(r.reason||'')+'”',act:"bfxReview('"+r.id+"')",label:'Approve batch fix'}; }); }
+var bfxNote='';
+function bfxReview(id){
+  var r=(state.batchFixReqs||[]).find(function(x){ return x&&x.id===id; }); if(!r) return; var p=lotById(r.lotId);
+  bfxNote=''; var im=p?bfxImpact(p,r.newNo):{dcs:[],insp:0,joins:null,sameOld:[]};
+  var done=r.status!=='pending', canDecide=bfxMayDecide()&&!done;
+  $('modal').classList.remove('coa');
+  $('modal').innerHTML='<div class="mh"><h2>Batch number correction</h2><div class="sub">'+bpEsc(r.brand)+' · '+bpEsc(r.lotId)+' · '+fmt(r.kg)+' Kg · PO '+bpEsc(r.po)+' · batch '+bpEsc(r.baseBatchNo)+'</div></div><div class="mb">'
+    +'<div class="note" style="border-color:var(--amber)"><b>'+bpEsc(r.oldNo)+' → '+bpEsc(r.newNo)+'</b><br>Asked by '+bpEsc(r.by)+' ('+bpEsc(r.byRole)+') on '+bpEsc(String(r.at||'').slice(0,10))+'. Bags say the new number: <b>yes</b>.<br>Reason: '+bpEsc(r.reason)+'</div>'
+    +(p?'<div class="note" style="margin-top:8px"><b>If approved, these follow:</b> the packing run '+bpEsc(r.lotId)+'; '+(im.dcs.length?bpEsc(im.dcs.join(', ')):'no DC line')+(im.insp?'; '+im.insp+' inspection line'+(im.insp===1?'':'s'):'')+'. '
+      +(im.joins?'It then joins the existing '+bpEsc(r.newNo)+' ('+im.joins.runs+' run'+(im.joins.runs===1?'':'s')+', '+fmt(im.joins.kg)+' Kg).':'<span style="color:var(--amber)">No other run of this batch and PO carries '+bpEsc(r.newNo)+'.</span>')
+      +' The old number is kept in the corrections register. DC papers already printed still show the old number: reprint them.</div>':'<div class="note" style="margin-top:8px;color:var(--red)">The packing run is no longer in the records.</div>')
+    +(done?'<div class="note" style="margin-top:8px"><b>'+(r.status==='approved'?'Approved':'Refused')+'</b> by '+bpEsc(r.decidedBy||'')+' on '+bpEsc(String(r.decidedAt||'').slice(0,10))+(r.decisionNote?': '+bpEsc(r.decisionNote):'')+'</div>'
+       :(canDecide?'<div class="fld fld-long" style="margin-top:10px"><label>Note (needed to refuse)</label><textarea rows="2" oninput="bfxNote=this.value"></textarea></div>':'<div class="note" style="margin-top:8px">Waiting for the COO.</div>'))
+    +'</div><div class="mf"><button class="ghost" onclick="closeModal()">Close</button>'
+    +(canDecide?'<button class="ghost" onclick="bfxDecide(\''+_av(id)+'\',false)">Refuse</button>'+(p?'<button class="green" onclick="bfxDecide(\''+_av(id)+'\',true)">Approve</button>':''):'')+'</div>';
+  $('modalBg').classList.add('open'); }
+function bfxDecide(id,yes){
+  if(!bfxMayDecide()){ toast('The COO decides this'); return; }
+  var r=(state.batchFixReqs||[]).find(function(x){ return x&&x.id===id; }); if(!r||r.status!=='pending') return;
+  var me=_uRole(), note=String(bfxNote||'').trim();
+  if(!yes){ if(note.length<5){ toast('Write why you refuse (at least 5 characters)'); return; }
+    r.status='refused'; r.decidedBy=me.by; r.decidedAt=new Date().toISOString(); r.decisionNote=note;
+    logAction('Batch number correction REFUSED: '+r.oldNo+' → '+r.newNo+' on '+r.lotId+' — '+note); save(); closeModal(); render(); toast('Refused. The record is unchanged.'); return; }
+  var p=lotById(r.lotId); if(!p){ toast('The packing run is no longer in the records'); return; }
+  if(lotBrandNo(p)!==r.oldNo){ toast('The number on this run is no longer '+r.oldNo+'. Refuse this one and ask again.'); return; }
+  var label=p.brand+' · '+r.oldNo+' · '+fmt(+p.kg||0)+' Kg · '+p.po;
+  var touched=bfxApply(p,r.newNo);
+  recordCorrection('AMEND','packingLot',p.id,label,[{field:'brandBatchNo',label:'Brand batch # (on the pack)',before:r.oldNo,after:r.newNo}],'keying',
+    'Bags carry '+r.newNo+'; typing mistake. Asked by '+r.by+': '+r.reason+(note?(' · COO: '+note):''),touched);
+  r.status='approved'; r.decidedBy=me.by; r.decidedAt=new Date().toISOString(); r.decisionNote=note;
+  save(); closeModal(); render(); toast('Corrected to '+r.newNo+(touched.length?(' · '+touched.length+' linked line(s) followed'):'')+'. Reprint any DC already issued.'); }
+function bfxCell(lotId){
+  var pend=bfxPending(lotId), last=bfxFor(lotId).find(function(r){ return r.status!=='pending'; });
+  if(pend) return '<a href="#" onclick="bfxReview(\''+_av(pend.id)+'\');return false">Fix to '+bpEsc(pend.newNo)+' waits for the COO</a>';
+  var s=(last?'<span class="muted">'+(last.status==='approved'?'Corrected from ':'Fix refused: ')+bpEsc(last.status==='approved'?last.oldNo:(last.decisionNote||''))+'</span> ':'');
+  return s+(bfxMayRequest()?'<button class="sm ghost" onclick="bfxOpen(\''+_av(lotId)+'\')">Wrong number</button>':''); }
+function btOpenPack(i){
+  var t=_btLast[0]; var g=t&&t.rows[i]; if(!g) return; var f=function(x){ return fmt(Math.round(x*100)/100); };
+  var dcOf={}; t.trucks.forEach(function(x){ x.parts.forEach(function(p){ if(p.lotId){ (dcOf[p.lotId]=dcOf[p.lotId]||[]).push('DC '+x.dc+' '+f(p.kg)); } }); });
+  var h='<div class="sheet-wrap" style="overflow-x:auto"><table class="rbtbl rp-tbl"><thead><tr><th>Packing run</th><th>Packed on</th><th>Packed by</th><th>Mfg</th><th>Expiry</th><th class="num">Packed Kg/L</th><th class="num">Shipped</th><th class="num">In stock</th><th>Taken by</th></tr></thead><tbody>'
+    +g.lots.map(function(l){ return '<tr><td>'+qsEsc(l.id)+'<div style="margin-top:4px;font-size:12px">'+bfxCell(l.id)+'</div></td><td>'+qsEsc(l.date||'—')+'</td><td>'+qsEsc(l.by||'—')+'</td><td>'+qsEsc(l.mfg||'—')+'</td><td>'+qsEsc(l.exp||'—')+'</td><td class="num">'+f(l.kg)+'</td><td class="num">'+f(l.shipped)+'</td><td class="num">'+f(l.kg-l.shipped)+'</td><td class="rpwrap">'+qsEsc((dcOf[l.id]||[]).join(', ')||'—')+'</td></tr>'; }).join('')
+    +'<tr style="font-weight:700"><td colspan="5">'+g.lots.length+' packing run'+(g.lots.length===1?'':'s')+' make the total</td><td class="num">'+f(g.kg)+'</td><td class="num">'+f(g.shipped)+'</td><td class="num">'+f(g.kg-g.shipped)+'</td><td></td></tr></tbody></table></div>'
+    +'<div class="note" style="margin-top:10px">A packing run is one packing entry by the packing team. The runs above, added together, are the packed quantity of this brand batch.</div>';
+  btShow(btSheet('Brand batch '+g.brandNo+' · '+g.brand,'Batch '+qsEsc(t.b.batchNo)+' · PO '+qsEsc(g.po||'—')+' · '+qsEsc(g.client||'')+' · '+f(g.kg)+' Kg/L',h));
+}
+function btOpenTruck(i){
+  var t=_btLast[0]; var x=t&&t.trucks[i]; if(!x) return; var f=function(v){ return fmt(Math.round(v*100)/100); };
+  var others=t.trucks.filter(function(y,j){ return j!==i&&y.dispId===x.dispId&&x.dispId; });
+  var h='<div class="sheet-wrap" style="overflow-x:auto"><table class="rbtbl rp-tbl"><thead><tr><th>Packing run</th><th>Packed on</th><th>Mfg</th><th class="num">Kg/L taken on this DC</th></tr></thead><tbody>'
+    +x.parts.map(function(p){ return '<tr><td>'+qsEsc(p.lotId||'older record, no lot link')+'</td><td>'+qsEsc(p.date||'—')+'</td><td>'+qsEsc(p.mfg||'—')+'</td><td class="num">'+f(p.kg)+'</td></tr>'; }).join('')
+    +'<tr style="font-weight:700"><td colspan="3">Brand batch '+qsEsc(x.brandNo)+' on DC '+qsEsc(x.dc)+'</td><td class="num">'+f(x.kg)+'</td></tr></tbody></table></div>'
+    +'<div class="note" style="margin-top:10px">When a truck is planned, its quantity is taken from packing runs, oldest first. Each line above is how much one packing run gave this truck.'
+    +(others.length?' This truck also took '+others.map(function(y){ return f(y.kg)+' of '+qsEsc(y.brandNo); }).join(' and ')+' from this batch.':'')
+    +(x.dcAll&&x.dcAll>x.kg+0.5?' The whole truck carried '+f(x.dcAll)+' Kg/L, with products and batches other than this row.':'')+'</div>';
+  btShow(btSheet('DC '+x.dc+' · '+(x.vehicle||''),qsEsc(x.date||'')+' · PO '+qsEsc(x.po||'—')+' · '+qsEsc(x.client||''),h));
+}
 function batchTraceHTML(t){
-  var b=t.b, f=function(x){ return fmt(Math.round(x*100)/100); };
+  var b=t.b, f=function(x){ return fmt(Math.round(x*100)/100); }; _btLast=[t];
   var ok=function(good,txt){ return '<div style="margin:3px 0;color:'+(good?'var(--green2)':'var(--red)')+'">'+(good?'&#10003; ':'&#10007; ')+txt+'</div>'; };
   var step=function(l,v,note,bold){ return '<tr><td'+(bold?' style="font-weight:700"':'')+'>'+l+'</td><td class="num"'+(bold?' style="font-weight:700"':'')+'>'+(v==null?'':f(v))+'</td><td class="muted">'+(note||'')+'</td></tr>'; };
+  var click='cursor:pointer';
   var h='<div class="rp-sum"><b>'+qsEsc(b.batchNo)+'</b> · '+qsEsc(b.brand||b.base||'')+' · '+qsEsc(b.status||'')+(b.closedDate?' '+qsEsc(b.closedDate):'')+(b.po?' · PO '+qsEsc(b.po):'')+'</div>';
   h+='<h3 class="rp-h3">Where the quantity went (Kg/L)</h3><div class="sheet-wrap" style="overflow-x:auto"><table class="rbtbl rp-tbl"><tbody>'
     +step('Planned',t.planned,'')
@@ -19032,14 +19205,14 @@ function batchTraceHTML(t){
     +(t.rw>0?step('Rework',t.rw,'back into production'):'')
     +(t.kept>0?step('Kept as bulk stock',t.kept,'stays on this batch, packable later'):'')
     +'<tr style="font-weight:700"><td>Not accounted for</td><td class="num" style="color:'+(Math.abs(t.unacc)<=0.5?'var(--green2)':'var(--red)')+'">'+f(t.unacc)+'</td><td class="muted">produced − packed − loss and leftovers</td></tr></tbody></table></div>';
-  h+='<h3 class="rp-h3">Packed into</h3><div class="sheet-wrap" style="overflow-x:auto"><table class="rbtbl rp-tbl"><thead><tr><th>Brand</th><th>Brand batch (on the bag)</th><th>PO</th><th>Customer</th><th>Packed</th><th class="num">Packed Kg/L</th><th class="num">Shipped</th><th class="num">In stock</th></tr></thead><tbody>'
-    +(t.rows.length?t.rows.map(function(g){ return '<tr><td class="rpwrap">'+qsEsc(g.brand)+'</td><td>'+qsEsc(g.brandNo)+'</td><td>'+qsEsc(g.po||'—')+'</td><td class="rpwrap">'+qsEsc(g.client||'—')+'</td><td>'+qsEsc(g.first===g.last||!g.last?(g.first||'—'):(g.first+' to '+g.last))+'</td><td class="num">'+f(g.kg)+'</td><td class="num">'+f(g.shipped)+'</td><td class="num">'+f(g.kg-g.shipped)+'</td></tr>'; }).join('')
-      +'<tr style="font-weight:700"><td colspan="5">Total</td><td class="num">'+f(t.packed)+'</td><td class="num">'+f(t.shipped)+'</td><td class="num">'+f(t.inStock)+'</td></tr>'
-      :'<tr><td colspan="8" class="muted">Nothing packed from this batch yet.</td></tr>')+'</tbody></table></div>';
-  h+='<h3 class="rp-h3">Trucks</h3><div class="sheet-wrap" style="overflow-x:auto"><table class="rbtbl rp-tbl"><thead><tr><th>Date</th><th>DC</th><th>PO</th><th>Customer</th><th>Brand batch</th><th>Vehicle</th><th class="num">Kg/L</th></tr></thead><tbody>'
-    +(t.trucks.length?t.trucks.map(function(x){ return '<tr><td>'+qsEsc(x.date||'—')+'</td><td>'+(x.dc&&x.dispId?'<a class="psi-link" style="cursor:pointer;font-weight:700;color:var(--navy);text-decoration:underline" title="Open the delivery challan, ready to print" onclick="printDC(\''+qsEsc(x.dispId)+'\')">'+qsEsc(x.dc)+'</a>':qsEsc(x.dc||'—'))+'</td><td>'+qsEsc(x.po||'—')+'</td><td class="rpwrap">'+qsEsc(x.client||'—')+'</td><td>'+qsEsc(x.brandNo||'—')+'</td><td>'+qsEsc(x.vehicle||'—')+'</td><td class="num">'+f(x.kg)+'</td></tr>'; }).join('')
-      +'<tr style="font-weight:700"><td colspan="6">Total on trucks</td><td class="num">'+f(t.dcKg)+'</td></tr>'
-      :'<tr><td colspan="7" class="muted">No truck has carried this batch yet.</td></tr>')+'</tbody></table></div>';
+  h+='<h3 class="rp-h3">Packed into <span class="muted" style="font-weight:400;font-size:12px">· one row per brand batch; tap a row to see the packing runs that make its total</span></h3><div class="sheet-wrap" style="overflow-x:auto"><table class="rbtbl rp-tbl"><thead><tr><th>Brand</th><th>Brand batch (on the bag)</th><th>PO</th><th>Customer</th><th>Packed</th><th class="num">Packing runs</th><th class="num">Packed Kg/L</th><th class="num">Shipped</th><th class="num">In stock</th></tr></thead><tbody>'
+    +(t.rows.length?t.rows.map(function(g,i){ return '<tr style="'+click+'" title="Show the packing runs" onclick="btOpenPack('+i+')"><td class="rpwrap">'+qsEsc(g.brand)+'</td><td><b style="text-decoration:underline">'+qsEsc(g.brandNo)+'</b></td><td>'+qsEsc(g.po||'—')+'</td><td class="rpwrap">'+qsEsc(g.client||'—')+'</td><td>'+qsEsc(g.first===g.last||!g.last?(g.first||'—'):(g.first+' to '+g.last))+'</td><td class="num">'+g.n+'</td><td class="num">'+f(g.kg)+'</td><td class="num">'+f(g.shipped)+'</td><td class="num">'+f(g.kg-g.shipped)+'</td></tr>'; }).join('')
+      +'<tr style="font-weight:700"><td colspan="6">Total</td><td class="num">'+f(t.packed)+'</td><td class="num">'+f(t.shipped)+'</td><td class="num">'+f(t.inStock)+'</td></tr>'
+      :'<tr><td colspan="9" class="muted">Nothing packed from this batch yet.</td></tr>')+'</tbody></table></div>';
+  h+='<h3 class="rp-h3">Trucks <span class="muted" style="font-weight:400;font-size:12px">· one row per DC and brand batch; Kg/L is what that truck took from this batch; tap a row to see which packing runs it took from</span></h3><div class="sheet-wrap" style="overflow-x:auto"><table class="rbtbl rp-tbl"><thead><tr><th>Date</th><th>DC</th><th>PO</th><th>Customer</th><th>Brand batch</th><th>Vehicle</th><th class="num">Packing runs</th><th class="num">Kg/L from this batch</th></tr></thead><tbody>'
+    +(t.trucks.length?t.trucks.map(function(x,i){ return '<tr style="'+click+'" title="Show the packing runs this truck took from" onclick="btOpenTruck('+i+')"><td>'+qsEsc(x.date||'—')+'</td><td>'+(x.dc&&x.dispId?'<a class="psi-link" style="cursor:pointer;font-weight:700;color:var(--navy);text-decoration:underline" title="Open the delivery challan, ready to print" onclick="event.stopPropagation();printDC(\''+qsEsc(x.dispId)+'\')">'+qsEsc(x.dc)+'</a>':qsEsc(x.dc||'—'))+'</td><td>'+qsEsc(x.po||'—')+'</td><td class="rpwrap">'+qsEsc(x.client||'—')+'</td><td>'+qsEsc(x.brandNo||'—')+'</td><td>'+qsEsc(x.vehicle||'—')+'</td><td class="num">'+x.parts.length+'</td><td class="num">'+f(x.kg)+'</td></tr>'; }).join('')
+      +'<tr style="font-weight:700"><td colspan="7">Total on trucks</td><td class="num">'+f(t.dcKg)+'</td></tr>'
+      :'<tr><td colspan="8" class="muted">No truck has carried this batch yet.</td></tr>')+'</tbody></table></div>';
   h+='<h3 class="rp-h3">Checks</h3><div style="font-size:13px">'
     +ok(Math.abs(t.unacc)<=0.5,'Produced '+f(t.produced)+' = packed '+f(t.packed)+' + loss and leftovers '+f(t.disp+t.kept)+(Math.abs(t.unacc)<=0.5?'':' — '+f(Math.abs(t.unacc))+' Kg/L '+(t.unacc>0?'not accounted for':'more than produced')))
     +ok(Math.abs(t.packed-(+b.packedKg||0))<=0.5,'Packing records add to '+f(t.packed)+'; the batch itself says packed '+f(+b.packedKg||0))

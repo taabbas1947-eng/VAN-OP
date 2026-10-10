@@ -4,10 +4,11 @@ const H = require('./harness.js');
 const vm = require('vm');
 const { ok, eq, report, grab, html } = H;
 
-const sb = { console, fmt: x => String(Math.round(x)).replace(/\B(?=(\d{3})+(?!\d))/g, ','), qsEsc: x => String(x == null ? '' : x),
+const modal = { innerHTML: '', classList: { add() {}, remove() {} } };
+const sb = { console, hardRole: r => sb.state.role === 'COO' || r.includes(sb.state.role), $: id => id === 'modal' ? modal : { classList: { add() {}, remove() {} } }, fmt: x => String(Math.round(x)).replace(/\B(?=(\d{3})+(?!\d))/g, ','), qsEsc: x => String(x == null ? '' : x),
   state: {} };
 vm.createContext(sb);
-vm.runInContext(['lotBaseNo', 'lotBrandNo', 'btBatches', 'batchTrace', 'batchTraceHTML', 'rpBatchTraceHTML'].map(grab).join('\n') + '\nvar rpBt="";', sb);
+vm.runInContext(['lotBaseNo', 'lotBrandNo', 'btBatches', 'batchTrace', 'btShow', 'btSheet', 'btOpenPack', 'bfxCell', 'bfxMayRequest', 'bfxPending', 'bfxFor', 'bpEsc', '_av', 'btOpenTruck', 'batchTraceHTML', 'rpBatchTraceHTML'].map(grab).join('\n') + '\nvar rpBt="";', sb);
 
 /* HG26036: 40,000 planned, produced, packed into 3 brand batches on 2 POs, 1,000 reconciled as loss, 500 as by-product, closed */
 sb.state = {
@@ -45,6 +46,23 @@ ok('every DC is a link that prints it', /printDC\('D1'\)/.test(out) && /printDC\
 ok('all checks pass: no red cross', !/&#10007;/.test(out));
 ok('the older-truck note shows', /older than lot links/.test(out));
 /* a batch that does not add up is shown in red, not hidden */
+/* Majid, 10 Oct: a truck row is one DC and brand batch; a brand batch row opens its packing runs */
+sb.state.packingLog.push({ id: 'K6', baseBatchId: 'B1', brand: 'Germinator Pro', brandBatchNo: 'GPH26002', po: 'P-1', lid: 'L1', kg: 100, shipKg: 100, date: '2026-09-06' }, { id: 'K7', baseBatchId: 'B1', brand: 'Germinator Pro', brandBatchNo: 'GPH26002', po: 'P-1', lid: 'L1', kg: 50, shipKg: 50, date: '2026-09-07' });
+sb.state.shipments.push({ dispId: 'D5', dc: '200', dispatch: '2026-09-30', po: 'P-1', vehicle: 'TLZ-9', kg: 150, batches: [{ lotId: 'K6', brand: 'GPH26002', kg: 100 }, { lotId: 'K7', brand: 'GPH26002', kg: 50 }] },
+  { dispId: 'D5', dc: '200', dispatch: '2026-09-30', po: 'P-1', vehicle: 'TLZ-9', kg: 400, batches: [{ lotId: 'K9', brand: 'OTHER', kg: 400 }] });
+let t2 = sb.batchTrace(sb.state.batches[0]);
+const d5 = t2.trucks.filter(x => x.dc === '200');
+eq('one DC, one brand batch, 2 packing runs: ONE row, 150 Kg, 2 parts', d5.length + '/' + d5[0].kg + '/' + d5[0].parts.length, '1/150/2');
+eq('the whole truck total is known (150 here + another product 400)', d5[0].dcAll, 550);
+sb.batchTraceHTML(t2); sb.btOpenTruck(t2.trucks.indexOf(d5[0]));
+ok('the truck drawer lists each packing run with its Kg and the total', /K6/.test(modal.innerHTML) && /K7/.test(modal.innerHTML) && /DC 200/.test(modal.innerHTML) && /whole truck carried 550/.test(modal.innerHTML));
+sb.batchTraceHTML(t2);
+const gi = t2.rows.findIndex(g => g.brandNo === 'GPH26002');
+sb.btOpenPack(gi);
+ok('the brand batch drawer lists every packing run (K1, K2, K6, K7) and the total 23,150', ['K1', 'K2', 'K6', 'K7'].every(k => modal.innerHTML.indexOf(k) > -1) && /4 packing runs make the total/.test(modal.innerHTML) && /23,150/.test(modal.innerHTML));
+ok('and which DC took each run', /DC 101 15,000/.test(modal.innerHTML) && /DC 200 100/.test(modal.innerHTML));
+ok('rows are tappable', /onclick="btOpenPack\(0\)"/.test(sb.batchTraceHTML(t2)) && /onclick="btOpenTruck\(0\)"/.test(sb.batchTraceHTML(t2)));
+sb.state.packingLog.splice(-2); sb.state.shipments.splice(-2);
 sb.state.batches[0].packedKg = 40000; sb.state.batches[0].disposedKg = 0;
 out = sb.batchTraceHTML(sb.batchTrace(sb.state.batches[0]));
 ok('unaccounted 1,500 and a packed-figure mismatch are both flagged', (out.match(/&#10007;/g) || []).length >= 2 && /1,500 Kg\/L not accounted for/.test(out));

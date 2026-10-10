@@ -6421,3 +6421,9 @@ Files: apps/o2s/o2s.html, tests/batchfix.test.js (new, 35), tests/batchtrace.tes
 - NOT done: reprinting DCs already issued (the screen says to reprint); the inspection report PDF already issued is not changed. I assumed Majid = Production Manager: not verified in the app's user list.
 - Checked: tests above; rendered in headless Chromium on a fixture shaped like live HG26036: after approval 2 brand batches (JE001 26,672 Kg), all 4 checks green. NOT checked on live data. To fix the live record: push, sign in as Majid, ask; sign in as COO, approve.
 - Correction to the line above: o2s.html names Abdul Majid as the Production Manager (comment at the role list), so Majid can ask. Verified in code, not in the live user list.
+
+## 10 Oct 2026 — Batch trace: one correction control (MODULE: O2S) — NOT PUSHED
+Files: apps/o2s/o2s.html, tests/batchfix.test.js (36), tests/guide.test.js, tests/batchtrace.test.js. Build 2026-10-10e.
+- 10d went live. Tahir saw "Wrong number" on every packing run of VAN6JE001, which read as if all 5 runs were wrong. Replaced with one picker under the packing runs table (select the run, "Ask for a correction"). A run with a request waiting still shows that against the run. bfxPicker.
+- Live check of 10d (read only, signed in as COO): BUILD_ID 2026-10-10d, 3 brand batches on HG26036 (JE001 25,040; IE002 13,328; JW001 1,632), no request raised yet.
+- Security: S-08 added to docs/SECURITY-REGISTER.md (npm audit: 6 advisories, `npm audit fix` clears them). Not fixed; PLATFORM work.

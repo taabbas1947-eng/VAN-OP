@@ -72,4 +72,5 @@ ok('stale request is not applied', toasts.some(t => /no longer/.test(t)) && sb.s
 /* wiring */
 ok('the action list carries the job and a distinct key', /bfxJobs\(\)\.forEach/.test(html) && /if\(it\.bfx\)p\.push/.test(html));
 ok('the Batch trace drawer has the fix button', /bfxCell\(l\.id\)/.test(html));
+ok('no button on every run: one picker under the table', !/>Wrong number<\/button>/.test(html) && /function bfxPicker/.test(html) && /\+bfxPicker\(g\)/.test(html));
 report();

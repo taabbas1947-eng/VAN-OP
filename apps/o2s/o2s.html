@@ -11,7 +11,7 @@
    a push keeps running the old code with nothing telling anybody. It sat at
    2026-09-04a through this whole day's work; rmqty/psi tests pinned the code,
    nothing pinned this. buildid.test.js now does. */
-var BUILD_ID='2026-10-10d';
+var BUILD_ID='2026-10-10e';
 var CHANGELOG=[
   {ver:'2026-09-04a', date:'2026-09-04', title:"Delivery, DC printing, and a new Reconciliation check", items:[
     "Delivery confirmation stays with Supply Chain \u2014 it no longer hands off to the Plant Manager. If one sits too long, it now re-flags the same Supply Chain owner every 3 days instead.",
@@ -538,6 +538,9 @@ var CHANGELOG=[
     "The request waits in the COO's action list (Approve batch fix). He sees what will follow: the DC lines and inspection lines of that run, and whether it joins an existing brand batch. He approves or refuses with a note.",
     "On approval the number changes on the packing run, on the DC batch lines and on the inspection batch lines of that run only, and the old number is kept in the Corrections register. DC papers already printed still show the old number and need a reprint.",
     "If the bags carry the number now in the record, the request is refused: the record is right, so quarantine and re-label the bags. The rule that blocks editing a batch number after shipment is unchanged."
+  ]},
+  {ver:'2026-10-10e', date:'2026-10-10', title:"Batch trace: one correction control, not a button on every run", items:[
+    "The Wrong number button was repeated on every packing run, which read as if every run was wrong. It is now one control under the packing runs table: pick the run, then Ask for a correction. A run with a request waiting shows that against the run."
   ]}
 ];
 </script>
@@ -15091,7 +15094,7 @@ function guideRules(){
   '<div class="gd-rule"><h3>A number moves only with its record</h3><p>Packed moves with a packing run from a batch, dispatched with a truck, delivered with a delivery. None of them can be typed, and nothing can be packed beyond what the line ordered. When a line and its records disagree, open the line (Orders → the order → <b>History</b>, or the item on Back Office <b>Needs you</b>): it shows what is wrong, the line’s whole history, what the records show as the cause, and the fix — record the missing packing against its batch, bring packed back to its records, or stamp a delivery date from the truck — each with a reason in your name.</p></div>'+
   '<div class="gd-rule"><h3>The price on a new order</h3><p>Every price is checked against the last price this customer paid for the product, net of FED; for a first order, against the last price to anyone. More than 5% away needs a reason, written under the price, and it is kept on the order line with the last price it was compared with. Payment terms and the ERP SO # are part of every order; the SO # prints on the DC.</p></div>'+
   '<div class="gd-rule"><h3>See it before you sign it; every no has a way back</h3><p>Every approval opens the record first: the PO before it is acknowledged, the purchase request before the CFO approves it, the new customer before the CFO approves it, the truck with its DC and gate pass before it is reviewed or released, the report before it is reviewed or approved. The Open buttons on the Plant screen open the same sheet. Every refusal or send-back needs a reason, stays on the record, and lands on the Today of the person who must act: the PO goes back to whoever entered it, the purchase request to Supply Chain, the customer to whoever entered it, the truck to whoever issued the gate pass, the report one step down the chain, a refused close to whoever asked, a rejected DC or a truck that fails inspection to Supply Chain, a sample not approved to whoever asked, an UNFIT lot sent to rework to Production, a lot on QA hold to the Production Manager. They fix it and send it on, or drop it; nothing waits without an owner.</p></div>'+
-  '<div class="gd-rule"><h3>A wrong batch number</h3><p>A batch number is printed on the bag, so it cannot be edited once the run is inspected or shipped. If the <b>bags are right</b> and the record has a typing mistake, open Reports → Production → <b>Batch trace</b>, tap the brand batch row, and tap <b>Wrong number</b> on the packing run. Enter the correct number, say what is printed on the bags, and give the reason. The COO approves it from his action list, and the DC and inspection lines of that run follow. If the <b>bags are wrong</b>, do not correct the record: quarantine and re-label the bags.</p></div>'+
+  '<div class="gd-rule"><h3>A wrong batch number</h3><p>A batch number is printed on the bag, so it cannot be edited once the run is inspected or shipped. If the <b>bags are right</b> and the record has a typing mistake, open Reports → Production → <b>Batch trace</b>, tap the brand batch row, and use <b>Ask for a correction</b> under the table: pick the packing run, enter the correct number, say what is printed on the bags, and give the reason. The COO approves it from his action list, and the DC and inspection lines of that run follow. If the <b>bags are wrong</b>, do not correct the record: quarantine and re-label the bags.</p></div>'+
   '<div class="gd-rule"><h3>N/A on an inspection</h3><p>When an item on the inspection form does not apply, QA marks <b>N/A</b>. It counts as a pass. It is offered only on <b>Pallet / loading condition</b> and <b>Price on the pack</b>, and it needs a reason in Remarks. Batch, expiry, seal, cleanliness, weight and the other checks are Pass or Fail only.</p></div>'+
   '<div class="gd-rule"><h3>The pre-shipment report</h3><p>No truck is released without a passed inspection. Where the bags carry the list price, the inspector writes the price read off the bag, and on a truck with 2 or more such products, the price for each product. Every report is in Reports → Pre-shipment inspections, for everyone to find and print. A customer marked “Send the pre-shipment report with the DC” gets it attached to the challan.</p></div>'+
   '<div class="gd-rule"><h3>What a sale is</h3><p>A sale is counted the day the truck leaves the gate, at quantity × invoice price, net of FED. FED is the sales tax: on an order quoted FED-inclusive the price is divided by 1.05. Every money figure in the app — Sales & Budget, the reports, the PO register — uses this one rule.</p></div>';
@@ -19166,14 +19169,22 @@ function bfxCell(lotId){
   var pend=bfxPending(lotId), last=bfxFor(lotId).find(function(r){ return r.status!=='pending'; });
   if(pend) return '<a href="#" onclick="bfxReview(\''+_av(pend.id)+'\');return false">Fix to '+bpEsc(pend.newNo)+' waits for the COO</a>';
   var s=(last?'<span class="muted">'+(last.status==='approved'?'Corrected from ':'Fix refused: ')+bpEsc(last.status==='approved'?last.oldNo:(last.decisionNote||''))+'</span> ':'');
-  return s+(bfxMayRequest()?'<button class="sm ghost" onclick="bfxOpen(\''+_av(lotId)+'\')">Wrong number</button>':''); }
+  return s; }
+/* one control under the table, not a button on every row: a button on each run read as "all of these are wrong" (Tahir, 10 Oct 2026) */
+function bfxPicker(g){
+  if(!bfxMayRequest()) return '';
+  var opts=g.lots.filter(function(l){ return !bfxPending(l.id); });
+  if(!opts.length) return '';
+  return '<div style="margin-top:12px;padding:10px 12px;border:1px dashed var(--qline);border-radius:8px"><div class="muted" style="font-size:12px;margin-bottom:6px">Was the batch number typed wrong on one of these runs? Use this only when the bags carry the right number. Pick the run and ask the COO to correct it.</div>'
+    +'<select id="bfxPick" style="max-width:260px">'+opts.map(function(l){ return '<option value="'+_av(l.id)+'">'+qsEsc(l.id)+' · '+fmt(Math.round(l.kg))+' Kg</option>'; }).join('')+'</select> '
+    +'<button class="sm ghost" onclick="bfxOpen(document.getElementById(\'bfxPick\').value)">Ask for a correction</button></div>'; }
 function btOpenPack(i){
   var t=_btLast[0]; var g=t&&t.rows[i]; if(!g) return; var f=function(x){ return fmt(Math.round(x*100)/100); };
   var dcOf={}; t.trucks.forEach(function(x){ x.parts.forEach(function(p){ if(p.lotId){ (dcOf[p.lotId]=dcOf[p.lotId]||[]).push('DC '+x.dc+' '+f(p.kg)); } }); });
   var h='<div class="sheet-wrap" style="overflow-x:auto"><table class="rbtbl rp-tbl"><thead><tr><th>Packing run</th><th>Packed on</th><th>Packed by</th><th>Mfg</th><th>Expiry</th><th class="num">Packed Kg/L</th><th class="num">Shipped</th><th class="num">In stock</th><th>Taken by</th></tr></thead><tbody>'
     +g.lots.map(function(l){ return '<tr><td>'+qsEsc(l.id)+'<div style="margin-top:4px;font-size:12px">'+bfxCell(l.id)+'</div></td><td>'+qsEsc(l.date||'—')+'</td><td>'+qsEsc(l.by||'—')+'</td><td>'+qsEsc(l.mfg||'—')+'</td><td>'+qsEsc(l.exp||'—')+'</td><td class="num">'+f(l.kg)+'</td><td class="num">'+f(l.shipped)+'</td><td class="num">'+f(l.kg-l.shipped)+'</td><td class="rpwrap">'+qsEsc((dcOf[l.id]||[]).join(', ')||'—')+'</td></tr>'; }).join('')
     +'<tr style="font-weight:700"><td colspan="5">'+g.lots.length+' packing run'+(g.lots.length===1?'':'s')+' make the total</td><td class="num">'+f(g.kg)+'</td><td class="num">'+f(g.shipped)+'</td><td class="num">'+f(g.kg-g.shipped)+'</td><td></td></tr></tbody></table></div>'
-    +'<div class="note" style="margin-top:10px">A packing run is one packing entry by the packing team. The runs above, added together, are the packed quantity of this brand batch.</div>';
+    +'<div class="note" style="margin-top:10px">A packing run is one packing entry by the packing team. The runs above, added together, are the packed quantity of this brand batch.</div>'+bfxPicker(g);
   btShow(btSheet('Brand batch '+g.brandNo+' · '+g.brand,'Batch '+qsEsc(t.b.batchNo)+' · PO '+qsEsc(g.po||'—')+' · '+qsEsc(g.client||'')+' · '+f(g.kg)+' Kg/L',h));
 }
 function btOpenTruck(i){

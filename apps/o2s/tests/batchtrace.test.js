@@ -8,7 +8,7 @@ const modal = { innerHTML: '', classList: { add() {}, remove() {} } };
 const sb = { console, hardRole: r => sb.state.role === 'COO' || r.includes(sb.state.role), $: id => id === 'modal' ? modal : { classList: { add() {}, remove() {} } }, fmt: x => String(Math.round(x)).replace(/\B(?=(\d{3})+(?!\d))/g, ','), qsEsc: x => String(x == null ? '' : x),
   state: {} };
 vm.createContext(sb);
-vm.runInContext(['lotBaseNo', 'lotBrandNo', 'btBatches', 'batchTrace', 'btShow', 'btSheet', 'btOpenPack', 'bfxCell', 'bfxMayRequest', 'bfxPending', 'bfxFor', 'bpEsc', '_av', 'btOpenTruck', 'batchTraceHTML', 'rpBatchTraceHTML'].map(grab).join('\n') + '\nvar rpBt="";', sb);
+vm.runInContext(['lotBaseNo', 'lotBrandNo', 'btBatches', 'batchTrace', 'btShow', 'btSheet', 'btOpenPack', 'bfxCell', 'bfxPicker', 'bfxMayRequest', 'bfxPending', 'bfxFor', 'bpEsc', '_av', 'btOpenTruck', 'batchTraceHTML', 'rpBatchTraceHTML'].map(grab).join('\n') + '\nvar rpBt="";', sb);
 
 /* HG26036: 40,000 planned, produced, packed into 3 brand batches on 2 POs, 1,000 reconciled as loss, 500 as by-product, closed */
 sb.state = {

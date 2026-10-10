@@ -157,6 +157,24 @@ because a copy taken while it was public cannot be recalled.
 
 ---
 
+### S-08 · Render reports 6 vulnerable packages (1 critical, 1 high, 4 moderate) · MODULE: PLATFORM
+**Severity: moderate in practice · Confirmed with `npm audit` · Raised 2026-10-10**
+
+`npm audit` on the repository lists 6 advisories, all in the server's dependencies. `npm audit fix` clears all of them without a major version change.
+
+| Package | Severity | What the advisory says | Does it reach VAN Systems? |
+|---|---|---|---|
+| proxy-addr | critical | IP spoofing through an IPv4-mapped IPv6 trusted subnet | Probably not today: `server.js` does not set `trust proxy` and does not read `req.ip`. Not checked in the apps' own server code. |
+| compression | high | memory leak when a response closes early, a denial of service | Yes if the middleware is mounted. `package.json` lists it. |
+| body-parser, qs, express | moderate | denial of service through crafted request bodies and query strings | Yes: `express.json` is used, with a 25 MB limit. |
+| mysql2 | moderate | decompression bomb in the compressed MySQL protocol | Only if compression is switched on for the database connection. Not checked. |
+
+**What it lets an attacker do.** Mostly make the server slow or crash (denial of service) with crafted requests. No advisory here exposes data by itself.
+
+**Suggested handling (for the security department).** Run `npm audit fix`, commit `package.json` and `package-lock.json`, deploy, and confirm sign-in, `/o2s` and `/api/state` still work. Raised while working in O2S. Not fixed, because dependency changes are PLATFORM work (CLAUDE.md §2A).
+
+---
+
 ## Closed items
 
 _None yet._
@@ -171,3 +189,4 @@ _None yet._
 | 2026-09-23 | S-05 raised from O2S: the Report Builder's finance dataset is not role-gated. |
 | 2026-09-27 | S-06 raised from PLATFORM: a full database backup with password hashes is committed (`van_platform.sql`). |
 | 2026-10-07 | S-07 raised while starting Nigehbaan: the VAN-OP repository on GitHub is public. |
+| 2026-10-10 | S-08 raised from O2S: Render's npm audit shows 6 vulnerable packages; `npm audit fix` clears them. |

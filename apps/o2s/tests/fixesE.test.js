@@ -103,6 +103,6 @@ ok('E9: an average counts only rows with the value', sb._avgN([{ d: 2 }, { d: nu
   const f68 = sb.lineOverUsed(o68, o68.lines[0]), f99 = sb.lineOverUsed(o99, o99.lines[0]), f67 = sb.lineOverUsed(o67, o67.lines[0]);
   ok('R4 (a): 2 moves of one run at the same moment are flagged on the PO it left and on both POs it went to, not repaired', f68.length === 1 && f99.length === 1 && f67.length === 1 && /4,000 was moved out of it but it records 3,000/.test(f68[0]) && /may not exist/.test(f99[0]), JSON.stringify([f68, f99, f67]));
   ok('R4 (a): an ordinary single move flags nothing', sb.lineOverUsed(A.orders.find(o => o.po === '22867'), A.orders.find(o => o.po === '22867').lines[0]).length === 0 || (sb.state = A, vm.runInContext('state=this.state', sb), sb.lineOverUsed(A.orders.find(o => o.po === '22867'), A.orders.find(o => o.po === '22867').lines[0]).length === 0)); }
-ok('BUILD_ID is 07i', /var BUILD_ID='2026-10-07i'/.test(H.html));
+ok('BUILD_ID is 07i or later', /var BUILD_ID='(2026-10-07[i-z]|2026-10-(0[89]|[1-3][0-9])[a-z])'/.test(H.html));
 process.exitCode = report('07i: the 4 reviewers\' findings fixed') ? 1 : 0;
 })();

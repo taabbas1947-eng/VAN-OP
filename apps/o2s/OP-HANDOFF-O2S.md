@@ -6383,3 +6383,14 @@ Reviewed in 4 rounds by independent code, data-safety, design and workflow revie
 2. Decide with Tahir (multiple choice): server change with Ahmer (option 1 or 2) / build the "settle 2 moves" tool for the COO / Guide My job notes for the new jobs / RM Check "total" wording on the sheet itself.
 3. Review scripts from 7 Oct (scratch, may be gone): earlier reviewers' simulations used the real merge3 on the 22867/22868/22999 fixture in tests/stockmove.test.js and tests/fixesE.test.js — reuse those fixtures.
 4. Email/Outlook work started and stopped on 7 Oct at Tahir's request (no connector to be used); not O2S.
+
+
+## 10 Oct 2026 — Batch trace report (MODULE: O2S) — NOT PUSHED
+
+Cause: the Production Manager said reporting is weak and no single chain exists to track and reconcile. His example: potassium humate HG26036, 40,000 Kg planned, produced, packed and closed; in which brands was it packed? Every link existed (packing lot `baseBatchId`, shipment batch row `lotId`, `packReconcile`) but no screen joined them. Tahir chose (multiple choice): one Batch trace report; batch to brands and trucks only; Reports → Production, same roles as Batches and wastage.
+- New report `batchtrace` (kind 'batchtrace', own view like One customer, in the Production group, read-only). Functions btBatches / batchTrace / batchTraceHTML / rpBatchTraceHTML, placed before screenReports. Type or pick a batch number (case does not matter; close matches offered).
+- Shows: planned, produced, packed into brands (brand, brand batch on the bag, PO, customer, dates, packed, shipped, in stock), trucks (DC opens the challan), loss / by-product / diverted / rework / kept as bulk, and "not accounted for". 4 checks go red when records disagree (produced vs packed + leftovers; packing records vs batch packedKg; trucks vs lot shipKg; reconciliation vs disposedKg).
+- Reversed and void packing lots are left out. Old truck rows with no lotId are matched by PO and batch number and counted in a note.
+- Not built, on purpose: brand batch back to base batches, PO back to batches, Print/CSV, and how a by-product pool is later called into a new batch.
+- Guide: Rules "Where a batch went"; Production Manager My job note. BUILD_ID 2026-10-10a, changelog. New test batchtrace.test.js (23, on a fixture of the HG26036 shape). shell.test COO count 21; fixesD/fixesE BUILD_ID pins now "or later". All O2S tests pass except publicbatch (pdfkit).
+- NOT checked: the page on the live data in a browser (no live data on this PC); rendering was tested through the real functions only. First thing to do after the push: open HG26036 and compare with the Production Manager's expectation.

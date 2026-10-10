@@ -43,5 +43,5 @@ ok('audit: a non-money role on the finance data loses its columns too', /rbDS='p
 ok('audit: the plant clock is fixed PKT', /t\+5\*3600000/.test(grab('localDateOf')) && /t\+5\*3600000/.test(grab('localWhenOf')));
 ok('audit: the Reference chain follows the lab flow and skips Close batch', /labFlowOn\(\)/.test(grab('gdChain')) && /'Open Production'\) return lab\?'Assign sample':'Lab QC'/.test(grab('gdChain')));
 ok('audit: the Guide marks match the chips', /■ waiting 3 d/.test(grab('guideHow')) && !/● due</.test(grab('guideHow')));
-ok('BUILD_ID is 07h or later', /var BUILD_ID='2026-10-07[h-z]'/.test(html));
+ok('BUILD_ID is 07h or later', /var BUILD_ID='(2026-10-07[h-z]|2026-10-(0[89]|[1-3][0-9])[a-z])'/.test(html));
 process.exitCode = report('List D: screens, wording, design (07h)') ? 1 : 0;

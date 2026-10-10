@@ -11,7 +11,7 @@
    a push keeps running the old code with nothing telling anybody. It sat at
    2026-09-04a through this whole day's work; rmqty/psi tests pinned the code,
    nothing pinned this. buildid.test.js now does. */
-var BUILD_ID='2026-10-07i';
+var BUILD_ID='2026-10-10a';
 var CHANGELOG=[
   {ver:'2026-09-04a', date:'2026-09-04', title:"Delivery, DC printing, and a new Reconciliation check", items:[
     "Delivery confirmation stays with Supply Chain \u2014 it no longer hands off to the Plant Manager. If one sits too long, it now re-flags the same Supply Chain owner every 3 days instead.",
@@ -518,6 +518,11 @@ var CHANGELOG=[
     "An escalated job you cannot do says so in words and names the person to chase. The move sheet fits a phone.",
     "Checking the latest records says so on screen, waits for your own save first, and never closes another sheet you have opened meanwhile.",
     "Correction to the 07h note: the pre-shipment report and the inspection log print Kg/L."
+  ]},
+  {ver:'2026-10-10a', date:'2026-10-10', title:"Batch trace: one page from a batch to its brands and trucks", items:[
+    "New: Reports → Production → Batch trace. Type a batch number such as HG26036. It shows planned and produced, then every brand, brand batch number (the one on the bag), PO and customer the batch was packed into, how much of each has shipped, and the trucks (DC numbers open the challan). Loss, by-product, diverted, rework and bulk stock kept are listed, and the page says how much is not accounted for.",
+    "Four checks under it turn red when the records disagree: produced against packed plus leftovers, packing records against the batch's own packed figure, trucks against shipped, and the reconciliation against the disposed figure.",
+    "Nothing is saved or changed by this report. For the Production, Production Manager, Plant Manager, QCM, AQCM, COO and CFO roles, the same as Batches and wastage."
   ]}
 ];
 </script>
@@ -15012,7 +15017,7 @@ function guideMyJob(){
   var _rp='Reports opens on the functions your role has reports in; each holds its reports as tabs. An order’s sheet ends with <b>Papers</b>: the papers of that order your role may print (the PO only for the money roles). ';   /* 07i audit: it said 6 functions and every paper to everyone */
   var _n07={'Supply Chain':_rp+'If packed stock sits on the wrong PO of the same customer, open that order → the product → <b>Move packed stock to another PO</b>, pick the batches and Kg, and write why; the Plant Manager approves it. A product packed in full cannot be asked to close as “We could not supply” or “Raw material never arrived”: pick the reason that fits. New reports: <b>Open orders</b>, <b>One customer</b>, <b>Packed, waiting to ship</b>.',
     'Plant Manager':_rp+'A request to <b>move packed stock</b> between 2 POs of one customer comes to your Today: approve or refuse it with a reason. A close request whose reason the stock contradicts cannot be approved; refuse it so it is asked again. New reports: <b>Lab turnaround</b>, <b>Open orders</b>, <b>Packed, waiting to ship</b>, <b>Stock moved between POs</b>.',
-    'Production Manager':_rp+'New reports: <b>Lab turnaround</b> (how long certificates take), <b>Packing and lot QA</b>. When stock is moved off one of your POs, that PO needs the quantity made again; it shows on Production’s Today.',
+    'Production Manager':_rp+'New reports: <b>Lab turnaround</b> (how long certificates take), <b>Packing and lot QA</b>, and <b>Batch trace</b> (type a batch number: which brands, POs and trucks it went to, and whether it adds up). When stock is moved off one of your POs, that PO needs the quantity made again; it shows on Production’s Today.',
     'Production':_rp+'When packed stock is moved off a PO, that PO needs the quantity made again and it comes back to your Today.',
     'QA Inspector':_rp+'On a truck with 2 or more products on the list price, write the price you read off the bag for <b>each</b> product. In Reports → Lab and QA → Pre-shipment inspections, tap the report number to print it. A truck is judged by the last inspection of each batch before it left. New report: <b>Packing and lot QA</b>. Lateness counts calendar days: an inspection entered the same day is never late.',
     'Warehouse':_rp+'Packed stock moved to another PO of the same customer keeps its batch number; the bags stay where they are and now ship on the new PO.',
@@ -15057,7 +15062,7 @@ function guideRules(){
   h+='<div class="gd-rule"><h3>Roles, not people</h3><p>Rights belong to roles. 2 people can hold one role and sign differently. There are no exceptions for one person — an exception becomes a new role, so it can be seen and given to the next person in that seat.</p></div>';
   h+='<div class="gd-rule"><h3>What is never on a customer document</h3><p>No price on any document the customer sees. The COA carries composition, results and the 3 signatures; the delivery challan carries product, quantity and lot.</p></div>';
   /* 06c: where each paper lives. Every place named here is an existing screen or button. */
-  h+='<div class="gd-rule"><h3>Where to find a copy</h3><p><b>An old order:</b> Plant → <b>All orders</b>, type the PO or customer, tap the order. Its sheet ends with <b>Papers</b>: every paper of that order you are allowed to print, in one place.</p><p>Reports opens on the functions your role has reports in; each holds its reports as tabs.</p><p><b>Purchase order:</b> Reports → Stock and shipping → <b>Documents</b> → Purchase orders. It carries prices, so only the roles that see money can print it.</p><p><b>Delivery challan, gate pass, pre-shipment inspection report:</b> Reports → Stock and shipping → <b>Documents</b> → Delivery challans, gate passes and inspection reports. Search by DC, gate pass, PO, customer or vehicle. Every inspected truck is also under Reports → Lab and QA → <b>Pre-shipment inspections</b>: tap the report number to open it, ready to print or save as PDF.</p><p><b>Lab certificate (COA):</b> Reports → Lab and QA → <b>Lab certificates</b>, then <b>COA</b> on the row. For the lab, QA, the Plant Manager, the CFO and the COO.</p><p><b>Packed-lot QA:</b> Reports → Lab and QA → <b>Packing and lot QA</b>, or the order’s Papers → <b>Inspection log</b>.</p><p><b>Everything about one customer:</b> Reports → Orders and customers → <b>One customer</b>.</p><p><b>Who changed a record:</b> Reports → Checks and corrections → <b>Corrections register</b>, for the COO, the CFO and the Plant Manager.</p></div>';
+  h+='<div class="gd-rule"><h3>Where to find a copy</h3><p><b>An old order:</b> Plant → <b>All orders</b>, type the PO or customer, tap the order. Its sheet ends with <b>Papers</b>: every paper of that order you are allowed to print, in one place.</p><p>Reports opens on the functions your role has reports in; each holds its reports as tabs.</p><p><b>Purchase order:</b> Reports → Stock and shipping → <b>Documents</b> → Purchase orders. It carries prices, so only the roles that see money can print it.</p><p><b>Delivery challan, gate pass, pre-shipment inspection report:</b> Reports → Stock and shipping → <b>Documents</b> → Delivery challans, gate passes and inspection reports. Search by DC, gate pass, PO, customer or vehicle. Every inspected truck is also under Reports → Lab and QA → <b>Pre-shipment inspections</b>: tap the report number to open it, ready to print or save as PDF.</p><p><b>Lab certificate (COA):</b> Reports → Lab and QA → <b>Lab certificates</b>, then <b>COA</b> on the row. For the lab, QA, the Plant Manager, the CFO and the COO.</p><p><b>Packed-lot QA:</b> Reports → Lab and QA → <b>Packing and lot QA</b>, or the order’s Papers → <b>Inspection log</b>.</p><p><b>Everything about one customer:</b> Reports → Orders and customers → <b>One customer</b>.</p><p><b>Where a batch went:</b> Reports → Production → <b>Batch trace</b>. Type the batch number (for example HG26036) to see the brands, brand batch numbers, POs and trucks it was packed and shipped into, what was lost or kept, and whether the figures agree.</p><p><b>Who changed a record:</b> Reports → Checks and corrections → <b>Corrections register</b>, for the COO, the CFO and the Plant Manager.</p></div>';
   return h;
 }
 function guideTabsHTML(){
@@ -18834,6 +18839,7 @@ var RP_CATALOGUE=[
   /* 07b: 5 more, asked for by Tahir on 7 Oct. Each sits in a function group (RP_GROUPS). */
   {id:'openorders', now:true, t:'Open orders', q:'Every order not yet delivered in full, and what is left: by order line, by customer or by product.', ds:'orders', cols:['received','po','client','product','promised','stage','ordered','delivered','balance'], mode:'raw', period:'All', where:function(r){ return (+r.balance||0)>0.5; }, sumKey:'balance', views:[{t:'Each order line'},{t:'By customer',mode:'summary',group:['client'],cols:['client','ordered','delivered','balance']},{t:'By product',mode:'summary',group:['product'],cols:['product','ordered','delivered','balance']}], roles:'all'},
   {id:'customer', t:'One customer', q:'Pick a customer: every order and what is left, every truck and its papers.', kind:'customer', roles:'all'},
+  {id:'batchtrace', t:'Batch trace', q:'Pick a batch: planned, produced, which brands, POs and trucks it went to, what was lost or kept, and whether it adds up.', kind:'batchtrace', roles:['Production','Production Manager','Plant Manager','QCM','AQCM','COO','CFO']},
   {id:'packqa', t:'Packing and lot QA', q:'Every inspection of packed material: batch, quantity, result, inspector.', ds:'packqa', cols:['date','po','client','product','batch','kg','result','by'], mode:'raw', period:'This month', roles:['QA Inspector','Production','Production Manager','Plant Manager','QCM','AQCM','Warehouse','Supply Chain','Supply Chain Officer','COO','CFO']},
   {id:'waiting', now:true, t:'Packed, waiting to ship', q:'Packed and not yet shipped: how much is cleared by QA and ready, how much still waits for QA.', ds:'waiting', cols:['po','client','product','lastpacked','packed','dispatched','waiting','ready','awaitqa'], mode:'raw', period:'All', sumKey:'waiting', views:[{t:'Each order line'},{t:'By customer',mode:'summary',group:['client'],cols:['client','waiting','ready','awaitqa']},{t:'By product',mode:'summary',group:['product'],cols:['product','waiting','ready','awaitqa']}], roles:['Supply Chain','Supply Chain Officer','Warehouse','Production Manager','Plant Manager','QA Inspector','KAM','COO','CFO']},
   {id:'labtat', t:'Lab turnaround', q:'Days from the QC manager handing the sample to the lab to the approved certificate, and how long the open ones have waited. Certificates from the current lab flow only.', ds:'labtat', cols:['received','product','batch','po','approved','status','by','sofar','days'], mode:'raw', period:'This month', avgKey:'days', roles:['Lab Rep','AQCM','QCM','QA Inspector','Plant Manager','Production Manager','COO','CFO']}   /* 07b: Tahir - the Plant and Production Managers see it too */,
@@ -18853,7 +18859,7 @@ function rpOpen(id){
   else if(c.kind==='builder'){ rpTab='builder'; }
   else if(c.kind==='rmpos'){ rpTab='rmchain'; rpRmSel=''; }
   else if(c.kind==='psireg'){ psiRegQ=''; }
-  else if(c.kind==='customer'){ /* 07b: its own view, no builder */ }
+  else if(c.kind==='customer'||c.kind==='batchtrace'){ /* 07b/10 Oct: own view, no builder */ }
   else { rpTab='builder'; rbDS=c.ds; rbCols=c.cols.slice(); rbMode=c.mode||'raw'; rbGroup=(c.group||[]).slice(); rbFilters={}; rbWhere=c.where||null; rpApplyPeriod(c.now?'All':(c.period||'This month')); }   /* 07i audit: a 'right now' report has no period - this month hid the oldest open orders and the oldest stock */
   setScreen('reports');
 }
@@ -18867,7 +18873,7 @@ function rpBack(){ rpView='list'; rpCur=''; rbWhere=null; render(); }
    along the top. Rights are unchanged: rpMay still decides every report. */
 var RP_GROUPS=[
   {id:'orders', t:'Orders and customers', q:'What is open, what is late, one customer at a time, what was closed short.', ids:['openorders','late','customer','shortclose']},
-  {id:'production', t:'Production', q:'What we made, per shift and per batch, and the raw material against the open orders.', ids:['prodshift','batches','rm']},
+  {id:'production', t:'Production', q:'What we made, per shift and per batch, and the raw material against the open orders.', ids:['prodshift','batches','batchtrace','rm']},
   {id:'quality', t:'Lab and QA', q:'Certificates, how long the lab takes, every inspection of packed material and of each truck.', ids:['coa','labtat','packqa','psi']},
   {id:'shipping', t:'Stock and shipping', q:'What is packed and waiting, what left the gate, and every document to reprint.', ids:['waiting','trucks','docs']},
   {id:'money', t:'Sales and invoicing', q:'Sold value against the budget, and what to invoice by delivery challan.', ids:['sales','invoicing']},
@@ -18940,6 +18946,7 @@ function rpReportHTML(){
     +(sib.length>1?'<div class="subnav rp-tabs">'+sib.map(function(x){ return '<button class="qs-btn sm'+(x.id===c.id?' on':'')+'" onclick="rpOpen(\''+x.id+'\')">'+qsEsc(x.t)+'</button>'; }).join('')+'</div>':'')
     +(g?'<h2 class="rp-h2">'+qsEsc(c.t)+'</h2>':'')+'<div class="sub">'+qsEsc(c.q)+'</div>';
   if(c.kind==='customer') return h+rpCustomerHTML()+'</div>';
+  if(c.kind==='batchtrace') return h+rpBatchTraceHTML()+'</div>';
   if(c.kind==='rmpos'){ if(rpView==='rmdetail') return h+'<div class="bo-back" style="margin-top:8px"><button class="qs-btn sm ghost" onclick="rpView=\'report\';render()">‹ All materials</button></div><div class="paperui">'+rpRmChain()+'</div></div>'; return h+rpRmPosition()+'</div>'; }
   /* 06c: the switch sits ABOVE the list. Below a 60vh table nobody saw it, so the
      DC and gate pass looked missing from Documents. */
@@ -18979,6 +18986,75 @@ function rpCustomerHTML(){
   h+='<h3 class="rp-h3">Orders</h3><div class="sheet-wrap" style="overflow-x:auto"><table class="rbtbl rp-tbl"><thead><tr><th>Received</th><th>PO</th><th>Products</th><th class="num">Ordered</th><th class="num">Delivered</th><th class="num">Left</th><th>Order stage</th></tr></thead><tbody>'+(orow||'<tr><td colspan="7" class="muted">No orders.</td></tr>')+'</tbody></table></div>';
   h+='<h3 class="rp-h3">Trucks</h3><div class="sheet-wrap" style="overflow-x:auto"><table class="rbtbl rp-tbl"><thead><tr><th>Date</th><th>DC</th><th>PO</th><th>Products</th><th class="num">Kg/L</th><th>Vehicle</th><th>Stage</th><th></th></tr></thead><tbody>'+(trow||'<tr><td colspan="8" class="muted">No trucks yet.</td></tr>')+'</tbody></table></div>';
   return h;
+}
+/* ===== BATCH TRACE - 10 Oct 2026 =====
+   Production Manager: reporting is weak, there is no single chain to track and
+   reconcile. His example: potassium humate HG26036, 40,000 Kg planned, produced,
+   packed and closed - "in which brands was it packed?". Every link already
+   exists (packing lot -> baseBatchId, shipment batch -> lotId); nothing joined
+   them. Read-only: nothing here writes a record. */
+var rpBt='';
+function btBatches(){ return (state.batches||[]).filter(function(b){ return b&&!b.voided&&!b.pool&&String(b.batchNo||'').trim(); }).sort(function(a,b){ return String(b.openedDate||'').localeCompare(String(a.openedDate||''))||String(b.batchNo).localeCompare(String(a.batchNo)); }); }
+function batchTrace(b){
+  var r2=function(x){ return Math.round((+x||0)*100)/100; };
+  var cm={}; (state.orders||[]).forEach(function(o){ if(o&&o.po) cm[o.po]=o.client||''; });
+  var lots=(state.packingLog||[]).filter(function(p){ return p&&!p.void&&!p.reversed&&(+p.kg||0)>0.0001&&(p.baseBatchId===b.id||(!p.baseBatchId&&lotBaseNo(p)===b.batchNo)); });
+  var ids={}; lots.forEach(function(p){ ids[p.id]=p; });
+  var gp={}, packed=0, lotShip=0;
+  lots.forEach(function(p){ var k=[p.brand||'',lotBrandNo(p),p.po||'',p.lid||''].join('|'); var g=gp[k]||(gp[k]={brand:p.brand||p.base||'—',brandNo:lotBrandNo(p)||'—',po:p.po||'',client:cm[p.po||'']||'',kg:0,shipped:0,first:'',last:'',n:0});
+    g.kg+=(+p.kg||0); g.shipped+=(+p.shipKg||0); g.n++; var d=String(p.date||p.mfgDate||''); if(d&&(!g.first||d<g.first)) g.first=d; if(d&&d>g.last) g.last=d; packed+=(+p.kg||0); lotShip+=(+p.shipKg||0); });
+  var rows=Object.keys(gp).map(function(k){ return gp[k]; }).sort(function(a,c){ return c.kg-a.kg; });
+  var trucks=[], dcKg=0, byNo=0;
+  (state.shipments||[]).forEach(function(s){ if(!s||s.voided) return; (s.batches||[]).forEach(function(e){
+      var hit=false; if(e.lotId){ hit=!!ids[e.lotId]; } else if(s.po && e.batch===b.batchNo && lots.some(function(p){ return p.po===s.po; })){ hit=true; byNo++; }
+      if(!hit) return; var kg=+e.kg||0; dcKg+=kg; trucks.push({dispId:s.dispId||'',dc:s.dc||'',date:s.dispatch||'',po:s.po||'',client:cm[s.po||'']||'',brandNo:e.brand||'',vehicle:s.vehicle||'',kg:kg,out:!!s.delivered}); }); });
+  trucks.sort(function(a,c){ return String(c.date).localeCompare(String(a.date)); });
+  var pr=b.packReconcile||{}, bp=0, dv=0, rw=0; (pr.items||[]).forEach(function(it){ var k=+it.kg||0; if(it.type==='byproduct')bp+=k; else if(it.type==='divert')dv+=k; else if(it.type==='rework')rw+=k; });
+  var loss=+(b.lossKg!=null?b.lossKg:pr.loss)||0, kept=(b.stockKept&&+b.stockKept.kg)||0, disp=+b.disposedKg||0;
+  var produced=+b.producedKg||0;
+  var unacc=r2(produced-packed-disp-kept);
+  return {b:b,rows:rows,trucks:trucks,planned:+b.plannedKg||0,produced:produced,packed:r2(packed),shipped:r2(lotShip),inStock:r2(packed-lotShip),dcKg:r2(dcKg),byNo:byNo,loss:r2(loss),bp:r2(bp),dv:r2(dv),rw:r2(rw),kept:r2(kept),disp:r2(disp),unacc:unacc};
+}
+function batchTraceHTML(t){
+  var b=t.b, f=function(x){ return fmt(Math.round(x*100)/100); };
+  var ok=function(good,txt){ return '<div style="margin:3px 0;color:'+(good?'var(--green2)':'var(--red)')+'">'+(good?'&#10003; ':'&#10007; ')+txt+'</div>'; };
+  var step=function(l,v,note,bold){ return '<tr><td'+(bold?' style="font-weight:700"':'')+'>'+l+'</td><td class="num"'+(bold?' style="font-weight:700"':'')+'>'+(v==null?'':f(v))+'</td><td class="muted">'+(note||'')+'</td></tr>'; };
+  var h='<div class="rp-sum"><b>'+qsEsc(b.batchNo)+'</b> · '+qsEsc(b.brand||b.base||'')+' · '+qsEsc(b.status||'')+(b.closedDate?' '+qsEsc(b.closedDate):'')+(b.po?' · PO '+qsEsc(b.po):'')+'</div>';
+  h+='<h3 class="rp-h3">Where the quantity went (Kg/L)</h3><div class="sheet-wrap" style="overflow-x:auto"><table class="rbtbl rp-tbl"><tbody>'
+    +step('Planned',t.planned,'')
+    +step('Produced',t.produced,'',true)
+    +step('Packed into brands',t.packed,'the table below',true)
+    +step('&nbsp;&nbsp;of which shipped',t.shipped,'on the trucks below')
+    +step('&nbsp;&nbsp;of which still in stock',t.inStock,'packed, not yet shipped')
+    +(t.loss>0?step('Loss',t.loss,qsEsc(b.lossReason||'')):'')
+    +(t.bp>0?step('By-product',t.bp,'to the by-product pool'):'')
+    +(t.dv>0?step('Diverted',t.dv,'same product, packed or recycled'):'')
+    +(t.rw>0?step('Rework',t.rw,'back into production'):'')
+    +(t.kept>0?step('Kept as bulk stock',t.kept,'stays on this batch, packable later'):'')
+    +'<tr style="font-weight:700"><td>Not accounted for</td><td class="num" style="color:'+(Math.abs(t.unacc)<=0.5?'var(--green2)':'var(--red)')+'">'+f(t.unacc)+'</td><td class="muted">produced − packed − loss and leftovers</td></tr></tbody></table></div>';
+  h+='<h3 class="rp-h3">Packed into</h3><div class="sheet-wrap" style="overflow-x:auto"><table class="rbtbl rp-tbl"><thead><tr><th>Brand</th><th>Brand batch (on the bag)</th><th>PO</th><th>Customer</th><th>Packed</th><th class="num">Packed Kg/L</th><th class="num">Shipped</th><th class="num">In stock</th></tr></thead><tbody>'
+    +(t.rows.length?t.rows.map(function(g){ return '<tr><td class="rpwrap">'+qsEsc(g.brand)+'</td><td>'+qsEsc(g.brandNo)+'</td><td>'+qsEsc(g.po||'—')+'</td><td class="rpwrap">'+qsEsc(g.client||'—')+'</td><td>'+qsEsc(g.first===g.last||!g.last?(g.first||'—'):(g.first+' to '+g.last))+'</td><td class="num">'+f(g.kg)+'</td><td class="num">'+f(g.shipped)+'</td><td class="num">'+f(g.kg-g.shipped)+'</td></tr>'; }).join('')
+      +'<tr style="font-weight:700"><td colspan="5">Total</td><td class="num">'+f(t.packed)+'</td><td class="num">'+f(t.shipped)+'</td><td class="num">'+f(t.inStock)+'</td></tr>'
+      :'<tr><td colspan="8" class="muted">Nothing packed from this batch yet.</td></tr>')+'</tbody></table></div>';
+  h+='<h3 class="rp-h3">Trucks</h3><div class="sheet-wrap" style="overflow-x:auto"><table class="rbtbl rp-tbl"><thead><tr><th>Date</th><th>DC</th><th>PO</th><th>Customer</th><th>Brand batch</th><th>Vehicle</th><th class="num">Kg/L</th></tr></thead><tbody>'
+    +(t.trucks.length?t.trucks.map(function(x){ return '<tr><td>'+qsEsc(x.date||'—')+'</td><td>'+(x.dc&&x.dispId?'<a class="psi-link" style="cursor:pointer;font-weight:700;color:var(--navy);text-decoration:underline" title="Open the delivery challan, ready to print" onclick="printDC(\''+qsEsc(x.dispId)+'\')">'+qsEsc(x.dc)+'</a>':qsEsc(x.dc||'—'))+'</td><td>'+qsEsc(x.po||'—')+'</td><td class="rpwrap">'+qsEsc(x.client||'—')+'</td><td>'+qsEsc(x.brandNo||'—')+'</td><td>'+qsEsc(x.vehicle||'—')+'</td><td class="num">'+f(x.kg)+'</td></tr>'; }).join('')
+      +'<tr style="font-weight:700"><td colspan="6">Total on trucks</td><td class="num">'+f(t.dcKg)+'</td></tr>'
+      :'<tr><td colspan="7" class="muted">No truck has carried this batch yet.</td></tr>')+'</tbody></table></div>';
+  h+='<h3 class="rp-h3">Checks</h3><div style="font-size:13px">'
+    +ok(Math.abs(t.unacc)<=0.5,'Produced '+f(t.produced)+' = packed '+f(t.packed)+' + loss and leftovers '+f(t.disp+t.kept)+(Math.abs(t.unacc)<=0.5?'':' — '+f(Math.abs(t.unacc))+' Kg/L '+(t.unacc>0?'not accounted for':'more than produced')))
+    +ok(Math.abs(t.packed-(+b.packedKg||0))<=0.5,'Packing records add to '+f(t.packed)+'; the batch itself says packed '+f(+b.packedKg||0))
+    +ok(Math.abs(t.dcKg-t.shipped)<=0.5,'Trucks carry '+f(t.dcKg)+'; the packing records say shipped '+f(t.shipped))
+    +ok(Math.abs(t.disp-(t.loss+t.bp+t.dv+t.rw))<=0.5,'Reconciliation: loss '+f(t.loss)+' + by-product, diverted and rework '+f(t.bp+t.dv+t.rw)+'; the batch says disposed '+f(t.disp))
+    +'</div>'+(t.byNo?'<div class="note" style="margin-top:8px">'+t.byNo+' truck line'+(t.byNo===1?'':'s')+' older than lot links; matched by PO and batch number.</div>':'');
+  return h;
+}
+function rpBatchTraceHTML(){
+  var all=btBatches(), q=String(rpBt||'').trim().toLowerCase();
+  var h='<div style="margin:12px 0"><input list="btList" id="btIn" value="'+qsEsc(rpBt)+'" placeholder="Type a batch number, e.g. HG26036" style="width:100%;max-width:420px" onchange="rpBt=this.value.trim();render()"><datalist id="btList">'+all.slice(0,400).map(function(b){ return '<option value="'+qsEsc(b.batchNo)+'">'+qsEsc((b.brand||b.base||'')+' · '+(b.status||'')); }).join('')+'</datalist></div>';
+  if(!q) return h+'<div class="note">Type or pick a batch number to see which brands, POs and trucks it went to, and whether it adds up.</div>';
+  var hit=all.filter(function(b){ return String(b.batchNo).toLowerCase()===q; });
+  if(!hit.length) return h+'<div class="note">No batch numbered “'+qsEsc(rpBt)+'”.'+(function(){ var s=all.filter(function(b){ return String(b.batchNo).toLowerCase().indexOf(q)>-1; }).slice(0,8); return s.length?' Close matches: '+s.map(function(b){ return '<a style="cursor:pointer;text-decoration:underline" onclick="rpBt=\''+qsEsc(b.batchNo)+'\';render()">'+qsEsc(b.batchNo)+'</a>'; }).join(', ')+'.':''; })()+'</div>';
+  return h+hit.map(function(b){ return batchTraceHTML(batchTrace(b)); }).join('');
 }
 function screenReports(){
   /* 24k: the catalogue first; a named report; the old 3-tab page only behind Custom */

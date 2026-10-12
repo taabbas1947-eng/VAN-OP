@@ -11,7 +11,7 @@
    a push keeps running the old code with nothing telling anybody. It sat at
    2026-09-04a through this whole day's work; rmqty/psi tests pinned the code,
    nothing pinned this. buildid.test.js now does. */
-var BUILD_ID='2026-10-12a';
+var BUILD_ID='2026-10-12b';
 var CHANGELOG=[
   {ver:'2026-09-04a', date:'2026-09-04', title:"Delivery, DC printing, and a new Reconciliation check", items:[
     "Delivery confirmation stays with Supply Chain \u2014 it no longer hands off to the Plant Manager. If one sits too long, it now re-flags the same Supply Chain owner every 3 days instead.",
@@ -559,6 +559,11 @@ var CHANGELOG=[
   {ver:'2026-10-12a', date:'2026-10-12', title:"Printed papers have a way back", items:[
     "A DC, gate pass, COA, inspection report or any other paper that opens in its own window now has a blue bar at the top with Back to O2S and Print / Save PDF. On a phone there was no way back from these, so people had to close the app and open it again.",
     "The bar does not print. The paper and the PDF are exactly what they were. If a phone will not close the window, Back takes you to O2S itself."
+  ]},
+  {ver:'2026-10-12b', date:'2026-10-12', title:"A batch may run 15% over its plan, and the way to log it is back", items:[
+    "A batch can now be logged up to 115% of its plan (it was 105%). Making less is unchanged: close the batch with a reason and the Plant Manager is told.",
+    "A batch that had made exactly its plan showed only Close batch, so the extra allowance could never be used. The batch card, the batch page and the Close batch sheet now have Log more output while there is room, and say how much.",
+    "A batch made for a PO still cannot go past what the PO ordered. Past 115%, the Plant Manager or COO raises the plan first."
   ]}
 ];
 </script>
@@ -7578,6 +7583,7 @@ return '<div class="pcard" data-batch="'+_pe(b.batchNo||'')+'"><div class="pcard
        no batch had ever been reconciled. The Production Manager now finishes packing from here. */
     if(edRecon&&rem>0.5&&st!=='producing'&&st!=='qc'&&!/openReconcile/.test(act)) act+=' <button class="sm ghost" style="color:var(--amber)" onclick="event.stopPropagation();openReconcile(\''+b.id+'\')">Packing finished · reconcile / move</button>';
     if(edClose&&b.status==='open'&&st==='pack'&&!/openCloseBatch/.test(act)) act+=' <button class="sm ghost" onclick="event.stopPropagation();openCloseBatch(\''+b.id+'\')">Close batch</button>'; /* 26a: 26 Sulfur Coated Urea batches made 7,000 of 7,000 and were never closed - Close was not offered while anything was packable */
+    if(edLog&&st!=='producing'&&_logMoreRoom(b)>=1) act+=' <button class="sm ghost" onclick="event.stopPropagation();openShiftLog(\''+b.id+'\')">Log more output</button>'; /* 12 Oct: room left under the ceiling, but the card showed only Close batch */
     /* 24x: Ready to pack as cards - the same act, built above under its own flag */
     if(f==='pack') return '<div class="pcard" data-batch="'+_pe(b.batchNo||'')+'"><div class="pcard-h"><div><div class="pcard-t"><a style="cursor:pointer;color:inherit" onclick="prodBatchSel=\''+b.id+'\';prodDrill=true;render()">'+nm+'</a> <span class="wtm-base">'+(b.batchNo||'—')+'</span></div>'
       +'<div class="pcard-s"><b>'+fmt(pk)+'</b> '+unitOf(nm)+' ready to pack · '+fmt(cl)+' approved, '+fmt(packed)+' packed</div><div class="pcard-tags"><span class="pcard-tag">'+(b.kind==='bulk'?'Bulk base · any open PO of '+_pe(b.base||''):('For '+_pe(b.po||sub)))+'</span></div></div>'
@@ -7660,6 +7666,7 @@ function _pcLifeAction(b,d){/* The closed-batch line is built BEFORE the edit ga
     ? ' <button class="green" onclick="openPack(\''+b.id+'\')">Pack '+fmt(Math.round(batchPackableKg(b)))+' Kg/L cleared</button>' : '';
   var sec=(edClose&&b.status==='open'&&!(d.stage==='producing'&&complete)&&d.stage!=='packed')?' <button class="sm ghost" onclick="openCloseBatch(\''+b.id+'\')">Close batch (end production)</button>':'';
   if(edRecon&&d.stage==='pack'&&Math.max(0,(+b.producedKg||0)-(+b.packedKg||0)-(+b.disposedKg||0))>0.5) sec+=' <button class="sm ghost" style="color:var(--amber)" onclick="openReconcile(\''+b.id+'\')">Packing finished — account for the rest</button>'; /* 26a */
+  if(edLog&&d.stage!=='producing'&&_logMoreRoom(b)>=1) sec+=' <button class="sm ghost" onclick="openShiftLog(\''+b.id+'\')">Log more output (up to '+fmt(_logMoreRoom(b))+')</button>'; /* 12 Oct */
   return primary+pknow+sec+_cb;}
 function renderProdLifecycleBatch(){var PC=window.ProductionCenter;if(!PC)return '<div class="card">Lifecycle unavailable</div>';var _f=prodFilter||'all';if(_f==='call')return prodPoolsStrip()||'<div class="card"><div class="muted" style="padding:10px 2px">No by-product, diverted or rework material to call right now.</div></div>';var _af=(typeof activeFloorBatches==='function')?activeFloorBatches():(state.batches||[]).filter(function(b){return b&&b.status==='open';});var _ps=function(b){return PC.derive(b).stage;};var open;if(_f==='completed'){open=(state.batches||[]).filter(function(b){return b&&b.status==='closed'&&!b.pool&&b.disposition!=='byproduct'&&!b.voided&&!_af.some(function(x){return x.id===b.id;});}).sort(function(a,c){return String(c.closedDate||'').localeCompare(String(a.closedDate||''));});}else if(_f==='recon'){open=(state.batches||[]).filter(function(b){return b&&!b.pool&&b.disposition!=='byproduct'&&!b.voided&&batchRemainderKg(b)>0.5&&!b.reconciled;});}else if(_f==='pack'){open=_af.filter(batchPackNow);}
   else if(_f==='producing'||_f==='qc'){open=_af.filter(function(b){return _ps(b)===_f;});}else if(_f==='toclose'){open=_af.filter(function(b){return batchStage(b)==='done';});}else if(_f==='attention'){open=_af.filter(function(b){var a=batchAging(b);return _ps(b)!=='packed'&&a!=null&&a>=4;});}else{open=_af;}if(!open.length)return '<div class="card"><div class="muted" style="padding:8px 2px">Nothing in this view.'+(_f!=='tomake'?' <a onclick="prodFilter=\'tomake\';prodDrill=false;render()" style="cursor:pointer;color:var(--navy)">Back to what to make ▸</a>':'')+'</div></div>';var sel=open.find(function(b){return b.id===prodBatchSel;})||open[0];prodBatchSel=sel.id;var _pbmRow=function(b){var dd=PC.derive(b);var MM=PC.STAGE_META[dd.stage]||{name:dd.stage,dot:'#888'};var closed=(b.status==='closed');var plan=+dd.planned||+b.plannedKg||0,prod=+dd.produced||+b.producedKg||0;var pv=plan>0?Math.min(100,Math.round(prod/plan*100)):(prod>0?100:0);var a=batchAging(b);var stalled=(!closed&&dd.stage!=='packed'&&a!=null&&a>=4);var right=closed?'<span class="pbm-stage">'+(b.closedDate||'done')+'</span>':(stalled?'<span class="pbm-stage" style="color:var(--red)">⚠ stalled</span>':'<span class="pbm-stage">'+pv+'%</span>');return '<div class="pbm'+(b.id===sel.id?' on':'')+'" onclick="prodBatchSel=\''+b.id+'\';render()"><span class="dot" style="background:'+(closed?'#B7C3BC':MM.dot)+'"></span><div class="pbm-main"><div class="pbm-prod">'+(dd.brand||dd.base||'—')+'</div><div class="pbm-code">'+(b.batchNo||'—')+'</div><div style="height:4px;border-radius:999px;background:var(--line);margin-top:5px;overflow:hidden"><span style="display:block;height:100%;width:'+pv+'%;background:'+(closed?'#9aa3b0':'var(--navy)')+'"></span></div></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px">'+'<span class="pbm-stage">'+(closed?'Completed':MM.name)+'</span>'+right+'</div></div>';};
@@ -8303,6 +8310,18 @@ function renderShiftLog(){
    <div class="muted" style="font-size:11px;margin-top:8px">A shift that produced nothing must have a reason. Multiple shifts can log against this batch; the batch and PO update automatically.</div></div>
    <div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" onclick="submitShiftLog()">Save shift output</button></div>`);
 }
+/* HOW FAR A BATCH MAY RUN PAST ITS PLAN. Tahir, 12 Oct 2026: it was 5% above plan
+   and is now 15% above. The only place the figure lives is batchOverPct(); the
+   entry check, the reopen dialogue and the Log more output buttons all read it.
+   Only the upper side is limited. A batch that makes less is closed short with a
+   variance reason, as before. batchLogRoom is the Kg that can still be logged on
+   an OPEN batch: the ceiling less what is produced, and for a PO batch no more
+   than the PO line still needs. Batch NP26009 (planned 28,000, made 28,000) had
+   room under the old rule too, but at 100% the screen stopped offering Log
+   output and showed only Close batch, so the headroom could not be reached. */
+function batchOverPct(){ return 15; }
+function batchCeilingKg(plan){ return (+plan||0)*(1+batchOverPct()/100); }
+function batchLogRoom(b){ if(!b||b.pool||b.status!=='open') return 0; if(!((+b.plannedKg||0)>0)) return 0; return batchReopenHeadroom(b); }
 function submitShiftLog(){
   if(!may('shift.log')){toast(denyRight('shift.log','Logging a shift'));return;}
   const b=(state.batches||[]).find(x=>x.id===shiftForm.batchId); if(!b){toast('Batch not found');return;}
@@ -8312,9 +8331,9 @@ function submitShiftLog(){
   if(!shiftForm.incharge){toast('Pick a shift incharge');return;}
   if(q<=0 && !shiftForm.reason){toast('No output this shift — pick a reason');return;}
   const plan=+b.plannedKg||0;
-  if(plan>0 && q>0 && (b.producedKg||0)+q > plan*1.05+0.001){
-    const cap=Math.round(plan*1.05); const left=Math.max(0,cap-(b.producedKg||0));
-    toast('Over-production blocked: max '+fmt(cap)+' Kg/L (105% of '+fmt(plan)+' planned). Remaining you can log: '+fmt(Math.round(left))+' Kg/L.');
+  if(plan>0 && q>0 && (b.producedKg||0)+q > batchCeilingKg(plan)+0.001){
+    const cap=Math.round(batchCeilingKg(plan)); const left=Math.max(0,cap-(b.producedKg||0));
+    toast('Over-production blocked: max '+fmt(cap)+' Kg/L ('+(100+batchOverPct())+'% of '+fmt(plan)+' planned). Remaining you can log: '+fmt(Math.round(left))+' Kg/L. For more, the Plant Manager or COO raises the plan first.');
     return;
   }
   if(b.kind==='po'){ const _o=state.orders.find(x=>x.po===b.po); const _l=_o&&_o.lines.find(x=>x.id===b.lineId); if(_l){ const rem=(_l.ordered||0)-(_l.produced||0); if(q>rem+0.001){ toast('PO over-run blocked: '+_l.brand+' is ordered '+fmt(_l.ordered)+' Kg/L; only '+fmt(Math.max(0,Math.round(rem)))+' left to produce. Production cannot exceed the PO.'); return; } } }
@@ -8422,10 +8441,17 @@ function renderCloseBatch(){ const b=(state.batches||[]).find(x=>x.id===closeFor
        +'&ldquo;'+_pe(_h.reopenReason||'no reason given')+'&rdquo;<br>'
        +'Close it again only if that has been dealt with.</div>';
    })()}<div class="muted" style="font-size:12px;margin-bottom:10px">Closing fixes this batch at its <b>actual yield (${fmt(prod)} Kg/L)</b> — no more shift output can be added. ${varn>0?'A yield variance needs a reason; the Plant Manager is notified.':''}</div>
+     ${_logMoreNote(b)}
      ${varn>0?`<div class="fld"><label>Variance reason (required)</label><select onchange="closeForm.reason=this.value"><option value="">— pick reason —</option>${reasons.map(r=>`<option ${closeForm.reason===r?'selected':''}>${r}</option>`).join('')}</select></div>`:''}
      <div class="fld fld-long" style="margin-top:8px"><label>Note (optional)</label><textarea rows="3" oninput="closeForm.note=this.value" placeholder="explain the variance">${_tx(closeForm.note||'')}</textarea></div>
    </div>
-   <div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" onclick="doCloseBatch()">Close batch</button></div>`); }
+   <div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button>${_logMoreBtn(b)}<button class="green" onclick="doCloseBatch()">Close batch</button></div>`); }
+/* Not finished? A batch at its plan used to show only Close batch, though more
+   output was still allowed. These two give the way back to Log output, on the
+   Close batch sheet where the person is deciding, and on the batch card. */
+function _logMoreRoom(b){ try{ return may('shift.log')?Math.floor(batchLogRoom(b)):0; }catch(e){ return 0; } }
+function _logMoreNote(b){ var r=_logMoreRoom(b); if(r<1) return ''; return '<div class="muted" style="font-size:12px;margin:-4px 0 10px">Not finished? You can still log up to <b>'+fmt(r)+' Kg/L</b> more on this batch ('+(100+batchOverPct())+'% of its plan). Press <b>Log more output</b>.</div>'; }
+function _logMoreBtn(b){ var r=_logMoreRoom(b); if(r<1) return ''; return '<button class="ghost" onclick="closeModal();openShiftLog(\''+_at(b.id)+'\')">Log more output (up to '+fmt(r)+')</button>'; }
 function doCloseBatch(){ if(!may('batch.close')){toast(denyRight('batch.close','Closing a batch'));return;} const b=(state.batches||[]).find(x=>x.id===closeForm.bid); if(!b)return; if(b.status==='closed'){toast('This batch is already closed.');closeModal();return;} /* 07f (B12): a 2nd close re-stamped it and put the yield-short job back */ const plan=+b.plannedKg||0, prod=+b.producedKg||0, varn=Math.round((plan-prod)*100)/100;
   if(varn>0.001 && !closeForm.reason){ toast('Pick a variance reason — produced is below plan'); return; }
   const d=TODAY.toISOString().slice(0,10);
@@ -9447,7 +9473,7 @@ var CORRECT_ENTITY={
          if(ins>0.5) return fmt(Math.round(ins))+' Kg/L has been CLEARED by QA under this batch number. Withdraw the inspection first if it was wrong.';
          return null; }},
       {k:'openedDate', l:'Opened date',        t:'date'},
-      /* The plan is the 105% over-production ceiling submitShiftLog enforces, so
+      /* The plan sets the over-production ceiling submitShiftLog enforces, so
          Production amending its own plan is Production raising its own limit —
          the same objection as the produced total four lines down. Plant Manager
          or COO. Production keeps the opened date. */
@@ -13359,14 +13385,14 @@ function closeSettledBatches(){
    for a reason in the first place. */
 /* How much output could actually be added if this batch were reopened.
    The reopen dialogue used to promise "shift output can be added again" without
-   checking. Output is capped at 105% of plan, and every closed batch on the live
-   system sits at exactly 100% — so the real answer is 5% of plan, and for a PO
+   checking. Output is capped above plan (batchOverPct), and every closed batch on the live
+   system sat at exactly 100% — so the real answer was the allowance, and for a PO
    batch whose order is fully produced it is nothing at all. Promising something
    the next screen refuses is worse than refusing here. */
 function batchReopenHeadroom(b){
   if(!b) return 0;
   var plan=+b.plannedKg||0, prod=+b.producedKg||0;
-  var room=Math.max(0, Math.round((plan*1.05-prod)*100)/100);
+  var room=Math.max(0, Math.round((batchCeilingKg(plan)-prod)*100)/100);
   if(b.kind==='po'){
     var o=(state.orders||[]).find(function(x){return x.po===b.po;});
     var l=o&&(o.lines||[]).find(function(x){return x.id===b.lineId;});
@@ -15175,6 +15201,7 @@ function guideRules(){
   h+='<div class="gd-rule"><h3>Roles, not people</h3><p>Rights belong to roles. 2 people can hold one role and sign differently. There are no exceptions for one person — an exception becomes a new role, so it can be seen and given to the next person in that seat.</p></div>';
   h+='<div class="gd-rule"><h3>What is never on a customer document</h3><p>No price on any document the customer sees. The COA carries composition, results and the 3 signatures; the delivery challan carries product, quantity and lot.</p></div>';
   /* 06c: where each paper lives. Every place named here is an existing screen or button. */
+  h+='<div class="gd-rule"><h3>How much a batch may make</h3><p>A batch may be logged up to <b>115% of its plan</b>. A batch that makes less is closed with a reason, and the Plant Manager is told. A batch made for a PO can never go past what the PO ordered. When a batch has made its plan, the card shows <b>Close batch</b>; if there is still room it also shows <b>Log more output</b>, and the Close batch sheet says how many Kg/L are left. Past 115%, the Plant Manager or COO raises the plan first.</p></div>';
   h+='<div class="gd-rule"><h3>Going back from a printed paper</h3><p>A DC, gate pass, COA, inspection report or any other paper opens in its own window. At the top is a blue bar with <b>Back to O2S</b> and <b>Print / Save PDF</b>. Press <b>Back to O2S</b> to return. On a phone that will not close the window, Back takes you to O2S itself. The bar does not print, so the paper and the PDF are the same as before.</p></div>';
   h+='<div class="gd-rule"><h3>Where to find a copy</h3><p><b>An old order:</b> Plant → <b>All orders</b>, type the PO or customer, tap the order. Its sheet ends with <b>Papers</b>: every paper of that order you are allowed to print, in one place.</p><p>Reports opens on the functions your role has reports in; each holds its reports as tabs.</p><p><b>Purchase order:</b> Reports → Stock and shipping → <b>Documents</b> → Purchase orders. It carries prices, so only the roles that see money can print it.</p><p><b>Delivery challan, gate pass, pre-shipment inspection report:</b> Reports → Stock and shipping → <b>Documents</b> → Delivery challans, gate passes and inspection reports. Search by DC, gate pass, PO, customer or vehicle. Every inspected truck is also under Reports → Lab and QA → <b>Pre-shipment inspections</b>: tap the report number to open it, ready to print or save as PDF.</p><p><b>Lab certificate (COA):</b> Reports → Lab and QA → <b>Lab certificates</b>, then <b>COA</b> on the row. For the lab, QA, the Plant Manager, the CFO and the COO.</p><p><b>Packed-lot QA:</b> Reports → Lab and QA → <b>Packing and lot QA</b>, or the order’s Papers → <b>Inspection log</b>.</p><p><b>Everything about one customer:</b> Reports → Orders and customers → <b>One customer</b>.</p><p><b>Where a batch went:</b> Reports → Production → <b>Batch trace</b>. Type the batch number (for example HG26036) to see the brands, brand batch numbers, POs and trucks it was packed and shipped into, what was lost or kept, and whether the figures agree. Tap a brand batch row to see the packing runs that make its total, and a truck row to see which packing runs it took from.</p><p><b>Who changed a record:</b> Reports → Checks and corrections → <b>Corrections register</b>, for the COO, the CFO and the Plant Manager.</p></div>';
   return h;
@@ -15256,7 +15283,8 @@ function guideReference(){
    ['A batch is not on the Lab screen','No output has been logged on it.','Log the shift output on the batch first.'],
    ['Packed stock is not ready to ship','The packed lot is not inspected and cleared yet, or it has no batch number.','QA inspects it (Packed lot to inspect). If it is blocked, set the batch number in Production.'],
    ['A batch number is refused','It is already used this financial year (1 Jul to 30 Jun).','Use a new number.'],
-   ['No more output can be logged','The batch reached 105% of its plan.','Close the batch; open a new one if more is really needed.'],
+   ['No more output can be logged','The batch reached 115% of its plan, or the PO has all it ordered.','Close the batch; open a new one if more is really needed. The Plant Manager or COO can raise the plan first.'],
+   ['A batch at its plan shows only Close batch','There is still room: output can go up to 115% of the plan.','Press Log more output on the batch card, or on the Close batch sheet.'],
    ['A finished PO is not in the Open batch list','That is right: production is done.','Follow it on Orders and Shipments until it is delivered.'],
    ['A truck is not moving','Each truck goes '+['Load','Inspect','Gate Pass','Review truck','Release'].map(function(l){ return (TD_LABEL[l]||{title:l}).title.toLowerCase(); }).join(', then ')+'.','Today shows whose step it is. A truck sent back goes to whoever issued the gate pass, with the reason.'],
    ['A PO stays open after the truck left','The delivery is not confirmed.','Delivery to confirm is on Today: for whoever sent the truck, for Supply Chain from day 1, for the Plant Manager from day 2.'],

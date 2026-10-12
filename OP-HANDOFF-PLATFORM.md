@@ -1000,3 +1000,24 @@ Tahir: name a tile "Nigehbaan نگہبان", "VAN's compliance & risk guardian".
   role, catalogue or sign-in change. The launcher's Manage-access comment still names ComPha.
 
 Pushed: **no** (ready).
+
+## 12 Oct 2026 — Launcher: C2L, C2M, dates, People & access in the header (MODULE: PLATFORM) — NOT PUSHED
+
+Tahir: disable the PD tile and rename it "C2L · Concept to Launch", coming 15 Oct; Nigehbaan coming 1 Nov;
+a new tile "C2M · Cost to Margin"; remove the Access tile and make it a header button.
+
+- `launcher.html` only. Tile order: O2S, C2L, C2M, HRMS, Nigehbaan, QMS.
+  - C2L (was PD): not clickable, label "Coming Oct 15". The PD app still answers at `/pd` for anyone who has
+    the address; only the tile is closed. `MODULE_LIST`, roles and Manage access still say PD.
+  - C2M: new "Coming soon" tile. No app key, route or roles yet.
+  - Nigehbaan: not clickable, label "Coming Nov 1". `/nigehbaan` still serves the demo where the file exists.
+  - Access tile removed. "People & access" is a header button beside Sign out, drawn only for the COO /
+    platform administrator and subsystem admins (same rule as the old tile); the server still checks every
+    call (`accessAdmin`).
+  - Phone width: the header wraps instead of pushing the page sideways (it overflowed before this change too;
+    the extra button made it 558px on a 375px screen). New `@media (max-width:640px)` block.
+  - Bottom note and meta description name the new tiles and dates.
+- Checked on a test copy with a pretend identity (no server, no password): admin sees the button and it opens
+  People & access; a KAM does not see it; tiles and labels as above; 375px wide: no sideways scroll.
+
+Pushed: **no** (ready).

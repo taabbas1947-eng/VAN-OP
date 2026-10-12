@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>VAN Operations Platform</title>
   <meta name="description"
-    content="Vital Agri Nutrients operations platform — one sign-in for O2S, PD, HRMS, QMS and Nigehbaan.">
+    content="Vital Agri Nutrients operations platform — one sign-in for O2S, C2L, C2M, HRMS, Nigehbaan and QMS.">
   <link rel="icon" href="/assets/favicon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -35,6 +35,13 @@
     .ur{font-size:11px;color:var(--mut)}
     .out{font:inherit;font-weight:600;font-size:12.5px;color:var(--txt2);background:#fff;border:1px solid var(--line);border-radius:8px;padding:7px 13px;cursor:pointer}
     .out:hover{border-color:var(--cyan);color:var(--txt)}
+    /* Phone width (12 Oct 2026): the header wraps instead of pushing the page sideways. */
+    @media (max-width:640px){
+      .top{flex-wrap:wrap;row-gap:10px}
+      .platlbl{display:none}
+      .who{width:100%;flex-wrap:wrap;justify-content:flex-end;gap:8px}
+      .who .user{margin-right:auto;min-width:0}
+    }
 
     /* ---- launcher body ---- */
     .wrap{max-width:1080px;margin:0 auto;padding:clamp(22px,4vw,40px) clamp(16px,4vw,44px);position:relative;overflow:hidden}
@@ -201,17 +208,26 @@
           <span class="lockcta">🔒 Access not granted</span>
         </a>
 
-        <!-- PD — green -->
-        <a class="tile live" data-module="pd" data-href="/pd" href="/pd">
+        <!-- C2L (was PD) — green. Tahir, 12 Oct 2026: renamed "C2L · Concept to Launch", not openable from
+             the launcher until it opens on 15 Oct. The app itself still answers at /pd. -->
+        <div class="tile soon">
           <div class="ico" style="background:linear-gradient(135deg,#22c55e,#16a34a)">
             <svg viewBox="0 0 24 24"><path d="M9 3h6"/><path d="M10 3v6l-5 8a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-8V3"/><path d="M7 15h10"/></svg>
           </div>
-          <div class="row1"><span class="code">PD</span><span class="pill live">Live</span></div>
-          <p class="nm">Product Development</p>
-          <p class="tag">Ideas through the gates G1–G6, from the bench to launch.</p>
-          <span class="open" style="color:#16a34a">Open PD →</span>
-          <span class="lockcta">🔒 Access not granted</span>
-        </a>
+          <div class="row1"><span class="code">C2L</span><span class="pill soon">Coming Oct 15</span></div>
+          <p class="nm">Concept to Launch</p>
+          <p class="tag">From an idea to a proven product: challenges, trials, evidence and launch.</p>
+        </div>
+
+        <!-- C2M — new, planned (Tahir, 12 Oct 2026) -->
+        <div class="tile soon">
+          <div class="ico" style="background:linear-gradient(135deg,#60a5fa,#2563eb)">
+            <svg viewBox="0 0 24 24"><path d="M4 20V10"/><path d="M10 20V4"/><path d="M16 20v-7"/><path d="M3 20h18"/><path d="M14 7l3-3 3 3"/><path d="M17 4v6"/></svg>
+          </div>
+          <div class="row1"><span class="code">C2M</span><span class="pill soon">Coming soon</span></div>
+          <p class="nm">Cost to Margin</p>
+          <p class="tag">What each product costs to make, what it sells for, and the margin between.</p>
+        </div>
 
         <!-- HRMS — live external (Django on Render); always shown -->
         <a class="tile live" href="https://van-hrms-31hl.onrender.com/" target="_blank" rel="noopener">
@@ -224,18 +240,16 @@
           <span class="open" style="color:#db2777">Open HRMS →</span>
         </a>
 
-        <!-- Nigehbaan — compliance & risk (was CRMS, earlier ComPha). Tahir, 7 Oct 2026: the tile opens the
-             demo for now (apps/nigehbaan/nigehbaan-demo.html, not in git while the repo is public); open to
-             everyone, as the demo has no sign-in and keeps its data in the browser. -->
-        <a class="tile live" href="/nigehbaan" target="_blank" rel="noopener">
+        <!-- Nigehbaan — compliance & risk (was CRMS, earlier ComPha). Tahir, 12 Oct 2026: not openable from the
+             launcher until it opens on 1 Nov. The demo still answers at /nigehbaan where its file is present. -->
+        <div class="tile soon">
           <div class="ico" style="background:linear-gradient(135deg,#a78bfa,#7c3aed)">
             <svg viewBox="0 0 24 24"><path d="M12 3v18"/><path d="M7 6h10"/><path d="M6 6l-3 6h6l-3-6z"/><path d="M18 6l-3 6h6l-3-6z"/><path d="M3 12a3 3 0 0 0 6 0"/><path d="M15 12a3 3 0 0 0 6 0"/><path d="M8 21h8"/></svg>
           </div>
-          <div class="row1"><span class="code">Nigehbaan <span lang="ur" dir="rtl">نگہبان</span></span><span class="pill soon">Demo</span></div>
+          <div class="row1"><span class="code">Nigehbaan <span lang="ur" dir="rtl">نگہبان</span></span><span class="pill soon">Coming Nov 1</span></div>
           <p class="nm">VAN's compliance &amp; risk guardian</p>
           <p class="tag">Deadlines, licences, proofs and escalation, and a confidential way to raise a concern.</p>
-          <span class="open" style="color:#7c3aed">Open the demo →</span>
-        </a>
+        </div>
 
         <!-- QMS — planned -->
         <div class="tile soon">
@@ -247,20 +261,11 @@
           <p class="tag">SOPs, deviations, CAPA, change control and audit readiness.</p>
         </div>
 
-        <!-- Access — COO only; opens manage-access -->
-        <a class="tile live" id="tileAccess" role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}">
-          <div class="ico" style="background:linear-gradient(135deg,#64748b,#334155)">
-            <svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0"/><path d="M15 9h6"/><path d="M18 6v6"/></svg>
-          </div>
-          <div class="row1"><span class="code">Access</span><span class="pill coo">COO</span></div>
-          <p class="nm">People &amp; Access</p>
-          <p class="tag">Every person, their details, and their role in each system.</p>
-          <span class="open" style="color:#334155">Open People and access →</span>
-          <span class="lockcta">🔒 COO only</span>
-        </a>
+        <!-- People & access: was a tile here; since 12 Oct 2026 it is a button in the header (renderApp),
+             shown only to the COO / platform administrator and subsystem admins. -->
 
       </section>
-      <p class="note">Every system is shown here. You can open the ones you're granted; the rest stay locked until your COO grants you access. QMS is still in build; Nigehbaan is a demo for now.</p>
+      <p class="note">Every system is shown here. You can open the ones you're granted; the rest stay locked until your COO grants you access. C2L opens on 15 Oct and Nigehbaan on 1 Nov; C2M and QMS are in build.</p>
     </div>
   </div>
 
@@ -365,10 +370,9 @@
           var code = (card.querySelector('.code') || {}).textContent || m.toUpperCase();
           lockTile(card, !!mods[m], card.getAttribute('data-href'), null, code + ' — ask your COO for access.');
         });
-        // Access tile: opens for the COO and for any subsystem admin; locked for everyone else.
-        var acc = $('tileAccess');
+        // People & access: a header button since 12 Oct 2026 (was a tile). Shown only to the COO and to
+        // subsystem admins; nobody else sees it. The server still checks every access call (accessAdmin).
         var canAdmin = _isCOO || _adminModules.length > 0;
-        if (acc) lockTile(acc, canAdmin, null, function () { __manage(); }, 'Access management is for the COO and subsystem admins.');
 
         if ($('nomods')) $('nomods').style.display = 'none';
 
@@ -381,6 +385,7 @@
         $('userchip').innerHTML =
           '<div class="user"><div class="av">' + esc(initials(nm)) + '</div>'
           + '<div><div class="un">' + esc(nm) + '</div><div class="ur">' + esc(roleline) + '</div></div></div>'
+          + (canAdmin ? '<button class="out" type="button" onclick="__manage()">People &amp; access</button>' : '')
           + '<button class="out" type="button" onclick="__signout()">Sign out</button>';
         view('app');
       }

@@ -138,7 +138,7 @@ groups.slice(0, 25).forEach(g => {
  * ------------------------------------------------------------------------- */
 const vm2 = require('vm');
 const psiSrc = ['psiPackNo', 'psiSig', 'psiInternalOnly', 'psiSafeRef', 'psiDetailFor',
-                'psiLinesFor', 'psiCOAsFor', 'printPSI', 'dispatchGroups', 'shipStageOf',
+                'psiLinesFor', 'psiCOAsFor', 'printPSI', '_docBarHtml', '_docWithBar', 'dispatchGroups', 'shipStageOf',
                 'linePackSize', 'seedPackForBrand']
   .map(n => { try { return grab(n); } catch (e) { return ''; } }).join('\n\n');
 
@@ -263,7 +263,7 @@ const DOCS = ['printDC', 'printGatePass', 'printPSI', 'printPO'];
 const docSrc = ['psiPackNo', 'psiSig', 'psiInternalOnly', 'psiSafeRef', 'psiDetailFor',
                 'psiLinesFor', 'psiCOAsFor', 'dispatchGroups', 'shipStageOf', 'linePackSize',
                 'seedPackForBrand', 'lotBaseNo', 'lotBrandNo',
-                'printDoc', '_docHead', 'printPolicy', 'printPolicyOL',
+                'printDoc', '_docHead', '_docBarHtml', '_docWithBar', 'printPolicy', 'printPolicyOL',
                 'poLineFor', 'printInspect', 'printInspectPriceRule'].concat(DOCS)
   .map(n => { try { return grab(n); } catch (e) { return ''; } }).join('\n\n');
 

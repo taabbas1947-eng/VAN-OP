@@ -192,7 +192,7 @@
       <h1 id="hello">Welcome back</h1>
       <p class="sub">Choose a system to open — one sign-in covers every VAN module.</p>
 
-      <div id="nomods">No core systems are assigned to your account yet. <b>Ask your COO</b> to grant you O2S or PD access. Live and upcoming modules are still shown below.</div>
+      <div id="nomods">No core systems are assigned to your account yet. <b>Ask your System Administrator</b> to grant you access. Live and upcoming modules are still shown below.</div>
 
       <section class="grid" aria-label="Systems">
 
@@ -224,7 +224,7 @@
           <div class="ico" style="background:linear-gradient(135deg,#60a5fa,#2563eb)">
             <svg viewBox="0 0 24 24"><path d="M4 20V10"/><path d="M10 20V4"/><path d="M16 20v-7"/><path d="M3 20h18"/><path d="M14 7l3-3 3 3"/><path d="M17 4v6"/></svg>
           </div>
-          <div class="row1"><span class="code">C2M</span><span class="pill soon">Coming soon</span></div>
+          <div class="row1"><span class="code">C2M</span><span class="pill soon">Coming Oct 16</span></div>
           <p class="nm">Cost to Margin</p>
           <p class="tag">What each product costs to make, what it sells for, and the margin between.</p>
         </div>
@@ -265,7 +265,7 @@
              shown only to the COO / platform administrator and subsystem admins. -->
 
       </section>
-      <p class="note">Every system is shown here. You can open the ones you're granted; the rest stay locked until your COO grants you access. C2L opens on 15 Oct and Nigehbaan on 1 Nov; C2M and QMS are in build.</p>
+      <p class="note">Every system is shown here. You can open the ones you're granted; the rest stay locked until your System Administrator grants you access. C2L opens on 15 Oct and Nigehbaan on 1 Nov; C2M and QMS are in build.</p>
     </div>
   </div>
 
@@ -368,7 +368,7 @@
         Array.prototype.forEach.call(document.querySelectorAll('.tile[data-module]'), function (card) {
           var m = card.getAttribute('data-module');
           var code = (card.querySelector('.code') || {}).textContent || m.toUpperCase();
-          lockTile(card, !!mods[m], card.getAttribute('data-href'), null, code + ' — ask your COO for access.');
+          lockTile(card, !!mods[m], card.getAttribute('data-href'), null, code + ' — ask your System Administrator for access.');
         });
         // People & access: a header button since 12 Oct 2026 (was a tile). Shown only to the COO and to
         // subsystem admins; nobody else sees it. The server still checks every access call (accessAdmin).

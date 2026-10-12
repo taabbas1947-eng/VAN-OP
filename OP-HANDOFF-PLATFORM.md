@@ -1021,3 +1021,17 @@ a new tile "C2M · Cost to Margin"; remove the Access tile and make it a header 
   People & access; a KAM does not see it; tiles and labels as above; 375px wide: no sideways scroll.
 
 Pushed: **no** (ready).
+
+### 12 Oct 2026 (2) — Launcher note and C2M date (MODULE: PLATFORM) — NOT PUSHED
+
+The 12 Oct launcher entry above was pushed by Tahir as `e730699` "launcher Redesign.".
+
+Tahir: COO stays an O2S role with its own powers; the platform has its own Platform Administrator role.
+Only the note under the tiles changes: "…the rest stay locked until your System Administrator grants you
+access." (his wording). The 2 other launcher messages that name the COO (no systems yet; a locked tile)
+are unchanged. C2M label: "Coming Oct 16". `launcher.html` only.
+
+Pushed: **no** (ready).
+- Later the same day, Tahir: "change both". The locked-tile message now reads "O2S — ask your System
+  Administrator for access."; the unused no-systems box (hidden by CSS and by `renderApp`, so never seen)
+  reads "Ask your System Administrator to grant you access." (was "…your COO… O2S or PD access").

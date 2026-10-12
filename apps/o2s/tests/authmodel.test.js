@@ -2569,7 +2569,8 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
   vm.runInContext(SCREENS_SRC + '\n'
     + ['scr', 'accessOv', '_ownerEdit', 'accessLevel', 'screenEditOK', 'hardRole', '_pe',
        'batchClearedKg', 'batchPackableKg', 'batchLabApproved', 'batchPackNow',
-       'correctCanAmend', 'correctAllowed', '_pcCorrectBtn', '_pcLifeAction'].map(H.grab).join('\n\n')
+       'correctCanAmend', 'correctAllowed', '_pcCorrectBtn', '_pcLifeAction',
+       'batchOverPct', 'batchCeilingKg', 'batchLogRoom', 'batchReopenHeadroom', '_logMoreRoom'].map(H.grab).join('\n\n')
     + '\nvar fmt=function(n){return Math.round(n).toLocaleString();};'
     + '\n' + H.authModelSrc(), r);
   r.state.masters.roles.push({ id: 'floor-officer', name: 'Floor Officer',
@@ -2594,10 +2595,16 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
   ok('floor officer sees Log shift output',      /Log shift output/.test(draw('Floor Officer', 'producing')));
   ok('...and no Close batch on the same row',   !/Close batch/.test(draw('Floor Officer', 'producing')),
      draw('Floor Officer', 'producing'));
-  ok('...and nothing at all on Ready to pack',  draw('Floor Officer', 'pack') === '',
+  /* after production: only Log more output, and only while room remains under the 115% ceiling */
+  const full = () => Object.assign(batch(), { producedKg: 1150 });
+  const drawFull = (role, stage) => { r.state.role = role;
+    return (r._pcLifeAction(full(), { stage: stage }) || '').replace(/<[^>]*>/g, '|'); };
+  ok('...and nothing at all on Ready to pack once the batch is at its ceiling', drawFull('Floor Officer', 'pack') === '',
+     drawFull('Floor Officer', 'pack'));
+  ok('...and nothing at all on Reconcile once the batch is at its ceiling',     drawFull('Floor Officer', 'recon') === '',
+     drawFull('Floor Officer', 'recon'));
+  ok('...with room left, Ready to pack offers only Log more output', /Log more output/.test(draw('Floor Officer', 'pack')) && !/Close batch|Pack cleared|Reconcile/.test(draw('Floor Officer', 'pack')),
      draw('Floor Officer', 'pack'));
-  ok('...and nothing at all on Reconcile',      draw('Floor Officer', 'recon') === '',
-     draw('Floor Officer', 'recon'));
 
   /* the head: his two, and not the floor's */
   ok('the head sees Close batch',                /Close batch/.test(draw('Production Manager', 'producing')));

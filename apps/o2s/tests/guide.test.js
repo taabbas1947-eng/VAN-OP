@@ -128,4 +128,6 @@ ok('Guide search marks words in the text, never inside a tag', /split\(\/\(<\[\^
 ok('a tab button clears the search', /guideQ=\\'\\';guideTab=/.test(grab('guideTabsHTML')));
 { const j = grab('guideMyJob'); ok('My job: a New on 7 Oct note for every role touched (07d)', ['Supply Chain','Plant Manager','Production Manager','Production','QA Inspector','Warehouse','Supply Chain Officer','QCM','AQCM','Lab Rep','CFO','KAM','Finance','Finance Desk Officer'].every(r => j.indexOf("'" + r + "':") > -1) && /New on 7 Oct\./.test(j) && /Move packed stock to another PO/.test(j)); }
 ok('The rules: lateness counts calendar days; same day is never late (07d)', /counted in <b>calendar days<\/b>, not hours: anything entered on the same day it happened is never late/.test(grab('guideRules')));
+ok('The Rules say how to go back from a printed paper (12 Oct, 12a)', /<h3>Going back from a printed paper<\/h3>/.test(html) && /Back to O2S<\/b> and <b>Print \/ Save PDF/.test(html) && /does not print/.test(html));
+ok('The Rules say how much a batch may make: 115% of plan (12 Oct, 12b)', /<h3>How much a batch may make<\/h3>/.test(html) && /115%/.test(grab('guideRules')) && /A batch at its plan shows only Close batch/.test(html));
 process.exitCode = report('The Guide keeps up (24z)') ? 1 : 0;

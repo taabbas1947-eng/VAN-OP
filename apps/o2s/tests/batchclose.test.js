@@ -18,7 +18,7 @@ const SRC = [
   H.grab('settledBatches'), H.grab('batchRemainderKg'),
   H.grab('openSettledClose'), H.grab('settledPick'), H.grab('settledPickAll'),
   H.grab('renderSettledClose'), H.grab('closeSettledBatches'),
-  H.grab('batchReopenBlocked'), H.grab('batchReopenHeadroom'), H.grab('batchYieldMismatch'),
+  H.grab('batchReopenBlocked'), H.grab('batchReopenHeadroom'), H.grab('batchOverPct'), H.grab('batchCeilingKg'), H.grab('batchLogRoom'), H.grab('batchYieldMismatch'),
   H.grab('closedBatches'), H.grab('closedBatchesCard'),
   H.grab('openReopenBatch'), H.grab('renderReopenBatch'),
   H.grab('doReopenBatch'), H.grab('recordCorrection'), H.grab('correctTypeLabel'),
@@ -68,7 +68,7 @@ const batch = o => Object.assign({
   id: 'B1', batchNo: 'HG26001', kind: 'bulk', base: 'Humi Grow',
   plannedKg: 5000, producedKg: 5000, packedKg: 5000, disposedKg: 0, status: 'open',
 }, o);
-/* 5000 of 5000 leaves 250 Kg of headroom (105% cap), which is the real live shape:
+/* 5000 of 5000 leaves 750 Kg of headroom (115% cap since 12 Oct; it was 105%), which is the real live shape:
    every closed batch on the system sits at exactly 100% of plan. */
 
 /* ================= 1. which batches count as finished and on plan ================= */
@@ -356,8 +356,8 @@ ok('...on the empty branch too', (html.match(/\+closedBatchesCard\(\)/g) || []).
 /* ---- reopening promises only what it can deliver ---- */
 {
   const s = ctx('Plant Manager', { batches: [], orders: [], packingLog: [] });
-  eq('a batch at plan has 5% of headroom', s.batchReopenHeadroom(batch()), 250);
-  eq('one at the 105% cap has none', s.batchReopenHeadroom(batch({ producedKg: 5250 })), 0);
+  eq('a batch at plan has 15% of headroom (12 Oct: it was 5%)', s.batchReopenHeadroom(batch()), 750);
+  eq('one at the 115% cap has none', s.batchReopenHeadroom(batch({ producedKg: 5750 })), 0);
   /* A batch with no headroom is STILL reopenable. Refusing it was my own bug:
      a settled batch is at or above plan by definition, so the refusal fired on
      exactly the batches the bulk button closes — 6 of the 16 in the live list
@@ -627,7 +627,7 @@ ok('and ticking saves and restores it', /settledForm\.scroll=sc\?sc\.scrollTop:0
 /* ---- the close modal shows what there is to check ---- */
 {
   const vm2 = require('vm');
-  const src = [H.grab('renderCloseBatch'), H.grab('coaItemOf'), H.grab('prodSkin'), H.grab('prodTiles')].join('\n');
+  const src = [H.grab('renderCloseBatch'), H.grab('_logMoreRoom'), H.grab('_logMoreNote'), H.grab('_logMoreBtn'), H.grab('_at'), H.grab('batchOverPct'), H.grab('batchCeilingKg'), H.grab('batchLogRoom'), H.grab('batchReopenHeadroom'), H.grab('coaItemOf'), H.grab('prodSkin'), H.grab('prodTiles')].join('\n');
   let out = '';
   const modal = { className: '', set innerHTML(v) { out = v; }, get innerHTML() { return out; } };
   const box = { console, Date, fmt: n => String(n), _pe: v => String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;'),

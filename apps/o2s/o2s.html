@@ -11,7 +11,7 @@
    a push keeps running the old code with nothing telling anybody. It sat at
    2026-09-04a through this whole day's work; rmqty/psi tests pinned the code,
    nothing pinned this. buildid.test.js now does. */
-var BUILD_ID='2026-10-10h';
+var BUILD_ID='2026-10-12c';
 var CHANGELOG=[
   {ver:'2026-09-04a', date:'2026-09-04', title:"Delivery, DC printing, and a new Reconciliation check", items:[
     "Delivery confirmation stays with Supply Chain \u2014 it no longer hands off to the Plant Manager. If one sits too long, it now re-flags the same Supply Chain owner every 3 days instead.",
@@ -555,6 +555,21 @@ var CHANGELOG=[
     "Planning a truck (one PO or several): under each product you now see the batches that can go (batch on the bag, packed on, mfg, ready Kg). Oldest first is filled in, so nothing changes if you do not touch it. Change the Kg to match what is on the pallets. The DC prints the batches you chose. A lot on QA hold, or with no batch number, cannot go on a truck. If a chosen lot has less Kg than you asked for, the truck is refused with the figure, and nothing is saved.",
     "After the COO approves a batch number correction, Supply Chain gets a job for each DC and QA a job for each inspection report that carries the old number. The job stays until someone presses Reprinted, or Not needed with a reason. Opening the print window does not close it. A truck that already left says the customer holds the old paper. The batch number inside the truck inspection's pallet check follows the correction.",
     "Batch trace: an open batch shows Still to be packed (not a red Not accounted for). A disposal with no type recorded is amber, not a failed check. Packing runs where the packing record says one shipped Kg and the trucks linked to the run carry another are listed with both numbers; nothing is changed."
+  ]},
+  {ver:'2026-10-12a', date:'2026-10-12', title:"Printed papers have a way back", items:[
+    "A DC, gate pass, COA, inspection report or any other paper that opens in its own window now has a blue bar at the top with Back to O2S and Print / Save PDF. On a phone there was no way back from these, so people had to close the app and open it again.",
+    "The bar does not print. The paper and the PDF are exactly what they were. If a phone will not close the window, Back takes you to O2S itself."
+  ]},
+  {ver:'2026-10-12b', date:'2026-10-12', title:"A batch may run 15% over its plan, and the way to log it is back", items:[
+    "A batch can now be logged up to 115% of its plan (it was 105%). Making less is unchanged: close the batch with a reason and the Plant Manager is told.",
+    "A batch that had made exactly its plan showed only Close batch, so the extra allowance could never be used. The batch card, the batch page and the Close batch sheet now have Log more output while there is room, and say how much.",
+    "A batch made for a PO still cannot go past what the PO ordered. Past 115%, the Plant Manager or COO raises the plan first."
+  ]},
+  {ver:'2026-10-12c', date:'2026-10-12', title:"Stuck batches now show what is really packed", items:[
+    "A stuck batch used to read \"500 of 500 made, still open, 76 d\" even when most of it was packed and shipped. The days were counted from the last shift log. They now count from the last time anything moved: output logged or packed.",
+    "Each row now says what was made, packed and left, why it is on the list, when it last moved, and who has the next step.",
+    "A base made once and packed as orders come is not stuck. If no order from the last 60 days is waiting for it, it moves to a calm list, Held for orders, under the stuck rows. It turns amber after 180 days.",
+    "Still stuck: made with nothing packed for 2 days (the row says whether the lab or packing is next); all packed but not closed; stock left with an order waiting and nothing packed for 3 days."
   ]}
 ];
 </script>
@@ -7574,6 +7589,7 @@ return '<div class="pcard" data-batch="'+_pe(b.batchNo||'')+'"><div class="pcard
        no batch had ever been reconciled. The Production Manager now finishes packing from here. */
     if(edRecon&&rem>0.5&&st!=='producing'&&st!=='qc'&&!/openReconcile/.test(act)) act+=' <button class="sm ghost" style="color:var(--amber)" onclick="event.stopPropagation();openReconcile(\''+b.id+'\')">Packing finished · reconcile / move</button>';
     if(edClose&&b.status==='open'&&st==='pack'&&!/openCloseBatch/.test(act)) act+=' <button class="sm ghost" onclick="event.stopPropagation();openCloseBatch(\''+b.id+'\')">Close batch</button>'; /* 26a: 26 Sulfur Coated Urea batches made 7,000 of 7,000 and were never closed - Close was not offered while anything was packable */
+    if(edLog&&st!=='producing'&&_logMoreRoom(b)>=1) act+=' <button class="sm ghost" onclick="event.stopPropagation();openShiftLog(\''+b.id+'\')">Log more output</button>'; /* 12 Oct: room left under the ceiling, but the card showed only Close batch */
     /* 24x: Ready to pack as cards - the same act, built above under its own flag */
     if(f==='pack') return '<div class="pcard" data-batch="'+_pe(b.batchNo||'')+'"><div class="pcard-h"><div><div class="pcard-t"><a style="cursor:pointer;color:inherit" onclick="prodBatchSel=\''+b.id+'\';prodDrill=true;render()">'+nm+'</a> <span class="wtm-base">'+(b.batchNo||'—')+'</span></div>'
       +'<div class="pcard-s"><b>'+fmt(pk)+'</b> '+unitOf(nm)+' ready to pack · '+fmt(cl)+' approved, '+fmt(packed)+' packed</div><div class="pcard-tags"><span class="pcard-tag">'+(b.kind==='bulk'?'Bulk base · any open PO of '+_pe(b.base||''):('For '+_pe(b.po||sub)))+'</span></div></div>'
@@ -7656,6 +7672,7 @@ function _pcLifeAction(b,d){/* The closed-batch line is built BEFORE the edit ga
     ? ' <button class="green" onclick="openPack(\''+b.id+'\')">Pack '+fmt(Math.round(batchPackableKg(b)))+' Kg/L cleared</button>' : '';
   var sec=(edClose&&b.status==='open'&&!(d.stage==='producing'&&complete)&&d.stage!=='packed')?' <button class="sm ghost" onclick="openCloseBatch(\''+b.id+'\')">Close batch (end production)</button>':'';
   if(edRecon&&d.stage==='pack'&&Math.max(0,(+b.producedKg||0)-(+b.packedKg||0)-(+b.disposedKg||0))>0.5) sec+=' <button class="sm ghost" style="color:var(--amber)" onclick="openReconcile(\''+b.id+'\')">Packing finished — account for the rest</button>'; /* 26a */
+  if(edLog&&d.stage!=='producing'&&_logMoreRoom(b)>=1) sec+=' <button class="sm ghost" onclick="openShiftLog(\''+b.id+'\')">Log more output (up to '+fmt(_logMoreRoom(b))+')</button>'; /* 12 Oct */
   return primary+pknow+sec+_cb;}
 function renderProdLifecycleBatch(){var PC=window.ProductionCenter;if(!PC)return '<div class="card">Lifecycle unavailable</div>';var _f=prodFilter||'all';if(_f==='call')return prodPoolsStrip()||'<div class="card"><div class="muted" style="padding:10px 2px">No by-product, diverted or rework material to call right now.</div></div>';var _af=(typeof activeFloorBatches==='function')?activeFloorBatches():(state.batches||[]).filter(function(b){return b&&b.status==='open';});var _ps=function(b){return PC.derive(b).stage;};var open;if(_f==='completed'){open=(state.batches||[]).filter(function(b){return b&&b.status==='closed'&&!b.pool&&b.disposition!=='byproduct'&&!b.voided&&!_af.some(function(x){return x.id===b.id;});}).sort(function(a,c){return String(c.closedDate||'').localeCompare(String(a.closedDate||''));});}else if(_f==='recon'){open=(state.batches||[]).filter(function(b){return b&&!b.pool&&b.disposition!=='byproduct'&&!b.voided&&batchRemainderKg(b)>0.5&&!b.reconciled;});}else if(_f==='pack'){open=_af.filter(batchPackNow);}
   else if(_f==='producing'||_f==='qc'){open=_af.filter(function(b){return _ps(b)===_f;});}else if(_f==='toclose'){open=_af.filter(function(b){return batchStage(b)==='done';});}else if(_f==='attention'){open=_af.filter(function(b){var a=batchAging(b);return _ps(b)!=='packed'&&a!=null&&a>=4;});}else{open=_af;}if(!open.length)return '<div class="card"><div class="muted" style="padding:8px 2px">Nothing in this view.'+(_f!=='tomake'?' <a onclick="prodFilter=\'tomake\';prodDrill=false;render()" style="cursor:pointer;color:var(--navy)">Back to what to make ▸</a>':'')+'</div></div>';var sel=open.find(function(b){return b.id===prodBatchSel;})||open[0];prodBatchSel=sel.id;var _pbmRow=function(b){var dd=PC.derive(b);var MM=PC.STAGE_META[dd.stage]||{name:dd.stage,dot:'#888'};var closed=(b.status==='closed');var plan=+dd.planned||+b.plannedKg||0,prod=+dd.produced||+b.producedKg||0;var pv=plan>0?Math.min(100,Math.round(prod/plan*100)):(prod>0?100:0);var a=batchAging(b);var stalled=(!closed&&dd.stage!=='packed'&&a!=null&&a>=4);var right=closed?'<span class="pbm-stage">'+(b.closedDate||'done')+'</span>':(stalled?'<span class="pbm-stage" style="color:var(--red)">⚠ stalled</span>':'<span class="pbm-stage">'+pv+'%</span>');return '<div class="pbm'+(b.id===sel.id?' on':'')+'" onclick="prodBatchSel=\''+b.id+'\';render()"><span class="dot" style="background:'+(closed?'#B7C3BC':MM.dot)+'"></span><div class="pbm-main"><div class="pbm-prod">'+(dd.brand||dd.base||'—')+'</div><div class="pbm-code">'+(b.batchNo||'—')+'</div><div style="height:4px;border-radius:999px;background:var(--line);margin-top:5px;overflow:hidden"><span style="display:block;height:100%;width:'+pv+'%;background:'+(closed?'#9aa3b0':'var(--navy)')+'"></span></div></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px">'+'<span class="pbm-stage">'+(closed?'Completed':MM.name)+'</span>'+right+'</div></div>';};
@@ -8299,6 +8316,18 @@ function renderShiftLog(){
    <div class="muted" style="font-size:11px;margin-top:8px">A shift that produced nothing must have a reason. Multiple shifts can log against this batch; the batch and PO update automatically.</div></div>
    <div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" onclick="submitShiftLog()">Save shift output</button></div>`);
 }
+/* HOW FAR A BATCH MAY RUN PAST ITS PLAN. Tahir, 12 Oct 2026: it was 5% above plan
+   and is now 15% above. The only place the figure lives is batchOverPct(); the
+   entry check, the reopen dialogue and the Log more output buttons all read it.
+   Only the upper side is limited. A batch that makes less is closed short with a
+   variance reason, as before. batchLogRoom is the Kg that can still be logged on
+   an OPEN batch: the ceiling less what is produced, and for a PO batch no more
+   than the PO line still needs. Batch NP26009 (planned 28,000, made 28,000) had
+   room under the old rule too, but at 100% the screen stopped offering Log
+   output and showed only Close batch, so the headroom could not be reached. */
+function batchOverPct(){ return 15; }
+function batchCeilingKg(plan){ return (+plan||0)*(1+batchOverPct()/100); }
+function batchLogRoom(b){ if(!b||b.pool||b.status!=='open') return 0; if(!((+b.plannedKg||0)>0)) return 0; return batchReopenHeadroom(b); }
 function submitShiftLog(){
   if(!may('shift.log')){toast(denyRight('shift.log','Logging a shift'));return;}
   const b=(state.batches||[]).find(x=>x.id===shiftForm.batchId); if(!b){toast('Batch not found');return;}
@@ -8308,9 +8337,9 @@ function submitShiftLog(){
   if(!shiftForm.incharge){toast('Pick a shift incharge');return;}
   if(q<=0 && !shiftForm.reason){toast('No output this shift — pick a reason');return;}
   const plan=+b.plannedKg||0;
-  if(plan>0 && q>0 && (b.producedKg||0)+q > plan*1.05+0.001){
-    const cap=Math.round(plan*1.05); const left=Math.max(0,cap-(b.producedKg||0));
-    toast('Over-production blocked: max '+fmt(cap)+' Kg/L (105% of '+fmt(plan)+' planned). Remaining you can log: '+fmt(Math.round(left))+' Kg/L.');
+  if(plan>0 && q>0 && (b.producedKg||0)+q > batchCeilingKg(plan)+0.001){
+    const cap=Math.round(batchCeilingKg(plan)); const left=Math.max(0,cap-(b.producedKg||0));
+    toast('Over-production blocked: max '+fmt(cap)+' Kg/L ('+(100+batchOverPct())+'% of '+fmt(plan)+' planned). Remaining you can log: '+fmt(Math.round(left))+' Kg/L. For more, the Plant Manager or COO raises the plan first.');
     return;
   }
   if(b.kind==='po'){ const _o=state.orders.find(x=>x.po===b.po); const _l=_o&&_o.lines.find(x=>x.id===b.lineId); if(_l){ const rem=(_l.ordered||0)-(_l.produced||0); if(q>rem+0.001){ toast('PO over-run blocked: '+_l.brand+' is ordered '+fmt(_l.ordered)+' Kg/L; only '+fmt(Math.max(0,Math.round(rem)))+' left to produce. Production cannot exceed the PO.'); return; } } }
@@ -8418,10 +8447,17 @@ function renderCloseBatch(){ const b=(state.batches||[]).find(x=>x.id===closeFor
        +'&ldquo;'+_pe(_h.reopenReason||'no reason given')+'&rdquo;<br>'
        +'Close it again only if that has been dealt with.</div>';
    })()}<div class="muted" style="font-size:12px;margin-bottom:10px">Closing fixes this batch at its <b>actual yield (${fmt(prod)} Kg/L)</b> — no more shift output can be added. ${varn>0?'A yield variance needs a reason; the Plant Manager is notified.':''}</div>
+     ${_logMoreNote(b)}
      ${varn>0?`<div class="fld"><label>Variance reason (required)</label><select onchange="closeForm.reason=this.value"><option value="">— pick reason —</option>${reasons.map(r=>`<option ${closeForm.reason===r?'selected':''}>${r}</option>`).join('')}</select></div>`:''}
      <div class="fld fld-long" style="margin-top:8px"><label>Note (optional)</label><textarea rows="3" oninput="closeForm.note=this.value" placeholder="explain the variance">${_tx(closeForm.note||'')}</textarea></div>
    </div>
-   <div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" onclick="doCloseBatch()">Close batch</button></div>`); }
+   <div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button>${_logMoreBtn(b)}<button class="green" onclick="doCloseBatch()">Close batch</button></div>`); }
+/* Not finished? A batch at its plan used to show only Close batch, though more
+   output was still allowed. These two give the way back to Log output, on the
+   Close batch sheet where the person is deciding, and on the batch card. */
+function _logMoreRoom(b){ try{ return may('shift.log')?Math.floor(batchLogRoom(b)):0; }catch(e){ return 0; } }
+function _logMoreNote(b){ var r=_logMoreRoom(b); if(r<1) return ''; return '<div class="muted" style="font-size:12px;margin:-4px 0 10px">Not finished? You can still log up to <b>'+fmt(r)+' Kg/L</b> more on this batch ('+(100+batchOverPct())+'% of its plan). Press <b>Log more output</b>.</div>'; }
+function _logMoreBtn(b){ var r=_logMoreRoom(b); if(r<1) return ''; return '<button class="ghost" onclick="closeModal();openShiftLog(\''+_at(b.id)+'\')">Log more output (up to '+fmt(r)+')</button>'; }
 function doCloseBatch(){ if(!may('batch.close')){toast(denyRight('batch.close','Closing a batch'));return;} const b=(state.batches||[]).find(x=>x.id===closeForm.bid); if(!b)return; if(b.status==='closed'){toast('This batch is already closed.');closeModal();return;} /* 07f (B12): a 2nd close re-stamped it and put the yield-short job back */ const plan=+b.plannedKg||0, prod=+b.producedKg||0, varn=Math.round((plan-prod)*100)/100;
   if(varn>0.001 && !closeForm.reason){ toast('Pick a variance reason — produced is below plan'); return; }
   const d=TODAY.toISOString().slice(0,10);
@@ -9443,7 +9479,7 @@ var CORRECT_ENTITY={
          if(ins>0.5) return fmt(Math.round(ins))+' Kg/L has been CLEARED by QA under this batch number. Withdraw the inspection first if it was wrong.';
          return null; }},
       {k:'openedDate', l:'Opened date',        t:'date'},
-      /* The plan is the 105% over-production ceiling submitShiftLog enforces, so
+      /* The plan sets the over-production ceiling submitShiftLog enforces, so
          Production amending its own plan is Production raising its own limit —
          the same objection as the produced total four lines down. Plant Manager
          or COO. Production keeps the opened date. */
@@ -11488,7 +11524,7 @@ function printCOA(bid,lid,histIdx){ const ctx=coaCtx(bid,lid); const b=ctx.b, h=
    <div class="sysnote">This is a <b>system-generated report</b>. It is electronically prepared, reviewed and approved within the VAN QC system (Analyst &rarr; AQCM &rarr; QCM), <b>access-controlled and audit-logged</b>. It is <b>valid without manual verification or a physical signature</b>.</div>
    <div class="end">-------------------END OF REPORT-------------------<br>Overall: <b>${e(c.overall||'')}</b></div>
   </div></body></html>`;
-  const w=window.open('','_blank'); if(!w){toast('Allow pop-ups to print the COA');return;} w.document.write(html); w.document.close(); w.focus(); }
+  const w=window.open('','_blank'); if(!w){toast('Allow pop-ups to print the COA');return;} w.document.write(_docWithBar(html)); w.document.close(); w.focus(); }
 
 /* ===== Printable documents (PO Confirmation, Delivery Challan, Pre-shipment Report, Report export) — same print-to-PDF mechanism as the COA ===== */
 var VAN_LOGO='data:image/png;base64,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';
@@ -11510,7 +11546,34 @@ function _pe(x){ return String(x==null?'':x).replace(/&/g,'&amp;').replace(/</g,
 function _at(x){ return String(x==null?'':x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').split('"').join('&quot;').split("'").join('&#39;'); }
 function _docHead(title,meta){ return '<div class="head"><div class="l"><img src="'+VAN_LOGO_REAL+'" alt="VAN — Vital Agri Nutrients" style="width:190px;max-width:100%;height:auto;display:block;margin:0 auto"></div><div class="c"><h1>'+title+'</h1><div class="s">Vital Agri Nutrients (Pvt) Ltd</div></div><div class="d">'+meta+'</div></div>'; }
 var VAN_FOOTER='Vital Agri Nutrients (Pvt) Ltd';
-function printDoc(title,inner,noPrint){ var onload=noPrint?'':' onload="setTimeout(function(){try{window.print();}catch(e){}},250)"'; var html='<!doctype html><html><head><meta charset="utf-8"><title>'+_pe(title)+'</title><style>'+_DOC_CSS+'</style></head><body'+onload+'><div class="sheet">'+inner+'<div class="sysnote">System-generated by the VAN O2S system &middot; access-controlled &amp; audit-logged &middot; valid without a manual signature.</div></div><div class="docfoot">'+_pe(VAN_FOOTER)+' &middot; Generated '+TODAY.toISOString().slice(0,10)+' &middot; van-control-tower</div></body></html>'; var w=window.open('','_blank'); if(!w){toast('Allow pop-ups to print / save the document');return;} w.document.write(html); w.document.close(); w.focus(); }
+/* A way out of every printable document. Tahir, 12 Oct 2026, from the team on
+   phones: a DC, gate pass, COA or inspection report opens as a bare page in its
+   own window with nothing on it to go back with, so the only way out was to close
+   the app and open it again. Every printable now carries a bar with Back and
+   Print. The bar is hidden when the page is printed, so the paper copy and the
+   PDF are exactly what they were. Back closes the window; if the phone will not
+   close it, it takes the person back to O2S. Nothing here reads or writes data. */
+function _docBarHtml(){
+  var app=''; try{ app=location.origin+location.pathname; }catch(e){ app=''; }
+  var css='#vanDocBar{position:sticky;top:0;z-index:2147483000;display:flex;align-items:center;justify-content:space-between;gap:calc(10px*var(--k,1));padding:calc(8px*var(--k,1)) calc(12px*var(--k,1));background:#13307a;color:#fff;box-sizing:border-box;direction:ltr;text-align:left;font-family:Arial,Helvetica,sans-serif;font-size:calc(14px*var(--k,1));line-height:1.2}'
+    +'#vanDocBar button{font:inherit;font-weight:700;min-height:calc(40px*var(--k,1));padding:0 calc(16px*var(--k,1));border:0;border-radius:calc(8px*var(--k,1));background:#fff;color:#13307a;cursor:pointer}'
+    +'#vanDocBar button.pr{background:#2e9e44;color:#fff}'
+    +'@media print{#vanDocBar{display:none!important}}';
+  /* A phone shows these pages zoomed out to a desktop width, which would make a
+     normal bar tiny. k is how far zoomed out the page is; the bar is scaled up by
+     the same amount so it stays a size a thumb can hit. On a computer k is 1. */
+  var js='function vanDocBack(){var a='+JSON.stringify(app)+';try{window.close();}catch(e){}setTimeout(function(){if(window.closed){return;}if(a){location.href=a;}},400);}'
+    +'(function(){try{var b=document.getElementById("vanDocBar");var sw=screen.width||0,iw=window.innerWidth||0;var k=(sw>0&&iw>sw)?iw/sw:1;if(k>1.2){b.style.setProperty("--k",String(Math.min(k,3)));}}catch(e){}})();';
+  return '<style>'+css+'</style>'
+    +'<div id="vanDocBar"><button type="button" onclick="vanDocBack()">&#8249; Back to O2S</button><button type="button" class="pr" onclick="window.print()">Print / Save PDF</button></div>'
+    +'<scr'+'ipt>'+js+'</scr'+'ipt>';
+}
+/* Puts the bar straight after the opening body tag. If the page has no body tag
+   it is returned untouched, so a document can never be lost to this. */
+function _docWithBar(html){
+  try{ var s=String(html); var i=s.indexOf('<body'); if(i<0) return html; var j=s.indexOf('>',i); if(j<0) return html;
+    return s.slice(0,j+1)+_docBarHtml()+s.slice(j+1); }catch(e){ return html; } }
+function printDoc(title,inner,noPrint){ var onload=noPrint?'':' onload="setTimeout(function(){try{window.print();}catch(e){}},250)"'; var html='<!doctype html><html><head><meta charset="utf-8"><title>'+_pe(title)+'</title><style>'+_DOC_CSS+'</style></head><body'+onload+'><div class="sheet">'+inner+'<div class="sysnote">System-generated by the VAN O2S system &middot; access-controlled &amp; audit-logged &middot; valid without a manual signature.</div></div><div class="docfoot">'+_pe(VAN_FOOTER)+' &middot; Generated '+TODAY.toISOString().slice(0,10)+' &middot; van-control-tower</div></body></html>'; var w=window.open('','_blank'); if(!w){toast('Allow pop-ups to print / save the document');return;} w.document.write(_docWithBar(html)); w.document.close(); w.focus(); }
 function printPO(po){ if(typeof mayMoney==='function'&&!mayMoney()){ toast('The PO carries prices, so it is for the money roles only.'); return; } /* 25m (review) */ var o=(state.orders||[]).find(function(x){return String(x.po)===String(po)||x.id===po;}); if(!o){toast('PO not found');return;}
   /* Stamped so the register can answer "has this one been printed yet?" — the
      PO document was reachable from exactly one place before today, so for most
@@ -11681,7 +11744,7 @@ function printDC(dispId){ var g=((typeof dispatchGroups==='function')?dispatchGr
   var onload=pend?'':' onload="setTimeout(function(){try{window.print();}catch(e){}},250)"';
   if(_psi){ css='body{margin:0;background:#eceef1}'+cssScope(css,'.dcw')+cssScope(_psi.css,'.psiw')+'.psiw{page-break-before:always;break-before:page}.psiw .runfoot{display:none!important}'; inner='<div class="dcw">'+inner+'</div><div class="psiw">'+_psi.inner+'</div>'; }
   var html='<!doctype html><html><head><meta charset="utf-8"><title>'+_pe('DC '+(g.dc||po1))+(_psi?' + '+_pe(_psi.repNo):'')+'</title><style>'+css+'</style></head><body'+onload+'>'+inner+'</body></html>';
-  var w=window.open('','_blank'); if(!w){toast('Allow pop-ups to print / save the document');return;} w.document.write(html); w.document.close(); w.focus();
+  var w=window.open('','_blank'); if(!w){toast('Allow pop-ups to print / save the document');return;} w.document.write(_docWithBar(html)); w.document.close(); w.focus();
   if(pend){ toast('Draft DC — the official signed PDF is available after Plant Manager approval'); } }
 /* Gate Pass — short authorization the truck carries at the gate. Issued during Loading, before release. */
 function printGatePass(dispId){ var g=((typeof dispatchGroups==='function')?dispatchGroups():[]).filter(function(x){return x.dispId===dispId;})[0]; if(!g){toast('Shipment not found');return;}
@@ -11758,7 +11821,7 @@ function printGatePass(dispId){ var g=((typeof dispatchGroups==='function')?disp
     +'@media print{@page{size:A4;margin:10mm}body{padding:0}.sheet{max-width:none;margin:0;padding:0}thead{display:table-header-group}tr{page-break-inside:avoid;break-inside:avoid}.parties,.signs,.stamprow{page-break-inside:avoid;break-inside:avoid}h2.sec{page-break-after:avoid;break-after:avoid}}';
   var onload=released?' onload="setTimeout(function(){try{window.print();}catch(e){}},350)"':'';
   var html='<!doctype html><html lang="ur" dir="rtl"><head><meta charset="utf-8"><title>Gate Pass '+_pe(g.gatePass)+'</title><style>'+css+'</style></head><body'+onload+'>'+inner+'</body></html>';
-  var w=window.open('','_blank'); if(!w){toast('Allow pop-ups to print / save the document');return;} w.document.write(html); w.document.close(); w.focus();
+  var w=window.open('','_blank'); if(!w){toast('Allow pop-ups to print / save the document');return;} w.document.write(_docWithBar(html)); w.document.close(); w.focus();
   if(!released){ toast('Gate Pass not yet released — print/PDF available after Plant Manager approval'); } }
 /* ===== PRE-SHIPMENT INSPECTION REPORT — rebuilt 2026-08-21
 
@@ -12369,7 +12432,7 @@ function printPSI(dispId,opts){ var _parts=!!(opts&&opts.parts); /* 25d: parts =
     +'<body onload="setTimeout(function(){try{window.print();}catch(e){}},250)">'+inner+runfoot+'</body></html>';
   var w=window.open('','_blank');
   if(!w){toast('Allow pop-ups to print / save the document');return;}
-  w.document.write(html); w.document.close(); w.focus();
+  w.document.write(_docWithBar(html)); w.document.close(); w.focus();
 }
 
 /* WHAT THE PACK WAS REQUIRED TO CARRY, WITHOUT THE FIGURE — Tahir,
@@ -13328,14 +13391,14 @@ function closeSettledBatches(){
    for a reason in the first place. */
 /* How much output could actually be added if this batch were reopened.
    The reopen dialogue used to promise "shift output can be added again" without
-   checking. Output is capped at 105% of plan, and every closed batch on the live
-   system sits at exactly 100% — so the real answer is 5% of plan, and for a PO
+   checking. Output is capped above plan (batchOverPct), and every closed batch on the live
+   system sat at exactly 100% — so the real answer was the allowance, and for a PO
    batch whose order is fully produced it is nothing at all. Promising something
    the next screen refuses is worse than refusing here. */
 function batchReopenHeadroom(b){
   if(!b) return 0;
   var plan=+b.plannedKg||0, prod=+b.producedKg||0;
-  var room=Math.max(0, Math.round((plan*1.05-prod)*100)/100);
+  var room=Math.max(0, Math.round((batchCeilingKg(plan)-prod)*100)/100);
   if(b.kind==='po'){
     var o=(state.orders||[]).find(function(x){return x.po===b.po;});
     var l=o&&(o.lines||[]).find(function(x){return x.id===b.lineId;});
@@ -14111,9 +14174,9 @@ function screenPlant(){
     {k:'delayed',t:'Late orders',w:'past the date promised',list:F.delayed,n:(function(){ var m={}; F.delayed.forEach(function(r){ m[r.po]=1; }); return Object.keys(m).length; })()},
     {k:'holds',t:'Trucks waiting',w:'ready, planned, loading or on the road',list:F.holds.concat(plReadyNoTruck())},
     {k:'material',t:'Waiting on material',w:'RM short, or a PR open',list:F.material},
-    {k:'stuck',t:'Stuck batches',w:'no output 3 d, or made and not closed',list:plStuckBatches()}
+    {k:'stuck',t:'Stuck batches',w:'made and not packed, or packing stalled',list:plStuckBatches()}
   ];
-  if(plSel && !lights.some(function(x){return x.k===plSel && x.list.length;})) plSel='';
+  if(plSel && !lights.some(function(x){return x.k===plSel && (x.list.length||(x.k==='stuck'&&plHeldBatches().length));})) plSel='';
   var h='<div class="qs wide"><h1>Plant</h1><div class="sub">What is stuck, who is behind, where every order stands. The same for everyone. Tap a light.</div>';
   h+='<div class="pl-find"><input id="plFind" placeholder="Find an order \u2014 PO or customer" value="'+qsEsc(plQ)+'" oninput="plQ=this.value;plFilterFloor()">'+(canView(state.role,'tracker')?'<button class="qs-btn" onclick="setScreen(\'tracker\')">All orders \u2192</button>':'')+(canView(state.role,'reports')?'<button class="qs-btn" onclick="setScreen(\'reports\')">Reports \u2192</button>':'')+'</div>';
   h+='<div class="qs-tally four">'+lights.map(function(L){ var worst=plWorst(L.list); var tone=plTone(L.list,worst);
@@ -14132,9 +14195,15 @@ function screenPlant(){
     sel.list.forEach(function(r){ var tone=(+r.days||0)>=7?'st-over':((+r.days||0)>0?'st-late':'st-ok'); var act=plCanAct()&&r.act?('<button class="qs-btn sm" onclick="'+r.act.replace(/"/g,'&quot;')+'">Open →</button>'):'';
       if(sel.k==='delayed') h+='<div class="pl-row '+tone+'"><div class="t">'+qsEsc(r.brand)+' · <span class="tdpo">'+qsEsc(r.po)+'</span></div><div class="s">'+plClient(r.client)+' · '+fmt(r.left)+' Kg/L still to deliver · '+qsEsc(r.stage)+'</div><div class="why">'+(r.days>0?(r.days+' d past promise'):'due today')+'</div>'+act+'</div>';
       else if(sel.k==='holds') h+='<div class="pl-row '+tone+'"><div class="t">'+qsEsc(r.dc?('DC '+r.dc):(r.shipNo||'Shipment'))+' · <span class="tdpo">'+qsEsc(r.po)+'</span></div><div class="s">'+plClient(r.client)+' · '+fmt(r.kg)+' Kg/L · '+r.n+' line'+(r.n===1?'':'s')+'</div><div class="why">'+qsEsc(r.why)+(r.days>0?(' · '+r.days+' d'):'')+'</div>'+act+'</div>';
-      else if(sel.k==='stuck') h+='<div class="pl-row '+tone+'"><div class="t">'+qsEsc(r.batchNo)+' · '+qsEsc(r.base)+(r.po?' · <span class="tdpo">'+qsEsc(r.po)+'</span>':'')+'</div><div class="s">'+(r.client?plClient(r.client)+' · ':'')+fmt(r.kg)+' of '+fmt(r.plan)+' Kg/L made</div><div class="why">'+qsEsc(r.why)+(r.made?' · '+r.days+' d':'')+'</div>'+(act?'<span class="pl-acts">'+act+'</span>':'')+'</div>';
+      else if(sel.k==='stuck') h+='<div class="pl-row '+tone+'"><div class="t">'+qsEsc(r.batchNo)+' · '+qsEsc(r.base)+(r.po?' · <span class="tdpo">'+qsEsc(r.po)+'</span>':'')+'</div><div class="s">'+(r.client?plClient(r.client)+' · ':'')+qsEsc(r.says)+'</div><div class="why">'+qsEsc(r.why)+' '+qsEsc(r.lastTxt)+(r.who?' \u00b7 next: '+qsEsc(r.who):'')+'</div>'+(_plOpenBtn(r)?'<span class="pl-acts">'+_plOpenBtn(r)+'</span>':'')+'</div>';
       else h+='<div class="pl-row '+tone+'"><div class="t">'+qsEsc(r.brand)+' · <span class="tdpo">'+qsEsc(r.po)+'</span></div><div class="s">'+plClient(r.client)+' · '+fmt(r.need)+' Kg/L still to make</div><div class="why">'+qsEsc(r.why)+'</div>'+(act?'<span class="pl-acts">'+act+'</span>':'')+'</div>'; });
     h+='</div>';
+    if(sel.k==='stuck'){ var HB=plHeldBatches();
+      if(!sel.list.length) h+='<div class="note">Nothing is stuck.</div>';
+      if(HB.length){ h+='<h2>Held for orders <span class="cnt">'+HB.length+'</span></h2><div class="note">Made once and packed as orders come. These are not stuck: no order from the last '+PL_DEMAND_ORDER_DAYS+' days is waiting for them. One shows amber after '+PL_HELD_FLAG_DAYS+' days.</div><div class="tdlist">';
+        HB.forEach(function(r){ var act=_plOpenBtn(r);
+          h+='<div class="pl-row '+(r.flag?'st-late':'st-ok')+'"><div class="t">'+qsEsc(r.batchNo)+' \u00b7 '+qsEsc(r.base)+'</div><div class="s">'+qsEsc(r.says)+'</div><div class="why">'+qsEsc(r.why)+' '+qsEsc(r.lastTxt)+'</div>'+(act?'<span class="pl-acts">'+act+'</span>':'')+'</div>'; });
+        h+='</div>'; } }
   }
   var dl=plDeptLines();
   h+='<h2>Departments <span class="cnt">'+dl.length+'</span></h2><div class="pl-dept">'+dl.map(function(d){ var tn=d.n?(d.worst>=7?'st-over':(d.worst>0?'st-late':'st-ok')):'st-ok';
@@ -14911,23 +14980,72 @@ function openPersonList(role,name){
   $('modal').innerHTML='<div class="mh"><h2>'+qsEsc(name)+'</h2><div class="sub">'+qsEsc(roleTitle(role))+' · '+gs.length+' job'+(gs.length===1?'':'s')+' waiting on the role</div></div><div class="mb">'+(gs.length?'<div class="tdlist">'+gs.map(tdCardHTML).join('')+'</div>':'<div class="note">Nothing is waiting on '+qsEsc(name)+' right now.</div>')+'</div><div class="mf"><button class="qs-btn" onclick="closeModal()">Close</button></div>';
   $('modalBg').classList.add('open');
 }
-/* ===================== STUCK BATCHES - the 4th light (24b) =====================
-   Item 4 of the morning list. A batch has no due time in the system, so the
-   honest rule is time since it last moved: an open batch with no shift output
-   for 3 days, or one that has made its plan and sat open for 2 days. Read
-   from state.batches and state.shiftEntries; nothing is written. */
-var PL_STUCK_NO_OUTPUT_DAYS=3, PL_STUCK_MADE_OPEN_DAYS=2;
+/* ===================== STUCK BATCHES - the 4th light (24b, rebuilt 12 Oct 2026) =====================
+   Tahir, 12 Oct 2026: the list said "500 of 500 made, still open, 76 d" on a batch
+   that had 372 packed and 348 shipped. It counted the days from the last SHIFT
+   LOG, so packing never counted, and it called every made batch "stuck" even
+   when the Production Manager had made the base once on purpose and was packing
+   it as orders came. The rule now, read from state.batches, state.shiftEntries,
+   state.packingLog and state.orders; nothing is written:
+     last move  = the latest shift entry OR pack record on the batch
+     made, nothing packed, 2 d+       -> STUCK (waiting for the lab, or for packing)
+     made, all packed, 2 d+           -> STUCK (close it)
+     stock left, orders wait, 3 d+    -> STUCK (an order from the last 60 d needs this base)
+     stock left, no order waits       -> HELD FOR ORDERS (calm list; flagged at 180 d)
+     not made, no output 3 d+         -> STUCK, as before
+   Every row says what was made, packed and left, why it is on the list, when it
+   last moved, and who has the next step. Shipping is not read: a pack record
+   already carries what shipped from it. */
+var PL_STUCK_NO_OUTPUT_DAYS=3, PL_STUCK_MADE_OPEN_DAYS=2, PL_STUCK_DEMAND_DAYS=3, PL_HELD_FLAG_DAYS=180, PL_DEMAND_ORDER_DAYS=60;
 function plBatchLastMove(b){ var last=b.openedDate||b.date||''; (state.shiftEntries||[]).forEach(function(e){ if(e&&e.batchId===b.id&&e.date&&String(e.date)>String(last)) last=String(e.date); }); return last; }
+function _plPackedOf(b,p){ return !!(p&&!p.reversed&&!p.void&&(p.baseBatchId===b.id||(b.batchNo&&p.baseBatchNo===b.batchNo))); } /* a reversed pack is not packing */
+/* The Open button only for a person who may do what it opens. */
+function _plOpenBtn(r){ if(!plCanAct()||!r||!r.act) return ''; var a=r.act;
+  if(/openCloseBatch/.test(a)&&!may('batch.close')) return ''; if(/openShiftLog/.test(a)&&!may('shift.log')) return ''; if(/setScreen\('prod'\)/.test(a)&&!canView(state.role,'prod')) return '';
+  return '<button class="qs-btn sm" onclick="'+a.replace(/"/g,'&quot;')+'">Open \u2192</button>'; }
+function plBatchMove(b){ var last=String(b.openedDate||b.date||'').slice(0,10), what='opened';
+  (state.shiftEntries||[]).forEach(function(e){ if(e&&e.batchId===b.id&&e.date&&String(e.date).slice(0,10)>=last){ last=String(e.date).slice(0,10); what='output'; } });
+  (state.packingLog||[]).forEach(function(p){ if(_plPackedOf(b,p)&&p.date&&String(p.date).slice(0,10)>last){ last=String(p.date).slice(0,10); what='packed'; } });
+  return {date:last,what:what}; }
+function _plDay(iso){ var m=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; var a=String(iso||'').slice(0,10).split('-'); if(a.length<3) return ''; return (+a[2])+' '+(m[(+a[1])-1]||''); }
+function plBatchFacts(b){ var prod=+b.producedKg||0, plan=+b.plannedKg||0, packed=+b.packedKg||0, disp=+b.disposedKg||0, shipped=0;
+  (state.packingLog||[]).forEach(function(p){ if(_plPackedOf(b,p)) shipped+=(+p.shipKg||0); });
+  var mv=plBatchMove(b); var t=mv.date?new Date(mv.date+'T00:00:00'):null; var days=(t&&!isNaN(t))?calDays(mv.date):0;
+  return {prod:prod,plan:plan,packed:packed,left:Math.max(0,prod-packed-disp),shipped:shipped,last:mv.date,lastWhat:mv.what,days:days,made:plan>0&&prod>=plan-0.5}; }
+/* Kg/L of orders really waiting for this base: received in the last 60 days, not
+   cancelled or closed, the line not delivered or short-closed, and still short of
+   what it ordered. Older unfinished lines are history, not demand. */
+function plOpenDemandKg(base){ var n=0; if(!base) return 0;
+  (state.orders||[]).forEach(function(o){ if(!o||o.cancelled||o.voided||o.closed) return; if(!o.received||calDays(o.received)>PL_DEMAND_ORDER_DAYS) return;
+    (o.lines||[]).forEach(function(l){ if(!l||l.base!==base||lineShortClosed(l)||lineBucket(o,l)==='Delivered') return; var r=(+l.ordered||0)-(+l.packed||0); if(r>0.5) n+=r; }); });
+  return n; }
+function plBatchClass(b){
+  if(!b||b.voided||b.pool||b.status!=='open'||b.disposition==='byproduct') return null;
+  var f=plBatchFacts(b), r={f:f,k:'',why:'',who:'',flag:false,demand:0};
+  if(!f.made){ if(f.days>=PL_STUCK_NO_OUTPUT_DAYS){ r.k='stuck'; r.why='No output logged for '+f.days+' d.'; r.who='Production'; } return r.k?r:null; }
+  if(f.left<=0.5){ if(f.days>=PL_STUCK_MADE_OPEN_DAYS){ r.k='stuck'; r.why='All of it is packed and the batch is still open. Close it.'; r.who='Plant Manager'; } return r.k?r:null; }
+  if(f.packed<0.5){ if(f.days>=PL_STUCK_MADE_OPEN_DAYS){ var st=''; try{ st=batchStage(b); }catch(e){}
+      r.k='stuck'; r.why='Made, nothing packed yet.'+(st==='qc'?' Waiting for the lab to clear it.':(st==='pack'?' Cleared and waiting to be packed.':'')); r.who=(st==='qc')?'Lab':'Packing'; }
+    return r.k?r:null; }
+  r.demand=plOpenDemandKg(b.base);
+  if(r.demand>0){ if(f.days>=PL_STUCK_DEMAND_DAYS){ r.k='stuck'; r.why=fmt(Math.round(r.demand))+' Kg/L of orders from the last '+PL_DEMAND_ORDER_DAYS+' d are waiting for '+(b.base||'this product')+', and nothing has been packed for '+f.days+' d.'; r.who='Packing'; } return r.k?r:null; }
+  r.k='held'; r.who='Production Manager'; r.why='No order from the last '+PL_DEMAND_ORDER_DAYS+' d is waiting for it. Held for orders.';
+  if(f.days>=PL_HELD_FLAG_DAYS){ r.flag=true; r.why='Held '+f.days+' d with no order waiting. Time to review it.'; }
+  return r; }
+function _plRow(b,c){ var f=c.f; var o=b.po?(state.orders||[]).find(function(x){return x.po===b.po;}):null; var l=o&&b.lineId?(o.lines||[]).find(function(x){return x.id===b.lineId;}):null;
+  var act=(o&&l)?("openRun('"+o.id+"','"+l.id+"')"):(!f.made?("openShiftLog('"+b.id+"')"):(f.left<=0.5?("openCloseBatch('"+b.id+"')"):("prodView='lifecycle';prodLifeSub='batch';prodHome=false;prodBatchSel='"+b.id+"';prodDrill=true;prodFilter='all';setScreen('prod')")));
+  var says='Made '+fmt(f.prod)+' of '+fmt(f.plan)+' \u00b7 packed '+fmt(f.packed)+' \u00b7 '+fmt(Math.round(f.left))+' left'+(f.shipped>0.5?' \u00b7 shipped '+fmt(Math.round(f.shipped)):'');
+  var lastTxt='last '+(f.lastWhat==='packed'?'packed':(f.lastWhat==='output'?'output logged':'opened'))+' '+_plDay(f.last)+' ('+f.days+' d ago)';
+  return {batchNo:b.batchNo||b.id,base:b.base||'',po:b.po||'',client:o?(o.client||''):'',why:c.why,who:c.who,days:f.days,made:f.made,kg:f.prod,plan:f.plan,act:act,says:says,lastTxt:lastTxt,flag:c.flag,k:c.k}; }
 function plStuckBatches(){
   var out=[];
-  (state.batches||[]).forEach(function(b){ if(!b||b.voided||b.pool||b.status!=='open'||b.disposition==='byproduct') return;
-    var last=plBatchLastMove(b); var t=last?new Date(last+'T00:00:00'):null; var days=(t&&!isNaN(t))?calDays(last):0;
-    var made=(+b.producedKg||0)>=(+b.plannedKg||0)-0.5 && (+b.plannedKg||0)>0;
-    var why=''; if(made&&days>=PL_STUCK_MADE_OPEN_DAYS) why='made its plan, still open'; else if(!made&&days>=PL_STUCK_NO_OUTPUT_DAYS) why='no output for '+days+' d';
-    if(!why) return;
-    var o=b.po?(state.orders||[]).find(function(x){return x.po===b.po;}):null; var l=o&&b.lineId?(o.lines||[]).find(function(x){return x.id===b.lineId;}):null;
-    var act=(o&&l)?("openRun('"+o.id+"','"+l.id+"')"):(made?("openCloseBatch('"+b.id+"')"):("openShiftLog('"+b.id+"')"));
-    out.push({batchNo:b.batchNo||b.id,base:b.base||'',po:b.po||'',client:o?(o.client||''):'',why:why,days:days,made:made,kg:+b.producedKg||0,plan:+b.plannedKg||0,act:act}); });
+  (state.batches||[]).forEach(function(b){ var c=plBatchClass(b); if(c&&c.k==='stuck') out.push(_plRow(b,c)); });
+  out.sort(function(a,b){ return b.days-a.days; });
+  return out;
+}
+function plHeldBatches(){
+  var out=[];
+  (state.batches||[]).forEach(function(b){ var c=plBatchClass(b); if(c&&c.k==='held') out.push(_plRow(b,c)); });
   out.sort(function(a,b){ return b.days-a.days; });
   return out;
 }
@@ -15144,6 +15262,9 @@ function guideRules(){
   h+='<div class="gd-rule"><h3>Roles, not people</h3><p>Rights belong to roles. 2 people can hold one role and sign differently. There are no exceptions for one person — an exception becomes a new role, so it can be seen and given to the next person in that seat.</p></div>';
   h+='<div class="gd-rule"><h3>What is never on a customer document</h3><p>No price on any document the customer sees. The COA carries composition, results and the 3 signatures; the delivery challan carries product, quantity and lot.</p></div>';
   /* 06c: where each paper lives. Every place named here is an existing screen or button. */
+  h+='<div class="gd-rule"><h3>What the Stuck batches list means</h3><p>On Plant, the <b>Stuck batches</b> light lists batches that have stopped moving. A batch counts as moving when output is logged or when it is packed. Each row says what was made, packed and left, why it is here, when it last moved, and who has the next step.</p><p>A batch is stuck when: it is made and <b>nothing is packed</b> after 2 days (the lab or packing is next); <b>all of it is packed</b> and it is still open (close it); or stock is left, an order from the last 60 days is waiting for that product, and nothing has been packed for 3 days.</p><p>A base made once and packed as orders come is <b>not stuck</b>. When no order from the last 60 days is waiting for it, it shows under <b>Held for orders</b>, and turns amber after 180 days so somebody reviews it.</p></div>';
+  h+='<div class="gd-rule"><h3>How much a batch may make</h3><p>A batch may be logged up to <b>115% of its plan</b>. A batch that makes less is closed with a reason, and the Plant Manager is told. A batch made for a PO can never go past what the PO ordered. When a batch has made its plan, the card shows <b>Close batch</b>; if there is still room it also shows <b>Log more output</b>, and the Close batch sheet says how many Kg/L are left. Past 115%, the Plant Manager or COO raises the plan first.</p></div>';
+  h+='<div class="gd-rule"><h3>Going back from a printed paper</h3><p>A DC, gate pass, COA, inspection report or any other paper opens in its own window. At the top is a blue bar with <b>Back to O2S</b> and <b>Print / Save PDF</b>. Press <b>Back to O2S</b> to return. On a phone that will not close the window, Back takes you to O2S itself. The bar does not print, so the paper and the PDF are the same as before.</p></div>';
   h+='<div class="gd-rule"><h3>Where to find a copy</h3><p><b>An old order:</b> Plant → <b>All orders</b>, type the PO or customer, tap the order. Its sheet ends with <b>Papers</b>: every paper of that order you are allowed to print, in one place.</p><p>Reports opens on the functions your role has reports in; each holds its reports as tabs.</p><p><b>Purchase order:</b> Reports → Stock and shipping → <b>Documents</b> → Purchase orders. It carries prices, so only the roles that see money can print it.</p><p><b>Delivery challan, gate pass, pre-shipment inspection report:</b> Reports → Stock and shipping → <b>Documents</b> → Delivery challans, gate passes and inspection reports. Search by DC, gate pass, PO, customer or vehicle. Every inspected truck is also under Reports → Lab and QA → <b>Pre-shipment inspections</b>: tap the report number to open it, ready to print or save as PDF.</p><p><b>Lab certificate (COA):</b> Reports → Lab and QA → <b>Lab certificates</b>, then <b>COA</b> on the row. For the lab, QA, the Plant Manager, the CFO and the COO.</p><p><b>Packed-lot QA:</b> Reports → Lab and QA → <b>Packing and lot QA</b>, or the order’s Papers → <b>Inspection log</b>.</p><p><b>Everything about one customer:</b> Reports → Orders and customers → <b>One customer</b>.</p><p><b>Where a batch went:</b> Reports → Production → <b>Batch trace</b>. Type the batch number (for example HG26036) to see the brands, brand batch numbers, POs and trucks it was packed and shipped into, what was lost or kept, and whether the figures agree. Tap a brand batch row to see the packing runs that make its total, and a truck row to see which packing runs it took from.</p><p><b>Who changed a record:</b> Reports → Checks and corrections → <b>Corrections register</b>, for the COO, the CFO and the Plant Manager.</p></div>';
   return h;
 }
@@ -15224,7 +15345,8 @@ function guideReference(){
    ['A batch is not on the Lab screen','No output has been logged on it.','Log the shift output on the batch first.'],
    ['Packed stock is not ready to ship','The packed lot is not inspected and cleared yet, or it has no batch number.','QA inspects it (Packed lot to inspect). If it is blocked, set the batch number in Production.'],
    ['A batch number is refused','It is already used this financial year (1 Jul to 30 Jun).','Use a new number.'],
-   ['No more output can be logged','The batch reached 105% of its plan.','Close the batch; open a new one if more is really needed.'],
+   ['No more output can be logged','The batch reached 115% of its plan, or the PO has all it ordered.','Close the batch; open a new one if more is really needed. The Plant Manager or COO can raise the plan first.'],
+   ['A batch at its plan shows only Close batch','There is still room: output can go up to 115% of the plan.','Press Log more output on the batch card, or on the Close batch sheet.'],
    ['A finished PO is not in the Open batch list','That is right: production is done.','Follow it on Orders and Shipments until it is delivered.'],
    ['A truck is not moving','Each truck goes '+['Load','Inspect','Gate Pass','Review truck','Release'].map(function(l){ return (TD_LABEL[l]||{title:l}).title.toLowerCase(); }).join(', then ')+'.','Today shows whose step it is. A truck sent back goes to whoever issued the gate pass, with the reason.'],
    ['A PO stays open after the truck left','The delivery is not confirmed.','Delivery to confirm is on Today: for whoever sent the truck, for Supply Chain from day 1, for the Plant Manager from day 2.'],
@@ -18496,7 +18618,7 @@ function smpPrint(id){ var x=smpById(id); if(!x||!x.dispatch||!x.release){ toast
     +'<table class="it"><thead><tr><th>#</th><th>Product</th><th>Packs</th><th>Quantity</th><th>Batch</th><th>Mfg</th><th>Expiry</th><th>COA</th></tr></thead><tbody>'+rows+'</tbody></table>'
     +'<div class="sgs">'+sig('Approved (COO)',x.approval&&x.approval.by)+sig('Issued (warehouse)',x.issue&&x.issue.by)+sig('Checked (QA)',x.qa&&x.qa.by)+sig('Gate pass',D.by)+sig('Reviewed (Supply Chain)',x.review&&x.review.by)+sig('Released (Plant Manager)',x.release&&x.release.by)+sig('Received by','')+'</div></div>'; };
   var css='<style>body{font-family:Arial,sans-serif;font-size:12px;color:#111;margin:0}.pg{padding:18px 22px;page-break-after:always}.top{display:flex;justify-content:space-between;border-bottom:2px solid #111;padding-bottom:8px}.nos{text-align:right}.ban{margin:10px 0;padding:6px;border:2px solid #111;text-align:center;font-weight:700;letter-spacing:.5px}table{width:100%;border-collapse:collapse;margin-top:8px}.kv td{padding:4px 6px;border:1px solid #bbb}.kv td:first-child{width:90px;color:#555}.it th,.it td{border:1px solid #bbb;padding:5px;text-align:left}.it th{background:#eee}.sgs{display:flex;gap:10px;margin-top:40px}.sg{flex:1;text-align:center;font-size:11px}.sg .ln{border-top:1px solid #111;margin-bottom:4px;height:1px}.sg span{color:#555}</style>';
-  var w=window.open('','_blank'); if(!w){ toast('Allow pop-ups to print the DC'); return; } w.document.write('<html><head><title>'+e(D.dc)+' '+e(x.client)+'</title>'+css+'</head><body>'+page('Client copy')+page('Gate copy')+page('Office copy')+'</body></html>'); w.document.close(); w.focus(); }
+  var w=window.open('','_blank'); if(!w){ toast('Allow pop-ups to print the DC'); return; } w.document.write(_docWithBar('<html><head><title>'+e(D.dc)+' '+e(x.client)+'</title>'+css+'</head><body>'+page('Client copy')+page('Gate copy')+page('Office copy')+'</body></html>')); w.document.close(); w.focus(); }
 /* ---- the Samples page: the register ---- */
 function smpTodayBar(){ return ''; }
 function screenSamples(){ var e=qsEsc;

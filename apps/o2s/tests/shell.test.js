@@ -53,10 +53,10 @@ ok('render() knows it', /plant:screenPlant/.test(rnd));
 const pl = grab('screenPlant');
 ok('exactly 4 lights: 3 from the Firefighter lists, the 4th stuck batches (24b)', /k:'delayed',t:'Late orders'/.test(pl) && /k:'holds',t:'Trucks waiting'/.test(pl) && /k:'material',t:'Waiting on material'/.test(pl) && /k:'stuck',t:'Stuck batches'/.test(pl) && (pl.match(/\{k:'/g) || []).length === 4);
 {
-  const sb = grab('plStuckBatches');
-  ok('a stuck batch is open with no output for 3 days, or made its plan and sat open 2 days', /PL_STUCK_NO_OUTPUT_DAYS=3, PL_STUCK_MADE_OPEN_DAYS=2/.test(html) && /no output for /.test(sb) && /made its plan, still open/.test(sb));
-  ok('last move = the latest shift entry on the batch, else the day it opened', /state\.shiftEntries/.test(grab('plBatchLastMove')) && /b\.openedDate\|\|b\.date/.test(grab('plBatchLastMove')));
-  ok('a row opens the run sheet for a PO batch, else the close or the shift log', /openRun\('/.test(sb) && /openCloseBatch\('/.test(sb) && /openShiftLog\('/.test(sb));
+  const sb = grab('plStuckBatches') + grab('plBatchClass') + grab('_plRow');
+  ok('a stuck batch: no output 3 days, made and nothing packed 2 days, all packed 2 days, or stock left with orders waiting 3 days', /PL_STUCK_NO_OUTPUT_DAYS=3, PL_STUCK_MADE_OPEN_DAYS=2, PL_STUCK_DEMAND_DAYS=3/.test(html) && /No output logged for /.test(sb) && /nothing packed yet/.test(sb) && /Close it/.test(sb) && /are waiting for /.test(sb));
+  ok('last move = the latest shift entry OR pack record on the batch, else the day it opened', /state\.shiftEntries/.test(grab('plBatchMove')) && /state\.packingLog/.test(grab('plBatchMove')) && /b\.openedDate\|\|b\.date/.test(grab('plBatchMove')));
+  ok('a row opens the run sheet for a PO batch, else the shift log, the close, or the batch page', /openRun\('/.test(sb) && /openCloseBatch\('/.test(sb) && /openShiftLog\('/.test(sb) && /prodBatchSel='/.test(sb));
   ok('pools, by-products and closed batches are never stuck', /b\.voided\|\|b\.pool\|\|b\.status!=='open'\|\|b\.disposition==='byproduct'/.test(sb));
   ok('nothing is written', !/save\(\)/.test(sb));
 }

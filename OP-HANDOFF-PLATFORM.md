@@ -1035,3 +1035,25 @@ Pushed: **no** (ready).
 - Later the same day, Tahir: "change both". The locked-tile message now reads "O2S — ask your System
   Administrator for access."; the unused no-systems box (hidden by CSS and by `renderApp`, so never seen)
   reads "Ask your System Administrator to grant you access." (was "…your COO… O2S or PD access").
+
+
+### 13 Oct 2026 — Launcher landing view redesign, "People first" (MODULE: PLATFORM) — NOT PUSHED
+
+Tahir chose the design (Option E) after comparing options A to E. **Files changed: `launcher.html` only.**
+Only the logged-in landing view (`#appView`) changed: new look, scoped CSS under `#appView`; the login view,
+People and access view and **all JavaScript are byte-identical** (checked by diff). Ids and the hooks the JS
+uses (`.tile[data-module]`, `.code`, `.locked`, `.lockcta`, `#hello`, `#userchip`, `#nomods`) are unchanged.
+
+What changed on the page, all Tahir's rulings of 13 Oct:
+- Label beside the logo and the page `<title>`: "VAN SYSTEMS" / "VAN Systems" (was Operations Platform).
+- One simple sentence under the welcome: "This is where our work is recorded today, so the people who come after us have our memory to build on." (Draft B, his pick; "recorded" and "to build on" are Claude's joining words, he has not rewritten them).
+- Footer, centred at the bottom of the page: "© 2026 Vital Agri Nutrients (Pvt) Ltd. This system is developed in-house and operated by VAN. All rights reserved." (company name taken from the logo; wording not checked by a lawyer).
+- Removed the bottom note (it also said C2M was "in build", which was wrong: C2M is coming 16 Oct).
+- Nigehbaan tile: Urdu word removed, English letters only; no short code (Tahir chose to keep the name).
+- Live systems are raised white cards with a green Live dot; coming systems are dashed outlines with the date as the main mark. The whole landing view fits one screen on desktop (checked at 1440x780, 1366x650, 1920x1000).
+
+Tested: local copy with `/api/me` mocked for a platform administrator (People and access button shows and opens) and for a user with no modules (O2S locks, toast shows, HRMS stays open): no page errors. Independent reviewer: no breakage; its look points (locked tile showing "Live", header not sticky, light grey text) were fixed.
+Not changed on purpose (design of the landing view only): the sign-in card still says "One sign-in for the whole VAN Operations Platform." and the People and access header still uses the old label.
+**Ready to push (not pushed).** After the push, check `/` live: the landing view, the locked tile for a limited user, People and access.
+
+**Correction, same day (Tahir: "uniform across system, app and platform"):** the 2 items listed above as "not changed" were changed after all. `launcher.html` only: the sign-in card now reads "One sign-in for all of VAN Systems." (Claude's wording, not yet confirmed by Tahir) and the People and access header label is now "VAN SYSTEMS", like the landing view. A search of the repo's html, js, json and yaml files found no other "Operations Platform" text; the O2S and PD apps were not touched.

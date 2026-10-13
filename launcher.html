@@ -4,9 +4,9 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>VAN Operations Platform</title>
+  <title>VAN Systems</title>
   <meta name="description"
-    content="Vital Agri Nutrients operations platform — one sign-in for O2S, C2L, C2M, HRMS, Nigehbaan and QMS.">
+    content="Vital Agri Nutrients VAN Systems — one sign-in for O2S, C2L, C2M, HRMS, Nigehbaan and QMS.">
   <link rel="icon" href="/assets/favicon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -156,6 +156,58 @@
 
     .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:#161a20;color:#fff;font-size:.9rem;padding:10px 16px;border-radius:10px;opacity:0;transition:opacity .3s;pointer-events:none;z-index:100}
     @media (prefers-reduced-motion:reduce){.tile{transition:none}}
+  
+    /* ===== Landing view, 13 Oct 2026 (Tahir): "People first" design. Scoped to #appView only. ===== */
+    #appView .lp{min-height:100vh;display:flex;flex-direction:column;background:#fff;color:#0e3550}
+    #appView .top{position:sticky;top:0;z-index:20;background:#fff;border-bottom:none;padding:10px clamp(16px,4vw,48px);max-width:1180px;margin:0 auto;width:100%}
+    #appView .logo{height:42px}
+    #appView .platlbl{color:#5f6f7f;border-left-color:#dce4ec;letter-spacing:.2em}
+    #appView .av{width:34px;height:34px;border-radius:50%;background:#0e3550}
+    #appView .un{color:#0e3550}#appView .ur{color:#5f6f7f}
+    #appView .out{border-radius:999px;border-color:#dce4ec;color:#0e3550;padding:7px 14px}
+    #appView .out:hover{border-color:#0d5994}
+    #appView .story{background:#fbf7f0;border-top:1px solid #e3ddd0;border-bottom:1px solid #e3ddd0}
+    #appView .story-in{max-width:1180px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:32px;padding:clamp(14px,2.6vh,28px) clamp(16px,4vw,48px)}
+    #appView .story h1{font-family:var(--head);font-weight:700;font-size:clamp(1.9rem,3.6vw,2.8rem);line-height:1.05;letter-spacing:-.035em;margin:0 0 8px;color:#0e3550}
+    #appView .story .sub{color:#4a5c6e;font-size:15px;font-weight:400;margin:0 0 clamp(10px,1.8vh,16px)}
+    #appView .why{font-size:clamp(1rem,1.5vw,1.2rem);line-height:1.5;font-weight:600;margin:0;padding-left:14px;border-left:4px solid #2e9e5b;max-width:36em;color:#0e3550}
+    #appView .hz{height:clamp(96px,17vh,150px);width:auto;display:block;flex:none}
+    #appView .main{flex:1;display:flex;flex-direction:column;justify-content:center;max-width:1180px;margin:0 auto;width:100%;padding:clamp(14px,2.4vh,26px) clamp(16px,4vw,48px) 0}
+    #appView .grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+    #appView .tile{border-radius:14px;padding:16px 20px 14px;min-height:0;opacity:1}
+    #appView .tile .top2{display:flex;align-items:flex-start;justify-content:space-between}
+    #appView .ico{width:40px;height:40px;border-radius:10px;margin-bottom:0;background:#eef2f6}
+    #appView .ico svg{width:22px;height:22px;stroke:#5f6f7f;stroke-width:1.7}
+    #appView .code{display:block;font-family:var(--head);font-weight:700;font-size:1.35rem;letter-spacing:-.02em;margin:10px 0 2px;color:#3c5266}
+    #appView .nm{font-size:14px;margin:0 0 4px;color:#3c5266}
+    #appView .tag{font-size:12.5px;line-height:1.5;color:#4a5c6e}
+    #appView .tile.live{background:#fff;border:1px solid #cfe0ec;box-shadow:0 10px 26px -16px rgba(14,53,80,.45)}
+    #appView .tile.live:hover{transform:translateY(-3px);box-shadow:0 18px 34px -16px rgba(14,53,80,.55);border-color:#cfe0ec}
+    #appView .tile.live .ico{background:#0e3550}#appView .tile.live .ico svg{stroke:#fff}
+    #appView .tile.live .code,#appView .tile.live .nm{color:#0e3550}
+    #appView .tile.soon{background:transparent;border:1.5px dashed #c9d3dd;box-shadow:none}
+    #appView .lv{display:inline-flex;align-items:center;gap:7px;font-size:11px;font-weight:700;letter-spacing:.08em;color:#1b7a45}
+    #appView .lv i{width:9px;height:9px;border-radius:50%;background:#2e9e5b;box-shadow:0 0 0 4px rgba(46,158,91,.18)}
+    #appView .stamp{text-align:right;font-family:var(--head);font-weight:700;font-size:1.05rem;color:#0e3550;line-height:1.05}
+    #appView .stamp small{display:block;font:700 9.5px 'Inter',sans-serif;letter-spacing:.14em;color:#5f6f7f;margin-bottom:3px}
+    #appView .open{opacity:1;margin-top:8px;font-size:13px;color:#0d5994}
+    #appView .open b{display:inline-block;transition:transform .2s}#appView .tile.live:hover .open b{transform:translateX(5px)}
+    #appView .tile.locked{opacity:.78;cursor:not-allowed}
+    #appView .tile.locked .lv{display:none}
+    #appView .tile.locked .lockcta{color:#5f6f7f}
+    #appView .tile.locked .open{display:none}
+    #appView .tile.locked:hover{transform:none;box-shadow:0 10px 26px -16px rgba(14,53,80,.45)}
+    #appView .foot{margin-top:auto;text-align:center;font-size:12px;color:#5f6f7f;padding:12px 16px 14px;border-top:1px solid #eef1f4}
+    @media (min-width:641px) and (max-height:720px){
+      #appView .logo{height:34px}#appView .top{padding-top:6px;padding-bottom:6px}
+      #appView .story h1{font-size:1.7rem;margin-bottom:4px}#appView .story .sub{margin-bottom:8px;font-size:14px}
+      #appView .hz{height:84px}#appView .story-in{padding-top:10px;padding-bottom:10px}
+      #appView .main{padding-top:10px}#appView .grid{gap:12px}#appView .tile{padding:12px 16px 10px}
+      #appView .code{margin:6px 0 1px}#appView .tag{font-size:12px;line-height:1.4}#appView .ico{width:34px;height:34px}
+    }
+    @media (prefers-reduced-motion:reduce){#appView .open b,#appView .tile{transition:none}}
+    @media (max-width:900px){#appView .grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+    @media (max-width:640px){#appView .grid{grid-template-columns:1fr}#appView .hz{height:70px}#appView .story-in{gap:14px}}
   </style>
 </head>
 
@@ -165,7 +217,7 @@
   <section id="loginView" class="loginview" aria-label="Sign in">
     <form class="logincard" onsubmit="return __login(event)">
       <div class="loginbrand"><img src="/assets/van-logo.png" alt="VAN — Vital Agri Nutrients (Pvt) Ltd"></div>
-      <p class="loginhint">One sign-in for the whole VAN Operations Platform.</p>
+      <p class="loginhint">One sign-in for all of VAN Systems.</p>
       <label class="lglabel" for="lg_user">Username</label>
       <input id="lg_user" class="inp" autocomplete="username">
       <label class="lglabel" for="lg_pass">Password</label>
@@ -177,95 +229,85 @@
 
   <!-- Logged-in: the launcher -->
   <div id="appView" style="display:none">
-    <h1 class="sr-only">Vital Agri Nutrients Operations Platform — choose a system</h1>
+    <h1 class="sr-only">VAN Systems — choose a system</h1>
+    <div class="lp">
 
     <header class="top">
       <div class="brand">
         <img class="logo" src="/assets/van-logo.png" alt="VAN — Vital Agri Nutrients (Pvt) Ltd">
-        <span class="platlbl">Operations Platform</span>
+        <span class="platlbl">VAN SYSTEMS</span>
       </div>
       <div id="userchip" class="who"></div>
     </header>
 
-    <div class="wrap">
-      <img class="wm" src="/assets/van-emblem.png" alt="" aria-hidden="true">
-      <h1 id="hello">Welcome back</h1>
-      <p class="sub">Choose a system to open — one sign-in covers every VAN module.</p>
+    <section class="story">
+      <div class="story-in">
+        <div>
+          <h1 id="hello">Welcome back</h1>
+          <p class="sub">Choose a system to open — one sign-in covers every VAN module.</p>
+          <p class="why">This is where our work is recorded today, so the people who come after us have our memory to build on.</p>
+        </div>
+        <img class="hz" src="/assets/van-emblem.png" alt="" aria-hidden="true">
+      </div>
+    </section>
 
+    <div class="main">
       <div id="nomods">No core systems are assigned to your account yet. <b>Ask your System Administrator</b> to grant you access. Live and upcoming modules are still shown below.</div>
 
       <section class="grid" aria-label="Systems">
 
-        <!-- O2S — cyan -->
         <a class="tile live" data-module="o2s" data-href="/o2s" href="/o2s">
-          <div class="ico" style="background:linear-gradient(135deg,#22b8cf,#0891b2)">
-            <svg viewBox="0 0 24 24"><path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 7v10l9 4 9-4V7"/><path d="M12 11v10"/></svg>
-          </div>
-          <div class="row1"><span class="code">O2S</span><span class="pill live">Live</span></div>
+          <div class="top2"><div class="ico"><svg viewBox="0 0 24 24"><path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 7v10l9 4 9-4V7"/><path d="M12 11v10"/></svg></div><span class="lv"><i></i>Live</span></div>
+          <span class="code">O2S</span>
           <p class="nm">Order to Ship</p>
           <p class="tag">Orders, production, packing, shipments, DCs and gate passes.</p>
-          <span class="open">Open O2S →</span>
+          <span class="open">Open <b>→</b></span>
           <span class="lockcta">🔒 Access not granted</span>
         </a>
-
-        <!-- C2L (was PD) — green. Tahir, 12 Oct 2026: renamed "C2L · Concept to Launch", not openable from
-             the launcher until it opens on 15 Oct. The app itself still answers at /pd. -->
+        <!-- C2L (was PD): not openable until 15 Oct. The app itself still answers at /pd. -->
         <div class="tile soon">
-          <div class="ico" style="background:linear-gradient(135deg,#22c55e,#16a34a)">
-            <svg viewBox="0 0 24 24"><path d="M9 3h6"/><path d="M10 3v6l-5 8a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-8V3"/><path d="M7 15h10"/></svg>
-          </div>
-          <div class="row1"><span class="code">C2L</span><span class="pill soon">Coming Oct 15</span></div>
+          <div class="top2"><div class="ico"><svg viewBox="0 0 24 24"><path d="M9 3h6"/><path d="M10 3v6l-5 8a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-8V3"/><path d="M7 15h10"/></svg></div><span class="stamp"><small>COMING</small>OCT 15</span></div>
+          <span class="code">C2L</span>
           <p class="nm">Concept to Launch</p>
           <p class="tag">From an idea to a proven product: challenges, trials, evidence and launch.</p>
         </div>
-
-        <!-- C2M — new, planned (Tahir, 12 Oct 2026) -->
+        <!-- C2M: planned, 16 Oct -->
         <div class="tile soon">
-          <div class="ico" style="background:linear-gradient(135deg,#60a5fa,#2563eb)">
-            <svg viewBox="0 0 24 24"><path d="M4 20V10"/><path d="M10 20V4"/><path d="M16 20v-7"/><path d="M3 20h18"/><path d="M14 7l3-3 3 3"/><path d="M17 4v6"/></svg>
-          </div>
-          <div class="row1"><span class="code">C2M</span><span class="pill soon">Coming Oct 16</span></div>
+          <div class="top2"><div class="ico"><svg viewBox="0 0 24 24"><path d="M4 20V10"/><path d="M10 20V4"/><path d="M16 20v-7"/><path d="M3 20h18"/><path d="M14 7l3-3 3 3"/><path d="M17 4v6"/></svg></div><span class="stamp"><small>COMING</small>OCT 16</span></div>
+          <span class="code">C2M</span>
           <p class="nm">Cost to Margin</p>
           <p class="tag">What each product costs to make, what it sells for, and the margin between.</p>
         </div>
-
-        <!-- HRMS — live external (Django on Render); always shown -->
+        <!-- HRMS: live external (Django on Render); always shown -->
         <a class="tile live" href="https://van-hrms-31hl.onrender.com/" target="_blank" rel="noopener">
-          <div class="ico" style="background:linear-gradient(135deg,#f472b6,#db2777)">
-            <svg viewBox="0 0 24 24"><circle cx="8" cy="8" r="3"/><path d="M2.5 20a5.5 5.5 0 0 1 11 0"/><circle cx="17.5" cy="9" r="2.3"/><path d="M15.5 20a4.6 4.6 0 0 1 6.2-4.3"/></svg>
-          </div>
-          <div class="row1"><span class="code">HRMS</span><span class="pill live">Live</span></div>
+          <div class="top2"><div class="ico"><svg viewBox="0 0 24 24"><circle cx="8" cy="8" r="3"/><path d="M2.5 20a5.5 5.5 0 0 1 11 0"/><circle cx="17.5" cy="9" r="2.3"/><path d="M15.5 20a4.6 4.6 0 0 1 6.2-4.3"/></svg></div><span class="lv"><i></i>Live</span></div>
+          <span class="code">HRMS</span>
           <p class="nm">Human Resources</p>
           <p class="tag">People, attendance, leave, payroll and appraisals.</p>
-          <span class="open" style="color:#db2777">Open HRMS →</span>
+          <span class="open">Open <b>→</b></span>
         </a>
-
-        <!-- Nigehbaan — compliance & risk (was CRMS, earlier ComPha). Tahir, 12 Oct 2026: not openable from the
-             launcher until it opens on 1 Nov. The demo still answers at /nigehbaan where its file is present. -->
+        <!-- Nigehbaan: compliance and risk; not openable until 1 Nov. Name in English letters only (Tahir, 13 Oct 2026). -->
         <div class="tile soon">
-          <div class="ico" style="background:linear-gradient(135deg,#a78bfa,#7c3aed)">
-            <svg viewBox="0 0 24 24"><path d="M12 3v18"/><path d="M7 6h10"/><path d="M6 6l-3 6h6l-3-6z"/><path d="M18 6l-3 6h6l-3-6z"/><path d="M3 12a3 3 0 0 0 6 0"/><path d="M15 12a3 3 0 0 0 6 0"/><path d="M8 21h8"/></svg>
-          </div>
-          <div class="row1"><span class="code">Nigehbaan <span lang="ur" dir="rtl">نگہبان</span></span><span class="pill soon">Coming Nov 1</span></div>
+          <div class="top2"><div class="ico"><svg viewBox="0 0 24 24"><path d="M12 3v18"/><path d="M7 6h10"/><path d="M6 6l-3 6h6l-3-6z"/><path d="M18 6l-3 6h6l-3-6z"/><path d="M3 12a3 3 0 0 0 6 0"/><path d="M15 12a3 3 0 0 0 6 0"/><path d="M8 21h8"/></svg></div><span class="stamp"><small>COMING</small>NOV 1</span></div>
+          <span class="code">Nigehbaan</span>
           <p class="nm">VAN's compliance &amp; risk guardian</p>
           <p class="tag">Deadlines, licences, proofs and escalation, and a confidential way to raise a concern.</p>
         </div>
-
-        <!-- QMS — planned -->
+        <!-- QMS: planned -->
         <div class="tile soon">
-          <div class="ico" style="background:linear-gradient(135deg,#e0a33e,#c77b0e)">
-            <svg viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3z"/><path d="M9 12l2 2 4-4"/></svg>
-          </div>
-          <div class="row1"><span class="code">QMS</span><span class="pill soon">Coming soon</span></div>
+          <div class="top2"><div class="ico"><svg viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3z"/><path d="M9 12l2 2 4-4"/></svg></div><span class="stamp"><small>COMING</small>SOON</span></div>
+          <span class="code">QMS</span>
           <p class="nm">Quality Management</p>
           <p class="tag">SOPs, deviations, CAPA, change control and audit readiness.</p>
         </div>
 
-        <!-- People & access: was a tile here; since 12 Oct 2026 it is a button in the header (renderApp),
+        <!-- People & access: since 12 Oct 2026 it is a button in the header (renderApp),
              shown only to the COO / platform administrator and subsystem admins. -->
 
       </section>
-      <p class="note">Every system is shown here. You can open the ones you're granted; the rest stay locked until your System Administrator grants you access. C2L opens on 15 Oct and Nigehbaan on 1 Nov; C2M and QMS are in build.</p>
+    </div>
+
+    <footer class="foot">© 2026 Vital Agri Nutrients (Pvt) Ltd. This system is developed in-house and operated by VAN. All rights reserved.</footer>
     </div>
   </div>
 
@@ -274,7 +316,7 @@
     <header class="top">
       <div class="brand">
         <img class="logo" src="/assets/van-logo.png" alt="VAN — Vital Agri Nutrients (Pvt) Ltd">
-        <span class="platlbl">People and access</span>
+        <span class="platlbl">VAN SYSTEMS</span>
       </div>
       <button class="back" type="button" onclick="__backLauncher()">← Back to launcher</button>
     </header>

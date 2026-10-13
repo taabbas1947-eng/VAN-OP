@@ -6597,3 +6597,13 @@ Tied to the ROLE, not named people: a future Warehouse role holder would review 
 Not changed, seen on the way: Plant and action-centre lists that read item.role directly (apps/o2s/o2s.html around the action centre and Plant lights) will not list the Review truck job for Shoaib; Today and its badge do. FOC sample review texts still say Saad.
 Tests: 89 suites pass. Independent review (diff only): no defect; points answered above. NOT tested in a real browser; after the push check as COO that Today still lists Review truck for a loaded truck, and ask Shoaib to open a truck Saad made.
 Open gaps from the 13 Oct handoff: 2, 3, 4, 6, 7, 8, 10, 11, 12, 13.
+
+
+## 13 Oct 2026 (4) - Reports open on All dates (build 2026-10-13c). Ready to push, NOT pushed.
+MODULE: O2S. Files: apps/o2s/o2s.html; tests/reportsperiod.test.js (new, 16); pins changed in tests/shell.test.js (rpOpen fallback) and tests/truckreview.test.js (BUILD_ID pin replaced by a changelog check).
+13b was pushed by Tahir and checked live (build 2026-10-13b; Shoaib's Warehouse role lists Review truck, Saad's Supply Chain role lists it, Zain's Supply Chain Officer role does not; no truck was waiting for review, so the click-through is still untested). Saad's role holds gatepass.issue but not shipment.load; told Tahir, nothing changed.
+Gap 4 (This month hides old records). Tahir ruled: open on All dates, period chips stay. Built: period 'This month' became 'All' on 8 reports (Production by shift, Batches and wastage, Shipments and trucks, Lab certificates, Entries recorded late, Corrections register, Packing and lot QA, Lab turnaround); the rpOpen fallback is now 'All'; Invoicing (Last month), Closed short and Stock moved between POs (FY to date) keep theirs. Guide rule Which reports you can open, changelog 2026-10-13c, BUILD_ID.
+Live data read only with All dates: 123, 223, 30, 6, 246, 202, 258 rows (batches, coa, corrections, lateentries, packqa, prodshift, trucks), newest first; the table shows the first 500 with a note, so none is cut today. Lab turnaround has 0 rows on All dates too (no certificates from the current lab flow yet), so its look is unchanged by this.
+Independent review (no repo, summary of the change): no defect. Growth risk noted, not changed: with no date bound, Shipments, Production and Packing QA grow linearly; past 500 rows older rows need the period chips or export. If that bites, a date floor (FY start) is the follow-up.
+Tests: 90 suites pass. NOT tested in a real browser; after the push open Reports, Shipments and trucks and check the chip reads All and the oldest rows of July show.
+Open gaps from the 13 Oct handoff: 2, 3, 6, 7, 8, 10, 11, 12, 13.

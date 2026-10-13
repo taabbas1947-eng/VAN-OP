@@ -52,7 +52,7 @@ ok('the notWho filter still hides the job from whoever made the truck', /x\.notW
 ok('My job lists Review truck for the Warehouse role', /'Warehouse':\['Review truck','Issue sample','Sample gate pass'\]/.test(html));
 ok('The Guide names Saad or Shoaib and says never Zain', /Saad \(Supply Chain\) or Shoaib \(Warehouse\) reviews it, never the person who loaded the truck or issued its gate pass and never Zain/.test(html));
 ok('the truck release job no longer names Saad (the sample one still does)', /Supply Chain has not reviewed it in '\+TRUCK_REVIEW_HOURS/.test(html));
-ok('BUILD_ID 2026-10-13b and its changelog entry', /var BUILD_ID='2026-10-13b'/.test(html) && /ver:'2026-10-13b'/.test(html));
+ok('the 13b changelog entry exists (BUILD_ID itself is pinned by buildid.test.js)', /ver:'2026-10-13b'/.test(html));
 ok('the 3 sample rules are untouched (Saad only, Review sample role)', /'Supply Chain':\['Review truck','Review sample'\]/.test(html) && /<b>Saad reviews<\/b> it \(after 2 hours/.test(html));
 /* the truck card's Review button */
 const card = grab('shipCard') || '';

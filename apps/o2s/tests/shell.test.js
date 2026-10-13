@@ -443,7 +443,7 @@ ok('a browser that remembered All actions or the Dashboard lands on Today', /if\
   ['prodshift', 'batches', 'late', 'trucks', 'coa', 'rm', 'shortclose', 'lateentries', 'corrections', 'sales', 'invoicing', 'docs', 'custom'].forEach(id => ok('report: ' + id, new RegExp("\\{id:'" + id + "'").test(cat)));
   ok('every report names the roles that may open it; money reports need mayMoney() (R6)', /roles:\[/.test(cat) && /money:true/.test(cat) && /if\(c\.money&&!\(mayMoney\(\)\|\|\(INVOICE_ROLES\.indexOf\(state\.role\)>-1&&c\.id==='invoicing'\)\)\) return false/.test(grab('rpMay')) && /c\.roles==='all'\|\|\(c\.roles\|\|\[\]\)\.indexOf\(state\.role\)>-1/.test(grab('rpMay')));
   {
-    const f = new Function('state', 'mayMoney', "var INVOICE_ROLES=['Finance'];\n" + cat + ';\n' + grab('rpMay') + '\n' + grab('rpVisible') + '\nreturn rpVisible;');
+    const f = new Function('state', 'mayMoney', "var INVOICE_ROLES=['Finance'];\n" + cat + ';\n' + grab('rpTeamMay') + '\n' + grab('rpMay') + '\n' + grab('rpVisible') + '\nreturn rpVisible;');
     const S = { role: 'Production' }; const v = f(S, () => false)().map(c => c.id);
     ok('a Production Officer sees production, batches, documents, custom — no money, no corrections', v.indexOf('prodshift') > -1 && v.indexOf('batches') > -1 && v.indexOf('docs') > -1 && v.indexOf('custom') > -1 && v.indexOf('invoicing') < 0 && v.indexOf('sales') < 0 && v.indexOf('corrections') < 0);
     const w = f({ role: 'Warehouse' }, () => false)().map(c => c.id);

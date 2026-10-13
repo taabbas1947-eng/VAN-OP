@@ -11,7 +11,7 @@
    a push keeps running the old code with nothing telling anybody. It sat at
    2026-09-04a through this whole day's work; rmqty/psi tests pinned the code,
    nothing pinned this. buildid.test.js now does. */
-var BUILD_ID='2026-10-12c';
+var BUILD_ID='2026-10-12d';
 var CHANGELOG=[
   {ver:'2026-09-04a', date:'2026-09-04', title:"Delivery, DC printing, and a new Reconciliation check", items:[
     "Delivery confirmation stays with Supply Chain \u2014 it no longer hands off to the Plant Manager. If one sits too long, it now re-flags the same Supply Chain owner every 3 days instead.",
@@ -570,6 +570,12 @@ var CHANGELOG=[
     "Each row now says what was made, packed and left, why it is on the list, when it last moved, and who has the next step.",
     "A base made once and packed as orders come is not stuck. If no order from the last 60 days is waiting for it, it moves to a calm list, Held for orders, under the stuck rows. It turns amber after 180 days.",
     "Still stuck: made with nothing packed for 2 days (the row says whether the lab or packing is next); all packed but not closed; stock left with an order waiting and nothing packed for 3 days."
+  ]},
+  {ver:'2026-10-12d', date:'2026-10-12', title:"Reports: your own reports in one tap, and leads see their team's", items:[
+    "Reports now opens with a Your reports card at the top: the last reports you opened, then the ones listed for your job. One tap each. The function cards stay below.",
+    "A department lead can now open every report anyone in his department can open. With the Production Manager as Production lead (set by the COO), he sees the Production officers' reports too, and the QC Manager now sees Packed waiting to ship and Stock moved between POs, as the QA Inspector does.",
+    "The Production officers can now open Packed, waiting to ship, so they can see what is packed and not yet shipped.",
+    "Reports with money in them still need the money right. Nobody else's access changed."
   ]}
 ];
 </script>
@@ -15262,6 +15268,7 @@ function guideRules(){
   h+='<div class="gd-rule"><h3>Roles, not people</h3><p>Rights belong to roles. 2 people can hold one role and sign differently. There are no exceptions for one person — an exception becomes a new role, so it can be seen and given to the next person in that seat.</p></div>';
   h+='<div class="gd-rule"><h3>What is never on a customer document</h3><p>No price on any document the customer sees. The COA carries composition, results and the 3 signatures; the delivery challan carries product, quantity and lot.</p></div>';
   /* 06c: where each paper lives. Every place named here is an existing screen or button. */
+  h+='<div class="gd-rule"><h3>Which reports you can open</h3><p>Reports opens on a <b>Your reports</b> card first: the last reports you opened, then the ones listed for your job, one tap each. Below it are the function cards (Orders and customers, Production, Lab and QA, Stock and shipping, Sales and invoicing, Checks and corrections); a card opens its first report and the rest are tabs.</p><p>A <b>department lead</b> (set by the COO under Back Office, Departments) can open every report anyone in his department can open. Reports with money in them still need the money right.</p></div>';
   h+='<div class="gd-rule"><h3>What the Stuck batches list means</h3><p>On Plant, the <b>Stuck batches</b> light lists batches that have stopped moving. A batch counts as moving when output is logged or when it is packed. Each row says what was made, packed and left, why it is here, when it last moved, and who has the next step.</p><p>A batch is stuck when: it is made and <b>nothing is packed</b> after 2 days (the lab or packing is next); <b>all of it is packed</b> and it is still open (close it); or stock is left, an order from the last 60 days is waiting for that product, and nothing has been packed for 3 days.</p><p>A base made once and packed as orders come is <b>not stuck</b>. When no order from the last 60 days is waiting for it, it shows under <b>Held for orders</b>, and turns amber after 180 days so somebody reviews it.</p></div>';
   h+='<div class="gd-rule"><h3>How much a batch may make</h3><p>A batch may be logged up to <b>115% of its plan</b>. A batch that makes less is closed with a reason, and the Plant Manager is told. A batch made for a PO can never go past what the PO ordered. When a batch has made its plan, the card shows <b>Close batch</b>; if there is still room it also shows <b>Log more output</b>, and the Close batch sheet says how many Kg/L are left. Past 115%, the Plant Manager or COO raises the plan first.</p></div>';
   h+='<div class="gd-rule"><h3>Going back from a printed paper</h3><p>A DC, gate pass, COA, inspection report or any other paper opens in its own window. At the top is a blue bar with <b>Back to O2S</b> and <b>Print / Save PDF</b>. Press <b>Back to O2S</b> to return. On a phone that will not close the window, Back takes you to O2S itself. The bar does not print, so the paper and the PDF are the same as before.</p></div>';
@@ -19113,18 +19120,38 @@ var RP_CATALOGUE=[
   {id:'customer', t:'One customer', q:'Pick a customer: every order and what is left, every truck and its papers.', kind:'customer', roles:'all'},
   {id:'batchtrace', t:'Batch trace', q:'Pick a batch: planned, produced, which brands, POs and trucks it went to, what was lost or kept, and whether it adds up.', kind:'batchtrace', roles:['Production','Production Manager','Plant Manager','QCM','AQCM','COO','CFO']},
   {id:'packqa', t:'Packing and lot QA', q:'Every inspection of packed material: batch, quantity, result, inspector.', ds:'packqa', cols:['date','po','client','product','batch','kg','result','by'], mode:'raw', period:'This month', roles:['QA Inspector','Production','Production Manager','Plant Manager','QCM','AQCM','Warehouse','Supply Chain','Supply Chain Officer','COO','CFO']},
-  {id:'waiting', now:true, t:'Packed, waiting to ship', q:'Packed and not yet shipped: how much is cleared by QA and ready, how much still waits for QA.', ds:'waiting', cols:['po','client','product','lastpacked','packed','dispatched','waiting','ready','awaitqa'], mode:'raw', period:'All', sumKey:'waiting', views:[{t:'Each order line'},{t:'By customer',mode:'summary',group:['client'],cols:['client','waiting','ready','awaitqa']},{t:'By product',mode:'summary',group:['product'],cols:['product','waiting','ready','awaitqa']}], roles:['Supply Chain','Supply Chain Officer','Warehouse','Production Manager','Plant Manager','QA Inspector','KAM','COO','CFO']},
+  {id:'waiting', now:true, t:'Packed, waiting to ship', q:'Packed and not yet shipped: how much is cleared by QA and ready, how much still waits for QA.', ds:'waiting', cols:['po','client','product','lastpacked','packed','dispatched','waiting','ready','awaitqa'], mode:'raw', period:'All', sumKey:'waiting', views:[{t:'Each order line'},{t:'By customer',mode:'summary',group:['client'],cols:['client','waiting','ready','awaitqa']},{t:'By product',mode:'summary',group:['product'],cols:['product','waiting','ready','awaitqa']}], roles:['Production','Supply Chain','Supply Chain Officer','Warehouse','Production Manager','Plant Manager','QA Inspector','KAM','COO','CFO']},
   {id:'labtat', t:'Lab turnaround', q:'Days from the QC manager handing the sample to the lab to the approved certificate, and how long the open ones have waited. Certificates from the current lab flow only.', ds:'labtat', cols:['received','product','batch','po','approved','status','by','sofar','days'], mode:'raw', period:'This month', avgKey:'days', roles:['Lab Rep','AQCM','QCM','QA Inspector','Plant Manager','Production Manager','COO','CFO']}   /* 07b: Tahir - the Plant and Production Managers see it too */,
   {id:'moves', sumKey:'kg', t:'Stock moved between POs', q:'Every request to move packed stock to another PO of the same customer: what, why, who asked, who decided.', ds:'moves', cols:['date','from','to','client','product','batches','asked','kg','status','by','decidedby','reason'], mode:'raw', period:'FY to date', roles:['Plant Manager','Production Manager','Supply Chain','Supply Chain Officer','Warehouse','QA Inspector','COO','CFO']},
   {id:'docs', t:'Documents', q:'Find and reprint a purchase order, delivery challan, gate pass or pre-shipment inspection report.', kind:'docs', roles:'all'},
   {id:'custom', t:'Custom report', q:'Any dataset, any columns, rows or a summary; CSV, Excel or PDF.', kind:'builder', roles:'all'}
 ];
-function rpMay(c){ if(!c) return false; if(c.money&&!(mayMoney()||(INVOICE_ROLES.indexOf(state.role)>-1&&c.id==='invoicing'))) return false; if(state.role==='COO') return true; return c.roles==='all'||(c.roles||[]).indexOf(state.role)>-1; }
+/* 12 Oct, 12d. A department lead may open every report any role in his department may open
+   (Tahir: "Manager always has at least his team's"). Money reports are still decided by
+   mayMoney() in rpMay, before this is asked. Nothing else widens. */
+function rpTeamMay(c){ try{
+    var me=state.role; if(!c||c.roles==='all'||typeof isDeptLead!=='function'||!isDeptLead(me)) return false;
+    var d=roleDeptId(me); if(!d) return false;
+    return rolesInDept(d).some(function(r){ return (c.roles||[]).indexOf(r.name)>-1; });
+  }catch(e){ return false; } }
+function rpMay(c){ if(!c) return false; if(c.money&&!(mayMoney()||(INVOICE_ROLES.indexOf(state.role)>-1&&c.id==='invoicing'))) return false; if(state.role==='COO') return true; return c.roles==='all'||(c.roles||[]).indexOf(state.role)>-1||rpTeamMay(c); }
 function rpVisible(){ return RP_CATALOGUE.filter(rpMay); }
 function rpDef(id){ return RP_CATALOGUE.filter(function(c){return c.id===id;})[0]||null; }
 function rpApplyPeriod(p){ rpPeriod=p||'All'; if(rpPeriod==='All'){ rbFrom=''; rbTo=''; return; } var w=periodWindow(rpPeriod); rbFrom=w.from; rbTo=w.to; }
+/* 12 Oct, 12d. "Your reports" card: the last reports this person opened, then the ones listed for
+   his own job. A per-viewer convenience in the browser; if storage is blocked or empty the card
+   still shows the job's own reports. */
+function rpRecentKey(){ var u=(typeof state!=='undefined'&&state&&state.currentUser&&state.currentUser.name)||(state&&state.role)||''; return 'o2s_rp_recent_'+u; }
+function rpRecentIds(){ try{ var a=JSON.parse(localStorage.getItem(rpRecentKey())||'[]'); return Array.isArray(a)?a:[]; }catch(e){ return []; } }
+function rpNoteRecent(id){ try{ var a=rpRecentIds().filter(function(x){ return x!==id; }); a.unshift(id); localStorage.setItem(rpRecentKey(),JSON.stringify(a.slice(0,6))); }catch(e){} }
+function rpQuickList(){
+  var out=[]; function add(c){ if(c&&c.id!=='custom'&&rpMay(c)&&out.indexOf(c)<0&&out.length<4) out.push(c); }
+  rpRecentIds().forEach(function(id){ add(rpDef(id)); });
+  RP_CATALOGUE.filter(function(c){ return c.roles!=='all'&&(c.roles||[]).indexOf(state.role)>-1; }).forEach(add);
+  return out; }
 function rpOpen(id){
   var c=rpDef(id); if(!c||!rpMay(c)){ toast('That report is not for your role.'); return; }
+  rpNoteRecent(id);
   rpCur=id; rpView='report'; rbWhere=null; rpViewIdx=0;
   if(c.kind==='budget'){ rpView='list'; setScreen('budget'); return; }
   if(c.kind==='docs'){ rpTab='docs'; }
@@ -19156,7 +19183,8 @@ function rpGroupVisible(g){ return g.ids.map(rpDef).filter(function(c){ return c
 function rpListHTML(){
   var list=rpVisible();
   var h='<div class="qs wide"><h1>Reports</h1><div class="sub">Pick a function. Its reports open as tabs; each answers one question, with a total, Print and CSV.</div>';
-  var cards=RP_GROUPS.map(function(g){ var rs=rpGroupVisible(g); if(!rs.length) return '';
+  var qk=rpQuickList(), quick=qk.length?('<div class="bo-desk rp-card rp-quick"><div class="t">Your reports</div><div class="nums" style="font-size:13px">The ones you opened last, then the ones for your job. One tap each.</div><div class="chips" style="margin-top:10px">'+qk.map(function(c){ return '<button class="qs-btn sm" onclick="rpOpen(\''+c.id+'\')">'+qsEsc(c.t)+'</button>'; }).join('')+'</div></div>'):'';
+  var cards=quick+RP_GROUPS.map(function(g){ var rs=rpGroupVisible(g); if(!rs.length) return '';
     return '<button class="bo-desk rp-card" onclick="rpOpen(\''+rs[0].id+'\')"><div class="t">'+qsEsc(g.t)+'</div><div class="nums" style="font-size:13px">'+qsEsc(g.q)+'</div><div class="rp-names">'+rs.map(function(c){ return qsEsc(c.t)+(c.money?' <span class="tdtag">PKR</span>':''); }).join(' · ')+'</div><div class="acts"><span class="tdgo">'+rs.length+' report'+(rs.length===1?'':'s')+' ›</span></div></button>'; }).join('');
   var cu=rpDef('custom'); if(cu&&rpMay(cu)) cards+='<button class="bo-desk rp-card rp-custom" onclick="rpOpen(\'custom\')"><div class="t">Custom report</div><div class="nums" style="font-size:13px">'+qsEsc(cu.q)+'</div><div class="acts"><span class="tdgo">Build ›</span></div></button>';
   h+='<div class="bo-desks rp-list">'+cards+'</div>';

@@ -96,7 +96,7 @@ ok('an open report uses the screen width', /\.qs\.wide\.rp\{max-width:min\(1400p
   const ids = (cat.match(/\{id:'([a-z]+)'/g) || []).map(x => x.slice(5, -1)).filter(x => x !== 'custom');
   const inG = (grp.match(/'[a-z]+'/g) || []).map(x => x.slice(1, -1));
   ok('every report except Custom sits in exactly one function group', ids.every(id => inG.filter(x => x === id).length === 1));
-  const f = new Function('state', 'mayMoney', "var INVOICE_ROLES=['Finance'];\n" + cat + ';\n' + grp + ';\n' + ['rpDef', 'rpMay', 'rpGroupVisible'].map(grab).join('\n') + '\nreturn {G:RP_GROUPS,v:rpGroupVisible};');
+  const f = new Function('state', 'mayMoney', "var INVOICE_ROLES=['Finance'];\n" + cat + ';\n' + grp + ';\n' + ['rpDef', 'rpTeamMay', 'rpMay', 'rpGroupVisible'].map(grab).join('\n') + '\nreturn {G:RP_GROUPS,v:rpGroupVisible};');
   const qa = f({ role: 'QA Inspector' }, () => false);
   const qg = qa.G.map(g => g.id + ':' + qa.v(g).map(c => c.id).join(','));
   ok('QA Inspector: Lab and QA holds certificates, turnaround, packing QA and truck inspections; no money group', qg.indexOf('quality:coa,labtat,packqa,psi') > -1 && qg.indexOf('money:') > -1);

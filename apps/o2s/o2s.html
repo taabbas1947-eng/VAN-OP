@@ -11,7 +11,7 @@
    a push keeps running the old code with nothing telling anybody. It sat at
    2026-09-04a through this whole day's work; rmqty/psi tests pinned the code,
    nothing pinned this. buildid.test.js now does. */
-var BUILD_ID='2026-10-12d';
+var BUILD_ID='2026-10-13a';
 var CHANGELOG=[
   {ver:'2026-09-04a', date:'2026-09-04', title:"Delivery, DC printing, and a new Reconciliation check", items:[
     "Delivery confirmation stays with Supply Chain \u2014 it no longer hands off to the Plant Manager. If one sits too long, it now re-flags the same Supply Chain owner every 3 days instead.",
@@ -576,6 +576,11 @@ var CHANGELOG=[
     "A department lead can now open every report anyone in his department can open. With the Production Manager as Production lead (set by the COO), he sees the Production officers' reports too, and the QC Manager now sees Packed waiting to ship and Stock moved between POs, as the QA Inspector does.",
     "The Production officers can now open Packed, waiting to ship, so they can see what is packed and not yet shipped.",
     "Reports with money in them still need the money right. Nobody else's access changed."
+  ]},
+  {ver:'2026-10-13a', date:'2026-10-13', title:"FOC sample DCs are now in Documents", items:[
+    "Reports, Documents, Delivery Challans and Gate Passes now lists every FOC sample too, marked FOC sample, with its DC, gate pass, sample number, client, how it goes and where it stands.",
+    "Only the people who may open FOC samples see these rows. The DC and gate pass print together once the Plant Manager has released the sample; before that the row says so.",
+    "Search finds them by DC, gate pass, sample number, client or the words FOC sample."
   ]}
 ];
 </script>
@@ -15272,7 +15277,7 @@ function guideRules(){
   h+='<div class="gd-rule"><h3>What the Stuck batches list means</h3><p>On Plant, the <b>Stuck batches</b> light lists batches that have stopped moving. A batch counts as moving when output is logged or when it is packed. Each row says what was made, packed and left, why it is here, when it last moved, and who has the next step.</p><p>A batch is stuck when: it is made and <b>nothing is packed</b> after 2 days (the lab or packing is next); <b>all of it is packed</b> and it is still open (close it); or stock is left, an order from the last 60 days is waiting for that product, and nothing has been packed for 3 days.</p><p>A base made once and packed as orders come is <b>not stuck</b>. When no order from the last 60 days is waiting for it, it shows under <b>Held for orders</b>, and turns amber after 180 days so somebody reviews it.</p></div>';
   h+='<div class="gd-rule"><h3>How much a batch may make</h3><p>A batch may be logged up to <b>115% of its plan</b>. A batch that makes less is closed with a reason, and the Plant Manager is told. A batch made for a PO can never go past what the PO ordered. When a batch has made its plan, the card shows <b>Close batch</b>; if there is still room it also shows <b>Log more output</b>, and the Close batch sheet says how many Kg/L are left. Past 115%, the Plant Manager or COO raises the plan first.</p></div>';
   h+='<div class="gd-rule"><h3>Going back from a printed paper</h3><p>A DC, gate pass, COA, inspection report or any other paper opens in its own window. At the top is a blue bar with <b>Back to O2S</b> and <b>Print / Save PDF</b>. Press <b>Back to O2S</b> to return. On a phone that will not close the window, Back takes you to O2S itself. The bar does not print, so the paper and the PDF are the same as before.</p></div>';
-  h+='<div class="gd-rule"><h3>Where to find a copy</h3><p><b>An old order:</b> Plant → <b>All orders</b>, type the PO or customer, tap the order. Its sheet ends with <b>Papers</b>: every paper of that order you are allowed to print, in one place.</p><p>Reports opens on the functions your role has reports in; each holds its reports as tabs.</p><p><b>Purchase order:</b> Reports → Stock and shipping → <b>Documents</b> → Purchase orders. It carries prices, so only the roles that see money can print it.</p><p><b>Delivery challan, gate pass, pre-shipment inspection report:</b> Reports → Stock and shipping → <b>Documents</b> → Delivery challans, gate passes and inspection reports. Search by DC, gate pass, PO, customer or vehicle. Every inspected truck is also under Reports → Lab and QA → <b>Pre-shipment inspections</b>: tap the report number to open it, ready to print or save as PDF.</p><p><b>Lab certificate (COA):</b> Reports → Lab and QA → <b>Lab certificates</b>, then <b>COA</b> on the row. For the lab, QA, the Plant Manager, the CFO and the COO.</p><p><b>Packed-lot QA:</b> Reports → Lab and QA → <b>Packing and lot QA</b>, or the order’s Papers → <b>Inspection log</b>.</p><p><b>Everything about one customer:</b> Reports → Orders and customers → <b>One customer</b>.</p><p><b>Where a batch went:</b> Reports → Production → <b>Batch trace</b>. Type the batch number (for example HG26036) to see the brands, brand batch numbers, POs and trucks it was packed and shipped into, what was lost or kept, and whether the figures agree. Tap a brand batch row to see the packing runs that make its total, and a truck row to see which packing runs it took from.</p><p><b>Who changed a record:</b> Reports → Checks and corrections → <b>Corrections register</b>, for the COO, the CFO and the Plant Manager.</p></div>';
+  h+='<div class="gd-rule"><h3>Where to find a copy</h3><p><b>An old order:</b> Plant → <b>All orders</b>, type the PO or customer, tap the order. Its sheet ends with <b>Papers</b>: every paper of that order you are allowed to print, in one place.</p><p>Reports opens on the functions your role has reports in; each holds its reports as tabs.</p><p><b>Purchase order:</b> Reports → Stock and shipping → <b>Documents</b> → Purchase orders. It carries prices, so only the roles that see money can print it.</p><p><b>Delivery challan, gate pass, pre-shipment inspection report:</b> Reports → Stock and shipping → <b>Documents</b> → Delivery challans, gate passes and inspection reports. Search by DC, gate pass, PO, customer or vehicle. An FOC sample\u2019s DC and gate pass are in the same list, marked <b>FOC sample</b>, for the people who may open FOC samples; they print once the Plant Manager has released the sample. Every inspected truck is also under Reports → Lab and QA → <b>Pre-shipment inspections</b>: tap the report number to open it, ready to print or save as PDF.</p><p><b>Lab certificate (COA):</b> Reports → Lab and QA → <b>Lab certificates</b>, then <b>COA</b> on the row. For the lab, QA, the Plant Manager, the CFO and the COO.</p><p><b>Packed-lot QA:</b> Reports → Lab and QA → <b>Packing and lot QA</b>, or the order’s Papers → <b>Inspection log</b>.</p><p><b>Everything about one customer:</b> Reports → Orders and customers → <b>One customer</b>.</p><p><b>Where a batch went:</b> Reports → Production → <b>Batch trace</b>. Type the batch number (for example HG26036) to see the brands, brand batch numbers, POs and trucks it was packed and shipped into, what was lost or kept, and whether the figures agree. Tap a brand batch row to see the packing runs that make its total, and a truck row to see which packing runs it took from.</p><p><b>Who changed a record:</b> Reports → Checks and corrections → <b>Corrections register</b>, for the COO, the CFO and the Plant Manager.</p></div>';
   return h;
 }
 function guideTabsHTML(){
@@ -18989,6 +18994,10 @@ function rbRender(){
 }
 /* ---- Document Viewer (read-only): find & open every DC + Gate Pass ---- */
 function rpDocRows(){ return dispatchGroups().filter(function(g){ return g.dispId; }); }
+/* FOC SAMPLE DCs IN DOCUMENTS - Tahir, 13 Oct 2026. A sample's DC and gate pass live in state.samples, not with the trucks, so the
+   Documents list could not find them. They are listed here, marked FOC sample, only for the roles that may open FOC samples. */
+function rpSampleDocRows(){ if(typeof smpMayView!=='function'||!smpMayView()) return []; return smpList().filter(function(x){ return x&&x.dispatch&&x.dispatch.dc; }); }
+function rpDocCount(){ return rpDocRows().length+rpSampleDocRows().length; }
 /* ===== THE PO REGISTER — 2026-08-21 =====
    Tahir: "we need a PO print option, and a home for all POs in Reports where
    one can see each PO as it came, and print it if not already."
@@ -19045,8 +19054,8 @@ function rpDocSearch(q){
   var c=document.getElementById('rpDocCount'); if(c) c.textContent=vis+' document'+(vis===1?'':'s');
 }
 function rpDocs(){
-  var gs=rpDocRows();
-  if(!gs.length) return rpEmpty('No shipments yet — Delivery Challans and Gate Passes appear here once a truck is dispatched.');
+  var gs=rpDocRows(), ss=rpSampleDocRows();
+  if(!gs.length&&!ss.length) return rpEmpty('No shipments yet — Delivery Challans and Gate Passes appear here once a truck is dispatched.');
   var rows=gs.map(function(g){
     var key=[g.dc,g.gatePass,g.shipNo,g.poLabel,(g.pos||[]).join(' '),g.client,g.vehicle,g.driver,g.date,g.stageNow].join(' ').toLowerCase().replace(/"/g,'');
     var gp=(g.gatePass&&typeof printGatePass==='function')?('<button class="sm ghost" onclick="printGatePass(\''+g.dispId+'\')">Gate Pass</button>'):'<span class="muted" style="font-size:11px">—</span>';
@@ -19061,14 +19070,28 @@ function rpDocs(){
       +'<td style="white-space:nowrap;text-align:right"><button class="sm ghost" onclick="printDC(\''+g.dispId+'\')">DC</button> '+gp+' '+shipPsiBtn(g)+'</td>'
       +'</tr>';
   }).join('');
+  var srows=ss.map(function(x){ var D=x.dispatch||{};
+    var key=[D.dc,D.gatePass,x.no,x.client,'foc sample free sample',D.how,D.carrier,D.tracking,D.date,SMP_STATUS[x.status]].join(' ').toLowerCase().replace(/"/g,'');
+    var btn=x.release?'<button class="sm ghost" onclick="smpPrint(\''+_pe(x.id)+'\')">DC + Gate Pass</button>':'<span class="muted" style="font-size:11px">prints once released</span>';
+    return '<tr data-k="'+_pe(key)+'">'
+      +'<td>'+_pe(D.date||'—')+'</td>'
+      +'<td><b>'+_pe(D.dc||'—')+'</b></td>'
+      +'<td>'+_pe(D.gatePass||'—')+'</td>'
+      +'<td>'+_pe(x.no||'—')+' <span style="font-size:10.5px;font-weight:600;color:var(--amber)">FOC sample</span></td>'
+      +'<td class="rpwrap">'+_pe(x.client||'—')+'</td>'
+      +'<td>'+_pe([D.how,D.carrier].filter(Boolean).join(' · ')||'—')+'</td>'
+      +'<td>'+_pe(SMP_STATUS[x.status]||x.status||'—')+'</td>'
+      +'<td style="white-space:nowrap;text-align:right">'+btn+'</td>'
+      +'</tr>';
+  }).join('');
   return '<div class="card" style="padding:12px 16px;margin-bottom:12px"><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">'
     +'<div style="font-weight:600">Document viewer</div>'
-    +'<span class="muted" style="font-size:12px">Every Delivery Challan &amp; Gate Pass issued. Search, then open to print / PDF.</span>'
+    +'<span class="muted" style="font-size:12px">Every Delivery Challan &amp; Gate Pass issued'+(ss.length?', FOC samples included':'')+'. Search, then open to print / PDF.</span>'
     +'<span style="flex:1"></span>'
     +'<input type="text" placeholder="Search DC#, Gate Pass#, PO, client, vehicle…" oninput="rpDocSearch(this.value)" style="min-width:240px;padding:6px 10px">'
     +'</div></div>'
-    +'<div class="card" style="padding:0"><div class="rb-pvh"><span style="font-weight:500">Documents</span><span class="muted" id="rpDocCount">'+gs.length+' document'+(gs.length===1?'':'s')+'</span></div>'
-    +'<div style="overflow:auto;max-height:60vh"><table class="rbtbl" id="rpDocTbl"><thead><tr><th>Date</th><th>DC #</th><th>Gate Pass #</th><th>PO(s)</th><th>Client</th><th>Vehicle</th><th>Stage</th><th style="text-align:right">Open</th></tr></thead><tbody>'+rows+'</tbody></table></div></div>';
+    +'<div class="card" style="padding:0"><div class="rb-pvh"><span style="font-weight:500">Documents</span><span class="muted" id="rpDocCount">'+(gs.length+ss.length)+' document'+((gs.length+ss.length)===1?'':'s')+'</span></div>'
+    +'<div style="overflow:auto;max-height:60vh"><table class="rbtbl" id="rpDocTbl"><thead><tr><th>Date</th><th>DC #</th><th>Gate Pass #</th><th>PO(s)</th><th>Client</th><th>Vehicle</th><th>Stage</th><th style="text-align:right">Open</th></tr></thead><tbody>'+rows+srows+'</tbody></table></div></div>';
 }
 /* ---- RM Chain (read-only): raw material → stock → the products & open POs that consume it, with each line's live RM-check readiness (l.rmStatus/l.rmPR). No per-RM PR register (the live model requisitions per product line, not per raw material). ---- */
 var rpRmSel='';
@@ -19596,7 +19619,7 @@ function screenReports(){
     var kopt=function(id,label,n){ return '<div class="opt '+(rpDocKind===id?'on full':'')+'" style="flex:0 0 auto;padding:7px 13px;font-size:12px" onclick="rpDocKind=\''+id+'\';screenReports()">'+label+(n!=null?(' <b>'+n+'</b>'):'')+'</div>'; };
     kindBar='<div class="seg" style="flex-wrap:wrap;gap:6px;margin-bottom:12px">'
       +kopt('po','Purchase orders',(state.orders||[]).length)
-      +kopt('dc','Delivery Challans & Gate Passes',rpDocRows().length)+'</div>';
+      +kopt('dc','Delivery Challans & Gate Passes',rpDocCount())+'</div>';
   }
   var body=(tab==='docs')?(kindBar+((rpDocKind==='dc')?rpDocs():rpPos())):(tab==='rmchain')?rpRmChain():rbRender();
   $('view').innerHTML = '<div class="paperui">'+seg+body+'</div>';

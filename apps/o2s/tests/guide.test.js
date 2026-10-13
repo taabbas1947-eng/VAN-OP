@@ -122,6 +122,7 @@ ok('The Rules say how to correct a wrong batch number (10 Oct, 10d)', /<h3>A wro
 ok('The Rules say what N/A is on an inspection (10 Oct, 10c)', /<h3>N\/A on an inspection<\/h3>/.test(html) && /Pallet \/ loading condition<\/b> and <b>Price on the pack/.test(html));
 ok('The Rules say where to find a batch (10 Oct)', /<b>Batch trace<\/b>/.test(html) && /Where a batch went/.test(html) && /Tap a brand batch row to see the packing runs/.test(html));
 ok('The Rules say where to find a copy of each paper (6 Oct, 06c)', /<h3>Where to find a copy<\/h3>/.test(html) && /Its sheet ends with <b>Papers<\/b>/.test(html));
+ok('The Rules say an FOC sample\u2019s DC is in Documents, marked FOC sample (13 Oct)', /marked <b>FOC sample<\/b>, for the people who may open FOC samples/.test(html));
 ok('The Rules: moving packed stock to another PO, who asks, who approves, what moves (7 Oct, 07c)', /<h3>Moving packed stock to another PO<\/h3>/.test(html) && /<b>Supply Chain asks<\/b>/.test(html) && /<b>Plant Manager approves<\/b>/.test(html));
 ok('Guide search: a box at the top, every tab searched, each hit names its tab and opens it (07d)', /id="gdFind"/.test(grab('guidePage')) && /guideSearchHTML\(guideQ\)/.test(grab('guidePage')) && ['guideMyJob','guideHow','guideRules','rolesTitlesCard','backOfficeManualCard','_gdRef'].every(f => grab('guideSearchBlocks').indexOf(f) > -1) && /Open this tab/.test(grab('guideSearchHTML')));
 ok('Guide search marks words in the text, never inside a tag', /split\(\/\(<\[\^>\]\+>\)\/\)/.test(grab('guideMark')));

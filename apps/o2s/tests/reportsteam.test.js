@@ -57,6 +57,6 @@ const PL = [['production', 'production-manager']];
 ok('Reports home shows the card first, above the function cards', /var qk=rpQuickList\(\)/.test(grab('rpListHTML')) && /var cards=quick\+RP_GROUPS/.test(grab('rpListHTML')) && /Your reports/.test(grab('rpListHTML')));
 ok('opening any report is remembered', /rpNoteRecent\(id\)/.test(grab('rpOpen')));
 ok('rpMay still decides: money gate first, then COO, then roles, then the team rule', /return c\.roles==='all'\|\|\(c\.roles\|\|\[\]\)\.indexOf\(state\.role\)>-1\|\|rpTeamMay\(c\)/.test(grab('rpMay')) && grab('rpMay').indexOf('c.money') < grab('rpMay').indexOf('rpTeamMay'));
-ok('BUILD_ID moved with the changelog', /BUILD_ID='2026-10-12d'/.test(html) && /ver:'2026-10-12d'/.test(html));
+ok('the 12d changelog entry exists (BUILD_ID itself is pinned by buildid.test.js)', /ver:'2026-10-12d'/.test(html));
 ok('Guide says which reports you can open', /<h3>Which reports you can open<\/h3>/.test(html) && /department lead<\/b>/.test(html) && /Your reports<\/b> card/.test(html));
 process.exitCode = report('Reports: team rule and Your reports (12d)') ? 1 : 0;

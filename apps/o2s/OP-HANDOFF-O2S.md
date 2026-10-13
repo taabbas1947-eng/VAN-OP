@@ -6576,3 +6576,13 @@ STEP 2 - WORK ON THESE GAPS (not security). Discuss with Tahir before building a
 14. Not tested in a real browser yet: the Your reports card layout on a phone (it sits in one grid cell, about 270px wide; consider full width).
 
 OUT OF SCOPE FOR NEXT ROUND: security (logins, passwords, rights model changes, the shared-login question).
+
+
+## 13 Oct 2026 (2) - FOC sample DCs are now in Reports, Documents (build 2026-10-13a). Ready to push, NOT pushed.
+MODULE: O2S. Files: apps/o2s/o2s.html, tests/samplesdocs.test.js (new, 34), tests/guide.test.js (1 line), tests/reportsteam.test.js (BUILD_ID pin on 12d replaced by a check that the 12d changelog entry exists; buildid.test.js pins the id).
+Session start: live checked read-only as the COO login. Build 2026-10-12d live; Reports home 21 reports with the Your reports card (full width on a phone); Production role 10 reports, Production Manager 16, QCM has Packed waiting to ship and Stock moved between POs; deptLeadRole('production') = Production Manager; 115% ceiling and Log more output present; Stuck 16, Held 5. Not checked: Open on a Stuck row; the NP26009 entry limit.
+Gap 1 (FOC sample DC not findable): Tahir ruled yes, list them in Documents, marked FOC sample, visible only to the roles that may open FOC samples (smpMayView, 10 roles). Built: rpSampleDocRows, rpDocCount, rows appended in rpDocs after the truck rows (date, DC, gate pass, sample no. with an amber FOC sample tag, client, how and carrier, status from SMP_STATUS, button). The button calls smpPrint (DC and gate pass together, 3 copies); a sample not yet released shows 'prints once released'. Count in the kind bar and the table header include samples. Search finds DC, gate pass, sample no., client, 'foc sample'. Guide rule Where to find a copy, changelog 2026-10-13a, BUILD_ID.
+Live data seen read only: 1 sample (SMP, FMC Pakistan, SDC-0001, GP-0157, delivered); it is not among the 145 truck groups, so no duplicate.
+Tahir's answer on the sample print Batch column: 'Nothing required' - read as no change; NOT changed. (Open if he meant otherwise: whether that column carries the internal batch number, against the 22 Sept rule.)
+Tests: 88 suites pass. Independent review (diff only): no defect; points raised and answered: columns match the 8 headers, no period filter in rpDocRows, no duplicate with trucks, cancelled samples with a DC still list with their status. NOT tested in a real browser; after the push open Reports, Documents, Delivery Challans and Gate Passes as COO: SDC-0001 row with FOC sample tag and DC + Gate Pass button; as Production: no sample row.
+Gaps left from the 13 Oct handoff, none started: 2, 3, 4, 6, 7, 8, 9, 10, 11, 12, 13.

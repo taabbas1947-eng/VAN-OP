@@ -16,7 +16,7 @@ const S1 = { id: 'SMP1', no: 'SMP-0001', client: 'FMC Pakistan', status: 'delive
 const S2 = { id: 'SMP2', no: 'SMP-0002', client: 'Acme <b>', status: 'gatepass', dispatch: { dc: 'SDC-0002', gatePass: 'GP-0158', date: '2026-10-12', how: 'Our vehicle' } };
 const S3 = { id: 'SMP3', no: 'SMP-0003', client: 'No Gate Yet', status: 'approved' };
 
-ok('built id is 2026-10-13a', /var BUILD_ID='2026-10-13a'/.test(html));
+ok('the 13a changelog entry exists (BUILD_ID itself is pinned by buildid.test.js)', /ver:'2026-10-13a'/.test(html));
 { const m = mk('COO', [S1, S2, S3]);
   eq('COO sees the 2 samples that have a DC (not the one without)', m.rows().length, 2);
   eq('count includes samples', m.count(), 2);

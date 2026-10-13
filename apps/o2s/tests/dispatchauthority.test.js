@@ -13,17 +13,17 @@ const H = require('./harness.js'); const vm = require('vm'); const { ok, eq, rep
 ok('approveRelease: Plant Manager (and COO)', grab('approveRelease').indexOf("hardRole(['Plant Manager'])") > -1);
 ok('approveDC: Plant Manager (and COO)', grab('approveDC').indexOf("hardRole(['Plant Manager'])") > -1);
 ok('rejectDC: Saad or the Plant Manager', grab('rejectDC').indexOf("hardRole(['Supply Chain','Plant Manager'])") > -1);
-ok('reviewTruck: Supply Chain (Saad)', grab('reviewTruck').indexOf("hardRole(['Supply Chain'])") > -1);
+ok('reviewTruck: Supply Chain (Saad) or Warehouse (Shoaib), 13 Oct', grab('reviewTruck').indexOf("hardRole(TRUCK_REVIEW_ROLES)") > -1 && /var TRUCK_REVIEW_ROLES=\['Supply Chain','Warehouse'\]/.test(html));
 ok('release waits for the review, unless 2 hours have passed', /!_r0\[0\]\.scReview&&!truckReviewLapsed\(_r0\[0\]\)/.test(grab('approveRelease')));
 ok('an approval without the review is recorded on the DC', /s\.noScReview=true/.test(grab('approveRelease')) && /approved without Supply Chain review/.test(grab('printDC')) && /reviewed by /.test(grab('printDC')));
 ok('the loader or gate-pass issuer cannot review his own truck', /You loaded or passed this truck out/.test(grab('reviewTruck')));
 ok('loading and gate pass record who did them', /s\.loadedByUser=/.test(grab('startLoading')) && /s\.gatePassAt=_at; s\.gatePassBy=/.test(grab('issueGatePass')));
 const ai = grab('actionItems');
 ok("Today: Load and Gate Pass go to the Warehouse", /role:'Warehouse',disp:g,what:'Start loading/.test(ai) && /role:'Warehouse',disp:g,what:'Issue Gate Pass/.test(ai));
-ok("Today: Saad gets 'Review truck' (07g: not for a truck he loaded or passed out)", /role:'Supply Chain',disp:g,notWho:[\s\S]{0,200}?what:'Review truck/.test(ai));
+ok("Today: Saad gets 'Review truck' (07g: not for a truck he loaded or passed out)", /role:'Supply Chain',alsoRoles:TRUCK_REVIEW_ROLES,disp:g,notWho:[\s\S]{0,200}?what:'Review truck/.test(ai));
 ok("Today: the Plant Manager gets the release, which is the one he can do", /role:'Plant Manager',disp:g,what:'Approve DC and release truck/.test(ai));
 ok("Today: no separate Approve DC job for a truck in the loading flow", /g\.dcStatus==='pending' && st!=='loading' && st!=='truck_planned'/.test(ai));
-ok('SIGNOFF_ROLES names the new holders', /'shipment\.release':\['Plant Manager'\],'dc\.approve':\['Plant Manager'\],'shipment\.review':\['Supply Chain'\]/.test(html));
+ok('SIGNOFF_ROLES names the new holders', /'shipment\.release':\['Plant Manager'\],'dc\.approve':\['Plant Manager'\],'shipment\.review':\['Supply Chain','Warehouse'\]/.test(html));
 /* the 2-hour clock and the delivery ladder, run */
 const sb = { console, TRUCK_REVIEW_HOURS: 2, usersList: [{ username: 'shoaib', name: 'Muhammad Shoaib', role: 'Warehouse' }], evToday: () => '2026-09-26', state: {} };
 vm.createContext(sb); vm.runInContext(['truckReviewSince', 'truckReviewLapsed', 'truckDispatcher', '_calDays', 'deliveryJobs'].map(grab).join('\n'), sb);

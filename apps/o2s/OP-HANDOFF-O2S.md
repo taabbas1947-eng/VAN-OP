@@ -6607,3 +6607,12 @@ Live data read only with All dates: 123, 223, 30, 6, 246, 202, 258 rows (batches
 Independent review (no repo, summary of the change): no defect. Growth risk noted, not changed: with no date bound, Shipments, Production and Packing QA grow linearly; past 500 rows older rows need the period chips or export. If that bites, a date floor (FY start) is the follow-up.
 Tests: 90 suites pass. NOT tested in a real browser; after the push open Reports, Shipments and trucks and check the chip reads All and the oldest rows of July show.
 Open gaps from the 13 Oct handoff: 2, 3, 6, 7, 8, 10, 11, 12, 13.
+
+## 13 Oct 2026 (5) - Waiting QC shows the whole batch; KAM, Lab Rep and QA Inspector reports (build 2026-10-13d, on top of 13c). Ready to push, NOT pushed.
+MODULE: O2S. Files: apps/o2s/o2s.html, tests/waitingqc.test.js (new, 12 checks), tests/reportsperiod.test.js (+3), tests/batchtrace.test.js (role pin), this file.
+Majid reported batch HG26042: 25,000 made, Waiting QC showed 1 lot of 2,750. Live data (read only, COO tab): 5 lots 2,750 + 6,000 + 5,500 + 7,500 + 3,250 = 25,000, none certified, repLot = L1 marked by the AQCM on 12 Oct. The other 4 lots are hidden on purpose (labLotWaitsRep, ruling of 24 Sep: one lot tested for the batch, the rest get a copy certificate on approval). Nothing was missing; the screen hid it.
+Tahir chose one card per batch: batch number, total made, lot count, tested lot with its Kg, Kg of the lots waiting for its result. New helper labRepWaiting. Guide rule "One lot is tested for the whole batch". Testing rules unchanged.
+Reports (gaps 2 and 3): KAM may open Lab certificates (not Batch trace); Lab Rep and QA Inspector may open Batch trace. Ismaeel is the role Finance (Invoicing Officer) and already opens Shipments and trucks and the Invoicing sheet; Finance Desk Officer is Abdul Basit. Tahir ruled: Ismaeel only, no change. INVOICE_ROLES unchanged.
+Not changed, seen: if the tested lot FAILS, labRepApproved stays false, so the other lots stay hidden and the batch drops out of Waiting QC (already so before 13d). Needs a ruling: pick another tested lot, or test the lots separately.
+Tests: 90 suites pass except publicbatch (needs the database), same as before. Independent review: no defect.
+Open gaps: 6, 7, 8, 10, 11, 12, 13.

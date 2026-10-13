@@ -13,4 +13,8 @@ ok('the 4 period buttons are still there', /'This month','Last month','FY to dat
 ok('rows are capped at 500 with a note, so All dates cannot freeze the page', /slice\(0,500\)/.test(grab('rpTableHTML')) && /Showing the first 500 of/.test(grab('rpTableHTML')));
 ok('Guide says reports open on All dates', /Reports open on <b>All dates<\/b>/.test(html));
 ok('changelog 2026-10-13c exists', /ver:'2026-10-13c'/.test(html));
+const roleOf = id => by(id).roles;
+ok('13d: the KAM may open Lab certificates', roleOf('coa').indexOf('KAM') > -1);
+ok('13d: Lab Rep and QA Inspector may open Batch trace, the KAM may not', roleOf('batchtrace').indexOf('Lab Rep') > -1 && roleOf('batchtrace').indexOf('QA Inspector') > -1 && roleOf('batchtrace').indexOf('KAM') < 0);
+ok('13d: INVOICE_ROLES unchanged (Ismaeel is Finance and already has Invoicing and Shipments)', /var INVOICE_ROLES=\['Finance'\];/.test(html));
 report();

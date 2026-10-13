@@ -5,7 +5,7 @@
 const H = require('./harness.js');
 const vm = require('vm');
 const { ok, eq, report, grab, html } = H;
-const sb = { console, toasts: [], logs: [], audits: [], saved: 0,
+const sb = { LAB_REP_RULE: true, console, toasts: [], logs: [], audits: [], saved: 0,
   toast: m => sb.toasts.push(m), logAction: m => sb.logs.push(m), qcAudit2: (b, f, v) => sb.audits.push(f + ': ' + v), save: () => sb.saved++, render: () => {},
   labCovers: r => sb.cover === r, cover: '', evToday: () => '2026-09-24', fmt: n => String(n), qsEsc: x => String(x), confirm: () => true,
   state: { role: 'QCM', currentUser: { name: 'Himayat' }, batches: [{ id: 'B', batchNo: 'VU26200', openedDate: '2026-09-01',
@@ -47,4 +47,6 @@ ok('waiting lots are not lab jobs on Today', /if\(labLotWaitsRep\(b,u\)\) return
 ok('...nor on the QC waiting list', /if\(u\.coa&&\(st==='approved'\|\|st==='failed'\)\)return; if\(labLotWaitsRep\(b,u\)\) return;/.test(html));
 ok('the lab screen shows the choice and the cover', /labRepCell\(u\)/.test(html) && /labRepBtn\(u\)/.test(html));
 ok('the printed certificate names the tested lot', /Results from lot \$\{e\(c\.repOf\.lotNo\)\}, the lot tested for batch/.test(grab('printCOA')));
+ok('13e: the rule is switched off in the app', /var LAB_REP_RULE=false;/.test(html));
+ok('13e: with the rule off no lot waits, nothing is copied, no button', (() => { const s2 = Object.assign({}, sb, { LAB_REP_RULE: false }); vm.createContext(s2); vm.runInContext(['labMayRep', 'labRepOf', 'labRepApproved', 'labLotWaitsRep', '_labCopyOne', 'labCopyRep', 'labLotLate', 'labRepCell', 'labRepBtn'].map(grab).join('\n'), s2); const bb = { id: 'X', lots: [{ id: 'a', qty: 1, coa: null }, { id: 'b', qty: 1, coa: null }], repLot: { lotId: 'a' } }; return s2.labLotWaitsRep(bb, { id: 'b', coa: null }) === false && s2.labCopyRep(bb, bb.lots[0]) === 0 && s2.labRepBtn({ b: bb, id: 'b' }) === '' && s2.labRepCell({ b: bb, id: 'b' }) === ''; })());
 process.exitCode = report('One lot tested for the batch (25b)') ? 1 : 0;

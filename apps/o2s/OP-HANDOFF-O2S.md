@@ -6616,3 +6616,11 @@ Reports (gaps 2 and 3): KAM may open Lab certificates (not Batch trace); Lab Rep
 Not changed, seen: if the tested lot FAILS, labRepApproved stays false, so the other lots stay hidden and the batch drops out of Waiting QC (already so before 13d). Needs a ruling: pick another tested lot, or test the lots separately.
 Tests: 90 suites pass except publicbatch (needs the database), same as before. Independent review: no defect.
 Open gaps: 6, 7, 8, 10, 11, 12, 13.
+
+## 13 Oct 2026 (6) - Every lot is tested on its own; the tested lot rule is switched off (build 2026-10-13e). Ready to push, NOT pushed.
+MODULE: O2S. Files: apps/o2s/o2s.html, tests (replot, waitingqc, guide), this file.
+Why: Tahir asked what happens to a failed tested lot (L1). Findings: the other lots stayed hidden and waited on L1; the QCM could not switch the tested lot while L1 was failed (only after rework); labCopyRep would copy a passed result onto a lot in rework (coa null) and skip its own test. Tahir ruled: every lot is tested on its own, no lot depends on another (this reverses the 24 Sep ruling of 25b, made after Himayat's question; cost: the lab runs 1 test per lot).
+What changed: new flag LAB_REP_RULE=false gates labLotWaitsRep, labCopyRep, labLotLate, labRepBtn, labRepCell. Functions kept, not deleted, so one line brings the old rule back on a new ruling. Certificates already copied (repOf) stay valid and print as before. HG26042 (repLot L1, 5 lots, none certified) now shows all 5 lots as lab jobs. A failed lot goes to the Plant Manager (rework or deviation) and holds nobody. Guide "Every lot is tested on its own", changelog 13e.
+Not done: the Waiting QC card for a held batch (13d card code stays but is dead while the rule is off). Dead code to remove later: labSetRep, labExtendRep, labRepWaiting, repLot comments near line 10538.
+Tests: all pass except publicbatch (needs the database). Independent review: no functional defect; one test exit code bug fixed (replot).
+Open gaps: 6, 7, 8, 10, 11, 12, 13.

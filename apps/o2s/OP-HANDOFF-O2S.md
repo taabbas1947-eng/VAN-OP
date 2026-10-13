@@ -6543,3 +6543,36 @@ MODULE: O2S. Files: apps/o2s/o2s.html, tests/reportsteam.test.js (new, 27), test
 What changed: (1) rpTeamMay inside rpMay: a department lead may open every report any role in his department may open; the money gate runs first, the COO is unchanged, no other role widens. Effect on the live roles: QCM gains Packed waiting to ship and Stock moved between POs; the Production Manager already had the floor role's reports. (2) New "Your reports" card at the top of Reports: up to 4, the viewer's last opened (localStorage per login, try/catch) then the reports listed for his role. Function cards unchanged. (3) Tahir ruled 13 Oct: the Production role (Ali Raza, Jawad Naseer, own logins) now also opens Packed, waiting to ship; their reports go from 9 to 10. (4) Guide rule "Which reports you can open", changelog 2026-10-12d.
 DEPENDENCY, found by the independent review and left on purpose: the rule widens the floor role Production by 6 reports (late, rm, shortclose, lateentries, labtat, moves) if the floor role is the Production department lead. Live is correct: Tahir set the lead to Production Manager in Setup on 12 Oct and I read deptLeadRole('production') = Production Manager on 13 Oct. The built-in seed in DEPTS still says lead:'production'; changing it breaks 6 older tests (authmodel, production-manager-split) that pin the old default, so it was NOT changed. A fresh install needs the same Setup step.
 Tests: 87 suites pass. Review: independent agent, one finding (the dependency above), no other defects. NOT tested in a real browser. After the push: log in view, open Reports as COO and as Production, check the card and that the floor role has 10 reports.
+
+
+## 13 Oct 2026 - SESSION HANDOFF: what to do first next session (Tahir's instruction)
+Tahir's instruction: next session, check the whole live site for this push's status and correctness, then work on the gaps below. Security work is OUT of scope for that round.
+
+STANDING RULES (do not skip): he pushes code himself, never push. After he says "pushed", reload the live tab first (a stale tab misled me twice), then test read-only as his COO login (https://van-control-tower.onrender.com/o2s). Before code goes live: tests plus an independent agent review (give the diff, not conclusions). Follow CLAUDE.md: declare MODULE: O2S and file list before editing; Guide, changelog, tests/guide.test.js and BUILD_ID move with every O2S change; append-only handoff with re-read, prefix assert, read-back. Discuss before building when he says so. Ask corrections as multiple choice, never invent. Do only what was asked. Numbers as digits, Pakistan plain English, no files sent to chat unless asked.
+
+STEP 1 - CHECK THE LIVE SITE (read-only)
+a. Is the 12d build live? BUILD_ID should read 2026-10-12d. If still 12c, he has not pushed yet: say so and stop.
+b. Reports home as COO: the "Your reports" card shows first, function cards below, 21 reports reachable, nothing broken.
+c. Production role (Ali Raza login ali.raza, Jawad Naseer login jawad.naseer, role Production): 10 reports, including Packed waiting to ship; NOT Raw material position, Orders behind promise, Closed short, Entries recorded late, Lab turnaround, Stock moved between POs. (Read via the role matrix in code if no login is available; do not log in as them or enter any password.)
+d. Production Manager (Abdul Majid, login majid): sees the floor role's reports plus his own 16. QCM: has Packed waiting to ship and Stock moved between POs. Finance Desk Officer, Warehouse, KAM unchanged.
+e. deptLeadRole('production') is still "Production Manager". If it has reverted, the floor role gets 6 extra reports (see the 13 Oct entry above).
+f. Earlier pushes still correct: build shows the 115% batch ceiling and Log more output; Plant, Stuck batches (about 14 stuck, 5 held on 12 Oct) with Open landing on the Production batch page; Held for orders list present.
+g. Report each as pass or fail with what was seen.
+
+STEP 2 - WORK ON THESE GAPS (not security). Discuss with Tahir before building any of them.
+1. FOC sample gate passes and their DCs are not findable in Reports, Documents (rpDocRows reads state.shipments only; 1 FOC gate pass exists).
+2. Finance Desk Officer has no Invoicing sheet or Shipments and trucks report. Ask him what that role needs.
+3. KAM lacks Lab certificates and Batch trace; Lab Rep and QA Inspector lack Batch trace. Ask, do not assume.
+4. Many reports default to "This month", which hides old records; decide the default period for old documents (open orders and waiting already default to All).
+5. Production role and Packed waiting to ship: done 13 Oct. Confirm the floor sees it.
+6. A fresh install seeds the Production lead as the floor role (DEPTS lead:'production'); six older tests pin it (authmodel, production-manager-split). Decide whether to change the seed and those tests together.
+7. Correct the other 2 Syngenta POs in Correct a record: 6595010236 (Enrich) and 6595010464 (Naya S Urea).
+8. Decide on the other 50 POs with a "no" print decision.
+9. Ruling needed on cover for the Supply Chain truck review.
+10. Test the print Back bar on a real phone (needs Tahir's phone).
+11. Team feedback on the QA flow is still pending from the team; fold it in when it comes.
+12. NP26009 4,200 / 4,201 entry-limit was not tested live (it would log real data); test only on a safe record or by code.
+13. Old function plBatchLastMove is left unused in o2s.html; remove it with its tests in a small cleanup if he agrees.
+14. Not tested in a real browser yet: the Your reports card layout on a phone (it sits in one grid cell, about 270px wide; consider full width).
+
+OUT OF SCOPE FOR NEXT ROUND: security (logins, passwords, rights model changes, the shared-login question).

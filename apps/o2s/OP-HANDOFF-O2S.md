@@ -6636,3 +6636,19 @@ Open gaps: 9, 10, 11, 12, 13. Order set by Tahir: 13, then 9.
 ## 13 Oct 2026 (8) - Gap 13 done: unused plBatchLastMove removed (build 2026-10-13f). Ready to push, NOT pushed.
 Module: O2S. Files changed: apps/o2s/o2s.html (one function line removed, BUILD_ID 2026-10-13f, changelog "Housekeeping"). The function had no caller and no test named it (grep over the whole repo). Nothing a user sees or does changes. Tests: 91 suites, 0 failures. No separate agent review: the diff is one deleted unused line plus the build id and changelog.
 Open gaps: 9, 10, 11, 12.
+
+
+## 13 Oct 2026 (9) - Gap 9 open end closed: Review truck on every list (build 2026-10-13g, on top of 13f). Ready to push, NOT pushed.
+Module: O2S. Files changed: apps/o2s/o2s.html, apps/o2s/tests/trucklists.test.js (new, 17 checks), this file. 13f (gap 13) and 13g go in one push.
+Checked live first (COO login, read only): live build 2026-10-13e, TRUCK_REVIEW_ROLES = Supply Chain, Warehouse, no truck waiting for review. Read the code: Today used tdVisible (role plus alsoRoles plus notWho); All actions (acBase), the side-menu count (navBadge), the dashboard to-do list (dashMyTodos), My job lists (tdRoleJobs), Plant "Your people" (tdYourPeople) and the person card (openPersonList) read item.role only, so Shoaib's Warehouse role never saw or counted Review truck there.
+Built: helpers itOwnedBy, itBarred, itMine (placed before tdVisible); the six places above use them. A job shared by two roles counts once for each role; it is hidden from whoever loaded the truck or passed it out (COO excepted). Side effect, same as Today already did: the Confirm delivery job is also hidden from the dispatcher on All actions.
+FOC sample texts that say Saad are correct: Tahir ruled FOC sample review stays Saad's. Nothing changed there.
+Not changed, seen on the way: openPersonList does not filter on it.who (a job assigned to one analyst) while Your people does, so a person card count and its list can differ for Lab Rep jobs; existed before.
+Tests: 92 suites, 0 failures. Independent review (diff only): no defect.
+NOT tested in a real browser. After the push: as COO open Plant, Your people (Warehouse person row), and All actions; when a truck next waits for review, check it shows for Shoaib on All actions and is hidden from the one who made it.
+Gap 10 needs Tahir's phone. Gap 11 waits for replies from Majid, Fahim, QA and Shoaib; nothing to build. Open gaps: 10, 11, 12.
+
+
+## 13 Oct 2026 (10) - Gap 12 closed: no live test of the 115% entry limit
+Module: O2S. Files changed: this file only. Tahir ruled on 13 Oct: leave it as it is (option 1). The 115% ceiling stays pinned by batchover.test.js (28 checks) and is already working live (NP26009 took 2,300 on 12 Oct). The exact edge (room accepted, one more refused) was not tried on a live batch because it would log real production data.
+Open gaps: 10 (print Back bar on Tahir's phone), 11 (waiting on Majid, Fahim, QA, Shoaib). Not pushed: 13f and 13g.

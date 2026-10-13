@@ -11,7 +11,7 @@
    a push keeps running the old code with nothing telling anybody. It sat at
    2026-09-04a through this whole day's work; rmqty/psi tests pinned the code,
    nothing pinned this. buildid.test.js now does. */
-var BUILD_ID='2026-10-13f';
+var BUILD_ID='2026-10-13g';
 var CHANGELOG=[
   {ver:'2026-09-04a', date:'2026-09-04', title:"Delivery, DC printing, and a new Reconciliation check", items:[
     "Delivery confirmation stays with Supply Chain \u2014 it no longer hands off to the Plant Manager. If one sits too long, it now re-flags the same Supply Chain owner every 3 days instead.",
@@ -603,6 +603,10 @@ var CHANGELOG=[
   ]},
   {ver:'2026-10-13f', date:'2026-10-13', title:"Housekeeping", items:[
     "An unused helper (the old last-move date of a batch) was removed. Nothing you see or do changes."
+  ]},
+  {ver:'2026-10-13g', date:'2026-10-13', title:"Review truck on every list", items:[
+    "The Review truck job now also shows on All actions, in the count on the side menu and in Your people (Plant) for the Warehouse role, as it already did on Today. It is hidden from the person who loaded the truck or passed it out.",
+    "A job that is shared by two roles is counted for both, so the Plant Manager sees it waiting on Saad and on Shoaib."
   ]}
 ];
 </script>
@@ -4936,7 +4940,7 @@ const NAV_GROUPS=[
 /* The screens a Back Office tile opens. Not in the sidebar; reached from the hub. */
 const BACKOFFICE_SCREENS=['dealers','admin','users','recon','datafix','budget'];
 function navGroupOf(id){ /* 25m: renamed - it overwrote groupOf(brand), so every lead time used the default rate */ for(var i=0;i<NAV_GROUPS.length;i++){ if(NAV_GROUPS[i].ids.indexOf(id)>-1) return NAV_GROUPS[i].label; } return ''; }
-function navBadge(id){ if(id!=='approvals'&&id!=='today') return ''; try{ if(id==='today'){ var g=tdGroups(tdItems()); return g.length?`<span class="navct">${g.length}</span>`:''; } var items=actionItems(); var mine=state.role==='COO'?items:items.filter(function(x){return x.role===state.role;}); return mine.length?`<span class="navct">${mine.length}</span>`:''; }catch(e){ return ''; } }
+function navBadge(id){ if(id!=='approvals'&&id!=='today') return ''; try{ if(id==='today'){ var g=tdGroups(tdItems()); return g.length?`<span class="navct">${g.length}</span>`:''; } var items=actionItems(); var mine=state.role==='COO'?items:items.filter(itMine); return mine.length?`<span class="navct">${mine.length}</span>`:''; }catch(e){ return ''; } }
 function renderNav(){
   const byId={}; SCREENS.forEach(s=>byId[s.id]=s);
   const vis=function(id){ return byId[id] && (id!=='datafix' || state.role==='COO') && id!=='budget' && canView(state.role,id); };
@@ -13718,9 +13722,9 @@ function acWaitTxt(it){ var tm=actTiming(it); if(actOverdue(it))return daysOver(
   var d=tm.days; return d==null?'—':((tm.approx?'~':'')+d+'d waiting'); }
 function acBase(){ var all=actionItems(); var role=state.role; var b;
   if(role==='COO'){ b=all.slice(); }
-  else { var own=all.filter(function(x){return x.role===role;});
+  else { var own=all.filter(itMine);
     /* notify-also escalation: a manager (Plant Manager / CFO) also sees items escalated TO them from other roles (owner still owns it) */
-    var esc=all.filter(function(x){ if(x.role===role) return false; var e=acEscalation(x); return !!(e&&e.to===role); });
+    var esc=all.filter(function(x){ if(itOwnedBy(x,role)) return false; var e=acEscalation(x); return !!(e&&e.to===role); });
     esc.forEach(function(x){ x._escalated=true; });
     b=own.concat(esc); }
   b.forEach(function(it,i){ it._id='A'+i; it._risk=acRiskOf(it); it._days=(actTiming(it)||{}).days||0; }); return b; }
@@ -13948,6 +13952,10 @@ var TD_RIGHT={
      dc.approve) are the six that were never added to RIGHTS, so nothing can be
      granted against them yet. Role decides those until the codes exist. */
 };
+/* 13g: a job belongs to its role AND to the roles named in alsoRoles (Review truck is also Shoaib's). The screens that count or list "whose job is this" use these two, the same way Today does. */
+function itOwnedBy(it,role){ return !!it && (it.role===role || (!!it.alsoRoles && it.alsoRoles.indexOf(role)>-1)); }
+function itBarred(it,user,role){ return !!(it && it.notWho && user && role!=='COO' && it.notWho.indexOf(user)>-1); }   /* the person who loaded or passed the truck out */
+function itMine(it){ var u=(state.currentUser||{}).username||''; return itOwnedBy(it,state.role) && !itBarred(it,u,state.role); }
 function tdVisible(it,role){
   if(role==='COO') return true;
   if(it.role===role) return true;
@@ -14561,7 +14569,7 @@ function tdRoleJobs(role){
   /* the labels addressed to this role right now, plus every label whose live
      right the role holds - so a quiet day still lists the job kinds */
   var seen={}, out=[];
-  try{ actionItems().forEach(function(it){ if(it.role===role && it.label && !seen[it.label]){ seen[it.label]=1; out.push(it.label); } }); }catch(e){}
+  try{ actionItems().forEach(function(it){ if(itOwnedBy(it,role) && it.label && !seen[it.label]){ seen[it.label]=1; out.push(it.label); } }); }catch(e){}
   Object.keys(TD_RIGHT).forEach(function(l){ if(!seen[l] && mayRole(role,TD_RIGHT[l])){ seen[l]=1; out.push(l); } });
   /* 24o: the sign-offs are jobs too - a QCM with no COA waiting today still approves COAs */
   var SIGN_JOBS=TD_SIGN_JOBS;
@@ -15006,12 +15014,12 @@ function tdYourPeople(){
   var people=(usersList||[]).filter(function(u){ if(!u||u.role==='COO') return false; if(u.username===(state.currentUser||{}).username) return false; var d=roleDeptId(u.role); return d && (depts===null||depts.indexOf(d)>-1); });
   if(!people.length) return '';
   var all=actionItems().filter(function(it){ return !acDeferActive(it); }); all.forEach(function(it,i){ it._id='Y'+i; it._days=(actTiming(it)||{}).days||0; });
-  var byRole={}; all.forEach(function(it){ (byRole[it.role]=byRole[it.role]||[]).push(it); });
+  var byRole={}; all.forEach(function(it){ [it.role].concat(it.alsoRoles||[]).filter(function(r,i,a){ return r && a.indexOf(r)===i; }).forEach(function(r){ (byRole[r]=byRole[r]||[]).push(it); }); });   /* 13g: a job also addressed to other roles counts for them */
   var day=TODAY.toISOString().slice(0,10); var log=(state.actionLog||[]).filter(function(e){ return e && localDateOf(e.t)===day && e.what!=='Signed in' && e.what!=='Signed out'; });
   var stamps=evAllStamps(); var deptCur=ppCurrent(stamps.filter(function(x){ return people.some(function(u){return u.name===x.by;}); }),7);
   var h='<div class="tdsec">Your people<span class="cnt">'+people.length+'</span></div>';
   h+='<div class="dept-num '+(deptCur.pct==null?'st-na':deptCur.pct>=90?'st-ok':deptCur.pct>=70?'st-late':'st-over')+'"><div class="big">'+(deptCur.pct==null?'—':deptCur.pct+'%')+'</div><div class="def"><b>current</b> · '+(deptCur.n?(deptCur.ok+' of '+deptCur.n+' entries in the last 7 days were recorded the day they happened. The rest were entered later.'):'no stamped entries in the last 7 days yet.')+' This is the department’s one number.</div>'+(deptCur.n?'<div class="bar"><i style="width:'+deptCur.pct+'%"></i></div>':'')+'</div>';
-  h+='<div class="tdlist" style="margin-top:10px">'+people.map(function(u){ var gs=tdGroups((byRole[u.role]||[]).filter(function(it){ return !it.who||it.who===u.username; })); var worst=0; gs.forEach(function(g){ if(g.days>worst) worst=g.days; }); var done=log.filter(function(e){return e.by===u.name;}).length; var cur=ppCurrent(stamps.filter(function(x){return x.by===u.name;}),7);
+  h+='<div class="tdlist" style="margin-top:10px">'+people.map(function(u){ var gs=tdGroups((byRole[u.role]||[]).filter(function(it){ return (!it.who||it.who===u.username) && !itBarred(it,u.username,u.role); })); var worst=0; gs.forEach(function(g){ if(g.days>worst) worst=g.days; }); var done=log.filter(function(e){return e.by===u.name;}).length; var cur=ppCurrent(stamps.filter(function(x){return x.by===u.name;}),7);
       var tone=gs.length?(worst>=7?'st-over':(worst>=1?'st-late':'st-ok')):'st-ok';   /* 07h: amber 1 to 6 days, red from 7 */
       return '<button class="person" onclick="openPersonList(\''+qsEsc(u.role)+'\',\''+qsEsc(u.name)+'\')"><div class="row between"><span class="nm">'+qsEsc(u.name)+'</span><span class="rl">'+qsEsc(personTitle(u.username,u.role))+'</span></div>'
         +'<div class="stats"><span class="st-na"><span class="n">'+gs.length+'</span><span class="l">waiting on '+qsEsc(String(u.name).split(' ')[0])+(gs.length&&(byRole[u.role]&&people.filter(function(p){return p.role===u.role;}).length>1)?' (shared)':'')+'</span></span><span class="'+tone+'"><span class="n">'+(gs.length?(worst?worst+' d':'today'):'none')+'</span><span class="l">oldest waiting</span></span><span class="st-done"><span class="n">'+done+'</span><span class="l">done today</span></span></div>'
@@ -15019,7 +15027,8 @@ function tdYourPeople(){
   return h;
 }
 function openPersonList(role,name){
-  var all=actionItems().filter(function(it){ return it.role===role && !acDeferActive(it); }); all.forEach(function(it,i){ it._id='PL'+i; it._days=(actTiming(it)||{}).days||0; });
+  var _pu=((usersList||[]).filter(function(u){ return u&&u.role===role&&u.name===name; })[0]||{}).username||'';
+  var all=actionItems().filter(function(it){ return itOwnedBy(it,role) && !itBarred(it,_pu,role) && !acDeferActive(it); }); all.forEach(function(it,i){ it._id='PL'+i; it._days=(actTiming(it)||{}).days||0; });
   var gs=tdGroups(all);
   $('modal').innerHTML='<div class="mh"><h2>'+qsEsc(name)+'</h2><div class="sub">'+qsEsc(roleTitle(role))+' · '+gs.length+' job'+(gs.length===1?'':'s')+' waiting on the role</div></div><div class="mb">'+(gs.length?'<div class="tdlist">'+gs.map(tdCardHTML).join('')+'</div>':'<div class="note">Nothing is waiting on '+qsEsc(name)+' right now.</div>')+'</div><div class="mf"><button class="qs-btn" onclick="closeModal()">Close</button></div>';
   $('modalBg').classList.add('open');
@@ -16825,7 +16834,7 @@ function dashMyTodos(){ const all=actionItems(); const esc=t=>String(t==null?'':
     const rows=roles.map(r=>`<div class="clk" onclick="gotoScreen('approvals')" style="display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:8px;padding:9px 11px;margin-bottom:6px;background:#fff"><span class="rbadge" style="min-width:108px;text-align:center">${esc(r)}</span><div style="flex:1;font-size:12.5px"><b>${by[r]}</b> pending action${by[r]===1?'':'s'}</div><button class="sm">Review \u2192</button></div>`).join('');
     return {count:all.length, html: all.length?('<div class="muted" style="font-size:11px;margin-bottom:8px">Pending work across the team, grouped by the role that owns it \u2014 for your oversight. Tap a role to review it on Today; you don\u2019t action these yourself.</div>'+rows):'<div class="muted" style="padding:16px 0;text-align:center">Nothing pending across the team. \u2705</div>'};
   }
-  const mine=all.filter(i=>i.role===state.role); const top=mine.slice(0,9);
+  const mine=all.filter(itMine); const top=mine.slice(0,9);
   const rows=top.map(i=>`<div class="clk" onclick="${i.act}" style="display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:8px;padding:8px 11px;margin-bottom:6px;background:#fff"><span class="rbadge" style="min-width:92px;text-align:center">${esc(i.role)}</span><div style="flex:1;min-width:0;font-size:12.5px">${esc(i.what)}</div><button class="sm green" style="white-space:nowrap">${esc(i.label)} \u2192</button></div>`).join('');
   return {count:mine.length, html: mine.length?(rows+(mine.length>top.length?`<div class="muted" style="font-size:11px;text-align:center;margin-top:4px">+${mine.length-top.length} more \u2014 open <b>Today</b></div>`:'')):'<div class="muted" style="padding:16px 0;text-align:center">Nothing waiting on you right now. \u2705</div>'}; }
 function dashTargetsPanel(){ const fy=fyKey(TODAY.toISOString().slice(0,10)); const targets=(state.masters&&state.masters.salesTargets)||{}; const rows={}; /* 25b: sold this FY, net, truck out - the Sales & Budget rule */ saleRows().forEach(x=>{ if(x.fy!==fy) return; rows[x.key]=rows[x.key]||{d:0}; rows[x.key].d+=x.value; }); let totT=0,totD=0; Object.keys(targets).forEach(c=>{ totT+=(+(targets[c]&&targets[c][fy])||0); }); Object.keys(rows).forEach(c=>{ totD+=rows[c].d; }); const pct=totT>0?Math.round(totD/totT*100):0;

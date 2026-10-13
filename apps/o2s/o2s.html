@@ -11,7 +11,7 @@
    a push keeps running the old code with nothing telling anybody. It sat at
    2026-09-04a through this whole day's work; rmqty/psi tests pinned the code,
    nothing pinned this. buildid.test.js now does. */
-var BUILD_ID='2026-10-13e';
+var BUILD_ID='2026-10-13f';
 var CHANGELOG=[
   {ver:'2026-09-04a', date:'2026-09-04', title:"Delivery, DC printing, and a new Reconciliation check", items:[
     "Delivery confirmation stays with Supply Chain \u2014 it no longer hands off to the Plant Manager. If one sits too long, it now re-flags the same Supply Chain owner every 3 days instead.",
@@ -600,6 +600,9 @@ var CHANGELOG=[
     "The tested lot rule is switched off. Each lot of a batch has its own lab job and its own certificate, and no lot waits for another. Nothing is copied between lots any more.",
     "A lot that fails goes to the Plant Manager (rework or deviation) and the other lots carry on. Production sees every lot in Waiting QC.",
     "Certificates already copied under the old rule stay as they are."
+  ]},
+  {ver:'2026-10-13f', date:'2026-10-13', title:"Housekeeping", items:[
+    "An unused helper (the old last-move date of a batch) was removed. Nothing you see or do changes."
   ]}
 ];
 </script>
@@ -15038,7 +15041,6 @@ function openPersonList(role,name){
    last moved, and who has the next step. Shipping is not read: a pack record
    already carries what shipped from it. */
 var PL_STUCK_NO_OUTPUT_DAYS=3, PL_STUCK_MADE_OPEN_DAYS=2, PL_STUCK_DEMAND_DAYS=3, PL_HELD_FLAG_DAYS=180, PL_DEMAND_ORDER_DAYS=60;
-function plBatchLastMove(b){ var last=b.openedDate||b.date||''; (state.shiftEntries||[]).forEach(function(e){ if(e&&e.batchId===b.id&&e.date&&String(e.date)>String(last)) last=String(e.date); }); return last; }
 function _plPackedOf(b,p){ return !!(p&&!p.reversed&&!p.void&&(p.baseBatchId===b.id||(b.batchNo&&p.baseBatchNo===b.batchNo))); } /* a reversed pack is not packing */
 /* The Open button only for a person who may do what it opens. */
 function _plOpenBtn(r){ if(!plCanAct()||!r||!r.act) return ''; var a=r.act;

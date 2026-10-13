@@ -6624,3 +6624,15 @@ What changed: new flag LAB_REP_RULE=false gates labLotWaitsRep, labCopyRep, labL
 Not done: the Waiting QC card for a held batch (13d card code stays but is dead while the rule is off). Dead code to remove later: labSetRep, labExtendRep, labRepWaiting, repLot comments near line 10538.
 Tests: all pass except publicbatch (needs the database). Independent review: no functional defect; one test exit code bug fixed (replot).
 Open gaps: 6, 7, 8, 10, 11, 12, 13.
+
+
+## 13 Oct 2026 (7) - Gaps 7, 8 and 6 closed with no code change
+Module: O2S. Files changed: none (this entry only). Pushed: nothing to push.
+Gaps 7 and 8 (print decision "no" on old POs): Tahir ruled on 13 Oct that most are closed or delivered, so no old PO is corrected. 51 POs read "no" from the 23 Sep seed (33 finished, 18 still with a balance: Maxim 7, Vgreen 4, Rudolf 3, Kashmir 1, United Distributor 1, Abdul Wahid 1, VAN internal 1). Asked about the 18, Tahir answered: leave all 51 as they are. 6595010236 is already "yes" (12 Oct); 6595010464 is fully delivered. No live data was changed.
+Gap 6 (fresh-install seed of the Production lead): Tahir ruled to leave the seed as it is. DEPTS still says lead:'production'; six tests pin it (authmodel, production-manager-split). Live is correct (lead set to Production Manager in Setup on 12 Oct). FRESH INSTALL STEPS, in Setup: (1) create the role Production Manager in the Production department; (2) make him the Production department lead; (3) tick his rights: batch.open, production.enter, shift.log, packing.pack, packing.reconcile, batch.close, batch.close_bulk, production.void; (4) the manager-only rights byproduct.call, packing.divert, packing.rework go to him and are taken off the floor role Production. Check afterwards that deptLeadRole('production') reads Production Manager.
+Open gaps: 9, 10, 11, 12, 13. Order set by Tahir: 13, then 9.
+
+
+## 13 Oct 2026 (8) - Gap 13 done: unused plBatchLastMove removed (build 2026-10-13f). Ready to push, NOT pushed.
+Module: O2S. Files changed: apps/o2s/o2s.html (one function line removed, BUILD_ID 2026-10-13f, changelog "Housekeeping"). The function had no caller and no test named it (grep over the whole repo). Nothing a user sees or does changes. Tests: 91 suites, 0 failures. No separate agent review: the diff is one deleted unused line plus the build id and changelog.
+Open gaps: 9, 10, 11, 12.

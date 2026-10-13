@@ -6652,3 +6652,16 @@ Gap 10 needs Tahir's phone. Gap 11 waits for replies from Majid, Fahim, QA and S
 ## 13 Oct 2026 (10) - Gap 12 closed: no live test of the 115% entry limit
 Module: O2S. Files changed: this file only. Tahir ruled on 13 Oct: leave it as it is (option 1). The 115% ceiling stays pinned by batchover.test.js (28 checks) and is already working live (NP26009 took 2,300 on 12 Oct). The exact edge (room accepted, one more refused) was not tried on a live batch because it would log real production data.
 Open gaps: 10 (print Back bar on Tahir's phone), 11 (waiting on Majid, Fahim, QA, Shoaib). Not pushed: 13f and 13g.
+
+
+## 13 Oct 2026 (11) - RESUME HERE: session close (MODULE: O2S)
+Module: O2S. Files changed this session, all in the working folder: apps/o2s/o2s.html, apps/o2s/tests/ (waitingqc, trucklists new; reportsperiod, batchtrace, replot, guide, shell, truckreview edited), this file.
+PUSHED and checked live: 13c, 13d, 13e (live build 2026-10-13e).
+13f (unused plBatchLastMove removed, gap 13) and 13g (Review truck on every list, gap 9 open end) were committed by Tahir as 4e516fc and 2fa772e and the folder matched origin/main at close; whether Render has deployed them is NOT yet checked live. 92 suites, 0 failures; independent review of 13g found no defect; not tested in a real browser.
+NEXT, once Render has deployed: reload the live tab and, read only as the COO login (no passwords), check build 2026-10-13g; Plant, Your people, the Warehouse row (Shoaib); All actions. When a truck next waits for review, check it shows for Shoaib on All actions and is hidden from whoever made the truck.
+Closed this session (no code unless stated): 2 and 3 (reports for Finance Desk Officer, KAM, Lab Rep, QA Inspector: 13d); 6 (seed left; fresh install steps in entry 7); 7 and 8 (all 51 old "no" print decisions left as they are); 9 (ruling built in 13b, open end in 13g; FOC review stays Saad's); 12 (115% limit left, not tested live); 13 (13f).
+OPEN: 10 print Back bar on Tahir's real phone. 11 team feedback on the QA flow: waiting on Majid (Kg in parts, shift timings, run across a shift change), Fahim (group release, who covers him), QA (100% of bags or a sample, is each shift cleared on its own), Shoaib (who is "the person with system access", is a part-cleared run enough to load); nothing to build until they reply.
+Not yet verified live: what the Lab Rep sees on Today and the Lab screen under 13e; a real failed-lot run; real KAM, Lab Rep and QA Inspector logins on reports (only the catalogue roles were checked).
+Cleanup later: dead rep-lot code (labSetRep, labExtendRep, labRepWaiting, repLot comments near line 10538, the 13d card code); person card does not filter on it.who (count and list can differ for Lab Rep jobs).
+Security: nothing new found this session; nothing added to docs/SECURITY-REGISTER.md.
+Rules in force: never push (Tahir pushes from GitHub Desktop); no live data changes; ask corrections as multiple choice; Guide, changelog, BUILD_ID and tests move with each change.

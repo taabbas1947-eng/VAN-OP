@@ -474,18 +474,18 @@ const B = c => run(c, 'state.batches[state.batches.length-1]');
        + ' state.masters.incharges=(state.masters.incharges||[]).concat(["Muhammad Imran"]);'
        + ' openShiftLog("B-AP26012");'
        + ' shiftForm.shift="Morning"; shiftForm.incharge="Muhammad Imran";'
-       + ' shiftForm.date="2026-08-22"; shiftForm.qty=300; submitShiftLog();');
+       + ' shiftForm.date="2026-08-22"; shiftForm.dateReason="test fixture, back-dated on purpose"; shiftForm.qty=300; submitShiftLog();');
   eq('the first log goes through', B(c).lots.length, 3);
   const was = B(c).producedKg;
 
   /* the same shift again */
   run(c, 'openShiftLog("B-AP26012"); shiftForm.shift="Morning"; shiftForm.incharge="Muhammad Imran";'
-       + ' shiftForm.date="2026-08-22"; shiftForm.qty=300; toasts=[]; submitShiftLog();');
+       + ' shiftForm.date="2026-08-22"; shiftForm.dateReason="test fixture, back-dated on purpose"; shiftForm.qty=300; toasts=[]; submitShiftLog();');
   eq('the repeat writes NOTHING the first time it is pressed', B(c).lots.length, 3);
   eq('...and produced does not move', B(c).producedKg, was);
   const t = run(c, 'toasts').join(' | ');
   ok('...it says what already exists', /Already logged/.test(t) && /Muhammad Imran/.test(t), t);
-  ok('...and says how to go ahead anyway', /press Log output again to confirm/.test(t), t);
+  ok('...and says how to go ahead anyway', /press Save shift output again to confirm/.test(t), t);
 
   /* pressing again confirms it */
   run(c, 'toasts=[]; submitShiftLog();');

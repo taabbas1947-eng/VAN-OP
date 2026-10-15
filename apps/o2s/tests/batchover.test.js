@@ -18,7 +18,7 @@ function make(opts) {
     fmt: n => Math.round(n).toLocaleString('en-US'), _pe: v => String(v), _tx: v => String(v == null ? '' : v),
     $: () => modal, closeModal() {}, toast: m => toasts.push(m), denyRight: () => 'denied',
     may: c => opts.may === undefined ? true : !!opts.may[c], nid: () => 'X', save() {}, render() {}, logAction() {},
-    evStamp: () => ({}), _uid: () => 'U', batchPOsLabel: () => '', TODAY: new Date('2026-10-12'),
+    evStamp: () => ({}), evDateGate: () => '', _uid: () => 'U', batchPOsLabel: () => '', TODAY: new Date('2026-10-12'),
     coaItemOf: () => null, prodSkin: v => v, prodTiles: () => '', openShiftLog() {} };
   s.state = { role: 'Plant Manager', batches: [], orders: [], shiftEntries: [], productionLog: [], masters: { varianceReasons: ['Wastage'] } };
   s.shiftForm = { batchId: 'B1', shift: 'A', incharge: 'Ali', qty: 0, reason: '' };

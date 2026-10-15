@@ -102,7 +102,7 @@ ok('the Guide tells Production about the picks, the packs and the flag', /_n15=\
 ok('the Guide tells the Production Manager about Big pack run and Seen', /'Production Manager':_pk15\+' A packing entry over 10,000 Kg\/L comes to you as <b>Big pack run<\/b>/.test(html));
 ok('the Guide has the rule', /Why packing asks for the shift, the in-charge and the packs/.test(html));
 ok('How the app works mentions it', /Each packing entry says which shift and which in-charge packed it/.test(html));
-ok('the changelog has the entry and BUILD_ID matches', /ver:'2026-10-15b'/.test(html) && /ver:'2026-10-15c'/.test(html) && /BUILD_ID='2026-10-15c'/.test(html));
+ok('the changelog has the 15b and 15c entries (buildid.test.js pins BUILD_ID)', /ver:'2026-10-15b'/.test(html) && /ver:'2026-10-15c'/.test(html));
 
 /* second audit (15 Oct): fractional pack size, other entries, who may mark Seen */
 { const sb = mk(); sb.state.orders[0].lines[0].pack = 0.5; sb.packForm = F(5); const h = R(sb, 'packConfirmInner(packForm,"pack")');

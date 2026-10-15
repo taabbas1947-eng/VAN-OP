@@ -59,7 +59,7 @@ function runDiv(shift, inch) {
 /* the screen */
 { const sb = base({}); vm.runInContext(grab('packShiftIncBlock'), sb);
   const h = vm.runInContext('packShiftIncBlock', sb)({ shift: '', incharge: '' }, 'packForm', '');
-  ok('shows both picks', /<label>Shift<\/label>/.test(h) && /In-charge of this packing run/.test(h));
+  ok('shows both picks', /<label>Shift <span style="color:var\(--red\)">\*<\/span><\/label>/.test(h) && /In-charge of this packing run <span style="color:var\(--red\)">\*<\/span>/.test(h));
   ok('both start on "— pick —", nothing preselected', (h.match(/— pick —/g) || []).length === 2 && !/selected/.test(h));
   ok('offers the shifts and the in-charges from the same lists', /Morning/.test(h) && /Faisal Nadeem/.test(h) && /Adnan Rasheed/.test(h));
   ok('says it is not the person typing', /not the person typing/.test(h));

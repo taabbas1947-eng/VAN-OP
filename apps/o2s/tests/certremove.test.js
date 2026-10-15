@@ -551,10 +551,10 @@ function multiApp(role, opts) {
                     { oid: 'O-B', lid: 'LB', po: 'PO-B', client: 'Client B', brand: 'V-AP Bulk', kg: ${opts.orderedB || 1210} }],
       plannedKg: 2710, producedKg: 0, packedKg: 0, status: 'open', openedDate: '2026-08-20', lots: [] });
     state.role = 'Production'; state.screen = 'prod';
-    shiftForm = { batchId: 'B-AP26012', qty: 1010, shift: 'Morning', incharge: 'Muhammad Imran', date: '2026-08-21', beds: [] };
+    shiftForm = { batchId: 'B-AP26012', qty: 1010, shift: 'Morning', incharge: 'Muhammad Imran', date: '2026-08-21', dateReason: 'test fixture, back-dated on purpose', beds: [] };
     submitShiftLog();
     ${opts.fillB ? 'var _lb = state.orders.find(function(o){ return o.id === "O-B"; }).lines[0]; _lb.produced = _lb.ordered;' : ''}
-    shiftForm = { batchId: 'B-AP26012', qty: 1010, shift: 'Morning', incharge: 'Muhammad Imran', date: '2026-08-21', beds: [] };
+    shiftForm = { batchId: 'B-AP26012', qty: 1010, shift: 'Morning', incharge: 'Muhammad Imran', date: '2026-08-21', dateReason: 'test fixture, back-dated on purpose', beds: [] };
     submitShiftLog();            /* first press: the duplicate warning, nothing written */
     submitShiftLog();            /* second press: confirmed */
     state.role = ${JSON.stringify(role)};

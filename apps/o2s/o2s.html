@@ -11,7 +11,7 @@
    a push keeps running the old code with nothing telling anybody. It sat at
    2026-09-04a through this whole day's work; rmqty/psi tests pinned the code,
    nothing pinned this. buildid.test.js now does. */
-var BUILD_ID='2026-10-15a';
+var BUILD_ID='2026-10-15b';
 var CHANGELOG=[
   {ver:'2026-09-04a', date:'2026-09-04', title:"Delivery, DC printing, and a new Reconciliation check", items:[
     "Delivery confirmation stays with Supply Chain \u2014 it no longer hands off to the Plant Manager. If one sits too long, it now re-flags the same Supply Chain owner every 3 days instead.",
@@ -613,6 +613,12 @@ var CHANGELOG=[
     "You still type Kg/L. The screen now shows the number of packs (Kg/L divided by the pack size of the order line) and asks you to tick that this is what was packed. If you type more than the batch has left or the order needs, the screen says so and shows the packs for the figure that will be packed.",
     "A packing entry over 10,000 Kg/L is saved as usual and goes to the Production Manager's Today as Big pack run, with the Kg/L, packs, shift, in-charge and who keyed it. He reads it and marks it Seen. It is never stopped.",
     "A packing record moved to another PO keeps its shift and in-charge. The duplicate clean-up no longer treats two runs of the same Kg/L as one when their shift or in-charge differs."
+  ]},
+  {ver:'2026-10-15b', date:'2026-10-15', title:"No packing record skips the shift, the in-charge and the packs", items:[
+    "Correct a record > Add missing packing, and Reconcile > Write the packing record, now ask for the Shift and the In-charge, show the packs and ask you to tick them, exactly like the live packing screens. Both start empty and the entry is refused without them. The record is now in the name of the person who typed it.",
+    "The 10,000 Kg/L check now also adds up the entries made on the same date by the same shift and in-charge, so splitting a run into smaller entries does not hide it. It is still saved and never stopped.",
+    "The job and its sheet are all called Big pack run. The sheet now says what Seen means and what to do if the figure is wrong. The packs box says Tick this box to continue, the cut message says whether the batch or the PO set the limit, and on the divert screen the Shift and In-charge now come before the packs box.",
+    "If no shift or no in-charge is on the list, the screen now says who to ask. A line with no pack size says the entry will be saved without packs."
   ]}
 ];
 </script>
@@ -5332,7 +5338,7 @@ function screenDataFix(){
 /* ===================== LOCK 5: Data Fix — Add-missing operations ===================== */
 let dfOp=null, dfForm={};
 function dfBack(){ dfOp=null; dfForm={}; render(); }
-function dfStart(op){ dfOp=op; dfForm={kind:'po',oid:'',lid:'',base:'',brand:'',qty:'',date:TODAY.toISOString().slice(0,10),date2:TODAY.toISOString().slice(0,10),reason:'',shift:(((state.masters&&state.masters.shifts)||['Morning'])[0]),incharge:'',po:'',client:'',channel:(((typeof SEED!=='undefined'&&SEED.channels)||['White Label'])[0]),priority:'Normal',received:TODAY.toISOString().slice(0,10),promised:new Date(TODAY.getTime()+7*864e5).toISOString().slice(0,10),ordered:'',bid:'',pid:'',restoreBatch:true,skipBatchCredit:false}; render(); }
+function dfStart(op){ dfOp=op; dfForm={kind:'po',oid:'',lid:'',base:'',brand:'',qty:'',date:TODAY.toISOString().slice(0,10),date2:TODAY.toISOString().slice(0,10),reason:'',packsOkKg:0,packsOkSize:0,shift:(op==='packing'?'':(((state.masters&&state.masters.shifts)||['Morning'])[0])),incharge:'',po:'',client:'',channel:(((typeof SEED!=='undefined'&&SEED.channels)||['White Label'])[0]),priority:'Normal',received:TODAY.toISOString().slice(0,10),promised:new Date(TODAY.getTime()+7*864e5).toISOString().slice(0,10),ordered:'',bid:'',pid:'',restoreBatch:true,skipBatchCredit:false}; render(); }
 function dfReasonOk(){ return !!(dfForm.reason && String(dfForm.reason).trim()); }
 function dfPOSelect(){ return `<select onchange="dfForm.oid=this.value;dfForm.lid='';dfForm.bid='';dfForm.pid='';render()"><option value="">— pick PO —</option>${state.orders.map(o=>`<option value="${o.id}" ${dfForm.oid===o.id?'selected':''}>${o.po} · ${o.client}</option>`).join('')}</select>`; }
 function dfLineSelect(){ const o=state.orders.find(x=>x.id===dfForm.oid); const ls=o?o.lines:[]; return `<select onchange="dfForm.lid=this.value;dfForm.bid='';dfForm.pid='';render()" ${o?'':'disabled'}><option value="">${o?'— pick product —':'pick PO first'}</option>${ls.map(l=>`<option value="${l.id}" ${dfForm.lid===l.id?'selected':''}>${l.brand} (${fmt(l.produced||0)}/${fmt(l.ordered)})</option>`).join('')}</select>`; }
@@ -5396,11 +5402,11 @@ function dfFormHtml(op){
     return wrap('Add missing packing',`
       <div class="formgrid" style="grid-template-columns:1fr 1fr 1fr">
         <div class="fld"><label>Purchase Order</label>${dfPOSelect()}</div><div class="fld"><label>Product</label>${dfLineSelect()}</div>
-        <div class="fld"><label>Quantity packed (Kg/L)</label><input type="number" value="${dfForm.qty||''}" oninput="dfForm.qty=this.value"></div>
+        <div class="fld"><label>Quantity packed (Kg/L)</label><input type="number" value="${dfForm.qty||''}" oninput="dfForm.qty=this.value;packConfirmRefresh('df')"></div>
       </div>
       <div class="formgrid" style="grid-template-columns:1fr;margin-top:10px"><div class="fld"><label>Batch # — links to a QC-approved batch</label>${dfBatchSelect(_pfl&&_pfl.base)}</div></div>
       ${_skipNote}
-      <div class="formgrid" style="grid-template-columns:1fr;max-width:220px;margin-top:10px"><div class="fld"><label>Date (actual)</label><input type="date" value="${dfForm.date}" onchange="dfForm.date=this.value"></div></div>${dfReasonField()}
+      <div class="formgrid" style="grid-template-columns:1fr;max-width:220px;margin-top:10px"><div class="fld"><label>Date (actual)</label><input type="date" value="${dfForm.date}" onchange="dfForm.date=this.value"></div></div>${packShiftIncBlock(dfForm,'dfForm','')}${packConfirmBlock('df')}${dfReasonField()}
       <div style="margin-top:12px"><button class="green" onclick="dfSubmitPacking()">Add packing record</button></div>`);
   }
   if(op==='void'){
@@ -5561,6 +5567,7 @@ function dfSubmitPacking(){
   { const _need=Math.max(0,(+l.ordered||0)-(+l.packed||0)); if(q>_need+0.5) return toast('That is more than the line still needs: '+fmt(l.ordered||0)+' ordered, '+fmt(l.packed||0)+' already packed, '+fmt(_need)+' left. Extra stock stays in the batch; it never goes onto an order.'); }
   /* 07e (A5): never more than the batch has cleared and not packed (unless the box says the batch was already credited) */
   if(!dfForm.skipBatchCredit){ var _bp=batchPackableKg(b); if(q>_bp+0.5) return toast('Batch '+(b.batchNo||'')+' has only '+fmt(_bp)+' Kg/L cleared and not yet packed. The batch has no room for it: check its packing records on the Production screen. Tick the box under the batch only when you are redoing a record whose Kg are already in the batch\'s packed total.'); }   /* 07i: says the way forward */
+  { const _sg=packShiftIncGate(dfForm)||packConfirmGate(dfForm,'df'); if(_sg) return toast(_sg); }   /* 15 Oct: the same shift, in-charge and packs checks as the live entries */
   const _wasPacked=+l.packed||0;
   l.packed=(l.packed||0)+q; l.produced=Math.max(l.produced||0,l.packed); l.prodStart=l.prodStart||d; if((l.packed||0)>=l.ordered-0.5) l.prodComplete=l.prodComplete||d;
   const baseBatchNo=b.batchNo||''; const brandBatchNo=baseBatchNo;
@@ -5570,7 +5577,7 @@ function dfSubmitPacking(){
   /* skipBatchCredit: see the form's checkbox comment. Off by default, so every
      existing case behaves exactly as before. */
   if(!dfForm.skipBatchCredit) b.packedKg=_wasBatchPacked+q;
-  (state.packingLog=state.packingLog||[]).unshift({id:_uid('PK'),date:d,base:l.base,brand:l.brand,kg:q,by:state.role,po:o.po,lid:l.id,baseBatchId:b.id,baseBatchNo,brandBatchNo,mfgDate:_dt.mfgDate,expDate:_dt.expDate,shelfMonths:_dt.shelfMonths,recon:true});
+  (state.packingLog=state.packingLog||[]).unshift(Object.assign({id:_uid('PK'),date:d,base:l.base,brand:l.brand,kg:q,by:((state.currentUser&&state.currentUser.name)||state.role),po:o.po,lid:l.id,baseBatchId:b.id,baseBatchNo,brandBatchNo,mfgDate:_dt.mfgDate,expDate:_dt.expDate,shelfMonths:_dt.shelfMonths,recon:true},packRowExtras(q,l,dfForm,d)));
   /* type 'packingLot' on purpose — this lot is a registered record, so a
      backfilled packing run can afterwards be amended and reversed like any
      other rather than being a second-class row nobody can touch. */
@@ -5579,7 +5586,8 @@ function dfSubmitPacking(){
      {field:'packed',label:'Line packed total',before:fmt(_wasPacked),after:fmt(+l.packed||0)},
      {field:'baseBatchNo',label:'Batch #',before:'',after:baseBatchNo},
      {field:'batchPackedKg',label:'Batch '+baseBatchNo+' packed total',before:fmt(_wasBatchPacked),after:fmt(+b.packedKg||0)},
-     {field:'date',label:'Date packed',before:'',after:d}],
+     {field:'date',label:'Date packed',before:'',after:d},
+     {field:'shift',label:'Shift / in-charge',before:'',after:dfForm.shift+' / '+dfForm.incharge}],
     dfForm.reason, d);
   save(); toast('Packing backfilled — batch # linked, QA can verify it'); dfBack();
 }
@@ -8259,9 +8267,9 @@ function renderDivert(){ const p=(state.batches||[]).find(x=>x.id===divForm.pool
   if(m==='recycle'){ const tb=divTargets(p);
     body=tb.length?`<div class="formgrid" style="grid-template-columns:1fr 1fr"><div class="fld"><label>Recycle into batch (same product, as input)</label><select onchange="divForm.bid=this.value"><option value="">— pick batch —</option>${tb.map(x=>`<option value="${x.id}" ${x.id===divForm.bid?'selected':''}>${x.batchNo||'—'} · planned ${fmt(x.plannedKg)} / made ${fmt(x.producedKg||0)}</option>`).join('')}</select></div><div class="fld"><label>Quantity (Kg/L)</label><input type="number" value="${divForm.qty}" oninput="divForm.qty=this.value" placeholder="max ${avail}"></div></div><div class="muted" style="font-size:11px;margin-top:10px">Feeds the diverted material into the chosen ${p.base} batch as input (raises its planned output); it then follows that batch's normal grind → QC → pack. The rest stays pooled.</div>`:`<div class="muted" style="font-size:12.5px;padding:6px 0">No open ${p.base} production batch to recycle into. Open one first, or use “Pack to a PO”.</div>`;
   } else { const opts=brandsForBase(p.base); const poOpts=divForm.brand?poLinesForBrand(divForm.brand):[]; const _po=state.orders.find(x=>x.id===divForm.oid); const _pl=_po&&_po.lines.find(x=>x.id===divForm.lid); const setp=(_pl&&_pl.printPrice!=null&&_pl.printPrice!=='')?_pl.printPrice:null;
-    body=`<div class="formgrid" style="grid-template-columns:1fr 1fr"><div class="fld"><label>1 · Pack into brand</label><select onchange="divForm.brand=this.value;divForm.oid='';divForm.lid='';renderDivert()"><option value="">— pick brand —</option>${opts.map(x=>`<option ${x===divForm.brand?'selected':''}>${x}</option>`).join('')}</select></div><div class="fld"><label>2 · For which PO</label><select ${divForm.brand?'':'disabled'} onchange="divForm.oid=this.value.split('|')[0];divForm.lid=this.value.split('|')[1];divForm.price='';divForm.priceOk=false;renderDivert()"><option value="">${divForm.brand?(poOpts.length?'— pick PO —':'no open PO'):'pick brand first'}</option>${poOpts.map(x=>`<option value="${x.o.id}|${x.l.id}" ${divForm.oid===x.o.id&&divForm.lid===x.l.id?'selected':''}>${x.o.po} · ${x.o.client} (needs ${fmt(x.l.ordered-(x.l.packed||0))})</option>`).join('')}</select></div><div class="fld"><label>3 · Qty (Kg/L)</label><input type="number" value="${divForm.qty}" oninput="divForm.qty=this.value;packConfirmRefresh('div')" placeholder="max ${avail}"></div></div>${packConfirmBlock('div')}${packShiftIncBlock(divForm,'divForm','')}${(divForm.oid&&divForm.lid&&_po&&_pl)?packPriceBlock(_po,_pl,divForm,'divForm'):''}<div class="muted" style="font-size:11px;margin-top:10px">Packs QC-cleared diverted ${p.base} straight into the chosen brand for that PO (no re-processing); the pack carries the source batch number. The rest stays pooled.</div>`;
+    body=`<div class="formgrid" style="grid-template-columns:1fr 1fr"><div class="fld"><label>1 · Pack into brand</label><select onchange="divForm.brand=this.value;divForm.oid='';divForm.lid='';renderDivert()"><option value="">— pick brand —</option>${opts.map(x=>`<option ${x===divForm.brand?'selected':''}>${x}</option>`).join('')}</select></div><div class="fld"><label>2 · For which PO</label><select ${divForm.brand?'':'disabled'} onchange="divForm.oid=this.value.split('|')[0];divForm.lid=this.value.split('|')[1];divForm.price='';divForm.priceOk=false;renderDivert()"><option value="">${divForm.brand?(poOpts.length?'— pick PO —':'no open PO'):'pick brand first'}</option>${poOpts.map(x=>`<option value="${x.o.id}|${x.l.id}" ${divForm.oid===x.o.id&&divForm.lid===x.l.id?'selected':''}>${x.o.po} · ${x.o.client} (needs ${fmt(x.l.ordered-(x.l.packed||0))})</option>`).join('')}</select></div><div class="fld"><label>3 · Qty (Kg/L)</label><input type="number" value="${divForm.qty}" oninput="divForm.qty=this.value;packConfirmRefresh('div')" placeholder="max ${avail}"></div></div>${packShiftIncBlock(divForm,'divForm','')}${packConfirmBlock('div')}${(divForm.oid&&divForm.lid&&_po&&_pl)?packPriceBlock(_po,_pl,divForm,'divForm'):''}<div class="muted" style="font-size:11px;margin-top:10px">Packs QC-cleared diverted ${p.base} straight into the chosen brand for that PO (no re-processing); the pack carries the source batch number. The rest stays pooled.</div>`;
   }
-  $('modal').innerHTML=`<div class="mh"><h2>Diverted material — ${p.base}</h2><div class="sub">${fmt(avail)} Kg available · QC-cleared</div></div><div class="mb">${tabs}${body}</div><div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" onclick="submitDivert()">${m==='recycle'?'Recycle':'Pack'}</button></div>`; }
+  $('modal').innerHTML=`<div class="mh"><h2>Diverted material — ${p.base}</h2><div class="sub">${fmt(avail)} Kg/L available · QC-cleared</div></div><div class="mb">${tabs}${body}</div><div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" onclick="submitDivert()">${m==='recycle'?'Recycle':'Pack'}</button></div>`; }
 function submitDivert(){ if(!may('packing.divert')){toast(denyRight('packing.divert','Diverting material'));return;} const p=(state.batches||[]).find(x=>x.id===divForm.poolId); if(!p)return; const avail=+p.plannedKg||0; let qty=Math.round(+divForm.qty||0); const d=TODAY.toISOString().slice(0,10);
   { var _o=state.orders.find(function(x){return x.id===divForm.oid;}); var _l=_o&&(_o.lines||[]).find(function(x){return x.id===divForm.lid;}); /* 25m: named the form wrongly - every divert crashed */ var _sc=shortCloseRefusal(_o,_l,'Diverting stock onto this line'); if(_sc){toast(_sc);return;} }
   if(!(qty>0)){toast('Enter a quantity');return;}
@@ -8283,7 +8291,7 @@ function submitDivert(){ if(!may('packing.divert')){toast(denyRight('packing.div
   const srcNo=slices.length===1?(slices[0].sourceBatchNo||'DIVERT'):((slices[0].sourceBatchNo||'DIVERT')+' +'+(slices.length-1));
   const _dt=packDates(srcNo, p.id, d, null);
   l.packed=(l.packed||0)+qty; l.produced=Math.max(l.produced||0,l.packed); l.prodStart=l.prodStart||d; if(l.packed>=l.ordered-0.5)l.prodComplete=l.prodComplete||d; /* NO write-back to l.printPrice */
-  (state.packingLog=state.packingLog||[]).unshift(Object.assign({id:nid('PK'),date:d,base:l.base,brand:l.brand,kg:qty,by:((state.currentUser&&state.currentUser.name)||state.role),po:o.po,lid:l.id,baseBatchId:p.id,baseBatchNo:srcNo,brandBatchNo:srcNo,mfgDate:_dt.mfgDate,expDate:_dt.expDate,shelfMonths:_dt.shelfMonths,fromDivert:true,fromDivertSources:slices},packRowExtras(qty,l,divForm),evStamp(d,'pack',''),_prec));
+  (state.packingLog=state.packingLog||[]).unshift(Object.assign({id:nid('PK'),date:d,base:l.base,brand:l.brand,kg:qty,by:((state.currentUser&&state.currentUser.name)||state.role),po:o.po,lid:l.id,baseBatchId:p.id,baseBatchNo:srcNo,brandBatchNo:srcNo,mfgDate:_dt.mfgDate,expDate:_dt.expDate,shelfMonths:_dt.shelfMonths,fromDivert:true,fromDivertSources:slices},packRowExtras(qty,l,divForm,d),evStamp(d,'pack',''),_prec));
   syncPackBatchDates(srcNo);
   p.plannedKg=(p.sources||[]).reduce((a,s)=>a+(+s.kg||0),0);
   (state.audit=state.audit||[]).unshift({t:new Date().toISOString(),user:state.role,module:'Production',field:'Diverted material packed',po:o.po,brand:l.brand,val:fmt(qty)+' Kg packed from divert pool ('+slices.length+' source batch'+(slices.length===1?'':'es')+': '+slices.map(s=>(s.sourceBatchNo||'?')+' '+fmt(s.kg)).join(', ')+')',batchNo:srcNo});
@@ -8618,7 +8626,7 @@ function submitProdQty(){ if(!may('production.enter')){toast(denyRight('producti
   b.packedKg=(b.packedKg||0)+q; l.packed=(l.packed||0)+q; l.produced=Math.max(l.produced||0,l.packed); l.prodStart=l.prodStart||d; if(l.packed>=l.ordered-0.5)l.prodComplete=l.prodComplete||d;
   /* NO write-back to l.printPrice — packing records, it does not author. */
   const bn=b.batchNo||''; const _dt=packDates(bn, b.id, d, pqForm.shelfMonths);
-  (state.packingLog=state.packingLog||[]).unshift(Object.assign({id:nid('PK'),date:d,base:l.base,brand:l.brand,kg:q,by:((state.currentUser&&state.currentUser.name)||state.role),po:o.po,lid:l.id,baseBatchId:b.id,baseBatchNo:bn,brandBatchNo:bn,mfgDate:_dt.mfgDate,expDate:_dt.expDate,shelfMonths:_dt.shelfMonths},packRowExtras(q,l,pqForm),evStamp(d,'pack',pqForm.dateReason),_prec));
+  (state.packingLog=state.packingLog||[]).unshift(Object.assign({id:nid('PK'),date:d,base:l.base,brand:l.brand,kg:q,by:((state.currentUser&&state.currentUser.name)||state.role),po:o.po,lid:l.id,baseBatchId:b.id,baseBatchNo:bn,brandBatchNo:bn,mfgDate:_dt.mfgDate,expDate:_dt.expDate,shelfMonths:_dt.shelfMonths},packRowExtras(q,l,pqForm,d),evStamp(d,'pack',pqForm.dateReason),_prec));
   syncPackBatchDates(bn);
   logAction(`Packed ${fmt(q)} Kg/L of ${l.brand} [${bn}] for ${o.po} (${fmt(l.packed)}/${fmt(l.ordered)})`);
   save(); closeModal(); render(); }
@@ -8627,8 +8635,9 @@ function submitProdQty(){ if(!may('production.enter')){toast(denyRight('producti
    are PICKED on screen, never taken from the login: the person typing (Ali Raza, Jawad Naseer) is
    not the in-charge. The lists are the same two lists the Shift log uses (masters.shifts and
    masters.incharges), so a name means the same thing on a production row and on a packing row.
-   Both start empty, so every pick is a choice. The three live entry forms refuse without them; the
-   correction paths (Data fix, Line fix) do not ask for them: those rows carry neither and read as "not on record". Rows saved before this change stay as they are. */
+   Both start empty, so every pick is a choice. The three live entry forms refuse without them, and so do the two correction paths that write a packing
+   row (Correct a record > Add missing packing, and Reconcile > Write the packing record), 15 Oct afternoon:
+   no packing row can be written without them. Rows saved before this change stay as they are. */
 function packShiftIncBlock(form,fname,rerender){
   var shifts=(state.masters&&state.masters.shifts)||[]; var incs=(state.masters&&state.masters.incharges)||[];
   return '<div class="formgrid" style="grid-template-columns:1fr 1fr;margin-top:10px">'
@@ -8636,8 +8645,9 @@ function packShiftIncBlock(form,fname,rerender){
    +'<div class="fld"><label>In-charge of this packing run</label><select onchange="'+fname+'.incharge=this.value;'+(rerender||'')+'"><option value="">— pick —</option>'+incs.map(function(s){ return '<option '+(s===form.incharge?'selected':'')+'>'+s+'</option>'; }).join('')+'</select>'
    +'<div class="muted" style="font-size:10.5px;margin-top:3px">The in-charge of the packing run, not the person typing.</div></div></div>'; }
 function packShiftIncGate(form){
-  if(!String((form&&form.shift)||'').trim()) return 'Pick the shift that packed this.';
-  if(!String((form&&form.incharge)||'').trim()) return 'Pick the in-charge of this packing run.';
+  var _sh=(state.masters&&state.masters.shifts)||[], _ic=(state.masters&&state.masters.incharges)||[];
+  if(!String((form&&form.shift)||'').trim()) return _sh.length?'Pick the shift that packed this.':'No shift is on the list. Ask the COO to add one under Admin > Reference data.';
+  if(!String((form&&form.incharge)||'').trim()) return _ic.length?'Pick the in-charge of this packing run.':'No in-charge is on the list. Ask the COO to add one under Admin > Reference data.';
   return ''; }
 /* ===== PACKS SHOWN AND CONFIRMED; A LARGE ENTRY IS FLAGGED (Tahir, 15 Oct 2026, from Abdul Majid) =====
    The person typing still types Kg/L. The screen works out the packs (Kg/L divided by the pack size of
@@ -8649,53 +8659,64 @@ var PACK_FLAG_KG=10000;
 /* fmt() rounds to a whole number; packs can be 20.4, so they are written to 2 decimals */
 function packFmt(n){ return Number(Math.round((+n||0)*100)/100).toLocaleString('en-US',{maximumFractionDigits:2}); }
 function packEntryCalc(form,kind){
-  var o=(state.orders||[]).find(function(x){ return x&&x.id===form.oid; }); var l=o&&(o.lines||[]).find(function(x){ return x&&x.id===form.lid; });
-  var typed=Math.max(0,+((kind==='pack')?form.kg:form.qty)||0); var cap=Infinity; var overPool=0;
+  var o,l,typed,F;
+  if(kind==='lf'){ o=(state.orders||[]).find(function(x){ return x&&String(x.po)===String(form.po); }); l=o&&(o.lines||[]).find(function(x){ return x&&x.id===form.lid; });
+    F=l?lineFacts(o,l):null; var lcap=F?Math.max(0,Math.min(F.gap,F.ordered-F.logged)):0; typed=Math.max(0,Math.round((+form.kg||lcap)*1000)/1000); /* same default as lineFixRecord */ }
+  else { o=(state.orders||[]).find(function(x){ return x&&x.id===form.oid; }); l=o&&(o.lines||[]).find(function(x){ return x&&x.id===form.lid; });
+    typed=Math.max(0,+((kind==='pack')?form.kg:form.qty)||0); }
+  var overPool=0, limit='', capB=Infinity, capP=Infinity, cap=Infinity;
   if(kind==='div') typed=Math.round(typed); /* submitDivert rounds what is typed, so the packs shown are for the rounded figure */
-  if(kind==='pack'){ var b=(state.batches||[]).find(function(x){ return x&&x.id===form.bid; }); if(b) cap=Math.min(cap,batchPackableKg(b)); }
-  else if(kind==='pq'){ if(o&&l) cap=pqMax(o,l); }
-  else { var pl=(state.batches||[]).find(function(x){ return x&&x.id===form.poolId; }); if(pl&&typed>(+pl.plannedKg||0)+0.5) overPool=Math.round(+pl.plannedKg||0); } /* a divert is refused, not cut, above what the pool has */
-  if(l&&kind!=='pq') cap=Math.min(cap,Math.max(0,(l.ordered||0)-(l.packed||0)));
+  if(kind==='pack'){ var b=(state.batches||[]).find(function(x){ return x&&x.id===form.bid; }); if(b) capB=batchPackableKg(b); }
+  else if(kind==='pq'){ if(o&&l){ cap=pqMax(o,l); limit=(cap<Math.max(0,(l.ordered||0)-(l.packed||0))-0.5)?'batch':'PO'; } }
+  else if(kind==='div'){ var pl=(state.batches||[]).find(function(x){ return x&&x.id===form.poolId; }); if(pl&&typed>(+pl.plannedKg||0)+0.5) overPool=Math.round(+pl.plannedKg||0); } /* a divert is refused, not cut, above what the pool has */
+  /* df and lf (the two correction paths) are never cut: their own checks refuse a quantity that is too big */
+  if(l&&(kind==='pack'||kind==='div')) capP=Math.max(0,(l.ordered||0)-(l.packed||0));
+  if(kind==='pack'||kind==='div'){ cap=Math.min(capB,capP); limit=(capB<capP)?'batch':'PO'; }
   var kg=Math.min(typed,cap); if(!(kg>0)) kg=0;
   var size=l?(+l.pack||seedPackForBrand(l.brand)||0):0; var packs=(size>0&&kg>0)?Math.round(kg/size*100)/100:null;
-  return {line:l||null,typed:typed,kg:kg,capped:typed>kg+0.5,overPool:overPool,size:size,packs:packs,whole:packs!=null&&Math.abs(packs-Math.round(packs))<0.001,big:kg>PACK_FLAG_KG}; }
+  return {line:l||null,typed:typed,kg:kg,capped:typed>kg+0.5,limit:limit,overPool:overPool,size:size,packs:packs,whole:packs!=null&&Math.abs(packs-Math.round(packs))<0.001,big:kg>PACK_FLAG_KG}; }
 function packConfirmInner(form,kind){
   var c=packEntryCalc(form,kind);
   if(!c.line) return '<div class="muted" style="font-size:11px;margin-top:8px">Pick the PO to see the number of packs.</div>';
   if(!(c.kg>0)) return '<div class="muted" style="font-size:11px;margin-top:8px">Enter the quantity to see the number of packs.</div>';
-  if(!(c.size>0)) return '<div class="note" style="margin-top:8px;border-color:var(--amber)">No pack size is set for this line, so the number of packs cannot be shown.'+(c.big?' <b>Over '+fmt(PACK_FLAG_KG)+' Kg/L in one entry: it will be saved and flagged to the Production Manager.</b>':'')+'</div>';
+  if(!(c.size>0)) return '<div class="note" style="margin-top:8px;border-color:var(--amber)">No pack size is set for this line, so the number of packs cannot be shown. The entry will be saved without packs.'+(c.big?' <b>Over '+fmt(PACK_FLAG_KG)+' Kg/L in one entry: it will be saved and flagged to the Production Manager as a Big pack run.</b>':'')+'</div>';
   var ok=(+form.packsOkKg||0)===c.kg&&(+form.packsOkSize||0)===c.size;
   return '<div class="note" style="margin-top:8px'+((c.big||!c.whole||c.capped)?';border-color:var(--amber)':'')+'">This packs <b>'+packFmt(c.kg)+' Kg/L = '+packFmt(c.packs)+' packs</b> of '+packFmt(c.size)+' Kg/L.'
-    +(c.capped?' You typed '+packFmt(c.typed)+'; only '+packFmt(c.kg)+' can be packed here (what the batch has left or the PO needs), so '+packFmt(c.kg)+' is what will be packed.':'')
+    +(c.capped?' You typed '+packFmt(c.typed)+'; only '+packFmt(c.kg)+' can be packed here ('+(c.limit==='batch'?'the batch has only '+packFmt(c.kg)+' left':'the PO line needs only '+packFmt(c.kg)+' more')+'), so '+packFmt(c.kg)+' is what will be packed.':'')
     +(c.overPool?' <b>That is more than the pool has ('+packFmt(c.overPool)+' Kg/L). It will be refused.</b>':'')
-    +(c.whole?'':' That is not a whole number of packs. Check the quantity.')
-    +(c.big?' <b>Over '+fmt(PACK_FLAG_KG)+' Kg/L in one entry: it will be saved and flagged to the Production Manager.</b>':'')
-    +'<label style="display:flex;gap:8px;align-items:center;margin-top:8px;font-weight:600"><input type="checkbox" '+(ok?'checked':'')+' onchange="packConfirmTick(\''+kind+'\',this.checked)"> Yes, '+packFmt(c.packs)+' packs is what was packed</label></div>'; }
-function packFormOf(kind){ return kind==='pack'?packForm:(kind==='pq'?pqForm:divForm); }
+    +(c.whole?'':' That is not a whole number of packs. If a part pack is right, tick below; if not, change the quantity.')
+    +(c.big?' <b>Over '+fmt(PACK_FLAG_KG)+' Kg/L in one entry: it will be saved and flagged to the Production Manager as a Big pack run.</b>':'')
+    +'<label style="display:flex;gap:8px;align-items:center;margin-top:8px;font-weight:600"><input type="checkbox" '+(ok?'checked':'')+' onchange="packConfirmTick(\''+kind+'\',this.checked)"> Yes, '+packFmt(c.packs)+' packs is what was packed</label><div class="muted" style="font-size:10.5px;margin-top:3px">Tick this box to continue.</div></div>'; }
+function packFormOf(kind){ return kind==='pack'?packForm:(kind==='pq'?pqForm:(kind==='df'?dfForm:(kind==='lf'?lfForm:divForm))); }
 function packConfirmBlock(kind){ return '<div id="pcb_'+kind+'">'+packConfirmInner(packFormOf(kind),kind)+'</div>'; }
 function packConfirmRefresh(kind){ var el=$('pcb_'+kind); if(el) el.innerHTML=packConfirmInner(packFormOf(kind),kind); }
 function packConfirmTick(kind,on){ var f=packFormOf(kind); var c=packEntryCalc(f,kind); f.packsOkKg=on?c.kg:0; f.packsOkSize=on?c.size:0; }
 function packConfirmGate(form,kind){ var c=packEntryCalc(form,kind);
-  if(c.line&&c.size>0&&c.kg>0&&((+form.packsOkKg||0)!==c.kg||(+form.packsOkSize||0)!==c.size)) return 'Check the number of packs ('+packFmt(c.packs)+') and tick Yes, or change the quantity.';
+  if(c.line&&c.size>0&&c.kg>0&&((+form.packsOkKg||0)!==c.kg||(+form.packsOkSize||0)!==c.size)) return 'Check the number of packs ('+packFmt(c.packs)+'), then tick the box under the packs line, or change the quantity.';
   return ''; }
-function packRowExtras(kg,l,form){ var size=l?(+l.pack||seedPackForBrand(l.brand)||0):0; var x={shift:form.shift,incharge:form.incharge};
+/* A shift packs about 10,000 Kg/L. The same shift and in-charge on the same date, split over several entries, is one run:
+   the total of those entries is what is checked, so splitting an entry does not hide it. Only the entry that takes the total over the limit is flagged (one run, one job). */
+function packShiftTotal(kg,form,date){ var t=+kg||0; var d=String(date||'').slice(0,10); if(!d||!form||!form.shift||!form.incharge) return t;
+  (state.packingLog||[]).forEach(function(p){ if(p&&!p.reversed&&!p.void&&String(p.date||'').slice(0,10)===d&&p.shift===form.shift&&p.incharge===form.incharge) t+=(+p.kg||0); });
+  return t; }
+function packRowExtras(kg,l,form,date){ var size=l?(+l.pack||seedPackForBrand(l.brand)||0):0; var x={shift:form.shift,incharge:form.incharge};
   if(size>0&&kg>0){ x.packs=Math.round(kg/size*100)/100; x.packSize=size; }
-  if(kg>PACK_FLAG_KG) x.bigRun={kg:kg,limit:PACK_FLAG_KG,ack:false};
+  var _tot=packShiftTotal(kg,form,date); if(kg>PACK_FLAG_KG||(_tot>PACK_FLAG_KG&&_tot-kg<=PACK_FLAG_KG)) x.bigRun={kg:kg,total:_tot,limit:PACK_FLAG_KG,ack:false};
   return x; }
 /* the flag reaches the Production Manager's Today as Big pack run; he reads it and marks it Seen */
 function bigPackJobs(){ return (state.packingLog||[]).filter(function(p){ return p&&p.bigRun&&!p.bigRun.ack&&!p.reversed&&!p.void; })
-  .map(function(p){ return {role:'Production Manager',labAt:p.date||'',what:'Large packing run — '+bpEsc(p.brand||'')+' · '+fmt(+((p.bigRun&&p.bigRun.kg)||p.kg)||0)+' Kg/L'+(p.packs!=null?(' ('+packFmt(p.packs)+' packs)'):'')+' · '+bpEsc(p.po||'')+' · '+bpEsc(p.shift||'')+' · in-charge '+bpEsc(p.incharge||'')+' · keyed by '+bpEsc(p.by||''),act:"openBigPack('"+p.id+"')",bpk:p.id,label:'Big pack run'}; }); }
+  .map(function(p){ return {role:'Production Manager',labAt:p.date||'',what:'Big pack run — '+bpEsc(p.brand||'')+' · '+packFmt(+((p.bigRun&&p.bigRun.kg)||p.kg)||0)+' Kg/L'+(p.packs!=null?(' ('+packFmt(p.packs)+' packs)'):'')+((p.bigRun&&p.bigRun.total>(+((p.bigRun&&p.bigRun.kg)||p.kg)||0)+0.5)?(' · '+packFmt(p.bigRun.total)+' Kg/L for the shift'):'')+' · '+bpEsc(p.po||'')+' · '+bpEsc(p.shift||'')+' · in-charge '+bpEsc(p.incharge||'')+' · keyed by '+bpEsc(p.by||''),act:"openBigPack('"+p.id+"')",bpk:p.id,label:'Big pack run'}; }); }
 function openBigPack(id){ var p=(state.packingLog||[]).find(function(x){ return x&&x.id===id; }); if(!p) return;
-  $('modal').innerHTML='<div class="mh"><h2>Large packing run — '+bpEsc(p.brand||'')+'</h2><div class="sub">'+bpEsc(p.po||'')+' · '+bpEsc(p.date||'')+'</div></div>'
-    +'<div class="mb"><dl class="facts"><dt>Packed in this entry</dt><dd><b>'+packFmt(+((p.bigRun&&p.bigRun.kg)||p.kg)||0)+' Kg/L</b>'+(p.packs!=null?(' = '+packFmt(p.packs)+' packs of '+packFmt(p.packSize)+' Kg/L'):'')+'</dd><dt>Limit for one entry</dt><dd>'+fmt((p.bigRun&&p.bigRun.limit)||PACK_FLAG_KG)+' Kg/L</dd>'
-    +'<dt>Shift</dt><dd>'+bpEsc(p.shift||'—')+'</dd><dt>In-charge</dt><dd>'+bpEsc(p.incharge||'—')+'</dd><dt>Keyed by</dt><dd>'+bpEsc(p.by||'—')+'</dd><dt>Batch</dt><dd>'+bpEsc(p.brandBatchNo||p.baseBatchNo||'—')+'</dd></dl>'
-    +'<div class="note" style="margin-top:10px">For your information. The run is saved and counts. Check with the in-charge that the figure is right.</div></div>'
+  $('modal').innerHTML='<div class="mh"><h2>Big pack run — '+bpEsc(p.brand||'')+'</h2><div class="sub">'+bpEsc(p.po||'')+' · '+bpEsc(p.date||'')+'</div></div>'
+    +'<div class="mb"><dl class="facts"><dt>Packed in this entry</dt><dd><b>'+packFmt(+((p.bigRun&&p.bigRun.kg)||p.kg)||0)+' Kg/L</b>'+(p.packs!=null?(' = '+packFmt(p.packs)+' packs of '+packFmt(p.packSize)+' Kg/L'):'')+'</dd><dt>Limit for one shift</dt><dd>'+fmt((p.bigRun&&p.bigRun.limit)||PACK_FLAG_KG)+' Kg/L</dd>'
+    +((p.bigRun&&p.bigRun.total>(+((p.bigRun&&p.bigRun.kg)||p.kg)||0)+0.5)?'<dt>Total for this shift</dt><dd><b>'+packFmt(p.bigRun.total)+' Kg/L</b> (all entries on '+bpEsc(p.date||'')+' by this shift and in-charge, up to this one)</dd>':'')+'<dt>Shift</dt><dd>'+bpEsc(p.shift||'—')+'</dd><dt>In-charge</dt><dd>'+bpEsc(p.incharge||'—')+'</dd><dt>Keyed by</dt><dd>'+bpEsc(p.by||'—')+'</dd><dt>Batch</dt><dd>'+bpEsc(p.brandBatchNo||p.baseBatchNo||'—')+'</dd></dl>'
+    +'<div class="note" style="margin-top:10px">The run is saved and counts. <b>Seen</b> means you have read this and checked the figure with the in-charge. If the figure is wrong, ask the COO to reverse the packing record under Correct a record, and pack it again.</div></div>'
     +'<div class="mf"><button class="ghost" onclick="closeModal()">Later</button><button class="green" onclick="bigPackSeen(\''+bpEsc(id)+'\')">Seen</button></div>';
   $('modalBg').classList.add('open'); }
 function bigPackSeen(id){ if(state.role!=='Production Manager'){ toast('The Production Manager marks this seen'); return; }
   var p=(state.packingLog||[]).find(function(x){ return x&&x.id===id; }); if(!p||!p.bigRun) return;
   p.bigRun=Object.assign({},p.bigRun,{ack:true,ackBy:_uRole().by,ackAt:new Date().toISOString()});
-  logAction('Large packing run seen — '+(p.brand||'')+' '+fmt(+p.kg||0)+' Kg/L ('+(p.po||'')+') by '+_uRole().by);
+  logAction('Big pack run seen — '+(p.brand||'')+' '+fmt(+p.kg||0)+' Kg/L ('+(p.po||'')+') by '+_uRole().by);
   save(); closeModal(); render(); }
 let packForm={bid:null,brand:'',kg:''};
 function openPack(bid){ const b=state.batches.find(x=>x.id===bid); packForm={bid,base:b.base,brand:'',oid:'',lid:'',kg:Math.round(batchPackableKg(b)),brandBatch:'',price:'',priceOk:false,noPrice:false,packDate:evToday(),packDateReason:'',shelfMonths:null,shift:'',incharge:'',packsOkKg:0};
@@ -8778,7 +8799,7 @@ function doPack(){ if(!may('packing.pack')){toast(denyRight('packing.pack','Pack
        (NS26004 +250 on VG-VC-2609-5466). */
     b.packedKg+=kg; l.packed=(l.packed||0)+kg; l.produced=Math.max(l.produced||0,l.packed); l.prodStart=l.prodStart||d; if(l.packed>=l.ordered-0.5)l.prodComplete=l.prodComplete||d;
     /* NO write-back to l.printPrice — packing records, it does not author. See packPriceRecord(). */
-    (state.packingLog=state.packingLog||[]).unshift(Object.assign({date:d,base:b.base,brand,kg,by:((state.currentUser&&state.currentUser.name)||state.role),po:o.po,id:nid('PK'),lid:l.id,baseBatchId:b.id,baseBatchNo,brandBatchNo,mfgDate:mfgD,expDate:expD,shelfMonths:_dt.shelfMonths},packRowExtras(kg,l,packForm),_evP,_prec));
+    (state.packingLog=state.packingLog||[]).unshift(Object.assign({date:d,base:b.base,brand,kg,by:((state.currentUser&&state.currentUser.name)||state.role),po:o.po,id:nid('PK'),lid:l.id,baseBatchId:b.id,baseBatchNo,brandBatchNo,mfgDate:mfgD,expDate:expD,shelfMonths:_dt.shelfMonths},packRowExtras(kg,l,packForm,d),_evP,_prec));
     syncPackBatchDates(brandBatchNo);
     logAction(`Packed ${fmt(kg)} Kg/L ${b.base} [${baseBatchNo}] → ${brand} [${brandBatchNo}]${brandBatchNo!==baseBatchNo?' (re-batched)':''} for ${o.po}`);
   } else {
@@ -10549,7 +10570,7 @@ var lfForm={};
 function lineFixOpen(po,lid,mode){
   var o=(state.orders||[]).find(function(x){ return x&&String(x.po)===String(po); }); var l=o&&(o.lines||[]).find(function(x){ return x&&x.id===lid; }); if(!o||!l){ toast('Order line not found'); return; }
   var F=lineFacts(o,l), I=lineIssues(o,l), ed=screenEditOK('datafix'), u=unitOf(l.brand), e=qsEsc;
-  if(!lfForm||lfForm.lid!==lid) lfForm={po:o.po,lid:lid,mode:mode||'',bid:'',kg:'',take:true,date:evToday(),reason:'',ddate:''};
+  if(!lfForm||lfForm.lid!==lid) lfForm={po:o.po,lid:lid,mode:mode||'',bid:'',kg:'',take:true,date:evToday(),reason:'',ddate:'',shift:'',incharge:'',packsOkKg:0,packsOkSize:0};
   if(mode!=null) lfForm.mode=mode;
   var h='<div class="mh"><h2>'+e(o.po)+' · '+e(l.brand)+'</h2><div class="sub">'+e(o.client||'')+' · what this line says, what its records say, and how it got here</div></div><div class="mb">';
   h+='<div class="ord2-facts"><span><b>'+fmt(F.ordered)+'</b> ordered</span><span><b>'+fmt(F.packed)+'</b> packed · records <b>'+fmt(F.logged)+'</b></span><span><b>'+fmt(F.dispatched)+'</b> dispatched · trucks out <b>'+fmt(F.outKg)+'</b></span><span><b>'+fmt(F.delivered)+'</b> delivered'+(l.deliveredDate?' on '+e(l.deliveredDate):'')+'</span></div>';
@@ -10564,9 +10585,9 @@ function lineFixOpen(po,lid,mode){
     if(lfForm.mode==='rec'){ var _lb=lineFixBases(l); var bs=(state.batches||[]).filter(function(b){ return b&&_lb.indexOf(b.base)>=0&&batchLabApproved(b); });
       h+='<div class="note" style="margin-top:10px">Writes the missing packing record: batch, lot, dates. The line’s packed number does not change; it already says this. Up to <b>'+fmt(canRec)+' '+u+'</b>'+(F.packed>F.ordered+0.5?' (never past the '+fmt(F.ordered)+' ordered)':'')+'.'+(F.dispatched>F.lotShip+0.5?' '+fmt(Math.min(canRec,F.dispatched-F.lotShip))+' of it has already left on a truck, so that part is marked shipped, with its inspection noted as not on record.':'')+'</div>'
         +'<div class="formgrid" style="grid-template-columns:1fr 1fr;margin-top:8px"><div class="fld"><label>Batch it came from (QC-approved '+e(_lb.join(' or '))+')</label><select onchange="lfForm.bid=this.value"><option value="">— batch —</option>'+bs.map(function(b){ return '<option value="'+e(b.id)+'"'+(b.id===lfForm.bid?' selected':'')+'>'+e(b.batchNo||b.id)+' · '+fmt(batchPackableKg(b))+' left</option>'; }).join('')+'</select></div>'
-        +'<div class="fld"><label>Quantity ('+u+')</label><input type="number" value="'+e(lfForm.kg||Math.round(canRec))+'" oninput="lfForm.kg=this.value"></div>'
+        +'<div class="fld"><label>Quantity ('+u+')</label><input type="number" value="'+e(lfForm.kg||Math.round(canRec*1000)/1000)+'" oninput="lfForm.kg=this.value;packConfirmRefresh(\'lf\')"></div>'
         +'<div class="fld"><label>Date it was packed</label><input type="date" value="'+e(lfForm.date)+'" onchange="lfForm.date=this.value"></div>'
-        +'<div class="fld"><label style="display:flex;gap:6px;align-items:center;text-transform:none"><input type="checkbox" style="width:auto;margin:0"'+(lfForm.take?' checked':'')+' onchange="lfForm.take=this.checked"> Take it from the batch’s remaining quantity</label><div class="muted" style="font-size:11px">Untick only if the batch record already counts this material as used.</div></div></div>'+rsn
+        +'<div class="fld"><label style="display:flex;gap:6px;align-items:center;text-transform:none"><input type="checkbox" style="width:auto;margin:0"'+(lfForm.take?' checked':'')+' onchange="lfForm.take=this.checked"> Take it from the batch’s remaining quantity</label><div class="muted" style="font-size:11px">Untick only if the batch record already counts this material as used.</div></div></div>'+packShiftIncBlock(lfForm,'lfForm','')+packConfirmBlock('lf')+rsn
         +'<div style="margin-top:8px"><button class="green" onclick="lineFixRecord()">Write the packing record</button></div>'; }
     if(lfForm.mode==='cut') h+=cutOk?('<div class="note" style="margin-top:10px">Sets packed from '+fmt(F.packed)+' to <b>'+fmt(cutTo)+' '+u+'</b>, what the packing records hold'+(F.logged>F.ordered+0.5?' up to the ordered quantity':'')+'. '+(lineLostKg(o,l,F)>0.5?'<b>First read the packing records in the History below: if one is a copy of another, reverse that one in Correct a record instead.</b> Use this only when every record is a real packing run.':'Use this when the number was wrong and nothing more was packed.')+'</div>'+rsn+'<div style="margin-top:8px"><button class="green" onclick="lineFixCut()">Bring packed to '+fmt(cutTo)+'</button></div>')
         :('<div class="note" style="margin-top:10px">Not possible: '+fmt(F.dispatched)+' '+u+' has already left the gate, more than the '+fmt(cutTo)+' the records hold. The material was real; record it against its batch instead.</div>');
@@ -10590,14 +10611,17 @@ function lineFixRecord(){ var c=_lfGuard(); if(!c) return; var o=c.o,l=c.l,F=lin
   if(lineFixBases(l).indexOf(b.base)<0) return toast('That batch is '+(b.base||'another product')+'; this line is '+(lineFixBases(l).join(' or ')||l.brand)+'.');
   if(!batchLabApproved(b)) return toast('That batch has no approved COA.');
   if(lfForm.take&&batchPackableKg(b)<kg-0.5) return toast('Batch '+(b.batchNo||'')+' has only '+fmt(batchPackableKg(b))+' left. If the batch record already counts this material as used, untick “Take it from the batch”.');
+  { var _sg=packShiftIncGate(lfForm)||packConfirmGate(lfForm,'lf'); if(_sg) return toast(_sg); }   /* 15 Oct: the same shift, in-charge and packs checks as the live entries */
   var d=lfForm.date||evToday(); var no=b.batchNo||''; var dt=packDates(no,b.id,d,undefined);
   var shipPart=Math.max(0,Math.min(kg,F.dispatched-F.lotShip));
-  var lot=Object.assign({id:nid('PK'),date:d,base:b.base,brand:l.brand,kg:kg,by:((state.currentUser&&state.currentUser.name)||state.role),po:o.po,lid:l.id,baseBatchId:b.id,baseBatchNo:no,brandBatchNo:no,mfgDate:dt.mfgDate,expDate:dt.expDate,shelfMonths:dt.shelfMonths,recon:true,fixOf:'untraced',fixReason:String(lfForm.reason).trim(),recordedAt:new Date().toISOString()},
+  var lot=Object.assign({id:nid('PK'),date:d,base:b.base,brand:l.brand,kg:kg,by:((state.currentUser&&state.currentUser.name)||state.role),po:o.po,lid:l.id,baseBatchId:b.id,baseBatchNo:no,brandBatchNo:no,mfgDate:dt.mfgDate,expDate:dt.expDate,shelfMonths:dt.shelfMonths,recon:true,fixOf:'untraced',fixReason:String(lfForm.reason).trim(),recordedAt:new Date().toISOString()},packRowExtras(kg,l,lfForm,d),
     shipPart>0?{insKg:shipPart,shipKg:shipPart,qa:{pass:true,retro:true,date:d,by:'',note:'Left on a truck before this lot was recorded; the lot inspection is not on record.'}}:{});
   var bBefore=+b.packedKg||0; if(lfForm.take) b.packedKg=bBefore+kg;
   (state.packingLog=state.packingLog||[]).unshift(lot); try{ syncPackBatchDates(no); }catch(e){}
-  recordCorrection('ADD','packingLot',lot.id,l.brand+' · '+fmt(kg)+' · '+o.po,[{field:'kg',label:'Packing record',before:'',after:fmt(kg)+' from batch '+no},{field:'batchPackedKg',label:'Batch '+no+' packed',before:fmt(bBefore),after:fmt(+b.packedKg||0)}],'backdate',lfForm.reason,['Line packed stays '+fmt(F.packed)+'; records now '+fmt(F.logged+kg)]);
-  save(); toast('Packing record written. The line and its records now agree on '+fmt(F.logged+kg)+'.'); lineFixOpen(o.po,l.id,''); }
+  recordCorrection('ADD','packingLot',lot.id,l.brand+' · '+fmt(kg)+' · '+o.po,[{field:'kg',label:'Packing record',before:'',after:fmt(kg)+' from batch '+no+' · '+lfForm.shift+' / '+lfForm.incharge},{field:'batchPackedKg',label:'Batch '+no+' packed',before:fmt(bBefore),after:fmt(+b.packedKg||0)}],'backdate',lfForm.reason,['Line packed stays '+fmt(F.packed)+'; records now '+fmt(F.logged+kg)]);
+  save(); toast('Packing record written. The line and its records now agree on '+fmt(F.logged+kg)+'.');
+  lfForm.shift=''; lfForm.incharge=''; lfForm.packsOkKg=0; lfForm.packsOkSize=0; lfForm.kg=''; lfForm.bid=''; lfForm.reason='';   /* 15 Oct: the next record on this line starts empty, so a pick or tick is never carried over */
+  lineFixOpen(o.po,l.id,''); }
 function lineFixCut(){ var c=_lfGuard(); if(!c) return; var o=c.o,l=c.l,F=lineFacts(o,l); var to=Math.min(F.logged,F.ordered);
   if(F.dispatched>to+0.5) return toast('Not possible: '+fmt(F.dispatched)+' has already left the gate.');
   if(Math.abs(F.packed-to)<0.5) return toast('Packed already matches its records.');
@@ -14013,7 +14037,7 @@ var TD_LABEL={
   'DC rejected':     {title:'A DC was rejected',                    verb:'Read why'},
   'Truck failed':    {title:'A truck failed inspection',            verb:'Read why'},
   'Yield short':     {title:'A batch closed short of plan',         verb:'Read it'},
-  'Big pack run':    {title:'A packing entry over 10,000 Kg/L',     verb:'Read it'},
+  'Big pack run':    {title:'A big pack run, over 10,000 Kg/L',    verb:'Check it'},
   'Sample not approved':{title:'Your FOC sample was not approved', verb:'Read why'},
   'Sent back':       {title:'Truck sent back to you',               verb:'Fix it'},
   'Approve customer':{title:'New customer to approve',              verb:'Approve'},
@@ -15373,8 +15397,8 @@ function guideMyJob(){
   if(_n07) h+='<div class="note" style="margin-top:10px"><b>New on 7 Oct.</b> '+_n07+'</div>';
   /* 15 Oct: packing records the shift and the in-charge, shows the packs, and flags a very large run */
   var _pk15='Every packing entry now asks for the <b>Shift</b> and the <b>In-charge of the packing run</b>. Pick both: they start empty and the entry is refused without them. The in-charge is the person who ran the packing line, not the person typing. You still type Kg/L; the screen shows the packs and you tick that this is what was packed.';
-  var _n15={'Production':_pk15+' A packing entry over 10,000 Kg/L is saved, and the Production Manager is told.',
-    'Production Manager':_pk15+' A packing entry over 10,000 Kg/L comes to you as <b>Big pack run</b> with the shift, the in-charge and who keyed it: check the figure with the in-charge and mark it Seen. The run is never stopped.',
+  var _n15={'Production':_pk15+' A packing entry over 10,000 Kg/L, or a shift that packs over 10,000 Kg/L in total, is saved and the Production Manager is told.',
+    'Production Manager':_pk15+' A packing entry over 10,000 Kg/L comes to you as <b>Big pack run</b> (also when one shift and in-charge pack over 10,000 Kg/L in total on one date, in several entries) with the shift, the in-charge and who keyed it. <b>Seen</b> means you have read it and checked the figure with the in-charge. If the figure is wrong, ask the COO to reverse the packing record under Correct a record, and pack it again. The run is never stopped.',
     'COO':'Packing entries now carry a shift and an in-charge, and the packs are shown and ticked. A packing entry over 10,000 Kg/L reaches the Production Manager as <b>Big pack run</b>.'}[role];
   if(_n15) h+='<div class="note" style="margin-top:10px"><b>New on 15 Oct.</b> '+_n15+'</div>';
   if(role==='COO') h+='<div class="note" style="margin-top:10px">You do not sign certificates (ISO: management does not sign). You switch the lab’s test assignment on, and you can assign, reject or re-issue — never sign.</div>';
@@ -15396,7 +15420,7 @@ function guideRules(){
   h+='<div class="gd-rule"><h3>Why you cannot back-date</h3><p>Every entry carries 2 dates: the day the thing happened, which you type, and the day it was recorded, which the app stamps itself. You can enter yesterday’s shift today. But when the gap is longer than the allowance — packing '+th('pack')+' day, a COA '+th('coa')+' day, a shift '+th('shift')+' day, a delivery '+th('deliver')+' days, a lot inspection the same day — the entry is marked <b>entered late</b>, you must give a reason, and it counts against your department’s <b>current</b> number, which your lead sees on his Today by name. The gap is counted in <b>calendar days</b>, not hours: anything entered on the same day it happened is never late, and an entry made the next day is 1 day late, whatever the time. The date of the event is never rewritten; the lateness is simply visible.</p></div>';
   h+='<div class="gd-rule"><h3>Why there is no bulk entry</h3><p>A batch, a shift, a lot and a truck are each their own record with their own number, date and name. The COA cites the batch, the gate pass cites the lot, the delivery cites the truck. One line typed for a week hides which shift made what, who inspected which lot and when the truck actually left — and then nothing downstream can be traced back. Entering each record as it happens takes a minute; reconstructing a week later takes a day and is still a guess.</p></div>';
   h+='<div class="gd-rule"><h3>The 2-person rules</h3><p>The person who drafts a COA does not review it; the reviewer does not approve it. Nobody who ran a test on a sample reviews or approves its certificate. Management does not sign a certificate: only the lab signs. The person who loads a truck does not release it. Nobody inspects their own output. A department lead can hand out the department’s rights but cannot widen his own. Where the app finds 2 of these in one pair of hands it refuses the button and says why.</p></div>';
-  h+='<div class="gd-rule"><h3>Why packing asks for the shift, the in-charge and the packs</h3><p>When a customer complains about a bag, the first question is which shift packed it and who ran the line. Pick the in-charge of the packing run, not the person typing: the app already records who typed. The screen shows the packs so a wrong number is seen by the person entering it, before it is saved. A packing entry over 10,000 Kg/L is saved, never stopped, and the Production Manager is told so he can check it with the in-charge.</p></div>';
+  h+='<div class="gd-rule"><h3>Why packing asks for the shift, the in-charge and the packs</h3><p>When a customer complains about a bag, the first question is which shift packed it and who ran the line. Pick the in-charge of the packing run, not the person typing: the app already records who typed. The screen shows the packs so a wrong number is seen by the person entering it, before it is saved. Correct a record and Reconcile ask for the same, so no packing record skips them. An entry over 10,000 Kg/L, or one shift and in-charge packing over 10,000 Kg/L in total on one date, is saved, never stopped, and the Production Manager is told so he can check it with the in-charge.</p></div>';
   h+='<div class="gd-rule"><h3>FOC samples</h3><p>An FOC (free of charge) sample is never an order and never touches production or stock: it is taken from the sampling pool (over-production and extra material). Whoever sends it (Irfan, Muhammad Ali or anyone else) asks under <b>FOC samples</b>, or Finance asks for them; the request says who, to whom, why and what. <b>The COO grants every sample</b>; granting does not skip the process. QA checks the pack, the label and the batch; the warehouse gives it its own sample DC and a gate pass from the same book as the trucks; <b>Saad reviews</b> it (after 2 hours without a review it goes straight to the Plant Manager) and <b>the Plant Manager releases</b> it. The person who asked confirms it arrived, and '+SMP_FEEDBACK_DAYS+' days after it was sent is asked what the client said. A sample never counts as a sale and never appears as work for production.</p></div>';
   h+='<div class="gd-rule"><h3>When the AQCM or the QCM is on leave</h3><p>Tap your name → <b>I’m going on leave</b> and give the days; the Plant Manager gets a job to name a cover. The cover is someone in the lab. He signs one line in his own name, and the certificate prints <b>for</b> the person on leave. A cover never signs both lines of one certificate. If nobody announced the leave and certificates wait a day for someone who has done nothing in the app that day, the Plant Manager is asked too.</p></div>';
   /* 07c */

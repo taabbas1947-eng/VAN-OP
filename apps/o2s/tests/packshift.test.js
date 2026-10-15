@@ -17,7 +17,7 @@ function base(extra) {
       orders: [{ id: 'O', po: 'P1', lines: [{ id: 'L', brand: 'Enrich', base: 'Potassium Humate', ordered: 1000, packed: 0, produced: 0 }] }] } }, extra);
   vm.createContext(sb); return sb; }
 function moved(sb) { return sb.state.batches[0].packedKg + sb.state.orders[0].lines[0].packed + sb.state.packingLog.length; }
-const GATE = ['packShiftIncGate', 'packFmt', 'packEntryCalc', 'packConfirmGate', 'packRowExtras'].map(grab).join('\n');
+const GATE = ['packShiftIncGate', 'packFmt', 'packEntryCalc', 'packConfirmGate', 'packShiftTotal', 'packRowExtras'].map(grab).join('\n');
 
 /* the gate itself */
 { const sb = base({}); vm.runInContext(GATE, sb);
@@ -66,7 +66,7 @@ function runDiv(shift, inch) {
   const h2 = vm.runInContext('packShiftIncBlock', sb)({ shift: 'Night', incharge: 'Adnan Rasheed' }, 'packForm', '');
   ok('keeps what was picked', /<option selected>Night/.test(h2) && /<option selected>Adnan Rasheed/.test(h2)); }
 { const html = H.html;
-  ok('the pack screen, quantity screen and divert screen each show the picks', (html.match(/packShiftIncBlock\(/g) || []).length === 4); /* 1 definition + 3 screens */ }
+  ok('the pack screen, quantity screen and divert screen each show the picks', (html.match(/packShiftIncBlock\(/g) || []).length === 6); /* 1 definition + 3 live screens + 2 correction screens */ }
 
 
 /* the duplicate clean-up must not merge two real entries that differ in shift or in-charge */
@@ -78,7 +78,7 @@ eq('same kg, different shift: both kept', dd({ shift: 'Morning', incharge: 'Fais
 eq('same kg, different in-charge: both kept', dd({ shift: 'Morning', incharge: 'Faisal Nadeem' }, { shift: 'Morning', incharge: 'Adnan Rasheed' }), 2);
 eq('old rows with neither field are merged as before', dd({}, {}), 1);
 
-/* correction paths do not ask */
+/* the two correction paths ask too (15 Oct afternoon) */
 ['dfSubmitPacking', 'lineFixRecord'].forEach(n => { let src = ''; try { src = grab(n); } catch (e) {}
-  ok(n + ' does not require shift or in-charge', src.length > 0 && !/packShiftIncGate/.test(src)); });
+  ok(n + ' requires the shift and the in-charge', src.length > 0 && /packShiftIncGate/.test(src)); });
 process.exitCode = report('Packing shift and in-charge (15 Oct)') ? 1 : 0;

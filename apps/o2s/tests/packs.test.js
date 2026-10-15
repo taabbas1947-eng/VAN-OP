@@ -5,7 +5,7 @@
 const H = require('./harness.js');
 const vm = require('vm');
 const { ok, eq, report, grab } = H;
-const FNS = ['packFmt', 'acKey', 'packShiftIncGate', 'packEntryCalc', 'packConfirmGate', 'packRowExtras', 'packConfirmInner', 'packFormOf', 'packConfirmTick', 'bigPackJobs', 'openBigPack', 'bigPackSeen'];
+const FNS = ['packFmt', 'acKey', 'packShiftIncGate', 'packEntryCalc', 'packConfirmGate', 'packShiftTotal', 'packRowExtras', 'packConfirmInner', 'packFormOf', 'packConfirmTick', 'bigPackJobs', 'openBigPack', 'bigPackSeen'];
 function mk(over) {
   const sb = Object.assign({ console, PACK_FLAG_KG: 10000, seedPackForBrand: () => 0, bpEsc: x => String(x), fmt: n => Math.round(n).toLocaleString('en-US'), /* the real fmt rounds to a whole number */ toasts: [], logged: [], $: () => ({ innerHTML: '', classList: { add() {} } }),
     toast: m => sb.toasts.push(m), may: () => true, batchLabApproved: () => true, batchPackableKg: b => b.producedKg - b.packedKg, evDateGate: () => null, evToday: () => '2026-10-15', evStamp: () => ({}),
@@ -58,7 +58,7 @@ function pack(kg, ok, over) { const sb = mk(over); sb.packForm = F(kg, ok); vm.r
   const id = sb.state.packingLog[0].id;
   sb.state.role = 'Production'; R(sb, 'bigPackSeen("' + id + '")'); eq('Production cannot mark it seen', R(sb, 'bigPackJobs()').length, 1); ok('...and is told', /Production Manager marks this seen/.test(sb.toasts.join(' ')));
   sb.state.role = 'Production Manager'; R(sb, 'bigPackSeen("' + id + '")'); eq('the Production Manager marks it seen', R(sb, 'bigPackJobs()').length, 0);
-  eq('...who is recorded', sb.state.packingLog[0].bigRun.ackBy, 'Abdul Majid'); ok('...and it is logged', sb.logged.some(m => /Large packing run seen/.test(m))); }
+  eq('...who is recorded', sb.state.packingLog[0].bigRun.ackBy, 'Abdul Majid'); ok('...and it is logged', sb.logged.some(m => /Big pack run seen/.test(m))); }
 { const sb = pack(500, 500); eq('a normal entry makes no job', R(sb, 'bigPackJobs()').length, 0); }
 { const sb = pack(12000, 12000); sb.state.packingLog[0].reversed = true; eq('a reversed entry makes no job', R(sb, 'bigPackJobs()').length, 0); }
 
@@ -93,16 +93,16 @@ ok('the job has its card text', /'Big pack run':\s*\{title:/.test(html));
 ok('the job has its next step', /'Big pack run':''/.test(html));
 ok('the job has an owner in the Guide', /'Big pack run':'Production Manager'/.test(html));
 ok('the job has its stage', /lb==='Yield short'\|\|lb==='Big pack run'/.test(html));
-ok('the 3 screens show the confirm box', (html.match(/packConfirmBlock\('/g) || []).length === 3);
-ok('the 3 entries are gated', (html.match(/packConfirmGate\(/g) || []).length === 4); /* 1 definition + 3 entries */
-ok('the 3 entries store the extras', (html.match(/packRowExtras\(/g) || []).length === 4);
+ok('the 5 screens show the confirm box (3 live, 2 correction)', (html.match(/packConfirmBlock\('/g) || []).length === 5);
+ok('the 3 entries are gated', (html.match(/packConfirmGate\(/g) || []).length === 6); /* 1 definition + 3 entries + 2 correction paths */
+ok('the 3 entries store the extras', (html.match(/packRowExtras\(/g) || []).length === 6);
 
 /* the Guide and the changelog move with the flow (CLAUDE.md, 24 Sep rule) */
-ok('the Guide tells Production about the picks, the packs and the flag', /_n15=\{'Production':_pk15\+' A packing entry over 10,000 Kg\/L is saved/.test(html));
+ok('the Guide tells Production about the picks, the packs and the flag', /_n15=\{'Production':_pk15\+' A packing entry over 10,000 Kg\/L, or a shift that packs over 10,000 Kg\/L in total, is saved/.test(html));
 ok('the Guide tells the Production Manager about Big pack run and Seen', /'Production Manager':_pk15\+' A packing entry over 10,000 Kg\/L comes to you as <b>Big pack run<\/b>/.test(html));
 ok('the Guide has the rule', /Why packing asks for the shift, the in-charge and the packs/.test(html));
 ok('How the app works mentions it', /Each packing entry says which shift and which in-charge packed it/.test(html));
-ok('the changelog has the entry and BUILD_ID matches', /ver:'2026-10-15a'/.test(html) && /BUILD_ID='2026-10-15a'/.test(html));
+ok('the changelog has the entry and BUILD_ID matches', /ver:'2026-10-15b'/.test(html) && /BUILD_ID='2026-10-15b'/.test(html));
 
 /* second audit (15 Oct): fractional pack size, other entries, who may mark Seen */
 { const sb = mk(); sb.state.orders[0].lines[0].pack = 0.5; sb.packForm = F(5); const h = R(sb, 'packConfirmInner(packForm,"pack")');
@@ -123,4 +123,41 @@ ok('the changelog has the entry and BUILD_ID matches', /ver:'2026-10-15a'/.test(
   R(sb, 'packConfirmTick("div",true)'); eq('...a tick passes it', R(sb, 'packConfirmGate(divForm,"div")'), ''); }
 { const sb = pack(12000, 12000); const id = sb.state.packingLog[0].id; sb.state.role = 'COO'; R(sb, 'bigPackSeen("' + id + '")');
   eq('only the Production Manager marks it seen (the COO does not)', R(sb, 'bigPackJobs()').length, 1); }
+
+/* 15 Oct afternoon: the shift total, the limit named, the two correction paths */
+{ const sb = mk(); sb.state.packingLog = [{ date: '2026-10-15', shift: 'Morning', incharge: 'Faisal Nadeem', kg: 6000 }, { date: '2026-10-15', shift: 'Morning', incharge: 'Faisal Nadeem', kg: 1000, reversed: true }, { date: '2026-10-14', shift: 'Morning', incharge: 'Faisal Nadeem', kg: 9000 }, { date: '2026-10-15', shift: 'Evening', incharge: 'Faisal Nadeem', kg: 9000 }];
+  const f = { shift: 'Morning', incharge: 'Faisal Nadeem' };
+  eq('the shift total counts only the same date, shift and in-charge, and not reversed rows', R(sb, 'packShiftTotal(3000,' + JSON.stringify(f) + ',"2026-10-15")'), 9000);
+  ok('6,000 then 3,000 is not flagged (9,000)', !R(sb, 'packRowExtras(3000,{pack:25},' + JSON.stringify(f) + ',"2026-10-15")').bigRun);
+  const x = R(sb, 'packRowExtras(4500,{pack:25},' + JSON.stringify(f) + ',"2026-10-15")');
+  ok('6,000 then 4,500 is flagged: splitting does not hide a run over 10,000', x.bigRun && x.bigRun.total === 10500 && x.bigRun.kg === 4500);
+  sb.state.packingLog.push({ date: '2026-10-15', shift: 'Morning', incharge: 'Faisal Nadeem', kg: 4500 }); /* the run is now 10,500 */
+  ok('a later entry after the run already crossed is not flagged again (one run, one job)', !R(sb, 'packRowExtras(500,{pack:25},' + JSON.stringify(f) + ',"2026-10-15")').bigRun);
+  ok('...but an entry that is itself over 10,000 still is', !!R(sb, 'packRowExtras(10001,{pack:25},' + JSON.stringify(f) + ',"2026-10-15")').bigRun);
+  ok('a different in-charge is a different run', !R(sb, 'packRowExtras(4500,{pack:25},{shift:"Morning",incharge:"Adnan Rasheed"},"2026-10-15")').bigRun);
+  ok('with no date given only the entry is judged', !R(sb, 'packRowExtras(4500,{pack:25},' + JSON.stringify(f) + ')').bigRun); }
+{ const sb = mk(); sb.state.packingLog = [{ date: '2026-10-15', shift: 'Morning', incharge: 'Faisal Nadeem', kg: 6000 }]; sb.packForm = Object.assign(F(5000, 5000), { packDate: '2026-10-15' });
+  vm.runInContext(grab('doPack') + '\ndoPack();', sb); const r = sb.state.packingLog[0];
+  ok('a split entry that takes the shift over 10,000 is saved, never stopped', sb.state.packingLog.length === 2 && r.kg === 5000); ok('...and flagged with the shift total', r.bigRun && r.bigRun.total === 11000);
+  const j = R(sb, 'bigPackJobs()'); ok('...the job says the shift total', j.length === 1 && /11,000 Kg\/L for the shift/.test(j[0].what) && /^Big pack run/.test(j[0].what)); }
+{ const sb = mk(); sb.packForm = F(30000); const h = R(sb, 'packConfirmInner(packForm,"pack")'); ok('the cut says the PO set the limit', /the PO line needs only 20,000 more/.test(h)); ok('the box says tick to continue', /Tick this box to continue/.test(h)); }
+{ const sb = mk(); sb.state.batches[0].producedKg = 400; sb.packForm = F(500); const h = R(sb, 'packConfirmInner(packForm,"pack")'); ok('the cut says the batch set the limit', /the batch has only 400 left/.test(h)); }
+{ const sb = mk(); sb.state.masters = { shifts: [], incharges: [] }; ok('an empty shift list says who to ask', /Ask the COO/.test(R(sb, 'packShiftIncGate({shift:"",incharge:""})')));
+  sb.state.masters = { shifts: ['Morning'], incharges: [] }; ok('an empty in-charge list says who to ask', /No in-charge is on the list/.test(R(sb, 'packShiftIncGate({shift:"Morning",incharge:""})'))); }
+{ const sb = mk(); sb.dfForm = { oid: 'O', lid: 'L', qty: 500, shift: '', incharge: '', packsOkKg: 0, packsOkSize: 0 };
+  const c = R(sb, 'packEntryCalc(dfForm,"df")'); eq('Add missing packing: packs for the typed quantity', c.packs, 20); ok('...never cut', !c.capped);
+  ok('...refused with no shift', /shift/.test(R(sb, 'packShiftIncGate(dfForm)'))); ok('...refused with no tick', /Check the number of packs \(20\)/.test(R(sb, 'packConfirmGate(dfForm,"df")')));
+  R(sb, 'packConfirmTick("df",true)'); eq('...the tick passes it', R(sb, 'packConfirmGate(dfForm,"df")'), ''); }
+{ const sb = mk({ lineFacts: () => ({ gap: 400, ordered: 20000, logged: 0 }) }); sb.lfForm = { po: 'P1', lid: 'L', kg: '', shift: '', incharge: '', packsOkKg: 0, packsOkSize: 0 };
+  const c = R(sb, 'packEntryCalc(lfForm,"lf")'); eq('Reconcile: an empty quantity means what the gap allows (400), as lineFixRecord does', c.kg, 400); eq('...packs follow', c.packs, 16);
+  sb.lfForm.kg = '250'; eq('...a typed quantity is used as typed', R(sb, 'packEntryCalc(lfForm,"lf")').kg, 250);
+  ok('...refused with no tick', /Check the number of packs/.test(R(sb, 'packConfirmGate(lfForm,"lf")'))); R(sb, 'packConfirmTick("lf",true)'); eq('...the tick passes it', R(sb, 'packConfirmGate(lfForm,"lf")'), ''); }
+{ const html = H.html; const df = grab('dfSubmitPacking'), lf = grab('lineFixRecord');
+  ok('Add missing packing gates before it writes', /packShiftIncGate\(dfForm\)\|\|packConfirmGate\(dfForm,'df'\)/.test(df) && df.indexOf('packShiftIncGate') < df.indexOf('l.packed=(l.packed||0)+q'));
+  ok('...and stores the extras and the typist\'s name', /packRowExtras\(q,l,dfForm,d\)/.test(df) && /by:\(\(state\.currentUser&&state\.currentUser\.name\)\|\|state\.role\)/.test(df));
+  ok('Write the packing record gates before it writes', /packShiftIncGate\(lfForm\)\|\|packConfirmGate\(lfForm,'lf'\)/.test(lf) && lf.indexOf('packShiftIncGate') < lf.indexOf('b.packedKg=bBefore+kg'));
+  ok('...and stores the extras', /packRowExtras\(kg,l,lfForm,d\)/.test(lf));
+  ok('Add missing packing starts with the picks empty', /shift:\(op==='packing'\?'':/.test(html)); ok('Write the packing record starts with the picks empty', /shift:'',incharge:'',packsOkKg:0,packsOkSize:0\};/.test(html));
+  ok('Write the packing record clears the picks, tick and quantity for the next record', /lfForm\.shift='';\s*lfForm\.incharge='';\s*lfForm\.packsOkKg=0;\s*lfForm\.packsOkSize=0;/.test(lf));
+  ok('the job has one name everywhere', !/Large packing run/.test(html)); ok('the sheet says what Seen means', /<b>Seen<\/b> means you have read this and checked the figure with the in-charge/.test(html)); }
 process.exitCode = report('Packs confirmed and large entries flagged (15 Oct)') ? 1 : 0;

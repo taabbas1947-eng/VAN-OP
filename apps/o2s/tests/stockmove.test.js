@@ -15,10 +15,10 @@ const mk = () => ({
     { id: 'OX', po: '22999', client: 'MAXIM AGRI (PVT) LTD', acknowledged: true, lines: [{ id: 'x', brand: 'Enroot', ordered: 1000, produced: 0, packed: 0, invoicePrice: 260, pack: 10 }] }],
   packingLog: [
     { id: 'P1', po: '22868', lid: 'b', brand: 'Enroot', kg: 9240, insKg: 9240, shipKg: 9240, brandBatchNo: 'MAXNP26007', date: '2026-09-21', mfgDate: '2026-09', expDate: '2028-09' },
-    { id: 'P2', po: '22868', lid: 'b', brand: 'Enroot', kg: 3640, insKg: 3640, shipKg: 0, brandBatchNo: 'MAXNP26008', date: '2026-09-22', mfgDate: '2026-09', expDate: '2028-09' },
-    { id: 'P3', po: '22868', lid: 'b', brand: 'Enroot', kg: 7070, insKg: 0, shipKg: 0, brandBatchNo: 'MAXNP26008', date: '2026-09-26' },
+    { id: 'P2', po: '22868', lid: 'b', brand: 'Enroot', kg: 3640, insKg: 3640, shipKg: 0, brandBatchNo: 'MAXNP26008', date: '2026-09-22', mfgDate: '2026-09', expDate: '2028-09', shift: 'Night', incharge: 'Adnan Rasheed', packs: 145.6, packSize: 25 },
+    { id: 'P3', po: '22868', lid: 'b', brand: 'Enroot', kg: 7070, insKg: 0, shipKg: 0, brandBatchNo: 'MAXNP26008', date: '2026-09-26', shift: 'Morning', incharge: 'Faisal Nadeem', packs: 282.8, packSize: 25, bigRun: { kg: 12000, limit: 10000, ack: false } },
     { id: 'P4', po: '22867', lid: 'a', brand: 'Enroot', kg: 4165, insKg: 4165, shipKg: 0, brandBatchNo: 'MAXNP26008', date: '2026-10-02' }] });
-const sb = { console, toasts: [], saved: 0, role: 'Supply Chain', user: { name: 'Saad Jamal', username: 'saad' } };
+const sb = { console, seedPackForBrand: () => 0, toasts: [], saved: 0, role: 'Supply Chain', user: { name: 'Saad Jamal', username: 'saad' } };
 Object.assign(sb, { toast: m => sb.toasts.push(m), save: () => sb.saved++, render: () => {}, closeModal: () => {}, logAction: w => sb.state.actionLog.unshift({ what: w }),
   fmt: n => Number(Math.round(n)).toLocaleString('en-US'), qsEsc: x => String(x), _tx: x => String(x || ''), denyRight: (c) => 'no right ' + c,
   $: () => ({ classList: { add() {} }, set innerHTML(v) { sb.html = v; } }), TODAY: new Date('2026-10-07T06:00:00Z'),
@@ -72,6 +72,9 @@ ok('22867: packed 4,165 → 14,875, produced too; packed equals its packing reco
 const kids = S().packingLog.filter(p => p.movedFrom);
 ok('2 new packing records on 22867, same batch, dates and a link back', kids.length === 2 && kids.every(p => p.po === '22867' && p.lid === 'a' && p.brandBatchNo === 'MAXNP26008' && p.movedFrom.moveId === m.id));
 const k2 = kids.find(p => p.movedFrom.lotId === 'P2'), k3 = kids.find(p => p.movedFrom.lotId === 'P3');
+ok('15 Oct: a moved record keeps its shift and in-charge', k2.shift === 'Night' && k2.incharge === 'Adnan Rasheed' && k3.shift === 'Morning' && k3.incharge === 'Faisal Nadeem');
+ok('...and its packs are worked out again for the moved kg', k2.packs === k2.kg / 10 && k3.packs === k3.kg / 10 && k2.packSize === 10);
+ok('...the large-entry flag stays on the original only, so one run raises one job', !k3.bigRun && !!S().packingLog.find(p => p.id === 'P3').bigRun);
 ok('the QA result moves with the lot: P2 was cleared → its 3,640 is cleared on 22867', k2.insKg === 3640 && k2.mfgDate === '2026-09' && k2.expDate === '2028-09');
 ok('...P3 was waiting for QA → still waiting on 22867', k3.insKg === 0 && sb.lotAvail(k3) === 7070);
 ok('the source lots are emptied and point forward', S().packingLog.find(p => p.id === 'P2').kg === 0 && S().packingLog.find(p => p.id === 'P2').movedOut[0].toPo === '22867');

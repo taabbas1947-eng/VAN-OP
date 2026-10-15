@@ -7,15 +7,15 @@ const H = require('./harness.js');
 const vm = require('vm');
 const { ok, eq, report, grab } = H;
 function box(brandBatch) {
-  const sb = { console, toasts: [], toast: m => sb.toasts.push(m), may: () => true, batchLabApproved: () => true, batchPackableKg: b => b.producedKg - b.packedKg,
+  const sb = { console, PACK_FLAG_KG: 10000, seedPackForBrand: () => 0, toasts: [], toast: m => sb.toasts.push(m), may: () => true, batchLabApproved: () => true, batchPackableKg: b => b.producedKg - b.packedKg,
     evDateGate: () => null, evToday: () => '2026-09-26', evStamp: () => ({}), shortCloseRefusal: () => null, packPriceGate: () => null, packPriceRecord: () => ({}),
     packDates: () => ({ mfgDate: '2026-09-26', expDate: '2028-09-26', shelfMonths: 24 }), SHELF_DEFAULT_MONTHS: 24, SHELF_OVERRIDE_ROLES: [], hardRole: () => false, fyKey: () => 'FY27',
     syncPackBatchDates: () => {}, logAction: () => {}, nid: p => p + '1', multiTrueUpIfPlaced: () => {}, save: () => { sb.saved = 1; }, render: () => {}, closeModal: () => {}, fmt: String, denyRight: () => '',
     state: { currentUser: { name: 'J' }, packingLog: [],
       batches: [{ id: 'B', batchNo: 'NS26004', base: 'Nitro Sulfur', producedKg: 4000, packedKg: 2875 }, { id: 'B9', batchNo: 'NS26009', base: 'Nitro Sulfur', openedDate: '2026-09-01', producedKg: 1, packedKg: 0 }],
       orders: [{ id: 'O', po: 'VG-VC-2609-5466', lines: [{ id: 'L', brand: 'Nitro Sulfur', ordered: 250, packed: 0, produced: 0 }] }] },
-    packForm: { bid: 'B', kg: 250, brand: 'Nitro Sulfur', oid: 'O', lid: 'L', brandBatch: brandBatch, packDate: '2026-09-26' } };
-  vm.createContext(sb); vm.runInContext(grab('doPack') + '\ndoPack();', sb); return sb; }
+    packForm: { bid: 'B', kg: 250, brand: 'Nitro Sulfur', oid: 'O', lid: 'L', brandBatch: brandBatch, packDate: '2026-09-26', shift: 'Morning', incharge: 'Faisal Nadeem' } };
+  vm.createContext(sb); vm.runInContext(['packShiftIncGate', 'packFmt', 'packEntryCalc', 'packConfirmGate', 'packRowExtras'].map(grab).join('\n') + '\n' + grab('doPack') + '\ndoPack();', sb); return sb; }
 { const sb = box('NS26009');
   ok('the brand batch # is refused', /base batch number/.test(sb.toasts.join(' ')));
   eq('the batch did not move', sb.state.batches[0].packedKg, 2875);

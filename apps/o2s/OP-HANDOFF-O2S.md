@@ -6665,3 +6665,15 @@ Not yet verified live: what the Lab Rep sees on Today and the Lab screen under 1
 Cleanup later: dead rep-lot code (labSetRep, labExtendRep, labRepWaiting, repLot comments near line 10538, the 13d card code); person card does not filter on it.who (count and list can differ for Lab Rep jobs).
 Security: nothing new found this session; nothing added to docs/SECURITY-REGISTER.md.
 Rules in force: never push (Tahir pushes from GitHub Desktop); no live data changes; ask corrections as multiple choice; Guide, changelog, BUILD_ID and tests move with each change.
+
+## 15 Oct 2026 (1) - RESUME HERE: packing shift, in-charge and packs (MODULE: O2S)
+Built, tested, audited twice. NOT PUSHED. Tahir pushes from GitHub Desktop. Build id 2026-10-15a.
+Files changed: apps/o2s/o2s.html; tests packs.test.js (new, 93), packshift.test.js (new, 34), packrefuse.test.js, lotpack.test.js, stockmove.test.js (changed).
+Rulings built in: Shift and In-charge picks (start empty, entry refused if either is empty) on the 3 live packing entries (doPack, submitProdQty, submitDivert). The in-charge is who ran the packing line, never the login; "by" stays the typist. The In-charge list (11 names) left as it is, Tahir's choice. Kg stay typed; the screen shows packs = kg / pack size and the person ticks to confirm (tick tied to kg and pack size). One entry strictly over 10,000 Kg/L is saved and flagged, never stopped; only the Production Manager (Abdul Majid) sees it, as a "Big pack run" job on Today with a Seen button (COO cannot mark Seen). Rows carry shift, incharge, packs, packSize, bigRun. Stock move copies shift and in-charge, recomputes packs, drops bigRun. dedupePackingLots keeps rows that differ in shift or in-charge.
+Deviation from the picture: a quantity above what the batch or PO allows is cut and the cut is shown, not refused. The packing page (artifact EBXYuz6TQRX9X2UuvtKkxj) still says refused and needs updating.
+Audit 1 defects fixed: packs shown rounded, stale tick after PO change, divert rounding mismatch, false cut message for divert, acKey clash, job text used reduced kg. Audit 2 defect fixed: a pack size like 0.5 was shown as 1 (now packFmt). Two unruled sentences removed from the screens.
+Test run on Tahir's computer with real data: all 94 test files pass, 0 failed.
+Known gaps: a line with no pack size at all saves with no packs and no tick (matches the ruling's catalogue fallback; ask Tahir if every row must carry packs). The wiring counts in packs.test.js count text in the file only.
+TO DO after Tahir says it is pushed: test live. Build id 2026-10-15a; the 3 forms refuse an empty shift or in-charge; the packs line and tick; a Big pack run job on Majid's Today. Write no test rows to live data without Tahir's OK.
+OPEN for Tahir: HG26038 (close with a reason for 3,096 kg, or keep open); the 3 extra names on the In-charge list (left for now). Not started: mfg and expiry on the bag (one open point: "made on" for an unclosed batch), complaint module build, inspector name from login.
+Rules in force: never push; no live data changes; Guide, changelog, BUILD_ID and tests move with each change.

@@ -227,7 +227,7 @@ const B = c => run(c, 'state.batches[state.batches.length-1]');
           + ' promised:"2026-09-01",lines:[{id:"L-T1",brand:' + JSON.stringify(brand) + ','
           + ' base:"V-Ammonium Phosphate",ordered:3000,produced:2020,packed:0,rate:100,price:100}]});');
     run(c2, 'openPack("B-AP26012"); packForm.brand=' + JSON.stringify(brand) + ';'
-          + ' packForm.oid="O-T1"; packForm.lid="L-T1"; packForm.kg=2020;'
+          + ' packForm.oid="O-T1"; packForm.lid="L-T1"; packForm.kg=2020; packForm.shift="Morning"; packForm.incharge="Faisal Nadeem"; packConfirmTick("pack",true);'
           + ' packForm.price=100; packForm.priceOk=true; toasts=[]; doPack();');
     const b = B(c2);
     const said = run(c2, 'toasts').join(' | ');

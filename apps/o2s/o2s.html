@@ -11,7 +11,7 @@
    a push keeps running the old code with nothing telling anybody. It sat at
    2026-09-04a through this whole day's work; rmqty/psi tests pinned the code,
    nothing pinned this. buildid.test.js now does. */
-var BUILD_ID='2026-10-13g';
+var BUILD_ID='2026-10-15a';
 var CHANGELOG=[
   {ver:'2026-09-04a', date:'2026-09-04', title:"Delivery, DC printing, and a new Reconciliation check", items:[
     "Delivery confirmation stays with Supply Chain \u2014 it no longer hands off to the Plant Manager. If one sits too long, it now re-flags the same Supply Chain owner every 3 days instead.",
@@ -607,6 +607,12 @@ var CHANGELOG=[
   {ver:'2026-10-13g', date:'2026-10-13', title:"Review truck on every list", items:[
     "The Review truck job now also shows on All actions, in the count on the side menu and in Your people (Plant) for the Warehouse role, as it already did on Today. It is hidden from the person who loaded the truck or passed it out.",
     "A job that is shared by two roles is counted for both, so the Plant Manager sees it waiting on Saad and on Shoaib."
+  ]},
+  {ver:'2026-10-15a', date:'2026-10-15', title:"Packing records the shift and the in-charge, shows the packs, and flags a very large run", items:[
+    "Every packing entry (Pack, Pack from a batch, Pack diverted material to a PO) now asks for the Shift and the In-charge of the packing run. Both start empty and the entry is refused until they are picked. The in-charge is the person who ran the packing line, not the person typing. The lists are the same as the Shift log. Entries saved before this stay as they are.",
+    "You still type Kg/L. The screen now shows the number of packs (Kg/L divided by the pack size of the order line) and asks you to tick that this is what was packed. If you type more than the batch has left or the order needs, the screen says so and shows the packs for the figure that will be packed.",
+    "A packing entry over 10,000 Kg/L is saved as usual and goes to the Production Manager's Today as Big pack run, with the Kg/L, packs, shift, in-charge and who keyed it. He reads it and marks it Seen. It is never stopped.",
+    "A packing record moved to another PO keeps its shift and in-charge. The duplicate clean-up no longer treats two runs of the same Kg/L as one when their shift or in-charge differs."
   ]}
 ];
 </script>
@@ -8239,21 +8245,21 @@ function submitCallBp(){ if(!may('byproduct.call')){toast(denyRight('byproduct.c
   logAction('Called '+fmt(qty)+' Kg from the '+p.base+' by-product pool as '+_tgt+' batch '+bn+' (standard route)');
   save(); closeModal(); render(); toast('Called '+fmt(qty)+' Kg/L as batch '+bn+' — grind it via Log shift output'); }
 /* ── Stage 4b: DIVERT draws (recycle into a same-product batch as input, or pack QC-cleared material straight to a PO) ── */
-let divForm={poolId:null,mode:'recycle',qty:'',bid:'',brand:'',oid:'',lid:'',price:'',priceOk:false};
+let divForm={poolId:null,mode:'recycle',qty:'',bid:'',brand:'',oid:'',lid:'',price:'',priceOk:false,shift:'',incharge:'',packsOkKg:0};
 function divTargets(p){ return (state.batches||[]).filter(x=>x.base===p.base&&!x.pool&&x.disposition!=='byproduct'&&x.disposition!=='divert'&&x.status==='open'); }
 /* FIFO-consume `qty` from a divert pool's source ledger; mutates pool.sources (reduces/drops), returns the slices drawn so traceability (parent COA batches) is preserved on every draw */
 function consumeDivertSources(p,qty){ const out=[]; let need=qty; const src=p.sources||[];
   for(let i=0;i<src.length && need>0.0001;i++){ const have=+src[i].kg||0; if(have<=0)continue; const take=Math.min(have,need); src[i].kg=have-take; need-=take; out.push({sourceBatchId:src[i].batch,sourceBatchNo:src[i].batchNo||'',kg:take}); }
   p.sources=(p.sources||[]).filter(s=>(+s.kg||0)>0.001);
   return out; }
-function openDivert(poolId,mode){ if(!may('packing.divert')){toast(denyRight('packing.divert','Diverting material'));return;} const p=(state.batches||[]).find(x=>x.id===poolId); if(!p){toast('Pool not found');return;} const tb=divTargets(p); divForm={poolId,mode:mode||'recycle',qty:Math.round(+p.plannedKg||0),bid:(tb[0]&&tb[0].id)||'',brand:'',oid:'',lid:'',price:'',priceOk:false}; renderDivert(); $('modalBg').classList.add('open'); }
+function openDivert(poolId,mode){ if(!may('packing.divert')){toast(denyRight('packing.divert','Diverting material'));return;} const p=(state.batches||[]).find(x=>x.id===poolId); if(!p){toast('Pool not found');return;} const tb=divTargets(p); divForm={poolId,mode:mode||'recycle',qty:Math.round(+p.plannedKg||0),bid:(tb[0]&&tb[0].id)||'',brand:'',oid:'',lid:'',price:'',priceOk:false,shift:'',incharge:'',packsOkKg:0}; renderDivert(); $('modalBg').classList.add('open'); }
 function renderDivert(){ const p=(state.batches||[]).find(x=>x.id===divForm.poolId); if(!p)return; const avail=Math.round(+p.plannedKg||0); const m=divForm.mode;
   const tabs=`<div style="display:flex;gap:6px;margin-bottom:12px"><button class="sm ${m==='recycle'?'green':'ghost'}" onclick="divForm.mode='recycle';renderDivert()">Recycle into a batch</button><button class="sm ${m==='pack'?'green':'ghost'}" onclick="divForm.mode='pack';renderDivert()">Pack to a PO</button></div>`;
   let body='';
   if(m==='recycle'){ const tb=divTargets(p);
     body=tb.length?`<div class="formgrid" style="grid-template-columns:1fr 1fr"><div class="fld"><label>Recycle into batch (same product, as input)</label><select onchange="divForm.bid=this.value"><option value="">— pick batch —</option>${tb.map(x=>`<option value="${x.id}" ${x.id===divForm.bid?'selected':''}>${x.batchNo||'—'} · planned ${fmt(x.plannedKg)} / made ${fmt(x.producedKg||0)}</option>`).join('')}</select></div><div class="fld"><label>Quantity (Kg/L)</label><input type="number" value="${divForm.qty}" oninput="divForm.qty=this.value" placeholder="max ${avail}"></div></div><div class="muted" style="font-size:11px;margin-top:10px">Feeds the diverted material into the chosen ${p.base} batch as input (raises its planned output); it then follows that batch's normal grind → QC → pack. The rest stays pooled.</div>`:`<div class="muted" style="font-size:12.5px;padding:6px 0">No open ${p.base} production batch to recycle into. Open one first, or use “Pack to a PO”.</div>`;
   } else { const opts=brandsForBase(p.base); const poOpts=divForm.brand?poLinesForBrand(divForm.brand):[]; const _po=state.orders.find(x=>x.id===divForm.oid); const _pl=_po&&_po.lines.find(x=>x.id===divForm.lid); const setp=(_pl&&_pl.printPrice!=null&&_pl.printPrice!=='')?_pl.printPrice:null;
-    body=`<div class="formgrid" style="grid-template-columns:1fr 1fr"><div class="fld"><label>1 · Pack into brand</label><select onchange="divForm.brand=this.value;divForm.oid='';divForm.lid='';renderDivert()"><option value="">— pick brand —</option>${opts.map(x=>`<option ${x===divForm.brand?'selected':''}>${x}</option>`).join('')}</select></div><div class="fld"><label>2 · For which PO</label><select ${divForm.brand?'':'disabled'} onchange="divForm.oid=this.value.split('|')[0];divForm.lid=this.value.split('|')[1];divForm.price='';divForm.priceOk=false;renderDivert()"><option value="">${divForm.brand?(poOpts.length?'— pick PO —':'no open PO'):'pick brand first'}</option>${poOpts.map(x=>`<option value="${x.o.id}|${x.l.id}" ${divForm.oid===x.o.id&&divForm.lid===x.l.id?'selected':''}>${x.o.po} · ${x.o.client} (needs ${fmt(x.l.ordered-(x.l.packed||0))})</option>`).join('')}</select></div><div class="fld"><label>3 · Qty (Kg/L)</label><input type="number" value="${divForm.qty}" oninput="divForm.qty=this.value" placeholder="max ${avail}"></div></div>${(divForm.oid&&divForm.lid&&_po&&_pl)?packPriceBlock(_po,_pl,divForm,'divForm'):''}<div class="muted" style="font-size:11px;margin-top:10px">Packs QC-cleared diverted ${p.base} straight into the chosen brand for that PO (no re-processing); the pack carries the source batch number. The rest stays pooled.</div>`;
+    body=`<div class="formgrid" style="grid-template-columns:1fr 1fr"><div class="fld"><label>1 · Pack into brand</label><select onchange="divForm.brand=this.value;divForm.oid='';divForm.lid='';renderDivert()"><option value="">— pick brand —</option>${opts.map(x=>`<option ${x===divForm.brand?'selected':''}>${x}</option>`).join('')}</select></div><div class="fld"><label>2 · For which PO</label><select ${divForm.brand?'':'disabled'} onchange="divForm.oid=this.value.split('|')[0];divForm.lid=this.value.split('|')[1];divForm.price='';divForm.priceOk=false;renderDivert()"><option value="">${divForm.brand?(poOpts.length?'— pick PO —':'no open PO'):'pick brand first'}</option>${poOpts.map(x=>`<option value="${x.o.id}|${x.l.id}" ${divForm.oid===x.o.id&&divForm.lid===x.l.id?'selected':''}>${x.o.po} · ${x.o.client} (needs ${fmt(x.l.ordered-(x.l.packed||0))})</option>`).join('')}</select></div><div class="fld"><label>3 · Qty (Kg/L)</label><input type="number" value="${divForm.qty}" oninput="divForm.qty=this.value;packConfirmRefresh('div')" placeholder="max ${avail}"></div></div>${packConfirmBlock('div')}${packShiftIncBlock(divForm,'divForm','')}${(divForm.oid&&divForm.lid&&_po&&_pl)?packPriceBlock(_po,_pl,divForm,'divForm'):''}<div class="muted" style="font-size:11px;margin-top:10px">Packs QC-cleared diverted ${p.base} straight into the chosen brand for that PO (no re-processing); the pack carries the source batch number. The rest stays pooled.</div>`;
   }
   $('modal').innerHTML=`<div class="mh"><h2>Diverted material — ${p.base}</h2><div class="sub">${fmt(avail)} Kg available · QC-cleared</div></div><div class="mb">${tabs}${body}</div><div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" onclick="submitDivert()">${m==='recycle'?'Recycle':'Pack'}</button></div>`; }
 function submitDivert(){ if(!may('packing.divert')){toast(denyRight('packing.divert','Diverting material'));return;} const p=(state.batches||[]).find(x=>x.id===divForm.poolId); if(!p)return; const avail=+p.plannedKg||0; let qty=Math.round(+divForm.qty||0); const d=TODAY.toISOString().slice(0,10);
@@ -8271,12 +8277,13 @@ function submitDivert(){ if(!may('packing.divert')){toast(denyRight('packing.div
   const o=state.orders.find(x=>x.id===divForm.oid); const l=o&&o.lines.find(x=>x.id===divForm.lid); if(!l){toast('Pick a brand and PO');return;}
   const lineBase=l.base||((SEED.brandMap[l.brand]||{}).base); if(lineBase!==p.base){toast('That PO line is '+(lineBase||'a different product')+' — diverted '+p.base+' can only pack into a same-product brand/PO.');return;}
   const need=l.ordered-(l.packed||0); if(need<=0.5){toast('That PO is already fully packed');return;} qty=Math.min(qty,need);
+  { const _sg=packShiftIncGate(divForm)||packConfirmGate(divForm,'div'); if(_sg){toast(_sg);return;} }
   const _gate=packPriceGate(o,l,divForm); if(_gate){toast(_gate);return;} const _prec=packPriceRecord(o,l,divForm);
   const slices=consumeDivertSources(p,qty);
   const srcNo=slices.length===1?(slices[0].sourceBatchNo||'DIVERT'):((slices[0].sourceBatchNo||'DIVERT')+' +'+(slices.length-1));
   const _dt=packDates(srcNo, p.id, d, null);
   l.packed=(l.packed||0)+qty; l.produced=Math.max(l.produced||0,l.packed); l.prodStart=l.prodStart||d; if(l.packed>=l.ordered-0.5)l.prodComplete=l.prodComplete||d; /* NO write-back to l.printPrice */
-  (state.packingLog=state.packingLog||[]).unshift(Object.assign({id:nid('PK'),date:d,base:l.base,brand:l.brand,kg:qty,by:((state.currentUser&&state.currentUser.name)||state.role),po:o.po,lid:l.id,baseBatchId:p.id,baseBatchNo:srcNo,brandBatchNo:srcNo,mfgDate:_dt.mfgDate,expDate:_dt.expDate,shelfMonths:_dt.shelfMonths,fromDivert:true,fromDivertSources:slices},evStamp(d,'pack',''),_prec));
+  (state.packingLog=state.packingLog||[]).unshift(Object.assign({id:nid('PK'),date:d,base:l.base,brand:l.brand,kg:qty,by:((state.currentUser&&state.currentUser.name)||state.role),po:o.po,lid:l.id,baseBatchId:p.id,baseBatchNo:srcNo,brandBatchNo:srcNo,mfgDate:_dt.mfgDate,expDate:_dt.expDate,shelfMonths:_dt.shelfMonths,fromDivert:true,fromDivertSources:slices},packRowExtras(qty,l,divForm),evStamp(d,'pack',''),_prec));
   syncPackBatchDates(srcNo);
   p.plannedKg=(p.sources||[]).reduce((a,s)=>a+(+s.kg||0),0);
   (state.audit=state.audit||[]).unshift({t:new Date().toISOString(),user:state.role,module:'Production',field:'Diverted material packed',po:o.po,brand:l.brand,val:fmt(qty)+' Kg packed from divert pool ('+slices.length+' source batch'+(slices.length===1?'':'es')+': '+slices.map(s=>(s.sourceBatchNo||'?')+' '+fmt(s.kg)).join(', ')+')',batchNo:srcNo});
@@ -8583,18 +8590,20 @@ function saveReconcile(){ if(!may('packing.reconcile')){toast(denyRight('packing
   recForm=null; save(); closeModal(); render(); toast('Remainder reconciled — close the batch separately when production ends'); }
 /* PO-direct pack: pick the QC-approved PO production batch, inherit its batch #, verify print price.
    Mirrors doPack's batch#/price discipline so PO-direct lots are no longer batch-less / price-less. */
-let pqForm={oid:null,lid:null,bid:'',qty:'',date:TODAY.toISOString().slice(0,10),price:'',priceOk:false};
+let pqForm={oid:null,lid:null,bid:'',qty:'',date:TODAY.toISOString().slice(0,10),price:'',priceOk:false,shift:'',incharge:'',packsOkKg:0};
 function poBatchesForLine(o,l){ return (state.batches||[]).filter(b=>b.kind==='po'&&b.po===o.po&&b.lineId===l.id&&(!b.reconciled||b.stockKept)&&batchPackableKg(b)>0.5); }   /* 07e: kept stock is packable */
 function pqMax(o,l){ const b=(state.batches||[]).find(x=>x.id===pqForm.bid); const need=Math.max(0,(l.ordered||0)-(l.packed||0)); const cap=b?batchPackableKg(b):0; return Math.max(0,Math.min(need,cap)); }
-function openProdQty(oid,lid){ const o=state.orders.find(x=>x.id===oid); const l=o&&o.lines.find(x=>x.id===lid); if(!l)return; const bs=poBatchesForLine(o,l); pqForm={oid,lid,bid:(bs[0]&&bs[0].id)||'',qty:'',date:TODAY.toISOString().slice(0,10),price:(l.printPrice!=null&&l.printPrice!=='')?l.printPrice:'',priceOk:false}; renderProdQty(); $('modalBg').classList.add('open'); }
+function openProdQty(oid,lid){ const o=state.orders.find(x=>x.id===oid); const l=o&&o.lines.find(x=>x.id===lid); if(!l)return; const bs=poBatchesForLine(o,l); pqForm={oid,lid,bid:(bs[0]&&bs[0].id)||'',qty:'',date:TODAY.toISOString().slice(0,10),price:(l.printPrice!=null&&l.printPrice!=='')?l.printPrice:'',priceOk:false,shift:'',incharge:'',packsOkKg:0}; renderProdQty(); $('modalBg').classList.add('open'); }
 function renderProdQty(){ const o=state.orders.find(x=>x.id===pqForm.oid); const l=o.lines.find(x=>x.id===pqForm.lid); const bs=poBatchesForLine(o,l); const b=bs.find(x=>x.id===pqForm.bid)||bs[0]; if(b)pqForm.bid=b.id; const max=pqMax(o,l); const setp=(l.printPrice!=null&&l.printPrice!=='')?l.printPrice:null;
   $('modal').innerHTML=`<div class="mh"><h2>Pack — ${l.brand}</h2><div class="sub">${o.po} · ordered ${fmt(l.ordered)} · packed ${fmt(l.packed||0)} Kg/L</div></div>
    <div class="mb">
    ${bs.length?`<div class="formgrid" style="grid-template-columns:1fr 1fr">
        <div class="fld"><label>Batch # (from production)</label><select onchange="pqForm.bid=this.value;renderProdQty()">${bs.map(x=>`<option value="${x.id}" ${x.id===pqForm.bid?'selected':''}>${x.batchNo||'—'} · ${fmt(batchPackableKg(x))} Kg/L QC-cleared</option>`).join('')}</select></div>
-       <div class="fld"><label>Qty packed now (Kg/L)</label><input type="number" value="${pqForm.qty}" oninput="pqForm.qty=this.value" placeholder="max ${fmt(max)}"></div>
+       <div class="fld"><label>Qty packed now (Kg/L)</label><input type="number" value="${pqForm.qty}" oninput="pqForm.qty=this.value;packConfirmRefresh('pq')" placeholder="max ${fmt(max)}"></div>
        </div>
      ${evDateField('pqForm','date','pack','Date this was actually packed','renderProdQty()')}
+     ${packShiftIncBlock(pqForm,'pqForm','')}
+     ${packConfirmBlock('pq')}
      <div class="formgrid" style="grid-template-columns:1fr">${packDatesBlock((b&&b.batchNo)||'', (b&&b.id)||'', pqForm.date||TODAY.toISOString().slice(0,10), pqForm, 'pqForm', 'renderProdQty()')}</div>
      ${packPriceBlock(o,l,pqForm,'pqForm')}
      <div class="muted" style="font-size:11px;margin-top:11px">Packs QC-cleared material from the chosen production batch into ${l.brand} for ${o.po}; the pack carries that batch number.</div>`
@@ -8604,16 +8613,92 @@ function renderProdQty(){ const o=state.orders.find(x=>x.id===pqForm.oid); const
 function submitProdQty(){ if(!may('production.enter')){toast(denyRight('production.enter','Entering produced quantity'));return;} const o=state.orders.find(x=>x.id===pqForm.oid); const l=o.lines.find(x=>x.id===pqForm.lid); const b=(state.batches||[]).find(x=>x.id===pqForm.bid); if(!b){toast('Pick a production batch');return;} const max=pqMax(o,l); const q=Math.min(+pqForm.qty||0,max); const d=pqForm.date||TODAY.toISOString().slice(0,10);
   { var _po=state.orders.find(function(x){return x.id===pqForm.oid;}); var _pl=_po&&(_po.lines||[]).find(function(x){return x.id===pqForm.lid;}); var _sc=shortCloseRefusal(_po,_pl,'Packing'); if(_sc){toast(_sc);return;} }
   if(q<=0){toast('Enter a quantity (max '+fmt(max)+' Kg/L)');return;}
+  { const _sg=packShiftIncGate(pqForm)||packConfirmGate(pqForm,'pq'); if(_sg){toast(_sg);return;} }
   const _gate=packPriceGate(o,l,pqForm); if(_gate){toast(_gate);return;} const _prec=packPriceRecord(o,l,pqForm);
   b.packedKg=(b.packedKg||0)+q; l.packed=(l.packed||0)+q; l.produced=Math.max(l.produced||0,l.packed); l.prodStart=l.prodStart||d; if(l.packed>=l.ordered-0.5)l.prodComplete=l.prodComplete||d;
   /* NO write-back to l.printPrice — packing records, it does not author. */
   const bn=b.batchNo||''; const _dt=packDates(bn, b.id, d, pqForm.shelfMonths);
-  (state.packingLog=state.packingLog||[]).unshift(Object.assign({id:nid('PK'),date:d,base:l.base,brand:l.brand,kg:q,by:((state.currentUser&&state.currentUser.name)||state.role),po:o.po,lid:l.id,baseBatchId:b.id,baseBatchNo:bn,brandBatchNo:bn,mfgDate:_dt.mfgDate,expDate:_dt.expDate,shelfMonths:_dt.shelfMonths},evStamp(d,'pack',pqForm.dateReason),_prec));
+  (state.packingLog=state.packingLog||[]).unshift(Object.assign({id:nid('PK'),date:d,base:l.base,brand:l.brand,kg:q,by:((state.currentUser&&state.currentUser.name)||state.role),po:o.po,lid:l.id,baseBatchId:b.id,baseBatchNo:bn,brandBatchNo:bn,mfgDate:_dt.mfgDate,expDate:_dt.expDate,shelfMonths:_dt.shelfMonths},packRowExtras(q,l,pqForm),evStamp(d,'pack',pqForm.dateReason),_prec));
   syncPackBatchDates(bn);
   logAction(`Packed ${fmt(q)} Kg/L of ${l.brand} [${bn}] for ${o.po} (${fmt(l.packed)}/${fmt(l.ordered)})`);
   save(); closeModal(); render(); }
+/* ===== PACKING SHIFT AND IN-CHARGE (Tahir, 14-15 Oct 2026) =====
+   Every packing entry now says which shift packed it and who was the in-charge of that run. Both
+   are PICKED on screen, never taken from the login: the person typing (Ali Raza, Jawad Naseer) is
+   not the in-charge. The lists are the same two lists the Shift log uses (masters.shifts and
+   masters.incharges), so a name means the same thing on a production row and on a packing row.
+   Both start empty, so every pick is a choice. The three live entry forms refuse without them; the
+   correction paths (Data fix, Line fix) do not ask for them: those rows carry neither and read as "not on record". Rows saved before this change stay as they are. */
+function packShiftIncBlock(form,fname,rerender){
+  var shifts=(state.masters&&state.masters.shifts)||[]; var incs=(state.masters&&state.masters.incharges)||[];
+  return '<div class="formgrid" style="grid-template-columns:1fr 1fr;margin-top:10px">'
+   +'<div class="fld"><label>Shift</label><select onchange="'+fname+'.shift=this.value;'+(rerender||'')+'"><option value="">— pick —</option>'+shifts.map(function(s){ return '<option '+(s===form.shift?'selected':'')+'>'+s+'</option>'; }).join('')+'</select></div>'
+   +'<div class="fld"><label>In-charge of this packing run</label><select onchange="'+fname+'.incharge=this.value;'+(rerender||'')+'"><option value="">— pick —</option>'+incs.map(function(s){ return '<option '+(s===form.incharge?'selected':'')+'>'+s+'</option>'; }).join('')+'</select>'
+   +'<div class="muted" style="font-size:10.5px;margin-top:3px">The in-charge of the packing run, not the person typing.</div></div></div>'; }
+function packShiftIncGate(form){
+  if(!String((form&&form.shift)||'').trim()) return 'Pick the shift that packed this.';
+  if(!String((form&&form.incharge)||'').trim()) return 'Pick the in-charge of this packing run.';
+  return ''; }
+/* ===== PACKS SHOWN AND CONFIRMED; A LARGE ENTRY IS FLAGGED (Tahir, 15 Oct 2026, from Abdul Majid) =====
+   The person typing still types Kg/L. The screen works out the packs (Kg/L divided by the pack size of
+   the PO line) and shows them for him to confirm against what was physically packed. A quantity above
+   what the batch has left or the PO needs is still cut to that figure, as before, but the cut is now
+   shown with the packs for the real figure instead of happening silently. An entry above
+   PACK_FLAG_KG (10,000 Kg/L, one entry) is saved and flagged to the Production Manager, never stopped. */
+var PACK_FLAG_KG=10000;
+/* fmt() rounds to a whole number; packs can be 20.4, so they are written to 2 decimals */
+function packFmt(n){ return Number(Math.round((+n||0)*100)/100).toLocaleString('en-US',{maximumFractionDigits:2}); }
+function packEntryCalc(form,kind){
+  var o=(state.orders||[]).find(function(x){ return x&&x.id===form.oid; }); var l=o&&(o.lines||[]).find(function(x){ return x&&x.id===form.lid; });
+  var typed=Math.max(0,+((kind==='pack')?form.kg:form.qty)||0); var cap=Infinity; var overPool=0;
+  if(kind==='div') typed=Math.round(typed); /* submitDivert rounds what is typed, so the packs shown are for the rounded figure */
+  if(kind==='pack'){ var b=(state.batches||[]).find(function(x){ return x&&x.id===form.bid; }); if(b) cap=Math.min(cap,batchPackableKg(b)); }
+  else if(kind==='pq'){ if(o&&l) cap=pqMax(o,l); }
+  else { var pl=(state.batches||[]).find(function(x){ return x&&x.id===form.poolId; }); if(pl&&typed>(+pl.plannedKg||0)+0.5) overPool=Math.round(+pl.plannedKg||0); } /* a divert is refused, not cut, above what the pool has */
+  if(l&&kind!=='pq') cap=Math.min(cap,Math.max(0,(l.ordered||0)-(l.packed||0)));
+  var kg=Math.min(typed,cap); if(!(kg>0)) kg=0;
+  var size=l?(+l.pack||seedPackForBrand(l.brand)||0):0; var packs=(size>0&&kg>0)?Math.round(kg/size*100)/100:null;
+  return {line:l||null,typed:typed,kg:kg,capped:typed>kg+0.5,overPool:overPool,size:size,packs:packs,whole:packs!=null&&Math.abs(packs-Math.round(packs))<0.001,big:kg>PACK_FLAG_KG}; }
+function packConfirmInner(form,kind){
+  var c=packEntryCalc(form,kind);
+  if(!c.line) return '<div class="muted" style="font-size:11px;margin-top:8px">Pick the PO to see the number of packs.</div>';
+  if(!(c.kg>0)) return '<div class="muted" style="font-size:11px;margin-top:8px">Enter the quantity to see the number of packs.</div>';
+  if(!(c.size>0)) return '<div class="note" style="margin-top:8px;border-color:var(--amber)">No pack size is set for this line, so the number of packs cannot be shown.'+(c.big?' <b>Over '+fmt(PACK_FLAG_KG)+' Kg/L in one entry: it will be saved and flagged to the Production Manager.</b>':'')+'</div>';
+  var ok=(+form.packsOkKg||0)===c.kg&&(+form.packsOkSize||0)===c.size;
+  return '<div class="note" style="margin-top:8px'+((c.big||!c.whole||c.capped)?';border-color:var(--amber)':'')+'">This packs <b>'+packFmt(c.kg)+' Kg/L = '+packFmt(c.packs)+' packs</b> of '+packFmt(c.size)+' Kg/L.'
+    +(c.capped?' You typed '+packFmt(c.typed)+'; only '+packFmt(c.kg)+' can be packed here (what the batch has left or the PO needs), so '+packFmt(c.kg)+' is what will be packed.':'')
+    +(c.overPool?' <b>That is more than the pool has ('+packFmt(c.overPool)+' Kg/L). It will be refused.</b>':'')
+    +(c.whole?'':' That is not a whole number of packs. Check the quantity.')
+    +(c.big?' <b>Over '+fmt(PACK_FLAG_KG)+' Kg/L in one entry: it will be saved and flagged to the Production Manager.</b>':'')
+    +'<label style="display:flex;gap:8px;align-items:center;margin-top:8px;font-weight:600"><input type="checkbox" '+(ok?'checked':'')+' onchange="packConfirmTick(\''+kind+'\',this.checked)"> Yes, '+packFmt(c.packs)+' packs is what was packed</label></div>'; }
+function packFormOf(kind){ return kind==='pack'?packForm:(kind==='pq'?pqForm:divForm); }
+function packConfirmBlock(kind){ return '<div id="pcb_'+kind+'">'+packConfirmInner(packFormOf(kind),kind)+'</div>'; }
+function packConfirmRefresh(kind){ var el=$('pcb_'+kind); if(el) el.innerHTML=packConfirmInner(packFormOf(kind),kind); }
+function packConfirmTick(kind,on){ var f=packFormOf(kind); var c=packEntryCalc(f,kind); f.packsOkKg=on?c.kg:0; f.packsOkSize=on?c.size:0; }
+function packConfirmGate(form,kind){ var c=packEntryCalc(form,kind);
+  if(c.line&&c.size>0&&c.kg>0&&((+form.packsOkKg||0)!==c.kg||(+form.packsOkSize||0)!==c.size)) return 'Check the number of packs ('+packFmt(c.packs)+') and tick Yes, or change the quantity.';
+  return ''; }
+function packRowExtras(kg,l,form){ var size=l?(+l.pack||seedPackForBrand(l.brand)||0):0; var x={shift:form.shift,incharge:form.incharge};
+  if(size>0&&kg>0){ x.packs=Math.round(kg/size*100)/100; x.packSize=size; }
+  if(kg>PACK_FLAG_KG) x.bigRun={kg:kg,limit:PACK_FLAG_KG,ack:false};
+  return x; }
+/* the flag reaches the Production Manager's Today as Big pack run; he reads it and marks it Seen */
+function bigPackJobs(){ return (state.packingLog||[]).filter(function(p){ return p&&p.bigRun&&!p.bigRun.ack&&!p.reversed&&!p.void; })
+  .map(function(p){ return {role:'Production Manager',labAt:p.date||'',what:'Large packing run — '+bpEsc(p.brand||'')+' · '+fmt(+((p.bigRun&&p.bigRun.kg)||p.kg)||0)+' Kg/L'+(p.packs!=null?(' ('+packFmt(p.packs)+' packs)'):'')+' · '+bpEsc(p.po||'')+' · '+bpEsc(p.shift||'')+' · in-charge '+bpEsc(p.incharge||'')+' · keyed by '+bpEsc(p.by||''),act:"openBigPack('"+p.id+"')",bpk:p.id,label:'Big pack run'}; }); }
+function openBigPack(id){ var p=(state.packingLog||[]).find(function(x){ return x&&x.id===id; }); if(!p) return;
+  $('modal').innerHTML='<div class="mh"><h2>Large packing run — '+bpEsc(p.brand||'')+'</h2><div class="sub">'+bpEsc(p.po||'')+' · '+bpEsc(p.date||'')+'</div></div>'
+    +'<div class="mb"><dl class="facts"><dt>Packed in this entry</dt><dd><b>'+packFmt(+((p.bigRun&&p.bigRun.kg)||p.kg)||0)+' Kg/L</b>'+(p.packs!=null?(' = '+packFmt(p.packs)+' packs of '+packFmt(p.packSize)+' Kg/L'):'')+'</dd><dt>Limit for one entry</dt><dd>'+fmt((p.bigRun&&p.bigRun.limit)||PACK_FLAG_KG)+' Kg/L</dd>'
+    +'<dt>Shift</dt><dd>'+bpEsc(p.shift||'—')+'</dd><dt>In-charge</dt><dd>'+bpEsc(p.incharge||'—')+'</dd><dt>Keyed by</dt><dd>'+bpEsc(p.by||'—')+'</dd><dt>Batch</dt><dd>'+bpEsc(p.brandBatchNo||p.baseBatchNo||'—')+'</dd></dl>'
+    +'<div class="note" style="margin-top:10px">For your information. The run is saved and counts. Check with the in-charge that the figure is right.</div></div>'
+    +'<div class="mf"><button class="ghost" onclick="closeModal()">Later</button><button class="green" onclick="bigPackSeen(\''+bpEsc(id)+'\')">Seen</button></div>';
+  $('modalBg').classList.add('open'); }
+function bigPackSeen(id){ if(state.role!=='Production Manager'){ toast('The Production Manager marks this seen'); return; }
+  var p=(state.packingLog||[]).find(function(x){ return x&&x.id===id; }); if(!p||!p.bigRun) return;
+  p.bigRun=Object.assign({},p.bigRun,{ack:true,ackBy:_uRole().by,ackAt:new Date().toISOString()});
+  logAction('Large packing run seen — '+(p.brand||'')+' '+fmt(+p.kg||0)+' Kg/L ('+(p.po||'')+') by '+_uRole().by);
+  save(); closeModal(); render(); }
 let packForm={bid:null,brand:'',kg:''};
-function openPack(bid){ const b=state.batches.find(x=>x.id===bid); packForm={bid,base:b.base,brand:'',oid:'',lid:'',kg:Math.round(batchPackableKg(b)),brandBatch:'',price:'',priceOk:false,noPrice:false,packDate:evToday(),packDateReason:'',shelfMonths:null};
+function openPack(bid){ const b=state.batches.find(x=>x.id===bid); packForm={bid,base:b.base,brand:'',oid:'',lid:'',kg:Math.round(batchPackableKg(b)),brandBatch:'',price:'',priceOk:false,noPrice:false,packDate:evToday(),packDateReason:'',shelfMonths:null,shift:'',incharge:'',packsOkKg:0};
   if(b&&b.kind==='multi'&&Array.isArray(b.allocations)&&b.allocations.length){ const _bs=[]; b.allocations.forEach(function(a){ if(a.brand&&_bs.indexOf(a.brand)<0)_bs.push(a.brand); }); if(_bs.length===1&&brandsForBase(b.base).indexOf(_bs[0])>-1) packForm.brand=_bs[0]; }
   renderPackModal(); $('modalBg').classList.add('open'); }
 function poLinesForBrand(brand){ const r=[]; state.orders.forEach(o=>o.lines.forEach(l=>{ if(l.brand===brand && !lineShortClosed(l) && (l.packed||0)<l.ordered-0.5 && stageOf(o)!=='Delivered') r.push({o,l}); })); return r; }
@@ -8650,14 +8735,17 @@ function renderPackModal(){ const b=state.batches.find(x=>x.id===packForm.bid); 
    <div class="mb"><div class="formgrid" style="grid-template-columns:1fr 1fr">
      <div class="fld"><label>1 · Pack into brand</label><select onchange="packForm.brand=this.value;packForm.oid='';packForm.lid='';renderPackModal()"><option value="">— pick brand —</option>${opts.map(x=>`<option ${x===packForm.brand?'selected':''}>${x}</option>`).join('')}</select></div>
      <div class="fld"><label>2 · For which PO</label><select ${packForm.brand?'':'disabled'} onchange="packPickPO(this.value)"><option value="">${packForm.brand?(poOpts.length?'— pick PO —':'no open PO'):'pick brand first'}</option>${poOpts.map(x=>`<option value="${x.o.id}|${x.l.id}" ${packForm.oid===x.o.id&&packForm.lid===x.l.id?'selected':''}>${x.o.po} · ${x.o.client} (needs ${fmt(x.l.ordered-(x.l.packed||0))})${_mpLink[x.o.id+'|'+x.l.id]?' · linked':''}</option>`).join('')}</select></div>
-     <div class="fld"><label>3 · Qty (Kg/L)</label><input type="number" value="${packForm.kg}" oninput="packForm.kg=this.value" placeholder="max ${fmt(rem)}"></div>
+     <div class="fld"><label>3 · Qty (Kg/L)</label><input type="number" value="${packForm.kg}" oninput="packForm.kg=this.value;packConfirmRefresh('pack')" placeholder="max ${fmt(rem)}"></div>
      <div class="fld"><label>4 · Brand batch # (on pack — reuse the same # to merge several base batches)</label><input type="text" value="${packForm.brandBatch||''}" oninput="packForm.brandBatch=this.value" onchange="renderPackModal()" placeholder="blank = same as base (${b.batchNo||'—'})">${packSimilarNote(b)}</div>
      ${evDateField('packForm','packDate','pack','Date this was actually packed','renderPackModal()')}
+     <div style="grid-column:1/-1">${packShiftIncBlock(packForm,'packForm','')}</div>
      ${packDatesBlock((packForm.brandBatch||'').trim()||(b.batchNo||''), b.id, packForm.packDate||TODAY.toISOString().slice(0,10), packForm, 'packForm', 'renderPackModal()')}</div>
+     ${packConfirmBlock('pack')}
      ${priceBlk}<div class="muted" style="font-size:11px;margin-top:11px">Moves bulk base into the chosen brand. Pick a PO to fill that order (capped to what it still needs), or leave unassigned.</div></div>
    <div class="mf"><button class="ghost" onclick="closeModal()">Cancel</button><button class="green" onclick="doPack()">Pack</button></div>`; }
 function doPack(){ if(!may('packing.pack')){toast(denyRight('packing.pack','Packing'));return;} const b=state.batches.find(x=>x.id===packForm.bid); if(!batchLabApproved(b)){toast('This batch is not Lab QC-approved yet — it can be packed only after QCM approves its COA.');return;} const rem=batchPackableKg(b); let kg=Math.min(+packForm.kg||0,rem); const brand=packForm.brand; const _dgP=evDateGate(packForm,'packDate','pack'); if(_dgP){toast(_dgP);return;} const d=packForm.packDate||evToday(); const _evP=evStamp(d,'pack',packForm.packDateReason);
   if(!brand||kg<=0){toast('Pick a brand and quantity');return;}
+  { const _sg=packShiftIncGate(packForm)||packConfirmGate(packForm,'pack'); if(_sg){toast(_sg);return;} }
   if(packForm.oid && packForm.oid!=='STOCK' && packForm.lid){
     const o=state.orders.find(x=>x.id===packForm.oid); const l=o&&o.lines.find(x=>x.id===packForm.lid);
     { var _sc=shortCloseRefusal(o,l,'Packing'); if(_sc){toast(_sc);return;} }
@@ -8690,7 +8778,7 @@ function doPack(){ if(!may('packing.pack')){toast(denyRight('packing.pack','Pack
        (NS26004 +250 on VG-VC-2609-5466). */
     b.packedKg+=kg; l.packed=(l.packed||0)+kg; l.produced=Math.max(l.produced||0,l.packed); l.prodStart=l.prodStart||d; if(l.packed>=l.ordered-0.5)l.prodComplete=l.prodComplete||d;
     /* NO write-back to l.printPrice — packing records, it does not author. See packPriceRecord(). */
-    (state.packingLog=state.packingLog||[]).unshift(Object.assign({date:d,base:b.base,brand,kg,by:((state.currentUser&&state.currentUser.name)||state.role),po:o.po,id:nid('PK'),lid:l.id,baseBatchId:b.id,baseBatchNo,brandBatchNo,mfgDate:mfgD,expDate:expD,shelfMonths:_dt.shelfMonths},_evP,_prec));
+    (state.packingLog=state.packingLog||[]).unshift(Object.assign({date:d,base:b.base,brand,kg,by:((state.currentUser&&state.currentUser.name)||state.role),po:o.po,id:nid('PK'),lid:l.id,baseBatchId:b.id,baseBatchNo,brandBatchNo,mfgDate:mfgD,expDate:expD,shelfMonths:_dt.shelfMonths},packRowExtras(kg,l,packForm),_evP,_prec));
     syncPackBatchDates(brandBatchNo);
     logAction(`Packed ${fmt(kg)} Kg/L ${b.base} [${baseBatchNo}] → ${brand} [${brandBatchNo}]${brandBatchNo!==baseBatchNo?' (re-batched)':''} for ${o.po}`);
   } else {
@@ -13006,7 +13094,9 @@ function pmvApply(m){ /* 07i: the new lots take ids made from the move, so a mov
   m.lots.forEach(function(x,xi){ var p=(state.packingLog||[]).find(function(y){ return y&&y.id===x.lotId; }); var q=x.kg; var qi=Math.min(q,pmvLotCleared(p));
     var n=JSON.parse(JSON.stringify(p)); delete n.movedOut; n.id='PK'+m.id+'-'+xi; n.po=oB.po; n.lid=lB.id; n.kg=q; n.insKg=qi; n.shipKg=0;
     n.movedFrom={moveId:m.id,po:oA.po,lid:lA.id,lotId:p.id,at:at};
-    p.kg=Math.max(0,(+p.kg||0)-q); p.insKg=Math.max(+p.shipKg||0,(+p.insKg||0)-qi);
+    /* 15 Oct 2026: the copy keeps its shift and in-charge. Its packs are worked out again for the moved kg and the new line's pack size; the large-entry flag stays on the original entry only, so one run raises one job. */
+    delete n.bigRun; { var _psz=+lB.pack||seedPackForBrand(lB.brand)||0; if(_psz>0){ n.packs=Math.round(q/_psz*100)/100; n.packSize=_psz; } else { delete n.packs; delete n.packSize; } }
+    p.kg=Math.max(0,(+p.kg||0)-q); p.insKg=Math.max(+p.shipKg||0,(+p.insKg||0)-qi); if(p.packSize>0) p.packs=Math.round(p.kg/p.packSize*100)/100;
     p.movedOut=(p.movedOut||[]).concat([{moveId:m.id,kg:q,insKg:qi,toPo:oB.po,toLid:lB.id,lotId:n.id,at:at}]);
     state.packingLog.unshift(n); m.applied.push({fromLot:p.id,toLot:n.id,kg:q,insKg:qi,batch:x.batch}); tot+=q; });
   lA.packed=Math.max(0,(+lA.packed||0)-tot); lA.produced=Math.max(lA.packed,(+lA.produced||0)-tot);
@@ -13280,6 +13370,7 @@ function actionItems(){
   try{ bfxFollowJobs().forEach(function(j){ items.push(j); }); }catch(e){} /* 10h: after the fix, the papers already printed are reprinted */
   try{ dcRejectJobs().forEach(function(j){ items.push(j); }); }catch(e){} /* 26a: a rejected DC is told to Supply Chain */
   try{ yieldShortJobs().forEach(function(j){ items.push(j); }); }catch(e){} /* 26c: a batch closed short reaches the Plant Manager */
+  try{ bigPackJobs().forEach(function(j){ items.push(j); }); }catch(e){} /* 15 Oct: a packing entry over 10,000 Kg/L reaches the Production Manager */
   return items;
 }
 /* Batches that are finished and have nothing left to explain: produced at or
@@ -13709,10 +13800,10 @@ function actSort(arr){ return arr.slice().sort(function(a,b){ var ua=actUrg(a),u
 var acRisk='all', acRoleF='all', acQ='', acSort2='risk', acGroup='priority';
 var acTab='todo'; /* simplified Action Center: 'todo' (active) | 'deferred' | 'all' */
 var acView='list'; /* My Actions list/cards view toggle — default keeps existing list behavior */
-var AC_ROLEORDER=['Supply Chain','CFO','Production','Lab Rep','AQCM','QCM','QA Inspector','Plant Manager'];
+var AC_ROLEORDER=['Supply Chain','CFO','Production','Production Manager','Lab Rep','AQCM','QCM','QA Inspector','Plant Manager'];
 var AC_STAGES=['PO Created','RM Check','Production','Lab QC','AQCM Review','Pack QC','Shipment'];
 function acTypeColor(lb){ if(lb==='Print price')return 'var(--amber)'; if(lb==='Release'||lb==='Approve DC')return 'var(--red)'; if(lb==='Load'||lb==='Gate Pass'||lb==='Confirm delivery')return '#0f766e'; if(lb==='Pack QC'||lb==='Inspect')return 'var(--navy)'; if(lb==='Open Production'||lb==='RM Check'||lb==='Acknowledge'||lb==='Receive')return 'var(--amber)'; if(lb==='Lab QC'||lb==='Review'||lb==='Approve'||lb==='Approve PR')return '#1d4ed8'; if(lb==='Add reason'||lb==='Correct')return 'var(--red)'; return 'var(--mut)'; }
-function acStageOf(lb){ if(/^(Approve sample|Issue sample|Check sample|Sample gate pass|Review sample|Release sample|Sample arrived|Sample feedback|Sample not approved)$/.test(lb||'')) return 'FOC samples'; /* 25o: never Production */ if(lb==='Print price'||lb==='Refused'||lb==='PO sent back')return 'PO Created'; if(lb==='PR refused')return 'RM Check'; if(lb==='Approve move'||lb==='Move refused'||lb==='Check after move'||lb==='Duplicate number')return 'Shipment'; if(lb==='Approve close short')return 'PO Created'; if(lb==='DC rejected'||lb==='Truck failed')return 'Shipment'; if(lb==='Yield short')return 'Production'; if(lb==='Load'||lb==='Gate Pass'||lb==='Review truck'||lb==='Release'||lb==='Approve DC'||lb==='Confirm delivery'||lb==='Sent back')return 'Shipment'; if(lb==='Acknowledge')return 'PO Created'; if(lb==='RM Check'||lb==='Receive'||lb==='Approve PR')return 'RM Check'; if(lb==='Open Production')return 'Production'; if(lb==='Lab QC'||lb==='Correct COA')return 'Lab QC'; if(lb==='Review'||lb==='Approve')return 'AQCM Review'; if(lb==='Pack QC'||lb==='Inspect')return 'Pack QC'; if(lb==='Ship')return 'Shipment'; return 'Production'; }
+function acStageOf(lb){ if(/^(Approve sample|Issue sample|Check sample|Sample gate pass|Review sample|Release sample|Sample arrived|Sample feedback|Sample not approved)$/.test(lb||'')) return 'FOC samples'; /* 25o: never Production */ if(lb==='Print price'||lb==='Refused'||lb==='PO sent back')return 'PO Created'; if(lb==='PR refused')return 'RM Check'; if(lb==='Approve move'||lb==='Move refused'||lb==='Check after move'||lb==='Duplicate number')return 'Shipment'; if(lb==='Approve close short')return 'PO Created'; if(lb==='DC rejected'||lb==='Truck failed')return 'Shipment'; if(lb==='Yield short'||lb==='Big pack run')return 'Production'; if(lb==='Load'||lb==='Gate Pass'||lb==='Review truck'||lb==='Release'||lb==='Approve DC'||lb==='Confirm delivery'||lb==='Sent back')return 'Shipment'; if(lb==='Acknowledge')return 'PO Created'; if(lb==='RM Check'||lb==='Receive'||lb==='Approve PR')return 'RM Check'; if(lb==='Open Production')return 'Production'; if(lb==='Lab QC'||lb==='Correct COA')return 'Lab QC'; if(lb==='Review'||lb==='Approve')return 'AQCM Review'; if(lb==='Pack QC'||lb==='Inspect')return 'Pack QC'; if(lb==='Ship')return 'Shipment'; return 'Production'; }
 function acRiskOf(it){ if(actOverdue(it))return 'late'; var tm=actTiming(it); if(tm.dueIn!=null&&tm.dueIn<0)return 'late'; return actUrg(it)<=2?'today':'normal'; }
 /* What the chip says. A deadline item is described by its deadline — "due today"
    reads as something to act on; "0d waiting" reads as something that just
@@ -13732,7 +13823,7 @@ function acRoleScoped(b){ return acRoleF==='all'?b:b.filter(function(x){return x
 function acCounts(){ var r0=acRoleScoped(acBase()); var deferred=r0.filter(function(x){return !!acDeferActive(x);}).length; var r=r0.filter(function(x){return !acDeferActive(x);}); var late=0,today=0,normal=0,old=0; r.forEach(function(x){ if(x._risk==='late')late++; else if(x._risk==='today')today++; else normal++; if(x._days>old)old=x._days; }); return {all:r.length,late:late,today:today,normal:normal,oldest:old,deferred:deferred}; }
 /* Self-defer: owner snoozes an action 1–30 days with a locked reason; it leaves the active list until the return date, stays visible under the Deferred filter and to managers. Greenlit stored field: state.acDefer (keyed by a deterministic acKey). */
 var AC_DEFER_REASONS=['RM en route','Scheduled later','Awaiting approval','Capacity issues','Packing not available','Other'];
-function acKey(it){ var p=[it.label||'']; if(it.o)p.push('o:'+it.o.id); if(it.l)p.push('l:'+(it.l.id||it.l.brand||'')); if(it.pr)p.push('pr:'+it.pr.id); if(it.batch)p.push('b:'+it.batch.id); if(it.lid)p.push('u:'+it.lid); if(it.row!=null)p.push('r:'+it.row); if(it.leave)p.push('lv:'+it.leave.id); if(it.coverRole)p.push('cr:'+it.coverRole); if(it.lot)p.push('lot:'+it.lot.id); if(it.disp)p.push('d:'+(it.disp.dispId||'')); if(it.smp)p.push('s:'+(it.smp.id||'')); if(it.cust)p.push('c:'+(it.cust.code||'')); if(it.dcr)p.push('x:'+(it.dcr.id||'')); if(it.bfx)p.push('f:'+it.bfx); if(it.fu)p.push('fu:'+it.fu); if(it.mv)p.push('m:'+it.mv); if(it.dup)p.push('n:'+it.dup); return p.join('|'); }   /* 07g (C18): one sample/customer/rejection/move each, not all of them at once */
+function acKey(it){ var p=[it.label||'']; if(it.bpk)p.push('bp:'+it.bpk); if(it.o)p.push('o:'+it.o.id); if(it.l)p.push('l:'+(it.l.id||it.l.brand||'')); if(it.pr)p.push('pr:'+it.pr.id); if(it.batch)p.push('b:'+it.batch.id); if(it.lid)p.push('u:'+it.lid); if(it.row!=null)p.push('r:'+it.row); if(it.leave)p.push('lv:'+it.leave.id); if(it.coverRole)p.push('cr:'+it.coverRole); if(it.lot)p.push('lot:'+it.lot.id); if(it.disp)p.push('d:'+(it.disp.dispId||'')); if(it.smp)p.push('s:'+(it.smp.id||'')); if(it.cust)p.push('c:'+(it.cust.code||'')); if(it.dcr)p.push('x:'+(it.dcr.id||'')); if(it.bfx)p.push('f:'+it.bfx); if(it.fu)p.push('fu:'+it.fu); if(it.mv)p.push('m:'+it.mv); if(it.dup)p.push('n:'+it.dup); return p.join('|'); }   /* 07g (C18): one sample/customer/rejection/move each, not all of them at once */
 function acDeferActive(it){ var m=state.acDefer||{}; var d=m[acKey(it)]; if(!d||!d.until)return null; return (String(d.until)>=TODAY.toISOString().slice(0,10))?d:null; }
 var acDeferForm=null;
 function acDefer(id){ var it=acBase().filter(function(x){return x._id===id;})[0]; if(!it)return; var t=new Date(TODAY); t.setDate(t.getDate()+7); acDeferForm={id:id,key:acKey(it),title:(it.what||it.label),reason:AC_DEFER_REASONS[0],until:t.toISOString().slice(0,10)}; renderAcDefer(); $('modalBg').classList.add('open'); }
@@ -13922,6 +14013,7 @@ var TD_LABEL={
   'DC rejected':     {title:'A DC was rejected',                    verb:'Read why'},
   'Truck failed':    {title:'A truck failed inspection',            verb:'Read why'},
   'Yield short':     {title:'A batch closed short of plan',         verb:'Read it'},
+  'Big pack run':    {title:'A packing entry over 10,000 Kg/L',     verb:'Read it'},
   'Sample not approved':{title:'Your FOC sample was not approved', verb:'Read why'},
   'Sent back':       {title:'Truck sent back to you',               verb:'Fix it'},
   'Approve customer':{title:'New customer to approve',              verb:'Approve'},
@@ -14561,7 +14653,7 @@ var TD_NEXT={'Assign sample':'Lab test','Lab test':'Review',  /* 24z: the lab by
   'Acknowledge':'RM Check','RM Check':'Approve PR','Approve PR':'Receive','Receive':'Open Production','Print price':'Open Production',
   'Open Production':'Close batch','Close batch':'Lab QC','Reopened — check first':'Close batch','Lab QC':'Review','Review':'Approve','Approve':'Pack',
   'Pack QC':'Ship','Correct':'Re-inspect','Re-inspect':'Ship','Ship':'Load','Load':'Inspect','Inspect':'Gate Pass','Gate Pass':'Review truck','Review truck':'Release','Release':'Confirm delivery',
-  'Approve DC':'Confirm delivery','Confirm delivery':'','Refused':'','Pack':'Pack QC','Approve close short':'','Approve move':'Ship','Move refused':'','Check after move':'','Duplicate number':'','Sent back':'Review truck','Correct COA':'Review','PO sent back':'Acknowledge','PR refused':'Approve PR','Customer sent back':'Approve customer','DC rejected':'Ship','Truck failed':'Ship','Yield short':'','Sample not approved':'','Add reason':'','Approve customer':'',
+  'Approve DC':'Confirm delivery','Confirm delivery':'','Refused':'','Pack':'Pack QC','Approve close short':'','Approve move':'Ship','Move refused':'','Check after move':'','Duplicate number':'','Sent back':'Review truck','Correct COA':'Review','PO sent back':'Acknowledge','PR refused':'Approve PR','Customer sent back':'Approve customer','DC rejected':'Ship','Truck failed':'Ship','Yield short':'','Big pack run':'','Sample not approved':'','Add reason':'','Approve customer':'',
   'Approve sample':'Issue sample','Issue sample':'Check sample','Check sample':'Sample gate pass','Sample gate pass':'Review sample','Review sample':'Release sample','Release sample':'Sample arrived','Sample arrived':'Sample feedback','Sample feedback':''};
 /* 24o: the sign-offs are jobs too - a QCM with no COA waiting today still approves COAs (07h: top level, the Guide's Reference reads it) */
 var TD_SIGN_JOBS={'Lab Rep':['Lab QC'],'AQCM':['Review'],'QCM':['Approve'],'QA Inspector':['Pack QC','Inspect','Check sample'],'Supply Chain':['Review truck','Review sample'],'Plant Manager':['Release','Approve DC','Release sample','Approve move','Approve close short'],'KAM':['Sample arrived','Sample feedback'],'Warehouse':['Review truck','Issue sample','Sample gate pass']};
@@ -15279,6 +15371,12 @@ function guideMyJob(){
     'Finance':_rp+'New reports: <b>Open orders</b> and <b>One customer</b>.',
     'Finance Desk Officer':_rp+'New reports: <b>Open orders</b> and <b>One customer</b>.'}[role];
   if(_n07) h+='<div class="note" style="margin-top:10px"><b>New on 7 Oct.</b> '+_n07+'</div>';
+  /* 15 Oct: packing records the shift and the in-charge, shows the packs, and flags a very large run */
+  var _pk15='Every packing entry now asks for the <b>Shift</b> and the <b>In-charge of the packing run</b>. Pick both: they start empty and the entry is refused without them. The in-charge is the person who ran the packing line, not the person typing. You still type Kg/L; the screen shows the packs and you tick that this is what was packed.';
+  var _n15={'Production':_pk15+' A packing entry over 10,000 Kg/L is saved, and the Production Manager is told.',
+    'Production Manager':_pk15+' A packing entry over 10,000 Kg/L comes to you as <b>Big pack run</b> with the shift, the in-charge and who keyed it: check the figure with the in-charge and mark it Seen. The run is never stopped.',
+    'COO':'Packing entries now carry a shift and an in-charge, and the packs are shown and ticked. A packing entry over 10,000 Kg/L reaches the Production Manager as <b>Big pack run</b>.'}[role];
+  if(_n15) h+='<div class="note" style="margin-top:10px"><b>New on 15 Oct.</b> '+_n15+'</div>';
   if(role==='COO') h+='<div class="note" style="margin-top:10px">You do not sign certificates (ISO: management does not sign). You switch the lab’s test assignment on, and you can assign, reject or re-issue — never sign.</div>';
   /* screens */
   var scrs=[]; try{ SCREENS.forEach(function(s){ if(RE_SCREENS_SKIP[s.id]) return; var lv=accessLevel(role,s.id); if(lv&&lv!=='none') scrs.push({n:s.name,lv:lv}); }); }catch(e){}
@@ -15286,7 +15384,7 @@ function guideMyJob(){
   return h;
 }
 function guideHow(){
-  var steps=[['Received','An order is entered with each product, quantity, price and committed date, the payment terms and the ERP SO #. A price more than 5% from the customer’s last one needs a reason. Nothing moves until the order exists here.'],['Materials','Supply Chain acknowledges it and checks raw material: in full, in part, or not yet. A shortfall raises a purchase request the CFO approves, or refuses with a reason that goes back to Supply Chain; what arrives is confirmed at the bay. Supply Chain can send a wrong PO back to whoever entered it, with a reason.'],['Produced','Production opens a batch, logs each shift’s output, closes the batch. A batch that has made all it will make is closed from its card (Close batch, beside Log output), with the reason for any shortfall. Closing a batch does not close the order: what is still owed stays in What to make until another batch is made or the line is closed short. When packing is finished, the Production Manager presses <b>Packing finished</b> on the batch and accounts for what is left: loss (with a reason), by-product (Sulfur Coated Urea goes to the Nitro Sulfur pool, which is later called into a new Nitro Sulfur or Sulfur Coated Urea batch that names the batches it came from), divert, rework, or keep as bulk stock. On a batch made for several orders, once it is closed and all of it is packed or accounted for, each order’s made-so-far is brought to what was actually packed for it. The base is made in bulk; packing turns it into the brand. The Production screen shows one card per product to make, with the orders inside it.'],['Lab','The QC manager assigns each test of a sample to an analyst; each analyst runs his test for every waiting sample on one bench sheet, and his name and the time go on the result. When every test has a result the AQCM reviews and the QCM approves. (Until the COO switches this on, one analyst drafts the whole COA as before.) When a batch is split into lots, every lot is tested on its own and gets its own certificate; no lot waits for another, and a lot that fails does not hold the others. Certificates copied from a tested lot before 13 Oct 2026 stay as they are. A report is sent back one step at a time, always with a note: the QCM sends it back to the AQCM, the AQCM to the analyst who drafted it. The note shows on the report and on the job card of the person who must act; the corrected report is reviewed again by the AQCM and approved by the QCM. An approved certificate is not sent back: it is re-issued as a new revision.'],['Packed · QA','Each packed lot is inspected before it can ship. A failed lot is corrected and re-inspected.'],['Shipped','Supply Chain plans the truck. The warehouse loads it, QA inspects it, and the warehouse issues the gate pass. Saad (Supply Chain) or Shoaib (Warehouse) reviews it, never the person who loaded the truck or issued its gate pass and never Zain; the Plant Manager gives the final approval of the DC and releases the truck. If the review has not happened within 2 hours, the Plant Manager may approve without it and the DC says so. Every sign-off (gate pass, review, release) opens a sheet first: the truck, what is on it, who did what, and the DC and gate pass to read. Saad or the Plant Manager can send it back with a reason to whoever issued the gate pass, who fixes it and sends it for review again. Three different people: the one who loads or issues the gate pass never reviews or releases. Whoever sent the truck confirms it arrived; after 1 day it goes to Saad, after 1 more to the Plant Manager. The moment the truck is released it counts as a sale, net of FED (FED is the sales tax; on an order quoted FED-inclusive the price is divided by 1.05).'],['Delivered','Delivery is confirmed and the order is Delivered. A line delivered in full is Delivered whether or not the date was stamped; the missing date is listed for the COO.']];
+  var steps=[['Received','An order is entered with each product, quantity, price and committed date, the payment terms and the ERP SO #. A price more than 5% from the customer’s last one needs a reason. Nothing moves until the order exists here.'],['Materials','Supply Chain acknowledges it and checks raw material: in full, in part, or not yet. A shortfall raises a purchase request the CFO approves, or refuses with a reason that goes back to Supply Chain; what arrives is confirmed at the bay. Supply Chain can send a wrong PO back to whoever entered it, with a reason.'],['Produced','Production opens a batch, logs each shift’s output, closes the batch. A batch that has made all it will make is closed from its card (Close batch, beside Log output), with the reason for any shortfall. Closing a batch does not close the order: what is still owed stays in What to make until another batch is made or the line is closed short. When packing is finished, the Production Manager presses <b>Packing finished</b> on the batch and accounts for what is left: loss (with a reason), by-product (Sulfur Coated Urea goes to the Nitro Sulfur pool, which is later called into a new Nitro Sulfur or Sulfur Coated Urea batch that names the batches it came from), divert, rework, or keep as bulk stock. On a batch made for several orders, once it is closed and all of it is packed or accounted for, each order’s made-so-far is brought to what was actually packed for it. The base is made in bulk; packing turns it into the brand. The Production screen shows one card per product to make, with the orders inside it.'],['Lab','The QC manager assigns each test of a sample to an analyst; each analyst runs his test for every waiting sample on one bench sheet, and his name and the time go on the result. When every test has a result the AQCM reviews and the QCM approves. (Until the COO switches this on, one analyst drafts the whole COA as before.) When a batch is split into lots, every lot is tested on its own and gets its own certificate; no lot waits for another, and a lot that fails does not hold the others. Certificates copied from a tested lot before 13 Oct 2026 stay as they are. A report is sent back one step at a time, always with a note: the QCM sends it back to the AQCM, the AQCM to the analyst who drafted it. The note shows on the report and on the job card of the person who must act; the corrected report is reviewed again by the AQCM and approved by the QCM. An approved certificate is not sent back: it is re-issued as a new revision.'],['Packed · QA','Each packing entry says which shift and which in-charge packed it, and the packs are shown and ticked before it saves. Each packed lot is inspected before it can ship. A failed lot is corrected and re-inspected.'],['Shipped','Supply Chain plans the truck. The warehouse loads it, QA inspects it, and the warehouse issues the gate pass. Saad (Supply Chain) or Shoaib (Warehouse) reviews it, never the person who loaded the truck or issued its gate pass and never Zain; the Plant Manager gives the final approval of the DC and releases the truck. If the review has not happened within 2 hours, the Plant Manager may approve without it and the DC says so. Every sign-off (gate pass, review, release) opens a sheet first: the truck, what is on it, who did what, and the DC and gate pass to read. Saad or the Plant Manager can send it back with a reason to whoever issued the gate pass, who fixes it and sends it for review again. Three different people: the one who loads or issues the gate pass never reviews or releases. Whoever sent the truck confirms it arrived; after 1 day it goes to Saad, after 1 more to the Plant Manager. The moment the truck is released it counts as a sale, net of FED (FED is the sales tax; on an order quoted FED-inclusive the price is divided by 1.05).'],['Delivered','Delivery is confirmed and the order is Delivered. A line delivered in full is Delivered whether or not the date was stamped; the missing date is listed for the COO.']];
   var h='<div class="gd-intro">One order goes through 7 steps. At each step one role acts; the moment it presses its button the job appears on the next role’s Today. Nobody chases anybody: the list does.</div>';
   h+='<div class="gd-steps">'+steps.map(function(s,i){ return '<div class="gd-step"><span class="n">'+(i+1)+'</span><div><b>'+s[0]+'</b><span>'+s[1]+'</span></div></div>'; }).join('')+'</div>';
   h+='<h2>What the marks mean</h2><div class="gd-rows"><div class="gd-row"><span class="k">● new today</span><span>the job reached you today (green)</span></div><div class="gd-row"><span class="k">■ waiting 3 d</span><span>how long the job has waited for you: amber for 1 to 6 days, red from 7</span></div><div class="gd-row"><span class="k">12 d past promise</span><span>the committed date has passed; the days are counted from it</span></div><div class="gd-row"><span class="k">is on it</span><span>a colleague with the same role has taken the card; it stays visible to both</span></div><div class="gd-row"><span class="k">Escalated to you</span><span>a card left too long on someone’s Today, shown to their lead with the role’s name</span></div><div class="gd-row"><span class="k">Done. Now waiting on …</span><span>the toast after every button: who the job went to, by name</span></div></div>';
@@ -15298,6 +15396,7 @@ function guideRules(){
   h+='<div class="gd-rule"><h3>Why you cannot back-date</h3><p>Every entry carries 2 dates: the day the thing happened, which you type, and the day it was recorded, which the app stamps itself. You can enter yesterday’s shift today. But when the gap is longer than the allowance — packing '+th('pack')+' day, a COA '+th('coa')+' day, a shift '+th('shift')+' day, a delivery '+th('deliver')+' days, a lot inspection the same day — the entry is marked <b>entered late</b>, you must give a reason, and it counts against your department’s <b>current</b> number, which your lead sees on his Today by name. The gap is counted in <b>calendar days</b>, not hours: anything entered on the same day it happened is never late, and an entry made the next day is 1 day late, whatever the time. The date of the event is never rewritten; the lateness is simply visible.</p></div>';
   h+='<div class="gd-rule"><h3>Why there is no bulk entry</h3><p>A batch, a shift, a lot and a truck are each their own record with their own number, date and name. The COA cites the batch, the gate pass cites the lot, the delivery cites the truck. One line typed for a week hides which shift made what, who inspected which lot and when the truck actually left — and then nothing downstream can be traced back. Entering each record as it happens takes a minute; reconstructing a week later takes a day and is still a guess.</p></div>';
   h+='<div class="gd-rule"><h3>The 2-person rules</h3><p>The person who drafts a COA does not review it; the reviewer does not approve it. Nobody who ran a test on a sample reviews or approves its certificate. Management does not sign a certificate: only the lab signs. The person who loads a truck does not release it. Nobody inspects their own output. A department lead can hand out the department’s rights but cannot widen his own. Where the app finds 2 of these in one pair of hands it refuses the button and says why.</p></div>';
+  h+='<div class="gd-rule"><h3>Why packing asks for the shift, the in-charge and the packs</h3><p>When a customer complains about a bag, the first question is which shift packed it and who ran the line. Pick the in-charge of the packing run, not the person typing: the app already records who typed. The screen shows the packs so a wrong number is seen by the person entering it, before it is saved. A packing entry over 10,000 Kg/L is saved, never stopped, and the Production Manager is told so he can check it with the in-charge.</p></div>';
   h+='<div class="gd-rule"><h3>FOC samples</h3><p>An FOC (free of charge) sample is never an order and never touches production or stock: it is taken from the sampling pool (over-production and extra material). Whoever sends it (Irfan, Muhammad Ali or anyone else) asks under <b>FOC samples</b>, or Finance asks for them; the request says who, to whom, why and what. <b>The COO grants every sample</b>; granting does not skip the process. QA checks the pack, the label and the batch; the warehouse gives it its own sample DC and a gate pass from the same book as the trucks; <b>Saad reviews</b> it (after 2 hours without a review it goes straight to the Plant Manager) and <b>the Plant Manager releases</b> it. The person who asked confirms it arrived, and '+SMP_FEEDBACK_DAYS+' days after it was sent is asked what the client said. A sample never counts as a sale and never appears as work for production.</p></div>';
   h+='<div class="gd-rule"><h3>When the AQCM or the QCM is on leave</h3><p>Tap your name → <b>I’m going on leave</b> and give the days; the Plant Manager gets a job to name a cover. The cover is someone in the lab. He signs one line in his own name, and the certificate prints <b>for</b> the person on leave. A cover never signs both lines of one certificate. If nobody announced the leave and certificates wait a day for someone who has done nothing in the app that day, the Plant Manager is asked too.</p></div>';
   /* 07c */
@@ -15358,7 +15457,7 @@ function gdJobRoles(){
   Object.keys(TD_SIGN_JOBS).forEach(function(r){ TD_SIGN_JOBS[r].forEach(function(l){ add(l,r); }); });
   return m; }
 /* who a job is addressed to in actionItems, for a quiet day when no such job is open and no role holds its right yet */
-var GD_JOB_OWNER={'Ship':'Supply Chain','Check after move':'Supply Chain','Duplicate number':'Supply Chain','Acknowledge':'Supply Chain','RM Check':'Supply Chain','Receive':'Supply Chain','Approve PR':'CFO','Open Production':'Production','Pack':'Production','Rework lot':'Production','Load':'Warehouse','Gate Pass':'Warehouse','Correct':'Supply Chain','Re-inspect':'Production Manager','Assign sample':'QCM','Lab late':'Plant Manager','Name a cover':'Plant Manager','Yield short':'Plant Manager','Approve customer':'CFO','Approve sample':'COO'};
+var GD_JOB_OWNER={'Ship':'Supply Chain','Check after move':'Supply Chain','Duplicate number':'Supply Chain','Acknowledge':'Supply Chain','RM Check':'Supply Chain','Receive':'Supply Chain','Approve PR':'CFO','Open Production':'Production','Pack':'Production','Rework lot':'Production','Load':'Warehouse','Gate Pass':'Warehouse','Correct':'Supply Chain','Re-inspect':'Production Manager','Assign sample':'QCM','Lab late':'Plant Manager','Name a cover':'Plant Manager','Yield short':'Plant Manager','Big pack run':'Production Manager','Approve customer':'CFO','Approve sample':'COO'};
 var GD_SENT_BACK=['Refused','Move refused','Correct COA','PO sent back','PR refused','Customer sent back','DC rejected','Truck failed','Sample not approved','Sent back'];
 function gdWho(m,l){ var rs=(m[l]||[]).slice(); if(!rs.length&&GD_JOB_OWNER[l]) rs=[GD_JOB_OWNER[l]];
   rs=rs.map(function(r){ return roleTitle(r); }).filter(function(v,i,a){ return a.indexOf(v)===i; });
@@ -16126,6 +16225,9 @@ function dedupeByproductV1(s){ if(s._bpDedupV1) return;
   s._bpDedupV1=true;
 }
 function dedupePackingLots(s){
+  /* 15 Oct 2026: two runs with the same kg but a different shift or in-charge are two real entries (2 or 3 lines can run
+     together in one shift), never one entry saved twice. Rows saved before the change carry neither and compare equal. */
+  const sameSI=(a,c)=>String(a.shift||'')===String(c.shift||'') && String(a.incharge||'')===String(c.incharge||'');
   /* Pass 1 — collapse rows that share an id (a stray from a concurrent save/merge). Keeps, per id,
      the copy carrying the most tracking (inspected+shipped) so nothing real is lost. */
   const best={}; (s.packingLog||[]).forEach(p=>{ if(!p||!p.id)return; const sc=(+p.insKg||0)+(+p.shipKg||0); const cur=best[p.id]; if(!cur||sc>cur.sc) best[p.id]={p:p,sc:sc}; });
@@ -16140,7 +16242,7 @@ function dedupePackingLots(s){
     const b=batchById[bid]; if(!b) continue; const cap=+b.packedKg||0; let rows=groups[bid]; let guard=0;
     while(guard++<50){
       const sum=rows.reduce((a,p)=>a+(+p.kg||0),0); if(sum<=cap+0.5) break;
-      let pair=null; for(let i=0;i<rows.length&&!pair;i++){ for(let j=i+1;j<rows.length;j++){ if((+rows[i].kg||0)===(+rows[j].kg||0)){ pair=[rows[i],rows[j]]; break; } } }
+      let pair=null; for(let i=0;i<rows.length&&!pair;i++){ for(let j=i+1;j<rows.length;j++){ if((+rows[i].kg||0)===(+rows[j].kg||0) && sameSI(rows[i],rows[j])){ pair=[rows[i],rows[j]]; break; } } }
       if(!pair) break;
       pair.sort((a,c)=>((+c.insKg||0)+(+c.shipKg||0))-((+a.insKg||0)+(+a.shipKg||0)));
       const keep=pair[0], drop=pair[1];
@@ -16163,7 +16265,7 @@ function dedupePackingLots(s){
     let logSum=rows.reduce((a,p)=>a+(+p.kg||0),0); let guard=0;
     while(guard++<20 && logSum-target>1){
       const orphan=rows.find(p=>!p.baseBatchId && !String(p.baseBatchNo||'').trim()); if(!orphan) break;
-      const twin=rows.find(p=>p!==orphan && p.baseBatchId && (+p.kg||0)===(+orphan.kg||0)); if(!twin) break;
+      const twin=rows.find(p=>p!==orphan && p.baseBatchId && (+p.kg||0)===(+orphan.kg||0) && sameSI(p,orphan)); if(!twin) break;
       if((+orphan.kg||0)-(logSum-target)>1) break; /* only remove genuine excess */
       (s.inspections||[]).forEach(ins=>{ if(ins&&Array.isArray(ins.batches)){ ins.batches.forEach(x=>{ if(x&&x.lotId===orphan.id) x.lotId=twin.id; }); } });
       const idx=(s.packingLog||[]).indexOf(orphan); if(idx>=0) s.packingLog.splice(idx,1);

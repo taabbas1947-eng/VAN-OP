@@ -32,12 +32,12 @@ ok('every order line in the order sheet has History', /lineFixOpen\(\\''\+qsEsc\
 const sb = { console, toasts: [], saved: 0, corr: [],
   toast: m => sb.toasts.push(m), save: () => sb.saved++, render: () => {}, closeModal: () => {},
   evToday: () => '2026-09-24', fmt: n => String(Math.round(+n * 100) / 100), unitOf: () => 'Kg', qsEsc: x => String(x == null ? '' : x), _tdClient: o => o.client,
-  lineShortClosed: () => false, screenEditOK: () => sb.canFix, canFix: true,
+  seedPackForBrand: () => 0, lineShortClosed: () => false, screenEditOK: () => sb.canFix, canFix: true,
   nid: p => p + (++sb._n), _n: 0, batchLabApproved: b => !!b.ok, batchPackableKg: b => (+b.producedKg || 0) - (+b.packedKg || 0),
   packDates: () => ({ mfgDate: '2026-08-01', expDate: '2028-08-01', shelfMonths: 24 }), syncPackBatchDates: () => {},
   lotBaseNo: p => p.baseBatchNo || '', recordCorrection: (op, t, id, label, ch, code, reason) => sb.corr.push({ op, t, id, ch, reason }),
   $: () => ({ innerHTML: '', classList: { add() {}, remove() {} } }),
-  state: { role: 'COO', currentUser: { name: 'Tahir' }, corrections: [], actionLog: [], audit: [],
+  state: { role: 'COO', currentUser: { name: 'Tahir' }, masters: { shifts: ['Morning', 'Evening', 'Night'], incharges: ['Faisal Nadeem'] }, corrections: [], actionLog: [], audit: [],
     batches: [{ id: 'B1', batchNo: 'VMG26001', base: 'Mg', ok: true, producedKg: 1000, packedKg: 500 }, { id: 'B2', batchNo: 'X1', base: 'Other', ok: true, producedKg: 99, packedKg: 0 }],
     orders: [
       { po: 'P-VMG', client: 'VGreen', lines: [{ id: 'L1', brand: 'V-Mg', base: 'Mg', ordered: 150, packed: 150, dispatched: 150, delivered: 150, deliveredDate: '2026-08-02' }] },
@@ -50,19 +50,21 @@ const sb = { console, toasts: [], saved: 0, corr: [],
     shipments: [{ po: 'P-VMG', lid: 'L1', brand: 'V-Mg', kg: 150, dispCounted: true, stage: 'delivered', delivered: '2026-08-02' },
                 { po: 'P-UND', lid: 'L4', brand: 'NPK', kg: 50, dispCounted: true, stage: 'delivered', delivered: '2026-07-20' }] } };
 vm.createContext(sb);
-vm.runInContext(['lineFixBases', 'lotsFor', 'saleLeft', 'lineFacts', 'lineLostKg', '_movedInMapBuild', '_movedInMap', 'lineOverUsed', 'lineIssues', 'lineFixRows', 'lineHistory', 'lineCause', 'lineFixOpen', '_lfCtx', '_lfGuard', 'lineFixRecord', 'lineFixCut', 'lineFixDate', 'lineFixList'].map(grab).join('\n') + '\nvar lfForm={};', sb);
+vm.runInContext(['lineFixBases', 'lotsFor', 'saleLeft', 'lineFacts', 'lineLostKg', '_movedInMapBuild', '_movedInMap', 'lineOverUsed', 'lineIssues', 'lineFixRows', 'lineHistory', 'lineCause', 'lineFixOpen', '_lfCtx', '_lfGuard', 'lineFixRecord', 'lineFixCut', 'lineFixDate', 'lineFixList', 'packShiftIncGate', 'packConfirmGate', 'packEntryCalc', 'packFmt', 'packShiftTotal', 'packRowExtras', 'packShiftIncBlock', 'packConfirmBlock', 'packConfirmInner', 'packFormOf'].map(grab).join('\n') + '\nvar PACK_FLAG_KG=10000; var lfForm={};', sb);
 const O = po => sb.state.orders.find(o => o.po === po), L = po => O(po).lines[0];
 eq('a reversed lot is not counted as packing', sb.lineFacts(O('P-OVER'), L('P-OVER')).logged, 300);
 eq('the list finds the 3 packing lines', sb.lineFixRows('packing').map(r => r.o.po).join(','), 'P-VMG,P-OVER,P-MAX');
 eq('...and the undated one', sb.lineFixRows('undated').map(r => r.o.po).join(','), 'P-UND');
 ok('over-ordered is named', sb.lineIssues(O('P-OVER'), L('P-OVER')).some(i => i.k === 'over'));
 /* V-Mg: shipped, no record -> record against a batch; the line does not move */
-sb.lineFixOpen('P-VMG', 'L1', 'rec'); sb.lfForm.bid = 'B1'; sb.lfForm.kg = 150; sb.lfForm.reason = '';
+sb.lineFixOpen('P-VMG', 'L1', 'rec'); sb.lfForm.shift = 'Morning'; sb.lfForm.incharge = 'Faisal Nadeem'; sb.lfForm.bid = 'B1'; sb.lfForm.kg = 150; sb.lfForm.reason = '';
 sb.lineFixRecord(); ok('a reason is required', /reason/.test(sb.toasts.pop()) && sb.state.packingLog.length === 3);
 sb.lfForm.reason = 'Packed from VMG26001 in July, never logged'; sb.lfForm.bid = 'B2'; sb.lineFixRecord();
 ok('a batch of another product is refused', /this line is/.test(sb.toasts.pop()));
 sb.lfForm.bid = 'B1'; sb.lfForm.kg = 151; sb.lineFixRecord(); ok('more than the gap is refused', /At most 150/.test(sb.toasts.pop()));
-sb.lfForm.kg = 150; sb.lineFixRecord();
+sb.lfForm.kg = 150; sb.lfForm.shift = ''; sb.lineFixRecord(); ok('no shift: refused, nothing written', /Pick the shift/.test(sb.toasts.pop()) && sb.state.packingLog.length === 3);
+sb.lfForm.shift = 'Morning'; sb.lfForm.incharge = ''; sb.lineFixRecord(); ok('no in-charge: refused, nothing written', /Pick the in-charge/.test(sb.toasts.pop()) && sb.state.packingLog.length === 3);
+sb.lfForm.incharge = 'Faisal Nadeem'; sb.lineFixRecord();
 const lot = sb.state.packingLog[0];
 eq('the record is written against the batch', [lot.po, lot.lid, lot.baseBatchNo, lot.kg].join('|'), 'P-VMG|L1|VMG26001|150');
 eq('packed on the line did not move', L('P-VMG').packed, 150);
@@ -71,7 +73,7 @@ eq('the batch gives up the quantity', sb.state.batches[0].packedKg, 650);
 ok('the correction register has it, with the reason', sb.corr.some(c => c.op === 'ADD' && c.t === 'packingLot' && /never logged/.test(c.reason)));
 eq('the line is no longer flagged', sb.lineIssues(O('P-VMG'), L('P-VMG')).length, 0);
 /* Transfarm 600 on 300: record refused (would pass ordered); cut to 300 allowed */
-sb.lfForm = {}; sb.lineFixOpen('P-OVER', 'L2', 'rec'); sb.lfForm.bid = 'B1'; sb.lfForm.kg = 300; sb.lfForm.reason = 'double entry'; sb.lineFixRecord();
+sb.lfForm = {}; sb.lineFixOpen('P-OVER', 'L2', 'rec'); sb.lfForm.shift = 'Morning'; sb.lfForm.incharge = 'Faisal Nadeem'; sb.lfForm.bid = 'B1'; sb.lfForm.kg = 300; sb.lfForm.reason = 'double entry'; sb.lineFixRecord();
 ok('recording past the ordered quantity is refused', /At most 0/.test(sb.toasts.pop()));
 sb.lfForm.mode = 'cut'; sb.lineFixCut();
 eq('overpack brought back to the records', L('P-OVER').packed, 300);
@@ -109,7 +111,7 @@ ok('the history lists the packing, the truck and the corrections', (() => { cons
   sb.state.packingLog.push({ id: 'PKF', po: '7500003954', lid: 'LF', brand: 'Fruitlish', base: 'VL-Potash', kg: 23317, shipKg: 19440, insKg: 23317, date: '2026-09-17', baseBatchNo: 'UKL226006' });
   const o = O('7500003954'), l = L('7500003954');
   eq('the line is made from the brand\'s base as well as its own', sb.lineFixBases(l).join(','), 'Fruitlish,VL-Potash');
-  sb.lfForm = {}; sb.lineFixOpen('7500003954', 'LF', 'rec');
+  sb.lfForm = {}; sb.lineFixOpen('7500003954', 'LF', 'rec'); sb.lfForm.shift = 'Morning'; sb.lfForm.incharge = 'Faisal Nadeem';
   sb.lfForm.bid = 'BVL'; sb.lfForm.kg = 683; sb.lfForm.reason = 'Counted on hand 5 Oct; 683 never logged'; sb.lineFixRecord();
   ok('the VL-Potash batch is accepted; with Take ticked it is refused for having 0 left', /has only 0 left/.test(sb.toasts.pop()));
   sb.lfForm.take = false; sb.lineFixRecord();
@@ -119,6 +121,6 @@ ok('the history lists the packing, the truck and the corrections', (() => { cons
   eq('nothing of it is marked shipped (all trucks are covered)', f.shipKg, undefined);
   eq('the line is no longer flagged', sb.lineIssues(o, l).length, 0);
   sb.state.orders.push({ po: 'P-MG2', client: 'X', lines: [{ id: 'LM', brand: 'V-Mg', base: 'Mg', ordered: 10, packed: 10, dispatched: 0, delivered: 0 }] });
-  sb.lfForm = {}; sb.lineFixOpen('P-MG2', 'LM', 'rec'); sb.lfForm.bid = 'BVL'; sb.lfForm.kg = 1; sb.lfForm.take = false; sb.lfForm.reason = 'wrong product'; sb.lineFixRecord();
+  sb.lfForm = {}; sb.lineFixOpen('P-MG2', 'LM', 'rec'); sb.lfForm.shift = 'Morning'; sb.lfForm.incharge = 'Faisal Nadeem'; sb.lfForm.bid = 'BVL'; sb.lfForm.kg = 1; sb.lfForm.take = false; sb.lfForm.reason = 'wrong product'; sb.lineFixRecord();
   ok('a batch of another product is still refused', /this line is Mg/.test(sb.toasts.pop())); }
 process.exitCode = report('Fix it where it happened (25b)') ? 1 : 0;

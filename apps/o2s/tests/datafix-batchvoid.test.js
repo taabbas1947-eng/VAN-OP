@@ -48,23 +48,24 @@ function eq(n, g, w) { ok(n, g === w, 'got ' + JSON.stringify(g) + ' want ' + JS
 const FNS = ['lotMoveLock', 'dfSubmitPacking', 'dfSubmitVoid', 'dfBatchSelect', 'dfVoidEntrySelect',
              '_batchApprovedDate', 'batchLabApproved', 'batchPackableKg',
              'packDates', 'packMfgFor', 'batchProdDate', 'addMonthsISO',
-             'recordBackfill', 'recordCorrection', 'correctTypeLabel', 'correctReasonText'];
+             'recordBackfill', 'recordCorrection', 'correctTypeLabel', 'correctReasonText',
+             'packShiftIncGate', 'packConfirmGate', 'packEntryCalc', 'packFmt', 'packShiftTotal', 'packRowExtras'];
 const src = FNS.map(H.grab).join('\n\n') + '\n'
   + H.grabObj('CORRECT_ENTITY') + '\n'
   + H.grabObj('CORRECT_TYPE_LABEL') + '\n'
   + H.grabObj('CORRECT_REASONS') + '\n'
-  + 'var SHELF_DEFAULT_MONTHS=24, SHELF_MAX_MONTHS=36;\n';
+  + 'var SHELF_DEFAULT_MONTHS=24, SHELF_MAX_MONTHS=36, PACK_FLAG_KG=10000;\n';
 
 function box(state, dfForm) {
   const b = {
     console, Date, JSON,
-    state, dfForm,
+    state, dfForm: Object.assign({ shift: 'Morning', incharge: 'Faisal Nadeem' }, dfForm), seedPackForBrand: () => 0,
     TODAY: new Date('2026-08-27T00:00:00.000Z'),
     fmt: n => (n == null ? '' : String(n)),
     _uid: p => p + 'TEST1',
     nid: p => p + 'N1',
     screenEditOK: () => true,
-    dfReasonOk: () => !!(dfForm.reason && String(dfForm.reason).trim()),
+    dfReasonOk: () => !!(b.dfForm.reason && String(b.dfForm.reason).trim()),
     toasts: [], toast: m => b.toasts.push(m),
     saved: false, save: () => { b.saved = true; },
     backCalled: false, dfBack: () => { b.backCalled = true; },
@@ -75,7 +76,7 @@ function box(state, dfForm) {
 
 function baseState() {
   return {
-    role: 'COO', currentUser: { name: 'tahir' },
+    role: 'COO', currentUser: { name: 'tahir' }, masters: { shifts: ['Morning', 'Evening'], incharges: ['Faisal Nadeem'] },
     orders: [{ id: 'O43', po: 'COBO-2608-4613', client: 'COBO',
                lines: [{ id: 'O43L0', brand: 'Vital Urea', base: 'Sulfur Coated Urea',
                          ordered: 2500, produced: 0, packed: 0 }] }],
@@ -233,6 +234,30 @@ ok('GUARD: "Void an entry" card now starts a real op (not the greyed-out placeho
 ok('GUARD: the placeholder card’s dead onclick is gone',
    !/card\('Void an entry','',false\)/.test(H.html));
 
+/* ============ 15 Oct: Add missing packing asks for the shift and the in-charge ============ */
+{
+  const st = baseState();
+  const b = box(st, { oid: 'O43', lid: 'O43L0', qty: '2500', date: '2026-08-26', reason: 'backfilled', bid: 'B2193', shift: '' });
+  b.dfSubmitPacking();
+  eq('no shift picked -> nothing written', st.packingLog.length, 0); ok('...and says to pick the shift', b.toasts.some(t => /Pick the shift/.test(t)), JSON.stringify(b.toasts));
+  eq('...and the line and the batch did not move', st.orders[0].lines[0].packed + st.batches[0].packedKg, 3875);
+}
+{
+  const st = baseState();
+  const b = box(st, { oid: 'O43', lid: 'O43L0', qty: '2500', date: '2026-08-26', reason: 'backfilled', bid: 'B2193', incharge: '' });
+  b.dfSubmitPacking();
+  eq('no in-charge picked -> nothing written', st.packingLog.length, 0); ok('...and says to pick the in-charge', b.toasts.some(t => /Pick the in-charge/.test(t)), JSON.stringify(b.toasts));
+}
+{
+  const st = baseState(); st.orders[0].lines[0].pack = 25;
+  const b = box(st, { oid: 'O43', lid: 'O43L0', qty: '2500', date: '2026-08-26', reason: 'backfilled', bid: 'B2193' });
+  b.dfSubmitPacking();
+  eq('a line with a pack size and no tick -> nothing written', st.packingLog.length, 0); ok('...and says to check the packs', b.toasts.some(t => /Check the number of packs \(100\)/.test(t)), JSON.stringify(b.toasts));
+  const b2 = box(st, { oid: 'O43', lid: 'O43L0', qty: '2500', date: '2026-08-26', reason: 'backfilled', bid: 'B2193', packsOkKg: 2500, packsOkSize: 25 });
+  b2.dfSubmitPacking(); const p = st.packingLog[0];
+  ok('ticked: written with shift, in-charge, packs and the typist\'s name', st.packingLog.length === 1 && p.shift === 'Morning' && p.incharge === 'Faisal Nadeem' && p.packs === 100 && p.packSize === 25 && p.by === 'tahir' && p.recon === true, JSON.stringify(p));
+}
 console.log('\nBatch # + Void an entry (packing): ' + pass + ' passed, ' + fail + ' failed');
 fails.forEach(f => console.log('  FAIL  ' + f));
+
 process.exit(fail ? 1 : 0);

@@ -11,7 +11,7 @@ const eq = (n, g, w) => ok(n, g === w, 'got ' + JSON.stringify(g) + ' want ' + J
 const html = H.html;
 
 const consts = (html.match(/var PL_STUCK_NO_OUTPUT_DAYS=[^;]+;/) || [''])[0];
-const SRC = consts + '\n' + ['calDays','lineShortClosed','_plPackedOf','plBatchMove','_plDay','plBatchFacts','_plLineOf','plLineWantsBase','plOpenLines','plOpenDemandKg','_plFirstOk','_plM','plBaseReady','_plBaseReady0','plLinePack','packLineOwes','_plCarrier','plBatchClass','_plRow','plStuckBatches','plHeldBatches','_plOpenBtn'].map(n => H.grab(n)).join('\n') + '\nvar _plMemo=null; function poReturnOpen(){ return false; }';
+const SRC = consts + '\n' + ['calDays','lineShortClosed','_plPackedOf','plBatchMove','_plDay','plBatchFacts','_plLineOf','plLineWantsBase','plOpenLines','plOpenDemandKg','lineShortRequested','batchClearedKg','plBaseLabKg','plShareKey','plBaseShare','_plFirstOk','_plM','plBaseReady','_plBaseReady0','plClientPOs','lineWaitMark','lineWaitClient','lineWaitOver','plLinePack','packLineOwes','_plCarrier','plBatchClass','_plRow','plStuckBatches','plHeldBatches','_plOpenBtn'].map(n => H.grab(n)).join('\n') + '\nvar _plMemo=null; function poReturnOpen(){ return false; }';
 
 function make(state) {
   const s = { console, Date, Math, JSON, Object, Array, String,
@@ -152,10 +152,14 @@ const run = (b, st) => { const s = make(Object.assign({ batches: [b] }, st)); re
   const ready = s.plBaseReady('NPK');
   eq('base ready lists oldest first', ready.batches.map(b => b.id).join(','), 'A1,A2');
   eq('...and adds up what is packable', Math.round(ready.kg), 1000);
-  const two = make({ batches: [old], orders: [ord(), ord({ po: 'P2', received: '2026-10-01' })] });
+  const short2 = make({ batches: [old], orders: [ord(), ord({ po: 'P2', received: '2026-10-01' })] });
+  ok('15g (Tahir): every order sees all the ready base - 500 ready, 2 lines of 1000, both are judged', /2 order lines/.test(short2.plBatchClass(old).why), short2.plBatchClass(old).why);
+  const big = B({ id: 'A1', batchNo: 'A1', producedKg: 2000, lots: old.lots });
+  const two = make({ batches: [big], orders: [ord(), ord({ po: 'P2', received: '2026-10-01' })] });
+  { const old = big;
   ok('2 stuck lines say "2 order lines" and "1 more"', /2 order lines/.test(two.plBatchClass(old).why) && /1 more/.test(two.plBatchClass(old).why), two.plBatchClass(old).why);
   eq('demand adds up every waiting line of any age', Math.round(two.plOpenDemandKg('NPK')), 2000);
-}
+} }
 /* 10b. review fixes: reversed packs, Open button rights and landing page */
 { const b = B({ packedKg: 100 });
   const c = run(b, { packingLog: [{ baseBatchId: 'B1', date: '2026-10-10', reversed: true, shipKg: 90 }, { baseBatchId: 'B1', date: '2026-09-01', shipKg: 10 }], orders: [] });
@@ -180,7 +184,7 @@ const run = (b, st) => { const s = make(Object.assign({ batches: [b] }, st)); re
   ok('the stuck rows show says, why, last move and who', /r\.says/.test(pl) && /r\.lastTxt/.test(pl) && /next: /.test(pl));
   ok('Held for orders is shown under the stuck rows', /Held for orders/.test(pl) && /plHeldBatches\(\)/.test(pl));
   ok('Held rows are calm unless 180 d', /r\.flag\?'st-late':'st-ok'/.test(pl));
-  ok('the held list stays reachable when nothing is stuck', /x\.k==='stuck'&&plHeldBatches\(\)\.length/.test(pl));
+  ok('the held list stays reachable when nothing is stuck', /x\.k==='stuck'&&\(plHeldBatches\(\)\.length\|\|plWaitLines\(\)\.length\)/.test(pl));
   ok('nothing is written', !/save\(\)/.test(H.grab('plBatchClass') + H.grab('plStuckBatches') + H.grab('plHeldBatches')));
   ok('Guide rule present', /<h3>What the Stuck batches list means<\/h3>/.test(html) && /Held for orders/.test(H.grab('guideRules')));
   ok('changelog entry present', /Stuck batches now show what is really packed/.test(html));

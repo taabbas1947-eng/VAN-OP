@@ -188,10 +188,10 @@ const { ok, eq, report, grab, grabTopVar, html } = H;
 
 /* 7. Pack from base and the order-line clock */
 {
-  ok('Today adds Pack from base, 1 per order line, instead of a run to make while base is ready', /label:'Pack from base'/.test(html) && /if\(_pfb\)\{[\s\S]{0,400}\}\s*else if\(rmAllows\(l\)>0/.test(html));
+  ok('Today adds Pack from base, 1 per order line; while base is short the run card for the rest shows too (15g)', /label:'Pack from base'/.test(html) && /restKg:_rest,/.test(html));
   ok('it escalates to the Plant Manager after 7 days as stuck', /'Pack from base':\[PL_LINE_STUCK_DAYS,'Plant Manager'\]/.test(html) && /stuck:it\.label==='Pack from base'/.test(grab('acEscalation')) && /stuck · Plant Manager told/.test(grab('tdTags')));
   ok('its clock is the line’s last pack, never the PO’s age', /case 'Pack from base': c=it\.pfbStart\|\|it\.o\.received/.test(grab('actTiming')) && /last packed '\+_plDay\(_p0\.pfbLast\)/.test(grab('tdTags')));
-  ok('the card says the base ready, the batches oldest first and what is still to make', /Base ready: <b>/.test(grab('tdCardHTML')) && /oldest first/.test(grab('tdCardHTML')) && /still to make after this/.test(grab('tdCardHTML')));
+  ok('the card says the base ready (or waiting for production, X of Y ready) and the batches oldest first', /Base ready: <b>/.test(grab('tdCardHTML')) && /oldest first/.test(grab('tdCardHTML')) && /Waiting for production:/.test(grab('tdCardHTML')));
   ok('Pack from base is on Today labels and rights', /'Pack from base':\s*\{title:'Pack from base'/.test(grabTopVar('TD_LABEL', '{')) && /'Pack from base':'packing\.pack'/.test(html));
   ok('the Production Stuck list counts it', /'Pack from base':'produce'/.test(html));
   ok('the batch list uses the same rule', /plBatchClass\(b\)/.test(grab('journeyCard')) && /c&&c\.k==='stuck'/.test(html));
@@ -201,7 +201,7 @@ const { ok, eq, report, grab, grabTopVar, html } = H;
 /* 7b. the stuck rule, run (review faults 1 to 3) */
 {
   const consts = (html.match(/var PL_STUCK_NO_OUTPUT_DAYS=[^;]+;/) || [''])[0];
-  const SRC = consts + '\n' + ['calDays','localDateOf','lineShortClosed','_plPackedOf','plBatchMove','_plDay','plBatchFacts','_plLineOf','plLineWantsBase','plOpenLines','plOpenDemandKg','_plFirstOk','_plM','plBaseReady','_plBaseReady0','plLinePack','packLineOwes','_plCarrier','plBatchClass','_plRow','plStuckBatches','plHeldBatches'].map(n => grab(n)).join('\n') + '\nvar _plMemo=null; function poReturnOpen(){ return false; }';
+  const SRC = consts + '\n' + ['calDays','localDateOf','lineShortClosed','_plPackedOf','plBatchMove','_plDay','plBatchFacts','_plLineOf','plLineWantsBase','plOpenLines','plOpenDemandKg','lineShortRequested','batchClearedKg','plBaseLabKg','plShareKey','plBaseShare','_plFirstOk','_plM','plBaseReady','_plBaseReady0','plClientPOs','lineWaitMark','lineWaitClient','lineWaitOver','plLinePack','packLineOwes','_plCarrier','plBatchClass','_plRow','plStuckBatches','plHeldBatches'].map(n => grab(n)).join('\n') + '\nvar _plMemo=null; function poReturnOpen(){ return false; }';
   const mk = (st) => { const s = { console, Date, Math, JSON, fmt: n => String(Math.round(n)), evToday: () => '2026-10-15', lineBucket: () => 'Production', batchStage: b => b._stage || 'pack',
       batchPackableKg: b => Math.max(0, (+b.producedKg || 0) - (+b.packedKg || 0)), batchPackNow: b => !b.voided && (b._stage || 'pack') === 'pack' && (b.status !== 'closed' || !!b.stockKept) && ((+b.producedKg || 0) - (+b.packedKg || 0)) > 0.5 };
     s.state = Object.assign({ batches: [], orders: [], shiftEntries: [], packingLog: [] }, st); vm.createContext(s); vm.runInContext(SRC, s); return s; };
@@ -306,7 +306,7 @@ const { ok, eq, report, grab, grabTopVar, html } = H;
 
 /* 11. Build, changelog and Guide move together */
 {
-  ok('BUILD_ID is 2026-10-15f', /var BUILD_ID='2026-10-15f';/.test(html));
+  ok('BUILD_ID is 2026-10-15f or later', /var BUILD_ID='2026-10-15[f-z]';/.test(html));
   ok('the changelog has the 15f entry', /\{ver:'2026-10-15f', date:'2026-10-15', title:"One stuck rule, Pack from base, and the truck steps Tahir ruled on 15 Oct"/.test(html));
   const rules = grab('guideRules');
   ['What the Stuck batches list means', 'Pack from base', 'Vehicle and driver on every truck', 'Changing a batch at loading', 'Fixing a sent-back truck', 'Truck released: hand the papers to the driver', 'How long a truck job has waited', 'Shared jobs', 'A batch number that looks like another'].forEach(t => ok('The Rules: ' + t, rules.indexOf('<h3>' + t + '</h3>') > -1));

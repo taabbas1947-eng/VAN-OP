@@ -175,6 +175,19 @@ because a copy taken while it was public cannot be recalled.
 
 ---
 
+### S-09 · Audit trail rows can be lost when 2 people save at the same moment · MODULE: O2S
+**Severity: moderate · Confirmed by an independent review in a sandbox · Raised 2026-10-15**
+
+When 2 people save changes within the same few seconds, O2S merges the 2 copies. Most audit rows (`state.audit`) carry no id, so the merge treats the whole audit list as one value and keeps one person's copy. The other person's new audit rows are dropped with no message. The action log is not affected (its rows have ids).
+
+**What it lets happen.** A change is made and saved, but the "who changed what, from what, to what" row for it can disappear. Nobody is told. It is a gap in the record, not a way in for an attacker.
+
+**Example found.** Supply Chain marks a line "Waiting for client" while Production packs on the same order: after the merge, Production's "Packed" audit row was gone; the pack itself and the action log were kept.
+
+**Suggested handling.** Give every audit row an id when it is written (about 35 places in `o2s.html` write audit rows; only a few give an id, the new 15g rows among them), so the merge keeps rows from both people. Raised while building O2S 15g; not fixed in 15g because it touches every audit writer.
+
+---
+
 ## Closed items
 
 _None yet._
@@ -190,3 +203,4 @@ _None yet._
 | 2026-09-27 | S-06 raised from PLATFORM: a full database backup with password hashes is committed (`van_platform.sql`). |
 | 2026-10-07 | S-07 raised while starting Nigehbaan: the VAN-OP repository on GitHub is public. |
 | 2026-10-10 | S-08 raised from O2S: Render's npm audit shows 6 vulnerable packages; `npm audit fix` clears them. |
+| 2026-10-15 | S-09 raised from O2S 15g: audit rows without ids can be lost when 2 people save at once. |

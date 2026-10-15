@@ -11,7 +11,7 @@
    a push keeps running the old code with nothing telling anybody. It sat at
    2026-09-04a through this whole day's work; rmqty/psi tests pinned the code,
    nothing pinned this. buildid.test.js now does. */
-var BUILD_ID='2026-10-15f';
+var BUILD_ID='2026-10-15g';
 var CHANGELOG=[
   {ver:'2026-09-04a', date:'2026-09-04', title:"Delivery, DC printing, and a new Reconciliation check", items:[
     "Delivery confirmation stays with Supply Chain \u2014 it no longer hands off to the Plant Manager. If one sits too long, it now re-flags the same Supply Chain owner every 3 days instead.",
@@ -661,6 +661,13 @@ var CHANGELOG=[
     "QA checks are answered in their own words instead of Pass and Fail (Correct price or Wrong price, Same batch or Different batch, No drip or Leaking, and so on). Passed or failed is the outcome. Records and reports are unchanged.",
     "A new batch number that matches one already used this year once spaces and capitals are ignored is refused once with the reason; press again to add it if it really is a different batch.",
     "Trucks planned from today reserve exactly the packing runs on their DC. Every older figure stays as it was."
+  ]},
+  {ver:'2026-10-15g', date:'2026-10-15', title:"When an order line is really stuck: Tahir's rulings after the Maxim question", items:[
+    "An order line is moving when the same product was packed for the same client on any PO, any line, the same PO too, in the last 7 days (Enroot for Maxim packed on one PO means the other Enroot PO is not stuck).",
+    "Every order line on a base sees all of its ready base, and Production chooses what to pack. When the base is short, the card says Waiting for production (or Waiting for the lab), X of Y ready, and a Production run card asks only for what the base cannot cover across its orders (oldest PO first, a line waiting for the client last), within what raw material allows. The ready part is still judged.",
+    "A run for a base made in bulk is stalled only when no batch of that base has logged output for 4 days (opening a batch is not output), never counted from before the PO arrived. No run card is called stalled while its line was packed in the last 7 days.",
+    "On day 7 of a line stuck at packing, from base or from its own PO batch, Supply Chain gets Stuck at packing: close it short (the Plant Manager approves) or mark it Waiting for client with a reason and a date, 1 to 30 days. A waiting line is not stuck, its cards are calm, no delay reason is asked, and nobody is told until the day after the date.",
+    "On Plant, under Waiting for client, Supply Chain (or the COO) can change the date or end a wait early, with a reason; every mark is kept and Plant shows how many times the date was set."
   ]}
 ];
 </script>
@@ -13115,7 +13122,7 @@ function submitDelayReasonOrder(){
     logAction(`Delay reason set ${o.po} · ${l.brand}: ${reason}${dept?(' / '+dept):''}`); });
   save(); closeModal(); render();
 }
-function pmDelayLabel(o,l,lb){
+function pmDelayLabel(o,l,lb){ if(typeof lineWaitClient==='function'&&lineWaitClient(l)) return null;   /* Tahir (15 Oct): waiting for the client - Saad's reason stands */
   if(l.delayReason) return null;
   const due=l.committed||o.promised; if(!due) return null;
   const t=new Date(due); if(isNaN(t)) return null;
@@ -13362,6 +13369,49 @@ function lotMoveLock(p){ if(!p) return null; if((p.movedOut||[]).length) return 
   if(p.movedFrom) return 'This packing run came from '+p.movedFrom.po+' by a stock move. It cannot be corrected on its own; the 2 POs would no longer agree about the same bags.'; return null; }
 /* the original lot and every part of it that was moved, however many times */
 function lotFamily(p){ var out=[], seen={}; (function walk(q){ if(!q||seen[q.id]) return; seen[q.id]=1; out.push(q); (q.movedOut||[]).forEach(function(mo){ walk((state.packingLog||[]).find(function(y){ return y&&y.id===mo.lotId; })); }); })(p); return out; }
+/* 15g: Supply Chain's day-7 job on a line stuck at packing. Its clock starts on the day the line
+   turned stuck, never before this reached the plant, and never before a wait for the client was over. */
+var STUCK_JOB_SINCE='2026-10-15';
+function plStuckJob(o,l,pt,rem,readyKg){ if(!pt||pt.waitClient||pt.days<PL_LINE_STUCK_DAYS) return null;
+  var t=new Date(pt.start+'T00:00:00Z'); if(isNaN(t)) return null; t.setUTCDate(t.getUTCDate()+PL_LINE_STUCK_DAYS);
+  var at=[t.toISOString().slice(0,10),STUCK_JOB_SINCE,lineWaitOver(l)].filter(Boolean).sort().pop();
+  return {role:'Supply Chain',o,l,labAt:at,readyKg:(readyKg!=null?readyKg:null),pfbDays:pt.days,pfbLast:pt.last,pfbLastPo:pt.lastPo,pfbRem:rem,what:'Stuck at packing — '+o.po+' · '+l.brand+': '+fmt(Math.round(rem))+' '+unitOf(l.brand)+' still to pack, nothing packed for '+pt.days+' d',act:`openStuckDecision('${o.id}','${l.id}')`,label:'Stuck at packing'}; }
+/* the oldest cleared batch made for this line itself (its own PO batch, or a multi-PO batch with a share for it) */
+function plLineOwnReady(o,l){ var first='', any=false, kg=0, kgKnown=true;
+  (state.batches||[]).forEach(function(b){ var rd=false; try{ rd=batchPackNow(b); }catch(e){} if(!b||b.voided||!rd) return;
+    var mine=(b.kind==='po')?(b.po===o.po&&b.lineId===l.id):(b.kind==='multi'?(b.allocations||[]).some(function(a){ return a&&a.po===o.po&&((a.lid||a.lineId)?((a.lid||a.lineId)===l.id):((a.brand||b.brand)===l.brand)); }):false);
+    if(!mine) return; any=true; var d=_plFirstOk(b); if(d&&(!first||d<first)) first=d; if(b.kind==='po'){ try{ kg+=batchPackableKg(b); }catch(e){} } else kgKnown=false; });
+  return any?{first:first,kg:kgKnown?kg:null}:null; }
+/* the base jobs of one order line (Pack from base, the run for the rest, Stuck at packing),
+   in one place so they can be checked on their own. null = the line is not waiting for base. */
+function plLineBaseItems(o,l){ var out=[];
+      var _pfb=null; try{ if(plLineWantsBase(o,l)){ var _rd=plBaseReady(l.base); if(_rd.kg>0.5||baseStallStart(o,l)) _pfb=_rd; } }catch(e){ _pfb=null; }   /* review 2: a bulk-base line takes this path even with nothing ready, so base with the lab is never asked to be made again */
+      if(_pfb){ var _pt=plLinePack(o,l,_pfb.first), _rem=Math.max(0,(+l.ordered||0)-(+l.packed||0));
+        /* Tahir (15 Oct): every order sees all the ready base, and Production chooses what to pack */
+        var _labAll=plBaseLabKg(l.base), _rdy=Math.min(_pfb.kg,_rem), _show={ready:_rdy,lab:Math.min(_labAll,Math.max(0,_rem-_rdy)),rem:_rem};
+        var _moving=!!_pt.last&&calDays(_pt.last)<PL_LINE_STUCK_DAYS;
+        if(_pfb.kg>0.5) out.push({role:'Production',o,l,pfb:_pfb,pfbShare:_show,pfbLast:_pt.last,pfbLastPo:_pt.lastPo,pfbStart:_pt.start,waitClient:_pt.waitClient,what:'Pack '+l.brand+' from base — '+o.po,act:`openPackFromBase('${o.id}','${l.id}')`,label:'Pack from base'});
+        /* 15g: the run card asks only for what the base (ready, and with the lab) cannot cover across
+           all its orders, oldest PO first; within what raw material allows. Calm while the line is moving. */
+        var _cv=plBaseShare(l.base)[plShareKey(o,l)]||{ready:_rdy,lab:_show.lab};
+        var _rest=Math.min(rmAllows(l),+l.ordered||0)-(+l.packed||0)-_cv.ready-_cv.lab;
+        if(_rest>0.5) out.push({role:'Production',o,l,restKg:_rest,moving:_moving,movingSince:_moving?_pt.last:'',movingPo:_moving?_pt.lastPo:'',waitClient:_pt.waitClient,what:'Produce '+l.brand+' — '+o.po+(_pfb.kg>0.5?(_rdy>=_rem-0.5?' (the base is short across its orders)':' (the rest)'):''),act:`openRun('${o.id}','${l.id}')`,label:'Open Production'});
+        /* 15g: stuck at packing on day 7 - Saad decides: close short, or waiting for client */
+        if(_pfb.kg>0.5){ var _sj=plStuckJob(o,l,_pt,_rem,_rdy); if(_sj) out.push(_sj); } }
+      return _pfb?out:null; }
+/* Tahir (15 Oct): a line packed from its own PO (or multi-PO) batch gets the same day-7 job */
+function itemWaiting(it){ if(!it) return false; if(it.waitClient) return true;
+  if(it.label==='Pack'&&it.batch) return !!batchLinesWaiting(it.batch);
+  if(it.label==='Ship'){ var ls=it.shipLines||(it.l?[it.l]:[]); return ls.length>0&&ls.every(function(l){ return !!lineWaitClient(l); }); }   /* review: the client has not called it off, so the truck job waits too */
+  return false; }
+function batchLinesWaiting(b){ if(!b||(b.kind!=='po'&&b.kind!=='multi')) return false; var ls=[];
+  if(b.kind==='po'){ var o=(state.orders||[]).find(function(x){ return x&&x.po===b.po; }); var l=o&&(o.lines||[]).find(function(x){ return x.id===b.lineId; }); if(l) ls.push(l); }
+  else (b.allocations||[]).forEach(function(a){ var o=a&&(state.orders||[]).find(function(x){ return x&&x.po===a.po; }); var l=o&&(o.lines||[]).find(function(x){ return (a.lid||a.lineId)?x.id===(a.lid||a.lineId):x.brand===(a.brand||b.brand); }); if(l) ls.push(l); });
+  ls=ls.filter(function(l){ return !lineShortClosed(l)&&(+l.ordered||0)-(+l.packed||0)>0.5; });   /* review: a finished or closed line does not hold it up */
+  if(!(ls.length>0&&ls.every(function(l){ return !!lineWaitClient(l); }))) return false;
+  return ls.map(function(l){ return lineWaitClient(l); }).sort(function(a,b){ return String(a.until).localeCompare(String(b.until)); })[0]; }   /* the earliest wait among its lines */
+function plLineOwnStuck(o,l){ if(!_plLineOf(o,l)||!o.acknowledged||lineShortRequested(l)) return null; var own=null; try{ own=plLineOwnReady(o,l); }catch(e){ own=null; } if(!own) return null;
+  var rem=Math.max(0,(+l.ordered||0)-(+l.packed||0)); return plStuckJob(o,l,plLinePack(o,l,own.first),rem,own.kg!=null?Math.min(own.kg,rem):null); }
 function actionItems(){
   const items=[];
   (state.orders||[]).forEach(o=>{
@@ -13397,9 +13447,10 @@ function actionItems(){
       /* 15f (Tahir, 15 Oct): cleared BASE stock is ready for this line - the job is to pack it,
          one card per order line, oldest batch first. While base is ready the line is not
          shown as a run "to make"; it is judged on whether packing for it is moving. */
-      var _pfb=null; try{ if(plLineWantsBase(o,l)){ var _rd=plBaseReady(l.base); if(_rd.kg>0.5) _pfb=_rd; } }catch(e){ _pfb=null; }
-      if(_pfb){ var _pt=plLinePack(o,l,_pfb.first); items.push({role:'Production',o,l,pfb:_pfb,pfbLast:_pt.last,pfbStart:_pt.start,what:'Pack '+l.brand+' from base \u2014 '+o.po,act:`openPackFromBase('${o.id}','${l.id}')`,label:'Pack from base'}); }
-      else if(rmAllows(l)>0 && (l.produced||0) < Math.min(l.ordered, rmAllows(l))-0.5) items.push({role:'Production',o,l,what:'Produce '+l.brand+' \u2014 '+o.po,act:`openRun('${o.id}','${l.id}')`,label:'Open Production'});
+      { var _osj=null; try{ _osj=plLineOwnStuck(o,l); }catch(e){ _osj=null; } if(_osj) items.push(_osj); }
+      var _bi=plLineBaseItems(o,l); if(_bi) _bi.forEach(function(x){ items.push(x); });
+      else if(rmAllows(l)>0 && (l.produced||0) < Math.min(l.ordered, rmAllows(l))-0.5){ var _pk0=null; try{ _pk0=plLinePack(o,l,''); }catch(e){ _pk0=null; } var _mv0=!!(_pk0&&_pk0.last&&calDays(_pk0.last)<PL_LINE_STUCK_DAYS), _mvp=_mv0?_pk0.lastPo:'';   /* 15g review: calm while waiting for the client or while the line is moving */
+        items.push({role:'Production',o,l,waitClient:_pk0?_pk0.waitClient:null,moving:_mv0,movingSince:_mv0?_pk0.last:'',movingPo:_mvp,what:'Produce '+l.brand+' \u2014 '+o.po,act:`openRun('${o.id}','${l.id}')`,label:'Open Production'}); }
       if(lineToInspect(o,l)>0.5) items.push({role:'QA Inspector',o,l,what:'Inspect packed '+l.brand+' \u2014 '+o.po,act:`openPackInspect('${o.id}','${l.id}')`,label:'Pack QC'});  // packed & batch-numbered, awaiting pre-ship inspection \u2014 was only on the QC screen
       { const _pl=pmDelayLabel(o,l,lb); if(_pl) items.push({role:'Plant Manager',o,l,what:_pl+' \u2014 add delay reason ('+l.brand+')',act:`openDelayReason('${o.id}','${l.id}')`,label:'Add reason'}); }
     });
@@ -13931,8 +13982,9 @@ function actTiming(it){
       case 'Acknowledge': c=it.o.received; break;
       case 'RM Check': if(it.rest){ var _rs=[String(l.rmRecheckAt||'').slice(0,10),String(it.restSince||'').slice(0,10),'2026-10-08'].sort().pop(); c=_rs; approx=false; break; } c=l.rmRecheckAt||it.o.ackDate||it.o.received; approx=!(l.rmRecheckAt||it.o.ackDate); break;   /* 07i review: the rest is aged from the latest of the drop, the cleared part being finished, and the day this job came in */
       case 'Receive': c=l.prRaised||it.o.received; approx=!l.prRaised; break;
-      case 'Open Production': c=l.rmReady||l.prRaised||it.o.received; approx=!l.rmReady; break;
-      case 'Pack from base': c=it.pfbStart||it.o.received; approx=!it.pfbStart; break;   /* 15f: from the line's last pack, never the PO's age */
+      case 'Open Production': { var _bss2=baseStallStart(it.o,l); if(_bss2){ c=_bss2; approx=false; } else { c=l.rmReady||l.prRaised||it.o.received; approx=!l.rmReady; } if(it.waitClient&&it.waitClient.at){ var _wa2=localDateOf(it.waitClient.at); if(_wa2>String(c||'')) c=_wa2; } if(it.moving&&it.movingSince&&String(it.movingSince)>String(c||'')) c=String(it.movingSince); break; }   /* 15g: a bulk base counts from its last output */
+      case 'Pack from base': c=it.pfbStart||it.o.received; approx=!it.pfbStart; if(it.waitClient&&it.waitClient.at){ var _wa=localDateOf(it.waitClient.at); if(_wa>String(c||'')) c=_wa; } break;   /* 15g review: waiting for client - calm from the day it was marked */
+      case 'Stuck at packing': c=it.labAt||it.o.received; approx=!it.labAt; break;   /* 15g: from the day the line turned stuck */   /* 15f: from the line's last pack, never the PO's age */
       case 'Ship': { var _ls=it.shipLines||(it.l?[it.l]:[]); var _ds=_ls.map(function(x){return shipReadySince(it.o,x);}).filter(Boolean); if(_ds.length){ _ds.sort(); c=_ds[0]; approx=false; } else { c=(it.l&&it.l.qcPass)||it.o.received; approx=!(it.l&&it.l.qcPass); } break; }
       case 'Pack QC': { var _pd=lotsFor(it.o,l).filter(function(p){return lotAvail(p)>0.5;}).map(function(p){return p.date||p.mfgDate;}).filter(Boolean).sort(); if(_pd.length){ c=_pd[_pd.length-1]; approx=false; } else { c=it.o.received; approx=true; } break; }
       case 'Add reason': c=l.committed||it.o.promised||it.o.received; approx=true; break;
@@ -13944,13 +13996,14 @@ function actTiming(it){
   } else if(it.pr){ c=it.labAt||it.pr.date; }
   else if(it.leave){ c=it.leave.at; }
   else if(it.labAt){ c=it.labAt; }
-  else if(it.batch){ c=it.batch.closedDate||it.batch.openedDate||it.batch.date||null; approx=(it.label!=='Lab QC'); }
+  else if(it.batch){ c=it.batch.closedDate||it.batch.openedDate||it.batch.date||null; approx=(it.label!=='Lab QC'); if(it.label==='Pack'){ var _bw=batchLinesWaiting(it.batch); if(_bw&&_bw.at){ var _bwa=localDateOf(_bw.at); if(_bwa>String(c||'')) c=_bwa; } } }   /* 15g review: a PO batch waiting for the client is calm from the day it was marked */
   else if(it.lot){ c=(it.lot.qa&&it.lot.qa.date)||it.lot.date||null; }
   else if(it.disp){ var _tc=truckClockStart(it); c=_tc.c; approx=_tc.approx; }   /* 15f (item 18): each truck job from when its step became due */
   else if(it.smp){ c=it.smpSince||null; }
   else if(it.cust){ c=it.cust.inducted||null; approx=true; }
   var days=null;
   if(c){ var t=new Date(c); if(!isNaN(t)){ days=calDays(c, evToday()); if(days<0)days=0; } else c=null; } /* 25m: calendar days */
+  if(days!=null&&typeof itemWaiting==='function'&&itemWaiting(it)) days=0;   /* 15g review: a job waiting for the client is not behind - calm on Today, Your people and Departments */
   if(!c) approx=true;
   /* 2026-08-22 — `days` answers "how long has this waited". Every action in the
      app until now was judged on that, and for those it is the right measure.
@@ -13977,7 +14030,8 @@ function actTiming(it){
 /* 0 = drop everything, 3 = whenever. An item that declares a deadline is judged
    on how soon it is NEEDED; everything else is judged, as before, on how long it
    has waited. Due today or already past scores 0 alongside an overdue order. */
-function actUrg(it){ if(actOverdue(it)) return 0;
+function actUrg(it){ if(typeof itemWaiting==='function'&&itemWaiting(it)) return 3;   /* 15g review: waiting for the client is never urgent */
+  if(actOverdue(it)) return 0;
   var tm=actTiming(it);
   if(tm.dueIn!=null) return tm.dueIn<=0?0:(tm.dueIn<=1?1:(tm.dueIn<=2?2:3));
   var d=tm.days||0; var hot=it.o&&attentionOf(it.o).hot; return d>=7?1:((d>=3||hot)?2:3); }
@@ -14033,7 +14087,21 @@ function acFiltered(){ var r=acRoleScoped(acBase());
 function acMini(it){ var ci=AC_STAGES.indexOf(acStageOf(it.label)); var cur=it._risk==='late'?'var(--red)':it._risk==='today'?'var(--amber)':'var(--navy)'; return '<span class="ac2mini">'+AC_STAGES.map(function(s,i){var bg=i<ci?'var(--navy)':(i===ci?cur:'#dfe3e8');return '<span class="ac2dot" style="background:'+bg+'"></span>';}).join('')+'</span>'; }
 function acStep(it){ var ci=AC_STAGES.indexOf(acStageOf(it.label)); return '<div class="axn-step">'+AC_STAGES.map(function(s,i){var c=i<ci?'done':(i===ci?'now':'');return '<i class="'+c+'"></i>';}).join('')+'</div>'; }
 /* Escalation (read-only, derived): locked thresholds per action; Produce uses 4-day INACTIVITY (last shift output / RM-ready), never elapsed time, so long POs don't false-alarm. */
+/* 15g (Tahir, 15 Oct): for a base made in bulk, a run is stalled only when no batch of that base has
+   made output for 4 days - never counted from when raw material was ready (a long PO showed 68 d). */
+function baseLastOutput(base){ if(!base) return ''; var ids={}, last='';
+  (state.batches||[]).forEach(function(b){ if(b&&!b.voided&&!b.pool&&!b.disposition&&!b.consolidated&&b.kind==='bulk'&&b.base===base) ids[b.id]=1; });   /* review: a by-product or pool batch is not output */
+  (state.shiftEntries||[]).forEach(function(e){ if(e&&ids[e.batchId]&&(+e.kg||0)>0){ var d=String(e.date||'').slice(0,10); if(d>last) last=d; } });   /* Tahir (15 Oct): only logged output counts, not opening a batch */
+  return last; }
+/* 15g: when a line's run is judged on its bulk base, the stall clock starts at the later of the
+   base's last output and the PO arriving (the same clock for the card and the stall). null = not a
+   bulk-base line (it keeps its own PO-batch clock). */
+function baseStallStart(o,l){ if(!o||!l||!l.base) return null;
+  if(!(state.batches||[]).some(function(b){ return b&&!b.voided&&!b.pool&&!b.disposition&&!b.consolidated&&b.kind==='bulk'&&b.base===l.base; })) return null;
+  if((state.batches||[]).some(function(b){ return b&&!b.voided&&b.kind==='po'&&b.po===o.po&&b.lineId===l.id; })) return null;   /* review 2: a voided PO batch is not the line's batch */
+  return [baseLastOutput(l.base),String(o.received||'').slice(0,10)].filter(Boolean).sort().pop()||null; }
 function acProduceStallDays(it){ var o=it.o,l=it.l; if(!o||!l)return null;
+  { var _bss=baseStallStart(o,l); if(_bss) return Math.max(0,calDays(_bss)); }   /* 15g; review: never before the PO arrived, the same clock as the card */
   var bs=(state.batches||[]).filter(function(b){return b&&b.kind==='po'&&b.po===o.po&&b.lineId===l.id;});
   if(!bs.length){ var d0=l.rmReady||l.prRaised; if(!d0)return null; var t0=new Date(d0); return isNaN(t0)?null:Math.max(0,calDays(d0)); }
   var dates=[]; bs.forEach(function(b){ (b.lots||[]).forEach(function(lt){ if(lt&&lt.date)dates.push(lt.date); }); if(b.openedDate)dates.push(b.openedDate); });
@@ -14056,6 +14124,9 @@ function acEscalation(it){ if(!it)return null;
     /* 07g */ 'Approve move':[1,'COO'],'Approve close short':[1,'COO'],'Pack':[1,'Production Manager'],'Pack from base':[PL_LINE_STUCK_DAYS,'Plant Manager'],
     /* 07i */ 'Check after move':[2,'Plant Manager'],'Duplicate number':[1,'Plant Manager']};
   var th=TH[it.label]; if(!th)return null;
+  if((it.label==='Pack from base'||it.label==='Open Production')&&it.waitClient) return null;
+  if(it.label==='Open Production'&&it.moving) return null;
+  if(it.label==='Pack'&&it.batch&&batchLinesWaiting(it.batch)) return null;   /* 15g: a PO batch whose order lines all wait for the client - nobody is told */   /* Tahir (15 Oct): no stall alarm while the line was packed in the last 7 days */   /* 15g: waiting for client - nobody is told (review: the rest card too) */
   var days=(it.label==='Open Production')?acProduceStallDays(it):((actTiming(it)||{}).days);
   if(days==null||days<th[0])return null;
   return {days:days,to:th[1],stall:it.label==='Open Production',stuck:it.label==='Pack from base'}; }
@@ -14198,6 +14269,7 @@ var TD_LABEL={
   'Approve move':    {title:'Packed stock to move to another PO',   verb:'Approve or refuse'},
   'Pack':            {title:'Cleared by the lab, ready to pack',     verb:'Pack'},
   'Pack from base':  {title:'Pack from base',                       verb:'Pack from base'},   /* 15f */
+  'Stuck at packing':{title:'Stuck at packing: close short or keep?', verb:'Decide'},   /* 15g */
   'Approve close short':{title:'A request to close a line short',    verb:'Read and decide'},
   'Move refused':    {title:'Your stock move was refused',          verb:'Read why'},
   'Check after move':{title:'Stock moved: check raw material',      verb:'Open'},
@@ -14283,7 +14355,7 @@ function tdGroups(items){
     else key='one:'+(it._id||order.length);
     if(!map[key]){ map[key]={key:key,label:it.label,items:[],qty:0,late:0,days:0,pos:{}}; order.push(key); }
     var g=map[key]; g.items.push(it);
-    if(it.label==='Open Production' && it.l) g.qty+=Math.max(0,(+it.l.ordered||0)-(+it.l.produced||0));
+    if(it.label==='Open Production' && it.l) g.qty+=(it.restKg!=null)?Math.max(0,it.restKg):Math.max(0,(+it.l.ordered||0)-(+it.l.produced||0));   /* 15g: the rest card counts only what base does not cover */
     if(it.o){ g.pos[it.o.id]=1; if(it.o.promised){ var d=Math.round((_T-new Date(it.o.promised))/86400000); if(d>g.late) g.late=d; } }
     if((it._days||0)>g.days) g.days=it._days;
   });
@@ -14294,7 +14366,11 @@ function _tdEsc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){r
 function tdTags(g){
   var t='';
   /* 23u: the main chip is the JOB's clock. 07h: green = reached you today; amber = waiting 1 to 6 days; red = 7 or more. */
-  if(g.label==='Pack from base'){ var _p0=g.items[0]; t+='<span class="tdtag '+(g.days>=7?'late':(g.days>0?'warn':'ok'))+'">\u25a0 '+(g.days>0?('waiting '+g.days+' d'):'ready today')+'</span><span class="tdtag">'+(_p0.pfbLast?('last packed '+_plDay(_p0.pfbLast)):'nothing packed yet')+'</span>'; }   /* 15f: the line's packing clock - from the later of its last pack, the PO and base ready */
+  if(g.label==='Pack from base'){ var _p0=g.items[0]; if(_p0.waitClient) t+='<span class="tdtag">\u23f8 waiting for client until '+_plDay(_p0.waitClient.until)+'</span>'; else t+='<span class="tdtag '+(g.days>=7?'late':(g.days>0?'warn':'ok'))+'">\u25a0 '+(g.days>0?('waiting '+g.days+' d'):'ready today')+'</span>'; t+='<span class="tdtag">'+(_p0.pfbLast?('last packed '+_plDay(_p0.pfbLast)+((_p0.pfbLastPo&&_p0.o&&_p0.pfbLastPo!==_p0.o.po)?(' (PO '+_tdEsc(_p0.pfbLastPo)+')'):'')):'nothing packed yet')+'</span>'; }   /* 15g */   /* 15f: the line's packing clock - from the later of its last pack, the PO and base ready */
+  else if(g.label==='Open Production'&&g.items.length&&g.items.every(function(x){ return x.waitClient; })) t+='<span class="tdtag">\u23f8 waiting for client until '+_plDay(g.items[0].waitClient.until)+'</span>';   /* review 2: say why it is calm */
+  else if(g.label==='Ship'&&g.items.length&&g.items.every(itemWaiting)) t+='<span class="tdtag">\u23f8 waiting for client</span>';   /* review */
+  else if(g.label==='Pack'&&g.items.length&&g.items.every(function(x){ return x.batch&&batchLinesWaiting(x.batch); })) t+='<span class="tdtag">\u23f8 waiting for client until '+_plDay(batchLinesWaiting(g.items[0].batch).until)+'</span>';   /* 15g review */
+  else if(g.label==='Open Production'&&g.items.length&&g.items.every(function(x){ return x.moving; })) t+='<span class="tdtag ok">\u25cf packed '+_plDay(g.items[0].movingSince)+(g.items[0].movingPo&&g.items[0].movingPo!==g.items[0].o.po?(' (PO '+_tdEsc(g.items[0].movingPo)+')'):'')+', moving</span>';   /* 15g: calm while moving */
   else if(g.days>0) t+='<span class="tdtag '+(g.days>=7?'late':'warn')+'">\u25a0 waiting '+g.days+' d</span>';   /* 07h: one rule for a wait - amber 1 to 6 days, red from 7 (as on Plant) */
   else t+='<span class="tdtag ok">\u25cf new today</span>';
   if(g.late>0) t+='<span class="tdtag">'+g.late+' d past promise</span>';
@@ -14338,6 +14414,50 @@ function packJobWanted(b){ if(!b) return false;
 var PACK_JOB_SINCE='2026-10-08';   /* 07i review: the day this reaches the plant, so the whole old pile does not escalate on day 1 */
 function packJobSince(b){ var ap=((b&&b.lots)||[]).filter(function(l){ return l&&l.coa&&l.coa.status==='approved'&&l.coa.approvedDate; }).map(function(l){ return String(l.coa.approvedDate).slice(0,10); }).sort();
   var d=ap[0]||((b&&b.coa&&b.coa.status==='approved'&&b.coa.approvedDate)?String(b.coa.approvedDate).slice(0,10):''); if(!d) return ''; return d<PACK_JOB_SINCE?PACK_JOB_SINCE:d; }
+/* 15g (Tahir, 15 Oct): a line stuck at packing reaches Supply Chain on day 7 - close it short (the
+   existing request; the Plant Manager approves) or mark it waiting for the client's call-off. */
+var wcForm=null;
+function openStuckDecision(oid,lid){ var o=(state.orders||[]).find(function(x){ return x.id===oid; }); var l=o&&(o.lines||[]).find(function(x){ return x.id===lid; }); if(!o||!l) return;
+  wcForm={oid:oid,lid:lid,why:'',until:'',open:false}; renderStuckDecision(); $('modalBg').classList.add('open'); }
+function renderStuckDecision(){ var f=wcForm; if(!f) return; var o=(state.orders||[]).find(function(x){ return x.id===f.oid; }); var l=o&&(o.lines||[]).find(function(x){ return x.id===f.lid; }); if(!o||!l){ closeModal(); return; }
+  var rem=Math.max(0,(+l.ordered||0)-(+l.packed||0)), u=unitOf(l.brand), rd=plBaseReady(l.base), own=null; try{ own=plLineWantsBase(o,l)?null:plLineOwnReady(o,l); }catch(e){ own=null; } var pk=plLinePack(o,l,own?own.first:rd.first), cur=lineWaitClient(l);
+  var t0=new Date((typeof evToday==='function'?evToday():TODAY.toISOString().slice(0,10))+'T00:00:00Z'); var mn=new Date(t0); mn.setUTCDate(mn.getUTCDate()+1); var mx=new Date(t0); mx.setUTCDate(mx.getUTCDate()+30);   /* review: UTC, so a Pakistan browser does not land a day early */
+  var h='<div class="mh"><h2>'+(f.edit?'Waiting for client: change or end':'Stuck at packing: close short or keep?')+'</h2><div class="sub">'+_pe(o.po)+' \u00b7 '+_pe(shortClient(o.client))+' \u00b7 <b>'+_pe(l.brand)+'</b></div></div><div class="mb">'
+    +'<div class="note"><b>'+fmt(Math.round(rem))+' '+u+'</b> still to pack. '+(own?((own.kg!=null?(fmt(Math.round(Math.min(own.kg,rem)))+' '+u+' '):'')+'cleared stock made for this line is ready to pack'+(own.kg!=null&&own.kg<rem-0.5?' (the rest is still being made; closing short stops it too)':'')+'. '):('Base ready: '+fmt(Math.round(Math.min(rd.kg,rem)))+' '+u+'. '))+(pk.last?('Last packed '+_plDay(pk.last)+(pk.lastPo&&pk.lastPo!==o.po?(' (PO '+_pe(pk.lastPo)+')'):'')+'.'):'Nothing packed yet.')+' '+(f.edit&&cur?('<b>Waiting for client until '+_pe(_plDay(cur.until))+'</b>, marked by '+_pe(cur.by||'')+': \u201c'+_pe(cur.why||'')+'\u201d.'):('Nothing has been packed for this line for <b>'+pk.days+' d</b>.'))+'</div>'
+    +(f.edit?'<p style="margin:10px 0">Pick a new date (1 to 30 days from today) and <b>Save new date</b>, or <b>End the wait now</b> if the client has called it off. Write why either way. Every mark is kept.</p>'
+      :('<p style="margin:10px 0 4px"><b>Close short</b> if this quantity will not be packed: you write the reason and the Plant Manager approves, as for any close-short request.</p>'
+    +'<p style="margin:4px 0 10px"><b>Waiting for client</b> if the client has not called it off yet: say why and until when (1 to 30 days). Until then it is not stuck and nobody is told.</p>'));
+  if(f.open) h+='<div class="fld"><label for="wc_why">'+(f.edit?'Why the change, or why it ends?':'Why is it waiting?')+' <span style="color:var(--red)">*</span></label><input id="wc_why" type="text" value="'+_av(f.why)+'" oninput="wcForm.why=this.value" placeholder="e.g. Maxim will call off after 25 Oct"></div>'
+    +'<div class="fld" style="margin-top:8px"><label for="wc_until">Waiting until <span style="color:var(--red)">*</span></label><input id="wc_until" type="date" value="'+_av(f.until)+'" min="'+mn.toISOString().slice(0,10)+'" max="'+mx.toISOString().slice(0,10)+'" onchange="wcForm.until=this.value"></div>';
+  if(f.edit) h+='</div><div class="mf"><button class="ghost" onclick="closeModal()">Later</button><button class="ghost" onclick="endWaitClient(wcForm.oid,wcForm.lid,wcForm.why)">End the wait now</button><button class="green" onclick="saveWaitClient(wcForm.oid,wcForm.lid,wcForm.why,wcForm.until)">Save new date</button></div>';
+  else h+='</div><div class="mf"><button class="ghost" onclick="closeModal()">Later</button><button class="ghost" onclick="closeModal();openShortClose(\''+_av(f.oid)+'\',\''+_av(f.lid)+'\')">Close short\u2026</button>'
+    +(f.open?'<button class="green" onclick="saveWaitClient(wcForm.oid,wcForm.lid,wcForm.why,wcForm.until)">Save: waiting for client</button>':'<button class="green" onclick="wcForm.open=true;renderStuckDecision()">Waiting for client\u2026</button>')+'</div>';
+  $('modal').innerHTML=h; }
+function _wcFind(oid,lid){ var o=(state.orders||[]).find(function(x){ return x.id===oid; }); var l=o&&(o.lines||[]).find(function(x){ return x.id===lid; }); return o&&l?{o:o,l:l}:null; }
+function _wcMark(o,l,kind,why,until){ var me=_uRole(), at=new Date().toISOString();
+  /* each mark is its own row with an id, so 2 people marking at once are both kept (the merge keeps rows by id) */
+  var m={id:'WC'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),kind:kind,until:until||'',why:why,by:me.by,user:me.user,role:me.role,at:at};
+  l.waitMarks=(l.waitMarks||[]).concat([m]);
+  logAction((kind==='end'?'Wait for client ended — ':'Waiting for client — ')+o.po+' · '+l.brand+(kind==='end'?'':' until '+until)+' by '+me.by+': '+why);
+  (state.audit=state.audit||[]).unshift({id:m.id,t:at,user:me.by,module:'PO',po:o.po,brand:l.brand,field:'Waiting for client',old:(function(){ var p=(l.waitMarks||[]).slice(0,-1).pop(); return p?(p.kind==='end'?'ended':String(p.until||'')):''; })(),val:(kind==='end'?'ended':until)+' · '+why});
+  return m; }
+function saveWaitClient(oid,lid,why,until){ if(!(state.role==='COO'||hardRole(['Supply Chain']))){ toast('Supply Chain marks a line as waiting for the client.'); return; }
+  var x=_wcFind(oid,lid); if(!x) return; var o=x.o, l=x.l;
+  if(!_plLineOf(o,l)||lineShortRequested(l)){ toast('This line is closed, fully packed or already asked to close short.'); closeModal(); return; }   /* review */
+  why=String(why||'').trim(); if(why.length<5){ toast('Say why it is waiting for the client (at least 5 characters).'); return; }
+  var t0=new Date((typeof evToday==='function'?evToday():TODAY.toISOString().slice(0,10))+'T00:00:00Z'), d=new Date(String(until||'').slice(0,10)+'T00:00:00Z');
+  if(isNaN(d)){ toast('Pick the date it waits until.'); return; } var days=Math.round((d-t0)/86400000); if(days<1||days>30){ toast('Pick a date 1 to 30 days from today.'); return; }
+  { var _cw=lineWaitClient(l); if(_cw&&String(_cw.until)===String(until).slice(0,10)){ toast('It already waits for the client until '+_plDay(_cw.until)+'. Pick a different date, or end the wait.'); return; } }
+  var m=_wcMark(o,l,'wait',why,String(until).slice(0,10));
+  wcForm=null; save(); closeModal(); render(); toast(l.brand+' on '+o.po+' waits for the client until '+_plDay(m.until)+'. It is not stuck until then.'); }
+/* Tahir (15 Oct): a wait can be ended early (the client called off) or its date changed, with a reason */
+function endWaitClient(oid,lid,why){ if(!(state.role==='COO'||hardRole(['Supply Chain']))){ toast('Supply Chain ends a wait for the client.'); return; }
+  var x=_wcFind(oid,lid); if(!x) return; var o=x.o, l=x.l; if(!lineWaitClient(l)){ toast('This line is not waiting for the client now.'); closeModal(); return; }
+  why=String(why||'').trim(); if(why.length<5){ toast('Say why the wait ends (at least 5 characters).'); return; }
+  _wcMark(o,l,'end',why,'');
+  wcForm=null; save(); closeModal(); render(); toast(l.brand+' on '+o.po+' is no longer waiting for the client. If nothing has been packed for 7 days it shows as stuck again now, and Supply Chain gets the job from today.'); }
+function openWaitEdit(oid,lid){ var x=_wcFind(oid,lid); if(!x) return; var w=lineWaitClient(x.l); if(!w){ toast('This line is not waiting for the client now.'); return; }
+  wcForm={oid:oid,lid:lid,why:'',until:w.until,open:true,edit:true}; renderStuckDecision(); $('modalBg').classList.add('open'); }
 /* 15f: Pack from base opens the pack sheet on the OLDEST cleared base batch, already on this order line */
 function openPackFromBase(oid,lid){ var o=(state.orders||[]).find(function(x){ return x.id===oid; }); var l=o&&(o.lines||[]).find(function(x){ return x.id===lid; }); if(!o||!l) return;
   var rd=plBaseReady(l.base); if(!rd.batches.length){ toast('No cleared '+(l.base||'base')+' is ready to pack now'); return; }
@@ -14379,12 +14499,16 @@ function tdCardHTML(g){
   else if(g.key.indexOf('rcv:')===0){ title=L.title; sub=_tdPo(one.o)+(one.o.client?' · '+_tdClient(one.o):'')+' · '+n+' material'+(n===1?'':'s'); }
   else if(g.key.indexOf('rsn:')===0){ title=L.title; sub=_tdPo(one.o)+(one.o.client?' · '+_tdClient(one.o):'')+' · '+n+' late line'+(n===1?'':'s'); }
   else { title=L.title; sub=_tdWhat(one); }
-  var h='<div class="tdcard'+(g.days>=7?' late':(g.days>0?' warn':''))+'">';   /* 07h: same rule as the tag */
+  var _gw=g.items.length&&g.items.every(itemWaiting);   /* 15g review: a card waiting for the client is calm */
+  var h='<div class="tdcard'+(_gw?'':(g.days>=7?' late':(g.days>0?' warn':'')))+'">';   /* 07h: same rule as the tag */
   /* the Queue Shell's card: STAGE (kraft, small caps) / title / one line / chips */
   var stage=(g.key.indexOf('prod:')===0)?'Production run':L.title;
   var ttl=(g.key.indexOf('prod:')===0)?title:sub, line=(g.key.indexOf('prod:')===0)?sub:'';
+  if(g.key.indexOf('prod:')===0&&one.restKg!=null&&one.l&&one.l.base){ var _bt=plBaseTotals(one.l.base); line+=' \u00b7 base '+_tdEsc(one.l.base)+': '+fmt(Math.round(_bt.ready))+' ready'+(_bt.lab>0.5?(', '+fmt(Math.round(_bt.lab))+' with the lab'):'')+', '+fmt(Math.round(_bt.need))+' needed by '+_bt.n+' order line'+(_bt.n===1?'':'s')+'; this run is what the base cannot cover'; }   /* 15g review: every card says why it is here */
   if(g.label==='Pack from base'&&one.pfb){ var _u=unitOf(one.l.brand), _rem=Math.max(0,(+one.l.ordered||0)-(+one.l.packed||0)), _bs=one.pfb.batches;   /* 15f: what is ready, and from which batches, oldest first */
-    line='Base ready: <b>'+fmt(Math.round(Math.min(one.pfb.kg,_rem)))+'</b> of '+fmt(Math.round(_rem))+' '+_u+' needed \u00b7 '+_bs.length+' batch'+(_bs.length===1?'':'es')+', oldest first: '+_tdEsc(_bs.slice(0,4).map(function(b){ return b.batchNo||b.id; }).join(', '))+(_bs.length>4?' \u2026':'')+(one.pfb.kg<_rem-0.5?(' \u00b7 '+fmt(Math.round(_rem-one.pfb.kg))+' '+_u+' still to make after this'):''); }
+    var _sr=one.pfbShare?one.pfbShare.ready:Math.min(one.pfb.kg,_rem), _sl=one.pfbShare?one.pfbShare.lab:0;   /* 15g: all the ready base, up to what the line needs (every order sees all) */
+    line=(_sr>=_rem-0.5?('Base ready: <b>'+fmt(Math.round(_sr))+'</b> of '+fmt(Math.round(_rem))+' '+_u+' needed'):((_sr+_sl>=_rem-0.5?'<b>Waiting for the lab:</b> <b>':'<b>Waiting for production:</b> <b>')+fmt(Math.round(_sr))+'</b> of '+fmt(Math.round(_rem))+' '+_u+' ready'+(_sl>0.5?(', '+fmt(Math.round(_sl))+' with the lab'):'')))+' \u00b7 '+_bs.length+' batch'+(_bs.length===1?'':'es')+', oldest first: '+_tdEsc(_bs.slice(0,4).map(function(b){ return b.batchNo||b.id; }).join(', '))+(_bs.length>4?' \u2026':'')+(function(){ var _bt=plBaseTotals(one.l.base); return _bt.n>1?(' \u00b7 the same base is shared by '+_bt.n+' order lines needing '+fmt(Math.round(_bt.need))+' in all'):''; })()+(one.waitClient?('<br><b>Waiting for client until '+_tdEsc(_plDay(one.waitClient.until))+'</b> (marked by '+_tdEsc(one.waitClient.by||'Supply Chain')+': \u201c'+_tdEsc(one.waitClient.why||'')+'\u201d)'):''); }   /* 15g */
+  if(g.label==='Stuck at packing'){ line=((one.readyKg!=null&&one.readyKg<(one.pfbRem||0)-0.5)?('<b>'+fmt(Math.round(one.readyKg))+'</b> '+unitOf(one.l.brand)+' ready to pack ('+fmt(Math.round(one.pfbRem||0))+' still on the order)'):(fmt(Math.round(one.pfbRem||0))+' '+unitOf(one.l.brand)+' still to pack'))+' \u00b7 '+(one.pfbLast?('nothing packed for <b>'+(one.pfbDays||0)+' d</b>, last packed '+_tdEsc(_plDay(one.pfbLast))+(one.pfbLastPo&&one.pfbLastPo!==one.o.po?(' (PO '+_tdEsc(one.pfbLastPo)+')'):'')):('nothing packed yet, <b>'+(one.pfbDays||0)+' d</b>'))+''; }   /* 15g review: every card says why it is here */
   var head='<div class="tdhead"><div class="tdstage">'+stage+'</div><div class="tdtitle">'+ttl+'</div>'+(line?'<div class="tdsub">'+line+'</div>':'')+tdSharedLine(g)+'<div class="tdtags">'+tdTags(g)+'</div></div>';
   if(g.key.indexOf('rsn:')===0){
     /* R14: one question per late order, not one per line */
@@ -14543,13 +14667,13 @@ function screenPlant(){
     {k:'delayed',t:'Late orders',w:'past the date promised',list:F.delayed,n:(function(){ var m={}; F.delayed.forEach(function(r){ m[r.po]=1; }); return Object.keys(m).length; })()},
     {k:'holds',t:'Not yet delivered',w:'ready, planned, loading or on the road',list:F.holds.concat(plReadyNoTruck())},
     {k:'material',t:'Waiting on material',w:'RM short, or a PR open',list:F.material},
-    {k:'stuck',t:'Stuck batches',w:'made and not packed, or packing stalled',list:plStuckBatches()}
+    {k:'stuck',t:'Stuck batches',w:'made and not packed, or packing stalled'+(function(){ var n=plWaitLines().length; return n?(' \u00b7 '+n+' waiting for client'):''; })(),list:plStuckBatches()}
   ];
-  if(plSel && !lights.some(function(x){return x.k===plSel && (x.list.length||(x.k==='stuck'&&plHeldBatches().length));})) plSel='';
+  if(plSel && !lights.some(function(x){return x.k===plSel && (x.list.length||(x.k==='stuck'&&(plHeldBatches().length||plWaitLines().length)));})) plSel='';   /* review: the waiting-for-client list opens even with nothing stuck */
   var h='<div class="qs wide"><h1>Plant</h1><div class="sub">What is stuck, who is behind, where every order stands. The same for everyone. Tap a light.</div>';
   h+='<div class="pl-find"><input id="plFind" aria-label="Find an order" placeholder="Find an order \u2014 PO or customer" value="'+qsEsc(plQ)+'" oninput="plQ=this.value;plFilterFloor()">'+(canView(state.role,'tracker')?'<button class="qs-btn" onclick="setScreen(\'tracker\')">All orders \u2192</button>':'')+(canView(state.role,'reports')?'<button class="qs-btn" onclick="setScreen(\'reports\')">Reports \u2192</button>':'')+'</div>';
   h+='<div class="qs-tally four">'+lights.map(function(L){ var worst=plWorst(L.list); var tone=plTone(L.list,worst);
-    return '<button class="qs-tile go '+tone+(plSel===L.k?' sel':'')+'" onclick="plSel=plSel===\''+L.k+'\'?\'\':\''+L.k+'\';render()"><span class="n">'+(L.n!=null?L.n:L.list.length)+'</span><span class="l">'+qsEsc(L.t)+'</span><span class="w">'+(L.list.length?('oldest '+plDays(worst)):qsEsc(L.w))+'</span></button>'; }).join('')+'</div>';
+    return '<button class="qs-tile go '+tone+(plSel===L.k?' sel':'')+'" onclick="plSel=plSel===\''+L.k+'\'?\'\':\''+L.k+'\';render()"><span class="n">'+(L.n!=null?L.n:L.list.length)+'</span><span class="l">'+qsEsc(L.t)+'</span><span class="w">'+(L.list.length?('oldest '+plDays(worst)+(L.k==='stuck'&&plWaitLines().length?(' \u00b7 '+plWaitLines().length+' waiting for client'):'')):qsEsc(L.w))+'</span></button>'; }).join('')+'</div>';
   var sel=lights.filter(function(x){return x.k===plSel;})[0];
   if(sel && sel.k==='delayed'){
     /* one row per ORDER, the way R14 counts them: the lines are listed inside */
@@ -14560,6 +14684,7 @@ function screenPlant(){
       h+='<div class="pl-row '+tone+'"><div class="t"><span class="tdpo">'+qsEsc(po)+'</span> · '+plClient(g.client)+'</div><div class="s">'+g.lines.map(function(r){ return qsEsc(r.brand)+' '+fmt(r.left)+' · '+qsEsc(r.stage); }).join(' / ')+'</div><div class="why">'+(g.days>0?(g.days+' d past promise'):'due today')+' · '+fmt(g.left)+' Kg/L still to deliver</div>'+(act?'<span class="pl-acts">'+act+'</span>':'')+'</div>'; });
     h+='</div>';
   } else if(sel){
+    if(sel.k==='stuck'){ var _wn=plWaitLines().length; if(_wn) h+='<div class="note"><b>'+_wn+' order line'+(_wn===1?' is':'s are')+' waiting for the client</b> (marked by Supply Chain): listed under Waiting for client, after the stuck batches.</div>'; }   /* 15g review: easy to find */
     h+='<h2>'+qsEsc(sel.t)+' <span class="cnt">'+sel.list.length+'</span></h2><div class="tdlist">';
     sel.list.forEach(function(r){ var tone=(+r.days||0)>=7?'st-over':((+r.days||0)>0?'st-late':'st-ok'); var act=plCanAct()&&r.act?('<button class="qs-btn sm" onclick="'+r.act.replace(/"/g,'&quot;')+'">Open →</button>'):'';
       if(sel.k==='delayed') h+='<div class="pl-row '+tone+'"><div class="t">'+qsEsc(r.brand)+' · <span class="tdpo">'+qsEsc(r.po)+'</span></div><div class="s">'+plClient(r.client)+' · '+fmt(r.left)+' Kg/L still to deliver · '+qsEsc(r.stage)+'</div><div class="why">'+(r.days>0?(r.days+' d past promise'):'due today')+'</div>'+act+'</div>';
@@ -14567,7 +14692,11 @@ function screenPlant(){
       else if(sel.k==='stuck') h+='<div class="pl-row '+tone+'"><div class="t">'+qsEsc(r.batchNo)+' · '+qsEsc(r.base)+(r.po?' · <span class="tdpo">'+qsEsc(r.po)+'</span>':'')+'</div><div class="s">'+(r.client?plClient(r.client)+' · ':'')+qsEsc(r.says)+'</div><div class="why">'+qsEsc(r.why)+' '+qsEsc(r.lastTxt)+(r.who?' \u00b7 next: '+qsEsc(r.who):'')+'</div>'+(_plOpenBtn(r)?'<span class="pl-acts">'+_plOpenBtn(r)+'</span>':'')+'</div>';
       else h+='<div class="pl-row '+tone+'"><div class="t">'+qsEsc(r.brand)+' · <span class="tdpo">'+qsEsc(r.po)+'</span></div><div class="s">'+plClient(r.client)+' · '+fmt(r.need)+' Kg/L still to make</div><div class="why">'+qsEsc(r.why)+'</div>'+(act?'<span class="pl-acts">'+act+'</span>':'')+'</div>'; });
     h+='</div>';
-    if(sel.k==='stuck'){ var HB=plHeldBatches();
+    if(sel.k==='stuck'){ var WL=plWaitLines();   /* 15g */
+      if(WL.length){ h+='<h2>Waiting for client <span class="cnt">'+WL.length+'</span></h2><div class="note">Supply Chain marked these order lines as waiting for the client\u2019s call-off. They are not stuck until the date.</div><div class="tdlist">';
+        WL.forEach(function(x){ h+='<div class="pl-row '+(x.n>=3?'st-late':'st-ok')+'"><div class="t">'+qsEsc(x.l.brand)+' \u00b7 <span class="tdpo">'+qsEsc(x.o.po)+'</span></div><div class="s">'+plClient(x.o.client)+' \u00b7 '+fmt(Math.max(0,(+x.l.ordered||0)-(+x.l.packed||0)))+' Kg/L still to pack</div><div class="why">Waiting for client until '+qsEsc(_plDay(x.w.until))+' \u00b7 '+qsEsc(x.w.by||'')+': \u201c'+qsEsc(x.w.why||'')+'\u201d'+(x.n>1?(' \u00b7 date set '+x.n+' times since '+qsEsc(_plDay(localDateOf(x.first)))):'')+'</div>'+((state.role==='COO'||hardRole(['Supply Chain']))?'<span class="pl-acts"><button class="qs-btn sm" onclick="openWaitEdit(\''+qsEsc(x.o.id)+'\',\''+qsEsc(x.l.id)+'\')">Change or end\u2026</button></span>':'')+'</div>'; });
+        h+='</div>'; }
+      var HB=plHeldBatches();
       if(!sel.list.length) h+='<div class="note">Nothing is stuck.</div>';
       if(HB.length){ h+='<h2>Held for orders <span class="cnt">'+HB.length+'</span></h2><div class="note">Made once and packed as orders come. These are not stuck: no open order of any age is waiting for them. One shows amber after '+PL_HELD_FLAG_DAYS+' days.</div><div class="tdlist">';
         HB.forEach(function(r){ var act=_plOpenBtn(r);
@@ -15349,7 +15478,7 @@ function tdYourPeople(){
   h+='<div class="tdlist" style="margin-top:10px">'+people.map(function(u){ var gs=tdGroups(ypJobsFor(u,all)); var nSh=gs.filter(function(g){ return jobSharers(g.items[0]).length>1; }).length; var shWith=[]; gs.forEach(function(g){ jobSharers(g.items[0]).forEach(function(x){ if(x.username!==u.username&&shWith.indexOf(String(x.name||x.username).split(' ')[0])<0) shWith.push(String(x.name||x.username).split(' ')[0]); }); }); var worst=0; gs.forEach(function(g){ if(g.days>worst) worst=g.days; }); var done=log.filter(function(e){return e.by===u.name;}).length; var cur=ppCurrent(stamps.filter(function(x){return x.by===u.name;}),7);
       var tone=gs.length?(worst>=7?'st-over':(worst>=1?'st-late':'st-ok')):'st-ok';   /* 07h: amber 1 to 6 days, red from 7 */
       return '<button class="person" onclick="openPersonList(\''+qsEsc(u.role)+'\',\''+qsEsc(u.name)+'\')"><div class="row between"><span class="nm">'+qsEsc(u.name)+'</span><span class="rl">'+qsEsc(personTitle(u.username,u.role))+'</span></div>'
-        +'<div class="stats"><span class="st-na"><span class="n">'+gs.length+'</span><span class="l">waiting on '+qsEsc(String(u.name).split(' ')[0])+(nSh?(' ('+nSh+' shared with '+qsEsc(shWith.join(', '))+')'):'')+'</span></span><span class="'+tone+'"><span class="n">'+(gs.length?(worst?worst+' d':'today'):'none')+'</span><span class="l">oldest waiting</span></span><span class="st-done"><span class="n">'+done+'</span><span class="l">done today</span></span></div>'
+        +'<div class="stats"><span class="st-na"><span class="n">'+gs.length+'</span><span class="l">waiting on '+qsEsc(String(u.name).split(' ')[0])+(nSh?(' ('+nSh+' shared with '+qsEsc(shWith.join(', '))+')'):'')+'</span></span><span class="'+tone+'"><span class="n">'+(gs.length?(worst?worst+' d':(gs.every(function(g){ return g.items.every(itemWaiting); })?'on hold':'today')):'none')+'</span><span class="l">oldest waiting</span></span><span class="st-done"><span class="n">'+done+'</span><span class="l">done today</span></span></div>'
         +'<div class="cur"><span>'+(cur.pct==null?'no dated entries':cur.pct+'% current')+'</span>'+(cur.n?'<span class="bar '+(cur.pct>=90?'st-ok':cur.pct>=70?'st-late':'st-over')+'"><i style="width:'+cur.pct+'%"></i></span><span>'+cur.ok+'/'+cur.n+' · 7 d</span>':'')+'</div></button>'; }).join('')+'</div>';
   return h;
 }
@@ -15415,6 +15544,24 @@ function plOpenLines(base){ var out=[]; if(!base) return out;
     (o.lines||[]).forEach(function(l){ if(!l||l.base!==base||!plLineWantsBase(o,l)) return; out.push({o:o,l:l,rem:(+l.ordered||0)-(+l.packed||0)}); }); });
   return out; }
 function plOpenDemandKg(base){ return plOpenLines(base).reduce(function(a,x){ return a+x.rem; },0); }
+/* 15g review: base made and waiting for the lab (lots with no result yet), so a card never says
+   "waiting for production" when the base is already made */
+function plBaseLabKg(base){ var kg=0; if(!base) return 0;
+  (state.batches||[]).forEach(function(b){ if(!b||b.voided||b.pool||b.disposition||b.consolidated||b.kind!=='bulk'||b.base!==base||(b.reconciled&&!b.stockKept)) return;
+    var pend=0; (b.lots||[]).forEach(function(x){ var st=x&&x.coa&&x.coa.status; if(x&&st!=='approved'&&st!=='failed') pend+=Math.max(0,+x.qty||0); });
+    var cap=0; try{ cap=(+b.producedKg||0)-(+b.disposedKg||0)-batchClearedKg(b); }catch(e){ cap=pend; }   /* review 2: never more than is left unpacked and uncleared */
+    kg+=Math.max(0,Math.min(pend,cap)); });
+  return kg; }
+/* 15g: one base is shared by every order line waiting for it. Every card shows all the ready base
+   (Tahir); this places the shortfall only: the ready base, then the base with the lab, counted
+   oldest PO first (a line waiting for the client last), so the run cards add up to what is short. */
+function plShareKey(o,l){ return String((o&&o.id)||(o&&o.po)||'')+'|'+String((l&&(l.id||l.brand))||''); }
+function plBaseShare(base){ var m=_plM(); if(m.share[base]) return m.share[base]; var out={};
+  var rd=plBaseReady(base).kg, lab=plBaseLabKg(base);
+  plOpenLines(base).sort(function(a,b){ var wa=lineWaitClient(a.l)?1:0, wb=lineWaitClient(b.l)?1:0; if(wa!==wb) return wa-wb;   /* Tahir (15 Oct): a line on hold for the client goes to the back of the queue until its date */
+    return String(a.o.received||'').localeCompare(String(b.o.received||''))||String(a.o.po||'').localeCompare(String(b.o.po||''))||String(a.l.id||'').localeCompare(String(b.l.id||'')); })
+    .forEach(function(x){ if(lineShortRequested(x.l)) return; var need=Math.max(0,x.rem), r=Math.min(need,Math.max(0,rd)); rd-=r; var lb=Math.min(need-r,Math.max(0,lab)); lab-=lb; out[plShareKey(x.o,x.l)]={ready:r,lab:lb,rem:need}; });   /* review 2: a line asked to close short takes no share */
+  m.share[base]=out; return out; }
 /* the first lab approval of a batch, as YYYY-MM-DD ('' when none) */
 function _plFirstOk(b){ var ap=((b&&b.lots)||[]).filter(function(x){ return x&&x.coa&&x.coa.status==='approved'&&x.coa.approvedDate; }).map(function(x){ return String(x.coa.approvedDate).slice(0,10); }).sort();
   if(ap[0]) return ap[0]; return (b&&b.coa&&b.coa.status==='approved'&&b.coa.approvedDate)?String(b.coa.approvedDate).slice(0,10):''; }
@@ -15427,17 +15574,30 @@ function _plBaseReady0(base){ var bs=[], kg=0, first='';
   return {batches:bs,kg:kg,first:first}; }
 /* how long a line has gone with nothing packed for it: from its last pack, or, never
    packed, from the later of the PO arriving and cleared base being ready for it */
-function plLinePack(o,l,readySince){ var last='';
-  (state.packingLog||[]).forEach(function(p){ if(!p||p.reversed||p.void||p.po!==o.po) return; if(p.lid?p.lid!==l.id:p.brand!==l.brand) return; var d=String(p.date||'').slice(0,10); if(d>last) last=d; });
+/* 15g (Tahir, 15 Oct): a line is MOVING when any PO of the same client and the same product was
+   packed - Enroot for Maxim packed on PO 22868 means Enroot on 22867 is not stuck. */
+function plClientPOs(o){ var m={}, cl=String((o&&o.client)||'').trim(); if(cl) (state.orders||[]).forEach(function(x){ if(x&&x.po&&!x.cancelled&&!x.voided&&String(x.client||'').trim()===cl) m[x.po]=1; }); if(o&&o.po) m[o.po]=1; return m; }   /* review: a cancelled PO, or a PO with no client, never counts */
+function plLinePack(o,l,readySince){ var last='', lastPo='', pos=plClientPOs(o);
+  (state.packingLog||[]).forEach(function(p){ if(!p||p.reversed||p.void||!pos[p.po]) return; if(!(p.po===o.po&&l.id&&p.lid===l.id)&&p.brand!==l.brand) return;   /* Tahir (15 Oct): the same product on any line of any PO of the client counts, the same PO too */ var d=String(p.date||'').slice(0,10); if(d>last||(d===last&&p.po===o.po)){ last=d; lastPo=p.po; } });
   var rec=String(o.received||'').slice(0,10), rs=String(readySince||'').slice(0,10);
   var start=[last,rec,rs].filter(Boolean).sort().pop()||''; var days=0;   /* review: the later of the last pack, the PO arriving and base being ready - fresh base is never late on day 1 */ if(start){ var t=new Date(start+'T00:00:00'); if(!isNaN(t)){ days=calDays(start); if(days<0) days=0; } }
-  return {last:last,start:start,days:days}; }
+  var wc=lineWaitClient(l);
+  return {last:last,lastPo:lastPo,start:start,days:days,waitClient:wc}; }
+/* 15g (Tahir, 15 Oct): Supply Chain may mark an order line "waiting for client" (the call-off is
+   kept outside O2S) with a reason and a return date, 1 to 30 days. Until then the line is not stuck
+   and nobody is told; Plant and Today say "waiting for client until <date>". */
+function lineWaitMark(l){ var ms=((l&&l.waitMarks)||[]).map(function(m,i){ return {m:m,i:i}; }).filter(function(x){ return x.m&&x.m.at; }); if(!ms.length) return null;
+  ms.sort(function(a,b){ return String(a.m.at).localeCompare(String(b.m.at))||(a.i-b.i); }); return ms[ms.length-1].m; }   /* the latest mark by time; the same moment: the later row */
+function lineWaitClient(l){ var w=lineWaitMark(l); if(!w||w.kind==='end'||!/^\d{4}-\d{2}-\d{2}$/.test(String(w.until||''))) return null;
+  if((+l.ordered||0)-(+l.packed||0)<=0.5) return null; try{ if(lineShortClosed(l)) return null; }catch(e){}   /* final review: a wait is for packing - once the line is fully packed or closed short it no longer holds anything */ var t=String((typeof evToday==='function'?evToday():new Date().toISOString().slice(0,10))); return String(w.until)>=t?w:null; }
+/* the day the last wait for the client was over (ended early, or the day after its date); '' if never marked */
+function lineWaitOver(l){ var w=lineWaitMark(l); if(!w) return ''; if(w.kind==='end') return localDateOf(w.at); if(lineWaitClient(l)) return ''; var d=new Date(String(w.until).slice(0,10)+'T00:00:00Z'); if(isNaN(d)) return ''; d.setUTCDate(d.getUTCDate()+1); return d.toISOString().slice(0,10); }
 /* the batch that carries a base's order lines on Plant: the oldest ready one that Plant judges
    (a closed batch holding kept stock counts; an open one still being made does not) */
 /* 15f review: a per-draw memo, so Plant and the batch list judge each base once, not once per batch.
    Cleared on every render() and after 1 second, so a save is always seen. */
 var _plMemo=null;
-function _plM(){ var t=Date.now(); if(!_plMemo||t-_plMemo.t>1000) _plMemo={t:t,ready:{},carrier:{}}; return _plMemo; }
+function _plM(){ var t=Date.now(); if(!_plMemo||t-_plMemo.t>1000) _plMemo={t:t,ready:{},carrier:{},share:{}}; return _plMemo; }
 function _plCarrier(b){ if(!b) return false; var m=_plM(), k=b.id||''; if(k&&m.carrier[k]!=null) return m.carrier[k]; var v=(b.status!=='open'||plBatchFacts(b).made); if(k) m.carrier[k]=v; return v; }
 function plBatchClass(b){
   if(!b||b.voided||b.pool||b.disposition==='byproduct') return null;
@@ -15459,7 +15619,7 @@ function plBatchClass(b){
   r.demand=lines.reduce(function(a,x){ return a+x.rem; },0);
   if(!lines.length){ r.k='held'; r.who='Production Manager'; r.why='No open order is waiting for it. Held for orders.';
     if(f.days>=PL_HELD_FLAG_DAYS){ r.flag=true; r.why='Held '+f.days+' d with no order waiting. Time to review it.'; } return r; }
-  var stuck=[]; lines.forEach(function(x){ var t=plLinePack(x.o,x.l,since); x.days=t.days; x.last=t.last; if(t.days>=PL_LINE_STUCK_DAYS) stuck.push(x); });
+  var stuck=[]; lines.forEach(function(x){ var t=plLinePack(x.o,x.l,since); x.days=t.days; x.last=t.last; x.waitClient=t.waitClient; if(lineShortRequested(x.l)) return; if(t.days>=PL_LINE_STUCK_DAYS&&!t.waitClient) stuck.push(x); });   /* 15g: a line waiting for the client, or asked to close short, is not stuck */   /* 15g: a line waiting for the client is not stuck */
   r.lines=lines;
   if(!stuck.length) return null;                       /* packing for its orders is moving */
   if(!first){ r.k='queued'; return r; }                /* behind the oldest batch of this base: queued, not stuck */
@@ -15472,6 +15632,8 @@ function _plRow(b,c){ var f=c.f; var o=b.po?(state.orders||[]).find(function(x){
   var says='Made '+fmt(f.prod)+' of '+fmt(f.plan)+' \u00b7 packed '+fmt(f.packed)+' \u00b7 '+fmt(Math.round(f.left))+' left'+(f.shipped>0.5?' \u00b7 shipped '+fmt(Math.round(f.shipped)):'');
   var lastTxt='last '+(f.lastWhat==='packed'?'packed':(f.lastWhat==='output'?'output logged':'opened'))+' '+_plDay(f.last)+' ('+f.days+' d ago)';
   return {batchNo:b.batchNo||b.id,base:b.base||'',po:b.po||'',client:o?(o.client||''):'',why:c.why,who:c.who,days:(c.days!=null?c.days:f.days),made:f.made,kg:f.prod,plan:f.plan,act:act,says:says,lastTxt:lastTxt,flag:c.flag,k:c.k}; }
+function plBaseTotals(base){ var ls=plOpenLines(base).filter(function(x){ return !lineShortRequested(x.l); }); return {ready:plBaseReady(base).kg,lab:plBaseLabKg(base),need:ls.reduce(function(a,x){ return a+Math.max(0,x.rem); },0),n:ls.length}; }
+function plWaitLines(){ var WL=[]; (state.orders||[]).forEach(function(o){ if(!o||o.cancelled||o.voided||o.closed) return; (o.lines||[]).forEach(function(l){ var w=lineWaitClient(l); if(w&&!lineShortClosed(l)&&(+l.ordered||0)-(+l.packed||0)>0.5) WL.push({o:o,l:l,w:w,n:(function(){ var c=0, prev=null; (l.waitMarks||[]).forEach(function(m){ if(!m) return; if(m.kind==='end'){ prev=null; return; } if(m.until!==prev) c++; prev=m.until; }); return c; })(),first:((l.waitMarks||[]).filter(function(m){ return m&&m.kind!=='end'; })[0]||{}).at||''}); }); }); return WL; }
 function plStuckBatches(){
   var out=[];
   (state.batches||[]).forEach(function(b){ var c=plBatchClass(b); if(c&&c.k==='stuck') out.push(_plRow(b,c)); });
@@ -15690,6 +15852,15 @@ function guideMyJob(){
     'Supply Chain Officer':_tr15f+' A purple <b>Shared</b> tag means more than 1 person can do the job.',
     'COO':'One stuck rule (order line, 7 days, any order age) on Plant, the batch list and Today; Pack from base on Production\u2019s Today; vehicle, driver and phone on every truck, bilty optional; Start loading sheet with batch change before the gate pass; sent-back fix sheet; Truck released and Handed to driver; truck clocks per step; Shared tag; QA by pack type and loading condition; look-alike batch numbers refused once. New trucks reserve exactly their own packing runs; older figures are unchanged.'}[role];
   if(_n15f) h+='<div class="note" style="margin-top:10px"><b>New on 15 Oct (15f).</b> '+_n15f+'</div>';
+  /* 15g: when an order line is really stuck (Tahir, 15 Oct evening) */
+  var _mv15g='A line counts as moving when any PO of the same client and product was packed in the last 7 days. ';
+  var _n15g={'Supply Chain':_mv15g+'On day 7 of a line stuck at packing you get <b>Stuck at packing</b>: <b>Close short\u2026</b> (reason; the Plant Manager approves) or <b>Waiting for client\u2026</b> (why, and a date 1 to 30 days away). A line waiting for the client is not stuck until then. Supply Chain (or the COO) marks it; on Plant, under Waiting for client, <b>Change or end\u2026</b> changes the date or ends the wait early, with a reason. The same job comes for a line packed from its own PO batch.',
+    'Production':_mv15g+'When base is short of what a line needs, the Pack from base card says <b>Waiting for production, X of Y ready</b>, and the Production run card for the rest shows beside it. Every line on a base sees all of its ready base; choose what to pack. A bulk run is stalled only after 4 days with no output logged on that base, and never while the line was packed in the last 7 days.',
+    'Production Manager':_mv15g+'Base short of the line: both cards show (pack what is ready, make the rest). A bulk run is stalled only after 4 days with no output on that base.',
+    'Plant Manager':_mv15g+'Supply Chain decides each stuck line on the day you are told: close short (you approve) or waiting for client until a date. Plant lists the lines waiting for the client, how many times each was marked, and by whom.',
+    'KAM':'Supply Chain may ask you when a client will call off a line that is not being packed; what you tell them is written as the reason on Waiting for client.',
+    'COO':_mv15g+'Base short: both cards. Bulk run stalled after 4 days with no output on its base. Day 7 stuck at packing: Supply Chain closes short (Plant Manager approves) or marks waiting for client (1 to 30 days).'}[role];
+  if(_n15g) h+='<div class="note" style="margin-top:10px"><b>New on 15 Oct (15g).</b> '+_n15g+'</div>';
   if(role==='COO') h+='<div class="note" style="margin-top:10px">You do not sign certificates (ISO: management does not sign). You switch the lab’s test assignment on, and you can assign, reject or re-issue — never sign.</div>';
   /* screens */
   var scrs=[]; try{ SCREENS.forEach(function(s){ if(RE_SCREENS_SKIP[s.id]) return; var lv=accessLevel(role,s.id); if(lv&&lv!=='none') scrs.push({n:s.name,lv:lv}); }); }catch(e){}
@@ -15700,7 +15871,7 @@ function guideHow(){
   var steps=[['Received','An order is entered with each product, quantity, price and committed date, the payment terms and the ERP SO #. A price more than 5% from the customer’s last one needs a reason. Nothing moves until the order exists here.'],['Materials','Supply Chain acknowledges it and checks raw material: in full, in part, or not yet. A shortfall raises a purchase request the CFO approves, or refuses with a reason that goes back to Supply Chain; what arrives is confirmed at the bay. Supply Chain can send a wrong PO back to whoever entered it, with a reason.'],['Produced','Production opens a batch, logs each shift’s output, closes the batch. A batch that has made all it will make is closed from its card (Close batch, beside Log output), with the reason for any shortfall. Closing a batch does not close the order: what is still owed stays in What to make until another batch is made or the line is closed short. When packing is finished, the Production Manager presses <b>Packing finished</b> on the batch and accounts for what is left: loss (with a reason), by-product (Sulfur Coated Urea goes to the Nitro Sulfur pool, which is later called into a new Nitro Sulfur or Sulfur Coated Urea batch that names the batches it came from), divert, rework, or keep as bulk stock. On a batch made for several orders, once it is closed and all of it is packed or accounted for, each order’s made-so-far is brought to what was actually packed for it. The base is made in bulk; packing turns it into the brand. The Production screen shows one card per product to make, with the orders inside it.'],['Lab','The QC manager assigns each test of a sample to an analyst; each analyst runs his test for every waiting sample on one bench sheet, and his name and the time go on the result. When every test has a result the AQCM reviews and the QCM approves. (Until the COO switches this on, one analyst drafts the whole COA as before.) When a batch is split into lots, every lot is tested on its own and gets its own certificate; no lot waits for another, and a lot that fails does not hold the others. Certificates copied from a tested lot before 13 Oct 2026 stay as they are. A report is sent back one step at a time, always with a note: the QCM sends it back to the AQCM, the AQCM to the analyst who drafted it. The note shows on the report and on the job card of the person who must act; the corrected report is reviewed again by the AQCM and approved by the QCM. An approved certificate is not sent back: it is re-issued as a new revision.'],['Packed · QA','Each packing entry says which shift and which in-charge packed it, and where the PO line has a pack size, the packs are shown and ticked before it saves. Each packed lot is inspected before it can ship. A failed lot is corrected and re-inspected.'],['Shipped','Supply Chain plans the truck (vehicle no., driver name and phone on every truck; bilty optional). The warehouse loads it from the Start loading sheet, which lists the batch on each DC line (if the bags carry another batch, the warehouse changes that line before the gate pass and the truck goes back to QA); QA inspects it, and the warehouse issues the gate pass. Saad (Supply Chain) or Shoaib (Warehouse) reviews it, never the person who loaded the truck or issued its gate pass and never Zain; the Plant Manager gives the final approval of the DC and releases the truck. If the review has not happened within 2 hours, the Plant Manager may approve without it and the DC says so. Every sign-off (gate pass, review, release) opens a sheet first: the truck, what is on it, who did what, and the DC and gate pass to read. The reviewer (Saad or Shoaib) or the Plant Manager can send it back with a reason to whoever issued the gate pass, who corrects the truck\u2019s details on the same sheet and sends it for review again. After release, the gate pass issuer hands the approved DC and gate pass to the driver and taps Handed to driver. Three different people: the one who loads or issues the gate pass never reviews or releases. Whoever sent the truck confirms it arrived; after 1 day it goes to Saad, after 1 more to the Plant Manager. The moment the truck is released it counts as a sale, net of FED (FED is the sales tax; on an order quoted FED-inclusive the price is divided by 1.05).'],['Delivered','Delivery is confirmed and the order is Delivered. A line delivered in full is Delivered whether or not the date was stamped; the missing date is listed for the COO.']];
   var h='<div class="gd-intro">One order goes through 7 steps. At each step one role acts; the moment it presses its button the job appears on the next role’s Today. Nobody chases anybody: the list does.</div>';
   h+='<div class="gd-steps">'+steps.map(function(s,i){ return '<div class="gd-step"><span class="n">'+(i+1)+'</span><div><b>'+s[0]+'</b><span>'+s[1]+'</span></div></div>'; }).join('')+'</div>';
-  h+='<h2>What the marks mean</h2><div class="gd-rows"><div class="gd-row"><span class="k">● new today</span><span>the job reached you today (green)</span></div><div class="gd-row"><span class="k">■ waiting 3 d</span><span>how long the job has waited for you: amber for 1 to 6 days, red from 7</span></div><div class="gd-row"><span class="k">12 d past promise</span><span>the committed date has passed; the days are counted from it</span></div><div class="gd-row"><span class="k">is on it</span><span>a colleague with the same role has taken the card; it stays visible to both</span></div><div class="gd-row"><span class="k">stalled · Plant Manager told</span><span>a product to make with no batch opened, or nothing logged on its batch, for 4 days or more; it has also gone to the Plant Manager</span></div><div class="gd-row"><span class="k">stuck · Plant Manager told</span><span>an order line with cleared stock ready and nothing packed for it, from any batch, for 7 days; the Plant Manager has been told</span></div><div class="gd-row"><span class="k">last packed N d ago</span><span>on Pack from base: when the order line was last packed (never the age of the PO)</span></div><div class="gd-row"><span class="k">⇄ Shared · names</span><span>more than 1 person can do this job; when one of them does it, it closes for all</span></div><div class="gd-row"><span class="k">Escalated to you</span><span>a card left too long on someone’s Today, shown to their lead with the role’s name</span></div><div class="gd-row"><span class="k">Done. Now waiting on …</span><span>the toast after every button: who the job went to, by name</span></div></div>';
+  h+='<h2>What the marks mean</h2><div class="gd-rows"><div class="gd-row"><span class="k">● new today</span><span>the job reached you today (green)</span></div><div class="gd-row"><span class="k">■ waiting 3 d</span><span>how long the job has waited for you: amber for 1 to 6 days, red from 7</span></div><div class="gd-row"><span class="k">12 d past promise</span><span>the committed date has passed; the days are counted from it</span></div><div class="gd-row"><span class="k">is on it</span><span>a colleague with the same role has taken the card; it stays visible to both</span></div><div class="gd-row"><span class="k">stalled · Plant Manager told</span><span>a product to make with no batch opened, or nothing logged on its batch, for 4 days or more (for a base made in bulk: no output logged on any batch of that base); it has also gone to the Plant Manager. Never while the line was packed in the last 7 days</span></div><div class="gd-row"><span class="k">stuck · Plant Manager told</span><span>an order line with cleared stock ready and nothing packed for it for 7 days (the same product packed for the same client on any PO counts as packing); the Plant Manager has been told, and Supply Chain decides</span></div><div class="gd-row"><span class="k">last packed N d ago</span><span>on Pack from base: when the order line was last packed (never the age of the PO)</span></div><div class="gd-row"><span class="k">⇄ Shared · names</span><span>more than 1 person can do this job; when one of them does it, it closes for all</span></div><div class="gd-row"><span class="k">⏸ waiting for client until date</span><span>Supply Chain marked this order line as waiting for the client’s call-off. It is not stuck and nobody is told until that date (15g)</span></div><div class="gd-row"><span class="k">Escalated to you</span><span>a card left too long on someone’s Today, shown to their lead with the role’s name</span></div><div class="gd-row"><span class="k">Done. Now waiting on …</span><span>the toast after every button: who the job went to, by name</span></div></div>';
   return h;
 }
 function guideRules(){
@@ -15729,8 +15900,10 @@ function guideRules(){
   h+='<div class="gd-rule"><h3>What is never on a customer document</h3><p>No price on any document the customer sees. The COA carries composition, results and the 3 signatures; the delivery challan carries product, quantity and lot.</p></div>';
   /* 06c: where each paper lives. Every place named here is an existing screen or button. */
   h+='<div class="gd-rule"><h3>Which reports you can open</h3><p>Reports opens on a <b>Your reports</b> card first: the last reports you opened, then the ones listed for your job, one tap each. Below it are the function cards (Orders and customers, Production, Lab and QA, Stock and shipping, Sales and invoicing, Checks and corrections); a card opens its first report and the rest are tabs.</p><p>A <b>department lead</b> (set by the COO under Back Office, Departments) can open every report anyone in his department can open. Reports with money in them still need the money right.</p><p>Reports open on <b>All dates</b>, so an old record is never hidden. Narrow them with the period buttons (This month, Last month, FY to date) or your own dates. Invoicing, Closed short and Stock moved between POs keep the period that suits them.</p></div>';
-  h+='<div class="gd-rule"><h3>What the Stuck batches list means</h3><p>Plant, the Production batch list and Today use <b>one rule</b>. Each row says what was made, packed and left, why it is here, when it last moved, and who has the next step.</p><p>A batch is stuck when: it is being made and <b>no output</b> is logged for 3 days (Production); it is made, <b>nothing is packed</b> and it waits for the lab for 2 days (Lab); <b>all of it is packed</b> and it is still open after 2 days (Production closes it); or an <b>order line is waiting</b> for it and nothing has been packed for that line, from any batch, for <b>7 days</b> while cleared stock is ready (Production; the Plant Manager is told).</p><p>Orders of <b>any age</b> count. A long order packed over months, like a Syngenta PO, is never late for its age: it is judged on whether packing for it is moving. Base batches behind the oldest one are <b>queued</b> for the order, not stuck. A cleared batch with no open order waiting is <b>Held for orders</b>, not stuck, and turns amber after 180 days so somebody reviews it.</p></div>';
-  h+='<div class="gd-rule"><h3>Pack from base</h3><p>When cleared base stock is ready for an order line, Production\u2019s Today shows <b>1 card per order line</b>: <b>Pack from base</b>, with how much base is ready, from which batches (oldest first), and how much is still to make after it. The button opens the Pack sheet on the oldest cleared batch, already on that order line. The card shows when the line was last packed, never the age of the PO. After 7 days with nothing packed for the line it says <b>stuck \u00b7 Plant Manager told</b>, and the Plant Manager sees it. While base is ready, the line is not shown as a run to make.</p></div>';
+  h+='<div class="gd-rule"><h3>What the Stuck batches list means</h3><p>Plant, the Production batch list and Today use <b>one rule</b>. Each row says what was made, packed and left, why it is here, when it last moved, and who has the next step.</p><p>A batch is stuck when: it is being made and <b>no output</b> is logged for 3 days (Production); it is made, <b>nothing is packed</b> and it waits for the lab for 2 days (Lab); <b>all of it is packed</b> and it is still open after 2 days (Production closes it); or an <b>order line is waiting</b> for it and nothing has been packed for that line, from any batch, for <b>7 days</b> while cleared stock is ready (Production; the Plant Manager is told; Supply Chain decides: close short, or waiting for client).</p><p>A line counts as <b>moving</b> when any PO of the <b>same client and the same product</b> was packed in the last 7 days, on any line, the same PO too. A line Supply Chain has marked <b>Waiting for client</b> is not stuck until its date, and stuck again the day after it.</p><p>Orders of <b>any age</b> count. A long order packed over months, like a Syngenta PO, is never late for its age: it is judged on whether packing for it is moving. Base batches behind the oldest one are <b>queued</b> for the order, not stuck. A cleared batch with no open order waiting is <b>Held for orders</b>, not stuck, and turns amber after 180 days so somebody reviews it.</p></div>';
+  h+='<div class="gd-rule"><h3>Pack from base</h3><p>When cleared base stock is ready for an order line, Production\u2019s Today shows <b>1 card per order line</b>: <b>Pack from base</b>, with how much base is ready, from which batches (oldest first). Every order line on that base sees all of the ready base, and Production chooses what to pack. The button opens the Pack sheet on the oldest cleared batch, already on that order line. The card shows when the line was last packed, never the age of the PO. After 7 days with nothing packed for the line it says <b>stuck \u00b7 Plant Manager told</b>, and the Plant Manager sees it. When the base (ready, and with the lab) cannot cover all its orders, a <b>Production run</b> card asks only for what is short.</p></div>';
+  h+='<div class="gd-rule"><h3>Stuck at packing: close short or keep</h3><p>On day 7 of a line stuck at packing (the day the Plant Manager is told; for a line on its own PO batch, the Production Manager through its Pack job), Supply Chain gets <b>Stuck at packing</b> on Today. <b>Close short\u2026</b> opens the usual close-short request: write the reason; the Plant Manager approves. <b>Waiting for client\u2026</b> is for a line whose call-off has not come: write why and pick a date 1 to 30 days away. Until that date the line is not stuck, nobody is told (no delay-reason job either: Supply Chain\u2019s reason stands), its jobs show as waiting 0 days, and Plant lists it under <b>Waiting for client</b>, with how many times it was marked. Supply Chain (or the COO) marks it, and on Plant can <b>Change or end\u2026</b> it with a reason: a new date, or end the wait when the client calls off. Every mark is kept. The job comes for a line packed from base and for a line packed from its own PO batch; its clock starts on the day the line turned stuck, never before 15 Oct 2026, and never before a wait was over.</p></div>';
+  h+='<div class="gd-rule"><h3>Waiting for production</h3><p>When the cleared base is less than an order line still needs, its Pack from base card says <b>Waiting for production, X of Y ready</b>, and the <b>Production run</b> card for the rest shows beside it. The ready part is still judged: if it is not packed for 7 days, the line is stuck. When several order lines wait for one base, <b>every card shows all the ready base</b>, and Production chooses what to pack. Base already made and with the lab is shown too: the card says <b>Waiting for the lab</b> when that covers the rest. The run card asks only for what the base cannot cover across all its orders (counted oldest PO first, a line waiting for the client last), within what raw material allows. It is calm, and nobody is told, while the line was packed in the last 7 days. A run for a base made in bulk is stalled only when no batch of that base has logged output for 4 days. Only a shift with output counts: opening a new batch does not, and by-product and pool batches do not. It is never counted from before the PO arrived or from when raw material was ready. While a line waits for the client, its run card still shows, but calm, and nobody is told.</p></div>';
   h+='<div class="gd-rule"><h3>Vehicle and driver on every truck</h3><p>Plan the truck and Start shipment use one rule, Ex-factory and VAN-delivered alike: <b>vehicle no., driver name and driver phone</b> are needed; <b>bilty is optional</b>. The rule is written on both sheets before Save, so no truck is stopped by surprise at the gate.</p></div>';
   h+='<div class="gd-rule"><h3>Changing a batch at loading</h3><p><b>Start loading</b> opens a sheet with each product\u2019s batch lines: the batch on the bag, the Kg and the packs. Load those bags. If the bags in hand carry a different batch, tap <b>Bags show a different batch?</b> on that line, pick the batch printed on the bags and write why. It is allowed only before the gate pass, and only to another cleared packing run of the same PO line with enough free stock; the Kg goes back to the first run in the same save, so nothing is counted twice. The change is logged (old, new, Kg, who, when). The <b>whole truck goes back to QA</b>, the DC keeps its number and prints <b>revised</b>, and the reviewer and the Plant Manager see the change on the truck. The approved DC the driver carries is printed once, at release.</p></div>';
   h+='<div class="gd-rule"><h3>Fixing a sent-back truck</h3><p>A truck sent back by the reviewer or the Plant Manager comes to whoever issued its gate pass. The sheet shows what is wrong and lets you correct the vehicle no., driver, phone, bilty, seal, carrier and focal person. Quantity and batches cannot change there: a wrong quantity or batch means cancelling and planning the truck again. Every change is logged and kept in the corrections register; the DC and gate pass print the new details. <b>Save fix and send for review</b> sends it back to Saad or Shoaib.</p></div>';
@@ -17603,7 +17776,7 @@ function dashOpsMetrics(){
   var shippedKg=0, byBrand={}, byClient={}; shipRows.forEach(function(s){ var kg=+s.kg||0; shippedKg+=kg; var bd=s.brand||'—'; byBrand[bd]=(byBrand[bd]||0)+kg; var cl=s.client||(typeof shipClientFor==='function'?shipClientFor(s.po):'')||'—'; byClient[cl]=(byClient[cl]||0)+kg; });
   var shippedByBrand=Object.keys(byBrand).map(function(k){return {name:k,kg:byBrand[k]};}).sort(function(a,b){return b.kg-a.kg;});
   var shippedByClient=Object.keys(byClient).map(function(k){return {name:k,kg:byClient[k]};}).sort(function(a,b){return b.kg-a.kg;});
-  var behind=[]; var behindPOs={}; (state.orders||[]).forEach(function(o){ (o.lines||[]).forEach(function(l){ if(typeof lineOverdue==='function'&&lineOverdue(o,l)){ behind.push({po:o.po||'',client:o.client||'',product:l.brand||'',days:(typeof daysOver==='function'?daysOver(o):0),reason:l.delayReason||'',dept:l.respDept||''}); if(o.po) behindPOs[o.po]=1; } }); });
+  var behind=[]; var behindPOs={}; (state.orders||[]).forEach(function(o){ (o.lines||[]).forEach(function(l){ if(typeof lineOverdue==='function'&&lineOverdue(o,l)){ behind.push({po:o.po||'',client:o.client||'',product:l.brand||'',days:(typeof daysOver==='function'?daysOver(o):0),reason:l.delayReason||(function(){ var w=lineWaitClient(l); return w?('Waiting for client until '+_plDay(w.until)+': '+w.why):''; })(),dept:l.respDept||(lineWaitClient(l)?'Supply Chain':'')}); if(o.po) behindPOs[o.po]=1; } }); });
   behind.sort(function(a,b){return b.days-a.days;});
   var behindPOCount=Object.keys(behindPOs).length;
   var stuck=stuckBatches();

@@ -61,7 +61,7 @@ ok('render() dispatches today:screenToday', /today:screenToday/.test(render));
 ok('navBadge counts Today as well as My Actions', /function navBadge\(id\)\{ if\(id!=='approvals'&&id!=='today'\)/.test(html));
 
 /* ================= 3. PLAIN WORDS FOR EVERY LABEL THE APP RAISES ================= */
-const ai = grab('actionItems');
+const ai = grab('actionItems') + grab('plLineBaseItems');   /* 15g review: the base jobs of a line live in plLineBaseItems */
 const labels = new Set();
 ai.replace(/label:'([^']+)'/g, (_, l) => { labels.add(l); return _; });
 ai.replace(/label:\(_re\?'([^']+)':'([^']+)'\)/g, (_, a, b) => { labels.add(a); labels.add(b); return _; });

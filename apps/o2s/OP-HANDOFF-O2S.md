@@ -6686,3 +6686,11 @@ Two independent audits of 15b: second found 3 defects (stale picks on a second R
 Left on purpose (cost a bug if closed): a wrong shift or in-charge cannot be edited after saving (the amend fields are text only, so an edit box would let free text past the list); the fix is to reverse the record and enter it again, logged. A line with no pack size at all saves with no packs (blocking would stop packing on those lines). The tick is tied to kg and pack size, not to the PO.
 TO DO: Tahir pushes 15b; then test live: build id 2026-10-15b; Correct a record > Add missing packing shows Shift, In-charge, packs and tick, refuses without them; Reconcile > Write the packing record likewise; the Big pack run sheet text. Write no test rows to live data without Tahir's OK.
 Open for Tahir: HG26038 (close with a reason for 3,096 kg or keep open); the 3 extra names on the In-charge list. Packing page artifact EBXYuz6TQRX9X2UuvtKkxj still says "refused" for a cut and needs updating. Not started: mfg and expiry on the bag, complaint module build.
+
+## 15 Oct 2026 (3) - build 2026-10-15c
+- Packing entry: the PO check now comes first, so the first message is "Pick the PO..." before the shift and in-charge checks.
+- Shift and in-charge names are escaped (bpEsc) where they are shown.
+- Guide updated up to this build. The big-pack-run rule now says: when a run is split over several entries, only the entry that takes the total over 10,000 is flagged; an entry that is itself over 10,000 is always flagged. A note says a divert is refused when the picks are missing.
+- Files: o2s.html, tests/packs.test.js, tests/linefix.test.js, OP-HANDOFF-O2S.md.
+- Tests: 94 files, 0 problems on real data.
+- Left open on purpose: a wrong shift or in-charge cannot be edited after saving (reverse the record and re-enter it); a line with no pack size saves without packs.

@@ -32,7 +32,7 @@ ok('every order line in the order sheet has History', /lineFixOpen\(\\''\+qsEsc\
 const sb = { console, toasts: [], saved: 0, corr: [],
   toast: m => sb.toasts.push(m), save: () => sb.saved++, render: () => {}, closeModal: () => {},
   evToday: () => '2026-09-24', fmt: n => String(Math.round(+n * 100) / 100), unitOf: () => 'Kg', qsEsc: x => String(x == null ? '' : x), _tdClient: o => o.client,
-  seedPackForBrand: () => 0, lineShortClosed: () => false, screenEditOK: () => sb.canFix, canFix: true,
+  seedPackForBrand: () => 0, bpEsc: x => String(x == null ? '' : x), lineShortClosed: () => false, screenEditOK: () => sb.canFix, canFix: true,
   nid: p => p + (++sb._n), _n: 0, batchLabApproved: b => !!b.ok, batchPackableKg: b => (+b.producedKg || 0) - (+b.packedKg || 0),
   packDates: () => ({ mfgDate: '2026-08-01', expDate: '2028-08-01', shelfMonths: 24 }), syncPackBatchDates: () => {},
   lotBaseNo: p => p.baseBatchNo || '', recordCorrection: (op, t, id, label, ch, code, reason) => sb.corr.push({ op, t, id, ch, reason }),

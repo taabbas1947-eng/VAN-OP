@@ -5,7 +5,7 @@
 const H = require('./harness.js');
 const vm = require('vm');
 const { ok, eq, report, grab } = H;
-const FNS = ['packFmt', 'acKey', 'packShiftIncGate', 'packEntryCalc', 'packConfirmGate', 'packShiftTotal', 'packRowExtras', 'packConfirmInner', 'packFormOf', 'packConfirmTick', 'bigPackJobs', 'openBigPack', 'bigPackSeen'];
+const FNS = ['packShiftIncBlock', 'packFmt', 'acKey', 'packShiftIncGate', 'packEntryCalc', 'packConfirmGate', 'packShiftTotal', 'packRowExtras', 'packConfirmInner', 'packFormOf', 'packConfirmTick', 'bigPackJobs', 'openBigPack', 'bigPackSeen'];
 function mk(over) {
   const sb = Object.assign({ console, PACK_FLAG_KG: 10000, seedPackForBrand: () => 0, bpEsc: x => String(x), fmt: n => Math.round(n).toLocaleString('en-US'), /* the real fmt rounds to a whole number */ toasts: [], logged: [], $: () => ({ innerHTML: '', classList: { add() {} } }),
     toast: m => sb.toasts.push(m), may: () => true, batchLabApproved: () => true, batchPackableKg: b => b.producedKg - b.packedKg, evDateGate: () => null, evToday: () => '2026-10-15', evStamp: () => ({}),
@@ -102,7 +102,7 @@ ok('the Guide tells Production about the picks, the packs and the flag', /_n15=\
 ok('the Guide tells the Production Manager about Big pack run and Seen', /'Production Manager':_pk15\+' A packing entry over 10,000 Kg\/L comes to you as <b>Big pack run<\/b>/.test(html));
 ok('the Guide has the rule', /Why packing asks for the shift, the in-charge and the packs/.test(html));
 ok('How the app works mentions it', /Each packing entry says which shift and which in-charge packed it/.test(html));
-ok('the changelog has the entry and BUILD_ID matches', /ver:'2026-10-15b'/.test(html) && /BUILD_ID='2026-10-15b'/.test(html));
+ok('the changelog has the entry and BUILD_ID matches', /ver:'2026-10-15b'/.test(html) && /ver:'2026-10-15c'/.test(html) && /BUILD_ID='2026-10-15c'/.test(html));
 
 /* second audit (15 Oct): fractional pack size, other entries, who may mark Seen */
 { const sb = mk(); sb.state.orders[0].lines[0].pack = 0.5; sb.packForm = F(5); const h = R(sb, 'packConfirmInner(packForm,"pack")');
@@ -160,4 +160,16 @@ ok('the changelog has the entry and BUILD_ID matches', /ver:'2026-10-15b'/.test(
   ok('Add missing packing starts with the picks empty', /shift:\(op==='packing'\?'':/.test(html)); ok('Write the packing record starts with the picks empty', /shift:'',incharge:'',packsOkKg:0,packsOkSize:0\};/.test(html));
   ok('Write the packing record clears the picks, tick and quantity for the next record', /lfForm\.shift='';\s*lfForm\.incharge='';\s*lfForm\.packsOkKg=0;\s*lfForm\.packsOkSize=0;/.test(lf));
   ok('the job has one name everywhere', !/Large packing run/.test(html)); ok('the sheet says what Seen means', /<b>Seen<\/b> means you have read this and checked the figure with the in-charge/.test(html)); }
+
+/* 15c: the PO is asked for before the shift; the Guide is true for lines with no pack size; names are escaped */
+{ const sb = mk(); sb.packForm = Object.assign(F(500), { oid: '', lid: '', shift: '', incharge: '' }); vm.runInContext(grab('doPack') + '\ndoPack();', sb);
+  ok('with nothing picked the first message is to pick the PO', /Pick the PO/.test(sb.toasts[0]) && sb.state.packingLog.length === 0, JSON.stringify(sb.toasts)); }
+{ const sb = mk(); sb.state.masters = { shifts: ['Morning'], incharges: ['Faisal Nadeem'] }; sb.packForm = Object.assign(F(500, 500), { shift: '', incharge: '' });  vm.runInContext(grab('doPack') + '\ndoPack();', sb);
+  ok('with the PO picked the message is about the shift', /Pick the shift/.test(sb.toasts[0]), JSON.stringify(sb.toasts)); }
+ok('the Guide says the packs are shown where the PO line has a pack size', (html.match(/where the PO line has a pack size/g) || []).length === 4);
+{ const sb = mk({ bpEsc: x => String(x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') }); sb.state.masters = { shifts: ['<b>Morning'], incharges: ['A & B'] };
+  const h = R(sb, 'packShiftIncBlock({shift:"",incharge:""},"packForm","")'); ok('list names are written escaped', /&lt;b&gt;Morning/.test(h) && /A &amp; B/.test(h) && !/<b>Morning/.test(h)); }
+ok('the Guide rule covers the cut, the tick again, no pack size, the correction paths and the typist name', /change the quantity and the box must be ticked again/.test(html) && /says which limit applied/.test(html) && /Where the PO line has no pack size/.test(html) && /Write the packing record\) ask for the same/.test(html) && /carries the name of the person who typed it/.test(html));
+ok('the Guide does not promise one job per run', !/once per run/.test(html) && /only the entry that takes the total over 10,000 is flagged; an entry that is itself over 10,000 is always flagged/.test(html));
+ok('the Guide tells the COO a wrong pick is reversed and entered again', /A wrong shift or in-charge cannot be edited after saving/.test(html));
 process.exitCode = report('Packs confirmed and large entries flagged (15 Oct)') ? 1 : 0;

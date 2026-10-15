@@ -16,7 +16,7 @@ ok('rejectDC: Saad or the Plant Manager', grab('rejectDC').indexOf("hardRole(['S
 ok('reviewTruck: Supply Chain (Saad) or Warehouse (Shoaib), 13 Oct', grab('reviewTruck').indexOf("hardRole(TRUCK_REVIEW_ROLES)") > -1 && /var TRUCK_REVIEW_ROLES=\['Supply Chain','Warehouse'\]/.test(html));
 ok('release waits for the review, unless 2 hours have passed', /!_r0\[0\]\.scReview&&!truckReviewLapsed\(_r0\[0\]\)/.test(grab('approveRelease')));
 ok('an approval without the review is recorded on the DC', /s\.noScReview=true/.test(grab('approveRelease')) && /approved without Supply Chain review/.test(grab('printDC')) && /reviewed by /.test(grab('printDC')));
-ok('the loader or gate-pass issuer cannot review his own truck', /You loaded or passed this truck out/.test(grab('reviewTruck')));
+ok('the loader or gate-pass issuer cannot review his own truck', /You loaded, passed out or fixed this truck/.test(grab('reviewTruck')) && /truckMadeByMe\(rows\)/.test(grab('reviewTruck')));
 ok('loading and gate pass record who did them', /s\.loadedByUser=/.test(grab('startLoading')) && /s\.gatePassAt=_at; s\.gatePassBy=/.test(grab('issueGatePass')));
 const ai = grab('actionItems');
 ok("Today: Load and Gate Pass go to the Warehouse", /role:'Warehouse',disp:g,what:'Start loading/.test(ai) && /role:'Warehouse',disp:g,what:'Issue Gate Pass/.test(ai));

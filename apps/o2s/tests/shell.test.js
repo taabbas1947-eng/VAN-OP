@@ -51,13 +51,13 @@ const SCREENS = H.grabTopVar ? null : null;
 ok("SCREENS has a screen with id 'plant', owned by every role", /\{id:'plant', name:'Plant'[^\n]*owners:\['KAM','Supply Chain','Production','Production Manager','Lab Rep','AQCM','QCM','QA Inspector','Plant Manager','CFO','COO','Supply Chain Officer','Finance Desk Officer','Finance','Warehouse'\]/.test(html));
 ok('render() knows it', /plant:screenPlant/.test(rnd));
 const pl = grab('screenPlant');
-ok('exactly 4 lights: 3 from the Firefighter lists, the 4th stuck batches (24b)', /k:'delayed',t:'Late orders'/.test(pl) && /k:'holds',t:'Trucks waiting'/.test(pl) && /k:'material',t:'Waiting on material'/.test(pl) && /k:'stuck',t:'Stuck batches'/.test(pl) && (pl.match(/\{k:'/g) || []).length === 4);
+ok('exactly 4 lights: 3 from the Firefighter lists, the 4th stuck batches (24b)', /k:'delayed',t:'Late orders'/.test(pl) && /k:'holds',t:'Not yet delivered'/.test(pl) && /k:'material',t:'Waiting on material'/.test(pl) && /k:'stuck',t:'Stuck batches'/.test(pl) && (pl.match(/\{k:'/g) || []).length === 4);
 {
   const sb = grab('plStuckBatches') + grab('plBatchClass') + grab('_plRow');
-  ok('a stuck batch: no output 3 days, made and nothing packed 2 days, all packed 2 days, or stock left with orders waiting 3 days', /PL_STUCK_NO_OUTPUT_DAYS=3, PL_STUCK_MADE_OPEN_DAYS=2, PL_STUCK_DEMAND_DAYS=3/.test(html) && /No output logged for /.test(sb) && /nothing packed yet/.test(sb) && /Close it/.test(sb) && /are waiting for /.test(sb));
+  ok('a stuck batch (15f): no output 3 days, waiting for the lab 2 days, all packed 2 days, or an order line with nothing packed for 7 days', /PL_STUCK_NO_OUTPUT_DAYS=3, PL_STUCK_MADE_OPEN_DAYS=2, PL_LINE_STUCK_DAYS=7/.test(html) && /No output logged for /.test(sb) && /nothing packed yet/.test(sb) && /Close it/.test(sb) && / waiting for /.test(sb));
   ok('last move = the latest shift entry OR pack record on the batch, else the day it opened', /state\.shiftEntries/.test(grab('plBatchMove')) && /state\.packingLog/.test(grab('plBatchMove')) && /b\.openedDate\|\|b\.date/.test(grab('plBatchMove')));
   ok('a row opens the run sheet for a PO batch, else the shift log, the close, or the batch page', /openRun\('/.test(sb) && /openCloseBatch\('/.test(sb) && /openShiftLog\('/.test(sb) && /prodBatchSel='/.test(sb));
-  ok('pools, by-products and closed batches are never stuck', /b\.voided\|\|b\.pool\|\|b\.status!=='open'\|\|b\.disposition==='byproduct'/.test(sb));
+  ok('pools and by-products are never stuck; a closed batch only while it holds kept stock to pack (15f)', /b\.voided\|\|b\.pool\|\|b\.disposition==='byproduct'/.test(sb) && /if\(b\.status!=='open'&&!ready\) return null;/.test(sb));
   ok('nothing is written', !/save\(\)/.test(sb));
 }
 ok('the lights come from fireLists(), the same numbers the Firefighter had', /var F=fireLists\(\)/.test(pl));

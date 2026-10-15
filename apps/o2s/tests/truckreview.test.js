@@ -8,7 +8,7 @@ const { ok, eq, report, grab, html } = H;
 function run(role, user, rows, fn, arg) {
   const toasts = [], logs = [];
   const state = { role, currentUser: { name: user, username: user }, audit: [] };
-  const src = ['hardRole', '_uRole', 'truckReadyForReview', 'truckSentBack', 'reviewTruck', 'sendBackTruck'].map(grab).join('\n') +
+  const src = ['hardRole', '_uRole', 'truckReadyForReview', 'truckSentBack', 'truckFixers', 'truckMadeByMe', 'reviewTruck', 'sendBackTruck'].map(grab).join('\n') +
     '\nreturn {reviewTruck:reviewTruck,sendBackTruck:sendBackTruck};';
   const m = new Function('state', 'toast', 'logAction', 'save', 'render', 'shipRowsOf', 'TRUCK_REVIEW_ROLES', 'closeModal', 'rpEmpty', 'TS_STEP',
     src)(state, t => toasts.push(t), l => logs.push(l), () => {}, () => {}, () => rows, ['Supply Chain', 'Warehouse'], () => {}, () => '', { review: { back: true }, release: { back: true } });
@@ -20,7 +20,7 @@ const reviewed = r => !!(r.rows[0].scReview);
 
 /* Saad made it: Shoaib reviews; Saad cannot */
 { let r = run('Warehouse', 'shoaib', mkRows('saad', 'saad'), 'reviewTruck'); ok('Saad made the truck: Shoaib (Warehouse) reviews it', reviewed(r)); eq('...and it is recorded as Shoaib', r.rows[0].scReview.user, 'shoaib');
-  r = run('Supply Chain', 'saad', mkRows('saad', 'saad'), 'reviewTruck'); ok('Saad cannot review a truck he made', !reviewed(r) && /loaded or passed/.test(r.toasts.join())); }
+  r = run('Supply Chain', 'saad', mkRows('saad', 'saad'), 'reviewTruck'); ok('Saad cannot review a truck he made', !reviewed(r) && /loaded, passed out/.test(r.toasts.join())); }
 /* Shoaib made it: Saad reviews; Shoaib cannot */
 { let r = run('Supply Chain', 'saad', mkRows('shoaib', 'shoaib'), 'reviewTruck'); ok('Shoaib made the truck: Saad reviews it', reviewed(r));
   r = run('Warehouse', 'shoaib', mkRows('shoaib', 'shoaib'), 'reviewTruck'); ok('Shoaib cannot review a truck he made', !reviewed(r)); }
@@ -51,13 +51,18 @@ ok('the Review truck job is also addressed to the review roles', /alsoRoles:TRUC
 ok('the notWho filter still hides the job from whoever made the truck', /x\.notWho&&_me&&x\.notWho\.indexOf\(_me\)>-1&&role!=='COO'/.test(grab('tdItems')));
 ok('My job lists Review truck for the Warehouse role', /'Warehouse':\['Review truck','Issue sample','Sample gate pass'\]/.test(html));
 ok('The Guide names Saad or Shoaib and says never Zain', /Saad \(Supply Chain\) or Shoaib \(Warehouse\) reviews it, never the person who loaded the truck or issued its gate pass and never Zain/.test(html));
-ok('the truck release job no longer names Saad (the sample one still does)', /Supply Chain has not reviewed it in '\+TRUCK_REVIEW_HOURS/.test(html));
+ok('the truck release job no longer names Saad (the sample one still does)', /not reviewed by Saad or Shoaib in '\+TRUCK_REVIEW_HOURS/.test(html));
 ok('the 13b changelog entry exists (BUILD_ID itself is pinned by buildid.test.js)', /ver:'2026-10-13b'/.test(html));
 ok('the 3 sample rules are untouched (Saad only, Review sample role)', /'Supply Chain':\['Review truck','Review sample'\]/.test(html) && /<b>Saad reviews<\/b> it \(after 2 hours/.test(html));
 /* the truck card's Review button */
 const card = grab('shipCard') || '';
 ok('the truck card offers Review to the review roles, not only Supply Chain', /\(!_rv&&TRUCK_REVIEW_ROLES\.indexOf\(state\.role\)>-1&&!truckMadeByMe\(g\.rows\)\)/.test(html) && !/\(!_rv&&state\.role==='Supply Chain'\)/.test(html));
-{ const mk2 = (user, rows) => new Function('state', '_uRole_unused', grab('_uRole') + '\n' + grab('truckMadeByMe') + '\nreturn truckMadeByMe;')({ role: 'Warehouse', currentUser: { name: user, username: user } });
+{ const mk2 = (user, rows) => new Function('state', '_uRole_unused', grab('_uRole') + '\n' + grab('truckFixers') + '\n' + grab('truckMadeByMe') + '\nreturn truckMadeByMe;')({ role: 'Warehouse', currentUser: { name: user, username: user } });
   ok('truckMadeByMe: true for the loader and for the gate pass issuer', mk2('shoaib')(mkRows('shoaib', 'x')) && mk2('saad')(mkRows('x', 'saad')));
-  ok('truckMadeByMe: false for someone who did neither, or no username', !mk2('saad')(mkRows('shoaib', 'shoaib')) && !mk2('')(mkRows('', ''))); }
+  ok('truckMadeByMe: false for someone who did neither, or no username', !mk2('saad')(mkRows('shoaib', 'shoaib')) && !mk2('')(mkRows('', '')));
+  const fx = mkRows('shoaib', 'shoaib'); fx[0].sentBack = { by: 'Fahim', fixedAt: '2026-10-15T08:00:00Z', fixedByUser: 'saad' };
+  ok('15f: truckMadeByMe is true for whoever fixed the sent-back truck', mk2('saad')(fx));
+  const fh = mkRows('shoaib', 'shoaib'); fh[0].sentBackHistory = [{ fixedAt: '2026-10-14T08:00:00Z', fixedByUser: 'zain' }];
+  ok('15f: ...also for an earlier fixer', mk2('zain')(fh));
+  const rv = run('Supply Chain', 'saad', fx, 'reviewTruck'); ok('15f: the fixer is refused inside Review itself', /fixed this truck/.test(rv.toasts.join(' ')) && !reviewed(rv)); }
 report();

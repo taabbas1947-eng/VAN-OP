@@ -6,20 +6,20 @@ const modal = { innerHTML: '', classList: { add() {}, remove() {} } };
 const sb = { console, toast: m => toasts.push(m), save() {}, render() {}, closeModal() {}, fmt: x => String(Math.round(x)), _pe: x => String(x), _av: x => String(x), _tx: x => String(x || ''),
   $: () => modal, canEdit: () => true, evToday: () => '2026-10-10', evDateGate: () => null, evStamp: () => ({}), logAction: m => logs.push(m), dcRejectNote: (r, w, k) => rejects.push({ w, k }), _releaseShip() {},
   qcVerifyGate: () => null, qcAskSeen: () => false, qcNaGate: () => null, qcVerifyRecord: v => [{ key: 'price', result: v[0] }, { key: 'batch', result: v[1] }, { key: 'dates', result: v[2] }],
-  QC_CHECKLIST: ['a', 'b'], qcVerifyFailed: v => (v || []).some(x => x === 'fail'), state: {}, renderDispatchQA() {} };
+  QC_CHECKLIST: ['a', 'b'], qcPackGate: () => '', qcPackRecord: () => [], qcChecklistRecord: (c, f) => f.marks.map(m => ({ item: 'x', result: m })), qcVerifyFailed: v => (v || []).some(x => x === 'fail'), state: {}, renderDispatchQA() {} };
 vm.createContext(sb);
 vm.runInContext(['lotById', 'dispRowsFor', 'dcBatchLines', 'dispQAPallet', 'dispPalletBlock', 'dispQASubmit'].map(grab).join('\n') + '\nvar dispQAForm={};\nfunction renderDispatchQA(){}', sb);
 const fresh = () => { toasts = []; rejects = []; logs = []; sb.state = { role: 'QA Inspector',
   orders: [{ po: 'P-1', lines: [{ id: 'L1', brand: 'Enrich', dispatched: 20000 }] }],
   packingLog: [{ id: 'PK-A', mfgDate: '2026-09-25', expDate: '2028-09-25', brandBatchNo: 'VAN6JE001' }, { id: 'PK-B', mfgDate: '2026-09-25', expDate: '2028-09-25', brandBatchNo: 'VAN6JW001' }],
   shipments: [{ dispId: 'D1', dc: '5229', po: 'P-1', lid: 'L1', brand: 'Enrich', kg: 9000, batches: [{ lotId: 'PK-B', batch: 'HG26036', brand: 'VAN6JW001', kg: 832 }, { lotId: 'PK-A', batch: 'HG26036', brand: 'VAN6JE001', kg: 8168 }] }] };
-  vm.runInContext('dispQAForm={dispId:"D1",marks:["pass","pass"],verify:["pass","","pass"],pallet:{},officer:"Sana",remarks:"",date:"2026-10-10",dateReason:""}', sb); };
+  vm.runInContext('dispQAForm={dispId:"D1",marks:["pass","pass"],verify:["pass","","pass"],pallet:{},officer:"Sana",remarks:"",date:"2026-10-10",dateReason:"",when:"during"}', sb); };
 const F = () => vm.runInContext('dispQAForm', sb);
 fresh(); const ls = vm.runInContext('dcBatchLines', sb)(sb.state.shipments);
 eq(ls.map(l => l.no), ['VAN6JW001', 'VAN6JE001'], 'every batch line of the DC is listed'); eq(ls[1].mfg, '2026-09-25', 'with the mfg date of its own packing run');
 ok('the block shows each batch number in large type', /VAN6JW001/.test(vm.runInContext('dispPalletBlock', sb)(sb.state.shipments)));
 // not marked
-vm.runInContext('dispQASubmit()', sb); ok('submitting without checking the pallet is refused', toasts.some(t => /Check the batch on the pallet/.test(t)) && !sb.state.shipments[0].qa);
+vm.runInContext('dispQASubmit()', sb); ok('submitting without checking the pallet is refused', toasts.some(t => /Check the batch on the bags/.test(t)) && !sb.state.shipments[0].qa);
 // one different
 vm.runInContext('dispQAPallet', sb)(ls[0].k, 'ok'); eq(F().verify[1], '', 'one line marked: the batch verdict waits');
 vm.runInContext('dispQAPallet', sb)(ls[1].k, 'diff'); eq(F().verify[1], 'fail', 'one Different fails the batch check');

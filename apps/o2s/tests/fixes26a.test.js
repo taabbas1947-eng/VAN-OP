@@ -265,7 +265,7 @@ function rcWorld() {
       masters: { byproductRules: [{ from: 'Sulfur Coated Urea', to: 'Nitro Sulfur' }], varianceReasons: ['Wastage'] },
       batches: [{ id: 'B1', batchNo: 'VU26185', base: 'Sulfur Coated Urea', kind: 'bulk', status: 'closed', plannedKg: 7000, producedKg: 7000, packedKg: 6450, disposedKg: 0, lots: [] }] },
     TODAY: new Date('2026-09-26T00:00:00Z'), save() {}, render() {}, closeModal() {}, logAction(m) { b.logged.push(m); }, fmt: n => String(n), coaItemOf: x => x.base, multiTrueUpIfPlaced() {},
-    may: c => ['packing.reconcile', 'byproduct.call'].indexOf(c) > -1, denyRight: (c, w) => 'no ' + w, fyKey: () => '2026-27', batchOwnerInFY: () => false, validateBatchNo: () => true, SEED: {} };
+    may: c => ['packing.reconcile', 'byproduct.call'].indexOf(c) > -1, denyRight: (c, w) => 'no ' + w, fyKey: () => '2026-27', batchOwnerInFY: () => false, batchNearGate: () => '', validateBatchNo: () => true, SEED: {} };
   b.toast = m => b.toasts.push(String(m)); b.$ = () => ({ set innerHTML(v) { b.html = v; }, classList: { add() {} } });
   vm.createContext(b);
   vm.runInContext("var recForm=null, callBpForm=null, _seq=100; function nid(p){ return p+(++_seq); }\n" + ['prodSkin','prodTiles','batchRemainderKg','recAllocated','recItem','recSetKg','allBasesForRecon','openReconcile','renderReconcile','saveReconcile','consumeDivertSources','callBpTargets','openCallBp','renderCallBp','submitCallBp'].map(grab).join('\n'), b);

@@ -9,14 +9,14 @@ const sb = { console, toast: m => toasts.push(m), save: () => saves++, render() 
   bpEsc: x => String(x == null ? '' : x), $: () => modal, may: () => true, denyRight: () => 'no', dcControlOn: () => true, qaRequiredOn: () => true, evStamp: () => ({}), _uid: p => p + (++uid),
   TODAY: new Date('2026-10-10'), state: {}, renderDispatchModal() { } };
 vm.createContext(sb);
-vm.runInContext(['lotBaseNo', 'lotBrandNo', 'lotHasBatch', 'lotAvail', 'lotClearedKg', 'lotShipKg', 'lotsFor', 'lineCleared', 'fifoAlloc', 'dcLots', 'dcDefaultTake', 'dcTakeSum', 'dcManualAlloc', 'dcManualCheck', 'dcSharedLot', 'dcPickerBox', 'shipReadySince', 'nextDCNo', 'saveDispatch', 'dispOrderLine', 'dispLotTake', 'dispLotReset', 'dispQtyDone', 'mpCreate', 'mpSelLines', 'mpOrdersIncluded', 'mpLotLine', 'mpLotTake', 'mpLotReset', 'mpQtyDone', 'shortClient'].map(grab).join('\n') + '\nvar dispForm=null, mpForm=null; function renderMPShip(){}', sb);
+vm.runInContext(['lotBaseNo', 'lotBrandNo', 'lotHasBatch', 'lotAvail', 'lotClearedKg', 'lotShipKg', 'lotsFor', 'lineCleared', 'fifoAlloc', 'dcLots', 'dcDefaultTake', 'dcTakeSum', 'dcManualAlloc', 'dcManualCheck', 'dcSharedLot', 'dcPickerBox', 'shipReadySince', 'nextDCNo', 'saveDispatch', 'dispOrderLine', 'dispLotTake', 'dispLotReset', 'dispQtyDone', 'mpCreate', 'mpSelLines', 'mpOrdersIncluded', 'mpLotLine', 'mpLotTake', 'mpLotReset', 'mpQtyDone', 'shortClient', 'truckVehicleRule'].map(grab).join('\n') + '\nvar dispForm=null, mpForm=null; function renderMPShip(){}' + (H.html.match(/var TRUCK_RULE_TXT=[^;]+;/) || [''])[0], sb);
 const run = s => vm.runInContext(s, sb);
 /* one product, three lots of the same Enrich: JE001 (older), JE002, and a held lot */
 const lot = (id, kg, ins, ship, no, date, o) => Object.assign({ id, baseBatchNo: 'HG26036', brand: 'Enrich', brandBatchNo: no, po: 'P-1', lid: 'L1', kg, insKg: ins, shipKg: ship, date, mfgDate: '2026-09-25' }, o || {});
 const fresh = () => { toasts = []; logs = []; saves = 0; sb.state = { role: 'Supply Chain', shipSerial: 0, shipments: [],
   orders: [{ id: 'O1', po: 'P-1', client: 'Maxim', lines: [{ id: 'L1', brand: 'Enrich', dispatched: 0 }] }],
   packingLog: [lot('K1', 10000, 10000, 0, 'VAN6JE001', '2026-10-01'), lot('K2', 10000, 10000, 0, 'VAN6JE002', '2026-10-02'), lot('K3', 5000, 5000, 0, 'VAN6JE003', '2026-10-03')] };
-  run('dispForm={oid:"O1",date:"2026-10-10",dest:"Lahore",transportType:"Ex-factory",bilty:"B1",so:"SO1",lines:[{lid:"L1",brand:"Enrich",rem:25000,qty:12000,on:true}]}'); };
+  run('dispForm={oid:"O1",date:"2026-10-10",dest:"Lahore",transportType:"Ex-factory",bilty:"B1",vehicle:"TLA-9",driver:"Akram",driverContact:"0300-1234567",so:"SO1",lines:[{lid:"L1",brand:"Enrich",rem:25000,qty:12000,on:true}]}'); };
 /* rules for what may ship */
 fresh(); eq(run('lineCleared(state.orders[0],state.orders[0].lines[0])'), 25000, 'all 3 lots ready: 25,000');
 sb.state.packingLog[2].qaHold = true; eq(run('lineCleared(state.orders[0],state.orders[0].lines[0])'), 20000, 'a lot on QA hold does not count as ready');

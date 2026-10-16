@@ -306,7 +306,7 @@ const { ok, eq, report, grab, grabTopVar, html } = H;
 
 /* 11. Build, changelog and Guide move together */
 {
-  ok('BUILD_ID is 2026-10-15f or later', /var BUILD_ID='2026-10-15[f-z]';/.test(html));
+  ok('BUILD_ID is 2026-10-15f or later', (/var BUILD_ID='([^']+)'/.exec(html) || [])[1] >= '2026-10-15f');
   ok('the changelog has the 15f entry', /\{ver:'2026-10-15f', date:'2026-10-15', title:"One stuck rule, Pack from base, and the truck steps Tahir ruled on 15 Oct"/.test(html));
   const rules = grab('guideRules');
   ['What the Stuck batches list means', 'Pack from base', 'Vehicle and driver on every truck', 'Changing a batch at loading', 'Fixing a sent-back truck', 'Truck released: hand the papers to the driver', 'How long a truck job has waited', 'Shared jobs', 'A batch number that looks like another'].forEach(t => ok('The Rules: ' + t, rules.indexOf('<h3>' + t + '</h3>') > -1));

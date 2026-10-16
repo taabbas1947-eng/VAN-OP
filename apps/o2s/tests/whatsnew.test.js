@@ -114,7 +114,7 @@ const run = (c, src) => vm.runInContext(src, c);
 
 /* ================= 6. wired into renderApp() ================= */
 {
-  ok('renderApp() calls checkWhatsNew() after a logged-in render', /render\(\); checkWhatsNew\(\);/.test(html));
+  ok('renderApp() calls checkWhatsNew() after a logged-in render', /render\(\); if\(rsPending\(\)\) openReadSign\(\); else \{ closeReadSign\(\); checkWhatsNew\(\); \}/.test(html));
 }
 
 /* ================= 7. modal uses the app's real mh/mb/mf structure, not a bare <h3> =========

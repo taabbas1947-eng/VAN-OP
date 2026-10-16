@@ -188,6 +188,28 @@ When 2 people save changes within the same few seconds, O2S merges the 2 copies.
 
 ---
 
+### S-10 · Any signed-in login can read every login, name and role · MODULE: PLATFORM
+**Severity: low to moderate · Confirmed by reading server.js · Raised 2026-10-16**
+
+`GET /api/users` needs only a signed-in token (`auth`, not `admin`), and returns every account's username, name and role. A floor login (for example a shared Production login) can list who has which role, including the COO accounts.
+
+**What it lets someone do.** Map the people and roles for a targeted password guess or a phishing message. It does not expose passwords or hashes.
+
+**Suggested handling.** Return only what the screens need to each role (O2S needs names for the Guide and Your people; only Back Office needs usernames and roles), or limit the full list to admins. Raised while documenting O2S (16a); not fixed, platform work.
+
+---
+
+### S-11 · A new login can be created with a 1-character password · MODULE: PLATFORM
+**Severity: moderate · Confirmed by reading server.js · Raised 2026-10-16**
+
+`POST /api/users` (admin only) checks that a password is present but not its length or strength, so an admin can create an account with a password such as "1".
+
+**What it lets someone do.** Guess into a weakly set account.
+
+**Suggested handling.** Refuse passwords under a minimum length on create and on change, on the server. Raised while documenting O2S (16a); not fixed, platform work.
+
+---
+
 ## Closed items
 
 _None yet._
@@ -204,3 +226,4 @@ _None yet._
 | 2026-10-07 | S-07 raised while starting Nigehbaan: the VAN-OP repository on GitHub is public. |
 | 2026-10-10 | S-08 raised from O2S: Render's npm audit shows 6 vulnerable packages; `npm audit fix` clears them. |
 | 2026-10-15 | S-09 raised from O2S 15g: audit rows without ids can be lost when 2 people save at once. |
+| 2026-10-16 | S-10 and S-11 raised while documenting O2S (16a): /api/users readable by any login; no minimum password length on new logins. |

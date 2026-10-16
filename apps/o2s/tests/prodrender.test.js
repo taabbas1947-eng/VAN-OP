@@ -27,7 +27,8 @@ const BLOCKS = [...H.html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/g)].map(m 
 // 2026-09-04: a 6th inline block was added on purpose — a one-line BUILD_ID
 // stamp placed first in <head> so the stale-tab checker can read it from just
 // the first few KB of the page instead of the whole 1.5MB file.
-ok('the app has its six script blocks', BLOCKS.filter(b => b.trim()).length === 6,
+// 2026-10-16a: a 7th block holds the System documentation data (SYSDOC_DATA), last in the file.
+ok('the app has its seven script blocks', BLOCKS.filter(b => b.trim()).length === 7,
    BLOCKS.map(b => b.length).join(','));
 
 /* ---- a sandbox with just enough browser for the renderers ---- */

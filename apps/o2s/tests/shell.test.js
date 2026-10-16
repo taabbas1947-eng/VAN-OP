@@ -277,7 +277,7 @@ ok('the COO is never editable and only the COO edits', /if\(role==='COO'\)\{ toa
 ok('Today, Plant, Back Office, All actions and the Dashboard are not in the screen list', /RE_SCREENS_SKIP=\{today:1,plant:1,backoffice:1,approvals:1,dash:1\}/.test(html));
 ok('department leads are set through setDeptLead', /setDeptLead\(/.test(grab('deptLeadsHTML')));
 ok('a new role goes through addRole with the same 2 inputs', /id="adm_newrole"/.test(grab('newRoleHTML')) && /id="adm_newroledept"/.test(grab('newRoleHTML')) && /onclick="addRole\(\)"/.test(grab('newRoleHTML')));
-ok('the Ismaeel migration also runs when the COO is already signed in', /checkWhatsNew\(\); try\{ if\(state\.role==='COO' && typeof migrateAccountsV1==='function'\) migrateAccountsV1\(\); \}catch\(e\)\{\}/.test(grab('renderApp')));
+ok('the Ismaeel migration also runs when the COO is already signed in', /checkWhatsNew\(\); \} try\{ if\(state\.role==='COO' && typeof migrateAccountsV1==='function'\) migrateAccountsV1\(\); \}catch\(e\)\{\}/.test(grab('renderApp')));
 ok('green save buttons are blue like everything else', /button\.green\{background:var\(--accent\)\}/.test(html));
 ok('the 23s changelog entry comes after 23r', /ver:'2026-09-23r'[\s\S]*ver:'2026-09-23s'/.test(html));
 /* 23t: the door matches the house; everyone lands on Today */

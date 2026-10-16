@@ -453,7 +453,7 @@ const WM = (until, extra) => Object.assign({ id: 'WC' + until, kind: 'wait', unt
   ok('Guide: the same client and product counts as moving', /same client and the same product/i.test(g));
   ok('What’s new for Supply Chain, Production, Plant Manager and COO', /var _n15g=\{'Supply Chain':/.test(html) && /'Production':_mv15g/.test(html) && /'Plant Manager':_mv15g/.test(html) && /'COO':_mv15g/.test(html));
   ok('changelog has 15g', /ver:'2026-10-15g'/.test(html));
-  ok('BUILD_ID is 2026-10-15g or later', /var BUILD_ID='2026-10-15[g-z]';/.test(html));
+  ok('BUILD_ID is 2026-10-15g or later', (/var BUILD_ID='([^']+)'/.exec(html) || [])[1] >= '2026-10-15g');
 }
 
 console.log((fails.length ? fails.map(f => '  FAIL  ' + f).join('\n') + '\n' : '') + '15g: stuck at packing, waiting for client, both cards: ' + pass + ' passed, ' + fail + ' failed');

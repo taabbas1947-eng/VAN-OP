@@ -1,0 +1,842 @@
+{
+ "tab": "api",
+ "title": "API",
+ "ver": "2026-10-16a",
+ "date": "2026-10-16",
+ "owner": "COO (Tahir)",
+ "intro": "Every address O2S calls, and the 2 public addresses it serves to van.com.pk: who may call each one, what goes in and out, the errors, and an example made from the code. O2S has no API versions.",
+ "items": [
+  {
+   "id": "API-01",
+   "title": "Every address O2S calls or serves, at a glance",
+   "owner": "COO (Tahir)",
+   "rules": [],
+   "status": "confirmed",
+   "src": [
+    "server.js app.get/app.post routes",
+    "apps/o2s/public-routes.js header",
+    "o2s.html fetch() calls (grep, 15 Oct)",
+    "CLAUDE.md section 1 module map"
+   ],
+   "blocks": [
+    {
+     "p": "O2S is one web page (o2s.html) that talks to 1 server (server.js). All O2S data is 1 JSON document: the page reads it whole and writes it whole. The table lists every address the page calls, and the public addresses van.com.pk calls. Nothing else is called by O2S."
+    },
+    {
+     "table": {
+      "head": [
+       "Address",
+       "Method",
+       "Who may call",
+       "Called by",
+       "Module that owns it"
+      ],
+      "rows": [
+       [
+        "/api/login",
+        "POST",
+        "Anyone (no sign in)",
+        "doLogin",
+        "PLATFORM"
+       ],
+       [
+        "/api/state",
+        "GET",
+        "Any signed-in login",
+        "bootState, doLogin, startSync, srvUpToDate, smpDispatch",
+        "O2S"
+       ],
+       [
+        "/api/state",
+        "POST",
+        "Any signed-in login",
+        "saveNow",
+        "O2S"
+       ],
+       [
+        "/api/rev",
+        "GET",
+        "Any signed-in login",
+        "startSync (every 7 seconds)",
+        "O2S"
+       ],
+       [
+        "/api/users",
+        "GET",
+        "Any signed-in login",
+        "loadUsers, migrateAccountsV1",
+        "O2S"
+       ],
+       [
+        "/api/users",
+        "POST",
+        "Platform administrator (COO)",
+        "addUser (People)",
+        "O2S"
+       ],
+       [
+        "/api/users/:username",
+        "PUT",
+        "Platform administrator (COO)",
+        "ppSave, saveEditUser, migrateAccountsV1",
+        "O2S"
+       ],
+       [
+        "/api/users/:username",
+        "DELETE",
+        "Platform administrator (COO)",
+        "delUser (only from paintUsers, which nothing calls)",
+        "O2S"
+       ],
+       [
+        "/api/me/password",
+        "POST",
+        "Any signed-in login, for itself",
+        "saveMyPassword",
+        "PLATFORM"
+       ],
+       [
+        "/o2s",
+        "GET",
+        "Anyone (it is the page)",
+        "checkForNewBuild (at most every 10 minutes)",
+        "O2S (served by the catch-all route)"
+       ],
+       [
+        "/api/public/batch/:batch",
+        "GET",
+        "Anyone (no sign in)",
+        "van.com.pk",
+        "O2S"
+       ],
+       [
+        "/api/public/batch/:batch/report.pdf",
+        "GET",
+        "Anyone (no sign in)",
+        "van.com.pk",
+        "O2S"
+       ]
+      ]
+     }
+    },
+    {
+     "note": "GET /api/me exists on the server but O2S does not call it (no fetch of /api/me in o2s.html). The launcher and PD use it. See API-11."
+    }
+   ]
+  },
+  {
+   "id": "API-02",
+   "title": "Sign in, the token, versions and limits (applies to every address)",
+   "owner": "COO (Tahir)",
+   "rules": [],
+   "status": "confirmed",
+   "src": [
+    "server.js makeToken, readToken, auth, loginBlockedFor",
+    "server.js express.json limit and error handler (FIX C5)",
+    "o2s.html authHdr, decodeToken, setSession",
+    "apps/o2s/public-routes.js RATE"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Item",
+       "What the code does"
+      ],
+      "rows": [
+       [
+        "Sign in",
+        "POST /api/login returns a token. The page keeps it in the browser (localStorage key van_token) and sends it on every call as the header Authorization: Bearer <token>."
+       ],
+       [
+        "Token",
+        "Signed by the server (HMAC SHA-256 with SESSION_SECRET). It carries the username, the O2S role and the name, and lasts 30 days. No token, a bad one or an old one: 401 {\"error\":\"unauthorized\"}."
+       ],
+       [
+        "Role inside the token",
+        "O2S reads the role from the token when it opens (decodeToken, restoreSession). A role changed on the server takes effect when that person signs in again. If you move your own role or change your own login on People, O2S signs you out (ppSave); a password reset or a name change of your own does not."
+       ],
+       [
+        "Switched-off login",
+        "A login switched off on People and access gets 401 with 'This account has been switched off. Ask your platform administrator.' on every call, even with a valid token; sign in gives 403 with the same words, but only after the password is right (a wrong password still gives 401)."
+       ],
+       [
+        "Wrong password",
+        "10 failures for one username in 15 minutes, then 429 until the 15 minutes pass. Kept in the server's memory, so a restart clears it."
+       ],
+       [
+        "Body size",
+        "JSON bodies up to 25 MB (express.json limit). Bigger: 413 {\"error\":\"That is too large to upload here.\"}. A body that is not JSON: 400 {\"error\":\"The request could not be read.\"}."
+       ],
+       [
+        "Unknown /api address",
+        "404 {\"error\":\"No such endpoint.\"}"
+       ],
+       [
+        "Server fault",
+        "500 {\"error\":\"<the error text>\"}"
+       ],
+       [
+        "Versions",
+        "O2S does not version its API. There is no /v1 in any address and no version header. The page itself carries BUILD_ID; an open tab checks /o2s for a newer BUILD_ID and then refuses to save until refreshed."
+       ],
+       [
+        "Public addresses",
+        "No sign in. 60 lookups per visitor per 10 minutes (in memory), then 429. Browsers may call them only from https://van.com.pk and https://www.van.com.pk (plus PUBLIC_EXTRA_ORIGINS)."
+       ]
+      ]
+     }
+    },
+    {
+     "note": "SESSION_SECRET: if it is not set, the server makes a temporary one and every login resets on restart. Whether it is set on Render is S-03 in the security register, not confirmed."
+    },
+    {
+     "note": "Corrected 16 Oct 2026 (independent check against the code): the draft said any change to your own account signs you out. ppSave signs out only after a role move or a login rename; the old Edit person sheet (saveEditUser) signs out on any change, but nothing opens it now."
+    }
+   ]
+  },
+  {
+   "id": "API-03",
+   "title": "POST /api/login",
+   "owner": "COO (Tahir); PLATFORM module",
+   "rules": [],
+   "status": "confirmed",
+   "src": [
+    "server.js app.post('/api/login')",
+    "o2s.html doLogin"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Part",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Who may call",
+        "Anyone. No token needed."
+       ],
+       [
+        "Input",
+        "JSON {username, password}. The username is trimmed and made lower case."
+       ],
+       [
+        "Output 200",
+        "{token, user:{name, username, role}}"
+       ],
+       [
+        "Errors",
+        "401 'Incorrect username or password'; 429 'Too many failed sign-ins for this account. Try again in about N minutes, or ask the COO to reset the password.'; 403 switched-off message; 500."
+       ],
+       [
+        "What O2S does next",
+        "Saves the token, reads GET /api/state, lands everyone on Today (if the role can view it), writes 'Signed in' to the action log and saves."
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Example, made from the code (not a real call): POST /api/login body {\"username\":\"<login>\",\"password\":\"...\"} reply 200 {\"token\":\"<payload>.<signature>\",\"user\":{\"name\":\"<full name>\",\"username\":\"<login>\",\"role\":\"Supply Chain\"}}"
+    }
+   ]
+  },
+  {
+   "id": "API-04",
+   "title": "GET /api/state: read all O2S data",
+   "owner": "COO (Tahir)",
+   "rules": [],
+   "status": "confirmed",
+   "src": [
+    "server.js app.get('/api/state'), stripUsers",
+    "o2s.html bootState, doLogin, startSync, srvUpToDate, smpDispatch"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Part",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Who may call",
+        "Any signed-in login. The server does not check the O2S role (security register S-01)."
+       ],
+       [
+        "Input",
+        "None. Header Authorization: Bearer <token>. O2S asks with cache: no-store, except smpDispatch, which sends no cache setting."
+       ],
+       [
+        "Output 200",
+        "{rev, data}. rev is a whole number that goes up by 1 on every save. data is the whole O2S document (orders, shipments, batches, packingLog, masters and the rest) with the users list taken out."
+       ],
+       [
+        "Errors",
+        "401 (O2S then signs the person out); 500."
+       ],
+       [
+        "When O2S calls it",
+        "On opening and after sign in; when /api/rev shows a new rev; before a decision that must be taken on the latest records (srvUpToDate, 8 second time limit); before issuing a sample gate pass number (smpDispatch)."
+       ],
+       [
+        "Empty server",
+        "rev 0 and data null: O2S builds the starting data (buildFromSeed) and saves it. Data without orders: O2S refuses to overwrite and retries every 4 seconds."
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Example, made from the code (not a real call): GET /api/state reply 200 {\"rev\":4812,\"data\":{\"orders\":[...],\"shipments\":[...],\"batches\":[...],\"masters\":{...}}}"
+    },
+    {
+     "note": "Corrected 16 Oct 2026 (independent check against the code): smpDispatch reads GET /api/state with the sign-in header only and no cache setting; every other GET /api/state call asks for no-store."
+    }
+   ]
+  },
+  {
+   "id": "API-05",
+   "title": "POST /api/state: save all O2S data, with the x-base-rev check and 409",
+   "owner": "COO (Tahir)",
+   "rules": [],
+   "status": "confirmed",
+   "src": [
+    "server.js app.post('/api/state'), setStateGuarded",
+    "o2s.html save, saveNow, merge3, mergeDupNumbers",
+    "tests firstsave.test.js, fixes26c.test.js",
+    "docs/SECURITY-REGISTER.md S-01, S-09"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Part",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Who may call",
+        "Any signed-in login (S-01: no O2S role check on the server)."
+       ],
+       [
+        "Input",
+        "The whole O2S document as JSON (dataOnly: without currentUser, role, screen, expanded, users). Header X-Base-Rev: the rev this copy was loaded at."
+       ],
+       [
+        "Output 200",
+        "{rev} the new rev."
+       ],
+       [
+        "409 conflict",
+        "Someone saved after this copy was loaded. Reply 409 {conflict:true, rev, data}: the server's current copy. Nothing is written."
+       ],
+       [
+        "Without X-Base-Rev",
+        "The server writes with no check. O2S always sends the header."
+       ],
+       [
+        "Errors",
+        "401 (O2S signs the person out); 413 over 25 MB; 500."
+       ],
+       [
+        "When O2S calls it",
+        "400 ms after the last change (save, then saveNow). Not while a newer build is waiting: the toast says refresh to save."
+       ]
+      ]
+     }
+    },
+    {
+     "lanes": {
+      "roles": [
+       "Page (O2S)",
+       "Server"
+      ],
+      "steps": [
+       {
+        "role": "Page (O2S)",
+        "text": "A change is made; save waits 400 ms, then sends the whole document with X-Base-Rev",
+        "kind": "start"
+       },
+       {
+        "role": "Server",
+        "text": "Does the rev still match? yes: write, rev + 1, reply 200 {rev}; no: reply 409 with the server copy",
+        "kind": "decision"
+       },
+       {
+        "role": "Page (O2S)",
+        "text": "On 409: merge 3 ways (the copy loaded, this copy, the server copy), keep both people's changes, warn if one DC or gate pass number went to 2 trucks",
+        "kind": "task"
+       },
+       {
+        "role": "Page (O2S)",
+        "text": "Send the merged copy again (up to 5 tries, then again every 3 seconds, never stops with the change unsent)",
+        "kind": "sendback"
+       },
+       {
+        "role": "Server",
+        "text": "Accepted: new rev",
+        "kind": "end"
+       }
+      ]
+     }
+    },
+    {
+     "p": "Example, made from the code (not a real call): POST /api/state header X-Base-Rev: 4812, body {\"orders\":[...],...} reply 200 {\"rev\":4813}; or reply 409 {\"conflict\":true,\"rev\":4814,\"data\":{...}}"
+    },
+    {
+     "note": "Known limit: audit rows without an id can be lost in the merge when 2 people save at once (S-09). DC and gate pass numbers are taken as highest + 1 in each copy, so a clash is possible; O2S says so after the merge (mergeDupNumbers)."
+    }
+   ]
+  },
+  {
+   "id": "API-06",
+   "title": "GET /api/rev: has anything changed?",
+   "owner": "COO (Tahir)",
+   "rules": [],
+   "status": "confirmed",
+   "src": [
+    "server.js app.get('/api/rev')",
+    "o2s.html startSync"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Part",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Who may call",
+        "Any signed-in login."
+       ],
+       [
+        "Output 200",
+        "{rev} only, no data."
+       ],
+       [
+        "Errors",
+        "401 (O2S signs the person out); 500."
+       ],
+       [
+        "When O2S calls it",
+        "Every 7 seconds, but not when the tab is hidden, while typing in a box, while a sheet is open, while an entry is unsaved, or while a save is waiting. A new rev makes O2S read GET /api/state and merge."
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Example, made from the code (not a real call): GET /api/rev reply 200 {\"rev\":4813}"
+    }
+   ]
+  },
+  {
+   "id": "API-07",
+   "title": "GET /api/users and POST /api/users: list logins, add a person",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-019"
+   ],
+   "status": "confirmed",
+   "src": [
+    "server.js app.get('/api/users'), app.post('/api/users'), admin, setModuleRole",
+    "o2s.html loadUsers, addUser, migrateAccountsV1"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Part",
+       "GET /api/users",
+       "POST /api/users"
+      ],
+      "rows": [
+       [
+        "Who may call",
+        "Any signed-in login",
+        "Platform administrator: a token with role COO, or a platform admin grant. Others: 403 'admin only'."
+       ],
+       [
+        "Input",
+        "None",
+        "{name, username, password, role}. Role left out: KAM."
+       ],
+       [
+        "Output 200",
+        "[{username, name, role}] sorted by username. No password data.",
+        "{ok:true}. The role is also written to the platform's user_module_roles (setModuleRole)."
+       ],
+       [
+        "Errors",
+        "401; 500",
+        "400 'name, username, password required'; 409 'username exists'; 401; 403; 500"
+       ],
+       [
+        "O2S use",
+        "People list; the one-time move of Ismaeel's login to the role Finance",
+        "Back Office, People, Add person"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Example, made from the code (not a real call): POST /api/users body {\"name\":\"Muhammad Imran\",\"username\":\"imran\",\"password\":\"...\",\"role\":\"KAM\"} reply 200 {\"ok\":true}"
+    },
+    {
+     "note": "No password length is checked on this address (the own-password address asks for at least 6). Any signed-in login can read the list of logins and roles."
+    }
+   ]
+  },
+  {
+   "id": "API-08",
+   "title": "PUT /api/users/:username: move a person to a role, rename, reset a password",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-019"
+   ],
+   "status": "confirmed",
+   "src": [
+    "server.js app.put('/api/users/:username')",
+    "o2s.html ppSave, saveEditUser, migrateAccountsV1"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Part",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Who may call",
+        "Platform administrator (COO). Others: 403 'admin only'."
+       ],
+       [
+        "Input",
+        "{name, username, role, password}. Each is kept as it was when left out; a password is set only when sent."
+       ],
+       [
+        "Output 200",
+        "{ok:true}. A rename carries the person's platform role rows to the new username; a role change goes through setModuleRole and is written to the access log."
+       ],
+       [
+        "Errors",
+        "404 'not found'; 409 'username exists'; 400 'need at least one COO' (the last COO cannot be moved off COO); 401; 403; 500."
+       ],
+       [
+        "O2S use",
+        "People: Move to a role, Reset password, Rename. O2S logs the change and signs you out if you moved your own role or changed your own login; a password reset of your own does not sign you out."
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Example, made from the code (not a real call): PUT /api/users/<login> body {\"name\":\"<full name>\",\"username\":\"<login>\",\"role\":\"Warehouse\"} reply 200 {\"ok\":true}"
+    },
+    {
+     "note": "Corrected 16 Oct 2026 (independent check against the code): sign-out rule taken from ppSave (if mode is role, or the login changed)."
+    }
+   ]
+  },
+  {
+   "id": "API-09",
+   "title": "DELETE /api/users/:username: remove a login",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-008"
+   ],
+   "status": "not confirmed",
+   "src": [
+    "server.js app.delete('/api/users/:username')",
+    "o2s.html delUser, paintUsers, screenPeople"
+   ],
+   "ask": "The People screen has no Delete button today; only an old screen that nothing opens does. Should O2S: A) keep the delete address unused, B) remove the old Delete code, C) use Switch off on People and access for leavers only?",
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Part",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Who may call",
+        "Platform administrator (COO)."
+       ],
+       [
+        "Output 200",
+        "{ok:true}; the person's platform role rows are removed too."
+       ],
+       [
+        "Errors",
+        "404 'not found'; 400 'cannot delete yourself'; 400 'cannot delete last COO'; 401; 403; 500."
+       ],
+       [
+        "O2S use",
+        "Only delUser calls it, and only paintUsers (the old Users and Access screen) draws that button. Nothing calls paintUsers, so O2S does not delete logins today."
+       ]
+      ]
+     }
+    },
+    {
+     "note": "The platform ruling of 27 Sep 2026 is that leavers are switched off, never deleted (server.js comment above auth)."
+    }
+   ]
+  },
+  {
+   "id": "API-10",
+   "title": "POST /api/me/password: change my own password",
+   "owner": "COO (Tahir); PLATFORM module",
+   "rules": [],
+   "status": "confirmed",
+   "src": [
+    "server.js app.post('/api/me/password')",
+    "o2s.html openMyPassword, saveMyPassword"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Part",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Who may call",
+        "Any signed-in login, for its own password only."
+       ],
+       [
+        "Input",
+        "{current, password}"
+       ],
+       [
+        "Output 200",
+        "{ok:true}"
+       ],
+       [
+        "Errors",
+        "400 'The new password must be at least 6 characters.'; 400 'The new password is the same as the current one.'; 401 'The current password is not right.'; 401 no token; 500."
+       ],
+       [
+        "O2S use",
+        "Tap your name, Change my password. O2S also checks 6 characters and that the 2 new boxes match before it sends."
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Example, made from the code (not a real call): POST /api/me/password body {\"current\":\"...\",\"password\":\"...\"} reply 200 {\"ok\":true}"
+    }
+   ]
+  },
+  {
+   "id": "API-11",
+   "title": "GET /api/me: on the server, not used by O2S",
+   "owner": "COO (Tahir); PLATFORM module",
+   "rules": [],
+   "status": "confirmed",
+   "src": [
+    "server.js app.get('/api/me')",
+    "o2s.html (no call to /api/me)"
+   ],
+   "blocks": [
+    {
+     "p": "Returns {username, name, title, o2sRole, platformAdmin, modules, adminModules} for the signed-in login. It drives the launcher tiles. O2S takes its role from the token instead and never calls this address."
+    }
+   ]
+  },
+  {
+   "id": "API-12",
+   "title": "GET /o2s: the page itself, and the newer-build check",
+   "owner": "COO (Tahir)",
+   "rules": [],
+   "status": "confirmed",
+   "src": [
+    "server.js app.get('*') catch-all",
+    "o2s.html checkForNewBuild, dismissBuildBanner, saveNow",
+    "tests buildid.test.js header"
+   ],
+   "blocks": [
+    {
+     "p": "Any address that no other route claims (and that does not start with /api) is answered with o2s.html, sent with no-store. An open O2S tab fetches /o2s at most once every 10 minutes, reads only the first 4,000 characters, and compares BUILD_ID. If it differs, a banner asks for a refresh and saving is blocked until the page is refreshed."
+    },
+    {
+     "p": "Example, made from the code (not a real call): GET /o2s reply 200 text/html, starting with ... BUILD_ID='2026-10-16a' ..."
+    },
+    {
+     "note": "Corrected 16 Oct 2026 (independent check against the code): the example BUILD_ID was 2026-10-15g; the file read tonight carries 2026-10-16a."
+    }
+   ]
+  },
+  {
+   "id": "API-13",
+   "title": "GET /api/public/batch/:batch: is there an approved lab report for this bag?",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-020"
+   ],
+   "status": "confirmed",
+   "src": [
+    "apps/o2s/public-routes.js header (Tahir's rulings 3 Oct 2026), find, buildIndex, headers",
+    "tests publicbatch.test.js header"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Part",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Who may call",
+        "Anyone, no sign in. Read only: nothing here writes O2S data."
+       ],
+       [
+        "Input",
+        "The batch number printed on the bag. Trimmed, upper case, spaces removed; must be 3 to 20 letters, digits or hyphens. Internal production and lot numbers are never accepted."
+       ],
+       [
+        "Output 200",
+        "{batch, approved_on, report_url}"
+       ],
+       [
+        "404",
+        "Empty body: no such printed number, or not every lot behind it has an approved COA, or the number is not valid."
+       ],
+       [
+        "429",
+        "Empty body: more than 60 lookups from one visitor in 10 minutes."
+       ],
+       [
+        "500",
+        "Empty body; the reason goes to the server log only."
+       ],
+       [
+        "Rules inside",
+        "A number used in 2 financial years (July to June) answers with the newest year. Reversed or void packing runs are left out. The index is rebuilt only when the O2S rev changes."
+       ],
+       [
+        "Headers",
+        "Cache-Control no-store; X-Robots-Tag noindex; Access-Control-Allow-Origin only for van.com.pk and www.van.com.pk."
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Example, made from the code (not a real call): GET /api/public/batch/VAN6JE001 reply 200 {\"batch\":\"VAN6JE001\",\"approved_on\":\"2026-09-20\",\"report_url\":\"https://.../api/public/batch/VAN6JE001/report.pdf\"}"
+    }
+   ]
+  },
+  {
+   "id": "API-14",
+   "title": "GET /api/public/batch/:batch/report.pdf: the lab report as a PDF",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-020",
+    "R-016"
+   ],
+   "status": "confirmed",
+   "src": [
+    "apps/o2s/public-routes.js writeReport, drawCoa, publicCoa, summaryCoa, layoutOf"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Part",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Who may call",
+        "Anyone, no sign in. Same checks, limits and 404 rules as API-13."
+       ],
+       [
+        "Output 200",
+        "application/pdf, form QCL-FRM-12.03 Quality Analysis Report, A4. Opens and prints; copying, editing and text extraction are refused (random owner password per download); watermark and download stamp on every page."
+       ],
+       [
+        "On the report",
+        "Batch No. (the printed number), Mfg and Exp date, test details, issue date and revision, the 6 table columns with Remarks and Overall, the disclaimer, signature roles and dates, and the approver's name only when O2S holds a person's name."
+       ],
+       [
+        "Never on the report",
+        "Item name, source, Q.C. No., quantity, who received the sample, the analyst's and reviewer's names, the deviation line, internal numbers."
+       ],
+       [
+        "Several lots",
+        "REPORT_LAYOUT=summary (default): 1 report, the first FIT lot in production order (the first lot when none is FIT), marked 'Results of production lot i of n of this batch'. A number with only 1 lot gets that lot's report with no such line. REPORT_LAYOUT=per-lot: 1 page per lot."
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Example, made from the code (not a real call): GET /api/public/batch/VAN6JE001/report.pdf reply 200 Content-Type application/pdf, Content-Disposition inline; filename=\"VAN-VAN6JE001-quality-analysis-report.pdf\""
+    },
+    {
+     "note": "Several lots behind 1 number is marked UNDER DISCUSSION in the file header; summary is the default until Tahir rules."
+    },
+    {
+     "note": "Corrected 16 Oct 2026 (independent check against the code): summaryCoa takes the first lot when no lot is FIT, and writeReport uses the single lot as it is when there is only 1 (no lot line)."
+    }
+   ]
+  },
+  {
+   "id": "API-15",
+   "title": "The website's contract and the built public addresses differ",
+   "owner": "not confirmed",
+   "rules": [],
+   "status": "not confirmed",
+   "src": [
+    "apps/o2s/docs/O2S endpoints for van.com.pk, spec for the web team, 10 Sep 2026.md",
+    "apps/o2s/public-routes.js (3 Oct 2026)"
+   ],
+   "ask": "The 10 Sep spec for the web team asks for product_slug, status and certificate.pdf; the server built on 3 Oct answers batch, approved_on, report_url and report.pdf. Is the website's o2s.ts: A) already changed to the built answer, B) still on the 10 Sep spec, C) not switched on yet?",
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "10 Sep spec",
+       "Built 3 Oct"
+      ],
+      "rows": [
+       [
+        "GET {base}/batch/{batch} with batch, product_slug, product_name, analysis, pack, made_on, released_on, status, certificate_url",
+        "GET /api/public/batch/:batch with batch, approved_on, report_url"
+       ],
+       [
+        "GET {base}/batch/{batch}/certificate.pdf",
+        "GET /api/public/batch/:batch/report.pdf"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "API-16",
+   "title": "Server addresses O2S does not use",
+   "owner": "COO (Tahir); PLATFORM and PD modules",
+   "rules": [],
+   "status": "confirmed",
+   "src": [
+    "server.js routes list",
+    "CLAUDE.md section 1"
+   ],
+   "blocks": [
+    {
+     "list": [
+      "/api/health (no sign in): {ok:true}",
+      "/api/platform/catalogue, users, access (POST, DELETE), admin, people/:username (PATCH), people/:username/password, people/:username/active, people/:username/history, holders: the launcher's People and access",
+      "/api/pd/*: Product Development, in apps/pd/pd-routes.js",
+      "/robots.txt, /assets, /, /launcher, /drop, /pd, /nigehbaan: pages and files of other apps"
+     ]
+    },
+    {
+     "p": "A role can also be given or taken away from the launcher (POST or DELETE /api/platform/access). It writes the same O2S role column O2S reads, so O2S sees it at the person's next sign in."
+    }
+   ]
+  }
+ ]
+}

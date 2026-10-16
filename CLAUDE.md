@@ -150,6 +150,24 @@ cards), and the changelog entry. `apps/o2s/tests/guide.test.js` pins what the Gu
 say; add lines to it with each change. A change whose Guide is not updated is not
 finished.
 
+**System documentation moves with every app — Tahir's rule, 15 Oct 2026 (added
+here 16 Oct 2026).** Every app on this platform keeps System documentation from
+day one: process flows, data flows, system logic, data schemas, API, dated
+decisions, the Guide, the change log, formulas and rules, data dictionary,
+access and roles, tests and open issues. Whoever builds or changes anything,
+in any app or on the platform, updates the documentation **in the same change**:
+a new or changed flow, rule, data list, field, API address, role, right or
+decision goes into its part with the date, an owner, and its rule number where
+a rule applies. Anything not proven is written as "Not confirmed" with the
+question for Tahir. A change whose documentation is not updated is not finished.
+Each app has a test that fails the build when its documentation is missing an
+entry (O2S: `apps/o2s/tests/audit16a.test.js`). O2S's documentation source is
+`apps/o2s/docs/System Documentation/` (1 JSON file per part); edit it there,
+run its `build_sysdoc.py` to rebuild the data inside `o2s.html`, then run the
+tests. Never edit that data in `o2s.html` by hand. The app page can be opened before
+sign-in, so security findings never go into it; they stay in
+`docs/SECURITY-REGISTER.md`.
+
 ## 2A. Security and access control are NOT Tahir's job
 
 **Ownership.** Security, authentication, passwords, access control and

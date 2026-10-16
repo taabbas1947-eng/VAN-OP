@@ -1,0 +1,37 @@
+R-001	Why you cannot back-date
+R-002	Why there is no bulk entry
+R-003	The 2-person rules
+R-004	Why packing asks for the shift, the in-charge and the packs
+R-005	FOC samples
+R-006	When the AQCM or the QCM is on leave
+R-007	Moving packed stock to another PO
+R-008	Nothing is deleted
+R-009	A number moves only with its record
+R-010	The price on a new order
+R-011	See it before you sign it; every no has a way back
+R-012	A wrong batch number
+R-013	Which batch goes on the truck
+R-014	N/A on an inspection
+R-015	QA checks by pack type
+R-016	Every lot is tested on its own
+R-017	The pre-shipment report
+R-018	What a sale is
+R-019	Roles, not people
+R-020	What is never on a customer document
+R-021	Which reports you can open
+R-022	What the Stuck batches list means
+R-023	Pack from base
+R-024	Stuck at packing: close short or keep
+R-025	Waiting for production
+R-026	Vehicle and driver on every truck
+R-027	Changing a batch at loading
+R-028	Fixing a sent-back truck
+R-029	Truck released: hand the papers to the driver
+R-030	How long a truck job has waited
+R-031	Shared jobs
+R-032	A batch number that looks like another
+R-033	How much a batch may make
+R-034	Going back from a printed paper
+R-035	Where to find a copy
+R-036	Reading and signing what changed
+R-037	System documentation

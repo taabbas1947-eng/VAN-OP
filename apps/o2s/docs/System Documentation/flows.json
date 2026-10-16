@@ -1,0 +1,2270 @@
+{
+ "tab": "flows",
+ "title": "Process flow diagrams",
+ "ver": "2026-10-16a",
+ "date": "2026-10-16",
+ "owner": "not confirmed",
+ "intro": "Each item is one O2S process, drawn as swimlanes: every step sits in the lane of the role that does it, in order, with decisions giving every outcome and send backs going to the named person. Traced from build 2026-10-15g (actionItems, the Guide, TD_LABEL, TD_RIGHT and the save functions). Steps marked with a rule number follow that Guide rule.",
+ "items": [
+  {
+   "id": "PF-01",
+   "title": "New PO, acknowledge, and PO sent back",
+   "owner": "Finance (enters the PO), Supply Chain (acknowledges it)",
+   "rules": [
+    "R-010",
+    "R-011",
+    "R-008"
+   ],
+   "status": "not confirmed",
+   "src": [
+    "fn submitPO",
+    "fn clientsForChannel",
+    "fn openAckSheet",
+    "fn ackOrder",
+    "fn sendBackPO",
+    "fn poOwner",
+    "fn poReturnFixed",
+    "fn actionItems (labels Acknowledge, PO sent back)",
+    "fn acEscalation (Acknowledge: 1 day, Plant Manager)",
+    "TD_LABEL",
+    "TD_RIGHT (Acknowledge = order.acknowledge)",
+    "SCREENS entry owners Finance, CFO, COO",
+    "fn guideHow (steps Received, Materials)",
+    "fn guideMyJob (26 Sep notes for Supply Chain and Finance)",
+    "tests/neworder.test.js",
+    "tests/poentry.test.js",
+    "OP-HANDOFF-O2S.md 26 Sep (26a, Acknowledge opens the PO)",
+    "o2s.html CORRECT_ENTITY.orderLine (fields ordered, committed, printPrice, invoicePrice; amend KAM, COO)",
+    "fn openPoReturn (correctCanAmend('order'); \"What did you fix? (optional)\")"
+   ],
+   "blocks": [
+    {
+     "p": "An order exists in O2S before anything else moves. Finance enters it on New order; Supply Chain reads it and acknowledges it, or sends it back with a reason."
+    },
+    {
+     "lanes": {
+      "roles": [
+       "Finance",
+       "Supply Chain",
+       "Plant Manager"
+      ],
+      "steps": [
+       {
+        "role": "Finance",
+        "text": "Open New order. Pick the channel and an Active customer. A customer still waiting for the CFO is not offered.",
+        "kind": "start"
+       },
+       {
+        "role": "Finance",
+        "text": "Enter each product: quantity, pack size, invoice price (PKR per Kg/L), committed date. Enter payment terms and the ERP SO #. Both are required.",
+        "kind": "task",
+        "rule": "R-010"
+       },
+       {
+        "role": "Finance",
+        "text": "Price more than 5% from this customer's last price for the product, net of FED (first order: last price to anyone)? yes: write the reason under the price, 5 characters or more; no: go on.",
+        "kind": "decision",
+        "rule": "R-010"
+       },
+       {
+        "role": "Finance",
+        "text": "Print-on-pack answered (price set on this PO, current list price, or no price)? no: Submit is refused; yes: go on. An FOC PO is always no price. See PF-03.",
+        "kind": "decision"
+       },
+       {
+        "role": "Finance",
+        "text": "Confirm the per-pack prices match the client PO and submit. A PO number already used is refused. The order is saved with the name of the person who entered it.",
+        "kind": "task"
+       },
+       {
+        "role": "Supply Chain",
+        "text": "Acknowledge job on Today. It opens the PO first: lines, quantities, prices, terms.",
+        "kind": "task",
+        "rule": "R-011"
+       },
+       {
+        "role": "Supply Chain",
+        "text": "Is the PO right? yes: Acknowledge (date and role stamped); no: Send back with a reason of 5 characters or more.",
+        "kind": "decision",
+        "rule": "R-011"
+       },
+       {
+        "role": "Supply Chain",
+        "text": "Sent back to whoever entered the PO (else Finance). It shows as PO sent back on their Today with the reason. Acknowledge is refused while it is back.",
+        "kind": "sendback",
+        "rule": "R-011"
+       },
+       {
+        "role": "Finance",
+        "text": "Open PO sent back, correct the order, then press Fixed, send to Supply Chain (a note of what was fixed is optional). Changing the order itself needs Correct, which is the KAM's or the COO's (the invoice price the CFO's or the COO's); Finance asks them. The Acknowledge job comes back to Supply Chain saying who fixed it.",
+        "kind": "task"
+       },
+       {
+        "role": "Plant Manager",
+        "text": "An Acknowledge job waiting 1 day or more also shows on the Plant Manager's Today as escalated.",
+        "kind": "task"
+       },
+       {
+        "role": "Supply Chain",
+        "text": "PO acknowledged. Each line now gets an RM Check job (PF-04).",
+        "kind": "end"
+       }
+      ]
+     }
+    },
+    {
+     "states": {
+      "name": "PO acknowledgement",
+      "rows": [
+       [
+        "entered (not acknowledged)",
+        "Supply Chain acknowledges",
+        "acknowledged"
+       ],
+       [
+        "entered (not acknowledged)",
+        "Supply Chain sends back with reason",
+        "sent back (ackReturn open)"
+       ],
+       [
+        "sent back (ackReturn open)",
+        "entering person fixes it",
+        "entered, fixed (Acknowledge job again)"
+       ]
+      ]
+     }
+    },
+    {
+     "note": "Who may enter a PO is the right order.create; the New order screen belongs to Finance, the CFO and the COO. The Guide (R-008) says the ordered quantity can never be typed later: less is a close short, more is a new order. Correct a record locks it (Ordered · locked), but the Correct button on an order line on Orders (CORRECT_ENTITY orderLine, amend KAM or COO) still offers Ordered (Kg/L) as a field, with a reason, logged in the corrections register."
+    }
+   ],
+   "ask": "The Guide says the ordered quantity can never be typed, but the Correct button on an order line still lets the KAM or the COO change Ordered (with a reason, in the corrections register). Which is right? a) the Guide: lock Ordered on that button too b) the code: the KAM and the COO may correct it with a reason c) not sure, show me the screen"
+  },
+  {
+   "id": "PF-02",
+   "title": "New customer approval before its first order",
+   "owner": "CFO",
+   "rules": [
+    "R-011"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn custSave",
+    "fn pendingCustomerItems",
+    "fn approveCustomer",
+    "fn sendBackCustomer",
+    "fn clientsForChannel",
+    "fn custToggleStatus",
+    "fn backOfficeManualCard (3 · Customers)",
+    "TD_LABEL (Approve customer, Customer sent back)",
+    "tests/customerapproval.test.js"
+   ],
+   "blocks": [
+    {
+     "lanes": {
+      "roles": [
+       "Finance",
+       "CFO"
+      ],
+      "steps": [
+       {
+        "role": "Finance",
+        "text": "Add the customer. Added by anyone other than the CFO or the COO, it is saved as Pending approval.",
+        "kind": "start"
+       },
+       {
+        "role": "CFO",
+        "text": "Approve customer job on Today opens the record first.",
+        "kind": "task",
+        "rule": "R-011"
+       },
+       {
+        "role": "CFO",
+        "text": "Record right? yes: Approve, status Active, the customer can now be picked on New order; no: send back with a reason of 5 characters or more.",
+        "kind": "decision",
+        "rule": "R-011"
+       },
+       {
+        "role": "Finance",
+        "text": "Customer sent back job with the reason: correct it and send it for approval again. The CFO's job then says fixed by name.",
+        "kind": "sendback"
+       },
+       {
+        "role": "CFO",
+        "text": "Customer Active.",
+        "kind": "end"
+       }
+      ]
+     }
+    },
+    {
+     "note": "The COO can also approve or send back. Reactivate cannot turn a pending customer into Active (custToggleStatus)."
+    }
+   ]
+  },
+  {
+   "id": "PF-03",
+   "title": "Print-on-pack decision (which price goes on the bag)",
+   "owner": "Finance",
+   "rules": [
+    "R-017",
+    "R-014"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn submitPO",
+    "fn entryPrintMode",
+    "fn entryPrintEffective",
+    "fn openPrintDecisionPOs",
+    "fn openBulkPrintDecision",
+    "fn saveBulkPrintDecision",
+    "fn bulkPDMayAnswer (right order.print_decision)",
+    "fn packPriceGate",
+    "fn actionItems (label Print price, role Finance)",
+    "fn acEscalation (Print price: 3 days, COO)",
+    "docs/SPEC-06-PRICE-ON-PACK.md",
+    "tests/printdecisionseed.test.js (seedPrintDecisionV1)"
+   ],
+   "blocks": [
+    {
+     "p": "Every PO answers 1 question at entry: which price is printed on the pack. Packing and QA are both told the answer."
+    },
+    {
+     "lanes": {
+      "roles": [
+       "Finance",
+       "Production",
+       "QA Inspector",
+       "COO"
+      ],
+      "steps": [
+       {
+        "role": "Finance",
+        "text": "At New order, answer: a price set on this PO, the current list price, or no price.",
+        "kind": "start"
+       },
+       {
+        "role": "Finance",
+        "text": "Which answer? PO price: type the print price (PKR per pack) on every line; list price: no number is stored, the paper price list is the authority; no price: if these products normally carry a price, a box asks to confirm.",
+        "kind": "decision"
+       },
+       {
+        "role": "Production",
+        "text": "At packing, the pack sheet checks the answer: no price: tick that no price is printed; otherwise enter the price printed on the pack and tick that it was checked.",
+        "kind": "task"
+       },
+       {
+        "role": "QA Inspector",
+        "text": "At the packed-lot and truck inspection, Price on the pack is checked against the answer. List price: write the price read off the bag, for each product on a truck. No price: a price on the bag is a failure. N/A is allowed only on Price on the pack, with a reason in Remarks (R-014).",
+        "kind": "task",
+        "rule": "R-017"
+       },
+       {
+        "role": "Finance",
+        "text": "A PO with no answer (older than the question) raises 1 Print price job that opens the bulk answer screen. Setting POs to no price where the products normally carry one asks to confirm.",
+        "kind": "task"
+       },
+       {
+        "role": "COO",
+        "text": "A Print price job waiting 3 days reaches the COO.",
+        "kind": "task"
+       },
+       {
+        "role": "Finance",
+        "text": "Every PO carries an answer.",
+        "kind": "end"
+       }
+      ]
+     }
+    },
+    {
+     "note": "On 23 Sep the 44 old POs with no answer were answered no price once by seedPrintDecisionV1 (Tahir's ruling); a later answer by a person is never overwritten. New POs cannot be saved without an answer, so the bulk job should now stay empty."
+    }
+   ]
+  },
+  {
+   "id": "PF-04",
+   "title": "Raw material check, purchase request (raise, approve, refuse) and receive",
+   "owner": "Supply Chain",
+   "rules": [
+    "R-011"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn openRMCheck",
+    "fn rmSubmit",
+    "fn rmPRBlocks",
+    "fn rmPRArchive",
+    "fn openPRSheet",
+    "fn approveRMPR",
+    "fn refusePR",
+    "fn openPRRefused",
+    "fn prAskAgain",
+    "fn prDrop",
+    "fn openRMReceive",
+    "fn rmReceiveSubmit",
+    "fn actionItems (labels RM Check, Approve PR, PR refused, Receive)",
+    "fn acEscalation (RM Check 1 d CFO, Receive 1 d CFO, Approve PR 1 d COO)",
+    "fn guideHow (step Materials)",
+    "tests/rmqty.test.js",
+    "OP-HANDOFF-O2S.md 26 Sep (26a)"
+   ],
+   "blocks": [
+    {
+     "lanes": {
+      "roles": [
+       "Supply Chain",
+       "CFO",
+       "COO",
+       "Production"
+      ],
+      "steps": [
+       {
+        "role": "Supply Chain",
+        "text": "RM Check job for each line of an acknowledged PO.",
+        "kind": "start"
+       },
+       {
+        "role": "Supply Chain",
+        "text": "A purchase request already waiting, approved or refused on this line? yes: RM Check is refused; use Receive, or ask again or drop from PR refused; no: go on.",
+        "kind": "decision"
+       },
+       {
+        "role": "Supply Chain",
+        "text": "Raw material for the whole line? full: line ready, no request; part: enter what can be made, a request is raised for the rest; none: a request for the whole line.",
+        "kind": "decision"
+       },
+       {
+        "role": "CFO",
+        "text": "Approve PR job opens the request first.",
+        "kind": "task",
+        "rule": "R-011"
+       },
+       {
+        "role": "CFO",
+        "text": "Approve? yes: approved with the date; no: refuse with a reason of 5 characters or more.",
+        "kind": "decision",
+        "rule": "R-011"
+       },
+       {
+        "role": "Supply Chain",
+        "text": "PR refused job with the reason: Ask the CFO again (say what changed) or Drop the request. Dropping a line that could make nothing sends it back to RM Check.",
+        "kind": "sendback",
+        "rule": "R-011"
+       },
+       {
+        "role": "Supply Chain",
+        "text": "Receive job (only after CFO approval): confirm what arrived, in full or in part. Full: request closed, line ready. Part: the quantity that can be made goes up.",
+        "kind": "task"
+       },
+       {
+        "role": "Supply Chain",
+        "text": "A part-ready line whose request was dropped: once the cleared part is made, RM Check for the rest comes back.",
+        "kind": "task"
+       },
+       {
+        "role": "COO",
+        "text": "Approve PR waiting 1 day reaches the COO. RM Check or Receive waiting 1 day reaches the CFO.",
+        "kind": "task"
+       },
+       {
+        "role": "Production",
+        "text": "Raw material allows production: the Open Production job appears (PF-05).",
+        "kind": "end"
+       }
+      ]
+     }
+    },
+    {
+     "note": "The earlier request is archived on the line (rmPRHistory) before a new RM Check writes over it."
+    },
+    {
+     "note": "Found in code: Ask the CFO again (prAskAgain) and Drop (prDrop) check no role or right; only the PR refused job, addressed to the raiser's role, leads a person there."
+    }
+   ]
+  },
+  {
+   "id": "PF-04b",
+   "title": "Material-wise purchase request with GRN (older path)",
+   "owner": "Supply Chain",
+   "rules": [],
+   "status": "not confirmed",
+   "src": [
+    "fn raisePR",
+    "fn cfoApprovePR",
+    "fn openReceiveMaterials",
+    "fn receivePR",
+    "fn closePR",
+    "fn actionItems (state.prs: Approve PR, PR refused; line Receive raw materials)",
+    "SCHEMA.md live counts 15 Oct: prs 0"
+   ],
+   "ask": "Is the material-wise purchase request (1 request per raw material, received with a GRN #) still used? a) no, only the line request in PF-04 is used b) yes, alongside it c) not sure",
+   "blocks": [
+    {
+     "lanes": {
+      "roles": [
+       "Supply Chain",
+       "CFO"
+      ],
+      "steps": [
+       {
+        "role": "Supply Chain",
+        "text": "A purchase request per raw material (state.prs); a new need is added to the open request for that material.",
+        "kind": "start"
+       },
+       {
+        "role": "CFO",
+        "text": "Approve PR job. Approve? yes: approved, Supply Chain may receive; no: refused with a reason of 5 characters or more, the raiser gets PR refused (ask again or drop).",
+        "kind": "decision",
+        "rule": "R-011"
+       },
+       {
+        "role": "Supply Chain",
+        "text": "Raw material at the bay: receive quantity, GRN # and date per receipt, in full or in part; raw stock goes up.",
+        "kind": "task"
+       },
+       {
+        "role": "Supply Chain",
+        "text": "Close early when enough arrived, or cancel with nothing received.",
+        "kind": "task"
+       },
+       {
+        "role": "Supply Chain",
+        "text": "Request closed when received in full.",
+        "kind": "end"
+       }
+      ]
+     }
+    },
+    {
+     "note": "The code still builds jobs from this list, but the live count on 15 Oct is 0 requests, so whether anyone uses it is not proven."
+    }
+   ]
+  },
+  {
+   "id": "PF-05",
+   "title": "Production run: open batch, log shift output, close batch, reconcile",
+   "owner": "Production",
+   "rules": [
+    "R-033",
+    "R-002",
+    "R-001",
+    "R-032",
+    "R-025",
+    "R-022",
+    "R-008"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn openRun",
+    "fn openBatchModal",
+    "fn openBatch",
+    "fn submitMultiBatch",
+    "fn submitShiftLog",
+    "fn batchOverPct (15)",
+    "fn batchCeilingKg",
+    "fn doCloseBatch",
+    "fn saveReconcile",
+    "fn yieldShortJobs",
+    "fn yieldShortSeen",
+    "fn openReopenBatch",
+    "fn doReopenBatch",
+    "fn settledBatches",
+    "fn closeSettledBatches",
+    "fn multiTrueUpIfPlaced",
+    "fn actionItems (labels Open Production, Close batch, Reopened, Yield short)",
+    "fn acEscalation (Open Production 4 d, Plant Manager)",
+    "fn guideRules (How much a batch may make; Waiting for production)",
+    "tests/batchclose.test.js",
+    "tests/batchqty.test.js",
+    "tests/audit15g.test.js",
+    "OP-HANDOFF-O2S.md 15 Oct (11) 15g",
+    "fn acProduceStallDays ; fn baseStallStart ; fn evDateGate (EV_DEFAULT_THRESHOLD) ; fn batchNearGate (2 minute second press)"
+   ],
+   "blocks": [
+    {
+     "lanes": {
+      "roles": [
+       "Production",
+       "Production Manager",
+       "Plant Manager"
+      ],
+      "steps": [
+       {
+        "role": "Production",
+        "text": "Open Production job (Produce brand, PO). It opens the run sheet for the line.",
+        "kind": "start"
+       },
+       {
+        "role": "Production",
+        "text": "Open a batch: a PO batch (brand made directly for 1 line), a bulk batch (a base made for many orders) or a multi-PO batch. The batch number must be unique in the financial year.",
+        "kind": "task",
+        "rule": "R-032"
+       },
+       {
+        "role": "Production",
+        "text": "Checks pass? a number already used this financial year: refused; a number that looks like one already used (spaces and capitals ignored): refused once, added if pressed again within 2 minutes; on a PO batch only: no raw material confirmed: refused, run RM Check first, and a plan above what the order and raw material allow: refused; a bulk batch needs a base, a number and a planned quantity. All pass: the batch opens.",
+        "kind": "decision",
+        "rule": "R-032"
+       },
+       {
+        "role": "Production",
+        "text": "Log shift output: pick the shift and the in-charge, then the Kg/L, or a reason for no output. Each shift with output becomes a lot (batch-L1, L2 and so on) that the lab tests on its own.",
+        "kind": "task",
+        "rule": "R-002"
+       },
+       {
+        "role": "Production",
+        "text": "Within limits? over 115% of plan: refused, the Plant Manager or COO raises the plan first; on a PO batch, over what the PO line still needs: refused; same shift, in-charge and date already logged: warned once, saved on a second press; older than the allowance (1 day unless set): a reason of 6 characters or more is asked. All pass: saved.",
+        "kind": "decision",
+        "rule": "R-033"
+       },
+       {
+        "role": "Plant Manager",
+        "text": "Open Production job waiting 4 days reaches the Plant Manager as stalled. The clock: for a bulk base, the last logged output on any batch of that base (never before the PO arrived); for a PO line, its last lot or batch opening, or raw material ready when no batch is open yet. Not while the line was packed in the last 7 days or waits for the client.",
+        "kind": "task",
+        "rule": "R-025"
+       },
+       {
+        "role": "Production Manager",
+        "text": "Packing finished: Production or the Production Manager (right packing.reconcile) accounts for what is left on the batch: loss with a reason, by-product (a different product; Sulfur Coated Urea goes to the Nitro Sulfur pool), divert, rework, or keep as bulk stock.",
+        "kind": "task",
+        "rule": "R-008"
+       },
+       {
+        "role": "Production",
+        "text": "Close batch job once everything made is placed. Produced below plan? yes: pick a variance reason, the Plant Manager is told; no: closed on plan.",
+        "kind": "decision",
+        "rule": "R-033"
+       },
+       {
+        "role": "Plant Manager",
+        "text": "Yield short job: read the reason and mark Seen.",
+        "kind": "task"
+       },
+       {
+        "role": "Plant Manager",
+        "text": "Reopen a closed batch with a reason code and a sentence; it is filed in the corrections register. The close list then says REOPENED and asks to check first.",
+        "kind": "task",
+        "rule": "R-008"
+       },
+       {
+        "role": "Production",
+        "text": "Batch closed at its actual yield. No more output can be added. Settled batches (on plan, all placed) can be closed together from a list where each can be unticked.",
+        "kind": "end"
+       }
+      ]
+     }
+    },
+    {
+     "states": {
+      "name": "Batch",
+      "rows": [
+       [
+        "open",
+        "Production logs shift output",
+        "open (produced goes up, a lot is added)"
+       ],
+       [
+        "open",
+        "Production closes (variance reason if short)",
+        "closed"
+       ],
+       [
+        "closed",
+        "Plant Manager reopens with reason",
+        "open (close history kept)"
+       ],
+       [
+        "open or closed",
+        "Production Manager reconciles the remainder",
+        "reconciled (disposed Kg recorded; close is separate)"
+       ]
+      ]
+     }
+    },
+    {
+     "note": "Reconcile does not close the batch, and closing does not close the order: what is still owed stays on What to make until another batch is made or the line is closed short (guideHow, Produced)."
+    }
+   ]
+  },
+  {
+   "id": "PF-06",
+   "title": "Lab QC: sample to approved COA, every lot tested on its own",
+   "owner": "QCM",
+   "rules": [
+    "R-016",
+    "R-003",
+    "R-011",
+    "R-006"
+   ],
+   "status": "not confirmed",
+   "src": [
+    "fn labFlowOn (masters.labFlow.on)",
+    "fn labV2Items",
+    "fn openLabAssign",
+    "fn labAssignConfirm",
+    "fn openBench",
+    "fn benchSave",
+    "fn coaSubmitAnalyst",
+    "fn coaReview",
+    "fn coaApprove",
+    "fn coaSendBack",
+    "fn coaOpenReturn",
+    "fn coaRework",
+    "fn coaDeviation",
+    "fn reworkDone",
+    "fn labLotWaitsRep (LAB_REP_RULE=false)",
+    "fn labCopyRep",
+    "fn actionItems (labels Assign sample, Lab test, Lab late, Lab QC, Correct COA, Review, Approve, Rework lot)",
+    "fn acEscalation (Lab test late: QCM; Lab QC, Assign sample, Review, Approve: 1 d Plant Manager; Correct COA: 1 d QCM)",
+    "fn guideHow (step Lab)",
+    "fn guideRules (Every lot is tested on its own; 2-person rules)",
+    "tests/labassign.test.js",
+    "OP-HANDOFF-O2S.md 13 Oct (6) every lot tested on its own",
+    "OP-HANDOFF-O2S.md 26 Sep RESUME block (labFlow stays OFF by ruling)"
+   ],
+   "ask": "Is the lab's test assignment (QCM assigns each test to an analyst) switched on in live O2S today? a) no, still off as ruled on 26 Sep, 1 Lab Rep drafts the whole COA b) yes, switched on after 26 Sep c) not sure",
+   "blocks": [
+    {
+     "lanes": {
+      "roles": [
+       "Production",
+       "QCM",
+       "Lab Rep",
+       "AQCM",
+       "Plant Manager"
+      ],
+      "steps": [
+       {
+        "role": "Production",
+        "text": "A shift with output makes a lot. Each lot gets its own lab job and its own certificate; no lot waits for another.",
+        "kind": "start",
+        "rule": "R-016"
+       },
+       {
+        "role": "QCM",
+        "text": "Test assignment switched on by the COO? yes: Assign sample job, the QCM assigns each test to an analyst, with received by, sample quantity, temperature and humidity; no: 1 Lab Rep drafts the whole COA (Lab QC job).",
+        "kind": "decision"
+       },
+       {
+        "role": "Lab Rep",
+        "text": "Each analyst runs his test for every waiting sample on 1 bench sheet; his name and the time go on the result. A test past its due time shows to the QCM; a sample 1 day past due reaches the Plant Manager as Lab late.",
+        "kind": "task"
+       },
+       {
+        "role": "Lab Rep",
+        "text": "All results in: overall FIT? yes: analysed, to the AQCM; no (UNFIT or No result): failed, to the Plant Manager.",
+        "kind": "decision"
+       },
+       {
+        "role": "AQCM",
+        "text": "Review job. Report right? yes: Review, then to the QCM; no: send back to the analyst who drafted it with a note of 10 characters or more. Whoever drafted it or ran a test on it cannot review it.",
+        "kind": "decision",
+        "rule": "R-003"
+       },
+       {
+        "role": "Lab Rep",
+        "text": "Correct COA job shows the note: correct and submit again.",
+        "kind": "sendback",
+        "rule": "R-011"
+       },
+       {
+        "role": "QCM",
+        "text": "Approve job. Report right? yes: Approve; the lot is cleared for packing; no: send back to the AQCM with a note. The reviewer, the drafter and anyone who ran a test cannot approve.",
+        "kind": "decision",
+        "rule": "R-003"
+       },
+       {
+        "role": "AQCM",
+        "text": "Review COA again job shows the QCM's note: review again, or send it on to the analyst.",
+        "kind": "sendback",
+        "rule": "R-011"
+       },
+       {
+        "role": "Plant Manager",
+        "text": "UNFIT lot job. Rework or deviation? rework: write why (5 characters or more), the failed report is kept, Production gets Rework lot; deviation: write why (5 characters or more), the report goes to AQCM review and QCM approval.",
+        "kind": "decision"
+       },
+       {
+        "role": "Production",
+        "text": "Rework lot job: rework it, press Rework done and say what was done. The lab tests the lot again.",
+        "kind": "task",
+        "rule": "R-011"
+       },
+       {
+        "role": "QCM",
+        "text": "Approved COA. It is never sent back: a change is a re-issue as a new revision (QCM or COO).",
+        "kind": "end"
+       }
+      ]
+     }
+    },
+    {
+     "states": {
+      "name": "COA status",
+      "rows": [
+       [
+        "no COA",
+        "QCM assigns (switch on) or Lab Rep opens it",
+        "draft"
+       ],
+       [
+        "draft",
+        "last test result in, or analyst submits; FIT",
+        "analysed"
+       ],
+       [
+        "draft",
+        "last test result in, or analyst submits; UNFIT or No result",
+        "failed"
+       ],
+       [
+        "analysed",
+        "AQCM reviews",
+        "reviewed"
+       ],
+       [
+        "analysed",
+        "AQCM sends back to analyst",
+        "draft"
+       ],
+       [
+        "reviewed",
+        "QCM approves",
+        "approved"
+       ],
+       [
+        "reviewed",
+        "QCM sends back to AQCM",
+        "analysed"
+       ],
+       [
+        "failed",
+        "Plant Manager accepts deviation",
+        "analysed"
+       ],
+       [
+        "failed",
+        "Plant Manager sends to rework",
+        "no COA (failed report kept in history; tested again after Rework done)"
+       ]
+      ]
+     }
+    },
+    {
+     "note": "The COO does not sign certificates: drafting is the Lab Rep's, review the AQCM's (or his leave cover), approval the QCM's (or his cover). See PF-07."
+    },
+    {
+     "note": "The tested lot rule (1 lot tested for the whole batch) is off in code (LAB_REP_RULE=false, 13 Oct). Certificates copied before 13 Oct stay as they are."
+    }
+   ]
+  },
+  {
+   "id": "PF-07",
+   "title": "Lab leave cover for the AQCM or the QCM",
+   "owner": "Plant Manager",
+   "rules": [
+    "R-006",
+    "R-003"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn labLeaveAnnounce",
+    "fn labCoverNeeds",
+    "fn labSetCover",
+    "fn labOnBehalf",
+    "fn labCovers",
+    "fn actionItems (label Name a cover)",
+    "fn guideRules (When the AQCM or the QCM is on leave)",
+    "tests/labcover.test.js",
+    "fn labEndCover"
+   ],
+   "blocks": [
+    {
+     "lanes": {
+      "roles": [
+       "AQCM",
+       "QCM",
+       "Plant Manager",
+       "Lab Rep"
+      ],
+      "steps": [
+       {
+        "role": "AQCM",
+        "text": "Going on leave: tap your name, I am going on leave, and give the days (the QCM does the same).",
+        "kind": "start",
+        "rule": "R-006"
+       },
+       {
+        "role": "Plant Manager",
+        "text": "Name a cover job: pick someone in the lab (not the person on leave) for those days.",
+        "kind": "task",
+        "rule": "R-006"
+       },
+       {
+        "role": "Plant Manager",
+        "text": "No leave announced, but certificates wait a day for someone who has done nothing in the app that day (from 12:00, not on Sunday)? yes: the Plant Manager is also asked to name a cover; no: no job.",
+        "kind": "decision"
+       },
+       {
+        "role": "Lab Rep",
+        "text": "The cover signs 1 line in his own name; the certificate prints for the person on leave. A cover never signs both lines of 1 certificate.",
+        "kind": "task",
+        "rule": "R-003"
+       },
+       {
+        "role": "Plant Manager",
+        "text": "Cover ends on the last day, or earlier when the Plant Manager ends it (labEndCover). Only the Plant Manager names or ends a cover; the COO does not (labSetCover).",
+        "kind": "end"
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "PF-08",
+   "title": "Packing: pack, pack from base, shift, in-charge and packs, big pack run",
+   "owner": "Production",
+   "rules": [
+    "R-004",
+    "R-023",
+    "R-025",
+    "R-012",
+    "R-009",
+    "R-001",
+    "R-022"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn batchPackNow",
+    "fn packJobWanted",
+    "fn openPackFor",
+    "fn plLineBaseItems",
+    "fn openPackFromBase",
+    "fn openPack",
+    "fn doPack",
+    "fn packShiftIncGate",
+    "fn packConfirmGate",
+    "fn packPriceGate",
+    "fn packSimilarNos",
+    "fn packRowExtras (PACK_FLAG_KG=10000)",
+    "fn bigPackJobs",
+    "fn openBigPack",
+    "fn bigPackSeen",
+    "SHELF_DEFAULT_MONTHS=24, SHELF_OVERRIDE_ROLES=[Production]",
+    "fn actionItems (labels Pack, Pack from base, Open Production, Big pack run)",
+    "fn acEscalation (Pack 1 d Production Manager; Pack from base 7 d Plant Manager)",
+    "fn guideRules (Why packing asks for the shift, the in-charge and the packs; Pack from base; Waiting for production)",
+    "tests/packshift.test.js",
+    "tests/packs.test.js",
+    "tests/lotpack.test.js",
+    "tests/audit15g.test.js",
+    "OP-HANDOFF-O2S.md 15 Oct (1) and (2)"
+   ],
+   "blocks": [
+    {
+     "lanes": {
+      "roles": [
+       "Production",
+       "Production Manager",
+       "Plant Manager",
+       "Supply Chain",
+       "COO"
+      ],
+      "steps": [
+       {
+        "role": "Production",
+        "text": "A lot's COA is approved: the batch is cleared to pack.",
+        "kind": "start"
+       },
+       {
+        "role": "Production",
+        "text": "Which job? a PO or multi-PO batch: Pack (opens on that batch and its PO); a base made in bulk: Pack from base, 1 card per order line, ready base and batches oldest first.",
+        "kind": "decision",
+        "rule": "R-023"
+       },
+       {
+        "role": "Production",
+        "text": "On the Pack sheet: the PO line (no packing without a PO), the date, the Shift and the In-charge of the packing run (both start empty), the brand batch #, the price on the pack. Type Kg/L.",
+        "kind": "task",
+        "rule": "R-004"
+       },
+       {
+        "role": "Production",
+        "text": "Checks pass? Kg over what the batch has left or the line needs: cut, the screen says which limit; packs shown and ticked where the line has a pack size; brand batch # used by another brand or as a base batch this year: refused; 1 character from one already used for the brand: asked once more; more than 1 day late: reason asked.",
+        "kind": "decision",
+        "rule": "R-012"
+       },
+       {
+        "role": "Production",
+        "text": "Saved: the packing run carries the shift, in-charge, packs, mfg and expiry dates and who typed it. Packed on the batch and on the line go up.",
+        "kind": "task",
+        "rule": "R-009"
+       },
+       {
+        "role": "Production Manager",
+        "text": "Entry over 10,000 Kg/L, or a shift and in-charge over 10,000 Kg/L on 1 date? yes: Big pack run job, check with the in-charge and mark Seen; no: nothing.",
+        "kind": "decision",
+        "rule": "R-004"
+       },
+       {
+        "role": "COO",
+        "text": "A wrong figure, shift or in-charge is not edited: the record is reversed under Correct a record and packed again. The run is never stopped.",
+        "kind": "task",
+        "rule": "R-008"
+       },
+       {
+        "role": "Production",
+        "text": "Base short of what the line needs: the card says Waiting for production, X of Y ready, and a Production run card asks only for the shortfall.",
+        "kind": "task",
+        "rule": "R-025"
+       },
+       {
+        "role": "Plant Manager",
+        "text": "Nothing packed for the line for 7 days while cleared stock is ready: stuck. For a line on base the Plant Manager is told (Pack from base); for a line on its own PO batch the Production Manager is told through its Pack job (R-024).",
+        "kind": "task",
+        "rule": "R-022"
+       },
+       {
+        "role": "Supply Chain",
+        "text": "The same day Supply Chain gets Stuck at packing (PF-15).",
+        "kind": "task",
+        "rule": "R-024"
+       },
+       {
+        "role": "Production",
+        "text": "Packed lot waits for QA (PF-09).",
+        "kind": "end"
+       }
+      ]
+     }
+    },
+    {
+     "note": "A Pack job not done in 1 day reaches the Production Manager. Shelf life above 24 months is allowed only for the Production role."
+    },
+    {
+     "note": "The Guide says the COO reverses a wrong packing record; the code (CORRECT_ENTITY packingLot) lets Production and the Plant Manager reverse too. See PF-18."
+    }
+   ]
+  },
+  {
+   "id": "PF-09",
+   "title": "Packed lot QA inspection",
+   "owner": "QA Inspector",
+   "rules": [
+    "R-015",
+    "R-014",
+    "R-017",
+    "R-001",
+    "R-011"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn lineToInspect",
+    "fn openPackInspect",
+    "fn savePackInspect",
+    "fn qcPackGate",
+    "fn qcVerifyGate",
+    "fn qcNaGate",
+    "fn aqlPlan",
+    "fn clearQaHold",
+    "fn lotQACorrect",
+    "fn actionItems (labels Pack QC, Re-inspect, Correct)",
+    "fn acEscalation (Pack QC 2 d Plant Manager)",
+    "fn guideRules (N/A on an inspection; QA checks by pack type)",
+    "tests/qana.test.js",
+    "OP-HANDOFF-O2S.md 15 Oct (8) QA item 20"
+   ],
+   "blocks": [
+    {
+     "lanes": {
+      "roles": [
+       "QA Inspector",
+       "Production Manager",
+       "Supply Chain"
+      ],
+      "steps": [
+       {
+        "role": "QA Inspector",
+        "text": "Pack QC job: packed stock with a batch number waits for inspection.",
+        "kind": "start"
+       },
+       {
+        "role": "QA Inspector",
+        "text": "Packed lot inspection: give Kg to the batches inspected; answer every check in its own words; pack-type checks (solid: closure, no torn bag or spill; liquid: cap and induction seal, no drip, dry cartons); storage off the floor and dry; price on the pack; bags opened and defective bags against the sampling plan.",
+        "kind": "task",
+        "rule": "R-015"
+       },
+       {
+        "role": "QA Inspector",
+        "text": "N/A is offered only on Price on the pack and needs a reason in Remarks. Fewer bags checked than the plan asks: reason in Remarks. Inspection entered on a later day: reason asked.",
+        "kind": "task",
+        "rule": "R-014"
+       },
+       {
+        "role": "QA Inspector",
+        "text": "Any bad answer? no: passed, the Kg is cleared to ship (defects at or past the reject number pass only with a reason in Remarks); yes: failed, Remarks required.",
+        "kind": "decision",
+        "rule": "R-015"
+       },
+       {
+        "role": "QA Inspector",
+        "text": "Failed: each lot goes on QA hold with the reason, the failed checks and the inspector.",
+        "kind": "sendback",
+        "rule": "R-011"
+       },
+       {
+        "role": "Production Manager",
+        "text": "Re-inspect job (lot on hold): fix it, say what was corrected (5 characters or more); the hold is cleared and QA inspects again.",
+        "kind": "task",
+        "rule": "R-011"
+       },
+       {
+        "role": "QA Inspector",
+        "text": "Passed: stock is Ready to ship; the Ship job reaches Supply Chain (PF-10).",
+        "kind": "end"
+       }
+      ]
+     }
+    },
+    {
+     "note": "An older lot QA result (packingLog qa.fail) still raises a Correct job for Supply Chain (lotQACorrect). No check was found in savePackInspect that stops a person inspecting a lot he packed; the Guide's 2-person rule says nobody inspects their own output."
+    }
+   ]
+  },
+  {
+   "id": "PF-10",
+   "title": "Truck: plan, start loading, batch change, QA truck inspection, gate pass",
+   "owner": "Supply Chain (plans), Warehouse (loads, gate pass), QA Inspector (inspects)",
+   "rules": [
+    "R-013",
+    "R-026",
+    "R-027",
+    "R-015",
+    "R-017",
+    "R-012",
+    "R-030",
+    "R-001"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn actionItems (labels Ship, Load, Inspect, Gate Pass, Truck failed)",
+    "fn openDispatch",
+    "fn saveDispatch",
+    "fn truckVehicleRule",
+    "fn dcManualCheck",
+    "fn fifoAlloc",
+    "fn nextDCNo",
+    "fn openStartLoading",
+    "fn startLoading",
+    "fn truckSwapBatch",
+    "fn openDispatchQA",
+    "fn dispQASubmit",
+    "fn printPSI",
+    "fn dcRejectNote",
+    "fn dcRejectJobs",
+    "fn dcRejectSeen",
+    "fn issueGatePass",
+    "fn nextGatePassNo",
+    "fn acEscalation (Ship 2 d Supply Chain; Load 1 d Supply Chain; Gate Pass 1 d Supply Chain; Inspect 2 d Plant Manager)",
+    "fn guideHow (step Shipped)",
+    "fn guideRules (Which batch goes on the truck; Vehicle and driver; Changing a batch at loading)",
+    "tests/audit15f.test.js",
+    "tests/gatepassqa.test.js",
+    "tests/qagate.test.js",
+    "OP-HANDOFF-O2S.md 15 Oct (8) Part B"
+   ],
+   "blocks": [
+    {
+     "lanes": {
+      "roles": [
+       "Supply Chain",
+       "Warehouse",
+       "QA Inspector"
+      ],
+      "steps": [
+       {
+        "role": "Supply Chain",
+        "text": "Ship job, 1 per PO, when cleared stock is ready. It opens Plan the truck.",
+        "kind": "start"
+       },
+       {
+        "role": "Supply Chain",
+        "text": "Tick the products and Kg. Batches are offered oldest first (batch on the bag, packed date, mfg date, Kg ready); change them to match the bags. A lot on QA hold or with no batch number is not offered.",
+        "kind": "task",
+        "rule": "R-013"
+       },
+       {
+        "role": "Supply Chain",
+        "text": "Truck details complete? SO #, transport type, vehicle no., driver name and driver phone are required, bilty is optional: missing: Save is refused and says which; complete: saved. A date before today asks why, and does not stop the truck.",
+        "kind": "decision",
+        "rule": "R-026"
+       },
+       {
+        "role": "Supply Chain",
+        "text": "Saved: DC number from the series, shipment number, stage truck planned, DC pending. The chosen packing runs are reserved for this truck.",
+        "kind": "task"
+       },
+       {
+        "role": "Warehouse",
+        "text": "Load job: the Start loading sheet lists the batch on each DC line. Start loading: stage loading, loader recorded.",
+        "kind": "task",
+        "rule": "R-030"
+       },
+       {
+        "role": "Warehouse",
+        "text": "Bags show a different batch? yes: before the gate pass, pick the batch printed on the bags (another cleared run of the same PO line with enough free stock) and write why; the whole truck goes back to QA and the DC keeps its number and prints revised; no: load.",
+        "kind": "decision",
+        "rule": "R-027"
+       },
+       {
+        "role": "QA Inspector",
+        "text": "Inspect job (from planning): every check in its own words, pack-type checks, on pallets or not, when checked (before, during or after loading), the batch on the bags against every DC line, the price read off the bag for each list-price product.",
+        "kind": "task",
+        "rule": "R-015"
+       },
+       {
+        "role": "QA Inspector",
+        "text": "Pass? yes: the pre-shipment report is offered for print; no: Remarks of 5 characters or more, the truck is voided, its stock goes back to Ready to ship.",
+        "kind": "decision",
+        "rule": "R-017"
+       },
+       {
+        "role": "Supply Chain",
+        "text": "Truck failed job with the inspector's reason: read it, mark seen, plan the truck again when the material is fixed.",
+        "kind": "sendback",
+        "rule": "R-011"
+       },
+       {
+        "role": "Warehouse",
+        "text": "Gate Pass job, only after loading started and QA passed: the next gate pass number (1 book with FOC samples), issuer recorded.",
+        "kind": "task"
+       },
+       {
+        "role": "Warehouse",
+        "text": "Truck waits for review (PF-11).",
+        "kind": "end"
+       }
+      ]
+     }
+    },
+    {
+     "states": {
+      "name": "Truck stage",
+      "rows": [
+       [
+        "(none)",
+        "Supply Chain saves Plan the truck",
+        "truck planned (DC pending)"
+       ],
+       [
+        "truck planned",
+        "Warehouse starts loading",
+        "loading"
+       ],
+       [
+        "loading",
+        "Warehouse changes a batch",
+        "loading (QA result moved to history, inspect again)"
+       ],
+       [
+        "any, before release",
+        "QA fails the truck",
+        "voided (stock back to Ready to ship)"
+       ],
+       [
+        "loading",
+        "Plant Manager releases (VAN-delivered)",
+        "in transit"
+       ],
+       [
+        "loading",
+        "Plant Manager releases (Ex-factory)",
+        "delivered (collected at factory)"
+       ],
+       [
+        "not left the gate",
+        "Supply Chain or Warehouse cancels",
+        "cancelled"
+       ]
+      ]
+     }
+    },
+    {
+     "note": "Ship, Load and Gate Pass follow rights (shipment.plan, shipment.load, gatepass.issue), so the COO can give them to other roles: the warehouse also plans trucks and issues gate passes."
+    }
+   ]
+  },
+  {
+   "id": "PF-11",
+   "title": "Truck: review, send back and fix, release, truck released and handed to driver",
+   "owner": "Plant Manager (release); Supply Chain and Warehouse (review)",
+   "rules": [
+    "R-003",
+    "R-011",
+    "R-028",
+    "R-029",
+    "R-031",
+    "R-018",
+    "R-030"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn actionItems (labels Review truck, Sent back, Release, Approve DC, Truck released)",
+    "TRUCK_REVIEW_ROLES=[Supply Chain, Warehouse]",
+    "TRUCK_REVIEW_HOURS=2",
+    "fn truckMadeByMe",
+    "fn truckFixers",
+    "fn openTruckSign",
+    "fn reviewTruck",
+    "fn sendBackTruck",
+    "fn openTruckSentBack",
+    "fn truckFixed",
+    "fn approveRelease",
+    "fn approveDC",
+    "fn openHandover",
+    "fn truckHanded",
+    "fn acEscalation (Review truck 1 d Plant Manager; Release 1 d COO; Approve DC 1 d COO)",
+    "fn guideRules (Fixing a sent-back truck; Truck released; Shared jobs; What a sale is)",
+    "tests/truckreview.test.js",
+    "tests/dispatchauthority.test.js",
+    "tests/trucklists.test.js",
+    "OP-HANDOFF-O2S.md 13 Oct (3)"
+   ],
+   "blocks": [
+    {
+     "lanes": {
+      "roles": [
+       "Supply Chain",
+       "Warehouse",
+       "Plant Manager"
+      ],
+      "steps": [
+       {
+        "role": "Supply Chain",
+        "text": "Review truck job, shared with the Warehouse (Saad or Shoaib). It opens the truck, what is on it, who did what, the DC and gate pass. Never the person who loaded it, issued its gate pass or fixed it; never Zain.",
+        "kind": "start",
+        "rule": "R-031"
+       },
+       {
+        "role": "Supply Chain",
+        "text": "Truck right? yes: Reviewed, then the Plant Manager approves; no: send back with a reason to whoever issued the gate pass.",
+        "kind": "decision",
+        "rule": "R-003"
+       },
+       {
+        "role": "Warehouse",
+        "text": "Sent back job: on the fix sheet correct the vehicle no., driver, phone, bilty, seal, carrier, focal person. A wrong quantity or batch means cancel and plan again. Changes go to the corrections register; the truck goes back to review.",
+        "kind": "sendback",
+        "rule": "R-028"
+       },
+       {
+        "role": "Plant Manager",
+        "text": "Not reviewed within 2 hours of the gate pass? yes: the Plant Manager may approve without the review and the DC says so; no: wait for the review.",
+        "kind": "decision"
+       },
+       {
+        "role": "Plant Manager",
+        "text": "Release job opens the truck first. Approve the DC and release? yes: release; no: send back with a reason to the gate pass issuer, and it is reviewed again after the fix.",
+        "kind": "decision",
+        "rule": "R-011"
+       },
+       {
+        "role": "Plant Manager",
+        "text": "Released: DC approved, dispatch counted, the sale is counted net of FED. Ex-factory: delivered at the gate, collected at factory. VAN-delivered: in transit.",
+        "kind": "task",
+        "rule": "R-018"
+       },
+       {
+        "role": "Warehouse",
+        "text": "Truck released job to the gate pass issuer: print the approved DC and gate pass, hand both to the driver, tap Handed to driver. Only the tap closes it; it never holds the truck.",
+        "kind": "task",
+        "rule": "R-029"
+       },
+       {
+        "role": "Warehouse",
+        "text": "Papers with the driver. Delivery confirmation follows (PF-12).",
+        "kind": "end"
+       }
+      ]
+     }
+    },
+    {
+     "note": "Each truck job counts its wait from its own step (R-030). Release waiting 1 day reaches the COO; Review truck waiting 1 day reaches the Plant Manager. Approve DC is only for older trucks planned before the loading steps."
+    }
+   ]
+  },
+  {
+   "id": "PF-12",
+   "title": "Delivery confirmation",
+   "owner": "Whoever sent the truck (the gate pass issuer)",
+   "rules": [
+    "R-011",
+    "R-001"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn deliveryJobs",
+    "fn truckDispatcher",
+    "fn deliveryMayConfirm",
+    "fn confirmDelivery",
+    "fn approveRelease (Ex-factory)",
+    "EV_DEFAULT_THRESHOLD deliver 2",
+    "fn guideHow (steps Shipped, Delivered)",
+    "OP-HANDOFF-O2S.md 25m ruling 1 day then 1 day"
+   ],
+   "blocks": [
+    {
+     "lanes": {
+      "roles": [
+       "Warehouse",
+       "Supply Chain",
+       "Plant Manager"
+      ],
+      "steps": [
+       {
+        "role": "Warehouse",
+        "text": "Confirm delivery job to whoever sent the truck (gate pass issuer, else loader).",
+        "kind": "start"
+       },
+       {
+        "role": "Supply Chain",
+        "text": "Not confirmed after 1 day: the same job also reaches Supply Chain (Saad).",
+        "kind": "task"
+       },
+       {
+        "role": "Plant Manager",
+        "text": "Not confirmed after 2 days: it also reaches the Plant Manager.",
+        "kind": "task"
+       },
+       {
+        "role": "Warehouse",
+        "text": "Confirm: how it was confirmed (Other needs a note), the date (not before dispatch, not in the future) and the products delivered. Condition? delivered in good order: saved; refused, short or damaged: the Kg/L and a note of 5 characters or more, then saved.",
+        "kind": "decision"
+       },
+       {
+        "role": "Warehouse",
+        "text": "Delivered: the line's delivered quantity goes up; any line not ticked stays in transit.",
+        "kind": "end"
+       }
+      ]
+     }
+    },
+    {
+     "note": "A truck that has not passed inspection, or whose DC is still pending, cannot be confirmed. An Ex-factory truck is delivered at release and raises no job."
+    },
+    {
+     "note": "Anyone holding delivery.confirm may also confirm, and a person who is shown the job (Supply Chain from day 1, the Plant Manager from day 2) may confirm it (deliveryMayConfirm)."
+    }
+   ]
+  },
+  {
+   "id": "PF-13",
+   "title": "Truck cancelled, DC rejected, same DC or gate pass number twice",
+   "owner": "Supply Chain",
+   "rules": [
+    "R-011",
+    "R-008"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn cancelShip",
+    "fn rejectDC",
+    "fn dcRejectNote",
+    "fn dcRejectJobs",
+    "fn dupNumbers",
+    "fn openDupNumber",
+    "fn renumberGatePass",
+    "fn renumberSampleGatePass",
+    "fn _releaseShip",
+    "fn acEscalation (Duplicate number 1 d Plant Manager)"
+   ],
+   "blocks": [
+    {
+     "lanes": {
+      "roles": [
+       "Supply Chain",
+       "Warehouse",
+       "Plant Manager",
+       "COO"
+      ],
+      "steps": [
+       {
+        "role": "Supply Chain",
+        "text": "A truck needs to stop before it leaves.",
+        "kind": "start"
+       },
+       {
+        "role": "Supply Chain",
+        "text": "Which case? cancel: Supply Chain or the warehouse cancels (never the Plant Manager), material back to Ready to ship; DC reject: only a DC still pending, Supply Chain or Plant Manager, reason of 5 characters or more.",
+        "kind": "decision"
+       },
+       {
+        "role": "COO",
+        "text": "A truck that has left the gate can be cancelled only by the COO; a delivered one is first set back to in transit.",
+        "kind": "task"
+       },
+       {
+        "role": "Supply Chain",
+        "text": "DC rejected job with the reason: read it and plan again.",
+        "kind": "sendback",
+        "rule": "R-011"
+       },
+       {
+        "role": "Supply Chain",
+        "text": "Duplicate number job (2 people took the same number at once): cancel the later truck and plan it again (DC), or give one truck or sample a new gate pass number; the old number stays in its history.",
+        "kind": "task"
+       },
+       {
+        "role": "Plant Manager",
+        "text": "A Duplicate number job waiting 1 day reaches the Plant Manager.",
+        "kind": "task"
+       },
+       {
+        "role": "Supply Chain",
+        "text": "Number clash cleared; cancelled or rejected rows stay on record as voided.",
+        "kind": "end"
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "PF-14",
+   "title": "Close short: request, Plant Manager approves, refused, direct close, reopen",
+   "owner": "Plant Manager (approves)",
+   "rules": [
+    "R-008",
+    "R-024",
+    "R-011",
+    "R-003"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn openClosePO",
+    "fn submitClosePO",
+    "fn requestShortClose",
+    "fn scPackedConflictMsg",
+    "SHORTCLOSE_REASONS",
+    "fn openShortCloseReview",
+    "fn approveShortClose",
+    "fn rejectShortClose",
+    "fn openRefusal",
+    "fn refusalSeen",
+    "fn reopenShortClose",
+    "fn actionItems (labels Approve close short, Refused)",
+    "fn acEscalation (Approve close short 1 d COO)",
+    "fn guideRules (Nothing is deleted)",
+    "tests/shortclose.test.js",
+    "tests/shortcloseactions.test.js",
+    "tests/closereason.test.js"
+   ],
+   "blocks": [
+    {
+     "lanes": {
+      "roles": [
+       "Supply Chain",
+       "Plant Manager",
+       "COO"
+      ],
+      "steps": [
+       {
+        "role": "Supply Chain",
+        "text": "Supply Chain or the Production Manager (right po.shortclose_request) opens the order and ticks only the products to close (nothing is ticked for you), or comes from Stuck at packing. Pick a reason.",
+        "kind": "start",
+        "rule": "R-008"
+       },
+       {
+        "role": "Supply Chain",
+        "text": "Reason fits the stock? no: a product packed in full cannot close as We could not supply or Raw material never arrived, so it is refused: pick a reason that says why it is not going; yes: go on.",
+        "kind": "decision",
+        "rule": "R-008"
+       },
+       {
+        "role": "Supply Chain",
+        "text": "Ask: the request records who, when and why. While it waits, it is the only job on that line.",
+        "kind": "task"
+       },
+       {
+        "role": "Plant Manager",
+        "text": "Approve close short job opens the request first.",
+        "kind": "task",
+        "rule": "R-011"
+       },
+       {
+        "role": "Plant Manager",
+        "text": "Approve? yes (only if he did not ask it himself): closed short, the gap is no longer owed, packed stock can still ship; no: refuse with a reason.",
+        "kind": "decision",
+        "rule": "R-003"
+       },
+       {
+        "role": "Supply Chain",
+        "text": "Refused job to the person who asked: read why; ask again or leave the line open.",
+        "kind": "sendback",
+        "rule": "R-011"
+       },
+       {
+        "role": "COO",
+        "text": "The COO can close lines or a whole PO directly; a request someone was waiting on is kept in the line history.",
+        "kind": "task"
+       },
+       {
+        "role": "COO",
+        "text": "Reopen a closed-short line: the close stays on record and the reopen is added on top.",
+        "kind": "task",
+        "rule": "R-008"
+       },
+       {
+        "role": "Plant Manager",
+        "text": "Line closed short, or still open.",
+        "kind": "end"
+       }
+      ]
+     }
+    },
+    {
+     "note": "An Approve close short job waiting 1 day reaches the COO. Who may ask is the right po.shortclose_request; who may approve is po.shortclose_approve."
+    }
+   ]
+  },
+  {
+   "id": "PF-15",
+   "title": "Stuck at packing and waiting for client (15g)",
+   "owner": "Supply Chain",
+   "rules": [
+    "R-024",
+    "R-022",
+    "R-025",
+    "R-023"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn plLinePack",
+    "fn plStuckJob (STUCK_JOB_SINCE 2026-10-15)",
+    "fn plLineOwnStuck",
+    "fn plLineBaseItems",
+    "PL_LINE_STUCK_DAYS=7",
+    "fn openStuckDecision",
+    "fn renderStuckDecision",
+    "fn saveWaitClient",
+    "fn endWaitClient",
+    "fn _wcMark",
+    "fn lineWaitClient",
+    "fn itemWaiting",
+    "fn pmDelayLabel",
+    "fn acEscalation (no escalation while waiting)",
+    "fn guideRules (Stuck at packing: close short or keep; What the Stuck batches list means)",
+    "fn guideMyJob (15g notes)",
+    "tests/audit15g.test.js",
+    "OP-HANDOFF-O2S.md 15 Oct (11) and (12)"
+   ],
+   "blocks": [
+    {
+     "lanes": {
+      "roles": [
+       "Production",
+       "Plant Manager",
+       "Supply Chain",
+       "KAM"
+      ],
+      "steps": [
+       {
+        "role": "Production",
+        "text": "An order line has cleared stock ready and nothing packed for it, from any batch, for 7 days. A line is moving (not stuck) when any PO of the same client and product was packed in the last 7 days.",
+        "kind": "start",
+        "rule": "R-022"
+       },
+       {
+        "role": "Plant Manager",
+        "text": "The card shows stuck. For a line on base the Plant Manager is told; for a line on its own PO batch the Production Manager is told through its Pack job.",
+        "kind": "task"
+       },
+       {
+        "role": "Supply Chain",
+        "text": "The same day: Stuck at packing job, for a line packed from base and for a line on its own PO batch. Its clock never starts before 15 Oct 2026, or before a wait was over.",
+        "kind": "task",
+        "rule": "R-024"
+       },
+       {
+        "role": "Supply Chain",
+        "text": "Close short or keep? close short: the usual request, the Plant Manager approves (PF-14); waiting for client: write why (5 characters or more) and a date 1 to 30 days away.",
+        "kind": "decision",
+        "rule": "R-024"
+       },
+       {
+        "role": "KAM",
+        "text": "Supply Chain may ask the KAM when the client will call off; the answer is written as the reason.",
+        "kind": "task"
+       },
+       {
+        "role": "Supply Chain",
+        "text": "Until that date: not stuck, nobody is told, no delay-reason job, its jobs show waiting 0 days; Plant lists it under Waiting for client with how many times it was marked.",
+        "kind": "task"
+       },
+       {
+        "role": "Supply Chain",
+        "text": "Change or end on Plant? new date: saved as a new mark (the same date is refused); end: write why, the wait ends today.",
+        "kind": "decision"
+       },
+       {
+        "role": "Supply Chain",
+        "text": "The day after the date it is stuck again and the job comes back. Every mark is kept.",
+        "kind": "end"
+       }
+      ]
+     }
+    },
+    {
+     "note": "Known and not built (handoff 15 Oct (11)): nothing escalates if Supply Chain leaves Stuck at packing undecided."
+    }
+   ]
+  },
+  {
+   "id": "PF-16",
+   "title": "Move packed stock to another PO of the same customer",
+   "owner": "Plant Manager (approves); Supply Chain (asks)",
+   "rules": [
+    "R-007",
+    "R-003",
+    "R-011"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn submitMoveStock",
+    "fn pmvWhyNot",
+    "fn pmvRoom",
+    "fn pmvActionItems",
+    "fn openMoveApprove",
+    "fn approveMove",
+    "fn pmvApply",
+    "fn refuseMove",
+    "fn cancelMove",
+    "fn openMoveCheck",
+    "fn doneMoveCheck",
+    "fn lotMoveLock",
+    "fn acEscalation (Approve move 1 d COO; Check after move 2 d Plant Manager)",
+    "fn guideRules (Moving packed stock to another PO)",
+    "tests/stockmove.test.js",
+    "OP-HANDOFF-O2S.md 7 Oct (3)"
+   ],
+   "blocks": [
+    {
+     "lanes": {
+      "roles": [
+       "Supply Chain",
+       "Plant Manager",
+       "Production"
+      ],
+      "steps": [
+       {
+        "role": "Supply Chain",
+        "text": "Open the order, the product, Move packed stock to another PO. Pick the batches and Kg and write why.",
+        "kind": "start",
+        "rule": "R-007"
+       },
+       {
+        "role": "Supply Chain",
+        "text": "Allowed only to a PO of the same customer, same product, same price, same price on the bag, stock not on a truck, room on the other PO, no move already waiting on either line? yes: the request is saved and waits for the Plant Manager; no: refused with the reason.",
+        "kind": "decision",
+        "rule": "R-007"
+       },
+       {
+        "role": "Plant Manager",
+        "text": "Approve move job opens the sheet.",
+        "kind": "task",
+        "rule": "R-011"
+       },
+       {
+        "role": "Plant Manager",
+        "text": "Approve? yes (not the person who asked; the records are read again first): the record moves, the bags do not; no: refuse with a reason.",
+        "kind": "decision",
+        "rule": "R-003"
+       },
+       {
+        "role": "Supply Chain",
+        "text": "Move refused job to the person who asked: read why.",
+        "kind": "sendback",
+        "rule": "R-011"
+       },
+       {
+        "role": "Supply Chain",
+        "text": "Check after move job: raw material notes for the 2 POs (a purchase request raised for more, or the first PO now needs the quantity made again). Done, I have checked.",
+        "kind": "task"
+       },
+       {
+        "role": "Production",
+        "text": "The first PO needs the moved quantity made again; it comes back to Production's Today.",
+        "kind": "task"
+       },
+       {
+        "role": "Supply Chain",
+        "text": "Move done. Every move is in Reports, Checks and corrections, Stock moved between POs.",
+        "kind": "end"
+       }
+      ]
+     }
+    },
+    {
+     "states": {
+      "name": "Stock move",
+      "rows": [
+       [
+        "asked",
+        "Plant Manager approves",
+        "done"
+       ],
+       [
+        "asked",
+        "Plant Manager refuses with reason",
+        "refused"
+       ],
+       [
+        "asked",
+        "person who asked, or COO, cancels",
+        "cancelled"
+       ]
+      ]
+     }
+    },
+    {
+     "note": "The moved runs keep their batch, dates, COA, QA result, shift and in-charge. A moved packing run cannot be corrected on its own (lotMoveLock)."
+    }
+   ]
+  },
+  {
+   "id": "PF-17",
+   "title": "FOC samples",
+   "owner": "COO (grants every sample)",
+   "rules": [
+    "R-005",
+    "R-003",
+    "R-011"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn smpSubmit",
+    "fn smpDecide",
+    "fn smpIssue",
+    "fn smpCheck",
+    "fn smpDispatch",
+    "fn smpReview",
+    "fn smpReviewLapsed",
+    "fn smpRelease",
+    "fn smpArrived",
+    "fn smpFeedback (SMP_FEEDBACK_DAYS=30)",
+    "fn smpCancel",
+    "fn smpJobs",
+    "fn smpOwner",
+    "SCREENS samples owners COO, KAM, Finance, CFO",
+    "fn guideRules (FOC samples)",
+    "tests/samples.test.js",
+    "tests/samplesdocs.test.js"
+   ],
+   "blocks": [
+    {
+     "lanes": {
+      "roles": [
+       "KAM",
+       "COO",
+       "Warehouse",
+       "QA Inspector",
+       "Supply Chain",
+       "Plant Manager"
+      ],
+      "steps": [
+       {
+        "role": "KAM",
+        "text": "Ask under FOC samples (the KAM for himself, or Finance on behalf of the person sending it): who, to whom, purpose, why (10 characters or more), products and packs, needed-by date, how it goes.",
+        "kind": "start",
+        "rule": "R-005"
+       },
+       {
+        "role": "COO",
+        "text": "Approve sample job. Approve? yes: to the warehouse; no: write why, the asker gets Sample not approved. Approving his own request needs a note.",
+        "kind": "decision",
+        "rule": "R-005"
+       },
+       {
+        "role": "Warehouse",
+        "text": "Issue sample job: what was issued for each product and which lot or batch it came from (up to 5% over the approved Kg).",
+        "kind": "task"
+       },
+       {
+        "role": "QA Inspector",
+        "text": "Check sample job: mark every line (no All pass). Not the person who issued it. Pass? yes: to the warehouse for the DC and gate pass; no: say what is wrong, back to the warehouse to issue again.",
+        "kind": "decision",
+        "rule": "R-003"
+       },
+       {
+        "role": "Warehouse",
+        "text": "Sample gate pass job: carrier and date; the sample DC (SDC-) and a gate pass from the same book as the trucks.",
+        "kind": "task"
+       },
+       {
+        "role": "Supply Chain",
+        "text": "Review sample job (Saad), not the person who issued the gate pass.",
+        "kind": "task",
+        "rule": "R-003"
+       },
+       {
+        "role": "Plant Manager",
+        "text": "Release sample job, after the review, or after 2 hours with no review. Released: papers print.",
+        "kind": "task"
+       },
+       {
+        "role": "KAM",
+        "text": "Sample arrived job: how you know and the date. 30 days after it was sent: Sample feedback, what the client said.",
+        "kind": "task"
+       },
+       {
+        "role": "KAM",
+        "text": "Sample delivered, feedback recorded. A sample is never a sale and never work for production.",
+        "kind": "end"
+       }
+      ]
+     }
+    },
+    {
+     "states": {
+      "name": "FOC sample",
+      "rows": [
+       [
+        "requested",
+        "COO approves / refuses",
+        "approved / rejected"
+       ],
+       [
+        "approved",
+        "Warehouse issues",
+        "issued"
+       ],
+       [
+        "issued",
+        "QA passes / fails",
+        "checked / approved (issue again)"
+       ],
+       [
+        "checked",
+        "Warehouse issues DC and gate pass",
+        "gatepass"
+       ],
+       [
+        "gatepass",
+        "Supply Chain reviews",
+        "reviewed"
+       ],
+       [
+        "reviewed, or gatepass after 2 hours",
+        "Plant Manager releases",
+        "dispatched"
+       ],
+       [
+        "dispatched",
+        "asker confirms arrival",
+        "delivered"
+       ],
+       [
+        "requested or approved",
+        "asker or COO cancels",
+        "cancelled"
+       ]
+      ]
+     }
+    },
+    {
+     "note": "In code only the Plant Manager role can release a sample and only the Supply Chain role can review it (smpRelease, smpReview); the COO's general override is not used there."
+    }
+   ]
+  },
+  {
+   "id": "PF-18",
+   "title": "Corrections and reconciliation",
+   "owner": "COO",
+   "rules": [
+    "R-008",
+    "R-009",
+    "R-012",
+    "R-001",
+    "R-004"
+   ],
+   "status": "not confirmed",
+   "src": [
+    "fn recordCorrection",
+    "CORRECT_ENTITY (amend, reverse, supersede roles)",
+    "fn correctAllowed",
+    "fn applyCorrect",
+    "fn dfSubmitVoid",
+    "fn dfSubmitPacking",
+    "fn dfSubmitCorrect",
+    "fn lineFixRecord",
+    "fn lineFixCut",
+    "fn lineFixDate",
+    "fn screenRecon",
+    "fn bfxSubmit",
+    "fn bfxDecide",
+    "fn bfxApply",
+    "fn bfxFollowBuild",
+    "fn bfxFollowJobs",
+    "fn bfxFollowDone",
+    "fn lotMoveLock",
+    "SCREENS datafix and recon owners COO, Production, Production Manager",
+    "fn guideRules (Nothing is deleted; A number moves only with its record; A wrong batch number)",
+    "tests/batchfix.test.js",
+    "tests/linefix.test.js",
+    "tests/recon.test.js",
+    "tests/certremove.test.js",
+    "OP-HANDOFF-O2S.md 10 Oct batch number correction"
+   ],
+   "ask": "Who may reverse a wrong packing record (wrong shift, in-charge or Kg)? a) the COO only, as the Guide says b) Production, the Plant Manager or the COO, as the code allows c) not sure",
+   "blocks": [
+    {
+     "lanes": {
+      "roles": [
+       "Production",
+       "Production Manager",
+       "Plant Manager",
+       "COO",
+       "Supply Chain",
+       "QA Inspector"
+      ],
+      "steps": [
+       {
+        "role": "Production Manager",
+        "text": "A wrong or missing record is found: Back Office Needs you, Reconcile packing (read-only, lists lines whose packed is more than their records), Batch trace, or the order line History.",
+        "kind": "start"
+       },
+       {
+        "role": "Production Manager",
+        "text": "What kind of fix? a field on a record: Correct a record (amend, reverse or supersede); a missing packing run: Add missing packing (shift, in-charge and packs asked); a line that disagrees with its records: record the missing packing against its batch, bring packed back to its records, or stamp a delivery date from the truck; a brand batch # typed wrong: Ask for a correction.",
+        "kind": "decision",
+        "rule": "R-009"
+       },
+       {
+        "role": "Production",
+        "text": "Amend or reverse with a reason code and a sentence (10 characters or more), in your name. Who may: packing run amend Production or COO, reverse Production, Plant Manager or COO; order and order line amend KAM or COO (priced fields CFO or COO); shipment Supply Chain or COO; batch amend Production or COO; COA supersede QCM or COO; inspection supersede QA Inspector, Plant Manager or COO.",
+        "kind": "task",
+        "rule": "R-008"
+       },
+       {
+        "role": "Production",
+        "text": "Do the bags carry the new number? yes: ask for a batch number correction (Production, Production Manager or Plant Manager may ask); no, the bags are wrong: quarantine and re-label them instead.",
+        "kind": "decision",
+        "rule": "R-012"
+       },
+       {
+        "role": "COO",
+        "text": "Approve batch fix job. Approve? yes: the number changes on the run, its DC lines and inspection lines, and the change is filed; no: refuse with a reason of 5 characters or more, the record is unchanged.",
+        "kind": "decision",
+        "rule": "R-012"
+       },
+       {
+        "role": "Supply Chain",
+        "text": "Reprint DC job for each DC with the old number: Reprinted, or Not needed with a reason.",
+        "kind": "task"
+       },
+       {
+        "role": "QA Inspector",
+        "text": "Reprint report job for each inspection report with the old number: Reprinted, or Not needed with a reason.",
+        "kind": "task"
+       },
+       {
+        "role": "Plant Manager",
+        "text": "Every correction sits in the corrections register beside the original (Reports, Checks and corrections). Nothing is deleted.",
+        "kind": "end",
+        "rule": "R-008"
+       }
+      ]
+     }
+    },
+    {
+     "note": "A packing run already inspected cannot be voided until the inspection is withdrawn; a run that was moved to another PO cannot be corrected on its own. Packed, dispatched and delivered can never be typed (R-009)."
+    },
+    {
+     "note": "The Guide (Why packing asks for the shift, the in-charge and the packs) says the COO reverses a wrong packing record; CORRECT_ENTITY.packingLot.reverse is Production, Plant Manager and COO. One of the two is wrong."
+    }
+   ]
+  },
+  {
+   "id": "PF-19",
+   "title": "Late order: reason for the delay",
+   "owner": "Plant Manager",
+   "rules": [],
+   "status": "confirmed",
+   "src": [
+    "fn pmDelayLabel",
+    "fn openDelayReason",
+    "fn submitDelayReason",
+    "fn actionItems (label Add reason)",
+    "fn tdGroups (1 reason per order)"
+   ],
+   "blocks": [
+    {
+     "lanes": {
+      "roles": [
+       "Plant Manager"
+      ],
+      "steps": [
+       {
+        "role": "Plant Manager",
+        "text": "Add reason job when a line's committed date (else the PO's promised date) has passed and no reason is set. Not raised while the line waits for the client, or when the date is before the PO was received.",
+        "kind": "start"
+       },
+       {
+        "role": "Plant Manager",
+        "text": "Pick the delay reason and the responsible department. 1 job covers every late line of 1 order.",
+        "kind": "task"
+       },
+       {
+        "role": "Plant Manager",
+        "text": "Reason saved on the line.",
+        "kind": "end"
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "PF-20",
+   "title": "Today: how a job reaches a person, and who hears when it waits",
+   "owner": "COO",
+   "rules": [
+    "R-019",
+    "R-031",
+    "R-030"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn actionItems",
+    "fn tdItems",
+    "fn tdVisible",
+    "TD_RIGHT",
+    "TD_LABEL",
+    "fn itOwnedBy",
+    "fn itBarred",
+    "fn tdGroups",
+    "fn acEscalation",
+    "fn guideHow (What the marks mean)",
+    "tests/today.test.js",
+    "tests/actioncenter.test.js"
+   ],
+   "blocks": [
+    {
+     "p": "actionItems builds every Today job with a role, a label and the button it opens. tdItems shows a job to a person when it is addressed to his role, or to a role named in alsoRoles, or it was escalated to him, or his role holds the live right behind it in the grant table (TD_RIGHT, live rights only). A job addressed to 1 person (who) shows only to that person; a job barred for a person (notWho, such as the loader on Review truck) is hidden from him. The COO sees only his own and escalated jobs unless he switches to Whole plant."
+    },
+    {
+     "lanes": {
+      "roles": [
+       "Production",
+       "Plant Manager",
+       "COO"
+      ],
+      "steps": [
+       {
+        "role": "Production",
+        "text": "A person presses a button; the record changes and is saved.",
+        "kind": "start"
+       },
+       {
+        "role": "Production",
+        "text": "On the next draw, actionItems raises the next job for the next role. The toast says who it went to.",
+        "kind": "task"
+       },
+       {
+        "role": "Plant Manager",
+        "text": "Job waited past its limit (table below)? yes: shown on the lead's Today as Escalated to you; no: stays only with its owner.",
+        "kind": "decision",
+        "rule": "R-030"
+       },
+       {
+        "role": "COO",
+        "text": "Every escalation can end with the COO; his Today has Needs me or Whole plant.",
+        "kind": "end"
+       }
+      ]
+     }
+    },
+    {
+     "table": {
+      "head": [
+       "Today job (label)",
+       "Addressed to",
+       "Escalates after",
+       "Escalates to"
+      ],
+      "rows": [
+       [
+        "Acknowledge",
+        "Supply Chain",
+        "1 day",
+        "Plant Manager"
+       ],
+       [
+        "RM Check",
+        "Supply Chain",
+        "1 day",
+        "CFO"
+       ],
+       [
+        "Receive",
+        "Supply Chain",
+        "1 day",
+        "CFO"
+       ],
+       [
+        "Approve PR",
+        "CFO",
+        "1 day",
+        "COO"
+       ],
+       [
+        "Open Production",
+        "Production",
+        "4 days with no output (not while moving or waiting for client)",
+        "Plant Manager"
+       ],
+       [
+        "Pack",
+        "Production",
+        "1 day",
+        "Production Manager"
+       ],
+       [
+        "Pack from base",
+        "Production",
+        "7 days (not while waiting for client)",
+        "Plant Manager"
+       ],
+       [
+        "Assign sample",
+        "QCM",
+        "1 day",
+        "Plant Manager"
+       ],
+       [
+        "Lab test",
+        "Lab Rep (the analyst assigned)",
+        "past its due time",
+        "QCM"
+       ],
+       [
+        "Lab QC",
+        "Lab Rep",
+        "1 day",
+        "Plant Manager"
+       ],
+       [
+        "Correct COA",
+        "Lab Rep",
+        "1 day",
+        "QCM"
+       ],
+       [
+        "Review",
+        "AQCM (the UNFIT lot job for the Plant Manager carries the same label)",
+        "1 day",
+        "Plant Manager"
+       ],
+       [
+        "Approve",
+        "QCM",
+        "1 day",
+        "Plant Manager"
+       ],
+       [
+        "Pack QC",
+        "QA Inspector",
+        "2 days",
+        "Plant Manager"
+       ],
+       [
+        "Inspect",
+        "QA Inspector",
+        "2 days",
+        "Plant Manager"
+       ],
+       [
+        "Ship",
+        "Supply Chain",
+        "2 days",
+        "Supply Chain"
+       ],
+       [
+        "Load",
+        "Warehouse",
+        "1 day",
+        "Supply Chain"
+       ],
+       [
+        "Gate Pass",
+        "Warehouse",
+        "1 day",
+        "Supply Chain"
+       ],
+       [
+        "Review truck",
+        "Supply Chain, also Warehouse",
+        "1 day",
+        "Plant Manager"
+       ],
+       [
+        "Release",
+        "Plant Manager",
+        "1 day",
+        "COO"
+       ],
+       [
+        "Approve DC",
+        "Plant Manager",
+        "1 day",
+        "COO"
+       ],
+       [
+        "Confirm delivery",
+        "the person who sent it",
+        "own steps: Supply Chain from day 1, Plant Manager from day 2",
+        "(deliveryJobs)"
+       ],
+       [
+        "Print price",
+        "Finance",
+        "3 days",
+        "COO"
+       ],
+       [
+        "Approve move",
+        "Plant Manager",
+        "1 day",
+        "COO"
+       ],
+       [
+        "Approve close short",
+        "Plant Manager",
+        "1 day",
+        "COO"
+       ],
+       [
+        "Check after move",
+        "Supply Chain",
+        "2 days",
+        "Plant Manager"
+       ],
+       [
+        "Duplicate number",
+        "Supply Chain",
+        "1 day",
+        "Plant Manager"
+       ]
+      ]
+     }
+    },
+    {
+     "note": "Jobs with no row above (for example Truck released, Stuck at packing, Big pack run, Yield short, samples) do not escalate in acEscalation."
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,5421 @@
+{
+ "tab": "schema",
+ "title": "Data schemas",
+ "ver": "2026-10-16a",
+ "date": "2026-10-16",
+ "owner": "COO (Tahir)",
+ "intro": "O2S keeps all its data in 1 JSON document. Each item below is 1 list in that document (top level or inside a record), with its fields, keys, links, owner and what is kept. Field names are as stored; Required yes means every row written by the current code carries it.",
+ "items": [
+  {
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-008",
+    "R-009"
+   ],
+   "status": "confirmed",
+   "src": [
+    "server.js store.init / getState / setState / setStateGuarded (MySQL and file store)",
+    "server.js app.get /api/state, app.post /api/state, stripUsers",
+    "o2s.html fn dataOnly, SESSION_KEYS, saveNow, merge3, _arrId, ensureState",
+    "CLAUDE.md: Data in MySQL on HostGator (jodilkah_vanop_db)"
+   ],
+   "id": "SC-01",
+   "title": "Where O2S keeps its data: 1 JSON document",
+   "blocks": [
+    {
+     "p": "O2S has no tables of its own. All O2S data is 1 JSON document. On the live server it sits in MySQL, table app_state, in 1 row (id = 1). Without a database URL the server keeps the same document in data/state.json. In this tab a \"list\" means a top-level array of that document, or an array inside one of its records."
+    },
+    {
+     "table": {
+      "head": [
+       "Column",
+       "Type",
+       "Required",
+       "Default",
+       "Meaning",
+       "Written by"
+      ],
+      "rows": [
+       [
+        "id",
+        "INT, primary key",
+        "yes",
+        "1",
+        "Always 1. There is only 1 row.",
+        "store.init (INSERT IGNORE)"
+       ],
+       [
+        "rev",
+        "INT",
+        "yes",
+        "0",
+        "Revision number. Goes up by 1 on every save.",
+        "store.setState, store.setStateGuarded"
+       ],
+       [
+        "data",
+        "LONGTEXT (JSON)",
+        "no",
+        "NULL",
+        "The whole O2S document as JSON text.",
+        "POST /api/state"
+       ]
+      ]
+     }
+    },
+    {
+     "list": [
+      "Read: GET /api/state returns {rev, data}. GET /api/rev returns only rev; the page polls it and pulls the document only when rev changed.",
+      "Write: POST /api/state with header x-base-rev. If the server rev is not the base rev, the server answers 409 with its own copy and the page merges (merge3) and saves again.",
+      "The server removes the key users from every read and write (stripUsers). Logins live in the separate table auth_users (username, name, role, pass_hash).",
+      "The page never saves its session keys: currentUser, role, screen, expanded (dataOnly).",
+      "Every load runs ensureState: it fills missing lists, then runs the one-off migrations and the every-load repairs (see SC-34).",
+      "Merge rule (merge3): a list whose every row has an id is merged row by row by id. A list where any row has no id is treated as 1 value: 1 person's copy wins and the other person's new rows are lost. This is why every new list row carries an id."
+     ]
+    },
+    {
+     "note": "S-09 in docs/SECURITY-REGISTER.md (15 Oct 2026): most audit rows written during a session carry no id, so 2 saves at the same moment can lose audit rows. ensureRecordIds gives them ids only at the next load."
+    }
+   ]
+  },
+  {
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-008"
+   ],
+   "status": "confirmed",
+   "src": [
+    "SCHEMA.md live list names and counts (15 Oct 2026)",
+    "o2s.html fn ensureState, ensureMasters, ensureProductionModel",
+    "data/state.json (July snapshot)"
+   ],
+   "id": "SC-02",
+   "title": "Top-level keys at a glance, with live counts on 15 Oct 2026",
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Key",
+       "Kind",
+       "Live count 15 Oct",
+       "What it holds",
+       "Who owns it",
+       "Item"
+      ],
+      "rows": [
+       [
+        "orders",
+        "list",
+        "72",
+        "Customer purchase orders, each with its lines",
+        "Finance and CFO enter; Supply Chain acknowledges",
+        "SC-03"
+       ],
+       [
+        "orders[].lines[]",
+        "list inside orders",
+        "240",
+        "1 product on 1 PO",
+        "as orders",
+        "SC-04"
+       ],
+       [
+        "orders[].lines[].waitMarks[]",
+        "list inside lines",
+        "not counted",
+        "Waiting for client marks (new in 15g)",
+        "Supply Chain",
+        "SC-06"
+       ],
+       [
+        "shipments",
+        "list",
+        "286",
+        "1 row per PO line on a truck (a truck is all rows with 1 dispId)",
+        "Supply Chain",
+        "SC-07"
+       ],
+       [
+        "batches",
+        "list",
+        "126",
+        "Production batches and pools",
+        "Production",
+        "SC-09"
+       ],
+       [
+        "batches[].lots[]",
+        "list inside batches",
+        "233",
+        "1 lot per shift output, each with its COA",
+        "Production; Lab for the COA",
+        "SC-10"
+       ],
+       [
+        "packingLog",
+        "list",
+        "332",
+        "Packing runs (packed lots)",
+        "Production",
+        "SC-12"
+       ],
+       [
+        "productionLog",
+        "list",
+        "258",
+        "Daily output rows (production report)",
+        "Production",
+        "SC-13"
+       ],
+       [
+        "shiftEntries",
+        "list",
+        "363",
+        "1 row per shift output logged on a batch",
+        "Production",
+        "SC-14"
+       ],
+       [
+        "inspections",
+        "list",
+        "250",
+        "QA inspections of packed lots",
+        "QA Inspector",
+        "SC-15"
+       ],
+       [
+        "samples",
+        "list",
+        "1",
+        "FOC samples",
+        "COO approves; requester owns",
+        "SC-16"
+       ],
+       [
+        "corrections",
+        "list",
+        "30",
+        "The corrections register (Correct a record)",
+        "roles that may correct",
+        "SC-17"
+       ],
+       [
+        "poMoves",
+        "list",
+        "2",
+        "Packed stock moved between POs",
+        "Supply Chain asks; Plant Manager approves",
+        "SC-18"
+       ],
+       [
+        "customers",
+        "list",
+        "35",
+        "Customer master",
+        "Finance and CFO",
+        "SC-19"
+       ],
+       [
+        "dealers",
+        "list",
+        "7",
+        "Old dealer list, retired as a write target",
+        "none now",
+        "SC-20"
+       ],
+       [
+        "warehouses",
+        "list of text",
+        "3",
+        "Warehouse names",
+        "not confirmed",
+        "SC-21"
+       ],
+       [
+        "prs",
+        "list",
+        "0",
+        "Raw-material purchase requests (old model)",
+        "Supply Chain raises; CFO approves",
+        "SC-22"
+       ],
+       [
+        "rmRequests",
+        "list",
+        "0",
+        "No writer in the code",
+        "not confirmed",
+        "SC-23"
+       ],
+       [
+        "rmMovements",
+        "list",
+        "0",
+        "No writer in the code",
+        "not confirmed",
+        "SC-23"
+       ],
+       [
+        "audit",
+        "list",
+        "1,329",
+        "Field-level audit trail",
+        "every writer",
+        "SC-24"
+       ],
+       [
+        "actionLog",
+        "list",
+        "3,470",
+        "Plain-words log of every action",
+        "every writer (logAction)",
+        "SC-25"
+       ],
+       [
+        "readSigns",
+        "list",
+        "new in 16a",
+        "Read-and-sign rows",
+        "each user",
+        "SC-26"
+       ],
+       [
+        "masters",
+        "object",
+        "object",
+        "All master data and pick lists",
+        "COO (Back Office)",
+        "SC-27 to SC-30"
+       ],
+       [
+        "acDefer",
+        "object (map)",
+        "object",
+        "Deferred Action Center jobs",
+        "any role deferring a job",
+        "SC-31"
+       ],
+       [
+        "taken",
+        "object (map)",
+        "object",
+        "Shared jobs marked as taken",
+        "any role",
+        "SC-31"
+       ],
+       [
+        "tipsDismissed",
+        "object (map)",
+        "object",
+        "No code reads or writes it now",
+        "not confirmed",
+        "SC-31"
+       ],
+       [
+        "dashLens",
+        "object (map)",
+        "object",
+        "Chosen lens per dashboard view",
+        "any role",
+        "SC-31"
+       ],
+       [
+        "period",
+        "text",
+        "text",
+        "Chosen report period",
+        "any role",
+        "SC-31"
+       ],
+       [
+        "seq",
+        "number",
+        "number",
+        "Counter for record ids",
+        "nid, bumpSeqV1",
+        "SC-31"
+       ],
+       [
+        "shipSerial",
+        "number",
+        "number",
+        "Counter for the shipment number",
+        "saveDispatch, mpCreate",
+        "SC-31"
+       ],
+       [
+        "packedStock",
+        "object (map)",
+        "object",
+        "Old finished-goods stock by brand",
+        "allocateStock",
+        "SC-31"
+       ],
+       [
+        "rawStock",
+        "object (map)",
+        "object",
+        "Raw material received, by material",
+        "receivePR",
+        "SC-31"
+       ],
+       [
+        "dataFixEnabled",
+        "yes/no",
+        "yes/no",
+        "Correct a record tab switched on or off",
+        "toggleDataFix (COO)",
+        "SC-31"
+       ],
+       [
+        "_lastKam, _shipLotLink, periodFrom, periodTo",
+        "text / object",
+        "not in the live list",
+        "Small helper keys",
+        "see SC-31",
+        "SC-31"
+       ],
+       [
+        "_lotMig and the other _ flags",
+        "yes/no",
+        "yes/no",
+        "One-off migration flags",
+        "migrations",
+        "SC-32"
+       ]
+      ]
+     }
+    },
+    {
+     "note": "Live counts are from SCHEMA.md (15 Oct 2026). The keys _lastKam, _shipLotLink, periodFrom and periodTo are written by the code but are not in that live list, so whether they exist on live is not confirmed."
+    }
+   ]
+  },
+  {
+   "owner": "Finance and CFO (New PO Entry); Supply Chain acknowledges",
+   "rules": [
+    "R-010",
+    "R-011",
+    "R-008"
+   ],
+   "status": "confirmed",
+   "src": [
+    "o2s.html fn submitPO, genPO, isManualPO, ackOrder, sendBackPO, poReturnFixed, submitClosePO, reopenShortClose, printPO, seedPrintDecisionV1, saveBulkPrintDecision, dfSubmitPO, fixRudolfTBPPOV1",
+    "ACCESS_RULED_V2 entry: Finance and CFO edit",
+    "data/state.json orders"
+   ],
+   "id": "SC-03",
+   "title": "orders: 1 row per customer PO",
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Type",
+       "Required",
+       "Default",
+       "Meaning",
+       "Written by"
+      ],
+      "rows": [
+       [
+        "id",
+        "text",
+        "yes",
+        "O + (number of orders + 1) + _ + nid",
+        "Record id. Lines take it as their prefix.",
+        "submitPO"
+       ],
+       [
+        "po",
+        "text",
+        "yes",
+        "made by genPO, or typed",
+        "The PO number. Unique: submitPO refuses a PO number that already exists. Made for Cobo (COBO-yymm-nnnn), Vgreen (VG-VC-yymm-nnnn or VG-FM-yymm-nnnn), Farmer (FRM-yymm-nnnn) and Dealer (dealer code-yymm-nnnn), where yymm is the received month and nnnn a random 4-digit number; typed for White Label and Distributor.",
+        "submitPO; fixRudolfTBPPOV1 (TBP to RUDPO0033)"
+       ],
+       [
+        "client",
+        "text",
+        "yes",
+        "",
+        "Customer name as picked at entry. Dealers show as \"code | name\".",
+        "submitPO; Correct a record"
+       ],
+       [
+        "channel",
+        "text",
+        "yes",
+        "",
+        "Sales channel (see DD-02).",
+        "submitPO"
+       ],
+       [
+        "vgreenSub",
+        "text or null",
+        "yes",
+        "null",
+        "VGreen outlet: VC or FM.",
+        "submitPO"
+       ],
+       [
+        "destinationPartner",
+        "text",
+        "yes",
+        "''",
+        "VGreen only: destination partner for this PO.",
+        "submitPO"
+       ],
+       [
+        "foc",
+        "yes/no",
+        "yes",
+        "false",
+        "FOC sample PO: every price is 0.",
+        "submitPO"
+       ],
+       [
+        "fedMode",
+        "text",
+        "yes",
+        "customer's fed, else None",
+        "Inclusive, Exclusive or None.",
+        "submitPO (entryFedMode)"
+       ],
+       [
+        "focalPerson, focalPhone",
+        "text",
+        "yes",
+        "''",
+        "Customer focal person and phone.",
+        "submitPO"
+       ],
+       [
+        "source",
+        "text",
+        "yes",
+        "''",
+        "How the PO arrived.",
+        "submitPO"
+       ],
+       [
+        "instructions",
+        "text",
+        "yes",
+        "''",
+        "Special instructions.",
+        "submitPO"
+       ],
+       [
+        "kam",
+        "text",
+        "yes",
+        "''",
+        "KAM name (masters.kamNames).",
+        "submitPO"
+       ],
+       [
+        "priority",
+        "text",
+        "yes",
+        "",
+        "Low, Normal, High or Critical.",
+        "submitPO; Correct a record"
+       ],
+       [
+        "received",
+        "date",
+        "yes",
+        "",
+        "Date the PO was received.",
+        "submitPO; Correct a record"
+       ],
+       [
+        "promised",
+        "date",
+        "yes",
+        "",
+        "Promised delivery date. Cannot be before received.",
+        "submitPO; Correct a record"
+       ],
+       [
+        "rmDecision",
+        "text",
+        "yes",
+        "pending",
+        "Written as pending at entry. No later writer found.",
+        "submitPO"
+       ],
+       [
+        "printOnPack",
+        "yes/no",
+        "yes",
+        "",
+        "false only when the print answer is no.",
+        "submitPO, saveBulkPrintDecision, seedPrintDecisionV1, dfSubmitCorrect"
+       ],
+       [
+        "printDecision",
+        "text",
+        "yes",
+        "",
+        "Which price goes on the pack: yes (the PO's own price), list (list price) or no (no price).",
+        "same as printOnPack"
+       ],
+       [
+        "printDecisionBy, printDecisionAt",
+        "text, date-time",
+        "yes",
+        "",
+        "Who answered and when.",
+        "same as printOnPack"
+       ],
+       [
+        "paymentTerms",
+        "text",
+        "yes",
+        "",
+        "Payment terms (DD-02).",
+        "submitPO"
+       ],
+       [
+        "erpSo, so",
+        "text",
+        "yes",
+        "",
+        "ERP SO number. so is the same value; it prints on the DC.",
+        "submitPO"
+       ],
+       [
+        "lines",
+        "list",
+        "yes",
+        "",
+        "The product lines (SC-04).",
+        "submitPO"
+       ],
+       [
+        "totalOrdered",
+        "number, Kg/L",
+        "yes",
+        "sum of lines",
+        "Total ordered.",
+        "submitPO"
+       ],
+       [
+        "subtotal, fedAmount, grandTotal",
+        "number, PKR",
+        "yes",
+        "",
+        "Money totals at entry.",
+        "submitPO (entryTotals)"
+       ],
+       [
+        "enteredBy",
+        "object {name, user, role}",
+        "yes (from 26a)",
+        "",
+        "Who entered the PO. A sent-back PO goes to this person.",
+        "submitPO (sigStamp)"
+       ],
+       [
+        "acknowledged, ackDate, ackBy",
+        "yes/no, date, role",
+        "no",
+        "",
+        "Supply Chain acknowledgement. ackBy holds the role name.",
+        "ackOrder"
+       ],
+       [
+        "ackReturn",
+        "object",
+        "no",
+        "",
+        "The open send-back: {id POR..., by, user, role, at, why, toUser, toRole, toName, fixedAt, fixedBy, fixNote}.",
+        "sendBackPO, poReturnFixed"
+       ],
+       [
+        "ackReturns",
+        "list",
+        "no",
+        "",
+        "Every send-back, kept.",
+        "sendBackPO, poReturnFixed"
+       ],
+       [
+        "closed",
+        "object or null",
+        "no",
+        "",
+        "Whole PO closed: {at, by, reasonCode, reason, lines, kg}. Set to null on reopen.",
+        "submitClosePO, reopenShortClose"
+       ],
+       [
+        "closedHistory",
+        "list",
+        "no",
+        "",
+        "Earlier whole-PO closes, with reopenedAt, reopenedBy, line.",
+        "reopenShortClose"
+       ],
+       [
+        "printCount, printedAt, printedBy",
+        "number, date-time, text",
+        "no",
+        "",
+        "PO printouts.",
+        "printPO"
+       ],
+       [
+        "recon",
+        "yes/no",
+        "no",
+        "",
+        "Marks a PO entered through Correct a record (Data Fix).",
+        "dfSubmitPO"
+       ],
+       [
+        "createdSeed, rmShortfall",
+        "legacy",
+        "no",
+        "",
+        "Import markers from the June seed. The purges removed createdSeed orders.",
+        "buildFromSeed"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Keys: id is the record key. po is the business key: packingLog, shipments, inspections, batches and audit point to an order by po text, not by id."
+    },
+    {
+     "p": "Kept or deleted: never deleted in normal use. A PO is closed (closed, line shortClose), never removed. The June purges removed imported orders (SC-34)."
+    },
+    {
+     "note": "Corrected 16 Oct 2026 (independent check against the code): the pick list references pointed at DD-03 (line stages); channel and payment terms are in DD-02."
+    }
+   ]
+  },
+  {
+   "owner": "Finance and CFO enter; totals move only with their records",
+   "rules": [
+    "R-009",
+    "R-008",
+    "R-010",
+    "R-024",
+    "R-025"
+   ],
+   "status": "not confirmed",
+   "src": [
+    "o2s.html fn submitPO (lines map), rmSubmit, rmReceiveSubmit, healPRFlags, submitDelayReason, requestShortClose, approveShortClose, rejectShortClose, submitClosePO, reopenShortClose, scArchive, scFreeze, rmPRArchive, _wcMark, savePackInspect, lotQASubmit, approveRelease, confirmDelivery, saveReconcile, lineStage",
+    "data/state.json orders[].lines[]"
+   ],
+   "id": "SC-04",
+   "title": "orders[].lines[]: 1 product on 1 PO",
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Type",
+       "Required",
+       "Default",
+       "Meaning",
+       "Written by"
+      ],
+      "rows": [
+       [
+        "id",
+        "text",
+        "yes",
+        "order id + L + index",
+        "Line id. packingLog.lid, shipments.lid, inspections.lid and batches.lineId point here.",
+        "submitPO"
+       ],
+       [
+        "brand",
+        "text",
+        "yes",
+        "",
+        "Product as sold (masters.products brand).",
+        "submitPO; migrateBrandNames"
+       ],
+       [
+        "base",
+        "text",
+        "yes",
+        "product's base",
+        "Bulk product it is packed from.",
+        "submitPO; normalizeVZincBase, normalizeBoronBase"
+       ],
+       [
+        "pack",
+        "number, Kg/L per pack",
+        "yes",
+        "product's pack",
+        "Pack size. Must be above 0.",
+        "submitPO"
+       ],
+       [
+        "note",
+        "text",
+        "yes",
+        "''",
+        "Line note.",
+        "submitPO"
+       ],
+       [
+        "committed",
+        "date",
+        "yes",
+        "computeCommitted, else promised",
+        "Committed date for this line.",
+        "submitPO; Correct a record"
+       ],
+       [
+        "ordered",
+        "number, Kg/L",
+        "yes",
+        "",
+        "Quantity ordered.",
+        "submitPO"
+       ],
+       [
+        "printPrice",
+        "number, PKR per pack",
+        "yes",
+        "0",
+        "Price printed on the pack; only when printDecision is yes.",
+        "submitPO; Correct a record"
+       ],
+       [
+        "invoicePrice",
+        "number, PKR per Kg/L",
+        "yes",
+        "0 on FOC",
+        "Invoice price.",
+        "submitPO; saveBulkPricing, setLineInvoice; Correct a record (CFO, COO)"
+       ],
+       [
+        "invoicePack",
+        "number, PKR per pack",
+        "yes",
+        "invoicePrice x pack",
+        "Invoice price per pack.",
+        "submitPO"
+       ],
+       [
+        "priceCheck",
+        "object or null",
+        "yes",
+        "null",
+        "Price compared with the last one: {lastNet, lastPo, lastDate, own, diffPct, reason}.",
+        "submitPO (entryPriceCheck)"
+       ],
+       [
+        "produced, packed, dispatched, delivered",
+        "number, Kg/L",
+        "yes",
+        "0",
+        "Running totals. Each moves only with its record (R-009).",
+        "production, packing, truck release and delivery functions"
+       ],
+       [
+        "prodStart, prodComplete",
+        "date",
+        "no",
+        "",
+        "First production date; date the line was fully made.",
+        "submitShiftLog, doPack, submitProdQty and others"
+       ],
+       [
+        "qcPass",
+        "date",
+        "no",
+        "",
+        "Date the passed inspections covered the line (qcFull).",
+        "savePackInspect, lotQASubmit"
+       ],
+       [
+        "dispatchDate, deliveredDate",
+        "date",
+        "no",
+        "",
+        "First dispatch and delivery dates.",
+        "approveRelease, confirmDelivery, markDelivered"
+       ],
+       [
+        "rmCheck, rmModel, rmStatus, rmReady, rmRecheckAt, canMakeKg",
+        "date, text, text, date, date-time, number",
+        "no",
+        "",
+        "Raw material check. rmModel confirm is the current model. rmStatus: full, partial, short, pending.",
+        "rmSubmit, rmReceiveSubmit, healPRFlags, prDrop"
+       ],
+       [
+        "prRaised",
+        "date or null",
+        "no",
+        "",
+        "Date a PR was raised for the line.",
+        "rmSubmit, healPRFlags"
+       ],
+       [
+        "rmPR",
+        "object or null",
+        "no",
+        "",
+        "Line PR (current model): {qty, cleared, by, date, cfoApproved, closed, refused, refusals, closedWhy, closedBy}.",
+        "rmSubmit, approveRMPR, rmReceiveSubmit, refusePR, prAskAgain, prDrop"
+       ],
+       [
+        "rmPRHistory",
+        "list",
+        "no",
+        "",
+        "Earlier rmPR records, each with id RPH..., replacedAt, replacedBy.",
+        "rmPRArchive"
+       ],
+       [
+        "pr",
+        "object or null",
+        "no",
+        "",
+        "Old PR model: {lines:[{rm, kg}], by, date}.",
+        "old RM check; healPRFlags clears empty ones"
+       ],
+       [
+        "delayReason, respDept",
+        "text",
+        "no",
+        "",
+        "Delay reason and responsible department (masters lists).",
+        "submitDelayReason, submitDelayReasonOrder"
+       ],
+       [
+        "disposedKg",
+        "number, Kg/L",
+        "no",
+        "",
+        "Remainder of this line's PO batch written off at reconcile.",
+        "saveReconcile"
+       ],
+       [
+        "shortClose",
+        "object",
+        "no",
+        "",
+        "Close-short request or close (SC-05).",
+        "requestShortClose, approveShortClose, rejectShortClose, submitClosePO, reopenShortClose"
+       ],
+       [
+        "shortCloseHistory",
+        "list",
+        "no",
+        "",
+        "Earlier refused or reopened close requests.",
+        "scArchive, submitClosePO"
+       ],
+       [
+        "waitMarks",
+        "list",
+        "no",
+        "",
+        "Waiting for client marks (SC-06).",
+        "_wcMark"
+       ],
+       [
+        "soCreated",
+        "legacy",
+        "no",
+        "",
+        "Read by lineStage. No writer found.",
+        "none found"
+       ]
+      ]
+     }
+    },
+    {
+     "note": "The ordered quantity: the Guide (R-008) and the line fix screen say it is never rewritten, but CORRECT_ENTITY.orderLine still lists ordered as a field that KAM and COO may amend. Not confirmed which one stands."
+    },
+    {
+     "note": "Corrected 16 Oct 2026 (independent check against the code): the hyphen was taken out of the phrase raw material check. This tab is copied into o2s.html, and poentry.test.js fails when the hyphenated phrase (the old card name) appears anywhere in the file."
+    }
+   ],
+   "ask": "Can the ordered quantity of a line be changed under Correct a record? A) No, never (remove it from the correction fields) B) Yes, by the KAM or COO with a reason C) Only by the COO"
+  },
+  {
+   "owner": "Supply Chain asks; Plant Manager or COO approves",
+   "rules": [
+    "R-008",
+    "R-024",
+    "R-011",
+    "R-003"
+   ],
+   "status": "confirmed",
+   "src": [
+    "o2s.html fn requestShortClose, approveShortClose, rejectShortClose, submitClosePO, reopenShortClose, scFreeze, scArchive, SHORTCLOSE_REASONS"
+   ],
+   "id": "SC-05",
+   "title": "orders[].lines[].shortClose and the PO close",
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Type",
+       "Required",
+       "Default",
+       "Meaning",
+       "Written by"
+      ],
+      "rows": [
+       [
+        "requestedBy, requestedAt, requestedUser, requestedRole",
+        "text, date-time",
+        "yes",
+        "",
+        "Who asked and when.",
+        "requestShortClose, submitClosePO"
+       ],
+       [
+        "reasonCode, reason",
+        "text",
+        "yes",
+        "",
+        "Reason code from SHORTCLOSE_REASONS (DD-13) and free text (needed for other).",
+        "requestShortClose, submitClosePO"
+       ],
+       [
+        "orderedAtClose, deliveredAtClose, packedAtClose",
+        "number, Kg/L",
+        "yes",
+        "",
+        "Line totals frozen at the request.",
+        "scFreeze"
+       ],
+       [
+        "approvedBy, approvedAt",
+        "text, date-time",
+        "no",
+        "",
+        "Approval. The person who asked cannot approve.",
+        "approveShortClose, submitClosePO"
+       ],
+       [
+        "refusedBy, refusedByUser, refusedAt, refusedWhy",
+        "text, date-time",
+        "no",
+        "",
+        "Refusal with reason.",
+        "rejectShortClose"
+       ],
+       [
+        "reopenedBy, reopenedAt",
+        "text, date-time",
+        "no",
+        "",
+        "Line opened again; the close stays on record.",
+        "reopenShortClose"
+       ],
+       [
+        "poClose",
+        "yes/no",
+        "no",
+        "",
+        "Closed directly by the COO from Close products.",
+        "submitClosePO"
+       ],
+       [
+        "request",
+        "object",
+        "no",
+        "",
+        "A waiting request overtaken by a direct close: {by, user, role, at, reasonCode, reason}.",
+        "submitClosePO"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "shortCloseHistory rows are copies of earlier shortClose objects with id SCH..., and, for a direct close, outcome and outcomeAt."
+    },
+    {
+     "note": "Corrected 16 Oct 2026 (independent check against the code): the reason list is DD-13; DD-15 is the in-charge list."
+    }
+   ]
+  },
+  {
+   "owner": "Supply Chain (or COO)",
+   "rules": [
+    "R-024",
+    "R-022"
+   ],
+   "status": "confirmed",
+   "src": [
+    "o2s.html fn _wcMark, saveWaitClient, endWaitClient, openWaitEdit",
+    "OP-HANDOFF-O2S.md 2026-10-15 (11)"
+   ],
+   "id": "SC-06",
+   "title": "orders[].lines[].waitMarks[]: Waiting for client (new in 15g)",
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Type",
+       "Required",
+       "Default",
+       "Meaning",
+       "Written by"
+      ],
+      "rows": [
+       [
+        "id",
+        "text",
+        "yes",
+        "WC + time + 4 random",
+        "Row id, so 2 people marking at once are both kept.",
+        "_wcMark"
+       ],
+       [
+        "kind",
+        "text",
+        "yes",
+        "",
+        "wait (waiting until a date) or end (wait ended).",
+        "saveWaitClient, endWaitClient"
+       ],
+       [
+        "until",
+        "date",
+        "yes for wait",
+        "''",
+        "Waiting until this date, 1 to 30 days from today. Empty on end.",
+        "saveWaitClient"
+       ],
+       [
+        "why",
+        "text",
+        "yes",
+        "",
+        "Reason, at least 5 characters.",
+        "saveWaitClient, endWaitClient"
+       ],
+       [
+        "by, user, role, at",
+        "text, date-time",
+        "yes",
+        "",
+        "Who marked and when.",
+        "_wcMark (_uRole)"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "The latest mark by time decides. A line waits through its date and is stuck again the day after. Every mark also writes 1 audit row (with the same id) and 1 action log line. Marks are never removed."
+    }
+   ]
+  },
+  {
+   "owner": "Supply Chain (plans); Warehouse (loads, gate pass); Plant Manager (releases)",
+   "rules": [
+    "R-013",
+    "R-026",
+    "R-027",
+    "R-028",
+    "R-029",
+    "R-030",
+    "R-003",
+    "R-017"
+   ],
+   "status": "confirmed",
+   "src": [
+    "o2s.html fn saveDispatch, mpCreate, startLoading, issueGatePass, renumberGatePass, truckSwapBatch, dispQASubmit, sendBackTruck, truckFixed, approveRelease, approveDC, rejectDC, cancelShip, truckHanded, confirmDelivery, markDelivered, saveShipEdit, dfSubmitShipment, nextDCNo, nextGatePassNo",
+    "data/state.json shipments"
+   ],
+   "id": "SC-07",
+   "title": "shipments: 1 row per PO line on a truck",
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Type",
+       "Required",
+       "Default",
+       "Meaning",
+       "Written by"
+      ],
+      "rows": [
+       [
+        "id",
+        "text",
+        "yes",
+        "SH + time + random",
+        "Row id.",
+        "saveDispatch, mpCreate"
+       ],
+       [
+        "dispId",
+        "text",
+        "yes",
+        "DSP + time + random",
+        "Truck id. All rows of 1 truck share it.",
+        "saveDispatch, mpCreate"
+       ],
+       [
+        "po, lid, brand, client",
+        "text",
+        "yes",
+        "",
+        "The PO line on this row.",
+        "saveDispatch, mpCreate"
+       ],
+       [
+        "kg",
+        "number, Kg/L",
+        "yes",
+        "",
+        "Quantity on this row.",
+        "saveDispatch, mpCreate; saveShipEdit"
+       ],
+       [
+        "pack",
+        "number",
+        "yes",
+        "",
+        "Pack size.",
+        "saveDispatch, mpCreate"
+       ],
+       [
+        "batches",
+        "list",
+        "yes",
+        "",
+        "Which packing runs go on the truck (SC-08).",
+        "saveDispatch, mpCreate; truckSwapBatch"
+       ],
+       [
+        "lotChosen",
+        "yes/no",
+        "yes",
+        "",
+        "Batches picked by hand, not oldest first.",
+        "saveDispatch, mpCreate"
+       ],
+       [
+        "lotExact",
+        "yes/no",
+        "yes (from 15f)",
+        "true",
+        "The truck reserves exactly the packing runs on its DC.",
+        "saveDispatch, mpCreate, truckSwapBatch"
+       ],
+       [
+        "dispatch",
+        "date",
+        "yes",
+        "",
+        "Dispatch date.",
+        "saveDispatch, mpCreate; Correct a record"
+       ],
+       [
+        "destination, carrier, vehicle, bilty, seal",
+        "text",
+        "yes",
+        "",
+        "Truck details. Vehicle, driver and phone are needed; bilty is optional.",
+        "saveDispatch, mpCreate; truckFixed; Correct a record"
+       ],
+       [
+        "driver, driverContact",
+        "text",
+        "yes",
+        "",
+        "Driver name and phone.",
+        "saveDispatch, mpCreate; truckFixed"
+       ],
+       [
+        "focalPerson, focalPhone",
+        "text",
+        "yes",
+        "",
+        "Customer contact for this truck.",
+        "saveDispatch, mpCreate"
+       ],
+       [
+        "transportType, truckSize",
+        "text",
+        "yes",
+        "",
+        "Ex-factory or VAN-delivered; truck size key.",
+        "saveDispatch, mpCreate"
+       ],
+       [
+        "so",
+        "text",
+        "yes",
+        "order erpSo",
+        "SO number printed on the DC.",
+        "saveDispatch, mpCreate; Correct a record"
+       ],
+       [
+        "dc",
+        "text",
+        "yes",
+        "nextDCNo (highest + 1)",
+        "Delivery challan number. A voided truck's number is never issued again.",
+        "saveDispatch, mpCreate"
+       ],
+       [
+        "shipNo",
+        "text",
+        "yes",
+        "mmddyy + 3-digit serial + dc",
+        "Shipment number.",
+        "saveDispatch, mpCreate"
+       ],
+       [
+        "stage",
+        "text",
+        "yes",
+        "truck_planned (empty on trucks dated before the DC control, 2026-07-01)",
+        "Truck stage (DD-04). delivered is written only for an ex-factory truck at release (or by mpCreate); a VAN-delivered truck stays in_transit after delivery and carries the delivered date.",
+        "saveDispatch (truck_planned), startLoading, approveRelease, cancelShip, mpCreate"
+       ],
+       [
+        "dcStatus",
+        "text",
+        "yes",
+        "pending (approved before the DC control)",
+        "DC status: pending, approved, rejected, cancelled.",
+        "approveRelease, approveDC, rejectDC, cancelShip"
+       ],
+       [
+        "qa",
+        "object or null",
+        "yes",
+        "null (needs inspection)",
+        "Truck inspection result (SC-08).",
+        "dispQASubmit; truckSwapBatch resets it"
+       ],
+       [
+        "loadStarted, loadedBy, loadedByUser, loadedByRole",
+        "date, text",
+        "no",
+        "",
+        "Loading started.",
+        "startLoading"
+       ],
+       [
+        "gatePass, gatePassAt, gatePassBy, gatePassByUser, gatePassByRole",
+        "text, date-time",
+        "no",
+        "",
+        "Gate pass GP-nnnn (same book as FOC samples).",
+        "issueGatePass, renumberGatePass"
+       ],
+       [
+        "gatePassWas",
+        "text",
+        "no",
+        "",
+        "Earlier gate pass number after a renumber.",
+        "renumberGatePass"
+       ],
+       [
+        "scReview, scReviewPrev, noScReview",
+        "object, object, yes/no",
+        "no",
+        "",
+        "Review by Saad or Shoaib {by, user, role, at}; the earlier review when sent back; released without review after 2 hours.",
+        "reviewTruck, sendBackTruck, approveRelease"
+       ],
+       [
+        "sentBack, sentBackHistory",
+        "object, list",
+        "no",
+        "",
+        "Send-back {by, user, role, at, why, step, fixedAt, fixedBy, fixedByUser, fixNote, fixChanges}; step is review or release.",
+        "sendBackTruck, truckFixed"
+       ],
+       [
+        "approvedBy, approvedDate, releasedAt",
+        "text, date, date-time",
+        "no",
+        "",
+        "Plant Manager approval and release.",
+        "approveRelease, approveDC"
+       ],
+       [
+        "dispCounted",
+        "yes/no",
+        "yes",
+        "false",
+        "This row is counted in the line's dispatched total.",
+        "approveRelease, approveDC, rejectDC, cancelShip, dispQASubmit"
+       ],
+       [
+        "handoverDue, handedAt, handedBy, handedByUser",
+        "yes/no, date-time, text",
+        "no",
+        "",
+        "Papers handed to the driver after release.",
+        "approveRelease, truckHanded"
+       ],
+       [
+        "delivered, deliveredVia, deliveryNote, deliveryIssue",
+        "date, text",
+        "no",
+        "null",
+        "Delivery confirmed and how.",
+        "confirmDelivery, markDelivered, approveRelease (ex-factory)"
+       ],
+       [
+        "rejectWhy, rejectBy, rejectAt, rejectSeenAt",
+        "text, date-time",
+        "no",
+        "",
+        "DC rejected with reason; when Supply Chain saw it.",
+        "rejectDC, smpRejectSeen"
+       ],
+       [
+        "dcRevised",
+        "yes/no",
+        "no",
+        "",
+        "DC prints revised after a batch change at loading.",
+        "truckSwapBatch"
+       ],
+       [
+        "voided, reversed",
+        "yes/no",
+        "no",
+        "",
+        "Row cancelled, rejected, failed or reversed. Rows are kept.",
+        "cancelShip, rejectDC, dispQASubmit, Correct a record"
+       ],
+       [
+        "remarks, by",
+        "text",
+        "yes",
+        "",
+        "Remarks; role that planned it.",
+        "saveDispatch, mpCreate"
+       ],
+       [
+        "actualDate, recordedAt, recordedBy, enteredLate, lateReason",
+        "see SC-37",
+        "no",
+        "",
+        "Event stamp on the dispatch.",
+        "saveDispatch (evStamp ship)"
+       ],
+       [
+        "warehouse, recon, lotTake, backfill, approvedBy Auto pre go-live",
+        "legacy",
+        "no",
+        "",
+        "Rows from Correct a record or from before the DC control went live on 2026-07-01.",
+        "dfSubmitShipment, mpCreate"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Unique rules: dc and gatePass are each taken as highest + 1. After a save clash a number found on 2 trucks is reported and logged (mergeDupNumbers) so it is changed before printing."
+    },
+    {
+     "p": "Kept or deleted: a cancelled, rejected or failed truck is voided, never removed. dedupeShipmentsV1 still removes a duplicate row on load when the same PO, product and DC appear twice and the rows add up to more than dispatched (SC-36)."
+    },
+    {
+     "note": "Corrected 16 Oct 2026 (independent check against the code): stage pointed at DD-05 (batch fields); truck stages are DD-04. saveDispatch also writes stage (truck_planned). confirmDelivery and markDelivered never write stage."
+    }
+   ]
+  },
+  {
+   "owner": "Supply Chain; QA Inspector for qa",
+   "rules": [
+    "R-013",
+    "R-014",
+    "R-015",
+    "R-027",
+    "R-017"
+   ],
+   "status": "confirmed",
+   "src": [
+    "o2s.html fn saveDispatch (batches.push), mpCreate, truckSwapBatch, dispQASubmit, linkShipBatchLotsV1, qcChecklistRecord, qcVerifyRecord"
+   ],
+   "id": "SC-08",
+   "title": "Inside a shipment row: batches[], qa, batchChanges[], qaHistory[]",
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Type",
+       "Required",
+       "Default",
+       "Meaning",
+       "Written by"
+      ],
+      "rows": [
+       [
+        "batches[].lotId",
+        "text",
+        "yes (new rows)",
+        "",
+        "The packing run (packingLog.id). Old rows were linked once by linkShipBatchLotsV1 only where the match was sure.",
+        "saveDispatch, mpCreate, truckSwapBatch"
+       ],
+       [
+        "batches[].batch",
+        "text",
+        "yes",
+        "",
+        "Base batch number (copy).",
+        "saveDispatch"
+       ],
+       [
+        "batches[].brand",
+        "text",
+        "yes",
+        "",
+        "Brand batch number on the bag (copy).",
+        "saveDispatch"
+       ],
+       [
+        "batches[].kg",
+        "number, Kg/L",
+        "yes",
+        "",
+        "Kg from that run.",
+        "saveDispatch"
+       ],
+       [
+        "qa.pass, qa.fail",
+        "yes/no",
+        "yes",
+        "",
+        "Outcome. Before QA_GO_LIVE (2026-09-23) rows were written as {pass:true, closed:true}.",
+        "dispQASubmit"
+       ],
+       [
+        "qa.by, qa.date",
+        "text, date",
+        "yes",
+        "",
+        "Inspector and date.",
+        "dispQASubmit"
+       ],
+       [
+        "qa.checklist[]",
+        "list {item, result}",
+        "yes",
+        "",
+        "The 8 standard items; result pass, fail or na.",
+        "qcChecklistRecord"
+       ],
+       [
+        "qa.packChecks[]",
+        "list",
+        "yes",
+        "",
+        "Checks by pack type and the batch-on-bag check per DC line.",
+        "dispQASubmit"
+       ],
+       [
+        "qa.verify[]",
+        "list {key, item, result, brand, priceSeen}",
+        "yes",
+        "",
+        "Price, batch and dates checks, and the price read off the bag.",
+        "qcVerifyRecord"
+       ],
+       [
+        "qa.onPallets, qa.checkedWhen",
+        "text",
+        "yes",
+        "",
+        "On pallets or not; before, during or after loading.",
+        "dispQASubmit"
+       ],
+       [
+        "qa.remarks",
+        "text",
+        "yes",
+        "",
+        "Remarks; at least 5 characters when the truck fails.",
+        "dispQASubmit"
+       ],
+       [
+        "qa event stamp",
+        "see SC-37",
+        "no",
+        "",
+        "actualDate, recordedAt and the rest.",
+        "dispQASubmit (evStamp dispqa)"
+       ],
+       [
+        "batchChanges[]",
+        "list",
+        "no",
+        "",
+        "{at, by, user, role, brand, from, fromLot, to, toLot, kg, why}: batch changed at loading.",
+        "truckSwapBatch"
+       ],
+       [
+        "qaHistory[]",
+        "list",
+        "no",
+        "",
+        "Earlier qa results, kept when a batch change sends the truck back to QA.",
+        "truckSwapBatch"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "owner": "Production (Production Manager closes; Plant Manager raises plans)",
+   "rules": [
+    "R-002",
+    "R-016",
+    "R-022",
+    "R-033",
+    "R-032",
+    "R-012"
+   ],
+   "status": "confirmed",
+   "src": [
+    "o2s.html fn openBatch, submitMultiBatch, submitCallBp, submitRework, saveReconcile, doCloseBatch, closeSettledBatches, doReopenBatch, yieldShortSeen, setBatchNo, labSetRep, submitShiftLog, doRemoveLot, ensureProductionModel, consolidateByproductV1, dedupeByproductV1, healDupBatchIdsV1",
+    "data/state.json batches"
+   ],
+   "id": "SC-09",
+   "title": "batches: production batches and pools",
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Type",
+       "Required",
+       "Default",
+       "Meaning",
+       "Written by"
+      ],
+      "rows": [
+       [
+        "id",
+        "text",
+        "yes",
+        "B + seq + random",
+        "Record id. healDupBatchIdsV1 gives a twin a new id on load.",
+        "openBatch and others"
+       ],
+       [
+        "batchNo",
+        "text",
+        "yes",
+        "'' for pools",
+        "Batch number. Unique per financial year (batchOwnerInFY); a near match is refused once (R-032).",
+        "openBatch, setBatchNo; Correct a record (Plant Manager, COO)"
+       ],
+       [
+        "kind",
+        "text",
+        "yes",
+        "",
+        "po, bulk or multi (DD-05).",
+        "openBatch, submitMultiBatch"
+       ],
+       [
+        "type",
+        "text",
+        "no",
+        "stock",
+        "stock on bulk batches.",
+        "openBatch"
+       ],
+       [
+        "po, lineId",
+        "text",
+        "kind po only",
+        "",
+        "The PO line this batch is made for.",
+        "openBatch"
+       ],
+       [
+        "allocations[]",
+        "list",
+        "kind multi only",
+        "",
+        "{oid, lid, po, client, brand, kg, trueUpKg}: PO lines sharing the batch.",
+        "submitMultiBatch, multiTrueUp"
+       ],
+       [
+        "base, brand",
+        "text",
+        "yes",
+        "brand null on bulk",
+        "Base made; brand on a PO batch.",
+        "openBatch"
+       ],
+       [
+        "plannedKg",
+        "number, Kg/L",
+        "yes",
+        "",
+        "Plan. Output may go to 115% of it (R-033).",
+        "openBatch; Correct a record; saveReconcile (pools)"
+       ],
+       [
+        "producedKg",
+        "number, Kg/L",
+        "yes",
+        "0",
+        "Made so far (sum of lots).",
+        "submitShiftLog, doRemoveLot"
+       ],
+       [
+        "packedKg",
+        "number, Kg/L",
+        "yes",
+        "0",
+        "Packed from this batch.",
+        "doPack, submitProdQty, Correct a record"
+       ],
+       [
+        "status",
+        "text",
+        "yes",
+        "open",
+        "open, closed or void.",
+        "doCloseBatch, closeSettledBatches, doReopenBatch, dedupeByproductV1"
+       ],
+       [
+        "openedDate, by",
+        "date, role",
+        "yes",
+        "",
+        "Opened when and by which role.",
+        "openBatch"
+       ],
+       [
+        "lots",
+        "list",
+        "yes",
+        "[]",
+        "Lots (SC-10).",
+        "submitShiftLog"
+       ],
+       [
+        "closedDate, closedBy, closedBulk",
+        "date, text, yes/no",
+        "no",
+        "",
+        "Closed; closedBulk when closed from the settled list.",
+        "doCloseBatch, closeSettledBatches"
+       ],
+       [
+        "actualYield, varianceKg, varianceReason, varianceNote",
+        "number, number, text, text",
+        "no",
+        "",
+        "Yield at close and the reason when short (masters.varianceReasons).",
+        "doCloseBatch"
+       ],
+       [
+        "varianceNotify",
+        "object",
+        "no",
+        "",
+        "{to: Plant Manager, date, ack, ackBy, ackAt}.",
+        "doCloseBatch, yieldShortSeen"
+       ],
+       [
+        "closeHistory[]",
+        "list",
+        "no",
+        "",
+        "Earlier closes kept on reopen: {id CH..., closedDate, closedBy, closedBulk, actualYield, varianceKg, varianceReason, varianceNote, reopenedBy, reopenedRole, reopenedAt, reopenReason}.",
+        "doReopenBatch"
+       ],
+       [
+        "reopenedAt, reopenedBy",
+        "date, text",
+        "no",
+        "",
+        "Last reopen.",
+        "doReopenBatch"
+       ],
+       [
+        "reconciled, reconciledDate, reconciledBy",
+        "yes/no, date, text",
+        "no",
+        "",
+        "Unpacked remainder accounted for.",
+        "saveReconcile"
+       ],
+       [
+        "lossKg, lossReason, disposedKg, stockKept",
+        "number, text, number, object",
+        "no",
+        "",
+        "Loss; total disposed (added up over reconciles); part kept as bulk stock {kg, by, date}.",
+        "saveReconcile"
+       ],
+       [
+        "packReconcile, reconHistory[]",
+        "object, list",
+        "no",
+        "",
+        "Latest reconcile summary {loss, lossReason, items[{type, base, kg}], stock, by, date} and every reconcile with id RC....",
+        "saveReconcile"
+       ],
+       [
+        "disposition, pool, sources[]",
+        "text, yes/no, list",
+        "pools only",
+        "",
+        "Pool kind (byproduct, divert, rework) and the batches it came from [{batch, batchNo, kg}].",
+        "saveReconcile, consolidateByproductV1"
+       ],
+       [
+        "qcCleared",
+        "yes/no",
+        "divert pool",
+        "true",
+        "Diverted material is already QC-cleared.",
+        "saveReconcile"
+       ],
+       [
+        "fromByproduct, sourcePool, sourcePoolBase, fromSources",
+        "yes/no, text, text, list",
+        "no",
+        "",
+        "Batch made by calling up by-product.",
+        "submitCallBp"
+       ],
+       [
+        "fromRework, reworkSources",
+        "yes/no, list",
+        "no",
+        "",
+        "Batch made from a rework pool.",
+        "submitRework"
+       ],
+       [
+        "recycledInputKg, recycledFrom[]",
+        "number, list",
+        "no",
+        "",
+        "Diverted material recycled into this batch [{pool, base, kg, date, sources}].",
+        "submitDivert"
+       ],
+       [
+        "sourceBatch, sourceBatchNo, needsProduction, rework",
+        "text, text, yes/no, yes/no",
+        "no",
+        "",
+        "Older by-product fragments (now voided).",
+        "saveReconcile (fallback)"
+       ],
+       [
+        "repLot",
+        "object",
+        "no",
+        "",
+        "Tested lot chosen for the batch {lotId, lotNo, by, byRole, at}. The tested lot rule was switched off on 13 Oct (13e).",
+        "labSetRep"
+       ],
+       [
+        "coa",
+        "object",
+        "no",
+        "",
+        "Batch-level COA from before lots (19 in July).",
+        "old lab flow"
+       ],
+       [
+        "voided, consolidated, migrated, seed, recon",
+        "yes/no",
+        "no",
+        "",
+        "Voided fragment, consolidated pool, legacy batch, seed import, Data Fix entry.",
+        "dedupeByproductV1, consolidateByproductV1, ensureProductionModel, dfSubmitProduction"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Kept or deleted: batches are closed or voided, never removed in normal use. purgeImportedProduction removed seed and migrated batches once (SC-34)."
+    },
+    {
+     "note": "Corrected 16 Oct 2026 (independent check against the code): batch kinds are in DD-05; DD-06 is COA fields."
+    }
+   ]
+  },
+  {
+   "owner": "Production; the Lab owns lot.coa",
+   "rules": [
+    "R-016",
+    "R-002",
+    "R-008"
+   ],
+   "status": "confirmed",
+   "src": [
+    "o2s.html fn submitShiftLog (lots.push), coaRework, _labCopyOne, setBatchNo, doRemoveLot, ensureState (legacy L1 lot)",
+    "data/state.json batches[].lots[]"
+   ],
+   "id": "SC-10",
+   "title": "batches[].lots[]: 1 lot per shift output",
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Type",
+       "Required",
+       "Default",
+       "Meaning",
+       "Written by"
+      ],
+      "rows": [
+       [
+        "id",
+        "text",
+        "yes",
+        "LOT + seq + random",
+        "Lot id.",
+        "submitShiftLog"
+       ],
+       [
+        "lotNo",
+        "text",
+        "yes",
+        "batchNo + -L + n",
+        "Lot number.",
+        "submitShiftLog; setBatchNo; fixVB26003LotRenameV1"
+       ],
+       [
+        "qty",
+        "number, Kg/L",
+        "yes",
+        "",
+        "Output of this lot.",
+        "submitShiftLog"
+       ],
+       [
+        "shift, incharge",
+        "text",
+        "yes",
+        "",
+        "Shift and in-charge (masters lists).",
+        "submitShiftLog"
+       ],
+       [
+        "date",
+        "date",
+        "yes",
+        "",
+        "Production date.",
+        "submitShiftLog"
+       ],
+       [
+        "beds",
+        "list of text",
+        "yes",
+        "[]",
+        "Beds used, written as P-n, F-n or D-subbed.",
+        "submitShiftLog"
+       ],
+       [
+        "by",
+        "text",
+        "yes",
+        "",
+        "Who typed it (name).",
+        "submitShiftLog"
+       ],
+       [
+        "coa",
+        "object or null",
+        "yes",
+        "null",
+        "The lot's certificate (SC-11).",
+        "lab functions"
+       ],
+       [
+        "certifiedKg",
+        "number, Kg/L",
+        "no",
+        "",
+        "Kg the approved COA covers.",
+        "coaApprove, _labCopyOne"
+       ],
+       [
+        "coaHistory[]",
+        "list",
+        "no",
+        "",
+        "Failed or superseded COAs, kept.",
+        "coaRework, supersede"
+       ],
+       [
+        "reworks, rework",
+        "number, object",
+        "no",
+        "",
+        "Rework count; open rework {why, by, role, at, n, doneAt}.",
+        "coaRework"
+       ],
+       [
+        "migrated",
+        "yes/no",
+        "no",
+        "",
+        "Lot made on load for an old batch with output but no lots.",
+        "ensureState"
+       ]
+      ]
+     }
+    },
+    {
+     "note": "doRemoveLot (Removed shift output) takes the lot out of the list for good, with its shift entry and production log row. It writes a corrections row with the COA state, so the register keeps what was removed. See SC-36."
+    }
+   ]
+  },
+  {
+   "owner": "Lab (Lab Rep drafts, AQCM reviews, QCM approves); Plant Manager for deviation and rework",
+   "rules": [
+    "R-016",
+    "R-003",
+    "R-006",
+    "R-020"
+   ],
+   "status": "confirmed",
+   "src": [
+    "o2s.html fn labNewCoa, labAssignConfirm, benchSave, coaSubmitAnalyst, coaReview, coaApprove, coaSendBack, coaCloseReturn, coaReject, coaDeviation, coaRework, _labCopyOne, CORRECT_ENTITY.coa (supersede)",
+    "data/state.json lot.coa (123 rows)"
+   ],
+   "id": "SC-11",
+   "title": "lot.coa: the certificate of analysis",
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Type",
+       "Required",
+       "Default",
+       "Meaning",
+       "Written by"
+      ],
+      "rows": [
+       [
+        "status",
+        "text",
+        "yes",
+        "draft",
+        "draft, analysed, reviewed, approved, failed (DD-06).",
+        "all lab functions"
+       ],
+       [
+        "flow",
+        "text",
+        "no",
+        "",
+        "v2 for a certificate assigned per test.",
+        "labNewCoa, labAssignConfirm"
+       ],
+       [
+        "type, issueDate, issueStatus, item, source",
+        "text, date, text, text, text",
+        "yes",
+        "Batch, today, A, product, Vital Agri Nutrients (Pvt) Ltd",
+        "Certificate header.",
+        "labNewCoa"
+       ],
+       [
+        "batchNo, quantity, mfgDate, expDate, qcNo",
+        "text",
+        "yes",
+        "",
+        "Lot number, quantity text (e.g. 3,500 Kg), Mon-yyyy dates, QC number (e.g. PQ0756).",
+        "labNewCoa, _labCopyOne"
+       ],
+       [
+        "receivingDate, sampledBy, sampleQty, analysisTime, dateOfTest, temp, humidity",
+        "text",
+        "yes",
+        "",
+        "Sample facts. sampledBy, sampleQty, temp and humidity are needed at assignment.",
+        "labNewCoa, labAssignConfirm"
+       ],
+       [
+        "tests[]",
+        "list",
+        "yes",
+        "from masters.labTemplates",
+        "{g, test, spec, method, mu, result, remark}; in v2 also {param, to, toName, due, doneBy, doneAt}.",
+        "labNewCoa, labAssignConfirm, benchSave"
+       ],
+       [
+        "assign, dueAt",
+        "object, date-time",
+        "v2",
+        "",
+        "Who assigned {by, at, container, nature}; latest test due time.",
+        "labAssignConfirm"
+       ],
+       [
+        "analyst, reviewer, approver",
+        "object {name, date, onBehalf}",
+        "yes",
+        "{name:'', date:''}",
+        "The 3 signatures. onBehalf when a leave cover signs.",
+        "coaSubmitAnalyst, coaReview, coaApprove"
+       ],
+       [
+        "draftedBy",
+        "object",
+        "no",
+        "",
+        "Who drafted the results.",
+        "coaSubmitAnalyst, benchSave"
+       ],
+       [
+        "overall, failReason",
+        "text",
+        "no",
+        "",
+        "FIT or UNFIT; reason when UNFIT.",
+        "coaSubmitAnalyst, benchSave"
+       ],
+       [
+        "approvedDate, certifiedKg",
+        "date, number",
+        "no",
+        "",
+        "Approval date; Kg covered.",
+        "coaApprove"
+       ],
+       [
+        "returns[], returnOpen",
+        "list, object",
+        "no",
+        "",
+        "Send-backs {id RET..., from, fromTitle, by, user, role, at, note, stage, to, toUser, toName, prevReviewer, doneAt, doneBy, doneHow}.",
+        "coaSendBack, coaCloseReturn"
+       ],
+       [
+        "rejected",
+        "object",
+        "no",
+        "",
+        "Old reject {by, stage, why, date}.",
+        "coaReject"
+       ],
+       [
+        "deviation, deviationNote, deviationBy",
+        "yes/no, text, object",
+        "no",
+        "",
+        "UNFIT accepted by the Plant Manager; goes on to AQCM and QCM.",
+        "coaDeviation"
+       ],
+       [
+        "rev, supersedes, superseded fields",
+        "number, object",
+        "no",
+        "",
+        "Revision after Supersede; the old one goes to coaHistory with supersededAt, supersededBy, supersededRole, supersededReason.",
+        "Correct a record (SUPERSEDE coa)"
+       ],
+       [
+        "repOf, remarks",
+        "text",
+        "no",
+        "",
+        "Copied from the tested lot (old rule, off since 13e).",
+        "_labCopyOne"
+       ],
+       [
+        "remarks",
+        "text",
+        "yes",
+        "''",
+        "Remarks.",
+        "labNewCoa"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "v2 send-back and reject delete t.doneAt and t.doneBy on each test so it goes back to the analyst; the results stay."
+    },
+    {
+     "note": "Corrected 16 Oct 2026 (independent check against the code): COA statuses are in DD-06; DD-07 is packing run fields."
+    }
+   ]
+  },
+  {
+   "owner": "Production (Production Manager sees Big pack run)",
+   "rules": [
+    "R-004",
+    "R-009",
+    "R-007",
+    "R-012",
+    "R-013",
+    "R-016"
+   ],
+   "status": "confirmed",
+   "src": [
+    "o2s.html fn doPack, submitProdQty, submitDivert, dfSubmitPacking, lineFixRecord, packRowExtras, packPriceRecord, packDates, evStamp, lotQASubmit, savePackInspect, pmvApply, bigPackSeen, dfSubmitVoid, dedupePackingLots",
+    "OP-HANDOFF-O2S.md 2026-10-15 (1), (2)",
+    "data/state.json packingLog"
+   ],
+   "id": "SC-12",
+   "title": "packingLog: packing runs",
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Type",
+       "Required",
+       "Default",
+       "Meaning",
+       "Written by"
+      ],
+      "rows": [
+       [
+        "id",
+        "text",
+        "yes",
+        "PK + seq + random; moved copies PK + move id + -n",
+        "Run id. shipments.batches[].lotId and inspections.batches[].lotId point here.",
+        "doPack and others"
+       ],
+       [
+        "po, lid",
+        "text",
+        "yes",
+        "",
+        "The PO line packed for.",
+        "doPack; pmvApply; migratePackingLotLidV1"
+       ],
+       [
+        "base, brand",
+        "text",
+        "yes",
+        "",
+        "Base packed from; brand packed.",
+        "doPack"
+       ],
+       [
+        "kg",
+        "number, Kg/L",
+        "yes",
+        "",
+        "Packed in this run.",
+        "doPack; pmvApply"
+       ],
+       [
+        "date",
+        "date",
+        "yes",
+        "",
+        "Packing date.",
+        "doPack"
+       ],
+       [
+        "by",
+        "text",
+        "yes",
+        "",
+        "Who typed it (name), never the in-charge.",
+        "doPack"
+       ],
+       [
+        "baseBatchId, baseBatchNo",
+        "text",
+        "yes",
+        "",
+        "Batch packed from: id and number (copy).",
+        "doPack"
+       ],
+       [
+        "brandBatchNo",
+        "text",
+        "yes",
+        "",
+        "Batch number printed on the bag.",
+        "doPack; Correct a record (Plant Manager, COO)"
+       ],
+       [
+        "mfgDate, expDate, shelfMonths",
+        "date, date, number",
+        "yes",
+        "shelf 24 months (max 36)",
+        "Mfg = earliest production date of every batch under that bag number; expiry = mfg + shelf months.",
+        "packDates; syncPackBatchDates"
+       ],
+       [
+        "shift, incharge",
+        "text",
+        "yes (from 15a)",
+        "start empty, refused if empty",
+        "Shift and in-charge of the packing run.",
+        "packRowExtras"
+       ],
+       [
+        "packs, packSize",
+        "number",
+        "yes when the line has a pack size",
+        "",
+        "packs = kg / pack size, ticked by the person entering.",
+        "packRowExtras"
+       ],
+       [
+        "bigRun",
+        "object",
+        "no",
+        "",
+        "Over 10,000 Kg/L in 1 entry or for 1 shift and in-charge on 1 date: {kg, total, limit, ack, ackBy, ackAt}.",
+        "packRowExtras, bigPackSeen"
+       ],
+       [
+        "poPrintPrice, printOnPack, priceSource",
+        "number, yes/no, text",
+        "yes",
+        "",
+        "What the PO asked for: priceSource po, list, none or unknown.",
+        "packPriceRecord"
+       ],
+       [
+        "printedPrice, printPrice, noPrintPack, priceMismatch",
+        "number, number, yes/no, yes/no",
+        "yes",
+        "",
+        "Price printed on the bag; printPrice kept for older readers; mismatch against the PO price.",
+        "packPriceRecord"
+       ],
+       [
+        "priceVerifiedBy, priceVerifiedAt",
+        "text, date-time",
+        "yes",
+        "",
+        "Who confirmed the price.",
+        "packPriceRecord"
+       ],
+       [
+        "actualDate, recordedAt, recordedBy, enteredLate, lateReason",
+        "see SC-37",
+        "yes",
+        "",
+        "Event stamp.",
+        "evStamp pack"
+       ],
+       [
+        "insKg",
+        "number, Kg/L",
+        "yes",
+        "0",
+        "Kg cleared by passed inspections.",
+        "savePackInspect, lotQASubmit, pmvApply"
+       ],
+       [
+        "shipKg",
+        "number, Kg/L",
+        "yes",
+        "0",
+        "Kg on trucks; rebuilt on every load (reconcileLotShipKgV1) from the line's dispatched total, the trucks not yet released, and the exact runs a 15f truck lists (F-039).",
+        "saveDispatch, mpCreate, _releaseShip, reconcileLotShipKgV1"
+       ],
+       [
+        "qa",
+        "object",
+        "no",
+        "",
+        "Lot inspection in store {pass, fail, by, date, checklist, packChecks, remarks} + stamp.",
+        "lotQASubmit"
+       ],
+       [
+        "qaHold",
+        "object or null",
+        "no",
+        "",
+        "Lot on QA hold after a failed inspection {reason, by, date, kg, fails} + stamp.",
+        "savePackInspect"
+       ],
+       [
+        "movedFrom",
+        "object",
+        "no",
+        "",
+        "This run is a copy made by a stock move {moveId, po, lid, lotId, at}.",
+        "pmvApply"
+       ],
+       [
+        "movedOut[]",
+        "list",
+        "no",
+        "",
+        "Moves taken out of this run {moveId, kg, insKg, toPo, toLid, lotId, at}.",
+        "pmvApply"
+       ],
+       [
+        "fromDivert, fromDivertSources",
+        "yes/no, list",
+        "no",
+        "",
+        "Packed straight from a divert pool.",
+        "submitDivert"
+       ],
+       [
+        "reversed",
+        "yes/no",
+        "no",
+        "",
+        "Reversed under Correct a record; qa set null and insKg 0. Kept.",
+        "Correct a record (REVERSE packingLot)"
+       ],
+       [
+        "void, voidedKg, voidedAt, voidedBy",
+        "yes/no, number, date-time, text",
+        "no",
+        "",
+        "Voided under Correct a record: kg set to 0, voidedKg keeps the old figure.",
+        "dfSubmitVoid"
+       ],
+       [
+        "recon, seed",
+        "yes/no",
+        "no",
+        "",
+        "Data Fix entry; June seed import.",
+        "dfSubmitPacking, buildFromSeed"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Unique rules: a brand batch number is unique per financial year across batches and packing runs (batchOwnerInFY). 2 runs with the same kg but a different shift or in-charge are 2 real entries (15 Oct 2026)."
+    },
+    {
+     "note": "dedupePackingLots runs on every load and removes duplicate rows that share an id, and identical copies that over-pack a batch. See SC-36."
+    }
+   ]
+  },
+  {
+   "owner": "Production",
+   "rules": [
+    "R-002",
+    "R-001"
+   ],
+   "status": "confirmed",
+   "src": [
+    "o2s.html fn submitShiftLog, dfSubmitProduction, voidProdEntry, doRemoveLot, ensureProductionModel, fixVU26144ProdLogV1, fixVU26144ProdLogV2, healVU26144ProdLog",
+    "data/state.json productionLog"
+   ],
+   "id": "SC-13",
+   "title": "productionLog: daily output rows",
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Type",
+       "Required",
+       "Default",
+       "Meaning",
+       "Written by"
+      ],
+      "rows": [
+       [
+        "id",
+        "text",
+        "yes",
+        "PL + time + random",
+        "Row id.",
+        "submitShiftLog"
+       ],
+       [
+        "date",
+        "date",
+        "yes",
+        "",
+        "Production date.",
+        "submitShiftLog"
+       ],
+       [
+        "base, brand",
+        "text",
+        "base yes; brand on PO rows",
+        "",
+        "What was made.",
+        "submitShiftLog"
+       ],
+       [
+        "kg",
+        "number, Kg/L",
+        "yes",
+        "",
+        "Output; on a multi batch the share for each PO.",
+        "submitShiftLog"
+       ],
+       [
+        "po",
+        "text",
+        "PO and multi rows",
+        "",
+        "PO; on a multi batch with no allocation, a label of the batch's POs.",
+        "submitShiftLog"
+       ],
+       [
+        "shift, incharge",
+        "text",
+        "yes",
+        "Morning, (historical) for legacy rows",
+        "Shift and in-charge.",
+        "submitShiftLog; ensureProductionModel"
+       ],
+       [
+        "batchNo",
+        "text",
+        "yes",
+        "",
+        "Batch number (text link to batches.batchNo).",
+        "submitShiftLog"
+       ],
+       [
+        "beds",
+        "list",
+        "yes",
+        "[]",
+        "Beds used.",
+        "submitShiftLog"
+       ],
+       [
+        "by",
+        "text",
+        "yes",
+        "",
+        "Who typed it.",
+        "submitShiftLog"
+       ],
+       [
+        "multi",
+        "yes/no",
+        "no",
+        "",
+        "Row of a multi-PO batch.",
+        "submitShiftLog"
+       ],
+       [
+        "opening",
+        "yes/no",
+        "no",
+        "",
+        "Opening balance row (left out of reports).",
+        "old import"
+       ],
+       [
+        "recon, seed",
+        "yes/no",
+        "no",
+        "",
+        "Data Fix entry; June seed import.",
+        "dfSubmitProduction, buildFromSeed"
+       ]
+      ]
+     }
+    },
+    {
+     "note": "Rows are removed in 3 places: doRemoveLot (with a corrections row), voidProdEntry: COO only, screen not reachable, and the VU26144 repairs. See SC-36."
+    },
+    {
+     "note": "Corrected 16 Oct 2026 (independent check against the code): reworded so this page no longer writes voidProdEntry followed by a bracket. This tab is copied into o2s.html, and authmodel.test.js counts that text in the whole file (got 3, want 2)."
+    }
+   ]
+  },
+  {
+   "owner": "Production",
+   "rules": [
+    "R-002",
+    "R-001",
+    "R-033"
+   ],
+   "status": "confirmed",
+   "src": [
+    "o2s.html fn submitShiftLog, doRemoveLot, evStamp",
+    "data/state.json shiftEntries"
+   ],
+   "id": "SC-14",
+   "title": "shiftEntries: 1 row per shift output on a batch",
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Type",
+       "Required",
+       "Default",
+       "Meaning",
+       "Written by"
+      ],
+      "rows": [
+       [
+        "id",
+        "text",
+        "yes",
+        "SE + seq + random",
+        "Row id.",
+        "submitShiftLog"
+       ],
+       [
+        "batchId, batchNo",
+        "text",
+        "yes",
+        "",
+        "Batch (id) and its number (copy).",
+        "submitShiftLog"
+       ],
+       [
+        "date",
+        "date",
+        "yes",
+        "",
+        "Production date.",
+        "submitShiftLog"
+       ],
+       [
+        "shift, incharge",
+        "text",
+        "yes",
+        "",
+        "Shift and in-charge.",
+        "submitShiftLog"
+       ],
+       [
+        "kg",
+        "number, Kg/L",
+        "yes",
+        "",
+        "Output in this shift.",
+        "submitShiftLog"
+       ],
+       [
+        "reason, note",
+        "text",
+        "yes",
+        "''",
+        "Reason (downtime or low output) and note.",
+        "submitShiftLog"
+       ],
+       [
+        "beds",
+        "list",
+        "yes",
+        "[]",
+        "Beds used.",
+        "submitShiftLog"
+       ],
+       [
+        "by, ts",
+        "text, date-time",
+        "yes",
+        "",
+        "Who typed it and when.",
+        "submitShiftLog"
+       ],
+       [
+        "actualDate, recordedAt, recordedBy, enteredLate, lateReason",
+        "see SC-37",
+        "yes",
+        "",
+        "Event stamp.",
+        "evStamp shift"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Each shift entry makes 1 lot in the batch and 1 or more productionLog rows."
+    }
+   ]
+  },
+  {
+   "owner": "QA Inspector",
+   "rules": [
+    "R-014",
+    "R-015",
+    "R-017",
+    "R-003"
+   ],
+   "status": "confirmed",
+   "src": [
+    "o2s.html fn savePackInspect, qcChecklistRecord, qcVerifyRecord, aqlPlan, CORRECT_ENTITY.inspection (supersede)",
+    "data/state.json inspections"
+   ],
+   "id": "SC-15",
+   "title": "inspections: QA inspections of packed lots",
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Type",
+       "Required",
+       "Default",
+       "Meaning",
+       "Written by"
+      ],
+      "rows": [
+       [
+        "id",
+        "text",
+        "yes",
+        "INS + time + random",
+        "Inspection id.",
+        "savePackInspect"
+       ],
+       [
+        "po, brand, lid",
+        "text",
+        "yes",
+        "",
+        "PO line inspected.",
+        "savePackInspect"
+       ],
+       [
+        "kg",
+        "number, Kg/L",
+        "yes",
+        "",
+        "Kg inspected.",
+        "savePackInspect"
+       ],
+       [
+        "by",
+        "text",
+        "yes",
+        "",
+        "Inspector name as typed.",
+        "savePackInspect"
+       ],
+       [
+        "date",
+        "date",
+        "yes",
+        "",
+        "Date.",
+        "savePackInspect"
+       ],
+       [
+        "pass",
+        "yes/no",
+        "yes",
+        "",
+        "Outcome.",
+        "savePackInspect"
+       ],
+       [
+        "checklist[]",
+        "list {item, result}",
+        "yes",
+        "",
+        "The 8 items; result pass, fail or na.",
+        "qcChecklistRecord"
+       ],
+       [
+        "packChecks[]",
+        "list",
+        "yes",
+        "",
+        "Checks by pack type.",
+        "savePackInspect"
+       ],
+       [
+        "verify[]",
+        "list",
+        "yes",
+        "",
+        "Price, batch, dates and price seen on the bag.",
+        "qcVerifyRecord"
+       ],
+       [
+        "sampling",
+        "object",
+        "yes",
+        "",
+        "AQL sampling: {lotPacks, level, aql, codeLetter, required, accept, reject, checked, defects, reduced, tableVerified}.",
+        "savePackInspect (aqlPlan)"
+       ],
+       [
+        "remarks",
+        "text",
+        "yes",
+        "''",
+        "Remarks.",
+        "savePackInspect"
+       ],
+       [
+        "batches[]",
+        "list {lotId, batch, brand, kg}",
+        "yes",
+        "",
+        "The packing runs inspected.",
+        "savePackInspect"
+       ],
+       [
+        "actualDate, recordedAt, recordedBy, enteredLate, lateReason",
+        "see SC-37",
+        "yes",
+        "",
+        "Event stamp.",
+        "savePackInspect (_ev)"
+       ],
+       [
+        "superseded",
+        "object",
+        "no",
+        "",
+        "Withdrawn: {at, by, role, reason}. The report stays on file stamped WITHDRAWN.",
+        "Correct a record (SUPERSEDE inspection)"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "owner": "COO approves; the requester (KAM or the person named) owns the request",
+   "rules": [
+    "R-005",
+    "R-003",
+    "R-018"
+   ],
+   "status": "confirmed",
+   "src": [
+    "o2s.html fn smpSubmit, smpDecide, smpIssue, smpCheck, smpDispatch, smpReview, smpRelease, smpArrived, smpFeedback, smpCancel, smpLog, smpStamp, smpNextNo"
+   ],
+   "id": "SC-16",
+   "title": "samples: FOC samples",
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Type",
+       "Required",
+       "Default",
+       "Meaning",
+       "Written by"
+      ],
+      "rows": [
+       [
+        "id, no",
+        "text",
+        "yes",
+        "SMP + time + random; SMP-nnnn",
+        "Record id and sample number.",
+        "smpSubmit"
+       ],
+       [
+        "status",
+        "text",
+        "yes",
+        "requested",
+        "Stage (DD-09).",
+        "every smp function"
+       ],
+       [
+        "requester, entered, onBehalf",
+        "object, object, yes/no",
+        "yes",
+        "",
+        "Who sends it; who keyed it (smpStamp); keyed for someone else.",
+        "smpSubmit"
+       ],
+       [
+        "client, prospect, city",
+        "text, yes/no, text",
+        "yes",
+        "",
+        "Customer or prospect.",
+        "smpSubmit"
+       ],
+       [
+        "purpose, why, neededBy, how",
+        "text, text, date, text",
+        "yes",
+        "",
+        "Purpose (list), reason (10+ letters), needed-by date, how it goes.",
+        "smpSubmit"
+       ],
+       [
+        "deliverTo",
+        "object {person, phone, address}",
+        "yes",
+        "",
+        "Where it goes.",
+        "smpSubmit"
+       ],
+       [
+        "lines[]",
+        "list {brand, base, pack, packs, kg, unit}",
+        "yes",
+        "",
+        "Products asked.",
+        "smpSubmit"
+       ],
+       [
+        "approval",
+        "stamp + {yes, note, self}",
+        "no",
+        "",
+        "COO decision.",
+        "smpDecide"
+       ],
+       [
+        "issue",
+        "stamp + {lines[{batch, source pool or other, batchId, mfg, exp, coa}]}",
+        "no",
+        "",
+        "Issued by the warehouse from the sampling pool.",
+        "smpIssue"
+       ],
+       [
+        "qa",
+        "stamp + {pass, checklist[]}",
+        "no",
+        "",
+        "QA check of the 5 sample items. A pass makes status checked; a fail sends it back to approved.",
+        "smpCheck"
+       ],
+       [
+        "dispatch, dcNo",
+        "stamp + {date, how, carrier, tracking, dc SDC-nnnn, gatePass GP-nnnn}",
+        "no",
+        "",
+        "Sample DC and gate pass.",
+        "smpDispatch"
+       ],
+       [
+        "review, release",
+        "stamp, stamp + {reviewed}",
+        "no",
+        "",
+        "Saad reviews; Plant Manager releases.",
+        "smpReview, smpRelease"
+       ],
+       [
+        "delivered",
+        "stamp + {date, via}",
+        "no",
+        "",
+        "Arrived.",
+        "smpArrived"
+       ],
+       [
+        "feedback[]",
+        "list stamp + {result, note, po}",
+        "no",
+        "[]",
+        "What the client said.",
+        "smpFeedback"
+       ],
+       [
+        "history[]",
+        "list stamp + {what, note}",
+        "yes",
+        "[]",
+        "Every step.",
+        "smpLog"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "A stamp (smpStamp) is {by, user, role, at, date}."
+    },
+    {
+     "note": "Corrected 16 Oct 2026 (independent check against the code): sample stages are in DD-09; DD-10 is corrections."
+    }
+   ]
+  },
+  {
+   "owner": "COO (Correct a record); each entity names who may amend or reverse it",
+   "rules": [
+    "R-008",
+    "R-012",
+    "R-028"
+   ],
+   "status": "confirmed",
+   "src": [
+    "o2s.html fn recordCorrection, CORRECT_ENTITY, CORRECT_REASONS, doRemoveLot",
+    "Guide rule Nothing is deleted"
+   ],
+   "id": "SC-17",
+   "title": "corrections: the corrections register",
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Type",
+       "Required",
+       "Default",
+       "Meaning",
+       "Written by"
+      ],
+      "rows": [
+       [
+        "id",
+        "text",
+        "yes",
+        "CR + seq + random",
+        "Row id.",
+        "recordCorrection"
+       ],
+       [
+        "at",
+        "date-time",
+        "yes",
+        "",
+        "When.",
+        "recordCorrection"
+       ],
+       [
+        "by, byUser, byRole",
+        "text",
+        "yes",
+        "",
+        "Who, login, role.",
+        "recordCorrection"
+       ],
+       [
+        "op",
+        "text",
+        "yes",
+        "",
+        "AMEND, REVERSE, SUPERSEDE, ADD, VOID, BACKFILL or Removed shift output.",
+        "recordCorrection callers"
+       ],
+       [
+        "entityType, entityId, entityLabel",
+        "text",
+        "yes",
+        "",
+        "What was corrected: order, orderLine, packingLot, shipment, batch, coa, inspection or legacy, its id, and a label.",
+        "recordCorrection"
+       ],
+       [
+        "changes[]",
+        "list {field, label, before, after}",
+        "yes",
+        "[]",
+        "Each value before and after.",
+        "recordCorrection"
+       ],
+       [
+        "reasonCode, reason",
+        "text",
+        "yes",
+        "",
+        "Reason code (DD-10) and text.",
+        "recordCorrection"
+       ],
+       [
+        "cascade[]",
+        "list of text",
+        "yes",
+        "[]",
+        "What else moved because of it.",
+        "recordCorrection"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "It is append-only: rows are only added (unshift). Each row also writes 1 action log line and 1 audit row (module Correction). For a truck fix the entityId is the dispId; elsewhere it is the record id."
+    },
+    {
+     "note": "Corrected 16 Oct 2026 (independent check against the code): correction reason codes are in DD-10; DD-11 is stock moves and waits."
+    }
+   ]
+  },
+  {
+   "owner": "Supply Chain asks; Plant Manager approves",
+   "rules": [
+    "R-007",
+    "R-003"
+   ],
+   "status": "confirmed",
+   "src": [
+    "o2s.html fn submitMoveStock, approveMove, refuseMove, cancelMove, pmvApply, pmvSettleV1",
+    "OP-HANDOFF-O2S.md stock move entry (6265)"
+   ],
+   "id": "SC-18",
+   "title": "poMoves: packed stock moved to another PO",
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Type",
+       "Required",
+       "Default",
+       "Meaning",
+       "Written by"
+      ],
+      "rows": [
+       [
+        "id",
+        "text",
+        "yes",
+        "MV + seq + random",
+        "Move id.",
+        "submitMoveStock"
+       ],
+       [
+        "status",
+        "text",
+        "yes",
+        "asked",
+        "asked, done, refused or cancelled.",
+        "submitMoveStock, approveMove, refuseMove, cancelMove"
+       ],
+       [
+        "at, by",
+        "date-time, stamp",
+        "yes",
+        "",
+        "Asked when and by whom.",
+        "submitMoveStock"
+       ],
+       [
+        "fromPo, fromLid, toPo, toLid",
+        "text",
+        "yes",
+        "",
+        "From line and to line (same customer, product and price).",
+        "submitMoveStock"
+       ],
+       [
+        "client, brand, kg, reason",
+        "text, text, number, text",
+        "yes",
+        "",
+        "What moves and why.",
+        "submitMoveStock"
+       ],
+       [
+        "lots[]",
+        "list {lotId, kg, batch}",
+        "yes",
+        "",
+        "Packing runs and Kg moved.",
+        "submitMoveStock"
+       ],
+       [
+        "approvedBy, approvedAt",
+        "stamp, date-time",
+        "no",
+        "",
+        "Plant Manager approval.",
+        "approveMove"
+       ],
+       [
+        "refusedBy, refusedAt, refusedWhy",
+        "stamp, date-time, text",
+        "no",
+        "",
+        "Refusal.",
+        "refuseMove"
+       ],
+       [
+        "cancelledAt",
+        "date-time",
+        "no",
+        "",
+        "Cancelled by the person who asked.",
+        "cancelMove"
+       ],
+       [
+        "before",
+        "object",
+        "no",
+        "",
+        "Both lines' totals before the move.",
+        "pmvApply"
+       ],
+       [
+        "applied[]",
+        "list {fromLot, toLot, kg, insKg, batch}",
+        "no",
+        "",
+        "What was applied.",
+        "pmvApply"
+       ],
+       [
+        "scCheck",
+        "object {need, doneAt, doneBy}",
+        "no",
+        "",
+        "Supply Chain follow-up after the move.",
+        "approveMove; the Supply Chain check job"
+       ],
+       [
+        "clash",
+        "object {was, by, at}",
+        "no",
+        "",
+        "A refusal or cancel that clashed with an applied move.",
+        "pmvSettleV1"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "owner": "Finance and CFO (ruling 23 Sep 2026, R5 and R9); the KAM reviews",
+   "rules": [
+    "R-011",
+    "R-008",
+    "R-019"
+   ],
+   "status": "confirmed",
+   "src": [
+    "o2s.html fn custSave, custInit, custCode, approveCustomer, sendBackCustomer, custToggleStatus, custReturnFixed, seedCustomerRightsV1, ensureRecordIds",
+    "data/state.json customers"
+   ],
+   "id": "SC-19",
+   "title": "customers: the customer master",
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Type",
+       "Required",
+       "Default",
+       "Meaning",
+       "Written by"
+      ],
+      "rows": [
+       [
+        "id, code",
+        "text",
+        "yes",
+        "id = code",
+        "Customer code (format in DD-12). Unique key.",
+        "custSave"
+       ],
+       [
+        "name",
+        "text",
+        "yes",
+        "",
+        "Customer name.",
+        "custSave"
+       ],
+       [
+        "segment",
+        "text",
+        "yes",
+        "",
+        "White-label, Dealer, Distributor, VGreen, COBO or Direct Farmer.",
+        "custSave"
+       ],
+       [
+        "parent, outlet, isParent",
+        "text, text, yes/no",
+        "yes",
+        "",
+        "Parent group and outlet code for VGreen and COBO outlets.",
+        "custSave, custInit"
+       ],
+       [
+        "brandKey",
+        "text",
+        "yes",
+        "",
+        "Catalogue client key used to find this customer's products.",
+        "custSave"
+       ],
+       [
+        "region, city, contact, phone",
+        "text",
+        "yes",
+        "",
+        "Location and contact.",
+        "custSave"
+       ],
+       [
+        "creditDays",
+        "number, days",
+        "yes",
+        "0",
+        "Credit days.",
+        "custSave"
+       ],
+       [
+        "fed",
+        "text",
+        "yes",
+        "Exclusive",
+        "Inclusive or Exclusive.",
+        "custSave"
+       ],
+       [
+        "kam, introducedBy, destination, ntn",
+        "text",
+        "yes",
+        "''",
+        "KAM, who introduced, destination, NTN.",
+        "custSave"
+       ],
+       [
+        "psiWithDC",
+        "yes/no",
+        "yes",
+        "false",
+        "Send the pre-shipment report with the DC.",
+        "custSave"
+       ],
+       [
+        "paymentTerms",
+        "text",
+        "yes",
+        "''",
+        "Default payment terms.",
+        "custSave"
+       ],
+       [
+        "inducted",
+        "number, year",
+        "yes",
+        "this year",
+        "Year inducted.",
+        "custSave"
+       ],
+       [
+        "status",
+        "text",
+        "yes",
+        "Pending approval (Active when CFO or COO enters)",
+        "Active, Inactive or Pending approval; Confirmed in old rows.",
+        "custSave, approveCustomer, custToggleStatus"
+       ],
+       [
+        "createdBy, approvedBy, approvedAt",
+        "stamp, text, date-time",
+        "no",
+        "",
+        "Entry and CFO approval.",
+        "custSave, approveCustomer"
+       ],
+       [
+        "sentBack, sentBacks",
+        "object, list",
+        "no",
+        "",
+        "Send-back to whoever entered it, with fix fields.",
+        "sendBackCustomer, custReturnFixed"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Kept or deleted: a customer is deactivated (Inactive), not deleted. custInit removed the VG-DP row once (_custFixDP1)."
+    },
+    {
+     "note": "Corrected 16 Oct 2026 (independent check against the code): customer code formats are in DD-12; DD-13 is close-short reasons."
+    }
+   ]
+  },
+  {
+   "owner": "not confirmed",
+   "rules": [
+    "R-008"
+   ],
+   "status": "not confirmed",
+   "src": [
+    "o2s.html custSave note: state.dealers is retired as a write target (2026-08-27)",
+    "fn custInit, ensureState, ensureRecordIds",
+    "data/state.json dealers"
+   ],
+   "id": "SC-20",
+   "title": "dealers: old dealer list, retired",
+   "ask": "The old dealers list (7 rows) is no longer written; dealers live in customers. What should happen to it? A) Keep it as history, read only B) Remove it from the data after a check C) Leave it as it is for now",
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Type",
+       "Required",
+       "Default",
+       "Meaning",
+       "Written by"
+      ],
+      "rows": [
+       [
+        "id, code",
+        "text",
+        "yes",
+        "id = code",
+        "Dealer code, e.g. DLR-PB-JHN-001.",
+        "custInit backfill, ensureRecordIds"
+       ],
+       [
+        "name, region, city, contact, phone",
+        "text",
+        "yes",
+        "",
+        "Dealer details.",
+        "old Admin screen"
+       ],
+       [
+        "creditDays",
+        "number",
+        "yes",
+        "0",
+        "Credit days.",
+        "old Admin screen"
+       ],
+       [
+        "status",
+        "text",
+        "yes",
+        "",
+        "Confirmed in July rows.",
+        "old Admin screen"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "custInit copied every dealer into customers (segment Dealer) once (_custInitV1). Since 2026-08-27 customers is the single source of dealers."
+    }
+   ]
+  },
+  {
+   "owner": "not confirmed",
+   "rules": [],
+   "status": "not confirmed",
+   "src": [
+    "o2s.html SEED.warehouses, fn ensureState, dfSubmitShipment"
+   ],
+   "id": "SC-21",
+   "title": "warehouses: list of warehouse names",
+   "ask": "The warehouses list holds 3 names from the June seed (Main Warehouse, Lahore WH, Karachi WH) and only Correct a record uses the first one. Is it still needed? A) Yes, keep it B) No, it can go C) It should be used on trucks",
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Type",
+       "Required",
+       "Default",
+       "Meaning",
+       "Written by"
+      ],
+      "rows": [
+       [
+        "(each item)",
+        "text",
+        "yes",
+        "Main Warehouse, Lahore WH, Karachi WH",
+        "Warehouse name.",
+        "ensureState (from SEED)"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Only dfSubmitShipment writes a warehouse field, and it takes the first name."
+    }
+   ]
+  },
+  {
+   "owner": "Supply Chain raises; CFO approves",
+   "rules": [
+    "R-011"
+   ],
+   "status": "confirmed",
+   "src": [
+    "o2s.html fn raisePR, cfoApprovePR, receivePR, refusePR, prAskAgain, prDrop, closePR",
+    "data/state.json prs"
+   ],
+   "id": "SC-22",
+   "title": "prs: raw-material purchase requests (old model)",
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Type",
+       "Required",
+       "Default",
+       "Meaning",
+       "Written by"
+      ],
+      "rows": [
+       [
+        "id",
+        "text",
+        "yes",
+        "PR + seq + random",
+        "PR id.",
+        "raisePR"
+       ],
+       [
+        "rm",
+        "text",
+        "yes",
+        "",
+        "Raw material (masters.rawMaterials name).",
+        "raisePR"
+       ],
+       [
+        "qtyRequired, qtyReceived",
+        "number, Kg/L",
+        "yes",
+        "received 0",
+        "Asked and received.",
+        "raisePR, receivePR"
+       ],
+       [
+        "receipts[]",
+        "list {date, grn, qty, by}",
+        "yes",
+        "[]",
+        "Each receipt with its GRN number.",
+        "receivePR"
+       ],
+       [
+        "status",
+        "text",
+        "yes",
+        "open",
+        "open or closed.",
+        "raisePR, receivePR, prDrop"
+       ],
+       [
+        "cfoApproved",
+        "date or null",
+        "yes",
+        "null",
+        "CFO approval date.",
+        "cfoApprovePR"
+       ],
+       [
+        "date, by, byRole, byName",
+        "date, text",
+        "yes",
+        "",
+        "Raised when and by whom.",
+        "raisePR"
+       ],
+       [
+        "refused, refusals[]",
+        "object, list",
+        "no",
+        "",
+        "Refusal {id PRR..., by, user, at, why}; earlier refusals with fixedAt, fixedBy, fixNote.",
+        "refusePR, prAskAgain"
+       ],
+       [
+        "closedEarly, closedReason",
+        "yes/no, text",
+        "no",
+        "",
+        "Closed without full receipt: received enough, or cancelled.",
+        "closePR"
+       ],
+       [
+        "closedWhy, closedBy",
+        "text",
+        "no",
+        "",
+        "Dropped after refusal.",
+        "prDrop"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Live count is 0. The current RM check writes the request on the line (rmPR, SC-04)."
+    }
+   ]
+  },
+  {
+   "owner": "not confirmed",
+   "rules": [],
+   "status": "not confirmed",
+   "src": [
+    "o2s.html fn ensureState (creates both as []), startNewYearClean (empties both)",
+    "SCHEMA.md live counts: 0 and 0"
+   ],
+   "id": "SC-23",
+   "title": "rmRequests and rmMovements: lists with no writer",
+   "ask": "rmRequests and rmMovements are created empty and nothing writes to them. What are they for? A) Planned for a raw-material module, keep them B) Left over, they can be removed C) Not sure, leave them",
+   "blocks": [
+    {
+     "p": "Both are lists. ensureState creates them empty on every load and startNewYearClean empties them. No code adds a row. Live count 0."
+    }
+   ]
+  },
+  {
+   "owner": "System (every writer adds rows)",
+   "rules": [
+    "R-008"
+   ],
+   "status": "confirmed",
+   "src": [
+    "o2s.html fn logAction note, qcAudit2, recordCorrection, _wcMark, editField (PO Tracker writer with id), ensureRecordIds",
+    "docs/SECURITY-REGISTER.md S-09",
+    "data/state.json audit"
+   ],
+   "id": "SC-24",
+   "title": "audit: field-level audit trail",
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Type",
+       "Required",
+       "Default",
+       "Meaning",
+       "Written by"
+      ],
+      "rows": [
+       [
+        "id",
+        "text",
+        "no",
+        "AU + hash on next load",
+        "Only some writers set it at once (PO Tracker, wait marks, Rudolf PO fix). ensureRecordIds fills the rest on load.",
+        "writers; ensureIds"
+       ],
+       [
+        "t",
+        "date-time",
+        "yes (current rows)",
+        "",
+        "When.",
+        "every writer"
+       ],
+       [
+        "user",
+        "text",
+        "yes",
+        "",
+        "Role or name of who did it.",
+        "every writer"
+       ],
+       [
+        "module",
+        "text",
+        "yes",
+        "",
+        "Production, PO, Shipment, QA, RM PR, RM Check, Receive, RM Received, PO Tracker, Lab QC, Data Fix or Correction.",
+        "every writer"
+       ],
+       [
+        "po, brand",
+        "text",
+        "yes",
+        "''",
+        "PO and product (text).",
+        "every writer"
+       ],
+       [
+        "field",
+        "text",
+        "yes",
+        "",
+        "What changed, in words.",
+        "every writer"
+       ],
+       [
+        "old, val",
+        "text",
+        "yes",
+        "",
+        "Before and after.",
+        "every writer"
+       ],
+       [
+        "batchNo, note",
+        "text",
+        "no",
+        "",
+        "Batch number; note.",
+        "production and lab writers"
+       ],
+       [
+        "ts, who, what / ts, by, action",
+        "legacy",
+        "no",
+        "",
+        "Rows from purges, the VU26134 fix and healDupBatchIdsV1 use these older names.",
+        "purgeImportDuplicates, purgeImportedNoTwin, fixPhantomLotVU26134, fixVB26003LotRenameV1, healDupBatchIdsV1"
+       ]
+      ]
+     }
+    },
+    {
+     "note": "S-09: rows written without an id during a session can be lost when 2 people save at the same moment."
+    }
+   ]
+  },
+  {
+   "owner": "System (logAction)",
+   "rules": [
+    "R-008"
+   ],
+   "status": "confirmed",
+   "src": [
+    "o2s.html fn logAction",
+    "data/state.json actionLog"
+   ],
+   "id": "SC-25",
+   "title": "actionLog: every action in plain words",
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Type",
+       "Required",
+       "Default",
+       "Meaning",
+       "Written by"
+      ],
+      "rows": [
+       [
+        "id",
+        "text",
+        "yes",
+        "AL + seq + random",
+        "Row id.",
+        "logAction"
+       ],
+       [
+        "t",
+        "date-time",
+        "yes",
+        "",
+        "When.",
+        "logAction"
+       ],
+       [
+        "role",
+        "text",
+        "yes",
+        "",
+        "Role at the time.",
+        "logAction"
+       ],
+       [
+        "by",
+        "text",
+        "yes",
+        "",
+        "Name of the person (or the role).",
+        "logAction"
+       ],
+       [
+        "what",
+        "text",
+        "yes",
+        "",
+        "What was done, in words.",
+        "logAction"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Migrations write rows with by and role System or system, and ids ending -mig."
+    }
+   ]
+  },
+  {
+   "owner": "COO asks; each user signs",
+   "rules": [
+    "R-036",
+    "R-019"
+   ],
+   "status": "confirmed",
+   "src": [
+    "o2s.html fn rsSign, rsSignOf, rsSignsOf, rsMySign, rsPending, readSignRows, RS_BRIEF, RS_PARTS"
+   ],
+   "id": "SC-26",
+   "title": "readSigns: read-and-sign rows (new in 16a)",
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Type",
+       "Required",
+       "Default",
+       "Meaning",
+       "Written by"
+      ],
+      "rows": [
+       [
+        "id",
+        "text",
+        "yes",
+        "RS + time + 4 random",
+        "Row id, so 2 people signing at once are both kept.",
+        "rsSign"
+       ],
+       [
+        "brief",
+        "text",
+        "yes",
+        "2026-10-13-15",
+        "Which brief was signed (RS_BRIEF).",
+        "rsSign"
+       ],
+       [
+        "user",
+        "text",
+        "yes",
+        "",
+        "Login username (or name when there is none). On a shared login many rows carry the same user.",
+        "rsSign (rsUserKey)"
+       ],
+       [
+        "name",
+        "text",
+        "yes",
+        "",
+        "Account name.",
+        "rsSign"
+       ],
+       [
+        "role",
+        "text",
+        "yes",
+        "",
+        "Role at signing; it decides which parts were shown.",
+        "rsSign"
+       ],
+       [
+        "typed",
+        "text",
+        "yes",
+        "",
+        "Name the person typed. On a personal login it must match the account name (F-048, rsNameOk). On a shared login it is the person's own name.",
+        "rsSign"
+       ],
+       [
+        "at",
+        "date-time",
+        "yes",
+        "",
+        "When signed.",
+        "rsSign"
+       ],
+       [
+        "build",
+        "text",
+        "yes",
+        "BUILD_ID",
+        "Build signed on.",
+        "rsSign"
+       ],
+       [
+        "parts",
+        "list of text",
+        "yes",
+        "",
+        "Part ids read (p0 to p11; p0 For everyone is in every role's list).",
+        "rsSign"
+       ],
+       [
+        "wrong",
+        "object {part id: count}",
+        "yes",
+        "{}",
+        "Wrong answers per part.",
+        "rsSign"
+       ],
+       [
+        "device",
+        "text",
+        "yes",
+        "D + time + 6 random",
+        "The device the sign was made on, kept in that browser as o2s_device. Empty when the browser keeps nothing.",
+        "rsSign (rsDevice)"
+       ],
+       [
+        "shared",
+        "yes/no",
+        "no",
+        "left out",
+        "true when signed on a shared login.",
+        "rsSign"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "1 row per person per brief: on a personal login, 1 row per user; on a shared login, 1 row per user per device, and another person on the same device may add their own from the Guide. Pressing Sign again after Not saved yet sends the same row again, not a new one. Rows are never changed or removed."
+    },
+    {
+     "note": "Corrected 16 Oct 2026 (independent check against the code): RS_PARTS has 12 parts, p0 to p11 (audit16a.test.js: the COO reads all 12). rsNorm keeps spaces between words."
+    }
+   ]
+  },
+  {
+   "owner": "COO (Back Office); CFO and Plant Manager also edit Back Office (R7); QCM keeps lab templates",
+   "rules": [
+    "R-019",
+    "R-021"
+   ],
+   "status": "confirmed",
+   "src": [
+    "o2s.html fn ensureMasters, ensureState, seedDeptRightsV1, seedRolesV1, seedTitlesV1, migrateProductsV1, labAssignConfirm, labSetCover, labLeaveAnnounce, labSetFlow, ACCESS_RULED_V2 admin",
+    "data/state.json masters"
+   ],
+   "id": "SC-27",
+   "title": "masters: every master list and setting",
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Key",
+       "Type",
+       "Meaning",
+       "Written by"
+      ],
+      "rows": [
+       [
+        "delayReasons",
+        "list of text",
+        "Delay reasons for a late line (DD-16).",
+        "SEED.masters; Back Office"
+       ],
+       [
+        "respDepts",
+        "list of text",
+        "Responsible departments (DD-17).",
+        "SEED.masters; Back Office"
+       ],
+       [
+        "priorities",
+        "list of text",
+        "Order priorities (DD-18).",
+        "SEED.masters"
+       ],
+       [
+        "kamNames",
+        "list of text",
+        "KAM names (DD-19).",
+        "SEED.masters; Back Office"
+       ],
+       [
+        "downtimeReasons",
+        "list of text",
+        "Downtime reasons (DD-21).",
+        "SEED.masters or SEED_DOWNTIME"
+       ],
+       [
+        "forms",
+        "list of text",
+        "Product forms (DD-23).",
+        "SEED.masters"
+       ],
+       [
+        "statuses, channels",
+        "list of text",
+        "From the June seed (DD-23). No code reads masters.statuses.",
+        "SEED.masters"
+       ],
+       [
+        "shifts",
+        "list of text",
+        "Shifts (DD-14).",
+        "ensureMasters (SEED_SHIFTS)"
+       ],
+       [
+        "incharges",
+        "list of text",
+        "In-charges (DD-15).",
+        "ensureMasters (SEED_INCHARGES); Back Office"
+       ],
+       [
+        "varianceReasons",
+        "list of text",
+        "Reasons a batch made less than planned (DD-20).",
+        "ensureMasters"
+       ],
+       [
+        "focalPersons",
+        "list of text",
+        "Focal persons (DD-22).",
+        "ensureMasters; Back Office"
+       ],
+       [
+        "products",
+        "list of objects",
+        "The product master (SC-28). Since 23 Sep no brand lives in code.",
+        "migrateProductsV1; Back Office product sheet"
+       ],
+       [
+        "customProducts",
+        "list of objects",
+        "Products added before the product master; folded into products once.",
+        "old Admin screen"
+       ],
+       [
+        "groupOfBrand",
+        "map brand: group",
+        "Production group of each brand.",
+        "ensureMasters, applyProductsV1"
+       ],
+       [
+        "productionGroups",
+        "map group: Kg/L per day",
+        "Daily rate per group (DD-26).",
+        "ensureMasters"
+       ],
+       [
+        "leadTime",
+        "object",
+        "Committed-date settings (DD-26).",
+        "ensureMasters"
+       ],
+       [
+        "recipes",
+        "map base: {raw material: share}",
+        "Recipe per base (share of 1 Kg).",
+        "ensureMasters, loadBaseRecipesV2, loadBlendRecipesV1, loadBlendRecipesV2"
+       ],
+       [
+        "rawMaterials",
+        "list {name, cost}",
+        "Raw materials and cost in PKR per Kg.",
+        "ensureMasters"
+       ],
+       [
+        "packingMaterials",
+        "list {item, unit, price}",
+        "Packing materials and price in PKR.",
+        "ensureMasters"
+       ],
+       [
+        "costing",
+        "list {name, pack, material, packing, conversion, base, packingBy}",
+        "Cost sheet per product and pack.",
+        "ensureMasters"
+       ],
+       [
+        "byproductRules",
+        "list {from, to}",
+        "By-product routing: Sulfur Coated Urea to Nitro Sulfur.",
+        "seedByproductRulesV1"
+       ],
+       [
+        "salesTargets, salesTargetsMonthly, channelTargets",
+        "map",
+        "Sales targets per client and FY, per month, per channel.",
+        "Sales & Budget screens"
+       ],
+       [
+        "_salesTargetsSaved, _channelBudgetSaved",
+        "stamp",
+        "When targets were last saved.",
+        "Sales & Budget screens"
+       ],
+       [
+        "entryThresholds",
+        "map kind: days",
+        "Late-entry allowances; defaults in EV_DEFAULT_THRESHOLD (COO only).",
+        "Back Office"
+       ],
+       [
+        "roles, departments, roleRights, roleRightsSet, accessMatrix, roleTitles, userTitles",
+        "see SC-29",
+        "Roles and rights.",
+        "see SC-29"
+       ],
+       [
+        "labTemplates, labParams, labParamOf, labUsual, labCover, labLeave, labFlow, aqlVerified",
+        "see SC-30",
+        "Lab settings.",
+        "see SC-30"
+       ],
+       [
+        "_productsV1 and other masters._ flags",
+        "object",
+        "One-off migration stamps (SC-32).",
+        "migrations"
+       ]
+      ]
+     }
+    },
+    {
+     "note": "ensureMasters is additive: it fills a list only when it is missing or empty and never overwrites what the team added. So a default in the code (for example dispatchDays 2) can differ from the live value (July: 1)."
+    },
+    {
+     "note": "Corrected 16 Oct 2026 (independent check against the code): 13 references to the dictionary tab pointed at the wrong item (off by 2). They now point at DD-14 to DD-23 and DD-26 as the pick lists are numbered."
+    }
+   ]
+  },
+  {
+   "owner": "COO and Back Office (ruling 23 Sep 2026, R17)",
+   "rules": [
+    "R-019"
+   ],
+   "status": "confirmed",
+   "src": [
+    "o2s.html fn migrateProductsV1, applyProductsV1, pmSave, pmRenderSheet",
+    "OP-HANDOFF-O2S.md 23o check: _productsV1 (91 products)"
+   ],
+   "id": "SC-28",
+   "title": "masters.products: the product master record",
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Type",
+       "Required",
+       "Default",
+       "Meaning",
+       "Written by"
+      ],
+      "rows": [
+       [
+        "brand",
+        "text",
+        "yes",
+        "",
+        "Brand name as printed on the bag. Unique.",
+        "migrateProductsV1, pmSave"
+       ],
+       [
+        "base",
+        "text",
+        "yes",
+        "brand",
+        "Bulk base it is made from (what production and packing follow).",
+        "migrateProductsV1, pmSave"
+       ],
+       [
+        "catBase",
+        "text",
+        "no",
+        "",
+        "The catalogue's base when it disagreed with the brand map; kept for committed dates.",
+        "migrateProductsV1"
+       ],
+       [
+        "generic",
+        "text",
+        "yes",
+        "''",
+        "Generic description on the certificate.",
+        "migrateProductsV1, pmSave"
+       ],
+       [
+        "form",
+        "text",
+        "yes",
+        "Powder",
+        "Product form; Liquid makes the unit L and the QA checks liquid.",
+        "migrateProductsV1, pmSave"
+       ],
+       [
+        "owner, mapOwner, wl",
+        "text, text, yes/no",
+        "yes",
+        "VAN",
+        "VAN or White Label.",
+        "migrateProductsV1"
+       ],
+       [
+        "clients",
+        "list of text",
+        "yes",
+        "",
+        "Catalogue client keys that may order it.",
+        "migrateProductsV1, pmSave"
+       ],
+       [
+        "packs, pack, packsBy",
+        "list, number, map client: list",
+        "yes",
+        "",
+        "Pack sizes; default pack; packs per client.",
+        "migrateProductsV1, pmSave"
+       ],
+       [
+        "group",
+        "text",
+        "no",
+        "",
+        "Production group.",
+        "migrateProductsV1"
+       ],
+       [
+        "seeded, mapOnly, bulk",
+        "yes/no",
+        "no",
+        "",
+        "From the catalogue; only in the brand map; a base of its own.",
+        "migrateProductsV1, pmSave"
+       ],
+       [
+        "active",
+        "yes/no",
+        "yes",
+        "true",
+        "A deactivated product cannot be ordered but old lines still find their base.",
+        "pmSave"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "owner": "COO (Users & Access, Departments)",
+   "rules": [
+    "R-019",
+    "R-003",
+    "R-021"
+   ],
+   "status": "confirmed",
+   "src": [
+    "o2s.html fn seedRolesV1, seedWarehouseRoleV1, seedDeptRightsV1, seedTitlesV1, seedAccessV2, seedAccessV3, seedAckRightV1, seedLoadRightV1, seedPmApproverOnlyV1, seedCustomerRightsV1",
+    "data/state.json masters.roles, masters.accessMatrix"
+   ],
+   "id": "SC-29",
+   "title": "masters: roles, departments and rights",
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Key",
+       "Type",
+       "Meaning",
+       "Written by"
+      ],
+      "rows": [
+       [
+        "roles",
+        "list {id, name, builtin, archived, deptId, createdBy}",
+        "Roles. id is the name in lower case with dashes. The name is the join key; a title never is.",
+        "seedRolesV1, seedWarehouseRoleV1, Back Office"
+       ],
+       [
+        "departments",
+        "list {id, name, leadRoleId, builtin, archived}",
+        "Departments and their lead role.",
+        "seedDeptRightsV1"
+       ],
+       [
+        "roleRights",
+        "map role id: {right code: yes/no}",
+        "Rights per role (e.g. order.acknowledge, shipment.load).",
+        "seedDeptRightsV1 and the seeds above"
+       ],
+       [
+        "roleRightsSet",
+        "map role id: {right code: true}",
+        "Cells answered by a ruling or the COO, so no seed changes them again.",
+        "seeds, Back Office"
+       ],
+       [
+        "accessMatrix",
+        "map role name: {screen: {v, e}}",
+        "Screen view (v) and edit (e) per role.",
+        "seedAccessV2, seedAccessV3, Back Office"
+       ],
+       [
+        "roleTitles, userTitles",
+        "map",
+        "Job titles shown beside role and user names.",
+        "seedTitlesV1"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Rights are documented in tab 11 (Access and roles)."
+    }
+   ]
+  },
+  {
+   "owner": "QCM (lab templates and assignments); Plant Manager names a cover",
+   "rules": [
+    "R-006",
+    "R-016"
+   ],
+   "status": "not confirmed",
+   "src": [
+    "o2s.html fn ensureMasters (labTemplates), labAssignConfirm, labSetCover, labEndCover, labLeaveAnnounce, labLeaveCancel, labSetFlow, labTplSet"
+   ],
+   "id": "SC-30",
+   "title": "masters: lab settings",
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Key",
+       "Type",
+       "Meaning",
+       "Written by"
+      ],
+      "rows": [
+       [
+        "labTemplates",
+        "map product: list {g, test, spec, method, mu}",
+        "Tests per product for a new COA (33 in July).",
+        "ensureMasters, labTpl* functions"
+       ],
+       [
+        "labParams",
+        "list {name, mins}",
+        "Test parameters and their time in minutes; defaults in LAB_TEST_TIMES.",
+        "labTimeSet (COO or QCM)"
+       ],
+       [
+        "labParamOf",
+        "map item|test: param",
+        "Which parameter a test is, remembered from the last assignment.",
+        "labAssignConfirm"
+       ],
+       [
+        "labUsual",
+        "map param: analyst",
+        "Usual analyst per parameter.",
+        "labAssignConfirm"
+       ],
+       [
+        "labCover",
+        "list",
+        "Who covers the AQCM or QCM while on leave.",
+        "labSetCover, labEndCover"
+       ],
+       [
+        "labLeave",
+        "list",
+        "Leave announced by lab staff.",
+        "labLeaveAnnounce, labLeaveCancel"
+       ],
+       [
+        "labFlow",
+        "object {on, at, by}",
+        "Whether the per-test (v2) flow is on.",
+        "labSetFlow"
+       ],
+       [
+        "aqlVerified",
+        "yes/no",
+        "AQL accept and reject numbers checked by the QCM. Until true the plan is a suggestion and the report prints unverified.",
+        "no screen writes it; set by hand (code note)"
+       ]
+      ]
+     }
+    }
+   ],
+   "ask": "No screen sets masters.aqlVerified, so every inspection report prints the AQL numbers as unverified. Has the QCM checked the AQL table? A) Yes, set it to true B) Not yet C) Add a button for the QCM"
+  },
+  {
+   "owner": "see each row",
+   "rules": [],
+   "status": "not confirmed",
+   "src": [
+    "o2s.html fn acDeferSubmit, acDeferActive, acKey, tdTake, tdTakenBy, dashLens, setPeriod, setPeriodCustom, periodWindow, nid, bumpSeqV1, saveDispatch, mpCreate, allocateStock, receivePR, toggleDataFix, submitPO, linkShipBatchLotsV1",
+    "data/state.json"
+   ],
+   "id": "SC-31",
+   "title": "Small top-level keys: maps, counters and settings",
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Type",
+       "Required",
+       "Default",
+       "Meaning",
+       "Written by"
+      ],
+      "rows": [
+       [
+        "acDefer",
+        "map key: {until, reason, by, at}",
+        "no",
+        "{}",
+        "An Action Center job put off until a date with a reason. The key is acKey(job).",
+        "acDeferSubmit"
+       ],
+       [
+        "taken",
+        "map key: {by, at}",
+        "no",
+        "{}",
+        "A shared job marked taken; counts for 8 hours; marks older than 1 day are dropped on the next take.",
+        "tdTake"
+       ],
+       [
+        "tipsDismissed",
+        "map",
+        "no",
+        "",
+        "July value {tracker: true, approvals: true}. No code reads or writes it now.",
+        "none found"
+       ],
+       [
+        "dashLens",
+        "map view: lens",
+        "no",
+        "{}",
+        "Lens chosen per dashboard view, e.g. Production: By product.",
+        "dashLens"
+       ],
+       [
+        "period",
+        "text",
+        "no",
+        "Last 7 days",
+        "Report period (DD-28).",
+        "setPeriod, setPeriodCustom"
+       ],
+       [
+        "periodFrom, periodTo",
+        "date",
+        "no",
+        "",
+        "Custom period dates.",
+        "setPeriodCustom"
+       ],
+       [
+        "seq",
+        "number",
+        "yes",
+        "1000",
+        "Counter in ids made by nid. bumpSeqV1 raises it above every id on load.",
+        "nid, bumpSeqV1"
+       ],
+       [
+        "shipSerial",
+        "number",
+        "no",
+        "0",
+        "Serial in the shipment number.",
+        "saveDispatch, mpCreate"
+       ],
+       [
+        "packedStock",
+        "map brand: Kg/L",
+        "yes",
+        "{}",
+        "Old finished-goods stock by brand, drawn by allocateStock.",
+        "allocateStock"
+       ],
+       [
+        "rawStock",
+        "map material: Kg/L",
+        "yes",
+        "{}",
+        "Raw material received through PRs. Nothing subtracts from it.",
+        "receivePR"
+       ],
+       [
+        "dataFixEnabled",
+        "yes/no",
+        "yes",
+        "true",
+        "Correct a record (Data Fix) tab on or off.",
+        "toggleDataFix"
+       ],
+       [
+        "_lastKam",
+        "text",
+        "no",
+        "",
+        "Last KAM picked at PO entry.",
+        "submitPO"
+       ],
+       [
+        "_shipLotLink",
+        "object {linked, already, ambiguous, unmatched, at}",
+        "no",
+        "",
+        "Result of the one-off truck-to-run link.",
+        "linkShipBatchLotsV1"
+       ]
+      ]
+     }
+    },
+    {
+     "note": "Corrected 16 Oct 2026 (independent check against the code): report periods are in DD-28; DD-30 is abbreviations."
+    }
+   ],
+   "ask": "packedStock, rawStock and tipsDismissed are old keys: packedStock is drawn only by allocateStock, rawStock only grows, tipsDismissed is not used. What should they be? A) Keep all 3 as they are B) Mark them retired in the code C) Check each on live first"
+  },
+  {
+   "owner": "COO (Tahir) approves each data migration",
+   "rules": [
+    "R-008"
+   ],
+   "status": "confirmed",
+   "src": [
+    "o2s.html fn ensureState and each migration function named below",
+    "data/state.json (flags present in July)",
+    "OP-HANDOFF-O2S.md 23o live check (_accessV2, _accessV3, _customerRightsV1, _productsV1, _printDecisionV1)"
+   ],
+   "id": "SC-32",
+   "title": "One-off migration flags",
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Flag",
+       "Where",
+       "Function",
+       "What it did",
+       "Seen set"
+      ],
+      "rows": [
+       [
+        "_lotMig",
+        "top level",
+        "migrateLotTracking",
+        "Gave old shipments their batch lines (FIFO) and set insKg on packing runs from passed inspections.",
+        "yes"
+       ],
+       [
+        "_lotLidMigV1",
+        "top level",
+        "migratePackingLotLidV1",
+        "Set packingLog.lid on old runs (FIFO when a PO had 2 lines of 1 brand).",
+        "not confirmed"
+       ],
+       [
+        "_baseRecV2",
+        "top level",
+        "loadBaseRecipesV2",
+        "Loaded 13 base recipes confirmed by the COO from Yawar's cost sheet.",
+        "yes"
+       ],
+       [
+        "_blendRecV1",
+        "top level",
+        "loadBlendRecipesV1",
+        "Loaded made-to-order blend recipes.",
+        "yes"
+       ],
+       [
+        "_blendRecV2",
+        "top level",
+        "loadBlendRecipesV2",
+        "Loaded the remaining blend recipes from the product master.",
+        "yes"
+       ],
+       [
+        "_purgeImpV1",
+        "top level",
+        "purgeImportedProduction",
+        "Removed imported opening-balance batches and production rows (COO: no opening balances).",
+        "yes"
+       ],
+       [
+        "_purgeImpDupV1",
+        "top level",
+        "purgeImportDuplicates",
+        "Removed 13 imported duplicate POs and 12 imported shipments (2026-06-17).",
+        "yes"
+       ],
+       [
+        "_purgeImpNoTwinV1",
+        "top level",
+        "purgeImportedNoTwin",
+        "Removed 8 pre-launch delivered POs and 34 imported shipments (2026-06-17).",
+        "yes"
+       ],
+       [
+        "_fixVU26134L2V1",
+        "top level",
+        "fixPhantomLotVU26134",
+        "Removed the phantom lot VU26134-L2.",
+        "yes"
+       ],
+       [
+        "_bpConsolidateV1",
+        "top level",
+        "consolidateByproductV1",
+        "Folded 21 by-product accruals into 1 pool (2026-06-18).",
+        "yes"
+       ],
+       [
+        "_bpDedupV1",
+        "top level",
+        "dedupeByproductV1",
+        "Voided the 21 leftover by-product fragments (2026-06-19).",
+        "yes"
+       ],
+       [
+        "_shipReconV1",
+        "top level",
+        "reconcileShipLotsV1",
+        "Re-set packing-run shipKg from the line dispatched totals.",
+        "yes"
+       ],
+       [
+        "_fixRudolfDupV1",
+        "top level",
+        "fixRudolfDupV1",
+        "Cleaned the Rudolf PO 1821412156 duplicate packing (2026-06-24).",
+        "yes"
+       ],
+       [
+        "_fixVU26144ProdLogV1, _fixVU26144ProdLogV2",
+        "top level",
+        "fixVU26144ProdLogV1, V2",
+        "Brought VU26144 production rows back to its 7,000 batch.",
+        "yes"
+       ],
+       [
+        "_disposedBackfillV1",
+        "top level",
+        "backfillDisposedV1",
+        "Set disposedKg on batches reconciled under the old rule.",
+        "yes"
+       ],
+       [
+        "_custInitV1, _custFixDP1",
+        "top level",
+        "custInit",
+        "Seeded the customer master; removed VG-DP.",
+        "yes"
+       ],
+       [
+        "_shipLotLinkV1 (+ _shipLotLink)",
+        "top level",
+        "linkShipBatchLotsV1",
+        "Linked old truck batch lines to their packing runs where sure (2026-08-21).",
+        "not confirmed"
+       ],
+       [
+        "_fixVB26003LotRenameV1",
+        "top level",
+        "fixVB26003LotRenameV1",
+        "Renamed lot VB26003-L2 to L1 (2026-07-28).",
+        "yes (handoff, rev 1173)"
+       ],
+       [
+        "_fixRudolfTBPPOV1",
+        "top level",
+        "fixRudolfTBPPOV1",
+        "Renamed placeholder PO TBP to RUDPO0033 (2026-07-30).",
+        "not confirmed"
+       ],
+       [
+        "_rate5kV1",
+        "masters.leadTime",
+        "ensureMasters",
+        "Changed the 8,000 placeholder rate to 5,000 Kg/L per day.",
+        "yes"
+       ],
+       [
+        "_productsV1",
+        "masters",
+        "migrateProductsV1",
+        "Built the product master (23 Sep, R17).",
+        "yes (91 products)"
+       ],
+       [
+        "_customerRightsV1",
+        "masters",
+        "seedCustomerRightsV1",
+        "Customer create and amend to Finance and the CFO only.",
+        "yes"
+       ],
+       [
+        "_printDecisionV1",
+        "masters",
+        "seedPrintDecisionV1",
+        "Answered no print for 44 old orders.",
+        "yes (44)"
+       ],
+       [
+        "_ackRightV1",
+        "masters",
+        "seedAckRightV1",
+        "Acknowledge kept for Supply Chain, Plant Manager, COO only.",
+        "not confirmed"
+       ],
+       [
+        "_loadRightV1",
+        "masters",
+        "seedLoadRightV1",
+        "Loading to Warehouse and Supply Chain Officer; off Supply Chain lead.",
+        "not confirmed"
+       ],
+       [
+        "_pmApproverOnlyV1",
+        "masters",
+        "seedPmApproverOnlyV1",
+        "Plant Manager loses plan, load and gate pass.",
+        "not confirmed"
+       ],
+       [
+        "_accessV2",
+        "masters",
+        "seedAccessV2",
+        "Access matrix for the 3-place layout.",
+        "yes"
+       ],
+       [
+        "_accessV3",
+        "masters",
+        "seedAccessV3",
+        "Sales & Budget to CFO, Plant Manager, KAMs.",
+        "yes"
+       ],
+       [
+        "_ismaeelRoleV1",
+        "masters",
+        "migrateAccountsV1",
+        "Moved login ismaeel from Finance Desk Officer to Finance.",
+        "not confirmed (absent on 23 Sep)"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Top-level flags are yes/no. The masters flags hold a stamp {at, by or changed or count}. A flag only stops the migration running again; it never undoes it."
+    }
+   ]
+  },
+  {
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-009",
+    "R-013"
+   ],
+   "status": "confirmed",
+   "src": [
+    "o2s.html fn submitPO, doPack, saveDispatch, savePackInspect, openBatch, submitMultiBatch, submitShiftLog, submitMoveStock, pmvApply, recordCorrection, smpIssue, lotsFor",
+    "SPEC-05-BATCH-IDENTITY.md (batch link)"
+   ],
+   "id": "SC-33",
+   "title": "Entity relationships",
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "From list",
+       "Field",
+       "To list",
+       "Kind"
+      ],
+      "rows": [
+       [
+        "orders",
+        "lines[]",
+        "orders[].lines[]",
+        "one-to-many, inside the order"
+       ],
+       [
+        "orders[].lines[]",
+        "waitMarks[], shortCloseHistory[], rmPRHistory[]",
+        "rows inside the line",
+        "one-to-many, inside the line"
+       ],
+       [
+        "packingLog",
+        "po + lid",
+        "orders.po + orders[].lines[].id",
+        "many-to-one"
+       ],
+       [
+        "packingLog",
+        "baseBatchId (baseBatchNo is a copy)",
+        "batches.id",
+        "many-to-one"
+       ],
+       [
+        "packingLog",
+        "movedFrom.moveId, movedFrom.lotId",
+        "poMoves.id, packingLog.id",
+        "many-to-one"
+       ],
+       [
+        "shipments",
+        "po + lid",
+        "orders.po + lines[].id",
+        "many-to-one"
+       ],
+       [
+        "shipments",
+        "dispId",
+        "other shipment rows of the same truck",
+        "many rows make 1 truck"
+       ],
+       [
+        "shipments[].batches[]",
+        "lotId",
+        "packingLog.id",
+        "many-to-one"
+       ],
+       [
+        "inspections",
+        "po + lid",
+        "orders.po + lines[].id",
+        "many-to-one"
+       ],
+       [
+        "inspections[].batches[]",
+        "lotId",
+        "packingLog.id",
+        "many-to-one"
+       ],
+       [
+        "batches (kind po)",
+        "po + lineId",
+        "orders.po + lines[].id",
+        "many-to-one"
+       ],
+       [
+        "batches (kind multi)",
+        "allocations[].oid + lid",
+        "orders.id + lines[].id",
+        "many-to-many"
+       ],
+       [
+        "batches",
+        "lots[]",
+        "batches[].lots[]",
+        "one-to-many, inside the batch"
+       ],
+       [
+        "batches[].lots[]",
+        "coa, coaHistory[]",
+        "the lot's certificates",
+        "one-to-one current, one-to-many history"
+       ],
+       [
+        "batches (pools)",
+        "sources[].batch",
+        "batches.id",
+        "many-to-many"
+       ],
+       [
+        "batches",
+        "sourcePool, sourceBatch",
+        "batches.id",
+        "many-to-one"
+       ],
+       [
+        "batches",
+        "repLot.lotId",
+        "batches[].lots[].id",
+        "one-to-one"
+       ],
+       [
+        "shiftEntries",
+        "batchId (batchNo is a copy)",
+        "batches.id",
+        "many-to-one"
+       ],
+       [
+        "productionLog",
+        "batchNo (text)",
+        "batches.batchNo",
+        "many-to-one, by number only"
+       ],
+       [
+        "productionLog",
+        "po + brand (text)",
+        "orders.po + line brand",
+        "many-to-one, by text"
+       ],
+       [
+        "poMoves",
+        "fromPo + fromLid, toPo + toLid",
+        "orders.po + lines[].id",
+        "many-to-one each"
+       ],
+       [
+        "poMoves",
+        "lots[].lotId",
+        "packingLog.id",
+        "many-to-many"
+       ],
+       [
+        "corrections",
+        "entityType + entityId",
+        "the corrected record (dispId for a truck fix)",
+        "many-to-one"
+       ],
+       [
+        "samples",
+        "issue.lines[].batchId",
+        "batches.id",
+        "many-to-one"
+       ],
+       [
+        "orders",
+        "client (text)",
+        "customers name or code",
+        "many-to-one, by text, no id"
+       ],
+       [
+        "orders, lines",
+        "kam, brand, base (text)",
+        "masters.kamNames, masters.products",
+        "many-to-one, by text"
+       ],
+       [
+        "prs, rawStock",
+        "rm / key (text)",
+        "masters.rawMaterials name",
+        "many-to-one, by text"
+       ],
+       [
+        "acDefer, taken",
+        "key",
+        "acKey of an Action Center job",
+        "one-to-one"
+       ],
+       [
+        "readSigns",
+        "user",
+        "auth_users.username (server table)",
+        "many-to-one"
+       ],
+       [
+        "masters.roles",
+        "deptId",
+        "masters.departments.id",
+        "many-to-one"
+       ],
+       [
+        "masters.roleRights",
+        "role id key",
+        "masters.roles.id",
+        "one-to-one"
+       ],
+       [
+        "masters.accessMatrix",
+        "role name key",
+        "masters.roles.name",
+        "one-to-one"
+       ],
+       [
+        "audit",
+        "po, batchNo (text)",
+        "orders.po, batches.batchNo",
+        "many-to-one, by text"
+       ]
+      ]
+     }
+    },
+    {
+     "note": "Text links (po, batchNo, client, brand) are copies, not ids. A changed PO number has to be changed in every list that carries it, as fixRudolfTBPPOV1 did."
+    }
+   ]
+  },
+  {
+   "owner": "COO (Tahir) approves each data migration",
+   "rules": [
+    "R-008"
+   ],
+   "status": "confirmed",
+   "src": [
+    "o2s.html fn ensureState (call order), each function named",
+    "OP-HANDOFF-O2S.md entries 2026-06-17, 06-18, 06-19, 07-28, 23o",
+    "code comments with dates"
+   ],
+   "id": "SC-34",
+   "title": "Migrations and repairs, in the order they run on every load",
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Order",
+       "Function",
+       "Runs",
+       "What it changes",
+       "Build or date found"
+      ],
+      "rows": [
+       [
+        "1",
+        "ensureRecordIds",
+        "every load",
+        "Gives a stable id to rows with none (PK, SH, PL, INS, B, AU, AL; customers and dealers get code).",
+        "not dated"
+       ],
+       [
+        "2",
+        "legacy L1 lot (inside ensureState)",
+        "every load",
+        "A batch with output but no lots gets 1 lot -L1 (migrated).",
+        "not dated"
+       ],
+       [
+        "3",
+        "ensureMasters (+ migrateProductsV1, applyCustomProducts, _rate5kV1)",
+        "every load; product master once",
+        "Fills missing masters; builds the product master once.",
+        "products 23 Sep 2026 (R17)"
+       ],
+       [
+        "4",
+        "ensureProductionModel",
+        "every load",
+        "Fills kind, status, plannedKg, openedDate, batchNo on batches; shift Morning and in-charge (historical) on old production rows.",
+        "not dated"
+       ],
+       [
+        "5",
+        "dedupePackingLots",
+        "every load",
+        "Removes packing rows that share an id or over-pack a batch (same kg, shift and in-charge).",
+        "rule changed 15 Oct 2026"
+       ],
+       [
+        "6",
+        "migrateLotTracking",
+        "once (_lotMig)",
+        "Truck batch lines and insKg for old data.",
+        "not dated"
+       ],
+       [
+        "7",
+        "migratePackingLotLidV1",
+        "once (_lotLidMigV1)",
+        "Sets lid on old packing runs.",
+        "not dated"
+       ],
+       [
+        "8",
+        "fixRudolfDupV1",
+        "once",
+        "Rudolf PO 1821412156 duplicate packing.",
+        "2026-06-24"
+       ],
+       [
+        "9",
+        "reconcileLotShipKgV1",
+        "every load",
+        "Re-sets shipKg per line from dispatched and trucks on the road; exact runs from 15f.",
+        "2026-07-31, 25m, 15f"
+       ],
+       [
+        "10",
+        "pmvSettleV1",
+        "every load",
+        "Marks a move done when its lots exist, keeping any clash.",
+        "07i"
+       ],
+       [
+        "11",
+        "dedupeShipmentsV1",
+        "every load",
+        "Removes duplicate shipment rows above the dispatched total.",
+        "not dated"
+       ],
+       [
+        "12",
+        "healPRFlags",
+        "every load",
+        "Clears an old-model PR with no real lines.",
+        "not dated"
+       ],
+       [
+        "13",
+        "migrateBrandNames",
+        "every load",
+        "Renames brands by BRAND_ALIAS (V-Boron Liquid, VL Boron to VL-Boron; V-Mag Essential to V-Mg Essential).",
+        "2026-07-29"
+       ],
+       [
+        "14",
+        "loadBaseRecipesV2, loadBlendRecipesV1, loadBlendRecipesV2",
+        "once each",
+        "Recipes.",
+        "not dated"
+       ],
+       [
+        "15",
+        "purgeImportedProduction, purgeImportDuplicates, purgeImportedNoTwin",
+        "once each",
+        "Removed the June import (SC-32).",
+        "2026-06-17"
+       ],
+       [
+        "16",
+        "fixPhantomLotVU26134",
+        "once",
+        "Phantom lot.",
+        "live by 2026-06-18"
+       ],
+       [
+        "17",
+        "fixVU26144ProdLogV1, V2, healVU26144ProdLog",
+        "V1, V2 once; heal every load",
+        "VU26144 production rows back to its batch.",
+        "snapshots of 2026-06-25"
+       ],
+       [
+        "18",
+        "backfillDisposedV1",
+        "once",
+        "disposedKg on old reconciled batches.",
+        "tested on 2026-06-25 snapshot"
+       ],
+       [
+        "19",
+        "consolidateByproductV1, dedupeByproductV1",
+        "once each",
+        "By-product pool; void fragments.",
+        "2026-06-18, 2026-06-19"
+       ],
+       [
+        "20",
+        "reconcileShipLotsV1",
+        "once",
+        "shipKg re-set after the old edit bug.",
+        "not dated"
+       ],
+       [
+        "21",
+        "normalizeVZincBase, normalizeBoronBase",
+        "every load",
+        "V-Zinc base Zinc 10%; VL-Boron base Boron 5%.",
+        "not dated"
+       ],
+       [
+        "22",
+        "seedByproductRulesV1, seedRolesV1, seedWarehouseRoleV1",
+        "every load (fill only)",
+        "By-product rule; roles; Warehouse role.",
+        "Warehouse 23 Sep 2026 (R12)"
+       ],
+       [
+        "23",
+        "seedAccessV2, seedAccessV3, seedDeptRightsV1, seedCustomerRightsV1, seedPrintDecisionV1, seedAckRightV1, seedLoadRightV1, seedPmApproverOnlyV1",
+        "once each (dept rights fill every load)",
+        "Rights and access rulings.",
+        "23 to 24 Sep 2026"
+       ],
+       [
+        "24",
+        "bumpSeqV1, healDupBatchIdsV1",
+        "every load",
+        "Counter above every id; new ids for twin batch ids.",
+        "2026-07-28"
+       ],
+       [
+        "25",
+        "fixVB26003LotRenameV1, fixRudolfTBPPOV1",
+        "once each",
+        "Lot rename; PO rename.",
+        "2026-07-28, 2026-07-30"
+       ],
+       [
+        "26",
+        "linkShipBatchLotsV1, bumpSeqV1",
+        "link once; bump every load",
+        "Truck lines to packing runs.",
+        "2026-08-21"
+       ],
+       [
+        "outside ensureState",
+        "custInit",
+        "when the customer screen opens",
+        "Seeds the customer master once; removes VG-DP once.",
+        "2026-08-27 (dealers retired)"
+       ],
+       [
+        "outside ensureState",
+        "migrateAccountsV1",
+        "at the COO's login, once",
+        "Ismaeel's role.",
+        "23 Sep 2026 (R22)"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-012",
+    "R-032"
+   ],
+   "status": "not confirmed",
+   "src": [
+    "o2s.html fn _uid, nid, bpId, _stableId, ensureIds, submitPO, genPO, nextDCNo, nextGatePassNo, smpNextNo, batchOwnerInFY, batchNearMatch, validateBatchNo, custCode"
+   ],
+   "id": "SC-35",
+   "title": "Keys, id formats and unique rules",
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Rule",
+       "Format",
+       "Used for"
+      ],
+      "rows": [
+       [
+        "_uid(prefix)",
+        "prefix + time in base 36 + 6 random",
+        "SH, DSP, PL, INS, SMP; PK in dfSubmitPacking (Correct a record)"
+       ],
+       [
+        "nid(prefix)",
+        "prefix + seq + - + 4 random",
+        "B, LOT, SE, PK, PR, AL, AU, CR, MV, CH, RC"
+       ],
+       [
+        "bpId or inline",
+        "prefix + time in base 36 + 4 random",
+        "POR, PRR, SB, SCH, RPH, WC, RS, RET"
+       ],
+       [
+        "ensureIds (on load)",
+        "prefix + hash of fields, _n for repeats",
+        "rows saved without an id"
+       ],
+       [
+        "order id",
+        "O + (number of orders + 1) + _ + nid; a PO added under Correct a record takes nid(O)",
+        "orders"
+       ],
+       [
+        "line id",
+        "order id + L + index",
+        "orders[].lines[]"
+       ],
+       [
+        "lot number",
+        "batchNo + -L + n",
+        "batches[].lots[]"
+       ],
+       [
+        "DC",
+        "highest number + 1 (never re-used)",
+        "shipments.dc"
+       ],
+       [
+        "gate pass",
+        "GP- + 4 digits, 1 book shared with samples",
+        "shipments.gatePass, samples.dispatch.gatePass"
+       ],
+       [
+        "shipment number",
+        "mmddyy + 3-digit serial + DC",
+        "shipments.shipNo"
+       ],
+       [
+        "sample number, sample DC",
+        "SMP- + 4 digits; SDC- + 4 digits",
+        "samples"
+       ],
+       [
+        "PSI report number",
+        "PSI- + DC (or shipNo, or dispId)",
+        "printed only, not stored"
+       ]
+      ]
+     }
+    },
+    {
+     "list": [
+      "PO number: unique across orders (submitPO refuses a repeat).",
+      "Batch number: unique per financial year (July to June) across batches and brand batch numbers on packing runs. A number that matches one already used once spaces and capitals are ignored is refused once; pressed again within 2 minutes it is added and logged (R-032).",
+      "Customer code: unique; it is also the id.",
+      "Each list row id is unique; healDupBatchIdsV1 and dedupePackingLots repair twins on load."
+     ]
+    },
+    {
+     "note": "validateBatchNo (a soft warning only) checks 2 to 5 capital letters then 3 to 9 digits, length 5 to 14. Its comment says 2 to 4 letters and length 5 to 11."
+    },
+    {
+     "note": "Corrected 16 Oct 2026 (independent check against the code): dfSubmitPacking makes packing ids with _uid(PK) and dfSubmitPO makes order ids with nid(O); both were missing."
+    }
+   ],
+   "ask": "Which batch number format is the rule for the soft warning? A) 2 to 5 letters, 3 to 9 digits, 5 to 14 long (the code) B) 2 to 4 letters, 3 to 9 digits, 5 to 11 long (the comment) C) Something else"
+  },
+  {
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-008"
+   ],
+   "status": "not confirmed",
+   "src": [
+    "Guide rule Nothing is deleted",
+    "o2s.html fn cancelShip, rejectDC, dispQASubmit, CORRECT_ENTITY reverse/supersede, dfSubmitVoid, dedupeByproductV1, doRemoveLot, voidProdEntry, dedupePackingLots, dedupeShipmentsV1, healVU26144ProdLog, tdTake, startNewYearClean, coaSendBack, coaReject"
+   ],
+   "id": "SC-36",
+   "title": "What is kept and what is deleted",
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Record",
+       "How it is ended",
+       "Removed?"
+      ],
+      "rows": [
+       [
+        "Order line",
+        "closed short (shortClose), reopened with the close kept",
+        "never removed"
+       ],
+       [
+        "Truck",
+        "voided, stage cancelled, dcStatus rejected or cancelled",
+        "never removed"
+       ],
+       [
+        "Packing run",
+        "reversed, or void with voidedKg",
+        "never removed in normal use"
+       ],
+       [
+        "Inspection",
+        "superseded (WITHDRAWN), still prints",
+        "never removed"
+       ],
+       [
+        "COA",
+        "superseded to coaHistory; rework copy to coaHistory",
+        "never removed"
+       ],
+       [
+        "By-product fragment",
+        "voided, kg 0, status void",
+        "never removed"
+       ],
+       [
+        "Customer, product",
+        "Inactive / active false",
+        "never removed"
+       ],
+       [
+        "Waits, sends-back, refusals, close history",
+        "kept as list rows",
+        "never removed"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Where the code does remove rows today:"
+    },
+    {
+     "list": [
+      "doRemoveLot (Removed shift output): removes the lot, its shift entry and its production log row. A corrections row keeps the lot, Kg and COA state.",
+      "voidProdEntry: removes a production log row (COO only; the screen is not reachable).",
+      "Every load: dedupePackingLots, dedupeShipmentsV1 and healVU26144ProdLog remove duplicate rows.",
+      "taken: marks older than 1 day are dropped.",
+      "COA v2 send-back and reject remove doneAt and doneBy from each test.",
+      "startNewYearClean (COO, typed phrase RESET TO ZERO, after a downloaded backup) empties every transaction list, audit and actionLog and sets seq to 1000. Master data stays.",
+      "The June purges removed imported orders, shipments, batches and production rows (SC-32)."
+     ]
+    }
+   ],
+   "ask": "The rule says nothing is deleted, but these steps remove rows (Removed shift output, duplicate repairs on load, the year-end reset). How should the documentation treat them? A) Accepted exceptions, listed as they are B) Each should become a void or reversal instead C) Decide one by one"
+  },
+  {
+   "owner": "COO (Tahir) sets the allowances",
+   "rules": [
+    "R-001"
+   ],
+   "status": "confirmed",
+   "src": [
+    "o2s.html fn evStamp, evLag, evThreshold, EV_DEFAULT_THRESHOLD, EV_KIND_LABEL"
+   ],
+   "id": "SC-37",
+   "title": "Fields every event record carries: the event stamp",
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Type",
+       "Required",
+       "Default",
+       "Meaning",
+       "Written by"
+      ],
+      "rows": [
+       [
+        "actualDate",
+        "date",
+        "yes",
+        "today",
+        "Day the thing happened, as typed.",
+        "evStamp"
+       ],
+       [
+        "recordedAt",
+        "date-time",
+        "yes",
+        "now",
+        "When it was keyed, stamped by the app.",
+        "evStamp"
+       ],
+       [
+        "recordedBy",
+        "text",
+        "yes",
+        "",
+        "Who keyed it (name, else role).",
+        "evStamp"
+       ],
+       [
+        "enteredLate",
+        "number, days",
+        "only when late",
+        "",
+        "Calendar days late, when over the allowance.",
+        "evStamp"
+       ],
+       [
+        "lateReason",
+        "text",
+        "only when late",
+        "",
+        "Reason given for a late entry.",
+        "evStamp"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Carried by: packing runs, shift entries, truck dispatch, truck QA, lot QA and lot inspections. Old records have no recordedAt, so their lag is unknown and shows as a dash, never 0."
+    }
+   ]
+  }
+ ]
+}

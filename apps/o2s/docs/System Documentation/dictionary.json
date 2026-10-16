@@ -1,0 +1,3132 @@
+{
+ "tab": "dictionary",
+ "title": "Data dictionary and glossary",
+ "ver": "2026-10-16a",
+ "date": "2026-10-16",
+ "owner": "COO (Tahir)",
+ "intro": "The plain meaning, allowed values and unit of every O2S field, with every pick list in full, then the words the team uses and the abbreviations. Field types and writers are in tab 4; this tab points to the tab 4 item instead of repeating it.",
+ "items": [
+  {
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-001",
+    "R-018"
+   ],
+   "status": "confirmed",
+   "src": [
+    "o2s.html fn unitOf, fmt, localDateOf, localWhenOf, fyKey, lineNetPrice, evStamp",
+    "tab 4 (schema)"
+   ],
+   "id": "DD-01",
+   "title": "How to read this tab, and the formats every field uses",
+   "blocks": [
+    {
+     "p": "Each field's name, type and writer are in tab 4 (Data schemas), item by item. This tab gives the plain meaning, the allowed values and the unit, and every pick list in full. Then a glossary of the words the team uses, and the abbreviations."
+    },
+    {
+     "table": {
+      "head": [
+       "What",
+       "Unit or format",
+       "Meaning"
+      ],
+      "rows": [
+       [
+        "Quantity",
+        "Kg/L",
+        "A number in Kg for a solid product and in L for a liquid (unitOf: the product's form Liquid gives L). Screens show Kg/L when the form is not known."
+       ],
+       [
+        "Packs",
+        "count",
+        "Kg/L divided by the pack size, kept to 2 decimals."
+       ],
+       [
+        "Money",
+        "PKR",
+        "Rupees. invoicePrice is per Kg/L; printPrice and invoicePack are per pack."
+       ],
+       [
+        "Date",
+        "yyyy-mm-dd",
+        "A calendar day as text, e.g. 2026-10-15."
+       ],
+       [
+        "Date-time",
+        "ISO text in UTC",
+        "e.g. 2026-10-15T07:34:12.517Z. Screens show it in Pakistan time (UTC+5)."
+       ],
+       [
+        "COA dates",
+        "Mon-yyyy",
+        "mfgDate and expDate on a certificate, e.g. Jun-2026."
+       ],
+       [
+        "Financial year",
+        "yyyy-yy",
+        "July to June, e.g. 2026-27 (fyKey)."
+       ],
+       [
+        "Yes/no",
+        "true or false",
+        "A missing yes/no field means false."
+       ],
+       [
+        "Stamp",
+        "object",
+        "{name or by, user, role} and often at: who did it, by login and role."
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "owner": "Finance and CFO",
+   "rules": [
+    "R-010",
+    "R-018",
+    "R-020"
+   ],
+   "status": "not confirmed",
+   "src": [
+    "o2s.html SEED.channels, PAY_TERMS, fn genPO, entryFedMode, entryPrintMode, submitPO, e_source options, e_vsub options",
+    "SC-03"
+   ],
+   "id": "DD-02",
+   "title": "Order fields: allowed values",
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Allowed values and meaning"
+      ],
+      "rows": [
+       [
+        "channel",
+        "White Label, Cobo, Vgreen, Dealer, Distributor (SEED.channels), with Farmer added by the PO entry screen. White Label and Distributor POs are typed; the others get a made number."
+       ],
+       [
+        "vgreenSub",
+        "VC (Value Chain) or FM (Farm Management); only for Vgreen."
+       ],
+       [
+        "fedMode",
+        "Inclusive (price includes FED; net price = price / 1.05), Exclusive (FED on top), None (FOC, a PO dated before 2026-07-01, or a customer with no FED setting)."
+       ],
+       [
+        "priority",
+        "Low, Normal, High, Critical."
+       ],
+       [
+        "source",
+        "Phone call, WhatsApp, Email, Portal, In-person visit."
+       ],
+       [
+        "paymentTerms",
+        "Advance, COD, 15 days, 30 days, 45 days, 60 days."
+       ],
+       [
+        "printDecision",
+        "yes: the PO's own price goes on the pack; list: the list price goes on the pack; no: no price on the pack. FOC is always no."
+       ],
+       [
+        "printOnPack",
+        "false only when printDecision is no."
+       ],
+       [
+        "foc",
+        "true for an FOC PO: every price is 0 and every document says free sample."
+       ],
+       [
+        "rmDecision",
+        "Always pending at entry; no later value found."
+       ],
+       [
+        "erpSo / so",
+        "The ERP SO number; it prints on the DC."
+       ],
+       [
+        "ackBy",
+        "The role that acknowledged (e.g. Supply Chain)."
+       ],
+       [
+        "closed.reasonCode",
+        "A short-close reason code (DD-13)."
+       ]
+      ]
+     }
+    },
+    {
+     "note": "rmDecision is written as pending and never changed. Its meaning is not confirmed."
+    },
+    {
+     "note": "Corrected 16 Oct 2026 (independent check against the code): there is no CHANNELS constant in the code; PO entry lists SEED.channels and adds Farmer. The close-short reason list is DD-13, not DD-14 (shifts)."
+    }
+   ],
+   "ask": "orders.rmDecision is always pending. What is it for? A) Nothing now, it can be dropped B) It was the old raw-material decision, keep as history C) It should be set by the RM check"
+  },
+  {
+   "owner": "see each field",
+   "rules": [
+    "R-009",
+    "R-024",
+    "R-025"
+   ],
+   "status": "confirmed",
+   "src": [
+    "o2s.html fn lineStage, STAGE_ORDER, rmSubmit, rmReceiveSubmit, healPRFlags, qcFull, lineShortClosed",
+    "SC-04"
+   ],
+   "id": "DD-03",
+   "title": "Order line fields: stages and status values",
+   "blocks": [
+    {
+     "p": "A line's stage is not stored. lineStage works it out each time, checking in this order (the first that fits wins):"
+    },
+    {
+     "table": {
+      "head": [
+       "Stage",
+       "When"
+      ],
+      "rows": [
+       [
+        "Closed short",
+        "The line has an approved close-short (shortClose approved, not reopened)."
+       ],
+       [
+        "Delivered",
+        "delivered is at least ordered (within 0.5)."
+       ],
+       [
+        "Dispatched",
+        "A dispatch date, or dispatched above 0."
+       ],
+       [
+        "QC Passed",
+        "qcPass is set."
+       ],
+       [
+        "Produced",
+        "prodComplete is set."
+       ],
+       [
+        "In Production",
+        "prodStart is set."
+       ],
+       [
+        "RM Ready",
+        "rmReady is set."
+       ],
+       [
+        "PR Raised",
+        "prRaised is set."
+       ],
+       [
+        "SO Created",
+        "soCreated is set (no writer found)."
+       ],
+       [
+        "New",
+        "None of the above."
+       ]
+      ]
+     }
+    },
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Allowed values and meaning"
+      ],
+      "rows": [
+       [
+        "rmStatus",
+        "full (all raw material in stock), partial (part can be made now), short (none can be made), pending (back to RM check). received is read in healPRFlags but not written."
+       ],
+       [
+        "rmModel",
+        "confirm: the current RM check (a product-quantity PR on the line). Missing on old lines."
+       ],
+       [
+        "canMakeKg",
+        "Kg/L that can be made now; null when full."
+       ],
+       [
+        "qcPass",
+        "Set when what passed QA covers the line: within 0.5 Kg/L, or 1% on a line under 50 (qcFull)."
+       ],
+       [
+        "delayReason / respDept",
+        "From masters.delayReasons and masters.respDepts (DD-16, DD-17)."
+       ],
+       [
+        "produced, packed, dispatched, delivered",
+        "Kg/L. dispatched rises only when a truck is released; delivered with a delivery."
+       ],
+       [
+        "disposedKg",
+        "Kg/L of this line's PO batch written off at reconcile."
+       ]
+      ]
+     }
+    },
+    {
+     "note": "Corrected 16 Oct 2026 (independent check against the code): delay reasons are DD-16 and responsible departments DD-17; the draft pointed at priorities and KAM names."
+    }
+   ]
+  },
+  {
+   "owner": "Supply Chain; Warehouse; Plant Manager",
+   "rules": [
+    "R-026",
+    "R-027",
+    "R-028",
+    "R-029",
+    "R-030",
+    "R-017"
+   ],
+   "status": "confirmed",
+   "src": [
+    "o2s.html fn saveDispatch, mpCreate, startLoading, issueGatePass, approveRelease, cancelShip, rejectDC, confirmDelivery, TRUCK_SIZES, TRUCK_REVIEW_HOURS, QC_CHECKED_WHEN, DC_GO_LIVE, QA_GO_LIVE"
+   ],
+   "id": "DD-04",
+   "title": "Shipment fields: truck stages and other values",
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "stage",
+       "Meaning",
+       "Set by"
+      ],
+      "rows": [
+       [
+        "truck_planned",
+        "Planned by Supply Chain; DC number given; waits for loading and QA.",
+        "saveDispatch, mpCreate"
+       ],
+       [
+        "loading",
+        "Loading started by the warehouse (Shoaib or Zain); gate pass issued here after QA passes; Saad or Shoaib reviews.",
+        "startLoading"
+       ],
+       [
+        "in_transit",
+        "Released by the Plant Manager; dispatched now counts.",
+        "approveRelease"
+       ],
+       [
+        "delivered",
+        "Set only when an ex-factory truck is released (collected at the factory), or on a truck made already released (mpCreate). A VAN-delivered truck stays in_transit after its delivery is confirmed: confirmDelivery and markDelivered write the delivered date on each row, not the stage.",
+        "approveRelease (ex-factory), mpCreate"
+       ],
+       [
+        "cancelled",
+        "Truck cancelled; material back to Ready to ship.",
+        "cancelShip"
+       ],
+       [
+        "(empty)",
+        "Truck dated before the DC control (2026-07-01) or an old row.",
+        "saveDispatch"
+       ]
+      ]
+     }
+    },
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Allowed values and meaning"
+      ],
+      "rows": [
+       [
+        "dcStatus",
+        "pending (waiting for release), approved, rejected (Supply Chain re-plans with the reason), cancelled."
+       ],
+       [
+        "transportType",
+        "Ex-factory (customer transport) or VAN-delivered."
+       ],
+       [
+        "truckSize",
+        "parcel (Small parcel, 200), 1t (Small truck 1 ton, 1,000), 5t (Medium truck 5 ton, 5,000), 10t (Large truck 10 ton, 10,000). The number is the capacity in Kg/L."
+       ],
+       [
+        "deliveredVia",
+        "Phone call, Email, Text / WhatsApp message, Other (needs a note), or Collected at factory (set on release of an ex-factory truck)."
+       ],
+       [
+        "sentBack.step",
+        "review (sent back by the reviewer) or release (sent back by the Plant Manager)."
+       ],
+       [
+        "qa.checkedWhen",
+        "before, during or after loading."
+       ],
+       [
+        "qa.onPallets",
+        "Whether the stock is on pallets; it picks the loading question."
+       ],
+       [
+        "noScReview",
+        "true when the Plant Manager released without a review after 2 hours (TRUCK_REVIEW_HOURS)."
+       ],
+       [
+        "lotExact",
+        "true from 15f: the truck reserves exactly the packing runs on its DC."
+       ],
+       [
+        "dispCounted",
+        "true when the row is counted in the line's dispatched."
+       ],
+       [
+        "qa {pass:true, closed:true}",
+        "Written on trucks dated before QA_GO_LIVE (2026-09-23), when no inspection was needed."
+       ]
+      ]
+     }
+    },
+    {
+     "note": "Corrected 16 Oct 2026 (independent check against the code): confirmDelivery and markDelivered set shipments.delivered (a date) and never write stage. Only approveRelease (ex-factory) and mpCreate write stage delivered."
+    }
+   ]
+  },
+  {
+   "owner": "Production",
+   "rules": [
+    "R-033",
+    "R-022",
+    "R-032"
+   ],
+   "status": "not confirmed",
+   "src": [
+    "o2s.html fn openBatch, submitMultiBatch, saveReconcile, doCloseBatch, ensureProductionModel, STAGE_ORDER (batch), shiftBedAdd, batchNearMatch, validateBatchNo"
+   ],
+   "id": "DD-05",
+   "title": "Batch and lot fields: allowed values",
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Allowed values and meaning"
+      ],
+      "rows": [
+       [
+        "kind",
+        "po (made for 1 PO line), bulk (base made for stock and many orders), multi (1 batch shared by several PO lines)."
+       ],
+       [
+        "type",
+        "stock on bulk batches and pools."
+       ],
+       [
+        "status",
+        "open, closed, void (a by-product fragment voided on 2026-06-19)."
+       ],
+       [
+        "disposition",
+        "byproduct, divert or rework on a pool; on an old fragment it is the item type."
+       ],
+       [
+        "pool",
+        "true on a by-product, divert or rework pool (1 open pool per base and kind)."
+       ],
+       [
+        "batch stage (worked out)",
+        "producing, qc, pack, recon, packed (STAGE_ORDER for batches)."
+       ],
+       [
+        "varianceReason",
+        "From masters.varianceReasons (DD-20)."
+       ],
+       [
+        "lossReason",
+        "From the reconcile sheet; July rows show Wastage and Raw-material moisture loss."
+       ],
+       [
+        "plannedKg / producedKg",
+        "Kg/L. Output may be logged up to 115% of the plan (R-033); a PO batch never past what the PO ordered."
+       ],
+       [
+        "beds",
+        "Beds used: P-n (1 to 8), F-n (1 to 10) or D-sub-bed, as P-1, F-3."
+       ],
+       [
+        "lot qty / certifiedKg",
+        "Kg/L made in the lot / Kg/L the approved COA covers."
+       ]
+      ]
+     }
+    },
+    {
+     "note": "The bed letters P, F and D are shown with no words in the code; the screen hint says \"which bed produced / dried / graded\"."
+    },
+    {
+     "note": "Corrected 16 Oct 2026 (independent check against the code): variance reasons are DD-20; DD-22 is focal persons."
+    }
+   ],
+   "ask": "What do the bed letters stand for? A) P = production, F = finishing, D = drying B) Something else (please give the 3 words) C) They are bed names only"
+  },
+  {
+   "owner": "Lab (QCM)",
+   "rules": [
+    "R-016",
+    "R-003",
+    "R-006",
+    "R-020"
+   ],
+   "status": "confirmed",
+   "src": [
+    "o2s.html fn labNewCoa, coaSubmitAnalyst, coaReview, coaApprove, coaSendBack, coaDeviation, coaRework, labAssignConfirm",
+    "data/state.json lot.coa"
+   ],
+   "id": "DD-06",
+   "title": "COA fields: status and result values",
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "status",
+       "Meaning"
+      ],
+      "rows": [
+       [
+        "draft",
+        "Started; results being entered (also where a send-back or reject from the AQCM lands)."
+       ],
+       [
+        "analysed",
+        "Results submitted as FIT, waiting for the AQCM review (also after a Plant Manager deviation, and where a send-back from the QCM lands)."
+       ],
+       [
+        "reviewed",
+        "Reviewed by the AQCM, waiting for the QCM."
+       ],
+       [
+        "approved",
+        "Approved by the QCM; the lot is cleared and certifiedKg is set."
+       ],
+       [
+        "failed",
+        "Results submitted as UNFIT; goes to the Plant Manager for deviation or rework."
+       ]
+      ]
+     }
+    },
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Allowed values and meaning"
+      ],
+      "rows": [
+       [
+        "overall",
+        "FIT or UNFIT."
+       ],
+       [
+        "issueStatus",
+        "A on every certificate."
+       ],
+       [
+        "type",
+        "Batch."
+       ],
+       [
+        "source",
+        "Vital Agri Nutrients (Pvt) Ltd."
+       ],
+       [
+        "sampleQty",
+        "0.5 kg by default; 0.5 L seen on liquids."
+       ],
+       [
+        "tests[].g",
+        "Physical or Chemical."
+       ],
+       [
+        "tests[].mu",
+        "Measurement uncertainty, e.g. ±0.66; - when none."
+       ],
+       [
+        "tests[].remark",
+        "FIT or UNFIT per test; suggested from the spec and the result when the result is a number (coaAutoRemark)."
+       ],
+       [
+        "returns[].to",
+        "AQCM (sent back by the QCM) or analyst (sent back by the AQCM)."
+       ],
+       [
+        "flow",
+        "v2: each test assigned to an analyst with a due time."
+       ],
+       [
+        "qcNo",
+        "QC number printed on the certificate, e.g. PQ0756."
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "owner": "Production",
+   "rules": [
+    "R-004",
+    "R-012",
+    "R-013"
+   ],
+   "status": "confirmed",
+   "src": [
+    "o2s.html fn packRowExtras, packPriceRecord, packDates, PACK_FLAG_KG, SHELF_DEFAULT_MONTHS, SHELF_MAX_MONTHS, bigPackSeen"
+   ],
+   "id": "DD-07",
+   "title": "Packing run fields: allowed values and limits",
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Allowed values and meaning"
+      ],
+      "rows": [
+       [
+        "priceSource",
+        "po (the PO's own price), list (list price), none (no price on the pack), unknown (no answer on the PO)."
+       ],
+       [
+        "printOnPack",
+        "true, false, or null when unknown."
+       ],
+       [
+        "printedPrice",
+        "PKR per pack printed on the bag; null when no price is printed."
+       ],
+       [
+        "priceMismatch",
+        "true when the printed price differs from the PO price by more than 0.005."
+       ],
+       [
+        "bigRun.limit",
+        "10,000 Kg/L (PACK_FLAG_KG) for 1 entry, or for 1 shift and in-charge on 1 date."
+       ],
+       [
+        "bigRun.ack",
+        "false until the Production Manager marks it Seen."
+       ],
+       [
+        "shelfMonths",
+        "24 by default, up to 36."
+       ],
+       [
+        "mfgDate",
+        "Earliest production date of every batch packed under the same bag batch number."
+       ],
+       [
+        "expDate",
+        "mfgDate plus shelfMonths."
+       ],
+       [
+        "insKg",
+        "Kg/L of this run cleared by passed inspections."
+       ],
+       [
+        "shipKg",
+        "Kg/L of this run on trucks."
+       ],
+       [
+        "reversed / void",
+        "Ended under Correct a record; the row stays."
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "owner": "QA Inspector",
+   "rules": [
+    "R-014",
+    "R-015",
+    "R-017"
+   ],
+   "status": "confirmed",
+   "src": [
+    "o2s.html QC_CHECKLIST, QC_ANS, QC_VERIFY, QC_PACK_Q, QC_LOAD_Q, QC_CHECKED_WHEN, AQL_LEVELS, fn qcChecklistRecord, qcVerifyRecord",
+    "Guide rules N/A on an inspection, QA checks by pack type"
+   ],
+   "id": "DD-08",
+   "title": "Inspection answers: stored values and the words on the buttons",
+   "blocks": [
+    {
+     "p": "Every answer is stored as pass, fail or na (N/A, counts as a pass; only on Price on the pack, with a reason). Since 15f the buttons show each question's own words; the good word saves pass and the bad word saves fail."
+    },
+    {
+     "table": {
+      "head": [
+       "Question",
+       "Saves pass",
+       "Saves fail"
+      ],
+      "rows": [
+       [
+        "Packaging intact & correct",
+        "Intact and correct",
+        "Damaged or wrong"
+       ],
+       [
+        "Label / artwork correct",
+        "Correct label",
+        "Wrong label"
+       ],
+       [
+        "Net weight / count verified",
+        "Weight correct",
+        "Weight short or over"
+       ],
+       [
+        "Seal & closure OK",
+        "Sealed and closed",
+        "Not sealed"
+       ],
+       [
+        "Cleanliness: no contamination",
+        "Clean",
+        "Contaminated"
+       ],
+       [
+        "Batch & expiry printed",
+        "Printed and readable",
+        "Missing or unreadable"
+       ],
+       [
+        "No leakage / damage",
+        "No leak, no damage",
+        "Leak or damage"
+       ],
+       [
+        "Loading condition (old wording; since 15 Oct asked as one of the 3 loading questions below)",
+        "Good",
+        "Not good"
+       ],
+       [
+        "Price on the pack is correct",
+        "Correct price",
+        "Wrong price"
+       ],
+       [
+        "Batch # on the pack matches the record",
+        "Same batch",
+        "Different batch"
+       ],
+       [
+        "Mfg & expiry on the pack match the record",
+        "Dates match",
+        "Dates differ"
+       ],
+       [
+        "On pallets: pallets sound, stack stable, no torn bags",
+        "Sound and stable",
+        "Broken or unstable"
+       ],
+       [
+        "No pallets: no torn bags, truck bed clean and dry",
+        "Clean, dry, no torn bags",
+        "Dirty, wet or torn bags"
+       ],
+       [
+        "Storage: stored off the floor, dry (packed lot)",
+        "Off the floor, dry",
+        "On the floor or damp"
+       ],
+       [
+        "Solid: closure intact",
+        "Closed and sealed",
+        "Open or loose"
+       ],
+       [
+        "Solid: no torn bag, no spill",
+        "No tear, no spill",
+        "Torn or spilling"
+       ],
+       [
+        "Liquid: cap tight, induction seal in place",
+        "Tight, seal in place",
+        "Loose or seal missing"
+       ],
+       [
+        "Liquid: leak check (bottle upside down, pressed)",
+        "No drip",
+        "Leaking"
+       ],
+       [
+        "Liquid: cartons dry",
+        "Dry",
+        "Wet or stained"
+       ]
+      ]
+     }
+    },
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Allowed values and meaning"
+      ],
+      "rows": [
+       [
+        "checkedWhen",
+        "before, during, after (loading)."
+       ],
+       [
+        "sampling.level",
+        "S-3, S-4 (special), I, II, III (general)."
+       ],
+       [
+        "sampling.codeLetter",
+        "A to R, giving the sample size (A 2 up to R 2,000 packs)."
+       ],
+       [
+        "sampling.reduced",
+        "true when fewer packs were checked than the plan asked."
+       ],
+       [
+        "sampling.tableVerified",
+        "false until the QCM has checked the AQL numbers (masters.aqlVerified)."
+       ],
+       [
+        "superseded",
+        "Set when the inspection is withdrawn; it still prints, stamped WITHDRAWN."
+       ]
+      ]
+     }
+    },
+    {
+     "note": "Stored item texts are kept exactly as written in the code: the cleanliness item has a long dash after Cleanliness, and the dates item is stored as Mfg &amp; expiry. They are shown here in plain form."
+    }
+   ]
+  },
+  {
+   "owner": "COO approves; requester owns",
+   "rules": [
+    "R-005"
+   ],
+   "status": "confirmed",
+   "src": [
+    "o2s.html SMP_PURPOSES, SMP_HOW, SMP_QA, fn smpSubmit, smpDecide, smpIssue, smpCheck, smpDispatch, smpReview, smpRelease, smpArrived, smpCancel",
+    "Guide rule FOC samples"
+   ],
+   "id": "DD-09",
+   "title": "FOC sample fields: stages and lists",
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "status",
+       "Meaning"
+      ],
+      "rows": [
+       [
+        "requested",
+        "Asked; waits for the COO."
+       ],
+       [
+        "approved",
+        "COO approved; waits for the warehouse to issue it (also where a failed QA check sends it back)."
+       ],
+       [
+        "rejected",
+        "Not approved by the COO, with the reason."
+       ],
+       [
+        "issued",
+        "Issued from the sampling pool; waits for QA."
+       ],
+       [
+        "checked",
+        "QA passed; waits for the sample DC and gate pass."
+       ],
+       [
+        "gatepass",
+        "Sample DC (SDC-nnnn) and gate pass given; waits for Saad's review (2 hours)."
+       ],
+       [
+        "reviewed",
+        "Reviewed; waits for the Plant Manager."
+       ],
+       [
+        "dispatched",
+        "Released by the Plant Manager; on its way."
+       ],
+       [
+        "delivered",
+        "The person who asked confirmed it arrived."
+       ],
+       [
+        "cancelled",
+        "Cancelled before it was issued."
+       ]
+      ]
+     }
+    },
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Allowed values and meaning"
+      ],
+      "rows": [
+       [
+        "purpose",
+        "Product trial, Registration or testing, New customer introduction, Replacement or complaint, Exhibition or demo, Other."
+       ],
+       [
+        "how",
+        "Courier, Our staff carries it, Our vehicle, Client collects."
+       ],
+       [
+        "QA items",
+        "Right product and pack size; Label shows the batch no., manufacturing and expiry dates; Marked free sample, not for sale, no price on the pack; Seal intact, no leak or damage; Certificate (COA) available for the batch."
+       ],
+       [
+        "issue.lines[].source",
+        "pool (from the sampling pool) or other."
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "owner": "COO (Correct a record)",
+   "rules": [
+    "R-008",
+    "R-012"
+   ],
+   "status": "confirmed",
+   "src": [
+    "o2s.html CORRECT_ENTITY, CORRECT_REASONS, fn recordCorrection and its callers"
+   ],
+   "id": "DD-10",
+   "title": "Corrections: operations, record types and reasons",
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "op",
+       "Meaning"
+      ],
+      "rows": [
+       [
+        "AMEND",
+        "A field changed, before and after kept."
+       ],
+       [
+        "REVERSE",
+        "A record undone (marked reversed); it stays."
+       ],
+       [
+        "SUPERSEDE",
+        "A COA re-issued as a new revision, or an inspection withdrawn."
+       ],
+       [
+        "ADD",
+        "A missing packing record added."
+       ],
+       [
+        "VOID",
+        "A packing record voided (kg to 0, voidedKg kept)."
+       ],
+       [
+        "BACKFILL",
+        "A missing value filled from the records."
+       ],
+       [
+        "Removed shift output",
+        "A lot taken out of its batch (doRemoveLot)."
+       ]
+      ]
+     }
+    },
+    {
+     "table": {
+      "head": [
+       "entityType",
+       "Label",
+       "Amend",
+       "Reverse",
+       "Fields"
+      ],
+      "rows": [
+       [
+        "order",
+        "Purchase order",
+        "KAM, COO",
+        "COO",
+        "client, priority, received, promised"
+       ],
+       [
+        "orderLine",
+        "PO product line",
+        "KAM, COO (priced fields CFO, COO)",
+        "COO",
+        "ordered, committed, printPrice, invoicePrice (CFO, COO)"
+       ],
+       [
+        "packingLot",
+        "Packing run",
+        "Production, COO",
+        "Production, Plant Manager, COO",
+        "brandBatchNo, mfgDate, expDate (Plant Manager, COO), printedPrice, actualDate"
+       ],
+       [
+        "shipment",
+        "Shipment",
+        "Supply Chain, COO",
+        "Supply Chain, Plant Manager, COO",
+        "dispatch, destination, vehicle, carrier, bilty, so"
+       ],
+       [
+        "batch",
+        "Production batch",
+        "Production, COO",
+        "none",
+        "batchNo, plannedKg and producedKg (each Plant Manager or COO only), openedDate"
+       ],
+       [
+        "coa",
+        "Certificate of Analysis",
+        "none",
+        "none",
+        "Supersede only (QCM, COO)"
+       ],
+       [
+        "inspection",
+        "Pre-shipment inspection",
+        "none",
+        "none",
+        "Supersede only (QA Inspector, Plant Manager, COO)"
+       ],
+       [
+        "legacy",
+        "Old record",
+        "not confirmed",
+        "not confirmed",
+        ""
+       ]
+      ]
+     }
+    },
+    {
+     "table": {
+      "head": [
+       "reasonCode",
+       "Meaning"
+      ],
+      "rows": [
+       [
+        "keying",
+        "Keying error, typed the wrong number"
+       ],
+       [
+        "wrongrec",
+        "Wrong record, right data, wrong PO / batch / lot"
+       ],
+       [
+        "miscount",
+        "Quantity miscount on the floor"
+       ],
+       [
+        "price",
+        "Price wrong on the PO"
+       ],
+       [
+        "backdate",
+        "Recorded late / against the wrong date"
+       ],
+       [
+        "customer",
+        "Customer amended the order"
+       ],
+       [
+        "duplicate",
+        "Duplicate entry"
+       ],
+       [
+        "other",
+        "Other, explained below"
+       ]
+      ]
+     }
+    },
+    {
+     "note": "Corrected 16 Oct 2026 (independent check against the code): in CORRECT_ENTITY.batch, batchNo and plannedKg carry roles Plant Manager and COO, like producedKg."
+    }
+   ]
+  },
+  {
+   "owner": "Supply Chain; Plant Manager; CFO",
+   "rules": [
+    "R-007",
+    "R-024",
+    "R-011"
+   ],
+   "status": "confirmed",
+   "src": [
+    "o2s.html fn submitMoveStock, approveMove, refuseMove, cancelMove, _wcMark, raisePR, receivePR, closePR, prDrop, rmSubmit"
+   ],
+   "id": "DD-11",
+   "title": "Stock moves, wait marks and purchase requests: status values",
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field: value",
+       "Meaning"
+      ],
+      "rows": [
+       [
+        "poMoves.status: asked",
+        "Supply Chain asked; waits for the Plant Manager."
+       ],
+       [
+        "poMoves.status: done",
+        "Approved and applied."
+       ],
+       [
+        "poMoves.status: refused",
+        "Refused with a reason."
+       ],
+       [
+        "poMoves.status: cancelled",
+        "Cancelled by the person who asked."
+       ],
+       [
+        "waitMarks.kind: wait",
+        "Waiting for client until the date in until (1 to 30 days ahead)."
+       ],
+       [
+        "waitMarks.kind: end",
+        "The wait ended early."
+       ],
+       [
+        "prs.status: open",
+        "Waiting for CFO approval or for material."
+       ],
+       [
+        "prs.status: closed",
+        "Fully received, closed early (received enough, or cancelled), or dropped after refusal."
+       ],
+       [
+        "rmPR.cfoApproved",
+        "Empty until the CFO approves; then the date."
+       ],
+       [
+        "rmPR.closed",
+        "true when the material for the line is all received, or the request was dropped."
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "owner": "Finance and CFO",
+   "rules": [
+    "R-011",
+    "R-019"
+   ],
+   "status": "confirmed",
+   "src": [
+    "o2s.html CUST_SEGMENTS, fn custCode, custSave, regAbbr, SEED.geo.regionCode, custInit"
+   ],
+   "id": "DD-12",
+   "title": "Customer fields: segments, codes and values",
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "segment",
+       "Code format"
+      ],
+      "rows": [
+       [
+        "White-label",
+        "WL-ABC-yy-1nn (3 letters of the name, induction year, 100 + count)"
+       ],
+       [
+        "Distributor",
+        "DST-ABC-yy-1nn"
+       ],
+       [
+        "Direct Farmer",
+        "FRM-ABC-yy-1nn"
+       ],
+       [
+        "Dealer",
+        "DLR-region code-city code-nnn, e.g. DLR-PB-JHN-001"
+       ],
+       [
+        "COBO",
+        "COBO-nnn for an outlet; COBO for the parent"
+       ],
+       [
+        "VGreen",
+        "VG-outlet, e.g. VG-VC, VG-FM; VG for the parent"
+       ]
+      ]
+     }
+    },
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Allowed values and meaning"
+      ],
+      "rows": [
+       [
+        "region codes",
+        "Punjab PB, Sindh SN, KPK KP, Balochistan BL, AJK AJ, Gilgit-Baltistan GB, ICT IS."
+       ],
+       [
+        "status",
+        "Active, Inactive, Pending approval (entered by anyone but the CFO or COO), Confirmed (old rows)."
+       ],
+       [
+        "fed",
+        "Inclusive or Exclusive (default Exclusive)."
+       ],
+       [
+        "psiWithDC",
+        "true: the pre-shipment report goes with the DC."
+       ],
+       [
+        "paymentTerms",
+        "Advance, COD, 15 days, 30 days, 45 days, 60 days."
+       ],
+       [
+        "creditDays",
+        "Days of credit (number)."
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-008",
+    "R-024"
+   ],
+   "status": "confirmed",
+   "src": [
+    "o2s.html SHORTCLOSE_REASONS, fn scPackedConflict"
+   ],
+   "id": "DD-13",
+   "title": "Pick list: close-short reasons",
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "code",
+       "Label",
+       "Counts against us (ours)"
+      ],
+      "rows": [
+       [
+        "customer_cancelled",
+        "Customer cancelled the balance",
+        "no"
+       ],
+       [
+        "customer_reduced",
+        "Customer reduced the quantity",
+        "no"
+       ],
+       [
+        "customer_no_uptake",
+        "Ordered but never collected",
+        "no"
+       ],
+       [
+        "outside_o2s",
+        "Supplied from stock outside O2S",
+        "no"
+       ],
+       [
+        "our_shortfall",
+        "We could not supply",
+        "yes"
+       ],
+       [
+        "material_unavailable",
+        "Raw material never arrived",
+        "yes"
+       ],
+       [
+        "commercial",
+        "Price, credit or terms",
+        "yes"
+       ],
+       [
+        "other",
+        "Other (a reason must be written)",
+        "yes"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "A product already packed in full cannot be closed as our_shortfall or material_unavailable."
+    }
+   ]
+  },
+  {
+   "owner": "COO (Back Office)",
+   "rules": [
+    "R-004"
+   ],
+   "status": "confirmed",
+   "src": [
+    "data/state.json masters.shifts",
+    "o2s.html fn ensureMasters SEED_SHIFTS"
+   ],
+   "id": "DD-14",
+   "title": "Pick list: shifts (masters.shifts)",
+   "blocks": [
+    {
+     "list": [
+      "Morning",
+      "Evening",
+      "Night"
+     ]
+    },
+    {
+     "p": "Same list in the July data and in the code seed."
+    }
+   ]
+  },
+  {
+   "owner": "COO (Back Office)",
+   "rules": [
+    "R-004"
+   ],
+   "status": "not confirmed",
+   "src": [
+    "data/state.json masters.incharges (July)",
+    "o2s.html fn ensureMasters SEED_INCHARGES (8 names)",
+    "OP-HANDOFF-O2S.md 2026-10-15 (1): In-charge list (11 names) left as it is; the 3 extra names open",
+    "ROLE_TITLE comments"
+   ],
+   "id": "DD-15",
+   "title": "Pick list: in-charges (masters.incharges)",
+   "blocks": [
+    {
+     "list": [
+      "Faisal Nadeem",
+      "Adnan Rasheed",
+      "Farooq Khalid",
+      "Bilal Younas",
+      "Waqas Haider",
+      "Muhammad Imran",
+      "Muhammad Rashid",
+      "Muhammad Sajjad",
+      "Ali Raza",
+      "Jawad Naseer",
+      "Zain Ghaffar"
+     ]
+    },
+    {
+     "p": "The in-charge is who ran the line in that shift or packing run, never the login. The code seed has the first 8 names. The July data has 11; the handoff of 15 Oct says the live list has 11."
+    },
+    {
+     "note": "Ali Raza, Jawad Naseer and Zain Ghaffar are the 3 names beyond the seed. ROLE_TITLE comments name Jawad Naseer (Production Officer) and Zain Ghaffar (Warehouse Assistant); Ali Raza's title Production Associate comes from USER_TITLE (login aliraza), not ROLE_TITLE."
+    }
+   ],
+   "ask": "The In-charge list has 3 names beyond the first 8 (Ali Raza, Jawad Naseer, Zain Ghaffar). Should they stay? A) Keep all 11 B) Remove all 3 C) Keep some (please name them)"
+  },
+  {
+   "owner": "COO (Back Office)",
+   "rules": [],
+   "status": "confirmed",
+   "src": [
+    "data/state.json masters.delayReasons (July, 11)",
+    "o2s.html SEED.masters.delayReasons (9)"
+   ],
+   "id": "DD-16",
+   "title": "Pick list: delay reasons (masters.delayReasons)",
+   "blocks": [
+    {
+     "list": [
+      "On Time",
+      "RM Shortage",
+      "Vendor Delay",
+      "Machine Breakdown",
+      "QC Failed - Rework",
+      "Client Hold / Change Request",
+      "Credit / Payment Hold",
+      "Logistics / Transport Delay",
+      "Force Majeure",
+      "Labor Shortage",
+      "Load Shedding"
+     ]
+    },
+    {
+     "p": "The seed has the first 9; Labor Shortage and Load Shedding were added later. Live list not read."
+    }
+   ]
+  },
+  {
+   "owner": "COO (Back Office)",
+   "rules": [],
+   "status": "confirmed",
+   "src": [
+    "data/state.json masters.respDepts",
+    "o2s.html SEED.masters.respDepts"
+   ],
+   "id": "DD-17",
+   "title": "Pick list: responsible departments (masters.respDepts)",
+   "blocks": [
+    {
+     "list": [
+      "Key Account Manager",
+      "Supply Chain",
+      "Production",
+      "Quality Control",
+      "Warehouse / Dispatch",
+      "Logistics",
+      "Finance",
+      "Vendor",
+      "Client"
+     ]
+    }
+   ]
+  },
+  {
+   "owner": "COO (Back Office)",
+   "rules": [],
+   "status": "confirmed",
+   "src": [
+    "data/state.json masters.priorities",
+    "o2s.html SEED.masters.priorities"
+   ],
+   "id": "DD-18",
+   "title": "Pick list: priorities (masters.priorities)",
+   "blocks": [
+    {
+     "list": [
+      "Low",
+      "Normal",
+      "High",
+      "Critical"
+     ]
+    }
+   ]
+  },
+  {
+   "owner": "COO (Back Office)",
+   "rules": [],
+   "status": "not confirmed",
+   "src": [
+    "data/state.json masters.kamNames (July)",
+    "o2s.html SEED.masters.kamNames (Muhammad Imran only)"
+   ],
+   "id": "DD-19",
+   "title": "Pick list: KAM names (masters.kamNames)",
+   "blocks": [
+    {
+     "list": [
+      "Muhammad Imran",
+      "Tahir Abbas",
+      "Muhammad Ali"
+     ]
+    },
+    {
+     "p": "From the July data. The seed has Muhammad Imran only."
+    }
+   ],
+   "ask": "Is the live KAM list still Muhammad Imran, Tahir Abbas and Muhammad Ali? A) Yes B) No, it has changed (please give the names) C) Not sure, check Back Office"
+  },
+  {
+   "owner": "COO (Back Office)",
+   "rules": [
+    "R-033"
+   ],
+   "status": "confirmed",
+   "src": [
+    "data/state.json masters.varianceReasons",
+    "o2s.html fn ensureMasters"
+   ],
+   "id": "DD-20",
+   "title": "Pick list: variance reasons (masters.varianceReasons)",
+   "blocks": [
+    {
+     "list": [
+      "Wastage",
+      "Raw-material moisture loss",
+      "Raw-material availability / shortage",
+      "Process / handling loss",
+      "Recipe / assay adjustment",
+      "Other"
+     ]
+    },
+    {
+     "p": "Used when a batch is closed below plan."
+    }
+   ]
+  },
+  {
+   "owner": "COO (Back Office)",
+   "rules": [],
+   "status": "not confirmed",
+   "src": [
+    "data/state.json masters.downtimeReasons (July)",
+    "o2s.html SEED.masters.downtimeReasons, fn ensureMasters SEED_DOWNTIME"
+   ],
+   "id": "DD-21",
+   "title": "Pick list: downtime reasons (masters.downtimeReasons)",
+   "blocks": [
+    {
+     "p": "List held in the July data (from the June seed):"
+    },
+    {
+     "list": [
+      "None",
+      "Machine Breakdown",
+      "Power Outage",
+      "RM Not Available",
+      "Packaging Material Short",
+      "Labor Shortage",
+      "Changeover",
+      "Cleaning / Sanitation",
+      "QC Hold",
+      "Planned Maintenance",
+      "Other"
+     ]
+    },
+    {
+     "p": "A second list sits in ensureMasters (SEED_DOWNTIME). It is used only when the list is empty, so it never replaced the one above:"
+    },
+    {
+     "list": [
+      "Machine / plant breakdown",
+      "Raw material not available / shortage",
+      "Packing material shortage",
+      "Power outage / load shedding",
+      "Planned maintenance / cleaning / changeover",
+      "No production schedule / no order",
+      "Manpower / staff shortage",
+      "Quality hold / rework",
+      "Utility failure (steam / water / boiler)",
+      "Other"
+     ]
+    }
+   ],
+   "ask": "Which downtime list is the right one? A) The 11 from the June seed (now in the data) B) The 10 in the code (SEED_DOWNTIME) C) Merge them"
+  },
+  {
+   "owner": "COO (Back Office)",
+   "rules": [],
+   "status": "not confirmed",
+   "src": [
+    "data/state.json masters.focalPersons (July)",
+    "o2s.html fn ensureMasters (starts empty)"
+   ],
+   "id": "DD-22",
+   "title": "Pick list: focal persons (masters.focalPersons)",
+   "blocks": [
+    {
+     "list": [
+      "Muhammad Irfan",
+      "Muhammad Mamoon",
+      "Umer Shehzad"
+     ]
+    },
+    {
+     "p": "From the July data; the code starts the list empty."
+    }
+   ],
+   "ask": "Is the live focal person list still Muhammad Irfan, Muhammad Mamoon and Umer Shehzad? A) Yes B) No (please give the names) C) Not sure"
+  },
+  {
+   "owner": "COO (Back Office)",
+   "rules": [],
+   "status": "confirmed",
+   "src": [
+    "o2s.html SEED.masters (forms, statuses, channels), SEED.channels, fn ensureMasters (_fg form to group)"
+   ],
+   "id": "DD-23",
+   "title": "Pick lists: forms, statuses and channels in masters",
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "List",
+       "Values",
+       "Note"
+      ],
+      "rows": [
+       [
+        "forms",
+        "Powder, Crystal, Pellet, Granular, Liquid, Flakes, Micro Granule",
+        "Product form. Liquid makes the unit L and the QA checks liquid; the rest are solid."
+       ],
+       [
+        "statuses",
+        "Open, In Production, Packed, Dispatched, Delivered, Closed, On Hold",
+        "From the June seed. No code reads masters.statuses."
+       ],
+       [
+        "masters.channels",
+        "Dealer, Cobo, Distributor, Vgreen, Walk-in / Market",
+        "From the June seed. PO entry uses SEED.channels instead (White Label, Cobo, Vgreen, Dealer, Distributor) and adds Farmer."
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Form to production group when a brand has no group: Powder to Powder, Crystal to Crystalline, Liquid to Liquid, Granular, Pellet, Flakes and Micro Granule to Granular; base Potassium Humate to Humic; base Sulfur Coated Urea to Sulfur Coated Urea."
+    },
+    {
+     "note": "Corrected 16 Oct 2026 (independent check against the code): no CHANNELS constant exists; the PO entry select is built from SEED.channels plus Farmer."
+    }
+   ]
+  },
+  {
+   "owner": "COO and Back Office (R17)",
+   "rules": [
+    "R-019"
+   ],
+   "status": "not confirmed",
+   "src": [
+    "o2s.html SEED.catalog.brandsByClient (71 brands), BRAND_ALIAS, BRANDMAP_FIX, fn migrateProductsV1",
+    "OP-HANDOFF-O2S.md 23o: _productsV1 (91 products)"
+   ],
+   "id": "DD-24",
+   "title": "Pick list: products (brand, base, form, packs)",
+   "blocks": [
+    {
+     "p": "The product master (masters.products) was built on 23 Sep 2026 from the catalogue below, the brand map and the products added in Admin. The live master held 91 products that day. The list below is the 71-brand catalogue in the code, with the base the catalogue gives; the brand map can give a different base (kept as catBase)."
+    },
+    {
+     "table": {
+      "head": [
+       "Brand",
+       "Base",
+       "Form",
+       "Packs (Kg/L)",
+       "Generic"
+      ],
+      "rows": [
+       [
+        "Authority",
+        "Authority",
+        "Crystal",
+        "10",
+        "NP 12:44 + Fe"
+       ],
+       [
+        "Basic",
+        "Basic",
+        "Crystal",
+        "10",
+        "NPK 9:45:0"
+       ],
+       [
+        "Cal-Mag V",
+        "Cal-Mag V",
+        "Liquid",
+        "1",
+        "Ca 6%+Mg 4%+B 1%+N 10%"
+       ],
+       [
+        "Cala Mag V",
+        "Cala Mag V",
+        "Liquid",
+        "1, 1000",
+        "Ca 6%, Mg 4%, B 1%, N 10%"
+       ],
+       [
+        "Crop Star",
+        "Crop Star",
+        "Crystal",
+        "1, 20",
+        "NPK 15-15-15"
+       ],
+       [
+        "Enrich",
+        "Potassium Humate",
+        "Crystal",
+        "8",
+        "K-Humate Crystal"
+       ],
+       [
+        "Enroot",
+        "NP 6.32",
+        "Granular",
+        "35",
+        "NPK 6:32:0"
+       ],
+       [
+        "Farm Booster",
+        "Farm Booster",
+        "Crystal",
+        "25",
+        "NPK 2:50:0 + S 5%"
+       ],
+       [
+        "Ferti Climate",
+        "NP 6.32",
+        "Granular",
+        "25",
+        "N- 6%, P 32 + Humic"
+       ],
+       [
+        "Ferti Huma",
+        "Ferti Huma",
+        "Powder",
+        "8",
+        "K2O 7%, H 40%"
+       ],
+       [
+        "Ferti Huma Pellet",
+        "Ferti Huma Pellet",
+        "Pellet",
+        "8",
+        "K2O 7%, H 40%"
+       ],
+       [
+        "Ferti Huma Super",
+        "Potassium Humate Liquid",
+        "Liquid",
+        "4",
+        "K-Humate Liquid"
+       ],
+       [
+        "Ferti K Fertigation",
+        "Ferti K Fertigation",
+        "Liquid",
+        "3",
+        "Potash 30%"
+       ],
+       [
+        "Ferti K Foliar",
+        "Ferti K Foliar",
+        "Liquid",
+        "1",
+        "Potash 30% + P2O5 + B"
+       ],
+       [
+        "Ferti Magic",
+        "Ferti Magic",
+        "Powder",
+        "10",
+        "N- 2%, K 50, MgO 1.5%, S1.5%, B 1%"
+       ],
+       [
+        "Ferti Rise",
+        "Ferti Rise",
+        "Crystal",
+        "10",
+        "NPK 11:0:44"
+       ],
+       [
+        "Fruitlish",
+        "VL-Potash",
+        "Liquid",
+        "3",
+        "Liquid Potash 30% + P205 & B"
+       ],
+       [
+        "Fusion Potash",
+        "Fusion Potash",
+        "Crystal",
+        "25",
+        "K2O 50%+S1.5%+B1%+N2%+Mg1%"
+       ],
+       [
+        "Genius",
+        "Genius",
+        "Micro Granule",
+        "25",
+        "Multinutrient Micro Granule"
+       ],
+       [
+        "Germinator Pro - Humic",
+        "Potassium Humate",
+        "Pellet",
+        "8",
+        "K-Humate Pellet"
+       ],
+       [
+        "Germinator Pro Sulfur",
+        "Sulfur 70%",
+        "Powder",
+        "1, 3",
+        "Sulfur 70%"
+       ],
+       [
+        "Grain Set",
+        "Grain Set",
+        "Liquid",
+        "1",
+        "Potash 30%"
+       ],
+       [
+        "Green Phosphate",
+        "NP 6.32",
+        "Granular",
+        "50",
+        "NP 06-32"
+       ],
+       [
+        "Green Sulfur",
+        "Sulfur 70%",
+        "Powder",
+        "1, 20",
+        "Sulfur Fertilizer > 70%"
+       ],
+       [
+        "Harbor Fertigation",
+        "Harbor Fertigation",
+        "Liquid",
+        "1000",
+        "Potash 30%"
+       ],
+       [
+        "Harbor Foliar",
+        "Harbor Foliar",
+        "Liquid",
+        "1000",
+        "Potash 30%"
+       ],
+       [
+        "Humi Cash",
+        "Potassium Humate",
+        "Crystal",
+        "8",
+        "K-Humate Crystal"
+       ],
+       [
+        "Humi Grow",
+        "Potassium Humate",
+        "Powder",
+        "8",
+        "Potassium Humate Powder - H 40%, K2O 7%"
+       ],
+       [
+        "Jackpot",
+        "Jackpot",
+        "Powder",
+        "1000",
+        "NPK 16:18:18"
+       ],
+       [
+        "Max Amino",
+        "Amino Acid",
+        "Liquid",
+        "1",
+        "Amino Acid 10%"
+       ],
+       [
+        "Max Boron",
+        "Boron 5%",
+        "Liquid",
+        "1",
+        "Boron 5%"
+       ],
+       [
+        "Max Compost",
+        "Compost",
+        "Pellet",
+        "25",
+        "OM 25%"
+       ],
+       [
+        "Max Humic",
+        "Potassium Humate",
+        "Powder",
+        "8",
+        "K-Humate Powder"
+       ],
+       [
+        "Max Phos",
+        "Max Phos",
+        "Crystal",
+        "10",
+        "NPK 11:44:0"
+       ],
+       [
+        "Max Potash",
+        "Max Potash",
+        "Crystal",
+        "20",
+        "NPK 11:0:44"
+       ],
+       [
+        "Max Sulfur",
+        "Sulfur 70%",
+        "Powder",
+        "1, 10",
+        "Sulfur 70% WDG"
+       ],
+       [
+        "Max Zinc",
+        "Zinc 21%",
+        "Granular",
+        "4",
+        "Zinc 21% Granular"
+       ],
+       [
+        "NPK 16:18:18",
+        "NPK 16:18:18",
+        "Crystal",
+        "1",
+        "NPK 16:18:18"
+       ],
+       [
+        "Naya NPK- Powder",
+        "Naya NPK- Powder",
+        "Crystal",
+        "20",
+        "NPK 18:18:18"
+       ],
+       [
+        "Naya Potash",
+        "Naya Potash",
+        "Liquid",
+        "5",
+        "Potash 30%"
+       ],
+       [
+        "Naya S Urea",
+        "Sulfur Coated Urea",
+        "Granular",
+        "25",
+        "S 13% N 32%"
+       ],
+       [
+        "Nitro Germinator Pro",
+        "Nitro Germinator Pro",
+        "Crystal",
+        "10, 20",
+        "NPK 8:0:40"
+       ],
+       [
+        "Nitro Sulfur",
+        "Nitro Sulfur",
+        "Granular",
+        "25",
+        "N 22%, S 18%"
+       ],
+       [
+        "Numeric Ultra",
+        "Numeric Ultra",
+        "Granular",
+        "25",
+        "NPK 10:10:10"
+       ],
+       [
+        "Nutrivant K (Granular)",
+        "Nutrivant K (Granular)",
+        "Granular",
+        "25",
+        "NPK 2:0:50"
+       ],
+       [
+        "Nutrivant K (Powder)",
+        "Nutrivant K (Powder)",
+        "Crystal",
+        "25",
+        "NPK 2:0:50"
+       ],
+       [
+        "Nutrivant P",
+        "NP 6.32",
+        "Granular",
+        "50",
+        "NPK 5:35:0"
+       ],
+       [
+        "Nutrivant Urea",
+        "Sulfur Coated Urea",
+        "Granular",
+        "25",
+        "S 13% N 32%"
+       ],
+       [
+        "Orbit-K",
+        "Orbit-K",
+        "Crystal",
+        "25",
+        "NPK 11:0:44"
+       ],
+       [
+        "ProMix Liquid",
+        "ProMix Liquid",
+        "Liquid",
+        "1000",
+        "NPK 8:8:6"
+       ],
+       [
+        "Pulsate",
+        "Pulsate",
+        "Micro Granule",
+        "25",
+        "Multinutrient Micro Granule"
+       ],
+       [
+        "Tervalis",
+        "Potassium Humate",
+        "Pellet",
+        "40",
+        "K-Humate Pellets"
+       ],
+       [
+        "Tervalis Plus",
+        "Potassium Humate Liquid",
+        "Liquid",
+        "1000",
+        "K-Humate Liquid"
+       ],
+       [
+        "Tornado",
+        "Amino Acid",
+        "Liquid",
+        "0.5",
+        "Amino Acid 10%"
+       ],
+       [
+        "Tornado 500 ML",
+        "Tornado 500 ML",
+        "Liquid",
+        "0.5",
+        "Bio-Stimulants"
+       ],
+       [
+        "V Germinator Pro",
+        "Liquid Phosphrous",
+        "Liquid",
+        "5, 1000",
+        "Liquid Phosphate 27% + N + K Mg"
+       ],
+       [
+        "V-Ammonium Phosphate",
+        "V-Ammonium Phosphate",
+        "Crystal",
+        "10",
+        "NPK 12-44-0"
+       ],
+       [
+        "V-Boron Liquid",
+        "V-Boron Liquid",
+        "Liquid",
+        "1",
+        "Boron 5%"
+       ],
+       [
+        "V-Compost",
+        "Compost",
+        "Pellet",
+        "25",
+        "Organic Matter OM > 25%"
+       ],
+       [
+        "V-Ferrous",
+        "V-Ferrous",
+        "Powder",
+        "1",
+        "Iron"
+       ],
+       [
+        "V-Germinator Pro",
+        "V-Germinator Pro",
+        "Liquid",
+        "5",
+        "P 27% + N 1% + K 6%"
+       ],
+       [
+        "V-Mag Essential",
+        "Mg Sulphate",
+        "Crystal",
+        "5",
+        "MgSO4 - 10%"
+       ],
+       [
+        "V-Potash Plus",
+        "V-Potash Plus",
+        "Crystal",
+        "10",
+        "NPK 10-0-40 (Iron Chelated)"
+       ],
+       [
+        "V-Transfarm",
+        "Zinc 21%",
+        "Crystal",
+        "3",
+        "Zinc 21%"
+       ],
+       [
+        "V-Zinc",
+        "V-Zinc",
+        "Liquid",
+        "3, 20",
+        "Zinc 10%"
+       ],
+       [
+        "VL-Micro Mix",
+        "VL-Micro Mix",
+        "Liquid",
+        "1",
+        "Zn 5%+Fe 2%+B 2%+Cu 1%"
+       ],
+       [
+        "VL-NPK",
+        "NPK 8.8.6",
+        "Liquid",
+        "1",
+        "NPK 8-8-6 (Gurilla)"
+       ],
+       [
+        "VL-Potash",
+        "VL-Potash",
+        "Liquid",
+        "1, 3",
+        "K2O 30% (Foliar)"
+       ],
+       [
+        "Vibrant",
+        "Potassium Humate Liquid",
+        "Liquid",
+        "8, 20, 200",
+        "Humic Acid Liquid - H 10%, K2O 3.5%"
+       ],
+       [
+        "Vital Potash",
+        "Vital Potash",
+        "Crystal",
+        "5, 20",
+        "NPK 10-0-44"
+       ],
+       [
+        "Vital Urea",
+        "Sulfur Coated Urea",
+        "Granular",
+        "25",
+        "N 32%, S 13%"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Renamed on load (BRAND_ALIAS): V-Boron Liquid and VL Boron to VL-Boron; V-Mag Essential to V-Mg Essential. Brand-map-only names: Ferti Huma Power, Ferti Huma Granular, VL Boron."
+    }
+   ],
+   "ask": "The live product master held 91 products on 23 Sep; only the 71 from the code are listed here. May the full list be exported from Back Office for this page? A) Yes, export it B) The 71 are enough C) Show only active products"
+  },
+  {
+   "owner": "COO and Back Office",
+   "rules": [
+    "R-004"
+   ],
+   "status": "confirmed",
+   "src": [
+    "o2s.html SEED.catalog packs, fn submitPO (pack above 0), packRowExtras, data/state.json masters.packingMaterials and order lines"
+   ],
+   "id": "DD-25",
+   "title": "Pack sizes",
+   "blocks": [
+    {
+     "p": "A pack size is Kg (solid) or L (liquid) in 1 bag, pouch, bottle, can or drum. It is held per product and per client (products.packsBy); each line carries its own pack. Sizes in the code catalogue:"
+    },
+    {
+     "list": [
+      "0.5",
+      "1",
+      "3",
+      "4",
+      "5",
+      "8",
+      "10",
+      "20",
+      "25",
+      "35",
+      "40",
+      "50",
+      "200",
+      "1000"
+     ]
+    },
+    {
+     "p": "Packing materials in the data: Pouch 1 Kg; Pouch 3 Kg; Pouch 5 Kg; Bag-V1 8 Kg; Bag-V2 8 Kg; Bag 10 Kg; Bag 20 Kg; Bag 25 Kg; Bag 25 Kg; Bag 35 Kg; Bag 50 Kg; Bottle 500 ml; Bottle 1 Liter; Can 3 Liter; Can 4 Liter; Can 5 Liter; Can 10 Liter; Can 20 Liter; Drum 200 Liter; Seal 1 Liter; Seal 3 Liter; Seal 4 Liter; Seal 5 Liter; Seal 10 Liter; Seal 20 Liter; Inner 14 x 18 10 Kg; Inner 18 x 24 20 Kg; Inner 20 x 30 25 Kg; Inner 24 x 36 50 Kg; Labels 1 Side All Purpose; Labels 2 Side All Purpose; Carton All Purpose."
+    }
+   ]
+  },
+  {
+   "owner": "COO (Back Office)",
+   "rules": [],
+   "status": "confirmed",
+   "src": [
+    "o2s.html fn ensureMasters (productionGroups, leadTime defaults, _rate5kV1)",
+    "data/state.json masters.productionGroups, masters.leadTime"
+   ],
+   "id": "DD-26",
+   "title": "Production groups, daily rates and lead time",
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Group",
+       "Kg/L per day"
+      ],
+      "rows": [
+       [
+        "Powder",
+        "5,000"
+       ],
+       [
+        "Crystalline",
+        "5,000"
+       ],
+       [
+        "Liquid",
+        "5,000"
+       ],
+       [
+        "Granular",
+        "5,000"
+       ],
+       [
+        "Humic",
+        "10,000"
+       ],
+       [
+        "Sulfur Coated Urea",
+        "14,000"
+       ]
+      ]
+     }
+    },
+    {
+     "table": {
+      "head": [
+       "leadTime key",
+       "Code default",
+       "July value",
+       "Meaning"
+      ],
+      "rows": [
+       [
+        "rateKgPerDay",
+        "5,000",
+        "5,000",
+        "Default daily capacity (an 8,000 placeholder was changed once)."
+       ],
+       [
+        "qcDays",
+        "1",
+        "1",
+        "QC and pre-ship days."
+       ],
+       [
+        "dispatchDays",
+        "2",
+        "1",
+        "Dispatch and transit days."
+       ],
+       [
+        "rmProcureDays",
+        "7",
+        "5",
+        "Days to buy raw material."
+       ],
+       [
+        "minDays",
+        "3",
+        "3",
+        "Never promise sooner than this."
+       ]
+      ]
+     }
+    },
+    {
+     "note": "ensureMasters never overwrites a value already set, so the July values stand over the code defaults. The live values were not read."
+    }
+   ]
+  },
+  {
+   "owner": "COO (Users & Access)",
+   "rules": [
+    "R-019"
+   ],
+   "status": "confirmed",
+   "src": [
+    "o2s.html RS_ALL, ROLE_TITLE, USER_TITLE",
+    "data/state.json masters.roles"
+   ],
+   "id": "DD-27",
+   "title": "Roles in O2S",
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Role (stored name)",
+       "Job title",
+       "Held by (code comment)"
+      ],
+      "rows": [
+       [
+        "COO",
+        "COO",
+        "Tahir Abbas"
+       ],
+       [
+        "CFO",
+        "CFO",
+        "Yawar Hussain"
+       ],
+       [
+        "Plant Manager",
+        "Plant Manager",
+        "Muhammad Faheem Asghar"
+       ],
+       [
+        "KAM",
+        "KAM",
+        "Muhammad Irfan (read-only reviewer)"
+       ],
+       [
+        "Production Manager",
+        "Lead Planning & Production",
+        "Abdul Majid"
+       ],
+       [
+        "Production",
+        "Production Officer",
+        "Jawad Naseer; Ali Raza (Production Associate)"
+       ],
+       [
+        "QCM",
+        "Lead Quality Control",
+        "Himayat Hussain"
+       ],
+       [
+        "AQCM",
+        "Senior QC Analyst",
+        "Masab Rasheed"
+       ],
+       [
+        "Lab Rep",
+        "QC Analyst",
+        "Mursleen, Mubeen, Abdullah, Awais"
+       ],
+       [
+        "QA Inspector",
+        "QA Officer",
+        "Muhammad Ehtisham, Muhammad Asif"
+       ],
+       [
+        "Supply Chain",
+        "Lead Supply Chain",
+        "Saad Jamal"
+       ],
+       [
+        "Supply Chain Officer",
+        "Warehouse Assistant",
+        "Zain Ghaffar"
+       ],
+       [
+        "Warehouse",
+        "Senior Warehouse Officer",
+        "Shoaib Sabir"
+       ],
+       [
+        "Finance",
+        "Invoicing Officer",
+        "Muhammad Ismaeel"
+       ],
+       [
+        "Finance Desk Officer",
+        "Procurement Accountant",
+        "Abdul Basit Khan"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "The role name is what is stored on records (by, role, ackBy). A title is shown only and never used as a key. Rights are in tab 11."
+    }
+   ]
+  },
+  {
+   "owner": "COO",
+   "rules": [
+    "R-001",
+    "R-021"
+   ],
+   "status": "confirmed",
+   "src": [
+    "o2s.html EV_DEFAULT_THRESHOLD, EV_KIND_LABEL, fn periodWindow, dashLensCur",
+    "data/state.json dashLens"
+   ],
+   "id": "DD-28",
+   "title": "Late-entry allowances, report periods and dashboard lenses",
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Kind",
+       "Label",
+       "Days allowed before enteredLate"
+      ],
+      "rows": [
+       [
+        "pack",
+        "packing run",
+        "1"
+       ],
+       [
+        "shift",
+        "shift output",
+        "1"
+       ],
+       [
+        "coa",
+        "COA sign-off",
+        "1"
+       ],
+       [
+        "deliver",
+        "delivery",
+        "2"
+       ],
+       [
+        "ship",
+        "dispatch",
+        "0"
+       ],
+       [
+        "lotqa",
+        "lot inspection",
+        "0"
+       ],
+       [
+        "dispqa",
+        "shipment inspection",
+        "0"
+       ],
+       [
+        "packinsp",
+        "pre-shipment inspection",
+        "0"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "period values: Today, Yesterday, This week, This month, Last month, Last quarter, FY to date, Custom (periodFrom to periodTo); anything else means Last 7 days. Reports open on All dates."
+    },
+    {
+     "p": "dashLens option sets in the code: By product, By stage; By channel, By client, By stage; By channel, By stage, By risk. July values: Production By product, Supply chain By client, Overview By risk, Quality By stage."
+    }
+   ]
+  },
+  {
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-004",
+    "R-005",
+    "R-008",
+    "R-016",
+    "R-017",
+    "R-018",
+    "R-022",
+    "R-023",
+    "R-024",
+    "R-025"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Guide rules (o2s.html gd-rule texts)",
+    "o2s.html functions named in the table",
+    "tab 4 items named in the table"
+   ],
+   "id": "DD-29",
+   "title": "Glossary: words the team uses and what they mean in O2S",
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Word",
+       "Meaning in O2S",
+       "Where it comes from"
+      ],
+      "rows": [
+       [
+        "PO",
+        "A customer's purchase order: 1 row in orders, with 1 or more lines.",
+        "SC-03"
+       ],
+       [
+        "Line (PO line, order line)",
+        "1 product on 1 PO, with its own ordered, packed, dispatched and delivered Kg/L.",
+        "SC-04"
+       ],
+       [
+        "Base",
+        "The bulk product the plant makes in batches (for example Sulfur Coated Urea). Many brands are packed from 1 base.",
+        "products.base, BULK_BASES"
+       ],
+       [
+        "Brand",
+        "The product name on the bag the customer buys (for example Vital Urea, Naya S Urea).",
+        "products.brand"
+       ],
+       [
+        "Batch",
+        "1 production run of a base with its own batch number: a PO batch, a bulk batch or a multi-PO batch.",
+        "SC-09"
+       ],
+       [
+        "Lot",
+        "The output of 1 shift on a batch, numbered batch-L1, -L2. Each lot is tested on its own and gets its own COA.",
+        "SC-10, R-016"
+       ],
+       [
+        "Packing run (packed lot)",
+        "1 packing entry: brand, Kg/L, packs, shift, in-charge and the batch number printed on the bag.",
+        "SC-12"
+       ],
+       [
+        "Brand batch number",
+        "The batch number printed on the bag. The base batch number is the production batch it came from.",
+        "packingLog.brandBatchNo"
+       ],
+       [
+        "COA",
+        "Certificate of analysis of a lot: drafted by a QC analyst (Lab Rep), reviewed by the AQCM, approved by the QCM. FIT or UNFIT.",
+        "SC-11, R-003"
+       ],
+       [
+        "QC number",
+        "The number on the COA, for example PQ0756.",
+        "coa.qcNo"
+       ],
+       [
+        "Waiting QC",
+        "A lot made and waiting for the lab.",
+        "Guide 13d"
+       ],
+       [
+        "Deviation",
+        "The Plant Manager accepts an UNFIT lot with a written note; it goes on to the AQCM and the QCM.",
+        "coaDeviation"
+       ],
+       [
+        "Rework",
+        "An UNFIT lot sent by the Plant Manager back to Production with a reason; or off-spec material of the same base kept in a rework pool to be made again.",
+        "coaRework, saveReconcile"
+       ],
+       [
+        "QA hold",
+        "A packing run held after it failed its inspection; the Production Manager deals with it.",
+        "packingLog.qaHold"
+       ],
+       [
+        "Inspection (lot inspection)",
+        "The QA check of a packed lot before it can go on a truck.",
+        "SC-15"
+       ],
+       [
+        "Pre-shipment inspection (PSI)",
+        "The QA check of a loaded truck. No truck is released without a pass. The report number is PSI- and the DC number.",
+        "R-017, psiRepNo"
+       ],
+       [
+        "N/A",
+        "An answer that counts as a pass; only on Price on the pack, with a reason.",
+        "R-014"
+       ],
+       [
+        "DC (delivery challan)",
+        "The paper that goes with a truck: product, quantity and lot, never a price. Number = highest + 1.",
+        "R-020, nextDCNo"
+       ],
+       [
+        "Gate pass",
+        "The GP- paper that lets a truck or FOC sample out of the gate; issued after loading and a passed QA.",
+        "issueGatePass, R-029"
+       ],
+       [
+        "Bilty",
+        "The transporter's bilty or other reference number for the truck. Optional.",
+        "Bilty / reference field, R-026"
+       ],
+       [
+        "Truck",
+        "All shipment rows with 1 dispId: 1 DC, 1 vehicle.",
+        "SC-07"
+       ],
+       [
+        "Truck planned, Loading, In transit, Delivered",
+        "The stages of a truck (DD-04).",
+        "DD-04"
+       ],
+       [
+        "Review (truck review)",
+        "Saad or Shoaib checks the truck after the gate pass, never Zain and never the one who made it. After 2 hours with no review the Plant Manager may release without it.",
+        "reviewTruck, TRUCK_REVIEW_HOURS"
+       ],
+       [
+        "Release",
+        "The Plant Manager's final approval; the DC is approved and dispatched counts.",
+        "approveRelease"
+       ],
+       [
+        "Handed to driver",
+        "The tap after the approved DC and gate pass are given to the driver. It closes the job, never holds the truck.",
+        "R-029"
+       ],
+       [
+        "Sent back",
+        "A refusal with a reason that lands on the Today of the person who must fix it.",
+        "R-011"
+       ],
+       [
+        "Ready to ship",
+        "Packed stock cleared by QA and not on a truck.",
+        "Guide"
+       ],
+       [
+        "Ex-factory / VAN-delivered",
+        "The customer collects with its own transport / VAN delivers.",
+        "transportType"
+       ],
+       [
+        "FOC",
+        "Free of charge. An FOC sample (samples) is never an order; an FOC PO has every price at 0.",
+        "R-005, orders.foc"
+       ],
+       [
+        "Sampling pool",
+        "Over-production and extra material that FOC samples are taken from.",
+        "R-005"
+       ],
+       [
+        "KAM",
+        "Key account manager: the sales person on a PO, and the reviewer of a new customer.",
+        "respDepts, R5"
+       ],
+       [
+        "RM",
+        "Raw material.",
+        "masters.rawMaterials"
+       ],
+       [
+        "RM check",
+        "Supply Chain's check of whether the raw material for a line is in stock: full, partial or short.",
+        "rmSubmit"
+       ],
+       [
+        "PR",
+        "Purchase request for raw material; the CFO approves it. Held on the line (rmPR) or, in the old model, in prs.",
+        "SC-22, SC-04"
+       ],
+       [
+        "GRN",
+        "The receiving number typed when raw material arrives against a PR (receipts[].grn).",
+        "receivePR"
+       ],
+       [
+        "Acknowledge",
+        "Supply Chain reads and accepts a new PO, or sends it back to whoever entered it.",
+        "ackOrder, sendBackPO"
+       ],
+       [
+        "Committed date",
+        "The date promised for a line, from production rate, raw material and lead time.",
+        "computeCommitted"
+       ],
+       [
+        "Close short",
+        "Closing a line for less than ordered, with a reason; the Plant Manager approves; ordered never changes.",
+        "R-008, SC-05"
+       ],
+       [
+        "Held for orders",
+        "A cleared batch with no open order waiting. Not stuck; amber after 180 days so someone reviews it.",
+        "R-022"
+       ],
+       [
+        "Stuck",
+        "A batch with no output for 3 days, waiting for the lab 2 days, packed but open 2 days, or a line with nothing packed for 7 days while cleared stock is ready.",
+        "R-022"
+       ],
+       [
+        "Moving",
+        "Any PO of the same client and product packed in the last 7 days; a moving line is not stuck.",
+        "R-022"
+       ],
+       [
+        "Stalled",
+        "A production run card for a bulk base when no batch of that base has logged output for 4 days.",
+        "R-025"
+       ],
+       [
+        "Pack from base",
+        "Production's Today card, 1 per order line, when cleared base is ready for it.",
+        "R-023"
+       ],
+       [
+        "Waiting for production",
+        "The Pack from base card when the ready base is less than the line needs: X of Y ready.",
+        "R-025"
+       ],
+       [
+        "Waiting for the lab",
+        "The card when base already made and with the lab covers the rest.",
+        "R-025"
+       ],
+       [
+        "Production run card",
+        "Asks Production to make only what the ready base and the lab cannot cover.",
+        "R-025"
+       ],
+       [
+        "Stuck at packing",
+        "Supply Chain's job on day 7 of a stuck line: close short, or waiting for client.",
+        "R-024"
+       ],
+       [
+        "Waiting for client",
+        "Supply Chain marks a line whose call-off has not come, with a reason and a date 1 to 30 days away. Not stuck until then.",
+        "R-024, SC-06"
+       ],
+       [
+        "Big pack run",
+        "A packing entry over 10,000 Kg/L, or 1 shift and in-charge over 10,000 Kg/L on 1 date. Saved, and the Production Manager marks it Seen.",
+        "R-004"
+       ],
+       [
+        "In-charge",
+        "The person who ran the line in that shift or packing run, picked from the In-charge list; never the person typing.",
+        "R-004"
+       ],
+       [
+        "Shift",
+        "Morning, Evening or Night.",
+        "masters.shifts"
+       ],
+       [
+        "Kg/L",
+        "The quantity unit: Kg for a solid product, L for a liquid.",
+        "unitOf"
+       ],
+       [
+        "Packs",
+        "Number of bags or bottles: Kg/L divided by the pack size.",
+        "packRowExtras"
+       ],
+       [
+        "Reconcile",
+        "Accounting for a batch's unpacked remainder: loss, by-product, diverted, rework, or kept as bulk stock. It does not close the batch.",
+        "saveReconcile"
+       ],
+       [
+        "By-product",
+        "Material from a batch routed to another base (Sulfur Coated Urea to Nitro Sulfur), held in a by-product pool and later called up as its own batch.",
+        "byproductRules, submitCallBp"
+       ],
+       [
+        "Diverted",
+        "QC-cleared material of the same product put in a divert pool at reconcile; packed or recycled later with no new QC.",
+        "saveReconcile, submitDivert"
+       ],
+       [
+        "Pool",
+        "An open batch with no batch number holding by-product, diverted or rework material for 1 base.",
+        "batches.pool"
+       ],
+       [
+        "Loss / disposed",
+        "Kg/L lost at reconcile, with a reason / the remainder written off by reconcile.",
+        "lossKg, disposedKg"
+       ],
+       [
+        "Close batch",
+        "Ending production on a batch, with the yield and, when short, the reason. The Plant Manager is told.",
+        "doCloseBatch, R-033"
+       ],
+       [
+        "Multi-PO batch",
+        "1 batch made for several PO lines at once.",
+        "kind multi"
+       ],
+       [
+        "Opening balance",
+        "Imported stock rows from before go-live; removed by the June purges (COO: no opening balances).",
+        "purgeImportedProduction"
+       ],
+       [
+        "Stock move",
+        "Moving packed stock to another PO of the same customer and product; the bags stay, the record moves.",
+        "R-007"
+       ],
+       [
+        "Correct a record (Data Fix)",
+        "The screen for fixing a wrong entry with a reason, in your name; each fix goes in the corrections register.",
+        "SC-17, R-008"
+       ],
+       [
+        "Reverse, void, supersede, withdrawn",
+        "Ways a record is ended without being removed (DD-10).",
+        "DD-10"
+       ],
+       [
+        "Entered late",
+        "An entry keyed after its allowance; it needs a reason and counts against the department.",
+        "R-001"
+       ],
+       [
+        "Today (Action Center)",
+        "The list of jobs waiting on the signed-in role.",
+        "actionItems"
+       ],
+       [
+        "Defer",
+        "Putting a Today job off until a date with a reason.",
+        "acDefer"
+       ],
+       [
+        "Shared job, taken",
+        "A job more than 1 person can do; when 1 of them does it, it closes for both. Taking it (opening it from Today) only shows 'X is on it' to the others for 8 hours; it does not lock or close the job.",
+        "R-031, taken"
+       ],
+       [
+        "Back Office",
+        "The area for master data, users, departments and checks (COO, CFO, Plant Manager).",
+        "R7"
+       ],
+       [
+        "Leave cover",
+        "A lab person named by the Plant Manager to sign 1 line for the AQCM or QCM on leave.",
+        "R-006"
+       ],
+       [
+        "FED",
+        "The sales tax on orders. On an FED-inclusive price the net is price / 1.05.",
+        "R-018"
+       ],
+       [
+        "Sale",
+        "Counted the day the truck leaves the gate: quantity x invoice price, net of FED.",
+        "R-018"
+       ],
+       [
+        "Print price / list price",
+        "The price printed on the bag: the PO's own price, or the list price, or none.",
+        "printDecision"
+       ],
+       [
+        "ERP SO",
+        "The sales order number in the ERP; required on every PO; prints on the DC.",
+        "R-010"
+       ],
+       [
+        "White Label",
+        "Products made for another company's brand (for example LCI, Maxim, Syngenta).",
+        "SEED.catalog.channelByClient"
+       ],
+       [
+        "Cobo",
+        "The channel for VITAL AGRI NUTRIENTS (PVT) LTD's own orders.",
+        "SEED.catalog.channelByClient"
+       ],
+       [
+        "VGreen, VC, FM",
+        "The VGreen channel and its 2 outlets: Value Chain and Farm Management.",
+        "custInit"
+       ],
+       [
+        "Read and sign",
+        "A one-time page of what changed; each part answered, then signed by typing your name.",
+        "R-036"
+       ],
+       [
+        "Financial year",
+        "July to June.",
+        "fyKey"
+       ]
+      ]
+     }
+    },
+    {
+     "note": "Corrected 16 Oct 2026 (independent check against the code): Shared job, taken: the draft said taking a job closes it for both. Only doing it does (Guide rule Shared jobs); the taken mark is a tag for 8 hours (tdTake, tdTakenBy)."
+    }
+   ]
+  },
+  {
+   "owner": "COO (Tahir)",
+   "rules": [],
+   "status": "not confirmed",
+   "src": [
+    "o2s.html ROLE_TITLE, fn _uid, nid, bpId, genPO, custCode, nextGatePassNo, smpDispatch, psiRepNo",
+    "Guide rules"
+   ],
+   "id": "DD-30",
+   "title": "Abbreviations and id prefixes",
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Abbreviation",
+       "Meaning"
+      ],
+      "rows": [
+       [
+        "PO",
+        "Purchase order"
+       ],
+       [
+        "SO / ERP SO",
+        "Sales order in the ERP"
+       ],
+       [
+        "DC",
+        "Delivery challan"
+       ],
+       [
+        "SDC",
+        "Sample delivery challan (FOC samples)"
+       ],
+       [
+        "GP",
+        "Gate pass"
+       ],
+       [
+        "PSI",
+        "Pre-shipment inspection"
+       ],
+       [
+        "QA",
+        "Quality assurance (the inspection of packed stock and trucks)"
+       ],
+       [
+        "QC",
+        "Quality control (the lab)"
+       ],
+       [
+        "QCM",
+        "QC manager (title: Lead Quality Control)"
+       ],
+       [
+        "AQCM",
+        "The lab reviewer role (title: Senior QC Analyst)"
+       ],
+       [
+        "COA",
+        "Certificate of analysis"
+       ],
+       [
+        "KAM",
+        "Key account manager"
+       ],
+       [
+        "RM",
+        "Raw material"
+       ],
+       [
+        "PR",
+        "Purchase request"
+       ],
+       [
+        "GRN",
+        "The goods receipt number typed at receiving"
+       ],
+       [
+        "FOC",
+        "Free of charge"
+       ],
+       [
+        "FED",
+        "The sales tax on orders (Inclusive or Exclusive)"
+       ],
+       [
+        "PKR",
+        "Pakistani rupees"
+       ],
+       [
+        "FY",
+        "Financial year, July to June"
+       ],
+       [
+        "SCU",
+        "Sulfur Coated Urea"
+       ],
+       [
+        "NPK",
+        "Nitrogen, phosphate, potash grade"
+       ],
+       [
+        "AQL",
+        "The sampling table used to pick how many packs to check"
+       ],
+       [
+        "NTN",
+        "National tax number of a customer"
+       ],
+       [
+        "PM",
+        "Plant Manager (in audit text, e.g. PM deviation accepted)"
+       ],
+       [
+        "CFO, COO",
+        "Chief financial officer, chief operating officer"
+       ],
+       [
+        "Kg/L",
+        "Kilograms for solids, litres for liquids"
+       ],
+       [
+        "WL, DLR, DST, FRM, VG, COBO",
+        "Customer code starts: White-label, Dealer, Distributor, Direct Farmer, VGreen, COBO"
+       ],
+       [
+        "VC, FM",
+        "VGreen outlets: Value Chain, Farm Management"
+       ],
+       [
+        "PB, SN, KP, BL, AJ, GB, IS",
+        "Region codes: Punjab, Sindh, KPK, Balochistan, AJK, Gilgit-Baltistan, ICT"
+       ],
+       [
+        "FIT / UNFIT",
+        "COA result: passes / does not pass its specification"
+       ]
+      ]
+     }
+    },
+    {
+     "table": {
+      "head": [
+       "Id prefix",
+       "Record"
+      ],
+      "rows": [
+       [
+        "O...L...",
+        "order id and line id"
+       ],
+       [
+        "SH",
+        "shipment row"
+       ],
+       [
+        "DSP",
+        "truck (dispId)"
+       ],
+       [
+        "PK",
+        "packing run"
+       ],
+       [
+        "PL",
+        "production log row"
+       ],
+       [
+        "SE",
+        "shift entry"
+       ],
+       [
+        "B",
+        "batch"
+       ],
+       [
+        "LOT",
+        "lot"
+       ],
+       [
+        "INS",
+        "inspection"
+       ],
+       [
+        "SMP",
+        "FOC sample"
+       ],
+       [
+        "CR",
+        "correction"
+       ],
+       [
+        "MV",
+        "stock move"
+       ],
+       [
+        "PR",
+        "purchase request"
+       ],
+       [
+        "AL",
+        "action log row"
+       ],
+       [
+        "AU",
+        "audit row"
+       ],
+       [
+        "RS",
+        "read-and-sign row"
+       ],
+       [
+        "WC",
+        "wait mark"
+       ],
+       [
+        "POR",
+        "PO send-back"
+       ],
+       [
+        "PRR",
+        "PR refusal"
+       ],
+       [
+        "SB",
+        "truck send-back"
+       ],
+       [
+        "SCH",
+        "close-short history"
+       ],
+       [
+        "RPH",
+        "RM PR history"
+       ],
+       [
+        "CH",
+        "batch close history"
+       ],
+       [
+        "RC",
+        "reconcile history"
+       ],
+       [
+        "RET",
+        "COA send-back"
+       ]
+      ]
+     }
+    },
+    {
+     "note": "The expansions of AQCM, COBO and GRN are not written anywhere in the code or the docs read for this tab."
+    }
+   ],
+   "ask": "Please give the full words for 3 short forms the files never spell out: AQCM, COBO and GRN. A) AQCM = Assistant QC Manager, COBO = (please give), GRN = Goods Received Note B) Different words (please give) C) Leave them as short forms"
+  }
+ ]
+}

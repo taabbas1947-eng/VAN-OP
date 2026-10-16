@@ -1,0 +1,1071 @@
+{
+ "tab": "access",
+ "title": "Access and roles matrix",
+ "ver": "2026-10-16a",
+ "date": "2026-10-16",
+ "owner": "COO (Tahir)",
+ "intro": "Who may open each screen, who may do each job, which sign-offs are fixed by role, and what no role may ever do. The code's defaults are shown; where the live setting can differ, the item says so.",
+ "items": [
+  {
+   "id": "AC-01",
+   "title": "How O2S decides what a person may open and do",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-019",
+    "R-003"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn accessLevelOn, canView, screenEditOK, canEdit, mayWork, hardRole, mayRole, may, _canEditOn",
+    "o2s.html comment RIGHTS two kinds (22 Aug 2026)",
+    "docs/ACCESS-AND-EDIT.md section 1",
+    "fn coaSubmitAnalyst ; fn labSetCover ; fn labEndCover ; fn bigPackSeen"
+   ],
+   "blocks": [
+    {
+     "p": "Rights belong to roles, never to a person. Each login holds 1 O2S role. 4 checks decide, in this order:"
+    },
+    {
+     "table": {
+      "head": [
+       "Check",
+       "What it answers",
+       "Where it is set",
+       "Code"
+      ],
+      "rows": [
+       [
+        "1. Screen",
+        "May this role open the screen (View) or work on it (Edit)?",
+        "The access matrix (masters.accessMatrix), COO only. With no cell set: every role may view, and the roles in the screen's owners list may edit.",
+        "accessLevelOn, canView, screenEditOK"
+       ],
+       [
+        "2. Right",
+        "May this role do this job (for example packing.pack)?",
+        "Live rights (RIGHTS_LIVE) are read from the grant table (masters.roleRights, keyed by role id). Other rights still run the exact old check written in the right's legacy block.",
+        "may, mayRole, mayLegacyRole"
+       ],
+       [
+        "3. Sign-off",
+        "May this role sign off somebody else's work?",
+        "Fixed in code by role name. Never follows the matrix.",
+        "hardRole"
+       ],
+       [
+        "4. The person",
+        "Did this same person do the step before?",
+        "Fixed in code, checked on the login (and on the typed name for a COA).",
+        "coaSamePerson, truckMadeByMe, pmvSame, approveShortClose, smpCheck, smpReview"
+       ]
+      ]
+     }
+    },
+    {
+     "note": "The COO passes checks 1 to 3 (accessLevelOn, mayRole and hardRole answer yes for COO), with fixed exceptions: the COO does not sign a COA (coaReview asks for AQCM or a cover, coaApprove for QCM or a cover; the COO keeps assigning tests (labAssignConfirm) and superseding an approved COA (CORRECT_ENTITY supersede QCM, COO); he cannot send a COA back (coaSendBack)), does not submit a COA draft (coaSubmitAnalyst: Lab Rep only), does not review or release a free sample (smpReview, smpRelease), does not name or end a lab leave cover (labSetCover, labEndCover: Plant Manager only) and does not mark a Big pack run seen (bigPackSeen: Production Manager only). On truck review and the sample QA check the COO is exempt from the same-person rule."
+    },
+    {
+     "note": "Why sign-offs never follow the matrix: on 30 July 2026 a screen Edit grant given to Supply Chain Officer for an ordinary reason let that login approve and release DCs (canEdit lets a screen grant win). hardRole was made for that."
+    }
+   ]
+  },
+  {
+   "id": "AC-02",
+   "title": "The 15 O2S roles, their titles and departments",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-019"
+   ],
+   "status": "confirmed",
+   "src": [
+    "o2s.html ROLE_TITLE, USER_TITLE, ROLE_DEPT, DEPTS",
+    "OP-HANDOFF-O2S.md 13 Oct 2026 (7) Production lead"
+   ],
+   "blocks": [
+    {
+     "p": "The role decides the buttons; the title is what prints under a signature. A title is never used to decide access (roletitles.test.js). Names are as written beside ROLE_TITLE in the code (23 Sep 2026); People shows who holds each role today."
+    },
+    {
+     "table": {
+      "head": [
+       "Role (code name)",
+       "Default title",
+       "Department",
+       "Named in the code"
+      ],
+      "rows": [
+       [
+        "COO",
+        "COO",
+        "Leadership",
+        "Tahir Abbas"
+       ],
+       [
+        "CFO",
+        "CFO",
+        "Finance",
+        "Yawar Hussain"
+       ],
+       [
+        "Plant Manager",
+        "Plant Manager",
+        "Leadership",
+        "Muhammad Faheem Asghar"
+       ],
+       [
+        "KAM",
+        "KAM",
+        "Commercial",
+        "Muhammad Irfan (Muhammad Ali titled Chief Commercial Officer)"
+       ],
+       [
+        "Production Manager",
+        "Lead Planning & Production",
+        "Production",
+        "Abdul Majid"
+       ],
+       [
+        "Production",
+        "Production Officer",
+        "Production",
+        "Jawad Naseer; Ali Raza titled Production Associate"
+       ],
+       [
+        "QCM",
+        "Lead Quality Control",
+        "Quality",
+        "Himayat Hussain"
+       ],
+       [
+        "AQCM",
+        "Senior QC Analyst",
+        "Quality",
+        "Masab Rasheed"
+       ],
+       [
+        "Lab Rep",
+        "QC Analyst",
+        "Quality",
+        "Mursleen, Mubeen, Abdullah, Awais"
+       ],
+       [
+        "QA Inspector",
+        "QA Officer",
+        "Quality",
+        "Muhammad Ehtisham, Muhammad Asif"
+       ],
+       [
+        "Supply Chain",
+        "Lead Supply Chain",
+        "Supply Chain",
+        "Saad Jamal"
+       ],
+       [
+        "Supply Chain Officer",
+        "Warehouse Assistant",
+        "Supply Chain",
+        "Zain Ghaffar"
+       ],
+       [
+        "Warehouse",
+        "Senior Warehouse Officer",
+        "Supply Chain",
+        "Shoaib Sabir"
+       ],
+       [
+        "Finance",
+        "Invoicing Officer",
+        "Finance",
+        "Muhammad Ismaeel"
+       ],
+       [
+        "Finance Desk Officer",
+        "Procurement Accountant",
+        "Finance",
+        "Abdul Basit Khan"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Department leads in the built-in seed (DEPTS): Commercial KAM, Production the Production role, Quality QCM, Supply Chain Supply Chain, Finance CFO, Leadership Plant Manager. Live, Tahir set the Production lead to Production Manager in Setup on 12 Oct 2026; a fresh install needs the same step."
+    }
+   ]
+  },
+  {
+   "id": "AC-03",
+   "title": "Role against screen",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-021"
+   ],
+   "status": "not confirmed",
+   "src": [
+    "o2s.html SCREENS (owners)",
+    "fn accessLevelOn",
+    "o2s.html ACCESS_RULED_V2, ACCESS_RULED_V3, seedAccessV2",
+    "fn setScreen, screenDataFix, smpMayView, rpMay, mayMoney, amxCycle",
+    "tests threeplaces.test.js"
+   ],
+   "ask": "The table shows the code's defaults and the seeded rulings of 23 Sep. The live matrix can differ (the COO changes it on Back Office). Should this part: A) show the live matrix as the app draws it, B) keep the code defaults only, C) show both side by side?",
+   "blocks": [
+    {
+     "p": "How to read it: column 3 is who may Edit by default (SCREENS owners). With no matrix cell, every other role may View. Column 4 is what the build seeded once into the matrix on the rulings of 23 Sep 2026 (seedAccessV2, seedAccessV3); after that the COO's own changes stand. Column 5 is any extra check the code makes on top."
+    },
+    {
+     "table": {
+      "head": [
+       "Screen",
+       "Code id",
+       "Default Edit (owners)",
+       "Seeded ruling (23 Sep)",
+       "Extra check in code"
+      ],
+      "rows": [
+       [
+        "Today",
+        "today",
+        "all 15 roles",
+        "-",
+        "Everyone lands here after sign in"
+       ],
+       [
+        "Back Office",
+        "backoffice",
+        "COO, CFO, Plant Manager",
+        "-",
+        "-"
+       ],
+       [
+        "Plant",
+        "plant",
+        "all 15 roles",
+        "-",
+        "Read only for all"
+       ],
+       [
+        "How are we doing",
+        "dash",
+        "Plant Manager, CFO, COO, Production Manager, Supply Chain",
+        "every role: at least view",
+        "Read only"
+       ],
+       [
+        "All actions",
+        "approvals",
+        "all 15 roles",
+        "-",
+        "Opening it goes to Today (setScreen)"
+       ],
+       [
+        "New order",
+        "entry",
+        "Finance, CFO, COO",
+        "Finance and CFO edit; every other role none",
+        "-"
+       ],
+       [
+        "Customers",
+        "dealers",
+        "Finance, CFO, COO, Plant Manager",
+        "Finance and CFO edit; Plant Manager view; others none",
+        "Approving a new customer: CFO or COO"
+       ],
+       [
+        "Orders",
+        "tracker",
+        "all 15 roles",
+        "every role: at least view",
+        "-"
+       ],
+       [
+        "Production",
+        "prod",
+        "Production, Production Manager, Plant Manager, Supply Chain Officer, QA Inspector",
+        "-",
+        "Jobs need their own right (AC-04)"
+       ],
+       [
+        "Lab",
+        "qc",
+        "Lab Rep, AQCM, QCM, Plant Manager, Production, Production Manager, COO, Supply Chain Officer",
+        "-",
+        "Signatures are role-fixed (AC-05)"
+       ],
+       [
+        "QA inspection",
+        "qa",
+        "QA Inspector, Supply Chain, Production, Production Manager, COO, Warehouse",
+        "-",
+        "-"
+       ],
+       [
+        "Shipments",
+        "ship",
+        "Supply Chain, Production, Production Manager, Plant Manager, Supply Chain Officer, Finance Desk Officer, Warehouse",
+        "-",
+        "Dispatch jobs need their own right (AC-04)"
+       ],
+       [
+        "Reports",
+        "reports",
+        "all 15 roles",
+        "every role: at least view",
+        "Each report has its own role list (rpMay); money reports need the money right"
+       ],
+       [
+        "Guide",
+        "instructions",
+        "all 15 roles",
+        "-",
+        "Back Office tab: COO, CFO, Plant Manager only. System documentation tab: everyone (16a)"
+       ],
+       [
+        "Lists",
+        "admin",
+        "Lab Rep, AQCM, QCM, Plant Manager, COO",
+        "CFO and Plant Manager edit; QCM kept; others none",
+        "Adding or changing a list value: COO only (addMaster, editMaster, delMaster)"
+       ],
+       [
+        "Correct a record",
+        "datafix",
+        "COO, Production, Production Manager",
+        "CFO and Plant Manager edit; others none",
+        "The screen itself opens for the COO only (screenDataFix)"
+       ],
+       [
+        "Reconcile packing",
+        "recon",
+        "COO, Production, Production Manager",
+        "CFO and Plant Manager edit; Production Manager at least view; others none",
+        "-"
+       ],
+       [
+        "People",
+        "users",
+        "COO, Plant Manager",
+        "Plant Manager kept; others none",
+        "Changes need Edit on People and the server's admin check (AC-08)"
+       ],
+       [
+        "FOC samples",
+        "samples",
+        "COO, KAM, Finance, CFO",
+        "-",
+        "Shown in the menu only to the sample chain (smpMayView, 10 roles)"
+       ],
+       [
+        "Sales & Budget",
+        "budget",
+        "COO, CFO, Plant Manager, KAM",
+        "CFO, Plant Manager, KAM view; others none",
+        "Money figures: COO, CFO, Plant Manager, KAM only (MONEY_ROLES)"
+       ]
+      ]
+     }
+    },
+    {
+     "note": "The access matrix is changed by the COO only (amxCycle: 'COO only'). Each cell is No access, View or Edit. The COO is always Edit."
+    },
+    {
+     "note": "Not confirmed: the live matrix was not read for this page. The app's own matrix view on Back Office is the live answer."
+    }
+   ]
+  },
+  {
+   "id": "AC-04",
+   "title": "Role against action: the rights catalogue",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-019",
+    "R-003",
+    "R-005",
+    "R-007",
+    "R-024"
+   ],
+   "status": "not confirmed",
+   "src": [
+    "o2s.html RIGHTS, RIGHTS_LIVE, DISPATCH_GRANT, PROCUREMENT_GRANT, CUSTOMER_GRANT, seedCustomerRightsV1",
+    "fn mayRole, rightTick, grantRefusal",
+    "OP-HANDOFF-O2S.md 13 Oct 2026 (3), 13 Oct 2026 (7)",
+    "tests authmodel, production-manager-split, dispatchgrants, warehousesplit"
+   ],
+   "ask": "For live rights the grant table on the server decides, and it was not read for this page. Should the column 'Who holds it' show: A) the live grants as the app draws them, B) the seeded and ruled grants as written here, C) both?",
+   "blocks": [
+    {
+     "p": "Live = yes: the right is answered from the grant table, so a tick on Back Office changes it with no code change. Live = no: the right still runs its old check (a screen's Edit, or a fixed role list). Delegable = no: only the COO may tick it; a department lead cannot."
+    },
+    {
+     "table": {
+      "head": [
+       "Right code",
+       "What it is",
+       "Department",
+       "Live",
+       "Who holds it (seeded or ruled)",
+       "Delegable"
+      ],
+      "rows": [
+       [
+        "order.create",
+        "Raise a new PO",
+        "Commercial",
+        "no",
+        "Edit on New order: Finance, CFO (seed)",
+        "yes"
+       ],
+       [
+        "order.print_decision",
+        "Answer print-on-pack for a PO",
+        "Commercial",
+        "no",
+        "Edit on New order",
+        "yes"
+       ],
+       [
+        "order.acknowledge",
+        "Acknowledge a PO",
+        "Commercial",
+        "yes",
+        "Supply Chain (PROCUREMENT_GRANT)",
+        "yes"
+       ],
+       [
+        "customer.create",
+        "Add a customer or dealer",
+        "Commercial",
+        "yes",
+        "Finance, CFO (CUSTOMER_GRANT); saved Pending approval until the CFO or COO approves",
+        "no (COO only)"
+       ],
+       [
+        "customer.amend",
+        "Change a customer record",
+        "Commercial",
+        "yes",
+        "Finance, CFO",
+        "no (COO only)"
+       ],
+       [
+        "rm.check",
+        "RM Check",
+        "Supply Chain",
+        "yes",
+        "Supply Chain",
+        "yes"
+       ],
+       [
+        "rm.receive",
+        "Receive raw material against a PR",
+        "Supply Chain",
+        "yes",
+        "Supply Chain",
+        "yes"
+       ],
+       [
+        "pr.close",
+        "Close a purchase requisition",
+        "Supply Chain",
+        "yes",
+        "Supply Chain",
+        "yes"
+       ],
+       [
+        "shipment.plan",
+        "Plan a shipment, raise a DC",
+        "Supply Chain",
+        "yes",
+        "Supply Chain, Warehouse, Supply Chain Officer (DISPATCH_GRANT)",
+        "yes"
+       ],
+       [
+        "shipment.load",
+        "Start loading a truck",
+        "Supply Chain",
+        "yes",
+        "Seed: Supply Chain, Warehouse, Supply Chain Officer (DISPATCH_GRANT). Live on 13 Oct (handoff 13 Oct (4)): Saad's role holds gatepass.issue but not shipment.load",
+        "yes"
+       ],
+       [
+        "gatepass.issue",
+        "Issue a Gate Pass",
+        "Supply Chain",
+        "yes",
+        "Supply Chain, Warehouse, Supply Chain Officer (seed)",
+        "yes"
+       ],
+       [
+        "delivery.confirm",
+        "Confirm a delivery",
+        "Supply Chain",
+        "yes",
+        "Supply Chain, Warehouse, Supply Chain Officer (seed)",
+        "yes"
+       ],
+       [
+        "batch.open, production.enter, shift.log, packing.pack, packing.reconcile, batch.close, batch.close_bulk",
+        "Floor jobs",
+        "Production",
+        "yes",
+        "Production and Production Manager",
+        "yes"
+       ],
+       [
+        "byproduct.call, packing.divert, packing.rework",
+        "Manager jobs",
+        "Production",
+        "yes",
+        "Production Manager only (ruling 27 Aug 2026)",
+        "yes"
+       ],
+       [
+        "production.void",
+        "Remove a shift's output",
+        "Production",
+        "yes",
+        "Production Manager and Plant Manager",
+        "yes"
+       ],
+       [
+        "po.shortclose_request",
+        "Ask to close a PO line short",
+        "Commercial",
+        "no",
+        "Production Manager, Supply Chain",
+        "no (COO only)"
+       ],
+       [
+        "po.shortclose_approve",
+        "Approve a short close",
+        "Leadership",
+        "no",
+        "Plant Manager",
+        "no (COO only)"
+       ],
+       [
+        "po.reopen",
+        "Reopen a short-closed line",
+        "Leadership",
+        "no",
+        "COO only",
+        "no (COO only)"
+       ],
+       [
+        "po.close",
+        "Close a whole PO",
+        "Leadership",
+        "no",
+        "COO only",
+        "no (COO only)"
+       ],
+       [
+        "stock.move_request",
+        "Ask to move packed stock to another PO",
+        "Commercial",
+        "no",
+        "Supply Chain",
+        "no (COO only)"
+       ],
+       [
+        "stock.move_approve",
+        "Approve a stock move",
+        "Leadership",
+        "no",
+        "Plant Manager",
+        "no (COO only)"
+       ],
+       [
+        "sample.request",
+        "Ask for a free sample",
+        "Commercial",
+        "no",
+        "KAM, Finance, Finance Desk Officer, CFO",
+        "no (COO only)"
+       ],
+       [
+        "sample.approve",
+        "Approve a free sample",
+        "Leadership",
+        "no",
+        "COO only",
+        "no (COO only)"
+       ],
+       [
+        "sample.issue",
+        "Issue a sample and its gate pass",
+        "Supply Chain",
+        "no",
+        "Warehouse, Supply Chain Officer",
+        "no (COO only)"
+       ],
+       [
+        "sample.check",
+        "QA check of a sample",
+        "Quality",
+        "no",
+        "QA Inspector",
+        "no (COO only)"
+       ]
+      ]
+     }
+    },
+    {
+     "note": "A department lead may tick rights only for other roles in his own department, only rights of that department, only rights he holds himself, and never his own row (grantRefusal). In practice this panel is the COO's until he gives a lead access to Back Office, Lists."
+    },
+    {
+     "note": "Kind A jobs still on old checks, not in the catalogue: approving a purchase requisition uses canEdit(['CFO']) (the CFO, or a matrix Edit on the screen the person stands on); waiting for client marks are Supply Chain or COO (hardRole); a batch number correction is asked by Production, Production Manager or Plant Manager and decided by the COO (bfxMayRequest, bfxMayDecide)."
+    }
+   ]
+  },
+  {
+   "id": "AC-05",
+   "title": "Sign-offs: fixed by role, never by a tick",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-003",
+    "R-006",
+    "R-011",
+    "R-028"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn reviewTruck, sendBackTruck, approveDC, rejectDC, approveRelease, coaReview, coaApprove, coaDeviation, coaRework, approveShortClose, approveMove, smpCheck, smpReview, smpRelease, approveCustomer, approveRMPR, bfxMayDecide",
+    "o2s.html TRUCK_REVIEW_ROLES, SIGNOFF_ROLES",
+    "OP-HANDOFF-O2S.md 13 Oct 2026 (3)",
+    "tests rights, truckreview, trucklists, dispatchauthority, labcover, samples, stockmove, shortcloseactions",
+    "fn coaSubmitAnalyst ; fn benchSave ; fn refusePR ; fn labSetCover ; fn labEndCover ; fn bigPackSeen ; fn canEdit"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Sign-off",
+       "Function",
+       "Who (plus the COO unless said)",
+       "Same-person rule"
+      ],
+      "rows": [
+       [
+        "Review a truck before release",
+        "reviewTruck",
+        "Supply Chain, Warehouse (TRUCK_REVIEW_ROLES); never Supply Chain Officer",
+        "Not the one who loaded it, issued its gate pass or fixed it after a send-back (truckMadeByMe); COO exempt"
+       ],
+       [
+        "Approve the DC (final)",
+        "approveDC",
+        "Plant Manager",
+        "-"
+       ],
+       [
+        "Reject a DC",
+        "rejectDC",
+        "Supply Chain, Plant Manager",
+        "-"
+       ],
+       [
+        "Release a loaded truck",
+        "approveRelease",
+        "Plant Manager",
+        "If Supply Chain or the Warehouse has not reviewed in 2 hours the Plant Manager may approve without it, and the DC says so; the COO may release without the wait"
+       ],
+       [
+        "Send a truck back",
+        "sendBackTruck",
+        "Review step: Supply Chain, Warehouse; release step: Plant Manager",
+        "Review step: not the one who made the truck; a reason is required"
+       ],
+       [
+        "Draft a COA",
+        "coaSubmitAnalyst; bench entries benchSave (lab flow v2, off)",
+        "Lab Rep only for the draft; on the v2 bench Lab Rep, AQCM or QCM enter results; not the COO",
+        "-"
+       ],
+       [
+        "Review a COA",
+        "coaReview",
+        "AQCM, or a named leave cover; not the COO",
+        "Not the one who drafted it or ran a test on it"
+       ],
+       [
+        "Approve a COA",
+        "coaApprove",
+        "QCM, or a named leave cover; not the COO",
+        "Not the reviewer, the drafter or anyone who ran a test; a cover signs 1 line only"
+       ],
+       [
+        "Accept a lab deviation, send for rework after UNFIT",
+        "coaDeviation, coaRework",
+        "Plant Manager",
+        "Management does not sign the certificate itself"
+       ],
+       [
+        "Reopen a closed batch",
+        "doReopenBatch (canReopen)",
+        "Plant Manager",
+        "-"
+       ],
+       [
+        "Approve a short close",
+        "approveShortClose",
+        "Plant Manager (po.shortclose_approve)",
+        "Not the one who asked"
+       ],
+       [
+        "Approve a stock move",
+        "approveMove",
+        "Plant Manager (stock.move_approve)",
+        "Not the one who asked"
+       ],
+       [
+        "Approve a free sample",
+        "smpDecide",
+        "COO only (sample.approve)",
+        "-"
+       ],
+       [
+        "QA check of a free sample",
+        "smpCheck",
+        "QA Inspector",
+        "Not the one who issued it; COO exempt"
+       ],
+       [
+        "Review a free sample",
+        "smpReview",
+        "Supply Chain (Saad) only; not the COO",
+        "Not the one who issued its gate pass"
+       ],
+       [
+        "Release a free sample",
+        "smpRelease",
+        "Plant Manager only; not the COO",
+        "After the review, or after 2 hours with no review"
+       ],
+       [
+        "Approve a new customer",
+        "approveCustomer",
+        "CFO, COO",
+        "-"
+       ],
+       [
+        "Approve or refuse a purchase requisition",
+        "approveRMPR, refusePR",
+        "CFO, COO; also any role with an Edit grant in the access matrix on the screen it stands on (canEdit(['CFO']))",
+        "-"
+       ],
+       [
+        "Approve a batch number correction",
+        "bfxMayDecide",
+        "COO only",
+        "-"
+       ],
+       [
+        "Name or end a lab leave cover",
+        "labSetCover, labEndCover",
+        "Plant Manager only; not the COO",
+        "The cover is a lab person (Lab Rep, AQCM, QCM), not the person on leave"
+       ],
+       [
+        "Mark a Big pack run seen",
+        "bigPackSeen",
+        "Production Manager only; not the COO",
+        "-"
+       ]
+      ]
+     }
+    },
+    {
+     "note": "Consequence of the truck review rule (13 Oct 2026 (3)): if Saad loads and Shoaib issues the gate pass, or the reverse, neither may review and Zain never does, so only the COO can, or the 2 hour lapse lets the Plant Manager release."
+    }
+   ]
+  },
+  {
+   "id": "AC-06",
+   "title": "What each role can never do (the 2-person rules)",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-003"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Guide rule 'The 2-person rules' (guideRules)",
+    "o2s.html SEPARATION, SIGNOFF_ROLES, separationRefusal, sodConflicts, grantRefusal",
+    "fn renameRole, archiveRole, amxCycle, addRole, setDeptLead, screenDataFix",
+    "server.js app.put/app.delete('/api/users/:username'), app.post('/api/platform/people/:username/active')",
+    "changelog 2026-09-24c",
+    "fn approveRMPR, refusePR (canEdit(['CFO']))"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Who",
+       "Can never"
+      ],
+      "rows": [
+       [
+        "Everyone in the lab",
+        "Review or approve a COA they drafted or tested; approve a COA they reviewed; sign both lines of 1 certificate as a leave cover."
+       ],
+       [
+        "COO",
+        "Sign a COA or submit its draft (he may assign tests and supersede an approved COA; he cannot send one back: coaSendBack is AQCM or QCM only, and coaReject has no caller); review or release a free sample; name or end a lab leave cover; mark a Big pack run seen."
+       ],
+       [
+        "Supply Chain, Warehouse",
+        "Review a truck they loaded, passed out or fixed. Approve the final DC or release a truck."
+       ],
+       [
+        "Supply Chain Officer (Zain)",
+        "Review any truck."
+       ],
+       [
+        "Whoever asked",
+        "Approve their own short close or their own stock move."
+       ],
+       [
+        "QA Inspector",
+        "Check a free sample he issued."
+       ],
+       [
+        "Supply Chain (Saad)",
+        "Review a free sample whose gate pass he issued."
+       ],
+       [
+        "A department lead",
+        "Tick his own rights; tick a right he does not hold; tick a right of another department; tick a COO-only right."
+       ],
+       [
+        "Every role but the COO",
+        "Change the access matrix, add, rename or archive a role, set a department lead, change a list value, open Correct a record, approve a batch number correction, reopen a short-closed line, close a whole PO, approve a free sample."
+       ],
+       [
+        "Every role but the COO and the CFO",
+        "Approve a new customer. Approve or refuse a purchase requisition, unless the COO has given that role an Edit grant in the access matrix on the screen where the button is drawn (canEdit(['CFO']) lets a screen grant win, the 30 July 2026 pattern)."
+       ],
+       [
+        "Every role but COO, CFO, Plant Manager, KAM",
+        "See money figures (Finance sees them on the Invoicing report only)."
+       ],
+       [
+        "Anyone",
+        "Rename or archive a built-in role. Delete their own login, delete or demote the last COO, switch off their own login or the last platform administrator (server)."
+       ]
+      ]
+     }
+    },
+    {
+     "p": "At grant time, 5 pairs may not sit on 1 role (SEPARATION): enter production and inspect; draft and review a COA; review and approve a COA; load and release a truck; raise an order and approve its DC. A tick that would break a pair is refused with the reason, and Back Office shows a pair already broken today."
+    },
+    {
+     "note": "Not confirmed: the Guide says 'Nobody inspects their own output'. In code this is checked only when a right is ticked (separationRefusal), not per person at the inspection itself. Ask: should a QA inspection refuse the login that packed the lot? A) yes, per person; B) no, the role check is enough."
+    },
+    {
+     "note": "Not confirmed: approving a purchase requisition still uses canEdit(['CFO']), which a screen Edit grant can widen, unlike the truck and lab sign-offs (hardRole). Ask: should approving a requisition be A) CFO and COO only, fixed like the other sign-offs; B) left as it is?"
+    }
+   ]
+  },
+  {
+   "id": "AC-07",
+   "title": "Who changes this documentation, who reads it",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-037"
+   ],
+   "status": "confirmed",
+   "src": [
+    "o2s.html 16a comment above SYSDOC_VER (Tahir, 15 Oct night)",
+    "fn guideTabsHTML: tabs.push(['sysdoc','System documentation'])",
+    "CLAUDE.md section 2 Never push; The Guide moves with the app"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Action",
+       "Who"
+      ],
+      "rows": [
+       [
+        "Read the System documentation",
+        "Everyone: the tab is on the Guide for every role, with no role check."
+       ],
+       [
+        "Change it",
+        "Only a new build of o2s.html. There is no edit button in the app."
+       ],
+       [
+        "Make a build",
+        "Claude builds and tests; an independent review checks it; Tahir (COO) pushes it from GitHub Desktop."
+       ],
+       [
+        "Keep it current",
+        "Every change to a flow, a job, a rule or who does what updates the Guide, the changelog, BUILD_ID and tests in the same change (CLAUDE.md)."
+       ]
+      ]
+     }
+    },
+    {
+     "note": "Build 16a, which carries this tab, was not yet pushed when this page was written (15 Oct 2026, night)."
+    }
+   ]
+  },
+  {
+   "id": "AC-08",
+   "title": "How a role is given or taken away",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-019"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn screenPeople, ppSave, addUser, ppCan, addRole, setDeptLead, rightTick, amxCycle",
+    "server.js admin, setModuleRole, clearModuleRole, app.post/app.delete('/api/platform/access'), app.post('/api/platform/people/:username/active')",
+    "OP-HANDOFF-O2S.md 13 Oct 2026 (7) fresh install steps"
+   ],
+   "blocks": [
+    {
+     "lanes": {
+      "roles": [
+       "COO",
+       "O2S page",
+       "Server",
+       "The person"
+      ],
+      "steps": [
+       {
+        "role": "COO",
+        "text": "Back Office, People: tap the person, Move to a role (or Add person)",
+        "kind": "start"
+       },
+       {
+        "role": "O2S page",
+        "text": "Shows before and after, and what the new role can do",
+        "kind": "task"
+       },
+       {
+        "role": "Server",
+        "text": "Platform administrator? yes: write the role (PUT or POST /api/users) and log it; no: 403 admin only",
+        "kind": "decision"
+       },
+       {
+        "role": "O2S page",
+        "text": "Logs 'Moved X from A to B'; if it was the COO's own account, signs him out",
+        "kind": "task"
+       },
+       {
+        "role": "The person",
+        "text": "Gets the new role at the next sign in (the token carries the role)",
+        "kind": "end"
+       }
+      ]
+     }
+    },
+    {
+     "table": {
+      "head": [
+       "To",
+       "Where",
+       "Who"
+      ],
+      "rows": [
+       [
+        "Give or change a person's O2S role",
+        "Back Office, People (POST or PUT /api/users), or the launcher's People and access (POST /api/platform/access)",
+        "COO or a platform administrator (server admin check); on the launcher also an O2S admin, who may not give the COO role or touch the COO"
+       ],
+       [
+        "Take a role away",
+        "Launcher, People and access (DELETE /api/platform/access); O2S itself only moves a person to another role",
+        "COO, or an O2S admin"
+       ],
+       [
+        "Stop a leaver",
+        "Launcher, People and access, Switch off (roles are kept)",
+        "Platform administrator"
+       ],
+       [
+        "Create a role",
+        "Back Office, Roles (addRole), in a department",
+        "COO only"
+       ],
+       [
+        "Make a role the department lead",
+        "Back Office, Departments (setDeptLead)",
+        "COO only"
+       ],
+       [
+        "Give a role a right",
+        "Back Office, the rights card (rightTick)",
+        "COO, or that department's lead within the rules in AC-04"
+       ],
+       [
+        "Open or close a screen for a role",
+        "Back Office, the access matrix (amxCycle)",
+        "COO only"
+       ]
+      ]
+     }
+    },
+    {
+     "note": "Not confirmed: the Plant Manager owns the People screen by default, so O2S may show him the People controls, but the server refuses every change from him (admin only). Ask: should the Plant Manager A) see People read only, B) lose People, C) be allowed to change roles?"
+    }
+   ]
+  },
+  {
+   "id": "AC-09",
+   "title": "The older access documents are out of date",
+   "owner": "not confirmed",
+   "rules": [],
+   "status": "not confirmed",
+   "src": [
+    "apps/o2s/docs/ACCESS-ROLES-O2S.md (7 Sep 2026)",
+    "apps/o2s/docs/o2s-access-matrix.html (7 Sep 2026)",
+    "apps/o2s/docs/ACCESS-AND-EDIT.md (22 Aug 2026)",
+    "o2s.html RIGHTS_LIVE, CUSTOMER_GRANT, PROCUREMENT_GRANT, approveRelease"
+   ],
+   "ask": "These 3 files no longer match the code. Should they be: A) updated to match, B) marked as history with a pointer to this tab, C) left as they are?",
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "The old file says",
+       "The code says now"
+      ],
+      "rows": [
+       [
+        "10 roles",
+        "15 roles (Production Manager, Supply Chain Officer, Warehouse, Finance, Finance Desk Officer added)"
+       ],
+       [
+        "Acknowledge a PO: any signed-in user",
+        "Supply Chain only (order.acknowledge live, 23 Sep 2026)"
+       ],
+       [
+        "Add or change a customer: COO only",
+        "Finance and the CFO; a new customer waits for CFO or COO approval"
+       ],
+       [
+        "Raise a PO: KAM",
+        "Finance, CFO, COO (New order)"
+       ],
+       [
+        "Quality not in the panel; Lab QC review and approve by Lab Rep, AQCM, QCM, QA Inspector, Plant Manager",
+        "COA review AQCM, approve QCM (or a leave cover), per person; the Plant Manager decides deviation and rework only"
+       ],
+       [
+        "Production rights are hard-coded",
+        "Live since 27 Aug 2026, read from the grant table"
+       ],
+       [
+        "Production void: Plant Manager",
+        "Production Manager and Plant Manager"
+       ]
+      ]
+     }
+    }
+   ]
+  }
+ ]
+}

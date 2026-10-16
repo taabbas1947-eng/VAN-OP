@@ -1,0 +1,3255 @@
+{
+ "tab": "formulas",
+ "title": "Formulas and business rules",
+ "ver": "2026-10-16a",
+ "date": "2026-10-16",
+ "owner": "not confirmed",
+ "intro": "Every number O2S works out and every limit it checks: the formula, its unit and rounding, a worked example, where it lives in o2s.html, the ruling it comes from and the test that proves it. The last item lists every limit in one table.",
+ "items": [
+  {
+   "id": "FO-01",
+   "title": "F-001 · How much a batch may make (the 115% ceiling)",
+   "owner": "Production Manager",
+   "rules": [
+    "R-033"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn batchOverPct",
+    "fn batchCeilingKg",
+    "fn submitShiftLog",
+    "o2s.html changelog 2026-10-12b",
+    "OP-HANDOFF-O2S.md 13 Oct 2026 (10)",
+    "tests/batchover.test.js"
+   ],
+   "blocks": [
+    {
+     "p": "Ceiling (Kg/L) = plan x (1 + 15 / 100). A shift entry is refused when produced so far + this entry > ceiling + 0.001. Only the upper side is limited; a batch that makes less is closed with a variance reason. Past the ceiling, the Plant Manager or COO raises the plan first."
+    },
+    {
+     "table": {
+      "head": [
+       "Unit",
+       "Rounding",
+       "Where in code",
+       "Ruling",
+       "Test that proves it"
+      ],
+      "rows": [
+       [
+        "Kg/L",
+        "none on the ceiling; the refusal message rounds it to a whole number",
+        "batchOverPct() returns 15; batchCeilingKg; check in submitShiftLog",
+        "Tahir, 12 Oct 2026 (was 5%, now 15%), changelog 2026-10-12b; kept 13 Oct (10)",
+        "tests/batchover.test.js (28 checks)"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Worked example: plan 28,000 gives a ceiling of 28,000 x 1.15 = 32,200. At 28,000 made, 4,200 more is accepted; 4,201 is refused and the message names 115% and 4,200 left (batchover.test.js)."
+    }
+   ]
+  },
+  {
+   "id": "FO-02",
+   "title": "F-002 · Room left to log on an open batch",
+   "owner": "Production Manager",
+   "rules": [
+    "R-033"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn batchLogRoom",
+    "fn batchReopenHeadroom",
+    "fn _logMoreRoom",
+    "tests/batchover.test.js"
+   ],
+   "blocks": [
+    {
+     "p": "Room = round2(ceiling - produced), never below 0. For a PO batch, room = the smaller of that and (PO line ordered - PO line produced). A closed batch, a pool, or a batch with no plan has 0 room. The Log more output button shows floor(room) and only when room >= 1 and the person holds the shift.log right (_logMoreRoom)."
+    },
+    {
+     "table": {
+      "head": [
+       "Unit",
+       "Rounding",
+       "Where in code",
+       "Ruling",
+       "Test that proves it"
+      ],
+      "rows": [
+       [
+        "Kg/L",
+        "2 decimals; the button floors to a whole number",
+        "batchLogRoom, batchReopenHeadroom, _logMoreRoom",
+        "12 Oct 2026, changelog 2026-10-12b",
+        "tests/batchover.test.js"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Worked example: plan 28,000: at 28,000 made the room is 4,200; at 10,000 made it is 22,200; at 32,200 or above it is 0."
+    }
+   ]
+  },
+  {
+   "id": "FO-03",
+   "title": "F-003 · A PO batch never makes more than the PO",
+   "owner": "Production",
+   "rules": [
+    "R-033",
+    "R-009"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn submitShiftLog (PO over-run check)",
+    "tests/batchover.test.js"
+   ],
+   "blocks": [
+    {
+     "p": "For a batch made for one PO line: the entry is refused when entry > (ordered - produced on the line) + 0.001."
+    },
+    {
+     "table": {
+      "head": [
+       "Unit",
+       "Rounding",
+       "Where in code",
+       "Ruling",
+       "Test that proves it"
+      ],
+      "rows": [
+       [
+        "Kg/L",
+        "message rounds to a whole number",
+        "submitShiftLog",
+        "Guide rule R-033 text; no separate dated ruling found",
+        "tests/batchover.test.js ('PO line cap still refuses beyond the PO')"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Worked example: line ordered 28,000, produced 28,000: an entry of 500 is refused with 'PO over-run blocked'."
+    }
+   ]
+  },
+  {
+   "id": "FO-04",
+   "title": "F-004 · Yield variance at batch close",
+   "owner": "Production",
+   "rules": [
+    "R-033"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn doCloseBatch",
+    "fn renderCloseBatch",
+    "fn yieldShortJobs",
+    "o2s.html changelog 2026-09-26d",
+    "tests/fixes26c.test.js",
+    "tests/fixesB.test.js",
+    "tests/batchclose.test.js"
+   ],
+   "blocks": [
+    {
+     "p": "Variance (Kg/L) = round2(plan - produced). Above 0.001 the close needs a reason from the variance list and the Plant Manager is notified (varianceNotify). The Plant Manager's Yield short job is raised when the closed batch has variance > 0.5 and he has not marked it seen. Actual yield = produced."
+    },
+    {
+     "table": {
+      "head": [
+       "Unit",
+       "Rounding",
+       "Where in code",
+       "Ruling",
+       "Test that proves it"
+      ],
+      "rows": [
+       [
+        "Kg/L",
+        "2 decimals",
+        "doCloseBatch, yieldShortJobs",
+        "26c, Tahir 26 Sep 2026: he reads it and marks it seen, no send back",
+        "tests/fixes26c.test.js, tests/fixesB.test.js"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Worked example: plan 2,000, produced 1,950: variance 50, a reason is required and Yield short reaches the Plant Manager. Produced 2,000.4: variance -0.4, no reason, on plan."
+    }
+   ]
+  },
+  {
+   "id": "FO-05",
+   "title": "F-005 · Remainder on a batch, and reconciling it",
+   "owner": "Production",
+   "rules": [
+    "R-008",
+    "R-009"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn batchRemainderKg",
+    "fn saveReconcile",
+    "fn renderReconcile",
+    "o2s.html changelog 2026-09-26b",
+    "tests/audit15e.test.js",
+    "tests/fixes26a.test.js"
+   ],
+   "blocks": [
+    {
+     "p": "Remainder = max(0, produced - packed - disposed). Reconcile is saved only when loss + by-product + divert + rework + kept as stock is within 0.5 of the remainder. A loss above 0 needs a loss reason. Disposed rises by (remainder - kept as stock); kept stock stays packable. A second reconcile adds to the first."
+    },
+    {
+     "table": {
+      "head": [
+       "Unit",
+       "Rounding",
+       "Where in code",
+       "Ruling",
+       "Test that proves it"
+      ],
+      "rows": [
+       [
+        "Kg/L",
+        "loss total kept to 2 decimals",
+        "batchRemainderKg, saveReconcile",
+        "26a, Tahir 26 Sep 2026 (named losses; Sulfur Coated Urea to Nitro Sulfur suggested)",
+        "tests/audit15e.test.js, tests/fixes26a.test.js"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Worked example: produced 1,000, packed 900: remainder 100. Split loss 10 (reason Moisture loss), by-product 40 to Nitro Sulfur, keep 50 as stock: allocated 100, saved. Disposed rises by 50."
+    }
+   ]
+  },
+  {
+   "id": "FO-06",
+   "title": "F-006 · Lab-cleared Kg on a batch",
+   "owner": "QCM",
+   "rules": [
+    "R-016"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn batchClearedKg",
+    "tests/batchqty.test.js",
+    "tests/certremove.test.js",
+    "tests/lotpack.test.js"
+   ],
+   "blocks": [
+    {
+     "p": "Cleared = sum over lots with an approved COA of min(lot qty, certifiedKg, or lot qty when no certified figure). A batch with no lots uses its own COA against produced."
+    },
+    {
+     "table": {
+      "head": [
+       "Unit",
+       "Rounding",
+       "Where in code",
+       "Ruling",
+       "Test that proves it"
+      ],
+      "rows": [
+       [
+        "Kg/L",
+        "none",
+        "batchClearedKg",
+        "not a separate ruling; follows R-016 (13e)",
+        "tests/batchqty.test.js"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Worked example: lots of 1,000 and 1,010; only the first approved with certifiedKg 1,000: cleared = 1,000."
+    }
+   ]
+  },
+  {
+   "id": "FO-07",
+   "title": "F-007 · Packable Kg on a batch",
+   "owner": "Production",
+   "rules": [
+    "R-016",
+    "R-009"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn batchPackableKg",
+    "fn batchPackNow",
+    "tests/packs.test.js",
+    "tests/lotpack.test.js",
+    "tests/stuckbatches.test.js"
+   ],
+   "blocks": [
+    {
+     "p": "Packable = max(0, min(cleared, produced - disposed) - packed). 0 when the batch is reconciled with nothing disposed and no stock kept. Ready to pack also needs an approved lot and the batch not a pool or voided (batchPackNow)."
+    },
+    {
+     "table": {
+      "head": [
+       "Unit",
+       "Rounding",
+       "Where in code",
+       "Ruling",
+       "Test that proves it"
+      ],
+      "rows": [
+       [
+        "Kg/L",
+        "none",
+        "batchPackableKg, batchPackNow",
+        "07e (A7): kept stock is packable",
+        "tests/lotpack.test.js, tests/packs.test.js"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Worked example: produced 2,010, cleared 1,000, packed 300, disposed 0: packable = min(1,000, 2,010) - 300 = 700."
+    }
+   ]
+  },
+  {
+   "id": "FO-08",
+   "title": "F-008 · A settled batch (may be closed in bulk)",
+   "owner": "Production",
+   "rules": [
+    "R-033"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn settledBatches",
+    "fn closeSettledBatches",
+    "tests/batchclose.test.js"
+   ],
+   "blocks": [
+    {
+     "p": "Settled = open, not a pool, voided or by-product, produced > 0, remainder <= 0.5, and round2(plan - produced) <= 0.001. Only settled batches can be closed in bulk; a batch with a variance never can."
+    },
+    {
+     "table": {
+      "head": [
+       "Unit",
+       "Rounding",
+       "Where in code",
+       "Ruling",
+       "Test that proves it"
+      ],
+      "rows": [
+       [
+        "Kg/L",
+        "2 decimals",
+        "settledBatches",
+        "2026-08-22 rebuild (Tahir: show all, let me untick)",
+        "tests/batchclose.test.js"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Worked example: plan 5,000, produced 5,000, packed 5,000: settled. Produced 4,990: not settled (variance 10)."
+    }
+   ]
+  },
+  {
+   "id": "FO-09",
+   "title": "F-009 · Made so far brought to what was packed (batch for several POs)",
+   "owner": "Production",
+   "rules": [
+    "R-009"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn multiTrueUp",
+    "fn multiTrueUpIfPlaced",
+    "o2s.html comment 26a (AP26012)",
+    "tests/fixes26a.test.js",
+    "tests/packs.test.js"
+   ],
+   "blocks": [
+    {
+     "p": "For each PO on a multi-PO batch: credit = min(round2(produced x its planned share / total share), line ordered), capped by what the shift log credited, less any earlier true-up. Over = round2(credit - packed for that line from this batch). If over > 0.5, the line's produced falls to max(line packed, produced - over). Runs only when the batch is closed and nothing is left (remainder <= 0.5); never takes the same Kg twice."
+    },
+    {
+     "table": {
+      "head": [
+       "Unit",
+       "Rounding",
+       "Where in code",
+       "Ruling",
+       "Test that proves it"
+      ],
+      "rows": [
+       [
+        "Kg/L",
+        "2 decimals",
+        "multiTrueUp",
+        "26a, 26 Sep 2026",
+        "tests/fixes26a.test.js"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Worked example: AP26012 made 1,010; COBO's line was credited 745.39 but only 300 was packed for it. Over = 445.39, so COBO's made so far falls to 300 and What to make asks for 1,700, not 1,255 (code comment)."
+    }
+   ]
+  },
+  {
+   "id": "FO-10",
+   "title": "F-010 · Packs = Kg / pack size",
+   "owner": "Production",
+   "rules": [
+    "R-004"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn packEntryCalc",
+    "fn packConfirmInner",
+    "fn packConfirmGate",
+    "fn packRowExtras",
+    "fn seedPackForBrand",
+    "o2s.html changelog 2026-10-15a",
+    "OP-HANDOFF-O2S.md 15 Oct 2026 (1)",
+    "tests/packs.test.js",
+    "tests/packshift.test.js"
+   ],
+   "blocks": [
+    {
+     "p": "Packs = round2(Kg packed / pack size). Pack size = the PO line's pack, else the product catalogue's pack. Whole when |packs - round(packs)| < 0.001. The person ticks that the packs match; the tick is tied to Kg and pack size, so changing either clears it. No pack size: the entry saves without packs and no tick."
+    },
+    {
+     "table": {
+      "head": [
+       "Unit",
+       "Rounding",
+       "Where in code",
+       "Ruling",
+       "Test that proves it"
+      ],
+      "rows": [
+       [
+        "packs",
+        "2 decimals (packFmt)",
+        "packEntryCalc",
+        "Tahir, 15 Oct 2026, from Abdul Majid (15a)",
+        "tests/packs.test.js (127 checks)"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Worked example: 500 Kg/L at 25 per pack = 20 packs (whole). 510 Kg/L = 20.4 packs, called out as not whole."
+    }
+   ]
+  },
+  {
+   "id": "FO-11",
+   "title": "F-011 · A packing entry above the limit is cut, not refused",
+   "owner": "Production",
+   "rules": [
+    "R-004",
+    "R-009"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn packEntryCalc",
+    "tests/packs.test.js",
+    "tests/packrefuse.test.js"
+   ],
+   "blocks": [
+    {
+     "p": "Kg saved = min(typed, batch packable, PO line ordered - packed). The cut is shown with the packs for the real figure. A divert above what the pool holds is refused instead. The 2 correction screens never cut; their own checks refuse."
+    },
+    {
+     "table": {
+      "head": [
+       "Unit",
+       "Rounding",
+       "Where in code",
+       "Ruling",
+       "Test that proves it"
+      ],
+      "rows": [
+       [
+        "Kg/L",
+        "a divert is rounded to a whole number first",
+        "packEntryCalc",
+        "15 Oct 2026 (15a; the picture said refused, the build cuts)",
+        "tests/packs.test.js"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Worked example: typed 30,000 on a line that needs 20,000 with 30,000 packable: 20,000 is packed = 800 packs of 25."
+    }
+   ]
+  },
+  {
+   "id": "FO-12",
+   "title": "F-012 · Big pack run (over 10,000 Kg/L)",
+   "owner": "Production Manager",
+   "rules": [
+    "R-004"
+   ],
+   "status": "confirmed",
+   "src": [
+    "var PACK_FLAG_KG",
+    "fn packShiftTotal",
+    "fn packRowExtras",
+    "fn bigPackJobs",
+    "fn bigPackSeen",
+    "o2s.html changelog 2026-10-15a, 2026-10-15b",
+    "tests/packs.test.js",
+    "tests/packshift.test.js"
+   ],
+   "blocks": [
+    {
+     "p": "Flag when this entry > 10,000, or when the total of entries on the same date by the same shift and in-charge (this one included) goes over 10,000 with this entry. Saved and counted, never stopped. Only the Production Manager marks it Seen."
+    },
+    {
+     "table": {
+      "head": [
+       "Unit",
+       "Rounding",
+       "Where in code",
+       "Ruling",
+       "Test that proves it"
+      ],
+      "rows": [
+       [
+        "Kg/L",
+        "none",
+        "PACK_FLAG_KG=10000",
+        "15 Oct 2026 (15a, 15b), from Abdul Majid",
+        "tests/packs.test.js, tests/packshift.test.js"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Worked example: Morning, in-charge Faisal: entries of 6,000 and 5,000 on 15 Oct. The second takes the shift to 11,000, so only it is flagged. One entry of 10,025 is flagged by itself."
+    }
+   ]
+  },
+  {
+   "id": "FO-13",
+   "title": "F-013 · The price on a new order (5% band)",
+   "owner": "Finance",
+   "rules": [
+    "R-010"
+   ],
+   "status": "confirmed",
+   "src": [
+    "var PRICE_BAND",
+    "fn entryLastPrice",
+    "fn entryNetTyped",
+    "fn entryPriceCheck",
+    "o2s.html changelog 2026-09-25d",
+    "tests/neworder.test.js"
+   ],
+   "blocks": [
+    {
+     "p": "Last price = this customer's latest net price for the product (by PO received date), else the latest to anyone. Diff = (net typed - last) / last. When |diff| > 0.05 a reason of at least 5 characters is required, kept on the line with the last price. Net typed = typed / 1.05 when the order is FED Inclusive. No check for FOC or when no earlier price exists."
+    },
+    {
+     "table": {
+      "head": [
+       "Unit",
+       "Rounding",
+       "Where in code",
+       "Ruling",
+       "Test that proves it"
+      ],
+      "rows": [
+       [
+        "fraction of last price",
+        "shown to 1 decimal %",
+        "PRICE_BAND=0.05, entryPriceCheck",
+        "Tahir, 24 Sep 2026 (25d), changelog 2026-09-25d",
+        "tests/neworder.test.js"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Worked example: last price 200: typed 205 needs no reason (+2.5%); 211 needs one (+5.5%); 189 needs one (-5.5%); 210 on an Inclusive order is 200 net, no reason."
+    }
+   ]
+  },
+  {
+   "id": "FO-14",
+   "title": "F-014 · FED split on the PO",
+   "owner": "Finance",
+   "rules": [
+    "R-018"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn fedSplit",
+    "fn entryTotals",
+    "o2s.html changelog 2026-09-25a, 2026-09-25b",
+    "tests/salenet.test.js"
+   ],
+   "blocks": [
+    {
+     "p": "Exclusive: FED = round2(value x 0.05), total = value + FED. Inclusive: sub-total = round2(value / 1.05), FED = value - sub-total, total = value. None: FED 0."
+    },
+    {
+     "table": {
+      "head": [
+       "Unit",
+       "Rounding",
+       "Where in code",
+       "Ruling",
+       "Test that proves it"
+      ],
+      "rows": [
+       [
+        "PKR",
+        "2 decimals (_r2)",
+        "fedSplit",
+        "Tahir, 24 Sep 2026: FED is the sales tax (25a, 25b)",
+        "tests/salenet.test.js (Inclusive split)"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Worked example: Inclusive 4,200 gives 4,000 + 200 FED. Exclusive 4,000 gives 200 FED, total 4,200."
+    },
+    {
+     "note": "The Exclusive split itself is not pinned by a test; only the Inclusive split and the Exclusive net price are."
+    }
+   ]
+  },
+  {
+   "id": "FO-15",
+   "title": "F-015 · Net price and what a sale is",
+   "owner": "CFO",
+   "rules": [
+    "R-018"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn lineNetPrice",
+    "fn saleLeft",
+    "fn saleRows",
+    "fn saleOpenValue",
+    "o2s.html changelog 2026-09-25a",
+    "tests/salenet.test.js",
+    "tests/budget.test.js"
+   ],
+   "blocks": [
+    {
+     "p": "Net price = invoice price / 1.05 on an FED Inclusive order, else the invoice price; FOC = 0. A sale = Kg x net price, counted on the day the truck leaves the gate (released or delivered, or an old truck counted in dispatched). Every money figure uses this one rule."
+    },
+    {
+     "table": {
+      "head": [
+       "Unit",
+       "Rounding",
+       "Where in code",
+       "Ruling",
+       "Test that proves it"
+      ],
+      "rows": [
+       [
+        "PKR per Kg/L",
+        "none in the rule; screens round for display",
+        "lineNetPrice, saleLeft",
+        "Tahir, 24 Sep 2026 (25a, 25b)",
+        "tests/salenet.test.js ('nowhere else multiplies delivered or dispatched by the raw invoice price')"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Worked example: Inclusive price 210 x 100 Kg out of the gate = 100 x 200 = PKR 20,000 sale. Exclusive 200 x 10 open = PKR 2,000 open value."
+    }
+   ]
+  },
+  {
+   "id": "FO-16",
+   "title": "F-016 · FED mode on a new PO",
+   "owner": "Finance",
+   "rules": [
+    "R-018",
+    "R-010"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn entryFedMode",
+    "fn curCustomer",
+    "var DC_GO_LIVE"
+   ],
+   "blocks": [
+    {
+     "p": "FED mode = None for FOC, or when the PO date is before DC control (1 Jul 2026); else the override picked on the PO; else the customer master's FED; else None."
+    },
+    {
+     "table": {
+      "head": [
+       "Unit",
+       "Rounding",
+       "Where in code",
+       "Ruling",
+       "Test that proves it"
+      ],
+      "rows": [
+       [
+        "mode",
+        "-",
+        "entryFedMode",
+        "not found as a dated ruling",
+        "no test found for entryFedMode"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Worked example: a PO for a customer marked Inclusive, dated 10 Oct 2026, not FOC, no override: Inclusive."
+    },
+    {
+     "note": "No test pins entryFedMode."
+    }
+   ]
+  },
+  {
+   "id": "FO-17",
+   "title": "F-017 · What raw material allows (rmAllows)",
+   "owner": "Supply Chain",
+   "rules": [
+    "R-025"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn rmAllows",
+    "tests/audit15g.test.js"
+   ],
+   "blocks": [
+    {
+     "p": "rmAllows = ordered when RM is ready, full or received; = canMakeKg when RM is partial; else 0. Production for a line is asked only up to min(ordered, rmAllows)."
+    },
+    {
+     "table": {
+      "head": [
+       "Unit",
+       "Rounding",
+       "Where in code",
+       "Ruling",
+       "Test that proves it"
+      ],
+      "rows": [
+       [
+        "Kg/L",
+        "none",
+        "rmAllows",
+        "07i (part-ready lines); 15g (run card within what raw material allows)",
+        "tests/audit15g.test.js ('raw material for 4,000 only: the rest is 1,000')"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Worked example: ordered 10,000, RM partial with canMakeKg 4,000: production asked for up to 4,000."
+    }
+   ]
+  },
+  {
+   "id": "FO-18",
+   "title": "F-018 · Base shared by order lines, and the run for the rest (plBaseShare)",
+   "owner": "Production",
+   "rules": [
+    "R-023",
+    "R-025"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn plBaseShare",
+    "fn plLineBaseItems",
+    "fn plBaseReady",
+    "o2s.html changelog 2026-10-15g",
+    "OP-HANDOFF-O2S.md 15 Oct 2026 (11)",
+    "tests/audit15g.test.js"
+   ],
+   "blocks": [
+    {
+     "p": "Order lines on a base are queued: lines waiting for the client last, then by PO received date, PO and line id; close-short-requested lines take nothing. Each line in turn takes ready = min(need, ready left) and lab = min(need - ready, base with the lab left). Run for the rest = min(rmAllows, ordered) - packed - its ready share - its lab share; a run card shows only when this is > 0.5. Every Pack from base card still shows all the ready base."
+    },
+    {
+     "table": {
+      "head": [
+       "Unit",
+       "Rounding",
+       "Where in code",
+       "Ruling",
+       "Test that proves it"
+      ],
+      "rows": [
+       [
+        "Kg/L",
+        "none",
+        "plBaseShare, plLineBaseItems",
+        "Tahir, 15 Oct 2026 (15g)",
+        "tests/audit15g.test.js"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Worked example: base ready 3,000, line needs 10,000: Pack from base for 3,000 and a run for 7,000. Same line with raw material for 4,000 only: run for 1,000. Same line with all raw material and 5,000 more at the lab: run for 10,000 - 3,000 - 5,000 = 2,000 (with raw material for 4,000 and 5,000 at the lab there is no run card). 600 ready and 2 lines of 500: the older PO takes 500, the newer 100 and gets a run for 400."
+    },
+    {
+     "note": "Corrected 16 Oct 2026 (independent check against the code): the lab example read as if it followed the 4,000 raw material case; it holds only with all raw material (rest = min(rmAllows, ordered) - packed - ready - lab)."
+    }
+   ]
+  },
+  {
+   "id": "FO-19",
+   "title": "F-019 · Base made and with the lab (plBaseLabKg)",
+   "owner": "QCM",
+   "rules": [
+    "R-025"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn plBaseLabKg",
+    "tests/audit15g.test.js"
+   ],
+   "blocks": [
+    {
+     "p": "For each normal bulk batch of the base (not voided, pool, by-product, consolidated, or reconciled without kept stock): min(sum of lot qty with no result yet, produced - disposed - cleared), never below 0. Summed over batches."
+    },
+    {
+     "table": {
+      "head": [
+       "Unit",
+       "Rounding",
+       "Where in code",
+       "Ruling",
+       "Test that proves it"
+      ],
+      "rows": [
+       [
+        "Kg/L",
+        "none",
+        "plBaseLabKg",
+        "15g review 2",
+        "tests/audit15g.test.js ('5,000 with the lab: the rest to make is 2,000')"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Worked example: a bulk batch made 8,000, cleared 3,000, lots of 5,000 waiting for results: 5,000 with the lab."
+    }
+   ]
+  },
+  {
+   "id": "FO-20",
+   "title": "F-020 · A line's packing clock and 'moving' (plLinePack)",
+   "owner": "Production",
+   "rules": [
+    "R-022",
+    "R-024"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn plLinePack",
+    "fn plClientPOs",
+    "o2s.html changelog 2026-10-15g",
+    "tests/audit15g.test.js",
+    "tests/audit15f.test.js"
+   ],
+   "blocks": [
+    {
+     "p": "Last pack = the newest pack record (not reversed or void) of the same product on any PO of the same client (cancelled or voided POs and POs with no client left out). Clock start = the latest of last pack, PO received and base first ready. Days = calendar days from the start to today, never below 0. Moving = last pack less than 7 days ago."
+    },
+    {
+     "table": {
+      "head": [
+       "Unit",
+       "Rounding",
+       "Where in code",
+       "Ruling",
+       "Test that proves it"
+      ],
+      "rows": [
+       [
+        "days",
+        "whole calendar days, plant time",
+        "plLinePack",
+        "Tahir, 15 Oct 2026 (15g, the Maxim question)",
+        "tests/audit15g.test.js"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Worked example: Enroot for Maxim packed on PO 22868 on 13 Oct: on 15 Oct PO 22867's Enroot line has 2 days, so it is moving, not stuck."
+    }
+   ]
+  },
+  {
+   "id": "FO-21",
+   "title": "F-021 · Stuck limits (PL_ constants)",
+   "owner": "Production",
+   "rules": [
+    "R-022"
+   ],
+   "status": "confirmed",
+   "src": [
+    "var PL_STUCK_NO_OUTPUT_DAYS, PL_STUCK_MADE_OPEN_DAYS, PL_LINE_STUCK_DAYS, PL_HELD_FLAG_DAYS",
+    "fn plBatchClass",
+    "OP-HANDOFF-O2S.md 12 Oct 2026 (night); 15 Oct 2026 (8)",
+    "o2s.html changelog 2026-10-12c, 2026-10-15f",
+    "tests/stuckbatches.test.js",
+    "tests/audit15f.test.js",
+    "tests/audit15g.test.js"
+   ],
+   "blocks": [
+    {
+     "p": "Open batch below plan with no move for 3 days or more: stuck. Open batch at plan with nothing left, or waiting for the lab, with no move for 2 days or more: stuck. An order line with nothing packed for 7 days or more while cleared stock is ready: stuck. Cleared stock with no order waiting: held, flagged amber at 180 days or more."
+    },
+    {
+     "table": {
+      "head": [
+       "Unit",
+       "Rounding",
+       "Where in code",
+       "Ruling",
+       "Test that proves it"
+      ],
+      "rows": [
+       [
+        "days",
+        "whole calendar days",
+        "PL_STUCK_NO_OUTPUT_DAYS=3, PL_STUCK_MADE_OPEN_DAYS=2, PL_LINE_STUCK_DAYS=7, PL_HELD_FLAG_DAYS=180",
+        "3 d and 180 d: Tahir 12 Oct 2026; 7 d per order line, any order age: Tahir 15 Oct 2026 (15f)",
+        "tests/stuckbatches.test.js, tests/audit15g.test.js"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Worked example: a base batch cleared on 1 Oct, an order line waiting, nothing packed for it since 4 Oct: on 11 Oct (7 days) the line is stuck. A held batch with no order: not flagged at 52 days, flagged at 180."
+    }
+   ]
+  },
+  {
+   "id": "FO-22",
+   "title": "F-022 · Made, nothing packed or all packed and open: 2 days",
+   "owner": "Production",
+   "rules": [
+    "R-022"
+   ],
+   "status": "not confirmed",
+   "src": [
+    "var PL_STUCK_MADE_OPEN_DAYS",
+    "fn plBatchClass",
+    "OP-HANDOFF-O2S.md 12 Oct 2026 (night)",
+    "tests/stuckbatches.test.js"
+   ],
+   "ask": "A made batch that waits (for the lab, or to be closed) shows stuck after 2 days. Is that: A right, B should be 3 days like the rest, C another number?",
+   "blocks": [
+    {
+     "p": "An open batch at plan with nothing left (close it), or waiting for the lab, is stuck after 2 days with no move."
+    },
+    {
+     "table": {
+      "head": [
+       "Unit",
+       "Rounding",
+       "Where in code",
+       "Ruling",
+       "Test that proves it"
+      ],
+      "rows": [
+       [
+        "days",
+        "whole calendar days",
+        "PL_STUCK_MADE_OPEN_DAYS=2",
+        "built 12 Oct 2026 (12c); the 2 days is not in the list of Tahir's rulings that night (he ruled 3 d and 180 d)",
+        "tests/stuckbatches.test.js (past the limit only, not at the edge)"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Worked example: a batch fully packed on 10 Oct and still open shows stuck on 12 Oct."
+    }
+   ]
+  },
+  {
+   "id": "FO-23",
+   "title": "F-023 · Stuck at packing: the day the job comes (STUCK_JOB_SINCE)",
+   "owner": "Supply Chain",
+   "rules": [
+    "R-024"
+   ],
+   "status": "confirmed",
+   "src": [
+    "var STUCK_JOB_SINCE",
+    "fn plStuckJob",
+    "fn lineWaitOver",
+    "o2s.html changelog 2026-10-15g",
+    "tests/audit15g.test.js"
+   ],
+   "blocks": [
+    {
+     "p": "Job date = the latest of (line clock start + 7 days), 15 Oct 2026, and the day the last wait for the client was over. Not raised while the line waits for the client or before 7 days."
+    },
+    {
+     "table": {
+      "head": [
+       "Unit",
+       "Rounding",
+       "Where in code",
+       "Ruling",
+       "Test that proves it"
+      ],
+      "rows": [
+       [
+        "date",
+        "calendar day (UTC date arithmetic)",
+        "STUCK_JOB_SINCE='2026-10-15'",
+        "15g, 15 Oct 2026",
+        "tests/audit15g.test.js ('from the day it turned stuck (8 + 7 = 15 Oct)')"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Worked example: a line last packed on 8 Oct: the job is dated 15 Oct. A line last packed in August: also 15 Oct, never earlier."
+    }
+   ]
+  },
+  {
+   "id": "FO-24",
+   "title": "F-024 · Pack job age (PACK_JOB_SINCE)",
+   "owner": "Production",
+   "rules": [
+    "R-022"
+   ],
+   "status": "confirmed",
+   "src": [
+    "var PACK_JOB_SINCE",
+    "fn packJobSince",
+    "fn packJobWanted",
+    "OP-HANDOFF-O2S.md 2026-10-07i entry",
+    "tests/fixesE.test.js"
+   ],
+   "blocks": [
+    {
+     "p": "A Pack job's clock starts at the first lab approval of the batch, but never before 8 Oct 2026. The job is raised only while a PO line on the batch is still short of packed."
+    },
+    {
+     "table": {
+      "head": [
+       "Unit",
+       "Rounding",
+       "Where in code",
+       "Ruling",
+       "Test that proves it"
+      ],
+      "rows": [
+       [
+        "date",
+        "calendar day",
+        "PACK_JOB_SINCE='2026-10-08'",
+        "07i review, 7 Oct 2026 (old cleared stock was not late on anyone's list)",
+        "tests/fixesE.test.js"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Worked example: approved on 1 Oct: the clock starts 8 Oct, so on 9 Oct it is 1 day old and escalates to the Production Manager (handoff 07i note 5)."
+    }
+   ]
+  },
+  {
+   "id": "FO-25",
+   "title": "F-025 · Production stall days (acProduceStallDays)",
+   "owner": "Production",
+   "rules": [
+    "R-022",
+    "R-025"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn acProduceStallDays",
+    "fn baseStallStart",
+    "fn baseLastOutput",
+    "o2s.html changelog 2026-10-15g",
+    "tests/audit15g.test.js"
+   ],
+   "blocks": [
+    {
+     "p": "Bulk base line: days since the later of the last logged output (shift entry with Kg > 0) on any normal bulk batch of the base and the PO received date. Line with its own PO batch: days since the latest of its lot dates, opened date and production log dates. No batch: days since RM ready, else PR raised. Stalled at 4 days."
+    },
+    {
+     "table": {
+      "head": [
+       "Unit",
+       "Rounding",
+       "Where in code",
+       "Ruling",
+       "Test that proves it"
+      ],
+      "rows": [
+       [
+        "days",
+        "whole calendar days",
+        "acProduceStallDays; TH 'Open Production' 4",
+        "Tahir, 15 Oct 2026 (15g): opening a batch is not output",
+        "tests/audit15g.test.js ('the run clock is 2 d from the last output, not 68 d from raw material ready')"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Worked example: base last logged output 13 Oct, PO received 1 Sep: on 15 Oct stall = 2 days (not stalled). No output since 10 Oct: 5 days, stalled, Plant Manager told."
+    }
+   ]
+  },
+  {
+   "id": "FO-26",
+   "title": "F-026 · Escalation days per job",
+   "owner": "Plant Manager",
+   "rules": [
+    "R-030",
+    "R-022"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn acEscalation (var TH)",
+    "docs/SPEC-04-REALTIME-DISCIPLINE.md",
+    "tests/authmodel.test.js ('acEscalation was found')",
+    "tests/fixesC.test.js (C19)",
+    "tests/audit15g.test.js",
+    "tests/shell.test.js (guideEsc reads the table)"
+   ],
+   "blocks": [
+    {
+     "p": "Escalated when the job's waiting days (actTiming) >= the limit; Open Production uses stall days (F-025). Never escalated: Pack from base or Open Production while the line waits for the client, Open Production while the line is moving (packed in the last 7 days), and a Pack job whose PO lines all wait for the client. Calendar days, plant time. Who is told and the ruling per job: logic tab LG-12."
+    },
+    {
+     "table": {
+      "head": [
+       "Job",
+       "Days",
+       "Told"
+      ],
+      "rows": [
+       [
+        "Acknowledge",
+        "1",
+        "Plant Manager"
+       ],
+       [
+        "RM Check",
+        "1",
+        "CFO"
+       ],
+       [
+        "Receive",
+        "1",
+        "CFO"
+       ],
+       [
+        "Lab QC",
+        "1",
+        "Plant Manager"
+       ],
+       [
+        "Correct COA",
+        "1",
+        "QCM"
+       ],
+       [
+        "Assign sample",
+        "1",
+        "Plant Manager"
+       ],
+       [
+        "Review",
+        "1",
+        "Plant Manager"
+       ],
+       [
+        "Approve",
+        "1",
+        "Plant Manager"
+       ],
+       [
+        "Pack QC",
+        "2",
+        "Plant Manager"
+       ],
+       [
+        "Inspect",
+        "2",
+        "Plant Manager"
+       ],
+       [
+        "Ship",
+        "2",
+        "Supply Chain"
+       ],
+       [
+        "Open Production",
+        "4",
+        "Plant Manager"
+       ],
+       [
+        "Approve PR",
+        "1",
+        "COO"
+       ],
+       [
+        "Print price",
+        "3",
+        "COO"
+       ],
+       [
+        "Load",
+        "1",
+        "Supply Chain"
+       ],
+       [
+        "Gate Pass",
+        "1",
+        "Supply Chain"
+       ],
+       [
+        "Review truck",
+        "1",
+        "Plant Manager"
+       ],
+       [
+        "Release",
+        "1",
+        "COO"
+       ],
+       [
+        "Approve DC",
+        "1",
+        "COO"
+       ],
+       [
+        "Confirm delivery",
+        "99",
+        "Plant Manager"
+       ],
+       [
+        "Approve move",
+        "1",
+        "COO"
+       ],
+       [
+        "Approve close short",
+        "1",
+        "COO"
+       ],
+       [
+        "Pack",
+        "1",
+        "Production Manager"
+       ],
+       [
+        "Pack from base",
+        "7",
+        "Plant Manager"
+       ],
+       [
+        "Check after move",
+        "2",
+        "Plant Manager"
+       ],
+       [
+        "Duplicate number",
+        "1",
+        "Plant Manager"
+       ]
+      ]
+     }
+    },
+    {
+     "note": "Confirm delivery's 99 days means the table never fires; delivery has its own ladder (F-030). Lab test escalates to the QCM by the clock (F-027)."
+    },
+    {
+     "note": "Corrected 16 Oct 2026 (independent check against the code): added the exceptions written in acEscalation (waitClient, moving, batchLinesWaiting)."
+    }
+   ]
+  },
+  {
+   "id": "FO-27",
+   "title": "F-027 · Lab due times and lab late",
+   "owner": "QCM",
+   "rules": [
+    "R-016"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn labLateBy",
+    "fn labV2Items",
+    "fn labTimeSet",
+    "fn openLabSetup",
+    "o2s.html changelog 2026-09-24r",
+    "tests/labassign.test.js"
+   ],
+   "blocks": [
+    {
+     "p": "A v2 test is due its own time after assignment: 30 min sampling + the test time + 30 min reporting (QC manager's Estimated Time For Test Report); the QCM sets the times in hours (0.25 steps). The sample is due when its longest test is due. Late by = now - due (ms), 0 if not past. A late test escalates to the QCM (days shown = floor(late / 1 day)). Lab late reaches the Plant Manager when the sample is still open more than 1 day after its due time."
+    },
+    {
+     "table": {
+      "head": [
+       "Unit",
+       "Rounding",
+       "Where in code",
+       "Ruling",
+       "Test that proves it"
+      ],
+      "rows": [
+       [
+        "milliseconds, shown as h and min",
+        "test time stored in whole minutes",
+        "labLateBy, labV2Items",
+        "24r, 24 Sep 2026 (Tahir: the QCM hears first)",
+        "tests/labassign.test.js"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Worked example: pH due 90 min after assignment, Nitrogen 7 hours after; the sample is due at 7 hours. At 7 h 30 min the Nitrogen test is 30 min late: QCM told. Still open after 31 h (more than 1 day past the 7 h due time): Plant Manager gets Lab late."
+    },
+    {
+     "note": "Corrected 16 Oct 2026 (independent check against the code): labV2Items needs late by more than 86,400,000 ms, so at exactly 31 h there is no Lab late yet."
+    }
+   ]
+  },
+  {
+   "id": "FO-28",
+   "title": "F-028 · Lab leave cover safety net",
+   "owner": "Plant Manager",
+   "rules": [
+    "R-006"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn labCoverNeeds",
+    "fn labNow",
+    "o2s.html changelog 2026-09-24v",
+    "tests/labcover.test.js"
+   ],
+   "blocks": [
+    {
+     "p": "With no leave announced and no cover for today: if certificates have waited 1 calendar day or more for the AQCM's review or the QCM's approval, and that person has no action in O2S today, the Plant Manager gets Name a cover. Only from 12:00 and never on a Sunday."
+    },
+    {
+     "table": {
+      "head": [
+       "Unit",
+       "Rounding",
+       "Where in code",
+       "Ruling",
+       "Test that proves it"
+      ],
+      "rows": [
+       [
+        "calendar days, hour of day",
+        "whole days",
+        "labCoverNeeds",
+        "24v, 24 Sep 2026 (Tahir: both a leave notice and a safety net; no false alerts)",
+        "tests/labcover.test.js"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Worked example: certificates waiting 2 days for Himayat, who has done nothing today: at 14:00 on a weekday 1 job; at 09:00 none; on a Sunday none; once he does anything today, none."
+    },
+    {
+     "note": "Corrected 16 Oct 2026 (independent check against the code): the 12:00 and Sunday tests read the device clock (labNow), not the plant-time TODAY used elsewhere; on a device set to Pakistan time they agree."
+    }
+   ]
+  },
+  {
+   "id": "FO-29",
+   "title": "F-029 · Truck review window: 2 hours",
+   "owner": "Supply Chain",
+   "rules": [
+    "R-003",
+    "R-030"
+   ],
+   "status": "confirmed",
+   "src": [
+    "var TRUCK_REVIEW_HOURS",
+    "fn truckReviewSince",
+    "fn truckReviewLapsed",
+    "fn approveRelease",
+    "fn smpReviewLapsed",
+    "o2s.html changelog 2026-09-25e",
+    "tests/dispatchauthority.test.js",
+    "tests/truckreview.test.js"
+   ],
+   "blocks": [
+    {
+     "p": "Review due from the latest of gate pass time, QA record time and a sent-back fix. If not reviewed within 2 hours, the Plant Manager may release without it (the DC records noScReview). The same 2 hours applies to a free sample's review."
+    },
+    {
+     "table": {
+      "head": [
+       "Unit",
+       "Rounding",
+       "Where in code",
+       "Ruling",
+       "Test that proves it"
+      ],
+      "rows": [
+       [
+        "hours",
+        "exact (ms)",
+        "TRUCK_REVIEW_HOURS=2",
+        "25e, Tahir 25 Sep 2026",
+        "tests/dispatchauthority.test.js ('1 hour after the gate pass: not lapsed', '3 hours after: lapsed')"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Worked example: gate pass at 10:00, no review: the release is refused until 12:00, then allowed."
+    }
+   ]
+  },
+  {
+   "id": "FO-30",
+   "title": "F-030 · Delivery confirmation ladder",
+   "owner": "Supply Chain",
+   "rules": [
+    "R-030"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn deliveryJobs",
+    "fn _calDays",
+    "fn truckDispatcher",
+    "tests/dispatchauthority.test.js",
+    "tests/fixesC.test.js (C20)"
+   ],
+   "blocks": [
+    {
+     "p": "Days = calendar days from the release (approved) date, else the truck date. Day 0: the dispatcher (gate pass issuer, else loader). Day 1 on: also Supply Chain (not the dispatcher himself if he is in Supply Chain). Day 2 on: also the Plant Manager."
+    },
+    {
+     "table": {
+      "head": [
+       "Unit",
+       "Rounding",
+       "Where in code",
+       "Ruling",
+       "Test that proves it"
+      ],
+      "rows": [
+       [
+        "days",
+        "whole calendar days",
+        "deliveryJobs",
+        "25m, Tahir: 1 day, then 1 day",
+        "tests/dispatchauthority.test.js"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Worked example: released 13 Oct: on 13 Oct only the dispatcher; 14 Oct Saad too; 15 Oct the Plant Manager too."
+    }
+   ]
+  },
+  {
+   "id": "FO-31",
+   "title": "F-031 · Waiting for the client: 1 to 30 days",
+   "owner": "Supply Chain",
+   "rules": [
+    "R-024"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn saveWaitClient",
+    "fn endWaitClient",
+    "fn lineWaitClient",
+    "fn lineWaitOver",
+    "o2s.html changelog 2026-10-15g",
+    "tests/audit15g.test.js"
+   ],
+   "blocks": [
+    {
+     "p": "Date must be 1 to 30 days after today (UTC date difference); reason at least 5 characters; the same date again is refused. The line waits through the date and is no longer waiting from the day after. Only Supply Chain or the COO marks or ends it."
+    },
+    {
+     "table": {
+      "head": [
+       "Unit",
+       "Rounding",
+       "Where in code",
+       "Ruling",
+       "Test that proves it"
+      ],
+      "rows": [
+       [
+        "days",
+        "whole days",
+        "saveWaitClient",
+        "Tahir, 15 Oct 2026 (15g)",
+        "tests/audit15g.test.js ('today is refused', '31 days is refused', '30 days is accepted', '1 day is accepted')"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Worked example: on 15 Oct: 16 Oct to 14 Nov accepted. Marked until 25 Oct: waiting on 25 Oct, stuck again (if nothing packed) on 26 Oct."
+    }
+   ]
+  },
+  {
+   "id": "FO-32",
+   "title": "F-032 · Deferring a job: 1 to 30 days",
+   "owner": "not confirmed",
+   "rules": [
+    "R-011"
+   ],
+   "status": "not confirmed",
+   "src": [
+    "fn acDefer",
+    "fn renderAcDefer",
+    "fn acDeferSubmit",
+    "fn acDeferActive",
+    "var AC_DEFER_REASONS",
+    "tests/today.test.js",
+    "tests/prodstuck.test.js",
+    "tests/freshaudit.test.js"
+   ],
+   "ask": "A deferred job set to come back on 22 Oct reappears on 23 Oct. Should it: A come back on 22 Oct as the sheet says, B stay as it is and the sheet say 'hidden until', C you want to see it first?",
+   "blocks": [
+    {
+     "p": "Return date must be after today and no more than 30 days away; 7 days is offered. Reason from a fixed list. The job is hidden while the return date >= today."
+    },
+    {
+     "table": {
+      "head": [
+       "Unit",
+       "Rounding",
+       "Where in code",
+       "Ruling",
+       "Test that proves it"
+      ],
+      "rows": [
+       [
+        "days",
+        "whole days",
+        "acDefer, acDeferActive",
+        "no dated ruling found",
+        "tests/today.test.js (deferred jobs hidden)"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Worked example: deferred on 15 Oct until 22 Oct: hidden through 22 Oct, back on 23 Oct."
+    },
+    {
+     "note": "The sheet says 'Comes back on' the date picked, but the code keeps it hidden on that date too, so it comes back the day after."
+    }
+   ]
+  },
+  {
+   "id": "FO-33",
+   "title": "F-033 · 'Who is on it' mark",
+   "owner": "not confirmed",
+   "rules": [
+    "R-031"
+   ],
+   "status": "not confirmed",
+   "src": [
+    "fn tdTake",
+    "fn tdTakenBy",
+    "fn tdTakenTag",
+    "tests/shell.test.js"
+   ],
+   "ask": "The 'X is on it' tag shows for 8 hours. Is that: A right, B one shift, C until the end of the day?",
+   "blocks": [
+    {
+     "p": "Opening a job from Today marks it 'X is on it'. The mark shows for 8 hours; marks older than 1 day are dropped when the next mark is saved. It does not lock the job."
+    },
+    {
+     "table": {
+      "head": [
+       "Unit",
+       "Rounding",
+       "Where in code",
+       "Ruling",
+       "Test that proves it"
+      ],
+      "rows": [
+       [
+        "hours",
+        "exact (ms)",
+        "tdTakenBy 8 x 3600000; tdTake 86400000",
+        "24x 'Who is on it' (changelog 2026-09-23x); the 8 hours not found as a ruling",
+        "tests/shell.test.js"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Worked example: Saad opens a Ship job at 09:00: Shoaib sees 'Saad is on it' until 17:00."
+    }
+   ]
+  },
+  {
+   "id": "FO-34",
+   "title": "F-034 · Sample feedback after 30 days",
+   "owner": "KAM",
+   "rules": [
+    "R-005"
+   ],
+   "status": "confirmed",
+   "src": [
+    "var SMP_FEEDBACK_DAYS",
+    "fn smpFeedbackDue",
+    "tests/samples.test.js"
+   ],
+   "blocks": [
+    {
+     "p": "When a sample has been dispatched or delivered for 30 calendar days or more with no feedback, the person who asked gets Sample feedback."
+    },
+    {
+     "table": {
+      "head": [
+       "Unit",
+       "Rounding",
+       "Where in code",
+       "Ruling",
+       "Test that proves it"
+      ],
+      "rows": [
+       [
+        "days",
+        "whole calendar days",
+        "SMP_FEEDBACK_DAYS=30",
+        "25o, 25 Sep 2026 (no separate ruling for 30 found)",
+        "tests/samples.test.js"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Worked example: sent 1 Oct, no feedback: the job comes on 31 Oct."
+    }
+   ]
+  },
+  {
+   "id": "FO-35",
+   "title": "F-035 · Late entry allowances (back-dating)",
+   "owner": "COO",
+   "rules": [
+    "R-001"
+   ],
+   "status": "confirmed",
+   "src": [
+    "var EV_DEFAULT_THRESHOLD",
+    "fn evThreshold",
+    "fn evDaysLate",
+    "fn evStamp",
+    "fn evDateGate",
+    "o2s.html changelog 2026-10-07a, 2026-10-15e",
+    "tests/audit15e.test.js",
+    "tests/shell.test.js"
+   ],
+   "blocks": [
+    {
+     "p": "Days late = calendar days from the date typed to today (plant time). Late when days late > the allowance; a late entry needs a reason of at least 6 characters (evDateGate) and counts against the department's current number. A date in the future is refused. The COO may change the allowances in master data."
+    },
+    {
+     "table": {
+      "head": [
+       "Unit",
+       "Rounding",
+       "Where in code",
+       "Ruling",
+       "Test that proves it"
+      ],
+      "rows": [
+       [
+        "days",
+        "whole calendar days",
+        "EV_DEFAULT_THRESHOLD",
+        "07a 'Late means a later day'; 15e (shift and packing from 2 days old need a reason)",
+        "tests/audit15e.test.js"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Worked example: packing done 13 Oct, entered 15 Oct: 2 days > 1, so a reason is needed. Entered 14 Oct: 1 day, not late. A lot inspection entered the next day is late."
+    },
+    {
+     "note": "Corrected 16 Oct 2026 (independent check against the code): evDateGate refuses a late entry whose reason is shorter than 6 characters, and any future date."
+    }
+   ]
+  },
+  {
+   "id": "FO-36",
+   "title": "F-036 · Calendar days in plant time",
+   "owner": "COO",
+   "rules": [
+    "R-001",
+    "R-030"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn calDays",
+    "fn localDateOf",
+    "fn evToday",
+    "o2s.html comments 25m, 07h",
+    "tests/audit15e.test.js"
+   ],
+   "blocks": [
+    {
+     "p": "calDays(from, to) = whole days between the 2 dates, each read as a Pakistan date (UTC + 5 hours, no summer time). A same-day entry is 0 days."
+    },
+    {
+     "table": {
+      "head": [
+       "Unit",
+       "Rounding",
+       "Where in code",
+       "Ruling",
+       "Test that proves it"
+      ],
+      "rows": [
+       [
+        "days",
+        "Math.round of whole days",
+        "calDays, localDateOf",
+        "25m and 07h (a laptop on UTC counted the wrong day)",
+        "tests/audit15e.test.js"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Worked example: a stamp at 2026-10-14T20:30Z is 15 Oct in Pakistan, so it is 0 days old on 15 Oct."
+    }
+   ]
+  },
+  {
+   "id": "FO-37",
+   "title": "F-037 · Rounding allowances: delivered, fully inspected",
+   "owner": "COO",
+   "rules": [
+    "R-009"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn lineBucket",
+    "fn qcFull",
+    "fn receivePR",
+    "tests/fixesD.test.js",
+    "tests/closedshortbucket.test.js"
+   ],
+   "blocks": [
+    {
+     "p": "Delivered when delivered >= ordered - 0.5. Fully inspected when passed > 0 and passed >= ordered - min(0.5, 1% of ordered). Most other 'equal' tests use 0.5 Kg/L; a PR closes when received >= required - 0.001."
+    },
+    {
+     "table": {
+      "head": [
+       "Unit",
+       "Rounding",
+       "Where in code",
+       "Ruling",
+       "Test that proves it"
+      ],
+      "rows": [
+       [
+        "Kg/L",
+        "-",
+        "lineBucket, qcFull, receivePR",
+        "07h (D7) for qcFull; 24i for delivered by quantity",
+        "tests/fixesD.test.js ('999.6 of 1000 is fully inspected; 999 is not')"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Worked example: ordered 1,000: 999.6 passed is fully inspected, 999 is not. Ordered 20: 19.8 is full (1% = 0.2)."
+    }
+   ]
+  },
+  {
+   "id": "FO-38",
+   "title": "F-038 · Short close: the gap and the packed check",
+   "owner": "Plant Manager",
+   "rules": [
+    "R-008"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn shortCloseGap",
+    "fn scFreeze",
+    "fn scPackedConflict",
+    "fn shortCloseAgainstUs",
+    "fn aggOpen",
+    "o2s.html changelog 2026-09-23c, 2026-10-06b",
+    "tests/shortclose.test.js",
+    "tests/closereason.test.js",
+    "tests/shortclosereport.test.js"
+   ],
+   "blocks": [
+    {
+     "p": "Gap = max(0, round2(ordered at close - delivered at close)), frozen at the moment of asking. 'We could not supply' and 'Raw material never arrived' are refused when open = ordered - delivered > 0.5 and packed but not delivered >= open - 0.5. A reason marked ours counts against us: We could not supply, Raw material never arrived, Price credit or terms, and Other (an unknown code counts against us too). The 3 customer reasons and Supplied from stock outside O2S do not. Fulfilment (aggOpen) leaves closed lines out on both sides; ordered is never rewritten."
+    },
+    {
+     "table": {
+      "head": [
+       "Unit",
+       "Rounding",
+       "Where in code",
+       "Ruling",
+       "Test that proves it"
+      ],
+      "rows": [
+       [
+        "Kg/L",
+        "2 decimals",
+        "shortCloseGap, scPackedConflict, aggOpen",
+        "Tahir, 23 Sep 2026 (no close counts against us in fulfilment); 6 Oct 2026 (Arain Traders, reason must fit the stock)",
+        "tests/shortclose.test.js, tests/closereason.test.js"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Worked example: ordered 30,000, delivered 18,000: gap 12,000, the order still reads 30,000. Ordered 2,000, delivered 0, packed 2,000: 'We could not supply' is refused."
+    },
+    {
+     "note": "Corrected 16 Oct 2026 (independent check against the code): Supplied from stock outside O2S is ours:false but is not a customer reason, so the earlier wording was wrong for it (SHORTCLOSE_REASONS, shortCloseAgainstUs)."
+    }
+   ]
+  },
+  {
+   "id": "FO-39",
+   "title": "F-039 · Stock reserved for trucks (reconcileLotShipKgV1)",
+   "owner": "Supply Chain",
+   "rules": [
+    "R-013",
+    "R-009"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn reconcileLotShipKgV1",
+    "fn ensureState (runs it on every load)",
+    "o2s.html changelog 2026-10-15f",
+    "OP-HANDOFF-O2S.md 15 Oct 2026 (8), (9), (12)",
+    "tests/audit15f.test.js",
+    "tests/review25m.test.js"
+   ],
+   "blocks": [
+    {
+     "p": "Per order line, packing runs are sorted oldest first (date, then id). A truck planned from 15f (lotExact) reserves its own runs, each capped at that run's QA-passed Kg; any overflow or a run not in the line's pool goes to 'loose'. To spread = max(0, dispatched - Kg of released exact trucks) + Kg on not-yet-released older trucks + loose. Each run's shipKg = its exact Kg + min(to spread left, QA-passed - exact), oldest first."
+    },
+    {
+     "table": {
+      "head": [
+       "Unit",
+       "Rounding",
+       "Where in code",
+       "Ruling",
+       "Test that proves it"
+      ],
+      "rows": [
+       [
+        "Kg/L",
+        "none",
+        "reconcileLotShipKgV1",
+        "Tahir, 15 Oct 2026 (15f), forward only; checked live 15 Oct (12): 0 differences",
+        "tests/audit15f.test.js, tests/review25m.test.js"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Worked example: runs A, B, C of 500 QA-passed each, oldest A. An old truck dispatched 700: A 500, B 200, C 0. A 15f truck listing C for 500 and B for 200: C 500, B 200, A free."
+    }
+   ]
+  },
+  {
+   "id": "FO-40",
+   "title": "F-040 · Duplicate shipment rows self-heal (dedupeShipmentsV1)",
+   "owner": "Supply Chain",
+   "rules": [
+    "R-009"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn dedupeShipmentsV1",
+    "tests/review25m.test.js"
+   ],
+   "blocks": [
+    {
+     "p": "For each PO and product, only trucks already counted in dispatched: while the shipment rows add up to more than dispatched + 1, remove the duplicate row (same DC) whose Kg is closest to the excess, at most 50 times. Never below dispatched."
+    },
+    {
+     "table": {
+      "head": [
+       "Unit",
+       "Rounding",
+       "Where in code",
+       "Ruling",
+       "Test that proves it"
+      ],
+      "rows": [
+       [
+        "Kg/L",
+        "1 Kg/L allowance",
+        "dedupeShipmentsV1",
+        "25m",
+        "tests/review25m.test.js"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Worked example: dispatched 1,000, rows of 1,000 and 1,000 on the same DC: one row is removed."
+    }
+   ]
+  },
+  {
+   "id": "FO-41",
+   "title": "F-041 · Job age colours and urgency on Today",
+   "owner": "COO",
+   "rules": [
+    "R-030"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn tdTags",
+    "fn actUrg",
+    "fn actSort",
+    "fn acRiskOf",
+    "o2s.html changelog 2026-10-07h",
+    "tests/actioncenter.test.js",
+    "tests/shell.test.js"
+   ],
+   "blocks": [
+    {
+     "p": "Chip: 0 days green 'new today', 1 to 6 days amber, 7 days or more red. Urgency: waiting for the client 3 (never urgent); overdue order 0; a job with a deadline: due today or past 0, tomorrow 1, in 2 days 2, else 3; otherwise 7+ days 1, 3+ days or a hot order 2, else 3. Sort: urgency, nearest deadline, days overdue, days waiting."
+    },
+    {
+     "table": {
+      "head": [
+       "Unit",
+       "Rounding",
+       "Where in code",
+       "Ruling",
+       "Test that proves it"
+      ],
+      "rows": [
+       [
+        "days",
+        "whole days",
+        "tdTags, actUrg",
+        "07h: one rule for a wait, amber 1 to 6, red from 7",
+        "tests/actioncenter.test.js"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Worked example: a Ship job waiting 4 days on a Normal order: amber chip, urgency 2."
+    }
+   ]
+  },
+  {
+   "id": "FO-42",
+   "title": "F-042 · PO tracker: due soon, ageing, stalled",
+   "owner": "Supply Chain",
+   "rules": [
+    "R-030"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn attentionOf",
+    "fn orderAging",
+    "fn isStalled",
+    "fn t2sev",
+    "fn lineOverdue",
+    "tests/actioncenter.test.js"
+   ],
+   "blocks": [
+    {
+     "p": "Due soon: not overdue and a line due in 0 to 3 days. Ageing (t2sev warn): 3 days or more in the current stage, and not overdue. Stalled: 7 days or more in the current stage and not overdue. Overdue: committed date on or before today (the code compares the committed date at midnight with the time now, so a line is already overdue on its committed day, 0 days past), not delivered within 0.5 or closed short, and the committed date not before the PO was received."
+    },
+    {
+     "table": {
+      "head": [
+       "Unit",
+       "Rounding",
+       "Where in code",
+       "Ruling",
+       "Test that proves it"
+      ],
+      "rows": [
+       [
+        "days",
+        "Math.round for due soon; calendar days for stage age",
+        "attentionOf, isStalled, t2sev",
+        "no dated ruling found",
+        "tests/actioncenter.test.js (attentionOf); no test for isStalled"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Worked example: a line committed for 17 Oct, today 15 Oct: due soon (within 3 days). On 17 Oct itself it is overdue."
+    },
+    {
+     "note": "isStalled and t2sev are not pinned by a test."
+    },
+    {
+     "note": "Corrected 16 Oct 2026 (independent check against the code): lineOverdue compares the committed date (read as midnight) with TODAY, which carries the time of day, so the committed day itself counts as overdue; t2sev is warn from 3 days with no upper end."
+    }
+   ]
+  },
+  {
+   "id": "FO-43",
+   "title": "F-043 · Committed date from the lead-time model",
+   "owner": "not confirmed",
+   "rules": [
+    "R-010"
+   ],
+   "status": "not confirmed",
+   "src": [
+    "fn leadCfg",
+    "fn leadDays",
+    "fn computeCommitted",
+    "fn procureDaysFor",
+    "fn rateForBrand",
+    "data/state.json masters.leadTime and productionGroups (July snapshot)"
+   ],
+   "ask": "New order fills the committed date from a lead-time model (July snapshot: 5,000 Kg a day, QC 1 day, dispatch 1 day, raw material 5 days, at least 3 days). Are these the figures you want: A yes, B I will give new figures, C stop filling the date for me?",
+   "blocks": [
+    {
+     "p": "Committed = received + max(procure days + max(ceil(qty / rate), 1) + QC days + dispatch days, minimum days). Procure days = the slowest raw material not in stock (its lead days, else the default). Rate = the brand's production group rate, else the default rate. ensureMasters fills any missing setting on every load with rate 5,000 Kg/day, QC 1, dispatch 2, RM 7, minimum 3, and once changed an old 8,000 rate to 5,000 (_rate5kV1). leadCfg falls back to 8,000 only when masters.leadTime is missing, which ensureState does not allow."
+    },
+    {
+     "table": {
+      "head": [
+       "Unit",
+       "Rounding",
+       "Where in code",
+       "Ruling",
+       "Test that proves it"
+      ],
+      "rows": [
+       [
+        "days",
+        "ceil on production days",
+        "leadCfg, computeCommitted",
+        "no ruling found",
+        "no test found"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Worked example: July snapshot masters: rate 5,000, QC 1, dispatch 1, RM 5, minimum 3; Humic group 10,000 a day. A 20,000 Kg Humic line with all RM in stock: 0 + ceil(20,000 / 10,000) = 2 + 1 + 1 = 4 days after received."
+    },
+    {
+     "note": "Corrected 16 Oct 2026 (independent check against the code): the draft gave 8,000 as the code default; the default actually written is 5,000 (ensureMasters)."
+    }
+   ]
+  },
+  {
+   "id": "FO-44",
+   "title": "F-044 · Saving: timing and retries",
+   "owner": "COO",
+   "rules": [
+    "R-008"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn save",
+    "fn saveNow",
+    "fn tdAfterSave",
+    "/home/claude/src/server.js POST /api/state",
+    "tests/fixes26c.test.js",
+    "tests/firstsave.test.js"
+   ],
+   "blocks": [
+    {
+     "p": "A change is sent 400 ms after the last edit. On a clash (409) the merged copy is saved again up to 5 times straight away, then every 3 seconds until it goes. The 'Now waiting on X' message after a job is checked for 15 minutes after the job was opened."
+    },
+    {
+     "table": {
+      "head": [
+       "Unit",
+       "Rounding",
+       "Where in code",
+       "Ruling",
+       "Test that proves it"
+      ],
+      "rows": [
+       [
+        "milliseconds",
+        "-",
+        "save (400), saveNow (_saveRetries < 5, 3000)",
+        "26c: never stop with our change unsent",
+        "tests/fixes26c.test.js"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Worked example: 2 people save within the same second: the second gets 409, merges, and saves again at once."
+    }
+   ]
+  },
+  {
+   "id": "FO-45",
+   "title": "F-045 · Minimum written reasons",
+   "owner": "COO",
+   "rules": [
+    "R-011",
+    "R-008"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn doReopenBatch",
+    "fn coaSendBack",
+    "fn coaDeviation",
+    "fn coaRework",
+    "fn saveWaitClient",
+    "fn prAskAgain",
+    "fn rejectDC",
+    "fn submit (price reason check)",
+    "tests/audit15g.test.js",
+    "tests/fixes26a.test.js",
+    "tests/fixesB.test.js"
+   ],
+   "blocks": [
+    {
+     "p": "A reason shorter than the minimum is refused (counted after trimming spaces)."
+    },
+    {
+     "table": {
+      "head": [
+       "Unit",
+       "Rounding",
+       "Where in code",
+       "Ruling",
+       "Test that proves it"
+      ],
+      "rows": [
+       [
+        "characters",
+        "-",
+        "see the table",
+        "each with its build (below)",
+        "tests/audit15g.test.js, tests/fixes26a.test.js"
+       ]
+      ]
+     }
+    },
+    {
+     "table": {
+      "head": [
+       "Reason for",
+       "Minimum"
+      ],
+      "rows": [
+       [
+        "Reopen a batch",
+        "10 (and a reason code)"
+       ],
+       [
+        "Send a COA back",
+        "10"
+       ],
+       [
+        "Accept a deviation",
+        "5"
+       ],
+       [
+        "Send a lot to rework",
+        "5"
+       ],
+       [
+        "Waiting for client (mark or end)",
+        "5"
+       ],
+       [
+        "Ask the CFO again on a refused PR",
+        "5"
+       ],
+       [
+        "Reject a DC",
+        "5"
+       ],
+       [
+        "Price more than 5% from the last",
+        "5"
+       ],
+       [
+        "Refuse a close short, send a truck back",
+        "any text"
+       ],
+       [
+        "Late entry (older than the allowance)",
+        "6"
+       ],
+       [
+        "Correct a record, Remove shift output",
+        "10"
+       ],
+       [
+        "Ask for a batch number fix",
+        "10"
+       ],
+       [
+        "Ask for a free sample",
+        "10"
+       ],
+       [
+        "Send back a PO",
+        "5"
+       ],
+       [
+        "Refuse a PR",
+        "5"
+       ],
+       [
+        "Send back a customer",
+        "5"
+       ],
+       [
+        "Fail a lot or a truck at QA (remarks)",
+        "5"
+       ],
+       [
+        "Clear a QA hold, correct a failed lot",
+        "5"
+       ],
+       [
+        "Rework done",
+        "5"
+       ],
+       [
+        "Delivery with an issue (note)",
+        "5"
+       ],
+       [
+        "Different batch at loading",
+        "5"
+       ],
+       [
+        "Refuse a free sample, or approve your own",
+        "5"
+       ],
+       [
+        "Fail a free sample at QA",
+        "5"
+       ],
+       [
+        "Refuse a batch number fix, or say no reprint is needed",
+        "5"
+       ],
+       [
+        "New password (own)",
+        "6"
+       ]
+      ]
+     }
+    },
+    {
+     "note": "Corrected 16 Oct 2026 (independent check against the code): the table listed 9 cases; the code has more minimum lengths (dfSubmitCorrect, applyCorrect, doRemoveLot, bfxSubmit, smpSubmit 10; evDateGate 6; sendBackPO, refusePR, sendBackCustomer, lotQASubmit, dispQASubmit, clearQaHold, lotQACorrect, reworkDone, confirmDelivery, truckSwapBatch, smpDecide, smpCheck, bfxDecide, bfxFollowDone 5). They are added."
+    }
+   ]
+  },
+  {
+   "id": "FO-46",
+   "title": "F-046 · Go-live dates that switch rules on",
+   "owner": "COO",
+   "rules": [
+    "R-017",
+    "R-026"
+   ],
+   "status": "confirmed",
+   "src": [
+    "var DC_GO_LIVE",
+    "var QA_GO_LIVE",
+    "fn dcControlOn",
+    "fn qaRequiredOn",
+    "o2s.html changelog 2026-09-22b",
+    "tests/qagate.test.js",
+    "tests/gatepassqa.test.js"
+   ],
+   "blocks": [
+    {
+     "p": "Trucks dated on or after 1 Jul 2026 go through the DC control flow (planned, loading, gate pass, release) and FED applies on new POs. Trucks dated on or after 23 Sep 2026 need a passed pre-shipment inspection."
+    },
+    {
+     "table": {
+      "head": [
+       "Unit",
+       "Rounding",
+       "Where in code",
+       "Ruling",
+       "Test that proves it"
+      ],
+      "rows": [
+       [
+        "date",
+        "-",
+        "DC_GO_LIVE='2026-07-01', QA_GO_LIVE='2026-09-23'",
+        "changelog 2026-09-22b (pre-shipment inspection starts 23 September)",
+        "tests/qagate.test.js"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Worked example: a truck dated 20 Sep needs no inspection; one dated 23 Sep does."
+    }
+   ]
+  },
+  {
+   "id": "FO-47",
+   "title": "F-047 · DC and gate pass numbers",
+   "owner": "Warehouse",
+   "rules": [
+    "R-009"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn nextGatePassNo",
+    "fn smpDispatch",
+    "fn dupNumbers",
+    "fn renumberGatePass",
+    "tests/fixesA.test.js",
+    "tests/fixes26c.test.js"
+   ],
+   "blocks": [
+    {
+     "p": "Next gate pass = GP- and the highest number on any truck or free sample + 1, 4 digits (one book). A free sample's DC is SDC- and its gate pass GP-, 4 digits. A truck gate pass is counted in the person's own copy, so 2 people can take the same number; the clash job asks to renumber one that has not left (LG-22). A free sample's numbers are taken from the higher of this copy and the server's latest copy (smpDispatch), which narrows the gap but does not close it."
+    },
+    {
+     "table": {
+      "head": [
+       "Unit",
+       "Rounding",
+       "Where in code",
+       "Ruling",
+       "Test that proves it"
+      ],
+      "rows": [
+       [
+        "number",
+        "-",
+        "nextGatePassNo",
+        "25o (one gate pass book); 07i (clash)",
+        "tests/fixesA.test.js"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Worked example: highest gate pass GP-0141 on a truck and GP-0142 on a sample: the next truck gets GP-0143."
+    }
+   ]
+  },
+  {
+   "id": "FO-48",
+   "title": "F-048 · Read and sign: reading time, time to read again, the name match",
+   "owner": "COO",
+   "rules": [
+    "R-011"
+   ],
+   "status": "confirmed",
+   "src": [
+    "var RS_REREAD_MS",
+    "var RS_MS_PER_WORD",
+    "var RS_BRIEF",
+    "fn rsMinMs, rsWords",
+    "fn rsNameOk, rsNorm",
+    "fn rsSign, rsWaitSaved"
+   ],
+   "blocks": [
+    {
+     "p": "A part's question shows only when the end of the part has been on screen AND the part has been open for its reading time: 0.3 seconds per word of the part (its lines, picture and what you do now, not the question), at least 5 seconds. After a wrong answer the part is shown again, its answers come in a new order, and the question returns after the end is on screen again and half the reading time has passed, at least 8 seconds."
+    },
+    {
+     "table": {
+      "head": [
+       "Name",
+       "Value",
+       "Constant"
+      ],
+      "rows": [
+       [
+        "Reading time per word",
+        "0.3 seconds",
+        "RS_MS_PER_WORD=300"
+       ],
+       [
+        "Shortest reading time",
+        "5 seconds",
+        "rsMinMs"
+       ],
+       [
+        "Time to read again after a wrong answer",
+        "half the reading time, at least 8 seconds",
+        "RS_REREAD_MS=8000"
+       ],
+       [
+        "About N minutes on the page",
+        "all words of the parts for the role, divided by 100, at least 1",
+        "renderReadSign"
+       ],
+       [
+        "Waiting for the server to confirm the sign",
+        "15 seconds, then Not saved yet",
+        "RS_SAVE_WAIT_MS=15000"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "The typed name must match the account name after lower-casing, turning every run of characters that are not letters or digits (in any script) into 1 space, and trimming (rsNorm). So 'ali  RAZA.' matches Ali Raza, but 'AliRaza' does not. An account with no name takes any name of 2 or more characters. On a shared login (rsShared: the same logins Back Office calls shared, never the COO) any own name of 3 or more letters is taken."
+    },
+    {
+     "note": "Worked example: a part of 163 words opens at 09:00:00. Its question cannot show before 09:00:49 (163 x 0.3 = 48.9 seconds), and only once its end has been on screen. A wrong answer at 09:01:10 means the question returns no sooner than 09:01:34 (half of 48.9 is about 24.5 seconds, more than 8)."
+    }
+   ]
+  },
+  {
+   "id": "FO-99",
+   "title": "Limits and thresholds in one place",
+   "owner": "COO",
+   "rules": [
+    "R-001",
+    "R-004",
+    "R-010",
+    "R-022",
+    "R-024",
+    "R-030",
+    "R-033"
+   ],
+   "status": "confirmed",
+   "src": [
+    "every item above"
+   ],
+   "blocks": [
+    {
+     "p": "Every limit on this tab in one list. 'not confirmed' in the ruling column means the figure is in the code but no ruling was found; each of those has its own question above."
+    },
+    {
+     "table": {
+      "head": [
+       "F",
+       "Limit",
+       "Value",
+       "Unit",
+       "Where in code",
+       "Rule",
+       "Ruling"
+      ],
+      "rows": [
+       [
+        "F-001",
+        "Batch over-make ceiling",
+        "115",
+        "% of plan",
+        "batchOverPct",
+        "R-033",
+        "12 Oct 2026, 2026-10-12b"
+       ],
+       [
+        "F-003",
+        "PO batch over-run",
+        "0 above ordered (0.001 allowance)",
+        "Kg/L",
+        "submitShiftLog",
+        "R-033",
+        "Guide R-033"
+       ],
+       [
+        "F-004",
+        "Variance that needs a reason",
+        "> 0.001",
+        "Kg/L",
+        "doCloseBatch",
+        "R-033",
+        "26a"
+       ],
+       [
+        "F-004",
+        "Variance that raises Yield short",
+        "> 0.5",
+        "Kg/L",
+        "yieldShortJobs",
+        "R-033",
+        "26c"
+       ],
+       [
+        "F-005",
+        "Reconcile must account for the remainder",
+        "within 0.5",
+        "Kg/L",
+        "saveReconcile",
+        "R-009",
+        "26a"
+       ],
+       [
+        "F-007",
+        "Packable must be above",
+        "0.5",
+        "Kg/L",
+        "batchPackNow",
+        "R-016",
+        "26 Aug"
+       ],
+       [
+        "F-009",
+        "True-up starts above",
+        "0.5",
+        "Kg/L",
+        "multiTrueUp",
+        "R-009",
+        "26a"
+       ],
+       [
+        "F-012",
+        "Big pack run",
+        "> 10,000 per entry or per shift run",
+        "Kg/L",
+        "PACK_FLAG_KG",
+        "R-004",
+        "15 Oct 2026, 2026-10-15a/b"
+       ],
+       [
+        "F-013",
+        "Price band on a new order",
+        "5",
+        "% of last net price",
+        "PRICE_BAND",
+        "R-010",
+        "24 Sep 2026, 2026-09-25d"
+       ],
+       [
+        "F-018",
+        "Run card for the rest shows above",
+        "0.5",
+        "Kg/L",
+        "plLineBaseItems",
+        "R-025",
+        "15g"
+       ],
+       [
+        "F-021",
+        "No output on an open batch",
+        "3",
+        "days",
+        "PL_STUCK_NO_OUTPUT_DAYS",
+        "R-022",
+        "12 Oct 2026"
+       ],
+       [
+        "F-021",
+        "Order line with nothing packed",
+        "7",
+        "days",
+        "PL_LINE_STUCK_DAYS",
+        "R-022",
+        "15 Oct 2026, 15f"
+       ],
+       [
+        "F-021",
+        "Held for orders, flagged",
+        "180",
+        "days",
+        "PL_HELD_FLAG_DAYS",
+        "R-022",
+        "12 Oct 2026, 2026-10-12c"
+       ],
+       [
+        "F-022",
+        "Made and waiting for the lab, or all packed and still open",
+        "2",
+        "days",
+        "PL_STUCK_MADE_OPEN_DAYS",
+        "R-022",
+        "not confirmed"
+       ],
+       [
+        "F-023",
+        "Stuck at packing job floor",
+        "2026-10-15",
+        "date",
+        "STUCK_JOB_SINCE",
+        "R-024",
+        "15g"
+       ],
+       [
+        "F-024",
+        "Pack job age floor",
+        "2026-10-08",
+        "date",
+        "PACK_JOB_SINCE",
+        "R-022",
+        "07i"
+       ],
+       [
+        "F-025",
+        "Production stalled",
+        "4",
+        "days without output",
+        "acEscalation TH 'Open Production'",
+        "R-022",
+        "SPEC-04; 15g"
+       ],
+       [
+        "F-026",
+        "Escalation: Acknowledge",
+        "1",
+        "days",
+        "acEscalation TH",
+        "R-030",
+        "see LG-12"
+       ],
+       [
+        "F-026",
+        "Escalation: RM Check",
+        "1",
+        "days",
+        "acEscalation TH",
+        "R-030",
+        "see LG-12"
+       ],
+       [
+        "F-026",
+        "Escalation: Receive",
+        "1",
+        "days",
+        "acEscalation TH",
+        "R-030",
+        "see LG-12"
+       ],
+       [
+        "F-026",
+        "Escalation: Lab QC",
+        "1",
+        "days",
+        "acEscalation TH",
+        "R-030",
+        "see LG-12"
+       ],
+       [
+        "F-026",
+        "Escalation: Correct COA",
+        "1",
+        "days",
+        "acEscalation TH",
+        "R-030",
+        "see LG-12"
+       ],
+       [
+        "F-026",
+        "Escalation: Assign sample",
+        "1",
+        "days",
+        "acEscalation TH",
+        "R-030",
+        "see LG-12"
+       ],
+       [
+        "F-026",
+        "Escalation: Review",
+        "1",
+        "days",
+        "acEscalation TH",
+        "R-030",
+        "see LG-12"
+       ],
+       [
+        "F-026",
+        "Escalation: Approve",
+        "1",
+        "days",
+        "acEscalation TH",
+        "R-030",
+        "see LG-12"
+       ],
+       [
+        "F-026",
+        "Escalation: Pack QC",
+        "2",
+        "days",
+        "acEscalation TH",
+        "R-030",
+        "see LG-12"
+       ],
+       [
+        "F-026",
+        "Escalation: Inspect",
+        "2",
+        "days",
+        "acEscalation TH",
+        "R-030",
+        "see LG-12"
+       ],
+       [
+        "F-026",
+        "Escalation: Ship",
+        "2",
+        "days",
+        "acEscalation TH",
+        "R-030",
+        "see LG-12"
+       ],
+       [
+        "F-026",
+        "Escalation: Open Production",
+        "4",
+        "days",
+        "acEscalation TH",
+        "R-030",
+        "see LG-12"
+       ],
+       [
+        "F-026",
+        "Escalation: Approve PR",
+        "1",
+        "days",
+        "acEscalation TH",
+        "R-030",
+        "see LG-12"
+       ],
+       [
+        "F-026",
+        "Escalation: Print price",
+        "3",
+        "days",
+        "acEscalation TH",
+        "R-030",
+        "see LG-12"
+       ],
+       [
+        "F-026",
+        "Escalation: Load",
+        "1",
+        "days",
+        "acEscalation TH",
+        "R-030",
+        "see LG-12"
+       ],
+       [
+        "F-026",
+        "Escalation: Gate Pass",
+        "1",
+        "days",
+        "acEscalation TH",
+        "R-030",
+        "see LG-12"
+       ],
+       [
+        "F-026",
+        "Escalation: Review truck",
+        "1",
+        "days",
+        "acEscalation TH",
+        "R-030",
+        "see LG-12"
+       ],
+       [
+        "F-026",
+        "Escalation: Release",
+        "1",
+        "days",
+        "acEscalation TH",
+        "R-030",
+        "see LG-12"
+       ],
+       [
+        "F-026",
+        "Escalation: Approve DC",
+        "1",
+        "days",
+        "acEscalation TH",
+        "R-030",
+        "see LG-12"
+       ],
+       [
+        "F-026",
+        "Escalation: Confirm delivery",
+        "99",
+        "days",
+        "acEscalation TH",
+        "R-030",
+        "see LG-12"
+       ],
+       [
+        "F-026",
+        "Escalation: Approve move",
+        "1",
+        "days",
+        "acEscalation TH",
+        "R-030",
+        "see LG-12"
+       ],
+       [
+        "F-026",
+        "Escalation: Approve close short",
+        "1",
+        "days",
+        "acEscalation TH",
+        "R-030",
+        "see LG-12"
+       ],
+       [
+        "F-026",
+        "Escalation: Pack",
+        "1",
+        "days",
+        "acEscalation TH",
+        "R-030",
+        "see LG-12"
+       ],
+       [
+        "F-026",
+        "Escalation: Pack from base",
+        "7",
+        "days",
+        "acEscalation TH",
+        "R-030",
+        "see LG-12"
+       ],
+       [
+        "F-026",
+        "Escalation: Check after move",
+        "2",
+        "days",
+        "acEscalation TH",
+        "R-030",
+        "see LG-12"
+       ],
+       [
+        "F-026",
+        "Escalation: Duplicate number",
+        "1",
+        "days",
+        "acEscalation TH",
+        "R-030",
+        "see LG-12"
+       ],
+       [
+        "F-027",
+        "Lab test late",
+        "> 0 past due",
+        "time",
+        "labLateBy",
+        "R-016",
+        "24r"
+       ],
+       [
+        "F-027",
+        "Lab late to Plant Manager",
+        "> 1",
+        "day past sample due",
+        "labV2Items",
+        "R-016",
+        "24r"
+       ],
+       [
+        "F-028",
+        "Lab cover safety net: wait",
+        ">= 1",
+        "day",
+        "labCoverNeeds",
+        "R-006",
+        "24v"
+       ],
+       [
+        "F-028",
+        "Lab cover safety net: time of day",
+        "from 12:00, not Sunday",
+        "hour",
+        "labCoverNeeds",
+        "R-006",
+        "24v"
+       ],
+       [
+        "F-029",
+        "Truck review window",
+        "2",
+        "hours",
+        "TRUCK_REVIEW_HOURS",
+        "R-003",
+        "25e"
+       ],
+       [
+        "F-029",
+        "Sample review window",
+        "2",
+        "hours",
+        "smpReviewLapsed",
+        "R-005",
+        "25o"
+       ],
+       [
+        "F-030",
+        "Delivery: Supply Chain added",
+        "1",
+        "day after release",
+        "deliveryJobs",
+        "R-030",
+        "25m"
+       ],
+       [
+        "F-030",
+        "Delivery: Plant Manager added",
+        "2",
+        "days after release",
+        "deliveryJobs",
+        "R-030",
+        "25m"
+       ],
+       [
+        "F-031",
+        "Wait for client",
+        "1 to 30",
+        "days ahead",
+        "saveWaitClient",
+        "R-024",
+        "15g"
+       ],
+       [
+        "F-032",
+        "Defer a job",
+        "1 to 30 (7 offered)",
+        "days",
+        "acDeferSubmit",
+        "R-011",
+        "not confirmed"
+       ],
+       [
+        "F-033",
+        "Who is on it shown",
+        "8",
+        "hours",
+        "tdTakenBy",
+        "R-031",
+        "not confirmed"
+       ],
+       [
+        "F-034",
+        "Sample feedback due",
+        "30",
+        "days after sent",
+        "SMP_FEEDBACK_DAYS",
+        "R-005",
+        "25o"
+       ],
+       [
+        "F-035",
+        "Late: packing run",
+        "1",
+        "day",
+        "EV_DEFAULT_THRESHOLD.pack",
+        "R-001",
+        "07a"
+       ],
+       [
+        "F-035",
+        "Late: COA sign-off",
+        "1",
+        "day",
+        "EV_DEFAULT_THRESHOLD.coa",
+        "R-001",
+        "07a"
+       ],
+       [
+        "F-035",
+        "Late: shift output",
+        "1",
+        "day",
+        "EV_DEFAULT_THRESHOLD.shift",
+        "R-001",
+        "07a"
+       ],
+       [
+        "F-035",
+        "Late: delivery",
+        "2",
+        "days",
+        "EV_DEFAULT_THRESHOLD.deliver",
+        "R-001",
+        "07a"
+       ],
+       [
+        "F-035",
+        "Late: lot, shipment and pre-shipment inspection, dispatch",
+        "0",
+        "days",
+        "EV_DEFAULT_THRESHOLD lotqa, dispqa, packinsp, ship",
+        "R-001",
+        "07a"
+       ],
+       [
+        "F-037",
+        "Equal within",
+        "0.5",
+        "Kg/L",
+        "throughout",
+        "R-009",
+        "24i"
+       ],
+       [
+        "F-037",
+        "Fully inspected within",
+        "min(0.5, 1% of ordered)",
+        "Kg/L",
+        "qcFull",
+        "R-009",
+        "07h"
+       ],
+       [
+        "F-041",
+        "Today chip amber",
+        "1 to 6",
+        "days",
+        "tdTags",
+        "R-030",
+        "07h"
+       ],
+       [
+        "F-041",
+        "Today chip red",
+        ">= 7",
+        "days",
+        "tdTags",
+        "R-030",
+        "07h"
+       ],
+       [
+        "F-042",
+        "PO due soon",
+        "0 to 3",
+        "days ahead",
+        "attentionOf",
+        "R-030",
+        "not found"
+       ],
+       [
+        "F-042",
+        "PO stalled in a stage",
+        ">= 7",
+        "days",
+        "isStalled",
+        "R-030",
+        "not found"
+       ],
+       [
+        "F-043",
+        "Lead time minimum",
+        "3 (code default)",
+        "days",
+        "leadCfg",
+        "R-010",
+        "not confirmed"
+       ],
+       [
+        "F-044",
+        "Save delay",
+        "400",
+        "ms",
+        "save",
+        "R-008",
+        "-"
+       ],
+       [
+        "F-044",
+        "Save retries before slowing",
+        "5",
+        "tries",
+        "saveNow",
+        "R-008",
+        "26c"
+       ],
+       [
+        "F-044",
+        "Slow retry",
+        "3,000",
+        "ms",
+        "saveNow",
+        "R-008",
+        "26c"
+       ],
+       [
+        "F-045",
+        "Reason: reopen a batch",
+        "10",
+        "characters",
+        "doReopenBatch",
+        "R-011",
+        "2026-08-22"
+       ],
+       [
+        "F-045",
+        "Reason: send a COA back",
+        "10",
+        "characters",
+        "coaSendBack",
+        "R-011",
+        "26a"
+       ],
+       [
+        "F-045",
+        "Reason: accept a deviation",
+        "5",
+        "characters",
+        "coaDeviation",
+        "R-011",
+        "07f"
+       ],
+       [
+        "F-045",
+        "Reason: send a lot to rework",
+        "5",
+        "characters",
+        "coaRework",
+        "R-011",
+        "26c"
+       ],
+       [
+        "F-045",
+        "Reason: waiting for client",
+        "5",
+        "characters",
+        "saveWaitClient",
+        "R-024",
+        "15g"
+       ],
+       [
+        "F-045",
+        "Reason: ask the CFO again",
+        "5",
+        "characters",
+        "prAskAgain",
+        "R-011",
+        "26a"
+       ],
+       [
+        "F-045",
+        "Reason: reject a DC",
+        "5",
+        "characters",
+        "rejectDC",
+        "R-011",
+        "26a"
+       ],
+       [
+        "F-045",
+        "Reason: a price more than 5% away",
+        "5",
+        "characters",
+        "New order submit",
+        "R-010",
+        "25d"
+       ],
+       [
+        "F-046",
+        "DC control from",
+        "2026-07-01",
+        "date",
+        "DC_GO_LIVE",
+        "R-026",
+        "-"
+       ],
+       [
+        "F-046",
+        "Pre-shipment inspection from",
+        "2026-09-23",
+        "date",
+        "QA_GO_LIVE",
+        "R-017",
+        "2026-09-22b"
+       ],
+       [
+        "F-048",
+        "Read again after a wrong answer",
+        "8",
+        "seconds",
+        "RS_REREAD_MS",
+        "R-011",
+        "16a"
+       ],
+       [
+        "F-035",
+        "Reason for a late entry",
+        "6",
+        "characters",
+        "evDateGate",
+        "R-001",
+        "07a"
+       ],
+       [
+        "F-042",
+        "PO ageing in a stage",
+        ">= 3",
+        "days",
+        "t2sev",
+        "R-030",
+        "not found"
+       ],
+       [
+        "F-045",
+        "Reason: Correct a record, Remove shift output, batch number fix, free sample request",
+        "10",
+        "characters",
+        "dfSubmitCorrect, doRemoveLot, bfxSubmit, smpSubmit",
+        "R-011",
+        "-"
+       ],
+       [
+        "F-045",
+        "Reason: send back a PO or customer, refuse a PR, QA fail remarks, rework done, batch change at loading, delivery issue, sample refusal",
+        "5",
+        "characters",
+        "see FO-45",
+        "R-011",
+        "-"
+       ]
+      ]
+     }
+    },
+    {
+     "note": "Corrected 16 Oct 2026 (independent check against the code): rows added for the late-entry reason (6), PO ageing (3 days) and the minimum reasons found in the code (FO-45)."
+    }
+   ]
+  }
+ ]
+}

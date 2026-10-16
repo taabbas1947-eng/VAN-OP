@@ -1,0 +1,1910 @@
+{
+ "tab": "dataflows",
+ "title": "Data flow diagrams",
+ "ver": "2026-10-16a",
+ "date": "2026-10-16",
+ "owner": "not confirmed",
+ "intro": "Level 0 shows O2S and everything it talks to. Level 1 shows, for each process, what data moves between which data lists, named as they are in the data (orders, orders[].lines[], batches, batches[].lots[], packingLog, shipments and so on), with the o2s.html function that moves it. Level 2 lists every move for the processes with more than 6. Traced from build 2026-10-15g.",
+ "items": [
+  {
+   "id": "DF-00",
+   "title": "Level 0: O2S and everything it talks to",
+   "owner": "COO",
+   "rules": [
+    "R-019",
+    "R-020",
+    "R-035",
+    "R-036"
+   ],
+   "status": "confirmed",
+   "src": [
+    "/home/claude/src/server.js (/api/login, /api/state, /api/rev, /api/users, /api/me, /api/me/password, stripUsers, catch-all serves o2s.html)",
+    "/home/claude/src/apps/o2s/public-routes.js (GET /api/public/batch/:batch, /report.pdf, ALLOWED_ORIGINS, RATE)",
+    "fn doLogin",
+    "fn saveNow",
+    "fn startSync (7 second rev check)",
+    "fn loadUsers",
+    "fn saveMyPassword",
+    "fn checkForNewBuild",
+    "fn printPO",
+    "fn printDC",
+    "fn printGatePass",
+    "fn printPSI",
+    "fn printCOA",
+    "fn printInspect",
+    "fn printLabAssign",
+    "fn smpPrint",
+    "SCREENS (owners per screen)",
+    "/home/claude/src/docs/ACCESS-MODEL.md (modules read GET /api/me)",
+    "OP-HANDOFF-PLATFORM.md"
+   ],
+   "blocks": [
+    {
+     "p": "O2S is 1 browser app (o2s.html) used by every role. It keeps all its data as 1 record set on the server and pulls or pushes it whole. Nothing else writes O2S data. The only outside reader is the public batch check for van.com.pk, which is read-only."
+    },
+    {
+     "list": [
+      "People: Finance, Finance Desk Officer, KAM, CFO, COO, Supply Chain, Supply Chain Officer, Warehouse, Production, Production Manager, Plant Manager, Lab Rep, AQCM, QCM, QA Inspector. Each signs in with his own login; the role decides the buttons.",
+      "Browser app: o2s.html, served by the server at /o2s (the catch-all route).",
+      "Server: the O2S routes in server.js and the store behind them (getState, setState, setStateGuarded, listUsers).",
+      "Platform: sign-in and the module roles table (user_module_roles), shared with PD.",
+      "van.com.pk: the public lab report check, by the batch number printed on the bag.",
+      "Printed papers: PO, delivery challan (DC), gate pass, pre-shipment inspection report (PSI), COA, inspection log, lab assignment sheet, FOC sample DC and gate pass."
+     ]
+    },
+    {
+     "table": {
+      "head": [
+       "From",
+       "Data moved",
+       "To",
+       "Function"
+      ],
+      "rows": [
+       [
+        "Person (any role)",
+        "username and password",
+        "server POST /api/login",
+        "doLogin (server returns a token and name, username, role)"
+       ],
+       [
+        "Browser app",
+        "token; asks for every O2S list",
+        "server GET /api/state",
+        "boot load and startSync (the users list is removed by stripUsers)"
+       ],
+       [
+        "Browser app",
+        "current revision number only, every 7 seconds while the tab is open and no form is being filled",
+        "server GET /api/rev",
+        "startSync (full /api/state is pulled only when the rev changed, then 3-way merged)"
+       ],
+       [
+        "Browser app",
+        "the whole data set (dataOnly(state)) with header X-Base-Rev",
+        "server POST /api/state",
+        "save then saveNow (409 conflict: merge3 of base, mine and theirs, then save again)"
+       ],
+       [
+        "Server",
+        "people list (username, name, role)",
+        "Browser app usersList",
+        "loadUsers (GET /api/users)"
+       ],
+       [
+        "COO on People",
+        "new person, changed role or password, removed person",
+        "server POST, PUT, DELETE /api/users, then user_module_roles",
+        "saveEditUser and the People screen (server: setModuleRole)"
+       ],
+       [
+        "Person",
+        "current and new password",
+        "server POST /api/me/password",
+        "saveMyPassword"
+       ],
+       [
+        "Platform launcher and other modules",
+        "the person's role in each module",
+        "server GET /api/me",
+        "server.js only; o2s.html does not call it"
+       ],
+       [
+        "Browser app",
+        "the live app file, to see if a newer build is out",
+        "server GET /o2s",
+        "checkForNewBuild (a banner; refresh before saving)"
+       ],
+       [
+        "van.com.pk visitor",
+        "batch number printed on the bag; answer is the approved QC report or nothing",
+        "server GET /api/public/batch/:batch and /report.pdf",
+        "public-routes.js find, buildIndex, writeReport (read-only, 60 lookups per visitor per 10 minutes)"
+       ],
+       [
+        "Finance",
+        "ERP SO # typed on the order",
+        "orders[].erpSo, printed on the DC",
+        "submitPO (typed, there is no link to the ERP)"
+       ],
+       [
+        "Browser app",
+        "PO, DC, gate pass, PSI, COA, inspection log, lab assignment, sample DC and gate pass",
+        "printed paper or PDF in its own window",
+        "printPO, printDC, printGatePass, printPSI, printCOA, printInspect, printLabAssign, smpPrint"
+       ]
+      ]
+     }
+    },
+    {
+     "note": "No price goes on a document the customer sees except the PO itself, which only the money roles may print (R-020, printPO checks mayMoney)."
+    },
+    {
+     "note": "readSigns[] (16a read and sign) is in the same data set; it is not part of any process below (see 3 System logic, LG-24)."
+    }
+   ]
+  },
+  {
+   "id": "DF-01",
+   "title": "Level 1: public batch check for van.com.pk",
+   "owner": "not confirmed",
+   "rules": [
+    "R-016",
+    "R-020"
+   ],
+   "status": "not confirmed",
+   "src": [
+    "/home/claude/src/apps/o2s/public-routes.js header (Tahir's rulings 3 Oct 2026)",
+    "public-routes.js buildIndex, publicCoa, summaryCoa, writeReport",
+    "server.js stripUsers",
+    "tests/publicbatch.test.js",
+    "OP-HANDOFF-O2S.md 3 Oct and 6 Oct entries"
+   ],
+   "ask": "The public check uses the list users to tell a person's name from a role name, but the server strips users out of the saved O2S data. Is that list there to read? a) no, only masters.roles and the fixed role words are used, which is enough b) yes, users are stored with the state some other way c) not sure, check it",
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "From",
+       "Data moved",
+       "To",
+       "Function"
+      ],
+      "rows": [
+       [
+        "van.com.pk browser",
+        "the batch number typed from the bag",
+        "GET /api/public/batch/:batch",
+        "find (normalises the number, rate limit, allowed origins van.com.pk and www.van.com.pk)"
+       ],
+       [
+        "packingLog",
+        "brandBatchNo, mfgDate or date, baseBatchId (live rows only)",
+        "public index",
+        "buildIndex (groups by printed number and financial year; the newest year wins)"
+       ],
+       [
+        "batches[].lots[].coa",
+        "approved COA of every lot behind the number",
+        "public index",
+        "buildIndex (no report unless every lot is approved)"
+       ],
+       [
+        "masters.roles, users",
+        "role names, so a role word is never shown as a person's name",
+        "public index",
+        "buildIndex personName"
+       ],
+       [
+        "public index",
+        "batch, approved_on, report_url",
+        "van.com.pk",
+        "GET /api/public/batch/:batch"
+       ],
+       [
+        "public index",
+        "QC report QCL-FRM-12.03: allowed COA fields only (summary layout by default: the first FIT lot)",
+        "van.com.pk (PDF)",
+        "writeReport via GET /report.pdf"
+       ]
+      ]
+     }
+    },
+    {
+     "note": "Nothing here writes O2S data. Fields left out on purpose: item name, source, Q.C. No., quantity, who received the sample, the analyst's and reviewer's names."
+    }
+   ]
+  },
+  {
+   "id": "DF-02",
+   "title": "Level 1: new PO, acknowledge, send back, new customer",
+   "owner": "Finance and Supply Chain",
+   "rules": [
+    "R-010",
+    "R-011"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn submitPO",
+    "fn clientsForChannel",
+    "fn ackOrder",
+    "fn sendBackPO",
+    "fn poReturnFixed",
+    "fn custSave",
+    "fn approveCustomer",
+    "fn sendBackCustomer",
+    "fn logAction"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "From",
+       "Data moved",
+       "To",
+       "Function"
+      ],
+      "rows": [
+       [
+        "customers",
+        "Active customers of the channel (pending ones left out)",
+        "New order form",
+        "clientsForChannel"
+       ],
+       [
+        "Finance (New order)",
+        "order header (po, client, channel, received, promised, paymentTerms, erpSo, printDecision, fedMode, enteredBy) and lines (brand, base, pack, ordered, committed, invoicePrice, printPrice, priceCheck)",
+        "orders, orders[].lines[]",
+        "submitPO"
+       ],
+       [
+        "Supply Chain",
+        "acknowledged, ackDate, ackBy; or ackReturn and ackReturns[] (by, why, toUser, toRole)",
+        "orders",
+        "ackOrder; sendBackPO"
+       ],
+       [
+        "Finance",
+        "ackReturn.fixedAt, fixedBy, fixNote",
+        "orders",
+        "poReturnFixed"
+       ],
+       [
+        "Finance; CFO",
+        "new customer (status Pending approval unless the CFO or COO adds it); status Active, approvedBy; or sentBack and sentBacks[]",
+        "customers",
+        "custSave; approveCustomer; sendBackCustomer"
+       ],
+       [
+        "every step above",
+        "1 line of what was done; send back also an audit row",
+        "actionLog; audit",
+        "logAction; sendBackPO"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "DF-03",
+   "title": "Level 1: print-on-pack answer",
+   "owner": "Finance",
+   "rules": [
+    "R-017"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn submitPO",
+    "fn saveBulkPrintDecision",
+    "fn seedPrintDecisionV1",
+    "fn printPolicyOL",
+    "fn packPriceGate",
+    "fn packPriceRecord",
+    "fn qcVerifyGate",
+    "docs/SPEC-06-PRICE-ON-PACK.md"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "From",
+       "Data moved",
+       "To",
+       "Function"
+      ],
+      "rows": [
+       [
+        "Finance (New order)",
+        "printDecision (yes, list, no), printOnPack, printDecisionBy, printDecisionAt; printPrice per line when yes",
+        "orders, orders[].lines[]",
+        "submitPO"
+       ],
+       [
+        "Finance (bulk screen)",
+        "the same answer for POs that had none",
+        "orders; actionLog",
+        "saveBulkPrintDecision"
+       ],
+       [
+        "ensureState (once, 23 Sep)",
+        "no price for every old PO without an answer",
+        "orders; masters._printDecisionV1; actionLog",
+        "seedPrintDecisionV1"
+       ],
+       [
+        "orders, orders[].lines[]",
+        "the policy for the pack: PO price, list price or no print",
+        "Pack sheet",
+        "printPolicyOL, packPriceGate"
+       ],
+       [
+        "Production (Pack sheet)",
+        "price read on the pack, checked tick, or no price confirmed",
+        "packingLog (price record)",
+        "packPriceRecord inside doPack"
+       ],
+       [
+        "orders, packingLog",
+        "expected price for the inspector",
+        "packed-lot and truck inspection",
+        "qcVerifyGate"
+       ]
+      ]
+     }
+    },
+    {
+     "note": "The list price itself is never stored (SPEC-06): the paper price list is the authority."
+    }
+   ]
+  },
+  {
+   "id": "DF-04",
+   "title": "Level 1: raw material check, purchase request, receive",
+   "owner": "Supply Chain",
+   "rules": [
+    "R-011"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn rmSubmit",
+    "fn rmPRArchive",
+    "fn approveRMPR",
+    "fn refusePR",
+    "fn prAskAgain",
+    "fn prDrop",
+    "fn rmReceiveSubmit",
+    "fn raisePR",
+    "fn cfoApprovePR",
+    "fn receivePR",
+    "fn closePR"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "From",
+       "Data moved",
+       "To",
+       "Function"
+      ],
+      "rows": [
+       [
+        "Supply Chain (RM Check)",
+        "rmCheck date, rmStatus (full, partial, short), canMakeKg, rmReady, rmPR (qty, cleared, by, date), prRaised; old request archived",
+        "orders[].lines[] (rmPR, rmPRHistory)",
+        "rmSubmit, rmPRArchive"
+       ],
+       [
+        "CFO",
+        "rmPR.cfoApproved, or rmPR.refused (by, user, at, why)",
+        "orders[].lines[]",
+        "approveRMPR; refusePR"
+       ],
+       [
+        "Supply Chain",
+        "refusal moved to rmPR.refusals[] (ask again), or rmPR.closed with closedWhy and line back to pending (drop)",
+        "orders[].lines[]",
+        "prAskAgain; prDrop"
+       ],
+       [
+        "Supply Chain (Receive)",
+        "Kg received: canMakeKg up, rmStatus, rmPR closed when full",
+        "orders[].lines[]",
+        "rmReceiveSubmit"
+       ],
+       [
+        "Supply Chain; CFO (older material path)",
+        "request per material, approval, receipts (GRN, qty, date), closed early",
+        "prs; rawStock",
+        "raisePR; cfoApprovePR; receivePR; closePR"
+       ],
+       [
+        "every step above",
+        "audit row (module RM Check, RM PR, RM Received) and a log line",
+        "audit; actionLog",
+        "the same functions"
+       ]
+      ]
+     }
+    },
+    {
+     "note": "The line's rmStatus and canMakeKg decide how much may be produced (rmAllows), which gates openBatch and the Open Production job."
+    }
+   ]
+  },
+  {
+   "id": "DF-05",
+   "title": "Level 1: production run",
+   "owner": "Production",
+   "rules": [
+    "R-033",
+    "R-002",
+    "R-001"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn openBatch",
+    "fn submitMultiBatch",
+    "fn submitShiftLog",
+    "fn doCloseBatch",
+    "fn saveReconcile",
+    "fn doReopenBatch",
+    "fn closeSettledBatches",
+    "fn yieldShortSeen"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "From",
+       "Data moved",
+       "To",
+       "Function"
+      ],
+      "rows": [
+       [
+        "Production",
+        "new batch (batchNo, kind po, bulk or multi, plannedKg, status open)",
+        "batches",
+        "openBatch, submitMultiBatch"
+       ],
+       [
+        "Production (shift log)",
+        "shift entry; a lot per shift with output; producedKg; the line's produced; the production log row",
+        "shiftEntries; batches[].lots[]; batches; orders[].lines[]; productionLog",
+        "submitShiftLog"
+       ],
+       [
+        "Production",
+        "status closed, actualYield, varianceKg, varianceReason, varianceNotify",
+        "batches; orders[].lines[] (prodComplete)",
+        "doCloseBatch, closeSettledBatches"
+       ],
+       [
+        "Production or Production Manager (packing.reconcile)",
+        "remainder accounted: loss, by-product, divert, rework pools, stock kept",
+        "batches (pools, reconHistory, disposedKg); orders[].lines[] (disposedKg, PO batch only)",
+        "saveReconcile"
+       ],
+       [
+        "Plant Manager",
+        "reopen with reason; yield short seen",
+        "batches; corrections",
+        "doReopenBatch; yieldShortSeen"
+       ],
+       [
+        "every step above",
+        "audit rows and log lines",
+        "audit; actionLog",
+        "the same functions"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "DF-05-L2",
+   "title": "Level 2: production run, every move",
+   "owner": "Production",
+   "rules": [
+    "R-033",
+    "R-002",
+    "R-001",
+    "R-032",
+    "R-008"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn openBatch",
+    "fn batchOwnerInFY",
+    "fn batchNearGate",
+    "fn submitMultiBatch",
+    "fn submitShiftLog",
+    "fn evStamp",
+    "fn doCloseBatch",
+    "fn multiTrueUpIfPlaced",
+    "fn saveReconcile",
+    "fn doReopenBatch",
+    "fn closeSettledBatches",
+    "fn yieldShortSeen",
+    "fn recordCorrection"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "From",
+       "Data moved",
+       "To",
+       "Function"
+      ],
+      "rows": [
+       [
+        "batches",
+        "batch numbers used this financial year, and look-alikes",
+        "Open batch form",
+        "batchOwnerInFY, batchNearGate"
+       ],
+       [
+        "orders[].lines[]",
+        "ordered, produced and what raw material allows",
+        "Open batch form (plan cap)",
+        "openBatch, rmAllows"
+       ],
+       [
+        "Production",
+        "id, batchNo, kind, po, lineId or allocations, base, brand, plannedKg, producedKg 0, packedKg 0, status open, openedDate, by",
+        "batches",
+        "openBatch, submitMultiBatch"
+       ],
+       [
+        "Production (shift log)",
+        "batchId, batchNo, date, shift, incharge, kg, reason, note, beds, by, ts, recorded date and late reason",
+        "shiftEntries",
+        "submitShiftLog, evStamp"
+       ],
+       [
+        "Production (shift log)",
+        "lot: lotNo (batch-Ln), qty, shift, incharge, date, beds, by, coa null",
+        "batches[].lots[]",
+        "submitShiftLog"
+       ],
+       [
+        "Production (shift log)",
+        "producedKg up",
+        "batches",
+        "submitShiftLog"
+       ],
+       [
+        "Production (shift log)",
+        "produced, prodStart, prodComplete (PO batch; multi batch shares out by allocation, credited kept)",
+        "orders[].lines[]; batches[].allocations[]",
+        "submitShiftLog"
+       ],
+       [
+        "Production (shift log)",
+        "date, base, kg, by, po, brand, shift, incharge, batchNo (1 row per PO for a multi batch)",
+        "productionLog",
+        "submitShiftLog"
+       ],
+       [
+        "Production (close)",
+        "status closed, closedDate, actualYield, varianceKg, varianceReason, varianceNote, closedBy, varianceNotify to Plant Manager when short",
+        "batches; audit when short",
+        "doCloseBatch"
+       ],
+       [
+        "batches (multi, closed and placed)",
+        "each order's made-so-far brought to what was packed for it",
+        "orders[].lines[]",
+        "multiTrueUpIfPlaced"
+       ],
+       [
+        "Production or Production Manager (Packing finished, packing.reconcile)",
+        "loss and reason, pools by base (by-product, divert, rework) with sources, stockKept, disposedKg, reconHistory, packReconcile",
+        "batches; orders[].lines[] (disposedKg, PO batch only); audit",
+        "saveReconcile"
+       ],
+       [
+        "Plant Manager (reopen)",
+        "status open, closeHistory entry, the earlier close archived",
+        "batches; orders[].lines[]; corrections",
+        "doReopenBatch, recordCorrection"
+       ],
+       [
+        "Plant Manager (Yield short)",
+        "varianceNotify.ack, ackBy, ackAt",
+        "batches",
+        "yieldShortSeen"
+       ],
+       [
+        "every step above",
+        "1 line of what was done",
+        "actionLog",
+        "logAction"
+       ]
+      ]
+     }
+    },
+    {
+     "note": "Closing in bulk writes no audit row on purpose (closeSettledBatches comment); each batch still gets its own action log line."
+    }
+   ]
+  },
+  {
+   "id": "DF-06",
+   "title": "Level 1: lab QC",
+   "owner": "QCM",
+   "rules": [
+    "R-016",
+    "R-003",
+    "R-006"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn labAssignConfirm",
+    "fn benchSave",
+    "fn coaSubmitAnalyst",
+    "fn coaReview",
+    "fn coaApprove",
+    "fn coaSendBack",
+    "fn coaRework",
+    "fn coaDeviation",
+    "fn reworkDone",
+    "fn qcAudit2",
+    "fn labLeaveAnnounce",
+    "fn labSetCover"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "From",
+       "Data moved",
+       "To",
+       "Function"
+      ],
+      "rows": [
+       [
+        "QCM (assign)",
+        "assign (by, at), tests with param, analyst, due time; sample facts; usual analyst per test",
+        "batches[].lots[].coa; masters.labUsual, masters.labParamOf",
+        "labAssignConfirm"
+       ],
+       [
+        "Lab Rep (bench: also AQCM or QCM)",
+        "results and FIT or UNFIT per test, analyst, status analysed or failed",
+        "batches[].lots[].coa",
+        "benchSave; coaSubmitAnalyst (Lab Rep only)"
+       ],
+       [
+        "AQCM; QCM",
+        "reviewer and approver signatures, status reviewed or approved, approvedDate, certifiedKg; a send back note in returns[]",
+        "batches[].lots[].coa; batches[].lots[] (certifiedKg)",
+        "coaReview; coaApprove; coaSendBack"
+       ],
+       [
+        "Plant Manager; Production",
+        "failed report to coaHistory and rework (why, by, at, doneAt), or deviation note",
+        "batches[].lots[] (coaHistory, rework, coa)",
+        "coaRework; coaDeviation; reworkDone"
+       ],
+       [
+        "AQCM, QCM; Plant Manager",
+        "leave days; who covers which sign-off",
+        "masters.labLeave; masters.labCover",
+        "labLeaveAnnounce; labSetCover"
+       ],
+       [
+        "every step above",
+        "audit row (module Lab QC) and a log line",
+        "audit; actionLog",
+        "qcAudit2, logAction"
+       ]
+      ]
+     }
+    },
+    {
+     "note": "A batch without lots keeps its COA on the batch itself (batches[].coa); coaCtx picks the lot or the batch."
+    }
+   ]
+  },
+  {
+   "id": "DF-06-L2",
+   "title": "Level 2: lab QC, every move",
+   "owner": "QCM",
+   "rules": [
+    "R-016",
+    "R-003",
+    "R-011",
+    "R-006"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn labNewCoa",
+    "fn labAssignConfirm",
+    "fn labPendingRows",
+    "fn benchSave",
+    "fn coaSubmitAnalyst",
+    "fn coaReview",
+    "fn coaApprove",
+    "fn labCopyRep",
+    "fn coaSendBack",
+    "fn coaReject",
+    "fn coaRework",
+    "fn reworkDone",
+    "fn coaDeviation",
+    "fn qcAudit2",
+    "fn printCOA",
+    "fn printLabAssign"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "From",
+       "Data moved",
+       "To",
+       "Function"
+      ],
+      "rows": [
+       [
+        "batches, batches[].lots[]",
+        "item, lot number, quantity, mfg date, test template",
+        "new COA draft",
+        "labNewCoa, coaTemplate"
+       ],
+       [
+        "QCM",
+        "coa.assign, coa.tests[] (param, to, toName, due), coa.dueAt, sampledBy, sampleQty, temp, humidity, status draft",
+        "batches[].lots[].coa",
+        "labAssignConfirm"
+       ],
+       [
+        "QCM",
+        "the analyst last picked for each test, and the test of each item",
+        "masters.labUsual, masters.labParamOf",
+        "labAssignConfirm"
+       ],
+       [
+        "batches[].lots[].coa",
+        "waiting tests for 1 parameter",
+        "bench sheet",
+        "labPendingRows"
+       ],
+       [
+        "Lab Rep, AQCM or QCM (bench)",
+        "result, remark, doneBy, doneAt; when all done: overall, analyst names, draftedBy, status analysed or failed, failReason",
+        "batches[].lots[].coa",
+        "benchSave"
+       ],
+       [
+        "Lab Rep (old flow)",
+        "the whole COA, analyst, status analysed or failed",
+        "batches[].lots[].coa",
+        "coaSubmitAnalyst"
+       ],
+       [
+        "AQCM",
+        "reviewer signature (onBehalf when a cover signs), status reviewed",
+        "batches[].lots[].coa",
+        "coaReview"
+       ],
+       [
+        "QCM",
+        "approver signature, status approved, approvedDate, certifiedKg",
+        "batches[].lots[].coa; batches[].lots[]",
+        "coaApprove"
+       ],
+       [
+        "QCM or AQCM",
+        "returns[] and returnOpen (from, to, note, stage); status back 1 step",
+        "batches[].lots[].coa",
+        "coaSendBack"
+       ],
+       [
+        "Plant Manager (rework)",
+        "failed COA copied to coaHistory with reworkWhy; rework record; coa emptied",
+        "batches[].lots[]",
+        "coaRework"
+       ],
+       [
+        "Production",
+        "rework.doneAt, doneBy, doneNote",
+        "batches[].lots[]",
+        "reworkDone"
+       ],
+       [
+        "Plant Manager (deviation)",
+        "deviation, deviationNote, deviationBy, status analysed",
+        "batches[].lots[].coa",
+        "coaDeviation"
+       ],
+       [
+        "every lab step",
+        "module Lab QC, field, value, batch number",
+        "audit; actionLog",
+        "qcAudit2, logAction"
+       ],
+       [
+        "batches[].lots[].coa",
+        "the certificate and the assignment sheet",
+        "printed COA (QCL-FRM-12.03); lab assignment (QCL-FRM-19.01)",
+        "printCOA; printLabAssign"
+       ]
+      ]
+     }
+    },
+    {
+     "note": "labCopyRep (copy 1 lot's result to the others) does nothing while LAB_REP_RULE is false. coaReject (back to draft) is in the file but no screen calls it; the send back is coaSendBack."
+    }
+   ]
+  },
+  {
+   "id": "DF-07",
+   "title": "Level 1: packing",
+   "owner": "Production",
+   "rules": [
+    "R-004",
+    "R-023",
+    "R-009",
+    "R-012"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn plBaseReady",
+    "fn batchPackableKg",
+    "fn doPack",
+    "fn packRowExtras",
+    "fn packDates",
+    "fn syncPackBatchDates",
+    "fn bigPackSeen",
+    "fn submitDivert",
+    "fn submitProdQty"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "From",
+       "Data moved",
+       "To",
+       "Function"
+      ],
+      "rows": [
+       [
+        "batches, batches[].lots[].coa",
+        "cleared Kg ready to pack (approved COA only), oldest first",
+        "Pack sheet, Pack from base card",
+        "batchPackableKg, plBaseReady"
+       ],
+       [
+        "orders[].lines[]",
+        "PO line, ordered, packed, pack size, print-on-pack answer",
+        "Pack sheet",
+        "openPack, openPackFromBase, printPolicyOL"
+       ],
+       [
+        "Production (Pack)",
+        "date, base, brand, kg, po, lid, baseBatchId, baseBatchNo, brandBatchNo, mfgDate, expDate, shelfMonths, shift, incharge, packs, packSize, bigRun, price record, by, recorded date",
+        "packingLog",
+        "doPack, packRowExtras, packDates"
+       ],
+       [
+        "Production (Pack)",
+        "packedKg up on the batch; packed, produced, prodComplete on the line",
+        "batches; orders[].lines[]",
+        "doPack"
+       ],
+       [
+        "Production Manager",
+        "bigRun.ack, ackBy, ackAt",
+        "packingLog",
+        "bigPackSeen"
+       ],
+       [
+        "every step above",
+        "1 line of what was done",
+        "actionLog",
+        "logAction"
+       ]
+      ]
+     }
+    },
+    {
+     "note": "Two other entries also write packing runs with shift and in-charge: divert to a PO (submitDivert) and the quantity entry (submitProdQty)."
+    }
+   ]
+  },
+  {
+   "id": "DF-08",
+   "title": "Level 1: packed lot QA inspection",
+   "owner": "QA Inspector",
+   "rules": [
+    "R-015",
+    "R-014",
+    "R-011"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn lotsFor",
+    "fn openPackInspect",
+    "fn savePackInspect",
+    "fn aqlPlan",
+    "fn clearQaHold",
+    "fn lotQACorrect",
+    "fn printInspect"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "From",
+       "Data moved",
+       "To",
+       "Function"
+      ],
+      "rows": [
+       [
+        "packingLog, orders[].lines[]",
+        "packed runs of the line with a batch number and Kg not yet inspected; pack size for the sampling plan",
+        "Packed lot inspection sheet",
+        "lotsFor, lotAvail, aqlPlan"
+       ],
+       [
+        "QA Inspector",
+        "po, brand, lid, kg, by, date, pass, checklist, packChecks, verify, sampling (plan, checked, defects), remarks, batches",
+        "inspections",
+        "savePackInspect"
+       ],
+       [
+        "QA Inspector (pass)",
+        "insKg up on each run; qcPass on the line when fully inspected",
+        "packingLog; orders[].lines[]",
+        "savePackInspect"
+       ],
+       [
+        "QA Inspector (fail)",
+        "qaHold (reason, by, date, kg, fails) on each run",
+        "packingLog",
+        "savePackInspect"
+       ],
+       [
+        "Production Manager (Re-inspect)",
+        "qaHold cleared, reinsp count; audit row with what was corrected",
+        "packingLog; audit",
+        "clearQaHold"
+       ],
+       [
+        "every step above",
+        "audit row (module QA) and a log line",
+        "audit; actionLog",
+        "savePackInspect, logAction"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "DF-09",
+   "title": "Level 1: truck, from plan to delivery",
+   "owner": "Supply Chain",
+   "rules": [
+    "R-013",
+    "R-027",
+    "R-028",
+    "R-029",
+    "R-018"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn saveDispatch",
+    "fn startLoading",
+    "fn truckSwapBatch",
+    "fn dispQASubmit",
+    "fn issueGatePass",
+    "fn reviewTruck",
+    "fn sendBackTruck",
+    "fn truckFixed",
+    "fn approveRelease",
+    "fn truckHanded",
+    "fn confirmDelivery",
+    "fn cancelShip",
+    "fn rejectDC"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "From",
+       "Data moved",
+       "To",
+       "Function"
+      ],
+      "rows": [
+       [
+        "Supply Chain (Plan the truck)",
+        "1 row per product on the truck (dispId, DC, shipNo, vehicle, driver, batches); packing runs reserved",
+        "shipments; packingLog (shipKg); shipSerial",
+        "saveDispatch"
+       ],
+       [
+        "Warehouse",
+        "stage loading, loader; a batch changed at loading",
+        "shipments; packingLog (shipKg); corrections",
+        "startLoading; truckSwapBatch"
+       ],
+       [
+        "QA Inspector",
+        "the truck's inspection result; on fail the rows are voided and the stock given back",
+        "shipments (qa); orders[].lines[]; packingLog; dcRejects",
+        "dispQASubmit"
+       ],
+       [
+        "Warehouse; Supply Chain",
+        "gate pass number and issuer; review; send back and fix",
+        "shipments; audit; corrections",
+        "issueGatePass; reviewTruck; sendBackTruck; truckFixed"
+       ],
+       [
+        "Plant Manager; Warehouse",
+        "release (DC approved, dispatched counted, in transit or delivered); papers handed to the driver",
+        "shipments; orders[].lines[] (dispatched, delivered)",
+        "approveRelease; truckHanded"
+       ],
+       [
+        "Warehouse, Supply Chain or Plant Manager",
+        "delivered date, how, condition",
+        "shipments; orders[].lines[] (delivered)",
+        "confirmDelivery"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "DF-09-L2",
+   "title": "Level 2: truck, every move",
+   "owner": "Supply Chain",
+   "rules": [
+    "R-013",
+    "R-026",
+    "R-027",
+    "R-028",
+    "R-029",
+    "R-017",
+    "R-018",
+    "R-011"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn readyLinesFor",
+    "fn fifoAlloc",
+    "fn dcManualAlloc",
+    "fn nextDCNo",
+    "fn saveDispatch",
+    "fn startLoading",
+    "fn slCandidates",
+    "fn truckSwapBatch",
+    "fn dispQASubmit",
+    "fn _releaseShip",
+    "fn dcRejectNote",
+    "fn dcRejectSeen",
+    "fn issueGatePass",
+    "fn nextGatePassNo",
+    "fn reviewTruck",
+    "fn sendBackTruck",
+    "fn truckFixed",
+    "fn approveRelease",
+    "fn truckHanded",
+    "fn confirmDelivery",
+    "fn cancelShip",
+    "fn rejectDC",
+    "fn renumberGatePass",
+    "fn printDC",
+    "fn printGatePass",
+    "fn printPSI"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "From",
+       "Data moved",
+       "To",
+       "Function"
+      ],
+      "rows": [
+       [
+        "packingLog, inspections",
+        "cleared Kg per run (insKg minus shipKg), batch on the bag, packed and mfg dates, oldest first",
+        "Plan the truck sheet",
+        "readyLinesFor, fifoAlloc, dcManualAlloc"
+       ],
+       [
+        "shipments, shipSerial",
+        "next DC number and shipment serial",
+        "Plan the truck",
+        "nextDCNo, saveDispatch"
+       ],
+       [
+        "Supply Chain",
+        "id, dispId, po, client, brand, lid, kg, batches[] (lotId, batch, brand, kg), lotExact, dispatch date, destination, carrier, vehicle, driver, driverContact, bilty, seal, so, transportType, dc, shipNo, dcStatus pending, stage truck_planned, qa null, by",
+        "shipments",
+        "saveDispatch"
+       ],
+       [
+        "Supply Chain",
+        "shipKg up on each chosen run",
+        "packingLog",
+        "saveDispatch"
+       ],
+       [
+        "Warehouse",
+        "stage loading, loadStarted, loadedBy, loadedByUser, loadedByRole",
+        "shipments",
+        "startLoading"
+       ],
+       [
+        "Warehouse (batch change)",
+        "shipKg moved from the old run to the new run; the DC line; batchChanges[]; dcRevised; QA result moved to qaHistory",
+        "packingLog; shipments; corrections; audit; actionLog",
+        "truckSwapBatch, recordCorrection"
+       ],
+       [
+        "QA Inspector",
+        "qa: pass or fail, by, date, checklist, packChecks, onPallets, checkedWhen, verify (with the batch-on-bags lines), remarks",
+        "shipments",
+        "dispQASubmit"
+       ],
+       [
+        "QA Inspector (fail)",
+        "voided rows, dispatched taken back, shipKg given back to the runs; a note to Supply Chain",
+        "shipments; orders[].lines[]; packingLog; dcRejects (kind qa)",
+        "dispQASubmit, _releaseShip, dcRejectNote"
+       ],
+       [
+        "Supply Chain",
+        "seenAt, seenBy on the rejection note",
+        "dcRejects",
+        "dcRejectSeen"
+       ],
+       [
+        "shipments, samples",
+        "the highest gate pass number in the 1 book",
+        "next gate pass number",
+        "nextGatePassNo"
+       ],
+       [
+        "Warehouse",
+        "gatePass, gatePassAt, gatePassBy, gatePassByUser, gatePassByRole",
+        "shipments",
+        "issueGatePass"
+       ],
+       [
+        "Supply Chain or Warehouse",
+        "scReview (by, user, role, at)",
+        "shipments",
+        "reviewTruck"
+       ],
+       [
+        "Reviewer or Plant Manager",
+        "sentBack (by, why, step), sentBackHistory[]; review cleared on a release send back",
+        "shipments; audit",
+        "sendBackTruck"
+       ],
+       [
+        "Gate pass issuer",
+        "corrected vehicle, driver, phone, bilty, seal, carrier, focal person; sentBack.fixedAt, fixNote, fixChanges",
+        "shipments; corrections",
+        "truckFixed, recordCorrection"
+       ],
+       [
+        "Plant Manager (release)",
+        "dcStatus approved, approvedBy, approvedDate, releasedAt, handoverDue, noScReview, dispCounted, stage in_transit or delivered",
+        "shipments; orders[].lines[] (dispatched, dispatchDate; delivered for Ex-factory); audit",
+        "approveRelease"
+       ],
+       [
+        "Gate pass issuer",
+        "handedAt, handedBy, handedByUser",
+        "shipments",
+        "truckHanded"
+       ],
+       [
+        "Whoever confirms",
+        "delivered date, deliveredVia, deliveryNote, deliveryIssue (type, kg, note)",
+        "shipments; orders[].lines[] (delivered, deliveredDate); audit",
+        "confirmDelivery"
+       ],
+       [
+        "Supply Chain or Warehouse; Supply Chain or Plant Manager",
+        "voided, stage cancelled or dcStatus rejected, rejectWhy; stock given back",
+        "shipments; packingLog; orders[].lines[]; dcRejects",
+        "cancelShip; rejectDC"
+       ],
+       [
+        "Gate pass issuer",
+        "new gate pass number, the old one kept in gatePassWas[]",
+        "shipments",
+        "renumberGatePass"
+       ],
+       [
+        "shipments, orders, customers, inspections, batches[].lots[].coa",
+        "DC, gate pass and pre-shipment report",
+        "printed papers",
+        "printDC, printGatePass, printPSI"
+       ],
+       [
+        "every step above",
+        "1 line of what was done",
+        "actionLog",
+        "logAction"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "DF-10",
+   "title": "Level 1: close short",
+   "owner": "Plant Manager",
+   "rules": [
+    "R-008",
+    "R-024"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn requestShortClose",
+    "fn submitClosePO",
+    "fn scArchive",
+    "fn scFreeze",
+    "fn approveShortClose",
+    "fn rejectShortClose",
+    "fn refusalSeen",
+    "fn reopenShortClose"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "From",
+       "Data moved",
+       "To",
+       "Function"
+      ],
+      "rows": [
+       [
+        "Supply Chain or Production Manager (ask, po.shortclose_request)",
+        "shortClose: requestedBy, requestedAt, requestedUser, requestedRole, reasonCode, reason, frozen figures; the earlier close archived",
+        "orders[].lines[] (shortClose, shortCloseHistory)",
+        "requestShortClose, submitClosePO, scArchive, scFreeze"
+       ],
+       [
+        "Plant Manager",
+        "approvedBy, approvedAt; or refusedBy, refusedAt, refusedWhy",
+        "orders[].lines[]",
+        "approveShortClose; rejectShortClose"
+       ],
+       [
+        "Person who asked",
+        "refusalSeenAt, refusalSeenBy",
+        "orders[].lines[]",
+        "refusalSeen"
+       ],
+       [
+        "COO (direct close)",
+        "shortClose approved at once (poClose), any waiting request kept; whole PO closed when no line is open",
+        "orders[].lines[]; orders (closed)",
+        "submitClosePO"
+       ],
+       [
+        "COO (reopen)",
+        "reopenedBy, reopenedAt; a whole-PO close moved to closedHistory",
+        "orders[].lines[]; orders",
+        "reopenShortClose"
+       ],
+       [
+        "every step above",
+        "audit row (module PO) and a log line",
+        "audit; actionLog",
+        "the same functions"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "DF-11",
+   "title": "Level 1: stuck at packing and waiting for client",
+   "owner": "Supply Chain",
+   "rules": [
+    "R-024",
+    "R-022"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn plLinePack",
+    "fn plClientPOs",
+    "fn plStuckJob",
+    "fn saveWaitClient",
+    "fn endWaitClient",
+    "fn _wcMark",
+    "fn lineWaitClient",
+    "fn itemWaiting"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "From",
+       "Data moved",
+       "To",
+       "Function"
+      ],
+      "rows": [
+       [
+        "packingLog, orders",
+        "last date the same product was packed for the same client on any PO",
+        "Pack from base card and the stuck clock",
+        "plLinePack, plClientPOs"
+       ],
+       [
+        "batches, orders[].lines[]",
+        "cleared base ready, Kg still to pack, days with nothing packed",
+        "Stuck at packing job (read only, no record written)",
+        "plStuckJob, plLineOwnStuck"
+       ],
+       [
+        "Supply Chain",
+        "a mark: id, kind wait, until, why, by, user, role, at",
+        "orders[].lines[].waitMarks[]; audit (with the mark id); actionLog",
+        "saveWaitClient, _wcMark"
+       ],
+       [
+        "Supply Chain",
+        "a mark: kind end, why",
+        "orders[].lines[].waitMarks[]; audit; actionLog",
+        "endWaitClient, _wcMark"
+       ],
+       [
+        "orders[].lines[].waitMarks[]",
+        "the latest mark decides whether the line waits and until when",
+        "Today, Plant and escalation",
+        "lineWaitClient, itemWaiting, acEscalation"
+       ]
+      ]
+     }
+    },
+    {
+     "note": "Close short from this job writes the same records as DF-10."
+    }
+   ]
+  },
+  {
+   "id": "DF-12",
+   "title": "Level 1: stock move to another PO",
+   "owner": "Plant Manager",
+   "rules": [
+    "R-007"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn submitMoveStock",
+    "fn approveMove",
+    "fn pmvApply",
+    "fn refuseMove",
+    "fn cancelMove",
+    "fn doneMoveCheck"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "From",
+       "Data moved",
+       "To",
+       "Function"
+      ],
+      "rows": [
+       [
+        "Supply Chain (ask)",
+        "move: id, status asked, by, fromPo, fromLid, toPo, toLid, client, brand, lots[] (lotId, kg, batch), kg, reason",
+        "poMoves; actionLog",
+        "submitMoveStock"
+       ],
+       [
+        "Plant Manager (approve)",
+        "new packing runs on the target PO (id from the move, movedFrom), original runs reduced (movedOut[])",
+        "packingLog",
+        "pmvApply"
+       ],
+       [
+        "Plant Manager (approve)",
+        "packed, produced, prodComplete, qcPass on both lines; before figures kept on the move",
+        "orders[].lines[]; poMoves (before, applied)",
+        "pmvApply"
+       ],
+       [
+        "Plant Manager",
+        "status done with scCheck notes, or refused with refusedBy and refusedWhy",
+        "poMoves; actionLog",
+        "approveMove; refuseMove"
+       ],
+       [
+        "Asker or COO; Supply Chain",
+        "status cancelled; scCheck.doneAt and doneBy",
+        "poMoves; actionLog",
+        "cancelMove; doneMoveCheck"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "DF-13",
+   "title": "Level 1: FOC samples",
+   "owner": "COO",
+   "rules": [
+    "R-005"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn smpSubmit",
+    "fn smpDecide",
+    "fn smpIssue",
+    "fn smpCheck",
+    "fn smpDispatch",
+    "fn smpReview",
+    "fn smpRelease",
+    "fn smpArrived",
+    "fn smpFeedback",
+    "fn smpLog"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "From",
+       "Data moved",
+       "To",
+       "Function"
+      ],
+      "rows": [
+       [
+        "Asker (KAM, Finance, Finance Desk Officer or CFO)",
+        "sample: no, status requested, requester, entered, client, purpose, why, neededBy, how, deliverTo, lines[]",
+        "samples",
+        "smpSubmit"
+       ],
+       [
+        "COO; Warehouse; QA Inspector",
+        "approval; issue lines with batch or lot and COA; QA checklist and result",
+        "samples",
+        "smpDecide; smpIssue; smpCheck"
+       ],
+       [
+        "Warehouse",
+        "dispatch: date, carrier, tracking, sample DC (SDC-), gate pass (GP-, the trucks' book)",
+        "samples (reads shipments for the next number)",
+        "smpDispatch, smpMaxNos"
+       ],
+       [
+        "Supply Chain; Plant Manager",
+        "review; release",
+        "samples",
+        "smpReview; smpRelease"
+       ],
+       [
+        "Asker",
+        "delivered (date, via); feedback[]",
+        "samples",
+        "smpArrived; smpFeedback"
+       ],
+       [
+        "every step above",
+        "a history line on the sample",
+        "samples[].history",
+        "smpLog"
+       ]
+      ]
+     }
+    },
+    {
+     "note": "A sample never writes orders, batches, packingLog or shipments: it is not a sale and not production work. The batch it is issued from is read from batches (smpLotsFor)."
+    }
+   ]
+  },
+  {
+   "id": "DF-13-L2",
+   "title": "Level 2: FOC samples, every move",
+   "owner": "COO",
+   "rules": [
+    "R-005",
+    "R-003"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn smpProducts",
+    "fn smpCustomers",
+    "fn smpPeople",
+    "fn smpSubmit",
+    "fn smpDecide",
+    "fn smpLotsFor",
+    "fn smpCoaOf",
+    "fn smpIssue",
+    "fn smpCheck",
+    "fn smpDispatch",
+    "fn smpReview",
+    "fn smpRelease",
+    "fn smpPrint",
+    "fn smpArrived",
+    "fn smpFeedback",
+    "fn smpCancel",
+    "fn smpRejectSeen"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "From",
+       "Data moved",
+       "To",
+       "Function"
+      ],
+      "rows": [
+       [
+        "masters, customers, usersList",
+        "products, clients and the people who may send a sample",
+        "Ask form",
+        "smpProducts, smpCustomers, smpPeople"
+       ],
+       [
+        "Asker",
+        "the request (see Level 1)",
+        "samples",
+        "smpSubmit"
+       ],
+       [
+        "COO",
+        "approval (yes, note, self), status approved or rejected",
+        "samples",
+        "smpDecide"
+       ],
+       [
+        "batches, batches[].lots[].coa",
+        "batches of the brand, mfg, expiry, approved COA",
+        "Issue form",
+        "smpLotsFor, smpCoaOf, smpExpOf"
+       ],
+       [
+        "Warehouse",
+        "issue: lines (brand, kg, batchId or typed batch, mfg, exp, coa, source), status issued",
+        "samples",
+        "smpIssue"
+       ],
+       [
+        "QA Inspector",
+        "qa: pass, checklist, remarks; a typed COA no. where none was found; status checked or approved",
+        "samples",
+        "smpCheck"
+       ],
+       [
+        "server GET /api/state, shipments, samples",
+        "the latest gate pass and sample DC numbers",
+        "Sample gate pass",
+        "smpDispatch, smpMaxNos"
+       ],
+       [
+        "Warehouse",
+        "dispatch (dc, gatePass, carrier, tracking, date), dcNo, status gatepass; saved at once",
+        "samples",
+        "smpDispatch, saveNow"
+       ],
+       [
+        "Supply Chain",
+        "review, status reviewed",
+        "samples",
+        "smpReview"
+       ],
+       [
+        "Plant Manager",
+        "release (reviewed or not), status dispatched; papers print",
+        "samples; printed sample DC and gate pass",
+        "smpRelease, smpPrint"
+       ],
+       [
+        "Asker",
+        "delivered, status delivered; feedback entries (result, note, po)",
+        "samples",
+        "smpArrived; smpFeedback"
+       ],
+       [
+        "Asker or COO",
+        "status cancelled; rejectSeenAt",
+        "samples",
+        "smpCancel; smpRejectSeen"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "DF-14",
+   "title": "Level 1: corrections and reconciliation",
+   "owner": "COO",
+   "rules": [
+    "R-008",
+    "R-009",
+    "R-012"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn recordCorrection",
+    "fn applyCorrect",
+    "fn dfSubmitPacking",
+    "fn dfSubmitVoid",
+    "fn lineFixRecord",
+    "fn bfxSubmit",
+    "fn bfxDecide",
+    "fn bfxApply",
+    "fn bfxFollowDone",
+    "fn reconCompute"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "From",
+       "Data moved",
+       "To",
+       "Function"
+      ],
+      "rows": [
+       [
+        "Person correcting",
+        "the change: op, record type and id, before and after per field, reason code, reason, what else moved",
+        "corrections; audit (module Correction); actionLog",
+        "recordCorrection (called by applyCorrect, the Correct a record writers, line fixes, truck fixes, batch reopen)"
+       ],
+       [
+        "Correct a record",
+        "the corrected field on the record itself (or reversed / superseded record)",
+        "orders, orders[].lines[], packingLog, shipments, batches, batches[].lots[].coa, inspections",
+        "applyCorrect, dfSubmitCorrect, dfSubmitVoid"
+       ],
+       [
+        "Correct a record; line History",
+        "a missing packing run (with shift, in-charge, packs) and the batch packed total",
+        "packingLog; batches",
+        "dfSubmitPacking; lineFixRecord"
+       ],
+       [
+        "Production, Production Manager or Plant Manager; COO",
+        "batch number correction asked, then approved or refused",
+        "batchFixReqs",
+        "bfxSubmit; bfxDecide"
+       ],
+       [
+        "COO (approve)",
+        "new brand batch # on the run, its DC lines and inspection lines; reprint jobs",
+        "packingLog; shipments; inspections; batchFixReqs (follow)",
+        "bfxApply, bfxFollowBuild"
+       ],
+       [
+        "orders[].lines[], packingLog",
+        "lines whose packed is more than their packing records",
+        "Reconcile packing screen (read only)",
+        "reconCompute, screenRecon"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "DF-14-L2",
+   "title": "Level 2: corrections, every move",
+   "owner": "COO",
+   "rules": [
+    "R-008",
+    "R-009",
+    "R-012",
+    "R-004"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn correctAllowed",
+    "fn correctCanAmend",
+    "fn applyCorrect",
+    "fn dfSubmitCorrect",
+    "fn dfSubmitVoid",
+    "fn dfSubmitPacking",
+    "fn dfSubmitProduction",
+    "fn dfSubmitShipment",
+    "fn lineFixRecord",
+    "fn lineFixCut",
+    "fn lineFixDate",
+    "fn bfxSubmit",
+    "fn bfxChecks",
+    "fn bfxDecide",
+    "fn bfxApply",
+    "fn bfxFollowBuild",
+    "fn bfxFollowDone",
+    "fn recordCorrection",
+    "fn lotMoveLock",
+    "fn reconCompute"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "From",
+       "Data moved",
+       "To",
+       "Function"
+      ],
+      "rows": [
+       [
+        "CORRECT_ENTITY, the person's role",
+        "who may amend, reverse or supersede each record type",
+        "Correct a record form",
+        "correctAllowed, correctCanAmend"
+       ],
+       [
+        "Person correcting (amend)",
+        "new field values, refused when a field is locked or the value is wrong",
+        "orders, orders[].lines[], packingLog, shipments, batches",
+        "applyCorrect"
+       ],
+       [
+        "Person correcting (reverse or supersede)",
+        "record reversed, or COA and inspection superseded by a new revision",
+        "packingLog, shipments, orders; batches[].lots[].coa; inspections",
+        "applyCorrect"
+       ],
+       [
+        "COO (PO header and print-on-pack)",
+        "corrected order fields",
+        "orders",
+        "dfSubmitCorrect"
+       ],
+       [
+        "Correct a record (void a packing run)",
+        "voidedKg, kg 0; batch packed total lowered; refused if inspected or moved",
+        "packingLog; batches",
+        "dfSubmitVoid, lotMoveLock"
+       ],
+       [
+        "Correct a record (back-fill)",
+        "missing production, packing or shipment rows",
+        "productionLog, batches; packingLog; shipments",
+        "dfSubmitProduction; dfSubmitPacking; dfSubmitShipment"
+       ],
+       [
+        "Line History fix",
+        "missing packing run against its batch; packed brought back to its records; delivery date stamped from the truck",
+        "packingLog, batches; orders[].lines[]",
+        "lineFixRecord; lineFixCut; lineFixDate"
+       ],
+       [
+        "Production, Production Manager or Plant Manager",
+        "lotId, po, brand, kg, oldNo, newNo, bags new, reason, by, status pending",
+        "batchFixReqs; actionLog",
+        "bfxSubmit, bfxChecks"
+       ],
+       [
+        "COO",
+        "status approved or refused, decidedBy, decisionNote, follow[] (DC and report reprints)",
+        "batchFixReqs",
+        "bfxDecide, bfxFollowBuild"
+       ],
+       [
+        "COO (approved)",
+        "brandBatchNo on the run; batch lines on DCs and inspections",
+        "packingLog; shipments; inspections; corrections",
+        "bfxApply, recordCorrection"
+       ],
+       [
+        "Supply Chain; QA Inspector",
+        "follow done: reprinted or not needed with a note",
+        "batchFixReqs; actionLog",
+        "bfxFollowDone"
+       ],
+       [
+        "Every correction",
+        "id, at, by, byUser, byRole, op, entityType, entityId, entityLabel, changes[], reasonCode, reason, cascade[]",
+        "corrections; actionLog; audit",
+        "recordCorrection"
+       ],
+       [
+        "orders[].lines[], packingLog",
+        "packed against what the packing records account for",
+        "Reconcile packing screen",
+        "reconCompute"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "DF-15",
+   "title": "Level 1: Today jobs, and the action log and audit trail",
+   "owner": "COO",
+   "rules": [
+    "R-030",
+    "R-031",
+    "R-008"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn actionItems",
+    "fn tdItems",
+    "fn tdVisible",
+    "fn acEscalation",
+    "fn logAction",
+    "fn qcAudit2",
+    "fn tdTake",
+    "fn acDeferSubmit",
+    "fn acUndefer",
+    "docs/SECURITY-REGISTER.md S-09 (per OP-HANDOFF-O2S.md 15 Oct (11))"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "From",
+       "Data moved",
+       "To",
+       "Function"
+      ],
+      "rows": [
+       [
+        "orders, orders[].lines[], batches, batches[].lots[], packingLog, shipments, prs, poMoves, samples, customers, dcRejects, batchFixReqs, masters",
+        "the state of every record",
+        "Today jobs (built on every draw, never stored)",
+        "actionItems"
+       ],
+       [
+        "Today jobs, usersList, rights",
+        "which jobs this person sees, escalations",
+        "Today screen",
+        "tdItems, tdVisible, acEscalation"
+       ],
+       [
+        "Person",
+        "a card taken (is on it) or put off",
+        "taken; acDefer",
+        "tdTake; acDeferSubmit, acUndefer"
+       ],
+       [
+        "Every writer",
+        "id, t, role, by, what",
+        "actionLog",
+        "logAction"
+       ],
+       [
+        "Many writers",
+        "t, user, module, po, brand, field, old, val, batchNo",
+        "audit",
+        "about 35 writers, for example qcAudit2, sendBackPO, savePackInspect"
+       ]
+      ]
+     }
+    },
+    {
+     "note": "Known risk (handoff 15 Oct (11), S-09): audit rows without ids can be lost when 2 people save at once."
+    }
+   ]
+  }
+ ]
+}

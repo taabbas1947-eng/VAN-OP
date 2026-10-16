@@ -1,0 +1,1138 @@
+{
+ "tab": "tests",
+ "title": "Tests, issues and assumptions",
+ "ver": "2026-10-16a",
+ "date": "2026-10-16",
+ "owner": "COO (Tahir)",
+ "intro": "Every O2S test file with what it proves and its last result, then the open issues, older registers, assumptions nobody has confirmed, known limits, review reports and the security register. Read the totals first; each item names its source.",
+ "items": [
+  {
+   "id": "TS-01",
+   "title": "Every test file, what it proves, and its last result",
+   "owner": "COO (Tahir)",
+   "rules": [],
+   "status": "confirmed",
+   "src": [
+    "apps/o2s/tests/*.test.js header comments",
+    "apps/o2s/tests/README.md",
+    "test run on this computer, 15 Oct 2026 23:37:47 to 23:38:32 (node v22.22.0, from apps/o2s, o2s.html BUILD_ID 2026-10-16a, saved 23:36:30, sha256 49b03832...)"
+   ],
+   "blocks": [
+    {
+     "p": "Each test pulls the real functions out of o2s.html (harness.js) and runs them; some also run against the July snapshot data/state.json. Run one with: node tests/<file> from apps/o2s. Exit code 0 means every check passed."
+    },
+    {
+     "table": {
+      "head": [
+       "Totals",
+       "Files",
+       "Checks"
+      ],
+      "rows": [
+       [
+        "Passed",
+        "97 files with every check passed",
+        "12,273 checks passed (in the 97 files that ran)"
+       ],
+       [
+        "Failed",
+        "0 files",
+        "0 checks"
+       ],
+       [
+        "Not run here",
+        "1 (publicbatch.test.js, needs pdfkit; passing on Tahir's computer, 15 Oct)",
+        "-"
+       ],
+       [
+        "All files",
+        "98",
+        "12,273 checks run"
+       ]
+      ]
+     }
+    },
+    {
+     "table": {
+      "head": [
+       "Test file",
+       "What it proves",
+       "Rules",
+       "Last result"
+      ],
+      "rows": [
+       [
+        "actioncenter.test.js",
+        "Print-on-pack is open to whoever may create a PO (asked of the access matrix, not role names); a job may say it is blocking now (due), not only how long it waited.",
+        "-",
+        "99 passed, 0 failed"
+       ],
+       [
+        "audit15e.test.js",
+        "15e rulings: the date box keeps the picked date and opens the late-reason box; shift starts empty and records the person; Run-sheet Pack opens the pressed batch; by-product cannot be the same product; QA Pass at or over the reject number needs a reason.",
+        "R-001, R-004",
+        "33 passed, 0 failed"
+       ],
+       [
+        "audit15f.test.js",
+        "15f rulings: one stuck rule per order line (7 days); 1 vehicle and driver rule; Start loading sheet with a safe batch change; sent-back fix sheet; Truck released and Handed to driver; truck job clocks; shared jobs; QA by pack type; look-alike batch refused once; new trucks reserve their exact packing runs.",
+        "R-013, R-015, R-022, R-026, R-027, R-028, R-029, R-030, R-031, R-032",
+        "148 passed, 0 failed"
+       ],
+       [
+        "audit15g.test.js",
+        "15g rulings: a line is moving when the same client and product was packed in 7 days; Waiting for production, X of Y ready; both cards; bulk-base run stalled after 4 days with no output; day 7 Stuck at packing job for Supply Chain: Close short or Waiting for client (1 to 30 days).",
+        "R-023, R-024, R-025",
+        "167 passed, 0 failed"
+       ],
+       [
+        "audit16a.test.js",
+        "Build 16a: read and sign once; the System documentation fails the build when a Guide rule, a build, a role or a data list has no entry, or an item lacks an id, owner, status or its question.",
+        "-",
+        "143 passed, 0 failed"
+       ],
+       [
+        "authmodel.test.js",
+        "Departments, roles and rights: every converted gate answers exactly as before, per role and per right, live and not live; a lead cannot widen himself.",
+        "R-003, R-019",
+        "6875 passed, 0 failed"
+       ],
+       [
+        "backlog.test.js",
+        "The print-decision backlog screen: one definition of the backlog, honest evidence, and the same gate for opening and saving.",
+        "-",
+        "42 passed, 0 failed"
+       ],
+       [
+        "batchclose.test.js",
+        "Closing a batch lists every batch with quantities to untick; the Plant Manager can reopen with a reason.",
+        "R-008",
+        "184 passed, 0 failed"
+       ],
+       [
+        "batchfix.test.js",
+        "A batch number correction is asked, then approved by the COO; the DC and inspection lines of that run follow.",
+        "R-012",
+        "71 passed, 0 failed"
+       ],
+       [
+        "batchover.test.js",
+        "A batch may run up to 115% of plan; Log more output comes back; closing short is unchanged.",
+        "R-033",
+        "28 passed, 0 failed"
+       ],
+       [
+        "batchqty.test.js",
+        "HG26025: correcting a batch's produced quantity is a proper correction (reason, register, Plant Manager or COO); a certified lot's entry cannot be voided.",
+        "R-008, R-009",
+        "113 passed, 0 failed"
+       ],
+       [
+        "batchtrace.test.js",
+        "Batch trace: which brands, brand batches, POs and trucks a batch went into, and whether the figures agree.",
+        "R-035",
+        "46 passed, 0 failed"
+       ],
+       [
+        "budget.test.js",
+        "Money: only COO, CFO, Plant Manager and KAM see money figures; budget by channel and client, FY July to June.",
+        "R-021",
+        "59 passed, 0 failed"
+       ],
+       [
+        "buildid.test.js",
+        "BUILD_ID and the changelog move together, so the newer-version banner and the What's changed notice fire.",
+        "-",
+        "12 passed, 0 failed"
+       ],
+       [
+        "certremove.test.js",
+        "AP26012: a certified duplicate lot can be put right only by superseding its certificate, and the way to do it is reachable.",
+        "R-008, R-016",
+        "258 passed, 0 failed"
+       ],
+       [
+        "closedshortbucket.test.js",
+        "Closed short is its own eighth stage, neither open nor delivered, and leaves fulfilment % on both sides.",
+        "R-008",
+        "71 passed, 0 failed"
+       ],
+       [
+        "closereason.test.js",
+        "A close-short reason must fit the stock: a line packed in full cannot be closed as 'We could not supply'.",
+        "R-008",
+        "12 passed, 0 failed"
+       ],
+       [
+        "customerapproval.test.js",
+        "A customer added by anyone but the CFO or COO waits for CFO approval before its first order.",
+        "R-011",
+        "19 passed, 0 failed"
+       ],
+       [
+        "customermaster.test.js",
+        "Customer and dealer rows carry stable ids so 2 people saving at once do not wipe each other; dealer codes use the region and city picked.",
+        "-",
+        "36 passed, 0 failed"
+       ],
+       [
+        "dashboard.test.js",
+        "The dashboard renders for every role, tab and period with no error.",
+        "-",
+        "168 passed, 0 failed"
+       ],
+       [
+        "datafix-batchvoid.test.js",
+        "Add missing packing needs a QC-approved batch and sets its numbers and dates like a normal pack; a packing entry can be voided with a reason.",
+        "R-004, R-009",
+        "51 passed, 0 failed"
+       ],
+       [
+        "datafix-bulkprice.test.js",
+        "Correct a record writers have a permission check; the bulk print-on-pack screen cannot set every PO to no price unasked.",
+        "-",
+        "41 passed, 0 failed"
+       ],
+       [
+        "dispatchauthority.test.js",
+        "Who signs a truck out: the warehouse loads and issues the gate pass, Saad reviews, the Plant Manager approves the DC and releases; 2 hour rule; delivery confirm order.",
+        "R-003, R-029",
+        "26 passed, 0 failed"
+       ],
+       [
+        "dispatchgrants.test.js",
+        "Dispatch rights (plan, load, gate pass, confirm delivery) and procurement rights (RM check, receive, close PR, acknowledge PO) are decided by the grant, not by the screen a person stands on.",
+        "R-019",
+        "130 passed, 0 failed"
+       ],
+       [
+        "docbar.test.js",
+        "Every printable opens with a Back to O2S and Print bar that never prints and never changes the paper.",
+        "R-034",
+        "40 passed, 0 failed"
+       ],
+       [
+        "entrydesign.test.js",
+        "New order redesign keeps every field and check: 4 sections, one card per product.",
+        "R-010",
+        "40 passed, 0 failed"
+       ],
+       [
+        "findcopy.test.js",
+        "Every paper is easy to find: the order's Papers list, each paper under the rule it already has.",
+        "R-035",
+        "59 passed, 0 failed"
+       ],
+       [
+        "firefighter.test.js",
+        "The Plant (Firefighter) view: delayed orders, material bottlenecks and shipping holds with counts; it writes nothing.",
+        "-",
+        "19 passed, 0 failed"
+       ],
+       [
+        "firstsave.test.js",
+        "Save path: the merge baseline is set on opening, and a failed save does not stop the tab pulling changes.",
+        "-",
+        "17 passed, 0 failed"
+       ],
+       [
+        "fixes26a.test.js",
+        "26a floor list: Close batch is offered when no more is needed; the Production Manager closes per line; 'Supplied from stock outside O2S' reason; the Plant Manager sees the DC and gate pass before he approves.",
+        "R-008, R-011",
+        "122 passed, 0 failed"
+       ],
+       [
+        "fixes26c.test.js",
+        "After a 409 or an auto-refresh the merge baseline is the server copy, so a closed batch does not come back open.",
+        "-",
+        "72 passed, 0 failed"
+       ],
+       [
+        "fixesA.test.js",
+        "List A (07e): fixes that could make stock or numbers wrong, including DC and gate pass number clashes after a merge.",
+        "R-009",
+        "19 passed, 0 failed"
+       ],
+       [
+        "fixesB.test.js",
+        "List B (07f): approvals that could be slipped past.",
+        "R-003",
+        "9 passed, 0 failed"
+       ],
+       [
+        "fixesC.test.js",
+        "List C (07g): jobs that stalled or misled, including the Pack job for a lab-cleared batch.",
+        "-",
+        "24 passed, 0 failed"
+       ],
+       [
+        "fixesD.test.js",
+        "List D (07h): screens, wording, design and consistency, including the Reference built from the live app.",
+        "-",
+        "30 passed, 0 failed"
+       ],
+       [
+        "fixesE.test.js",
+        "07i: the 4 reviewers' findings on 07h, fixed, on the stock move fixture.",
+        "R-007",
+        "23 passed, 0 failed"
+       ],
+       [
+        "focprice.test.js",
+        "An FOC sample never carries a printed price, and the price-on-pack question is not shown as required on an FOC order.",
+        "R-005",
+        "24 passed, 0 failed"
+       ],
+       [
+        "freshaudit.test.js",
+        "The fresh-eyes audit of 24q: every screen for every role renders with no undefined, NaN or overflow; its fixes.",
+        "-",
+        "29 passed, 0 failed"
+       ],
+       [
+        "gatepassqa.test.js",
+        "A Gate Pass cannot be issued for a truck whose inspection has not passed (Fault 8, one step further).",
+        "R-017",
+        "14 passed, 0 failed"
+       ],
+       [
+        "guide.test.js",
+        "The Guide says what each change made it say (pinned lines for every build since 24z).",
+        "R-001 to R-035 (wording)",
+        "77 passed, 0 failed"
+       ],
+       [
+        "how.test.js",
+        "How are we doing: the dashboard figures (on time, sold, late) worked out the way the rules say.",
+        "R-018",
+        "26 passed, 0 failed"
+       ],
+       [
+        "instructions.test.js",
+        "The in-app manual keeps its refreshed content (roles, Reconciliation, the shipment pipeline).",
+        "-",
+        "8 passed, 0 failed"
+       ],
+       [
+        "labassign.test.js",
+        "The lab works by parameter: each test assigned to an analyst, with its own time allowance.",
+        "R-016",
+        "108 passed, 0 failed"
+       ],
+       [
+        "labcover.test.js",
+        "Leave cover for the lab: a cover signs 1 line only, the certificate prints for whom, the Plant Manager names the cover.",
+        "R-003, R-006",
+        "68 passed, 0 failed"
+       ],
+       [
+        "latereasons.test.js",
+        "One delay reason per late order, with a per-line override.",
+        "-",
+        "19 passed, 0 failed"
+       ],
+       [
+        "linefix.test.js",
+        "Fix it where it happened: packed, dispatched and delivered cannot be typed; packing cannot pass ordered; a reversed lot does not count.",
+        "R-009, R-004",
+        "48 passed, 0 failed"
+       ],
+       [
+        "lotpack.test.js",
+        "AP26012: a certified lot can be packed; a duplicate lot can be removed; checked against older baseline files.",
+        "R-016",
+        "118 passed, 0 failed"
+       ],
+       [
+        "lotpick.test.js",
+        "The planner sees the batches for a truck, oldest first, and may choose; untouched, nothing changes.",
+        "R-013",
+        "42 passed, 0 failed"
+       ],
+       [
+        "manual.test.js",
+        "The Back Office manual card covers products, customers, budget and access.",
+        "-",
+        "18 passed, 0 failed"
+       ],
+       [
+        "neworder.test.js",
+        "New order: last price, 5% band with a reason, payment terms, ERP SO number.",
+        "R-010",
+        "16 passed, 0 failed"
+       ],
+       [
+        "packrefuse.test.js",
+        "A refused pack adds nothing to the PO line or the batch.",
+        "R-009",
+        "7 passed, 0 failed"
+       ],
+       [
+        "packs.test.js",
+        "Packs shown and confirmed with a tick; a cut over the batch or PO limit is shown; an entry over 10,000 Kg/L (or a shift and in-charge total over it) is flagged to the Production Manager, never stopped.",
+        "R-004",
+        "134 passed, 0 failed"
+       ],
+       [
+        "packshift.test.js",
+        "The 3 live packing entries refuse without a shift and an in-charge, store both, and move nothing when they refuse.",
+        "R-004",
+        "34 passed, 0 failed"
+       ],
+       [
+        "pallet.test.js",
+        "The batch on the bags is checked against each DC line at the truck inspection.",
+        "R-013, R-015",
+        "13 passed, 0 failed"
+       ],
+       [
+        "poentry.test.js",
+        "New PO entry redesign: the optional capture fields, the step strip and the order summary.",
+        "R-010",
+        "24 passed, 0 failed"
+       ],
+       [
+        "printdecisionseed.test.js",
+        "The 44 old orders with no print-on-pack answer are answered 'no' once, and a later 'yes' is never overwritten.",
+        "-",
+        "14 passed, 0 failed"
+       ],
+       [
+        "prodcards.test.js",
+        "Production in the new shell: one card per product; every button the same action under the same right.",
+        "-",
+        "32 passed, 0 failed"
+       ],
+       [
+        "prodrender.test.js",
+        "The Production screen renders on every tab with data in it, with no error.",
+        "-",
+        "102 passed, 0 failed"
+       ],
+       [
+        "prodstuck.test.js",
+        "Production's stuck list draws a live button only for Production's own items, for every role.",
+        "R-019",
+        "46 passed, 0 failed"
+       ],
+       [
+        "production-manager-split.test.js",
+        "The Production Manager and Production split: manager-only rights, floor rights, Data Fix off the floor.",
+        "R-019",
+        "143 passed, 0 failed"
+       ],
+       [
+        "productmaster.test.js",
+        "One product master, migrated once from the file; editing it is Back Office (COO, CFO, Plant Manager).",
+        "-",
+        "28 passed, 0 failed"
+       ],
+       [
+        "psi.test.js",
+        "The pre-shipment inspection report names only material on that truck, and only what may go on a customer's copy (real snapshot).",
+        "R-017, R-020",
+        "123 passed, 0 failed"
+       ],
+       [
+        "psidc.test.js",
+        "The pre-shipment report printed with the DC for customers ticked for it; the inspection register.",
+        "R-017",
+        "15 passed, 0 failed"
+       ],
+       [
+        "psiold.test.js",
+        "An old truck is judged by what was known when it left.",
+        "R-017",
+        "10 passed, 0 failed"
+       ],
+       [
+        "psiprices.test.js",
+        "A price is asked for every list-price product on the truck, once each.",
+        "R-017",
+        "10 passed, 0 failed"
+       ],
+       [
+        "publicbatch.test.js",
+        "The public lab report check for van.com.pk: the printed number only, every lot approved, newest financial year, only the allowed fields on the report (made-up records).",
+        "R-020",
+        "not run here (needs pdfkit); passing on Tahir's computer, 15 Oct"
+       ],
+       [
+        "qagate.test.js",
+        "The pre-shipment inspection is live: no stub pass at dispatch; release needs a real passed inspection.",
+        "R-017",
+        "16 passed, 0 failed"
+       ],
+       [
+        "qana.test.js",
+        "N/A on an inspection item needs a reason of 5 characters; N/A is refused on items that must be answered.",
+        "R-014",
+        "16 passed, 0 failed"
+       ],
+       [
+        "recon.test.js",
+        "Reconcile packing agrees with the packing records and flags only real gaps.",
+        "R-009",
+        "23 passed, 0 failed"
+       ],
+       [
+        "refusenothing.test.js",
+        "A refusal leaves nothing behind (lab bench and 2 other cases).",
+        "R-009",
+        "8 passed, 0 failed"
+       ],
+       [
+        "replot.test.js",
+        "The old 'one lot tested for the batch' code still works if switched back on (it is off since 13e).",
+        "R-016",
+        "25 passed, 0 failed"
+       ],
+       [
+        "reportsperiod.test.js",
+        "Reports open on All dates (Invoicing, Closed short, Stock moved keep theirs); tables cap at 500 rows with a note.",
+        "R-021",
+        "19 passed, 0 failed"
+       ],
+       [
+        "reportsteam.test.js",
+        "A department lead opens every report his department may open; the Your reports card.",
+        "R-021",
+        "27 passed, 0 failed"
+       ],
+       [
+        "review25m.test.js",
+        "Fixes from the 25m independent review: Pakistan-time dates, periods and others.",
+        "R-001",
+        "25 passed, 0 failed"
+       ],
+       [
+        "review25n.test.js",
+        "Fixes from the 25n independent review.",
+        "-",
+        "28 passed, 0 failed"
+       ],
+       [
+        "rights.test.js",
+        "Kind A jobs follow the matrix; Kind B sign-offs stay on hardRole and never follow it (the 30 July incident reproduced).",
+        "R-003, R-019",
+        "61 passed, 0 failed"
+       ],
+       [
+        "rmqty.test.js",
+        "Raw-material quantity entry takes large numbers and the right unit.",
+        "-",
+        "22 passed, 0 failed"
+       ],
+       [
+        "rolemodel.test.js",
+        "The role name is the join key; built-in roles are locked so they stay stable.",
+        "R-019",
+        "86 passed, 0 failed"
+       ],
+       [
+        "roletitles.test.js",
+        "Titles are for display and signatures only and never decide access.",
+        "R-019",
+        "54 passed, 0 failed"
+       ],
+       [
+        "salenet.test.js",
+        "Every money figure is net of FED; a sale counts when the truck leaves.",
+        "R-018",
+        "19 passed, 0 failed"
+       ],
+       [
+        "samples.test.js",
+        "FOC samples: ask, COO approves, warehouse issues, QA checks (not the issuer), Saad reviews (not the gate pass issuer), Plant Manager releases.",
+        "R-005, R-003",
+        "48 passed, 0 failed"
+       ],
+       [
+        "samplesdocs.test.js",
+        "FOC sample DCs and gate passes are listed in Reports, Documents for the roles that may open FOC samples.",
+        "R-005, R-035",
+        "34 passed, 0 failed"
+       ],
+       [
+        "shell.test.js",
+        "The 3-place shell (Today, Plant, Back Office, Guide): navigation, People, jobs and lists render for every role.",
+        "-",
+        "333 passed, 0 failed"
+       ],
+       [
+        "shipshell.test.js",
+        "Shipments in the new shell; cards, buttons and rights unchanged.",
+        "-",
+        "17 passed, 0 failed"
+       ],
+       [
+        "shortclose.test.js",
+        "A short close stops new work on a line but never touches what is packed or rewrites ordered (one guard, every writer).",
+        "R-008",
+        "39 passed, 0 failed"
+       ],
+       [
+        "shortcloseactions.test.js",
+        "Request, approve, reject and reopen a short close; the requester cannot approve; reopen is COO only.",
+        "R-003, R-008",
+        "54 passed, 0 failed"
+       ],
+       [
+        "shortclosereport.test.js",
+        "The short-close report: shortfall by reason and month from the figures frozen at close.",
+        "-",
+        "68 passed, 0 failed"
+       ],
+       [
+        "similarno.test.js",
+        "A look-alike brand batch number at packing is caught.",
+        "R-032",
+        "13 passed, 0 failed"
+       ],
+       [
+        "spec06.test.js",
+        "SPEC-06: which price goes on the pack (list, PO price or none) and its windows.",
+        "-",
+        "53 passed, 0 failed"
+       ],
+       [
+        "stockmove.test.js",
+        "Move packed stock to another PO: same customer, product, price and bag price; Supply Chain asks, Plant Manager approves, the asker cannot.",
+        "R-007, R-003",
+        "45 passed, 0 failed"
+       ],
+       [
+        "stuckbatches.test.js",
+        "Stuck batches: stuck per order line after 7 days, queued behind the oldest, held for orders; every row says what, why, when, who.",
+        "R-022",
+        "82 passed, 0 failed"
+       ],
+       [
+        "threeplaces.test.js",
+        "The 23 Sep rulings: the seeded access cells, customer rights to Finance and CFO, the Warehouse role, Ismaeel's role move, nothing deleted by the build.",
+        "R-008, R-019",
+        "72 passed, 0 failed"
+       ],
+       [
+        "today.test.js",
+        "Today: the jobs waiting on the signed-in person, grouped, one button each, the app's own action.",
+        "-",
+        "200 passed, 0 failed"
+       ],
+       [
+        "trucklists.test.js",
+        "Review truck shows for Supply Chain and Warehouse on every list, and never for the one who made the truck.",
+        "R-003, R-031",
+        "17 passed, 0 failed"
+       ],
+       [
+        "truckreview.test.js",
+        "Saad or Shoaib review a truck; Zain never; not whoever loaded it or issued its gate pass.",
+        "R-003",
+        "35 passed, 0 failed"
+       ],
+       [
+        "waitingqc.test.js",
+        "Waiting QC shows the whole batch (lots and Kg).",
+        "R-016",
+        "13 passed, 0 failed"
+       ],
+       [
+        "warehousesplit.test.js",
+        "Supply Chain splits into Lead Supply Chain, Warehouse and the assistant; what step 2 removes.",
+        "R-019",
+        "44 passed, 0 failed"
+       ],
+       [
+        "whatsnew.test.js",
+        "The What's changed notice shows once per version per person.",
+        "-",
+        "21 passed, 0 failed"
+       ]
+      ]
+     }
+    },
+    {
+     "note": "harness.js and preflight.js in the same folder are helpers, not tests. _before-auth.html and _before-lot.html are old copies of the app that lotpack and certremove compare against."
+    },
+    {
+     "note": "Last result: 16 Oct 2026, 00:27, all 98 files run one after the other on o2s.html build 2026-10-16a as delivered. 97 files passed every check; 0 failed; publicbatch.test.js cannot run here (needs pdfkit). The 2 failures of the 23:37 run (text in this documentation that 2 whole-file tests search for) were fixed by rewording the text."
+    },
+    {
+     "note": "Corrected 16 Oct 2026 (independent check against the code): counts and the last-result line moved to tonight's run (23:37). Changed rows: audit16a (now 90 passed), authmodel (1 failed), guide (77 passed, was 74), poentry (1 failed), publicbatch (passing on Tahir's computer, 15 Oct)."
+    }
+   ]
+  },
+  {
+   "id": "TS-02",
+   "title": "Open issues, with owner and date",
+   "owner": "COO (Tahir)",
+   "rules": [],
+   "status": "confirmed",
+   "src": [
+    "OP-HANDOFF-O2S.md entries 13 Oct (11) to 15 Oct (12)"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Issue",
+       "Owner",
+       "Date",
+       "Source",
+       "Status"
+      ],
+      "rows": [
+       [
+        "HG26038: close with a reason for 3,096 Kg, or keep open",
+        "Tahir (COO)",
+        "15 Oct 2026",
+        "OP-HANDOFF-O2S.md 15 Oct (1), (2), RESUME HERE 15 Oct",
+        "open"
+       ],
+       [
+        "Mfg and expiry month on the bag; open point: 'made on' for a batch not yet closed",
+        "Tahir (COO) to rule; then build",
+        "15 Oct 2026",
+        "RESUME HERE 15 Oct, step 3a",
+        "open"
+       ],
+       [
+        "Inspector name filled from the login (typed today)",
+        "not confirmed",
+        "15 Oct 2026",
+        "RESUME HERE 15 Oct, step 3b",
+        "open"
+       ],
+       [
+        "Complaint module: picture, independent review, then build (after 3a and 3b)",
+        "Tahir (COO)",
+        "14 Oct 2026 rulings",
+        "RESUME HERE 15 Oct, step 4",
+        "open"
+       ],
+       [
+        "QA 'per lot or combined'; Fahim's pending close-short requests (Problem 1)",
+        "Tahir (COO)",
+        "15 Oct 2026",
+        "RESUME HERE 15 Oct, step 5",
+        "open"
+       ],
+       [
+        "Item 19: per-batch QA result, or fail one batch at a time",
+        "Tahir (COO) to rule",
+        "15 Oct 2026",
+        "15 Oct (5a), (8), (9)",
+        "open"
+       ],
+       [
+        "Product name pairs (Cal-Mag V / Cala Mag V, Liquid Phosphorus / Phosphrous); a read-only count offered first",
+        "Tahir (COO)",
+        "15 Oct 2026",
+        "15 Oct (4), (5a)",
+        "open"
+       ],
+       [
+        "Item 22: labels, tap sizes, phone layout, its own build with before and after screenshots",
+        "not confirmed",
+        "15 Oct 2026",
+        "15 Oct (5), (6)",
+        "open"
+       ],
+       [
+        "Held for the next round: swapper barred from review and no 2 hour skip on a revised truck; split in whole bags; refuse a batch with no approved COA where the COA travels with the DC; refuse when the bags match no cleared run",
+        "Tahir (COO)",
+        "15 Oct 2026",
+        "15 Oct (8), (9)",
+        "held"
+       ],
+       [
+        "15g not built (Tahir did not ask): no escalation if Supply Chain leaves Stuck at packing undecided; old age returns the day after a wait ends (as ruled); snapshot ages overstate",
+        "Tahir (COO)",
+        "15 Oct 2026",
+        "15 Oct (11)",
+        "known, not built"
+       ],
+       [
+        "Live checks not yet possible: Start loading sheet and QA truck form (no truck at that step)",
+        "not confirmed",
+        "15 Oct 2026",
+        "15 Oct (12)",
+        "open"
+       ],
+       [
+        "Packing page picture (artifact EBXYuz6TQRX9X2UuvtKkxj) still says 'refused' for a cut",
+        "not confirmed",
+        "15 Oct 2026",
+        "15 Oct (1), (2)",
+        "open"
+       ],
+       [
+        "Gap 10: print Back bar on a real phone (needs Tahir's phone)",
+        "Tahir (COO)",
+        "13 Oct 2026",
+        "13 Oct (11)",
+        "open"
+       ],
+       [
+        "Gap 11: team feedback on the QA flow from Majid, Fahim, QA and Shoaib",
+        "Majid, Fahim, QA, Shoaib",
+        "13 Oct 2026",
+        "13 Oct (11)",
+        "waiting on replies"
+       ],
+       [
+        "Not verified live: what the Lab Rep sees under 13e; a real failed-lot run; real KAM, Lab Rep and QA Inspector logins on reports",
+        "not confirmed",
+        "13 Oct 2026",
+        "13 Oct (11)",
+        "open"
+       ],
+       [
+        "Clean-up: dead rep-lot code (labSetRep, labExtendRep, labRepWaiting, the 13d card); person card does not filter on it.who",
+        "not confirmed",
+        "13 Oct 2026",
+        "13 Oct (6), (11)",
+        "open"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "TS-03",
+   "title": "Older registers (August): what they still say",
+   "owner": "not confirmed",
+   "rules": [],
+   "status": "not confirmed",
+   "src": [
+    "apps/o2s/docs/FAULT-REGISTER.md (21 Aug 2026)",
+    "apps/o2s/docs/OPEN-ITEMS.md (22 Aug 2026)"
+   ],
+   "ask": "OPEN-ITEMS.md and FAULT-REGISTER.md stopped being updated in August. Should they be: A) closed item by item against the code, B) marked as history, C) left as they are?",
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Item",
+       "Source",
+       "Status today"
+      ],
+      "rows": [
+       [
+        "Fault register 21 Aug: 11 faults. Fixed 21 Aug: 6 (truck pipeline in the Action Center), 7 (phone layout), 9 (nine-figure PKR value), 10 (no-price PO could not pack), 11 (printOnPack:false default)",
+        "FAULT-REGISTER.md table",
+        "fixed"
+       ],
+       [
+        "Fault 8: truck released before its inspection",
+        "OPEN-ITEMS.md section 0; gatepassqa, qagate tests",
+        "closed (the register row still says open)"
+       ],
+       [
+        "Faults 1 to 5 (price visibility, field size, PO dossier, a standard correction, event dates): each has a spec (SPEC-01 to SPEC-04, UI-FIELD-AUDIT)",
+        "FAULT-REGISTER.md",
+        "built in part (spec06, the correction register CORRECT_ENTITY, recordedAt and late reasons, the order's Papers); whether each spec is complete is not confirmed"
+       ],
+       [
+        "AQL accept and reject numbers never checked against ISO 2859-1",
+        "OPEN-ITEMS.md 1.2 (owner QCM)",
+        "not confirmed"
+       ],
+       [
+        "Real names on shared logins; one login per person",
+        "OPEN-ITEMS.md 1.3",
+        "not confirmed (15 Oct entries name own logins for Ali Raza and Jawad Naseer)"
+       ],
+       [
+        "Stale datafix Edit grant for Production",
+        "OPEN-ITEMS.md 1.4",
+        "likely closed by seedAccessV2 (datafix: every role none except CFO and Plant Manager); live not confirmed"
+       ],
+       [
+        "Decisions listed 22 Aug: sequence validation, the entry-lag lock, mfg and exp after shipping, Data Fix authority, Fault 9c banners, adopting packed prices",
+        "OPEN-ITEMS.md section 3",
+        "not confirmed; Correct a record is now COO only in code; mfg and exp is step 3a above"
+       ],
+       [
+        "Build queue 22 Aug: SPEC-02 dossier, SPEC-04 later steps, a batch column on the Gate Pass, a truck loaded before a COA supersede",
+        "OPEN-ITEMS.md section 4",
+        "not confirmed"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "TS-04",
+   "title": "Assumptions nobody has confirmed",
+   "owner": "not confirmed",
+   "rules": [],
+   "status": "not confirmed",
+   "src": [
+    "docs/SECURITY-REGISTER.md S-03",
+    "OP-HANDOFF-O2S.md 13 Oct (1), (7)",
+    "o2s.html MONEY_ROLES comment",
+    "this test run"
+   ],
+   "ask": "Which of these should be checked first: A) the live access matrix and grants against this page, B) the website's public address contract?",
+   "blocks": [
+    {
+     "list": [
+      "SESSION_SECRET is set to a strong value on Render (S-03, a 5 minute check, not done).",
+      "The live access matrix and the live grant table still match the seeded rulings shown on the Access tab (not read for this page).",
+      "The Production department lead is still Production Manager live (read on 13 Oct; a fresh install seeds the floor role).",
+      "The website's o2s.ts uses the public answer built on 3 Oct, not the 10 Sep spec (API-15).",
+      "publicbatch.test.js passes on Tahir's computer (taken from his run of 15 Oct; not run here).",
+      "The last test run (15 Oct 23:37) used build 2026-10-16a while it was still being built (sha256 49b03832..., saved 23:36:30); it is not the pushed file.",
+      "S-05 is closed: o2s.html says 'S-05, now closed' beside MONEY_ROLES, but the security register still lists it open with no closed items."
+     ]
+    },
+    {
+     "note": "Corrected 16 Oct 2026 (independent check against the code): the build line now names the file of tonight's run."
+    }
+   ]
+  },
+  {
+   "id": "TS-05",
+   "title": "Known limits",
+   "owner": "COO (Tahir)",
+   "rules": [],
+   "status": "confirmed",
+   "src": [
+    "server.js POST /api/state, express.json",
+    "o2s.html saveNow, mergeDupNumbers, startSync, checkForNewBuild, decodeToken",
+    "OP-HANDOFF-O2S.md 13 Oct (3), (4), (7); 15 Oct (2), RESUME HERE 15 Oct",
+    "docs/SECURITY-REGISTER.md S-09"
+   ],
+   "blocks": [
+    {
+     "list": [
+      "All O2S data is 1 JSON document, read and written whole; a save over 25 MB is refused.",
+      "2 saves at the same moment are merged; audit rows without an id can be lost in the merge (S-09).",
+      "DC and gate pass numbers are taken as highest + 1 in each copy; a clash is possible and is said after the merge. A server-side counter is the full answer (25o note).",
+      "A role change reaches a person at the next sign in; the token carries the role for 30 days.",
+      "The page checks for changes every 7 seconds and for a newer build at most every 10 minutes.",
+      "Sign-in failures and public lookups are counted in the server's memory; a restart clears them.",
+      "A wrong shift or in-charge cannot be edited after saving: the COO reverses the record and it is entered again.",
+      "A PO line with no pack size saves packing without packs and without the tick.",
+      "Reports show the first 500 rows; older rows need the period buttons or export.",
+      "If Saad loads and Shoaib issues the gate pass (or the reverse), only the COO can review, or the 2 hour lapse lets the Plant Manager release.",
+      "A fresh install needs the Setup steps for the Production Manager as Production lead (13 Oct (7))."
+     ]
+    }
+   ]
+  },
+  {
+   "id": "TS-06",
+   "title": "Review and audit reports, with fix status",
+   "owner": "COO (Tahir)",
+   "rules": [],
+   "status": "confirmed",
+   "src": [
+    "OP-HANDOFF-O2S.md 13 Oct 2026 (1) to 15 Oct 2026 (11)",
+    "findings page https://claude.ai/artifact/VJPFjNaXdoNoHxqBXwngGy (15d)"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Build",
+       "Review",
+       "Found",
+       "Fix status"
+      ],
+      "rows": [
+       [
+        "12d (13 Oct)",
+        "1 independent agent",
+        "1 finding: the DEPTS seed still names the floor role as Production lead",
+        "left on purpose; Tahir ruled to keep the seed (13 Oct (7))"
+       ],
+       [
+        "13a",
+        "Independent review of the diff",
+        "no defect",
+        "-"
+       ],
+       [
+        "13b",
+        "Independent review of the diff",
+        "no defect",
+        "-"
+       ],
+       [
+        "13c",
+        "Independent review",
+        "no defect; growth risk of All dates noted",
+        "not changed (500-row cap)"
+       ],
+       [
+        "13d",
+        "Independent review",
+        "no defect",
+        "-"
+       ],
+       [
+        "13e",
+        "Independent review",
+        "no functional defect; 1 test exit code bug",
+        "fixed (replot)"
+       ],
+       [
+        "13f",
+        "No separate review (1 unused line deleted)",
+        "-",
+        "-"
+       ],
+       [
+        "13g",
+        "Independent review of the diff",
+        "no defect",
+        "-"
+       ],
+       [
+        "15a",
+        "2 audits",
+        "audit 1: 6 defects; audit 2: 1 defect (pack size 0.5 shown as 1)",
+        "all fixed"
+       ],
+       [
+        "15b",
+        "2 independent audits",
+        "second found 3 defects",
+        "all fixed"
+       ],
+       [
+        "15c",
+        "Independent audit",
+        "not detailed in the handoff",
+        "-"
+       ],
+       [
+        "15d",
+        "5 independent reviewers (floor, Production Manager, supply chain and warehouse, QA, accessibility); review of the diff",
+        "74 findings; 6 points on the diff",
+        "wording fixes built in 15d; flow items ruled and built in 15e to 15g or still open (TS-02); the 6 points fixed"
+       ],
+       [
+        "15e",
+        "Independent review",
+        "no defect; 1 older edge case; 2 notes",
+        "all done"
+       ],
+       [
+        "15f design",
+        "Independent fact check of the picture",
+        "6 corrections",
+        "folded in"
+       ],
+       [
+        "15f build",
+        "2 review rounds",
+        "no blockers",
+        "all fixed except 2 kept by Tahir's ruling (no start-date floor; Open Production hidden while base is ready)"
+       ],
+       [
+        "15g",
+        "2 code reviews, 3 data-safety, 2 workflow",
+        "several",
+        "all fixed or ruled by Tahir"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Earlier reviews with their own test files: the 24q fresh-eyes audit (freshaudit), the 25m and 25n independent reviews (review25m, review25n), the 4 reviewers on 07h (fixesE). The 22 Aug save-retry change was refused on review and parked (docs/parked-save-retry)."
+    }
+   ]
+  },
+  {
+   "id": "TS-07",
+   "title": "Security register S-01 to S-09 (owned by the security department)",
+   "owner": "Security / IT department",
+   "rules": [],
+   "status": "confirmed",
+   "src": [
+    "docs/SECURITY-REGISTER.md (15 Oct 2026)",
+    "CLAUDE.md section 2A"
+   ],
+   "blocks": [
+    {
+     "p": "Security is not Tahir's job and never blocks an O2S release. Findings are written to the register for the security department. Nothing in it is closed yet."
+    },
+    {
+     "table": {
+      "head": [
+       "Id",
+       "Title",
+       "Severity",
+       "Status"
+      ],
+      "rows": [
+       [
+        "S-01",
+        "Any logged-in account can read and overwrite all O2S data (/api/state has no O2S role check)",
+        "critical",
+        "open"
+       ],
+       [
+        "S-02",
+        "Seeded accounts still hold the default password, admin included",
+        "critical",
+        "open"
+       ],
+       [
+        "S-03",
+        "SESSION_SECRET not confirmed set on Render",
+        "high, pending a check",
+        "open"
+       ],
+       [
+        "S-04",
+        "PD Library uploads may be going to temporary storage",
+        "medium (data loss)",
+        "open"
+       ],
+       [
+        "S-05",
+        "The Report Builder's finance dataset (prices, sale values) was not role-gated",
+        "not given",
+        "open in the register; o2s.html and budget.test.js say closed by MONEY_ROLES (R6, 23 Sep)"
+       ],
+       [
+        "S-06",
+        "A full database backup with password hashes is committed to the repository",
+        "high",
+        "open"
+       ],
+       [
+        "S-07",
+        "The VAN-OP repository on GitHub is public",
+        "high",
+        "open"
+       ],
+       [
+        "S-08",
+        "6 vulnerable npm packages (1 critical, 1 high, 4 moderate); npm audit fix clears them",
+        "moderate in practice",
+        "open"
+       ],
+       [
+        "S-09",
+        "Audit rows can be lost when 2 people save at the same moment",
+        "moderate",
+        "open"
+       ]
+      ]
+     }
+    },
+    {
+     "note": "S-05 does not agree between the register and the code. Ask: should S-05 be A) marked closed in the register, B) kept open until the department checks it?"
+    }
+   ]
+  }
+ ]
+}

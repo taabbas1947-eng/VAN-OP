@@ -1,0 +1,2545 @@
+{
+ "tab": "logic",
+ "title": "System logic",
+ "ver": "2026-10-16a",
+ "date": "2026-10-16",
+ "owner": "not confirmed",
+ "intro": "How O2S decides: the stages a record moves through, who gets which job on Today and when, when a job escalates and to whom, the stuck rules, cover and send-back paths, and what happens when 2 people save at once. Each item names the function in o2s.html and the test that pins it; numbers and limits are on the Formulas tab.",
+ "items": [
+  {
+   "id": "LG-01",
+   "title": "Order line stage on the PO tracker (lineBucket, orderBucket)",
+   "owner": "Supply Chain",
+   "rules": [
+    "R-008",
+    "R-009",
+    "R-024"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn lineBucket",
+    "fn orderBucket",
+    "const BUCKETS",
+    "const BUCKET_META",
+    "fn lineShortClosed",
+    "o2s.html changelog 2026-09-23d",
+    "tests/closedshortbucket.test.js",
+    "tests/audit15f.test.js"
+   ],
+   "blocks": [
+    {
+     "p": "A line's stage is worked out from its quantities every time it is drawn. Nothing is stored as a stage. The checks run in this order and the first one that fits wins. 0.5 Kg/L is the rounding allowance used everywhere."
+    },
+    {
+     "table": {
+      "head": [
+       "Order of check",
+       "Test on the line",
+       "Stage"
+      ],
+      "rows": [
+       [
+        "1",
+        "close short approved and not reopened",
+        "Closed short"
+       ],
+       [
+        "2",
+        "ordered > 0 and delivered >= ordered - 0.5",
+        "Delivered"
+       ],
+       [
+        "3",
+        "dispatched > 0 or a dispatch date",
+        "Shipment"
+       ],
+       [
+        "4",
+        "QA-cleared stock > 0.5 (lineCleared)",
+        "Shipment"
+       ],
+       [
+        "5",
+        "packed stock waiting for inspection > 0.5 (lineToInspect)",
+        "QA Pre-shipment"
+       ],
+       [
+        "6",
+        "packed >= ordered - 0.5",
+        "QA Pre-shipment"
+       ],
+       [
+        "7",
+        "produced > 0 and produced >= ordered - 0.5",
+        "Lab QC"
+       ],
+       [
+        "8",
+        "produced > 0, or production started, or raw material ready",
+        "Production"
+       ],
+       [
+        "9",
+        "a PR raised (prRaised)",
+        "RM Check"
+       ],
+       [
+        "10",
+        "none of the above",
+        "PO Created"
+       ]
+      ]
+     }
+    },
+    {
+     "states": {
+      "name": "Order line stage",
+      "rows": [
+       [
+        "PO Created",
+        "Supply Chain raises a PR",
+        "RM Check"
+       ],
+       [
+        "PO Created or RM Check",
+        "raw material ready, or production starts (Production)",
+        "Production"
+       ],
+       [
+        "Production",
+        "produced reaches ordered (within 0.5)",
+        "Lab QC"
+       ],
+       [
+        "Lab QC",
+        "packing reaches ordered, or packed stock waits for QA",
+        "QA Pre-shipment"
+       ],
+       [
+        "QA Pre-shipment",
+        "QA Inspector clears packed stock",
+        "Shipment"
+       ],
+       [
+        "Shipment",
+        "trucks deliver the ordered quantity (within 0.5)",
+        "Delivered"
+       ],
+       [
+        "any open stage",
+        "Plant Manager or COO approves a close short",
+        "Closed short"
+       ],
+       [
+        "Closed short",
+        "a holder of po.reopen reopens the line",
+        "stage from the quantities again"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "The order's stage is the least advanced stage among its lines (orderBucket takes the lowest). So an order reads Closed short only when every line is closed short, and Delivered only when every line is delivered or closed. Owner shown on the tracker per stage: PO Created and RM Check Supply Chain, Production Production, Lab QC Lab Rep, QA Pre-shipment QA Inspector, Shipment Supply Chain (BUCKET_META)."
+    },
+    {
+     "note": "Delivered is decided by quantity, not by a date (24i). Closed short is checked before Delivered on purpose, so a line closed after a part delivery never reads as delivered."
+    }
+   ]
+  },
+  {
+   "id": "LG-02",
+   "title": "The older line stage list (lineStage, stageOf)",
+   "owner": "not confirmed",
+   "rules": [
+    "R-008"
+   ],
+   "status": "not confirmed",
+   "src": [
+    "fn lineStage",
+    "fn stageOf",
+    "const STAGE_ORDER",
+    "fn prodWorkCounts"
+   ],
+   "ask": "2 stage lists live side by side (lineBucket on the tracker, lineStage in some production counts). Should they: A stay as they are, B all move to lineBucket, C you want to see where each is used first?",
+   "blocks": [
+    {
+     "p": "A second stage list is still in the file and is used by a few production counts (prodWorkCounts 'to make', and 3 other places). It reads flags, not quantities."
+    },
+    {
+     "table": {
+      "head": [
+       "Order of check",
+       "Test",
+       "Stage"
+      ],
+      "rows": [
+       [
+        "1",
+        "close short approved",
+        "Closed short"
+       ],
+       [
+        "2",
+        "delivered >= ordered - 0.5",
+        "Delivered"
+       ],
+       [
+        "3",
+        "dispatch date or dispatched > 0",
+        "Dispatched"
+       ],
+       [
+        "4",
+        "qcPass",
+        "QC Passed"
+       ],
+       [
+        "5",
+        "prodComplete",
+        "Produced"
+       ],
+       [
+        "6",
+        "prodStart",
+        "In Production"
+       ],
+       [
+        "7",
+        "rmReady",
+        "RM Ready"
+       ],
+       [
+        "8",
+        "prRaised",
+        "PR Raised"
+       ],
+       [
+        "9",
+        "soCreated",
+        "SO Created"
+       ],
+       [
+        "10",
+        "none",
+        "New"
+       ]
+      ]
+     }
+    },
+    {
+     "note": "STAGE_ORDER lists 'RM / Procurement' but lineStage never returns it. 2 stage lists can disagree for the same line (for example a line packed in full reads QA Pre-shipment on the tracker and Produced here)."
+    }
+   ]
+  },
+  {
+   "id": "LG-03",
+   "title": "Batch stage, open or closed, and reconciled",
+   "owner": "Production",
+   "rules": [
+    "R-033",
+    "R-008",
+    "R-022"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn batchStage",
+    "fn batchPackNow",
+    "fn doCloseBatch",
+    "fn closeSettledBatches",
+    "fn settledBatches",
+    "fn doReopenBatch",
+    "fn saveReconcile",
+    "fn submitShiftLog",
+    "o2s.html changelog 2026-09-26b, 2026-09-26c",
+    "tests/batchclose.test.js",
+    "tests/batchqty.test.js",
+    "tests/fixes26a.test.js"
+   ],
+   "blocks": [
+    {
+     "p": "batchStage gives each batch 1 heading. It is read from the numbers; only status and reconciled are stored."
+    },
+    {
+     "table": {
+      "head": [
+       "Order of check",
+       "Test",
+       "Batch stage"
+      ],
+      "rows": [
+       [
+        "1",
+        "status closed, remainder (produced - packed - disposed) > 0.5 and nothing packable",
+        "recon (reconcile the remainder)"
+       ],
+       [
+        "2",
+        "status open and produced < plan - 0.5",
+        "producing"
+       ],
+       [
+        "3",
+        "produced - lab-cleared > 0.5",
+        "qc (waiting for the lab)"
+       ],
+       [
+        "4",
+        "packable > 0.5",
+        "pack (ready to pack)"
+       ],
+       [
+        "5",
+        "none",
+        "done"
+       ]
+      ]
+     }
+    },
+    {
+     "note": "Ready to pack is counted by batchPackNow, not by the heading: a batch still producing that holds a certified lot is in both lists (26 Aug). batchPackNow also needs a lab-approved lot and refuses pools and voided batches."
+    },
+    {
+     "states": {
+      "name": "Batch status",
+      "rows": [
+       [
+        "open",
+        "Production (batch.close) closes it; a short yield needs a variance reason; Plant Manager gets Yield short",
+        "closed"
+       ],
+       [
+        "open",
+        "Production (batch.close_bulk) closes settled batches in bulk: produced >= plan, nothing left, no variance",
+        "closed (closedBulk)"
+       ],
+       [
+        "closed",
+        "Plant Manager or COO reopens with a reason code and at least 10 characters; the close is kept in closeHistory",
+        "open"
+       ],
+       [
+        "open or closed",
+        "packing.reconcile accounts the whole remainder (loss, by-product, divert, rework, keep as stock) within 0.5",
+        "reconciled = true (status unchanged)"
+       ],
+       [
+        "closed",
+        "a second close",
+        "refused: already closed (07f)"
+       ],
+       [
+        "closed",
+        "a shift output is logged",
+        "refused: open a new batch"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Reconcile does not close a batch. It can be done in parts while the batch is still producing, and a second reconcile adds to the first (26a). By-product, divert and rework go into 1 open pool per product; loss is written off with a reason; stock kept stays packable on the batch."
+    },
+    {
+     "p": "A reopened batch is not asked to be closed again as if nothing happened: its Close job reads 'Reopened, check first' with the reopen reason."
+    }
+   ]
+  },
+  {
+   "id": "LG-04",
+   "title": "Lot certificate (COA) status",
+   "owner": "QCM",
+   "rules": [
+    "R-003",
+    "R-016",
+    "R-006",
+    "R-011"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn coaSubmitAnalyst",
+    "fn coaReview",
+    "fn coaApprove",
+    "fn coaSendBack",
+    "fn coaDeviation",
+    "fn coaRework",
+    "fn reworkOpen",
+    "fn coaReject",
+    "fn coaStatusPill",
+    "o2s.html changelog 2026-09-26a",
+    "tests/fixes26a.test.js",
+    "tests/fixes26c.test.js",
+    "tests/labcover.test.js",
+    "tests/rights.test.js"
+   ],
+   "blocks": [
+    {
+     "states": {
+      "name": "COA status (1 per lot)",
+      "rows": [
+       [
+        "no COA",
+        "Lab Rep opens the lot (Today: Lab QC); only the Lab Rep role may submit the draft (coaSubmitAnalyst)",
+        "draft"
+       ],
+       [
+        "draft",
+        "Lab Rep submits; every test has FIT, UNFIT or No Result; overall FIT",
+        "analysed"
+       ],
+       [
+        "draft",
+        "Lab Rep submits; any UNFIT or No Result",
+        "failed"
+       ],
+       [
+        "analysed",
+        "AQCM (or his leave cover) reviews; not the person who drafted it or ran a test",
+        "reviewed"
+       ],
+       [
+        "reviewed",
+        "QCM (or his leave cover) approves; not the reviewer, the drafter or a tester; certifiedKg is set",
+        "approved"
+       ],
+       [
+        "reviewed",
+        "QCM sends it back to the AQCM with a note of at least 10 characters",
+        "analysed"
+       ],
+       [
+        "analysed",
+        "AQCM sends it back to the analyst who drafted it, note of at least 10 characters",
+        "draft"
+       ],
+       [
+        "failed",
+        "Plant Manager accepts a deviation with a note of at least 5 characters",
+        "analysed (then AQCM, then QCM)"
+       ],
+       [
+        "failed",
+        "Plant Manager sends the lot to rework with a reason of at least 5 characters; failed COA kept in coaHistory",
+        "no COA, rework open (Production: Rework lot)"
+       ],
+       [
+        "rework open",
+        "Production marks Rework done",
+        "no COA (Lab QC again)"
+       ],
+       [
+        "approved",
+        "send back",
+        "refused: an approved certificate is re-issued as a new revision (Supersede)"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Only an approved lot is packable. Each lot has its own job and its own certificate; no lot waits for another (13e)."
+    },
+    {
+     "note": "coaReject (an older path, AQCM or QCM, back to draft) is still in the file, but nothing in o2s.html calls it: the screens send back only through coaSendBack."
+    }
+   ]
+  },
+  {
+   "id": "LG-05",
+   "title": "Lab testing by parameter (v2): is it switched on?",
+   "owner": "COO",
+   "rules": [
+    "R-016"
+   ],
+   "status": "not confirmed",
+   "src": [
+    "fn labFlowOn",
+    "fn labSetFlow",
+    "fn labV2Items",
+    "fn openLabSetup",
+    "fn coaSendBack comment 26a"
+   ],
+   "ask": "Is lab assignment by parameter switched on in live O2S today: A yes, B no, C I will check Lab setup?",
+   "blocks": [
+    {
+     "p": "When masters.labFlow is on, a new sample goes to the QCM to assign (Assign sample), each test goes to its analyst with its own due time (Lab test), and a sample still open more than 1 day after its due time gives the Plant Manager Lab late. Only the COO switches it."
+    },
+    {
+     "note": "The 26a comment says parameter-wise testing is not switched on. The July snapshot has no labFlow value. The live setting was not read."
+    }
+   ]
+  },
+  {
+   "id": "LG-06",
+   "title": "Truck stage and DC status",
+   "owner": "Supply Chain",
+   "rules": [
+    "R-026",
+    "R-027",
+    "R-028",
+    "R-029",
+    "R-030",
+    "R-017",
+    "R-003"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn saveDispatch (state.shipments.unshift with stage truck_planned)",
+    "fn startLoading",
+    "fn issueGatePass",
+    "fn reviewTruck",
+    "fn approveRelease",
+    "fn sendBackTruck",
+    "fn truckFixed",
+    "fn markDelivered",
+    "fn cancelShip",
+    "fn rejectDC",
+    "fn approveDC",
+    "fn shipStageOf",
+    "fn dispatchGroups",
+    "var DC_GO_LIVE, var QA_GO_LIVE",
+    "o2s.html changelog 2026-09-25e, 2026-09-25f, 2026-10-13b, 2026-10-15f",
+    "tests/dispatchauthority.test.js",
+    "tests/truckreview.test.js",
+    "tests/gatepassqa.test.js",
+    "tests/qagate.test.js",
+    "tests/audit15f.test.js"
+   ],
+   "blocks": [
+    {
+     "lanes": {
+      "roles": [
+       "Supply Chain",
+       "Warehouse",
+       "QA Inspector",
+       "Plant Manager",
+       "Dispatcher"
+      ],
+      "steps": [
+       {
+        "role": "Supply Chain",
+        "text": "Plan the truck: draft DC made, stage truck_planned, DC pending, vehicle, driver and phone required",
+        "rule": "R-026",
+        "kind": "start"
+       },
+       {
+        "role": "Warehouse",
+        "text": "Start loading (shipment.load): stage loading; a batch line may be changed before the gate pass",
+        "rule": "R-027",
+        "kind": "task"
+       },
+       {
+        "role": "QA Inspector",
+        "text": "Pre-shipment inspection (from planning on). Passed? yes: next; no: Supply Chain gets Truck failed",
+        "rule": "R-017",
+        "kind": "decision"
+       },
+       {
+        "role": "Warehouse",
+        "text": "Issue gate pass (gatepass.issue); refused until QA passed",
+        "kind": "task"
+       },
+       {
+        "role": "Supply Chain",
+        "text": "Review truck (Saad or Shoaib, never the loader, gate pass issuer or fixer). OK? yes: next; no: send back with a reason",
+        "rule": "R-003",
+        "kind": "decision"
+       },
+       {
+        "role": "Plant Manager",
+        "text": "Approve DC and release (after review, or 2 hours after the gate pass with no review). OK? yes: in transit; no: send back",
+        "kind": "decision"
+       },
+       {
+        "role": "Warehouse",
+        "text": "Sent back: the gate pass issuer fixes vehicle, driver, phone, bilty, seal, carrier, focal person; back to review",
+        "rule": "R-028",
+        "kind": "sendback"
+       },
+       {
+        "role": "Warehouse",
+        "text": "Truck released: hand the DC and gate pass to the driver, tap Handed to driver",
+        "rule": "R-029",
+        "kind": "task"
+       },
+       {
+        "role": "Dispatcher",
+        "text": "Confirm delivery (delivery.confirm): stage delivered, line delivered goes up",
+        "kind": "end"
+       }
+      ]
+     }
+    },
+    {
+     "states": {
+      "name": "Truck stage (shipment rows of 1 dispId)",
+      "rows": [
+       [
+        "(none)",
+        "Supply Chain plans the truck, on or after 1 Jul 2026 (DC control on)",
+        "truck_planned, DC pending"
+       ],
+       [
+        "truck_planned",
+        "Warehouse starts loading",
+        "loading"
+       ],
+       [
+        "loading",
+        "Warehouse issues the gate pass (QA must have passed)",
+        "loading + gate pass"
+       ],
+       [
+        "loading + gate pass",
+        "Supply Chain or Warehouse reviews (not the maker)",
+        "loading + reviewed"
+       ],
+       [
+        "loading + gate pass (+ reviewed)",
+        "reviewer or Plant Manager sends back with a reason",
+        "loading, sent back"
+       ],
+       [
+        "loading, sent back",
+        "Warehouse or Supply Chain fixes it",
+        "loading + gate pass, review again"
+       ],
+       [
+        "loading + reviewed (or 2 hours lapsed)",
+        "Plant Manager releases: DC approved, dispatched counted",
+        "in_transit (Ex-factory: delivered at once)"
+       ],
+       [
+        "in_transit",
+        "dispatcher (or Supply Chain, then Plant Manager) confirms delivery",
+        "delivered"
+       ],
+       [
+        "any stage before delivery",
+        "Supply Chain or Warehouse cancels; after the gate only the COO",
+        "cancelled (voided), material back to Ready to ship"
+       ],
+       [
+        "DC pending, not out of the gate",
+        "Supply Chain or Plant Manager rejects the DC with a reason of at least 5 characters",
+        "voided, DC rejected; Supply Chain gets DC rejected"
+       ]
+      ]
+     }
+    },
+    {
+     "table": {
+      "head": [
+       "dcStatus",
+       "Means"
+      ],
+      "rows": [
+       [
+        "pending",
+        "DC drafted at planning, waiting for the release"
+       ],
+       [
+        "approved",
+        "released by the Plant Manager (or approved, old style)"
+       ],
+       [
+        "rejected",
+        "rejected before leaving; rows voided"
+       ],
+       [
+        "cancelled",
+        "truck cancelled; rows voided"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "A truck from before the stage flow has no stage. shipStageOf reads it as delivered if delivered, pending_approval if its DC is pending, else in_transit. The old Approve DC job (Plant Manager) is only for those trucks; approveDC on a staged truck passes to the release."
+    },
+    {
+     "note": "Dispatched only rises at the release (dispCounted). Pre-shipment inspection is required for trucks dated on or after 23 Sep 2026 (QA_GO_LIVE)."
+    }
+   ]
+  },
+  {
+   "id": "LG-07",
+   "title": "Free sample (FOC) status",
+   "owner": "COO",
+   "rules": [
+    "R-005",
+    "R-003"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn smpJobs",
+    "fn smpDecide",
+    "fn smpIssue",
+    "fn smpCheck",
+    "fn smpDispatch",
+    "fn smpReview",
+    "fn smpRelease",
+    "fn smpArrived",
+    "fn smpFeedbackDue",
+    "o2s.html changelog 2026-09-25o, 2026-09-25p",
+    "OP-HANDOFF-O2S.md 25 Sep rulings (line 5688)",
+    "tests/samples.test.js"
+   ],
+   "blocks": [
+    {
+     "states": {
+      "name": "Sample status",
+      "rows": [
+       [
+        "(new)",
+        "KAM, Finance, Finance Desk Officer or CFO asks (sample.request)",
+        "requested"
+       ],
+       [
+        "requested",
+        "COO approves (sample.approve)",
+        "approved"
+       ],
+       [
+        "requested",
+        "COO does not approve, with a note; the asker gets Sample not approved",
+        "rejected"
+       ],
+       [
+        "approved",
+        "Warehouse issues it from stock (sample.issue)",
+        "issued"
+       ],
+       [
+        "issued",
+        "QA Inspector checks it; all checks good",
+        "checked"
+       ],
+       [
+        "issued",
+        "QA Inspector fails it",
+        "approved (issue again)"
+       ],
+       [
+        "checked",
+        "Warehouse issues the sample DC (SDC-) and gate pass from the truck book",
+        "gatepass"
+       ],
+       [
+        "gatepass",
+        "Supply Chain reviews",
+        "reviewed"
+       ],
+       [
+        "reviewed, or gatepass after 2 hours",
+        "Plant Manager releases",
+        "dispatched"
+       ],
+       [
+        "dispatched",
+        "the person who asked confirms it arrived",
+        "delivered"
+       ],
+       [
+        "any open",
+        "cancel",
+        "cancelled"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "After 30 days sent with no feedback, the asker gets Sample feedback (SMP_FEEDBACK_DAYS)."
+    }
+   ]
+  },
+  {
+   "id": "LG-08",
+   "title": "Close-short request on an order line",
+   "owner": "Plant Manager",
+   "rules": [
+    "R-008",
+    "R-024",
+    "R-011",
+    "R-003"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn requestShortClose",
+    "fn approveShortClose",
+    "fn rejectShortClose",
+    "fn refusalSeen",
+    "fn reopenShortClose",
+    "fn scArchive",
+    "fn lineShortRequested",
+    "fn lineShortRefused",
+    "fn scPackedConflict",
+    "o2s.html changelog 2026-09-23c, 2026-10-05b, 2026-10-06b",
+    "tests/shortcloseactions.test.js",
+    "tests/closereason.test.js",
+    "tests/shortclose.test.js"
+   ],
+   "blocks": [
+    {
+     "states": {
+      "name": "Close short (l.shortClose)",
+      "rows": [
+       [
+        "none",
+        "holder of po.shortclose_request asks with a reason; ordered, delivered and packed are frozen",
+        "requested"
+       ],
+       [
+        "requested",
+        "holder of po.shortclose_approve approves; not the person who asked",
+        "approved (line Closed short)"
+       ],
+       [
+        "requested",
+        "approver refuses with a reason",
+        "refused (asker gets Refused on Today)"
+       ],
+       [
+        "refused",
+        "asker taps Leave it open",
+        "refused, seen (job gone, line open)"
+       ],
+       [
+        "refused",
+        "asker asks again; the old decision moves to shortCloseHistory",
+        "requested"
+       ],
+       [
+        "approved",
+        "holder of po.reopen reopens; a whole-PO close is undone too",
+        "reopened (line open again)"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "While a request waits, it is the only Today job on that line (Plant Manager: Approve close short). A product packed in full cannot be closed as We could not supply or Raw material never arrived (scPackedConflict). Packed stock on a closed line still ships."
+    },
+    {
+     "note": "A refusal is a recorded fact, never an erase: an erased field came back through the merge 10 times in 1 morning (26a)."
+    }
+   ]
+  },
+  {
+   "id": "LG-09",
+   "title": "Purchase request (PR) status",
+   "owner": "CFO",
+   "rules": [
+    "R-011"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn raisePR",
+    "fn cfoApprovePR",
+    "fn receivePR",
+    "fn closePR",
+    "fn openPRRefused",
+    "fn prAskAgain",
+    "fn prDrop",
+    "fn actionItems (PR rows)",
+    "tests/fixes26a.test.js",
+    "tests/fixesB.test.js",
+    "tests/fixesC.test.js",
+    "tests/authmodel.test.js"
+   ],
+   "blocks": [
+    {
+     "states": {
+      "name": "PR (state.prs and a line's rmPR)",
+      "rows": [
+       [
+        "(none)",
+        "Supply Chain raises it; an open PR for the same material takes the extra quantity",
+        "open"
+       ],
+       [
+        "open",
+        "CFO approves (after seeing it)",
+        "open, CFO approved"
+       ],
+       [
+        "open",
+        "CFO refuses with a reason",
+        "open, refused (raiser gets PR refused)"
+       ],
+       [
+        "open, refused",
+        "raiser asks again with what changed (at least 5 characters)",
+        "open (back with the CFO)"
+       ],
+       [
+        "open, refused",
+        "raiser drops it; a line that could make nothing goes back to RM Check",
+        "closed"
+       ],
+       [
+        "open, CFO approved",
+        "Supply Chain receives in part with a GRN number",
+        "open, partly received"
+       ],
+       [
+        "open, CFO approved",
+        "received >= required - 0.001",
+        "closed"
+       ],
+       [
+        "open",
+        "holder of pr.close closes early: received enough (required set to received) or cancelled",
+        "closed early"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Raw material cannot be received on a PR the CFO has not approved."
+    }
+   ]
+  },
+  {
+   "id": "LG-10",
+   "title": "Who gets which Today job, and when (actionItems)",
+   "owner": "COO",
+   "rules": [
+    "R-019",
+    "R-011",
+    "R-022",
+    "R-023",
+    "R-024",
+    "R-030",
+    "R-031"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn actionItems",
+    "fn labV2Items",
+    "fn labCoverNeeds",
+    "fn deliveryJobs",
+    "fn smpJobs",
+    "fn pmvActionItems",
+    "fn pendingCustomerItems",
+    "fn dcRejectJobs",
+    "fn yieldShortJobs",
+    "fn bigPackJobs",
+    "fn bfxJobs",
+    "fn plLineBaseItems",
+    "fn plStuckJob",
+    "var TD_RIGHT",
+    "fn acEscalation",
+    "tests/today.test.js",
+    "tests/fixesC.test.js",
+    "tests/audit15g.test.js",
+    "tests/shell.test.js"
+   ],
+   "blocks": [
+    {
+     "p": "Every job is worked out fresh from the records each time Today draws. Nothing on Today is stored except deferrals (acDefer) and 'who is on it' marks (taken). A job disappears when the record moves on."
+    },
+    {
+     "table": {
+      "head": [
+       "Job (label)",
+       "Goes to",
+       "Raised when",
+       "Right that also shows it (TD_RIGHT)",
+       "Escalates after, to"
+      ],
+      "rows": [
+       [
+        "Acknowledge",
+        "Supply Chain",
+        "PO not acknowledged, stage PO Created or RM Check, not sent back (once per PO)",
+        "order.acknowledge",
+        "1 d, Plant Manager"
+       ],
+       [
+        "PO sent back",
+        "who it was sent to (default Finance), that person",
+        "PO sent back at acknowledge",
+        "-",
+        "none"
+       ],
+       [
+        "Approve close short",
+        "Plant Manager",
+        "a close-short request waits (the only job on that line)",
+        "-",
+        "1 d, COO"
+       ],
+       [
+        "Refused",
+        "the asker (role and person)",
+        "close-short refusal not yet read",
+        "-",
+        "none"
+       ],
+       [
+        "RM Check",
+        "Supply Chain",
+        "acknowledged and RM not checked; or 'for the rest' when a part-ready line's PR was dropped and the cleared part is made",
+        "rm.check",
+        "1 d, CFO"
+       ],
+       [
+        "PR refused",
+        "the raiser's role",
+        "line or central PR refused",
+        "-",
+        "none"
+       ],
+       [
+        "Approve PR",
+        "CFO",
+        "PR open, not approved, not refused",
+        "-",
+        "1 d, COO"
+       ],
+       [
+        "Receive",
+        "Supply Chain",
+        "line PR approved; or PR raised, RM not ready and an open PR on its materials",
+        "rm.receive",
+        "1 d, CFO"
+       ],
+       [
+        "Stuck at packing",
+        "Supply Chain",
+        "line stuck 7 d at packing (plStuckJob), from base or its own PO batch",
+        "-",
+        "none (known gap)"
+       ],
+       [
+        "Pack from base",
+        "Production",
+        "acknowledged line, cleared base ready > 0.5",
+        "packing.pack",
+        "7 d, Plant Manager (not while waiting for client)"
+       ],
+       [
+        "Open Production",
+        "Production",
+        "raw material allows and produced < min(ordered, rmAllows) - 0.5; or the base run card for the rest",
+        "production.enter",
+        "4 d stall, Plant Manager (not while waiting or moving)"
+       ],
+       [
+        "Pack QC",
+        "QA Inspector",
+        "packed stock waiting for inspection > 0.5",
+        "-",
+        "2 d, Plant Manager"
+       ],
+       [
+        "Add reason",
+        "Plant Manager",
+        "a late line with no delay reason (not while waiting for client)",
+        "-",
+        "none"
+       ],
+       [
+        "Ship",
+        "Supply Chain",
+        "1 per PO: any line with QA-cleared stock not delivered",
+        "shipment.plan",
+        "2 d, Supply Chain"
+       ],
+       [
+        "Approve customer",
+        "CFO",
+        "customer pending approval",
+        "-",
+        "none"
+       ],
+       [
+        "Customer sent back",
+        "who it was sent to (default Finance)",
+        "customer sent back",
+        "-",
+        "none"
+       ],
+       [
+        "Approve move",
+        "Plant Manager",
+        "stock move asked",
+        "-",
+        "1 d, COO"
+       ],
+       [
+        "Move refused",
+        "the asker",
+        "move refused, not read",
+        "-",
+        "none"
+       ],
+       [
+        "Check after move",
+        "Supply Chain",
+        "move done, raw material check not done",
+        "-",
+        "2 d, Plant Manager"
+       ],
+       [
+        "Duplicate number",
+        "Supply Chain",
+        "a DC or gate pass number on 2 records, one not left",
+        "gatepass.issue",
+        "1 d, Plant Manager"
+       ],
+       [
+        "Pack",
+        "Production",
+        "batch packable now and a PO line on it still short of packed",
+        "packing.pack",
+        "1 d, Production Manager (not when all its lines wait for client)"
+       ],
+       [
+        "Name a cover",
+        "Plant Manager",
+        "AQCM or QCM leave not covered; or certificates wait 1 d for a holder idle today (after 12:00, not Sunday)",
+        "-",
+        "none"
+       ],
+       [
+        "Rework lot",
+        "Production",
+        "lot sent to rework, not done",
+        "production.enter",
+        "none"
+       ],
+       [
+        "Assign sample",
+        "QCM",
+        "v2 lab flow: sample not assigned",
+        "-",
+        "1 d, Plant Manager"
+       ],
+       [
+        "Lab test",
+        "Lab Rep (the analyst named)",
+        "v2: a test not done",
+        "-",
+        "past its due time, QCM"
+       ],
+       [
+        "Lab late",
+        "Plant Manager",
+        "v2: sample still open more than 1 day after due",
+        "-",
+        "none"
+       ],
+       [
+        "Lab QC",
+        "Lab Rep",
+        "no COA or draft (not sent back)",
+        "-",
+        "1 d, Plant Manager"
+       ],
+       [
+        "Correct COA",
+        "Lab Rep (the drafter, if an active Lab Rep)",
+        "draft sent back by the AQCM",
+        "-",
+        "1 d, QCM"
+       ],
+       [
+        "Review",
+        "AQCM",
+        "COA analysed (or sent back to him)",
+        "-",
+        "1 d, Plant Manager"
+       ],
+       [
+        "Review (UNFIT)",
+        "Plant Manager",
+        "COA failed",
+        "-",
+        "1 d, Plant Manager (same label)"
+       ],
+       [
+        "Approve",
+        "QCM",
+        "COA reviewed",
+        "-",
+        "1 d, Plant Manager"
+       ],
+       [
+        "Print price",
+        "Finance",
+        "POs made before the print-on-pack question (1 job)",
+        "order.print_decision",
+        "3 d, COO"
+       ],
+       [
+        "Load",
+        "Warehouse",
+        "truck planned",
+        "shipment.load",
+        "1 d, Supply Chain"
+       ],
+       [
+        "Gate Pass",
+        "Warehouse",
+        "loading, no gate pass, QA not pending or failed",
+        "gatepass.issue",
+        "1 d, Supply Chain"
+       ],
+       [
+        "Sent back",
+        "the gate pass issuer",
+        "truck sent back, not fixed",
+        "-",
+        "none"
+       ],
+       [
+        "Review truck",
+        "Supply Chain and Warehouse (never the loader, issuer or fixer)",
+        "gate pass, QA passed, not reviewed, 2 hours not lapsed",
+        "-",
+        "1 d, Plant Manager"
+       ],
+       [
+        "Release",
+        "Plant Manager",
+        "gate pass, QA passed, reviewed or 2 hours lapsed",
+        "-",
+        "1 d, COO"
+       ],
+       [
+        "Approve DC",
+        "Plant Manager",
+        "old-style truck: DC pending, QA passed",
+        "-",
+        "1 d, COO"
+       ],
+       [
+        "Confirm delivery",
+        "dispatcher; + Supply Chain from day 1; + Plant Manager from day 2",
+        "truck in transit, not delivered",
+        "-",
+        "own ladder (TH 99 d, never reached)"
+       ],
+       [
+        "Truck released",
+        "the gate pass issuer",
+        "released, papers not handed to the driver",
+        "-",
+        "none"
+       ],
+       [
+        "Inspect",
+        "QA Inspector",
+        "truck inspection pending",
+        "-",
+        "2 d, Plant Manager"
+       ],
+       [
+        "Correct",
+        "Supply Chain",
+        "lot QA failed",
+        "-",
+        "none"
+       ],
+       [
+        "Re-inspect",
+        "Production Manager",
+        "lot on QA hold",
+        "-",
+        "none"
+       ],
+       [
+        "Close batch / Reopened, check first",
+        "Production",
+        "open batch, produced > 0, nothing left (remainder <= 0.5)",
+        "batch.close",
+        "none"
+       ],
+       [
+        "Sample jobs (Approve, Issue, Check, gate pass, Review, Release, arrived, feedback, not approved)",
+        "COO, Warehouse, QA Inspector, Supply Chain, Plant Manager, asker",
+        "by sample status (LG-07)",
+        "-",
+        "none"
+       ],
+       [
+        "Batch number fix",
+        "COO",
+        "a batch number correction asked",
+        "-",
+        "none"
+       ],
+       [
+        "Reprint jobs",
+        "Supply Chain and QA",
+        "after a batch number fix",
+        "-",
+        "none"
+       ],
+       [
+        "DC rejected / Truck failed",
+        "Supply Chain",
+        "rejected DC or failed truck not read",
+        "-",
+        "none"
+       ],
+       [
+        "Yield short",
+        "Plant Manager",
+        "batch closed with variance > 0.5, not marked seen",
+        "-",
+        "none"
+       ],
+       [
+        "Big pack run",
+        "Production Manager",
+        "packing entry flagged over 10,000 Kg/L, not seen",
+        "-",
+        "none"
+       ]
+      ]
+     }
+    },
+    {
+     "note": "Escalation days are calendar days from the job's own clock (LG-12). 'none' means the label is not in the escalation table."
+    }
+   ]
+  },
+  {
+   "id": "LG-11",
+   "title": "Who sees a job on Today (tdItems, tdVisible, TD_RIGHT)",
+   "owner": "COO",
+   "rules": [
+    "R-019",
+    "R-003",
+    "R-031"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn tdItems",
+    "fn tdVisible",
+    "fn itOwnedBy",
+    "fn itBarred",
+    "fn tdCanAct",
+    "fn tdChaseHTML",
+    "var TD_RIGHT",
+    "var tdScope",
+    "tests/today.test.js",
+    "tests/fixesC.test.js",
+    "tests/truckreview.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Check, in order",
+       "Result"
+      ],
+      "rows": [
+       [
+        "Role is COO",
+        "sees everything, but by default (tdScope 'mine') only his own jobs and those escalated to him; a switch shows the whole plant"
+       ],
+       [
+        "Job addressed to my role, or my role is in alsoRoles",
+        "shown"
+       ],
+       [
+        "Job escalated to my role (acEscalation 'to')",
+        "shown, tagged 'escalated to you'"
+       ],
+       [
+        "Job label has a TD_RIGHT code, that right is live (RIGHTS_LIVE) and my role holds it in the grant table (ticked by the COO or a department lead)",
+        "shown"
+       ],
+       [
+        "I hold an AQCM or QCM leave cover for today and did not sign the other line",
+        "Review or Approve shown"
+       ],
+       [
+        "Job addressed to 1 person (who) and that is not me",
+        "hidden (unless COO or escalated)"
+       ],
+       [
+        "I am in notWho (loaded, issued the gate pass or fixed the truck)",
+        "hidden (unless COO)"
+       ],
+       [
+        "Job deferred by its owner and not yet back",
+        "hidden"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "On an escalated card the button is kept only if the person holds the right behind it (TD_RIGHT) or is the COO; otherwise the card says 'Not yours to do, chase <name or role>' (07g)."
+    },
+    {
+     "note": "Labels left out of TD_RIGHT on purpose: Pack QC, Inspect, Lab QC, Review, Approve, Release, Approve DC. Role alone decides those. Which rights are live was not read from live data."
+    }
+   ]
+  },
+  {
+   "id": "LG-12",
+   "title": "Escalation: how long a job may wait, and who is told (acEscalation)",
+   "owner": "Plant Manager",
+   "rules": [
+    "R-030",
+    "R-022",
+    "R-024"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn acEscalation (var TH)",
+    "fn acProduceStallDays",
+    "fn baseStallStart",
+    "fn labLateBy",
+    "docs/SPEC-04-REALTIME-DISCIPLINE.md 'A note on the escalation engine'",
+    "docs/FAULT-REGISTER.md (truck items, line 446)",
+    "OP-HANDOFF-O2S.md 'Fahim, Gate pass approval' entry (line 716)",
+    "tests/audit15g.test.js",
+    "tests/labassign.test.js",
+    "tests/fixesC.test.js",
+    "tests/authmodel.test.js"
+   ],
+   "blocks": [
+    {
+     "p": "A job escalates when its waiting days (actTiming, LG-13) reach the limit. The owner keeps the job; the person it escalates to also sees it, tagged. Open Production counts from the last activity, not from the PO's age: for a bulk base, the last logged output on that base (never before the PO arrived); for a PO line, its last lot or batch opening, or raw material ready when no batch is open yet (acProduceStallDays)."
+    },
+    {
+     "table": {
+      "head": [
+       "Job",
+       "Days (calendar)",
+       "Told",
+       "Ruling"
+      ],
+      "rows": [
+       [
+        "Acknowledge",
+        "1",
+        "Plant Manager",
+        "SPEC-04 'locked thresholds'"
+       ],
+       [
+        "RM Check",
+        "1",
+        "CFO",
+        "SPEC-04"
+       ],
+       [
+        "Receive",
+        "1",
+        "CFO",
+        "not confirmed"
+       ],
+       [
+        "Lab QC",
+        "1",
+        "Plant Manager",
+        "SPEC-04"
+       ],
+       [
+        "Correct COA",
+        "1",
+        "QCM",
+        "26a"
+       ],
+       [
+        "Assign sample",
+        "1",
+        "Plant Manager",
+        "24r"
+       ],
+       [
+        "Review",
+        "1",
+        "Plant Manager",
+        "not confirmed"
+       ],
+       [
+        "Approve",
+        "1",
+        "Plant Manager",
+        "not confirmed"
+       ],
+       [
+        "Pack QC",
+        "2",
+        "Plant Manager",
+        "SPEC-04"
+       ],
+       [
+        "Inspect",
+        "2",
+        "Plant Manager",
+        "SPEC-04"
+       ],
+       [
+        "Ship",
+        "2",
+        "Supply Chain",
+        "SPEC-04"
+       ],
+       [
+        "Open Production",
+        "4 (from the last output or batch activity, see above)",
+        "Plant Manager",
+        "SPEC-04; 15g for bulk base"
+       ],
+       [
+        "Approve PR",
+        "1",
+        "COO",
+        "not confirmed"
+       ],
+       [
+        "Print price",
+        "3",
+        "COO",
+        "SPEC-01 rule 7"
+       ],
+       [
+        "Load",
+        "1",
+        "Supply Chain",
+        "2026-08-21 truck pipeline"
+       ],
+       [
+        "Gate Pass",
+        "1",
+        "Supply Chain",
+        "2026-08-21"
+       ],
+       [
+        "Review truck",
+        "1",
+        "Plant Manager",
+        "25e"
+       ],
+       [
+        "Release",
+        "1",
+        "COO",
+        "2026-08-21 (FAULT-REGISTER: a loaded truck escalates to the COO after 1 day)"
+       ],
+       [
+        "Approve DC",
+        "1",
+        "COO",
+        "2026-08-21"
+       ],
+       [
+        "Confirm delivery",
+        "99 (never)",
+        "Plant Manager",
+        "25e: own ladder in deliveryJobs"
+       ],
+       [
+        "Approve move",
+        "1",
+        "COO",
+        "07g"
+       ],
+       [
+        "Approve close short",
+        "1",
+        "COO",
+        "07g"
+       ],
+       [
+        "Pack",
+        "1",
+        "Production Manager",
+        "07g"
+       ],
+       [
+        "Pack from base",
+        "7 (PL_LINE_STUCK_DAYS)",
+        "Plant Manager",
+        "15f"
+       ],
+       [
+        "Check after move",
+        "2",
+        "Plant Manager",
+        "07i"
+       ],
+       [
+        "Duplicate number",
+        "1",
+        "Plant Manager",
+        "07i"
+       ],
+       [
+        "Lab test",
+        "past its due time (clock, not days)",
+        "QCM",
+        "24r"
+       ]
+      ]
+     }
+    },
+    {
+     "list": [
+      "No escalation while the line waits for the client: Pack from base, Open Production (15g).",
+      "No escalation for Open Production while the line was packed in the last 7 days (moving, 15g).",
+      "No escalation for a Pack job whose PO lines all wait for the client (15g).",
+      "Lab test: late by the clock against its own due time; days shown = whole days late (24r)."
+     ]
+    },
+    {
+     "note": "Stuck at packing (Supply Chain) has no escalation. Recorded as known and not built in OP-HANDOFF-O2S.md 15 Oct (11)."
+    }
+   ]
+  },
+  {
+   "id": "LG-13",
+   "title": "Job clocks: when a job's waiting time starts (actTiming, truckClockStart)",
+   "owner": "COO",
+   "rules": [
+    "R-030",
+    "R-024",
+    "R-001"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn actTiming",
+    "fn truckClockStart",
+    "fn plLinePack",
+    "fn packJobSince",
+    "fn itemWaiting",
+    "fn calDays",
+    "o2s.html changelog 2026-10-15f (item 18), 2026-10-15g",
+    "tests/audit15f.test.js",
+    "tests/audit15g.test.js",
+    "tests/actioncenter.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Job",
+       "Clock starts at",
+       "Shown with ~ (approximate)"
+      ],
+      "rows": [
+       [
+        "Acknowledge",
+        "PO received date",
+        "no"
+       ],
+       [
+        "RM Check",
+        "RM recheck date, else acknowledged date, else received",
+        "yes when no recheck or ack date"
+       ],
+       [
+        "RM Check (for the rest)",
+        "latest of recheck, the cleared part finished, and 8 Oct 2026",
+        "no"
+       ],
+       [
+        "Receive",
+        "PR raised date, else received",
+        "when no PR date"
+       ],
+       [
+        "Open Production",
+        "bulk base: later of last output on the base and PO received; else RM ready, else PR raised, else received; never before a wait was marked or the last pack while moving",
+        "when no RM ready date"
+       ],
+       [
+        "Pack from base",
+        "later of last pack, PO received and base ready (plLinePack); never before a wait was marked",
+        "when unknown"
+       ],
+       [
+        "Stuck at packing",
+        "the day the line turned stuck (labAt)",
+        "no"
+       ],
+       [
+        "Ship",
+        "oldest QA-cleared lot still to ship",
+        "falls back to qcPass or received"
+       ],
+       [
+        "Pack QC",
+        "newest packed lot waiting for QA",
+        "falls back to received"
+       ],
+       [
+        "Add reason",
+        "committed date, else promised, else received",
+        "always ~"
+       ],
+       [
+        "PO sent back, PR refused, moves",
+        "when it happened (labAt)",
+        "else received"
+       ],
+       [
+        "Approve close short",
+        "when the close was asked",
+        "else received"
+       ],
+       [
+        "Refused",
+        "when it was refused",
+        "else received"
+       ],
+       [
+        "Batch jobs",
+        "closed date, else opened date",
+        "yes except Lab QC"
+       ],
+       [
+        "Pack (batch)",
+        "first lab approval, not before 8 Oct 2026 (PACK_JOB_SINCE); not before a wait was marked",
+        ""
+       ],
+       [
+        "Load",
+        "later of planned (recordedAt) and the typed dispatch date",
+        "when no planned time"
+       ],
+       [
+        "Inspect (truck)",
+        "later of planned and the last batch change",
+        "when neither"
+       ],
+       [
+        "Gate Pass",
+        "later of loading started and QA recorded",
+        "unless both known"
+       ],
+       [
+        "Review truck",
+        "latest of gate pass, QA recorded and a sent-back fix",
+        "when none"
+       ],
+       [
+        "Release",
+        "review time; with no review, 2 hours after the review became due",
+        "when no time"
+       ],
+       [
+        "Sent back",
+        "when it was sent back",
+        "else typed date"
+       ],
+       [
+        "Confirm delivery",
+        "approved (release) date",
+        "else typed date"
+       ],
+       [
+        "Sample jobs",
+        "last history entry of the sample",
+        ""
+       ],
+       [
+        "Customer",
+        "inducted date",
+        "always ~"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Days are whole calendar days in plant time (Pakistan, UTC+5). A job waiting for the client reads 0 days and is never urgent (itemWaiting). A job with a deadline (due) is judged on days until due instead (dueIn)."
+    },
+    {
+     "p": "Today chips: green 'new today' at 0 days, amber 1 to 6 days, red from 7 days (07h)."
+    }
+   ]
+  },
+  {
+   "id": "LG-14",
+   "title": "Stuck, queued and held batches (plBatchClass)",
+   "owner": "Production",
+   "rules": [
+    "R-022",
+    "R-023",
+    "R-024"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn plBatchClass",
+    "fn plBatchFacts",
+    "fn plBatchMove",
+    "fn _plCarrier",
+    "fn plStuckBatches",
+    "fn plHeldBatches",
+    "var PL_STUCK_NO_OUTPUT_DAYS",
+    "o2s.html changelog 2026-10-12c, 2026-10-15f, 2026-10-15g",
+    "OP-HANDOFF-O2S.md 12 Oct 2026 (night); 15 Oct 2026 (8), (9)",
+    "tests/stuckbatches.test.js",
+    "tests/audit15f.test.js",
+    "tests/audit15g.test.js"
+   ],
+   "blocks": [
+    {
+     "p": "1 rule for Plant, the Production batch list and Today. Last move = the latest shift entry or pack record on the batch (a reversed or void pack does not count). Pools, voided and by-product batches are never listed; a closed batch is judged only while it holds kept stock to pack."
+    },
+    {
+     "table": {
+      "head": [
+       "Batch is",
+       "Test",
+       "Result",
+       "Next step"
+      ],
+      "rows": [
+       [
+        "open, not yet at plan",
+        "no move for 3 d or more (PL_STUCK_NO_OUTPUT_DAYS)",
+        "stuck: no output logged",
+        "Production"
+       ],
+       [
+        "open, at plan, nothing left",
+        "no move for 2 d or more (PL_STUCK_MADE_OPEN_DAYS)",
+        "stuck: all packed, still open, close it",
+        "Production"
+       ],
+       [
+        "open, at plan, nothing cleared ready",
+        "stage qc and no move for 2 d or more",
+        "stuck: waiting for the lab",
+        "Lab"
+       ],
+       [
+        "cleared stock, no open order line waits for it",
+        "always",
+        "held for orders (amber after 180 d, PL_HELD_FLAG_DAYS)",
+        "Production Manager"
+       ],
+       [
+        "cleared stock, order lines wait",
+        "no line has gone 7 d with nothing packed (or it waits for the client, or close short asked)",
+        "not listed (moving)",
+        "-"
+       ],
+       [
+        "cleared stock, a line stuck, this is not the oldest carrier of the base",
+        "-",
+        "queued for PO",
+        "-"
+       ],
+       [
+        "cleared stock, a line stuck, oldest carrier",
+        "nothing packed for a line, from any batch, for 7 d (PL_LINE_STUCK_DAYS)",
+        "stuck",
+        "Production; Plant Manager told"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "The lines a batch serves: its own PO line, the lines of a multi-PO batch, or for a bulk base every open, acknowledged order line of that base of any age (no order-age limit since 15f)."
+    }
+   ]
+  },
+  {
+   "id": "LG-15",
+   "title": "A line moving, waiting for base, and the run for the rest (plLinePack, plLineBaseItems, plBaseShare)",
+   "owner": "Production",
+   "rules": [
+    "R-023",
+    "R-025",
+    "R-024"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn plLinePack",
+    "fn plClientPOs",
+    "fn plLineWantsBase",
+    "fn plLineBaseItems",
+    "fn plBaseReady",
+    "fn plBaseLabKg",
+    "fn plBaseShare",
+    "fn plLineOwnStuck",
+    "o2s.html changelog 2026-10-15g",
+    "OP-HANDOFF-O2S.md 15 Oct 2026 (11)",
+    "tests/audit15g.test.js",
+    "tests/audit15f.test.js"
+   ],
+   "blocks": [
+    {
+     "list": [
+      "Moving: the same product packed for the same client on any of that client's POs (any line, the same PO too) in the last 7 days. A cancelled or voided PO does not count; a PO with no client counts only itself.",
+      "A line wants base when it is acknowledged, not sent back, still owed more than 0.5, not closed, and not already served by its own ready PO or multi-PO batch.",
+      "Line clock = later of its last pack (as above), PO received and base first ready.",
+      "Pack from base: 1 card per order line while ready base > 0.5. Every line sees all the ready base; Production chooses what to pack.",
+      "Open Production for the rest: only for what the ready base and the base with the lab cannot cover across its orders, oldest PO first, lines waiting for the client last, close-short-requested lines skipped, within what raw material allows.",
+      "Stuck at packing: on day 7 of a line with nothing packed while base (or its own batch) is ready, Supply Chain gets the job (LG-16)."
+     ]
+    },
+    {
+     "p": "Formula detail and worked example: formulas tab F-030 and F-031."
+    }
+   ]
+  },
+  {
+   "id": "LG-16",
+   "title": "Stuck at packing and waiting for the client (plStuckJob, waitMarks)",
+   "owner": "Supply Chain",
+   "rules": [
+    "R-024",
+    "R-011",
+    "R-008"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn plStuckJob",
+    "var STUCK_JOB_SINCE",
+    "fn openStuckDecision",
+    "fn saveWaitClient",
+    "fn endWaitClient",
+    "fn _wcMark",
+    "fn lineWaitMark",
+    "fn lineWaitClient",
+    "fn lineWaitOver",
+    "fn itemWaiting",
+    "fn batchLinesWaiting",
+    "fn plWaitLines",
+    "o2s.html changelog 2026-10-15g",
+    "OP-HANDOFF-O2S.md 15 Oct 2026 (10), (11)",
+    "tests/audit15g.test.js"
+   ],
+   "blocks": [
+    {
+     "lanes": {
+      "roles": [
+       "Production",
+       "Supply Chain",
+       "Plant Manager"
+      ],
+      "steps": [
+       {
+        "role": "Production",
+        "text": "Line ready to pack, nothing packed for 7 d",
+        "rule": "R-022",
+        "kind": "start"
+       },
+       {
+        "role": "Plant Manager",
+        "text": "Told: for a line on base, Pack from base escalates to the Plant Manager; for a line on its own PO batch, the Pack job reaches the Production Manager",
+        "kind": "task"
+       },
+       {
+        "role": "Supply Chain",
+        "text": "Stuck at packing on Today the same day. Close short or keep? close: request; keep: waiting for client",
+        "rule": "R-024",
+        "kind": "decision"
+       },
+       {
+        "role": "Plant Manager",
+        "text": "Approve or refuse the close-short request",
+        "kind": "task"
+       },
+       {
+        "role": "Supply Chain",
+        "text": "Waiting for client: reason (5+ characters) and a date 1 to 30 days away; change or end later",
+        "kind": "end"
+       }
+      ]
+     }
+    },
+    {
+     "states": {
+      "name": "Wait for the client (l.waitMarks, 1 row per mark)",
+      "rows": [
+       [
+        "not waiting",
+        "Supply Chain or COO marks 'wait' with reason and date",
+        "waiting until the date"
+       ],
+       [
+        "waiting",
+        "Supply Chain or COO saves a new date (not the same date)",
+        "waiting until the new date"
+       ],
+       [
+        "waiting",
+        "Supply Chain or COO ends it with a reason",
+        "not waiting (over that day)"
+       ],
+       [
+        "waiting",
+        "the date passes",
+        "not waiting from the day after"
+       ],
+       [
+        "waiting",
+        "the line is fully packed or closed short",
+        "not waiting"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "The latest mark by time decides. While waiting: the line is not stuck, nobody is told, its jobs read 0 days and are never urgent, and no Add reason job is raised. After a wait ends, the Stuck at packing job counts from the day the wait was over, and never before 15 Oct 2026 (STUCK_JOB_SINCE)."
+    },
+    {
+     "note": "Marks are rows with their own id, so 2 people marking at once are both kept by the merge (audit15g 'both marks survive the merge')."
+    }
+   ]
+  },
+  {
+   "id": "LG-17",
+   "title": "Lab late and the lab leave cover safety net",
+   "owner": "Plant Manager",
+   "rules": [
+    "R-006",
+    "R-016"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn labLateBy",
+    "fn labV2Items",
+    "fn labCoverNeeds",
+    "fn acEscalation ('Lab test')",
+    "o2s.html changelog 2026-09-24r, 2026-09-24v",
+    "tests/labassign.test.js",
+    "tests/labcover.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Case",
+       "Limit",
+       "Who is told"
+      ],
+      "rows": [
+       [
+        "v2 test not done",
+        "any time past its own due time",
+        "QCM (escalation of Lab test)"
+       ],
+       [
+        "v2 sample still open",
+        "more than 1 day (86,400,000 ms) past the sample due time",
+        "Plant Manager (Lab late job)"
+       ],
+       [
+        "AQCM or QCM announced leave, no cover spans it",
+        "from the announcement until the leave ends",
+        "Plant Manager (Name a cover)"
+       ],
+       [
+        "no leave announced, certificates waiting 1 calendar day or more for the role holder, who has done nothing in O2S today",
+        "only after 12:00 and never on a Sunday",
+        "Plant Manager (Name a cover)"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "LG-18",
+   "title": "Hand over, stand in and away",
+   "owner": "Plant Manager",
+   "rules": [
+    "R-006",
+    "R-003",
+    "R-019"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn labLeaveAnnounce",
+    "fn labLeaveCancel",
+    "fn labSetCover",
+    "fn labEndCover",
+    "fn labCovers",
+    "fn labOnBehalf",
+    "fn labCoverSees",
+    "var LAB_COVER_ROLES",
+    "fn acDefer",
+    "fn acDeferSubmit",
+    "fn acDeferActive",
+    "fn acUndefer",
+    "fn tdTake",
+    "fn tdTakenBy",
+    "o2s.html changelog 2026-09-24u, 2026-09-24v",
+    "tests/labcover.test.js",
+    "tests/today.test.js",
+    "tests/shell.test.js",
+    "fn tdItems (!acDeferActive) ; fn prodStuckItems ; fn prodDeferredItems ; fn tdPlantPulse"
+   ],
+   "blocks": [
+    {
+     "states": {
+      "name": "Lab leave cover (AQCM review, QCM approval only)",
+      "rows": [
+       [
+        "none",
+        "AQCM or QCM announces leave (dates, optional note)",
+        "leave announced; Plant Manager gets Name a cover"
+       ],
+       [
+        "leave announced",
+        "Plant Manager names a lab person (Lab Rep, AQCM or QCM), not the person on leave, with first and last day",
+        "cover in place for those days"
+       ],
+       [
+        "cover in place",
+        "first day comes",
+        "cover signs that 1 line in his own name, printed 'for' the person on leave"
+       ],
+       [
+        "cover in place",
+        "Plant Manager ends it",
+        "ended"
+       ],
+       [
+        "leave announced",
+        "the person or the Plant Manager cancels it",
+        "cancelled"
+       ]
+      ]
+     }
+    },
+    {
+     "list": [
+      "A cover never signs both lines of 1 certificate, never approves what he reviewed, and never reviews or approves a sample he tested. Management does not sign. Only the Plant Manager names or ends a cover (labSetCover, labEndCover); the COO does not.",
+      "Self-defer (any job): the owner hides a job for 1 to 30 days (7 offered) with a reason from a fixed list (RM en route, Scheduled later, Awaiting approval, Capacity issues, Packing not available, Other). Until the date it leaves Today for everyone, including anyone it was escalated to, and the Production stuck list skips it; it is listed under Deferred (All actions, Production) and counted as on hold on Plant.",
+      "Who is on it: opening a job from Today marks it 'X is on it' for 8 hours; marks older than 1 day are dropped. It does not lock the job."
+     ]
+    },
+    {
+     "note": "No stand-in or delegation was found for any role other than the lab sign-offs (search: stand-in, delegate, on leave, away)."
+    }
+   ]
+  },
+  {
+   "id": "LG-19",
+   "title": "Who covers other roles when someone is away",
+   "owner": "not confirmed",
+   "rules": [
+    "R-019"
+   ],
+   "status": "not confirmed",
+   "src": [
+    "search o2s.html for stand-in, delegat, on leave, away: only the lab cover exists"
+   ],
+   "ask": "When a role holder other than the AQCM or QCM is away, what should happen: A nothing more, jobs escalate as now; B a cover like the lab one, named by the department lead; C you will rule per role?",
+   "blocks": [
+    {
+     "p": "When Saad, Fahim, Majid, Shoaib or another holder is away, their jobs stay addressed to the role. A second holder of the same role sees them; otherwise they wait and escalate by the table in LG-12."
+    }
+   ]
+  },
+  {
+   "id": "LG-20",
+   "title": "Shared jobs and the Your people count (jobSharers, ypJobsFor)",
+   "owner": "COO",
+   "rules": [
+    "R-031"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn jobSharers",
+    "fn tdSharedTag",
+    "fn tdSharedLine",
+    "fn ypJobsFor",
+    "fn tdYourPeople",
+    "fn openPersonList",
+    "var TD_LEADS",
+    "o2s.html changelog 2026-10-15f",
+    "tests/audit15f.test.js",
+    "tests/trucklists.test.js"
+   ],
+   "blocks": [
+    {
+     "list": [
+      "Shared: a job not addressed to 1 person, whose role (and alsoRoles) is held by 2 or more active users other than the COO, leaving out anyone the job bars (notWho). It carries a purple tag '⇄ Shared' with their names; when one does it, it closes for all.",
+      "Your people: a person's count = their role's jobs (not addressed to someone else, not barred), plus jobs escalated to their role, plus lab sign-offs they hold as a cover. Deferred jobs are left out. A shared job counts once per person and is named shared, never added twice.",
+      "Your people is shown to department leads (TD_LEADS) for their department, and to the COO for everyone."
+     ]
+    }
+   ]
+  },
+  {
+   "id": "LG-21",
+   "title": "Send back and reopen: every no has a way back",
+   "owner": "COO",
+   "rules": [
+    "R-011",
+    "R-008",
+    "R-028"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn sendBackPO",
+    "fn openPRRefused",
+    "fn pendingCustomerItems",
+    "fn sendBackTruck",
+    "fn coaSendBack",
+    "fn rejectShortClose",
+    "fn rejectDC",
+    "fn dcRejectJobs",
+    "fn smpDecide",
+    "fn pmvActionItems",
+    "fn doReopenBatch",
+    "fn reopenShortClose",
+    "fn coaRework",
+    "o2s.html changelog 2026-09-26a",
+    "tests/fixes26a.test.js",
+    "tests/shortcloseactions.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "What is refused or sent back",
+       "By",
+       "Lands on the Today of",
+       "Reason needed"
+      ],
+      "rows": [
+       [
+        "PO at acknowledge",
+        "Supply Chain (order.acknowledge)",
+        "whoever entered it (default Finance)",
+        "yes, 5+ characters"
+       ],
+       [
+        "Purchase request",
+        "CFO (or COO)",
+        "the raiser (Supply Chain)",
+        "yes, 5+ characters"
+       ],
+       [
+        "New customer",
+        "CFO (or COO)",
+        "whoever entered it (default Finance)",
+        "yes, 5+ characters"
+       ],
+       [
+        "Truck at review or release",
+        "reviewer or Plant Manager",
+        "the gate pass issuer",
+        "yes"
+       ],
+       [
+        "Certificate",
+        "QCM to AQCM; AQCM to the analyst",
+        "1 step down the chain",
+        "yes, 10+ characters"
+       ],
+       [
+        "Close-short request",
+        "Plant Manager or COO",
+        "the asker",
+        "yes"
+       ],
+       [
+        "DC before it leaves",
+        "Supply Chain or Plant Manager",
+        "Supply Chain (DC rejected)",
+        "yes, 5+ characters"
+       ],
+       [
+        "Failed truck inspection",
+        "QA Inspector",
+        "Supply Chain (Truck failed)",
+        "yes, 5+ characters in Remarks"
+       ],
+       [
+        "Free sample",
+        "COO",
+        "the asker (Sample not approved)",
+        "note"
+       ],
+       [
+        "Stock move",
+        "Plant Manager",
+        "the asker (Move refused)",
+        "yes"
+       ],
+       [
+        "UNFIT lot",
+        "Plant Manager",
+        "Production (Rework lot) or back to the AQCM (deviation)",
+        "5+ characters"
+       ]
+      ]
+     }
+    },
+    {
+     "table": {
+      "head": [
+       "Reopen",
+       "Who",
+       "What is kept"
+      ],
+      "rows": [
+       [
+        "Closed batch",
+        "Plant Manager or COO, reason code + 10 characters",
+        "the close, in closeHistory with an id"
+       ],
+       [
+        "Closed-short line",
+        "holder of po.reopen",
+        "the close, with reopenedBy and reopenedAt; a whole-PO close moves to closedHistory"
+       ],
+       [
+        "Refused close request",
+        "the asker asks again",
+        "the refusal, in shortCloseHistory"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Nothing is erased: every return stays in the record's history."
+    }
+   ]
+  },
+  {
+   "id": "LG-22",
+   "title": "Two people saving at once (saveNow, merge3, mergeDupNumbers)",
+   "owner": "COO",
+   "rules": [
+    "R-008",
+    "R-009"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn save",
+    "fn saveNow",
+    "fn merge3",
+    "fn _arrId",
+    "fn _eq",
+    "fn _srvCopy",
+    "fn nid",
+    "fn mergeDupNumbers",
+    "fn dupNumbers",
+    "fn lineIssues",
+    "/home/claude/src/server.js POST /api/state (x-base-rev, 409)",
+    "o2s.html comments 2026-07-28, 2026-07-30, 26a, 26c, 07e, 07i",
+    "docs SECURITY-REGISTER.md S-09",
+    "tests/firstsave.test.js",
+    "tests/fixes26c.test.js",
+    "tests/fixesA.test.js",
+    "tests/audit15g.test.js"
+   ],
+   "blocks": [
+    {
+     "lanes": {
+      "roles": [
+       "Person A",
+       "Server",
+       "Person B"
+      ],
+      "steps": [
+       {
+        "role": "Person A",
+        "text": "Edits; save waits 400 ms, then sends the whole state with X-Base-Rev",
+        "kind": "start"
+       },
+       {
+        "role": "Server",
+        "text": "Base rev still current? yes: saved, new rev; no: 409 with the server copy",
+        "kind": "decision"
+       },
+       {
+        "role": "Person A",
+        "text": "On 409: 3-way merge (base, mine, server), then save again",
+        "kind": "task"
+       },
+       {
+        "role": "Person B",
+        "text": "Gets the merged copy on the next refresh",
+        "kind": "end"
+       }
+      ]
+     }
+    },
+    {
+     "table": {
+      "head": [
+       "Merge rule (merge3)",
+       "Result"
+      ],
+      "rows": [
+       [
+        "arrays whose items all have an id",
+        "merged row by row by id"
+       ],
+       [
+        "row in base, missing on 1 side, unchanged on the other",
+        "removed"
+       ],
+       [
+        "row in base, missing on 1 side, changed on the other",
+        "kept (a conflict keeps the data)"
+       ],
+       [
+        "row not in base",
+        "new, kept"
+       ],
+       [
+        "field removed on 1 side, unchanged on the other",
+        "removed (26a)"
+       ],
+       [
+        "a plain value",
+        "if mine equals base, take theirs; else mine wins"
+       ],
+       [
+        "arrays without ids",
+        "treated as 1 value: mine wins if I changed it"
+       ]
+      ]
+     }
+    },
+    {
+     "list": [
+      "The baseline after a clash is a copy of the server's own data at that rev, so my unsent change still counts as mine (26c). After a clean save the baseline is exactly what was sent (2026-07-30).",
+      "Retries: up to 5 straight away, then every 3 seconds, so a change is never left unsent.",
+      "New ids carry a random suffix per tab (nid), so 2 tabs cannot mint the same id (2026-07-28).",
+      "DC and gate pass numbers are 'highest + 1' in each copy. After a merge, a number on 2 trucks is said once and logged, and Supply Chain gets a Duplicate number job until one is changed.",
+      "Counters are not added up: a pack lost to a clash is caught by lineIssues ('lost') and goes on Needs you (07e).",
+      "Records that must survive 2 people at once carry ids: wait marks, close history, sent-back history, COA returns."
+     ]
+    },
+    {
+     "note": "Audit rows written without an id can be lost when 2 people save at once (SECURITY-REGISTER S-09, raised 15 Oct 2026, about 35 writers, not fixed)."
+    }
+   ]
+  },
+  {
+   "id": "LG-23",
+   "title": "Order attention on the PO tracker (overdue, due soon, stalled)",
+   "owner": "Supply Chain",
+   "rules": [
+    "R-030"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn lineOverdue",
+    "fn isOverdue",
+    "fn attentionOf",
+    "fn orderAging",
+    "fn isStalled",
+    "fn t2sev",
+    "fn t2ageText",
+    "fn actUrg",
+    "tests/actioncenter.test.js",
+    "tests/audit15g.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Flag",
+       "Test"
+      ],
+      "rows": [
+       [
+        "Overdue line",
+        "committed date before today, not delivered, not closed short, and committed not before the PO was received"
+       ],
+       [
+        "Due soon",
+        "not overdue, a line due in 0 to 3 days"
+       ],
+       [
+        "Ageing",
+        "3 to 6 days in the current stage"
+       ],
+       [
+        "Stalled",
+        "7 days or more in the current stage and not overdue"
+       ],
+       [
+        "Hot",
+        "manual priority Critical or High"
+       ],
+       [
+        "Today urgency (actUrg)",
+        "waiting for client: 3; overdue order: 0; with a deadline: due today or past 0, tomorrow 1, in 2 days 2, else 3; else 7+ days 1, 3+ days or hot 2, else 3"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Stage age counts from the date the line entered its current stage; when that date is missing it uses the PO received date and shows ~ (orderAging)."
+    }
+   ]
+  },
+  {
+   "id": "LG-24",
+   "title": "Read and sign before the app opens (16a)",
+   "owner": "COO",
+   "rules": [
+    "R-011",
+    "R-019"
+   ],
+   "status": "confirmed",
+   "src": [
+    "var RS_BRIEF",
+    "var RS_PARTS",
+    "fn renderApp",
+    "fn openReadSign",
+    "fn rsWatch, rsAnswer",
+    "fn rsSign, rsWaitSaved, rsSaved",
+    "fn readSignRows, openReadSignList"
+   ],
+   "blocks": [
+    {
+     "lanes": {
+      "roles": [
+       "Every user",
+       "COO, CFO, Plant Manager"
+      ],
+      "steps": [
+       {
+        "role": "Every user",
+        "text": "Signs in; if no sign for brief 2026-10-13-15 exists (and real orders are loaded), the read page opens first",
+        "kind": "start"
+       },
+       {
+        "role": "Every user",
+        "text": "Reads each part for his role in order; a part opens only after the one before is answered",
+        "kind": "task"
+       },
+       {
+        "role": "Every user",
+        "text": "Answers 1 question per part. Right? yes: next part; no: the part opens again, read again (8 s and its end on screen)",
+        "kind": "decision"
+       },
+       {
+        "role": "Every user",
+        "text": "Types his name as on his account and ticks read and understood; 1 row added to readSigns with an id. The page closes only when the server has it",
+        "kind": "task"
+       },
+       {
+        "role": "COO, CFO, Plant Manager",
+        "text": "See who has signed in Back Office, Read and signed",
+        "kind": "end"
+       }
+      ]
+     }
+    },
+    {
+     "p": "Parts are chosen by role (RS_PARTS roles): for example Production reads 6, Supply Chain 7, Warehouse 5, the CFO 3, the AQCM 2, the COO all 12. Some lines and questions are only for some roles. A row keeps brief, user, name, role, typed name, time, build, parts read, wrong tries and the device. The page closes only when the last save the server confirmed carries the row; with no internet, or when a newer build is out, it says Not saved yet and keeps the answers on that device (not on a shared login). A sign made on another device closes the page within 5 seconds. 2 people signing at once are both kept (rows carry ids)."
+    },
+    {
+     "note": "Build 16a is being built on 15-16 Oct 2026 and is not pushed. Never pending on seed data with no orders."
+    },
+    {
+     "p": "Shared logins (prod1, qa2 and the like, the same list Back Office calls shared): each person types their own full name, the page opens once on each phone or computer (the device id is kept in that browser), and another person on the same device opens it from the Guide. Back Office lists each person who signed on a shared login."
+    },
+    {
+     "p": "The page never opens on the built-in starting data (_rsSeed), for a role outside the 15, or with no orders loaded. Signed out while it is open, it closes."
+    }
+   ]
+  }
+ ]
+}

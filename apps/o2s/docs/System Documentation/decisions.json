@@ -17210,6 +17210,66 @@
      }
     }
    ]
+  },
+  {
+   "id": "D-305",
+   "title": "The inspection record prints the runs each inspection checked",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-017"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir in chat, 16 Oct 2026 (\"Fix now, then complaints\")",
+    "o2s.html changelog 2026-10-16d",
+    "fn printInspect, printInspectRunDates",
+    "tests/audit16d.test.js",
+    "OP-HANDOFF-O2S.md 16 Oct 16:10 live count"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-16"
+       ],
+       [
+        "Ruled by",
+        "Tahir (COO)"
+       ],
+       [
+        "Decision",
+        "Under each inspection, the inspection record of a PO (QA, Log) prints the batch number and mfg and expiry of the runs that inspection checked (its own run ids; an old per-lot QA its own row). An inspection whose runs are no longer on record says so and never shows another run (live 16 Oct: 4 truck inspections); an inspection with some of its runs missing says how many. Only an inspection that never carried run ids falls back to the first run of the PO and product, as before."
+       ],
+       [
+        "Options seen",
+        "Live count 16 Oct (read only): 109 of 531 inspections on 17 POs printed a batch or dates of a run they did not check (103 batch, 106 dates); the saved inspections were right. Answers chosen: \"Count, then complaints\"; \"Fix now, then complaints\" (other options: inside the complaint build, later)."
+       ],
+       [
+        "Why",
+        "Complaint investigations will read this paper to see which batch was inspected."
+       ],
+       [
+        "Changes",
+        "printInspect, new printInspectRunDates; independent review 16 Oct: 2 should-fix items (runs no longer on record; a row with no id) fixed before release."
+       ],
+       [
+        "Status",
+        "Current"
+       ],
+       [
+        "Source",
+        "Tahir in chat, 16 Oct 2026; build 2026-10-16d"
+       ]
+      ]
+     }
+    }
+   ]
   }
  ]
 }

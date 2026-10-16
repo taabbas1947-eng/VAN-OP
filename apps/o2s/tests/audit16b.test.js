@@ -276,11 +276,11 @@ function b0print(){ const b = box({ packingLog: [] }); const pr = b.bagDatesPrin
 { /* the inspection paper: the months only, no screen instructions */
   const t = fnSrc('printInspect');
   ok('14n the paper prints bagDatesPrint, never bagRunLines', /bagDatesPrint\(runs\)/.test(t) && !/ex\.dates/.test(t));
-  ok('14v a record with an older run and a 16b run prints both', /if\(!runs\.some\(function\(p\)\{ return p\.bagMfg; \}\)\) runs=\[\];/.test(t) && b0print());
+  ok('14v a record with an older run and a 16b run prints both', (/if\(!runs\.some\(function\(p\)\{ return p\.bagMfg; \}\)\) runs=\[\];/.test(t) || /var _new=runs\.some\(function\(p\)\{ return p\.bagMfg; \}\);/.test(t))   /* 16d: every record prints its own runs */ && b0print());
   const b = box({ packingLog: [] });
   const pr = b.bagDatesPrint([{ bagMfg: '2026-10', bagExp: '2028-10', bagMonthDiff: true, printedMfg: '2026-09' }, { bagMfg: '2026-10', bagExp: '2028-10' }]);
   ok('14o 1 line per month pair, no instruction text', pr === 'expected Mfg <b>Oct-2026</b> · Exp <b>Oct-2028</b>' && !/Look closely|Made on/.test(pr));
-  ok('14p an older inspection prints exactly as before', /expected mfg <b>'\+\(lot\.mfgDate\|\|'—'\)\+'<\/b> · exp <b>'\+\(lot\.expDate/.test(t));
+  ok('14p an older inspection prints its mfg and expiry in the old wording (16d: its own runs)', /expected mfg <b>'\+\(lot\.mfgDate\|\|'—'\)\+'<\/b> · exp <b>'\+\(lot\.expDate/.test(t) || (/expected mfg <b>'\+_pe\(lot\.mfgDate\|\|'—'\)\+'<\/b> · exp <b>'\+_pe\(lot\.expDate/.test(t) && /function printInspectRunDates\(/.test(html)));
 }
 { const b = box({ packingLog: [], batches: [{ id: 'POOL1', pool: true, status: 'open' }] });
   eq('14q a divert pool shows no made-on', b.lotMadeOn({ baseBatchId: 'POOL1' }), '');

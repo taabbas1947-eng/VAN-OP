@@ -264,7 +264,7 @@ const docSrc = ['psiPackNo', 'psiSig', 'psiInternalOnly', 'psiSafeRef', 'psiDeta
                 'psiLinesFor', 'psiCOAsFor', 'dispatchGroups', 'shipStageOf', 'linePackSize',
                 'seedPackForBrand', 'lotBaseNo', 'lotBrandNo',
                 'printDoc', '_docHead', '_docBarHtml', '_docWithBar', 'printPolicy', 'printPolicyOL',
-                'poLineFor', 'printInspect', 'printInspectPriceRule'].concat(DOCS)
+                'poLineFor', 'printInspect', 'printInspectPriceRule', 'printInspectRunDates'].concat(DOCS)
   .map(n => { try { return grab(n) + '\n' + H.bagSrc(); } catch (e) { return ''; } }).join('\n\n');
 
 function docBox(stateObj) {

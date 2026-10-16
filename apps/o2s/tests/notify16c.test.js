@@ -141,7 +141,7 @@ function box(over) {
 /* ---------- 7. Guide, changelog, build ---------- */
 ok('7a Guide rule', /<h3>Alerts on your phone and laptop<\/h3>/.test(H.grab('guideRules')) && /'Alerts on your phone and laptop':'R-039'/.test(html));
 ok('7b changelog 16c', /'2026-10-16c'/.test(H.grabTopVar('CHANGELOG', '[')));
-ok('7c build', /var BUILD_ID='2026-10-16c'/.test(html) && /SYSDOC_VER='2026-10-16c'/.test(html));
+ok('7c build 16c or later', /var BUILD_ID='2026-10-(16[c-z]|1[7-9][a-z]|[23][0-9][a-z])'/.test(html) && /SYSDOC_VER='2026-10-(16[c-z]|1[7-9][a-z]|[23][0-9][a-z])'/.test(html));
 ok('7d My job note for everyone', /New on 16 Oct \(16c\)/.test(H.grab('guideMyJob')));
 
 console.log('\n16c alerts, screen and lists: ' + pass + ' passed, ' + fail + ' failed');

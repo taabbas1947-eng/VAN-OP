@@ -170,7 +170,8 @@
     #appView .story-in{max-width:1180px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:32px;padding:clamp(14px,2.6vh,28px) clamp(16px,4vw,48px)}
     #appView .story h1{font-family:var(--head);font-weight:700;font-size:clamp(1.9rem,3.6vw,2.8rem);line-height:1.05;letter-spacing:-.035em;margin:0 0 8px;color:#0e3550}
     #appView .story .sub{color:#4a5c6e;font-size:15px;font-weight:400;margin:0 0 clamp(10px,1.8vh,16px)}
-    #appView .why{font-size:clamp(1rem,1.5vw,1.2rem);line-height:1.5;font-weight:600;margin:0;padding-left:14px;border-left:4px solid #2e9e5b;max-width:36em;color:#0e3550}
+    #appView .why{font-size:clamp(.9rem,1.5vw,1.2rem);line-height:1.5;font-weight:600;margin:0;padding-left:14px;border-left:4px solid #2e9e5b;color:#0e3550}
+    @media (min-width:900px){#appView .why span{display:block}}
     #appView .hz{height:clamp(96px,17vh,150px);width:auto;display:block;flex:none}
     #appView .main{flex:1;display:flex;flex-direction:column;justify-content:center;max-width:1180px;margin:0 auto;width:100%;padding:clamp(14px,2.4vh,26px) clamp(16px,4vw,48px) 0}
     #appView .grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
@@ -245,7 +246,7 @@
         <div>
           <h1 id="hello">Welcome back</h1>
           <p class="sub">Choose a system to open — one sign-in covers every VAN module.</p>
-          <p class="why">Someone who has not joined us yet will one day learn from what you do here: who we hired, what we risked, why we decided. Leave them something worth finding.</p>
+          <p class="why"><span>Someone who has not joined us yet will one day learn from what you do here:</span> <span>who we hired, what we risked, why we decided. Leave them something worth finding.</span></p>
         </div>
         <img class="hz" src="/assets/van-emblem.png" alt="" aria-hidden="true">
       </div>

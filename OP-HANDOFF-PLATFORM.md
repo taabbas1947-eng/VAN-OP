@@ -1082,3 +1082,5 @@ The Plant Manager asked for alerts on laptop and phone, even with O2S closed. Ta
 - **Guide and documentation:** this is page copy only, no flow, rule, role or data changed, so no Guide or System documentation entry was needed.
 - **Pushed or not:** not pushed. `apps/o2s/OP-HANDOFF-O2S.md` was already modified before this session and was not touched.
 - **Next:** Tahir commits and pushes with GitHub Desktop, then checks `/` on the live site.
+
+- **Same day, layout fix (Tahir: "2 lines, not 3"):** `launcher.html` only. The line is now 2 deliberate halves, split at the colon: line 1 "Someone who has not joined us yet will one day learn from what you do here:" and line 2 "who we hired, what we risked, why we decided. Leave them something worth finding." CSS: removed the `36em` width cap on `.why`, minimum font size .9rem (was 1rem), and the 2 halves stack only from 900px wide (`@media (min-width:900px)`). Checked in Chrome with the real Inter font: 2 lines at 1920, 1440, 1366, 1280, 1100, 1024, 940 and 900 wide, no overlap with the emblem. Below 900 the text flows as one paragraph (3 lines at 768, 5 on a phone). Still not pushed.

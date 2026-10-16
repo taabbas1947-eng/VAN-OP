@@ -837,6 +837,79 @@
      "p": "A role can also be given or taken away from the launcher (POST or DELETE /api/platform/access). It writes the same O2S role column O2S reads, so O2S sees it at the person's next sign in."
     }
    ]
+  },
+  {
+   "id": "API-17",
+   "title": "Alerts addresses (16c)",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-039"
+   ],
+   "status": "confirmed",
+   "src": [
+    "apps/o2s/notify-routes.js",
+    "server.js mount of apps/o2s/notify-routes.js",
+    "tests/notify16c.db.test.js"
+   ],
+   "blocks": [
+    {
+     "p": "All need sign in (the same token as every O2S call), except the 3 files. Until the 3 keys are set on the server and the 3 tables exist, every address answers \"not ready\" and nothing is sent."
+    },
+    {
+     "table": {
+      "head": [
+       "Address",
+       "Who",
+       "What it does"
+      ],
+      "rows": [
+       [
+        "GET /o2s/sw.js, /o2s/manifest.json, /o2s/icons/*",
+        "anyone",
+        "The part of O2S that receives alerts while O2S is closed, the app name and the icons for the Home Screen."
+       ],
+       [
+        "GET /api/o2s/push/key",
+        "signed in",
+        "Ready or not, and the public key a device needs to switch on."
+       ],
+       [
+        "POST /api/o2s/push/subscribe",
+        "signed in",
+        "Switches alerts on for this browser, for the person signed in. 1 browser = 1 row; whoever switches on last owns it. Only an address of the push services of Chrome, Edge, Firefox or Safari is taken."
+       ],
+       [
+        "POST /api/o2s/push/unsubscribe",
+        "signed in",
+        "Switches this browser off (own device only). Sign out calls it."
+       ],
+       [
+        "POST /api/o2s/push/mine",
+        "signed in",
+        "Is this browser on for me? If another login switched it on, it is switched off for that login."
+       ],
+       [
+        "POST /api/o2s/push/test",
+        "signed in",
+        "Sends a test alert to my own devices."
+       ],
+       [
+        "GET /api/o2s/push/people",
+        "COO, Plant Manager, platform administrators",
+        "Every person with an O2S role (switched-off logins left out) and their devices with alerts on."
+       ],
+       [
+        "POST /api/o2s/push/jobs",
+        "signed in",
+        "The Today jobs a screen sees: mode save (new after a save) or sweep (the 15-minute list). The server checks the job name against its roles, the escalation target, decides who gets it, and sends. At most 30 calls a minute per login, 2,000 jobs per 15-minute list and 100 per save; a sweep at most once per 10 minutes and only from a screen up to date with the server."
+       ]
+      ]
+     }
+    },
+    {
+     "note": "Every alert address answers {ok:false} on an error instead of stopping the server (Express 4 does not catch errors in async routes)."
+    }
+   ]
   }
  ]
 }

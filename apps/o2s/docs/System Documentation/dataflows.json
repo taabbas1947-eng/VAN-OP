@@ -1912,6 +1912,80 @@
      "note": "Known risk (handoff 15 Oct (11), S-09): audit rows without ids can be lost when 2 people save at once."
     }
    ]
+  },
+  {
+   "id": "DF-16",
+   "title": "Level 1: alerts (16c)",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-039"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn pushAfterSave, pushSweep, pushTurnOn, pushPeopleList",
+    "apps/o2s/notify-routes.js",
+    "apps/o2s/sw.js",
+    "migrations/O001_alerts.sql"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "From",
+       "Data moved",
+       "To",
+       "Function"
+      ],
+      "rows": [
+       [
+        "Browser (Turn on alerts)",
+        "the device address and its keys, a device name",
+        "o2s_push_devices",
+        "pushTurnOn, POST /api/o2s/push/subscribe"
+       ],
+       [
+        "O2S data before and after a save",
+        "new Today jobs: key, job name, role, named person, record ids",
+        "POST /api/o2s/push/jobs (save)",
+        "pushAfterSave, pushJobsFrom"
+       ],
+       [
+        "Screen up to date with the server",
+        "every Today job and escalation",
+        "POST /api/o2s/push/jobs (sweep)",
+        "pushSweep, pushJobsNow"
+       ],
+       [
+        "Jobs, roles of each login (user_module_roles)",
+        "who gets it; 1 open row per job and person",
+        "o2s_push_open",
+        "POST /api/o2s/push/jobs"
+       ],
+       [
+        "O2S data on the server (by record id)",
+        "job, product, PO, batch, from whom",
+        "push service, then the device",
+        "alertText, deliver, sendTo"
+       ],
+       [
+        "Night, office roles",
+        "the alert title",
+        "o2s_push_held, then 1 summary at 7 am",
+        "deliver, releaseHeld"
+       ],
+       [
+        "o2s_push_devices, auth_users, user_module_roles",
+        "people and their devices",
+        "Back Office, Who has alerts on",
+        "GET /api/o2s/push/people, pushPeopleList"
+       ]
+      ]
+     }
+    },
+    {
+     "note": "Alerts write nothing into the O2S data (app_state). The 3 alert tables sit beside it in the same database."
+    }
+   ]
   }
  ]
 }

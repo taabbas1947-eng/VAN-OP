@@ -210,6 +210,35 @@ When 2 people save changes within the same few seconds, O2S merges the 2 copies.
 
 ---
 
+### S-12 · Any signed-in login can make O2S send alerts with a fixed job name to other people · MODULE: O2S
+**Severity: low to moderate · Found by the independent review of O2S 16c · Raised 2026-10-16**
+
+`POST /api/o2s/push/jobs` takes the job list from the screen. The server checks each job name against the roles it may go to, builds the text itself from the saved data by record id, and allows 30 calls a minute per login. A login that writes its own requests can still make up jobs with real names and new keys, so people of a role, or 1 named O2S person (for jobs whose role is set when they are made, such as Refused or Lab test), get alerts that carry the job name, PO, product and batch number of any record.
+
+**What it lets someone do.** Send misleading or repeated alerts. It does not change any O2S data and the text never carries client names, prices or typed words. (S-01 already lets any login rewrite all O2S data.)
+
+**Handled in 16c.** At most 100 jobs per save call. **Suggested further.** A cap on alerts per person per minute; check save-mode jobs against the server's own copy before and after the save.
+
+---
+
+### S-13 · A made-up 15-minute list can close every open alert so the next list alerts everything again · MODULE: O2S
+**Severity: low · Found by the independent review of O2S 16c · Raised 2026-10-16**
+
+A sweep is taken from any signed-in login whose version matches the server (readable from `/api/rev`), at most once per 10 minutes. An empty list closes every open alert row; the next real list then alerts every open job again. A made-up first list can also mark alerts as started with nothing recorded.
+
+**What it lets someone do.** Cause a burst of repeat alerts about real open jobs. No O2S data changes.
+
+**Suggested handling.** Refuse a list that would close more than a set share of open rows, or build the list on the server.
+
+---
+
+### S-14 · The alert server would post to any https address (fixed in 16c) · MODULE: O2S
+**Severity: low · Found by the independent review of O2S 16c · Raised 2026-10-16 · Fixed in build 2026-10-16c before release**
+
+`POST /api/o2s/push/subscribe` took any https address as a device, so the server could be made to post to an address someone chose. Fixed before release: only the push services of Chrome, Edge, Firefox and Safari are taken (fcm.googleapis.com, android.googleapis.com, push.services.mozilla.com, notify.windows.com, push.apple.com); test in tests/notify16c.db.test.js.
+
+---
+
 ## Closed items
 
 _None yet._
@@ -227,3 +256,4 @@ _None yet._
 | 2026-10-10 | S-08 raised from O2S: Render's npm audit shows 6 vulnerable packages; `npm audit fix` clears them. |
 | 2026-10-15 | S-09 raised from O2S 15g: audit rows without ids can be lost when 2 people save at once. |
 | 2026-10-16 | S-10 and S-11 raised while documenting O2S (16a): /api/users readable by any login; no minimum password length on new logins. |
+| 2026-10-16 | S-12 to S-14 raised by the independent review of O2S 16c (alerts); S-14 fixed before release. |

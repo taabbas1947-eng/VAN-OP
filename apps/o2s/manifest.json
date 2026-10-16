@@ -1,0 +1,15 @@
+{
+  "name": "O2S · Vital Agri Nutrients",
+  "short_name": "O2S",
+  "description": "Order to Ship: Today's jobs and alerts.",
+  "start_url": "/o2s",
+  "scope": "/o2s",
+  "display": "standalone",
+  "background_color": "#F9F9F6",
+  "theme_color": "#1f6b3a",
+  "icons": [
+    { "src": "/o2s/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/o2s/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/o2s/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

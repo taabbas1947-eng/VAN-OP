@@ -3159,6 +3159,68 @@
     }
    ],
    "ask": "Please give the full words for 3 short forms the files never spell out: AQCM, COBO and GRN. A) AQCM = Assistant QC Manager, COBO = (please give), GRN = Goods Received Note B) Different words (please give) C) Leave them as short forms"
+  },
+  {
+   "id": "DD-31",
+   "title": "Alerts: the words (16c)",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-039"
+   ],
+   "status": "confirmed",
+   "src": [
+    "apps/o2s/notify-routes.js",
+    "fn pushCard, pushStatus",
+    "Guide rule Alerts on your phone and laptop"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Word",
+       "Meaning in O2S",
+       "Where it comes from"
+      ],
+      "rows": [
+       [
+        "Alert",
+        "A message on the phone or laptop, also with O2S closed, when a Today job reaches you.",
+        "R-039"
+       ],
+       [
+        "Device",
+        "1 browser on 1 phone or laptop where a person switched alerts on.",
+        "SC-38"
+       ],
+       [
+        "Turn on alerts",
+        "The button on the Today card that switches this device on.",
+        "pushCard"
+       ],
+       [
+        "Blocked",
+        "The browser refuses alerts for O2S; allow them in the site settings.",
+        "pushStatus"
+       ],
+       [
+        "15-minute check",
+        "The list of all Today jobs an open screen sends, for clock jobs and escalations.",
+        "LG-28"
+       ],
+       [
+        "7 am summary",
+        "1 alert per person with the jobs held from 10 pm.",
+        "F-050"
+       ],
+       [
+        "Home Screen",
+        "On iPhone, O2S added from Safari as an icon; alerts work only from there.",
+        "manifest.json"
+       ]
+      ]
+     }
+    }
+   ]
   }
  ]
 }

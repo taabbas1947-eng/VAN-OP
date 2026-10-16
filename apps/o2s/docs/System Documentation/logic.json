@@ -2648,6 +2648,42 @@
      "p": "Today’s + Log a shift (people with the right shift.log) always opens a list: every batch that is open, not a pool, and can still take output (batchLogRoom above 0.5 Kg/L: up to 115% of plan, a PO batch never past its PO). Batches short of plan come first, then plan made with the room left; newest opened first within each. Log shift opens the shift form of that batch. No batch: a message says to open a batch first (D-293)."
     }
    ]
+  },
+  {
+   "id": "LG-28",
+   "title": "Alerts: who gets which alert, and when (16c)",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-039",
+    "R-030",
+    "R-031"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn pushJobsNow, pushKeyOf, pushRefOf, pushJobsFrom, pushAfterSave, pushSweep, pushStart",
+    "apps/o2s/notify-routes.js (JOB_ROLES, ESC_TO, NIGHT_ANY_HOUR, POST /api/o2s/push/jobs, deliver, releaseHeld, alertText)",
+    "tests/notify16c.test.js",
+    "tests/notify16c.db.test.js"
+   ],
+   "blocks": [
+    {
+     "p": "The screen builds the job list with the same actionItems as Today (all roles), leaves out jobs put off to a later day, and gives each job a key: the Today key, or 1 per product for Open Production, 1 per PO for Receive and Add reason, 1 per test for Lab test. Each escalation is its own entry, addressed to the role it escalates to."
+    },
+    {
+     "list": [
+      "After a save the server took (Way 1): the screen compares the jobs of the copy before the save with the jobs of the copy saved, and sends only the new ones. It runs after the save is finished and never delays it. Escalations never go this way.",
+      "Every 15 minutes (Way 2): a screen that is signed in, has no save waiting, runs the current build, has the people list loaded and has the same version as the server sends its whole list. The server takes at most 1 per 10 minutes. The first list ever only records what is open, with no alerts. Later lists send what is new and close what is gone, so a job that comes back alerts again. A list closes only rows opened before it started, and closes nothing if a people lookup failed.",
+      "Who: the role the job is addressed to and its alsoRoles, only where that role is allowed for that job name; only the named person when the job names 1; never anyone the job bars. In a save, the person who saved is recorded but not alerted, so a later 15-minute list does not alert him either. Escalations only to the role in the escalation table. A person in 2 of the job's roles gets 1 alert; the any-hour role decides the night rule.",
+      "1 alert per Today card per person while it stays open: the server writes an open row per card and person, and only a new row sends (2 screens at the same moment cannot both send). More work joining an open card (Open Production by product, Receive by PO, Lab test by test) does not alert again.",
+      "Night: 10 pm to 7 am Pakistan time, office roles are held and get 1 summary at 7 am; Production, Production Manager, QA Inspector and Warehouse get alerts any hour.",
+      "A device that the push service says is gone (switched off, browser reset) is removed. An alert waits at most 6 hours for a device that is off.",
+      "Any error inside the alert addresses (a lost database connection, say) answers {ok:false}; it never stops the server or a save. Tapping an alert opens Today, unless a form has typing in it or a sheet is open: then O2S only comes to the front."
+     ]
+    },
+    {
+     "note": "Jobs that come with the clock and escalations need at least 1 screen open somewhere (any person, any device) for the 15-minute check; with every screen closed, they alert at the next check after someone opens O2S."
+    }
+   ]
   }
  ]
 }

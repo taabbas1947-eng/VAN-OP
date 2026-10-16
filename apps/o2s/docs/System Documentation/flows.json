@@ -2290,6 +2290,72 @@
      "note": "Jobs with no row above (for example Truck released, Stuck at packing, Big pack run, Yield short, samples) do not escalate in acEscalation."
     }
    ]
+  },
+  {
+   "id": "PF-21",
+   "title": "An alert, from the save to the phone (16c)",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-039"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn pushAfterSave, pushSweep, pushCard, pushTurnOn",
+    "apps/o2s/notify-routes.js",
+    "apps/o2s/sw.js",
+    "tests/notify16c.test.js",
+    "tests/notify16c.db.test.js"
+   ],
+   "blocks": [
+    {
+     "lanes": {
+      "roles": [
+       "Production",
+       "QA Inspector",
+       "Plant Manager"
+      ],
+      "steps": [
+       {
+        "role": "QA Inspector",
+        "text": "Once per device: Today, Turn on alerts, Allow. Send me a test alert shows it working. iPhone: add O2S to the Home Screen first.",
+        "kind": "start",
+        "rule": "R-039"
+       },
+       {
+        "role": "Production",
+        "text": "Saves a packing run. The save finishes as always.",
+        "kind": "task"
+       },
+       {
+        "role": "Production",
+        "text": "The screen compares the jobs before and after the save: Pack QC is new, addressed to the QA Inspector.",
+        "kind": "task"
+       },
+       {
+        "role": "QA Inspector",
+        "text": "Night (10 pm to 7 am) and an office role? yes: kept for the 7 am summary; no: the alert comes now, even with O2S closed: Pack QC, product, PO, batch, from the person who saved.",
+        "kind": "decision"
+       },
+       {
+        "role": "QA Inspector",
+        "text": "Taps the alert: O2S opens on Today. The job and its button are there.",
+        "kind": "task"
+       },
+       {
+        "role": "Plant Manager",
+        "text": "Pack QC waits past its limit? yes: the next 15-minute check sends 1 alert, Escalated to you: Pack QC.",
+        "kind": "decision",
+        "rule": "R-030"
+       },
+       {
+        "role": "QA Inspector",
+        "text": "Job done: it leaves Today; the next check closes it, so if it comes back it alerts again.",
+        "kind": "end"
+       }
+      ]
+     }
+    }
+   ]
   }
  ]
 }

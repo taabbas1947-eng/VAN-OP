@@ -5560,6 +5560,103 @@
      "p": "Carried by: packing runs, shift entries, truck dispatch, truck QA, lot QA and lot inspections. Old records have no recordedAt, so their lag is unknown and shows as a dash, never 0."
     }
    ]
+  },
+  {
+   "id": "SC-38",
+   "title": "Alert tables: o2s_push_devices, o2s_push_open, o2s_push_held (16c)",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-039"
+   ],
+   "status": "confirmed",
+   "src": [
+    "apps/o2s/migrations/O001_alerts.sql",
+    "apps/o2s/notify-routes.js",
+    "tests/notify16c.db.test.js"
+   ],
+   "blocks": [
+    {
+     "p": "Outside the O2S data: 3 MySQL tables in the same database as app_state. Created once by hand from migrations/O001_alerts.sql (local first, then live). Until they exist, alerts say not ready and O2S works as before."
+    },
+    {
+     "table": {
+      "head": [
+       "Table",
+       "Field",
+       "Type",
+       "Meaning"
+      ],
+      "rows": [
+       [
+        "o2s_push_devices",
+        "id",
+        "number",
+        "Row id."
+       ],
+       [
+        "o2s_push_devices",
+        "ep_hash",
+        "text 40, unique",
+        "SHA-1 of the device address: 1 row per browser."
+       ],
+       [
+        "o2s_push_devices",
+        "endpoint, p256dh, auth",
+        "text",
+        "Where and how the push service reaches the device."
+       ],
+       [
+        "o2s_push_devices",
+        "username",
+        "text",
+        "The login that switched it on last."
+       ],
+       [
+        "o2s_push_devices",
+        "device",
+        "text",
+        "The browser and the system, such as Chrome on Android."
+       ],
+       [
+        "o2s_push_devices",
+        "created_at, last_ok_at, fails",
+        "date-time, number",
+        "When switched on, last alert that went through, failures since."
+       ],
+       [
+        "o2s_push_open",
+        "key_hash + username",
+        "text 40 + text, key",
+        "1 row per open job and person: the row decides that it alerts only once."
+       ],
+       [
+        "o2s_push_open",
+        "job_key",
+        "text",
+        "The job key (from the screen)."
+       ],
+       [
+        "o2s_push_open",
+        "opened_at, sent_at",
+        "date-time",
+        "When first seen, when the alert went (or was held)."
+       ],
+       [
+        "o2s_push_open",
+        "__seeded__ / __system__",
+        "marker row",
+        "Written by the first 15-minute list; until it exists saves send nothing."
+       ],
+       [
+        "o2s_push_held",
+        "id, username, title, created_at",
+        "number, text, text, date-time",
+        "Night alerts kept for the 7 am summary; deleted once sent."
+       ]
+      ]
+     }
+    }
+   ]
   }
  ]
 }

@@ -217,7 +217,7 @@ ok('13e stage: Production', /Packed in 2 months/.test(fnSrc('acStageOf')));
 ok('13f Guide rule', /The month on the bag/.test(fnSrc('guideRules')));
 ok('13g rule number R-038', /'The month on the bag':'R-038'/.test(html));
 ok('13h changelog 16b', /'2026-10-16b'/.test(H.grabTopVar('CHANGELOG', '[')));
-eq('13i build', /var BUILD_ID='([^']+)'/.exec(html)[1], '2026-10-16b');
+ok('13i build 16b or later', /var BUILD_ID='2026-10-16[b-z]'/.test(html));
 ok('13j My job note for 16b', /New on 16 Oct \(16b\)/.test(html));
 
 
@@ -285,7 +285,7 @@ function b0print(){ const b = box({ packingLog: [] }); const pr = b.bagDatesPrin
 { const b = box({ packingLog: [], batches: [{ id: 'POOL1', pool: true, status: 'open' }] });
   eq('14q a divert pool shows no made-on', b.lotMadeOn({ baseBatchId: 'POOL1' }), '');
   ok('14r a month picked before the date moved stays in the list', /if\(pick&&mos\.indexOf\(pick\)<0\)/.test(fnSrc('packDatesBlock')));
-  ok('14s System documentation version 16b', /SYSDOC_VER='2026-10-16b'/.test(html));
+  ok('14s System documentation version moves with the build', /SYSDOC_VER='2026-10-16[b-z]'/.test(html));
 }
 /* ---------- 15. + Log a shift: always the list (Tahir 16 Oct, after Abdul Majid) ---------- */
 { const s = ['shiftPickRows', 'tdLogShift', 'batchLogRoom', 'batchReopenHeadroom', 'batchCeilingKg', 'batchOverPct', '_pe'].map(H.grab).join('\n');

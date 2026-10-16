@@ -16566,6 +16566,650 @@
      }
     }
    ]
+  },
+  {
+   "id": "D-294",
+   "title": "Alerts on phones and laptops, built after 16b and before complaints",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-039"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir in chat, 16 Oct 2026 (answers to the alerts questions)",
+    "Plant Manager request relayed by Tahir, 16 Oct 2026 12:10",
+    "o2s.html changelog 2026-10-16c",
+    "tests/notify16c.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-16"
+       ],
+       [
+        "Ruled by",
+        "Tahir (COO)"
+       ],
+       [
+        "Decision",
+        "O2S sends an alert to the phone or laptop of the person a Today job reaches, also with O2S closed. Built after 16b and before the complaint module."
+       ],
+       [
+        "Options seen",
+        "Asked by the Plant Manager on 16 Oct 2026 (\"notifications on both laptops and mobile devices\", also on closed apps). Answer chosen: \"After 16b, before complaints\"."
+       ],
+       [
+        "Why",
+        "Not recorded"
+       ],
+       [
+        "Changes",
+        "notify-routes.js, sw.js, manifest.json, icons, migrations/O001_alerts.sql; the Today card (pushCard)."
+       ],
+       [
+        "Status",
+        "Current"
+       ],
+       [
+        "Source",
+        "Tahir in chat, 16 Oct 2026; build 2026-10-16c"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-295",
+   "title": "The server may change for alerts only, in a separate platform push first",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-039"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir in chat, 16 Oct 2026 (answers to the alerts questions)",
+    "OP-HANDOFF-PLATFORM.md 16 Oct 2026, O2S alerts push 1 of 2",
+    "o2s.html changelog 2026-10-16c",
+    "tests/notify16c.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-16"
+       ],
+       [
+        "Ruled by",
+        "Tahir (COO)"
+       ],
+       [
+        "Decision",
+        "The shared server (server.js) changes only to mount the alerts file and add the web-push package and the 3 key settings. That went first as its own push (platform), then the O2S part."
+       ],
+       [
+        "Options seen",
+        "Answers chosen: \"Yes, for notifications only\"; \"Yes, as a separate platform push first\"."
+       ],
+       [
+        "Why",
+        "Not recorded"
+       ],
+       [
+        "Changes",
+        "server.js mount line, package.json web-push 3.6.7, render.yaml VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT."
+       ],
+       [
+        "Status",
+        "Current"
+       ],
+       [
+        "Source",
+        "Tahir in chat, 16 Oct 2026; build 2026-10-16c"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-296",
+   "title": "Every Today job alerts, clock jobs by the 15-minute check",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-039"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir in chat, 16 Oct 2026 (answers to the alerts questions)",
+    "o2s.html changelog 2026-10-16c",
+    "tests/notify16c.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-16"
+       ],
+       [
+        "Ruled by",
+        "Tahir (COO)"
+       ],
+       [
+        "Decision",
+        "Every job on the Today list alerts the people it reaches. Jobs made by a save alert right after the save; jobs that come with the clock (a line going late, a window over, back from deferral) alert within 15 minutes, by the check a screen that is open and up to date sends."
+       ],
+       [
+        "Options seen",
+        "Answers chosen: \"Every Today job\"; for clock jobs: \"Yes, by the 15-minute check\"."
+       ],
+       [
+        "Why",
+        "Not recorded"
+       ],
+       [
+        "Changes",
+        "pushAfterSave, pushSweep, pushJobsNow; POST /api/o2s/push/jobs."
+       ],
+       [
+        "Status",
+        "Current"
+       ],
+       [
+        "Source",
+        "Tahir in chat, 16 Oct 2026; build 2026-10-16c"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-297",
+   "title": "Escalations alert once, from any open screen",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-039",
+    "R-030"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir in chat, 16 Oct 2026 (answers to the alerts questions)",
+    "o2s.html changelog 2026-10-16c",
+    "tests/notify16c.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-16"
+       ],
+       [
+        "Ruled by",
+        "Tahir (COO)"
+       ],
+       [
+        "Decision",
+        "When a job waits past its limit, the person it escalates to gets 1 alert (Escalated to you). It comes from the 15-minute check of any open screen; a save never sends an escalation."
+       ],
+       [
+        "Options seen",
+        "Answer chosen: \"Yes, from any open screen\"."
+       ],
+       [
+        "Why",
+        "Not recorded"
+       ],
+       [
+        "Changes",
+        "pushJobsNow (acEscalation), ESC_TO in notify-routes.js."
+       ],
+       [
+        "Status",
+        "Current"
+       ],
+       [
+        "Source",
+        "Tahir in chat, 16 Oct 2026; build 2026-10-16c"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-298",
+   "title": "Alerts are per login; there are no shared logins",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-039",
+    "R-019"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir in chat, 16 Oct 2026 (answers to the alerts questions)",
+    "o2s.html changelog 2026-10-16c",
+    "tests/notify16c.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-16"
+       ],
+       [
+        "Ruled by",
+        "Tahir (COO)"
+       ],
+       [
+        "Decision",
+        "An alert goes to a login, on every device where that login switched alerts on. If another person signs in on the same browser, the device stops alerting the first person."
+       ],
+       [
+        "Options seen",
+        "Tahir: \"there is no shared login exist\". Live then (read only): 22 logins, 0 shared."
+       ],
+       [
+        "Why",
+        "Not recorded"
+       ],
+       [
+        "Changes",
+        "POST /api/o2s/push/mine; o2s_push_devices (1 row per browser)."
+       ],
+       [
+        "Status",
+        "Current"
+       ],
+       [
+        "Source",
+        "Tahir in chat, 16 Oct 2026; build 2026-10-16c"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-299",
+   "title": "The COO gets his own jobs and escalations only",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-039"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir in chat, 16 Oct 2026 (answers to the alerts questions)",
+    "o2s.html changelog 2026-10-16c",
+    "tests/notify16c.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-16"
+       ],
+       [
+        "Ruled by",
+        "Tahir (COO)"
+       ],
+       [
+        "Decision",
+        "The COO is alerted for jobs addressed to the COO and escalations to the COO, not for the whole plant."
+       ],
+       [
+        "Options seen",
+        "Answer chosen: \"Own jobs and escalations\"."
+       ],
+       [
+        "Why",
+        "Not recorded"
+       ],
+       [
+        "Changes",
+        "JOB_ROLES and ESC_TO in notify-routes.js."
+       ],
+       [
+        "Status",
+        "Current"
+       ],
+       [
+        "Source",
+        "Tahir in chat, 16 Oct 2026; build 2026-10-16c"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-300",
+   "title": "Only the role a job is addressed to, and the named person",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-039",
+    "R-031"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir in chat, 16 Oct 2026 (answers to the alerts questions)",
+    "o2s.html changelog 2026-10-16c",
+    "tests/notify16c.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-16"
+       ],
+       [
+        "Ruled by",
+        "Tahir (COO)"
+       ],
+       [
+        "Decision",
+        "An alert goes to the role the job is addressed to (and its alsoRoles), or only to the named person when the job names 1. People who see the job only because they hold the right, and lab leave covers, get no alert. The person whose save made the job gets no alert, nor anyone the job bars (notWho)."
+       ],
+       [
+        "Options seen",
+        "Answer chosen: \"Only the role it is addressed to\"."
+       ],
+       [
+        "Why",
+        "Not recorded"
+       ],
+       [
+        "Changes",
+        "POST /api/o2s/push/jobs (recipients), JOB_ROLES."
+       ],
+       [
+        "Status",
+        "Current"
+       ],
+       [
+        "Source",
+        "Tahir in chat, 16 Oct 2026; build 2026-10-16c"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-301",
+   "title": "Night hold: office roles 10 pm to 7 am, 1 summary at 7 am",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-039"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir in chat, 16 Oct 2026 (answers to the alerts questions)",
+    "o2s.html changelog 2026-10-16c",
+    "tests/notify16c.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-16"
+       ],
+       [
+        "Ruled by",
+        "Tahir (COO)"
+       ],
+       [
+        "Decision",
+        "From 10 pm to 7 am Pakistan time, alerts for office roles are kept and sent at 7 am as 1 summary per person. Production, Production Manager, QA Inspector and Warehouse get alerts at any hour."
+       ],
+       [
+        "Options seen",
+        "Answers chosen: \"Hold 10 pm to 7 am\"; \"Hold for office roles only\"; \"1 summary per person\"."
+       ],
+       [
+        "Why",
+        "Not recorded"
+       ],
+       [
+        "Changes",
+        "isNight, NIGHT_ANY_HOUR, deliver, releaseHeld; o2s_push_held."
+       ],
+       [
+        "Status",
+        "Current"
+       ],
+       [
+        "Source",
+        "Tahir in chat, 16 Oct 2026; build 2026-10-16c"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-302",
+   "title": "Back Office shows who has alerts on",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-039"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir in chat, 16 Oct 2026 (answers to the alerts questions)",
+    "o2s.html changelog 2026-10-16c",
+    "tests/notify16c.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-16"
+       ],
+       [
+        "Ruled by",
+        "Tahir (COO)"
+       ],
+       [
+        "Decision",
+        "The COO and the Plant Manager see on Back Office who has alerts on, on which devices, and the roles where nobody will hear."
+       ],
+       [
+        "Options seen",
+        "Answer chosen: \"Build it\"."
+       ],
+       [
+        "Why",
+        "Not recorded"
+       ],
+       [
+        "Changes",
+        "boDesks (alerts), pushPeopleList, GET /api/o2s/push/people."
+       ],
+       [
+        "Status",
+        "Current"
+       ],
+       [
+        "Source",
+        "Tahir in chat, 16 Oct 2026; build 2026-10-16c"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-303",
+   "title": "Alert text: job, product, PO and from whom",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-039",
+    "R-020"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir in chat, 16 Oct 2026 (answers to the alerts questions)",
+    "o2s.html changelog 2026-10-16c",
+    "tests/notify16c.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-16"
+       ],
+       [
+        "Ruled by",
+        "Tahir (COO)"
+       ],
+       [
+        "Decision",
+        "The alert says the job, the product, the PO, the batch number and who did it. No client name, no prices. The server builds the text from the saved data by record id."
+       ],
+       [
+        "Options seen",
+        "Answer chosen: \"Job, product, PO, who did it\"."
+       ],
+       [
+        "Why",
+        "Not recorded"
+       ],
+       [
+        "Changes",
+        "alertText in notify-routes.js."
+       ],
+       [
+        "Status",
+        "Current"
+       ],
+       [
+        "Source",
+        "Tahir in chat, 16 Oct 2026; build 2026-10-16c"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-304",
+   "title": "The alert icon is the O2S horse",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-039"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir in chat, 16 Oct 2026 (answers to the alerts questions)",
+    "o2s.html changelog 2026-10-16c",
+    "tests/notify16c.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-16"
+       ],
+       [
+        "Ruled by",
+        "Tahir (COO)"
+       ],
+       [
+        "Decision",
+        "Alerts and the Home Screen icon use the existing horse emblem (assets/van-emblem.png)."
+       ],
+       [
+        "Options seen",
+        "Answer chosen: \"The O2S horse\"."
+       ],
+       [
+        "Why",
+        "Not recorded"
+       ],
+       [
+        "Changes",
+        "apps/o2s/icons (192, 512, maskable 512, apple-touch 180, badge 96), manifest.json."
+       ],
+       [
+        "Status",
+        "Current"
+       ],
+       [
+        "Source",
+        "Tahir in chat, 16 Oct 2026; build 2026-10-16c"
+       ]
+      ]
+     }
+    }
+   ]
   }
  ]
 }

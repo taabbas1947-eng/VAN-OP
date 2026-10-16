@@ -1076,6 +1076,53 @@
      }
     }
    ]
+  },
+  {
+   "id": "AC-10",
+   "title": "Alerts: who gets them and who sees the list (16c)",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-039",
+    "R-019"
+   ],
+   "status": "confirmed",
+   "src": [
+    "apps/o2s/notify-routes.js (GET /api/o2s/push/people, POST /api/o2s/push/jobs)",
+    "fn boDesks (alerts), pushPeopleList",
+    "D-298 to D-302"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Who",
+       "May"
+      ],
+      "rows": [
+       [
+        "Everyone signed in",
+        "Switch alerts on or off on own devices; send a test alert to own devices."
+       ],
+       [
+        "The role a job is addressed to, or the named person",
+        "Get the alert for that job (D-300)."
+       ],
+       [
+        "The COO",
+        "Alerts for own jobs and escalations to the COO only (D-299)."
+       ],
+       [
+        "COO, Plant Manager, platform administrators",
+        "Back Office, Who has alerts on (D-302)."
+       ],
+       [
+        "Rights holders who only see a job, lab leave covers",
+        "No alert."
+       ]
+      ]
+     }
+    }
+   ]
   }
  ]
 }

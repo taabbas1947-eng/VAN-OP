@@ -2496,6 +2496,49 @@
    ]
   },
   {
+   "id": "FO-50",
+   "title": "F-050 · Alert timing and limits",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-039"
+   ],
+   "status": "confirmed",
+   "src": [
+    "apps/o2s/notify-routes.js SWEEP_EVERY_MS, TTL_SECONDS, MAX_JOBS, MAX_SENDS_PER_MIN, isNight",
+    "o2s.html PUSH_SWEEP_MS, pushStart",
+    "tests/notify16c.test.js",
+    "tests/notify16c.db.test.js"
+   ],
+   "blocks": [
+    {
+     "p": "Night = 22:00 to 06:59 Pakistan time (UTC + 5, no daylight saving). A screen offers its list every 15 minutes (the first about 1 to 4 minutes after it opens); the server takes at most 1 list per 10 minutes. An alert waits at most 6 hours for a device that is off. At most 30 job calls a minute per login and 2,000 jobs per 15-minute list, 100 jobs per save."
+    },
+    {
+     "table": {
+      "head": [
+       "Unit",
+       "Rounding",
+       "Where in code",
+       "Ruling",
+       "Test that proves it"
+      ],
+      "rows": [
+       [
+        "minutes, hours",
+        "none",
+        "isNight, PUSH_SWEEP_MS, SWEEP_EVERY_MS, TTL_SECONDS",
+        "Tahir 16 Oct 2026 (D-296, D-301); 10 minutes, 6 hours, 30 and 2,000 not ruled, set in the build",
+        "tests/notify16c.db.test.js"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Worked example: a Supply Chain job made at 23:10 is held; at 07:00 the person gets 1 alert \"O2S: 3 new jobs since 10 pm\". A QA Inspector job made at 23:10 alerts at 23:10."
+    }
+   ]
+  },
+  {
    "id": "FO-99",
    "title": "Limits and thresholds in one place",
    "owner": "COO",
@@ -3319,6 +3362,42 @@
         "twoMonthConfirm, bagRemarkGate",
         "R-038",
         "-"
+       ],
+       [
+        "F-050",
+        "Alerts: the 15-minute check",
+        "15 (screen), 10 (server)",
+        "minutes",
+        "PUSH_SWEEP_MS, SWEEP_EVERY_MS",
+        "R-039",
+        "16 Oct 2026, 2026-10-16c (D-296)"
+       ],
+       [
+        "F-050",
+        "Alerts: night hold for office roles",
+        "22:00 to 07:00",
+        "Pakistan time",
+        "isNight, NIGHT_ANY_HOUR",
+        "R-039",
+        "16 Oct 2026, 2026-10-16c (D-301)"
+       ],
+       [
+        "F-050",
+        "Alerts: wait for a device that is off",
+        "6",
+        "hours",
+        "TTL_SECONDS",
+        "R-039",
+        "not confirmed"
+       ],
+       [
+        "F-050",
+        "Alerts: calls per login, jobs per call",
+        "30 a minute; 2,000 per list, 100 per save",
+        "calls, jobs",
+        "MAX_SENDS_PER_MIN, MAX_JOBS",
+        "R-039",
+        "not confirmed"
        ]
       ]
      }

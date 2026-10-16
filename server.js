@@ -898,6 +898,16 @@ require('./apps/pd/pd-routes')(app, { pdq, auth, admin, pdAuth, pdSurface, pd, p
    Mounted before the /api catch-all below so /api/public/* is answered. */
 require('./apps/o2s/public-routes')(app, { store });
 
+/* O2S alerts on laptop and phone (Web Push; Tahir, 16 Oct 2026): apps/o2s/notify-routes.js.
+   Mounted only when that file exists, so this platform change can go live before the O2S one.
+   Same point as the other app routes: before the /api 404 and the O2S catch-all below, which
+   would otherwise answer /o2s/sw.js with the app page. The keys come from the environment
+   (VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT); without them the routes say alerts are off. */
+{ const o2sNotify = path.join(__dirname, 'apps', 'o2s', 'notify-routes.js');
+  /* A broken alerts file must never stop the launcher, PD or O2S from starting: it is logged and skipped. */
+  if (fs.existsSync(o2sNotify)) { try { require(o2sNotify)(app, { store, pdq, auth, admin, services: platformServices, express, path, fs }); }
+    catch (e) { console.error('O2S alerts not mounted:', e && e.message); } } }
+
 const _NOCACHE = 'no-store, no-cache, must-revalidate';
 // Shared brand assets (VAN logo + horse-emblem trademark), used by the launcher and every module top bar.
 // Cacheable — these are stable files; bump the filename if a logo ever changes.

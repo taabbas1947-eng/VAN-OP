@@ -88,9 +88,12 @@ A subsystem = **a front-end page + an API namespace + its own tables + a role se
 | `/`, `/launcher` | `launcher.html` (front door) |
 | `/drop`, `/pd/drop` | `apps/pd/drop.html` (public, no login) |
 | `/pd`, `/pd/*` | `apps/pd/pd.html` (PD app) |
+| `/o2s/sw.js`, `/o2s/manifest.json`, `/api/o2s/push/*` | O2S alerts on laptop and phone (Web Push), `apps/o2s/notify-routes.js`. Mounted by 1 line in `server.js` only when that file exists, before the `/api` 404 and the catch-all (16 Oct 2026) |
 | `*` (any other path) | `apps/o2s/o2s.html` (O2S app) |
 
-APIs live under `/api/…` (`/api/login`, `/api/me`, `/api/platform/*`, `/api/pd/*`).
+APIs live under `/api/…` (`/api/login`, `/api/me`, `/api/platform/*`, `/api/pd/*`, `/api/o2s/push/*`).
+
+O2S alerts need 3 settings set by hand on Render (named in `render.yaml`, values never in the repo): `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` (made once with `npx web-push generate-vapid-keys`) and `VAPID_SUBJECT` (a `mailto:` contact). Without them O2S says alerts are off.
 
 ---
 

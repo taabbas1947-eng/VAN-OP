@@ -127,7 +127,9 @@ server log says why.
 role)` and `contactsFor(usernames)` return switched-on people with name,
 title, WhatsApp and email. A vacant role returns an empty list. Hand
 `platformServices` to an app's routes when it is mounted; contacts never go
-to a browser except the platform administrator's.
+to a browser except the platform administrator's. O2S alerts
+(`apps/o2s/notify-routes.js`, 16 Oct 2026) receive it and use `holdersOf('o2s',
+role)` to find who an alert goes to.
 
 **Routes (platform administrator):** `PATCH /api/platform/people/:username`,
 `POST /api/platform/people/:username/password`,

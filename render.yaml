@@ -27,6 +27,15 @@ services:
       # Must sit inside the disk mountPath above, or uploads go to ephemeral storage.
       - key: PD_LIBRARY_DIR
         value: /var/data/pd-library
+      # O2S alerts on laptop and phone (Web Push, 16 Oct 2026). Set by hand in the Render dashboard:
+      # make the 2 keys once with `npx web-push generate-vapid-keys`; the subject is a contact,
+      # written mailto:someone@van.com.pk. Without them O2S says alerts are off; nothing else changes.
+      - key: VAPID_PUBLIC_KEY
+        sync: false
+      - key: VAPID_PRIVATE_KEY
+        sync: false
+      - key: VAPID_SUBJECT
+        sync: false
       # --- notifications: uncomment once the mail transport is chosen ---
       # - key: MAIL_TRANSPORT
       #   sync: false

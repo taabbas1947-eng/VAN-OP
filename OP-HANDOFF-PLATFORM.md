@@ -1072,3 +1072,13 @@ The Plant Manager asked for alerts on laptop and phone, even with O2S closed. Ta
 - New `tests/notify-mount.test.js` (16 checks: package, lock, render.yaml without values, mount position, guard and try/catch, server boots in local-file mode on a free port and answers /api/health, O2S alert routes absent until push 2). Ran in the cloud workspace with this exact server.js: 16 passed; with a deliberately broken notify-routes.js the server still started. Independent review: no blockers; its 3 small points fixed (handoff, try/catch, free port). On this computer's Linux shell the server boot step does not answer (the shell cannot run a listening server); the 13 file checks pass.
 **For Tahir, after push 1 (any time before push 2 goes live):** on your computer, in the VAN Systems folder: `npx web-push generate-vapid-keys`. In Render, Environment: VAPID_PUBLIC_KEY = the public key, VAPID_PRIVATE_KEY = the private key, VAPID_SUBJECT = mailto: and an email you choose. Save. Never paste the private key into chat.
 **Live check after push 1:** `/`, `/o2s`, `/pd` load; `/api/health` ok; `/api/o2s/push/key` answers 404 JSON (routes not there yet). Nothing else changes.
+
+
+## 16 Oct 2026 — Launcher: the line under "Welcome back" changed (MODULE: PLATFORM) — NOT PUSHED
+- **File changed:** `launcher.html`, 1 line (the `<p class="why">` under "Welcome back"). Nothing else touched.
+- **Old line (7 Oct, Draft B):** "This is where our work is recorded today, so the people who come after us have our memory to build on."
+- **New line (Tahir's pick, 16 Oct):** "Someone who has not joined us yet will one day learn from what you do here: who we hired, what we risked, why we decided. Leave them something worth finding." The words are the psychology expert's draft; Tahir chose it from 2 independent expert drafts (psychology and change management).
+- **Not confirmed:** the change management expert's draft asked people to record what did not work. Tahir has not ruled on that, so the line does not ask for it.
+- **Guide and documentation:** this is page copy only, no flow, rule, role or data changed, so no Guide or System documentation entry was needed.
+- **Pushed or not:** not pushed. `apps/o2s/OP-HANDOFF-O2S.md` was already modified before this session and was not touched.
+- **Next:** Tahir commits and pushes with GitHub Desktop, then checks `/` on the live site.

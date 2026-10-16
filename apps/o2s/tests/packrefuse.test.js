@@ -14,8 +14,8 @@ function box(brandBatch) {
     state: { currentUser: { name: 'J' }, packingLog: [],
       batches: [{ id: 'B', batchNo: 'NS26004', base: 'Nitro Sulfur', producedKg: 4000, packedKg: 2875 }, { id: 'B9', batchNo: 'NS26009', base: 'Nitro Sulfur', openedDate: '2026-09-01', producedKg: 1, packedKg: 0 }],
       orders: [{ id: 'O', po: 'VG-VC-2609-5466', lines: [{ id: 'L', brand: 'Nitro Sulfur', ordered: 250, packed: 0, produced: 0 }] }] },
-    packForm: { bid: 'B', kg: 250, brand: 'Nitro Sulfur', oid: 'O', lid: 'L', brandBatch: brandBatch, packDate: '2026-09-26', shift: 'Morning', incharge: 'Faisal Nadeem' } };
-  vm.createContext(sb); vm.runInContext(['packShiftIncGate', 'packFmt', 'packEntryCalc', 'packConfirmGate', 'packShiftTotal', 'packRowExtras'].map(grab).join('\n') + '\n' + grab('doPack') + '\ndoPack();', sb); return sb; }
+    packForm: { bid: 'B', kg: 250, brand: 'Nitro Sulfur', oid: 'O', lid: 'L', brandBatch: brandBatch, packDate: '2026-09-26', shift: 'Morning', incharge: 'Faisal Nadeem', printedMfg: '2026-09' } };
+  vm.createContext(sb); vm.runInContext(['packShiftIncGate', 'packFmt', 'packEntryCalc', 'packConfirmGate', 'packShiftTotal', 'packRowExtras'].map(grab).join('\n') + '\n' + H.bagSrc() + '\n' + grab('doPack') + '\ndoPack();', sb); return sb; }
 { const sb = box('NS26009');
   ok('the brand batch # is refused', /base batch number/.test(sb.toasts.join(' ')));
   eq('the batch did not move', sb.state.batches[0].packedKg, 2875);

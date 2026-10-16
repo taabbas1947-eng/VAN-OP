@@ -54,7 +54,7 @@ const src = FNS.map(H.grab).join('\n\n') + '\n'
   + H.grabObj('CORRECT_ENTITY') + '\n'
   + H.grabObj('CORRECT_TYPE_LABEL') + '\n'
   + H.grabObj('CORRECT_REASONS') + '\n'
-  + 'var SHELF_DEFAULT_MONTHS=24, SHELF_MAX_MONTHS=36, PACK_FLAG_KG=10000;\n';
+  + 'var SHELF_DEFAULT_MONTHS=24, SHELF_MAX_MONTHS=36, PACK_FLAG_KG=10000;\n' + H.bagSrc() + '\n';
 
 function box(state, dfForm) {
   const b = {

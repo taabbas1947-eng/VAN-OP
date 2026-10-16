@@ -2,6 +2,8 @@ import json, glob, os, re, sys
 HERE=os.path.dirname(os.path.abspath(__file__))
 # Rebuilds SYSDOC_DATA inside apps/o2s/o2s.html from the JSON files in this folder.
 # Run: python3 build_sysdoc.py   then run the O2S tests (tests/audit16a.test.js fails on gaps).
+# 16b: the version shown on every part is the build it was rebuilt into (BUILD_ID in o2s.html)
+VER=re.search(r"var BUILD_ID='([^']+)'",open(os.path.join(HERE,'..','..','o2s.html')).read()).group(1)
 TABS=['flows','dataflows','logic','schema','api','decisions','guide','changelog','formulas','dictionary','access','tests']
 D={}; problems=[]
 OK={'p','list','table','lanes','states','note'}
@@ -9,7 +11,7 @@ for t in TABS:
     f=os.path.join(HERE,'%s.json'%t)
     if not os.path.exists(f): continue
     d=json.load(open(f))
-    d['tab']=t; d['ver']='2026-10-16a'; d['date']='2026-10-16'; d['owner']='COO (Tahir)'
+    d['tab']=t; d['ver']=VER; d['date']=VER[:10]; d['owner']='COO (Tahir)'
     for it in d.get('items',[]):
         for k in ('id','title'):
             if not it.get(k): problems.append((t,'missing '+k,it.get('id')))

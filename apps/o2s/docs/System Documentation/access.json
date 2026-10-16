@@ -771,6 +771,12 @@
         "bigPackSeen",
         "Production Manager only; not the COO",
         "-"
+       ],
+       [
+        "Confirm a batch number packed in 2 months",
+        "twoMonthConfirm",
+        "Production Manager only; not the COO",
+        "-"
        ]
       ]
      }
@@ -804,6 +810,10 @@
        "Can never"
       ],
       "rows": [
+       [
+        "A QA inspector (16b)",
+        "Inspect a packing run they keyed with the same login (inspectorGate), or type another name as the inspector."
+       ],
        [
         "Everyone in the lab",
         "Review or approve a COA they drafted or tested; approve a COA they reviewed; sign both lines of 1 certificate as a leave cover."
@@ -859,7 +869,7 @@
      "p": "At grant time, 5 pairs may not sit on 1 role (SEPARATION): enter production and inspect; draft and review a COA; review and approve a COA; load and release a truck; raise an order and approve its DC. A tick that would break a pair is refused with the reason, and Back Office shows a pair already broken today."
     },
     {
-     "note": "Not confirmed: the Guide says 'Nobody inspects their own output'. In code this is checked only when a right is ticked (separationRefusal), not per person at the inspection itself. Ask: should a QA inspection refuse the login that packed the lot? A) yes, per person; B) no, the role check is enough."
+     "note": "Not confirmed: the Guide says 'Nobody inspects their own output'. In code this is checked only when a right is ticked (separationRefusal), not per person at the inspection itself. Ask: should a QA inspection refuse the login that packed the lot? A) yes, per person; B) no, the role check is enough. From 16b, the packed lot and truck QA sheets refuse a person who keyed a packing run on the sheet (D-287); other outputs are still checked only at grant time."
     },
     {
      "note": "Not confirmed: approving a purchase requisition still uses canEdit(['CFO']), which a screen Edit grant can widen, unlike the truck and lab sign-offs (hardRole). Ask: should approving a requisition be A) CFO and COO only, fixed like the other sign-offs; B) left as it is?"

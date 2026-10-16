@@ -219,7 +219,7 @@ written.forEach(t => {
 }
 /* every data list has an entry in Data schemas */
 {
-  const lists = ['orders', 'lines', 'shipments', 'batches', 'lots', 'packingLog', 'productionLog', 'shiftEntries', 'inspections', 'samples', 'corrections', 'poMoves', 'customers', 'dealers', 'warehouses', 'prs', 'rmRequests', 'rmMovements', 'audit', 'actionLog', 'masters', 'acDefer', 'taken', 'readSigns', 'waitMarks'];
+  const lists = ['orders', 'lines', 'shipments', 'batches', 'lots', 'packingLog', 'productionLog', 'shiftEntries', 'inspections', 'samples', 'corrections', 'poMoves', 'customers', 'dealers', 'warehouses', 'prs', 'rmRequests', 'rmMovements', 'audit', 'actionLog', 'masters', 'acDefer', 'taken', 'readSigns', 'waitMarks', 'twoMonthNotes'];
   const sch = JSON.stringify(D.schema || {});
   const miss = lists.filter(l => sch.indexOf(l) < 0);
   ok('every data list has an entry in Data schemas', miss.length === 0, miss.join(', '));

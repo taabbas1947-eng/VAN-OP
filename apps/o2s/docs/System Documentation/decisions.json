@@ -2837,7 +2837,7 @@
      }
     },
     {
-     "note": "A change to the mfg and expiry month on the bag was ruled on 15 Oct 2026 and saved outside this repo; it is not built (one open point: \"made on\" for an unclosed batch)."
+     "note": "From build 2026-10-16b the bag carries the packing month (D-279 to D-290). This rule now decides only the production date record (mfgDate), the COA and trace; it no longer decides the bag, and other runs are no longer levelled."
     }
    ]
   },
@@ -15538,7 +15538,7 @@
    "rules": [
     "R-012"
    ],
-   "status": "not confirmed",
+   "status": "confirmed",
    "src": [
     "OP-HANDOFF-O2S.md RESUME HERE 15 Oct 2026 end of day, step 3a",
     "OP-HANDOFF-O2S.md 15 Oct 2026 (1) \"Not started: mfg and expiry on the bag\""
@@ -15561,7 +15561,7 @@
        ],
        [
         "Decision",
-        "Tahir ruled how the mfg and expiry month print on the bag. The rulings are saved outside this repo, so their content is not written here. One point is open: the \"made on\" date for a batch that is not closed. It is built as its own core change: picture first, then an independent review, then the build (D-246)."
+        "Tahir ruled how the mfg and expiry month print on the bag (15 Oct) and the open points on 16 Oct. The rulings are written in D-279 to D-290."
        ],
        [
         "Options seen",
@@ -15573,7 +15573,7 @@
        ],
        [
         "Changes",
-        "Not built. D-050 stays in force until it is."
+        "Built in 2026-10-16b."
        ],
        [
         "Status",
@@ -15586,8 +15586,7 @@
       ]
      }
     }
-   ],
-   "ask": "The 15 Oct mfg and expiry rulings are not in the O2S files: (a) copy them into apps/o2s/docs now, (b) record them when the change is built? And for the open point, \"made on\" for a batch that is not closed: (c) I will rule it when the picture is shown?"
+   ]
   },
   {
    "id": "D-277",
@@ -15684,6 +15683,884 @@
        [
         "Built in",
         "2026-10-16a"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-279",
+   "title": "Mfg on the bag is the month of packing; the bag prints month and year",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-038",
+    "R-012"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir in chat, 15 and 16 Oct 2026 (16b picture, version 5)",
+    "o2s.html changelog 2026-10-16b",
+    "tests/audit16b.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-16"
+       ],
+       [
+        "Ruled by",
+        "Tahir (COO)"
+       ],
+       [
+        "Decision",
+        "The bag prints month and year only. Mfg = the month of the packing date of the run."
+       ],
+       [
+        "Options seen",
+        "Answer chosen: \"Bag: packing month\"."
+       ],
+       [
+        "Why",
+        "Not recorded"
+       ],
+       [
+        "Changes",
+        "packBagFields, packDatesBlock, bagMonthOf; packingLog.bagMfg."
+       ],
+       [
+        "Status",
+        "Current"
+       ],
+       [
+        "Source",
+        "Tahir in chat, 15 and 16 Oct 2026; build 2026-10-16b"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-280",
+   "title": "Expiry on the bag is the same month + 24; Production may pick 25 to 36",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-038"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir in chat, 15 and 16 Oct 2026 (16b picture, version 5)",
+    "o2s.html changelog 2026-10-16b",
+    "tests/audit16b.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-16"
+       ],
+       [
+        "Ruled by",
+        "Tahir (COO)"
+       ],
+       [
+        "Decision",
+        "Expiry = Mfg month + 24. Production may pick 25 to 36, never shorter. The 3 correction sheets take the shelf life already chosen for that batch number's earlier runs; 24 if none."
+       ],
+       [
+        "Options seen",
+        "Answer chosen for the correction sheets: \"Same as the batch number\"."
+       ],
+       [
+        "Why",
+        "Not recorded"
+       ],
+       [
+        "Changes",
+        "bagAddMonths, bagShelfFor; packingLog.bagExp."
+       ],
+       [
+        "Status",
+        "Current"
+       ],
+       [
+        "Source",
+        "Tahir in chat, 15 and 16 Oct 2026; build 2026-10-16b"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-281",
+   "title": "The production date stays as a record; the COA keeps production + 24",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-038",
+    "R-016"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir in chat, 15 and 16 Oct 2026 (16b picture, version 5)",
+    "o2s.html changelog 2026-10-16b",
+    "tests/audit16b.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-16"
+       ],
+       [
+        "Ruled by",
+        "Tahir (COO)"
+       ],
+       [
+        "Decision",
+        "mfgDate (the production date) stays on the run for trace and the COA. It is not printed and not checked. The COA expiry stays production + 24 months."
+       ],
+       [
+        "Options seen",
+        "Answer chosen: \"Stays production + 24\"."
+       ],
+       [
+        "Why",
+        "Not recorded"
+       ],
+       [
+        "Changes",
+        "packDates unchanged; COA unchanged."
+       ],
+       [
+        "Status",
+        "Current"
+       ],
+       [
+        "Source",
+        "Tahir in chat, 15 and 16 Oct 2026; build 2026-10-16b"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-282",
+   "title": "The officer picks the month printed on the bags, on Pack and Pack on a run",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-038"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir in chat, 15 and 16 Oct 2026 (16b picture, version 5)",
+    "o2s.html changelog 2026-10-16b",
+    "tests/audit16b.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-16"
+       ],
+       [
+        "Ruled by",
+        "Tahir (COO)"
+       ],
+       [
+        "Decision",
+        "On Pack and Pack on a run the officer picks the Mfg month printed on the bags (the box starts empty). A different month is saved and flagged to QA."
+       ],
+       [
+        "Options seen",
+        "Answer chosen: \"Pack and Pack on a run only\"."
+       ],
+       [
+        "Why",
+        "Not recorded"
+       ],
+       [
+        "Changes",
+        "doPack, submitProdQty; packingLog.printedMfg, bagMonthDiff."
+       ],
+       [
+        "Status",
+        "Current"
+       ],
+       [
+        "Source",
+        "Tahir in chat, 15 and 16 Oct 2026; build 2026-10-16b"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-283",
+   "title": "Reports and papers show bag months for new runs; old runs unchanged",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-038"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir in chat, 15 and 16 Oct 2026 (16b picture, version 5)",
+    "o2s.html changelog 2026-10-16b",
+    "tests/audit16b.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-16"
+       ],
+       [
+        "Ruled by",
+        "Tahir (COO)"
+       ],
+       [
+        "Decision",
+        "The pre-shipment report, Batch trace and the papers show bag months for runs packed from 16b. Runs packed before keep what they show today, with no flag."
+       ],
+       [
+        "Options seen",
+        "Answer chosen: \"All: report, trace, papers\"."
+       ],
+       [
+        "Why",
+        "Not recorded"
+       ],
+       [
+        "Changes",
+        "lotBagDates in psiLinesFor, batchTrace, dcBatchLines, the truck planner and the sent-back lot picker."
+       ],
+       [
+        "Status",
+        "Current"
+       ],
+       [
+        "Source",
+        "Tahir in chat, 15 and 16 Oct 2026; build 2026-10-16b"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-284",
+   "title": "A batch number packed in 2 months: saved at once, the Production Manager confirms with a note",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-038",
+    "R-008"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir in chat, 15 and 16 Oct 2026 (16b picture, version 5)",
+    "o2s.html changelog 2026-10-16b",
+    "tests/audit16b.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-16"
+       ],
+       [
+        "Ruled by",
+        "Tahir (COO)"
+       ],
+       [
+        "Decision",
+        "Counted across all POs (same product, same batch number on the bag). The run is saved at once and QA can inspect it. The Production Manager gets a job on Today and confirms with a note; any fix goes through Correct a record. A run cancelled so only 1 month is left takes the job away by itself. A note covers the months it names: a run cancelled later leaves it covered; a new month asks again. Older runs count too (D-291)."
+       ],
+       [
+        "Options seen",
+        "Answers chosen: \"Across all POs\"; \"Saved, he checks after\"; \"Right only, with a note\"; \"Job goes away by itself\"."
+       ],
+       [
+        "Why",
+        "Not recorded"
+       ],
+       [
+        "Changes",
+        "twoMonthGroups, twoMonthJobs, openTwoMonth, twoMonthConfirm; state.twoMonthNotes."
+       ],
+       [
+        "Status",
+        "Current"
+       ],
+       [
+        "Source",
+        "Tahir in chat, 15 and 16 Oct 2026; build 2026-10-16b"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-285",
+   "title": "QA: a flagged run answered Dates match needs a remark",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-038"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir in chat, 15 and 16 Oct 2026 (16b picture, version 5)",
+    "o2s.html changelog 2026-10-16b",
+    "tests/audit16b.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-16"
+       ],
+       [
+        "Ruled by",
+        "Tahir (COO)"
+       ],
+       [
+        "Decision",
+        "On a run flagged at packing, the QA answer Dates match is allowed with a remark of what was seen on the bags."
+       ],
+       [
+        "Options seen",
+        "Answer chosen: \"Allowed with a remark\"."
+       ],
+       [
+        "Why",
+        "Not recorded"
+       ],
+       [
+        "Changes",
+        "bagRemarkGate in savePackInspect, lotQASubmit, dispQASubmit."
+       ],
+       [
+        "Status",
+        "Current"
+       ],
+       [
+        "Source",
+        "Tahir in chat, 15 and 16 Oct 2026; build 2026-10-16b"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-286",
+   "title": "Made on for an open batch says Batch not closed yet",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-038"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir in chat, 15 and 16 Oct 2026 (16b picture, version 5)",
+    "o2s.html changelog 2026-10-16b",
+    "tests/audit16b.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-16"
+       ],
+       [
+        "Ruled by",
+        "Tahir (COO)"
+       ],
+       [
+        "Decision",
+        "The QA sheets show the batch close date as Made on, for information. An open batch shows Batch not closed yet."
+       ],
+       [
+        "Options seen",
+        "Answer chosen: \"Batch not closed yet\"."
+       ],
+       [
+        "Why",
+        "Not recorded"
+       ],
+       [
+        "Changes",
+        "lotMadeOn, bagRunLines."
+       ],
+       [
+        "Status",
+        "Current"
+       ],
+       [
+        "Source",
+        "Tahir in chat, 15 and 16 Oct 2026; build 2026-10-16b"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-287",
+   "title": "The inspector comes from the login, locked; nobody inspects a run they keyed",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-038",
+    "R-003"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir in chat, 15 and 16 Oct 2026 (16b picture, version 5)",
+    "o2s.html changelog 2026-10-16b",
+    "tests/audit16b.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-16"
+       ],
+       [
+        "Ruled by",
+        "Tahir (COO)"
+       ],
+       [
+        "Decision",
+        "On the packed lot and truck QA sheets the inspector is the person signed in and cannot be changed. A shared QA login records its own name. Inspections already saved keep the typed name. The sheet refuses when the same login keyed a run on it."
+       ],
+       [
+        "Options seen",
+        "Answers chosen: \"From the login, locked\"; \"Login name; old kept\"; \"Refuse\"."
+       ],
+       [
+        "Why",
+        "Not recorded"
+       ],
+       [
+        "Changes",
+        "inspectorName, inspectorGate, inspectorRow; packingLog.byUser."
+       ],
+       [
+        "Status",
+        "Current"
+       ],
+       [
+        "Source",
+        "Tahir in chat, 15 and 16 Oct 2026; build 2026-10-16b"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-288",
+   "title": "A Night shift may be dated tomorrow",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-038",
+    "R-001"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir in chat, 15 and 16 Oct 2026 (16b picture, version 5)",
+    "o2s.html changelog 2026-10-16b",
+    "tests/audit16b.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-16"
+       ],
+       [
+        "Ruled by",
+        "Tahir (COO)"
+       ],
+       [
+        "Decision",
+        "A Night shift is dated the day it ends, so its date may be tomorrow. Only Night; only 1 day ahead. On packing and on Log shift output (production)."
+       ],
+       [
+        "Options seen",
+        "Answers chosen: \"Allow tomorrow, Night only\"; then, asked whether it covers production too: \"Packing and production\"."
+       ],
+       [
+        "Why",
+        "Not recorded"
+       ],
+       [
+        "Changes",
+        "evTomorrow, evDateGate, evDateField."
+       ],
+       [
+        "Status",
+        "Current"
+       ],
+       [
+        "Source",
+        "Tahir in chat, 15 and 16 Oct 2026; build 2026-10-16b"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-289",
+   "title": "A wrong month on a cleared run: QA withdraws, then the month is fixed",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-038",
+    "R-008"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir in chat, 15 and 16 Oct 2026 (16b picture, version 5)",
+    "o2s.html changelog 2026-10-16b",
+    "tests/audit16b.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-16"
+       ],
+       [
+        "Ruled by",
+        "Tahir (COO)"
+       ],
+       [
+        "Decision",
+        "QA withdraws the inspection (Correct a record), Production corrects the month under Correct a record, and QA inspects again."
+       ],
+       [
+        "Options seen",
+        "Answer chosen: \"QA withdraws, then fix\"."
+       ],
+       [
+        "Why",
+        "Not recorded"
+       ],
+       [
+        "Changes",
+        "Correct the month from Batch trace (D-292); CORRECT_ENTITY.packingLot fields bagMfg and printedMfg (Production, COO), locked once cleared or shipped; bagExp and the flag follow, both recorded in the register."
+       ],
+       [
+        "Status",
+        "Current"
+       ],
+       [
+        "Source",
+        "Tahir in chat, 15 and 16 Oct 2026; build 2026-10-16b"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-290",
+   "title": "3 older rules change with the month on the bag",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-038",
+    "R-012"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir in chat, 15 and 16 Oct 2026 (16b picture, version 5)",
+    "o2s.html changelog 2026-10-16b",
+    "tests/audit16b.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-16"
+       ],
+       [
+        "Ruled by",
+        "Tahir (COO)"
+       ],
+       [
+        "Decision",
+        "O2S no longer rewrites the dates of a batch number's other runs (syncPackBatchDates is not called); a different date no longer blocks a batch number fix (bfxChecks); the Anomalies report shows Packed in 2 months instead of a fault for 16b runs."
+       ],
+       [
+        "Options seen",
+        "Shown on the 16b picture, version 5."
+       ],
+       [
+        "Why",
+        "Not recorded"
+       ],
+       [
+        "Changes",
+        "doPack, submitProdQty, submitDivert, lineFixRecord, bfxChecks, the Anomalies report."
+       ],
+       [
+        "Status",
+        "Current"
+       ],
+       [
+        "Source",
+        "Tahir in chat, 15 and 16 Oct 2026; build 2026-10-16b"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-291",
+   "title": "Runs packed before 16b count in Packed in 2 months",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-038"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir in chat, 16 Oct 2026, after the independent review of 16b",
+    "o2s.html changelog 2026-10-16b",
+    "tests/audit16b.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-16"
+       ],
+       [
+        "Ruled by",
+        "Tahir (COO)"
+       ],
+       [
+        "Decision",
+        "A batch number with runs packed before 16b and a run packed from 16b raises Packed in 2 months when their months differ. An older run counts with the month of the mfg date its bags printed. Numbers with older runs only stay in the Anomalies report as before."
+       ],
+       [
+        "Options seen",
+        "Answer chosen: \"Yes, count old runs\" (other option: new runs only)."
+       ],
+       [
+        "Why",
+        "Not recorded"
+       ],
+       [
+        "Changes",
+        "twoMonthMonth, twoMonthGroups (hasNew)."
+       ],
+       [
+        "Status",
+        "Current"
+       ],
+       [
+        "Source",
+        "Tahir in chat, 16 Oct 2026; build 2026-10-16b"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-292",
+   "title": "Production corrects the month from Batch trace, the month fields only",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-038",
+    "R-008"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir in chat, 16 Oct 2026, after the independent review of 16b",
+    "o2s.html changelog 2026-10-16b",
+    "tests/audit16b.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-16"
+       ],
+       [
+        "Ruled by",
+        "Tahir (COO)"
+       ],
+       [
+        "Decision",
+        "Batch trace’s packing run sheet has 1 picker under the table, like the batch number picker (a button on each run read as \"all of these are wrong\", Tahir 10 Oct): pick a 16b run, Correct the month. It opens Correct a record with only the Mfg month on the bag and the month printed on the bags; no reverse, no supersede. Production and the COO only. A run QA has cleared is locked until QA withdraws the inspection; a run on a truck (planned, loading or gone) is locked."
+       ],
+       [
+        "Options seen",
+        "Answer chosen: \"Month fields only\" (other option: everything the rule allows, including reverse)."
+       ],
+       [
+        "Why",
+        "Not recorded"
+       ],
+       [
+        "Changes",
+        "btMonthMay, btMonthPicker, BT_MONTH_FIELDS, openCorrect(type,id,only), renderCorrect, correctSetOp, applyCorrect; field roles Production and COO."
+       ],
+       [
+        "Status",
+        "Current"
+       ],
+       [
+        "Source",
+        "Tahir in chat, 16 Oct 2026; build 2026-10-16b"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-293",
+   "title": "+ Log a shift always shows the list of open batches",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-019"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir in chat, 16 Oct 2026, after the independent review of 16b",
+    "o2s.html changelog 2026-10-16b",
+    "tests/audit16b.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-16"
+       ],
+       [
+        "Ruled by",
+        "Tahir (COO)"
+       ],
+       [
+        "Decision",
+        "+ Log a shift on Today shows every open batch that can still take output: short of plan first, then plan made with the room left up to 115% (a PO batch never past its PO). Pick the batch this shift made. It replaces the 15e rule that opened the form when only 1 batch was short of plan."
+       ],
+       [
+        "Options seen",
+        "Raised by Abdul Majid (Production Manager) on 16 Oct: the list had gone. Live then (read only): 27 open batches, 1 short of plan, all 27 with room left, so the list shows 27. Answers chosen: \"Always show a list\"; \"Inside 16b\"."
+       ],
+       [
+        "Why",
+        "Not recorded"
+       ],
+       [
+        "Changes",
+        "tdLogShift, shiftPickRows."
+       ],
+       [
+        "Status",
+        "Current"
+       ],
+       [
+        "Source",
+        "Tahir in chat, 16 Oct 2026; build 2026-10-16b"
        ]
       ]
      }

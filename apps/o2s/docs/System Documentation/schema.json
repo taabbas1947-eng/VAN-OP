@@ -280,6 +280,14 @@
         "SC-26"
        ],
        [
+        "twoMonthNotes",
+        "list",
+        "new in 16b",
+        "Production Manager notes confirming a batch number packed in 2 months",
+        "Production Manager",
+        "SC-38"
+       ],
+       [
         "masters",
         "object",
         "object",
@@ -2177,7 +2185,9 @@
    "src": [
     "o2s.html fn doPack, submitProdQty, submitDivert, dfSubmitPacking, lineFixRecord, packRowExtras, packPriceRecord, packDates, evStamp, lotQASubmit, savePackInspect, pmvApply, bigPackSeen, dfSubmitVoid, dedupePackingLots",
     "OP-HANDOFF-O2S.md 2026-10-15 (1), (2)",
-    "data/state.json packingLog"
+    "data/state.json packingLog",
+    "fn packBagFields, lotBagDates (16b)",
+    "tests/audit16b.test.js"
    ],
    "id": "SC-12",
    "title": "packingLog: packing runs",
@@ -2238,7 +2248,7 @@
         "text",
         "yes",
         "",
-        "Who typed it (name), never the in-charge.",
+        "Who typed it (name), never the in-charge. On an old run with no byUser, the inspector check compares this name.",
         "doPack"
        ],
        [
@@ -2262,8 +2272,48 @@
         "date, date, number",
         "yes",
         "shelf 24 months (max 36)",
-        "Mfg = earliest production date of every batch under that bag number; expiry = mfg + shelf months.",
-        "packDates; syncPackBatchDates"
+        "Production date record: mfg = earliest production date of every batch under that bag number; expiry = mfg + shelf months. From 16b it is kept for trace and the COA only; it is not printed and not checked, and other runs are no longer levelled to it.",
+        "packDates"
+       ],
+       [
+        "bagMfg",
+        "month YYYY-MM",
+        "yes from 16b",
+        "",
+        "Mfg month printed on the bag: the month of the packing date (F-049). Runs packed before 16b have none and keep the dates they showed.",
+        "packBagFields (doPack, submitProdQty, dfSubmitPacking, submitDivert, lineFixRecord); Correct a record"
+       ],
+       [
+        "bagExp",
+        "month YYYY-MM",
+        "yes from 16b",
+        "bagMfg + 24",
+        "Expiry month on the bag: bagMfg + shelf months (24 to 36).",
+        "packBagFields; worked out again when Correct a record changes bagMfg"
+       ],
+       [
+        "printedMfg",
+        "month YYYY-MM",
+        "Pack and Pack on a run only",
+        "box starts empty",
+        "The month the officer read off a bag at packing. The 3 correction sheets do not ask it.",
+        "doPack, submitProdQty (packBagFields); Correct a record"
+       ],
+       [
+        "bagMonthDiff",
+        "yes/no",
+        "no",
+        "left out",
+        "true when printedMfg differs from bagMfg: QA is told on the inspection sheets, and Dates match needs a remark.",
+        "packBagFields; Correct a record"
+       ],
+       [
+        "byUser",
+        "text",
+        "yes from 16b",
+        "",
+        "Login username of who keyed the run. Nobody inspects a run with their own username.",
+        "packBagFields"
        ],
        [
         "shift, incharge",
@@ -2409,6 +2459,9 @@
     },
     {
      "note": "dedupePackingLots runs on every load and removes duplicate rows that share an id, and identical copies that over-pack a batch. See SC-36."
+    },
+    {
+     "note": "16b (16 Oct 2026): 1 batch number may carry 2 bag months (packed in 2 months); the Production Manager confirms it (twoMonthNotes, SC-38)."
     }
    ]
   },
@@ -2661,7 +2714,8 @@
    "status": "confirmed",
    "src": [
     "o2s.html fn savePackInspect, qcChecklistRecord, qcVerifyRecord, aqlPlan, CORRECT_ENTITY.inspection (supersede)",
-    "data/state.json inspections"
+    "data/state.json inspections",
+    "fn inspectorName, inspectorGate (16b)"
    ],
    "id": "SC-15",
    "title": "inspections: QA inspections of packed lots",
@@ -2706,7 +2760,7 @@
         "text",
         "yes",
         "",
-        "Inspector name as typed.",
+        "Inspector. From 16b the name of the person signed in, locked (inspectorName); inspections saved before keep the typed name.",
         "savePackInspect"
        ],
        [
@@ -3880,6 +3934,96 @@
     },
     {
      "note": "Corrected 16 Oct 2026 (independent check against the code): RS_PARTS has 12 parts, p0 to p11 (audit16a.test.js: the COO reads all 12). rsNorm keeps spaces between words."
+    }
+   ]
+  },
+  {
+   "id": "SC-38",
+   "title": "twoMonthNotes: batch number packed in 2 months, confirmed (new in 16b)",
+   "owner": "Production Manager",
+   "rules": [
+    "R-038",
+    "R-012"
+   ],
+   "status": "confirmed",
+   "src": [
+    "o2s.html fn twoMonthGroups, twoMonthNoteOf, twoMonthJobs, openTwoMonth, twoMonthConfirm",
+    "o2s.html changelog 2026-10-16b",
+    "tests/audit16b.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Type",
+       "Required",
+       "Default",
+       "Meaning",
+       "Written by"
+      ],
+      "rows": [
+       [
+        "id",
+        "text",
+        "yes",
+        "TM + time + 4 random",
+        "Row id.",
+        "twoMonthConfirm"
+       ],
+       [
+        "key",
+        "text",
+        "yes",
+        "",
+        "Product and batch number on the bag, as brand|number.",
+        "twoMonthConfirm"
+       ],
+       [
+        "brand, no",
+        "text",
+        "yes",
+        "",
+        "Product and batch number (copies).",
+        "twoMonthConfirm"
+       ],
+       [
+        "months",
+        "text",
+        "yes",
+        "",
+        "The bag months confirmed, in order, for example 2026-09,2026-10.",
+        "twoMonthConfirm"
+       ],
+       [
+        "note",
+        "text",
+        "yes",
+        "",
+        "What the Production Manager checked, at least 5 characters.",
+        "twoMonthConfirm"
+       ],
+       [
+        "by, user",
+        "text",
+        "yes",
+        "",
+        "Name and username of the Production Manager.",
+        "twoMonthConfirm (_uRole)"
+       ],
+       [
+        "at",
+        "date-time",
+        "yes",
+        "",
+        "When confirmed.",
+        "twoMonthConfirm"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "A note covers the months it names: if a run is cancelled later the note still covers what is left; a new month under the same number asks again. Rows are never changed or removed. The job itself is not stored: it is worked out from packingLog each time Today draws (LG-25)."
     }
    ]
   },

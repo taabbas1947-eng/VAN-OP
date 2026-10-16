@@ -279,7 +279,7 @@ const { ok, eq, report, grab, grabTopVar, html } = H;
   vm.runInContext("var lotQAForm={marks:[],pack:{}};", box);
   const pr = box.qcPackRows('lotQAForm', ['Germ'], 'r');
   ok('liquid pack checks: Tight / Loose, No drip / Leaking, Dry / Wet', /Tight, seal in place/.test(pr) && /No drip/.test(pr) && /Leaking/.test(pr) && /Wet or stained/.test(pr) && !/> Pass</.test(pr));
-  ok('the record checks answer Correct price / Wrong price and Dates match / Dates differ', /qcAns\(it\.label\)\[0\]/.test(grab('qcVerifyRows')) && /'Price on the pack is correct':\['Correct price','Wrong price'\]/.test(html) && /'Mfg &amp; expiry on the pack match the record':\['Dates match','Dates differ'\]/.test(html));
+  ok('the record checks answer Correct price / Wrong price and Dates match / Dates differ', /qcAns\(it\.label\)\[0\]/.test(grab('qcVerifyRows')) && /'Price on the pack is correct':\['Correct price','Wrong price'\]/.test(html) && /'Mfg &amp; expiry on the bags match the expected months':\['Dates match','Dates differ'\]/.test(html));
   ok('the FOC sample check answers in its own words', /smpAns\(q\)\[0\]/.test(html) && /'Seal intact, no leak or damage':\['Intact','Broken, leak or damage'\]/.test(html));
   ok('the saved value is still pass or fail underneath', /setFn\+'\('\+i\+',\\'pass\\'\)'/.test(grab('qcChecklistRows')));
   ok('the truck form asks when it was checked, and refuses without it', /qcWhenRow\('dispQAForm','renderDispatchQA'\)/.test(grab('renderDispatchQA')) && /Say when you checked this truck: before, during or after loading\./.test(grab('dispQASubmit')));

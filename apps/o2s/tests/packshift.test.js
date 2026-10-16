@@ -17,7 +17,7 @@ function base(extra) {
       orders: [{ id: 'O', po: 'P1', lines: [{ id: 'L', brand: 'Enrich', base: 'Potassium Humate', ordered: 1000, packed: 0, produced: 0 }] }] } }, extra);
   vm.createContext(sb); return sb; }
 function moved(sb) { return sb.state.batches[0].packedKg + sb.state.orders[0].lines[0].packed + sb.state.packingLog.length; }
-const GATE = ['packShiftIncGate', 'packFmt', 'packEntryCalc', 'packConfirmGate', 'packShiftTotal', 'packRowExtras'].map(grab).join('\n');
+const GATE = ['packShiftIncGate', 'packFmt', 'packEntryCalc', 'packConfirmGate', 'packShiftTotal', 'packRowExtras'].map(grab).join('\n') + '\n' + H.bagSrc();
 
 /* the gate itself */
 { const sb = base({}); vm.runInContext(GATE, sb);
@@ -29,7 +29,7 @@ const GATE = ['packShiftIncGate', 'packFmt', 'packEntryCalc', 'packConfirmGate',
 
 /* 1 - pack run (doPack) */
 function runPack(shift, inch) {
-  const sb = base({ packForm: { bid: 'B', kg: 500, brand: 'Enrich', oid: 'O', lid: 'L', brandBatch: '', packDate: '2026-10-15', shift, incharge: inch } });
+  const sb = base({ packForm: { bid: 'B', kg: 500, brand: 'Enrich', oid: 'O', lid: 'L', brandBatch: '', packDate: '2026-10-15', shift, incharge: inch, printedMfg: '2026-10' } });
   vm.runInContext(GATE + '\n' + grab('doPack') + '\ndoPack();', sb); return sb; }
 { const sb = runPack('', 'Faisal Nadeem'); ok('pack run without shift is refused', /shift/i.test(sb.toasts.join(' '))); eq('...and moves nothing', moved(sb), 0); }
 { const sb = runPack('Morning', ''); ok('pack run without in-charge is refused', /in-charge/i.test(sb.toasts.join(' '))); eq('...and moves nothing', moved(sb), 0); }
@@ -39,7 +39,7 @@ function runPack(shift, inch) {
 
 /* 2 - quantity entry (submitProdQty) */
 function runQty(shift, inch) {
-  const sb = base({ pqForm: { oid: 'O', lid: 'L', bid: 'B', qty: 300, date: '2026-10-15', shift, incharge: inch }, packedKgNote: 0 });
+  const sb = base({ pqForm: { oid: 'O', lid: 'L', bid: 'B', qty: 300, date: '2026-10-15', shift, incharge: inch, printedMfg: '2026-10' }, packedKgNote: 0 });
   sb.state.batches[0].kind = 'po'; sb.state.batches[0].po = 'P1'; sb.state.batches[0].lineId = 'L';
   vm.runInContext(GATE + '\n' + grab('pqMax') + '\n' + grab('submitProdQty') + '\nsubmitProdQty();', sb); return sb; }
 { const sb = runQty('', ''); ok('quantity entry without picks is refused', sb.toasts.length > 0 && /shift/i.test(sb.toasts.join(' '))); eq('...and moves nothing', moved(sb), 0); }

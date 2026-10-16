@@ -152,5 +152,8 @@ ok('My job: a New on 15 Oct (15g) note for every role touched', ['Supply Chain',
 ok('The Rules: every line sees all the ready base; wait can be changed or ended; PO batch lines get the job (15 Oct, 15g)', /every card shows all the ready base/.test(grab('guideRules')) && /Change or end/.test(grab('guideRules')) && /its own PO batch/.test(grab('guideRules')));
 ok('The Rules: reading and signing what changed (16 Oct, 16a)', /<h3>Reading and signing what changed<\/h3>/.test(grab('guideRules')) && /Read and signed/.test(grab('guideRules')));
 ok('The Rules: System documentation (16 Oct, 16a)', /<h3>System documentation<\/h3>/.test(grab('guideRules')) && /Not confirmed/.test(grab('guideRules')));
+ok('The Rules: the month on the bag (16 Oct, 16b)', /<h3>The month on the bag<\/h3>/.test(grab('guideRules')) && /Mfg is the month of packing/.test(grab('guideRules')) && /Packed in 2 months/.test(grab('guideRules')) && /nobody inspects a run they keyed/.test(grab('guideRules')));
+ok('My job: a New on 16 Oct (16b) note for every role touched', ['Production','Production Manager','QA Inspector','Plant Manager','COO'].every(r => new RegExp("var _n16b=\\{[\\s\\S]*'" + r + "':").test(grab('guideMyJob'))));
+ok('The Rules: the truck checks the Mfg month on the bag (16b)', /the Mfg month on the bag/.test(grab('guideRules')));
 ok('Guide has a System documentation tab for everyone (16a)', /\['sysdoc','System documentation'\]/.test(grab('guideTabsHTML')));
 process.exitCode = report('The Guide keeps up (24z)') ? 1 : 0;

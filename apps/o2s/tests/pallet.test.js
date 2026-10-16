@@ -8,8 +8,8 @@ const sb = { console, toast: m => toasts.push(m), save() {}, render() {}, closeM
   qcVerifyGate: () => null, qcAskSeen: () => false, qcNaGate: () => null, qcVerifyRecord: v => [{ key: 'price', result: v[0] }, { key: 'batch', result: v[1] }, { key: 'dates', result: v[2] }],
   QC_CHECKLIST: ['a', 'b'], qcPackGate: () => '', qcPackRecord: () => [], qcChecklistRecord: (c, f) => f.marks.map(m => ({ item: 'x', result: m })), qcVerifyFailed: v => (v || []).some(x => x === 'fail'), state: {}, renderDispatchQA() {} };
 vm.createContext(sb);
-vm.runInContext(['lotById', 'dispRowsFor', 'dcBatchLines', 'dispQAPallet', 'dispPalletBlock', 'dispQASubmit'].map(grab).join('\n') + '\nvar dispQAForm={};\nfunction renderDispatchQA(){}', sb);
-const fresh = () => { toasts = []; rejects = []; logs = []; sb.state = { role: 'QA Inspector',
+vm.runInContext(['lotById', 'dispRowsFor', 'dcBatchLines', 'dispQAPallet', 'dispPalletBlock', 'dispQASubmit'].map(grab).join('\n') + '\n' + H.bagSrc() + '\nvar dispQAForm={};\nfunction renderDispatchQA(){}', sb);
+const fresh = () => { toasts = []; rejects = []; logs = []; sb.state = { role: 'QA Inspector', currentUser: { name: 'Sana', username: 'sana' },
   orders: [{ po: 'P-1', lines: [{ id: 'L1', brand: 'Enrich', dispatched: 20000 }] }],
   packingLog: [{ id: 'PK-A', mfgDate: '2026-09-25', expDate: '2028-09-25', brandBatchNo: 'VAN6JE001' }, { id: 'PK-B', mfgDate: '2026-09-25', expDate: '2028-09-25', brandBatchNo: 'VAN6JW001' }],
   shipments: [{ dispId: 'D1', dc: '5229', po: 'P-1', lid: 'L1', brand: 'Enrich', kg: 9000, batches: [{ lotId: 'PK-B', batch: 'HG26036', brand: 'VAN6JW001', kg: 832 }, { lotId: 'PK-A', batch: 'HG26036', brand: 'VAN6JE001', kg: 8168 }] }] };

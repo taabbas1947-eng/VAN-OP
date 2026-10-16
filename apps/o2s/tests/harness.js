@@ -159,7 +159,14 @@ function authModelSrc() {
        + AUTH_MODEL_FNS.map(grab).join('\n\n');
 }
 
-module.exports = { sandbox, ok, eq, report, grab, grabObj, grabTopVar, matchBlock,
+/* 16b: the bag-month helpers, for any suite that runs a packing or QA path. The shelf-life
+   constants are given only when the suite has not stubbed its own. */
+const BAG_FNS = ['bagMonthOf', 'bagAddMonths', 'bagMonthLabel', 'bagShelfMonths', 'bagShelfFor', 'packBagFields', 'lotBagDates', 'lotMadeOn',
+  'bagDatesPrint', 'bagFlagged', 'bagRunLines', 'bagRemarkGate', 'inspectorName', 'inspectorGate', 'inspectorRow', 'twoMonthMonth', 'twoMonthGroups', 'twoMonthNoteOf', 'twoMonthJobs'];
+function bagSrc() {
+  return "if(typeof SHELF_DEFAULT_MONTHS==='undefined'){ var SHELF_DEFAULT_MONTHS=24, SHELF_MAX_MONTHS=36; }\n"
+    + grabTopVar('BAG_MON', '[') + '\n' + BAG_FNS.map(grab).join('\n'); }
+module.exports = { bagSrc, BAG_FNS, sandbox, ok, eq, report, grab, grabObj, grabTopVar, matchBlock,
                    authModelSrc, AUTH_MODEL_FNS, APP, STATE, html };
 function report(label) {
   console.log('\n' + label + ': ' + pass + ' passed, ' + fail + ' failed');

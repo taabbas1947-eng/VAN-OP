@@ -25,7 +25,7 @@ const state = JSON.parse(fs.readFileSync(H.STATE, 'utf8')).data;
 /* the report's own helpers, pulled out of the app — no second copy here */
 const src = ['psiPackNo', 'psiDetailFor', 'psiLinesFor', 'psiCOAsFor', 'dispatchGroups',
              'shipStageOf', 'linePackSize', 'seedPackForBrand']
-  .map(n => { try { return grab(n); } catch (e) { return ''; } }).join('\n\n');
+  .map(n => { try { return grab(n); } catch (e) { return ''; } }).join('\n\n') + '\n' + H.bagSrc();
 
 const sandbox = {
   console, state, Date,
@@ -140,7 +140,7 @@ const vm2 = require('vm');
 const psiSrc = ['psiPackNo', 'psiSig', 'psiInternalOnly', 'psiSafeRef', 'psiDetailFor',
                 'psiLinesFor', 'psiCOAsFor', 'printPSI', '_docBarHtml', '_docWithBar', 'dispatchGroups', 'shipStageOf',
                 'linePackSize', 'seedPackForBrand']
-  .map(n => { try { return grab(n); } catch (e) { return ''; } }).join('\n\n');
+  .map(n => { try { return grab(n); } catch (e) { return ''; } }).join('\n\n') + '\n' + H.bagSrc();
 
 function renderSheet(stateObj, dispId) {
   let html = '';
@@ -265,7 +265,7 @@ const docSrc = ['psiPackNo', 'psiSig', 'psiInternalOnly', 'psiSafeRef', 'psiDeta
                 'seedPackForBrand', 'lotBaseNo', 'lotBrandNo',
                 'printDoc', '_docHead', '_docBarHtml', '_docWithBar', 'printPolicy', 'printPolicyOL',
                 'poLineFor', 'printInspect', 'printInspectPriceRule'].concat(DOCS)
-  .map(n => { try { return grab(n); } catch (e) { return ''; } }).join('\n\n');
+  .map(n => { try { return grab(n) + '\n' + H.bagSrc(); } catch (e) { return ''; } }).join('\n\n');
 
 function docBox(stateObj) {
   let html = '';

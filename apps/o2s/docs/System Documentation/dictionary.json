@@ -625,7 +625,7 @@
        ],
        [
         "mfgDate",
-        "Earliest production date of every batch packed under the same bag batch number."
+        "Production date record: earliest production date of every batch packed under the same bag batch number. From 16b not printed and not checked."
        ],
        [
         "expDate",
@@ -642,6 +642,18 @@
        [
         "reversed / void",
         "Ended under Correct a record; the row stays."
+       ],
+       [
+        "bagMfg, bagExp",
+        "Month YYYY-MM. Mfg on the bag = month of packing; expiry = that month + shelfMonths. Shown as Oct-2026."
+       ],
+       [
+        "printedMfg",
+        "Month the officer read off a bag at Pack or Pack on a run; from 3 months ahead to 12 months back of the packing month."
+       ],
+       [
+        "bagMonthDiff",
+        "true when printedMfg is not bagMfg."
        ]
       ]
      }
@@ -2862,6 +2874,26 @@
         "Financial year",
         "July to June.",
         "fyKey"
+       ],
+       [
+        "Mfg on the bag",
+        "From 16b: the month and year of the packing date, not the production date.",
+        "packBagFields"
+       ],
+       [
+        "Packed in 2 months",
+        "1 product and 1 batch number on the bag packed in 2 or more months, on any PO, with at least 1 run packed from 16b (older runs count with their printed month); the Production Manager confirms it with a note.",
+        "twoMonthJobs"
+       ],
+       [
+        "Made on",
+        "On the QA sheets: the close date of the batch the run was packed from, for information. An open batch shows Batch not closed yet; a divert pool shows nothing.",
+        "lotMadeOn"
+       ],
+       [
+        "Correct the month",
+        "Picker under the packing run table in Batch trace: pick a 16b run and correct the Mfg month on the bag and the month printed on the bags, nothing else (Production, COO).",
+        "btMonthPicker"
        ]
       ]
      }

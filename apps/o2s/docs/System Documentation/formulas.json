@@ -1676,7 +1676,8 @@
     "fn evDateGate",
     "o2s.html changelog 2026-10-07a, 2026-10-15e",
     "tests/audit15e.test.js",
-    "tests/shell.test.js"
+    "tests/shell.test.js",
+    "fn evTomorrow (16b)"
    ],
    "blocks": [
     {
@@ -1707,6 +1708,9 @@
     },
     {
      "note": "Corrected 16 Oct 2026 (independent check against the code): evDateGate refuses a late entry whose reason is shorter than 6 characters, and any future date."
+    },
+    {
+     "note": "16b (16 Oct 2026): a Night shift is dated the day it ends, so a form with a shift may be dated tomorrow, and only when the shift is Night: packing and Log shift output (D-288). Any later date is refused (evDateGate, evTomorrow)."
     }
    ]
   },
@@ -2442,6 +2446,52 @@
     },
     {
      "note": "Worked example: a part of 163 words opens at 09:00:00. Its question cannot show before 09:00:49 (163 x 0.3 = 48.9 seconds), and only once its end has been on screen. A wrong answer at 09:01:10 means the question returns no sooner than 09:01:34 (half of 48.9 is about 24.5 seconds, more than 8)."
+    }
+   ]
+  },
+  {
+   "id": "FO-49",
+   "title": "F-049 · The month on the bag and its expiry",
+   "owner": "Production",
+   "rules": [
+    "R-038"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn bagMonthOf, bagAddMonths, bagShelfMonths, bagShelfFor, packBagFields",
+    "SHELF_DEFAULT_MONTHS=24, SHELF_MAX_MONTHS=36",
+    "o2s.html changelog 2026-10-16b",
+    "tests/audit16b.test.js"
+   ],
+   "blocks": [
+    {
+     "p": "Mfg on the bag = the month and year of the packing date. Expiry on the bag = the same month + shelf months. Shelf months: 24 as standard; Production may pick 25 to 36, never shorter; anything outside 24 to 36 is taken as 24. On the 3 correction sheets (Add missing packing, Write the packing record, QC-cleared diverted) the shelf months are those of the latest run of that product and batch number that is not cancelled; 24 if there is none."
+    },
+    {
+     "table": {
+      "head": [
+       "Unit",
+       "Rounding",
+       "Where in code",
+       "Ruling",
+       "Test that proves it"
+      ],
+      "rows": [
+       [
+        "month (YYYY-MM)",
+        "whole months",
+        "packBagFields",
+        "Tahir 15 and 16 Oct 2026 (D-279, D-280)",
+        "tests/audit16b.test.js"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Worked example: packed on 16 Oct 2026 with 24 months: Mfg Oct-2026, expiry Oct-2028. With 30 months from 31 Jan 2026: Jan-2026 and Jul-2028. A Night shift that ends on 1 Nov is dated 1 Nov, so its bags are Nov."
+    },
+    {
+     "note": "The COA is not changed: it keeps the production date and its expiry stays production + 24 months (D-281), so the COA and the bag can show different months."
     }
    ]
   },
@@ -3241,6 +3291,33 @@
         "characters",
         "see FO-45",
         "R-011",
+        "-"
+       ],
+       [
+        "F-049",
+        "Shelf months on the bag",
+        "24 to 36",
+        "months",
+        "packBagFields, bagShelfMonths",
+        "R-038",
+        "Tahir 15 Oct 2026"
+       ],
+       [
+        "F-049",
+        "Date ahead of today, Night shift only (packing and Log shift output)",
+        "1",
+        "day",
+        "evDateGate",
+        "R-038",
+        "Tahir 16 Oct 2026"
+       ],
+       [
+        "F-049",
+        "Note to confirm Packed in 2 months; remark on a flagged Dates match",
+        "5",
+        "characters",
+        "twoMonthConfirm, bagRemarkGate",
+        "R-038",
         "-"
        ]
       ]

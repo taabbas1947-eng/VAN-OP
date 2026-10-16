@@ -56,7 +56,8 @@ ok('openProdQty keeps the pressed batch when it is in the list', /function openP
 /* 6. + Log a shift */
 ok('+ Log a shift calls tdLogShift', /\['@tdLogShift\(\)','\+ Log a shift'\]/.test(grab('tdStarts')));
 { const t = grab('tdLogShift');
-  ok('1 running batch opens its shift form; more opens Running batches', /run\.length===1\)\{ openShiftLog\(run\[0\]\.id\)/.test(t) && /prodFilter='producing'/.test(t)); }
+  /* 16b (Tahir, 16 Oct, after Abdul Majid): always the list of open batches that can still take output */
+  ok('+ Log a shift always shows the list of open batches (16b)', /shiftPickRows\(\)/.test(t) && !/openShiftLog\(run\[0\]\.id\)/.test(t)); }
 
 /* 7. by-product */
 ok('the by-product never defaults to the batch’s own product', !/recForm\.bpBase\|\|sugBase\|\|b\.base/.test(html) && !/recForm\.bpBase\|\|sug\|\|\(bb&&bb\.base\)/.test(html));

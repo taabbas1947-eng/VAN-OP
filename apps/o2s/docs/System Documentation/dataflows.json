@@ -862,7 +862,8 @@
     "fn syncPackBatchDates",
     "fn bigPackSeen",
     "fn submitDivert",
-    "fn submitProdQty"
+    "fn submitProdQty",
+    "fn twoMonthConfirm (16b)"
    ],
    "blocks": [
     {
@@ -903,6 +904,12 @@
         "bigRun.ack, ackBy, ackAt",
         "packingLog",
         "bigPackSeen"
+       ],
+       [
+        "Production Manager (Packed in 2 months)",
+        "note of what was checked, the months, who and when",
+        "twoMonthNotes",
+        "twoMonthConfirm"
        ],
        [
         "every step above",

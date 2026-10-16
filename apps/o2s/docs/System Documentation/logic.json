@@ -1294,6 +1294,13 @@
         "packing entry flagged over 10,000 Kg/L, not seen",
         "-",
         "none"
+       ],
+       [
+        "Packed in 2 months",
+        "Production Manager",
+        "runs not cancelled of 1 product and 1 batch number on the bag (any PO), at least 1 packed from 16b, carry 2 or more months, and no note covers those months",
+        "-",
+        "none"
        ]
       ]
      }
@@ -2538,6 +2545,107 @@
     },
     {
      "p": "The page never opens on the built-in starting data (_rsSeed), for a role outside the 15, or with no orders loaded. Signed out while it is open, it closes."
+    }
+   ]
+  },
+  {
+   "id": "LG-25",
+   "title": "A batch number packed in 2 months (16b)",
+   "owner": "Production Manager",
+   "rules": [
+    "R-038"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn twoMonthGroups, twoMonthJobs, openTwoMonth, twoMonthConfirm",
+    "fn actionItems (label Packed in 2 months)",
+    "GD_JOB_OWNER",
+    "o2s.html changelog 2026-10-16b",
+    "tests/audit16b.test.js",
+    "fn twoMonthMonth"
+   ],
+   "blocks": [
+    {
+     "lanes": {
+      "roles": [
+       "Production",
+       "Production Manager",
+       "QA Inspector"
+      ],
+      "steps": [
+       {
+        "role": "Production",
+        "text": "Packs a run whose bag month differs from an earlier run of the same product and batch number (any PO). It is saved at once.",
+        "kind": "start",
+        "rule": "R-038"
+       },
+       {
+        "role": "QA Inspector",
+        "text": "May inspect the run straight away; nothing waits for the Production Manager.",
+        "kind": "task"
+       },
+       {
+        "role": "Production Manager",
+        "text": "Today job Packed in 2 months: opens a table of every run with its PO, Kg/L, bag month, shift and who keyed it.",
+        "kind": "task"
+       },
+       {
+        "role": "Production Manager",
+        "text": "Right? yes: confirm with a note of what was checked (5 characters or more); the job goes. no: fix the run under Correct a record.",
+        "kind": "decision",
+        "rule": "R-008"
+       },
+       {
+        "role": "Production Manager",
+        "text": "A run cancelled so only 1 month is left: the job goes away by itself.",
+        "kind": "end"
+       }
+      ]
+     }
+    },
+    {
+     "p": "Counted across all POs: same product, same batch number on the bag, runs not reversed or voided and above 0 Kg/L. A run packed from 16b counts with its bag month; an older run counts with the month of its printed mfg date, but only when the number also has a 16b run (D-291). Numbers with older runs only stay in the Anomalies report. A note covers the months it names: a run cancelled later leaves it covered, a new month asks again. Only the Production Manager may confirm; Production corrects a wrong month from Batch trace (D-292). The Anomalies report shows such a number once, as Packed in 2 months, not also as the older mixed-date fault."
+    }
+   ]
+  },
+  {
+   "id": "LG-26",
+   "title": "The inspector is the person signed in (16b)",
+   "owner": "QA Inspector",
+   "rules": [
+    "R-038",
+    "R-003"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn inspectorName, inspectorGate, inspectorRow",
+    "fn savePackInspect, lotQASubmit, dispQASubmit",
+    "o2s.html changelog 2026-10-16b",
+    "tests/audit16b.test.js"
+   ],
+   "blocks": [
+    {
+     "p": "On the packed lot inspection and the truck inspection the inspector is not typed: the sheet shows the name of the login, and the inspection stores it. With nobody signed in the sheet refuses. If any packing run on the sheet was keyed by the same login (byUser), or, on an old run with no byUser, by the same name, the sheet refuses: someone else inspects it. A shared QA login records its own name. Inspections saved before 16b keep the typed name. The older lot QA sheet (renderLotQA) carries the same checks but no screen opens it."
+    }
+   ]
+  },
+  {
+   "id": "LG-27",
+   "title": "+ Log a shift: the list of open batches (16b)",
+   "owner": "Production",
+   "rules": [
+    "R-019"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn tdLogShift, shiftPickRows, batchLogRoom",
+    "fn tdStarts",
+    "tests/audit16b.test.js",
+    "tests/audit15e.test.js"
+   ],
+   "blocks": [
+    {
+     "p": "Today’s + Log a shift (people with the right shift.log) always opens a list: every batch that is open, not a pool, and can still take output (batchLogRoom above 0.5 Kg/L: up to 115% of plan, a PO batch never past its PO). Batches short of plan come first, then plan made with the room left; newest opened first within each. Log shift opens the shift form of that batch. No batch: a message says to open a batch first (D-293)."
     }
    ]
   }

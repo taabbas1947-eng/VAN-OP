@@ -479,7 +479,8 @@
     "tests/batchqty.test.js",
     "tests/audit15g.test.js",
     "OP-HANDOFF-O2S.md 15 Oct (11) 15g",
-    "fn acProduceStallDays ; fn baseStallStart ; fn evDateGate (EV_DEFAULT_THRESHOLD) ; fn batchNearGate (2 minute second press)"
+    "fn acProduceStallDays ; fn baseStallStart ; fn evDateGate (EV_DEFAULT_THRESHOLD) ; fn batchNearGate (2 minute second press)",
+    "fn tdLogShift, shiftPickRows (16b)"
    ],
    "blocks": [
     {
@@ -509,7 +510,7 @@
        },
        {
         "role": "Production",
-        "text": "Log shift output: pick the shift and the in-charge, then the Kg/L, or a reason for no output. Each shift with output becomes a lot (batch-L1, L2 and so on) that the lab tests on its own.",
+        "text": "+ Log a shift shows every open batch that can still take output (short of plan first); pick the batch. Log shift output: pick the shift and the in-charge, then the Kg/L, or a reason for no output. Each shift with output becomes a lot (batch-L1, L2 and so on) that the lab tests on its own. A Night shift may be dated tomorrow, the day it ends.",
         "kind": "task",
         "rule": "R-002"
        },
@@ -834,7 +835,8 @@
     "R-012",
     "R-009",
     "R-001",
-    "R-022"
+    "R-022",
+    "R-038"
    ],
    "status": "confirmed",
    "src": [
@@ -861,7 +863,9 @@
     "tests/packs.test.js",
     "tests/lotpack.test.js",
     "tests/audit15g.test.js",
-    "OP-HANDOFF-O2S.md 15 Oct (1) and (2)"
+    "OP-HANDOFF-O2S.md 15 Oct (1) and (2)",
+    "fn packDatesBlock, packBagFields, twoMonthJobs (16b)",
+    "tests/audit16b.test.js"
    ],
    "blocks": [
     {
@@ -887,7 +891,7 @@
        },
        {
         "role": "Production",
-        "text": "On the Pack sheet: the PO line (no packing without a PO), the date, the Shift and the In-charge of the packing run (both start empty), the brand batch #, the price on the pack. Type Kg/L.",
+        "text": "On the Pack sheet: the PO line (no packing without a PO), the date, the Shift and the In-charge of the packing run (both start empty), the brand batch #, the price on the pack, and the Mfg month printed on the bags, read off a bag (the box starts empty). Type Kg/L. A Night shift may be dated tomorrow, the day it ends.",
         "kind": "task",
         "rule": "R-004"
        },
@@ -899,7 +903,7 @@
        },
        {
         "role": "Production",
-        "text": "Saved: the packing run carries the shift, in-charge, packs, mfg and expiry dates and who typed it. Packed on the batch and on the line go up.",
+        "text": "Saved: the packing run carries the shift, in-charge, packs, the bag months (Mfg = month of packing, expiry + 24 to 36), the month picked, the production date record and who typed it. A picked month that differs is saved and flagged to QA. Packed on the batch and on the line go up.",
         "kind": "task",
         "rule": "R-009"
        },
@@ -908,6 +912,12 @@
         "text": "Entry over 10,000 Kg/L, or a shift and in-charge over 10,000 Kg/L on 1 date? yes: Big pack run job, check with the in-charge and mark Seen; no: nothing.",
         "kind": "decision",
         "rule": "R-004"
+       },
+       {
+        "role": "Production Manager",
+        "text": "Batch number now carries 2 bag months (any PO)? yes: Packed in 2 months job, confirm with a note (LG-25); no: nothing.",
+        "kind": "decision",
+        "rule": "R-038"
        },
        {
         "role": "COO",
@@ -958,7 +968,8 @@
     "R-014",
     "R-017",
     "R-001",
-    "R-011"
+    "R-011",
+    "R-038"
    ],
    "status": "confirmed",
    "src": [
@@ -975,7 +986,9 @@
     "fn acEscalation (Pack QC 2 d Plant Manager)",
     "fn guideRules (N/A on an inspection; QA checks by pack type)",
     "tests/qana.test.js",
-    "OP-HANDOFF-O2S.md 15 Oct (8) QA item 20"
+    "OP-HANDOFF-O2S.md 15 Oct (8) QA item 20",
+    "fn inspectorGate, bagRunLines, bagRemarkGate (16b)",
+    "tests/audit16b.test.js"
    ],
    "blocks": [
     {
@@ -996,6 +1009,12 @@
         "text": "Packed lot inspection: give Kg to the batches inspected; answer every check in its own words; pack-type checks (solid: closure, no torn bag or spill; liquid: cap and induction seal, no drip, dry cartons); storage off the floor and dry; price on the pack; bags opened and defective bags against the sampling plan.",
         "kind": "task",
         "rule": "R-015"
+       },
+       {
+        "role": "QA Inspector",
+        "text": "The inspector is the person signed in. A run the same login keyed is refused. Each run shows its expected Mfg and expiry month; a run flagged at packing answered Dates match needs a remark of what was seen on the bags.",
+        "kind": "task",
+        "rule": "R-038"
        },
        {
         "role": "QA Inspector",
@@ -1030,7 +1049,10 @@
      }
     },
     {
-     "note": "An older lot QA result (packingLog qa.fail) still raises a Correct job for Supply Chain (lotQACorrect). No check was found in savePackInspect that stops a person inspecting a lot he packed; the Guide's 2-person rule says nobody inspects their own output."
+     "note": "An older lot QA result (packingLog qa.fail) still raises a Correct job for Supply Chain (lotQACorrect). From 16b the packed lot and truck QA sheets refuse a person who keyed a packing run on the sheet (inspectorGate)."
+    },
+    {
+     "note": "A wrong month on a run QA already cleared: QA withdraws the inspection with a reason (Correct a record), Production corrects the month, QA inspects again (D-289)."
     }
    ]
   },
@@ -1984,6 +2006,9 @@
     },
     {
      "note": "The Guide (Why packing asks for the shift, the in-charge and the packs) says the COO reverses a wrong packing record; CORRECT_ENTITY.packingLot.reverse is Production, Plant Manager and COO. One of the two is wrong."
+    },
+    {
+     "note": "16b: a wrong month on the bag is corrected from Batch trace (the picker under the packing runs, Correct the month): the 2 month fields only, by Production or the COO; once QA has cleared the run, QA withdraws the inspection first; a run already on a truck cannot be corrected (D-289, D-292)."
     }
    ]
   },

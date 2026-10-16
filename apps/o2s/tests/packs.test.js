@@ -14,9 +14,9 @@ function mk(over) {
     save: () => {}, render: () => {}, closeModal: () => {}, denyRight: () => '', _uRole: () => ({ by: 'Abdul Majid' }),
     state: { role: 'Production Manager', currentUser: { name: 'Jawad Naseer' }, masters: {}, packingLog: [], batches: [{ id: 'B', batchNo: 'HG26038', base: 'Potassium Humate', producedKg: 30000, packedKg: 0 }],
       orders: [{ id: 'O', po: 'P1', lines: [{ id: 'L', brand: 'Enrich', base: 'Potassium Humate', pack: 25, ordered: 20000, packed: 0, produced: 0 }] }] } }, over);
-  vm.createContext(sb); vm.runInContext(FNS.map(grab).join('\n'), sb); return sb; }
+  vm.createContext(sb); vm.runInContext(FNS.map(grab).join('\n') + '\n' + H.bagSrc(), sb); return sb; }
 const R = (sb, code) => vm.runInContext(code, sb);
-const F = (kg, ok) => ({ bid: 'B', kg, brand: 'Enrich', oid: 'O', lid: 'L', brandBatch: '', packDate: '2026-10-15', shift: 'Morning', incharge: 'Faisal Nadeem', packsOkKg: ok || 0, packsOkSize: ok ? 25 : 0 });
+const F = (kg, ok) => ({ bid: 'B', kg, brand: 'Enrich', oid: 'O', lid: 'L', brandBatch: '', packDate: '2026-10-15', shift: 'Morning', incharge: 'Faisal Nadeem', packsOkKg: ok || 0, packsOkSize: ok ? 25 : 0, printedMfg: '2026-10' });
 function pack(kg, ok, over) { const sb = mk(over); sb.packForm = F(kg, ok); vm.runInContext(grab('doPack') + '\ndoPack();', sb); return sb; }
 
 /* the calculation */

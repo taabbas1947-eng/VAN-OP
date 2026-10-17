@@ -1269,6 +1269,50 @@
      }
     }
    ]
+  },
+  {
+   "id": "AC-14",
+   "title": "Provisional lot release: who does what (17c)",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-043"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn provMay, provMayDecide, cmpBoss",
+    "D-328, D-329"
+   ],
+   "blocks": [
+    {
+     "p": "Checked in the code at every save."
+    },
+    {
+     "table": {
+      "head": [
+       "Who",
+       "May"
+      ],
+      "rows": [
+       [
+        "AQCM, QCM (or their leave cover)",
+        "Release a Potassium Humate lot provisionally."
+       ],
+       [
+        "Plant Manager (and the COO)",
+        "Decide a provisional lot that came back UNFIT: the lot, each run at VAN, each truck that left."
+       ],
+       [
+        "COO (Tahir)",
+        "Raise the complaint from a referred truck (the form opens filled in)."
+       ],
+       [
+        "Everyone else",
+        "See provisional and HA pending on the screens; not release or decide."
+       ]
+      ]
+     }
+    }
+   ]
   }
  ]
 }

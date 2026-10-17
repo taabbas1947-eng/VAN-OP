@@ -2791,6 +2791,34 @@
      ]
     }
    ]
+  },
+  {
+   "id": "LG-33",
+   "title": "Provisional lot release (17c)",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-043"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn provRule, provWhyNot, provRelease, lotProvActive, provStampRun, runProvState, provJobs",
+    "tests/audit17c.test.js",
+    "D-328, D-329, D-330"
+   ],
+   "blocks": [
+    {
+     "list": [
+      "Which: PROV_ITEMS = Potassium Humate (the product, or the base of a PO batch); the slow test is the row whose name starts HA or Humic; every other row is a quick test.",
+      "May release (provWhyNot empty): a lot (not a whole batch); a draft certificate (not yet submitted); not a deviation; never released before; a slow test exists and is still empty; every quick test has a result and is FIT (or OK). The AQCM, the QCM or their leave cover only, including on results they entered themselves (Tahir, 17 Oct: no 2-person rule here).",
+      "Release writes lot.prov {id, at, by, user, role, kg, tests (the quick results), pending (HA)} and 1 audit row and 1 action log line. The certificate is not touched.",
+      "Cleared: lotProvActive = prov exists, not ended, not final, the lot not UNFIT and the certificate not approved. Such a lot counts its full quantity in batchClearedKg, batchPackableKg, lineApprovedProducedKg and batchLabApproved, and its release date counts as the clear date (_plFirstOk, packJobSince). The final approval sets prov.final; a final UNFIT (lotProvUnfit) or a rework of the lot ends it, so the bulk not yet packed follows the normal certificate path. Packed runs are not held.",
+      "Runs: after each pack (doPack, submitProdQty, dfSubmitPacking, lineFixRecord) provStampRun writes run.prov {lots, lotNos, kg, at} when the batch's packed plus disposed Kg passes its approved-only Kg; kg = the part past it.",
+      "Run state: rework or kept once decided; unfit when a lot of the run is failed or was decided after an UNFIT; blank when all its lots are approved; else pending (HA pending).",
+      "Jobs: Release provisionally (AQCM, also QCM) while provWhyNot is empty; Provisional lot UNFIT (Plant Manager) while the lot is failed, a run at VAN is undecided or a truck that left is undecided; Provisional lot referred (COO) for each truck referred until a complaint (not cancelled) has an item of that truck.",
+      "Plant Manager's run decisions: rework is refused while part of the run is on a planned truck that has not left (shipKg above the Kg on trucks that left); rework writes qaHold and sets insKg to the Kg on trucks (provReinsp keeps the before). A truck is asked about only if one of its runs from the lot was not decided at VAN. The COO job says to wait while the truck is not confirmed delivered; it carries alsoRoles Plant Manager when Tahir is marked away."
+     ]
+    }
+   ]
   }
  ]
 }

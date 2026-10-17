@@ -2555,6 +2555,70 @@
      }
     }
    ]
+  },
+  {
+   "id": "PF-25",
+   "title": "Provisional lot release and a final UNFIT (17c)",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-043"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn provRelease, provJobs, openProvUnfit, provRunDecide, provShipDecide, provRaiseComplaint",
+    "tests/audit17c.test.js"
+   ],
+   "blocks": [
+    {
+     "lanes": {
+      "roles": [
+       "Lab Rep",
+       "AQCM",
+       "Production",
+       "Plant Manager",
+       "COO"
+      ],
+      "steps": [
+       {
+        "role": "Lab Rep",
+        "text": "Enters the quick tests of a Potassium Humate lot: Physical Status, Color, Moisture, K2O. HA runs about 19 hours.",
+        "kind": "start",
+        "rule": "R-043"
+       },
+       {
+        "role": "AQCM",
+        "text": "All quick tests FIT: Release provisionally (the AQCM or the QCM). No certificate.",
+        "kind": "task"
+       },
+       {
+        "role": "Production",
+        "text": "The lot shows in Ready to pack, provisional, HA pending. Pack and ship; no COA goes with the truck.",
+        "kind": "task"
+       },
+       {
+        "role": "Lab Rep",
+        "text": "Finishes HA and submits the full certificate: analyst, AQCM, QCM as before.",
+        "kind": "decision"
+       },
+       {
+        "role": "AQCM",
+        "text": "FIT: approved; the certificate is downloaded from Reports.",
+        "kind": "end"
+       },
+       {
+        "role": "Plant Manager",
+        "text": "UNFIT: alert and Today job. Decides the lot (rework the bulk or deviation), each run at VAN (keep or rework, held), each truck (accept with a reason, or inform the COO).",
+        "kind": "decision"
+       },
+       {
+        "role": "COO",
+        "text": "Referred truck: Today job opens the complaint form filled in; Tahir sets the severity and raises it.",
+        "kind": "end"
+       }
+      ]
+     }
+    }
+   ]
   }
  ]
 }

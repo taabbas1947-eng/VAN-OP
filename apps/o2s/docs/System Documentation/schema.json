@@ -5843,6 +5843,126 @@
      "p": "The latest mark by time decides. It lapses the day after until, or when the batch has nothing cleared left to pack. Every mark also writes 1 audit row (same id) and 1 action log line. Marks are never removed. Nothing else on the batch changes."
     }
    ]
+  },
+  {
+   "id": "SC-41",
+   "title": "batches[].lots[].prov, packingLog[].prov, packingLog[].provDecision (new in 17c)",
+   "owner": "AQCM or QCM; Plant Manager",
+   "rules": [
+    "R-043"
+   ],
+   "status": "confirmed",
+   "src": [
+    "o2s.html fn provRelease, provStampRun, provRunDecide, provShipDecide, coaRework, coaDeviation",
+    "D-328, D-329"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Type",
+       "Required",
+       "Default",
+       "Meaning",
+       "Written by"
+      ],
+      "rows": [
+       [
+        "lots[].prov.id, at, by, user, role, kg",
+        "text, date-time, number",
+        "yes",
+        "",
+        "The provisional release: who, when, the lot's Kg/L.",
+        "provRelease"
+       ],
+       [
+        "lots[].prov.tests[]",
+        "list {test, spec, result, remark}",
+        "yes",
+        "",
+        "The quick results it was released on.",
+        "provRelease"
+       ],
+       [
+        "lots[].prov.pending[]",
+        "list of text",
+        "yes",
+        "",
+        "The slow tests still running (HA).",
+        "provRelease"
+       ],
+       [
+        "lots[].prov.onBehalf",
+        "object",
+        "no",
+        "",
+        "When a leave cover released it.",
+        "provRelease"
+       ],
+       [
+        "lots[].prov.unfit",
+        "{at, by, decided rework|deviation}",
+        "no",
+        "",
+        "The lot came back UNFIT and the Plant Manager's choice for the lot.",
+        "coaRework, coaDeviation"
+       ],
+       [
+        "lots[].prov.ended",
+        "{kind rework, at, by}",
+        "no",
+        "",
+        "The lot was sent to rework: no longer cleared.",
+        "coaRework"
+       ],
+       [
+        "lots[].prov.final",
+        "{at}",
+        "no",
+        "",
+        "The final certificate was approved: the provisional release is over for good.",
+        "coaApprove"
+       ],
+       [
+        "lots[].prov.ship[dispId]",
+        "{kind accept|refer, why, by, user, at, dc, po}",
+        "no",
+        "",
+        "The Plant Manager's decision on each truck that left.",
+        "provShipDecide"
+       ],
+       [
+        "packingLog[].prov",
+        "{lots, lotNos, kg, at}",
+        "no",
+        "",
+        "This run used Kg/L of a provisional lot; kg = the part past the batch's approved Kg/L.",
+        "provStampRun"
+       ],
+       [
+        "packingLog[].provDecision",
+        "{kind keep|rework, why, by, user, at, lot}",
+        "no",
+        "",
+        "The Plant Manager's decision on a run still at VAN. Rework also writes qaHold (fails: Final COA UNFIT).",
+        "provRunDecide"
+       ],
+       [
+        "packingLog[].provReinsp",
+        "{from, to, lot, at}",
+        "no",
+        "",
+        "Inspected Kg/L before and after a rework decision (sent back for inspection).",
+        "provRunDecide"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Nothing is removed. The certificate (lots[].coa) is not changed by a provisional release."
+    }
+   ]
   }
  ]
 }

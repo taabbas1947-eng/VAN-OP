@@ -3383,6 +3383,57 @@
      }
     }
    ]
+  },
+  {
+   "id": "DD-34",
+   "title": "Provisional release: the words (17c)",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-043"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Guide rule Releasing a lot before the full certificate",
+    "D-328 to D-330"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Word",
+       "Meaning in O2S",
+       "Where it comes from"
+      ],
+      "rows": [
+       [
+        "Release provisionally",
+        "The AQCM or the QCM clears a Potassium Humate lot on its quick tests, before HA is done. No certificate.",
+        "D-328"
+       ],
+       [
+        "Quick tests",
+        "Physical Status, Color, Moisture, K2O.",
+        "D-328"
+       ],
+       [
+        "HA pending",
+        "The lot, run or truck uses a provisional lot whose HA result is not in yet.",
+        "D-328"
+       ],
+       [
+        "Provisional lot UNFIT",
+        "The Plant Manager's Today job when a provisional lot's final certificate is UNFIT.",
+        "D-329"
+       ],
+       [
+        "Provisional lot referred",
+        "The COO's Today job when the Plant Manager informs him about a truck that left.",
+        "D-329"
+       ]
+      ]
+     }
+    }
+   ]
   }
  ]
 }

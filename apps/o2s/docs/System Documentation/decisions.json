@@ -18499,6 +18499,124 @@
      "note": "Confirmed by Tahir 17 Oct 2026: the next cleared batch is judged when the oldest carries a reason; the order line keeps its own clock; Under processing may be written again, with the count shown on Plant; the Production Manager may change or end a reason early."
     }
    ]
+  },
+  {
+   "id": "D-328",
+   "title": "Release a Potassium Humate lot provisionally, before the full certificate",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-043"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir in chat, 17 Oct 2026 (the lab: a lot takes about 24 hours to test; multiple choice answers)",
+    "o2s.html changelog 2026-10-17c",
+    "fn provRule, provWhyNot, provRelease, lotProvActive, batchClearedKg, batchPackableKg, batchLabApproved",
+    "tests/audit17c.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-17"
+       ],
+       [
+        "Ruled by",
+        "Tahir (COO)"
+       ],
+       [
+        "Decision",
+        "Raised by the lab: a lot takes about 24 hours to test (HA by gravimetric alone about 19), and a lot made at the end of the day should be packed by the next evening. Ruled: shipping on a provisional result is allowed. The AQCM or the QCM releases a lot provisionally once the 4 quick tests (Physical Status, Color, Moisture, K2O) are entered and FIT. It issues NO certificate; it only lifts the hold, so the lot counts as cleared and shows in Ready to pack (provisional). Nothing goes on the truck while it is provisional (no COA); the final certificate follows the existing steps (analyst, AQCM, QCM) and is downloaded from Reports when approved (no job). Potassium Humate only for now. \"HA pending\" shows on Ready to pack, the packed runs and the truck screens, never on the DC."
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-329",
+   "title": "A provisional lot whose final certificate is UNFIT: the Plant Manager decides",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-043"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir in chat, 17 Oct 2026 (the lab: a lot takes about 24 hours to test; multiple choice answers)",
+    "o2s.html changelog 2026-10-17c",
+    "fn provJobs, openProvUnfit, provRunDecide, provShipDecide, provRaiseComplaint, coaRework, coaDeviation",
+    "tests/audit17c.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-17"
+       ],
+       [
+        "Ruled by",
+        "Tahir (COO)"
+       ],
+       [
+        "Decision",
+        "Ruled: no automatic hold. The Plant Manager gets an alert and a Today job at once (Provisional lot UNFIT) and decides: (1) the lot, with the same 2 choices as any UNFIT lot: send to rework (the bulk Kg only) or approve as a deviation (then AQCM and QCM); (2) each run packed and still at VAN, one by one: keep (deviation) or rework, with a reason; rework puts the run on QA hold for the Production Manager; (3) each truck that left: accept with a written reason (no complaint), or inform the COO with a note and ask for a suggestion; the COO then gets a Today job, and Tahir raises the complaint with the existing Raise form, filled in (customer, PO, the truck's batches, the failed result, the note). Approving an UNFIT certificate needs a reason: this already exists (the Plant Manager's deviation note, at least 5 characters)."
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-330",
+   "title": "Provisional release: build choices, confirmed",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-043"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir in chat, 17 Oct 2026 (the lab: a lot takes about 24 hours to test; multiple choice answers)",
+    "o2s.html changelog 2026-10-17c",
+    "fn provJobs, provWhyNot, provStampRun, provRaiseComplaint",
+    "tests/audit17c.test.js",
+    "Tahir in chat, 17 Oct 2026 16:45 (4 multiple choice answers)"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-17"
+       ],
+       [
+        "Ruled by",
+        "Tahir (COO)"
+       ],
+       [
+        "Decision",
+        "Made in the build or after the independent review, not ruled: (1) a Today job Release provisionally for the AQCM (also the QCM, and their leave cover) when a Potassium Humate lot's quick tests are all FIT and HA is still running; (2) release only from a draft certificate with HA still empty; a lot is released once; a re-issue after the final approval does not bring it back; a lot accepted as a deviation cannot be released; (3) no 2-person rule: the AQCM or the QCM may release results he entered himself; (4) when the final result is UNFIT, the bulk not yet packed is no longer cleared (as any UNFIT lot) while the packed bags are not held; (5) a run counts as provisional for the Kg past the batch's approved Kg (approved Kg are used first); (6) a run on a planned truck that has not left cannot be sent to rework until it is taken off the truck; rework uses the existing QA hold and its inspected Kg go back for inspection; a run kept at VAN is not asked again when its truck leaves; (7) the complaint form lists delivered trucks only (as today), so a referred truck still on the road waits for its delivery to be confirmed; when Tahir is away the Plant Manager sees the COO job, as for other complaint jobs; (8) the new jobs do not escalate. Tahir, 17 Oct 2026 (multiple choice): (4) the bulk stops being cleared, as built; (3) remove the 2-person rule; (8) no escalation; (1) keep the Release provisionally job."
+       ]
+      ]
+     }
+    }
+   ]
   }
  ]
 }

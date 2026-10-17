@@ -105,6 +105,12 @@
         "79 passed, 0 failed"
        ],
        [
+        "audit17c.test.js",
+        "17c: provisional release of a Potassium Humate lot: which lots and tests, who may release, no certificate, cleared and Ready to pack, runs stamped with the provisional Kg, HA pending on the screens and never on the DC, the jobs (release, UNFIT, referred), the Plant Manager's decisions (lot, runs at VAN, trucks), the complaint form filled in, Guide, alerts and change log.",
+        "R-043",
+        "109 passed, 0 failed"
+       ],
+       [
         "authmodel.test.js",
         "Departments, roles and rights: every converted gate answers exactly as before, per role and per right, live and not live; a lead cannot widen himself.",
         "R-003, R-019",

@@ -31,8 +31,8 @@
       "rows": [
        [
         "Passed",
-        "104 files with every check passed",
-        "13,079 checks passed (in the 104 files that ran)"
+        "105 files with every check passed",
+        "13,120 checks passed (in the 105 files that ran)"
        ],
        [
         "Failed",
@@ -41,8 +41,8 @@
        ],
        [
         "All files",
-        "104",
-        "13,079 checks run"
+        "105",
+        "13,120 checks run"
        ]
       ]
      }
@@ -648,7 +648,13 @@
         "today.test.js",
         "Today: the jobs waiting on the signed-in person, grouped, one button each, the app's own action.",
         "-",
-        "200 passed, 0 failed"
+        "203 passed, 0 failed"
+       ],
+       [
+        "truckback17a.test.js",
+        "A truck that came back: who may ask and decide, the reason, nothing moves on asking, the undo on the line, runs, sales and numbers, the reload count, the QA carry and its limits (vehicle, Kg, once), refusal and asking again, an open complaint stops it, the alert and the Today job.",
+        "R-041",
+        "38 passed, 0 failed"
        ],
        [
         "trucklists.test.js",
@@ -687,7 +693,7 @@
      "note": "harness.js and preflight.js in the same folder are helpers, not tests. _before-auth.html and _before-lot.html are old copies of the app that lotpack and certremove compare against."
     },
     {
-     "note": "Last result: 17 Oct 2026, all 104 files run one after the other on o2s.html build 2026-10-16e as delivered. 104 files passed every check; 0 failed; notify16c.db.test.js run on a throwaway MariaDB database."
+     "note": "Last result: 17 Oct 2026, all 105 files run one after the other on o2s.html build 2026-10-17a as delivered. 105 files passed every check; 0 failed; notify16c.db.test.js run on a throwaway MariaDB database."
     },
     {
      "note": "Corrected 16 Oct 2026 (independent check against the code): counts and the last-result line moved to tonight's run (23:37). Changed rows: audit16a (now 90 passed), authmodel (1 failed), guide (77 passed, was 74), poentry (1 failed), publicbatch (passing on Tahir's computer, 15 Oct)."

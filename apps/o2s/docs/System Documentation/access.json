@@ -1180,6 +1180,51 @@
      }
     }
    ]
+  },
+  {
+   "id": "AC-12",
+   "title": "A truck that came back: who does what (17a)",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-041",
+    "R-019"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn cbMayAsk, cbMayDecide",
+    "D-323"
+   ],
+   "blocks": [
+    {
+     "p": "Checked in the code at every save."
+    },
+    {
+     "table": {
+      "head": [
+       "Who",
+       "May"
+      ],
+      "rows": [
+       [
+        "Supply Chain (Saad), Warehouse (Shoaib)",
+        "Say a truck that left the gate came back, with the reason."
+       ],
+       [
+        "Supply Chain Officer (Zain)",
+        "Nothing on this step."
+       ],
+       [
+        "Plant Manager",
+        "Approve (undo the release) or refuse with a reason."
+       ],
+       [
+        "COO",
+        "Both."
+       ]
+      ]
+     }
+    }
+   ]
   }
  ]
 }

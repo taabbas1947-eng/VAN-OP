@@ -27,6 +27,7 @@ const JOB_ROLES = {
   'Review': ['AQCM', 'Plant Manager'], 'Approve': ['QCM'], 'Print price': ['Finance'], 'Load': ['Warehouse'],
   'Gate Pass': ['Warehouse'], 'Sent back': null, 'Review truck': ['Supply Chain', 'Warehouse'], 'Release': ['Plant Manager'],
   'Approve DC': ['Plant Manager'], 'Confirm delivery': null, 'Truck released': null, 'Inspect': ['QA Inspector'],
+  'Truck came back': ['Plant Manager'],   /* 17a: Saad or Shoaib asks, the Plant Manager approves */
   'Correct': ['Supply Chain'], 'Re-inspect': ['Production Manager'], 'Close batch': ['Production'],
   'Reopened — check first': ['Production'], 'Approve batch fix': ['COO'], 'Reprint DC': ['Supply Chain'],
   'Reprint report': ['QA Inspector'], 'DC rejected': ['Supply Chain'], 'Truck failed': ['Supply Chain'],
@@ -51,7 +52,7 @@ const ESC_TO = {
   'Assign sample': 'Plant Manager', 'Review': 'Plant Manager', 'Approve': 'Plant Manager', 'Pack QC': 'Plant Manager',
   'Inspect': 'Plant Manager', 'Ship': 'Supply Chain', 'Open Production': 'Plant Manager', 'Approve PR': 'COO',
   'Print price': 'COO', 'Load': 'Supply Chain', 'Gate Pass': 'Supply Chain', 'Review truck': 'Plant Manager', 'Release': 'COO',
-  'Approve DC': 'COO', 'Confirm delivery': 'Plant Manager', 'Approve move': 'COO', 'Approve close short': 'COO',
+  'Approve DC': 'COO', 'Truck came back': 'COO', 'Confirm delivery': 'Plant Manager', 'Approve move': 'COO', 'Approve close short': 'COO',
   'Pack': 'Production Manager', 'Pack from base': 'Plant Manager', 'Check after move': 'Plant Manager',
   'Duplicate number': 'Plant Manager', 'Lab test': 'QCM'
 };

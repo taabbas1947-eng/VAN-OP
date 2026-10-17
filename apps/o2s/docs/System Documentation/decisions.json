@@ -18276,6 +18276,65 @@
      }
     }
    ]
+  },
+  {
+   "id": "D-323",
+   "title": "A truck that came back after it left the gate",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-041"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir in chat, 17 Oct 2026 (DC 5244 came back over weight)",
+    "o2s.html changelog 2026-10-17a",
+    "fn cbOpenAsk, cbAsk, cbOpenDecide, cbApprove, cbRefuse, cbCarryQA",
+    "tests/truckback17a.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-17"
+       ],
+       [
+        "Ruled by",
+        "Tahir (COO)"
+       ],
+       [
+        "Decision",
+        "A truck that has left the gate (released, in transit or collected) can come back. Supply Chain (Saad) or the Senior Warehouse Officer (Shoaib) asks with the reason; the Plant Manager approves or refuses with a reason (the COO may too). Approving undoes the release in 1 step: shipped and delivered come off the order line, the Kg go back to the same packing runs as Cleared, ready to ship (then counted the same way every load counts them), the truck is cancelled with its DC and gate pass numbers kept and never issued again, it leaves sales, and a correction keeps the reason. Supply Chain then plans the lighter truck as usual (new DC, new gate pass, loading, review, release). The lighter truck keeps the QA pass of the truck that came back when it is the same vehicle, the same order line, only runs that were on that truck and no more Kg of each, planned within 2 days of the approval; the pass is marked carried (same batches, fewer bags) and its batch lines are the new truck’s. A truck with an open complaint on it cannot be undone. After review: only a truck released in the last 2 days comes back this way (an older one is a return); the carried pass must be from the last 2 days and its batch lines say they were checked on the earlier DC, and the inspection report says the load was reduced after that check; a truck waiting for the Plant Manager cannot be confirmed delivered; the approval first reads the latest records; when nothing is left shipped or delivered on the line its dates are cleared; a cancelled truck is no longer counted in PO lines, the 7-day charts, trend reports or the shipment log."
+       ],
+       [
+        "Options seen",
+        "Who undoes: COO only; Supply Chain asks and the Plant Manager approves (chosen). Reload: plan a new truck (chosen); one step reload with less. QA: check again; keep the morning’s pass (chosen)."
+       ],
+       [
+        "Why",
+        "O2S had no way back for a released truck: Edit refuses a quantity change and Cancel shows only before loading (DC 5244, 17 Oct 2026)."
+       ],
+       [
+        "Changes",
+        "Shipments truck cards (Truck came back), Today job Truck came back for the Plant Manager with an alert, the truck sheets (QA carry), Guide rule R-041."
+       ],
+       [
+        "Status",
+        "Current"
+       ],
+       [
+        "Source",
+        "Tahir in chat, 17 Oct 2026; build 2026-10-17a"
+       ]
+      ]
+     }
+    }
+   ]
   }
  ]
 }

@@ -2739,6 +2739,33 @@
      ]
     }
    ]
+  },
+  {
+   "id": "LG-31",
+   "title": "A truck that came back: what the undo changes (17a)",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-041"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn cbApprove, cbCarryQA, reconcileLotShipKgV1",
+    "tests/truckback17a.test.js",
+    "D-323"
+   ],
+   "blocks": [
+    {
+     "list": [
+      "Asking writes only cameBack (reason, who, when) on the truck rows; nothing else moves.",
+      "Approving, for each row: line dispatched less the Kg (it was counted at release); line delivered less the Kg when it was delivered or collected; the line delivered date goes back to the latest other delivered truck when this truck had set it; each batch line gives its Kg back to its own run (_releaseShip); the row is voided, stage and DC status cancelled, delivered cleared, and what it was is kept in cameBack.was.",
+      "Then the runs are counted again the way every load counts them (reconcileLotShipKgV1), so the screen and the next reload agree. If older trucks on the line were recorded without their batches, fewer Kg may come back as ready; the correction says how many.",
+      "Next DC and gate pass numbers are worked out from the highest number ever used, cancelled trucks included, so 5244 and GP-0172 are never issued again.",
+      "Sales and every truck list skip a voided truck.",
+      "QA carry: when a truck is planned (either truck sheet) with no QA yet, and an approved came-back truck with a QA pass has the same vehicle (letters and digits only), the same order line, every new batch line on a run that truck carried with no more Kg, and the approval is 0 to 2 days old, the pass is copied with its batch lines rebuilt from the new truck, marked carriedFrom, and the came-back truck is marked reused (once only).",
+      "Limits: the truck was released 0 to 2 days ago (Pakistan date); the carried QA pass is 0 to 2 days old; a cancelled (voided) truck is skipped by shipFor, the 7-day charts, trend events, the shipment report and the shipment log."
+     ]
+    }
+   ]
   }
  ]
 }

@@ -227,7 +227,7 @@ written.forEach(t => {
 ok('System documentation opens from the Guide for everyone', /tabs\.push\(\['sysdoc','System documentation'\]\)/.test(H.grab('guideTabsHTML')) && /guideTab==='sysdoc'\) h\+=sysDocHTML\(\)/.test(H.grab('guidePage')));
 ok('...and from Back Office', /k:'sysdoc',t:'System documentation'/.test(H.grab('boDesks')));
 ok('Guide rule: System documentation', /<h3>System documentation<\/h3>/.test(H.grab('guideRules')));
-ok('changelog 16a and BUILD_ID', /ver:'2026-10-16a'/.test(html) && /var BUILD_ID='2026-10-16[a-z]';/.test(html));
+ok('changelog 16a and BUILD_ID', /ver:'2026-10-16a'/.test(html) && ((/var BUILD_ID='([^']+)'/.exec(html)||[])[1]||'')>='2026-10-16a');
 
 /* the app page can be opened before sign-in: no security weakness is written into it */
 {

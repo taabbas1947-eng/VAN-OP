@@ -2435,6 +2435,74 @@
      }
     }
    ]
+  },
+  {
+   "id": "PF-23",
+   "title": "A truck that came back (17a)",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-041"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn cbAsk, cbApprove, mpCreate, saveDispatch, cbCarryQA",
+    "tests/truckback17a.test.js"
+   ],
+   "blocks": [
+    {
+     "lanes": {
+      "roles": [
+       "Supply Chain",
+       "Warehouse",
+       "Plant Manager",
+       "QA Inspector"
+      ],
+      "steps": [
+       {
+        "role": "Warehouse",
+        "text": "Truck comes back to the gate; driver hands back the DC and gate pass.",
+        "kind": "start",
+        "rule": "R-041"
+       },
+       {
+        "role": "Supply Chain",
+        "text": "Truck came back on the truck card in Shipments, with the reason. Nothing changes yet.",
+        "kind": "task"
+       },
+       {
+        "role": "Plant Manager",
+        "text": "Today: Truck came back. Approve (undo the release) or refuse with a reason.",
+        "kind": "decision"
+       },
+       {
+        "role": "Warehouse",
+        "text": "Bags come off the truck and go back to the store; the Kg are Cleared, ready to ship.",
+        "kind": "task"
+       },
+       {
+        "role": "Supply Chain",
+        "text": "Plans the lighter truck as usual: new DC. Same vehicle and only those batches: the QA pass is carried.",
+        "kind": "task"
+       },
+       {
+        "role": "QA Inspector",
+        "text": "Checks the truck only when the pass is not carried.",
+        "kind": "task"
+       },
+       {
+        "role": "Warehouse",
+        "text": "Loads, issues the new gate pass; review by Saad or Shoaib.",
+        "kind": "task"
+       },
+       {
+        "role": "Plant Manager",
+        "text": "Approves the new DC and releases; collected at the factory.",
+        "kind": "end"
+       }
+      ]
+     }
+    }
+   ]
   }
  ]
 }

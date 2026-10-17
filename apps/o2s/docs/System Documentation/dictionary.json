@@ -3317,6 +3317,11 @@
         "On complaint hold (tag)",
         "An order whose packed stock is all on complaint hold; its next step is the complaint.",
         "D-321"
+       ],
+       [
+        "Truck came back",
+        "A truck that left the gate and returned; when approved, its release is undone and its DC and gate pass are cancelled.",
+        "D-323"
        ]
       ]
      }

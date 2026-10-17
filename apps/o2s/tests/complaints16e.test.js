@@ -288,7 +288,7 @@ function investigated(s, c) {
   ok('the Plant Manager\'s view-only list is on Today, not counted', /cmpTodayWatch\(\)/.test(grab('screenToday')));
   ok('Back Office has a Complaints desk', /k:'complaints',t:'Complaints'/.test(grab('boDesks')));
   ok('Guide rule and rule number', /<h3>Customer complaints<\/h3>/.test(grab('guideRules')) && /'Customer complaints':'R-040'/.test(html));
-  ok('changelog 16e and BUILD_ID', /ver:'2026-10-16e'/.test(html) && /var BUILD_ID='2026-10-16[e-z]';/.test(html)); }
+  ok('changelog 16e and BUILD_ID', /ver:'2026-10-16e'/.test(html) && ((/var BUILD_ID='([^']+)'/.exec(html)||[])[1]||'')>='2026-10-16e'); }
 
 /* ---------- ruling 12: the brief to read and sign ---------- */
 { const SRC = ["var RS_BRIEF='" + /var RS_BRIEF='([^']+)'/.exec(html)[1] + "';", grabTopVar('RS_ALL', '['), grabTopVar('RS_PARTS', '['), /\nvar RS_TITLE=[^\n]*/.exec(html)[0], /\nvar RS_CMP_ROLES=[^\n]*/.exec(html)[0], grabTopVar('RS_PARTS_CMP', '['), grabTopVar('RS_BRIEFS', '['),

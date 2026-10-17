@@ -1084,3 +1084,133 @@ The Plant Manager asked for alerts on laptop and phone, even with O2S closed. Ta
 - **Next:** Tahir commits and pushes with GitHub Desktop, then checks `/` on the live site.
 
 - **Same day, layout fix (Tahir: "2 lines, not 3"):** `launcher.html` only. The line is now 2 deliberate halves, split at the colon: line 1 "Someone who has not joined us yet will one day learn from what you do here:" and line 2 "who we hired, what we risked, why we decided. Leave them something worth finding." CSS: removed the `36em` width cap on `.why`, minimum font size .9rem (was 1rem), and the 2 halves stack only from 900px wide (`@media (min-width:900px)`). Checked in Chrome with the real Inter font: 2 lines at 1920, 1440, 1366, 1280, 1100, 1024, 940 and 900 wide, no overlap with the emblem. Below 900 the text flows as one paragraph (3 lines at 768, 5 on a phone). Still not pushed.
+
+## 16 Oct 2026 (evening) — O2S alert tables and P001 applied on both databases (MODULE: PLATFORM) — NOT PUSHED
+
+From the collaborator's note: the alerts code was live (build 2026-10-16c/d) and the VAPID keys set on Render;
+only the 3 tables were missing.
+- **O001 (O2S alerts), local:** run on `van_platform` (XAMPP, port 3306, matching `.env`; the note's "port
+  3307, no van_platform" did not apply on this computer, MySQL was only not running). Run twice: 3 empty
+  tables `o2s_push_devices`, `o2s_push_open`, `o2s_push_held`; 38 → 41 tables; `app_state` unchanged (rev
+  10134). No production export made.
+- **O001, production:** applied by Tahir in phpMyAdmin on `jodilkah_vanop_db`; 3 tables created. Note for
+  next time: O001 has no database prefix, and HostGator's SQL tab can stay on `information_schema`; a
+  prefixed copy was given in chat in case of error.
+- **P001 (People and access), production:** applied by Tahir in phpMyAdmin, the `.PRODUCTION.sql` file;
+  `platform_people` and `platform_access_log` created. Checked beforehand: the production copy equals the
+  local file except the database prefix; HostGator allows triggers (PD 003 has 2 on live). Local already had
+  it (28 Sept: 22 people, both triggers).
+- Files changed: the "Applied" lines in both P001 files and the PLATFORM line of `CLAUDE.md` §3.0 (it said
+  P001 was on neither database); this entry. No code change.
+- Next: People & access on live should no longer show "migration waiting"; titles, WhatsApp and email can
+  be filled per person (alerts and Nigehbaan reminders read them).
+
+Pushed: **no** (ready).
+
+## 17 Oct 2026 — C2M (Cost to Margin): rulings and integration plan (MODULE: PLATFORM) — NOT PUSHED
+
+The collaborator shared C2M v0.5 (built 15–16 Oct, local only) as the folder `VAN Platform\Cost and Pricing\`.
+Read in full, nothing copied into the repo yet. C2M: cost per client pack (materials + packing + labour + FOH +
+freight, dated and approved), margin against O2S POs and trucks, approvals for recipes, prices and VAN price
+lists, price-list PDFs without cost. 39 `c2m_` tables; roles cfo, coo, production, qc, plant, viewer; reads O2S
+read-only; no new npm package.
+
+**Tahir's rulings, 17 Oct 2026:**
+1. C2M owns cost, recipes and price; cost stays out of PD and O2S. Written into `CLAUDE.md` §2 (new paragraph
+   under the 1 Sept cost ruling, which is kept).
+2. C2M's direct read of O2S `app_state` is allowed as a read-only exception until the platform `sdk` gives a
+   "read O2S" service. Written under rule 3 of `docs/RESTRUCTURE-PLAN.md` §3.5.
+3. The launcher date ("Coming Oct 16") changes after step 4 below.
+
+**Plan, in this order (Tahir agreed):**
+1. Rulings (this entry). Done.
+2. PLATFORM push: hand apps the mysql2 pool (C2M needs transactions; today only `pdq` leaves the `if
+   (DATABASE_URL)` block), mount `apps/c2m/c2m-routes.js` before the `/api` 404 and the O2S catch-all, and
+   register `c2m` in `MODULE_LIST`, `validModuleRole`, `REAL_MODULES` and `roleCatalogue` (C2M exports `ROLES`).
+   Launcher tile stays closed. Guarded like the alerts mount: no C2M files → nothing changes.
+3. C2M push: copy only `apps/c2m/` (never `loader/`, `import pack/`, `local database/`, `harness/`, `Build
+   Inputs/`). Ask the collaborator for the missing `package.json`/`tests/` and the fix for `tests/run-all.js`
+   (I-16); check the flag rule (`c2m-lib.js:161` fixed Rs against D-31 share of sales). Run
+   `001_c2m_core.sql` on local `van_platform`; test locally as CFO and COO.
+4. Live, empty: Tahir runs `001_c2m_core.PRODUCTION.sql` in phpMyAdmin; roles given in People and access.
+5. Real data last, once: the collaborator's loader (`--production`, refuses a second run) against live at a
+   quiet hour; Yawar checks against his cost sheets; then the tile opens with its new date.
+
+**Open, from C2M's own notes:** VAN brand products have no cost (A-07); no freight (A-08); most clients without a
+price rule (A-05/A-06); 3 real packing bills, the rest placeholders (A-03/A-12). The loader has real customer
+prices hard-coded and C2M's `.gitignore` does not exclude `loader/`.
+
+Pushed: **no** (ready).
+
+### 17 Oct 2026 (2) — C2M step 2: the platform part, built and tested (MODULE: PLATFORM) — NOT PUSHED
+
+- `server.js` (23 lines added, 3 changed; o2s and pd lines untouched):
+  - `dbPool` keeps the mysql2 pool for apps that need transactions (null in local-file mode).
+  - C2M's roles are read from `apps/c2m/c2m-routes.js` (`ROLES`) only when that file exists (`C2M_INSTALLED`);
+    a broken file is logged ("C2M roles not loaded") and skipped.
+  - When installed: `c2m` in `MODULE_LIST`, `REAL_MODULES`, `validModuleRole` (its own list only) and
+    `roleCatalogue` (department "C2M"); the subsystem-admin error names `REAL_MODULES`.
+  - Guarded mount after the O2S alerts block, before the `/api` 404 and the O2S catch-all:
+    `require(C2M_FILE)(app, { pdq, pool: dbPool, auth, path, fs, crypto })`; a broken file is logged ("C2M not
+    mounted") and skipped.
+  - Until step 3 adds `apps/c2m/`, nothing changes for anyone.
+- New `tests/c2m-mount.test.js`: 18/18 (static checks + boot in local-file mode without C2M: health ok,
+  `/api/c2m/*` 404, launcher 200). `tests/notify-mount.test.js` still passes.
+- Checked on a throwaway copy (outside the repo, since removed) with C2M v0.5's `apps/c2m/` added, against
+  local `van_platform`: `/c2m` 200 "C2M · Cost to Margin"; `/api/c2m/me` 401 signed out, 403 with no c2m role;
+  catalogue has a C2M column with its 6 roles; platform admin's adminModules o2s, pd, c2m; `/o2s`, `/pd`, `/`
+  200. C2M tables not created (step 3).
+- Docs: `CLAUDE.md` module map (C2M row), `docs/ARCHITECTURE.md` (routes table, API list).
+
+**Local database, same day (not repo work):** XAMPP MySQL crashed on reading permissions (Windows: mysqld.exe
+fault 0x80000003, 11:21 and 11:24). Cause: MySQL's own permission table `mysql.db` was corrupt (its rows were one
+grant for a non-existent `vanplatform@localhost`, repeated until the index broke). Repaired with `REPAIR TABLE
+mysql.db USE_FRM` (rows unreadable, table now empty; nothing needed it: `vanplatform@%` has ALL on `*.*`).
+Separately, at 11:27 33 of 41 `van_platform` tables were gone from disk (cause not found; no MySQL log
+of statements). Rebuilt local `van_platform` from Tahir's production export of 17 Oct (`Downloads`, kept out
+of the repo) by command line with `--max-allowed-packet=1G` and foreign key checks off: 41 tables,
+`app_state` rev 14341 (2.6 MB), 22 logins, 49 role rows, 22 people, 4 triggers, alert tables. XAMPP
+`my.ini` `[mysqld] max_allowed_packet` raised 1M → 64M (the 2.6 MB row would fail after a restart).
+
+Pushed: **no** (ready). Next: step 3 (C2M files into `apps/c2m/`).
+
+- **Correction, same day:** the 33 missing local `van_platform` tables at 11:27 were dropped by Tahir in
+  phpMyAdmin to make room for the import of the live export. Not a fault.
+- **Independent review (code + data safety), same day: "push, but know this".** Fixed in the same change:
+  - C2M gets its **own small pool** (`dbPool`, 3 connections, same settings): its O2S pull and approvals hold a
+    connection for a whole transaction, which on the shared 5-connection pool could keep O2S saves waiting.
+    O2S and PD stay on the main pool. C2M's queries and transactions both run on its own pool.
+  - **Only a platform administrator gives C2M `cfo` or `coo`** (a C2M sub-admin could otherwise promote
+    themselves to price approver; C2M docs 11 §11.6 say only Tahir hands out C2M roles).
+  - Mount only when C2M's roles loaded (`C2M_INSTALLED`), so the mount and People and access always agree.
+  - Test now 20/20. **Installed path run for real** (throwaway copy + C2M v0.5 files, local `van_platform`):
+    admin grants saad C2M viewer and admin → saad's own `cfo` and `coo` refused 403 → `plant` allowed →
+    unknown role 400 → `/api/c2m/me` 200 on C2M's pool → cleaned up (0 rows; the grant/revoke rows stay in the
+    local append-only access log) → `/o2s`, `/pd`, `/`, `/c2m` 200.
+  - Left, known: removing C2M later hides held c2m roles from People and access (still revocable by API); 2
+    admins editing the same role at once (old behaviour); launcher fallback lists o2s/pd only; the C2M tile
+    stays closed until step 5 although C2M's guide says the person "sees C2M" once granted. To the register:
+    S-16 (PD `coo` sub-admin self-grant, existing), S-17 (C2M raw error page; `NODE_ENV`). (Numbered S-15/S-16 at first; renumbered the same day because the collaborator's S-15 landed first.)
+- Possible later: 5 + 3 connections per running server; during a Render deploy 2 servers overlap (up to 16).
+  Check HostGator's per-user connection limit if "too many connections" ever appears.
+
+### 17 Oct 2026 (3) — Tahir: C2M live now; PD to be replaced by C2L (MODULE: PLATFORM) — NOT PUSHED
+
+- **C2M:** live now with known limits; roles Tahir (coo) and Yawar (cfo) only; no customer PDFs until v0.6.
+  Steps and findings: `apps/c2m/OP-HANDOFF-C2M.md` (17 Oct entries).
+- **Launcher:** the C2M tile is live and role-based (`data-module="c2m"`), as in the C2M log entry (3).
+- **Pulled, same day:** the collaborator's 3 commits (`2775bbb`, `2df7716`, `590e45d`, O2S) were fast-forwarded
+  before this push. Their S-15 (complaint cost) came first, so this session's register entries became S-16 and
+  S-17.
+- **Task 2, ruled, waiting:** PD is to be replaced by the collaborator's **C2L**, which has not been received yet.
+  When it arrives:
+  - remove PD's code and page;
+  - **delete the `pd_*` tables on live** (Tahir: "delete everything"), after a backup export, because it
+    cannot be undone. PD has 36 foreign keys to `auth_users`; drop the PD tables only, never `auth_users`;
+  - remove PD from `MODULE_LIST`, `REAL_MODULES`, `validModuleRole` and `roleCatalogue`, and its rows in
+    `user_module_roles` (logged);
+  - mount C2L the same way as C2M.
+
+  PD's production migrations 007/008 are therefore never to be run.
+
+Pushed: no.

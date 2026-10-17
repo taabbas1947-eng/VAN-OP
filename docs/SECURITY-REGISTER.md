@@ -247,6 +247,21 @@ A sweep is taken from any signed-in login whose version matches the server (read
 
 **Suggested handling (for the security department).** Same fix as S-01 and S-05: serve role-restricted parts of the data from the server only to the roles that may see them. Until then, treat the cost and responsibility rows as readable by any login.
 
+### S-16 · A PD sub-admin can give themselves PD's top role · MODULE: PLATFORM
+**Severity: medium · Confirmed from the code · Raised 2026-10-17**
+
+The grant route (`POST /api/platform/access`, `server.js`) stops a subsystem admin from giving O2S's COO role,
+and since 17 Oct C2M's CFO and COO roles, but not PD's `coo`. Someone ticked as PD admin can make themselves or
+anyone PD `coo`. Found by the independent review of the C2M platform change; the C2M gap was closed in the same
+change. Suggested handling: the same 1-line guard for PD's lead roles, or no self-grant at all for sub-admins.
+
+### S-17 · C2M can show a raw error page with server file paths · MODULE: C2M
+**Severity: low · Confirmed from the code · Raised 2026-10-17**
+
+If C2M's role lookup fails (e.g. the database is down), `c2mAuth` passes the error to Express's default handler,
+which prints a stack trace with file paths, because `NODE_ENV` is not set to `production` on Render. Also a
+platform point: setting `NODE_ENV=production` in Render hides stack traces for every app.
+
 ## Closed items
 
 _None yet._
@@ -266,3 +281,4 @@ _None yet._
 | 2026-10-16 | S-10 and S-11 raised while documenting O2S (16a): /api/users readable by any login; no minimum password length on new logins. |
 | 2026-10-16 | S-12 to S-14 raised by the independent review of O2S 16c (alerts); S-14 fixed before release. |
 | 2026-10-16 | S-15 raised by the independent audit of the complaint design: cost and responsibility hidden on screen only (ruled), still in /api/state. |
+| 2026-10-17 | S-16 and S-17 raised by the independent reviews of the C2M platform change (C2M CFO/COO self-grant closed in that change). |

@@ -1,0 +1,1026 @@
+/* ============================================================================
+ * C2M: Cost to Margin. Routes. Mounted by the platform with 1 line:
+ *   require('./apps/c2m/c2m-routes')(app, { pdq, pool, auth, path, fs, crypto });
+ *   pool (the platform's mysql2 promise pool) is REQUIRED: C2M refuses to start without it.
+ * Every /api/c2m/* route needs the platform sign-in (auth) and a c2m role from
+ * user_module_roles. C2M reads O2S's app_state but never writes to it.
+ * API reference: docs/05-api.md. Rules: docs/09-formulas-and-rules.md.
+ * ==========================================================================*/
+'use strict';
+const { AsyncLocalStorage } = require('async_hooks');
+const lib = require('./c2m-lib');
+const engine = require('./c2m-engine');
+const { pullO2S } = require('./c2m-o2s');
+const PL = require('./c2m-pricelist');
+
+/* Roles (stored in user_module_roles, module 'c2m'). Access matrix: docs/11-access-and-roles.md */
+const ROLES = {
+  cfo: { label: 'CFO', nav: ['today', 'margin', 'recipes', 'rates', 'prices', 'lists', 'backoffice', 'guide'] },
+  coo: { label: 'COO', nav: ['today', 'margin', 'recipes', 'rates', 'prices', 'lists', 'backoffice', 'guide'] },
+  production: { label: 'Production Manager', nav: ['today', 'recipes', 'guide'] },
+  qc: { label: 'QC Head', nav: ['today', 'recipes', 'materials', 'guide'] }, // materials: nutrient % and class (ruled 16 Oct)
+  plant: { label: 'Plant Manager', nav: ['today', 'recipes', 'guide'] },
+  viewer: { label: 'Price list viewer', nav: ['lists', 'guide'] },
+};
+const SEES_COST = new Set(['cfo', 'coo', 'production', 'plant']);
+const SEES_PRICE = new Set(['cfo', 'coo']);
+const STEP_ROLE = lib.RECIPE_WHO; // draft->production, review->qc, endorse->plant, cost->cfo
+
+module.exports = function mountC2mRoutes(app, deps) {
+  const { auth, path, fs } = deps;
+  // Without the pool, every approval would run without a transaction and the "someone else changed this"
+  // guards would silently stop working (handover review, 16 Oct). Refuse to start instead.
+  // A wrong mount must not take the platform down: C2M answers 503 with the reason and O2S and PD carry on (re-review).
+  const mountFault = !deps.pool || typeof deps.pool.getConnection !== 'function' ? 'C2M is not set up: the platform must mount it with its mysql2 promise pool { pdq, pool, auth, path, fs, crypto }. Ask IT.'
+    : typeof deps.pdq !== 'function' || typeof auth !== 'function' ? 'C2M is not set up: pdq and auth are missing from the mount. Ask IT.' : null;
+  if (mountFault) {
+    console.error('[c2m] ' + mountFault);
+    app.use(['/c2m', '/api/c2m'], (req, res) => res.status(503).json({ error: mountFault }));
+    return;
+  }
+  // C2M compares dates as text, so DATE and DATETIME must come back as strings (dateStrings: true), on pdq and on the pool.
+  let dateCheck = null;
+  const checkDates = () => (dateCheck = dateCheck || (async () => {
+    const sql = "SELECT CAST('2026-01-02' AS DATE) d, CAST('2026-01-02 03:04:05' AS DATETIME) t";
+    const [[a]] = await deps.pdq(sql); const c = await deps.pool.getConnection(); let b; try { [[b]] = await c.execute(sql); } finally { c.release(); }
+    return [a.d, a.t, b.d, b.t].every(v => typeof v === 'string') ? null : 'C2M needs the database pool to return dates as text (mysql2 option dateStrings: true). Ask IT.';
+  })().catch(e => { dateCheck = null; throw e; }));
+  checkDates().then(f => f && console.error('[c2m] ' + f)).catch(() => {});
+  const now = () => lib.pkNow();     // Pakistan time (audit finding 9)
+  const today = () => lib.pkToday();
+  /* Every query goes through q: undefined becomes NULL (review S9), and inside tx() it runs on the
+   * transaction's connection. deps.pool is optional: without it, tx() runs the steps without a transaction. */
+  const txStore = new AsyncLocalStorage();
+  const clean = p => Array.isArray(p) ? p.map(v => (v === undefined ? null : v)) : p;
+  const q = (sql, p) => { const c = txStore.getStore(); return c ? c.execute(sql, clean(p)) : deps.pdq(sql, clean(p)); };
+  /** Placeholders for a list, e.g. IN (?,?,?): prepared statements (the platform's pool.execute) cannot take an array for 1 ?. */
+  const qs = a => a.map(() => '?').join(',');
+  async function tx(fn) {
+    if (!deps.pool || txStore.getStore()) return fn();
+    const c = await deps.pool.getConnection();
+    try { await c.beginTransaction(); const r = await txStore.run(c, fn); await c.commit(); return r; }
+    catch (e) { await c.rollback().catch(() => {}); throw e; }
+    finally { c.release(); }
+  }
+  const moved = () => Object.assign(new Error('Someone else changed this a moment ago. Check before retrying.'), { status: 409 });
+  const isDate = d => /^\d{4}-\d{2}-\d{2}$/.test(String(d || '')) && !isNaN(Date.parse(d));
+
+  /* ---------- Access: c2m role from the platform's role registry ---------- */
+  async function c2mAuth(req, res, next) {
+    try {
+      const [[r]] = await q("SELECT role FROM user_module_roles WHERE username=? AND module='c2m'", [req.user.u]);
+      if (!r || !ROLES[r.role]) return res.status(403).json({ error: 'You do not have access to C2M. Ask Tahir to grant it in People and access.' });
+      req.c2m = { role: r.role, user: req.user.u, name: req.user.n || req.user.name || req.user.u };
+      next();
+    } catch (e) { next(e); }
+  }
+  const need = (...roles) => (req, res, next) => roles.includes(req.c2m.role) ? next() : res.status(403).json({ error: 'Your role cannot do this in C2M.' });
+  const wrap = fn => (req, res) => fn(req, res).catch(e => {
+    if (e && (e.errno === 1213 || e.errno === 1205 || e.code === 'ER_LOCK_DEADLOCK' || e.code === 'ER_LOCK_WAIT_TIMEOUT')) e = moved();
+    if (e && e.code === 'ER_NO_SUCH_TABLE') { e = Object.assign(new Error('C2M tables are not installed yet. Ask IT to run the C2M migration.'), { status: 503 }); }
+    if (!e.status) console.error('[c2m]', e);
+    if (res.headersSent) return res.end();
+    res.status(e.status || 500).json({ error: e.status ? e.message : 'Something went wrong. Nothing was saved.' });
+  });
+  const bad = msg => Object.assign(new Error(msg), { status: 400 });
+  async function audit(by, entity, id, action, oldV, newV, why) {
+    await q('INSERT INTO c2m_audit (at, by_user, entity, entity_id, action, old_value, new_value, why) VALUES (?,?,?,?,?,?,?,?)',
+      [now(), by, entity, id == null ? null : String(id), action, oldV == null ? null : JSON.stringify(oldV), newV == null ? null : JSON.stringify(newV), why || null]);
+  }
+  /** After a change (packing bill, rule, correction), batch every pack whose cost now differs from its
+   *  approved cost by more than the threshold, once per cause (ruled 10 Oct). Packs already waiting are left out. */
+  async function reapprovalFor(cause, filter) {
+    const D = await engine.loadAll(q); const S = D.settings.values;
+    const [open] = await q("SELECT items_json FROM c2m_reapproval WHERE status='open'");
+    const waiting = new Set(); open.forEach(r => JSON.parse(r.items_json).forEach(i => waiting.add(i.packId)));
+    const items = [];
+    for (const p of D.packs) {
+      if (waiting.has(p.id) || (filter && !filter(p))) continue;
+      const av = engine.latestApproved(D, p.id); if (!av) continue;
+      const c = engine.packCost(D, p); if (!c || !c.costed) continue;
+      if (!lib.needsReapproval(Number(av.total), c.total, S.reapprove_pct)) continue;
+      const cp = D.cpById.get(p.client_product_id);
+      items.push({ packId: p.id, label: `${cp.brand} ${Number(p.pack_size)} ${cp.sold_per} for ${D.custById.get(cp.customer_id).name}`, from: Number(av.total), to: c.total, pct: (c.total - Number(av.total)) / Number(av.total) * 100 });
+    }
+    if (items.length) await q('INSERT INTO c2m_reapproval (cause, items_json, created_at) VALUES (?,?,?)', [cause.slice(0, 300), JSON.stringify(items), now()]);
+    return items.length;
+  }
+  /** Packs that would have no labour or no FOH rate today (review S2). */
+  function packsWithoutRates(D, filter) {
+    const out = [];
+    for (const p of D.packs) {
+      if (filter && !filter(p)) continue;
+      const cp = D.cpById.get(p.client_product_id); if (!cp) continue;
+      const cv = lib.conversionFor({ clientProductId: cp.id, baseProductId: cp.base_product_id, form: cp.form, reprocessed: cp.reprocessed, packSize: Number(p.pack_size), onDate: today() }, D.rules);
+      if (!cv.labour || !cv.foh) out.push(`${cp.brand} ${Number(p.pack_size)} ${cp.sold_per} (no ${!cv.labour ? 'labour' : 'FOH'} rate)`);
+    }
+    return out;
+  }
+  /** Approved prices in force on a date: started on or before it, and valid_to (the LAST day in force) not passed (5j 6). */
+  function inForce(prices, date) {
+    const m = new Map();
+    prices.filter(p => p.status === 'approved' && String(p.valid_from).slice(0, 10) <= date && (!p.valid_to || String(p.valid_to).slice(0, 10) >= date))
+      .sort((a, b) => String(a.valid_from).localeCompare(String(b.valid_from)) || a.id - b.id).forEach(p => m.set(p.client_pack_id, p));
+    return m;
+  }
+  const dayBefore = d => { const t = new Date(String(d).slice(0, 10) + 'T00:00:00Z'); t.setUTCDate(t.getUTCDate() - 1); return t.toISOString().slice(0, 10); };
+  async function priceInForce(packId) { const [ps] = await q('SELECT * FROM c2m_price WHERE client_pack_id=?', [packId]); return inForce(ps, today()).get(Number(packId)) || null; }
+  /** Put back the end date an approval ahead had moved on the price it shortened (withdraw or cancel). */
+  async function restoreCut(w, by, why) {
+    if (!w.cut_price_id) return;
+    const [[c]] = await q('SELECT id, valid_to, status FROM c2m_price WHERE id=? FOR UPDATE', [w.cut_price_id]); if (!c) return;
+    await q("UPDATE c2m_price SET valid_to=?, status=IF(status='replaced','approved',status) WHERE id=?", [w.cut_prev_to || null, c.id]);
+    await audit(by, 'price', c.id, 'end restored', c.valid_to, w.cut_prev_to || null, `Price ${w.id} ${why}`);
+  }
+  /** References of issued price lists whose rows carry this price for this pack, dated on or after its start. */
+  async function docsShowingPrice(p) {
+    const [docs] = await q("SELECT ref, effective, fields_json FROM c2m_price_doc WHERE audience='wl' AND effective>=?", [String(p.valid_from).slice(0, 10)]);
+    return docs.filter(d => { try { return (JSON.parse(d.fields_json).snapshot.wl || []).some(r => Number(r.packId) === Number(p.client_pack_id) && Number(r.cur) === Number(p.price)); } catch (_) { return false; } }).map(d => d.ref);
+  }
+  async function notice(forRole, text, by) { await q('INSERT INTO c2m_notice (for_role, text, by_user, at) VALUES (?,?,?,?)', [forRole, text, by, now()]); }
+
+  /* ---------- Page ---------- */
+  app.get(['/c2m', '/c2m/'], (req, res) => { res.set('Cache-Control', 'no-store'); res.sendFile(path.join(__dirname, 'c2m.html')); });
+  app.get('/c2m/assets/van-logo.png', (req, res) => res.sendFile(path.join(__dirname, 'assets', 'van-logo.png')));
+  app.use('/api/c2m', (req, res, next) => checkDates().then(f => f ? res.status(503).json({ error: f }) : next(), () => res.status(503).json({ error: 'C2M cannot reach the database. Try again in a minute.' })), auth, c2mAuth);
+
+  app.get('/api/c2m/me', (req, res) => res.json({ user: req.c2m.user, name: req.c2m.name, role: req.c2m.role, label: ROLES[req.c2m.role].label, nav: ROLES[req.c2m.role].nav }));
+
+  /* ---------- Shared data builder ---------- */
+  async function build(role, user) {
+    const D = await engine.loadAll(q);
+    const S = D.settings.values;
+    const seeCost = SEES_COST.has(role), seePrice = SEES_PRICE.has(role);
+    const match = engine.matcher(D);
+    await applyDueRevisions();
+    const [prices] = await q('SELECT * FROM c2m_price ORDER BY id');
+    const approvedPrice = inForce(prices, today()); const nextPrice = new Map();
+    prices.filter(p => p.status === 'approved' && String(p.valid_from).slice(0, 10) > today()).sort((a, b) => String(b.valid_from).localeCompare(String(a.valid_from))).forEach(p => nextPrice.set(p.client_pack_id, p)); // earliest wins
+    const [poLines] = await q('SELECT * FROM c2m_o2s_po_line ORDER BY received, po');
+    const lastPo = new Map(); poLines.forEach(l => { const p = match(l.customer_name, l.brand, l.channel, l.pack); if (p && l.net_price > 0) lastPo.set(p.id, Number(l.net_price)); });
+
+    const products = D.cps.map(cp => {
+      const cust = D.custById.get(cp.customer_id) || {};
+      const appr = engine.approvedVersion(D, cp.id), latest = engine.latestVersion(D, cp.id);
+      const packs = D.packs.filter(p => p.client_product_id === cp.id).map(p => {
+        const c = engine.packCost(D, p); const av = engine.latestApproved(D, p.id);
+        const ap = approvedPrice.get(p.id); const price = ap ? Number(ap.price) : (lastPo.get(p.id) ?? null);
+        const out = { id: p.id, size: Number(p.pack_size), billId: p.packing_bill_id };
+        if (seeCost) Object.assign(out, { cost: c && c.costed ? { materials: c.materials, packing: c.packing, conversion: c.conversion, freight: c.freight, total: c.total, rule: c.rule ? c.rule.name : null } : null,
+          approvedCost: av ? Number(av.total) : null, floor: c && c.costed ? lib.contributionFloor(c) : null, labour: c && c.costed ? c.labour : null,
+          sheet: (() => { const v = (D.verByPack.get(p.id) || []).filter(x => /^Yawar's Master Cost Sheet/.test(x.cause)).pop(); return v ? { materials: Number(v.materials), packing: Number(v.packing), conversion: Number(v.conversion), total: Number(v.total) } : null; })() });
+        const np = nextPrice.get(p.id);
+        if (seePrice) Object.assign(out, { price, priceSource: ap ? 'approved' : (price != null ? 'O2S PO' : null), prevPrice: ap && ap.prev_price != null ? Number(ap.prev_price) : null, priceFrom: ap ? ap.valid_from : null, priceTill: ap && ap.valid_to ? String(ap.valid_to).slice(0, 10) : null,
+          nextPrice: np ? { id: np.id, price: Number(np.price), from: String(np.valid_from).slice(0, 10) } : null, waitingProposal: prices.some(x => x.client_pack_id === p.id && x.status === 'proposed') });
+        return out;
+      });
+      return { id: cp.id, customer: cust.name, customerId: cust.id, typeId: cp.base_product_id, reprocessed: !!Number(cp.reprocessed), grp: cp.channel === 'White label' ? 'White label' : 'VAN brand', channel: cp.channel, brand: cp.brand, spec: cp.spec,
+        form: cp.form, soldPer: cp.sold_per, packingMode: cp.packing_mode, target: seePrice || role === 'cfo' ? (cp.target_gp == null ? null : Number(cp.target_gp)) : undefined,
+        budget: seePrice ? (cp.budget_gp == null ? null : Number(cp.budget_gp)) : undefined, budgetKg: seePrice && cp.budget_kg_year != null ? Number(cp.budget_kg_year) : undefined, recipeState: latest ? latest.state : null, approvedVersionId: appr ? appr.id : null, latestVersionId: latest ? latest.id : null, packs };
+    });
+
+    const recipes = [...D.recipes.byVer.values()].map(v => {
+      const cp = D.cpById.get(v.client_product_id); const cust = cp ? D.custById.get(cp.customer_id) : null;
+      const pr = engine.priceRecipe(D, v);
+      const lines = pr.lines.map(l => ({ gradeId: l.gradeId, name: l.name, grade: l.grade, qty: l.qty, ...(seeCost ? { rate: l.rate, date: l.date, cost: l.cost } : {}) }));
+      return { id: v.id, clientProductId: v.client_product_id, customer: cust ? cust.name : '?', brand: cp ? cp.brand : '?', version: v.version_no, state: v.state, note: v.note,
+        sentBack: v.sent_back_by ? { by: v.sent_back_by, state: v.sent_back_state, reason: v.sent_back_reason, advice: v.sent_back_advice } : null,
+        lines, kgTotal: pr.kgTotal, materials: seeCost ? pr.materials : undefined, nutrients: engine.nutrients(pr), steps: v.steps };
+    });
+
+    // Settings (budget and ambition GP, thresholds) go to Yawar and Tahir only (review S9)
+    const out = { me: { user, role, label: ROLES[role].label, nav: ROLES[role].nav }, settings: ['cfo', 'coo'].includes(role) ? D.settings.rows : [], products, recipes, today: today() };
+    if (['qc', 'cfo', 'coo'].includes(role)) {
+      // Material master without rates: Himayat's screen (ruled 16 Oct)
+      out.materials = [...D.rates.values()].map(g => ({ gradeId: g.gradeId, materialId: g.materialId, name: g.name, grade: g.grade, unit: g.unit, typeId: g.typeId, type: g.type, role: g.role, fields: g.fields, nutrients: g.nutrients }));
+      const [mt] = await q('SELECT id, name, nutrient_fields, nutrient_role FROM c2m_material_type ORDER BY nutrient_role, name'); out.materialTypes = mt;
+    }
+    if (role === 'viewer') {
+      const [grants] = await q('SELECT grant_kind, grant_value FROM c2m_list_grant WHERE username=?', [user]);
+      out.grants = grants;
+      const [lp] = await q('SELECT list_name, data_json, issued, valid_till FROM c2m_list_price ORDER BY id');
+      const lg = grants.filter(g => g.grant_kind === 'list').map(g => g.grant_value);
+      const farmerCols = [['farmer_pb', 'pb'], ['web', 'pb'], ['farmer_sn', 'sn'], ['farmer_snc', 'snc']].filter(([a]) => lg.includes(a)).map(([, c]) => c);
+      const L = groupLists(lp, farmerCols), may = new Set(lg.map(g => PL.AUDIENCES[g] ? listOf(g) : null));
+      out.lists = { issued: L.issued, till: L.till, dates: L.dates, dist: may.has('dist') ? L.dist : [], dealer: may.has('dealer') ? L.dealer : [], farmer: may.has('farmer') ? L.farmer : [] };
+      out.wlLists = await wlListData(D, approvedPrice, grants.filter(g => g.grant_kind === 'client').map(g => g.grant_value));
+      out.products = []; out.recipes = [];
+      return out;
+    }
+    const [rv] = await q("SELECT * FROM c2m_reapproval WHERE status='open' ORDER BY id");
+    if (role === 'cfo' || role === 'coo') out.reapprovals = rv.map(r => ({ id: r.id, cause: r.cause, items: JSON.parse(r.items_json), createdAt: r.created_at }));
+    if (seeCost) {
+      out.rates = [...D.rates.values()].map(g => ({ gradeId: g.gradeId, name: g.name, grade: g.grade, unit: g.unit, type: g.type, fields: g.fields, nutrients: g.nutrients, rate: g.rate, date: g.date, source: g.source, history: g.history.slice(0, 6) }));
+      out.packingItems = [...D.packing.itemById.values()];
+      out.packingBills = [...D.packing.billById.values()];
+      out.rules = D.rules;
+      out.productTypes = D.productTypes;
+      if (!out.materialTypes) { const [mt] = await q('SELECT id, name, nutrient_fields, nutrient_role FROM c2m_material_type ORDER BY nutrient_role, name'); out.materialTypes = mt; }
+    }
+    if (role === 'cfo' || role === 'coo') {
+      const [sales] = await q(`SELECT t.id, t.truck_date, t.kg, t.po, t.dc, p.customer_name, p.channel, p.brand, p.pack, p.net_price FROM c2m_o2s_truck t JOIN c2m_o2s_po_line p ON p.line_id=t.line_id ORDER BY t.truck_date`);
+      const custOf = name => D.customers.find(c => String(c.o2s_names).split('|').some(n => n.trim().toLowerCase() === String(name).trim().toLowerCase()));
+      out.sales = sales.map(s => {
+        const p = match(s.customer_name, s.brand, s.channel, s.pack); const cp = p ? D.cpById.get(p.client_product_id) : null; const cust = cp ? D.custById.get(cp.customer_id) : custOf(s.customer_name);
+        const v = p ? engine.versionOnDate(D, p.id, s.truck_date) : null; const cost = v ? Number(v.total) : null;
+        const nowC = p ? engine.packCost(D, p) : null;
+        const costBands = v && nowC && nowC.costed && /^Yawar's/.test(v.cause) ? Number(v.total) - Number(v.conversion) + nowC.conversion : cost;
+        return { date: s.truck_date, cust: cust ? cust.name : s.customer_name, grp: s.channel === 'White Label' ? 'White label' : 'VAN brand', ch: cp ? cp.channel : s.channel, brand: s.brand, pack: Number(s.pack),
+          packId: p ? p.id : null, po: s.po, dc: s.dc, kg: Number(s.kg), price: Number(s.net_price), cost, costBands, target: cp && cp.target_gp != null ? Number(cp.target_gp) : null, budget: cp && cp.budget_gp != null ? Number(cp.budget_gp) : null };
+      });
+      const um = new Map();
+      for (const x of out.sales) if (!x.packId) { const k = `${x.cust}|${x.brand}|${x.pack}`; const u = um.get(k) || { cust: x.cust, brand: x.brand, pack: x.pack, grp: x.grp, kg: 0, rs: 0 }; u.kg += x.kg; u.rs += x.kg * x.price; um.set(k, u); }
+      out.unmatched = [...um.values()].sort((a, b) => b.rs - a.rs);
+      out.open = poLines.filter(l => Number(l.open_kg) > 0).map(l => {
+        const p = match(l.customer_name, l.brand, l.channel, l.pack); const cp = p ? D.cpById.get(p.client_product_id) : null; const cust = cp ? D.custById.get(cp.customer_id) : custOf(l.customer_name);
+        const c = p ? engine.packCost(D, p) : null;
+        return { cust: cust ? cust.name : l.customer_name, grp: l.channel === 'White Label' ? 'White label' : 'VAN brand', brand: l.brand, pack: Number(l.pack), packId: p ? p.id : null, po: l.po, received: l.received,
+          kg: Number(l.open_kg), price: Number(l.net_price), cost: c && c.costed ? c.total : null, target: cp && cp.target_gp != null ? Number(cp.target_gp) : null };
+      });
+      out.proposals = prices.filter(p => p.status !== 'approved' || p.decided_at).slice(-60).map(p => ({ id: p.id, packId: p.client_pack_id, price: Number(p.price), prev: p.prev_price == null ? null : Number(p.prev_price), status: p.status,
+        reason: p.reason, belowReason: p.below_target_reason, backReason: p.back_reason, by: p.proposed_by, at: p.proposed_at, decidedBy: p.decided_by, from: p.valid_from }));
+      const [imp] = await q('SELECT * FROM c2m_import_item ORDER BY status, id'); out.imports = imp;
+      const [sreq] = await q('SELECT * FROM c2m_setting_request ORDER BY id DESC LIMIT 20'); out.settingRequests = sreq;
+      const [treq] = await q('SELECT r.*, c.brand, cu.name customer FROM c2m_target_request r JOIN c2m_client_product c ON c.id=r.client_product_id JOIN c2m_customer cu ON cu.id=c.customer_id ORDER BY r.id DESC LIMIT 30'); out.targetRequests = treq;
+      const [nt] = await q("SELECT * FROM c2m_notice WHERE for_role=? ORDER BY id DESC LIMIT 20", [role]); out.notices = nt;
+      const [gr] = await q('SELECT * FROM c2m_list_grant ORDER BY username'); out.grants = gr;
+      const [people] = await q("SELECT a.username, a.name, r.role FROM user_module_roles r JOIN auth_users a ON a.username=r.username WHERE r.module='c2m'"); out.people = people;
+      const [lp] = await q('SELECT list_name, data_json, issued, valid_till FROM c2m_list_price ORDER BY id'); out.lists = groupLists(lp);
+      out.wlLists = await wlListData(D, approvedPrice, D.customers.filter(c => c.grp !== 'VAN brand').map(c => c.name));
+      const [ma] = await q('SELECT * FROM c2m_monthly_actual ORDER BY month'); out.actuals = ma;
+      const [mc] = await q('SELECT month, kind, done_by, done_at FROM c2m_monthly_check ORDER BY month'); out.checks = mc;
+      const [src] = await q('SELECT * FROM c2m_source ORDER BY id'); out.sources = src;
+      const [fm] = await q('SELECT * FROM c2m_field_map ORDER BY id'); out.fieldMap = fm;
+      const [sr] = await q('SELECT * FROM c2m_sync_run ORDER BY id DESC LIMIT 1'); out.lastSync = sr[0] || null;
+      const [au] = await q('SELECT at, by_user, entity, entity_id, action, why FROM c2m_audit ORDER BY id DESC LIMIT 60'); out.audit = au;
+      out.freight = D.freight;
+      const [li] = await q('SELECT id, list_name, data_json FROM c2m_list_price ORDER BY id'); out.listItems = li.map(r => ({ id: r.id, list: r.list_name, data: JSON.parse(r.data_json) }));
+      const [lr] = await q("SELECT * FROM c2m_list_revision WHERE (status='approved' AND applied=0) OR id > (SELECT COALESCE(MAX(id), 0) - 30 FROM c2m_list_revision) ORDER BY id DESC"); out.listRevisions = lr.map(r => ({ ...r, items: JSON.parse(r.items_json), items_json: undefined }));
+      out.customers = D.customers.map(c => ({ id: c.id, name: c.name, grp: c.grp, segment: c.segment, priceRule: c.price_rule, cycle: c.price_cycle, region: c.region, o2sNames: c.o2s_names }));
+      const [docs] = [fs.readdirSync(path.join(__dirname, 'docs')).filter(f => f.endsWith('.md')).sort()]; out.docs = docs;
+    } else {
+      out.docs = fs.readdirSync(path.join(__dirname, 'docs')).filter(f => docAllowed(role, f)).sort();
+    }
+    return out;
+  }
+  /** Which stored list an audience prints from: farmer_pb, farmer_sn, farmer_snc and web all use the farmer list. */
+  /** Documentation by role (review S9): KAMs get the guide and access only; recipe roles add the process flows. */
+  function docAllowed(role, f) { return ['cfo', 'coo'].includes(role) || /^07-|^11-/.test(f) || (role !== 'viewer' && /^01-/.test(f)); }
+  function listOf(aud) { return aud === 'dist' ? 'dist' : aud === 'dealer' ? 'dealer' : aud === 'wl' ? 'wl' : 'farmer'; }
+  /* Only price fields ever leave the server: the import pack carries cost and margin on some rows (review M1, 16 Oct). */
+  const LIST_SAFE = ['p', 'd', 'pack', 'prev', 'now', 'fed', 'mrp', 'terms', 'nsv', 'disc', 'net', 'netfed', 'frp', 'pb', 'sn', 'snc'];
+  const safeRow = (d, farmerCols) => Object.fromEntries(Object.entries(d).filter(([k]) => LIST_SAFE.includes(k) && (!farmerCols || !['pb', 'sn', 'snc'].includes(k) || farmerCols.includes(k))));
+  function groupLists(lp, farmerCols) {
+    const g = { dist: [], dealer: [], farmer: [], issued: null, till: null, dates: {} };
+    lp.forEach(r => { (g[r.list_name] || []).push(safeRow(JSON.parse(r.data_json), r.list_name === 'farmer' ? farmerCols : null)); g.issued = r.issued; g.till = r.valid_till; g.dates[r.list_name] = { issued: r.issued, till: r.valid_till }; });
+    return g;
+  }
+  async function wlListData(D, approvedPrice, clients) {
+    const out = {};
+    for (const name of clients) {
+      const cust = D.customers.find(c => c.name === name); if (!cust) continue;
+      const rows = [];
+      for (const cp of D.cps.filter(c => c.customer_id === cust.id && c.channel === 'White label')) for (const p of D.packs.filter(x => x.client_product_id === cp.id)) {
+        const ap = approvedPrice.get(p.id); if (!ap) continue;
+        rows.push({ packId: p.id, brand: cp.brand, spec: cp.spec, pack: `${Number(p.pack_size)} ${cp.sold_per}`, cur: Number(ap.price), prev: ap.prev_price == null ? null : Number(ap.prev_price), reason: ap.reason, from: String(ap.valid_from).slice(0, 10) });
+      }
+      out[name] = { name: cust.name, rule: cust.price_rule, rows };
+    }
+    return out;
+  }
+
+  app.get('/api/c2m/state', wrap(async (req, res) => { const out = await build(req.c2m.role, req.c2m.user); out.me.name = req.c2m.name; res.json(out); }));
+
+  /* ---------- O2S pull (read only) ---------- */
+  app.post('/api/c2m/sync', need('cfo', 'coo'), wrap(async (req, res) => {
+    const stale = lib.pkNow(new Date(Date.now() - 10 * 60 * 1000));
+    const [claim] = await q("UPDATE c2m_source SET status='Pulling', last_pull_note=? WHERE system_name='O2S' AND what LIKE 'Customers%' AND (status<>'Pulling' OR last_pull_note IS NULL OR last_pull_note < ?)", ['Pulling since ' + now(), 'Pulling since ' + stale]);
+    if (!claim.affectedRows) throw Object.assign(new Error('A pull is already running. Wait a minute, then look again.'), { status: 409 });
+    try {
+      const r = await tx(async () => { const x = await pullO2S(q, req.c2m.user); await audit(req.c2m.user, 'sync', x.syncId, 'pull', null, { poLines: x.poLines, trucks: x.trucks }, 'Pull now'); return x; });
+      res.json(r);
+    } catch (e) {
+      await q("UPDATE c2m_source SET status='Failed', last_pull_note=? WHERE system_name='O2S' AND what LIKE 'Customers%'", [String(e.message).slice(0, 250)]);
+      throw e;
+    }
+  }));
+
+  /* ---------- Recipes: write, review, endorse, approve cost, send back (ruling 13 to 14 Oct) ---------- */
+  async function getVersion(id) { const [[v]] = await q('SELECT * FROM c2m_recipe_version WHERE id=?', [id]); if (!v) throw bad('Recipe version not found.'); return v; }
+  async function step(vid, action, by, note) { await q('INSERT INTO c2m_recipe_step (recipe_version_id, action, by_user, at, note) VALUES (?,?,?,?,?)', [vid, action, by, now(), note || null]); }
+
+  app.post('/api/c2m/recipes/new', need('production', 'cfo', 'coo'), wrap(async (req, res) => {
+    const { clientProductId, fromVersionId, note } = req.body || {};
+    const [[cp]] = await q('SELECT id FROM c2m_client_product WHERE id=?', [clientProductId]); if (!cp) throw bad('Pick a client product.');
+    const [[open]] = await q("SELECT id FROM c2m_recipe_version WHERE client_product_id=? AND state IN ('draft','review','endorse','cost')", [cp.id]);
+    if (open) throw bad('This product already has a version in progress. Finish or send it back first.');
+    const [[mx]] = await q('SELECT COALESCE(MAX(version_no),0) n FROM c2m_recipe_version WHERE client_product_id=?', [cp.id]);
+    if (fromVersionId) { const [[fv]] = await q('SELECT id FROM c2m_recipe_version WHERE id=? AND client_product_id=?', [fromVersionId, cp.id]); if (!fv) throw bad('Copy from a version of the same product.'); }
+    const id = await tx(async () => {
+      const [ins] = await q("INSERT INTO c2m_recipe_version (client_product_id, version_no, state, note, created_by, created_at) VALUES (?,?,'draft',?,?,?)", [cp.id, mx.n + 1, String(note || 'New version').slice(0, 400), req.c2m.user, now()]);
+      if (fromVersionId) { const [lines] = await q('SELECT grade_id, qty FROM c2m_recipe_line WHERE recipe_version_id=?', [fromVersionId]); for (const l of lines) await q('INSERT INTO c2m_recipe_line (recipe_version_id, grade_id, qty) VALUES (?,?,?)', [ins.insertId, l.grade_id, l.qty]); }
+      await step(ins.insertId, 'written', req.c2m.user, note); await audit(req.c2m.user, 'recipe', ins.insertId, 'new', null, { clientProductId, version: mx.n + 1 }, note);
+      return ins.insertId;
+    });
+    res.json({ id });
+  }));
+
+  app.post('/api/c2m/recipes/:id/lines', need('production'), wrap(async (req, res) => {
+    const v = await getVersion(req.params.id); if (v.state !== 'draft') throw bad('Only a draft can be changed.');
+    const lines = (req.body || {}).lines || [];
+    if (!lines.length) throw bad('A recipe needs at least 1 input.');
+    for (const l of lines) if (!(Number(l.qty) > 0) || !l.gradeId) throw bad('Every line needs a material and a quantity above 0.');
+    const gids = lines.map(l => Number(l.gradeId)); const [gr] = await q(`SELECT id FROM c2m_material_grade WHERE id IN (${qs(gids)})`, gids);
+    if (new Set(gr.map(g => g.id)).size !== new Set(lines.map(l => Number(l.gradeId))).size) throw bad('A material on this recipe is not in the master list.');
+    await tx(async () => {
+      const [[still]] = await q("SELECT id FROM c2m_recipe_version WHERE id=? AND state='draft' FOR UPDATE", [v.id]); if (!still) throw moved();
+      const [old] = await q('SELECT grade_id, qty FROM c2m_recipe_line WHERE recipe_version_id=?', [v.id]);
+      await q('DELETE FROM c2m_recipe_line WHERE recipe_version_id=?', [v.id]);
+      for (const l of lines) await q('INSERT INTO c2m_recipe_line (recipe_version_id, grade_id, qty) VALUES (?,?,?)', [v.id, Number(l.gradeId), Number(l.qty)]);
+      if ((req.body || {}).note) await q('UPDATE c2m_recipe_version SET note=? WHERE id=?', [String(req.body.note).slice(0, 400), v.id]);
+      await audit(req.c2m.user, 'recipe', v.id, 'lines', old, lines, req.body.note);
+    });
+    res.json({ ok: true });
+  }));
+
+  app.post('/api/c2m/recipes/:id/advance', wrap(async (req, res) => {
+    const v = await getVersion(req.params.id);
+    if (STEP_ROLE[v.state] !== req.c2m.role) throw Object.assign(new Error('This step is not yours.'), { status: 403 });
+    const [[n]] = await q('SELECT COUNT(*) n FROM c2m_recipe_line WHERE recipe_version_id=?', [v.id]); if (!n.n) throw bad('Add the recipe lines first.');
+    let next = lib.RECIPE_FLOW[v.state];
+    if (v.state === 'draft' && v.sent_back_state) next = v.sent_back_state; // resend goes straight back to whoever sent it back (ruled 14 Oct)
+    if (next === 'approved') {
+      const D0 = await engine.loadAll(q); const pr = engine.priceRecipe(D0, D0.recipes.byVer.get(v.id));
+      if (pr.missingRate) throw bad('A material on this recipe has no rate. Enter its rate first, then approve the cost.');
+      const gaps = packsWithoutRates(D0, p => p.client_product_id === v.client_product_id); if (gaps.length) throw bad(`No labour or FOH rate applies to: ${gaps.join('; ')}. Add the rate in Rules first.`);
+    }
+    const act = { draft: v.sent_back_state ? 'resent' : 'sent', review: 'reviewed', endorse: 'endorsed', cost: 'cost_approved' }[v.state];
+    await tx(async () => {
+    const [u] = await q('UPDATE c2m_recipe_version SET state=?, sent_back_by=NULL, sent_back_state=NULL WHERE id=? AND state=?', [next, v.id, v.state]);
+    if (!u.affectedRows) throw moved();
+    await step(v.id, act, req.c2m.user, (req.body || {}).note);
+    if (next === 'approved') {
+      await q("UPDATE c2m_recipe_version SET state='old' WHERE client_product_id=? AND state='approved' AND id<>?", [v.client_product_id, v.id]);
+      const D = await engine.loadAll(q);
+      for (const p of D.packs.filter(p => p.client_product_id === v.client_product_id)) {
+        const c = engine.packCost(D, p); if (!c || !c.costed) continue;
+        await q('INSERT INTO c2m_cost_version (client_pack_id, valid_from, materials, packing, conversion, freight, total, recipe_version_id, cause, approved_by) VALUES (?,?,?,?,?,?,?,?,?,?)',
+          [p.id, now(), c.materials, c.packing, c.conversion, c.freight, c.total, v.id, `Recipe version ${v.version_no} approved`, req.c2m.user]);
+      }
+    }
+    await audit(req.c2m.user, 'recipe', v.id, act, v.state, next, null);
+    });
+    res.json({ state: next });
+  }));
+
+  app.post('/api/c2m/recipes/:id/sendback', wrap(async (req, res) => {
+    const v = await getVersion(req.params.id);
+    if (!['review', 'endorse', 'cost'].includes(v.state) || STEP_ROLE[v.state] !== req.c2m.role) throw Object.assign(new Error('Only the person at this step can send it back.'), { status: 403 });
+    const reason = String((req.body || {}).reason || '').trim(), advice = String((req.body || {}).advice || '').trim();
+    if (!reason || !advice) throw bad('Write a reason and revision advice.');
+    await tx(async () => {
+      const [u] = await q("UPDATE c2m_recipe_version SET state='draft', sent_back_by=?, sent_back_state=?, sent_back_reason=?, sent_back_advice=? WHERE id=? AND state=?", [req.c2m.user, v.state, reason.slice(0, 400), advice.slice(0, 400), v.id, v.state]);
+      if (!u.affectedRows) throw moved();
+      await step(v.id, 'sent_back', req.c2m.user, reason + ' | Advice: ' + advice);
+      await audit(req.c2m.user, 'recipe', v.id, 'sent_back', v.state, 'draft', reason);
+    });
+    res.json({ ok: true });
+  }));
+
+  /* ---------- Rates: try, then save; 10% warning; re-approval batched by cause ---------- */
+  async function impactOfRate(gradeId, newRate) {
+    const D = await engine.loadAll(q); const S = D.settings.values;
+    const [opens] = await q('SELECT customer_name, brand, channel, pack, open_kg FROM c2m_o2s_po_line WHERE open_kg>0');
+    const match = engine.matcher(D); const openByPack = new Map();
+    opens.forEach(o => { const p = match(o.customer_name, o.brand, o.channel, o.pack); if (p) openByPack.set(p.id, (openByPack.get(p.id) || 0) + Number(o.open_kg)); });
+    const out = [];
+    for (const p of D.packs) {
+      const cp = D.cpById.get(p.client_product_id); const v = engine.approvedVersion(D, cp.id);
+      if (!v || !v.lines.some(l => l.gradeId === gradeId)) continue;
+      const c0 = engine.packCost(D, p), c1 = engine.packCost(D, p, { rateOverride: { gradeId, rate: newRate } });
+      if (!c0 || !c0.costed) continue;
+      const av = engine.latestApproved(D, p.id); const base = av ? Number(av.total) : c0.total;
+      const ok = openByPack.get(p.id) || 0;
+      out.push({ packId: p.id, label: `${cp.brand} ${Number(p.pack_size)} ${cp.sold_per} for ${D.custById.get(cp.customer_id).name}`, now: c0.total, after: c1.total, pct: (c1.total - c0.total) / c0.total * 100,
+        reapprove: lib.needsReapproval(base, c1.total, S.reapprove_pct), openKg: ok, rsOnOpen: (c1.total - c0.total) * ok, priceForTarget: lib.targetPrice(c1.total, cp.target_gp == null ? null : Number(cp.target_gp)) });
+    }
+    return out;
+  }
+  app.post('/api/c2m/rates/try', need('cfo'), wrap(async (req, res) => {
+    const { gradeId, rate } = req.body || {};
+    const D = await engine.loadAll(q); const g = D.rates.get(Number(gradeId)); if (!g) throw bad('Material not found.');
+    res.json({ warning: lib.rateWarning(g.rate, Number(rate), D.settings.values.rate_warn_pct), impact: await impactOfRate(Number(gradeId), Number(rate)) });
+  }));
+  const strictNum = v => (/^\s*\d+(\.\d+)?\s*$/.test(String(v)) ? Number(v) : NaN);
+  async function saveRate(user, gradeId, rate, source, confirmed) {
+    const D = await engine.loadAll(q); const g = D.rates.get(Number(gradeId)); if (!g) throw bad('Material not found.');
+    const r = strictNum(rate); if (!(r > 0)) throw bad('Type a rate above 0, digits only.');
+    if (!String(source || '').trim()) throw bad('Add the source: PO number or quote.');
+    const w = lib.rateWarning(g.rate, r, D.settings.values.rate_warn_pct);
+    if (w.warn && !confirmed) throw bad(`Did you mean Rs ${r}? It is ${w.pct.toFixed(0)}% from the last saved rate of Rs ${g.rate}. Tick "Yes, I meant this rate" to save.`);
+    const impact = await impactOfRate(Number(gradeId), r);
+    const mv = impact.filter(i => i.reapprove);
+    await tx(async () => {
+      await q('INSERT INTO c2m_material_rate (grade_id, rate, rate_date, source, warned_confirmed, entered_by, entered_at) VALUES (?,?,?,?,?,?,?)', [g.gradeId, r, today(), String(source).slice(0, 200), w.warn ? 1 : 0, user, now()]);
+      await audit(user, 'rate', g.gradeId, 'save', g.rate, r, source);
+      if (mv.length) await q('INSERT INTO c2m_reapproval (cause, items_json, created_at) VALUES (?,?,?)', [`${g.name} rate Rs ${g.rate} to Rs ${r}, ${today()}`, JSON.stringify(mv.map(m => ({ packId: m.packId, label: m.label, from: m.now, to: m.after, pct: m.pct }))), now()]);
+    });
+    return mv.length;
+  }
+  app.post('/api/c2m/rates', need('cfo'), wrap(async (req, res) => {
+    const { gradeId, rate, source, confirmed } = req.body || {};
+    res.json({ ok: true, reapproval: await saveRate(req.c2m.user, gradeId, rate, source, confirmed) });
+  }));
+  app.post('/api/c2m/packing/rate', need('cfo'), wrap(async (req, res) => {
+    const { itemId, price, source, confirmed } = req.body || {};
+    const D = await engine.loadAll(q); const it = D.packing.itemById.get(Number(itemId)); if (!it) throw bad('Packing item not found.');
+    const r = Number(price); if (!(r > 0)) throw bad('Type a price above 0.'); if (!String(source || '').trim()) throw bad('Add the source: PO number or quote.');
+    const w = lib.rateWarning(it.price, r, D.settings.values.rate_warn_pct);
+    if (w.warn && !confirmed) throw bad(`Did you mean Rs ${r}? It is ${w.pct.toFixed(0)}% from the last saved price of Rs ${it.price}. Tick "Yes, I meant this price" to save.`);
+    const moved = [];
+    for (const p of D.packs.filter(p => p.packing_bill_id)) {
+      const bill = D.packing.billById.get(p.packing_bill_id); if (!bill || !bill.lines.some(l => l.itemId === it.id)) continue;
+      const c0 = engine.packCost(D, p), c1 = engine.packCost(D, p, { packOverride: { itemId: it.id, price: r } }); if (!c0 || !c0.costed) continue;
+      const av = engine.latestApproved(D, p.id); const cp = D.cpById.get(p.client_product_id);
+      if (lib.needsReapproval(av ? Number(av.total) : c0.total, c1.total, D.settings.values.reapprove_pct)) moved.push({ packId: p.id, label: `${cp.brand} ${Number(p.pack_size)} ${cp.sold_per} for ${D.custById.get(cp.customer_id).name}`, from: c0.total, to: c1.total, pct: (c1.total - c0.total) / c0.total * 100 });
+    }
+    await tx(async () => {
+      await q('INSERT INTO c2m_packing_rate (packing_item_id, price_per_piece, rate_date, source, entered_by, entered_at) VALUES (?,?,?,?,?,?)', [it.id, r, today(), String(source).slice(0, 200), req.c2m.user, now()]);
+      await audit(req.c2m.user, 'packing_rate', it.id, 'save', it.price, r, source);
+      if (moved.length) await q('INSERT INTO c2m_reapproval (cause, items_json, created_at) VALUES (?,?,?)', [`${it.name} price Rs ${it.price} to Rs ${r}, ${today()}`, JSON.stringify(moved), now()]);
+    });
+    res.json({ ok: true, reapproval: moved.length });
+  }));
+  /* Approve the batch (or only the packs ticked: body.packIds). Packs left out stay on their approved cost. */
+  app.post('/api/c2m/reapprovals/:id/approve', need('cfo'), wrap(async (req, res) => {
+    const pick = Array.isArray((req.body || {}).packIds) ? new Set(req.body.packIds.map(Number)) : null;
+    if (pick && !pick.size) throw bad('Tick at least 1 pack, or use "The rate was wrong" to close it.');
+    await tx(async () => {
+      const [[r]] = await q("SELECT * FROM c2m_reapproval WHERE id=? AND status='open' FOR UPDATE", [req.params.id]); if (!r) throw moved();
+      const [u] = await q("UPDATE c2m_reapproval SET status='approved', decided_by=?, decided_at=? WHERE id=? AND status='open'", [req.c2m.user, now(), r.id]); if (!u.affectedRows) throw moved();
+      const D = await engine.loadAll(q); let n = 0;
+      for (const it of JSON.parse(r.items_json)) {
+        if (pick && !pick.has(it.packId)) continue;
+        const p = D.packs.find(x => x.id === it.packId); if (!p) continue; const c = engine.packCost(D, p); if (!c || !c.costed) continue;
+        if (Math.abs(c.total - Number(it.to)) > 0.005) await audit(req.c2m.user, 'reapproval', r.id, 'cost moved since shown', it.to, c.total, `${it.label}: shown Rs ${Number(it.to).toFixed(2)}, approved at today's Rs ${c.total.toFixed(2)}`);
+        await q('INSERT INTO c2m_cost_version (client_pack_id, valid_from, materials, packing, conversion, freight, total, recipe_version_id, cause, approved_by) VALUES (?,?,?,?,?,?,?,?,?,?)',
+          [p.id, now(), c.materials, c.packing, c.conversion, c.freight, c.total, c.recipeVersionId, 'Re-approval: ' + r.cause, req.c2m.user]); n++;
+      }
+      await audit(req.c2m.user, 'reapproval', r.id, 'approve', null, { packs: n, of: JSON.parse(r.items_json).length }, r.cause);
+    });
+    res.json({ ok: true });
+  }));
+  /* The rate was wrong: close the batch without new costs; Yawar then saves the right rate. */
+  app.post('/api/c2m/reapprovals/:id/dismiss', need('cfo'), wrap(async (req, res) => {
+    const why = String((req.body || {}).why || '').trim(); if (!why) throw bad('Write why, e.g. "rate typed wrong".');
+    const [u] = await q("UPDATE c2m_reapproval SET status='dismissed', decided_by=?, decided_at=? WHERE id=? AND status='open'", [req.c2m.user, now(), req.params.id]); if (!u.affectedRows) throw moved();
+    await audit(req.c2m.user, 'reapproval', req.params.id, 'dismiss', null, null, why);
+    // Packs whose cost still differs from the approved cost for another reason (a rule or packing change) are batched again (review S6)
+    const again = await reapprovalFor(`Costs still moved after closing item ${req.params.id}, ${today()}`);
+    res.json({ ok: true, reapproval: again });
+  }));
+
+  /* ---------- Packing bills (Yawar keeps and approves them alone; ruled 15 Oct) ---------- */
+  app.post('/api/c2m/packing/bill', need('cfo'), wrap(async (req, res) => {
+    const { id, name, lines } = req.body || {};
+    if (!String(name || '').trim()) throw bad('Name the packing bill, e.g. "25 kg bag with inner".');
+    if (!Array.isArray(lines) || !lines.length) throw bad('Add at least 1 packing item.');
+    for (const l of lines) { if (!l.itemId || !(Number(l.pieces) > 0)) throw bad('Every line needs an item and pieces above 0.'); if (l.level === 'secondary' && !(Number(l.packsPerOuter) > 0)) throw bad('A secondary item needs how many packs it holds.'); }
+    const nm = String(name).trim().slice(0, 160);
+    const iids = lines.map(l => Number(l.itemId)); const [items] = await q(`SELECT id FROM c2m_packing_item WHERE id IN (${qs(iids)})`, iids);
+    if (new Set(items.map(i => i.id)).size !== new Set(lines.map(l => Number(l.itemId))).size) throw bad('A packing item on this bill is not in the packing list.');
+    const [[dup]] = await q('SELECT id FROM c2m_packing_bill WHERE name=? AND id<>?', [nm, Number(id) || 0]); if (dup) throw bad('Another packing bill has this name.');
+    if (id) { const [[ex]] = await q('SELECT id FROM c2m_packing_bill WHERE id=?', [id]); if (!ex) throw bad('Packing bill not found.'); }
+    let billId = Number(id) || null, re = 0;
+    await tx(async () => {
+      const oldBill = billId ? { name: (await q('SELECT name FROM c2m_packing_bill WHERE id=?', [billId]))[0][0].name, lines: (await q('SELECT packing_item_id itemId, level, pieces, packs_per_outer packsPerOuter FROM c2m_packing_bill_line WHERE packing_bill_id=?', [billId]))[0] } : null;
+      if (billId) { await q("UPDATE c2m_packing_bill SET name=?, status='approved', approved_by=?, approved_at=? WHERE id=?", [nm, req.c2m.user, now(), billId]); await q('DELETE FROM c2m_packing_bill_line WHERE packing_bill_id=?', [billId]); }
+      else { const [b] = await q("INSERT INTO c2m_packing_bill (name, status, approved_by, approved_at) VALUES (?, 'approved', ?, ?)", [nm, req.c2m.user, now()]); billId = b.insertId; }
+      for (const l of lines) await q('INSERT INTO c2m_packing_bill_line (packing_bill_id, packing_item_id, level, pieces, packs_per_outer) VALUES (?,?,?,?,?)', [billId, Number(l.itemId), l.level === 'secondary' ? 'secondary' : 'primary', Number(l.pieces), l.level === 'secondary' ? Number(l.packsPerOuter) : null]);
+      await audit(req.c2m.user, 'packing_bill', billId, id ? 'update' : 'create', id ? oldBill : null, { name: nm, lines }, null);
+      if (id) re = await reapprovalFor(`Packing bill "${nm}" changed, ${today()}`, p => p.packing_bill_id === billId);
+    });
+    res.json({ id: billId, reapproval: re });
+  }));
+  app.post('/api/c2m/packing/assign', need('cfo'), wrap(async (req, res) => {
+    const { packId, billId } = req.body || {};
+    const [[p]] = await q('SELECT id, packing_bill_id FROM c2m_client_pack WHERE id=?', [packId]); if (!p) throw bad('Pack not found.');
+    if (billId) { const [[b]] = await q('SELECT name FROM c2m_packing_bill WHERE id=?', [billId]); if (!b) throw bad('Packing bill not found.'); }
+    let re = 0;
+    await tx(async () => {
+      await q('UPDATE c2m_client_pack SET packing_bill_id=? WHERE id=?', [billId || null, p.id]);
+      await audit(req.c2m.user, 'client_pack', p.id, 'packing_bill', p.packing_bill_id, billId || null, null);
+      re = await reapprovalFor(`Packing bill changed on a pack, ${today()}`, x => x.id === p.id);
+    });
+    res.json({ ok: true, reapproval: re });
+  }));
+  app.post('/api/c2m/packing/item', need('cfo'), wrap(async (req, res) => {
+    const { name, kind, price, source } = req.body || {};
+    if (!String(name || '').trim() || !(Number(price) > 0) || !String(source || '').trim()) throw bad('Give the item name, price per piece and source.');
+    const [[dup]] = await q('SELECT id FROM c2m_packing_item WHERE name=?', [String(name).trim()]); if (dup) throw bad('A packing item with this name exists. Change its price on Rates.');
+    const id = await tx(async () => {
+      const [r] = await q('INSERT INTO c2m_packing_item (name, kind) VALUES (?,?)', [String(name).trim().slice(0, 120), String(kind || 'other').slice(0, 30)]);
+      await q('INSERT INTO c2m_packing_rate (packing_item_id, price_per_piece, rate_date, source, entered_by, entered_at) VALUES (?,?,?,?,?,?)', [r.insertId, Number(price), today(), String(source).slice(0, 200), req.c2m.user, now()]);
+      await audit(req.c2m.user, 'packing_item', r.insertId, 'create', null, { name, price }, source);
+      return r.insertId;
+    });
+    res.json({ id });
+  }));
+
+  /* ---------- Conversion rules ---------- */
+  app.post('/api/c2m/rules/conversion', need('cfo'), wrap(async (req, res) => {
+    const b = req.body || {};
+    /* Ruled 16 Oct: a named labour or FOH rate, assigned to all products (optionally a form, reprocessed, a pack range),
+     * to a product type, or to a list of products. 1 labour + 1 FOH rate is picked per product and added. */
+    if (!String(b.name || '').trim() || !(strictNum(b.rsPerKg) >= 0)) throw bad('Give the rate a name and Rs per kg (digits only).');
+    if (!['labour', 'foh'].includes(b.kind)) throw bad('Pick Labour or FOH.');
+    if (b.validFrom && !isDate(b.validFrom)) throw bad('Valid from must be a date.');
+    if (b.validFrom && b.validFrom > today()) throw bad('A rate starts today or earlier. A future date is not taken yet, because its cost change would reach no re-approval.');
+    if (b.form && !['solid', 'liquid'].includes(b.form)) throw bad('Form is solid or liquid.');
+    // S4: pack range must be numbers, from below to
+    for (const k of ['packMin', 'packMax']) if (b[k] != null && b[k] !== '' && !(strictNum(b[k]) > 0)) throw bad('Pack sizes must be numbers above 0.');
+    if (b.packMin && b.packMax && strictNum(b.packMin) >= strictNum(b.packMax)) throw bad('"Packs from" must be below "packs below".');
+    if (b.reprocessed != null && b.reprocessed !== '' && !['0', '1', 0, 1].includes(b.reprocessed)) throw bad('Reprocessed is yes or no.');
+    const scope = b.scope || (b.clientProductId ? 'list' : 'general');
+    let ids = Array.isArray(b.productIds) ? b.productIds.map(Number).filter(Boolean) : b.clientProductId ? [Number(b.clientProductId)] : [];
+    if (scope === 'list') {
+      if (!ids.length) throw bad('Pick at least 1 product for this rate.');
+      const [ok] = await q(`SELECT id FROM c2m_client_product WHERE id IN (${qs(ids)})`, ids); if (ok.length !== new Set(ids).size) throw bad('A product on this list is not in C2M.');
+    } else ids = [];
+    if (scope === 'type') { const [[t]] = await q('SELECT id FROM c2m_base_product WHERE id=?', [b.baseProductId]); if (!t) throw bad('Pick the product type.'); }
+    if (!['general', 'type', 'list'].includes(scope)) throw bad('Assign the rate to all products, a product type, or a list of products.');
+    let id, re = 0;
+    await tx(async () => {
+      const [r] = await q('INSERT INTO c2m_conversion_rule (name, kind, rs_per_kg, scope_client_product_id, scope_base_product_id, scope_form, scope_reprocessed, scope_pack_min, scope_pack_max, valid_from, source) VALUES (?,?,?,?,?,?,?,?,?,?,?)',
+        [String(b.name).slice(0, 160), b.kind, strictNum(b.rsPerKg), null, scope === 'type' ? Number(b.baseProductId) : null, b.form || null, b.reprocessed == null || b.reprocessed === '' ? null : Number(b.reprocessed), b.packMin ? strictNum(b.packMin) : null, b.packMax ? strictNum(b.packMax) : null, b.validFrom || today(), String(b.source || 'Entered by Yawar').slice(0, 200)]);
+      id = r.insertId;
+      for (const cpId of new Set(ids)) await q('INSERT INTO c2m_conversion_rule_product (rule_id, client_product_id) VALUES (?,?)', [id, cpId]);
+      await audit(req.c2m.user, 'conversion_rule', id, 'create', null, b, null);
+      re = await reapprovalFor(`Conversion rule "${String(b.name).slice(0, 80)}" added, ${today()}`);
+    });
+    res.json({ id, reapproval: re });
+  }));
+  /* Product type of a client product (used to assign rates) */
+  app.post('/api/c2m/products/:id/type', need('cfo'), wrap(async (req, res) => {
+    const [[cp]] = await q('SELECT id, base_product_id FROM c2m_client_product WHERE id=?', [req.params.id]); if (!cp) throw bad('Client product not found.');
+    let typeId = (req.body || {}).typeId ? Number(req.body.typeId) : null; const newName = String((req.body || {}).newType || '').trim();
+    let re = 0;
+    await tx(async () => {
+      if (newName) { const [[ex]] = await q('SELECT id FROM c2m_base_product WHERE name=?', [newName]); typeId = ex ? ex.id : (await q('INSERT INTO c2m_base_product (name) VALUES (?)', [newName.slice(0, 120)]))[0].insertId; }
+      else if (typeId) { const [[t]] = await q('SELECT id FROM c2m_base_product WHERE id=?', [typeId]); if (!t) throw bad('Product type not found.'); }
+      await q('UPDATE c2m_client_product SET base_product_id=? WHERE id=?', [typeId, cp.id]);
+      await audit(req.c2m.user, 'client_product', cp.id, 'type', cp.base_product_id, typeId, null);
+      re = await reapprovalFor(`Product type changed, ${today()}`, p => p.client_product_id === cp.id);
+    });
+    res.json({ ok: true, reapproval: re });
+  }));
+  /* Reprocessed flag of a client product (picks the solid Rs 30 band); review 16 Oct: it had no screen */
+  app.post('/api/c2m/products/:id/reprocessed', need('cfo'), wrap(async (req, res) => {
+    const [[cp]] = await q('SELECT id, reprocessed FROM c2m_client_product WHERE id=?', [req.params.id]); if (!cp) throw bad('Client product not found.');
+    const v = (req.body || {}).on ? 1 : 0; let re = 0;
+    await tx(async () => {
+      await q('UPDATE c2m_client_product SET reprocessed=? WHERE id=?', [v, cp.id]);
+      await audit(req.c2m.user, 'client_product', cp.id, 'reprocessed', cp.reprocessed, v, null);
+      re = await reapprovalFor(`Reprocessed flag changed, ${today()}`, p => p.client_product_id === cp.id);
+    });
+    res.json({ ok: true, reapproval: re });
+  }));
+  app.post('/api/c2m/rules/conversion/:id/retire', need('cfo'), wrap(async (req, res) => {
+    const why = String((req.body || {}).why || '').trim(); if (!why) throw bad('Write why the rule is retired.');
+    let re = 0;
+    await tx(async () => {
+      const [u] = await q('UPDATE c2m_conversion_rule SET active=0 WHERE id=? AND active=1', [req.params.id]); if (!u.affectedRows) throw moved();
+      const gaps = packsWithoutRates(await engine.loadAll(q)); if (gaps.length) throw bad(`Retiring this rate leaves ${gaps.length} pack(s) with no rate, e.g. ${gaps.slice(0, 3).join('; ')}. Add the replacing rate first.`);
+      await audit(req.c2m.user, 'conversion_rule', req.params.id, 'retire', null, null, why);
+      re = await reapprovalFor(`Conversion rule ${req.params.id} retired, ${today()}`);
+    });
+    res.json({ ok: true, reapproval: re });
+  }));
+
+  /* ---------- Prices: Yawar proposes, Tahir approves or sends back ---------- */
+  async function packInfo(packId) {
+    const D = await engine.loadAll(q); const p = D.packs.find(x => x.id === Number(packId)); if (!p) throw bad('Pack not found.');
+    const cp = D.cpById.get(p.client_product_id); const c = engine.packCost(D, p);
+    return { D, p, cp, cost: c && c.costed ? c.total : null, target: cp.target_gp == null ? null : Number(cp.target_gp) };
+  }
+  app.post('/api/c2m/prices/propose', need('cfo'), wrap(async (req, res) => {
+    const { packId, price, reason, belowReason, replaceId, validFrom, validTo } = req.body || {};
+    const P = await packInfo(packId); const v = strictNum(price); if (!(v > 0)) throw bad('Type a price above 0, digits only.');
+    if (validFrom && !isDate(validFrom)) throw bad('Effective date must be a date.');
+    if (validFrom && validFrom < today()) throw bad('The effective date cannot be in the past.');
+    if (validTo && (!isDate(validTo) || validTo < (validFrom || today()))) throw bad('Valid till must be the effective date or later (it is the last day the price applies).');
+    const gp = lib.marginPct(v, P.cost);
+    if (P.target != null && gp != null && gp < P.target && !String(belowReason || '').trim()) throw bad('This price is below target GP. Write why.');
+    const id = await tx(async () => {
+      const [[open]] = await q("SELECT id FROM c2m_price WHERE client_pack_id=? AND status='proposed' FOR UPDATE", [P.p.id]);
+      if (open) throw bad('This pack already has a price waiting for Tahir. Wait for his decision first.');
+      if (replaceId) { const [u] = await q("UPDATE c2m_price SET status='replaced' WHERE id=? AND client_pack_id=? AND status='sent_back'", [replaceId, P.p.id]); if (!u.affectedRows) throw moved(); }
+      const cur = await priceInForce(P.p.id);
+      const [r] = await q("INSERT INTO c2m_price (client_pack_id, price, prev_price, valid_from, valid_to, reason, below_target_reason, status, proposed_by, proposed_at) VALUES (?,?,?,?,?,?,?,'proposed',?,?)",
+        [P.p.id, v, cur ? cur.price : null, validFrom || today(), validTo || null, String(reason || '').slice(0, 400) || null, String(belowReason || '').slice(0, 400) || null, req.c2m.user, now()]);
+      await audit(req.c2m.user, 'price', r.insertId, 'propose', cur ? cur.price : null, v, reason);
+      return r.insertId;
+    });
+    res.json({ id });
+  }));
+  app.post('/api/c2m/prices/:id/approve', need('coo'), wrap(async (req, res) => {
+    await tx(async () => {
+      const [[p]] = await q("SELECT * FROM c2m_price WHERE id=? AND status='proposed' FOR UPDATE", [req.params.id]); if (!p) throw moved();
+      const from = String(p.valid_from).slice(0, 10) > today() ? String(p.valid_from).slice(0, 10) : today();
+      if (p.valid_to && String(p.valid_to).slice(0, 10) < from) throw bad(`Its valid till date (${String(p.valid_to).slice(0, 10)}) is before it would start (${from}). Send it back for new dates.`);
+      // Only 1 price may wait for its date: a newer approval cancels the waiting one, puts back what it shortened, and says so
+      const [waiting] = await q("SELECT * FROM c2m_price WHERE client_pack_id=? AND status='approved' AND valid_from>? AND id<>? FOR UPDATE", [p.client_pack_id, today(), p.id]);
+      for (const w of waiting) {
+        const [c] = await q("UPDATE c2m_price SET status='cancelled' WHERE id=? AND status='approved'", [w.id]); if (!c.affectedRows) continue;
+        await restoreCut(w, req.c2m.user, `cancelled by the newer approval ${p.id}`);
+        await audit(req.c2m.user, 'price', w.id, 'cancelled', w.price, null, `Waiting price from ${String(w.valid_from).slice(0, 10)} cancelled by the newer approval ${p.id}`);
+      }
+      const cur = await priceInForce(p.client_pack_id);
+      let cutId = null, cutPrev = null;
+      if (cur && (!cur.valid_to || String(cur.valid_to).slice(0, 10) >= from)) {
+        // The price in force ends the day before the new one starts; its old end date is kept on the new row
+        cutId = cur.id; cutPrev = cur.valid_to ? String(cur.valid_to).slice(0, 10) : null;
+        await q(`UPDATE c2m_price SET valid_to=?${from <= today() ? ", status='replaced'" : ''} WHERE id=?`, [dayBefore(from), cur.id]);
+        await audit(req.c2m.user, 'price', cur.id, 'ended', cutPrev, dayBefore(from), `Ends before price ${p.id} starts on ${from}`);
+      }
+      const [u] = await q("UPDATE c2m_price SET status='approved', prev_price=?, valid_from=?, cut_price_id=?, cut_prev_to=?, decided_by=?, decided_at=? WHERE id=? AND status='proposed'", [cur ? cur.price : null, from, cutId, cutPrev, req.c2m.user, now(), p.id]);
+      if (!u.affectedRows) throw moved();
+      await audit(req.c2m.user, 'price', p.id, 'approve', cur ? cur.price : null, p.price, from > today() ? `Takes over on ${from}` : null);
+      res.locals.out = { ok: true, waitsUntil: from > today() ? from : null, cancelled: waiting.length };
+      if (waiting.length) { const issued = []; for (const w of waiting) issued.push(...await docsShowingPrice(w));
+        await notice('cfo', `A price waiting for a later date was cancelled by Tahir's newer approval for the same pack (price ${p.id}).${issued.length ? ` Already issued with the cancelled price: ${issued.join(', ')}. Tell the client.` : ''}`, req.c2m.user); }
+    });
+    res.json(res.locals.out);
+  }));
+  /* Withdraw a price approved for a later date, before it takes over (Tahir). */
+  app.post('/api/c2m/prices/:id/withdraw', need('coo'), wrap(async (req, res) => {
+    const why = String((req.body || {}).why || '').trim(); if (!why) throw bad('Write why the waiting price is withdrawn.');
+    await tx(async () => {
+      const [[p]] = await q("SELECT * FROM c2m_price WHERE id=? AND status='approved' AND valid_from>? FOR UPDATE", [req.params.id, today()]); if (!p) throw moved();
+      const [u] = await q("UPDATE c2m_price SET status='withdrawn' WHERE id=? AND status='approved'", [p.id]); if (!u.affectedRows) throw moved();
+      await restoreCut(p, req.c2m.user, 'withdrawn');
+      await audit(req.c2m.user, 'price', p.id, 'withdrawn', p.price, null, why);
+      // Tell Yawar, and name any price list already issued that shows this price (review: withdraw told nobody)
+      const docs = await docsShowingPrice(p);
+      await notice('cfo', `Tahir withdrew the price Rs ${Number(p.price)} waiting from ${String(p.valid_from).slice(0, 10)}. Why: ${why.slice(0, 150)}${docs.length ? `. Already issued with it: ${docs.join(', ')}. Tell the client.` : ''}`, req.c2m.user);
+      res.locals.out = { ok: true, issuedDocs: docs };
+    });
+    res.json(res.locals.out);
+  }));
+  app.post('/api/c2m/prices/:id/sendback', need('coo'), wrap(async (req, res) => {
+    const reason = String((req.body || {}).reason || '').trim(); if (!reason) throw bad('Write a reason.');
+    const [r] = await q("UPDATE c2m_price SET status='sent_back', back_reason=?, decided_by=?, decided_at=? WHERE id=? AND status='proposed'", [reason.slice(0, 400), req.c2m.user, now(), req.params.id]);
+    if (!r.affectedRows) throw bad('Nothing to send back.');
+    await audit(req.c2m.user, 'price', req.params.id, 'sent_back', null, null, reason);
+    res.json({ ok: true });
+  }));
+
+  /* ---------- Settings: thresholds need Tahir's approval; budget lines notify Tahir (ruled 14 to 15 Oct) ---------- */
+  app.post('/api/c2m/settings', need('cfo'), wrap(async (req, res) => {
+    const ch = (req.body || {}).changes || {};
+    const [rows] = await q('SELECT k, v, label, needs_approval FROM c2m_setting');
+    const pend = {}, direct = [];
+    for (const r of rows) if (ch[r.k] != null && String(ch[r.k]) !== String(r.v)) { if (!(Number(ch[r.k]) >= 0)) throw bad(`${r.label}: type a number.`); (r.needs_approval ? (pend[r.k] = String(ch[r.k])) : direct.push([r, String(ch[r.k])])); }
+    await tx(async () => {
+      for (const [r, v] of direct) { await q('UPDATE c2m_setting SET v=?, updated_by=?, updated_at=? WHERE k=?', [v, req.c2m.user, now(), r.k]); await notice('coo', `Setting changed: ${r.label} ${r.v} to ${v}`, req.c2m.user); await audit(req.c2m.user, 'setting', r.k, 'change', r.v, v, null); }
+      if (Object.keys(pend).length) {
+        const summary = rows.filter(r => pend[r.k] != null).map(r => `${r.label} ${r.v} to ${pend[r.k]}`).join('; ');
+        await q('INSERT INTO c2m_setting_request (changes_json, summary, by_user, at) VALUES (?,?,?,?)', [JSON.stringify(pend), summary, req.c2m.user, now()]);
+      }
+    });
+    res.json({ applied: direct.length, pending: Object.keys(pend).length });
+  }));
+  app.post('/api/c2m/settings/requests/:id/:act(approve|refuse)', need('coo'), wrap(async (req, res) => {
+    await tx(async () => {
+      const [[r]] = await q("SELECT * FROM c2m_setting_request WHERE id=? AND status='open' FOR UPDATE", [req.params.id]); if (!r) throw moved();
+      const [u] = await q("UPDATE c2m_setting_request SET status=?, decided_by=?, decided_at=? WHERE id=? AND status='open'", [req.params.act === 'approve' ? 'approved' : 'refused', req.c2m.user, now(), r.id]); if (!u.affectedRows) throw moved();
+      if (req.params.act === 'approve') for (const [k, v] of Object.entries(JSON.parse(r.changes_json))) {
+        const [[old]] = await q('SELECT v FROM c2m_setting WHERE k=?', [k]);
+        await q('UPDATE c2m_setting SET v=?, updated_by=?, updated_at=? WHERE k=?', [v, req.c2m.user, now(), k]);
+        await audit(req.c2m.user, 'setting', k, 'change', old ? old.v : null, v, 'Approved request ' + r.id);
+      }
+      await audit(req.c2m.user, 'setting_request', r.id, req.params.act, null, r.summary, null);
+    });
+    res.json({ ok: true });
+  }));
+
+  /* ---------- Client target overrides: Yawar proposes, Tahir approves ---------- */
+  app.post('/api/c2m/targets/request', need('cfo'), wrap(async (req, res) => {
+    const { clientProductId, toGp, reason } = req.body || {};
+    const [[cp]] = await q('SELECT id, target_gp FROM c2m_client_product WHERE id=?', [clientProductId]); if (!cp) throw bad('Pick a client product.');
+    if (!(Number(toGp) >= 0 && Number(toGp) < 100)) throw bad('Target GP must be between 0 and 100.'); if (!String(reason || '').trim()) throw bad('Write why.');
+    // Locked on the product row, so 2 quick clicks cannot open 2 requests (re-review)
+    const rid = await tx(async () => {
+      await q('SELECT id FROM c2m_client_product WHERE id=? FOR UPDATE', [cp.id]);
+      const [[openReq]] = await q("SELECT id FROM c2m_target_request WHERE client_product_id=? AND status='open'", [cp.id]);
+      if (openReq) throw bad('This product already has a target change waiting for Tahir. Wait for his decision first.');
+      const [r] = await q('INSERT INTO c2m_target_request (client_product_id, from_gp, to_gp, reason, by_user, at) VALUES (?,?,?,?,?,?)', [cp.id, cp.target_gp, Number(toGp), String(reason).slice(0, 400), req.c2m.user, now()]);
+      await audit(req.c2m.user, 'target_request', r.insertId, 'request', cp.target_gp, Number(toGp), reason);
+      return r.insertId;
+    });
+    res.json({ id: rid });
+  }));
+  app.post('/api/c2m/targets/:id/:act(approve|refuse)', need('coo'), wrap(async (req, res) => {
+    await tx(async () => {
+      const [[r]] = await q("SELECT * FROM c2m_target_request WHERE id=? AND status='open' FOR UPDATE", [req.params.id]); if (!r) throw moved();
+      const [u] = await q("UPDATE c2m_target_request SET status=?, decided_by=?, decided_at=? WHERE id=? AND status='open'", [req.params.act === 'approve' ? 'approved' : 'refused', req.c2m.user, now(), r.id]); if (!u.affectedRows) throw moved();
+      if (req.params.act === 'approve') await q('UPDATE c2m_client_product SET target_gp=? WHERE id=?', [r.to_gp, r.client_product_id]);
+      await audit(req.c2m.user, 'target', r.client_product_id, req.params.act, r.from_gp, r.to_gp, r.reason);
+    });
+    res.json({ ok: true });
+  }));
+
+  /* ---------- Import queue: nothing enters without Yawar ---------- */
+  app.post('/api/c2m/import/:id/:act(accept|correct)', need('cfo'), wrap(async (req, res) => {
+    const [[it]] = await q("SELECT * FROM c2m_import_item WHERE id=? AND status='open'", [req.params.id]); if (!it) throw moved();
+    let note = 'Accepted: ' + it.prefill_text, re = 0;
+    const v = String((req.body || {}).value || '').trim(), why = String((req.body || {}).why || '').trim();
+    if (req.params.act === 'correct') {
+      if (!v || !why) throw bad('Type the correct value and why.');
+      note = `Corrected to ${v}. Why: ${why}`;
+    }
+    await tx(async () => {
+      const [u] = await q("UPDATE c2m_import_item SET status=?, decided_by=?, decided_at=?, decision_note=? WHERE id=? AND status='open'", [req.params.act === 'accept' ? 'accepted' : 'corrected', req.c2m.user, now(), note.slice(0, 400), it.id]);
+      if (!u.affectedRows) throw moved();
+      const pl = JSON.parse(it.payload || '{}');
+      // A rate correction is saved through the same controls as any rate: digits only, 10% warning, re-approval.
+      if (req.params.act === 'correct' && it.kind === 'rate' && pl.gradeId) re = await saveRate(req.c2m.user, pl.gradeId, v.replace(/^rs\.?\s*/i, '').replace(/,/g, ''), 'Import queue correction: ' + why.slice(0, 150), !!(req.body || {}).confirmed);
+      await audit(req.c2m.user, 'import_item', it.id, req.params.act, it.prefill_text, note, null);
+    });
+    res.json({ ok: true, reapproval: re, kind: it.kind });
+  }));
+
+  /* ---------- Master data that had no form (audit, 16 Oct) ---------- */
+  app.post('/api/c2m/materials', need('cfo'), wrap(async (req, res) => {
+    const { name, typeId, unit, grade, rate, source } = req.body || {};
+    const nm = String(name || '').trim(), gd = String(grade || 'Standard').trim();
+    if (!nm || !String(source || '').trim() || !(strictNum(rate) > 0)) throw bad('Give the material name, its rate (digits) and the source.');
+    if (!['kg', 'L'].includes(unit || 'kg')) throw bad('Unit is kg or L.');
+    const [[t]] = await q('SELECT id FROM c2m_material_type WHERE id=?', [typeId]); if (!t) throw bad('Pick the material type.');
+    const id = await tx(async () => {
+      let [[m]] = await q('SELECT id FROM c2m_raw_material WHERE name=?', [nm]);
+      if (!m) { const [r] = await q('INSERT INTO c2m_raw_material (name, type_id, unit) VALUES (?,?,?)', [nm.slice(0, 120), t.id, unit || 'kg']); m = { id: r.insertId }; }
+      const [[ex]] = await q('SELECT id FROM c2m_material_grade WHERE material_id=? AND grade=?', [m.id, gd]); if (ex) throw bad('This material and grade already exist. Save a new rate on the Rates screen.');
+      const [g] = await q('INSERT INTO c2m_material_grade (material_id, grade) VALUES (?,?)', [m.id, gd.slice(0, 60)]);
+      await q('INSERT INTO c2m_material_rate (grade_id, rate, rate_date, source, entered_by, entered_at) VALUES (?,?,?,?,?,?)', [g.insertId, strictNum(rate), today(), String(source).slice(0, 200), req.c2m.user, now()]);
+      await audit(req.c2m.user, 'material', g.insertId, 'create', null, { name: nm, grade: gd, rate }, source);
+      return g.insertId;
+    });
+    res.json({ gradeId: id });
+  }));
+  /* Nutrient % per grade: the fields come from the material type (ruled 15 Oct). */
+  app.post('/api/c2m/grades/:id/nutrients', need('cfo', 'qc'), wrap(async (req, res) => {
+    const [[g]] = await q('SELECT g.id, g.nutrients_json, t.nutrient_fields FROM c2m_material_grade g JOIN c2m_raw_material m ON m.id=g.material_id LEFT JOIN c2m_material_type t ON t.id=m.type_id WHERE g.id=?', [req.params.id]);
+    if (!g) throw bad('Material grade not found.');
+    const fields = String(g.nutrient_fields || '').split('|').filter(Boolean), vals = (req.body || {}).values || {}, out = {};
+    if (!fields.length) throw bad('This material has no nutrient fields in its class (non-nutrient or to classify). Set a nutrient class first if it carries nutrients.');
+    for (const f of fields) if (vals[f] != null && vals[f] !== '') { const v = strictNum(vals[f]); if (!(v >= 0 && v <= 100)) throw bad(`${f}: type a % between 0 and 100.`); out[f] = v; }
+    await tx(async () => {
+      await q('UPDATE c2m_material_grade SET nutrients_json=? WHERE id=?', [JSON.stringify(out), g.id]);
+      await audit(req.c2m.user, 'grade_nutrients', g.id, 'save', g.nutrients_json, out, null);
+    });
+    res.json({ ok: true });
+  }));
+  /* Material class: nutrient source, or non-nutrient (binder, filler, anti-caking, wetting agent, colour, pH). Ruled 16 Oct. */
+  app.post('/api/c2m/materials/:id/type', need('cfo', 'qc'), wrap(async (req, res) => {
+    const [[m]] = await q('SELECT id, name, type_id FROM c2m_raw_material WHERE id=?', [req.params.id]); if (!m) throw bad('Material not found.');
+    const [[t]] = await q('SELECT id, name, nutrient_role FROM c2m_material_type WHERE id=?', [(req.body || {}).typeId]); if (!t) throw bad('Pick the class.');
+    await tx(async () => {
+      await q('UPDATE c2m_raw_material SET type_id=? WHERE id=?', [t.id, m.id]);
+      const [old] = await q('SELECT id, grade, nutrients_json FROM c2m_material_grade WHERE material_id=?', [m.id]);
+      if (t.nutrient_role !== 'nutrient') await q('UPDATE c2m_material_grade SET nutrients_json=NULL WHERE material_id=?', [m.id]);
+      await audit(req.c2m.user, 'material', m.id, 'class', { typeId: m.type_id, grades: old }, { typeId: t.id }, `${m.name}: ${t.name}`);
+    });
+    res.json({ ok: true });
+  }));
+  app.post('/api/c2m/customers/:id', need('cfo'), wrap(async (req, res) => {
+    const { priceRule, cycle, region, o2sNames } = req.body || {};
+    const [[c]] = await q('SELECT * FROM c2m_customer WHERE id=?', [req.params.id]); if (!c) throw bad('Customer not found.');
+    if (priceRule && !['time', 'po', 'list'].includes(priceRule)) throw bad('Price rule is time based, per PO, or list.');
+    const names = o2sNames == null ? c.o2s_names : String(o2sNames).split('|').map(x => x.trim()).filter(Boolean).join('|');
+    if (!names) throw bad('Keep at least 1 O2S name.');
+    await q('UPDATE c2m_customer SET price_rule=?, price_cycle=?, region=?, o2s_names=? WHERE id=?', [priceRule || c.price_rule, cycle == null ? c.price_cycle : String(cycle).slice(0, 40) || null, region == null ? c.region : String(region).slice(0, 40) || null, names.slice(0, 600), c.id]);
+    await audit(req.c2m.user, 'customer', c.id, 'update', { rule: c.price_rule, cycle: c.price_cycle, region: c.region, o2s: c.o2s_names }, { priceRule, cycle, region, o2sNames: names }, null);
+    res.json({ ok: true });
+  }));
+  app.post('/api/c2m/freight', need('cfo'), wrap(async (req, res) => {
+    const { segment, region, rsPerKg, validFrom } = req.body || {};
+    if (!['Dealer', 'Farmer'].includes(segment)) throw bad('Freight applies to Dealer or Farmer prices.');
+    if (!String(region || '').trim() || !(strictNum(rsPerKg) >= 0)) throw bad('Give the region and Rs per kg (digits).');
+    const vf = validFrom || today(); if (!isDate(vf)) throw bad('Valid from must be a date.');
+    const [[oldF]] = await q('SELECT rs_per_kg FROM c2m_freight_rate WHERE segment=? AND region=? AND valid_from=?', [segment, String(region).trim().slice(0, 40), vf]);
+    await tx(async () => {
+      await q('INSERT INTO c2m_freight_rate (segment, region, rs_per_kg, valid_from) VALUES (?,?,?,?) ON DUPLICATE KEY UPDATE rs_per_kg=VALUES(rs_per_kg)', [segment, String(region).trim().slice(0, 40), strictNum(rsPerKg), vf]);
+      await audit(req.c2m.user, 'freight', `${segment}|${region}`, 'save', oldF ? { rsPerKg: oldF.rs_per_kg, validFrom: vf } : null, { rsPerKg, validFrom: vf }, null);
+    });
+    res.json({ ok: true });
+  }));
+
+  /* ---------- Access grants (Yawar grants lists and clients) ---------- */
+  app.post('/api/c2m/grants', need('cfo'), wrap(async (req, res) => {
+    const { username, kind, value, on } = req.body || {};
+    if (!['list', 'client'].includes(kind)) throw bad('Unknown grant.');
+    const [[person]] = await q("SELECT username FROM user_module_roles WHERE username=? AND module='c2m'", [username]); if (!person) throw bad('This person has no C2M access.');
+    if (kind === 'list' && !PL.AUDIENCES[value]) throw bad('Unknown price list.');
+    if (kind === 'client') { const [[c]] = await q('SELECT id FROM c2m_customer WHERE name=?', [value]); if (!c) throw bad('Unknown client.'); }
+    if (on) await q('INSERT IGNORE INTO c2m_list_grant (username, grant_kind, grant_value, granted_by, granted_at) VALUES (?,?,?,?,?)', [username, kind, value, req.c2m.user, now()]);
+    else await q('DELETE FROM c2m_list_grant WHERE username=? AND grant_kind=? AND grant_value=?', [username, kind, value]);
+    await audit(req.c2m.user, 'grant', username, on ? 'grant' : 'remove', null, { kind, value }, null);
+    res.json({ ok: true });
+  }));
+
+  /* ---------- Monthly actuals and checks ---------- */
+  app.post('/api/c2m/actuals', need('cfo'), wrap(async (req, res) => {
+    const { month, labour, foh } = req.body || {};
+    if (!/^\d{4}-\d{2}$/.test(String(month))) throw bad('Pick the month.');
+    if (!(Number(labour) >= 0) || !(Number(foh) >= 0)) throw bad('Type actual labour and FOH in Rs.');
+    const [[oldA]] = await q('SELECT actual_labour, actual_foh, entered_by FROM c2m_monthly_actual WHERE month=?', [month]);
+    await tx(async () => {
+      await q('INSERT INTO c2m_monthly_actual (month, actual_labour, actual_foh, entered_by, entered_at) VALUES (?,?,?,?,?) ON DUPLICATE KEY UPDATE actual_labour=VALUES(actual_labour), actual_foh=VALUES(actual_foh), entered_by=VALUES(entered_by), entered_at=VALUES(entered_at)',
+        [month, Number(labour), Number(foh), req.c2m.user, now()]);
+      await audit(req.c2m.user, 'monthly_actual', month, 'save', oldA || null, { labour, foh }, null);
+    });
+    res.json({ ok: true });
+  }));
+  app.post('/api/c2m/checks', wrap(async (req, res) => {
+    const { month, kind, data } = req.body || {};
+    if (kind === 'rate_check' && req.c2m.role === 'cfo') throw Object.assign(new Error('The rate check is done by a second person, not by the person who entered the rates.'), { status: 403 });
+    if (kind === 'rate_check' && req.c2m.role !== 'coo') throw Object.assign(new Error('Your role cannot do this in C2M.'), { status: 403 });
+    if (kind === 'tie_books' && req.c2m.role !== 'cfo') throw Object.assign(new Error('Your role cannot do this in C2M.'), { status: 403 });
+    if (!['rate_check', 'tie_books'].includes(kind) || !/^\d{4}-\d{2}$/.test(String(month))) throw bad('Pick the month and the check.');
+    const [[oldC]] = await q('SELECT data_json, done_by, done_at FROM c2m_monthly_check WHERE month=? AND kind=?', [month, kind]);
+    await tx(async () => {
+      await q('INSERT INTO c2m_monthly_check (month, kind, data_json, done_by, done_at) VALUES (?,?,?,?,?) ON DUPLICATE KEY UPDATE data_json=VALUES(data_json), done_by=VALUES(done_by), done_at=VALUES(done_at)', [month, kind, data ? JSON.stringify(data) : null, req.c2m.user, now()]);
+      await audit(req.c2m.user, 'monthly_check', month + ':' + kind, 'done', oldC || null, data || null, null);
+    });
+    res.json({ ok: true });
+  }));
+
+  /* ---------- Notices ---------- */
+  app.post('/api/c2m/notices/seen', need('coo', 'cfo'), wrap(async (req, res) => { await q('UPDATE c2m_notice SET seen=1 WHERE for_role=?', [req.c2m.role]); res.json({ ok: true }); }));
+
+  /* ---------- VAN brand list price revisions: Yawar proposes, Tahir approves or sends back (ruled 16 Oct) ---------- */
+  const LIST_FIELDS = { dist: ['now', 'mrp'], dealer: ['nsv', 'disc', 'frp', 'mrp'], farmer: ['pb', 'sn', 'snc'] };
+  /** Derived figures: distributor price with FED = price x 1.05; dealer net = NSV less discount, with taxes = net x 1.05. */
+  function deriveList(list, d) {
+    const o = { ...d };
+    if (list === 'dist') o.fed = lib.round(Number(o.now) * 1.05, 2);
+    if (list === 'dealer') { o.net = lib.round(Number(o.nsv) * (1 - Number(o.disc || 0)), 2); o.netfed = lib.round(o.net * 1.05, 2); }
+    return o;
+  }
+  app.post('/api/c2m/lists/revise', need('cfo'), wrap(async (req, res) => {
+    const { list, items, reason, validFrom, validTill, replaceId } = req.body || {};
+    if (!LIST_FIELDS[list]) throw bad('Pick the list.');
+    if (!String(reason || '').trim()) throw bad('Write the reason for the revision.');
+    if (!isDate(validFrom)) throw bad('Effective date must be a date.');
+    if (validFrom < today()) throw bad('The effective date cannot be in the past.');
+    if (validTill && (!isDate(validTill) || validTill < validFrom)) throw bad('Valid till must be after the effective date.');
+    if (!Array.isArray(items) || !items.length) throw bad('Change at least 1 price.');
+    const [rows] = await q('SELECT id, data_json FROM c2m_list_price WHERE list_name=?', [list]); const byId = new Map(rows.map(r => [r.id, JSON.parse(r.data_json)]));
+    const out = [];
+    for (const it of items) {
+      const cur = byId.get(Number(it.id)); if (!cur) throw bad('A row is not on this list.');
+      const to = {};
+      for (const f of LIST_FIELDS[list]) if (it.values && it.values[f] != null && it.values[f] !== '') { const v = strictNum(it.values[f]); if (!(v >= 0) || (f === 'disc' && v >= 1)) throw bad(`${cur.p}: ${f} must be a number${f === 'disc' ? ' below 1 (e.g. 0.05 for 5%)' : ''}.`); to[f] = v; }
+      if (!Object.keys(to).length || LIST_FIELDS[list].every(f => to[f] == null || Number(to[f]) === Number(cur[f]))) continue;
+      const from = Object.fromEntries(Object.keys(to).map(f => [f, cur[f] ?? null]));
+      out.push({ id: Number(it.id), product: cur.p, pack: cur.pack || null, from, to });
+    }
+    if (!out.length) throw bad('No price changed.');
+    const id = await tx(async () => {
+      const [[wait]] = await q("SELECT valid_from FROM c2m_list_revision WHERE list_name=? AND status='approved' AND applied=0 FOR UPDATE", [list]);
+      if (wait) throw bad(`A revision of this list is approved and waits for ${String(wait.valid_from).slice(0, 10)}. Ask Tahir to withdraw it first, or wait until it takes effect.`);
+      const [[open]] = await q("SELECT id FROM c2m_list_revision WHERE list_name=? AND status='proposed' FOR UPDATE", [list]); if (open) throw bad('This list already has a revision waiting for Tahir.');
+      if (replaceId) { const [u] = await q("UPDATE c2m_list_revision SET status='replaced' WHERE id=? AND list_name=? AND status='sent_back'", [replaceId, list]); if (!u.affectedRows) throw moved(); }
+      const [r] = await q('INSERT INTO c2m_list_revision (list_name, items_json, reason, valid_from, valid_till, proposed_by, proposed_at) VALUES (?,?,?,?,?,?,?)', [list, JSON.stringify(out), String(reason).slice(0, 400), validFrom, validTill || null, req.c2m.user, now()]);
+      await audit(req.c2m.user, 'list_revision', r.insertId, 'propose', null, { list, rows: out.length }, reason);
+      return r.insertId;
+    });
+    res.json({ id, rows: out.length });
+  }));
+  app.post('/api/c2m/lists/revisions/:id/approve', need('coo'), wrap(async (req, res) => {
+    await tx(async () => {
+      const [[r]] = await q("SELECT * FROM c2m_list_revision WHERE id=? AND status='proposed' FOR UPDATE", [req.params.id]); if (!r) throw moved();
+      const [u] = await q("UPDATE c2m_list_revision SET status='approved', decided_by=?, decided_at=? WHERE id=? AND status='proposed'", [req.c2m.user, now(), r.id]); if (!u.affectedRows) throw moved();
+      const waits = String(r.valid_from).slice(0, 10) > today() ? String(r.valid_from).slice(0, 10) : null;
+      if (!waits) await applyRevision(r);
+      await audit(req.c2m.user, 'list_revision', r.id, 'approve', null, { list: r.list_name, waitsUntil: waits }, r.reason);
+      res.locals.out = { ok: true, waitsUntil: waits };
+    });
+    res.json(res.locals.out);
+  }));
+  app.post('/api/c2m/lists/revisions/:id/withdraw', need('coo'), wrap(async (req, res) => {
+    const why = String((req.body || {}).why || '').trim(); if (!why) throw bad('Write why the waiting revision is withdrawn.');
+    await tx(async () => {
+      const [[r]] = await q("SELECT * FROM c2m_list_revision WHERE id=? AND status='approved' AND applied=0 FOR UPDATE", [req.params.id]); if (!r) throw moved();
+      const [u] = await q("UPDATE c2m_list_revision SET status='withdrawn' WHERE id=? AND status='approved' AND applied=0", [r.id]); if (!u.affectedRows) throw moved();
+      await audit(req.c2m.user, 'list_revision', r.id, 'withdrawn', null, null, why);
+      const [[d]] = await q("SELECT COUNT(*) n FROM c2m_price_doc WHERE audience IN (?,?,?,?,?,?) AND effective>=?", r.list_name === 'dist' ? ['dist', 'dist', 'dist', 'dist', 'dist', 'dist', String(r.valid_from).slice(0, 10)] : r.list_name === 'dealer' ? ['dealer', 'dealer', 'dealer', 'dealer', 'dealer', 'dealer', String(r.valid_from).slice(0, 10)] : ['farmer_pb', 'farmer_sn', 'farmer_snc', 'web', 'web', 'web', String(r.valid_from).slice(0, 10)]);
+      await notice('cfo', `Tahir withdrew the ${r.list_name} list revision waiting from ${String(r.valid_from).slice(0, 10)}. Why: ${why.slice(0, 150)}${d.n ? `. ${d.n} price list(s) dated on or after it were already issued: tell those who received them.` : ''}`, req.c2m.user);
+    });
+    res.json({ ok: true });
+  }));
+  /** Put an approved revision's prices into its list (on approval, or on its date). */
+  async function applyRevision(r) {
+      const [ok] = await q("UPDATE c2m_list_revision SET applied=1 WHERE id=? AND applied=0 AND status='approved'", [r.id]); if (!ok.affectedRows) return false;
+      for (const it of JSON.parse(r.items_json)) {
+        const [[row]] = await q('SELECT data_json FROM c2m_list_price WHERE id=?', [it.id]); if (!row) continue;
+        const d = JSON.parse(row.data_json);
+        if (r.list_name === 'dist') { if ('now' in it.to) d.prev = d.now; } else d.prevValues = { ...(d.prevValues || {}), ...Object.fromEntries(Object.keys(it.to).map(f => [f, d[f]])) };
+        Object.assign(d, it.to);
+        await q('UPDATE c2m_list_price SET data_json=? WHERE id=?', [JSON.stringify(deriveList(r.list_name, d)), it.id]);
+      }
+      if (r.valid_till) await q('UPDATE c2m_list_price SET issued=?, valid_till=? WHERE list_name=?', [String(r.valid_from).slice(0, 10), String(r.valid_till).slice(0, 10), r.list_name]);
+      else await q('UPDATE c2m_list_price SET issued=?, valid_till=IF(valid_till IS NOT NULL AND valid_till >= ?, valid_till, NULL) WHERE list_name=?', [String(r.valid_from).slice(0, 10), String(r.valid_from).slice(0, 10), r.list_name]);
+      return true;
+  }
+  /** Revisions approved ahead of their date take effect on it (checked whenever C2M loads). */
+  async function applyDueRevisions() {
+    const [due] = await q("SELECT * FROM c2m_list_revision WHERE status='approved' AND applied=0 AND valid_from<=? ORDER BY valid_from, id", [today()]);
+    for (const r of due) await tx(async () => { if (await applyRevision(r)) await audit('c2m', 'list_revision', r.id, 'applied', null, { list: r.list_name }, 'Effective date reached'); });
+  }
+  app.post('/api/c2m/lists/revisions/:id/sendback', need('coo'), wrap(async (req, res) => {
+    const reason = String((req.body || {}).reason || '').trim(); if (!reason) throw bad('Write a reason.');
+    const [u] = await q("UPDATE c2m_list_revision SET status='sent_back', back_reason=?, decided_by=?, decided_at=? WHERE id=? AND status='proposed'", [reason.slice(0, 400), req.c2m.user, now(), req.params.id]);
+    if (!u.affectedRows) throw moved();
+    await audit(req.c2m.user, 'list_revision', req.params.id, 'sent_back', null, null, reason);
+    res.json({ ok: true });
+  }));
+
+  /* ---------- Price list documents ---------- */
+  async function docData(aud, b) {
+    await applyDueRevisions();
+    const [lp] = await q('SELECT id, list_name, data_json, issued, valid_till FROM c2m_list_price ORDER BY id');
+    const listKey = aud === 'dist' ? 'dist' : aud === 'dealer' ? 'dealer' : 'farmer';
+    // A document dated ahead shows the list as it will be on that date: the waiting revision applied over today's rows
+    if (aud !== 'wl' && b.eff && isDate(b.eff) && b.eff > today()) {
+      const [w] = await q("SELECT * FROM c2m_list_revision WHERE list_name=? AND status='approved' AND applied=0 AND valid_from<=? ORDER BY valid_from, id", [listKey, b.eff]);
+      for (const r of w) {
+        for (const it of JSON.parse(r.items_json)) { const row = lp.find(x => x.id === it.id); if (!row) continue;
+          const d = JSON.parse(row.data_json); if (r.list_name === 'dist' && 'now' in it.to) d.prev = d.now; Object.assign(d, it.to); row.data_json = JSON.stringify(deriveList(r.list_name, d)); }
+        // The list's dates change for every row of the list, as applyRevision does: no end date before the new start
+        for (const row of lp.filter(x => x.list_name === r.list_name)) { row.issued = r.valid_from; row.valid_till = r.valid_till || (row.valid_till && String(row.valid_till).slice(0, 10) >= String(r.valid_from).slice(0, 10) ? row.valid_till : null); }
+      }
+    }
+    const L = groupLists(lp);
+    const own = L.dates[listKey] || {};
+    const base = { ref: b.ref, date: today(), eff: b.eff || (aud === 'wl' ? null : own.issued || L.issued), till: b.till || (aud === 'wl' ? null : own.till) || null, note: String(b.note || '').slice(0, 300) };
+    if (aud === 'wl') {
+      const D = await engine.loadAll(q); const [prices] = await q("SELECT * FROM c2m_price WHERE status='approved'");
+      const ap = inForce(prices, b.eff && isDate(b.eff) ? b.eff : today()); // prices in force on the document's own date
+      const wl = (await wlListData(D, ap, [b.client]))[b.client]; if (!wl) throw bad('Pick a white label client.');
+      // Effective date: Yawar's date if he set one, else the latest start date of this client's approved prices (review M3)
+      const last = wl.rows.map(r => String(ap.get(r.packId).valid_from).slice(0, 10)).sort().pop();
+      return { ...base, eff: base.eff || last || today(), addressee: D.customers.find(c => c.name === b.client).name, rule: wl.rule, wl: wl.rows };
+    }
+    const list = aud === 'dist' ? L.dist : aud === 'dealer' ? L.dealer : L.farmer;
+    return { ...base, list };
+  }
+  async function viewerMay(user, aud, client) {
+    const [g] = await q('SELECT grant_kind, grant_value FROM c2m_list_grant WHERE username=?', [user]);
+    if (aud === 'wl') return g.some(x => x.grant_kind === 'client' && x.grant_value === client);
+    return g.some(x => x.grant_kind === 'list' && (x.grant_value === aud || (aud === 'web' && x.grant_value === 'farmer_pb')));
+  }
+  app.post('/api/c2m/pricedocs', wrap(async (req, res) => {
+    const b = req.body || {}; const aud = b.audience;
+    if (!PL.AUDIENCES[aud]) throw bad('Pick who the list is for.');
+    if (!['cfo', 'coo'].includes(req.c2m.role) && !(req.c2m.role === 'viewer' && await viewerMay(req.c2m.user, aud, b.client))) throw Object.assign(new Error('This list is not granted to you.'), { status: 403 });
+    const allowed = PL.fieldsFor(aud).map(f => f[0]);
+    const fields = (Array.isArray(b.fields) ? b.fields : allowed).filter(f => allowed.includes(f)); if (!fields.length) throw bad('Pick at least 1 field.');
+    const viewer = req.c2m.role === 'viewer';
+    if (!viewer && b.eff && !isDate(b.eff)) throw bad('Effective date must be a date.');
+    if (!viewer && b.till && (!isDate(b.till) || (b.eff && b.till < b.eff))) throw bad('Valid till must be a date after the effective date.');
+    const opts = viewer ? { client: b.client } : { client: b.client, eff: b.eff, till: b.till, note: b.note };
+    const reasons = viewer ? {} : (b.reasons && typeof b.reasons === 'object' ? b.reasons : {});
+    const id = await tx(async () => {
+      const yr = today().slice(0, 4);
+      const [[n]] = await q("SELECT COUNT(*) n FROM c2m_price_doc WHERE ref LIKE ? FOR UPDATE", [`VAN/PL/${yr}/%`]);
+      const ref = `VAN/PL/${yr}/${String(n.n + 1).padStart(3, '0')}`;
+      const data = await docData(aud, { ...opts, ref });
+      const [r] = await q('INSERT INTO c2m_price_doc (ref, audience, addressee, fields_json, effective, valid_till, created_by, created_at) VALUES (?,?,?,?,?,?,?,?)',
+        [ref, aud, data.addressee || PL.title(aud, data).to, JSON.stringify({ fields, client: b.client || null, reasons, note: data.note, snapshot: data }), data.eff, data.till, req.c2m.user, now()]);
+      await audit(req.c2m.user, 'price_doc', r.insertId, 'create', null, { ref, aud, client: b.client || null }, null);
+      return { id: r.insertId, ref };
+    });
+    res.json(id);
+  }));
+  app.get('/api/c2m/pricedocs/:id/pdf', wrap(async (req, res) => {
+    const [[d]] = await q('SELECT * FROM c2m_price_doc WHERE id=?', [req.params.id]); if (!d) throw bad('Document not found.');
+    const meta = JSON.parse(d.fields_json);
+    if (!['cfo', 'coo'].includes(req.c2m.role) && (d.created_by !== req.c2m.user || !(await viewerMay(req.c2m.user, d.audience, meta.client))))
+      throw Object.assign(new Error('This document is not yours, or the list is no longer granted to you.'), { status: 403 });
+    // The document prints exactly as issued: the rows were saved with it (older documents rebuild from today's prices).
+    const data = meta.snapshot || await docData(d.audience, { client: meta.client, ref: d.ref, eff: String(d.effective).slice(0, 10), till: d.valid_till ? String(d.valid_till).slice(0, 10) : null, note: meta.note });
+    PL.pdf(res, d.audience, data, meta.fields, meta.reasons || {});
+  }));
+
+  /* ---------- System documentation (mandatory, ruled 15 Oct) ---------- */
+  app.get('/api/c2m/docs/:file', wrap(async (req, res) => {
+    const f = path.basename(String(req.params.file)); if (!/^[0-9a-z-]+\.md$/.test(f)) throw bad('Unknown document.');
+    const p = path.join(__dirname, 'docs', f); if (!fs.existsSync(p)) throw bad('Unknown document.');
+    if (!docAllowed(req.c2m.role, f)) throw Object.assign(new Error('Not available to your role.'), { status: 403 });
+    res.type('text/plain; charset=utf-8').send(fs.readFileSync(p, 'utf8'));
+  }));
+};
+
+module.exports.ROLES = ROLES;

@@ -84,6 +84,7 @@ it does not quietly touch both and call it one task.
 | **O2S** (Order to Ship) | **everything under `apps/o2s/`** — `o2s.html` (the app, ~18,900 lines), `tests/` · the O2S routes in `server.js` (`/api/state`, `/api/rev`, `/api/users`) · the public lab report check for van.com.pk, `public-routes.js` (no sign-in, read-only; mounted by 1 line in `server.js`) · O2S alerts on laptop and phone, `notify-routes.js`, `sw.js`, `manifest.json`, its icons and `migrations/` (mounted by 1 guarded line in `server.js`, 16 Oct 2026) · `data/state.json` (local-file mode only) | `/o2s` (and any path not claimed by another app); `/api/public/batch/*` |
 | **PD** (Product Development) | **everything under `apps/pd/`** — `pd.html`, `pd-lib.js`, `pd-routes.js` (every `/api/pd/*` route, mounted from `server.js` by 1 `require`), `drop.html`, `migrations/`, `tests/` | `/pd`, `/pd/drop` |
 | **PLATFORM** (the repo itself — the base every app runs on) | **everything at the repo root that is not inside an app's folder**: `server.js` (sign-in, `/api/login`, `/api/me`, `/api/platform/*`, mounting the apps) · `launcher.html` · `migrations/` (P001, RECONCILE) · `docs/` (design, access model, architecture, restructure plan, the security register) · `tests/` · `OP-HANDOFF.md`, `OP-HANDOFF-PLATFORM.md` · `package.json`, `render.yaml`, `assets/`, `.claude/` · tables `auth_users`, `user_module_roles`, `platform_people`, `platform_access_log` | `/` |
+| **C2M** (Cost to Margin) | **everything under `apps/c2m/`** (being integrated, 17 Oct 2026: platform part ready, app files arrive in step 3) — `c2m.html`, `c2m-routes.js` (every `/c2m` and `/api/c2m/*` route, mounted from `server.js` by 1 guarded line), `c2m-engine.js`, `c2m-lib.js`, `c2m-o2s.js` (reads O2S `app_state`, read-only: the exception in `docs/RESTRUCTURE-PLAN.md` §3.5), `c2m-pricelist.js`, `migrations/`, `docs/` · tables `c2m_*` · owns cost, recipes and price (§2) | `/c2m` (launcher tile closed until it opens) |
 | **HRMS** | **not in this repo.** A separate Django app with its own login at `van-hrms-31hl.onrender.com`; the launcher card only links to it | its own address |
 | **QMS, CRMS** | not built | "Coming soon" cards |
 
@@ -125,6 +126,13 @@ The old candidate-screen cost engine (ex-works `(RM + conversion)/(1 − loss)`,
 ranking by rupees per kg of P₂O₅ — `apps/pd/pd-lib.js:188–232`) does **not** carry
 into the PD rebuild; it is removed from `apps/pd/docs/model/REUSE-RULES.md` §2's
 whitelist. Record: `apps/pd/docs/model/PENDING-DECISIONS.md` §D.
+
+**Cost — updated 2026-10-17, Tahir ruled: C2M owns cost, recipes and price.**
+Cost stays OUT of PD and O2S. C2M (Cost to Margin, `apps/c2m/`) is the one place
+that manages cost: recipes, material, packing, labour and overhead rates, dated
+cost versions, prices, VAN price lists and margin. Ground-rule 0 above now means
+"no app except C2M manages cost". No other app computes or stores a cost of its
+own; if one needs a cost, it asks C2M.
 
 **Never push.** Build and verify locally, then say "ready to push (not pushed)".
 Tahir pushes with GitHub Desktop.
@@ -221,9 +229,9 @@ and a live one, it ships the live one and writes the remainder down.
   **not 007 or 008**, so PD in production fails on Runs, the dossier and the
   Report until Tahir applies them. State and next steps: `apps/pd/OP-HANDOFF-PD.md`,
   entry of 28 Sept.
-- **PLATFORM:** People and access, phase 1 is pushed (commit `b807e01`). It
-  runs without its migration `migrations/P001…` and says so on the
-  page; P001 is applied to **neither** database yet. Design:
+- **PLATFORM:** People and access, phase 1 is pushed (commit `b807e01`). Its
+  migration `migrations/P001…` is applied to **both** databases: local
+  28 Sept, production 16 Oct 2026 (by Tahir in phpMyAdmin). Design:
   `docs/PLATFORM-DESIGN.md`. What exists: `docs/ACCESS-MODEL.md`.
   State and next steps: `OP-HANDOFF-PLATFORM.md`, entry of 28 Sept.
 - **Nigehbaan** (compliance app, separate folder `E:\VAN Compliance System`,

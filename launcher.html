@@ -272,13 +272,17 @@
           <p class="nm">Concept to Launch</p>
           <p class="tag">From an idea to a proven product: challenges, trials, evidence and launch.</p>
         </div>
-        <!-- C2M: planned, 24 Oct -->
-        <div class="tile soon">
-          <div class="top2"><div class="ico"><svg viewBox="0 0 24 24"><path d="M4 20V10"/><path d="M10 20V4"/><path d="M16 20v-7"/><path d="M3 20h18"/><path d="M14 7l3-3 3 3"/><path d="M17 4v6"/></svg></div><span class="stamp"><small>COMING</small>OCT 24</span></div>
+        <!-- C2M: live tile (Tahir, 17 Oct 2026). Opens for anyone holding a C2M role (user_module_roles,
+             module c2m); locked for everyone else, like O2S. Give live C2M roles only after the live tables and data
+             are in (apps/c2m/OP-HANDOFF-C2M.md). -->
+        <a class="tile live" data-module="c2m" data-href="/c2m" href="/c2m">
+          <div class="top2"><div class="ico"><svg viewBox="0 0 24 24"><path d="M4 20V10"/><path d="M10 20V4"/><path d="M16 20v-7"/><path d="M3 20h18"/><path d="M14 7l3-3 3 3"/><path d="M17 4v6"/></svg></div><span class="lv"><i></i>Live</span></div>
           <span class="code">C2M</span>
           <p class="nm">Cost to Margin</p>
           <p class="tag">What each product costs to make, what it sells for, and the margin between.</p>
-        </div>
+          <span class="open">Open <b>→</b></span>
+          <span class="lockcta">🔒 Access not granted</span>
+        </a>
         <!-- HRMS: live external (Django on Render); always shown -->
         <a class="tile live" href="https://van-hrms-31hl.onrender.com/" target="_blank" rel="noopener">
           <div class="top2"><div class="ico"><svg viewBox="0 0 24 24"><circle cx="8" cy="8" r="3"/><path d="M2.5 20a5.5 5.5 0 0 1 11 0"/><circle cx="17.5" cy="9" r="2.3"/><path d="M15.5 20a4.6 4.6 0 0 1 6.2-4.3"/></svg></div><span class="lv"><i></i>Live</span></div>

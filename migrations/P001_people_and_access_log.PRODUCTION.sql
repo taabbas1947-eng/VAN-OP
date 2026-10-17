@@ -37,9 +37,9 @@
 -- information_schema.
 --
 -- Applied: LOCAL van_platform 28 Sept 2026 (checked 2 Oct 2026: 22 logins,
--- 22 people, 1 log row, both triggers). PRODUCTION: not yet (checked by
--- Tahir 2 Oct 2026, 0 rows); by hand, later, when Tahir chooses (CLAUDE.md
--- standing rule).
+-- 22 people, 1 log row, both triggers). PRODUCTION jodilkah_vanop_db: applied
+-- by Tahir by hand in phpMyAdmin, 16 Oct 2026 (the .PRODUCTION file; both tables
+-- created). Earlier note: not yet on 2 Oct 2026, 0 rows.
 -- ===========================================================================
 
 -- BEFORE: every login, and whether it is switched on. Expect active = 1 for

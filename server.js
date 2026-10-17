@@ -97,6 +97,7 @@ function parseMysqlUrl(url) {
 
 /* ---------- storage (MySQL or local file) ---------- */
 let store;
+let dbPool = null; // a SEPARATE small mysql2 pool for apps that run transactions (C2M, 17 Oct 2026); null in local-file mode
 let pdq = null; // set below when DATABASE_URL is present — PD (Product Development) needs real relational SQL, not the local-file fallback.
 if (DATABASE_URL) {
   const mysql = require('mysql2/promise');
@@ -107,6 +108,10 @@ if (DATABASE_URL) {
   // Helper: run a query, return [rows, fields]. mysql2 always returns [rows, fields].
   const q = (sql, params) => pool.execute(sql, params || []);
   pdq = q;
+  /* C2M's own pool (17 Oct 2026, review): its O2S pull and approvals hold a connection for a whole transaction.
+     On the shared 5-connection pool that could keep O2S saves waiting; with its own 3 connections it never can.
+     Same settings as above (dateStrings: true, which C2M checks). No connection opens until C2M uses one. */
+  dbPool = mysql.createPool({ ...parseMysqlUrl(DATABASE_URL), dateStrings: true, connectionLimit: 3 });
 
   store = {
     async init() {
@@ -514,8 +519,16 @@ const platformServices = { holdersOf, contactsFor };   // handed to each app mod
    day one publishes a catalogue, Manage access grows a column with no launcher edit.
    A role somebody still holds that a module no longer lists stays selectable and is
    NOT flagged (R5): a role belongs to its module, and the platform never judges it. */
+/* C2M (Cost to Margin; Tahir, 17 Oct 2026): its roles are the ROLES list exported by apps/c2m/c2m-routes.js.
+   Read only when the app is installed. Without its files C2M is invisible: no column in People and access,
+   no role can be granted, nothing mounted. A broken file is logged and skipped. */
+const C2M_FILE = path.join(__dirname, 'apps', 'c2m', 'c2m-routes.js');
+let C2M_ROLES = {};
+try { if (fs.existsSync(C2M_FILE)) C2M_ROLES = require(C2M_FILE).ROLES || {}; } catch (e) { console.error('C2M roles not loaded:', e && e.message); }
+const C2M_INSTALLED = Object.keys(C2M_ROLES).length > 0;
 const MODULE_LIST = [
   { key: 'o2s', name: 'O2S', live: true }, { key: 'pd', name: 'PD', live: true },
+  ...(C2M_INSTALLED ? [{ key: 'c2m', name: 'C2M', live: true }] : []),
   { key: 'qms', name: 'QMS', live: false }, { key: 'compha', name: 'ComPha', live: false },
 ];
 const O2S_DEPT_NAMES = { commercial: 'Commercial', production: 'Production', quality: 'Quality', 'supply-chain': 'Supply Chain', finance: 'Finance', leadership: 'Leadership' };
@@ -535,7 +548,9 @@ async function roleCatalogue() {
   const info = (pd && pd.PD_ROLE_INFO) || {};
   const pdRoles = PD_ROLE_KEYS.map(k => ({ key: k, name: pd.PD_ROLES[k], title: null, department: (info[k] || {}).department || 'Team', lead: !!(info[k] || {}).lead, archived: false, builtin: true }));
   heldIn('pd', pdRoles);
-  const byKey = { o2s, pd: pdRoles };
+  const c2mRoles = Object.keys(C2M_ROLES).map(k => ({ key: k, name: (C2M_ROLES[k] || {}).label || k, title: null, department: 'C2M', archived: false, builtin: true }));
+  heldIn('c2m', c2mRoles);
+  const byKey = { o2s, pd: pdRoles, c2m: c2mRoles };
   const modules = MODULE_LIST.map(m => ({ key: m.key, name: m.name, live: m.live, roles: byKey[m.key] || [] }));
   modules.push({ key: 'platform', name: 'Platform', live: true, roles: [{ key: 'admin', name: 'Platform administrator', title: null, department: 'Platform', archived: false, builtin: true }] });
   return modules;
@@ -573,9 +588,10 @@ function validModuleRole(module, role) {
   if (module === 'pd') return PD_ROLE_KEYS.indexOf(role) >= 0;
   if (module === 'o2s') return true; // O2S owns its catalogue (Admin -> Roles); a role created there is grantable at once
   if (module === 'platform') return role === 'admin';
+  if (module === 'c2m') return Object.prototype.hasOwnProperty.call(C2M_ROLES, role); // C2M's own list (17 Oct 2026)
   return false; // qms/compha not built yet
 }
-const REAL_MODULES = ['o2s', 'pd'];
+const REAL_MODULES = ['o2s', 'pd'].concat(C2M_INSTALLED ? ['c2m'] : []);
 // Load a caller's platform-admin capabilities fresh from the DB (roles/admin can change between logins).
 async function loadAdminCaps(username) {
   const [rows] = await pdq('SELECT module, role, is_admin FROM user_module_roles WHERE username=?', [username]);
@@ -652,6 +668,7 @@ app.post('/api/platform/access', auth, accessAdmin, async (req, res) => {
     if (!caps.isCOO) {                                                  // subsystem-admin guardrails
       if (caps.adminModules.indexOf(module) < 0) return res.status(403).json({ error: 'You administer only: ' + (caps.adminModules.join(', ') || '(none)') + '.' });
       if (module === 'o2s' && role === 'COO') return res.status(403).json({ error: 'Only the COO can assign the COO role.' });
+      if (module === 'c2m' && (role === 'cfo' || role === 'coo')) return res.status(403).json({ error: 'Only a platform administrator can give the C2M CFO or COO role.' }); // C2M docs 11 §11.6
       if (await isUserCOO(username)) return res.status(403).json({ error: "You can't change the COO's access." });
     }
     const [ex] = await pdq('SELECT username FROM auth_users WHERE username=?', [username]);
@@ -707,7 +724,7 @@ app.post('/api/platform/admin', auth, admin, async (req, res) => {
     const username = String((req.body && req.body.username) || '').trim().toLowerCase();
     const module = String((req.body && req.body.module) || '').trim().toLowerCase();
     const isAdmin = !!(req.body && req.body.is_admin);
-    if (!username || REAL_MODULES.indexOf(module) < 0) return res.status(400).json({ error: 'valid username and module (o2s|pd) required' });
+    if (!username || REAL_MODULES.indexOf(module) < 0) return res.status(400).json({ error: 'valid username and module (' + REAL_MODULES.join('|') + ') required' });
     const [ex] = await pdq('SELECT role FROM user_module_roles WHERE username=? AND module=?', [username, module]);
     if (!ex[0]) return res.status(400).json({ error: 'Grant ' + username + ' a role in ' + module.toUpperCase() + ' first, then make them its admin.' });
     const [was] = await pdq('SELECT is_admin FROM user_module_roles WHERE username=? AND module=?', [username, module]);
@@ -907,6 +924,14 @@ require('./apps/o2s/public-routes')(app, { store });
   /* A broken alerts file must never stop the launcher, PD or O2S from starting: it is logged and skipped. */
   if (fs.existsSync(o2sNotify)) { try { require(o2sNotify)(app, { store, pdq, auth, admin, services: platformServices, express, path, fs }); }
     catch (e) { console.error('O2S alerts not mounted:', e && e.message); } } }
+
+/* C2M (Cost to Margin; Tahir, 17 Oct 2026): apps/c2m/c2m-routes.js claims /c2m and /api/c2m/* only.
+   Mounted only when its roles loaded (C2M_INSTALLED), so the mount and People and access always agree; before
+   the /api 404 and the O2S catch-all. It runs wholly on its own small pool (dbPool), never on O2S's connections;
+   without one (local-file mode) C2M answers 503 itself and everything else carries on.
+   A broken C2M file is logged and skipped: it can never stop the launcher, O2S or PD from starting. */
+if (C2M_INSTALLED) { try { require(C2M_FILE)(app, { pdq: dbPool ? (sql, params) => dbPool.execute(sql, params || []) : null, pool: dbPool, auth, path, fs, crypto }); }
+  catch (e) { console.error('C2M not mounted:', e && e.message); } }
 
 const _NOCACHE = 'no-store, no-cache, must-revalidate';
 // Shared brand assets (VAN logo + horse-emblem trademark), used by the launcher and every module top bar.

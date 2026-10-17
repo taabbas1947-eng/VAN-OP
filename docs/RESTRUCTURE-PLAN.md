@@ -130,6 +130,7 @@ module.exports = {
 1. **No app keeps users or passwords.** Sign-in is the platform's (unchanged from `PLATFORM-DESIGN.md` §2).
 2. **No app writes platform tables:** `auth_users`, `user_module_roles`, `platform_*`.
 3. **No app touches another app's tables or requires another app's files.** If 2 apps need to share something, it goes into `sdk` as a platform service.
+   **Exception, Tahir 17 Oct 2026:** C2M reads O2S's `app_state` row directly (`SELECT data FROM app_state WHERE id=1`, `apps/c2m/c2m-o2s.js`) to copy POs and trucks into its own `c2m_o2s_*` tables. Read-only: C2M never writes to O2S. Allowed for now; it moves to a platform "read O2S" service when the `sdk` exists (phase 2).
 4. **An app answers only on its own `mount` and `api`.** Route order between apps stops mattering.
 5. **An app that fails to start takes down only itself.** The loader catches the failure and serves a "this app is unavailable" page on that app's addresses. Every other app and the launcher keep working.
 6. **Each app's tests run on their own** (`npm test -- apps/pd`).

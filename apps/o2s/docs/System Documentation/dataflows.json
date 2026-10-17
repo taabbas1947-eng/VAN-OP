@@ -1986,6 +1986,84 @@
      "note": "Alerts write nothing into the O2S data (app_state). The 3 alert tables sit beside it in the same database."
     }
    ]
+  },
+  {
+   "id": "DF-17",
+   "title": "Level 1: complaints (16e)",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-040"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn cmpRaise, cmpSendFindings, cmpHold, cmpPrintReport, cmpJobs",
+    "notify-routes.js alertText"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "From",
+       "Data moved",
+       "To",
+       "Function"
+      ],
+      "rows": [
+       [
+        "Orders, delivered trucks, packing runs",
+        "customer, PO, truck, product, batch on the bag, run",
+        "complaints[].items",
+        "cmpRaise"
+       ],
+       [
+        "The routed person",
+        "findings: chains, records, root cause, actions, responsibility",
+        "complaints[].findings, steps",
+        "cmpSendFindings"
+       ],
+       [
+        "Tahir",
+        "accepted actions with owners, due dates and tests",
+        "complaints[].actions",
+        "cmpAccept"
+       ],
+       [
+        "Senior Warehouse Officer",
+        "held runs, checks, lifts",
+        "complaints[].contain.rows",
+        "cmpHold, cmpResult, cmpLift"
+       ],
+       [
+        "complaints[].contain.rows (holds)",
+        "runs on hold",
+        "free-stock counts, loading, gate pass, release",
+        "cmpLotHold, cmpTruckHeld"
+       ],
+       [
+        "complaints (steps, actions, rows)",
+        "jobs with the complaint and action ids",
+        "Today, alerts",
+        "cmpJobs, pushJobsNow"
+       ],
+       [
+        "complaints",
+        "customer, product, root cause, actions, Tahir’s words",
+        "the outcome report (printed)",
+        "cmpPrintReport"
+       ],
+       [
+        "A batch number correction",
+        "the corrected number",
+        "complaints[].items, contain.rows",
+        "cmpBfxFollow"
+       ]
+      ]
+     }
+    },
+    {
+     "note": "Complaints keep their own history in their steps and do not write to the O2S action log."
+    }
+   ]
   }
  ]
 }

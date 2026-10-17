@@ -2356,6 +2356,85 @@
      }
     }
    ]
+  },
+  {
+   "id": "PF-22",
+   "title": "A customer complaint, from raise to close (16e)",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-040"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn cmpRaise, cmpRoute, cmpOpenContain, cmpSendFindings, cmpAccept, cmpResolve, cmpActDone, cmpCheck, cmpTest, cmpCloseCase",
+    "tests/complaints16e.test.js"
+   ],
+   "blocks": [
+    {
+     "lanes": {
+      "roles": [
+       "COO",
+       "Warehouse",
+       "QA Inspector",
+       "Production Manager",
+       "Plant Manager"
+      ],
+      "steps": [
+       {
+        "role": "COO",
+        "text": "Raises the complaint against the customer, PO, delivered truck and pack batch; picks type, cause, severity; sends it to a named person.",
+        "kind": "start",
+        "rule": "R-040"
+       },
+       {
+        "role": "Plant Manager",
+        "text": "Complaint raised: reads it, taps Seen.",
+        "kind": "task"
+       },
+       {
+        "role": "Warehouse",
+        "text": "Within 24 hours: puts the same batch still at VAN on complaint hold, checks it, records the result, containment done.",
+        "kind": "task"
+       },
+       {
+        "role": "COO",
+        "text": "Acknowledges the customer within 1 working day; interim reply within 5.",
+        "kind": "task"
+       },
+       {
+        "role": "QA Inspector",
+        "text": "Investigates: 2 why chains with evidence, records ticked, root cause, actions, 1 Primary. Can the facts be found? no: cannot establish; not my department: wrong department.",
+        "kind": "decision"
+       },
+       {
+        "role": "COO",
+        "text": "Accepts (sets the test of each corrective action), sends back with a note, or names an independent person.",
+        "kind": "decision"
+       },
+       {
+        "role": "Production Manager",
+        "text": "Does the action, marks it done with a note.",
+        "kind": "task"
+       },
+       {
+        "role": "COO",
+        "text": "Resolves (what VAN did, date told, cost); checks each action; records each fix test on its date; prints the outcome report; final reply within 15 working days.",
+        "kind": "task"
+       },
+       {
+        "role": "COO",
+        "text": "Closes when every step is done; reopen with a reason if new facts come.",
+        "kind": "end"
+       },
+       {
+        "role": "Plant Manager",
+        "text": "Complaint closed: reads it, taps Seen.",
+        "kind": "end"
+       }
+      ]
+     }
+    }
+   ]
   }
  ]
 }

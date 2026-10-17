@@ -2539,6 +2539,47 @@
    ]
   },
   {
+   "id": "FO-51",
+   "title": "F-051 · Complaint clocks",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-040"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn cmpWorkAdd, cmpIsWorkDay, cmpReplies, cmpContainState, cmpDueTxt",
+    "tests/complaints16e.test.js"
+   ],
+   "blocks": [
+    {
+     "p": "Working days are counted from the date the customer told VAN, Monday to Saturday, skipping the holidays on the list. Acknowledge: + 1 working day; interim reply: + 5; final reply: + 15. Containment is due the next working day after the complaint is raised (or reopened). After a reopen the replies count again from the reopen date. A job is past due the day after its due date."
+    },
+    {
+     "table": {
+      "head": [
+       "Unit",
+       "Rounding",
+       "Where in code",
+       "Ruling",
+       "Test that proves it"
+      ],
+      "rows": [
+       [
+        "working days, calendar days",
+        "whole days",
+        "cmpWorkAdd, CMP_REPLIES, CMP_CONTAIN_DAYS",
+        "Tahir 16 Oct 2026 (D-310, D-311)",
+        "tests/complaints16e.test.js"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Worked example: told on Friday 16 Oct 2026 with no holiday: acknowledge by Saturday 17 Oct, interim reply by Thursday 22 Oct, final reply by Tuesday 3 Nov. With a holiday on Monday 19 Oct, the interim reply is due Friday 23 Oct."
+    }
+   ]
+  },
+  {
    "id": "FO-99",
    "title": "Limits and thresholds in one place",
    "owner": "COO",
@@ -3398,6 +3439,24 @@
         "MAX_SENDS_PER_MIN, MAX_JOBS",
         "R-039",
         "not confirmed"
+       ],
+       [
+        "F-051",
+        "Complaint: acknowledge, interim, final reply",
+        "1, 5, 15",
+        "working days",
+        "CMP_REPLIES, cmpWorkAdd",
+        "R-040",
+        "16 Oct 2026, 2026-10-16e (D-311)"
+       ],
+       [
+        "F-051",
+        "Complaint: containment",
+        "1",
+        "working day",
+        "CMP_CONTAIN_DAYS",
+        "R-040",
+        "16 Oct 2026, 2026-10-16e (D-310)"
        ]
       ]
      }

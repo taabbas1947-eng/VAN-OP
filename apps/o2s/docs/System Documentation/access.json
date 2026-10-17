@@ -1123,6 +1123,63 @@
      }
     }
    ]
+  },
+  {
+   "id": "AC-11",
+   "title": "Complaints: who sees and does what (16e)",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-040",
+    "R-019"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn cmpBoss, cmpWatcher, cmpSeesCost, cmpMayContain, screenComplaints",
+    "D-310, D-314"
+   ],
+   "blocks": [
+    {
+     "p": "Checked in the code at every save, not by the access table."
+    },
+    {
+     "table": {
+      "head": [
+       "Who",
+       "May"
+      ],
+      "rows": [
+       [
+        "COO",
+        "Everything: raise, route, review, resolve, reply, check, test, close, cancel, reopen, change an owner, lift a hold, print the report, the holiday list, mark away and back. Sees the cost and the responsibility rows."
+       ],
+       [
+        "Plant Manager",
+        "Reads every complaint (no cost, no responsibility rows); 2 jobs to read. While the COO is marked away: everything the COO does on complaints, the cost included (not the holiday list or the away mark)."
+       ],
+       [
+        "Warehouse (Senior Warehouse Officer)",
+        "Contain: hold the same batch at VAN, record the check, lift a hold with a note, containment done."
+       ],
+       [
+        "KAM, Supply Chain",
+        "A customer call Tahir gives them: record whom, when and what was found."
+       ],
+       [
+        "The routed person (any role)",
+        "Investigate their own complaint; cannot establish; wrong department."
+       ],
+       [
+        "An action owner (any role)",
+        "Mark their own action done with a note."
+       ],
+       [
+        "Everyone else",
+        "Nothing on complaints. The Complaints screen says it is kept by the COO."
+       ]
+      ]
+     }
+    }
+   ]
   }
  ]
 }

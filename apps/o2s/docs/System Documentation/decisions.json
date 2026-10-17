@@ -15477,13 +15477,16 @@
   },
   {
    "id": "D-275",
-   "title": "Client complaint module: ruled 14 Oct, content saved outside the repo",
+   "title": "Client complaint module: ruled 14 Oct, built in 16e",
    "owner": "COO (Tahir)",
-   "rules": [],
-   "status": "not confirmed",
+   "rules": [
+    "R-040"
+   ],
+   "status": "confirmed",
    "src": [
     "OP-HANDOFF-O2S.md RESUME HERE 15 Oct 2026 end of day, step 4",
-    "OP-HANDOFF-O2S.md 15 Oct 2026 (1) \"Not started: ... complaint module build\""
+    "OP-HANDOFF-O2S.md 15 Oct 2026 (1) \"Not started: ... complaint module build\"",
+    "o2s.html changelog 2026-10-16e"
    ],
    "blocks": [
     {
@@ -15503,7 +15506,7 @@
        ],
        [
         "Decision",
-        "Tahir ruled the client complaint module on 14 Oct 2026. The rulings are saved outside this repo, so their content is not written here. It gets its own picture, then an independent expert review of the design against the O2S flow and data tables (end paths and return paths included), and only then the build, after the 2 core changes in D-246."
+        "Tahir ruled the client complaint module on 14 Oct 2026, with more rulings on 16 Oct after an expert review and an audit of the design against O2S 16d. It is built in 2026-10-16e; the rulings are recorded in D-306 to D-319."
        ],
        [
         "Options seen",
@@ -15515,7 +15518,7 @@
        ],
        [
         "Changes",
-        "Not built."
+        "Built in 2026-10-16e (D-306 to D-319)."
        ],
        [
         "Status",
@@ -15528,8 +15531,7 @@
       ]
      }
     }
-   ],
-   "ask": "The 14 Oct complaint rulings are not in the O2S files, so this record cannot list them: (a) copy them into apps/o2s/docs now, (b) record them when the module is built?"
+   ]
   },
   {
    "id": "D-276",
@@ -17265,6 +17267,1010 @@
        [
         "Source",
         "Tahir in chat, 16 Oct 2026; build 2026-10-16d"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-306",
+   "title": "Customer complaints are kept in O2S, in Back Office, by Tahir",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-040"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir in chat, 14 Oct 2026 (complaint rulings)",
+    "Design page \"Complaints in O2S\" version 4 (16 Oct 2026), with \"Complaint Flows by Type\" and \"Complaint RCA Methods\"",
+    "o2s.html changelog 2026-10-16e",
+    "tests/complaints16e.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-16"
+       ],
+       [
+        "Ruled by",
+        "Tahir (COO)"
+       ],
+       [
+        "Decision",
+        "A complaint about a delivered product (packing, print, weight, technical spec, delivery, or a problem that began outside VAN) is raised in O2S by Tahir, against the customer, the PO, the delivered truck and the pack batch, and kept as history. Late delivery and document errors (DC, COA, invoice) are not complaints."
+       ],
+       [
+        "Options seen",
+        "Ruled 14 Oct 2026 (phase 1: Back Office, Tahir only; scope: product quality only)."
+       ],
+       [
+        "Why",
+        "A track record of complaints by customer, product, pack, type and cause."
+       ],
+       [
+        "Changes",
+        "Back Office desk Complaints; screen complaints (screenComplaints, cmpRaise)."
+       ],
+       [
+        "Status",
+        "Current"
+       ],
+       [
+        "Source",
+        "Tahir in chat, 14 and 16 Oct 2026; build 2026-10-16e"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-307",
+   "title": "Each type goes to 1 named person Tahir picks",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-040"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir in chat, 14 Oct 2026 (complaint rulings)",
+    "Design page \"Complaints in O2S\" version 4 (16 Oct 2026), with \"Complaint Flows by Type\" and \"Complaint RCA Methods\"",
+    "o2s.html changelog 2026-10-16e",
+    "tests/complaints16e.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-16"
+       ],
+       [
+        "Ruled by",
+        "Tahir (COO)"
+       ],
+       [
+        "Decision",
+        "Packing and wrong weight or product in the bag: a QA Inspector. Technical spec (caking and moisture included): the QCM. Delivery and problems that began outside VAN: Supply Chain. Wrong print content: entered wrong on the PO goes to the KAM or the person who entered the PO; printed wrong at packing goes to QA. Other: anyone. Tahir can route again at any time; the person may return it as wrong department."
+       ],
+       [
+        "Options seen",
+        "Ruled 14 Oct 2026; print content split later the same day."
+       ],
+       [
+        "Why",
+        "Not recorded"
+       ],
+       [
+        "Changes",
+        "CMP_TYPES (roles, rolesPo), cmpRoute, cmpRouteRoles."
+       ],
+       [
+        "Status",
+        "Current"
+       ],
+       [
+        "Source",
+        "Tahir in chat, 14 and 16 Oct 2026; build 2026-10-16e"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-308",
+   "title": "The investigation is 5 Whys and CAPA, 2 chains, every why with its evidence",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-040"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir in chat, 16 Oct 2026 (expert review and audit answers)",
+    "Design page \"Complaints in O2S\" version 4 (16 Oct 2026), with \"Complaint Flows by Type\" and \"Complaint RCA Methods\"",
+    "o2s.html changelog 2026-10-16e",
+    "tests/complaints16e.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-16"
+       ],
+       [
+        "Ruled by",
+        "Tahir (COO)"
+       ],
+       [
+        "Decision",
+        "Problem; chain 1 why it happened and chain 2 why our check did not catch it (each at least Why 1, up to 5, each with evidence); a second cause chain is allowed; a chain may end at a person’s error; the records listed for the type are ticked Checked or Not on record; root cause in 1 sentence, its kind and where it happened (each type its own stages); a correction, at least 1 corrective action and any preventive actions, each with owner and due date; responsibility rows. Or cannot establish (reason), or wrong department (reason)."
+       ],
+       [
+        "Options seen",
+        "Method A (5 Whys + CAPA) chosen on 16 Oct over Fishbone and 8D; 2 chains, evidence, checklist and stages per type ruled after the expert review."
+       ],
+       [
+        "Why",
+        "Not recorded"
+       ],
+       [
+        "Changes",
+        "cmpOpenInvestigate, cmpRenderInv, cmpSendFindings."
+       ],
+       [
+        "Status",
+        "Current"
+       ],
+       [
+        "Source",
+        "Tahir in chat, 14 and 16 Oct 2026; build 2026-10-16e"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-309",
+   "title": "Exactly 1 Primary; an outside party may be the Primary",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-040"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir in chat, 16 Oct 2026 (expert review and audit answers)",
+    "Design page \"Complaints in O2S\" version 4 (16 Oct 2026), with \"Complaint Flows by Type\" and \"Complaint RCA Methods\"",
+    "o2s.html changelog 2026-10-16e",
+    "tests/complaints16e.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-16"
+       ],
+       [
+        "Ruled by",
+        "Tahir (COO)"
+       ],
+       [
+        "Decision",
+        "Findings name exactly 1 Primary; others are Also or Should have prevented. A department or a VAN person, or an outside party (carrier, client, vendor, other) when the cause lay outside VAN. If the facts cannot be established, Tahir accepts that with his name on it and the complaint closes as could not be established."
+       ],
+       [
+        "Options seen",
+        "Ruled 14 Oct 2026; outside party as Primary ruled 16 Oct (audit ruling 11), replacing \"Primary stays a person\"."
+       ],
+       [
+        "Why",
+        "Not recorded"
+       ],
+       [
+        "Changes",
+        "cmpSendFindings, cmpAccept, cmpCloseGaps."
+       ],
+       [
+        "Status",
+        "Current"
+       ],
+       [
+        "Source",
+        "Tahir in chat, 14 and 16 Oct 2026; build 2026-10-16e"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-310",
+   "title": "Containment within 24 hours; the complaint hold",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-040"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir in chat, 16 Oct 2026 (expert review and audit answers)",
+    "Design page \"Complaints in O2S\" version 4 (16 Oct 2026), with \"Complaint Flows by Type\" and \"Complaint RCA Methods\"",
+    "o2s.html changelog 2026-10-16e",
+    "tests/complaints16e.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-16"
+       ],
+       [
+        "Ruled by",
+        "Tahir (COO)"
+       ],
+       [
+        "Decision",
+        "Every complaint gives the Senior Warehouse Officer (the Warehouse role, whoever holds it) a job due the next working day after it is raised; if it is late, or nobody holds the role, Tahir gets a job: the same batch still at VAN is put on complaint hold and checked. Stock on complaint hold is not counted as free, cannot go on a truck, and a truck carrying it cannot be loaded, given a gate pass or released. No fault found: released with the note. Fault found: kept on hold until it is reworked and checked again, handed to the QA hold (the Production Manager fixes it, QA inspects again) or written off by a reversed packing record; the hold is then lifted with a note. Stock on a truck held this way: its Load, Gate Pass and Release jobs say so and do not escalate. Only the Senior Warehouse Officer or Tahir lifts a hold. Trucks that left with the same batch: Tahir asks a KAM or Supply Chain person to call each customer; they record whom, when and what was found. A batch handed to the QA hold has its free part inspected again before it can ship. A complaint with a faulty batch still held cannot be cancelled until that hold is lifted with one of the 3 ways."
+       ],
+       [
+        "Options seen",
+        "Ruled 16 Oct after the expert review (containment step, 24 hours, Shoaib); audit rulings 1 and 2; containment owner as a role, not a person."
+       ],
+       [
+        "Why",
+        "Not recorded"
+       ],
+       [
+        "Changes",
+        "cmpOpenContain, cmpHold, cmpResult, cmpLift, cmpContainDone, cmpLotHold in lotAvail, lotShipKg, pmvLotFree; cmpTruckHeld in startLoading, issueGatePass, approveRelease; cmpOpenAskContact, cmpOpenContact."
+       ],
+       [
+        "Status",
+        "Current"
+       ],
+       [
+        "Source",
+        "Tahir in chat, 14 and 16 Oct 2026; build 2026-10-16e"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-311",
+   "title": "Customer replies in 1, 5 and 15 working days",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-040"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir in chat, 16 Oct 2026 (expert review and audit answers)",
+    "Design page \"Complaints in O2S\" version 4 (16 Oct 2026), with \"Complaint Flows by Type\" and \"Complaint RCA Methods\"",
+    "o2s.html changelog 2026-10-16e",
+    "tests/complaints16e.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-16"
+       ],
+       [
+        "Ruled by",
+        "Tahir (COO)"
+       ],
+       [
+        "Decision",
+        "From the date the customer told VAN: acknowledge within 1 working day, an interim reply within 5, the final reply with the root cause within 15. 3 dated jobs for Tahir, 1 at a time. Working days are Monday to Saturday; the gazetted holidays on Tahir’s list are not counted. The final reply is recorded with Resolve (date, how, what was said); an earlier reply not recorded then counts as covered."
+       ],
+       [
+        "Options seen",
+        "Targets ruled 16 Oct after the expert review; audit rulings 6 and 7. 16 Oct, after the screen audit: \"Resolve records final reply\" (others: final reply needed to close; keep as built)."
+       ],
+       [
+        "Why",
+        "Not recorded"
+       ],
+       [
+        "Changes",
+        "cmpReplies, cmpWorkAdd, cmpHolidays, cmpOpenReply."
+       ],
+       [
+        "Status",
+        "Current"
+       ],
+       [
+        "Source",
+        "Tahir in chat, 14 and 16 Oct 2026; build 2026-10-16e"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-312",
+   "title": "Actions are Today jobs; Tahir checks each; each fix is tested",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-040"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir in chat, 16 Oct 2026 (expert review and audit answers)",
+    "Design page \"Complaints in O2S\" version 4 (16 Oct 2026), with \"Complaint Flows by Type\" and \"Complaint RCA Methods\"",
+    "o2s.html changelog 2026-10-16e",
+    "tests/complaints16e.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-16"
+       ],
+       [
+        "Ruled by",
+        "Tahir (COO)"
+       ],
+       [
+        "Decision",
+        "When Tahir accepts the findings, each correction, corrective and preventive action goes to its owner on Today with its due date. The owner marks it done with a note; Tahir checks it (done as asked, or back to the owner). For each corrective action Tahir sets a test and its date; on that date he records whether the fix worked; a failed test needs a new corrective action. A late action, or one whose owner has left or moved, gives Tahir a job and he may change the owner. Complaint jobs cannot be deferred."
+       ],
+       [
+        "Options seen",
+        "Ruled 16 Oct; audit rulings 3 and 5 (B5)."
+       ],
+       [
+        "Why",
+        "Not recorded"
+       ],
+       [
+        "Changes",
+        "cmpAccept, cmpActState, cmpOpenAction, cmpCheck, cmpTest, cmpOwner; acDeferActive."
+       ],
+       [
+        "Status",
+        "Current"
+       ],
+       [
+        "Source",
+        "Tahir in chat, 14 and 16 Oct 2026; build 2026-10-16e"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-313",
+   "title": "Close, cancel, reopen, a second destination",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-040"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir in chat, 16 Oct 2026 (expert review and audit answers)",
+    "Design page \"Complaints in O2S\" version 4 (16 Oct 2026), with \"Complaint Flows by Type\" and \"Complaint RCA Methods\"",
+    "o2s.html changelog 2026-10-16e",
+    "tests/complaints16e.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-16"
+       ],
+       [
+        "Ruled by",
+        "Tahir (COO)"
+       ],
+       [
+        "Decision",
+        "The customer’s side closes at Resolve (what VAN did, the date the customer was told, the cost). The complaint closes only when the findings are accepted with exactly 1 Primary (or as could not be established), Resolve is done, every action is checked, every fix test is passed, containment is done, no stock is still on its hold and every customer call is recorded. Cancel at any status before Resolve, with a reason; its holds are released with that reason. Reopen with a reason goes back to Route; the earlier rounds and actions stay. The same product from another destination is a new complaint linked to the first, with its own customer and clocks."
+       ],
+       [
+        "Options seen",
+        "Ruled 14 Oct (reopen, cancel); 16 Oct (customer side at Resolve, test before close); audit rulings 8 and 9."
+       ],
+       [
+        "Why",
+        "Not recorded"
+       ],
+       [
+        "Changes",
+        "cmpCloseGaps, cmpCloseCase, cmpOpenText (cancel, reopen), cmpRaise (links)."
+       ],
+       [
+        "Status",
+        "Current"
+       ],
+       [
+        "Source",
+        "Tahir in chat, 14 and 16 Oct 2026; build 2026-10-16e"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-314",
+   "title": "The Plant Manager reads; deputy while Tahir is away; cost and responsibility hidden",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-040"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir in chat, 16 Oct 2026 (expert review and audit answers)",
+    "Design page \"Complaints in O2S\" version 4 (16 Oct 2026), with \"Complaint Flows by Type\" and \"Complaint RCA Methods\"",
+    "o2s.html changelog 2026-10-16e",
+    "tests/complaints16e.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-16"
+       ],
+       [
+        "Ruled by",
+        "Tahir (COO)"
+       ],
+       [
+        "Decision",
+        "The Plant Manager sees every open complaint on Today, view only, not counted, and gets 2 jobs to read (complaint raised, complaint closed), each with an alert, gone on Seen. While Tahir has marked himself away, the Plant Manager does everything Tahir does on complaints. The rupee cost and the responsibility rows are shown on screen to Tahir only (and to the Plant Manager while Tahir is away)."
+       ],
+       [
+        "Options seen",
+        "Ruled 14 Oct (view-only line); 16 Oct (deputy); audit rulings 4, 5 and 10 (hidden on screen, as prices)."
+       ],
+       [
+        "Why",
+        "Not recorded"
+       ],
+       [
+        "Changes",
+        "cmpTodayWatch, cmpOpenSeen, cmpMarkAway, cmpBoss, cmpSeesCost."
+       ],
+       [
+        "Status",
+        "Current"
+       ],
+       [
+        "Source",
+        "Tahir in chat, 14 and 16 Oct 2026; build 2026-10-16e"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-315",
+   "title": "The outcome report for the customer",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-040"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir in chat, 16 Oct 2026 (expert review and audit answers)",
+    "Design page \"Complaints in O2S\" version 4 (16 Oct 2026), with \"Complaint Flows by Type\" and \"Complaint RCA Methods\"",
+    "o2s.html changelog 2026-10-16e",
+    "tests/complaints16e.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-16"
+       ],
+       [
+        "Ruled by",
+        "Tahir (COO)"
+       ],
+       [
+        "Decision",
+        "Printed by Tahir once the findings are accepted: customer, PO, product, the batch on the bag, what was seen, the root cause, the actions with due dates and status, and Tahir’s own words to the customer. Never who was responsible, the cost or internal batch numbers."
+       ],
+       [
+        "Options seen",
+        "Ruled 16 Oct (\"Yes, print it\", \"After review\", \"No responsibility\"); not 8D."
+       ],
+       [
+        "Why",
+        "Not recorded"
+       ],
+       [
+        "Changes",
+        "cmpOpenReport, cmpPrintReport."
+       ],
+       [
+        "Status",
+        "Current"
+       ],
+       [
+        "Source",
+        "Tahir in chat, 14 and 16 Oct 2026; build 2026-10-16e"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-316",
+   "title": "Build rules from the audit against O2S 16d",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-040"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir in chat, 16 Oct 2026 (expert review and audit answers)",
+    "Design page \"Complaints in O2S\" version 4 (16 Oct 2026), with \"Complaint Flows by Type\" and \"Complaint RCA Methods\"",
+    "o2s.html changelog 2026-10-16e",
+    "tests/complaints16e.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-16"
+       ],
+       [
+        "Ruled by",
+        "Tahir (COO)"
+       ],
+       [
+        "Decision",
+        "B1: every complaint job carries its complaint id and its action, row or reply id at the end of its job key and alert reference. B2: the complaint hold is read by every free-stock count and blocks loading, the gate pass and release. B3: complaint screens check the role in code. B4: every step is its own row with an id, who and when; the status is worked out from the rows. B5: a job whose person left, moved or is late goes to Tahir."
+       ],
+       [
+        "Options seen",
+        "Independent audit of the design against O2S 16d, 16 Oct 2026 (5 blockers); answers to its 12 questions."
+       ],
+       [
+        "Why",
+        "Not recorded"
+       ],
+       [
+        "Changes",
+        "acKey, pushRefOf, cmpMain, cmpAddMove, cmpWho, cmpJobs."
+       ],
+       [
+        "Status",
+        "Current"
+       ],
+       [
+        "Source",
+        "Tahir in chat, 14 and 16 Oct 2026; build 2026-10-16e"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-317",
+   "title": "A read-and-sign brief on complaints for 6 roles",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-040"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir in chat, 16 Oct 2026 (expert review and audit answers)",
+    "Design page \"Complaints in O2S\" version 4 (16 Oct 2026), with \"Complaint Flows by Type\" and \"Complaint RCA Methods\"",
+    "o2s.html changelog 2026-10-16e",
+    "tests/complaints16e.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-16"
+       ],
+       [
+        "Ruled by",
+        "Tahir (COO)"
+       ],
+       [
+        "Decision",
+        "QA Inspector, QCM, Supply Chain, Warehouse, KAM, Plant Manager and Production Manager read and sign \"Complaints: what changes for you\" once (2 to 4 parts each, 1 question per part). Other roles are not asked. A person who has not signed the 13 and 15 Oct brief reads that first."
+       ],
+       [
+        "Options seen",
+        "Audit ruling 12 (\"Brief for job roles\"). 16 Oct, after the screen audit: \"Add Production Manager\"."
+       ],
+       [
+        "Why",
+        "Not recorded"
+       ],
+       [
+        "Changes",
+        "RS_BRIEFS, RS_PARTS_CMP, rsUse, rsWith, rsPending, rsDone; Back Office desk Read and signed: Complaints."
+       ],
+       [
+        "Status",
+        "Current"
+       ],
+       [
+        "Source",
+        "Tahir in chat, 14 and 16 Oct 2026; build 2026-10-16e"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-318",
+   "title": "Complaint alerts",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-040"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir in chat, 16 Oct 2026 (expert review and audit answers)",
+    "Design page \"Complaints in O2S\" version 4 (16 Oct 2026), with \"Complaint Flows by Type\" and \"Complaint RCA Methods\"",
+    "o2s.html changelog 2026-10-16e",
+    "tests/complaints16e.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-16"
+       ],
+       [
+        "Ruled by",
+        "Tahir (COO)"
+       ],
+       [
+        "Decision",
+        "Alerts go to the routed person, each action owner, the Warehouse role for containment and holds, the KAM or Supply Chain person asked to call, and the Plant Manager for the 2 read-it jobs. Tahir gets no alert for his own complaint jobs; the Plant Manager gets them while Tahir is marked away."
+       ],
+       [
+        "Options seen",
+        "Ruled 16 Oct (\"Routed person only\", then action owners and the Plant Manager’s raised and closed)."
+       ],
+       [
+        "Why",
+        "Not recorded"
+       ],
+       [
+        "Changes",
+        "notify-routes.js JOB_ROLES; alertText shows the complaint number and product, never the customer."
+       ],
+       [
+        "Status",
+        "Current"
+       ],
+       [
+        "Source",
+        "Tahir in chat, 14 and 16 Oct 2026; build 2026-10-16e"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-319",
+   "title": "Build choices not ruled",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-040"
+   ],
+   "status": "not confirmed",
+   "src": [
+    "Tahir in chat, 16 Oct 2026 (expert review and audit answers)",
+    "Design page \"Complaints in O2S\" version 4 (16 Oct 2026), with \"Complaint Flows by Type\" and \"Complaint RCA Methods\"",
+    "o2s.html changelog 2026-10-16e",
+    "tests/complaints16e.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-16"
+       ],
+       [
+        "Ruled by",
+        "Not ruled: set in the build"
+       ],
+       [
+        "Decision",
+        "Set in the build where the rulings were silent: (1) the kind of root cause is picked from 7: People, Machine, Method, Material, Check or measurement, Storage or handling, Outside VAN; (2) the quantity is given in bags, drums, cartons or Kg/L; (3) a customer reply is recorded with the date, how (email, phone call, letter, visit, WhatsApp) and what was said; (4) the final reply waits for accepted findings unless it is due; (5) complaint numbers run CMP-0001 upward; a number found on 2 complaints gives Tahir a job to renumber the later one; (6) the 24 hours of containment are counted as the next working day; (7) a faulty batch leaves the complaint hold only reworked and checked, handed to the QA hold, or written off; (8) Tahir may give an away back date, after which the away ends by itself; (9) a holiday taken off the list stays on record as removed."
+       ],
+       [
+        "Options seen",
+        "None put to Tahir."
+       ],
+       [
+        "Why",
+        "Not recorded"
+       ],
+       [
+        "Changes",
+        "CMP_ROOT_CODES, CMP_UNITS, cmpOpenReply, cmpJobs, cmpNextNo, cmpDupNos, CMP_CONTAIN_DAYS."
+       ],
+       [
+        "Status",
+        "Current"
+       ],
+       [
+        "Source",
+        "Tahir in chat, 14 and 16 Oct 2026; build 2026-10-16e"
+       ]
+      ]
+     }
+    }
+   ],
+   "ask": "Are these 6 build choices right, or should any change?"
+  },
+  {
+   "id": "D-320",
+   "title": "What each severity means",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-040"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir in chat, 16 Oct 2026 (after the screen audit)",
+    "o2s.html changelog 2026-10-16e",
+    "fn cmpRaiseHTML, CMP_SEV_MEANS",
+    "tests/complaints16e.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-16"
+       ],
+       [
+        "Ruled by",
+        "Tahir (COO)"
+       ],
+       [
+        "Decision",
+        "Critical: risk to people or crop, or many customers. Major: product unusable for 1 customer. Minor: looks or pack only. Shown on the Raise form; recorded and counted, the targets stay the same for all."
+       ],
+       [
+        "Options seen",
+        "By safety and spread (chosen); by quantity; no meaning shown."
+       ],
+       [
+        "Why",
+        "Not recorded"
+       ],
+       [
+        "Changes",
+        "CMP_SEV_MEANS, the Severity list on Raise."
+       ],
+       [
+        "Status",
+        "Current"
+       ],
+       [
+        "Source",
+        "Tahir in chat, 16 Oct 2026; build 2026-10-16e"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-321",
+   "title": "An order whose packed stock is all on complaint hold",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-040"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir in chat, 17 Oct 2026 (held stock)",
+    "o2s.html changelog 2026-10-16e",
+    "fn orderCmpHeld, lineCmpHeld, bucketOwnerOf, bucketNextOf, heldTagHTML, isStalled, trkMatch",
+    "tests/held16e.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-17"
+       ],
+       [
+        "Ruled by",
+        "Tahir (COO)"
+       ],
+       [
+        "Decision",
+        "It keeps its stage (Packed · QA, QA Pre-shipment) with a red On complaint hold tag and the complaint number. Its next step and owner come from the complaint (its status and who holds it). It is off the QA Inspector’s My work list and is not counted as stalled, because it is held on purpose. It is still late when past its date. The same holds after part of the line has shipped (stage Shipment, the rest held). The tag and the complaint owner show only when the held stock is all the line still owes; a line with more to make or pack keeps showing that work, and its held stock is named on the order. With 2 complaints, each shows its own status and holder; a QA hold on the same order is named with the Production Manager."
+       ],
+       [
+        "Options seen",
+        "Same stage, held tag (chosen); its own 9th stage On hold."
+       ],
+       [
+        "Why",
+        "Not recorded"
+       ],
+       [
+        "Changes",
+        "Order cards, tracker views, order sheet (Open the complaint instead of Open in QA), order bar step reads \"held\"."
+       ],
+       [
+        "Status",
+        "Current"
+       ],
+       [
+        "Source",
+        "Tahir in chat, 17 Oct 2026; build 2026-10-16e"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-322",
+   "title": "Held stock shows as Held, with why and who lifts it",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-040"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir in chat, 17 Oct 2026 (held stock)",
+    "o2s.html changelog 2026-10-16e",
+    "fn lotHeldWhy, lotHeldKg, lineHeld, heldRuns, heldRunsTable, shipHeldHTML",
+    "tests/held16e.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-17"
+       ],
+       [
+        "Ruled by",
+        "Tahir (COO)"
+       ],
+       [
+        "Decision",
+        "One Held heading for complaint holds and QA holds. Each held run shows the PO, product, batch, Kg/L held (packed, not yet on a truck), why (complaint number, or QA hold and its reason) and who lifts it (the Senior Warehouse Officer or Tahir, when the complaint says; the Production Manager fixes and QA inspects again). Shown on the QA screen (Issues: the card Held, not for shipping, which replaces Failed — on hold), Shipments Ready, the order sheet, the Packed, waiting to ship report (Waiting = Ready + Waiting for QA + Held) and the dashboards beside ready to ship. Runs with no order are not counted, as in the Packed, waiting to ship report. A QA-held run already all on trucks is not counted as held; the QA screen still lists it for its fix button. The Production Manager also gets that button."
+       ],
+       [
+        "Options seen",
+        "Held, with the reason (chosen); On complaint hold only."
+       ],
+       [
+        "Why",
+        "Not recorded"
+       ],
+       [
+        "Changes",
+        "QA screen card and Issues count, Shipments Ready card and line tag, report column Held, dashboard notes, stock move note."
+       ],
+       [
+        "Status",
+        "Current"
+       ],
+       [
+        "Source",
+        "Tahir in chat, 17 Oct 2026; build 2026-10-16e"
        ]
       ]
      }

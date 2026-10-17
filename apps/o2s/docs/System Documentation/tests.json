@@ -31,8 +31,8 @@
       "rows": [
        [
         "Passed",
-        "102 files with every check passed",
-        "12,604 checks passed (in the 102 files that ran)"
+        "104 files with every check passed",
+        "13,079 checks passed (in the 104 files that ran)"
        ],
        [
         "Failed",
@@ -41,8 +41,8 @@
        ],
        [
         "All files",
-        "102",
-        "12,604 checks run"
+        "104",
+        "13,079 checks run"
        ]
       ]
      }
@@ -102,7 +102,7 @@
         "authmodel.test.js",
         "Departments, roles and rights: every converted gate answers exactly as before, per role and per right, live and not live; a lead cannot widen himself.",
         "R-003, R-019",
-        "6875 passed, 0 failed"
+        "7140 passed, 0 failed"
        ],
        [
         "backlog.test.js",
@@ -169,6 +169,12 @@
         "A close-short reason must fit the stock: a line packed in full cannot be closed as 'We could not supply'.",
         "R-008",
         "12 passed, 0 failed"
+       ],
+       [
+        "complaints16e.test.js",
+        "Complaints: working days and holidays, raise and route, job keys end with the complaint (B1), the hold in every free-stock count and at the truck (B2), role checks (B3), 2 saves at once keep both steps (B4), a person who left or moved (B5), investigate, accept with tests, replies, resolve, actions checked and tested, close needs every step, cancel releases holds, reopen, the outcome report without responsibility or cost, away, numbers, repeats, batch correction, alert routes and text, the brief to read and sign.",
+        "R-040",
+        "155 passed, 0 failed"
        ],
        [
         "customerapproval.test.js",
@@ -309,6 +315,12 @@
         "80 passed, 0 failed"
        ],
        [
+        "held16e.test.js",
+        "Held stock: part and full complaint hold, the stage kept, owner and next step from the complaint, not stalled, QA hold with its reason and button, held Kg less trucks, the QA, Shipments, report, dashboard, order sheet and stock move readers. After review: part-packed held line shows the work owed, part shipped with the rest held, the run’s own PO, 2 complaints, mixed holds, 0 Kg runs, closed lines, speed guard, escaping, Production Manager button.",
+        "R-040",
+        "55 passed, 0 failed"
+       ],
+       [
         "how.test.js",
         "How are we doing: the dashboard figures (on time, sold, late) worked out the way the rules say.",
         "R-018",
@@ -372,7 +384,7 @@
         "notify16c.db.test.js",
         "Alerts on the server against a throwaway MySQL or MariaDB database: switch on, own device only, the first list sends nothing, 1 alert per job and person, never to the person who saved, named person only, escalations only to their role, night hold and the 7 am summary, gone devices removed, Who has alerts on. Skipped unless O2S_ALERTS_TEST_DB is set.",
         "R-039",
-        "63 passed, 0 failed (on a throwaway MariaDB 10.11 database)"
+        "63 passed, 0 failed"
        ],
        [
         "notify16c.test.js",
@@ -675,7 +687,7 @@
      "note": "harness.js and preflight.js in the same folder are helpers, not tests. _before-auth.html and _before-lot.html are old copies of the app that lotpack and certremove compare against."
     },
     {
-     "note": "Last result: 16 Oct 2026, 17:10, all 102 files run one after the other on o2s.html build 2026-10-16d as delivered. 102 files passed every check; 0 failed; notify16c.db.test.js run on a throwaway MariaDB database."
+     "note": "Last result: 17 Oct 2026, all 104 files run one after the other on o2s.html build 2026-10-16e as delivered. 104 files passed every check; 0 failed; notify16c.db.test.js run on a throwaway MariaDB database."
     },
     {
      "note": "Corrected 16 Oct 2026 (independent check against the code): counts and the last-result line moved to tonight's run (23:37). Changed rows: audit16a (now 90 passed), authmodel (1 failed), guide (77 passed, was 74), poentry (1 failed), publicbatch (passing on Tahir's computer, 15 Oct)."

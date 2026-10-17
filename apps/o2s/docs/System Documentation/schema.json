@@ -5657,6 +5657,120 @@
      }
     }
    ]
+  },
+  {
+   "id": "SC-39",
+   "title": "complaints, cooAway, masters.holidays (16e)",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-040"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn cmpRaise, cmpAddMove, cmpSendFindings, cmpAccept, cmpHold, cmpAskContact, cmpMarkAway, cmpHolidayAdd",
+    "tests/complaints16e.test.js"
+   ],
+   "blocks": [
+    {
+     "p": "Inside the O2S data. Every inner row has its own id, so 2 people saving at once keep both rows."
+    },
+    {
+     "table": {
+      "head": [
+       "List",
+       "Field",
+       "Type",
+       "Meaning"
+      ],
+      "rows": [
+       [
+        "complaints",
+        "id, no",
+        "text",
+        "Row id; the complaint number CMP-0001."
+       ],
+       [
+        "complaints",
+        "createdAt, createdBy",
+        "date-time, person",
+        "When and by whom it was raised."
+       ],
+       [
+        "complaints",
+        "customer, po, oId",
+        "text",
+        "The customer, the PO and the order id."
+       ],
+       [
+        "complaints",
+        "items[]",
+        "rows",
+        "id, dispId, dc, shipId, po, oId, lid, brand, lotId, batchNo (on the bag), kg, notIdentified (the customer cannot say which batch)."
+       ],
+       [
+        "complaints",
+        "type, cause, printAt, severity",
+        "text",
+        "Type key, cause, for print content where it went wrong (po or packing), Critical, Major or Minor."
+       ],
+       [
+        "complaints",
+        "seen, qty, unit, foundAt, foundDate, received, photo",
+        "text, number, dates",
+        "What was seen, how many and of what, where and when found, the date the customer told VAN, where the photos are kept."
+       ],
+       [
+        "complaints",
+        "links[], repeat",
+        "rows, object",
+        "A linked earlier complaint (another destination); earlier complaints with the same product, type and cause at raise."
+       ],
+       [
+        "complaints",
+        "moves[]",
+        "rows",
+        "Every step: id, k (raise, route, findings, cannot, wrong, sendback, independent, accept, resolve, close, reopen, cancel, contain-done, reply, seen, hold, result, lift, ask, contact, report, renumber, a-done, a-ok, a-no, a-owner, a-test, c-owner), at, by, user, role, and the step’s own fields."
+       ],
+       [
+        "complaints",
+        "findings[]",
+        "rows",
+        "id, round, at, by, user, role, indep, cannot, why, problem, chains[] (kind, whys[] n, a, ev), rootCause, rootCode, where, checks[] (rec, ans), acts[] (kind, what, owner, due), resp[] (dept, outside, user, name, role), repeats."
+       ],
+       [
+        "complaints",
+        "actions[]",
+        "rows",
+        "id, fid, from, kind (correction, corrective, preventive), what, owner, due, test (what, date), since, after."
+       ],
+       [
+        "complaints",
+        "contain.rows[]",
+        "rows",
+        "hold: lotId, po, brand, batchNo, kg, at, by, result (k ok or fault, note), lift (note, how: rework, qa or gone). customer: dispId, dc, po, customer, brand, batchNo, stage, owner, contact (whom, date, result)."
+       ],
+       [
+        "complaints",
+        "reportText",
+        "text",
+        "Tahir’s words printed on the outcome report."
+       ],
+       [
+        "cooAway",
+        "id, from, until, at, by, user, endedAt",
+        "row",
+        "Tahir marked away; ends when he marks himself back, or by itself after the back date."
+       ],
+       [
+        "masters.holidays",
+        "id, date, name, by, at, removedAt, removedBy",
+        "row",
+        "Gazetted holidays not counted as working days."
+       ]
+      ]
+     }
+    }
+   ]
   }
  ]
 }

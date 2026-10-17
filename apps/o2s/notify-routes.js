@@ -32,7 +32,18 @@ const JOB_ROLES = {
   'Reprint report': ['QA Inspector'], 'DC rejected': ['Supply Chain'], 'Truck failed': ['Supply Chain'],
   'Yield short': ['Plant Manager'], 'Big pack run': ['Production Manager'], 'Packed in 2 months': ['Production Manager'],
   'Approve sample': null, 'Issue sample': null, 'Check sample': null, 'Sample gate pass': null, 'Review sample': null,
-  'Release sample': null, 'Sample arrived': null, 'Sample feedback': null, 'Sample not approved': null
+  'Release sample': null, 'Sample arrived': null, 'Sample feedback': null, 'Sample not approved': null,
+  /* 16e complaints (Tahir 16 Oct: no alerts for his own complaint jobs). His jobs are listed with the Plant Manager only,
+     so they alert the Plant Manager while Tahir is marked away (the job then carries the Plant Manager in alsoRoles) and never Tahir. */
+  'Route complaint': ['Plant Manager'], 'Review complaint': ['Plant Manager'], 'Independent findings': ['Plant Manager'],
+  'Resolve complaint': ['Plant Manager'], 'Close complaint': ['Plant Manager'], 'Reply to customer': ['Plant Manager'],
+  'Complaint job to reassign': ['Plant Manager'], 'Complaint action past due': ['Plant Manager'], 'Check complaint action': ['Plant Manager'],
+  'Test complaint fix': ['Plant Manager'], 'Complaint number repeats': ['Plant Manager'],
+  'Contain complaint': ['Warehouse'], 'Lift complaint hold': ['Warehouse'], 'Contact customer': ['KAM', 'Supply Chain'],
+  'Containment past due': ['Plant Manager'],
+  /* the routed person and an action owner can hold any role but the COO (Tahir gets no alert for complaint jobs) */
+  'Investigate complaint': ['KAM', 'Supply Chain', 'Supply Chain Officer', 'Production', 'Production Manager', 'Plant Manager', 'Warehouse', 'QA Inspector', 'Lab Rep', 'AQCM', 'QCM', 'CFO', 'Finance', 'Finance Desk Officer'],
+  'Do complaint action': ['KAM', 'Supply Chain', 'Supply Chain Officer', 'Production', 'Production Manager', 'Plant Manager', 'Warehouse', 'QA Inspector', 'Lab Rep', 'AQCM', 'QCM', 'CFO', 'Finance', 'Finance Desk Officer'], 'Complaint raised': ['Plant Manager'], 'Complaint closed': ['Plant Manager']
 };
 /* Escalations: job name -> the only role it may escalate to (acEscalation in o2s.html). Lab test escalates to the QCM by the clock. */
 const ESC_TO = {
@@ -72,6 +83,9 @@ function alertText(data, j, fromName) {
   if (ref.lot) { const p = ((data && data.packingLog) || []).find(x => x && x.id === ref.lot); if (p) { product = product || p.brand || ''; po = po || p.po || ''; batchNo = batchNo || p.brandBatchNo || ''; } }
   if (ref.d) { const s = ((data && data.shipments) || []).find(x => x && (x.dispId === ref.d || x.id === ref.d)); if (s) { product = product || s.brand || ''; po = po || s.po || ''; } }
   if (ref.s) { const sm = ((data && data.samples) || []).find(x => x && x.id === ref.s); if (sm) product = product || sm.product || sm.brand || ''; }
+  let cmpNo = '';
+  if (ref.cm) { const c = ((data && data.complaints) || []).find(x => x && x.id === ref.cm); if (c) { cmpNo = c.no || ''; product = product || (((c.items || [])[0] || {}).brand || ''); po = po || c.po || ''; } }   /* 16e: the complaint number, never the customer */
+  if (cmpNo) parts.push(clip(cmpNo, 20));
   if (product) parts.push(clip(product, 60));
   if (po) parts.push('PO ' + clip(po, 30));
   if (batchNo) parts.push('batch ' + clip(batchNo, 30));

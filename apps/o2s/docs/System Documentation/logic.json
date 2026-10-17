@@ -2684,6 +2684,61 @@
      "note": "Jobs that come with the clock and escalations need at least 1 screen open somewhere (any person, any device) for the 15-minute check; with every screen closed, they alert at the next check after someone opens O2S."
     }
    ]
+  },
+  {
+   "id": "LG-29",
+   "title": "Complaints: status from the steps, the jobs, the hold (16e)",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-040"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn cmpMain, cmpActState, cmpContainState, cmpReplies, cmpCloseGaps, cmpStatus, cmpJobs, cmpLotHold, cmpTruckHeld, cmpWho",
+    "tests/complaints16e.test.js"
+   ],
+   "blocks": [
+    {
+     "p": "A complaint keeps no status field. Every step is a row in its steps list (id, kind, who, when). The case is replayed in time order: a step counts only if it fits where the case stood (for example, findings count only from the person it is routed to). A step is always written after the last step the screen can see."
+    },
+    {
+     "list": [
+      "Case: raised → routed (or routed again) → findings, cannot establish or wrong department → accepted, sent back or with an independent person → resolved → closed; reopened goes back to Route; cancelled at any step before Resolve.",
+      "Each action: open → done → checked (or back to open) → for a corrective action, fix being tested → test passed or failed (a failed test gives a new corrective action). An owner change is a step too.",
+      "Containment: held runs (each with its check and its lift), customer calls, and a containment done step.",
+      "Jobs: Tahir (route, review, independent findings, resolve, reply, check, test, close, past due, job to reassign, number repeats; the Plant Manager too while Tahir is away); the Warehouse role (contain, lift a hold); the named person (investigate); each owner (action); the KAM or Supply Chain person asked (call a customer); the Plant Manager (raised, closed, to read). Every job key ends with the complaint and its action, row or reply.",
+      "The person: the job goes to the person’s role now, from the people list. A person no longer on the list, or in another role, also gives Tahir a job. Without the people list loaded, nobody is called gone.",
+      "The hold: a run held by any complaint that is not cancelled counts 0 as free to inspect, to ship or to move, and a truck that carries it is refused at loading, the gate pass and release."
+     ]
+    }
+   ]
+  },
+  {
+   "id": "LG-30",
+   "title": "Held stock: how it is counted and shown (16e)",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-040"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn lotHeldWhy, lotHeldKg, lineHeld, heldRuns, lineCmpHeld, orderCmpHeld",
+    "tests/held16e.test.js",
+    "D-321, D-322"
+   ],
+   "blocks": [
+    {
+     "list": [
+      "A packing run is held when a complaint that is not cancelled holds it, or it is on QA hold. A run can be held for both reasons; both are shown.",
+      "Held Kg/L of a run = packed less what is already on a truck. Runs with no order are not counted. A truck carrying held stock is stopped at loading, the gate pass and release, and says so itself.",
+      "Held stock is never to inspect and never ready to ship. Packed, waiting to ship = Ready + Waiting for QA + Held.",
+      "A line is complaint held when it stands at QA Pre-shipment or Shipment, has nothing to inspect and nothing ready, and its complaint-held stock is all it still owes (ordered less shipped). An order is complaint held when every line at its stage is. Only then the order shows the tag and takes its next step and owner from the complaint.",
+      "A QA hold alone keeps QA as the owner, as before.",
+      "Speed: the POs with a run on complaint hold are listed once with the hold map; an order not on that list is answered at once, and each order’s answer is kept until the next render.",
+      "Known limit (older data): runs with no order line link are matched by product, so 2 lines of the same product on 1 PO both show the same held runs."
+     ]
+    }
+   ]
   }
  ]
 }

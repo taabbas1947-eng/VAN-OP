@@ -239,6 +239,14 @@ A sweep is taken from any signed-in login whose version matches the server (read
 
 ---
 
+### S-15 · Complaint cost and responsibility will be hidden on screen only · MODULE: O2S
+
+**Raised:** 16 October 2026, by the independent audit of the complaint design (not built yet).
+
+**What it is.** Tahir ruled that the rupee cost of a complaint and the responsibility rows (who was Primary, who was Also) are hidden on screen, the same way prices are today. They will still be stored in the one O2S dataset, which every signed-in login receives through `GET /api/state` (see S-01 and S-05). A login with browser tools could read them.
+
+**Suggested handling (for the security department).** Same fix as S-01 and S-05: serve role-restricted parts of the data from the server only to the roles that may see them. Until then, treat the cost and responsibility rows as readable by any login.
+
 ## Closed items
 
 _None yet._
@@ -257,3 +265,4 @@ _None yet._
 | 2026-10-15 | S-09 raised from O2S 15g: audit rows without ids can be lost when 2 people save at once. |
 | 2026-10-16 | S-10 and S-11 raised while documenting O2S (16a): /api/users readable by any login; no minimum password length on new logins. |
 | 2026-10-16 | S-12 to S-14 raised by the independent review of O2S 16c (alerts); S-14 fixed before release. |
+| 2026-10-16 | S-15 raised by the independent audit of the complaint design: cost and responsibility hidden on screen only (ruled), still in /api/state. |

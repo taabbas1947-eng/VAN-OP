@@ -3221,6 +3221,107 @@
      }
     }
    ]
+  },
+  {
+   "id": "DD-32",
+   "title": "Complaints: the words (16e)",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-040"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Guide rule Customer complaints",
+    "D-306 to D-318"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Word",
+       "Meaning in O2S",
+       "Where it comes from"
+      ],
+      "rows": [
+       [
+        "Complaint",
+        "A customer’s report of a fault in a delivered product, kept in O2S with its own number.",
+        "D-306"
+       ],
+       [
+        "Containment",
+        "Holding and checking the same batch still at VAN, within 24 hours; calling other customers who got it.",
+        "D-310"
+       ],
+       [
+        "Complaint hold",
+        "A packing run held by a complaint: not free, cannot be loaded, passed out or released.",
+        "D-310"
+       ],
+       [
+        "5 Whys",
+        "Asking why up to 5 times, each answer with its evidence, until the cause is something VAN can act on.",
+        "D-308"
+       ],
+       [
+        "Chain",
+        "A line of whys: why it happened; why our check did not catch it; a second cause.",
+        "D-308"
+       ],
+       [
+        "Correction",
+        "What is done for this case now.",
+        "D-308"
+       ],
+       [
+        "Corrective action",
+        "What removes this root cause; it has a test that shows the fix worked.",
+        "D-312"
+       ],
+       [
+        "Preventive action",
+        "What stops the same on other products or lines.",
+        "D-308"
+       ],
+       [
+        "Primary",
+        "The 1 department, person or outside party mainly responsible.",
+        "D-309"
+       ],
+       [
+        "Cannot establish",
+        "The facts cannot be found; Tahir accepts it with his name.",
+        "D-309"
+       ],
+       [
+        "Outcome report",
+        "The paper for the customer: what was found and done, in Tahir’s words.",
+        "D-315"
+       ],
+       [
+        "Away",
+        "Tahir marked away: the Plant Manager does his complaint jobs.",
+        "D-314"
+       ],
+       [
+        "Working day",
+        "Monday to Saturday, not a holiday on the list.",
+        "F-051"
+       ],
+       [
+        "Held",
+        "Packed stock that cannot be inspected or shipped until its hold is lifted: on complaint hold or QA hold. Shown under its own heading with why.",
+        "D-322"
+       ],
+       [
+        "On complaint hold (tag)",
+        "An order whose packed stock is all on complaint hold; its next step is the complaint.",
+        "D-321"
+       ]
+      ]
+     }
+    }
+   ]
   }
  ]
 }

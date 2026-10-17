@@ -16,6 +16,11 @@
 --   O2S (app_state, o2s_*), C2M (c2m_*), auth_users rows, passwords, user_module_roles rows of any other
 --   app, platform_people, earlier platform_access_log rows.
 --
+-- Applied: LOCAL van_platform 17 Oct 2026; PRODUCTION jodilkah_vanop_db 17 Oct 2026 by Tahir in
+-- phpMyAdmin (AFTER: 0, 0, 0). The first production run stopped at #1217 (foreign key): phpMyAdmin's
+-- "Enable foreign key checks" tick box under the SQL box overrides SET FOREIGN_KEY_CHECKS = 0. Untick it
+-- before pasting; the re-run then finished.
+--
 -- BACKUP FIRST. It cannot be undone: export the database (phpMyAdmin → Export → Quick → SQL) and keep
 -- the file outside the repo and shared folders (it holds password hashes).
 -- Safe to run twice: steps 1 to 3 find nothing the second time (IF EXISTS on the table drops). Step 4 is

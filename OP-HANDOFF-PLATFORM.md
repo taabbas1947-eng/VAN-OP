@@ -1291,3 +1291,19 @@ Pushed: **no**.
 - **Render disk:** the backup does not cover it. Live `pd_library_items` has 0 rows, but old orphan files may be
   on the disk. Delete the disk in the Render dashboard if the service is not synced from `render.yaml`;
   until then deploys keep their gap.
+
+### 17 Oct 2026 (late) — PD removal applied on live (MODULE: PLATFORM)
+
+- The push "Remove PD (replaced by C2L)" went first, then Tahir ran `P002_remove_pd.PRODUCTION.sql` in phpMyAdmin
+  on `jodilkah_vanop_db`.
+- The first run stopped at **#1217**: phpMyAdmin's "Enable foreign key checks" tick box overrides the file's
+  `SET FOREIGN_KEY_CHECKS = 0`. By then the history and PD grant removal had committed, and some tables were
+  dropped. Re-run with the box unticked: **AFTER 0, 0, 0** (no PD grants, no `pd_*` tables, no `pd_role`
+  column).
+- The re-run wrote no extra history, because the grants were already gone. The tip is now in both P002 files'
+  "Applied" lines.
+- **Open:**
+  - the Render `pd-library` disk (delete it in the dashboard if still attached; then deploys have no gap);
+  - local MySQL restart, then `DROP DATABASE p002_check` (the jammed test copy).
+
+Pushed: no (log and P002 notes only).

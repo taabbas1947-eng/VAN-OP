@@ -1,3 +1,5 @@
+-- NOTE 17 Oct 2026: auth_users.pd_role was dropped by P002_remove_pd.sql (PD removed). The pd_role parts of this
+-- file fail on a database where P002 has run; this file is kept as history.
 -- ===========================================================================
 -- PLATFORM · RECONCILE-2026-09-25.sql — the 2 role stores, made to agree
 --

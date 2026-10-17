@@ -4,17 +4,13 @@ services:
     runtime: node
     # starter ($7/mo), NOT free. Three things depend on this and all fail silently on free:
     #   1. Free web services block outbound SMTP (ports 25/465/587), so notifications time out.
-    #   2. Free has no persistent disk, so every Library upload is deleted on each deploy
-    #      while the database row survives — the user sees "file missing from the store".
+    #   2. (Was: PD Library uploads on a persistent disk. PD was removed on 17 Oct 2026, and the disk with it.)
     #   3. Free instances sleep, so the first person in each morning waits for a cold start.
     plan: starter
     buildCommand: npm install
     startCommand: node server.js
-    # Persistent storage for PD Library documents. mountPath must contain PD_LIBRARY_DIR below.
-    disk:
-      name: pd-library
-      mountPath: /var/data
-      sizeGB: 1
+    # No disk (17 Oct 2026): the pd-library disk held only PD Library uploads, and PD was removed. Without a disk
+    # Render can start the new version before stopping the old one, so a deploy no longer interrupts anyone.
     envVars:
       # Live data lives in an EXTERNAL MySQL database on HostGator — NOT a Render-managed DB.
       # Set DATABASE_URL by hand in the Render dashboard as a mysql:// URL.
@@ -24,9 +20,6 @@ services:
       # per boot and EVERY deploy silently signs everybody out.
       - key: SESSION_SECRET
         sync: false
-      # Must sit inside the disk mountPath above, or uploads go to ephemeral storage.
-      - key: PD_LIBRARY_DIR
-        value: /var/data/pd-library
       # O2S alerts on laptop and phone (Web Push, 16 Oct 2026). Set by hand in the Render dashboard:
       # make the 2 keys once with `npx web-push generate-vapid-keys`; the subject is a contact,
       # written mailto:someone@van.com.pk. Without them O2S says alerts are off; nothing else changes.

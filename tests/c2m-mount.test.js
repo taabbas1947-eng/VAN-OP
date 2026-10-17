@@ -20,10 +20,10 @@ ok('only a platform administrator gives C2M CFO or COO', /if \(module === 'c2m' 
 ok('C2M roles read from apps/c2m/c2m-routes.js ROLES', /C2M_ROLES = require\(C2M_FILE\)\.ROLES \|\| \{\}/.test(srv));
 ok('reading the roles is guarded (file exists, try/catch)', /try \{ if \(fs\.existsSync\(C2M_FILE\)\) C2M_ROLES = require/.test(srv) && /console\.error\('C2M roles not loaded:'/.test(srv));
 ok('module list carries c2m only when installed', /\.\.\.\(C2M_INSTALLED \? \[\{ key: 'c2m', name: 'C2M', live: true \}\] : \[\]\)/.test(srv));
-ok('REAL_MODULES carries c2m only when installed', /const REAL_MODULES = \['o2s', 'pd'\]\.concat\(C2M_INSTALLED \? \['c2m'\] : \[\]\);/.test(srv));
+ok('REAL_MODULES carries c2m only when installed', /const REAL_MODULES = \['o2s'\]\.concat\(C2M_INSTALLED \? \['c2m'\] : \[\]\);/.test(srv));
 ok('a c2m role must be on C2M\'s own list', /if \(module === 'c2m'\) return Object\.prototype\.hasOwnProperty\.call\(C2M_ROLES, role\);/.test(srv));
-ok('the role catalogue lists C2M\'s roles in its own words', /const byKey = \{ o2s, pd: pdRoles, c2m: c2mRoles \};/.test(srv) && /heldIn\('c2m', c2mRoles\)/.test(srv));
-ok('o2s and pd are unchanged in the module list', /\{ key: 'o2s', name: 'O2S', live: true \}, \{ key: 'pd', name: 'PD', live: true \}/.test(srv));
+ok('the role catalogue lists C2M\'s roles in its own words', /const byKey = \{ o2s, c2m: c2mRoles \};/.test(srv) && /heldIn\('c2m', c2mRoles\)/.test(srv));
+ok('o2s is unchanged in the module list, and PD is gone (removed 17 Oct 2026)', /\{ key: 'o2s', name: 'O2S', live: true \},/.test(srv) && !/key: 'pd'/.test(srv));
 
 /* the mount */
 const iMount = srv.indexOf('require(C2M_FILE)(app,');

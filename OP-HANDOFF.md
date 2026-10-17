@@ -8,7 +8,8 @@
 |---|---|
 | Anything | `CLAUDE.md` (§0 to §3.0), then `README.md` |
 | **O2S** | `apps/o2s/OP-HANDOFF-O2S.md` → the last "RESUME HERE" block (26 Sept) |
-| **PD** | `apps/pd/OP-HANDOFF-PD.md` → the entry "28 September 2026 — PD: where it stands" |
+| **C2M** | `apps/c2m/OP-HANDOFF-C2M.md` → its last entry |
+| **PD** | removed 17 Oct 2026; C2L replaces it (its log is in git history) |
 | **PLATFORM** (launcher, sign-in, People and access, roles, Nigehbaan joining) | `OP-HANDOFF-PLATFORM.md` → the entry "28 September 2026 — PLATFORM: where it stands", then `docs/PLATFORM-DESIGN.md` and `ACCESS-MODEL.md` |
 
 **1 Oct 2026:** the repo is the platform. Each app's log now lives in that
@@ -26,7 +27,8 @@ between. It was split per module the same day.
 | Module | File | What belongs in it |
 |---|---|---|
 | **O2S** | `apps/o2s/OP-HANDOFF-O2S.md` | Order-to-Ship — `apps/o2s/` |
-| **PD** | `apps/pd/OP-HANDOFF-PD.md` | Product Development — `apps/pd/` |
+| **C2M** | `apps/c2m/OP-HANDOFF-C2M.md` | Cost to Margin — `apps/c2m/` |
+| **PD** | (removed 17 Oct 2026) | Product Development — deleted; C2L replaces it |
 | **Platform** | `OP-HANDOFF-PLATFORM.md` | The platform itself (the repo root), and genuinely cross-app work |
 
 `docs/OP-HANDOFF-ARCHIVE-2026-09-23.md` is the original file, byte for byte, kept so

@@ -1,7 +1,8 @@
 # VAN Systems · the access model
 
 Ruled by Tahir on 25 September 2026. Built the same day in `server.js`,
-`launcher.html` and `apps/pd/pd-lib.js`. The full proposal with the findings is the
+`launcher.html` and `apps/pd/pd-lib.js`. (17 Oct 2026: PD was removed, with its `pd_role` mirror column and
+PD roles; `LEGACY_COL` now holds O2S only. Read PD below as history; C2L replaces it.) The full proposal with the findings is the
 "VAN Systems Access Model" page on claude.ai.
 
 ## The rule

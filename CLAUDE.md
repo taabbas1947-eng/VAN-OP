@@ -43,7 +43,7 @@ are all the same instruction and Claude treats them as binding:
 
 | What Tahir types | What it means |
 |---|---|
-| `pd` · `PD` · "lets do pd" · "pd app" · "working on pd" | `MODULE: PD` |
+| `pd` · `PD` · "lets do pd" · "pd app" · "working on pd" | `MODULE: PD`: **PD was removed on 17 Oct 2026**; C2L replaces it. Ask Tahir which app he means |
 | `o2s` · `O2S` · "the 2nd app" · "order to ship" | `MODULE: O2S` |
 | `platform` · "launcher" · "login" · "the access matrix" | `MODULE: PLATFORM` |
 
@@ -82,7 +82,7 @@ it does not quietly touch both and call it one task.
 | Module | Owns these paths | Live at |
 |---|---|---|
 | **O2S** (Order to Ship) | **everything under `apps/o2s/`** — `o2s.html` (the app, ~18,900 lines), `tests/` · the O2S routes in `server.js` (`/api/state`, `/api/rev`, `/api/users`) · the public lab report check for van.com.pk, `public-routes.js` (no sign-in, read-only; mounted by 1 line in `server.js`) · O2S alerts on laptop and phone, `notify-routes.js`, `sw.js`, `manifest.json`, its icons and `migrations/` (mounted by 1 guarded line in `server.js`, 16 Oct 2026) · `data/state.json` (local-file mode only) | `/o2s` (and any path not claimed by another app); `/api/public/batch/*` |
-| **PD** (Product Development) | **everything under `apps/pd/`** — `pd.html`, `pd-lib.js`, `pd-routes.js` (every `/api/pd/*` route, mounted from `server.js` by 1 `require`), `drop.html`, `migrations/`, `tests/` | `/pd`, `/pd/drop` |
+| **PD** (Product Development) | **REMOVED 17 Oct 2026** (Tahir): `apps/pd/` deleted (git history keeps it), its routes, roles, Render disk and `pd_*` tables removed (`migrations/P002_remove_pd.sql`). The collaborator's **C2L** (Concept to Launch) replaces it; the launcher tile is C2L. `/pd`, `/pd/*` and `/drop` redirect to the launcher. | (none) |
 | **PLATFORM** (the repo itself — the base every app runs on) | **everything at the repo root that is not inside an app's folder**: `server.js` (sign-in, `/api/login`, `/api/me`, `/api/platform/*`, mounting the apps) · `launcher.html` · `migrations/` (P001, RECONCILE) · `docs/` (design, access model, architecture, restructure plan, the security register) · `tests/` · `OP-HANDOFF.md`, `OP-HANDOFF-PLATFORM.md` · `package.json`, `render.yaml`, `assets/`, `.claude/` · tables `auth_users`, `user_module_roles`, `platform_people`, `platform_access_log` | `/` |
 | **C2M** (Cost to Margin) | **everything under `apps/c2m/`** (being integrated, 17 Oct 2026: platform part ready, app files arrive in step 3) — `c2m.html`, `c2m-routes.js` (every `/c2m` and `/api/c2m/*` route, mounted from `server.js` by 1 guarded line), `c2m-engine.js`, `c2m-lib.js`, `c2m-o2s.js` (reads O2S `app_state`, read-only: the exception in `docs/RESTRUCTURE-PLAN.md` §3.5), `c2m-pricelist.js`, `migrations/`, `docs/` · tables `c2m_*` · owns cost, recipes and price (§2) | `/c2m` (launcher tile closed until it opens) |
 | **HRMS** | **not in this repo.** A separate Django app with its own login at `van-hrms-31hl.onrender.com`; the launcher card only links to it | its own address |
@@ -224,11 +224,12 @@ and a live one, it ships the live one and writes the remainder down.
   development runs against XAMPP (`van_platform`) via `.env`.
 - **O2S** is live and in daily use. Its state and next steps:
   `apps/o2s/OP-HANDOFF-O2S.md`, last "RESUME HERE" block.
-- **PD** is built (the nine-object model, 4 screens) and not yet opened to
-  users. Local database has migrations 001–008; production has 003–006 and
-  **not 007 or 008**, so PD in production fails on Runs, the dossier and the
-  Report until Tahir applies them. State and next steps: `apps/pd/OP-HANDOFF-PD.md`,
-  entry of 28 Sept.
+- **PD** was **removed on 17 Oct 2026** (Tahir): code, roles, Render disk and
+  `pd_*` tables (`migrations/P002_remove_pd.sql`, local done; production by
+  Tahir). C2L replaces it. Its 007/008 migrations will never run.
+  History: git, and `OP-HANDOFF-PLATFORM.md` entry of 17 Oct.
+- **C2M** (Cost to Margin) is live in stages since 17 Oct 2026: state and next
+  steps in `apps/c2m/OP-HANDOFF-C2M.md`, last entry.
 - **PLATFORM:** People and access, phase 1 is pushed (commit `b807e01`). Its
   migration `migrations/P001…` is applied to **both** databases: local
   28 Sept, production 16 Oct 2026 (by Tahir in phpMyAdmin). Design:
@@ -303,7 +304,8 @@ That file, not Claude's memory, is the continuity between sessions.
 | Module | File |
 |---|---|
 | O2S | `apps/o2s/OP-HANDOFF-O2S.md` |
-| PD | `apps/pd/OP-HANDOFF-PD.md` |
+| C2M | `apps/c2m/OP-HANDOFF-C2M.md` |
+| PD | removed 17 Oct 2026 (its log is in git history) |
 | PLATFORM, or genuinely cross-app | `OP-HANDOFF-PLATFORM.md` (repo root) |
 
 1 Oct 2026: each app's log moved into its app folder (names unchanged); the

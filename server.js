@@ -5,7 +5,7 @@ const crypto = require('crypto');
 const { AsyncLocalStorage } = require('async_hooks');
 // PLATFORM, 27 Sept 2026: who is making this request, for the access log (set in auth()).
 const reqCtx = new AsyncLocalStorage();
-const pd = require('./apps/pd/pd-lib'); // everything Product Development lives under ./apps/pd — each app in its own folder; the repo root is the platform
+// PD (Product Development) was removed on 17 Oct 2026 (Tahir): the collaborator's C2L replaces it. Its pd_* tables are dropped on the databases by hand.
 
 // Local-dev convenience: load a gitignored .env if present, WITHOUT overriding real env vars.
 // This keeps `npm start` working locally (DATABASE_URL / SESSION_SECRET) without exporting them by
@@ -213,48 +213,6 @@ if (DATABASE_URL) {
   console.log('Storage: local file');
 }
 
-/* ---------- PD (Product Development) foundation migration ---------- */
-// RETIRED 9 Sept 2026 — this used to auto-apply apps/pd/migrations/001_pd_foundation.sql
-// (the old gate/hypothesis schema) on every boot, tolerating "already applied"
-// errors so it was safe to re-run forever. That is now actively dangerous:
-// apps/pd/migrations/002_pd_core_rebuild.sql DROPs those same tables (REUSE-RULES.md
-// §2 — everything not whitelisted is retired), and 001's CREATE TABLE IF NOT
-// EXISTS statements would silently recreate every one of them on the very next
-// restart after 002 is run, undoing the whole rebuild with no error and no log
-// line anyone would think to look for. Self-caught in the data-safety review
-// of the rebuild, 9 Sept 2026 — this file was never touched by that work, so
-// nobody would have thought to check it.
-//
-// 002 is NOT wired in here to replace 001: unlike 001, it contains one-time
-// DROP TABLE / ENUM-narrowing statements that must never run automatically on
-// a boot loop (see 002's own header — "Run ONCE... nobody but Tahir, by hand").
-// A boot-time idempotent "ensure the new tables exist" step, if ever needed,
-// is a decision for the screens milestone, not decided here.
-async function runPdMigration() {
-  if (!pdq) { console.log('PD migration skipped — no DATABASE_URL (local-file mode has no relational SQL to migrate).'); return; }
-  // Bootstrap: give the seeded 'admin' account (already the hardcoded O2S COO —
-  // see DEFAULT_USERS above) the matching PD role too, but only if NOBODY has a
-  // PD role yet. This makes a fresh install/local dev DB immediately usable
-  // (sign in as admin, everything's unlocked) without a manual API call, while
-  // never overwriting a real deployment's own role assignments. Kept — this
-  // does not depend on the retired schema, only on auth_users.pd_role, which
-  // 002 alters but does not remove.
-  try {
-    const [countRows] = await pdq("SELECT COUNT(*) AS n FROM auth_users WHERE pd_role IS NOT NULL");
-    if (Number(countRows[0].n) === 0) {
-      await pdq("UPDATE auth_users SET pd_role='coo' WHERE username='admin'");
-      console.log("PD bootstrap: no PD roles existed yet — granted 'admin' the coo PD role so a fresh install/local DB is immediately usable.");
-    }
-  } catch (e) { console.error('PD role bootstrap check failed (non-fatal):', e.message); }
-  // The old materials cost-register seed (pd.MATERIALS_SEED: code/name/N/P2O5/
-  // S/Zn/cost_per_tonne/...) is gone on purpose, not by accident — it seeded
-  // placeholder COST data, and cost is OUT of PD platform-wide, no exception
-  // (PENDING-DECISIONS.md §D, settled 1 Sept 2026; REUSE-RULES.md §2 item 1,
-  // "REMOVED 1 Sept 2026"). Re-seeding it would reintroduce exactly what was
-  // ruled out. pd_materials keeps its real, non-cost assay data via the
-  // Combination Bank's own material register — not this boot-time seed.
-}
-
 /* ---------- one-time migration: move existing users into hashed auth ---------- */
 async function migrateAuth() {
   if ((await store.usersCount()) > 0) return;
@@ -296,45 +254,6 @@ async function admin(req, res, next) {
 }
 const stripUsers = (d) => { if (d && typeof d === 'object') { const o = { ...d }; delete o.users; return o; } return d; };
 
-/* ---------- PD auth: same token as O2S (auth() above), plus the PD role loaded fresh from
-   the DB on every request rather than baked into the 30-day token, so a role change takes
-   effect immediately instead of waiting for re-login. */
-async function pdAuth(req, res, next) {
-  if (!pdq) return res.status(503).json({ error: 'PD is not available — this server has no DATABASE_URL (local-file mode).' });
-  try {
-    const [rows] = await pdq('SELECT id, username, name, pd_role, active FROM auth_users WHERE username=?', [req.user.u]);
-    const u = rows[0];
-    if (!u || !u.active) return res.status(403).json({ error: 'No PD account for this login.' });
-    req.pdUser = u;
-    next();
-  } catch (e) { res.status(500).json({ error: String(e) }); }
-}
-function pdSurface(surface) {
-  return (req, res, next) => {
-    if (!pd.can_pd(req.pdUser.pd_role, surface)) {
-      return res.status(403).json({ error: `Not permitted: ${surface}. Your PD role: ${req.pdUser.pd_role || '(none)'}. Ask the COO or Data Custodian for access.` });
-    }
-    next();
-  };
-}
-
-/* Auto-audit: log every successful PD mutation (POST/PUT) to pd_audit_log. The PHP app called audit() by
-   hand in each handler; here one middleware captures the same who/what/when, with a path-derived action. */
-function pdAuditLogger(req, res, next) {
-  if (!pdq || (req.method !== 'POST' && req.method !== 'PUT')) return next();
-  res.on('finish', () => {
-    try {
-      if (res.statusCode >= 400) return;
-      const uid = req.pdUser && req.pdUser.id;
-      if (!uid) return;
-      const full = String(req.originalUrl || '').split('?')[0];
-      const action = (full.replace(/^\/api\/pd\/?/, '').replace(/\/\d+(?=\/|$)/g, '').replace(/[^A-Za-z0-9]+/g, '_').replace(/^_|_$/g, '') || 'root').slice(0, 80);
-      pdq('INSERT INTO pd_audit_log (user_id, action, detail) VALUES (?,?,?)', [uid, action, (req.method + ' ' + full).slice(0, 500)]).catch(() => {});
-    } catch (e) {}
-  });
-  next();
-}
-app.use('/api/pd', pdAuditLogger);
 
 /* ---------- routes ---------- */
 app.get('/api/health', (req, res) => res.json({ ok: true }));
@@ -396,7 +315,7 @@ app.post('/api/me/password', auth, async (req, res) => {
    user_module_roles and the module's own column can no longer disagree. Nothing in
    o2s.html changes; an O2S user sees nothing. Each module still owns WHAT its roles are
    (its catalogue) and what they may do; the platform owns WHO holds them. */
-const LEGACY_COL = { o2s: 'role', pd: 'pd_role' };   // the columns the modules read today
+const LEGACY_COL = { o2s: 'role' };   // the column O2S reads today; PD's pd_role is no longer written (PD removed 17 Oct 2026)
 async function heldRole(username, module) {
   const [r] = await pdq('SELECT role FROM user_module_roles WHERE username=? AND module=?', [username, module]);
   return r[0] ? r[0].role : null;
@@ -527,7 +446,7 @@ let C2M_ROLES = {};
 try { if (fs.existsSync(C2M_FILE)) C2M_ROLES = require(C2M_FILE).ROLES || {}; } catch (e) { console.error('C2M roles not loaded:', e && e.message); }
 const C2M_INSTALLED = Object.keys(C2M_ROLES).length > 0;
 const MODULE_LIST = [
-  { key: 'o2s', name: 'O2S', live: true }, { key: 'pd', name: 'PD', live: true },
+  { key: 'o2s', name: 'O2S', live: true },
   ...(C2M_INSTALLED ? [{ key: 'c2m', name: 'C2M', live: true }] : []),
   { key: 'qms', name: 'QMS', live: false }, { key: 'compha', name: 'ComPha', live: false },
 ];
@@ -545,12 +464,9 @@ async function roleCatalogue() {
       archived: !!r.archived, builtin: !!r.builtin }));
   } catch (e) {}
   heldIn('o2s', o2s);
-  const info = (pd && pd.PD_ROLE_INFO) || {};
-  const pdRoles = PD_ROLE_KEYS.map(k => ({ key: k, name: pd.PD_ROLES[k], title: null, department: (info[k] || {}).department || 'Team', lead: !!(info[k] || {}).lead, archived: false, builtin: true }));
-  heldIn('pd', pdRoles);
   const c2mRoles = Object.keys(C2M_ROLES).map(k => ({ key: k, name: (C2M_ROLES[k] || {}).label || k, title: null, department: 'C2M', archived: false, builtin: true }));
   heldIn('c2m', c2mRoles);
-  const byKey = { o2s, pd: pdRoles, c2m: c2mRoles };
+  const byKey = { o2s, c2m: c2mRoles };
   const modules = MODULE_LIST.map(m => ({ key: m.key, name: m.name, live: m.live, roles: byKey[m.key] || [] }));
   modules.push({ key: 'platform', name: 'Platform', live: true, roles: [{ key: 'admin', name: 'Platform administrator', title: null, department: 'Platform', archived: false, builtin: true }] });
   return modules;
@@ -582,16 +498,14 @@ app.get('/api/me', auth, async (req, res) => {
 
 /* ---------- Platform access admin (COO): assign / revoke module roles. Dual-write: user_module_roles + the legacy column,
    so O2S (auth_users.role) and PD (auth_users.pd_role) keep reading their columns unchanged. ---------- */
-const PD_ROLE_KEYS = Object.keys((pd && pd.PD_ROLES) || {});
 function validModuleRole(module, role) {
   if (!role) return false;
-  if (module === 'pd') return PD_ROLE_KEYS.indexOf(role) >= 0;
   if (module === 'o2s') return true; // O2S owns its catalogue (Admin -> Roles); a role created there is grantable at once
   if (module === 'platform') return role === 'admin';
   if (module === 'c2m') return Object.prototype.hasOwnProperty.call(C2M_ROLES, role); // C2M's own list (17 Oct 2026)
   return false; // qms/compha not built yet
 }
-const REAL_MODULES = ['o2s', 'pd'].concat(C2M_INSTALLED ? ['c2m'] : []);
+const REAL_MODULES = ['o2s'].concat(C2M_INSTALLED ? ['c2m'] : []);
 // Load a caller's platform-admin capabilities fresh from the DB (roles/admin can change between logins).
 async function loadAdminCaps(username) {
   const [rows] = await pdq('SELECT module, role, is_admin FROM user_module_roles WHERE username=?', [username]);
@@ -644,8 +558,6 @@ app.get('/api/platform/users', auth, accessAdmin, async (req, res) => {
         (t.people && seeContacts) ? { whatsapp: u.whatsapp || null, email: u.email || null } : {})),
       platform: { people: t.people, log: t.log, switchOff: t.active },
       o2sRoles: o2sRoles,
-      pdRoles: PD_ROLE_KEYS,
-      pdRoleLabels: (pd && pd.PD_ROLES) || {}, // FIX D10: the Access screen showed raw keys (rta, qc_head, ...)
       caps: req.adminCaps
     });
   } catch (e) { res.status(500).json({ error: String(e) }); }
@@ -906,10 +818,6 @@ app.delete('/api/users/:username', auth, admin, async (req, res) => {
   } catch (e) { res.status(500).json({ error: String(e) }); }
 });
 
-/* PD (Product Development) routes live in apps/pd/pd-routes.js — mounted here so the
-   /api/pd/* handlers register at the same point they used to (before the static
-   and catch-all routes below). PD work happens in apps/pd/, never in this file. */
-require('./apps/pd/pd-routes')(app, { pdq, auth, admin, pdAuth, pdSurface, pd, path, fs, crypto });
 
 /* O2S public batch check for van.com.pk (no sign-in, read-only): apps/o2s/public-routes.js.
    Mounted before the /api catch-all below so /api/public/* is answered. */
@@ -960,10 +868,9 @@ app.use('/api', (req, res) => res.status(404).json({ error: 'No such endpoint.' 
 app.use('/assets', express.static(path.join(__dirname, 'assets'), { maxAge: '7d', immutable: false }));
 // Front door: the platform launcher.
 app.get(['/', '/launcher', '/launcher.html'], (req, res) => { res.set('Cache-Control', _NOCACHE); res.sendFile(path.join(__dirname, 'launcher.html')); });
-// Public drop box (no login) — must come before the /pd/* SPA route below.
-app.get(['/drop', '/pd/drop'], (req, res) => { res.set('Cache-Control', _NOCACHE); res.sendFile(path.join(__dirname, 'apps', 'pd', 'drop.html')); });
-// PD app: /pd (must come before the O2S catch-all below, or it silently serves O2S instead — this bit us once already).
-app.get(['/pd', '/pd/*'], (req, res) => { res.set('Cache-Control', _NOCACHE); res.sendFile(path.join(__dirname, 'apps', 'pd', 'pd.html')); });
+// PD (Product Development) was removed on 17 Oct 2026 (Tahir): the collaborator's C2L replaces it.
+// Its old addresses (the app, its API pages and the public drop box) go to the launcher, never into the O2S catch-all.
+app.get(['/drop', '/pd', '/pd/*'], (req, res) => res.redirect(302, '/'));
 // Nigehbaan, demo for now (7 Oct 2026; must come before the O2S catch-all). The demo file is kept out of git while
 // the repository is public, so where it is missing (Render) the address says so instead of falling into O2S.
 app.get(['/nigehbaan', '/nigehbaan/*'], (req, res) => {
@@ -975,8 +882,6 @@ app.get(['/nigehbaan', '/nigehbaan/*'], (req, res) => {
 // O2S app: any other non-API path falls through to it.
 app.get('*', (req, res) => { res.set('Cache-Control', _NOCACHE); res.sendFile(path.join(__dirname, 'apps', 'o2s', 'o2s.html')); });
 
-// migrateAuth runs BEFORE runPdMigration: the PD bootstrap step (inside runPdMigration)
-// grants the seeded 'admin' row a PD role, which only works if that row already exists.
 /* ---------- Platform migration: user_module_roles — the platform's authoritative user->module->role store ----------
    Additive. Creates the table and seeds it once from today's columns (auth_users.role -> o2s, auth_users.pd_role -> pd).
    Idempotent: PK (username, module) means re-runs and manual/admin edits are never overwritten. The legacy columns
@@ -991,7 +896,7 @@ async function runPlatformMigration() {
     PRIMARY KEY (username, module)
   )`);
   await pdq("INSERT IGNORE INTO user_module_roles (username, module, role) SELECT username, 'o2s', role FROM auth_users WHERE role IS NOT NULL AND role <> ''");
-  try { await pdq("INSERT IGNORE INTO user_module_roles (username, module, role) SELECT username, 'pd', pd_role FROM auth_users WHERE pd_role IS NOT NULL"); } catch (e) { /* pd_role column not present yet */ }
+  // PD rows are no longer seeded from auth_users.pd_role (PD removed 17 Oct 2026); otherwise they would return on every restart.
   // is_admin: marks a grant as a SUBSYSTEM ADMIN of that module (can manage roles within it).
   // Additive + idempotent — error 1060 (duplicate column) on re-run is expected and ignored.
   try { await pdq("ALTER TABLE user_module_roles ADD COLUMN is_admin TINYINT(1) NOT NULL DEFAULT 0"); } catch (e) { if (e && e.errno !== 1060) console.log('is_admin column add skipped: ' + e.message); }
@@ -1003,4 +908,4 @@ async function runPlatformMigration() {
 // PLATFORM 27 Sept: load the switched-off logins before the first request. Non-fatal: if it
 // fails, nobody is switched off in memory, which is exactly today's behaviour.
 const loadSwitchedOffSafe = () => loadSwitchedOff().catch(e => console.error('Platform: switched-off list not loaded:', e.message));
-store.init().then(migrateAuth).then(runPdMigration).then(runPlatformMigration).then(loadSwitchedOffSafe).then(() => app.listen(PORT, () => console.log('VAN Order Control Tower on port ' + PORT)));
+store.init().then(migrateAuth).then(runPlatformMigration).then(loadSwitchedOffSafe).then(() => app.listen(PORT, () => console.log('VAN Order Control Tower on port ' + PORT)));

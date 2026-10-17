@@ -159,3 +159,33 @@ Go-live steps:
 5. Check: pull O2S, Margin, and Yawar enters the real budgets (seeded 0).
 
 Pushed: no.
+
+## 17 Oct 2026 (5) — TASK for Monday 19 Oct 2026: C2M live data load, with Yawar (MODULE: C2M) — OPEN
+
+Status, Saturday 17 Oct: steps 1 and 2 are done.
+- Step 1: pushed by Tahir.
+- Step 2: `001_c2m_core.PRODUCTION.sql` run on live by Tahir; 39 empty `c2m_` tables.
+
+Steps 3 to 5 wait for **Monday 19 Oct**, because Yawar (CFO) is on leave until then.
+
+**Monday, in this order:**
+1. **Load the data on live.** Tahir picks one way:
+   - **A (recommended):** export the C2M tables from local `van_platform` (the loader rehearsal Tahir checked on 17 Oct) as a `.sql` file. Leave out the test traces (2 test pulls by ahmer in `c2m_sync_run`, 3 `c2m_audit` rows, the copied O2S rows). Prefix the tables `jodilkah_vanop_db.`, then import in phpMyAdmin.
+   - **B:** run the loader against live from Tahir's PC with the prepared script `run-live-load.ps1` (scratchpad `c2m-live-load`, outside the repo). Needs Remote MySQL for his IP and the password typed by him.
+   - Either way: once only, with the loader's "refuses a second run" check.
+2. **Roles on live** in People and access: Tahir **coo**, Yawar **cfo**. Nobody else until v0.6.
+3. **With Yawar:**
+   - Pull O2S now. Check Margin.
+   - Enter the real budgets in Back Office → Rules. They are seeded 0: `budget_gp`, `ambition_gp`, `wl_budget_gp`, `conv_budget_month`.
+   - Compare 2 or 3 products against his own cost sheet.
+   - Start the 25 import-queue items. Note v0.6 item 2: "Correct" changes the figure only for rate items.
+4. **No customer price-list PDFs are sent** until v0.6.
+
+Until then the live C2M tile is locked for everyone, because nobody holds a C2M role.
+
+Pushed: no (log entry only).
+- **Correction, same day (Tahir):** live C2M roles are already given: **3 users, COO and CFO roles only.**
+  The live C2M tile opens for those 3 and is locked only for people without a C2M role. It is not "locked for
+  everyone", as written above, and it is not to be locked or hidden. Until Monday's load, those 3 see C2M
+  with its tables but no costs or prices. Monday step 2 (roles) is therefore already done; check the 3
+  holders in People and access.

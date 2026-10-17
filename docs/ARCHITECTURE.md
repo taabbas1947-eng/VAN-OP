@@ -86,13 +86,12 @@ A subsystem = **a front-end page + an API namespace + its own tables + a role se
 |-------|--------|
 | `/assets/*` | Shared brand assets (static, cacheable) |
 | `/`, `/launcher` | `launcher.html` (front door) |
-| `/drop`, `/pd/drop` | `apps/pd/drop.html` (public, no login) |
-| `/pd`, `/pd/*` | `apps/pd/pd.html` (PD app) |
+| `/drop`, `/pd`, `/pd/*` | redirect to the launcher (PD removed 17 Oct 2026; C2L replaces it) |
 | `/c2m`, `/api/c2m/*` | C2M (Cost to Margin), `apps/c2m/c2m-routes.js`. Mounted by 1 guarded line in `server.js` only when that file exists, before the `/api` 404 and the O2S catch-all; handed `{ pdq, pool, auth, path, fs, crypto }` (the pool for its transactions). Without a database pool it answers 503 itself (17 Oct 2026) |
 | `/o2s/sw.js`, `/o2s/manifest.json`, `/api/o2s/push/*` | O2S alerts on laptop and phone (Web Push), `apps/o2s/notify-routes.js`. Mounted by 1 line in `server.js` only when that file exists, before the `/api` 404 and the catch-all (16 Oct 2026) |
 | `*` (any other path) | `apps/o2s/o2s.html` (O2S app) |
 
-APIs live under `/api/…` (`/api/login`, `/api/me`, `/api/platform/*`, `/api/pd/*`, `/api/o2s/push/*`, `/api/c2m/*`).
+APIs live under `/api/…` (`/api/login`, `/api/me`, `/api/platform/*`, `/api/o2s/push/*`, `/api/c2m/*`). `/api/pd/*` was removed on 17 Oct 2026.
 
 O2S alerts need 3 settings set by hand on Render (named in `render.yaml`, values never in the repo): `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` (made once with `npx web-push generate-vapid-keys`) and `VAPID_SUBJECT` (a `mailto:` contact). Without them O2S says alerts are off.
 

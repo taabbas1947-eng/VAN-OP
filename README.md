@@ -12,17 +12,19 @@ which app, the standing rules, and where things stand today (§3.0).
 
 | Path | What it is |
 |---|---|
-| `server.js` | The Node/Express server. Sign-in, `/api/me`, People and access (`/api/platform/*`), O2S's routes, and it mounts PD. |
+| `server.js` | The Node/Express server. Sign-in, `/api/me`, People and access (`/api/platform/*`), O2S's routes, and it mounts the apps (O2S alerts, C2M). |
 | `launcher.html` | The front door at `/`: sign-in, a tile per app, and **People and access** (every person, their details, their role in each app, who holds what). |
 | `apps/o2s/` | **O2S — Order to Ship.** `o2s.html` is the whole app. Live and in daily use. Tests in `apps/o2s/tests/`; manuals, specs and parked work in `apps/o2s/docs/`. |
-| `apps/pd/` | **PD — Product Development.** `pd.html`, `pd-routes.js` (every `/api/pd/*` route), `pd-lib.js`, `drop.html` (public drop box), `migrations/`, `tests/`; the model and rulings in `apps/pd/docs/model/`, the 16 Aug audit in `apps/pd/docs/audit/`. Built, not yet opened to users. |
+| `apps/c2m/` | **C2M — Cost to Margin.** `c2m.html`, `c2m-routes.js` (every `/c2m` and `/api/c2m/*` route), engine, lib, O2S copy, price-list PDFs, `migrations/`, `docs/`. Live in stages since 17 Oct 2026. |
+| `apps/nigehbaan/` | **Nigehbaan** (compliance and risk): plan and demo; not built yet. |
+| (PD) | **PD — Product Development was removed on 17 Oct 2026**; the collaborator's C2L replaces it. Its files are in git history. |
 | `migrations/` | The platform's database changes: P001 (people and the access log), the 25 Sept role reconcile. |
 | `docs/` | The platform's documents: design, access model, architecture, restructure plan, and the **security register**. |
 | `tests/` | The platform's tests. Run only against a throwaway database copy. |
-| `OP-HANDOFF.md` | The index of the session logs. The platform's log is `OP-HANDOFF-PLATFORM.md`; each app keeps its own in its folder (`apps/o2s/OP-HANDOFF-O2S.md`, `apps/pd/OP-HANDOFF-PD.md`). Start at the last "RESUME HERE" entry. |
+| `OP-HANDOFF.md` | The index of the session logs. The platform's log is `OP-HANDOFF-PLATFORM.md`; each app keeps its own in its folder (`apps/o2s/OP-HANDOFF-O2S.md`, `apps/c2m/OP-HANDOFF-C2M.md`, `apps/nigehbaan/OP-HANDOFF-NIGEHBAAN.md`). Start at the last "RESUME HERE" entry. |
 
 **The repo is the platform.** Everything at the root belongs to it; each app
-(`apps/o2s/`, `apps/pd/`, and every app to come) lives in its own folder under `apps/` with its own
+(`apps/o2s/`, `apps/c2m/`, and every app to come) lives in its own folder under `apps/` with its own
 `docs/`, `tests/` and log.
 
 Not in this repo: **HRMS** (a separate Django app with its own login; the
@@ -47,7 +49,7 @@ its own folder, to join this server as a module).
 3. `npm install`, then `npm start` → http://localhost:3000
 
 Always set `DATABASE_URL`. Without it the server falls back to a local file
-store in `data/` (unused since the move to MySQL); PD and People and access
+store in `data/` (unused since the move to MySQL); C2M and People and access
 need the database.
 
 ## Database changes

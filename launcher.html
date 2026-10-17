@@ -265,7 +265,7 @@
           <span class="open">Open <b>→</b></span>
           <span class="lockcta">🔒 Access not granted</span>
         </a>
-        <!-- C2L (was PD): not openable until 20 Oct. The app itself still answers at /pd. -->
+        <!-- C2L (replaces PD, which was removed on 17 Oct 2026; /pd now goes to the launcher): not openable until it arrives. -->
         <div class="tile soon">
           <div class="top2"><div class="ico"><svg viewBox="0 0 24 24"><path d="M9 3h6"/><path d="M10 3v6l-5 8a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-8V3"/><path d="M7 15h10"/></svg></div><span class="stamp"><small>COMING</small>OCT 20</span></div>
           <span class="code">C2L</span>
@@ -370,14 +370,7 @@
   <script>
     (function () {
       var TOKEN_KEY = 'van_token';
-      // PD's role vocabulary (matches the server's validation + auth_users.pd_role ENUM).
-      // Fallback only — the Access screen prefers the server's own list
-      // (`pdRoles` from GET /api/platform/access), which is derived from
-      // pd/pd-lib.js. Kept in step so a failed fetch does not show a stale
-      // vocabulary: 'registrar' had been missing from here since 002.
-      var PD_ROLES = ['coo', 'ceo', 'qc_head', 'rta', 'production', 'agronomy',
-        'field_agronomy', 'associate_agronomy', 'custodian', 'registrar',
-        'member', 'lab_tech', 'consultant'];
+      // PD's role list was here; PD was removed on 17 Oct 2026 (C2L replaces it).
       var $ = function (id) {return document.getElementById(id);};
       function tok() {try {return localStorage.getItem(TOKEN_KEY) || '';} catch (e) {return '';} }
       function setTok(t) {try {t ? localStorage.setItem(TOKEN_KEY, t) : localStorage.removeItem(TOKEN_KEY);} catch (e) { } }
@@ -517,8 +510,7 @@
           // Fallback when the catalogue could not be read: the flat lists the users call already carries.
           if (!cat.length) {
             cat = [
-              {key: 'o2s', name: 'O2S', live: true, roles: (data.o2sRoles || []).map(function (o) {return {key: o, name: o};})},
-              {key: 'pd', name: 'PD', live: true, roles: (data.pdRoles || []).map(function (o) {return {key: o, name: (data.pdRoleLabels || {})[o] || o};})}
+              {key: 'o2s', name: 'O2S', live: true, roles: (data.o2sRoles || []).map(function (o) {return {key: o, name: o};})}
             ];
           }
           // Columns: the platform administrator sees every module; a subsystem admin only the modules they administer.

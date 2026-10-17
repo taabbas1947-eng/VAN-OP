@@ -143,12 +143,14 @@ const logRows = async (subject) => q('SELECT action, module, before_val, after_v
     assert.ok(!JSON.stringify(rows).includes('fresh-pass-1'));
   });
   await test('role grants from the launcher are logged with before and after', async () => {
-    await call('POST', '/api/platform/access', T, { username: 'fahim', module: 'pd', role: 'production' });
-    await call('POST', '/api/platform/access', T, { username: 'fahim', module: 'pd', role: 'member' });
-    await call('DELETE', '/api/platform/access', T, { username: 'fahim', module: 'pd' });
-    const rows = (await logRows('fahim')).filter(x => x.module === 'pd');
+    // 17 Oct 2026: PD was removed; C2M is the second app with roles (needs apps/c2m installed).
+    await call('POST', '/api/platform/access', T, { username: 'fahim', module: 'c2m', role: 'plant' });
+    await call('POST', '/api/platform/access', T, { username: 'fahim', module: 'c2m', role: 'qc' });
+    await call('DELETE', '/api/platform/access', T, { username: 'fahim', module: 'c2m' });
+    const rows = (await logRows('fahim')).filter(x => x.module === 'c2m');
     assert.deepStrictEqual(rows.map(x => x.action), ['role.grant', 'role.change', 'role.revoke']);
-    assert.strictEqual(rows[1].before_val, 'production'); assert.strictEqual(rows[1].after_val, 'member');
+    assert.strictEqual(rows[1].before_val, 'plant'); assert.strictEqual(rows[1].after_val, 'qc');
+    assert.strictEqual((await call('POST', '/api/platform/access', T, { username: 'fahim', module: 'pd', role: 'member' })).status, 400, 'PD roles can no longer be given');
   });
   await test("O2S's own Users & Access still works, gets a person, and is logged as O2S", async () => {
     const r = await call('POST', '/api/users', T, { name: 'Gate Test', username: 'gate.test', password: 'abcdef1', role: 'KAM' });
@@ -164,10 +166,11 @@ const logRows = async (subject) => q('SELECT action, module, before_val, after_v
   await test('who holds what: every live system, vacant roles marked', async () => {
     const r = await call('GET', '/api/platform/holders', T);
     assert.strictEqual(r.status, 200);
-    const keys = r.body.modules.map(x => x.key); assert.ok(keys.includes('o2s') && keys.includes('pd'));
-    const pdm = r.body.modules.find(x => x.key === 'pd');
-    assert.ok(pdm.roles.some(x => x.vacant), 'PD has vacant roles');
-    assert.ok(pdm.roles.find(x => x.key === 'coo').holders.some(h => h.username === 'tahir'));
+    const keys = r.body.modules.map(x => x.key); assert.ok(keys.includes('o2s') && keys.includes('c2m'));
+    assert.ok(!keys.includes('pd'), 'PD is gone from who holds what (removed 17 Oct 2026)');
+    const c2m = r.body.modules.find(x => x.key === 'c2m');
+    assert.ok(c2m.roles.some(x => x.vacant), 'C2M has vacant roles');
+    assert.ok(c2m.roles.find(x => x.key === 'coo'), 'C2M lists its coo role');
   });
   await test('the access log refuses edits and deletes', async () => {
     await assert.rejects(q("UPDATE platform_access_log SET actor='x'"));

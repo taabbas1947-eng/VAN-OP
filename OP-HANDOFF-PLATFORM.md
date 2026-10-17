@@ -1214,3 +1214,80 @@ Pushed: **no** (ready). Next: step 3 (C2M files into `apps/c2m/`).
   PD's production migrations 007/008 are therefore never to be run.
 
 Pushed: no.
+
+## 17 Oct 2026 (evening) — PD removed; C2L replaces it (MODULE: PLATFORM) — NOT PUSHED
+
+Tahir: "lets remove PD today". His earlier ruling on PD's data was "delete everything". C2L has not arrived
+yet; its launcher tile stays "coming".
+
+**Code (this change):**
+- `apps/pd/` deleted (44 files; git history keeps them).
+- `server.js`, 105 lines out:
+  - removed: the pd-lib require, `runPdMigration` (start-up `admin` pd_role bootstrap), `pdAuth`,
+    `pdSurface`, `pdAuditLogger` and `/api/pd` use, the pd-routes mount, and the `/pd` and `/drop` pages;
+  - PD taken out of `LEGACY_COL`, `MODULE_LIST`, the role catalogue, `validModuleRole`, `REAL_MODULES` and the
+    users list (`pdRoles`);
+  - **the start-up copy of `auth_users.pd_role` into `user_module_roles` is removed; otherwise deleted PD
+    grants would come back on every restart.**
+  - `/drop`, `/pd` and `/pd/*` now redirect 302 to the launcher, never into the O2S catch-all. `/api/pd/*`
+    answers 404.
+- `launcher.html`: PD role list and PD fallback column removed; C2L tile note.
+- `render.yaml`: `pd-library` disk and `PD_LIBRARY_DIR` removed. The disk held only PD Library uploads.
+  Without it, Render can deploy with no gap (restructure plan Z1). **Render dashboard: delete the disk by
+  hand** if the service is not synced from `render.yaml`.
+- Tests:
+  - new `tests/pd-removed.test.js` (17/17);
+  - `tests/c2m-mount.test.js` updated (20/20);
+  - `tests/people-access.test.js` now uses C2M as the second app and checks a PD grant is refused (throwaway
+    database only; not run here).
+- Docs: `CLAUDE.md` (module map, §0 shorthand, §3.0, §4.1), `OP-HANDOFF.md` index, `docs/ARCHITECTURE.md`.
+
+**Database: `migrations/P002_remove_pd.sql` (+ `.PRODUCTION.sql`, every table prefixed):**
+1. 1 access-log row per PD grant (`role.revoke`, via `migration`).
+2. Delete PD rows from `user_module_roles`.
+3. Drop `auth_users.pd_role`.
+4. Drop the 33 `pd_*` tables, with foreign key checks off; the 2 triggers go with `pd_field_history`.
+
+No non-PD table references a PD table; checked locally.
+
+**Local (`van_platform`) run:**
+- before: 19 PD grants, 33 PD tables; after: 0 / 0 / column gone.
+- 19 history rows written.
+- O2S rev 14341, C2M 133 products and 22 logins untouched.
+- A second run stops at the column step with the documented harmless error.
+
+**Checked on a second local server** (port 3001, this code, local database):
+- `/`, `/o2s` and `/c2m` 200; `/pd` 302 to `/`; `/api/pd/me` 404.
+- `/api/me` and the catalogue show o2s, c2m and platform only.
+- No start-up errors.
+
+**Production: by Tahir in phpMyAdmin, after a backup export,** `P002_remove_pd.PRODUCTION.sql`. Before the
+push or after it, either is fine. Until it runs, the live `pd_*` tables just sit unused, because nothing
+reads them.
+
+Pushed: **no**.
+- **Independent review (code + data safety), same day: "push, but know this".** Changed in response:
+  - P002's `DROP COLUMN pd_role` moved to the **last** statement, so a re-run after an interrupted run
+    finishes the table drops.
+  - The drop-box and Library counts moved to a **new read-only `P002-CHECK.sql` (+ `.PRODUCTION`)**, run
+    first. Once the tables are gone, those counts would stop a re-run.
+  - History and grant delete now run as **one transaction with the grants locked** (`FOR UPDATE`), so a
+    double "Go" cannot log twice. The PD admin flag is logged (`admin.revoke`).
+  - The AFTER check lists logins left with no access.
+  - Docs updated: `README.md` and the `docs/ACCESS-MODEL.md` note. `P001-CHECK.sql` and
+    `RECONCILE-2026-09-25.sql` are marked history, because they read `pd_role`.
+- Tested on a fresh copy of the 17 Oct live export:
+  - first run: 0 drop-box, 0 Library items, 1 PD admin, 19 grants, 33 tables → all gone;
+  - history 1 `admin.revoke` + 19 `role.revoke`, not doubled by a second run;
+  - O2S rev unchanged.
+  - The "interrupted run" test was not finished: re-importing the test copy jammed local MySQL on
+    `ALTER TABLE pd_materials` in the test database. Tahir to restart MySQL; the `p002_check` database is
+    then to be dropped.
+- **Corrected order (data-safety review): push FIRST, then the SQL.** If the SQL runs while old code is
+  still live, an admin giving a PD role in that window gets an error but the grant is saved with no
+  history row. So: push → Render deploys → backup export → `P002-CHECK.PRODUCTION.sql` →
+  `P002_remove_pd.PRODUCTION.sql`. Keep that backup; on live it is the only copy of 68 PD material rows (assay
+  data), 7 delivery contexts and 3 PD audit rows.
+- **Render disk:** the backup does not cover it. Live `pd_library_items` has 0 rows, but old orphan files may be
+  on the disk. Delete the disk in the Render dashboard if the service is not synced from `render.yaml`;
+  until then deploys keep their gap.

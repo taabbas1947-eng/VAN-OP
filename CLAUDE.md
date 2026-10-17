@@ -35,6 +35,10 @@ or
 ```
 MODULE: PLATFORM        (launcher, login, /api/me, access matrix)
 ```
+or
+```
+MODULE: C2M        (Cost to Margin, apps/c2m/)
+```
 
 ### 0.1 The shorthand — Tahir does not have to type "MODULE:"
 
@@ -46,6 +50,7 @@ are all the same instruction and Claude treats them as binding:
 | `pd` · `PD` · "lets do pd" · "pd app" · "working on pd" | `MODULE: PD`: **PD was removed on 17 Oct 2026**; C2L replaces it. Ask Tahir which app he means |
 | `o2s` · `O2S` · "the 2nd app" · "order to ship" | `MODULE: O2S` |
 | `platform` · "launcher" · "login" · "the access matrix" | `MODULE: PLATFORM` |
+| `c2m` · `C2M` · "lets do c2m" · "cost to margin" · "costing app" | `MODULE: C2M` |
 
 The declaration **holds for the whole session** until Tahir names a different
 one. He does not have to repeat it every message. Claude does not ask again

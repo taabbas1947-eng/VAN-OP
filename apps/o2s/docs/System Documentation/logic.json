@@ -2766,6 +2766,31 @@
      ]
     }
    ]
+  },
+  {
+   "id": "LG-32",
+   "title": "Every cleared batch, the base batch pick, and why not packed (17b)",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-042"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn tdReadyBatches, tdReadyHTML, packBaseField, packPickBase, batchNpMark, plBatchClass",
+    "tests/audit17b.test.js",
+    "D-324, D-325, D-326, D-327"
+   ],
+   "blocks": [
+    {
+     "list": [
+      "Today list: activeFloorBatches() that batchPackNow() allows (not voided, not a pool or by-product, cleared Kg/L left), sorted by the first lab approval date, then batch number. A batch with a Pack job on this person's Today shows that job card (red when escalated); others show a plain card with Kg/L left, whose stock it is and Pack (openPack for base stock, openPackFor for a PO batch). The chip count is the cards.",
+      "Pack sheet: from Pack from base, packForm.bid is empty and pickBase is true. The box lists plBaseReady(base).batches (the same cleared base stock as the Pack from base card, oldest first). Picking sets bid and Kg/L = the batch's packable Kg/L, cut to the order line's ordered minus packed; the packs tick is cleared. A batch of another base, or made for a PO, cannot be picked. Pack refuses with no batch. Older batches before the picked one in that order are named in a note.",
+      "Why not packed: b.npMarks[] rows {id, kind processing|heldpo|end, until, client, by, user, role, at}; the latest by time decides; it stands while kind is not end, until is today or later, and the batch can still be packed. Processing: until = today + 6. Held: until = the expected date (1 to 30 days), client from active customers.",
+      "While it stands: plBatchClass gives k 'np' (not stuck, why = the reason) where it would have judged an order line waiting; a batch with a reason is skipped when choosing the first cleared batch of a base, so the next one is judged; the batch's Pack job counts as waiting (0 days, not urgent) and acEscalation tells nobody; Plant, Stuck batches lists it under Not packed, reason written.",
+      "Every mark writes 1 audit row (same id) and 1 action log line. Nothing else on the batch changes."
+     ]
+    }
+   ]
   }
  ]
 }

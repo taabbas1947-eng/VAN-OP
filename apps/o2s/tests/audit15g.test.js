@@ -15,7 +15,7 @@ const html = H.html;
 const TODAY = '2026-10-15';
 
 const consts = (html.match(/var PL_STUCK_NO_OUTPUT_DAYS=[^;]+;/) || [''])[0];
-const PL_SRC = consts + '\n' + ['calDays','lineShortClosed','_plPackedOf','plBatchMove','_plDay','plBatchFacts','_plLineOf','plLineWantsBase','plOpenLines','plOpenDemandKg','lineShortRequested','batchClearedKg','plBaseLabKg','plShareKey','plBaseShare','_plFirstOk','_plM','plBaseReady','_plBaseReady0','plClientPOs','lineWaitMark','lineWaitClient','lineWaitOver','plLinePack','packLineOwes','_plCarrier','plBatchClass'].map(n => H.grab(n)).join('\n') + '\nvar _plMemo=null; function poReturnOpen(){ return false; }';
+const PL_SRC = consts + '\n' + ['calDays','lineShortClosed','_plPackedOf','plBatchMove','_plDay','plBatchFacts','_plLineOf','plLineWantsBase','plOpenLines','plOpenDemandKg','lineShortRequested','batchClearedKg','plBaseLabKg','plShareKey','plBaseShare','_plFirstOk','batchNpLast','batchNpMark','npLong','npShort','npAddDays','_plM','plBaseReady','_plBaseReady0','plClientPOs','lineWaitMark','lineWaitClient','lineWaitOver','plLinePack','packLineOwes','_plCarrier','plBatchClass'].map(n => H.grab(n)).join('\n') + '\nvar _plMemo=null; function poReturnOpen(){ return false; }';
 function plBox(state) {
   const s = { console, Date, Math, JSON, Object, Array, String,
     fmt: n => Math.round(n).toLocaleString('en-US'),
@@ -355,11 +355,12 @@ const WM = (until, extra) => Object.assign({ id: 'WC' + until, kind: 'wait', unt
   let it = s.plLineBaseItems(s.state.orders[0], s.state.orders[0].lines[0]);
   const rest = it.find(x => x.label === 'Open Production');
   ok('packed 2 d ago: the run card is marked moving', rest && rest.moving === true && rest.movingSince === '2026-10-13');
-  { const e = { console, PL_LINE_STUCK_DAYS: 7, labLateBy: () => 0, acProduceStallDays: () => 9, actTiming: () => ({ days: 9 }), batchLinesWaiting: b => !!b.w };
+  { const e = { console, PL_LINE_STUCK_DAYS: 7, labLateBy: () => 0, acProduceStallDays: () => 9, actTiming: () => ({ days: 9 }), batchLinesWaiting: b => !!b.w, batchNpMark: b => (b.np ? { kind: 'processing', until: '2026-10-23' } : null) };
     vm.createContext(e); vm.runInContext(H.grab('acEscalation'), e);
     eq('Tahir: no stall alarm while the line is moving', e.acEscalation({ label: 'Open Production', restKg: 100, moving: true }), null);
     eq('a PO batch Pack job whose lines all wait for the client tells nobody', e.acEscalation({ label: 'Pack', batch: { w: true } }), null);
-    ok('...otherwise the Pack job still escalates', !!e.acEscalation({ label: 'Pack', batch: { w: false } })); }
+    ok('...otherwise the Pack job still escalates', !!e.acEscalation({ label: 'Pack', batch: { w: false } }));
+    eq('17b: a PO batch with the Production Manager\'s reason written tells nobody', e.acEscalation({ label: 'Pack', batch: { w: false, np: true } }), null); }
   ok('the calm run card counts from the last pack', /if\(it\.moving&&it\.movingSince&&String\(it\.movingSince\)>String\(c\|\|''\)\) c=String\(it\.movingSince\)/.test(H.grab('actTiming')));
   /* Saad's card never says he sat on it for months: from the day this reached the plant */
   s = mk({ batches: [base(12000)], orders: [ord('P1', 'C', [line('L1', 'Enroot', { rmReady: '2026-08-01' })])], packingLog: [{ po: 'P1', lid: 'L1', brand: 'Enroot', date: '2026-07-01', kg: 1 }] });
@@ -437,7 +438,7 @@ const WM = (until, extra) => Object.assign({ id: 'WC' + until, kind: 'wait', unt
 /* 8. Plant lists the lines waiting for the client; nothing written while drawing */
 {
   ok('Plant lists Waiting for client under Stuck', /if\(sel\.k==='stuck'\)\{ var WL=plWaitLines\(\);/.test(html) && /<h2>Waiting for client <span class="cnt">/.test(html));
-  ok('...it opens even with nothing stuck or held', /x\.k==='stuck'&&\(plHeldBatches\(\)\.length\|\|plWaitLines\(\)\.length\)/.test(H.grab('screenPlant')));
+  ok('...it opens even with nothing stuck or held', /x\.k==='stuck'&&\(plHeldBatches\(\)\.length\|\|plWaitLines\(\)\.length(\|\|plNpBatches\(\)\.length)?\)/.test(H.grab('screenPlant')));
   ok('...Supply Chain and the COO get Change or end there', /openWaitEdit\(/.test(H.grab('screenPlant')) && /hardRole\(\['Supply Chain'\]\)/.test(H.grab('screenPlant')));
   ok('...it says how many times the date was set, amber from 3', /date set '\+x\.n\+' times since/.test(H.grab('screenPlant')) && /x\.n>=3\?'st-late'/.test(H.grab('screenPlant')));
   ok('...and says up front how many lines wait', /order line'\+\(_wn===1\?' is':'s are'\)\+' waiting for the client/.test(H.grab('screenPlant')));

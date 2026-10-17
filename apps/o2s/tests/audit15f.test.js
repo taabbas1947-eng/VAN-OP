@@ -195,13 +195,14 @@ const { ok, eq, report, grab, grabTopVar, html } = H;
   ok('Pack from base is on Today labels and rights', /'Pack from base':\s*\{title:'Pack from base'/.test(grabTopVar('TD_LABEL', '{')) && /'Pack from base':'packing\.pack'/.test(html));
   ok('the Production Stuck list counts it', /'Pack from base':'produce'/.test(html));
   ok('the batch list uses the same rule', /plBatchClass\(b\)/.test(grab('journeyCard')) && /c&&c\.k==='stuck'/.test(html));
-  ok('openPackFromBase opens the oldest cleared batch on the line', /openPack\(rd\.batches\[0\]\.id\)/.test(grab('openPackFromBase')) && /packPickPO\(o\.id\+'\|'\+l\.id\)/.test(grab('openPackFromBase')));
+  /* 17b (Tahir, 17 Oct): the sheet opens on the line with NO batch chosen; the packer picks it (was: the oldest, fixed) */
+  ok('openPackFromBase opens the sheet on the line with no batch chosen', /openPackBase\(l\.base\)/.test(grab('openPackFromBase')) && !/openPack\(rd\.batches\[0\]\.id\)/.test(grab('openPackFromBase')) && /packPickPO\(o\.id\+'\|'\+l\.id\)/.test(grab('openPackFromBase')));
 }
 
 /* 7b. the stuck rule, run (review faults 1 to 3) */
 {
   const consts = (html.match(/var PL_STUCK_NO_OUTPUT_DAYS=[^;]+;/) || [''])[0];
-  const SRC = consts + '\n' + ['calDays','localDateOf','lineShortClosed','_plPackedOf','plBatchMove','_plDay','plBatchFacts','_plLineOf','plLineWantsBase','plOpenLines','plOpenDemandKg','lineShortRequested','batchClearedKg','plBaseLabKg','plShareKey','plBaseShare','_plFirstOk','_plM','plBaseReady','_plBaseReady0','plClientPOs','lineWaitMark','lineWaitClient','lineWaitOver','plLinePack','packLineOwes','_plCarrier','plBatchClass','_plRow','plStuckBatches','plHeldBatches'].map(n => grab(n)).join('\n') + '\nvar _plMemo=null; function poReturnOpen(){ return false; }';
+  const SRC = consts + '\n' + ['calDays','localDateOf','lineShortClosed','_plPackedOf','plBatchMove','_plDay','plBatchFacts','_plLineOf','plLineWantsBase','plOpenLines','plOpenDemandKg','lineShortRequested','batchClearedKg','plBaseLabKg','plShareKey','plBaseShare','_plFirstOk','batchNpLast','batchNpMark','npLong','npShort','npAddDays','_plM','plBaseReady','_plBaseReady0','plClientPOs','lineWaitMark','lineWaitClient','lineWaitOver','plLinePack','packLineOwes','_plCarrier','plBatchClass','_plRow','plStuckBatches','plHeldBatches'].map(n => grab(n)).join('\n') + '\nvar _plMemo=null; function poReturnOpen(){ return false; }';
   const mk = (st) => { const s = { console, Date, Math, JSON, fmt: n => String(Math.round(n)), evToday: () => '2026-10-15', lineBucket: () => 'Production', batchStage: b => b._stage || 'pack',
       batchPackableKg: b => Math.max(0, (+b.producedKg || 0) - (+b.packedKg || 0)), batchPackNow: b => !b.voided && (b._stage || 'pack') === 'pack' && (b.status !== 'closed' || !!b.stockKept) && ((+b.producedKg || 0) - (+b.packedKg || 0)) > 0.5 };
     s.state = Object.assign({ batches: [], orders: [], shiftEntries: [], packingLog: [] }, st); vm.createContext(s); vm.runInContext(SRC, s); return s; };

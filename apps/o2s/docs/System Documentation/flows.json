@@ -2503,6 +2503,58 @@
      }
     }
    ]
+  },
+  {
+   "id": "PF-24",
+   "title": "Why a cleared batch is not packed (17b)",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-042"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn openNpMark, saveNpMark, endNpMark, plBatchClass",
+    "tests/audit17b.test.js"
+   ],
+   "blocks": [
+    {
+     "lanes": {
+      "roles": [
+       "Production Manager",
+       "Production",
+       "Plant Manager"
+      ],
+      "steps": [
+       {
+        "role": "Production Manager",
+        "text": "A cleared batch is not being packed. Today, Cleared by the lab list (or Plant, Stuck batches): Why not packed.",
+        "kind": "start",
+        "rule": "R-042"
+       },
+       {
+        "role": "Production Manager",
+        "text": "Under processing (1 week), or Held for an expected PO: client and date (1 to 30 days).",
+        "kind": "decision"
+       },
+       {
+        "role": "Plant Manager",
+        "text": "Plant lists it under Not packed, reason written; it is not stuck until the date.",
+        "kind": "task"
+       },
+       {
+        "role": "Production",
+        "text": "The batch is still offered on the Pack sheet, with the note.",
+        "kind": "task"
+       },
+       {
+        "role": "Production Manager",
+        "text": "Change or end it any time. After the date it is judged as before.",
+        "kind": "end"
+       }
+      ]
+     }
+    }
+   ]
   }
  ]
 }

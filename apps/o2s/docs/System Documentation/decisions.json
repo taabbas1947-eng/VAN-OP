@@ -18335,6 +18335,170 @@
      }
     }
    ]
+  },
+  {
+   "id": "D-324",
+   "title": "Today lists every batch cleared by the lab, ready to pack",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-042"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir in chat, 17 Oct 2026 13:17 to 13:26 (Abdul Majid’s Today and Pack sheet screens; multiple choice answers)",
+    "o2s.html changelog 2026-10-17b",
+    "fn tdReadyBatches, tdReadyHTML, tdReadyCard, tdReadyCount, screenToday",
+    "tests/audit17b.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-17"
+       ],
+       [
+        "Ruled by",
+        "Tahir (COO)"
+       ],
+       [
+        "Decision",
+        "Raised by Abdul Majid (Production Manager): pressing the chip \"Cleared by the lab, ready to pack\" showed nothing, because both Pack jobs had been escalated to him and were folded inside the Production Officer card, and no screen in the menu listed every cleared batch. Ruled: the chip lists every batch the lab has cleared that still has Kg/L to pack (base stock, batches made for a PO and for several POs), oldest cleared first, each with Kg/L left and a Pack button, open, not folded; a job escalated to you keeps its red mark. The list is the old Production \"Ready to pack\" list (activeFloorBatches that batchPackNow allows). Everyone who may pack (packing.pack), the Production Manager and the COO see it (the Pack button needs the packing right); the chip shows even when it is the only kind on the screen."
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-325",
+   "title": "Pack from base: the packer picks the base batch",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-042",
+    "R-022"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir in chat, 17 Oct 2026 13:17 to 13:26 (Abdul Majid’s Today and Pack sheet screens; multiple choice answers)",
+    "o2s.html changelog 2026-10-17b",
+    "fn openPackFromBase, openPackBase, packBaseField, packPickBase, renderPackModal, doPack",
+    "tests/audit17b.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-17"
+       ],
+       [
+        "Ruled by",
+        "Tahir (COO)"
+       ],
+       [
+        "Decision",
+        "Raised by Abdul Majid: Pack from base always opened the oldest cleared batch (HG26037, 1,504 Kg/L) and the sheet had no box to change it. Ruled: the sheet opens on the order line with no batch chosen and Pack refuses until one is picked; the box lists every cleared batch of that base, oldest first, with Kg/L left and the day it was cleared; after the pick the quantity fills in (the batch, cut to what the line still needs). When an older cleared batch is still waiting, the sheet names it and asks nothing (\"Allow, show a note\"). A sheet opened on 1 base batch (the Run card, Today’s list) starts on that batch and the box can change it. A batch made for a PO, or for several, keeps its own sheet with no box."
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-326",
+   "title": "Why a cleared batch is not packed: under processing, or held for an expected PO",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-042"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir in chat, 17 Oct 2026 13:17 to 13:26 (Abdul Majid’s Today and Pack sheet screens; multiple choice answers)",
+    "o2s.html changelog 2026-10-17b",
+    "fn openNpMark, saveNpMark, endNpMark, _npRow, batchNpMark, plBatchClass, plNpBatches, screenPlant",
+    "tests/audit17b.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-17"
+       ],
+       [
+        "Ruled by",
+        "Tahir (COO)"
+       ],
+       [
+        "Decision",
+        "Tahir: a batch with Kg/L available and not packed has 1 of 2 reasons: it is under processing and will be available in 1 week, or it is held because a new PO of another client is expected and it will be packed in that. In both cases the stage stays as it is; only the reason is known and documented. Ruled: the Production Manager only (the COO always) writes it; Under processing: not counted as stuck for 1 week, then shown again in Stuck batches; Held for an expected PO: the client (from the customer list) and the date the PO is expected, 1 to 30 days away, not stuck through that date; a held batch is still offered for packing with a note only, nothing is asked; an under-processing batch is still offered too."
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-327",
+   "title": "Why not packed: the 6 build choices, confirmed",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-042"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir in chat, 17 Oct 2026 14:10 (multiple choice): all 4 questions answered \"as built\"",
+    "Tahir in chat, 17 Oct 2026 13:17 to 13:26 (Abdul Majid’s Today and Pack sheet screens; multiple choice answers)",
+    "o2s.html changelog 2026-10-17b",
+    "fn saveNpMark, endNpMark, batchNpMark, plBatchClass, itemWaiting, acEscalation",
+    "tests/audit17b.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-17"
+       ],
+       [
+        "Ruled by",
+        "Tahir (COO)"
+       ],
+       [
+        "Decision",
+        "Made in the build, not ruled: (1) the reason can be changed or ended early by the Production Manager (as Waiting for client can), every mark kept; (2) Under processing runs 7 days: not stuck through day 6, back on day 7 (marked 17 Oct: back on 24 Oct); (3) while the oldest cleared batch of a base carries a reason, the next cleared batch is the one its orders are judged on (it can then show as stuck); (4) the Pack job of a PO batch with a reason is calm (0 days) and not escalated, and says why; (5) the reason is offered only on a batch with cleared Kg/L left (Today’s list, Plant stuck rows) and lapses when nothing is left to pack; (6) the order line clocks (Pack from base stuck after 7 days, Stuck at packing for Supply Chain) do not change: a line still waiting is judged on the line."
+       ]
+      ]
+     }
+    },
+    {
+     "note": "Independent review, 17 Oct: confirmed (6) in a run: a PO batch marked Under processing still lets Supply Chain get Stuck at packing for its line, and Pack from base still turns stuck; the Guide now says so. Plant now shows how many times a reason was written on a batch."
+    },
+    {
+     "note": "Confirmed by Tahir 17 Oct 2026: the next cleared batch is judged when the oldest carries a reason; the order line keeps its own clock; Under processing may be written again, with the count shown on Plant; the Production Manager may change or end a reason early."
+    }
+   ]
   }
  ]
 }

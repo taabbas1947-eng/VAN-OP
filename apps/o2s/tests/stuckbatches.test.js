@@ -11,7 +11,7 @@ const eq = (n, g, w) => ok(n, g === w, 'got ' + JSON.stringify(g) + ' want ' + J
 const html = H.html;
 
 const consts = (html.match(/var PL_STUCK_NO_OUTPUT_DAYS=[^;]+;/) || [''])[0];
-const SRC = consts + '\n' + ['calDays','lineShortClosed','_plPackedOf','plBatchMove','_plDay','plBatchFacts','_plLineOf','plLineWantsBase','plOpenLines','plOpenDemandKg','lineShortRequested','batchClearedKg','plBaseLabKg','plShareKey','plBaseShare','_plFirstOk','_plM','plBaseReady','_plBaseReady0','plClientPOs','lineWaitMark','lineWaitClient','lineWaitOver','plLinePack','packLineOwes','_plCarrier','plBatchClass','_plRow','plStuckBatches','plHeldBatches','_plOpenBtn'].map(n => H.grab(n)).join('\n') + '\nvar _plMemo=null; function poReturnOpen(){ return false; }';
+const SRC = consts + '\n' + ['calDays','lineShortClosed','_plPackedOf','plBatchMove','_plDay','plBatchFacts','_plLineOf','plLineWantsBase','plOpenLines','plOpenDemandKg','lineShortRequested','batchClearedKg','plBaseLabKg','plShareKey','plBaseShare','_plFirstOk','batchNpLast','batchNpMark','npLong','npShort','npAddDays','_plM','plBaseReady','_plBaseReady0','plClientPOs','lineWaitMark','lineWaitClient','lineWaitOver','plLinePack','packLineOwes','_plCarrier','plBatchClass','_plRow','plStuckBatches','plHeldBatches','_plOpenBtn'].map(n => H.grab(n)).join('\n') + '\nvar _plMemo=null; function poReturnOpen(){ return false; }';
 
 function make(state) {
   const s = { console, Date, Math, JSON, Object, Array, String,
@@ -184,7 +184,7 @@ const run = (b, st) => { const s = make(Object.assign({ batches: [b] }, st)); re
   ok('the stuck rows show says, why, last move and who', /r\.says/.test(pl) && /r\.lastTxt/.test(pl) && /next: /.test(pl));
   ok('Held for orders is shown under the stuck rows', /Held for orders/.test(pl) && /plHeldBatches\(\)/.test(pl));
   ok('Held rows are calm unless 180 d', /r\.flag\?'st-late':'st-ok'/.test(pl));
-  ok('the held list stays reachable when nothing is stuck', /x\.k==='stuck'&&\(plHeldBatches\(\)\.length\|\|plWaitLines\(\)\.length\)/.test(pl));
+  ok('the held list stays reachable when nothing is stuck', /x\.k==='stuck'&&\(plHeldBatches\(\)\.length\|\|plWaitLines\(\)\.length(\|\|plNpBatches\(\)\.length)?\)/.test(pl));
   ok('nothing is written', !/save\(\)/.test(H.grab('plBatchClass') + H.grab('plStuckBatches') + H.grab('plHeldBatches')));
   ok('Guide rule present', /<h3>What the Stuck batches list means<\/h3>/.test(html) && /Held for orders/.test(H.grab('guideRules')));
   ok('changelog entry present', /Stuck batches now show what is really packed/.test(html));

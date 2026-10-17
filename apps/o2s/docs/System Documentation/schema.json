@@ -5771,6 +5771,78 @@
      }
     }
    ]
+  },
+  {
+   "id": "SC-40",
+   "title": "batches[].npMarks[]: why a cleared batch is not packed (new in 17b)",
+   "owner": "Production Manager (or COO)",
+   "rules": [
+    "R-042"
+   ],
+   "status": "confirmed",
+   "src": [
+    "o2s.html fn _npRow, saveNpMark, endNpMark, batchNpMark",
+    "D-326"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Type",
+       "Required",
+       "Default",
+       "Meaning",
+       "Written by"
+      ],
+      "rows": [
+       [
+        "id",
+        "text",
+        "yes",
+        "NP + time + 4 random",
+        "Row id, so 2 people writing at once are both kept.",
+        "_npRow"
+       ],
+       [
+        "kind",
+        "text",
+        "yes",
+        "",
+        "processing (under processing, 1 week), heldpo (held for an expected PO of another client) or end (ended).",
+        "saveNpMark, endNpMark"
+       ],
+       [
+        "until",
+        "date",
+        "yes except end",
+        "''",
+        "Last day it is not counted as stuck: today + 6 for processing; the date the PO is expected (1 to 30 days) for heldpo.",
+        "saveNpMark"
+       ],
+       [
+        "client",
+        "text",
+        "yes for heldpo",
+        "''",
+        "The client whose PO is expected (active customer name).",
+        "saveNpMark"
+       ],
+       [
+        "by, user, role, at",
+        "text, date-time",
+        "yes",
+        "",
+        "Who wrote it and when.",
+        "_npRow (_uRole)"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "The latest mark by time decides. It lapses the day after until, or when the batch has nothing cleared left to pack. Every mark also writes 1 audit row (same id) and 1 action log line. Marks are never removed. Nothing else on the batch changes."
+    }
+   ]
   }
  ]
 }

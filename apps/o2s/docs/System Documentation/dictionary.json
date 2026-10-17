@@ -3327,6 +3327,62 @@
      }
     }
    ]
+  },
+  {
+   "id": "DD-33",
+   "title": "Ready to pack and why not packed: the words (17b)",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-042"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Guide rule Every cleared batch, and why one is not packed",
+    "D-324 to D-327"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Word",
+       "Meaning in O2S",
+       "Where it comes from"
+      ],
+      "rows": [
+       [
+        "Cleared by the lab, ready to pack",
+        "The Today chip and list: every batch the lab has cleared that still has Kg/L to pack.",
+        "D-324"
+       ],
+       [
+        "Base batch to pack from",
+        "The box at the top of the Pack sheet: the cleared base batch the packer picks.",
+        "D-325"
+       ],
+       [
+        "Why not packed",
+        "The reason the Production Manager writes on a cleared batch that is not being packed.",
+        "D-326"
+       ],
+       [
+        "Under processing",
+        "The batch is being processed and will be ready in 1 week; not stuck for 7 days.",
+        "D-326"
+       ],
+       [
+        "Held for an expected PO",
+        "Kept for another client whose PO is expected by a date (1 to 30 days); still offered for packing.",
+        "D-326"
+       ],
+       [
+        "Not packed, reason written",
+        "Plant, Stuck batches: the cleared batches with a reason standing.",
+        "D-326"
+       ]
+      ]
+     }
+    }
+   ]
   }
  ]
 }

@@ -1225,6 +1225,50 @@
      }
     }
    ]
+  },
+  {
+   "id": "AC-13",
+   "title": "Every cleared batch and why not packed: who does what (17b)",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-042"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn tdReadyMay, npMay, packPickBase",
+    "D-324, D-326"
+   ],
+   "blocks": [
+    {
+     "p": "Checked in the code at every save."
+    },
+    {
+     "table": {
+      "head": [
+       "Who",
+       "May"
+      ],
+      "rows": [
+       [
+        "Anyone who may pack (packing.pack), the COO",
+        "See every cleared batch under the Today chip and pack from it; pick the base batch on the Pack sheet."
+       ],
+       [
+        "Production Manager (even without the packing right)",
+        "See every cleared batch under the Today chip; Pack shows only with the packing right."
+       ],
+       [
+        "Production Manager, COO",
+        "Write, change or end why a cleared batch is not packed."
+       ],
+       [
+        "Production Officers, Plant Manager and everyone else",
+        "Read the reason (Plant, the list, the Pack sheet); not write it."
+       ]
+      ]
+     }
+    }
+   ]
   }
  ]
 }

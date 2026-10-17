@@ -99,6 +99,12 @@
         "17 passed, 0 failed"
        ],
        [
+        "audit17b.test.js",
+        "17b: every cleared batch under the Today chip (open, job cards for Pack jobs, red when escalated, counts), the Pack sheet base batch box (no batch from Pack from base, oldest first, the pick and the Kg/L, the older-batch note, refusals), why not packed (who may write, processing 1 week, held with client and 1 to 30 days, not stuck while it stands, the next batch judged, end, lapse, calm Pack job), Plant section, Guide and change log.",
+        "R-042",
+        "79 passed, 0 failed"
+       ],
+       [
         "authmodel.test.js",
         "Departments, roles and rights: every converted gate answers exactly as before, per role and per right, live and not live; a lead cannot widen himself.",
         "R-003, R-019",
@@ -957,7 +963,8 @@
       "A PO line with no pack size saves packing without packs and without the tick.",
       "Reports show the first 500 rows; older rows need the period buttons or export.",
       "If Saad loads and Shoaib issues the gate pass (or the reverse), only the COO can review, or the 2 hour lapse lets the Plant Manager release.",
-      "A fresh install needs the Setup steps for the Production Manager as Production lead (13 Oct (7))."
+      "A fresh install needs the Setup steps for the Production Manager as Production lead (13 Oct (7)).",
+      "17b: a batch held for another client’s expected PO stops only the batch from showing stuck; an order line still waiting keeps its own clock (Pack from base stuck after 7 days, Stuck at packing for Supply Chain). Confirmed by Tahir in D-327."
      ]
     }
    ]
@@ -1077,6 +1084,12 @@
         "2 code reviews, 3 data-safety, 2 workflow",
         "several",
         "all fixed or ruled by Tahir"
+       ],
+       [
+        "2026-10-17b",
+        "Independent code and workflow review, 17 Oct",
+        "1 blocker (a Today filter whose kind had gone could hide the other jobs), 5 should-fix, 5 minor. The documentation finding was a staging gap: the JSON source was updated, only not sent to the reviewer.",
+        "Blocker fixed (the filter reset always runs). Fixed: Guide wording on the order line clock, the older-batch note names a held batch’s reason, Plant counts how many times a reason was written, a batch with no open order is listed only under Held for orders, 1 action group per stuck row, no older-batch note for a batch no longer on the list. Put to Tahir and confirmed as built: the next batch judged when the oldest is marked, the order line clock, renewing Under processing (D-327). Not changed: tally tiles in the ready view; the client list includes every active customer."
        ]
       ]
      }

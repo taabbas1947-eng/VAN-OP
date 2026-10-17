@@ -6866,3 +6866,26 @@ Tests: new tests/truckback17a.test.js (38 checks); audit16a/audit16b/complaints1
 Docs: R-041, D-323, LG-31, PF-23, AC-12, DD-32 word, tests row, guide rule, changelog 2026-10-17a.
 Outside O2S: ERP delivery for SO SAL-ORD-2026-00302 to be reversed and issued at the new weight (Finance).
 NEXT: Tahir pushes 17a (O2S only). Then: Saad/Shoaib Truck came back on DC 5244 -> Fahim approves on Today -> Saad plans JW 4092 with the lower Kg (DC 5245, QA pass carried) -> load, gate pass, review, release. Then live read-only check of the line, runs, sales and DC 5245.
+
+(20) 2026-10-17 12:05 · SESSION CLOSE · 17a PUSHED AND LIVE (commit 2df7716 "DC reveral")
+Live check 12:00 (read-only): /o2s BUILD_ID 2026-10-17a, sha256 b223b467d60ecca3 = repo; module "A TRUCK THAT CAME BACK (17a)" served; server up (push key route 200); live rev 14347; DC 5244 still stage delivered, not voided, not yet asked.
+16e also confirmed live earlier (sha 771e5cfab2ee22de): complaints 0, nobody has signed the Complaints brief yet (7 roles will be asked on next open).
+DC 5244 IN PROGRESS (Tahir sent Saad and Shoaib the steps at 12:00):
+  1. driver returns DC 5244 and GP-0172; truck stays at factory
+  2. Saad or Shoaib: Shipments > Delivered > DC 5244 > Truck came back (reason)
+  3. Fahim approves on Today ("Truck came back") -> line PO 6595010522 shipped/delivered -13,120; runs PK4934 5,152 / PK4966 5,312 / PK5034 2,144 / PK5036 512 back to cleared (simulated: line ready 5,488 -> 18,608 Kg)
+  4. Shoaib takes whole 8 Kg bags off, records the Kg
+  5. Saad: Ready > Syngenta > Start shipment, JW 4092, qty 13,120 minus Kg off, batches as the sheet picks -> DC 5245, QA pass carried from DC 5244
+  6. load, gate pass (expect GP-0173), review (not the loader), Fahim releases -> collected
+  Outside O2S: Finance changes the ERP delivery for SO SAL-ORD-2026-00302 to the new Kg.
+NEXT SESSION, FIRST: live read-only check of DC 5244 (voided, cameBack.approved, backKg 13,120), the line (dispatched/delivered 252,656 then + new truck), runs, sales, DC 5245 (qa.carriedFrom 5244, pallet rows "checked on DC 5244"), GP number, no duplicate in sales.
+PENDING (carried over):
+  - D-319: 6 complaint build choices to confirm with Tahir (root-cause kinds, units, how a reply is recorded, containment due next working day, 3 ways to lift a faulty hold, away back date). Ask as multiple choice.
+  - Complaints known gaps not built: hold result/lift single fields (same-second clash); clearQaHold lets Warehouse clear a QA hold (existing rule); report footer shows "van-control-tower".
+  - Held stock known limit: runs with no line link matched by product (lotsFor), 2 lines of same product on 1 PO show same held runs.
+  - Truck came back minor review items not built: correction/audit name only the first PO on a multi-PO truck; line History may not show the undo (correction filed against the truck).
+  - Alerts: Ahmer to create the alert tables on production, then check ready = true live.
+  - Review the 96 open Today jobs.
+  - 15f/15g held items and open questions.
+  - Tests: notify16c.db needs the daytime clock preload after 10 pm (2 checks use the real clock).
+Rules unchanged: Tahir pushes; live checks read-only; no test rows without OK; never platform + O2S in 1 push; tests + independent review before go-live; guide, changelog, BUILD_ID, tests and System documentation move with every change.

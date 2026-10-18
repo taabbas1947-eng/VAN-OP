@@ -1,6 +1,7 @@
 # 10. Data dictionary and glossary
 
-Version 1.3 · 18 Oct 2026 · Owner: Yawar; Himayat for material classes · Rule: R-5h item 10 (D-20)
+Version 1.4 · 18 Oct 2026 · Owner: Yawar; Himayat for material classes · Rule: R-5h item 10 (D-20)
+Changed in 0.9.0: state fields priceHistory, poLines, importedAt, nextDocRef, fam, typeName; glossary Left rail, Find anything, Next move, Stuck, Family colour, Working table, GP bridge (D-53 to D-58).
 Changed in 0.8.0: glossary entries Panel, Product page, Inputs, Setup, Topic and answer line (D-45 to D-52).
 Changed in 0.7.0: channel values (D-44).
 Changed in 0.4.0 and 0.5.0: is_base, applied, the settings, waiting and withdrawn approvals, audit actions; band values and budget figures removed (public repo).
@@ -109,4 +110,11 @@ Changed in 0.3.0 and 0.3.1: rs_per_kg fixed (1 rate of 1 kind, labour or FOH). A
 - **MRP, FRP**: maximum retail price, farmer retail price.
 - **NSV**: dealer price before discount.
 - **PKT**: Pakistan time, Asia/Karachi.
-
+- **Left rail**: the VAN navy column on the left of every C2M screen (0.9.0, D-53) with Find anything and the places.
+- **Find anything**: Ctrl K, or the box at the top of the rail: finds a place, a client product, a customer, a material or a report.
+- **Next move**: the 1 item at the top of Today that should be done first (B-12).
+- **Stuck**: waiting more than 2 working days, Monday to Saturday (D-54).
+- **Family colour**: the colour of a product's type, shown as a small square before its name (D-55).
+- **Working table**: a table with search, filter chips with counts, a totals row and Export to Excel.
+- **GP bridge**: the report that splits the change in GP between 2 months into price, volume, mix, cost and new and lost products (F-19).
+- **priceHistory, poLines** (state, cfo and coo only): every approved price with its dates; every O2S PO line placed on a client pack, open or shipped, with its received date, ordered kg and price.

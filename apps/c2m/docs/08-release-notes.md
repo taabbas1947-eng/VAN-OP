@@ -1,11 +1,34 @@
 # 8. Release notes and change log
 
-Version 1.4 · 18 Oct 2026 · Owner: Claude records; Tahir approves releases · Rule: R-5h item 8 (D-20)
+Version 1.5 · 18 Oct 2026 · Owner: Claude records; Tahir approves releases · Rule: R-5h item 8 (D-20)
+Changed in 0.9.0: entry 0.9.0 added.
 Changed in 0.8.0: entry 0.8.0 added.
 Changed in 0.7.0: entry 0.7.0 added.
 Changed in 0.6.0: entry 0.6.0 added.
 Changed in 0.5.0: entry 0.5.0 added; real figures removed from earlier entries (public repo).
 Format: Keep a Changelog, semantic versions. Live: 0.7.0 (apps/c2m pushed by Tahir on 17 Oct; 0.6.0 and 0.7.0 pushed on 18 Oct and checked live; no data loaded yet). 0.8.0 is local only.
+
+## [0.9.0] · 18 Oct 2026 · the approved picture, version 4, with the left rail (D-53 to D-58) · Who: Claude built, Tahir approves
+### Added
+- Left rail in VAN navy: VAN logo, Find anything (Ctrl K: places, client products, customers, materials, reports), places grouped Analyse, Work on, Admin; the person, Back to launcher and Sign out at its foot. The page keeps the O2S look (D-53).
+- Reports for Yawar and Tahir: 14 cards; GP bridge (monthly) and PO price against approved price built in full, each with Export to Excel; the other 12 show "0.9.1" (D-57).
+- Excel export (.xlsx made in the browser) on the Margin customer table and on both reports.
+- Product page: cost waterfall per pack; Cost and price by pack in 1 tab with an Each pack table; Price history and Sales tabs; Propose a price at the top; step chips say who did each step and when.
+- Today: next move card, groups with counts, the age of every waiting line, stuck after more than 2 working days (Monday to Saturday), Waiting on others with ages, a job for packs costed with no price (D-54).
+- Server, read only, Yawar and Tahir only: priceHistory, poLines, importedAt, nextDocRef in the state; proposals carry decidedAt; products and white label list rows carry the family colour (D-55).
+### Changed
+- Margin: 4 figures (sales with kg and L, gross profit Rs against the budget Rs, Rs at stake with locked in, customers red), the GP trend by month against budget, where money is at stake in 1 card with 3 tabs, group chips (white label, VAN brand, all), the customer table as a working table (search, chips with counts, Kg or L, GP bar against target, row stripe, totals row with sales-weighted GP, Columns).
+- Prices: 1 To change list with reason pills, including packs costed with no price; tab counts; a Waiting for date tab; Propose in a side panel with 4 tiles, GP on both costs and the Rs effect; the reason for the client is no longer pre-filled and is needed to send (D-56).
+- Tahir's price approval panel: tiles, its place in the queue (n of N), Yawar's below-target reason set apart, stacked buttons.
+- Recipe review: the answer names what stops the analysis; each input shows its nutrient %; the working of each worked-out % is shown.
+- Price list preview and PDF: number, issued and effective block; price basis beside the client block; 2 signatures; family chips; page number (D-58).
+- Phone: 1-line top bar; bottom bar of 4 places and More.
+### Not built (Tahir, 18 Oct 2026)
+- The declared grade check (H2): no new database entry (D-58). The 12 undrawn reports: 0.9.1 after their pictures are approved (D-57).
+### Fixed before the push (independent review, 18 Oct 2026; see 12.4)
+- Price history and the PO price report keep a price after a newer one replaced it. The client reason is also checked on the server. PO lines are sent for this financial year only. The PDF client box grows with a long name. The GP bridge answer reads in proper English.
+### Database
+- No table, column or migration. Tests: ui09.test (V-01 to V-15) added; ui08, flow A-01 updated for 8 places and the new tabs.
 
 ## [0.8.0] · 18 Oct 2026 · the screen redesign, stage 1 (Tahir's 8 screen rulings) · Who: Claude built, Tahir approves
 ### Changed: where things sit and how they read (D-45 to D-52). No rule, right, approval step, formula or table changed.

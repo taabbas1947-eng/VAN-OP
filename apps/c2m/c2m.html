@@ -10,19 +10,30 @@
 /* C2M · O2S Queue Shell skin (ruled 14 Oct 2026). Header with the person's words, then 1 screen.
    Every screen opens with what it answers and the next step. */
 :root{--bg:#E6E8E2;--surface:#F9F9F6;--ink:#1B1F1A;--muted:#5d6459;--line:#cfd3c9;--kraft:#8C6532;--blue:#2E5F86;--ok:#25703F;--late:#8A5A00;--over:#A3302A;--okbg:#e3efe5;--latebg:#f4ead6;--overbg:#f5e1df;
- --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;--mono:"IBM Plex Mono",ui-monospace,Consolas,monospace}
-:root[data-theme="dark"]{--bg:#1d211c;--surface:#262b25;--ink:#ecefe7;--muted:#a6ad9f;--line:#3a4137;--kraft:#c39a5f;--blue:#7fb0d8;--ok:#6fc28a;--late:#e0b25c;--over:#f08a80;--okbg:#1f3326;--latebg:#3a3020;--overbg:#3d2321;color-scheme:dark}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1d211c;--surface:#262b25;--ink:#ecefe7;--muted:#a6ad9f;--line:#3a4137;--kraft:#c39a5f;--blue:#7fb0d8;--ok:#6fc28a;--late:#e0b25c;--over:#f08a80;--okbg:#1f3326;--latebg:#3a3020;--overbg:#3d2321;color-scheme:dark}}
+ --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;--mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+ --railbg:#0E3550;--railink:#C9D6E3;--wbcost:#0E3550}
+:root[data-theme="dark"]{--bg:#1d211c;--surface:#262b25;--ink:#ecefe7;--muted:#a6ad9f;--line:#3a4137;--kraft:#c39a5f;--blue:#7fb0d8;--ok:#6fc28a;--late:#e0b25c;--over:#f08a80;--okbg:#1f3326;--latebg:#3a3020;--overbg:#3d2321;--railbg:#081320;--railink:#9FB3C6;--wbcost:#7fb0d8;color-scheme:dark}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1d211c;--surface:#262b25;--ink:#ecefe7;--muted:#a6ad9f;--line:#3a4137;--kraft:#c39a5f;--blue:#7fb0d8;--ok:#6fc28a;--late:#e0b25c;--over:#f08a80;--okbg:#1f3326;--latebg:#3a3020;--overbg:#3d2321;--railbg:#081320;--railink:#9FB3C6;--wbcost:#7fb0d8;color-scheme:dark}}
 *{box-sizing:border-box}html,body{margin:0}
 body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.5}
 .num,.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
-.hdr{background:var(--surface);border-bottom:2px solid var(--kraft);display:flex;flex-wrap:wrap;align-items:center;gap:6px 20px;padding:10px 16px;position:sticky;top:0;z-index:5}
-.hdr .home{color:var(--ink);text-decoration:none;white-space:nowrap;font-size:13px;border:1px solid var(--line, #d6d3c8);border-radius:6px;padding:3px 8px}.hdr .home:hover{border-color:var(--blue)}
-.hdr .app{font-weight:600}.hdr nav{display:flex;flex-wrap:wrap;gap:4px 16px}
-.hdr nav button{font:inherit;background:none;border:0;border-bottom:2px solid transparent;color:var(--ink);padding:2px 0;cursor:pointer;white-space:nowrap}
-.hdr nav button[aria-current="true"]{border-bottom-color:var(--blue);font-weight:600}
-.hdr .n{font-family:var(--mono);font-size:11px;background:var(--over);color:var(--surface);border-radius:3px;padding:0 6px;margin-left:4px}
-.hdr .who{margin-left:auto;color:var(--muted);font-size:13px}.hdr .who a{color:var(--blue)}
+.hdr{position:fixed;left:0;top:0;bottom:0;width:224px;z-index:5;background:var(--railbg);color:var(--railink);display:flex;flex-direction:column;gap:2px;padding:14px 10px 12px;overflow-y:auto}
+.hdr .brand{display:flex;align-items:center;gap:9px;padding:2px 6px 12px;color:#fff;text-decoration:none}.hdr .brand i{display:block;width:38px;height:27px;border-radius:3px;background:#fff url(/c2m/assets/van-logo.png) center/86% no-repeat;flex:none}
+.hdr .brand b{display:block;font-size:15px;line-height:1.1;font-weight:600}.hdr .brand small{display:block;font-size:11px;color:var(--railink)}
+.hdr .findbtn{font:inherit;display:flex;align-items:center;gap:7px;width:100%;background:transparent;border:1px solid rgba(255,255,255,.18);border-radius:5px;padding:6px 8px;color:var(--railink);font-size:12.5px;cursor:pointer;margin:0 0 8px;text-align:left}
+.hdr .findbtn:hover{border-color:rgba(255,255,255,.4);color:#fff}.hdr .findbtn kbd{margin-left:auto;font-family:var(--mono);font-size:10px;opacity:.75}
+.hdr svg{width:16px;height:16px;flex:none;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.hdr nav{display:flex;flex-direction:column;gap:2px}
+.hdr nav .g{font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;opacity:.62;padding:10px 8px 3px}
+.hdr nav button{font:inherit;display:flex;align-items:center;gap:9px;width:100%;background:none;border:0;border-radius:5px;padding:7px 8px;color:var(--railink);cursor:pointer;text-align:left;font-size:14px}
+.hdr nav button:hover{background:rgba(255,255,255,.07);color:#fff}
+.hdr nav button[aria-current="true"]{background:rgba(255,255,255,.14);color:#fff;font-weight:600;box-shadow:inset 3px 0 0 #fff}
+.hdr .n{margin-left:auto;font-family:var(--mono);font-size:10.5px;background:#E5262A;color:#fff;border-radius:9px;padding:0 6px;font-weight:500}
+.hdr .foot{margin-top:auto;border-top:1px solid rgba(255,255,255,.14);padding:10px 8px 0;font-size:12.5px;display:grid;gap:2px}.hdr .foot b{color:#fff;font-weight:600}
+.hdr .foot a{color:var(--railink)}.hdr .foot a:hover{color:#fff}
+.hdr .more{display:none}
+.shell{margin-left:224px;min-height:100vh}
+:focus-visible{outline:2px solid var(--blue);outline-offset:2px}.hdr :focus-visible{outline-color:#fff}
 main{max-width:1160px;margin:0 auto;padding:18px 16px 64px}
 h1{font-size:21px;font-weight:600;margin:0 0 2px;text-wrap:balance}
 h2{font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:24px 0 8px}
@@ -104,13 +115,78 @@ details.how{margin:0 0 12px;color:var(--muted);font-size:13px;max-width:90ch}det
 .panel-h{position:sticky;top:0;background:var(--bg);display:flex;gap:10px;align-items:center;justify-content:space-between;padding:12px 0 8px;border-bottom:1px solid var(--line);margin:0 0 12px;z-index:1}
 .panel-h b{font-size:15px}.panel-h b:focus{outline:none}
 .find{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 10px}.find input{min-width:220px;flex:0 1 320px}
-@media (max-width:600px){
-  .hdr nav{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--surface);border-top:2px solid var(--kraft);flex-wrap:nowrap;overflow-x:auto;gap:0;padding:2px 2px calc(2px + env(safe-area-inset-bottom))}
-  .hdr nav button{flex:1 0 auto;min-height:46px;padding:4px 5px;font-size:12px;border-bottom:0;border-top:3px solid transparent}.hdr .n{margin-left:2px;padding:0 4px}
-  .hdr nav button[aria-current="true"]{border-top-color:var(--blue)}
-  main{padding-bottom:96px}.panel{width:100%;border-left:0;padding-bottom:96px}.toast{bottom:76px}
+@media (max-width:760px){
+  .hdr{position:sticky;top:0;bottom:auto;width:auto;height:auto;flex-direction:row;align-items:center;gap:10px;padding:8px 12px;overflow:visible}
+  .hdr .brand{padding:0}.hdr .brand i{width:32px;height:23px}.hdr .brand small{display:none}
+  .hdr .findbtn{width:auto;margin:0 0 0 auto;padding:6px 8px}.hdr .findbtn span,.hdr .findbtn kbd{display:none}
+  .hdr .foot{margin:0;border:0;padding:0;font-size:12px;display:flex;gap:10px;white-space:nowrap;min-width:0}.hdr .foot b{max-width:34vw;overflow:hidden;text-overflow:ellipsis}
+  .hdr nav button:focus-visible,.hdr .more:focus-visible{outline-color:var(--blue)}.hdr .foot .who2,.hdr .foot .launch{display:none}
+  .hdr nav{position:fixed;left:0;right:0;bottom:0;z-index:6;flex-direction:row;background:var(--surface);border-top:1px solid var(--line);box-shadow:0 -2px 10px rgba(0,0,0,.08);padding:0 0 env(safe-area-inset-bottom);gap:0}
+  .hdr nav .g{display:none}
+  .hdr nav button{flex:1 1 0;justify-content:center;flex-direction:column;gap:2px;min-height:54px;padding:6px 2px;color:var(--muted);font-size:11.5px;border-radius:0;box-shadow:none;border-top:3px solid transparent}
+  .hdr nav button[aria-current="true"]{background:none;color:var(--blue);box-shadow:none;border-top-color:var(--blue)}
+  .hdr nav button svg{width:20px;height:20px}.hdr nav button.far{display:none}
+  .hdr .n{position:absolute;margin:0 0 0 18px;top:4px;font-size:9.5px;padding:0 5px}.hdr nav button{position:relative}
+  .hdr .more{display:flex;position:fixed;right:0;bottom:0;z-index:7;width:20%;min-height:54px;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:var(--surface);border:0;border-top:3px solid transparent;color:var(--muted);font:inherit;font-size:11.5px;cursor:pointer;padding-bottom:env(safe-area-inset-bottom)}
+  .hdr .more svg{width:20px;height:20px}
+  .hdr.has-more nav{right:20%}
+  .shell{margin-left:0}
+  main{padding-bottom:96px}.panel{width:100%!important;border-left:0;padding-bottom:96px}.toast{bottom:76px}
   h1.topic{font-size:18px}.answer{font-size:15px}.find input{min-width:0;flex:1 1 100%}
 }
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:9;background:var(--surface);border-top:2px solid var(--blue);border-radius:10px 10px 0 0;padding:10px 12px calc(14px + env(safe-area-inset-bottom));box-shadow:0 -6px 24px rgba(0,0,0,.25)}
+.sheet button{font:inherit;display:flex;align-items:center;gap:10px;width:100%;min-height:48px;background:none;border:0;border-bottom:1px solid var(--line);color:var(--ink);text-align:left;cursor:pointer;padding:0 6px}
+.sheet button svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+/* 0.9.0 (Tahir, 18 Oct 2026: take the approved picture, version 4; left rail in VAN navy, page keeps the O2S look) */
+.kick{font-size:12px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--blue);margin:0 0 2px;display:flex;flex-wrap:wrap;gap:4px 14px;justify-content:space-between}.kick span:last-child{color:var(--muted);font-weight:400;letter-spacing:0;text-transform:none}
+.fam{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:baseline;flex:none}
+.nextmove{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:center;justify-content:space-between;background:var(--surface);border:1px solid var(--line);border-left:5px solid var(--blue);border-radius:4px;padding:14px 16px;margin:4px 0 18px}
+.nextmove .k{font-size:11.5px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--blue)}.nextmove .t{font-size:17px;font-weight:600;margin:2px 0}.nextmove .d{color:var(--muted);max-width:80ch}
+.nextmove>div{flex:1 1 360px;min-width:0}.nextmove .btn{font-size:14px;padding:8px 18px}
+.groups{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px;align-items:start}
+.gh{font-size:12px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 6px;display:flex;align-items:center;gap:8px}.gh .c{font-family:var(--mono);font-size:11px;background:var(--line);color:var(--ink);border-radius:9px;padding:0 7px;letter-spacing:0}
+.items{display:grid;gap:6px}
+.item{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--line);border-radius:4px;padding:9px 12px}
+.item.k-approve{border-left-color:var(--late)}.item.k-do{border-left-color:var(--blue)}.item.k-red{border-left-color:var(--over)}.item.k-wait{border-left-color:#9aa39a}
+.item>div{flex:1 1 220px;min-width:0}.item .t{font-weight:500}.item .d{font-size:12.5px;color:var(--muted)}
+.age{font-family:var(--mono);font-size:12px;color:var(--muted);white-space:nowrap}.age.stuck{color:var(--over);font-weight:500}
+.stuckp{font-family:var(--mono);font-size:10.5px;background:var(--overbg);color:var(--over);border:1px solid currentColor;border-radius:3px;padding:0 5px;margin-left:6px;white-space:nowrap}
+.figs{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin:0 0 14px}
+.fig{background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:12px 14px}.fig .l{font-size:12.5px;color:var(--muted)}.fig .v{font-family:var(--mono);font-size:25px;line-height:1.3;margin:2px 0}.fig .s{font-size:12px;color:var(--muted)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:14px 16px;min-width:0}.card h3{margin:0 0 2px;font-size:15px;font-weight:600}.card .sub{font-size:12.5px;color:var(--muted);margin:0 0 8px}
+.cards2{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:14px;margin:0 0 16px}@media (max-width:980px){.cards2{grid-template-columns:minmax(0,1fr)}}
+.chart{width:100%;height:auto;display:block;overflow:visible}.chart text{font-family:var(--sans);font-size:11px;fill:var(--muted)}.chart .lbl{fill:var(--ink);font-family:var(--mono);font-size:11.5px}
+.chart .grid{stroke:var(--line);stroke-width:1}.chart .line{fill:none;stroke:var(--blue);stroke-width:2.5}.chart .dot{fill:var(--surface);stroke:var(--blue);stroke-width:2.5}.chart .dot.last{fill:var(--blue)}
+.chart .bud{stroke:var(--kraft);stroke-width:2;stroke-dasharray:6 5;fill:none}.chart .budl{fill:var(--kraft)}
+.chart .wb-total{fill:#8796A5}.chart .wb-up{fill:var(--ok)}.chart .wb-down{fill:var(--over)}.chart .wb-mat{fill:#6E8BA6}.chart .wb-cost{fill:var(--wbcost)}
+.tabs3{display:inline-flex;border:1px solid var(--line);border-radius:4px;overflow:hidden;margin:0 0 8px}.tabs3 button{font:inherit;font-size:12.5px;background:var(--surface);border:0;border-right:1px solid var(--line);padding:4px 10px;cursor:pointer;color:var(--ink)}.tabs3 button:last-child{border-right:0}.tabs3 button[aria-pressed="true"]{background:var(--blue);color:var(--surface)}
+.rank{display:grid;gap:0}.rank .r{font:inherit;color:inherit;background:none;border:0;width:100%;text-align:left;display:grid;grid-template-columns:22px minmax(0,1fr) auto;gap:8px;padding:8px 0;border-top:1px solid var(--line);align-items:baseline;cursor:pointer}.rank .r:first-child{border-top:0}.rank .r:hover b{color:var(--blue)}
+.rank .r .m{font-size:12px;color:var(--muted)}.rank .r .v{font-family:var(--mono);color:var(--over);font-weight:500}
+.wtbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 8px}.wtbar input[type=search]{min-width:200px;flex:0 1 260px}.wtbar .chips{margin:0}.wtbar .sp{flex:1 1 auto}
+.wt td:first-child,.wt th:first-child{padding-left:12px}.wt tr.r-red td:first-child{box-shadow:inset 4px 0 0 var(--over)}.wt tr.r-amber td:first-child{box-shadow:inset 4px 0 0 var(--late)}.wt tr.r-green td:first-child{box-shadow:inset 4px 0 0 var(--ok)}.wt tr.r-none td:first-child{box-shadow:inset 4px 0 0 var(--line)}
+.wt tfoot td{border-top:2px solid var(--ink);font-weight:600;background:color-mix(in srgb,var(--surface) 70%,var(--bg))}
+.wt tr.sel td{background:color-mix(in srgb,var(--blue) 10%,transparent)}
+.gbar{display:inline-block;position:relative;height:8px;width:110px;background:var(--line);border-radius:4px;vertical-align:middle}.gbar i{position:absolute;left:0;top:0;bottom:0;background:var(--over);border-radius:4px}.gbar.ok i{background:var(--ok)}.gbar em{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--ink);margin-left:-1px}
+.colsmenu{position:relative}.colsmenu .box{position:absolute;right:0;top:110%;z-index:4;padding:8px 10px;display:grid;gap:4px;min-width:180px;font-size:13px}
+.steps span small{font-weight:400;color:var(--muted);margin-left:4px}
+.tiles4{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0 0 10px}.tiles4 .tile .v{font-size:19px}
+.quote{border-left:3px solid var(--line);padding:2px 0 2px 10px;margin:8px 0;color:var(--ink)}.quote small{display:block;color:var(--muted)}
+.big{display:grid;gap:8px;margin-top:10px}.big .btn{min-height:46px;font-size:15px}
+.panel.narrow{width:min(470px,100%)}.scrim.light{background:rgba(0,0,0,.12)}
+.rgroups{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}
+.rcard{display:block;width:100%;text-align:left;font:inherit;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--line);border-radius:4px;padding:11px 13px;margin:0 0 8px;cursor:pointer}
+.rcard:hover{border-color:var(--blue)}.rcard b{display:block;font-size:14.5px}.rcard span{font-size:12.5px;color:var(--muted)}.rcard.ready{border-left-color:var(--blue)}.rcard em{font-style:normal;font-family:var(--mono);font-size:10px;font-weight:600;color:var(--blue);margin-left:6px;text-transform:uppercase;letter-spacing:.06em}.rcard.later em{color:var(--muted)}
+.finder{position:fixed;inset:0;z-index:20;background:rgba(0,0,0,.35);display:flex;align-items:flex-start;justify-content:center;padding:10vh 12px 12px}
+.finder .fb{background:var(--surface);border-radius:8px;width:min(620px,100%);box-shadow:0 12px 40px rgba(0,0,0,.35);overflow:hidden}
+.finder input{width:100%;max-width:none;border:0;border-bottom:1px solid var(--line);border-radius:0;font-size:16px;padding:14px 16px;background:var(--surface)}
+.finder ul{list-style:none;margin:0;padding:6px;max-height:55vh;overflow-y:auto}.finder li button{font:inherit;display:flex;gap:10px;align-items:baseline;width:100%;text-align:left;background:none;border:0;border-radius:5px;padding:8px 10px;color:var(--ink);cursor:pointer}
+.finder li button[aria-selected="true"],.finder li button:hover{background:color-mix(in srgb,var(--blue) 12%,transparent)}.finder li small{margin-left:auto;color:var(--muted);font-size:12px;white-space:nowrap}
+.doc-h2{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px 18px;align-items:flex-start}.doc-meta{text-align:right;font-size:12px;color:#4a5a70}.doc-meta h4{margin:0 0 6px;font-size:18px;letter-spacing:.08em;color:#14327e}.doc-meta table{border-collapse:collapse;width:auto;margin-left:auto;font-size:12px}.doc-meta td{border:0;padding:1px 0 1px 14px;color:#14233a}.doc-meta td:first-child{color:#4a5a70;padding-left:0}
+.doc-rule{height:3px;background:linear-gradient(90deg,#14327e 0 82%,#e5262a 82% 86%,#14327e 86%);margin:10px 0 12px}
+.doc-blk{display:grid;grid-template-columns:1fr 1fr;gap:12px;background:#f4f6fa;border-radius:4px;padding:10px 14px;margin:0 0 12px;font-size:12px;color:#4a5a70}.doc-blk small{display:block;letter-spacing:.1em;font-size:10.5px}.doc-blk b{display:block;color:#14327e;font-size:14px}
+.doc-sig{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin:22px 0 12px;font-size:12px;color:#4a5a70}.doc-sig div{border-top:1px solid #14233a;padding-top:4px}.doc-sig b{display:block;color:#14327e;font-size:13px}
+.doc-f2{display:flex;justify-content:space-between;gap:12px;border-top:2px solid #e5262a;padding-top:8px;font-size:11px;color:#4a5a70}
+@media (max-width:760px){.nextmove .btn{width:100%;min-height:46px}.groups{grid-template-columns:minmax(0,1fr)}.cards2{grid-template-columns:minmax(0,1fr)}.wtbar input[type=search]{flex:1 1 100%}.doc-blk,.doc-sig{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -127,10 +203,22 @@ let fbasis = 'budget', hist = 'approved';
 const salesRows0 = () => (ST.sales || []).map(r => r.costBands != null ? { ...r, cost: r.costBands } : r);
 const salesRows = () => (ST.sales || []).map(r => hist === 'bands' && r.costBands != null ? { ...r, cost: r.costBands } : r);
 let ST = null, scr = 'today', sub = null, drill = { cust: null, prod: null }, period = 'fy', month = null, openRec = null, sendBack = null, trial = null, ptrial = null,
-  pgrp = 'cost', propose = null, priceCust = null, cols = { prev: true, hilo: false, margin: true, port: true, actual: false }, corr = null, doc = null, editLines = null,
+  pgrp = 'all', propose = null, priceCust = null, cols = { prev: true, hilo: false, margin: true, port: true, actual: false }, corr = null, doc = null, editLines = null,
   PLB = { aud: 'wl', client: null, pick: {}, reasons: {}, eff: null, till: null, note: '' }, boDoc = null, listSel = null, billEdit = null,
   pan = null, panFocus = false, behind = false, panReturn = null, panAt = null, openProd = null, ptab = 'recipe', recSel = null, prodF = 'all', prodQ = '', inp = 'materials', matQ = '', setup = 'customers';
-const NAV = { today: 'Today', margin: 'Margin', products: 'Products', recipes: 'Recipes', prices: 'Prices', lists: 'Price lists', inputs: 'Inputs', setup: 'Setup', guide: 'Guide' }; // 0.8.0 places (ruling 1, 18 Oct 2026)
+const NAV = { today: 'Today', margin: 'Margin', reports: 'Reports', products: 'Products', recipes: 'Recipes', prices: 'Prices', lists: 'Price lists', inputs: 'Inputs', setup: 'Setup', guide: 'Guide' }; // 0.8.0 places; 0.9.0 adds Reports (D-53)
+/* 0.9.0 left rail (Tahir, 18 Oct 2026: "take the left rail"; ruling 1 changed: rail in VAN navy, page keeps the O2S look) */
+const RAILG = { margin: 'Analyse', reports: 'Analyse', products: 'Work on', recipes: 'Work on', prices: 'Work on', lists: 'Work on', inputs: 'Work on', setup: 'Admin', guide: 'Admin' };
+const SVG = p => `<svg viewBox="0 0 24 24" aria-hidden="true">${p}</svg>`;
+const ICON = { today: SVG('<rect x="3" y="3" width="18" height="18" rx="2"/><path d="m8 12 3 3 5-6"/>'), margin: SVG('<path d="M3 3v18h18"/><path d="m7 15 4-4 3 3 6-6"/>'),
+  reports: SVG('<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M9 17v-3M12 17v-5M15 17v-2"/>'), products: SVG('<path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="m3 8 9 5 9-5M12 13v8"/>'),
+  recipes: SVG('<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1M9 10h6M9 14h6M9 18h3"/>'), prices: SVG('<path d="M3 12V4a1 1 0 0 1 1-1h8l9 9-9 9z"/><circle cx="8" cy="8" r="1.5"/>'),
+  lists: SVG('<path d="M6 3h9l4 4v14H6z"/><path d="M9 11h7M9 15h7"/>'), inputs: SVG('<path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3"/><path d="M7.5 15h9"/>'),
+  setup: SVG('<path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M2 14h4M10 8h4M18 16h4"/>'), guide: SVG('<path d="M3 5a2 2 0 0 1 2-2h6v18H5a2 2 0 0 1-2-2z"/><path d="M21 5a2 2 0 0 0-2-2h-6v18h6a2 2 0 0 0 2-2z"/>'),
+  search: SVG('<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>'), more: SVG('<circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/>') };
+/** On a phone the bottom bar holds 4 places and More when a person has more than 5 (F1). */
+const phone4 = nav => nav.length > 5 ? ['today', 'margin', 'reports', 'prices'].filter(k => nav.includes(k)) : nav;
+let finder = null, moreOpen = false, mgrp = 'wl';
 const STEP = { draft: 'Majid checks', review: 'Himayat reviews', endorse: 'Fahim endorses', cost: 'Yawar approves cost', approved: 'Approved', old: 'Earlier version' };
 const MYJOB = { draft: 'Check recipe', review: 'Review recipe', endorse: 'Endorse recipe', cost: 'Approve cost' };
 /** A step in words: names keep their capital ("Yawar approves cost"); "approved" and "earlier version" read in lower case. */
@@ -180,7 +268,8 @@ async function load() { ST = await api('/api/c2m/state'); if (!ST.me.nav.include
 async function act(path, body, okMsg) { { const pn = document.querySelector('aside.panel'); panAt = pn && pn.contains(document.activeElement) ? panItems(pn).indexOf(document.activeElement) : null; if (panAt < 0) panAt = null; } try { const j = await api(path, body); if (okMsg) toast(typeof okMsg === 'function' ? okMsg(j) : okMsg); if (pan) panFocus = true; await load(); return j; } catch (e) { toast(e.message, true); return null; } }
 
 /* ---------- Lookups ---------- */
-const packIdx = () => { const m = new Map(); (ST.products || []).forEach(p => p.packs.forEach(k => m.set(k.id, { ...k, product: p }))); return m; };
+let _pi = null, _piST = null; /** Every pack with its product, built once per state load (review 18 Oct, finding 2). */
+const packIdx = () => { if (_piST === ST && _pi) return _pi; const m = new Map(); (ST.products || []).forEach(p => p.packs.forEach(k => m.set(k.id, { ...k, product: p }))); _pi = m; _piST = ST; return m; };
 const packLabel = k => `${k.product.brand} ${k.size} ${k.product.soldPer}`;
 function inP(d) { if (period === 'fy') return d >= fyStart(); if (period === 'month') return d.slice(0, 7) === ST.today.slice(0, 7); if (period === '3m') return d >= addDays(ST.today, -91); return d.slice(0, 7) === month; }
 function fyStart() { const y = Number(ST.today.slice(0, 4)), m = Number(ST.today.slice(5, 7)); return (m >= 7 ? y : y - 1) + '-07-01'; }
@@ -228,37 +317,80 @@ function exposure() {
   return out;
 }
 
-/* ---------- Jobs for Today ---------- */
+/* ---------- Jobs for Today (0.9.0: each job knows its group, its age and why it is there; ruling 20) ---------- */
+const d10 = x => String(x || '').slice(0, 10);
+/** Calendar days from a date to today. */
+const daysSince = from => from ? Math.max(0, Math.round((new Date(ST.today + 'T00:00:00Z') - new Date(d10(from) + 'T00:00:00Z')) / 864e5)) : null;
+/** Working days from a date to today, Monday to Saturday (Tahir, 18 Oct 2026: only Sunday is off). */
+function wdays(from) { if (!from) return 0; let n = 0; const d = new Date(d10(from) + 'T00:00:00Z'), end = new Date(ST.today + 'T00:00:00Z'); while (d < end) { d.setUTCDate(d.getUTCDate() + 1); if (d.getUTCDay() !== 0) n++; } return n; }
+/** An item waiting more than 2 working days is stuck (ruling 20). */
+const isStuck = from => !!from && wdays(from) > 2;
+const ageTxt = from => { const n = daysSince(from); return n == null ? '' : n === 0 ? 'today' : pl(n, 'day', 'days'); };
+const ageHtml = (from, plain) => from ? `<span class="age ${isStuck(from) ? 'stuck' : ''}" title="Waiting since ${esc(fmtD(d10(from)))}">${ageTxt(from)}${isStuck(from) ? '<span class="stuckp">stuck</span>' : ''}</span>` : (plain ? `<span class="age">${plain}</span>` : '');
+const lastStep = v => (v.steps || []).length ? v.steps[v.steps.length - 1] : null;
+const VERB = { sent: 'checked', resent: 'resent', reviewed: 'reviewed', endorsed: 'endorsed', cost_approved: 'approved the cost', written: 'wrote', imported: 'imported', sent_back: 'sent back' };
+const personName = u => { const p = (ST.people || []).find(x => x.username === u); return p && p.name ? p.name.split(' ')[0] : u ? u.charAt(0).toUpperCase() + u.slice(1) : ''; };
+const relDay = at => { const n = daysSince(at); return n === 0 ? 'today' : n === 1 ? 'yesterday' : `on ${fmtD(d10(at))}`; };
+const firstOfMonth = () => ST.today.slice(0, 7) + '-01';
 function jobs() {
   const R = ST.me.role, J = [];
-  (ST.recipes || []).forEach(v => { if (STEP_ROLE[v.state] === R) J.push({ t: `${MYJOB[v.state]}: ${v.brand} for ${v.customer}, version ${v.version}`, d: v.sentBack && v.state === 'draft' ? `Sent back: ${v.sentBack.reason}. Advice: ${v.sentBack.advice}` : (v.note || ''), btn: 'Open recipe', pan: { k: 'rec', id: v.id } }); });
+  (ST.recipes || []).forEach(v => { if (STEP_ROLE[v.state] !== R) return; const ls = lastStep(v); const prod = (ST.products || []).find(p => p.id === v.clientProductId); const appr = prod && prod.approvedVersionId && prod.approvedVersionId !== v.id ? (ST.recipes || []).find(x => x.id === prod.approvedVersionId) : null;
+    let d = v.sentBack && v.state === 'draft' ? `Sent back: ${v.sentBack.reason}. Advice: ${v.sentBack.advice}` : (v.note || '');
+    if (R === 'cfo' && v.state === 'cost') { const parts = []; if (ls) parts.push(`${personName(ls.by_user)} ${VERB[ls.action] || ls.action} it ${relDay(ls.at)}.`); if (appr && v.materials != null && appr.materials) { const dm = (v.materials - appr.materials) / appr.materials * 100; parts.push(`Materials ${rs2(v.materials)} per ${prod.soldPer} against ${rs2(appr.materials)} approved (${dm >= 0 ? '+' : ''}${dm.toFixed(1)}%).`); } if (v.nutrients && v.nutrients.complete) parts.push('Every input is classed and entered.'); if (parts.length) d = parts.join(' ') + (v.note ? ' ' + String(v.note).replace(/([^.!?])$/, '$1.') : ''); }
+    J.push({ t: `${MYJOB[v.state]}: ${v.brand} for ${v.customer}, version ${v.version}`, d, btn: 'Open recipe', pan: { k: 'rec', id: v.id }, kind: v.state === 'draft' ? 'do' : 'approve', pri: 1, since: ls ? ls.at : null }); });
   if (R === 'cfo') {
-    (ST.reapprovals || []).forEach(x => J.push({ t: `Re-approve cost: ${pl(x.items.length, 'pack', 'packs')} ${x.items.some(i => i.first) ? 'waiting for a first or new approved cost' : `moved over ${SET('reapprove_pct')}%`}`, d: 'Cause: ' + x.cause, btn: 'Open re-approval', pan: { k: 'reapp', id: x.id } }));
+    const P = packIdx();
+    (ST.reapprovals || []).forEach(x => { let onOpen = 0, below = 0; x.items.forEach(i => { const kg = (ST.open || []).filter(o => o.packId === i.packId).reduce((s, o) => s + o.kg, 0); if (i.from != null && i.to != null) onOpen += (i.to - i.from) * kg; const k = P.get(i.packId); if (k && k.cost && k.price != null && k.product.target != null && (k.price - k.cost.total) / k.price * 100 < k.product.target) below++; });
+      J.push({ t: `Re-approve cost: ${pl(x.items.length, 'pack', 'packs')} ${x.items.some(i => i.first) ? 'waiting for a first or new approved cost' : `moved over ${SET('reapprove_pct')}%`}`, d: `${x.cause}.${Math.round(onOpen) ? ` ${onOpen > 0 ? '+' : '-'}${rs(Math.abs(onOpen))} on open POs.` : ''}${below ? ` ${pl(below, 'pack is', 'packs are')} now below target.` : ''}`, btn: 'Open re-approval', pan: { k: 'reapp', id: x.id }, kind: 'approve', pri: 3, since: x.createdAt }); });
     { const nc = []; (ST.products || []).forEach(p => (p.packs || []).forEach(k => { if (k.costGaps && k.costGaps.length && (!k.costGaps.includes('no approved recipe') || p.grp === 'White label')) nc.push(`${p.brand} ${k.size} ${p.soldPer} for ${p.customer}: ${k.costGaps.join(', ')}`); }));
-      if (nc.length) J.push({ t: `Not costed: ${pl(nc.length, 'pack', 'packs')} cannot be priced until their cost is complete`, d: 'A recipe, price or rate is missing. No price can be proposed or checked for them until fixed (D-40). ' + nc.slice(0, 5).join('; ') + (nc.length > 5 ? `; and ${nc.length - 5} more` : ''), btn: 'See the packs', pan: { k: 'notcosted' } }); }
-    const n = (ST.imports || []).filter(i => i.status === 'open').length; if (n) J.push({ t: `Check ${pl(n, 'item', 'items')} from your sheets`, d: 'Conflicting rates, missing figures and data problems. Each is pre-filled; accept it or correct it.', btn: 'Open the items', pan: { k: 'imports' } });
-    (ST.listRevisions || []).filter(r => r.status === 'sent_back').forEach(r => J.push({ t: `List revision sent back: ${LISTNAME[r.list_name]}`, d: 'Tahir: ' + (r.back_reason || ''), btn: 'Revise and resend', pan: { k: 'lrev', id: r.id } }));
-    const back = (ST.proposals || []).filter(p => p.status === 'sent_back'); back.forEach(p => J.push({ t: `Price sent back: ${packName(p.packId)}`, d: 'Tahir: ' + (p.backReason || ''), btn: 'Revise and resend', pan: { k: 'prop', id: p.id } }));
-    const ch = toChange().length; if (ch) J.push({ t: `${pl(ch, 'client price needs', 'client prices need')} changing`, d: 'Below cost or below target on today\'s cost, or monthly revision due.', btn: 'Open prices to change', pan: { k: 'tochange' } });
-    const lastM = addDays(ST.today.slice(0, 7) + '-01', -1).slice(0, 7);
-    if (!(ST.actuals || []).some(a => a.month === lastM)) J.push({ t: `Enter ${mon(lastM)} actual labour and FOH`, d: 'Needed to compare actual labour and FOH with what was charged to products.', btn: 'Enter actuals', pan: { k: 'actuals' } });
-    if (!(ST.checks || []).some(c => c.month === lastM && c.kind === 'tie_books')) J.push({ t: `Tie ${mon(lastM)} to the books`, d: 'Enter ERP sales and COGS by customer; C2M shows the gap.', btn: 'Open monthly checks', pan: { k: 'actuals' } });
+      if (nc.length) J.push({ t: `Not costed: ${pl(nc.length, 'pack', 'packs')} cannot be priced until their cost is complete`, d: 'A recipe, price or rate is missing. No price can be proposed or checked for them until fixed (D-40). ' + nc.slice(0, 5).join('; ') + (nc.length > 5 ? `; and ${nc.length - 5} more` : ''), btn: 'See the packs', pan: { k: 'notcosted' }, kind: 'do', pri: 5 }); }
+    { const np = noPrice(); if (np.length) J.push({ t: `${pl(np.length, 'pack', 'packs')} costed with no price`, d: `${np.slice(0, 3).map(x => `${x.prod} for ${x.cust}`).join('; ')}${np.length > 3 ? `; and ${np.length - 3} more` : ''}. ${np.length === 1 ? 'It' : 'They'} cannot be sold at a checked price until a price is approved.`, btn: 'Open prices to change', pan: { k: 'tochange' }, kind: 'red', pri: 4 }); }
+    const open = (ST.imports || []).filter(i => i.status === 'open'); if (open.length) J.push({ t: `Check ${pl(open.length, 'item', 'items')} from your sheets`, d: `Next: ${open[0].item}. Each is pre-filled; accept it or correct it.`, btn: 'Open the items', pan: { k: 'imports' }, kind: 'do', pri: 6, since: ST.importedAt });
+    (ST.listRevisions || []).filter(r => r.status === 'sent_back').forEach(r => J.push({ t: `List revision sent back: ${LISTNAME[r.list_name]}`, d: 'Tahir: ' + (r.back_reason || ''), btn: 'Revise and resend', pan: { k: 'lrev', id: r.id }, kind: 'do', pri: 2, since: r.decided_at }));
+    (ST.proposals || []).filter(p => p.status === 'sent_back').forEach(p => J.push({ t: `Price sent back: ${packName(p.packId)}`, d: 'Tahir: ' + (p.backReason || ''), btn: 'Revise and resend', pan: { k: 'prop', id: p.id }, kind: 'do', pri: 2, since: p.decidedAt }));
+    { const L = toChange().filter(x => (!x.k || !x.k.waitingProposal) && !x.why.includes('no price')); if (L.length) { const c = L.filter(x => x.why.includes('below cost')).length, t = L.filter(x => x.why.includes('below target')).length, n = 0; const fwd = L.reduce((s, x) => s + (x.fwd || 0), 0);
+      J.push({ t: `${pl(L.length, 'client price', 'client prices')} to change`, d: `${[n ? n + ' with no price' : '', c ? c + ' below cost' : '', t ? t + ' below target' : ''].filter(Boolean).join(', ') || 'Monthly revision due'}.${fwd ? ` ${rsM(fwd)} at stake in ${SET('forward_months')} months.` : ''}`, btn: 'Open prices to change', pan: { k: 'tochange' }, kind: 'do', pri: 3 }); } }
+    const lastM = addDays(firstOfMonth(), -1).slice(0, 7);
+    if (!(ST.actuals || []).some(a => a.month === lastM)) J.push({ t: `Enter ${mon(lastM)} actual labour and FOH`, d: 'Needed to compare actual labour and FOH with what was charged to products.', btn: 'Enter actuals', pan: { k: 'actuals' }, kind: 'do', pri: 7, since: firstOfMonth() });
+    if (!(ST.checks || []).some(c => c.month === lastM && c.kind === 'tie_books')) J.push({ t: `Tie ${mon(lastM)} to the books`, d: 'Enter ERP sales and COGS by customer; C2M shows the gap.', btn: 'Open monthly checks', pan: { k: 'actuals' }, kind: 'do', pri: 7, since: firstOfMonth() });
   }
-  if (R === 'qc') { const n = (ST.materials || []).filter(m => matState(m)[0] === 'p-amber').length; if (n) J.push({ t: `${pl(n, 'material needs', 'materials need')} a class or nutrient %`, d: 'Nutrient sources need their % per field; binders, fillers and agents need only their class.', btn: 'Open materials', pan: { k: 'mats' } }); }
+  if (R === 'qc') { const n = (ST.materials || []).filter(m => matState(m)[0] === 'p-amber').length; if (n) J.push({ t: `${pl(n, 'material needs', 'materials need')} a class or nutrient %`, d: 'Nutrient sources need their % per field; binders, fillers and agents need only their class.', btn: 'Open materials', pan: { k: 'mats' }, kind: 'do', pri: 5 }); }
   if (R === 'coo') {
-    const wd = (from) => { let n = 0; const d = new Date(String(from).slice(0, 10) + 'T00:00:00Z'), end = new Date(ST.today + 'T00:00:00Z'); while (d < end) { d.setUTCDate(d.getUTCDate() + 1); if (d.getUTCDay() !== 0) n++; } return n; };
-    (ST.recipes || []).filter(v => STEP_ROLE[v.state]).forEach(v => { const last = v.steps.length ? v.steps[v.steps.length - 1].at : null; const n = last ? wd(last) : 0; if (n > 2) J.push({ t: `Recipe stuck ${n} working days: ${v.brand} for ${v.customer}`, d: `With ${ROLE_NAME[STEP_ROLE[v.state]]} at "${stepTxt(v.state)}" since ${fmtD(String(last).slice(0, 10))}.`, btn: 'Open recipe', pan: { k: 'rec', id: v.id } }); });
-
-    (ST.proposals || []).filter(p => p.status === 'proposed').forEach(p => J.push({ t: `Approve price: ${packName(p.packId)}`, d: (() => { const k = packIdx().get(p.packId); const c = k && k.cost ? k.cost.total : null; return `${p.prev != null ? 'Rs ' + p.prev + ' to ' : ''}Rs ${p.price} per ${k ? k.product.soldPer : 'kg'}. GP ${pc(c != null ? (p.price - c) / p.price * 100 : null)} against target ${pc(k && k.product.target)}.${p.belowReason ? ' Below target: ' + p.belowReason : ''}`; })(), btn: 'Open proposal', pan: { k: 'prop', id: p.id } }));
-    (ST.listRevisions || []).filter(r => r.status === 'proposed').forEach(r => J.push({ t: `Approve list revision: ${LISTNAME[r.list_name]}`, d: `${pl(r.items.length, 'price', 'prices')} from ${fmtD(r.valid_from)}. ${r.reason}`, btn: 'Open revision', pan: { k: 'lrev', id: r.id } }));
-    (ST.settingRequests || []).filter(r => r.status === 'open').forEach(r => J.push({ t: 'Approve threshold change', d: r.summary + '. Proposed by ' + r.by_user + '.', btn: 'Open the change', pan: { k: 'setreq', id: r.id } }));
-    (ST.targetRequests || []).filter(r => r.status === 'open').forEach(r => J.push({ t: `Approve target: ${r.brand} for ${r.customer}`, d: `${r.from_gp == null ? 'none' : r.from_gp + '%'} to ${r.to_gp}%. ${r.reason}`, btn: 'Open the request', pan: { k: 'treq', id: r.id } }));
-    const lastM = addDays(ST.today.slice(0, 7) + '-01', -1).slice(0, 7);
-    if (!(ST.checks || []).some(c => c.month === lastM && c.kind === 'rate_check')) J.push({ t: `Check ${mon(lastM)} rates against the purchase register`, d: 'Second-person check of the top 15 material rates.', btn: 'Open monthly checks', pan: { k: 'actuals' } });
-    const keep = period; period = 'fy'; const red = grp((ST.sales || []).filter(s => inP(s.date) && s.grp === 'White label'), r => r.cust).filter(g => flag(g)[0] === 'p-red').length; period = keep;
-    if (red) J.push({ t: `${pl(red, 'customer', 'customers')} flagged red on margin, FY to date`, d: `More than ${SET('red_gap_pts')} pts below target, with a Rs gap above ${SET('red_share_pct')}% of all white label sales. See why.`, btn: 'Open margin', go: () => { scr = 'margin'; } });
+    (ST.recipes || []).filter(v => STEP_ROLE[v.state]).forEach(v => { const ls = lastStep(v); if (ls && isStuck(ls.at)) J.push({ t: `Recipe stuck ${wdays(ls.at)} working days: ${v.brand} for ${v.customer}`, d: `With ${ROLE_NAME[STEP_ROLE[v.state]]} at "${stepTxt(v.state)}" since ${fmtD(d10(ls.at))}.`, btn: 'Open recipe', pan: { k: 'rec', id: v.id }, kind: 'red', pri: 4, since: ls.at }); });
+    const wait = (ST.proposals || []).filter(p => p.status === 'proposed');
+    wait.forEach(p => J.push({ t: `Approve price: ${packName(p.packId)}`, d: (() => { const k = packIdx().get(p.packId); const c = k && k.cost ? k.cost.total : null; return `${p.prev != null ? 'Rs ' + p.prev + ' to ' : ''}Rs ${p.price} per ${k ? k.product.soldPer : 'kg'}${p.from && d10(p.from) > ST.today ? ', from ' + fmtD(p.from) : ''}. GP ${pc(c != null ? (p.price - c) / p.price * 100 : null)} against target ${pc(k && k.product.target)}.${p.belowReason ? ' Below target: ' + p.belowReason : ''}`; })(), btn: 'Open proposal', pan: { k: 'prop', id: p.id }, kind: 'approve', pri: 2, since: p.at }));
+    (ST.listRevisions || []).filter(r => r.status === 'proposed').forEach(r => J.push({ t: `Approve list revision: ${LISTNAME[r.list_name]}`, d: `${pl(r.items.length, 'price', 'prices')} from ${fmtD(r.valid_from)}. ${r.reason}`, btn: 'Open revision', pan: { k: 'lrev', id: r.id }, kind: 'approve', pri: 3, since: r.proposed_at }));
+    (ST.settingRequests || []).filter(r => r.status === 'open').forEach(r => J.push({ t: 'Approve threshold change', d: r.summary + '. Proposed by ' + personName(r.by_user) + '.', btn: 'Open the change', pan: { k: 'setreq', id: r.id }, kind: 'approve', pri: 5, since: r.at }));
+    (ST.targetRequests || []).filter(r => r.status === 'open').forEach(r => J.push({ t: `Approve target: ${r.brand} for ${r.customer}`, d: `${r.from_gp == null ? 'none' : r.from_gp + '%'} to ${r.to_gp}%. ${r.reason}`, btn: 'Open the request', pan: { k: 'treq', id: r.id }, kind: 'approve', pri: 5, since: r.at }));
+    const lastM = addDays(firstOfMonth(), -1).slice(0, 7);
+    if (!(ST.checks || []).some(c => c.month === lastM && c.kind === 'rate_check')) J.push({ t: `Check ${mon(lastM)} rates against the purchase register`, d: 'Second-person check of the top 15 material rates.', btn: 'Open monthly checks', pan: { k: 'actuals' }, kind: 'do', pri: 7, since: firstOfMonth() });
+    const keep = period; let red = 0; period = 'fy'; try { red = grp(salesRows().filter(s => inP(s.date) && s.grp === 'White label'), r => r.cust).filter(g => flag(g)[0] === 'p-red').length; } finally { period = keep; }
+    if (red) J.push({ t: `${pl(red, 'customer', 'customers')} flagged red on margin, FY to date`, d: `More than ${SET('red_gap_pts')} pts below target, with a Rs gap above ${SET('red_share_pct')}% of all white label sales. See why.`, btn: 'Open margin', go: () => { scr = 'margin'; }, kind: 'red', pri: 6 });
   }
   return J;
+}
+/** The next move (D-54): the first approval, in this order: recipe and cost steps, prices, re-approvals and list revisions, then
+ *  threshold and target changes; within a kind the oldest first. With no approval: the first red item, then the oldest job. */
+function nextMove(J) {
+  const ix = J.map((j, i) => i); const t0 = j => j.since ? new Date(d10(j.since)).getTime() : Infinity; // no start date: after the dated ones
+  const by = (a, b) => (J[a].pri - J[b].pri) || (t0(J[a]) - t0(J[b])) || (a - b);
+  const ap = ix.filter(i => J[i].kind === 'approve').sort(by); if (ap.length) return ap[0];
+  const rd = ix.filter(i => J[i].kind === 'red').sort(by); if (rd.length) return rd[0];
+  return ix.length ? ix.sort(by)[0] : -1;
+}
+/** What waits on someone else, with who has it and how long it has waited (ruling 20). */
+function waitingOn() {
+  const R = ST.me.role, W = [];
+  if (['production', 'qc', 'plant', 'cfo', 'coo'].includes(R)) (ST.recipes || []).filter(v => STEP_ROLE[v.state] && STEP_ROLE[v.state] !== R).forEach(v => { const ls = lastStep(v); if (R === 'coo' && ls && isStuck(ls.at)) return; W.push({ t: `${v.brand} for ${v.customer}`, w: `with ${ROLE_NAME[STEP_ROLE[v.state]]}, ${MYJOB[v.state].split(' ')[0].toLowerCase()}`, since: ls ? ls.at : null, open: { rec: v.id } }); });
+  if (R === 'cfo') {
+    (ST.proposals || []).filter(p => p.status === 'proposed').forEach(p => W.push({ t: `${packName(p.packId)}, Rs ${p.price}`, w: 'with Tahir, approve', since: p.at, open: { panprop: p.id } }));
+    (ST.listRevisions || []).filter(r => r.status === 'proposed').forEach(r => W.push({ t: `${LISTNAME[r.list_name]}, ${pl(r.items.length, 'price', 'prices')}`, w: 'with Tahir, approve', since: r.proposed_at, open: { panlrev: r.id } }));
+    (ST.settingRequests || []).filter(r => r.status === 'open').forEach(r => W.push({ t: r.summary, w: 'with Tahir, approve', since: r.at }));
+    (ST.targetRequests || []).filter(r => r.status === 'open').forEach(r => W.push({ t: `Target: ${r.brand} for ${r.customer}, ${r.to_gp}%`, w: 'with Tahir, approve', since: r.at }));
+  }
+  if (R === 'coo') (ST.reapprovals || []).forEach(x => { let onOpen = 0; x.items.forEach(i => { const kg = (ST.open || []).filter(o => o.packId === i.packId).reduce((s, o) => s + o.kg, 0); if (i.from != null && i.to != null) onOpen += (i.to - i.from) * kg; });
+    W.push({ t: `${pl(x.items.length, 'cost', 'costs')} to re-approve: ${x.cause}${Math.round(onOpen) ? ` (${onOpen > 0 ? '+' : '-'}${rs(Math.abs(onOpen))} on open POs)` : ''}`, w: 'with Yawar, re-approve', since: x.createdAt, open: { reapview: x.id } }); });
+  return W.sort((a, b) => d10(a.since || '9').localeCompare(d10(b.since || '9')));
 }
 function packName(id) { const k = packIdx().get(id); return k ? `${packLabel(k)} for ${k.product.customer}` : 'pack ' + id; }
 
@@ -266,27 +398,66 @@ function packName(id) { const k = packIdx().get(id); return k ? `${packLabel(k)}
 function render() {
   const M = ST.me; const J = jobs();
   const app = $('app');
-  const V = { today: vToday, margin: vMargin, products: vProducts, recipes: vRecipes, prices: vPrices, lists: vLists, inputs: vInputs, setup: vSetup, guide: vGuide };
+  const V = { today: vToday, margin: vMargin, reports: vReports, products: vProducts, recipes: vRecipes, prices: vPrices, lists: vLists, inputs: vInputs, setup: vSetup, guide: vGuide };
   behind = !!pan; const mainHtml = (V[scr] || V[M.nav[0]])(); behind = false;
-  app.innerHTML = `<div class="hdr" ${pan ? 'inert' : ''}><a class="home" href="/" title="Back to the VAN launcher">&larr; Back to launcher</a><span class="app">C2M · Cost to Margin</span><nav aria-label="Screens">${M.nav.map(k => `<button data-scr="${k}" aria-current="${k === scr}">${NAV[k]}${k === 'today' && J.length ? `<span class="n">${J.length}</span>` : ''}</button>`).join('')}</nav><span class="who">${esc(M.name || M.user)} · ${esc(M.label)} · <a href="/" data-signout>Sign out</a></span></div>
-  <main ${pan ? 'inert aria-hidden="true"' : ''}>${mainHtml}</main>${pan ? vPanel() : ''}`;
+  const over = pan || moreOpen || finder; const p4 = phone4(M.nav); let g0 = null;
+  const navHtml = M.nav.map(k => { const g = RAILG[k] || ''; const lab = g && g !== g0 ? `<span class="g" aria-hidden="true">${g}</span>` : ''; g0 = g || g0;
+    return `${lab}<button data-scr="${k}" aria-current="${k === scr}" class="${p4.includes(k) ? '' : 'far'}">${ICON[k] || ''}${NAV[k]}${k === 'today' && J.length ? `<span class="n">${J.length}</span>` : ''}</button>`; }).join('');
+  app.innerHTML = `<aside class="hdr${M.nav.length > 5 ? ' has-more' : ''}" aria-label="C2M" ${over ? 'inert' : ''}><a class="brand" href="/" title="Back to the VAN launcher"><i aria-hidden="true"></i><span><b>C2M</b><small>Cost to Margin</small></span></a>
+  <button class="findbtn" data-finder title="Find anything (Ctrl K)" aria-label="Find anything">${ICON.search}<span>Find anything</span><kbd>Ctrl K</kbd></button>
+  <nav aria-label="Screens">${navHtml}</nav>${M.nav.length > 5 ? `<button class="more" data-more aria-label="More places" aria-expanded="${moreOpen}">${ICON.more}More</button>` : ''}
+  <div class="foot"><b>${esc(M.name || M.user)}</b><span class="who2">${esc(M.label)} · <a href="/" class="launch">Back to launcher</a></span><a href="/" data-signout>Sign out</a></div></aside>
+  <div class="shell"><main ${over ? 'inert aria-hidden="true"' : ''}>${mainHtml}</main></div>${pan ? vPanel() : ''}${moreOpen ? vMore(p4) : ''}${finder ? vFinder() : ''}`;
+  if (finder) { const f = $('fq'); if (f && document.activeElement !== f) { f.focus(); f.setSelectionRange(f.value.length, f.value.length); } return; }
+  if (moreOpen) { const b = document.querySelector('.sheet button'); if (b) b.focus(); return; }
   if (pan && panFocus) { panFocus = false; const pn = document.querySelector('aside.panel'); const f = pn ? panItems(pn) : []; const h = document.querySelector('.panel-h b');
     if (panAt != null && f.length) f[Math.min(panAt, f.length - 1)].focus(); else if (h) h.focus(); panAt = null; } // after a save, stay where you were (review 18 Oct)
   else if (!pan && panReturn) { const r = panReturn; panReturn = null; const el = document.querySelector(`main [data-${r.k}="${r.v}"]`); if (el) el.focus(); }
 }
-
-/* ---------- Today ---------- */
-function vToday() {
-  const J = jobs(); const R = ST.me.role;
-  const waiting = (ST.recipes || []).filter(v => STEP_ROLE[v.state] && STEP_ROLE[v.state] !== R && ['production', 'qc', 'plant', 'cfo'].includes(R)).slice(0, 6);
-  const notices = (ST.notices || []).slice();
-  if (R === 'coo') (ST.reapprovals || []).forEach(x => notices.unshift({ text: `${pl(x.items.length, 'cost is', 'costs are')} waiting for Yawar's re-approval`, by_user: 'C2M', at: x.createdAt || ST.today, cause: x.cause, reapp: x.id }));
-  return `${head('Today', J.length ? pl(J.length, 'thing needs', 'things need') + ' you today.' : 'Nothing needs you today.', 'Work from the top. Each line opens in a panel on this screen: approve, send back or enter there, without leaving Today.')}${R === 'coo' || R === 'cfo' ? marginLine() : ''}
-  <div class="box jobs">${J.length ? J.map((j, i) => `<div class="job"><div><div class="t">${esc(j.t)}</div><div class="d">${esc(j.d)}</div></div><button class="btn" data-job="${i}">${j.btn}</button></div>`).join('') : '<div class="job"><div><div class="t">You are up to date.</div></div></div>'}</div>
-  ${waiting.length ? `<h2>Waiting on others</h2><div class="box jobs">${waiting.map(v => `<div class="job"><div><div class="t">${esc(v.brand)} for ${esc(v.customer)}</div><div class="d">With ${ROLE_NAME[STEP_ROLE[v.state]]}: ${stepTxt(v.state)}</div></div></div>`).join('')}</div>` : ''}
-  ${notices.length ? `<h2>For your information</h2><div class="box jobs">${notices.map(n => `<div class="job"><div><div class="t">${esc(n.text)}</div><div class="d">${n.cause ? esc(n.cause) + '. ' : ''}${esc(n.by_user)}, ${esc(fmtD(String(n.at).slice(0, 10)))}. No approval needed.</div></div>${n.reapp ? `<button class="btn ghost" data-reapview="${n.reapp}">See the packs</button>` : ''}</div>`).join('')}</div>` : ''}`;
+/** Phone: the places that are not in the bottom bar (F1). */
+/** Put focus back on a rail button after a sheet or the finder closes. */
+function refocus(sel) { const el = document.querySelector('.hdr ' + sel); if (el) el.focus(); }
+function vMore(p4) { return `<div class="scrim" data-moreclose></div><div class="sheet" role="dialog" aria-modal="true" aria-label="More places">${ST.me.nav.filter(k => !p4.includes(k)).map(k => `<button data-scr="${k}">${ICON[k] || ''}${NAV[k]}</button>`).join('')}<button data-moreclose>Close</button></div>`; }
+/* ---------- Find anything (Ctrl K): places, client products, customers, materials and reports ---------- */
+function finderItems(q) {
+  const M = ST.me, out = [], Q = q.trim().toLowerCase(); const hit = s => !Q || String(s).toLowerCase().includes(Q);
+  M.nav.forEach(k => { if (hit(NAV[k])) out.push({ l: NAV[k], s: 'Place', go: `scr:${k}` }); });
+  if (Q) {
+    (ST.products || []).forEach(p => { if (hit(`${p.brand} ${p.customer} ${p.spec || ''}`)) out.push({ l: `${p.brand} for ${p.customer}`, s: M.nav.includes('products') ? 'Product' : 'Recipe', go: M.nav.includes('products') ? `prod:${p.id}` : `rec:${p.latestVersionId || ''}` }); });
+    if (M.nav.includes('margin')) [...new Set((ST.sales || []).map(r => r.cust))].forEach(c => { if (hit(c)) out.push({ l: c, s: 'Customer margin', go: `cust:${c}` }); });
+    if (M.nav.includes('inputs')) (ST.materials || []).forEach(m => { if (hit(m.name)) out.push({ l: `${m.name} ${m.grade}`, s: 'Material', go: `mat:${m.name}` }); });
+    if (M.nav.includes('reports')) REPORTS.forEach(r => { if (hit(r.t + ' ' + r.q)) out.push({ l: r.t, s: 'Report', go: `rep:${r.k}` }); });
+  }
+  return out.filter(x => !/^rec:$/.test(x.go)).slice(0, 40);
+}
+function finderList() { const L = finderItems(finder.q); finder.n = L.length; finder.i = Math.min(finder.i, Math.max(L.length - 1, 0));
+  return L.length ? L.map((x, i) => `<li role="presentation"><button role="option" id="fopt-${i}" tabindex="-1" data-fgo="${esc(x.go)}" aria-selected="${i === finder.i}">${esc(x.l)}<small>${esc(x.s)}</small></button></li>`).join('') : '<li role="presentation" class="ans" style="padding:10px">Nothing found.</li>'; }
+function vFinder() { return `<div class="finder" data-findclose><div class="fb" role="dialog" aria-modal="true" aria-label="Find anything"><input id="fq" type="search" placeholder="Find a product, client, customer, material, report or place" value="${esc(finder.q)}" autocomplete="off" aria-controls="fres" role="combobox" aria-expanded="true" aria-activedescendant="fopt-${finder.i}"><ul id="fres" role="listbox" aria-label="Results">${finderList()}</ul></div></div>`; }
+function finderGo(go) {
+  const [k, ...rest] = go.split(':'); const v = rest.join(':'); finder = null; closePanel(); panReturn = null; drill = { cust: null, prod: null }; openRec = null; openProd = null; sub = null; window.scrollTo(0, 0);
+  if (k === 'scr') scr = v; else if (k === 'prod') { goPlace('products'); openProd = +v; ptab = 'recipe'; recSel = null; } else if (k === 'rec') goRec(+v);
+  else if (k === 'cust') { scr = 'margin'; drill = { cust: v, prod: null }; } else if (k === 'mat') { goPlace('inputs'); inp = 'materials'; matFilter = 'all'; matQ = v; } else if (k === 'rep') { scr = 'reports'; rep = v; }
 }
 
+/* ---------- Today (0.9.0, approved picture A: the next move first, then groups; every line says why and how long) ---------- */
+const WDAY = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const dayName = s => { const d = new Date(d10(s) + 'T00:00:00Z'); return `${WDAY[d.getUTCDay()]} ${d.getUTCDate()} ${MON[d.getUTCMonth()]}`; };
+/** "O2S data as of ..." from the last finished pull (T7, M6). */
+function o2sAsOf() { const f = ST.lastSync && ST.lastSync.finished_at; if (!f) return ST.lastSync === undefined ? '' : 'O2S not pulled yet'; const day = d10(f) === ST.today ? 'today' : fmtD(d10(f)); return `O2S data as of ${day} ${String(f).slice(11, 16)}`; }
+function vToday() {
+  const J = jobs(); const R = ST.me.role; const nm = nextMove(J); const W = waitingOn();
+  const notices = (ST.notices || []).slice();
+  const ages = J.filter(j => j.since).map(j => daysSince(j.since)); const oldest = ages.length ? Math.max(...ages) : null;
+  const ans = J.length ? `${pl(J.length, 'thing needs', 'things need')} you.${oldest ? ` The oldest has waited ${pl(oldest, 'day', 'days')}.` : ''}` : 'Nothing needs you today.';
+  const line = (j, i) => `<div class="item k-${j.kind}"><div><div class="t">${esc(j.t)}</div><div class="d">${i === nm ? 'Your next move, above.' : esc(j.d)}</div></div>${ageHtml(j.since, j.plain)}${i === nm ? '' : `<button class="btn ghost" data-job="${i}">${j.btn}</button>`}</div>`;
+  const G = [['To approve', J.map((j, i) => [j, i]).filter(([j]) => j.kind === 'approve')], ['To do', J.map((j, i) => [j, i]).filter(([j]) => j.kind !== 'approve')]].filter(g => g[1].length);
+  const n = J[nm];
+  return `<p class="kick"><span>Today · ${dayName(ST.today)}</span><span>${esc(o2sAsOf())}</span></p>${head('Today', ans, 'The next move is the first approval waiting for you (recipe and cost steps first, then prices, re-approvals and list revisions, then threshold and target changes; the oldest first). Every line shows how long it has waited; an item waiting more than 2 working days (Monday to Saturday) is marked stuck. Each line opens in a panel on this screen.')}${R === 'coo' || R === 'cfo' ? marginLine() : ''}
+  ${n ? `<div class="nextmove"><div><div class="k">Your next move</div><div class="t">${esc(n.t)}</div><div class="d">${esc(String(n.d).replace(/([^.!?])$/, '$1.'))} ${n.since ? `<span class="${isStuck(n.since) ? 'over' : ''}">Waiting ${ageTxt(n.since)}${isStuck(n.since) ? ', stuck' : ''}.</span>` : ''}</div></div><button class="btn" data-job="${nm}">${n.kind === 'approve' && n.pan ? 'Open and approve' : n.btn}</button></div>` : '<div class="nextmove"><div><div class="k">Your next move</div><div class="t">You are up to date.</div></div></div>'}
+  ${G.length ? `<div class="groups">${G.map(([h, L]) => `<section><h2 class="gh">${h} <span class="c">${L.length}</span></h2><div class="items">${L.map(([j, i]) => line(j, i)).join('')}</div></section>`).join('')}</div>` : ''}
+  ${W.length ? `<h2 class="gh" style="margin-top:20px">Waiting on others <span class="c">${W.length}</span></h2><div class="items">${W.map(w => `<div class="item k-wait"><div><div class="t">${esc(w.t)} · <span style="font-weight:400">${esc(w.w)}</span></div></div>${ageHtml(w.since)}${w.open ? `<button class="btn ghost" ${Object.entries(w.open).map(([k, v]) => `data-${k}="${v}"`).join(' ')}>Open</button>` : ''}</div>`).join('')}</div>` : ''}
+  ${notices.length ? `<h2>For your information</h2><div class="box jobs">${notices.map(x => `<div class="job"><div><div class="t">${esc(x.text)}</div><div class="d">${esc(personName(x.by_user))}, ${esc(fmtD(d10(x.at)))}. No approval needed.</div></div></div>`).join('')}</div>` : ''}`;
+}
 /* ---------- Margin ---------- */
 /** The CFO and COO see the company answer first on Today (ruling 5d). */
 function inFY(d) { return d >= fyStart(); }
@@ -302,33 +473,74 @@ function chips() {
   const months = [...new Set((ST.sales || []).map(s => s.date.slice(0, 7)))].filter(m => m !== ST.today.slice(0, 7));
   return `<div class="chips">${[['month', 'This month'], ['3m', 'Last 3 months'], ['fy', 'FY to date']].map(([k, l]) => `<button data-per="${k}" aria-pressed="${period === k}">${l}</button>`).join('')}${months.map(m => `<button data-mon="${m}" aria-pressed="${period === 'any' && month === m}">${mon(m)}</button>`).join('')}</div>`;
 }
+/* ---------- 0.9.0 Margin (approved picture B): the answer, 4 figures, the trend against budget, where money is at stake,
+   and the customer table as a working table (search, chips with counts, GP bar, totals, columns, Excel) ---------- */
+const GRPN = { wl: 'White label', van: 'VAN brand', all: 'All sales' };
+const mRows = rows => mgrp === 'wl' ? rows.filter(r => r.grp === 'White label') : mgrp === 'van' ? rows.filter(r => r.grp === 'VAN brand') : rows;
+const mBudget = () => mgrp === 'wl' ? SET('wl_budget_gp') : SET('budget_gp');
+const unitOf = r => { const k = r.packId ? packIdx().get(r.packId) : null; return k && k.product.soldPer === 'L' ? 'L' : 'kg'; };
+const qtyTxt = rows => { let kg = 0, L = 0; rows.forEach(r => { if (unitOf(r) === 'L') L += r.kg; else kg += r.kg; }); return [kg ? Math.round(kg).toLocaleString('en-US') + ' kg' : '', L ? Math.round(L).toLocaleString('en-US') + ' L' : ''].filter(Boolean).join(' and ') || '0 kg'; };
+const PERN = () => period === 'fy' ? 'FY to date' : period === '3m' ? 'Last 3 months' : period === 'month' ? 'This month' : mon(month);
+let custQ = '', custF = 'all', custCols = { grp: true, sales: true, qty: true, budget: false }, colsOpen = false, stakeTab = 'fwd';
+/** GP bar against target (M5): the filled part is GP as a share of target; the tick is the target. Above target: full and green, tick where the target sits. */
+function gbar(gp, t) { if (gp == null || t == null || t <= 0) return ''; const ok = gp >= t; const w = ok ? 100 : Math.max(0, Math.min(gp / t, 1)) * 100; const tick = ok ? t / gp * 100 : 100;
+  return `<span class="gbar ${ok ? 'ok' : ''}" role="img" aria-label="GP ${gp.toFixed(1)}% against target ${t.toFixed(1)}%"><i style="width:${w.toFixed(1)}%"></i><em style="left:${tick.toFixed(1)}%"></em></span>`; }
+/** GP by month, financial year to date, against the budget (M1). */
+function gpTrend() {
+  const rows = mRows(salesRows()).filter(r => r.date >= fyStart()); const ms = [...new Set(rows.map(r => r.date.slice(0, 7)))].sort();
+  const pts = ms.map(m => ({ m, gp: (grp(rows.filter(r => r.date.slice(0, 7) === m), () => 'x')[0] || {}).gp })).filter(x => x.gp != null); const bud = mBudget();
+  if (pts.length < 2) return { svg: '<p class="ans">The trend needs 2 months of costed trucks.</p>', say: '' };
+  const vals = pts.map(x => x.gp).concat(bud != null ? [bud] : []); let lo = Math.floor((Math.min(...vals) - 2) / 2) * 2, hi = Math.ceil((Math.max(...vals) + 2) / 2) * 2; if (hi - lo < 6) hi = lo + 6;
+  const W = 640, H = 250, L = 46, Rr = 20, T = 18, B = 34, x = i => L + (W - L - Rr) * (pts.length === 1 ? 0.5 : i / (pts.length - 1)), y = v => T + (H - T - B) * (1 - (v - lo) / (hi - lo));
+  const step = hi - lo > 12 ? 4 : 2; const ticks = []; for (let v = lo; v <= hi + 0.001; v += step) ticks.push(v);
+  const svg = `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="GP by month${bud != null ? ` against the ${bud}% budget` : ''}">${ticks.map(v => `<line class="grid" x1="${L}" x2="${W - Rr}" y1="${y(v)}" y2="${y(v)}"/><text x="${L - 8}" y="${y(v) + 4}" text-anchor="end">${v.toFixed(0)}%</text>`).join('')}
+    ${bud != null ? `<line class="bud" x1="${L}" x2="${W - Rr}" y1="${y(bud)}" y2="${y(bud)}"/><text class="budl" x="${W - Rr}" y="${y(bud) - 6}" text-anchor="end">budget ${bud.toFixed(1)}%</text>` : ''}
+    <polyline class="line" points="${pts.map((p, i) => `${x(i)},${y(p.gp)}`).join(' ')}"/>${pts.map((p, i) => `<circle class="dot ${i === pts.length - 1 ? 'last' : ''}" cx="${x(i)}" cy="${y(p.gp)}" r="5"/><text class="lbl" x="${x(i)}" y="${y(p.gp) - 10}" text-anchor="middle">${p.gp.toFixed(1)}</text><text x="${x(i)}" y="${H - 10}" text-anchor="middle">${MON[+p.m.slice(5, 7) - 1]}</text>`).join('')}</svg>`;
+  const down = pts.every((p, i) => !i || p.gp < pts[i - 1].gp), up = pts.every((p, i) => !i || p.gp > pts[i - 1].gp); const hiP = pts.reduce((a, b) => b.gp > a.gp ? b : a), loP = pts.reduce((a, b) => b.gp < a.gp ? b : a);
+  const say = down ? 'GP has fallen every month this financial year.' : up ? 'GP has risen every month this financial year.' : `Highest ${hiP.gp.toFixed(1)}% in ${mon(hiP.m)}, lowest ${loP.gp.toFixed(1)}% in ${mon(loP.m)}.`;
+  return { svg, say: `Each dot is a month${bud != null ? `; the dashed line is the ${bud}% budget` : '; no budget is set'}. ${say}` };
+}
 function vMargin() {
-  const rows = salesRows().filter(r => inP(r.date));
-  if (drill.cust) return vCust(rows);
-  const segs = grp(rows, r => r.grp); const wl = segs.find(s => s.key === 'White label') || { sales: 0, gp: null, costed: 0 }; const all = grp(rows, () => 'a')[0] || { sales: 0 };
+  const rowsAll = salesRows().filter(r => inP(r.date));
+  if (drill.cust) return vCust(rowsAll);
+  const rows = mRows(rowsAll); const tot = grp(rows, () => 'a')[0] || { sales: 0, costed: 0, cost: 0, gp: null, rows: [] }; const bud = mBudget();
   const RK = { 'p-red': 0, 'p-amber': 1, 'p-green': 2, 'p-none': 3 };
   const cs = grp(rows, r => r.cust).sort((a, b) => (RK[flag(a)[0]] - RK[flag(b)[0]]) || (b.sales - a.sales)); const ex = exposure();
-  const red = cs.filter(c => flag(c)[0] === 'p-red').length; const wlb = SET('wl_budget_gp');
-  const fwd = ex.reduce((s, x) => s + x.fwd, 0), locked = ex.reduce((s, x) => s + x.locked, 0);
-  const L = { fwd: ex.filter(x => x.fwd > 0).sort((a, b) => b.fwd - a.fwd).slice(0, 6), loss: ex.filter(x => x.fwdLoss > 0).sort((a, b) => b.fwdLoss - a.fwdLoss).slice(0, 6), gap: ex.filter(x => x.gapPts > SET('red_gap_pts') && (x.kg3 > 0 || x.openKg > 0)).sort((a, b) => b.gapPts - a.gapPts).slice(0, 6) };
-  const sevBox = (t, s, l, v) => `<div class="box sev"><div class="h"><b>${t}</b><span>${s}</span></div><table>${l.length ? l.map((x, i) => `<tr class="go" tabindex="0" data-cust="${esc(x.cust)}" data-prod="${esc(pkey({ brand: x.brand, pack: x.pack }))}"><td class="num">${i + 1}</td><td>${esc(x.cust)} · ${esc(x.prod)}<br><span class="ans" style="font-size:12px">Price ${rs2(x.price)} · cost ${rs2(x.c)} · ${x.kg3.toLocaleString()} ${x.unit} in ${SET('forward_months')} months (${x.basis})${(x.inLists || 0) > 1 ? ' · <b>in ' + x.inLists + ' of the 3 boxes</b>' : ''}</span></td><td class="r num over">${v(x)}</td></tr>`).join('') : '<tr><td>None</td></tr>'}</table></div>`;
-  const costedN = cs.filter(c => c.gp != null && c.rows[0].grp === 'White label').length; const below = cs.filter(c => c.rows[0].grp === 'White label' && c.gp != null && c.target != null && c.gp < c.target - 0.05).length;
-  const top = L.fwd[0]; const share = top && fwd ? top.fwd / fwd * 100 : 0;
-  [...L.fwd, ...L.loss, ...L.gap].forEach(x => { x.inLists = [L.fwd, L.loss, L.gap].filter(l => l.some(y => y.id === x.id)).length; });
-  const noVol = ex.filter(x => x.gp < 0 && !x.kg3);
-  return `${hist === 'bands' ? '<p class="crumb"><b>Restated view:</b> past trucks recosted at today\'s labour and FOH rates. For comparison only.</p>' : ''}${head('Margin', `White label GP is ${pc(wl.gp)}${hist === 'bands' ? ' (restated)' : ''} against its ${wlb}% budget. ${below === costedN && below ? 'All ' + below : below + ' of ' + costedN} costed white label customers are below target.`, `${hist === 'bands' ? 'Restated GP = O2S truck-out price less the cost at today\'s labour and FOH rates.' : 'GP = O2S truck-out price less the approved cost in force on the truck\'s date.'} Company GP against ${SET('budget_gp')}% and ${SET('ambition_gp')}% is not on this screen yet; VAN brand sales carry their pack's cost (D-44).`)}
+  const costedN = cs.filter(c => c.gp != null).length; const below = cs.filter(c => c.gp != null && c.target != null && c.gp < c.target - 0.05).length; const red = cs.filter(c => flag(c)[0] === 'p-red').length;
+  const fwd = ex.reduce((s, x) => s + x.fwd, 0), locked = ex.reduce((s, x) => s + x.locked, 0); const gpRs = tot.costed - tot.cost;
+  const L = { fwd: ex.filter(x => x.fwd > 0).sort((a, b) => b.fwd - a.fwd).slice(0, 8), loss: ex.filter(x => x.fwdLoss > 0).sort((a, b) => b.fwdLoss - a.fwdLoss).slice(0, 8), gap: ex.filter(x => x.gapPts > SET('red_gap_pts') && (x.kg3 > 0 || x.openKg > 0)).sort((a, b) => b.gapPts - a.gapPts).slice(0, 8) };
+  const top = L.fwd[0]; const share = top && fwd ? top.fwd / fwd * 100 : 0; const tr = gpTrend();
+  const famOf = id => { const k = packIdx().get(id); return k ? `<i class="fam" style="background:${k.product.fam || '#8796A5'}" title="${esc(k.product.typeName || 'no product type')}"></i>` : ''; };
+  const val = { fwd: x => rsM(x.fwd), loss: x => rs(x.fwdLoss), gap: x => x.gapPts.toFixed(1) + ' pts' };
+  const rank = (L[stakeTab] || []).map((x, i) => `<button class="r" data-cust="${esc(x.cust)}" data-prod="${esc(pkey({ brand: x.brand, pack: x.pack }))}"><span class="num">${i + 1}</span><span>${famOf(x.id)}<b>${esc(x.cust)} · ${esc(x.prod)}</b><br><span class="m">Rs ${x.price.toFixed(2)} · cost today ${x.c.toFixed(2)} · GP ${pc(x.gp)} / ${pc(x.target)} · ${x.kg3.toLocaleString('en-US')} ${x.unit} in ${SET('forward_months')} months</span></span><span class="v">${val[stakeTab](x)}</span></button>`).join('') || '<p class="ans">None.</p>';
+  return `${hist === 'bands' ? '<p class="crumb"><b>Restated view:</b> past trucks recosted at today\'s labour and FOH rates. For comparison only.</p>' : ''}<p class="kick"><span>Margin · ${esc(PERN())}</span><span>${esc(o2sAsOf())}</span></p>
+  ${head('Margin', `${GRPN[mgrp]} GP ${pc(tot.gp)}${hist === 'bands' ? ' (restated)' : ''} against ${bud == null ? 'no' : bud.toFixed(1) + '%'} budget. ${below} of ${costedN} costed customers ${below === 1 ? 'is' : 'are'} below target.`, `${hist === 'bands' ? 'Restated GP = O2S truck-out price less the cost at today\'s labour and FOH rates.' : 'GP = O2S truck-out price less the approved cost in force on the truck\'s date.'} Rs at stake uses cost today and expected kg. Cost method changed on 13 Oct (Yawar's own Labour & FOH to the base bands); on the bands the same white label trucks give GP ${pc(grp(salesRows0().filter(r => inP(r.date) && r.grp === 'White label'), () => 'w')[0]?.gp)}: the difference is the method, not a cost saving. Company GP is judged against ${SET('budget_gp')}% (ambition ${SET('ambition_gp')}%); white label against ${SET('wl_budget_gp')}%. VAN brand sales carry their pack's cost (D-44).`)}
+  <p class="ans" style="margin-top:-6px">${pc(tot.sales ? tot.costed / tot.sales * 100 : null)} of sales costed · past trucks on ${hist === 'bands' ? 'cost restated at today\'s rates' : 'the cost approved on their date'} · Rs at stake on cost today</p>
+  <div class="wtbar">${chips().replace('class="chips"', 'class="chips" aria-label="Period"')}<span class="sp"></span><div class="chips" aria-label="Sales group">${Object.entries(GRPN).map(([k, l]) => `<button data-mgrp="${k}" aria-pressed="${mgrp === k}">${l}</button>`).join('')}</div></div>
+  <div class="figs"><div class="fig"><div class="l">Sales, trucks out</div><div class="v">${rsM(tot.sales)}</div><div class="s">${qtyTxt(rows)}</div></div>
+  <div class="fig"><div class="l">Gross profit</div><div class="v ${bud != null && tot.gp != null && tot.gp < bud ? 'over' : ''}">${rsM(gpRs)}</div><div class="s">${bud != null ? `Budget at ${bud.toFixed(1)}%: ${rsM(bud / 100 * tot.costed)}` : 'No budget set'}</div></div>
+  <div class="fig"><div class="l">Rs at stake, next ${SET('forward_months')} months</div><div class="v over">${rsM(fwd)}</div><div class="s">Locked in on open POs ${rsM(locked)}</div></div>
+  <div class="fig"><div class="l">Customers red</div><div class="v ${red ? 'over' : ''}">${red} of ${costedN}</div><div class="s">Below target with a large Rs gap</div></div></div>
+  <div class="cards2"><div class="card"><h3>GP by month against budget</h3><p class="sub">${esc(tr.say)}</p>${tr.svg}</div>
+  <div class="card"><h3>Where money is at stake</h3><p class="sub">${top && share > 40 ? `1 product drives ${share.toFixed(0)}% of the Rs at stake: ${esc(top.cust)} ${esc(top.prod)}. Start there.` : 'White label client packs, at today\'s price and cost, over the expected kg less kg already on open POs.'}</p>
+  <div class="tabs3" role="group" aria-label="Rank by">${[['fwd', 'Rs at stake'], ['loss', 'Below cost'], ['gap', 'Furthest below target']].map(([k, l]) => `<button data-stake="${k}" aria-pressed="${stakeTab === k}">${l}</button>`).join('')}</div>${basisChips()}<div class="rank">${rank}</div></div></div>
   <div class="chips" aria-label="Cost basis of past trucks">${[['approved', 'Past trucks: cost approved on their date'], ['bands', 'Past trucks: restated at today\'s labour and FOH rates']].map(([k, l]) => `<button data-hist="${k}" aria-pressed="${hist === k}">${l}</button>`).join('')}</div>
-  ${hist === 'approved' ? `<p class="ans">Cost method changed on 13 Oct (Yawar's own Labour & FOH to the Rs 20 / Rs 30 bands). On the bands, the same trucks give white label GP ${pc(grp(salesRows0().filter(r => inP(r.date) && r.grp === 'White label'), () => 'w')[0]?.gp)}; the difference is the method, not a cost saving.</p>` : `<p class="ans">Restated view for comparison only: trucks before 13 Oct recosted at today's bands. Approved figures are the other view.</p>`}
-  <div class="next"><span>${top && share > 40 ? `1 product drives ${share.toFixed(0)}% of the Rs at stake: ${esc(top.cust)} ${esc(top.prod)}. Start there.` : 'Start with the biggest Rs at stake, then open the customer to see which product and PO.'}</span></div>${chips()}
-  <div class="tiles"><div class="tile"><div class="l">White label GP</div><div class="v ${wl.gp < wlb ? 'over' : 'ok'}">${pc(wl.gp)}</div><div class="bar"><i style="width:${Math.max(0, Math.min(wl.gp || 0, 35)) / 35 * 100}%"></i><em style="left:${wlb / 35 * 100}%"></em></div><div class="l">mark: ${wlb}% white label budget</div></div>
-  <div class="tile"><div class="l">Sales, trucks out</div><div class="v">${rsM(all.sales)}</div><div class="l">white label ${pc(all.sales ? wl.sales / all.sales * 100 : 0)} · ${pc(wl.sales ? wl.costed / wl.sales * 100 : 0)} of it costed</div></div>
-  <div class="tile"><div class="l">Rs at stake, next ${SET('forward_months')} months, on ${fbasis === 'budget' ? 'budget kg' : 'run rate'}</div><div class="v over" title="${rs(fwd)}">${rsM(fwd)}</div><div class="l">price gap to target GP x expected kg · locked in on open POs ${rsM(locked)}</div></div>
-  <div class="tile"><div class="l">Customers flagged red</div><div class="v ${red ? 'over' : ''}">${red} of ${cs.filter(c => c.gp != null).length}</div><div class="l">costed customers</div></div></div>
-  <h2>Problem areas, next ${SET('forward_months')} months, ranked 3 ways</h2>${basisChips()}<details class="ans"><summary>How these are worked out</summary>At today's price and cost. Expected kg = budget kg for the period (or the last 3 months' run rate, which covers trucks since 29 Jul), less kg already on open POs. Locked in = gap to target on each open PO at its own PO price. The period chips above do not change these lists.</details>
-  <div class="three">${sevBox('Rs at stake', 'Price gap to target GP x expected kg', L.fwd, x => rs(x.fwd))}${sevBox('Below cost', 'Loss over the period', L.loss, x => rs(x.fwdLoss))}${sevBox(`Furthest below target GP (more than ${SET('red_gap_pts')} pts)`, 'Points under target', L.gap, x => x.gapPts.toFixed(1) + ' pts below')}</div>
-  ${noVol.length ? `<p class="ans">Below cost with no expected volume (not in the lists above): ${noVol.map(x => `${esc(x.cust)} ${esc(x.prod)} at ${pc(x.gp)} GP`).join('; ')}. Check the price before the next PO.</p>` : ''}
-  <h2>Customers: click one to see its products</h2><div class="box wrapx"><table><tr><th>Customer</th><th>Group</th><th class="r">Sales</th><th class="r">GP</th><th class="r">Target</th><th class="r">Gap</th><th class="r">Budget</th><th>State</th></tr>
-  ${cs.map(c => { const f = flag(c); return `<tr class="go" tabindex="0" data-cust="${esc(c.key)}" aria-label="Open ${esc(c.key)}"><td>${esc(c.key)}</td><td>${esc(c.rows[0].grp)}</td><td class="r num">${rsM(c.sales)}</td><td class="r num">${pc(c.gp)}</td><td class="r num">${pc(c.target)}</td><td class="r num ${c.gp != null && c.target != null && c.gp < c.target ? 'over' : ''}">${c.gp != null && c.target != null ? (c.gp - c.target).toFixed(1) + ' pts' : 'n/a'}</td><td class="r num">${pc(c.budget)}</td><td><span class="pill ${f[0]}">${f[1]}</span></td></tr>`; }).join('')}</table></div>`;
+  ${custTable(cs)}`;
+}
+/** The customer table as a working table (M5). */
+function custTable(cs) {
+  const st = c => ({ 'p-red': 'red', 'p-amber': 'amber', 'p-green': 'green' }[flag(c)[0]] || 'none');
+  const F = { all: () => true, red: c => st(c) === 'red', amber: c => st(c) === 'amber', green: c => st(c) === 'green', none: c => st(c) === 'none' };
+  const LBL = { all: 'All', red: 'Red', amber: 'Amber', green: 'On target', none: 'No cost or target' };
+  const q = custQ.trim().toLowerCase(); const list = cs.filter(F[custF] || F.all).filter(c => !q || c.key.toLowerCase().includes(q));
+  const sum = list.reduce((a, c) => ({ sales: a.sales + c.sales, costed: a.costed + c.costed, cost: a.cost + c.cost }), { sales: 0, costed: 0, cost: 0 }); const wgp = sum.costed ? (sum.costed - sum.cost) / sum.costed * 100 : null;
+  const C = custCols;
+  return `<h2>Customers: click one to see its products</h2><div class="wtbar"><input type="search" id="cq" value="${esc(custQ)}" placeholder="Find a customer" aria-label="Find a customer"><div class="chips">${Object.keys(F).filter(k => k === 'all' || cs.some(F[k])).map(k => `<button data-custf="${k}" aria-pressed="${custF === k}">${LBL[k]} ${cs.filter(F[k]).length}</button>`).join('')}</div><span class="sp"></span>
+  <div class="colsmenu"><button class="btn ghost" data-colsopen aria-expanded="${colsOpen}">Columns</button>${colsOpen ? `<div class="box">${[['grp', 'Group'], ['sales', 'Sales, Rs'], ['qty', 'Kg or L'], ['budget', 'Budget GP']].map(([k, l]) => `<label><input type="checkbox" data-ccol="${k}" ${C[k] ? 'checked' : ''}> ${l}</label>`).join('')}</div>` : ''}</div><button class="btn ghost" data-xls="customers">Export to Excel</button></div>
+  <div class="box wrapx"><table class="wt"><thead><tr><th>Customer</th>${C.grp ? '<th>Group</th>' : ''}${C.sales ? '<th class="r">Sales, Rs</th>' : ''}${C.qty ? '<th class="r">Kg or L</th>' : ''}<th>GP against target</th><th class="r">GP %</th><th class="r">Target</th><th class="r">Gap, pts</th>${C.budget ? '<th class="r">Budget</th>' : ''}<th>State</th></tr></thead>
+  <tbody>${list.map(c => { const f = flag(c); const gap = c.gp != null && c.target != null ? c.gp - c.target : null; return `<tr class="go r-${st(c)}" tabindex="0" data-cust="${esc(c.key)}" aria-label="Open ${esc(c.key)}"><td><b>${esc(c.key)}</b></td>${C.grp ? `<td>${esc(c.rows[0].grp)}</td>` : ''}${C.sales ? `<td class="r num">${Math.round(c.sales).toLocaleString('en-US')}</td>` : ''}${C.qty ? `<td class="r num">${qtyTxt(c.rows)}</td>` : ''}<td>${gbar(c.gp, c.target)}</td><td class="r num">${c.gp != null ? c.gp.toFixed(1) : 'n/a'}</td><td class="r num">${c.target != null ? c.target.toFixed(1) : 'n/a'}</td><td class="r num ${gap != null ? (gap < 0 ? 'over' : 'ok') : ''}">${gap != null ? (gap > 0 ? '+' : '') + gap.toFixed(1) : 'n/a'}</td>${C.budget ? `<td class="r num">${pc(c.budget)}</td>` : ''}<td><span class="pill ${f[0]}">${esc(f[1])}</span></td></tr>`; }).join('') || `<tr><td colspan="9">No customer matches.</td></tr>`}</tbody>
+  <tfoot><tr><td>${list.length} of ${cs.length} shown</td>${C.grp ? '<td></td>' : ''}${C.sales ? `<td class="r num">${Math.round(sum.sales).toLocaleString('en-US')}</td>` : ''}${C.qty ? `<td class="r num">${qtyTxt(list.flatMap(c => c.rows))}</td>` : ''}<td></td><td class="r num">${wgp != null ? wgp.toFixed(1) + '*' : 'n/a'}</td><td></td><td></td>${C.budget ? '<td></td>' : ''}<td></td></tr></tfoot></table></div>
+  <p class="ans" style="font-size:12.5px">* Weighted by the sales of the ${list.length} rows shown, not an average of their %. Bar: the filled part is GP as a share of the target and the dark tick is the target; when GP is above target the bar is full and the tick shows where the target sits.</p>`;
 }
 function vCust(rows) {
   const cr = rows.filter(r => r.cust === drill.cust); const c = grp(cr, () => 'c')[0] || { sales: 0, gp: null };
@@ -345,7 +557,6 @@ function vCust(rows) {
     ${k && k.sheet && k.cost && Math.abs(k.sheet.conversion - k.cost.conversion) > 0.005 ? `<div class="warnbox"><b>Cost method change, 13 Oct:</b> conversion was Rs ${k.sheet.conversion.toFixed(2)} on Yawar's sheet; the bands give Rs ${k.cost.conversion.toFixed(2)} (${k.cost.conversion > k.sheet.conversion ? '+' : ''}${(k.cost.conversion - k.sheet.conversion).toFixed(2)} per ${k.product.soldPer}). Trucks before 13 Oct carry the old basis. This is the method, not a change in materials or price.</div>` : ''}
     <p class="ans">Cost today ${rs2(cost)} per ${k ? k.product.soldPer : 'kg'}${k && k.cost ? ` (materials ${rs2(k.cost.materials)}, packing ${rs2(k.cost.packing)}, conversion ${rs2(k.cost.conversion)})` : ''}. Target GP ${pc(k && k.product.target)} needs ${rs2(tp)}. Contribution floor ${rs2(k && k.floor)} (materials, packing, freight and labour).</p>
     <div class="next">${ST.me.role === 'cfo' && k ? (k.product.channel === 'VAN brand' ? '<span class="ans">A VAN brand pack is priced per channel in Prices, VAN brand lists.</span>' : k.costGaps && k.costGaps.length ? `<span class="late">Not costed (${esc(k.costGaps.join(', '))}): fix the cost before proposing a price.</span>` : `<button class="btn" data-propose="${k.id}">Propose a new price</button>`) : ''}${ST.me.role === 'coo' ? '<button class="btn ghost" data-go-prices="proposals">Open proposals</button>' : ''}${rec ? ` <button class="btn ghost" data-rec="${rec.id}">Open the recipe behind this cost</button>` : ' <span>Recipe not yet in C2M.</span>'}</div>
-    ${proposeForm()}
     ${op.length ? `<h2>Open POs still to ship</h2><div class="box wrapx"><table><tr><th>PO</th><th class="r">Open kg</th><th class="r">PO price</th><th class="r">GP</th><th class="r">Locked in</th></tr>${op.map(o => `<tr><td class="mono">${esc(o.po)}</td><td class="r num">${o.kg.toLocaleString()}</td><td class="r num">${o.price.toFixed(2)}</td><td class="r num">${o.cost != null && o.price ? pc((o.price - o.cost) / o.price * 100) : 'n/a'}</td><td class="r num over">${tp ? rs(Math.max(tp - o.price, 0) * o.kg) : 'n/a'}</td></tr>`).join('')}</table></div>` : ''}
     <h2>Trucks out</h2>${chips()}<div class="box wrapx"><table><tr><th>Date</th><th>PO</th><th>DC</th><th class="r">Kg</th><th class="r">PO price</th><th class="r">${hist === 'bands' ? 'Cost, restated' : 'Cost on date'}</th><th class="r">GP</th></tr>${pr.length ? pr.slice().sort((a, b) => a.date < b.date ? 1 : -1).map(r => `<tr><td class="mono">${r.date}</td><td class="mono">${esc(r.po)}</td><td class="mono">${esc(r.dc || '')}</td><td class="r num">${r.kg.toLocaleString()}</td><td class="r num">${r.price.toFixed(2)}</td><td class="r num">${r.cost != null ? r.cost.toFixed(2) : 'n/a'}</td><td class="r num">${r.cost != null && r.price ? pc((r.price - r.cost) / r.price * 100) : 'n/a'}</td></tr>`).join('') : '<tr><td colspan="7">No trucks in this period.</td></tr>'}</table></div>`;
   }
@@ -358,6 +569,15 @@ function vCust(rows) {
 }
 
 /* ---------- Recipes ---------- */
+const fmtShort = s => { const p = d10(s).split('-'); return p.length === 3 ? `${+p[2]} ${MON[+p[1] - 1]}` : ''; };
+/** Recipe steps as chips that say who did each step and when (P1, H5: "Himayat reviewed · 17 Oct"); the current step is marked. */
+function stepChips(v) {
+  const order = ['draft', 'review', 'endorse', 'cost', 'approved']; const cur = order.indexOf(v.state);
+  const DONE = { draft: ['sent', 'resent'], review: ['reviewed'], endorse: ['endorsed'], cost: ['cost_approved'] }; const DV = { draft: 'checked', review: 'reviewed', endorse: 'endorsed', cost: 'approved cost' };
+  return `<div class="steps">${order.map((st, i) => { if (st === 'approved') return `<span class="${v.state === 'approved' ? 'done' : ''}">Approved</span>`;
+    const done = i < cur || v.state === 'approved'; const s2 = done ? (v.steps || []).slice().reverse().find(x => DONE[st].includes(x.action)) : null;
+    return `<span class="${done ? 'done' : i === cur ? 'now' : ''}">${done && s2 ? `${esc(personName(s2.by_user))} ${DV[st]}<small>· ${fmtShort(s2.at)}</small>` : STEP[st]}</span>`; }).join('')}</div>`;
+}
 function vRecipes() {
   if (openRec) return vRecipe((ST.recipes || []).find(v => v.id === openRec));
   const R = ST.me.role; const mine = (ST.recipes || []).filter(v => STEP_ROLE[v.state] === R);
@@ -380,17 +600,18 @@ function vRecipe(v, o = {}) {
   const R = ST.me.role; const seeC = ['cfo', 'coo', 'production', 'plant'].includes(R); const mine = STEP_ROLE[v.state] === R;
   const order = ['draft', 'review', 'endorse', 'cost', 'approved']; const cur = order.indexOf(v.state);
   const prod = (ST.products || []).find(p => p.id === v.clientProductId);
-  let h = o.panel || o.product ? `<p class="answer">Version ${v.version}: ${stepTxt(v.state)}.</p>` : `<p class="crumb"><button data-recback>All recipes</button> › ${esc(v.brand)} for ${esc(v.customer)}, version ${v.version}</p>${head('Recipe', `${esc(v.brand)} for ${esc(v.customer)}, version ${v.version}: ${stepTxt(v.state)}.`)}`;
-  h += `<div class="steps">${order.map((s, i) => `<span class="${i < cur || v.state === 'approved' ? 'done' : i === cur ? 'now' : ''}">${STEP[s]}</span>`).join('')}</div>`;
+  const prob = recProblem(v); const lead = mine ? `Your step: ${MYJOB[v.state].split(' ')[0].toLowerCase()}.` : `${stepTxt(v.state).charAt(0).toUpperCase() + stepTxt(v.state).slice(1)}.`;
+  let h = o.panel || o.product ? `<p class="answer">Version ${v.version}: ${esc(lead)}${prob ? ' ' + esc(prob) : ''}</p>` : `<p class="crumb"><button data-recback>All recipes</button> › ${esc(v.brand)} for ${esc(v.customer)}, version ${v.version}</p><p class="kick"><span>${esc(v.brand)} for ${esc(v.customer)} · version ${v.version}</span><span></span></p>${head('Recipe', `${esc(lead)}${prob ? ' ' + esc(prob) : ` ${esc(v.brand)} for ${esc(v.customer)}, version ${v.version}.`}`)}`;
+  h += stepChips(v);
   if (mine && !o.panel) h += `<div class="next"><b>Your step: ${MYJOB[v.state]}.</b> <button class="btn" data-panrec="${v.id}">Open to ${MYJOB[v.state].toLowerCase()}</button></div>`;
   else if (mine) h += `<div class="next"><b>Your step: ${MYJOB[v.state]}.</b> <button class="btn" data-adv="${v.id}">${v.state === 'draft' ? (v.sentBack ? 'Resend to ' + (ROLE_NAME[STEP_ROLE[v.sentBack.state]] || 'sender') : 'Send for review') : v.state === 'review' ? 'Mark reviewed' : v.state === 'endorse' ? 'Endorse' : 'Approve cost'}</button>${v.state !== 'draft' ? ` <button class="btn ghost" data-sb="${v.id}">Send back to Majid</button>` : ''}${v.state === 'draft' ? ` <button class="btn ghost" data-editlines="${v.id}">Edit lines</button>` : ''}</div>`;
   else h += `<p class="ans">${v.state === 'approved' ? 'Approved. A change starts a new version.' : v.state === 'old' ? 'An earlier version, kept for the record.' : 'With ' + ROLE_NAME[STEP_ROLE[v.state]] + '.'}</p>`;
   if (sendBack === v.id && !behind) h += `<div class="box form"><label for="sbr">Reason (required)<textarea id="sbr"></textarea></label><label for="sba">Revision advice (required)<textarea id="sba"></textarea></label><div><button class="btn warn" data-sbsend="${v.id}">Send back</button> <button class="btn ghost" data-sbcancel>Cancel</button></div></div>`;
   if (v.sentBack && v.state === 'draft') h += `<div class="warnbox">Sent back by ${esc(v.sentBack.by)}: ${esc(v.sentBack.reason)}. Advice: ${esc(v.sentBack.advice)}. Resending returns it straight to them.</div>`;
   if (editLines && editLines.id === v.id && !behind) h += linesEditor(v);
-  h += `<div class="two"><div><h2>Recipe: kg of input per 1 ${prod ? prod.soldPer : 'kg'} of product</h2><div class="box wrapx"><table><tr><th>Input</th><th class="r">Qty</th>${seeC ? '<th class="r">Rate</th><th class="r">Rs</th>' : ''}</tr>${v.lines.map(l => `<tr><td>${esc(l.name)}</td><td class="r num">${l.qty.toFixed(4)}</td>${seeC ? `<td class="r num">${rs2(l.rate)}</td><td class="r num">${rs2(l.cost)}</td>` : ''}</tr>`).join('')}<tr><td><b>Total</b></td><td class="r num"><b>${v.kgTotal.toFixed(4)}</b></td>${seeC ? `<td></td><td class="r num"><b>${rs2(v.materials)}</b></td>` : ''}</tr></table></div>
+  h += `<div class="two"><div><h2>Recipe: kg of input per 1 ${prod ? prod.soldPer : 'kg'} of product</h2><div class="box wrapx"><table><tr><th>Input, kg per 1 ${prod ? prod.soldPer : 'kg'}</th><th class="r">Qty</th>${seeC ? '<th class="r">Rate</th><th class="r">Rs</th>' : ''}</tr>${v.lines.map(l => `<tr><td>${esc(l.name)} <span class="ans" style="font-size:12px">${esc(matNutTxt(l.gradeId))}</span></td><td class="r num">${l.qty.toFixed(4)}</td>${seeC ? `<td class="r num">${rs2(l.rate)}</td><td class="r num">${rs2(l.cost)}</td>` : ''}</tr>`).join('')}<tr><td><b>Total</b></td><td class="r num"><b>${v.kgTotal.toFixed(4)}</b></td>${seeC ? `<td></td><td class="r num"><b>${rs2(v.materials)}</b></td>` : ''}</tr></table></div>
   <p class="ans">${v.kgTotal > 1.0005 ? 'Total above 1: process loss carried in the recipe.' : v.kgTotal < 0.9995 ? 'Total below 1: water or a solvent may not be listed.' : ''} ${esc(v.note || '')}</p></div>
-  <div><h2>Nutrient analysis</h2>${nutBox(v.nutrients)}</div></div>`;
+  <div><h2>Nutrient analysis</h2>${nutBox(v.nutrients)}${nutWorking(v)}</div></div>`;
   const appr = prod && prod.approvedVersionId && prod.approvedVersionId !== v.id ? (ST.recipes || []).find(x => x.id === prod.approvedVersionId) : null;
   if (seeC && appr && !['approved', 'old'].includes(v.state) && v.materials != null && appr.materials != null) {
     const dm = v.materials - appr.materials;
@@ -408,6 +629,20 @@ function billLines(k, prod) {
 let ask = null;
 /** Inline reason box (replaces browser prompt boxes, UX review). */
 function askBox(label) { if (behind) return ''; return `<div class="box form ask"><label for="askw">${esc(label)}<textarea id="askw"></textarea></label><div><button class="btn" data-askok>Confirm</button> <button class="btn ghost" data-askcancel>Cancel</button></div></div>`; }
+/* 0.9.0 recipe review (approved picture I): the answer names the problem; each input shows its own nutrient %; the working is shown */
+const matOf = id => (ST.materials || []).find(m => m.gradeId === id) || (ST.rates || []).find(m => m.gradeId === id) || null;
+const fName = f => String(f).replace('%', '').trim();
+/** What a material brings, in words: "N 46%", "S % not entered", "no nutrients", "to classify" (H3). */
+function matNutTxt(id) { const m = matOf(id); if (!m) return ''; const role = m.role || (m.type && /^Non-nutrient/.test(m.type) ? 'none' : (m.fields || []).length ? 'nutrient' : null);
+  if (role === 'none') return 'no nutrients'; if (!(m.fields || []).length) return role === 'nutrient' ? '' : 'to classify';
+  return m.fields.map(f => (m.nutrients || {})[f] == null ? `${fName(f)} % not entered` : `${fName(f)} ${Number(m.nutrients[f])}%`).join(', '); }
+/** The 1 thing that stops the analysis being complete, in plain words (H1). */
+function recProblem(v) { const N = v.nutrients || {}; if ((N.unclassified || []).length) return `${N.unclassified.join(' and ')} ${N.unclassified.length === 1 ? 'needs' : 'need'} a class before the analysis is complete.`;
+  const f = (N.fields || []).find(x => x.missing.length); if (f) return `${fName(f.field)} cannot be worked out yet, because ${f.missing.join(' and ')} ${f.missing.length === 1 ? 'has' : 'have'} no ${fName(f.field)} %.`; return ''; }
+/** The working behind each worked-out % (H4): "N = 0.4400 x 46% = 20.2%". */
+function nutWorking(v) { const N = v.nutrients || {}; const out = (N.fields || []).filter(f => f.pct != null && !f.missing.length).map(f => { const terms = v.lines.map(l => { const m = matOf(l.gradeId); const x = m && (m.nutrients || {})[f.field]; return x != null && (m.fields || []).includes(f.field) ? `${l.qty.toFixed(4)} × ${Number(x)}%` : null; }).filter(Boolean);
+    return terms.length ? `${fName(f.field)} = ${terms.join(' + ')} = ${f.pct.toFixed(1)}%` : null; }).filter(Boolean);
+  return out.length ? `<p class="ans" style="font-size:12.5px">Worked out per 1 kg of product: ${esc(out.join('; '))}.</p>` : ''; }
 function nutBox(N) {
   const rows = N.fields.map(n => `<tr><td>${esc(n.field)}</td><td class="r num">${n.pct != null ? n.pct.toFixed(2) + '%' : ''}${n.missing.length ? ` <span class="late">incomplete: ${esc(n.missing.join(', '))} has no ${esc(n.field)}</span>` : ''}</td></tr>`).join('');
   return `<div class="box wrapx"><table><tr><th>Field</th><th class="r">% in product</th></tr>${rows || '<tr><td colspan="2">No nutrient fields for these inputs</td></tr>'}
@@ -430,12 +665,13 @@ function vPanel() {
   else if (P.k === 'imports') { t = 'Items from your sheets'; b = boImport(false); }
   else if (P.k === 'lrev') { t = 'VAN brand list revision'; b = revBox(true, P.id); }
   else if (P.k === 'prop') { t = 'Price proposal'; b = propPanel(P.id); }
+  else if (P.k === 'propose') { t = 'Propose a price'; b = proposeBody() || '<p class="ans">Sent. Close this panel.</p>'; }
   else if (P.k === 'tochange') { t = 'Client prices to change'; b = toChangeBody(); }
   else if (P.k === 'actuals') { t = 'Monthly actuals and checks'; b = boActuals(true); }
   else if (P.k === 'mats') { t = 'Materials to complete'; b = matTable(); }
   else if (P.k === 'setreq') { t = 'Threshold change'; b = setReqBox(P.id); }
   else if (P.k === 'treq') { t = 'Target change'; b = tReqBox(P.id); }
-  return `<div class="scrim" data-panclose></div><aside class="panel" role="dialog" aria-modal="true" aria-label="${esc(t)}"><div class="panel-h"><b tabindex="-1">${esc(t)}</b><button class="btn ghost" data-panclose>Close</button></div>${b}</aside>`;
+  return `<div class="scrim${['prop', 'propose'].includes(P.k) ? ' light' : ''}" data-panclose></div><aside class="panel${['prop', 'propose'].includes(P.k) ? ' narrow' : ''}" role="dialog" aria-modal="true" aria-label="${esc(t)}"><div class="panel-h"><b tabindex="-1">${esc(t)}</b><button class="btn ghost" data-panclose>Close</button></div>${b}</aside>`;
 }
 /** Re-approval item: Yawar approves all, approves ticked, or closes it as wrong (D-10, D-19); Tahir reads it. */
 function reappBox(x) {
@@ -449,8 +685,20 @@ function notCostedList() {
   return `<p class="ans">A pack is costed only when every part of its cost is there (D-40). Until then no price can be proposed or checked for it.</p><div class="box wrapx"><table class="cards"><tr><th>Client pack</th><th>What is missing</th><th></th></tr>${rows.map(({ p, k }) => `<tr><td data-l="Client pack">${esc(p.brand)} ${k.size} ${p.soldPer} for ${esc(p.customer)}</td><td data-l="What is missing">${esc(k.costGaps.join(', '))}</td><td><button class="btn ghost" data-openprod="${p.id}" data-ptab="cost">Open the product</button></td></tr>`).join('') || '<tr><td colspan="3">Every pack is costed.</td></tr>'}</table></div>`;
 }
 /** 1 price proposal. Approve and send back are done only in the panel (ruling 2); elsewhere the card opens it. */
+/** Tahir's approval in its panel (approved picture J, F3 to F5): the figures as tiles, Yawar's reason set apart, thumb-sized buttons. */
+function approveCard(p) {
+  const k = packIdx().get(p.packId); const W = (ST.proposals || []).filter(x => x.status === 'proposed').sort((a, b) => String(a.at).localeCompare(String(b.at))); const pos = W.findIndex(x => x.id === p.id) + 1;
+  const c = k && k.cost ? k.cost.total : null, ac = k ? k.approvedCost : null, t = k ? k.product.target : null; const gp = c != null ? (p.price - c) / p.price * 100 : null, gpa = ac != null ? (p.price - ac) / p.price * 100 : null;
+  const x = exposure().find(e => e.id === p.packId); const newKg = x ? Math.max(x.kg3 - x.openKg, 0) : 0; const adds = x && p.prev != null ? (p.price - p.prev) * newKg : null; const u = k ? k.product.soldPer : 'kg';
+  return `<div class="job" style="display:block"><p class="kick"><span>Approve price${pos ? ` · ${pos} of ${W.length}` : ''}</span><span>${p.at ? 'waiting ' + ageTxt(p.at) : ''}</span></p>
+  <p class="answer">${esc(packName(p.packId))}: ${p.prev != null ? 'Rs ' + p.prev + ' to ' : ''}Rs ${p.price}${p.from ? ', from ' + esc(fmtShort(p.from)) : ''}</p>
+  <div class="tiles4"><div class="tile"><div class="l">GP on cost today</div><div class="v ${gp != null && t != null && gp < t ? 'late' : 'ok'}">${pc(gp)}</div></div><div class="tile"><div class="l">GP on approved cost</div><div class="v">${pc(gpa)}</div></div><div class="tile"><div class="l">Target</div><div class="v">${pc(t)}</div></div><div class="tile"><div class="l">Floor</div><div class="v">${k && k.floor != null ? k.floor.toFixed(2) : 'n/a'}</div></div>${adds != null ? `<div class="tile"><div class="l">${Math.round(newKg).toLocaleString('en-US')} new ${u}, ${SET('forward_months')} months</div><div class="v">${adds >= 0 ? '+' : '-'}${Math.round(Math.abs(adds)).toLocaleString('en-US')}</div></div>` : ''}</div>
+  ${p.belowReason ? `<div class="quote"><small>Yawar: below target because</small>${esc(p.belowReason)}</div>` : ''}${p.reason ? `<p class="ans" style="margin:4px 0">Reason printed on the client's list: ${esc(p.reason)}</p>` : ''}
+  <div class="big"><button class="btn" data-pok="${p.id}" data-confirm="Confirm: approve Rs ${p.price}">Approve</button><button class="btn ghost" data-pback="${p.id}">Send back with a reason</button></div></div>`;
+}
 function propCard(p, inPanel) {
   const R = ST.me.role; const act = p.status === 'proposed' && R === 'coo' ? 'approve' : p.status === 'sent_back' && R === 'cfo' ? 'resend' : null;
+  if (inPanel && act === 'approve') return approveCard(p);
   return `<div class="job"><div><div class="t">${esc(packName(p.packId))}: ${p.prev != null ? 'Rs ' + p.prev + ' to ' : ''}Rs ${p.price}</div>${p.status === 'proposed' ? propNums(p) : ''}<div class="d">${p.status === 'proposed' ? 'Waiting for Tahir' : p.status === 'cancelled' ? 'Cancelled by a newer approval' : p.status === 'withdrawn' ? 'Withdrawn by Tahir before its date' : p.status === 'approved' ? 'Approved by ' + esc(p.decidedBy || '') + (p.from && String(p.from).slice(0, 10) > ST.today ? ', takes over on ' + fmtD(p.from) : '') : 'Sent back by Tahir: ' + esc(p.backReason || '')}. ${esc(p.reason || '')}${p.belowReason ? ' Below target: ' + esc(p.belowReason) : ''}</div></div>
   ${!act ? '' : !inPanel ? `<div><button class="btn ghost" data-panprop="${p.id}">${act === 'approve' ? 'Open to approve' : 'Open to revise'}</button></div>` : act === 'approve' ? `<div><button class="btn" data-pok="${p.id}" data-confirm="Confirm: approve Rs ${p.price}">Approve</button> <button class="btn ghost" data-pback="${p.id}">Send back</button></div>` : `<div><button class="btn" data-presend="${p.id}">Revise and resend</button></div>`}</div>`;
 }
@@ -460,10 +708,28 @@ function propPanel(id) {
   return `<div class="box jobs">${propCard(p, true)}</div>${propBackForm()}${proposeForm()}`;
 }
 function toChangeTable(L) {
-  const R = ST.me.role;
-  return `<div class="box wrapx"><table><tr><th>Client pack</th><th class="r">Price now</th><th class="r">Cost</th><th class="r">GP</th><th class="r">Target</th><th class="r">Price for target</th><th class="r">Contribution floor</th><th class="r">Forward exposure</th><th>Why</th>${R === 'cfo' ? '<th></th>' : ''}</tr>${L.map(x => `<tr><td>${esc(x.cust)} · ${esc(x.prod)}</td><td class="r num">${x.price.toFixed(2)}</td><td class="r num">${x.c.toFixed(2)}</td><td class="r num ${x.gp < (x.target || 0) ? 'over' : ''}">${pc(x.gp)}</td><td class="r num">${pc(x.target)}</td><td class="r num">${x.tp ? x.tp.toFixed(2) : 'n/a'}</td><td class="r num ${x.floor != null && x.price < x.floor ? 'over' : ''}">${x.floor != null ? x.floor.toFixed(2) : 'n/a'}</td><td class="r num">${rs(x.fwd)}</td><td>${x.why.join(', ')}</td>${R === 'cfo' ? `<td>${x.k && x.k.waitingProposal ? '<span class="pill p-amber">with Tahir</span>' : `<button class="btn ghost" data-propose="${x.id}">Propose</button>`}</td>` : ''}</tr>`).join('') || '<tr><td>None in this group.</td></tr>'}</table></div>`;
+  const R = ST.me.role; const selId = pan && pan.k === 'propose' ? pan.id : null;
+  const fam = x => `<i class="fam" style="background:${(x.k && x.k.product.fam) || '#8796A5'}"></i>`; const stripe = x => x.why.some(w => ['below cost', 'no price', 'below contribution'].includes(w)) ? 'r-red' : x.why.includes('below target') ? 'r-amber' : 'r-none';
+  return `<div class="box wrapx"><table class="wt"><thead><tr><th>Client pack</th><th class="r">Price</th><th class="r">Cost</th><th class="r">GP %</th><th class="r">Price for target</th><th class="r">Floor</th><th class="r">Rs at stake</th><th>Why on this list</th>${R === 'cfo' ? '<th></th>' : ''}</tr></thead><tbody>${L.map(x => `<tr class="${stripe(x)}${x.id === selId ? ' sel' : ''}"><td>${fam(x)}${esc(x.cust)} · ${esc(x.prod)}</td><td class="r num">${x.price != null ? x.price.toFixed(2) : 'none'}</td><td class="r num">${x.c.toFixed(2)}</td><td class="r num ${x.gp != null && x.gp < (x.target || 0) ? 'over' : ''}">${x.gp != null ? x.gp.toFixed(1) : 'n/a'}</td><td class="r num">${x.tp ? x.tp.toFixed(2) : 'n/a'}</td><td class="r num ${x.floor != null && x.price != null && x.price < x.floor ? 'over' : ''}">${x.floor != null ? x.floor.toFixed(2) : 'n/a'}</td><td class="r num">${x.price != null ? Math.round(x.fwd).toLocaleString('en-US') : 'n/a'}</td><td>${whyPill(x)}</td>${R === 'cfo' ? `<td>${x.k && x.k.waitingProposal ? '<span class="pill p-amber">with Tahir</span>' : `<button class="btn ghost" data-propose="${x.id}">Propose</button>`}</td>` : ''}</tr>`).join('') || '<tr><td colspan="9">None in this group.</td></tr>'}</tbody></table></div>`;
 }
-function toChangeBody() { return `${proposeForm()}${basisChips()}${toChangeTable(toChange())}<p class="ans">Contribution floor = materials + packing + freight + labour per kg (ruled 16 Oct): the lowest price that still adds to FOH recovery.</p>`; }
+function toChangeBody() { return `${basisChips()}${toChangeTable(toChange())}<p class="ans">Rs at stake = price gap to target GP x expected kg less kg already on open POs. Contribution floor = materials + packing + freight + labour per kg (ruled 16 Oct): the lowest price that still adds to FOH recovery.</p>`; }
+/** Propose a price, in a side panel (D4 to D6): price now, approved cost, cost today and floor; GP on both costs; the Rs it adds over the expected kg. */
+function proposeBody() {
+  if (!propose || propose.back || behind) return '';
+  const k = packIdx().get(propose.packId); if (!k || !k.cost) return '<p class="ans">This pack is not costed, so no price can be proposed for it.</p>';
+  const c = k.cost.total, ac = k.approvedCost, v = propose.v, t = k.product.target; const gp = v > 0 ? (v - c) / v * 100 : null, gpa = ac != null && v > 0 ? (v - ac) / v * 100 : null; const tp = t == null ? null : c / (1 - t / 100); const below = t != null && gp != null && gp < t;
+  const x = exposure().find(e => e.id === k.id); const newKg = x ? Math.max(x.kg3 - x.openKg, 0) : 0; const adds = x && k.price != null ? (v - k.price) * newKg : null; const u = k.product.soldPer;
+  return `<p class="answer"><i class="fam" style="background:${k.product.fam || '#8796A5'}"></i>${esc(packLabel(k))} for ${esc(k.product.customer)}</p>${propose.was ? `<div class="warnbox">Tahir sent this back: ${esc(propose.was)}</div>` : ''}
+  <div class="tiles4"><div class="tile"><div class="l">Price now</div><div class="v">${k.price != null ? k.price.toFixed(2) : 'none'}</div></div><div class="tile"><div class="l">Approved cost</div><div class="v">${ac != null ? ac.toFixed(2) : 'n/a'}</div></div><div class="tile"><div class="l">Cost today</div><div class="v">${c.toFixed(2)}</div></div><div class="tile"><div class="l">Floor</div><div class="v">${k.floor != null ? k.floor.toFixed(2) : 'n/a'}</div></div></div>
+  <div class="form" id="pf" style="padding:0"><label for="ppv">New price, Rs per ${u}<input id="ppv" type="number" step="0.01" value="${v}"></label>
+  <p class="ans" style="margin:0">GP <b class="${below ? 'late' : 'ok'}">${pc(gp)}</b> on today's cost (${pc(gpa)} on approved cost).${t != null ? ` Target ${pc(t)} needs ${rs2(tp)}.` : ' No target set.'}${k.floor != null && v < k.floor ? ' <b class="over">Below contribution floor.</b>' : ''}</p>
+  <label for="ppn">Reason printed on the client's list<input id="ppn" value="${esc(propose.reason || '')}" placeholder="e.g. Raw material cost change"></label><span class="ans" style="margin:-4px 0 0;font-size:12px">Write it for the client to read. Not pre-filled.</span>
+  ${below ? `<label for="ppr">Below target: why? Tahir reads this<textarea id="ppr">${esc(propose.r || '')}</textarea></label>` : ''}
+  <div class="row"><label for="ppf">Takes effect from<input id="ppf" type="date" min="${ST.today}" value="${propose.from || ST.today}"></label><label for="ppt">Valid till (last day, optional)<input id="ppt" type="date" min="${propose.from || ST.today}" value="${propose.till || ''}"></label></div>
+  ${propose.from && propose.from > ST.today ? `<p class="ans" style="margin:0">Dated ahead: today's price stays in force until ${fmtD(propose.from)}.</p>` : ''}
+  <p class="ans" style="margin:0">${adds != null ? `On ${Math.round(newKg).toLocaleString('en-US')} new ${u} in ${SET('forward_months')} months (${x.kg3.toLocaleString('en-US')} expected less ${Math.round(x.openKg).toLocaleString('en-US')} already on open POs) this ${adds >= 0 ? 'adds' : 'takes away'} ${rs(Math.abs(adds))}.` : k.price == null ? 'No price today, so there is no change in Rs to work out.' : ''}</p>
+  <div><button class="btn" data-psend>Send to Tahir</button> <button class="btn ghost" data-pcancel>Cancel</button></div></div>`;
+}
 function setReqBox(id) {
   const open = (ST.settingRequests || []).filter(r => r.status === 'open' && (id == null || r.id === id));
   return open.length ? open.map(r => `<div class="warnbox"><b>${esc(r.summary)}</b><br>Proposed by ${esc(r.by_user)}. ${ST.me.role === 'coo' ? `<div style="margin-top:6px"><button class="btn" data-setok="${r.id}" data-confirm="Confirm: approve">Approve</button> <button class="btn ghost" data-setno="${r.id}">Refuse</button></div>` : 'Waiting for Tahir.'}</div>`).join('') : '<p class="ans">No threshold change is waiting.</p>';
@@ -504,6 +770,16 @@ function vProducts() {
   <div class="find"><label for="pq" class="ans" style="margin:0">Find a product or client</label><input id="pq" value="${esc(prodQ)}" placeholder="brand or client"><span class="ans" style="margin:0">${list.length} of ${all.length} shown</span></div>
   <div class="box wrapx"><table class="cards"><tr><th>Product</th><th>Client</th><th>Recipe</th><th>Packs, cost today per kg or L</th><th>State</th></tr>${list.map(p => { const rs_ = recState(p), st = prodState(p); return `<tr class="go" tabindex="0" data-openprod="${p.id}" aria-label="Open ${esc(p.brand)} for ${esc(p.customer)}"><td data-l="Product"><b>${esc(p.brand)}</b></td><td data-l="Client">${esc(p.customer)}</td><td data-l="Recipe"><span class="pill ${rs_[0]}">${esc(rs_[1])}</span></td><td data-l="Packs" class="num">${p.packs.map(k => `${k.size} ${p.soldPer}: ${k.cost ? k.cost.total.toFixed(2) : 'not costed'}`).join('<br>') || 'no pack'}</td><td data-l="State"><span class="pill ${st[0]}">${esc(st[1])}</span></td></tr>`; }).join('') || '<tr><td colspan="5">No product matches.</td></tr>'}</table></div>`;
 }
+let wfPack = null;
+/** Cost waterfall for 1 pack, Rs per kg or L, to scale (P2): materials, packing, labour, FOH, freight, then the full cost. */
+function waterfall(p, k) {
+  const c = k.cost; const lab = k.labour != null ? k.labour : null; const parts = [['Materials', c.materials, 'wb-mat'], ['Packing', c.packing, 'wb-mat']].concat(lab != null ? [['Labour', lab, 'wb-mat'], ['FOH', c.conversion - lab, 'wb-mat']] : [['Conversion', c.conversion, 'wb-mat']]).concat([['Freight', c.freight || 0, 'wb-mat']]);
+  const W = 560, H = 270, L = 12, B = 30, T = 26, n = parts.length + 1, bw = (W - L * 2) / n * 0.72, gap = (W - L * 2) / n, top = c.total * 1.08, y = v => T + (H - T - B) * (1 - v / top);
+  let run = 0; const bars = parts.map(([l, v], i) => { const y0 = y(run), y1 = y(run + v); run += v; const x = L + i * gap + (gap - bw) / 2; return `<rect class="wb-mat" x="${x}" y="${Math.min(y0, y1)}" width="${bw}" height="${Math.max(Math.abs(y0 - y1), 1.5)}" opacity="${i === 0 ? 1 : 0.75}"/><text class="lbl" x="${x + bw / 2}" y="${Math.min(y0, y1) - 6}" text-anchor="middle">${v.toFixed(2)}</text><text x="${x + bw / 2}" y="${H - 10}" text-anchor="middle">${l}</text>`; }).join('');
+  const xc = L + parts.length * gap + (gap - bw) / 2;
+  const tail = `<rect class="wb-cost" x="${xc}" y="${y(c.total)}" width="${bw}" height="${y(0) - y(c.total)}"/><text class="lbl" x="${xc + bw / 2}" y="${y(c.total) - 6}" text-anchor="middle" font-weight="600">${c.total.toFixed(2)}</text><text x="${xc + bw / 2}" y="${H - 10}" text-anchor="middle">Cost</text>`;
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Cost waterfall, ${k.size} ${p.soldPer} pack: total Rs ${c.total.toFixed(2)}"><line class="grid" x1="${L}" x2="${W - L}" y1="${y(0)}" y2="${y(0)}"/>${bars}${tail}</svg>`;
+}
 function vProduct(p) {
   const R = ST.me.role, yw = R === 'cfo';
   const vers = (ST.recipes || []).filter(v => v.clientProductId === p.id).sort((a, b) => b.version - a.version);
@@ -514,36 +790,49 @@ function vProduct(p) {
   if (!appr) ans = `No approved recipe yet${inProg ? `: version ${inProg.version} is with ${ROLE_NAME[STEP_ROLE[inProg.state]]}` : ''}.`;
   else if (!k0 || !k0.cost) ans = `Not costed: ${esc(((k0 && k0.costGaps) || ['no pack']).join(', '))}.`;
   else { const gp = k0.price != null ? (k0.price - k0.cost.total) / k0.price * 100 : null; ans = `Cost ${rs2(k0.cost.total)} per ${p.soldPer} on the ${k0.size} ${p.soldPer} pack; ${p.channel === 'VAN brand' ? 'priced in the VAN brand lists' : `price ${k0.price != null ? rs2(k0.price) : 'none'}; GP ${pc(gp)} against ${pc(p.target)} target`}.`; }
-  const T = [['recipe', 'Recipe'], ['cost', 'Cost by pack'], ['price', 'Price'], ['history', 'History']];
+  if (ptab === 'price') ptab = 'cost';
+  const T = [['recipe', 'Recipe'], ['cost', 'Cost and price by pack'], ['phist', 'Price history'], ['sales', 'Sales'], ['history', 'History']];
   if (!T.some(x => x[0] === ptab)) ptab = 'recipe';
+  const ids = p.packs.map(k => k.id); const van = p.channel === 'VAN brand';
+  const canProp = k => yw && !van && k && k.cost && !k.waitingProposal;
   let b = '';
   if (ptab === 'recipe') {
     b = vers.length ? `<div class="chips" aria-label="Versions">${vers.map(v => `<button data-recver="${v.id}" aria-pressed="${v.id === sel.id}">Version ${v.version} · ${esc(stepTxt(v.state))}</button>`).join('')}</div>${vRecipe(sel, { product: true })}` : '<p class="ans">No recipe in C2M yet. Majid writes the first version.</p>';
   } else if (ptab === 'cost') {
-    const bills = ST.packingBills || [];
-    b = `${yw ? `<div class="row" style="margin:0 0 10px"><label for="ptype-${p.id}">Product type<select id="ptype-${p.id}" data-ptype="${p.id}"><option value="">None</option>${(ST.productTypes || []).map(t => `<option value="${t.id}" ${t.id === p.typeId ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}<option value="__new">New type...</option></select></label><label style="display:flex;gap:6px;align-items:center"><input type="checkbox" data-reproc="${p.id}" ${p.reprocessed ? 'checked' : ''}> Reprocessed</label></div>${ask && ask.kind === 'ptype' ? askBox('Name of the new product type (e.g. Granulation Line)') : ''}` : `<p class="ans">Product type: ${esc(((ST.productTypes || []).find(t => t.id === p.typeId) || {}).name || 'none')} · ${p.reprocessed ? 'reprocessed' : 'not reprocessed'} · packing: ${esc(p.packingMode)}</p>`}
-    <div class="box wrapx"><table><tr><th>Pack</th><th class="r">Materials</th><th class="r">Packing</th><th class="r">Conversion</th><th class="r">Freight</th><th class="r">Cost today</th><th class="r">Approved cost</th><th>Conversion rule</th></tr>${p.packs.map(k => k.cost ? `<tr><td>${k.size} ${p.soldPer}</td><td class="r num">${rs2(k.cost.materials)}</td><td class="r num">${rs2(k.cost.packing)}</td><td class="r num">${rs2(k.cost.conversion)}</td><td class="r num">${rs2(k.cost.freight)}</td><td class="r num"><b>${rs2(k.cost.total)}</b></td><td class="r num">${rs2(k.approvedCost)}</td><td>${esc(k.cost.rule || 'none')}</td></tr>${billLines(k, p)}` : `<tr><td>${k.size} ${p.soldPer}</td><td colspan="7">Not costed: ${esc((k.costGaps && k.costGaps.length ? k.costGaps : ['no approved recipe']).join(', '))}</td></tr>${billLines(k, p)}`).join('') || '<tr><td colspan="8">No pack.</td></tr>'}</table></div>
+    const bills = ST.packingBills || []; const costed = p.packs.filter(k => k.cost); const wk = costed.find(k => k.id === wfPack) || (k0 && k0.cost ? k0 : costed[0]);
+    const tp = k => k.cost && p.target != null ? k.cost.total / (1 - p.target / 100) : null; const gpk = k => k.cost && k.price != null ? (k.price - k.cost.total) / k.price * 100 : null;
+    const stripe = k => ({ 'p-red': 'r-red', 'p-amber': 'r-amber', 'p-green': 'r-green' }[packState(p, k)[0]] || 'r-none');
+    b = `${wk ? `<div class="cards2"><div class="card"><h3>Cost waterfall, ${wk.size} ${p.soldPer} pack, Rs per ${p.soldPer}</h3><p class="sub">Each bar adds to the one before it; the last bar is the full cost.</p>${costed.length > 1 ? `<div class="chips" aria-label="Pack">${costed.map(k => `<button data-wfpack="${k.id}" aria-pressed="${k.id === wk.id}">${k.size} ${p.soldPer}</button>`).join('')}</div>` : ''}${waterfall(p, wk)}
+      <p class="ans" style="font-size:12.5px;margin:6px 0 0">${wk.price != null && !van ? `Price ${rs2(wk.price)} is ${Math.abs(wk.price - wk.cost.total).toFixed(2)} ${wk.price >= wk.cost.total ? 'above' : 'below'} cost. ` : ''}Floor ${rs2(wk.floor)} = materials + packing + freight + labour.</p></div>
+      <div class="card"><h3>Each pack</h3><div class="wrapx"><table class="wt"><thead><tr><th>Pack</th><th class="r">Cost</th><th class="r">Floor</th>${van ? '' : `<th class="r">Price</th><th class="r">GP %</th><th class="r">For ${p.target != null ? p.target.toFixed(0) + '%' : 'target'}</th>`}</tr></thead><tbody>${p.packs.map(k => `<tr class="${stripe(k)}"><td>${k.size} ${p.soldPer}</td><td class="r num">${k.cost ? k.cost.total.toFixed(2) : 'n/a'}</td><td class="r num">${k.floor != null ? k.floor.toFixed(2) : 'n/a'}</td>${van ? '' : `<td class="r num">${k.price != null ? k.price.toFixed(2) : 'none'}</td><td class="r num ${gpk(k) != null && p.target != null && gpk(k) < p.target ? 'over' : ''}">${gpk(k) != null ? gpk(k).toFixed(1) : 'n/a'}</td><td class="r num">${tp(k) != null ? tp(k).toFixed(2) : 'n/a'}</td>`}</tr>`).join('')}</tbody></table></div>
+      <p class="ans" style="font-size:12.5px;margin:8px 0 0">${(() => { const bl = (ST.packingBills || []).find(x => x.id === wk.billId); return `${bl ? `Packing bill ${wk.size} ${p.soldPer}: ${esc(bl.name)}. ` : ''}Conversion: ${wk.labour != null ? `labour ${rs2(wk.labour)} + FOH ${rs2(wk.cost.conversion - wk.labour)}` : rs2(wk.cost.conversion)}, from the rate "${esc(wk.cost.rule || 'none')}".`; })()}${van ? ' A VAN brand pack is priced per channel in the VAN brand lists (D-44).' : ''}</p></div></div>` : '<p class="ans">No pack is costed yet; what is missing shows in the table below.</p>'}
+    ${yw ? `<div class="row" style="margin:0 0 10px"><label for="ptype-${p.id}">Product type<select id="ptype-${p.id}" data-ptype="${p.id}"><option value="">None</option>${(ST.productTypes || []).map(t => `<option value="${t.id}" ${t.id === p.typeId ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}<option value="__new">New type...</option></select></label><label style="display:flex;gap:6px;align-items:center"><input type="checkbox" data-reproc="${p.id}" ${p.reprocessed ? 'checked' : ''}> Reprocessed</label></div>${ask && ask.kind === 'ptype' ? askBox('Name of the new product type (e.g. Granulation Line)') : ''}` : `<p class="ans">Product type: ${esc(p.typeName || 'none')} · ${p.reprocessed ? 'reprocessed' : 'not reprocessed'} · packing: ${esc(p.packingMode)}</p>`}
+    <h2>Cost by part, every pack</h2><div class="box wrapx"><table><tr><th>Pack</th><th class="r">Materials</th><th class="r">Packing</th><th class="r">Conversion</th><th class="r">Freight</th><th class="r">Cost today</th><th class="r">Approved cost</th><th>Conversion rule</th></tr>${p.packs.map(k => k.cost ? `<tr><td>${k.size} ${p.soldPer}</td><td class="r num">${rs2(k.cost.materials)}</td><td class="r num">${rs2(k.cost.packing)}</td><td class="r num">${rs2(k.cost.conversion)}</td><td class="r num">${rs2(k.cost.freight)}</td><td class="r num"><b>${rs2(k.cost.total)}</b></td><td class="r num">${rs2(k.approvedCost)}</td><td>${esc(k.cost.rule || 'none')}</td></tr>${billLines(k, p)}` : `<tr><td>${k.size} ${p.soldPer}</td><td colspan="7">Not costed: ${esc((k.costGaps && k.costGaps.length ? k.costGaps : ['no approved recipe']).join(', '))}</td></tr>${billLines(k, p)}`).join('') || '<tr><td colspan="8">No pack.</td></tr>'}</table></div>
+    ${van ? '' : `<h2>Price, every pack</h2><div class="box wrapx"><table><tr><th>Pack</th><th class="r">Price now</th><th>From</th><th class="r">Previous</th><th class="r">Cost today</th><th class="r">Approved cost</th><th class="r">Floor</th><th class="r">GP</th><th class="r">Target</th><th class="r">Price for target</th><th class="r">Gap to target, Rs per ${p.soldPer}</th><th>State</th>${yw ? '<th></th>' : ''}</tr>${p.packs.map(k => { const c = k.cost ? k.cost.total : null; const gp = gpk(k); const t2 = tp(k); const st = packState(p, k);
+      return `<tr><td>${k.size} ${p.soldPer}</td><td class="r num">${k.price != null ? k.price.toFixed(2) : 'none'}</td><td>${k.priceSource === 'approved' ? esc(fmtD(k.priceFrom)) : k.priceSource === 'O2S PO' ? 'last O2S PO' : ''}</td><td class="r num">${k.prevPrice != null ? k.prevPrice.toFixed(2) : ''}</td><td class="r num">${c != null ? c.toFixed(2) : 'n/a'}</td><td class="r num">${k.approvedCost != null ? k.approvedCost.toFixed(2) : 'n/a'}</td><td class="r num">${k.floor != null ? k.floor.toFixed(2) : 'n/a'}</td><td class="r num ${gp != null && p.target != null && gp < p.target ? 'over' : ''}">${pc(gp)}</td><td class="r num">${pc(p.target)}</td><td class="r num">${t2 != null ? t2.toFixed(2) : 'n/a'}</td><td class="r num">${t2 != null && k.price != null ? Math.max(t2 - k.price, 0).toFixed(2) : 'n/a'}</td><td><span class="pill ${st[0]}">${esc(st[1])}</span></td>${yw ? `<td>${!k.cost ? '' : k.waitingProposal ? '<span class="pill p-amber">with Tahir</span>' : `<button class="btn ghost" data-propose="${k.id}">Propose</button>`}</td>` : ''}</tr>`; }).join('')}</table></div>
+      <p class="ans">GP and price for target are on cost today (ruling 2). Price for target = cost today / (1 - target GP). Floor = materials + packing + freight + labour.</p>
+      ${p.packs.filter(k => k.nextPrice).map(k => `<div class="next"><span>${k.size} ${p.soldPer}: Rs ${k.nextPrice.price} approved from ${fmtD(k.nextPrice.from)}; today's price stays until then.</span></div>`).join('')}`}
     ${yw ? `<h2>Packing bill of each pack</h2><div class="box wrapx"><table><tr><th>Pack</th><th>Packing bill</th></tr>${p.packs.map(k => `<tr><td>${k.size} ${p.soldPer}</td><td><select data-assign="${k.id}" aria-label="Packing bill for ${k.size} ${p.soldPer}"><option value="">None</option>${bills.map(x => `<option value="${x.id}" ${x.id === k.billId ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select></td></tr>`).join('')}</table></div><p class="ans">Packing bills and their items are kept on Inputs.</p>` : ''}
     ${p.packs.some(k => k.sheet && k.cost) ? `<h2>Yawar's sheet of 13 Oct against C2M</h2><div class="box wrapx"><table><tr><th>Pack</th><th class="r">Sheet</th><th class="r">C2M today</th><th class="r">Gap</th></tr>${p.packs.filter(k => k.sheet && k.cost).map(k => { const d = k.cost.total - k.sheet.total; return `<tr><td>${k.size} ${p.soldPer}</td><td class="r num">${rs2(k.sheet.total)}</td><td class="r num">${rs2(k.cost.total)}</td><td class="r num ${Math.abs(d / k.sheet.total) > 0.03 ? 'over' : ''}">${d >= 0 ? '+' : ''}${d.toFixed(2)}</td></tr>`; }).join('')}</table></div>` : ''}`;
-  } else if (ptab === 'price') {
-    const ids = p.packs.map(k => k.id);
-    if (p.channel === 'VAN brand') b = '<p class="ans">A VAN brand pack is 1 product sold in every channel; its prices are set per channel through the VAN brand list revisions (Prices, VAN brand lists), not per pack (D-44).</p>';
-    else b = `<div class="box wrapx"><table><tr><th>Pack</th><th class="r">Price now</th><th>From</th><th class="r">Previous</th><th class="r">Cost today</th><th class="r">Approved cost</th><th class="r">Floor</th><th class="r">GP</th><th class="r">Target</th><th class="r">Price for target</th><th class="r">Gap to target, Rs per ${p.soldPer}</th><th>State</th>${yw ? '<th></th>' : ''}</tr>${p.packs.map(k => { const c = k.cost ? k.cost.total : null; const gp = c != null && k.price != null ? (k.price - c) / k.price * 100 : null; const tp = c != null && p.target != null ? c / (1 - p.target / 100) : null; const st = packState(p, k);
-      return `<tr><td>${k.size} ${p.soldPer}</td><td class="r num">${k.price != null ? k.price.toFixed(2) : 'none'}</td><td>${k.priceSource === 'approved' ? esc(fmtD(k.priceFrom)) : k.priceSource === 'O2S PO' ? 'last O2S PO' : ''}</td><td class="r num">${k.prevPrice != null ? k.prevPrice.toFixed(2) : ''}</td><td class="r num">${c != null ? c.toFixed(2) : 'n/a'}</td><td class="r num">${k.approvedCost != null ? k.approvedCost.toFixed(2) : 'n/a'}</td><td class="r num">${k.floor != null ? k.floor.toFixed(2) : 'n/a'}</td><td class="r num ${gp != null && p.target != null && gp < p.target ? 'over' : ''}">${pc(gp)}</td><td class="r num">${pc(p.target)}</td><td class="r num">${tp != null ? tp.toFixed(2) : 'n/a'}</td><td class="r num">${tp != null && k.price != null ? Math.max(tp - k.price, 0).toFixed(2) : 'n/a'}</td><td><span class="pill ${st[0]}">${esc(st[1])}</span></td>${yw ? `<td>${!k.cost ? '' : k.waitingProposal ? '<span class="pill p-amber">with Tahir</span>' : `<button class="btn ghost" data-propose="${k.id}">Propose</button>`}</td>` : ''}</tr>`; }).join('')}</table></div>
-      <p class="ans">GP and price for target are on cost today (ruling 2). Price for target = cost today / (1 - target GP). Floor = materials + packing + freight + labour.</p>
-      ${propose && !propose.back && ids.includes(propose.packId) ? proposeForm() : ''}
-      ${p.packs.filter(k => k.nextPrice).map(k => `<div class="next"><span>${k.size} ${p.soldPer}: Rs ${k.nextPrice.price} approved from ${fmtD(k.nextPrice.from)}; today's price stays until then.</span></div>`).join('')}
-      <h2>Proposals for this product</h2><div class="box jobs">${(ST.proposals || []).filter(x => ids.includes(x.packId) && x.status !== 'replaced').slice().reverse().map(x => propCard(x, false)).join('') || '<div class="job"><div><div class="t">No proposal yet.</div></div></div>'}</div>`;
+  } else if (ptab === 'phist') {
+    const H = (ST.priceHistory || []).filter(x => ids.includes(x.packId)).sort((a, b) => b.from.localeCompare(a.from) || b.id - a.id); const sizeOf = id => { const k = p.packs.find(x => x.id === id); return k ? `${k.size} ${p.soldPer}` : ''; };
+    b = van ? '<p class="ans">A VAN brand pack is 1 product sold in every channel; its prices are set per channel through the VAN brand list revisions (Prices, VAN brand lists), not per pack (D-44).</p>'
+      : `<p class="ans">Every approved price of this product, newest first, with its dates and who approved it. Prices loaded from Yawar's sheets carry the sheet's dates.</p><div class="box wrapx"><table class="wt"><thead><tr><th>Pack</th><th class="r">Price</th><th class="r">Previous</th><th class="r">Change</th><th>From</th><th>Till</th><th>Reason</th><th>Approved by</th></tr></thead><tbody>${H.map(x => { const ch = x.prev ? (x.price - x.prev) / x.prev * 100 : null; return `<tr class="${x.from <= ST.today && (!x.to || x.to >= ST.today) ? 'r-green' : 'r-none'}"><td>${sizeOf(x.packId)}</td><td class="r num">${x.price.toFixed(2)}</td><td class="r num">${x.prev != null ? x.prev.toFixed(2) : ''}</td><td class="r num">${ch != null ? (ch > 0 ? '+' : '') + ch.toFixed(1) + '%' : 'new'}</td><td class="mono">${esc(fmtD(x.from))}</td><td class="mono">${x.to ? esc(fmtD(x.to)) : 'open'}</td><td>${esc(x.reason || '')}</td><td>${esc(x.decidedBy ? personName(x.decidedBy) : 'loaded')}${x.decidedAt ? ', ' + esc(fmtD(d10(x.decidedAt))) : ''}</td></tr>`; }).join('') || '<tr><td colspan="8">No approved price yet.</td></tr>'}</tbody></table></div>
+      <p class="ans" style="font-size:12.5px">Green: the price in force today.</p><h2>Proposals for this product</h2><div class="box jobs">${(ST.proposals || []).filter(x => ids.includes(x.packId) && x.status !== 'replaced').slice().reverse().map(x => propCard(x, false)).join('') || '<div class="job"><div><div class="t">No proposal yet.</div></div></div>'}</div>`;
+  } else if (ptab === 'sales') {
+    const tr = (ST.sales || []).filter(s => ids.includes(s.packId)).slice().sort((a, b) => a.date < b.date ? 1 : -1); const op = (ST.open || []).filter(o => ids.includes(o.packId));
+    const g = grp(tr.filter(r => r.date >= fyStart()), () => 'x')[0];
+    b = `<p class="ans">${g ? `FY to date: ${qtyTxt(tr.filter(r => r.date >= fyStart()))} shipped for ${rsM(g.sales)}, GP ${pc(g.gp)}. ` : 'No truck this financial year. '}${op.length ? `${Math.round(op.reduce((s, o) => s + o.kg, 0)).toLocaleString('en-US')} ${p.soldPer} open on ${new Set(op.map(o => o.po)).size} POs.` : 'No open PO.'}</p>
+    ${op.length ? `<h2>Open POs still to ship</h2><div class="box wrapx"><table><tr><th>PO</th><th>Received</th><th>Buyer</th><th>Pack</th><th class="r">Open ${p.soldPer}</th><th class="r">PO price</th><th class="r">GP on cost today</th></tr>${op.map(o => `<tr><td class="mono">${esc(o.po)}</td><td class="mono">${esc(fmtD(o.received))}</td><td>${esc(o.cust)}</td><td>${o.pack}</td><td class="r num">${Math.round(o.kg).toLocaleString('en-US')}</td><td class="r num">${o.price.toFixed(2)}</td><td class="r num">${o.cost != null && o.price ? pc((o.price - o.cost) / o.price * 100) : 'n/a'}</td></tr>`).join('')}</table></div>` : ''}
+    <h2>Trucks out</h2><div class="box wrapx"><table><tr><th>Date</th><th>PO</th><th>Buyer</th><th>Pack</th><th class="r">Kg or L</th><th class="r">PO price</th><th class="r">Cost on date</th><th class="r">GP</th></tr>${tr.slice(0, 40).map(r => `<tr><td class="mono">${r.date}</td><td class="mono">${esc(r.po)}</td><td>${esc(r.cust)}${r.ch && van ? ' <span class="ans">' + esc(r.ch) + '</span>' : ''}</td><td>${r.pack}</td><td class="r num">${r.kg.toLocaleString('en-US')}</td><td class="r num">${r.price.toFixed(2)}</td><td class="r num">${r.cost != null ? r.cost.toFixed(2) : 'n/a'}</td><td class="r num">${r.cost != null && r.price ? pc((r.price - r.cost) / r.price * 100) : 'n/a'}</td></tr>`).join('') || '<tr><td colspan="8">No truck yet.</td></tr>'}</table></div>${tr.length > 40 ? `<p class="ans">The last 40 of ${tr.length} trucks.</p>` : ''}`;
   } else {
     const steps = vers.flatMap(v => (v.steps || []).map(s => ({ ...s, version: v.version }))).sort((a, b) => String(b.at).localeCompare(String(a.at)));
-    const ids = p.packs.map(k => k.id); const tr = (ST.sales || []).filter(s => ids.includes(s.packId)).slice().sort((a, b) => a.date < b.date ? 1 : -1).slice(0, 15);
-    b = `<h2>Recipe steps, every version</h2><div class="box wrapx"><table><tr><th>When</th><th>Version</th><th>Step</th><th>Who</th><th>Note</th></tr>${steps.map(s => `<tr><td class="mono">${esc(when(s.at))}</td><td>${s.version}</td><td>${esc(String(s.action).replace('_', ' '))}</td><td>${esc(s.by_user)}</td><td>${esc(s.note || '')}</td></tr>`).join('') || '<tr><td colspan="5">No recipe yet.</td></tr>'}</table></div>
-    ${ST.sales ? `<h2>Last trucks out</h2><div class="box wrapx"><table><tr><th>Date</th><th>PO</th><th>Buyer</th><th>Pack</th><th class="r">Kg or L</th><th class="r">PO price</th><th class="r">Cost on date</th><th class="r">GP</th></tr>${tr.map(r => `<tr><td class="mono">${r.date}</td><td class="mono">${esc(r.po)}</td><td>${esc(r.cust)}${r.ch && p.channel === 'VAN brand' ? ' <span class="ans">' + esc(r.ch) + '</span>' : ''}</td><td>${r.pack}</td><td class="r num">${r.kg.toLocaleString()}</td><td class="r num">${r.price.toFixed(2)}</td><td class="r num">${r.cost != null ? r.cost.toFixed(2) : 'n/a'}</td><td class="r num">${r.cost != null && r.price ? pc((r.price - r.cost) / r.price * 100) : 'n/a'}</td></tr>`).join('') || '<tr><td colspan="8">No truck yet.</td></tr>'}</table></div>` : ''}
-    ${ST.proposals ? `<h2>Price proposals</h2><div class="box jobs">${(ST.proposals || []).filter(x => ids.includes(x.packId) && x.status !== 'replaced').slice().reverse().map(x => propCard(x, false)).join('') || '<div class="job"><div><div class="t">No proposal yet.</div></div></div>'}</div>` : ''}`;
+    b = `<h2>Recipe steps, every version</h2><div class="box wrapx"><table><tr><th>When</th><th>Version</th><th>Step</th><th>Who</th><th>Note</th></tr>${steps.map(s => `<tr><td class="mono">${esc(when(s.at))}</td><td>${s.version}</td><td>${esc(String(s.action).replace('_', ' '))}</td><td>${esc(s.by_user)}</td><td>${esc(s.note || '')}</td></tr>`).join('') || '<tr><td colspan="5">No recipe yet.</td></tr>'}</table></div>`;
   }
-  return `<p class="crumb"><button data-prodback>All products</button> › ${esc(p.customer)} › ${esc(p.brand)}</p>${head('Product', `${esc(p.brand)} for ${esc(p.customer)}: ${ans.charAt(0).toLowerCase() + ans.slice(1)}`)}
-  ${inProg ? `<div class="steps">${['draft', 'review', 'endorse', 'cost', 'approved'].map((s, i, o) => `<span class="${i < o.indexOf(inProg.state) ? 'done' : s === inProg.state ? 'now' : ''}">${STEP[s]}</span>`).join('')}</div>` : ''}
-  ${['production', 'cfo', 'coo'].includes(R) ? `<div class="next"><span>${p.grp === 'White label' ? 'White label' : 'VAN brand'} · ${esc(p.spec || '')} · sold per ${p.soldPer}</span><button class="btn ghost" data-newrec="${p.id}">Write a new recipe version</button></div>${newRecForm()}` : ''}
+  const chipV = inProg || appr;
+  return `<p class="crumb"><button data-prodback>All products</button> › ${esc(p.customer)} › ${esc(p.brand)}</p><p class="kick"><span><i class="fam" style="background:${p.fam || '#8796A5'}"></i>${esc(p.brand)} for ${esc(p.customer)}${p.spec ? ' · ' + esc(p.spec) : ''}${chipV ? ' · version ' + chipV.version : ''}</span><span></span></p>${head('Product', `${esc(p.brand)} for ${esc(p.customer)}: ${ans.charAt(0).toLowerCase() + ans.slice(1)}`)}
+  ${chipV ? stepChips(chipV) : ''}
+  <div class="next"><span>${esc(p.typeName || 'No product type')} · ${p.grp === 'White label' ? 'White label' : 'VAN brand'} · sold per ${p.soldPer}</span>${['production', 'cfo', 'coo'].includes(R) ? `<button class="btn ghost" data-newrec="${p.id}">Write a new recipe version</button>` : ''}${canProp(k0) ? `<button class="btn" data-propose="${k0.id}">Propose a price</button>` : ''}</div>${['production', 'cfo', 'coo'].includes(R) ? newRecForm() : ''}
   <nav class="subnav" aria-label="Product page">${T.map(([k, l]) => `<button data-ptab="${k}" aria-current="${ptab === k}">${l}</button>`).join('')}</nav>${b}`;
 }
 
@@ -605,34 +894,39 @@ function ptrialBox() {
 }
 
 /* ---------- Prices ---------- */
+/** White label packs with a full cost and no price (T6, D7): they cannot be sold at a checked price. */
+function noPrice() { const out = []; for (const [id, k] of packIdx()) { if (k.product.grp !== 'White label' || !k.cost || k.price != null || k.waitingProposal || k.nextPrice) continue; const t = k.product.target;
+  out.push({ id, cust: k.product.customer, prod: packLabel(k), brand: k.product.brand, pack: k.size, price: null, c: k.cost.total, tp: t == null ? null : k.cost.total / (1 - t / 100), gp: null, target: t, gapPts: 0, kg3: 0, openKg: 0, fwd: 0, fwdLoss: 0, floor: k.floor, unit: k.product.soldPer === 'L' ? 'L' : 'kg', why: ['no price'], k }); } return out; }
 function toChange() {
-  const ex = exposure(); const out = [];
+  const ex = exposure(); const out = []; const P = packIdx();
   for (const x of ex) {
-    const k = packIdx().get(x.id); const cust = (ST.customers || []).find(c => c.name === x.cust) || {};
+    const k = P.get(x.id); const cust = (ST.customers || []).find(c => c.name === x.cust) || {};
     const why = []; if (x.gp < 0) why.push('below cost'); else if (x.target != null && x.gp < x.target - 0.05) why.push('below target'); if (cust.priceRule === 'time' && (!x.priceFrom || String(x.priceFrom).slice(0, 10) <= addDays(ST.today, -30))) why.push('revision due');
     if (x.floor != null && x.price < x.floor) why.push('below contribution');
     if (why.length) out.push({ ...x, why, k });
   }
-  return out.sort((a, b) => b.fwd - a.fwd || b.gapPts - a.gapPts);
+  return out.sort((a, b) => b.fwd - a.fwd || b.gapPts - a.gapPts).concat(noPrice());
 }
+/** The reason a pack is on the list, as a pill (D1). */
+const whyPill = x => x.why.map(w => w === 'below target' ? `<span class="pill p-amber">below target ${x.target != null ? x.target.toFixed(1) : ''}</span>` : w === 'revision due' ? '<span class="pill p-none">revision due</span>' : `<span class="pill p-red">${w === 'no price' ? 'costed, no price' : esc(w)}</span>`).join(' ');
 function vPrices() {
   const s = sub || 'change'; const R = ST.me.role;
-  const nW = (ST.proposals || []).filter(p => p.status === 'proposed').length;
-  const tabs = `<nav class="subnav" aria-label="Prices">${[['change', 'To change'], ['proposals', `Proposals (${nW} with Tahir)`], ['client', 'By customer'], ['lists', 'Price lists'], ['vanlists', 'VAN brand lists']].map(([k, l]) => `<button data-sub="${k}" aria-current="${s === k}">${l}</button>`).join('')}</nav>`;
+  const nW = (ST.proposals || []).filter(p => p.status === 'proposed').length; const nD = [...packIdx().values()].filter(k => k.nextPrice).length; const ALL = toChange();
+  const tabs = `<nav class="subnav" aria-label="Prices">${[['change', `To change ${ALL.length}`], ['proposals', `With Tahir ${nW}`], ['waiting', `Waiting for date ${nD}`], ['client', 'By customer'], ['lists', 'Price lists'], ['vanlists', 'VAN brand lists']].map(([k, l]) => `<button data-sub="${k}" aria-current="${s === k}">${l}</button>`).join('')}</nav>`;
   if (s === 'lists') return head('Prices', 'Price lists: build, check and send.', '1 builder for every audience. Pick who it is for, pick the fields, check the document, then create the PDF. Cost and margin can never be printed. C2M numbers each document (VAN/PL/year/number) and keeps the rows exactly as issued.') + tabs + vListsBuilder();
   if (s === 'vanlists') { const w = (ST.listRevisions || []).filter(r => r.status === 'proposed').length; return head('Prices', `VAN brand lists: ${pl(w, 'revision waits', 'revisions wait')} for Tahir.`, 'Yawar proposes new list prices with a reason and dates; Tahir approves or sends back on his Today. A revision dated today changes the list on approval; one dated ahead waits for its date (a PDF dated on or after it already shows the new prices).') + tabs + revBox(false); }
+  if (s === 'waiting') return head('Prices', nD ? `${pl(nD, 'price is', 'prices are')} approved and waiting for ${nD === 1 ? 'its' : 'their'} date.` : 'No approved price is waiting for a later date.', 'A price approved with a later start date waits here; today\'s price stays in force until then. Tahir can withdraw a waiting price before its date.') + tabs + (waitingPrices() || '<div class="box jobs"><div class="job"><div><div class="t">Nothing is waiting.</div></div></div></div>');
   if (s === 'change') {
-    const ALL = toChange(); const G = { cost: ALL.filter(x => x.why.includes('below cost')), target: ALL.filter(x => x.why.includes('below target')), due: ALL.filter(x => x.why.length === 1 && x.why[0] === 'revision due') };
-    const L = G[pgrp] || G.cost;
-    return `${head('Prices', `${pl(ALL.length, 'client price needs', 'client prices need')} changing.`, 'Flagged when below cost, below target GP on today\'s cost, below contribution, or due for revision. Sorted by forward exposure. Yawar proposes; Tahir approves on his Today.')}
-    <div class="next"><span>${R === 'cfo' ? 'Propose a new price on the top line. Tahir approves it.' : `Yawar proposes from this list. Your approvals open on Today (${nW} waiting).`}</span></div>${tabs}
-    <div class="chips">${[['cost', 'Below cost'], ['target', 'Below target'], ['due', 'Revision due only']].map(([k, l]) => `<button data-pgrp="${k}" aria-pressed="${pgrp === k}">${l} (${G[k].length})</button>`).join('')}</div>
-    ${proposeForm()}${basisChips()}${waitingPrices()}
+    const G = { all: ALL, noprice: ALL.filter(x => x.why.includes('no price')), cost: ALL.filter(x => x.why.includes('below cost')), target: ALL.filter(x => x.why.includes('below target')), due: ALL.filter(x => x.why.length === 1 && x.why[0] === 'revision due') };
+    const L = G[pgrp] || G.all; const c = G.cost.length, t = G.target.length, n = G.noprice.length;
+    return `<p class="kick"><span>Prices to change</span><span></span></p>${head('Prices', ALL.length ? `${pl(ALL.length, 'client price needs', 'client prices need')} you${[n ? `${n} ${n === 1 ? 'has' : 'have'} no price` : '', c ? `${c} ${c === 1 ? 'is' : 'are'} below cost` : '', t ? `${t} ${t === 1 ? 'is' : 'are'} below target` : ''].filter(Boolean).length ? ': ' + [n ? `${n} ${n === 1 ? 'has' : 'have'} no price` : '', c ? `${c} ${c === 1 ? 'is' : 'are'} below cost` : '', t ? `${t} ${t === 1 ? 'is' : 'are'} below target` : ''].filter(Boolean).join(', ') : ''}.` : 'No client price needs changing.', 'Flagged when costed with no price, below cost, below target GP on today\'s cost, below contribution, or due for monthly revision. Sorted by Rs at stake. Yawar proposes in a panel; Tahir approves on his Today.')}
+    ${tabs}<div class="wtbar"><div class="chips">${[['all', 'All'], ['noprice', 'No price'], ['cost', 'Below cost'], ['target', 'Below target'], ['due', 'Revision due only']].filter(([k]) => k === 'all' || G[k].length).map(([k, l]) => `<button data-pgrp="${k}" aria-pressed="${(G[pgrp] ? pgrp : 'all') === k}">${l} ${G[k].length}</button>`).join('')}</div><span class="sp"></span>${basisChips().replace('class="chips"', 'class="chips" style="margin:0"')}</div>
     ${toChangeTable(L)}
-    <p class="ans">Contribution floor = materials + packing + freight + labour per kg (ruled 16 Oct): the lowest price that still adds to FOH recovery.</p>`;
+    <p class="ans">${R === 'cfo' ? 'Propose opens a panel beside the list.' : `Yawar proposes from this list. Your approvals open on Today (${nW} waiting).`} Rs at stake = price gap to target GP x expected kg less kg already on open POs. Contribution floor = materials + packing + freight + labour per kg (ruled 16 Oct).</p>`;
   }
   if (s === 'client') {
     const custs = [...new Set((ST.products || []).filter(p => p.grp === 'White label').map(p => p.customer))]; priceCust = priceCust && custs.includes(priceCust) ? priceCust : custs[0];
+    if (!custs.length) return `${head('Prices', 'No white label client in C2M yet.', 'Customer-wise white label prices show here once the clients and their products are loaded.')}${tabs}`; // seen live on 18 Oct with no data: it read ": 0 packs."
     const prods = (ST.products || []).filter(p => p.customer === priceCust && p.grp === 'White label'); let tot = 0, costT = 0;
     const rows = []; prods.forEach(p => p.packs.forEach(k => {
       const tr = (ST.sales || []).filter(s => s.packId === k.id); const prices = tr.map(t => t.price).concat((ST.open || []).filter(o => o.packId === k.id).map(o => o.price));
@@ -647,8 +941,7 @@ function vPrices() {
     ${cols.port && cols.margin ? `<tr><td><b>Portfolio average, shipped</b></td><td></td>${cols.prev ? '<td></td>' : ''}${cols.hilo ? '<td></td><td></td>' : ''}${cols.actual ? '<td></td>' : ''}<td class="r num"><b>${tot ? pc((tot - costT) / tot * 100) : 'n/a'}</b></td><td></td></tr>` : ''}</table></div>`;
   }
   const props = (ST.proposals || []).filter(p => p.status !== 'replaced').slice().reverse();
-  return `${head('Prices', `Price proposals: ${nW} waiting for Tahir.`, 'Yawar proposes; Tahir approves or sends back with a reason, in a panel. A price below target GP carries Yawar\'s written reason.')}${tabs}${waitingPrices()}
-  ${proposeForm()}
+  return `${head('Prices', `Price proposals: ${nW} waiting for Tahir.`, 'Yawar proposes; Tahir approves or sends back with a reason, in a panel. A price below target GP carries Yawar\'s written reason.')}${tabs}
   <div class="box jobs">${props.length ? props.map(p => propCard(p, false)).join('') : '<div class="job"><div><div class="t">No proposals yet.</div></div></div>'}</div>`;
 }
 /** What Tahir decides on: cost, GP at the new price, target, contribution floor, and Rs over the forward kg. */
@@ -663,15 +956,132 @@ function waitingPrices() {
   const up = [...packIdx().values()].filter(k => k.nextPrice); if (!up.length) return '';
   return `<h2>Approved, waiting for their date</h2><div class="box jobs">${up.map(k => `<div class="job"><div><div class="t">${esc(packLabel(k))} for ${esc(k.product.customer)}: Rs ${k.nextPrice.price} from ${fmtD(k.nextPrice.from)}</div><div class="d">${k.price != null && k.priceSource === 'approved' ? `Today's price Rs ${k.price} stays in force until then${k.priceTill && k.priceTill < k.nextPrice.from ? ' (it ends on ' + fmtD(k.priceTill) + ')' : ''}.` : 'No approved price is in force before then' + (k.price != null ? ` (last O2S PO price Rs ${k.price})` : '') + '.'}</div></div>${ST.me.role === 'coo' ? `<button class="btn ghost" data-pwd="${k.nextPrice.id}">Withdraw</button>` : ''}</div>${ask && ask.kind === 'pwd' && ask.id === k.nextPrice.id ? askBox('Why withdraw this waiting price?') : ''}`).join('')}</div>`;
 }
-function proposeForm() {
-  if (!propose || propose.back || behind) return '';
-  const k = packIdx().get(propose.packId); if (!k) return '';
-  const c = k.cost ? k.cost.total : null; const v = propose.v; const gp = c != null && v > 0 ? (v - c) / v * 100 : null; const below = k.product.target != null && gp != null && gp < k.product.target;
-  return `<div class="box form" id="pf"><b>Propose: ${esc(packLabel(k))} for ${esc(k.product.customer)}</b>${propose.was ? `<div class="warnbox">Tahir sent this back: ${esc(propose.was)}</div>` : ''}
-  <div class="row"><label for="ppv">New price, Rs per ${k.product.soldPer}<input id="ppv" type="number" value="${v}"></label><span class="ans">Now ${rs2(k.price)} · cost ${rs2(c)} · GP at this price <b class="${below ? 'over' : 'ok'}">${pc(gp)}</b> · target ${pc(k.product.target)} · contribution floor ${rs2(k.floor)}${k.floor != null && v < k.floor ? ' <b class="over">below contribution</b>' : ''}</span></div>
-  <div class="row"><label for="ppn" style="flex:1 1 300px">Reason for change (printed on the client's list)<input id="ppn" value="${esc(propose.reason || 'Raw material cost change')}"></label><label for="ppf">Takes effect from<input id="ppf" type="date" min="${ST.today}" value="${propose.from || ST.today}"></label><label for="ppt">Valid till (last day, optional)<input id="ppt" type="date" min="${propose.from || ST.today}" value="${propose.till || ''}"></label></div>
-  ${propose.from && propose.from > ST.today ? `<p class="ans" style="margin:0">Dated ahead: today's price stays in force until ${fmtD(propose.from)}.</p>` : ''}
-  ${below ? `<label for="ppr">Below target GP: write why (required)<textarea id="ppr">${esc(propose.r || '')}</textarea></label>` : ''}<div><button class="btn" data-psend>Send to Tahir</button> <button class="btn ghost" data-pcancel>Cancel</button></div></div>`;
+function proposeForm() { return proposeBody(); }
+
+
+/* ---------- 0.9.0 Excel export: a real .xlsx (zip, stored), made in the browser; no library ---------- */
+const CRCT = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+const crc32 = b => { let c = 0xFFFFFFFF; for (let i = 0; i < b.length; i++) c = CRCT[(c ^ b[i]) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; };
+function zipStore(files) {
+  const enc = new TextEncoder(); const parts = [], cen = []; let off = 0;
+  for (const f of files) { const nm = enc.encode(f.name), d = enc.encode(f.text), c = crc32(d);
+    const h = new DataView(new ArrayBuffer(30)); h.setUint32(0, 0x04034b50, true); h.setUint16(4, 20, true); h.setUint16(12, 0x21, true); h.setUint32(14, c, true); h.setUint32(18, d.length, true); h.setUint32(22, d.length, true); h.setUint16(26, nm.length, true);
+    parts.push(new Uint8Array(h.buffer), nm, d);
+    const e = new DataView(new ArrayBuffer(46)); e.setUint32(0, 0x02014b50, true); e.setUint16(4, 20, true); e.setUint16(6, 20, true); e.setUint16(14, 0x21, true); e.setUint32(16, c, true); e.setUint32(20, d.length, true); e.setUint32(24, d.length, true); e.setUint16(28, nm.length, true); e.setUint32(42, off, true);
+    cen.push(new Uint8Array(e.buffer), nm); off += 30 + nm.length + d.length; }
+  const cs = cen.reduce((a, x) => a + x.length, 0); const z = new DataView(new ArrayBuffer(22)); z.setUint32(0, 0x06054b50, true); z.setUint16(8, files.length, true); z.setUint16(10, files.length, true); z.setUint32(12, cs, true); z.setUint32(16, off, true);
+  return new Blob([...parts, ...cen, new Uint8Array(z.buffer)], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+}
+const xesc = v => String(v).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])).replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '');
+const colL = i => { let s = ''; i++; while (i) { const m = (i - 1) % 26; s = String.fromCharCode(65 + m) + s; i = Math.floor((i - 1) / 26); } return s; };
+/** sheets: [{ name, rows: [[header...], [cell...]] }]; numbers stay numbers; the first row is bold. */
+function xlsxBlob(sheets) {
+  const sx = sheets.map((sh, si) => ({ name: `xl/worksheets/sheet${si + 1}.xml`, text: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>${sh.rows.map((r, ri) => `<row r="${ri + 1}">${r.map((v, ci) => { const ref = colL(ci) + (ri + 1), st = ri === 0 ? ' s="1"' : ''; return v == null || v === '' ? '' : typeof v === 'number' && isFinite(v) ? `<c r="${ref}"${st}><v>${v}</v></c>` : `<c r="${ref}" t="inlineStr"${st}><is><t xml:space="preserve">${xesc(v)}</t></is></c>`; }).join('')}</row>`).join('')}</sheetData></worksheet>` }));
+  const files = [{ name: '[Content_Types].xml', text: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>${sheets.map((x, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('')}</Types>` },
+    { name: '_rels/.rels', text: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>' },
+    { name: 'xl/workbook.xml', text: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>${sheets.map((x, i) => `<sheet name="${xesc(String(x.name).replace(/[\\/?*[\]:]/g, ' ').slice(0, 31))}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join('')}</sheets></workbook>` },
+    { name: 'xl/_rels/workbook.xml.rels', text: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${sheets.map((x, i) => `<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`).join('')}<Relationship Id="rId${sheets.length + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>` },
+    { name: 'xl/styles.xml', text: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border/></borders><cellStyleXfs count="1"><xf/></cellStyleXfs><cellXfs count="2"><xf/><xf fontId="1" applyFont="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>' }].concat(sx);
+  return zipStore(files);
+}
+function saveXlsx(base, sheets) { const url = URL.createObjectURL(xlsxBlob(sheets)); const a = document.createElement('a'); a.href = url; a.download = `C2M ${base} ${ST.today}.xlsx`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 30000); toast('Excel file saved to your downloads.'); }
+/** What each Export to Excel button exports: exactly the rows on the screen. */
+function exportXls(k) {
+  if (k === 'customers') { const rows = mRows(salesRows().filter(r => inP(r.date))); const RK = { 'p-red': 0, 'p-amber': 1, 'p-green': 2, 'p-none': 3 }; const cs = grp(rows, r => r.cust).sort((a, b) => (RK[flag(a)[0]] - RK[flag(b)[0]]) || (b.sales - a.sales)); const q = custQ.trim().toLowerCase(); const st = c => ({ 'p-red': 'red', 'p-amber': 'amber', 'p-green': 'green' }[flag(c)[0]] || 'none');
+    const L = cs.filter(c => (custF === 'all' || st(c) === custF) && (!q || c.key.toLowerCase().includes(q))); const C = custCols; const kgL = (c, u) => Math.round(c.rows.filter(r => unitOf(r) === u).reduce((t, r) => t + r.kg, 0));
+    const H = ['Customer'].concat(C.grp ? ['Group'] : [], C.sales ? ['Sales, Rs'] : [], C.qty ? ['Kg', 'L'] : [], ['GP %', 'Target %', 'Gap, pts'], C.budget ? ['Budget %'] : [], ['State']);
+    return saveXlsx('customers', [{ name: 'Customers', rows: [H].concat(L.map(c => [c.key].concat(C.grp ? [c.rows[0].grp] : [], C.sales ? [Math.round(c.sales)] : [], C.qty ? [kgL(c, 'kg'), kgL(c, 'L')] : [], [c.gp != null ? +c.gp.toFixed(2) : '', c.target != null ? +c.target.toFixed(2) : '', c.gp != null && c.target != null ? +(c.gp - c.target).toFixed(2) : ''], C.budget ? [c.budget != null ? +c.budget.toFixed(2) : ''] : [], [flag(c)[1]]))) }]); }
+  if (k === 'bridge') { const B = bridge(); if (!B.ok) return toast(B.why, true); return saveXlsx('GP bridge', [{ name: 'Bridge', rows: [['Part', 'How it is worked out', 'Rs']].concat(B.parts.map(x => [x.l, x.how, Math.round(x.v)])) }, { name: 'By pack', rows: [['Client pack', `Kg or L ${B.a}`, `Kg or L ${B.b}`, `Price ${B.a}`, `Price ${B.b}`, `Cost ${B.a}`, `Cost ${B.b}`, `GP Rs ${B.a}`, `GP Rs ${B.b}`]].concat(B.detail.map(d => [d.name, d.k0, d.k1, d.p0, d.p1, d.c0, d.c1, d.g0 != null ? Math.round(d.g0 * d.k0) : '', d.g1 != null ? Math.round(d.g1 * d.k1) : ''])) }]); }
+  if (k === 'pocheck') { const P = poCheck(); return saveXlsx('PO price against approved', [{ name: 'PO lines', rows: [['PO', 'Received', 'Customer', 'Client pack', 'Qty', 'Approved price', 'Price on PO', 'Gap, Rs', 'State']].concat(P.list.map(x => [x.po, x.received || '', x.cust, x.name, Math.round(x.kg), x.ap != null ? x.ap : '', x.price, Math.round(x.gap), x.state])) }]); }
+}
+
+/* ---------- 0.9.0 Reports (approved pictures E, F, G): 14 cards in 4 groups; GP bridge and PO price against approved price are built,
+   the other 12 are drawn for Tahir's approval first and come in 0.9.1 (Tahir, 18 Oct 2026) ---------- */
+const REPORTS = [
+  { k: 'bridge', g: 'Money', t: 'GP bridge, monthly', q: 'Why did GP move against last month and budget?', ready: 1 }, { k: 'custprof', g: 'Money', t: 'Customer profitability', q: 'Which clients to push, fix, hold or drop?' },
+  { k: 'mix', g: 'Money', t: 'Product and mix', q: 'Which products earn most per kg?' }, { k: 'volume', g: 'Money', t: 'Volume against budget kg', q: 'Are we selling the budgeted kg?', note: 'Ruling 17 set a client budget in sales Rs and GP Rs, not kg: this report is redrawn on that budget.' },
+  { k: 'pocheck', g: 'Prices', t: 'PO price against approved price', q: 'Are O2S POs following approved prices?', ready: 1 }, { k: 'revstatus', g: 'Prices', t: 'Price revision status', q: 'Which prices are due, below target or stuck?' },
+  { k: 'locked', g: 'Prices', t: 'Locked-in loss on open POs', q: 'Which open POs will ship below target?' }, { k: 'vanmargin', g: 'Prices', t: 'VAN brand list margin', q: 'Do dealer, distributor and farmer prices cover cost?' },
+  { k: 'rateshock', g: 'Cost', t: 'Rate shock and rupee', q: 'If a material or the rupee moves, what happens to GP?', note: 'Needs the share of each material bought in dollars; C2M does not hold it yet.' }, { k: 'convrec', g: 'Cost', t: 'Conversion recovery', q: 'Is labour and FOH under or over recovered?' },
+  { k: 'foc', g: 'Cost', t: 'FOC and samples', q: 'What do free samples cost?', note: 'FOC lines come from O2S; sample issues outside O2S are not in C2M yet.' },
+  { k: 'ageing', g: 'Control', t: 'Approvals ageing', q: 'What waits, with whom, for how long?' }, { k: 'quality', g: 'Control', t: 'Margin data quality', q: 'How much of the GP shown can we trust?' }, { k: 'books', g: 'Control', t: 'Tie to the books', q: 'Do C2M sales and COGS agree with the ERP?' }];
+let rep = null, repQ = '', brMonth = null, brGrp = 'wl', poPer = 'month', poF = 'all';
+const seenGet = k => { try { return localStorage.getItem('c2m.seen.' + k); } catch (_) { return null; } };
+const seenSet = (k, v) => { try { localStorage.setItem('c2m.seen.' + k, v); } catch (_) {} };
+/** What makes a built report "new since you last looked" (R1): a new closed month, or new PO lines. Kept in this browser only. */
+const repSig = k => k === 'bridge' ? (bridge().b || '') : k === 'pocheck' ? String((ST.poLines || []).length) + '|' + ((ST.poLines || []).map(x => x.received || '').sort().pop() || '') : '';
+function vReports() {
+  if (rep) { const r = REPORTS.find(x => x.k === rep); if (r) { if (r.ready) seenSet(r.k, repSig(r.k)); return r.k === 'bridge' ? vBridge() : r.k === 'pocheck' ? vPoCheck() : vRepLater(r); } rep = null; }
+  const isNew = r => r.ready && seenGet(r.k) !== repSig(r.k); const nNew = REPORTS.filter(isNew).length; const q = repQ.trim().toLowerCase();
+  return `<p class="kick"><span>Reports</span><span></span></p>${head('Reports', `14 reports. ${nNew ? `${pl(nNew, 'has', 'have')} something new since you last looked; ` : ''}2 are ready, 12 are drawn for your approval and come in 0.9.1.`, 'Each card names the 1 question its report answers. Every report opens with its answer line and exports to Excel. "New" means the report has data you have not opened yet in this browser.')}
+  <div class="wtbar"><input type="search" id="rq" value="${esc(repQ)}" placeholder="Find a report" aria-label="Find a report"></div>
+  <div class="rgroups">${['Money', 'Prices', 'Cost', 'Control'].map(g => `<section><h2 class="gh">${g}</h2>${REPORTS.filter(r => r.g === g && (!q || (r.t + ' ' + r.q).toLowerCase().includes(q))).map(r => `<button class="rcard ${r.ready ? 'ready' : 'later'}" data-rep="${r.k}"><b>${esc(r.t)}${isNew(r) ? '<em>new</em>' : r.ready ? '' : '<em>0.9.1</em>'}</b><span>${esc(r.q)}</span></button>`).join('') || '<p class="ans">No report matches.</p>'}</section>`).join('')}</div>`;
+}
+const repCrumb = t => `<p class="crumb"><button data-repback>Reports</button> › ${esc(t)}</p>`;
+function vRepLater(r) { return `${repCrumb(r.t)}${head(r.t, 'Not built yet: its picture goes to you for approval first, then it is built in 0.9.1.', '')}<div class="next"><span><b>The question it answers:</b> ${esc(r.q)}</span></div>${r.note ? `<div class="assume"><b>To settle first</b>${esc(r.note)}</div>` : ''}`; }
+/** GP bridge between 2 closed months (R2, approved picture F). Parts add to the change exactly, or the report refuses to show. */
+function bridge() {
+  const cur = ST.today.slice(0, 7); const all = salesRows().filter(r => r.date.slice(0, 7) < cur && (brGrp === 'all' || (brGrp === 'wl' ? r.grp === 'White label' : r.grp === 'VAN brand')));
+  const months = [...new Set(all.map(r => r.date.slice(0, 7)))].sort(); if (months.length < 2) return { ok: false, why: 'The bridge needs 2 closed months of trucks.', months };
+  const b = brMonth && months.includes(brMonth) && months.indexOf(brMonth) > 0 ? brMonth : months[months.length - 1]; const a = addDays(b + '-01', -1).slice(0, 7);
+  if (!months.includes(a)) return { ok: false, why: `No trucks in ${mon(a)} to compare ${mon(b)} with.`, months, b };
+  const costed = all.filter(r => r.cost != null); const unc = all.filter(r => r.cost == null && [a, b].includes(r.date.slice(0, 7))).reduce((s, r) => s + r.kg * r.price, 0);
+  const key = r => (r.packId ? 'p' + r.packId : 'x' + pkey(r)) + '|' + r.cust; /* a VAN pack is shared by many buyers */ const M = new Map();
+  costed.forEach(r => { const m = r.date.slice(0, 7); if (m !== a && m !== b) return; const k = key(r); if (!M.has(k)) M.set(k, { name: `${r.cust} · ${r.brand} ${r.pack}`, k0: 0, r0: 0, c0: 0, k1: 0, r1: 0, c1: 0 }); const x = M.get(k); if (m === a) { x.k0 += r.kg; x.r0 += r.kg * r.price; x.c0 += r.kg * r.cost; } else { x.k1 += r.kg; x.r1 += r.kg * r.price; x.c1 += r.kg * r.cost; } });
+  const D = [...M.values()].map(x => ({ ...x, p0: x.k0 ? x.r0 / x.k0 : null, p1: x.k1 ? x.r1 / x.k1 : null, cc0: x.k0 ? x.c0 / x.k0 : null, cc1: x.k1 ? x.c1 / x.k1 : null }));
+  const com = D.filter(x => x.k0 > 0 && x.k1 > 0); const GP0 = D.reduce((s, x) => s + x.r0 - x.c0, 0), GP1 = D.reduce((s, x) => s + x.r1 - x.c1, 0);
+  const K0 = com.reduce((s, x) => s + x.k0, 0), K1 = com.reduce((s, x) => s + x.k1, 0); const gbar0 = K0 ? com.reduce((s, x) => s + (x.r0 - x.c0), 0) / K0 : 0;
+  const price = com.reduce((s, x) => s + (x.p1 - x.p0) * x.k1, 0), cost = com.reduce((s, x) => s + (x.cc0 - x.cc1) * x.k1, 0), volume = (K1 - K0) * gbar0;
+  const mix = K1 && K0 ? com.reduce((s, x) => s + (x.k1 / K1 - x.k0 / K0) * K1 * (x.p0 - x.cc0), 0) : 0;
+  const nl = D.filter(x => !(x.k0 > 0 && x.k1 > 0)).reduce((s, x) => s + (x.r1 - x.c1) - (x.r0 - x.c0), 0);
+  const sum = GP0 + price + volume + mix + cost + nl; if (Math.abs(sum - GP1) > 1) return { ok: false, why: `The parts do not add to the change (Rs ${Math.round(sum - GP1)} apart), so the bridge is not shown.`, months, b };
+  const A = mon(a).slice(0, 3), Bm = mon(b).slice(0, 3);
+  const parts = [{ l: mon(a), v: GP0, how: `GP Rs in ${mon(a)}` }, { l: 'Price', v: price, how: `Σ (${Bm} price − ${A} price) × ${Bm} kg` }, { l: 'Volume', v: volume, how: `(${Bm} total kg − ${A} total kg) × ${A} GP per kg` }, { l: 'Mix', v: mix, how: `Change in product shares × ${Bm} total kg × each product's ${A} GP per kg` }, { l: 'Cost', v: cost, how: `Σ (${A} cost − ${Bm} cost) × ${Bm} kg` }, { l: 'New and lost', v: nl, how: 'GP of products sold in only 1 of the 2 months' }, { l: mon(b), v: GP1, how: `${Math.round(GP0).toLocaleString('en-US')} + ${[price, volume, mix, cost, nl].map(v => Math.round(v).toLocaleString('en-US')).join(' + ').replace(/\+ -/g, '− ')}` }];
+  return { ok: true, a, b, GP0, GP1, parts, months, unc, detail: D.map(x => ({ name: x.name, k0: Math.round(x.k0), k1: Math.round(x.k1), p0: x.p0 != null ? +x.p0.toFixed(2) : '', p1: x.p1 != null ? +x.p1.toFixed(2) : '', c0: x.cc0 != null ? +x.cc0.toFixed(2) : '', c1: x.cc1 != null ? +x.cc1.toFixed(2) : '', g0: x.p0 != null ? x.p0 - x.cc0 : null, g1: x.p1 != null ? x.p1 - x.cc1 : null })) };
+}
+/** Rs in short form for chart labels: 2.14M, 81K, 950. */
+const fmtRsShort = v => Math.abs(v) >= 1e6 ? (v / 1e6).toFixed(2) + 'M' : Math.abs(v) >= 1e3 ? Math.round(v / 1e3) + 'K' : String(Math.round(v));
+function vBridge() {
+  const B = bridge(); const gch = `<div class="chips" aria-label="Sales group">${Object.entries(GRPN).map(([k, l]) => `<button data-brgrp="${k}" aria-pressed="${brGrp === k}">${l}</button>`).join('')}</div>`;
+  const mch = (B.months || []).length > 1 ? `<div class="chips" aria-label="Month">${B.months.slice(1).map(m => `<button data-brmon="${m}" aria-pressed="${(B.b || '') === m}">${mon(m)} against ${mon(addDays(m + '-01', -1).slice(0, 7)).slice(0, 3)}</button>`).join('')}</div>` : '';
+  if (!B.ok) return `${repCrumb('GP bridge, monthly')}${head('GP bridge', B.why, '')}<div class="wtbar">${gch}</div>${mch}`;
+  const d = B.GP1 - B.GP0; const mid = B.parts.slice(1, -1).filter(x => Math.round(x.v));
+  const WORD = { Price: ['better prices', 'lower prices'], Volume: ['more volume', 'lower volume'], Mix: ['a better mix', 'a weaker mix'], Cost: ['lower cost', 'higher cost'], 'New and lost': ['new products', 'lost products'] };
+  const list = a => a.length < 2 ? a.join('') : a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1]; const cap = t => t.charAt(0).toUpperCase() + t.slice(1);
+  const neg = mid.filter(x => x.v < 0).sort((x, y) => x.v - y.v), pos = mid.filter(x => x.v > 0).sort((x, y) => y.v - x.v);
+  const negTxt = neg.length ? cap(list(neg.map((x, i) => `${WORD[x.l][1]} ${i === 0 ? 'took ' : ''}${rs(-x.v)}`))) : '';
+  const posTxt = pos.length ? `${list(pos.map(x => WORD[x.l][0]))} ${neg.length ? 'gave back' : 'added'} ${rs(pos.reduce((t, x) => t + x.v, 0))}` : '';
+  const ans = Math.abs(d) < 0.5 ? 'GP did not change.' : `GP ${d < 0 ? 'fell' : 'rose'} ${rs(Math.abs(d))}. ${negTxt}${negTxt && posTxt ? '; ' : ''}${negTxt ? posTxt : cap(posTxt)}.`;
+  // waterfall to scale
+  const W = 640, H = 300, L = 50, Rr = 10, T = 26, Bt = 32, n = B.parts.length; let run = 0; const vals = []; B.parts.forEach((x, i) => { if (i === 0) { run = x.v; vals.push([0, x.v]); } else if (i === n - 1) vals.push([0, x.v]); else { vals.push([run, run + x.v]); run += x.v; } });
+  const lo = Math.min(0, ...vals.flat()); let hi = Math.max(...vals.flat()) * 1.12; if (!(hi > lo)) hi = lo + 1; const y = v => T + (H - T - Bt) * (1 - (v - lo) / (hi - lo)); const gw = (W - L - Rr) / n, bw = gw * 0.68;
+  const tick = [0, hi / 2 / 1.12, hi / 1.12].map(v => `<line class="grid" x1="${L}" x2="${W - Rr}" y1="${y(v)}" y2="${y(v)}"/><text x="${L - 6}" y="${y(v) + 4}" text-anchor="end">${fmtRsShort(v)}</text>`).join('');
+  const bars = B.parts.map((x, i) => { const [v0, v1] = vals[i]; const cls = i === 0 || i === n - 1 ? 'wb-total' : x.v >= 0 ? 'wb-up' : 'wb-down'; const xx = L + i * gw + (gw - bw) / 2; const top = Math.min(y(v0), y(v1)), h = Math.max(Math.abs(y(v0) - y(v1)), 1.5); const lab = i === 0 || i === n - 1 ? fmtRsShort(x.v) : (x.v >= 0 ? '+' : '-') + fmtRsShort(Math.abs(x.v));
+    return `<rect class="${cls}" x="${xx}" y="${top}" width="${bw}" height="${h}"/><text class="lbl" x="${xx + bw / 2}" y="${x.v < 0 && i && i < n - 1 ? top + h + 14 : top - 6}" text-anchor="middle">${lab}</text><text x="${xx + bw / 2}" y="${H - 10}" text-anchor="middle">${esc(x.l.replace(/ \d{4}$/, '').replace('New and lost', 'New/lost'))}</text>`; }).join('');
+  return `${repCrumb('GP bridge, monthly')}<p class="kick"><span>GP bridge · ${esc(mon(B.b))} against ${esc(mon(B.a))}</span><span></span></p>${head('GP bridge', ans, 'Price, volume, mix and cost are worked out on packs sold in both months; packs sold in only 1 of the 2 months go to "New and lost". Kg and L are counted together. Only costed trucks count; the open month is not used until it closes. The parts must add to the change exactly; the report refuses to show if they do not.')}
+  <div class="wtbar">${gch}<span class="sp"></span><button class="btn ghost" data-xls="bridge">Export to Excel</button></div>${mch}
+  <div class="cards2"><div class="card"><h3>Rs, ${esc(GRPN[brGrp].toLowerCase())}, ${esc(mon(B.a).slice(0, 3))} to ${esc(mon(B.b).slice(0, 3))}</h3><p class="sub">Grey bars are the 2 months; green adds, red takes away. M is Rs million, K is Rs thousand.</p><svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="GP bridge waterfall">${tick}${bars}</svg></div>
+  <div class="card"><h3>How each bar is worked out</h3><div class="wrapx"><table><tbody>${B.parts.slice(1).map((x, i, A) => `<tr${i === A.length - 1 ? ' style="font-weight:600"' : ''}><td>${i === A.length - 1 ? 'Total' : esc(x.l)}</td><td style="font-size:12.5px">${esc(x.how)}</td><td class="r num ${i < A.length - 1 ? (x.v < 0 ? 'over' : x.v > 0 ? 'ok' : '') : ''}">${i < A.length - 1 && x.v > 0 ? '+' : ''}${Math.round(x.v).toLocaleString('en-US')}</td></tr>`).join('')}</tbody></table></div>
+  <p class="ans" style="font-size:12.5px">The parts add to the change exactly; each figure is rounded to the rupee, so the rounded parts can differ from the total by a few rupees.${B.unc ? ` Trucks with no cost (${rs(B.unc)} of sales in the 2 months) are left out.` : ''}</p></div></div>`;
+}
+/** The approved price in force for a pack on a date: the same rule as the server (latest start on or before the date, not ended). */
+function priceOn(packId, date) { let best = null; (ST.priceHistory || []).forEach(p => { if (p.packId !== packId || p.from > date || (p.to && p.to < date)) return; if (!best || p.from > best.from || (p.from === best.from && p.id > best.id)) best = p; }); return best; }
+/** Every O2S PO line against the approved price on its received date (R3, approved picture G). */
+function poCheck() {
+  const cur = ST.today.slice(0, 7), last = addDays(cur + '-01', -1).slice(0, 7); const inPer = d => !!d && (poPer === 'month' ? d.slice(0, 7) === cur : poPer === 'last' ? d.slice(0, 7) === last : d >= fyStart());
+  const P = packIdx(); const all = (ST.poLines || []).filter(l => l.grp === 'White label' && !l.foc && inPer(l.received)).map(l => { const k = l.packId ? P.get(l.packId) : null; const ap = l.packId ? priceOn(l.packId, l.received) : null; const a = ap ? ap.price : null; const diff = a != null ? a - l.price : null;
+    return { ...l, k, name: k ? packLabel(k) : `${l.brand} ${l.pack}`, ap: a, gap: diff != null ? Math.max(diff, 0) * l.kg : 0, state: !l.packId ? 'not placed on a pack' : a == null ? 'no approved price' : diff > 0.005 ? 'below approved' : diff < -0.005 ? 'above approved' : 'as approved' }; }).sort((a, b) => b.gap - a.gap || String(b.received).localeCompare(String(a.received)));
+  const F = { all: () => true, below: x => x.state === 'below approved', as: x => x.state === 'as approved' || x.state === 'above approved', none: x => x.state === 'no approved price' || x.state === 'not placed on a pack' };
+  return { all, F, list: all.filter(F[poF] || F.all), cur, last };
+}
+function vPoCheck() {
+  const P = poCheck(); const below = P.all.filter(P.F.below); const tot = below.reduce((s, x) => s + x.gap, 0); const perN = poPer === 'month' ? MONL[+P.cur.slice(5, 7) - 1] : poPer === 'last' ? MONL[+P.last.slice(5, 7) - 1] : 'FY to date';
+  const LBL = { all: 'All', below: 'Below approved', as: 'As or above approved', none: 'No approved price or pack' };
+  const pill = st => st === 'below approved' ? 'p-red' : /^no |^not /.test(st) ? 'p-none' : 'p-green';
+  return `${repCrumb('PO price against approved price')}<p class="kick"><span>PO price against approved price · ${esc(perN)}</span><span>${esc(o2sAsOf())}</span></p>${head('PO price against approved price', P.all.length ? `${below.length} of ${pl(P.all.length, 'PO line was', 'PO lines were')} entered below the approved price: ${rs(tot)} given away.` : 'No white label PO line in this period.', 'Approved price = the price in force on the PO\'s received date (time-based clients); for fixed per PO clients the received date is taken as the PO\'s start. Gap per line = the larger of (approved − on PO) and 0, times the quantity, so a line above the approved price never hides one below it. FOC lines (price 0) are left out (ruling 14). A line C2M cannot place on a client pack shows as such; fix its name in Setup, From O2S. VAN brand lines are priced by the channel lists and are not in this report.')}
+  <div class="wtbar"><div class="chips" aria-label="Period">${[['month', 'This month'], ['last', 'Last month'], ['fy', 'FY to date']].map(([k, l]) => `<button data-poper="${k}" aria-pressed="${poPer === k}">${l}</button>`).join('')}</div><div class="chips" aria-label="Lines">${Object.keys(P.F).map(k => `<button data-pof="${k}" aria-pressed="${poF === k}">${LBL[k]} ${P.all.filter(P.F[k]).length}</button>`).join('')}</div><span class="sp"></span><button class="btn ghost" data-xls="pocheck">Export to Excel</button></div>
+  <div class="box wrapx"><table class="wt"><thead><tr><th>PO</th><th>Received</th><th>Client pack</th><th class="r">Qty</th><th class="r">Approved</th><th class="r">On PO</th><th class="r">Gap, Rs</th><th>State</th></tr></thead><tbody>${P.list.map(x => `<tr class="${x.state === 'below approved' ? 'r-red' : /^no |^not /.test(x.state) ? 'r-none' : 'r-green'}"><td class="mono">${esc(x.po)}</td><td class="mono">${esc(fmtShort(x.received))}</td><td><i class="fam" style="background:${(x.k && x.k.product.fam) || '#8796A5'}"></i>${esc(x.cust)} · ${esc(x.name)}</td><td class="r num">${Math.round(x.kg).toLocaleString('en-US')} ${x.k && x.k.product.soldPer === 'L' ? 'L' : 'kg'}</td><td class="r num">${x.ap != null ? x.ap.toFixed(2) : 'n/a'}</td><td class="r num">${x.price.toFixed(2)}</td><td class="r num ${x.gap > 0 ? 'over' : ''}">${Math.round(x.gap).toLocaleString('en-US')}</td><td><span class="pill ${pill(x.state)}">${x.state}</span></td></tr>`).join('') || '<tr><td colspan="8">No line in this view.</td></tr>'}</tbody>
+  <tfoot><tr><td colspan="6">${pl(P.list.length, 'line', 'lines')}</td><td class="r num">${Math.round(P.list.reduce((s, x) => s + x.gap, 0)).toLocaleString('en-US')}</td><td></td></tr></tfoot></table></div>`;
 }
 
 /* ---------- Price lists ---------- */
@@ -697,11 +1107,14 @@ function plDoc(a) {
   const F = fieldsFor(a).filter(f => PLB.pick[a] ? PLB.pick[a][f[0]] : f[2]); const R = plRows(a);
   const notes = []; if (a === 'wl') { notes.push('Prices are ex-factory and exclude FED and sales tax.'); if (W.rule === 'time') notes.push('POs received before the effective date are supplied at the price on the PO.'); notes.push('Prices apply to the packing arrangement agreed for each product.'); }
   if (a === 'dist') notes.push('Price with FED includes FED at 5%. Benchmark MRP is for guidance.'); if (a === 'dealer') notes.push('Payment by demand draft, pay order or bank deposit only. No returns.'); if (a.startsWith('farmer') || a === 'web') notes.push('Prices include taxes and may change; check the latest list.'); if (PLB.note) notes.push(PLB.note);
-  return `<div class="doc"><div class="doc-h"><img src="/c2m/assets/van-logo.png" alt="VAN" class="doc-logo"><div class="doc-co"><b>Vital Agri Nutrients (Private) Limited</b><span>Lahore · www.van.com.pk</span></div><div class="doc-ref"><span>Ref: given when the PDF is created</span><span>Date: ${fmtD(ST.today)}</span></div></div>
-  <div class="doc-t"><h3>${esc(t.t)}</h3><div>For: <b>${esc(t.to)}</b> · ${esc(t.sub)}</div><div>Effective from <b>${fmtD(PLB.eff)}</b>${PLB.till ? ` · valid till <b>${fmtD(PLB.till)}</b>` : ''}</div></div>
-  <div class="wrapx"><table class="doc-tb"><thead><tr><th>Sr</th>${F.map(f => `<th>${esc(f[1])}</th>`).join('')}</tr></thead><tbody>${R.map((r, i) => `<tr><td>${i + 1}</td>${F.map(f => `<td class="${['cur', 'prev', 'fed', 'mrp', 'netfed', 'frp', 'chg', 'disc'].includes(f[0]) ? 'r' : ''}">${esc(r[f[0]] ?? '')}</td>`).join('')}</tr>`).join('') || `<tr><td colspan="${F.length + 1}">No approved prices for this client yet.</td></tr>`}</tbody></table></div>
-  <ul class="doc-n">${notes.map(x => `<li>${esc(x)}</li>`).join('')}</ul><div class="doc-s"><div>Yawar Hussain<br>Chief Financial Officer</div></div>
-  <div class="doc-f">Vital Agri Nutrients (Private) Limited · Head office: 605 Al-Hafeez Heights, Gulberg III, Lahore 54660 · Plant: 49-Km Multan Road, Phool Nagar Bypass, Lahore · +92 42 35762215 · www.van.com.pk</div></div>`;
+  const BASIS = { wl: ['Rs per kg or L, ex factory', 'FED and sales tax extra'], dist: ['Rs per pack, ex FED', 'FED at 5% in its own column'], dealer: ['Rs per pack', 'Net of taxes, and with taxes'], farmer: ['Rs per pack', 'Taxes included'] }; const basis = BASIS[a] || BASIS.farmer; // as c2m-pricelist.js BASIS
+  const famOf = r => { const W2 = a === 'wl' ? ((ST.wlLists || {})[PLB.client] || { rows: [] }).rows.find(x => 'p' + x.packId === r._k) : null; return W2 && W2.fam ? `<i class="fam" style="background:${W2.fam}"></i>` : ''; };
+  return `<div class="doc"><div class="doc-h2"><div class="doc-h" style="border:0;padding:0;flex:1 1 300px"><img src="/c2m/assets/van-logo.png" alt="VAN" class="doc-logo"><div class="doc-co"><b>Vital Agri Nutrients (Private) Limited</b><span>www.van.com.pk</span></div></div>
+  <div class="doc-meta"><h4>${esc(t.t.toUpperCase())}</h4><table><tr><td>Number</td><td>${esc(ST.nextDocRef || 'given when the PDF is created')}${ST.nextDocRef ? ' <span style="color:#4a5a70">(next free; fixed when the PDF is created)</span>' : ''}</td></tr><tr><td>Issued</td><td>${fmtD(ST.today)}</td></tr><tr><td>Effective from</td><td>${fmtD(PLB.eff)}</td></tr>${PLB.till ? `<tr><td>Valid till</td><td>${fmtD(PLB.till)}</td></tr>` : ''}</table></div></div><div class="doc-rule"></div>
+  <div class="doc-blk"><div><small>FOR</small><b>${esc(t.to)}</b>${esc(t.sub)}</div><div><small>PRICES</small><b>${esc(basis[0])}</b>${esc(basis[1])}</div></div>
+  <div class="wrapx"><table class="doc-tb"><thead><tr><th>Sr</th>${F.map(f => `<th>${esc(f[1])}</th>`).join('')}</tr></thead><tbody>${R.map((r, i) => `<tr><td>${i + 1}</td>${F.map(f => `<td class="${['cur', 'prev', 'fed', 'mrp', 'netfed', 'frp', 'chg', 'disc'].includes(f[0]) ? 'r' : ''}">${f[0] === 'product' ? famOf(r) : ''}${esc(r[f[0]] ?? '')}</td>`).join('')}</tr>`).join('') || `<tr><td colspan="${F.length + 1}">No approved prices for this client yet.</td></tr>`}</tbody></table></div>
+  <ul class="doc-n">${notes.map(x => `<li>${esc(x)}</li>`).join('')}</ul><div class="doc-sig"><div><small>Approved by</small><b>Tahir Abbas</b>Chief Operating Officer</div><div><small>Issued by</small><b>Yawar Hussain</b>Chief Financial Officer</div></div>
+  <div class="doc-f2"><span>Head office: 605 Al-Hafeez Heights, Gulberg III, Lahore 54660 · Plant: 49-Km Multan Road, Phool Nagar Bypass, Lahore · +92 42 35762215</span><span>Every page numbered on the PDF</span></div></div>`;
 }
 let rev = null;
 const REVF = { dist: [['now', 'Price ex FED, Rs per pack'], ['mrp', 'Benchmark MRP']], dealer: [['nsv', 'Price before discount'], ['disc', 'Discount, %'], ['frp', 'FRP'], ['mrp', 'MRP']], farmer: [['pb', 'Punjab'], ['sn', 'Sindh'], ['snc', 'Sindh credit']] };
@@ -778,7 +1191,7 @@ function boImport(ro) {
 function boSheet() {
   const rows = []; (ST.products || []).filter(costProd).forEach(p => p.packs.forEach(k => { if (k.sheet && k.cost) rows.push({ p, k, d: k.cost.total - k.sheet.total }); }));
   rows.sort((a, b) => Math.abs(b.d) - Math.abs(a.d)); const net = rows.reduce((s, r) => s + r.d, 0) / (rows.length || 1);
-  return `<p class="ans"><b>What this does:</b> Yawar's cost sheet of 13 Oct against C2M's cost today, per pack, with the gap split by cause. The main cause is the conversion basis Tahir ruled on 16 Oct (Rs 20 / Rs 30 bands in place of the sheet's own Labour & FOH). Rate and packing changes show in their own columns.</p>
+  return `<p class="ans"><b>What this does:</b> Yawar's cost sheet of 13 Oct against C2M's cost today, per pack, with the gap split by cause. The main cause is the conversion basis Tahir ruled on 16 Oct (base bands in place of the sheet's own Labour & FOH). Rate and packing changes show in their own columns.</p>
   <div class="box wrapx"><table><tr><th>Client pack</th><th class="r">Sheet</th><th class="r">C2M</th><th class="r">Gap</th><th class="r">Materials</th><th class="r">Packing</th><th class="r">Conversion</th></tr>${rows.map(r => `<tr><td>${esc(r.p.brand)} ${r.k.size} ${r.p.soldPer} for ${esc(r.p.customer)}</td><td class="r num">${rs2(r.k.sheet.total)}</td><td class="r num">${rs2(r.k.cost.total)}</td><td class="r num ${Math.abs(r.d / r.k.sheet.total) > 0.03 ? 'over' : ''}">${r.d >= 0 ? '+' : ''}${r.d.toFixed(2)} (${(r.d / r.k.sheet.total * 100).toFixed(1)}%)</td><td class="r num">${(r.k.cost.materials - r.k.sheet.materials).toFixed(2)}</td><td class="r num">${(r.k.cost.packing - r.k.sheet.packing).toFixed(2)}</td><td class="r num">${(r.k.cost.conversion - r.k.sheet.conversion).toFixed(2)}</td></tr>`).join('') || '<tr><td colspan="7">No sheet figures loaded.</td></tr>'}</table></div>
   <p class="ans">${rows.length} packs; average gap ${net >= 0 ? '+' : ''}${net.toFixed(2)} Rs per kg or L. Over 3% is red and goes to Yawar for re-approval.</p>`;
 }
@@ -840,7 +1253,7 @@ function rateForm(prods) {
 function boRules() {
   const prods = (ST.products || []).filter(costProd);
   return `<p class="ans"><b>What this does:</b> the rules cost and price follow: labour and FOH rates, target GP by client product, and freight.</p>
-  <h2>Labour and FOH rates, Rs per kg</h2><p class="ans">Each product takes 1 labour rate and 1 FOH rate, and adds them. Order: products listed on a rate, then the product type, then rates you add for all products, then the Rs 20 / Rs 30 base bands. Any rate you add beats the bands for the products it covers; among your own rates the more specific wins.</p>
+  <h2>Labour and FOH rates, Rs per kg</h2><p class="ans">Each product takes 1 labour rate and 1 FOH rate, and adds them. Order: products listed on a rate, then the product type, then rates you add for all products, then the base bands. Any rate you add beats the bands for the products it covers; among your own rates the more specific wins.</p>
   <div class="box wrapx"><table><tr><th>Rate</th><th>Kind</th><th class="r">Rs per kg or L</th><th>Applies to</th><th>From</th>${yaw() ? '<th></th>' : ''}</tr>${(ST.rules || []).slice().sort((a, b) => (a.kind || '').localeCompare(b.kind || '') || String(a.name).localeCompare(String(b.name))).map(r => `<tr><td>${esc(r.name)}<br><span class="ans">${esc(r.source || '')}</span></td><td>${r.kind === 'labour' ? 'Labour' : 'FOH'}</td><td class="r num">${Number(r.rsPerKg).toFixed(2)}</td><td>${esc(ruleScope(r))}</td><td class="mono">${esc(String(r.validFrom).slice(0, 10))}</td>${yaw() ? `<td><button class="btn ghost" data-retire="${r.id}">Retire</button></td>` : ''}</tr>${ask && ask.kind === 'retire' && ask.id === r.id ? `<tr><td colspan="6">${askBox('Why retire this rate? (a rate cannot be retired if it leaves a product with no labour or FOH rate)')}</td></tr>` : ''}`).join('')}</table></div>
   ${yaw() ? rateForm(prods) : ''}
   <h2>Target GP by client product</h2><div class="box wrapx"><table><tr><th>Client product</th><th class="r">Target</th><th class="r">Budget</th>${yaw() ? '<th>Change target</th>' : ''}</tr>${prods.map(p => `<tr><td>${esc(p.brand)} for ${esc(p.customer)}</td><td class="r num">${pc(p.target)}</td><td class="r num">${pc(p.budget)}</td>${yaw() ? `<td><input type="number" step="0.1" id="tg-${p.id}" aria-label="New target" style="width:80px"> <input id="tr-${p.id}" placeholder="why" aria-label="Why"> <button class="btn ghost" data-treq="${p.id}">Send to Tahir</button></td>` : ''}</tr>`).join('')}</table></div>
@@ -882,8 +1295,8 @@ function boDocs() {
 
 /* ---------- Guide ---------- */
 const GUIDE = {
-  cfo: ['Each morning open Today and work from the top. Every approval and job opens in a panel on Today.', 'Products: 1 page per client product, with its recipe and every version, its cost by pack, its price and its history. Approve cost in its panel, opened from Today or from the product page, after Fahim endorses; send back with a reason and advice if something is wrong.', 'Re-approvals: when a rate moves products over the set %, approve them on Today in 1 item.', 'Inputs: 1 materials table (class, nutrient % and rate), packing items and packing bills. Try a new rate, check its effect, then save with its source; a move over the warning level asks you to confirm.', 'Prices: propose from "To change"; below target needs your written reason. Build each price list, pick the fields, create the PDF. Revise a VAN brand list; Tahir approves.', 'Setup: customers, the O2S link, your sheets against C2M, settings and targets with labour and FOH rates, list access, the monthly checks record and the change record.'],
-  coo: ['Today shows prices, list revisions, threshold changes and target changes waiting for you, recipes stuck more than 2 working days, and customers below target. Each opens in a panel: approve or send back there, with a reason.', 'Re-approvals of cost are Yawar\'s; you see each one on Today for information.', 'Each month check the top 15 rates against the purchase register (Today).', 'Margin: start with the Rs at stake, then open the customer, product and PO.', 'Products: 1 page per client product with its recipe, cost, price and history.'],
+  cfo: ['Each morning open Today and start with "Your next move". Every approval and job opens in a panel on Today; each line shows how long it has waited, and "stuck" after more than 2 working days (Monday to Saturday).', 'Find anything (Ctrl K) opens a product, customer, material, report or place.', 'Reports: GP bridge (why GP moved from 1 month to the next) and PO price against approved price; both export to Excel.', 'Products: 1 page per client product, with its recipe and every version, its cost by pack, its price and its history. Approve cost in its panel, opened from Today or from the product page, after Fahim endorses; send back with a reason and advice if something is wrong.', 'Re-approvals: when a rate moves products over the set %, approve them on Today in 1 item.', 'Inputs: 1 materials table (class, nutrient % and rate), packing items and packing bills. Try a new rate, check its effect, then save with its source; a move over the warning level asks you to confirm.', 'Prices: propose from "To change" in the panel beside the list; write the reason the client will read; below target needs your written reason too. Build each price list, pick the fields, create the PDF. Revise a VAN brand list; Tahir approves.', 'Setup: customers, the O2S link, your sheets against C2M, settings and targets with labour and FOH rates, list access, the monthly checks record and the change record.'],
+  coo: ['Today starts with your next move, then what waits for you (prices, list revisions, threshold and target changes), recipes stuck more than 2 working days (Monday to Saturday), and customers below target. Each opens in a panel: approve or send back there, with a reason.', 'Find anything (Ctrl K) opens a product, customer, material, report or place.', 'Reports: GP bridge and PO price against approved price, with Export to Excel.', 'Re-approvals of cost are Yawar\'s; you see each one on Today for information.', 'Each month check the top 15 rates against the purchase register (Today).', 'Margin: start with the Rs at stake, then open the customer, product and PO.', 'Products: 1 page per client product with its recipe, cost, price and history.'],
   production: ['Today shows recipes to check or revise; each opens in a panel.', 'Write a new version from Recipes when a recipe changes, including a one-time change.', 'A recipe sent back carries a reason and advice; revise and resend it, and it goes straight back to whoever sent it.'],
   qc: ['Today shows recipes to review and materials to complete; each opens in a panel.', 'Inputs: class each material (nutrient source, or no nutrients such as binder, filler, anti-caking agent, wetting agent) and enter the % of each nutrient field.', 'Check the inputs and the nutrient analysis, then mark reviewed or send back with a reason and advice.'],
   plant: ['Today shows recipes to endorse; each opens in a panel.', 'Check the recipe, nutrients and cost, then endorse or send back with a reason and advice.'],
@@ -899,12 +1312,29 @@ function vGuide() {
 /* ---------- Events ---------- */
 const val = id => ($(id) || {}).value;
 document.addEventListener('click', async e => {
-  const t = e.target.closest('button,tr.go,a[data-signout],input[type=checkbox],[data-panclose]'); if (!t) return; const d = t.dataset;
+  const t = e.target.closest('button,tr.go,a[data-signout],input[type=checkbox],[data-panclose],[data-moreclose],.finder'); if (!t) return; const d = t.dataset;
+  if (t.classList.contains('finder') && e.target !== t) return; // a click inside the find box is not a close
   // 2-step approvals: the first tap asks, the second acts (UX review)
   if (d.confirm && !d.armed) { const was = t.textContent; d.armed = '1'; t.textContent = d.confirm; t.classList.add('warn'); setTimeout(() => { if (t.isConnected) { delete t.dataset.armed; t.textContent = was; t.classList.remove('warn'); } }, 6000); return; }
   if ('signout' in d) { e.preventDefault(); try { localStorage.removeItem('van_token'); } catch (_) {} await fetch('/harness/logout', { method: 'POST' }).catch(() => {}); location.href = '/'; return; }
   if ('panclose' in d) closePanel();
-  else if (d.scr) { closePanel(); panReturn = null; scr = d.scr; drill = { cust: null, prod: null }; openRec = null; openProd = null; sub = null; trial = null; ptrial = null; boDoc = null; newRec = null; billEdit = null; window.scrollTo(0, 0); }
+  else if ('finder' in d) { finder = { q: '', i: 0 }; moreOpen = false; }
+  else if ('findclose' in d) { finder = null; render(); refocus('[data-finder]'); return; }
+  else if (d.fgo) { finderGo(d.fgo); }
+  else if ('more' in d) moreOpen = !moreOpen;
+  else if ('moreclose' in d) { moreOpen = false; render(); refocus('[data-more]'); return; }
+  else if (d.mgrp) mgrp = d.mgrp;
+  else if (d.stake) stakeTab = d.stake;
+  else if (d.custf) custF = d.custf;
+  else if ('colsopen' in d) colsOpen = !colsOpen;
+  else if (d.ccol) custCols[d.ccol] = t.checked;
+  else if (d.xls) { exportXls(d.xls); return; }
+  else if (d.wfpack) wfPack = +d.wfpack;
+  else if (d.rep) { rep = d.rep; window.scrollTo(0, 0); }
+  else if ('repback' in d) rep = null;
+  else if (d.brgrp) brGrp = d.brgrp; else if (d.brmon) brMonth = d.brmon;
+  else if (d.poper) poPer = d.poper; else if (d.pof) poF = d.pof;
+  else if (d.scr) { closePanel(); panReturn = null; moreOpen = false; finder = null; rep = null; scr = d.scr; drill = { cust: null, prod: null }; openRec = null; openProd = null; sub = null; trial = null; ptrial = null; boDoc = null; newRec = null; billEdit = null; window.scrollTo(0, 0); }
   else if (d.job != null) { const j = jobs()[+d.job]; if (j && j.pan) { openPanel(j.pan, t); if (j.pan.k === 'mats') matFilter = 'todo'; } else if (j && j.go) j.go(); }
   else if (d.reapview) openPanel({ k: 'reapp', id: +d.reapview }, t);
   else if (d.panprop) openPanel({ k: 'prop', id: +d.panprop }, t);
@@ -960,9 +1390,9 @@ document.addEventListener('click', async e => {
   else if ('ptsave' in d) { const r = await act('/api/c2m/packing/rate', { itemId: ptrial.itemId, price: Number(val('ptv')), source: val('pts'), confirmed: ptrial.conf }, j => j.reapproval ? `Saved. ${pl(j.reapproval, 'pack', 'packs')} to re-approve.` : 'Saved.'); if (r) { ptrial = null; render(); } return; }
   else if (d.sub) { sub = d.sub; propose = null; }
   else if (d.pgrp) pgrp = d.pgrp;
-  else if (d.propose) { const k = packIdx().get(+d.propose); const tp = k && k.cost && k.product.target != null ? Math.ceil(k.cost.total / (1 - k.product.target / 100)) : Math.ceil((k && k.price) || 0); propose = { packId: +d.propose, v: tp }; render(); $('pf') && $('pf').scrollIntoView({ block: 'center' }); return; }
-  else if ('pcancel' in d) propose = null;
-  else if ('psend' in d) { const r = await act('/api/c2m/prices/propose', { packId: propose.packId, price: Number(val('ppv')), validFrom: val('ppf') || undefined, validTo: val('ppt') || undefined, reason: val('ppn'), belowReason: val('ppr'), replaceId: propose.replaceId }, 'Sent to Tahir. It is on his Today list.'); if (r) { propose = null; render(); } return; }
+  else if (d.propose) { const k = packIdx().get(+d.propose); const tp = k && k.cost && k.product.target != null ? Math.ceil(k.cost.total / (1 - k.product.target / 100)) : Math.ceil((k && k.price) || 0); const keep = pan ? panReturn : undefined; openPanel({ k: 'propose', id: +d.propose }, t); if (keep !== undefined) panReturn = keep; propose = { packId: +d.propose, v: tp }; }
+  else if ('pcancel' in d) { if (pan && pan.k === 'propose') closePanel(); else propose = null; }
+  else if ('psend' in d) { if (!String(val('ppn') || '').trim()) { toast('Write the reason the client will read on the list.', true); return; } const r = await act('/api/c2m/prices/propose', { packId: propose.packId, price: Number(val('ppv')), validFrom: val('ppf') || undefined, validTo: val('ppt') || undefined, reason: val('ppn'), belowReason: val('ppr'), replaceId: propose.replaceId }, 'Sent to Tahir. It is on his Today list.'); if (r) { if (pan && pan.k === 'propose') closePanel(); else propose = null; render(); } return; }
   else if (d.presend) { const p = ST.proposals.find(x => x.id === +d.presend); propose = { packId: p.packId, v: p.price, was: p.backReason, reason: p.reason, r: p.belowReason, replaceId: p.id }; render(); $('pf') && $('pf').scrollIntoView({ block: 'center' }); return; }
   else if (d.pok) { await act(`/api/c2m/prices/${d.pok}/approve`, {}, j => (j.waitsUntil ? `Approved. It takes over on ${fmtD(j.waitsUntil)}; today's price stays until then.` : 'Approved. Price lists and margin updated.') + (j.cancelled ? ' The price that was waiting for a later date is cancelled.' : '')); return; }
   else if (d.pwd) ask = { kind: 'pwd', id: +d.pwd };
@@ -1023,10 +1453,18 @@ document.addEventListener('click', async e => {
   else return;
   render();
 });
-document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.matches && e.target.matches('tr.go')) e.target.click(); if (e.key === 'Escape' && pan) { closePanel(); render(); }
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) { e.preventDefault(); if (!ST || pan) return; finder = finder ? null : { q: '', i: 0 }; moreOpen = false; render(); if (!finder) refocus('[data-finder]'); return; }
+  if (finder) { if (e.key === 'Escape') { finder = null; render(); refocus('[data-finder]'); return; } if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); finder.i = Math.max(0, Math.min((finder.n || 1) - 1, finder.i + (e.key === 'ArrowDown' ? 1 : -1))); $('fres').innerHTML = finderList(); $('fq').setAttribute('aria-activedescendant', 'fopt-' + finder.i); return; }
+    if (e.key === 'Enter') { const b = document.querySelector('#fres [aria-selected="true"]'); if (b) { e.preventDefault(); finderGo(b.dataset.fgo); render(); } return; } return; }
+  if (e.key === 'Escape' && moreOpen) { moreOpen = false; render(); refocus('[data-more]'); return; }
+  if (e.key === 'Enter' && e.target.matches && e.target.matches('tr.go')) e.target.click(); if (e.key === 'Escape' && pan) { closePanel(); render(); }
   // Keep the keyboard inside an open panel (review 18 Oct, finding 7)
   if (e.key === 'Tab' && pan) { const pn = document.querySelector('aside.panel'); if (!pn) return; const f = panItems(pn); if (!f.length) return;
     const first = f[0], last = f[f.length - 1]; if (!f.includes(document.activeElement)) { e.preventDefault(); (e.shiftKey ? last : first).focus(); } else if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); } else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); } } });
+document.addEventListener('input', e => {
+  const t = e.target; if (t.id === 'fq' && finder) { finder.q = t.value; finder.i = 0; $('fres').innerHTML = finderList(); }
+});
 document.addEventListener('change', async e => {
   const t = e.target, d = t.dataset, id = t.id;
   if (id === 'trc') { trial.conf = t.checked; render(); }
@@ -1038,6 +1476,8 @@ document.addEventListener('change', async e => {
   else if (id === 'ppv' || id === 'ppf' || id === 'ppt') { propose.v = Number(val('ppv')); propose.from = val('ppf'); propose.till = val('ppt'); propose.reason = val('ppn'); propose.r = val('ppr'); render(); }
   else if (id === 'pcu') { priceCust = t.value; render(); }
   else if (id === 'pq') { prodQ = t.value; render(); }
+  else if (id === 'cq') { custQ = t.value; render(); }
+  else if (id === 'rq') { repQ = t.value; render(); }
   else if (id === 'mq') { matQ = t.value; render(); }
   else if (id === 'crq') { rf.q = t.value; render(); }
   else if (id === 'plc') { PLB.client = t.value; PLB.effSet = PLB.tillSet = false; render(); } else if (id === 'ple') { PLB.eff = t.value; PLB.effSet = !!t.value; render(); } else if (id === 'plt') { PLB.till = t.value; PLB.tillSet = true; render(); } else if (id === 'pln') { PLB.note = t.value; render(); }

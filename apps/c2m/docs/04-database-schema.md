@@ -1,6 +1,7 @@
 # 4. Database schemas
 
-Version 1.3 · 18 Oct 2026 · Owner: Tahir (C2M module owner); Claude records · Rule: R-5h item 4 (D-20)
+Version 1.4 · 18 Oct 2026 · Owner: Tahir (C2M module owner); Claude records · Rule: R-5h item 4 (D-20)
+Changed in 0.9.0: no change: 0.9.0 adds no table, column or migration (D-58).
 Changed in 0.8.0: no table change; place names only (D-45 to D-52).
 Changed in 0.7.0: no table change; c2m_client_product.channel takes "VAN brand" (D-44); o2s_brand may hold other spellings separated by |; 1 owner row in c2m_customer, "VAN brand (all channels)".
 Changed in 0.4.0 and 0.5.0: new columns c2m_conversion_rule.is_base and c2m_list_revision.applied; settings are 9 rows (red_share_pct replaces red_rs; new conv_budget_month; budget_gp, ambition_gp, wl_budget_gp and conv_budget_month start at 0 and are set by the first load); new audit actions cancelled, withdrawn, applied, cost moved since shown; examples use made-up figures. Still 39 tables.

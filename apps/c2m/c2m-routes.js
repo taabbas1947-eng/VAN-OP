@@ -15,9 +15,9 @@ const PL = require('./c2m-pricelist');
 
 /* Roles (stored in user_module_roles, module 'c2m'). Access matrix: docs/11-access-and-roles.md */
 const ROLES = {
-  // 0.8.0 places (Tahir's screen rulings 1, 3, 4 and 5, 18 Oct 2026). Screens only: rights stay in the routes below.
-  cfo: { label: 'CFO', nav: ['today', 'margin', 'products', 'prices', 'inputs', 'setup', 'guide'] },
-  coo: { label: 'COO', nav: ['today', 'margin', 'products', 'prices', 'inputs', 'setup', 'guide'] },
+  // 0.8.0 places (Tahir's screen rulings 1, 3, 4 and 5, 18 Oct 2026); 0.9.0 adds Reports for Yawar and Tahir (D-53). Screens only: rights stay in the routes below.
+  cfo: { label: 'CFO', nav: ['today', 'margin', 'reports', 'products', 'prices', 'inputs', 'setup', 'guide'] },
+  coo: { label: 'COO', nav: ['today', 'margin', 'reports', 'products', 'prices', 'inputs', 'setup', 'guide'] },
   production: { label: 'Production Manager', nav: ['today', 'recipes', 'guide'] },
   qc: { label: 'QC Head', nav: ['today', 'recipes', 'inputs', 'guide'] }, // Inputs, Materials: nutrient % and class, no rates (ruled 16 Oct; ruling 4, 18 Oct)
   plant: { label: 'Plant Manager', nav: ['today', 'recipes', 'guide'] },
@@ -177,7 +177,7 @@ module.exports = function mountC2mRoutes(app, deps) {
           nextPrice: np ? { id: np.id, price: Number(np.price), from: String(np.valid_from).slice(0, 10) } : null, waitingProposal: prices.some(x => x.client_pack_id === p.id && x.status === 'proposed') });
         return out;
       });
-      return { id: cp.id, customer: cust.name, customerId: cust.id, typeId: cp.base_product_id, reprocessed: !!Number(cp.reprocessed), grp: cp.channel === 'White label' ? 'White label' : 'VAN brand', channel: cp.channel, brand: cp.brand, spec: cp.spec,
+      return { id: cp.id, customer: cust.name, customerId: cust.id, typeId: cp.base_product_id, fam: lib.familyColour(cp.base_product_id, D.productTypes), typeName: ((D.productTypes || []).find(t => Number(t.id) === Number(cp.base_product_id)) || {}).name || null, reprocessed: !!Number(cp.reprocessed), grp: cp.channel === 'White label' ? 'White label' : 'VAN brand', channel: cp.channel, brand: cp.brand, spec: cp.spec,
         form: cp.form, soldPer: cp.sold_per, packingMode: cp.packing_mode, target: seePrice || role === 'cfo' ? (cp.target_gp == null ? null : Number(cp.target_gp)) : undefined,
         budget: seePrice ? (cp.budget_gp == null ? null : Number(cp.budget_gp)) : undefined, budgetKg: seePrice && cp.budget_kg_year != null ? Number(cp.budget_kg_year) : undefined, recipeState: latest ? latest.state : null, approvedVersionId: appr ? appr.id : null, latestVersionId: latest ? latest.id : null, packs };
     });
@@ -242,7 +242,18 @@ module.exports = function mountC2mRoutes(app, deps) {
           kg: Number(l.open_kg), price: Number(l.net_price), cost: c && c.costed ? c.total : null, target: cp && cp.target_gp != null ? Number(cp.target_gp) : null };
       });
       out.proposals = prices.filter(p => p.status !== 'approved' || p.decided_at).slice(-60).map(p => ({ id: p.id, packId: p.client_pack_id, price: Number(p.price), prev: p.prev_price == null ? null : Number(p.prev_price), status: p.status,
-        reason: p.reason, belowReason: p.below_target_reason, backReason: p.back_reason, by: p.proposed_by, at: p.proposed_at, decidedBy: p.decided_by, from: p.valid_from }));
+        reason: p.reason, belowReason: p.below_target_reason, backReason: p.back_reason, by: p.proposed_by, at: p.proposed_at, decidedBy: p.decided_by, decidedAt: p.decided_at, from: p.valid_from }));
+      // 0.9.0 (read only, no new table): every approved price with its dates, for Price history and the PO price report (R3)
+      // 'replaced' with no send-back reason = approved, then ended by a newer price (review 18 Oct, finding 1)
+      out.priceHistory = prices.filter(p => p.status === 'approved' || (p.status === 'replaced' && !p.back_reason && p.decided_at)).map(p => ({ id: p.id, packId: p.client_pack_id, price: Number(p.price), prev: p.prev_price == null ? null : Number(p.prev_price), from: String(p.valid_from).slice(0, 10), to: p.valid_to ? String(p.valid_to).slice(0, 10) : null,
+        reason: p.reason, by: p.proposed_by, at: p.proposed_at, decidedBy: p.decided_by, decidedAt: p.decided_at }));
+      // Every O2S PO line placed on a client pack (open and shipped), for the PO price report (R3); FOC lines (price 0) are marked
+      const fy0 = (() => { const t = today(), y = +t.slice(0, 4), m = +t.slice(5, 7); return (m >= 7 ? y : y - 1) + '-07-01'; })();
+      // this financial year only (review 18 Oct, finding 10)
+      out.poLines = poLines.filter(l => l.received && String(l.received).slice(0, 10) >= fy0).map(l => { const p = match(l.customer_name, l.brand, l.channel, l.pack); const cp = p ? D.cpById.get(p.client_product_id) : null; const cust = cp && !engine.isVanBrand(cp) ? D.custById.get(cp.customer_id) : custOf(l.customer_name);
+        return { po: l.po, received: l.received ? String(l.received).slice(0, 10) : null, cust: cust ? cust.name : l.customer_name, grp: l.channel === 'White Label' ? 'White label' : 'VAN brand', brand: l.brand, pack: Number(l.pack), packId: p ? p.id : null, kg: Number(l.ordered_kg), price: Number(l.net_price), foc: !(Number(l.net_price) > 0) }; });
+      const [[ia]] = await q("SELECT MIN(at) at FROM c2m_recipe_step WHERE action='imported'"); out.importedAt = ia && ia.at ? String(ia.at) : null; // the day Yawar's sheets were loaded: age of the sheet items
+      const [[nd]] = await q('SELECT COUNT(*) n FROM c2m_price_doc WHERE ref LIKE ?', [`VAN/PL/${today().slice(0, 4)}/%`]); out.nextDocRef = `VAN/PL/${today().slice(0, 4)}/${String(Number(nd.n) + 1).padStart(3, '0')}`;
       const [imp] = await q('SELECT * FROM c2m_import_item ORDER BY status, id'); out.imports = imp;
       const [sreq] = await q('SELECT * FROM c2m_setting_request ORDER BY id DESC LIMIT 20'); out.settingRequests = sreq;
       const [treq] = await q('SELECT r.*, c.brand, cu.name customer FROM c2m_target_request r JOIN c2m_client_product c ON c.id=r.client_product_id JOIN c2m_customer cu ON cu.id=c.customer_id ORDER BY r.id DESC LIMIT 30'); out.targetRequests = treq;
@@ -286,7 +297,7 @@ module.exports = function mountC2mRoutes(app, deps) {
       const rows = [];
       for (const cp of D.cps.filter(c => c.customer_id === cust.id && c.channel === 'White label')) for (const p of D.packs.filter(x => x.client_product_id === cp.id)) {
         const ap = approvedPrice.get(p.id); if (!ap) continue;
-        rows.push({ packId: p.id, brand: cp.brand, spec: cp.spec, pack: `${Number(p.pack_size)} ${cp.sold_per}`, cur: Number(ap.price), prev: ap.prev_price == null ? null : Number(ap.prev_price), reason: ap.reason, from: String(ap.valid_from).slice(0, 10) });
+        rows.push({ packId: p.id, typeId: cp.base_product_id == null ? null : Number(cp.base_product_id), fam: lib.familyColour(cp.base_product_id, D.productTypes), brand: cp.brand, spec: cp.spec, pack: `${Number(p.pack_size)} ${cp.sold_per}`, cur: Number(ap.price), prev: ap.prev_price == null ? null : Number(ap.prev_price), reason: ap.reason, from: String(ap.valid_from).slice(0, 10) });
       }
       out[name] = { name: cust.name, rule: cust.price_rule, rows };
     }
@@ -635,6 +646,7 @@ module.exports = function mountC2mRoutes(app, deps) {
     if (P.cost == null) throw bad(`This pack is not costed (${P.gaps.join(', ')}), so its GP cannot be checked. Fix its cost first, then propose the price.`);
     const gp = lib.marginPct(v, P.cost);
     if (P.target != null && gp != null && gp < P.target && !String(belowReason || '').trim()) throw bad('This price is below target GP. Write why.');
+    if (!String(reason || '').trim()) throw bad('Write the reason the client will read on the list.'); // written by Yawar, never pre-filled (D-56)
     const id = await tx(async () => {
       const [[open]] = await q("SELECT id FROM c2m_price WHERE client_pack_id=? AND status='proposed' FOR UPDATE", [P.p.id]);
       if (open) throw bad('This pack already has a price waiting for Tahir. Wait for his decision first.');

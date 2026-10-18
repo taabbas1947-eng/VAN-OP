@@ -1,6 +1,7 @@
 # 11. Access and roles matrix
 
-Version 1.3 · 18 Oct 2026 · Owner: Tahir (grants roles in the platform's People and access); Yawar grants lists · Rule: R-5h item 11 (D-20), R-2 People and rights
+Version 1.4 · 18 Oct 2026 · Owner: Tahir (grants roles in the platform's People and access); Yawar grants lists · Rule: R-5h item 11 (D-20), R-2 People and rights
+Changed in 0.9.0: Yawar and Tahir get Reports (8 places, D-53, D-57); the new state fields priceHistory, poLines, importedAt and nextDocRef go to cfo and coo only; no right changed.
 Changed in 0.8.0: 11.1 and 11.2 rewritten for the 0.8.0 screens (D-45 to D-52). Places moved; no right changed: the server checks every action by role as before, and the nav list per role (ROLES in c2m-routes.js) only chooses screens.
 Changed in 0.4.0 and 0.5.0: withdraw a waiting price or list revision is coo only; Tahir sees re-approvals under "For your information" and read only on Recipes; stuck recipes on Tahir's Today; Sign out.
 Changed in 0.3.0 and 0.3.1: Materials row added; Back Office sections by role; Tahir receives re-approvals but cannot approve; documents by role; what a KAM can never receive; settings only to Yawar and Tahir; how a role is given and removed.
@@ -79,6 +80,8 @@ Only cfo and coo open Setup. "edit" = forms and buttons; "view" = read only. Wor
 | Sales, open POs, imports, people, change record | yes | yes | no | no | no | no |
 | VAN lists | all columns of all lists, prices only | same | no | no | no | granted lists only; farmer columns only for granted farmer lists |
 | White label client lists | all clients | all clients | no | no | no | granted clients only |
+
+0.9.0: priceHistory, poLines, importedAt and nextDocRef are sent to cfo and coo only (they carry prices); products carry fam and typeName for every role (a colour and a product type name, no figure). Tested in ui09 V-13.
 
 ## 11.5 Documentation by role (D-20; docAllowed)
 

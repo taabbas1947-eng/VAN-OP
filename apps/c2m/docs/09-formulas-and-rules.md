@@ -1,6 +1,7 @@
 # 9. Formulas and business rules
 
-Version 1.3 · 18 Oct 2026 · Owner: Yawar; Tahir rules · Rule: R-5h item 9 (D-20)
+Version 1.4 · 18 Oct 2026 · Owner: Yawar; Tahir rules · Rule: R-5h item 9 (D-20)
+Changed in 0.9.0: F-19 GP bridge, F-20 PO price against approved price, B-12 next move and stuck (D-54, D-57). No earlier formula changed.
 Changed in 0.8.0: no formula or rule changed; place names only. The product page, Price, shows F-08 price for target on cost today and the gap to it, max(price for target - price, 0), per kg or L (D-47).
 Changed in 0.7.0: B-11 added (D-44).
 Changed in 0.6.0: F-04, F-06 and F-16 say when a pack is costed (D-40); F-11 measures from the approved cost and is checked again on approval (D-41); B-05 adds the packing bill; B-09 added (D-42, previous price on the last list sent); B-10 added (D-43). Proof of the 0.6.0 rules: C2M App/tests/fix06.test.js (Y-xx).
@@ -30,6 +31,14 @@ All worked examples below are example figures. Product A, Product B, Material M,
 | F-15 | Pakistan time: every date and time C2M writes is Asia/Karachi (UTC+5, no daylight saving) | 20:30 UTC on 15 Oct is 16 Oct in Pakistan | 0.2.0 review fix | F-15 |
 | F-16 | Conversion per kg = labour rate picked + FOH rate picked. Both must be found and above Rs 0, or the pack is not costed (D-40; Rs 0: Tahir 18 Oct) | Product A 4.00 + 16.00 = 20.00 | D-25, D-40 | F-16, Y-02 |
 | F-17 | Nutrient % in product = sum of qty x % over nutrient inputs; non-nutrient inputs add 0 but count in weight; a blank field makes the analysis incomplete; an unclassified input is listed | A recipe with talc lists it as a non-nutrient input with its kg | D-23, R-5i 4a | H-02 (flow test, not a lib test) |
+
+## 0.9.0 report and Today rules (D-54, D-57; code c2m.html bridge(), poCheck(), nextMove(), wdays())
+
+| Id | Rule | Formula or order | Example (example figures) |
+|---|---|---|---|
+| F-19 | GP bridge, month B against month A (the month before) | On packs sold in both months: Price = Σ (price B − price A) × kg B; Cost = Σ (cost A − cost B) × kg B; Volume = (total kg B − total kg A) × GP per kg A; Mix = Σ (share B − share A) × total kg B × GP per kg A of the pack. New and lost = GP B of packs sold only in B − GP A of packs sold only in A. GP A + the 5 parts = GP B exactly, or the report does not show. Only costed trucks; kg and L counted together; the open month is not used | 1 pack, A: 100 kg at 50 cost 40, B: 120 kg at 52 cost 41: Price 240, Cost −120, Volume 200, Mix 0; GP 1,000 to 1,320 |
+| F-20 | PO price against approved price | Approved = the approved price in force on the PO's received date (the same rule as the server's inForce: latest start on or before the date, not ended). Gap per line = max(approved − price on PO, 0) × ordered kg. FOC lines (price 0) and VAN brand lines are left out; a line not placed on a client pack shows as such. The approved prices include those a newer price ended | approved 180, on PO 176, 10,000 kg: gap 40,000 |
+| B-12 | Next move and stuck | Next move: the first approval, in the order recipe and cost steps, prices, re-approvals and list revisions, threshold and target changes, oldest first; else the first red item, else the oldest job. Stuck: waiting more than 2 working days, counting Monday to Saturday | step on Thursday, today Monday: 3 working days (Fri, Sat, Mon), stuck |
 
 ## Business rules with a test
 

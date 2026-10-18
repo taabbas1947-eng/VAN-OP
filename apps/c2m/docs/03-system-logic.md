@@ -1,6 +1,7 @@
 # 3. System logic
 
-Version 1.3 · 18 Oct 2026 · Owner: Yawar; Tahir approves changes · Rule: R-5h item 3 (D-20)
+Version 1.4 · 18 Oct 2026 · Owner: Yawar; Tahir approves changes · Rule: R-5h item 3 (D-20)
+Changed in 0.9.0: new 3.15 how Today orders the work and counts age (D-54).
 Changed in 0.7.0: new 3.14 matching an O2S line to a pack, and VAN brand sales (D-44).
 Changed in 0.6.0: 3.4 re-approval figures and the check on approval (D-41); 3.10 when a pack is costed (D-40) and the base of a rate save.
 Changed in 0.4.0 and 0.5.0: price and list revision states with waiting, cancelled and withdrawn; rate choice has 4 levels (base bands last) and the tie-break is more conditions first; flag wording; mount needs the pool, dates as text, prepared statements; stuck flag built.
@@ -156,3 +157,6 @@ Not built (not ruled): escalation, due dates, hand over, stand in and away. Nobo
 | No pack found | None: the sale counts in sales with no cost and is listed under "Sales C2M could not place" | The O2S buyer |
 
 A VAN brand pack shows no single price (each channel has its own list); a per-pack price proposal for it is refused. Freight is not added to VAN brand costs (none is loaded); freight by the sale's channel and region is not built (I-25).
+
+## 3.15 How Today orders the work and counts age (owner: Tahir; D-54, B-12; code c2m.html jobs(), nextMove(), waitingOn())
+Each job knows its group (approve, do, or red), its priority and the date it started waiting: the last recipe step, the proposal date, the re-approval date, the date the sheets were loaded, or the 1st of the month for monthly entries. The next move is the first approval by priority (recipe and cost steps 1, prices 2, re-approvals and list revisions 3, thresholds and targets 5), oldest first; else the first red item; else the oldest job. Age is in calendar days; stuck is more than 2 working days, Monday to Saturday. Waiting on others lists what the person sent and is with someone else, with its age. The rail's number is the count of jobs.

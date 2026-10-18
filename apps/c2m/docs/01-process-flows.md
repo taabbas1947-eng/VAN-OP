@@ -1,6 +1,7 @@
 # 1. Process flow diagrams
 
-Version 1.4 · 18 Oct 2026 · Owner: Yawar (CFO) keeps it current; Tahir approves changes · Rule: R-5h item 1 (D-20)
+Version 1.5 · 18 Oct 2026 · Owner: Yawar (CFO) keeps it current; Tahir approves changes · Rule: R-5h item 1 (D-20)
+Changed in 0.9.0: no flow changed. Where work is done stays as 1.15; Today now orders it (next move, groups, ages: D-54) and Reports join for Yawar and Tahir (D-57).
 Changed in 0.8.0: new 1.15 Where each job is done (the screen redesign, D-45 to D-52); place names in 1.3, 1.4, 1.5 and 1.9 moved to the 0.8.0 screens.
 Changed in 0.7.0: new 1.14 VAN brand products (D-44).
 Changed in 0.6.0: cost approval waits until every pack is costed (D-40); re-approval measured from the approved cost and checked again on approval (D-41).

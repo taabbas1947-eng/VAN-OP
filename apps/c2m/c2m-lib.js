@@ -169,6 +169,14 @@ function flag(g, redRs, gapPts) {
   return { level: 'green', text: 'on target' };
 }
 
+/** Family colour of a product type (Tahir, 18 Oct 2026: family chips by product type, D-55). Types in id order take the
+ *  VAN Brand Master family colours in turn; a product with no type is grey. Server and page use this same colour. */
+const FAMILY_COLOURS = ['#0F7A72', '#D2751A', '#0A86C8', '#2F7D3F', '#6E4A8E', '#7A5230', '#D9B300']; // the 7 Brand Master family colours, nothing invented
+function familyColour(typeId, types) {
+  if (typeId == null) return '#8796A5';
+  const ids = (types || []).map(t => Number(t.id)).sort((a, b) => a - b); const i = ids.indexOf(Number(typeId));
+  return i < 0 ? '#8796A5' : FAMILY_COLOURS[i % FAMILY_COLOURS.length];
+}
 /** Next step in the recipe chain (ruling 13 Oct): Majid writes, Himayat reviews, Fahim endorses, Yawar approves cost. */
 const RECIPE_FLOW = { draft: 'review', review: 'endorse', endorse: 'cost', cost: 'approved' };
 const RECIPE_WHO = { draft: 'production', review: 'qc', endorse: 'plant', cost: 'cfo' };
@@ -187,5 +195,5 @@ function fmtInt(x) { return x == null ? '' : Math.round(x).toLocaleString('en-US
 module.exports = {
   round, rateWarning, materialCost, recipeTotal, packingPerUnit, pickConversionRule, conversionFor, costBreakdown,
   marginPct, targetPrice, contributionFloor, netPoPrice, needsReapproval, exposure, flag,
-  RECIPE_FLOW, RECIPE_WHO, fmtInt, pkToday, pkNow,
+  RECIPE_FLOW, RECIPE_WHO, fmtInt, pkToday, pkNow, FAMILY_COLOURS, familyColour,
 };

@@ -1,6 +1,7 @@
 # 7. The Guide
 
-Version 1.3 · 18 Oct 2026 · Owner: Yawar; Tahir approves changes · Rule: R-5h item 7 (D-20)
+Version 1.4 · 18 Oct 2026 · Owner: Yawar; Tahir approves changes · Rule: R-5h item 7 (D-20)
+Changed in 0.9.0: "What is new in 0.9.0" added (the left rail, Find anything, Today groups and ages, Reports, Excel, the propose panel).
 Changed in 0.8.0: the screen redesign (D-45 to D-52): every App Guide list matched again to the app's GUIDE; the place names in the "Also" items moved to the 0.8.0 screens (Today panels, Products, Inputs, Setup, Prices with its 5 views); a "Where things are" table added.
 Changed in 0.7.0: Yawar item 20 (VAN brand products, D-44).
 Changed in 0.6.0: Yawar items 11 and 19 (re-approval figures; when a pack is costed). The app's Guide screen does not carry these yet (I-07).
@@ -99,3 +100,10 @@ Also:
 - Messages appear at the bottom; errors are in red. "Someone else changed this a moment ago. Check before retrying." means another person acted first: look again before retrying.
 - Your name shows in the header, with a "Sign out" link. Dates are written in words, e.g. 16 Oct 2026.
 - A price list PDF carries the footer and "page n of N" on every page.
+
+## What is new in 0.9.0 (18 Oct 2026)
+- The places are in the navy rail on the left. Ctrl K (or Find anything) finds a product, client, customer, material, report or place. On a phone the places are at the bottom, with More for the rest.
+- Today: start with "Your next move". Then To approve, To do and Waiting on others; each line shows how many days it has waited, and "stuck" after more than 2 working days (Monday to Saturday).
+- Yawar and Tahir: Reports. GP bridge explains why GP moved from 1 month to the next; PO price against approved price lists every PO line entered below the approved price. Both export to Excel, as does the customer table on Margin.
+- Yawar: Propose opens a panel beside the list. Write the reason the client will read; it is not filled in for you.
+- Tahir: a price approval shows the figures as tiles, Yawar's reason set apart, and its place in the queue (1 of 3).

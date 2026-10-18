@@ -1,6 +1,7 @@
 # 2. Data flow diagrams
 
-Version 1.3 · 18 Oct 2026 · Owner: Yawar; data links set by Tahir and Yawar in Setup, From O2S · Rule: R-5h item 2 (D-20)
+Version 1.4 · 18 Oct 2026 · Owner: Yawar; data links set by Tahir and Yawar in Setup, From O2S · Rule: R-5h item 2 (D-20)
+Changed in 0.9.0: the state adds read-only fields for Yawar and Tahir (price history, PO lines, import date, next document number) built from tables C2M already holds; nothing new is read from O2S and nothing is written (D-58).
 Changed in 0.8.0: place names only (Setup, From O2S); no data flow changed (D-45 to D-52).
 Changed in 0.7.0: O2S line matching for VAN brand packs (D-44).
 Changed in 0.4.0 and 0.5.0: 4 levels of rate choice (base bands last, is_base); list revisions wait for their date (applied) and can be withdrawn; prices picked by the date in force; price documents dated ahead; loader path; restated history on the margin board.

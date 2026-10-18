@@ -23,7 +23,6 @@ body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14p
 .hdr nav button[aria-current="true"]{border-bottom-color:var(--blue);font-weight:600}
 .hdr .n{font-family:var(--mono);font-size:11px;background:var(--over);color:var(--surface);border-radius:3px;padding:0 6px;margin-left:4px}
 .hdr .who{margin-left:auto;color:var(--muted);font-size:13px}.hdr .who a{color:var(--blue)}
-@media (max-width:600px){.hdr nav{flex-wrap:nowrap;overflow-x:auto;max-width:100%}}
 main{max-width:1160px;margin:0 auto;padding:18px 16px 64px}
 h1{font-size:21px;font-weight:600;margin:0 0 2px;text-wrap:balance}
 h2{font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:24px 0 8px}
@@ -96,6 +95,22 @@ input[type=number]{width:120px}textarea{min-height:56px;width:100%}
 .doc-f{border-top:2px solid #e5262a;padding-top:8px;font-size:11px;color:#4a5a70;text-align:center}
 .md{background:var(--surface);border:1px solid var(--line);border-radius:3px;padding:14px 18px;max-width:100%;overflow-x:auto}.md pre{white-space:pre-wrap;font-family:var(--mono);font-size:12px;margin:0}
 .loading{padding:40px;text-align:center;color:var(--muted)}
+/* 0.8.0 screens (Tahir's rulings, 18 Oct 2026): topic and 1 answer line, a "How this works" fold, work in a panel on Today, phone tabs at the bottom */
+h1.topic{font-size:20px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;margin:0}
+.answer{font-size:16px;font-weight:500;margin:2px 0 10px;max-width:90ch;text-wrap:balance}
+details.how{margin:0 0 12px;color:var(--muted);font-size:13px;max-width:90ch}details.how summary{cursor:pointer;color:var(--blue);width:max-content}details.how>div{padding:6px 0 0}
+.scrim{position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:7}
+.panel{position:fixed;top:0;right:0;bottom:0;width:min(760px,100%);background:var(--bg);border-left:2px solid var(--kraft);box-shadow:-6px 0 24px rgba(0,0,0,.2);z-index:8;overflow-y:auto;padding:0 16px 40px}
+.panel-h{position:sticky;top:0;background:var(--bg);display:flex;gap:10px;align-items:center;justify-content:space-between;padding:12px 0 8px;border-bottom:1px solid var(--line);margin:0 0 12px;z-index:1}
+.panel-h b{font-size:15px}.panel-h b:focus{outline:none}
+.find{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 10px}.find input{min-width:220px;flex:0 1 320px}
+@media (max-width:600px){
+  .hdr nav{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--surface);border-top:2px solid var(--kraft);flex-wrap:nowrap;overflow-x:auto;gap:0;padding:2px 2px calc(2px + env(safe-area-inset-bottom))}
+  .hdr nav button{flex:1 0 auto;min-height:46px;padding:4px 5px;font-size:12px;border-bottom:0;border-top:3px solid transparent}.hdr .n{margin-left:2px;padding:0 4px}
+  .hdr nav button[aria-current="true"]{border-top-color:var(--blue)}
+  main{padding-bottom:96px}.panel{width:100%;border-left:0;padding-bottom:96px}.toast{bottom:76px}
+  h1.topic{font-size:18px}.answer{font-size:15px}.find input{min-width:0;flex:1 1 100%}
+}
 </style>
 </head>
 <body>
@@ -112,11 +127,14 @@ let fbasis = 'budget', hist = 'approved';
 const salesRows0 = () => (ST.sales || []).map(r => r.costBands != null ? { ...r, cost: r.costBands } : r);
 const salesRows = () => (ST.sales || []).map(r => hist === 'bands' && r.costBands != null ? { ...r, cost: r.costBands } : r);
 let ST = null, scr = 'today', sub = null, drill = { cust: null, prod: null }, period = 'fy', month = null, openRec = null, sendBack = null, trial = null, ptrial = null,
-  pgrp = 'cost', propose = null, priceCust = null, cols = { prev: true, hilo: false, margin: true, port: true, actual: false }, bo = 'import', corr = null, doc = null, editLines = null,
-  PLB = { aud: 'wl', client: null, pick: {}, reasons: {}, eff: null, till: null, note: '' }, boDoc = null, listSel = null, billEdit = null;
-const NAV = { today: 'Today', margin: 'Margin', recipes: 'Recipes', materials: 'Materials', rates: 'Rates', prices: 'Prices', lists: 'Price lists', backoffice: 'Back Office', guide: 'Guide' };
+  pgrp = 'cost', propose = null, priceCust = null, cols = { prev: true, hilo: false, margin: true, port: true, actual: false }, corr = null, doc = null, editLines = null,
+  PLB = { aud: 'wl', client: null, pick: {}, reasons: {}, eff: null, till: null, note: '' }, boDoc = null, listSel = null, billEdit = null,
+  pan = null, panFocus = false, behind = false, panReturn = null, panAt = null, openProd = null, ptab = 'recipe', recSel = null, prodF = 'all', prodQ = '', inp = 'materials', matQ = '', setup = 'customers';
+const NAV = { today: 'Today', margin: 'Margin', products: 'Products', recipes: 'Recipes', prices: 'Prices', lists: 'Price lists', inputs: 'Inputs', setup: 'Setup', guide: 'Guide' }; // 0.8.0 places (ruling 1, 18 Oct 2026)
 const STEP = { draft: 'Majid checks', review: 'Himayat reviews', endorse: 'Fahim endorses', cost: 'Yawar approves cost', approved: 'Approved', old: 'Earlier version' };
 const MYJOB = { draft: 'Check recipe', review: 'Review recipe', endorse: 'Endorse recipe', cost: 'Approve cost' };
+/** A step in words: names keep their capital ("Yawar approves cost"); "approved" and "earlier version" read in lower case. */
+const stepTxt = st => /^(Approved|Earlier)/.test(STEP[st] || '') ? STEP[st].toLowerCase() : (STEP[st] || st);
 const STEP_ROLE = { draft: 'production', review: 'qc', endorse: 'plant', cost: 'cfo' };
 const ROLE_NAME = { production: 'Majid', qc: 'Himayat', plant: 'Fahim', cfo: 'Yawar', coo: 'Tahir' };
 const $ = id => document.getElementById(id);
@@ -127,6 +145,19 @@ const rsM = v => 'Rs ' + (v / 1e6).toFixed(1) + 'M';
 const pc = v => v == null || isNaN(v) ? 'n/a' : Number(v).toFixed(1) + '%';
 const pl = (n, a, b) => n + ' ' + (n === 1 ? a : b);
 const SET = k => { const r = (ST.settings || []).find(x => x.k === k); return r ? Number(r.v) : null; };
+/** Screen head (ruling 7, 18 Oct 2026): the topic, then 1 answer line; long explanations fold under "How this works". answer and how are HTML (callers escape). */
+const head = (topic, answer, howHtml) => `<h1 class="topic">${esc(topic)}</h1><p class="answer">${answer}</p>${howHtml ? how(howHtml) : ''}`;
+const how = h => `<details class="how"><summary>How this works</summary><div>${h}</div></details>`;
+/** A link inside a screen names an old place; send each person to where it now lives for them (0.8.0). */
+function goPlace(name) { const nav = ST.me.nav; const A = { recipes: 'products', rates: 'inputs', materials: 'inputs', backoffice: 'setup', lists: 'prices', products: 'recipes' }; scr = nav.includes(name) ? name : nav.includes(A[name]) ? A[name] : nav[0]; if (name === 'lists' && scr === 'prices') sub = 'lists'; }
+/** Open a recipe version: on the product page for Yawar and Tahir (ruling 3), on Recipes for Majid, Himayat and Fahim. */
+function goRec(id) { const v = (ST.recipes || []).find(x => x.id === id); if (v && ST.me.nav.includes('products')) { scr = 'products'; openProd = v.clientProductId; ptab = 'recipe'; recSel = id; } else { scr = 'recipes'; openRec = id; } sendBack = null; editLines = null; pan = null; }
+/** Close the panel and clear every form it may have opened (review 18 Oct, finding 5). */
+/** The panel's keyboard stops, in order. */
+const panItems = pn => [...pn.querySelectorAll('button,input,select,textarea,a[href]')].filter(x => !x.disabled && x.tabIndex >= 0);
+function closePanel() { pan = null; propose = null; rev = null; ask = null; sendBack = null; editLines = null; corr = null; nutEdit = null; }
+/** Open a panel; remember the button that opened it, so focus goes back there on close. */
+function openPanel(p, t) { pan = p; panFocus = true; propose = null; rev = null; ask = null; corr = null; sendBack = null; editLines = null; const k = t && Object.keys(t.dataset).find(x => x !== 'armed'); panReturn = k ? { k: k.replace(/[A-Z]/g, c => '-' + c.toLowerCase()), v: t.dataset[k] } : null; }
 function toast(t, err) { const e = $('toast'); e.textContent = t; e.hidden = false; e.classList.toggle('err', !!err); clearTimeout(toast.t); toast.t = setTimeout(() => e.hidden = true, err ? 9000 : 4000); }
 /* On VAN Systems the platform keeps the sign-in token in localStorage (van_token) and checks a Bearer header.
  * Locally the harness cookie is used instead; both are sent. */
@@ -146,7 +177,7 @@ async function savePdf(id) {
   setTimeout(() => URL.revokeObjectURL(url), 30000);
 }
 async function load() { ST = await api('/api/c2m/state'); if (!ST.me.nav.includes(scr)) scr = ST.me.nav[0]; render(); }
-async function act(path, body, okMsg) { try { const j = await api(path, body); if (okMsg) toast(typeof okMsg === 'function' ? okMsg(j) : okMsg); await load(); return j; } catch (e) { toast(e.message, true); return null; } }
+async function act(path, body, okMsg) { { const pn = document.querySelector('aside.panel'); panAt = pn && pn.contains(document.activeElement) ? panItems(pn).indexOf(document.activeElement) : null; if (panAt < 0) panAt = null; } try { const j = await api(path, body); if (okMsg) toast(typeof okMsg === 'function' ? okMsg(j) : okMsg); if (pan) panFocus = true; await load(); return j; } catch (e) { toast(e.message, true); return null; } }
 
 /* ---------- Lookups ---------- */
 const packIdx = () => { const m = new Map(); (ST.products || []).forEach(p => p.packs.forEach(k => m.set(k.id, { ...k, product: p }))); return m; };
@@ -200,30 +231,30 @@ function exposure() {
 /* ---------- Jobs for Today ---------- */
 function jobs() {
   const R = ST.me.role, J = [];
-  (ST.recipes || []).forEach(v => { if (STEP_ROLE[v.state] === R) J.push({ t: `${MYJOB[v.state]}: ${v.brand} for ${v.customer}, version ${v.version}`, d: v.sentBack && v.state === 'draft' ? `Sent back: ${v.sentBack.reason}. Advice: ${v.sentBack.advice}` : (v.note || ''), btn: 'Open recipe', go: () => { scr = 'recipes'; openRec = v.id; } }); });
+  (ST.recipes || []).forEach(v => { if (STEP_ROLE[v.state] === R) J.push({ t: `${MYJOB[v.state]}: ${v.brand} for ${v.customer}, version ${v.version}`, d: v.sentBack && v.state === 'draft' ? `Sent back: ${v.sentBack.reason}. Advice: ${v.sentBack.advice}` : (v.note || ''), btn: 'Open recipe', pan: { k: 'rec', id: v.id } }); });
   if (R === 'cfo') {
-    (ST.reapprovals || []).forEach(x => J.push({ t: `Re-approve cost: ${pl(x.items.length, 'pack', 'packs')} ${x.items.some(i => i.first) ? 'waiting for a first or new approved cost' : `moved over ${SET('reapprove_pct')}%`}`, d: 'Cause: ' + x.cause, btn: 'Open re-approval', go: () => { scr = 'recipes'; openRec = null; } }));
+    (ST.reapprovals || []).forEach(x => J.push({ t: `Re-approve cost: ${pl(x.items.length, 'pack', 'packs')} ${x.items.some(i => i.first) ? 'waiting for a first or new approved cost' : `moved over ${SET('reapprove_pct')}%`}`, d: 'Cause: ' + x.cause, btn: 'Open re-approval', pan: { k: 'reapp', id: x.id } }));
     { const nc = []; (ST.products || []).forEach(p => (p.packs || []).forEach(k => { if (k.costGaps && k.costGaps.length && (!k.costGaps.includes('no approved recipe') || p.grp === 'White label')) nc.push(`${p.brand} ${k.size} ${p.soldPer} for ${p.customer}: ${k.costGaps.join(', ')}`); }));
-      if (nc.length) J.push({ t: `Not costed: ${pl(nc.length, 'pack', 'packs')} cannot be priced until their cost is complete`, d: 'A recipe, price or rate is missing. No price can be proposed or checked for them until fixed (D-40). ' + nc.slice(0, 5).join('; ') + (nc.length > 5 ? `; and ${nc.length - 5} more` : ''), btn: 'Open recipes', go: () => { scr = 'recipes'; openRec = null; } }); }
-    const n = (ST.imports || []).filter(i => i.status === 'open').length; if (n) J.push({ t: `Check ${pl(n, 'item', 'items')} from your sheets`, d: 'Conflicting rates, missing figures and data problems. Each is pre-filled; accept it or correct it.', btn: 'Open import queue', go: () => { scr = 'backoffice'; bo = 'import'; } });
-    (ST.listRevisions || []).filter(r => r.status === 'sent_back').forEach(r => J.push({ t: `List revision sent back: ${LISTNAME[r.list_name]}`, d: 'Tahir: ' + (r.back_reason || ''), btn: 'Revise and resend', go: () => { scr = 'lists'; } }));
-    const back = (ST.proposals || []).filter(p => p.status === 'sent_back'); back.forEach(p => J.push({ t: `Price sent back: ${packName(p.packId)}`, d: 'Tahir: ' + (p.backReason || ''), btn: 'Revise and resend', go: () => { scr = 'prices'; sub = 'proposals'; } }));
-    const ch = toChange().length; if (ch) J.push({ t: `${pl(ch, 'client price needs', 'client prices need')} changing`, d: 'Below cost or below target on today\'s cost, or monthly revision due.', btn: 'Open prices to change', go: () => { scr = 'prices'; sub = 'change'; } });
+      if (nc.length) J.push({ t: `Not costed: ${pl(nc.length, 'pack', 'packs')} cannot be priced until their cost is complete`, d: 'A recipe, price or rate is missing. No price can be proposed or checked for them until fixed (D-40). ' + nc.slice(0, 5).join('; ') + (nc.length > 5 ? `; and ${nc.length - 5} more` : ''), btn: 'See the packs', pan: { k: 'notcosted' } }); }
+    const n = (ST.imports || []).filter(i => i.status === 'open').length; if (n) J.push({ t: `Check ${pl(n, 'item', 'items')} from your sheets`, d: 'Conflicting rates, missing figures and data problems. Each is pre-filled; accept it or correct it.', btn: 'Open the items', pan: { k: 'imports' } });
+    (ST.listRevisions || []).filter(r => r.status === 'sent_back').forEach(r => J.push({ t: `List revision sent back: ${LISTNAME[r.list_name]}`, d: 'Tahir: ' + (r.back_reason || ''), btn: 'Revise and resend', pan: { k: 'lrev', id: r.id } }));
+    const back = (ST.proposals || []).filter(p => p.status === 'sent_back'); back.forEach(p => J.push({ t: `Price sent back: ${packName(p.packId)}`, d: 'Tahir: ' + (p.backReason || ''), btn: 'Revise and resend', pan: { k: 'prop', id: p.id } }));
+    const ch = toChange().length; if (ch) J.push({ t: `${pl(ch, 'client price needs', 'client prices need')} changing`, d: 'Below cost or below target on today\'s cost, or monthly revision due.', btn: 'Open prices to change', pan: { k: 'tochange' } });
     const lastM = addDays(ST.today.slice(0, 7) + '-01', -1).slice(0, 7);
-    if (!(ST.actuals || []).some(a => a.month === lastM)) J.push({ t: `Enter ${mon(lastM)} actual labour and FOH`, d: 'Needed to compare actual labour and FOH with what was charged to products.', btn: 'Enter actuals', go: () => { scr = 'backoffice'; bo = 'actuals'; } });
-    if (!(ST.checks || []).some(c => c.month === lastM && c.kind === 'tie_books')) J.push({ t: `Tie ${mon(lastM)} to the books`, d: 'Enter ERP sales and COGS by customer; C2M shows the gap.', btn: 'Open monthly checks', go: () => { scr = 'backoffice'; bo = 'actuals'; } });
+    if (!(ST.actuals || []).some(a => a.month === lastM)) J.push({ t: `Enter ${mon(lastM)} actual labour and FOH`, d: 'Needed to compare actual labour and FOH with what was charged to products.', btn: 'Enter actuals', pan: { k: 'actuals' } });
+    if (!(ST.checks || []).some(c => c.month === lastM && c.kind === 'tie_books')) J.push({ t: `Tie ${mon(lastM)} to the books`, d: 'Enter ERP sales and COGS by customer; C2M shows the gap.', btn: 'Open monthly checks', pan: { k: 'actuals' } });
   }
-  if (R === 'qc') { const n = (ST.materials || []).filter(m => matState(m)[0] === 'p-amber').length; if (n) J.push({ t: `${pl(n, 'material needs', 'materials need')} a class or nutrient %`, d: 'Nutrient sources need their % per field; binders, fillers and agents need only their class.', btn: 'Open materials', go: () => { scr = 'materials'; matFilter = 'todo'; } }); }
+  if (R === 'qc') { const n = (ST.materials || []).filter(m => matState(m)[0] === 'p-amber').length; if (n) J.push({ t: `${pl(n, 'material needs', 'materials need')} a class or nutrient %`, d: 'Nutrient sources need their % per field; binders, fillers and agents need only their class.', btn: 'Open materials', pan: { k: 'mats' } }); }
   if (R === 'coo') {
     const wd = (from) => { let n = 0; const d = new Date(String(from).slice(0, 10) + 'T00:00:00Z'), end = new Date(ST.today + 'T00:00:00Z'); while (d < end) { d.setUTCDate(d.getUTCDate() + 1); if (d.getUTCDay() !== 0) n++; } return n; };
-    (ST.recipes || []).filter(v => STEP_ROLE[v.state]).forEach(v => { const last = v.steps.length ? v.steps[v.steps.length - 1].at : null; const n = last ? wd(last) : 0; if (n > 2) J.push({ t: `Recipe stuck ${n} working days: ${v.brand} for ${v.customer}`, d: `With ${ROLE_NAME[STEP_ROLE[v.state]]} at "${STEP[v.state].toLowerCase()}" since ${fmtD(String(last).slice(0, 10))}.`, btn: 'Open recipe', go: () => { scr = 'recipes'; openRec = v.id; } }); });
+    (ST.recipes || []).filter(v => STEP_ROLE[v.state]).forEach(v => { const last = v.steps.length ? v.steps[v.steps.length - 1].at : null; const n = last ? wd(last) : 0; if (n > 2) J.push({ t: `Recipe stuck ${n} working days: ${v.brand} for ${v.customer}`, d: `With ${ROLE_NAME[STEP_ROLE[v.state]]} at "${stepTxt(v.state)}" since ${fmtD(String(last).slice(0, 10))}.`, btn: 'Open recipe', pan: { k: 'rec', id: v.id } }); });
 
-    (ST.proposals || []).filter(p => p.status === 'proposed').forEach(p => J.push({ t: `Approve price: ${packName(p.packId)}`, d: (() => { const k = packIdx().get(p.packId); const c = k && k.cost ? k.cost.total : null; return `${p.prev != null ? 'Rs ' + p.prev + ' to ' : ''}Rs ${p.price} per ${k ? k.product.soldPer : 'kg'}. GP ${pc(c != null ? (p.price - c) / p.price * 100 : null)} against target ${pc(k && k.product.target)}.${p.belowReason ? ' Below target: ' + p.belowReason : ''}`; })(), btn: 'Open proposal', go: () => { scr = 'prices'; sub = 'proposals'; } }));
-    (ST.listRevisions || []).filter(r => r.status === 'proposed').forEach(r => J.push({ t: `Approve list revision: ${LISTNAME[r.list_name]}`, d: `${pl(r.items.length, 'price', 'prices')} from ${fmtD(r.valid_from)}. ${r.reason}`, btn: 'Open revision', go: () => { scr = 'lists'; } }));
-    (ST.settingRequests || []).filter(r => r.status === 'open').forEach(r => J.push({ t: 'Approve threshold change', d: r.summary + '. Proposed by ' + r.by_user + '.', btn: 'Open settings', go: () => { scr = 'backoffice'; bo = 'settings'; } }));
-    (ST.targetRequests || []).filter(r => r.status === 'open').forEach(r => J.push({ t: `Approve target: ${r.brand} for ${r.customer}`, d: `${r.from_gp == null ? 'none' : r.from_gp + '%'} to ${r.to_gp}%. ${r.reason}`, btn: 'Open rules', go: () => { scr = 'backoffice'; bo = 'rules'; } }));
+    (ST.proposals || []).filter(p => p.status === 'proposed').forEach(p => J.push({ t: `Approve price: ${packName(p.packId)}`, d: (() => { const k = packIdx().get(p.packId); const c = k && k.cost ? k.cost.total : null; return `${p.prev != null ? 'Rs ' + p.prev + ' to ' : ''}Rs ${p.price} per ${k ? k.product.soldPer : 'kg'}. GP ${pc(c != null ? (p.price - c) / p.price * 100 : null)} against target ${pc(k && k.product.target)}.${p.belowReason ? ' Below target: ' + p.belowReason : ''}`; })(), btn: 'Open proposal', pan: { k: 'prop', id: p.id } }));
+    (ST.listRevisions || []).filter(r => r.status === 'proposed').forEach(r => J.push({ t: `Approve list revision: ${LISTNAME[r.list_name]}`, d: `${pl(r.items.length, 'price', 'prices')} from ${fmtD(r.valid_from)}. ${r.reason}`, btn: 'Open revision', pan: { k: 'lrev', id: r.id } }));
+    (ST.settingRequests || []).filter(r => r.status === 'open').forEach(r => J.push({ t: 'Approve threshold change', d: r.summary + '. Proposed by ' + r.by_user + '.', btn: 'Open the change', pan: { k: 'setreq', id: r.id } }));
+    (ST.targetRequests || []).filter(r => r.status === 'open').forEach(r => J.push({ t: `Approve target: ${r.brand} for ${r.customer}`, d: `${r.from_gp == null ? 'none' : r.from_gp + '%'} to ${r.to_gp}%. ${r.reason}`, btn: 'Open the request', pan: { k: 'treq', id: r.id } }));
     const lastM = addDays(ST.today.slice(0, 7) + '-01', -1).slice(0, 7);
-    if (!(ST.checks || []).some(c => c.month === lastM && c.kind === 'rate_check')) J.push({ t: `Check ${mon(lastM)} rates against the purchase register`, d: 'Second-person check of the top 15 material rates.', btn: 'Open monthly checks', go: () => { scr = 'backoffice'; bo = 'actuals'; } });
+    if (!(ST.checks || []).some(c => c.month === lastM && c.kind === 'rate_check')) J.push({ t: `Check ${mon(lastM)} rates against the purchase register`, d: 'Second-person check of the top 15 material rates.', btn: 'Open monthly checks', pan: { k: 'actuals' } });
     const keep = period; period = 'fy'; const red = grp((ST.sales || []).filter(s => inP(s.date) && s.grp === 'White label'), r => r.cust).filter(g => flag(g)[0] === 'p-red').length; period = keep;
     if (red) J.push({ t: `${pl(red, 'customer', 'customers')} flagged red on margin, FY to date`, d: `More than ${SET('red_gap_pts')} pts below target, with a Rs gap above ${SET('red_share_pct')}% of all white label sales. See why.`, btn: 'Open margin', go: () => { scr = 'margin'; } });
   }
@@ -235,8 +266,13 @@ function packName(id) { const k = packIdx().get(id); return k ? `${packLabel(k)}
 function render() {
   const M = ST.me; const J = jobs();
   const app = $('app');
-  app.innerHTML = `<div class="hdr"><a class="home" href="/" title="Back to the VAN launcher">&larr; Back to launcher</a><span class="app">C2M · Cost to Margin</span><nav aria-label="Screens">${M.nav.map(k => `<button data-scr="${k}" aria-current="${k === scr}">${NAV[k]}${k === 'today' && J.length ? `<span class="n">${J.length}</span>` : ''}</button>`).join('')}</nav><span class="who">${esc(M.name || M.user)} · ${esc(M.label)} · <a href="/" data-signout>Sign out</a></span></div>
-  <main>${({ today: vToday, margin: vMargin, recipes: vRecipes, materials: vMaterials, rates: vRates, prices: vPrices, lists: vLists, backoffice: vBO, guide: vGuide })[scr]()}</main>`;
+  const V = { today: vToday, margin: vMargin, products: vProducts, recipes: vRecipes, prices: vPrices, lists: vLists, inputs: vInputs, setup: vSetup, guide: vGuide };
+  behind = !!pan; const mainHtml = (V[scr] || V[M.nav[0]])(); behind = false;
+  app.innerHTML = `<div class="hdr" ${pan ? 'inert' : ''}><a class="home" href="/" title="Back to the VAN launcher">&larr; Back to launcher</a><span class="app">C2M · Cost to Margin</span><nav aria-label="Screens">${M.nav.map(k => `<button data-scr="${k}" aria-current="${k === scr}">${NAV[k]}${k === 'today' && J.length ? `<span class="n">${J.length}</span>` : ''}</button>`).join('')}</nav><span class="who">${esc(M.name || M.user)} · ${esc(M.label)} · <a href="/" data-signout>Sign out</a></span></div>
+  <main ${pan ? 'inert aria-hidden="true"' : ''}>${mainHtml}</main>${pan ? vPanel() : ''}`;
+  if (pan && panFocus) { panFocus = false; const pn = document.querySelector('aside.panel'); const f = pn ? panItems(pn) : []; const h = document.querySelector('.panel-h b');
+    if (panAt != null && f.length) f[Math.min(panAt, f.length - 1)].focus(); else if (h) h.focus(); panAt = null; } // after a save, stay where you were (review 18 Oct)
+  else if (!pan && panReturn) { const r = panReturn; panReturn = null; const el = document.querySelector(`main [data-${r.k}="${r.v}"]`); if (el) el.focus(); }
 }
 
 /* ---------- Today ---------- */
@@ -244,11 +280,11 @@ function vToday() {
   const J = jobs(); const R = ST.me.role;
   const waiting = (ST.recipes || []).filter(v => STEP_ROLE[v.state] && STEP_ROLE[v.state] !== R && ['production', 'qc', 'plant', 'cfo'].includes(R)).slice(0, 6);
   const notices = (ST.notices || []).slice();
-  if (R === 'coo') (ST.reapprovals || []).forEach(x => notices.unshift({ text: `${pl(x.items.length, 'cost is', 'costs are')} waiting for Yawar's re-approval (see Recipes)`, by_user: 'C2M', at: x.createdAt || ST.today, cause: x.cause }));
-  return `<h1>${J.length ? pl(J.length, 'thing needs', 'things need') + ' you today.' : 'Nothing needs you today.'}</h1><p class="ans">Work from the top. Each line has 1 button that takes you to the exact place.</p>${R === 'coo' || R === 'cfo' ? marginLine() : ''}
+  if (R === 'coo') (ST.reapprovals || []).forEach(x => notices.unshift({ text: `${pl(x.items.length, 'cost is', 'costs are')} waiting for Yawar's re-approval`, by_user: 'C2M', at: x.createdAt || ST.today, cause: x.cause, reapp: x.id }));
+  return `${head('Today', J.length ? pl(J.length, 'thing needs', 'things need') + ' you today.' : 'Nothing needs you today.', 'Work from the top. Each line opens in a panel on this screen: approve, send back or enter there, without leaving Today.')}${R === 'coo' || R === 'cfo' ? marginLine() : ''}
   <div class="box jobs">${J.length ? J.map((j, i) => `<div class="job"><div><div class="t">${esc(j.t)}</div><div class="d">${esc(j.d)}</div></div><button class="btn" data-job="${i}">${j.btn}</button></div>`).join('') : '<div class="job"><div><div class="t">You are up to date.</div></div></div>'}</div>
-  ${waiting.length ? `<h2>Waiting on others</h2><div class="box jobs">${waiting.map(v => `<div class="job"><div><div class="t">${esc(v.brand)} for ${esc(v.customer)}</div><div class="d">With ${ROLE_NAME[STEP_ROLE[v.state]]}: ${STEP[v.state].toLowerCase()}</div></div></div>`).join('')}</div>` : ''}
-  ${notices.length ? `<h2>For your information</h2><div class="box jobs">${notices.map(n => `<div class="job"><div><div class="t">${esc(n.text)}</div><div class="d">${n.cause ? esc(n.cause) + '. ' : ''}${esc(n.by_user)}, ${esc(fmtD(String(n.at).slice(0, 10)))}. No approval needed.</div></div></div>`).join('')}</div>` : ''}`;
+  ${waiting.length ? `<h2>Waiting on others</h2><div class="box jobs">${waiting.map(v => `<div class="job"><div><div class="t">${esc(v.brand)} for ${esc(v.customer)}</div><div class="d">With ${ROLE_NAME[STEP_ROLE[v.state]]}: ${stepTxt(v.state)}</div></div></div>`).join('')}</div>` : ''}
+  ${notices.length ? `<h2>For your information</h2><div class="box jobs">${notices.map(n => `<div class="job"><div><div class="t">${esc(n.text)}</div><div class="d">${n.cause ? esc(n.cause) + '. ' : ''}${esc(n.by_user)}, ${esc(fmtD(String(n.at).slice(0, 10)))}. No approval needed.</div></div>${n.reapp ? `<button class="btn ghost" data-reapview="${n.reapp}">See the packs</button>` : ''}</div>`).join('')}</div>` : ''}`;
 }
 
 /* ---------- Margin ---------- */
@@ -280,8 +316,7 @@ function vMargin() {
   const top = L.fwd[0]; const share = top && fwd ? top.fwd / fwd * 100 : 0;
   [...L.fwd, ...L.loss, ...L.gap].forEach(x => { x.inLists = [L.fwd, L.loss, L.gap].filter(l => l.some(y => y.id === x.id)).length; });
   const noVol = ex.filter(x => x.gp < 0 && !x.kg3);
-  return `${hist === 'bands' ? '<p class="crumb"><b>Restated view:</b> past trucks recosted at today\'s labour and FOH rates. For comparison only.</p>' : ''}<h1>White label GP is ${pc(wl.gp)}${hist === 'bands' ? ' (restated)' : ''} against its ${wlb}% budget. ${below === costedN && below ? 'All ' + below : below + ' of ' + costedN} costed white label customers are below target.</h1>
-  <p class="ans">${hist === 'bands' ? 'Restated GP = O2S truck-out price less the cost at today\'s labour and FOH rates.' : 'GP = O2S truck-out price less the approved cost in force on the truck\'s date.'} Company GP against ${SET('budget_gp')}% and ${SET('ambition_gp')}% is not on this screen yet; VAN brand sales carry their pack's cost (D-44).</p>
+  return `${hist === 'bands' ? '<p class="crumb"><b>Restated view:</b> past trucks recosted at today\'s labour and FOH rates. For comparison only.</p>' : ''}${head('Margin', `White label GP is ${pc(wl.gp)}${hist === 'bands' ? ' (restated)' : ''} against its ${wlb}% budget. ${below === costedN && below ? 'All ' + below : below + ' of ' + costedN} costed white label customers are below target.`, `${hist === 'bands' ? 'Restated GP = O2S truck-out price less the cost at today\'s labour and FOH rates.' : 'GP = O2S truck-out price less the approved cost in force on the truck\'s date.'} Company GP against ${SET('budget_gp')}% and ${SET('ambition_gp')}% is not on this screen yet; VAN brand sales carry their pack's cost (D-44).`)}
   <div class="chips" aria-label="Cost basis of past trucks">${[['approved', 'Past trucks: cost approved on their date'], ['bands', 'Past trucks: restated at today\'s labour and FOH rates']].map(([k, l]) => `<button data-hist="${k}" aria-pressed="${hist === k}">${l}</button>`).join('')}</div>
   ${hist === 'approved' ? `<p class="ans">Cost method changed on 13 Oct (Yawar's own Labour & FOH to the Rs 20 / Rs 30 bands). On the bands, the same trucks give white label GP ${pc(grp(salesRows0().filter(r => inP(r.date) && r.grp === 'White label'), () => 'w')[0]?.gp)}; the difference is the method, not a cost saving.</p>` : `<p class="ans">Restated view for comparison only: trucks before 13 Oct recosted at today's bands. Approved figures are the other view.</p>`}
   <div class="next"><span>${top && share > 40 ? `1 product drives ${share.toFixed(0)}% of the Rs at stake: ${esc(top.cust)} ${esc(top.prod)}. Start there.` : 'Start with the biggest Rs at stake, then open the customer to see which product and PO.'}</span></div>${chips()}
@@ -306,10 +341,10 @@ function vCust(rows) {
     const cost = k && k.cost ? k.cost.total : null; const tp = cost != null && k.product.target != null ? cost / (1 - k.product.target / 100) : null;
     const rec = k ? (ST.recipes || []).find(v => v.clientProductId === k.product.id && v.state === 'approved') : null;
     const op = (ST.open || []).filter(o => o.cust === drill.cust && pkey(o) === drill.prod);
-    return crumb + `<h1>${esc(drill.prod)} for ${esc(drill.cust)}: ${g ? pc(g.gp) + ' GP' : 'no trucks this period'}</h1>
+    return crumb + `${head('Margin', `${esc(drill.prod)} for ${esc(drill.cust)}: ${g ? pc(g.gp) + ' GP' : 'no trucks this period'}.`)}
     ${k && k.sheet && k.cost && Math.abs(k.sheet.conversion - k.cost.conversion) > 0.005 ? `<div class="warnbox"><b>Cost method change, 13 Oct:</b> conversion was Rs ${k.sheet.conversion.toFixed(2)} on Yawar's sheet; the bands give Rs ${k.cost.conversion.toFixed(2)} (${k.cost.conversion > k.sheet.conversion ? '+' : ''}${(k.cost.conversion - k.sheet.conversion).toFixed(2)} per ${k.product.soldPer}). Trucks before 13 Oct carry the old basis. This is the method, not a change in materials or price.</div>` : ''}
     <p class="ans">Cost today ${rs2(cost)} per ${k ? k.product.soldPer : 'kg'}${k && k.cost ? ` (materials ${rs2(k.cost.materials)}, packing ${rs2(k.cost.packing)}, conversion ${rs2(k.cost.conversion)})` : ''}. Target GP ${pc(k && k.product.target)} needs ${rs2(tp)}. Contribution floor ${rs2(k && k.floor)} (materials, packing, freight and labour).</p>
-    <div class="next">${ST.me.role === 'cfo' && k ? (k.product.channel === 'VAN brand' ? '<span class="ans">A VAN brand pack is priced per channel in Price lists, VAN brand list revisions.</span>' : k.costGaps && k.costGaps.length ? `<span class="late">Not costed (${esc(k.costGaps.join(', '))}): fix the cost before proposing a price.</span>` : `<button class="btn" data-propose="${k.id}">Propose a new price</button>`) : ''}${ST.me.role === 'coo' ? '<button class="btn ghost" data-go-prices="proposals">Open proposals</button>' : ''}${rec ? ` <button class="btn ghost" data-rec="${rec.id}">Open the recipe behind this cost</button>` : ' <span>Recipe not yet in C2M.</span>'}</div>
+    <div class="next">${ST.me.role === 'cfo' && k ? (k.product.channel === 'VAN brand' ? '<span class="ans">A VAN brand pack is priced per channel in Prices, VAN brand lists.</span>' : k.costGaps && k.costGaps.length ? `<span class="late">Not costed (${esc(k.costGaps.join(', '))}): fix the cost before proposing a price.</span>` : `<button class="btn" data-propose="${k.id}">Propose a new price</button>`) : ''}${ST.me.role === 'coo' ? '<button class="btn ghost" data-go-prices="proposals">Open proposals</button>' : ''}${rec ? ` <button class="btn ghost" data-rec="${rec.id}">Open the recipe behind this cost</button>` : ' <span>Recipe not yet in C2M.</span>'}</div>
     ${proposeForm()}
     ${op.length ? `<h2>Open POs still to ship</h2><div class="box wrapx"><table><tr><th>PO</th><th class="r">Open kg</th><th class="r">PO price</th><th class="r">GP</th><th class="r">Locked in</th></tr>${op.map(o => `<tr><td class="mono">${esc(o.po)}</td><td class="r num">${o.kg.toLocaleString()}</td><td class="r num">${o.price.toFixed(2)}</td><td class="r num">${o.cost != null && o.price ? pc((o.price - o.cost) / o.price * 100) : 'n/a'}</td><td class="r num over">${tp ? rs(Math.max(tp - o.price, 0) * o.kg) : 'n/a'}</td></tr>`).join('')}</table></div>` : ''}
     <h2>Trucks out</h2>${chips()}<div class="box wrapx"><table><tr><th>Date</th><th>PO</th><th>DC</th><th class="r">Kg</th><th class="r">PO price</th><th class="r">${hist === 'bands' ? 'Cost, restated' : 'Cost on date'}</th><th class="r">GP</th></tr>${pr.length ? pr.slice().sort((a, b) => a.date < b.date ? 1 : -1).map(r => `<tr><td class="mono">${r.date}</td><td class="mono">${esc(r.po)}</td><td class="mono">${esc(r.dc || '')}</td><td class="r num">${r.kg.toLocaleString()}</td><td class="r num">${r.price.toFixed(2)}</td><td class="r num">${r.cost != null ? r.cost.toFixed(2) : 'n/a'}</td><td class="r num">${r.cost != null && r.price ? pc((r.price - r.cost) / r.price * 100) : 'n/a'}</td></tr>`).join('') : '<tr><td colspan="7">No trucks in this period.</td></tr>'}</table></div>`;
@@ -317,7 +352,7 @@ function vCust(rows) {
   const RANK = { 'p-red': 0, 'p-amber': 1, 'p-green': 2, 'p-none': 3 };
   const prods = grp(cr, pkey).sort((a, b) => (RANK[flag(a)[0]] - RANK[flag(b)[0]]) || (b.sales - a.sales));
   const op = (ST.open || []).filter(o => o.cust === drill.cust);
-  return crumb + `<h1>${esc(drill.cust)}: ${pc(c.gp)} GP on ${rsM(c.sales)}</h1><p class="ans">Target ${pc(c.target)} · budget ${pc(c.budget)} · ${op.reduce((s, o) => s + o.kg, 0).toLocaleString()} kg open on ${new Set(op.map(o => o.po)).size} POs · price rule: ${cust.priceRule === 'time' ? 'time-based, ' + (cust.cycle || '') : cust.priceRule === 'po' ? 'fixed per PO' : cust.priceRule === 'list' ? 'price list' : 'to set in Back Office'}</p>
+  return crumb + `${head('Margin', `${esc(drill.cust)}: ${pc(c.gp)} GP on ${rsM(c.sales)}.`)}<p class="ans">Target ${pc(c.target)} · budget ${pc(c.budget)} · ${op.reduce((s, o) => s + o.kg, 0).toLocaleString()} kg open on ${new Set(op.map(o => o.po)).size} POs · price rule: ${cust.priceRule === 'time' ? 'time-based, ' + (cust.cycle || '') : cust.priceRule === 'po' ? 'fixed per PO' : cust.priceRule === 'list' ? 'price list' : 'to set in Setup, Customers'}</p>
   <div class="next"><span>Products below cost or below target are listed first. Click one to see its POs and trucks.</span></div>${chips()}
   <div class="box wrapx"><table><tr><th>Product and pack</th><th class="r">Kg shipped</th><th class="r">Avg price</th><th class="r">GP</th><th class="r">Target</th><th>State</th></tr>${prods.map(p => { const f = flag(p); return `<tr class="go" tabindex="0" data-cust="${esc(drill.cust)}" data-prod="${esc(p.key)}"><td>${esc(p.key)}</td><td class="r num">${p.kg.toLocaleString()}</td><td class="r num">${(p.sales / p.kg).toFixed(2)}</td><td class="r num">${pc(p.gp)}</td><td class="r num">${pc(p.target)}</td><td><span class="pill ${f[0]}">${f[1]}</span></td></tr>`; }).join('')}</table></div>`;
 }
@@ -328,8 +363,7 @@ function vRecipes() {
   const R = ST.me.role; const mine = (ST.recipes || []).filter(v => STEP_ROLE[v.state] === R);
   const seeC = ['cfo', 'coo', 'production', 'plant'].includes(R); const P = packIdx();
   const list = (ST.recipes || []).filter(v => v.state !== 'old').sort((a, b) => (STEP_ROLE[b.state] === R) - (STEP_ROLE[a.state] === R) || a.customer.localeCompare(b.customer));
-  return `${R === 'coo' && (ST.reapprovals || []).length ? (ST.reapprovals || []).map(x => `<div class="warnbox"><b>Waiting for Yawar's re-approval (read only):</b> ${esc(x.cause)}<br>${x.items.map(i => `${esc(i.label)}: ${i.first ? `no approved cost yet, first cost ${rs2(i.to)}` : `approved ${rs2(i.from)}, now ${rs2(i.to)} (${i.pct > 0 ? '+' : ''}${i.pct.toFixed(1)}%)`}`).join('<br>')}</div>`).join('') : ''}${R === 'cfo' && (ST.reapprovals || []).length ? (ST.reapprovals || []).map(x => `<div class="warnbox"><b>Re-approve cost:</b> ${esc(x.cause)}<br>${x.items.map(i => `${esc(i.label)}: ${i.first ? `no approved cost yet, first cost ${rs2(i.to)}` : `approved ${rs2(i.from)}, now ${rs2(i.to)} (${i.pct > 0 ? '+' : ''}${i.pct.toFixed(1)}%)`}`).join('<br>')}<div style="margin-top:6px"><button class="btn" data-reapp="${x.id}" data-confirm="Confirm: approve all ${x.items.length}">Approve all</button> <button class="btn ghost" data-reappsome="${x.id}">Approve ticked only</button> <button class="btn ghost" data-reappno="${x.id}">Close: the change was wrong</button></div><div class="cols" style="margin-top:6px">${x.items.map(i => `<label><input type="checkbox" data-rpi="${x.id}:${i.packId}" checked> ${esc(i.label)}</label>`).join('')}</div>${ask && ask.kind === 'reappno' && ask.id === x.id ? askBox('Why close this without new costs? (e.g. rate typed wrong; then save the right rate)') : ''}</div>`).join('') : ''}
-  <h1>Recipes: ${mine.length} waiting for you, ${list.length} in C2M</h1><p class="ans">C2M keeps the official recipe for each client product. Every version is kept; changes go Majid, Himayat, Fahim, then Yawar.</p>
+  return `${head('Recipes', `${mine.length} waiting for you, ${list.length} in C2M.`, 'C2M keeps the official recipe for each client product. Every version is kept; a change goes Majid, Himayat, Fahim, then Yawar.')}
   <div class="next">${mine.length ? `<button class="btn" data-rec="${mine[0].id}">${MYJOB[mine[0].state]}: ${esc(mine[0].brand)} for ${esc(mine[0].customer)}</button>` : '<span>Nothing waits for you.</span>'}${['production', 'cfo', 'coo'].includes(R) ? ' <button class="btn ghost" data-newrec>Write a new recipe version</button>' : ''}</div>
   ${newRecForm()}
   <div class="box wrapx"><table><tr><th>Client product</th><th>Version</th><th>Step</th><th class="r">Kg per kg</th>${seeC ? '<th class="r">Materials per kg</th>' : ''}</tr>${list.map(v => `<tr class="go" tabindex="0" data-rec="${v.id}"><td>${esc(v.brand)} for ${esc(v.customer)}</td><td>${v.version}</td><td><span class="pill ${v.state === 'approved' ? 'p-green' : STEP_ROLE[v.state] === R ? 'p-amber' : 'p-none'}">${STEP[v.state]}</span></td><td class="r num">${v.kgTotal.toFixed(3)}</td>${seeC ? `<td class="r num">${rs2(v.materials)}</td>` : ''}</tr>`).join('')}</table></div>`;
@@ -337,22 +371,23 @@ function vRecipes() {
 let newRec = null;
 function newRecForm() {
   if (!newRec) return '';
-  const prods = (ST.products || []).filter(p => p.grp === 'White label' || p.recipeState);
-  return `<div class="box form" id="nrf"><b>New recipe version</b><label for="nrp">Client product<select id="nrp"><option value="">Pick</option>${prods.map(p => `<option value="${p.id}">${esc(p.brand)} for ${esc(p.customer)}${p.recipeState ? ' (has ' + STEP[p.recipeState].toLowerCase() + ')' : ''}</option>`).join('')}</select></label>
+  const prods = (ST.products || []).filter(p => p.grp === 'White label' || p.recipeState || p.id === newRec.cp);
+  return `<div class="box form" id="nrf"><b>New recipe version</b><label for="nrp">Client product<select id="nrp"><option value="">Pick</option>${prods.map(p => `<option value="${p.id}" ${p.id === newRec.cp ? 'selected' : ''}>${esc(p.brand)} for ${esc(p.customer)}${p.recipeState ? ' (has ' + stepTxt(p.recipeState) + ')' : ''}</option>`).join('')}</select></label>
   <label for="nrn">What changes and why (e.g. one-time change: TSP replaced by DAP)<input id="nrn"></label><div><button class="btn" data-nrsave>Start from the current recipe</button> <button class="btn ghost" data-nrcancel>Cancel</button></div></div>`;
 }
-function vRecipe(v) {
-  if (!v) { openRec = null; return vRecipes(); }
+function vRecipe(v, o = {}) {
+  if (!v) { if (o.panel || o.product) return '<p class="ans">This recipe version is no longer in C2M.</p>'; openRec = null; return vRecipes(); }
   const R = ST.me.role; const seeC = ['cfo', 'coo', 'production', 'plant'].includes(R); const mine = STEP_ROLE[v.state] === R;
   const order = ['draft', 'review', 'endorse', 'cost', 'approved']; const cur = order.indexOf(v.state);
   const prod = (ST.products || []).find(p => p.id === v.clientProductId);
-  let h = `<p class="crumb"><button data-recback>All recipes</button> › ${esc(v.brand)} for ${esc(v.customer)}, version ${v.version}</p><h1>${esc(v.brand)} for ${esc(v.customer)}: ${STEP[v.state].toLowerCase()}</h1>
-  <div class="steps">${order.map((s, i) => `<span class="${i < cur || v.state === 'approved' ? 'done' : i === cur ? 'now' : ''}">${STEP[s]}</span>`).join('')}</div>`;
-  if (mine) h += `<div class="next"><b>Your step: ${MYJOB[v.state]}.</b> <button class="btn" data-adv="${v.id}">${v.state === 'draft' ? (v.sentBack ? 'Resend to ' + (ROLE_NAME[STEP_ROLE[v.sentBack.state]] || 'sender') : 'Send for review') : v.state === 'review' ? 'Mark reviewed' : v.state === 'endorse' ? 'Endorse' : 'Approve cost'}</button>${v.state !== 'draft' ? ` <button class="btn ghost" data-sb="${v.id}">Send back to Majid</button>` : ''}${v.state === 'draft' ? ` <button class="btn ghost" data-editlines="${v.id}">Edit lines</button>` : ''}</div>`;
+  let h = o.panel || o.product ? `<p class="answer">Version ${v.version}: ${stepTxt(v.state)}.</p>` : `<p class="crumb"><button data-recback>All recipes</button> › ${esc(v.brand)} for ${esc(v.customer)}, version ${v.version}</p>${head('Recipe', `${esc(v.brand)} for ${esc(v.customer)}, version ${v.version}: ${stepTxt(v.state)}.`)}`;
+  h += `<div class="steps">${order.map((s, i) => `<span class="${i < cur || v.state === 'approved' ? 'done' : i === cur ? 'now' : ''}">${STEP[s]}</span>`).join('')}</div>`;
+  if (mine && !o.panel) h += `<div class="next"><b>Your step: ${MYJOB[v.state]}.</b> <button class="btn" data-panrec="${v.id}">Open to ${MYJOB[v.state].toLowerCase()}</button></div>`;
+  else if (mine) h += `<div class="next"><b>Your step: ${MYJOB[v.state]}.</b> <button class="btn" data-adv="${v.id}">${v.state === 'draft' ? (v.sentBack ? 'Resend to ' + (ROLE_NAME[STEP_ROLE[v.sentBack.state]] || 'sender') : 'Send for review') : v.state === 'review' ? 'Mark reviewed' : v.state === 'endorse' ? 'Endorse' : 'Approve cost'}</button>${v.state !== 'draft' ? ` <button class="btn ghost" data-sb="${v.id}">Send back to Majid</button>` : ''}${v.state === 'draft' ? ` <button class="btn ghost" data-editlines="${v.id}">Edit lines</button>` : ''}</div>`;
   else h += `<p class="ans">${v.state === 'approved' ? 'Approved. A change starts a new version.' : v.state === 'old' ? 'An earlier version, kept for the record.' : 'With ' + ROLE_NAME[STEP_ROLE[v.state]] + '.'}</p>`;
-  if (sendBack === v.id) h += `<div class="box form"><label for="sbr">Reason (required)<textarea id="sbr"></textarea></label><label for="sba">Revision advice (required)<textarea id="sba"></textarea></label><div><button class="btn warn" data-sbsend="${v.id}">Send back</button> <button class="btn ghost" data-sbcancel>Cancel</button></div></div>`;
+  if (sendBack === v.id && !behind) h += `<div class="box form"><label for="sbr">Reason (required)<textarea id="sbr"></textarea></label><label for="sba">Revision advice (required)<textarea id="sba"></textarea></label><div><button class="btn warn" data-sbsend="${v.id}">Send back</button> <button class="btn ghost" data-sbcancel>Cancel</button></div></div>`;
   if (v.sentBack && v.state === 'draft') h += `<div class="warnbox">Sent back by ${esc(v.sentBack.by)}: ${esc(v.sentBack.reason)}. Advice: ${esc(v.sentBack.advice)}. Resending returns it straight to them.</div>`;
-  if (editLines && editLines.id === v.id) h += linesEditor(v);
+  if (editLines && editLines.id === v.id && !behind) h += linesEditor(v);
   h += `<div class="two"><div><h2>Recipe: kg of input per 1 ${prod ? prod.soldPer : 'kg'} of product</h2><div class="box wrapx"><table><tr><th>Input</th><th class="r">Qty</th>${seeC ? '<th class="r">Rate</th><th class="r">Rs</th>' : ''}</tr>${v.lines.map(l => `<tr><td>${esc(l.name)}</td><td class="r num">${l.qty.toFixed(4)}</td>${seeC ? `<td class="r num">${rs2(l.rate)}</td><td class="r num">${rs2(l.cost)}</td>` : ''}</tr>`).join('')}<tr><td><b>Total</b></td><td class="r num"><b>${v.kgTotal.toFixed(4)}</b></td>${seeC ? `<td></td><td class="r num"><b>${rs2(v.materials)}</b></td>` : ''}</tr></table></div>
   <p class="ans">${v.kgTotal > 1.0005 ? 'Total above 1: process loss carried in the recipe.' : v.kgTotal < 0.9995 ? 'Total below 1: water or a solvent may not be listed.' : ''} ${esc(v.note || '')}</p></div>
   <div><h2>Nutrient analysis</h2>${nutBox(v.nutrients)}</div></div>`;
@@ -361,8 +396,8 @@ function vRecipe(v) {
     const dm = v.materials - appr.materials;
     h += `<div class="warnbox"><b>This version against the approved version ${appr.version}:</b> materials ${rs2(v.materials)} against ${rs2(appr.materials)} per ${prod.soldPer} (${dm >= 0 ? '+' : ''}${rs2(dm)}, ${dm >= 0 ? '+' : ''}${(dm / appr.materials * 100).toFixed(1)}%). The costs below stay on the approved version until Yawar approves this one.</div>`;
   }
-  if (seeC && prod) h += `<h2>Cost per ${prod.soldPer}, by pack (approved version)</h2><div class="box wrapx"><table><tr><th>Pack</th><th class="r">Materials</th><th class="r">Packing</th><th class="r">Conversion</th><th class="r">Freight</th><th class="r">Cost</th><th>Conversion rule</th></tr>${prod.packs.map(k => k.cost ? `<tr><td>${k.size} ${prod.soldPer}</td><td class="r num">${rs2(k.cost.materials)}</td><td class="r num">${rs2(k.cost.packing)}</td><td class="r num">${rs2(k.cost.conversion)}</td><td class="r num">${rs2(k.cost.freight)}</td><td class="r num"><b>${rs2(k.cost.total)}</b></td><td>${esc(k.cost.rule || 'none')}</td></tr>${billLines(k, prod)}` : `<tr><td>${k.size} ${prod.soldPer}</td><td colspan="6">Not costed: ${esc((k.costGaps && k.costGaps.length ? k.costGaps : ['no approved recipe']).join(', '))}</td></tr>`).join('')}</table></div>`;
-  h += `<h2>History</h2><div class="box wrapx"><table>${v.steps.slice().reverse().map(s => `<tr><td class="mono">${esc(when(s.at))}</td><td>${esc(s.action.replace('_', ' '))}</td><td>${esc(s.by_user)}</td><td>${esc(s.note || '')}</td></tr>`).join('')}</table></div>`;
+  if (seeC && prod && !o.product) h += `<h2>Cost per ${prod.soldPer}, by pack (approved version)</h2><div class="box wrapx"><table><tr><th>Pack</th><th class="r">Materials</th><th class="r">Packing</th><th class="r">Conversion</th><th class="r">Freight</th><th class="r">Cost</th><th>Conversion rule</th></tr>${prod.packs.map(k => k.cost ? `<tr><td>${k.size} ${prod.soldPer}</td><td class="r num">${rs2(k.cost.materials)}</td><td class="r num">${rs2(k.cost.packing)}</td><td class="r num">${rs2(k.cost.conversion)}</td><td class="r num">${rs2(k.cost.freight)}</td><td class="r num"><b>${rs2(k.cost.total)}</b></td><td>${esc(k.cost.rule || 'none')}</td></tr>${billLines(k, prod)}` : `<tr><td>${k.size} ${prod.soldPer}</td><td colspan="6">Not costed: ${esc((k.costGaps && k.costGaps.length ? k.costGaps : ['no approved recipe']).join(', '))}</td></tr>`).join('')}</table></div>`;
+  if (!o.product) h += `<h2>History</h2><div class="box wrapx"><table>${v.steps.slice().reverse().map(s => `<tr><td class="mono">${esc(when(s.at))}</td><td>${esc(s.action.replace('_', ' '))}</td><td>${esc(s.by_user)}</td><td>${esc(s.note || '')}</td></tr>`).join('')}</table></div>`;
   return h;
 }
 function billLines(k, prod) {
@@ -372,13 +407,13 @@ function billLines(k, prod) {
 }
 let ask = null;
 /** Inline reason box (replaces browser prompt boxes, UX review). */
-function askBox(label) { return `<div class="box form ask"><label for="askw">${esc(label)}<textarea id="askw"></textarea></label><div><button class="btn" data-askok>Confirm</button> <button class="btn ghost" data-askcancel>Cancel</button></div></div>`; }
+function askBox(label) { if (behind) return ''; return `<div class="box form ask"><label for="askw">${esc(label)}<textarea id="askw"></textarea></label><div><button class="btn" data-askok>Confirm</button> <button class="btn ghost" data-askcancel>Cancel</button></div></div>`; }
 function nutBox(N) {
   const rows = N.fields.map(n => `<tr><td>${esc(n.field)}</td><td class="r num">${n.pct != null ? n.pct.toFixed(2) + '%' : ''}${n.missing.length ? ` <span class="late">incomplete: ${esc(n.missing.join(', '))} has no ${esc(n.field)}</span>` : ''}</td></tr>`).join('');
   return `<div class="box wrapx"><table><tr><th>Field</th><th class="r">% in product</th></tr>${rows || '<tr><td colspan="2">No nutrient fields for these inputs</td></tr>'}
   ${N.carriers.length ? `<tr><td>Inputs that add no nutrients</td><td class="r num">${N.carrierKg.toFixed(4)} kg per kg</td></tr><tr><td colspan="2" class="ans">${N.carriers.map(c => `${esc(c.name)} (${esc(String(c.type || '').replace('Non-nutrient: ', ''))}) ${c.qty.toFixed(4)}`).join(' · ')}</td></tr>` : ''}
-  ${N.unclassified.length ? `<tr><td colspan="2"><span class="late">To classify on Materials: ${esc(N.unclassified.join(', '))}</span></td></tr>` : ''}</table></div>
-  <p class="ans">${N.complete ? 'Complete: every input is classed and every field entered.' : 'Not complete yet: Himayat classes the inputs and enters the values on Materials.'} Inputs that add no nutrients still count in the weight, so they dilute the %.</p>`;
+  ${N.unclassified.length ? `<tr><td colspan="2"><span class="late">To classify on Inputs, Materials: ${esc(N.unclassified.join(', '))}</span></td></tr>` : ''}</table></div>
+  <p class="ans">${N.complete ? 'Complete: every input is classed and every field entered.' : 'Not complete yet: Himayat classes the inputs and enters the values on Inputs, Materials.'} Inputs that add no nutrients still count in the weight, so they dilute the %.</p>`;
 }
 function linesEditor(v) {
   const mats = (ST.rates || []).slice().sort((a, b) => a.name.localeCompare(b.name));
@@ -386,19 +421,172 @@ function linesEditor(v) {
   <div><button class="btn ghost" data-el-add>Add a line</button> <button class="btn" data-el-save="${v.id}">Save lines</button> <button class="btn ghost" data-el-cancel>Cancel</button></div></div>`;
 }
 
-/* ---------- Rates ---------- */
-function vRates() {
-  const yw = ST.me.role === 'cfo';
-  const rates = (ST.rates || []).slice().sort((a, b) => a.name.localeCompare(b.name));
-  let h = `<h1>Rates: ${rates.length} materials and ${(ST.packingItems || []).length} packing items, latest purchase rate</h1>
-  <p class="ans">A rate is market information. Yawar saves it himself; no approval. C2M warns when a rate moves more than ${SET('rate_warn_pct')}% up or down. Products whose cost moves more than ${SET('reapprove_pct')}% come back for re-approval, in 1 item per cause.</p>
-  <div class="next"><span>${yw ? 'Click Try on a material, type the new rate and its source, check the effect, then save.' : 'Rates are Yawar\'s. You see each change and its effect.'}</span></div>`;
-  if (trial && yw) h += trialBox();
-  if (ptrial && yw) h += ptrialBox();
-  h += `<h2>Raw materials</h2><div class="box wrapx"><table><tr><th>Material</th><th class="r">Rate</th><th>Date</th><th>Source</th>${yw ? '<th></th>' : ''}</tr>${rates.map(r => `<tr><td>${esc(r.name)}</td><td class="r num">${rs2(r.rate)}</td><td class="mono">${esc(r.date || '')}</td><td>${esc(r.source || '')}</td>${yw ? `<td><button class="btn ghost" data-try="${r.gradeId}">Try</button></td>` : ''}</tr>`).join('')}</table></div>
-  <h2>Packing items, price per piece</h2><div class="box wrapx"><table><tr><th>Item</th><th class="r">Price per piece</th><th>Date</th><th>Source</th>${yw ? '<th></th>' : ''}</tr>${(ST.packingItems || []).map(i => `<tr><td>${esc(i.name)}</td><td class="r num">${rs2(i.price)}</td><td class="mono">${esc(i.date || '')}</td><td>${esc(i.source || '')}</td>${yw ? `<td><button class="btn ghost" data-ptry="${i.id}">Change</button></td>` : ''}</tr>`).join('')}</table></div>`;
-  return h;
+/* ---------- 0.8.0: work in a panel on Today (ruling 2, 18 Oct 2026) ---------- */
+function vPanel() {
+  const P = pan; let t = 'Item', b = '';
+  if (P.k === 'rec') { const v = (ST.recipes || []).find(x => x.id === P.id); t = v ? `${v.brand} for ${v.customer}, version ${v.version}` : 'Recipe'; b = vRecipe(v, { panel: true }) + (v && ST.me.nav.includes('products') ? `<p><button class="btn ghost" data-openprod="${v.clientProductId}">Open the product page</button></p>` : ''); }
+  else if (P.k === 'reapp') { const x = (ST.reapprovals || []).find(y => y.id === P.id); t = ST.me.role === 'cfo' ? 'Re-approve cost' : 'Waiting for Yawar\'s re-approval'; b = x ? reappBox(x) : '<p class="ans">Done: this re-approval item is closed.</p>'; }
+  else if (P.k === 'notcosted') { t = 'Packs not costed'; b = notCostedList(); }
+  else if (P.k === 'imports') { t = 'Items from your sheets'; b = boImport(false); }
+  else if (P.k === 'lrev') { t = 'VAN brand list revision'; b = revBox(true, P.id); }
+  else if (P.k === 'prop') { t = 'Price proposal'; b = propPanel(P.id); }
+  else if (P.k === 'tochange') { t = 'Client prices to change'; b = toChangeBody(); }
+  else if (P.k === 'actuals') { t = 'Monthly actuals and checks'; b = boActuals(true); }
+  else if (P.k === 'mats') { t = 'Materials to complete'; b = matTable(); }
+  else if (P.k === 'setreq') { t = 'Threshold change'; b = setReqBox(P.id); }
+  else if (P.k === 'treq') { t = 'Target change'; b = tReqBox(P.id); }
+  return `<div class="scrim" data-panclose></div><aside class="panel" role="dialog" aria-modal="true" aria-label="${esc(t)}"><div class="panel-h"><b tabindex="-1">${esc(t)}</b><button class="btn ghost" data-panclose>Close</button></div>${b}</aside>`;
 }
+/** Re-approval item: Yawar approves all, approves ticked, or closes it as wrong (D-10, D-19); Tahir reads it. */
+function reappBox(x) {
+  const lines = x.items.map(i => `${esc(i.label)}: ${i.first ? `no approved cost yet, first cost ${rs2(i.to)}` : `approved ${rs2(i.from)}, now ${rs2(i.to)} (${i.pct > 0 ? '+' : ''}${i.pct.toFixed(1)}%)`}`).join('<br>');
+  if (ST.me.role !== 'cfo') return `<div class="warnbox"><b>Read only:</b> ${esc(x.cause)}<br>${lines}</div>`;
+  return `<div class="warnbox"><b>Cause:</b> ${esc(x.cause)}<br>${lines}<div style="margin-top:6px"><button class="btn" data-reapp="${x.id}" data-confirm="Confirm: approve all ${x.items.length}">Approve all</button> <button class="btn ghost" data-reappsome="${x.id}">Approve ticked only</button> <button class="btn ghost" data-reappno="${x.id}">Close: the change was wrong</button></div><div class="cols" style="margin-top:6px">${x.items.map(i => `<label><input type="checkbox" data-rpi="${x.id}:${i.packId}" checked> ${esc(i.label)}</label>`).join('')}</div>${ask && ask.kind === 'reappno' && ask.id === x.id ? askBox('Why close this without new costs? (e.g. rate typed wrong; then save the right rate)') : ''}</div>`;
+}
+/** The packs Yawar's Today counts as not costed, each with what is missing (D-40). */
+function notCostedList() {
+  const rows = []; (ST.products || []).forEach(p => (p.packs || []).forEach(k => { if (k.costGaps && k.costGaps.length && (!k.costGaps.includes('no approved recipe') || p.grp === 'White label')) rows.push({ p, k }); }));
+  return `<p class="ans">A pack is costed only when every part of its cost is there (D-40). Until then no price can be proposed or checked for it.</p><div class="box wrapx"><table class="cards"><tr><th>Client pack</th><th>What is missing</th><th></th></tr>${rows.map(({ p, k }) => `<tr><td data-l="Client pack">${esc(p.brand)} ${k.size} ${p.soldPer} for ${esc(p.customer)}</td><td data-l="What is missing">${esc(k.costGaps.join(', '))}</td><td><button class="btn ghost" data-openprod="${p.id}" data-ptab="cost">Open the product</button></td></tr>`).join('') || '<tr><td colspan="3">Every pack is costed.</td></tr>'}</table></div>`;
+}
+/** 1 price proposal. Approve and send back are done only in the panel (ruling 2); elsewhere the card opens it. */
+function propCard(p, inPanel) {
+  const R = ST.me.role; const act = p.status === 'proposed' && R === 'coo' ? 'approve' : p.status === 'sent_back' && R === 'cfo' ? 'resend' : null;
+  return `<div class="job"><div><div class="t">${esc(packName(p.packId))}: ${p.prev != null ? 'Rs ' + p.prev + ' to ' : ''}Rs ${p.price}</div>${p.status === 'proposed' ? propNums(p) : ''}<div class="d">${p.status === 'proposed' ? 'Waiting for Tahir' : p.status === 'cancelled' ? 'Cancelled by a newer approval' : p.status === 'withdrawn' ? 'Withdrawn by Tahir before its date' : p.status === 'approved' ? 'Approved by ' + esc(p.decidedBy || '') + (p.from && String(p.from).slice(0, 10) > ST.today ? ', takes over on ' + fmtD(p.from) : '') : 'Sent back by Tahir: ' + esc(p.backReason || '')}. ${esc(p.reason || '')}${p.belowReason ? ' Below target: ' + esc(p.belowReason) : ''}</div></div>
+  ${!act ? '' : !inPanel ? `<div><button class="btn ghost" data-panprop="${p.id}">${act === 'approve' ? 'Open to approve' : 'Open to revise'}</button></div>` : act === 'approve' ? `<div><button class="btn" data-pok="${p.id}" data-confirm="Confirm: approve Rs ${p.price}">Approve</button> <button class="btn ghost" data-pback="${p.id}">Send back</button></div>` : `<div><button class="btn" data-presend="${p.id}">Revise and resend</button></div>`}</div>`;
+}
+function propBackForm() { return propose && propose.back && !behind ? `<div class="box form"><label for="pbr">Reason for sending back (required)<textarea id="pbr"></textarea></label><div><button class="btn warn" data-pbsend="${propose.back}">Send back to Yawar</button> <button class="btn ghost" data-pbcancel>Cancel</button></div></div>` : ''; }
+function propPanel(id) {
+  const p = (ST.proposals || []).find(x => x.id === id); if (!p) return '<p class="ans">This proposal is no longer listed.</p>';
+  return `<div class="box jobs">${propCard(p, true)}</div>${propBackForm()}${proposeForm()}`;
+}
+function toChangeTable(L) {
+  const R = ST.me.role;
+  return `<div class="box wrapx"><table><tr><th>Client pack</th><th class="r">Price now</th><th class="r">Cost</th><th class="r">GP</th><th class="r">Target</th><th class="r">Price for target</th><th class="r">Contribution floor</th><th class="r">Forward exposure</th><th>Why</th>${R === 'cfo' ? '<th></th>' : ''}</tr>${L.map(x => `<tr><td>${esc(x.cust)} · ${esc(x.prod)}</td><td class="r num">${x.price.toFixed(2)}</td><td class="r num">${x.c.toFixed(2)}</td><td class="r num ${x.gp < (x.target || 0) ? 'over' : ''}">${pc(x.gp)}</td><td class="r num">${pc(x.target)}</td><td class="r num">${x.tp ? x.tp.toFixed(2) : 'n/a'}</td><td class="r num ${x.floor != null && x.price < x.floor ? 'over' : ''}">${x.floor != null ? x.floor.toFixed(2) : 'n/a'}</td><td class="r num">${rs(x.fwd)}</td><td>${x.why.join(', ')}</td>${R === 'cfo' ? `<td>${x.k && x.k.waitingProposal ? '<span class="pill p-amber">with Tahir</span>' : `<button class="btn ghost" data-propose="${x.id}">Propose</button>`}</td>` : ''}</tr>`).join('') || '<tr><td>None in this group.</td></tr>'}</table></div>`;
+}
+function toChangeBody() { return `${proposeForm()}${basisChips()}${toChangeTable(toChange())}<p class="ans">Contribution floor = materials + packing + freight + labour per kg (ruled 16 Oct): the lowest price that still adds to FOH recovery.</p>`; }
+function setReqBox(id) {
+  const open = (ST.settingRequests || []).filter(r => r.status === 'open' && (id == null || r.id === id));
+  return open.length ? open.map(r => `<div class="warnbox"><b>${esc(r.summary)}</b><br>Proposed by ${esc(r.by_user)}. ${ST.me.role === 'coo' ? `<div style="margin-top:6px"><button class="btn" data-setok="${r.id}" data-confirm="Confirm: approve">Approve</button> <button class="btn ghost" data-setno="${r.id}">Refuse</button></div>` : 'Waiting for Tahir.'}</div>`).join('') : '<p class="ans">No threshold change is waiting.</p>';
+}
+function tReqBox(id) {
+  const open = (ST.targetRequests || []).filter(r => r.status === 'open' && (id == null || r.id === id));
+  return `<div class="box jobs">${open.length ? open.map(r => `<div class="job"><div><div class="t">${esc(r.brand)} for ${esc(r.customer)}: ${r.from_gp == null ? 'none' : r.from_gp + '%'} to ${r.to_gp}%</div><div class="d">${esc(r.reason)}. Asked by ${esc(r.by_user || 'Yawar')}.</div></div>${ST.me.role === 'coo' ? `<div><button class="btn" data-tok="${r.id}" data-confirm="Confirm: approve ${r.to_gp}%">Approve</button> <button class="btn ghost" data-tno="${r.id}">Refuse</button></div>` : ''}</div>`).join('') : '<div class="job"><div><div class="t">No target change is waiting.</div></div></div>'}</div>`;
+}
+
+/* ---------- 0.8.0: Products, 1 page per client product (ruling 3) ---------- */
+const RANKS = { 'p-red': 0, 'p-amber': 1, 'p-none': 2, 'p-green': 3 };
+function recState(p) {
+  if (!p.recipeState) return ['p-none', 'no recipe in C2M'];
+  if (STEP_ROLE[p.recipeState]) return ['p-amber', `${p.approvedVersionId ? 'new version: ' : ''}${stepTxt(p.recipeState)}`];
+  return p.approvedVersionId ? ['p-green', 'approved'] : ['p-none', stepTxt(p.recipeState)];
+}
+/** Each pack's state in its own words; GP on cost today (ruling 2). */
+function packState(p, k) {
+  if (!k.cost) return ['p-none', 'not costed'];
+  if (p.channel === 'VAN brand') return ['p-none', 'priced in the VAN brand lists'];
+  if (k.price == null) return ['p-amber', 'no price'];
+  const gp = (k.price - k.cost.total) / k.price * 100;
+  if (gp < 0) return ['p-red', 'below cost'];
+  if (p.target == null) return ['p-none', 'no target'];
+  return gp < p.target - 0.05 ? ['p-amber', 'below target'] : ['p-green', 'on target'];
+}
+const prodState = p => p.packs.length ? p.packs.map(k => packState(p, k)).sort((a, b) => RANKS[a[0]] - RANKS[b[0]])[0] : ['p-none', 'no pack'];
+function vProducts() {
+  const P = (ST.products || []).find(x => x.id === openProd); if (openProd && P) return vProduct(P); openProd = null;
+  const R = ST.me.role; const all = (ST.products || []).slice().sort((a, b) => a.customer.localeCompare(b.customer) || a.brand.localeCompare(b.brand));
+  const F = { all: () => true, wl: p => p.grp === 'White label', van: p => p.channel === 'VAN brand', progress: p => !!STEP_ROLE[p.recipeState], notcosted: p => p.packs.some(k => !k.cost), below: p => p.packs.some(k => ['below cost', 'below target'].includes(packState(p, k)[1])) };
+  const L = { all: 'All', wl: 'White label', van: 'VAN brand', progress: 'Recipe in progress', notcosted: 'Not costed', below: 'Below cost or target' };
+  const q = prodQ.trim().toLowerCase(); const list = all.filter(F[prodF] || F.all).filter(p => !q || `${p.brand} ${p.customer}`.toLowerCase().includes(q));
+  const nc = all.filter(F.notcosted).length, bl = all.filter(F.below).length, ip = all.filter(F.progress).length;
+  return `${head('Products', `${all.length} client products. ${pl(bl, 'is', 'are')} below cost or target, ${nc} not costed, ${ip} with a recipe in progress.`, 'Each client product has 1 page: its recipe and every version, its cost by pack, its price, and its history. A white label product belongs to 1 client; a VAN brand product is 1 pack sold in every channel (D-44). Click a row to open its page.')}
+  <div class="next"><span>Start with the products below cost or target, then the ones not costed.</span>${['production', 'cfo', 'coo'].includes(R) ? '<button class="btn ghost" data-newrec>Write a new recipe version</button>' : ''}</div>${newRecForm()}
+  <div class="chips">${Object.keys(F).map(k => `<button data-pf="${k}" aria-pressed="${prodF === k}">${L[k]} (${all.filter(F[k]).length})</button>`).join('')}</div>
+  <div class="find"><label for="pq" class="ans" style="margin:0">Find a product or client</label><input id="pq" value="${esc(prodQ)}" placeholder="brand or client"><span class="ans" style="margin:0">${list.length} of ${all.length} shown</span></div>
+  <div class="box wrapx"><table class="cards"><tr><th>Product</th><th>Client</th><th>Recipe</th><th>Packs, cost today per kg or L</th><th>State</th></tr>${list.map(p => { const rs_ = recState(p), st = prodState(p); return `<tr class="go" tabindex="0" data-openprod="${p.id}" aria-label="Open ${esc(p.brand)} for ${esc(p.customer)}"><td data-l="Product"><b>${esc(p.brand)}</b></td><td data-l="Client">${esc(p.customer)}</td><td data-l="Recipe"><span class="pill ${rs_[0]}">${esc(rs_[1])}</span></td><td data-l="Packs" class="num">${p.packs.map(k => `${k.size} ${p.soldPer}: ${k.cost ? k.cost.total.toFixed(2) : 'not costed'}`).join('<br>') || 'no pack'}</td><td data-l="State"><span class="pill ${st[0]}">${esc(st[1])}</span></td></tr>`; }).join('') || '<tr><td colspan="5">No product matches.</td></tr>'}</table></div>`;
+}
+function vProduct(p) {
+  const R = ST.me.role, yw = R === 'cfo';
+  const vers = (ST.recipes || []).filter(v => v.clientProductId === p.id).sort((a, b) => b.version - a.version);
+  const inProg = vers.find(v => STEP_ROLE[v.state]), appr = vers.find(v => v.state === 'approved');
+  const sel = vers.find(v => v.id === recSel) || inProg || appr || vers[0];
+  const k0 = p.packs.find(k => k.cost && k.price != null) || p.packs.find(k => k.cost) || p.packs[0];
+  let ans;
+  if (!appr) ans = `No approved recipe yet${inProg ? `: version ${inProg.version} is with ${ROLE_NAME[STEP_ROLE[inProg.state]]}` : ''}.`;
+  else if (!k0 || !k0.cost) ans = `Not costed: ${esc(((k0 && k0.costGaps) || ['no pack']).join(', '))}.`;
+  else { const gp = k0.price != null ? (k0.price - k0.cost.total) / k0.price * 100 : null; ans = `Cost ${rs2(k0.cost.total)} per ${p.soldPer} on the ${k0.size} ${p.soldPer} pack; ${p.channel === 'VAN brand' ? 'priced in the VAN brand lists' : `price ${k0.price != null ? rs2(k0.price) : 'none'}; GP ${pc(gp)} against ${pc(p.target)} target`}.`; }
+  const T = [['recipe', 'Recipe'], ['cost', 'Cost by pack'], ['price', 'Price'], ['history', 'History']];
+  if (!T.some(x => x[0] === ptab)) ptab = 'recipe';
+  let b = '';
+  if (ptab === 'recipe') {
+    b = vers.length ? `<div class="chips" aria-label="Versions">${vers.map(v => `<button data-recver="${v.id}" aria-pressed="${v.id === sel.id}">Version ${v.version} · ${esc(stepTxt(v.state))}</button>`).join('')}</div>${vRecipe(sel, { product: true })}` : '<p class="ans">No recipe in C2M yet. Majid writes the first version.</p>';
+  } else if (ptab === 'cost') {
+    const bills = ST.packingBills || [];
+    b = `${yw ? `<div class="row" style="margin:0 0 10px"><label for="ptype-${p.id}">Product type<select id="ptype-${p.id}" data-ptype="${p.id}"><option value="">None</option>${(ST.productTypes || []).map(t => `<option value="${t.id}" ${t.id === p.typeId ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}<option value="__new">New type...</option></select></label><label style="display:flex;gap:6px;align-items:center"><input type="checkbox" data-reproc="${p.id}" ${p.reprocessed ? 'checked' : ''}> Reprocessed</label></div>${ask && ask.kind === 'ptype' ? askBox('Name of the new product type (e.g. Granulation Line)') : ''}` : `<p class="ans">Product type: ${esc(((ST.productTypes || []).find(t => t.id === p.typeId) || {}).name || 'none')} · ${p.reprocessed ? 'reprocessed' : 'not reprocessed'} · packing: ${esc(p.packingMode)}</p>`}
+    <div class="box wrapx"><table><tr><th>Pack</th><th class="r">Materials</th><th class="r">Packing</th><th class="r">Conversion</th><th class="r">Freight</th><th class="r">Cost today</th><th class="r">Approved cost</th><th>Conversion rule</th></tr>${p.packs.map(k => k.cost ? `<tr><td>${k.size} ${p.soldPer}</td><td class="r num">${rs2(k.cost.materials)}</td><td class="r num">${rs2(k.cost.packing)}</td><td class="r num">${rs2(k.cost.conversion)}</td><td class="r num">${rs2(k.cost.freight)}</td><td class="r num"><b>${rs2(k.cost.total)}</b></td><td class="r num">${rs2(k.approvedCost)}</td><td>${esc(k.cost.rule || 'none')}</td></tr>${billLines(k, p)}` : `<tr><td>${k.size} ${p.soldPer}</td><td colspan="7">Not costed: ${esc((k.costGaps && k.costGaps.length ? k.costGaps : ['no approved recipe']).join(', '))}</td></tr>${billLines(k, p)}`).join('') || '<tr><td colspan="8">No pack.</td></tr>'}</table></div>
+    ${yw ? `<h2>Packing bill of each pack</h2><div class="box wrapx"><table><tr><th>Pack</th><th>Packing bill</th></tr>${p.packs.map(k => `<tr><td>${k.size} ${p.soldPer}</td><td><select data-assign="${k.id}" aria-label="Packing bill for ${k.size} ${p.soldPer}"><option value="">None</option>${bills.map(x => `<option value="${x.id}" ${x.id === k.billId ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select></td></tr>`).join('')}</table></div><p class="ans">Packing bills and their items are kept on Inputs.</p>` : ''}
+    ${p.packs.some(k => k.sheet && k.cost) ? `<h2>Yawar's sheet of 13 Oct against C2M</h2><div class="box wrapx"><table><tr><th>Pack</th><th class="r">Sheet</th><th class="r">C2M today</th><th class="r">Gap</th></tr>${p.packs.filter(k => k.sheet && k.cost).map(k => { const d = k.cost.total - k.sheet.total; return `<tr><td>${k.size} ${p.soldPer}</td><td class="r num">${rs2(k.sheet.total)}</td><td class="r num">${rs2(k.cost.total)}</td><td class="r num ${Math.abs(d / k.sheet.total) > 0.03 ? 'over' : ''}">${d >= 0 ? '+' : ''}${d.toFixed(2)}</td></tr>`; }).join('')}</table></div>` : ''}`;
+  } else if (ptab === 'price') {
+    const ids = p.packs.map(k => k.id);
+    if (p.channel === 'VAN brand') b = '<p class="ans">A VAN brand pack is 1 product sold in every channel; its prices are set per channel through the VAN brand list revisions (Prices, VAN brand lists), not per pack (D-44).</p>';
+    else b = `<div class="box wrapx"><table><tr><th>Pack</th><th class="r">Price now</th><th>From</th><th class="r">Previous</th><th class="r">Cost today</th><th class="r">Approved cost</th><th class="r">Floor</th><th class="r">GP</th><th class="r">Target</th><th class="r">Price for target</th><th class="r">Gap to target, Rs per ${p.soldPer}</th><th>State</th>${yw ? '<th></th>' : ''}</tr>${p.packs.map(k => { const c = k.cost ? k.cost.total : null; const gp = c != null && k.price != null ? (k.price - c) / k.price * 100 : null; const tp = c != null && p.target != null ? c / (1 - p.target / 100) : null; const st = packState(p, k);
+      return `<tr><td>${k.size} ${p.soldPer}</td><td class="r num">${k.price != null ? k.price.toFixed(2) : 'none'}</td><td>${k.priceSource === 'approved' ? esc(fmtD(k.priceFrom)) : k.priceSource === 'O2S PO' ? 'last O2S PO' : ''}</td><td class="r num">${k.prevPrice != null ? k.prevPrice.toFixed(2) : ''}</td><td class="r num">${c != null ? c.toFixed(2) : 'n/a'}</td><td class="r num">${k.approvedCost != null ? k.approvedCost.toFixed(2) : 'n/a'}</td><td class="r num">${k.floor != null ? k.floor.toFixed(2) : 'n/a'}</td><td class="r num ${gp != null && p.target != null && gp < p.target ? 'over' : ''}">${pc(gp)}</td><td class="r num">${pc(p.target)}</td><td class="r num">${tp != null ? tp.toFixed(2) : 'n/a'}</td><td class="r num">${tp != null && k.price != null ? Math.max(tp - k.price, 0).toFixed(2) : 'n/a'}</td><td><span class="pill ${st[0]}">${esc(st[1])}</span></td>${yw ? `<td>${!k.cost ? '' : k.waitingProposal ? '<span class="pill p-amber">with Tahir</span>' : `<button class="btn ghost" data-propose="${k.id}">Propose</button>`}</td>` : ''}</tr>`; }).join('')}</table></div>
+      <p class="ans">GP and price for target are on cost today (ruling 2). Price for target = cost today / (1 - target GP). Floor = materials + packing + freight + labour.</p>
+      ${propose && !propose.back && ids.includes(propose.packId) ? proposeForm() : ''}
+      ${p.packs.filter(k => k.nextPrice).map(k => `<div class="next"><span>${k.size} ${p.soldPer}: Rs ${k.nextPrice.price} approved from ${fmtD(k.nextPrice.from)}; today's price stays until then.</span></div>`).join('')}
+      <h2>Proposals for this product</h2><div class="box jobs">${(ST.proposals || []).filter(x => ids.includes(x.packId) && x.status !== 'replaced').slice().reverse().map(x => propCard(x, false)).join('') || '<div class="job"><div><div class="t">No proposal yet.</div></div></div>'}</div>`;
+  } else {
+    const steps = vers.flatMap(v => (v.steps || []).map(s => ({ ...s, version: v.version }))).sort((a, b) => String(b.at).localeCompare(String(a.at)));
+    const ids = p.packs.map(k => k.id); const tr = (ST.sales || []).filter(s => ids.includes(s.packId)).slice().sort((a, b) => a.date < b.date ? 1 : -1).slice(0, 15);
+    b = `<h2>Recipe steps, every version</h2><div class="box wrapx"><table><tr><th>When</th><th>Version</th><th>Step</th><th>Who</th><th>Note</th></tr>${steps.map(s => `<tr><td class="mono">${esc(when(s.at))}</td><td>${s.version}</td><td>${esc(String(s.action).replace('_', ' '))}</td><td>${esc(s.by_user)}</td><td>${esc(s.note || '')}</td></tr>`).join('') || '<tr><td colspan="5">No recipe yet.</td></tr>'}</table></div>
+    ${ST.sales ? `<h2>Last trucks out</h2><div class="box wrapx"><table><tr><th>Date</th><th>PO</th><th>Buyer</th><th>Pack</th><th class="r">Kg or L</th><th class="r">PO price</th><th class="r">Cost on date</th><th class="r">GP</th></tr>${tr.map(r => `<tr><td class="mono">${r.date}</td><td class="mono">${esc(r.po)}</td><td>${esc(r.cust)}${r.ch && p.channel === 'VAN brand' ? ' <span class="ans">' + esc(r.ch) + '</span>' : ''}</td><td>${r.pack}</td><td class="r num">${r.kg.toLocaleString()}</td><td class="r num">${r.price.toFixed(2)}</td><td class="r num">${r.cost != null ? r.cost.toFixed(2) : 'n/a'}</td><td class="r num">${r.cost != null && r.price ? pc((r.price - r.cost) / r.price * 100) : 'n/a'}</td></tr>`).join('') || '<tr><td colspan="8">No truck yet.</td></tr>'}</table></div>` : ''}
+    ${ST.proposals ? `<h2>Price proposals</h2><div class="box jobs">${(ST.proposals || []).filter(x => ids.includes(x.packId) && x.status !== 'replaced').slice().reverse().map(x => propCard(x, false)).join('') || '<div class="job"><div><div class="t">No proposal yet.</div></div></div>'}</div>` : ''}`;
+  }
+  return `<p class="crumb"><button data-prodback>All products</button> › ${esc(p.customer)} › ${esc(p.brand)}</p>${head('Product', `${esc(p.brand)} for ${esc(p.customer)}: ${ans.charAt(0).toLowerCase() + ans.slice(1)}`)}
+  ${inProg ? `<div class="steps">${['draft', 'review', 'endorse', 'cost', 'approved'].map((s, i, o) => `<span class="${i < o.indexOf(inProg.state) ? 'done' : s === inProg.state ? 'now' : ''}">${STEP[s]}</span>`).join('')}</div>` : ''}
+  ${['production', 'cfo', 'coo'].includes(R) ? `<div class="next"><span>${p.grp === 'White label' ? 'White label' : 'VAN brand'} · ${esc(p.spec || '')} · sold per ${p.soldPer}</span><button class="btn ghost" data-newrec="${p.id}">Write a new recipe version</button></div>${newRecForm()}` : ''}
+  <nav class="subnav" aria-label="Product page">${T.map(([k, l]) => `<button data-ptab="${k}" aria-current="${ptab === k}">${l}</button>`).join('')}</nav>${b}`;
+}
+
+/* ---------- 0.8.0: Inputs, 1 materials table for Himayat and Yawar (ruling 4) ---------- */
+function vInputs() {
+  const R = ST.me.role, seeR = !!ST.rates, yw = R === 'cfo';
+  const subs = seeR ? [['materials', 'Materials'], ['packing', 'Packing items'], ['bills', 'Packing bills']] : [['materials', 'Materials']];
+  if (!subs.some(x => x[0] === inp)) inp = 'materials';
+  const M = ST.materials || []; const todo = M.filter(m => matState(m)[0] === 'p-amber').length;
+  const ans = seeR ? `${M.length} materials and ${(ST.packingItems || []).length} packing items. ${todo ? pl(todo, 'material needs', 'materials need') + ' a class or nutrient %.' : 'Every material is classed and entered.'}` : todo ? `${pl(todo, 'material needs', 'materials need')} you.` : 'Every material is classed and entered.';
+  const h = `Himayat classes each material and enters its nutrient %; Yawar keeps its rate, the latest purchase rate with its source. A rate is market information: Yawar saves it himself, with no approval. C2M warns when a rate moves more than ${SET('rate_warn_pct')}% up or down, and products whose cost moves more than ${SET('reapprove_pct')}% come back for re-approval, in 1 item per cause. A material is a nutrient source or adds no nutrients: a nutrient source asks for the fields of its class (KOH asks K%); binders, fillers, anti-caking agents, wetting agents, colours and pH adjusters add no nutrients, count in the recipe's weight and cost, and add 0 to its analysis. Packing items are priced per piece; a packing bill calls items per pack: per kg = price per piece / pack size; a secondary item (a carton of 2 packs) adds price / (packs x pack size).`;
+  let b = '';
+  if (inp === 'materials') b = `${trial && yw ? trialBox() : ''}${matTable()}${yw ? `<div class="box form" style="margin-top:10px"><b>Add a material or a new grade</b><div class="row"><label for="mtn">Name<input id="mtn"></label><label for="mtt">Class<select id="mtt">${(ST.materialTypes || []).map(t => `<option value="${t.id}">${esc(t.name)}</option>`).join('')}</select></label><label for="mtu">Unit<select id="mtu"><option>kg</option><option>L</option></select></label><label for="mtg">Grade<input id="mtg" value="Standard"></label><label for="mtr">Rate, Rs<input id="mtr" type="number" step="0.01"></label><label for="mts">Source<input id="mts" placeholder="PO or quote"></label><button class="btn" data-mtsave>Add</button></div></div>` : ''}`;
+  else if (inp === 'packing') b = `${ptrial && yw ? ptrialBox() : ''}<div class="box wrapx"><table><tr><th>Item</th><th>Kind</th><th class="r">Price per piece</th><th>Date</th><th>Source</th>${yw ? '<th></th>' : ''}</tr>${(ST.packingItems || []).map(i => `<tr><td>${esc(i.name)}</td><td>${esc(i.kind || '')}</td><td class="r num">${rs2(i.price)}</td><td class="mono">${esc(i.date || '')}</td><td>${esc(i.source || '')}</td>${yw ? `<td><button class="btn ghost" data-ptry="${i.id}">Change</button></td>` : ''}</tr>`).join('') || '<tr><td colspan="6">No packing item yet.</td></tr>'}</table></div>
+    ${yw ? `<div class="box form" style="margin-top:10px"><b>Add a packing item</b><div class="row"><label for="pin">Name<input id="pin"></label><label for="pik">Kind<input id="pik" placeholder="bag, label, carton"></label><label for="pip">Price per piece, Rs<input id="pip" type="number"></label><label for="pis">Source<input id="pis"></label><button class="btn" data-pinew>Add</button></div></div>` : ''}`;
+  else b = `${billEdit ? billEditor() : ''}${yw ? '<div class="next"><span>A bill is given to a pack on the product page, Cost by pack.</span><button class="btn ghost" data-billnew>New packing bill</button></div>' : ''}<div class="box wrapx"><table><tr><th>Bill</th><th>Lines</th><th>Used by</th>${yw ? '<th></th>' : ''}</tr>${(ST.packingBills || []).map(x => { const used = []; (ST.products || []).forEach(p => p.packs.forEach(k => { if (k.billId === x.id) used.push(`${p.brand} ${k.size} ${p.soldPer}`); })); return `<tr><td>${esc(x.name)}</td><td>${x.lines.map(l => `${l.level === 'secondary' ? 'Secondary: ' : ''}${esc(l.item)} x ${l.pieces}${l.level === 'secondary' ? ' per ' + l.packsPerOuter + ' packs' : ''} (${rs2(l.price)})`).join('<br>')}</td><td>${used.length ? esc(used.slice(0, 4).join(', ')) + (used.length > 4 ? ` and ${used.length - 4} more` : '') : '<span class="ans">no pack</span>'}</td>${yw ? `<td><button class="btn ghost" data-billedit="${x.id}">Edit</button></td>` : ''}</tr>`; }).join('') || '<tr><td colspan="4">No packing bill yet.</td></tr>'}</table></div>`;
+  return `${head('Inputs', ans, h)}${subs.length > 1 ? `<nav class="subnav" aria-label="Inputs">${subs.map(([k, l]) => `<button data-inp="${k}" aria-current="${inp === k}">${l}</button>`).join('')}</nav>` : ''}${b}`;
+}
+/** 1 materials table: class and nutrient % (Himayat and Yawar edit), and for Yawar and Tahir the rate, its date and source. */
+function matTable() {
+  const R = ST.me.role; const ed = ['qc', 'cfo'].includes(R); const yw = R === 'cfo';
+  const M = (ST.materials || []).slice().sort((a, b) => a.name.localeCompare(b.name)); const rate = new Map((ST.rates || []).map(r => [r.gradeId, r])); const seeR = !!ST.rates;
+  const todo = M.filter(m => matState(m)[0] === 'p-amber'); const used = new Set((ST.recipes || []).filter(v => v.state !== 'old').flatMap(v => v.lines.map(l => l.gradeId)));
+  const q = matQ.trim().toLowerCase();
+  const list = (matFilter === 'todo' ? todo : matFilter === 'none' ? M.filter(m => m.role === 'none') : M).filter(m => !q || m.name.toLowerCase().includes(q));
+  return `<div class="chips">${[['todo', `To do (${todo.length})`], ['none', 'Adds no nutrients'], ['all', `All (${M.length})`]].map(([k, l]) => `<button data-matf="${k}" aria-pressed="${matFilter === k}">${l}</button>`).join('')}</div>
+  <div class="find"><label for="mq" class="ans" style="margin:0">Find a material</label><input id="mq" value="${esc(matQ)}"><span class="ans" style="margin:0">${list.length} shown</span></div>
+  <div class="box wrapx"><table class="cards"><tr><th>Material</th><th>Class</th><th>Values, % in the material</th><th>State</th>${seeR ? '<th class="r">Rate, Rs</th><th>Date and source</th>' : ''}${yw ? '<th></th>' : ''}</tr>${list.map(m => { const st = matState(m); const pend = matPend[m.materialId]; const r = rate.get(m.gradeId) || {}; return `<tr><td data-l="Material"><b>${esc(m.name)}</b> <span class="ans">${esc(m.grade)}${used.has(m.gradeId) ? ' · in a recipe' : ''}</span></td>
+  <td data-l="Class">${ed ? `${classSelect(m, pend)}${pend && pend !== m.typeId ? ` <button class="btn" data-mclassok="${m.materialId}">Save class</button> <button class="btn ghost" data-mclassno="${m.materialId}">Cancel</button>${m.role === 'nutrient' && Object.keys(m.nutrients || {}).length && (ST.materialTypes.find(t => t.id === pend) || {}).nutrient_role !== 'nutrient' ? '<br><span class="late">Saving clears its nutrient values (kept in the change record).</span>' : ''}` : ''}` : esc(m.type || '')}</td>
+  <td data-l="Values, % in the material">${m.role !== 'nutrient' ? '<span class="ans">none asked</span>' : nutEdit === m.gradeId && !behind ? m.fields.map(f => `<label style="display:inline-flex;gap:4px;align-items:center">${esc(f)}<input id="nut-${esc(f)}" type="number" step="0.01" min="0" max="100" style="width:72px" value="${(m.nutrients || {})[f] ?? ''}"></label>`).join(' ') + ` <label style="display:inline-flex;gap:4px;align-items:center"><input type="checkbox" id="nut0"> Blank fields are 0 (tick only if the certificate shows none)</label> <button class="btn" data-nutsave="${m.gradeId}">Save</button> <button class="btn ghost" data-nutcancel>Cancel</button>` : `${m.fields.map(f => `${esc(f)} ${(m.nutrients || {})[f] ?? '<span class="late">?</span>'}`).join(', ')}${ed ? ` <button class="btn ghost" data-nut="${m.gradeId}">Enter %</button>` : ''}`}</td>
+  <td data-l="State"><span class="pill ${st[0]}">${esc(st[1])}</span></td>${seeR ? `<td data-l="Rate, Rs" class="r num">${r.rate != null ? rs2(r.rate) : '<span class="late">no rate</span>'}</td><td data-l="Date and source"><span class="mono">${esc(r.date || '')}</span> ${esc(r.source || '')}</td>` : ''}${yw ? `<td><button class="btn ghost" data-try="${m.gradeId}" aria-label="Try a new rate for ${esc(m.name)}">Try rate</button></td>` : ''}</tr>`; }).join('') || `<tr><td colspan="${seeR ? 7 : 4}">Nothing here.</td></tr>`}</table></div>`;
+}
+
+/* ---------- 0.8.0: Setup, what drives C2M; work moved to Today (ruling 5) ---------- */
+const SETUP = [['customers', 'Customers'], ['o2s', 'From O2S'], ['sheets', "From Yawar's sheets"], ['settings', 'Settings and targets'], ['access', 'People and list access'], ['checks', 'Monthly checks record'], ['audit', 'Change record'], ['docs', 'System documentation']];
+function vSetup() {
+  if (!SETUP.some(x => x[0] === setup)) setup = 'customers';
+  const B = { customers: boCust, o2s: boLinks, sheets: () => boImport(true) + '<h2>Yawar\'s sheet of 13 Oct against C2M</h2>' + boSheet(), settings: () => boSettings() + boRules(), access: boAccess, checks: () => (['cfo', 'coo'].includes(ST.me.role) ? `<div class="next"><span>${ST.me.role === 'cfo' ? 'Enter or correct actual labour and FOH, or tie a month to the books' : 'Mark the rate check'} in its panel.</span><button class="btn ghost" data-panact>Enter or correct a month</button></div>` : '') + boActuals(false), audit: boAudit, docs: boDocs };
+  return `${head('Setup', 'Everything that drives C2M, in 1 place. Every change is dated and logged.', 'Yawar and Tahir change these. Threshold changes and client target changes wait for Tahir\'s approval on his Today. Work (approvals, the items from Yawar\'s sheets, monthly entries) is done on Today; this screen keeps the setup and the record.')}
+  <nav class="subnav" aria-label="Setup sections">${SETUP.map(([k, l]) => `<button data-setup="${k}" aria-current="${k === setup}">${l}</button>`).join('')}</nav><div>${B[setup]()}</div>`;
+}
+
+/* ---------- Rate and packing price trials (Inputs) ---------- */
 function trialBox() {
   const g = (ST.rates || []).find(r => r.gradeId === trial.gradeId); const T = trial.res || { warning: {}, impact: [] };
   const w = T.warning || {};
@@ -429,15 +617,18 @@ function toChange() {
 }
 function vPrices() {
   const s = sub || 'change'; const R = ST.me.role;
-  const tabs = `<div class="chips">${[['change', 'Prices to change'], ['client', 'Client price view'], ['proposals', 'Proposals']].map(([k, l]) => `<button data-sub="${k}" aria-pressed="${s === k}">${l}</button>`).join('')}</div>`;
+  const nW = (ST.proposals || []).filter(p => p.status === 'proposed').length;
+  const tabs = `<nav class="subnav" aria-label="Prices">${[['change', 'To change'], ['proposals', `Proposals (${nW} with Tahir)`], ['client', 'By customer'], ['lists', 'Price lists'], ['vanlists', 'VAN brand lists']].map(([k, l]) => `<button data-sub="${k}" aria-current="${s === k}">${l}</button>`).join('')}</nav>`;
+  if (s === 'lists') return head('Prices', 'Price lists: build, check and send.', '1 builder for every audience. Pick who it is for, pick the fields, check the document, then create the PDF. Cost and margin can never be printed. C2M numbers each document (VAN/PL/year/number) and keeps the rows exactly as issued.') + tabs + vListsBuilder();
+  if (s === 'vanlists') { const w = (ST.listRevisions || []).filter(r => r.status === 'proposed').length; return head('Prices', `VAN brand lists: ${pl(w, 'revision waits', 'revisions wait')} for Tahir.`, 'Yawar proposes new list prices with a reason and dates; Tahir approves or sends back on his Today. A revision dated today changes the list on approval; one dated ahead waits for its date (a PDF dated on or after it already shows the new prices).') + tabs + revBox(false); }
   if (s === 'change') {
     const ALL = toChange(); const G = { cost: ALL.filter(x => x.why.includes('below cost')), target: ALL.filter(x => x.why.includes('below target')), due: ALL.filter(x => x.why.length === 1 && x.why[0] === 'revision due') };
     const L = G[pgrp] || G.cost;
-    return `<h1>${pl(ALL.length, 'client price needs', 'client prices need')} changing</h1><p class="ans">Flagged when below cost, below target GP on today's cost, below contribution, or due for revision. Sorted by forward exposure.</p>
-    <div class="next"><span>${R === 'cfo' ? 'Propose a new price on the top line. Tahir approves it.' : `Yawar proposes from this list. Your approvals are under Proposals (${(ST.proposals || []).filter(p => p.status === 'proposed').length} waiting).`}</span></div>${tabs}
+    return `${head('Prices', `${pl(ALL.length, 'client price needs', 'client prices need')} changing.`, 'Flagged when below cost, below target GP on today\'s cost, below contribution, or due for revision. Sorted by forward exposure. Yawar proposes; Tahir approves on his Today.')}
+    <div class="next"><span>${R === 'cfo' ? 'Propose a new price on the top line. Tahir approves it.' : `Yawar proposes from this list. Your approvals open on Today (${nW} waiting).`}</span></div>${tabs}
     <div class="chips">${[['cost', 'Below cost'], ['target', 'Below target'], ['due', 'Revision due only']].map(([k, l]) => `<button data-pgrp="${k}" aria-pressed="${pgrp === k}">${l} (${G[k].length})</button>`).join('')}</div>
     ${proposeForm()}${basisChips()}${waitingPrices()}
-    <div class="box wrapx"><table><tr><th>Client pack</th><th class="r">Price now</th><th class="r">Cost</th><th class="r">GP</th><th class="r">Target</th><th class="r">Price for target</th><th class="r">Contribution floor</th><th class="r">Forward exposure</th><th>Why</th>${R === 'cfo' ? '<th></th>' : ''}</tr>${L.map(x => `<tr><td>${esc(x.cust)} · ${esc(x.prod)}</td><td class="r num">${x.price.toFixed(2)}</td><td class="r num">${x.c.toFixed(2)}</td><td class="r num ${x.gp < (x.target || 0) ? 'over' : ''}">${pc(x.gp)}</td><td class="r num">${pc(x.target)}</td><td class="r num">${x.tp ? x.tp.toFixed(2) : 'n/a'}</td><td class="r num ${x.floor != null && x.price < x.floor ? 'over' : ''}">${x.floor != null ? x.floor.toFixed(2) : 'n/a'}</td><td class="r num">${rs(x.fwd)}</td><td>${x.why.join(', ')}</td>${R === 'cfo' ? `<td>${x.k && x.k.waitingProposal ? '<span class="pill p-amber">with Tahir</span>' : `<button class="btn ghost" data-propose="${x.id}">Propose</button>`}</td>` : ''}</tr>`).join('') || '<tr><td>None in this group.</td></tr>'}</table></div>
+    ${toChangeTable(L)}
     <p class="ans">Contribution floor = materials + packing + freight + labour per kg (ruled 16 Oct): the lowest price that still adds to FOH recovery.</p>`;
   }
   if (s === 'client') {
@@ -449,18 +640,16 @@ function vPrices() {
       if (k.cost && act != null) { tot += act * kg; costT += k.cost.total * kg; }
       rows.push({ name: `${p.brand} ${k.size} ${p.soldPer}`, cur: k.price, prev: k.prevPrice, hi: prices.length ? Math.max(...prices) : null, lo: prices.length ? Math.min(...prices) : null, act, cost: k.cost ? k.cost.total : null, target: p.target });
     }));
-    return `<h1>${esc(priceCust)}: price view, ${rows.length} packs</h1><p class="ans">Customer-wise white label prices. Add or remove columns to suit you.</p>${tabs}
+    return `${head('Prices', `${esc(priceCust)}: ${rows.length} packs.`, 'Customer-wise white label prices. Add or remove columns to suit you.')}${tabs}
     <div class="cols"><label for="pcu">Client <select id="pcu">${custs.map(c => `<option ${c === priceCust ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select></label>${Object.entries({ prev: 'Previous price', hilo: 'High and low', margin: 'Margin', port: 'Portfolio average', actual: 'O2S actual price' }).map(([k, l]) => `<label><input type="checkbox" data-col="${k}" ${cols[k] ? 'checked' : ''}> ${l}</label>`).join('')}</div>
     <div class="box wrapx"><table><tr><th>Product and pack</th><th class="r">Price now</th>${cols.prev ? '<th class="r">Previous</th>' : ''}${cols.hilo ? '<th class="r">High</th><th class="r">Low</th>' : ''}${cols.actual ? '<th class="r">O2S actual</th>' : ''}${cols.margin ? '<th class="r">Margin</th><th class="r">Target</th>' : ''}</tr>
     ${rows.map(x => `<tr><td>${esc(x.name)}</td><td class="r num">${x.cur != null ? x.cur.toFixed(2) : 'n/a'}</td>${cols.prev ? `<td class="r num">${x.prev != null ? x.prev.toFixed(2) : 'n/a'}</td>` : ''}${cols.hilo ? `<td class="r num">${x.hi != null ? x.hi.toFixed(2) : 'n/a'}</td><td class="r num">${x.lo != null ? x.lo.toFixed(2) : 'n/a'}</td>` : ''}${cols.actual ? `<td class="r num">${x.act != null ? x.act.toFixed(2) : 'n/a'}</td>` : ''}${cols.margin ? `<td class="r num">${x.cost != null && x.cur ? pc((x.cur - x.cost) / x.cur * 100) : 'n/a'}</td><td class="r num">${pc(x.target)}</td>` : ''}</tr>`).join('')}
     ${cols.port && cols.margin ? `<tr><td><b>Portfolio average, shipped</b></td><td></td>${cols.prev ? '<td></td>' : ''}${cols.hilo ? '<td></td><td></td>' : ''}${cols.actual ? '<td></td>' : ''}<td class="r num"><b>${tot ? pc((tot - costT) / tot * 100) : 'n/a'}</b></td><td></td></tr>` : ''}</table></div>`;
   }
   const props = (ST.proposals || []).filter(p => p.status !== 'replaced').slice().reverse();
-  return `<h1>Price proposals: ${(ST.proposals || []).filter(p => p.status === 'proposed').length} waiting for Tahir</h1>${waitingPrices()}<p class="ans">Yawar proposes; Tahir approves or sends back with a reason. A price below target GP carries Yawar's written reason.</p>${tabs}
+  return `${head('Prices', `Price proposals: ${nW} waiting for Tahir.`, 'Yawar proposes; Tahir approves or sends back with a reason, in a panel. A price below target GP carries Yawar\'s written reason.')}${tabs}${waitingPrices()}
   ${proposeForm()}
-  <div class="box jobs">${props.length ? props.map(p => `<div class="job"><div><div class="t">${esc(packName(p.packId))}: ${p.prev != null ? 'Rs ' + p.prev + ' to ' : ''}Rs ${p.price}</div>${p.status === 'proposed' ? propNums(p) : ''}<div class="d">${p.status === 'proposed' ? 'Waiting for Tahir' : p.status === 'cancelled' ? 'Cancelled by a newer approval' : p.status === 'withdrawn' ? 'Withdrawn by Tahir before its date' : p.status === 'approved' ? 'Approved by ' + esc(p.decidedBy || '') + (p.from && String(p.from).slice(0, 10) > ST.today ? ', takes over on ' + fmtD(p.from) : '') : 'Sent back by Tahir: ' + esc(p.backReason || '')}. ${esc(p.reason || '')}${p.belowReason ? ' Below target: ' + esc(p.belowReason) : ''}</div></div>
-  ${p.status === 'proposed' && R === 'coo' ? `<div><button class="btn" data-pok="${p.id}" data-confirm="Confirm: approve Rs ${p.price}">Approve</button> <button class="btn ghost" data-pback="${p.id}">Send back</button></div>` : p.status === 'sent_back' && R === 'cfo' ? `<div><button class="btn" data-presend="${p.id}">Revise and resend</button></div>` : ''}</div>`).join('') : '<div class="job"><div><div class="t">No proposals yet.</div></div></div>'}</div>
-  ${propose && propose.back ? `<div class="box form"><label for="pbr">Reason for sending back (required)<textarea id="pbr"></textarea></label><div><button class="btn warn" data-pbsend="${propose.back}">Send back to Yawar</button> <button class="btn ghost" data-pbcancel>Cancel</button></div></div>` : ''}`;
+  <div class="box jobs">${props.length ? props.map(p => propCard(p, false)).join('') : '<div class="job"><div><div class="t">No proposals yet.</div></div></div>'}</div>`;
 }
 /** What Tahir decides on: cost, GP at the new price, target, contribution floor, and Rs over the forward kg. */
 function propNums(p) {
@@ -475,7 +664,7 @@ function waitingPrices() {
   return `<h2>Approved, waiting for their date</h2><div class="box jobs">${up.map(k => `<div class="job"><div><div class="t">${esc(packLabel(k))} for ${esc(k.product.customer)}: Rs ${k.nextPrice.price} from ${fmtD(k.nextPrice.from)}</div><div class="d">${k.price != null && k.priceSource === 'approved' ? `Today's price Rs ${k.price} stays in force until then${k.priceTill && k.priceTill < k.nextPrice.from ? ' (it ends on ' + fmtD(k.priceTill) + ')' : ''}.` : 'No approved price is in force before then' + (k.price != null ? ` (last O2S PO price Rs ${k.price})` : '') + '.'}</div></div>${ST.me.role === 'coo' ? `<button class="btn ghost" data-pwd="${k.nextPrice.id}">Withdraw</button>` : ''}</div>${ask && ask.kind === 'pwd' && ask.id === k.nextPrice.id ? askBox('Why withdraw this waiting price?') : ''}`).join('')}</div>`;
 }
 function proposeForm() {
-  if (!propose || propose.back) return '';
+  if (!propose || propose.back || behind) return '';
   const k = packIdx().get(propose.packId); if (!k) return '';
   const c = k.cost ? k.cost.total : null; const v = propose.v; const gp = c != null && v > 0 ? (v - c) / v * 100 : null; const below = k.product.target != null && gp != null && gp < k.product.target;
   return `<div class="box form" id="pf"><b>Propose: ${esc(packLabel(k))} for ${esc(k.product.customer)}</b>${propose.was ? `<div class="warnbox">Tahir sent this back: ${esc(propose.was)}</div>` : ''}
@@ -520,22 +709,22 @@ const revLabel = (list, f) => ((REVF[list] || []).find(x => x[0] === f) || [, f]
 const revShow = (f, v) => v == null ? 'n/a' : f === 'disc' ? (Number(v) * 100).toFixed(1) + '%' : Number(v).toLocaleString('en-US');
 const LISTNAME = { dist: 'Distributor list', dealer: 'Dealer list, Sindh', farmer: 'Farmer list' };
 /** Yawar revises a VAN brand list; Tahir approves or sends back; on approval the list and its dates change. */
-function revBox() {
+function revBox(inPanel, only) {
   const R = ST.me.role; const revs = ST.listRevisions || [];
-  const waiting = revs.filter(r => r.status === 'proposed'), back = revs.filter(r => r.status === 'sent_back'), later = revs.filter(r => r.status === 'approved' && !Number(r.applied));
-  let h = `<h2>VAN brand list revisions</h2><p class="ans">Yawar proposes new list prices with a reason and dates; Tahir approves or sends back. A revision dated today changes the list on approval; one dated ahead waits for its date (a PDF dated on or after it already shows the new prices).</p>`;
+  const pick = r => only == null || r.id === only; const waiting = revs.filter(r => r.status === 'proposed' && pick(r)), back = revs.filter(r => r.status === 'sent_back' && pick(r)), later = revs.filter(r => r.status === 'approved' && !Number(r.applied) && pick(r));
+  let h = '';
   if (later.length) h += `<div class="box jobs">${later.map(r => `<div class="job"><div><div class="t">${esc(LISTNAME[r.list_name])}: ${pl(r.items.length, 'price', 'prices')} approved, takes effect on ${fmtD(r.valid_from)}</div><div class="d">${esc(r.reason)}. Until then the list stays as it is; a new revision of this list waits until this one takes effect or is withdrawn.</div></div>${R === 'coo' ? `<button class="btn ghost" data-lwd="${r.id}">Withdraw</button>` : ''}</div>${ask && ask.kind === 'lwd' && ask.id === r.id ? askBox('Why withdraw this waiting revision?') : ''}`).join('')}</div>`;
   h += `<div class="box jobs">${[...waiting, ...back].map(r => `<div class="job"><div><div class="t">${esc(LISTNAME[r.list_name])}: ${pl(r.items.length, 'price', 'prices')} from ${fmtD(r.valid_from)}${r.valid_till ? ' to ' + fmtD(r.valid_till) : ''}</div><div class="d">${r.status === 'proposed' ? 'Waiting for Tahir' : 'Sent back by Tahir: ' + esc(r.back_reason || '')}. ${esc(r.reason)}<br>${r.items.slice(0, 12).map(i => `${esc(i.product)}${i.pack ? ' ' + esc(i.pack) : ''}: ${Object.keys(i.to).map(f => `${esc(revLabel(r.list_name, f))} ${revShow(f, i.from[f])} to ${revShow(f, i.to[f])}`).join(', ')}`).join('<br>')}${r.items.length > 12 ? '<br>and ' + (r.items.length - 12) + ' more' : ''}</div></div>
-  ${r.status === 'proposed' && R === 'coo' ? `<div><button class="btn" data-lrok="${r.id}" data-confirm="Confirm: approve ${r.items.length} prices">Approve</button> <button class="btn ghost" data-lrback="${r.id}">Send back</button></div>` : r.status === 'sent_back' && R === 'cfo' ? `<div><button class="btn" data-lrredo="${r.id}">Revise and resend</button></div>` : ''}</div>`).join('') || '<div class="job"><div><div class="t">No revision waiting.</div></div></div>'}</div>`;
+  ${r.status === 'proposed' && R === 'coo' ? (inPanel ? `<div><button class="btn" data-lrok="${r.id}" data-confirm="Confirm: approve ${r.items.length} prices">Approve</button> <button class="btn ghost" data-lrback="${r.id}">Send back</button></div>` : `<div><button class="btn ghost" data-panlrev="${r.id}">Open to approve</button></div>`) : r.status === 'sent_back' && R === 'cfo' ? `<div><button class="btn" data-lrredo="${r.id}">Revise and resend</button></div>` : ''}</div>`).join('') || '<div class="job"><div><div class="t">No revision waiting.</div></div></div>'}</div>`;
   if (R === 'cfo' && !rev) h += `<div class="next">${Object.entries(LISTNAME).map(([k, l]) => `<button class="btn ghost" data-revstart="${k}">Revise: ${l}</button>`).join(' ')}</div>`;
-  if (R === 'cfo' && rev) {
+  if (R === 'cfo' && rev && !behind) {
     const items = (ST.listItems || []).filter(x => x.list === rev.list);
     h += `<div class="box form" id="revf"><b>Revise: ${esc(LISTNAME[rev.list])}</b>${rev.was ? `<div class="warnbox">Tahir sent this back: ${esc(rev.was)}</div>` : ''}<p class="ans" style="margin:0">Type only the prices that change. ${rev.list === 'dist' ? 'Price with FED is worked out (x 1.05).' : rev.list === 'dealer' ? 'Net price and net with taxes are worked out.' : ''}</p>
     <div class="wrapx" style="max-height:360px;overflow-y:auto"><table><tr><th>Product</th>${REVF[rev.list].map(f => `<th>${esc(f[1])}</th>`).join('')}</tr>${items.map(x => `<tr><td>${esc(x.data.p)}${x.data.pack ? ' <span class="ans">' + esc(x.data.pack) + '</span>' : ''}</td>${REVF[rev.list].map(([f]) => { const now = x.data[f], nv = rev.vals[x.id + ':' + f]; const ch = nv != null && nv !== '' && now ? ((f === 'disc' ? nv / 100 : nv) - now) / now * 100 : null; return `<td><span class="ans">now ${revShow(f, now)}</span><br><input type="number" step="0.01" style="width:96px" data-rv="${x.id}:${f}" value="${nv ?? ''}" aria-label="${esc(x.data.p)} ${esc(revLabel(rev.list, f))}">${ch != null ? ` <span class="${Math.abs(ch) > 10 ? 'late' : 'ans'}">${ch > 0 ? '+' : ''}${ch.toFixed(1)}%</span>` : ''}</td>`; }).join('')}</tr>`).join('')}</table></div>
     <div class="row"><label for="rvr" style="flex:1 1 260px">Reason (required)<input id="rvr" value="${esc(rev.reason || '')}"></label><label for="rvf">Effective from<input id="rvf" type="date" value="${rev.from || ST.today}"></label><label for="rvt">Valid till<input id="rvt" type="date" value="${rev.till || ''}"></label></div>
     <div><button class="btn" data-revsend>Send to Tahir</button> <button class="btn ghost" data-revcancel>Cancel</button></div></div>`;
   }
-  if (rev && rev.back) h += `<div class="box form"><label for="lrbr">Reason for sending back (required)<textarea id="lrbr"></textarea></label><div><button class="btn warn" data-lrbsend="${rev.back}">Send back to Yawar</button> <button class="btn ghost" data-revcancel>Cancel</button></div></div>`;
+  if (rev && rev.back && !behind) h += `<div class="box form"><label for="lrbr">Reason for sending back (required)<textarea id="lrbr"></textarea></label><div><button class="btn warn" data-lrbsend="${rev.back}">Send back to Yawar</button> <button class="btn ghost" data-revcancel>Cancel</button></div></div>`;
   return h;
 }
 /** Default dates of the document being built: a client list from its own approved prices; a VAN list from its own
@@ -553,40 +742,37 @@ function vLists() {
   if (R === 'viewer') {
     const mine = (ST.grants || []).map(g => g.grant_kind === 'client' ? 'wl:' + g.grant_value : g.grant_value);
     const sel = listSel && mine.includes(listSel) ? listSel : mine[0];
-    if (!sel) return '<h1>No price list is granted to you yet.</h1><p class="ans">Ask Yawar to grant the lists you need.</p>';
+    if (!sel) return head('Price lists', 'No price list is granted to you yet.', 'Ask Yawar to grant the lists you need.');
     const a = sel.startsWith('wl:') ? 'wl' : sel; const cl = a === 'wl' ? sel.slice(3) : PLB.client;
     if (PLB.aud !== a || PLB.client !== cl) { PLB.effSet = PLB.tillSet = false; } PLB.aud = a; PLB.client = cl; plDates(); // the KAM never sets dates
     const label = s => s.startsWith('wl:') ? s.slice(3) + ' monthly list' : AUD[s];
-    return `<h1>Price lists: ${mine.length} you can see</h1><p class="ans">Approved prices only, in the same document every manager receives.</p><div class="chips">${mine.map(s => `<button data-list="${esc(s)}" aria-pressed="${s === sel}">${esc(label(s))}</button>`).join('')}</div><div class="next"><button class="btn" data-mkpdf>Download ${esc(label(sel))} as PDF</button></div>${plDoc(a)}`;
+    return `${head('Price lists', `${mine.length} you can see.`, 'Approved prices only, in the same document every manager receives.')}<div class="chips">${mine.map(s => `<button data-list="${esc(s)}" aria-pressed="${s === sel}">${esc(label(s))}</button>`).join('')}</div><div class="next"><button class="btn" data-mkpdf>Download ${esc(label(sel))} as PDF</button></div>${plDoc(a)}`;
   }
+  return vListsBuilder();
+}
+function vListsBuilder() {
   const a = PLB.aud; if (!PLB.client) PLB.client = Object.keys(ST.wlLists || {})[0];
   plDates();
   if (!PLB.pick[a]) PLB.pick[a] = Object.fromEntries(fieldsFor(a).map(f => [f[0], !!f[2]]));
   const changed = plRows(a).filter(r => r._ch === null || (r._ch && Math.abs(r._ch) > 0.01)); // new prices need a reason too
-  return `<h1>Price lists: build, check and send</h1><p class="ans">1 builder for every audience. Pick who it is for, pick the fields, check the document, then create the PDF. Cost and margin can never be printed.</p>
-  <div class="next"><span>${a === 'wl' ? 'Pick the client, check each reason for change and set the effective date.' : 'Pick the fields and set the dates.'} Then create the PDF.</span><button class="btn" data-mkpdf>Create PDF</button></div>
+  return `<div class="next"><span>${a === 'wl' ? 'Pick the client, check each reason for change and set the effective date.' : 'Pick the fields and set the dates.'} Then create the PDF.</span><button class="btn" data-mkpdf>Create PDF</button></div>
   <div class="two"><div class="box form"><b>1. Who is it for?</b><div class="chips" style="margin:0">${Object.entries(AUD).map(([k, l]) => `<button data-aud="${k}" aria-pressed="${k === a}">${l}</button>`).join('')}</div>
   ${a === 'wl' ? `<label for="plc">Client<select id="plc">${Object.keys(ST.wlLists || {}).map(c => `<option ${c === PLB.client ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select></label>` : ''}
   <b>3. Dates</b><div class="row"><label for="ple">Effective from<input id="ple" type="date" value="${PLB.eff || ''}"></label><label for="plt">Valid till<input id="plt" type="date" value="${PLB.till || ''}"></label></div><p class="ans" style="margin:0">C2M numbers each document (VAN/PL/year/number) and keeps the rows exactly as issued.</p>
   <label for="pln">Extra note on the document (optional)<input id="pln" value="${esc(PLB.note)}"></label></div>
   <div class="box form"><b>2. Which fields to print</b><div class="cols" style="margin:0">${fieldsFor(a).map(f => `<label><input type="checkbox" data-plf="${f[0]}" ${PLB.pick[a][f[0]] ? 'checked' : ''}> ${esc(f[1])}</label>`).join('')}</div>
   ${(a === 'wl' || a === 'dist') && PLB.pick[a].reason ? `<b>Reasons for change (edit before sending)</b><div class="wrapx" style="max-height:220px;overflow-y:auto"><table>${changed.map(r => `<tr><td>${esc(r.product)} ${esc(r.pack)} <span class="mono">${r.chg}</span></td><td><input data-plr="${r._k}" value="${esc(r.reason)}" style="width:100%" aria-label="Reason"></td></tr>`).join('') || '<tr><td>No price changed.</td></tr>'}</table></div>` : ''}</div></div>
-  <h2>4. The document</h2>${PLB.eff && PLB.eff > ST.today ? `<div class="warnbox">Dated ahead (${fmtD(PLB.eff)}): this preview shows today's prices. The PDF prints the prices in force on ${fmtD(PLB.eff)}, including approved changes waiting for that date.</div>` : ''}${plDoc(a)}${revBox()}`;
+  <h2>4. The document</h2>${PLB.eff && PLB.eff > ST.today ? `<div class="warnbox">Dated ahead (${fmtD(PLB.eff)}): this preview shows today's prices. The PDF prints the prices in force on ${fmtD(PLB.eff)}, including approved changes waiting for that date.</div>` : ''}${plDoc(a)}`;
 }
 
-/* ---------- Back Office ---------- */
-const BO = [['import', 'Import queue'], ['sheet', 'Sheet against C2M'], ['links', 'Data links'], ['customers', 'Customers'], ['products', 'Products and packing'], ['materials', 'Materials'], ['rules', 'Rules and targets'], ['settings', 'Settings'], ['access', 'Access'], ['actuals', 'Monthly actuals and checks'], ['audit', 'Change record'], ['docs', 'System documentation']];
-function vBO() {
-  const n = (ST.imports || []).filter(i => i.status === 'open').length;
-  return `<h1>Back Office: everything that drives C2M, in 1 place</h1><p class="ans">Yawar and Tahir change these. Every change is dated and logged. Threshold changes and client target overrides wait for Tahir's approval.</p>
-  <nav class="subnav" aria-label="Back Office sections">${BO.map(([k, l]) => `<button data-bo="${k}" aria-current="${k === bo}">${l}${k === 'import' && n ? ` <span class="pill p-amber">${n}</span>` : ''}</button>`).join('')}</nav><div>${({ import: boImport, sheet: boSheet, links: boLinks, customers: boCust, products: boProducts, materials: boMat, rules: boRules, settings: boSettings, access: boAccess, actuals: boActuals, audit: boAudit, docs: boDocs })[bo]()}</div>`;
-}
+/* ---------- Setup sections (0.8.0; the old back office sections) ---------- */
 const yaw = () => ST.me.role === 'cfo';
-function boImport() {
+/** ro: the Setup record (work is on Today); otherwise the Today panel where Yawar accepts or corrects. */
+function boImport(ro) {
   const items = ST.imports || []; const open = items.filter(i => i.status === 'open');
-  return `<p class="ans"><b>What this does:</b> nothing from Yawar's sheets enters C2M until he accepts it. Each item is pre-filled; accept it, or type the correct value. ${pl(open.length, 'item', 'items')} left.</p>
+  return `<p class="ans">Nothing from Yawar's sheets enters C2M until he accepts it. Each item is pre-filled; accept it, or type the correct value. ${pl(open.length, 'item', 'items')} left.${ro && open.length ? ' Open items are worked on Today.' : ''}</p>
   <div class="box jobs">${items.map(i => `<div class="job"><div><div class="t"><span class="pill p-none">${esc(i.area)}</span> ${esc(i.item)}</div><div class="d">Found: ${esc(i.found_text)}<br>Pre-filled: <b>${esc(i.prefill_text)}</b>${i.effect_text ? '<br>Effect: ' + esc(i.effect_text) : ''}${i.decision_note ? '<br>' + esc(i.decision_note) : ''}</div></div>
-  ${i.status !== 'open' ? `<span class="pill p-green">${esc(i.status)} by ${esc(i.decided_by)}</span>` : yaw() ? (corr === i.id ? `<div style="display:grid;gap:6px;flex:1 1 260px"><label for="cv">Correct value${i.kind === 'rate' ? ', Rs (saved as the rate, with its checks)' : ''}<input id="cv"></label><label for="cw">Why<input id="cw"></label>${i.kind === 'rate' ? '<label><input type="checkbox" id="cconf"> Yes, I meant this rate, even if it moves more than the warning level</label>' : ''}<div><button class="btn" data-impsave="${i.id}">Save</button> <button class="btn ghost" data-impcancel>Cancel</button></div></div>` : `<div><button class="btn" data-imp="${i.id}">Accept</button> <button class="btn ghost" data-impc="${i.id}">Correct</button></div>`) : '<span class="pill p-amber">with Yawar</span>'}</div>`).join('')}</div>`;
+  ${i.status !== 'open' ? `<span class="pill p-green">${esc(i.status)} by ${esc(i.decided_by)}</span>` : ro ? '<span class="pill p-amber">open: on Yawar\'s Today</span>' : yaw() ? (corr === i.id && !behind ? `<div style="display:grid;gap:6px;flex:1 1 260px"><label for="cv">Correct value${i.kind === 'rate' ? ', Rs (saved as the rate, with its checks)' : ''}<input id="cv"></label><label for="cw">Why<input id="cw"></label>${i.kind === 'rate' ? '<label><input type="checkbox" id="cconf"> Yes, I meant this rate, even if it moves more than the warning level</label>' : ''}<div><button class="btn" data-impsave="${i.id}">Save</button> <button class="btn ghost" data-impcancel>Cancel</button></div></div>` : `<div><button class="btn" data-imp="${i.id}">Accept</button> <button class="btn ghost" data-impc="${i.id}">Correct</button></div>`) : '<span class="pill p-amber">with Yawar</span>'}</div>`).join('')}</div>`;
 }
 /** Yawar's 13 Oct sheet against C2M today, split by cause, so every difference has a reason (adoption review). */
 function boSheet() {
@@ -602,7 +788,7 @@ function boLinks() {
   <div class="box wrapx"><table><tr><th>System</th><th>What C2M takes</th><th>When</th><th>Status</th><th>Last pull</th></tr>${(ST.sources || []).map(s => `<tr><td>${esc(s.system_name)}</td><td>${esc(s.what)}</td><td>${esc(s.schedule)}</td><td><span class="pill ${/read|ready/i.test(s.status) ? 'p-green' : 'p-none'}">${esc(s.status)}</span></td><td>${esc(s.last_pull_note || '')} ${s.last_pull_at ? '<span class="mono">' + esc(String(s.last_pull_at).slice(0, 16)) + '</span>' : ''}</td></tr>`).join('')}</table></div>
   <div style="margin:10px 0"><button class="btn" data-sync>Pull O2S now</button> <span class="ans">${ls && ls.finished_at ? `Last pulled ${esc(String(ls.finished_at).slice(0, 16))}, ${Math.max(0, Math.round((new Date(ST.today) - new Date(String(ls.finished_at).slice(0, 10))) / 864e5))} days ago.` : 'Not pulled yet.'}</span></div>
   <h2>Field mapping: O2S to C2M</h2><div class="box wrapx"><table><tr><th>O2S field</th><th>C2M field</th><th>Rule</th></tr>${(ST.fieldMap || []).map(f => `<tr><td class="mono">${esc(f.source_field)}</td><td>${esc(f.c2m_field)}</td><td>${esc(f.rule_text)}</td></tr>`).join('')}</table></div>
-  <h2>Sales C2M could not place: ${(ST.unmatched || []).length}</h2><p class="ans">Truck lines whose customer, brand or pack has no C2M client pack. They count in sales but carry no cost. Fix the name in Customers, or add the product.</p>
+  <h2>Sales C2M could not place: ${(ST.unmatched || []).length}</h2><p class="ans">Truck lines whose customer, brand or pack has no C2M client pack. They count in sales but carry no cost. Fix the name in Setup, Customers, or add the product.</p>
   <div class="box wrapx"><table><tr><th>Customer</th><th>Brand and pack</th><th>Group</th><th class="r">Kg</th><th class="r">Sales</th></tr>${(ST.unmatched || []).slice(0, 40).map(u => `<tr><td>${esc(u.cust)}</td><td>${esc(u.brand)} ${u.pack}</td><td>${esc(u.grp)}</td><td class="r num">${Math.round(u.kg).toLocaleString()}</td><td class="r num">${rs(u.rs)}</td></tr>`).join('') || '<tr><td colspan="5">Every truck line is placed.</td></tr>'}</table></div>
   <h2>Found in the last pull</h2><div class="box jobs">${iss.length ? iss.map(x => `<div class="job"><div><div class="t">${esc(x)}</div><div class="d">Fixed in O2S, not in C2M.</div></div></div>`).join('') : '<div class="job"><div><div class="t">Nothing found.</div></div></div>'}</div>`;
 }
@@ -613,17 +799,6 @@ function boCust() {
   <div class="assume"><b>To do</b>A white label client whose price rule shows "to set" has no revision cycle yet. Yawar sets each with Edit.</div>`;
 }
 const costProd = p => p.grp === 'White label' || p.channel === 'VAN brand'; // white label and VAN brand products (1 per pack, D-44)
-function boProducts() {
-  const bills = ST.packingBills || []; const items = ST.packingItems || [];
-  const prods = (ST.products || []).filter(costProd);
-  return `<p class="ans"><b>What this does:</b> client products, their packs and packing bills. A packing bill calls items from the packing list: per kg = price per piece / pack size; a secondary item (e.g. a carton of 2 packs) adds price / (packs x pack size). Yawar keeps and approves packing bills.</p>
-  ${billEdit ? billEditor() : ''}
-  <div class="next"><span>To add a recipe, use Recipes, "Write a new recipe version".</span>${yaw() ? '<button class="btn ghost" data-billnew>New packing bill</button>' : ''}</div>
-  ${ask && ask.kind === 'ptype' ? askBox('Name of the new product type (e.g. Granulation Line)') : ''}<h2>White label client products</h2><div class="box wrapx"><table><tr><th>Client product</th><th>Product type</th><th>Reprocessed</th><th>Sold per</th><th>Packing</th><th>Pack</th><th>Packing bill</th><th class="r">Packing per unit</th></tr>${prods.map(p => p.packs.map((k, i) => `<tr><td>${i ? '' : esc(p.brand) + ' for ' + esc(p.customer)}</td><td>${i ? '' : yaw() ? `<select data-ptype="${p.id}" aria-label="Product type"><option value="">None</option>${(ST.productTypes || []).map(t => `<option value="${t.id}" ${t.id === p.typeId ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}<option value="__new">New type...</option></select>` : esc(((ST.productTypes || []).find(t => t.id === p.typeId) || {}).name || '')}</td><td>${i ? '' : yaw() ? `<input type="checkbox" data-reproc="${p.id}" ${p.reprocessed ? 'checked' : ''} aria-label="${esc(p.brand)} reprocessed">` : p.reprocessed ? 'Yes' : 'No'}</td><td>${i ? '' : p.soldPer}</td><td>${i ? '' : esc(p.packingMode)}</td><td>${k.size}</td><td>${yaw() ? `<select data-assign="${k.id}" aria-label="Packing bill"><option value="">None</option>${bills.map(b => `<option value="${b.id}" ${b.id === k.billId ? 'selected' : ''}>${esc(b.name)}</option>`).join('')}</select>` : esc((bills.find(b => b.id === k.billId) || {}).name || 'None')}</td><td class="r num">${k.cost ? rs2(k.cost.packing) : 'n/a'}</td></tr>`).join('')).join('')}</table></div>
-  <h2>Packing bills</h2><div class="box wrapx"><table><tr><th>Bill</th><th>Lines</th>${yaw() ? '<th></th>' : ''}</tr>${bills.map(b => `<tr><td>${esc(b.name)}</td><td>${b.lines.map(l => `${l.level === 'secondary' ? 'Secondary: ' : ''}${esc(l.item)} x ${l.pieces}${l.level === 'secondary' ? ' per ' + l.packsPerOuter + ' packs' : ''} (${rs2(l.price)})`).join('<br>')}</td>${yaw() ? `<td><button class="btn ghost" data-billedit="${b.id}">Edit</button></td>` : ''}</tr>`).join('')}</table></div>
-  <h2>Packing items</h2><div class="box wrapx"><table><tr><th>Item</th><th>Kind</th><th class="r">Price per piece</th></tr>${items.map(i => `<tr><td>${esc(i.name)}</td><td>${esc(i.kind)}</td><td class="r num">${rs2(i.price)}</td></tr>`).join('')}</table></div>
-  ${yaw() ? `<div class="box form" style="margin-top:10px"><b>Add a packing item</b><div class="row"><label for="pin">Name<input id="pin"></label><label for="pik">Kind<input id="pik" placeholder="bag, label, carton"></label><label for="pip">Price per piece, Rs<input id="pip" type="number"></label><label for="pis">Source<input id="pis"></label><button class="btn" data-pinew>Add</button></div></div>` : ''}`;
-}
 function billEditor() {
   const items = ST.packingItems || [];
   return `<div class="box form" id="bef"><b>${billEdit.id ? 'Edit' : 'New'} packing bill</b><label for="ben">Name<input id="ben" value="${esc(billEdit.name || '')}"></label>
@@ -635,7 +810,7 @@ let nutEdit = null, matFilter = 'todo', matPend = {};
 function classSelect(m, pend) {
   const T = (ST.materialTypes || []).slice().sort((a, b) => a.name.localeCompare(b.name)); const cur = pend || m.typeId;
   const opt = t => `<option value="${t.id}" ${t.id === cur ? 'selected' : ''}>${esc(t.name.replace('Non-nutrient: ', ''))}</option>`;
-  return `<select data-mclass="${m.materialId}" aria-label="Class of ${esc(m.name)}">${T.filter(t => t.nutrient_role === 'unclassified').map(opt).join('')}<optgroup label="Nutrient source">${T.filter(t => t.nutrient_role === 'nutrient').map(opt).join('')}</optgroup><optgroup label="Adds no nutrients">${T.filter(t => t.nutrient_role === 'none').map(opt).join('')}</optgroup></select>`;
+  return `<select style="max-width:190px" data-mclass="${m.materialId}" aria-label="Class of ${esc(m.name)}">${T.filter(t => t.nutrient_role === 'unclassified').map(opt).join('')}<optgroup label="Nutrient source">${T.filter(t => t.nutrient_role === 'nutrient').map(opt).join('')}</optgroup><optgroup label="Adds no nutrients">${T.filter(t => t.nutrient_role === 'none').map(opt).join('')}</optgroup></select>`;
 }
 const ROLE_TXT = { nutrient: 'Nutrient source', none: 'No nutrients', unclassified: 'To classify' };
 /** Material status for Himayat: a nutrient source needs every field; a non-nutrient input needs nothing; unclassified needs a class. */
@@ -644,24 +819,6 @@ function matState(m) {
   if (m.role !== 'nutrient') return ['p-amber', 'to classify'];
   const miss = m.fields.filter(f => (m.nutrients || {})[f] == null);
   return miss.length ? ['p-amber', 'to enter: ' + miss.join(', ')] : ['p-green', 'complete'];
-}
-/** Materials screen: Himayat classes each material and enters nutrient % per grade (ruled 16 Oct). No rates or cost. */
-function vMaterials() {
-  const M = (ST.materials || []).slice().sort((a, b) => a.name.localeCompare(b.name)); const ed = ['qc', 'cfo'].includes(ST.me.role);
-  const todo = M.filter(m => matState(m)[0] === 'p-amber'); const used = new Set((ST.recipes || []).filter(v => v.state !== 'old').flatMap(v => v.lines.map(l => l.gradeId)));
-  const list = matFilter === 'todo' ? todo : matFilter === 'none' ? M.filter(m => m.role === 'none') : M;
-  return `<h1>Materials: ${todo.length ? pl(todo.length, 'needs', 'need') + ' you' : 'all classed and entered'}</h1>
-  <p class="ans">Each material is a nutrient source or adds no nutrients. A nutrient source asks for the fields of its class (KOH asks K%). Binders, fillers, anti-caking agents, wetting agents, colours and pH adjusters add no nutrients: they count in the recipe's weight and cost, and add 0 to its analysis. Change a material's class if it is wrong.</p>
-  <div class="chips">${[['todo', `To do (${todo.length})`], ['none', 'Adds no nutrients'], ['all', `All (${M.length})`]].map(([k, l]) => `<button data-matf="${k}" aria-pressed="${matFilter === k}">${l}</button>`).join('')}</div>
-  <div class="box wrapx"><table class="cards"><tr><th>Material</th><th>Class</th><th>Values, % in the material</th><th>State</th></tr>${list.map(m => { const st = matState(m); const pend = matPend[m.materialId]; return `<tr><td data-l="Material"><b>${esc(m.name)}</b> <span class="ans">${esc(m.grade)}${used.has(m.gradeId) ? ' · in a recipe' : ''}</span></td>
-  <td data-l="Class">${ed ? `${classSelect(m, pend)}${pend && pend !== m.typeId ? ` <button class="btn" data-mclassok="${m.materialId}">Save class</button> <button class="btn ghost" data-mclassno="${m.materialId}">Cancel</button>${m.role === 'nutrient' && Object.keys(m.nutrients || {}).length && (ST.materialTypes.find(t => t.id === pend) || {}).nutrient_role !== 'nutrient' ? '<br><span class="late">Saving clears its nutrient values (kept in the change record).</span>' : ''}` : ''}` : esc(m.type || '')}</td>
-  <td data-l="Values, % in the material">${m.role !== 'nutrient' ? '<span class="ans">none asked</span>' : nutEdit === m.gradeId ? m.fields.map(f => `<label style="display:inline-flex;gap:4px;align-items:center">${esc(f)}<input id="nut-${esc(f)}" type="number" step="0.01" min="0" max="100" style="width:72px" value="${(m.nutrients || {})[f] ?? ''}"></label>`).join(' ') + ` <label style="display:inline-flex;gap:4px;align-items:center"><input type="checkbox" id="nut0"> Blank fields are 0 (tick only if the certificate shows none)</label> <button class="btn" data-nutsave="${m.gradeId}">Save</button> <button class="btn ghost" data-nutcancel>Cancel</button>` : `${m.fields.map(f => `${esc(f)} ${(m.nutrients || {})[f] ?? '<span class="late">?</span>'}`).join(', ')}${ed ? ` <button class="btn ghost" data-nut="${m.gradeId}">Enter %</button>` : ''}`}</td>
-  <td data-l="State"><span class="pill ${st[0]}">${esc(st[1])}</span></td></tr>`; }).join('') || '<tr><td colspan="4">Nothing here.</td></tr>'}</table></div>`;
-}
-function boMat() {
-  return `<p class="ans"><b>What this does:</b> add a material or a new grade with its rate (later rates are saved on Rates). Class and nutrient % are kept by Himayat on his Materials screen; Yawar can also set them here.</p>
-  ${yaw() ? `<div class="box form"><b>Add a material or a new grade</b><div class="row"><label for="mtn">Name<input id="mtn"></label><label for="mtt">Class<select id="mtt">${(ST.materialTypes || []).map(t => `<option value="${t.id}">${esc(t.name)}</option>`).join('')}</select></label><label for="mtu">Unit<select id="mtu"><option>kg</option><option>L</option></select></label><label for="mtg">Grade<input id="mtg" value="Standard"></label><label for="mtr">Rate, Rs<input id="mtr" type="number" step="0.01"></label><label for="mts">Source<input id="mts" placeholder="PO or quote"></label><button class="btn" data-mtsave>Add</button></div></div>` : ''}
-  <h2>Class and nutrient %</h2>${vMaterials().replace(/<h1>[\s\S]*?<\/h1>/, '')}`;
 }
 let rf = { scope: 'general', picks: {} };
 function ruleScope(r) {
@@ -687,14 +844,14 @@ function boRules() {
   <div class="box wrapx"><table><tr><th>Rate</th><th>Kind</th><th class="r">Rs per kg or L</th><th>Applies to</th><th>From</th>${yaw() ? '<th></th>' : ''}</tr>${(ST.rules || []).slice().sort((a, b) => (a.kind || '').localeCompare(b.kind || '') || String(a.name).localeCompare(String(b.name))).map(r => `<tr><td>${esc(r.name)}<br><span class="ans">${esc(r.source || '')}</span></td><td>${r.kind === 'labour' ? 'Labour' : 'FOH'}</td><td class="r num">${Number(r.rsPerKg).toFixed(2)}</td><td>${esc(ruleScope(r))}</td><td class="mono">${esc(String(r.validFrom).slice(0, 10))}</td>${yaw() ? `<td><button class="btn ghost" data-retire="${r.id}">Retire</button></td>` : ''}</tr>${ask && ask.kind === 'retire' && ask.id === r.id ? `<tr><td colspan="6">${askBox('Why retire this rate? (a rate cannot be retired if it leaves a product with no labour or FOH rate)')}</td></tr>` : ''}`).join('')}</table></div>
   ${yaw() ? rateForm(prods) : ''}
   <h2>Target GP by client product</h2><div class="box wrapx"><table><tr><th>Client product</th><th class="r">Target</th><th class="r">Budget</th>${yaw() ? '<th>Change target</th>' : ''}</tr>${prods.map(p => `<tr><td>${esc(p.brand)} for ${esc(p.customer)}</td><td class="r num">${pc(p.target)}</td><td class="r num">${pc(p.budget)}</td>${yaw() ? `<td><input type="number" step="0.1" id="tg-${p.id}" aria-label="New target" style="width:80px"> <input id="tr-${p.id}" placeholder="why" aria-label="Why"> <button class="btn ghost" data-treq="${p.id}">Send to Tahir</button></td>` : ''}</tr>`).join('')}</table></div>
-  <h2>Target change requests</h2><div class="box jobs">${(ST.targetRequests || []).length ? ST.targetRequests.map(r => `<div class="job"><div><div class="t">${esc(r.brand)} for ${esc(r.customer)}: ${r.from_gp == null ? 'none' : r.from_gp + '%'} to ${r.to_gp}%</div><div class="d">${esc(r.reason)}. ${esc(r.status)}${r.decided_by ? ' by ' + esc(r.decided_by) : ''}</div></div>${r.status === 'open' && ST.me.role === 'coo' ? `<div><button class="btn" data-tok="${r.id}" data-confirm="Confirm: approve ${r.to_gp}%">Approve</button> <button class="btn ghost" data-tno="${r.id}">Refuse</button></div>` : ''}</div>`).join('') : '<div class="job"><div><div class="t">None.</div></div></div>'}</div>
+  <h2>Target change requests</h2><div class="box jobs">${(ST.targetRequests || []).length ? ST.targetRequests.map(r => `<div class="job"><div><div class="t">${esc(r.brand)} for ${esc(r.customer)}: ${r.from_gp == null ? 'none' : r.from_gp + '%'} to ${r.to_gp}%</div><div class="d">${esc(r.reason)}. ${esc(r.status)}${r.decided_by ? ' by ' + esc(r.decided_by) : ''}</div></div>${r.status === 'open' && ST.me.role === 'coo' ? `<div><button class="btn ghost" data-pantreq="${r.id}">Open to approve</button></div>` : ''}</div>`).join('') : '<div class="job"><div><div class="t">None.</div></div></div>'}</div>
   <h2>Freight per kg, delivered prices (dealer and farmer)</h2><p class="ans">Not yet applied to VAN brand packs: a VAN pack is 1 product for every channel, and freight by the sale's channel and region is not built (I-25).</p><div class="box wrapx"><table><tr><th>Segment</th><th>Region</th><th class="r">Rs per kg</th><th>From</th></tr>${(ST.freight || []).map(f => `<tr><td>${esc(f.segment)}</td><td>${esc(f.region)}</td><td class="r num">${Number(f.rs_per_kg).toFixed(2)}</td><td class="mono">${esc(String(f.valid_from).slice(0, 10))}</td></tr>`).join('') || '<tr><td colspan="4">None yet: delivered prices carry 0 freight.</td></tr>'}</table></div>
   ${yaw() ? `<div class="box form" style="margin-top:10px"><b>Set freight</b><div class="row"><label for="frs">Segment<select id="frs"><option>Dealer</option><option>Farmer</option></select></label><label for="frr">Region<input id="frr" placeholder="Sindh"></label><label for="frk">Rs per kg<input id="frk" type="number" step="0.01"></label><label for="frf">From<input id="frf" type="date" value="${ST.today}"></label><button class="btn" data-frsave>Save</button></div></div>` : ''}`;
 }
 function boSettings() {
   const ed = yaw();
   return `<p class="ans"><b>What this does:</b> the numbers C2M uses. Thresholds take effect when Tahir approves; budget and ambition changes notify Tahir.</p>
-  ${(ST.settingRequests || []).filter(r => r.status === 'open').map(r => `<div class="warnbox"><b>Waiting for Tahir:</b> ${esc(r.summary)} ${ST.me.role === 'coo' ? `<button class="btn" data-setok="${r.id}" data-confirm="Confirm: approve">Approve</button> <button class="btn ghost" data-setno="${r.id}">Refuse</button>` : ''}</div>`).join('')}
+  ${(ST.settingRequests || []).filter(r => r.status === 'open').map(r => `<div class="warnbox"><b>Waiting for Tahir:</b> ${esc(r.summary)} ${ST.me.role === 'coo' ? `<button class="btn ghost" data-pansetreq="${r.id}">Open to approve</button>` : '(on his Today)'}</div>`).join('')}
   <div class="box wrapx"><table><tr><th>Setting</th><th>Value</th><th>Needs Tahir</th></tr>${(ST.settings || []).map(s => `<tr><td>${esc(s.label)}</td><td>${ed ? `<input id="set-${s.k}" type="number" step="0.1" value="${esc(s.v)}" aria-label="${esc(s.label)}">` : `<span class="num">${esc(s.v)}</span>`}</td><td>${s.needs_approval ? 'Yes' : 'Notice only'}</td></tr>`).join('')}</table></div>
   ${ed ? '<div style="margin-top:8px"><button class="btn" data-setsave>Save</button></div>' : ''}`;
 }
@@ -705,14 +862,15 @@ function boAccess() {
   <div class="box wrapx"><table><tr><th>Manager</th>${lists.map(l => `<th>${esc(AUD[l])}</th>`).join('')}${clients.map(c => `<th>${esc(c)} list</th>`).join('')}</tr>${viewers.map(p => `<tr><td>${esc(p.name)}</td>${lists.map(l => `<td><input type="checkbox" aria-label="${esc(p.name)} ${esc(AUD[l])}" data-grant="${esc(p.username)}|list|${l}" ${has(p.username, 'list', l) ? 'checked' : ''} ${yaw() ? '' : 'disabled'}></td>`).join('')}${clients.map(c => `<td><input type="checkbox" aria-label="${esc(p.name)} ${esc(c)}" data-grant="${esc(p.username)}|client|${esc(c)}" ${has(p.username, 'client', c) ? 'checked' : ''} ${yaw() ? '' : 'disabled'}></td>`).join('')}</tr>`).join('') || '<tr><td>No price list viewers on the platform yet.</td></tr>'}</table></div>
   <h2>People with C2M access</h2><div class="box wrapx"><table><tr><th>Person</th><th>Role</th></tr>${(ST.people || []).map(p => `<tr><td>${esc(p.name)}</td><td>${esc(p.role)}</td></tr>`).join('')}</table></div>`;
 }
-function boActuals() {
+/** forms: the Today panel (enter and mark done); without: the Setup record. */
+function boActuals(forms) {
   const lastM = addDays(ST.today.slice(0, 7) + '-01', -1).slice(0, 7); const R = ST.me.role;
   return `<p class="ans"><b>What this does:</b> each month Yawar enters actual labour and FOH; C2M compares them with what was charged to products and keeps the difference. A second person checks the rates, and Yawar ties C2M to the books.</p>
-  ${R === 'cfo' ? `<div class="box form"><b>Actual labour and FOH</b><div class="row"><label for="am">Month<input id="am" type="month" value="${lastM}"></label><label for="al">Actual labour, Rs<input id="al" type="number"></label><label for="af">Actual FOH, Rs<input id="af" type="number"></label><button class="btn" data-actsave>Save</button></div></div>` : ''}
-  <div class="box wrapx" style="margin-top:10px"><table><tr><th>Month</th><th class="r">Actual labour</th><th class="r">Actual FOH</th><th class="r">Charged to products</th><th class="r">Difference</th><th class="r">Budget, for reference</th></tr>${(ST.actuals || []).map(a => `<tr><td>${esc(a.month)}</td><td class="r num">${rs(a.actual_labour)}</td><td class="r num">${rs(a.actual_foh)}</td><td class="r num late">${a.absorbed != null ? rs(a.absorbed) : 'needs O2S kg produced'}</td><td class="r num">${a.absorbed != null ? rs(Number(a.actual_labour) + Number(a.actual_foh) - Number(a.absorbed)) : 'n/a'}</td><td class="r num">${SET('conv_budget_month') ? rs(SET('conv_budget_month')) : 'set in Settings'}</td></tr>`).join('') || '<tr><td colspan="6">No month entered yet.</td></tr>'}</table></div>
+  ${R === 'cfo' && forms ? `<div class="box form"><b>Actual labour and FOH</b><div class="row"><label for="am">Month<input id="am" type="month" value="${lastM}"></label><label for="al">Actual labour, Rs<input id="al" type="number"></label><label for="af">Actual FOH, Rs<input id="af" type="number"></label><button class="btn" data-actsave>Save</button></div></div>` : ''}
+  <div class="box wrapx" style="margin-top:10px"><table><tr><th>Month</th><th class="r">Actual labour</th><th class="r">Actual FOH</th><th class="r">Charged to products</th><th class="r">Difference</th><th class="r">Budget, for reference</th></tr>${(ST.actuals || []).map(a => `<tr><td>${esc(a.month)}</td><td class="r num">${rs(a.actual_labour)}</td><td class="r num">${rs(a.actual_foh)}</td><td class="r num late">${a.absorbed != null ? rs(a.absorbed) : 'needs O2S kg produced'}</td><td class="r num">${a.absorbed != null ? rs(Number(a.actual_labour) + Number(a.actual_foh) - Number(a.absorbed)) : 'n/a'}</td><td class="r num">${SET('conv_budget_month') ? rs(SET('conv_budget_month')) : 'set in Setup, Settings'}</td></tr>`).join('') || '<tr><td colspan="6">No month entered yet.</td></tr>'}</table></div>
   <h2>Monthly checks, ${mon(lastM)}</h2><div class="box jobs">
-  <div class="job"><div><div class="t">Rate check by a second person</div><div class="d">Tie the top 15 material rates to the purchase register. ${ckDone(lastM, 'rate_check')}</div></div>${R === 'coo' ? `<button class="btn ghost" data-chk="rate_check">Mark done</button>` : ''}</div>
-  <div class="job"><div><div class="t">Tie to the books</div><div class="d">ERP sales and COGS by customer for the month. ${ckDone(lastM, 'tie_books')}</div></div>${R === 'cfo' ? `<div class="row"><label for="tbs">ERP sales, Rs<input id="tbs" type="number"></label><label for="tbc">ERP COGS, Rs<input id="tbc" type="number"></label><button class="btn ghost" data-chk="tie_books">Save</button></div>` : ''}</div></div>`;
+  <div class="job"><div><div class="t">Rate check by a second person</div><div class="d">Tie the top 15 material rates to the purchase register. ${ckDone(lastM, 'rate_check')}</div></div>${R === 'coo' && forms ? `<button class="btn ghost" data-chk="rate_check">Mark done</button>` : ''}</div>
+  <div class="job"><div><div class="t">Tie to the books</div><div class="d">ERP sales and COGS by customer for the month. ${ckDone(lastM, 'tie_books')}</div></div>${R === 'cfo' && forms ? `<div class="row"><label for="tbs">ERP sales, Rs<input id="tbs" type="number"></label><label for="tbc">ERP COGS, Rs<input id="tbc" type="number"></label><button class="btn ghost" data-chk="tie_books">Save</button></div>` : ''}</div></div>`;
 }
 function ckDone(m, k) { const c = (ST.checks || []).find(x => x.month === m && x.kind === k); return c ? `Done by ${esc(c.done_by)}, ${esc(String(c.done_at).slice(0, 10))}.` : 'Not done yet.'; }
 function boAudit() { return `<p class="ans"><b>What this does:</b> every change in C2M: who, when, what and why. Nothing is deleted.</p><div class="box wrapx"><table><tr><th>When</th><th>Who</th><th>What</th><th>Item</th><th>Why</th></tr>${(ST.audit || []).map(a => `<tr><td class="mono">${esc(when(a.at))}</td><td>${esc(a.by_user)}</td><td>${esc(a.entity)} · ${esc(a.action)}</td><td>${esc(a.entity_id || '')}</td><td>${esc(a.why || '')}</td></tr>`).join('')}</table></div>`; }
@@ -724,15 +882,15 @@ function boDocs() {
 
 /* ---------- Guide ---------- */
 const GUIDE = {
-  cfo: ['Each morning open Today and work from the top.', 'Rules: add labour or FOH rates by kind, for all products, a form, a product type or a list of products; set each product\'s type and reprocessed flag in Products and packing.', 'Price lists: revise a VAN brand list (Tahir approves); approvals dated ahead take over on their date.', 'Back Office, Sheet against C2M: each pack\'s 13 Oct sheet cost against C2M, with the cause of every gap.', 'Rates: try a new rate, check its effect, then save with its source. A move over the warning level asks you to confirm.', 'Recipes: approve cost after Fahim endorses. Send back with a reason and advice if something is wrong.', 'Re-approvals: when a rate moves products over the set %, approve them in 1 item.', 'Prices: propose from "Prices to change". Below target needs your written reason.', 'Price lists: build each list, pick the fields, create the PDF.', 'Back Office: settle the import queue, keep packing bills, enter monthly actuals, tie to the books, grant lists.'],
-  coo: ['Today shows prices, list revisions, threshold changes and target overrides waiting for you, recipes stuck more than 2 working days, and customers below target.', 'Re-approvals of cost are Yawar\'s; you see them for information.', 'Approve or send back each price with a reason.', 'Each month check the top 15 rates against the purchase register.', 'Margin: start with forward exposure, then drill into the customer, product and PO.'],
-  production: ['Today shows recipes to check or revise.', 'Write a new version from Recipes when a recipe changes, including a one-time change.', 'A recipe sent back carries a reason and advice; revise and resend it, and it goes straight back to whoever sent it.'],
-  qc: ['Today shows recipes to review and materials to complete.', 'Materials: class each material (nutrient source, or no nutrients such as binder, filler, anti-caking agent, wetting agent) and enter the % of each nutrient field.', 'Check the inputs and the nutrient analysis, then mark reviewed or send back with a reason and advice.'],
-  plant: ['Today shows recipes to endorse.', 'Check the recipe, nutrients and cost, then endorse or send back with a reason and advice.'],
+  cfo: ['Each morning open Today and work from the top. Every approval and job opens in a panel on Today.', 'Products: 1 page per client product, with its recipe and every version, its cost by pack, its price and its history. Approve cost in its panel, opened from Today or from the product page, after Fahim endorses; send back with a reason and advice if something is wrong.', 'Re-approvals: when a rate moves products over the set %, approve them on Today in 1 item.', 'Inputs: 1 materials table (class, nutrient % and rate), packing items and packing bills. Try a new rate, check its effect, then save with its source; a move over the warning level asks you to confirm.', 'Prices: propose from "To change"; below target needs your written reason. Build each price list, pick the fields, create the PDF. Revise a VAN brand list; Tahir approves.', 'Setup: customers, the O2S link, your sheets against C2M, settings and targets with labour and FOH rates, list access, the monthly checks record and the change record.'],
+  coo: ['Today shows prices, list revisions, threshold changes and target changes waiting for you, recipes stuck more than 2 working days, and customers below target. Each opens in a panel: approve or send back there, with a reason.', 'Re-approvals of cost are Yawar\'s; you see each one on Today for information.', 'Each month check the top 15 rates against the purchase register (Today).', 'Margin: start with the Rs at stake, then open the customer, product and PO.', 'Products: 1 page per client product with its recipe, cost, price and history.'],
+  production: ['Today shows recipes to check or revise; each opens in a panel.', 'Write a new version from Recipes when a recipe changes, including a one-time change.', 'A recipe sent back carries a reason and advice; revise and resend it, and it goes straight back to whoever sent it.'],
+  qc: ['Today shows recipes to review and materials to complete; each opens in a panel.', 'Inputs: class each material (nutrient source, or no nutrients such as binder, filler, anti-caking agent, wetting agent) and enter the % of each nutrient field.', 'Check the inputs and the nutrient analysis, then mark reviewed or send back with a reason and advice.'],
+  plant: ['Today shows recipes to endorse; each opens in a panel.', 'Check the recipe, nutrients and cost, then endorse or send back with a reason and advice.'],
   viewer: ['Price lists shows the lists granted to you.', 'Download the PDF to share. Prices are approved prices only.'],
 };
 function vGuide() {
-  return `<h1>Guide: your job in C2M</h1><p class="ans">${esc(ST.me.label)}. The full system documentation is in Back Office for Yawar and Tahir.</p>
+  return `${head('Guide', `Your job in C2M, ${esc(ST.me.label)}.`, 'The full system documentation is in Setup, System documentation, for Yawar and Tahir.')}
   <div class="two"><div class="box form"><b>Your job</b><ol style="margin:0;padding-left:20px">${(GUIDE[ST.me.role] || []).map(x => `<li>${esc(x)}</li>`).join('')}</ol></div>
   <div class="box form"><b>How C2M works</b><ol style="margin:0;padding-left:20px"><li>Yawar's sheets are imported; he settles every conflict in the import queue.</li><li>Each client product has its own recipe: Majid writes, Himayat reviews, Fahim endorses, Yawar approves cost.</li><li>Yawar keeps rates current; C2M recosts every recipe and groups re-approvals by cause.</li><li>Yawar proposes prices; Tahir approves; managers see the approved lists.</li><li>O2S trucks and open POs show real margin by customer, product and PO.</li></ol></div></div>
   ${ST.docs && ST.docs.length && !['cfo', 'coo'].includes(ST.me.role) ? `<h2>Read more</h2><div class="chips">${ST.docs.map(d => `<button data-gdoc="${esc(d)}">${esc(d.replace(/^\d+-/, '').replace(/-/g, ' ').replace('.md', ''))}</button>`).join('')}</div>${boDoc ? `<div class="md"><pre>${esc(boDoc.text)}</pre></div>` : ''}` : ''}`;
@@ -741,30 +899,45 @@ function vGuide() {
 /* ---------- Events ---------- */
 const val = id => ($(id) || {}).value;
 document.addEventListener('click', async e => {
-  const t = e.target.closest('button,tr.go,a[data-signout],input[type=checkbox]'); if (!t) return; const d = t.dataset;
+  const t = e.target.closest('button,tr.go,a[data-signout],input[type=checkbox],[data-panclose]'); if (!t) return; const d = t.dataset;
   // 2-step approvals: the first tap asks, the second acts (UX review)
   if (d.confirm && !d.armed) { const was = t.textContent; d.armed = '1'; t.textContent = d.confirm; t.classList.add('warn'); setTimeout(() => { if (t.isConnected) { delete t.dataset.armed; t.textContent = was; t.classList.remove('warn'); } }, 6000); return; }
   if ('signout' in d) { e.preventDefault(); try { localStorage.removeItem('van_token'); } catch (_) {} await fetch('/harness/logout', { method: 'POST' }).catch(() => {}); location.href = '/'; return; }
-  if (d.scr) { scr = d.scr; drill = { cust: null, prod: null }; openRec = null; sub = null; propose = null; trial = null; ptrial = null; boDoc = null; ask = null; window.scrollTo(0, 0); }
-  else if (d.job != null) { const j = jobs()[+d.job]; if (j && j.go) j.go(); }
+  if ('panclose' in d) closePanel();
+  else if (d.scr) { closePanel(); panReturn = null; scr = d.scr; drill = { cust: null, prod: null }; openRec = null; openProd = null; sub = null; trial = null; ptrial = null; boDoc = null; newRec = null; billEdit = null; window.scrollTo(0, 0); }
+  else if (d.job != null) { const j = jobs()[+d.job]; if (j && j.pan) { openPanel(j.pan, t); if (j.pan.k === 'mats') matFilter = 'todo'; } else if (j && j.go) j.go(); }
+  else if (d.reapview) openPanel({ k: 'reapp', id: +d.reapview }, t);
+  else if (d.panprop) openPanel({ k: 'prop', id: +d.panprop }, t);
+  else if (d.panlrev) openPanel({ k: 'lrev', id: +d.panlrev }, t);
+  else if (d.panrec) openPanel({ k: 'rec', id: +d.panrec }, t);
+  else if ('pansetreq' in d) openPanel({ k: 'setreq', id: d.pansetreq ? +d.pansetreq : null }, t);
+  else if ('pantreq' in d) openPanel({ k: 'treq', id: d.pantreq ? +d.pantreq : null }, t);
+  else if ('panact' in d) openPanel({ k: 'actuals' }, t);
+  else if (d.openprod) { closePanel(); panReturn = null; goPlace('products'); openProd = +d.openprod; ptab = d.ptab || 'recipe'; recSel = null; newRec = null; window.scrollTo(0, 0); }
+  else if ('prodback' in d) { openProd = null; propose = null; ask = null; newRec = null; }
+  else if (d.ptab) { ptab = d.ptab; propose = null; ask = null; }
+  else if (d.recver) { recSel = +d.recver; sendBack = null; editLines = null; }
+  else if (d.pf) prodF = d.pf;
+  else if (d.inp) { inp = d.inp; trial = null; ptrial = null; billEdit = null; }
+  else if (d.setup) { setup = d.setup; boDoc = null; custEdit = null; ask = null; window.scrollTo(0, 0); }
   else if (d.fb) fbasis = d.fb;
   else if (d.hist) hist = d.hist;
   else if (d.per) period = d.per; else if (d.mon) { period = 'any'; month = d.mon; }
   else if ('home' in d) drill = { cust: null, prod: null };
   else if (d.cust != null && !d.propose) { scr = 'margin'; drill = { cust: d.cust, prod: d.prod || null }; window.scrollTo(0, 0); }
-  else if (d.rec) { scr = 'recipes'; openRec = +d.rec; sendBack = null; editLines = null; window.scrollTo(0, 0); }
+  else if (d.rec) { goRec(+d.rec); window.scrollTo(0, 0); }
   else if ('recback' in d) openRec = null;
   else if (d.adv) { await act(`/api/c2m/recipes/${d.adv}/advance`, {}, j => j.state === 'approved' ? 'Cost approved. Margin updated.' : 'Sent on.'); return; }
   else if (d.sb) sendBack = +d.sb; else if ('sbcancel' in d) sendBack = null;
-  else if (d.sbsend) { const r = await act(`/api/c2m/recipes/${d.sbsend}/sendback`, { reason: val('sbr'), advice: val('sba') }, 'Sent back to Majid'); if (r) sendBack = null; return; }
-  else if ('newrec' in d) { newRec = {}; }
+  else if (d.sbsend) { const r = await act(`/api/c2m/recipes/${d.sbsend}/sendback`, { reason: val('sbr'), advice: val('sba') }, 'Sent back to Majid'); if (r) { sendBack = null; render(); } return; }
+  else if ('newrec' in d) { newRec = { cp: d.newrec ? +d.newrec : null }; }
   else if ('nrcancel' in d) newRec = null;
-  else if ('nrsave' in d) { const cpId = +val('nrp'); const p = (ST.products || []).find(x => x.id === cpId); const r = await act('/api/c2m/recipes/new', { clientProductId: cpId, fromVersionId: p ? (p.approvedVersionId || p.latestVersionId) : null, note: val('nrn') }, 'Draft started'); if (r) { newRec = null; openRec = r.id; render(); } return; }
+  else if ('nrsave' in d) { const cpId = +val('nrp'); const p = (ST.products || []).find(x => x.id === cpId); const r = await act('/api/c2m/recipes/new', { clientProductId: cpId, fromVersionId: p ? (p.approvedVersionId || p.latestVersionId) : null, note: val('nrn') }, 'Draft started'); if (r) { newRec = null; goRec(r.id); render(); } return; }
   else if (d.editlines) { const v = ST.recipes.find(x => x.id === +d.editlines); editLines = { id: v.id, lines: v.lines.map(l => ({ gradeId: l.gradeId, qty: l.qty })) }; }
   else if ('elAdd' in d) editLines.lines.push({ gradeId: (ST.rates || [])[0].gradeId, qty: 0.01 });
   else if (d.elDel != null) editLines.lines.splice(+d.elDel, 1);
   else if ('elCancel' in d) editLines = null;
-  else if (d.elSave) { const r = await act(`/api/c2m/recipes/${d.elSave}/lines`, { lines: editLines.lines }, 'Lines saved'); if (r) editLines = null; return; }
+  else if (d.elSave) { const r = await act(`/api/c2m/recipes/${d.elSave}/lines`, { lines: editLines.lines }, 'Lines saved'); if (r) { editLines = null; render(); } return; }
   else if (d.reapp) { await act(`/api/c2m/reapprovals/${d.reapp}/approve`, {}, j => `${j.approved ? `Re-approved ${pl(j.approved, 'pack', 'packs')}. New costs apply from now.` : 'No pack re-approved.'}${j.left && j.left.length ? ' Left on approved cost: ' + j.left.join('; ') : ''}`); return; }
   else if (d.reappsome) { const ids = [...document.querySelectorAll(`[data-rpi^="${d.reappsome}:"]`)].filter(x => x.checked).map(x => +x.dataset.rpi.split(':')[1]); await act(`/api/c2m/reapprovals/${d.reappsome}/approve`, { packIds: ids }, j => `${j.approved ? `Re-approved ${pl(j.approved, 'pack', 'packs')}. The rest keep their approved cost.` : 'No pack re-approved.'}${j.left && j.left.length ? ' Left on approved cost: ' + j.left.join('; ') : ''}`); return; }
   else if (d.reappno) ask = { kind: 'reappno', id: +d.reappno };
@@ -775,45 +948,44 @@ document.addEventListener('click', async e => {
       : A.kind === 'lwd' ? await act(`/api/c2m/lists/revisions/${A.id}/withdraw`, { why }, 'Withdrawn. The list stays as it is.')
       : A.kind === 'retire' ? await act(`/api/c2m/rules/conversion/${A.id}/retire`, { why }, r => r.reapproval ? `Retired. ${pl(r.reapproval, 'pack', 'packs')} to re-approve.` : 'Retired.')
       : await act(`/api/c2m/products/${A.id}/type`, { newType: why }, 'Product type added and set');
-    if (j) ask = null; return; }
+    if (j) { ask = null; render(); } return; }
   else if (d.rpi) return;
   else if (d.reproc) { await act(`/api/c2m/products/${d.reproc}/reprocessed`, { on: t.checked }, j => j.reapproval ? 'Saved. Cost moved: re-approval added.' : 'Saved'); return; }
   else if (d.try) { trial = { gradeId: +d.try, rate: (ST.rates.find(r => r.gradeId === +d.try) || {}).rate, source: '', conf: false, res: null }; render(); $('trf') && $('trf').scrollIntoView({ block: 'center' }); return; }
   else if ('trcalc' in d) { trial.rate = Number(val('trv')); trial.source = val('trs'); try { trial.res = await api('/api/c2m/rates/try', { gradeId: trial.gradeId, rate: trial.rate }); } catch (err) { toast(err.message, true); } }
   else if ('trdrop' in d) { trial = null; toast('Dropped. Nothing changed.'); }
-  else if ('trsave' in d) { const r = await act('/api/c2m/rates', { gradeId: trial.gradeId, rate: Number(val('trv')), source: val('trs'), confirmed: trial.conf }, j => j.reapproval ? `Saved. ${pl(j.reapproval, 'pack', 'packs')} moved over ${SET('reapprove_pct')}%: re-approval added to Today.` : 'Saved.'); if (r) trial = null; return; }
+  else if ('trsave' in d) { const r = await act('/api/c2m/rates', { gradeId: trial.gradeId, rate: Number(val('trv')), source: val('trs'), confirmed: trial.conf }, j => j.reapproval ? `Saved. ${pl(j.reapproval, 'pack', 'packs')} moved over ${SET('reapprove_pct')}%: re-approval added to Today.` : 'Saved.'); if (r) { trial = null; render(); } return; }
   else if (d.ptry) { ptrial = { itemId: +d.ptry, price: (ST.packingItems.find(i => i.id === +d.ptry) || {}).price, source: '', conf: false }; }
   else if ('ptdrop' in d) ptrial = null;
-  else if ('ptsave' in d) { const r = await act('/api/c2m/packing/rate', { itemId: ptrial.itemId, price: Number(val('ptv')), source: val('pts'), confirmed: ptrial.conf }, j => j.reapproval ? `Saved. ${pl(j.reapproval, 'pack', 'packs')} to re-approve.` : 'Saved.'); if (r) ptrial = null; return; }
+  else if ('ptsave' in d) { const r = await act('/api/c2m/packing/rate', { itemId: ptrial.itemId, price: Number(val('ptv')), source: val('pts'), confirmed: ptrial.conf }, j => j.reapproval ? `Saved. ${pl(j.reapproval, 'pack', 'packs')} to re-approve.` : 'Saved.'); if (r) { ptrial = null; render(); } return; }
   else if (d.sub) { sub = d.sub; propose = null; }
   else if (d.pgrp) pgrp = d.pgrp;
   else if (d.propose) { const k = packIdx().get(+d.propose); const tp = k && k.cost && k.product.target != null ? Math.ceil(k.cost.total / (1 - k.product.target / 100)) : Math.ceil((k && k.price) || 0); propose = { packId: +d.propose, v: tp }; render(); $('pf') && $('pf').scrollIntoView({ block: 'center' }); return; }
   else if ('pcancel' in d) propose = null;
-  else if ('psend' in d) { const r = await act('/api/c2m/prices/propose', { packId: propose.packId, price: Number(val('ppv')), validFrom: val('ppf') || undefined, validTo: val('ppt') || undefined, reason: val('ppn'), belowReason: val('ppr'), replaceId: propose.replaceId }, 'Sent to Tahir. It is on his Today list.'); if (r) propose = null; return; }
+  else if ('psend' in d) { const r = await act('/api/c2m/prices/propose', { packId: propose.packId, price: Number(val('ppv')), validFrom: val('ppf') || undefined, validTo: val('ppt') || undefined, reason: val('ppn'), belowReason: val('ppr'), replaceId: propose.replaceId }, 'Sent to Tahir. It is on his Today list.'); if (r) { propose = null; render(); } return; }
   else if (d.presend) { const p = ST.proposals.find(x => x.id === +d.presend); propose = { packId: p.packId, v: p.price, was: p.backReason, reason: p.reason, r: p.belowReason, replaceId: p.id }; render(); $('pf') && $('pf').scrollIntoView({ block: 'center' }); return; }
   else if (d.pok) { await act(`/api/c2m/prices/${d.pok}/approve`, {}, j => (j.waitsUntil ? `Approved. It takes over on ${fmtD(j.waitsUntil)}; today's price stays until then.` : 'Approved. Price lists and margin updated.') + (j.cancelled ? ' The price that was waiting for a later date is cancelled.' : '')); return; }
   else if (d.pwd) ask = { kind: 'pwd', id: +d.pwd };
   else if (d.lwd) ask = { kind: 'lwd', id: +d.lwd };
   else if (d.pback) propose = { back: +d.pback }; else if ('pbcancel' in d) propose = null;
-  else if (d.pbsend) { const r = await act(`/api/c2m/prices/${d.pbsend}/sendback`, { reason: val('pbr') }, 'Sent back to Yawar'); if (r) propose = null; return; }
+  else if (d.pbsend) { const r = await act(`/api/c2m/prices/${d.pbsend}/sendback`, { reason: val('pbr') }, 'Sent back to Yawar'); if (r) { propose = null; render(); } return; }
   else if (d.revstart) { rev = { list: d.revstart, vals: {} }; render(); $('revf') && $('revf').scrollIntoView({ block: 'start' }); return; }
   else if ('revcancel' in d) rev = null;
   else if ('revsend' in d) { const items = {}; Object.entries(rev.vals).forEach(([k, v]) => { if (v === '' || v == null) return; const [id, f] = k.split(':'); (items[id] = items[id] || { id: +id, values: {} }).values[f] = f === 'disc' ? String(Number(v) / 100) : v; });
-    const j = await act('/api/c2m/lists/revise', { list: rev.list, items: Object.values(items), reason: val('rvr'), validFrom: val('rvf'), validTill: val('rvt') || null, replaceId: rev.replaceId }, j => `Sent to Tahir: ${pl(j.rows, 'price', 'prices')}.`); if (j) rev = null; return; }
+    const j = await act('/api/c2m/lists/revise', { list: rev.list, items: Object.values(items), reason: val('rvr'), validFrom: val('rvf'), validTill: val('rvt') || null, replaceId: rev.replaceId }, j => `Sent to Tahir: ${pl(j.rows, 'price', 'prices')}.`); if (j) { rev = null; render(); } return; }
   else if (d.lrok) { await act(`/api/c2m/lists/revisions/${d.lrok}/approve`, {}, j => j.waitsUntil ? `Approved. It takes effect on ${fmtD(j.waitsUntil)}; the list stays as it is until then.` : 'Approved. The list and its dates are updated.'); return; }
   else if (d.lrback) rev = { back: +d.lrback };
-  else if (d.lrbsend) { const j = await act(`/api/c2m/lists/revisions/${d.lrbsend}/sendback`, { reason: val('lrbr') }, 'Sent back to Yawar'); if (j) rev = null; return; }
+  else if (d.lrbsend) { const j = await act(`/api/c2m/lists/revisions/${d.lrbsend}/sendback`, { reason: val('lrbr') }, 'Sent back to Yawar'); if (j) { rev = null; render(); } return; }
   else if (d.lrredo) { const r = ST.listRevisions.find(x => x.id === +d.lrredo); const vals = {}; r.items.forEach(i => Object.entries(i.to).forEach(([f, v]) => { vals[i.id + ':' + f] = f === 'disc' ? +(Number(v) * 100).toFixed(4) : v; })); /* stored 0.05 shows as 5 (%), as typed (defect 11) */ rev = { list: r.list_name, vals, reason: r.reason, from: String(r.valid_from).slice(0, 10), till: r.valid_till ? String(r.valid_till).slice(0, 10) : '', was: r.back_reason, replaceId: r.id }; }
-  else if (d.goPrices) { scr = 'prices'; sub = d.goPrices; }
+  else if (d.goPrices) { scr = 'prices'; sub = d.goPrices; pan = d.goPrices === 'proposals' ? pan : null; }
   else if (d.col) { cols[d.col] = t.checked; }
   else if (d.aud) { PLB.aud = d.aud; PLB.effSet = PLB.tillSet = false; }
   else if (d.plf) { PLB.pick[PLB.aud][d.plf] = t.checked; }
   else if (d.list) { listSel = d.list; }
   else if ('mkpdf' in d) { const a = PLB.aud; const pick = PLB.pick[a] || Object.fromEntries(fieldsFor(a).map(f => [f[0], !!f[2]])); try { const j = await api('/api/c2m/pricedocs', { audience: a, client: PLB.client, fields: fieldsFor(a).map(f => f[0]).filter(k => pick[k]), eff: PLB.effSet ? PLB.eff : undefined, till: PLB.tillSet ? PLB.till : undefined, note: PLB.note, reasons: PLB.reasons }); await savePdf(j.id); toast('PDF created: ' + (j.ref || 'see your downloads')); } catch (err) { toast(err.message, true); } await load(); return; }
-  else if (d.bo) { bo = d.bo; boDoc = null; corr = null; billEdit = null; ask = null; window.scrollTo(0, 0); }
   else if (d.imp) { await act(`/api/c2m/import/${d.imp}/accept`, {}, 'Accepted under your name'); return; }
   else if (d.impc) corr = +d.impc; else if ('impcancel' in d) corr = null;
-  else if (d.impsave) { const r = await act(`/api/c2m/import/${d.impsave}/correct`, { value: val('cv'), why: val('cw'), confirmed: !!($('cconf') && $('cconf').checked) }, j => j.reapproval ? `Saved. ${pl(j.reapproval, 'pack', 'packs')} to re-approve.` : j.kind === 'note' ? 'Recorded. Nothing in C2M changes from a note; make the change on its screen.' : 'Saved into C2M'); if (r) corr = null; return; }
+  else if (d.impsave) { const r = await act(`/api/c2m/import/${d.impsave}/correct`, { value: val('cv'), why: val('cw'), confirmed: !!($('cconf') && $('cconf').checked) }, j => j.reapproval ? `Saved. ${pl(j.reapproval, 'pack', 'packs')} to re-approve.` : j.kind === 'note' ? 'Recorded. Nothing in C2M changes from a note; make the change on its screen.' : 'Saved into C2M'); if (r) { corr = null; render(); } return; }
   else if ('sync' in d) { await act('/api/c2m/sync', {}, j => `Pulled O2S: ${j.poLines} PO lines, ${j.trucks} trucks, ${pl(j.issues.length, 'issue', 'issues')}.`); return; }
   else if (d.grant) { const [u, k, v] = d.grant.split('|'); await act('/api/c2m/grants', { username: u, kind: k, value: v, on: t.checked }, t.checked ? 'Granted' : 'Removed'); return; }
   else if ('setsave' in d) { const ch = {}; (ST.settings || []).forEach(s => { const v = val('set-' + s.k); if (v != null) ch[s.k] = v; }); await act('/api/c2m/settings', { changes: ch }, j => j.pending ? 'Sent to Tahir for approval.' + (j.applied ? ' Other changes saved; Tahir notified.' : '') : j.applied ? 'Saved. Tahir is notified.' : 'Nothing changed.'); return; }
@@ -826,7 +998,7 @@ document.addEventListener('click', async e => {
   else if (d.rfp) { Object.assign(rf, { name: val('crn'), kind: val('crk'), rs: val('crr'), from: val('crv') }); rf.picks[d.rfp] = t.checked; render(); return; }
   else if ('rfall' in d) { document.querySelectorAll('[data-rfp]').forEach(x => { rf.picks[x.dataset.rfp] = true; }); }
   else if ('rfnone' in d) rf.picks = {};
-  else if ('crsave' in d) { const j0 = await act('/api/c2m/rules/conversion', { name: val('crn'), kind: val('crk'), rsPerKg: val('crr'), validFrom: val('crv'), scope: rf.scope, baseProductId: val('crt') || null, productIds: Object.keys(rf.picks).filter(k => rf.picks[k]).map(Number), form: val('crf') || null, reprocessed: val('crp2'), packMin: val('crmin') || null, packMax: val('crmax') || null }, j => j.reapproval ? `Rate saved and applied. ${pl(j.reapproval, 'pack', 'packs')} moved over ${SET('reapprove_pct')}%: re-approval added.` : 'Rate saved and applied'); if (j0) rf = { scope: 'general', picks: {} }; return; }
+  else if ('crsave' in d) { const j0 = await act('/api/c2m/rules/conversion', { name: val('crn'), kind: val('crk'), rsPerKg: val('crr'), validFrom: val('crv'), scope: rf.scope, baseProductId: val('crt') || null, productIds: Object.keys(rf.picks).filter(k => rf.picks[k]).map(Number), form: val('crf') || null, reprocessed: val('crp2'), packMin: val('crmin') || null, packMax: val('crmax') || null }, j => j.reapproval ? `Rate saved and applied. ${pl(j.reapproval, 'pack', 'packs')} moved over ${SET('reapprove_pct')}%: re-approval added.` : 'Rate saved and applied'); if (j0) { rf = { scope: 'general', picks: {} }; render(); } return; }
   else if ('actsave' in d) { await act('/api/c2m/actuals', { month: val('am'), labour: Number(val('al')), foh: Number(val('af')) }, 'Saved'); return; }
   else if (d.chk) { const m = addDays(ST.today.slice(0, 7) + '-01', -1).slice(0, 7); await act('/api/c2m/checks', { month: m, kind: d.chk, data: d.chk === 'tie_books' ? { erpSales: Number(val('tbs')), erpCogs: Number(val('tbc')) } : null }, 'Recorded'); return; }
   else if (d.doc || d.gdoc) { const f = d.doc || d.gdoc; try { const r = await fetch('/api/c2m/docs/' + encodeURIComponent(f), { headers: authH() }); boDoc = { f, text: await r.text() }; } catch (err) { toast(err.message, true); } }
@@ -835,23 +1007,26 @@ document.addEventListener('click', async e => {
   else if ('blAdd' in d) billEdit.lines.push({ itemId: (ST.packingItems || [])[0].id, level: 'primary', pieces: 1 });
   else if (d.blDel != null) billEdit.lines.splice(+d.blDel, 1);
   else if ('blCancel' in d) billEdit = null;
-  else if ('blSave' in d) { billEdit.name = val('ben'); const r = await act('/api/c2m/packing/bill', billEdit, j => j.reapproval ? `Saved and approved. ${pl(j.reapproval, 'pack', 'packs')} to re-approve.` : 'Packing bill saved and approved'); if (r) billEdit = null; return; }
+  else if ('blSave' in d) { billEdit.name = val('ben'); const r = await act('/api/c2m/packing/bill', billEdit, j => j.reapproval ? `Saved and approved. ${pl(j.reapproval, 'pack', 'packs')} to re-approve.` : 'Packing bill saved and approved'); if (r) { billEdit = null; render(); } return; }
   else if ('mtsave' in d) { await act('/api/c2m/materials', { name: val('mtn'), typeId: +val('mtt'), unit: val('mtu'), grade: val('mtg'), rate: val('mtr'), source: val('mts') }, 'Material added with its rate'); return; }
   else if (d.nut) nutEdit = +d.nut;
   else if (d.matf) matFilter = d.matf;
   else if (d.mclassno) delete matPend[d.mclassno];
-  else if (d.mclassok) { const id = d.mclassok, tp = (ST.materialTypes || []).find(x => x.id === matPend[id]); const j = await act(`/api/c2m/materials/${id}/type`, { typeId: matPend[id] }, `Class saved: now ${tp ? tp.name : ''}`); if (j) delete matPend[id]; return; }
+  else if (d.mclassok) { const id = d.mclassok, tp = (ST.materialTypes || []).find(x => x.id === matPend[id]); const j = await act(`/api/c2m/materials/${id}/type`, { typeId: matPend[id] }, `Class saved: now ${tp ? tp.name : ''}`); if (j) { delete matPend[id]; render(); } return; }
   else if ('nutcancel' in d) nutEdit = null;
-  else if (d.nutsave) { const r = (ST.materials || ST.rates || []).find(x => x.gradeId === +d.nutsave); const values = {}; const zero = $('nut0') && $('nut0').checked; r.fields.forEach(f => { const v = val('nut-' + f); values[f] = (v === '' || v == null) && zero ? '0' : v; }); const j = await act(`/api/c2m/grades/${d.nutsave}/nutrients`, { values }, 'Nutrient values saved'); if (j) nutEdit = null; return; }
+  else if (d.nutsave) { const r = (ST.materials || ST.rates || []).find(x => x.gradeId === +d.nutsave); const values = {}; const zero = $('nut0') && $('nut0').checked; r.fields.forEach(f => { const v = val('nut-' + f); values[f] = (v === '' || v == null) && zero ? '0' : v; }); const j = await act(`/api/c2m/grades/${d.nutsave}/nutrients`, { values }, 'Nutrient values saved'); if (j) { nutEdit = null; render(); } return; }
   else if (d.custedit) custEdit = +d.custedit; else if ('custcancel' in d) custEdit = null;
-  else if (d.custsave) { const j = await act(`/api/c2m/customers/${d.custsave}`, { priceRule: val('cer'), cycle: val('cec'), region: val('ceg'), o2sNames: val('cen') }, 'Customer saved'); if (j) custEdit = null; return; }
+  else if (d.custsave) { const j = await act(`/api/c2m/customers/${d.custsave}`, { priceRule: val('cer'), cycle: val('cec'), region: val('ceg'), o2sNames: val('cen') }, 'Customer saved'); if (j) { custEdit = null; render(); } return; }
   else if (d.retire) ask = { kind: 'retire', id: +d.retire };
   else if ('frsave' in d) { await act('/api/c2m/freight', { segment: val('frs'), region: val('frr'), rsPerKg: val('frk'), validFrom: val('frf') }, 'Freight saved'); return; }
   else if ('pinew' in d) { await act('/api/c2m/packing/item', { name: val('pin'), kind: val('pik'), price: Number(val('pip')), source: val('pis') }, 'Packing item added'); return; }
   else return;
   render();
 });
-document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.matches && e.target.matches('tr.go')) e.target.click(); });
+document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.matches && e.target.matches('tr.go')) e.target.click(); if (e.key === 'Escape' && pan) { closePanel(); render(); }
+  // Keep the keyboard inside an open panel (review 18 Oct, finding 7)
+  if (e.key === 'Tab' && pan) { const pn = document.querySelector('aside.panel'); if (!pn) return; const f = panItems(pn); if (!f.length) return;
+    const first = f[0], last = f[f.length - 1]; if (!f.includes(document.activeElement)) { e.preventDefault(); (e.shiftKey ? last : first).focus(); } else if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); } else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); } } });
 document.addEventListener('change', async e => {
   const t = e.target, d = t.dataset, id = t.id;
   if (id === 'trc') { trial.conf = t.checked; render(); }
@@ -862,6 +1037,8 @@ document.addEventListener('change', async e => {
   else if (id === 'pts') { ptrial.source = t.value; render(); }
   else if (id === 'ppv' || id === 'ppf' || id === 'ppt') { propose.v = Number(val('ppv')); propose.from = val('ppf'); propose.till = val('ppt'); propose.reason = val('ppn'); propose.r = val('ppr'); render(); }
   else if (id === 'pcu') { priceCust = t.value; render(); }
+  else if (id === 'pq') { prodQ = t.value; render(); }
+  else if (id === 'mq') { matQ = t.value; render(); }
   else if (id === 'crq') { rf.q = t.value; render(); }
   else if (id === 'plc') { PLB.client = t.value; PLB.effSet = PLB.tillSet = false; render(); } else if (id === 'ple') { PLB.eff = t.value; PLB.effSet = !!t.value; render(); } else if (id === 'plt') { PLB.till = t.value; PLB.tillSet = true; render(); } else if (id === 'pln') { PLB.note = t.value; render(); }
   else if (d.plr) { PLB.reasons[d.plr] = t.value; render(); }

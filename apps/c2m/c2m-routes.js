@@ -15,10 +15,11 @@ const PL = require('./c2m-pricelist');
 
 /* Roles (stored in user_module_roles, module 'c2m'). Access matrix: docs/11-access-and-roles.md */
 const ROLES = {
-  cfo: { label: 'CFO', nav: ['today', 'margin', 'recipes', 'rates', 'prices', 'lists', 'backoffice', 'guide'] },
-  coo: { label: 'COO', nav: ['today', 'margin', 'recipes', 'rates', 'prices', 'lists', 'backoffice', 'guide'] },
+  // 0.8.0 places (Tahir's screen rulings 1, 3, 4 and 5, 18 Oct 2026). Screens only: rights stay in the routes below.
+  cfo: { label: 'CFO', nav: ['today', 'margin', 'products', 'prices', 'inputs', 'setup', 'guide'] },
+  coo: { label: 'COO', nav: ['today', 'margin', 'products', 'prices', 'inputs', 'setup', 'guide'] },
   production: { label: 'Production Manager', nav: ['today', 'recipes', 'guide'] },
-  qc: { label: 'QC Head', nav: ['today', 'recipes', 'materials', 'guide'] }, // materials: nutrient % and class (ruled 16 Oct)
+  qc: { label: 'QC Head', nav: ['today', 'recipes', 'inputs', 'guide'] }, // Inputs, Materials: nutrient % and class, no rates (ruled 16 Oct; ruling 4, 18 Oct)
   plant: { label: 'Plant Manager', nav: ['today', 'recipes', 'guide'] },
   viewer: { label: 'Price list viewer', nav: ['lists', 'guide'] },
 };
@@ -355,7 +356,7 @@ module.exports = function mountC2mRoutes(app, deps) {
     if (next === 'approved') {
       const D0 = await engine.loadAll(q); const pr = engine.priceRecipe(D0, D0.recipes.byVer.get(v.id));
       if (pr.missingRate) throw bad('A material on this recipe has no rate. Enter its rate first, then approve the cost.');
-      const gaps = packsWithoutRates(D0, p => p.client_product_id === v.client_product_id); if (gaps.length) throw bad(`No labour or FOH rate applies to: ${gaps.join('; ')}. Add the rate in Rules first.`);
+      const gaps = packsWithoutRates(D0, p => p.client_product_id === v.client_product_id); if (gaps.length) throw bad(`No labour or FOH rate applies to: ${gaps.join('; ')}. Add the rate in Setup, Settings and targets first.`);
       // Every pack must be fully costed on this version: no Rs 0 or part-priced packing goes into a cost version (defect 1)
       const cp0 = D0.cpById.get(v.client_product_id), ver0 = D0.recipes.byVer.get(v.id), notCosted = [];
       if (!cp0) throw bad('This product is inactive. Make it active before approving its cost.');
@@ -536,7 +537,7 @@ module.exports = function mountC2mRoutes(app, deps) {
   app.post('/api/c2m/packing/item', need('cfo'), wrap(async (req, res) => {
     const { name, kind, price, source } = req.body || {};
     if (!String(name || '').trim() || !(Number(price) > 0) || !String(source || '').trim()) throw bad('Give the item name, price per piece and source.');
-    const [[dup]] = await q('SELECT id FROM c2m_packing_item WHERE name=?', [String(name).trim()]); if (dup) throw bad('A packing item with this name exists. Change its price on Rates.');
+    const [[dup]] = await q('SELECT id FROM c2m_packing_item WHERE name=?', [String(name).trim()]); if (dup) throw bad('A packing item with this name exists. Change its price on Inputs, Packing items.');
     const id = await tx(async () => {
       const [r] = await q('INSERT INTO c2m_packing_item (name, kind) VALUES (?,?)', [String(name).trim().slice(0, 120), String(kind || 'other').slice(0, 30)]);
       await q('INSERT INTO c2m_packing_rate (packing_item_id, price_per_piece, rate_date, source, entered_by, entered_at) VALUES (?,?,?,?,?,?)', [r.insertId, Number(price), today(), String(source).slice(0, 200), req.c2m.user, now()]);
@@ -626,7 +627,7 @@ module.exports = function mountC2mRoutes(app, deps) {
   app.post('/api/c2m/prices/propose', need('cfo'), wrap(async (req, res) => {
     const { packId, price, reason, belowReason, replaceId, validFrom, validTo } = req.body || {};
     const P = await packInfo(packId); const v = strictNum(price); if (!(v > 0)) throw bad('Type a price above 0, digits only.');
-    if (engine.isVanBrand(P.cp)) throw bad('A VAN brand pack is priced per channel through the VAN brand list revisions (Price lists), not here.'); // D-44
+    if (engine.isVanBrand(P.cp)) throw bad('A VAN brand pack is priced per channel through the VAN brand list revisions (Prices, VAN brand lists), not here.'); // D-44
     if (validFrom && !isDate(validFrom)) throw bad('Effective date must be a date.');
     if (validFrom && validFrom < today()) throw bad('The effective date cannot be in the past.');
     if (validTo && (!isDate(validTo) || validTo < (validFrom || today()))) throw bad('Valid till must be the effective date or later (it is the last day the price applies).');
@@ -783,7 +784,7 @@ module.exports = function mountC2mRoutes(app, deps) {
     const id = await tx(async () => {
       let [[m]] = await q('SELECT id FROM c2m_raw_material WHERE name=?', [nm]);
       if (!m) { const [r] = await q('INSERT INTO c2m_raw_material (name, type_id, unit) VALUES (?,?,?)', [nm.slice(0, 120), t.id, unit || 'kg']); m = { id: r.insertId }; }
-      const [[ex]] = await q('SELECT id FROM c2m_material_grade WHERE material_id=? AND grade=?', [m.id, gd]); if (ex) throw bad('This material and grade already exist. Save a new rate on the Rates screen.');
+      const [[ex]] = await q('SELECT id FROM c2m_material_grade WHERE material_id=? AND grade=?', [m.id, gd]); if (ex) throw bad('This material and grade already exist. Save a new rate on Inputs, Materials (Try rate).');
       const [g] = await q('INSERT INTO c2m_material_grade (material_id, grade) VALUES (?,?)', [m.id, gd.slice(0, 60)]);
       await q('INSERT INTO c2m_material_rate (grade_id, rate, rate_date, source, entered_by, entered_at) VALUES (?,?,?,?,?,?)', [g.insertId, strictNum(rate), today(), String(source).slice(0, 200), req.c2m.user, now()]);
       await audit(req.c2m.user, 'material', g.insertId, 'create', null, { name: nm, grade: gd, rate }, source);

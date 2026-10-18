@@ -1,6 +1,7 @@
 # 9. Formulas and business rules
 
 Version 1.3 · 18 Oct 2026 · Owner: Yawar; Tahir rules · Rule: R-5h item 9 (D-20)
+Changed in 0.8.0: no formula or rule changed; place names only. The product page, Price, shows F-08 price for target on cost today and the gap to it, max(price for target - price, 0), per kg or L (D-47).
 Changed in 0.7.0: B-11 added (D-44).
 Changed in 0.6.0: F-04, F-06 and F-16 say when a pack is costed (D-40); F-11 measures from the approved cost and is checked again on approval (D-41); B-05 adds the packing bill; B-09 added (D-42, previous price on the last list sent); B-10 added (D-43). Proof of the 0.6.0 rules: C2M App/tests/fix06.test.js (Y-xx).
 Changed in 0.4.0 and 0.5.0: every worked example now uses made-up figures (public repo); F-05 rate order per D-37 (base bands last); F-09 floor includes labour (D-36); F-13 flag wording; B-04 adds dated approvals; settings list matches migration 001 (9 rows); band values removed.
@@ -46,7 +47,7 @@ All worked examples below are example figures. Product A, Product B, Material M,
 | B-10 | Approving a re-approval approves today's cost, even when it moved after the item was shown; the change record keeps both figures. A pack now within reapprove_pct of its approved cost, or not fully costed, is left on its approved cost | Yawar | D-41, D-43 | P-04, Y-04 |
 | B-11 | VAN brand: 1 product per pack with 1 cost in every channel; any non white label O2S line matches on brand and pack (other O2S spellings in o2s_brand); the sale keeps the buyer, channel and region; no per-pack price proposal | Yawar | D-44 | Z-01 to Z-06 |
 
-## Limits and thresholds (Back Office, Settings; owner: Yawar proposes, Tahir approves; D-18)
+## Limits and thresholds (Setup, Settings and targets; owner: Yawar proposes, Tahir approves; D-18)
 Need Tahir's approval: rate_warn_pct 10 · reapprove_pct 3 · red_share_pct 1 · red_gap_pts 2 · forward_months 3.
 Notice to Tahir: budget_gp · ambition_gp · wl_budget_gp · conv_budget_month. They start at 0 in migration 001 and are set by the first load from the budget.
 Bands: the base bands (Rs per kg, set by Yawar; loaded at first load), from 13 Oct (A-15, D-38): solid not reprocessed; solid reprocessed; liquid packs 10 L and above; liquid packs below 10 L. Each is split into a labour rate and a FOH rate.

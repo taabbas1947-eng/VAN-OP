@@ -1,6 +1,7 @@
 # 10. Data dictionary and glossary
 
 Version 1.3 · 18 Oct 2026 · Owner: Yawar; Himayat for material classes · Rule: R-5h item 10 (D-20)
+Changed in 0.8.0: glossary entries Panel, Product page, Inputs, Setup, Topic and answer line (D-45 to D-52).
 Changed in 0.7.0: channel values (D-44).
 Changed in 0.4.0 and 0.5.0: is_base, applied, the settings, waiting and withdrawn approvals, audit actions; band values and budget figures removed (public repo).
 Changed in 0.3.0 and 0.3.1: rs_per_kg fixed (1 rate of 1 kind, labour or FOH). Added nutrient_role, kind, product type, reprocessed, budget_kg_year, valid_from and valid_to, every status value and every pick list. Column-level detail of every table is in 04.
@@ -95,7 +96,12 @@ Changed in 0.3.0 and 0.3.1: rs_per_kg fixed (1 rate of 1 kind, labour or FOH). A
 - **Rs at stake**: forward exposure in rupees, shown on the margin board.
 - **Non-nutrient input**: binder, filler, anti-caking agent, wetting agent or adjuvant, colour, pH adjuster.
 - **List revision**: a change to VAN brand list prices, approved by Tahir.
-- **Sheet against C2M**: Back Office section comparing Yawar's 13 Oct sheet with C2M's cost today.
+- **Sheet against C2M**: in Setup, From Yawar's sheets (0.8.0; Back Office before), comparing Yawar's 13 Oct sheet with C2M's cost today.
+- **Panel** (0.8.0): the box that opens on the right of Today (full screen on a phone) to do 1 job or approval without leaving Today (D-46).
+- **Product page** (0.8.0): 1 page per client product with 4 tabs: Recipe, Cost by pack, Price, History (D-47).
+- **Inputs** (0.8.0): Materials (1 table: class, nutrient %, and for Yawar and Tahir the rate), Packing items and Packing bills (D-48).
+- **Setup** (0.8.0): what drives C2M (customers, O2S link, Yawar's sheets, settings and targets, list access, records, documentation); it replaced Back Office (D-49).
+- **Topic and answer line** (0.8.0): every screen opens with its topic in capitals and 1 line that answers it; longer explanations are under "How this works" (D-51).
 - **COBO**: VAN's own outlets.
 - **KAM**: key account manager.
 - **White label**: products VAN makes under a client's brand.

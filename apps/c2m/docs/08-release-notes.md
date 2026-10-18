@@ -1,10 +1,34 @@
 # 8. Release notes and change log
 
-Version 1.3 · 18 Oct 2026 · Owner: Claude records; Tahir approves releases · Rule: R-5h item 8 (D-20)
+Version 1.4 · 18 Oct 2026 · Owner: Claude records; Tahir approves releases · Rule: R-5h item 8 (D-20)
+Changed in 0.8.0: entry 0.8.0 added.
 Changed in 0.7.0: entry 0.7.0 added.
 Changed in 0.6.0: entry 0.6.0 added.
 Changed in 0.5.0: entry 0.5.0 added; real figures removed from earlier entries (public repo).
-Format: Keep a Changelog, semantic versions. None of these versions is live.
+Format: Keep a Changelog, semantic versions. Live: 0.7.0 (apps/c2m pushed by Tahir on 17 Oct; 0.6.0 and 0.7.0 pushed on 18 Oct and checked live; no data loaded yet). 0.8.0 is local only.
+
+## [0.8.0] · 18 Oct 2026 · the screen redesign, stage 1 (Tahir's 8 screen rulings) · Who: Claude built, Tahir approves
+### Changed: where things sit and how they read (D-45 to D-52). No rule, right, approval step, formula or table changed.
+- Yawar and Tahir work on 7 places: Today, Margin, Products, Prices, Inputs, Setup, Guide (D-45). The O2S look stays.
+- Every approval and job opens in a panel on Today and is done there (D-46). Approve and send back buttons sit only in a panel; a list elsewhere says "Open to approve". Close or Escape shuts the panel.
+- Products: 1 page per client product, with Recipe, Cost by pack, Price and History (D-47). The product list has filters (white label, VAN brand, recipe in progress, not costed, below cost or target) and a search box. The Price tab shows GP on cost today, the price for target and the gap to it per kg or L.
+- Inputs: 1 materials table with class, nutrient % and, for Yawar and Tahir, the rate with its date and source; Packing items and Packing bills beside it (D-48). Himayat sees no rates, as before.
+- Setup replaces Back Office: Customers, From O2S, From Yawar's sheets, Settings and targets, People and list access, Monthly checks record, Change record, System documentation (D-49).
+- Prices has 5 views: To change, Proposals, By customer, Price lists, VAN brand lists.
+- Every screen opens with its topic and 1 answer line; explanations fold under "How this works" (D-51).
+- Phone: the tabs sit at the bottom; a panel fills the screen (D-52).
+- Step names keep their capitals ("Yawar approves cost", not "yawar approves cost").
+### Not in this stage
+- Reports (14 reports ruled 18 Oct), the price life flow with client acknowledgement, migration 002 and the other rulings of the 21: still to build.
+### Tests
+- New suite ui08.test (U-01 to U-12): runs the real page in a DOM (jsdom) against the local harness as each person; clicks every place, sub-view, product page tab and Today panel; approves a price from Tahir's panel end to end; resends a price and sends back a list revision in panels opened from Prices; checks no id is used twice and no form is left behind. TOTAL 139 passed, 0 failed.
+### Fixed after the independent review (same day)
+- A form drawn behind a panel and again in it: a price revised in a panel opened from Prices sent the old figure, and Tahir could not send back a VAN list revision from a panel opened from Prices. No form is drawn behind an open panel now.
+- Recipe steps open in a panel from the product page and from Recipes too ("Open to approve cost", "Open to review recipe"); the step buttons sit only in the panel.
+- Setup, Monthly checks record: "Enter or correct a month" opens the actuals panel for any month.
+- Closing a panel clears every form it opened. While a panel is open the header and the screen behind are inert; Tab and Shift+Tab stay in the panel; after a save focus stays where it was; on close it goes back to the button that opened the panel.
+- A form now closes after a successful save (it stayed open until the next click).
+- Panels for list revisions, threshold changes and target changes show only their own item; replaced proposals are left out of the product page History; old place names removed from 2 server messages and 1 page text.
 
 ## [0.7.0] · 18 Oct 2026 · ruling 8 built, and the VAN brand costs loaded from Yawar's sheet · Who: Claude built, Tahir approves
 ### Changed: VAN brand products (D-44)

@@ -1,6 +1,7 @@
 # 5. API documentation
 
 Version 1.3 · 18 Oct 2026 · Owner: Tahir (C2M module owner); Claude records · Rule: R-5h item 5 (D-20)
+Changed in 0.8.0: nav lists per role (state.me.nav too); 2 error texts name the new places (a packing price is changed on Inputs, Packing items; a VAN pack is priced in Prices, VAN brand lists). No route added or removed; no reply shape changed (D-45 to D-52).
 Changed in 0.7.0: state sales rows carry the buyer, the O2S channel and region for VAN brand sales; propose refused for a VAN brand pack (D-44).
 Changed in 0.6.0: re-approval approve replies {ok, approved, left}; state carries costGaps on a pack that is not costed; recipe advance to approved is refused while a pack is not fully costed; propose is refused for a pack of an inactive product, and for any pack that is not costed, including one whose recipe is not in C2M yet; a labour or FOH rate must be above 0; issuing a distributor list sets each row's previous price to the printed price; re-approval items can carry {from: null, pct: null, first: true} for a pack's first approved cost.
 Changed in 0.4.0 and 0.5.0: mount needs the platform pool; 503 when dates do not come back as text; prepared statements; 2 withdraw routes; validFrom (Takes effect from) on propose; approve replies carry waitsUntil (and cancelled for prices); a list revision is refused while an approved one waits; 1 open target request per product; pull lock frees after 10 minutes; examples use made-up figures.
@@ -27,7 +28,7 @@ Roles: cfo = Yawar, coo = Tahir, production = Majid, qc = Himayat, plant = Fahim
 |---|---|---|---|---|---|---|
 | GET | /c2m | anyone (the page then asks for sign-in) | | the page (no-store) | D-01 | |
 | GET | /c2m/assets/van-logo.png | anyone | | VAN logo PNG for the page and PDFs | D-13, D-14 | |
-| GET | /api/c2m/me | all roles | | {user, name, role, label, nav} | R-2 | |
+| GET | /api/c2m/me | all roles | | {user, name, role, label, nav}. nav (0.8.0): cfo and coo [today, margin, products, prices, inputs, setup, guide]; production and plant [today, recipes, guide]; qc [today, recipes, inputs, guide]; viewer [lists, guide]. Screens only: rights are checked on each route (D-45) | R-2 | |
 | GET | /api/c2m/state | all roles; filtered by role (see 11) | | everything the person's screens need; a pack that is not costed has cost null and costGaps (what is missing, D-40) | R-2, D-14, D-40 | |
 | POST | /api/c2m/sync | cfo, coo | | {syncId, poLines, trucks, issues}; a pull left Pulling for more than 10 minutes frees itself | D-12, D-21 | yes |
 | POST | /api/c2m/recipes/new | production, cfo, coo | {clientProductId, fromVersionId?, note} | {id} | D-08, R-5i 2 | |

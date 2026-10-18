@@ -1,6 +1,7 @@
 # 1. Process flow diagrams
 
-Version 1.3 · 18 Oct 2026 · Owner: Yawar (CFO) keeps it current; Tahir approves changes · Rule: R-5h item 1 (D-20)
+Version 1.4 · 18 Oct 2026 · Owner: Yawar (CFO) keeps it current; Tahir approves changes · Rule: R-5h item 1 (D-20)
+Changed in 0.8.0: new 1.15 Where each job is done (the screen redesign, D-45 to D-52); place names in 1.3, 1.4, 1.5 and 1.9 moved to the 0.8.0 screens.
 Changed in 0.7.0: new 1.14 VAN brand products (D-44).
 Changed in 0.6.0: cost approval waits until every pack is costed (D-40); re-approval measured from the approved cost and checked again on approval (D-41).
 Changed in 0.4.0 and 0.5.0: rate order (rates Yawar adds beat the base bands); approvals dated ahead wait for their date, only 1 may wait, Tahir can withdraw it; O2S pull lock frees itself after 10 minutes; Tahir sees re-approvals under "For your information"; no real figures in this file (public repo).
@@ -8,7 +9,7 @@ Changed in 0.3.0 and 0.3.1: re-approval is now approve all, approve ticked, or c
 
 Rule references: R-2 = Design Record section 2; R-5b to R-5i = Design Record sections 5b to 5i; D-xx = 06-decisions.md; F-xx = 09-formulas-and-rules.md.
 
-Legend: each subgraph is a lane (a role and its named owner). A dashed arrow is a send back. A rounded box is a start or end. A diamond is a decision. Diagrams are Mermaid; they render on GitHub and in most Markdown viewers. The app's Back Office shows the source text.
+Legend: each subgraph is a lane (a role and its named owner). A dashed arrow is a send back. A rounded box is a start or end. A diamond is a decision. Diagrams are Mermaid; they render on GitHub and in most Markdown viewers. The app's Setup, System documentation, shows the source text.
 
 ## 1.1 Recipe (owner: Majid; R-2 People and rights; D-08, D-09; R-5i 1 and 2)
 
@@ -63,7 +64,7 @@ No approval by Tahir for rates (D-10). Packing item prices follow the same flow 
 ## 1.3 Re-approval (owner: Yawar; R-2 Cost; R-5i 6; changed in 0.3.1)
 
 Triggers. Each makes 1 item for its cause, holding every pack whose cost now differs from its approved cost by more than reapprove_pct (3%). A pack already waiting in an open item is left out.
-1. A material rate saved (Rates).
+1. A material rate saved (Inputs, Materials).
 2. A packing item price saved.
 3. A packing bill edited.
 4. A packing bill assigned to a pack.
@@ -77,7 +78,7 @@ Each pack shows its last approved cost as "from" and the % against it. On approv
 
 ```mermaid
 flowchart TB
-  T([Trigger 1 to 8]) --> I[Item on Yawar's Today and on Recipes · R-2 Cost]
+  T([Trigger 1 to 8]) --> I[Item on Yawar's Today, worked in a panel · R-2 Cost]
   subgraph CFO [Yawar, CFO]
     I --> Q{Decide}
     Q -- Approve all, 2 steps --> A1[New dated cost version for every pack]
@@ -87,7 +88,7 @@ flowchart TB
     Q -- Close: the change was wrong --> Z1[Write why in the box] --> Z2[Item closed, approved costs unchanged]
   end
   subgraph COO [Tahir, COO]
-    V[Sees open items under 'For your information' on Today, read only on Recipes; cannot approve or close]
+    V[Sees open items under 'For your information' on Today, read only in a panel; cannot approve or close]
   end
   Z2 --> Z3{Packs still differ for another cause?}
   Z3 -- yes --> I
@@ -101,7 +102,7 @@ flowchart TB
 
 ```mermaid
 flowchart TB
-  subgraph CFO [Yawar, CFO: Back Office, Rules and targets]
+  subgraph CFO [Yawar, CFO: Setup, Settings and targets]
     A[Add a named rate: labour or FOH, Rs per kg, from date today or earlier] --> B{Applies to}
     B -- all products --> B1[Optional: form, reprocessed, pack range]
     B -- a product type --> B2[Pick the type]
@@ -145,7 +146,7 @@ flowchart LR
     D3 --> G2
   end
   subgraph CFO [Yawar, CFO]
-    Y[Can do the same in Back Office, Materials, adds materials with a rate]
+    Y[Can do the same in Inputs, Materials, and sees and saves the rate; adds materials with a rate]
   end
 ```
 Non-nutrient inputs (binder, filler, anti-caking agent, wetting agent or adjuvant, colour, pH adjuster) count in recipe weight and cost and add 0 to the analysis. No rates or cost are shown on this screen.
@@ -224,7 +225,7 @@ flowchart LR
 ## 1.9 Client price rule (owner: Yawar; R-5 client price rule)
 - Time-based (e.g. Client X, monthly): POs received before the effective date are supplied at the PO price.
 - PO-based (e.g. Client Y): the price is fixed for that PO.
-- Others: to be set by Yawar in Back Office, Customers (A-06).
+- Others: to be set by Yawar in Setup, Customers (A-06).
 
 ## 1.10 Price list documents (owner: creator; D-14)
 Pick audience, pick fields, set dates and reference, check the document, Create PDF. Cost and margin are never available as fields. With no effective date typed, a white label PDF takes the client's own latest approved price date, and a VAN list PDF takes its own list's dates (0.3.1). A document dated ahead shows the prices in force on that date: waiting list revisions applied over today's rows, and the client prices in force on that date (0.5.0). Every page carries the footer and "page n of N"; there is no blank last page (0.5.0). KAMs download only granted lists, cannot set notes, dates or reasons, and the grant is checked again on download.
@@ -253,3 +254,39 @@ flowchart TB
 - A product whose packs carry different recipes in Yawar's sheet is held as 2 products (each keeps 1 recipe), e.g. a 3 L pack costed with other quantities.
 - A VAN pack has no single price: each channel has its own list. VAN prices change through the VAN brand list revisions (1.7); a per-pack price proposal is refused.
 - O2S VAN packs with no costing column load with no cost and are listed in Yawar's import queue.
+
+## 1.15 Where each job is done (0.8.0; D-45 to D-52, Tahir's screen rulings of 18 Oct 2026)
+
+Every job and approval starts on the person's Today and is done in a panel there; the screens behind are for looking and for setup. Rules, rights and approval steps are those of 1.1 to 1.14, unchanged.
+
+```mermaid
+flowchart LR
+  subgraph T [Today: 1 line per job, with why it is there]
+    J[Job or approval] --> P[Panel on Today: the numbers, who sent it, the buttons]
+    P --> A{Approve, send back, accept or enter}
+    A --> D[Done: the panel shows the new state; Close or Escape]
+  end
+  subgraph S [Screens for looking and setup]
+    M[Margin] --- PR[Products: 1 page per client product]
+    PR --- PC[Prices: To change, Proposals, By customer, Price lists, VAN brand lists]
+    PC --- IN[Inputs: Materials, Packing items, Packing bills]
+    IN --- SE[Setup: customers, O2S, Yawar's sheets, settings and targets, access, records, documentation]
+  end
+  PR -. Open to approve .-> P
+  PC -. Open to approve .-> P
+  SE -. Open to approve .-> P
+```
+
+| Job | Who | Opens on Today in a panel |
+|---|---|---|
+| Check, review, endorse, approve cost of a recipe | Majid, Himayat, Fahim, Yawar | the recipe version, with its steps and buttons (also opened from the product page or Recipes: "Open to ...") |
+| Re-approve cost | Yawar (Tahir reads) | the item: approve all, approve ticked, close as wrong |
+| Packs not costed | Yawar | each pack with what is missing, and its product page |
+| Items from Yawar's sheets | Yawar | the queue: accept or correct |
+| Price sent back, prices to change | Yawar | the proposal and its form; the list with Propose |
+| List revision sent back | Yawar | the revision and its form |
+| Monthly actuals, tie to the books | Yawar | the entry forms |
+| Rate check | Tahir | Mark done |
+| Approve a price, a list revision, a threshold change, a target change | Tahir | the item and Approve or send back (refuse) |
+| Materials to complete | Himayat | the materials table on To do |
+| Customers flagged red | Tahir | opens Margin (analysis, not a job) |

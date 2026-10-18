@@ -297,3 +297,24 @@ Next: Tahir's rulings in rounds of 4; then fix the 5 wrong-price defects and def
 - **Tests:** 126 passed, 0 failed. Independent review: 10 points; fixed as listed in 08 (0.7.0).
 - **Open for Yawar (queue):** name matches, in-house or bought-in product, 2 bottle pack sizes, 1 pack size 20 or 25, packs with no column, a can priced at the 20 L figure, VAN targets, a costing working that is not a product, packing to itemise.
 - **Next:** Tahir pushes 0.6.0 and 0.7.0 with GitHub Desktop; then the first live load with Yawar (Option B); Claude then checks the live site.
+
+## 18 Oct 2026 (5) — Pushed 0.6.0 and 0.7.0 checked live; Monday load prepared; 0.8.0 screens built on local (MODULE: C2M) — 0.8.0 NOT PUSHED
+
+- **Live check of Tahir's push (18 Oct, 17:29, commit "c2m", 16 files):** the live page serves 0.7.0; all 8 C2M tabs open as Tahir (COO) with no page error; C2M is empty until the load; O2S opens.
+- **Monday's first live load (Option B), prepared outside the repo (C2M App\loader, confidential):**
+  - `run-live-load.ps1` asks host, user, database and a hidden password, sets C2M_DB_SSL=1 (`-StrictCertificate` to check HostGator's certificate), refuses a blank host or user, runs `live-load.js`, clears the details after.
+  - `live-load.js`: read-only before-checks (39 tables, all 37 data tables empty, 9 settings with the 4 budget figures 0, 4 sources, the session's SSL cipher, app_state, the 9 import pack files, the 0.7.0 loader), then LOAD typed by hand (anything else = dry run), the loader once, after-counts on a new connection against the rehearsal, a log with no password or figure. After a failure it counts what is really in C2M.
+  - The loader now refuses a live run without encryption.
+  - `C2M first load FALLBACK.sql` for phpMyAdmin, only if HostGator refuses the encrypted connection: the same load as a rehearsal, 1 transaction, refuses a second import.
+  - Practised on a local live look-alike: dry run, refused second run, a forced failure that changed nothing, a dropped idle connection, every refusal path. Independent review: no blocker; 14 points fixed.
+  - Rehearsal counts: 65 products, 93 packs (52 VAN), 59 recipe versions, 328 cost versions, 68 rates, 38 open import items, 2 re-approval items (21 white label packs, 26 VAN packs). New O2S sales since 13 Oct can raise some counts.
+  - Loader text fixes: "pack added to undefined"; recipes item counts white label only (32); Tornado pack size asked once; Enroot 35 names the liner bill from Yawar's own formula; Tornado packing "per unit at your sheet's pack size 1".
+  - Checklist: `E:\Cost and Pricing\C2M Live Load Monday Checklist.md` (Sunday dry run, the load, counts, what to do if something goes wrong). Yawar's 38 questions: `E:\Cost and Pricing\Yawar Import Questions 19 Oct.txt`. Go Live Plan step 8 rewritten to point to them.
+  - The 4 budget settings are loaded from budget V9 (not 0): Yawar confirms them.
+- **0.8.0, the screen redesign stage 1 (Tahir's 8 screen rulings; D-45 to D-52):** 7 places for cfo and coo (Today, Margin, Products, Prices, Inputs, Setup, Guide); every approval and job in a panel on Today ("Open to ..." elsewhere opens the same panel); 1 product page per client product (Recipe, Cost by pack, Price, History); 1 materials table on Inputs (Himayat: no rates, as before); Setup replaces Back Office; Prices with 5 views; topic and 1 answer line with a "How this works" fold on every screen; phone tabs at the bottom. No right, rule, formula or table changed: the routes diff is the nav lists and 4 message texts.
+  - **Files (repo):** apps/c2m/c2m.html, c2m-routes.js; docs 01, 02, 04, 05, 06 (D-45 to D-52), 07, 08 (0.8.0), 09, 10, 11, 12.
+  - **Outside the repo (C2M App):** tests/ui08.test.js (U-01 to U-12, jsdom), run-all.js runs it last, flow.test A-01 and H-01, van07 Z-08; package.json 0.8.0 with jsdom 24.1.3 as a dev dependency (installed); loader and live-load files above.
+  - **Tests:** TOTAL 139 passed, 0 failed (lib 40, van07 8, flow 57, fix06 20, ui08 12, confidential scan 730 figures, migration sync). Screens looked at by Claude at laptop and phone width.
+  - **Independent review:** 10 findings, all fixed (2 high: a form drawn behind a panel and again in it sent an old price, and blocked a list send back); re-checked by the same reviewer: all 10 confirmed; 2 new low keyboard-focus points fixed (test U-12).
+  - **Not in this stage:** Reports (14), the price life flow, migration 002, and the other rulings of the 21.
+- **Next:** Monday: Sunday dry run, then the live load with Yawar (checklist); Claude checks live after. Tahir pushes 0.8.0 when he is happy with it (no table change); Claude then tests it on live.

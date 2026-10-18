@@ -1,41 +1,39 @@
 # 11. Access and roles matrix
 
-Version 1.2 · 16 Oct 2026 · Owner: Tahir (grants roles in the platform's People and access); Yawar grants lists · Rule: R-5h item 11 (D-20), R-2 People and rights
+Version 1.3 · 18 Oct 2026 · Owner: Tahir (grants roles in the platform's People and access); Yawar grants lists · Rule: R-5h item 11 (D-20), R-2 People and rights
+Changed in 0.8.0: 11.1 and 11.2 rewritten for the 0.8.0 screens (D-45 to D-52). Places moved; no right changed: the server checks every action by role as before, and the nav list per role (ROLES in c2m-routes.js) only chooses screens.
 Changed in 0.4.0 and 0.5.0: withdraw a waiting price or list revision is coo only; Tahir sees re-approvals under "For your information" and read only on Recipes; stuck recipes on Tahir's Today; Sign out.
 Changed in 0.3.0 and 0.3.1: Materials row added; Back Office sections by role; Tahir receives re-approvals but cannot approve; documents by role; what a KAM can never receive; settings only to Yawar and Tahir; how a role is given and removed.
 
 Roles live in user_module_roles, module 'c2m'. Code: ROLES, SEES_COST, SEES_PRICE and docAllowed in c2m-routes.js. The server filters every reply by role; the page only hides buttons.
 
-## 11.1 Role against screen
+## 11.1 Role against screen (0.8.0)
 
 | Screen | cfo (Yawar) | coo (Tahir) | production (Majid) | qc (Himayat) | plant (Fahim) | viewer (KAMs) | Rule |
 |---|---|---|---|---|---|---|---|
-| Today | yes | yes | yes | yes | yes | no | R-2 |
+| Today, with its panels | yes: every job and approval of his opens in a panel | yes: every approval of his opens in a panel; re-approvals read only | yes | yes | yes | no | R-2, D-46 |
 | Margin | yes | yes | no | no | no | no | D-11 |
-| Recipes | yes, with cost; re-approval items | yes, with cost; re-approval items read only | yes, with cost | yes, no cost | yes, with cost | no | D-08, D-33 |
-| Materials | in Back Office, edit | in Back Office, view | no | yes: class and nutrient %, no rates or cost | no | no | D-23 |
-| Rates | edit | view | no | no | no | no | D-10 |
-| Prices | propose | approve; withdraw a price waiting for its date | no | no | no | no | D-06, D-34 |
-| Price lists | build; propose list revisions | build; approve list revisions; withdraw a revision waiting for its date | no | no | no | granted lists only | D-14, D-28, D-34 |
-| Back Office | edit | view and approve (see 11.2) | no | no | no | no | R-2 |
+| Products (1 page per client product) | yes, with cost and price; propose; product type, reprocessed, packing bill per pack | yes, with cost and price; read only | no | no | no | no | D-47 |
+| Recipes | no (the product page) | no (the product page) | yes, with cost; his step opens in a panel | yes, no cost; his step opens in a panel | yes, with cost; his step opens in a panel | no | D-08, D-46, D-47 |
+| Prices: To change, Proposals, By customer, Price lists, VAN brand lists | propose; build lists; propose list revisions | approve (in a panel); build lists; withdraw a price or revision waiting for its date | no | no | no | no | D-06, D-14, D-28, D-34, D-46 |
+| Price lists | in Prices | in Prices | no | no | no | granted lists only | D-14 |
+| Inputs: Materials | edit: class, nutrient %, rate (try and save), add a material | view, with rates | no | edit: class and nutrient %; no rates or cost | no | no | D-10, D-23, D-48 |
+| Inputs: Packing items, Packing bills | edit | view | no | no | no | no | D-10, D-48 |
+| Setup | edit (see 11.2) | view; Pull O2S; approvals open in a panel | no | no | no | no | R-2, D-49 |
 | Guide | yes | yes | yes | yes | yes | yes | D-20 |
 
-## 11.2 Back Office sections by role
+## 11.2 Setup sections by role (0.8.0; was Back Office)
 
-Only cfo and coo open Back Office. "edit" = forms and buttons; "view" = read only.
+Only cfo and coo open Setup. "edit" = forms and buttons; "view" = read only. Work moved to Today (D-49): the items from Yawar's sheets, monthly actuals, tie to the books, the rate check, and every approval.
 
 | Section | cfo (Yawar) | coo (Tahir) |
 |---|---|---|
-| Import queue | edit (accept, correct) | view ("with Yawar") |
-| Sheet against C2M | view | view |
-| Data links | edit (Pull now) | edit (Pull now) |
 | Customers | edit | view |
-| Products and packing | edit (product type, reprocessed, packing bills and items) | view |
-| Materials | edit (add material, class, nutrient %) | view |
-| Rules and targets | edit (labour and FOH rates, retire, target requests, freight) | approve or refuse target requests |
-| Settings | edit (propose) | approve or refuse threshold changes |
-| Access | edit (list and client grants) | view |
-| Monthly actuals and checks | actuals, tie to the books | rate check (second person) |
+| From O2S (was Data links) | edit (Pull O2S now) | edit (Pull O2S now) |
+| From Yawar's sheets (was Import queue and Sheet against C2M) | view (accept and correct on Today) | view |
+| Settings and targets (was Settings, and Rules and targets) | edit (propose settings; labour and FOH rates, retire, target requests, freight) | view; "Open to approve" opens the panel |
+| People and list access (was Access) | edit (list and client grants) | view |
+| Monthly checks record (was Monthly actuals and checks) | view; "Enter or correct a month" opens the actuals panel | view; the rate check opens in a panel |
 | Change record | view | view |
 | System documentation | all 12 | all 12 |
 
@@ -94,10 +92,10 @@ Anything else returns 403 "Not available to your role." Changes to documentation
 
 ## 11.6 How a role is given and removed (owner: Tahir)
 - Give: Tahir adds the person in the platform's People and access and grants module 'c2m' with 1 role (a row in user_module_roles). The person sees C2M on the next page load.
-- Remove: Tahir removes the c2m row in People and access. The next request returns 403 "You do not have access to C2M." Yawar then removes any list or client grants in Back Office, Access (the grants also stop working once the role is gone, because every /api/c2m route needs the role).
+- Remove: Tahir removes the c2m row in People and access. The next request returns 403 "You do not have access to C2M." Yawar then removes any list or client grants in Setup, People and list access (the grants also stop working once the role is gone, because every /api/c2m route needs the role).
 - Change: Tahir changes the role in People and access; the new screens apply on the next page load.
 - Sign out: the "Sign out" link in the header clears the platform token on this device.
-- List and client grants for KAMs: Yawar ticks or unticks them in Back Office, Access. Each change is in the change record. A KAM's PDF download checks the grant again.
+- List and client grants for KAMs: Yawar ticks or unticks them in Setup, People and list access. Each change is in the change record. A KAM's PDF download checks the grant again.
 
 ## 11.7 What each role can never do
 - Nobody can print cost or margin on a price list; those fields do not exist for any audience.

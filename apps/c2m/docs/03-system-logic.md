@@ -1,6 +1,8 @@
 # 3. System logic
 
-Version 1.2 · 16 Oct 2026 · Owner: Yawar; Tahir approves changes · Rule: R-5h item 3 (D-20)
+Version 1.3 · 18 Oct 2026 · Owner: Yawar; Tahir approves changes · Rule: R-5h item 3 (D-20)
+Changed in 0.7.0: new 3.14 matching an O2S line to a pack, and VAN brand sales (D-44).
+Changed in 0.6.0: 3.4 re-approval figures and the check on approval (D-41); 3.10 when a pack is costed (D-40) and the base of a rate save.
 Changed in 0.4.0 and 0.5.0: price and list revision states with waiting, cancelled and withdrawn; rate choice has 4 levels (base bands last) and the tie-break is more conditions first; flag wording; mount needs the pool, dates as text, prepared statements; stuck flag built.
 Changed in 0.3.0 and 0.3.1: the 409 message replaces "Already decided". New state diagrams: re-approval, list revision, import item, setting request, target request. New decision tables: labour and FOH rate choice, nutrient_role. Price proposal states drawn.
 
@@ -59,6 +61,7 @@ stateDiagram-v2
   approved --> [*]
 ```
 Tahir sees open items under "For your information" on his Today (not counted as jobs) and read only on Recipes; he cannot approve or close them (403).
+Each pack in an item shows from = its last approved cost, to = its cost after the change, and % against the approved cost (D-41, 0.6.0). On approval C2M recosts each pack today and checks it again: a pack now within reapprove_pct of its approved cost, or no longer fully costed, keeps its approved cost; the reply lists it under "left" and the change record says "left: within threshold" or "left: not costed". A costed pack with no approved cost yet joins an item made by any other trigger (e.g. a packing bill assigned) as "first cost" (from blank); approving it sets its first approved cost without the % check.
 
 ## 3.5 VAN list revision states (owner: Yawar and Tahir; D-28)
 
@@ -126,7 +129,8 @@ Pack range: from scope_pack_min (included) to below scope_pack_max. No rate foun
 Saving a class with role none or unclassified clears the grade's nutrient values; the old values stay in c2m_audit.
 
 ## 3.10 Rate save (owner: Yawar; D-10)
-Warning when abs(new - last) / last > rate_warn_pct (rise or drop). Refused without a source. Refused above the warning without "Yes, I meant this rate". Digits only. After save: 1 re-approval item for the packs that moved more than reapprove_pct.
+Warning when abs(new - last) / last > rate_warn_pct (rise or drop). Refused without a source. Refused above the warning without "Yes, I meant this rate". Digits only. After save: 1 re-approval item for the packs that moved more than reapprove_pct from their approved cost (D-41); a material's first rate batches packs the same way. A pack with no approved cost yet is not batched by a rate save; a pack of an inactive product is skipped (0.6.0).
+Costed (D-40): a pack shows a cost only when every material has a rate; a VAN-packed pack has a packing bill with at least 1 item, every item priced above Rs 0, and a pack size above 0 (bulk, and client-packed with no bill: packing 0); and a labour and a FOH rate apply. A rate of Rs 0 (material, labour or FOH) counts as missing. Otherwise Recipes shows "Not costed" with what is missing, Yawar's Today lists the pack when its recipe is approved, no price can be proposed for it (also when its recipe is not in C2M yet, D-40), and cost approval is refused naming the pack (checked before and again inside the transaction).
 
 ## 3.11 Flags (owner: Tahir; D-17, R-5f)
 Below cost: red. Below target by more than red_gap_pts AND Rs gap above red_share_pct % of all white label sales in the period: red (D-31). More than red_gap_pts below target but a small Rs gap: amber "N pts below target, small Rs". Within red_gap_pts of target: amber "slightly below target". Below budget: amber. Else green. No target and no budget: grey "no target", never green. A missing target stays blank, never 0.
@@ -141,3 +145,14 @@ One exception: sending back a price that is no longer proposed gives 400 "Nothin
 ## 3.13 Lateness, escalation, hand over, stand in, away
 Built (0.4.0, D-33): a recipe more than 2 working days at one step (Sundays off) shows on Tahir's Today as "Recipe stuck N working days". No message leaves C2M.
 Not built (not ruled): escalation, due dates, hand over, stand in and away. Nobody stands in for another role. Recorded as open issue I-01 in 12.
+
+## 3.14 Matching an O2S line to a pack (owner: Yawar; D-44; code c2m-engine.js matcher)
+
+| O2S line | C2M pack | Sale shows |
+|---|---|---|
+| White Label channel | The client's own product (customer name in o2s_names, brand, pack) | The client |
+| Any other channel, a customer's own product exists | That product (kept for old data) | That customer |
+| Any other channel | The VAN brand pack with that brand (or another O2S spelling in o2s_brand) and pack size | The O2S buyer, its channel (COBO, VGreen, Dealer, Distributor, Farmer) and region |
+| No pack found | None: the sale counts in sales with no cost and is listed under "Sales C2M could not place" | The O2S buyer |
+
+A VAN brand pack shows no single price (each channel has its own list); a per-pack price proposal for it is refused. Freight is not added to VAN brand costs (none is loaded); freight by the sale's channel and region is not built (I-25).

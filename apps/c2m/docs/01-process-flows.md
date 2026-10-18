@@ -1,6 +1,8 @@
 # 1. Process flow diagrams
 
-Version 1.2 · 16 Oct 2026 · Owner: Yawar (CFO) keeps it current; Tahir approves changes · Rule: R-5h item 1 (D-20)
+Version 1.3 · 18 Oct 2026 · Owner: Yawar (CFO) keeps it current; Tahir approves changes · Rule: R-5h item 1 (D-20)
+Changed in 0.7.0: new 1.14 VAN brand products (D-44).
+Changed in 0.6.0: cost approval waits until every pack is costed (D-40); re-approval measured from the approved cost and checked again on approval (D-41).
 Changed in 0.4.0 and 0.5.0: rate order (rates Yawar adds beat the base bands); approvals dated ahead wait for their date, only 1 may wait, Tahir can withdraw it; O2S pull lock frees itself after 10 minutes; Tahir sees re-approvals under "For your information"; no real figures in this file (public repo).
 Changed in 0.3.0 and 0.3.1: re-approval is now approve all, approve ticked, or close with a reason, and has 8 triggers. New flows: labour and FOH rate choice, Himayat's Materials, VAN list revision, O2S pull, price proposal with dates.
 
@@ -37,6 +39,7 @@ flowchart LR
 - 1 version in progress per client product (R-2 Recipes).
 - A one-time change (e.g. TSP replaced by DAP) is an ordinary new version and goes through all 4 steps; Majid writes another version to switch back (R-5i 2).
 - On cost approval the previous approved version becomes "earlier version" and every pack gets a new dated cost version.
+- Cost approval is refused, naming the pack, until every pack is fully costed on the version: material rates, a priced packing bill for a VAN-packed pack, a labour and a FOH rate (D-40, 0.6.0).
 - The plant is not forced to make the C2M recipe for now (R-5c).
 
 ## 1.2 Rate change (owner: Yawar; R-2 Rates; D-10)
@@ -70,6 +73,7 @@ Triggers. Each makes 1 item for its cause, holding every pack whose cost now dif
 8. A rate corrected in the import queue.
 Also: closing an item makes a new item if packs still differ for another cause (0.3.1).
 If a pack's cost moved again between the item being shown and Yawar approving it, C2M approves today's cost and writes "cost moved since shown" in the change record, with the shown and the approved figure (0.5.0).
+Each pack shows its last approved cost as "from" and the % against it. On approval each pack is checked again: one now within reapprove_pct of its approved cost, or no longer fully costed, keeps its approved cost and is named (D-41, 0.6.0).
 
 ```mermaid
 flowchart TB
@@ -196,7 +200,7 @@ flowchart LR
   SB --> F --> W
 ```
 Only 1 revision may wait per list. While an approved revision waits for its date, a new revision of that list is refused: Tahir withdraws it first, or Yawar waits until it takes effect. C2M applies a waiting revision on its first load on or after the date; the change record says "applied", once. The approve reply is {ok, waitsUntil}.
-Dealer discount is typed as % on the screen and stored as a fraction. Distributor price with FED and dealer net prices are worked out.
+Dealer discount is typed as % on the screen and stored as a fraction, also on revise and resend. Distributor price with FED and dealer net prices are worked out. The previous price on a distributor list is the price on the last distributor list issued (D-42, 0.6.0).
 
 ## 1.8 O2S pull (owner: Yawar or Tahir; D-12, D-21)
 
@@ -233,3 +237,19 @@ Thresholds (rate warning, re-approval, red flag share and gap, forward horizon) 
 
 ## 1.13 Monthly (owner: Yawar and Tahir; D-18)
 Yawar enters actual labour and FOH; C2M shows them against conv_budget_month. Re-entering a month keeps the earlier values in the change record (0.5.0). Tahir (second person) ties the top 15 rates to the purchase register; Yawar cannot do this check. Yawar enters ERP sales and COGS to tie C2M to the books.
+
+## 1.14 VAN brand products (owner: Yawar; D-44, ruling 8, 18 Oct 2026)
+
+```mermaid
+flowchart TB
+  S[Yawar's Master Cost Sheet, VAN Brands tab: 1 column per pack] --> L[Day-1 load: 1 C2M product per VAN product, its packs, 1 recipe, a packing bill per pack]
+  L --> C[1 approved cost per pack: Yawar's figure; today's cost on the bands]
+  O[O2S truck: buyer, channel, region, brand, pack, PO price] --> M{White label?}
+  M -- yes --> W[Client's own product and pack]
+  M -- no --> V[The VAN pack with that brand and pack size, whoever buys it]
+  V --> G[Sale keeps buyer, channel and region; GP = PO price less the pack's cost on the truck's date]
+  C --> G
+```
+- A product whose packs carry different recipes in Yawar's sheet is held as 2 products (each keeps 1 recipe), e.g. a 3 L pack costed with other quantities.
+- A VAN pack has no single price: each channel has its own list. VAN prices change through the VAN brand list revisions (1.7); a per-pack price proposal is refused.
+- O2S VAN packs with no costing column load with no cost and are listed in Yawar's import queue.

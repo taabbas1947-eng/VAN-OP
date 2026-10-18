@@ -1,6 +1,7 @@
 # 10. Data dictionary and glossary
 
-Version 1.2 · 16 Oct 2026 · Owner: Yawar; Himayat for material classes · Rule: R-5h item 10 (D-20)
+Version 1.3 · 18 Oct 2026 · Owner: Yawar; Himayat for material classes · Rule: R-5h item 10 (D-20)
+Changed in 0.7.0: channel values (D-44).
 Changed in 0.4.0 and 0.5.0: is_base, applied, the settings, waiting and withdrawn approvals, audit actions; band values and budget figures removed (public repo).
 Changed in 0.3.0 and 0.3.1: rs_per_kg fixed (1 rate of 1 kind, labour or FOH). Added nutrient_role, kind, product type, reprocessed, budget_kg_year, valid_from and valid_to, every status value and every pick list. Column-level detail of every table is in 04.
 
@@ -33,7 +34,7 @@ Changed in 0.3.0 and 0.3.1: rs_per_kg fixed (1 rate of 1 kind, labour or FOH). A
 | issued, valid_till (c2m_list_price) | Effective date and valid till of the VAN list; a VAN list PDF is dated from these | date | Loader (11 Oct); list revisions | D-14, D-28 |
 | packing_mode | Who supplies packing | VAN, client, bulk | Yawar | D-26 |
 | price_rule | How a client's price changes | time, po, list; blank = to set | Yawar | R-5 client price rule |
-| channel | Sales channel of a client product | White label, Distributor, Dealer, Farmer, COBO, VGreen | O2S | R-2 |
+| channel | Sales channel of a client product | White label, or VAN brand (1 product per VAN pack, sold in every channel; the sale keeps the O2S channel: COBO, VGreen, Dealer, Distributor, Farmer). D-44 | O2S | R-2, D-44 |
 
 ## 10.2 Pick lists, in full
 

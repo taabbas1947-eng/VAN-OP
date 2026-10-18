@@ -1,6 +1,8 @@
 # 7. The Guide
 
-Version 1.2 · 16 Oct 2026 · Owner: Yawar; Tahir approves changes · Rule: R-5h item 7 (D-20)
+Version 1.3 · 18 Oct 2026 · Owner: Yawar; Tahir approves changes · Rule: R-5h item 7 (D-20)
+Changed in 0.7.0: Yawar item 20 (VAN brand products, D-44).
+Changed in 0.6.0: Yawar items 11 and 19 (re-approval figures; when a pack is costed). The app's Guide screen does not carry these yet (I-07).
 Changed in 0.4.0 and 0.5.0: App Guide lines for Yawar and Tahir matched again to the app (GUIDE in c2m.html); dated approvals, withdraw, "For your information", flag wording, restated history and Sign out added; band values removed (public repo).
 Changed in 0.3.0 and 0.3.1: matched word for word to the app's Guide screen (the GUIDE list in c2m.html), then each role's 0.3.0 and 0.3.1 jobs added.
 
@@ -21,14 +23,16 @@ App Guide:
 10. Back Office: settle the import queue, keep packing bills, enter monthly actuals, tie to the books, grant lists.
 
 Also:
-11. Re-approvals (R-2 Cost): each item lists its packs with approved cost, cost now and %. Approve all (press twice to confirm), or untick packs and Approve ticked only (at least 1), or Close: the change was wrong, with a reason. Packs you leave out keep their approved cost. A rate save, packing price, packing bill edit or assignment, labour or FOH rate added or retired, product type, reprocessed flag or import rate correction can each make an item. If a cost moved again after the item was shown, C2M approves today's cost and notes it in the change record.
+11. Re-approvals (R-2 Cost): each item lists its packs with approved cost, cost now and %. Approve all (press twice to confirm), or untick packs and Approve ticked only (at least 1), or Close: the change was wrong, with a reason. Packs you leave out keep their approved cost. A rate save, packing price, packing bill edit or assignment, labour or FOH rate added or retired, product type, reprocessed flag or import rate correction can each make an item. If a cost moved again after the item was shown, C2M approves today's cost and notes it in the change record. "Approved" is the last approved cost, and the % is against it (D-41). A pack whose cost is back within the set % when you approve, or is no longer fully costed, keeps its approved cost; C2M names it after approving. An item can also hold a pack with no approved cost yet ("first cost"), for example after you assign it a packing bill; approving it sets its first approved cost.
 12. The first item waiting for you is the move of conversion to the base bands. Until you approve it, the approved cost from 13 Oct is your own sheet (A-19).
 13. Labour and FOH rates (D-25, D-37), Back Office, Rules and targets: add a named rate, pick Labour or FOH, Rs per kg, a start date today or earlier. Assign it to all products (optionally only solids or liquids, reprocessed or not, a pack range), to a product type, or to a list of products you tick. It applies from its date by itself. Any rate you add beats the base bands for the products it covers; among your own rates, the one with more conditions wins, then the newest. Retire a rate with a reason; C2M refuses if any product would be left with no labour or FOH rate.
-14. VAN brand list revisions (D-28), Price lists: Revise a list, type only the prices that change (the screen shows Now and the change %; discount is typed as %), add a reason, effective date and valid till, Send to Tahir. If he sends it back, Revise and resend. While an approved revision of a list waits for its date, a new revision of that list is refused.
+14. VAN brand list revisions (D-28), Price lists: Revise a list, type only the prices that change (the screen shows Now and the change %; discount is typed as %), add a reason, effective date and valid till, Send to Tahir. If he sends it back, Revise and resend. While an approved revision of a list waits for its date, a new revision of that list is refused. The previous price printed on a distributor list is the price on the last distributor list you issued (D-42).
 15. Price proposals: set "Takes effect from" and valid till. Only 1 price per pack can wait for Tahir, and only 1 approved price per pack can wait for its date.
 16. Sheet against C2M, Back Office: over 3% shows red.
 17. Master data forms, Back Office: add a material or grade with its rate and source (Materials); add a packing item; set a customer's price rule, cycle, region and O2S names (Customers); set freight per segment and region (Rules and targets). You can also set a material's class and nutrient %.
 18. Settings: the budget lines (company budget GP, ambition GP, white label budget GP, budget labour + FOH a month) were set by the first load. A change applies at once with a notice to Tahir. Only 1 target request per product can wait for Tahir.
+19. When a pack is costed (D-40): only when every material has a rate, a VAN-packed pack has a packing bill with at least 1 item, every item priced above Rs 0, and a pack size above 0, and a labour and a FOH rate apply. A white label pack that is not costed, including one whose recipe is not in C2M yet, shows on your Today, and no price can be proposed for it. A labour or FOH rate must be above Rs 0; the product screen says why in place of the Propose button. Recipes shows "Not costed" with what is missing; approving the cost is refused until every pack of the product is costed. Fix the price or the bill in Inputs, then approve.
+20. VAN brand products (D-44): each VAN pack is 1 product with 1 cost in every channel. Its sales show the buyer, channel and region. Change VAN prices through the VAN brand list revisions, not with a price proposal.
 
 ## Tahir (COO, role coo)
 

@@ -1,6 +1,7 @@
 # 2. Data flow diagrams
 
-Version 1.2 · 16 Oct 2026 · Owner: Yawar; data links set by Tahir and Yawar in Back Office · Rule: R-5h item 2 (D-20)
+Version 1.3 · 18 Oct 2026 · Owner: Yawar; data links set by Tahir and Yawar in Back Office · Rule: R-5h item 2 (D-20)
+Changed in 0.7.0: O2S line matching for VAN brand packs (D-44).
 Changed in 0.4.0 and 0.5.0: 4 levels of rate choice (base bands last, is_base); list revisions wait for their date (applied) and can be withdrawn; prices picked by the date in force; price documents dated ahead; loader path; restated history on the margin board.
 Changed in 0.3.0 and 0.3.1: conversion line fixed (1 labour + 1 FOH rate, 3 levels). New Level 1 flows: re-approval, list revision, material class, price document snapshot. KAM data filter shown.
 
@@ -41,7 +42,7 @@ C2M writes to no other system (D-12). O2S holds no recipes; C2M is the recipe ma
 | c2m_cost_version | dated approved totals | margin on each truck by its date; re-approval base |
 
 ## 2.4 Level 1: margin board (owner: Tahir; D-11, D-15, D-27)
-c2m_o2s_truck + c2m_o2s_po_line are matched to c2m_client_pack (customer name in c2m_customer.o2s_names, brand, channel group, pack). Each truck takes the cost in force on its date (c2m_cost_version), or, with the switch "restated at today's labour and FOH rates", the truck's approved cost with today's labour and FOH rates in place of its conversion, for costs that came from Yawar's sheets (D-35). The price in force on a date comes from c2m_price (approved, valid_from on or before the date, valid_to after it). GP by customer, product, PO. Open PO lines give the locked-in gap at each line's own price. Forward exposure: expected kg = budget kg (c2m_client_product.budget_kg_year / 12 x forward_months) or the last 3 months' run rate, chosen by a switch on the screen (not saved), less kg already on open POs.
+c2m_o2s_truck + c2m_o2s_po_line are matched to c2m_client_pack: a white label line by customer name in c2m_customer.o2s_names, brand, channel group and pack; any other line by brand and pack alone to the VAN brand pack (D-44), with the buyer, channel and region kept on the sale. c2m_client_product.o2s_brand may hold other O2S spellings separated by |. Each truck takes the cost in force on its date (c2m_cost_version), or, with the switch "restated at today's labour and FOH rates", the truck's approved cost with today's labour and FOH rates in place of its conversion, for costs that came from Yawar's sheets (D-35). The price in force on a date comes from c2m_price (approved, valid_from on or before the date, valid_to after it). GP by customer, product, PO. Open PO lines give the locked-in gap at each line's own price. Forward exposure: expected kg = budget kg (c2m_client_product.budget_kg_year / 12 x forward_months) or the last 3 months' run rate, chosen by a switch on the screen (not saved), less kg already on open POs.
 
 ## 2.5 Level 1: re-approval (owner: Yawar; R-2 Cost; 1.3)
 

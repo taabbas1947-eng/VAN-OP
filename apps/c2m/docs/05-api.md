@@ -1,6 +1,8 @@
 # 5. API documentation
 
-Version 1.2 · 16 Oct 2026 · Owner: Tahir (C2M module owner); Claude records · Rule: R-5h item 5 (D-20)
+Version 1.3 · 18 Oct 2026 · Owner: Tahir (C2M module owner); Claude records · Rule: R-5h item 5 (D-20)
+Changed in 0.7.0: state sales rows carry the buyer, the O2S channel and region for VAN brand sales; propose refused for a VAN brand pack (D-44).
+Changed in 0.6.0: re-approval approve replies {ok, approved, left}; state carries costGaps on a pack that is not costed; recipe advance to approved is refused while a pack is not fully costed; propose is refused for a pack of an inactive product, and for any pack that is not costed, including one whose recipe is not in C2M yet; a labour or FOH rate must be above 0; issuing a distributor list sets each row's previous price to the printed price; re-approval items can carry {from: null, pct: null, first: true} for a pack's first approved cost.
 Changed in 0.4.0 and 0.5.0: mount needs the platform pool; 503 when dates do not come back as text; prepared statements; 2 withdraw routes; validFrom (Takes effect from) on propose; approve replies carry waitsUntil (and cancelled for prices); a list revision is refused while an approved one waits; 1 open target request per product; pull lock frees after 10 minutes; examples use made-up figures.
 Changed in 0.3.0 and 0.3.1: stale single-product conversion row removed; 1 table for all routes; new routes for product type, reprocessed flag, material class, VAN list revisions, re-approval close and the logo; packIds on re-approval approve; validFrom and validTo on price propose; confirmed and the reply {reapproval, kind} on import correct; 1 errors section with every 409 route.
 
@@ -26,21 +28,21 @@ Roles: cfo = Yawar, coo = Tahir, production = Majid, qc = Himayat, plant = Fahim
 | GET | /c2m | anyone (the page then asks for sign-in) | | the page (no-store) | D-01 | |
 | GET | /c2m/assets/van-logo.png | anyone | | VAN logo PNG for the page and PDFs | D-13, D-14 | |
 | GET | /api/c2m/me | all roles | | {user, name, role, label, nav} | R-2 | |
-| GET | /api/c2m/state | all roles; filtered by role (see 11) | | everything the person's screens need | R-2, D-14 | |
+| GET | /api/c2m/state | all roles; filtered by role (see 11) | | everything the person's screens need; a pack that is not costed has cost null and costGaps (what is missing, D-40) | R-2, D-14, D-40 | |
 | POST | /api/c2m/sync | cfo, coo | | {syncId, poLines, trucks, issues}; a pull left Pulling for more than 10 minutes frees itself | D-12, D-21 | yes |
 | POST | /api/c2m/recipes/new | production, cfo, coo | {clientProductId, fromVersionId?, note} | {id} | D-08, R-5i 2 | |
 | POST | /api/c2m/recipes/:id/lines | production; draft only | {lines:[{gradeId, qty}], note?} | {ok} | D-08 | yes |
 | POST | /api/c2m/recipes/:id/advance | the role of the current step (draft production, review qc, endorse plant, cost cfo) | {note?} | {state} | D-08, D-09 | yes |
 | POST | /api/c2m/recipes/:id/sendback | qc, plant, cfo at their own step | {reason, advice} | {ok} | D-09 | yes |
-| POST | /api/c2m/rates/try | cfo | {gradeId, rate} | {warning:{warn, pct}, impact:[{packId, label, now, after, pct, reapprove, openKg, rsOnOpen, priceForTarget}]}; saves nothing | D-10 | |
+| POST | /api/c2m/rates/try | cfo | {gradeId, rate} | {warning:{warn, pct}, impact:[{packId, label, now, after, pct, approved, pctApproved, reapprove, openKg, rsOnOpen, priceForTarget}]}; now, pct and rsOnOpen are null on a material's first rate; approved and pctApproved are null when the pack has no approved cost yet, and then reapprove is false; saves nothing | D-10 | |
 | POST | /api/c2m/rates | cfo | {gradeId, rate, source, confirmed?} | {ok, reapproval: packs batched} | D-10, R-5i 6 | |
 | POST | /api/c2m/packing/rate | cfo | {itemId, price, source, confirmed?} | {ok, reapproval} | D-19 | |
 | POST | /api/c2m/packing/item | cfo | {name, kind, price, source} | {id} | D-19 | |
 | POST | /api/c2m/packing/bill | cfo | {id?, name, lines:[{itemId, level: primary or secondary, pieces, packsPerOuter}]} | {id, reapproval} | D-19 | |
 | POST | /api/c2m/packing/assign | cfo | {packId, billId or null} | {ok, reapproval} | D-19 | |
-| POST | /api/c2m/reapprovals/:id/approve | cfo | {} for all, or {packIds:[...]} for the ticked packs only (an empty list is refused) | {ok}; approves today's cost; if a cost moved since the item was shown, the change record says "cost moved since shown" | R-2 Cost, R-5i 6 | yes |
+| POST | /api/c2m/reapprovals/:id/approve | cfo | {} for all, or {packIds:[...]} for the ticked packs only (an empty list is refused) | {ok, approved: packs given a new cost, left: [packs kept on their approved cost, with why]}; approves today's cost; if a cost moved since the item was shown, the change record says "cost moved since shown"; a pack now within reapprove_pct of its approved cost, or not fully costed, is left (D-41) | R-2 Cost, R-5i 6, D-41 | yes |
 | POST | /api/c2m/reapprovals/:id/dismiss | cfo | {why} | {ok, reapproval: packs batched again for another cause} | R-2 Cost | yes |
-| POST | /api/c2m/rules/conversion | cfo | {name, kind: labour or foh, rsPerKg, scope: general, type or list, baseProductId (type), productIds[] (list), form?, reprocessed? (0 or 1), packMin?, packMax?, validFrom? (today or earlier), source?} | {id, reapproval} | D-25, R-5i 7 | |
+| POST | /api/c2m/rules/conversion | cfo | {name, kind: labour or foh, rsPerKg (above 0; a Rs 0 rate counts as missing, D-40), scope: general, type or list, baseProductId (type), productIds[] (list), form?, reprocessed? (0 or 1), packMin?, packMax?, validFrom? (today or earlier), source?} | {id, reapproval} | D-25, R-5i 7 | |
 | POST | /api/c2m/rules/conversion/:id/retire | cfo | {why} | {ok, reapproval}; refused if any pack would have no labour or FOH rate | D-25 | yes |
 | POST | /api/c2m/products/:id/type | cfo | {typeId} or {newType: name} | {ok, reapproval} | D-25, A-16 | |
 | POST | /api/c2m/products/:id/reprocessed | cfo | {on: true or false} | {ok, reapproval} | D-04, D-25 | |
@@ -49,7 +51,7 @@ Roles: cfo = Yawar, coo = Tahir, production = Majid, qc = Himayat, plant = Fahim
 | POST | /api/c2m/grades/:id/nutrients | cfo, qc | {values: {"K%": 56}} (0 to 100) | {ok}; 400 for a class with no nutrient fields | D-23 | |
 | POST | /api/c2m/customers/:id | cfo | {priceRule: time, po or list, cycle, region, o2sNames: "a\|b"} | {ok} | R-5 client price rule | |
 | POST | /api/c2m/freight | cfo | {segment: Dealer or Farmer, region, rsPerKg, validFrom?} | {ok} | D-05 | |
-| POST | /api/c2m/prices/propose | cfo | {packId, price, reason, belowReason (needed below target), validFrom? (Takes effect from; default today), validTo? (valid till: the last day the price applies; the effective date or later), replaceId? (a sent-back proposal)} | {id}; refused if the pack already has a price waiting for Tahir | D-06, D-22, D-34 | yes |
+| POST | /api/c2m/prices/propose | cfo | {packId, price, reason, belowReason (needed below target), validFrom? (Takes effect from; default today), validTo? (valid till: the last day the price applies; the effective date or later), replaceId? (a sent-back proposal)} | {id}; refused if the pack already has a price waiting for Tahir, its product is inactive, the pack is not costed (D-40), or it is a VAN brand pack (priced through list revisions, D-44) | D-06, D-22, D-34 | yes |
 | POST | /api/c2m/prices/:id/approve | coo | | {ok, waitsUntil, cancelled}. Starts on the later of its effective date and today. waitsUntil = the date when it is dated ahead, else null; today's price stays in force until then. cancelled = how many older waiting prices for the pack it replaced (audit "cancelled") | D-22, D-34, R-5i 3 | yes |
 | POST | /api/c2m/prices/:id/withdraw | coo | {why} | {ok, issuedDocs}; only an approved price still waiting for its date; the price it shortened gets its old end back; issuedDocs lists price lists already issued with it; Yawar gets a notice (audit "withdrawn", "end restored") | D-34 | yes |
 | POST | /api/c2m/prices/:id/sendback | coo | {reason} | {ok}; 400 "Nothing to send back" if no longer proposed | D-09 | |
@@ -69,7 +71,7 @@ Roles: cfo = Yawar, coo = Tahir, production = Majid, qc = Himayat, plant = Fahim
 | POST | /api/c2m/lists/revisions/:id/approve | coo | | {ok, waitsUntil}. Dated today or earlier: list rows, previous prices and list dates change now (waitsUntil null). Dated ahead: waits; C2M applies it on its first load on or after the date | D-28, D-34 | yes |
 | POST | /api/c2m/lists/revisions/:id/withdraw | coo | {why} | {ok}; only an approved revision still waiting for its date; the list stays as it is (audit "withdrawn") | D-34 | yes |
 | POST | /api/c2m/lists/revisions/:id/sendback | coo | {reason} | {ok} | D-28 | yes |
-| POST | /api/c2m/pricedocs | cfo, coo; viewer only for a granted list or client | {audience, client (wl), fields[], eff?, till?, ref?, note?, reasons?} (a viewer cannot set eff, till, note or reasons) | {id, ref} (ref = VAN/PL/year/number). No eff: a client list takes the client's latest approved price date, a VAN list its own list dates. eff ahead: prices in force on that date | D-14, D-34 | |
+| POST | /api/c2m/pricedocs | cfo, coo; viewer only for a granted list or client | {audience, client (wl), fields[], eff?, till?, ref?, note?, reasons?} (a viewer cannot set eff, till, note or reasons) | {id, ref} (ref = VAN/PL/year/number). No eff: a client list takes the client's latest approved price date, a VAN list its own list dates. eff ahead: prices in force on that date; a distributor list issued makes each row's printed price its previous price (D-42) | D-14, D-34 | |
 | GET | /api/c2m/pricedocs/:id/pdf | cfo, coo; the creator while the grant still stands | | application/pdf, printed from the saved snapshot; footer and "page n of N" on every page | D-14 | |
 | GET | /api/c2m/docs/:file | cfo, coo: all 12; production, qc, plant: 01, 07, 11; viewer: 07, 11 | | text/plain (the Markdown file) | D-20 | |
 
@@ -105,7 +107,7 @@ List revision dated ahead:
 `POST /api/c2m/lists/revisions/4/withdraw {"why":"date moved"}` → 200 `{"ok":true}`.
 
 Approve only the ticked packs of a re-approval:
-`POST /api/c2m/reapprovals/7/approve {"packIds":[31,32]}` → 200 `{"ok":true}`. Packs left out keep their approved cost.
+`POST /api/c2m/reapprovals/7/approve {"packIds":[31,32]}` → 200 `{"ok":true,"approved":1,"left":["Product A 10 kg for Client X (today's Rs 132.50 is within 3% of the approved Rs 132.00)"]}`. Packs not ticked, and packs left, keep their approved cost.
 
 Close a re-approval when the change was wrong:
 `POST /api/c2m/reapprovals/7/dismiss {"why":"rate typed wrong"}` → 200 `{"ok":true,"reapproval":0}`. If packs still differ for another cause, `reapproval` is the number of packs in the new item.

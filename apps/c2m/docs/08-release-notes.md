@@ -1,8 +1,50 @@
 # 8. Release notes and change log
 
-Version 1.2 · 16 Oct 2026 · Owner: Claude records; Tahir approves releases · Rule: R-5h item 8 (D-20)
+Version 1.3 · 18 Oct 2026 · Owner: Claude records; Tahir approves releases · Rule: R-5h item 8 (D-20)
+Changed in 0.7.0: entry 0.7.0 added.
+Changed in 0.6.0: entry 0.6.0 added.
 Changed in 0.5.0: entry 0.5.0 added; real figures removed from earlier entries (public repo).
 Format: Keep a Changelog, semantic versions. None of these versions is live.
+
+## [0.7.0] · 18 Oct 2026 · ruling 8 built, and the VAN brand costs loaded from Yawar's sheet · Who: Claude built, Tahir approves
+### Changed: VAN brand products (D-44)
+- Each VAN pack is now 1 product with 1 cost, sold in every channel. Before, the same pack was held once per channel (COBO, Dealer, Distributor, Farmer, VGreen), which made about 24 product names look like 99 rows.
+- An O2S line in any channel other than white label finds the VAN pack by brand and pack size. The sale keeps the buyer, channel and region, so margin by channel and by buyer still works.
+- A VAN pack shows no single price; VAN prices change through the VAN brand list revisions. A per-pack price proposal for a VAN pack is refused.
+- Products and packing, Rules and Sheet against C2M now list VAN brand products with the white label ones.
+### Data (day-1 load; outside apps/c2m)
+- The loader reads Yawar's VAN Brands tab: 47 packs (dated 14 Oct 2026, with his snapshots of 30 Jun, 10 Aug and 25 Sep for the cost on each truck's date). His DEALERS and COBO tabs give the same cost for every pack.
+- 30 VAN products and 52 packs load: the 47 sheet packs plus 5 O2S packs with no costing column (no cost). 45 packs carry Yawar's figures as the approved cost; where his sheet has Rs 0 labour and FOH the band takes its place (a Rs 0 rate counts as missing). 2 wait with Majid: the sheet costs a 500 ml bottle with pack size 1. Materials and packing rebuild his sheet for every costed pack; only labour and FOH move to the bands, in 1 re-approval item.
+- White label costs and rates are unchanged by the load (all 41 packs compared).
+- Yawar's import queue lists every open question: the names matched between his sheet and O2S, a product made in-house and also bought in, 2 pack sizes to confirm, packs with no costing column, VAN targets, a costing working that is not a product, packing to itemise. Product names stay in the queue and the import pack, not in this public file.
+### Tests
+- New suite van07.test.js (Z-01 to Z-07) in C2M App/tests, run right after the load: every sheet pack loaded with Yawar's figures, the matching, the sale keeping its buyer and channel, the refusal of a per-pack price. flow test P-04 now finds its re-approval item by cause (the VAN brand item also stays open). The confidential scan also reads the VAN Brands figures (730 figures) and the VAN product names.
+- An independent review found 10 points; fixed: the packing items are now matched 1 piece first across all items (a 10 L can was read as 3 cans of 3 L), the 2 bottle packs wait with Majid, the Rs 0 labour and FOH, a pack is never added twice, double spaces in O2S names, an empty buyer name, the Propose button and 2 screen texts on VAN packs, and the tests and the scan. A blank O2S buyer now never shows as the VAN brand owner row.
+- TOTAL 126 passed, 0 failed, 0 crashed on a fresh c2m_test, 18 Oct 2026.
+
+## [0.6.0] · 18 Oct 2026 · the 6 defects from the 18 Oct review that can put a wrong cost or price in front of a client, or stop rate saves · Who: Claude built, Tahir approves
+### Fixed: cost (defects 1 and 2; D-40)
+- A pack is costed only when every part of its cost is there: a rate for every material; for a pack VAN packs, a packing bill with at least 1 item, every item priced above Rs 0, and a pack size above 0; and both a labour and a FOH rate. Before, a missing packing price or a missing FOH rate counted as Rs 0, so the cost was too low and the GP too high (example figures: a 10 kg pack with its bag unpriced showed cost 120, not 130; at a price of 200, GP 40%, not 35%). A bulk product, and a client-packed pack with no bill, still carry no packing (D-26 unchanged).
+- A pack that is not costed says why on Recipes: "Not costed: no packing bill", "no price for (item)", "no FOH rate".
+- Cost approval is refused, naming each pack and what is missing, until every pack of the product is fully costed on that version (B-05). The check runs again inside the approval transaction, so nothing is saved if a price or rate changed in between; an inactive product is refused.
+- A rate of Rs 0, for a material, labour or FOH, counts as missing; the rules form refuses a Rs 0 labour or FOH rate (Tahir 18 Oct, I-20).
+- A price cannot be proposed for a pack that is not costed, including one whose recipe is not in C2M yet (Tahir 18 Oct, I-24): its GP and the below-target check need a cost. The product screen shows why in place of the Propose button, and Yawar's Today lists every such white label pack.
+### Fixed: rate saves (defect 3)
+- A pack of an inactive product no longer breaks Try a rate, Save or the import-queue rate correction: it is skipped. Pricing a pack of an inactive product is refused in words, not with a server error.
+### Fixed: re-approval (defect 4; D-41)
+- An item made by a material rate or a packing price shows the approved cost as "from", and the % against it. Before, it showed the cost before the change, so the figure and even the direction could be wrong (example figures: approved 120, cost 110 rising to 114 showed "110 to 114, +3.6%"; it is "120 to 114, -5.0%").
+- Try a rate shows the approved cost and the % against it next to "re-approve".
+- On approval each pack is checked again: a pack now within reapprove_pct of its approved cost, or no longer fully costed, keeps its approved cost and is named ("Left on approved cost"). The reply is {ok, approved, left}.
+- A material's first rate, or a packing item's first price, batches packs against their approved cost (before, those packs were skipped). A pack with no approved cost yet is not batched, as with the other triggers; When another trigger touches such a pack (e.g. a packing bill assigned), it joins the item as "first cost"; approving it sets its first approved cost.
+- When nothing is re-approved, the message says "No pack re-approved."
+### Fixed: price lists (defects 11 and 12; D-42)
+- Revise and resend of a sent-back dealer list revision keeps the discount: a stored 0.05 fills the form as 5 (%). Before, it filled 0.05, which was sent as 0.05% (example figures: dealer net on 1,000 became 999.50, not 950).
+- Distributor list: the previous price is the price on the last distributor list actually sent (Tahir 18 Oct, I-21, D-42). It moves only when a distributor list is issued in C2M; until then the list loaded from Yawar counts as the last sent. So an MRP-only revision no longer reprints the last price change as new, and 2 revisions before a list is sent are measured against what the distributors last received. A row with no previous price prints "new" and "New price", not "0.0%, No change", and is listed with the reasons for change. A row with no price prints neither.
+### Tests
+- New suite fix06.test.js (Y-01 to Y-08, 20 checks) in C2M App/tests, run by run-all.js after flow.test. On the 0.5.0 code 19 of the 20 fail (Y-01c proves behaviour that was already right).
+- An independent review of the change (2 rounds) found 10 points, then 4 more on the follow-up: 7 of the first 10 fixed (#5 for material rates only; the labour and FOH half is I-20), 1 checked clean (I-23), 2 for Tahir (I-21, I-22); the 4 follow-up points fixed, with 1 for Tahir (I-24).
+- TOTAL 119 passed, 0 failed, 0 crashed on a fresh c2m_test, 18 Oct 2026.
+- Tahir's rulings of 18 Oct on the review points: I-20 a Rs 0 labour or FOH rate is missing; I-21 previous price = last list sent; I-22 approve today's cost and record it, as built (D-43); I-24 no price for a pack whose recipe is not in C2M.
 
 ## [0.5.0] · 16 Oct 2026 · fixes from the 4 pre-handover reviews (code, data safety, design, workflow) · Who: Claude built, Tahir approves
 ### Changed: folders and data safety

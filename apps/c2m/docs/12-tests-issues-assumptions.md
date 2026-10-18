@@ -1,6 +1,8 @@
 # 12. Tests, issues and assumptions
 
-Version 1.4 · 16 Oct 2026 · Owner: Claude records; Tahir and Yawar confirm assumptions · Rule: R-5h item 12 (D-20)
+Version 1.5 · 18 Oct 2026 · Owner: Claude records; Tahir and Yawar confirm assumptions · Rule: R-5h item 12 (D-20)
+Changed in 0.7.0: suite van07.test (Z-01 to Z-06); totals and last run; I-17 closed; I-25 to I-28.
+Changed in 0.6.0: suite fix06.test (Y-01 to Y-08); totals and last run; I-17 to I-24; the 18 Oct review in 12.4.
 Changed in 0.5.0: tests moved to C2M App/tests (outside apps/c2m); new suites confidential.scan and migration.sync; flow tests V-02, V-03, W-01 to W-03; last run recorded; real figures removed from the assumptions (public repo); I-05, I-08, I-09 fixed; I-14 to I-16 added.
 Changed in 0.3.1: test ranges and last run; shipped items moved out of "not built"; assumptions and open issues in 1 table with owner, date and status; A-04, A-17 corrected; A-19 added; review reports with fix status.
 
@@ -29,11 +31,15 @@ Run `npm test` (or `node tests/run-all.js`) from the C2M App folder on Tahir's P
 | | V-01 to V-03 | VAN list revision: propose, send back, resend, approve; approvals dated ahead wait (list revision and client price); reprocessed band and floor with labour | 3 |
 | | W-01 to W-03 | A newer approval cancels the waiting price, a waiting price can be withdrawn; a waiting list revision blocks a new one, can be withdrawn, a PDF dated ahead shows the future prices; C2M refuses to start without the platform pool | 3 |
 | | X-01 | Every change is in the change record | 1 |
+| fix06.test.js | Y-01 to Y-08 | 0.6.0 fixes: a pack is costed only when complete (packing, labour and FOH) and cost approval waits for it (D-40); a pack of an inactive product does not break rate saves or pricing; re-approval from the approved cost and checked again on approval (D-41); dealer discount kept on resend; distributor previous price and "new" (D-42); a material's first rate; a Rs 0 material rate; no price proposed for a pack that is not costed, including one whose recipe is not in C2M; a Rs 0 labour or FOH rate; distributor previous price = last list sent; a first approved cost through a re-approval item. Made-up names and figures (Fix06 ...) | 20 |
+| van07.test.js | Z-01 to Z-07 | 0.7.0 ruling 8 (D-44): 1 product per VAN pack; all 47 sheet packs loaded with Yawar's VAN Brands figures; materials and packing rebuild his sheet; the matching in every channel; the sale keeps buyer, channel and region; no per-pack price for a VAN pack; 1 band-move item and the queue questions; a split product's pack, a sale by a client that buys in 2 channels, the dealer's region. Runs right after the load, before flow.test | 7 |
 | confidential.scan (in run-all.js) | | No figure from the import pack, the B2B prices, the budget or the packing list appears anywhere in apps/c2m | 1 |
 | migration.sync (in run-all.js) | | 001_c2m_core.PRODUCTION.sql is 001_c2m_core.sql with the database line in front | 1 |
 
-Totals: 95 checks (40 lib, 53 flow, 1 confidential scan, 1 migration sync).
-Last run, 16 Oct 2026, after the 0.5.0 documentation change: lib.test 40 passed, 0 failed; flow.test 53 passed, 0 failed; confidential.scan 1 passed, 0 failed (280 figures checked); migration.sync 1 passed, 0 failed; TOTAL 95 passed, 0 failed, 0 crashed. Run from a copy of tests/run-all.js with the I-16 line break put back, because the file itself does not start.
+Totals: 126 checks (40 lib, 7 van07, 57 flow, 20 fix06, 1 confidential scan, 1 migration sync). The flow count was 57 before 0.6.0 as well; the 53 written here earlier was out of date.
+Last run, 18 Oct 2026, after 0.7.0 (ruling 8 and the VAN brand load), on a fresh c2m_test: lib.test 40 passed; van07.test 7 passed; flow.test 57 passed; fix06.test 20 passed; confidential.scan 1 passed (730 figures checked, VAN names included); migration.sync 1 passed; TOTAL 126 passed, 0 failed, 0 crashed.
+Run after the 0.6.0 fixes, on a fresh c2m_test (MariaDB 10.6 in the desktop app's Linux workspace, running a copy of the C2M App harness with apps/c2m taken from the VAN Systems repo): lib.test 40 passed; flow.test 57 passed; fix06.test 20 passed; confidential.scan 1 passed; migration.sync 1 passed; TOTAL 119 passed, 0 failed, 0 crashed. fix06 run against the 0.5.0 code: 19 of 20 fail there, as they should (Y-01c proves kept behaviour).
+Earlier run, 16 Oct 2026, after the 0.5.0 documentation change: lib.test 40 passed, 0 failed; flow.test 53 passed, 0 failed; confidential.scan 1 passed, 0 failed (280 figures checked); migration.sync 1 passed, 0 failed; TOTAL 95 passed, 0 failed, 0 crashed. Run from a copy of tests/run-all.js with the I-16 line break put back, because the file itself does not start.
 Not tested by automation: the PDF's look, the phone layout, the 2-step buttons and other screen behaviour (checked by clicking through as each person).
 
 ## 12.2 Assumptions and open issues (1 table)
@@ -78,6 +84,18 @@ A-xx: assumptions decided overnight 15 to 16 Oct under Tahir's instruction "deci
 | I-14 | The rule "1 open target request per product" has no test of its own. | Claude | 16 Oct 2026 | open |
 | I-15 | The list revision withdraw runs without a row lock (a single guarded UPDATE); 2 presses at once still give 1 success and 1 409. Recorded, no change needed. | Claude | 16 Oct 2026 | open |
 | I-16 | tests/run-all.js on 16 Oct 2026 (15:29) has a syntax error: a comment swallowed the next statement in confidentialScan (the line "if (a >= 10 && ...)" is joined to the comment before it), so `node tests/run-all.js` does not start, and figures with 2 decimals would not be scanned. This documentation run used a copy with the line break put back. Fix the file. | Claude | 16 Oct 2026 | open |
+| I-17 | The 99 VAN rows (about 24 product names repeated once per channel) are gone in 0.7.0: 30 VAN products, 52 packs, 1 product per pack (D-44). | Yawar | 18 Oct 2026 | fixed |
+| I-18 | A rate save and a packing price save do not leave out packs already waiting in an open re-approval item (01 §1.3 says a waiting pack is left out; the other triggers do). A pack can sit in 2 open items; approving either uses today's cost and checks it again (D-41), so no wrong cost is approved. To fix with 1 open item per pack (migration 002). | Claude | 18 Oct 2026 | open |
+| I-19 | Re-approval items made before 0.6.0 on a local database keep their old "from" figure (the cost before the change). Approving them is safe: C2M approves today's cost and checks it against the approved cost again. | Claude | 18 Oct 2026 | open |
+| I-20 | A labour or FOH rate of Rs 0: Tahir ruled 18 Oct that it counts as missing, like a Rs 0 material rate. Built in 0.6.0; the rules form refuses it (test Y-02c). | Tahir | 18 Oct 2026 | ruled, built |
+| I-21 | Distributor "previous price": Tahir ruled 18 Oct that it is the price on the last list actually sent to distributors (D-42). Built in 0.6.0: it moves only when a distributor list is issued (test Y-06). | Tahir | 18 Oct 2026 | ruled, built |
+| I-22 | A cost that moved after the re-approval item was shown: Tahir ruled 18 Oct to approve today's cost and record both figures, as built (D-43). | Tahir | 18 Oct 2026 | ruled |
+| I-23 | Checked 18 Oct 2026 on a fresh day-1 load: no approved cost version has Rs 0 packing on a VAN-packed pack or Rs 0 conversion, and no material rate or labour or FOH rate is Rs 0. So no approved cost carries the 0.5.0 Rs 0 gap. | Claude | 18 Oct 2026 | checked |
+| I-24 | Pricing a pack whose recipe is not in C2M yet: Tahir ruled 18 Oct to refuse until the recipe is in C2M. Built in 0.6.0 (test Y-07b); 3 white label packs today show on Yawar's Today. | Tahir | 18 Oct 2026 | ruled, built |
+| I-25 | Freight by the sale's channel and region is not built for VAN brand sales; none is loaded, so VAN GP is before freight (as before). | Yawar | 18 Oct 2026 | open |
+| I-26 | Ruling 8 also asks for a load form for VAN brand costs. Not built: the day-1 loader reads Yawar's VAN Brands tab; later changes go through rates, packing and recipes as for white label. | Tahir | 18 Oct 2026 | open |
+| I-27 | VAN brand products load with no target GP (Yawar's sheets give none per product); they show "no target" until Yawar sets each. | Yawar | 18 Oct 2026 | open |
+| I-28 | 5 O2S VAN packs have no costing column and no cost (1 of them carries a large distributor sale); 2 more wait with Majid for their pack size. Their sales carry no cost until Yawar adds the recipe or column. A pack added to a costed product has no packing bill, so a new recipe version of that product cannot be cost-approved until the pack gets a bill (D-40). The packs are named in Yawar's import queue. | Yawar | 18 Oct 2026 | open |
 
 ## 12.3 Known limits
 - The stand-in platform (harness) never moves to VAN Systems.
@@ -94,3 +112,5 @@ A-xx: assumptions decided overnight 15 to 16 Oct under Tahir's instruction "deci
 | Independent documentation review: 04 table count and dictionary, 05 stale and missing routes and errors, 01 to 03 flows and states, 07 guide, 09 examples, 10, 11, 12, version headers | 16 Oct 2026 | documentation 1.1 | fixed, except I-07 (code change needed) |
 | Tahir's rulings on the 5 reviews (Design Record 5j) | 16 Oct 2026 | 0.4.0 | fixed (see 08); tests V-02, V-03, F-18 added |
 | 4 pre-handover reviews: code, data safety, design, workflow | 16 Oct 2026 | 0.5.0 | fixed (see 08); tests W-01 to W-03, confidential scan and migration sync added; documentation 1.2 cleared of real figures |
+| 18 Oct review on Tahir's 5 questions (flow, process, data, interface, clarity): 7 flow breaks, 19 formula defects, 12 schema findings | 18 Oct 2026 | 0.6.0 for defects 1, 2, 3, 4, 11 and 12 | 6 of 19 defects fixed; tests Y-01 to Y-08; the rest wait for the redesign build (OP-HANDOFF-C2M.md) |
+| Independent review of the 0.6.0 change (code, accounting, docs, tests), 2 rounds: 10 points, then 4 on the follow-up | 18 Oct 2026 | 0.6.0 | Of the 10: 7 fixed (Rs 0 material rate, with the labour and FOH half left as I-20; no price on a pack not costed, with a Today job; approval check inside the transaction; packs with no approved cost not batched by a rate save; row with no price; docs; tests Y-02b, Y-03b, Y-04e, Y-07 and the Y-06 check after the price revision), 1 checked clean (I-23), 2 for Tahir (I-21, I-22), ruled the same day. Of the 4: first cost route added, Propose button replaced by the reason, message names the pack, docs; pricing of packs whose recipe is not in C2M ruled by Tahir the same day: refused (I-24) |

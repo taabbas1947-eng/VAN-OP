@@ -96,7 +96,7 @@ function priceRecipe(D, ver, rateOverride) {
   if (!ver) return null;
   const lines = ver.lines.map(l => { const g = D.rates.get(l.gradeId) || {}; const rate = rateOverride && rateOverride.gradeId === l.gradeId ? rateOverride.rate : g.rate;
     return { gradeId: l.gradeId, name: g.name || '?', grade: g.grade, qty: l.qty, rate, date: g.date, cost: rate == null ? null : l.qty * rate, nutrients: g.nutrients || {}, fields: g.fields || [], role: g.role || 'unclassified', type: g.type }; });
-  const missing = lines.some(l => l.rate == null);
+  const missing = lines.some(l => l.rate == null || !(Number(l.rate) > 0)); // a Rs 0 rate is a missing rate (review of 0.6.0)
   return { lines, materials: missing ? null : lib.materialCost(lines), kgTotal: lib.recipeTotal(lines), missingRate: missing };
 }
 
@@ -126,22 +126,42 @@ function freightFor(D, cp) {
   return f ? Number(f.rs_per_kg) : 0;
 }
 
-/** Today's cost for 1 client pack. opts.rateOverride {gradeId, rate} lets "Try a rate" preview a change. */
+/** Today's cost for 1 client pack. opts.rateOverride {gradeId, rate} lets "Try a rate" preview a change.
+ *  A pack is costed only when every part of its cost is really there (0.6.0, defects 1 and 2 of the 18 Oct review):
+ *  every material has a rate; a pack VAN packs has a packing bill with at least 1 item, every item priced above Rs 0,
+ *  and a pack size above 0 (a bulk product, and a client-packed pack with no bill, carry no packing); and both a labour
+ *  and a FOH rate apply. Otherwise costed is false and gaps says what is missing, so no Rs 0 part is ever priced. */
 function packCost(D, pack, opts = {}) {
   const cp = D.cpById.get(pack.client_product_id); if (!cp) return null;
   const ver = opts.version || approvedVersion(D, cp.id);
   const priced = priceRecipe(D, ver, opts.rateOverride);
+  const gaps = [];
+  if (!ver) gaps.push('no approved recipe');
+  else if (!priced || priced.materials == null) gaps.push('a material has no rate');
   let packing = 0;
-  if (cp.packing_mode !== 'bulk' && pack.packing_bill_id) {
-    const bill = D.packing.billById.get(pack.packing_bill_id);
-    if (bill) packing = lib.packingPerUnit(bill.lines.map(l => (opts.packOverride && opts.packOverride.itemId === l.itemId ? { ...l, price: opts.packOverride.price } : l)), Number(pack.pack_size));
+  if (cp.packing_mode !== 'bulk') {
+    const bill = pack.packing_bill_id ? D.packing.billById.get(pack.packing_bill_id) : null;
+    if (pack.packing_bill_id && !bill) gaps.push('its packing bill is missing');
+    else if (!bill && cp.packing_mode !== 'client') gaps.push('no packing bill');
+    if (bill) {
+      const size = Number(pack.pack_size);
+      const lines = bill.lines.map(l => (opts.packOverride && opts.packOverride.itemId === l.itemId ? { ...l, price: opts.packOverride.price } : l));
+      const unpriced = lines.filter(l => l.price == null || !(Number(l.price) > 0));
+      if (!(size > 0)) gaps.push('pack size is 0');
+      if (!lines.length) gaps.push('its packing bill has no items');
+      if (unpriced.length) gaps.push('no price for ' + unpriced.map(l => l.item).join(', '));
+      packing = lib.packingPerUnit(lines, size);
+    }
   }
   const cv = lib.conversionFor({ clientProductId: cp.id, baseProductId: cp.base_product_id, form: cp.form, reprocessed: cp.reprocessed, packSize: Number(pack.pack_size), onDate: today() }, D.rules);
   const conversion = cv.rsPerKg;
   const rule = cv.labour || cv.foh ? { name: [cv.labour ? `Labour: ${cv.labour.name} (Rs ${Number(cv.labour.rsPerKg)})` : 'Labour: none', cv.foh ? `FOH: ${cv.foh.name} (Rs ${Number(cv.foh.rsPerKg)})` : 'FOH: none'].join(' · '), labour: cv.labour, foh: cv.foh } : null;
   const freight = freightFor(D, cp);
-  if (!priced || priced.materials == null) return { costed: false, packing, conversion, freight, rule, recipeVersionId: ver ? ver.id : null };
-  return { costed: true, ...lib.costBreakdown({ materials: priced.materials, packing, conversion, freight }), labour: cv.labour ? Number(cv.labour.rsPerKg) : 0, rule, recipeVersionId: ver.id, kgTotal: priced.kgTotal };
+  // A labour or FOH rate of Rs 0 counts as missing (Tahir, 18 Oct 2026, I-20)
+  if (!cv.labour || !(Number(cv.labour.rsPerKg) > 0)) gaps.push('no labour rate');
+  if (!cv.foh || !(Number(cv.foh.rsPerKg) > 0)) gaps.push('no FOH rate');
+  if (gaps.length) return { costed: false, gaps, packing, conversion, freight, rule, recipeVersionId: ver ? ver.id : null };
+  return { costed: true, gaps, ...lib.costBreakdown({ materials: priced.materials, packing, conversion, freight }), labour: cv.labour ? Number(cv.labour.rsPerKg) : 0, rule, recipeVersionId: ver.id, kgTotal: priced.kgTotal };
 }
 
 /** Approved cost in force on a date (cost by date). Falls back to the earliest version, then today's cost. */
@@ -160,18 +180,29 @@ function versionOnDate(D, packId, date) {
 }
 function latestApproved(D, packId) { const vs = D.verByPack.get(packId) || []; return vs.length ? vs[vs.length - 1] : null; }
 
-/** Find the client pack for an O2S line: customer name in o2s_names, brand = o2s_brand, channel group, pack size. */
+/** Find the client pack for an O2S line.
+ *  White label (and any customer's own product): customer name in o2s_names, brand = o2s_brand, channel group, pack size.
+ *  VAN brand (ruling 8, Tahir 18 Oct 2026; D-44): 1 product per pack for every channel, so any non white label line
+ *  matches on brand and pack alone; the buyer, channel and region stay on the sale. o2s_brand may list other
+ *  spellings separated by | (e.g. 2 O2S names for the same pack). */
 function matcher(D) {
-  const idx = new Map();
+  const idx = new Map(), van = new Map(); const nm1 = s => String(s == null ? '' : s).replace(/\s+/g, ' ').trim().toLowerCase(); // double spaces count as 1
   for (const p of D.packs) {
     const cp = D.cpById.get(p.client_product_id); if (!cp) continue;
+    const brands = String(cp.o2s_brand).split('|').map(nm1).filter(Boolean);
+    if (isVanBrand(cp)) { for (const b of brands) van.set(b + '#' + Number(p.pack_size), p); continue; }
     const cust = D.custById.get(cp.customer_id); if (!cust) continue;
     const wl = cp.channel === 'White label';
-    for (const nm of String(cust.o2s_names).split('|')) {
-      idx.set([nm.trim().toLowerCase(), cp.o2s_brand.toLowerCase(), wl ? 'wl' : 'van', Number(p.pack_size)].join('#'), p);
+    for (const nm of String(cust.o2s_names).split('|')) for (const b of brands) {
+      idx.set([nm1(nm), b, wl ? 'wl' : 'van', Number(p.pack_size)].join('#'), p);
     }
   }
-  return (customerName, brand, channel, pack) => idx.get([String(customerName).trim().toLowerCase(), String(brand).toLowerCase(), channel === 'White Label' ? 'wl' : 'van', Number(pack)].join('#')) || null;
+  return (customerName, brand, channel, pack) => idx.get([nm1(customerName), nm1(brand), channel === 'White Label' ? 'wl' : 'van', Number(pack)].join('#'))
+    || (channel !== 'White Label' ? van.get(nm1(brand) + '#' + Number(pack)) : null) || null;
 }
+/** A VAN brand product under ruling 8: 1 product per pack, sold in every channel (D-44). */
+function isVanBrand(cp) { return !!cp && cp.channel === 'VAN brand'; }
+/** O2S channel words as C2M shows them. */
+const CHANNEL_NAME = { Cobo: 'COBO', Vgreen: 'VGreen', 'White Label': 'White label' };
 
-module.exports = { loadAll, packCost, priceRecipe, nutrients, costOnDate, versionOnDate, latestApproved, approvedVersion, latestVersion, matcher, freightFor, today };
+module.exports = { loadAll, packCost, priceRecipe, nutrients, costOnDate, versionOnDate, latestApproved, approvedVersion, latestVersion, matcher, isVanBrand, CHANNEL_NAME, freightFor, today };

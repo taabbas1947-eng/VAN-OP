@@ -33,9 +33,9 @@ function rows(aud, data, reasons = {}) {
       reason: reasons[k] != null ? reasons[k] : (r.reason || (ch == null ? 'New price' : Math.abs(ch) > 0.01 ? 'Raw material cost change' : 'No change')), eff: fmtD(data.eff), _k: k };
   });
   if (aud === 'dist') return data.list.map((d, i) => {
-    const ch = d.prev ? (d.now - d.prev) / d.prev * 100 : 0; const k = 'd' + i;
-    return { product: d.p, spec: d.d, pack: d.pack, cur: rs(d.now), fed: rs(d.fed), prev: rs(d.prev), chg: (ch > 0 ? '+' : '') + ch.toFixed(1) + '%',
-      reason: reasons[k] != null ? reasons[k] : (Math.abs(ch) > 0.01 ? 'Price revised' : 'No change'), mrp: rs(d.mrp), terms: d.terms === 'TBD' ? 'As agreed' : d.terms, _k: k };
+    const ch = d.prev ? (d.now - d.prev) / d.prev * 100 : null; const k = 'd' + i; const noPrice = d.now == null; // null = no previous price: "new", never "0.0%" (defect 12)
+    return { product: d.p, spec: d.d, pack: d.pack, cur: rs(d.now), fed: rs(d.fed), prev: rs(d.prev), chg: noPrice ? '' : ch == null ? 'new' : (ch > 0 ? '+' : '') + ch.toFixed(1) + '%',
+      reason: reasons[k] != null ? reasons[k] : (noPrice ? '' : ch == null ? 'New price' : Math.abs(ch) > 0.01 ? 'Price revised' : 'No change'), mrp: rs(d.mrp), terms: d.terms === 'TBD' ? 'As agreed' : d.terms, _k: k };
   });
   if (aud === 'dealer') return data.list.map(d => ({ product: d.p, spec: d.d, pack: d.pack, cur: rs(d.net), disc: d.disc ? (d.disc * 100).toFixed(1) + '%' : '', netfed: rs(d.netfed), frp: rs(d.frp), mrp: rs(d.mrp) }));
   const col = aud === 'farmer_sn' ? 'sn' : aud === 'farmer_snc' ? 'snc' : 'pb';

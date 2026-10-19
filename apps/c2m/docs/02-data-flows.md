@@ -1,6 +1,8 @@
 # 2. Data flow diagrams
 
-Version 1.4 · 18 Oct 2026 · Owner: Yawar; data links set by Tahir and Yawar in Setup, From O2S · Rule: R-5h item 2 (D-20)
+Version 0.9.1 · 18 Oct 2026 · Owner: Yawar; data links set by Tahir and Yawar in Setup, From O2S · Rule: R-5h item 2 (D-20)
+Changed in 0.9.1 (3 independent reviews, 18 Oct 2026 night): step 4 counts a truck only with its gate pass (D-60); 2.16 FOC and notices (D-62, D-63).
+Changed in 0.9.1 (documentation review, 18 Oct 2026): 2.2 a truck counts only with its gate pass (approvedDate, D-60), issues list and change record; 2.4 the price in force uses valid_to as the last day; new level 1 flows 2.10 to 2.15 (recipe chain, price proposal, setting and target requests, import queue, monthly checks and grants, Reports and the 0.9.0 state fields).
 Changed in 0.9.0: the state adds read-only fields for Yawar and Tahir (price history, PO lines, import date, next document number) built from tables C2M already holds; nothing new is read from O2S and nothing is written (D-58).
 Changed in 0.8.0: place names only (Setup, From O2S); no data flow changed (D-45 to D-52).
 Changed in 0.7.0: O2S line matching for VAN brand packs (D-44).
@@ -28,9 +30,9 @@ C2M writes to no other system (D-12). O2S holds no recipes; C2M is the recipe ma
 | 1 | c2m_source (claim: status to Pulling, only if not already Pulling, or Pulling for more than 10 minutes) | c2m_source.status, last_pull_note "Pulling since ..." |
 | 2 | app_state.data (orders, shipments) | c2m_sync_run (start) |
 | 3 | each order line | c2m_o2s_po_line: net price (FED-inclusive / 1.05, free 0), ordered, dispatched, open kg (0 if short-closed or "Old POs") |
-| 4 | each shipment not voided, with a known line | c2m_o2s_truck: date (approvedDate, else dispatch), kg |
+| 4 | each shipment not voided, with a known line | c2m_o2s_truck: date (approvedDate: the gate pass approval), kg. A truck still loading has no approvedDate and is left out until its gate pass (D-60) |
 | 5 | rows from older pulls | deleted from c2m_o2s_po_line and c2m_o2s_truck |
-| 6 | customers not matched | c2m_sync_run.issues_json; c2m_source status Read (or Failed with the reason) |
+| 6 | customers not matched; prices below Rs 10 | c2m_sync_run.issues_json; c2m_source status Read (or Failed with the reason); c2m_audit (action pull, with the counts) |
 
 ## 2.3 Level 1: cost (owner: Yawar; D-16, D-19, D-25; code c2m-engine.js)
 
@@ -44,7 +46,7 @@ C2M writes to no other system (D-12). O2S holds no recipes; C2M is the recipe ma
 | c2m_cost_version | dated approved totals | margin on each truck by its date; re-approval base |
 
 ## 2.4 Level 1: margin board (owner: Tahir; D-11, D-15, D-27)
-c2m_o2s_truck + c2m_o2s_po_line are matched to c2m_client_pack: a white label line by customer name in c2m_customer.o2s_names, brand, channel group and pack; any other line by brand and pack alone to the VAN brand pack (D-44), with the buyer, channel and region kept on the sale. c2m_client_product.o2s_brand may hold other O2S spellings separated by |. Each truck takes the cost in force on its date (c2m_cost_version), or, with the switch "restated at today's labour and FOH rates", the truck's approved cost with today's labour and FOH rates in place of its conversion, for costs that came from Yawar's sheets (D-35). The price in force on a date comes from c2m_price (approved, valid_from on or before the date, valid_to after it). GP by customer, product, PO. Open PO lines give the locked-in gap at each line's own price. Forward exposure: expected kg = budget kg (c2m_client_product.budget_kg_year / 12 x forward_months) or the last 3 months' run rate, chosen by a switch on the screen (not saved), less kg already on open POs.
+c2m_o2s_truck + c2m_o2s_po_line are matched to c2m_client_pack: a white label line by customer name in c2m_customer.o2s_names, brand, channel group and pack; any other line by brand and pack alone to the VAN brand pack (D-44), with the buyer, channel and region kept on the sale. c2m_client_product.o2s_brand may hold other O2S spellings separated by |. Each truck takes the cost in force on its date (c2m_cost_version), or, with the switch "restated at today's labour and FOH rates", the truck's approved cost with today's labour and FOH rates in place of its conversion, for costs that came from Yawar's sheets (D-35). The price in force on a date comes from c2m_price (approved, valid_from on or before the date, valid_to empty or on or after it: valid_to is the last day the price applies). GP by customer, product, PO. Open PO lines give the locked-in gap at each line's own price. Forward exposure: expected kg = budget kg (c2m_client_product.budget_kg_year / 12 x forward_months) or the last 3 months' run rate, chosen by a switch on the screen (not saved), less kg already on open POs.
 
 ## 2.5 Level 1: re-approval (owner: Yawar; R-2 Cost; 1.3)
 
@@ -108,4 +110,66 @@ flowchart LR
 The snapshot sits in c2m_price_doc.fields_json. A reprint uses it, so the document never changes after issue. With no effective date typed, a white label document takes the client's latest approved price date; a VAN list document takes its own list's dates.
 
 ## 2.9 What leaves the server for a KAM (owner: Tahir; R-2 People and rights; 0.3.1)
-Only these list columns: p, d, pack, prev, now, fed, mrp, terms, nsv, disc, net, netfed, frp, pb, sn, snc. Farmer columns only for granted farmer lists. No cost, no margin, no settings, no products, no recipes. Documents: 07 and 11 only.
+Only these list columns: p, d, pack, prev, now, fed, mrp, terms, nsv, disc, net, netfed, frp, pb, sn, snc. Farmer columns only for granted farmer lists. No cost, no margin, no settings, no products, no recipes. Documents: 07 and 11 only (the route serves them; the KAM's state carries no document list yet, I-35).
+
+## 2.10 Level 1: recipe chain (owner: Majid to Yawar; D-08, D-09, D-16; code c2m-routes.js recipes)
+
+| Step | Reads | Writes |
+|---|---|---|
+| Majid writes a version | c2m_recipe_version (1 in progress per product), c2m_recipe_line of the version copied | c2m_recipe_version (draft), c2m_recipe_line, c2m_recipe_step (written), c2m_audit |
+| Each step: send, review, endorse | c2m_recipe_version.state, locked FOR UPDATE | c2m_recipe_version.state, c2m_recipe_step (sent, resent, reviewed, endorsed), c2m_audit |
+| Send back (reason + advice) | c2m_recipe_version.state | sent_back_by, sent_back_state, sent_back_reason, sent_back_advice; c2m_recipe_step (sent_back); c2m_audit |
+| Yawar approves cost | rates, packing, conversion rules (every pack fully costed, D-40) | c2m_recipe_version (approved; the previous approved becomes old), c2m_cost_version per pack, c2m_recipe_step (cost_approved), c2m_audit |
+
+## 2.11 Level 1: client price proposal (owner: Yawar proposes, Tahir approves; D-06, D-22, D-34, D-40, D-56)
+
+| Step | Reads | Writes |
+|---|---|---|
+| Yawar proposes | pack cost today (c2m-engine packCost), target_gp, c2m_price in force (prev price), open proposals | c2m_price (proposed: price, reason, below_target_reason, valid_from, valid_to); a sent-back proposal it replaces becomes replaced; c2m_audit |
+| Tahir approves | c2m_price waiting for its date for the same pack | new row approved (valid_from = later of its date and today, prev_price, cut_price_id, cut_prev_to); price in force gets valid_to = the day before; an older waiting price becomes cancelled; c2m_notice to Yawar when one is cancelled; c2m_audit |
+| Tahir sends back | c2m_price (proposed) | status sent_back, back_reason; c2m_audit |
+| Tahir withdraws a waiting price | c2m_price (approved, valid_from after today), c2m_price_doc issued with it | status withdrawn; the shortened price gets cut_prev_to back; c2m_notice to Yawar; c2m_audit (withdrawn, end restored) |
+
+## 2.12 Level 1: setting and target requests (owner: Yawar proposes, Tahir decides; D-18, D-06)
+
+| Step | Reads | Writes |
+|---|---|---|
+| Yawar changes settings | c2m_setting (needs_approval) | budget lines: c2m_setting at once, c2m_notice to Tahir, c2m_audit; thresholds: c2m_setting_request (open) |
+| Yawar asks a client target | c2m_client_product.target_gp, open c2m_target_request (1 per product) | c2m_target_request (open), c2m_audit |
+| Tahir approves or refuses | the request, locked | request status approved or refused; on approval c2m_setting.v or c2m_client_product.target_gp; c2m_audit |
+
+## 2.13 Level 1: import queue (owner: Yawar; D-07, D-10)
+
+| Step | Reads | Writes |
+|---|---|---|
+| Accept | c2m_import_item (open) | status accepted, decided_by, decided_at, decision_note; c2m_audit |
+| Correct | c2m_import_item (open), payload | status corrected, decision_note; a rate item also writes c2m_material_rate and can write c2m_reapproval (rate controls); c2m_audit |
+
+## 2.14 Level 1: monthly checks and list grants (owner: Yawar and Tahir; D-18, R-2 People and rights)
+
+| Step | Reads | Writes |
+|---|---|---|
+| Yawar enters actuals | c2m_monthly_actual (old values) | c2m_monthly_actual; c2m_audit with the old values |
+| Tahir's rate check, Yawar's tie to the books | c2m_monthly_check (old values) | c2m_monthly_check (rate_check by coo only, tie_books by cfo only); c2m_audit |
+| Yawar grants or removes a list or client | user_module_roles (person has a C2M role), c2m_customer | c2m_list_grant (insert or delete); c2m_audit |
+
+## 2.15 Level 1: Reports and the 0.9.0 state fields (owner: Tahir; D-55, D-57, D-58; read only, cfo and coo)
+
+| State field | Read from | Used by |
+|---|---|---|
+| priceHistory | c2m_price: approved, or replaced with no send-back reason (an approved price a newer one ended) | Product page, Price history; PO price report (F-20) |
+| poLines | c2m_o2s_po_line received in this financial year (from 1 Jul), matched to a pack | PO price against approved price (F-20) |
+| sales | c2m_o2s_truck + c2m_o2s_po_line, with the cost in force on the truck's date (c2m_cost_version) | GP bridge (F-19), Margin |
+| importedAt | earliest c2m_recipe_step.at with action imported | age of the items from Yawar's sheets on Today |
+| nextDocRef | count of c2m_price_doc this year + 1 | number shown on the price list preview |
+| fam, typeName | c2m_base_product (product types in id order) | family colour chip and type name (every role that receives products) |
+Nothing is written. Export to Excel is made in the browser.
+
+## 2.16 Flows added in 0.9.1 (owner: Yawar; version 0.9.1, 18 Oct 2026)
+
+| From | Data | To | Rule |
+|---|---|---|---|
+| c2m_o2s_truck and c2m_o2s_po_line (net_price 0) | FOC trucks with the approved cost on their date | state foc (cfo, coo), the customer page | D-62, ruling 14b |
+| c2m_price (approved, valid_to passed, none in force) | last price and its last day | state priceEnded per pack; Prices "price ended" | D-62 |
+| Labour and FOH rate, packing bill, product type, reprocessed saves | what changed and how many packs moved | c2m_notice (for_role coo), Tahir's Today | D-63 |
+| Tahir's and Yawar's monthly check entries, with C2M's own month figures | register rates; ERP and C2M sales and COGS | c2m_monthly_check.data_json; state checks.data | D-64 |

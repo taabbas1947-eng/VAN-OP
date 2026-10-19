@@ -62,7 +62,7 @@ function packingPerUnit(lines, packSize) {
  * Every rate is labour or FOH. For each kind C2M picks 1 rate per product and the 2 are added.
  * Levels, first match wins: (1) the product is listed on the rate, (2) its product type,
  * (3) a rate Yawar added for all products (optionally a form, reprocessed, a pack range),
- * (4) the Rs 20 / Rs 30 base bands. So any rate Yawar adds beats the bands for the products it covers.
+ * (4) the base bands (values set by Yawar, loaded at the first load; not written here: public repo). So any rate Yawar adds beats the bands for the products it covers.
  * Within a level the more specific wins: more conditions first, then the latest valid_from, then the
  * narrower pack range, then the newest. A list rate also honours its form and reprocessed filters.
  * product: {clientProductId, baseProductId, form, reprocessed, packSize, onDate}

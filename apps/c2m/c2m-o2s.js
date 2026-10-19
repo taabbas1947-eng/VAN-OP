@@ -2,7 +2,7 @@
  * C2M <- O2S, read only. Reads O2S's single data row (app_state, id 1) and copies
  * PO lines and trucks out into C2M's own tables (c2m_o2s_po_line, c2m_o2s_truck).
  * Never writes to app_state. Ruling 15 Oct 2026: read app_state directly.
- * Mapping rules: docs/02-data-flow.md and docs/10-data-dictionary.md.
+ * Mapping rules: docs/02-data-flows.md and docs/10-data-dictionary.md.
  * ==========================================================================*/
 'use strict';
 const lib = require('./c2m-lib');
@@ -30,6 +30,7 @@ async function pullO2S(q, byUser) {
     for (const l of o.lines || []) {
       const price = lib.netPoPrice(l.invoicePrice, o.fedMode, o.foc);
       if (!o.foc && price > 0 && price < 10) issues.push(`PO ${o.po}: ${l.brand} priced Rs ${l.invoicePrice} (below Rs 10, not a real price)`);
+      if (!o.foc && !(price > 0)) issues.push(`PO ${o.po}: ${l.brand} has no price on a PO that is not FOC (C2M treats it as FOC: out of sales until the price is entered in O2S)`);
       const sc = l.shortClose || {};
       const closed = !!sc.approvedAt;
       const ordered = Number(l.ordered) || 0, disp = Number(l.dispatched) || 0;
@@ -46,7 +47,10 @@ async function pullO2S(q, byUser) {
   }
   for (const s of d.shipments || []) {
     if (s.voided || !lineById.has(s.lid)) continue;
-    const dt = String(s.approvedDate || s.dispatch || '').slice(0, 10);
+    /* A truck counts as out only once its gate pass is approved (approvedDate). A truck still
+       loading has a dispatch date but no approvedDate: it is not a sale yet, and O2S still counts
+       its kg as open on the PO (ruling 14; cost review 18 Oct 2026, D-60). */
+    const dt = String(s.approvedDate || '').slice(0, 10);
     if (!dt) continue;
     await q('INSERT INTO c2m_o2s_truck (id, line_id, po, dc, truck_date, kg, sync_id) VALUES (?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE line_id=VALUES(line_id), po=VALUES(po), dc=VALUES(dc), truck_date=VALUES(truck_date), kg=VALUES(kg), sync_id=VALUES(sync_id)',
       [s.id, s.lid, s.po, s.dc || null, dt, Number(s.kg) || 0, syncId]);

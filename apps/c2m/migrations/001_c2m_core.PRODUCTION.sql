@@ -181,7 +181,7 @@ CREATE TABLE IF NOT EXISTS c2m_material_rate (
 
 CREATE TABLE IF NOT EXISTS c2m_packing_item (
   id INT AUTO_INCREMENT PRIMARY KEY,
-  name VARCHAR(120) NOT NULL UNIQUE,           -- e.g. Bag-V2 8 Kg, Carton (all purpose)
+  name VARCHAR(120) NOT NULL UNIQUE,           -- e.g. Bag 10 kg, Carton (all purpose)
   kind VARCHAR(30) NOT NULL                    -- bag, pouch, bottle, can, drum, seal, inner, label, carton, cap
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 ROW_FORMAT=DYNAMIC;
 
@@ -253,7 +253,7 @@ CREATE TABLE IF NOT EXISTS c2m_conversion_rule (
   id INT AUTO_INCREMENT PRIMARY KEY,
   name VARCHAR(160) NOT NULL,
   kind VARCHAR(10) NOT NULL DEFAULT 'foh',     -- labour | foh: 1 of each is picked per product and added (ruled 16 Oct)
-  is_base TINYINT(1) NOT NULL DEFAULT 0,       -- 1 = a Rs 20 / Rs 30 base band; any rate Yawar adds beats the bands (ruled 16 Oct, 5j 10)
+  is_base TINYINT(1) NOT NULL DEFAULT 0,       -- 1 = a base band; any rate Yawar adds beats the bands (ruled 16 Oct, 5j 10)
   rs_per_kg DECIMAL(10,4) NOT NULL,
   scope_client_product_id INT NULL,            -- most specific (a list of products lives in c2m_conversion_rule_product)
   scope_base_product_id INT NULL,

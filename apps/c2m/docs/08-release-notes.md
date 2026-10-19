@@ -1,17 +1,60 @@
 # 8. Release notes and change log
 
-Version 1.5 · 18 Oct 2026 · Owner: Claude records; Tahir approves releases · Rule: R-5h item 8 (D-20)
+Version 0.9.1 · 18 Oct 2026 · Owner: Claude records; Tahir approves releases · Rule: R-5h item 8 (D-20)
+Changed in 0.9.1 (3 independent reviews, 18 Oct 2026 night): entry 0.9.1 added.
+Changed in 0.9.1 (documentation review, 18 Oct 2026): live status brought up to date; the 12 unbuilt reports move to 0.9.2; 0.9.0 entry gets its test totals and what to test after; the folder tabs (D-59) ship in 0.9.1 (its entry is written with the 0.9.1 code).
 Changed in 0.9.0: entry 0.9.0 added.
 Changed in 0.8.0: entry 0.8.0 added.
 Changed in 0.7.0: entry 0.7.0 added.
 Changed in 0.6.0: entry 0.6.0 added.
 Changed in 0.5.0: entry 0.5.0 added; real figures removed from earlier entries (public repo).
-Format: Keep a Changelog, semantic versions. Live: 0.7.0 (apps/c2m pushed by Tahir on 17 Oct; 0.6.0 and 0.7.0 pushed on 18 Oct and checked live; no data loaded yet). 0.8.0 is local only.
+Format: Keep a Changelog, semantic versions. Live: 0.9.0. apps/c2m first pushed by Tahir on 17 Oct and the live migration run the same day (39 empty c2m_ tables); 0.6.0 and 0.7.0 pushed on 18 Oct (17:29), 0.8.0 (20:16) and 0.9.0 (22:03), each checked live by Claude. The folder tabs (D-59) were built after the 0.9.0 push and ship in 0.9.1. No data loaded yet: the first data load runs on Monday 19 Oct 2026.
+
+## [0.9.1] · 18 Oct 2026 · 3 independent reviews: cost and management accounting, UI/UX, documentation (D-60 to D-67) · Who: Claude built; Tahir approves ("Also rules and formulas", no migration)
+### Fixed (cost review)
+- A truck counts as sold only once its gate pass is approved (O2S approvedDate). Trucks still loading were counted as sold and as open at once (13 trucks, 8,934 kg in the 13 Oct export; 258 trucks, not 271) (D-60). After the push, press Pull O2S now: the pull replaces the old copy, nothing is reloaded.
+- "Approve ticked only": the packs not ticked wait in a new item "Left open from item N" on Today; before, they sat in no queue (D-61).
+- FOC lines (price 0) are out of sales, GP and open POs, shown on their own on the customer page (ruling 14b, D-62).
+- A customer is judged against its target on the products that have one, so a product with no target cannot hide one below target (D-62).
+- A pack whose approved price has ended has no price; it no longer falls back to the last O2S PO price (D-62).
+- A price approved for a later date counts from its date in Rs at stake; the Rs a proposal adds counts from its effective date, the same on the propose panel, the proposal card and Tahir's approval (D-62).
+- The person who proposed a price, list revision, setting or target cannot approve it (D-63).
+### Added
+- Notices on Tahir's Today for every labour or FOH rate, packing bill, product type or reprocessed change, with the packs moved (D-63).
+- Monthly checks with figures: tie to the books in total with C2M's own sales and COGS beside the ERP figures and the gap; the rate check lists the 15 materials with the most Rs in the month and needs each register rate (D-64).
+- Margin: GP on cost today beside GP on approved cost; a line that GP is on band cost while budget and targets were set on full cost (D-62).
+- GP bridge: a Method bar for the 13 Oct change of conversion basis; volume and mix work kg and L apart (D-62, D-35).
+- A check-the-quantities box on a solid recipe whose inputs add to below 0.98 or above 1.20 kg per kg (D-64).
+### Changed (UI/UX review, D-65)
+- The propose panel follows the typed price at once, keeps the cursor, and warns below today's price; the client reason shows its error under the box.
+- Searches filter as you type and keep the cursor. Every date box shows the date in words.
+- Product type, reprocessed and packing bill changes wait for Save, with the packs they recost.
+- An empty C2M says what is missing and where it comes from, on Today, Margin, Products, Prices, Inputs and the Setup tables. Monthly jobs never count days from before the first load.
+- Today: the next move button names the step; To do sorts red, then stuck, then oldest; 1 pack with no price opens its own propose panel ("Set a price").
+- 1 colour rule: red = below cost, below floor or a red customer ("below target, large Rs gap"); amber = below target; green = on target.
+- Phone: Today lines stack with 44 px buttons; the Prices and Margin tables become cards; Sign out moves to More; the GP trend is drawn at phone size.
+- The line above a topic carries only data facts; the product page opens with the product as its topic; Setup explanations fold under "How this works"; shorter Setup tab names; folder tabs scroll sideways instead of wrapping.
+- Labels: "GP at budget %", "Short of target on open POs", "below approved price", "Approved cost on date", VAN brand GP "before freight out". Login ids and role codes show as names. Internal references (ruling and decision numbers) left the screen text.
+- The 2-step button turns green, "Tap again to confirm"; Approve cost takes 2 steps.
+- Unbuilt report cards are dashed and say "not built yet"; the GP bridge axis uses round steps and may start above 0 (marked on the bars); the GP trend marks the month to date.
+- Price list builder: steps 1, 2, 3, then the document marked "PREVIEW, NOT ISSUED", then Create PDF.
+- Folder tabs (D-59) ship in this release.
+### Fixed (documentation review)
+- All 12 sections corrected against the code (136 findings: 22 high, 66 medium, 48 low); band values removed from code comments, the migration comment (comment only, both files) and the handoff; the confidential scan now also catches the band values.
+### Not built (D-67)
+- Unrecovered conversion line (D-29 stands); cost and GP per VAN list revision row (waits for the VAN list matching decision); liquids by density (Yawar, I-06); anything needing a new table.
+### Database
+- No table, column or migration. Rules and tables touched: c2m_notice (new notices), c2m_monthly_check (data_json now validated and read back). Tests: fix091.test (N-01 to N-07) and ui09 V-16 to V-18 added; flow, ui08 and ui09 updated. TOTAL 163 passed, 0 failed (lib 40, van07 8, flow 57, fix06 20, ui08 12, ui09 18, fix091 6, confidential scan 1, migration sync 1), run in the cloud copy on 18 Oct 2026 night.
+### What to test after (on live)
+- Pull O2S now once; Margin and the truck counts match O2S trucks with a gate pass.
+- Yawar: propose panel (type a price, the GP follows; empty reason shows under the box); product type change waits for Save; monthly checks panel shows C2M figures.
+- Tahir: For your information shows cost input notices; the rate check table; an approval of your own proposal is refused.
+- Phone: Today and Prices as cards; Sign out under More.
 
 ## [0.9.0] · 18 Oct 2026 · the approved picture, version 4, with the left rail (D-53 to D-58) · Who: Claude built, Tahir approves
 ### Added
 - Left rail in VAN navy: VAN logo, Find anything (Ctrl K: places, client products, customers, materials, reports), places grouped Analyse, Work on, Admin; the person, Back to launcher and Sign out at its foot. The page keeps the O2S look (D-53).
-- Reports for Yawar and Tahir: 14 cards; GP bridge (monthly) and PO price against approved price built in full, each with Export to Excel; the other 12 show "0.9.1" (D-57).
+- Reports for Yawar and Tahir: 14 cards; GP bridge (monthly) and PO price against approved price built in full, each with Export to Excel; the other 12 show "0.9.1" (D-57; moved to 0.9.2 on 18 Oct, the cards are relabelled in the 0.9.1 code).
 - Excel export (.xlsx made in the browser) on the Margin customer table and on both reports.
 - Product page: cost waterfall per pack; Cost and price by pack in 1 tab with an Each pack table; Price history and Sales tabs; Propose a price at the top; step chips say who did each step and when.
 - Today: next move card, groups with counts, the age of every waiting line, stuck after more than 2 working days (Monday to Saturday), Waiting on others with ages, a job for packs costed with no price (D-54).
@@ -24,11 +67,20 @@ Format: Keep a Changelog, semantic versions. Live: 0.7.0 (apps/c2m pushed by Tah
 - Price list preview and PDF: number, issued and effective block; price basis beside the client block; 2 signatures; family chips; page number (D-58).
 - Phone: 1-line top bar; bottom bar of 4 places and More.
 ### Not built (Tahir, 18 Oct 2026)
-- The declared grade check (H2): no new database entry (D-58). The 12 undrawn reports: 0.9.1 after their pictures are approved (D-57).
+- The declared grade check (H2): no new database entry (D-58). The 12 undrawn reports: 0.9.2 after their pictures are approved (D-57; first planned for 0.9.1).
+### Changed after the first push (Tahir, 18 Oct 2026, 22:21; D-59)
+- The views inside Prices, Setup, Inputs and the product page are folder tabs, with counts in a badge. The first push showed them as underlined text. Not part of the live 0.9.0: it ships in 0.9.1.
 ### Fixed before the push (independent review, 18 Oct 2026; see 12.4)
 - Price history and the PO price report keep a price after a newer one replaced it. The client reason is also checked on the server. PO lines are sent for this financial year only. The PDF client box grows with a long name. The GP bridge answer reads in proper English.
 ### Database
-- No table, column or migration. Tests: ui09.test (V-01 to V-15) added; ui08, flow A-01 updated for 8 places and the new tabs.
+- No table, column or migration. Tests: ui09.test (V-01 to V-15) added; ui08, flow A-01 updated for 8 places and the new tabs. TOTAL 154 passed, 0 failed (lib 40, van07 8, flow 57, fix06 20, ui08 12, ui09 15, confidential scan, migration sync), 18 Oct 2026. After D-59 only ui08 and ui09 were run again (27 passed).
+### What to test after (on live, as Tahir and as Yawar)
+- The navy rail with 8 places for Yawar and Tahir; Find anything (Ctrl K); every place and view opens with no page error.
+- Today: next move, To approve, To do, Waiting on others, ages and stuck marks.
+- Reports: GP bridge and PO price against approved price open and export to Excel (once data is loaded).
+- Prices: propose panel refuses an empty client reason; Tahir's approval panel.
+- Price list preview: number, issued and effective block, 2 signatures; a PDF opens.
+- On a phone: top bar, bottom bar of 4 places and More.
 
 ## [0.8.0] · 18 Oct 2026 · the screen redesign, stage 1 (Tahir's 8 screen rulings) · Who: Claude built, Tahir approves
 ### Changed: where things sit and how they read (D-45 to D-52). No rule, right, approval step, formula or table changed.

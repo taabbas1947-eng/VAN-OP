@@ -1,6 +1,8 @@
 # 10. Data dictionary and glossary
 
-Version 1.4 · 18 Oct 2026 · Owner: Yawar; Himayat for material classes · Rule: R-5h item 10 (D-20)
+Version 0.9.1 · 18 Oct 2026 · Owner: Yawar; Himayat for material classes · Rule: R-5h item 10 (D-20)
+Changed in 0.9.1 (3 independent reviews, 18 Oct 2026 night): 10.4 added (fields and terms of D-60 to D-65).
+Changed in 0.9.1 (documentation review, 18 Oct 2026): price and list revision status values as the code writes them; reprocessed set on the product page; rows for importedAt, nextDocRef, fam, typeName; full audit action list (in 04); customer segment list; product page has 5 tabs; new glossary words (Waiting on others, Waiting for date, With Tahir, Reports, Folder tabs, PO price against approved price).
 Changed in 0.9.0: state fields priceHistory, poLines, importedAt, nextDocRef, fam, typeName; glossary Left rail, Find anything, Next move, Stuck, Family colour, Working table, GP bridge (D-53 to D-58).
 Changed in 0.8.0: glossary entries Panel, Product page, Inputs, Setup, Topic and answer line (D-45 to D-52).
 Changed in 0.7.0: channel values (D-44).
@@ -13,7 +15,7 @@ Changed in 0.3.0 and 0.3.1: rs_per_kg fixed (1 rate of 1 kind, labour or FOH). A
 |---|---|---|---|---|
 | net_price | Price per kg or L on the O2S PO line, without FED and sales tax | Rs | O2S orders[].lines[].invoicePrice; / 1.05 when fedMode is Inclusive; 0 for free orders | F-10 |
 | open_kg | Kg still to ship on a PO line | kg or L | ordered less dispatched; 0 when short-closed or in an "Old POs" customer | D-15 |
-| truck_date | Day the truck counts as a sale | date | O2S shipments[].approvedDate, else dispatch | D-16 |
+| truck_date | Day the truck counts as a sale | date | O2S shipments[].approvedDate (gate pass approved); a truck still loading is not a sale yet | D-16, D-60 |
 | qty (recipe line) | Input per 1 kg (or L) of product, loss included | kg per kg | Majid; day 1 from Yawar's sheet | R-2 Recipes |
 | rate | Latest purchase rate of a material grade | Rs per kg or L | Yawar, with source | D-10 |
 | price_per_piece | Price of 1 packing item | Rs | Yawar, with source | D-19 |
@@ -23,7 +25,7 @@ Changed in 0.3.0 and 0.3.1: rs_per_kg fixed (1 rate of 1 kind, labour or FOH). A
 | is_base (c2m_conversion_rule) | Whether the rate is a base band. Rates Yawar adds are 0 and beat the base bands | 0, 1 | Loader sets 1 on the bands; Yawar's form sets 0 | D-37 |
 | rs_per_kg (c2m_freight_rate) | Freight per kg for a segment and region | Rs per kg | Yawar | D-05 |
 | base_product_id (product type) | The product's type: a production line of budget V9, used to assign labour and FOH rates | a c2m_base_product name | Loader from budget V9 (A-16); Yawar changes it | D-25 |
-| reprocessed | Whether the product is reprocessed; picks the solid reprocessed band. Set per product | 0 no, 1 yes | Yawar, Back Office, Products and packing | D-04, D-25, D-30 |
+| reprocessed | Whether the product is reprocessed; picks the solid reprocessed band. Set per product | 0 no, 1 yes | Yawar, product page, Cost and price by pack | D-04, D-25, D-30, D-47 |
 | nutrient_role (c2m_material_type) | Whether a material class carries nutrients | nutrient, none, unclassified | Loader; Himayat changes a material's class | D-23 |
 | nutrients_json | % of each nutrient field in a material grade | % (0 to 100) per field | Himayat | D-23 |
 | target_gp | Target gross margin for the client product | %; blank = no target, never 0 | B2B sheet; override approved by Tahir | D-06 |
@@ -36,6 +38,10 @@ Changed in 0.3.0 and 0.3.1: rs_per_kg fixed (1 rate of 1 kind, labour or FOH). A
 | issued, valid_till (c2m_list_price) | Effective date and valid till of the VAN list; a VAN list PDF is dated from these | date | Loader (11 Oct); list revisions | D-14, D-28 |
 | packing_mode | Who supplies packing | VAN, client, bulk | Yawar | D-26 |
 | price_rule | How a client's price changes | time, po, list; blank = to set | Yawar | R-5 client price rule |
+| importedAt (state, cfo and coo) | Day Yawar's sheets were loaded: the earliest c2m_recipe_step.at with action imported; the age of the items from his sheets on Today | date and time | C2M | D-54 |
+| nextDocRef (state, cfo and coo) | Next free price list number, shown on the preview; fixed only when the PDF is created | VAN/PL/year/nnn | C2M (count of c2m_price_doc this year + 1) | D-14, D-58 |
+| fam (state, products and white label list rows) | Family colour of the product's type | a colour code; grey when the product has no type | C2M (c2m-lib familyColour, 7 Brand Master colours in turn by type id) | D-55 |
+| typeName (state, products) | Name of the product's type | a c2m_base_product name, or empty | C2M | D-25, D-55 |
 | channel | Sales channel of a client product | White label, or VAN brand (1 product per VAN pack, sold in every channel; the sale keeps the O2S channel: COBO, VGreen, Dealer, Distributor, Farmer). D-44 | O2S | R-2, D-44 |
 
 ## 10.2 Pick lists, in full
@@ -45,8 +51,8 @@ Changed in 0.3.0 and 0.3.1: rs_per_kg fixed (1 rate of 1 kind, labour or FOH). A
 | Roles | cfo, coo, production, qc, plant, viewer | user_module_roles |
 | Recipe state | draft, review, endorse, cost, approved, old | c2m_recipe_version.state |
 | Recipe step action | imported, written, sent, resent, reviewed, endorsed, cost_approved, sent_back | c2m_recipe_step.action |
-| Price status | proposed, approved, sent_back, replaced (approved and dated ahead = waiting; cancelled or withdrawn = replaced) | c2m_price.status |
-| List revision status | proposed, approved, sent_back, replaced (approved with applied 0 = waiting; withdrawn = replaced) | c2m_list_revision.status |
+| Price status | proposed, approved, sent_back, replaced, cancelled (a waiting price ended by a newer approval), withdrawn (a waiting price Tahir withdrew). Approved with valid_from after today = waiting for its date | c2m_price.status |
+| List revision status | proposed, approved, sent_back, replaced, withdrawn (a waiting revision Tahir withdrew). Approved with applied 0 = waiting for its date | c2m_list_revision.status |
 | Re-approval status | open, approved, dismissed | c2m_reapproval.status |
 | Import item status | open, accepted, corrected | c2m_import_item.status |
 | Import item kind | rate (a correction is saved as a rate), note (records the decision only) | c2m_import_item.kind |
@@ -64,6 +70,7 @@ Changed in 0.3.0 and 0.3.1: rs_per_kg fixed (1 rate of 1 kind, labour or FOH). A
 | Packing item kind | bag, pouch, bottle, can, drum, seal, inner, label, carton, cap, other, to itemise | c2m_packing_item.kind |
 | Price rule | time, po, list | c2m_customer.price_rule |
 | Customer group | White label, VAN brand, Both | c2m_customer.grp |
+| Customer segment | White label, COBO, Dealer, Distributor, VGreen, Farmer | c2m_customer.segment |
 | Freight segment | Dealer, Farmer | c2m_freight_rate.segment |
 | nutrient_role | nutrient, none, unclassified | c2m_material_type.nutrient_role |
 | Material classes (loaded) | Calcium and sulphur source (Ca%, S%: gypsum, Plaster of Paris, POP, calcium hydroxide); Non-nutrient: binder (starch, granulation agent, bentonite); Non-nutrient: filler (talc, fly ash); Non-nutrient: anti-caking agent (fume silica, silica); Non-nutrient: colour (dyes); Non-nutrient: pH adjuster (citric acid, NaOH); Non-nutrient: wetting agent or adjuvant; Potash source (K%); Potash and sulphate source (K%, SO4%); Nitrogen and phosphate source (N%, P%); Nitrogen source (N%; includes MEA); Phosphate source (P%); Sulphur source (S%); Humic source (Humic%, K%); Micronutrient (Zn%, Fe%, Mn%, Cu%, B%, Mg%); Organic source (N%, OM%: amino acid, poultry mud, press mud, molasses); Other input: to classify | c2m_material_type |
@@ -78,7 +85,7 @@ Changed in 0.3.0 and 0.3.1: rs_per_kg fixed (1 rate of 1 kind, labour or FOH). A
 | Exposure basis (screen only, not saved) | budget kg, run rate (last 3 months) | Margin screen switch |
 | History basis (screen only, not saved) | cost approved on the truck's date; restated at today's labour and FOH rates | Margin screen switch |
 | Settings | rate_warn_pct, reapprove_pct, red_share_pct, red_gap_pts, forward_months (Tahir approves); budget_gp, ambition_gp, wl_budget_gp, conv_budget_month (notice to Tahir; start at 0, set by the first load) | c2m_setting.k |
-| Audit actions added in 0.5.0 | cancelled, withdrawn, applied, cost moved since shown | c2m_audit.action |
+| Audit actions | the full list is in 04, c2m_audit (0.5.0 added cancelled, withdrawn, applied, cost moved since shown) | c2m_audit.action |
 
 ## 10.3 Glossary
 - **GP**: gross profit margin, (price - cost) / price.
@@ -99,7 +106,7 @@ Changed in 0.3.0 and 0.3.1: rs_per_kg fixed (1 rate of 1 kind, labour or FOH). A
 - **List revision**: a change to VAN brand list prices, approved by Tahir.
 - **Sheet against C2M**: in Setup, From Yawar's sheets (0.8.0; Back Office before), comparing Yawar's 13 Oct sheet with C2M's cost today.
 - **Panel** (0.8.0): the box that opens on the right of Today (full screen on a phone) to do 1 job or approval without leaving Today (D-46).
-- **Product page** (0.8.0): 1 page per client product with 4 tabs: Recipe, Cost by pack, Price, History (D-47).
+- **Product page** (0.8.0; tabs changed in 0.9.0): 1 page per client product with 5 tabs: Recipe, Cost and price by pack, Price history, Sales, History (D-47).
 - **Inputs** (0.8.0): Materials (1 table: class, nutrient %, and for Yawar and Tahir the rate), Packing items and Packing bills (D-48).
 - **Setup** (0.8.0): what drives C2M (customers, O2S link, Yawar's sheets, settings and targets, list access, records, documentation); it replaced Back Office (D-49).
 - **Topic and answer line** (0.8.0): every screen opens with its topic in capitals and 1 line that answers it; longer explanations are under "How this works" (D-51).
@@ -117,4 +124,26 @@ Changed in 0.3.0 and 0.3.1: rs_per_kg fixed (1 rate of 1 kind, labour or FOH). A
 - **Family colour**: the colour of a product's type, shown as a small square before its name (D-55).
 - **Working table**: a table with search, filter chips with counts, a totals row and Export to Excel.
 - **GP bridge**: the report that splits the change in GP between 2 months into price, volume, mix, cost and new and lost products (F-19).
+- **Waiting on others** (0.9.0, D-54): the group on Today of items waiting with someone else, with who has each and its age.
+- **Waiting for date** (0.9.0, D-56): the Prices view of prices Tahir approved for a later date.
+- **With Tahir** (0.9.0, D-56): the Prices view of proposals waiting for Tahir (called Proposals before 0.9.0).
+- **Reports** (0.9.0, D-57): the place for Yawar and Tahir with 14 report cards; 2 built, 12 in 0.9.2.
+- **PO price against approved price** (0.9.0, F-20): the report of O2S PO lines entered below the approved price.
+- **Folder tabs** (0.9.1, D-59): the bordered tabs for the views inside a place, with counts in a badge.
 - **priceHistory, poLines** (state, cfo and coo only): every approved price with its dates; every O2S PO line placed on a client pack, open or shipped, with its received date, ordered kg and price.
+
+## 10.4 Added in 0.9.1 (owner: Yawar for figures, Tahir for controls; D-60 to D-65; version 0.9.1, 18 Oct 2026)
+
+| Field or term | Meaning | Allowed values, unit | Rule |
+|---|---|---|---|
+| truck_date | The O2S gate pass approval date (approvedDate). A truck still loading has none and is not a sale yet | date | D-60, ruling 14 |
+| foc (state) | Trucks of FOC lines (price 0): date, customer, group, brand, pack, packId, PO, kg, approved cost on the date. Not in sales or GP | list; kg or L; Rs per kg or L | D-62, ruling 14b |
+| priceEnded (state, per pack) | The last approved price and its last day, when it has ended and no approved price is in force; the pack then has no price | {price Rs, till date} or null | D-62, ruling 3 |
+| lastPoPrice (state, per pack) | The last O2S PO price of a white label pack, for information | Rs per kg or L, or null | D-62 |
+| gpT | GP % of only the products of a customer that have a target; the customer's target and gap are judged on it | % | D-62 |
+| GP on cost today | The same trucks at today's cost of each pack, beside GP on the approved cost on each truck's date | % | D-62 |
+| GP at budget % | Actual costed sales x the budget GP %: what GP would be at budget, not the budget itself | Rs | D-62 |
+| Short of target on open POs | Σ max(price for target − PO price, 0) x open kg: a shortfall to target, not a loss | Rs | D-62, D-15 |
+| Method (GP bridge) | The part of the cost change between 2 months that comes from the 13 Oct change of conversion basis | Rs | D-62, D-35 |
+| Left open from item N | A re-approval item holding the packs not ticked when item N was approved in part | text cause | D-61 |
+| Monthly check data | rate_check: the 15 materials with the most Rs in the month, each with C2M rate, date, source, Rs and register rate; tie_books: ERP sales and COGS with C2M's own figures for the month | JSON in c2m_monthly_check.data_json; Rs | D-64 |

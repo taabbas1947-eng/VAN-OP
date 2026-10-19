@@ -1,6 +1,7 @@
 # 4. Database schemas
 
-Version 1.4 · 18 Oct 2026 · Owner: Tahir (C2M module owner); Claude records · Rule: R-5h item 4 (D-20)
+Version 0.9.1 · 18 Oct 2026 · Owner: Tahir (C2M module owner); Claude records · Rule: R-5h item 4 (D-20)
+Changed in 0.9.1 (documentation review, 18 Oct 2026): 001 is live and frozen (run on live 17 Oct); PRODUCTION header lines; reprocessed is set on the product page; full lists of audit actions and entities. No table or column changed by this review.
 Changed in 0.9.0: no change: 0.9.0 adds no table, column or migration (D-58).
 Changed in 0.8.0: no table change; place names only (D-45 to D-52).
 Changed in 0.7.0: no table change; c2m_client_product.channel takes "VAN brand" (D-44); o2s_brand may hold other spellings separated by |; 1 owner row in c2m_customer, "VAN brand (all channels)".
@@ -15,9 +16,9 @@ Rule references: R-2 = Design Record section 2; R-5b to R-5i = Design Record sec
 | File | What it does | Applied | Owner | Rule |
 |---|---|---|---|---|
 | 001_c2m_core.sql | Creates 39 c2m_ tables, 9 default settings (see c2m_setting below) and 4 data sources. CREATE TABLE IF NOT EXISTS and INSERT IGNORE: safe to run twice. Changes no O2S, PD or platform table. | Local, from the C2M App folder: `npm run migrate` (c2m_dev) and `npm test` (c2m_test) | Tahir | D-21 |
-| 001_c2m_core.PRODUCTION.sql | The same content as 001_c2m_core.sql, with 1 line in front that names the platform database (phpMyAdmin needs it). Keep both in step; the test run checks it (migration.sync) | Production: once, by hand at go-live (C2M Go Live Plan.md) | Tahir | D-21 |
+| 001_c2m_core.PRODUCTION.sql | The same content as 001_c2m_core.sql, with 4 lines in front (3 comment lines and the USE line that names the platform database; phpMyAdmin needs it). Keep both in step; the test run checks it (migration.sync) | Run on live by Tahir in phpMyAdmin on 17 Oct 2026: 39 empty c2m_ tables (C2M Go Live Plan.md) | Tahir | D-21 |
 
-Nothing is live yet, so every change so far went into 001 (no 002). The first change after go-live must be a new file 002_... and must not edit 001.
+001 ran on live on 17 Oct 2026 and is now frozen. Every table change from now on is a new file 002_... plus its 002_....PRODUCTION.sql, and must not edit 001. Whether a comment-only edit to 001 (both files, no schema change) is allowed is for Tahir to confirm (A-21 in 12).
 
 Check after running: `SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name LIKE 'c2m\_%';` gives 39.
 
@@ -171,7 +172,7 @@ Keys: IX ix_pol_cust (customer_name), IX ix_pol_brand (brand).
 | line_id | VARCHAR(40) | no | | c2m_o2s_po_line.line_id |
 | po | VARCHAR(60) | no | | PO number |
 | dc | VARCHAR(40) | yes | | Delivery challan |
-| truck_date | DATE | no | | approvedDate, else dispatch date |
+| truck_date | DATE | no | | O2S approvedDate (gate pass approved); trucks still loading are not copied (D-60) |
 | kg | DECIMAL(14,3) | no | | Kg or L on the truck |
 | sync_id | INT | no | | Pull that wrote it |
 
@@ -243,7 +244,7 @@ Keys: UQ uq_variant (base_product_id, name).
 | variant_id | INT | yes | | Not used yet |
 | spec | VARCHAR(200) | yes | | e.g. NPK 10:10:10 |
 | form | VARCHAR(10) | no | 'solid' | solid, liquid |
-| reprocessed | TINYINT(1) | no | 0 | 1 = reprocessed; picks the solid reprocessed base band. Set per product by Yawar in Back Office, Products and packing (D-30) |
+| reprocessed | TINYINT(1) | no | 0 | 1 = reprocessed; picks the solid reprocessed base band. Set per product by Yawar on the product page, Cost and price by pack (D-30, D-47) |
 | sold_per | VARCHAR(4) | no | 'kg' | kg, L |
 | density | DECIMAL(8,4) | yes | | kg per L; not used yet |
 | packing_mode | VARCHAR(20) | no | 'VAN' | VAN, client, bulk |
@@ -657,9 +658,9 @@ Keys: UQ uq_grant (username, grant_kind, grant_value). A grant is removed by del
 | id | BIGINT AI | no | | PK |
 | at | DATETIME | no | | When (Pakistan) |
 | by_user | VARCHAR(64) | no | | Who |
-| entity | VARCHAR(40) | no | | rate, recipe, price, list_revision, material, reapproval, conversion_rule, client_product, ... |
+| entity | VARCHAR(40) | no | | sync, recipe, rate, packing_rate, packing_item, packing_bill, client_pack, reapproval, conversion_rule, client_product, price, setting, setting_request, target_request, target, import_item, material, grade_nutrients, customer, freight, grant, monthly_actual, monthly_check, list_revision, price_doc |
 | entity_id | VARCHAR(60) | yes | | Id of the thing changed |
-| action | VARCHAR(40) | no | | create, save, update, approve, sent_back, dismiss, class, type, reprocessed, retire, cancelled (a waiting price replaced by a newer approval), withdrawn (Tahir withdrew a waiting price or list revision), applied (a waiting list revision reached its date; written once), cost moved since shown (re-approval approved at a cost that moved after the item was shown), ... |
+| action | VARCHAR(40) | no | | Recipe: new, lines, sent, resent, reviewed, endorsed, cost_approved, sent_back. Rates and packing: save, create, update, packing_bill. Re-approval: approve, dismiss, left: not costed, left: within threshold, cost moved since shown (approved at a cost that moved after the item was shown). Prices: propose, approve, sent_back, ended (the price in force given an end date), cancelled (a waiting price replaced by a newer approval), withdrawn (Tahir withdrew a waiting price or list revision), end restored. List revisions: propose, approve, sent_back, withdrawn, applied (a waiting revision reached its date; written once). Product and material: class, type, reprocessed, retire. Settings and targets: change, request, approve, refuse. Others: pull, grant, remove, done (monthly check), accept, correct (import item) |
 | old_value | TEXT | yes | | JSON before (e.g. old class and nutrient values; a packing bill's old name and lines; the old freight rate; the old monthly actuals; the old monthly check) |
 | new_value | TEXT | yes | | JSON after |
 | why | VARCHAR(400) | yes | | Reason or source |

@@ -1,7 +1,9 @@
 # 5. API documentation
 
-Version 1.4 · 18 Oct 2026 · Owner: Tahir (C2M module owner); Claude records · Rule: R-5h item 5 (D-20)
-Changed in 0.9.0: no route added or removed. GET /api/c2m/state adds, for cfo and coo only: priceHistory [{id, packId, price, prev, from, to, reason, by, at, decidedBy, decidedAt}], poLines [{po, received, cust, grp, brand, pack, packId, kg, price, foc}], importedAt, nextDocRef; proposals add decidedAt; products add fam and typeName (every role); white label list rows add typeId and fam. me.nav for cfo and coo adds reports (D-53, D-55, D-57). priceHistory holds approved prices, including those a newer price ended; poLines covers this financial year. POST /api/c2m/prices/propose now refuses an empty reason (400, "Write the reason the client will read on the list.").
+Version 0.9.1 · 18 Oct 2026 · Owner: Tahir (C2M module owner); Claude records · Rule: R-5h item 5 (D-20)
+Changed in 0.9.1 (3 independent reviews, 18 Oct 2026 night): no route added or removed. reapprovals approve replies reopened (D-61); the 4 approval routes refuse the proposer with 403 (D-63); checks validates its figures (D-64); GET /api/c2m/state, cfo and coo: foc [{date, cust, grp, brand, pack, packId, po, kg, cost}] and FOC lines left out of sales and open (D-62); each pack, for those who see prices: priceEnded {price, till} or null, lastPoPrice; checks rows carry data (parsed) in place of data_json.
+Changed in 0.9.1 (documentation review, 18 Oct 2026): me.nav for cfo and coo shows reports; a wrong mount answers 503 (5.1, 5.3); state reply keys by role (5.2a); past dates refused on propose and revise; more 403 and 503 messages; lock clash 409; first example corrected; examples for every route (5.4).
+Changed in 0.9.0: no route added or removed. GET /api/c2m/state adds, for cfo and coo only: priceHistory [{id, packId, price, prev, from, to, reason, by, at, decidedBy, decidedAt}], poLines [{po, received, cust, grp, brand, pack, packId, kg, price, foc}], importedAt, nextDocRef; proposals add decidedAt; products add fam and typeName (every role that receives products; a viewer receives none); white label list rows add typeId and fam. me.nav for cfo and coo adds reports (D-53, D-55, D-57). priceHistory holds approved prices, including those a newer price ended; poLines covers this financial year. POST /api/c2m/prices/propose now refuses an empty reason (400, "Write the reason the client will read on the list.").
 Changed in 0.8.0: nav lists per role (state.me.nav too); 2 error texts name the new places (a packing price is changed on Inputs, Packing items; a VAN pack is priced in Prices, VAN brand lists). No route added or removed; no reply shape changed (D-45 to D-52).
 Changed in 0.7.0: state sales rows carry the buyer, the O2S channel and region for VAN brand sales; propose refused for a VAN brand pack (D-44).
 Changed in 0.6.0: re-approval approve replies {ok, approved, left}; state carries costGaps on a pack that is not costed; recipe advance to approved is refused while a pack is not fully costed; propose is refused for a pack of an inactive product, and for any pack that is not costed, including one whose recipe is not in C2M yet; a labour or FOH rate must be above 0; issuing a distributor list sets each row's previous price to the printed price; re-approval items can carry {from: null, pct: null, first: true} for a pack's first approved cost.
@@ -11,7 +13,7 @@ Changed in 0.3.0 and 0.3.1: stale single-product conversion row removed; 1 table
 Code: `apps/c2m/c2m-routes.js`. Style: close to OpenAPI (method, path, who, body, reply, errors). Rule references: see 06 and the Design Record.
 
 ## 5.1 Mount, sign in, format, versions, limits
-- Mount: the platform mounts C2M with 1 line, `require('./apps/c2m/c2m-routes')(app, { pdq, pool, auth, path, fs, crypto })`. pool (the platform's mysql2 promise pool), pdq and auth are required: c2m-routes refuses to start without them, because transactions and the 409 guards depend on the pool.
+- Mount: the platform mounts C2M with 1 line, `require('./apps/c2m/c2m-routes')(app, { pdq, pool, auth, path, fs, crypto })`. pool (the platform's mysql2 promise pool), pdq and auth are required, because transactions and the 409 guards depend on the pool. Without them C2M answers every /c2m and /api/c2m request with 503 "C2M is not set up: ... Ask IT." (see 5.3); the platform keeps running.
 - Dates as text: at start C2M reads a date from the database. If the pool does not return DATE and DATETIME as text (mysql2 option dateStrings: true), every /api/c2m request gets 503 "C2M needs the database pool to return dates as text (mysql2 option dateStrings: true). Ask IT."
 - Queries: every query runs as a prepared statement (pool.execute). A list in a query gets 1 placeholder per value (IN (?,?,?)), because a prepared statement cannot take an array for 1 placeholder.
 - Sign in: the platform's own sign-in (`auth`), read as a Bearer token (`van_token`), as O2S does. Then C2M looks up the person's role in `user_module_roles` (module 'c2m'). No c2m role: 403.
@@ -29,8 +31,8 @@ Roles: cfo = Yawar, coo = Tahir, production = Majid, qc = Himayat, plant = Fahim
 |---|---|---|---|---|---|---|
 | GET | /c2m | anyone (the page then asks for sign-in) | | the page (no-store) | D-01 | |
 | GET | /c2m/assets/van-logo.png | anyone | | VAN logo PNG for the page and PDFs | D-13, D-14 | |
-| GET | /api/c2m/me | all roles | | {user, name, role, label, nav}. nav (0.8.0): cfo and coo [today, margin, products, prices, inputs, setup, guide]; production and plant [today, recipes, guide]; qc [today, recipes, inputs, guide]; viewer [lists, guide]. Screens only: rights are checked on each route (D-45) | R-2 | |
-| GET | /api/c2m/state | all roles; filtered by role (see 11) | | everything the person's screens need; a pack that is not costed has cost null and costGaps (what is missing, D-40) | R-2, D-14, D-40 | |
+| GET | /api/c2m/me | all roles | | {user, name, role, label, nav}. nav (0.9.0): cfo and coo [today, margin, reports, products, prices, inputs, setup, guide]; production and plant [today, recipes, guide]; qc [today, recipes, inputs, guide]; viewer [lists, guide]. Screens only: rights are checked on each route (D-45) | R-2 | |
+| GET | /api/c2m/state | all roles; filtered by role (see 11) | | everything the person's screens need, keys by role in 5.2a; a pack that is not costed has cost null and costGaps (what is missing, D-40) | R-2, D-14, D-40 | |
 | POST | /api/c2m/sync | cfo, coo | | {syncId, poLines, trucks, issues}; a pull left Pulling for more than 10 minutes frees itself | D-12, D-21 | yes |
 | POST | /api/c2m/recipes/new | production, cfo, coo | {clientProductId, fromVersionId?, note} | {id} | D-08, R-5i 2 | |
 | POST | /api/c2m/recipes/:id/lines | production; draft only | {lines:[{gradeId, qty}], note?} | {ok} | D-08 | yes |
@@ -42,7 +44,7 @@ Roles: cfo = Yawar, coo = Tahir, production = Majid, qc = Himayat, plant = Fahim
 | POST | /api/c2m/packing/item | cfo | {name, kind, price, source} | {id} | D-19 | |
 | POST | /api/c2m/packing/bill | cfo | {id?, name, lines:[{itemId, level: primary or secondary, pieces, packsPerOuter}]} | {id, reapproval} | D-19 | |
 | POST | /api/c2m/packing/assign | cfo | {packId, billId or null} | {ok, reapproval} | D-19 | |
-| POST | /api/c2m/reapprovals/:id/approve | cfo | {} for all, or {packIds:[...]} for the ticked packs only (an empty list is refused) | {ok, approved: packs given a new cost, left: [packs kept on their approved cost, with why]}; approves today's cost; if a cost moved since the item was shown, the change record says "cost moved since shown"; a pack now within reapprove_pct of its approved cost, or not fully costed, is left (D-41) | R-2 Cost, R-5i 6, D-41 | yes |
+| POST | /api/c2m/reapprovals/:id/approve | cfo | {} for all, or {packIds:[...]} for the ticked packs only (an empty list is refused) | {ok, approved: packs given a new cost, left: [packs kept on their approved cost, with why], reopened: packs not ticked put in a new open item "Left open from item N" (D-61)}; approves today's cost; if a cost moved since the item was shown, the change record says "cost moved since shown"; a pack now within reapprove_pct of its approved cost, or not fully costed, is left (D-41) | R-2 Cost, R-5i 6, D-41 | yes |
 | POST | /api/c2m/reapprovals/:id/dismiss | cfo | {why} | {ok, reapproval: packs batched again for another cause} | R-2 Cost | yes |
 | POST | /api/c2m/rules/conversion | cfo | {name, kind: labour or foh, rsPerKg (above 0; a Rs 0 rate counts as missing, D-40), scope: general, type or list, baseProductId (type), productIds[] (list), form?, reprocessed? (0 or 1), packMin?, packMax?, validFrom? (today or earlier), source?} | {id, reapproval} | D-25, R-5i 7 | |
 | POST | /api/c2m/rules/conversion/:id/retire | cfo | {why} | {ok, reapproval}; refused if any pack would have no labour or FOH rate | D-25 | yes |
@@ -53,7 +55,7 @@ Roles: cfo = Yawar, coo = Tahir, production = Majid, qc = Himayat, plant = Fahim
 | POST | /api/c2m/grades/:id/nutrients | cfo, qc | {values: {"K%": 56}} (0 to 100) | {ok}; 400 for a class with no nutrient fields | D-23 | |
 | POST | /api/c2m/customers/:id | cfo | {priceRule: time, po or list, cycle, region, o2sNames: "a\|b"} | {ok} | R-5 client price rule | |
 | POST | /api/c2m/freight | cfo | {segment: Dealer or Farmer, region, rsPerKg, validFrom?} | {ok} | D-05 | |
-| POST | /api/c2m/prices/propose | cfo | {packId, price, reason, belowReason (needed below target), validFrom? (Takes effect from; default today), validTo? (valid till: the last day the price applies; the effective date or later), replaceId? (a sent-back proposal)} | {id}; refused if the pack already has a price waiting for Tahir, its product is inactive, the pack is not costed (D-40), or it is a VAN brand pack (priced through list revisions, D-44) | D-06, D-22, D-34 | yes |
+| POST | /api/c2m/prices/propose | cfo | {packId, price, reason, belowReason (needed below target), validFrom? (Takes effect from; default today; a past date is refused), validTo? (valid till: the last day the price applies; the effective date or later), replaceId? (a sent-back proposal)} | {id}; refused if the pack already has a price waiting for Tahir, its product is inactive, the pack is not costed (D-40), or it is a VAN brand pack (priced through list revisions, D-44) | D-06, D-22, D-34 | yes |
 | POST | /api/c2m/prices/:id/approve | coo | | {ok, waitsUntil, cancelled}. Starts on the later of its effective date and today. waitsUntil = the date when it is dated ahead, else null; today's price stays in force until then. cancelled = how many older waiting prices for the pack it replaced (audit "cancelled") | D-22, D-34, R-5i 3 | yes |
 | POST | /api/c2m/prices/:id/withdraw | coo | {why} | {ok, issuedDocs}; only an approved price still waiting for its date; the price it shortened gets its old end back; issuedDocs lists price lists already issued with it; Yawar gets a notice (audit "withdrawn", "end restored") | D-34 | yes |
 | POST | /api/c2m/prices/:id/sendback | coo | {reason} | {ok}; 400 "Nothing to send back" if no longer proposed | D-09 | |
@@ -67,15 +69,29 @@ Roles: cfo = Yawar, coo = Tahir, production = Majid, qc = Himayat, plant = Fahim
 | POST | /api/c2m/import/:id/correct | cfo | {value, why, confirmed? (for a rate move over the warning %)} | {ok, reapproval, kind}; a rate item is saved through the rate controls | D-07, D-10 | yes |
 | POST | /api/c2m/grants | cfo | {username, kind: list or client, value, on: true or false} | {ok} | R-2 People and rights | |
 | POST | /api/c2m/actuals | cfo | {month: YYYY-MM, labour, foh} | {ok} | D-18 | |
-| POST | /api/c2m/checks | coo for rate_check; cfo for tie_books | {month, kind, data?} | {ok}; 403 if Yawar tries the rate check | D-18 | |
+| POST | /api/c2m/checks | coo for rate_check; cfo for tie_books | {month, kind, data}: rate_check data {rates:[{gradeId, name, c2m, date, source, rs, register}]}, every register above 0; tie_books data {erpSales, erpCogs}, ERP figures above 0; the server works out and stores C2M's own c2mSales, c2mCogs, c2mUncosted and focCost for the month (anything the page sends for them is ignored); rate_check needs at least 1 material | {ok}; 403 if Yawar tries the rate check; 400 "Every material listed needs its purchase register rate (digits above 0) before the check is done." or "Enter ERP sales and ERP COGS for the month, in Rs (digits above 0)." | D-18, D-64 | |
 | POST | /api/c2m/notices/seen | cfo, coo | | {ok} | D-18 | |
-| POST | /api/c2m/lists/revise | cfo | {list: dist, dealer or farmer, items:[{id, values:{field: number}}], reason, validFrom, validTill?, replaceId? (a sent-back revision)} | {id, rows}; refused if the list already has a revision waiting for Tahir, or an approved revision waiting for its date | D-28, D-34 | yes |
+| POST | /api/c2m/lists/revise | cfo | {list: dist, dealer or farmer, items:[{id, values:{field: number}}], reason, validFrom (today or later; a past date is refused), validTill?, replaceId? (a sent-back revision)} | {id, rows}; refused if the list already has a revision waiting for Tahir, or an approved revision waiting for its date | D-28, D-34 | yes |
 | POST | /api/c2m/lists/revisions/:id/approve | coo | | {ok, waitsUntil}. Dated today or earlier: list rows, previous prices and list dates change now (waitsUntil null). Dated ahead: waits; C2M applies it on its first load on or after the date | D-28, D-34 | yes |
 | POST | /api/c2m/lists/revisions/:id/withdraw | coo | {why} | {ok}; only an approved revision still waiting for its date; the list stays as it is (audit "withdrawn") | D-34 | yes |
 | POST | /api/c2m/lists/revisions/:id/sendback | coo | {reason} | {ok} | D-28 | yes |
 | POST | /api/c2m/pricedocs | cfo, coo; viewer only for a granted list or client | {audience, client (wl), fields[], eff?, till?, ref?, note?, reasons?} (a viewer cannot set eff, till, note or reasons) | {id, ref} (ref = VAN/PL/year/number). No eff: a client list takes the client's latest approved price date, a VAN list its own list dates. eff ahead: prices in force on that date; a distributor list issued makes each row's printed price its previous price (D-42) | D-14, D-34 | |
 | GET | /api/c2m/pricedocs/:id/pdf | cfo, coo; the creator while the grant still stands | | application/pdf, printed from the saved snapshot; footer and "page n of N" on every page | D-14 | |
 | GET | /api/c2m/docs/:file | cfo, coo: all 12; production, qc, plant: 01, 07, 11; viewer: 07, 11 | | text/plain (the Markdown file) | D-20 | |
+
+## 5.2a Reply of GET /api/c2m/state, keys by role (owner: Tahir; R-2 People and rights, D-14, D-58)
+
+| Keys | Who receives them |
+|---|---|
+| me {user, role, label, nav, name}, settings (rows for cfo and coo only, [] for others), products, recipes, today | every role (a viewer gets products [] and recipes []) |
+| products[].packs[].cost, costGaps, approvedCost, floor, labour, sheet; recipes[].lines[].rate, date, cost; recipes[].materials | cfo, coo, production, plant |
+| products[].packs[].price, priceSource, prevPrice, priceFrom, priceTill, nextPrice, waitingProposal; products[].target, budget, budgetKg | cfo, coo |
+| materials (no rates), materialTypes | qc, cfo, coo |
+| rates (with source and last 6 rates), packingItems, packingBills, rules, productTypes | cfo, coo, production, plant |
+| grants, lists (granted lists only, farmer columns by grant), wlLists (granted clients only) | viewer |
+| reapprovals | cfo, coo |
+| sales, foc (0.9.1), unmatched, open, proposals, priceHistory, poLines, importedAt, nextDocRef, imports, settingRequests, targetRequests, notices, grants, people, lists, wlLists, actuals, checks, sources, fieldMap, lastSync, audit (last 60), freight, listItems, listRevisions, customers, docs (all 12) | cfo, coo |
+| docs (01, 07, 11) | production, qc, plant |
 
 Field rules for list revisions: dist takes now, mrp; dealer takes nsv, disc (a fraction below 1; the page types it as %), frp, mrp; farmer takes pb, sn, snc. On approval C2M works out dist fed = now x 1.05, dealer net = nsv x (1 - disc), netfed = net x 1.05.
 
@@ -87,15 +103,15 @@ Every error is `{ "error": "plain message" }`. Nothing is saved when an error co
 |---|---|---|---|
 | 400 | Wrong or missing input, or a rule refuses it | "Add the source: PO number or quote." · "A rate starts today or earlier..." · "Tick at least 1 pack, or use \"The rate was wrong\" to close it." · "This pack already has a price waiting for Tahir." · "A revision of this list is approved and waits for (date). Ask Tahir to withdraw it first, or wait until it takes effect." · "Write why the waiting price is withdrawn." | any route with a body |
 | 401 | Not signed in (from the platform) | platform message | every /api/c2m route |
-| 403 | No C2M role, or the role cannot do this | "You do not have access to C2M. Ask Tahir to grant it in People and access." · "Your role cannot do this in C2M." · "This step is not yours." · "This list is not granted to you." · "Not available to your role." | every /api/c2m route |
-| 409 | Someone else changed it a moment ago, or the item is no longer in the state the route needs | "Someone else changed this a moment ago. Check before retrying." For the pull: "A pull is already running. Wait a minute, then look again." | sync; recipes/:id/lines, /advance, /sendback; reapprovals/:id/approve, /dismiss; rules/conversion/:id/retire; prices/propose (replaceId), prices/:id/approve, /withdraw; settings/requests/:id/approve, /refuse; targets/:id/approve, /refuse; import/:id/accept, /correct; lists/revise (replaceId); lists/revisions/:id/approve, /withdraw, /sendback |
+| 403 | No C2M role, or the role cannot do this | "You do not have access to C2M. Ask Tahir to grant it in People and access." · "Your role cannot do this in C2M." · "This step is not yours." · "Only the person at this step can send it back." · "You proposed this, so another person approves it (ruling 19)." (approving your own price, list revision, setting or target; D-63) · "The rate check is done by a second person, not by the person who entered the rates." · "This list is not granted to you." · "This document is not yours, or the list is no longer granted to you." · "Not available to your role." | every /api/c2m route |
+| 409 | Someone else changed it a moment ago, or the item is no longer in the state the route needs | "Someone else changed this a moment ago. Check before retrying." For the pull: "A pull is already running. Wait a minute, then look again." | any write route on a database lock clash (deadlock or lock wait); sync; recipes/:id/lines, /advance, /sendback; reapprovals/:id/approve, /dismiss; rules/conversion/:id/retire; prices/propose (replaceId), prices/:id/approve, /withdraw; settings/requests/:id/approve, /refuse; targets/:id/approve, /refuse; import/:id/accept, /correct; lists/revise (replaceId); lists/revisions/:id/approve, /withdraw, /sendback |
 | 500 | Unexpected fault | "Something went wrong. Nothing was saved." | any |
-| 503 | C2M tables are not installed, or the pool does not return dates as text | "C2M tables are not installed yet. Ask IT to run the C2M migration." · "C2M needs the database pool to return dates as text (mysql2 option dateStrings: true). Ask IT." | any route that reads a c2m_ table; every /api/c2m route for the dates check |
+| 503 | C2M tables are not installed, the pool does not return dates as text, the mount is wrong, or the database cannot be reached | "C2M tables are not installed yet. Ask IT to run the C2M migration." · "C2M needs the database pool to return dates as text (mysql2 option dateStrings: true). Ask IT." · "C2M is not set up: the platform must mount it with its mysql2 promise pool { pdq, pool, auth, path, fs, crypto }. Ask IT." · "C2M is not set up: pdq and auth are missing from the mount. Ask IT." · "C2M cannot reach the database. Try again in a minute." | any route that reads a c2m_ table; every /api/c2m route for the dates and database check; every /c2m and /api/c2m route when the mount is wrong |
 
 ## 5.4 Examples (example figures)
 
 Rate over the warning %:
-`POST /api/c2m/rates {"gradeId":12,"rate":450,"source":"PO 1234"}`
+`POST /api/c2m/rates {"gradeId":12,"rate":433,"source":"PO 1234"}`
 → 400 `{"error":"Did you mean Rs 433? It is 12% from the last saved rate of Rs 387. Tick \"Yes, I meant this rate\" to save."}`
 Same call with `"confirmed":true` → 200 `{"ok":true,"reapproval":4}`.
 
@@ -119,3 +135,45 @@ Two people press the same button:
 
 Import rate correction:
 `POST /api/c2m/import/3/correct {"value":"Rs 391","why":"invoice 1234","confirmed":false}` → 200 `{"ok":true,"reapproval":2,"kind":"rate"}`.
+
+Every other route, 1 line each (example figures; ids made up; ... = fields left out):
+
+| Call | Reply |
+|---|---|
+| `GET /api/c2m/me` | `{"user":"yawar","name":"Yawar","role":"cfo","label":"CFO","nav":["today","margin","reports","products","prices","inputs","setup","guide"]}` |
+| `GET /api/c2m/state` | `{"me":{...},"settings":[...],"products":[...],"recipes":[...],"today":"2026-10-19",...}` (keys in 5.2a) |
+| `POST /api/c2m/sync` | `{"syncId":5,"poLines":240,"trucks":280,"issues":["Customer not matched in C2M: Client Z"]}` |
+| `POST /api/c2m/recipes/new {"clientProductId":7,"fromVersionId":21,"note":"TSP replaced by DAP"}` | `{"id":30}` |
+| `POST /api/c2m/recipes/30/lines {"lines":[{"gradeId":12,"qty":0.5},{"gradeId":14,"qty":0.6}]}` | `{"ok":true}` |
+| `POST /api/c2m/recipes/30/advance {"note":"checked"}` | `{"state":"review"}` |
+| `POST /api/c2m/recipes/30/sendback {"reason":"K% short","advice":"raise Material M"}` | `{"ok":true}` |
+| `POST /api/c2m/rates/try {"gradeId":12,"rate":400}` | `{"warning":{"warn":false,"pct":3.4},"impact":[{"packId":31,"label":"Product A 10 kg for Client X","now":130,"after":131.3,"pct":1,"approved":130,"pctApproved":1,"reapprove":false,"openKg":0,"rsOnOpen":0,"priceForTarget":175.07}]}` |
+| `POST /api/c2m/packing/rate {"itemId":4,"price":105,"source":"quote 77"}` | `{"ok":true,"reapproval":0}` |
+| `POST /api/c2m/packing/item {"name":"Bag 10 kg","kind":"bag","price":100,"source":"PO 55"}` | `{"id":40}` |
+| `POST /api/c2m/packing/bill {"name":"Bag 10 kg + carton of 2","lines":[{"itemId":40,"level":"primary","pieces":1},{"itemId":41,"level":"secondary","pieces":1,"packsPerOuter":2}]}` | `{"id":9,"reapproval":0}` |
+| `POST /api/c2m/packing/assign {"packId":31,"billId":9}` | `{"ok":true,"reapproval":1}` |
+| `POST /api/c2m/rules/conversion {"name":"Labour, all liquids","kind":"labour","rsPerKg":5,"scope":"general","form":"liquid"}` | `{"id":12,"reapproval":3}` |
+| `POST /api/c2m/rules/conversion/12/retire {"why":"replaced by a product type rate"}` | `{"ok":true,"reapproval":0}` |
+| `POST /api/c2m/products/7/type {"typeId":3}` | `{"ok":true,"reapproval":0}` |
+| `POST /api/c2m/products/7/reprocessed {"on":true}` | `{"ok":true,"reapproval":1}` |
+| `POST /api/c2m/materials {"name":"Material N","typeId":2,"unit":"kg","grade":"Standard","rate":400,"source":"PO 88"}` | `{"gradeId":60}` |
+| `POST /api/c2m/materials/18/type {"typeId":5}` | `{"ok":true}` |
+| `POST /api/c2m/grades/60/nutrients {"values":{"K%":50}}` | `{"ok":true}` |
+| `POST /api/c2m/customers/3 {"priceRule":"time","cycle":"Monthly","region":"Punjab","o2sNames":"Client X\|Client X Pvt"}` | `{"ok":true}` |
+| `POST /api/c2m/freight {"segment":"Dealer","region":"Sindh","rsPerKg":4}` | `{"ok":true}` |
+| `POST /api/c2m/prices/15/sendback {"reason":"check the date"}` | `{"ok":true}` |
+| `POST /api/c2m/settings {"changes":{"rate_warn_pct":"12"}}` | `{"applied":0,"pending":1}` |
+| `POST /api/c2m/settings/requests/4/approve` (or /refuse) | `{"ok":true}` |
+| `POST /api/c2m/targets/request {"clientProductId":7,"toGp":22,"reason":"client volume up"}` | `{"id":6}` |
+| `POST /api/c2m/targets/6/approve` (or /refuse) | `{"ok":true}` |
+| `POST /api/c2m/import/3/accept` | `{"ok":true,"reapproval":0,"kind":"note"}` |
+| `POST /api/c2m/grants {"username":"kam1","kind":"list","value":"dist","on":true}` | `{"ok":true}` |
+| `POST /api/c2m/actuals {"month":"2026-09","labour":1000000,"foh":2000000}` | `{"ok":true}` |
+| `POST /api/c2m/checks {"month":"2026-09","kind":"rate_check","data":{"rates":[{"gradeId":5,"name":"Material M","c2m":120,"register":121.5}]}}` (example figures) | `{"ok":true}` |
+| `POST /api/c2m/notices/seen` | `{"ok":true}` |
+| `POST /api/c2m/lists/revise {"list":"dealer","items":[{"id":5,"values":{"nsv":1000,"disc":0.05}}],"reason":"cost change","validFrom":"2026-11-01"}` | `{"id":4,"rows":1}` |
+| `POST /api/c2m/lists/revisions/4/sendback {"reason":"MRP too high"}` | `{"ok":true}` |
+| `POST /api/c2m/pricedocs {"audience":"wl","client":"Client X","fields":["product","pack","cur","prev","chg","reason","eff"]}` | `{"id":11,"ref":"VAN/PL/2026/011"}` |
+| `GET /api/c2m/pricedocs/11/pdf` | the PDF file (application/pdf) |
+| `GET /api/c2m/docs/07-guide.md` | the Markdown text (text/plain) |
+| `GET /c2m`, `GET /c2m/assets/van-logo.png` | the page; the logo PNG |

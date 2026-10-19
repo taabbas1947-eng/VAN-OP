@@ -50,7 +50,7 @@ module.exports = function mountC2mRoutes(app, deps) {
   const now = () => lib.pkNow();     // Pakistan time (audit finding 9)
   const today = () => lib.pkToday();
   /* Every query goes through q: undefined becomes NULL (review S9), and inside tx() it runs on the
-   * transaction's connection. deps.pool is optional: without it, tx() runs the steps without a transaction. */
+   * transaction's connection. Without deps.pool C2M answers 503 (mountFault above); the check in tx() is only a guard. */
   const txStore = new AsyncLocalStorage();
   const clean = p => Array.isArray(p) ? p.map(v => (v === undefined ? null : v)) : p;
   const q = (sql, p) => { const c = txStore.getStore(); return c ? c.execute(sql, clean(p)) : deps.pdq(sql, clean(p)); };
@@ -107,6 +107,18 @@ module.exports = function mountC2mRoutes(app, deps) {
     if (items.length) await q('INSERT INTO c2m_reapproval (cause, items_json, created_at) VALUES (?,?,?)', [cause.slice(0, 300), JSON.stringify(items), now()]);
     return items.length;
   }
+  /** C2M's own sales and cost of trucks out in a month (YYYY-MM), from O2S trucks and the approved cost on each truck's date;
+   *  FOC lines (price 0) are kept apart (D-62, D-64). */
+  async function monthFigures(month) {
+    const D = await engine.loadAll(q); const match = engine.matcher(D);
+    const [rows] = await q('SELECT t.truck_date, t.kg, p.customer_name, p.channel, p.brand, p.pack, p.net_price FROM c2m_o2s_truck t JOIN c2m_o2s_po_line p ON p.line_id=t.line_id WHERE t.truck_date>=? AND t.truck_date<?', [month + '-01', dayAfterMonth(month)]);
+    const out = { sales: 0, cogs: 0, uncosted: 0, focCost: 0 };
+    for (const r of rows) { const pk = match(r.customer_name, r.brand, r.channel, r.pack); const v = pk ? engine.versionOnDate(D, pk.id, r.truck_date) : null; const kg = Number(r.kg), pr = Number(r.net_price);
+      if (!(pr > 0)) { if (v) out.focCost += kg * Number(v.total); continue; }
+      out.sales += kg * pr; if (v) out.cogs += kg * Number(v.total); else out.uncosted += kg * pr; }
+    return out;
+  }
+  const dayAfterMonth = m => { const [y, mo] = m.split('-').map(Number); return mo === 12 ? `${y + 1}-01-01` : `${y}-${String(mo + 1).padStart(2, '0')}-01`; };
   /** Packs that would have no labour or no FOH rate today (review S2). */
   function packsWithoutRates(D, filter) {
     const out = [];
@@ -141,6 +153,11 @@ module.exports = function mountC2mRoutes(app, deps) {
     return docs.filter(d => { try { return (JSON.parse(d.fields_json).snapshot.wl || []).some(r => Number(r.packId) === Number(p.client_pack_id) && Number(r.cur) === Number(p.price)); } catch (_) { return false; } }).map(d => d.ref);
   }
   async function notice(forRole, text, by) { await q('INSERT INTO c2m_notice (for_role, text, by_user, at) VALUES (?,?,?,?)', [forRole, text, by, now()]); }
+  /** A cost input that moves GP (labour and FOH rates, packing bills, product type, reprocessed) is saved by Yawar alone;
+   *  Tahir is told each time, with how many packs moved (cost review 18 Oct 2026, D-63; ruling 12). */
+  async function costNotice(by, what, re) { await notice('coo', `${what}. ${re ? `${re} pack(s) moved more than the re-approval % and wait in a re-approval item for Yawar.` : 'No pack moved more than the re-approval %.'}`, by); }
+  /** The person who proposed never approves (ruling 19; cost review 18 Oct 2026, D-63). */
+  const notSelf = (proposer, user) => { if (proposer && String(proposer).toLowerCase() === String(user).toLowerCase()) throw Object.assign(new Error('You proposed this, so another person approves it (ruling 19).'), { status: 403 }); };
 
   /* ---------- Page ---------- */
   app.get(['/c2m', '/c2m/'], (req, res) => { res.set('Cache-Control', 'no-store'); res.sendFile(path.join(__dirname, 'c2m.html')); });
@@ -167,13 +184,17 @@ module.exports = function mountC2mRoutes(app, deps) {
       const appr = engine.approvedVersion(D, cp.id), latest = engine.latestVersion(D, cp.id);
       const packs = D.packs.filter(p => p.client_product_id === cp.id).map(p => {
         const c = engine.packCost(D, p); const av = engine.latestApproved(D, p.id);
-        const ap = approvedPrice.get(p.id); const price = ap ? Number(ap.price) : (lastPo.get(p.id) ?? null);
+        const ap = approvedPrice.get(p.id);
+        /* A pack that had an approved price which has ended, with none in force today, has no price: it does not fall back to
+           the last O2S PO price, so it shows on "costed, no price" (ruling 3; cost review 18 Oct 2026, D-62). */
+        const ended = ap ? null : prices.filter(x => x.client_pack_id === p.id && x.status === 'approved' && String(x.valid_from).slice(0, 10) <= today() && x.valid_to && String(x.valid_to).slice(0, 10) < today()).sort((a, b) => String(b.valid_to).localeCompare(String(a.valid_to)))[0] || null;
+        const price = ap ? Number(ap.price) : ended ? null : (lastPo.get(p.id) ?? null);
         const out = { id: p.id, size: Number(p.pack_size), billId: p.packing_bill_id };
         if (seeCost) Object.assign(out, { cost: c && c.costed ? { materials: c.materials, packing: c.packing, conversion: c.conversion, freight: c.freight, total: c.total, rule: c.rule ? c.rule.name : null } : null, costGaps: c && !c.costed ? c.gaps : null,
           approvedCost: av ? Number(av.total) : null, floor: c && c.costed ? lib.contributionFloor(c) : null, labour: c && c.costed ? c.labour : null,
           sheet: (() => { const v = (D.verByPack.get(p.id) || []).filter(x => /^Yawar's Master Cost Sheet/.test(x.cause)).pop(); return v ? { materials: Number(v.materials), packing: Number(v.packing), conversion: Number(v.conversion), total: Number(v.total) } : null; })() });
         const np = nextPrice.get(p.id);
-        if (seePrice) Object.assign(out, { price, priceSource: ap ? 'approved' : (price != null ? 'O2S PO' : null), prevPrice: ap && ap.prev_price != null ? Number(ap.prev_price) : null, priceFrom: ap ? ap.valid_from : null, priceTill: ap && ap.valid_to ? String(ap.valid_to).slice(0, 10) : null,
+        if (seePrice) Object.assign(out, { price, priceSource: ap ? 'approved' : (price != null ? 'O2S PO' : null), priceEnded: ended ? { price: Number(ended.price), till: String(ended.valid_to).slice(0, 10) } : null, lastPoPrice: lastPo.get(p.id) ?? null, prevPrice: ap && ap.prev_price != null ? Number(ap.prev_price) : null, priceFrom: ap ? ap.valid_from : null, priceTill: ap && ap.valid_to ? String(ap.valid_to).slice(0, 10) : null,
           nextPrice: np ? { id: np.id, price: Number(np.price), from: String(np.valid_from).slice(0, 10) } : null, waitingProposal: prices.some(x => x.client_pack_id === p.id && x.status === 'proposed') });
         return out;
       });
@@ -223,7 +244,14 @@ module.exports = function mountC2mRoutes(app, deps) {
     if (role === 'cfo' || role === 'coo') {
       const [sales] = await q(`SELECT t.id, t.truck_date, t.kg, t.po, t.dc, p.customer_name, p.channel, p.brand, p.pack, p.net_price FROM c2m_o2s_truck t JOIN c2m_o2s_po_line p ON p.line_id=t.line_id ORDER BY t.truck_date`);
       const custOf = name => { const k = String(name == null ? '' : name).trim().toLowerCase(); return k ? D.customers.find(c => String(c.o2s_names).split('|').some(n => n.trim() && n.trim().toLowerCase() === k)) : null; }; // an empty name never matches (the VAN brand owner row has none)
-      out.sales = sales.map(s => {
+      /* FOC (free) lines are not sales: they carry cost against Rs 0 and would pull GP down. They are kept out of sales,
+         GP and exposure and shown on their own (ruling 14b; cost review 18 Oct 2026, D-62). */
+      out.foc = [];
+      out.sales = sales.filter(s => { if (Number(s.net_price) > 0) return true;
+        const p = match(s.customer_name, s.brand, s.channel, s.pack); const cp = p ? D.cpById.get(p.client_product_id) : null; const v = p ? engine.versionOnDate(D, p.id, s.truck_date) : null;
+        const cust = cp && !engine.isVanBrand(cp) ? D.custById.get(cp.customer_id) : custOf(s.customer_name);
+        out.foc.push({ date: s.truck_date, cust: cust ? cust.name : s.customer_name, grp: s.channel === 'White Label' ? 'White label' : 'VAN brand', brand: s.brand, pack: Number(s.pack), packId: p ? p.id : null, po: s.po, kg: Number(s.kg), cost: v ? Number(v.total) : null });
+        return false; }).map(s => {
         const p = match(s.customer_name, s.brand, s.channel, s.pack); const cp = p ? D.cpById.get(p.client_product_id) : null; const van = engine.isVanBrand(cp);
         const cust = cp && !van ? D.custById.get(cp.customer_id) : custOf(s.customer_name); // VAN brand: the buyer, not the product's owner (D-44)
         const v = p ? engine.versionOnDate(D, p.id, s.truck_date) : null; const cost = v ? Number(v.total) : null;
@@ -235,7 +263,7 @@ module.exports = function mountC2mRoutes(app, deps) {
       const um = new Map();
       for (const x of out.sales) if (!x.packId) { const k = `${x.cust}|${x.brand}|${x.pack}`; const u = um.get(k) || { cust: x.cust, brand: x.brand, pack: x.pack, grp: x.grp, kg: 0, rs: 0 }; u.kg += x.kg; u.rs += x.kg * x.price; um.set(k, u); }
       out.unmatched = [...um.values()].sort((a, b) => b.rs - a.rs);
-      out.open = poLines.filter(l => Number(l.open_kg) > 0).map(l => {
+      out.open = poLines.filter(l => Number(l.open_kg) > 0 && Number(l.net_price) > 0).map(l => { // FOC lines are not sales (ruling 14b)
         const p = match(l.customer_name, l.brand, l.channel, l.pack); const cp = p ? D.cpById.get(p.client_product_id) : null; const cust = cp && !engine.isVanBrand(cp) ? D.custById.get(cp.customer_id) : custOf(l.customer_name);
         const c = p ? engine.packCost(D, p) : null;
         return { cust: cust ? cust.name : l.customer_name, grp: l.channel === 'White Label' ? 'White label' : 'VAN brand', brand: l.brand, pack: Number(l.pack), packId: p ? p.id : null, po: l.po, received: l.received,
@@ -263,7 +291,7 @@ module.exports = function mountC2mRoutes(app, deps) {
       const [lp] = await q('SELECT list_name, data_json, issued, valid_till FROM c2m_list_price ORDER BY id'); out.lists = groupLists(lp);
       out.wlLists = await wlListData(D, approvedPrice, D.customers.filter(c => c.grp !== 'VAN brand').map(c => c.name));
       const [ma] = await q('SELECT * FROM c2m_monthly_actual ORDER BY month'); out.actuals = ma;
-      const [mc] = await q('SELECT month, kind, done_by, done_at FROM c2m_monthly_check ORDER BY month'); out.checks = mc;
+      const [mc] = await q('SELECT month, kind, data_json, done_by, done_at FROM c2m_monthly_check ORDER BY month'); out.checks = mc.map(c => ({ ...c, data: (() => { try { return c.data_json ? JSON.parse(c.data_json) : null; } catch (_) { return null; } })(), data_json: undefined }));
       const [src] = await q('SELECT * FROM c2m_source ORDER BY id'); out.sources = src;
       const [fm] = await q('SELECT * FROM c2m_field_map ORDER BY id'); out.fieldMap = fm;
       const [sr] = await q('SELECT * FROM c2m_sync_run ORDER BY id DESC LIMIT 1'); out.lastSync = sr[0] || null;
@@ -476,13 +504,15 @@ module.exports = function mountC2mRoutes(app, deps) {
     });
     res.json({ ok: true, reapproval: moved.length });
   }));
-  /* Approve the batch (or only the packs ticked: body.packIds). Packs left out stay on their approved cost. */
+  /* Approve the batch (or only the packs ticked: body.packIds). Packs not ticked go into a new open item
+     "Left open from item N" so none drops out of every queue (cost review 18 Oct 2026, D-61). */
   app.post('/api/c2m/reapprovals/:id/approve', need('cfo'), wrap(async (req, res) => {
     const pick = Array.isArray((req.body || {}).packIds) ? new Set(req.body.packIds.map(Number)) : null;
     if (pick && !pick.size) throw bad('Tick at least 1 pack, or use "The rate was wrong" to close it.');
-    const left = []; let approvedN = 0;
+    const left = []; let approvedN = 0, reopened = 0; const unticked = new Set();
     await tx(async () => {
       const [[r]] = await q("SELECT * FROM c2m_reapproval WHERE id=? AND status='open' FOR UPDATE", [req.params.id]); if (!r) throw moved();
+      if (pick) JSON.parse(r.items_json).forEach(it => { if (!pick.has(it.packId)) unticked.add(it.packId); });
       const [u] = await q("UPDATE c2m_reapproval SET status='approved', decided_by=?, decided_at=? WHERE id=? AND status='open'", [req.c2m.user, now(), r.id]); if (!u.affectedRows) throw moved();
       const D = await engine.loadAll(q); let n = 0;
       for (const it of JSON.parse(r.items_json)) {
@@ -498,8 +528,10 @@ module.exports = function mountC2mRoutes(app, deps) {
       }
       await audit(req.c2m.user, 'reapproval', r.id, 'approve', null, { packs: n, of: JSON.parse(r.items_json).length }, r.cause);
       approvedN = n;
+      // Packs not ticked wait in a new item (only those still beyond the threshold, or with no approved cost yet), in the same transaction (re-review 18 Oct night)
+      if (unticked.size) reopened = await reapprovalFor(`Left open from item ${r.id} (not ticked), ${today()}`, p => unticked.has(p.id));
     });
-    res.json({ ok: true, approved: approvedN, left });
+    res.json({ ok: true, approved: approvedN, left, reopened });
   }));
   /* The rate was wrong: close the batch without new costs; Yawar then saves the right rate. */
   app.post('/api/c2m/reapprovals/:id/dismiss', need('cfo'), wrap(async (req, res) => {
@@ -530,6 +562,7 @@ module.exports = function mountC2mRoutes(app, deps) {
       for (const l of lines) await q('INSERT INTO c2m_packing_bill_line (packing_bill_id, packing_item_id, level, pieces, packs_per_outer) VALUES (?,?,?,?,?)', [billId, Number(l.itemId), l.level === 'secondary' ? 'secondary' : 'primary', Number(l.pieces), l.level === 'secondary' ? Number(l.packsPerOuter) : null]);
       await audit(req.c2m.user, 'packing_bill', billId, id ? 'update' : 'create', id ? oldBill : null, { name: nm, lines }, null);
       if (id) re = await reapprovalFor(`Packing bill "${nm}" changed, ${today()}`, p => p.packing_bill_id === billId);
+      if (id) await costNotice(req.c2m.user, `Packing bill "${nm}" changed by Yawar`, re);
     });
     res.json({ id: billId, reapproval: re });
   }));
@@ -542,6 +575,7 @@ module.exports = function mountC2mRoutes(app, deps) {
       await q('UPDATE c2m_client_pack SET packing_bill_id=? WHERE id=?', [billId || null, p.id]);
       await audit(req.c2m.user, 'client_pack', p.id, 'packing_bill', p.packing_bill_id, billId || null, null);
       re = await reapprovalFor(`Packing bill changed on a pack, ${today()}`, x => x.id === p.id);
+      await costNotice(req.c2m.user, `Packing bill of pack ${p.id} changed by Yawar`, re);
     });
     res.json({ ok: true, reapproval: re });
   }));
@@ -588,6 +622,7 @@ module.exports = function mountC2mRoutes(app, deps) {
       for (const cpId of new Set(ids)) await q('INSERT INTO c2m_conversion_rule_product (rule_id, client_product_id) VALUES (?,?)', [id, cpId]);
       await audit(req.c2m.user, 'conversion_rule', id, 'create', null, b, null);
       re = await reapprovalFor(`Conversion rule "${String(b.name).slice(0, 80)}" added, ${today()}`);
+      await costNotice(req.c2m.user, `${b.kind === 'labour' ? 'Labour' : 'FOH'} rate "${String(b.name).slice(0, 80)}" added at Rs ${strictNum(b.rsPerKg)} per kg or L by Yawar`, re);
     });
     res.json({ id, reapproval: re });
   }));
@@ -602,10 +637,11 @@ module.exports = function mountC2mRoutes(app, deps) {
       await q('UPDATE c2m_client_product SET base_product_id=? WHERE id=?', [typeId, cp.id]);
       await audit(req.c2m.user, 'client_product', cp.id, 'type', cp.base_product_id, typeId, null);
       re = await reapprovalFor(`Product type changed, ${today()}`, p => p.client_product_id === cp.id);
+      await costNotice(req.c2m.user, `Product type of client product ${cp.id} changed by Yawar`, re);
     });
     res.json({ ok: true, reapproval: re });
   }));
-  /* Reprocessed flag of a client product (picks the solid Rs 30 band); review 16 Oct: it had no screen */
+  /* Reprocessed flag of a client product (picks the solid reprocessed band); review 16 Oct: it had no screen */
   app.post('/api/c2m/products/:id/reprocessed', need('cfo'), wrap(async (req, res) => {
     const [[cp]] = await q('SELECT id, reprocessed FROM c2m_client_product WHERE id=?', [req.params.id]); if (!cp) throw bad('Client product not found.');
     const v = (req.body || {}).on ? 1 : 0; let re = 0;
@@ -613,6 +649,7 @@ module.exports = function mountC2mRoutes(app, deps) {
       await q('UPDATE c2m_client_product SET reprocessed=? WHERE id=?', [v, cp.id]);
       await audit(req.c2m.user, 'client_product', cp.id, 'reprocessed', cp.reprocessed, v, null);
       re = await reapprovalFor(`Reprocessed flag changed, ${today()}`, p => p.client_product_id === cp.id);
+      await costNotice(req.c2m.user, `Reprocessed flag of client product ${cp.id} turned ${v ? 'on' : 'off'} by Yawar`, re);
     });
     res.json({ ok: true, reapproval: re });
   }));
@@ -624,6 +661,7 @@ module.exports = function mountC2mRoutes(app, deps) {
       const gaps = packsWithoutRates(await engine.loadAll(q)); if (gaps.length) throw bad(`Retiring this rate leaves ${gaps.length} pack(s) with no rate, e.g. ${gaps.slice(0, 3).join('; ')}. Add the replacing rate first.`);
       await audit(req.c2m.user, 'conversion_rule', req.params.id, 'retire', null, null, why);
       re = await reapprovalFor(`Conversion rule ${req.params.id} retired, ${today()}`);
+      await costNotice(req.c2m.user, `Labour or FOH rate ${req.params.id} retired by Yawar (${why.slice(0, 120)})`, re);
     });
     res.json({ ok: true, reapproval: re });
   }));
@@ -661,7 +699,7 @@ module.exports = function mountC2mRoutes(app, deps) {
   }));
   app.post('/api/c2m/prices/:id/approve', need('coo'), wrap(async (req, res) => {
     await tx(async () => {
-      const [[p]] = await q("SELECT * FROM c2m_price WHERE id=? AND status='proposed' FOR UPDATE", [req.params.id]); if (!p) throw moved();
+      const [[p]] = await q("SELECT * FROM c2m_price WHERE id=? AND status='proposed' FOR UPDATE", [req.params.id]); if (!p) throw moved(); notSelf(p.proposed_by, req.c2m.user);
       const from = String(p.valid_from).slice(0, 10) > today() ? String(p.valid_from).slice(0, 10) : today();
       if (p.valid_to && String(p.valid_to).slice(0, 10) < from) throw bad(`Its valid till date (${String(p.valid_to).slice(0, 10)}) is before it would start (${from}). Send it back for new dates.`);
       // Only 1 price may wait for its date: a newer approval cancels the waiting one, puts back what it shortened, and says so
@@ -728,7 +766,7 @@ module.exports = function mountC2mRoutes(app, deps) {
   }));
   app.post('/api/c2m/settings/requests/:id/:act(approve|refuse)', need('coo'), wrap(async (req, res) => {
     await tx(async () => {
-      const [[r]] = await q("SELECT * FROM c2m_setting_request WHERE id=? AND status='open' FOR UPDATE", [req.params.id]); if (!r) throw moved();
+      const [[r]] = await q("SELECT * FROM c2m_setting_request WHERE id=? AND status='open' FOR UPDATE", [req.params.id]); if (!r) throw moved(); if (req.params.act === 'approve') notSelf(r.by_user, req.c2m.user);
       const [u] = await q("UPDATE c2m_setting_request SET status=?, decided_by=?, decided_at=? WHERE id=? AND status='open'", [req.params.act === 'approve' ? 'approved' : 'refused', req.c2m.user, now(), r.id]); if (!u.affectedRows) throw moved();
       if (req.params.act === 'approve') for (const [k, v] of Object.entries(JSON.parse(r.changes_json))) {
         const [[old]] = await q('SELECT v FROM c2m_setting WHERE k=?', [k]);
@@ -758,7 +796,7 @@ module.exports = function mountC2mRoutes(app, deps) {
   }));
   app.post('/api/c2m/targets/:id/:act(approve|refuse)', need('coo'), wrap(async (req, res) => {
     await tx(async () => {
-      const [[r]] = await q("SELECT * FROM c2m_target_request WHERE id=? AND status='open' FOR UPDATE", [req.params.id]); if (!r) throw moved();
+      const [[r]] = await q("SELECT * FROM c2m_target_request WHERE id=? AND status='open' FOR UPDATE", [req.params.id]); if (!r) throw moved(); if (req.params.act === 'approve') notSelf(r.by_user, req.c2m.user);
       const [u] = await q("UPDATE c2m_target_request SET status=?, decided_by=?, decided_at=? WHERE id=? AND status='open'", [req.params.act === 'approve' ? 'approved' : 'refused', req.c2m.user, now(), r.id]); if (!u.affectedRows) throw moved();
       if (req.params.act === 'approve') await q('UPDATE c2m_client_product SET target_gp=? WHERE id=?', [r.to_gp, r.client_product_id]);
       await audit(req.c2m.user, 'target', r.client_product_id, req.params.act, r.from_gp, r.to_gp, r.reason);
@@ -884,10 +922,19 @@ module.exports = function mountC2mRoutes(app, deps) {
     if (kind === 'rate_check' && req.c2m.role !== 'coo') throw Object.assign(new Error('Your role cannot do this in C2M.'), { status: 403 });
     if (kind === 'tie_books' && req.c2m.role !== 'cfo') throw Object.assign(new Error('Your role cannot do this in C2M.'), { status: 403 });
     if (!['rate_check', 'tie_books'].includes(kind) || !/^\d{4}-\d{2}$/.test(String(month))) throw bad('Pick the month and the check.');
+    /* The checks carry their figures, not just a tick (cost review 18 Oct 2026, D-64): the rate check holds the register rate
+       for each material listed; the tie to the books holds ERP sales and COGS beside C2M's own figures for the month. */
+    let save = data || null;
+    if (kind === 'rate_check') { const R = data && Array.isArray(data.rates) ? data.rates : null; if (!R || !R.length) throw bad('There is no material to check for this month: the check needs at least 1 material with its purchase register rate.');
+      if (R.some(r => !r || typeof r !== 'object' || !r.gradeId || !(strictNum(r.register) > 0))) throw bad('Every material listed needs its purchase register rate (digits above 0) before the check is done.');
+      save = { rates: R.map(r => ({ gradeId: Number(r.gradeId), name: String(r.name || '').slice(0, 120), c2m: Number(r.c2m) || null, date: r.date || null, source: String(r.source || '').slice(0, 200), rs: Number(r.rs) || 0, register: strictNum(r.register) })) }; }
+    if (kind === 'tie_books') { if (!(data && strictNum(data.erpSales) > 0 && strictNum(data.erpCogs) > 0)) throw bad('Enter ERP sales and ERP COGS for the month, in Rs (digits above 0).');
+      /* C2M's own figures are worked out here, never taken from the page, so the person tying cannot supply the check figures (re-review 18 Oct night) */
+      const C = await monthFigures(String(month)); save = { erpSales: strictNum(data.erpSales), erpCogs: strictNum(data.erpCogs), c2mSales: Math.round(C.sales), c2mCogs: Math.round(C.cogs), c2mUncosted: Math.round(C.uncosted), focCost: Math.round(C.focCost) }; }
     const [[oldC]] = await q('SELECT data_json, done_by, done_at FROM c2m_monthly_check WHERE month=? AND kind=?', [month, kind]);
     await tx(async () => {
-      await q('INSERT INTO c2m_monthly_check (month, kind, data_json, done_by, done_at) VALUES (?,?,?,?,?) ON DUPLICATE KEY UPDATE data_json=VALUES(data_json), done_by=VALUES(done_by), done_at=VALUES(done_at)', [month, kind, data ? JSON.stringify(data) : null, req.c2m.user, now()]);
-      await audit(req.c2m.user, 'monthly_check', month + ':' + kind, 'done', oldC || null, data || null, null);
+      await q('INSERT INTO c2m_monthly_check (month, kind, data_json, done_by, done_at) VALUES (?,?,?,?,?) ON DUPLICATE KEY UPDATE data_json=VALUES(data_json), done_by=VALUES(done_by), done_at=VALUES(done_at)', [month, kind, save ? JSON.stringify(save) : null, req.c2m.user, now()]);
+      await audit(req.c2m.user, 'monthly_check', month + ':' + kind, 'done', oldC || null, save, null);
     });
     res.json({ ok: true });
   }));
@@ -936,7 +983,7 @@ module.exports = function mountC2mRoutes(app, deps) {
   }));
   app.post('/api/c2m/lists/revisions/:id/approve', need('coo'), wrap(async (req, res) => {
     await tx(async () => {
-      const [[r]] = await q("SELECT * FROM c2m_list_revision WHERE id=? AND status='proposed' FOR UPDATE", [req.params.id]); if (!r) throw moved();
+      const [[r]] = await q("SELECT * FROM c2m_list_revision WHERE id=? AND status='proposed' FOR UPDATE", [req.params.id]); if (!r) throw moved(); notSelf(r.proposed_by, req.c2m.user);
       const [u] = await q("UPDATE c2m_list_revision SET status='approved', decided_by=?, decided_at=? WHERE id=? AND status='proposed'", [req.c2m.user, now(), r.id]); if (!u.affectedRows) throw moved();
       const waits = String(r.valid_from).slice(0, 10) > today() ? String(r.valid_from).slice(0, 10) : null;
       if (!waits) await applyRevision(r);

@@ -961,6 +961,30 @@ module.exports = function mountC2mRoutes(app, deps) {
     await audit(by, 'list_price', 'all', 'FED changed', null, { fed, rows: n }, 'FED % changed: price with FED worked again on the distributor and dealer lists');
     return n;
   }
+  /** Link VAN brand list rows to their C2M pack (D-70, D-73): Yawar picks the pack for each row once; the report
+   * "VAN brand list margin" reads cost through this link only, never through names or O2S. packId null unlinks a row. */
+  app.post('/api/c2m/lists/links', need('cfo'), wrap(async (req, res) => {
+    const links = (req.body || {}).links;
+    if (!Array.isArray(links) || !links.length) throw bad('Pick at least 1 row and its pack.');
+    if (links.length > 500) throw bad('Save at most 500 links at a time.');
+    const whole = v => (typeof v === 'number' && Number.isInteger(v) && v > 0) || (typeof v === 'string' && /^[1-9]\d*$/.test(v)); // ids only: never true, 1.5 or "abc"
+    const D = await engine.loadAll(q); const vanPack = new Set(D.packs.filter(k => engine.isVanBrand(D.cpById.get(k.client_product_id))).map(k => Number(k.id)));
+    let n = 0;
+    await tx(async () => {
+      for (const l of links) {
+        if (!l || !whole(l.id)) throw bad('A row is missing.');
+        if (l.packId != null && l.packId !== '' && !whole(l.packId)) throw bad('Pick a VAN brand pack: only VAN brand packs can be linked to a list row.');
+        const id = Number(l.id), pid = l.packId != null && l.packId !== '' ? Number(l.packId) : null;
+        if (pid != null && !vanPack.has(pid)) throw bad('Pick a VAN brand pack: only VAN brand packs can be linked to a list row.');
+        const [[row]] = await q('SELECT id, list_name, data_json FROM c2m_list_price WHERE id=? FOR UPDATE', [id]); if (!row) throw bad('A row is not on any VAN brand list.');
+        const d = JSON.parse(row.data_json); const was = d.packId != null ? Number(d.packId) : null; if (was === pid) continue;
+        if (pid == null) delete d.packId; else d.packId = pid;
+        await q('UPDATE c2m_list_price SET data_json=? WHERE id=?', [JSON.stringify(d), id]);
+        await audit(req.c2m.user, 'list_price', String(id), 'link', was, pid, `${row.list_name}: ${d.p}${d.pack ? ' ' + d.pack : ''}`); n++;
+      }
+    });
+    res.json({ changed: n });
+  }));
   app.post('/api/c2m/lists/revise', need('cfo'), wrap(async (req, res) => {
     const { list, items, reason, validFrom, validTill, replaceId } = req.body || {};
     if (!LIST_FIELDS[list]) throw bad('Pick the list.');

@@ -1,6 +1,7 @@
 # 7. The Guide
 
-Version 0.9.2 · 19 Oct 2026 · Owner: Yawar; Tahir approves changes · Rule: R-5h item 7 (D-20)
+Version 0.9.3 · 19 Oct 2026 · Owner: Yawar; Tahir approves changes · Rule: R-5h item 7 (D-20)
+Changed in 0.9.3 (19 Oct 2026): Yawar and Tahir line 3 (Reports, VAN brand list margin, D-73).
 Changed in 0.9.2 (19 Oct 2026): Yawar line 8 and Tahir new line 9 (By customer state, D-68).
 Changed in 0.9.1 (3 independent reviews, 18 Oct 2026 night): App Guide lines for Yawar (5, new 6, new 10) and Tahir (5, new 6) matched again to GUIDE in c2m.html; partial re-approval and 2-tap wording (D-61, D-63 to D-65).
 Changed in 0.9.1 (documentation review, 18 Oct 2026): the App Guide lists for Yawar and Tahir matched again, word for word, to GUIDE in c2m.html (0.9.0 lines); rule numbers on each item; "Where things are" adds 0.9.0; Tahir's re-approvals under Waiting on others; Prices, Waiting for date; name and Sign out at the foot of the rail; 2 re-approval items after the first load.
@@ -41,7 +42,7 @@ How to read this: items marked "App Guide" are the exact lines on the app's Guid
 App Guide (rule for each line in brackets; the brackets are not on the screen):
 1. Each morning open Today and start with "Your next move". Every approval and job opens in a panel on Today; each line shows how long it has waited, and "stuck" after more than 2 working days (Monday to Saturday). (D-46, D-54)
 2. Find anything (Ctrl K) opens a product, customer, material, report or place. (D-53)
-3. Reports: GP bridge (why GP moved from 1 month to the next) and PO price against approved price; both export to Excel. (D-57)
+3. Reports: GP bridge (why GP moved from 1 month to the next), PO price against approved price, and VAN brand list margin (every VAN pack's list prices against its cost and the ambition GP; link each list row to its C2M pack there once: C2M suggests, you check and save); all export to Excel. (D-57, D-73)
 4. Products: 1 page per client product, with its recipe and every version, its cost by pack, its price and its history. Approve cost in its panel, opened from Today or from the product page, after Fahim endorses; send back with a reason and advice if something is wrong. (D-08, D-09, D-47)
 5. Re-approvals: when a rate moves products over the set %, approve them on Today in 1 item. Approve all, or tick the packs you checked: the packs not ticked wait in a new item, so none is lost. (R-2 Cost, D-41, D-61)
 6. A change to a product type, the reprocessed tick or a pack's packing bill waits for Save, and says how many packs it recosts. Tahir is told of every labour or FOH rate, packing bill, product type and reprocessed change. (D-63, D-65)
@@ -67,7 +68,7 @@ Also (a separate list; its numbers 7 to 16 are kept so references in other docum
 App Guide (rule for each line in brackets; the brackets are not on the screen):
 1. Today starts with your next move, then what waits for you (prices, list revisions, threshold and target changes), recipes stuck more than 2 working days (Monday to Saturday), and customers below target. Each opens in a panel: approve or send back there, with a reason. (D-33, D-46, D-54)
 2. Find anything (Ctrl K) opens a product, customer, material, report or place. (D-53)
-3. Reports: GP bridge and PO price against approved price, with Export to Excel. (D-57)
+3. Reports: GP bridge, PO price against approved price, and VAN brand list margin (every VAN pack's distributor, dealer and farmer price against its cost and the ambition GP, with the VAN brand portfolio GP), with Export to Excel. (D-57, D-73)
 4. Re-approvals of cost are Yawar's; you see each one on Today for information. (R-2 Cost)
 5. Each month check the rates against the purchase register (Today): C2M lists the 15 materials with the most Rs in the month; type each register rate and save. You cannot approve a price, list, setting or target you proposed yourself. (D-18, D-39, D-63, D-64)
 6. For your information on Today shows each change Yawar makes to labour and FOH rates, packing bills, product types and the reprocessed tick, with how many packs moved. (D-63)

@@ -1,6 +1,7 @@
 # 1. Process flow diagrams
 
-Version 0.9.2 · 19 Oct 2026 · Owner: Yawar (CFO) keeps it current; Tahir approves changes · Rule: R-5h item 1 (D-20)
+Version 0.9.3 · 19 Oct 2026 · Owner: Yawar (CFO) keeps it current; Tahir approves changes · Rule: R-5h item 1 (D-20)
+Changed in 0.9.3 (19 Oct 2026): 1.17 VAN brand list margin added to the Reports flow, with the link step (D-73).
 Changed in 0.9.2 (19 Oct 2026): the 12 unbuilt reports carry no version number (built after their pictures are approved).
 Changed in 0.9.1 (3 independent reviews, 18 Oct 2026 night): 1.3 approve ticked only leaves the rest in a new item (D-61). Other 0.9.1 logic is in 03, 3.16.
 Changed in 0.9.1 (documentation review, 18 Oct 2026): 1.1 cost approval checks every pack is fully costed (D-40); 1.3 rate and packing price saves do not yet leave out waiting packs (I-18), Tahir sees re-approvals under Waiting on others; 1.5 and 1.7 place names; 1.6 refusals (D-40, D-44, D-56); 1.11 2 re-approval items; new diagrams 1.9 to 1.13, new 1.16 Today and 1.17 Reports; 1.15 Reports, 6 Prices views, 5 product page tabs; rule numbers on every step.
@@ -394,7 +395,12 @@ flowchart LR
     B -- no --> L([Shows "not built yet": its picture goes to Tahir for approval first · D-57])
     B -- yes, GP bridge --> G[Pick group and month; parts must add up within Rs 1 · F-19]
     B -- yes, PO price --> P[Pick this month, last month or FY to date · F-20]
+    B -- yes, VAN brand list margin --> V{Each list row linked to its C2M pack? · D-73}
+    V -- no --> K[Yawar checks the suggested pack, picks the rest, Save links · D-73]
+    K --> V
+    V -- yes --> M[Every VAN pack: GP on each list against cost and the ambition GP; pick the farmer list · F-22]
     G --> X([Export to Excel])
     P --> X
+    M --> X
   end
 ```

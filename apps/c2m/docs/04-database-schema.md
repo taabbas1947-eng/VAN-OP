@@ -1,6 +1,7 @@
 # 4. Database schemas
 
-Version 0.9.2 · 19 Oct 2026 · Owner: Tahir (C2M module owner); Claude records · Rule: R-5h item 4 (D-20)
+Version 0.9.3 · 19 Oct 2026 · Owner: Tahir (C2M module owner); Claude records · Rule: R-5h item 4 (D-20)
+Changed in 0.9.3 (19 Oct 2026): c2m_list_price.data_json may hold packId (D-73); no table, column or migration.
 Changed in 0.9.2 (19 Oct 2026): no table or column; the first load adds 1 setting row, fed_pct (D-72); "sales tax" taken out of the meaning of net_price and price (FED is the only tax on VAN). The migration's own comments still say "FED and sales tax" (001 is frozen).
 Changed in 0.9.1 (documentation review, 18 Oct 2026): 001 is live and frozen (run on live 17 Oct); PRODUCTION header lines; reprocessed is set on the product page; full lists of audit actions and entities. No table or column changed by this review.
 Changed in 0.9.0: no change: 0.9.0 adds no table, column or migration (D-58).
@@ -533,7 +534,7 @@ Keys: IX ix_price (client_pack_id, status). The price in force on a date: status
 | product | VARCHAR(160) | no | | Product |
 | spec | VARCHAR(200) | yes | | Specification |
 | pack | VARCHAR(40) | yes | | Pack (empty on the farmer list) |
-| data_json | TEXT | no | | Price columns only (see 10). Cost and margin are never stored here |
+| data_json | TEXT | no | | Price columns (see 10), and from 0.9.3 packId, the C2M VAN brand pack the row is (set by Yawar, D-73). Cost and margin are never stored here |
 | issued | DATE | no | | List effective date |
 | valid_till | DATE | yes | | List valid till |
 

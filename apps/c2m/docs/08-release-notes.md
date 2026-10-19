@@ -1,6 +1,7 @@
 # 8. Release notes and change log
 
-Version 0.9.2 · 19 Oct 2026 · Owner: Claude records; Tahir approves releases · Rule: R-5h item 8 (D-20)
+Version 0.9.3 · 19 Oct 2026 · Owner: Claude records; Tahir approves releases · Rule: R-5h item 8 (D-20)
+Changed in 0.9.3 (19 Oct 2026): entry 0.9.3 added.
 Changed in 0.9.2 (19 Oct 2026): entry 0.9.2 added; its "Decided, not code" part changed by D-70 and D-71; FED setting and wording added (D-72).
 Changed in 0.9.1 (3 independent reviews, 18 Oct 2026 night): entry 0.9.1 added.
 Changed in 0.9.1 (documentation review, 18 Oct 2026): live status brought up to date; the 12 unbuilt reports move to 0.9.2; 0.9.0 entry gets its test totals and what to test after; the folder tabs (D-59) ship in 0.9.1 (its entry is written with the 0.9.1 code).
@@ -9,7 +10,17 @@ Changed in 0.8.0: entry 0.8.0 added.
 Changed in 0.7.0: entry 0.7.0 added.
 Changed in 0.6.0: entry 0.6.0 added.
 Changed in 0.5.0: entry 0.5.0 added; real figures removed from earlier entries (public repo).
-Format: Keep a Changelog, semantic versions. Live: 0.9.1 (pushed 19 Oct 09:39, checked live). apps/c2m first pushed by Tahir on 17 Oct and the live migration run the same day (39 empty c2m_ tables); 0.6.0 and 0.7.0 pushed on 18 Oct (17:29), 0.8.0 (20:16) and 0.9.0 (22:03), each checked live by Claude. The folder tabs (D-59) were built after the 0.9.0 push and ship in 0.9.1. No data loaded yet: the first data load runs on Monday 19 Oct 2026.
+Format: Keep a Changelog, semantic versions. Live: 0.9.2 (pushed 19 Oct 12:43, checked live); first data load 19 Oct 2026 about 13:17, checked live. Before: 0.9.1 (pushed 19 Oct 09:39, checked live). apps/c2m first pushed by Tahir on 17 Oct and the live migration run the same day (39 empty c2m_ tables); 0.6.0 and 0.7.0 pushed on 18 Oct (17:29), 0.8.0 (20:16) and 0.9.0 (22:03), each checked live by Claude. The folder tabs (D-59) were built after the 0.9.0 push and ship in 0.9.1. No data loaded yet: the first data load runs on Monday 19 Oct 2026.
+
+## [0.9.3] · 19 Oct 2026 · Reports, VAN brand list margin (D-73) · Who: Claude built; Tahir approved the picture
+### Added
+- Reports, VAN brand list margin: 1 line per VAN pack with its cost today per pack and, on the distributor, dealer and farmer list, the price without FED and its GP (distributor price ex FED; dealer NSV ex FED, before the additional discount; farmer price / (1 + FED %), with a switch for Punjab, Sindh and Sindh credit). Red below cost, amber below the company ambition GP, green at or above it; the state names the worst list; the worst first. The answer line gives the VAN brand portfolio GP on what was sold this FY against the ambition GP, and how many packs are below ambition and below cost. Export to Excel (packs and links).
+- Links: each list row is linked once to its C2M pack in the same report. C2M suggests a pack where the name, size and unit agree, marked "suggested: check"; Yawar checks, picks the rest and saves; the Save button counts every link it sends. A row not linked stays out of the table and is counted under it. Tahir reads the links.
+- Guide line 3 for Yawar and Tahir.
+### Database
+- No table, column or migration: the link is packId inside each list row's data. New route POST /api/c2m/lists/links (cfo). Tests: van093.test L-01 to L-07. TOTAL 176 passed, 0 failed (lib 41, van07 8, flow 57, fix06 20, ui08 12, ui09 19, fix091 6, fix092 4, van093 7, confidential scan 1, migration sync 1), run in the cloud copy on 19 Oct 2026.
+### What to test after (on live)
+- Yawar: Reports, VAN brand list margin: check the suggested packs, link the rest, Save links; the table fills. Tahir: the same report shows the lines and the links, with no Save.
 
 ## [0.9.2] · 19 Oct 2026 · Prices, By customer: state against target, all clients (D-68); FED, the only tax on VAN, as 1 setting (D-72) · Who: Claude built; Tahir approves
 ### Changed

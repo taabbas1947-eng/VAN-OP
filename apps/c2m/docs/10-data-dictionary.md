@@ -1,6 +1,7 @@
 # 10. Data dictionary and glossary
 
-Version 0.9.2 · 19 Oct 2026 · Owner: Yawar; Himayat for material classes · Rule: R-5h item 10 (D-20)
+Version 0.9.3 · 19 Oct 2026 · Owner: Yawar; Himayat for material classes · Rule: R-5h item 10 (D-20)
+Changed in 0.9.3 (19 Oct 2026): 10.6 added (VAN brand list margin, D-73).
 Changed in 0.9.2 (19 Oct 2026): net_price without FED only; setting fed_pct; glossary FED; dealer list headings ex FED and with FED (D-72).
 Changed in 0.9.1 (3 independent reviews, 18 Oct 2026 night): 10.4 added (fields and terms of D-60 to D-65).
 Changed in 0.9.1 (documentation review, 18 Oct 2026): price and list revision status values as the code writes them; reprocessed set on the product page; rows for importedAt, nextDocRef, fam, typeName; full audit action list (in 04); customer segment list; product page has 5 tabs; new glossary words (Waiting on others, Waiting for date, With Tahir, Reports, Folder tabs, PO price against approved price).
@@ -157,3 +158,16 @@ Changed in 0.3.0 and 0.3.1: rs_per_kg fixed (1 rate of 1 kind, labour or FOH). A
 | fed_pct | The FED % C2M uses everywhere: O2S prices that include FED, distributor price with FED, dealer net with FED, the notes on every price list, and the farmer price without FED in the VAN brand list margin report (when built) | % above 0 and below 100 | D-72 |
 | fedPct (state, document) | The FED % in the state for every role, and the FED % stored with each price list document when it is issued | % | D-72 |
 | Net price ex FED, Net price with FED | Dealer list headings (were "Net price ex taxes" and "Net price with taxes") | Rs per pack | D-72 |
+
+## 10.6 Added in 0.9.3 (owner: Yawar; Tahir ruled 19 Oct 2026, D-73)
+
+| Field or word | Meaning | Unit or values | Rule |
+|---|---|---|---|
+| packId (in c2m_list_price.data_json) | The C2M VAN brand pack a list row is; set by Yawar in Reports, VAN brand list margin; absent = not linked. Never sent to a KAM | c2m_client_pack.id | D-73, B-18 |
+| VAN brand list margin | The report of every linked VAN pack's GP on the distributor, dealer and farmer list against its cost today and the ambition GP | report | D-73, F-22 |
+| Cost today, per pack | Cost today per kg or L x pack size | Rs per pack | F-22 |
+| Dealer NSV, ex FED | The dealer net sale value before the additional discount, without FED | Rs per pack | F-22 |
+| Below ambition | GP more than 0.05 points under the company ambition GP (ambition_gp) | state | F-22 |
+| Not linked | A list row with no C2M pack yet: left out of the report's table, counted and listed under it | state | B-18 |
+| suggested: check | A pack C2M proposes for a list row because the name, size and unit agree; it is saved only when Yawar presses Save, which counts it | state | B-18 |
+| Pack no longer active | A list row linked to a pack whose product is now inactive: left out of the report until Yawar picks again or unlinks it | state | B-18 |

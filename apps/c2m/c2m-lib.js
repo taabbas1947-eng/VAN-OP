@@ -193,11 +193,22 @@ function pkParts(d = new Date()) {
 function pkToday(d) { const o = pkParts(d); return `${o.year}-${o.month}-${o.day}`; }
 function pkNow(d) { const o = pkParts(d); return `${o.year}-${o.month}-${o.day} ${o.hour}:${o.minute}:${o.second}`; }
 
+/** Buyer line of a sale (Tahir, 19 Oct 2026, D-74): C2M names only white label clients, distributors and dealers, as O2S marks
+ *  them on the PO. COBO and VGreen are 1 line each (they buy on price lists); every farmer, and any other buyer, is pooled
+ *  into 1 line, "Farmers and other". grp is 'White label' or 'VAN brand'; ch is the O2S channel as C2M names it. */
+const CATS = { wl: 'White label', dist: 'Distributors', dealer: 'Dealers', cobo: 'COBO', vg: 'VGreen', farm: 'Farmers and other' };
+function buyerLine(grp, ch, name) {
+  const cat = grp === 'White label' ? 'wl' : ({ Distributor: 'dist', Dealer: 'dealer', COBO: 'cobo', Cobo: 'cobo', VGreen: 'vg', Vgreen: 'vg' }[String(ch || '').trim()] || 'farm');
+  return { cat, line: ['wl', 'dist', 'dealer'].includes(cat) ? String(name || '') : CATS[cat] };
+}
+/** A product's GP target (Tahir, 19 Oct 2026, D-75): its own target if one is set, else the company GP target (budget_gp). */
+function targetOr(t, budget) { return t != null && t !== '' && isFinite(Number(t)) ? Number(t) : (budget != null && isFinite(Number(budget)) ? Number(budget) : null); }
+
 /** Pakistani number format with digits, e.g. 1,234,567. */
 function fmtInt(x) { return x == null ? '' : Math.round(x).toLocaleString('en-US'); }
 
 module.exports = {
   round, rateWarning, materialCost, recipeTotal, packingPerUnit, pickConversionRule, conversionFor, costBreakdown,
   marginPct, targetPrice, contributionFloor, fedPct, netPoPrice, needsReapproval, exposure, flag,
-  RECIPE_FLOW, RECIPE_WHO, fmtInt, pkToday, pkNow, FAMILY_COLOURS, familyColour,
+  RECIPE_FLOW, RECIPE_WHO, fmtInt, pkToday, pkNow, FAMILY_COLOURS, familyColour, CATS, buyerLine, targetOr,
 };

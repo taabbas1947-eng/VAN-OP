@@ -1,6 +1,7 @@
 # 10. Data dictionary and glossary
 
-Version 0.9.3 · 19 Oct 2026 · Owner: Yawar; Himayat for material classes · Rule: R-5h item 10 (D-20)
+Version 1.0.0 · 19 Oct 2026 · Owner: Yawar; Himayat for material classes · Rule: R-5h item 10 (D-20)
+Changed in 1.0.0 (19 Oct 2026): 10.7 added (D-74 to D-79).
 Changed in 0.9.3 (19 Oct 2026): 10.6 added (VAN brand list margin, D-73).
 Changed in 0.9.2 (19 Oct 2026): net_price without FED only; setting fed_pct; glossary FED; dealer list headings ex FED and with FED (D-72).
 Changed in 0.9.1 (3 independent reviews, 18 Oct 2026 night): 10.4 added (fields and terms of D-60 to D-65).
@@ -171,3 +172,19 @@ Changed in 0.3.0 and 0.3.1: rs_per_kg fixed (1 rate of 1 kind, labour or FOH). A
 | Not linked | A list row with no C2M pack yet: left out of the report's table, counted and listed under it | state | B-18 |
 | suggested: check | A pack C2M proposes for a list row because the name, size and unit agree; it is saved only when Yawar presses Save, which counts it | state | B-18 |
 | Pack no longer active | A list row linked to a pack whose product is now inactive: left out of the report until Yawar picks again or unlinks it | state | B-18 |
+
+## 10.7 Added in 1.0.0 (owner: Yawar; Tahir ruled 19 Oct 2026, D-74 to D-79; version 1.0.0)
+
+| Word or field | Meaning here | Allowed values or unit | Rule |
+|---|---|---|---|
+| cat (on sales, foc, open, poLines) | The buyer category from O2S on the PO | wl, dist, dealer, cobo, vg, farm | D-74 |
+| Buyer line (cust) | The name C2M shows for a buyer: the client, distributor or dealer name; or COBO, VGreen, Farmers and other | text | D-74 |
+| Farmers and other | Every farmer and other buyer, pooled, never named | 1 line | D-74 |
+| Company GP target | Setting budget_gp: the target of any product with none of its own | % | D-75 |
+| Against target | GP Rs less the GP the target asks for on the same sales (F-23) | Rs; "short Rs", "above Rs" or "on target" | D-79 |
+| Restated | Past trucks at today's cost, for comparison only | switch on Margin | D-79 |
+| Above: check | A client price more than 5 points over its target | state on Client prices | D-78 |
+| Added row | A list row created by an approved revision for a VAN pack not on that list | items_json added 1 | D-77 |
+| Approvals | The place that was Today, for Yawar and Tahir | place | D-76 |
+| Back office | The earlier Setup, under More | place | D-76 |
+| More | The places kept out of the rail: Reports, Inputs, Back office, Guide | sheet | D-76 |

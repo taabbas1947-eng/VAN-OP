@@ -1,6 +1,7 @@
 # 12. Tests, issues and assumptions
 
-Version 0.9.3 · 19 Oct 2026 · Owner: Claude records; Tahir and Yawar confirm assumptions · Rule: R-5h item 12 (D-20)
+Version 1.0.0 · 19 Oct 2026 · Owner: Claude records; Tahir and Yawar confirm assumptions · Rule: R-5h item 12 (D-20)
+Changed in 1.0.0 (19 Oct 2026): suite c2m100.test (T-01 to T-18); lib J-01, J-02; ui08, ui09, flow and van093 changed for the 5 places; ui09 V-05, V-06, V-08, V-18, V-19 retired; I-39 to I-44 added; totals in 12.1a; the 1.0.0 review in 12.4.
 Changed in 0.9.3 (19 Oct 2026): suite van093.test (L-01 to L-07); ui09 V-11 counts 3 ready reports; totals 176; I-27 done (D-73); the review of 0.9.3 in 12.4.
 Changed in 0.9.2 (19 Oct 2026): ui09 V-19; suite fix092.test (K-01 to K-04); lib F-10 at FED 6%; totals 169; I-27 changed by D-70; I-38 added (FED and past PO prices); the FED review in 12.4.
 Changed in 0.9.1 (3 independent reviews, 18 Oct 2026 night): suite fix091.test (N-01 to N-07); ui09 V-16 to V-18; totals 163 and last run; A-21 done as a comment edit; the 3 reviews in 12.4.
@@ -58,6 +59,24 @@ Run after 0.7.0 (ruling 8 and the VAN brand load), on a fresh c2m_test: lib.test
 Run after the 0.6.0 fixes, on a fresh c2m_test (MariaDB 10.6 in the desktop app's Linux workspace, running a copy of the C2M App harness with apps/c2m taken from the VAN Systems repo): lib.test 40 passed; flow.test 57 passed; fix06.test 20 passed; confidential.scan 1 passed; migration.sync 1 passed; TOTAL 119 passed, 0 failed, 0 crashed. fix06 run against the 0.5.0 code: 19 of 20 fail there, as they should (Y-01c proves kept behaviour).
 Earlier run, 16 Oct 2026, after the 0.5.0 documentation change: lib.test 40 passed, 0 failed; flow.test 53 passed, 0 failed; confidential.scan 1 passed, 0 failed (280 figures checked); migration.sync 1 passed, 0 failed; TOTAL 95 passed, 0 failed, 0 crashed. Run from a copy of tests/run-all.js with the I-16 line break put back, because the file itself does not start.
 Not tested by automation: the PDF's look by eye, the 2-step buttons, and the figures of the page's flag() and exposure() (I-31). Panels, keyboard, places, the phone bar and the PDF's content are tested in ui08 and ui09 (U-04, U-12, V-12, V-14); the rest is checked by clicking through as each person.
+
+## 12.1a Tests in 1.0.0 (owner: Claude records; version 1.0.0, 19 Oct 2026)
+
+| Suite | Ids | What they prove | Count | Rule |
+|---|---|---|---|---|
+| lib.test.js | J-01, J-02 | Buyer line by O2S category; target fallback | 2 | D-74, D-75 |
+| c2m100.test.js | T-01 | Every sale, FOC, open PO and PO line has a category; COBO, VGreen, farmers 1 line each; a buyer in 2 places split by what it bought | 1 | D-74 |
+| | T-02, T-13 | A revision adds a row only for a VAN pack not on the list; refused cases; approval writes it with its pack and FED; farmer row named with its size | 2 | D-77 |
+| | T-03 | A product with no target takes the company GP target on screen and in the proposal check | 1 | D-75 |
+| | T-04 to T-07 | Margin answer, figures and totals against sums worked out from the trucks; sort; groupings; chips; search; Columns; Excel; basis line; restated; drill; pooled line not named | 4 | D-79, D-74 |
+| | T-08, T-09 | Client prices: chips by sales; GP, price for target and state per pack; type, live GP, no send without reason, 1 proposal; Tahir opens it in the panel and approves | 2 | D-78 |
+| | T-10 | VAN grid: each pack once, 5 columns, GP under each price; unchanged value not sent; 1 revision per list with the added row | 1 | D-77 |
+| | T-11, T-12 | Setup tabs and labels; no white label budget; other roles unchanged; More places open; no target figure in the page | 2 | D-75, D-76 |
+| | T-14 to T-17 | Review findings fixed: a sent-back revision with an added row is revised and resent; no second row for a pack through a waiting add; an added distributor row is never sent; a new price replaces the sent-back one; waiting prices are the picked client's | 4 | D-77, D-78, D-42 |
+
+Changed for the 5 places: flow A-01; ui08 U-01 to U-05, U-06, U-09 to U-12; ui09 V-01, V-07, V-11, V-12, V-14, V-16; van093 (Reports under More). Retired with the screens they tested: ui09 V-05, V-06 (0.9.0 Margin; now T-04 to T-07), V-08, V-19 (0.9.0 Prices; now T-08 to T-10; the propose panel is still V-16), V-18 (0.9.0 Margin wording; the GP bridge stays in V-11).
+
+Last run (cloud copy, 19 Oct 2026, after all review fixes): TOTAL 191 passed, 0 failed (lib 43, van07 8, flow 57, fix06 20, ui08 12, ui09 14, fix091 6, fix092 4, van093 7, c2m100 18, confidential scan 1, migration sync 1). T-18 proves the second-review fixes; flow S-01 now expects the company GP target to wait for Tahir; van093 L-05 expects a 2nd row on 1 pack to be refused. fix06 Y-05 reads the resend form key in its new form (an added row is keyed p<packId>).
 
 ## 12.2 Assumptions and open issues (1 table)
 
@@ -127,6 +146,13 @@ A-xx: assumptions decided overnight 15 to 16 Oct under Tahir's instruction "deci
 | I-36 | A blank box in Settings saves 0: a budget line applies at once with a notice, and a threshold goes to Tahir as 0 (v0.5 review item 9). | Claude | 18 Oct 2026 | open |
 | I-37 | Tests record a result per suite only, not per test; flow, fix06, van07, ui08 and ui09 tests name their rule in the description, not as a rule number. | Claude | 18 Oct 2026 | open |
 | I-38 | A FED change reaches past O2S PO prices: each pull works out every PO line's net price again at the FED in force that day, so if FED moves from 5% to 6%, POs charged at 5% are divided by 1.06 and past GP drops by about 1% (independent review, 19 Oct 2026). Tahir to rule: FED by the PO's received date (needs a dated FED: a table, so not in 0.9.x), or 1 FED for all POs as now. No effect while FED stays 5%. Tahir, 19 Oct 2026 12:38: no action for now. | Tahir (rules) | 19 Oct 2026 | parked (no action for now) |
+| I-39 | "Above: check" on Client prices is more than 5 points over target. Action: Tahir to confirm | Tahir | 19 Oct 2026 | open (constant ABOVE_PTS) |
+| I-40 | COBO is judged on the Farmer Sindh and Farmer Sindh credit columns, VGreen on Farmer Punjab; Margin shows them as 1 line each against product targets. Action: Tahir to confirm | Tahir | 19 Oct 2026 | open |
+| I-41 | Reports, VAN brand list margin (under More) still colours against the ambition GP (D-73), while the VAN grid uses each product's target (D-75). Action: Tahir to say which | Tahir | 19 Oct 2026 | open |
+| I-42 | The labour and FOH bands wait for budget kg for the 39 products (from Yawar or budget V9); the 2 re-approval items stay held. Action: Yawar | Yawar | 19 Oct 2026 | open |
+| I-43 | A list row not linked to its pack is not seen as that pack's row, so a price for that pack in an empty cell could add a second row. Fixed in 1.0.0 before release: an added row is refused while any row of that list is not linked, and the grid closes those cells. Action: Yawar confirms the suggested links and links the rest (More, Reports, VAN brand list margin) before adding packs | Yawar | 19 Oct 2026 | fixed (guard); links to do on live |
+| I-44 | Under- or over-recovery line on Margin waits for Yawar to enter the new rate (D-79). Action: Yawar | Yawar | 19 Oct 2026 | waiting |
+| I-45 | A VAN brand list row with no matching pack in C2M cannot be linked, so that list cannot take an added pack (the guard waits for every row to be linked). Action: Tahir to say: a "not a C2M pack" mark, or a way to remove the row | Tahir | 19 Oct 2026 | open |
 
 ## 12.3 Known limits
 - The stand-in platform (harness) never moves to VAN Systems.
@@ -156,3 +182,42 @@ A-xx: assumptions decided overnight 15 to 16 Oct under Tahir's instruction "deci
 | Independent review of Prices, By customer state against target (D-68), 19 Oct 2026 (1 BLOCKER, 5 SHOULD), then a re-check (3 NIT) | 19 Oct 2026 | 0.9.2 | All fixed: below floor checked before below cost (it could never show); 1 rule for the product page and By customer; the average only on trucks in the period; no-price labels; V-19 made strict; release note total; NITs (below floor word in To change, price 0 is no price) |
 | Independent review of the FED setting (D-72), 19 Oct 2026 (verdict: ready with fixes; 0 BLOCKER, 2 SHOULD, 5 NIT) | 19 Oct 2026 | 0.9.2 | SHOULD 2 (a list revision applied while a FED change is approved could keep the old FED: the setting is now read with a share lock) fixed; SHOULD 1 (a FED change reaches past PO prices) recorded as I-38 for Tahir; NITs fixed: fix092 always leaves FED at 5, K-04 asserts lines were compared, fallback SQL always carries fed_pct, docs 06, 08, 10, 12 corrected. Not changed: a list row with no price keeps its old price with FED (none exists) |
 | Independent review of 0.9.3, VAN brand list margin (D-73), 19 Oct 2026 (verdict: ready with fixes; 1 BLOCKER, 5 SHOULD, 10 NIT) | 19 Oct 2026 | 0.9.3 | BLOCKER fixed: the F-22 example used a real ambition figure and a real price; both replaced by example figures, and the confidential scan now also blocks that figure. SHOULD fixed: the answer line names the worst pack and its list (as the picture); suggestions are marked "suggested: check" and Save counts every link it sends; Save sends changed rows that are not shown; a row linked to a pack no longer active says so; tests made stronger (negative suggestion cases, rollback of a mixed batch, the 500 cap, non-number ids, 2 rows on 1 pack, not costed, no ambition, inactive pack, all 3 farmer lists, the portfolio GP worked out from the trucks). NITs fixed: message for over 500, whole-number ids only, unit in suggestions, row count on the pill, first row with a price, cost before freight, wording with no ambition, portfolio GP on approved cost, the 'new' signature, the double guard in the test, 05 lists every 400. Re-check of the fixes, same day: 1 new BLOCKER (the new example's dealer figure was a real list price; replaced and checked against the lists) and 1 SHOULD (lines of 1 colour were in name order, so "furthest below" could name the wrong pack; now worst GP first, and L-03 checks it), both fixed |
+
+### 1.0.0 independent review (19 Oct 2026; owner: Claude records, Tahir decides items 9; version 1.0.0)
+Reviewer: an independent agent that did not write the code; it ran the full suite, Playwright as Yawar and Tahir at laptop and phone width, API calls, and its own figures from the state. Verdict: ready with fixes. Confirmed correct by running: Margin figures (GP, sales, weighted target, Rs short, red threshold, sort, trucks with no cost left out), buyer lines and targets, VAN grid cost and GP, a future-dated added row prints "new", withdraw from the grid, no approve button outside a panel (D-46), roles and self-approval on the server, the refused added-row cases, no sideways scroll at 400 px, no page errors.
+
+| No | Finding | Severity | Fix | Status |
+|---|---|---|---|---|
+| 1 | A sent-back revision with an added row could not be revised and resent; the grid's resend button did nothing | high | added rows keyed p<packId> in the resend form, shown as "new row on this list"; grid opens the panel (T-14) | fixed |
+| 2 | A pack could get 2 rows on 1 list (link made while an add waited; links alone) | medium | links refuse a waiting pack; apply puts prices on a linked row instead of a new one (T-15); rows linked to 1 pack by links alone stay allowed (D-73) and are flagged in the grid | fixed; links rule stays as D-73 |
+| 3 | An added distributor row would print a previous price never sent | medium/low | written with sentSet, no prev (T-16) | fixed |
+| 4 | A send from the new screens left the old sent-back item stuck | medium/low | replaceId passed (T-17) | fixed |
+| 5 | Client prices on a phone: send bar large, New price column far right | low | send bar sticky only once a price is typed; column order to Tahir | partly fixed |
+| 6 | Waiting prices under the table showed every client | low | filtered to the picked client (T-17) | fixed |
+| 7 | Docs: wl_budget_gp still in Back office; F-08; doc 07 line 84; B-22 | low | all 4 corrected; wl_budget_gp hidden everywhere | fixed |
+| 8 | Trend title compared part months; restated view drops other trucks unsaid; added row shown as "n/a to" | low | full months compared; restated line says so; "new row on this list" | fixed |
+| 9 | Lost by the rulings: Margin drill's open POs, FOC and links; product page Price history, Sales, History | for Tahir | not changed: Tahir to say whether any comes back | open |
+
+Re-check by the same reviewer (19 Oct 2026), run, not only read: findings 1 to 8 confirmed fixed; no page or console error and no sideways scroll at 1280 and 400 px for Yawar and Tahir. Verdict: ready. Leftovers, low: (a) a send from the grid replaces the list's sent-back revision even when other rows are typed: the send bar now says so before sending, and the revision can be opened to revise instead; (b) older sent-back items (from before the fix) stay on Approvals until revised or replaced; (c) a wrong link can still make a pack look free and let a second row in: links must be right, and the grid flags packs with more than 1 row; (d) the refusal wording now covers a revision approved and waiting for its date.
+
+### 1.0.0 data-safety review and design and workflow review (19 Oct 2026; 2 independent agents, run not only read; owner: Claude records, Tahir decides "for Tahir")
+
+| No | Finding (what a person would see) | From | Fix | Status |
+|---|---|---|---|---|
+| 1 | A wrong or repeated link showed one product's price under another and let a pack go onto a list twice | data safety | links refuse a 2nd row of a list on 1 pack; adds refused while a pack has 2 rows; suggestions never put 2 rows on 1 pack (T-18, L-05) | fixed |
+| 2 | Yawar could change the company GP target, and so the target of every untargeted product, with only a notice to Tahir | workflow | budget_gp waits for Tahir (S-01) | fixed |
+| 3 | The grid let prices be typed on a list whose revision waits, and hid an approved price waiting for its date | design | column closed with the reason; waiting price shown with its date (T-18, T-10) | fixed |
+| 4 | Re-sending a sent-back promo price dropped its end date; older sent-back items stayed on Approvals for good | data safety, workflow | end date kept; every older sent-back price or revision closed (T-18) | fixed |
+| 5 | The first click on Send in the resend form did nothing | data safety | no redraw on change; Send reads the boxes (T-14) | fixed |
+| 6 | Untargeted products looked as if they had their own target; target requests said "none" | data safety, design | "company target" shown; requests name the company figure | fixed |
+| 7 | Phone: send bar hid the table and sat behind the bottom bar; laptop: last grid column cut off | design | send bar above the bottom bar, capped; grid pack column and header stay, narrower boxes | fixed |
+| 8 | Red and amber told apart by colour only | design | words added ("red", "amber", "below", "above") | fixed |
+| 9 | Setup "Sales FY to date" counted every truck | design | filtered to this FY | fixed |
+| 10 | Chart labels could overlap (a line comment hid the code that separates them); More not marked as current; Tahir told to link rows | design | fixed | fixed |
+| 11 | Margin leaves out a client whose trucks have no approved cost, with no line saying so | design | none: Tahir ruled "left out, with no line counting them" (D-79) | for Tahir |
+| 12 | Product page Price history, Sales and History gone; Margin drill without open POs and FOC | design | none: ruled by D-76 | for Tahir |
+| 13 | A list row with no matching pack in C2M can never be linked, so that list can never take an added pack | design | none yet: needs a "not a C2M pack" mark or a way to remove the row | for Tahir (I-45) |
+| 14 | A row added by an approved revision has no change-record line of its own (the revision's approval is logged) | data safety | none | known limit |
+
+Re-checks by the same 2 reviewers (19 Oct 2026, run): every fix above confirmed. Small points they raised, fixed the same evening: the company GP target request now carries the name Setup shows, and Tahir's job reads "Approve setting change"; the closed-column line says "until it takes effect or Tahir withdraws it" for an approved revision; the row says a sent-back valid-till is kept only if the new From is on or before it, and the send message names any price sent without it; in the grid the row actually linked to a pack always takes its cell, and a suggestion turned down is listed under Not placed; the sent-back item a new one replaces is logged "replaced" too. Known limit: a target request made while a product had no target of its own shows the company figure as it is today, not as it was on the day of the request. Verdicts: data safety "safe to ship"; design and workflow "confirmed fixed apart from the 2 items Tahir has ruled on".
+

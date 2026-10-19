@@ -16,8 +16,9 @@ const PL = require('./c2m-pricelist');
 /* Roles (stored in user_module_roles, module 'c2m'). Access matrix: docs/11-access-and-roles.md */
 const ROLES = {
   // 0.8.0 places (Tahir's screen rulings 1, 3, 4 and 5, 18 Oct 2026); 0.9.0 adds Reports for Yawar and Tahir (D-53). Screens only: rights stay in the routes below.
-  cfo: { label: 'CFO', nav: ['today', 'margin', 'reports', 'products', 'prices', 'inputs', 'setup', 'guide'] },
-  coo: { label: 'COO', nav: ['today', 'margin', 'reports', 'products', 'prices', 'inputs', 'setup', 'guide'] },
+  // 1.0.0 (Tahir, 19 Oct 2026, D-76): 5 places; the places not yet ruled on sit under More (Reports, Inputs with nutrients, Back office, Guide)
+  cfo: { label: 'CFO', nav: ['approvals', 'products', 'prices', 'margin', 'setup'], more: ['reports', 'inputs', 'backoffice', 'guide'] },
+  coo: { label: 'COO', nav: ['approvals', 'products', 'prices', 'margin', 'setup'], more: ['reports', 'inputs', 'backoffice', 'guide'] },
   production: { label: 'Production Manager', nav: ['today', 'recipes', 'guide'] },
   qc: { label: 'QC Head', nav: ['today', 'recipes', 'inputs', 'guide'] }, // Inputs, Materials: nutrient % and class, no rates (ruled 16 Oct; ruling 4, 18 Oct)
   plant: { label: 'Plant Manager', nav: ['today', 'recipes', 'guide'] },
@@ -164,7 +165,7 @@ module.exports = function mountC2mRoutes(app, deps) {
   app.get('/c2m/assets/van-logo.png', (req, res) => res.sendFile(path.join(__dirname, 'assets', 'van-logo.png')));
   app.use('/api/c2m', (req, res, next) => checkDates().then(f => f ? res.status(503).json({ error: f }) : next(), () => res.status(503).json({ error: 'C2M cannot reach the database. Try again in a minute.' })), auth, c2mAuth);
 
-  app.get('/api/c2m/me', (req, res) => res.json({ user: req.c2m.user, name: req.c2m.name, role: req.c2m.role, label: ROLES[req.c2m.role].label, nav: ROLES[req.c2m.role].nav }));
+  app.get('/api/c2m/me', (req, res) => res.json({ user: req.c2m.user, name: req.c2m.name, role: req.c2m.role, label: ROLES[req.c2m.role].label, nav: ROLES[req.c2m.role].nav, more: ROLES[req.c2m.role].more || [] }));
 
   /* ---------- Shared data builder ---------- */
   async function build(role, user) {
@@ -213,7 +214,7 @@ module.exports = function mountC2mRoutes(app, deps) {
     });
 
     // Settings (budget and ambition GP, thresholds) go to Yawar and Tahir only (review S9)
-    const out = { me: { user, role, label: ROLES[role].label, nav: ROLES[role].nav }, settings: ['cfo', 'coo'].includes(role) ? D.settings.rows : [], fedPct: lib.fedPct(D.settings.values.fed_pct), products, recipes, today: today() };
+    const out = { me: { user, role, label: ROLES[role].label, nav: ROLES[role].nav, more: ROLES[role].more || [] }, settings: ['cfo', 'coo'].includes(role) ? D.settings.rows : [], fedPct: lib.fedPct(D.settings.values.fed_pct), products, recipes, today: today() };
     if (['qc', 'cfo', 'coo'].includes(role)) {
       // Material master without rates: Himayat's screen (ruled 16 Oct)
       out.materials = [...D.rates.values()].map(g => ({ gradeId: g.gradeId, materialId: g.materialId, name: g.name, grade: g.grade, unit: g.unit, typeId: g.typeId, type: g.type, role: g.role, fields: g.fields, nutrients: g.nutrients }));
@@ -250,14 +251,17 @@ module.exports = function mountC2mRoutes(app, deps) {
       out.sales = sales.filter(s => { if (Number(s.net_price) > 0) return true;
         const p = match(s.customer_name, s.brand, s.channel, s.pack); const cp = p ? D.cpById.get(p.client_product_id) : null; const v = p ? engine.versionOnDate(D, p.id, s.truck_date) : null;
         const cust = cp && !engine.isVanBrand(cp) ? D.custById.get(cp.customer_id) : custOf(s.customer_name);
-        out.foc.push({ date: s.truck_date, cust: cust ? cust.name : s.customer_name, grp: s.channel === 'White Label' ? 'White label' : 'VAN brand', brand: s.brand, pack: Number(s.pack), packId: p ? p.id : null, po: s.po, kg: Number(s.kg), cost: v ? Number(v.total) : null });
+        const fgrp = s.channel === 'White Label' ? 'White label' : 'VAN brand', fbl = lib.buyerLine(fgrp, cp && !engine.isVanBrand(cp) ? cp.channel : (engine.CHANNEL_NAME[s.channel] || s.channel), cust ? cust.name : s.customer_name);
+        out.foc.push({ date: s.truck_date, cust: fbl.line, cat: fbl.cat, grp: fgrp, brand: s.brand, pack: Number(s.pack), packId: p ? p.id : null, po: s.po, kg: Number(s.kg), cost: v ? Number(v.total) : null });
         return false; }).map(s => {
         const p = match(s.customer_name, s.brand, s.channel, s.pack); const cp = p ? D.cpById.get(p.client_product_id) : null; const van = engine.isVanBrand(cp);
         const cust = cp && !van ? D.custById.get(cp.customer_id) : custOf(s.customer_name); // VAN brand: the buyer, not the product's owner (D-44)
         const v = p ? engine.versionOnDate(D, p.id, s.truck_date) : null; const cost = v ? Number(v.total) : null;
         const nowC = p ? engine.packCost(D, p) : null;
         const costBands = v && nowC && nowC.costed && /^Yawar's/.test(v.cause) ? Number(v.total) - Number(v.conversion) + nowC.conversion : cost;
-        return { date: s.truck_date, cust: cust ? cust.name : s.customer_name, grp: s.channel === 'White Label' ? 'White label' : 'VAN brand', ch: cp && !van ? cp.channel : (engine.CHANNEL_NAME[s.channel] || s.channel), region: cust ? cust.region || null : null, brand: s.brand, pack: Number(s.pack),
+        const grp = s.channel === 'White Label' ? 'White label' : 'VAN brand', ch = cp && !van ? cp.channel : (engine.CHANNEL_NAME[s.channel] || s.channel);
+        const bl = lib.buyerLine(grp, ch, cust ? cust.name : s.customer_name); // D-74: farmers and others pooled, never named in C2M
+        return { date: s.truck_date, cust: bl.line, cat: bl.cat, grp, ch, region: cust && bl.cat !== 'farm' ? cust.region || null : null, brand: s.brand, pack: Number(s.pack),
           packId: p ? p.id : null, po: s.po, dc: s.dc, kg: Number(s.kg), price: Number(s.net_price), cost, costBands, target: cp && cp.target_gp != null ? Number(cp.target_gp) : null, budget: cp && cp.budget_gp != null ? Number(cp.budget_gp) : null };
       });
       const um = new Map();
@@ -266,11 +270,12 @@ module.exports = function mountC2mRoutes(app, deps) {
       out.open = poLines.filter(l => Number(l.open_kg) > 0 && Number(l.net_price) > 0).map(l => { // FOC lines are not sales (ruling 14b)
         const p = match(l.customer_name, l.brand, l.channel, l.pack); const cp = p ? D.cpById.get(p.client_product_id) : null; const cust = cp && !engine.isVanBrand(cp) ? D.custById.get(cp.customer_id) : custOf(l.customer_name);
         const c = p ? engine.packCost(D, p) : null;
-        return { cust: cust ? cust.name : l.customer_name, grp: l.channel === 'White Label' ? 'White label' : 'VAN brand', brand: l.brand, pack: Number(l.pack), packId: p ? p.id : null, po: l.po, received: l.received,
+        const ogrp = l.channel === 'White Label' ? 'White label' : 'VAN brand', obl = lib.buyerLine(ogrp, cp && !engine.isVanBrand(cp) ? cp.channel : (engine.CHANNEL_NAME[l.channel] || l.channel), cust ? cust.name : l.customer_name);
+        return { cust: obl.line, cat: obl.cat, grp: ogrp, brand: l.brand, pack: Number(l.pack), packId: p ? p.id : null, po: l.po, received: l.received,
           kg: Number(l.open_kg), price: Number(l.net_price), cost: c && c.costed ? c.total : null, target: cp && cp.target_gp != null ? Number(cp.target_gp) : null };
       });
       out.proposals = prices.filter(p => p.status !== 'approved' || p.decided_at).slice(-60).map(p => ({ id: p.id, packId: p.client_pack_id, price: Number(p.price), prev: p.prev_price == null ? null : Number(p.prev_price), status: p.status,
-        reason: p.reason, belowReason: p.below_target_reason, backReason: p.back_reason, by: p.proposed_by, at: p.proposed_at, decidedBy: p.decided_by, decidedAt: p.decided_at, from: p.valid_from }));
+        reason: p.reason, belowReason: p.below_target_reason, backReason: p.back_reason, by: p.proposed_by, at: p.proposed_at, decidedBy: p.decided_by, decidedAt: p.decided_at, from: p.valid_from, to: p.valid_to || null }));
       // 0.9.0 (read only, no new table): every approved price with its dates, for Price history and the PO price report (R3)
       // 'replaced' with no send-back reason = approved, then ended by a newer price (review 18 Oct, finding 1)
       out.priceHistory = prices.filter(p => p.status === 'approved' || (p.status === 'replaced' && !p.back_reason && p.decided_at)).map(p => ({ id: p.id, packId: p.client_pack_id, price: Number(p.price), prev: p.prev_price == null ? null : Number(p.prev_price), from: String(p.valid_from).slice(0, 10), to: p.valid_to ? String(p.valid_to).slice(0, 10) : null,
@@ -279,7 +284,8 @@ module.exports = function mountC2mRoutes(app, deps) {
       const fy0 = (() => { const t = today(), y = +t.slice(0, 4), m = +t.slice(5, 7); return (m >= 7 ? y : y - 1) + '-07-01'; })();
       // this financial year only (review 18 Oct, finding 10)
       out.poLines = poLines.filter(l => l.received && String(l.received).slice(0, 10) >= fy0).map(l => { const p = match(l.customer_name, l.brand, l.channel, l.pack); const cp = p ? D.cpById.get(p.client_product_id) : null; const cust = cp && !engine.isVanBrand(cp) ? D.custById.get(cp.customer_id) : custOf(l.customer_name);
-        return { po: l.po, received: l.received ? String(l.received).slice(0, 10) : null, cust: cust ? cust.name : l.customer_name, grp: l.channel === 'White Label' ? 'White label' : 'VAN brand', brand: l.brand, pack: Number(l.pack), packId: p ? p.id : null, kg: Number(l.ordered_kg), price: Number(l.net_price), foc: !(Number(l.net_price) > 0) }; });
+        const pgrp = l.channel === 'White Label' ? 'White label' : 'VAN brand', pbl = lib.buyerLine(pgrp, cp && !engine.isVanBrand(cp) ? cp.channel : (engine.CHANNEL_NAME[l.channel] || l.channel), cust ? cust.name : l.customer_name);
+        return { po: l.po, received: l.received ? String(l.received).slice(0, 10) : null, cust: pbl.line, cat: pbl.cat, grp: pgrp, brand: l.brand, pack: Number(l.pack), packId: p ? p.id : null, kg: Number(l.ordered_kg), price: Number(l.net_price), foc: !(Number(l.net_price) > 0) }; });
       const [[ia]] = await q("SELECT MIN(at) at FROM c2m_recipe_step WHERE action='imported'"); out.importedAt = ia && ia.at ? String(ia.at) : null; // the day Yawar's sheets were loaded: age of the sheet items
       const [[nd]] = await q('SELECT COUNT(*) n FROM c2m_price_doc WHERE ref LIKE ?', [`VAN/PL/${today().slice(0, 4)}/%`]); out.nextDocRef = `VAN/PL/${today().slice(0, 4)}/${String(Number(nd.n) + 1).padStart(3, '0')}`;
       const [imp] = await q('SELECT * FROM c2m_import_item ORDER BY status, id'); out.imports = imp;
@@ -671,7 +677,7 @@ module.exports = function mountC2mRoutes(app, deps) {
     const D = await engine.loadAll(q); const p = D.packs.find(x => x.id === Number(packId)); if (!p) throw bad('Pack not found.');
     const cp = D.cpById.get(p.client_product_id); if (!cp) throw bad('This product is inactive. Make it active before pricing it.');
     const c = engine.packCost(D, p);
-    return { D, p, cp, gaps: c && !c.costed ? c.gaps : [], cost: c && c.costed ? c.total : null, target: cp.target_gp == null ? null : Number(cp.target_gp) };
+    return { D, p, cp, gaps: c && !c.costed ? c.gaps : [], cost: c && c.costed ? c.total : null, target: lib.targetOr(cp.target_gp, D.settings && D.settings.values ? D.settings.values.budget_gp : null) }; // no target set = the company GP target (D-75)
   }
   app.post('/api/c2m/prices/propose', need('cfo'), wrap(async (req, res) => {
     const { packId, price, reason, belowReason, replaceId, validFrom, validTo } = req.body || {};
@@ -688,7 +694,10 @@ module.exports = function mountC2mRoutes(app, deps) {
     const id = await tx(async () => {
       const [[open]] = await q("SELECT id FROM c2m_price WHERE client_pack_id=? AND status='proposed' FOR UPDATE", [P.p.id]);
       if (open) throw bad('This pack already has a price waiting for Tahir. Wait for his decision first.');
-      if (replaceId) { const [u] = await q("UPDATE c2m_price SET status='replaced' WHERE id=? AND client_pack_id=? AND status='sent_back'", [replaceId, P.p.id]); if (!u.affectedRows) throw moved(); }
+      if (replaceId) { const [u] = await q("UPDATE c2m_price SET status='replaced' WHERE id=? AND client_pack_id=? AND status='sent_back'", [replaceId, P.p.id]); if (!u.affectedRows) throw moved(); await audit(req.c2m.user, 'price', replaceId, 'replaced', 'sent_back', 'replaced', 'Revised and sent again'); }
+      // 1.0.0: a new price for the pack also closes any older sent-back price of that pack, so none stays on Approvals with no way out (review 19 Oct)
+      const [old] = await q("SELECT id FROM c2m_price WHERE client_pack_id=? AND status='sent_back' FOR UPDATE", [P.p.id]);
+      for (const o of old) { await q("UPDATE c2m_price SET status='replaced' WHERE id=?", [o.id]); await audit(req.c2m.user, 'price', o.id, 'replaced', 'sent_back', 'replaced', 'A newer price for the same pack was sent'); }
       const cur = await priceInForce(P.p.id);
       const [r] = await q("INSERT INTO c2m_price (client_pack_id, price, prev_price, valid_from, valid_to, reason, below_target_reason, status, proposed_by, proposed_at) VALUES (?,?,?,?,?,?,?,'proposed',?,?)",
         [P.p.id, v, cur ? cur.price : null, validFrom || today(), validTo || null, String(reason || '').slice(0, 400) || null, String(belowReason || '').slice(0, 400) || null, req.c2m.user, now()]);
@@ -752,7 +761,7 @@ module.exports = function mountC2mRoutes(app, deps) {
   /* ---------- Settings: thresholds need Tahir's approval; budget lines notify Tahir (ruled 14 to 15 Oct) ---------- */
   app.post('/api/c2m/settings', need('cfo'), wrap(async (req, res) => {
     const ch = (req.body || {}).changes || {};
-    const [rows] = await q('SELECT k, v, label, needs_approval FROM c2m_setting');
+    const [rows] = await q('SELECT k, v, label, needs_approval FROM c2m_setting'); rows.forEach(r => { if (r.k === 'budget_gp') { r.needs_approval = 1; r.label = 'Company GP target, %'; } }); // D-75: waits for Tahir, under the name Setup shows (no SQL needed)
     const pend = {}, direct = [];
     for (const r of rows) if (ch[r.k] != null && String(ch[r.k]) !== String(r.v)) { if (!(Number(ch[r.k]) >= 0)) throw bad(`${r.label}: type a number.`); if (r.k === 'fed_pct' && !(Number(ch[r.k]) > 0 && Number(ch[r.k]) < 100)) throw bad(`${r.label}: type a % above 0 and below 100.`); (r.needs_approval ? (pend[r.k] = String(ch[r.k])) : direct.push([r, String(ch[r.k])])); }
     await tx(async () => {
@@ -946,6 +955,9 @@ module.exports = function mountC2mRoutes(app, deps) {
   /* ---------- VAN brand list price revisions: Yawar proposes, Tahir approves or sends back (ruled 16 Oct) ---------- */
   const LIST_FIELDS = { dist: ['now', 'mrp'], dealer: ['nsv', 'disc', 'frp', 'mrp'], farmer: ['pb', 'sn', 'snc'] };
   /** Derived figures (D-72): distributor price with FED = price x (1 + FED %); dealer net = NSV less discount, with FED = net x (1 + FED %). */
+  /** The data of a row added by a revision (D-77). The farmer list names each pack in the product column ("Brand 25 kg"),
+   * as its loaded rows do and as its price list prints, so the size goes into p there; the other lists keep a pack column. */
+  function addedRow(list, it) { return list === 'farmer' ? { p: `${it.product} ${it.pack}`, packId: it.packId, ...it.to } : { p: it.product, pack: it.pack, packId: it.packId, ...it.to, ...(list === 'dist' ? { sentSet: 1 } : {}) }; } // dist: never sent before, so no previous price ("new" on the list, D-42; review 1.0.0, finding 3)
   function deriveList(list, d, fed) {
     const o = { ...d }; const f = 1 + lib.fedPct(fed) / 100;
     if (list === 'dist' && o.now != null) o.fed = lib.round(Number(o.now) * f, 2);
@@ -978,6 +990,12 @@ module.exports = function mountC2mRoutes(app, deps) {
         if (pid != null && !vanPack.has(pid)) throw bad('Pick a VAN brand pack: only VAN brand packs can be linked to a list row.');
         const [[row]] = await q('SELECT id, list_name, data_json FROM c2m_list_price WHERE id=? FOR UPDATE', [id]); if (!row) throw bad('A row is not on any VAN brand list.');
         const d = JSON.parse(row.data_json); const was = d.packId != null ? Number(d.packId) : null; if (was === pid) continue;
+        if (pid != null) { // 1 row per pack on each list (D-77: each VAN pack held once; this replaces the D-73 tolerance of 2 rows on 1 pack, review 19 Oct)
+          const [others] = await q('SELECT id, data_json FROM c2m_list_price WHERE list_name=? AND id<>? FOR UPDATE', [row.list_name, id]); const dupRow = others.find(o => Number(JSON.parse(o.data_json).packId) === pid);
+          if (dupRow) throw bad(`Another row of this list (${JSON.parse(dupRow.data_json).p}${JSON.parse(dupRow.data_json).pack ? ' ' + JSON.parse(dupRow.data_json).pack : ''}) is already linked to that pack: each pack has 1 row on a list. Unlink or change that row first.`); }
+        if (pid != null) { // a pack waiting to be added to this list by a revision cannot also be linked to a row of it (review 1.0.0, finding 2)
+          const [pend] = await q("SELECT items_json FROM c2m_list_revision WHERE list_name=? AND (status='proposed' OR (status='approved' AND applied=0))", [row.list_name]);
+          if (pend.some(x => JSON.parse(x.items_json).some(it => it.id == null && it.added && Number(it.packId) === pid))) throw bad(`That pack waits to be added to this list in a revision that is with Tahir or approved and waiting for its date. Link the row after it is decided or takes effect, or ask Tahir to send it back or withdraw it.`); }
         if (pid == null) delete d.packId; else d.packId = pid;
         await q('UPDATE c2m_list_price SET data_json=? WHERE id=?', [JSON.stringify(d), id]);
         await audit(req.c2m.user, 'list_price', String(id), 'link', was, pid, `${row.list_name}: ${d.p}${d.pack ? ' ' + d.pack : ''}`); n++;
@@ -995,7 +1013,27 @@ module.exports = function mountC2mRoutes(app, deps) {
     if (!Array.isArray(items) || !items.length) throw bad('Change at least 1 price.');
     const [rows] = await q('SELECT id, data_json FROM c2m_list_price WHERE list_name=?', [list]); const byId = new Map(rows.map(r => [r.id, JSON.parse(r.data_json)]));
     const out = [];
+    /* 1.0.0, VAN brand price grid (Tahir, 19 Oct 2026, D-77): a price typed for a VAN brand pack that has no row on this list
+       adds a row for that pack, through the same revision and Tahir's approval. The row carries its pack (packId) from the start. */
+    const D0 = items.some(it => it && it.id == null && it.packId != null) ? await engine.loadAll(q) : null;
+    const onList = new Set(rows.map(r => JSON.parse(r.data_json).packId).filter(v => v != null).map(Number));
+    /* A pack is added only when every row of the list is linked to its pack (D-73), so a row the list already holds under
+       another name is never entered twice (1.0.0 review of the grid, I-43). */
+    const unlinked = rows.filter(r => JSON.parse(r.data_json).packId == null).length;
+    const seenP = new Map(); for (const r of rows) { const pp = JSON.parse(r.data_json).packId; if (pp != null) seenP.set(Number(pp), (seenP.get(Number(pp)) || 0) + 1); }
+    const dupN = [...seenP.values()].filter(n => n > 1).length;
+    if (D0 && dupN) throw bad(`${dupN} ${dupN === 1 ? 'pack has' : 'packs have'} more than 1 row linked on this list. Correct those links first (More, Reports, VAN brand list margin), so no pack is entered twice.`);
+    if (D0 && unlinked) throw bad(`${unlinked} ${unlinked === 1 ? 'row' : 'rows'} of this list ${unlinked === 1 ? 'is' : 'are'} not linked to a pack yet. Link ${unlinked === 1 ? 'it' : 'them'} first (Client prices, VAN brand prices: confirm the suggested links; the rest in More, Reports, VAN brand list margin), so no pack is entered twice.`);
     for (const it of items) {
+      if (it && it.id == null && it.packId != null) {
+        const pid = Number(it.packId); const pk = D0.packs.find(k => Number(k.id) === pid); const cp = pk ? D0.cpById.get(pk.client_product_id) : null;
+        if (!pk || !engine.isVanBrand(cp)) throw bad('Only a VAN brand pack can be added to a VAN brand list.');
+        if (onList.has(pid)) throw bad(`${cp.brand} ${Number(pk.pack_size)} ${cp.sold_per} is already on this list: change its price instead.`);
+        const to = {};
+        for (const f of LIST_FIELDS[list]) if (it.values && it.values[f] != null && it.values[f] !== '') { const v = strictNum(it.values[f]); if (!(v > 0) || (f === 'disc' && v >= 1)) throw bad(`${cp.brand}: ${f} must be a number above 0${f === 'disc' ? ' and below 1' : ''}.`); to[f] = v; }
+        if (!Object.keys(to).length) continue;
+        onList.add(pid); out.push({ id: null, packId: pid, product: cp.brand, pack: `${Number(pk.pack_size)} ${cp.sold_per}`, from: {}, to, added: 1 }); continue;
+      }
       const cur = byId.get(Number(it.id)); if (!cur) throw bad('A row is not on this list.');
       const to = {};
       for (const f of LIST_FIELDS[list]) if (it.values && it.values[f] != null && it.values[f] !== '') { const v = strictNum(it.values[f]); if (!(v >= 0) || (f === 'disc' && v >= 1)) throw bad(`${cur.p}: ${f} must be a number${f === 'disc' ? ' below 1 (e.g. 0.05 for 5%)' : ''}.`); to[f] = v; }
@@ -1008,7 +1046,10 @@ module.exports = function mountC2mRoutes(app, deps) {
       const [[wait]] = await q("SELECT valid_from FROM c2m_list_revision WHERE list_name=? AND status='approved' AND applied=0 FOR UPDATE", [list]);
       if (wait) throw bad(`A revision of this list is approved and waits for ${String(wait.valid_from).slice(0, 10)}. Ask Tahir to withdraw it first, or wait until it takes effect.`);
       const [[open]] = await q("SELECT id FROM c2m_list_revision WHERE list_name=? AND status='proposed' FOR UPDATE", [list]); if (open) throw bad('This list already has a revision waiting for Tahir.');
-      if (replaceId) { const [u] = await q("UPDATE c2m_list_revision SET status='replaced' WHERE id=? AND list_name=? AND status='sent_back'", [replaceId, list]); if (!u.affectedRows) throw moved(); }
+      if (replaceId) { const [u] = await q("UPDATE c2m_list_revision SET status='replaced' WHERE id=? AND list_name=? AND status='sent_back'", [replaceId, list]); if (!u.affectedRows) throw moved(); await audit(req.c2m.user, 'list_revision', replaceId, 'replaced', 'sent_back', 'replaced', 'Revised and sent again'); }
+      // 1.0.0: a new revision of the list also closes any older sent-back revision of it (review 19 Oct)
+      const [oldR] = await q("SELECT id FROM c2m_list_revision WHERE list_name=? AND status='sent_back' FOR UPDATE", [list]);
+      for (const o of oldR) { await q("UPDATE c2m_list_revision SET status='replaced' WHERE id=?", [o.id]); await audit(req.c2m.user, 'list_revision', o.id, 'replaced', 'sent_back', 'replaced', 'A newer revision of the same list was sent'); }
       const [r] = await q('INSERT INTO c2m_list_revision (list_name, items_json, reason, valid_from, valid_till, proposed_by, proposed_at) VALUES (?,?,?,?,?,?,?)', [list, JSON.stringify(out), String(reason).slice(0, 400), validFrom, validTill || null, req.c2m.user, now()]);
       await audit(req.c2m.user, 'list_revision', r.insertId, 'propose', null, { list, rows: out.length }, reason);
       return r.insertId;
@@ -1047,6 +1088,14 @@ module.exports = function mountC2mRoutes(app, deps) {
       if (r.list_name === 'dist') { const [all] = await q("SELECT id, data_json FROM c2m_list_price WHERE list_name='dist'");
         for (const row of all) { const d = JSON.parse(row.data_json); if (d.sentSet || d.now == null) continue; d.prev = d.now; d.sentSet = 1; await q('UPDATE c2m_list_price SET data_json=? WHERE id=?', [JSON.stringify(d), row.id]); } }
       for (const it of JSON.parse(r.items_json)) {
+        if (it.id == null && it.added) { // a new row for a VAN brand pack (D-77)
+          /* If a row of this list was linked to the pack after the revision was sent, that row takes the prices: never a second row (review 1.0.0, finding 2). */
+          const [same] = await q('SELECT id, data_json FROM c2m_list_price WHERE list_name=? FOR UPDATE', [r.list_name]); const hit = same.find(x => Number(JSON.parse(x.data_json).packId) === Number(it.packId));
+          if (hit) { const d0 = JSON.parse(hit.data_json); if (r.list_name !== 'dist') d0.prevValues = { ...(d0.prevValues || {}), ...Object.fromEntries(Object.keys(it.to).map(f => [f, d0[f]])) }; Object.assign(d0, it.to); await q('UPDATE c2m_list_price SET data_json=? WHERE id=?', [JSON.stringify(deriveList(r.list_name, d0, fed)), hit.id]); continue; }
+          const d = deriveList(r.list_name, addedRow(r.list_name, it), fed);
+          await q('INSERT INTO c2m_list_price (list_name, product, spec, pack, data_json, issued, valid_till) VALUES (?,?,?,?,?,?,?)', [r.list_name, d.p, null, d.pack || null, JSON.stringify(d), String(r.valid_from).slice(0, 10), r.valid_till ? String(r.valid_till).slice(0, 10) : null]);
+          continue;
+        }
         const [[row]] = await q('SELECT data_json FROM c2m_list_price WHERE id=?', [it.id]); if (!row) continue;
         const d = JSON.parse(row.data_json);
         if (r.list_name !== 'dist') d.prevValues = { ...(d.prevValues || {}), ...Object.fromEntries(Object.keys(it.to).map(f => [f, d[f]])) };
@@ -1081,7 +1130,7 @@ module.exports = function mountC2mRoutes(app, deps) {
       const [w] = await q("SELECT * FROM c2m_list_revision WHERE list_name=? AND status='approved' AND applied=0 AND valid_from<=? ORDER BY valid_from, id", [listKey, b.eff]);
       for (const r of w) {
         if (r.list_name === 'dist') for (const row of lp.filter(x => x.list_name === 'dist')) { const d = JSON.parse(row.data_json); if (!d.sentSet && d.now != null) { d.prev = d.now; d.sentSet = 1; row.data_json = JSON.stringify(d); } } // as applyRevision (D-42)
-        for (const it of JSON.parse(r.items_json)) { const row = lp.find(x => x.id === it.id); if (!row) continue;
+        for (const it of JSON.parse(r.items_json)) { if (it.id == null && it.added) { lp.push({ id: null, list_name: r.list_name, data_json: JSON.stringify(deriveList(r.list_name, addedRow(r.list_name, it), fed)), issued: r.valid_from, valid_till: r.valid_till }); continue; } const row = lp.find(x => x.id === it.id); if (!row) continue;
           const d = JSON.parse(row.data_json); Object.assign(d, it.to); row.data_json = JSON.stringify(deriveList(r.list_name, d, fed)); }
         // The list's dates change for every row of the list, as applyRevision does: no end date before the new start
         for (const row of lp.filter(x => x.list_name === r.list_name)) { row.issued = r.valid_from; row.valid_till = r.valid_till || (row.valid_till && String(row.valid_till).slice(0, 10) >= String(r.valid_from).slice(0, 10) ? row.valid_till : null); }

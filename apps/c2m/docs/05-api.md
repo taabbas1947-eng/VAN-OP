@@ -1,6 +1,7 @@
 # 5. API documentation
 
-Version 0.9.3 · 19 Oct 2026 · Owner: Tahir (C2M module owner); Claude records · Rule: R-5h item 5 (D-20)
+Version 1.0.0 · 19 Oct 2026 · Owner: Tahir (C2M module owner); Claude records · Rule: R-5h item 5 (D-20)
+Changed in 1.0.0 (19 Oct 2026): POST /api/c2m/lists/revise accepts added rows (D-77); GET /api/c2m/state me.more, and buyer lines with cat on sales, foc, open and poLines (D-74, D-76).
 Changed in 0.9.3 (19 Oct 2026): POST /api/c2m/lists/links added (D-73).
 Changed in 0.9.2 (19 Oct 2026): no route added or removed. GET /api/c2m/state adds fedPct for every role; settings refuses fed_pct not above 0 and below 100 (400); an approved FED change works again the price with FED on every distributor and dealer row; list revisions and documents use the FED setting; a document stores its fedPct (D-72).
 Changed in 0.9.1 (3 independent reviews, 18 Oct 2026 night): no route added or removed. reapprovals approve replies reopened (D-61); the 4 approval routes refuse the proposer with 403 (D-63); checks validates its figures (D-64); GET /api/c2m/state, cfo and coo: foc [{date, cust, grp, brand, pack, packId, po, kg, cost}] and FOC lines left out of sales and open (D-62); each pack, for those who see prices: priceEnded {price, till} or null, lastPoPrice; checks rows carry data (parsed) in place of data_json.
@@ -74,7 +75,7 @@ Roles: cfo = Yawar, coo = Tahir, production = Majid, qc = Himayat, plant = Fahim
 | POST | /api/c2m/checks | coo for rate_check; cfo for tie_books | {month, kind, data}: rate_check data {rates:[{gradeId, name, c2m, date, source, rs, register}]}, every register above 0; tie_books data {erpSales, erpCogs}, ERP figures above 0; the server works out and stores C2M's own c2mSales, c2mCogs, c2mUncosted and focCost for the month (anything the page sends for them is ignored); rate_check needs at least 1 material | {ok}; 403 if Yawar tries the rate check; 400 "Every material listed needs its purchase register rate (digits above 0) before the check is done." or "Enter ERP sales and ERP COGS for the month, in Rs (digits above 0)." | D-18, D-64 | |
 | POST | /api/c2m/notices/seen | cfo, coo | | {ok} | D-18 | |
 | POST | /api/c2m/lists/links | cfo | {links:[{id, packId (a VAN brand pack, or null to unlink)}]}, 1 to 500 rows | {changed}; 400 (nothing saved) when the batch is empty or over 500 rows, a row id is missing or not a whole number, a row is unknown, or the pack is not an active VAN brand pack (or not a whole number); each change in the audit (list_price, link) | D-73 | yes |
-| POST | /api/c2m/lists/revise | cfo | {list: dist, dealer or farmer, items:[{id, values:{field: number}}], reason, validFrom (today or later; a past date is refused), validTill?, replaceId? (a sent-back revision)} | {id, rows}; refused if the list already has a revision waiting for Tahir, or an approved revision waiting for its date | D-28, D-34 | yes |
+| POST | /api/c2m/lists/revise | cfo | {list: dist, dealer or farmer, items:[{id, values:{field: number}} or, from 1.0.0, {id: null, packId: a VAN brand pack not yet on this list, values:{field: number above 0}} (D-77)], reason, validFrom (today or later; a past date is refused), validTill?, replaceId? (a sent-back revision)} | {id, rows}; refused if the list already has a revision waiting for Tahir, or an approved revision waiting for its date | D-28, D-34 | yes |
 | POST | /api/c2m/lists/revisions/:id/approve | coo | | {ok, waitsUntil}. Dated today or earlier: list rows, previous prices and list dates change now (waitsUntil null). Dated ahead: waits; C2M applies it on its first load on or after the date | D-28, D-34 | yes |
 | POST | /api/c2m/lists/revisions/:id/withdraw | coo | {why} | {ok}; only an approved revision still waiting for its date; the list stays as it is (audit "withdrawn") | D-34 | yes |
 | POST | /api/c2m/lists/revisions/:id/sendback | coo | {reason} | {ok} | D-28 | yes |
@@ -180,3 +181,16 @@ Every other route, 1 line each (example figures; ids made up; ... = fields left 
 | `GET /api/c2m/pricedocs/11/pdf` | the PDF file (application/pdf) |
 | `GET /api/c2m/docs/07-guide.md` | the Markdown text (text/plain) |
 | `GET /c2m`, `GET /c2m/assets/van-logo.png` | the page; the logo PNG |
+
+## 5.5 Changed in 1.0.0 (owner: Tahir; D-74, D-76, D-77; version 1.0.0, 19 Oct 2026)
+
+| Route | Change | Errors added | Rule |
+|---|---|---|---|
+| POST /api/c2m/lists/revise | An item {id: null, packId, values} adds a row for that VAN brand pack on approval. Reply unchanged: {id, rows} | 400 "Only a VAN brand pack can be added to a VAN brand list."; 400 "<brand size unit> is already on this list: change its price instead."; 400 "<brand>: <field> must be a number above 0"; 400 "<n> rows of this list are not linked to a pack yet. Link them first ..." while any row of the list has no packId | D-77, D-73 |
+| POST /api/c2m/lists/links | Refuses a 2nd row of a list on 1 pack (400 "Another row of this list (...) is already linked to that pack ..."); refuses a pack that waits to be added to that list in a proposed or approved, not yet applied, revision | 400 "That pack waits to be added to this list in a revision that is with Tahir or approved and waiting for its date. ..." | D-77 |
+| POST /api/c2m/settings | budget_gp waits for Tahir like the thresholds (pending, not applied) | none | D-75 |
+| POST /api/c2m/prices/propose, POST /api/c2m/lists/revise | A new proposal closes every older sent-back proposal of that pack; a new revision every older sent-back revision of that list (status replaced, audit "replaced"). /lists/revise also refuses an added row while a pack has 2 rows on that list | 400 "<n> packs have more than 1 row linked on this list ..." | D-77, D-78 |
+| GET /api/c2m/state | proposals carry to (valid till) |  | D-78 |
+| GET /api/c2m/state | me.more (the places under More); every row of sales, foc, open and poLines carries cat (wl, dist, dealer, cobo, vg, farm) and cust is the buyer line (D-74); region is empty for farm | none | D-74, D-76 |
+
+Example (example figures): `POST /api/c2m/lists/revise {"list":"dist","items":[{"id":null,"packId":82,"values":{"now":1000}}],"reason":"new pack","validFrom":"2026-11-01"}` returns `{"id":7,"rows":1}`.

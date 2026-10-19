@@ -1,6 +1,7 @@
 # 2. Data flow diagrams
 
-Version 0.9.2 · 19 Oct 2026 · Owner: Yawar; data links set by Tahir and Yawar in Setup, From O2S · Rule: R-5h item 2 (D-20)
+Version 1.0.0 · 19 Oct 2026 · Owner: Yawar; data links set by Tahir and Yawar in Setup, From O2S · Rule: R-5h item 2 (D-20)
+Changed in 1.0.0 (19 Oct 2026): 2.17 added: buyer lines from O2S (D-74) and the added list row (D-77).
 Changed in 0.9.2 (19 Oct 2026): step 3 divides FED-inclusive PO prices by (1 + FED %), the setting fed_pct (D-72).
 Changed in 0.9.1 (3 independent reviews, 18 Oct 2026 night): step 4 counts a truck only with its gate pass (D-60); 2.16 FOC and notices (D-62, D-63).
 Changed in 0.9.1 (documentation review, 18 Oct 2026): 2.2 a truck counts only with its gate pass (approvedDate, D-60), issues list and change record; 2.4 the price in force uses valid_to as the last day; new level 1 flows 2.10 to 2.15 (recipe chain, price proposal, setting and target requests, import queue, monthly checks and grants, Reports and the 0.9.0 state fields).
@@ -174,3 +175,19 @@ Nothing is written. Export to Excel is made in the browser.
 | c2m_price (approved, valid_to passed, none in force) | last price and its last day | state priceEnded per pack; Prices "price ended" | D-62 |
 | Labour and FOH rate, packing bill, product type, reprocessed saves | what changed and how many packs moved | c2m_notice (for_role coo), Tahir's Today | D-63 |
 | Tahir's and Yawar's monthly check entries, with C2M's own month figures | register rates; ERP and C2M sales and COGS | c2m_monthly_check.data_json; state checks.data | D-64 |
+
+## 2.17 Level 1: buyer lines and the added list row (owner: Tahir rules the sync, Yawar keeps the lists; D-74, D-77; version 1.0.0, 19 Oct 2026)
+
+```mermaid
+flowchart LR
+  O[(c2m_o2s_po_line: customer_name, channel)] -->|customer, channel on each PO| BL[c2m-lib buyerLine · D-74]
+  T[(c2m_o2s_truck)] -->|kg, gate pass date| S
+  BL -->|cat and line: named for white label, distributors, dealers; COBO; VGreen; Farmers and other| S[GET /api/c2m/state: sales, foc, open, poLines carry cust and cat]
+  S --> M[Margin chips and lines · D-79]
+  S --> C[Client prices, client chips by FY sales · D-78]
+  G[Client prices, VAN brand prices: a price for a pack not on a list] -->|items {id null, packId, values}| R[(c2m_list_revision.items_json: added 1)]
+  R -->|Tahir approves| L[(c2m_list_price: new row, data_json with packId and the derived prices)]
+```
+
+- Nothing new is stored for a buyer line: it is worked out on every read from the O2S category on the PO. A farmer's name is read from O2S but never sent to the page (cust is "Farmers and other", region empty).
+- The added row is written only when Tahir approves (or on its date), through the same apply step as any revision (applyRevision).

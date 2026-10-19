@@ -1,6 +1,7 @@
 # 1. Process flow diagrams
 
-Version 0.9.3 · 19 Oct 2026 · Owner: Yawar (CFO) keeps it current; Tahir approves changes · Rule: R-5h item 1 (D-20)
+Version 1.0.0 · 19 Oct 2026 · Owner: Yawar (CFO) keeps it current; Tahir approves changes · Rule: R-5h item 1 (D-20)
+Changed in 1.0.0 (19 Oct 2026): 1.18 added: where each job is done for Yawar and Tahir from 1.0.0, the white label client price flow and the VAN brand price grid flow (D-76 to D-79). 1.15 stands for the other roles.
 Changed in 0.9.3 (19 Oct 2026): 1.17 VAN brand list margin added to the Reports flow, with the link step (D-73).
 Changed in 0.9.2 (19 Oct 2026): the 12 unbuilt reports carry no version number (built after their pictures are approved).
 Changed in 0.9.1 (3 independent reviews, 18 Oct 2026 night): 1.3 approve ticked only leaves the rest in a new item (D-61). Other 0.9.1 logic is in 03, 3.16.
@@ -404,3 +405,39 @@ flowchart LR
     M --> X
   end
 ```
+
+## 1.18 The 1.0.0 places and the 2 price flows (owner: Tahir rules, Yawar proposes, Tahir approves; D-76, D-77, D-78; version 1.0.0, 19 Oct 2026)
+
+Yawar and Tahir work on 5 places: Approvals (the earlier Today), Products, Client prices, Margin and Setup. Reports, Inputs, Back office (the earlier Setup) and Guide are under More. Every approval is still done in a panel (D-46).
+
+```mermaid
+flowchart LR
+  subgraph Yawar [Yawar, CFO]
+    W1[Client prices, White label clients: pick a client, chips ordered by FY sales · D-78] --> W2[Type a new price in the row; new GP shows at once · F-24]
+    W2 --> W3{Reason the client reads written? Below target: why written? · D-22, D-78}
+    W3 -- no --> W2
+    W3 -- yes --> W4[Send to Tahir: 1 price proposal per pack · D-78]
+    V1[Client prices, VAN brand prices: each VAN pack once, 5 list columns · D-77] --> V2[Type the prices that change, or a price for a pack not on a list · D-77]
+    V2 --> V3{Reason and dates written? · D-28}
+    V3 -- no --> V2
+    V3 -- yes --> V4[Send to Tahir: 1 list revision per list · D-77]
+  end
+  subgraph Tahir [Tahir, COO]
+    W4 --> T1[Open to approve, from the row or from Approvals: the panel · D-46, D-78]
+    V4 --> T2[List revision on Approvals and under the grid: the panel · D-46, D-77]
+    T1 --> T3{Approve? · D-63: never his own}
+    T2 --> T3
+    T3 -- send back, with a reason --> SB([Back to Yawar on Approvals: revise and resend · D-28])
+    T3 -- approve --> T4{Dated today or earlier? · D-34}
+    T4 -- yes --> IN([In force now: price, or list rows changed; a pack not on the list gets its row · D-77])
+    T4 -- later --> WT([Waits for its date; Tahir can withdraw it before then · D-34])
+  end
+```
+
+| Step | Owner | Input | Rule | Feeds |
+|---|---|---|---|---|
+| Pick the client | Yawar | client chips, ordered by FY sales | D-78 | the rows of that client |
+| Type a new price | Yawar | price per kg or L | F-24 | new GP %, the send bar's Rs over the forward months (F-12) |
+| Send white label prices | Yawar | reason, why below target, from date | D-22, D-78 | 1 proposal per pack (POST /prices/propose) |
+| Type VAN brand prices | Yawar | price per pack on each list | D-77, F-25 | 1 revision per list (POST /lists/revise), new rows marked added |
+| Approve or send back | Tahir | the panel | D-46, D-63 | price or list in force, or back to Yawar |

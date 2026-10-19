@@ -1,6 +1,7 @@
 # 8. Release notes and change log
 
-Version 0.9.3 · 19 Oct 2026 · Owner: Claude records; Tahir approves releases · Rule: R-5h item 8 (D-20)
+Version 1.0.0 · 19 Oct 2026 · Owner: Claude records; Tahir approves releases · Rule: R-5h item 8 (D-20)
+Changed in 1.0.0 (19 Oct 2026): entry 1.0.0 added.
 Changed in 0.9.3 (19 Oct 2026): entry 0.9.3 added.
 Changed in 0.9.2 (19 Oct 2026): entry 0.9.2 added; its "Decided, not code" part changed by D-70 and D-71; FED setting and wording added (D-72).
 Changed in 0.9.1 (3 independent reviews, 18 Oct 2026 night): entry 0.9.1 added.
@@ -11,6 +12,32 @@ Changed in 0.7.0: entry 0.7.0 added.
 Changed in 0.6.0: entry 0.6.0 added.
 Changed in 0.5.0: entry 0.5.0 added; real figures removed from earlier entries (public repo).
 Format: Keep a Changelog, semantic versions. Live: 0.9.2 (pushed 19 Oct 12:43, checked live); first data load 19 Oct 2026 about 13:17, checked live. Before: 0.9.1 (pushed 19 Oct 09:39, checked live). apps/c2m first pushed by Tahir on 17 Oct and the live migration run the same day (39 empty c2m_ tables); 0.6.0 and 0.7.0 pushed on 18 Oct (17:29), 0.8.0 (20:16) and 0.9.0 (22:03), each checked live by Claude. The folder tabs (D-59) were built after the 0.9.0 push and ship in 0.9.1. No data loaded yet: the first data load runs on Monday 19 Oct 2026.
+
+## [1.0.0] · 19 Oct 2026 · The new C2M: 5 places, buyer sync rule, targets, client prices, VAN brand price grid, Margin (D-74 to D-79) · Who: Claude built; Tahir ruled and approves the push
+### Added
+- Client prices, White label clients: client chips by FY sales; each pack's price now, cost today, GP %, target, price for target and state (below, on target, "above: check"); new prices typed in the rows with the new GP at once; Send to Tahir, 1 proposal per pack; Tahir's "Open to approve" in the row opens the panel (D-78).
+- Client prices, VAN brand prices: each VAN pack once with 5 list columns and the GP under each price; typed prices and prices for packs not yet on a list go to Tahir as 1 list revision per list; list revisions shown under the grid (D-77). A pack can be added to a list only once every row of that list is linked to its pack, and is never entered twice (B-22). A sent-back revision with an added row can be revised and resent; a send from the new screens replaces the sent-back item it supersedes.
+- Margin rebuilt on the approved picture: 3 groupings, FY to date and White label first, approved cost on each truck's date with a restated switch, sorted by Rs against target, 4 figures, GP by month against target, Rs at stake, red, amber and on chips, Columns, Export to Excel, drill to packs and trucks (D-79).
+- Setup with 10 tabs; Back office (the earlier Setup) under More (D-76).
+- Buyer lines from O2S on every sale, FOC truck, open PO and PO line (D-74).
+### Changed
+- Yawar and Tahir: 5 places (Approvals, Products, Client prices, Margin, Setup) and More (Reports, Inputs, Back office, Guide); no group labels in the rail; phone bar of 4 with the 5th under More (D-76).
+- Every product has a GP target: a product with none takes the company GP target (D-75), shown as "company target". A change to the company GP target now waits for Tahir. The white label budget setting is no longer used or shown.
+- Each pack has 1 row on a list (links refuse a 2nd row); a list whose revision waits is closed in the grid; a new price or revision closes older sent-back ones; a sent-back valid-till date is kept; the resend form sends on the first click.
+- Product page: 2 tabs, Recipe and Cost by pack (D-76).
+- Red on Margin and on Approvals: 1 rule (below cost, or more than red_gap_pts short with Rs short above red_share_pct % of white label sales) (D-79).
+- Guide lines for Yawar and Tahir rewritten for the 5 places.
+### Removed
+- For Yawar and Tahir: the 0.9.0 Margin page and the 0.9.0 Prices views (replaced by D-78 and D-79). The code of the earlier Prices screen stays for the KAMs' Price lists place.
+### API
+- POST /api/c2m/lists/revise: items may be {id: null, packId, values} (an added row, D-77). GET /api/c2m/state: me.more; cat and buyer line on sales, foc, open, poLines (D-74).
+### Database
+- No table, column or migration. Production SQL: none.
+### Tests
+- New suite c2m100.test (T-01 to T-18; T-14 to T-18 prove the review fixes); flow S-01 (company target waits for Tahir); van093 L-05 (1 row per pack); lib J-01, J-02; ui08 U-01 to U-05, U-09 to U-12, flow A-01, ui09 V-01, V-07, V-11, V-12, V-14, V-16, van093 changed for the 5 places; ui09 V-05, V-06, V-08, V-18, V-19 retired with the screens they tested (12.1). TOTAL 191 passed, 0 failed (12.1a), run in the cloud copy on 19 Oct 2026 after the independent reviews (code; data safety; design and workflow).
+### What to test after (on live)
+- Yawar: the 5 places and More; Client prices, type a price and see the GP; send 1 test price and send it back as Tahir; VAN brand prices, check the grid against the lists; Margin, check White label GP against your own figure; Setup, 10 tabs.
+- Tahir: Approvals; Client prices "Open to approve"; Margin red lines.
 
 ## [0.9.3] · 19 Oct 2026 · Reports, VAN brand list margin (D-73) · Who: Claude built; Tahir approved the picture
 ### Added

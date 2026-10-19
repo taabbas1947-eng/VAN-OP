@@ -11,7 +11,7 @@ const today = () => lib.pkToday();
 
 async function loadSettings(q) {
   const [rows] = await q('SELECT k, v, label, needs_approval FROM c2m_setting');
-  const s = {}; rows.forEach(r => { s[r.k] = Number(r.v); });
+  const s = {}; rows.forEach(r => { s[r.k] = Number(r.v); if (r.k === 'budget_gp') r.needs_approval = 1; }); // 1.0.0: the company GP target is every untargeted product's target (D-75), so it waits for Tahir like a product target (review 19 Oct)
   return { values: s, rows };
 }
 

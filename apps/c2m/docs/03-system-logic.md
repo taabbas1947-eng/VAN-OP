@@ -1,6 +1,7 @@
 # 3. System logic
 
-Version 0.9.3 · 19 Oct 2026 · Owner: Yawar; Tahir approves changes · Rule: R-5h item 3 (D-20)
+Version 1.0.0 · 19 Oct 2026 · Owner: Yawar; Tahir approves changes · Rule: R-5h item 3 (D-20)
+Changed in 1.0.0 (19 Oct 2026): 3.18 added: buyer lines, targets, the client price state, the VAN brand price grid, Margin and its red rule (D-74 to D-79); 3.17 says a revision can add a row.
 Changed in 0.9.3 (19 Oct 2026): 3.17 added: the VAN brand list margin (D-70, D-72, D-73).
 Changed in 0.9.1 (3 independent reviews, 18 Oct 2026 night): 3.16 added (D-60 to D-65).
 Changed in 0.9.1 (documentation review, 18 Oct 2026): 3.3 when "replaced" is written; 3.4 Tahir sees re-approvals under Waiting on others; 3.10 where "Not costed" shows; 3.12 a wrong mount answers 503; 3.13 stuck marks on every waiting line (D-54); 3.15 the full priority list and what Waiting on others holds; owners on 3.2 and 3.13.
@@ -194,8 +195,31 @@ Age is in calendar days; stuck is more than 2 working days, Monday to Saturday. 
 
 ## 3.17 VAN brand list margin (owner: Yawar for the links and figures, Tahir rules; D-70, D-72, D-73; version 0.9.3, 19 Oct 2026; code c2m.html vanMargin(), c2m-routes.js /lists/links)
 - Each VAN brand list row (distributor, dealer, farmer) carries the C2M pack it is, as packId inside the row's data. Yawar links it once in Reports, VAN brand list margin; C2M suggests a pack only where the row's name, with its size taken out, is the same as the VAN product's name and the size and unit (kg or L) are the same, and marks it "suggested: check"; every other row starts "Not linked". Save sends every row whose pick differs from what is stored, shown or not, suggestions included, and the button counts them. A row linked to a pack that is no longer an active VAN brand pack says so ("Pack no longer active") and stays out of the table until Yawar picks again or unlinks it. A row is never linked by name in the report itself, and never through O2S (D-71).
-- A revision of a list changes prices only, so the link stays; no screen adds a list row.
+- A revision of a list changes prices, so the link stays. From 1.0.0 a revision can also add a row for a VAN pack not on that list, carrying its pack from the start (D-77, 3.18).
 - 1 line per linked VAN pack: its cost today per pack (cost per kg or L x pack size), and on each list the price without FED and its GP (F-22). Cost per pack is before freight (cost total less freight). If 2 or more rows of 1 list are linked to the same pack, the first with a price is used and the line says how many rows.
 - State, from the worst GP on the lists shown (distributor, dealer, the farmer list picked): not costed; no list price; below cost (red); below ambition (amber, more than 0.05 points under the ambition GP); at or above ambition (green). With no ambition GP set, only below cost is judged. Lines are listed worst first: by state, then by the lowest GP on the lists shown.
 - The answer line: the VAN brand portfolio GP on trucks this FY (approved cost on each truck's date, as Margin) against the ambition GP, then how many packs are below ambition on at least 1 list, and names the worst: the pack below cost and its list, or the pack furthest below ambition. With no ambition GP set, it counts the packs below cost. With no VAN brand truck read from O2S, it says so and the table still works.
 - Rows not linked are counted and listed under the table; Yawar can show all rows to change a link. Tahir reads the links and cannot change them.
+
+## 3.18 Logic added in 1.0.0 (owner: Yawar for prices and figures, Tahir rules; D-74 to D-79; version 1.0.0, 19 Oct 2026; code c2m-lib buyerLine, targetOr; c2m-routes /lists/revise, applyRevision; c2m.html vMargin2, vPrices2, ncpVan, vSetup2)
+
+Buyer line (D-74), decision table, read on every PO line, truck, FOC truck and open PO:
+
+| O2S on the PO | Category | Line shown in C2M |
+|---|---|---|
+| group White label (any channel) | White label | the client's name |
+| channel Distributor | Distributors | the distributor's name |
+| channel Dealer | Dealers | the dealer's name |
+| channel COBO | COBO | "COBO" (1 line) |
+| channel VGreen | VGreen | "VGreen" (1 line) |
+| any other channel, or none (farmers and others) | Farmers and other | "Farmers and other" (1 line, never named, no region) |
+
+Target (D-75): a product's own GP target if set, else the company GP target (setting budget_gp). Used by Margin, Client prices, the VAN brand grid and the price proposal check. A target of 0 is a target.
+
+Client price state (D-78): not costed (no cost today); below (no price, or GP more than 0.05 points under target); "above: check" (GP more than 5 points over target); on target (the rest). The 5 points is a constant in the page (ABOVE_PTS), to confirm (I-39).
+
+VAN brand price grid (D-77): each cell is the row of that list linked to the pack (saved packId), else a row suggested by the B-18 rule (marked "suggested"), else empty. A typed value equal to the cell's value is not a change. On Send, cells of an existing row become changes to that row; cells with no row become 1 added item per pack and list. The server refuses an added item for a pack that is not a VAN brand pack, a pack already linked on that list, a price not above 0, or while any row of that list has no pack linked (400, nothing saved): a row the list holds under another name could otherwise be entered twice. The grid closes the empty cells of such a list and says how many rows to link. A pack waiting to be added cannot be linked to a row of that list (POST /lists/links, 400); at apply time, if a row of the list is linked to the pack after all, that row takes the prices. An added distributor row is written as never sent (no previous price, D-42). A link that would put a 2nd row of a list on 1 pack is refused (D-77); a pair made before is marked "n rows on this list", listed, and blocks adds to that list until corrected. A list whose revision is with Tahir, or approved and waiting for its date, is closed in the grid with the reason, and an approved price waiting for its date shows in its cell with the date. Suggestions that would put 2 rows on 1 pack are not offered. A send from Client prices replaces every sent-back proposal of that pack (keeping a sent-back valid-till date), and a sent-back price shows on its row; and a send from the grid replaces the latest sent-back revision of that list (replaceId). A sent-back revision opens in its panel from the grid; its added rows show as "new row on this list" and can be revised and resent. On approval the row is written: for the farmer list the size goes into the product name ("Brand 25 kg") as the farmer list prints it; the other lists keep a pack column; FED and dealer net are worked out as for any row.
+
+Margin (D-79): rows = trucks with an approved cost on their date (or, restated, a cost today). Group by buyer line, base product line (product type for white label, brand for VAN), or buyer line x pack. Each group's sums by F-23. State: red = below cost, or more than red_gap_pts short of target and Rs short above red_share_pct % of all white label sales in the period; amber = any other short; green = on or above. Sorted by Rs against target, then sales. The Approvals red item counts white label buyer lines red by the same rule, FY to date, at the cost approved on each truck's date.
+
+Places (D-76): ROLES gives cfo and coo nav [approvals, products, prices, margin, setup] and more [reports, inputs, backoffice, guide]. On a phone the first 4 sit in the bottom bar; the 5th and the More places are in the More sheet. On a wide screen the More sheet shows only the More places.

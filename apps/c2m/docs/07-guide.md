@@ -1,6 +1,7 @@
 # 7. The Guide
 
-Version 0.9.3 · 19 Oct 2026 · Owner: Yawar; Tahir approves changes · Rule: R-5h item 7 (D-20)
+Version 1.0.0 · 19 Oct 2026 · Owner: Yawar; Tahir approves changes · Rule: R-5h item 7 (D-20)
+Changed in 1.0.0 (19 Oct 2026): "Where things are (1.0.0)" and the 1.0.0 lines for Yawar and Tahir added (D-76 to D-79); the in-app Guide carries the same lines.
 Changed in 0.9.3 (19 Oct 2026): Yawar and Tahir line 3 (Reports, VAN brand list margin, D-73).
 Changed in 0.9.2 (19 Oct 2026): Yawar line 8 and Tahir new line 9 (By customer state, D-68).
 Changed in 0.9.1 (3 independent reviews, 18 Oct 2026 night): App Guide lines for Yawar (5, new 6, new 10) and Tahir (5, new 6) matched again to GUIDE in c2m.html; partial re-approval and 2-tap wording (D-61, D-63 to D-65).
@@ -37,6 +38,31 @@ How to read this: items marked "App Guide" are the exact lines on the app's Guid
 | Name and Sign out in the header | At the foot of the rail, with Back to launcher |
 | Underlined views inside a place | Folder tabs with counts in a badge (D-59, 0.9.1) |
 
+## Where things are (1.0.0) (owner: Yawar; Tahir approves; D-76; version 1.0.0, 19 Oct 2026)
+
+| Before 1.0.0 | Now, for Yawar and Tahir |
+|---|---|
+| Today | Approvals (the same jobs and panels) |
+| Margin (0.9.0) | Margin: by client, product or client x product; each truck at its approved cost; sorted by Rs short (D-79) |
+| Prices: 6 views | Client prices: White label clients (type new prices in the rows), VAN brand prices (1 grid, each VAN pack once), Price lists (D-77, D-78). Waiting prices sit under the white label table; list revisions under the VAN grid |
+| Product page: 5 tabs | Recipe and Cost by pack (D-76) |
+| Setup (0.8.0) | Setup: Settings, Material rates, Packing, Labour FOH and targets, Clients and buyer lines, People, From O2S, Sheet items, Monthly checks, Change record |
+| Reports, Inputs, Guide in the rail | Under More, with Back office (the earlier Setup) |
+
+### Yawar, from 1.0.0
+1. Approvals: start with "Your next move"; every approval and job opens in a panel.
+2. Products: Recipe and Cost by pack; approve cost in its panel; propose a single price from the top of the page.
+3. Client prices, White label clients: type new prices in the rows, see the new GP at once, write the reason the client reads (and why, if below target), Send to Tahir: 1 proposal per pack.
+4. Client prices, VAN brand prices: each VAN pack once, a column per list; type the prices that change, or a price for a pack not yet on a list; reason and dates; Send to Tahir: 1 list revision per list. Confirm suggested list-row links once.
+5. Margin: by client, product or client x product; open a line for its packs and a pack for its trucks; the restated switch is for comparison only.
+6. Setup: settings, rates, packing, labour and FOH, targets, buyer lines, people, O2S, sheet items, monthly checks, change record.
+
+### Tahir, from 1.0.0
+1. Approvals: what waits for you, each in its panel; white label clients red on margin.
+2. Client prices: "Open to approve" in a row opens the same panel; list revisions show under the VAN grid.
+3. Margin: GP against each product's target; red lines first by Rs short; buyers follow the O2S category (D-74).
+4. Setup: read every setting; Yawar's threshold and product target changes wait for you on Approvals.
+
 ## Yawar (CFO, role cfo)
 
 App Guide (rule for each line in brackets; the brackets are not on the screen):
@@ -55,7 +81,7 @@ Also (a separate list; its numbers 7 to 16 are kept so references in other docum
 7. Re-approvals (R-2 Cost): each item lists its packs with approved cost, cost now and %. Approve all (tap 2 times to confirm), or untick packs and Approve ticked only (at least 1), or Close: the change was wrong, with a reason. Packs you leave out wait in a new item "Left open from item N" (D-61). A rate save, packing price, packing bill edit or assignment, labour or FOH rate added or retired, product type, reprocessed flag or import rate correction can each make an item. If a cost moved again after the item was shown, C2M approves today's cost and notes it in the change record. "Approved" is the last approved cost, and the % is against it (D-41). A pack whose cost is back within the set % when you approve, or is no longer fully costed, keeps its approved cost; C2M names it after approving. An item can also hold a pack with no approved cost yet ("first cost"), for example after you assign it a packing bill; approving it sets its first approved cost.
 8. After the first load, 2 re-approval items wait for you: the move of conversion to the base bands for the white label packs, and for the VAN brand packs. Until you approve them, the approved cost from 13 Oct is your own sheet (A-19, D-44).
 9. Labour and FOH rates (D-25, D-37), Setup, Settings and targets: add a named rate, pick Labour or FOH, Rs per kg, a start date today or earlier. Assign it to all products (optionally only solids or liquids, reprocessed or not, a pack range), to a product type, or to a list of products you tick. It applies from its date by itself. Any rate you add beats the base bands for the products it covers; among your own rates, the one with more conditions wins, then the newest. Retire a rate with a reason; C2M refuses if any product would be left with no labour or FOH rate.
-10. VAN brand list revisions (D-28), Prices, VAN brand lists: Revise a list, type only the prices that change (the screen shows Now and the change %; discount is typed as %), add a reason, effective date and valid till, Send to Tahir. If he sends it back, Revise and resend. While an approved revision of a list waits for its date, a new revision of that list is refused. The previous price printed on a distributor list is the price on the last distributor list you issued (D-42).
+10. VAN brand list revisions (D-28); from 1.0.0 in Client prices, VAN brand prices (the grid, D-77); before 1.0.0 in Prices, VAN brand lists: Revise a list, type only the prices that change (the screen shows Now and the change %; discount is typed as %), add a reason, effective date and valid till, Send to Tahir. If he sends it back, Revise and resend. While an approved revision of a list waits for its date, a new revision of that list is refused. The previous price printed on a distributor list is the price on the last distributor list you issued (D-42).
 11. Price proposals: set "Takes effect from" and valid till. Only 1 price per pack can wait for Tahir, and only 1 approved price per pack can wait for its date.
 12. Setup, From Yawar's sheets: over 3% shows red.
 13. Master data forms: add a material or grade with its rate and source (Inputs, Materials); add a packing item (Inputs, Packing items); set a customer's price rule, cycle, region and O2S names (Setup, Customers); set freight per segment and region (Setup, Settings and targets). You can also set a material's class and nutrient %.

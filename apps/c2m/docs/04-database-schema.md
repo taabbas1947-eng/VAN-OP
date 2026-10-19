@@ -1,6 +1,7 @@
 # 4. Database schemas
 
-Version 0.9.3 · 19 Oct 2026 · Owner: Tahir (C2M module owner); Claude records · Rule: R-5h item 4 (D-20)
+Version 1.0.0 · 19 Oct 2026 · Owner: Tahir (C2M module owner); Claude records · Rule: R-5h item 4 (D-20)
+Changed in 1.0.0 (19 Oct 2026): no table, column or migration. c2m_list_price can get rows from an approved revision (D-77); c2m_list_revision.items_json items may be added rows; setting wl_budget_gp kept but no longer used (D-75).
 Changed in 0.9.3 (19 Oct 2026): c2m_list_price.data_json may hold packId (D-73); no table, column or migration.
 Changed in 0.9.2 (19 Oct 2026): no table or column; the first load adds 1 setting row, fed_pct (D-72); "sales tax" taken out of the meaning of net_price and price (FED is the only tax on VAN). The migration's own comments still say "FED and sales tax" (001 is frozen).
 Changed in 0.9.1 (documentation review, 18 Oct 2026): 001 is live and frozen (run on live 17 Oct); PRODUCTION header lines; reprocessed is set on the product page; full lists of audit actions and entities. No table or column changed by this review.
@@ -719,3 +720,13 @@ Every table also has its primary key (section 4.4).
 
 ## 4.7 Platform tables C2M reads (not owned)
 auth_users (name), user_module_roles (module 'c2m': cfo, coo, production, qc, plant, viewer), app_state row 1 (O2S data, read only). C2M writes none of them (D-12, D-21).
+
+## 4.8 Changed in 1.0.0 (owner: Tahir; D-75, D-77; version 1.0.0, 19 Oct 2026)
+
+No table, column, index or migration. Production SQL: none.
+
+| Table | Column | What changed | Rule |
+|---|---|---|---|
+| c2m_list_revision | items_json | An item may be an added row: {"id": null, "packId": n, "product": "brand", "pack": "size unit", "from": {}, "to": {field: price}, "added": 1} | D-77 |
+| c2m_list_price | product, pack, data_json | A row written by an approved revision: product = the brand (farmer list: "brand size unit", pack empty); data_json holds p, pack (not on the farmer list), packId and the prices, with fed (distributor) or net and netfed (dealer) worked out; issued = the revision's effective date; valid_till = its valid till | D-77 |
+| c2m_setting | wl_budget_gp | Kept (no migration); not used and not shown from 1.0.0 | D-75 |

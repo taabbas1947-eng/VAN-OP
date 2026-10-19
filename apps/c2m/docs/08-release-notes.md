@@ -1,6 +1,7 @@
 # 8. Release notes and change log
 
-Version 0.9.1 · 18 Oct 2026 · Owner: Claude records; Tahir approves releases · Rule: R-5h item 8 (D-20)
+Version 0.9.2 · 19 Oct 2026 · Owner: Claude records; Tahir approves releases · Rule: R-5h item 8 (D-20)
+Changed in 0.9.2 (19 Oct 2026): entry 0.9.2 added; its "Decided, not code" part changed by D-70 and D-71; FED setting and wording added (D-72).
 Changed in 0.9.1 (3 independent reviews, 18 Oct 2026 night): entry 0.9.1 added.
 Changed in 0.9.1 (documentation review, 18 Oct 2026): live status brought up to date; the 12 unbuilt reports move to 0.9.2; 0.9.0 entry gets its test totals and what to test after; the folder tabs (D-59) ship in 0.9.1 (its entry is written with the 0.9.1 code).
 Changed in 0.9.0: entry 0.9.0 added.
@@ -8,7 +9,25 @@ Changed in 0.8.0: entry 0.8.0 added.
 Changed in 0.7.0: entry 0.7.0 added.
 Changed in 0.6.0: entry 0.6.0 added.
 Changed in 0.5.0: entry 0.5.0 added; real figures removed from earlier entries (public repo).
-Format: Keep a Changelog, semantic versions. Live: 0.9.0. apps/c2m first pushed by Tahir on 17 Oct and the live migration run the same day (39 empty c2m_ tables); 0.6.0 and 0.7.0 pushed on 18 Oct (17:29), 0.8.0 (20:16) and 0.9.0 (22:03), each checked live by Claude. The folder tabs (D-59) were built after the 0.9.0 push and ship in 0.9.1. No data loaded yet: the first data load runs on Monday 19 Oct 2026.
+Format: Keep a Changelog, semantic versions. Live: 0.9.1 (pushed 19 Oct 09:39, checked live). apps/c2m first pushed by Tahir on 17 Oct and the live migration run the same day (39 empty c2m_ tables); 0.6.0 and 0.7.0 pushed on 18 Oct (17:29), 0.8.0 (20:16) and 0.9.0 (22:03), each checked live by Claude. The folder tabs (D-59) were built after the 0.9.0 push and ship in 0.9.1. No data loaded yet: the first data load runs on Monday 19 Oct 2026.
+
+## [0.9.2] · 19 Oct 2026 · Prices, By customer: state against target, all clients (D-68); FED, the only tax on VAN, as 1 setting (D-72) · Who: Claude built; Tahir approves
+### Changed
+- Prices, By customer opens on All clients: every white label pack at today's price with GP on cost today, its target and a state: red (below cost, below the contribution floor, or costed with no price), amber (below target), green (on target), grey (no target or not costed). A pack with no price says why (with Tahir, waiting for a date, ended). The product page uses the same state rule. The worst come first; the answer line counts them ("1 of 7 packs on target; 1 below cost, ..."). Each client in the list shows "n of N on target"; pick 1 client to see only its packs. The column "Margin" is now "GP on cost today"; the switch is "GP and target".
+- Prices, To change: the pill "below contribution" is now "below floor", the same word as By customer; a price of 0 counts as no price.
+- Guide lines for Yawar (8) and Tahir (new 9).
+- The 12 unbuilt reports carry no version number: they are built after their pictures are approved.
+- FED is the only tax on VAN, 5%, on every product and client (D-72). 1 setting, FED % (fed_pct), in Setup, Settings and targets: Yawar proposes, Tahir approves. It replaces the 5% fixed in the code for O2S prices that include FED, distributor price with FED and dealer net with FED. When Tahir approves a new FED %, every distributor and dealer row's price with FED is worked again. Each price list document keeps the FED % it was issued with.
+- Words: white label lists say "exclude FED (5%)" (was "exclude FED and sales tax"); dealer headings "Net price ex FED" and "Net price with FED" (were "ex taxes" and "with taxes"); farmer lists "include FED (5%)" (was "include taxes"); the price basis line on every list names FED with its % (was "FED and sales tax extra", "Net of taxes, and with taxes", "Taxes included"); the revise form says the FED % it uses.
+- Parked (I-38): a FED change also reaches past O2S PO prices at the next pull. No effect while FED stays 5%; Tahir: no action for now (19 Oct 2026).
+### Decided, not code (D-69 to D-71)
+- No GP target per VAN brand product: Yawar does not enter them (D-69 b withdrawn). Every VAN brand list row and the VAN brand portfolio GP will be judged against the company ambition GP; GP before freight on every list; farmer prices ex FED (price / (1 + FED %), D-72); dealer GP on the NSV before the additional discount; each list row carries its C2M pack (D-70). Built with the VAN brand list margin report, after Tahir approves its picture.
+- C2M does its minimum even if O2S stops; O2S is a second source (D-71).
+### Database
+- No table, column or migration. The first load adds 1 setting row, fed_pct = 5 (loader and fallback SQL; a missing row is taken as 5, so live works the same before the load). Tests: ui09 V-19; fix092.test K-01 to K-04; lib F-10 at FED 6%. TOTAL 169 passed, 0 failed (lib 41, van07 8, flow 57, fix06 20, ui08 12, ui09 19, fix091 6, fix092 4, confidential scan 1, migration sync 1), run in the cloud copy on 19 Oct 2026.
+### What to test after (on live)
+- Prices, By customer: All clients first; every pack has a state; picking 1 client shows its packs and counts.
+- Price lists: the white label note says "exclude FED (5%)"; dealer headings say ex FED and with FED. After the load: Setup, Settings and targets shows FED, % at 5.
 
 ## [0.9.1] · 18 Oct 2026 · 3 independent reviews: cost and management accounting, UI/UX, documentation (D-60 to D-67) · Who: Claude built; Tahir approves ("Also rules and formulas", no migration)
 ### Fixed (cost review)
@@ -67,7 +86,7 @@ Format: Keep a Changelog, semantic versions. Live: 0.9.0. apps/c2m first pushed 
 - Price list preview and PDF: number, issued and effective block; price basis beside the client block; 2 signatures; family chips; page number (D-58).
 - Phone: 1-line top bar; bottom bar of 4 places and More.
 ### Not built (Tahir, 18 Oct 2026)
-- The declared grade check (H2): no new database entry (D-58). The 12 undrawn reports: 0.9.2 after their pictures are approved (D-57; first planned for 0.9.1).
+- The declared grade check (H2): no new database entry (D-58). The 12 undrawn reports: built after their pictures are approved (D-57; first planned for 0.9.1, then 0.9.2).
 ### Changed after the first push (Tahir, 18 Oct 2026, 22:21; D-59)
 - The views inside Prices, Setup, Inputs and the product page are folder tabs, with counts in a badge. The first push showed them as underlined text. Not part of the live 0.9.0: it ships in 0.9.1.
 ### Fixed before the push (independent review, 18 Oct 2026; see 12.4)

@@ -1,6 +1,7 @@
 # 7. The Guide
 
-Version 0.9.1 · 18 Oct 2026 · Owner: Yawar; Tahir approves changes · Rule: R-5h item 7 (D-20)
+Version 0.9.2 · 19 Oct 2026 · Owner: Yawar; Tahir approves changes · Rule: R-5h item 7 (D-20)
+Changed in 0.9.2 (19 Oct 2026): Yawar line 8 and Tahir new line 9 (By customer state, D-68).
 Changed in 0.9.1 (3 independent reviews, 18 Oct 2026 night): App Guide lines for Yawar (5, new 6, new 10) and Tahir (5, new 6) matched again to GUIDE in c2m.html; partial re-approval and 2-tap wording (D-61, D-63 to D-65).
 Changed in 0.9.1 (documentation review, 18 Oct 2026): the App Guide lists for Yawar and Tahir matched again, word for word, to GUIDE in c2m.html (0.9.0 lines); rule numbers on each item; "Where things are" adds 0.9.0; Tahir's re-approvals under Waiting on others; Prices, Waiting for date; name and Sign out at the foot of the rail; 2 re-approval items after the first load.
 Changed in 0.9.0: "What is new in 0.9.0" added (the left rail, Find anything, Today groups and ages, Reports, Excel, the propose panel).
@@ -29,7 +30,7 @@ How to read this: items marked "App Guide" are the exact lines on the app's Guid
 | Before 0.9.0 | Now |
 |---|---|
 | Tabs at the top | The left rail (Analyse, Work on, Admin), with Find anything (Ctrl K); on a phone a top bar and a bottom bar of 4 places and More (D-53) |
-| No Reports | Reports, for Yawar and Tahir: GP bridge and PO price against approved price; 12 more in 0.9.2 (D-57) |
+| No Reports | Reports, for Yawar and Tahir: GP bridge and PO price against approved price; 12 more after their pictures are approved (D-57) |
 | Prices: 5 views | Prices: To change, With Tahir, Waiting for date, By customer, Price lists, VAN brand lists (D-56) |
 | Product page: Recipe, Cost by pack, Price, History | Recipe, Cost and price by pack, Price history, Sales, History (0.9.0) |
 | Name and Sign out in the header | At the foot of the rail, with Back to launcher |
@@ -45,7 +46,7 @@ App Guide (rule for each line in brackets; the brackets are not on the screen):
 5. Re-approvals: when a rate moves products over the set %, approve them on Today in 1 item. Approve all, or tick the packs you checked: the packs not ticked wait in a new item, so none is lost. (R-2 Cost, D-41, D-61)
 6. A change to a product type, the reprocessed tick or a pack's packing bill waits for Save, and says how many packs it recosts. Tahir is told of every labour or FOH rate, packing bill, product type and reprocessed change. (D-63, D-65)
 7. Inputs: 1 materials table (class, nutrient % and rate), packing items and packing bills. Try a new rate, check its effect, then save with its source; a move over the warning level asks you to confirm. (D-10, D-48)
-8. Prices: propose from "To change" in the panel beside the list; write the reason the client will read; below target needs your written reason too. Build each price list, pick the fields, create the PDF. Revise a VAN brand list; Tahir approves. (D-06, D-14, D-28, D-56)
+8. Prices: propose from "To change" in the panel beside the list; write the reason the client will read; below target needs your written reason too. Build each price list, pick the fields, create the PDF. Revise a VAN brand list; Tahir approves. Prices, By customer: every white label pack, for all clients or 1, at today's price with its state against target. (D-06, D-14, D-28, D-56, D-68)
 9. Setup: customers, the O2S link, your sheets against C2M, settings and targets with labour and FOH rates, list access, the monthly checks record and the change record. (D-49)
 10. Each month: enter actual labour and FOH, and tie the month to the books by typing ERP sales and COGS in total; C2M shows its own figures beside them and the gap. (D-18, D-64)
 
@@ -72,6 +73,7 @@ App Guide (rule for each line in brackets; the brackets are not on the screen):
 6. For your information on Today shows each change Yawar makes to labour and FOH rates, packing bills, product types and the reprocessed tick, with how many packs moved. (D-63)
 7. Margin: start with the Rs at stake, then open the customer, product and PO. (D-11, D-15)
 8. Products: 1 page per client product with its recipe, cost, price and history. (D-47)
+9. Prices, By customer: every white label pack, for all clients or 1, at today's price with its state against target (red below floor or cost or with no price, amber below target, green on target, grey no target or not costed). (D-68)
 
 Also (a separate list; its numbers 6 to 11 are kept so references in other documents still hold):
 6. VAN brand list revisions (D-28): Today shows "Approve list revision". It opens in a panel on Today: check each price from and to, then Approve (press 2 times to confirm) or Send back with a reason.

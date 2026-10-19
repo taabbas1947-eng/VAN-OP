@@ -1,6 +1,7 @@
 # 4. Database schemas
 
-Version 0.9.1 · 18 Oct 2026 · Owner: Tahir (C2M module owner); Claude records · Rule: R-5h item 4 (D-20)
+Version 0.9.2 · 19 Oct 2026 · Owner: Tahir (C2M module owner); Claude records · Rule: R-5h item 4 (D-20)
+Changed in 0.9.2 (19 Oct 2026): no table or column; the first load adds 1 setting row, fed_pct (D-72); "sales tax" taken out of the meaning of net_price and price (FED is the only tax on VAN). The migration's own comments still say "FED and sales tax" (001 is frozen).
 Changed in 0.9.1 (documentation review, 18 Oct 2026): 001 is live and frozen (run on live 17 Oct); PRODUCTION header lines; reprocessed is set on the product page; full lists of audit actions and entities. No table or column changed by this review.
 Changed in 0.9.0: no change: 0.9.0 adds no table, column or migration (D-58).
 Changed in 0.8.0: no table change; place names only (D-45 to D-52).
@@ -156,7 +157,7 @@ Keys: IX ix_fm_source (source_id).
 | ordered_kg | DECIMAL(14,3) | no | 0 | Ordered |
 | dispatched_kg | DECIMAL(14,3) | no | 0 | Dispatched |
 | open_kg | DECIMAL(14,3) | no | 0 | Ordered less dispatched; 0 when short-closed or "Old POs" |
-| net_price | DECIMAL(12,4) | no | 0 | Rs per kg or L, without FED and sales tax (F-10) |
+| net_price | DECIMAL(12,4) | no | 0 | Rs per kg or L, without FED (F-10; FED is the only tax on VAN, D-72) |
 | fed_mode | VARCHAR(20) | yes | | Inclusive or Exclusive |
 | payment_terms | VARCHAR(40) | yes | | O2S payment terms |
 | short_closed | TINYINT(1) | no | 0 | 1 = short-close approved in O2S |
@@ -506,7 +507,7 @@ Keys: UQ uq_mc (month, kind).
 |---|---|---|---|---|
 | id | INT AI | no | | PK |
 | client_pack_id | INT | no | | c2m_client_pack.id |
-| price | DECIMAL(12,4) | no | | Rs per kg or L, net of FED and sales tax |
+| price | DECIMAL(12,4) | no | | Rs per kg or L, without FED (the only tax on VAN, D-72) |
 | prev_price | DECIMAL(12,4) | yes | | Price it replaces; taken again at approval |
 | valid_from | DATE | no | | Effective date. On approval: the later of the proposed date and the approval date |
 | valid_to | DATE | yes | | Valid till: the LAST day the price applies (inclusive). Set to the day before a new price starts |
@@ -587,7 +588,7 @@ Keys: IX ix_lrev (list_name, status).
 
 ### G. Settings, access, notices
 
-**c2m_setting** (9 rows by default, listed below the table). Owner: Yawar proposes; Tahir approves thresholds. Rule D-18.
+**c2m_setting** (9 rows from the migration, listed below the table; the first load adds fed_pct, so 10 rows after it, D-72). Owner: Yawar proposes; Tahir approves thresholds. Rule D-18.
 
 | Column | Type | Null | Default | Meaning |
 |---|---|---|---|---|
@@ -611,6 +612,12 @@ Default rows (migration 001):
 | ambition_gp | 0 | 0 | Company ambition GP, %; set by the first load |
 | wl_budget_gp | 0 | 0 | White label budget GP, %; set by the first load |
 | conv_budget_month | 0 | 0 | Budget labour + FOH a month, Rs; set by the first load; compared with monthly actuals |
+
+Added by the first load, not the migration (0.9.2, D-72; owner: Yawar proposes, Tahir approves):
+
+| k | Value | needs_approval | Meaning |
+|---|---|---|---|
+| fed_pct | 5 | 1 | FED, %: the only tax on VAN, charged on every product and client. Above 0 and below 100; a missing row is taken as 5 |
 
 **c2m_setting_request**. Owner: Yawar proposes; Tahir decides. Rule D-18.
 

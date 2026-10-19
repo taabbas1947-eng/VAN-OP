@@ -1,6 +1,7 @@
 # 10. Data dictionary and glossary
 
-Version 0.9.1 · 18 Oct 2026 · Owner: Yawar; Himayat for material classes · Rule: R-5h item 10 (D-20)
+Version 0.9.2 · 19 Oct 2026 · Owner: Yawar; Himayat for material classes · Rule: R-5h item 10 (D-20)
+Changed in 0.9.2 (19 Oct 2026): net_price without FED only; setting fed_pct; glossary FED; dealer list headings ex FED and with FED (D-72).
 Changed in 0.9.1 (3 independent reviews, 18 Oct 2026 night): 10.4 added (fields and terms of D-60 to D-65).
 Changed in 0.9.1 (documentation review, 18 Oct 2026): price and list revision status values as the code writes them; reprocessed set on the product page; rows for importedAt, nextDocRef, fam, typeName; full audit action list (in 04); customer segment list; product page has 5 tabs; new glossary words (Waiting on others, Waiting for date, With Tahir, Reports, Folder tabs, PO price against approved price).
 Changed in 0.9.0: state fields priceHistory, poLines, importedAt, nextDocRef, fam, typeName; glossary Left rail, Find anything, Next move, Stuck, Family colour, Working table, GP bridge (D-53 to D-58).
@@ -13,7 +14,7 @@ Changed in 0.3.0 and 0.3.1: rs_per_kg fixed (1 rate of 1 kind, labour or FOH). A
 
 | Field | Meaning | Unit or values | Source | Rule |
 |---|---|---|---|---|
-| net_price | Price per kg or L on the O2S PO line, without FED and sales tax | Rs | O2S orders[].lines[].invoicePrice; / 1.05 when fedMode is Inclusive; 0 for free orders | F-10 |
+| net_price | Price per kg or L on the O2S PO line, without FED | Rs | O2S orders[].lines[].invoicePrice; / (1 + FED %) when fedMode is Inclusive (fed_pct, 5 now); 0 for free orders | F-10, D-72 |
 | open_kg | Kg still to ship on a PO line | kg or L | ordered less dispatched; 0 when short-closed or in an "Old POs" customer | D-15 |
 | truck_date | Day the truck counts as a sale | date | O2S shipments[].approvedDate (gate pass approved); a truck still loading is not a sale yet | D-16, D-60 |
 | qty (recipe line) | Input per 1 kg (or L) of product, loss included | kg per kg | Majid; day 1 from Yawar's sheet | R-2 Recipes |
@@ -84,7 +85,7 @@ Changed in 0.3.0 and 0.3.1: rs_per_kg fixed (1 rate of 1 kind, labour or FOH). A
 | Notice for | coo, cfo | c2m_notice.for_role |
 | Exposure basis (screen only, not saved) | budget kg, run rate (last 3 months) | Margin screen switch |
 | History basis (screen only, not saved) | cost approved on the truck's date; restated at today's labour and FOH rates | Margin screen switch |
-| Settings | rate_warn_pct, reapprove_pct, red_share_pct, red_gap_pts, forward_months (Tahir approves); budget_gp, ambition_gp, wl_budget_gp, conv_budget_month (notice to Tahir; start at 0, set by the first load) | c2m_setting.k |
+| Settings | rate_warn_pct, reapprove_pct, red_share_pct, red_gap_pts, forward_months, fed_pct (Tahir approves; fed_pct is added by the first load, D-72); budget_gp, ambition_gp, wl_budget_gp, conv_budget_month (notice to Tahir; start at 0, set by the first load) | c2m_setting.k |
 | Audit actions | the full list is in 04, c2m_audit (0.5.0 added cancelled, withdrawn, applied, cost moved since shown) | c2m_audit.action |
 
 ## 10.3 Glossary
@@ -113,7 +114,7 @@ Changed in 0.3.0 and 0.3.1: rs_per_kg fixed (1 rate of 1 kind, labour or FOH). A
 - **COBO**: VAN's own outlets.
 - **KAM**: key account manager.
 - **White label**: products VAN makes under a client's brand.
-- **FED**: federal excise duty (5% on the distributor list).
+- **FED**: federal excise duty, the only tax on VAN, on every product and client; the % is the setting fed_pct, 5 (D-72, 10.5).
 - **MRP, FRP**: maximum retail price, farmer retail price.
 - **NSV**: dealer price before discount.
 - **PKT**: Pakistan time, Asia/Karachi.
@@ -127,7 +128,7 @@ Changed in 0.3.0 and 0.3.1: rs_per_kg fixed (1 rate of 1 kind, labour or FOH). A
 - **Waiting on others** (0.9.0, D-54): the group on Today of items waiting with someone else, with who has each and its age.
 - **Waiting for date** (0.9.0, D-56): the Prices view of prices Tahir approved for a later date.
 - **With Tahir** (0.9.0, D-56): the Prices view of proposals waiting for Tahir (called Proposals before 0.9.0).
-- **Reports** (0.9.0, D-57): the place for Yawar and Tahir with 14 report cards; 2 built, 12 in 0.9.2.
+- **Reports** (0.9.0, D-57): the place for Yawar and Tahir with 14 report cards; 2 built, 12 after their pictures are approved.
 - **PO price against approved price** (0.9.0, F-20): the report of O2S PO lines entered below the approved price.
 - **Folder tabs** (0.9.1, D-59): the bordered tabs for the views inside a place, with counts in a badge.
 - **priceHistory, poLines** (state, cfo and coo only): every approved price with its dates; every O2S PO line placed on a client pack, open or shipped, with its received date, ordered kg and price.
@@ -147,3 +148,12 @@ Changed in 0.3.0 and 0.3.1: rs_per_kg fixed (1 rate of 1 kind, labour or FOH). A
 | Method (GP bridge) | The part of the cost change between 2 months that comes from the 13 Oct change of conversion basis | Rs | D-62, D-35 |
 | Left open from item N | A re-approval item holding the packs not ticked when item N was approved in part | text cause | D-61 |
 | Monthly check data | rate_check: the 15 materials with the most Rs in the month, each with C2M rate, date, source, Rs and register rate; tie_books: ERP sales and COGS with C2M's own figures for the month | JSON in c2m_monthly_check.data_json; Rs | D-64 |
+
+## 10.5 Added in 0.9.2 (owner: Yawar; Tahir ruled 19 Oct 2026, D-72)
+
+| Field or word | Meaning | Unit or values | Rule |
+|---|---|---|---|
+| FED | Federal excise duty: the only tax on VAN, charged on every product and client. White label prices are without FED; the distributor and dealer lists show the price without and with FED; farmer prices include it | % (fed_pct, 5) | D-72, F-21 |
+| fed_pct | The FED % C2M uses everywhere: O2S prices that include FED, distributor price with FED, dealer net with FED, the notes on every price list, and the farmer price without FED in the VAN brand list margin report (when built) | % above 0 and below 100 | D-72 |
+| fedPct (state, document) | The FED % in the state for every role, and the FED % stored with each price list document when it is issued | % | D-72 |
+| Net price ex FED, Net price with FED | Dealer list headings (were "Net price ex taxes" and "Net price with taxes") | Rs per pack | D-72 |

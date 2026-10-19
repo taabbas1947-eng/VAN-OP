@@ -1,6 +1,7 @@
 # 11. Access and roles matrix
 
-Version 0.9.1 · 18 Oct 2026 · Owner: Tahir (grants roles in the platform's People and access); Yawar grants lists · Rule: R-5h item 11 (D-20), R-2 People and rights
+Version 0.9.2 · 19 Oct 2026 · Owner: Tahir (grants roles in the platform's People and access); Yawar grants lists · Rule: R-5h item 11 (D-20), R-2 People and rights
+Changed in 0.9.2 (19 Oct 2026): FED % (fed_pct) is a setting Yawar proposes and Tahir approves; every role receives the FED % with the state (D-72). No right changed.
 Changed in 0.9.1 (3 independent reviews, 18 Oct 2026 night): 11.8 added (D-62 to D-64).
 Changed in 0.9.1 (documentation review, 18 Oct 2026): Reports row and Prices views in 11.1; Rule column in 11.2; Mark notices seen in 11.3; a rates row and Waiting on others in 11.4; the KAM's documents limit in 11.5; nobody approves an item they proposed (D-63) in 11.7.
 Changed in 0.9.0: Yawar and Tahir get Reports (8 places, D-53, D-57); the new state fields priceHistory, poLines, importedAt and nextDocRef go to cfo and coo only; no right changed.
@@ -16,7 +17,7 @@ Roles live in user_module_roles, module 'c2m'. Code: ROLES, SEES_COST, SEES_PRIC
 |---|---|---|---|---|---|---|---|
 | Today, with its panels | yes: every job and approval of his opens in a panel | yes: every approval of his opens in a panel; re-approvals read only | yes | yes | yes | no | R-2, D-46 |
 | Margin | yes | yes | no | no | no | no | D-11 |
-| Reports (GP bridge, PO price against approved price; 12 more in 0.9.2) | yes, with Export to Excel | yes, with Export to Excel | no | no | no | no | D-57 |
+| Reports (GP bridge, PO price against approved price; 12 more after their pictures are approved) | yes, with Export to Excel | yes, with Export to Excel | no | no | no | no | D-57 |
 | Products (1 page per client product) | yes, with cost and price; propose; product type, reprocessed, packing bill per pack | yes, with cost and price; read only | no | no | no | no | D-47 |
 | Recipes | no (the product page) | no (the product page) | yes, with cost; his step opens in a panel | yes, no cost; his step opens in a panel | yes, with cost; his step opens in a panel | no | D-08, D-46, D-47 |
 | Prices: To change, With Tahir, Waiting for date, By customer, Price lists, VAN brand lists | propose; build lists; propose list revisions | approve (in a panel); build lists; withdraw a price or revision waiting for its date | no | no | no | no | D-06, D-14, D-28, D-34, D-46 |
@@ -79,7 +80,7 @@ Only cfo and coo open Setup. "edit" = forms and buttons; "view" = read only. Wor
 | Material rates (with source and the last 6), packing item prices, packing bills, labour and FOH rates (state rates, packingItems, packingBills, rules) | yes | yes | yes | no | yes | no |
 | Client products and recipes without price (brand, spec, packs, recipe state and lines) | yes | yes | yes | yes (no cost) | yes | no |
 | Prices, margin, target, budget | yes | yes | no | no | no | no |
-| Settings (thresholds, budget lines) | yes | yes | no | no | no | no |
+| Settings (thresholds, budget lines, FED %) | yes | yes | no | no | no | no |
 | Re-approval items | yes | yes (cannot act; shown under "Waiting on others", not counted as jobs) | no | no | no | no |
 | Stuck recipes (more than 2 working days at 1 step) | no | yes, on Today | no | no | no | no |
 | Materials master (no rates) | yes | yes | no | yes | no | no |

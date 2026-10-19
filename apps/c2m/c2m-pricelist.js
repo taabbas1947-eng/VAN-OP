@@ -7,6 +7,7 @@
 'use strict';
 const path = require('path');
 const fs = require('fs');
+const lib = require('./c2m-lib');
 
 const AUDIENCES = {
   wl: 'White label client (monthly)', dist: 'Distributor and channel partner', dealer: 'Dealer, Sindh',
@@ -15,7 +16,7 @@ const AUDIENCES = {
 const FIELDS = {
   wl: [['product', 'Product', 1], ['spec', 'Specification', 1], ['pack', 'Pack size', 1], ['cur', 'Current price, Rs per kg or L', 1], ['prev', 'Previous price', 1], ['chg', '% change', 1], ['reason', 'Reason for change', 1], ['eff', 'Effective date', 1]],
   dist: [['product', 'Product', 1], ['spec', 'Specification', 1], ['pack', 'Pack size', 1], ['cur', 'Price ex FED, Rs per pack', 1], ['fed', 'Price with FED', 1], ['prev', 'Previous price', 0], ['chg', '% change', 0], ['reason', 'Reason for change', 0], ['mrp', 'Benchmark MRP', 1], ['terms', 'Payment terms', 1]],
-  dealer: [['product', 'Product', 1], ['spec', 'Specification', 1], ['pack', 'Pack size', 1], ['cur', 'Net price ex taxes', 1], ['disc', 'Additional discount', 1], ['netfed', 'Net price with taxes', 1], ['frp', 'FRP', 1], ['mrp', 'MRP', 1]],
+  dealer: [['product', 'Product', 1], ['spec', 'Specification', 1], ['pack', 'Pack size', 1], ['cur', 'Net price ex FED', 1], ['disc', 'Additional discount', 1], ['netfed', 'Net price with FED', 1], ['frp', 'FRP', 1], ['mrp', 'MRP', 1]],
   farmer: [['product', 'Product', 1], ['spec', 'Specification', 1], ['cur', 'Sale price, Rs', 1]],
 };
 const fieldsFor = a => FIELDS[a.startsWith('farmer') || a === 'web' ? 'farmer' : a];
@@ -50,18 +51,20 @@ function title(aud, data) {
   return { t: 'Farmer Price List', to: { farmer_pb: 'Punjab', farmer_sn: 'Sindh', farmer_snc: 'Sindh, credit' }[aud], sub: 'Retail prices' };
 }
 
+/** FED is the only tax on VAN, charged on every product and client (Tahir, 19 Oct 2026, D-72); the % is the one stored with the document. */
+const fedTxt = data => `${lib.fedPct(data && data.fedPct)}%`;
 function notes(aud, data) {
   const n = [];
-  if (aud === 'wl') { n.push('Prices are ex-factory and exclude FED and sales tax.'); if (data.rule === 'time') n.push('POs received before the effective date are supplied at the price on the PO.'); n.push('Prices apply to the packing arrangement agreed for each product.'); }
-  if (aud === 'dist') n.push('Price with FED includes FED at 5%. Benchmark MRP is for guidance.');
+  if (aud === 'wl') { n.push(`Prices are ex-factory and exclude FED (${fedTxt(data)}).`); if (data.rule === 'time') n.push('POs received before the effective date are supplied at the price on the PO.'); n.push('Prices apply to the packing arrangement agreed for each product.'); }
+  if (aud === 'dist') n.push(`Price with FED includes FED at ${fedTxt(data)}. Benchmark MRP is for guidance.`);
   if (aud === 'dealer') n.push('Payment by demand draft, pay order or bank deposit only. No returns.');
-  if (aud.startsWith('farmer') || aud === 'web') n.push('Prices include taxes and may change; check the latest list.');
+  if (aud.startsWith('farmer') || aud === 'web') n.push(`Prices include FED (${fedTxt(data)}) and may change; check the latest list.`);
   if (data.note) n.push(data.note);
   return n;
 }
 
 /** The price basis printed beside the client block (L2); never the same words as the title's line under the addressee. */
-const BASIS = { wl: ['Rs per kg or L, ex factory', 'FED and sales tax extra'], dist: ['Rs per pack, ex FED', 'FED at 5% in its own column'], dealer: ['Rs per pack', 'Net of taxes, and with taxes'], farmer: ['Rs per pack', 'Taxes included'] };
+const BASIS = data => ({ wl: ['Rs per kg or L, ex factory', `FED (${fedTxt(data)}) extra`], dist: ['Rs per pack, ex FED', `FED at ${fedTxt(data)} in its own column`], dealer: ['Rs per pack', `Ex FED, and with FED at ${fedTxt(data)}`], farmer: ['Rs per pack', `FED (${fedTxt(data)}) included`] });
 const FOOTER = 'Vital Agri Nutrients (Private) Limited · Head office: 605 Al-Hafeez Heights, Gulberg III, Lahore 54660 · Plant: 49-Km Multan Road, Phool Nagar Bypass, Lahore · +92\u00a042\u00a035762215 · www.van.com.pk';
 const LOGO = path.join(__dirname, 'assets', 'van-logo.png');
 
@@ -87,7 +90,7 @@ function pdf(res, aud, data, picked, reasons) {
   doc.moveTo(36, ry).lineTo(36 + W, ry).lineWidth(2.5).strokeColor(NAVY).stroke();
   doc.moveTo(36 + W * 0.82, ry).lineTo(36 + W * 0.86, ry).lineWidth(2.5).strokeColor(RED).stroke();
   // Client block with the price basis beside it (L2)
-  const basis = BASIS[aud] || BASIS.farmer; const cw2 = W / 2 - 20;
+  const B = BASIS(data); const basis = B[aud] || B.farmer; const cw2 = W / 2 - 20;
   // The box grows with a long client name, so its 2 lines never print on top of each other
   doc.font('Helvetica-Bold').fontSize(10.5); const h1 = Math.max(doc.heightOfString(t.to, { width: cw2 }), doc.heightOfString(basis[0], { width: cw2 }));
   doc.font('Helvetica').fontSize(8.5); const h2 = Math.max(doc.heightOfString(t.sub, { width: cw2 }), doc.heightOfString(basis[1], { width: cw2 }));

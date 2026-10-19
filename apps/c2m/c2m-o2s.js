@@ -21,6 +21,7 @@ async function pullO2S(q, byUser) {
   const now = lib.pkNow();
   const [ins] = await q('INSERT INTO c2m_sync_run (started_at, by_user) VALUES (?, ?)', [now, byUser]);
   const syncId = ins.insertId;
+  const [[fr]] = await q("SELECT v FROM c2m_setting WHERE k='fed_pct'"); const fed = lib.fedPct(fr && fr.v); // D-72
   const issues = [];
   const lineById = new Map();
   let nl = 0, nt = 0;
@@ -28,7 +29,7 @@ async function pullO2S(q, byUser) {
   // A failure part-way leaves the previous pull's data in place (audit finding 16).
   for (const o of d.orders || []) {
     for (const l of o.lines || []) {
-      const price = lib.netPoPrice(l.invoicePrice, o.fedMode, o.foc);
+      const price = lib.netPoPrice(l.invoicePrice, o.fedMode, o.foc, fed);
       if (!o.foc && price > 0 && price < 10) issues.push(`PO ${o.po}: ${l.brand} priced Rs ${l.invoicePrice} (below Rs 10, not a real price)`);
       if (!o.foc && !(price > 0)) issues.push(`PO ${o.po}: ${l.brand} has no price on a PO that is not FOC (C2M treats it as FOC: out of sales until the price is entered in O2S)`);
       const sc = l.shortClose || {};

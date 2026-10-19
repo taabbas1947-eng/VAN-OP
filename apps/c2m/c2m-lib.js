@@ -107,7 +107,7 @@ function costBreakdown({ materials, packing, conversion, freight }) {
   return { materials: m, packing: p, conversion: c, freight: f, total: m + p + c + f };
 }
 
-/** Margin on net price before FED and sales tax (ruling 10 Oct): (price - cost) / price x 100. */
+/** Margin on net price before FED (ruling 10 Oct; FED is the only tax on VAN, D-72): (price - cost) / price x 100. */
 function marginPct(price, cost) {
   if (!(price > 0) || cost == null) return null;
   return (price - cost) / price * 100;
@@ -122,11 +122,15 @@ function targetPrice(cost, targetGp) {
 /** Contribution floor (ruled 14 Oct, 5f; labour added 16 Oct, 5j 8): materials + packing + freight + the labour rate per kg; FOH is fixed. */
 function contributionFloor(b) { return (Number(b.materials) || 0) + (Number(b.packing) || 0) + (Number(b.freight) || 0) + (Number(b.labour) || 0); }
 
-/** Net PO price from O2S (O2S rule): FED-inclusive lines divided by 1.05; free lines 0. */
-function netPoPrice(invoicePrice, fedMode, foc) {
+/** FED % from the setting fed_pct (D-72): the only tax on VAN, charged on every product and client. A missing,
+ * blank or out-of-range value (not above 0 and below 100) is taken as 5, the rate ruled by Tahir on 19 Oct 2026. */
+function fedPct(v) { const n = Number(v); return v != null && v !== '' && n > 0 && n < 100 ? n : 5; }
+
+/** Net PO price from O2S (O2S rule): FED-inclusive lines divided by (1 + FED %); free lines 0. */
+function netPoPrice(invoicePrice, fedMode, foc, fed = 5) {
   if (foc) return 0;
   const p = Number(invoicePrice) || 0;
-  return fedMode === 'Inclusive' ? p / 1.05 : p;
+  return fedMode === 'Inclusive' ? p / (1 + fedPct(fed) / 100) : p;
 }
 
 /** Cost re-approval needed when cost moves more than pct from the last approved cost (ruling 10 Oct, 3%). */
@@ -194,6 +198,6 @@ function fmtInt(x) { return x == null ? '' : Math.round(x).toLocaleString('en-US
 
 module.exports = {
   round, rateWarning, materialCost, recipeTotal, packingPerUnit, pickConversionRule, conversionFor, costBreakdown,
-  marginPct, targetPrice, contributionFloor, netPoPrice, needsReapproval, exposure, flag,
+  marginPct, targetPrice, contributionFloor, fedPct, netPoPrice, needsReapproval, exposure, flag,
   RECIPE_FLOW, RECIPE_WHO, fmtInt, pkToday, pkNow, FAMILY_COLOURS, familyColour,
 };

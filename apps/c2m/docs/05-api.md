@@ -1,6 +1,7 @@
 # 5. API documentation
 
-Version 0.9.1 · 18 Oct 2026 · Owner: Tahir (C2M module owner); Claude records · Rule: R-5h item 5 (D-20)
+Version 0.9.2 · 19 Oct 2026 · Owner: Tahir (C2M module owner); Claude records · Rule: R-5h item 5 (D-20)
+Changed in 0.9.2 (19 Oct 2026): no route added or removed. GET /api/c2m/state adds fedPct for every role; settings refuses fed_pct not above 0 and below 100 (400); an approved FED change works again the price with FED on every distributor and dealer row; list revisions and documents use the FED setting; a document stores its fedPct (D-72).
 Changed in 0.9.1 (3 independent reviews, 18 Oct 2026 night): no route added or removed. reapprovals approve replies reopened (D-61); the 4 approval routes refuse the proposer with 403 (D-63); checks validates its figures (D-64); GET /api/c2m/state, cfo and coo: foc [{date, cust, grp, brand, pack, packId, po, kg, cost}] and FOC lines left out of sales and open (D-62); each pack, for those who see prices: priceEnded {price, till} or null, lastPoPrice; checks rows carry data (parsed) in place of data_json.
 Changed in 0.9.1 (documentation review, 18 Oct 2026): me.nav for cfo and coo shows reports; a wrong mount answers 503 (5.1, 5.3); state reply keys by role (5.2a); past dates refused on propose and revise; more 403 and 503 messages; lock clash 409; first example corrected; examples for every route (5.4).
 Changed in 0.9.0: no route added or removed. GET /api/c2m/state adds, for cfo and coo only: priceHistory [{id, packId, price, prev, from, to, reason, by, at, decidedBy, decidedAt}], poLines [{po, received, cust, grp, brand, pack, packId, kg, price, foc}], importedAt, nextDocRef; proposals add decidedAt; products add fam and typeName (every role that receives products; a viewer receives none); white label list rows add typeId and fam. me.nav for cfo and coo adds reports (D-53, D-55, D-57). priceHistory holds approved prices, including those a newer price ended; poLines covers this financial year. POST /api/c2m/prices/propose now refuses an empty reason (400, "Write the reason the client will read on the list.").
@@ -59,7 +60,7 @@ Roles: cfo = Yawar, coo = Tahir, production = Majid, qc = Himayat, plant = Fahim
 | POST | /api/c2m/prices/:id/approve | coo | | {ok, waitsUntil, cancelled}. Starts on the later of its effective date and today. waitsUntil = the date when it is dated ahead, else null; today's price stays in force until then. cancelled = how many older waiting prices for the pack it replaced (audit "cancelled") | D-22, D-34, R-5i 3 | yes |
 | POST | /api/c2m/prices/:id/withdraw | coo | {why} | {ok, issuedDocs}; only an approved price still waiting for its date; the price it shortened gets its old end back; issuedDocs lists price lists already issued with it; Yawar gets a notice (audit "withdrawn", "end restored") | D-34 | yes |
 | POST | /api/c2m/prices/:id/sendback | coo | {reason} | {ok}; 400 "Nothing to send back" if no longer proposed | D-09 | |
-| POST | /api/c2m/settings | cfo | {changes:{key: value}} | {applied, pending} | D-18 | |
+| POST | /api/c2m/settings | cfo | {changes:{key: value}} | {applied, pending}; 400 when a value is not a number, or fed_pct is not above 0 and below 100 | D-18, D-72 | |
 | POST | /api/c2m/settings/requests/:id/approve | coo | | {ok} | D-18 | yes |
 | POST | /api/c2m/settings/requests/:id/refuse | coo | | {ok} | D-18 | yes |
 | POST | /api/c2m/targets/request | cfo | {clientProductId, toGp (0 to below 100), reason} | {id}; refused if the product already has a target request waiting for Tahir | D-06 | |
@@ -83,7 +84,7 @@ Roles: cfo = Yawar, coo = Tahir, production = Majid, qc = Himayat, plant = Fahim
 
 | Keys | Who receives them |
 |---|---|
-| me {user, role, label, nav, name}, settings (rows for cfo and coo only, [] for others), products, recipes, today | every role (a viewer gets products [] and recipes []) |
+| me {user, role, label, nav, name}, settings (rows for cfo and coo only, [] for others), fedPct (0.9.2, D-72), products, recipes, today | every role (a viewer gets products [] and recipes []) |
 | products[].packs[].cost, costGaps, approvedCost, floor, labour, sheet; recipes[].lines[].rate, date, cost; recipes[].materials | cfo, coo, production, plant |
 | products[].packs[].price, priceSource, prevPrice, priceFrom, priceTill, nextPrice, waitingProposal; products[].target, budget, budgetKg | cfo, coo |
 | materials (no rates), materialTypes | qc, cfo, coo |
@@ -93,7 +94,7 @@ Roles: cfo = Yawar, coo = Tahir, production = Majid, qc = Himayat, plant = Fahim
 | sales, foc (0.9.1), unmatched, open, proposals, priceHistory, poLines, importedAt, nextDocRef, imports, settingRequests, targetRequests, notices, grants, people, lists, wlLists, actuals, checks, sources, fieldMap, lastSync, audit (last 60), freight, listItems, listRevisions, customers, docs (all 12) | cfo, coo |
 | docs (01, 07, 11) | production, qc, plant |
 
-Field rules for list revisions: dist takes now, mrp; dealer takes nsv, disc (a fraction below 1; the page types it as %), frp, mrp; farmer takes pb, sn, snc. On approval C2M works out dist fed = now x 1.05, dealer net = nsv x (1 - disc), netfed = net x 1.05.
+Field rules for list revisions: dist takes now, mrp; dealer takes nsv, disc (a fraction below 1; the page types it as %), frp, mrp; farmer takes pb, sn, snc. On approval C2M works out dist fed = now x (1 + FED %), dealer net = nsv x (1 - disc), netfed = net x (1 + FED %); FED % is the setting fed_pct (5 now, D-72). When Tahir approves a new FED %, every distributor and dealer row is worked again.
 
 ## 5.3 Errors
 

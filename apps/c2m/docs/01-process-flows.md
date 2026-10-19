@@ -1,6 +1,7 @@
 # 1. Process flow diagrams
 
-Version 0.9.1 · 18 Oct 2026 · Owner: Yawar (CFO) keeps it current; Tahir approves changes · Rule: R-5h item 1 (D-20)
+Version 0.9.2 · 19 Oct 2026 · Owner: Yawar (CFO) keeps it current; Tahir approves changes · Rule: R-5h item 1 (D-20)
+Changed in 0.9.2 (19 Oct 2026): the 12 unbuilt reports carry no version number (built after their pictures are approved).
 Changed in 0.9.1 (3 independent reviews, 18 Oct 2026 night): 1.3 approve ticked only leaves the rest in a new item (D-61). Other 0.9.1 logic is in 03, 3.16.
 Changed in 0.9.1 (documentation review, 18 Oct 2026): 1.1 cost approval checks every pack is fully costed (D-40); 1.3 rate and packing price saves do not yet leave out waiting packs (I-18), Tahir sees re-approvals under Waiting on others; 1.5 and 1.7 place names; 1.6 refusals (D-40, D-44, D-56); 1.11 2 re-approval items; new diagrams 1.9 to 1.13, new 1.16 Today and 1.17 Reports; 1.15 Reports, 6 Prices views, 5 product page tabs; rule numbers on every step.
 Changed in 0.9.0: no flow changed. Where work is done stays as 1.15; Today now orders it (next move, groups, ages: D-54) and Reports join for Yawar and Tahir (D-57).
@@ -342,7 +343,7 @@ flowchart LR
     A --> D[Done: the panel shows the new state; Close or Escape · D-46]
   end
   subgraph S [Places in the left rail for looking and setup · D-53]
-    M[Margin · D-11] --- RP[Reports: GP bridge, PO price against approved price; 12 more in 0.9.2 · D-57]
+    M[Margin · D-11] --- RP[Reports: GP bridge, PO price against approved price; 12 more after their pictures are approved · D-57]
     RP --- PR[Products: 1 page per client product; tabs Recipe, Cost and price by pack, Price history, Sales, History · D-47]
     PR --- PC[Prices: To change, With Tahir, Waiting for date, By customer, Price lists, VAN brand lists · D-56]
     PC --- IN[Inputs: Materials, Packing items, Packing bills · D-48]
@@ -390,7 +391,7 @@ flowchart TB
 flowchart LR
   subgraph People [Yawar or Tahir]
     A[Reports: 14 cards in 4 groups · D-57] --> B{Built? · D-57}
-    B -- no --> L([Shows "0.9.2": its picture goes to Tahir for approval first · D-57])
+    B -- no --> L([Shows "not built yet": its picture goes to Tahir for approval first · D-57])
     B -- yes, GP bridge --> G[Pick group and month; parts must add up within Rs 1 · F-19]
     B -- yes, PO price --> P[Pick this month, last month or FY to date · F-20]
     G --> X([Export to Excel])

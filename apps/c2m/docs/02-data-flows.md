@@ -1,6 +1,7 @@
 # 2. Data flow diagrams
 
-Version 0.9.1 · 18 Oct 2026 · Owner: Yawar; data links set by Tahir and Yawar in Setup, From O2S · Rule: R-5h item 2 (D-20)
+Version 0.9.2 · 19 Oct 2026 · Owner: Yawar; data links set by Tahir and Yawar in Setup, From O2S · Rule: R-5h item 2 (D-20)
+Changed in 0.9.2 (19 Oct 2026): step 3 divides FED-inclusive PO prices by (1 + FED %), the setting fed_pct (D-72).
 Changed in 0.9.1 (3 independent reviews, 18 Oct 2026 night): step 4 counts a truck only with its gate pass (D-60); 2.16 FOC and notices (D-62, D-63).
 Changed in 0.9.1 (documentation review, 18 Oct 2026): 2.2 a truck counts only with its gate pass (approvedDate, D-60), issues list and change record; 2.4 the price in force uses valid_to as the last day; new level 1 flows 2.10 to 2.15 (recipe chain, price proposal, setting and target requests, import queue, monthly checks and grants, Reports and the 0.9.0 state fields).
 Changed in 0.9.0: the state adds read-only fields for Yawar and Tahir (price history, PO lines, import date, next document number) built from tables C2M already holds; nothing new is read from O2S and nothing is written (D-58).
@@ -29,7 +30,7 @@ C2M writes to no other system (D-12). O2S holds no recipes; C2M is the recipe ma
 |---|---|---|
 | 1 | c2m_source (claim: status to Pulling, only if not already Pulling, or Pulling for more than 10 minutes) | c2m_source.status, last_pull_note "Pulling since ..." |
 | 2 | app_state.data (orders, shipments) | c2m_sync_run (start) |
-| 3 | each order line | c2m_o2s_po_line: net price (FED-inclusive / 1.05, free 0), ordered, dispatched, open kg (0 if short-closed or "Old POs") |
+| 3 | each order line | c2m_o2s_po_line: net price (FED-inclusive / (1 + FED %), fed_pct, 5 now; free 0), ordered, dispatched, open kg (0 if short-closed or "Old POs") |
 | 4 | each shipment not voided, with a known line | c2m_o2s_truck: date (approvedDate: the gate pass approval), kg. A truck still loading has no approvedDate and is left out until its gate pass (D-60) |
 | 5 | rows from older pulls | deleted from c2m_o2s_po_line and c2m_o2s_truck |
 | 6 | customers not matched; prices below Rs 10 | c2m_sync_run.issues_json; c2m_source status Read (or Failed with the reason); c2m_audit (action pull, with the counts) |

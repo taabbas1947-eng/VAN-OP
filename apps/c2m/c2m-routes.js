@@ -213,7 +213,7 @@ module.exports = function mountC2mRoutes(app, deps) {
     });
 
     // Settings (budget and ambition GP, thresholds) go to Yawar and Tahir only (review S9)
-    const out = { me: { user, role, label: ROLES[role].label, nav: ROLES[role].nav }, settings: ['cfo', 'coo'].includes(role) ? D.settings.rows : [], products, recipes, today: today() };
+    const out = { me: { user, role, label: ROLES[role].label, nav: ROLES[role].nav }, settings: ['cfo', 'coo'].includes(role) ? D.settings.rows : [], fedPct: lib.fedPct(D.settings.values.fed_pct), products, recipes, today: today() };
     if (['qc', 'cfo', 'coo'].includes(role)) {
       // Material master without rates: Himayat's screen (ruled 16 Oct)
       out.materials = [...D.rates.values()].map(g => ({ gradeId: g.gradeId, materialId: g.materialId, name: g.name, grade: g.grade, unit: g.unit, typeId: g.typeId, type: g.type, role: g.role, fields: g.fields, nutrients: g.nutrients }));
@@ -754,9 +754,9 @@ module.exports = function mountC2mRoutes(app, deps) {
     const ch = (req.body || {}).changes || {};
     const [rows] = await q('SELECT k, v, label, needs_approval FROM c2m_setting');
     const pend = {}, direct = [];
-    for (const r of rows) if (ch[r.k] != null && String(ch[r.k]) !== String(r.v)) { if (!(Number(ch[r.k]) >= 0)) throw bad(`${r.label}: type a number.`); (r.needs_approval ? (pend[r.k] = String(ch[r.k])) : direct.push([r, String(ch[r.k])])); }
+    for (const r of rows) if (ch[r.k] != null && String(ch[r.k]) !== String(r.v)) { if (!(Number(ch[r.k]) >= 0)) throw bad(`${r.label}: type a number.`); if (r.k === 'fed_pct' && !(Number(ch[r.k]) > 0 && Number(ch[r.k]) < 100)) throw bad(`${r.label}: type a % above 0 and below 100.`); (r.needs_approval ? (pend[r.k] = String(ch[r.k])) : direct.push([r, String(ch[r.k])])); }
     await tx(async () => {
-      for (const [r, v] of direct) { await q('UPDATE c2m_setting SET v=?, updated_by=?, updated_at=? WHERE k=?', [v, req.c2m.user, now(), r.k]); await notice('coo', `Setting changed: ${r.label} ${r.v} to ${v}`, req.c2m.user); await audit(req.c2m.user, 'setting', r.k, 'change', r.v, v, null); }
+      for (const [r, v] of direct) { await q('UPDATE c2m_setting SET v=?, updated_by=?, updated_at=? WHERE k=?', [v, req.c2m.user, now(), r.k]); await notice('coo', `Setting changed: ${r.label} ${r.v} to ${v}`, req.c2m.user); await audit(req.c2m.user, 'setting', r.k, 'change', r.v, v, null); if (r.k === 'fed_pct') await refedLists(req.c2m.user); }
       if (Object.keys(pend).length) {
         const summary = rows.filter(r => pend[r.k] != null).map(r => `${r.label} ${r.v} to ${pend[r.k]}`).join('; ');
         await q('INSERT INTO c2m_setting_request (changes_json, summary, by_user, at) VALUES (?,?,?,?)', [JSON.stringify(pend), summary, req.c2m.user, now()]);
@@ -772,6 +772,7 @@ module.exports = function mountC2mRoutes(app, deps) {
         const [[old]] = await q('SELECT v FROM c2m_setting WHERE k=?', [k]);
         await q('UPDATE c2m_setting SET v=?, updated_by=?, updated_at=? WHERE k=?', [v, req.c2m.user, now(), k]);
         await audit(req.c2m.user, 'setting', k, 'change', old ? old.v : null, v, 'Approved request ' + r.id);
+        if (k === 'fed_pct') await refedLists(req.c2m.user);
       }
       await audit(req.c2m.user, 'setting_request', r.id, req.params.act, null, r.summary, null);
     });
@@ -944,12 +945,21 @@ module.exports = function mountC2mRoutes(app, deps) {
 
   /* ---------- VAN brand list price revisions: Yawar proposes, Tahir approves or sends back (ruled 16 Oct) ---------- */
   const LIST_FIELDS = { dist: ['now', 'mrp'], dealer: ['nsv', 'disc', 'frp', 'mrp'], farmer: ['pb', 'sn', 'snc'] };
-  /** Derived figures: distributor price with FED = price x 1.05; dealer net = NSV less discount, with taxes = net x 1.05. */
-  function deriveList(list, d) {
-    const o = { ...d };
-    if (list === 'dist') o.fed = lib.round(Number(o.now) * 1.05, 2);
-    if (list === 'dealer') { o.net = lib.round(Number(o.nsv) * (1 - Number(o.disc || 0)), 2); o.netfed = lib.round(o.net * 1.05, 2); }
+  /** Derived figures (D-72): distributor price with FED = price x (1 + FED %); dealer net = NSV less discount, with FED = net x (1 + FED %). */
+  function deriveList(list, d, fed) {
+    const o = { ...d }; const f = 1 + lib.fedPct(fed) / 100;
+    if (list === 'dist' && o.now != null) o.fed = lib.round(Number(o.now) * f, 2);
+    if (list === 'dealer' && o.nsv != null) { o.net = lib.round(Number(o.nsv) * (1 - Number(o.disc || 0)), 2); o.netfed = lib.round(o.net * f, 2); }
     return o;
+  }
+  /** The FED % in force (setting fed_pct; 5 when the row is not there yet, D-72). */
+  async function fedNow(lock) { const [[r]] = await q("SELECT v FROM c2m_setting WHERE k='fed_pct'" + (lock ? ' LOCK IN SHARE MODE' : '')); return lib.fedPct(r && r.v); } // lock: inside a transaction, wait for a FED change being approved (review 19 Oct)
+  /** A changed FED % carries into every distributor and dealer row's price with FED at once (D-72). */
+  async function refedLists(by) {
+    const fed = await fedNow(); const [all] = await q("SELECT id, list_name, data_json FROM c2m_list_price WHERE list_name IN ('dist','dealer') FOR UPDATE"); let n = 0;
+    for (const row of all) { const d = JSON.parse(row.data_json); const o = deriveList(row.list_name, d, fed); if (JSON.stringify(o) !== JSON.stringify(d)) { await q('UPDATE c2m_list_price SET data_json=? WHERE id=?', [JSON.stringify(o), row.id]); n++; } }
+    await audit(by, 'list_price', 'all', 'FED changed', null, { fed, rows: n }, 'FED % changed: price with FED worked again on the distributor and dealer lists');
+    return n;
   }
   app.post('/api/c2m/lists/revise', need('cfo'), wrap(async (req, res) => {
     const { list, items, reason, validFrom, validTill, replaceId } = req.body || {};
@@ -1006,6 +1016,7 @@ module.exports = function mountC2mRoutes(app, deps) {
   /** Put an approved revision's prices into its list (on approval, or on its date). */
   async function applyRevision(r) {
       const [ok] = await q("UPDATE c2m_list_revision SET applied=1 WHERE id=? AND applied=0 AND status='approved'", [r.id]); if (!ok.affectedRows) return false;
+      const fed = await fedNow(true);
       // Distributor list: prev is the price on the last list actually sent (Tahir 18 Oct 2026, D-42, I-21). It changes only when a
       // distributor list is issued. Until C2M has issued one, the list loaded from Yawar is the last one sent: the first revision
       // takes each row's price before it as prev, once (sentSet).
@@ -1016,7 +1027,7 @@ module.exports = function mountC2mRoutes(app, deps) {
         const d = JSON.parse(row.data_json);
         if (r.list_name !== 'dist') d.prevValues = { ...(d.prevValues || {}), ...Object.fromEntries(Object.keys(it.to).map(f => [f, d[f]])) };
         Object.assign(d, it.to);
-        await q('UPDATE c2m_list_price SET data_json=? WHERE id=?', [JSON.stringify(deriveList(r.list_name, d)), it.id]);
+        await q('UPDATE c2m_list_price SET data_json=? WHERE id=?', [JSON.stringify(deriveList(r.list_name, d, fed)), it.id]);
       }
       if (r.valid_till) await q('UPDATE c2m_list_price SET issued=?, valid_till=? WHERE list_name=?', [String(r.valid_from).slice(0, 10), String(r.valid_till).slice(0, 10), r.list_name]);
       else await q('UPDATE c2m_list_price SET issued=?, valid_till=IF(valid_till IS NOT NULL AND valid_till >= ?, valid_till, NULL) WHERE list_name=?', [String(r.valid_from).slice(0, 10), String(r.valid_from).slice(0, 10), r.list_name]);
@@ -1038,6 +1049,7 @@ module.exports = function mountC2mRoutes(app, deps) {
   /* ---------- Price list documents ---------- */
   async function docData(aud, b) {
     await applyDueRevisions();
+    const fed = await fedNow();
     const [lp] = await q('SELECT id, list_name, data_json, issued, valid_till FROM c2m_list_price ORDER BY id');
     const listKey = aud === 'dist' ? 'dist' : aud === 'dealer' ? 'dealer' : 'farmer';
     // A document dated ahead shows the list as it will be on that date: the waiting revision applied over today's rows
@@ -1046,14 +1058,14 @@ module.exports = function mountC2mRoutes(app, deps) {
       for (const r of w) {
         if (r.list_name === 'dist') for (const row of lp.filter(x => x.list_name === 'dist')) { const d = JSON.parse(row.data_json); if (!d.sentSet && d.now != null) { d.prev = d.now; d.sentSet = 1; row.data_json = JSON.stringify(d); } } // as applyRevision (D-42)
         for (const it of JSON.parse(r.items_json)) { const row = lp.find(x => x.id === it.id); if (!row) continue;
-          const d = JSON.parse(row.data_json); Object.assign(d, it.to); row.data_json = JSON.stringify(deriveList(r.list_name, d)); }
+          const d = JSON.parse(row.data_json); Object.assign(d, it.to); row.data_json = JSON.stringify(deriveList(r.list_name, d, fed)); }
         // The list's dates change for every row of the list, as applyRevision does: no end date before the new start
         for (const row of lp.filter(x => x.list_name === r.list_name)) { row.issued = r.valid_from; row.valid_till = r.valid_till || (row.valid_till && String(row.valid_till).slice(0, 10) >= String(r.valid_from).slice(0, 10) ? row.valid_till : null); }
       }
     }
     const L = groupLists(lp);
     const own = L.dates[listKey] || {};
-    const base = { ref: b.ref, date: today(), eff: b.eff || (aud === 'wl' ? null : own.issued || L.issued), till: b.till || (aud === 'wl' ? null : own.till) || null, note: String(b.note || '').slice(0, 300) };
+    const base = { ref: b.ref, date: today(), eff: b.eff || (aud === 'wl' ? null : own.issued || L.issued), till: b.till || (aud === 'wl' ? null : own.till) || null, note: String(b.note || '').slice(0, 300), fedPct: fed }; // the FED % printed stays with the document (D-72)
     if (aud === 'wl') {
       const D = await engine.loadAll(q); const [prices] = await q("SELECT * FROM c2m_price WHERE status='approved'");
       const ap = inForce(prices, b.eff && isDate(b.eff) ? b.eff : today()); // prices in force on the document's own date

@@ -207,7 +207,19 @@ function targetOr(t, budget) { return t != null && t !== '' && isFinite(Number(t
 /** Pakistani number format with digits, e.g. 1,234,567. */
 function fmtInt(x) { return x == null ? '' : Math.round(x).toLocaleString('en-US'); }
 
+/* A VAN brand list row names a pack when its name (size taken out), size and unit (kg or L) agree: the B-18 rule the page uses
+   for suggestions (vmSuggest), here for the server's checks on the "not a C2M pack" mark (1.0.1, D-80, review finding 1). */
+const LSIZE = /(\d+(?:\.\d+)?)\s*-?\s*(kgs?|liters?|litres?|ltrs?|l|ml)\b/i;
+const lnorm = s => String(s || '').toLowerCase().replace(/[^a-z0-9.]+/g, ' ').replace(/\b0+(\d)/g, '$1').trim();
+function listRowSize(s) { const m = String(s || '').match(LSIZE); if (!m) return null; const u = m[2].toLowerCase(); return { v: u === 'ml' ? Number(m[1]) / 1000 : Number(m[1]), u: /^kg/.test(u) ? 'kg' : 'L' }; }
+/** True when list row data d (list dist, dealer or farmer) names the pack brand, size, soldPer (kg or L). */
+function listRowIs(list, d, brand, size, soldPer) {
+  const z = list === 'farmer' ? listRowSize(d.p) : listRowSize(d.pack);
+  if (!z) return lnorm(d.p) !== '' && lnorm(d.p) === lnorm(brand); // a row with no size in it: its name alone equal to the product's names it (review 1.0.1 re-check)
+  return Math.abs(Number(size) - z.v) < 1e-6 && (soldPer || 'kg') === z.u && lnorm(String(d.p).replace(new RegExp(LSIZE.source, 'ig'), '')) === lnorm(brand);
+}
 module.exports = {
+  listRowIs,
   round, rateWarning, materialCost, recipeTotal, packingPerUnit, pickConversionRule, conversionFor, costBreakdown,
   marginPct, targetPrice, contributionFloor, fedPct, netPoPrice, needsReapproval, exposure, flag,
   RECIPE_FLOW, RECIPE_WHO, fmtInt, pkToday, pkNow, FAMILY_COLOURS, familyColour, CATS, buyerLine, targetOr,

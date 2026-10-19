@@ -1,6 +1,7 @@
 # 7. The Guide
 
-Version 1.0.0 · 19 Oct 2026 · Owner: Yawar; Tahir approves changes · Rule: R-5h item 7 (D-20)
+Version 1.0.1 · 19 Oct 2026 · Owner: Yawar; Tahir approves changes · Rule: R-5h item 7 (D-20)
+Changed in 1.0.1 (19 Oct 2026): Yawar line 4 and Tahir lines 3 and 5 (D-80 to D-83); the in-app Guide carries the same lines.
 Changed in 1.0.0 (19 Oct 2026): "Where things are (1.0.0)" and the 1.0.0 lines for Yawar and Tahir added (D-76 to D-79); the in-app Guide carries the same lines.
 Changed in 0.9.3 (19 Oct 2026): Yawar and Tahir line 3 (Reports, VAN brand list margin, D-73).
 Changed in 0.9.2 (19 Oct 2026): Yawar line 8 and Tahir new line 9 (By customer state, D-68).
@@ -51,16 +52,17 @@ How to read this: items marked "App Guide" are the exact lines on the app's Guid
 
 ### Yawar, from 1.0.0
 1. Approvals: start with "Your next move"; every approval and job opens in a panel.
-2. Products: Recipe and Cost by pack; approve cost in its panel; propose a single price from the top of the page.
+2. Products: Recipe, Cost by pack and History; approve cost in its panel; propose a single price from the top of the page.
 3. Client prices, White label clients: type new prices in the rows, see the new GP at once, write the reason the client reads (and why, if below target), Send to Tahir: 1 proposal per pack.
-4. Client prices, VAN brand prices: each VAN pack once, a column per list; type the prices that change, or a price for a pack not yet on a list; reason and dates; Send to Tahir: 1 list revision per list. Confirm suggested list-row links once.
+4. Client prices, VAN brand prices: each VAN pack once, a column per list; type the prices that change, or a price for a pack not yet on a list; reason and dates; Send to Tahir: 1 list revision per list. Confirm suggested list-row links once. Under Not placed, pick the pack of each row and Save links; only a row of a product C2M does not cost at all: "Not a C2M pack" (check first that C2M has no pack of it under another name; it stays on the list and prints; Undo if wrong). Change the prices of marked rows with "Change prices of marked rows" in the Marked box (D-80).
 5. Margin: by client, product or client x product; open a line for its packs and a pack for its trucks; the restated switch is for comparison only.
 6. Setup: settings, rates, packing, labour and FOH, targets, buyer lines, people, O2S, sheet items, monthly checks, change record.
 
 ### Tahir, from 1.0.0
 1. Approvals: what waits for you, each in its panel; white label clients red on margin.
 2. Client prices: "Open to approve" in a row opens the same panel; list revisions show under the VAN grid.
-3. Margin: GP against each product's target; red lines first by Rs short; buyers follow the O2S category (D-74).
+3. Margin: GP against each product's target; red lines first by Rs short; buyers follow the O2S category (D-74). A client with trucks but no approved cost is named in 1 line under the headline (D-83).
+5. Client prices, VAN brand prices: rows Yawar marked "Not a C2M pack" show with who and when; they are left out of the VAN brand list margin report (D-80). When a list revision adds a pack to a list, its panel lists the marked rows of that list: check none of them is that pack; if one is, send it back. The VAN brand list margin report (More, Reports) colours each pack against its product's target (D-81).
 4. Setup: read every setting; Yawar's threshold and product target changes wait for you on Approvals.
 
 ## Yawar (CFO, role cfo)
@@ -68,7 +70,7 @@ How to read this: items marked "App Guide" are the exact lines on the app's Guid
 App Guide (rule for each line in brackets; the brackets are not on the screen):
 1. Each morning open Today and start with "Your next move". Every approval and job opens in a panel on Today; each line shows how long it has waited, and "stuck" after more than 2 working days (Monday to Saturday). (D-46, D-54)
 2. Find anything (Ctrl K) opens a product, customer, material, report or place. (D-53)
-3. Reports: GP bridge (why GP moved from 1 month to the next), PO price against approved price, and VAN brand list margin (every VAN pack's list prices against its cost and the ambition GP; link each list row to its C2M pack there once: C2M suggests, you check and save); all export to Excel. (D-57, D-73)
+3. Reports: GP bridge (why GP moved from 1 month to the next), PO price against approved price, and VAN brand list margin (every VAN pack's list prices against its cost and its product's GP target (from 1.0.1, D-81); link each list row to its C2M pack there once: C2M suggests, you check and save; a row of a product C2M does not cost: "Not a C2M pack"); all export to Excel. (D-57, D-73)
 4. Products: 1 page per client product, with its recipe and every version, its cost by pack, its price and its history. Approve cost in its panel, opened from Today or from the product page, after Fahim endorses; send back with a reason and advice if something is wrong. (D-08, D-09, D-47)
 5. Re-approvals: when a rate moves products over the set %, approve them on Today in 1 item. Approve all, or tick the packs you checked: the packs not ticked wait in a new item, so none is lost. (R-2 Cost, D-41, D-61)
 6. A change to a product type, the reprocessed tick or a pack's packing bill waits for Save, and says how many packs it recosts. Tahir is told of every labour or FOH rate, packing bill, product type and reprocessed change. (D-63, D-65)
@@ -94,7 +96,7 @@ Also (a separate list; its numbers 7 to 16 are kept so references in other docum
 App Guide (rule for each line in brackets; the brackets are not on the screen):
 1. Today starts with your next move, then what waits for you (prices, list revisions, threshold and target changes), recipes stuck more than 2 working days (Monday to Saturday), and customers below target. Each opens in a panel: approve or send back there, with a reason. (D-33, D-46, D-54)
 2. Find anything (Ctrl K) opens a product, customer, material, report or place. (D-53)
-3. Reports: GP bridge, PO price against approved price, and VAN brand list margin (every VAN pack's distributor, dealer and farmer price against its cost and the ambition GP, with the VAN brand portfolio GP), with Export to Excel. (D-57, D-73)
+3. Reports: GP bridge, PO price against approved price, and VAN brand list margin (every VAN pack's distributor, dealer and farmer price against its cost and its product's GP target (from 1.0.1, D-81), with the VAN brand portfolio GP), with Export to Excel. (D-57, D-73)
 4. Re-approvals of cost are Yawar's; you see each one on Today for information. (R-2 Cost)
 5. Each month check the rates against the purchase register (Today): C2M lists the 15 materials with the most Rs in the month; type each register rate and save. You cannot approve a price, list, setting or target you proposed yourself. (D-18, D-39, D-63, D-64)
 6. For your information on Today shows each change Yawar makes to labour and FOH rates, packing bills, product types and the reprocessed tick, with how many packs moved. (D-63)

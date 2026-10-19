@@ -1,6 +1,7 @@
 # 8. Release notes and change log
 
-Version 1.0.0 · 19 Oct 2026 · Owner: Claude records; Tahir approves releases · Rule: R-5h item 8 (D-20)
+Version 1.0.1 · 19 Oct 2026 · Owner: Claude records; Tahir approves releases · Rule: R-5h item 8 (D-20)
+Changed in 1.0.1 (19 Oct 2026): entry 1.0.1 added; live status.
 Changed in 1.0.0 (19 Oct 2026): entry 1.0.0 added.
 Changed in 0.9.3 (19 Oct 2026): entry 0.9.3 added.
 Changed in 0.9.2 (19 Oct 2026): entry 0.9.2 added; its "Decided, not code" part changed by D-70 and D-71; FED setting and wording added (D-72).
@@ -11,7 +12,29 @@ Changed in 0.8.0: entry 0.8.0 added.
 Changed in 0.7.0: entry 0.7.0 added.
 Changed in 0.6.0: entry 0.6.0 added.
 Changed in 0.5.0: entry 0.5.0 added; real figures removed from earlier entries (public repo).
-Format: Keep a Changelog, semantic versions. Live: 0.9.2 (pushed 19 Oct 12:43, checked live); first data load 19 Oct 2026 about 13:17, checked live. Before: 0.9.1 (pushed 19 Oct 09:39, checked live). apps/c2m first pushed by Tahir on 17 Oct and the live migration run the same day (39 empty c2m_ tables); 0.6.0 and 0.7.0 pushed on 18 Oct (17:29), 0.8.0 (20:16) and 0.9.0 (22:03), each checked live by Claude. The folder tabs (D-59) were built after the 0.9.0 push and ship in 0.9.1. No data loaded yet: the first data load runs on Monday 19 Oct 2026.
+Format: Keep a Changelog, semantic versions. Live: 1.0.0 (pushed 19 Oct about 22:09, checked live by Claude as Tahir the same evening; Yawar's view checked in the cloud copy only); 0.9.3 pushed 19 Oct 14:38, checked live; 0.9.2 pushed 19 Oct 12:43, checked live; first data load 19 Oct 2026 about 13:17, checked live. Before: 0.9.1 (pushed 19 Oct 09:39, checked live). apps/c2m first pushed by Tahir on 17 Oct and the live migration run the same day (39 empty c2m_ tables); 0.6.0 and 0.7.0 pushed on 18 Oct (17:29), 0.8.0 (20:16) and 0.9.0 (22:03), each checked live by Claude. The folder tabs (D-59) were built after the 0.9.0 push and ship in 0.9.1. No data loaded yet: the first data load runs on Monday 19 Oct 2026.
+
+## [1.0.1] · 19 Oct 2026 · Tahir's answers on the open points and reviewer points after the 1.0.0 push (D-80 to D-84) · Who: Claude built; Tahir ruled and approves the push
+### Added
+- Client prices, VAN brand prices: Not placed lists each list row with no pack, with a pick to link it (Save links) and "Not a C2M pack"; marked rows show with who and when, and Undo. A marked row stays on its list and prints; it is left out of the VAN brand list margin report and no longer stops a new pack being added to the list. A linked row, or a row that names a C2M pack, cannot be marked; Tahir's panel for a revision that adds a row lists the marked rows; marked rows' prices change through "Change prices of marked rows" (D-80).
+- Margin: 1 line under the headline names each client or buyer line with trucks in the period but none costed (no cost, or no C2M pack), and lines partly left out with their truck counts, with no figures (D-83).
+- Product page: History is back as a 3rd tab (D-82).
+### Changed
+- Reports, VAN brand list margin: each pack against its product's GP target (its own, else the company GP target), with a Target % column and in the Excel export; the portfolio against the targets weighted by sales; the ambition GP is no longer used there (D-81).
+- Reports, VAN brand list margin: the links table shows the mark, and Yawar can mark or undo there too (D-80).
+### Fixed (found by the 1.0.1 reviews before release)
+- A list revision approved at the same moment as a link or mark no longer overwrites it (applyRevision locks the rows it rewrites).
+### Confirmed, no change
+- "Above: check" at more than 5 points over target; COBO on Farmer Sindh and Farmer Sindh credit, VGreen on Farmer Punjab (D-84).
+### API
+- POST /api/c2m/lists/links: items may be {id, noPack: true or false} (D-80).
+### Database
+- No table, column or migration. c2m_list_price.data_json may hold noPack, noPackBy, noPackAt. Production SQL: none.
+### Tests
+- New suite c2m101.test (W-01 to W-07); ui08 U-03 and ui09 V-07 (3 tabs); van093 L-03 to L-05 (product targets); c2m100 T-10 (the grid table only). TOTAL 198 passed, 0 failed.
+### What to test after (on live)
+- Yawar: Client prices, VAN brand prices, Not placed: link 1 row with the pick, mark 1 row of a product C2M does not cost, then Undo it; Reports, VAN brand list margin shows a Target % column.
+- Tahir: Margin, White label: the left-out line names the clients with no costed truck; a product page shows History.
 
 ## [1.0.0] · 19 Oct 2026 · The new C2M: 5 places, buyer sync rule, targets, client prices, VAN brand price grid, Margin (D-74 to D-79) · Who: Claude built; Tahir ruled and approves the push
 ### Added

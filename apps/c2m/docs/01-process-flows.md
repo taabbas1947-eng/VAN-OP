@@ -1,6 +1,7 @@
 # 1. Process flow diagrams
 
-Version 1.0.0 · 19 Oct 2026 · Owner: Yawar (CFO) keeps it current; Tahir approves changes · Rule: R-5h item 1 (D-20)
+Version 1.0.1 · 19 Oct 2026 · Owner: Yawar (CFO) keeps it current; Tahir approves changes · Rule: R-5h item 1 (D-20)
+Changed in 1.0.1 (19 Oct 2026): 1.17 a list row can be marked "not a C2M pack" and the report colours against each product's target (D-80, D-81); 1.18 the Not placed step in the VAN brand price flow (D-80).
 Changed in 1.0.0 (19 Oct 2026): 1.18 added: where each job is done for Yawar and Tahir from 1.0.0, the white label client price flow and the VAN brand price grid flow (D-76 to D-79). 1.15 stands for the other roles.
 Changed in 0.9.3 (19 Oct 2026): 1.17 VAN brand list margin added to the Reports flow, with the link step (D-73).
 Changed in 0.9.2 (19 Oct 2026): the 12 unbuilt reports carry no version number (built after their pictures are approved).
@@ -397,9 +398,9 @@ flowchart LR
     B -- yes, GP bridge --> G[Pick group and month; parts must add up within Rs 1 · F-19]
     B -- yes, PO price --> P[Pick this month, last month or FY to date · F-20]
     B -- yes, VAN brand list margin --> V{Each list row linked to its C2M pack? · D-73}
-    V -- no --> K[Yawar checks the suggested pack, picks the rest, Save links · D-73]
+    V -- no --> K[Yawar checks the suggested pack, picks the rest, Save links, or marks a row Not a C2M pack · D-73, D-80]
     K --> V
-    V -- yes --> M[Every VAN pack: GP on each list against cost and the ambition GP; pick the farmer list · F-22]
+    V -- yes --> M[Every VAN pack: GP on each list against cost and its product's GP target; pick the farmer list · F-22, D-81]
     G --> X([Export to Excel])
     P --> X
     M --> X
@@ -417,6 +418,7 @@ flowchart LR
     W2 --> W3{Reason the client reads written? Below target: why written? · D-22, D-78}
     W3 -- no --> W2
     W3 -- yes --> W4[Send to Tahir: 1 price proposal per pack · D-78]
+    V0[Not placed: link each list row to its pack, or mark it Not a C2M pack · D-80] --> V1
     V1[Client prices, VAN brand prices: each VAN pack once, 5 list columns · D-77] --> V2[Type the prices that change, or a price for a pack not on a list · D-77]
     V2 --> V3{Reason and dates written? · D-28}
     V3 -- no --> V2
@@ -439,5 +441,6 @@ flowchart LR
 | Pick the client | Yawar | client chips, ordered by FY sales | D-78 | the rows of that client |
 | Type a new price | Yawar | price per kg or L | F-24 | new GP %, the send bar's Rs over the forward months (F-12) |
 | Send white label prices | Yawar | reason, why below target, from date | D-22, D-78 | 1 proposal per pack (POST /prices/propose) |
+| Not placed: link or mark | Yawar | a pack for each list row, or "Not a C2M pack" (no approval; Undo) | D-80, B-24 | the link (POST /lists/links); a marked row no longer blocks an added pack and is left out of the VAN brand list margin report |
 | Type VAN brand prices | Yawar | price per pack on each list | D-77, F-25 | 1 revision per list (POST /lists/revise), new rows marked added |
 | Approve or send back | Tahir | the panel | D-46, D-63 | price or list in force, or back to Yawar |

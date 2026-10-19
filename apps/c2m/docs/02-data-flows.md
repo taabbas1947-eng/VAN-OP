@@ -1,6 +1,7 @@
 # 2. Data flow diagrams
 
-Version 1.0.0 · 19 Oct 2026 · Owner: Yawar; data links set by Tahir and Yawar in Setup, From O2S · Rule: R-5h item 2 (D-20)
+Version 1.0.1 · 19 Oct 2026 · Owner: Yawar; data links set by Tahir and Yawar in Setup, From O2S · Rule: R-5h item 2 (D-20)
+Changed in 1.0.1 (19 Oct 2026): 2.18 added: the "not a C2M pack" mark on a list row (D-80).
 Changed in 1.0.0 (19 Oct 2026): 2.17 added: buyer lines from O2S (D-74) and the added list row (D-77).
 Changed in 0.9.2 (19 Oct 2026): step 3 divides FED-inclusive PO prices by (1 + FED %), the setting fed_pct (D-72).
 Changed in 0.9.1 (3 independent reviews, 18 Oct 2026 night): step 4 counts a truck only with its gate pass (D-60); 2.16 FOC and notices (D-62, D-63).
@@ -191,3 +192,13 @@ flowchart LR
 
 - Nothing new is stored for a buyer line: it is worked out on every read from the O2S category on the PO. A farmer's name is read from O2S but never sent to the page (cust is "Farmers and other", region empty).
 - The added row is written only when Tahir approves (or on its date), through the same apply step as any revision (applyRevision).
+
+## 2.18 The "not a C2M pack" mark (owner: Yawar; Tahir ruled 19 Oct 2026, D-80; version 1.0.1)
+
+| Step | From | To | Data that moves | Rule |
+|---|---|---|---|---|
+| 1 | Yawar, Client prices (Not placed) or Reports, VAN brand list margin | POST /api/c2m/lists/links | {id, noPack: true} or {id, noPack: false} | D-80 |
+| 2 | links route | c2m_list_price.data_json | noPack = 1, noPackBy (user), noPackAt (date); packId taken out. Undo or a link takes the 3 keys out | D-80, B-24 |
+| 3 | links route | c2m_audit | list_price, not_c2m_pack (old: the pack id or null; new: "not a C2M pack") or not_c2m_pack_undone | D-80 |
+| 4 | c2m_list_price | GET /api/c2m/state listItems (cfo and coo only; never the KAM) | the row with its mark | D-80 |
+| 5 | listItems | the grid, the report and POST /lists/revise | a marked row is not counted as "not linked"; it is left out of the report; the list prints it as before | D-80, B-24 |

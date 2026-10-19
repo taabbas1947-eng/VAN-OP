@@ -1,6 +1,7 @@
 # 12. Tests, issues and assumptions
 
-Version 1.0.0 · 19 Oct 2026 · Owner: Claude records; Tahir and Yawar confirm assumptions · Rule: R-5h item 12 (D-20)
+Version 1.0.1 · 19 Oct 2026 · Owner: Claude records; Tahir and Yawar confirm assumptions · Rule: R-5h item 12 (D-20)
+Changed in 1.0.1 (19 Oct 2026): 12.1b added: suite c2m101.test (W-01 to W-07) and the tests changed for D-80 to D-82; totals 198; I-39, I-40, I-41 and I-45 closed (D-81, D-84, D-80); the 1.0.1 review in 12.4.
 Changed in 1.0.0 (19 Oct 2026): suite c2m100.test (T-01 to T-18); lib J-01, J-02; ui08, ui09, flow and van093 changed for the 5 places; ui09 V-05, V-06, V-08, V-18, V-19 retired; I-39 to I-44 added; totals in 12.1a; the 1.0.0 review in 12.4.
 Changed in 0.9.3 (19 Oct 2026): suite van093.test (L-01 to L-07); ui09 V-11 counts 3 ready reports; totals 176; I-27 done (D-73); the review of 0.9.3 in 12.4.
 Changed in 0.9.2 (19 Oct 2026): ui09 V-19; suite fix092.test (K-01 to K-04); lib F-10 at FED 6%; totals 169; I-27 changed by D-70; I-38 added (FED and past PO prices); the FED review in 12.4.
@@ -78,6 +79,22 @@ Changed for the 5 places: flow A-01; ui08 U-01 to U-05, U-06, U-09 to U-12; ui09
 
 Last run (cloud copy, 19 Oct 2026, after all review fixes): TOTAL 191 passed, 0 failed (lib 43, van07 8, flow 57, fix06 20, ui08 12, ui09 14, fix091 6, fix092 4, van093 7, c2m100 18, confidential scan 1, migration sync 1). T-18 proves the second-review fixes; flow S-01 now expects the company GP target to wait for Tahir; van093 L-05 expects a 2nd row on 1 pack to be refused. fix06 Y-05 reads the resend form key in its new form (an added row is keyed p<packId>).
 
+## 12.1b Tests in 1.0.1 (owner: Claude records; version 1.0.1, 19 Oct 2026)
+
+| Suite | Ids | What they prove | Count | Rule |
+|---|---|---|---|---|
+| c2m101.test.js | W-01 | The links route: only Yawar marks; bad input refused; a linked row and a row that names a C2M pack refused; the mark names who and when; audited; the same mark is no change; Undo and a link (also {packId, noPack:false}) take it out, and the link record says so | 1 | D-80, B-24 |
+| | W-02 | A row with no pack blocks an added pack; 1 marked of 2 still blocks; both marked: the add is taken; Undo refused while it waits; the marked rows stay on the list; a marked row that names the pack blocks its add | 1 | D-80, I-43 |
+| | W-03 | Grid Not placed: a pick and the mark per row; the pick offers only packs not on the list; a mark moves the row to Marked with who and Undo; a pick saves its link; Tahir sees no button; Undo puts it back | 1 | D-80 |
+| | W-04 | Report: a marked row is not counted as having no pack; mark and Undo in the links table; Excel says "Not a C2M pack" and has the target column | 1 | D-80, D-81 |
+| | W-05 | Margin left-out line worked out from the trucks for White label, All sales, Distributors and COBO: whole lines with their reason, partly left out lines with counts; no figures | 1 | D-83 |
+| | W-06 | Tahir's revision panel and the list under the grid name the marked rows when a revision adds a pack; "Change prices of marked rows" holds only marked rows and sends 1 revision | 1 | D-80 |
+| | W-07 | A pick left from before never re-links a row no longer in Not placed; a mark clears a hidden report pick | 1 | D-80 |
+
+Changed: ui08 U-03 and ui09 V-07 (3 product tabs, History lists every recipe step, D-82); van093 L-03 (each pack against its own target, else the company target; the Target % column), L-04 (portfolio against targets weighted by sales; no "ambition" in the answer), L-05 (the ambition GP no longer moves the report) (D-81); c2m100 T-10 reads the grid table only (the Not placed table is a table too).
+
+Last run (cloud copy, 19 Oct 2026, after the 1.0.1 review fixes): TOTAL 198 passed, 0 failed (lib 43, van07 8, flow 57, fix06 20, ui08 12, ui09 14, fix091 6, fix092 4, van093 7, c2m100 18, c2m101 7, confidential scan 1, migration sync 1).
+
 ## 12.2 Assumptions and open issues (1 table)
 
 A-xx: assumptions decided overnight 15 to 16 Oct under Tahir's instruction "decide, log as assumption", to be confirmed. I-xx: open issues. Status: open, confirmed, superseded, fixed. The figures behind each assumption are in the Design Record and Yawar's sheets, not here (public repo).
@@ -146,13 +163,13 @@ A-xx: assumptions decided overnight 15 to 16 Oct under Tahir's instruction "deci
 | I-36 | A blank box in Settings saves 0: a budget line applies at once with a notice, and a threshold goes to Tahir as 0 (v0.5 review item 9). | Claude | 18 Oct 2026 | open |
 | I-37 | Tests record a result per suite only, not per test; flow, fix06, van07, ui08 and ui09 tests name their rule in the description, not as a rule number. | Claude | 18 Oct 2026 | open |
 | I-38 | A FED change reaches past O2S PO prices: each pull works out every PO line's net price again at the FED in force that day, so if FED moves from 5% to 6%, POs charged at 5% are divided by 1.06 and past GP drops by about 1% (independent review, 19 Oct 2026). Tahir to rule: FED by the PO's received date (needs a dated FED: a table, so not in 0.9.x), or 1 FED for all POs as now. No effect while FED stays 5%. Tahir, 19 Oct 2026 12:38: no action for now. | Tahir (rules) | 19 Oct 2026 | parked (no action for now) |
-| I-39 | "Above: check" on Client prices is more than 5 points over target. Action: Tahir to confirm | Tahir | 19 Oct 2026 | open (constant ABOVE_PTS) |
-| I-40 | COBO is judged on the Farmer Sindh and Farmer Sindh credit columns, VGreen on Farmer Punjab; Margin shows them as 1 line each against product targets. Action: Tahir to confirm | Tahir | 19 Oct 2026 | open |
-| I-41 | Reports, VAN brand list margin (under More) still colours against the ambition GP (D-73), while the VAN grid uses each product's target (D-75). Action: Tahir to say which | Tahir | 19 Oct 2026 | open |
+| I-39 | "Above: check" on Client prices is more than 5 points over target. Action: Tahir to confirm | Tahir | 19 Oct 2026 | closed 19 Oct 2026: confirmed as built (D-84) |
+| I-40 | COBO is judged on the Farmer Sindh and Farmer Sindh credit columns, VGreen on Farmer Punjab; Margin shows them as 1 line each against product targets. Action: Tahir to confirm | Tahir | 19 Oct 2026 | closed 19 Oct 2026: confirmed as built (D-84) |
+| I-41 | Reports, VAN brand list margin (under More) still colours against the ambition GP (D-73), while the VAN grid uses each product's target (D-75). Action: Tahir to say which | Tahir | 19 Oct 2026 | closed 19 Oct 2026: each product's target (D-81, 1.0.1) |
 | I-42 | The labour and FOH bands wait for budget kg for the 39 products (from Yawar or budget V9); the 2 re-approval items stay held. Action: Yawar | Yawar | 19 Oct 2026 | open |
 | I-43 | A list row not linked to its pack is not seen as that pack's row, so a price for that pack in an empty cell could add a second row. Fixed in 1.0.0 before release: an added row is refused while any row of that list is not linked, and the grid closes those cells. Action: Yawar confirms the suggested links and links the rest (More, Reports, VAN brand list margin) before adding packs | Yawar | 19 Oct 2026 | fixed (guard); links to do on live |
 | I-44 | Under- or over-recovery line on Margin waits for Yawar to enter the new rate (D-79). Action: Yawar | Yawar | 19 Oct 2026 | waiting |
-| I-45 | A VAN brand list row with no matching pack in C2M cannot be linked, so that list cannot take an added pack (the guard waits for every row to be linked). Action: Tahir to say: a "not a C2M pack" mark, or a way to remove the row | Tahir | 19 Oct 2026 | open |
+| I-45 | A VAN brand list row with no matching pack in C2M cannot be linked, so that list cannot take an added pack (the guard waits for every row to be linked). Action: Tahir to say: a "not a C2M pack" mark, or a way to remove the row | Tahir | 19 Oct 2026 | closed 19 Oct 2026: the "not a C2M pack" mark (D-80, 1.0.1) |
 
 ## 12.3 Known limits
 - The stand-in platform (harness) never moves to VAN Systems.
@@ -162,6 +179,11 @@ A-xx: assumptions decided overnight 15 to 16 Oct under Tahir's instruction "deci
 
 - 0.9.0: a price list issued before 0.9.0 reprints from its saved rows on the 0.9.0 letterhead (2 signatures, number block); the rows and figures are as issued.
 - 0.9.0: the age of the sheet items counts from the first load of Yawar's sheets (the earliest imported recipe step); the items carry no date of their own.
+
+- 1.0.1 (D-80): a product C2M costs under a different name (a list row named differently from its C2M pack) can still be marked "not a C2M pack"; the server cannot tell. Tahir's panel for a revision that adds a pack lists the marked rows of that list so he can send it back. With many marked rows the list is long.
+- 1.0.1 (D-80): a list row with no size in its name whose name equals a C2M VAN product cannot be marked, even for a pack size C2M does not cost; link it, or correct the row.
+- 1.0.1 (D-80): a wrong mark cannot be undone while a revision that adds a pack to that list waits (with Tahir, or approved for a later date); the refusal says so.
+- 1.0.1 (D-80): new prices for linked rows (the grid) and for marked rows (the marked-rows form) of 1 list go as 2 revisions, 1 after the other: a list takes 1 waiting revision at a time.
 
 ## 12.4 Review and audit reports with fix status
 
@@ -221,3 +243,21 @@ Re-check by the same reviewer (19 Oct 2026), run, not only read: findings 1 to 8
 
 Re-checks by the same 2 reviewers (19 Oct 2026, run): every fix above confirmed. Small points they raised, fixed the same evening: the company GP target request now carries the name Setup shows, and Tahir's job reads "Approve setting change"; the closed-column line says "until it takes effect or Tahir withdraws it" for an approved revision; the row says a sent-back valid-till is kept only if the new From is on or before it, and the send message names any price sent without it; in the grid the row actually linked to a pack always takes its cell, and a suggestion turned down is listed under Not placed; the sent-back item a new one replaces is logged "replaced" too. Known limit: a target request made while a product had no target of its own shows the company figure as it is today, not as it was on the day of the request. Verdicts: data safety "safe to ship"; design and workflow "confirmed fixed apart from the 2 items Tahir has ruled on".
 
+
+
+### 1.0.1 code and data-safety review and design and workflow review (19 Oct 2026; 2 independent agents, run not only read; owner: Claude records; version 1.0.1)
+
+| # | Finding (what would happen) | Review | Fix | Status |
+|---|---|---|---|---|
+| 1 | "Not a C2M pack" on a row C2M does cost lifted the guard, so a pack could be added and the same product print twice on a list; Tahir was not told | both | the mark refused on a row that names a C2M pack (name, size and unit; with no size, by name), on a linked row, and on a pack a waiting revision adds; an add refused where a marked row names the pack; Tahir's panel and the revision list under the grid list the marked rows (W-01, W-02, W-06) | fixed; different names rely on Tahir (12.3) |
+| 2 | A marked row's prices could never be changed again from the screens Yawar uses | design | "Change prices of marked rows": the revise form with only the marked rows; closed while a revision of that list waits; warns that it replaces a sent-back revision (W-06) | fixed |
+| 3 | A pick left in the grid or the report re-linked a row, or took a mark away | both | grid Save sends only rows still not placed; picks cleared on mark and Undo; the report never sends a pick for a marked row (W-07) | fixed |
+| 4 | A revision approved at the moment a row was marked or linked overwrote the mark or link | data safety | applyRevision locks each row it rewrites | fixed (run with a pause by the reviewer) |
+| 5 | A mark from an out-of-date screen dropped a fresh link | both | a linked row cannot be marked (W-01) | fixed |
+| 6 | Undo while an add waited, and picks that were sure to fail | design | Undo refused while a revision adds a pack to the list; picks offer no pack taken, picked, suggested or waiting (W-02, W-03) | fixed |
+| 7 | Margin missed partly costed lines (a buyer in 2 places) and gave one reason for all | both | lines with no costed truck named with their reason (no cost, or no C2M pack); partly left out lines named with counts (W-05) | fixed |
+| 8 | "Left out of margin" was true only of the report; Guide not updated; help texts pointed to Reports | design | wording "left out of the VAN brand list margin report"; in-app Guide and docs 07 updated; help texts point to Not placed | fixed |
+| 9 | Smaller: {packId, noPack:false} saved nothing; Undo toast wrong on a stale screen; the link record silent when a mark went; a company target of 0 shown as 0.0% | code | all fixed (W-01) | fixed |
+| 10 | A suggested row cannot be marked on Client prices | design | none: a suggested row names a C2M pack, so the server refuses the mark with its reason | accepted |
+
+Re-checks by the same 2 reviewers (19 Oct 2026, run): fixed, with 4 last points fixed the same evening (a row with no size named as a product; the marked-rows button closed while its list has a waiting revision; Guide and data dictionary wording; a pick left in another tab for a marked row never sent). Verdicts after them: "ship with these fixes" from both, each fix then made and the suite run: TOTAL 198 passed, 0 failed.

@@ -1,6 +1,7 @@
 # 10. Data dictionary and glossary
 
-Version 1.0.0 · 19 Oct 2026 · Owner: Yawar; Himayat for material classes · Rule: R-5h item 10 (D-20)
+Version 1.0.1 · 19 Oct 2026 · Owner: Yawar; Himayat for material classes · Rule: R-5h item 10 (D-20)
+Changed in 1.0.1 (19 Oct 2026): 10.8 added (D-80).
 Changed in 1.0.0 (19 Oct 2026): 10.7 added (D-74 to D-79).
 Changed in 0.9.3 (19 Oct 2026): 10.6 added (VAN brand list margin, D-73).
 Changed in 0.9.2 (19 Oct 2026): net_price without FED only; setting fed_pct; glossary FED; dealer list headings ex FED and with FED (D-72).
@@ -188,3 +189,13 @@ Changed in 0.3.0 and 0.3.1: rs_per_kg fixed (1 rate of 1 kind, labour or FOH). A
 | Approvals | The place that was Today, for Yawar and Tahir | place | D-76 |
 | Back office | The earlier Setup, under More | place | D-76 |
 | More | The places kept out of the rail: Reports, Inputs, Back office, Guide | sheet | D-76 |
+
+## 10.8 Added in 1.0.1 (owner: Yawar; Tahir ruled 19 Oct 2026, D-80 to D-83; version 1.0.1)
+
+| Word or field | Meaning here | Allowed values or unit | Rule |
+|---|---|---|---|
+| Not a C2M pack | A VAN brand list row of a product C2M does not cost; it stays on the list and prints, but is left out of the VAN brand list margin report and does not block an added pack | mark set by Yawar | D-80 |
+| noPack (c2m_list_price.data_json) | The row is marked not a C2M pack | 1, or absent | D-80 |
+| noPackBy, noPackAt (data_json) | Who marked the row, and on which day | user name; date (Pakistan time) | D-80 |
+| Not placed | A list row with no pack and no mark; while a list has one, no pack can be added to it | | D-80, I-43 |
+| Left out (Margin) | A client or buyer line with trucks in the period but none costed: named in 1 line, with no figures | | D-83 |

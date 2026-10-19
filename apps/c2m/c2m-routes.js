@@ -988,17 +988,43 @@ module.exports = function mountC2mRoutes(app, deps) {
         if (l.packId != null && l.packId !== '' && !whole(l.packId)) throw bad('Pick a VAN brand pack: only VAN brand packs can be linked to a list row.');
         const id = Number(l.id), pid = l.packId != null && l.packId !== '' ? Number(l.packId) : null;
         if (pid != null && !vanPack.has(pid)) throw bad('Pick a VAN brand pack: only VAN brand packs can be linked to a list row.');
+        if (l.noPack !== undefined && typeof l.noPack !== 'boolean') throw bad('Mark the row as not a C2M pack, or undo the mark.');
+        if (l.noPack === true && pid != null) throw bad('A row linked to a pack cannot also be marked not a C2M pack.');
+        const markOp = typeof l.noPack === 'boolean' && !(l.noPack === false && pid != null); // {id, packId, noPack:false} is a link: it takes the mark out (review finding 6)
         const [[row]] = await q('SELECT id, list_name, data_json FROM c2m_list_price WHERE id=? FOR UPDATE', [id]); if (!row) throw bad('A row is not on any VAN brand list.');
-        const d = JSON.parse(row.data_json); const was = d.packId != null ? Number(d.packId) : null; if (was === pid) continue;
+        const d = JSON.parse(row.data_json); const was = d.packId != null ? Number(d.packId) : null;
+        /* 1.0.1, I-45 (Tahir, 19 Oct 2026, D-80): Yawar marks a list row whose product C2M does not cost as "not a C2M pack".
+           The row stays on its list and prints as before; it stops blocking an added pack and is left out of margin.
+           No approval, like a link; logged in the change record; linking the row to a pack, or Undo, clears the mark. */
+        if (markOp) {
+          const on = !!d.noPack; if (on === l.noPack) continue;
+          if (l.noPack && was != null) throw bad(`${d.p}${d.pack ? ' ' + d.pack : ''} is linked to a pack: it is a C2M pack. Unlink it first if the link is wrong (the screen may be out of date: reload).`); // review finding 5
+          if (l.noPack) { /* C2M has a pack this row names (name, size and unit agree, B-18): link it instead (review finding 1) */
+            const hit = D.packs.find(k => vanPack.has(Number(k.id)) && lib.listRowIs(row.list_name, d, D.cpById.get(k.client_product_id).brand, k.pack_size, D.cpById.get(k.client_product_id).sold_per));
+            if (hit) { const c = D.cpById.get(hit.client_product_id); throw bad(`C2M has a pack this row names: ${c.brand} ${Number(hit.pack_size)} ${c.sold_per}. Link the row to it instead of marking it not a C2M pack.`); }
+            const [pend] = await q("SELECT items_json FROM c2m_list_revision WHERE list_name=? AND (status='proposed' OR (status='approved' AND applied=0))", [row.list_name]);
+            const add = pend.flatMap(x => JSON.parse(x.items_json)).find(it => it.id == null && it.added && lib.listRowIs(row.list_name, d, it.product, parseFloat(it.pack), /\bL$/.test(String(it.pack)) ? 'L' : 'kg'));
+            if (add) throw bad(`${add.product} ${add.pack} waits to be added to this list in a revision: this row is that pack. Link it after the revision is decided or takes effect.`); }
+          if (!l.noPack) { /* Undo while a revision adds a pack to this list would leave a row with no pack beside that add (review 1.0.1, design finding 6) */
+            const [pend] = await q("SELECT items_json FROM c2m_list_revision WHERE list_name=? AND (status='proposed' OR (status='approved' AND applied=0))", [row.list_name]);
+            const add = pend.flatMap(x => JSON.parse(x.items_json)).find(it => it.id == null && it.added);
+            if (add) throw bad(`A revision that adds ${add.product} ${add.pack} to this list is with Tahir or waits for its date. Undo the mark after it is decided or takes effect.`); }
+          if (l.noPack) { delete d.packId; d.noPack = 1; d.noPackBy = req.c2m.user; d.noPackAt = today(); } else { delete d.noPack; delete d.noPackBy; delete d.noPackAt; }
+          await q('UPDATE c2m_list_price SET data_json=? WHERE id=?', [JSON.stringify(d), id]);
+          await audit(req.c2m.user, 'list_price', String(id), l.noPack ? 'not_c2m_pack' : 'not_c2m_pack_undone', l.noPack ? was : 'not a C2M pack', l.noPack ? 'not a C2M pack' : null, `${row.list_name}: ${d.p}${d.pack ? ' ' + d.pack : ''}`); n++;
+          continue;
+        }
+        if (was === pid) continue;
         if (pid != null) { // 1 row per pack on each list (D-77: each VAN pack held once; this replaces the D-73 tolerance of 2 rows on 1 pack, review 19 Oct)
           const [others] = await q('SELECT id, data_json FROM c2m_list_price WHERE list_name=? AND id<>? FOR UPDATE', [row.list_name, id]); const dupRow = others.find(o => Number(JSON.parse(o.data_json).packId) === pid);
           if (dupRow) throw bad(`Another row of this list (${JSON.parse(dupRow.data_json).p}${JSON.parse(dupRow.data_json).pack ? ' ' + JSON.parse(dupRow.data_json).pack : ''}) is already linked to that pack: each pack has 1 row on a list. Unlink or change that row first.`); }
         if (pid != null) { // a pack waiting to be added to this list by a revision cannot also be linked to a row of it (review 1.0.0, finding 2)
           const [pend] = await q("SELECT items_json FROM c2m_list_revision WHERE list_name=? AND (status='proposed' OR (status='approved' AND applied=0))", [row.list_name]);
           if (pend.some(x => JSON.parse(x.items_json).some(it => it.id == null && it.added && Number(it.packId) === pid))) throw bad(`That pack waits to be added to this list in a revision that is with Tahir or approved and waiting for its date. Link the row after it is decided or takes effect, or ask Tahir to send it back or withdraw it.`); }
-        if (pid == null) delete d.packId; else d.packId = pid;
+        const hadMark = pid != null && !!d.noPack;
+        if (pid == null) delete d.packId; else { d.packId = pid; delete d.noPack; delete d.noPackBy; delete d.noPackAt; } // a link clears the "not a C2M pack" mark (D-80)
         await q('UPDATE c2m_list_price SET data_json=? WHERE id=?', [JSON.stringify(d), id]);
-        await audit(req.c2m.user, 'list_price', String(id), 'link', was, pid, `${row.list_name}: ${d.p}${d.pack ? ' ' + d.pack : ''}`); n++;
+        await audit(req.c2m.user, 'list_price', String(id), 'link', was, pid, `${row.list_name}: ${d.p}${d.pack ? ' ' + d.pack : ''}${hadMark ? ' (mark "not a C2M pack" taken out)' : ''}`); n++;
       }
     });
     res.json({ changed: n });
@@ -1019,16 +1045,18 @@ module.exports = function mountC2mRoutes(app, deps) {
     const onList = new Set(rows.map(r => JSON.parse(r.data_json).packId).filter(v => v != null).map(Number));
     /* A pack is added only when every row of the list is linked to its pack (D-73), so a row the list already holds under
        another name is never entered twice (1.0.0 review of the grid, I-43). */
-    const unlinked = rows.filter(r => JSON.parse(r.data_json).packId == null).length;
+    const unlinked = rows.filter(r => { const d = JSON.parse(r.data_json); return d.packId == null && !d.noPack; }).length; // a row marked not a C2M pack does not block (D-80)
     const seenP = new Map(); for (const r of rows) { const pp = JSON.parse(r.data_json).packId; if (pp != null) seenP.set(Number(pp), (seenP.get(Number(pp)) || 0) + 1); }
     const dupN = [...seenP.values()].filter(n => n > 1).length;
     if (D0 && dupN) throw bad(`${dupN} ${dupN === 1 ? 'pack has' : 'packs have'} more than 1 row linked on this list. Correct those links first (More, Reports, VAN brand list margin), so no pack is entered twice.`);
-    if (D0 && unlinked) throw bad(`${unlinked} ${unlinked === 1 ? 'row' : 'rows'} of this list ${unlinked === 1 ? 'is' : 'are'} not linked to a pack yet. Link ${unlinked === 1 ? 'it' : 'them'} first (Client prices, VAN brand prices: confirm the suggested links; the rest in More, Reports, VAN brand list margin), so no pack is entered twice.`);
+    if (D0 && unlinked) throw bad(`${unlinked} ${unlinked === 1 ? 'row' : 'rows'} of this list ${unlinked === 1 ? 'is' : 'are'} not linked to a pack yet. Link ${unlinked === 1 ? 'it' : 'them'} first, or mark a row of a product C2M does not cost "Not a C2M pack" (Client prices, VAN brand prices, Not placed), so no pack is entered twice.`);
     for (const it of items) {
       if (it && it.id == null && it.packId != null) {
         const pid = Number(it.packId); const pk = D0.packs.find(k => Number(k.id) === pid); const cp = pk ? D0.cpById.get(pk.client_product_id) : null;
         if (!pk || !engine.isVanBrand(cp)) throw bad('Only a VAN brand pack can be added to a VAN brand list.');
         if (onList.has(pid)) throw bad(`${cp.brand} ${Number(pk.pack_size)} ${cp.sold_per} is already on this list: change its price instead.`);
+        { const mk = rows.map(r => JSON.parse(r.data_json)).find(x => x.noPack && lib.listRowIs(list, x, cp.brand, pk.pack_size, cp.sold_per)); // review finding 1 (D-80)
+          if (mk) throw bad(`${mk.p}${mk.pack ? ' ' + mk.pack : ''} on this list is marked not a C2M pack, but it names ${cp.brand} ${Number(pk.pack_size)} ${cp.sold_per}. Undo the mark and link that row, then change its price.`); }
         const to = {};
         for (const f of LIST_FIELDS[list]) if (it.values && it.values[f] != null && it.values[f] !== '') { const v = strictNum(it.values[f]); if (!(v > 0) || (f === 'disc' && v >= 1)) throw bad(`${cp.brand}: ${f} must be a number above 0${f === 'disc' ? ' and below 1' : ''}.`); to[f] = v; }
         if (!Object.keys(to).length) continue;
@@ -1085,7 +1113,7 @@ module.exports = function mountC2mRoutes(app, deps) {
       // Distributor list: prev is the price on the last list actually sent (Tahir 18 Oct 2026, D-42, I-21). It changes only when a
       // distributor list is issued. Until C2M has issued one, the list loaded from Yawar is the last one sent: the first revision
       // takes each row's price before it as prev, once (sentSet).
-      if (r.list_name === 'dist') { const [all] = await q("SELECT id, data_json FROM c2m_list_price WHERE list_name='dist'");
+      if (r.list_name === 'dist') { const [all] = await q("SELECT id, data_json FROM c2m_list_price WHERE list_name='dist' FOR UPDATE");
         for (const row of all) { const d = JSON.parse(row.data_json); if (d.sentSet || d.now == null) continue; d.prev = d.now; d.sentSet = 1; await q('UPDATE c2m_list_price SET data_json=? WHERE id=?', [JSON.stringify(d), row.id]); } }
       for (const it of JSON.parse(r.items_json)) {
         if (it.id == null && it.added) { // a new row for a VAN brand pack (D-77)
@@ -1096,7 +1124,7 @@ module.exports = function mountC2mRoutes(app, deps) {
           await q('INSERT INTO c2m_list_price (list_name, product, spec, pack, data_json, issued, valid_till) VALUES (?,?,?,?,?,?,?)', [r.list_name, d.p, null, d.pack || null, JSON.stringify(d), String(r.valid_from).slice(0, 10), r.valid_till ? String(r.valid_till).slice(0, 10) : null]);
           continue;
         }
-        const [[row]] = await q('SELECT data_json FROM c2m_list_price WHERE id=?', [it.id]); if (!row) continue;
+        const [[row]] = await q('SELECT data_json FROM c2m_list_price WHERE id=? FOR UPDATE', [it.id]); if (!row) continue; // locked: a link or mark made at the same moment is kept, not overwritten (review 1.0.1, finding 4)
         const d = JSON.parse(row.data_json);
         if (r.list_name !== 'dist') d.prevValues = { ...(d.prevValues || {}), ...Object.fromEntries(Object.keys(it.to).map(f => [f, d[f]])) };
         Object.assign(d, it.to);

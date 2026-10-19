@@ -1,6 +1,7 @@
 # 3. System logic
 
-Version 1.0.0 · 19 Oct 2026 · Owner: Yawar; Tahir approves changes · Rule: R-5h item 3 (D-20)
+Version 1.0.1 · 19 Oct 2026 · Owner: Yawar; Tahir approves changes · Rule: R-5h item 3 (D-20)
+Changed in 1.0.1 (19 Oct 2026): 3.19 added: the "not a C2M pack" mark, the report against each product's target, the Margin left-out line and the History tab (D-80 to D-83).
 Changed in 1.0.0 (19 Oct 2026): 3.18 added: buyer lines, targets, the client price state, the VAN brand price grid, Margin and its red rule (D-74 to D-79); 3.17 says a revision can add a row.
 Changed in 0.9.3 (19 Oct 2026): 3.17 added: the VAN brand list margin (D-70, D-72, D-73).
 Changed in 0.9.1 (3 independent reviews, 18 Oct 2026 night): 3.16 added (D-60 to D-65).
@@ -223,3 +224,19 @@ VAN brand price grid (D-77): each cell is the row of that list linked to the pac
 Margin (D-79): rows = trucks with an approved cost on their date (or, restated, a cost today). Group by buyer line, base product line (product type for white label, brand for VAN), or buyer line x pack. Each group's sums by F-23. State: red = below cost, or more than red_gap_pts short of target and Rs short above red_share_pct % of all white label sales in the period; amber = any other short; green = on or above. Sorted by Rs against target, then sales. The Approvals red item counts white label buyer lines red by the same rule, FY to date, at the cost approved on each truck's date.
 
 Places (D-76): ROLES gives cfo and coo nav [approvals, products, prices, margin, setup] and more [reports, inputs, backoffice, guide]. On a phone the first 4 sit in the bottom bar; the 5th and the More places are in the More sheet. On a wide screen the More sheet shows only the More places.
+
+## 3.19 1.0.1 logic (owner: Yawar; Tahir ruled 19 Oct 2026, D-80 to D-83; version 1.0.1)
+
+| Case | What C2M does | Rule |
+|---|---|---|
+| A list row has no pack and is not marked | It is "not placed": the grid lists it with a pick and "Not a C2M pack"; while any such row is on a list, a price for a pack not on that list is refused (the cell says "link first") | I-43, D-80 |
+| Yawar marks a row "not a C2M pack" | Refused when the row is linked, names a C2M VAN pack by name, size and unit (a row with no size: its name alone equal to a C2M VAN product, so a pack size C2M does not cost under that name cannot be marked: a known limit, 12.3), or is a pack a waiting revision adds. Otherwise: it moves to "Marked not a C2M pack" with who and when and Undo; it no longer counts as not linked; no suggestion is made for it; it is left out of the VAN brand list margin; the list still prints it | D-80, B-24 |
+| Yawar links a marked row, or presses Undo | The mark is taken out (the link record says so); the row needs its pack again (Undo) or is placed on the pack (link). Undo is refused while a revision that adds a pack to that list waits | D-80 |
+| A revision adds a pack to a list with marked rows | Refused if a marked row names that pack; otherwise Tahir's panel lists the marked rows, so he can send it back if one of them is that pack under another name | D-80 |
+| A marked row's price changes | Yawar uses "Change prices of marked rows": the revise form with only the marked rows of that list; it goes to Tahir as a list revision | D-80 |
+| Tahir approves a revision while Yawar links or marks a row of it | applyRevision locks each row it rewrites, so the link or mark made at the same moment is kept | D-80 |
+| A revision changes the prices of a marked row | The prices change as for any row; the mark stays (applyRevision merges the new prices into the row) | D-80 |
+| VAN brand list margin, each pack | GP on each list against its product's GP target (its own, else the company GP target; 0 counts as no target): below 0 red; more than 0.05 points under the target amber; else green | D-81, F-22 |
+| VAN brand list margin, portfolio | VAN brand trucks this FY at the approved cost on each date, against the targets of their products weighted by sales | D-81, F-23 |
+| Margin, a client or buyer line with trucks in the period but none costed | 1 line under the headline names it, saying whether its trucks have no cost or match no C2M pack; lines partly left out are named with their truck counts; no figures; with the restated switch, "no cost today" | D-83 |
+| Product page | 3 tabs: Recipe, Cost by pack, History (the steps of every recipe version) | D-82 |

@@ -1,6 +1,7 @@
 # 3. System logic
 
-Version 1.0.2 · 20 Oct 2026 · Owner: Yawar; Tahir approves changes · Rule: R-5h item 3 (D-20)
+Version 1.0.3 · 20 Oct 2026 · Owner: Yawar; Tahir approves changes · Rule: R-5h item 3 (D-20)
+Changed in 1.0.3 (20 Oct 2026; 1.0.2 went live on 20 Oct at 11:24): 3.21 added: the carry-over into the master and the lists printed from it (D-87).
 Changed in 1.0.2 (19 to 20 Oct 2026; 1.0.1 went live on its own on 19 Oct at 23:19): 3.20 added: product names (D-85). 20 Oct 2026, after review: 2 people saving at once, the check of trucks before a name change, names before a rename kept, a trade name shared across pack sizes, revisions shown under today's names.
 Changed in 1.0.1 (19 Oct 2026): 3.19 added: the "not a C2M pack" mark, the report against each product's target, the Margin left-out line and the History tab (D-80 to D-83).
 Changed in 1.0.0 (19 Oct 2026): 3.18 added: buyer lines, targets, the client price state, the VAN brand price grid, Margin and its red rule (D-74 to D-79); 3.17 says a revision can add a row.
@@ -274,3 +275,39 @@ Places (D-76): ROLES gives cfo and coo nav [approvals, products, prices, margin,
 | A recipe version for a product out of use | Refused; names locked so it cannot cross a take-out at the same moment | D-86 |
 | Printing a VAN list with rows not yet settled | The price list builder warns: the rows print under their old names, so 1 product can show under 2 names | D-85, review 1.0.2 re-check |
 | 2 recipes or products under 1 trade name | Their packs are shown beside the name on Recipes, the recipe page and Approvals | D-85 |
+
+## 3.21 1 master list logic (owner: Tahir rules; Tahir or Yawar; D-87; version 1.0.3)
+
+| Case | What C2M does | Rule |
+|---|---|---|
+| A row is linked to a pack in use of the size it is written with (or written with no size) | It stays as it is ("already linked") | D-87 |
+| A row is linked to a pack of another size, or of a product out of use | It is carried again, like a row with no pack | D-87 |
+| Rows with no pack | Grouped by name with the pack size taken out ("Brand 05 KG" and "Brand 5 Kg" are 1 name); 1 pick per name applies to every list | D-87, B-27 |
+| C2M's guess for a name | 1. the same name as a product's official name or spelling; 2. the same name without percentages and words in brackets; 2 products under 1 name: the one with the most of the rows' packs, none when tied; 3. the only product with the row's pack size whose spec the list's description holds; 4. the product the rows were linked to before. Shown to check | D-87, B-27 |
+| A row's pack | The pack of the picked product with the row's size and unit; none: another product of the same name with that pack (when the product picked is of that name); a row with no size: the product's only pack, else the 1 pack the name's other rows go to; else the row waits for a pack pick or leaves | D-87 |
+| 2 rows on 1 pack of 1 list (rows already linked included, even 2 of them) | Waits for the person to choose the row whose prices stay; the other leaves, kept read only | D-77, D-87 |
+| A row with no pack of its size (after the product's pick) | Waits: its pack, or "Leaves the lists", is chosen row by row; Carry over waits; never leaves by default | D-88 |
+| A pick that no longer fits (a product taken out of use while the screen was open; a pack of another size) | Dropped and named on the screen; the person picks again; a carry with one is refused (409) | D-87 |
+| A revision Tahir sent back | Closed at the carry-over (replaced), shown on the screen first; its prices stay listed under "Closed at the carry-over" on VAN brand prices; Yawar is told | D-87 |
+| Take a pack off a list | Tahir or Yawar, with a reason; refused while a revision with Tahir, or approved and waiting, holds the row; the row moves to the _old list with its prices; the other person is told; then the product may go out of use | D-88 |
+| The description | All 3 lists print C2M's spec of the product (the list's own only where C2M has none); edited by Tahir or Yawar in Product names; a changed one since is refused | D-88 |
+| 2 rows swap packs | Allowed in 1 save of the links: the check is on the batch's final state | D-87 |
+| A price is moved to another pack (after the carry-over) | Tahir or Yawar, no approval; the other is told, both products and the prices named; refused while a revision with Tahir, or approved and waiting, holds the row; on the distributor list the previous price is cleared, so the next list says "new" | D-88 |
+| A price typed for a row moved meanwhile, or moved at the same moment | Refused (409): every revision form records each row's pack when it opens; each row of a revision carries the pack it was typed for (packAt), checked again with the rows locked; a resend of a sent-back revision after a move is refused too | D-87 |
+| A distributor price moved to another pack | Its previous price stays, tied to the pack it was for: the list prints "new" while it sits on another pack, and the previous price again when moved back; issuing a distributor list sets it afresh | D-42, D-88 |
+| A pack comes back to a list | Typed in the grid as a new row (a revision to Tahir); the prices it left with (discount, FRP, MRP; distributor terms) come back with it, only from a row that was on that pack and of its size, the one that left last (never a row that left at the carry-over because another row was kept for its pack); Tahir's panel marks each one "came back, not typed"; typed ones win; on "Revise and resend" they are not filled in as typed, so they come back again and stay marked | D-88 |
+| Revise and resend after a row was moved | The moved row's old price is not filled in; the row says it was moved and what was typed for which pack (the pack the price was typed for); a price typed now is for the pack the row is on. A pack the revision added that got a row by a move meanwhile: not a new row any more; nothing filled in; the note says the row keeps its own prices and what was typed. Every such change is listed in 1 box above the form | D-87, D-88 |
+| A distributor pack brought back | The price distributors last saw for it comes back with it (shown to Tahir), so the list prints it and the change, not "new"; taken from the row that last carried it for that pack, also one moved off it; a distributor list issued while the pack waits for its date sets it to the price printed | D-42, D-88 |
+| A price typed to add a pack, and a row moved onto that pack at the same moment | Checked again with the list rows locked: the revision is refused (409) and the price goes on the moved row | D-87 |
+| Moves told to the other person | As many notices as needed (each holds 400 characters), each move whole with both products and its prices | D-88 |
+| Take off several lists of 1 pack | 1 reason, 1 save, 1 notice | D-88 |
+| A product with no description | Prints none on all 3 lists (C2M's description only); the carry screen and Product names name such products | D-88 |
+| A row's own pack pick on the carry-over | Only packs of the product picked for its name, or of a product of the same name; any other is dropped and named | D-87 |
+| The carry-over saves | Only the plan seen: carried rows, rows already linked, rows leaving and revisions closed; any change since is refused (409) | D-87 |
+| A revision on a row that left the list | Refused when sent (409) and when approved (send it back); never written onto a row off the list | D-87 |
+| Carry over | Only when every name has a pick and every 2-row pack a choice, no list revision is with Tahir or waiting for its date, and the plan is the one the screen showed (signature); all in 1 transaction, with the VAN brand products locked first, then the list rows | D-87 |
+| 2 people press Carry over at once | 1 is saved; the other is refused (409) and nothing of it is saved | D-87 |
+| A row leaves | Moved to list dist_old, dealer_old or farmer_old with its prices as they were and why; never printed, priced, revised or counted; in the change record | D-87 |
+| After the carry-over | The carry-over cannot run again; a row cannot be unlinked or marked "not a C2M pack"; it can be moved to another pack of the same size (the VAN brand list margin report); a pack is added to a list by a list revision as before | D-87 |
+| Printing | Every list prints each row under its master pack's official name and pack (500 ml under 1 L or 1 kg), products A to Z, packs small to large; a rename prints at once; the description stays the list's own | D-86, D-87 |
+| The distributor list is issued | Each row's previous price is set from the printed price, matched by master pack after the carry-over and by name before it | D-42, D-87 |

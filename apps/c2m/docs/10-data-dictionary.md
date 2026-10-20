@@ -1,6 +1,7 @@
 # 10. Data dictionary and glossary
 
-Version 1.0.2 · 20 Oct 2026 · Owner: Yawar; Himayat for material classes · Rule: R-5h item 10 (D-20)
+Version 1.0.3 · 20 Oct 2026 · Owner: Yawar; Himayat for material classes · Rule: R-5h item 10 (D-20)
+Changed in 1.0.3 (20 Oct 2026; 1.0.2 went live on 20 Oct at 11:24): after review, D-88 (take off a list, the description, rows leaving chosen). 10.10 added (D-87).
 Changed in 1.0.2 (19 to 20 Oct 2026; 1.0.1 went live on its own on 19 Oct at 23:19): 10.9 added (D-85); 20 Oct 2026: trucks moved, wasPack.
 Changed in 1.0.1 (19 Oct 2026): 10.8 added (D-80).
 Changed in 1.0.0 (19 Oct 2026): 10.7 added (D-74 to D-79).
@@ -213,3 +214,22 @@ Changed in 0.3.0 and 0.3.1: rs_per_kg fixed (1 rate of 1 kind, labour or FOH). A
 | Trucks moved by a name change | O2S trucks that would lose their cost under the product (leave) or be costed under it (join), with Rs (kg or L x O2S net price) and the first truck date | count, Rs | D-85, review 1.0.2 |
 | Out of use (c2m_client_product.active = 0) | A VAN brand product taken out of use from Setup, Product names: off C2M's screens, the grid and Margin; nothing deleted; Put back in use sets active = 1 | 0 or 1 | D-86 |
 | wasPack | The link a page showed for a list row when it sent a link; a different link now means the screen was out of date (409) | pack id or null | D-85, review 1.0.2 |
+
+## 10.10 Added in 1.0.3 (owner: Tahir and Yawar; D-87; version 1.0.3)
+
+| Word or field | Meaning here | Values |
+|---|---|---|
+| Master, master pack | C2M's VAN brand products and packs: each held once; the 3 lists are its price columns | a client pack id |
+| Carry-over, Carry into the master | the one-time step that links today's list rows to master packs | done once, by Tahir or Yawar |
+| Name (on the carry-over) | a product name as written on today's lists, pack size taken out; 1 pick per name for every list | text |
+| C2M's guess | same name; same name without % or brackets; same spec and size; linked before | text |
+| Leaves the printed lists | a row not carried: kept read only under dist_old, dealer_old or farmer_old | why: not in C2M, no pack of its size, another row kept for its pack |
+| listMaster (state) | {carried {at, by} or null, old: rows kept read only} | |
+| left (data_json) | {at, by, why} on a row that left | |
+| Master order | products A to Z by official name, then packs small to large | |
+
+| Take off a list | Tahir or Yawar takes a pack off 1 list, with a reason, no approval | why: text |
+| Off the lists | every row taken off or left at the carry-over, with its prices and who, when and why; read only | |
+| Description on the price lists | C2M's spec of a VAN brand product, printed on all 3 lists | at most 200 characters |
+| listOld (state) | the rows off the lists: {id, list, name, prices, left} | |
+| Waiting (carry-over) | a row whose picked product has no pack of its size: its pack or "Leaves the lists" is chosen | |

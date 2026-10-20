@@ -235,7 +235,17 @@ function restoreRow(d) {
   if (!d.listName) return { nd: d, changed: false }; const nd = { ...d }; nd.p = d.listP != null ? d.listP : d.p; if (d.listPack != null) nd.pack = d.listPack; else if (d.listP != null) delete nd.pack;
   delete nd.listName; delete nd.listP; delete nd.listPack; return { nd, changed: true, was: d.p, now: nd.p };
 }
+/* 1.0.3, 1 master list (Tahir, 20 Oct 2026, D-87): today's list rows are carried into the master once, grouped by product.
+   rowNameKey: the product name with its pack size taken out ("Brand 30% (01 Liter)" and "Brand 30%" are 1 group).
+   looseKey: also without percentages and words in brackets, so "AB Brand 30%" reads as "AB-Brand". */
+const rowNameKey = s => lnorm(String(s == null ? '' : s).replace(new RegExp(LSIZE.source, 'ig'), ' ').replace(/\(\s*\)/g, ' '));
+const looseKey = s => lnorm(String(s == null ? '' : s).replace(new RegExp(LSIZE.source, 'ig'), ' ').replace(/\([^)]*\)/g, ' ').replace(/\d+(?:\.\d+)*\s*%/g, ' '));
+/** Size and unit a list row is written with: the pack column, else the name (the farmer list writes both in the name). */
+const rowSize = (list, d) => listRowSize(list === 'farmer' ? d.p : (d.pack || d.p));
+/** Master order (D-87): products A to Z by official name, then packs small to large. */
+const masterCmp = (a, b) => String(a.brand).toLowerCase().localeCompare(String(b.brand).toLowerCase()) || Number(a.size) - Number(b.size);
 module.exports = {
+  rowNameKey, looseKey, rowSize, masterCmp,
   listRowIs, listRowSize, officialRow, officialPack, restoreRow,
   round, rateWarning, materialCost, recipeTotal, packingPerUnit, pickConversionRule, conversionFor, costBreakdown,
   marginPct, targetPrice, contributionFloor, fedPct, netPoPrice, needsReapproval, exposure, flag,

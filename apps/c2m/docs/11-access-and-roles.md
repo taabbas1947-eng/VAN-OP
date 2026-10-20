@@ -1,6 +1,7 @@
 # 11. Access and roles matrix
 
-Version 1.0.2 · 20 Oct 2026 · Owner: Tahir (grants roles in the platform's People and access); Yawar grants lists · Rule: R-5h item 11 (D-20), R-2 People and rights
+Version 1.0.3 · 20 Oct 2026 · Owner: Tahir (grants roles in the platform's People and access); Yawar grants lists · Rule: R-5h item 11 (D-20), R-2 People and rights
+Changed in 1.0.3 (20 Oct 2026; 1.0.2 went live on 20 Oct at 11:24): after review, D-88 (take off a list, the description, rows leaving chosen). 11.10: the carry-over into the master is Tahir's or Yawar's; moving a price to another pack likewise (D-87).
 Changed in 1.0.2 (19 to 20 Oct 2026; 1.0.1 went live on its own on 19 Oct at 23:19): 11.9: Tahir links list rows and edits product names, as Yawar does; the mark stays Yawar's (D-85). 20 Oct 2026: Tahir links on Client prices and the VAN brand list margin report too.
 Changed in 1.0.1 (19 Oct 2026): 11.9: "Link a list row or mark it not a C2M pack" is cfo only; Tahir sees the marks (D-80). No other right changed.
 Changed in 1.0.0 (19 Oct 2026): 11.9 added: the 5 places and More for cfo and coo (D-76); new actions on Client prices; no right changed.
@@ -149,3 +150,17 @@ No right changed: the server checks each action by role as before; ROLES only ch
 | Take a VAN brand product out of use, or put it back (1.0.2, 20 Oct 2026) | yes | yes | no | D-86 |
 | Open to approve a price or list revision (panel) | no | yes; never his own (D-63) | no | D-46, D-78 |
 | Change settings | yes (thresholds and, from 1.0.0, the company GP target wait for Tahir) | reads; approves | no | D-18, D-75 |
+
+## 11.10 Access in 1.0.3 (owner: Tahir; D-87; version 1.0.3, 20 Oct 2026)
+
+| Action | Yawar (cfo) | Tahir (coo) | Production, QC, plant | KAM (viewer) |
+|---|---|---|---|---|
+| See the carry-over plan (preview) | yes | yes | no (403) | no (403) |
+| Carry over into the master (once) | yes | yes | no | no |
+| Move a price to another pack of the same size, after the carry-over | yes | yes | no | no |
+| Unlink a row or mark it "not a C2M pack", after the carry-over | no one | no one | no | no |
+| Take a pack off a list (no approval) | yes | yes | no | no |
+| Edit the description on the price lists | yes | yes | no | no |
+| Print a granted list (master order, official names, C2M's description) | yes | yes | no | yes |
+
+A KAM never receives a row's master pack id, nor a row that left the lists.

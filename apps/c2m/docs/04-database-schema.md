@@ -1,6 +1,7 @@
 # 4. Database schemas
 
-Version 1.0.2 · 20 Oct 2026 · Owner: Tahir (C2M module owner); Claude records · Rule: R-5h item 4 (D-20)
+Version 1.0.3 · 20 Oct 2026 · Owner: Tahir (C2M module owner); Claude records · Rule: R-5h item 4 (D-20)
+Changed in 1.0.3 (20 Oct 2026; 1.0.2 went live on 20 Oct at 11:24): after review, D-88 (take off a list, the description, rows leaving chosen). no table, column or migration. c2m_list_price.list_name may also hold dist_old, dealer_old, farmer_old (rows not carried into the master, read only); data_json.left {at, by, why} on those rows; c2m_audit entity list_master, action carried is the flag of the carry-over (D-87).
 Changed in 1.0.2 (19 to 20 Oct 2026; 1.0.1 went live on its own on 19 Oct at 23:19): no table, column or migration. c2m_client_product.brand (the official name) and o2s_brand (O2S spellings) are edited from Setup, Product names; c2m_list_price.data_json may hold listName, listP and listPack (the name a row had before it was renamed); a renamed row updates the columns product and pack too (D-85). 20 Oct 2026: the unique key uq_cp (customer_id, channel, o2s_brand) answers a clear 400 when 2 VAN brand products would have exactly the same spellings; 2 VAN brand products may share brand when their pack sizes differ (no key on brand); the second of 2 products with exactly the same spellings is stored with a leading | (an empty spelling, ignored everywhere). c2m_client_product.active is set from Setup, Product names (Take out of use, Put back in use, D-86).
 Changed in 1.0.1 (19 Oct 2026): no table, column or migration. c2m_list_price.data_json may hold noPack, noPackBy and noPackAt (D-80).
 Changed in 1.0.0 (19 Oct 2026): no table, column or migration. c2m_list_price can get rows from an approved revision (D-77); c2m_list_revision.items_json items may be added rows; setting wl_budget_gp kept but no longer used (D-75).
@@ -732,3 +733,22 @@ No table, column, index or migration. Production SQL: none.
 | c2m_list_revision | items_json | An item may be an added row: {"id": null, "packId": n, "product": "brand", "pack": "size unit", "from": {}, "to": {field: price}, "added": 1} | D-77 |
 | c2m_list_price | product, pack, data_json | A row written by an approved revision: product = the brand (farmer list: "brand size unit", pack empty); data_json holds p, pack (not on the farmer list), packId and the prices, with fed (distributor) or net and netfed (dealer) worked out; issued = the revision's effective date; valid_till = its valid till | D-77 |
 | c2m_setting | wl_budget_gp | Kept (no migration); not used and not shown from 1.0.0 | D-75 |
+
+## 4.9 Changed in 1.0.3 (owner: Tahir; D-87; version 1.0.3, 20 Oct 2026)
+
+No table, column, index or migration; no production SQL.
+
+| Table | Column | Change | Plain meaning |
+|---|---|---|---|
+| c2m_list_price | list_name | new values dist_old, dealer_old, farmer_old | a row not carried into the master: kept as it was, read only; never printed, priced, revised or counted |
+| c2m_list_price | data_json.left | new key {at, ts, by, why, dup} on rows of the _old lists | when (day, and ts the time), by whom and why the row left the printed lists; dup 1 when it left at the carry-over because another row was kept for its pack (it never gives prices to a pack brought back) |
+| c2m_list_revision | items_json[].keep.prev | new key on an added distributor row | the price distributors last saw for the pack, from the row that left; written as the row's prev on approval |
+| c2m_list_price | data_json.packId | after the carry-over every row of dist, dealer and farmer has it | the master pack the price belongs to |
+| c2m_audit | entity list_master, action carried | 1 row, written once | the carry-over is done: who and when (the flag C2M reads) |
+| c2m_audit | entity list_price, action left_list | 1 row per row that left | the list and prices before, the list after (dist to dist_old), and why |
+| c2m_audit | entity product_name, action spec | 1 row per description change | the description before and after |
+| c2m_list_price | data_json.prevPack | new key on a distributor row moved after the carry-over | the pack its previous price was for; cleared when a distributor list is issued or the row is moved back |
+| c2m_list_revision | items_json[].packAt, items_json[].keep {back, terms} | new keys | the pack each price was typed for; the prices and terms that came back with a pack, not typed |
+| c2m_client_product | spec | edited by Tahir or Yawar for VAN brand products (at most 200 characters; empty means none) | the description all 3 lists print |
+
+Kept and deleted: rows of the _old lists are kept; nothing is deleted.

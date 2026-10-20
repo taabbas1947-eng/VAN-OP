@@ -1,6 +1,7 @@
 # 12. Tests, issues and assumptions
 
-Version 1.0.2 · 20 Oct 2026 · Owner: Claude records; Tahir and Yawar confirm assumptions · Rule: R-5h item 12 (D-20)
+Version 1.0.3 · 20 Oct 2026 · Owner: Claude records; Tahir and Yawar confirm assumptions · Rule: R-5h item 12 (D-20)
+Changed in 1.0.3 (20 Oct 2026; 1.0.2 went live on 20 Oct at 11:24): 12.1d added: suite c2m103.test (M-01 to M-07) and the tests changed for D-87; totals 221, after the 7 review rounds 229 (M-08 to M-15); known limits in 12.3; the 1.0.3 reviews in 12.4.
 Changed in 1.0.2 (19 Oct 2026; review fixes 20 Oct): 12.1c added: suite c2m102.test (X-01 to X-17) and the tests changed for D-85; totals 203; known limits for product names in 12.3; the 1.0.2 review in 12.4.
 Changed in 1.0.1 (19 Oct 2026): 12.1b added: suite c2m101.test (W-01 to W-07) and the tests changed for D-80 to D-82; totals 198; I-39, I-40, I-41 and I-45 closed (D-81, D-84, D-80); the 1.0.1 review in 12.4.
 Changed in 1.0.0 (19 Oct 2026): suite c2m100.test (T-01 to T-18); lib J-01, J-02; ui08, ui09, flow and van093 changed for the 5 places; ui09 V-05, V-06, V-08, V-18, V-19 retired; I-39 to I-44 added; totals in 12.1a; the 1.0.0 review in 12.4.
@@ -122,6 +123,30 @@ Changed: ui08 U-02 and c2m100 T-11 (11 Setup tabs); van093 L-01 (Tahir links fro
 
 Last run (cloud copy, 20 Oct 2026, 1.0.1 with 1.0.2 after the review and re-check fixes): TOTAL 215 passed, 0 failed (c2m102 17). Before review (19 Oct): TOTAL 203 passed, 0 failed (lib 43, van07 8, flow 57, fix06 20, ui08 12, ui09 14, fix091 6, fix092 4, van093 7, c2m100 18, c2m101 7, c2m102 5, confidential scan 1, migration sync 1).
 
+## 12.1d Tests in 1.0.3 (owner: Claude records; version 1.0.3, 20 Oct 2026)
+
+| Suite | Ids | What they prove | Count | Rule |
+|---|---|---|---|---|
+| c2m103.test.js | M-01 | The plan reads only (no row or change record written); Yawar and Tahir only (production and KAM 403); every open row in exactly 1 group, every row linked or in a group; a name with a % matched loosely to its pack; "05 KG" and "5 Kg" rows are 1 name; a row with no size goes to the product's only pack; an unknown name waits; 2 rows on 1 pack wait with their prices; spec and size guess; counts worked out in the test | 1 | D-87, B-27 |
+| | M-02 | The screen, as Yawar: counts in the answer line; Carry over disabled while a name waits; "Not in C2M" moves the rows to the leaving list; the 2-row choice with prices marks the row not kept; a row with no pack of its size offers packs of its size only | 1 | D-87 |
+| | M-03 | Refusals: no plan (400), not ready (400), production (403), a plan not the one seen (409, nothing saved), a revision open (400) | 1 | D-87 |
+| | M-04 | 2 people press Carry over at once: 1 saved, 1 refused (409); every row has its master pack and no mark; official name and the name before kept; the row not kept and the unknown row moved to _old with prices and why; change record (carried once, each row left, each link); never twice; a KAM never sees a row that left nor a pack id | 1 | D-87 |
+| | M-05 | The lists in master order under official names (3 lists); a rename made straight in the database prints at once, in the state and the issued document; the issued distributor list sets prev by pack | 1 | D-42, D-87 |
+| | M-06 | After the carry-over: unlink and mark refused; a move to a pack of the same size renames the row; a pack is added by a revision; no carry-over button or job on any screen | 1 | D-87 |
+| | M-07 | (was van093 L-06) The report moves a price to another pack: no "Not linked" choice; a hidden change is counted and saved | 1 | D-87 |
+| | M-08 | Review 1.0.3: 2 rows already linked to 1 pack are a choice; a row with no pack of its size waits and leaves only when chosen; stale picks dropped and named (200); a sent-back revision shown and closed at the carry, Yawar told; official names with brackets flagged | 1 | D-87, D-88 |
+| | M-09 | D-88: take off a list: production and KAM 403; a reason needed; refused while a revision holds the row; 409 on another pack shown; off the list, visible with who and why, never printed; Yawar told; prices in the change record; a row off a list is read only and cannot be taken off twice; the product can then go out of use; the button and box on the grid; Off the lists | 1 | D-88, B-28 |
+| | M-11 | Re-check: a move refused while a revision holds the row, then allowed with a notice naming both products; a price typed for a row moved meanwhile refused (409); a pack coming back brings its FRP and discount, shown to Tahir, and is back with them after approval; 2 lists in 1 go with 1 notice; a product with no description prints none | 1 | D-87, D-88 |
+| | M-12 | Third check: closed revisions on the state; packAt on each row; a resend after a move refused (409); "new" while moved, the previous price back when moved back; prices that came back marked and shown to Tahir as not typed; a list held by a revision cannot be ticked in the take-off box; "Closed at the carry-over" on the page | 1 | D-87, D-88 |
+| | M-10 | D-88: the description: a changed one since is refused (409); edited, printed on the lists, logged. A revision on a row that left: approval refused, sending refused. 2 rows swap packs in 1 save; 1 alone refused with the swap advice | 1 | D-87, D-88 |
+| | M-13 | Fourth check: a pack brought back takes the FRP of the row taken off last, not a duplicate dropped at the carry-over or an older row; "Revise and resend" after a move fills nothing for the moved row, says why, and sends the price typed for the pack it is on now (packAt the new pack); prices that came back are not filled in and stay marked after the resend; 6 moves in 1 save told in notices of 400 characters or less, every move whole | 1 | D-87, D-88 |
+| | M-14 | Fifth check: a distributor pack brought back keeps the price distributors last saw (shown to Tahir; printed after approval, not "new"); a list dated ahead issued while the pack waits for its date sets that previous price (no second increase); a resend whose added pack got a row meanwhile shows it once, names it in the notes above the form with what was typed, and fills nothing in on that row; the moved-row note names the pack the price was typed for | 1 | D-42, D-87, D-88 |
+| | M-15 | Seventh check (runs before the carry-over): issuing a distributor list sets the previous price of a row linked to a pack to the price printed | 1 | D-42 |
+
+Changed for D-87: c2m100 T-02 and c2m101 W-02 (the refusal words); c2m101 W-03, W-04, W-07 (no Not placed, mark or picks on the screens; Carry into the master offered), W-06 (no revision of marked rows); c2m102 X-05, X-11, X-12, X-17 (Product names keeps names only; the carry-over panel and screen; row picks of the row's size; a row linked to another size is carried again); van093 L-02 to L-05 (the report links no row by row; suggestions saved by route in the test), L-06 moved to c2m103 M-07; run-all runs c2m103 last.
+
+Last run (cloud copy, 20 Oct 2026, 1.0.3 after the review fixes): TOTAL 229 passed, 0 failed (lib 43, van07 8, flow 57, fix06 20, ui08 12, ui09 14, fix091 6, fix092 4, van093 6, c2m100 18, c2m101 7, c2m102 17, c2m103 15, confidential scan 1, migration sync 1). Before review: 221; after round 1: 224; after round 2: 225; after round 3: 226; after round 4: 227; after round 5: 228; after round 6: 228 (M-13 and M-14 changed); after round 7: 229. A price typed to add a pack against a row moved onto it at the same moment, run 15 times here and 27 times by the fifth reviewer: never both saved. A race of a move against a price typed for the same row, run 8 times: never both saved. Changed after review: c2m100 T-18 (the swap advice), c2m102 X-12 (a stale row pick is dropped and named; only packs of the name's product).
+
 ## 12.2 Assumptions and open issues (1 table)
 
 A-xx: assumptions decided overnight 15 to 16 Oct under Tahir's instruction "decide, log as assumption", to be confirmed. I-xx: open issues. Status: open, confirmed, superseded, fixed. The figures behind each assumption are in the Design Record and Yawar's sheets, not here (public repo).
@@ -200,6 +225,9 @@ A-xx: assumptions decided overnight 15 to 16 Oct under Tahir's instruction "deci
 
 ## 12.3 Known limits
 - The stand-in platform (harness) never moves to VAN Systems.
+- 1.0.3: a distributor pack brought back while a row moved off it is still on the list prints "new" (that row keeps the previous price for when it moves back); 2 rows leaving in the same second are ordered by row number.
+- 1.0.3: a revision form refused because a row was moved meanwhile keeps refusing until it is opened again, and what was typed is lost (never priced on the other product). Before the carry-over, a distributor list issued ahead of a newly added pack's date does not set that pack's previous price (as in 1.0.2).
+- 1.0.3: a save of many price moves at once writes as many notices as needed; the notice list shows the latest 20, so a very large save pushes older notices out of view (the change record keeps every move). A single move whose names run past about 110 characters each is still cut at 400 characters.
 - The O2S data is only as fresh as the last Pull now.
 - The exposure and history switches are per screen and not saved.
 - The confidential scan checks figures from the import pack, the loader and the budget totals. A figure that is in none of them (for example a typed example that matches a real cost by chance) is not caught; the documentation is also read by eye for every 2-decimal figure and every "Rs" figure. Whole-number money is scanned only from 100 rupees up and only when written with "Rs", so small rates such as the base band values are not caught by the scan; they are kept out by review (A-21).
@@ -219,6 +247,12 @@ A-xx: assumptions decided overnight 15 to 16 Oct under Tahir's instruction "deci
 - 1.0.2 (D-85, review): a pack under 1 L or 1 kg prints as C2M writes it, e.g. 0.5 L for 500 ml. For Tahir.
 - 1.0.2 (D-85, review): each name is settled 1 click at a time (about 33 list rows on live); there is no "accept all guesses". For Tahir.
 - 1.0.2 (D-85): removing an O2S spelling or an old official name changes Margin and the reports for every past month whose trucks used it; C2M shows the trucks and Rs before saving and logs them, but does not stop it.
+
+- 1.0.3 (D-88): a VAN brand product with no description in C2M prints none until one is typed in Product names; the carry screen and Product names show which.
+- 1.0.3 (D-88): a row taken off a list comes back only as a new row: its price typed in the grid, approved by Tahir as a list revision.
+- 1.0.3 (D-87): the carry-over cannot be undone in the app; the rows that left are kept read only (Off the lists) and come back only as new rows through a revision.
+- 1.0.3 (D-87): until the carry-over, rows with no pack and rows marked "not a C2M pack" take no new prices from the grid (the "Change prices of marked rows" form is gone); the carry-over is meant to be done first.
+- 1.0.3 (D-87): before the carry-over the routes that link, unlink and mark a row still answer (no screen calls them); after it, unlink and mark are refused.
 
 ## 12.4 Review and audit reports with fix status
 
@@ -362,3 +396,80 @@ Third re-check by a fresh independent reviewer (20 Oct 2026, run): S1, S3, S4, S
 | T7 | Free (FOC) open lines count in the check but are not listed in Names to settle; a page open across the deploy keeps getting 409 | code | the 409 now says to reload | partly fixed |
 
 Fourth check by a fresh independent reviewer (20 Oct 2026, run; verdict "push but know this"): every caller of the renamed-rows count updated; the size check, Unlink, the Edit refusal and the recipe refusal held (20 rounds of out of use against a new recipe: never both, never neither, 0 errors). Its points, fixed the same day: an official name holding a size (renamed back) left farmer rows under a wrong name: a new official name with a size is now refused (X-17); the Setup and Approvals counts of rows to settle now agree, and the Approvals panel lists rows linked to another size; the check no longer opens with "0 trucks" when only open orders move; 2 people starting a recipe version at once now get "already has a version in progress" (read under the lock). Left: a product whose saved spelling already equals an out-of-use product's name must remove it before other edits (cannot arise on live: no product is out of use yet).
+- 1.0.3 (D-87): price lists sent to KAMs and dealers after the carry-over carry new order, names and descriptions with no "was" note (D-86: KAMs tell their dealers). KAMs do not see "Off the lists".
+- 1.0.3 (D-87): a distributor list issued at the same instant as the carry-over could set previous prices by name for rows read before it (very narrow; not changed).
+
+### 1.0.3 reviews (20 Oct 2026; independent agents, run not only read; owner: Claude records, Tahir ruled D-88; version 1.0.3)
+
+Round 1: a code and data-safety reviewer and a screens and workflow reviewer, both "do not push yet". Round 2 (re-check, 2 fresh reviewers): code and data safety "push, but know this"; screens and workflow "do not push yet". Every finding was fixed, ruled by Tahir, or listed here.
+
+| # | Finding (round) | Fix or status |
+|---|---|---|
+| R1 | No way to take a product off a list after the carry-over (1, screens) | Take off a list, Tahir or Yawar, no approval (Tahir, D-88); several lists in 1 go (2) |
+| R2 | 2 rows already linked to 1 pack passed unseen (1, code) | Raised as a choice; prev by pack only after the carry |
+| R3 | A revision could be approved onto a row that had left (1, code) | Revise re-reads rows in its transaction; approve refuses; applyRevision checks the list |
+| R4 | Rows leaving by default; rows that left invisible (1, both) | Each chosen (Tahir, D-88); Off the lists with prices; prices in the change record |
+| R5 | Distributor list printed an old description (1, screens) | C2M's description on all 3 lists (Tahir, D-88); none prints none (2, code) |
+| R6 | Costing words in official names would print (1, screens) | Renamed on live through Product names (Tahir's OK); warning on the carry screen |
+| R7 | Swap of 2 wrong carries impossible (1, screens) | Batch checked on its final state |
+| R8 | Stale pick trapped the screen (1, both) | Dropped and named; Start again; picks kept on coming back (2) |
+| R9 | Untrue counts, marks not shown, other person not told, sent-back revisions (1, screens) | Reworded; marks shown; notices; sent-back closed at the carry with its prices named (2) |
+| R10 | Reasons on the distributor list keyed by position (1, code) | Keyed by product and pack; old documents keep theirs |
+| R11 | A price moved to another product, nobody told (2, screens) | Allowed, the other is told (Tahir, D-88); refused while an open revision holds the row (2, code) |
+| R12 | A price typed for a row moved meanwhile landed on the other pack (2, code) | wasPack on each revision row: 409 |
+| R13 | A row brought back lost its discount, FRP, MRP (2, screens) | They come back from the row that left, shown to Tahir |
+| R14 | Take-off box cut on a phone; 3 rounds for 3 lists (2, screens) | Above the grid, ticks per list, 1 save |
+| R15 | Resend of a sent-back revision stuck on a row taken off (2, screens) | The row is dropped from the resend, with a message |
+| R16 | Row picks to another product on the carry screen (2, screens) | Limited to the name's product and same-name products |
+| R17 | Plan signature did not cover rows already linked (2, code) | It does |
+| R18 | Lock order revise and remove (2, code) | Names lock first in both |
+| R19 | KAMs and dealers get re-ordered lists with no "was" note (2, screens) | Not built: Tahir ruled KAMs tell dealers (D-86) |
+| R20 | Same-instant distributor issue and carry (1, code) | Very narrow; not changed; in 12.3 |
+| R21 | A move and a price typed at the same moment: the price landed on the other pack (3) | Checked again with the rows locked (packAt); run 8 times, never both saved |
+| R22 | Prices of revisions closed at the carry-over only in a capped notice (3) | Listed on the page, "Closed at the carry-over" |
+| R23 | Prices that came back looked typed; could come from a row of another size (3) | Marked for Tahir; only from a row of that pack and size |
+| R24 | Rename with the description cleared kept the old one; table stale after Save anyway (3) | Fixed |
+| R25 | Resend after a move; a move by mistake lost the distributor previous price (3) | packAt on resend; previous price tied to its pack |
+| R26 | Field codes in notices; take-off box offered a held list; phone gaps in Product names (3) | Plain words; tick disabled with why; stacked labels fixed |
+
+Round 3 (third check, 1 fresh reviewer covering code, data safety, screens and workflow): "do not push yet"; every finding fixed and tested (R21 to R26).
+
+| R27 | A pack brought back took the prices of a duplicate row dropped at the carry-over (wrong MRP, terms lost) (4) | Takes the row that left last; rows dropped because another row was kept for their pack never give prices and do not show "back on the list" |
+| R28 | "Revise and resend" could never be sent once a row in it had been moved; the message pointed to a reload that did not help (4) | The moved row is not filled in and says why; a price typed for it is for the pack it is on now |
+| R29 | On resend, prices that came back looked typed (4) | Not filled in as typed; shown as "comes back unless typed"; marked again |
+| R30 | The move notice was cut off at 400 characters with 3 or more moves (4) | As many notices as needed, each move whole |
+| R31 | A price typed to add a pack and a row moved onto that pack at the same moment: both saved, the approval described it as a new row (4) | Checked again with the rows locked: the revision is refused (409); run 15 times, never both saved |
+| R32 | Take-off button counted a held list once; a refused description said "Nothing was saved" after names were saved and lost the words typed; the approval panel showed only 12 prices (4) | Count after unticking; plain message with the words typed; the panel shows every price. The "Closed at the carry-over" box stays as a record, folded |
+
+Round 4 (fourth check, 1 fresh reviewer, run not only read): "push, but know this"; every finding fixed and tested (R27 to R32); every round-3 fix held.
+
+| R33 | The moved-row note on resend named the product the row is on now, not the one the price was typed for (5) | Named by the pack the price was typed for |
+| R34 | A distributor pack brought back printed "new" with no previous price (5) | The price distributors last saw comes back with it, shown to Tahir |
+| R35 | An empty grid cell could show "off since" from a duplicate dropped at the carry-over (5) | The row that left last, never a duplicate |
+| R36 | Resend after the added pack got a row by a move: shown twice, refused on Send (5) | Shown once; the typed price goes on that row, with a note |
+| R37 | The moved-row note was a thin strip on a phone (5) | A full-width line above the row |
+| R38 | A save of very many moves makes many notices; the notice list shows the latest 20; a single move over 400 characters is still cut (5) | Not changed: VAN names are far shorter; in 12.3 |
+
+Round 5 (fifth check, 1 fresh reviewer, run not only read): "push, but know this"; every fix of round 4 held; R33 to R37 fixed and tested, R38 listed.
+
+| R39 | Resend after the added pack got a row by a move: the typed price went on that row, but the pack's old MRP, terms and previous price were lost without a word, and Tahir saw only the price change (6) | Nothing is filled in for it; the note says that row keeps its own prices and what was typed; Yawar decides |
+| R40 | A list dated ahead, issued while a returning distributor pack waited for its date, would show the same increase twice (6) | Issuing sets the waiting pack's previous price to the price printed |
+| R41 | Notes cut off on a phone; 1 pop-up replacing another so a dropped price went unnamed; 2 notes saying different things (6) | All changes since typing in 1 list above the form (taken off, moved, now on the list), each with what was typed; the row says "see the note above" |
+| R42 | A distributor row moved off its pack and then taken off: bringing the pack back printed "new" (6) | The previous price comes from the row that last carried it for that pack |
+
+Round 6 (sixth check, 1 fresh reviewer, run not only read): "push, but know this"; fixes 1 to 3 of round 5 held; R39 to R42 fixed and tested (the reviewer's scripts for R39, R40 and R42 run again: right prices, no second increase).
+
+| R43 | Before the carry-over, issuing a distributor list no longer set the previous price of rows linked to a pack (1.0.3 matched by pack only; printed rows carry no pack until the carry-over) (7) | By pack when the printed row has one, else by name as in 1.0.2; M-15 |
+| R44 | A price typed in "Revise: list" or for a row not in the revision could land on another product if the row was moved while the form was open (7) | Every row's pack is recorded when the form opens; a move meanwhile is refused (409); the reviewer's script run again: refused, nothing sent |
+| R45 | The resend form showed "comes back" values from the old revision; the values are worked out again on sending (7) | Shown as "came back last time ...; worked out again on sending"; Tahir sees the real values |
+| R46 | The previous price that comes back was not checked against the pack size (7) | Checked as the other prices |
+| R47 | A distributor row moved off a pack but still on the list: bringing that pack back prints "new"; 2 rows leaving in the same second are ordered by row number (7) | Not changed: "new" shows the honest state, and the moved row keeps that previous price for when it moves back; in 12.3 |
+
+Round 7 (seventh check, 1 fresh reviewer, run not only read): "push, but know this"; the 3 fixes of round 6 held; R43 to R46 fixed and tested; R47 listed.
+
+| R48 | The refusal after a move named the row's new product, not the one typed for (8) | Names the pack typed for and what the row reads now; M-11 checks it |
+| R49 | After that refusal the open form keeps refusing until opened again; what was typed is lost (8) | Not changed: safer than 1.0.2, which priced the other product; the message says to open the form again; in 12.3 |
+| R50 | Before the carry-over, a list issued ahead of a newly added pack's date does not set its previous price (8) | Not changed: same as 1.0.2; after the carry-over it is set; in 12.3 |
+
+Round 8 (eighth check, 1 fresh reviewer, run side by side with live 1.0.2 before the carry-over): "push, but know this"; no wrong price or previous price, no data lost; every round-7 fix held and matched 1.0.2 where it should; R48 fixed (wording only, covered by the tests, not re-reviewed), R49 and R50 listed.
+

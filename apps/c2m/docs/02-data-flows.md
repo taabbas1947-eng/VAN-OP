@@ -1,6 +1,7 @@
 # 2. Data flow diagrams
 
-Version 1.0.2 · 20 Oct 2026 · Owner: Yawar; data links set by Tahir and Yawar in Setup, From O2S · Rule: R-5h item 2 (D-20)
+Version 1.0.3 · 20 Oct 2026 · Owner: Yawar; data links set by Tahir and Yawar in Setup, From O2S · Rule: R-5h item 2 (D-20)
+Changed in 1.0.3 (20 Oct 2026; 1.0.2 went live on 20 Oct at 11:24): 2.20 added: the carry-over into the master and printing from the master (D-87).
 Changed in 1.0.2 (19 to 20 Oct 2026; 1.0.1 went live on its own on 19 Oct at 23:19): 2.19 added: product names (D-85). 20 Oct 2026: row 8 (the check of trucks).
 Changed in 1.0.1 (19 Oct 2026): 2.18 added: the "not a C2M pack" mark on a list row (D-80).
 Changed in 1.0.0 (19 Oct 2026): 2.17 added: buyer lines from O2S (D-74) and the added list row (D-77).
@@ -216,3 +217,18 @@ flowchart LR
 | 6 | c2m_o2s_po_line, c2m_o2s_truck (O2S copy) | matcher (engine) | a VAN brand line is placed on brand and pack size, by the official name or any spelling | D-44, D-85 |
 | 7 | every step above | c2m_audit | product_name rename or o2s_names (old and new, with trucks and Rs moved), list_price link, rename | D-85 |
 | 8 | c2m_o2s_po_line, c2m_o2s_truck (O2S copy) | names route, preview | the trucks a name change would move off or onto the product, with Rs and first date, before saving; read only | D-85, review 1.0.2 |
+
+## 2.20 1 master list (owner: Tahir rules; Tahir or Yawar; D-87; version 1.0.3)
+
+| Step | From | To | Data that moves | Rule |
+|---|---|---|---|---|
+| 1 | c2m_list_price (dist, dealer, farmer), c2m_client_product, c2m_client_pack | POST /api/c2m/lists/master/preview | the plan: rows already linked, groups of rows by name with C2M's guess, 2-row choices, rows that leave, a signature; nothing is written | D-87, B-27 |
+| 2 | the carry-over screen | POST /api/c2m/lists/master/carry | the picks, choices and row picks, with the signature of the plan seen | D-87 |
+| 3 | carry route | c2m_list_price data_json (packId, p, pack; listName, listP, listPack keep the name before) and columns product, pack | each carried row linked to its master pack under the official name | D-85, D-87 |
+| 4 | carry route | c2m_list_price.list_name dist_old, dealer_old, farmer_old; data_json.left {at, by, why} | a row not carried, kept as it was, read only | D-87 |
+| 5 | carry route | c2m_audit | list_price link (each row carried), left_list (each row that left), list_master carried (once: the flag) | D-87 |
+| 6 | c2m_list_price, c2m_client_pack, c2m_client_product | state lists, price list documents, the KAM's lists | after the carry-over each row prints under its master pack's official name and pack, products A to Z, packs small to large; rows of the _old lists never | D-87 |
+| 7 | the issued distributor list | c2m_list_price data_json prev | the price printed becomes each row's previous price, matched by master pack (after the carry-over; by name before it) | D-42, D-87 |
+| 8 | Take off a list (POST /api/c2m/lists/remove) | c2m_list_price list_name <list>_old, data_json.left; c2m_audit left_list with the prices; c2m_notice to the other person | the row off the list, its prices kept | D-88 |
+| 9 | Product names, Edit (POST /api/c2m/names/product/:id/spec) | c2m_client_product.spec; c2m_audit product_name spec (before and after) | the description all 3 lists print | D-88 |
+| 10 | carry route | c2m_list_revision status replaced (revisions Tahir sent back); c2m_notice to Yawar and to the other person | closed at the carry-over; told | D-87 |

@@ -1,6 +1,7 @@
 # 7. The Guide
 
-Version 1.0.2 · 20 Oct 2026 · Owner: Yawar; Tahir approves changes · Rule: R-5h item 7 (D-20)
+Version 1.0.3 · 20 Oct 2026 · Owner: Yawar; Tahir approves changes · Rule: R-5h item 7 (D-20)
+Changed in 1.0.3 (20 Oct 2026; 1.0.2 went live on 20 Oct at 11:24): after review, D-88 (take off a list, the description, rows leaving chosen). Yawar and Tahir: 1 master list and the carry-over (D-87); Product names keeps names only; the in-app Guide carries the same lines.
 Changed in 1.0.2 (19 to 20 Oct 2026; 1.0.1 went live on its own on 19 Oct at 23:19): Yawar line 7 and Tahir line 4: Setup, Product names (D-85); the in-app Guide carries the same lines. 20 Oct 2026: the check before a name change, trade names, Tahir links on Client prices.
 Changed in 1.0.1 (19 Oct 2026): Yawar line 4 and Tahir lines 3 and 5 (D-80 to D-83); the in-app Guide carries the same lines.
 Changed in 1.0.0 (19 Oct 2026): "Where things are (1.0.0)" and the 1.0.0 lines for Yawar and Tahir added (D-76 to D-79); the in-app Guide carries the same lines.
@@ -160,3 +161,17 @@ Also:
 - Yawar and Tahir: Reports. GP bridge explains why GP moved from 1 month to the next; PO price against approved price lists every PO line entered below the approved price. Both export to Excel, as does the customer table on Margin.
 - Yawar: Propose opens a panel beside the list. Write the reason the client will read; it is not filled in for you.
 - Tahir: a price approval shows the figures as tiles, Yawar's reason set apart, and its place in the queue (1 of 3).
+
+## What is new in 1.0.3 (20 Oct 2026): 1 master list (D-87)
+
+- Each VAN pack is held once, in C2M, and the distributor, dealer and farmer lists are its price columns. Every list prints from it: the official name and pack, products A to Z, packs small to large. Prices do not change.
+- Once, at the start, Tahir or Yawar carries today's list rows into the master: Client prices, VAN brand prices, Carry into the master (also on Approvals). C2M matches most rows by name and size, marked "C2M: same name. Check": check them. Pick the master product of each name C2M cannot match: the pick counts for every list the name is on. Where 2 rows land on 1 pack of 1 list, choose the row whose prices stay. The rows that leave the printed lists are listed before anything moves; they are kept read only. Press Carry over twice.
+- After that nothing is linked row by row: Not placed, the mark "Not a C2M pack" and Rename and link are gone. A price on the wrong pack is moved in More, Reports, VAN brand list margin ("Each list row and its master pack").
+- Each row that would leave the printed lists is chosen: its pack, or "Leaves the lists". Carry over waits until every one is chosen.
+- A pack no longer sold: Take off a list, in its row of the grid. Tahir or Yawar, with a reason; no approval; the other is told. It stays visible, with its prices, under "Off the lists"; to bring it back, type its price in the grid (a revision to Tahir).
+- The description the lists print is C2M's, the same on all 3 lists: edit it in Setup, Product names, Edit, "Description on the price lists". A product with none prints none.
+- A price on the wrong product: move it in More, Reports, VAN brand list margin; no approval; the other of Tahir and Yawar is told.
+- A pack brought back to a list comes with the discount, FRP, MRP and terms it left with, shown to Tahir in the revision. On "Revise and resend" these show as "comes back ... unless typed": leave them empty to keep them.
+- Yawar, "Revise and resend" after Tahir moved a row to another pack: that row's old price is not filled in, and the row says what was typed for which pack. Type its price again for the pack it is on now, or leave it empty. Every price that changed since you typed (a row taken off, a row moved, a new pack that now has a row) is listed in 1 box above the form, with what you had typed; nothing is filled in for those.
+- Setup, Product names keeps the official names (the trade name only), the description and O2S spellings.
+- KAMs: the lists you print come out in master order under the official names from the carry-over on.

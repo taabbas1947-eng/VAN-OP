@@ -1,6 +1,7 @@
 # 8. Release notes and change log
 
-Version 1.0.2 · 20 Oct 2026 · Owner: Claude records; Tahir approves releases · Rule: R-5h item 8 (D-20)
+Version 1.0.3 · 20 Oct 2026 · Owner: Claude records; Tahir approves releases · Rule: R-5h item 8 (D-20)
+Changed in 1.0.3 (20 Oct 2026; 1.0.2 went live on 20 Oct at 11:24): entry 1.0.3 added; 1.0.2 went live on 20 Oct at 11:24.
 Changed in 1.0.2 (20 Oct 2026): entry 1.0.2 added; fixes from its reviews added; 1.0.1 went live on its own on 19 Oct at 23:19.
 Changed in 1.0.1 (19 Oct 2026): entry 1.0.1 added; live status.
 Changed in 1.0.0 (19 Oct 2026): entry 1.0.0 added.
@@ -14,6 +15,31 @@ Changed in 0.7.0: entry 0.7.0 added.
 Changed in 0.6.0: entry 0.6.0 added.
 Changed in 0.5.0: entry 0.5.0 added; real figures removed from earlier entries (public repo).
 Format: Keep a Changelog, semantic versions. Live: 1.0.0 (pushed 19 Oct about 22:09, checked live by Claude as Tahir the same evening; Yawar's view checked in the cloud copy only); 0.9.3 pushed 19 Oct 14:38, checked live; 0.9.2 pushed 19 Oct 12:43, checked live; first data load 19 Oct 2026 about 13:17, checked live. Before: 0.9.1 (pushed 19 Oct 09:39, checked live). apps/c2m first pushed by Tahir on 17 Oct and the live migration run the same day (39 empty c2m_ tables); 0.6.0 and 0.7.0 pushed on 18 Oct (17:29), 0.8.0 (20:16) and 0.9.0 (22:03), each checked live by Claude. The folder tabs (D-59) were built after the 0.9.0 push and ship in 0.9.1. No data loaded yet: the first data load runs on Monday 19 Oct 2026.
+
+## [1.0.3] · 20 Oct 2026 · 1 master list: the 3 price lists print from the master (D-87) · Who: Claude built; Tahir ruled and approves the push
+### Added
+- The carry-over into the master (Tahir or Yawar, once): Client prices, VAN brand prices, Carry into the master; also from Setup, Product names, the VAN brand list margin report, the price list builder and Approvals (opens in a panel). 1 screen: rows already linked stay; C2M matches the rest by name and size, by a loose name (no %, no words in brackets) or by spec and size, shown to check; 1 pick per name for every list; a row with no pack of its size gets a pack pick; 2 rows on 1 pack choose the row kept; rows that leave are listed; Carry over with a 2-step confirm, saved only as the plan seen.
+- Rows not carried kept read only (lists dist_old, dealer_old, farmer_old), each in the change record.
+### Changed
+- Every list prints from the master after the carry-over: official name and pack, products A to Z, packs small to large; a rename prints at once (D-87).
+- The issued distributor list sets each row's previous price by master pack.
+- After the carry-over a row cannot be unlinked or marked; it can be moved to another pack of the same size in the VAN brand list margin report.
+- Setup, Product names: Names to settle lists O2S names only; Approvals: "Names to settle" for O2S names, "Carry the price lists into the master" until it is done.
+### Added after review (20 Oct 2026; Tahir's rulings D-88)
+- Take off a list (Tahir or Yawar, no approval, with a reason; the other is told); "Off the lists" shows every row off the lists with its prices, read only.
+- The description on all 3 lists is C2M's, edited in Product names.
+- On the carry-over: each row that would leave is chosen; prices and marks shown on each row; rows already linked listed to check; 2 rows already linked to 1 pack become a choice; a stale pick is dropped and named; official names with brackets flagged; revisions Tahir sent back closed and Yawar told; the other person told of the carry-over; counts reworded.
+- 2 rows swap packs in 1 save; a revision cannot be sent or approved onto a row that left the list; reasons on the distributor list keyed by product and pack.
+- After the re-check: a move tells the other person and is refused while a revision holds the row; a price typed for a row moved meanwhile is refused; a pack coming back brings its other prices; several lists of 1 pack taken off in 1 go; the take-off box sits above the grid (fits a phone); a product with no description prints none and is named; the carry-over keeps picks on coming back and reads the plan again after each change; row picks only to the name's product; the carry saves only the plan seen, rows already linked included.
+- After the fourth check: a pack brought back takes the prices of the row that left last, never a row dropped at the carry-over because another row was kept for its pack (such rows do not show "back on the list"); "Revise and resend" after a row was moved fills nothing for that row, says why, and sends a price typed for the pack it is on now; prices that came back are not filled in again as typed, so they stay marked for Tahir; moves told in as many notices as needed, each move whole (a notice holds 400 characters); a price typed to add a pack is refused (409) when a row was moved onto that pack at the same moment; Tahir's approval panel shows every price of a revision; after the fifth check, a distributor pack brought back keeps the price distributors last saw, the moved-row note names the pack the price was typed for, a resend whose added pack got a row meanwhile puts the typed price on that row, and an empty grid cell never shows "off since" from a duplicate; after the sixth check, "Revise and resend" lists every change since typing (taken off, moved, now on the list) in 1 box above the form with what was typed and fills nothing in for them, and a distributor list issued ahead of a returning pack's date sets its previous price; after the seventh check, issuing a distributor list before the carry-over sets previous prices by name again (as in 1.0.2), and every revision form records each row's pack when it opens, so a move meanwhile is refused, and the refusal names the pack typed for; the take-off button counts only lists that can be ticked; a description refused after the names were saved says so plainly and shows the words typed.
+- Live data, through the screens, 20 Oct 2026 (Tahir's OK): 5 official names set to the trade name; the outsourced cost sheet of 1 product taken out of use (D-86).
+### Removed
+- Not placed, the mark "Not a C2M pack" with Undo, Rename and link, Unlink, Rename linked rows and the report's link picks, from the screens (the routes stay until the carry-over, for safety). "Change prices of marked rows".
+### Migrations to run
+- None. No table, column or production SQL.
+### What to test after
+- Live, as Tahir, read only: Client prices, VAN brand prices shows "Carry into the master"; the carry-over screen shows the counts and guesses; nothing is carried until Tahir or Yawar presses Carry over.
+- After Tahir or Yawar carries over: the lists print in master order under official names; Approvals has no carry-over job.
 
 ## [1.0.2] · 19 Oct 2026 · Product names: 1 name per product everywhere (D-85) and product out of use (D-86) · 1.0.1 went live on its own on 19 Oct at 23:19 · Who: Claude built; Tahir ruled and approves the push
 ### Added

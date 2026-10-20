@@ -1,6 +1,7 @@
 # 1. Process flow diagrams
 
-Version 1.0.2 · 20 Oct 2026 · Owner: Yawar (CFO) keeps it current; Tahir approves changes · Rule: R-5h item 1 (D-20)
+Version 1.0.3 · 20 Oct 2026 · Owner: Yawar (CFO) keeps it current; Tahir approves changes · Rule: R-5h item 1 (D-20)
+Changed in 1.0.3 (20 Oct 2026; 1.0.2 went live on 20 Oct at 11:24): after review, 1.20: take a pack off a list, the description, rows leaving chosen (D-88). 1.20 added: 1 master list and the carry-over into it (D-87); 1.19 Product names keeps official names and O2S spellings only, list rows are no longer settled there.
 Changed in 1.0.2 (19 to 20 Oct 2026; 1.0.1 went live on its own on 19 Oct at 23:19): 1.19 added: product names, 1 name everywhere (D-85). 20 Oct 2026: the check of trucks before saving a name change.
 Changed in 1.0.1 (19 Oct 2026): 1.17 a list row can be marked "not a C2M pack" and the report colours against each product's target (D-80, D-81); 1.18 the Not placed step in the VAN brand price flow (D-80).
 Changed in 1.0.0 (19 Oct 2026): 1.18 added: where each job is done for Yawar and Tahir from 1.0.0, the white label client price flow and the VAN brand price grid flow (D-76 to D-79). 1.15 stands for the other roles.
@@ -477,3 +478,42 @@ flowchart LR
 | Rename linked rows | Tahir or Yawar | press twice (2 steps) | D-85 | POST /names/rename-linked |
 | Edit official name or spellings | Tahir or Yawar | names; then Save anyway if trucks move (20 Oct 2026) | D-85, B-26 | POST /names/product/:id (preview first: trucks that leave or join); list rows follow; name before kept as a spelling |
 | Mark not a C2M pack | Yawar | the mark | D-80 | as 1.17 and 1.18 |
+
+## 1.20 1 master list: the 3 price lists print from the master (owner: Tahir rules; Tahir or Yawar carries over; Tahir ruled 20 Oct 2026, D-87; version 1.0.3)
+
+Each VAN brand product and pack is held once, in C2M (the master; only products C2M costs). The distributor, dealer and farmer lists are its price columns: a price belongs to a master pack, and every list prints from the master, under the official name and pack, products A to Z, packs small to large. Today's list rows are carried into the master once.
+
+```mermaid
+flowchart LR
+  subgraph TY [Tahir or Yawar, once: Client prices, VAN brand prices, Carry into the master]
+    C1[Rows already linked stay · D-87]
+    C2[C2M matches the rest by name and size, or by spec and size: shown to check · D-87]
+    C3[Pick the master product of each name C2M cannot match, once for every list · D-87]
+    C4[A row with no pack of its size: pick its pack, or it leaves · D-87]
+    C5[2 rows on 1 pack of 1 list: choose the row whose prices stay · D-87]
+    C6[Rows that leave the printed lists: shown before Carry over · D-87]
+  end
+  C1 --> CO[Carry over: 2-step confirm]
+  C2 --> CO
+  C3 --> CO
+  C4 --> CO
+  C5 --> CO
+  C6 --> CO
+  CO --> M([Every list row belongs to a master pack · prints from the master])
+  CO -. "rows not carried" .-> OLD([Kept read only: never printed or priced · change record])
+  M --> Y[Yawar types prices in the grid] --> T[Tahir approves the list revision] --> M
+  M --> PDF([Price lists: official names, A to Z, packs small to large])
+```
+
+| Step | Owner | Input | Rule | Feeds |
+|---|---|---|---|---|
+| Open the carry-over | Tahir or Yawar | Carry into the master (grid, Product names, the margin report, the price list builder, or the Approvals panel) | D-87 | POST /lists/master/preview (reads only) |
+| Check C2M's matches | Tahir or Yawar | look; change the pick if wrong | D-87, B-27 | the plan is worked again on each change |
+| Pick a product | Tahir or Yawar | 1 pick per name, for every list it is on; or "Not in C2M: leaves the lists" | D-87 | the plan |
+| Pick a row's pack | Tahir or Yawar | a pack of the row's size (any pack when the row has no size), or "Leaves the lists" | D-87 | the plan |
+| Choose between 2 rows | Tahir or Yawar | the row whose prices stay | D-87 | the plan |
+| Carry over | Tahir or Yawar | press twice | D-87 | POST /lists/master/carry: links, official names, rows left kept read only, change record; once only |
+| A row with no pack of its size | Tahir or Yawar | its pack, or "Leaves the lists" | D-88 | Carry over waits until every such row is chosen |
+| After the carry-over | Yawar types, Tahir approves | prices in the grid | D-77 | list revisions as before; a price on the wrong pack is moved in the VAN brand list margin report (2 rows swap in 1 save) |
+| Take a pack off a list | Tahir or Yawar, no approval | Take off a list (grid row), why | D-88 | POST /lists/remove: the row stops printing, kept read only with its prices under "Off the lists"; logged; the other is told |
+| Description on the lists | Tahir or Yawar | Setup, Product names, Edit, "Description on the price lists" | D-88 | POST /names/product/:id/spec: all 3 lists print it |

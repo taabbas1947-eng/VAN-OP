@@ -34,7 +34,7 @@ function rows(aud, data, reasons = {}) {
       reason: reasons[k] != null ? reasons[k] : (r.reason || (ch == null ? 'New price' : Math.abs(ch) > 0.01 ? 'Raw material cost change' : 'No change')), eff: fmtD(data.eff), _k: k, _fam: r.fam || null };
   });
   if (aud === 'dist') return data.list.map((d, i) => {
-    const ch = d.prev ? (d.now - d.prev) / d.prev * 100 : null; const k = 'd' + i; const noPrice = d.now == null; // null = no previous price: "new", never "0.0%" (defect 12)
+    const ch = d.prev ? (d.now - d.prev) / d.prev * 100 : null; const k = 'd:' + d.p + '|' + (d.pack || ''), k0 = 'd' + i; if (reasons[k] == null && reasons[k0] != null) reasons = { ...reasons, [k]: reasons[k0] }; /* keyed by product and pack (1.0.3: the list re-sorts A to Z); documents issued before keep their reasons by position */ const noPrice = d.now == null; // null = no previous price: "new", never "0.0%" (defect 12)
     return { product: d.p, spec: d.d, pack: d.pack, cur: rs(d.now), fed: rs(d.fed), prev: rs(d.prev), chg: noPrice ? '' : ch == null ? 'new' : (ch > 0 ? '+' : '') + ch.toFixed(1) + '%',
       reason: reasons[k] != null ? reasons[k] : (noPrice ? '' : ch == null ? 'New price' : Math.abs(ch) > 0.01 ? 'Price revised' : 'No change'), mrp: rs(d.mrp), terms: d.terms === 'TBD' ? 'As agreed' : d.terms, _k: k };
   });

@@ -209,17 +209,34 @@ function fmtInt(x) { return x == null ? '' : Math.round(x).toLocaleString('en-US
 
 /* A VAN brand list row names a pack when its name (size taken out), size and unit (kg or L) agree: the B-18 rule the page uses
    for suggestions (vmSuggest), here for the server's checks on the "not a C2M pack" mark (1.0.1, D-80, review finding 1). */
-const LSIZE = /(\d+(?:\.\d+)?)\s*-?\s*(kgs?|liters?|litres?|ltrs?|l|ml)\b/i;
+const LSIZE = /(\d+(?:\.\d+)?)\s*-?\s*(kgs?|liters?|litres?|ltrs?|l|ml|gms?|grams?|g)\b/i; // g and ml: packs under 1 kg or 1 L (Tahir, 20 Oct 2026)
 const lnorm = s => String(s || '').toLowerCase().replace(/[^a-z0-9.]+/g, ' ').replace(/\b0+(\d)/g, '$1').trim();
-function listRowSize(s) { const m = String(s || '').match(LSIZE); if (!m) return null; const u = m[2].toLowerCase(); return { v: u === 'ml' ? Number(m[1]) / 1000 : Number(m[1]), u: /^kg/.test(u) ? 'kg' : 'L' }; }
+function listRowSize(s) { const m = String(s || '').match(LSIZE); if (!m) return null; const u = m[2].toLowerCase(); const kg = /^(kg|g)/.test(u); return { v: u === 'ml' || (/^g/.test(u)) ? Number(m[1]) / 1000 : Number(m[1]), u: kg ? 'kg' : 'L' }; }
 /** True when list row data d (list dist, dealer or farmer) names the pack brand, size, soldPer (kg or L). */
 function listRowIs(list, d, brand, size, soldPer) {
   const z = list === 'farmer' ? listRowSize(d.p) : listRowSize(d.pack);
   if (!z) return lnorm(d.p) !== '' && lnorm(d.p) === lnorm(brand); // a row with no size in it: its name alone equal to the product's names it (review 1.0.1 re-check)
   return Math.abs(Number(size) - z.v) < 1e-6 && (soldPer || 'kg') === z.u && lnorm(String(d.p).replace(new RegExp(LSIZE.source, 'ig'), '')) === lnorm(brand);
 }
+/* 1.0.2, product names (Tahir, 19 Oct 2026, D-85): 1 name per product everywhere. A VAN brand list row linked to a pack
+   carries the product's official name and the pack in C2M's form ("1 L", "25 kg"); the farmer list writes both in p. */
+/* Tahir, 20 Oct 2026: a pack under 1 L or 1 kg is written in ml or g (500 ml, 250 g), as farmers know it; 1 L and above stay 1 L, 25 kg. */
+const officialPack = (size, soldPer) => { const z = Number(size), u = soldPer || 'kg'; return z > 0 && z < 1 ? `${Math.round(z * 1000)} ${u === 'L' ? 'ml' : 'g'}` : `${z} ${u}`; };
+/** The list row data renamed to the official name of its pack; listName keeps the name the row had first. */
+function officialRow(list, d, brand, size, soldPer) {
+  const pack = officialPack(size, soldPer); const was = list === 'farmer' ? String(d.p || '') : `${d.p || ''}${d.pack ? ' · ' + d.pack : ''}`;
+  const nd = { ...d }; if (list === 'farmer') nd.p = `${brand} ${pack}`; else { nd.p = brand; nd.pack = pack; }
+  const now = list === 'farmer' ? nd.p : `${nd.p} · ${nd.pack}`; const changed = now !== was;
+  if (changed && !nd.listName) { nd.listName = was; nd.listP = d.p; if (d.pack != null) nd.listPack = d.pack; } // the name the row had first, to give back on unlink
+  return { nd, was, now, changed };
+}
+/** Unlinked, a row takes back the name it had before it was renamed to a pack's official name (a wrong link leaves no wrong name). */
+function restoreRow(d) {
+  if (!d.listName) return { nd: d, changed: false }; const nd = { ...d }; nd.p = d.listP != null ? d.listP : d.p; if (d.listPack != null) nd.pack = d.listPack; else if (d.listP != null) delete nd.pack;
+  delete nd.listName; delete nd.listP; delete nd.listPack; return { nd, changed: true, was: d.p, now: nd.p };
+}
 module.exports = {
-  listRowIs,
+  listRowIs, listRowSize, officialRow, officialPack, restoreRow,
   round, rateWarning, materialCost, recipeTotal, packingPerUnit, pickConversionRule, conversionFor, costBreakdown,
   marginPct, targetPrice, contributionFloor, fedPct, netPoPrice, needsReapproval, exposure, flag,
   RECIPE_FLOW, RECIPE_WHO, fmtInt, pkToday, pkNow, FAMILY_COLOURS, familyColour, CATS, buyerLine, targetOr,

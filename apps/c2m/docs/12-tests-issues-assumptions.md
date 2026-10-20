@@ -1,6 +1,7 @@
 # 12. Tests, issues and assumptions
 
-Version 1.0.1 · 19 Oct 2026 · Owner: Claude records; Tahir and Yawar confirm assumptions · Rule: R-5h item 12 (D-20)
+Version 1.0.2 · 20 Oct 2026 · Owner: Claude records; Tahir and Yawar confirm assumptions · Rule: R-5h item 12 (D-20)
+Changed in 1.0.2 (19 Oct 2026; review fixes 20 Oct): 12.1c added: suite c2m102.test (X-01 to X-17) and the tests changed for D-85; totals 203; known limits for product names in 12.3; the 1.0.2 review in 12.4.
 Changed in 1.0.1 (19 Oct 2026): 12.1b added: suite c2m101.test (W-01 to W-07) and the tests changed for D-80 to D-82; totals 198; I-39, I-40, I-41 and I-45 closed (D-81, D-84, D-80); the 1.0.1 review in 12.4.
 Changed in 1.0.0 (19 Oct 2026): suite c2m100.test (T-01 to T-18); lib J-01, J-02; ui08, ui09, flow and van093 changed for the 5 places; ui09 V-05, V-06, V-08, V-18, V-19 retired; I-39 to I-44 added; totals in 12.1a; the 1.0.0 review in 12.4.
 Changed in 0.9.3 (19 Oct 2026): suite van093.test (L-01 to L-07); ui09 V-11 counts 3 ready reports; totals 176; I-27 done (D-73); the review of 0.9.3 in 12.4.
@@ -95,6 +96,32 @@ Changed: ui08 U-03 and ui09 V-07 (3 product tabs, History lists every recipe ste
 
 Last run (cloud copy, 19 Oct 2026, after the 1.0.1 review fixes): TOTAL 198 passed, 0 failed (lib 43, van07 8, flow 57, fix06 20, ui08 12, ui09 14, fix091 6, fix092 4, van093 7, c2m100 18, c2m101 7, confidential scan 1, migration sync 1).
 
+## 12.1c Tests in 1.0.2 (owner: Claude records; version 1.0.2, 19 Oct 2026)
+
+| Suite | Ids | What they prove | Count | Rule |
+|---|---|---|---|---|
+| c2m102.test.js | X-01 | A link renames the row to the official name with the pack as C2M writes it, keeps the old name, logs "renamed from"; the product column follows; an unlink gives the old name back; Tahir links; production and the KAM cannot; Tahir cannot mark | 1 | D-85, D-80 |
+| | X-02 | Rename linked rows: every linked row under another name renamed, logged with the name before; pressed again nothing changes; every linked row carries its official name | 1 | D-85 |
+| | X-03 | Tahir and Yawar edit an official name and spellings; its rows follow; empty, sign \|, over 120, a name of another product, spellings over 120, not a list, a name of another product of the same size refused; logged; last change shown | 1 | D-85, B-26 |
+| | X-04 | An O2S name C2M cannot place is kept as a spelling; its trucks are costed at once; the O2S line is not changed; the same spelling again is no change; the official name matches with no spelling | 1 | D-85 |
+| | X-05 | Setup, Product names: the row in Names to settle with the guess preselected; Rename and link; Rename linked rows in 2 steps; Edit and Save; Tahir sees no mark button; no page error | 1 | D-85 |
+| | X-06 | Review 1.0.2: a save on names someone changed since is refused (409), nothing saved; the names shown are required; a link from an out-of-date screen is refused (409) | 1 | D-85 |
+| | X-07 | Review 1.0.2: a rename keeps the name before as a spelling and its trucks keep their cost; removing a spelling that carries trucks is counted first (trucks, Rs, first date) and refused without the counts seen; with them, saved and logged with trucks and Rs | 1 | D-85, B-26 |
+| | X-08 | Tahir 20 Oct 2026: 2 products share a trade name when their pack sizes differ; with a pack size in common refused, the name as written | 1 | D-85, B-26 |
+| | X-09 | Review 1.0.2: after a rename, the mark on a row under the name before is refused (every name of the product checked) | 1 | D-80, D-85 |
+| | X-10 | Review 1.0.2: an open revision shows today's names; an added pack takes its row under the official name of the day it takes effect | 1 | D-77, D-85 |
+| | X-12 | Re-check: every pick offers a row whose size can be read only packs of that size and unit; a row with no size every pack | 1 | D-85 |
+| | X-13 | Re-check: 2 products sharing a trade name each keep just that name as their spelling | 1 | D-85, B-26 |
+| | X-14 | D-86: a product is taken out of use and put back (trucks shown first; refused while linked; nothing deleted; logged; the button on screen) | 1 | D-86 |
+| | X-15 | D-86: 500 ml, 250 g under 1 L or 1 kg; 1 L and 25 kg above; a 500 ml list row names a 0.5 L pack | 1 | D-86 |
+| | X-16 | Re-check 2: the server refuses a link to another size; out of use refused with a recipe in the workflow; a name of a product out of use refused as a spelling; a revision cannot add, nor Tahir approve, a pack out of use; open order lines counted in the check | 1 | D-85, D-86 |
+| | X-17 | Re-check 3: Rename never renames a row linked to another size (listed with Unlink); Edit refuses a name of a product out of use; no recipe version for a product out of use; a draft blocks out of use | 1 | D-85, D-86 |
+| | X-11 | Review 1.0.2 screens: a row with no size can be picked; removing a spelling shows the trucks before saving, nothing saved without Save anyway; Tahir picks under Not placed with no mark button; Names to settle on Approvals opens in a panel and leads to Product names | 1 | D-85 |
+
+Changed: ui08 U-02 and c2m100 T-11 (11 Setup tabs); van093 L-01 (Tahir links from 1.0.2), L-03 and L-06 (the longer link toast), L-04 (Tahir links, no mark button), L-06 (picks a pack free on the list); c2m102 X-03 to X-05 (the names shown, the check before saving, the pack size); c2m101 freeRows (freed rows written with no size); van093 L-06 (picks a pack the select offers); c2m101 freeRows (renames the rows it frees to names no pack has, since a linked row now carries its official name).
+
+Last run (cloud copy, 20 Oct 2026, 1.0.1 with 1.0.2 after the review and re-check fixes): TOTAL 215 passed, 0 failed (c2m102 17). Before review (19 Oct): TOTAL 203 passed, 0 failed (lib 43, van07 8, flow 57, fix06 20, ui08 12, ui09 14, fix091 6, fix092 4, van093 7, c2m100 18, c2m101 7, c2m102 5, confidential scan 1, migration sync 1).
+
 ## 12.2 Assumptions and open issues (1 table)
 
 A-xx: assumptions decided overnight 15 to 16 Oct under Tahir's instruction "decide, log as assumption", to be confirmed. I-xx: open issues. Status: open, confirmed, superseded, fixed. The figures behind each assumption are in the Design Record and Yawar's sheets, not here (public repo).
@@ -185,6 +212,14 @@ A-xx: assumptions decided overnight 15 to 16 Oct under Tahir's instruction "deci
 - 1.0.1 (D-80): a wrong mark cannot be undone while a revision that adds a pack to that list waits (with Tahir, or approved for a later date); the refusal says so.
 - 1.0.1 (D-80): new prices for linked rows (the grid) and for marked rows (the marked-rows form) of 1 list go as 2 revisions, 1 after the other: a list takes 1 waiting revision at a time.
 
+- 1.0.2 (D-85): product names cover VAN brand products only; white label products keep their O2S names from the first load (Setup, Customers for customer names).
+- 1.0.2 (D-85): the O2S spellings of a product fit in 120 characters together (the column's size); a long list needs an old spelling removed.
+- 1.0.2 (D-85): a price list already issued keeps the names it was issued with; renamed rows print the official name from the next list.
+- 1.0.2 (D-85, review): a printed list says nothing about a renamed product, and while rows are settled over several days 1 list can carry some rows renamed and some not. For Tahir.
+- 1.0.2 (D-85, review): a pack under 1 L or 1 kg prints as C2M writes it, e.g. 0.5 L for 500 ml. For Tahir.
+- 1.0.2 (D-85, review): each name is settled 1 click at a time (about 33 list rows on live); there is no "accept all guesses". For Tahir.
+- 1.0.2 (D-85): removing an O2S spelling or an old official name changes Margin and the reports for every past month whose trucks used it; C2M shows the trucks and Rs before saving and logs them, but does not stop it.
+
 ## 12.4 Review and audit reports with fix status
 
 | Review | Date | Fixed in | Status |
@@ -261,3 +296,69 @@ Re-checks by the same 2 reviewers (19 Oct 2026, run): every fix above confirmed.
 | 10 | A suggested row cannot be marked on Client prices | design | none: a suggested row names a C2M pack, so the server refuses the mark with its reason | accepted |
 
 Re-checks by the same 2 reviewers (19 Oct 2026, run): fixed, with 4 last points fixed the same evening (a row with no size named as a product; the marked-rows button closed while its list has a waiting revision; Guide and data dictionary wording; a pick left in another tab for a marked row never sent). Verdicts after them: "ship with these fixes" from both, each fix then made and the suite run: TOTAL 198 passed, 0 failed.
+
+### 1.0.2 code and data-safety review and screens and workflow review (19 to 20 Oct 2026; 2 independent agents, run not only read; owner: Claude records, Tahir decides "for Tahir"; version 1.0.2)
+
+| No | Finding (what a person would see) | From | Fix | Status |
+|---|---|---|---|---|
+| 1 | Tahir and Yawar overwrite each other's name changes unseen; a link on an out-of-date screen relinks a row | both | the page sends the names (and link) it showed; 409 if changed since (X-06) | fixed |
+| 2 | Removing a spelling, or a rename with the spellings box empty, takes the cost off past trucks and changes Margin back months, with only "Saved." | both | name before a rename kept as a spelling; trucks, Rs and first date shown before saving; saved only with the counts seen; logged (X-07, X-11) | fixed |
+| 3 | Cost-sheet notes in official names print on customer lists, and 1 trade name cannot be used by 2 products | design | Tahir: "Trade name only"; a shared name allowed when pack sizes differ (X-08); the names themselves are changed by Tahir or Yawar on the screen | fixed (code); names for Tahir and Yawar |
+| 4 | A rename switches off the guard of a row marked "not a C2M pack" | both | every name of the product checked (X-09) | fixed |
+| 5 | A revision in flight prints and shows the old name; 1 list under 2 names | design | open revisions show today's names; an added row takes today's official name (X-10) | fixed |
+| 6 | Rows written with no size cannot be picked; Tahir cannot clear them | design | every pack offered for such rows; Tahir links on the other screens too (X-11) | fixed |
+| 7 | Checks of names race between 2 people; names read outside the transaction | data safety | products locked, names read inside the transaction | fixed |
+| 8 | Linking on Client prices and the margin report renames rows unsaid; Tahir told only Yawar links | design | toasts and help say so; Tahir links there (no mark) | fixed |
+| 9 | Nobody is prompted to settle names; From O2S points elsewhere | design | "Names to settle" on Approvals, in a panel; From O2S points to Product names (X-11) | fixed |
+| 10 | Picks on other O2S rows reset after 1 save; picks keyed by row position | design | picks kept and keyed by name | fixed |
+| 11 | O2S pack size 0.5 shown as 1 | design | shown as 0.5 | fixed |
+| 12 | Opening is heavy: 1 click per row, no accept-all | design | none: for Tahir | for Tahir |
+| 13 | Column "On price lists as" showed which lists, not the names printed | design | shows the printed names | fixed |
+| 14 | 500 ml prints as 0.5 L | design | none: for Tahir | for Tahir |
+| 15 | Clash message lowercased the name; a spelling accepted for a product with no pack of its size; typed text lost on redraw; spellings split by commas | both | name as written; refused (X-04); text kept; 1 per line | fixed |
+| 16 | Duplicate spellings across 2 products of the owner fail with a general error | code | clear 400 | fixed |
+| 17 | Lists printed to KAMs and dealers say nothing about renamed products; rows half-renamed during opening | design | none: for Tahir | for Tahir |
+
+Re-check by the same 2 reviewers (20 Oct 2026, run, not only read): fixes 1, 2, 4, 5, 7, 10, 13 and 15 held, including 2 people renaming at once (8 rounds: 1 save, 1 refusal each time). They found 9 more, all fixed and tested the same day:
+
+| No | Finding (what a person would see) | From | Fix | Status |
+|---|---|---|---|---|
+| R1 | A wrong pick linked a 3 kg dealer row to a 3 L pack, and the dealer list then printed the other product | design | every pick offers only packs of the row's size and unit (X-12) | fixed |
+| R2 | An old pick in the margin report silently undid a newer link by someone else | data safety | the pick carries the link shown when it was made; 409; picks cleared after Save | fixed |
+| R3 | 2 products sharing a trade name could not both keep just that name (unique key on the spellings) | both | stored apart with a leading \| (X-13) | fixed |
+| R4 | Every rename kept the old name as a spelling, filling the 120 characters | both | kept only when O2S trucks or an unlinked list row use it | fixed |
+| R5 | O2S pick showed product names only, so a 3 kg name could be kept for a 3 L product | design | pick shows pack and unit, with "O2S gives the size only: check the unit" | fixed |
+| R6 | Production saw 2 identical recipe lines for 2 products under 1 trade name | design | packs shown beside a shared name on Recipes, the recipe page and Approvals | fixed |
+| R7 | A list printed during opening carried 1 product under 2 names with no warning | design | the price list builder warns and links to Product names | fixed |
+| R8 | A row linked to a product out of use could not be linked again ("someone else changed this") | data safety | the page sends the row's stored link | fixed |
+| R9 | A double click on a save showed a false warning; a rename at the moment a revision applied could add a row under the old name; the GP bridge named packs by the O2S spelling | both | 1 save per click; names locked when a revision applies; official names in the GP bridge | fixed |
+| R10 | An O2S name for a product C2M does not hold stays in Names to settle | design | none: the Guide says so | known limit |
+
+Second re-check by the same 2 reviewers (20 Oct 2026, run): all 7 code and data-safety findings and design findings 2, 3, 5, 7 and 8 held. New findings, all on "Take out of use" and its edges, fixed the same day:
+
+| No | Finding (what a person would see) | From | Fix | Status |
+|---|---|---|---|---|
+| S1 | A revision sent at the moment a product went out of use put a row on that product, and Tahir could approve it | both | names locked in revise and approve; both refuse a pack out of use (X-16) | fixed |
+| S2 | A product's own O2S name came back in Names to settle with a wrong guess, and once kept elsewhere the product could not come back | both | names of products out of use left out of Names to settle and refused as spellings (X-16) | fixed |
+| S3 | A rename dropped a name used only by an open O2S order; the checks counted shipped trucks only | data safety | open order lines counted; the name kept when they use it; Names to settle lists open orders (X-16) | fixed |
+| S4 | The server accepted a link to another size, though the screens offer only matching packs | both | the links route refuses it (X-16) | fixed |
+| S5 | A recipe in the workflow became "? for ?" and could never be approved | both | out of use refused while a recipe is in the workflow; recipes of a product out of use leave the screens | fixed |
+| S6 | A click during another save did nothing, silently; a refused link to an out-of-use pack said "pick a VAN brand pack" | both | "Wait: the last save is still running."; the message names the product out of use | fixed |
+| S7 | A price list dated ahead reads an added row's name without the name lock | data safety | none: a rename at that same second leaves the row under "linked rows under another name", fixed by Rename | known limit |
+| S8 | The KAM printing a half-settled list sees no warning and no list of renames to tell dealers | design | none: Tahir ruled KAMs tell dealers; what they tell from is for Tahir | for Tahir |
+| S9 | O2S gives no kg or L, so a 3 kg name can be kept for a 3 L product after the warning | design | warning on the pick; the server cannot know the unit | for Tahir |
+| S10 | Take out of use: 1 click and a confirm, for Tahir and Yawar, no reason asked | workflow | none: for Tahir | for Tahir |
+
+Third re-check by a fresh independent reviewer (20 Oct 2026, run): S1, S3, S4, S5 and S6 held (60 rounds of out of use against a revision never both saved; 180 saves at once, 0 deadlocks). Found and fixed the same day:
+
+| No | Finding (what a person would see) | From | Fix | Status |
+|---|---|---|---|---|
+| T1 | Rename to official names printed a row linked by mistake to another size under that size at its own price | data safety | rows linked to another size are never renamed; listed with Unlink (X-17). On live no row was linked yet (89 of 89 unlinked on 20 Oct) | fixed |
+| T2 | A name of a product out of use could still be typed in Edit | code | refused (X-17) | fixed |
+| T3 | A recipe version could be started on a product out of use, then vanished | workflow | refused, under the names lock (X-17) | fixed |
+| T4 | The refusal said to "drop" a recipe, but C2M cannot drop one | workflow | message: take it out of use once that version is approved | fixed |
+| T5 | With only open orders moving, the warning showed a blank date and the toast said 0 trucks | design | its own wording; toasts and change record count open lines | fixed |
+| T6 | A list row with no size in its name still takes any pack, and the link renames it | design | none: by design (3 farmer rows today); the pick and its official name are shown before Save | known limit |
+| T7 | Free (FOC) open lines count in the check but are not listed in Names to settle; a page open across the deploy keeps getting 409 | code | the 409 now says to reload | partly fixed |
+
+Fourth check by a fresh independent reviewer (20 Oct 2026, run; verdict "push but know this"): every caller of the renamed-rows count updated; the size check, Unlink, the Edit refusal and the recipe refusal held (20 rounds of out of use against a new recipe: never both, never neither, 0 errors). Its points, fixed the same day: an official name holding a size (renamed back) left farmer rows under a wrong name: a new official name with a size is now refused (X-17); the Setup and Approvals counts of rows to settle now agree, and the Approvals panel lists rows linked to another size; the check no longer opens with "0 trucks" when only open orders move; 2 people starting a recipe version at once now get "already has a version in progress" (read under the lock). Left: a product whose saved spelling already equals an out-of-use product's name must remove it before other edits (cannot arise on live: no product is out of use yet).

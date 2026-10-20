@@ -1,6 +1,7 @@
 # 4. Database schemas
 
-Version 1.0.1 · 19 Oct 2026 · Owner: Tahir (C2M module owner); Claude records · Rule: R-5h item 4 (D-20)
+Version 1.0.2 · 20 Oct 2026 · Owner: Tahir (C2M module owner); Claude records · Rule: R-5h item 4 (D-20)
+Changed in 1.0.2 (19 to 20 Oct 2026; 1.0.1 went live on its own on 19 Oct at 23:19): no table, column or migration. c2m_client_product.brand (the official name) and o2s_brand (O2S spellings) are edited from Setup, Product names; c2m_list_price.data_json may hold listName, listP and listPack (the name a row had before it was renamed); a renamed row updates the columns product and pack too (D-85). 20 Oct 2026: the unique key uq_cp (customer_id, channel, o2s_brand) answers a clear 400 when 2 VAN brand products would have exactly the same spellings; 2 VAN brand products may share brand when their pack sizes differ (no key on brand); the second of 2 products with exactly the same spellings is stored with a leading | (an empty spelling, ignored everywhere). c2m_client_product.active is set from Setup, Product names (Take out of use, Put back in use, D-86).
 Changed in 1.0.1 (19 Oct 2026): no table, column or migration. c2m_list_price.data_json may hold noPack, noPackBy and noPackAt (D-80).
 Changed in 1.0.0 (19 Oct 2026): no table, column or migration. c2m_list_price can get rows from an approved revision (D-77); c2m_list_revision.items_json items may be added rows; setting wl_budget_gp kept but no longer used (D-75).
 Changed in 0.9.3 (19 Oct 2026): c2m_list_price.data_json may hold packId (D-73); no table, column or migration.

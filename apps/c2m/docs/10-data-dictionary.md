@@ -1,6 +1,7 @@
 # 10. Data dictionary and glossary
 
-Version 1.0.1 · 19 Oct 2026 · Owner: Yawar; Himayat for material classes · Rule: R-5h item 10 (D-20)
+Version 1.0.2 · 20 Oct 2026 · Owner: Yawar; Himayat for material classes · Rule: R-5h item 10 (D-20)
+Changed in 1.0.2 (19 to 20 Oct 2026; 1.0.1 went live on its own on 19 Oct at 23:19): 10.9 added (D-85); 20 Oct 2026: trucks moved, wasPack.
 Changed in 1.0.1 (19 Oct 2026): 10.8 added (D-80).
 Changed in 1.0.0 (19 Oct 2026): 10.7 added (D-74 to D-79).
 Changed in 0.9.3 (19 Oct 2026): 10.6 added (VAN brand list margin, D-73).
@@ -199,3 +200,16 @@ Changed in 0.3.0 and 0.3.1: rs_per_kg fixed (1 rate of 1 kind, labour or FOH). A
 | noPackBy, noPackAt (data_json) | Who marked the row, and on which day | user name; date (Pakistan time) | D-80 |
 | Not placed | A list row with no pack and no mark; while a list has one, no pack can be added to it | | D-80, I-43 |
 | Left out (Margin) | A client or buyer line with trucks in the period but none costed: named in 1 line, with no figures | | D-83 |
+
+## 10.9 Added in 1.0.2 (owner: Tahir and Yawar; D-85; version 1.0.2)
+
+| Word or field | Meaning here | Allowed values or unit | Rule |
+|---|---|---|---|
+| Official name (c2m_client_product.brand) | The 1 name of a product: shown in C2M and printed on the price lists | text, at most 120 characters, no sign \|, the trade name only (Tahir, 20 Oct 2026), shared only by products whose pack sizes differ; formerly unique among VAN brand products | D-85 |
+| O2S spelling (c2m_client_product.o2s_brand) | Another name O2S writes for the product; keeps its trucks costed until O2S is corrected | names separated by \|, together at most 120 characters | D-85 |
+| listName, listP, listPack (c2m_list_price.data_json) | The name a list row had before it was renamed to a pack's official name; given back on unlink | text | D-85 |
+| Names to settle | List rows with no pack, O2S names C2M cannot place, and linked rows under another name | | D-85 |
+| Pack as C2M writes it | Size and unit, e.g. 1 L, 25 kg | | D-85 |
+| Trucks moved by a name change | O2S trucks that would lose their cost under the product (leave) or be costed under it (join), with Rs (kg or L x O2S net price) and the first truck date | count, Rs | D-85, review 1.0.2 |
+| Out of use (c2m_client_product.active = 0) | A VAN brand product taken out of use from Setup, Product names: off C2M's screens, the grid and Margin; nothing deleted; Put back in use sets active = 1 | 0 or 1 | D-86 |
+| wasPack | The link a page showed for a list row when it sent a link; a different link now means the screen was out of date (409) | pack id or null | D-85, review 1.0.2 |

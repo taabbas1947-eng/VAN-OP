@@ -190,7 +190,7 @@ function matcher(D) {
   for (const p of D.packs) {
     const cp = D.cpById.get(p.client_product_id); if (!cp) continue;
     const brands = String(cp.o2s_brand).split('|').map(nm1).filter(Boolean);
-    if (isVanBrand(cp)) { for (const b of brands) van.set(b + '#' + Number(p.pack_size), p); continue; }
+    if (isVanBrand(cp)) { for (const b of brands.concat(nm1(cp.brand))) van.set(b + '#' + Number(p.pack_size), p); continue; } // 1.0.2 (D-85): the official name matches too, so a name corrected in O2S matches with no spelling
     const cust = D.custById.get(cp.customer_id); if (!cust) continue;
     const wl = cp.channel === 'White label';
     for (const nm of String(cust.o2s_names).split('|')) for (const b of brands) {

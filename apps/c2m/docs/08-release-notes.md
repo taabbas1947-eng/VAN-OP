@@ -1,6 +1,7 @@
 # 8. Release notes and change log
 
-Version 1.0.1 · 19 Oct 2026 · Owner: Claude records; Tahir approves releases · Rule: R-5h item 8 (D-20)
+Version 1.0.2 · 20 Oct 2026 · Owner: Claude records; Tahir approves releases · Rule: R-5h item 8 (D-20)
+Changed in 1.0.2 (20 Oct 2026): entry 1.0.2 added; fixes from its reviews added; 1.0.1 went live on its own on 19 Oct at 23:19.
 Changed in 1.0.1 (19 Oct 2026): entry 1.0.1 added; live status.
 Changed in 1.0.0 (19 Oct 2026): entry 1.0.0 added.
 Changed in 0.9.3 (19 Oct 2026): entry 0.9.3 added.
@@ -13,6 +14,55 @@ Changed in 0.7.0: entry 0.7.0 added.
 Changed in 0.6.0: entry 0.6.0 added.
 Changed in 0.5.0: entry 0.5.0 added; real figures removed from earlier entries (public repo).
 Format: Keep a Changelog, semantic versions. Live: 1.0.0 (pushed 19 Oct about 22:09, checked live by Claude as Tahir the same evening; Yawar's view checked in the cloud copy only); 0.9.3 pushed 19 Oct 14:38, checked live; 0.9.2 pushed 19 Oct 12:43, checked live; first data load 19 Oct 2026 about 13:17, checked live. Before: 0.9.1 (pushed 19 Oct 09:39, checked live). apps/c2m first pushed by Tahir on 17 Oct and the live migration run the same day (39 empty c2m_ tables); 0.6.0 and 0.7.0 pushed on 18 Oct (17:29), 0.8.0 (20:16) and 0.9.0 (22:03), each checked live by Claude. The folder tabs (D-59) were built after the 0.9.0 push and ship in 0.9.1. No data loaded yet: the first data load runs on Monday 19 Oct 2026.
+
+## [1.0.2] · 19 Oct 2026 · Product names: 1 name per product everywhere (D-85) and product out of use (D-86) · 1.0.1 went live on its own on 19 Oct at 23:19 · Who: Claude built; Tahir ruled and approves the push
+### Added
+- Setup, Product names (Tahir and Yawar): Names to settle (list rows with no pack, with C2M's guess by name and size or by spec and size; O2S names C2M cannot place, with a guess by shared words and size; linked rows still under another name) and the table of official names, packs, O2S spellings, lists and last change, with Edit (D-85).
+### Changed
+- A list row linked to a pack, from any screen, takes the pack's official name and the pack as C2M writes it (1 L, 25 kg); its first name is kept and given back if it is unlinked (D-85).
+- Tahir can link list rows too; the "not a C2M pack" mark stays Yawar's (D-80, D-85).
+- The official name of a VAN brand product always matches an O2S line, besides its spellings (D-85).
+### Fixed after review (20 Oct 2026)
+- 2 people editing the same names: the second save is refused with the names now; a link made on an out-of-date screen is refused (review finding 1).
+- A rename or a removed spelling could take the cost off past trucks unseen: the name before a rename stays as a spelling; a change that moves trucks shows their count, Rs and first date, and saves only on Save anyway (finding 2).
+- The mark "not a C2M pack" and an added pack are checked against every name of the product, not only the official name (finding 4).
+- Names are checked and changed with the VAN brand products locked and read inside the transaction (findings 6 and 7).
+- A shared trade name is allowed across different pack sizes (Tahir, 20 Oct 2026); the clash message keeps the name as written.
+- A revision still open shows today's names; a pack it adds takes its row under today's official name.
+- Rows written with no size can be picked; Tahir links under Not placed and in the VAN brand list margin report; the link toasts and help say the row takes the official name.
+- O2S spellings are edited 1 per line; O2S names are grouped by exact name (case and spaces) and picked by name; the server refuses a spelling for a product with no pack of its size; pack sizes such as 0.5 show as 0.5.
+- The product table's column "On price lists as" shows the names the lists print; spellings equal to the official name are shown.
+- Approvals carries "Names to settle" (opens in a panel); Setup, From O2S points to Product names.
+### Added after the re-check (20 Oct 2026)
+- Take out of use and Put back in use for VAN brand products, in Setup, Product names (Tahir: "A button in Setup", D-86), with the trucks shown first; nothing deleted.
+- Packs under 1 L or 1 kg written 500 ml, 250 g (D-86).
+- A list row whose size can be read is offered only packs of that size and unit, on every pick.
+- A pick in the VAN brand list margin report carries the link shown when it was made: a newer link by someone else is never overwritten (409). A double click sends 1 save.
+- O2S picks show each product's pack and unit, with "O2S gives the size only: check the unit".
+- 2 products sharing a trade name can both keep just that name as their spelling.
+- The name before a rename is kept only when O2S trucks or an unlinked list row use it.
+- The price list builder warns when a VAN list still has rows not settled.
+- Recipes and Approvals show the packs beside a trade name 2 products share; the GP bridge names packs by their official name.
+### Fixed after the second re-check (20 Oct 2026)
+- Out of use: refused while a recipe version is in the workflow; its recipes leave the screens; its O2S names are left out of Names to settle and cannot be kept as another product's spelling; a revision cannot add its pack and Tahir cannot approve one that does (names locked in revise and approve).
+- The check before a name change counts open O2S order lines too; the name before a rename is kept when an order line uses it; Names to settle lists O2S names on open orders not yet shipped.
+- The links route refuses a pack of another size or unit than the row is written with.
+- A click while another save runs says "Wait: the last save is still running."; a link to a pack whose product is out of use says so.
+### Fixed after the fourth check (20 Oct 2026)
+- A new official name with a pack size in it is refused (trade name only); Names to settle counts rows linked to another size on every screen, and the Approvals panel lists them; the check reads right when only open orders move; 2 people starting a recipe version at once get the clear message.
+### Fixed after the third re-check (20 Oct 2026)
+- Rename to official names, and a product rename, never rename a row linked to a pack of another size; Product names lists such rows with Unlink.
+- Edit refuses a name of a product out of use; no recipe version can be started for a product out of use.
+- The check before saving reads right when only open orders move ("would arrive with no cost; no past report changes"); toasts and the change record count open order lines.
+### API
+- POST /api/c2m/names/product/:id/use (D-86);
+- POST /api/c2m/names/rename-linked, /api/c2m/names/product/:id, /api/c2m/names/o2s; POST /api/c2m/lists/links open to coo; state: products o2sNames and nameLog for cfo and coo.
+### Database
+- No table, column or migration. Production SQL: none. The first push changes no name: names change only when Tahir or Yawar settle or edit them.
+### Tests
+- New suite c2m102.test (X-01 to X-11; X-06 to X-11 added after review); ui08 U-02 and c2m100 T-11 (11 Setup tabs); van093 L-01 (Tahir links), L-06 (a free pack); c2m101 freeRows (rows renamed to names no pack has). TOTAL 203 passed, 0 failed.
+### What to test after (on live)
+- Tahir or Yawar: Setup, Product names: check C2M's guess on 2 or 3 of the 33 rows and Rename and link them; press Rename linked rows (twice) and check 1 price list prints the official names; edit 1 spelling and put it back.
 
 ## [1.0.1] · 19 Oct 2026 · Tahir's answers on the open points and reviewer points after the 1.0.0 push (D-80 to D-84) · Who: Claude built; Tahir ruled and approves the push
 ### Added

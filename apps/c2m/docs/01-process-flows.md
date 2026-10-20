@@ -1,6 +1,7 @@
 # 1. Process flow diagrams
 
-Version 1.0.1 · 19 Oct 2026 · Owner: Yawar (CFO) keeps it current; Tahir approves changes · Rule: R-5h item 1 (D-20)
+Version 1.0.2 · 20 Oct 2026 · Owner: Yawar (CFO) keeps it current; Tahir approves changes · Rule: R-5h item 1 (D-20)
+Changed in 1.0.2 (19 to 20 Oct 2026; 1.0.1 went live on its own on 19 Oct at 23:19): 1.19 added: product names, 1 name everywhere (D-85). 20 Oct 2026: the check of trucks before saving a name change.
 Changed in 1.0.1 (19 Oct 2026): 1.17 a list row can be marked "not a C2M pack" and the report colours against each product's target (D-80, D-81); 1.18 the Not placed step in the VAN brand price flow (D-80).
 Changed in 1.0.0 (19 Oct 2026): 1.18 added: where each job is done for Yawar and Tahir from 1.0.0, the white label client price flow and the VAN brand price grid flow (D-76 to D-79). 1.15 stands for the other roles.
 Changed in 0.9.3 (19 Oct 2026): 1.17 VAN brand list margin added to the Reports flow, with the link step (D-73).
@@ -444,3 +445,35 @@ flowchart LR
 | Not placed: link or mark | Yawar | a pack for each list row, or "Not a C2M pack" (no approval; Undo) | D-80, B-24 | the link (POST /lists/links); a marked row no longer blocks an added pack and is left out of the VAN brand list margin report |
 | Type VAN brand prices | Yawar | price per pack on each list | D-77, F-25 | 1 revision per list (POST /lists/revise), new rows marked added |
 | Approve or send back | Tahir | the panel | D-46, D-63 | price or list in force, or back to Yawar |
+
+## 1.19 Product names: 1 name per product (owner: Tahir and Yawar both edit; Tahir ruled 19 Oct 2026, D-85; version 1.0.2)
+
+```mermaid
+flowchart LR
+  subgraph SRC [Where names come from]
+    O2S[O2S trucks and POs, read only]
+    PL[Price list rows]
+  end
+  subgraph TY [Tahir or Yawar, Setup, Product names]
+    S1[Names to settle: C2M's guess on each line · D-85]
+    S2[Rename and link a list row · D-85]
+    S3[Keep an O2S name as a spelling · D-85]
+    S4[Rename linked rows still under another name · D-85]
+    S5[Edit an official name or spellings · D-85]
+  end
+  O2S -- "name is an official name or a spelling" --> OK([Truck costed under the product])
+  O2S -- "name not known" --> S1
+  PL -- "row with no pack" --> S1
+  S1 --> S2 --> LST([Row prints the official name on the next list])
+  S1 --> S3 --> OK
+  S4 --> LST
+  S5 --> LST
+```
+
+| Step | Owner | Input | Rule | Feeds |
+|---|---|---|---|---|
+| Settle a list row | Tahir or Yawar | product and pack | D-85, B-26 | link (POST /lists/links); row renamed; old name kept |
+| Settle an O2S name | Tahir or Yawar | product | D-85, B-26 | spelling added (POST /names/o2s); trucks costed at once |
+| Rename linked rows | Tahir or Yawar | press twice (2 steps) | D-85 | POST /names/rename-linked |
+| Edit official name or spellings | Tahir or Yawar | names; then Save anyway if trucks move (20 Oct 2026) | D-85, B-26 | POST /names/product/:id (preview first: trucks that leave or join); list rows follow; name before kept as a spelling |
+| Mark not a C2M pack | Yawar | the mark | D-80 | as 1.17 and 1.18 |

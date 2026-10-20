@@ -1,6 +1,7 @@
 # 7. The Guide
 
-Version 1.0.1 · 19 Oct 2026 · Owner: Yawar; Tahir approves changes · Rule: R-5h item 7 (D-20)
+Version 1.0.2 · 20 Oct 2026 · Owner: Yawar; Tahir approves changes · Rule: R-5h item 7 (D-20)
+Changed in 1.0.2 (19 to 20 Oct 2026; 1.0.1 went live on its own on 19 Oct at 23:19): Yawar line 7 and Tahir line 4: Setup, Product names (D-85); the in-app Guide carries the same lines. 20 Oct 2026: the check before a name change, trade names, Tahir links on Client prices.
 Changed in 1.0.1 (19 Oct 2026): Yawar line 4 and Tahir lines 3 and 5 (D-80 to D-83); the in-app Guide carries the same lines.
 Changed in 1.0.0 (19 Oct 2026): "Where things are (1.0.0)" and the 1.0.0 lines for Yawar and Tahir added (D-76 to D-79); the in-app Guide carries the same lines.
 Changed in 0.9.3 (19 Oct 2026): Yawar and Tahir line 3 (Reports, VAN brand list margin, D-73).
@@ -57,13 +58,14 @@ How to read this: items marked "App Guide" are the exact lines on the app's Guid
 4. Client prices, VAN brand prices: each VAN pack once, a column per list; type the prices that change, or a price for a pack not yet on a list; reason and dates; Send to Tahir: 1 list revision per list. Confirm suggested list-row links once. Under Not placed, pick the pack of each row and Save links; only a row of a product C2M does not cost at all: "Not a C2M pack" (check first that C2M has no pack of it under another name; it stays on the list and prints; Undo if wrong). Change the prices of marked rows with "Change prices of marked rows" in the Marked box (D-80).
 5. Margin: by client, product or client x product; open a line for its packs and a pack for its trucks; the restated switch is for comparison only.
 6. Setup: settings, rates, packing, labour and FOH, targets, buyer lines, people, O2S, sheet items, monthly checks, change record.
+7. Setup, Product names: 1 name per product everywhere (D-85). Settle each name C2M cannot place: Rename and link a list row (it prints the official name on the next list), Keep an O2S name as a spelling (its trucks are costed at once), Rename linked rows still under another name. Edit official names (the trade name only; 2 products may share it when their pack sizes differ) and spellings, 1 per line; Tahir can too; every change is logged. A rename keeps the name before as a spelling. Before a change that takes cost off O2S trucks, C2M shows how many trucks and Rs, back to which date: Save anyway only if that is meant. "Names to settle" shows on Approvals while any is left; an O2S name for a product C2M does not hold stays there until the product is added to C2M or O2S corrects the name. Take out of use (in the table) removes a VAN brand product from C2M's screens, the grid and Margin, after showing any O2S trucks that would lose their cost; nothing is deleted, and Put back in use brings it back. A product on a price list row is linked elsewhere or unlinked first. A pack under 1 L or 1 kg is written 500 ml, 250 g (Tahir, 20 Oct 2026). A list row whose size can be read is offered only packs of that size and unit.
 
 ### Tahir, from 1.0.0
 1. Approvals: what waits for you, each in its panel; white label clients red on margin.
 2. Client prices: "Open to approve" in a row opens the same panel; list revisions show under the VAN grid.
 3. Margin: GP against each product's target; red lines first by Rs short; buyers follow the O2S category (D-74). A client with trucks but no approved cost is named in 1 line under the headline (D-83).
 5. Client prices, VAN brand prices: rows Yawar marked "Not a C2M pack" show with who and when; they are left out of the VAN brand list margin report (D-80). When a list revision adds a pack to a list, its panel lists the marked rows of that list: check none of them is that pack; if one is, send it back. The VAN brand list margin report (More, Reports) colours each pack against its product's target (D-81).
-4. Setup: read every setting; Yawar's threshold and product target changes wait for you on Approvals.
+4. Setup: read every setting; Yawar's threshold and product target changes wait for you on Approvals. Setup, Product names: settle the names C2M cannot place and edit official names and O2S spellings, as Yawar can (D-85); the check before saving shows any O2S trucks that would lose their cost. You also link list rows under Client prices, Not placed, and in the VAN brand list margin report; a linked row takes the official name on the next list. The mark "Not a C2M pack" stays Yawar's.
 
 ## Yawar (CFO, role cfo)
 

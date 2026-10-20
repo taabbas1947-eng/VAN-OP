@@ -1,6 +1,7 @@
 # 11. Access and roles matrix
 
-Version 1.0.1 · 19 Oct 2026 · Owner: Tahir (grants roles in the platform's People and access); Yawar grants lists · Rule: R-5h item 11 (D-20), R-2 People and rights
+Version 1.0.2 · 20 Oct 2026 · Owner: Tahir (grants roles in the platform's People and access); Yawar grants lists · Rule: R-5h item 11 (D-20), R-2 People and rights
+Changed in 1.0.2 (19 to 20 Oct 2026; 1.0.1 went live on its own on 19 Oct at 23:19): 11.9: Tahir links list rows and edits product names, as Yawar does; the mark stays Yawar's (D-85). 20 Oct 2026: Tahir links on Client prices and the VAN brand list margin report too.
 Changed in 1.0.1 (19 Oct 2026): 11.9: "Link a list row or mark it not a C2M pack" is cfo only; Tahir sees the marks (D-80). No other right changed.
 Changed in 1.0.0 (19 Oct 2026): 11.9 added: the 5 places and More for cfo and coo (D-76); new actions on Client prices; no right changed.
 Changed in 0.9.3 (19 Oct 2026): Reports row names the VAN brand list margin; "Link a list row to its pack" is cfo only (D-73).
@@ -142,6 +143,9 @@ No right changed: the server checks each action by role as before; ROLES only ch
 | More: Reports, Inputs, Back office, Guide | yes | yes | no | D-76 |
 | Type and send white label prices | yes | no | no | D-78, D-06 |
 | Type and send VAN brand prices, add a pack to a list | yes | no | no | D-77, D-28 |
-| Link a list row to its pack, or mark it "Not a C2M pack" and undo the mark (1.0.1) | yes | sees the marks, with who and when, and the marked rows of a list on a revision that adds a pack to it | no; a KAM never receives the links or marks | D-73, D-80 |
+| Link a list row to its pack (1.0.2: Tahir too, on Setup Product names, Client prices Not placed and the VAN brand list margin report) | yes | yes (from 1.0.2) | no; a KAM never receives the links or marks | D-73, D-85 |
+| Mark a list row "Not a C2M pack" and undo the mark (1.0.1) | yes | no; sees the marks, with who and when, and the marked rows of a list on a revision that adds a pack to it | no | D-80 |
+| Setup, Product names: settle names, edit official names and O2S spellings, rename linked rows (1.0.2) | yes | yes | no | D-85 |
+| Take a VAN brand product out of use, or put it back (1.0.2, 20 Oct 2026) | yes | yes | no | D-86 |
 | Open to approve a price or list revision (panel) | no | yes; never his own (D-63) | no | D-46, D-78 |
 | Change settings | yes (thresholds and, from 1.0.0, the company GP target wait for Tahir) | reads; approves | no | D-18, D-75 |

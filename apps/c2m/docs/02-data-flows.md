@@ -1,6 +1,7 @@
 # 2. Data flow diagrams
 
-Version 1.0.1 · 19 Oct 2026 · Owner: Yawar; data links set by Tahir and Yawar in Setup, From O2S · Rule: R-5h item 2 (D-20)
+Version 1.0.2 · 20 Oct 2026 · Owner: Yawar; data links set by Tahir and Yawar in Setup, From O2S · Rule: R-5h item 2 (D-20)
+Changed in 1.0.2 (19 to 20 Oct 2026; 1.0.1 went live on its own on 19 Oct at 23:19): 2.19 added: product names (D-85). 20 Oct 2026: row 8 (the check of trucks).
 Changed in 1.0.1 (19 Oct 2026): 2.18 added: the "not a C2M pack" mark on a list row (D-80).
 Changed in 1.0.0 (19 Oct 2026): 2.17 added: buyer lines from O2S (D-74) and the added list row (D-77).
 Changed in 0.9.2 (19 Oct 2026): step 3 divides FED-inclusive PO prices by (1 + FED %), the setting fed_pct (D-72).
@@ -202,3 +203,16 @@ flowchart LR
 | 3 | links route | c2m_audit | list_price, not_c2m_pack (old: the pack id or null; new: "not a C2M pack") or not_c2m_pack_undone | D-80 |
 | 4 | c2m_list_price | GET /api/c2m/state listItems (cfo and coo only; never the KAM) | the row with its mark | D-80 |
 | 5 | listItems | the grid, the report and POST /lists/revise | a marked row is not counted as "not linked"; it is left out of the report; the list prints it as before | D-80, B-24 |
+
+## 2.19 Product names (owner: Tahir and Yawar; D-85; version 1.0.2)
+
+| Step | From | To | Data that moves | Rule |
+|---|---|---|---|---|
+| 1 | Tahir or Yawar, Setup, Product names | POST /api/c2m/names/product/:id | official name, O2S spellings | D-85 |
+| 2 | names route | c2m_client_product.brand, o2s_brand | official name; spellings separated by \| (at most 120 characters) | D-85, B-26 |
+| 3 | names route | c2m_list_price (data_json p, pack; columns product, pack) | every row linked to the product's packs takes the new name | D-85 |
+| 4 | links route | c2m_list_price | a link renames the row (listName, listP, listPack keep its first name); an unlink gives that name back | D-85 |
+| 5 | POST /api/c2m/names/o2s | c2m_client_product.o2s_brand | an O2S name added as a spelling | D-85 |
+| 6 | c2m_o2s_po_line, c2m_o2s_truck (O2S copy) | matcher (engine) | a VAN brand line is placed on brand and pack size, by the official name or any spelling | D-44, D-85 |
+| 7 | every step above | c2m_audit | product_name rename or o2s_names (old and new, with trucks and Rs moved), list_price link, rename | D-85 |
+| 8 | c2m_o2s_po_line, c2m_o2s_truck (O2S copy) | names route, preview | the trucks a name change would move off or onto the product, with Rs and first date, before saving; read only | D-85, review 1.0.2 |

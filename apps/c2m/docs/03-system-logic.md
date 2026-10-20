@@ -1,6 +1,7 @@
 # 3. System logic
 
-Version 1.0.1 · 19 Oct 2026 · Owner: Yawar; Tahir approves changes · Rule: R-5h item 3 (D-20)
+Version 1.0.2 · 20 Oct 2026 · Owner: Yawar; Tahir approves changes · Rule: R-5h item 3 (D-20)
+Changed in 1.0.2 (19 to 20 Oct 2026; 1.0.1 went live on its own on 19 Oct at 23:19): 3.20 added: product names (D-85). 20 Oct 2026, after review: 2 people saving at once, the check of trucks before a name change, names before a rename kept, a trade name shared across pack sizes, revisions shown under today's names.
 Changed in 1.0.1 (19 Oct 2026): 3.19 added: the "not a C2M pack" mark, the report against each product's target, the Margin left-out line and the History tab (D-80 to D-83).
 Changed in 1.0.0 (19 Oct 2026): 3.18 added: buyer lines, targets, the client price state, the VAN brand price grid, Margin and its red rule (D-74 to D-79); 3.17 says a revision can add a row.
 Changed in 0.9.3 (19 Oct 2026): 3.17 added: the VAN brand list margin (D-70, D-72, D-73).
@@ -240,3 +241,36 @@ Places (D-76): ROLES gives cfo and coo nav [approvals, products, prices, margin,
 | VAN brand list margin, portfolio | VAN brand trucks this FY at the approved cost on each date, against the targets of their products weighted by sales | D-81, F-23 |
 | Margin, a client or buyer line with trucks in the period but none costed | 1 line under the headline names it, saying whether its trucks have no cost or match no C2M pack; lines partly left out are named with their truck counts; no figures; with the restated switch, "no cost today" | D-83 |
 | Product page | 3 tabs: Recipe, Cost by pack, History (the steps of every recipe version) | D-82 |
+
+## 3.20 Product names logic (owner: Tahir and Yawar; D-85; version 1.0.2)
+
+| Case | What C2M does | Rule |
+|---|---|---|
+| A list row is linked to a pack (any screen) | It takes the pack's official name and the pack as C2M writes it (1 L, 25 kg; the farmer list writes both in the name); the name it had first is kept (listName) and the change record says "renamed from" | D-85 |
+| A linked row is unlinked | It takes back the name it had first, so a wrong link leaves no wrong name | D-85 |
+| Rename linked rows (Product names) | Every linked row still under another name takes the official name; logged per row; pressed again it changes nothing | D-85 |
+| An official name is changed | The product's name changes everywhere in C2M at once; every list row of its packs is renamed; logged | D-85 |
+| An O2S name cannot be placed | Product names lists it with C2M's guess (shares words, same size); kept as a spelling, its trucks are placed at the next reading of the state; O2S is not changed | D-85 |
+| A name or spelling already belongs to another VAN brand product with the same pack size | Refused: an O2S line could not tell them apart | D-85, B-26 |
+| O2S corrects a name to the official name | It matches on its own: the official name is always a match | D-85 |
+| An official name is changed (from 20 Oct 2026) | The name before stays as an O2S spelling, so trucks O2S still sends under it keep their cost | D-85 |
+| A change of names would move O2S trucks | Before saving, C2M shows the trucks that would lose their cost under the product and those that would join it, with Rs and the first date, and the open O2S order lines (kg or L still to ship) that would move; Save anyway sends the counts seen; if the trucks changed meanwhile, 409 and nothing is saved. Margin and every report read cost through these names, so a removed spelling changes past months too: the change record keeps the counts and Rs | D-85, review 1.0.2 |
+| 2 people edit the same product's names | The page sends the names it showed; if someone saved since, 409 and nothing is saved; the person sees the names now. Names are read and changed with the VAN brand products locked, so 2 saves cannot both pass the checks | D-85, review 1.0.2 |
+| A link made on an out-of-date screen | The page sends the link it showed for the row (wasPack); if the row was linked or unlinked since, 409 and nothing is saved | D-85, review 1.0.2 |
+| 2 products with the same trade name (Tahir, 20 Oct 2026) | Allowed when their pack sizes differ (e.g. 1 product with 1, 20 and 200 L packs and another with a 3 L pack); refused when they share a pack size, as an O2S line could not tell them apart | D-85, B-26 |
+| A row marked "not a C2M pack", or a pack a revision adds, after a rename | Checked against every name of the product: official name, spellings, names before a rename | D-80, D-85 |
+| A revision still open after a rename | Shows each row under its name today; a pack it adds takes its row under the official name of the day it takes effect | D-77, D-85 |
+| An O2S name kept as a spelling of a product with no pack of its size | Refused: its trucks could not be costed under that product. O2S gives the size only, not kg or L: the pick shows each product's pack and unit, and the person checks it | D-85 |
+| Picking a pack for a list row whose size and unit can be read | Every pick (Product names, Not placed, the VAN brand list margin report) offers only packs of that size and unit, and the links route refuses another size or unit, as the link renames the printed row; a row with no size in it takes any pack | D-85, review 1.0.2 re-checks |
+| The name before a rename (from the re-check) | Kept as a spelling only when O2S trucks are placed by it, or a list row not linked (or marked not a C2M pack) is still written with it; otherwise not kept | D-85 |
+| A pick or link made on a screen someone has since changed | The page sends the link the row had when the pick was made; a newer link by someone else gives 409, and the picks are cleared | D-85 |
+| A double click on a save | 1 save is sent | D-85 |
+| 2 products sharing a trade name keep the same spellings | Stored with a leading \| on the second (an empty spelling, ignored everywhere), as the unique key uq_cp is on the stored text | D-85, B-26 |
+| A pack under 1 L or 1 kg (Tahir, 20 Oct 2026) | Written in ml or g: 500 ml, 250 g; 1 L and above stay 1 L, 25 kg | D-85 |
+| A VAN brand product is taken out of use (Tahir, 20 Oct 2026: "A button in Setup") | Tahir or Yawar, Setup, Product names; refused while a list row is linked to its packs, a revision adds one of its packs, a price for it waits, or a recipe version of it is in the workflow; its recipes leave the screens with it; its O2S names are not offered in Names to settle and cannot be kept as a spelling of another product; a revision cannot add its pack, and Tahir cannot approve one that does; the O2S trucks that lose their cost are shown first and the save carries the counts seen; nothing is deleted; Put back in use is refused if its names now clash with a product in use; logged | D-86 |
+| A list row linked before 1.0.2 to a pack of another size than it is written with | Rename to official names (and a product rename) never renames it; Product names lists it to Unlink, then link the right pack | D-85, review 1.0.2 re-check 3 |
+| A name of a product out of use typed in Edit, or kept from Names to settle | Refused when that product has a pack of the same size: its trucks have no cost on purpose; put it back in use instead | D-86 |
+| A new official name with a pack size in it (e.g. "... 5 kg") | Refused: the official name is the trade name only and the lists add the pack; a size in the name would be read as the row's size | D-85, review 1.0.2 re-check 4 |
+| A recipe version for a product out of use | Refused; names locked so it cannot cross a take-out at the same moment | D-86 |
+| Printing a VAN list with rows not yet settled | The price list builder warns: the rows print under their old names, so 1 product can show under 2 names | D-85, review 1.0.2 re-check |
+| 2 recipes or products under 1 trade name | Their packs are shown beside the name on Recipes, the recipe page and Approvals | D-85 |

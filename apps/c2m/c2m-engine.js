@@ -63,22 +63,21 @@ async function loadRecipes(q) {
 
 /** Everything needed to cost any client pack. */
 async function loadAll(q) {
-  const settings = await loadSettings(q);
-  const rates = await loadRates(q);
-  const packing = await loadPacking(q);
-  const recipes = await loadRecipes(q);
-  const [customers] = await q('SELECT * FROM c2m_customer ORDER BY grp DESC, name');
-  const [cps] = await q('SELECT * FROM c2m_client_product WHERE active=1 ORDER BY customer_id, brand');
-  const [packs] = await q('SELECT * FROM c2m_client_pack ORDER BY client_product_id, pack_size');
-  const [rules] = await q('SELECT * FROM c2m_conversion_rule WHERE active=1');
-  const [ruleProducts] = await q('SELECT rule_id, client_product_id FROM c2m_conversion_rule_product');
-  const [types] = await q('SELECT id, name FROM c2m_base_product ORDER BY name');
-  const [freight] = await q('SELECT * FROM c2m_freight_rate ORDER BY valid_from DESC');
-  const [versions] = await q('SELECT * FROM c2m_cost_version ORDER BY client_pack_id, valid_from');
-  // Piece 3 (D-98): families, variants, follows and client-only packs live in 5 link tables (migration 003). Until it is run they read as empty.
+  // Speed: these reads do not depend on each other, so they run together (one wait instead of 16 in a row).
   const soft = async sql => { try { return (await q(sql))[0]; } catch (e) { if (e && (e.code === 'ER_NO_SUCH_TABLE' || e.errno === 1146)) return null; throw e; } };
-  const fam = await soft('SELECT id, name FROM c2m_product_family ORDER BY name'), pvs = await soft('SELECT id, family_id, name FROM c2m_product_variant ORDER BY family_id, name');
-  const exts = await soft('SELECT * FROM c2m_product_ext'), pexts = await soft('SELECT * FROM c2m_pack_ext'), rvs = await soft('SELECT * FROM c2m_rule_variant');
+  const [settings, rates, packing, recipes, [customers], [cps], [packs], [rules], [ruleProducts], [types], [freight], [versions], fam, pvs, exts, pexts, rvs] = await Promise.all([
+    loadSettings(q), loadRates(q), loadPacking(q), loadRecipes(q),
+    q('SELECT * FROM c2m_customer ORDER BY grp DESC, name'),
+    q('SELECT * FROM c2m_client_product WHERE active=1 ORDER BY customer_id, brand'),
+    q('SELECT * FROM c2m_client_pack ORDER BY client_product_id, pack_size'),
+    q('SELECT * FROM c2m_conversion_rule WHERE active=1'),
+    q('SELECT rule_id, client_product_id FROM c2m_conversion_rule_product'),
+    q('SELECT id, name FROM c2m_base_product ORDER BY name'),
+    q('SELECT * FROM c2m_freight_rate ORDER BY valid_from DESC'),
+    q('SELECT * FROM c2m_cost_version ORDER BY client_pack_id, valid_from'),
+    // Piece 3 (D-98): families, variants, follows and client-only packs live in 5 link tables (migration 003). Until it is run they read as empty.
+    soft('SELECT id, name FROM c2m_product_family ORDER BY name'), soft('SELECT id, family_id, name FROM c2m_product_variant ORDER BY family_id, name'),
+    soft('SELECT * FROM c2m_product_ext'), soft('SELECT * FROM c2m_pack_ext'), soft('SELECT * FROM c2m_rule_variant')]);
   const variantsReady = fam != null && pvs != null && exts != null && pexts != null && rvs != null;
   const ext = new Map((exts || []).map(e => [e.client_product_id, { familyId: e.family_id, pvariantId: e.pvariant_id, followsId: e.follows_product_id }]));
   const packExt = new Map((pexts || []).map(e => [e.client_pack_id, e.client_only_id]));

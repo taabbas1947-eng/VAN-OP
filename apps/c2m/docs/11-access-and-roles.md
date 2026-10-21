@@ -2,6 +2,7 @@
 
 Version 1.0.3 · 20 Oct 2026 · Owner: Tahir (grants roles in the platform's People and access); Yawar grants lists · Rule: R-5h item 11 (D-20), R-2 People and rights
 Changed in the next version (21 Oct 2026; piece 1 of 4 after Tahir's rulings D-89 to D-95; the version number is set at the push; 1.0.3 is live): 11.11 added: roles are editable (D-89, D-90); the COO role is the administrator with every action; the action list replaces the role names in the code; 11.7 and 11.3 corrected for the administrator. Until migration 002 is run nothing changes.
+Changed in the next version, piece 2 (21 Oct 2026; the version number is set at the push): 11.6 and the matrix row: KAM lists replaces People and list access (D-97). No right added: the screen and its 2 routes use grants.give.
 Changed in 1.0.3 (20 Oct 2026; 1.0.2 went live on 20 Oct at 11:24): after review, D-88 (take off a list, the description, rows leaving chosen). 11.10: the carry-over into the master is Tahir's or Yawar's; moving a price to another pack likewise (D-87).
 Changed in 1.0.2 (19 to 20 Oct 2026; 1.0.1 went live on its own on 19 Oct at 23:19): 11.9: Tahir links list rows and edits product names, as Yawar does; the mark stays Yawar's (D-85). 20 Oct 2026: Tahir links on Client prices and the VAN brand list margin report too.
 Changed in 1.0.1 (19 Oct 2026): 11.9: "Link a list row or mark it not a C2M pack" is cfo only; Tahir sees the marks (D-80). No other right changed.
@@ -43,7 +44,7 @@ Only cfo and coo open Setup. "edit" = forms and buttons; "view" = read only. Wor
 | From O2S (was Data links) | edit (Pull O2S now) | edit (Pull O2S now) | D-12, D-21 |
 | From Yawar's sheets (was Import queue and Sheet against C2M) | view (accept and correct on Today) | view | D-07 |
 | Settings and targets (was Settings, and Rules and targets) | edit (propose settings; labour and FOH rates, retire, target requests, freight) | view; "Open to approve" opens the panel | D-18, D-25, D-06 |
-| People and list access (was Access) | edit (list and client grants) | view | R-2 People and rights |
+| KAM lists (was People and list access) | edit (list and client grants, copy, see a KAM's screen) | edit, the same | R-2 People and rights, D-97 |
 | Monthly checks record (was Monthly actuals and checks) | view; "Enter or correct a month" opens the actuals panel | view; the rate check opens in a panel | D-18 |
 | Change record | view | view | R-5h |
 | System documentation | all 12 | all 12 | D-20 |
@@ -109,10 +110,10 @@ Anything else returns 403 "Not available to your role." Known limit: a viewer's 
 
 ## 11.6 How a role is given and removed (owner: Tahir)
 - Give: Tahir adds the person in the platform's People and access and grants module 'c2m' with 1 role (a row in user_module_roles). The person sees C2M on the next page load.
-- Remove: Tahir removes the c2m row in People and access. The next request returns 403 "You do not have access to C2M." Yawar then removes any list or client grants in Setup, People and list access (the grants also stop working once the role is gone, because every /api/c2m route needs the role).
+- Remove: Tahir removes the c2m row in People and access. The next request returns 403 "You do not have access to C2M." Tahir or Yawar then removes any list or client grants in Setup, KAM lists (the grants also stop working once the role is gone, because every /api/c2m route needs the role).
 - Change: Tahir changes the role in People and access; the new screens apply on the next page load.
 - Sign out: the "Sign out" link in the header clears the platform token on this device.
-- List and client grants for KAMs: Yawar ticks or unticks them in Setup, People and list access. Each change is in the change record. A KAM's PDF download checks the grant again.
+- List and client grants for KAMs (D-97): Tahir or Yawar, Setup, KAM lists. 1 person at a time; each tick saves at once and is in the change record. Copy from another manager replaces his ticks with another manager's. See what this person sees opens that manager's own screen, read only: only for a manager given price lists, never for Tahir or Yawar, and every save is refused while it shows. A KAM is a person whose role holds see.granted_lists and not see.products; anyone who sees every list is not listed. A KAM is not told when something is granted. A KAM's PDF download checks the grant again.
 
 ## 11.7 What each role can never do
 - Nobody can print cost or margin on a price list; those fields do not exist for any audience.

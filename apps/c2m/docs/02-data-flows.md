@@ -158,6 +158,8 @@ Only these list columns: p, d, pack, prev, now, fed, mrp, terms, nsv, disc, net,
 | Yawar enters actuals | c2m_monthly_actual (old values) | c2m_monthly_actual; c2m_audit with the old values |
 | Tahir's rate check, Yawar's tie to the books | c2m_monthly_check (old values) | c2m_monthly_check (rate_check by coo only, tie_books by cfo only); c2m_audit |
 | Yawar grants or removes a list or client | user_module_roles (person has a C2M role), c2m_customer | c2m_list_grant (insert or delete); c2m_audit |
+| Tahir or Yawar copies a manager's grants to another, ticks or clears all clients (D-97) | user_module_roles, c2m_list_grant (the source), c2m_customer | c2m_list_grant (delete then insert for the target, or insert or delete the clients); c2m_audit with the old and the new grants |
+| Tahir or Yawar looks at a manager's screen (D-97) | the same data the manager would get (c2m_list_grant for him, the price lists, white label prices) | nothing: read only; the page refuses every save while it shows |
 
 ## 2.15 Level 1: Reports and the 0.9.0 state fields (owner: Tahir; D-55, D-57, D-58; read only, cfo and coo)
 

@@ -39,7 +39,7 @@ Roles: cfo = Yawar, coo = Tahir, production = Majid, qc = Himayat, plant = Fahim
 | GET | /c2m | anyone (the page then asks for sign-in) | | the page (no-store) | D-01 | |
 | GET | /c2m/assets/van-logo.png | anyone | | VAN logo PNG for the page and PDFs | D-13, D-14 | |
 | GET | /api/c2m/me | all roles | | {user, name, role, label, nav}. nav (0.9.0): cfo and coo [today, margin, reports, products, prices, inputs, setup, guide]; production and plant [today, recipes, guide]; qc [today, recipes, inputs, guide]; viewer [lists, guide]. Screens only: rights are checked on each route (D-45) | R-2 | |
-| GET | /api/c2m/state | all roles; filtered by role (see 11) | | everything the person's screens need, keys by role in 5.2a; a pack that is not costed has cost null and costGaps (what is missing, D-40) | R-2, D-14, D-40 | |
+| GET | /api/c2m/state | all roles; filtered by role (see 11). `?as=username`: grants.give only, for a manager given price lists (viewer type role): the reply is that manager's own state, read only (D-97) | | everything the person's screens need, keys by role in 5.2a; a pack that is not costed has cost null and costGaps (what is missing, D-40) | R-2, D-14, D-40 | |
 | POST | /api/c2m/sync | cfo, coo | | {syncId, poLines, trucks, issues}; a pull left Pulling for more than 10 minutes frees itself | D-12, D-21 | yes |
 | POST | /api/c2m/recipes/new | production, cfo, coo | {clientProductId, fromVersionId?, note} | {id} | D-08, R-5i 2 | |
 | POST | /api/c2m/recipes/:id/lines | production; draft only | {lines:[{gradeId, qty}], note?} | {ok} | D-08 | yes |
@@ -74,7 +74,9 @@ Roles: cfo = Yawar, coo = Tahir, production = Majid, qc = Himayat, plant = Fahim
 | POST | /api/c2m/targets/:id/refuse | coo | | {ok} | D-06 | yes |
 | POST | /api/c2m/import/:id/accept | cfo | | {ok, reapproval: 0, kind} | D-07 | yes |
 | POST | /api/c2m/import/:id/correct | cfo | {value, why, confirmed? (for a rate move over the warning %)} | {ok, reapproval, kind}; a rate item is saved through the rate controls | D-07, D-10 | yes |
-| POST | /api/c2m/grants | cfo | {username, kind: list or client, value, on: true or false} | {ok} | R-2 People and rights | |
+| POST | /api/c2m/grants | grants.give (cfo, coo) | {username, kind: list or client, value, on: true or false} | {ok} | R-2 People and rights | |
+| POST | /api/c2m/grants/clients | grants.give | {username, on: true or false}: true grants every white label client (VAN brand never), false clears every client grant of that person | {ok, clients: how many}; 400 when the person sees every list already or has no C2M access; 1 line in the change record | D-97 | |
+| POST | /api/c2m/grants/copy | grants.give | {from, to}: replaces every list and client grant of `to` with those of `from`, in 1 transaction | {ok, copied: how many}; 400 for the same person twice, or when either is not a manager given price lists; the change record keeps the old and the new grants | D-97 | |
 | POST | /api/c2m/actuals | cfo | {month: YYYY-MM, labour, foh} | {ok} | D-18 | |
 | POST | /api/c2m/checks | coo for rate_check; cfo for tie_books | {month, kind, data}: rate_check data {rates:[{gradeId, name, c2m, date, source, rs, register}]}, every register above 0; tie_books data {erpSales, erpCogs}, ERP figures above 0; the server works out and stores C2M's own c2mSales, c2mCogs, c2mUncosted and focCost for the month (anything the page sends for them is ignored); rate_check needs at least 1 material | {ok}; 403 if Yawar tries the rate check; 400 "Every material listed needs its purchase register rate (digits above 0) before the check is done." or "Enter ERP sales and ERP COGS for the month, in Rs (digits above 0)." | D-18, D-64 | |
 | POST | /api/c2m/notices/seen | cfo, coo | | {ok} | D-18 | |

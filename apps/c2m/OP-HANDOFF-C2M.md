@@ -422,5 +422,11 @@ Next: Tahir's rulings in rounds of 4; then fix the 5 wrong-price defects and def
 - Module C2M only. New: c2m-access.js, migrations/002_c2m_roles.sql and .PRODUCTION.sql (table c2m_role). Changed: c2m-routes.js (45 guards now can(action); roles routes; notSelf rule; byAdmin on state items), c2m.html (CAN/ADM helpers, Setup, Roles screen, no role-name checks left except Home persona for the 6 starting roles), docs 01, 02, 03, 04, 05, 07, 08, 10, 11, 12.
 - Tests (cloud test database, not C2M's own suites, which were unavailable): 270 route by role checks, 0 differences; 40 roles checks; browser check of every role. Independent review found 2 blockers and 8 should-fix points; all fixed except the open items below.
 - To do at push: run migration 002 (PRODUCTION version, phpMyAdmin) BEFORE or after the deploy (C2M works either way; the Roles screen saves only after it). Set the version number. Run C2M's own suites c2m100 to c2m103 (not run here).
-- Open: (1) platform piece 1b (MODULE: PLATFORM): People and access must read c2m_role and accept long role keys, or a new role cannot be given to a person; (2) administrator can take a recipe through all 4 steps alone: Tahir to confirm; (3) does Yawar's "approve only what Tahir proposed" also cover recipe cost and re-approvals (they have no proposer)?
+- Open: none left. (1) Platform piece 1b was done by Ahmer on 21 Oct 2026 and checked live. (2) and (3) ruled by Tahir, D-96.
 - Next: piece 2, KAM lists (D-91).
+
+## 21 Oct 2026 (5) Piece 2 of 4 built: KAM lists (D-91, D-97). Not pushed.
+- Module C2M only. Changed: c2m-routes.js (isViewerRole; people[].grantee; GET /state?as=; POST /grants/clients and /grants/copy), c2m.html (Setup, KAM lists replaces the old grid; preview bar; in-app Guide for cfo, coo and viewer), docs 01, 02, 03, 05, 06, 07, 08, 11, 12. No migration.
+- Tests (cloud test database): 36 route checks, browser run on desktop and phone, 270 route by role checks still 0 differences, 37 roles checks. Independent review: see 12.4.
+- To do at push: set the version number. Run C2M's own suites c2m100 to c2m103 (not run here). After the push Claude checks it live.
+- Next: piece 3, Add client and variants (D-94, D-95).

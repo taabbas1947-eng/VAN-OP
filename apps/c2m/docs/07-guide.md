@@ -28,7 +28,7 @@ How to read this: items marked "App Guide" are the exact lines on the app's Guid
 | Rates; Back Office, Materials | Inputs: 1 materials table (class, nutrient %, rate), Packing items, Packing bills |
 | Back Office, Products and packing | Product page, Cost by pack (type, reprocessed, packing bill per pack); Inputs (bills and items) |
 | Price lists; VAN brand list revisions | Prices: To change, Proposals, By customer, Price lists, VAN brand lists |
-| Back Office | Setup: Customers, From O2S, From Yawar's sheets, Settings and targets, People and list access, Monthly checks record, Change record, System documentation |
+| Back Office | Setup: Customers, From O2S, From Yawar's sheets, Settings and targets, KAM lists, Monthly checks record, Change record, System documentation |
 | Materials (Himayat) | Inputs (no rates, as before) |
 
 ## Where things are (0.9.0)
@@ -80,7 +80,7 @@ App Guide (rule for each line in brackets; the brackets are not on the screen):
 6. A change to a product type, the reprocessed tick or a pack's packing bill waits for Save, and says how many packs it recosts. Tahir is told of every labour or FOH rate, packing bill, product type and reprocessed change. (D-63, D-65)
 7. Inputs: 1 materials table (class, nutrient % and rate), packing items and packing bills. Try a new rate, check its effect, then save with its source; a move over the warning level asks you to confirm. (D-10, D-48)
 8. Prices: propose from "To change" in the panel beside the list; write the reason the client will read; below target needs your written reason too. Build each price list, pick the fields, create the PDF. Revise a VAN brand list; Tahir approves. Prices, By customer: every white label pack, for all clients or 1, at today's price with its state against target. (D-06, D-14, D-28, D-56, D-68)
-9. Setup: customers, the O2S link, your sheets against C2M, settings and targets with labour and FOH rates, list access, the monthly checks record and the change record. (D-49)
+9. Setup: customers, the O2S link, your sheets against C2M, settings and targets with labour and FOH rates, KAM lists (who sees which price list), the monthly checks record and the change record. (D-49, D-97)
 10. Each month: enter actual labour and FOH, and tie the month to the books by typing ERP sales and COGS in total; C2M shows its own figures beside them and the gap. (D-18, D-64)
 
 Also (a separate list; its numbers 7 to 16 are kept so references in other documents still hold):
@@ -144,7 +144,7 @@ App Guide:
 ## KAMs and managers (role viewer)
 
 App Guide:
-1. Price lists shows the lists granted to you.
+1. Price lists shows the lists granted to you. If none shows, none is granted yet: ask Tahir or Yawar.
 2. Download the PDF to share. Prices are approved prices only.
 
 Also:

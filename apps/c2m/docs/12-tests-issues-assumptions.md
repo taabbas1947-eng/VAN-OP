@@ -225,7 +225,7 @@ A-xx: assumptions decided overnight 15 to 16 Oct under Tahir's instruction "deci
 | I-45 | A VAN brand list row with no matching pack in C2M cannot be linked, so that list cannot take an added pack (the guard waits for every row to be linked). Action: Tahir to say: a "not a C2M pack" mark, or a way to remove the row | Tahir | 19 Oct 2026 | closed 19 Oct 2026: the "not a C2M pack" mark (D-80, 1.0.1) |
 
 ## 12.3 Known limits
-- Next version (piece 1, roles): a role made in Setup, Roles cannot yet be given to a person from People and access (platform change, module PLATFORM). The home screen shows job lists for the 6 starting roles; a new role shows the recipe steps it holds and its places. The recipe cost step and re-approvals have no proposer, so the rule "approve only what an administrator proposed" does not apply to them (to confirm with Tahir).
+- Next version (piece 1, roles): a role made in Setup, Roles is given from People and access (platform piece 1b, done 21 Oct 2026). The home screen shows job lists for the 6 starting roles; a new role shows the recipe steps it holds and its places. The recipe cost step and re-approvals have no proposer, so the rule "approve only what an administrator proposed" does not apply to them (ruled by Tahir, D-96).
 - The stand-in platform (harness) never moves to VAN Systems.
 - 1.0.3: a distributor pack brought back while a row moved off it is still on the list prints "new" (that row keeps the previous price for when it moves back); 2 rows leaving in the same second are ordered by row number.
 - 1.0.3: a revision form refused because a row was moved meanwhile keeps refusing until it is opened again, and what was typed is lost (never priced on the other product). Before the carry-over, a distributor list issued ahead of a newly added pack's date does not set that pack's previous price (as in 1.0.2).
@@ -487,4 +487,19 @@ The suites c2m100 to c2m103 and their loader are outside the repository and were
 
 Not tested: the earlier suites; the screens with real data (the test database holds none); Render with the real platform sign-in.
 
-Independent review of piece 1 (21 Oct 2026): 2 blockers (page screens and job lists still keyed to role names) and 8 should-fix points; all fixed except (the administrator and recipe steps question is closed by D-96): notices go to the CFO and COO roles by name only, roles are last-write-wins, and the platform hand-off (People and access must read c2m_role, and user_module_roles.role must hold 30 characters).
+Independent review of piece 1 (21 Oct 2026): 2 blockers (page screens and job lists still keyed to role names) and 8 should-fix points; all fixed except (the administrator and recipe steps question is closed by D-96): notices go to the CFO and COO roles by name only, roles are last-write-wins, and the platform hand-off, which is done (platform piece 1b, 21 Oct 2026; user_module_roles.role is varchar(64)).
+
+## 12.1f Tests in the next version, piece 2: KAM lists (owner: Claude records; D-91, D-97)
+
+Written against a throw-away MariaDB database; C2M's own suites c2m100 to c2m103 are outside the repository and were not run.
+
+| Test | What it proves | Result |
+|---|---|---|
+| KAM routes (kam.test.js, 36 checks) | only the 3 viewer type people are listed as managers; Tahir and Yawar can tick, a KAM or Production cannot; unknown client or person refused; tick all and clear (VAN brand never); copy replaces, refuses the same person, a person who sees all, and a non-manager, and leaves 1 change record line; preview carries the manager's own role, screens and grants and nothing else, equals what he gets himself, and is refused for a KAM, Production, an administrator target, a non-manager and an unknown person; a new viewer type role is listed | passed |
+| KAM screen (kamui.js, desktop and phone) | the tab is named KAM lists; 3 managers each "sees nothing"; a tick, a client chip, tick all, clear, copy and the preview work and save; the preview bar shows and every save is refused while it shows; Back to KAM lists returns; Yawar sees and ticks; a KAM with nothing is told to ask Tahir or Yawar; no script error | passed |
+| Earlier checks (roles.test 37, regress 270 route by role) | no change to the 6 starting roles | passed |
+
+Not tested: the real sign-in on Render, with the real 3 managers and the real clients.
+
+### 12.4 Independent review of piece 2 (21 Oct 2026)
+An independent agent read the change and ran the tests. No blocker. Fixed before the push: (1) a person whose username has capitals was shown "Sees nothing yet" after Tick all or Copy, because the routes wrote the name in small letters; they now use the name as stored. (2) Double clicking See what this person sees lost the way back; a second click is now ignored. (3) Documents not yet written; now written. Also fixed: Tick all removes client grants of clients that no longer exist; the preview refuses a role that can see settings, materials or costs that the previewer cannot; a failed Back reloads the page. Left as they are: the preview overwrites the Price list builder choice of the previewer; phone chips are 34 px tall; the 2 routes write the change record in slightly different forms. The tests now repeat cleanly.

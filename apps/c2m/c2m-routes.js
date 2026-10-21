@@ -178,6 +178,8 @@ module.exports = function mountC2mRoutes(app, deps) {
   app.get('/c2m/assets/van-logo.png', (req, res) => res.sendFile(path.join(__dirname, 'assets', 'van-logo.png')));
   app.use('/api/c2m', (req, res, next) => checkDates().then(f => f ? res.status(503).json({ error: f }) : next(), () => res.status(503).json({ error: 'C2M cannot reach the database. Try again in a minute.' })), auth, c2mAuth);
 
+  /** A viewer type role (a KAM): sees only the lists and clients granted to him. The same test build() uses. */
+  const isViewerRole = R => !!(R && R.can.has('see.granted_lists') && !R.can.has('see.products'));
   const meOf = (acc, user) => ({ user, role: acc.role, label: acc.label, admin: acc.admin, actions: acc.actions, nav: acc.nav, more: acc.more || [] });
   app.get('/api/c2m/me', (req, res) => res.json({ ...meOf(req.c2m, req.c2m.user), name: req.c2m.name }));
 
@@ -308,7 +310,7 @@ module.exports = function mountC2mRoutes(app, deps) {
       const [treq] = await q('SELECT r.*, c.brand, cu.name customer FROM c2m_target_request r JOIN c2m_client_product c ON c.id=r.client_product_id JOIN c2m_customer cu ON cu.id=c.customer_id ORDER BY r.id DESC LIMIT 30'); out.targetRequests = treq.map(r => ({ ...r, byAdmin: byAd(r.by_user) }));
       const [nt] = await q("SELECT * FROM c2m_notice WHERE for_role=? ORDER BY id DESC LIMIT 20", [role]); out.notices = nt;
       const [gr] = await q('SELECT * FROM c2m_list_grant ORDER BY username'); out.grants = gr;
-      const [people] = await q("SELECT a.username, a.name, r.role FROM user_module_roles r JOIN auth_users a ON a.username=r.username WHERE r.module='c2m'"); const RR = await loadRoles(); out.people = people.map(p => { const r = RR.get(p.role); return { ...p, roleLabel: r ? r.label : p.role, grantee: !!(r && r.can.has('pricedoc.granted')) }; });
+      const [people] = await q("SELECT a.username, a.name, r.role FROM user_module_roles r JOIN auth_users a ON a.username=r.username WHERE r.module='c2m'"); const RR = await loadRoles(); out.people = people.map(p => { const r = RR.get(p.role); return { ...p, roleLabel: r ? r.label : p.role, grantee: isViewerRole(r) }; });
       const [lp] = await q('SELECT list_name, data_json, issued, valid_till FROM c2m_list_price ORDER BY id'); out.lists = groupLists(lp, null, await listMaster());
       out.wlLists = await wlListData(D, approvedPrice, D.customers.filter(c => c.grp !== 'VAN brand').map(c => c.name));
       const [ma] = await q('SELECT * FROM c2m_monthly_actual ORDER BY month'); out.actuals = ma;
@@ -368,7 +370,19 @@ module.exports = function mountC2mRoutes(app, deps) {
     return out;
   }
 
-  app.get('/api/c2m/state', wrap(async (req, res) => { const out = await build(req.c2m, req.c2m.user); out.me.name = req.c2m.name; res.json(out); }));
+  /* ?as=username: Tahir and Yawar see a manager's screen exactly as he sees it (KAM lists, D-91). Read only: the page blocks every save while it shows. */
+  app.get('/api/c2m/state', wrap(async (req, res) => {
+    let acc = req.c2m, user = req.c2m.user; const as = String(req.query.as || '').trim().toLowerCase();
+    if (as) {
+      if (!mayDo(req, 'grants.give')) throw Object.assign(new Error('Your role cannot do this in C2M.'), { status: 403 });
+      const [[p]] = await q("SELECT a.name, r.role FROM user_module_roles r LEFT JOIN auth_users a ON a.username=r.username WHERE r.username=? AND r.module='c2m'", [as]);
+      const R = p ? (await loadRoles()).get(p.role) : null;
+      if (!isViewerRole(R)) throw bad('You can see only the screen of a manager who is given price lists and clients.');
+      if (!req.c2m.admin && ['see.settings','see.materials','see.cost','see.price'].some(a => R.can.has(a) && !req.c2m.can.has(a))) throw bad('That role can see settings, materials or costs that your role cannot, so its screen cannot be shown to you.');
+      acc = { role: R.key, user: as, name: p.name || as, label: R.label, admin: false, actions: R.actions, can: R.can, nav: R.nav, more: R.more }; user = as;
+    }
+    const out = await build(acc, user); out.me.name = acc.name; if (as) out.preview = { user: as, name: acc.name }; res.json(out);
+  }));
 
   /* ---------- O2S pull (read only) ---------- */
   app.post('/api/c2m/sync', can('o2s.sync'), wrap(async (req, res) => {
@@ -943,6 +957,43 @@ module.exports = function mountC2mRoutes(app, deps) {
     else await q('DELETE FROM c2m_list_grant WHERE username=? AND grant_kind=? AND grant_value=?', [username, kind, value]);
     await audit(req.c2m.user, 'grant', username, on ? 'grant' : 'remove', null, { kind, value }, null);
     res.json({ ok: true });
+  }));
+  /* Tick all clients, or clear them all, for 1 manager in 1 step (1 line in the change record). */
+  app.post('/api/c2m/grants/clients', can('grants.give'), wrap(async (req, res) => {
+    const u0 = String((req.body || {}).username || '').trim(), on = !!(req.body || {}).on;
+    const [[p]] = await q("SELECT username, role FROM user_module_roles WHERE username=? AND module='c2m'", [u0]);
+    if (!p || !isViewerRole((await loadRoles()).get(p.role))) throw bad('This person sees every list already, or has no C2M access.');
+    const u = p.username; /* as stored: the page compares it exactly */
+    const n = await tx(async () => {
+      const [was] = await q("SELECT grant_value FROM c2m_list_grant WHERE username=? AND grant_kind='client'", [u]);
+      let now_ = [];
+      await q("DELETE FROM c2m_list_grant WHERE username=? AND grant_kind='client'", [u]);
+      if (on) {
+        const D = await engine.loadAll(q); now_ = D.customers.filter(c => c.grp !== 'VAN brand').map(c => c.name);
+        for (const v of now_) await q('INSERT IGNORE INTO c2m_list_grant (username, grant_kind, grant_value, granted_by, granted_at) VALUES (?,?,?,?,?)', [u, 'client', v, req.c2m.user, now()]);
+      }
+      await audit(req.c2m.user, 'grant', u, on ? 'all clients' : 'no clients', was.map(x => x.grant_value), now_, null);
+      return now_.length;
+    });
+    res.json({ ok: true, clients: n });
+  }));
+  /* Copy one manager's lists and clients to another (replaces what the second had). Each copy is 1 line in the change record. */
+  app.post('/api/c2m/grants/copy', can('grants.give'), wrap(async (req, res) => {
+    const from0 = String((req.body || {}).from || '').trim(), to0 = String((req.body || {}).to || '').trim();
+    if (!from0 || !to0 || from0.toLowerCase() === to0.toLowerCase()) throw bad('Choose 2 different people.');
+    const RR = await loadRoles();
+    const viewer = async u => { const [[p]] = await q("SELECT username, role FROM user_module_roles WHERE username=? AND module='c2m'", [u]); return p && isViewerRole(RR.get(p.role)) ? p.username : null; };
+    const from = await viewer(from0); if (!from) throw bad('The person to copy from is not a manager given price lists.');
+    const to = await viewer(to0); if (!to) throw bad('This person sees every list already, or has no C2M access.');
+    const n = await tx(async () => {
+      const [g] = await q('SELECT grant_kind, grant_value FROM c2m_list_grant WHERE username=?', [from]);
+      const [was] = await q('SELECT grant_kind, grant_value FROM c2m_list_grant WHERE username=?', [to]);
+      await q('DELETE FROM c2m_list_grant WHERE username=?', [to]);
+      for (const x of g) await q('INSERT INTO c2m_list_grant (username, grant_kind, grant_value, granted_by, granted_at) VALUES (?,?,?,?,?)', [to, x.grant_kind, x.grant_value, req.c2m.user, now()]);
+      await audit(req.c2m.user, 'grant', to, 'copy', was.map(x => ({ kind: x.grant_kind, value: x.grant_value })), g.map(x => ({ kind: x.grant_kind, value: x.grant_value })), 'Copied from ' + from);
+      return g.length;
+    });
+    res.json({ ok: true, copied: n });
   }));
 
   /* ---------- Monthly actuals and checks ---------- */

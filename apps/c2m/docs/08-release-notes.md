@@ -16,6 +16,17 @@ Changed in 0.6.0: entry 0.6.0 added.
 Changed in 0.5.0: entry 0.5.0 added; real figures removed from earlier entries (public repo).
 Format: Keep a Changelog, semantic versions. Live: 1.0.0 (pushed 19 Oct about 22:09, checked live by Claude as Tahir the same evening; Yawar's view checked in the cloud copy only); 0.9.3 pushed 19 Oct 14:38, checked live; 0.9.2 pushed 19 Oct 12:43, checked live; first data load 19 Oct 2026 about 13:17, checked live. Before: 0.9.1 (pushed 19 Oct 09:39, checked live). apps/c2m first pushed by Tahir on 17 Oct and the live migration run the same day (39 empty c2m_ tables); 0.6.0 and 0.7.0 pushed on 18 Oct (17:29), 0.8.0 (20:16) and 0.9.0 (22:03), each checked live by Claude. The folder tabs (D-59) were built after the 0.9.0 push and ship in 0.9.1. No data loaded yet: the first data load runs on Monday 19 Oct 2026.
 
+## [Next version, piece 2] · 21 Oct 2026 · KAM lists (D-91, D-97) · Who: Claude built; Tahir ruled and approves the push
+### Added
+- Setup, KAM lists: 1 manager at a time, the price lists he may see and print, and the white label clients as chips; Tick all clients, Clear clients, Copy from another manager (asks to confirm when he has ticks), See what this person sees (his own screen, read only).
+- Routes POST /api/c2m/grants/clients, POST /api/c2m/grants/copy and GET /api/c2m/state?as=username.
+### Changed
+- The old tick grid (People and list access) is gone; Tahir and Ahmer, who see every list, are no longer listed as managers. The tab is named KAM lists.
+- A manager with nothing granted is told to ask Tahir or Yawar.
+### Known limits
+- Nobody is told when a list is granted. A client added later is not ticked for anyone by itself.
+- Tests: 36 route checks and a browser run on desktop and phone, in a throw-away database; C2M's own suites (c2m100 to c2m103) are outside the repository and were not run.
+
 ## [Next, number set at the push] · 21 Oct 2026 · Piece 1 of 4: Access and Roles (D-89, D-90) · Who: Claude built; Tahir ruled and approves the push
 ### Added
 - Setup, Roles (administrator only): create, edit and delete roles by ticking what each may do; the 6 starting roles are editable; a role held by a person is not deleted.
@@ -25,7 +36,7 @@ Format: Keep a Changelog, semantic versions. Live: 1.0.0 (pushed 19 Oct about 22
 - Anyone below the administrator who is given an approve right approves only what an administrator proposed.
 - The 45 route guards and about 50 checks in the page now look at ticked actions, not at the role's name. The 6 starting roles keep exactly their old rights (270 route checks, 0 differences).
 ### Known limits
-- A new role cannot yet be given to a person from the platform's People and access: that is a separate change in module PLATFORM. Until then a role made here can be held by people who already hold a role of the same key, and the 6 starting roles can be edited at once.
+- A role made here is given to a person in the platform's People and access (platform piece 1b, Ahmer Shehzad, 21 Oct 2026; checked live).
 - The administrator can take a recipe through all 4 steps alone (ruled by Tahir, D-96). Notices still go to the CFO and COO roles by name.
 - The earlier test suites (c2m100 to c2m103) were not run in the session that built this.
 

@@ -324,3 +324,10 @@ Places (D-76): ROLES gives cfo and coo nav [approvals, products, prices, margin,
 | Recipe steps | Advance and send back check recipe.step.<state>; the administrator may do any step, but is not shown as the person waited on | D-89 |
 | Screens | nav and more follow from the actions (navFor in c2m-access.js) | D-90 |
 | Create, edit, delete a role | Only roles.manage (administrator); delete refused while a person holds the role; every change in the change record | D-90 |
+
+
+## KAM lists (D-97)
+- A KAM is a person whose role holds see.granted_lists and not see.products (isViewerRole in c2m-routes.js; the state builder uses the same test). The administrator and Yawar are never listed.
+- Copy from another manager: delete every grant of the target, insert the source's, 1 change record line with both sets; the target must be a KAM too. An empty source clears the target.
+- Tick all clients grants every white label client (never VAN brand ones); a client added later is not ticked by itself.
+- See what this person sees: GET /state?as=: only grants.give, only for a KAM; the reply is built for that KAM, so it holds nothing he could not see himself. The page sets a preview flag; api() refuses every POST while it is set; Back to KAM lists restores the earlier place.

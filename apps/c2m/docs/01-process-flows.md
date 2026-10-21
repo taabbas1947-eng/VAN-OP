@@ -541,3 +541,20 @@ flowchart TD
 | Open Setup, Roles | Administrator role | pick or New role | D-89, D-90 | GET /roles |
 | Tick actions | Administrator role | the ticks and the name | D-90 | POST /roles or /roles/:key |
 | Give the role to a person | Tahir, platform People and access | the person and the role | D-90 | user_module_roles |
+
+## KAM lists: who sees which price list (D-97)
+
+```mermaid
+flowchart LR
+  T[Tahir or Yawar: Setup, KAM lists] --> P[Pick a manager]
+  P --> A[Tick price lists and client chips: each tick saves at once]
+  P --> B[Copy from another manager: replaces his ticks]
+  P --> C[See what this person sees: read only]
+  A --> G[(c2m_list_grant)]
+  B --> G
+  G --> K[The KAM opens Price lists: only what is ticked, approved prices only]
+  A --> L[(change record)]
+  B --> L
+```
+
+A manager with nothing ticked sees "No price list is granted to you yet. Ask Tahir or Yawar". Nobody is told when something is granted: Tahir or Yawar tells the manager.

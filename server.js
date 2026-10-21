@@ -464,7 +464,18 @@ async function roleCatalogue() {
       archived: !!r.archived, builtin: !!r.builtin }));
   } catch (e) {}
   heldIn('o2s', o2s);
-  const c2mRoles = Object.keys(C2M_ROLES).map(k => ({ key: k, name: (C2M_ROLES[k] || {}).label || k, title: null, department: 'C2M', archived: false, builtin: true }));
+  /* C2M's roles (piece 1b, 21 Oct 2026): from its own table c2m_role (C2M migration 002), so a role made on C2M's
+     Roles screen shows here at once. Until 002 has run, or if the read fails, the 6 roles built into C2M's code. */
+  let c2mRoles = [];
+  if (C2M_INSTALLED) {
+    try {
+      const [rows] = await pdq('SELECT role_key, label, builtin FROM c2m_role ORDER BY label');
+      c2mRoles = rows.map(r => ({ key: r.role_key, name: r.label, title: null, department: 'C2M', archived: false, builtin: !!r.builtin }));
+    } catch (e) {
+      if (!isNoTable(e)) console.error('C2M roles: c2m_role could not be read, showing the built-in roles:', e && e.message);
+      c2mRoles = Object.keys(C2M_ROLES).map(k => ({ key: k, name: (C2M_ROLES[k] || {}).label || k, title: null, department: 'C2M', archived: false, builtin: true }));
+    }
+  }
   heldIn('c2m', c2mRoles);
   const byKey = { o2s, c2m: c2mRoles };
   const modules = MODULE_LIST.map(m => ({ key: m.key, name: m.name, live: m.live, roles: byKey[m.key] || [] }));
@@ -498,11 +509,25 @@ app.get('/api/me', auth, async (req, res) => {
 
 /* ---------- Platform access admin (COO): assign / revoke module roles. Dual-write: user_module_roles + the legacy column,
    so O2S (auth_users.role) and PD (auth_users.pd_role) keep reading their columns unchanged. ---------- */
-function validModuleRole(module, role) {
+/* C2M role lookup (piece 1b, 21 Oct 2026; independent review the same day). Returns { key, builtin } when C2M has
+   exactly this role (same capitals: "CFO" is not "cfo"), else null. Source: C2M's table c2m_role. ONLY if that table
+   is missing (C2M migration 002 not run yet) C2M's 6 built-in roles; any other read error is thrown, not hidden. */
+const isNoTable = e => !!e && (e.code === 'ER_NO_SUCH_TABLE' || e.errno === 1146);
+async function c2mRole(role) {
+  if (!C2M_INSTALLED || !role) return null;
+  try {
+    const [r] = await pdq('SELECT role_key, builtin FROM c2m_role WHERE BINARY role_key = ? LIMIT 1', [role]);
+    return r[0] ? { key: r[0].role_key, builtin: !!r[0].builtin } : null;
+  } catch (e) {
+    if (isNoTable(e)) return Object.prototype.hasOwnProperty.call(C2M_ROLES, role) ? { key: role, builtin: true } : null;
+    throw e;
+  }
+}
+async function validModuleRole(module, role) {
   if (!role) return false;
   if (module === 'o2s') return true; // O2S owns its catalogue (Admin -> Roles); a role created there is grantable at once
   if (module === 'platform') return role === 'admin';
-  if (module === 'c2m') return Object.prototype.hasOwnProperty.call(C2M_ROLES, role); // C2M's own list (17 Oct 2026)
+  if (module === 'c2m') return !!(await c2mRole(role)); // C2M's own table c2m_role (piece 1b, 21 Oct 2026)
   return false; // qms/compha not built yet
 }
 const REAL_MODULES = ['o2s'].concat(C2M_INSTALLED ? ['c2m'] : []);
@@ -574,13 +599,16 @@ app.post('/api/platform/access', auth, accessAdmin, async (req, res) => {
     // platform code, not PD code, but the message lands on a PD screen. Reworded;
     // no behaviour change. Tahir's ruling: the word now, the rest of server.js as
     // its own piece of work with its own test pass.
-    if (!validModuleRole(module, role)) return res.status(400).json({ error: 'The ' + module.toUpperCase() + ' module has no role called "' + role + '".' });
+    if (!(await validModuleRole(module, role))) return res.status(400).json({ error: 'The ' + module.toUpperCase() + ' module has no role called "' + role + '".' });
     const caps = req.adminCaps;
     if (module === 'platform' && !caps.isCOO) return res.status(403).json({ error: 'Only a platform administrator can appoint another.' });
     if (!caps.isCOO) {                                                  // subsystem-admin guardrails
       if (caps.adminModules.indexOf(module) < 0) return res.status(403).json({ error: 'You administer only: ' + (caps.adminModules.join(', ') || '(none)') + '.' });
       if (module === 'o2s' && role === 'COO') return res.status(403).json({ error: 'Only the COO can assign the COO role.' });
       if (module === 'c2m' && (role === 'cfo' || role === 'coo')) return res.status(403).json({ error: 'Only a platform administrator can give the C2M CFO or COO role.' }); // C2M docs 11 §11.6
+      // Piece 1b review (21 Oct 2026): a role made on C2M's Roles screen can carry approving rights, so only a platform
+      // administrator gives it. A C2M sub-admin gives C2M's built-in roles only (as before roles could be made).
+      if (module === 'c2m') { const r = await c2mRole(role); if (r && !r.builtin) return res.status(403).json({ error: "Only a platform administrator can give a role made on C2M's Roles screen." }); }
       if (await isUserCOO(username)) return res.status(403).json({ error: "You can't change the COO's access." });
     }
     const [ex] = await pdq('SELECT username FROM auth_users WHERE username=?', [username]);

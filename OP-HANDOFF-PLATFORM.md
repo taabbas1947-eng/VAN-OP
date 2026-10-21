@@ -1307,3 +1307,42 @@ Pushed: **no**.
   - local MySQL restart, then `DROP DATABASE p002_check` (the jammed test copy).
 
 Pushed: no (log and P002 notes only).
+
+## 21 Oct 2026 — Platform piece 1b: People and access gives C2M's own roles (MODULE: PLATFORM) — NOT PUSHED
+
+C2M piece 1 (collaborator, 21 Oct) moved C2M's roles into its own table `c2m_role` (C2M migration 002), edited on
+C2M's Roles screen. Its note asked the platform to read that table. Done in `server.js` only:
+- New `c2mRole(role)`:
+  - returns `{ key, builtin }` for an **exact** match in `c2m_role` (`WHERE BINARY role_key = ?`; "CFO" is not
+    "cfo"), else null;
+  - **only if the table is missing** (`ER_NO_SUCH_TABLE`, 002 not run) it uses C2M's 6 built-in roles (`C2M_ROLES`);
+    any other read error is thrown;
+  - always null while C2M is not installed.
+- `validModuleRole` is now async; for `c2m` it is `!!(await c2mRole(role))`. Its one caller, `POST
+  /api/platform/access`, awaits it.
+- `roleCatalogue()`: the C2M column comes from `SELECT role_key, label, builtin FROM c2m_role ORDER BY label`, with the
+  same fallback. A read error other than a missing table is logged ("C2M roles: c2m_role could not be read").
+- **Sub-admin guard added (independent review, 21 Oct): only a platform administrator gives a role made on C2M's
+  Roles screen** (`builtin = 0`; such a role can carry approve rights such as `price.approve` or
+  `reapproval.decide`). A C2M sub-admin gives built-in roles only, and still not C2M CFO or COO.
+- Unchanged: `user_module_roles` (live `role` is varchar(64); C2M keys are at most 30 characters), the legacy column,
+  O2S and platform-admin logic, `C2M_INSTALLED`, the module key `c2m`.
+- Tests: `tests/c2m-mount.test.js` 24/24. It now fails if an `await` on `validModuleRole` is ever dropped (proved on an
+  in-memory copy: a Promise is truthy and would let every role through).
+- **Checked on local** `van_platform` with a server on port 3001, test rows removed after:
+  - **With `c2m_role`:** 6 roles listed; plant 200; "boss" 400.
+  - **`c2m_role` renamed away:** fallback lists 6; qc 200; "boss" 400.
+  - **New role `test_1b`:** listed at once; granted to fahim 200; C2M `/api/c2m/me` recognised it with its actions.
+  - **"CFO" in capitals:** 400.
+  - **saad as C2M sub-admin:** custom role 403, for others and for himself; plant 200; cfo 403. Platform admin, custom
+    role: 200.
+  - Every grant, change and revoke is in `platform_access_log`. Cleaned up: no test grants left; `c2m_role` back to 6.
+- Independent review: "push but know". Its findings 1 (sub-admin escalation), 2 (capitals), 3 (fallback hid errors),
+  4 (grants while C2M not installed), 6 (weak tests) and 7 (docs) are fixed. Left, low: a grant and a role deletion
+  at the same moment can leave someone holding a deleted role; it shows "Not filed" and can be revoked.
+- Docs: `apps/c2m/docs/11-access-and-roles.md` (the "known limit" line replaced), this entry.
+
+**Live:** C2M migration `002_c2m_roles.PRODUCTION.sql` (phpMyAdmin), before or after this push. Until it runs, People
+and access shows C2M's 6 built-in roles, exactly as before.
+
+Pushed: **no**.

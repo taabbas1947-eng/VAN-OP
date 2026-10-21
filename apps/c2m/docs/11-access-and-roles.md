@@ -189,7 +189,7 @@ The actions (key, plain meaning), grouped as on the Roles screen. The 6 starting
 | What the role sees | see.products, see.cost, see.price, see.margin, see.settings, see.materials, see.granted_lists, guide.all |
 | Administration | roles.manage (administrator only) |
 
-Known limit: the platform's People and access lists only the 6 roles it knows. A role made here can be edited and held by people already holding that role, but cannot yet be given to a person from People and access until the platform piece (module PLATFORM, separate change) reads the C2M roles table.
+People and access (platform piece 1b, 21 Oct 2026): the C2M column lists the roles in `c2m_role`, so a role made here can be given to a person at once. Rules there: the role key must match exactly (capitals included); only a platform administrator gives a role made here (it can carry approving rights), and the C2M CFO and COO; a C2M sub-admin gives the built-in roles only. Until migration 002 has run, People and access lists the 6 built-in roles. (Until 21 Oct this said a role made here could not yet be given.)
 
 Rules the Roles screen enforces when a role is saved (found in the independent review): the "places" tick (Approvals, Products, Prices, Margin, Setup) needs Recipes, Costs, Prices and margin, and Settings and targets ticked; "Mark a list row" needs "Link or rename a list row"; a role cannot both save rates and do the monthly rate check (the check stays with a second person); a role name that matches a reserved word gets "-role" added to its key.
 

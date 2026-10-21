@@ -21,8 +21,13 @@ ok('C2M roles read from apps/c2m/c2m-routes.js ROLES', /C2M_ROLES = require\(C2M
 ok('reading the roles is guarded (file exists, try/catch)', /try \{ if \(fs\.existsSync\(C2M_FILE\)\) C2M_ROLES = require/.test(srv) && /console\.error\('C2M roles not loaded:'/.test(srv));
 ok('module list carries c2m only when installed', /\.\.\.\(C2M_INSTALLED \? \[\{ key: 'c2m', name: 'C2M', live: true \}\] : \[\]\)/.test(srv));
 ok('REAL_MODULES carries c2m only when installed', /const REAL_MODULES = \['o2s'\]\.concat\(C2M_INSTALLED \? \['c2m'\] : \[\]\);/.test(srv));
-ok('a c2m role must be on C2M\'s own list', /if \(module === 'c2m'\) return Object\.prototype\.hasOwnProperty\.call\(C2M_ROLES, role\);/.test(srv));
-ok('the role catalogue lists C2M\'s roles in its own words', /const byKey = \{ o2s, c2m: c2mRoles \};/.test(srv) && /heldIn\('c2m', c2mRoles\)/.test(srv));
+/* Piece 1b (21 Oct 2026, with its review fixes): C2M roles come from C2M's table c2m_role. */
+ok('a C2M role must match c2m_role exactly, capitals included', /SELECT role_key, builtin FROM c2m_role WHERE BINARY role_key = \? LIMIT 1/.test(srv) && /if \(module === 'c2m'\) return !!\(await c2mRole\(role\)\);/.test(srv));
+ok('the built-in list is used ONLY when c2m_role is missing; other errors are thrown', /if \(isNoTable\(e\)\) return Object\.prototype\.hasOwnProperty\.call\(C2M_ROLES, role\)/.test(srv) && /throw e;/.test(srv.slice(srv.indexOf('async function c2mRole'), srv.indexOf('async function validModuleRole'))));
+ok('no C2M role is valid while C2M is not installed', /if \(!C2M_INSTALLED \|\| !role\) return null;/.test(srv));
+ok('validModuleRole is async and no caller forgets await (a Promise is truthy: every role would pass)', /async function validModuleRole\(module, role\)/.test(srv) && /if \(!\(await validModuleRole\(module, role\)\)\)/.test(srv) && !/!\s*validModuleRole\(/.test(srv) && (srv.match(/validModuleRole\(/g) || []).length === (srv.match(/await validModuleRole\(|async function validModuleRole\(/g) || []).length);
+ok('a C2M sub-admin cannot give a role made on the Roles screen', /if \(module === 'c2m'\) \{ const r = await c2mRole\(role\); if \(r && !r\.builtin\) return res\.status\(403\)/.test(srv));
+ok('the role catalogue reads c2m_role, falls back on a missing table and logs any other error', /SELECT role_key, label, builtin FROM c2m_role ORDER BY label/.test(srv) && /if \(!isNoTable\(e\)\) console\.error\('C2M roles: c2m_role could not be read/.test(srv) && /const byKey = \{ o2s, c2m: c2mRoles \};/.test(srv) && /heldIn\('c2m', c2mRoles\)/.test(srv));
 ok('o2s is unchanged in the module list, and PD is gone (removed 17 Oct 2026)', /\{ key: 'o2s', name: 'O2S', live: true \},/.test(srv) && !/key: 'pd'/.test(srv));
 
 /* the mount */
